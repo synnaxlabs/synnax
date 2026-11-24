@@ -366,7 +366,7 @@ describe("Custom.Drawing hold fill", () => {
 });
 
 const BUILT_IN_TOGGLE_SPEC = Custom.createBuiltIn({
-  variant: "actuator",
+  family: "valve",
   svg:
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">' +
     '<rect class="shape" width="10" height="10"/></svg>',

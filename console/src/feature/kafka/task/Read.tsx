@@ -40,7 +40,6 @@ import {
 } from "react";
 
 import { Device } from "@/feature/kafka/device";
-import { useAddDataModal } from "@/feature/kafka/task/AddData";
 import {
   type Addition,
   createAdditions,
@@ -52,6 +51,7 @@ import {
   uniqueName,
 } from "@/feature/kafka/task/additions";
 import { DEFAULT_READ_NAME } from "@/feature/kafka/task/create";
+import { createDiscoverModal } from "@/feature/kafka/task/Discover";
 import {
   deployReadConfigZ,
   READ_SCHEMAS,
@@ -87,6 +87,13 @@ const TEXT_FIELD_CLASS = CSS.BE("kafka-properties", "text");
 const TOPIC_INPUT_PROPS = { placeholder: "sensor-readings" } as const;
 
 const TOPIC_KIND_COLOR = "var(--pluto-primary-z)";
+
+const useAddDataModal = createDiscoverModal({
+  title: "Add data",
+  hint: "Select the fields to read. Records that hold the same fields share a message.",
+  noun: "field",
+  verb: "Read",
+});
 
 const GROUP_INPUT_PROPS = { placeholder: "Derived from the task" } as const;
 

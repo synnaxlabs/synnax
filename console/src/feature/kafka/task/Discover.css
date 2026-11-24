@@ -9,7 +9,7 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-kafka-add-data__warning {
+.console-kafka-discover__warning {
     flex-shrink: 0;
     padding: 0 3rem 2rem;
     overflow-wrap: anywhere;

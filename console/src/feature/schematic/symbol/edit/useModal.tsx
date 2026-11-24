@@ -21,7 +21,7 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Theming } from "@synnaxlabs/lyra/theming";
-import { Enumeration, Schematic } from "@synnaxlabs/pluto";
+import { Schematic } from "@synnaxlabs/pluto";
 import { type bounds, color, id, type xy } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 
@@ -29,6 +29,7 @@ import { HandleList } from "@/feature/schematic/symbol/edit/HandleList";
 import { Preview } from "@/feature/schematic/symbol/edit/Preview";
 import { RegionList } from "@/feature/schematic/symbol/edit/RegionList";
 import { StateList } from "@/feature/schematic/symbol/edit/StateList";
+import { useValues } from "@/feature/schematic/symbol/edit/useValues";
 import { SelectVariantField } from "@/feature/schematic/symbol/SelectVariant";
 import { Spec } from "@/feature/schematic/symbol/spec";
 import { CSS } from "@/platform/css";
@@ -60,20 +61,9 @@ interface StatesProps {
 }
 
 // States lists the values of the state, named by the entries of its enumeration.
-const States = ({ value, onChange }: StatesProps): ReactElement | null => {
-  const states = Form.useFieldValue(path.data.states);
-  const variant = Form.useFieldValue(path.data.variant);
-  const key = Spec.enumerationKey({ states });
-  const res = Enumeration.useResult(key == null ? null : { key });
-  const entries = res.variant === "success" ? res.data.entries : undefined;
-  return (
-    <StateList
-      value={value}
-      onChange={onChange}
-      tabs={Schematic.Node.Custom.listValues({ variant }, entries)}
-    />
-  );
-};
+const States = ({ value, onChange }: StatesProps): ReactElement | null => (
+  <StateList value={value} onChange={onChange} tabs={useValues().list} />
+);
 
 const Editor = ({
   symbolKey,
