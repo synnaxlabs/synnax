@@ -334,6 +334,13 @@ func (s *Service) ClaimDelete(keys channel.Keys) (release func(), err error) {
 	return release, err
 }
 
+// NameHolder returns err with a refusal of a time range that a writer holds rewritten
+// to name that writer, as the refusal of a writer open does.
+func (s *Service) NameHolder(err error) error {
+	named, _ := s.controls.nameHolder(err)
+	return named
+}
+
 // SetChannelResolver injects the resolver used to look up the records of free and
 // virtual channels when a writer is opened. It must be called before opening writers on
 // such channels; the service layer registers its channel service here at startup.
