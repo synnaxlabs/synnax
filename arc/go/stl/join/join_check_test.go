@@ -108,8 +108,7 @@ var _ = Describe("Join check", func() {
 		// end of its 40 ms, and the other's frame 20 ms after it. The other input's
 		// last frame arrives at 180 ms, and its frames come 40 ms apart, so it holds
 		// for up to 120 ms after that: the primary frames that arrive at 200 ms to 280
-		// ms hold, and those at 320 ms and 360 ms drop. Frame 0 has no other input, and
-		// at frame 1 it has no frame gap yet.
+		// ms hold, and those at 320 ms and 360 ms drop. Frame 0 has no other input.
 		const frame, frames, stop = 40, 9, 4
 		var now telem.TimeStamp
 		j := MustSucceed(join.New(join.Config{
@@ -140,7 +139,7 @@ var _ = Describe("Join check", func() {
 				Expect(j.Push(1, values(vs...), stamps(0, others...))).To(Succeed())
 			}
 		}
-		Expect(dropped).To(Equal([]int{frame, frame, 0, 0, 0, 0, 0, frame, frame}))
+		Expect(dropped).To(Equal([]int{frame, 0, 0, 0, 0, 0, 0, frame, frame}))
 	})
 
 	It("Should fail a history push that puts an input past 65,536 samples after its "+

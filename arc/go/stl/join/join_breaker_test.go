@@ -56,12 +56,13 @@ func flatten(out join.Output) flat {
 const ms = telem.TimeStamp(telem.Millisecond)
 
 var _ = Describe("Join breaker", func() {
-	It("Should drop only the primary frames before the other input's second frame "+
+	It("Should drop only the primary frame before the other input's first frame "+
 		"arrives, when each primary frame comes first", func() {
 		// Two 1 kHz inputs on two clocks, both streamed in frames of 40 samples (a 25
 		// Hz stream rate). Each primary frame arrives at the end of its 40 ms, and the
-		// other's frame 20 ms after it. Frame 0 has no other input, and at frame 1 the
-		// other input has no frame gap yet, so only those two drop.
+		// other's frame 20 ms after it. Only frame 0, before the other input's first
+		// frame, drops: at frame 1 the other input has no frame gap yet, so its window
+		// comes from the primary's frame gaps.
 		const frame, frames = 40, 10
 		primary := make([]telem.TimeStamp, frame*frames)
 		other := make([]telem.TimeStamp, frame*frames)
@@ -102,7 +103,7 @@ var _ = Describe("Join breaker", func() {
 				To(Succeed())
 		}
 		Expect(want.Dropped).To(Equal(1))
-		Expect(dropped).To(Equal([]int{frame, frame, 0, 0, 0, 0, 0, 0, 0, 0}))
+		Expect(dropped).To(Equal([]int{frame, 0, 0, 0, 0, 0, 0, 0, 0, 0}))
 	})
 
 	It("Should hold an input with no steady rate with no limit", func() {
