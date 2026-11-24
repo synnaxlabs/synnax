@@ -30,7 +30,7 @@ import {
 
 import { BASE_THEMES, type EditorExtension } from "@/code/language";
 import { type Monaco, useLanguage, useMonaco } from "@/code/Provider";
-import { diff, utf16Offset } from "@/code/text";
+import { text } from "@/code/text";
 import { CSS } from "@/css";
 import { Errors } from "@/errors";
 
@@ -112,9 +112,9 @@ const forwardGlobalTriggers = (
 const applyMinimalEdit = (model: Monaco.editor.ITextModel, next: string): void => {
   const old = model.getValue();
   if (old === next) return;
-  const d = diff(old, next);
-  const start = model.getPositionAt(utf16Offset(old, d.index));
-  const end = model.getPositionAt(utf16Offset(old, d.index + d.deleteCount));
+  const d = text.diff(old, next);
+  const start = model.getPositionAt(text.utf16Offset(old, d.index));
+  const end = model.getPositionAt(text.utf16Offset(old, d.index + d.deleteCount));
   model.applyEdits([
     {
       range: {
@@ -209,8 +209,14 @@ const focusNextFrame: EditorExtension = (editor) => {
   return { dispose: () => cancelAnimationFrame(frame) };
 };
 
-// Monaco's hover gives a marker row no severity, only the text `source(code)`. A row
-// with no code counts as an error. The most severe row colors every row.
+// The text of the source and code that Monaco's hover gives a marker's row.
+const hoverDetail = ({ source = "", code }: Monaco.editor.IMarker): string | null => {
+  if (code == null) return null;
+  return typeof code === "string" ? `${source}(${code})` : `${source}${code.value}`;
+};
+
+// Monaco's hover gives a marker row no severity, only the text of its source and code.
+// A row with no code counts as an error. The most severe row colors every row.
 const tagHoverSeverity =
   (mon: Pick<typeof Monaco, "editor" | "MarkerSeverity">): EditorExtension =>
   (editor) => {
@@ -223,10 +229,7 @@ const tagHoverSeverity =
       const markers = mon.editor.getModelMarkers({ resource: model.uri });
       const severities = Array.from(rows, (row) => {
         const detail = row.children[1]?.textContent;
-        const marker = markers.find(
-          ({ source = "", code }) =>
-            typeof code === "string" && `${source}(${code})` === detail,
-        );
+        const marker = markers.find((m) => hoverDetail(m) === detail);
         return marker?.severity ?? mon.MarkerSeverity.Error;
       });
       const severity = mon.MarkerSeverity[Math.max(...severities)].toLowerCase();

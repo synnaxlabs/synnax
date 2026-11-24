@@ -57,5 +57,6 @@ LOG_DIR=$(dirname "$LOG_FILE_PATH")
 mkdir -p "$DATA_DIR" "$CERTS_DIR" "$LOG_DIR" /home/nonroot/.cache 2> /dev/null || true
 chown -R nonroot:nonroot "$DATA_DIR" "$CERTS_DIR" "$LOG_DIR" /home/nonroot/.cache 2> /dev/null || true
 
-# Drop to nonroot user and execute command
-exec gosu nonroot:nonroot "$@"
+# Drop to nonroot user and execute command. setpriv does not change HOME.
+export HOME=/home/nonroot
+exec setpriv --reuid=nonroot --regid=nonroot --init-groups "$@"

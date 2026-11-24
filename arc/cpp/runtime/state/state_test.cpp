@@ -2019,6 +2019,86 @@ TEST(NumericInputTest, KeepsAnIntegerLengthExact) {
     EXPECT_EQ(c.numeric_input<int64_t>("span"), 3000);
 }
 
+/// @brief builds a rate unit of the given name and scale.
+types::Unit rate_unit(std::string name, const double scale) {
+    types::Dimensions frequency;
+    frequency.time = -1;
+    return unit_of(std::move(name), scale, frequency);
+}
+
+struct RateCase {
+    std::string name;
+    /// @brief the unit of the variable and the unit of the input that reads it.
+    types::Unit from, to;
+    int64_t rate;
+    int64_t expected;
+};
+
+class NumericInputRateTest : public testing::TestWithParam<RateCase> {};
+
+/// @brief numeric_input should give a time span input the period of a rate.
+TEST_P(NumericInputRateTest, GivesATimeSpanInputThePeriodOfARate) {
+    const auto &tc = GetParam();
+    const auto s = new_unit_input_state(types::Kind::I64, tc.from, tc.to, 0);
+    const auto v = ASSERT_NIL_P(s->node("v"));
+    const auto c = ASSERT_NIL_P(s->node("c"));
+    *v.output(0) = x::telem::Series(std::vector<int64_t>{tc.rate});
+    EXPECT_EQ(c.numeric_input<int64_t>("span"), tc.expected);
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    Rates,
+    NumericInputRateTest,
+    testing::Values(
+        RateCase{"hertz", rate_unit("hz", 1), time_unit("ns", 1), 10, 100000000},
+        RateCase{"kilohertz", rate_unit("khz", 1e3), time_unit("ns", 1), 2, 500000},
+        RateCase{
+            "a_larger_time_span",
+            rate_unit("hz", 1),
+            time_unit("ms", 1e6),
+            10,
+            100
+        },
+        RateCase{
+            "a_period_that_rounds_up",
+            rate_unit("hz", 1),
+            time_unit("ns", 1),
+            60,
+            16666667
+        },
+        RateCase{
+            "a_period_that_rounds_down",
+            rate_unit("hz", 1),
+            time_unit("ns", 1),
+            3,
+            333333333
+        },
+        RateCase{"a_rate_of_zero", rate_unit("hz", 1), time_unit("ns", 1), 0, 0},
+        RateCase{
+            "a_negative_rate",
+            rate_unit("hz", 1),
+            time_unit("ns", 1),
+            -4,
+            -250000000
+        }
+    ),
+    [](const testing::TestParamInfo<RateCase> &info) { return info.param.name; }
+);
+
+/// @brief numeric_input should give a float time span input the period of a rate.
+TEST(NumericInputTest, GivesAFloatTimeSpanInputThePeriodOfARate) {
+    const auto s = new_unit_input_state(
+        types::Kind::F64,
+        rate_unit("hz", 1),
+        time_unit("s", 1e9),
+        0.0
+    );
+    const auto v = ASSERT_NIL_P(s->node("v"));
+    const auto c = ASSERT_NIL_P(s->node("c"));
+    *v.output(0) = x::telem::Series(std::vector<double>{4.0});
+    EXPECT_EQ(c.numeric_input<double>("span"), 0.25);
+}
+
 /// @brief numeric_input should return zero for an unknown input.
 TEST(NumericInputTest, ReturnsZeroForAnUnknownInput) {
     const auto s = new_numeric_input_state();

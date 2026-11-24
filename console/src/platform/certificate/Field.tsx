@@ -30,6 +30,7 @@ interface ControlProps extends Input.Control<certificate.Key> {
   rack: rack.Key;
   preview?: boolean;
   allowNone: boolean;
+  privateKeyRequired: boolean;
 }
 
 const Control = ({
@@ -38,9 +39,13 @@ const Control = ({
   defaultName,
   rack,
   allowNone,
+  privateKeyRequired,
   preview,
 }: ControlProps): ReactElement => {
-  const list = Certificate.useList({ query: { where: Secret.whereOnRack(rack) } });
+  const onRack = Secret.whereOnRack(rack);
+  const list = Certificate.useList({
+    query: { where: privateKeyRequired ? { ...onRack, keyed: true } : onRack },
+  });
   const result = Certificate.useResult(primitive.isZero(value) ? null : { key: value });
   const canCreate = Access.useCreateGranted(certificate.TYPE_RESOURCE_ID);
   const openCreate = useCreateModal();
@@ -71,7 +76,12 @@ const Control = ({
         result={result}
         onCreate={
           canCreate
-            ? (name) => openCreate({ name: name === "" ? defaultName : name, rack })
+            ? (name) =>
+                openCreate({
+                  name: name === "" ? defaultName : name,
+                  rack,
+                  privateKeyRequired,
+                })
             : undefined
         }
         preview={preview}
@@ -91,6 +101,8 @@ export interface FieldProps extends Omit<Form.FieldProps<certificate.Key>, "chil
   rack: rack.Key;
   /** Whether the user may clear the field, which then holds no certificate. */
   allowNone?: boolean;
+  /** Whether the certificate must have a private key, as a client certificate does. */
+  privateKeyRequired?: boolean;
 }
 
 /**
@@ -101,6 +113,7 @@ export const Field = ({
   defaultName,
   rack,
   allowNone = false,
+  privateKeyRequired = false,
   ...rest
 }: FieldProps): ReactElement => (
   <Form.Field<certificate.Key> {...rest}>
@@ -112,6 +125,7 @@ export const Field = ({
         rack={rack}
         preview={preview}
         allowNone={allowNone}
+        privateKeyRequired={privateKeyRequired}
       />
     )}
   </Form.Field>

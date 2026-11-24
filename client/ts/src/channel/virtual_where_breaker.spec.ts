@@ -7,12 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, id } from "@synnaxlabs/x";
+import { DataType, id, sleep, TimeSpan } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { channel } from "@/channel";
-import type Synnax from "@/client";
-import { createFileTestClient, createTestClientWithPolicy } from "@/testutil";
+import { framer } from "@/framer";
+import type { Synnax } from "@/index";
+import {
+  createFileTestClient,
+  createTestClientWithPolicy,
+  spyOnSend,
+  waitForStreamLive,
+} from "@/testutil";
 
 const admin = createFileTestClient();
 
@@ -22,8 +28,7 @@ interface Fixture {
   virtual: Map<channel.Key, boolean>;
 }
 
-const createFixture = async (): Promise<Fixture> => {
-  const prefix = `vw_${id.create()}`;
+const createFixture = async (prefix = `vw_${id.create()}`): Promise<Fixture> => {
   const virtual = new Map<channel.Key, boolean>();
   const input = await admin.channels.create({
     name: `${prefix}_in`,
@@ -78,8 +83,8 @@ describe("virtual where breaker", () => {
     });
   }, 60_000);
 
-  const expected = (keep: (virtual: boolean) => boolean) =>
-    sorted([...fx.virtual].filter(([, v]) => keep(v)).map(([k]) => k));
+  const expected = (keep: (virtual: boolean) => boolean, of: Fixture = fx) =>
+    sorted([...of.virtual].filter(([, v]) => keep(v)).map(([k]) => k));
 
   const cases: Array<
     [string, (v: boolean) => object, (v: boolean, ch: boolean) => boolean]
@@ -137,4 +142,58 @@ describe("virtual where breaker", () => {
             expected((ch) => keep(value, ch)),
           );
         });
+
+  // The lists open before the channels exist, so the client's own virtual line, not the
+  // Core, decides each case as the channels and calculations arrive.
+  for (const subject of ["admin", "reader"] as const)
+    it(`should keep the old line's set in live lists for ${subject} as the channels arrive`, async () => {
+      const c =
+        subject === "admin"
+          ? admin
+          : await createTestClientWithPolicy(admin, {
+              name: id.create(),
+              objects: [channel.resourceID(0), framer.resourceID("")],
+              actions: ["retrieve"],
+            });
+      await waitForStreamLive(c.connection);
+      const prefix = `vw_${id.create()}`;
+      const lists = [true, false].flatMap((value) =>
+        cases.map(([name, where, keep]) => ({
+          name: `virtual ${value}, ${name}`,
+          keep: (ch: boolean) => keep(value, ch),
+          list: c.channels.watch({
+            where: channel.whereZ.parse({
+              and: [where(value), { name: { startsWith: prefix } }],
+            }),
+          }),
+        })),
+      );
+      const closers = lists.map(({ list }) => list.onChange(() => {}));
+      try {
+        await Promise.all(lists.map(async ({ list }) => await list.retrieve()));
+        const send = spyOnSend(c);
+        const live = await createFixture(prefix);
+        const got = () =>
+          lists.map(({ name, list }) => ({
+            name,
+            keys: sorted(list.getCached()?.records.map(({ key }) => key) ?? []),
+          }));
+        const want = lists.map(({ name, keep }) => ({
+          name,
+          keys: expected(keep, live),
+        }));
+        await expect.poll(got, { timeout: 10_000 }).toEqual(want);
+        // Past the debounce of a refetch that a change could start.
+        await sleep.sleep(TimeSpan.milliseconds(500));
+        expect(got()).toEqual(want);
+        const refetches = send.mock.calls.filter(
+          ([target, req]) =>
+            target === "/channel/retrieve" &&
+            JSON.stringify((req as { where?: unknown }).where ?? null).includes(prefix),
+        );
+        expect(refetches).toHaveLength(0);
+      } finally {
+        closers.forEach((close) => close());
+      }
+    }, 60_000);
 });
