@@ -152,6 +152,7 @@ def deprecate_negated[**P, R](
 ) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """Lets callers pass each old keyword in place of the new keyword it names, with
     the opposite value. A call that passes an old keyword emits a DeprecationWarning.
+    An old keyword of None counts as not given.
 
     :param renames: Maps each old keyword to a keyword-only parameter of the function.
     :raises ValueError: If a new name is not a keyword-only parameter.
@@ -168,13 +169,14 @@ def deprecate_negated[**P, R](
         @functools.wraps(f)
         def wrapper(*args: Any, **kwargs: Any) -> R:
             for old, new in renames.items():
-                if old not in kwargs:
+                given = kwargs.pop(old, None)
+                if given is None:
                     continue
                 if new in kwargs:
                     raise TypeError(
                         f"{f.__qualname__}() got both {old} and {new}. Pass only {new}."
                     )
-                value = not kwargs.pop(old)
+                value = not given
                 warnings.warn(
                     f"{old} in {f.__qualname__}() is deprecated and stops working in "
                     f"the next minor release. Pass {new}={value}.",

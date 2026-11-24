@@ -206,6 +206,18 @@ class TestDeprecateNegated:
         with pytest.warns(DeprecationWarning, match="enabled in .*f\\(\\)"):
             assert untyped(f)(enabled=True) is False
 
+    @pytest.mark.parametrize("new", [{}, {"disabled": True}])
+    def test_old_keyword_of_none_is_not_given(self, new: dict[str, bool]) -> None:
+        """Should drop an old keyword of None with no warning and no mapping."""
+
+        @deprecate_negated(enabled="disabled")
+        def f(*, disabled: bool = False) -> bool:
+            return disabled
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            assert untyped(f)(enabled=None, **new) is new.get("disabled", False)
+
     def test_both_keywords_raise(self) -> None:
         @deprecate_negated(enabled="disabled")
         def f(*, disabled: bool = False) -> bool:
