@@ -17,8 +17,10 @@ const CONTEXT_KEY = "pluto-theming-context";
 
 // A ligature in Geist Mono is one cell wide, so it breaks a fixed character grid.
 const DESCRIPTORS: FontFaceDescriptors = { featureSettings: '"liga" 0' };
+// The face loads the variable font, so it spans every weight.
 const TABULAR_DESCRIPTORS: FontFaceDescriptors = {
   featureSettings: '"liga" 0, "tnum" 1',
+  weight: "100 900",
 };
 
 export const fontSpecZ = z.object({

@@ -89,15 +89,6 @@ const found = (key: string, y: number): line.FindResult => ({
   position: { x: 0.5, y: Number.isFinite(y) ? 0.5 : NaN },
 });
 
-// fontOf returns the font that drew text, or undefined when nothing drew it.
-const fontOf = (recorder: canvasTest.Recorder, text: string): string | undefined => {
-  let font = "";
-  for (const c of recorder.upper2d.calls)
-    if (c.op === "set:font") font = String(c.args[0]);
-    else if (c.op === "fillText" && c.args[0] === text) return font;
-  return undefined;
-};
-
 describe("Tooltip", () => {
   it("should list a non-finite value without a dot", () => {
     const { recorder, component } = mount();
@@ -211,8 +202,8 @@ describe("Tooltip", () => {
       findByXDecimal: () => [found("pressure", 2)],
       region: REGION,
     });
-    expect(fontOf(recorder, "2")).toContain("Inter Tabular");
-    expect(fontOf(recorder, "pressure")).not.toContain("Inter Tabular");
+    expect(canvasTest.fontOf(recorder, "2")).toContain("Inter Tabular");
+    expect(canvasTest.fontOf(recorder, "pressure")).not.toContain("Inter Tabular");
   });
 
   it("should draw the entry of the line under the cursor in bold", () => {
@@ -226,8 +217,8 @@ describe("Tooltip", () => {
     };
     component.render(props);
     component.render(props);
-    expect(fontOf(recorder, "near")).toContain("700");
-    expect(fontOf(recorder, "far")).not.toContain("700");
+    expect(canvasTest.fontOf(recorder, "near")).toContain("700");
+    expect(canvasTest.fontOf(recorder, "far")).not.toContain("700");
   });
 
   it("should stop growing at a label wider than its cap", () => {

@@ -557,7 +557,7 @@ export const drawTooltip = (
         align: "center",
         weight: isName ? 500 : 400,
         shade: isName ? 11 : 9,
-        code: !isName,
+        numeric: !isName,
       });
     },
   });
