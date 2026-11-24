@@ -25,15 +25,18 @@ import (
 const stampSize = 8
 
 // clock is an old index: its pointers in time order, with the alignment number and the
-// first and last stamp of each. cut is true for a pointer that lost stamps to the bound
-// check. A pointer that lost them all stays as a mark with no stamps over its time
-// range, so that data samples never take the stamps of a later pointer.
+// first and last stamp of each. trimmed is true for a pointer that lost stamps to the
+// bound check. A pointer with no stamps stays as a mark over its time range, so that
+// data samples never take the stamps of a later pointer. cut is the number of first
+// stamps of each pointer at or below the last stamp of a pointer before it, which a
+// writer wrote again after a roll, and first is the first stamp past the cut.
 type clock struct {
 	key         uint32
 	ptrs        []pointer
 	nums        []uint32
 	first, last []telem.TimeStamp
-	cut         []bool
+	trimmed     []bool
+	cut         []uint32
 }
 
 // count returns the number of stamps of pointer k.
@@ -58,7 +61,11 @@ func (r *reader) indexes() error {
 	}
 	if err := each(len(clocks), func(i int) error {
 		h := &handle{fs: r.FS, l: r.L}
-		return errors.Join(h.bounds(clocks[i]), h.close())
+		err := h.bounds(clocks[i])
+		if err == nil {
+			err = h.cuts(clocks[i])
+		}
+		return errors.Join(err, h.close())
 	}); err != nil {
 		return err
 	}
@@ -69,14 +76,20 @@ func (r *reader) indexes() error {
 				continue
 			}
 			c.nums = append(c.nums, uint32(r.next))
-			r.add(c.key, p.file, state.Pointer{
-				First:     c.first[k],
-				Last:      c.last[k],
-				Alignment: telem.NewAlignment(uint32(r.next), 0),
-				Offset:    p.offset,
-				Length:    p.size,
-				Samples:   c.count(k),
-			})
+			n := c.cut[k]
+			if n > 0 {
+				r.warnCut(c, k)
+			}
+			if n < c.count(k) {
+				r.add(c.key, p.file, state.Pointer{
+					First:     c.first[k],
+					Last:      c.last[k],
+					Alignment: telem.NewAlignment(uint32(r.next), n),
+					Offset:    p.offset + n*stampSize,
+					Length:    p.size - n*stampSize,
+					Samples:   c.count(k) - n,
+				})
+			}
 			r.next++
 		}
 	}
@@ -115,17 +128,29 @@ func (h *handle) bounds(c *clock) error {
 // check checks the first and last stamp of each pointer of c against its time range.
 // A crash can leave zeros inside an old file, and a zero stamp is never inside the
 // range. A pointer whose last stamp is outside is cut after its last stamp inside, by a
-// binary search. A pointer whose first stamp is outside loses every stamp.
+// binary search. A pointer whose first stamp is below its range and below the range of
+// the pointer before it loses every stamp, while one whose first stamps fall in that
+// earlier range repeat its stamps and are for cuts. It returns an error that names the
+// file of a pointer whose first stamp is at or past the end of its range, which no step
+// can place.
 func (h *handle) check(c *clock) error {
-	c.cut = make([]bool, len(c.ptrs))
+	c.trimmed = make([]bool, len(c.ptrs))
 	for k, p := range c.ptrs {
 		inside := func(s telem.TimeStamp) bool { return s >= p.start && s < p.end }
-		if inside(c.first[k]) && inside(c.last[k]) {
+		if c.count(k) == 0 || (inside(c.first[k]) && inside(c.last[k])) {
 			continue
 		}
 		name := p.name(c.key)
-		c.cut[k] = true
-		if !inside(c.first[k]) {
+		repeats := k > 0 && c.first[k] >= c.ptrs[k-1].start && c.first[k] < p.start
+		switch {
+		case c.first[k] >= p.end:
+			return errors.Newf(
+				"the index pointer at offset %d of %s holds no stamp before the end "+
+					"of its time range",
+				p.offset,
+				name,
+			)
+		case c.first[k] < p.start && !repeats:
 			h.l.Warn(
 				"dropped a pointer of an index, whose first stamp is outside its time "+
 					"range",
@@ -136,7 +161,10 @@ func (h *handle) check(c *clock) error {
 			)
 			c.ptrs[k].size, c.first[k], c.last[k] = 0, p.start, p.end-1
 			continue
+		case inside(c.last[k]):
+			continue
 		}
+		c.trimmed[k] = true
 		lo, hi, last := uint32(0), c.count(k)-1, c.first[k]
 		for hi-lo > 1 {
 			mid := lo + (hi-lo)/2
@@ -161,6 +189,64 @@ func (h *handle) check(c *clock) error {
 		c.ptrs[k].size, c.last[k] = (lo+1)*stampSize, last
 	}
 	return nil
+}
+
+// cuts sets the cut of each pointer of c whose index range starts after the last stamp
+// of the pointers before it while its first stamps do not: those stamps, which a writer
+// wrote again in a new file after a roll. It returns an error that names the file of a
+// pointer whose first stamps and index range both reach back that far, which no cut
+// can place. Marks hold no stamps and take no part.
+func (h *handle) cuts(c *clock) error {
+	c.cut = make([]uint32, len(c.ptrs))
+	var (
+		prev  telem.TimeStamp
+		found bool
+	)
+	for k, p := range c.ptrs {
+		if c.count(k) == 0 {
+			continue
+		}
+		switch {
+		case !found || c.first[k] > prev:
+		case p.start <= prev:
+			return errors.Newf(
+				"the index pointer at offset %d of %s holds stamps from %d, at or "+
+					"below the last stamp %d before it, inside its own time range",
+				p.offset,
+				p.name(c.key),
+				c.first[k],
+				prev,
+			)
+		case c.last[k] <= prev:
+			c.cut[k], c.last[k] = c.count(k), prev
+		default:
+			n, first, err := h.search(c, k, 0, prev+1)
+			if err != nil {
+				return err
+			}
+			c.cut[k], c.first[k] = n, first
+		}
+		prev, found = max(prev, c.last[k]), true
+	}
+	return nil
+}
+
+// warnCut logs the cut of pointer k of c, with the keys that c times.
+func (r *reader) warnCut(c *clock, k int) {
+	var keys []uint32
+	for _, ch := range r.channels {
+		if !ch.IsIndex && ch.Index == c.key {
+			keys = append(keys, ch.Key)
+		}
+	}
+	r.L.Warn(
+		"cut the samples of an old file that repeat the stamps of the file before it",
+		zap.Uint32("clock", c.key),
+		zap.Uint32s("keys", keys),
+		zap.String("file", c.ptrs[k].name(c.key)),
+		zap.Int64("stamp", int64(c.first[k])),
+		zap.Uint32("samples", c.cut[k]),
+	)
 }
 
 // stamp reads the stamp at position pos of pointer k of c.
@@ -274,6 +360,20 @@ func (h *handle) split(
 			h.cut(key, name, off, end, c.key)
 			return nil
 		}
+		if pos < c.cut[k] {
+			if off, k, pos, first, err = h.pastCut(
+				c,
+				k,
+				pos,
+				name,
+				density,
+				off,
+				end,
+			); err != nil {
+				return err
+			}
+			continue
+		}
 		p := piece{c: c, k: k, pos: pos, first: first, d: d, density: density}
 		if err = h.piece(&p, name, off, end); err != nil {
 			return err
@@ -293,7 +393,7 @@ func (h *handle) split(
 		})
 		off += length
 		// The samples after a piece whose stamps the bound checks cut have none.
-		if (short || c.cut[k]) && off < end {
+		if (short || c.trimmed[k]) && off < end {
 			h.cut(key, name, off, end, c.key)
 			return nil
 		}
@@ -438,17 +538,60 @@ func (h *handle) below(
 
 // start returns the pointer k of c and the position in it of the first stamp at or
 // after the start of d, and that stamp. k is len(c.ptrs) when c holds no such stamp, or
-// a mark when d starts in the range of a pointer that lost every stamp.
+// a mark when d starts in the range of a pointer that lost every stamp. A data pointer
+// that starts where pointer k starts takes the samples of k from its first position,
+// those that repeat earlier stamps included.
 func (h *handle) start(c *clock, d pointer) (int, uint32, telem.TimeStamp, error) {
 	k, _ := slices.BinarySearch(c.last, d.start)
 	switch {
 	case k == len(c.ptrs) || c.count(k) == 0:
 		return k, 0, 0, nil
-	case c.first[k] >= d.start:
+	case c.ptrs[k].start == d.start:
 		return k, 0, c.first[k], nil
+	case c.first[k] >= d.start:
+		return k, c.cut[k], c.first[k], nil
 	}
-	pos, first, err := h.search(c, k, 1, d.start)
+	pos, first, err := h.search(c, k, max(1, c.cut[k]), d.start)
 	return k, pos, first, err
+}
+
+// pastCut moves past the samples of the file name from off to end that the cut of
+// pointer k of c times from position pos, since they go with the stamps that repeat.
+// It returns the offset after them, and the pointer, position, and stamp that follow.
+func (h *handle) pastCut(
+	c *clock,
+	k int,
+	pos uint32,
+	name string,
+	density telem.Density,
+	off, end uint32,
+) (uint32, int, uint32, telem.TimeStamp, error) {
+	skipped, err := h.skip(name, density, off, end, c.cut[k]-pos)
+	if err != nil {
+		return 0, 0, 0, 0, err
+	}
+	off, pos = off+skipped, c.cut[k]
+	if pos < c.count(k) {
+		return off, k, pos, c.first[k], nil
+	}
+	if k++; k < len(c.ptrs) {
+		return off, k, 0, c.first[k], nil
+	}
+	return off, k, 0, 0, nil
+}
+
+// skip returns the bytes of up to n samples of the file name from off to end, a
+// density of zero being a variable type.
+func (h *handle) skip(
+	name string,
+	density telem.Density,
+	off, end, n uint32,
+) (uint32, error) {
+	if density != 0 {
+		return min(n, (end-off)/uint32(density)) * uint32(density), nil
+	}
+	_, length, err := h.walk(name, off, end, n)
+	return length, err
 }
 
 // cut logs the cut of bytes off to end of the file name of key, whose samples have no
