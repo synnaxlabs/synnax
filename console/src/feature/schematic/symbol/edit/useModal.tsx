@@ -111,8 +111,6 @@ const Editor = ({
     symbolKey == null ? null : { key: symbolKey, includeUses: true },
   );
   const confirmSave = useConfirmSave();
-  // A save that changes the spec of a symbol in use asks first, since it changes each
-  // schematic that draws the symbol.
   const handleSave = async () => {
     const uses = stored.data?.uses ?? [];
     if (stored.data != null && uses.length > 0) {

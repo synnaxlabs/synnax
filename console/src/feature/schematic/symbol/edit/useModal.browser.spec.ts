@@ -291,6 +291,58 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       return { symbol, handle };
     };
 
+    const retrieveStoredCommands = async (key: schematic.Key) => {
+      const { config } = (await createTestClient().schematics.retrieve(key)).nodes[0];
+      return config.variant === "symbol" ? config.commands : undefined;
+    };
+
+    // openUsedSymbol opens the editor on a symbol whose Vent command a schematic binds.
+    const openUsedSymbol = async () => {
+      const grp = await createParentGroup();
+      const payload = createSymbolPayload(uniqueName("vessel"));
+      payload.data.commands = [
+        { key: "vent", name: "Vent", value: { type: "fixed", value: 1 } },
+      ];
+      const symbol = await client.schematics.symbols.create({
+        ...payload,
+        group: grp.key,
+      });
+      const ch = await client.channels.create({
+        name: uniqueName("vent_cmd"),
+        dataType: DataType.FLOAT32,
+        virtual: true,
+      });
+      const project = await client.projects.create({ name: uniqueName("project") });
+      const used = await client.schematics.create({
+        project: project.key,
+        name: uniqueName("plant"),
+        nodes: [
+          {
+            key: "vessel",
+            position: { x: 0, y: 0 },
+            zIndex: 0,
+            config: schematic.nodeConfigZ.parse({
+              variant: "symbol",
+              spec: { type: "custom", key: symbol.key },
+              label: { label: "Vessel 1" },
+              commands: [{ key: "vent", channel: ch.key }],
+            }),
+          },
+        ],
+      });
+      await renderModalOpener(
+        Schematic.Symbol.Edit.useModal,
+        [{ symbolKey: symbol.key, group: grp.key }],
+        { client, additionalRegistry: theming.REGISTRY },
+      );
+      await waitFor(() => expect(findNameInput().value).toBe(symbol.name), {
+        timeout: 5000,
+      });
+      // Save waits for the uses of the symbol to load.
+      await waitFor(() => expect(findButton("Save").disabled).toBe(false));
+      return { symbol, used };
+    };
+
     it("saves a new region and its color on a symbol with no state", async () => {
       const { symbol, handle } = await openEditModal();
       const item = handle.baseElement.querySelector<HTMLElement>(
@@ -336,56 +388,39 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     });
 
     it("asks before a save removes bindings from a schematic that uses the symbol", async () => {
-      const grp = await createParentGroup();
-      const payload = createSymbolPayload(uniqueName("vessel"));
-      payload.data.commands = [
-        { key: "vent", name: "Vent", value: { type: "fixed", value: 1 } },
-      ];
-      const symbol = await client.schematics.symbols.create({
-        ...payload,
-        group: grp.key,
-      });
-      const ch = await client.channels.create({
-        name: uniqueName("vent_cmd"),
-        dataType: DataType.FLOAT32,
-        virtual: true,
-      });
-      const project = await client.projects.create({ name: uniqueName("project") });
-      const used = await client.schematics.create({
-        project: project.key,
-        name: uniqueName("plant"),
-        nodes: [
-          {
-            key: "vessel",
-            position: { x: 0, y: 0 },
-            zIndex: 0,
-            config: schematic.nodeConfigZ.parse({
-              variant: "symbol",
-              spec: { type: "custom", key: symbol.key },
-              label: { label: "Vessel 1" },
-              commands: [{ key: "vent", channel: ch.key }],
-            }),
-          },
-        ],
-      });
-      await renderModalOpener(
-        Schematic.Symbol.Edit.useModal,
-        [{ symbolKey: symbol.key, group: grp.key }],
-        { client, additionalRegistry: theming.REGISTRY },
-      );
-      await waitFor(() => expect(findNameInput().value).toBe(symbol.name), {
-        timeout: 5000,
-      });
+      const { used } = await openUsedSymbol();
       fireEvent.click(screen.getByText("Actuator"));
       fireEvent.click(findButton("Save"));
       await screen.findByText(used.name);
       await screen.findByText("Vessel 1 loses the Vent binding.");
       fireEvent.click(findLastButton("Save"));
-      await waitFor(async () => {
-        const stored = await createTestClient().schematics.retrieve(used.key);
-        const cfg = stored.nodes[0].config;
-        expect(cfg.variant === "symbol" && cfg.commands).toEqual([]);
-      });
+      await waitFor(async () =>
+        expect(await retrieveStoredCommands(used.key)).toEqual([]),
+      );
+    });
+
+    it("keeps the symbol and its bindings when the save confirm is canceled", async () => {
+      const { symbol, used } = await openUsedSymbol();
+      fireEvent.click(screen.getByText("Actuator"));
+      fireEvent.click(findButton("Save"));
+      await screen.findByText("Vessel 1 loses the Vent binding.");
+      fireEvent.click(findButton("Cancel"));
+      await waitFor(() =>
+        expect(screen.queryByText("Vessel 1 loses the Vent binding.")).toBeNull(),
+      );
+      expect(findNameInput().value).toBe(symbol.name);
+      expect((await retrieveStored(symbol.key)).data.variant).toBe("static");
+      expect(await retrieveStoredCommands(used.key)).toHaveLength(1);
+    });
+
+    it("saves a rename of a symbol in use without asking", async () => {
+      const { symbol } = await openUsedSymbol();
+      const renamed = uniqueName("renamed_vessel");
+      fireEvent.change(findNameInput(), { target: { value: renamed } });
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () =>
+        expect((await retrieveStored(symbol.key)).name).toBe(renamed),
+      );
     });
 
     it("loads the existing symbol and renames it on save", async () => {

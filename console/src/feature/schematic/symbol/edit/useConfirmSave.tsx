@@ -17,7 +17,7 @@ import { type ReactElement, Suspense } from "react";
 
 import { Modals } from "@/platform/modals";
 
-export interface ConfirmSaveParams {
+interface ConfirmSaveParams {
   /** The symbol as the Core stores it. */
   stored: schematic.symbol.Symbol;
   /** The spec that the save stores. */
