@@ -234,10 +234,11 @@ func warnEmptyThresholds(s v13.Schematic, ins alamos.Instrumentation) {
 	}
 }
 
-// internLights makes each light of old with an on color a symbol node in s, whose
+// InternLights makes each light of old with an on color a symbol node in s, whose
 // binding has an enumeration from intern: the built-in's entries, with On in that
-// color. It is named for the light's label, or the schematic name when it is empty.
-func internLights(
+// color. It is named for the light's label, or the schematic name when it is empty. s
+// must be old lifted to v14.
+func InternLights(
 	ctx context.Context,
 	s *Schematic,
 	old v13.Schematic,

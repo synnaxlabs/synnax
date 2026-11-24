@@ -445,3 +445,33 @@ var _ = Describe("Migration", func() {
 		Expect(retrieve(ctx, old.Key).Data.States).To(BeEmpty())
 	})
 })
+
+var _ = Describe("ResolveRegion", func() {
+	It("Should keep a selector that names shapes", func() {
+		sels, markup := v5.ResolveRegion(`<svg><rect class="a"/></svg>`, []string{".a"})
+		Expect(sels).To(Equal([]string{".a"}))
+		Expect(markup).To(Equal(`<svg><rect class="a"/></svg>`))
+	})
+
+	It("Should name a shape that a selector picks by position", func() {
+		sels, markup := v5.ResolveRegion(
+			`<svg><rect data-region-id="region-1"/><rect/></svg>`,
+			[]string{"rect:nth-of-type(2)", "rect:nth-of-type(1)"},
+		)
+		Expect(sels).To(Equal([]string{
+			`[data-region-id="region-2"]`,
+			`[data-region-id="region-1"]`,
+		}))
+		Expect(markup).To(Equal(
+			`<svg><rect data-region-id="region-1"/><rect data-region-id="region-2"/></svg>`,
+		))
+	})
+
+	It("Should drop a selector that picks no shape", func() {
+		sels, _ := v5.ResolveRegion(
+			`<svg><rect/></svg>`,
+			[]string{"circle:nth-of-type(1)"},
+		)
+		Expect(sels).To(BeEmpty())
+	})
+})

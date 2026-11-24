@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/versions"
+	v13 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v13"
 	v14 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v14"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -71,14 +72,7 @@ func (s *Service) Decode(ctx context.Context, env imex.Envelope) (imex.Write, er
 		}
 		sch.Group, sch.Project = nil, nil
 		if isOld {
-			intern := s.cfg.Enumeration.NewWriter(tx).NewInterner().Intern
-			if err = v14.InternStates(
-				ctx,
-				&sch,
-				old,
-				intern,
-				s.cfg.Instrumentation,
-			); err != nil {
+			if err = s.importOld(ctx, tx, &sch, old); err != nil {
 				return resource.ID{}, err
 			}
 		}
@@ -94,6 +88,40 @@ func (s *Service) Decode(ctx context.Context, env imex.Envelope) (imex.Write, er
 		}
 		return ResourceID(sch.Key), nil
 	}, nil
+}
+
+// importOld gives sch, lifted from the old schematic old, the enumerations and symbol
+// copies that its selects, state indicators, lights, and custom nodes need. Each import
+// makes its own records.
+func (s *Service) importOld(
+	ctx context.Context,
+	tx gorp.Tx,
+	sch *Schematic,
+	old v13.Schematic,
+) error {
+	intern := s.cfg.Enumeration.NewWriter(tx).NewInterner().Intern
+	if err := v14.InternStates(
+		ctx,
+		sch,
+		old,
+		intern,
+		s.cfg.Instrumentation,
+	); err != nil {
+		return err
+	}
+	if err := v14.InternLights(ctx, sch, old, intern); err != nil {
+		return err
+	}
+	return v14.ImportOverrides(
+		ctx,
+		tx,
+		sch,
+		old,
+		intern,
+		func(ctx context.Context, sym *symbol.Symbol) error {
+			return s.Symbol.NewWriter(tx).Create(ctx, sym)
+		},
+	)
 }
 
 // fitNodes makes each node of sch whose custom symbol tx lacks draw a missing symbol

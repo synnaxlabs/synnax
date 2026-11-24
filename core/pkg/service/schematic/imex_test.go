@@ -139,6 +139,30 @@ var _ = Describe("ImEx", func() {
 		})
 
 		It(
+			"Should give each light of an old file with an on color an enumeration with "+
+				"On in that color",
+			func(ctx SpecContext) {
+				res := importAndRetrieve(
+					ctx,
+					"versions/testdata/import_v13_states.json",
+					imex.ImportOptions{Parent: proj.ResourceID()},
+				)
+				light, ok := res.Nodes[2].Config.Variant.(schematic.SymbolNodeConfig)
+				Expect(ok).To(BeTrue())
+				Expect(light.States[0].Enumeration).ToNot(BeNil())
+				var states enumeration.Enumeration
+				Expect(enumSvc.NewRetrieve().
+					Where(enumeration.MatchKeys(*light.States[0].Enumeration)).
+					Entry(&states).
+					Exec(ctx, db)).To(Succeed())
+				Expect(states.Name).To(Equal("Light: Pump"))
+				Expect(states.Entries[1].Color).To(Equal(&servicecolor.Ref{
+					Variant: servicecolor.FixedRef{Value: color.Color{B: 255, A: 255}},
+				}))
+			},
+		)
+
+		It(
 			"Should import a v6 Console typed export carrying camelCase keys",
 			func(ctx SpecContext) {
 				res := importAndRetrieve(

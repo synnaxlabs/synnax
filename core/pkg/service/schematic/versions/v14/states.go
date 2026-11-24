@@ -42,7 +42,7 @@ func NewMigration(cfg MigrationConfig) gorp.Migration {
 		key,
 		func(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation) error {
 			intern := cfg.Intern(tx)
-			o := &overrides{tx: tx, intern: intern, copies: map[string]symbol.Key{}}
+			o := upgrade(tx, intern)
 			return migrate.NewInstrumentedEntry(
 				key,
 				func(
@@ -57,7 +57,7 @@ func NewMigration(cfg MigrationConfig) gorp.Migration {
 					if err = InternStates(ctx, &s, old, intern, ins); err != nil {
 						return Schematic{}, err
 					}
-					if err = internLights(ctx, &s, old, intern); err != nil {
+					if err = InternLights(ctx, &s, old, intern); err != nil {
 						return Schematic{}, err
 					}
 					if err = o.apply(ctx, &s, old); err != nil {
