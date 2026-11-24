@@ -224,6 +224,8 @@ func (w *streamWriter) setAuthority(cfg WriterConfig) error {
 	}
 
 	for _, idx := range w.internal {
+		lock := idx.idx.db.WriterLock()
+		lock.Lock()
 		for _, chW := range idx.internal {
 			if auth, ok := getAuth(chW.Channel.Key); ok {
 				if t := chW.SetAuthority(auth); t.Occurred() {
@@ -231,6 +233,7 @@ func (w *streamWriter) setAuthority(cfg WriterConfig) error {
 				}
 			}
 		}
+		lock.Unlock()
 	}
 
 	if len(u.Transfers) > 0 {
@@ -667,6 +670,14 @@ func (w *idxWriter) write(
 	if err != nil {
 		return fr, err
 	}
+	// A writer that cannot write the group holds it back without the lock, so it never
+	// delays the writer that can.
+	if err = w.authorized(); err != nil {
+		return fr, w.holdBack(excludeUnauthorized, fr, err)
+	}
+	lock := w.idx.db.WriterLock()
+	lock.Lock()
+	defer lock.Unlock()
 	// Pass 1: the index channel establishes the alignment for the whole frame. Its
 	// sample position is the space every channel it indexes is expressed in, so it must
 	// be written before any of them.
@@ -729,6 +740,45 @@ func (w *idxWriter) write(
 		w.hasUncommittedData = false
 	}
 	return fr, accumulatedErr
+}
+
+// authorized returns nil when the writer controls its index, or any of its channels
+// when it does not write the index. Otherwise, it returns the error of a refused one.
+func (w *idxWriter) authorized() error {
+	if w.writingToIdx {
+		return w.internal[w.idx.ch.Key].Authorized()
+	}
+	var err error
+	for _, u := range w.internal {
+		if err = u.Authorized(); err == nil {
+			return nil
+		}
+	}
+	return err
+}
+
+// holdBack refuses every series of the group in fr for err, writing none of them, and
+// returns err. It returns nil when fr holds no series of the group.
+func (w *idxWriter) holdBack(
+	excludeUnauthorized *[]ChannelKey,
+	fr Frame,
+	err error,
+) error {
+	n := len(*excludeUnauthorized)
+	for i, key := range fr.RawKeys() {
+		_, ok := w.internal[key]
+		if ok && !fr.ShouldExcludeRaw(i) && fr.RawSeriesAt(i).Len() > 0 {
+			*excludeUnauthorized = append(*excludeUnauthorized, key)
+		}
+	}
+	if len(*excludeUnauthorized) == n {
+		return nil
+	}
+	if w.writingToIdx && w.hasUncommittedData {
+		w.dataPending = true
+	}
+	w.hasUncommittedData = false
+	return err
 }
 
 // dataSeries returns the series at raw position i of fr and the writer of its data
@@ -811,13 +861,13 @@ func (w *idxWriter) countSamples(alignment telem.Alignment, n int64) {
 }
 
 func (w *idxWriter) Commit(ctx context.Context) (telem.TimeStamp, error) {
-	if w.sampleCount == 0 {
+	if w.sampleCount == 0 || (!w.hasUncommittedData && !w.dataPending) {
 		return w.lastCommitEnd, nil
 	}
+	lock := w.idx.db.WriterLock()
+	lock.Lock()
+	defer lock.Unlock()
 	if !w.hasUncommittedData {
-		if !w.dataPending {
-			return w.lastCommitEnd, nil
-		}
 		// Another controller that committed the index also committed this writer's
 		// samples in it. Otherwise this writer commits the index and the data itself.
 		held, err := w.indexHoldsHighWater(ctx)
@@ -923,6 +973,9 @@ func (w *idxWriter) endDomain(
 }
 
 func (w *idxWriter) Close() (ControlUpdate, error) {
+	lock := w.idx.db.WriterLock()
+	lock.Lock()
+	defer lock.Unlock()
 	var err error
 	update := ControlUpdate{
 		Transfers: make([]control.Transfer, 0, len(w.internal)),

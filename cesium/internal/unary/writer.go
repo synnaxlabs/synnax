@@ -389,6 +389,10 @@ func (w *Writer) write(
 	return a, nil
 }
 
+// Authorized returns nil when the writer controls its channel, and otherwise the error
+// that a write returns for no control.
+func (w *Writer) Authorized() error { return w.wrapError(w.control.Authorized()) }
+
 // SetDomainStart sets where the writer's domain starts, in place of Start. It applies
 // at the next persisted write, and only while the domain holds no data. The writer's
 // control region moves to the start, unless the writer is bounded and the start comes

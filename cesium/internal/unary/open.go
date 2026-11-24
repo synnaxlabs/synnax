@@ -11,6 +11,7 @@ package unary
 
 import (
 	"context"
+	"sync"
 	"sync/atomic"
 
 	"github.com/synnaxlabs/alamos"
@@ -144,6 +145,7 @@ func Open(ctx context.Context, configs ...Config) (*DB, error) {
 			Instrumentation: cfg.Instrumentation,
 			Channel:         cfg.Channel,
 		}
+		db.writers = &sync.Mutex{}
 	}
 	return db, nil
 }

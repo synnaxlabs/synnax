@@ -11,6 +11,8 @@ package cesium
 
 import (
 	"context"
+	"slices"
+	"sync"
 	"uuid"
 
 	"github.com/samber/lo"
@@ -237,6 +239,10 @@ func (db *DB) newStreamWriter(
 			err = closeWriters(err, domainWriters, virtualWriters)
 		}
 	}()
+	// Opening a gate can take control from another writer. The writer locks of the
+	// indexes it writes make that one step for the other writer. They unlock before a
+	// failed open closes its writers, which lock them again.
+	defer db.lockIndexes(cfg.Channels)()
 
 	// Two passes:
 	//   Pass 1: Open virtual writers and index-channel writers.
@@ -268,6 +274,39 @@ func (db *DB) newStreamWriter(
 	}
 
 	return db.assembleStreamWriter(cfg, domainWriters, virtualWriters, keyToIdx), nil
+}
+
+// lockIndexes locks the writer lock of the index of each unary channel in keys, in
+// rising order of index key so that two opens cannot deadlock, and returns a function
+// that unlocks them. The caller must hold db.mu.
+func (db *DB) lockIndexes(keys []ChannelKey) (unlock func()) {
+	indexes := make([]ChannelKey, 0, len(keys))
+	for _, key := range keys {
+		u, ok := db.mu.dbs.unary[key]
+		if !ok {
+			continue
+		}
+		if ch := u.Channel(); ch.IsIndex {
+			indexes = append(indexes, key)
+		} else if ch.Index != 0 {
+			indexes = append(indexes, ch.Index)
+		}
+	}
+	slices.Sort(indexes)
+	indexes = slices.Compact(indexes)
+	locks := make([]*sync.Mutex, 0, len(indexes))
+	for _, key := range indexes {
+		if u, ok := db.mu.dbs.unary[key]; ok {
+			lock := u.WriterLock()
+			lock.Lock()
+			locks = append(locks, lock)
+		}
+	}
+	return func() {
+		for _, lock := range locks {
+			lock.Unlock()
+		}
+	}
 }
 
 // assembleStreamWriter returns a streamWriter over the opened writers.

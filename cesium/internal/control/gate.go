@@ -74,6 +74,13 @@ func (g *Gate[R]) Authorize(f func(R) error) error {
 	return f(r)
 }
 
+// Authorized returns nil when the gate has control of its resource, and otherwise the
+// error that Authorize returns without calling f.
+func (g *Gate[R]) Authorized() error {
+	_, err := g.authorize()
+	return err
+}
+
 func (g *Gate[R]) authorize() (r R, err error) {
 	g.region.RLock()
 	defer g.region.RUnlock()
