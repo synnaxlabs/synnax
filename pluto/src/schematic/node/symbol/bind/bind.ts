@@ -15,17 +15,17 @@ import type { telem } from "@/telem/aether";
 import type { symbolNode } from "@/vis/symbolNode/aether";
 
 /**
- * @returns spec with the enumeration, match, bounds, and default of each state replaced
+ * @returns base with the enumeration, match, bounds, and default of each state replaced
  * by those that its binding sets.
  */
-export const bindSpec = (
-  spec: schematic.symbol.Spec,
+export const spec = (
+  base: schematic.symbol.Spec,
   bindings: Omit<schematic.StateBinding, keyof schematic.FormatConfig | "source">[],
 ): schematic.symbol.Spec => {
   const byKey = new Map(bindings.map((b) => [b.key, b]));
   return {
-    ...spec,
-    states: spec.states.map((state) => {
+    ...base,
+    states: base.states.map((state) => {
       const b = byKey.get(state.key);
       if (b == null) return state;
       if (state.type === "number")

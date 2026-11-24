@@ -27,15 +27,7 @@ import { Label } from "@/schematic/node/common/label";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { Toggle } from "@/schematic/node/common/toggle";
 import type { NodeProps, PreviewProps } from "@/schematic/node/spec";
-import {
-  bindSpec,
-  commanded,
-  dataMissing,
-  sources,
-  stale,
-  stateChannels,
-  values,
-} from "@/schematic/node/symbol/bind";
+import { bind } from "@/schematic/node/symbol/bind";
 import {
   clickable,
   commandChannels,
@@ -82,7 +74,7 @@ const useBound = ({ spec: ref, states }: Pick<Config, "spec" | "states">): Bound
   return {
     ...rest,
     symbol: spec,
-    spec: spec == null ? undefined : bindSpec(spec, states),
+    spec: spec == null ? undefined : bind.spec(spec, states),
   };
 };
 
@@ -206,11 +198,11 @@ export const Node = ({
   const channels = commandChannels(symbol, config);
   const { readings, set } = SymbolNode.use({
     aetherKey: nodeKey,
-    sources: sources(stateChannels(states)),
+    sources: bind.sources(bind.stateChannels(states)),
     sinks: sinks(channels),
     stalenessTimeout,
   });
-  const value = values(states, readings);
+  const value = bind.values(states, readings);
   const [menu, setMenu] = useState<OpenMenu | null>(null);
   const unmatched = Custom.useUnmatched(spec, value);
   const scaleResize = Grid.useScaleResize(config, onConfigChange);
@@ -231,13 +223,19 @@ export const Node = ({
     if (!(root instanceof HTMLElement)) return;
     const interaction = interactionAt(symbol, interactions, root, el);
     if (interaction == null) return;
-    const command = pick(symbol, spec, interaction, value, commanded(states, readings));
+    const command = pick(
+      symbol,
+      spec,
+      interaction,
+      value,
+      bind.commanded(states, readings),
+    );
     if (command != null) return send(command, fixedValue(command));
     setMenu({ commands: commandsOf(symbol, interaction), anchor: root });
   };
   const badges = {
-    stale: stale(states, readings),
-    unknown: dataMissing(states, readings) || unmatched,
+    stale: bind.stale(states, readings),
+    unknown: bind.dataMissing(states, readings) || unmatched,
   };
   return (
     <Grid.Grid
