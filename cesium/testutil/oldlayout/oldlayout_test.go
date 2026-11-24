@@ -160,6 +160,17 @@ var _ = Describe("Old layout", func() {
 			Expect(files(mem)).To(Equal(files(old)))
 		})
 
+	It("Should keep the meta.json that a directory holds, as the old layout writes it "+
+		"once", func(ctx SpecContext) {
+		mem := xfs.NewMem()
+		keys := MustSucceed(oldlayout.Read(ctx, fixture()))
+		Expect(oldlayout.Write(mem, keys...)).To(Succeed())
+		renamed := keys[0]
+		renamed.Channel.Name = "other"
+		Expect(oldlayout.Write(mem, renamed)).To(Succeed())
+		Expect(files(mem)).To(Equal(files(fixture())))
+	})
+
 	It("Should sync nothing, so a crash can lose every write", func(ctx SpecContext) {
 		disk := MustSucceed(fault.New(fault.Config{}))
 		keys := MustSucceed(oldlayout.Read(ctx, fixture()))

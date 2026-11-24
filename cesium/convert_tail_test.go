@@ -28,6 +28,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	. "github.com/synnaxlabs/alamos/testutil"
 	"github.com/synnaxlabs/cesium"
+	"github.com/synnaxlabs/cesium/testutil/oldlayout"
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/io/fs/testutil/fault"
@@ -184,30 +185,23 @@ func writeOld(ctx context.Context, disk *fault.FS) oldSamples {
 	return o
 }
 
+// oldRoot is the root that Cesium at core/v0.62.0 wrote with the samples of
+// writeOldLost, in small files so that each key rolls over at its own commits.
+const oldRoot = "testutil/oldlayout/testdata/v0.62.0"
+
 // writeOldLost writes oldN samples of an index, an int32 key, and a string key timed by
-// it to fs on the old layout, in small files so that each key rolls over at its own
-// commits. The channels are durable, but the old layout never syncs its data, so a
-// crash can lose any sample.
+// it to fs on the old layout, as oldRoot holds them. The channels are durable, but the
+// old layout never syncs its data, so a crash can lose any sample.
 func writeOldLost(ctx context.Context, disk *fault.FS) oldSamples {
 	GinkgoHelper()
-	db := openDBOnFS(ctx, disk, cesium.WithFileSizeCap(48*telem.Byte))
-	Expect(db.CreateChannel(
-		ctx,
-		cesium.Channel{
-			Key:      oldIdx,
-			Name:     "time",
-			IsIndex:  true,
-			DataType: telem.TimestampT,
-		},
-		cesium.Channel{Key: oldI32, Name: "i32", Index: oldIdx, DataType: telem.Int32T},
-		cesium.Channel{
-			Key:      oldStr,
-			Name:     "str",
-			Index:    oldIdx,
-			DataType: telem.StringT,
-		},
-	)).To(Succeed())
+	keys := MustSucceed(oldlayout.Read(ctx, MustSucceed(xfs.Default.Sub(oldRoot))))
+	channels := make([]oldlayout.Key, len(keys))
+	for i, k := range keys {
+		channels[i] = oldlayout.Key{Channel: k.Channel}
+	}
+	Expect(oldlayout.Write(disk, channels...)).To(Succeed())
 	disk.Writeback()
+	Expect(oldlayout.Write(disk, keys...)).To(Succeed())
 	o := oldSamples{
 		stamps: make([]telem.TimeStamp, oldN),
 		ints:   make([]int32, oldN),
@@ -218,21 +212,6 @@ func writeOldLost(ctx context.Context, disk *fault.FS) oldSamples {
 		o.ints[i] = int32(i + 1)
 		o.strs[i] = strings.Repeat("x", i%7+1)
 	}
-	keys := []cesium.ChannelKey{oldIdx, oldI32, oldStr}
-	w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
-		Channels: keys,
-		Start:    o.stamps[0],
-	}))
-	for c := 0; c < oldN; c += 5 {
-		MustSucceed2(w.Write(ctx, telem.MultiFrame(keys, []telem.Series{
-			telem.NewSeries(o.stamps[c : c+5]),
-			telem.NewSeries(o.ints[c : c+5]),
-			telem.NewSeries(o.strs[c : c+5]),
-		}), nil))
-		MustSucceed2(w.Commit(ctx, nil))
-	}
-	Expect(w.Close()).To(Succeed())
-	Expect(db.Close()).To(Succeed())
 	return o
 }
 

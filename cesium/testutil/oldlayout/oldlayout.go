@@ -69,20 +69,17 @@ type Key struct {
 	Leftovers map[string][]byte
 }
 
-// Write writes the directory of each of keys to fs as the old layout does: meta.json,
-// counter.domain, index.domain, then each data file in rising order of N, then each
-// leftover in rising order of name. It syncs nothing.
+// Write writes the directory of each of keys to fs as the old layout does: meta.json
+// when the directory lacks one, since the old layout writes it once at the create of
+// the channel, then counter.domain, index.domain, each data file in rising order of N,
+// and each leftover in rising order of name. It syncs nothing.
 func Write(fs xfs.FS, keys ...Key) error {
 	for _, k := range keys {
 		sub, err := fs.Sub(strconv.FormatUint(uint64(k.Channel.Key), 10))
 		if err != nil {
 			return err
 		}
-		b, err := codec.Encode(k.Channel)
-		if err != nil {
-			return err
-		}
-		if err = xfs.WriteFile(sub, meta.File, b); err != nil {
+		if err = writeMeta(sub, k.Channel); err != nil {
 			return err
 		}
 		if err = write(sub, counterFile, binary.LittleEndian.AppendUint32(
@@ -91,7 +88,7 @@ func Write(fs xfs.FS, keys ...Key) error {
 		)); err != nil {
 			return err
 		}
-		b = make([]byte, 0, pointerSize*len(k.Pointers))
+		b := make([]byte, 0, pointerSize*len(k.Pointers))
 		for _, p := range k.Pointers {
 			b = binary.LittleEndian.AppendUint64(b, uint64(p.Start))
 			b = binary.LittleEndian.AppendUint64(b, uint64(p.End))
@@ -202,6 +199,19 @@ func readKey(ctx context.Context, fs xfs.FS) (Key, error) {
 		}
 	}
 	return k, nil
+}
+
+// writeMeta writes meta.json of ch to fs when fs lacks one.
+func writeMeta(fs xfs.FS, ch channel.Channel) error {
+	exists, err := fs.Exists(meta.File)
+	if err != nil || exists {
+		return err
+	}
+	b, err := codec.Encode(ch)
+	if err != nil {
+		return err
+	}
+	return xfs.WriteFile(fs, meta.File, b)
 }
 
 // fileName returns the name of data file n.
