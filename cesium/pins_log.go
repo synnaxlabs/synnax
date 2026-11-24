@@ -204,12 +204,11 @@ func isSegmentFile(name string) bool {
 // file, and the file waits for the orphan pass of the next open.
 func (e *engine) unlinkLate(dead []state.Dead) {
 	for _, d := range dead {
-		name := segmentName(d.Key, d.Segment, d.File)
-		if err := e.fs.Remove(name); err != nil {
+		if err := e.removeSegment(d.Key, d.Segment, d.File); err != nil {
 			e.ins.L.Error(
 				"Failed to remove the file of a dead segment",
 				zap.Uint32("key", d.Key),
-				zap.String("file", name),
+				zap.String("file", segmentName(d.Key, d.Segment, d.File)),
 				zap.Error(err),
 			)
 		}
