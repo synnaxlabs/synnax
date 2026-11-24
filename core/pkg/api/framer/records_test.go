@@ -514,6 +514,7 @@ var _ = Describe("Change channels", func() {
 				DB:             db,
 				Framer:         svc.Framer,
 				Channel:        svc.Channel,
+				Calculation:    svc.Calculation,
 				RBAC:           svc.RBAC,
 				Records:        svc.Signals.Records(),
 				References:     svc.Signals.ReferenceChanges(),
