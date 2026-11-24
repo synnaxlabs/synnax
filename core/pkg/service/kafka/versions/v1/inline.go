@@ -18,6 +18,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	icd "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v0"
+	icdv1 "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v1"
 	"github.com/synnaxlabs/x/set"
 )
 
@@ -78,12 +79,16 @@ func ResolveReadConfig(
 		)
 		msg.Name = icd.UniqueName(names, lo.CoalesceOrEmpty(r.RecordKey, "Any key"))
 		ic.Messages[i] = msg
+		lifted, err := icdv1.MigrateReadMessage(ctx, read)
+		if err != nil {
+			return icd.ICD{}, false, err
+		}
 		cfg.Topics[t].Records = append(cfg.Topics[t].Records, ReadRecord{
 			Key:       lo.CoalesceOrEmpty(r.Key, uuid.New().String()),
 			Disabled:  len(read.Bindings) == 0,
 			RecordKey: r.RecordKey,
 			ICD:       ic.Key,
-			Messages:  []icd.ReadMessage{read},
+			Messages:  []icdv1.ReadMessage{lifted},
 		})
 	}
 	cfg.Inline = nil

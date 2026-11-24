@@ -418,8 +418,8 @@ func (c Checker) checkBinding(
 			"bytes field %s requires a JSON pointer", name,
 		), "field")
 	}
-	if b.DataType != "" {
-		if err := f.check(b.DataType, "data type "+string(b.DataType)); err != nil {
+	if b.DataType != nil {
+		if err := f.check(*b.DataType, "data type "+string(*b.DataType)); err != nil {
 			return at(err, "data_type")
 		}
 	}

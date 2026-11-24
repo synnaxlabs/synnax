@@ -23,6 +23,7 @@ import (
 	v2 "github.com/synnaxlabs/synnax/pkg/service/mqtt/versions/v2"
 	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v4"
 	"github.com/synnaxlabs/x/errors"
+	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"
 	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
@@ -84,33 +85,229 @@ type InlineEntry = v2.InlineEntry
 // InlineRead holds the plain entries of a read config from before ICDs.
 type InlineRead = v2.InlineRead
 
-// ReadEntry is a single source of an MQTT read task. The type field selects a plain
-// topic with a JSON payload or a Sparkplug B tag.
-type ReadEntry = v2.ReadEntry
-
-// ReadEntryVariant is implemented by every ReadEntry variant.
-type ReadEntryVariant = v2.ReadEntryVariant
-
 // ReadEntryType is the "type" value that selects a variant of ReadEntry.
-type ReadEntryType = v2.ReadEntryType
+type ReadEntryType string
 
 const (
 	// PlainReadEntryType reads the JSON payloads of one topic as the messages of an
 	// ICD.
-	PlainReadEntryType ReadEntryType = v2.PlainReadEntryType
+	PlainReadEntryType ReadEntryType = "plain"
 	// SparkplugReadEntryType reads one Sparkplug B tag.
-	SparkplugReadEntryType ReadEntryType = v2.SparkplugReadEntryType
+	SparkplugReadEntryType ReadEntryType = "sparkplug"
 )
 
+// ReadEntryVariant is implemented by every ReadEntry variant.
+type ReadEntryVariant interface {
+	isReadEntryVariant()
+}
+
 // PlainReadEntry reads the JSON payloads of one topic as the messages of an ICD.
-type PlainReadEntry = v2.PlainReadEntry
+type PlainReadEntry struct {
+	BaseReadEntry
+	// Topic is the topic to subscribe to. It holds no wildcards.
+	Topic string `json:"topic" msgpack:"topic"`
+	// Qos is the quality of service of the subscription.
+	Qos QoS `json:"qos" msgpack:"qos"`
+	// RetainedIgnored is true when the task drops the retained message that the broker
+	// sends on subscribe.
+	RetainedIgnored bool `json:"retained_ignored" msgpack:"retained_ignored"`
+	// ICD is the key of the ICD that holds the messages of the topic.
+	ICD icd.Key `json:"icd" msgpack:"icd"`
+	// Messages are the messages the topic carries. Each payload is read as the message
+	// whose match rule it meets.
+	Messages []icd.ReadMessage `json:"messages" msgpack:"messages"`
+}
+
+func (PlainReadEntry) isReadEntryVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (p *PlainReadEntry) SetDefaults() {
+	p.Qos = QoSAtMostOnce
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (p PlainReadEntry) Validate() error {
+	v := validate.New("PlainReadEntry")
+	v.Ternaryf("qos", !p.Qos.IsValid(), "invalid qos: %v", p.Qos)
+	return v.Error()
+}
 
 // SparkplugReadEntry reads one Sparkplug B tag.
-type SparkplugReadEntry = v2.SparkplugReadEntry
+type SparkplugReadEntry struct {
+	BaseReadEntry
+	// Group is the Sparkplug group ID of the edge node.
+	Group string `json:"group" msgpack:"group"`
+	// EdgeNode is the Sparkplug edge node ID.
+	EdgeNode string `json:"edge_node" msgpack:"edge_node"`
+	// Device is the Sparkplug device ID. Empty for a tag of the edge node.
+	Device string `json:"device" msgpack:"device"`
+	// Tag is the name of the tag.
+	Tag string `json:"tag" msgpack:"tag"`
+	// Channel is the Synnax channel the tag value is written to.
+	Channel channel.Key `json:"channel" msgpack:"channel"`
+	// Name is the human-readable name of the channel.
+	Name string `json:"name" msgpack:"name"`
+	// DataType is the data type of the channel.
+	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
+}
+
+func (SparkplugReadEntry) isReadEntryVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (s *SparkplugReadEntry) SetDefaults() {
+	s.DataType = "float64"
+}
+
+// ReadEntry is a single source of an MQTT read task. The type field selects a plain
+// topic with a JSON payload or a Sparkplug B tag.
+type ReadEntry struct {
+	Variant ReadEntryVariant
+}
+
+// MarshalJSONTo encodes the active variant with its "type" tag injected.
+func (u ReadEntry) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
+	case PlainReadEntry:
+		return json.MarshalEncode(enc, struct {
+			Type ReadEntryType `json:"type"`
+			PlainReadEntry
+		}{Type: PlainReadEntryType, PlainReadEntry: v})
+	case SparkplugReadEntry:
+		return json.MarshalEncode(enc, struct {
+			Type ReadEntryType `json:"type"`
+			SparkplugReadEntry
+		}{Type: SparkplugReadEntryType, SparkplugReadEntry: v})
+	default:
+		return errors.Newf("ReadEntry: unknown variant %T", v)
+	}
+}
+
+// UnmarshalJSONFrom decodes the variant selected by the "type" field.
+func (u *ReadEntry) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
+		u.Variant = nil
+		return nil
+	}
+	opts := dec.Options()
+	var disc struct {
+		Type ReadEntryType `json:"type"`
+	}
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case PlainReadEntryType:
+		var v struct {
+			Type ReadEntryType `json:"type"`
+			PlainReadEntry
+		}
+		v.PlainReadEntry.SetDefaults()
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.PlainReadEntry
+	case SparkplugReadEntryType:
+		var v struct {
+			Type ReadEntryType `json:"type"`
+			SparkplugReadEntry
+		}
+		v.SparkplugReadEntry.SetDefaults()
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.SparkplugReadEntry
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"ReadEntry: unknown type %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u ReadEntry) Type() ReadEntryType {
+	switch u.Variant.(type) {
+	case PlainReadEntry:
+		return PlainReadEntryType
+	case SparkplugReadEntry:
+		return SparkplugReadEntryType
+	}
+	return ""
+}
+
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
+func (u ReadEntry) Validate() error {
+	v := validate.New("ReadEntry")
+	v.Ternary("type", u.Variant == nil, "required")
+	switch variant := u.Variant.(type) {
+	case PlainReadEntry:
+		v.Exec(variant.Validate)
+	}
+	return v.Error()
+}
+
+// Base returns the fields every variant shares, or the zero value if Variant is nil.
+func (u ReadEntry) Base() BaseReadEntry {
+	switch variant := u.Variant.(type) {
+	case PlainReadEntry:
+		return variant.BaseReadEntry
+	case SparkplugReadEntry:
+		return variant.BaseReadEntry
+	}
+	return BaseReadEntry{}
+}
+
+// SetBase replaces the fields every variant shares. It panics if Variant is nil.
+func (u *ReadEntry) SetBase(base BaseReadEntry) {
+	switch variant := u.Variant.(type) {
+	case PlainReadEntry:
+		variant.BaseReadEntry = base
+		u.Variant = variant
+	case SparkplugReadEntry:
+		variant.BaseReadEntry = base
+		u.Variant = variant
+	default:
+		panic(errors.Newf("ReadEntry: cannot set the base of variant %T", variant))
+	}
+}
 
 // ReadConfig configures an MQTT read task, which subscribes to topics and Sparkplug B
 // tags on a broker device and writes their values to Synnax channels.
-type ReadConfig = v2.ReadConfig
+type ReadConfig struct {
+	task.PersistConfig
+	// Device is the key of the broker device to read from.
+	Device device.Key `json:"device" msgpack:"device"`
+	// Entries contains the topics and tags to read.
+	Entries []ReadEntry `json:"entries" msgpack:"entries"`
+	// Inline holds the plain entries of a config from before ICDs. A write moves their
+	// fields into a new ICD, adds the entries, and clears it.
+	Inline *InlineRead `json:"inline,omitzero" msgpack:"inline,omitempty"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (r ReadConfig) Validate() error {
+	v := validate.New("ReadConfig")
+	for i := range r.Entries {
+		v.Exec(func() error { return validate.PathedError(r.Entries[i].Validate(), "entries", strconv.Itoa(i)) })
+	}
+	if r.Inline != nil {
+		v.Exec(func() error { return validate.PathedError(r.Inline.Validate(), "inline") })
+	}
+	return v.Error()
+}
 
 // ChannelField is the command channel value placed into the payload of a target.
 type ChannelField = v2.ChannelField

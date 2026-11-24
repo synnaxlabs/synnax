@@ -134,5 +134,23 @@ func MigrateJSONMatch(ctx context.Context, old v0.JSONMatch) (JSONMatch, error) 
 	return autoMigrateJSONMatch(ctx, old)
 }
 
+// MigrateReadMessage lifts a v0 read message to v1. A binding with an empty data type
+// gets none.
+func MigrateReadMessage(_ context.Context, old v0.ReadMessage) (ReadMessage, error) {
+	return ReadMessage{
+		Message:  old.Message,
+		Index:    old.Index,
+		Bindings: lo.Map(old.Bindings, migrateReadBinding),
+	}, nil
+}
+
+func migrateReadBinding(old v0.ReadBinding, _ int) ReadBinding {
+	b := ReadBinding{Field: old.Field, Channel: old.Channel}
+	if old.DataType != "" {
+		b.DataType = &old.DataType
+	}
+	return b
+}
+
 // Migration lifts stored ICDs from v0 to v1.
 var Migration = migrate.NewInstrumentedEntry("v63_message_cycle_time", migrateStored)
