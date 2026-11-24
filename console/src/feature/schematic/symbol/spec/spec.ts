@@ -297,8 +297,11 @@ const createKey = (name: string, taken: string[]): string => {
   return key;
 };
 
-/** @returns spec with a new enumeration state, State N, with the lowest free N. */
-export const addState = (spec: Spec): Spec => {
+/**
+ * @returns spec with a new enumeration state, State N with the lowest free N, and the
+ * key of the state.
+ */
+export const addState = (spec: Spec): [Spec, string] => {
   const name = freeName(
     "State",
     spec.states.map((s) => s.name),
@@ -308,11 +311,14 @@ export const addState = (spec: Spec): Spec => {
     name,
     spec.states.map((s) => s.key),
   );
-  return { ...spec, states: [...spec.states, { ...createState(), key, name }] };
+  return [{ ...spec, states: [...spec.states, { ...createState(), key, name }] }, key];
 };
 
-/** @returns spec with a new command, Command N with the lowest free N, that sends 0. */
-export const addCommand = (spec: Spec): Spec => {
+/**
+ * @returns spec with a new command, Command N with the lowest free N, that sends 0, and
+ * the key of the command.
+ */
+export const addCommand = (spec: Spec): [Spec, string] => {
   const name = freeName(
     "Command",
     spec.commands.map((c) => c.name),
@@ -326,7 +332,7 @@ export const addCommand = (spec: Spec): Spec => {
     name,
     value: { type: "fixed", value: 0 },
   };
-  return { ...spec, commands: [...spec.commands, command] };
+  return [{ ...spec, commands: [...spec.commands, command] }, key];
 };
 
 // withoutCommands returns spec without commands and the clicks that send them, and the
