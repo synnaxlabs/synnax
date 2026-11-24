@@ -125,8 +125,10 @@ in a color picker has no "+".
 - A button label at the p or small level is weight 450. Inputs, switches, list items,
   menu items, tabs, and select triggers keep the weight of their text. Do not change any
   other weight, and do not change font smoothing.
-- Numbers that change, or that people compare, use `variant="numeric"`: Inter with
-  tabular digits.
+- Text is Inter. Data components (live values, times, tables) use `variant="numeric"`,
+  which adds tabular digits. Names, IDs, and static counts do not.
+- Monospace (`variant="code"`) is only for code editors, logs, pasted machine blocks
+  such as a PEM certificate, and code inside a sentence.
 - Canvas data (axis ticks, values, tooltip and measure values) draws in Inter with
   tabular digits, through `variant: "numeric"` in `theme.fontString`.
 
@@ -865,9 +867,9 @@ bound, a log precision, or the line plot X channel.
 - The Ports view keeps each title over its grid, with a thin line between sections or
   devices and 2.5 rem above and below it. Labels beside or above each bank were
   rejected.
-- An NI device's location ("Dev3") is a chip at the right end of its title line:
-  monospace, small, on gray step 3. The usage text does not repeat it. Monospace text
-  alone was rejected, because it stands out too little.
+- An NI device's location ("Dev3") is a chip at the right end of its title line: small,
+  on gray step 3. The usage text does not repeat it. Plain text alone was rejected,
+  because it stands out too little.
 - In a map, a click on a used port selects its channel. A click on a free port adds a
   channel there: the port shows a + under the pointer, and its tooltip reads "Add a
   channel on FIO3". The pointer stays an arrow. A used port keeps its tint, and its
