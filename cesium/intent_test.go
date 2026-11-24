@@ -318,6 +318,21 @@ var _ = Describe("Delete intents", func() {
 			expectGone(ctx, db, mem, data)
 			Expect(intents(mem)).To(BeZero())
 		})
+
+		It("Should remove a dropped index at the next Sweep after its last kept "+
+			"channel drops", func(ctx SpecContext) {
+			Expect(sweep(ctx, db, nil)).To(HaveLen(2))
+			Expect(db.Intend([]cesium.ChannelKey{idx})).To(Succeed())
+			Expect(db.Drop([]cesium.ChannelKey{idx})).To(Succeed())
+			Expect(mem.Exists(channelKeyToPath(idx))).To(BeTrue())
+			Expect(db.Intend([]cesium.ChannelKey{data})).To(Succeed())
+			Expect(db.Drop([]cesium.ChannelKey{data})).To(Succeed())
+			expectGone(ctx, db, mem, data)
+			restarted, fs := crash(ctx)
+			Expect(sweep(ctx, restarted, nil)).To(BeEmpty())
+			Expect(fs.Exists(channelKeyToPath(idx))).To(BeFalse())
+			Expect(intents(fs)).To(BeZero())
+		})
 	})
 
 	Describe("Crashes", func() {
