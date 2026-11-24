@@ -69,15 +69,11 @@ func GenerateChannelKey() cesium.ChannelKey {
 	return uint32(channel.NewKey(1, channel.LocalKey(60_000+testKeys.Add(1))))
 }
 
-// mustOpenDBOnFS opens a Cesium DB on fsys and opts with a writer service over it. The
-// DB closes when the spec or container that opens it ends.
-func mustOpenDBOnFS(ctx context.Context, fsys fs.FS, opts ...cesium.Option) *testDB {
+// mustOpenDBOnFS opens a Cesium DB on fsys with a writer service over it. The DB closes
+// when the spec or container that opens it ends.
+func mustOpenDBOnFS(ctx context.Context, fsys fs.FS) *testDB {
 	GinkgoHelper()
-	db := DeferClose(MustSucceed(cesium.Open(
-		ctx,
-		"",
-		append([]cesium.Option{cesium.WithFS(fsys)}, opts...)...,
-	)))
+	db := DeferClose(MustSucceed(cesium.Open(ctx, "", cesium.WithFS(fsys))))
 	StartRun(db.Run)
 	writes := confluence.NewStream[relay.Response](10_000)
 	svc := MustSucceed(writer.NewService(writer.ServiceConfig{
