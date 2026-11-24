@@ -82,9 +82,8 @@ func (u *Update) DecodeMsgpack(dec *msgpack.Decoder) error {
 }
 
 // Apply replaces the field group that update carries on the cluster stored under key
-// and
-// keeps the other group as stored. It returns an error wrapping query.ErrNotFound when
-// no cluster is stored under key and a validation error when update is invalid.
+// and keeps the other group as stored. It returns an error wrapping query.ErrNotFound
+// when no cluster is stored under key and a validation error when update is invalid.
 func (w Writer) Apply(ctx context.Context, key Key, update Update) error {
 	switch v := update.Variant.(type) {
 	case IdentityUpdate:

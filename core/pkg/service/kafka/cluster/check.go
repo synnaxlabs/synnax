@@ -12,7 +12,9 @@ package cluster
 import (
 	"context"
 	"fmt"
+	"net/netip"
 	"slices"
+	"strings"
 
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
@@ -41,7 +43,11 @@ func validateFields(c *Cluster) error {
 	}
 	brokers := make(set.Set[address], len(c.Brokers))
 	for i, b := range c.Brokers {
-		k := address{host: b.Host, port: defaultPort}
+		host := strings.ToLower(b.Host)
+		if ip, err := netip.ParseAddr(b.Host); err == nil {
+			host = ip.Unmap().String()
+		}
+		k := address{host: host, port: defaultPort}
 		if b.Port != nil {
 			k.port = *b.Port
 		}

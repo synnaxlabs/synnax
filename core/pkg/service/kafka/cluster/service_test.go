@@ -285,6 +285,19 @@ var _ = Describe("Service", func() {
 					{Host: "kafka.example.com", Port: new(uint16(9092))},
 				}
 			}, "brokers.1"),
+			Entry(
+				"a broker that repeats another in other case",
+				func(c *cluster.Cluster) {
+					c.Brokers = []cluster.Broker{
+						{Host: "Kafka.Example.com"},
+						{Host: "kafka.example.com"},
+					}
+				},
+				"brokers.1",
+			),
+			Entry("a broker that repeats another IPv6 form", func(c *cluster.Cluster) {
+				c.Brokers = []cluster.Broker{{Host: "::1"}, {Host: "0:0:0:0:0:0:0:1"}}
+			}, "brokers.1"),
 			Entry("a duplicate read", func(c *cluster.Cluster) {
 				m := uuid.New()
 				c.Reads = []cluster.Read{
