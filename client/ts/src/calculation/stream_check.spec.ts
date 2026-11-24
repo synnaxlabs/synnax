@@ -7,22 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, id } from "@synnaxlabs/x";
+import { DataType } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { describe, expect, it } from "vitest";
 
 import { calculation } from "@/calculation";
 import { channel } from "@/channel";
-import type Synnax from "@/client";
 import { framer } from "@/framer";
+import type { Synnax } from "@/index";
 import { query } from "@/query";
 import {
-  createEmptyRole,
   createTestClient,
-  createTestClientAs,
+  createTestClientWithPolicy,
   type TestPolicy,
 } from "@/testutil";
-import { user } from "@/user";
 
 const client = createTestClient();
 
@@ -57,19 +55,9 @@ const connectReader = async (readable: channel.Key[]): Promise<Synnax> => {
       actions: ["retrieve"],
     },
   ];
-  const r = await createEmptyRole(client);
-  await client.access.policies.create(policies.map((p) => ({ ...p, role: r.key })));
-  const username = id.create();
-  const u = await client.users.create({
-    username,
-    password: "test",
-    name: "test",
-    role: r.key,
-  });
-  const c = createTestClientAs(username, "test");
-  await c.connect();
-  await c.access.policies.retrieve({ subjects: [user.resourceID(u.key)] });
-  return c;
+  const reader = await createTestClientWithPolicy(client, policies);
+  await reader.connect();
+  return reader;
 };
 
 // Creates a calculation the reader may retrieve, after the calculations before it, and
