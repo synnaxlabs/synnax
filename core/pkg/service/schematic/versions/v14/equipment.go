@@ -13,14 +13,17 @@ import (
 	"context"
 	"encoding/json/v2"
 	"reflect"
+	"strings"
 	"uuid"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
+	enumeration "github.com/synnaxlabs/synnax/pkg/service/enumeration/versions/v0"
 	symbol "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v5"
 	v13 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v13"
 	xcolor "github.com/synnaxlabs/x/color/versions/v2"
+	"github.com/synnaxlabs/x/errors"
 	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
 	"go.uber.org/zap"
 )
@@ -35,8 +38,8 @@ var builtinWithin = spatial.Bounds{Lower: 0.9, Upper: 1.1}
 
 // SymbolNode returns the symbol node that a stored equipment node becomes, with the
 // same label, scale, color, timing, and channels. A custom node draws the custom symbol
-// of its spec key. It returns false for a node with no symbol, and for a light with an
-// on color or a custom node with state overrides, since those need new records.
+// of its spec key. It returns false for a node with no symbol, and for a custom node
+// with state overrides, since those need new records. See internLights for on colors.
 func SymbolNode(old v13.NodeConfig) (SymbolNodeConfig, bool, error) {
 	switch v := old.Variant.(type) {
 	case v13.SolenoidValveNodeConfig:
@@ -47,9 +50,6 @@ func SymbolNode(old v13.NodeConfig) (SymbolNodeConfig, bool, error) {
 		}
 		return n, true, nil
 	case v13.LightNodeConfig:
-		if v.OnColor != nil {
-			return SymbolNodeConfig{}, false, nil
-		}
 		n := base(v.LabeledConfig, v.ScaledConfig, v.StrokeColor)
 		n.Spec = builtin(string(v13.LightNodeConfigType))
 		n.StalenessTimeout = v.StalenessTimeout
@@ -228,4 +228,36 @@ func warnEmptyThresholds(s v13.Schematic, ins alamos.Instrumentation) {
 			)
 		}
 	}
+}
+
+// internLights gives the binding of each light that had an on color in old an
+// enumeration through intern: the built-in's entries, with On in that color. The
+// enumeration is named for the light's label, or the schematic name when it is empty.
+func internLights(
+	ctx context.Context,
+	s *Schematic,
+	old v13.Schematic,
+	intern symbol.Intern,
+) error {
+	for i, n := range s.Nodes {
+		cfg, isSymbol := n.Config.Variant.(SymbolNodeConfig)
+		light, isLight := old.Nodes[i].Config.Variant.(v13.LightNodeConfig)
+		if !isSymbol || !isLight || light.OnColor == nil {
+			continue
+		}
+		label := strings.TrimSpace(light.Label.Label)
+		if label == "" {
+			label = s.Name
+		}
+		k, err := intern(ctx, "Light: "+label, []enumeration.Entry{
+			{Key: "off", Value: 0, Name: "Off"},
+			{Key: "on", Value: 1, Name: "On", Color: fixed(light.OnColor)},
+		})
+		if err != nil {
+			return errors.Wrapf(err, "node %s", n.Key)
+		}
+		cfg.States[0].Enumeration = &k
+		s.Nodes[i].Config.Variant = cfg
+	}
+	return nil
 }

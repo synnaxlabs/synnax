@@ -162,6 +162,7 @@ var _ = Describe("A store from core/v0.62.0", func() {
 			symbol.Builtins(),
 			func(b symbol.Builtin, _ int) string { return b.Name },
 		)...)
+		var symbols []schematic.SymbolNodeConfig
 		nodes := map[string]schematic.SymbolNodeConfig{}
 		for _, n := range sc.Nodes {
 			cfg, ok := n.Config.Variant.(schematic.SymbolNodeConfig)
@@ -171,10 +172,11 @@ var _ = Describe("A store from core/v0.62.0", func() {
 			if ref, ok := cfg.Spec.Variant.(symbol.BuiltinRef); ok {
 				Expect(names.Contains(ref.Name)).To(BeTrue(), ref.Name)
 			}
+			symbols = append(symbols, cfg)
 			nodes[cfg.Label.Label] = cfg
 		}
-		// The 3 lights with an on color and 5 custom nodes with overrides stay.
-		Expect(nodes).To(HaveLen(len(stored.Nodes) - 8))
+		// The 5 custom nodes with overrides stay.
+		Expect(symbols).To(HaveLen(len(stored.Nodes) - 5))
 		match := func(label string) *symbol.Matcher {
 			GinkgoHelper()
 			Expect(nodes[label].States).To(HaveLen(1))
@@ -219,6 +221,37 @@ var _ = Describe("A store from core/v0.62.0", func() {
 		Expect(source("Manual enabled=True clickable=False")).
 			To(Equal(schematic.LocalSource{Value: 1}))
 		Expect(nodes["Manual enabled=False clickable=True"].Disabled).To(BeFalse())
+		light := symbol.RefVariant(symbol.BuiltinRef{Name: "light"})
+		unlabeled := lo.Filter(
+			symbols,
+			func(cfg schematic.SymbolNodeConfig, _ int) bool {
+				return cfg.Label.Label == "" && cfg.Spec.Variant == light
+			},
+		)
+		Expect(unlabeled).To(HaveLen(1))
+		onColor := func(key *enumeration.Key) (string, *servicecolor.Ref) {
+			GinkgoHelper()
+			Expect(key).ToNot(BeNil())
+			var e enumeration.Enumeration
+			Expect(gorp.NewRetrieve[enumeration.Key, enumeration.Enumeration]().
+				Where(gorp.MatchKeys[enumeration.Key, enumeration.Enumeration](*key)).
+				Entry(&e).
+				Exec(ctx, db)).To(Succeed())
+			Expect(e.Entries).To(HaveLen(2))
+			return e.Name, e.Entries[1].Color
+		}
+		fixedRef := func(c color.Color) *servicecolor.Ref {
+			return &servicecolor.Ref{Variant: servicecolor.FixedRef{Value: c}}
+		}
+		name, lit := onColor(nodes["On color"].States[0].Enumeration)
+		Expect(name).To(Equal("Light: On color"))
+		Expect(lit).To(Equal(fixedRef(red)))
+		Expect(nodes["Same on color"].States[0].Enumeration).
+			To(Equal(nodes["On color"].States[0].Enumeration))
+		name, lit = onColor(unlabeled[0].States[0].Enumeration)
+		Expect(name).To(Equal("Light: Equipment"))
+		Expect(lit).To(Equal(fixedRef(color.Color{R: 40, G: 80, B: 220, A: 255})))
+		Expect(nodes["light"].States[0].Enumeration).To(BeNil())
 	})
 })
 
