@@ -147,6 +147,12 @@ or generator logic and schemas disagree.
   task file: no `Export`, several types may share a package, and each gets an exported
   `<Type>Ladder` (`imex.Ladder`) over body blobs. A version that redeclares a marked
   type must declare its exported `Migrate<Type>` step.
+- `@go entry` on a struct or union in a version file emits `entry.gen.go` in every
+  `versions/vN` package that declares the type: `GorpKey` from its own `@key` field (a
+  union's from its base), and `ResourceID` when it has `@resource type`. A struct that
+  inherits its key through `extends` gets `GorpKey` from the embedded parent.
+  `@go entry "name"` also emits `CustomTypeName`, which sets the Gorp key prefix, so the
+  name is storage: never change it. A computed or composite key stays hand-written.
 
 ## Field optionality
 
