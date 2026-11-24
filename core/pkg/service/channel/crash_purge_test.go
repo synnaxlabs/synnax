@@ -117,6 +117,7 @@ var _ = Describe("Crash adapter, purge", func() {
 			for runKey := range uint64(32) {
 				disk := MustSucceed(fault.New(fault.Config{}))
 				ts := MustSucceed(cesium.Open(ctx, "", cesium.WithFS(disk)))
+				stop := StartRun(ts.Run)
 				Expect(ts.CreateChannel(ctx, cesium.Channel{
 					Key: key, Name: "time", IsIndex: true, DataType: telem.TimestampT,
 				})).To(Succeed())
@@ -126,6 +127,7 @@ var _ = Describe("Crash adapter, purge", func() {
 					10*telem.SecondTS,
 					telem.NewSeriesSecondsTSV(10, 11, 12),
 				)).To(Succeed())
+				stop()
 				Expect(ts.Close()).To(Succeed())
 				syncAll(disk, "")
 				var (
@@ -147,12 +149,14 @@ var _ = Describe("Crash adapter, purge", func() {
 						}
 					},
 				})))
+				stop = StartRun(ts.Run)
 				whole, _ := MustSucceed2(ts.Sweep(ctx, nil))
 				Expect(whole).To(HaveLen(1))
 				armed = true
 				Expect(channel.Purge(ctx, db, ts, []channel.Key{channel.Key(key)})).
 					To(BeEmpty())
 				armed = false
+				stop()
 				Expect(ts.Close()).To(Succeed())
 				Expect(images).ToNot(BeEmpty())
 				for i, image := range images {
@@ -163,6 +167,7 @@ var _ = Describe("Crash adapter, purge", func() {
 						))
 						continue
 					}
+					stopRe := StartRun(re.Run)
 					kept, _ := MustSucceed2(re.Sweep(ctx, nil))
 					if len(kept) > 0 && (len(kept) > 1 || kept[0] != whole[0]) {
 						failures = append(failures, fmt.Sprintf(
@@ -170,6 +175,7 @@ var _ = Describe("Crash adapter, purge", func() {
 							runKey, i, kept, whole,
 						))
 					}
+					stopRe()
 					Expect(re.Close()).To(Succeed())
 				}
 			}

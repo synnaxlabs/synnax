@@ -24,9 +24,12 @@ var _ = Describe("Delete intents check, read faults", func() {
 			// The first read of each block flips one bit. A second read is good.
 			disk := MustSucceed(fault.New(fault.Config{ReadCorruptionRate: 1}))
 			db := openDBOnFS(ctx, disk)
+			stop := StartRun(db.Run)
 			Expect(db.Intend([]cesium.ChannelKey{GenerateChannelKey()})).To(Succeed())
+			stop()
 			Expect(db.Close()).To(Succeed())
 			db = openDBOnFS(ctx, disk)
+			StartRun(db.Run)()
 			Expect(db.Close()).To(Succeed())
 			Expect(MustSucceed(disk.Stat("delete-intents")).Size()).To(Equal(int64(16)))
 		},
