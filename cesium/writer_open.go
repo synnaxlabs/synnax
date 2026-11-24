@@ -113,7 +113,7 @@ func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (*Writer, er
 		))
 	}
 	if db.engine != nil {
-		lw, err := db.openLogWriter(cfg)
+		lw, err := db.openLogWriter(ctx, cfg)
 		if err != nil {
 			return nil, err
 		}

@@ -591,3 +591,25 @@ func (e *engine) segmentConfig(seg state.Segment) segment.Config {
 		Variable: telem.DataTypeCode(seg.DataType).DataType().IsVariable(),
 	}
 }
+
+// storedAfter reports whether readers see a sample of key after stamp, in a segment of
+// the state or in a record that a part holds.
+func (e *engine) storedAfter(key ChannelKey, stamp telem.TimeStamp) (bool, error) {
+	if ch := e.state.Channel(key); ch != nil && endsAfter(ch.Segments, stamp) {
+		return true, nil
+	}
+	pre, err := e.records(key, stamp+1, telem.TimeStampMax)
+	return err == nil && endsAfter(pre.Segments, stamp), err
+}
+
+// endsAfter reports whether a pointer of segs ends after stamp.
+func endsAfter(segs []state.Segment, stamp telem.TimeStamp) bool {
+	for _, seg := range segs {
+		for _, p := range seg.Pointers {
+			if p.Last > stamp {
+				return true
+			}
+		}
+	}
+	return false
+}

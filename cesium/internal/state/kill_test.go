@@ -10,6 +10,8 @@
 package state_test
 
 import (
+	"context"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/log"
@@ -58,7 +60,7 @@ var _ = Describe("Kills", func() {
 	})
 
 	It("Should not kill a dropped key that holds no data, which no head names", func() {
-		w := MustSucceed(s.OpenWriter(state.WriterConfig{
+		w := MustSucceed(s.OpenWriter(context.Background(), state.WriterConfig{
 			Clock: 7,
 			Start: 100,
 			Keys:  []state.WriterKey{{Key: 7, DataType: 4}},

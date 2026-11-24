@@ -138,7 +138,7 @@ func (w *Writer) Write(
 		return Frame{}, false, err
 	}
 	if w.log != nil {
-		fr, skipped, err := w.log.write(fr, skip)
+		fr, skipped, err := w.log.write(ctx, fr, skip)
 		if err != nil {
 			return Frame{}, false, w.fail(err)
 		}
@@ -165,7 +165,7 @@ func (w *Writer) Commit(
 		return 0, false, err
 	}
 	if w.log != nil {
-		end, skipped, err := w.log.commit(skip)
+		end, skipped, err := w.log.commit(ctx, skip)
 		if err != nil {
 			return 0, false, w.fail(err)
 		}
@@ -187,7 +187,7 @@ func (w *Writer) EndStretch(ctx context.Context) error {
 		return err
 	}
 	if w.log != nil {
-		return w.fail(w.log.endStretch())
+		return w.fail(w.log.endStretch(ctx))
 	}
 	if !w.idx.writingToIdx {
 		_, _, err := w.Commit(ctx, nil)

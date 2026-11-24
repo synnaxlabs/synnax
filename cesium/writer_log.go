@@ -11,6 +11,7 @@ package cesium
 
 import (
 	"cmp"
+	"context"
 	"math"
 	"slices"
 
@@ -37,6 +38,8 @@ const entryLimit = log.MaxFrame / 4
 type logWriter struct {
 	e  *engine
 	st *state.Writer
+	// history reports the time range of a commit before the newest data of a key.
+	history func(context.Context, HistoryChange)
 	// clock is the key of the clock, and keys holds the clock first when the writer
 	// writes it.
 	clock   ChannelKey
@@ -71,6 +74,9 @@ type logWriter struct {
 	// committed holds the keys of the commit in progress, and pre their preloads.
 	committed []ChannelKey
 	pre       []state.Preload
+	// backfilled holds the keys of the commit in progress that readers see data of
+	// after it.
+	backfilled []ChannelKey
 }
 
 // run is the samples that one Commit logs: their alignments touch, and their stamps
@@ -114,10 +120,11 @@ type logKey struct {
 
 // openLogWriter opens a writer of cfg on the pointer log layout. The writer writes its
 // clock and the channels that the clock times. The caller holds db.mu.
-func (db *DB) openLogWriter(cfg WriterConfig) (*logWriter, error) {
+func (db *DB) openLogWriter(ctx context.Context, cfg WriterConfig) (*logWriter, error) {
 	w := &logWriter{
 		e:        db.engine,
 		clock:    cfg.Clock,
+		history:  db.historyChanges.Notify,
 		byKey:    make(map[ChannelKey]*logKey, len(cfg.Channels)),
 		unstored: cfg.Unstored,
 	}
@@ -155,7 +162,7 @@ func (db *DB) openLogWriter(cfg WriterConfig) (*logWriter, error) {
 	slices.SortStableFunc(w.keys, func(a, b *logKey) int {
 		return boolOrder(b.ch.Key == w.clock) - boolOrder(a.ch.Key == w.clock)
 	})
-	if err := w.openState(db, cfg, keys); err != nil {
+	if err := w.openState(ctx, db, cfg, keys); err != nil {
 		return nil, err
 	}
 	return w, nil
@@ -163,7 +170,12 @@ func (db *DB) openLogWriter(cfg WriterConfig) (*logWriter, error) {
 
 // openState opens the state writer of w, and seals each open segment of its keys that
 // the state hands over, since a writer starts a new segment for each key.
-func (w *logWriter) openState(db *DB, cfg WriterConfig, keys []state.WriterKey) error {
+func (w *logWriter) openState(
+	ctx context.Context,
+	db *DB,
+	cfg WriterConfig,
+	keys []state.WriterKey,
+) error {
 	start := cfg.Start
 	if start.IsZero() {
 		start = telem.NewTimeStamp(db.clock.Now())
@@ -183,7 +195,7 @@ func (w *logWriter) openState(db *DB, cfg WriterConfig, keys []state.WriterKey) 
 	_, err := db.engine.withPreloads(nil, stateKeys, start, start, false, func(
 		pre []state.Preload,
 	) (err error) {
-		st, err = db.engine.state.OpenWriter(stateCfg, pre...)
+		st, err = db.engine.state.OpenWriter(ctx, stateCfg, pre...)
 		return err
 	})
 	if err != nil {
@@ -217,7 +229,11 @@ func boolOrder(b bool) int {
 // write writes the series of fr for the keys of w, except the keys for which skip
 // returns true. A skipped clock skips every key, and a key skipped in a write stays
 // skipped until the next commit.
-func (w *logWriter) write(fr Frame, skip func(ChannelKey) bool) (Frame, bool, error) {
+func (w *logWriter) write(
+	ctx context.Context,
+	fr Frame,
+	skip func(ChannelKey) bool,
+) (Frame, bool, error) {
 	w.excluded = w.excluded[:0]
 	w.frames++
 	clock, n, err := w.validate(fr)
@@ -225,7 +241,7 @@ func (w *logWriter) write(fr Frame, skip func(ChannelKey) bool) (Frame, bool, er
 		return fr, false, err
 	}
 	if w.stamps != nil {
-		return w.writeData(fr, uint32(n), skip)
+		return w.writeData(ctx, fr, uint32(n), skip)
 	}
 	if skip != nil && skip(w.clock) {
 		for _, k := range fr.RawKeys() {
@@ -239,7 +255,7 @@ func (w *logWriter) write(fr Frame, skip func(ChannelKey) bool) (Frame, bool, er
 	if err != nil {
 		return fr, false, err
 	}
-	if refused, err := w.stretch(n, skip); err != nil || refused {
+	if refused, err := w.stretch(ctx, n, skip); err != nil || refused {
 		return fr, refused, err
 	}
 	alignment := telem.NewAlignment(w.number, w.next)
@@ -256,7 +272,7 @@ func (w *logWriter) write(fr Frame, skip func(ChannelKey) bool) (Frame, bool, er
 		}
 		s := fr.RawSeriesAt(i)
 		if !w.unstored {
-			if err = w.append(lk, s.Data); err != nil {
+			if err = w.append(ctx, lk, s.Data); err != nil {
 				w.putBack()
 				return fr, false, err
 			}
@@ -287,9 +303,13 @@ func (w *logWriter) extendRun(
 // stretch makes room for n samples in the stretch of w. It starts a new stretch when w
 // has none, or when n samples would pass the 2^32 - 1 samples of one, after a commit of
 // the uncommitted run with skip. It returns true when skip refuses that commit.
-func (w *logWriter) stretch(n int64, skip func(ChannelKey) bool) (bool, error) {
+func (w *logWriter) stretch(
+	ctx context.Context,
+	n int64,
+	skip func(ChannelKey) bool,
+) (bool, error) {
 	if w.number != 0 && uint64(w.next)+uint64(n) > math.MaxUint32 {
-		if _, refused, err := w.commit(skip); err != nil || refused {
+		if _, refused, err := w.commit(ctx, skip); err != nil || refused {
 			return refused, err
 		}
 		w.number = 0
@@ -323,7 +343,9 @@ func (w *logWriter) validate(fr Frame) (telem.Series, int64, error) {
 			continue
 		}
 		s := fr.RawSeriesAt(i)
-		if s.DataType != lk.ch.DataType {
+		// The clock takes int64 stamps too, as the index writer of the old layout does.
+		if s.DataType != lk.ch.DataType &&
+			(k != w.clock || s.DataType != telem.Int64T) {
 			return clock, 0, invalidDataTypeError(lk.ch, s.DataType)
 		}
 		if lk.frame == w.frames {
@@ -382,6 +404,15 @@ func (w *logWriter) checkOrder(
 				prev,
 			))
 		}
+		// A time range ends after its last stamp, so none holds the largest one.
+		if stamp == telem.TimeStampMax {
+			return 0, 0, channel.Wrap(w.clock, errors.Wrapf(
+				validate.ErrValidation,
+				"stamp %v must be before %v",
+				stamp,
+				telem.TimeStampMax,
+			))
+		}
 		if i == 0 {
 			first = stamp
 		}
@@ -391,9 +422,13 @@ func (w *logWriter) checkOrder(
 }
 
 // append appends p to the open segment of lk, which it creates first when lk has none.
-func (w *logWriter) append(lk *logKey, p []byte) error {
+func (w *logWriter) append(ctx context.Context, lk *logKey, p []byte) error {
 	if lk.w == nil {
-		<-w.e.ready
+		select {
+		case <-w.e.ready:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
 		id, err := w.st.NewSegment(lk.ch.Key)
 		if err != nil {
 			return err
@@ -437,8 +472,12 @@ func (w *logWriter) putBack() {
 }
 
 // commit makes the uncommitted run visible and returns its end. It commits nothing and
-// returns true when skip holds a key with samples to commit.
-func (w *logWriter) commit(skip func(ChannelKey) bool) (telem.TimeStamp, bool, error) {
+// returns true when skip holds a key with samples to commit. It reports to history each
+// key whose committed samples lie before data that readers see.
+func (w *logWriter) commit(
+	ctx context.Context,
+	skip func(ChannelKey) bool,
+) (telem.TimeStamp, bool, error) {
 	if w.stamps != nil && w.stamps.err != nil {
 		return 0, false, w.stamps.err
 	}
@@ -454,7 +493,7 @@ func (w *logWriter) commit(skip func(ChannelKey) bool) (telem.TimeStamp, bool, e
 	}
 	w.from = w.ends(w.from, false)
 	for i := range w.runs {
-		if err := w.commitRun(i); err != nil {
+		if err := w.commitRun(ctx, i); err != nil {
 			w.putBack()
 			return 0, false, err
 		}
@@ -479,7 +518,7 @@ func (w *logWriter) commit(skip func(ChannelKey) bool) (telem.TimeStamp, bool, e
 
 // commitRun logs the Commit of run i once the state accepts it. A run of a writer that
 // does not write its clock first reads its first and last stamps.
-func (w *logWriter) commitRun(i int) error {
+func (w *logWriter) commitRun(ctx context.Context, i int) error {
 	r := &w.runs[i]
 	if w.stamps != nil {
 		var err error
@@ -501,7 +540,9 @@ func (w *logWriter) commitRun(i int) error {
 		w.to = w.ends(w.to, true)
 		to = w.to
 	}
-	w.collectSlots(w.from, to)
+	if err := w.collectSlots(w.from, to, r.last); err != nil {
+		return err
+	}
 	w.from = append(w.from[:0], to...)
 	c := &log.Commit{
 		Samples:   r.samples,
@@ -522,6 +563,9 @@ func (w *logWriter) commitRun(i int) error {
 	})
 	if err != nil {
 		return err
+	}
+	for _, key := range w.backfilled {
+		w.history(ctx, HistoryChange{Key: key, TimeRange: r.first.Range(r.last + 1)})
 	}
 	w.entry.Add(c)
 	return nil
@@ -545,16 +589,25 @@ func (w *logWriter) ends(dst []segmentEnd, pending bool) []segmentEnd {
 }
 
 // collectSlots sets keySegments to a slot for each segment that grows from from to to,
-// in rising order of segment, and committed to the keys of those segments in rising
-// order.
-func (w *logWriter) collectSlots(from, to []segmentEnd) {
+// in rising order of segment, committed to the keys of those segments in rising order,
+// and backfilled to those keys that readers see data of after last, the last stamp of
+// the run.
+func (w *logWriter) collectSlots(from, to []segmentEnd, last telem.TimeStamp) error {
 	w.keySegments, w.committed = w.keySegments[:0], w.committed[:0]
+	w.backfilled = w.backfilled[:0]
 	for i, lk := range w.keys {
 		e := to[i]
 		if e.id == 0 || (e.id == from[i].id && e.length == from[i].length) {
 			continue
 		}
 		w.committed = append(w.committed, lk.ch.Key)
+		after, err := w.e.storedAfter(lk.ch.Key, last)
+		if err != nil {
+			return err
+		}
+		if after {
+			w.backfilled = append(w.backfilled, lk.ch.Key)
+		}
 		w.keySegments = append(w.keySegments, log.Slot{
 			Segment: e.id,
 			Length:  e.length,
@@ -565,6 +618,7 @@ func (w *logWriter) collectSlots(from, to []segmentEnd) {
 		return cmp.Compare(a.Segment, b.Segment)
 	})
 	slices.Sort(w.committed)
+	return nil
 }
 
 // sealFull seals each segment that reached segmentLimit, so the next write creates
@@ -593,8 +647,8 @@ func (w *logWriter) seal(lk *logKey) error {
 }
 
 // endStretch commits, then makes the next write start a new stretch.
-func (w *logWriter) endStretch() error {
-	if _, _, err := w.commit(nil); err != nil {
+func (w *logWriter) endStretch(ctx context.Context) error {
+	if _, _, err := w.commit(ctx, nil); err != nil {
 		return err
 	}
 	w.number = 0
