@@ -39,6 +39,70 @@ func BenchmarkCommitPointerLog(b *testing.B) {
 	}
 }
 
+// BenchmarkCommitDataPointerLog writes one frame of float32 samples from a writer that
+// does not write its clock, on stamps that a writer of the clock stores in the same
+// iteration, and commits it, on the pointer log on an in-memory file system. The write
+// and commit of the clock are outside the timer.
+func BenchmarkCommitDataPointerLog(b *testing.B) {
+	const samples = 125
+	for _, channels := range []int{1, 32} {
+		b.Run(fmt.Sprintf("channels=%d/samples=%d", channels, samples), func(
+			b *testing.B,
+		) {
+			db := openBenchDB(b, true, cesium.WithPointerLog())
+			keys := createIndexedChannels(b, db, 1, channels)
+			open := func(channels []cesium.ChannelKey) *cesium.Writer {
+				w, err := db.OpenWriter(b.Context(), cesium.WriterConfig{
+					Channels: channels,
+					Clock:    keys[0],
+					Start:    telem.SecondTS,
+				})
+				if err != nil {
+					b.Fatal(err)
+				}
+				return w
+			}
+			clock, data := open(keys[:1]), open(keys[1:])
+			values := telem.NewSeries(make([]float32, samples))
+			stamps := make([]telem.TimeStamp, samples)
+			start := telem.SecondTS
+			b.ReportAllocs()
+			for b.Loop() {
+				b.StopTimer()
+				for i := range stamps {
+					stamps[i] = start + telem.TimeStamp(i)
+				}
+				fr := telem.UnaryFrame(keys[0], telem.NewSeries(stamps))
+				if _, _, err := clock.Write(b.Context(), fr, nil); err != nil {
+					b.Fatal(err)
+				}
+				if _, _, err := clock.Commit(b.Context(), nil); err != nil {
+					b.Fatal(err)
+				}
+				series := make([]telem.Series, channels)
+				for i := range series {
+					series[i] = values
+				}
+				b.StartTimer()
+				written := telem.MultiFrame(keys[1:], series)
+				if _, _, err := data.Write(b.Context(), written, nil); err != nil {
+					b.Fatal(err)
+				}
+				if _, _, err := data.Commit(b.Context(), nil); err != nil {
+					b.Fatal(err)
+				}
+				start += samples
+			}
+			b.StopTimer()
+			for _, w := range []*cesium.Writer{data, clock} {
+				if err := w.Close(); err != nil {
+					b.Error(err)
+				}
+			}
+		})
+	}
+}
+
 // BenchmarkSeekPointerLog seeks iterators of a data channel on the pointer log to
 // random stamps, from one reader per goroutine of RunParallel. Each seek loads the data
 // channel and its clock. Run it with -cpu 8 for 8 readers.
