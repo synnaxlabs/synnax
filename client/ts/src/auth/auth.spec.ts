@@ -174,6 +174,11 @@ describe("auth", () => {
       expect(second).toEqual(first);
       expect(await auth.retrieveMethods(client)).toEqual(first);
     });
+    it("should use TLS when secure is left out", async () => {
+      const { host, port } = testClientParams();
+      const tls = auth.createTokenlessClient({ host, port });
+      await expect(auth.retrieveMethods(tls)).rejects.toThrow();
+    });
   });
 
   describe("createSession", () => {

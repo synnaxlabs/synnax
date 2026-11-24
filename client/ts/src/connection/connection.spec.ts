@@ -302,6 +302,12 @@ describe("connection", () => {
       });
       expect(status.variant).toEqual("error");
     });
+
+    it("should use TLS when secure is left out", async () => {
+      const { host, port } = testClientParams();
+      const status = await connection.check({ host, port });
+      expect(status.variant).toEqual("error");
+    });
   });
 
   describe("clock skew", () => {
