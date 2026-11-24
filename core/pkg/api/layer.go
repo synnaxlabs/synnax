@@ -67,8 +67,6 @@ import (
 // LayerConfig is the configuration for opening the API layer.
 type LayerConfig = config.LayerConfig
 
-var DefaultLayerConfig = config.DefaultLayerConfig
-
 type Transport struct {
 	// AUTH
 	AuthLogin           freighter.UnaryServer[auth.LoginRequest, auth.LoginResponse]
@@ -89,6 +87,13 @@ type Transport struct {
 	AuthOIDCUnlink freighter.UnaryServer[auth.OIDCUnlinkRequest, struct{}]
 	// AuthPasswordCreate gives the caller or another user its first password.
 	AuthPasswordCreate freighter.UnaryServer[auth.PasswordCreateRequest, struct{}]
+	// AuthPasswordRetrieve lists passwords by subject or username, without hashes.
+	AuthPasswordRetrieve freighter.UnaryServer[
+		auth.PasswordRetrieveRequest,
+		auth.PasswordRetrieveResponse,
+	]
+	// AuthPasswordDispatch applies actions to a password.
+	AuthPasswordDispatch freighter.UnaryServer[auth.PasswordDispatchRequest, struct{}]
 	// AuthPasswordSet sets the caller's password or another user's.
 	AuthPasswordSet freighter.UnaryServer[auth.PasswordSetRequest, auth.PasswordSetResponse]
 	// USER
@@ -424,6 +429,8 @@ func (l *Layer) BindTo(t Transport) {
 		t.AuthOIDCRetrieve,
 		t.AuthOIDCUnlink,
 		t.AuthPasswordCreate,
+		t.AuthPasswordRetrieve,
+		t.AuthPasswordDispatch,
 		t.AuthPasswordSet,
 
 		// USER
@@ -688,6 +695,14 @@ func (l *Layer) BindTo(t Transport) {
 		l.Auth.PrepareCreatePassword,
 		l.Auth.CreatePassword,
 	))
+	t.AuthPasswordRetrieve.BindHandler(bind.Read(l.binder, func(
+		ctx context.Context,
+		snap bind.Snapshot,
+		req auth.PasswordRetrieveRequest,
+	) (auth.PasswordRetrieveResponse, error) {
+		return l.Auth.RetrievePasswords(ctx, snap, snap.Allowed, req)
+	}))
+	t.AuthPasswordDispatch.BindHandler(bind.Write(l.binder, l.Auth.DispatchPassword))
 	t.AuthPasswordSet.BindHandler(bind.WritePrepared(
 		l.binder,
 		l.Auth.PrepareSetPassword,
@@ -701,7 +716,7 @@ func (l *Layer) BindTo(t Transport) {
 
 	// USER
 	t.UserCreate.BindHandler(
-		bind.WritePrepared(l.binder, l.User.PrepareCreate, l.User.Create),
+		bind.Write(l.binder, l.User.Create),
 	)
 	t.UserDelete.BindHandler(bind.Write(l.binder, l.User.Delete))
 	t.UserRetrieve.BindHandler(bind.Read(l.binder, l.User.Retrieve))
@@ -939,7 +954,7 @@ func (l *Layer) BindTo(t Transport) {
 // NewLayer instantiates the server API layer using the provided Configs. This should
 // only be called once.
 func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
-	cfg, err := xconfig.New(config.DefaultLayerConfig, cfgs...)
+	cfg, err := xconfig.New(LayerConfig{}, cfgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -967,11 +982,9 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		return nil, err
 	}
 	if l.User, err = user.NewService(user.ServiceConfig{
-		DB:       cfg.Distribution.DB,
-		RBAC:     cfg.Service.RBAC,
-		User:     cfg.Service.User,
-		Password: cfg.Service.Password,
-		Auth:     cfg.Service.Auth,
+		DB:   cfg.Distribution.DB,
+		RBAC: cfg.Service.RBAC,
+		User: cfg.Service.User,
 	}); err != nil {
 		return nil, err
 	}

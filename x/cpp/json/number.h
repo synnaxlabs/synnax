@@ -31,6 +31,9 @@ class Number {
     /// @brief fraction is true when the text of a float had a fraction that f may round
     /// away.
     bool fraction = false;
+    /// @brief out_of_range is true when the text of a float is an integer that fits
+    /// neither an int64 nor a uint64, even if f rounds into one of them.
+    bool out_of_range = false;
     /// @brief text is the JSON text a float was parsed from, so errors show what f
     /// rounds.
     std::string text;

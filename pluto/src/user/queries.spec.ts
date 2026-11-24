@@ -11,6 +11,7 @@ import type { access } from "@synnaxlabs/client";
 import {
   createEmptyRole,
   createTestClient,
+  createTestUser,
   TEST_CREDENTIALS,
 } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
@@ -49,9 +50,7 @@ describe("User queries", () => {
   describe("useDelete", () => {
     it("should delete a single user", async () => {
       const testUser = await client.users.create({
-        username: `test-user-${id.create()}`,
         name: "Test User",
-        password: "password123",
         role: role.key,
       });
 
@@ -70,15 +69,11 @@ describe("User queries", () => {
 
     it("should delete multiple users", async () => {
       const user1 = await client.users.create({
-        username: `user1-${id.create()}`,
         name: "User One",
-        password: "password123",
         role: role.key,
       });
       const user2 = await client.users.create({
-        username: `user2-${id.create()}`,
         name: "User Two",
-        password: "password123",
         role: role.key,
       });
 
@@ -101,9 +96,7 @@ describe("User queries", () => {
     it("should change a user's role", async () => {
       const to = await createEmptyRole(client);
       const testUser = await client.users.create({
-        username: `set-role-${id.create()}`,
         name: "Test User",
-        password: "password123",
         role: role.key,
       });
       const { result } = renderHook(() => User.useSetRole(), { wrapper });
@@ -115,7 +108,10 @@ describe("User queries", () => {
     });
 
     it("should report an error when the Core refuses the change", async () => {
-      const root = await client.users.retrieve({ username: TEST_CREDENTIALS.username });
+      const [p] = await client.auth.retrievePasswords({
+        usernames: [TEST_CREDENTIALS.username],
+      });
+      const root = await client.users.retrieve(p.subject.key);
       const { result } = renderHook(() => User.useSetRole(), { wrapper });
       await act(async () => {
         await result.current.updateAsync({ key: root.key, role: role.key });
@@ -131,9 +127,7 @@ describe("User queries", () => {
   describe("useRename", () => {
     it("should change a user's name", async () => {
       const testUser = await client.users.create({
-        username: `original-${id.create()}`,
         name: "Test User",
-        password: "password123",
         role: role.key,
       });
 
@@ -153,9 +147,7 @@ describe("User queries", () => {
 
     it("should hold the new name in the cache once the rename resolves", async () => {
       const testUser = await client.users.create({
-        username: `original-${id.create()}`,
         name: "Test User",
-        password: "password123",
         role: role.key,
       });
       const { result } = renderHook(() => User.useRename(), { wrapper });
@@ -171,9 +163,7 @@ describe("User queries", () => {
   describe("use", () => {
     it("should retrieve a user by key", async () => {
       const testUser = await client.users.create({
-        username: `retrieve-test-${id.create()}`,
         name: "Retrieve Test",
-        password: "password123",
         role: role.key,
       });
 
@@ -203,20 +193,15 @@ describe("User queries", () => {
 
       expect(result.current).not.toBeNull();
       const { username } = TEST_CREDENTIALS;
-      const signedIn = await client.users.retrieve({ username });
-      expect(result.current?.key).toEqual(signedIn.key);
+      const [p] = await client.auth.retrievePasswords({ usernames: [username] });
+      expect(result.current?.key).toEqual(p.subject.key);
     });
 
     it("should update the current user on a rename from another client", async () => {
-      const username = id.create();
       const roles = await client.access.roles.retrieve({});
       const viewer = roles.find((r) => r.name === "Viewer");
       assert(viewer != null);
-      const u = await client.users.create({
-        username,
-        password: "test",
-        role: viewer.key,
-      });
+      const { user: u, username } = await createTestUser(client, { role: viewer.key });
       const userClient = createTestClient({ username, password: "test" });
       const { result } = renderHook(() => User.useResult({}), {
         wrapper: createSynnaxWrapper({ client: userClient }),
@@ -230,9 +215,7 @@ describe("User queries", () => {
 
     it("should cache retrieved users", async () => {
       const testUser = await client.users.create({
-        username: `cached-user-${id.create()}`,
         name: "Cached User",
-        password: "password123",
         role: role.key,
       });
 
@@ -287,10 +270,32 @@ describe("User queries", () => {
         });
 
         await waitFor(async () => {
-          const created = await client.users.retrieve({ username });
+          const [p] = await client.auth.retrievePasswords({ usernames: [username] });
+          const created = await client.users.retrieve(p.subject.key);
           expect(created.name).toEqual("Form Test");
           expect(created.role).toEqual(role.key);
         });
+      });
+
+      it("should remove the new user when its username is taken", async () => {
+        const { username } = await createTestUser(client, { role: role.key });
+        const { result } = renderHook(() => User.useForm({ query: null }), {
+          wrapper,
+        });
+        await waitFor(() => expect(result.current.variant).toBe("success"));
+        const name = `taken-${id.create()}`;
+        act(() => {
+          result.current.form.set(path.username, username);
+          result.current.form.set(path.name, name);
+          result.current.form.set(path.password, "password123");
+          result.current.form.set(path.role, role.key);
+        });
+        await act(async () => {
+          result.current.save();
+        });
+        await waitFor(() => expect(result.current.variant).toBe("error"));
+        const users = await client.users.retrieve({});
+        expect(users.filter((u) => u.name === name)).toHaveLength(0);
       });
 
       it("should validate required fields", async () => {
