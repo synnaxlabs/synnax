@@ -32,7 +32,7 @@ import { grid } from "@/framer/cache/grid";
 import type { join } from "@/framer/cache/join";
 import { reader as cacheReader } from "@/framer/cache/reader";
 import { LOADING, READ_FAILED, SUCCESS } from "@/framer/cache/status";
-import { store as cacheStore } from "@/framer/cache/store";
+import type { store as cacheStore } from "@/framer/cache/store";
 import type { streamer as cacheStreamer } from "@/framer/cache/streamer";
 import { tile as cacheTile } from "@/framer/cache/tile";
 import type { Frame } from "@/framer/frame";
