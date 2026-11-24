@@ -9,11 +9,11 @@
 
 import { describe, expect, it } from "vitest";
 
-import { createDefaultConfig } from "@/schematic/edge/common/segmented/config";
+import { Edge } from "@/schematic/edge";
 
-describe("createDefaultConfig", () => {
+describe("Edge default config", () => {
   it("should leave the color absent so the theme picks it", () => {
-    const config = createDefaultConfig("pipe");
+    const config = Edge.resolveSpec("pipe").defaultConfig();
     expect(config.variant).toBe("pipe");
     expect(config.segments).toEqual([]);
     expect(config.strokeColor).toBeUndefined();

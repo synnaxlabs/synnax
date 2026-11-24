@@ -119,13 +119,15 @@ const branchPaths = (topics: ListedTopic[]): string[] =>
   );
 
 /** The values a click on a topic picks: each free one. */
-const defaultPointers = (leaves: Leaf[], taken: Set<string> | undefined): Set<string> =>
-  new Set(leaves.filter((l) => taken?.has(l.pointer) !== true).map((l) => l.pointer));
+const defaultPointers = (free: Leaf[]): Set<string> =>
+  new Set(free.map((l) => l.pointer));
 
 /** The values picked from one topic, with the fields they came from. */
 export interface TopicPick {
   leaves: Leaf[];
   pointers: Set<string>;
+  /** The pointer of the timestamp that indexes the picked values. */
+  index?: string;
 }
 
 export type TopicPicks = Map<string, TopicPick>;
@@ -152,16 +154,36 @@ const takenBy = (
   );
 };
 
-const freeCount = (t: ListedTopic, taken: Taken) =>
-  t.leaves.filter((l) => taken.get(t.topic)?.has(l.pointer) !== true).length;
+/**
+ * @returns the pointer of the timestamp that a pick of the topic takes with it. A topic
+ * whose message in the task has fields keeps the index of its read.
+ */
+const indexOf = ({ topic, index }: ListedTopic, taken: Taken, indexed: boolean) =>
+  indexed && (taken.get(topic)?.size ?? 0) === 0 ? index : undefined;
+
+/**
+ * @returns the index that a pick takes only with other values. A topic whose only value
+ * is its index, such as a heartbeat, can pick the index alone.
+ */
+const lockedIndex = (leaves: Leaf[], index?: string): string | undefined =>
+  leaves.length > 1 ? index : undefined;
+
+/** @returns the leaves of the topic that a pick can take. */
+const freeLeaves = (t: ListedTopic, taken: Taken, indexed: boolean): Leaf[] => {
+  const index = lockedIndex(t.leaves, indexOf(t, taken, indexed));
+  return t.leaves.filter(
+    (l) => l.pointer !== index && taken.get(t.topic)?.has(l.pointer) !== true,
+  );
+};
 
 const toItem = (
   { name, path, topic, topics }: Folder,
   picks: TopicPicks,
   taken: Taken,
   whole: boolean,
+  indexed: boolean,
 ): ICD.Picker.TreeItem => {
-  const pickable = topics.filter((t) => freeCount(t, taken) > 0);
+  const pickable = topics.filter((t) => freeLeaves(t, taken, indexed).length > 0);
   const all = pickable.length > 0 && pickable.every((t) => picks.has(t.topic));
   const values = whole
     ? topics.filter((t) => picks.has(t.topic)).length
@@ -188,11 +210,12 @@ const toItems = (
   picks: TopicPicks,
   taken: Taken,
   whole: boolean,
+  indexed: boolean,
   into: ICD.Picker.TreeItem[] = [],
 ): ICD.Picker.TreeItem[] => {
   for (const f of folders) {
-    into.push(toItem(f, picks, taken, whole));
-    toItems(f.children, picks, taken, whole, into);
+    into.push(toItem(f, picks, taken, whole, indexed));
+    toItems(f.children, picks, taken, whole, indexed, into);
   }
   return into;
 };
@@ -201,21 +224,38 @@ interface TopicValuesProps {
   topic: ListedTopic;
   value: Set<string>;
   taken: Set<string>;
+  /** The pointer of the timestamp that the picks take with them. */
+  index?: string;
   whole: boolean;
   onChange: (value: Set<string>) => void;
 }
 
-const TopicValues = ({ topic, value, taken, whole, onChange }: TopicValuesProps) => {
+const TopicValues = ({
+  topic,
+  value,
+  taken,
+  index,
+  whole,
+  onChange,
+}: TopicValuesProps) => {
   const [raw, setRaw] = useState(false);
   const { leaves } = topic;
-  const free = leaves.filter((l) => !taken.has(l.pointer)).map((l) => l.pointer);
-  const values: ICD.Picker.Value[] = leaves.map((l) => ({
-    key: l.pointer,
-    name: pointerLabel(l.pointer),
-    sample: sampleAt(topic, l.pointer),
-    dataType: l.dataType,
-    lock: taken.has(l.pointer) ? ICD.Picker.TAKEN : undefined,
-  }));
+  const locked = lockedIndex(leaves, index);
+  const free = leaves
+    .filter((l) => l.pointer !== locked && !taken.has(l.pointer))
+    .map((l) => l.pointer);
+  const values = leaves.map((l): ICD.Picker.Value => {
+    let lock: ICD.Picker.Lock | undefined;
+    if (l.pointer === locked) lock = ICD.Picker.INDEX;
+    else if (taken.has(l.pointer)) lock = ICD.Picker.TAKEN;
+    return {
+      key: l.pointer,
+      name: pointerLabel(l.pointer),
+      sample: sampleAt(topic, l.pointer),
+      dataType: ICD.DEFAULT_DATA_TYPES[l.kind],
+      lock,
+    };
+  });
   return (
     <>
       <ICD.Picker.PaneHeader
@@ -270,6 +310,8 @@ export interface TopicPickerProps {
   entries: HeldEntry[];
   /** Each pick is a whole topic, and a topic that the task holds takes none. */
   whole?: boolean;
+  /** A pick of a topic that the task does not read takes its index too. */
+  indexed?: boolean;
   value: TopicPicks;
   onChange: (value: TopicPicks) => void;
   onAddByName: (topic: string) => void;
@@ -282,6 +324,7 @@ export const TopicPicker = ({
   device,
   entries,
   whole = false,
+  indexed = false,
   value,
   onChange,
   onAddByName,
@@ -311,7 +354,7 @@ export const TopicPicker = ({
   const folders = buildFolders(visible);
   const paths = byPath(folders);
   const nodes = toNodes(folders);
-  const items = toItems(folders, value, taken, whole);
+  const items = toItems(folders, value, taken, whole, indexed);
   const initialExpanded = branchPaths(topics);
   const active = selected ?? topics[0]?.topic ?? null;
   const activeTopic = topics.find((t) => t.topic === active) ?? null;
@@ -319,15 +362,18 @@ export const TopicPicker = ({
   const handlePick = (path: string) => {
     const folder = paths.get(path);
     if (folder == null) throw new Error(`No topic level at ${path}`);
-    const pickable = folder.topics.filter((t) => freeCount(t, taken) > 0);
+    const pickable = folder.topics.filter(
+      (t) => freeLeaves(t, taken, indexed).length > 0,
+    );
     const all = pickable.length > 0 && pickable.every((t) => value.has(t.topic));
     const next = new Map(value);
     for (const t of pickable) {
       const pointers = all
         ? new Set<string>()
-        : defaultPointers(t.leaves, taken.get(t.topic));
+        : defaultPointers(freeLeaves(t, taken, indexed));
+      const index = indexOf(t, taken, indexed);
       if (pointers.size === 0) next.delete(t.topic);
-      else next.set(t.topic, { leaves: t.leaves, pointers });
+      else next.set(t.topic, { leaves: t.leaves, pointers, index });
     }
     onChange(next);
     if (folder.topic != null) setSelected(folder.path);
@@ -363,23 +409,31 @@ export const TopicPicker = ({
   else if (listing?.truncated === true) statusText += ", list is full";
 
   let pane: ReactNode;
-  if (activeTopic != null)
+  if (activeTopic != null) {
+    const index = indexOf(activeTopic, taken, indexed);
     pane = (
       <TopicValues
         key={activeTopic.topic}
         topic={activeTopic}
         value={value.get(activeTopic.topic)?.pointers ?? new Set()}
         taken={taken.get(activeTopic.topic) ?? new Set()}
+        index={index}
         whole={whole}
         onChange={(pointers) => {
           const next = new Map(value);
           if (pointers.size === 0) next.delete(activeTopic.topic);
-          else next.set(activeTopic.topic, { leaves: activeTopic.leaves, pointers });
+          else
+            next.set(activeTopic.topic, {
+              leaves: activeTopic.leaves,
+              pointers,
+              index,
+            });
           onChange(next);
         }}
       />
     );
-  else if (listing == null && loading) pane = <ICD.Picker.PaneSkeleton noun="Field" />;
+  } else if (listing == null && loading)
+    pane = <ICD.Picker.PaneSkeleton noun="Field" />;
   else pane = <ICD.Picker.Notice message="Select a topic to see what it sends." />;
 
   return (
