@@ -393,6 +393,22 @@ var _ = Describe("Writer", func() {
 			},
 		)
 
+		It("Should name the claim of an open writer over its stored data in a "+
+			"refused commit", func() {
+			l := open(clockWriter(100, false, 5))
+			lid := MustSucceed(l.NewSegment(5))
+			ln := MustSucceed(l.NewAlignment())
+			Expect(l.Commit(commit(2, ln, 0, 110, 120, slot(lid, 16)))).To(Succeed())
+			b := open(clockWriter(50, true, 5))
+			id := MustSucceed(b.NewSegment(5))
+			n := MustSucceed(b.NewAlignment())
+			Expect(b.Commit(commit(2, n, 0, 60, 70, slot(id, 16)))).To(Succeed())
+			Expect(b.Commit(commit(2, n, 2, 90, 130, slot(id, 32)))).
+				To(MatchError(ContainSubstring(
+					"reaches the claim of another writer from 100",
+				)))
+		})
+
 		It(
 			"Should open a live writer over a bounded claim, and refuse the "+
 				"commit that "+

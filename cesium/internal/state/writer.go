@@ -454,10 +454,8 @@ func (s *State) checkVisible(w *Writer, c *log.Commit) error {
 			return err
 		}
 		ch := s.core.channels[seg.key]
-		if p, ok := ch.overlaps(first, last, false); ok {
-			return errors.Wrapf(errConflict, "commit of key %d from %d to %d overlaps "+
-				"its stored data from %d to %d", seg.key, first, last, p.First, p.Last)
-		}
+		// The claim of an open writer names its holder, so it comes before the stored
+		// data that the writer committed.
 		for _, o := range ch.claims {
 			if o.w != w && !o.pinned && o.reaches(first, last) {
 				return errors.Wrapf(
@@ -470,6 +468,10 @@ func (s *State) checkVisible(w *Writer, c *log.Commit) error {
 					o.start,
 				)
 			}
+		}
+		if p, ok := ch.overlaps(first, last, false); ok {
+			return errors.Wrapf(errConflict, "commit of key %d from %d to %d overlaps "+
+				"its stored data from %d to %d", seg.key, first, last, p.First, p.Last)
 		}
 	}
 	return nil
