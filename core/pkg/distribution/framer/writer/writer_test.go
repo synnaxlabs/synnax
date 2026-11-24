@@ -1889,7 +1889,6 @@ func newNode(ctx context.Context, pointerLog bool) testutil.Node {
 const (
 	unstoredClaimOwner = "cesium-0c, D-375 (Unstored takes no claim)"
 	errorTextOwner     = "cesium-0c, main's error text (coordinator, 2026-11-24)"
-	emptyHandoffOwner  = "time-2c, 6763d (empty-key Handoff, cesium-0c)"
 	recoveryOwner      = "cesium-0c, recovery reads a live MemFS size twice"
 )
 

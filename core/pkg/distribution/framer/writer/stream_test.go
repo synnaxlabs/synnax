@@ -85,7 +85,6 @@ var _ = DescribeTableSubtree("Streamed series", func(pointerLog bool) {
 		"Should stream an index and its data with one alignment from a writer that "+
 			"takes the clock from a writer of the data channel",
 		func(ctx SpecContext) {
-			skipOnPointerLog(pointerLog, emptyHandoffOwner)
 			idx := MustSucceed(host.CreateChannels(ctx, []channel.Channel{
 				{Name: "borges", IsIndex: true, DataType: telem.TimestampT},
 			}))[0]
