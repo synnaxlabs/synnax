@@ -27,6 +27,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/icd/codec"
 	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -391,7 +392,7 @@ var _ = Describe("JSON", func() {
 		Expect(decodeError(dec, []byte(`{"v": "x"}`), samples)).
 			To(MatchError(validate.ErrValidation))
 		Expect(telem.Series{DataType: telem.Float64T, Data: samples[0][0]}).
-			To(telem.MatchSeriesDataV[float64](1, 2))
+			To(MatchSeriesDataV[float64](1, 2))
 	})
 
 	Describe("Failures", func() {
@@ -437,7 +438,7 @@ var _ = Describe("JSON", func() {
 				))
 				Expect(failures[1].Binding).To(Equal(2))
 				Expect(samples[0][0]).To(BeEmpty())
-				Expect(series(samples[0][1])).To(telem.MatchSeriesDataV[float64](2))
+				Expect(series(samples[0][1])).To(MatchSeriesDataV[float64](2))
 				Expect(samples[0][2]).To(BeEmpty())
 			},
 		)

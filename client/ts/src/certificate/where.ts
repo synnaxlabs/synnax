@@ -12,4 +12,8 @@ import type { Lines } from "@/certificate/where.gen";
 /** The typed lines of a certificate Where. */
 export const LINES: Lines = {
   racks: (item, keys) => item.source === "file" && keys.includes(item.rack),
+  keyed: (item, keyed) =>
+    (item.source === "stored"
+      ? item.privateKey != null
+      : item.privateKeyFile != null) === keyed,
 };

@@ -238,6 +238,22 @@ var _ = Describe("ResolveReadConfig", func() {
 			"idle",
 		),
 		Entry(
+			"the JSON text of a number for a string",
+			v4.ReadField{DataType: telem.StringT, FillValue: new(any(3))},
+			func(v icdv1.JSONFieldVariant) any {
+				return *as[icdv1.StringJSONField](v).Default
+			},
+			"3",
+		),
+		Entry(
+			"the JSON text of a boolean for a string",
+			v4.ReadField{DataType: telem.StringT, FillValue: new(any(true))},
+			func(v icdv1.JSONFieldVariant) any {
+				return *as[icdv1.StringJSONField](v).Default
+			},
+			"true",
+		),
+		Entry(
 			"a timestamp in the time format of its field",
 			v4.ReadField{
 				DataType:   telem.TimestampT,

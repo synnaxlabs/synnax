@@ -303,7 +303,7 @@ def load_options(
         given["api_key"] = api_key
     if secure is not None:
         given["secure"] = secure
-    if ca_cert is not None:
+    if ca_cert:
         given["ca_cert"] = ca_cert
     from_env = load_env_options(env or {})
     sources: list[Mapping[str, Any]] = [given, from_env]

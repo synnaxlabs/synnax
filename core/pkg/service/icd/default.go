@@ -19,14 +19,10 @@ import (
 )
 
 // CheckDefault returns an error wrapping validate.ErrValidation when f has a default
-// that a write cannot send: a float that is not finite, text that is not base64 or not
-// valid JSON, or a number that decodes outside the min and max of f. The error does not
-// name the default.
+// that it cannot hold: an infinite float, text that is not base64 or not valid JSON, or
+// a number that decodes outside the min and max of f. The error does not name the
+// default.
 func CheckDefault(f JSONField) error {
-	if v, ok := f.Variant.(FloatJSONField); ok && v.Default != nil &&
-		!xmath.Finite(*v.Default) {
-		return problemError("must be finite", true)
-	}
 	return problemError(defaultProblem(f))
 }
 

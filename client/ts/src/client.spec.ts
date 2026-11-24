@@ -179,16 +179,15 @@ describe.skipIf(process.platform === "win32")("constructor with Synnax Desktop",
 
   it("should connect once the helper gives a key after it failed", async () => {
     const owner = createTestClient();
-    const { token, key } = await owner.auth.createKey({ name: "desktop" });
+    const { token, key } = await owner.auth.apiKeys.create({ name: "desktop" });
     const ready = join(home, "ready");
     writeDesktop(`[ -f ${ready} ] || exit 1\necho ${token}`, testCoreAddress());
-    // the default retry budget outlasts the wait for the change stream
-    const client = new Synnax({ onInternalError: () => {} });
+    const client = createClient();
     await expect(client.connect()).rejects.toThrow(APIKeyUnavailableError);
     writeFileSync(ready, "");
     await expect(client.connect()).resolves.toBeDefined();
     await client.close();
-    await owner.auth.deleteKeys(key.key);
+    await owner.auth.apiKeys.delete(key.key);
   });
 
   it("should tell the user to open Synnax Desktop when its helper is gone", async () => {

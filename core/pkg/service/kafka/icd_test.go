@@ -73,6 +73,29 @@ func bind(m icd.Message, i int, ch channel.Channel) icd.ReadBinding {
 	return icd.ReadBinding{Field: fieldKey(m, i), Channel: ch.Key()}
 }
 
+// command returns the binding that fills field i of m with the commands of ch.
+func command(m icd.Message, i int, ch channel.Channel) icd.WriteBinding {
+	return icd.WriteBinding{Variant: icd.ChannelWriteBinding{
+		WriteBaseBinding: icd.WriteBaseBinding{Field: fieldKey(m, i)},
+		Channel:          ch.Key(),
+	}}
+}
+
+// writeTarget returns the target that produces m of ic to topic through bindings.
+func writeTarget(
+	topic string,
+	ic icd.ICD,
+	m icd.Message,
+	bindings ...icd.WriteBinding,
+) kafka.WriteTarget {
+	return kafka.WriteTarget{
+		Key:     "t-" + topic,
+		Topic:   topic,
+		ICD:     ic.Key,
+		Message: icd.WriteMessage{Message: m.Key, Bindings: bindings},
+	}
+}
+
 // lift moves records, which hold their fields inline, into a new ICD with one message
 // for each record, as a write of a config from before ICDs does.
 func lift(ctx context.Context, records ...kafka.InlineRecord) []kafka.ReadRecord {
