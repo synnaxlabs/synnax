@@ -15,6 +15,7 @@
 #include <memory>
 #include <mutex>
 #include <thread>
+#include <vector>
 
 #include "absl/log/log.h"
 
@@ -46,6 +47,8 @@ class Streamer final : public ::driver::pipeline::Streamer {
     /// @brief the open Core streamer, if any. Guarded by core_mu, and changed only on
     /// core_thread after construction.
     std::unique_ptr<::driver::pipeline::Streamer> core;
+    /// @brief the channels of the next Core open. Guarded by core_mu.
+    std::vector<synnax::channel::Key> channels;
 
     std::mutex server_mu;
     std::deque<x::telem::Frame> server_frames;
@@ -74,7 +77,8 @@ public:
         subscription(std::move(subscription)),
         bus(std::move(bus)),
         breaker(breaker_config),
-        core(std::move(core)) {
+        core(std::move(core)),
+        channels(this->config.channels) {
         this->breaker.start();
         this->subscription->set_on_push([this] { this->notify_cv.notify_one(); });
         this->core_thread = std::thread([this, open_err] { this->run_core(open_err); });
@@ -128,6 +132,17 @@ public:
         if (this->core != nullptr) this->core->close_send();
     }
 
+    /// @brief subscribes to the new channels on the bus, then sets them on the Core
+    /// half. A Core half that rejects them fails and reopens with them.
+    x::errors::Error
+    set_channels(const std::vector<synnax::channel::Key> &channels) override {
+        this->subscription->set_keys(channels);
+        std::lock_guard lock(this->core_mu);
+        this->channels = channels;
+        if (this->core != nullptr) return this->core->set_channels(channels);
+        return x::errors::NIL;
+    }
+
 private:
     void run_core(x::errors::Error err) {
         if (this->core != nullptr) err = this->read_core();
@@ -147,12 +162,21 @@ private:
 
     /// @returns the error that ended this session with the Core.
     x::errors::Error stream_core() {
-        auto [opened, open_err] = this->factory->open_streamer(this->config);
+        auto config = this->config;
+        {
+            std::lock_guard lock(this->core_mu);
+            config.channels = this->channels;
+        }
+        auto [opened, open_err] = this->factory->open_streamer(config);
         if (open_err) return open_err;
         {
             std::lock_guard lock(this->core_mu);
             this->core = std::move(opened);
-            if (!this->breaker.running()) this->core->close_send();
+            if (!this->breaker.running())
+                this->core->close_send();
+            else if (this->channels != config.channels)
+                if (const auto err = this->core->set_channels(this->channels))
+                    return err;
         }
         return this->read_core();
     }

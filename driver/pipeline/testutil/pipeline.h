@@ -80,6 +80,10 @@ public:
         this->config.read_errors->push_back(freighter::STREAM_CLOSED);
     }
 
+    x::errors::Error set_channels(const std::vector<synnax::channel::Key> &) override {
+        return x::errors::NIL;
+    }
+
 private:
     // Guards config.read_errors, which close_send() changes while read() runs.
     std::mutex read_errors_mu;

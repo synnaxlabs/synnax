@@ -77,6 +77,12 @@ public:
     /// should return as soon as possible.
     virtual void close_send() = 0;
 
+    /// @brief replaces the channels that the streamer streams. Safe to call while
+    /// read() runs, but not with close(), close_send(), or itself. A streamer that
+    /// fails to set them returns the error, and its next read() fails too.
+    virtual x::errors::Error
+    set_channels(const std::vector<synnax::channel::Key> &channels) = 0;
+
     virtual ~Streamer() = default;
 };
 
@@ -113,6 +119,10 @@ public:
 
     /// @brief implements pipeline::Streamer to close the streamer.
     void close_send() override;
+
+    /// @brief implements pipeline::Streamer to set the channels of the streamer.
+    x::errors::Error
+    set_channels(const std::vector<synnax::channel::Key> &channels) override;
 };
 
 /// @brief an implementation of the pipeline::StreamerFactory interface that is backed
@@ -144,7 +154,8 @@ class Control final : public Base {
     synnax::framer::StreamerConfig config;
     /// @brief the sink that the control pipeline will write frames to.
     std::shared_ptr<Sink> sink;
-    /// @brief protects streamer, which a stop reads from another thread.
+    /// @brief protects streamer and config.channels, which a stop or set_channels
+    /// reads from another thread.
     std::mutex streamer_mu;
     /// @brief the current open streamer reading data from the network.
     std::unique_ptr<Streamer> streamer = nullptr;
@@ -193,11 +204,10 @@ public:
         std::string thread_name = ""
     );
 
-    /// @brief sets the channels that the streamer streams from the next start. Call it
-    /// only while the pipeline is stopped.
-    void set_channels(std::vector<synnax::channel::Key> channels) {
-        this->config.channels = std::move(channels);
-    }
+    /// @brief sets the channels that the streamer streams, on the open streamer and
+    /// on each later open. Safe to call from any thread. An open streamer that rejects
+    /// them fails, and the pipeline opens it again with them.
+    void set_channels(const std::vector<synnax::channel::Key> &channels);
 
     void run() override;
 

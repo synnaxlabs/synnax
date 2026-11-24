@@ -227,6 +227,10 @@ public:
     x::errors::Error close() override { return x::errors::NIL; }
 
     void close_send() override { this->queue->close(); }
+
+    x::errors::Error set_channels(const std::vector<synnax::channel::Key> &) override {
+        return x::errors::NIL;
+    }
 };
 
 class MockClusterAPI : public ClusterAPI {

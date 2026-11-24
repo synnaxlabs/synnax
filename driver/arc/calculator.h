@@ -14,6 +14,7 @@
 #include <memory>
 #include <set>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -31,7 +32,12 @@ class Calculator {
     std::vector<synnax::arc::Calculation> calculations;
     ::arc::runtime::Config cfg;
     ::arc::runtime::scheduler::ErrorHandler on_error;
-    std::vector<std::shared_ptr<::arc::runtime::Runtime>> runtimes;
+    /// @brief a loaded calculation and the channels it reads.
+    struct Module {
+        std::shared_ptr<::arc::runtime::Runtime> runtime;
+        std::unordered_set<::arc::types::ChannelKey> reads;
+    };
+    std::vector<Module> modules;
     /// @brief the calculated channels and their indexes.
     std::set<::arc::types::ChannelKey> computed;
     /// @brief the channels that the calculations read.
@@ -42,7 +48,7 @@ class Calculator {
     /// @brief loads a new runtime for each calculation. On error, the calculator keeps
     /// the runtimes it had.
     x::errors::Error open() {
-        std::vector<std::shared_ptr<::arc::runtime::Runtime>> loaded;
+        std::vector<Module> loaded;
         std::set<::arc::types::ChannelKey> loaded_computed;
         std::set<::arc::types::ChannelKey> loaded_inputs;
         for (const auto &c: this->calculations) {
@@ -58,9 +64,13 @@ class Calculator {
                 rt->write_channels.end()
             );
             loaded_inputs.insert(rt->read_channels.begin(), rt->read_channels.end());
-            loaded.push_back(std::move(rt));
+            std::unordered_set reads(
+                rt->read_channels.begin(),
+                rt->read_channels.end()
+            );
+            loaded.push_back({std::move(rt), std::move(reads)});
         }
-        this->runtimes = std::move(loaded);
+        this->modules = std::move(loaded);
         this->computed = std::move(loaded_computed);
         this->inputs = std::move(loaded_inputs);
         this->used = false;
@@ -137,6 +147,23 @@ public:
         return keys;
     }
 
+    /// @brief returns each calculated channel and the channels it reads, dependencies
+    /// first.
+    [[nodiscard]] std::vector<
+        std::pair<::arc::types::ChannelKey, std::set<::arc::types::ChannelKey>>>
+    dependencies() const {
+        std::vector<
+            std::pair<::arc::types::ChannelKey, std::set<::arc::types::ChannelKey>>>
+            deps;
+        deps.reserve(this->modules.size());
+        for (size_t i = 0; i < this->modules.size(); i++)
+            deps.emplace_back(
+                this->calculations[i].channel,
+                std::set(this->modules[i].reads.begin(), this->modules[i].reads.end())
+            );
+        return deps;
+    }
+
     /// @brief loads every calculation again if a compute ran since the last load, so
     /// that the next compute starts from a fresh state. On error, the calculator keeps
     /// its runtimes. Call it only while no compute runs.
@@ -150,13 +177,17 @@ public:
     /// added. A calculation with no input in frame does not run.
     void compute(x::telem::Frame &frame) {
         this->used = true;
-        for (const auto &rt: this->runtimes) {
+        for (const auto &[rt, reads]: this->modules) {
+            auto read = false;
+            for (const auto [key, _]: frame)
+                if (reads.contains(key)) {
+                    read = true;
+                    break;
+                }
+            if (!read) continue;
             x::telem::Frame in;
             for (const auto [key, series]: frame)
-                if (std::ranges::find(rt->read_channels, key) !=
-                    rt->read_channels.end())
-                    in.emplace(key, series.shallow_copy());
-            if (in.empty()) continue;
+                if (reads.contains(key)) in.emplace(key, series.shallow_copy());
             for (auto [key, series]: rt->compute(in))
                 frame.emplace(key, std::move(series));
         }
