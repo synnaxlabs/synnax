@@ -48,8 +48,55 @@ var _ = Describe("DecodeV13", func() {
 			}))
 		},
 		Entry("v13", "testdata/import_v13_states.json"),
+		Entry("v12", "testdata/import_v12_states.json"),
+		Entry("v9", "testdata/import_v9_states.json"),
 		Entry("v7", "testdata/import_v7_states.json"),
 		Entry("a Console export", "testdata/import_console_states.json"),
+	)
+
+	DescribeTable("Should keep each node at the index that DecodeImExEnvelope gives it",
+		func(ctx SpecContext, path string) {
+			env := LoadEnvelope(path)
+			old, ok := MustSucceed2(versions.DecodeV13(ctx, env))
+			Expect(ok).To(BeTrue())
+			current := MustSucceed(versions.DecodeImExEnvelope(ctx, env))
+			keys := make([]string, len(old.Nodes))
+			for i, n := range old.Nodes {
+				keys[i] = n.Key
+			}
+			currentKeys := make([]string, len(current.Nodes))
+			for i, n := range current.Nodes {
+				currentKeys[i] = n.Key
+			}
+			Expect(keys).ToNot(BeEmpty())
+			Expect(keys).To(Equal(currentKeys))
+		},
+		Entry("v13", "testdata/import_v13.json"),
+		Entry("v11", "testdata/import_v11.json"),
+		Entry("v10", "testdata/import_v10_button.json"),
+		Entry("v8", "testdata/import_v8.json"),
+		Entry("v7", "testdata/import_v7.json"),
+		Entry("a v6 Console export", "testdata/import_typed_console.json"),
+		Entry("a v3 Console state", "testdata/import_v3_state.json"),
+		Entry("a v0 Console state", "testdata/import_v0_state.json"),
+	)
+
+	DescribeTable("Should fail on a file that its version cannot read",
+		func(ctx SpecContext, path, msg string) {
+			Expect(versions.DecodeV13(ctx, LoadEnvelope(path))).
+				Error().To(MatchError(ContainSubstring(msg)))
+		},
+		Entry("a rejected node", "testdata/import_v8_rejected.json", "node n1"),
+		Entry(
+			"bad nodes",
+			"testdata/import_v12_bad_nodes.json",
+			`field "nodes" expects []v8.Node, got JSON string`,
+		),
+		Entry(
+			"bad Console nodes",
+			"testdata/import_console_bad_nodes.json",
+			`field "nodes" expects []v6.Node, got JSON string`,
+		),
 	)
 
 	It("Should report a file of v14 or newer as not old", func(ctx SpecContext) {
