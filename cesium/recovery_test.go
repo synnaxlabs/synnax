@@ -264,6 +264,23 @@ var _ = Describe("Recovery", func() {
 		))
 	})
 
+	It(
+		"Should refuse a log with a valid frame after a bad one that only a second read "+
+			"finds",
+		func(ctx SpecContext) {
+			cycle(ctx)
+			cycle(ctx)
+			offsets := frameOffsets()
+			Expect(offsets).To(HaveLen(2))
+			flip(offsets[0] + 8)
+			fs = damageFS{FS: fs, at: offsets[1] + 8, done: &atomic.Bool{}}
+			Expect(open(ctx)).Error().To(And(
+				MatchError(place.ErrCorrupt),
+				MatchError(ContainSubstring("holds a valid frame at")),
+			))
+		},
+	)
+
 	It("Should start a new database over a head 1 that is not complete and a log 1 "+
 		"with no frame", func(ctx SpecContext) {
 		cycle(ctx)
