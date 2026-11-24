@@ -170,16 +170,15 @@ var _ = DescribeTableSubtree("Claim move", func(pointerLog bool) {
 			Expect(MustCommit(clock)).To(Equal(11*telem.SecondTS + 1))
 			moved := open(ctx, "moved", channel.Keys{data}, 12*telem.SecondTS, 200)
 			Expect(clock.Write(both(seconds(12, 13), 3, 4))).To(BeFalse())
-			end, authorized := MustSucceed2(clock.Commit())
-			Expect(end).To(Equal(13*telem.SecondTS + 1))
-			Expect(
-				authorized,
-			).To(BeFalse(), "a write since the last commit was refused")
 			Expect(moved.Write(only(30, 40))).To(BeTrue())
 			Expect(MustCommit(moved)).To(Equal(13*telem.SecondTS + 1))
 			Expect(moved.Close()).To(Succeed())
 			Expect(clock.Write(both(seconds(14), 5))).To(BeTrue())
-			Expect(MustCommit(clock)).To(Equal(14*telem.SecondTS + 1))
+			end, authorized := MustSucceed2(clock.Commit())
+			Expect(end).To(Equal(14*telem.SecondTS + 1))
+			Expect(
+				authorized,
+			).To(BeFalse(), "a write since the last commit was refused")
 			Expect(clock.Close()).To(Succeed())
 			Expect(stamps(ctx)).To(HaveLen(5))
 			Expect(values(ctx, telem.TimeRangeMax)).To(Equal([]int64{1, 2, 30, 40, 5}))

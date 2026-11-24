@@ -524,8 +524,9 @@ func (c *clockWriter) claim(keys, next []cesium.ChannelKey) {
 	}
 }
 
-// commitStamps commits the uncommitted stamps of the clock's writer when it holds no
-// uncommitted data, and commits nothing when it does. The caller holds e.mu to write.
+// commitStamps commits the uncommitted stamps of the clock's writer and makes them
+// durable when it holds no uncommitted data, and commits nothing when it does. The
+// caller holds e.mu to write.
 func (e *clockEntry) commitStamps(ctx context.Context) error {
 	if e.w == nil || e.owner == nil {
 		return nil
@@ -533,10 +534,11 @@ func (e *clockEntry) commitStamps(ctx context.Context) error {
 	end, skipped, err := e.w.Commit(ctx, func(k cesium.ChannelKey) bool {
 		return k != e.clock
 	})
-	if err == nil && !skipped {
-		e.owner.end, e.owner.last = end, end
+	if err != nil || skipped {
+		return err
 	}
-	return err
+	e.owner.end, e.owner.last = end, end
+	return e.w.Sync(ctx)
 }
 
 // release takes the live claim of k out of the writer that holds it, and parks the
