@@ -12,7 +12,7 @@ import type { color } from "@synnaxlabs/x";
 import type { ReactElement } from "react";
 
 import { Border } from "@/schematic/node/common/border";
-import { Tank as TankPrimitive } from "@/schematic/node/vessels/tank/Primitive";
+import { Tank } from "@/schematic/node/vessels/tank";
 
 interface RenderProps extends Partial<
   Omit<
@@ -29,5 +29,5 @@ export const Box = ({
   borderRadius = Border.DEFAULT_BOX_RADIUS,
   ...rest
 }: RenderProps): ReactElement => (
-  <TankPrimitive {...rest} boxBorderRadius={borderRadius} />
+  <Tank.Primitive {...rest} boxBorderRadius={borderRadius} />
 );

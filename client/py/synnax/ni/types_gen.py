@@ -948,14 +948,10 @@ class Hardware(BaseModel):
             0 means that the device does not support the attribute.
         ao_max_rate: Is the highest analog output sample rate, in Hz. 0 means that the
             device does not support the attribute.
-        ai_voltage_ranges: Are the analog input voltage ranges of the device, ends
-            included.
-        ai_current_ranges: Are the analog input current ranges of the device, ends
-            included.
-        ao_voltage_ranges: Are the analog output voltage ranges of the device, ends
-            included.
-        ao_current_ranges: Are the analog output current ranges of the device, ends
-            included.
+        ai_voltage_ranges: Are the analog input voltage ranges of the device.
+        ai_current_ranges: Are the analog input current ranges of the device.
+        ao_voltage_ranges: Are the analog output voltage ranges of the device.
+        ao_current_ranges: Are the analog output current ranges of the device.
     """
 
     analog_inputs: list[AnalogInputPort] = Field(default_factory=list)
@@ -972,10 +968,10 @@ class Hardware(BaseModel):
         default=telem.Rate(0), ge=0, allow_inf_nan=False
     )
     ao_max_rate: telem.Rate = Field(default=telem.Rate(0), ge=0, allow_inf_nan=False)
-    ai_voltage_ranges: list[spatial.Bounds] = Field(default_factory=list)
-    ai_current_ranges: list[spatial.Bounds] = Field(default_factory=list)
-    ao_voltage_ranges: list[spatial.Bounds] = Field(default_factory=list)
-    ao_current_ranges: list[spatial.Bounds] = Field(default_factory=list)
+    ai_voltage_ranges: list[spatial.ClosedBounds] = Field(default_factory=list)
+    ai_current_ranges: list[spatial.ClosedBounds] = Field(default_factory=list)
+    ao_voltage_ranges: list[spatial.ClosedBounds] = Field(default_factory=list)
+    ao_current_ranges: list[spatial.ClosedBounds] = Field(default_factory=list)
 
 
 class CustomScale(BaseModel):
@@ -1316,7 +1312,9 @@ class CIFrequencyChannel(BaseCIChannel, CustomScale, MinMaxVal):
     units: CIFreqUnits = "Hz"
     edge: CIEdge = "Rising"
     meas_method: CIMeasMethod = "DynamicAvg"
-    meas_time: float = 0.000006
+    meas_time: telem.TimeSpan = Field(
+        default=telem.TimeSpan(6000), ge=1, le=9007199254740991
+    )
     divisor: int = Field(default=4, ge=1, le=4294967295)
     terminal: str = ""
 
@@ -1340,7 +1338,9 @@ class CIPeriodChannel(BaseCIChannel, CustomScale, MinMaxVal):
     units: CITimeUnits = "Seconds"
     starting_edge: CIEdge = "Rising"
     meas_method: CIMeasMethod = "DynamicAvg"
-    meas_time: float = 0.001000
+    meas_time: telem.TimeSpan = Field(
+        default=telem.TimeSpan(1000000), ge=1, le=9007199254740991
+    )
     divisor: int = Field(default=4, ge=1, le=4294967295)
     terminal: str = ""
 

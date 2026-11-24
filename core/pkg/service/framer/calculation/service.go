@@ -252,6 +252,10 @@ func (s *Service) handleChange(ctx context.Context, reader calcgraph.Changes) {
 			changed = append(changed, cg.Value)
 		}
 	}
+	// A delete that commits while a request holds the lock must not leave a stale
+	// calculation, so the read waits for the lock.
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	calcs, err := s.cfg.Calculation.Outputs(
 		ctx,
 		s.cfg.DB,
@@ -261,8 +265,6 @@ func (s *Service) handleChange(ctx context.Context, reader calcgraph.Changes) {
 		s.cfg.L.Error("failed to retrieve changed calculations", zap.Error(err))
 		return
 	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	running := s.mu.graph.CalculatedKeys()
 	rebuild := false
 	for _, ch := range changed {

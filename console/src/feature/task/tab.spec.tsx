@@ -21,6 +21,7 @@ import { assert, describe, expect, it } from "vitest";
 import { EtherCAT } from "@/feature/ethercat";
 import { createSlaveDevice } from "@/feature/ethercat/testutil";
 import { HTTP } from "@/feature/http";
+import { createHTTPDevice } from "@/feature/http/testutil";
 import { Task } from "@/feature/task";
 import { Panel } from "@/platform/panel";
 import type { Task as PTask } from "@/platform/task";
@@ -53,10 +54,11 @@ const TabName: FC<PTask.FormTabProps> = () => <Task.TAB.Name />;
 
 describe("task tab", () => {
   it("should render the form editor matching the task row's type", async () => {
+    const dev = await createHTTPDevice(client);
     const draft = await client.tasks.create({
       name: uniqueName("http"),
       type: HTTP.Task.READ_TYPE,
-      config: HTTP.Task.READ_SCHEMAS.config.parse({}),
+      config: { ...HTTP.Task.READ_SCHEMAS.config.parse({}), device: dev.key },
     });
     await renderContent(draft.key);
     await screen.findByRole("button", { name: "Add endpoint" });
