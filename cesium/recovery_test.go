@@ -142,6 +142,7 @@ var _ = Describe("Recovery", func() {
 			w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 				Channels: []cesium.ChannelKey{1},
 				Start:    telem.SecondTS,
+				Clock:    1,
 			}))
 			MustSucceed2(w.Write(ctx, telem.MultiFrame(
 				[]cesium.ChannelKey{1},

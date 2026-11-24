@@ -149,6 +149,7 @@ var _ = Describe("Writer on the pointer log", func() {
 			func(ctx SpecContext) {
 				w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 					Channels: []cesium.ChannelKey{idx},
+					Clock:    idx,
 					Start:    10 * telem.SecondTS,
 				}))
 				MustSucceed2(w.Write(ctx, telem.MultiFrame(
