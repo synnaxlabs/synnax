@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "schemas/synnax/channel"
 import "schemas/synnax/ranger"
 import "schemas/synnax/status"
 import "schemas/x/color"
@@ -22,8 +23,9 @@ Key = uuid {
 }
 
 Type enum {
-    range  = "range"
-    status = "status"
+    range   = "range"
+    status  = "status"
+    channel = "channel"
 
     @doc value "names the resource that a view lists."
 }
@@ -76,6 +78,16 @@ View union on type Type extends Base {
         }
 
         @doc value "is a saved view of statuses."
+    }
+    channel {
+        where  channel.Where? {
+            @doc value "selects the channels the view shows. An absent where shows all."
+        }
+        layout ChannelLayout = folders {
+            @doc value "is how the view lays out the channels."
+        }
+
+        @doc value "is a saved view of channels."
     }
 
     action Create {
@@ -138,4 +150,15 @@ Where filter View {
 
     @doc value         "is a filter that selects views."
     @go request_output "core/pkg/api/view"
+}
+
+ChannelLayout enum {
+    folders = "folders" {
+        @doc value "shows each channel under the folders that hold it."
+    }
+    list    = "list" {
+        @doc value "shows the channels in one flat list, each with its folder."
+    }
+
+    @doc value "is how a channel view shows its channels."
 }

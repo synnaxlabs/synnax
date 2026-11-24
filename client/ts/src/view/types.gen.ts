@@ -12,11 +12,12 @@
 import { color, filter, uuid, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { channel } from "@/channel";
 import { ranger } from "@/ranger";
 import { resource } from "@/resource";
 import { status } from "@/status";
 
-export const TYPES = ["range", "status"] as const;
+export const TYPES = ["range", "status", "channel"] as const;
 export const typeZ = z.enum(TYPES);
 export type Type = z.infer<typeof typeZ>;
 
@@ -31,6 +32,10 @@ export type RangeSort = z.infer<typeof rangeSortZ>;
 export const RANGE_LAYOUTS = ["tree", "list", "timeline"] as const;
 export const rangeLayoutZ = z.enum(RANGE_LAYOUTS);
 export type RangeLayout = z.infer<typeof rangeLayoutZ>;
+
+export const CHANNEL_LAYOUTS = ["folders", "list"] as const;
+export const channelLayoutZ = z.enum(CHANNEL_LAYOUTS);
+export type ChannelLayout = z.infer<typeof channelLayoutZ>;
 
 /** Order is a sort of views. */
 export const orderZ = z.object({
@@ -119,18 +124,33 @@ export const statusViewZ = baseZ.extend({
 });
 export interface StatusView extends z.infer<typeof statusViewZ> {}
 
+/** ChannelView is a saved view of channels. */
+export const channelViewZ = baseZ.extend({
+  type: z.literal("channel"),
+  /** where selects the channels the view shows. An absent where shows all. */
+  where: channel.whereZ.optional(),
+  /** layout is how the view lays out the channels. */
+  layout: channelLayoutZ.default("folders"),
+});
+export interface ChannelView extends z.infer<typeof channelViewZ> {}
+
 /**
  * View is a saved, named filter over a list of resources. The type selects the resource
  * the view lists and the shape of its where.
  */
-export const viewZ = z.discriminatedUnion("type", [rangeViewZ, statusViewZ]);
-export type View = RangeView | StatusView;
+export const viewZ = z.discriminatedUnion("type", [
+  rangeViewZ,
+  statusViewZ,
+  channelViewZ,
+]);
+export type View = RangeView | StatusView | ChannelView;
 
 export const VIEW_SCHEMAS: {
   [K in Type]: z.ZodType<Extract<View, { type: K }>>;
 } = {
   range: rangeViewZ,
   status: statusViewZ,
+  channel: channelViewZ,
 };
 
 /** RetrieveRequest is a request to retrieve views. */

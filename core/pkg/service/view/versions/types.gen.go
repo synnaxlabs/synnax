@@ -11,55 +11,69 @@
 
 package versions
 
-import "github.com/synnaxlabs/synnax/pkg/service/view/versions/v3"
+import "github.com/synnaxlabs/synnax/pkg/service/view/versions/v4"
 
 // Key is a unique identifier for a saved view configuration.
-type Key = v3.Key
+type Key = v4.Key
 
 // Type names the resource that a view lists.
-type Type = v3.Type
+type Type = v4.Type
 
 const (
-	TypeRange  Type = v3.TypeRange
-	TypeStatus Type = v3.TypeStatus
+	TypeRange   Type = v4.TypeRange
+	TypeStatus  Type = v4.TypeStatus
+	TypeChannel Type = v4.TypeChannel
 )
 
 // RangeSort is the order of the ranges in a range view.
-type RangeSort = v3.RangeSort
+type RangeSort = v4.RangeSort
 
 const (
 	// RangeSortNewest puts the range that starts latest first.
-	RangeSortNewest RangeSort = v3.RangeSortNewest
+	RangeSortNewest RangeSort = v4.RangeSortNewest
 	// RangeSortOldest puts the range that starts earliest first.
-	RangeSortOldest RangeSort = v3.RangeSortOldest
+	RangeSortOldest RangeSort = v4.RangeSortOldest
 	// RangeSortName puts the ranges in order of name.
-	RangeSortName RangeSort = v3.RangeSortName
+	RangeSortName RangeSort = v4.RangeSortName
 )
 
 // RangeLayout is how a range view shows its ranges.
-type RangeLayout = v3.RangeLayout
+type RangeLayout = v4.RangeLayout
 
 const (
 	// RangeLayoutTree shows each range under the range it is nested in.
-	RangeLayoutTree RangeLayout = v3.RangeLayoutTree
+	RangeLayoutTree RangeLayout = v4.RangeLayoutTree
 	// RangeLayoutList shows the ranges in one flat list.
-	RangeLayoutList RangeLayout = v3.RangeLayoutList
+	RangeLayoutList RangeLayout = v4.RangeLayoutList
 	// RangeLayoutTimeline shows the ranges as lanes over a time axis.
-	RangeLayoutTimeline RangeLayout = v3.RangeLayoutTimeline
+	RangeLayoutTimeline RangeLayout = v4.RangeLayoutTimeline
 )
 
 // View is a saved, named filter over a list of resources. The type selects the resource
 // the view lists and the shape of its where.
-type View = v3.View
+type View = v4.View
 
 // ViewVariant is implemented by every View variant.
-type ViewVariant = v3.ViewVariant
+type ViewVariant = v4.ViewVariant
 
 // RangeView is a saved view of ranges.
-type RangeView = v3.RangeView
+type RangeView = v4.RangeView
 
 // StatusView is a saved view of statuses.
-type StatusView = v3.StatusView
+type StatusView = v4.StatusView
+
+// ChannelView is a saved view of channels.
+type ChannelView = v4.ChannelView
 
 // Base carries the fields shared by every view variant.
-type Base = v3.Base
+type Base = v4.Base
+
+// ChannelLayout is how a channel view shows its channels.
+type ChannelLayout = v4.ChannelLayout
+
+const (
+	// ChannelLayoutFolders shows each channel under the folders that hold it.
+	ChannelLayoutFolders ChannelLayout = v4.ChannelLayoutFolders
+	// ChannelLayoutList shows the channels in one flat list, each with its folder.
+	ChannelLayoutList ChannelLayout = v4.ChannelLayoutList
+)

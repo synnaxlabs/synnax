@@ -1,0 +1,61 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.console-channel-explorer__folders {
+    min-height: 0;
+}
+
+.console-channel-explorer__list {
+    container: channel-list / inline-size;
+}
+
+.console-channel-explorer__item {
+    height: 44px;
+    padding-right: 1.5rem;
+}
+
+.console-channel-explorer__summary {
+    min-width: 0;
+}
+
+.console-channel-explorer__meta {
+    flex-shrink: 0;
+}
+
+.console-channel-explorer__data-type {
+    min-width: 7rem;
+    justify-content: flex-end;
+}
+
+.console-channel-explorer__message {
+    padding: 3rem 2rem;
+}
+
+/* In a narrow list, the data type goes first, so the name keeps its width. */
+@container channel-list (width < 48rem) {
+    .console-channel-explorer__data-type {
+        display: none;
+    }
+}
+
+/* As the frame narrows, the layout names go first. A layout without its name is a
+   square, as an icon button is. */
+@container view-frame (width < 88rem) {
+    .console-channel-explorer__layout {
+        justify-content: center;
+        min-width: var(--pluto-height-medium);
+        padding: 0;
+    }
+
+    .console-channel-explorer__layout-name {
+        display: none;
+    }
+}

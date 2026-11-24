@@ -11,16 +11,19 @@ package view_test
 
 import (
 	"context"
+	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/view"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/filter"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 	"github.com/synnaxlabs/x/validate"
@@ -171,6 +174,46 @@ var _ = Describe("Dispatch", func() {
 				"layout: invalid layout: grid",
 			),
 		)
+	})
+
+	Describe("Channel view", func() {
+		BeforeEach(func(ctx SpecContext) {
+			v = view.View{Variant: view.ChannelView{
+				Base:   view.Base{Key: uuid.New(), Name: "Channels"},
+				Layout: view.ChannelLayoutFolders,
+			}}
+			Expect(write(ctx, func(w view.Writer) error { return w.Create(ctx, &v) })).
+				To(Succeed())
+		})
+
+		It("Should store the edited where and layout", func(ctx SpecContext) {
+			floats := channel.Where{
+				DataType: &filter.Set[telem.DataType]{
+					In: []telem.DataType{telem.Float32T},
+				},
+				Grouped: new(true),
+			}
+			Expect(apply(
+				ctx,
+				set("where", floats),
+				set("layout", view.ChannelLayoutList),
+			)).To(Succeed())
+			Expect(retrieve(ctx)).To(Equal(view.View{Variant: view.ChannelView{
+				Base:   view.Base{Key: v.GorpKey(), Name: "Channels"},
+				Where:  &floats,
+				Layout: view.ChannelLayoutList,
+			}}))
+		})
+
+		It("Should refuse a layout that a channel view does not have", func(
+			ctx SpecContext,
+		) {
+			Expect(apply(ctx, set("layout", view.RangeLayoutTimeline))).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("layout: invalid layout: timeline")),
+			))
+			Expect(retrieve(ctx)).To(Equal(v))
+		})
 	})
 
 	It("Should broadcast a create and an applied batch", func(ctx SpecContext) {

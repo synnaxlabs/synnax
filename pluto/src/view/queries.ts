@@ -52,7 +52,9 @@ export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams>({
 });
 
 export type FormValues =
-  optional.Optional<view.RangeView, "key"> | optional.Optional<view.StatusView, "key">;
+  | optional.Optional<view.RangeView, "key">
+  | optional.Optional<view.StatusView, "key">
+  | optional.Optional<view.ChannelView, "key">;
 
 const nameZ = z.string().trim().min(1, "Name is required");
 
@@ -61,6 +63,7 @@ const nameZ = z.string().trim().min(1, "Name is required");
 export const formSchema: z.ZodType<FormValues> = z.discriminatedUnion("type", [
   view.rangeViewZ.partial({ key: true }).extend({ name: nameZ }),
   view.statusViewZ.partial({ key: true }).extend({ name: nameZ }),
+  view.channelViewZ.partial({ key: true }).extend({ name: nameZ }),
 ]);
 
 export const formPath = deep.path<FormValues>();

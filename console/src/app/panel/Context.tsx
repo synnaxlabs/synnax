@@ -12,6 +12,7 @@ import type { PropsWithChildren } from "react";
 import { Selector } from "@/app/selector";
 import { Settings } from "@/app/settings";
 import { Arc } from "@/feature/arc";
+import { Channel } from "@/feature/channel";
 import { ICD } from "@/feature/icd";
 import { LinePlot } from "@/feature/lineplot";
 import { Log } from "@/feature/log";
@@ -25,6 +26,7 @@ import { View } from "@/platform/view";
 
 const TABS: Panel.Tabs = {
   ...Status.TABS,
+  ...Channel.TABS,
   ...Arc.TABS,
   ...ICD.TABS,
   ...Range.TABS,
@@ -38,6 +40,7 @@ const TABS: Panel.Tabs = {
   [View.TAB_TYPE]: View.createTab({
     range: Range.Explorer.TAB,
     status: Status.Explorer.TAB,
+    channel: Channel.Explorer.TAB,
   }),
 };
 

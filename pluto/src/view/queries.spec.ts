@@ -198,6 +198,25 @@ describe("View queries", () => {
         color: color.construct("#00ff00"),
       });
     });
+    it("should save the filter and layout of a channel view", async () => {
+      const view = await client.views.create({ name: "channel-view", type: "channel" });
+      const { result } = renderHook(() => View.useForm({ query: { key: view.key } }), {
+        wrapper,
+      });
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      const channels = deep.variant(path, "type", "channel");
+      act(() => {
+        result.current.form.set(path.where, { grouped: false });
+        result.current.form.set(channels.layout, "list");
+      });
+      await act(async () => expect(await result.current.saveAsync()).toBe(true));
+      expect(await createTestClient().views.retrieve(view.key)).toEqual({
+        ...view,
+        where: { grouped: false },
+        layout: "list",
+      });
+    });
+
     it("should update the form when the view is updated externally", async () => {
       const existing = await client.views.create({
         name: "existing-view",

@@ -12,6 +12,7 @@ import type { Draft } from "immer";
 import { z } from "zod";
 
 import { actions } from "@/actions";
+import { channel } from "@/channel";
 import { ranger } from "@/ranger";
 import { status } from "@/status";
 import {
@@ -20,7 +21,13 @@ import {
   type HandlerResult,
   type Handlers,
 } from "@/view/actions.gen";
-import { rangeLayoutZ, rangeSortZ, type Type, type View } from "@/view/types.gen";
+import {
+  channelLayoutZ,
+  rangeLayoutZ,
+  rangeSortZ,
+  type Type,
+  type View,
+} from "@/view/types.gen";
 
 const BASE = {
   name: z.string(),
@@ -38,6 +45,11 @@ const DOCUMENTS: Record<Type, z.ZodObject> = {
     layout: rangeLayoutZ,
   }),
   status: z.object({ ...BASE, where: zod.nullToUndefined(status.whereZ) }),
+  channel: z.object({
+    ...BASE,
+    where: zod.nullToUndefined(channel.whereZ),
+    layout: channelLayoutZ,
+  }),
 };
 
 const applyPath = (state: Draft<View>, action: patch.Action): HandlerResult =>
@@ -50,7 +62,8 @@ const handlers: Handlers = {
 
 /**
  * Applies actions to a view in order. Path actions edit only the view's name, icon,
- * color, and filter, and the sort and layout of a range view.
+ * color, and filter, the sort and layout of a range view, and the layout of a channel
+ * view.
  * @throws {Error} if the view cannot hold an action, such as a set of its key.
  */
 export const reduceAll = createReduceAll(handlers);

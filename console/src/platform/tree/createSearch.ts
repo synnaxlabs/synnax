@@ -22,6 +22,7 @@ import type {
   Placement,
   Search,
   SearchAnswer,
+  SearchInput,
   SearchLayout,
   UseSearch,
 } from "@/platform/tree/search";
@@ -140,9 +141,15 @@ interface Held {
 const nameKey = ({ key, name }: Resource): string => `${key}\t${name}`;
 
 // Names what the results show, so a change to it rebuilds them.
-const keyOf = (term: string, matches: Resource[], placement: Placement): string =>
+const keyOf = (
+  term: string,
+  filter: unknown,
+  matches: Resource[],
+  placement: Placement,
+): string =>
   JSON.stringify([
     term,
+    filter,
     matches.map(nameKey),
     placement.resources.map(nameKey),
     placement.paths,
@@ -161,25 +168,29 @@ const useDebounced = (value: string): string => {
  * Declares the search of a tree. Call it at module scope, and call the hook it returns
  * where both the search field and the tree can read its state.
  */
-export const createSearch = ({
+export const createSearch = <F = never>({
   noun,
   useMatches,
   usePlacement,
-}: CreateSearchParams): UseSearch => {
-  const useSearch = (root: resource.ID | null): Search => {
+}: CreateSearchParams<F>): UseSearch<F> => {
+  const useSearch = (root: resource.ID | null, input?: SearchInput<F>): Search => {
     const items = useItems();
-    const [open, setOpen] = useState(false);
-    const [term, setTerm] = useState("");
-    const [layout, setLayout] = useState<SearchLayout>("flat");
+    const [fieldOpen, setOpen] = useState(false);
+    const [fieldTerm, setTerm] = useState("");
+    const [fieldLayout, setLayout] = useState<SearchLayout>("flat");
     const fieldRef = useRef<HTMLInputElement>(null);
     const resultsRef = useRef<HTMLDivElement>(null);
     const treeRef = useRef<HTMLDivElement>(null);
-    const searching = open && term.trim() !== "";
+    const open = input != null || fieldOpen;
+    const term = input?.term ?? fieldTerm;
+    const filter = input?.filter;
+    const layout = input?.layout ?? fieldLayout;
+    const searching = open && (term.trim() !== "" || filter != null);
     const trimmed = useDebounced(term).trim();
     const sources = useMatches(
-      !open || root == null || trimmed === ""
+      !open || root == null || (trimmed === "" && filter == null)
         ? null
-        : { term: trimmed, root, limit: LIMIT + 1 },
+        : { term: trimmed, root, limit: LIMIT + 1, filter },
     );
     const found = sources.every(isFound)
       ? unique.by(
@@ -193,7 +204,9 @@ export const createSearch = ({
     );
     const placement = placed.variant === "success" ? placed.placement : null;
     const key =
-      shown == null || placement == null ? null : keyOf(trimmed, shown, placement);
+      shown == null || placement == null
+        ? null
+        : keyOf(trimmed, filter, shown, placement);
     const more = found != null && found.length > LIMIT;
 
     // The last answer shows until the next one is placed, so the results never blank

@@ -11,6 +11,7 @@ package view
 
 import (
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/errors"
@@ -67,6 +68,12 @@ type rangeDocument struct {
 	Layout RangeLayout `json:"layout"`
 }
 
+// channelDocument is the part of a channel view that path actions edit.
+type channelDocument struct {
+	document[channel.Where]
+	Layout ChannelLayout `json:"layout"`
+}
+
 // edit applies a path action to a copy of the view's document. A document that gains a
 // member it does not declare, such as a path to the view's type, is rejected.
 func edit(v View, apply func(map[string]any) error) (View, error) {
@@ -85,6 +92,20 @@ func edit(v View, apply func(map[string]any) error) (View, error) {
 		}
 		variant.Base, variant.Where = d.base(variant.Key), d.Where
 		variant.Sort, variant.Layout = d.Sort, d.Layout
+		return View{Variant: variant}, nil
+	case ChannelView:
+		d, err := patch.Edit(
+			channelDocument{
+				document: newDocument(variant.Base, variant.Where),
+				Layout:   variant.Layout,
+			},
+			apply,
+		)
+		if err != nil {
+			return View{}, err
+		}
+		variant.Base, variant.Where = d.base(variant.Key), d.Where
+		variant.Layout = d.Layout
 		return View{Variant: variant}, nil
 	case StatusView:
 		d, err := patch.Edit(newDocument(variant.Base, variant.Where), apply)

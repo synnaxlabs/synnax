@@ -781,7 +781,8 @@ func (x *GroupKeyList) GetValues() []string {
 	return nil
 }
 
-// Where is a filter that selects channels.
+// Where is a filter that selects channels. A saved channel view stores it. The
+// migration that ends index channels drops is_index from each stored filter.
 type Where struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// and matches when every child matches.

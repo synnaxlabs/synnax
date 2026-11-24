@@ -22,6 +22,7 @@ import (
 	node "github.com/synnaxlabs/synnax/pkg/service/node/versions/v0"
 	control "github.com/synnaxlabs/x/control/versions/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
+	filter "github.com/synnaxlabs/x/filter/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/testutil"
 )
@@ -64,6 +65,184 @@ var _ = Describe("Codec", func() {
 			}),
 		)
 	})
+	Describe("Where", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v2.Where) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v2.Where
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", v2.Where{
+				And: []v2.Where{
+					{
+						And: []v2.Where{{}},
+						Or:  []v2.Where{{}},
+						Not: new(v2.Where{}),
+						Key: new(filter.Set[v2.Key]{Eq: new(v2.Key(7)), In: []v2.Key{v2.Key(8)}}),
+						Name: new(filter.String{
+							Eq:              new(string("test_9")),
+							In:              []string{"test_10"},
+							Contains:        new(string("test_11")),
+							StartsWith:      new(string("test_12")),
+							Regex:           new(string("test_13")),
+							CaseInsensitive: false,
+						}),
+						Leaseholder: new(filter.Set[node.Key]{Eq: new(node.Key(17)), In: []node.Key{node.Key(18)}}),
+						DataType: new(filter.Set[telem.DataType]{
+							Eq: new(telem.DataType("test_19")),
+							In: []telem.DataType{telem.DataType("test_20")},
+						}),
+						IsIndex:  new(filter.Bool{Eq: new(bool(false))}),
+						Internal: new(filter.Bool{Eq: new(bool(false))}),
+						Virtual:  new(bool(true)),
+						Path:     new(filter.Set[string]{Eq: new(string("test_27")), In: []string{"test_28"}}),
+						Groups:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781d")},
+						Grouped:  new(bool(false)),
+					},
+				},
+				Or: []v2.Where{
+					{
+						And: []v2.Where{{}},
+						Or:  []v2.Where{{}},
+						Not: new(v2.Where{}),
+						Key: new(filter.Set[v2.Key]{Eq: new(v2.Key(37)), In: []v2.Key{v2.Key(38)}}),
+						Name: new(filter.String{
+							Eq:              new(string("test_39")),
+							In:              []string{"test_40"},
+							Contains:        new(string("test_41")),
+							StartsWith:      new(string("test_42")),
+							Regex:           new(string("test_43")),
+							CaseInsensitive: false,
+						}),
+						Leaseholder: new(filter.Set[node.Key]{Eq: new(node.Key(47)), In: []node.Key{node.Key(48)}}),
+						DataType: new(filter.Set[telem.DataType]{
+							Eq: new(telem.DataType("test_49")),
+							In: []telem.DataType{telem.DataType("test_50")},
+						}),
+						IsIndex:  new(filter.Bool{Eq: new(bool(false))}),
+						Internal: new(filter.Bool{Eq: new(bool(false))}),
+						Virtual:  new(bool(true)),
+						Path:     new(filter.Set[string]{Eq: new(string("test_57")), In: []string{"test_58"}}),
+						Groups:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456783b")},
+						Grouped:  new(bool(false)),
+					},
+				},
+				Not: new(v2.Where{
+					And: []v2.Where{{}},
+					Or:  []v2.Where{{}},
+					Not: new(v2.Where{}),
+					Key: new(filter.Set[v2.Key]{Eq: new(v2.Key(67)), In: []v2.Key{v2.Key(68)}}),
+					Name: new(filter.String{
+						Eq:              new(string("test_69")),
+						In:              []string{"test_70"},
+						Contains:        new(string("test_71")),
+						StartsWith:      new(string("test_72")),
+						Regex:           new(string("test_73")),
+						CaseInsensitive: false,
+					}),
+					Leaseholder: new(filter.Set[node.Key]{Eq: new(node.Key(77)), In: []node.Key{node.Key(78)}}),
+					DataType: new(filter.Set[telem.DataType]{
+						Eq: new(telem.DataType("test_79")),
+						In: []telem.DataType{telem.DataType("test_80")},
+					}),
+					IsIndex:  new(filter.Bool{Eq: new(bool(false))}),
+					Internal: new(filter.Bool{Eq: new(bool(false))}),
+					Virtual:  new(bool(true)),
+					Path:     new(filter.Set[string]{Eq: new(string("test_87")), In: []string{"test_88"}}),
+					Groups:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567859")},
+					Grouped:  new(bool(false)),
+				}),
+				Key: new(filter.Set[v2.Key]{Eq: new(v2.Key(93)), In: []v2.Key{v2.Key(94)}}),
+				Name: new(filter.String{
+					Eq:              new(string("test_95")),
+					In:              []string{"test_96"},
+					Contains:        new(string("test_97")),
+					StartsWith:      new(string("test_98")),
+					Regex:           new(string("test_99")),
+					CaseInsensitive: false,
+				}),
+				Leaseholder: new(filter.Set[node.Key]{Eq: new(node.Key(103)), In: []node.Key{node.Key(104)}}),
+				DataType: new(filter.Set[telem.DataType]{
+					Eq: new(telem.DataType("test_105")),
+					In: []telem.DataType{telem.DataType("test_106")},
+				}),
+				IsIndex:  new(filter.Bool{Eq: new(bool(false))}),
+				Internal: new(filter.Bool{Eq: new(bool(false))}),
+				Virtual:  new(bool(true)),
+				Path:     new(filter.Set[string]{Eq: new(string("test_113")), In: []string{"test_114"}}),
+				Groups:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567873")},
+				Grouped:  new(bool(false)),
+			}),
+			Entry("zero values", v2.Where{
+				And:         []v2.Where{},
+				Or:          []v2.Where{},
+				Not:         nil,
+				Key:         nil,
+				Name:        nil,
+				Leaseholder: nil,
+				DataType:    nil,
+				IsIndex:     nil,
+				Internal:    nil,
+				Virtual:     nil,
+				Path:        nil,
+				Groups:      []uuid.UUID{},
+				Grouped:     nil,
+			}),
+			Entry("empty collections", v2.Where{
+				And: []v2.Where{},
+				Or:  []v2.Where{},
+				Not: new(v2.Where{
+					And: []v2.Where{},
+					Or:  []v2.Where{},
+					Not: new(v2.Where{}),
+					Key: new(filter.Set[v2.Key]{Eq: new(v2.Key(9)), In: []v2.Key{}}),
+					Name: new(filter.String{
+						Eq:              new(string("test_11")),
+						In:              []string{},
+						Contains:        new(string("test_13")),
+						StartsWith:      new(string("test_14")),
+						Regex:           new(string("test_15")),
+						CaseInsensitive: false,
+					}),
+					Leaseholder: new(filter.Set[node.Key]{Eq: new(node.Key(19)), In: []node.Key{}}),
+					DataType: new(filter.Set[telem.DataType]{
+						Eq: new(telem.DataType("test_21")),
+						In: []telem.DataType{},
+					}),
+					IsIndex:  new(filter.Bool{Eq: new(bool(false))}),
+					Internal: new(filter.Bool{Eq: new(bool(false))}),
+					Virtual:  new(bool(true)),
+					Path:     new(filter.Set[string]{Eq: new(string("test_29")), In: []string{}}),
+					Groups:   []uuid.UUID{},
+					Grouped:  new(bool(false)),
+				}),
+				Key: new(filter.Set[v2.Key]{Eq: new(v2.Key(35)), In: []v2.Key{}}),
+				Name: new(filter.String{
+					Eq:              new(string("test_37")),
+					In:              []string{},
+					Contains:        new(string("test_39")),
+					StartsWith:      new(string("test_40")),
+					Regex:           new(string("test_41")),
+					CaseInsensitive: false,
+				}),
+				Leaseholder: new(filter.Set[node.Key]{Eq: new(node.Key(45)), In: []node.Key{}}),
+				DataType: new(filter.Set[telem.DataType]{
+					Eq: new(telem.DataType("test_47")),
+					In: []telem.DataType{},
+				}),
+				IsIndex:  new(filter.Bool{Eq: new(bool(false))}),
+				Internal: new(filter.Bool{Eq: new(bool(false))}),
+				Virtual:  new(bool(true)),
+				Path:     new(filter.Set[string]{Eq: new(string("test_55")), In: []string{}}),
+				Groups:   []uuid.UUID{},
+				Grouped:  new(bool(false)),
+			}),
+		)
+	})
 })
 
 func BenchmarkEncodeDecodeChannel(b *testing.B) {
@@ -87,6 +266,123 @@ func BenchmarkEncodeDecodeChannel(b *testing.B) {
 			b.Fatal(err)
 		}
 		var decoded v2.Channel
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeWhere(b *testing.B) {
+	seed := v2.Where{
+		And: []v2.Where{
+			{
+				And: []v2.Where{{}},
+				Or:  []v2.Where{{}},
+				Not: new(v2.Where{}),
+				Key: new(filter.Set[v2.Key]{Eq: new(v2.Key(7)), In: []v2.Key{v2.Key(8)}}),
+				Name: new(filter.String{
+					Eq:              new(string("test_9")),
+					In:              []string{"test_10"},
+					Contains:        new(string("test_11")),
+					StartsWith:      new(string("test_12")),
+					Regex:           new(string("test_13")),
+					CaseInsensitive: false,
+				}),
+				Leaseholder: new(filter.Set[node.Key]{Eq: new(node.Key(17)), In: []node.Key{node.Key(18)}}),
+				DataType: new(filter.Set[telem.DataType]{
+					Eq: new(telem.DataType("test_19")),
+					In: []telem.DataType{telem.DataType("test_20")},
+				}),
+				IsIndex:  new(filter.Bool{Eq: new(bool(false))}),
+				Internal: new(filter.Bool{Eq: new(bool(false))}),
+				Virtual:  new(bool(true)),
+				Path:     new(filter.Set[string]{Eq: new(string("test_27")), In: []string{"test_28"}}),
+				Groups:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781d")},
+				Grouped:  new(bool(false)),
+			},
+		},
+		Or: []v2.Where{
+			{
+				And: []v2.Where{{}},
+				Or:  []v2.Where{{}},
+				Not: new(v2.Where{}),
+				Key: new(filter.Set[v2.Key]{Eq: new(v2.Key(37)), In: []v2.Key{v2.Key(38)}}),
+				Name: new(filter.String{
+					Eq:              new(string("test_39")),
+					In:              []string{"test_40"},
+					Contains:        new(string("test_41")),
+					StartsWith:      new(string("test_42")),
+					Regex:           new(string("test_43")),
+					CaseInsensitive: false,
+				}),
+				Leaseholder: new(filter.Set[node.Key]{Eq: new(node.Key(47)), In: []node.Key{node.Key(48)}}),
+				DataType: new(filter.Set[telem.DataType]{
+					Eq: new(telem.DataType("test_49")),
+					In: []telem.DataType{telem.DataType("test_50")},
+				}),
+				IsIndex:  new(filter.Bool{Eq: new(bool(false))}),
+				Internal: new(filter.Bool{Eq: new(bool(false))}),
+				Virtual:  new(bool(true)),
+				Path:     new(filter.Set[string]{Eq: new(string("test_57")), In: []string{"test_58"}}),
+				Groups:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456783b")},
+				Grouped:  new(bool(false)),
+			},
+		},
+		Not: new(v2.Where{
+			And: []v2.Where{{}},
+			Or:  []v2.Where{{}},
+			Not: new(v2.Where{}),
+			Key: new(filter.Set[v2.Key]{Eq: new(v2.Key(67)), In: []v2.Key{v2.Key(68)}}),
+			Name: new(filter.String{
+				Eq:              new(string("test_69")),
+				In:              []string{"test_70"},
+				Contains:        new(string("test_71")),
+				StartsWith:      new(string("test_72")),
+				Regex:           new(string("test_73")),
+				CaseInsensitive: false,
+			}),
+			Leaseholder: new(filter.Set[node.Key]{Eq: new(node.Key(77)), In: []node.Key{node.Key(78)}}),
+			DataType: new(filter.Set[telem.DataType]{
+				Eq: new(telem.DataType("test_79")),
+				In: []telem.DataType{telem.DataType("test_80")},
+			}),
+			IsIndex:  new(filter.Bool{Eq: new(bool(false))}),
+			Internal: new(filter.Bool{Eq: new(bool(false))}),
+			Virtual:  new(bool(true)),
+			Path:     new(filter.Set[string]{Eq: new(string("test_87")), In: []string{"test_88"}}),
+			Groups:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567859")},
+			Grouped:  new(bool(false)),
+		}),
+		Key: new(filter.Set[v2.Key]{Eq: new(v2.Key(93)), In: []v2.Key{v2.Key(94)}}),
+		Name: new(filter.String{
+			Eq:              new(string("test_95")),
+			In:              []string{"test_96"},
+			Contains:        new(string("test_97")),
+			StartsWith:      new(string("test_98")),
+			Regex:           new(string("test_99")),
+			CaseInsensitive: false,
+		}),
+		Leaseholder: new(filter.Set[node.Key]{Eq: new(node.Key(103)), In: []node.Key{node.Key(104)}}),
+		DataType: new(filter.Set[telem.DataType]{
+			Eq: new(telem.DataType("test_105")),
+			In: []telem.DataType{telem.DataType("test_106")},
+		}),
+		IsIndex:  new(filter.Bool{Eq: new(bool(false))}),
+		Internal: new(filter.Bool{Eq: new(bool(false))}),
+		Virtual:  new(bool(true)),
+		Path:     new(filter.Set[string]{Eq: new(string("test_113")), In: []string{"test_114"}}),
+		Groups:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567873")},
+		Grouped:  new(bool(false)),
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v2.Where
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -145,6 +441,215 @@ func FuzzDecodeChannel(f *testing.F) {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded v2.Channel
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeWhere(f *testing.F) {
+	{
+		seed := v2.Where{
+			And: []v2.Where{
+				{
+					And: []v2.Where{{}},
+					Or:  []v2.Where{{}},
+					Not: new(v2.Where{}),
+					Key: new(filter.Set[v2.Key]{Eq: new(v2.Key(7)), In: []v2.Key{v2.Key(8)}}),
+					Name: new(filter.String{
+						Eq:              new(string("test_9")),
+						In:              []string{"test_10"},
+						Contains:        new(string("test_11")),
+						StartsWith:      new(string("test_12")),
+						Regex:           new(string("test_13")),
+						CaseInsensitive: false,
+					}),
+					Leaseholder: new(filter.Set[node.Key]{Eq: new(node.Key(17)), In: []node.Key{node.Key(18)}}),
+					DataType: new(filter.Set[telem.DataType]{
+						Eq: new(telem.DataType("test_19")),
+						In: []telem.DataType{telem.DataType("test_20")},
+					}),
+					IsIndex:  new(filter.Bool{Eq: new(bool(false))}),
+					Internal: new(filter.Bool{Eq: new(bool(false))}),
+					Virtual:  new(bool(true)),
+					Path:     new(filter.Set[string]{Eq: new(string("test_27")), In: []string{"test_28"}}),
+					Groups:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781d")},
+					Grouped:  new(bool(false)),
+				},
+			},
+			Or: []v2.Where{
+				{
+					And: []v2.Where{{}},
+					Or:  []v2.Where{{}},
+					Not: new(v2.Where{}),
+					Key: new(filter.Set[v2.Key]{Eq: new(v2.Key(37)), In: []v2.Key{v2.Key(38)}}),
+					Name: new(filter.String{
+						Eq:              new(string("test_39")),
+						In:              []string{"test_40"},
+						Contains:        new(string("test_41")),
+						StartsWith:      new(string("test_42")),
+						Regex:           new(string("test_43")),
+						CaseInsensitive: false,
+					}),
+					Leaseholder: new(filter.Set[node.Key]{Eq: new(node.Key(47)), In: []node.Key{node.Key(48)}}),
+					DataType: new(filter.Set[telem.DataType]{
+						Eq: new(telem.DataType("test_49")),
+						In: []telem.DataType{telem.DataType("test_50")},
+					}),
+					IsIndex:  new(filter.Bool{Eq: new(bool(false))}),
+					Internal: new(filter.Bool{Eq: new(bool(false))}),
+					Virtual:  new(bool(true)),
+					Path:     new(filter.Set[string]{Eq: new(string("test_57")), In: []string{"test_58"}}),
+					Groups:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456783b")},
+					Grouped:  new(bool(false)),
+				},
+			},
+			Not: new(v2.Where{
+				And: []v2.Where{{}},
+				Or:  []v2.Where{{}},
+				Not: new(v2.Where{}),
+				Key: new(filter.Set[v2.Key]{Eq: new(v2.Key(67)), In: []v2.Key{v2.Key(68)}}),
+				Name: new(filter.String{
+					Eq:              new(string("test_69")),
+					In:              []string{"test_70"},
+					Contains:        new(string("test_71")),
+					StartsWith:      new(string("test_72")),
+					Regex:           new(string("test_73")),
+					CaseInsensitive: false,
+				}),
+				Leaseholder: new(filter.Set[node.Key]{Eq: new(node.Key(77)), In: []node.Key{node.Key(78)}}),
+				DataType: new(filter.Set[telem.DataType]{
+					Eq: new(telem.DataType("test_79")),
+					In: []telem.DataType{telem.DataType("test_80")},
+				}),
+				IsIndex:  new(filter.Bool{Eq: new(bool(false))}),
+				Internal: new(filter.Bool{Eq: new(bool(false))}),
+				Virtual:  new(bool(true)),
+				Path:     new(filter.Set[string]{Eq: new(string("test_87")), In: []string{"test_88"}}),
+				Groups:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567859")},
+				Grouped:  new(bool(false)),
+			}),
+			Key: new(filter.Set[v2.Key]{Eq: new(v2.Key(93)), In: []v2.Key{v2.Key(94)}}),
+			Name: new(filter.String{
+				Eq:              new(string("test_95")),
+				In:              []string{"test_96"},
+				Contains:        new(string("test_97")),
+				StartsWith:      new(string("test_98")),
+				Regex:           new(string("test_99")),
+				CaseInsensitive: false,
+			}),
+			Leaseholder: new(filter.Set[node.Key]{Eq: new(node.Key(103)), In: []node.Key{node.Key(104)}}),
+			DataType: new(filter.Set[telem.DataType]{
+				Eq: new(telem.DataType("test_105")),
+				In: []telem.DataType{telem.DataType("test_106")},
+			}),
+			IsIndex:  new(filter.Bool{Eq: new(bool(false))}),
+			Internal: new(filter.Bool{Eq: new(bool(false))}),
+			Virtual:  new(bool(true)),
+			Path:     new(filter.Set[string]{Eq: new(string("test_113")), In: []string{"test_114"}}),
+			Groups:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567873")},
+			Grouped:  new(bool(false)),
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v2.Where{
+			And:         []v2.Where{},
+			Or:          []v2.Where{},
+			Not:         nil,
+			Key:         nil,
+			Name:        nil,
+			Leaseholder: nil,
+			DataType:    nil,
+			IsIndex:     nil,
+			Internal:    nil,
+			Virtual:     nil,
+			Path:        nil,
+			Groups:      []uuid.UUID{},
+			Grouped:     nil,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v2.Where{
+			And: []v2.Where{},
+			Or:  []v2.Where{},
+			Not: new(v2.Where{
+				And: []v2.Where{},
+				Or:  []v2.Where{},
+				Not: new(v2.Where{}),
+				Key: new(filter.Set[v2.Key]{Eq: new(v2.Key(9)), In: []v2.Key{}}),
+				Name: new(filter.String{
+					Eq:              new(string("test_11")),
+					In:              []string{},
+					Contains:        new(string("test_13")),
+					StartsWith:      new(string("test_14")),
+					Regex:           new(string("test_15")),
+					CaseInsensitive: false,
+				}),
+				Leaseholder: new(filter.Set[node.Key]{Eq: new(node.Key(19)), In: []node.Key{}}),
+				DataType: new(filter.Set[telem.DataType]{
+					Eq: new(telem.DataType("test_21")),
+					In: []telem.DataType{},
+				}),
+				IsIndex:  new(filter.Bool{Eq: new(bool(false))}),
+				Internal: new(filter.Bool{Eq: new(bool(false))}),
+				Virtual:  new(bool(true)),
+				Path:     new(filter.Set[string]{Eq: new(string("test_29")), In: []string{}}),
+				Groups:   []uuid.UUID{},
+				Grouped:  new(bool(false)),
+			}),
+			Key: new(filter.Set[v2.Key]{Eq: new(v2.Key(35)), In: []v2.Key{}}),
+			Name: new(filter.String{
+				Eq:              new(string("test_37")),
+				In:              []string{},
+				Contains:        new(string("test_39")),
+				StartsWith:      new(string("test_40")),
+				Regex:           new(string("test_41")),
+				CaseInsensitive: false,
+			}),
+			Leaseholder: new(filter.Set[node.Key]{Eq: new(node.Key(45)), In: []node.Key{}}),
+			DataType: new(filter.Set[telem.DataType]{
+				Eq: new(telem.DataType("test_47")),
+				In: []telem.DataType{},
+			}),
+			IsIndex:  new(filter.Bool{Eq: new(bool(false))}),
+			Internal: new(filter.Bool{Eq: new(bool(false))}),
+			Virtual:  new(bool(true)),
+			Path:     new(filter.Set[string]{Eq: new(string("test_55")), In: []string{}}),
+			Groups:   []uuid.UUID{},
+			Grouped:  new(bool(false)),
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v2.Where
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v2.Where
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)

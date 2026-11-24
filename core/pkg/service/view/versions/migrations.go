@@ -15,6 +15,7 @@ import (
 	v1 "github.com/synnaxlabs/synnax/pkg/service/view/versions/v1"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/view/versions/v2"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/view/versions/v3"
+	v4 "github.com/synnaxlabs/synnax/pkg/service/view/versions/v4"
 )
 
 // Migrations is the ordered migration chain for stored views.
@@ -25,4 +26,5 @@ var Migrations = []gorp.Migration{
 	v1.Migration,
 	v2.Migration,
 	v3.Migration,
+	v4.Migration,
 }

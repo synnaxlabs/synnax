@@ -8,8 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { channel } from "@synnaxlabs/client";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { Access, Channel as PChannel } from "@synnaxlabs/pluto";
 
+import { Explorer } from "@/feature/channel/explorer";
 import { Channel as PlatformChannel } from "@/platform/channel";
 import { Command } from "@/platform/command";
 
@@ -31,4 +33,12 @@ const CreateCalculatedCommand = Command.create({
   useVisible,
 });
 
-export const COMMANDS = [CreateCommand, CreateCalculatedCommand];
+const OpenExplorerCommand = Command.create({
+  key: "open_channel_explorer",
+  name: "Open channel explorer",
+  icon: <Icon.Channel />,
+  useOnSelect: Explorer.useOpenTab,
+  useVisible: () => Access.useRetrieveGranted(channel.TYPE_RESOURCE_ID),
+});
+
+export const COMMANDS = [CreateCommand, CreateCalculatedCommand, OpenExplorerCommand];

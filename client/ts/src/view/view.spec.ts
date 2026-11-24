@@ -209,6 +209,43 @@ describe("View", () => {
     });
   });
 
+  describe("channel view", () => {
+    it("should store a channel filter and default to the folders layout", async () => {
+      const client = createTestClient();
+      const folder = uuid.create();
+      const v = await client.views.create({
+        name: "Channels",
+        type: "channel",
+        where: { groups: [folder], virtual: false },
+      });
+      const stored = await createTestClient().views.retrieve({ key: v.key });
+      expect(stored).toMatchObject({
+        type: "channel",
+        where: { groups: [folder], virtual: false },
+        layout: "folders",
+      });
+    });
+
+    it("should set the filter and layout of a channel view", async () => {
+      const client = createTestClient();
+      const v = await client.views.create({ name: "view-channel", type: "channel" });
+      await client.views.dispatch(v.key, [
+        view.set({ path: ["where"], value: { grouped: false } }),
+        view.set({ path: ["layout"], value: "list" }),
+      ]);
+      const stored = await createTestClient().views.retrieve({ key: v.key });
+      expect(stored).toMatchObject({ where: { grouped: false }, layout: "list" });
+    });
+
+    it("should reject a layout that a channel view does not have", async () => {
+      const client = createTestClient();
+      const v = await client.views.create({ name: "view-channel", type: "channel" });
+      await expect(
+        client.views.dispatch(v.key, view.set({ path: ["layout"], value: "timeline" })),
+      ).rejects.toThrow("layout");
+    });
+  });
+
   describe("delete", () => {
     it("should delete a single view", async () => {
       const client = createTestClient();

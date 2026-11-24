@@ -96,7 +96,8 @@ class CountLimitedResponse(BaseModel):
 
 
 class Where(BaseModel):
-    """Is a filter that selects channels.
+    """Is a filter that selects channels. A saved channel view stores it. The migration
+    that ends index channels drops is_index from each stored filter.
 
     Attributes:
         and_: Matches when every child matches.

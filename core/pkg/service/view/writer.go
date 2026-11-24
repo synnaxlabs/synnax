@@ -15,6 +15,7 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/errors"
@@ -127,6 +128,10 @@ func (w Writer) validate(v View) error {
 	case StatusView:
 		if variant.Where != nil {
 			_, err = status.MatchWhere[any](*variant.Where)
+		}
+	case ChannelView:
+		if variant.Where != nil {
+			_, err = channel.MatchWhere(*variant.Where)
 		}
 	default:
 		return errors.Newf("view %s has the unknown variant %T", v.Base().Key, variant)

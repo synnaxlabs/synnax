@@ -55,7 +55,7 @@ const PROPERTIES: View.Filter.Properties<ranger.Where> = {
 };
 
 const Inner = (): ReactElement => {
-  const [where, setWhere] = useState(View.useContext().getInitialView().where);
+  const [where, setWhere] = useState(View.useInitialView("range").where);
   const listProps = Flux.useList((client) => client.ranges, {
     name: "ranges",
     query: { where },
