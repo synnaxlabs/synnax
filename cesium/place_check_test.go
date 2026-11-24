@@ -80,6 +80,7 @@ var _ = Describe("Check: the place of each segment block", func() {
 		}
 		w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 			Channels: keys,
+			Clock:    idx,
 			Start:    stamps[0],
 		}))
 		MustSucceed2(w.Write(ctx, telem.MultiFrame(
