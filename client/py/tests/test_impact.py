@@ -113,7 +113,10 @@ class TestImpact:
             )
         )
         username, password = str(uuid4()), "impact"
-        client.users.create(username=username, password=password, role=role.key)
+        user = client.users.create(name="Impact", role=role.key)
+        client.auth.passwords.create(
+            username, password, subject=sy.user.resource_id(user.key)
+        )
         user_client = sy.Synnax(
             host=HOST, port=PORT, username=username, password=password, secure=False
         )
