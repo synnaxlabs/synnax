@@ -8,28 +8,22 @@
 // included in the file licenses/APL.txt.
 
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { waitFor } from "@testing-library/react";
-import { describe, expect, it, onTestFailed, onTestFinished, vi } from "vitest";
+import { sleep, TimeSpan } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
+import { describe, expect, it } from "vitest";
 
-import { createRunningRack } from "@/platform/device/testutil";
+import { startRackHeartbeat } from "@/platform/device/testutil";
 
-const client = createTestClient();
-
-describe("createRunningRack", () => {
-  const cause = new Error("status write refused");
-  let reported: unknown[] = [];
-
-  it.fails("should fail the test that owns a rack whose report fails", async () => {
-    onTestFailed(({ task }) => {
-      reported = task.result?.errors?.map((e) => e.message) ?? [];
+describe("startRackHeartbeat", () => {
+  it("should reject stop with the error of a report that failed", async () => {
+    const client = createTestClient();
+    const rck = await client.racks.create({
+      name: uniqueName("rack"),
+      integrations: [],
     });
-    await createRunningRack(client, "sift");
-    const set = vi.spyOn(client.statuses, "set").mockRejectedValueOnce(cause);
-    onTestFinished(() => set.mockRestore());
-    await waitFor(() => expect(set).toHaveBeenCalled());
-  });
-
-  it("should report the error of the failed report", () => {
-    expect(reported).toEqual([cause.message]);
+    const stop = await startRackHeartbeat(client, rck);
+    await client.close();
+    await sleep.sleep(TimeSpan.seconds(1.5));
+    await expect(stop()).rejects.toThrow("no credentials");
   });
 });

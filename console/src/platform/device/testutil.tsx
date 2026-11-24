@@ -64,13 +64,14 @@ const reportRackRunning = async (client: Synnax, r: rack.Rack): Promise<void> =>
 const HEARTBEAT_PERIOD = TimeSpan.seconds(1);
 
 /**
- * Reports the rack as running at the rate of a Driver until the test ends. A report
- * that fails fails the test, with the error of the first failed report.
+ * Reports the rack as running at the rate of a Driver until the returned stop runs.
+ * Stop ends the reports, waits for the one in flight, and rejects with the error of the
+ * first report that failed.
  */
 export const startRackHeartbeat = async (
   client: Synnax,
   r: rack.Rack,
-): Promise<void> => {
+): Promise<() => Promise<void>> => {
   await reportRackRunning(client, r);
   let tick: Promise<void> | null = null;
   let failure: Error | null = null;
@@ -85,16 +86,16 @@ export const startRackHeartbeat = async (
         tick = null;
       });
   }, HEARTBEAT_PERIOD.milliseconds);
-  onTestFinished(async () => {
+  return async () => {
     clearInterval(interval);
     await tick;
     if (failure != null) throw failure;
-  });
+  };
 };
 
 /**
  * Creates a rack on the live Core whose Driver reports as running with the integration
- * until the test ends. Call it inside a test.
+ * until the test ends. A failed report fails the test. Call it inside a test.
  */
 export const createRunningRack = async (
   client: Synnax,
@@ -104,7 +105,7 @@ export const createRunningRack = async (
     name: uniqueName("rack"),
     integrations: [integration],
   });
-  await startRackHeartbeat(client, r);
+  onTestFinished(await startRackHeartbeat(client, r));
   return r;
 };
 
