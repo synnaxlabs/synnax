@@ -112,6 +112,10 @@ var legacySecrets = map[string]struct{ key, plain string }{
 // message of a new ICD, named after the task.
 var legacyICDs = set.New("http_read")
 
+// legacyStaged holds each task type whose ladder stages the fields of each endpoint in
+// inline, which the stored config does not hold.
+var legacyStaged = set.New("http_read", "http_write")
+
 // legacyReimportErrors holds, for each fixture whose current shape the legacy rewrite
 // cannot read, the error that normalizing an unversioned copy of its stored config
 // returns.
@@ -744,10 +748,12 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 			expected := MustSucceed(store.Normalize(ctx, db, 0, legacy))
 			// The store assigns the key on write.
 			delete(expected, "key")
+			if legacyStaged.Contains(env.Type) {
+				delete(expected, "inline")
+			}
 			// The write moves the staged fields into an ICD, fills in each read, and
 			// disables an endpoint whose fields are all disabled.
 			if legacyICDs.Contains(env.Type) {
-				delete(expected, "inline")
 				for _, ep := range as[[]any](expected["endpoints"]) {
 					delete(as[map[string]any](ep), "messages")
 					delete(as[map[string]any](ep), "disabled")
@@ -765,7 +771,7 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 					To(MatchError(ContainSubstring(reimportErr)))
 			}
 			_, moved := legacySecrets[env.Type]
-			if unreadable || moved || legacyICDs.Contains(env.Type) {
+			if unreadable || moved || legacyStaged.Contains(env.Type) {
 				Expect(store.Normalize(ctx, db, store.Version(), imported.Config)).
 					To(Equal(imported.Config))
 			} else {
