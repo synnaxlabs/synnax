@@ -1132,7 +1132,7 @@ describe("Lists", () => {
       await list.retrieve();
       table.set("2", rec("2", "b"));
       expect(onError).toHaveBeenCalledWith(
-        new Error("failed to notify thing list subscriber"),
+        expect.objectContaining({ message: "Failed to show a change" }),
       );
     });
   });

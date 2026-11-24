@@ -1062,6 +1062,18 @@ describe("fromException", () => {
     );
   });
 
+  it("should put the heading's description before the error", () => {
+    const s = status.fromException(new Error("Disk is full"), {
+      message: "Failed to export",
+      name: "Main schematic",
+      description: "The file was not written. Free some space and export again.",
+    });
+    expect(s.message).toBe("Failed to export");
+    expect(s.description).toBe(
+      "The file was not written. Free some space and export again. Disk is full",
+    );
+  });
+
   it("should keep the description of a status in the cause chain", () => {
     const cause = status.toError(
       status.create({

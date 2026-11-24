@@ -427,7 +427,7 @@ describe("Cache", () => {
         held.reject(new Error("connection dropped"));
         await expect.poll(() => onError.mock.calls.length).toBe(1);
         expect(onError.mock.calls[0][0]).toMatchObject({
-          message: "failed to maintain docs answers",
+          message: "Failed to keep a view current",
         });
         await cache.close();
       });
@@ -1191,7 +1191,7 @@ describe("Cache", () => {
       await cache.ensureStreaming();
       await expect.poll(() => onError.mock.calls.length).toBe(1);
       const error = onError.mock.calls[0][0] as Error;
-      expect(error.message).toContain("failed to reconcile docs cache");
+      expect(error.message).toBe("Failed to refresh cached data");
       expect(table.get("a")).toEqual({ key: "a", name: "one" });
       expect(table.get("b")).toEqual({ key: "b", name: "two" });
       await cache.close();

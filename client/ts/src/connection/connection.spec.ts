@@ -26,6 +26,7 @@ import {
   AuthError,
   DisconnectedError,
   ExpiredLicenseError,
+  InternalError,
   InvalidCredentialsError,
   MissingCredentialsError,
   MissingLicenseError,
@@ -1631,7 +1632,9 @@ describe("connection", () => {
       await expect.poll(() => probes, POLL).toBeGreaterThanOrEqual(2);
       expect(checks - checksAtDenial).toBeGreaterThanOrEqual(3);
       expect(internal).toHaveLength(1);
-      expect(AccessDeniedError.matches(internal[0])).toBe(true);
+      expect(InternalError.matches(internal[0])).toBe(true);
+      expect(internal[0].message).toBe("Live updates unavailable");
+      expect(AccessDeniedError.matches(internal[0].cause)).toBe(true);
       await client.close();
     });
 
@@ -1724,7 +1727,7 @@ describe("connection", () => {
       );
       await expect.poll(() => internal.length, POLL).toBeGreaterThan(0);
       expect(internal[0].message).toEqual(
-        "failed to reset cache after cluster replacement",
+        "Failed to clear data from the previous Core",
       );
       const cause = internal[0].cause;
       if (!(cause instanceof Error)) throw new Error("cause is not an Error");

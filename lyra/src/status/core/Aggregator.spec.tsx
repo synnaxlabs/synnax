@@ -392,6 +392,27 @@ describe("Aggregator", () => {
       expect(stat.message).toEqual("Failed to export");
       expect(stat.description).toEqual("Disk is full");
     });
+    it("should put the heading's description before the error", () => {
+      const { result } = renderHook(
+        () => ({
+          add: Status.useErrorHandler(),
+          statuses: Status.useNotifications(),
+        }),
+        { wrapper },
+      );
+      act(() => {
+        result.current.add(new Error("Disk is full"), {
+          message: "Failed to export",
+          name: "Main schematic",
+          description: "The file was not written. Free some space and export again.",
+        });
+      });
+      const [stat] = result.current.statuses.statuses;
+      expect(stat.message).toEqual("Failed to export");
+      expect(stat.description).toEqual(
+        "The file was not written. Free some space and export again. Disk is full",
+      );
+    });
     it("should allow the caller to pass in an async function", async () => {
       const { result } = renderHook(
         () => ({

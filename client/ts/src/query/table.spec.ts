@@ -12,7 +12,12 @@ import { type record, sleep, TimeSpan } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
-import { AccessDeniedError, MissingCredentialsError, NotFoundError } from "@/index";
+import {
+  AccessDeniedError,
+  InternalError,
+  MissingCredentialsError,
+  NotFoundError,
+} from "@/index";
 import { query } from "@/query";
 
 const noopError = (_: Error) => {};
@@ -982,8 +987,13 @@ describe("Table", () => {
         table.set("key1", "value1");
 
         expect(onError).toHaveBeenCalledTimes(1);
-        const reported = onError.mock.calls[0][0] as Error;
-        expect(reported.message).toBe("failed to notify table subscriber");
+        const reported: unknown = onError.mock.calls[0][0];
+        if (!InternalError.matchExact(reported))
+          throw new Error("not an InternalError");
+        expect(reported.message).toBe("Failed to show a change");
+        expect(reported.description).toBe(
+          "A view may not show the latest data. Reload the window to refresh it.",
+        );
         expect(reported.cause).toBe(error);
       });
 
@@ -1096,7 +1106,7 @@ describe("Table", () => {
 
         expect(onError).toHaveBeenCalledTimes(1);
         const reported = onError.mock.calls[0][0] as Error;
-        expect(reported.message).toBe("failed to notify table subscriber");
+        expect(reported.message).toBe("Failed to show a change");
         expect(reported.cause).toBe(error);
       });
 
@@ -1915,7 +1925,7 @@ describe("delete rollback", () => {
       .poll(() => onError.mock.calls[0]?.[0])
       .toEqual(
         expect.objectContaining({
-          message: "failed to refetch entries",
+          message: "Failed to refresh cached data",
           cause: expect.objectContaining({ message: "boom" }),
         }),
       );
