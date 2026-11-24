@@ -189,18 +189,22 @@ var _ = Describe("Data against stamps that are not durable yet", func() {
 		ctx SpecContext,
 	) {
 		failing.Store(true)
-		c := stamps(ctx, 10, 11, 12)
+		c := stamps(ctx, 10, 11)
 		w := values(ctx, 10, 1, 2)
 		Expect(c.Sync(ctx)).To(MatchError(syscall.EIO))
 		Expect(read(ctx, data)).To(BeEmpty(), "the data leaves view in the same step")
 		failing.Store(false)
-		MustSucceed2(
-			w.Write(ctx, telem.UnaryFrame(data, telem.NewSeriesV[int64](3)), nil),
-		)
-		Expect(w.Commit(ctx, nil)).Error().
-			To(MatchError(ContainSubstring("took back the stamps")))
-		Expect(w.Close()).To(MatchError(ContainSubstring("took back the stamps")))
 		Expect(c.Close()).To(MatchError(syscall.EIO))
+		later := stamps(ctx, 20, 21)
+		Expect(later.Sync(ctx)).To(Succeed())
+		MustSucceed2(
+			w.Write(ctx, telem.UnaryFrame(data, telem.NewSeriesV[int64](3, 4)), nil),
+		)
+		pulled := ContainSubstring("took back the stamps")
+		Expect(w.Commit(ctx, nil)).Error().To(MatchError(pulled),
+			"a commit on stamps that a later writer stored still fails")
+		Expect(w.Close()).To(MatchError(pulled))
+		Expect(later.Close()).To(Succeed())
 	})
 
 	It("Should not wait at Close, and take back the data whose stamps are not durable",
