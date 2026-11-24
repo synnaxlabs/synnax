@@ -18,18 +18,36 @@ export interface AtlasProps {
 }
 
 const PADDING = 2;
+// Room left around a glyph's ink for its anti-aliasing.
+const INK_MARGIN = 1;
 const SCALE_FACTOR = 2;
 
+interface Glyph {
+  /** Index of the glyph's cell in the atlas. */
+  index: number;
+  /** How far the glyph moves the cursor, as the font sets it. */
+  advance: number;
+  /**
+   * Distance from the left of the glyph's cell to its origin. Negative when the ink
+   * starts right of the origin.
+   */
+  origin: number;
+  /** Width of the cell region that holds the glyph's ink. */
+  width: number;
+}
+
 /**
- * A text atlas that caches glyphs and draws them on a grid. Every glyph takes the cell
- * of a digit, centered in it, so digits line up as tabular figures. A glyph wider than
- * a digit takes a cell of its own width.
+ * A text atlas that caches glyphs and draws text from them. Each glyph is drawn once,
+ * and text moves by each glyph's own advance, so it spaces as the font does. A font
+ * with tabular digits keeps every digit one width.
  */
 export class Atlas {
   private readonly atlas: OffscreenCanvas;
-  private readonly charDims: dimensions.Dimensions;
-  private readonly charMap: Map<string, number>;
-  private readonly advances: Map<string, number>;
+  private readonly glyphs: Map<string, Glyph>;
+  /** The advance of a "0", which a glyph outside the set moves the cursor by. */
+  private readonly digitAdvance: number;
+  /** Ink height of a "0", which callers center on. */
+  private readonly inkHeight: number;
   private readonly cols: number;
   /** Width of one atlas cell, wide enough to hold any glyph in the set. */
   private readonly cellWidth: number;
@@ -40,12 +58,11 @@ export class Atlas {
   /** Drop from the origin each text baseline sets to the alphabetic baseline. */
   private readonly baselineShifts: Record<CanvasTextBaseline, number>;
   private static readonly DEFAULT_CHARS =
-    "0123456789.:+-°μmsNa∞ᴇABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz%";
+    " 0123456789.:+-°μmsNa∞ᴇABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz%";
 
   constructor(props: AtlasProps) {
     const { font, characters = Atlas.DEFAULT_CHARS, textColor } = props;
-    this.charMap = new Map();
-    this.advances = new Map();
+    this.glyphs = new Map();
 
     const uniqueChars = unique.unique(Array.from(characters));
 
@@ -54,13 +71,8 @@ export class Atlas {
     ctx.font = font;
     ctx.textBaseline = "alphabetic";
     const metrics = ctx.measureText("0");
-    this.charDims = {
-      width: Math.ceil(metrics.actualBoundingBoxLeft + metrics.actualBoundingBoxRight),
-      height: dimensionsFromMetrics(metrics).height,
-    };
-    // Width pads out to the cell of a digit, which fillText advances by and
-    // measureText must report. Height stays the ink, which callers center on.
-    this.charDims.width += PADDING;
+    this.digitAdvance = metrics.width;
+    this.inkHeight = dimensionsFromMetrics(metrics).height;
 
     // A digit carries neither the tallest ascender nor any descender, so a cell sized
     // from one clips glyphs like "g" and lets them paint into the cell below, which
@@ -88,16 +100,15 @@ export class Atlas {
     };
     ctx.textBaseline = "alphabetic";
 
-    // Each glyph is drawn so that its ink sits in the middle of its cell.
-    const inkLefts = new Map<string, number>();
-    uniqueChars.forEach((char) => {
+    // A copy reads only the glyph's ink, which can start right of its origin and
+    // reach past its advance.
+    uniqueChars.forEach((char, index) => {
       const m = ctx.measureText(char);
-      const ink = Math.ceil(m.actualBoundingBoxLeft + m.actualBoundingBoxRight);
-      const advance = Math.max(this.charDims.width, ink + PADDING);
-      this.advances.set(char, advance);
-      inkLefts.set(char, (advance - ink) / 2 + m.actualBoundingBoxLeft);
+      const origin = Math.ceil(m.actualBoundingBoxLeft) + INK_MARGIN;
+      const width = origin + Math.ceil(m.actualBoundingBoxRight) + INK_MARGIN;
+      this.glyphs.set(char, { index, advance: m.width, origin, width });
     });
-    this.cellWidth = Math.max(...this.advances.values());
+    this.cellWidth = Math.max(...Array.from(this.glyphs.values(), (g) => g.width));
 
     const totalChars = uniqueChars.length;
     const cols = Math.ceil(Math.sqrt(totalChars));
@@ -117,18 +128,13 @@ export class Atlas {
     atlasCtx.fillStyle = color.hex(textColor);
     atlasCtx.clearRect(0, 0, this.atlas.width, this.atlas.height);
 
-    uniqueChars.forEach((char, i) => {
-      const col = i % cols;
-      const row = Math.floor(i / cols);
-      const x = col * this.cellWidth + (inkLefts.get(char) ?? 0);
+    this.glyphs.forEach(({ index, origin }, char) => {
+      const col = index % cols;
+      const row = Math.floor(index / cols);
+      const x = col * this.cellWidth + origin;
       const y = row * this.cellHeight + this.baselineOffset;
       atlasCtx.fillText(char, x, y);
-      this.charMap.set(char, i);
     });
-  }
-
-  private advance(char: string): number {
-    return this.advances.get(char) ?? this.charDims.width;
   }
 
   fillText(
@@ -144,31 +150,35 @@ export class Atlas {
     const top = y + this.baselineShifts[ctx.textBaseline] - this.baselineOffset;
 
     for (const char of text) {
-      const width = this.advance(char);
-      const index = this.charMap.get(char);
-      if (index !== undefined) {
-        const col = index % cols;
-        const row = Math.floor(index / cols);
-        ctx.drawImage(
-          this.atlas,
-          col * cellWidth * SCALE_FACTOR,
-          row * cellHeight * SCALE_FACTOR,
-          width * SCALE_FACTOR,
-          cellHeight * SCALE_FACTOR,
-          x,
-          top,
-          width,
-          cellHeight,
-        );
+      const glyph = this.glyphs.get(char);
+      if (glyph == null) {
+        x += this.digitAdvance;
+        continue;
       }
-      x += width;
+      const { index, advance, origin, width } = glyph;
+      const col = index % cols;
+      const row = Math.floor(index / cols);
+      ctx.drawImage(
+        this.atlas,
+        col * cellWidth * SCALE_FACTOR,
+        row * cellHeight * SCALE_FACTOR,
+        width * SCALE_FACTOR,
+        cellHeight * SCALE_FACTOR,
+        x - origin,
+        top,
+        width,
+        cellHeight,
+      );
+      x += advance;
     }
   }
 
+  /** @returns the width text takes, the sum of its glyphs' advances, and ink height. */
   measureText(text: string): dimensions.Dimensions {
     let width = 0;
-    for (const char of text) width += this.advance(char);
-    return { width, height: this.charDims.height };
+    for (const char of text)
+      width += this.glyphs.get(char)?.advance ?? this.digitAdvance;
+    return { width, height: this.inkHeight };
   }
 }
 

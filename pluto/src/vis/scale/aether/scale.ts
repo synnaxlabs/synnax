@@ -469,7 +469,6 @@ export class Scale
     const ctx = draw.canvas;
     ctx.font = baseTheme.fontString(theme, { level: tickLevel, numeric: true });
     const value = ctx.textDimensions(valueText, { useAtlas: true });
-    // The units are drawn separately so they sit tighter than an atlas cell.
     const unitsWidth =
       units.length === 0
         ? 0
