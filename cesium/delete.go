@@ -100,7 +100,7 @@ func (db *DB) Drop(ctx context.Context, keys []ChannelKey) error {
 		return ErrDBClosed
 	}
 	if db.engine != nil {
-		return db.dropLog(keys)
+		return db.dropLog(ctx, keys)
 	}
 	return db.dropLocked(keys)
 }

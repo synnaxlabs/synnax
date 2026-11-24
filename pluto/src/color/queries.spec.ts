@@ -96,7 +96,9 @@ describe("queries", () => {
         expect(
           all.variant === "success" && all.data.some((c) => c.key === loose.key),
         ).toBe(true);
-        expect(result.current.series).toEqual(series.map((c) => c.key));
+        expect(result.current.series.map((c) => c.key)).toEqual(
+          series.map((c) => c.key),
+        );
       });
     });
   });

@@ -80,6 +80,38 @@ func createCertificateWithKey(ctx SpecContext, name string) certificate.Certific
 	return c
 }
 
+// createRack creates a rack, which holds the Driver role.
+func createRack(ctx SpecContext) rack.Rack {
+	GinkgoHelper()
+	r := rack.Rack{Name: "rack-" + uuid.New().String()}
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return svc.Rack.NewWriter(tx).Create(ctx, &r)
+	})).To(Succeed())
+	return r
+}
+
+// createFileCertificate creates a file certificate with details, and so an expiry
+// status, on the rack with key rk.
+func createFileCertificate(ctx SpecContext, rk rack.Key) certificate.Certificate {
+	GinkgoHelper()
+	c := certificate.Certificate{Variant: certificate.FileCertificate{
+		Base:            certificate.Base{Name: "Driver"},
+		CertificatePath: "/var/lib/synnax/driver.der",
+		Details: &certificate.Details{
+			Subject:  "CN=driver",
+			Issuer:   "CN=driver",
+			NotAfter: telem.Now().Add(telem.Hour),
+			Sha1:     "aa",
+			Sha256:   "bb",
+		},
+		Rack: rk,
+	}}
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return svc.Certificate.NewWriter(tx).Set(ctx, &c, nil)
+	})).To(Succeed())
+	return c
+}
+
 // storedOf returns the stored variant of c.
 func storedOf(c certificate.Certificate) certificate.StoredCertificate {
 	GinkgoHelper()
@@ -378,6 +410,106 @@ var _ = Describe("Service", func() {
 				"pem: must be empty for a file certificate",
 			),
 		)
+		It("Should let a rack replace a file certificate on it", func(ctx SpecContext) {
+			r := createRack(ctx)
+			c := createFileCertificate(ctx, r.Key)
+			file, ok := c.Variant.(certificate.FileCertificate)
+			Expect(ok).To(BeTrue())
+			details := *file.Details
+			details.Sha256 = "cc"
+			MustSucceed(set(SubjectCtx(ctx, r.Key.ResourceID()),
+				apicertificate.SetRequest{Certificates: []apicertificate.Input{{
+					Key:             c.Base().Key,
+					Source:          secret.SourceFile,
+					Name:            "Renamed",
+					CertificatePath: "/var/lib/synnax/next.der",
+					Details:         &details,
+					Rack:            r.Key,
+				}}},
+			))
+			got, ok := retrieveCertificate(ctx, c.Base().Key).
+				Variant.(certificate.FileCertificate)
+			Expect(ok).To(BeTrue())
+			Expect(got.Name).To(Equal("Renamed"))
+			Expect(got.CertificatePath).To(Equal("/var/lib/synnax/next.der"))
+			Expect(got.Details).To(Equal(&details))
+		})
+		It("Should let a rack add details to a file certificate on it",
+			func(ctx SpecContext) {
+				r := createRack(ctx)
+				c := certificate.Certificate{Variant: certificate.FileCertificate{
+					Base:            certificate.Base{Name: "Driver"},
+					CertificatePath: "/var/lib/synnax/driver.der",
+					Rack:            r.Key,
+				}}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.Certificate.NewWriter(tx).Set(ctx, &c, nil)
+				})).To(Succeed())
+				details := certificate.Details{
+					Subject:  "CN=driver",
+					Issuer:   "CN=driver",
+					NotAfter: telem.Now().Add(telem.Hour),
+					Sha1:     "aa",
+					Sha256:   "bb",
+				}
+				MustSucceed(set(SubjectCtx(ctx, r.Key.ResourceID()),
+					apicertificate.SetRequest{Certificates: []apicertificate.Input{{
+						Key:             c.Base().Key,
+						Source:          secret.SourceFile,
+						Name:            "Driver",
+						CertificatePath: "/var/lib/synnax/driver.der",
+						Details:         &details,
+						Rack:            r.Key,
+					}}},
+				))
+				got, ok := retrieveCertificate(ctx, c.Base().Key).
+					Variant.(certificate.FileCertificate)
+				Expect(ok).To(BeTrue())
+				Expect(got.Details).To(Equal(&details))
+			},
+		)
+		It("Should let a rack clear the details of a file certificate on it",
+			func(ctx SpecContext) {
+				r := createRack(ctx)
+				c := createFileCertificate(ctx, r.Key)
+				MustSucceed(set(SubjectCtx(ctx, r.Key.ResourceID()),
+					apicertificate.SetRequest{Certificates: []apicertificate.Input{{
+						Key:             c.Base().Key,
+						Source:          secret.SourceFile,
+						Name:            "Driver",
+						CertificatePath: "/var/lib/synnax/driver.der",
+						Rack:            r.Key,
+					}}},
+				))
+				got, ok := retrieveCertificate(ctx, c.Base().Key).
+					Variant.(certificate.FileCertificate)
+				Expect(ok).To(BeTrue())
+				Expect(got.Details).To(BeNil())
+			},
+		)
+		It("Should deny a rack moving a file certificate on it to another rack",
+			func(ctx SpecContext) {
+				r := createRack(ctx)
+				c := createFileCertificate(ctx, r.Key)
+				other := createRack(ctx)
+				Expect(set(SubjectCtx(ctx, r.Key.ResourceID()),
+					apicertificate.SetRequest{Certificates: []apicertificate.Input{{
+						Key:             c.Base().Key,
+						Source:          secret.SourceFile,
+						Name:            "Driver",
+						CertificatePath: "/var/lib/synnax/driver.der",
+						Rack:            other.Key,
+					}}},
+				)).Error().To(SatisfyAll(
+					MatchError(access.ErrDenied),
+					MatchError(ContainSubstring(
+						r.Key.ResourceID().String()+" cannot update "+
+							c.ResourceID().String(),
+					)),
+				))
+				Expect(retrieveCertificate(ctx, c.Base().Key)).To(Equal(c))
+			},
+		)
 	})
 
 	Describe("Retrieve", func() {
@@ -522,6 +654,20 @@ var _ = Describe("Service", func() {
 			Expect(retrieveCertificate(ctx, c.Base().Key).Base().Name).
 				To(Equal("After"))
 		})
+		It("Should let a rack apply the actions to a file certificate on it",
+			func(ctx SpecContext) {
+				r := createRack(ctx)
+				c := createFileCertificate(ctx, r.Key)
+				MustSucceed(
+					dispatch(
+						SubjectCtx(ctx, r.Key.ResourceID()),
+						setName(c.Base().Key),
+					),
+				)
+				Expect(retrieveCertificate(ctx, c.Base().Key).Base().Name).
+					To(Equal("After"))
+			},
+		)
 		It("Should deny a user without update access", func(ctx SpecContext) {
 			u := createUser(ctx)
 			c := createCertificate(ctx, "Before")
@@ -654,6 +800,46 @@ var _ = Describe("Service", func() {
 				apicertificate.DeleteRequest{Keys: []certificate.Key{c.Base().Key}},
 			)).Error().To(MatchError(access.ErrDenied))
 		})
+		It("Should let a rack delete a file certificate on it", func(ctx SpecContext) {
+			r := createRack(ctx)
+			c := createFileCertificate(ctx, r.Key)
+			MustSucceed(del(SubjectCtx(ctx, r.Key.ResourceID()),
+				apicertificate.DeleteRequest{Keys: []certificate.Key{c.Base().Key}},
+			))
+			Expect(svc.Certificate.NewRetrieve().
+				Where(certificate.MatchKeys(c.Base().Key)).
+				Exec(ctx, db)).To(MatchError(query.ErrNotFound))
+		})
+		It("Should deny a rack a file certificate on another rack",
+			func(ctx SpecContext) {
+				c := createFileCertificate(ctx, createRack(ctx).Key)
+				other := createRack(ctx)
+				Expect(del(SubjectCtx(ctx, other.Key.ResourceID()),
+					apicertificate.DeleteRequest{Keys: []certificate.Key{c.Base().Key}},
+				)).Error().To(SatisfyAll(
+					MatchError(access.ErrDenied),
+					MatchError(ContainSubstring(
+						other.Key.ResourceID().String()+" cannot delete "+
+							c.ResourceID().String(),
+					)),
+				))
+				Expect(retrieveCertificate(ctx, c.Base().Key)).To(Equal(c))
+			},
+		)
+		It("Should deny a rack a stored certificate", func(ctx SpecContext) {
+			r := createRack(ctx)
+			c := createCertificate(ctx, "Plant")
+			Expect(del(SubjectCtx(ctx, r.Key.ResourceID()),
+				apicertificate.DeleteRequest{Keys: []certificate.Key{c.Base().Key}},
+			)).Error().To(SatisfyAll(
+				MatchError(access.ErrDenied),
+				MatchError(ContainSubstring(
+					r.Key.ResourceID().String()+" cannot delete "+
+						c.ResourceID().String(),
+				)),
+			))
+			Expect(retrieveCertificate(ctx, c.Base().Key)).To(Equal(c))
+		})
 	})
 
 	Describe("Refresh", func() {
@@ -750,5 +936,33 @@ var _ = Describe("Service", func() {
 				apicertificate.RefreshRequest{Key: uuid.New(), Details: details},
 			)).Error().To(MatchError(query.ErrNotFound))
 		})
+	})
+})
+
+var _ = Describe("OwnedTables", func() {
+	It("Should name the table of a file certificate that uses a rack", func(
+		ctx SpecContext,
+	) {
+		r := createRack(ctx)
+		tx := DeferClose(db.OpenTx())
+		c := certificate.Certificate{Variant: certificate.FileCertificate{
+			Base:            certificate.Base{Name: "Driver"},
+			CertificatePath: "/var/lib/synnax/driver.der",
+			Rack:            r.Key,
+		}}
+		Expect(svc.Certificate.NewWriter(tx).Set(ctx, &c, nil)).To(Succeed())
+		changes := gorp.ChangesOf(tx)
+		tables := make([]string, 0, len(changes))
+		var uses []string
+		for _, ch := range changes {
+			tables = append(tables, ch.Record.Table)
+			for _, l := range ch.Added {
+				if l.Kind == gorp.Use {
+					uses = append(uses, l.Target.Table)
+				}
+			}
+		}
+		Expect(tables).To(ConsistOf(apicertificate.OwnedTables()))
+		Expect(uses).To(ConsistOf(string(resource.TypeRack)))
 	})
 })

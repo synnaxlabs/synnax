@@ -27,6 +27,13 @@ import type {
   SugaredOffscreenCanvasRenderingContext2D,
 } from "@/vis/draw2d/canvas";
 
+export {
+  applyOverScan,
+  domRadii,
+  type FillTextOptions,
+  SugaredOffscreenCanvasRenderingContext2D,
+} from "@/vis/draw2d/canvas";
+
 export interface Draw2DLineProps {
   stroke: color.Color;
   lineWidth: number;

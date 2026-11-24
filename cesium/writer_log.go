@@ -60,8 +60,10 @@ type logWriter struct {
 	// last is the last stamp written.
 	last telem.TimeStamp
 	// runs are the uncommitted runs, in the order that Commit logs them.
-	runs        []run
-	lastCommit  telem.TimeStamp
+	runs       []run
+	lastCommit telem.TimeStamp
+	// since is the end of the last commit of the stretch, or zero before its first.
+	since       telem.TimeStamp
 	frames      int
 	entry       log.Entry
 	excluded    []ChannelKey
@@ -93,6 +95,9 @@ type run struct {
 	alignment   telem.Alignment
 	samples     uint32
 	first, last telem.TimeStamp
+	// since is the end of the commit or run before it in its stretch, or zero when it
+	// starts its stretch.
+	since telem.TimeStamp
 	// from is the first stamp of the stored pointer that holds the stamp of the first
 	// sample of a run of a writer that does not write its clock.
 	from telem.TimeStamp
@@ -328,7 +333,11 @@ func (w *logWriter) extendRun(
 ) {
 	if k := len(w.runs); k == 0 || w.runs[k-1].ends != nil ||
 		w.runs[k-1].alignment.AddSamples(w.runs[k-1].samples) != alignment {
-		w.runs = append(w.runs, run{alignment: alignment, first: first})
+		since := w.since
+		if k > 0 && w.runs[k-1].alignment.DomainIndex() == alignment.DomainIndex() {
+			since = w.runs[k-1].last + 1
+		}
+		w.runs = append(w.runs, run{alignment: alignment, first: first, since: since})
 	}
 	r := &w.runs[len(w.runs)-1]
 	r.last, r.samples = last, r.samples+n
@@ -354,7 +363,7 @@ func (w *logWriter) stretch(
 		return false, nil
 	}
 	w.closeRun()
-	w.next = 0
+	w.next, w.since = 0, 0
 	if w.unstored {
 		a, err := w.e.unstored.Next()
 		w.number = a.DomainIndex()
@@ -484,7 +493,7 @@ func (w *logWriter) append(ctx context.Context, lk *logKey, p []byte) error {
 			Clock:    w.clock,
 			Variable: lk.ch.DataType.IsVariable(),
 		}
-		h, err := w.e.budget.Create(w.e.fs, segmentName(lk.ch.Key, id))
+		h, err := w.e.budget.CreateHeld(w.e.fs, segmentName(lk.ch.Key, id))
 		if err != nil {
 			return err
 		}
@@ -540,7 +549,7 @@ func (w *logWriter) commit(
 		}
 	}
 	end := w.runs[len(w.runs)-1].last + 1
-	w.runs, w.lastCommit = w.runs[:0], end
+	w.runs, w.lastCommit, w.since = w.runs[:0], end, end
 	for _, lk := range w.keys {
 		lk.skipped = false
 	}
@@ -613,10 +622,17 @@ func (w *logWriter) buildCommits() error {
 			Slots:     slices.Clone(w.keySegments),
 		})
 		w.preKeys = append(w.preKeys, w.committed...)
+		// A commit that goes on in a stretch changes the time from the end of the
+		// commit before it, as the domain of the old layout does. A run of a writer
+		// that does not write its clock changes only its own stamps.
+		start := r.first
+		if w.stamps == nil && r.since != 0 {
+			start = r.since
+		}
 		for _, key := range w.backfilled {
 			w.changes = append(w.changes, HistoryChange{
 				Key:       key,
-				TimeRange: r.first.Range(r.last + 1),
+				TimeRange: start.Range(r.last + 1),
 			})
 		}
 	}

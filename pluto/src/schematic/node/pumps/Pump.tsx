@@ -19,7 +19,7 @@ import svg from "@/schematic/node/pumps/Pump.svg?raw";
 export interface Props extends Toggle.ButtonProps, Primitive.SVGBasedProps {}
 
 export const SYMBOL: schematic.symbol.Spec = Custom.createBuiltIn({
-  variant: "actuator",
+  family: "pump",
   svg,
   handles: [
     { key: "1", position: { x: 0.03125, y: 0.5 }, orientation: "left" },
@@ -27,6 +27,7 @@ export const SYMBOL: schematic.symbol.Spec = Custom.createBuiltIn({
     { key: "3", position: { x: 0.5, y: 0.03125 }, orientation: "top" },
     { key: "4", position: { x: 0.5, y: 0.96875 }, orientation: "bottom" },
   ],
+  ...Custom.DETAIL_LINES,
 });
 
 export const Pump = ({

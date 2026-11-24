@@ -115,6 +115,7 @@ func (db *DB) reopenLog(
 	}
 	next.log.number, next.log.next = old.number, old.next
 	next.log.last, next.log.lastCommit = old.last, old.lastCommit
+	next.log.since = old.since
 	return next, nil
 }
 

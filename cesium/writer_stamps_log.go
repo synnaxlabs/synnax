@@ -35,9 +35,10 @@ func (e *engine) stampPointers(
 	from telem.TimeStamp,
 	dst []state.Pointer,
 ) ([]state.Pointer, error) {
-	ch, h, err, unlinkErr := e.load(clock, held{})
-	if err = errors.Join(err, unlinkErr); err != nil || ch == nil {
-		return dst, errors.Join(err, e.unpin(h))
+	ch, h, err := e.load(clock, held{})
+	if err != nil || ch == nil {
+		e.unpin(h)
+		return dst, err
 	}
 	pre := state.Preload{Key: clock}
 	for _, part := range h.parts {
@@ -46,13 +47,12 @@ func (e *engine) stampPointers(
 		}
 		rec, err := e.cache.Records(part, clock)
 		if err != nil {
-			return dst, errors.Join(err, e.unpin(h))
+			e.unpin(h)
+			return dst, err
 		}
 		addLive(&pre, ch.Parts, part, rec, from, math.MaxInt64)
 	}
-	if err = e.unpin(h); err != nil {
-		return dst, err
-	}
+	e.unpin(h)
 	start := len(dst)
 	for _, seg := range pre.Segments {
 		dst = append(dst, seg.Pointers...)
