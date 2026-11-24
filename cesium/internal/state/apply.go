@@ -361,9 +361,9 @@ func (c *core) seal(r *log.Seal) error {
 
 // test adds s to the candidates when it is sealed in the durable view, untagged, of the
 // format version of new segments or a checked version 0 segment that may be rewritten,
-// and its dead share is above the threshold, and takes it out when not. A segment that
-// a part holds gets no test until a Tombstone or a Check puts its record back in the
-// head.
+// its dead share is above the threshold, and its Replace fits in a frame, and takes it
+// out when not. A segment that a part holds gets no test until a Tombstone or a Check
+// puts its record back in the head.
 func (c *core) test(s *segState) {
 	var live uint64
 	for _, p := range s.dur.pointers {
@@ -373,6 +373,7 @@ func (c *core) test(s *segState) {
 	rewritable := s.vis.Version == c.version ||
 		c.rewritable0 && s.vis.Version == 0 && s.vis.Checked
 	if s.dur.sealed && s.vis.Part == 0 && rewritable &&
+		len(s.dur.pointers) <= log.MaxReplacePointers &&
 		float64(length-live) > float64(c.threshold)*float64(length) {
 		c.candidates.Add(s.vis.ID)
 		return

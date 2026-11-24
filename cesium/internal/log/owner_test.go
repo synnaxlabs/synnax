@@ -641,6 +641,25 @@ var _ = Describe("Log", func() {
 					To(MatchError(ContainSubstring("does not fit in log 3: log file is full")))
 			})
 
+			DescribeTable("Should take a rewrite's entry only up to the most Replace "+
+				"pointers", func(n int, fits bool) {
+				open(32 << 20)
+				DeferCleanup(closeLog)
+				ack := l.Append(of(
+					&log.Create{Segment: 9, Key: 1, Clock: 1, Version: 1},
+					&log.Replace{Old: 2, New: 9, Pointers: make([]log.Pointer, n)},
+				))
+				if fits {
+					Expect(ack.Wait()).To(Equal(uint64(5)))
+					return
+				}
+				Expect(ack.Wait()).Error().
+					To(MatchError(ContainSubstring("does not fit in log 3: log file is full")))
+			},
+				Entry("at the most", log.MaxReplacePointers, true),
+				Entry("past the most", log.MaxReplacePointers+1, false),
+			)
+
 			DescribeTable(
 				"Should fail every entry after a failed write or sync, until a restart",
 				func(fail func(error)) {
