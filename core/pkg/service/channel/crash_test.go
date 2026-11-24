@@ -628,7 +628,7 @@ var _ = Describe("Crash adapter on the channel services", func() {
 			))).To(Succeed())
 			image := MustSucceed(disk.Crash(fault.CrashConfig{}))
 			Expect(names(image, "cesium/99")).To(Equal(names(disk, "cesium/99")))
-			Expect(e.cesium.Drop([]cesium.ChannelKey{99})).To(Succeed())
+			Expect(e.cesium.Drop(ctx, []cesium.ChannelKey{99})).To(Succeed())
 			Expect(e.removed()).To(Succeed())
 			image = MustSucceed(disk.Crash(fault.CrashConfig{}))
 			Expect(MustSucceed(image.List("cesium"))).ToNot(ContainElement(
@@ -652,9 +652,10 @@ var _ = Describe("Crash adapter on the channel services", func() {
 		func(ctx SpecContext) {
 			_, scratch := write(ctx, []byte("taco"))
 			Expect(e.store.Set(ctx, written(scratch), nil)).To(Succeed())
-			Expect(
-				e.cesium.Drop([]cesium.ChannelKey{cesium.ChannelKey(scratch.Key())}),
-			).To(Succeed())
+			Expect(e.cesium.Drop(
+				ctx,
+				[]cesium.ChannelKey{cesium.ChannelKey(scratch.Key())},
+			)).To(Succeed())
 			Expect(e.removed()).To(Succeed())
 			MustSucceed(e.Recovered(ctx))
 			Expect(
