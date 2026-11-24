@@ -14,10 +14,7 @@ import { Color } from "@/color";
 import { Enumeration } from "@/enumeration";
 
 /** A state that a node draws: an entry of its enumeration, with its color resolved. */
-export interface State {
-  key: string;
-  name: string;
-  value: number;
+export interface State extends Pick<enumeration.Entry, "key" | "name" | "value"> {
   color?: color.Color;
 }
 

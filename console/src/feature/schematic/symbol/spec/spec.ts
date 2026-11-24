@@ -106,6 +106,23 @@ export const effective = <F extends Field>(
   spec.looks.findLast((l) => reaches(l, target, value) && l[field] != null)?.[field];
 
 /**
+ * @returns the field that the looks of target give it at value, or at every value when
+ * value is undefined. Looks of the whole drawing do not count for a part.
+ */
+export const own = <F extends Field>(
+  spec: Pick<Spec, "looks">,
+  target: Target,
+  field: F,
+  value?: number,
+): Look[F] | undefined =>
+  effective(
+    { looks: spec.looks.filter((l) => l.part === target) },
+    target,
+    field,
+    value,
+  );
+
+/**
  * @returns spec in which target owns v for field at value alone, or at every value when
  * value is undefined. A new look on a value adds the state when spec lacks it. With no
  * v, it takes field off the looks that target owns there, and a look on more values
@@ -153,6 +170,49 @@ export const setOwn = <F extends Field>(
   };
 };
 
+/** @returns whether a look of target sets field on some values alone. */
+export const variesByValue = (
+  spec: Pick<Spec, "looks">,
+  target: Target,
+  field: Field,
+): boolean =>
+  spec.looks.some(
+    (l) => l.part === target && l.when?.state === STATE && l[field] != null,
+  );
+
+/**
+ * @returns spec in which field of target varies by value, with each value starting from
+ * the field on every value. With varies false, it returns spec in which every value
+ * takes the field that target sets at the first value.
+ */
+export const setVariesByValue = (
+  spec: Spec,
+  target: Target,
+  field: Field,
+  values: number[],
+  varies: boolean,
+): Spec => {
+  if (varies) {
+    const shared = spec.looks.findLast((l) => owns(l, target) && l[field] != null);
+    if (shared == null) return spec;
+    const cleared = setOwn(spec, target, field, undefined);
+    return values.reduce((s, v) => setOwn(s, target, field, shared[field], v), cleared);
+  }
+  // Looks of the whole drawing stay out, so target takes no field that it did not set.
+  const mine = spec.looks.filter((l) => l.part === target);
+  const first = effective({ looks: mine }, target, field, values[0]);
+  const cleared = values.reduce((s, v) => setOwn(s, target, field, undefined, v), spec);
+  return setOwn(cleared, target, field, first);
+};
+
+/** @returns the name "Part N" with the lowest N that no part in parts has. */
+export const nextPartName = (parts: schematic.symbol.Part[]): string => {
+  const taken = new Set(parts.map((p) => p.name));
+  let n = 1;
+  while (taken.has(`Part ${n}`)) n++;
+  return `Part ${n}`;
+};
+
 /** @returns spec without part and the looks on it. */
 export const removePart = (spec: Spec, part: string): Spec => ({
   ...spec,
@@ -185,15 +245,27 @@ const withState = (spec: Spec, match: schematic.symbol.Matcher): Spec["states"] 
   );
 
 /**
+ * @returns looks as a static symbol draws them, with only Base: each look on Base
+ * reaches every value, and the looks on other values go.
+ */
+export const staticLooks = (looks: Look[]): Look[] =>
+  looks.flatMap((l): Look[] => {
+    if (l.when?.state !== STATE) return [l];
+    if (!l.when.values.includes(BASE)) return [];
+    const { when: _, ...rest } = l;
+    return [rest];
+  });
+
+/**
  * @returns spec as variant. An actuator gets the Base looks again on Active, `within`
  * 0.9 to 1.1, the commands Off and On, and a click that picks between them, as the
- * migration gives a stored actuator. A static symbol loses the looks of Active alone,
- * the commands, and the clicks.
+ * migration gives a stored actuator. A static symbol keeps its Base looks on every
+ * value and loses its other looks on the state, the commands, and the clicks.
  */
 export const setVariant = (spec: Spec, variant: string): Spec => {
   if (variant === "actuator") {
     const copies = spec.looks
-      .filter((l) => l.part != null && only(l, l.part, BASE))
+      .filter((l) => only(l, l.part, BASE))
       .map((l) => ({
         ...l,
         key: `look-${id.create()}`,
@@ -206,7 +278,7 @@ export const setVariant = (spec: Spec, variant: string): Spec => {
         type: "within",
         bounds: { lower: 0.9, upper: 1.1 },
       }),
-      looks: [...spec.looks, ...copies],
+      looks: copies.reduce((ls, c) => ls.toSpliced(slot(ls, c), 0, c), spec.looks),
       commands: [
         {
           key: DEACTIVATE,
@@ -228,7 +300,7 @@ export const setVariant = (spec: Spec, variant: string): Spec => {
     ...spec,
     variant,
     states: withState(spec, { type: "exact" }),
-    looks: spec.looks.filter((l) => l.part == null || !only(l, l.part, ACTIVE)),
+    looks: staticLooks(spec.looks),
     commands: [],
     interactions: [],
   };

@@ -127,13 +127,27 @@ SegmentedEdgeConfig struct {
 }
 
 EdgeConfig union on variant {
-    pipe      SegmentedEdgeConfig
-    electric  SegmentedEdgeConfig
-    secondary SegmentedEdgeConfig
-    jacketed  SegmentedEdgeConfig
-    hydraulic SegmentedEdgeConfig
-    pneumatic SegmentedEdgeConfig
-    data      SegmentedEdgeConfig
+    pipe      SegmentedEdgeConfig {
+        @doc value "is the configuration for pipe edges."
+    }
+    electric  SegmentedEdgeConfig {
+        @doc value "is the configuration for electrical edges."
+    }
+    secondary SegmentedEdgeConfig {
+        @doc value "is the configuration for secondary edges."
+    }
+    jacketed  SegmentedEdgeConfig {
+        @doc value "is the configuration for jacketed edges."
+    }
+    hydraulic SegmentedEdgeConfig {
+        @doc value "is the configuration for hydraulic edges."
+    }
+    pneumatic SegmentedEdgeConfig {
+        @doc value "is the configuration for pneumatic edges."
+    }
+    data      SegmentedEdgeConfig {
+        @doc value "is the configuration for data edges."
+    }
 
     @doc value  """
         is the configuration of one edge. The variant selects the visual style of the
@@ -333,31 +347,81 @@ DummyToggleSymbolConfig struct extends LabeledConfig, ScaledConfig {
 }
 
 NodeConfig union on variant {
-    cap                                StaticSymbolConfig
-    filter                             StaticSymbolConfig
-    flow_straightener                  StaticSymbolConfig
-    heater_element                     StaticSymbolConfig
-    iso_cap                            StaticSymbolConfig
-    iso_filter                         StaticSymbolConfig
-    nozzle                             StaticSymbolConfig
-    orifice                            StaticSymbolConfig
-    orifice_plate                      StaticSymbolConfig
-    strainer                           StaticSymbolConfig
-    strainer_cone                      StaticSymbolConfig
-    thruster                           ToggleSymbolConfig
-    vent                               StaticSymbolConfig
-    flowmeter_general                  StaticSymbolConfig
-    flowmeter_electromagnetic          StaticSymbolConfig
-    flowmeter_variable_area            StaticSymbolConfig
-    flowmeter_coriolis                 StaticSymbolConfig
-    flowmeter_nozzle                   StaticSymbolConfig
-    flowmeter_venturi                  StaticSymbolConfig
-    flowmeter_ring_piston              StaticSymbolConfig
-    flowmeter_positive_displacement    StaticSymbolConfig
-    flowmeter_turbine                  StaticSymbolConfig
-    flowmeter_pulse                    StaticSymbolConfig
-    flowmeter_float_sensor             StaticSymbolConfig
-    flowmeter_orifice                  StaticSymbolConfig
+    cap                                StaticSymbolConfig {
+        @doc value "is the configuration for cap symbols."
+    }
+    filter                             StaticSymbolConfig {
+        @doc value "is the configuration for filter symbols."
+    }
+    flow_straightener                  StaticSymbolConfig {
+        @doc value "is the configuration for flow straightener symbols."
+    }
+    heater_element                     StaticSymbolConfig {
+        @doc value "is the configuration for heater element symbols."
+    }
+    iso_cap                            StaticSymbolConfig {
+        @doc value "is the configuration for ISO cap symbols."
+    }
+    iso_filter                         StaticSymbolConfig {
+        @doc value "is the configuration for ISO filter symbols."
+    }
+    nozzle                             StaticSymbolConfig {
+        @doc value "is the configuration for nozzle symbols."
+    }
+    orifice                            StaticSymbolConfig {
+        @doc value "is the configuration for orifice symbols."
+    }
+    orifice_plate                      StaticSymbolConfig {
+        @doc value "is the configuration for orifice plate symbols."
+    }
+    strainer                           StaticSymbolConfig {
+        @doc value "is the configuration for strainer symbols."
+    }
+    strainer_cone                      StaticSymbolConfig {
+        @doc value "is the configuration for strainer cone symbols."
+    }
+    thruster                           ToggleSymbolConfig {
+        @doc value "is the configuration for thruster symbols."
+    }
+    vent                               StaticSymbolConfig {
+        @doc value "is the configuration for vent symbols."
+    }
+    flowmeter_general                  StaticSymbolConfig {
+        @doc value "is the configuration for general flowmeter symbols."
+    }
+    flowmeter_electromagnetic          StaticSymbolConfig {
+        @doc value "is the configuration for electromagnetic flowmeter symbols."
+    }
+    flowmeter_variable_area            StaticSymbolConfig {
+        @doc value "is the configuration for variable area flowmeter symbols."
+    }
+    flowmeter_coriolis                 StaticSymbolConfig {
+        @doc value "is the configuration for Coriolis flowmeter symbols."
+    }
+    flowmeter_nozzle                   StaticSymbolConfig {
+        @doc value "is the configuration for nozzle flowmeter symbols."
+    }
+    flowmeter_venturi                  StaticSymbolConfig {
+        @doc value "is the configuration for venturi flowmeter symbols."
+    }
+    flowmeter_ring_piston              StaticSymbolConfig {
+        @doc value "is the configuration for ring piston flowmeter symbols."
+    }
+    flowmeter_positive_displacement    StaticSymbolConfig {
+        @doc value "is the configuration for positive displacement flowmeter symbols."
+    }
+    flowmeter_turbine                  StaticSymbolConfig {
+        @doc value "is the configuration for turbine flowmeter symbols."
+    }
+    flowmeter_pulse                    StaticSymbolConfig {
+        @doc value "is the configuration for pulse flowmeter symbols."
+    }
+    flowmeter_float_sensor             StaticSymbolConfig {
+        @doc value "is the configuration for float sensor flowmeter symbols."
+    }
+    flowmeter_orifice                  StaticSymbolConfig {
+        @doc value "is the configuration for orifice flowmeter symbols."
+    }
     box extends LabeledConfig {
         stroke_color  color.Ref?         {
             @doc value "is the border color of the box, a named color or a fixed color."
@@ -779,7 +843,9 @@ NodeConfig union on variant {
 
         @doc value "is the configuration for live string display symbols."
     }
-    switch                             ToggleSymbolConfig
+    switch                             ToggleSymbolConfig {
+        @doc value "is the configuration for switch symbols."
+    }
     text_box extends LabeledConfig {
         text_color        color.Ref?    {
             @doc value "is the text color, a named color or a fixed color."
@@ -849,56 +915,159 @@ NodeConfig union on variant {
 
         @doc value "is the configuration for live telemetry value symbols."
     }
-    agitator                           ToggleSymbolConfig
-    cross_beam_agitator                ToggleSymbolConfig
-    flat_blade_agitator                ToggleSymbolConfig
-    heat_exchanger_general             StaticSymbolConfig
-    heat_exchanger_m                   StaticSymbolConfig
-    heat_exchanger_straight_tube       StaticSymbolConfig
-    helical_agitator                   ToggleSymbolConfig
-    paddle_agitator                    ToggleSymbolConfig
-    propeller_agitator                 ToggleSymbolConfig
-    rotary_mixer                       ToggleSymbolConfig
-    static_mixer                       StaticSymbolConfig
-    cavity_pump                        ToggleSymbolConfig
-    centrifugal_compressor             ToggleSymbolConfig
-    compressor                         ToggleSymbolConfig
-    diaphragm_pump                     ToggleSymbolConfig
-    ejection_pump                      ToggleSymbolConfig
-    ejector_compressor                 ToggleSymbolConfig
-    liquid_ring_compressor             ToggleSymbolConfig
-    piston_pump                        ToggleSymbolConfig
-    pump                               ToggleSymbolConfig
-    roller_vane_compressor             ToggleSymbolConfig
-    screw_pump                         ToggleSymbolConfig
-    turbo_compressor                   ToggleSymbolConfig
-    vacuum_pump                        ToggleSymbolConfig
-    burst_disc                         StaticSymbolConfig
-    flame_arrestor                     StaticSymbolConfig
-    flame_arrestor_detonation          StaticSymbolConfig
-    flame_arrestor_explosion           StaticSymbolConfig
-    flame_arrestor_fire_res            StaticSymbolConfig
-    flame_arrestor_fire_res_detonation StaticSymbolConfig
-    iso_burst_disc                     StaticSymbolConfig
-    angled_valve                       ToggleSymbolConfig
-    angled_relief_valve                DummyToggleSymbolConfig
-    angled_spring_loaded_relief_valve  DummyToggleSymbolConfig
-    ball_valve                         ToggleSymbolConfig
-    breather_valve                     DummyToggleSymbolConfig
-    butterfly_valve_one                ToggleSymbolConfig
-    butterfly_valve_two                ToggleSymbolConfig
-    check_valve                        StaticSymbolConfig
-    check_valve_with_arrow             StaticSymbolConfig
-    electric_regulator                 StaticSymbolConfig
-    electric_regulator_motorized       StaticSymbolConfig
-    four_way_valve                     ToggleSymbolConfig
-    gate_valve                         ToggleSymbolConfig
-    iso_check_valve                    StaticSymbolConfig
-    manual_valve                       DummyToggleSymbolConfig
-    needle_valve                       DummyToggleSymbolConfig
-    regulator                          StaticSymbolConfig
-    regulator_manual                   StaticSymbolConfig
-    relief_valve                       DummyToggleSymbolConfig
+    agitator                           ToggleSymbolConfig {
+        @doc value "is the configuration for agitator symbols."
+    }
+    cross_beam_agitator                ToggleSymbolConfig {
+        @doc value "is the configuration for cross beam agitator symbols."
+    }
+    flat_blade_agitator                ToggleSymbolConfig {
+        @doc value "is the configuration for flat blade agitator symbols."
+    }
+    heat_exchanger_general             StaticSymbolConfig {
+        @doc value "is the configuration for general heat exchanger symbols."
+    }
+    heat_exchanger_m                   StaticSymbolConfig {
+        @doc value "is the configuration for M-type heat exchanger symbols."
+    }
+    heat_exchanger_straight_tube       StaticSymbolConfig {
+        @doc value "is the configuration for straight tube heat exchanger symbols."
+    }
+    helical_agitator                   ToggleSymbolConfig {
+        @doc value "is the configuration for helical agitator symbols."
+    }
+    paddle_agitator                    ToggleSymbolConfig {
+        @doc value "is the configuration for paddle agitator symbols."
+    }
+    propeller_agitator                 ToggleSymbolConfig {
+        @doc value "is the configuration for propeller agitator symbols."
+    }
+    rotary_mixer                       ToggleSymbolConfig {
+        @doc value "is the configuration for rotary mixer symbols."
+    }
+    static_mixer                       StaticSymbolConfig {
+        @doc value "is the configuration for static mixer symbols."
+    }
+    cavity_pump                        ToggleSymbolConfig {
+        @doc value "is the configuration for cavity pump symbols."
+    }
+    centrifugal_compressor             ToggleSymbolConfig {
+        @doc value "is the configuration for centrifugal compressor symbols."
+    }
+    compressor                         ToggleSymbolConfig {
+        @doc value "is the configuration for compressor symbols."
+    }
+    diaphragm_pump                     ToggleSymbolConfig {
+        @doc value "is the configuration for diaphragm pump symbols."
+    }
+    ejection_pump                      ToggleSymbolConfig {
+        @doc value "is the configuration for ejection pump symbols."
+    }
+    ejector_compressor                 ToggleSymbolConfig {
+        @doc value "is the configuration for ejector compressor symbols."
+    }
+    liquid_ring_compressor             ToggleSymbolConfig {
+        @doc value "is the configuration for liquid ring compressor symbols."
+    }
+    piston_pump                        ToggleSymbolConfig {
+        @doc value "is the configuration for piston pump symbols."
+    }
+    pump                               ToggleSymbolConfig {
+        @doc value "is the configuration for pump symbols."
+    }
+    roller_vane_compressor             ToggleSymbolConfig {
+        @doc value "is the configuration for roller vane compressor symbols."
+    }
+    screw_pump                         ToggleSymbolConfig {
+        @doc value "is the configuration for screw pump symbols."
+    }
+    turbo_compressor                   ToggleSymbolConfig {
+        @doc value "is the configuration for turbo compressor symbols."
+    }
+    vacuum_pump                        ToggleSymbolConfig {
+        @doc value "is the configuration for vacuum pump symbols."
+    }
+    burst_disc                         StaticSymbolConfig {
+        @doc value "is the configuration for burst disc symbols."
+    }
+    flame_arrestor                     StaticSymbolConfig {
+        @doc value "is the configuration for flame arrestor symbols."
+    }
+    flame_arrestor_detonation          StaticSymbolConfig {
+        @doc value "is the configuration for detonation-proof flame arrestor symbols."
+    }
+    flame_arrestor_explosion           StaticSymbolConfig {
+        @doc value "is the configuration for explosion-proof flame arrestor symbols."
+    }
+    flame_arrestor_fire_res            StaticSymbolConfig {
+        @doc value "is the configuration for fire resistant flame arrestor symbols."
+    }
+    flame_arrestor_fire_res_detonation StaticSymbolConfig {
+        @doc value """
+            is the configuration for fire resistant and detonation-proof flame arrestor
+            symbols.
+        """
+    }
+    iso_burst_disc                     StaticSymbolConfig {
+        @doc value "is the configuration for ISO burst disc symbols."
+    }
+    angled_valve                       ToggleSymbolConfig {
+        @doc value "is the configuration for angled valve symbols."
+    }
+    angled_relief_valve                DummyToggleSymbolConfig {
+        @doc value "is the configuration for angled relief valve symbols."
+    }
+    angled_spring_loaded_relief_valve  DummyToggleSymbolConfig {
+        @doc value "is the configuration for angled spring loaded relief valve symbols."
+    }
+    ball_valve                         ToggleSymbolConfig {
+        @doc value "is the configuration for ball valve symbols."
+    }
+    breather_valve                     DummyToggleSymbolConfig {
+        @doc value "is the configuration for breather valve symbols."
+    }
+    butterfly_valve_one                ToggleSymbolConfig {
+        @doc value "is the configuration for remote butterfly valve symbols."
+    }
+    butterfly_valve_two                ToggleSymbolConfig {
+        @doc value "is the configuration for manual butterfly valve symbols."
+    }
+    check_valve                        StaticSymbolConfig {
+        @doc value "is the configuration for check valve symbols."
+    }
+    check_valve_with_arrow             StaticSymbolConfig {
+        @doc value "is the configuration for check valve symbols drawn with an arrow."
+    }
+    electric_regulator                 StaticSymbolConfig {
+        @doc value "is the configuration for electric regulator symbols."
+    }
+    electric_regulator_motorized       StaticSymbolConfig {
+        @doc value "is the configuration for motorized electric regulator symbols."
+    }
+    four_way_valve                     ToggleSymbolConfig {
+        @doc value "is the configuration for four way valve symbols."
+    }
+    gate_valve                         ToggleSymbolConfig {
+        @doc value "is the configuration for gate valve symbols."
+    }
+    iso_check_valve                    StaticSymbolConfig {
+        @doc value "is the configuration for ISO check valve symbols."
+    }
+    manual_valve                       DummyToggleSymbolConfig {
+        @doc value "is the configuration for manual valve symbols."
+    }
+    needle_valve                       DummyToggleSymbolConfig {
+        @doc value "is the configuration for needle valve symbols."
+    }
+    regulator                          StaticSymbolConfig {
+        @doc value "is the configuration for regulator symbols."
+    }
+    regulator_manual                   StaticSymbolConfig {
+        @doc value "is the configuration for manual regulator symbols."
+    }
+    relief_valve                       DummyToggleSymbolConfig {
+        @doc value "is the configuration for relief valve symbols."
+    }
     solenoid_valve extends ToggleSymbolConfig {
         normally_open bool = false {
             @doc value "indicates whether the valve is open when unpowered."
@@ -906,11 +1075,21 @@ NodeConfig union on variant {
 
         @doc value "is the configuration for solenoid valve symbols."
     }
-    spring_loaded_relief_valve         DummyToggleSymbolConfig
-    three_way_valve                    ToggleSymbolConfig
-    three_way_ball_valve               ToggleSymbolConfig
-    valve                              ToggleSymbolConfig
-    cross_junction                     StaticSymbolConfig
+    spring_loaded_relief_valve         DummyToggleSymbolConfig {
+        @doc value "is the configuration for spring loaded relief valve symbols."
+    }
+    three_way_valve                    ToggleSymbolConfig {
+        @doc value "is the configuration for three way valve symbols."
+    }
+    three_way_ball_valve               ToggleSymbolConfig {
+        @doc value "is the configuration for three-way ball valve symbols."
+    }
+    valve                              ToggleSymbolConfig {
+        @doc value "is the configuration for generic valve symbols."
+    }
+    cross_junction                     StaticSymbolConfig {
+        @doc value "is the configuration for cross junction symbols."
+    }
     cylinder extends LabeledConfig, ScaledConfig {
         dimensions    spatial.Dimensions = { width = 66, height = 181 } {
             @doc value "is the rendered size of the cylinder in pixels."
@@ -967,7 +1146,9 @@ NodeConfig union on variant {
 
         @doc value "is the configuration for tank vessel symbols."
     }
-    t_junction                         StaticSymbolConfig
+    t_junction                         StaticSymbolConfig {
+        @doc value "is the configuration for T junction symbols."
+    }
     custom_actuator extends ToggleConfig {
         spec_key        string                 {
             @doc value "is the key of the custom symbol spec this instance renders."

@@ -140,13 +140,18 @@ class SelectStateIndicatorEnumeration(ConsoleCase):
             ]
         )
 
-        def created() -> list[tuple[str, float]] | None:
+        want = [("Off", 0), ("On", 1)]
+
+        def held() -> list[tuple[str, float]]:
             found = client.enumerations.retrieve(names=[PUMP_NAME])
             if len(found) == 0:
-                return None
+                return []
             return [(e.name, e.value) for e in found[0].entries]
 
-        entries = sy.poll(created, timeout=5, interval=0.25)
-        assert entries == [("Off", 0), ("On", 1)], f"Core holds entries {entries}"
+        # Each entry saves on its own, so wait for all of them.
+        saved = sy.poll(
+            lambda: want if held() == want else None, timeout=5, interval=0.25
+        )
+        assert saved is not None, f"Core holds entries {held()}"
 
         schematic.screenshot()
