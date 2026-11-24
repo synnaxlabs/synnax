@@ -23,7 +23,7 @@ import {
   type FetchInit,
   type FetchResponse,
 } from "@/connector";
-import { asUntrustedCertificate, Timeout, Unreachable } from "@/errors";
+import { asTLSFailure, Timeout, Unreachable } from "@/errors";
 import type { FileEncoding, FileOptions, FileTransport, UploadBody } from "@/file";
 import { type Context, MiddlewareCollector } from "@/middleware";
 import type { UnaryClient } from "@/unary";
@@ -232,6 +232,7 @@ export class HTTPClient
    * @throws {Unreachable} if the target cannot be reached.
    * @throws {UntrustedCertificate} if the runtime does not trust the certificate of
    * the target.
+   * @throws {NoTLS} in Node, if the request uses TLS and the target does not.
    */
   async send<RQ extends z.ZodType, RS extends z.ZodType = RQ>(
     target: string,
@@ -372,8 +373,8 @@ export class HTTPClient
   ): Promise<FetchResponse> {
     const cast = (e: unknown, delivered: boolean): Error => {
       const err = errors.fromUnknown(e);
-      const untrusted = asUntrustedCertificate(err, url);
-      if (untrusted != null) return untrusted;
+      const tls = asTLSFailure(err, url);
+      if (tls != null) return tls;
       if (!shouldCastToUnreachable(err)) return err;
       // A body read failure comes after the TLS handshake.
       const hint =
