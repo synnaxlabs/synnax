@@ -138,9 +138,11 @@ export interface ChannelNaming {
 }
 
 /**
- * Gives each channel binding of write a command channel that suits its field: the one
- * it has, the one that record holds at its key, or a new one. Changes the bindings of
- * write and the channels of record in place.
+ * Gives each channel binding of write a command channel that its field takes: the one
+ * it has, the one that record holds at its key, or a new one. A new channel takes the
+ * data type of the binding, or the default of its field when the binding names none or
+ * one that the field no longer takes. Changes the bindings of write and the channels of
+ * record in place.
  */
 export const configureChannels = async (
   client: Synnax,
