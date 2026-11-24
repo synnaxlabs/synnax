@@ -77,6 +77,12 @@ bool Control::run_once() {
         return false;
     }
     this->breaker.reset_unlimited();
+    this->streamer->watch_core([sink = this->sink](const x::errors::Error &err) {
+        if (err)
+            sink->waiting_for_core(err);
+        else
+            sink->core_reopened();
+    });
     this->sink->opened();
 
     x::errors::Error sink_err = x::errors::NIL;

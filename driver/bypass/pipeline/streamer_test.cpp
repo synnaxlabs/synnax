@@ -424,4 +424,43 @@ TEST(StreamerTest, PropagatesNonOutageCoreErrorThroughClose) {
     ASSERT_OCCURRED_AS_P(streamer->read(), x::errors::VALIDATION);
     ASSERT_OCCURRED_AS(streamer->close(), x::errors::VALIDATION);
 }
+
+/// @brief it should report each Core error it waits on, and each reopen of its Core
+/// half, to the callback of watch_core.
+TEST(StreamerTest, ReportsCoreWaitsToItsWatcher) {
+    auto first_reads = std::make_shared<std::vector<x::telem::Frame>>();
+    first_reads->emplace_back();
+    auto first_errors = std::make_shared<std::vector<x::errors::Error>>(
+        std::vector{freighter::UNREACHABLE}
+    );
+    auto second_reads = std::make_shared<std::vector<x::telem::Frame>>();
+    second_reads->push_back(float_frame(2));
+    auto bus = std::make_shared<Bus>();
+    auto mock_factory = failing_core_factory(
+        {x::errors::NIL, x::errors::NIL},
+        {
+            {first_reads, first_errors, x::errors::NIL},
+            {second_reads, {}, x::errors::NIL},
+        }
+    );
+    StreamerFactory factory(mock_factory, bus, TEST_SUBJECT, TEST_BREAKER);
+    auto streamer = ASSERT_NIL_P(factory.open_streamer({.channels = {1}}));
+    std::mutex mu;
+    std::vector<x::errors::Error> changes;
+    streamer->watch_core([&](const x::errors::Error &err) {
+        std::lock_guard lock(mu);
+        changes.push_back(err);
+    });
+    auto frame = ASSERT_NIL_P(streamer->read());
+    ASSERT_EQ(frame.at<float>(1, 0), 2.0f);
+    streamer->close_send();
+    ASSERT_NIL(streamer->close());
+    // The watcher can be set after the wait, which watch_core replays only as the last
+    // change.
+    std::lock_guard lock(mu);
+    ASSERT_FALSE(changes.empty());
+    ASSERT_NIL(changes.back());
+    for (size_t i = 0; i + 1 < changes.size(); i++)
+        ASSERT_MATCHES(changes[i], freighter::UNREACHABLE);
+}
 }

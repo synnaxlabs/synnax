@@ -275,11 +275,7 @@ class WriteTask final : public driver::task::Task {
         // The start status waits for the streamer, so a client that waits for it can
         // send commands at once.
         void opened() override {
-            this->p.wait_opened(this->p.cmd_wait);
-            // Only the state loop clears a wait after the delay, so without one the
-            // open clears it.
-            if (this->internal->writer_config().channels.empty())
-                this->p.clear_wait(this->p.cmd_wait_warning);
+            this->cmd_opened();
             std::lock_guard lock(this->p.state_mu);
             if (!this->p.opening) return;
             this->p.answer_pending_starts();
@@ -294,6 +290,17 @@ class WriteTask final : public driver::task::Task {
 
         void waiting_for_core(const x::errors::Error &err) override {
             this->p.wait_failed(this->p.cmd_wait, this->p.cmd_wait_warning, err);
+        }
+
+        void core_reopened() override { this->cmd_opened(); }
+
+        /// @brief records that the command streamer reached the Core.
+        void cmd_opened() {
+            this->p.wait_opened(this->p.cmd_wait);
+            // Only the state loop clears a wait after the delay, so without one the
+            // open clears it.
+            if (this->internal->writer_config().channels.empty())
+                this->p.clear_wait(this->p.cmd_wait_warning);
         }
 
         x::errors::Error write(x::telem::Frame &frame) override {
