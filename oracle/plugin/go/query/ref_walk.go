@@ -867,19 +867,27 @@ func (rd *renderer) retargetBody(nodes []*stepNode, mode leafMode) string {
 			k, v := rd.nextVar("k"), rd.nextVar("v")
 			fmt.Fprintf(
 				b,
-				"for %s, %s := range %s {\nif %s == from {\n%s\n%s[%s] = %s\n}\n}\n",
+				"for %[1]s, %[2]s := range %[3]s {\n"+
+					"if %[4]s, ok := to[%[5]s]; ok {\n%[6]s\n%[3]s[%[1]s] = %[2]s\n}\n}\n",
 				k,
 				v,
 				expr,
-				rd.operand(v),
-				rd.assign(v),
-				expr,
-				k,
-				v,
+				t,
+				rd.target(v),
+				rd.assign(v, t),
 			)
 		}
 	})
 	return b.String()
+}
+
+// operand returns the target of expr in a form that can sit in an if condition, where a
+// bare composite literal does not parse.
+func (rd *renderer) operand(expr string) string {
+	if rd.info.IsID {
+		return "(" + rd.target(expr) + ")"
+	}
+	return rd.target(expr)
 }
 
 // assign returns the statement that points the field at expr to the target value. A
