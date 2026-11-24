@@ -347,9 +347,6 @@ func (m *partMigrator) markup(svg string) string {
 
 // holdsBase returns whether c holds at value 0 of the state "active".
 func holdsBase(c *Condition) bool {
-	if c == nil {
-		return false
-	}
 	eq, ok := c.Variant.(EqualsCondition)
 	return ok && eq.State == activeState && slices.Contains(eq.Values, 0)
 }
