@@ -246,7 +246,9 @@ export const Preview = ({
   const fileDropEnabled = spec.drawing.markup.length === 0;
 
   const svgWrapperStyle = {
-    transform: `translate(${viewport.position.x}px, ${viewport.position.y}px) scale(${viewport.zoom})`,
+    transform:
+      `translate(${viewport.position.x}px, ${viewport.position.y}px) ` +
+      `scale(${viewport.zoom})`,
     transition: isDragging ? "none" : "transform 0.2s ease-out",
     cursor: isDragging ? "grabbing" : "default",
   };
