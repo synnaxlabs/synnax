@@ -417,8 +417,8 @@ var _ = Describe("Handoff on the pointer log", func() {
 	}
 	stored := func(ctx SpecContext) []int64 {
 		GinkgoHelper()
-		var out []int64
 		fr := MustSucceed(db.Read(ctx, telem.TimeRangeMax, clock, data))
+		out := make([]int64, 0, fr.Get(data).Len())
 		for _, s := range fr.Get(data).Series {
 			out = append(out, s.Unmarshal[int64]()...)
 		}
