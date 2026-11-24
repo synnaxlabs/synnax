@@ -42,6 +42,19 @@ type durables struct {
 	seqs    []uint64
 	records [][]log.Record
 	refused []error
+	covered []uint64
+}
+
+func (d *durables) onCovered(seq uint64) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.covered = append(d.covered, seq)
+}
+
+func (d *durables) coverage() []uint64 {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return append([]uint64(nil), d.covered...)
 }
 
 func (d *durables) onRefused(_ []log.Record, err error) {
@@ -254,6 +267,7 @@ var _ = Describe("Log", func() {
 					},
 					OnDurable:  hook.on,
 					OnRefused:  hook.onRefused,
+					OnCovered:  hook.onCovered,
 					Prepare:    func(next uint64) { prepare(next) },
 					Switched:   func(uint64) {},
 					DB:         db,
@@ -471,6 +485,24 @@ var _ = Describe("Log", func() {
 				Expect(frames[0].Count).To(Equal(uint32(1)))
 				Expect(frames[1].Count).To(Equal(uint32(2)))
 				Expect(decodeAll(frames[1].Entries)).To(Equal([]any{log.Drop{Key: 2}}))
+			})
+
+			It("Should cover the entries before a frame at a block start, only those "+
+				"before the frame whose block a frame shares, and all at a mark", func() {
+				open(logSize)
+				DeferCleanup(closeLog)
+				release := fs.Hold()
+				a := l.Append(of(&log.Drop{Key: 3}))
+				Eventually(fs.held).Should(Receive())
+				b := l.Append(of(&log.Drop{Key: 3}))
+				release <- struct{}{}
+				Expect(a.Wait()).To(Equal(uint64(5)))
+				Eventually(fs.held).Should(Receive())
+				c := l.Append(of(&log.Drop{Key: 3}))
+				fs.Unhold()
+				Expect(b.Wait()).To(Equal(uint64(6)))
+				Expect(c.Wait()).To(Equal(uint64(7)))
+				Eventually(hook.coverage).Should(Equal([]uint64{5, 5, 7, 8}))
 			})
 
 			It("Should start a frame at the next block when its block holds a "+

@@ -339,6 +339,9 @@ type Dead struct {
 	Segment uint64
 	// Key is the key whose samples the segment held.
 	Key uint32
+	// Sequence is the entry whose record took the segment out of the state, or 0 when
+	// no durable record named the segment.
+	Sequence uint64
 }
 
 type deadRequest struct {
@@ -350,12 +353,18 @@ func (r *deadRequest) fail(err error) { r.done <- err }
 
 func (r *deadRequest) run(s *State) {
 	r.dead, s.core.dead = s.core.dead, nil
+	s.core.hasDead.Store(false)
 	r.done <- nil
 }
 
+// HasDead reports whether TakeDead has segments to return. It is safe to call from any
+// goroutine.
+func (s *State) HasDead() bool { return s.core.hasDead.Load() }
+
 // TakeDead returns the segments that left the state since the last call: by a Drop, or
 // by a Tombstone, a Seal, or a Restart that left them sealed with no durable pointer or
-// with no durable byte. The database unlinks their files once no reader pins them.
+// with no durable byte. The database unlinks their files once the log covers the record
+// that took them out and no reader pins them.
 func (s *State) TakeDead() ([]Dead, error) {
 	r := &deadRequest{done: make(chan error, 1)}
 	if err := s.enqueue(r); err != nil {

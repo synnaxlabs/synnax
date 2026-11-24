@@ -11,6 +11,7 @@ package state
 
 import (
 	"math"
+	"sync/atomic"
 
 	"github.com/synnaxlabs/cesium/internal/log"
 	"github.com/synnaxlabs/x/errors"
@@ -43,9 +44,10 @@ type core struct {
 	// published the keys.
 	keysChanged bool
 	// dead holds the segments that left the state with a file left to unlink once no
-	// reader pins it.
-	dead []Dead
-	keys set.Set[uint32]
+	// reader pins it, and hasDead is true while it holds one.
+	dead    []Dead
+	hasDead atomic.Bool
+	keys    set.Set[uint32]
 }
 
 func newCore(versions set.Set[uint16]) *core {
@@ -262,8 +264,13 @@ func (c *core) bury(s *segState) {
 	ch := c.channels[s.key]
 	ch.remove(s.vis.ID)
 	delete(c.segments, s.vis.ID)
-	c.dead = append(c.dead, Dead{Segment: s.vis.ID, Key: s.key})
+	c.addDead(Dead{Segment: s.vis.ID, Key: s.key, Sequence: c.sequence + 1})
 	ch.publish()
+}
+
+func (c *core) addDead(d Dead) {
+	c.dead = append(c.dead, d)
+	c.hasDead.Store(true)
 }
 
 func (c *core) drop(key uint32) error {
