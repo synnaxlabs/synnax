@@ -8,7 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { schematic } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import {
+  createTestClient,
+  createTestClientWithPolicy,
+} from "@synnaxlabs/client/testutil";
 import { act, render, waitFor } from "@testing-library/react";
 import type { FC, PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it } from "vitest";
@@ -43,6 +46,16 @@ describe("Custom.Static", () => {
 
   const createSymbol = async (svg: string): Promise<schematic.symbol.Symbol> =>
     await client.schematics.symbols.create({ name: "sym", data: createData(svg) });
+
+  it("should warn when the symbol fails to load", async () => {
+    const symbol = await createSymbol(VALID_SVG);
+    // A user with no policies cannot read the symbol, so its load fails.
+    const denied = await createTestClientWithPolicy(client, []);
+    const { findByText } = render(<Custom.Static specKey={symbol.key} />, {
+      wrapper: await createAsyncSynnaxWrapper({ client: denied }),
+    });
+    await findByText("Failed to load custom symbol");
+  });
 
   it("should warn when the symbol markup does not parse", async () => {
     const symbol = await createSymbol("<svg><rect></svg>");
