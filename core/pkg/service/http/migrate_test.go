@@ -378,7 +378,7 @@ var _ = Describe("WriteICDMigration", func() {
 	})
 
 	// stage stores a config that the task named name owns, with one endpoint whose
-	// channel has no channel of the Core, staged as v5.WriteMigration stages it.
+	// command channel does not exist, staged as v5.WriteMigration stages it.
 	stage := func(ctx SpecContext, name string) uuid.UUID {
 		GinkgoHelper()
 		key := uuid.New()
