@@ -48,6 +48,7 @@ std::string create_device() {
         .rack = rack.key,
         .location = conn.endpoint,
         .make = "opc",
+        .model = "OPC UA Server",
         .name = "OPC UA Device Test",
         .properties = x::json::json::object(
             {{"connection", testutil::connection_json(conn)}}
