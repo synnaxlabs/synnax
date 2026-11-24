@@ -115,6 +115,9 @@ type Writer struct {
 	// back, which TakeBack returns.
 	pulled      error
 	pulledSeals []log.Seal
+	// stretch is the alignment number of the writer's last commit, or zero before its
+	// first.
+	stretch uint32
 }
 
 // call queues r for the owner and waits for its error.
@@ -673,7 +676,15 @@ func (s *State) commit(w *Writer, cs []*log.Commit, pre []Preload) error {
 // apply makes the samples of c, which checkVisible accepted, visible.
 func (s *State) apply(w *Writer, c *log.Commit, pre []Preload) {
 	first, last := telem.TimeStamp(c.First), telem.TimeStamp(c.Last)
+	// The first commit of a new stretch frees the time before it for another writer,
+	// as a new domain of the old layout does.
+	number := telem.Alignment(c.Alignment).DomainIndex()
+	moved := w.stretch != 0 && number != w.stretch
+	w.stretch = number
 	for _, cl := range w.claims {
+		if moved && !cl.pinned {
+			cl.start = first
+		}
 		cl.start = min(cl.start, first)
 		if cl.bounded || cl.pinned {
 			cl.end = max(cl.end, last)

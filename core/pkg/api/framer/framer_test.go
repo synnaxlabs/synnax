@@ -249,6 +249,48 @@ var _ = Describe("Framer", func() {
 		})
 	})
 
+	Describe("Write", func() {
+		It("Should send the error of a write to the client and keep serving", func(
+			ctx SpecContext,
+		) {
+			index := createIndex(ctx)
+			data := channel.Channel{
+				Name:       UniqueChannelName(),
+				DataType:   telem.Float32T,
+				LocalIndex: index.LocalKey,
+			}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Channel.NewWriter(tx).Create(ctx, &data)
+			})).To(Succeed())
+			keys := channel.Keys{index.Key(), data.Key()}
+			client, server := freightertestutil.NewStreams[
+				apiframer.WriterRequest,
+				apiframer.WriterResponse,
+			](ctx)
+			done := make(chan error, 1)
+			go func() { done <- apiSvc.Write(rootCtx(ctx), server) }()
+			Expect(client.Send(apiframer.WriterRequest{Config: apiframer.WriterConfig{
+				ControlSubject: control.Subject{Key: "lengths"},
+				Keys:           keys,
+				Start:          telem.SecondTS,
+			}})).To(Succeed())
+			Expect(
+				client.Receive(),
+			).To(HaveField("Command", svcframer.WriterCommandOpen))
+			Expect(client.Send(apiframer.WriterRequest{
+				Command: svcframer.WriterCommandWrite,
+				Frame: frame.NewMulti(keys, []telem.Series{
+					telem.NewSeriesSecondsTSV(1, 2, 3),
+					telem.NewSeriesV[float32](1, 2),
+				}),
+			})).To(Succeed())
+			res := MustSucceed(client.Receive())
+			Expect(res.Err.Type).ToNot(BeEmpty())
+			Expect(client.CloseSend()).To(Succeed())
+			Eventually(done).WithTimeout(5 * time.Second).Should(Receive())
+		})
+	})
+
 	Describe("Read", func() {
 		var (
 			index channel.Channel
