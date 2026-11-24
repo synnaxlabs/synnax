@@ -1191,6 +1191,23 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       });
     });
 
+    it("toggles a click between two commands on one state", async () => {
+      const symbol = await openPainted({
+        states: [createState()],
+        commands: [on("off", 0), on("on", 1)],
+        interactions: [{ type: "fire", key: "c", part: "body", command: "off" }],
+      });
+      fireEvent.click(screen.getByText("Sends off"));
+      fireEvent.click(await within(getInspector()).findByText("Toggle"));
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () => {
+        const saved = await client.schematics.symbols.retrieve(symbol.key);
+        expect(saved.data.interactions).toEqual([
+          { type: "next", key: "c", part: "body", commands: ["off", "on"] },
+        ]);
+      });
+    });
+
     it("turns off the add of a click with no command", async () => {
       await openPainted({ states: [createState()] });
       expect(getEditSectionHeaderButton("Clicks").getAttribute("aria-disabled")).toBe(

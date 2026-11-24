@@ -769,9 +769,14 @@ describe("symbol editor spec", () => {
   });
 
   describe("clicks", () => {
-    const send = (key: string, value: number): schematic.symbol.Command => ({
+    const send = (
+      key: string,
+      value: number,
+      state?: string,
+    ): schematic.symbol.Command => ({
       key,
       name: key,
+      state,
       value: { type: "fixed", value },
     });
 
@@ -800,6 +805,19 @@ describe("symbol editor spec", () => {
       expect(() => Spec.addInteraction(createSpec())).toThrow(
         "a symbol with no free target or no command takes no click",
       );
+    });
+
+    it("should pair a command with others on its state that send other values", () => {
+      const spec = createSpec({
+        commands: [
+          send("off", 0, STATE),
+          send("on", 1, STATE),
+          send("again", 0, STATE),
+          send("trip", 1, FAULT.key),
+          { key: "ask", name: "Ask", state: STATE, value: { type: "ask" } },
+        ],
+      });
+      expect(Spec.nextPartners(spec, "off").map((c) => c.key)).toEqual(["on"]);
     });
   });
 

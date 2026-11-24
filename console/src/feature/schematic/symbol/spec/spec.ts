@@ -420,6 +420,23 @@ export const removeInteraction = (spec: Spec, key: string): [Spec, Removed] => [
 ];
 
 /**
+ * @returns the commands that a toggle can pick between with command: fixed commands on
+ * its state with another value.
+ */
+export const nextPartners = (
+  spec: Pick<Spec, "commands">,
+  command: string,
+): schematic.symbol.Command[] => {
+  const c = spec.commands.find((o) => o.key === command);
+  if (c?.state == null || c.value.type !== "fixed") return [];
+  const { state } = c;
+  const { value } = c.value;
+  return spec.commands.filter(
+    (o) => o.state === state && o.value.type === "fixed" && o.value.value !== value,
+  );
+};
+
+/**
  * @returns the part that holds the shape of selector: the shape itself, a span of the
  * text, or the nearest group around it.
  */
