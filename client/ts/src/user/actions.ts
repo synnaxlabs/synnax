@@ -34,8 +34,6 @@ const applyPath = (state: Draft<User>, action: patch.Action): HandlerResult =>
 const handlers: Handlers = {
   create: (state, { user }) => actions.replace(state, user),
   ...actions.createPathHandlers(applyPath),
-  // The cached user holds no username.
-  setUsername: () => actions.NO_OP_RESULT,
 };
 
 /**

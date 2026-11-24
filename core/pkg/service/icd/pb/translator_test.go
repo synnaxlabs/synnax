@@ -191,6 +191,42 @@ var _ = Describe("Translator", func() {
 		Expect(pb.ICDFromPB(translated)).To(Equal(ic))
 	})
 
+	DescribeTable(
+		"Should round trip the framing of an ICD",
+		func(f icd.FramingVariant) {
+			ic := icd.ICD{
+				Key:      uuid.New(),
+				Name:     "Rig",
+				Messages: []icd.Message{},
+				Framing:  &icd.Framing{Variant: f},
+			}
+			translated := MustSucceed(pb.ICDToPB(ic))
+			Expect(pb.ICDFromPB(translated)).To(Equal(ic))
+		},
+		Entry("with a delimiter", icd.DelimitedFraming{Delimiter: "\r\n"}),
+		Entry("of a fixed length", icd.FixedFraming{Length: 12}),
+		Entry("with a sync sequence and a checksum", icd.SyncFraming{
+			Sync:             []byte{0xAA, 0x55},
+			LengthOffset:     2,
+			LengthSize:       icd.LengthSizeTwo,
+			ByteOrder:        icd.ByteOrderBigEndian,
+			LengthAdjustment: -1,
+			Checksum: &icd.Checksum{
+				Algorithm: icd.ChecksumAlgorithmCrc16Modbus,
+				ByteOrder: icd.ByteOrderBigEndian,
+			},
+			MaxLength: 256,
+		}),
+		Entry("with a sync sequence and no checksum", icd.SyncFraming{
+			Sync:       []byte{0x7E},
+			LengthSize: icd.LengthSizeFour,
+			ByteOrder:  icd.ByteOrderLittleEndian,
+			MaxLength:  65536,
+		}),
+		Entry("with COBS", icd.CobsFraming{}),
+		Entry("with SLIP", icd.SlipFraming{}),
+	)
+
 	DescribeTable("Should round trip a JSON match", func(match icd.JSONMatchVariant) {
 		ic := jsonMessage(match)
 		translated := MustSucceed(pb.ICDToPB(ic))

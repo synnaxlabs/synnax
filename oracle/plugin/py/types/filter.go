@@ -209,8 +209,9 @@ func importShorthand(op resolution.Type, data *templateData) string {
 }
 
 // typedDict declares a TypedDict whose keys are the wire names of fields. It uses class
-// syntax unless a key is a Python keyword, such as "in", which only call syntax takes.
-// Call syntax cannot scope type parameters, so it declares module-level TypeVars.
+// syntax unless a field is escaped, such as the keyword "in" or the BaseModel attribute
+// "register", whose wire name only call syntax takes. Call syntax cannot scope type
+// parameters, so it declares module-level TypeVars.
 func typedDict(
 	name string,
 	fields []fieldData,
