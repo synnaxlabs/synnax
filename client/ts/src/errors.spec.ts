@@ -7,11 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Context, Timeout, Unreachable } from "@synnaxlabs/freighter";
-import { errors, id, url, uuid } from "@synnaxlabs/x";
+import { type Middleware, Timeout, Unreachable } from "@synnaxlabs/freighter";
+import { errors, id, TimeSpan, url, uuid } from "@synnaxlabs/x";
 import { describe, expect, test } from "vitest";
 
-import { errorsMiddleware } from "@/errors";
 import {
   AccessDeniedError,
   APIKeyUnavailableError,
@@ -123,14 +122,26 @@ describe("error", () => {
   });
 });
 
-describe("errorsMiddleware", () => {
-  const ctx: Context = { target: "", protocol: "", params: {}, role: "client" };
+describe("unreachable Core", () => {
   const endpoint = new url.URL({ host: "core.example.com", port: 9090 });
 
-  const failWith = async (err: Error): Promise<unknown> =>
-    await errorsMiddleware(ctx, async () => {
-      throw err;
-    }).catch((e: unknown) => e);
+  const failWith = async (err: Error): Promise<unknown> => {
+    const unreachable: Middleware = async (ctx, next) => {
+      if (ctx.target.endsWith("/channel/retrieve")) throw err;
+      return await next(ctx);
+    };
+    const client = createTestClient({
+      middleware: [unreachable],
+      retry: { baseInterval: TimeSpan.milliseconds(5), scale: 1, maxRetries: 0 },
+    });
+    try {
+      return await client.channels
+        .retrieve(["no-such-channel"])
+        .catch((e: unknown) => e);
+    } finally {
+      await client.close();
+    }
+  };
 
   test("should name the Core in an Unreachable error", async () => {
     const err = await failWith(new Unreachable({ url: endpoint }));
