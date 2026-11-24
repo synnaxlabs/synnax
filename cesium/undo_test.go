@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/checkpoint"
 	"github.com/synnaxlabs/cesium/internal/log"
+	"github.com/synnaxlabs/cesium/testutil/oldlayout"
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/io/fs/testutil/fault"
@@ -143,14 +144,35 @@ var _ = Describe("Undo of a conversion", func() {
 		}
 		return nil
 	}
+	// root returns the keys of the root of the old layout name, which Cesium at
+	// core/v0.62.0 wrote with the channels and writes of these specs in small files.
+	root := func(ctx context.Context, name string) []oldlayout.Key {
+		GinkgoHelper()
+		fs := MustSucceed(
+			xfs.Default.Sub("testutil/oldlayout/testdata/v0.62.0/" + name),
+		)
+		return MustSucceed(oldlayout.Read(ctx, fs))
+	}
+	// written returns the bytes of each key after the writes from each of starts.
+	written := func(starts ...telem.TimeStamp) map[cesium.ChannelKey][]byte {
+		var (
+			stamps []telem.TimeStamp
+			ints   []int32
+		)
+		for _, start := range starts {
+			for n := start; n < start+10; n++ {
+				stamps, ints = append(stamps, n*telem.SecondTS), append(ints, int32(n))
+			}
+		}
+		return map[cesium.ChannelKey][]byte{
+			idx: telem.NewSeries(stamps).Data,
+			i32: telem.NewSeries(ints).Data,
+		}
+	}
 	BeforeEach(func(ctx SpecContext) {
 		disk = MustSucceed(fault.New(fault.Config{}))
-		db := openDBOnFS(ctx, disk, cesium.WithFileSizeCap(48*telem.Byte))
-		Expect(db.CreateChannel(ctx, channels...)).To(Succeed())
-		write(ctx, db, 1)
-		write(ctx, db, 1000)
-		held = MustSucceed(dataOf(ctx, db, keys))
-		Expect(db.Close()).To(Succeed())
+		Expect(oldlayout.Write(disk, root(ctx, "two-keys")...)).To(Succeed())
+		held = written(1, 1000)
 		disk.Writeback()
 	})
 
@@ -203,13 +225,16 @@ var _ = Describe("Undo of a conversion", func() {
 			MatchRegexp(`^[0-9a-f]{16}\.part$`),
 		))
 		// The undo of the old binary puts back each meta.json and changes no other
-		// file, so the old binary writes on from the files that the conversion left.
-		old := MustSucceed(cesium.Open(ctx, "", cesium.WithFS(disk)))
-		write(ctx, old, 9000)
-		oldData := MustSucceed(dataOf(ctx, old, keys))
-		Expect(old.Close()).To(Succeed())
+		// file, so the old binary writes on from the files that the conversion left:
+		// two-keys-on is two-keys after its writer from 9000.
+		Expect(slices.EqualFunc(
+			MustSucceed(oldlayout.Read(ctx, disk)),
+			root(ctx, "two-keys"),
+			sameOld,
+		)).To(BeTrue())
+		Expect(oldlayout.Write(disk, root(ctx, "two-keys-on")...)).To(Succeed())
 		disk.Writeback()
-		Expect(oldData[i32]).To(HaveLen(len(held[i32]) + 10*4))
+		oldData := written(1, 1000, 9000)
 		db, closeDB = MustSucceed2(open(ctx, disk, 0, 2))
 		again := db.Identity()
 		Expect(again).ToNot(Equal(id))

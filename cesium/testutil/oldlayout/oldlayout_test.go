@@ -50,6 +50,9 @@ func files(fs xfs.FS) map[string][]byte {
 // int32 i + 1, and a string of i % 7 + 1 bytes of x. two-runs holds the samples of two
 // writers, from 1 and 1000 seconds, each 4 commits of 5: sample n of a writer from s
 // has the stamp s + n seconds, the int32 s + n, and a string of n % 7 bytes of x.
+// two-keys holds only the index and the int32 key, with two writers from 1 and 1000
+// seconds, each 2 commits of 5: sample n has the stamp n seconds and the int32 n.
+// two-keys-on is two-keys after a third such writer from 9000 seconds.
 func fixture(name string) xfs.FS {
 	GinkgoHelper()
 	return MustSucceed(xfs.Default.Sub(path.Join("testdata/v0.62.0", name)))
@@ -138,6 +141,8 @@ var _ = Describe("Old layout", func() {
 	},
 		Entry("one writer", "one-run"),
 		Entry("two writers", "two-runs"),
+		Entry("two keys", "two-keys"),
+		Entry("two keys after a third writer", "two-keys-on"),
 	)
 
 	It("Should write a root of the old open path again byte for byte",
