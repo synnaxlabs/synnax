@@ -21,6 +21,9 @@ QueryParam = v2.QueryParam
 
 ReadField struct extends v2.ReadField {
     disabled
+    pointer     {
+        @go validate pattern "^(/([^~/]|~[01])*)*$" "Pointer must be empty or a JSON Pointer that starts with / and escapes ~ as ~0 and / as ~1"
+    }
     optional    bool = false {
         @doc value """
             is true when a missing value is normal for this field. The task writes
@@ -108,6 +111,9 @@ ReadConfig struct extends task.PersistConfig {
 }
 
 ChannelField struct extends v2.ChannelField {
+    pointer     {
+        @go validate pattern "^(/([^~/]|~[01])*)*$" "Pointer must be empty or a JSON Pointer that starts with / and escapes ~ as ~0 and / as ~1"
+    }
     json_type   payload.JSONType = number {
         @doc value "is the JSON type the channel value is serialized as."
     }
@@ -145,7 +151,11 @@ WriteField union on type extends v2.WriteField {
     }
 }
 
-WriteEndpoint struct extends v2.WriteEndpoint {}
+WriteEndpoint struct extends v2.WriteEndpoint {
+    path {
+        @go validate pattern "^[^?#[:space:]]*$" "Path must not hold a query, a fragment, or whitespace"
+    }
+}
 
 WriteConfig struct extends v2.WriteConfig {}
 

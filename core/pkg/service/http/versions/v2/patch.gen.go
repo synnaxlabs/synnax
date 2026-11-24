@@ -16,6 +16,18 @@ import (
 	"github.com/synnaxlabs/x/patch"
 )
 
+// HashContent writes the content of the value to h, without its keys.
+func (hv *Header) HashContent(h *content.Hash) {
+	h.String(hv.Name)
+	h.String(hv.Value)
+}
+
+// HashContent writes the content of the value to h, without its keys.
+func (qp *QueryParam) HashContent(h *content.Hash) {
+	h.String(qp.Parameter)
+	h.String(qp.Value)
+}
+
 // Patch applies the path action at c, which is not done, to the value.
 func (sc *ScanConfig) Patch(c patch.Cursor) error {
 	switch c.Segment() {

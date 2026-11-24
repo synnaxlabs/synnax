@@ -1,0 +1,161 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+package http_test
+
+import (
+	"uuid"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/service/http"
+	tasktestutil "github.com/synnaxlabs/synnax/pkg/service/task/testutil"
+	"github.com/synnaxlabs/x/encoding/msgpack"
+	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
+)
+
+var _ = Describe("Upgrade repair", func() {
+	var (
+		svc   *http.Service
+		tasks *tasktestutil.Tasks
+		dev   string
+	)
+	BeforeEach(func(ctx SpecContext) {
+		svc = MustOpen(http.OpenService(ctx, http.ServiceConfig{
+			DB:      db,
+			Channel: channelSvc,
+			ICD:     icdSvc,
+		}))
+		tasks = MustOpen(tasktestutil.OpenTasks(ctx, tasktestutil.TasksConfig{
+			DB:     db,
+			Status: statusSvc,
+			Stores: svc.Stores(),
+		}))
+		dev = uuid.New().String()
+		Expect(tasks.CreateDevice(ctx, dev)).To(Succeed())
+	})
+
+	// shipped returns a write config in the shape that a released Core stored.
+	shipped := func(endpoint map[string]any) msgpack.EncodedJSON {
+		ep := map[string]any{
+			"key":          "ep",
+			"method":       "POST",
+			"path":         "/cmd",
+			"headers":      []any{},
+			"query_params": []any{},
+			"channel":      map[string]any{"pointer": "/value", "json_type": "number"},
+			"fields":       []any{},
+		}
+		for k, v := range endpoint {
+			ep[k] = v
+		}
+		return msgpack.EncodedJSON{"device": dev, "endpoints": []any{ep}}
+	}
+	// upgrade runs a shipped config through the import repair and the save checks, as
+	// the task upgrade does.
+	upgrade := func(ctx SpecContext, data msgpack.EncodedJSON) error {
+		normalized, err := svc.Write.Normalize(ctx, db, 2, data)
+		if err != nil {
+			return err
+		}
+		_, err = svc.Write.Prepare(ctx, db, uuid.New(), "Valve", normalized)
+		return err
+	}
+	endpoint := func(ctx SpecContext, data msgpack.EncodedJSON) map[string]any {
+		GinkgoHelper()
+		normalized := MustSucceed(svc.Write.Normalize(ctx, db, 2, data))
+		eps := normalized["endpoints"].([]any)
+		return eps[0].(map[string]any)
+	}
+
+	DescribeTable("Should repair a row that the Driver skipped or sent as is",
+		func(
+			ctx SpecContext,
+			in map[string]any,
+			path string,
+			headers []any,
+			params []any,
+		) {
+			data := shipped(in)
+			ep := endpoint(ctx, data)
+			Expect(ep["path"]).To(Equal(path))
+			Expect(ep["headers"]).To(Equal(headers))
+			Expect(ep["query_params"]).To(Equal(params))
+			Expect(upgrade(ctx, shipped(in))).To(Succeed())
+		},
+		Entry(
+			"a header with no name",
+			map[string]any{"headers": []any{
+				map[string]any{"name": "", "value": "x"},
+				map[string]any{"name": "Accept", "value": "json"},
+			}},
+			"/cmd",
+			[]any{map[string]any{"name": "Accept", "value": "json"}},
+			[]any{},
+		),
+		Entry(
+			"a query parameter with no name",
+			map[string]any{"query_params": []any{
+				map[string]any{"parameter": "", "value": "1"},
+			}},
+			"/cmd",
+			[]any{},
+			[]any{},
+		),
+		Entry(
+			"a query in the path",
+			map[string]any{"path": "/cmd?a=1&units=si"},
+			"/cmd",
+			[]any{},
+			[]any{
+				map[string]any{"parameter": "a", "value": "1"},
+				map[string]any{"parameter": "units", "value": "si"},
+			},
+		),
+	)
+
+	DescribeTable("Should set aside a row that could never have worked",
+		func(ctx SpecContext, in map[string]any, path string) {
+			Expect(upgrade(ctx, shipped(in))).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring(path)),
+			))
+		},
+		Entry(
+			"a header name that is not a token",
+			map[string]any{"headers": []any{
+				map[string]any{"name": "X Key", "value": "1"},
+			}},
+			"name",
+		),
+		Entry(
+			"a header value with a line break",
+			map[string]any{"headers": []any{
+				map[string]any{"name": "Accept", "value": "a\r\nb"},
+			}},
+			"value",
+		),
+		Entry(
+			"a malformed pointer",
+			map[string]any{"channel": map[string]any{
+				"pointer":   "value",
+				"json_type": "number",
+			}},
+			"pointer",
+		),
+	)
+
+	It("Should keep a query in the path that the Driver sends in another order",
+		func(ctx SpecContext) {
+			data := shipped(map[string]any{"path": "/cmd?b=1&a=2"})
+			Expect(endpoint(ctx, data)["path"]).To(Equal("/cmd?b=1&a=2"))
+		},
+	)
+})

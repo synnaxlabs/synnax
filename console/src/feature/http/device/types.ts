@@ -96,10 +96,21 @@ export const queryParamsZ = http.queryParamZ
     ),
   );
 
+/** Drops the rows with no name, which the Driver skipped, from a stored list. */
+const dropBlankRows =
+  (key: string) =>
+  (rows: unknown): unknown =>
+    Array.isArray(rows)
+      ? rows.filter(
+          (row) =>
+            typeof row !== "object" || row == null || Reflect.get(row, key) !== "",
+        )
+      : rows;
+
 const sharedHealthCheckZ = z.object({
   path: z.string(),
-  headers: headersZ.optional(),
-  queryParams: queryParamsZ.optional(),
+  headers: z.preprocess(dropBlankRows("name"), headersZ).optional(),
+  queryParams: z.preprocess(dropBlankRows("parameter"), queryParamsZ).optional(),
 });
 
 const noValidateHealthCheckZ = sharedHealthCheckZ.extend({

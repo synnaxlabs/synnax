@@ -17,6 +17,22 @@ describe("HTTP Device Properties", () => {
       HTTP.Device.propertiesZ.parse(HTTP.Device.ZERO_PROPERTIES);
     });
 
+    it("should drop the stored health check rows that have no name", () => {
+      const result = HTTP.Device.propertiesZ.parse({
+        ...HTTP.Device.ZERO_PROPERTIES,
+        healthCheck: {
+          ...HTTP.Device.ZERO_PROPERTIES.healthCheck,
+          headers: [
+            { name: "", value: "x" },
+            { name: "Accept", value: "json" },
+          ],
+          queryParams: [{ parameter: "", value: "1" }],
+        },
+      });
+      expect(result.healthCheck.headers).toEqual([{ name: "Accept", value: "json" }]);
+      expect(result.healthCheck.queryParams).toEqual([]);
+    });
+
     it("should validate a v1 config with none auth", () => {
       const config: HTTP.Device.Properties = {
         secure: true,
