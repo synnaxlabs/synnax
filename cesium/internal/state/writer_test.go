@@ -359,7 +359,7 @@ var _ = Describe("Writer", func() {
 				s.OpenWriter(context.Background(), clockWriter(200, false, 5)),
 			).Error().
 				To(SatisfyAll(
-					conflict(),
+					refusedOpen(),
 					MatchError(
 						ContainSubstring(
 							"reaches the claim of another writer from 100",
@@ -373,7 +373,7 @@ var _ = Describe("Writer", func() {
 			Expect(
 				s.OpenWriter(context.Background(), clockWriter(150, true, 5)),
 			).Error().
-				To(conflict())
+				To(refusedOpen())
 		})
 
 		It(
@@ -403,7 +403,7 @@ var _ = Describe("Writer", func() {
 				id := MustSucceed(w.NewSegment(5))
 				n := MustSucceed(w.NewAlignment())
 				Expect(w.Commit(commit(2, n, 0, 45, 50, slot(id, 16)))).
-					To(conflict())
+					To(refusedCommit())
 			},
 		)
 
@@ -433,7 +433,7 @@ var _ = Describe("Writer", func() {
 				Expect(
 					s.OpenWriter(context.Background(), clockWriter(70, true, 5)),
 				).Error().
-					To(conflict())
+					To(refusedOpen())
 			})
 
 		It("Should let another writer claim a key after Close", func() {
