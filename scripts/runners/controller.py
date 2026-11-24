@@ -67,12 +67,12 @@ checked against GH_WEBHOOK_SECRET; steps are polled from five running runs per
 cycle, and the queue is rebuilt from the API every 5 minutes. Runner names and labels
 persist in registry.json so a removed runner keeps reporting.
 
-Scaler (scaler.py): starts stopped runners when jobs queue in their pool, drains
-runners idle past --idle-cooldown (1 min), and once a drained runner is offline,
-deletes its GitHub registration and stops its instance. An offline runner counts as
-idle when it is drained or its instance is up longer than --boot-grace (4 min).
---scale sets the start state (enabled); runner_scaler_cmd switches it at runtime,
-runner_scaler_enabled beats the state, runner_scaler_log carries its log.
+Scaler (scaler.py): starts stopped runners when jobs queue in their pool, deletes the
+GitHub registration of runners idle past --idle-cooldown (1 min) and drains them, and
+once a drained runner is offline, deletes its registration again and stops its instance.
+An offline runner counts as idle when it is drained or its instance is up longer than
+--boot-grace (4 min). --scale sets the start state (enabled); runner_scaler_cmd switches
+it at runtime, runner_scaler_enabled beats the state, runner_scaler_log carries its log.
 
 Seats (seats.py): starts a stopped agent or review seat when a job that asks for its
 labels queues, or when such a job waits FULL_AFTER while every up seat is busy, on a

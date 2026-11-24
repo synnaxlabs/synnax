@@ -52,6 +52,7 @@ func checkImportOrder(ctx acontext.Context[parser.IProgramContext]) {
 func collectImports(ctx acontext.Context[parser.IProgramContext]) {
 	root := ctx.Scope.Root()
 	ambient := ambientOf(root)
+	paths := make(map[string]string)
 	for _, entry := range parser.Imports(ctx.AST) {
 		module, err := lookupModule(ctx, root, ambient, entry.Path)
 		if err != nil {
@@ -64,12 +65,21 @@ func collectImports(ctx acontext.Context[parser.IProgramContext]) {
 			Target: module,
 		}
 		if _, err := root.Add(ctx, alias); err != nil {
-			ctx.Diagnostics.Add(codes.DuplicateImport.Atf(
+			d := codes.DuplicateImport.Atf(
 				entry.AST,
 				"duplicate import: %q is already imported",
 				entry.Alias,
-			))
+			)
+			// An alias taken by a different module needs a new name instead.
+			if paths[entry.Alias] == entry.Path {
+				d = d.WithEdits(
+					"Remove duplicate import", formatter.RemoveImport(entry.AST),
+				)
+			}
+			ctx.Diagnostics.Add(d)
+			continue
 		}
+		paths[entry.Alias] = entry.Path
 	}
 }
 

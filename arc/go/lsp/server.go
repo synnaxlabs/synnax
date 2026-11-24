@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"io"
 	"runtime/debug"
+	"strings"
 	"sync"
 	"time"
 
@@ -125,7 +126,25 @@ func (c Config) Validate() error {
 	return v.Error()
 }
 
-const translateSource = "arc-analyzer"
+const (
+	translateSource = "arc-analyzer"
+	// errorsPage is the docs page with an entry for each diagnostic code.
+	errorsPage = "https://docs.synnaxlabs.com/reference/control/arc/reference/errors"
+)
+
+// translateDiagnostics converts diags to protocol diagnostics. Each one with a code
+// links to the entry of its code on the errors page.
+func translateDiagnostics(diags diagnostics.Diagnostics) []protocol.Diagnostic {
+	translated := lsp.TranslateDiagnostics(diags, translateSource)
+	for i, d := range diags {
+		if d.Code != "" {
+			translated[i].CodeDescription.Href = uri.URI(
+				errorsPage + "#" + strings.ToLower(string(d.Code)),
+			)
+		}
+	}
+	return translated
+}
 
 // ErrAnalysisPanic is returned by a request whose analysis panics.
 var ErrAnalysisPanic = errors.New("internal error while analyzing the program")
@@ -522,7 +541,7 @@ func (s *Server) analyze(
 			Severity: protocol.DiagnosticSeverityError,
 			Message:  err.Error(),
 		}}
-		pDiagnostics = lsp.TranslateDiagnostics(docDiag, translateSource)
+		pDiagnostics = translateDiagnostics(docDiag)
 	})
 	s.cfg.L.Debug("analyzing program")
 	cfg := s.parserConfig()
@@ -541,12 +560,12 @@ func (s *Server) analyzeFunctionBlock(
 	t, err := parser.ParseBlock(fmt.Sprintf("{%s}", content), cfg)
 	if err != nil {
 		docDiag := unwrapDiagnostics(*err)
-		return lsp.TranslateDiagnostics(docDiag, translateSource), ir.IR{}, nil
+		return translateDiagnostics(docDiag), ir.IR{}, nil
 	}
 	aCtx := acontext.NewRoot(ctx, t, s.cfg.NewRoot()).WithConfig(cfg)
 	statement.AnalyzeFunctionBody(aCtx)
 	docDiag := unwrapDiagnostics(*aCtx.Diagnostics)
-	pDiagnostics := lsp.TranslateDiagnostics(docDiag, translateSource)
+	pDiagnostics := translateDiagnostics(docDiag)
 	return pDiagnostics, ir.IR{Symbols: aCtx.Scope}, docDiag
 }
 
@@ -559,7 +578,7 @@ func (s *Server) analyzeProgram(
 ) ([]protocol.Diagnostic, ir.IR, diagnostics.Diagnostics) {
 	t, diag := text.Parse(text.Text{Raw: content}, cfg)
 	if diag != nil {
-		return lsp.TranslateDiagnostics(*diag, translateSource), ir.IR{}, nil
+		return translateDiagnostics(*diag), ir.IR{}, nil
 	}
 	analyze := text.Analyze
 	if module {
@@ -569,7 +588,7 @@ func (s *Server) analyzeProgram(
 	if analysisDiag == nil {
 		return nil, docIR, nil
 	}
-	pDiagnostics := lsp.TranslateDiagnostics(*analysisDiag, translateSource)
+	pDiagnostics := translateDiagnostics(*analysisDiag)
 	return pDiagnostics, docIR, *analysisDiag
 }
 

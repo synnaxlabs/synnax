@@ -22,7 +22,7 @@ import { type PropsWithChildren, type ReactElement, useEffect, useState } from "
 import { z } from "zod";
 
 import { CSS } from "@/css";
-import { type ResolvedStack, resolveStack } from "@/errors/resolveStack";
+import { stack } from "@/errors/stack";
 
 /** Props for the error fallback component. */
 export interface FallbackProps extends PropsWithChildren {
@@ -75,10 +75,11 @@ export const Fallback = ({
   children,
   extraInfo,
 }: FallbackProps): ReactElement => {
-  const [resolved, setResolved] = useState<ResolvedStack | null>(null);
+  const [resolved, setResolved] = useState<stack.Resolved | null>(null);
   useEffect(() => {
     let cancelled = false;
-    resolveStack(error, componentStack ?? null)
+    stack
+      .resolve(error, componentStack ?? null)
       .then((r) => {
         if (!cancelled) setResolved(r);
       })

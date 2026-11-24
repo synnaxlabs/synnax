@@ -13,6 +13,8 @@ import { z } from "zod";
 
 import type { role } from "@/access/role";
 import { actions } from "@/actions";
+import type { auth } from "@/auth";
+import { password } from "@/auth/password";
 import type { batch } from "@/batch";
 import type { connection } from "@/connection";
 import { MultipleFoundError, NotFoundError } from "@/errors";
@@ -25,14 +27,12 @@ import {
   dispatchResZ,
   scopedActionZ,
   set,
-  setUsername,
 } from "@/user/actions.gen";
 import { Current } from "@/user/current";
 import {
   type Key,
   keyZ,
   type New,
-  newZ,
   type RetrieveRequest,
   retrieveRequestZ,
   retrieveResponseZ,
@@ -61,51 +61,35 @@ const keyRetrieveRequestZ = z
   .object({ key: keyZ })
   .transform(({ key }): RetrieveRequest => ({ where: { key: { eq: key } } }));
 
-const usernameRetrieveRequestZ = z
-  .object({ username: z.string() })
-  .transform(({ username }): RetrieveRequest => ({
-    where: { usernames: [username] },
-  }));
-
 export type KeyRetrieveRequest = z.input<typeof keyRetrieveRequestZ>;
-export type UsernameRetrieveRequest = z.input<typeof usernameRetrieveRequestZ>;
 
-const retrieveParamsZ = z.union([
-  keyRetrieveRequestZ,
-  usernameRetrieveRequestZ,
-  retrieveRequestZ,
-]);
+const retrieveParamsZ = z.union([keyRetrieveRequestZ, retrieveRequestZ]);
 
-export type RetrieveParams =
-  KeyRetrieveRequest | UsernameRetrieveRequest | RetrieveRequest;
+export type RetrieveParams = KeyRetrieveRequest | RetrieveRequest;
 
-const createReqZ = z.object({ users: newZ.array() });
+const createReqZ = z.object({ users: userZ.array() });
 const createResZ = z.object({ users: userZ.array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const deleteResZ = z.object({});
 
-// The username lives on the user's password, so only the Core can match it.
 const LINES: Lines = {
-  usernames: null,
   roles: (u, roles) => roles.includes(u.role),
 };
 
 export const ACTION_CHANNEL_NAME = "sy_user_action_set";
 export const DELETE_CHANNEL_NAME = "sy_user_delete";
 
-type SingleParams = KeyRetrieveRequest | UsernameRetrieveRequest;
+type SingleParams = KeyRetrieveRequest;
 
 const singleParamsZ = z.union([
   z.strictObject({ key: keyZ }),
-  z.strictObject({ username: z.string() }),
   keyZ.transform((key) => ({ key })),
 ]);
 
-const singleIdentifier = (params: SingleParams): string =>
-  "key" in params ? `key ${params.key}` : `username ${params.username}`;
-
 export interface ClientConfig {
   unary: UnaryClient;
+  /** Finds and renames user passwords. */
+  auth: auth.Client;
   cache: query.Cache;
   batch: batch.Client;
   connection: connection.Client;
@@ -159,7 +143,7 @@ export class Client extends query.Retriever<
           return users.map((u) => u.key);
         }),
       compose: (records) => records[0],
-      keyOf: (params) => ("key" in params ? params.key : null),
+      keyOf: (params) => params.key,
       single: true,
     });
     super(cache, {
@@ -189,18 +173,26 @@ export class Client extends query.Retriever<
   async create(users: New[]): Promise<User[]>;
   async create(users: New | New[]): Promise<User | User[]> {
     const isMany = Array.isArray(users);
-    const res = await this.cfg.unary.send(
-      "/user/create",
-      { users: array.toArray(users) },
-      createReqZ,
-      createResZ,
-    );
+    // Parsed once so a retried request keeps the keys it generated.
+    const req = createReqZ.parse({ users: array.toArray(users) });
+    const res = await this.cfg.unary.send("/user/create", req, createReqZ, createResZ);
     this.store.set(res.users);
     return isMany ? res.users : res.users[0];
   }
 
-  async changeUsername(key: Key, newUsername: string): Promise<void> {
-    await this.dispatch(key, setUsername({ username: newUsername }));
+  /**
+   * Changes the username of the user's password. Sessions stay open. A client that
+   * logged in with the password logs in again under the new username.
+   * @throws {NotFoundError} if the user has no password.
+   * @throws {AuthError} if another user holds the username.
+   * @throws {AccessDeniedError} if the caller cannot retrieve or update the user.
+   * @throws {ValidationError} if the username is empty.
+   */
+  async changeUsername(key: Key, username: string): Promise<void> {
+    const { passwords } = this.cfg.auth;
+    const [p] = await passwords.retrieve({ subjects: [resourceID(key)] });
+    if (p == null) throw new NotFoundError(`User ${key} has no password`);
+    await passwords.dispatch(p.key, password.setUsername({ username }));
   }
 
   async rename(key: Key, name: string): Promise<void> {
@@ -269,14 +261,11 @@ export class Client extends query.Retriever<
   }
 }
 
-const checkSingle = (params: SingleParams, users: User[]): void => {
-  if (users.length === 0)
-    throw new NotFoundError(`No user with ${singleIdentifier(params)} found`);
-  if (users.length > 1)
-    throw new MultipleFoundError(
-      `Multiple users found with ${singleIdentifier(params)}`,
-    );
-};
-
 export const resourceID = resource.createIDFactory<Key>("user");
 export const TYPE_RESOURCE_ID = resourceID("");
+
+const checkSingle = ({ key }: SingleParams, users: User[]): void => {
+  if (users.length === 0) throw new NotFoundError(`No user with key ${key} found`);
+  if (users.length > 1)
+    throw new MultipleFoundError(`Multiple users found with key ${key}`);
+};
