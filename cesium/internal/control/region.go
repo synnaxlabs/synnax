@@ -47,7 +47,8 @@ type region[R Resource] struct {
 	counter uint
 	// opening is non-nil from when the region is created until its resource opens or
 	// fails to, and closes at that point. A region that is opening has no gates and no
-	// resource. Guarded by controller.mu.
+	// resource, except an exclusive region, which stays opening with its one gate until
+	// that gate releases. Guarded by controller.mu.
 	opening chan struct{}
 	// use serializes access to resource by authorized gates.
 	use sync.Mutex
@@ -111,6 +112,15 @@ func (r *region[R]) open(cfg GateConfig[R]) (g *Gate[R], t Transfer, err error) 
 	return g, t, nil
 }
 
+// unsafeFinishOpening wakes the gates that wait for r to open. The caller must hold
+// controller.mu.
+func (r *region[R]) unsafeFinishOpening() {
+	if r.opening != nil {
+		close(r.opening)
+		r.opening = nil
+	}
+}
+
 // state returns the control State of the gate in control, or nil when the region is
 // bounded or still opening.
 func (r *region[R]) state() *State {
@@ -172,6 +182,7 @@ func (r *region[R]) release(g *Gate[R]) (res R, transfer Transfer) {
 	}
 	if transfer.IsRelease() {
 		r.controller.unsafeRemove(r)
+		r.unsafeFinishOpening()
 	}
 	return r.resource, transfer
 }

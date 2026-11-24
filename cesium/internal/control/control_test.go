@@ -1844,6 +1844,54 @@ var _ = Describe("Control", func() {
 		})
 	})
 
+	Describe("Exclusive gates", func() {
+		exclusive := func(key string, value int) control.GateConfig[testResource] {
+			cfg, _ := baseConfig(value)
+			cfg.Subject.Key = key
+			cfg.Exclusive = new(true)
+			return cfg
+		}
+
+		It("Should make a gate wait until the exclusive gate releases", func() {
+			held, _ := MustSucceed2(c.OpenGate(exclusive("held", 1)))
+			cfg, _ := baseConfig(2)
+			cfg.Subject.Key = "waiting"
+			cfg.Authority = xcontrol.AuthorityAbsolute - 1
+			waiting := make(chan *control.Gate[testResource], 1)
+			go func() {
+				defer GinkgoRecover()
+				g, _ := MustSucceed2(c.OpenGate(cfg))
+				waiting <- g
+			}()
+			Consistently(waiting, 50*time.Millisecond).ShouldNot(Receive())
+			held.Release()
+			var g *control.Gate[testResource]
+			Eventually(waiting).Should(Receive(&g))
+			Expect(g.PeekResource()).To(Equal(testResource{value: 2}))
+			g.Release()
+		})
+
+		It("Should make ResourceAt wait until the exclusive gate releases", func() {
+			held, _ := MustSucceed2(c.OpenGate(exclusive("held", 1)))
+			found := make(chan bool, 1)
+			go func() {
+				_, ok := c.ResourceAt(telem.TimeRangeMax)
+				found <- ok
+			}()
+			Consistently(found, 50*time.Millisecond).ShouldNot(Receive())
+			held.Release()
+			Eventually(found).Should(Receive(BeFalse()))
+		})
+
+		It("Should fail to open where another gate has control", func() {
+			cfg, _ := baseConfig(1)
+			g, _ := MustSucceed2(c.OpenGate(cfg))
+			Expect(c.OpenGate(exclusive("exclusive", 2))).Error().
+				To(MatchError(xcontrol.ErrUnauthorized))
+			g.Release()
+		})
+	})
+
 	Describe("ResourceAt", func() {
 		at := func(ts telem.TimeStamp) telem.TimeRange { return ts.Range(ts + 1) }
 		openAt := func(value int, tr telem.TimeRange) *control.Gate[testResource] {
