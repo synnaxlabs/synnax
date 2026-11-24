@@ -206,10 +206,21 @@ export interface CompletedLogin {
   credentials: auth.OIDCCredentials;
 }
 
-/** The purpose of the browser login in progress, if any. */
+/**
+ * @returns the purpose of the browser login in progress, if any.
+ * @throws {Error} when the saved login is not valid. The saved login is then cleared.
+ */
 export const pendingPurpose = (): Purpose | undefined => {
   const raw = sessionStorage.getItem(PENDING_KEY);
-  return raw == null ? undefined : pendingZ.parse(JSON.parse(raw)).purpose;
+  if (raw == null) return undefined;
+  try {
+    return pendingZ.parse(JSON.parse(raw)).purpose;
+  } catch (e) {
+    sessionStorage.removeItem(PENDING_KEY);
+    throw new Error("The saved provider login is not valid. Please log in again.", {
+      cause: e,
+    });
+  }
 };
 
 /**

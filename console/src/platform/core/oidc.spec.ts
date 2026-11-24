@@ -186,6 +186,23 @@ describe("oidc", () => {
       await Core.beginBrowserLogin("alpha", LOGIN, "user");
       expect(Core.pendingPurpose()).toBe("link");
     });
+
+    it("should clear a saved login that is not valid", () => {
+      sessionStorage.setItem("synnax-oidc-login", JSON.stringify({ core: "alpha" }));
+      expect(() => Core.pendingPurpose()).toThrow(
+        "The saved provider login is not valid",
+      );
+      expect(sessionStorage.getItem("synnax-oidc-login")).toBeNull();
+      expect(Core.pendingPurpose()).toBeUndefined();
+    });
+
+    it("should clear a saved login that is not JSON", () => {
+      sessionStorage.setItem("synnax-oidc-login", "{");
+      expect(() => Core.pendingPurpose()).toThrow(
+        "The saved provider login is not valid",
+      );
+      expect(sessionStorage.getItem("synnax-oidc-login")).toBeNull();
+    });
   });
 
   describe("completeBrowserLogin", () => {
