@@ -227,8 +227,8 @@ Secure connection? [y/N]:
 ```
 
 When you answer `y` to the secure prompt, the command also asks for the "CA certificate
-path". Enter the path to the `ca.crt` file of the Core. Leave it empty when the Core has
-a certificate from a public authority.
+path". Enter the path to the `ca.crt` file of the Core. Leave it empty when the
+operating system trusts the certificate of the Core.
 
 The command connects to the Core and prints "Connection successful!". Then it makes an
 API key named "Python CLI on" and the name of your computer, saves the key, and prints
@@ -292,9 +292,9 @@ Two groups come whole from the first source that sets one of their options:
 
 - The credentials: `api_key`, `username`, and `password`. A `username` and `password`
   replace the API key of a variable or of the saved Core.
-- TLS: `secure` and `ca_cert`. `secure=True` with no `ca_cert` uses the CA certificates
-  of the computer, even when `SYNNAX_CA_CERT` is set. A `ca_cert` with no `secure` turns
-  TLS on.
+- TLS: `secure` and `ca_cert`. `secure=True` with no `ca_cert` uses the certificate
+  store of the operating system, even when `SYNNAX_CA_CERT` is set. A `ca_cert` with no
+  `secure` turns TLS on.
 
 To keep the API key out of your code, give the host and set only `SYNNAX_API_KEY`:
 
@@ -388,9 +388,10 @@ client = sy.Synnax(
 ```
 
 The Python client checks the certificate of the Core, and checks that the certificate is
-for the host that you connect to. A certificate from a public authority, such as Let's
-Encrypt, needs no setup. When the Core uses a self-signed certificate, give the path to
-its CA certificate in `ca_cert`:
+for the host that you connect to. A certificate that the operating system trusts needs
+no setup, such as one from Let's Encrypt or from a CA that you
+[installed](/reference/enterprise/certificates). Otherwise, give the path to the CA
+certificate in `ca_cert`. The client then trusts only that CA:
 
 ```python
 client = sy.Synnax(
@@ -422,8 +423,9 @@ const client = new Synnax({
 });
 ```
 
-The TypeScript client checks the certificate of the Core. When the Core uses a
-self-signed certificate, give the text of its CA certificate in `caCert`:
+The TypeScript client checks the certificate of the Core. A certificate that the
+operating system trusts needs no setup. Otherwise, give the text of the CA certificate
+in `caCert`:
 
 ```typescript
 import { readFileSync } from "node:fs";
@@ -629,7 +631,8 @@ A Node.js script does not exit until you close the client.
 <Field.Item name="ca_cert" id="python-ca-cert" type="str">
   The path to the CA certificate that signs the certificate of the Core. With `ca_cert`
   and no `secure`, the client uses TLS. With `secure=False`, the client raises
-  `ValueError`. With no path, the client trusts the CA certificates of the computer.
+  `ValueError`. With no path, the client trusts the certificate store of the operating
+  system.
 </Field.Item>
 
 <Field.Item
