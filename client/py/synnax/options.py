@@ -18,5 +18,6 @@ class Options(BaseModel):
     username: str = ""
     password: str = ""
     api_key: str = ""
+    # A saved login with no secure field connects without TLS.
     secure: bool = False
     ca_cert: str | None = None

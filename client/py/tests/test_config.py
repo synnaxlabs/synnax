@@ -694,7 +694,8 @@ class TestLoadOptions:
             ("api_key", None, {"SYNNAX_API_KEY": "syk_env"}, "syk_env"),
             ("secure", False, {"SYNNAX_SECURE": "true"}, False),
             ("secure", None, {"SYNNAX_SECURE": "true"}, True),
-            ("secure", None, {}, False),
+            ("secure", None, {"SYNNAX_SECURE": "false"}, False),
+            ("secure", None, {}, True),
             ("ca_cert", "/arg.crt", {"SYNNAX_CA_CERT": "/env.crt"}, "/arg.crt"),
             ("ca_cert", None, {"SYNNAX_CA_CERT": "/env.crt"}, "/env.crt"),
             ("ca_cert", "", {"SYNNAX_CA_CERT": "/env.crt"}, "/env.crt"),
@@ -733,7 +734,7 @@ class TestLoadOptions:
             clusters=clusters,
             desktop_file=desktop_file,
         )
-        assert opts == Options(host="rig", port=9090, api_key="syk_env")
+        assert opts == Options(host="rig", port=9090, api_key="syk_env", secure=True)
         assert not embedded
 
     def test_password_replaces_env_key(
@@ -840,6 +841,31 @@ class TestLoadOptions:
             desktop_file=desktop_file,
         )
         assert (opts.username, opts.password, opts.api_key) == ("", "", "syk_env")
+
+    @pytest.mark.parametrize("source", ["key", "password", "desktop"])
+    def test_saved_without_secure(
+        self, clusters: Clusters, desktop_file: Path, source: str
+    ) -> None:
+        """Should connect without TLS to a Core saved with no secure field."""
+        address = {"host": "h", "port": 1}
+        if source == "desktop":
+            desktop_file.write_text(
+                json.dumps({**address, "api_key_helper": str(HELPER)}),
+                encoding="utf-8",
+            )
+        elif source == "key":
+            clusters.internal.set("clusters.default", {"options": address})
+            clusters.keyring.set_password("synnax.api_key", "default@h:1", "syk_k")
+        else:
+            options = {**address, "username": "u"}
+            clusters.internal.set("clusters.default", {"options": options})
+            clusters.keyring.set_password("synnax", "default", "p")
+        opts, _ = load_options(
+            clusters=clusters,
+            desktop_file=desktop_file,
+            run_desktop_helper=FakeHelper(),
+        )
+        assert not opts.secure
 
     @pytest.mark.parametrize(
         ("args", "expected"),
@@ -997,7 +1023,9 @@ class TestLoadOptions:
             clusters=clusters,
             desktop_file=desktop_file,
         )
-        assert opts == Options(host="core.lab", port=9090, api_key="syk_env")
+        assert opts == Options(
+            host="core.lab", port=9090, api_key="syk_env", secure=True
+        )
         assert not embedded
 
     def test_saved_login_without_a_keychain(
@@ -1097,7 +1125,7 @@ class TestHome:
         monkeypatch.setattr("pwd.getpwuid", _no_passwd_entry)
         monkeypatch.chdir(tmp_path)
         opts, embedded = load_options(host="core.lab", api_key="syk_k")
-        assert opts == Options(host="core.lab", port=9090, api_key="syk_k")
+        assert opts == Options(host="core.lab", port=9090, api_key="syk_k", secure=True)
         assert not embedded
 
 

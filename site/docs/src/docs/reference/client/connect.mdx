@@ -310,13 +310,13 @@ password.
 Each client takes each option from the first source that sets it: the argument, then its
 variable, then its default.
 
-| Python    | TypeScript | Variable         | Default                             |
-| --------- | ---------- | ---------------- | ----------------------------------- |
-| `host`    | `host`     | `SYNNAX_HOST`    | None                                |
-| `port`    | `port`     | `SYNNAX_PORT`    | `9090`                              |
-| `api_key` | `apiKey`   | `SYNNAX_API_KEY` | None                                |
-| `secure`  | `secure`   | `SYNNAX_SECURE`  | False in Python, true in TypeScript |
-| `ca_cert` | `caCert`   | `SYNNAX_CA_CERT` | None                                |
+| Python    | TypeScript | Variable         | Default |
+| --------- | ---------- | ---------------- | ------- |
+| `host`    | `host`     | `SYNNAX_HOST`    | None    |
+| `port`    | `port`     | `SYNNAX_PORT`    | `9090`  |
+| `api_key` | `apiKey`   | `SYNNAX_API_KEY` | None    |
+| `secure`  | `secure`   | `SYNNAX_SECURE`  | True    |
+| `ca_cert` | `caCert`   | `SYNNAX_CA_CERT` | None    |
 
 <Client.Tabs exclude={["console"]}>
 
@@ -407,10 +407,9 @@ cannot show. If a script stops at `sy.Synnax()` over SSH, set the environment va
 
 ## Connect with TLS
 
-The TypeScript client connects with TLS by default. In Python, set `secure` to true. For
-how to give the Core a certificate, see [Set up TLS](/reference/enterprise/tls). A Core
-that runs with `--insecure` does not serve TLS. To connect to it from TypeScript, set
-`secure` to false.
+Both clients connect with TLS by default. For how to give the Core a certificate, see
+[Set up TLS](/reference/enterprise/tls). A Core that runs with `--insecure` does not
+serve TLS. To connect to it, set `secure` to false.
 
 <Client.Tabs exclude={["console"]}>
 
@@ -447,6 +446,18 @@ A Core that you start with `--auto-cert` makes its own CA certificate. Give its 
 `ca_cert`, or save it with [`sy login`](#log-in-once-with-sy-login). To find the file,
 see
 [Copy the CA certificate](/reference/enterprise/certificates#copy-the-ca-certificate).
+
+For a Core that runs with `--insecure`:
+
+```python
+client = sy.Synnax(
+    host="localhost",
+    port=9090,
+    username="synnax",
+    password="seldon",
+    secure=False,
+)
+```
 
   </Fragment>
 
@@ -674,8 +685,9 @@ A Node.js script does not exit until you close the client.
   The password to log in with.
 </Field.Item>
 
-<Field.Item name="secure" id="python-secure" type="bool" default="False">
-  Connect with TLS.
+<Field.Item name="secure" id="python-secure" type="bool" default="True">
+  Connect with TLS. Set it to `False` for a Core that runs with `--insecure`. A Core
+  that `sy login` or Synnax Desktop saved keeps its saved value.
 </Field.Item>
 
 <Field.Item name="ca_cert" id="python-ca-cert" type="str">

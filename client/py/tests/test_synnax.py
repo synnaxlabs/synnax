@@ -7,14 +7,17 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import os
 import subprocess
 import sys
 import threading
 from collections.abc import Iterator
+from http.server import BaseHTTPRequestHandler, HTTPServer
 
 import pytest
 
 import synnax as sy
+from freighter.exceptions import Unreachable
 
 
 @pytest.fixture
@@ -76,3 +79,30 @@ class TestSubClients:
         )
         assert result.returncode == 0, result.stderr
         assert result.stdout.strip() == "[]"
+
+
+class TestTLS:
+    def test_core_without_tls(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Should name the fix when the Core answers a TLS handshake in plain
+        HTTP.
+        """
+        for name in [n for n in os.environ if n.startswith("SYNNAX_")]:
+            monkeypatch.delenv(name)
+        server = HTTPServer(("127.0.0.1", 0), BaseHTTPRequestHandler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            with pytest.raises(Unreachable) as e:
+                sy.Synnax(
+                    host="127.0.0.1",
+                    port=server.server_port,
+                    api_key="syk_k",
+                    max_retries=0,
+                )
+        finally:
+            server.shutdown()
+            server.server_close()
+        assert str(e.value) == (
+            f"The Core at 127.0.0.1:{server.server_port} does not use TLS. If it "
+            "runs with --insecure, set secure=False or SYNNAX_SECURE=false."
+        )
