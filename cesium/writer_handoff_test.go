@@ -362,6 +362,114 @@ var _ = DescribeTableSubtree("Handoff", func(pointerLog bool) {
 			Expect(stored(ctx, clock)).To(Equal(int64(4)))
 		})
 	}
+
+	Describe("A writer of data alone, handed off with no channels", func() {
+		// alone opens a writer of the data alone from second 10.
+		alone := func(ctx SpecContext, unstored bool) *cesium.Writer {
+			GinkgoHelper()
+			cfg := config(data)
+			cfg.Unstored = unstored
+			return MustSucceed(db.OpenWriter(ctx, cfg))
+		}
+		values := func() cesium.Frame {
+			return telem.UnaryFrame(data, telem.NewSeriesV[int64](1, 2, 3, 4))
+		}
+		// stamps commits the clock from second 10 to 13, and makes it durable.
+		stamps := func(ctx SpecContext) {
+			GinkgoHelper()
+			Expect(committedFirst(ctx, clock).Close()).To(Succeed())
+		}
+
+		It("Should close the writer, and return no pending samples when it has none",
+			func(ctx SpecContext) {
+				w, p := MustSucceed2(db.Handoff(
+					ctx,
+					alone(ctx, false),
+					cesium.WriterConfig{Clock: clock},
+					nil,
+				))
+				Expect(w).To(BeNil())
+				Expect(p).To(BeNil())
+				Expect(committedFirst(ctx, clock, data).Close()).To(Succeed())
+				Expect(stored(ctx, data)).To(Equal(int64(4)))
+			})
+
+		It("Should return the uncommitted samples as pending samples that commit on "+
+			"the stamps of the clock", func(ctx SpecContext) {
+			stamps(ctx)
+			first := alone(ctx, false)
+			mustWrite(ctx, first, values())
+			w, p := MustSucceed2(db.Handoff(
+				ctx,
+				first,
+				cesium.WriterConfig{Clock: clock},
+				nil,
+			))
+			Expect(w).To(BeNil())
+			Expect(stored(ctx, data)).To(BeZero())
+			end, held := MustSucceed2(p.Commit(ctx))
+			Expect(held).To(BeTrue())
+			Expect(end).To(Equal(13*telem.SecondTS + 1))
+			Expect(stored(ctx, data)).To(Equal(int64(4)))
+		})
+
+		It("Should commit the pending samples through the writer that adopts them",
+			func(ctx SpecContext) {
+				stamps(ctx)
+				first := alone(ctx, false)
+				mustWrite(ctx, first, values())
+				_, p := MustSucceed2(db.Handoff(
+					ctx,
+					first,
+					cesium.WriterConfig{Clock: clock},
+					nil,
+				))
+				taker := MustSucceed(db.OpenWriter(ctx, next(clock)))
+				w, _ := MustSucceed2(db.Handoff(ctx, taker, next(clock, data), p))
+				mustWrite(ctx, w, telem.MultiFrame(
+					[]cesium.ChannelKey{clock, data},
+					[]telem.Series{
+						telem.NewSeriesSecondsTSV(14),
+						telem.NewSeriesV[int64](5),
+					},
+				))
+				Expect(
+					MustSucceed2(w.Commit(ctx, nil)),
+				).To(Equal(14*telem.SecondTS + 1))
+				Expect(w.Close()).To(Succeed())
+				Expect(stored(ctx, clock)).To(Equal(int64(5)))
+				Expect(stored(ctx, data)).To(Equal(int64(5)))
+			})
+
+		It("Should return no pending samples for a writer that stores none", func(
+			ctx SpecContext,
+		) {
+			stamps(ctx)
+			first := alone(ctx, true)
+			mustWrite(ctx, first, values())
+			w, p := MustSucceed2(db.Handoff(
+				ctx,
+				first,
+				cesium.WriterConfig{Clock: clock, Unstored: true},
+				nil,
+			))
+			Expect(w).To(BeNil())
+			Expect(p).To(BeNil())
+			Expect(stored(ctx, data)).To(BeZero())
+		})
+
+		It("Should refuse no channels for a writer of the clock", func(
+			ctx SpecContext,
+		) {
+			Expect(db.Handoff(
+				ctx,
+				openFirst(ctx),
+				cesium.WriterConfig{Clock: clock},
+				nil,
+			)).Error().To(MatchError(validate.ErrValidation))
+			Expect(stored(ctx, clock)).To(BeZero())
+		})
+	})
 }, Entry("old layout", false), Entry("pointer log", true))
 
 var _ = Describe("Handoff on the pointer log", func() {
