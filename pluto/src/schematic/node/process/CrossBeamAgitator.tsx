@@ -19,7 +19,7 @@ import svg from "@/schematic/node/process/CrossBeamAgitator.svg?raw";
 export interface Props extends AgitatorProps {}
 
 export const SYMBOL: schematic.symbol.Spec = Custom.createBuiltIn({
-  variant: "actuator",
+  family: "pump",
   svg,
   handles: [{ key: "4", position: { x: 0.51, y: 0.02 }, orientation: "top" }],
 });

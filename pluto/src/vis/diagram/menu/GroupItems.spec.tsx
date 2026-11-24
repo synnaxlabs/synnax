@@ -7,23 +7,25 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Menu } from "@synnaxlabs/lyra/menu";
+import { Menu as Base } from "@synnaxlabs/lyra/menu";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { fireEvent, render } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { GroupItems, type GroupItemsProps } from "@/vis/diagram/menu/GroupItems";
+import { Menu } from "@/vis/diagram/menu";
 
-const renderItems = (props: Partial<GroupItemsProps> = {}): ReturnType<typeof render> =>
+const renderItems = (
+  props: Partial<Menu.GroupItemsProps> = {},
+): ReturnType<typeof render> =>
   render(
-    <Menu.Menu>
-      <GroupItems
+    <Base.Menu>
+      <Menu.GroupItems
         group={props.group ?? vi.fn()}
         ungroup={props.ungroup ?? vi.fn()}
         canGroup={props.canGroup ?? true}
         canUngroup={props.canUngroup ?? true}
       />
-    </Menu.Menu>,
+    </Base.Menu>,
   );
 
 describe("Diagram.Menu.GroupItems", () => {

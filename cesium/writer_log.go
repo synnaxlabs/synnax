@@ -60,8 +60,10 @@ type logWriter struct {
 	// last is the last stamp written.
 	last telem.TimeStamp
 	// runs are the uncommitted runs, in the order that Commit logs them.
-	runs        []run
-	lastCommit  telem.TimeStamp
+	runs       []run
+	lastCommit telem.TimeStamp
+	// since is the end of the last commit of the stretch, or zero before its first.
+	since       telem.TimeStamp
 	frames      int
 	entry       log.Entry
 	excluded    []ChannelKey
@@ -328,7 +330,7 @@ func (w *logWriter) stretch(
 	if w.number != 0 {
 		return false, nil
 	}
-	w.next = 0
+	w.next, w.since = 0, 0
 	if w.unstored {
 		a, err := w.e.unstored.Next()
 		w.number = a.DomainIndex()
@@ -458,7 +460,7 @@ func (w *logWriter) append(ctx context.Context, lk *logKey, p []byte) error {
 			Clock:    w.clock,
 			Variable: lk.ch.DataType.IsVariable(),
 		}
-		h, err := w.e.budget.Create(w.e.fs, segmentName(lk.ch.Key, id))
+		h, err := w.e.budget.CreateHeld(w.e.fs, segmentName(lk.ch.Key, id))
 		if err != nil {
 			return err
 		}
@@ -514,7 +516,7 @@ func (w *logWriter) commit(
 		}
 	}
 	end := w.runs[len(w.runs)-1].last + 1
-	w.runs, w.lastCommit = w.runs[:0], end
+	w.runs, w.lastCommit, w.since = w.runs[:0], end, end
 	for _, lk := range w.keys {
 		lk.skipped = false
 	}
@@ -587,10 +589,17 @@ func (w *logWriter) buildCommits() error {
 			Slots:     slices.Clone(w.keySegments),
 		})
 		w.preKeys = append(w.preKeys, w.committed...)
+		// A commit that goes on in a stretch changes the time from the end of the
+		// commit before it, as the domain of the old layout does. A run of a writer
+		// that does not write its clock changes only its own stamps.
+		start := r.first
+		if i == 0 && w.stamps == nil && w.since != 0 {
+			start = w.since
+		}
 		for _, key := range w.backfilled {
 			w.changes = append(w.changes, HistoryChange{
 				Key:       key,
-				TimeRange: r.first.Range(r.last + 1),
+				TimeRange: start.Range(r.last + 1),
 			})
 		}
 	}

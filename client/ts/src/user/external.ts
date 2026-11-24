@@ -16,7 +16,6 @@ export {
   resourceID,
   type RetrieveParams,
   TYPE_RESOURCE_ID,
-  type UsernameRetrieveRequest,
 } from "@/user/client";
 export * from "@/user/current";
 export * from "@/user/types.gen";

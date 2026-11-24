@@ -13,12 +13,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Errors } from "@/errors";
 
 // Boundary renders Fallback on error, which kicks off a source-map resolution effect.
-// Stub the resolveStack module so that effect doesn't hit the network.
-vi.mock("@/errors/resolveStack", () => ({
-  resolveStack: vi.fn(async (error: Error, componentStack: string | null) => ({
-    stack: error.stack ?? "",
-    componentStack,
-  })),
+// Stub the stack module so that effect doesn't hit the network.
+vi.mock("@/errors/stack", () => ({
+  stack: {
+    resolve: vi.fn(async (error: Error, componentStack: string | null) => ({
+      stack: error.stack ?? "",
+      componentStack,
+    })),
+  },
 }));
 
 describe("Boundary", () => {

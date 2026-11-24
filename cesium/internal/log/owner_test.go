@@ -42,6 +42,19 @@ type durables struct {
 	seqs    []uint64
 	records [][]log.Record
 	refused []error
+	covered []uint64
+}
+
+func (d *durables) onCovered(seq uint64) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.covered = append(d.covered, seq)
+}
+
+func (d *durables) coverage() []uint64 {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return append([]uint64(nil), d.covered...)
 }
 
 func (d *durables) onRefused(_ []log.Record, err error) {
@@ -83,6 +96,13 @@ func commitEntry(n int) *log.Entry {
 	var e log.Entry
 	e.Add(&log.Commit{Samples: 1, Slots: make([]log.Slot, (n-48)/16)})
 	return fill(&e, n)
+}
+
+// deleteEntry returns an entry of n bytes, a multiple of 8, of a Drop and Restarts,
+// which may use the delete reserve.
+func deleteEntry(n int) *log.Entry {
+	GinkgoHelper()
+	return fill(of(&log.Drop{Key: 1}), n)
 }
 
 // fill adds Restart records of 8 bytes to e until it is n bytes long.
@@ -247,6 +267,7 @@ var _ = Describe("Log", func() {
 					},
 					OnDurable:  hook.on,
 					OnRefused:  hook.onRefused,
+					OnCovered:  hook.onCovered,
 					Prepare:    func(next uint64) { prepare(next) },
 					Switched:   func(uint64) {},
 					DB:         db,
@@ -466,6 +487,24 @@ var _ = Describe("Log", func() {
 				Expect(decodeAll(frames[1].Entries)).To(Equal([]any{log.Drop{Key: 2}}))
 			})
 
+			It("Should cover the entries before a frame at a block start, only those "+
+				"before the frame whose block a frame shares, and all at a mark", func() {
+				open(logSize)
+				DeferCleanup(closeLog)
+				release := fs.Hold()
+				a := l.Append(of(&log.Drop{Key: 3}))
+				Eventually(fs.held).Should(Receive())
+				b := l.Append(of(&log.Drop{Key: 3}))
+				release <- struct{}{}
+				Expect(a.Wait()).To(Equal(uint64(5)))
+				Eventually(fs.held).Should(Receive())
+				c := l.Append(of(&log.Drop{Key: 3}))
+				fs.Unhold()
+				Expect(b.Wait()).To(Equal(uint64(6)))
+				Expect(c.Wait()).To(Equal(uint64(7)))
+				Eventually(hook.coverage).Should(Equal([]uint64{5, 5, 7, 8}))
+			})
+
 			It("Should start a frame at the next block when its block holds a "+
 				"confirmed frame", func() {
 				open(logSize)
@@ -503,17 +542,55 @@ var _ = Describe("Log", func() {
 				Expect(frames[2].Count).To(Equal(uint32(1)))
 			})
 
-			It("Should stop an entry with a Commit at the delete reserve, and take "+
-				"another entry there", func() {
+			DescribeTable("Should stop an entry at the delete reserve, and take a "+
+				"delete there", func(fenced func(n int) *log.Entry) {
 				open(logSize)
 				DeferCleanup(closeLog)
 				n := logSize - log.DeleteReserve - log.FramesStart - 24
-				Expect(l.Append(commitEntry(n)).Wait()).Error().
+				Expect(l.Append(fenced(n)).Wait()).Error().
 					To(MatchError(ContainSubstring("does not fit in log 3: log file is full")))
 				Expect(hook.refusals()).
 					To(HaveExactElements(MatchError(ContainSubstring("log file is full"))))
-				Expect(l.Append(bigEntry(n)).Wait()).To(Equal(uint64(5)))
+				Expect(l.Append(deleteEntry(n)).Wait()).To(Equal(uint64(5)))
 				Expect(hook.refusals()).To(HaveLen(1))
+			},
+				Entry("a Commit", commitEntry),
+				Entry("a Replace", bigEntry),
+				Entry("a Create", func(n int) *log.Entry {
+					return fill(of(&log.Create{Segment: 1, Key: 1, Clock: 1}), n)
+				}),
+				Entry("a Reserve", func(n int) *log.Entry {
+					return fill(of(&log.Reserve{}), n)
+				}),
+				Entry("a Check", func(n int) *log.Entry {
+					return fill(of(&log.Check{Segment: 1}), n)
+				}),
+			)
+
+			DescribeTable("Should take an entry of deletes, Restarts, or Seals in the "+
+				"delete reserve", func(r log.Record) {
+				open(logSize)
+				DeferCleanup(closeLog)
+				n := logSize - log.DeleteReserve - log.FramesStart - 24
+				Expect(l.Append(fill(of(r), n)).Wait()).To(Equal(uint64(5)))
+				Expect(hook.refusals()).To(BeEmpty())
+			},
+				Entry("a Tombstone", &log.Tombstone{Key: 1, Start: 1, End: 2}),
+				Entry("an Intent", &log.Intent{Key: 1}),
+				Entry("a Drop", &log.Drop{Key: 1}),
+				Entry("a Seal", &log.Seal{Segment: 1, Length: 8}),
+				Entry("a Restart", &log.Restart{}),
+			)
+
+			It("Should take a delete in the delete reserve from an entry reset after "+
+				"a Commit", func() {
+				open(logSize)
+				DeferCleanup(closeLog)
+				n := logSize - log.DeleteReserve - log.FramesStart - 24
+				e := commitEntry(64)
+				e.Reset()
+				e.Add(&log.Drop{Key: 1})
+				Expect(l.Append(fill(e, n)).Wait()).To(Equal(uint64(5)))
 			})
 
 			It("Should take an entry that fits in a log that cannot switch after the "+
@@ -523,8 +600,8 @@ var _ = Describe("Log", func() {
 				fs.Hold()
 				first := l.Append(of(&log.Drop{Key: 1}))
 				Eventually(fs.held).Should(Receive())
-				half := l.Append(bigEntry(logSize / 2))
-				quarter := l.Append(bigEntry(logSize / 4))
+				half := l.Append(deleteEntry(logSize / 2))
+				quarter := l.Append(deleteEntry(logSize / 4))
 				fs.Unhold()
 				Expect(first.Wait()).To(Equal(uint64(5)))
 				Expect(half.Wait()).To(Equal(uint64(6)))
@@ -541,13 +618,13 @@ var _ = Describe("Log", func() {
 					To(HaveExactElements(MatchError("log is closed")))
 			})
 
-			It("Should stop an entry with no Commit two blocks before the end, so "+
-				"both last marks fit", func() {
+			It("Should stop a delete two blocks before the end, so both last marks "+
+				"fit", func() {
 				open(logSize)
 				n := logSize - 2*log.BlockSize - log.FramesStart - 32
-				Expect(l.Append(bigEntry(n + 8)).Wait()).Error().
+				Expect(l.Append(deleteEntry(n + 8)).Wait()).Error().
 					To(MatchError(ContainSubstring("does not fit in log 3: log file is full")))
-				Expect(l.Append(bigEntry(n)).Wait()).To(Equal(uint64(5)))
+				Expect(l.Append(deleteEntry(n)).Wait()).To(Equal(uint64(5)))
 				Eventually(func() []int64 { return writes(fs.Ops()) }).
 					Should(Equal([]int64{8_192, logSize - 2*log.BlockSize}))
 				closeLog()
@@ -563,6 +640,25 @@ var _ = Describe("Log", func() {
 				Expect(l.Append(bigEntry(log.MaxFrame)).Wait()).Error().
 					To(MatchError(ContainSubstring("does not fit in log 3: log file is full")))
 			})
+
+			DescribeTable("Should take a rewrite's entry only up to the most Replace "+
+				"pointers", func(n int, fits bool) {
+				open(32 << 20)
+				DeferCleanup(closeLog)
+				ack := l.Append(of(
+					&log.Create{Segment: 9, Key: 1, Clock: 1, Version: 1},
+					&log.Replace{Old: 2, New: 9, Pointers: make([]log.Pointer, n)},
+				))
+				if fits {
+					Expect(ack.Wait()).To(Equal(uint64(5)))
+					return
+				}
+				Expect(ack.Wait()).Error().
+					To(MatchError(ContainSubstring("does not fit in log 3: log file is full")))
+			},
+				Entry("at the most", log.MaxReplacePointers, true),
+				Entry("past the most", log.MaxReplacePointers+1, false),
+			)
 
 			DescribeTable(
 				"Should fail every entry after a failed write or sync, until a restart",

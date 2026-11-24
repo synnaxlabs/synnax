@@ -54,7 +54,11 @@ func (db *DB) newStreamIterator(cfg IteratorConfig) (si *streamIterator, err err
 	var (
 		internal []*unary.Iterator
 		cache    = index.NewCache()
+		clocks   map[ChannelKey]*logClock
 	)
+	if db.engine != nil {
+		clocks = make(map[ChannelKey]*logClock, 1)
+	}
 	defer func() {
 		if err == nil {
 			return
@@ -73,7 +77,7 @@ func (db *DB) newStreamIterator(cfg IteratorConfig) (si *streamIterator, err err
 			Cache:         cache,
 		}
 		if db.engine != nil {
-			iter, iterErr := db.openLogIterator(key, ucfg)
+			iter, iterErr := db.openLogIterator(key, ucfg, clocks)
 			if iterErr != nil {
 				return nil, iterErr
 			}
@@ -91,6 +95,10 @@ func (db *DB) newStreamIterator(cfg IteratorConfig) (si *streamIterator, err err
 		return nil, channel.NewNotFoundError(key)
 	}
 	_, limited := cfg.Reduction.Variant.(telem.LimitReduction)
+	views := make([]*logView, 0, len(clocks))
+	for _, c := range clocks {
+		views = append(views, c.view)
+	}
 	return &streamIterator{
 		internal: internal,
 		validateCommand: validate.NewInclusiveBoundsChecker(
@@ -98,27 +106,42 @@ func (db *DB) newStreamIterator(cfg IteratorConfig) (si *streamIterator, err err
 			IteratorCommandSetBounds,
 		),
 		cache:     cache,
+		views:     views,
 		limited:   limited,
 		chunkSize: db.chunkSize,
 	}, nil
 }
 
+// logClock is the view and the index of a clock, which the keys of a read on it share.
+type logClock struct {
+	view *logView
+	idx  *index.Domain
+}
+
 // openLogIterator opens the iterator of key on the pointer log layout, which takes the
-// stamps of a data channel from its clock. The caller holds db.mu.
+// stamps of a data channel from its clock. The keys on one clock share its view and its
+// index in clocks, so they read one state in each step and share the lookups of
+// cfg.Cache. The caller holds db.mu.
 func (db *DB) openLogIterator(
 	key ChannelKey,
 	cfg unary.IteratorConfig,
+	clocks map[ChannelKey]*logClock,
 ) (*unary.Iterator, error) {
 	ch, ok := db.mu.channels[key]
 	if !ok {
 		return nil, channel.NewNotFoundError(key)
 	}
 	clock := ch.Clock()
-	view := &logView{e: db.engine, key: key, clock: clock}
-	idx := &index.Domain{
-		Instrumentation: db.Instrumentation,
-		DB:              logSource{view: view, clock: true},
-		Channel:         db.mu.channels[clock],
+	c, ok := clocks[clock]
+	if !ok {
+		view := newLogView(db.engine, clock)
+		c = &logClock{view: view, idx: &index.Domain{
+			Instrumentation: db.Instrumentation,
+			DB:              logSource{view: view, clock: true},
+			Channel:         db.mu.channels[clock],
+		}}
+		clocks[clock] = c
 	}
-	return unary.NewIterator(db.Instrumentation, ch, logSource{view: view}, idx, cfg)
+	data := logSource{view: c.view, slot: c.view.add(key)}
+	return unary.NewIterator(db.Instrumentation, ch, data, c.idx, cfg)
 }

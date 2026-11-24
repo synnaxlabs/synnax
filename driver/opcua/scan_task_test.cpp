@@ -1224,6 +1224,21 @@ TEST_F(TestScanTask, testRenewalIgnoresUnreachableServer) {
     EXPECT_EQ(current.certificate, old.certificate);
 }
 
+/// @brief it should save the Driver certificate as a file certificate on the rack.
+TEST_F(TestScanTask, testScanSavesDriverCertificate) {
+    ctx->set_rack_name(rack.name);
+    Scanner scanner(ctx, task, conn_pool, store, reader);
+    ASSERT_EQ(scan(scanner, secured_device(secured_config())).size(), 1);
+    const auto current = ASSERT_NIL_P(store->current());
+    const auto records = ASSERT_NIL_P(
+        client->certificates.retrieve(synnax::certificate::Where{.racks = rack.key})
+    );
+    ASSERT_EQ(records.size(), 1);
+    const auto &file = std::get<synnax::certificate::FileCertificate>(records[0]);
+    EXPECT_EQ(file.name, rack.name + " OPC UA Driver certificate");
+    EXPECT_EQ(file.certificate_path, store->cert_path(current).string());
+}
+
 /// @brief it should keep the scanned devices and report a failed renewal as a partial
 /// scan failure.
 TEST_F(TestScanTask, testRenewalFailureIsPartialScan) {
@@ -1244,6 +1259,37 @@ TEST_F(TestScanTask, testRenewalFailureIsPartialScan) {
     );
     ASSERT_EQ(scanned.size(), 1);
 }
+/// @brief it should keep the scanned devices and report a failed save of the Driver
+/// certificate as a partial scan failure.
+TEST_F(TestScanTask, testRecordsFailureIsPartialScan) {
+    synnax::certificate::Certificate stale = synnax::certificate::FileCertificate{};
+    auto &file = std::get<synnax::certificate::FileCertificate>(stale);
+    file.name = "Stale";
+    file.certificate_path = "/var/lib/synnax/Synnax Driver [00].der";
+    file.rack = rack.key;
+    ASSERT_NIL(client->certificates.set(stale));
+    // Another rack cannot delete the stale record on this rack.
+    const auto other = ASSERT_NIL_P(client->racks.create("opc_scan_task_other_rack"));
+    const auto denied = std::make_shared<task::MockContext>(
+        std::make_shared<synnax::Synnax>(rack_client_config(*client, other.key))
+    );
+    denied->set_rack_name(rack.name);
+    Scanner scanner(denied, task, conn_pool, store, reader);
+    const auto dev = secured_device(secured_config());
+    std::unordered_map<std::string, synnax::device::Device> devices{{dev.key, dev}};
+    common::ScannerContext scan_ctx;
+    scan_ctx.devices = &devices;
+    const auto [scanned, err] = scanner.scan(scan_ctx);
+    ASSERT_OCCURRED_AS(err, common::PARTIAL_SCAN_ERROR);
+    ASSERT_EQ(
+        err.data,
+        "Failed to save the Driver certificate in the Core: rack:" +
+            std::to_string(other.key) + " cannot delete certificate:" +
+            file.key.to_string() + ": access denied: auth error"
+    );
+    ASSERT_EQ(scanned.size(), 1);
+}
+
 /// @brief browses the node at path in the server on port 4881, and returns the status.
 synnax::task::Status browse_node(
     const std::shared_ptr<task::MockContext> &ctx,

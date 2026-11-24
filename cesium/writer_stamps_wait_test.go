@@ -23,6 +23,7 @@ import (
 	. "github.com/synnaxlabs/cesium/internal/testutil"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -149,7 +150,7 @@ var _ = Describe("Data against stamps that are not durable yet", func() {
 		open(ctx)
 		stored := read(ctx, data)
 		Expect(stored).To(HaveLen(1))
-		Expect(stored[0]).To(telem.MatchSeriesDataV[int64](1, 2))
+		Expect(stored[0]).To(MatchSeriesDataV[int64](1, 2))
 	})
 
 	It("Should end a Sync when the clock's sync succeeds while it waits", func(
@@ -222,7 +223,7 @@ var _ = Describe("Data against stamps that are not durable yet", func() {
 		Expect(later.Close()).To(MatchError(syscall.EIO))
 		stored := read(ctx, data)
 		Expect(stored).To(HaveLen(1))
-		Expect(stored[0]).To(telem.MatchSeriesDataV[int64](1, 2))
+		Expect(stored[0]).To(MatchSeriesDataV[int64](1, 2))
 	})
 
 	It("Should not wait at Close, and take back the data whose stamps are not durable",
@@ -256,6 +257,6 @@ var _ = Describe("Data against stamps that are not durable yet", func() {
 		Expect(c.Close()).To(MatchError(syscall.EIO))
 		stored := read(ctx, data)
 		Expect(stored).To(HaveLen(1))
-		Expect(stored[0]).To(telem.MatchSeriesDataV[int64](1, 2))
+		Expect(stored[0]).To(MatchSeriesDataV[int64](1, 2))
 	})
 })

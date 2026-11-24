@@ -230,8 +230,10 @@ The schematic cutover ships in one release:
   only when they have the same source symbol and the same overrides. A node whose
   overrides equal its symbol needs neither, so no node changes its look.
 - The upgrade runs as a composition migration, as panels do
-  (`core/pkg/service/panel/versions/v0/composition.go:41-55`). An import passes the old
-  state lists beside the converted schematic, and its write step
+  (`core/pkg/service/panel/versions/v0/composition.go:41-55`). The enumerations of
+  `select` and `state_indicator` are the exception: the v13 to v14 step of the schematic
+  table makes them, because only that step still reads `options`. An import passes the
+  old state lists beside the converted schematic, and its write step
   (`core/pkg/service/schematic/imex.go:47-70`) makes the enumerations and the symbol
   copies with the same function as the upgrade. An import reuses an enumeration with
   equal content among the records that the importer can retrieve. It reuses a stored
