@@ -286,7 +286,6 @@ func openGuest(
 		Memory:        guest.Memory(),
 		Strings:       cs.strings,
 		NodeKeySetter: statefulMod,
-		StampBounds:   true,
 	}, budget, nil
 }
 

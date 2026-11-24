@@ -100,19 +100,6 @@ func newHarness(
 	channelDigests ...channels.Digest,
 ) *testHarness {
 	GinkgoHelper()
-	return newBoundsHarness(ctx, g, false, chans, channelDigests...)
-}
-
-// newBoundsHarness opens a harness whose WASM nodes give their outputs the bounds of
-// their stamp input when stampBounds is set, as a calculation's do.
-func newBoundsHarness(
-	ctx context.Context,
-	g arc.Graph,
-	stampBounds bool,
-	chans []symbol.Symbol,
-	channelDigests ...channels.Digest,
-) *testHarness {
-	GinkgoHelper()
 	prog := MustSucceed(arc.CompileGraph(ctx, g, NewRoot(nil, chans...)))
 	analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil, chans...))
 	Expect(diagnostics.Ok()).To(BeTrue())
@@ -141,7 +128,6 @@ func newBoundsHarness(
 			Memory:        guest.Memory(),
 			Strings:       stringsState,
 			NodeKeySetter: statefulMod,
-			StampBounds:   stampBounds,
 		},
 		channelMod,
 		mathMod,
@@ -1325,48 +1311,6 @@ sequence main {
 				).To(Equal([]int64{11, 22, 33}))
 				Expect(result.Alignment).To(Equal(telem.Alignment(150)))
 				Expect(result.TimeRange.Start).To(Equal(5 * telem.SecondTS))
-				Expect(result.TimeRange.End).To(Equal(30 * telem.SecondTS))
-			},
-		)
-
-		It(
-			"Should give a calculation's outputs the bounds of the input whose stamps they take",
-			func(ctx SpecContext) {
-				g := binaryOpGraph(
-					"add",
-					"lhs",
-					"rhs",
-					types.I64(),
-					types.I64(),
-					`{ return lhs + rhs }`,
-				)
-				h := newBoundsHarness(ctx, g, true, nil)
-				DeferCleanup(h.Close)
-
-				lhsSeries := telem.NewSeriesV[int64](1, 2, 3)
-				lhsSeries.Alignment = 100
-				lhsSeries.TimeRange = telem.TimeRange{
-					Start: 10 * telem.SecondTS,
-					End:   30 * telem.SecondTS,
-				}
-				h.SetInput("lhs", 0, lhsSeries, telem.NewSeriesSecondsTSV(10, 20, 30))
-
-				rhsSeries := telem.NewSeriesV[int64](10, 20, 30)
-				rhsSeries.Alignment = 50
-				rhsSeries.TimeRange = telem.TimeRange{
-					Start: 5 * telem.SecondTS,
-					End:   25 * telem.SecondTS,
-				}
-				h.SetInput("rhs", 0, rhsSeries, telem.NewSeriesSecondsTSV(5, 15, 25))
-
-				h.Execute(ctx, "add")
-
-				result := h.Output("add", 0)
-				Expect(
-					result.Unmarshal[int64](),
-				).To(Equal([]int64{11, 22, 33}))
-				Expect(result.Alignment).To(Equal(telem.Alignment(100)))
-				Expect(result.TimeRange.Start).To(Equal(10 * telem.SecondTS))
 				Expect(result.TimeRange.End).To(Equal(30 * telem.SecondTS))
 			},
 		)

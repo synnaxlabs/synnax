@@ -294,26 +294,25 @@ func NewSymbols() []*symbol.Symbol {
 	return []*symbol.Symbol{mod, &avgBare, &minBare, &maxBare, &derivativeBare}
 }
 
-// Host is the runtime host-side support for math: it registers the WASM
-// host-function bindings (pow_*, neg_*) and acts as the node factory for
-// avg / min / max / derivative.
 // Windowing picks where the windows of the window operations start.
 type Windowing uint8
 
 const (
-	// WindowFromFirst starts a window at the first stamp it reads, as Arc flows do.
+	// WindowFromFirst starts a window at the first stamp it reads.
 	WindowFromFirst Windowing = iota
 	// WindowFromEpoch starts each window at a multiple of its duration from the Unix
-	// epoch and splits a frame at a boundary, as calculations do. Its outputs take the
-	// bounds of the input alone.
+	// epoch, and splits a frame at each window boundary.
 	WindowFromEpoch
 )
 
+// Host is the runtime host-side support for math: it registers the WASM
+// host-function bindings (pow_*, neg_*) and acts as the node factory for
+// avg / min / max / derivative.
 type Host struct{ windowing Windowing }
 
-// NewHost registers math's WASM host bindings with rt and returns a Host
-// handle that satisfies node.Factory for math's runtime nodes, whose windows start as
-// windowing says.
+// NewHost registers math's WASM host bindings with rt and returns a Host handle that
+// satisfies node.Factory for math's runtime nodes, whose windows start as windowing
+// says.
 func NewHost(
 	ctx context.Context,
 	rt wazero.Runtime,
@@ -401,7 +400,7 @@ func (h *Host) Create(nodeCfg node.Config) (node.Node, error) {
 		resetIdx:    resetIdx,
 		process:     reductionFn,
 		sampleCount: 0,
-		epoch:       h.windowing == WindowFromEpoch,
+		windowing:   h.windowing,
 	}, nil
 }
 
@@ -423,9 +422,7 @@ type avgNode struct {
 	sampleCount   int64
 	startTime     telem.TimeStamp
 	lastResetTime telem.TimeStamp
-	// epoch is set for a calculation, whose windows start at multiples of the duration
-	// from the Unix epoch and whose outputs take the bounds of the input alone.
-	epoch bool
+	windowing     Windowing
 	// running holds the reduction of the current epoch window.
 	running telem.Series
 	// window counts the current epoch window in durations from the Unix epoch. It is
@@ -445,7 +442,7 @@ func (r *avgNode) Reset(ctx node.Context) {
 	r.windowed = false
 }
 
-// restartRunning starts a new epoch window of the reduction.
+// restartRunning clears the reduction.
 func (r *avgNode) restartRunning() {
 	r.sampleCount = 0
 	r.running = r.running.Resized(0)
@@ -455,7 +452,7 @@ func (r *avgNode) Next(ctx node.Context) {
 	if !r.RefreshInputs() {
 		return
 	}
-	if r.epoch {
+	if r.windowing == WindowFromEpoch {
 		r.nextEpoch(ctx)
 		return
 	}
@@ -534,18 +531,11 @@ func (r *avgNode) nextEpoch(ctx node.Context) {
 	for start := int64(0); start < length; {
 		end := length
 		if timed && duration > 0 {
-			w := windowOf(inputTime.ValueAt[telem.TimeStamp](int(start)), duration)
+			var w int64
+			end, w = windowEnd(inputTime, start, duration)
 			if !r.windowed || w != r.window {
 				r.restartRunning()
 				r.window, r.windowed = w, true
-			}
-			for end = start + 1; end < length; end++ {
-				if windowOf(
-					inputTime.ValueAt[telem.TimeStamp](int(end)),
-					duration,
-				) != w {
-					break
-				}
 			}
 		} else {
 			r.windowed = false
@@ -566,25 +556,41 @@ func (r *avgNode) nextEpoch(ctx node.Context) {
 	} else {
 		r.StampCycle(ctx, 0)
 	}
-	// The outputs take the stamps of the input, so they take its alignment and range.
-	out.Alignment, out.TimeRange = inputData.Alignment, inputData.TimeRange
-	outTime.Alignment, outTime.TimeRange = inputData.Alignment, inputData.TimeRange
+	alignment, timeRange := r.outputBounds(inputData)
+	out.Alignment, out.TimeRange = alignment, timeRange
+	outTime.Alignment, outTime.TimeRange = alignment, timeRange
 	r.Emit(ctx, 0)
+}
+
+// windowEnd returns the index past the last stamp of t from start on that lies in the
+// window of the stamp at start, and that window.
+func windowEnd(t telem.Series, start int64, duration telem.TimeSpan) (int64, int64) {
+	w := windowOf(t.ValueAt[telem.TimeStamp](int(start)), duration)
+	end := start + 1
+	for ; end < t.Len(); end++ {
+		if windowOf(t.ValueAt[telem.TimeStamp](int(end)), duration) != w {
+			break
+		}
+	}
+	return end, w
 }
 
 // windowOf returns the window that holds stamp, counted in window lengths of duration
 // from the Unix epoch.
 func windowOf(stamp telem.TimeStamp, duration telem.TimeSpan) int64 {
-	return int64(stamp) / int64(duration)
+	w := int64(stamp) / int64(duration)
+	if int64(stamp)%int64(duration) < 0 {
+		w--
+	}
+	return w
 }
 
 // fixedSlice returns the samples of s, a series of a fixed-size type, from start to
-// end, with the alignment of the first one.
+// end.
 func fixedSlice(s telem.Series, start, end int64) telem.Series {
 	density := int64(s.DataType.Density())
 	out := s
 	out.Data = s.Data[start*density : end*density]
-	out.Alignment = s.Alignment + telem.Alignment(start)
 	return out
 }
 
