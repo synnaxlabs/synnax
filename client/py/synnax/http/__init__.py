@@ -17,15 +17,13 @@ from synnax.http.types import (
     WriteTask,
 )
 from synnax.http.types_gen import (
-    Header,
-    Method,
-    QueryParam,
     ReadConfig,
     ReadEndpoint,
     ScanConfig,
     WriteConfig,
     WriteEndpoint,
 )
+from x.http import Header, Method, QueryParam
 
 __all__ = [
     "MAKE",

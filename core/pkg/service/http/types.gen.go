@@ -13,36 +13,6 @@ package http
 
 import "github.com/synnaxlabs/synnax/pkg/service/http/versions"
 
-// Method is the HTTP method used when requesting an endpoint.
-type Method = versions.Method
-
-const (
-	// MethodGet reads a resource.
-	MethodGet Method = versions.MethodGet
-	// MethodHead reads the headers of a resource, with no body.
-	MethodHead Method = versions.MethodHead
-	// MethodPost submits data to a resource.
-	MethodPost Method = versions.MethodPost
-	// MethodPut replaces a resource.
-	MethodPut Method = versions.MethodPut
-	// MethodDelete removes a resource.
-	MethodDelete Method = versions.MethodDelete
-	// MethodPatch changes part of a resource.
-	MethodPatch Method = versions.MethodPatch
-	// MethodOptions asks which communication options a resource supports.
-	MethodOptions Method = versions.MethodOptions
-	// MethodTrace asks the server to echo the request it receives.
-	MethodTrace Method = versions.MethodTrace
-	// MethodConnect opens a tunnel to the server.
-	MethodConnect Method = versions.MethodConnect
-)
-
-// Header is a single HTTP header sent with a request.
-type Header = versions.Header
-
-// QueryParam is a single URL query parameter sent with a request.
-type QueryParam = versions.QueryParam
-
 // ReadField is a single value extracted from an endpoint's JSON response.
 type ReadField = versions.ReadField
 

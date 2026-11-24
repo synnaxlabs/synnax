@@ -20,7 +20,7 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import type { Tree } from "@synnaxlabs/lyra/tree";
 import { ICD as PICD, Synnax as PSynnax } from "@synnaxlabs/pluto";
-import { deep, uuid } from "@synnaxlabs/x";
+import { deep, type http as xhttp, uuid } from "@synnaxlabs/x";
 import {
   type Dispatch,
   type FC,
@@ -75,17 +75,17 @@ const endpointPrefix = (deviceName: string, path: string): string =>
 
 const MethodSelect: FC<{ path: deep.Path<ReadEndpoint> }> = ({ path }) => {
   const { set } = PForm.useContext();
-  const handleChange = (method: http.Method) => {
+  const handleChange = (method: xhttp.Method) => {
     set(path.method, method);
     // GET carries no request body. Clearing it here keeps a body typed under POST
     // from staying in the saved config, where it would set a content type on a
     // request that sends nothing.
     if (method !== "POST") set(path.body, "");
   };
-  const renderMethod = (p: Select.ButtonsProps<http.Method>) => (
-    <Select.Buttons<http.Method> {...p} onChange={handleChange}>
-      <Select.Item<http.Method> itemKey="GET">GET</Select.Item>
-      <Select.Item<http.Method> itemKey="POST">POST</Select.Item>
+  const renderMethod = (p: Select.ButtonsProps<xhttp.Method>) => (
+    <Select.Buttons<xhttp.Method> {...p} onChange={handleChange}>
+      <Select.Item<xhttp.Method> itemKey="GET">GET</Select.Item>
+      <Select.Item<xhttp.Method> itemKey="POST">POST</Select.Item>
     </Select.Buttons>
   );
   return (

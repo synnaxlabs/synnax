@@ -1,0 +1,69 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+@cpp output "x/cpp/http"
+@go output  "x/go/http"
+@py output  "x/py/x/http"
+@ts output  "x/ts/src/http"
+
+Method enum {
+    get     = "GET" {
+        @doc value "reads a resource."
+    }
+    head    = "HEAD" {
+        @doc value "reads the headers of a resource, with no body."
+    }
+    post    = "POST" {
+        @doc value "submits data to a resource."
+    }
+    put     = "PUT" {
+        @doc value "replaces a resource."
+    }
+    delete  = "DELETE" {
+        @doc value "removes a resource."
+    }
+    patch   = "PATCH" {
+        @doc value "changes part of a resource."
+    }
+    options = "OPTIONS" {
+        @doc value "asks which communication options a resource supports."
+    }
+    trace   = "TRACE" {
+        @doc value "asks the server to echo the request it receives."
+    }
+    connect = "CONNECT" {
+        @doc value "opens a tunnel to the server."
+    }
+
+    @doc value "is the HTTP method used when requesting an endpoint."
+}
+
+Header struct {
+    name  string = "" {
+        @doc value "is the header name, unique within a request."
+    }
+    value string = "" {
+        @doc value "is the header value."
+    }
+
+    @doc value  "is a single HTTP header sent with a request."
+    @go marshal
+}
+
+QueryParam struct {
+    parameter string = "" {
+        @doc value "is the parameter name, unique within a request."
+    }
+    value     string = "" {
+        @doc value "is the parameter value."
+    }
+
+    @doc value  "is a single URL query parameter sent with a request."
+    @go marshal
+}

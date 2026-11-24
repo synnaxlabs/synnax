@@ -10,13 +10,8 @@
 import "schemas/synnax/versions/device/v0"
 import "schemas/synnax/versions/icd/v1"
 import "schemas/synnax/versions/task/v2"
+import "schemas/x/versions/http/v0"
 import "schemas/x/versions/telem/v0"
-
-Method = v2.Method
-
-Header = v2.Header
-
-QueryParam = v2.QueryParam
 
 ReadField = v4.ReadField
 
@@ -24,17 +19,26 @@ ReadEndpoint struct extends v4.ReadEndpoint {
     -fields
     -index
     key
-    disabled bool = false {
+    disabled     bool = false {
         @doc value "is true when the endpoint is excluded from the task."
     }
+    method       http.Method = get {
+        @doc value "is the HTTP method used to poll the endpoint."
+    }
+    headers      http.Header[]     {
+        @doc value "contains additional headers merged into the request."
+    }
+    query_params http.QueryParam[] {
+        @doc value "contains query parameters appended to the request URL."
+    }
     body
-    icd      icd.Key?          {
+    icd          icd.Key?          {
         @doc value """
             is the key of the ICD that holds the messages of the endpoint. Absent when
             the endpoint reads no messages.
         """
     }
-    messages icd.ReadMessage[] = [] {
+    messages     icd.ReadMessage[] = [] {
         @doc value "are the messages that the response body is read as."
     }
 }
@@ -83,7 +87,15 @@ WriteField = v4.WriteField
 WriteEndpoint struct extends v4.WriteEndpoint {
     -channel
     -fields
-    query_params
+    method       http.Method = post {
+        @doc value "is the HTTP method used to send the request."
+    }
+    headers      http.Header[]     {
+        @doc value "contains additional headers merged into the request."
+    }
+    query_params http.QueryParam[] {
+        @doc value "contains query parameters appended to the request URL."
+    }
     icd          icd.Key?          {
         @doc value """
             is the key of the ICD that holds the message of the endpoint. Absent when

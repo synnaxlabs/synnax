@@ -961,7 +961,7 @@ TEST(HTTPWriteTask, EndpointHeaders) {
     cfg.auto_start = false;
 
     auto ep = endpoint("POST", "/api/control", 1);
-    ep.headers = std::vector<::synnax::http::Header>{{"X-Custom", "test-val"}};
+    ep.headers = std::vector<::x::http::Header>{{"X-Custom", "test-val"}};
 
     cfg.endpoints = {ep};
 
@@ -999,7 +999,7 @@ TEST(HTTPWriteTask, EndpointQueryParams) {
     cfg.auto_start = false;
 
     auto ep = endpoint("POST", "/api/control", 1);
-    ep.query_params = std::vector<::synnax::http::QueryParam>{
+    ep.query_params = std::vector<::x::http::QueryParam>{
         {"key", "abc"},
         {"verbose", "true"}
     };

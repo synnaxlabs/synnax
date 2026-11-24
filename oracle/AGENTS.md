@@ -360,3 +360,5 @@ sub-field: `@index sorted start end` on `time_range` gives `OrderByTimeRangeStar
   radius and get explicit user sign-off first.
 - Schema migrations: `oracle migrate` scaffolds the next version file; sync then
   regenerates `migrate.gen.go`, the frozen packages, and the live projection.
+- A task schema may import a device schema, never the reverse; protocol types that both
+  use (HTTP methods, headers) live in `schemas/x`.
