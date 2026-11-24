@@ -688,16 +688,21 @@ describe("symbol editor spec", () => {
   });
 
   describe("removePart", () => {
-    it("should remove the part and the looks on it", () => {
+    it("should remove the part and the looks and clicks on it", () => {
       const spec = createSpec({
         looks: [
           { key: "a", part: "body", stroke: fixed(RED) },
           { key: "b", part: "seat", stroke: fixed(RED) },
         ],
+        interactions: [
+          { type: "fire", key: "c", part: "body", command: "go" },
+          { type: "fire", key: "d", command: "go" },
+        ],
       });
       const next = Spec.removePart(spec, "body");
       expect(next.parts.map((p) => p.key)).toEqual(["seat"]);
       expect(next.looks.map((l) => l.key)).toEqual(["b"]);
+      expect(next.interactions.map((i) => i.key)).toEqual(["d"]);
     });
   });
 
@@ -807,6 +812,32 @@ describe("symbol editor spec", () => {
       );
     });
 
+    it("should throw on an add when every target has a click", () => {
+      const spec = createSpec({
+        commands: [send("a", 1)],
+        interactions: [undefined, "body", "seat"].map((part, i) => ({
+          type: "fire" as const,
+          key: `c${i}`,
+          part,
+          command: "a",
+        })),
+      });
+      expect(Spec.freeTargets(spec)).toEqual([]);
+      expect(() => Spec.addInteraction(spec)).toThrow(
+        "a symbol with no free target or no command takes no click",
+      );
+    });
+
+    it("should remove a click and take nothing with it", () => {
+      const spec = createSpec({
+        interactions: [{ type: "fire", key: "c", command: "a" }],
+      });
+      expect(Spec.removeInteraction(spec, "c")).toEqual([
+        { ...spec, interactions: [] },
+        { looks: [], commands: [], interactions: [] },
+      ]);
+    });
+
     it("should pair a command with others on its state that send other values", () => {
       const spec = createSpec({
         commands: [
@@ -818,6 +849,27 @@ describe("symbol editor spec", () => {
         ],
       });
       expect(Spec.nextPartners(spec, "off").map((c) => c.key)).toEqual(["on"]);
+    });
+
+    it("should pair commands whose values differ after a within match", () => {
+      const active: schematic.symbol.State = {
+        type: "enumeration",
+        key: STATE,
+        name: "Active",
+        match: { type: "within", bounds: { lower: 0.9, upper: 1.1 } },
+        default: 0,
+      };
+      const spec = createSpec({
+        states: [active],
+        commands: [
+          send("off", 0, STATE),
+          send("on", 1, STATE),
+          send("near", 1.05, STATE),
+          send("half", 0.5, STATE),
+        ],
+      });
+      expect(Spec.nextPartners(spec, "off").map((c) => c.key)).toEqual(["on", "near"]);
+      expect(Spec.nextPartners(spec, "on").map((c) => c.key)).toEqual(["off", "half"]);
     });
   });
 

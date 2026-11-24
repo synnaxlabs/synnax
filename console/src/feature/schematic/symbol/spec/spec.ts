@@ -9,7 +9,7 @@
 
 import type { schematic } from "@synnaxlabs/client";
 import { Schematic } from "@synnaxlabs/pluto";
-import { id } from "@synnaxlabs/x";
+import { bounds, id } from "@synnaxlabs/x";
 
 type Spec = schematic.symbol.Spec;
 type Look = schematic.symbol.Look;
@@ -271,11 +271,12 @@ export const nextPartName = (parts: schematic.symbol.Part[]): string =>
     parts.map((p) => p.name),
   );
 
-/** @returns spec without part and the looks on it. */
+/** @returns spec without part and the looks and clicks on it. */
 export const removePart = (spec: Spec, part: string): Spec => ({
   ...spec,
   parts: spec.parts.filter((p) => p.key !== part),
   looks: spec.looks.filter((l) => l.part !== part),
+  interactions: spec.interactions.filter((i) => i.part !== part),
 });
 
 /** Removed holds the keys of what an edit takes with the item, for its confirm. */
@@ -419,20 +420,29 @@ export const removeInteraction = (spec: Spec, key: string): [Spec, Removed] => [
   { looks: [], commands: [], interactions: [] },
 ];
 
+// matched returns value after the match of state, as the Core compares toggle values.
+const matched = (state: schematic.symbol.State | undefined, value: number): number => {
+  if (state?.type !== "enumeration" || state.match.type !== "within") return value;
+  return bounds.contains(state.match.bounds, value) ? 1 : 0;
+};
+
 /**
  * @returns the commands that a toggle can pick between with command: fixed commands on
- * its state with another value.
+ * its state with another value after the state's match.
  */
 export const nextPartners = (
-  spec: Pick<Spec, "commands">,
+  spec: Pick<Spec, "states" | "commands">,
   command: string,
 ): schematic.symbol.Command[] => {
   const c = spec.commands.find((o) => o.key === command);
   if (c?.state == null || c.value.type !== "fixed") return [];
-  const { state } = c;
-  const { value } = c.value;
+  const state = spec.states.find((s) => s.key === c.state);
+  const value = matched(state, c.value.value);
   return spec.commands.filter(
-    (o) => o.state === state && o.value.type === "fixed" && o.value.value !== value,
+    (o) =>
+      o.state === c.state &&
+      o.value.type === "fixed" &&
+      matched(state, o.value.value) !== value,
   );
 };
 

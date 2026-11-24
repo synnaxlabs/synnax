@@ -76,6 +76,7 @@ export const ClickInspector = ({
 }: ClickInspectorProps): ReactElement | null => {
   const click = Form.useFieldValue(path.data.interactions[key], { optional: true });
   const parts = Form.useFieldValue(path.data.parts);
+  const states = Form.useFieldValue(path.data.states);
   const commands = Form.useFieldValue(path.data.commands);
   const interactions = Form.useFieldValue(path.data.interactions);
   const { set } = Form.useContext();
@@ -83,12 +84,12 @@ export const ClickInspector = ({
   const update = (next: Interaction) => set(path.data.interactions[key], next);
   const [first, second] =
     click.type === "fire" ? [click.command, undefined] : click.commands;
-  const partners = Spec.nextPartners({ commands }, first);
+  const partners = Spec.nextPartners({ states, commands }, first);
   const toggle = (command: string): Interaction => ({
     type: "next",
     key,
     part: click.part,
-    commands: [command, Spec.nextPartners({ commands }, command)[0]?.key ?? ""],
+    commands: [command, Spec.nextPartners({ states, commands }, command)[0]?.key ?? ""],
   });
   const handleTypeChange = (type: schematic.symbol.InteractionType) =>
     update(
@@ -154,7 +155,7 @@ export const ClickInspector = ({
               value={first}
               onChange={(command) => update(toggle(command))}
               commands={commands.filter(
-                (c) => Spec.nextPartners({ commands }, c.key).length > 0,
+                (c) => Spec.nextPartners({ states, commands }, c.key).length > 0,
               )}
             />
           </Input.Item>
