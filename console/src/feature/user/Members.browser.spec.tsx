@@ -12,6 +12,7 @@ import {
   createTestClient,
   createTestClientAs,
   createTestClientWithPolicy,
+  createTestUser,
 } from "@synnaxlabs/client/testutil";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import {
@@ -48,12 +49,17 @@ const roleKey = async (name: string): Promise<access.role.Key> => {
   return role.key;
 };
 
-const createUser = async (role: string, username = uniqueName("user")) =>
-  await client.users.create({
+const createUser = async (
+  role: string,
+  username = uniqueName("user"),
+): Promise<user.User> => {
+  const created = await createTestUser(client, {
+    role: await roleKey(role),
     username,
     password: "password123",
-    role: await roleKey(role),
   });
+  return created.user;
+};
 
 const renderMembers = async (as: Synnax = client): Promise<void> => {
   const { wrapper: Console } = await createConsoleWrapper({ client: as });
@@ -190,7 +196,7 @@ describe("User.Members", () => {
   it("should open the sign-in of another user", async () => {
     const u = await createUser("Operator");
     const name = uniqueName("key");
-    await client.auth.createKey({ subject: user.resourceID(u.key), name });
+    await client.auth.apiKeys.create({ subject: user.resourceID(u.key), name });
     await renderMembers();
     await search(u.name);
     await openContextMenu(u.name);

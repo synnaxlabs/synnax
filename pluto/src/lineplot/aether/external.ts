@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+export * from "@/lineplot/aether/axis";
+export * from "@/lineplot/aether/layout";
 export * from "@/lineplot/aether/LinePlot";
 export * from "@/lineplot/aether/XAxis";
 export * from "@/lineplot/aether/YAxis";

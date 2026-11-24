@@ -1,0 +1,99 @@
+{
+  "edges": [],
+  "name": "Valve panel B",
+  "nodes": [
+    {
+      "key": "sel-mode-b",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "select",
+        "label": {
+          "label": "Mode",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "staleness_timeout": "5000000000",
+        "size": "medium",
+        "command_channel": 1048588,
+        "state_channel": 1048587,
+        "inline_size": 100,
+        "options": [
+          {
+            "key": "0",
+            "name": "Off",
+            "value": 0,
+            "color": "#dc2828"
+          },
+          {
+            "key": "1",
+            "name": "Auto",
+            "value": 1,
+            "color": "#28c85a"
+          },
+          {
+            "key": "2",
+            "name": "Manual",
+            "value": 2,
+            "color": "#2850dc"
+          }
+        ],
+        "disabled": false,
+        "on_click_delay": "0",
+        "control": {
+          "hidden": false,
+          "chip_hidden": false,
+          "indicator_hidden": false,
+          "orientation": "bottom"
+        }
+      }
+    },
+    {
+      "key": "ind-state-b",
+      "position": {
+        "x": 200,
+        "y": 0
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "state_indicator",
+        "label": {
+          "label": "Tank state",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "staleness_timeout": "5000000000",
+        "channel": 1048589,
+        "inline_size": 100,
+        "options": [
+          {
+            "key": "0",
+            "name": "Empty",
+            "value": 0,
+            "color": "#dc2828"
+          },
+          {
+            "key": "1",
+            "name": "Full",
+            "value": 1,
+            "color": "#f0dc28"
+          }
+        ],
+        "size": "medium"
+      }
+    }
+  ],
+  "type": "schematic",
+  "version": 13
+}
