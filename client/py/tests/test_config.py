@@ -152,25 +152,61 @@ class TestConfigDirs:
 
 
 class TestFile:
-    def test_reads_the_fallback(self, tmp_path: Path) -> None:
-        """Should load the fallback file when the config directory holds none, and
-        copy it on the first write without changing it.
+    def test_reads_the_legacy_file(self, tmp_path: Path) -> None:
+        """Should load the legacy file when the config directory holds none, and
+        write both files on the first write.
         """
         current, legacy = tmp_path / "current", tmp_path / "legacy"
         legacy.mkdir()
         (legacy / "config.json").write_text('{"a": 1}', encoding="utf-8")
-        config = File(config_dir=current, fallback_dir=legacy)
+        config = File(config_dir=current, legacy_dir=legacy)
         assert config.config == {"a": 1}
         config.set("b", 2)
         assert File(config_dir=current).config == {"a": 1, "b": 2}
-        assert File(config_dir=legacy).config == {"a": 1}
+        assert File(config_dir=legacy).config == {"a": 1, "b": 2}
 
     def test_prefers_the_config_dir(self, tmp_path: Path) -> None:
-        """Should load the file in the config directory over the fallback."""
+        """Should load the file in the config directory over the legacy file."""
         current, legacy = tmp_path / "current", tmp_path / "legacy"
         File(config_dir=legacy).set("a", 1)
         File(config_dir=current).set("a", 2)
-        assert File(config_dir=current, fallback_dir=legacy).config == {"a": 2}
+        assert File(config_dir=current, legacy_dir=legacy).config == {"a": 2}
+
+    def test_reads_the_legacy_file_when_the_config_dir_fails(
+        self, tmp_path: Path
+    ) -> None:
+        """Should load the legacy file when the file in the config directory exists
+        but cannot be read.
+        """
+        current, legacy = tmp_path / "current", tmp_path / "legacy"
+        (current / "config.json").mkdir(parents=True)
+        File(config_dir=legacy).set("a", 1)
+        assert File(config_dir=current, legacy_dir=legacy).config == {"a": 1}
+
+    def test_names_both_files_when_neither_can_be_read(self, tmp_path: Path) -> None:
+        """Should name each file and its reason when no file can be read."""
+        current, legacy = tmp_path / "current", tmp_path / "legacy"
+        (current / "config.json").mkdir(parents=True)
+        (legacy / "config.json").mkdir(parents=True)
+        with pytest.raises(ConfigurationError) as e:
+            File(config_dir=current, legacy_dir=legacy)
+        assert str(current / "config.json") in str(e.value)
+        assert str(legacy / "config.json") in str(e.value)
+
+    def test_legacy_reader_sees_a_new_login(self, tmp_path: Path) -> None:
+        """Should keep the legacy file current, so an older client reads the Core of
+        the last login.
+        """
+        current, legacy = tmp_path / "current", tmp_path / "legacy"
+        keyring = MemoryKeyring()
+        old = Clusters(File(config_dir=legacy), keyring)
+        old.set(Cluster(options=Options(host="old.lab", port=9090, api_key="syk_o")))
+        new = Clusters(File(config_dir=current, legacy_dir=legacy), keyring)
+        new.set(Cluster(options=Options(host="new.lab", port=9090, api_key="syk_n")))
+        cluster = Clusters(File(config_dir=legacy), keyring).get()
+        assert cluster is not None
+        assert cluster.options.host == "new.lab"
+        assert cluster.options.api_key == "syk_n"
 
     def test_missing_file(self, tmp_path: Path) -> None:
         """Should load an empty config, and write nothing, when no file exists."""
@@ -251,6 +287,20 @@ class TestLoadDesktopOptions:
         opts = load_desktop_options(run=FakeHelper())
         assert opts is not None
         assert opts.port == (2 if current else 1)
+
+    def test_reads_the_home_when_the_config_dir_fails(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Should read ~/.synnax when the file in the config directory cannot be
+        read.
+        """
+        for k, v in home_env(tmp_path).items():
+            monkeypatch.setenv(k, v)
+        write_desktop_file(tmp_path / ".synnax" / "desktop.json", port=1)
+        (config_dirs()[0] / "desktop.json").mkdir(parents=True)
+        opts = load_desktop_options(run=FakeHelper())
+        assert opts is not None
+        assert opts.port == 1
 
     def test_reads_the_file_and_the_helper(self, desktop_file: Path) -> None:
         """Should read the address from the file and the API key from the helper that

@@ -15,80 +15,87 @@ import shutil
 import sys
 import tempfile
 import time
+from collections.abc import Sequence
 from typing import Any
 
 from synnax.exceptions import ConfigurationError
 
 
+def read_first(paths: Sequence[pathlib.Path]) -> tuple[pathlib.Path, bytes] | None:
+    """Reads the first of paths that can be read.
+
+    :returns: The path and its bytes, or None when no file exists.
+    :raises ConfigurationError: If a file exists but none can be read. The message
+        names each path that failed and why.
+    """
+    failed: list[tuple[pathlib.Path, OSError]] = []
+    for path in paths:
+        try:
+            return path, path.read_bytes()
+        except FileNotFoundError:
+            continue
+        except OSError as e:
+            failed.append((path, e))
+    if not failed:
+        return None
+    raise ConfigurationError(
+        " ".join(f"Cannot read {p}: {e.strerror}." for p, e in failed)
+    ) from failed[-1][1]
+
+
 class File:
-    """The global synnax py configuration file. Writes go to config_dir. When
-    config_dir holds no file, the config loads from fallback_dir, so the first write
-    copies it.
+    """The global synnax py configuration file. Loads from config_dir, or from
+    legacy_dir when config_dir holds no readable file. Writes to both.
     """
 
     config_file: pathlib.Path
-    fallback_file: pathlib.Path | None
+    legacy_file: pathlib.Path | None
     config: dict[str, Any]
 
     def __init__(
         self,
         *,
         config_dir: pathlib.Path,
-        fallback_dir: pathlib.Path | None = None,
+        legacy_dir: pathlib.Path | None = None,
         file_name: str = "config.json",
     ):
         self.config_file = config_dir / file_name
-        self.fallback_file = None if fallback_dir is None else fallback_dir / file_name
+        self.legacy_file = None if legacy_dir is None else legacy_dir / file_name
         self.config = {}
         self.load()
+
+    @property
+    def _paths(self) -> list[pathlib.Path]:
+        return [p for p in (self.config_file, self.legacy_file) if p is not None]
 
     def load(self) -> None:
         """Loads the config file from disk. A missing file loads as an empty config.
 
-        :raises ConfigurationError: If the file cannot be read or is not valid JSON.
+        :raises ConfigurationError: If no file can be read, or if the file read is not
+            valid JSON.
         """
-        self.config = {}
-        for path in (self.config_file, self.fallback_file):
-            if path is None:
-                continue
-            try:
-                data = path.read_bytes()
-            except FileNotFoundError:
-                continue
-            except OSError as e:
-                raise ConfigurationError(f"Cannot read {path}: {e.strerror}.") from e
-            try:
-                self.config = json.loads(data.decode("utf-8"))
-            except (json.JSONDecodeError, UnicodeDecodeError) as e:
-                raise ConfigurationError(
-                    f"{path} is not valid JSON: {e}. Delete it, then log in again "
-                    "with `sy login`."
-                ) from e
+        read = read_first(self._paths)
+        if read is None:
+            self.config = {}
             return
+        path, data = read
+        try:
+            self.config = json.loads(data.decode("utf-8"))
+        except (json.JSONDecodeError, UnicodeDecodeError) as e:
+            raise ConfigurationError(
+                f"{path} is not valid JSON: {e}. Delete it, then log in again with "
+                "`sy login`."
+            ) from e
 
     def save(self) -> None:
         """Saves the config file to disk."""
         self._write(self.config)
 
     def _write(self, config: dict[str, Any]) -> None:
-        # Resolving first writes through a symlink instead of replacing it.
-        path = self.config_file.resolve()
-        path.parent.mkdir(parents=True, exist_ok=True)
-        # Replacing the file whole keeps a failed write from leaving a partial file.
-        with tempfile.NamedTemporaryFile(
-            "w",
-            encoding="utf-8",
-            dir=path.parent,
-            prefix=f".{path.name}.",
-            delete_on_close=False,
-        ) as f:
-            json.dump(config, f)
-            f.flush()
-            os.fsync(f.fileno())
-            f.close()
-            if path.exists():
-                shutil.copymode(path, f.name)
-            _replace(f.name, path)
+        # Clients of Synnax 0.62 read only the legacy file. Drop it when 0.62 support
+        # ends.
+        for path in self._paths:
+            _write_file(path, config)
 
     def get(self, key: str) -> Any:
         """Gets a value from the config file."""
@@ -107,6 +114,27 @@ class File:
         """Deletes a value from the config file."""
         del self.config[key]
         self.save()
+
+
+def _write_file(file: pathlib.Path, config: dict[str, Any]) -> None:
+    # Resolving first writes through a symlink instead of replacing it.
+    path = file.resolve()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    # Replacing the file whole keeps a failed write from leaving a partial file.
+    with tempfile.NamedTemporaryFile(
+        "w",
+        encoding="utf-8",
+        dir=path.parent,
+        prefix=f".{path.name}.",
+        delete_on_close=False,
+    ) as f:
+        json.dump(config, f)
+        f.flush()
+        os.fsync(f.fileno())
+        f.close()
+        if path.exists():
+            shutil.copymode(path, f.name)
+        _replace(f.name, path)
 
 
 # Windows refuses to replace a file that another process, such as a virus scanner,

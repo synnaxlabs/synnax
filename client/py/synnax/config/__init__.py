@@ -24,7 +24,7 @@ from synnax.config.clusters import (
     Clusters,
     Keyring,
 )
-from synnax.config.file import File
+from synnax.config.file import File, read_first
 from synnax.exceptions import ConfigurationError, ValidationError
 from synnax.options import Options
 
@@ -89,9 +89,7 @@ def default_clusters() -> Clusters:
         cannot be read.
     """
     current, legacy = config_dirs()
-    return Clusters(
-        File(config_dir=current, fallback_dir=legacy), keyring.get_keyring()
-    )
+    return Clusters(File(config_dir=current, legacy_dir=legacy), keyring.get_keyring())
 
 
 OLD_DESKTOP_MSG = (
@@ -130,21 +128,15 @@ def _run_helper(path: Path) -> subprocess.CompletedProcess[str]:
 
 def _read_desktop_file(path: Path | None) -> dict[str, Any] | None:
     paths = [path] if path is not None else [d / "desktop.json" for d in config_dirs()]
-    for p in paths:
-        try:
-            text = p.read_text(encoding="utf-8")
-        except FileNotFoundError:
-            continue
-        except OSError as e:
-            raise ConfigurationError(f"Cannot read {p}: {e.strerror}.") from e
-        except UnicodeDecodeError as e:
-            raise ConfigurationError(f"{p} is not valid JSON: {e}.") from e
-        try:
-            raw: dict[str, Any] = json.loads(text)
-        except json.JSONDecodeError as e:
-            raise ConfigurationError(f"{p} is not valid JSON: {e}.") from e
-        return raw
-    return None
+    read = read_first(paths)
+    if read is None:
+        return None
+    p, data = read
+    try:
+        raw: dict[str, Any] = json.loads(data.decode("utf-8"))
+    except (json.JSONDecodeError, UnicodeDecodeError) as e:
+        raise ConfigurationError(f"{p} is not valid JSON: {e}.") from e
+    return raw
 
 
 def _read_key(helper: Path, run: RunHelper, target: str) -> str:
