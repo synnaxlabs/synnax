@@ -56,12 +56,12 @@ func flatten(out join.Output) flat {
 const ms = telem.TimeStamp(telem.Millisecond)
 
 var _ = Describe("Join breaker", func() {
-	It("Should drop no live stamp after the other input's first frame arrives, when "+
-		"each primary frame comes first", func() {
-		// Two 1 kHz inputs on two clocks, both streamed in frames of 40 samples (a
-		// 25 Hz stream rate). The primary's frame arrives just before the other's. Live
-		// judges the limit by arrival (D-378): only frame 0, before the other input has
-		// arrived, may drop.
+	It("Should drop only the primary frames before the other input's second frame "+
+		"arrives, when each primary frame comes first", func() {
+		// Two 1 kHz inputs on two clocks, both streamed in frames of 40 samples (a 25
+		// Hz stream rate). Each primary frame arrives at the end of its 40 ms, and the
+		// other's frame 20 ms after it. Frame 0 has no other input, and at frame 1 the
+		// other input has no frame gap yet, so only those two drop.
 		const frame, frames = 40, 10
 		primary := make([]telem.TimeStamp, frame*frames)
 		other := make([]telem.TimeStamp, frame*frames)
@@ -78,31 +78,31 @@ var _ = Describe("Join breaker", func() {
 		var want join.Output
 		history.Next(telem.TimeStampMax, &want)
 
+		var now telem.TimeStamp
 		live := MustSucceed(join.New(join.Config{
 			DataTypes: []telem.DataType{telem.Float64T, telem.Float64T},
 			Live:      true,
+			Now:       func() telem.TimeStamp { return now },
 		}))
-		var (
-			got   join.Output
-			first int
-		)
+		var got join.Output
+		dropped := make([]int, 0, frames)
 		for f := range frames {
 			lo, hi := f*frame, (f+1)*frame
+			now = telem.TimeStamp(40*(f+1)) * ms
 			Expect(live.Push(
 				0,
 				values(pv[lo:hi]...),
 				at(telem.Alignment(lo), primary[lo:hi]...),
 			)).To(Succeed())
+			before := got.Dropped
 			live.Next(primary[hi-1], &got)
-			if f == 0 {
-				Expect(got.Dropped).To(BeNumerically("<=", frame))
-				first = got.Dropped
-			}
+			dropped = append(dropped, got.Dropped-before)
+			now += 20 * ms
 			Expect(live.Push(1, values(ov[lo:hi]...), at(0, other[lo:hi]...))).
 				To(Succeed())
 		}
 		Expect(want.Dropped).To(Equal(1))
-		Expect(got.Dropped).To(Equal(first))
+		Expect(dropped).To(Equal([]int{frame, frame, 0, 0, 0, 0, 0, 0, 0, 0}))
 	})
 
 	It("Should hold an input with no steady rate with no limit", func() {
