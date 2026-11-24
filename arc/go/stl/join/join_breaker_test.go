@@ -125,7 +125,10 @@ var _ = Describe("Join breaker", func() {
 		// The primary has one sample, then its device goes quiet while another input
 		// streams at 1 kHz in frames of 1000. Each frame, the live read passes the
 		// newest primary stamp.
-		j := newJoin(2, 0, 0)
+		j := MustSucceed(join.New(join.Config{
+			DataTypes: []telem.DataType{telem.Float64T, telem.Float64T},
+			Live:      true,
+		}))
 		Expect(j.Push(0, values(0), at(0, 0))).To(Succeed())
 		const frame = 1000
 		vs := make([]float64, frame)
