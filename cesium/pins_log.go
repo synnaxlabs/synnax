@@ -113,16 +113,15 @@ func (e *engine) release(dead []state.Dead) error {
 	return e.unlink(free)
 }
 
-// pinnedDead returns the file names of the dead segments of key that wait for their
-// last reader.
-func (e *engine) pinnedDead(key ChannelKey) set.Set[string] {
+// pinnedFiles returns the file names of the segments of key that a reader pins. After a
+// Drop, the engine unlinks each of them once the log covers the Drop and no reader pins
+// it, so a file that waits for either stays.
+func (e *engine) pinnedFiles(key ChannelKey) set.Set[string] {
 	e.pins.mu.Lock()
 	defer e.pins.mu.Unlock()
 	names := set.New[string]()
-	for id, k := range e.pins.dead {
-		if k == key {
-			names.Add(segmentName(k, id))
-		}
+	for id := range e.pins.readers {
+		names.Add(segmentName(key, id))
 	}
 	return names
 }

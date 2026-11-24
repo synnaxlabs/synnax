@@ -93,10 +93,11 @@ func (db *DB) dropLog(ctx context.Context, keys []ChannelKey) error {
 	return err
 }
 
-// removeLogDir removes the files in the directory of a dropped key that no segment
-// names, and the directory once it is empty. The Drop gave the segments of the key to
-// the engine, which unlinks each file once no reader pins it. A directory that a reader
-// keeps goes at a later Sweep, as the directory of a torn key.
+// removeLogDir removes the files in the directory of a dropped key that no reader pins,
+// and the directory once it is empty. The Drop gave the segments of the key to the
+// engine, which unlinks each pinned file once the log covers the Drop and no reader
+// pins it. A directory that a reader keeps goes at a later Sweep, as the directory of a
+// torn key.
 func (db *DB) removeLogDir(key ChannelKey) error {
 	dir := keyToDirName(key)
 	infos, err := db.fs.List(dir)
@@ -106,7 +107,7 @@ func (db *DB) removeLogDir(key ChannelKey) error {
 	if err != nil {
 		return err
 	}
-	pinned := db.engine.pinnedDead(key)
+	pinned := db.engine.pinnedFiles(key)
 	kept := false
 	for _, info := range infos {
 		name := path.Join(dir, info.Name())

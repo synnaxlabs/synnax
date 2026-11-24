@@ -26,15 +26,23 @@ import (
 // the clock and of each key of the read that it times, which the engine loads from one
 // step of the state and pins together, so the samples of every key and their stamps
 // come from one state. The view loads once in each step of the read: the first seek of
-// the step loads it, and the stream iterator makes it stale before the next. Each
-// lookup of the index closes its clock cursor and reader before it returns, and the
-// calls of a read never overlap, so a load never unpins what a cursor still reads.
+// the step loads it, and the stream iterator makes it stale before the next. A data
+// cursor keeps the ranges of its last seek, and their segments, until it seeks again.
+// So the view keeps its last load for the rest of the read once a load would take away
+// stamps that such ranges can need: a key or the clock gone, as a Drop leaves them, or
+// a stamp of the clock gone, as a delete of the clock leaves it. Each lookup of the
+// index closes its clock cursor and reader before it returns, and the calls of a read
+// never overlap, so a load never unpins what a cursor still reads.
 type logView struct {
 	e *engine
 	// keys holds the clock and then each key of the read on it, and chs their Channels.
-	keys  []ChannelKey
-	chs   []*state.Channel
-	fresh bool
+	// next is the array that the next load fills.
+	keys      []ChannelKey
+	chs, next []*state.Channel
+	loaded    bool
+	fresh     bool
+	// frozen is true once the view keeps its last load for the rest of the read.
+	frozen bool
 	// readers counts the data cursors of the view. The Close of the last unpins it.
 	readers int
 	// pinned holds the segments of the last load, which the view pins until the next
@@ -55,17 +63,80 @@ func (v *logView) add(key ChannelKey) int {
 	return len(v.keys) - 1
 }
 
-// channel returns the Channel of the key at index i, and loads v first when it is
-// stale.
+// channel returns the Channel of the key at index i in the load of the step.
 func (v *logView) channel(i int) *state.Channel {
-	if !v.fresh {
-		v.chs = slices.Grow(v.chs[:0], len(v.keys))[:len(v.keys)]
-		pinned, err := v.e.loadView(v.keys, v.chs, v.pinned, v.spare)
-		v.pinned, v.spare = pinned, v.pinned[:0]
-		v.err = errors.Join(v.err, err)
-		v.fresh = true
-	}
+	v.load()
 	return v.chs[i]
+}
+
+// load loads v again when it is stale and not frozen. It keeps the last load, and
+// freezes v, when the new one would take away stamps of the last.
+func (v *logView) load() {
+	if v.fresh || v.frozen {
+		return
+	}
+	v.fresh = true
+	v.next = slices.Grow(v.next[:0], len(v.keys))[:len(v.keys)]
+	ids, err := v.e.loadView(v.keys, v.next, nil, v.spare)
+	v.err = errors.Join(v.err, err)
+	if v.loaded && (gone(v.chs, v.next) || cut(v.chs[0], v.next[0])) {
+		v.err = errors.Join(v.err, v.e.unpin(ids))
+		v.spare, v.frozen = ids[:0], true
+		return
+	}
+	v.err = errors.Join(v.err, v.e.unpin(v.pinned))
+	v.chs, v.next = v.next, v.chs
+	v.pinned, v.spare = ids, v.pinned[:0]
+	v.loaded = true
+}
+
+// gone reports whether a Channel that last holds is missing from next.
+func gone(last, next []*state.Channel) bool {
+	for i, ch := range last {
+		if ch != nil && next[i] == nil {
+			return true
+		}
+	}
+	return false
+}
+
+// cut reports whether the pointers of next leave out a stamp range of a pointer of
+// last, as a delete of the clock leaves them. A rewrite that keeps every stamp cuts
+// nothing.
+func cut(last, next *state.Channel) bool {
+	if last == nil || next == nil {
+		return false
+	}
+	var spans []telem.TimeRange
+	for _, seg := range next.Segments {
+		for _, p := range seg.Pointers {
+			spans = append(spans, telem.TimeRange{Start: p.First, End: p.Last})
+		}
+	}
+	slices.SortFunc(spans, func(a, b telem.TimeRange) int {
+		return cmp.Compare(a.Start, b.Start)
+	})
+	// The union of the spans, each end inclusive.
+	union := spans[:0]
+	for _, sp := range spans {
+		if n := len(union); n > 0 && sp.Start <= union[n-1].End+1 {
+			union[n-1].End = max(union[n-1].End, sp.End)
+			continue
+		}
+		union = append(union, sp)
+	}
+	for _, seg := range last.Segments {
+		for _, p := range seg.Pointers {
+			i, _ := slices.BinarySearchFunc(union, p.First,
+				func(sp telem.TimeRange, t telem.TimeStamp) int {
+					return cmp.Compare(sp.End, t)
+				})
+			if i == len(union) || union[i].Start > p.First || union[i].End < p.Last {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // stale makes the next seek load v again.
@@ -77,7 +148,7 @@ func (v *logView) close() error {
 		return nil
 	}
 	err := errors.Join(v.err, v.e.unpin(v.pinned))
-	v.err, v.fresh = nil, false
+	v.err, v.fresh, v.loaded, v.frozen = nil, false, false, false
 	clear(v.chs)
 	v.pinned, v.spare = v.pinned[:0], v.spare[:0]
 	return err
