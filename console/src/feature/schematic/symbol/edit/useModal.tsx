@@ -120,9 +120,9 @@ const Editor = ({
     symbolKey == null ? null : { key: symbolKey, includeUses: true },
   );
   const confirmSave = useConfirmSave();
-  // A fill motion that cannot draw stops the save and selects its part, whose inspector
-  // shows why. The inspector shows the issues only with the flag on.
   const handleSave = async () => {
+    // A fill motion that cannot draw stops the save and selects its part, whose
+    // inspector shows why. The inspector shows the issues only with the flag on.
     if (FLAGS.symbolMotion) {
       const [part] = Spec.levelIssues(form.get(path.data).value).keys();
       if (part != null) return setSelectedPart(part);
