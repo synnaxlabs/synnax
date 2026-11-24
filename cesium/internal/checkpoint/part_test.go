@@ -190,11 +190,14 @@ var _ = Describe("Parts", func() {
 		whole.Channels[0].Segments[0].Kept = true
 		whole.Channels[0].Segments[2].Kept = true
 		h := switchTo(2, whole)
-		kept := make(map[uint64]bool)
+		kept := make([]uint64, 0, 2)
 		for _, seg := range parted(h) {
-			kept[seg.ID] = seg.Kept
+			if seg.Kept {
+				kept = append(kept, seg.ID)
+			}
 		}
-		Expect(kept).To(Equal(map[uint64]bool{1: true, 2: false, 3: true}))
+		Expect(partedIDs(h)).To(Equal([]uint64{1, 2, 3}))
+		Expect(kept).To(Equal([]uint64{1, 3}))
 	})
 
 	It("Should set the bit of a killed part segment", func() {

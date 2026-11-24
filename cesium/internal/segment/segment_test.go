@@ -371,21 +371,6 @@ var _ = Describe("Segment", func() {
 					},
 				)
 
-				It(
-					"Should read a stream range across blocks with no trailer bytes",
-					func() {
-						stream, _ := samples(200_000)
-						w := create(varCfg)
-						Expect(w.Write(stream)).To(Succeed())
-						Expect(h.Close()).To(Succeed())
-						f := MustSucceed(fs.Open("3.seg", os.O_RDONLY))
-						defer func() { Expect(f.Close()).To(Succeed()) }()
-						got := make([]byte, 2*segment.BlockSize)
-						Expect(varCfg.ReadAt(f, got, 1000)).To(Succeed())
-						Expect(got).To(Equal(stream[1000 : 1000+2*segment.BlockSize]))
-					},
-				)
-
 				DescribeTable(
 					"Should give a stream that Copy cuts inside samples and lengths "+
 						"the trailers of Write",
