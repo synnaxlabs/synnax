@@ -515,25 +515,26 @@ var _ = Describe("Ungroup groups", Ordered, func() {
 		}),
 	)
 
-	It("Should refuse a folder whose parent the change also ungroups", func(
+	It("Should move what nested folders hold to the parent of the outermost one", func(
 		ctx SpecContext,
 	) {
-		parent := createFolder(ctx, nil)
-		folder := createFolder(ctx, &parent)
-		refused := And(
-			MatchError(validate.ErrValidation),
-			MatchError(ContainSubstring(
-				"cannot ungroup %s and %s, which holds it, in one change",
-				folder.Name,
-				parent.Name,
-			)),
-		)
-		Expect(plan(ctx, impact.PlanOptions{}, parent.Key, folder.Key)).
-			Error().To(refused)
-		Expect(apply(ctx, impact.ApplyOptions{}, parent.Key, folder.Key)).
-			Error().To(refused)
-		Expect(exists(ctx, parent.Key)).To(BeTrue())
-		Expect(exists(ctx, folder.Key)).To(BeTrue())
+		top := createFolder(ctx, nil)
+		outer := createFolder(ctx, &top)
+		middle := createFolder(ctx, &outer)
+		inner := createFolder(ctx, &middle)
+		kept := createFolder(ctx, &middle)
+		live := createChannel(ctx, UniqueChannelName(), &inner)
+		dead, _ := tombstone(ctx, UniqueChannelName(), &inner)
+		keys := []group.Key{inner.Key, middle.Key, outer.Key}
+		Expect(apply(ctx, impact.ApplyOptions{}, keys...)).
+			To(Equal(impact.Plan{Change: ungroupOf(keys...)}))
+		for _, k := range keys {
+			Expect(exists(ctx, k)).To(BeFalse())
+		}
+		Expect(MustSucceed(retrieveFolder(ctx, kept.Key)).Parent).
+			To(Equal(new(top.ResourceID())))
+		Expect(groupOf(ctx, live.Key())).To(Equal(&top.Key))
+		Expect(tombstonesIn(ctx, top)).To(ConsistOf(dead.Key()))
 	})
 
 	It("Should refuse a token planned before a tombstone's new path was taken", func(
