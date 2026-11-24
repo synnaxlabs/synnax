@@ -87,7 +87,6 @@ ScaleIndicatorConfig struct extends v13.ScaleIndicatorConfig {
     }
 }
 
-StateMapping = v13.StateMapping
 
 PageType = v9.PageType
 
@@ -295,12 +294,9 @@ NodeConfig union on variant extends v13.NodeConfig {
                 named color or a fixed color.
             """
         }
-        options
+        -options
         enumeration enumeration.Key? {
-            @doc value """
-                is the enumeration whose entries the select offers in place of its
-                options.
-            """
+            @doc value "is the enumeration whose entries the select offers."
         }
     }
     setpoint {
@@ -317,12 +313,9 @@ NodeConfig union on variant extends v13.NodeConfig {
                 is the border color of the indicator, a named color or a fixed color.
             """
         }
-        options
+        -options
         enumeration  enumeration.Key? {
-            @doc value """
-                is the enumeration whose entries the indicator shows in place of its
-                options.
-            """
+            @doc value "is the enumeration whose entries the indicator shows."
         }
     }
     string_display {

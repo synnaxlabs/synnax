@@ -139,9 +139,6 @@ type ToggleSymbolConfig = versions.ToggleSymbolConfig
 // from local state without binding to telemetry.
 type DummyToggleSymbolConfig = versions.DummyToggleSymbolConfig
 
-// StateMapping maps a numeric channel value to a named, colored state.
-type StateMapping = versions.StateMapping
-
 // NodeConfig is the configuration of one node. The variant selects the symbol rendered
 // for the node and the fields that accompany it.
 type NodeConfig = versions.NodeConfig

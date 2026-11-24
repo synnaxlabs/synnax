@@ -413,14 +413,10 @@ var _ = Describe("MigrateSchematic", func() {
 			Expect(ok).To(BeTrue())
 			Expect(sel.Enumeration).To(BeNil())
 			Expect(sel.CommandChannel).To(BeEquivalentTo(1048577))
-			Expect(sel.Options).To(HaveLen(2))
-			Expect(sel.Options[1].Name).To(Equal("Open"))
-			Expect(sel.Options[1].Color).ToNot(BeNil())
 			ind, ok := out.Nodes[1].Config.Variant.(v14.StateIndicatorNodeConfig)
 			Expect(ok).To(BeTrue())
 			Expect(ind.Enumeration).To(BeNil())
 			Expect(ind.Channel).To(BeEquivalentTo(1048578))
-			Expect(ind.Options).To(HaveLen(2))
 		},
 	)
 
