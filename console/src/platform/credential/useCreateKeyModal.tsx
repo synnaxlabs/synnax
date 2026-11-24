@@ -37,14 +37,14 @@ type CloseProps = Pick<
 
 interface NameProps extends CloseProps {
   subject: resource.ID;
-  onCreated: (created: Credential.CreateKeyResult) => void;
+  onCreated: (created: Credential.CreateAPIKeyResult) => void;
 }
 
 const Name = ({ subject, close, onCreated }: NameProps): ReactElement => {
   const [name, setName] = useState("");
   const query = { subject };
-  const refreshKeys = Credential.useRefreshKeys();
-  const { update, variant } = Credential.useCreateKey({
+  const refreshKeys = Credential.useRefreshAPIKeys();
+  const { update, variant } = Credential.useCreateAPIKey({
     afterSuccess: ({ data }) => {
       refreshKeys(query);
       onCreated(data);
@@ -102,7 +102,7 @@ const Name = ({ subject, close, onCreated }: NameProps): ReactElement => {
 };
 
 interface TokenProps extends CloseProps {
-  created: Credential.CreateKeyResult;
+  created: Credential.CreateAPIKeyResult;
 }
 
 const Token = ({ created, close }: TokenProps): ReactElement => (
@@ -129,7 +129,7 @@ const Content = ({
   subject,
   close,
 }: Modals.ContentProps<CreateKeyModalParams, auth.APIKeyKey>): ReactElement => {
-  const [created, setCreated] = useState<Credential.CreateKeyResult | null>(null);
+  const [created, setCreated] = useState<Credential.CreateAPIKeyResult | null>(null);
   return (
     <Modal.Frame className={CSS.B("create-key")}>
       <Modal.Header icon={<Icon.APIKey />}>Create API key</Modal.Header>

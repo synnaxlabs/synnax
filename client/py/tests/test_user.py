@@ -83,11 +83,15 @@ class TestUserClient:
         in with the new username.
         """
         host, port, username, password = login_info
-        admin = sy.Synnax(host=host, port=port, username=username, password=password)
+        admin = sy.Synnax(
+            host=host, port=port, username=username, password=password, secure=False
+        )
         user = create_user(admin, str(uuid()), "test", empty_role.key)
         new_username = str(uuid())
         admin.users.change_username(user.key, new_username)
-        client = sy.Synnax(host=host, port=port, username=new_username, password="test")
+        client = sy.Synnax(
+            host=host, port=port, username=new_username, password="test", secure=False
+        )
         assert client.auth.subject == user.resource_id
         client.close()
         admin.close()
@@ -97,7 +101,9 @@ class TestUserClient:
         again with the new username.
         """
         host, port, username, password = login_info
-        admin = sy.Synnax(host=host, port=port, username=username, password=password)
+        admin = sy.Synnax(
+            host=host, port=port, username=username, password=password, secure=False
+        )
         old_username = str(uuid())
         role = admin.access.roles.create(sy.Role(name="Self Rename"))
         user = create_user(admin, old_username, "test", role.key)
@@ -110,7 +116,9 @@ class TestUserClient:
                 role=role.key,
             )
         )
-        client = sy.Synnax(host=host, port=port, username=old_username, password="test")
+        client = sy.Synnax(
+            host=host, port=port, username=old_username, password="test", secure=False
+        )
         new_username = str(uuid())
         client.users.change_username(user.key, new_username)
         [p] = client.auth.retrieve_passwords()
