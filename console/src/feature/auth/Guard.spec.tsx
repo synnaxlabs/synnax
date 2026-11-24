@@ -11,6 +11,7 @@ import { channel } from "@synnaxlabs/client";
 import {
   createProxiedTestClient,
   createTestClient,
+  createTestUser,
   FAST_RETRY,
 } from "@synnaxlabs/client/testutil";
 import { Access, Synnax } from "@synnaxlabs/pluto";
@@ -344,8 +345,11 @@ describe("connection guard permissions", () => {
     const roles = await client.access.roles.retrieve({});
     const role = roles.find(({ name }) => name === roleName);
     if (role == null) throw new Error(`${roleName} role not provisioned`);
-    const username = uniqueName("role_user");
-    await client.users.create({ username, password: PASSWORD, role: role.key });
+    const { username } = await createTestUser(client, {
+      role: role.key,
+      username: uniqueName("role_user"),
+      password: PASSWORD,
+    });
     return username;
   };
 

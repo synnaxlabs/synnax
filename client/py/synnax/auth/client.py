@@ -25,7 +25,8 @@ from freighter import (
     UnaryClient,
 )
 from synnax import resource
-from synnax.auth.types_gen import Proof, Session, SessionKey
+from synnax.auth import password as password_
+from synnax.auth.types_gen import PasswordProof, Proof, Session, SessionKey
 from synnax.exceptions import ExpiredToken, InvalidToken, SessionEnded
 from synnax.user.payload import User
 from synnax.util.send_required import send_required
@@ -123,6 +124,21 @@ class _PasswordCreateRequest(BaseModel):
     password: str
 
 
+class _PasswordRetrieveRequest(BaseModel):
+    subjects: list[resource.ID] = []
+    usernames: list[str] = []
+
+
+class _PasswordRetrieveResponse(BaseModel):
+    passwords: list[password_.Password] = []
+
+
+class _PasswordDispatchRequest(BaseModel):
+    key: password_.Key
+    dispatch_key: str = ""
+    actions: list[password_.Action]
+
+
 _METHODS_ENDPOINT = "/auth/methods"
 _SESSION_CREATE_ENDPOINT = "/auth/session/create"
 _SESSION_RENEW_ENDPOINT = "/auth/session/renew"
@@ -132,6 +148,8 @@ _KEY_CREATE_ENDPOINT = "/auth/key/create"
 _KEY_RETRIEVE_ENDPOINT = "/auth/key/retrieve"
 _KEY_DELETE_ENDPOINT = "/auth/key/delete"
 _PASSWORD_CREATE_ENDPOINT = "/auth/password/create"
+_PASSWORD_RETRIEVE_ENDPOINT = "/auth/password/retrieve"
+_PASSWORD_DISPATCH_ENDPOINT = "/auth/password/dispatch"
 
 _AUTHORIZATION_HEADER = "Authorization"
 _RETRY_ON_ERRORS = (InvalidToken, ExpiredToken, SessionEnded)
@@ -281,6 +299,54 @@ class Client:
             ),
             Empty,
         )
+
+    def retrieve_passwords(
+        self,
+        subjects: list[resource.ID] | None = None,
+        usernames: list[str] | None = None,
+    ) -> list[password_.Password]:
+        """Lists the caller's password, or those of the given subjects or usernames
+        when the caller may retrieve their subjects. Unknown subjects and usernames
+        are ignored.
+
+        :raises AccessDenied: if the caller may not retrieve another subject.
+        """
+        res = send_required(
+            self.client,
+            _PASSWORD_RETRIEVE_ENDPOINT,
+            _PasswordRetrieveRequest(
+                subjects=subjects or [], usernames=usernames or []
+            ),
+            _PasswordRetrieveResponse,
+        )
+        return res.passwords
+
+    def dispatch_password(self, key: password_.Key, *actions: password_.Action) -> None:
+        """Applies the actions in order to the password with the given key. Sessions
+        stay open. When the client logged in with the password, it logs in again under
+        the new username.
+
+        :raises AuthError: if another user holds the username that the actions set.
+        :raises AccessDenied: if the caller may not update the password's user.
+        :raises NotFoundError: if no password has the key.
+        :raises ValidationError: if an action sets an empty username.
+        """
+        send_required(
+            self.client,
+            _PASSWORD_DISPATCH_ENDPOINT,
+            _PasswordDispatchRequest(key=key, actions=list(actions)),
+            Empty,
+        )
+        if (
+            self.session is None
+            or self.session.credential != key
+            or not isinstance(self.proof, PasswordProof)
+        ):
+            return
+        for action in actions:
+            self.proof = self.proof.model_copy(
+                update={"username": action.set_username.username}
+            )
 
     def logout(self) -> None:
         """Ends the client's own session and forgets it. A later request logs in
