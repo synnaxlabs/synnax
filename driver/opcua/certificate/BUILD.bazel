@@ -34,6 +34,34 @@ cc_library(
     ],
 )
 
+cc_library(
+    name = "records",
+    srcs = ["records.cpp"],
+    hdrs = ["records.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":certificate",
+        "//client/cpp:synnax",
+        "//x/cpp/errors",
+        "//x/cpp/x509",
+    ],
+)
+
+cc_test(
+    name = "records_test",
+    srcs = ["records_test.cpp"],
+    tags = ["requires-core"],
+    deps = [
+        ":certificate",
+        ":records",
+        "//client/cpp:synnax",
+        "//client/cpp/testutil",
+        "//x/cpp/testutil",
+        "//x/cpp/uuid",
+        "@googletest//:gtest_main",
+    ],
+)
+
 cc_test(
     name = "certificate_test",
     srcs = [

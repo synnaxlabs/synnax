@@ -68,6 +68,29 @@ var _ = Describe("Server Diagnostics", func() {
 		)
 	})
 
+	Describe("Code link", func() {
+		It("Should link a diagnostic to the entry of its code", func(ctx SpecContext) {
+			OpenArcDocument(server, ctx, docURI, "export func f() i64 { return 1 }")
+			Expect(client.Diagnostics()).To(ConsistOf(
+				HaveField("CodeDescription.Href", Equal(uri.URI(
+					"https://docs.synnaxlabs.com/reference/control/arc/reference/"+
+						"errors#e4008",
+				))),
+			))
+		})
+
+		It("Should give no link to a diagnostic with no code", func(ctx SpecContext) {
+			server, docURI, client := SetupTestServerWithClient(lsp.Config{
+				NewRoot: func() *symbol.Symbol { panic("analyzer failure") },
+			})
+			OpenArcDocument(server, ctx, docURI, "func test() {}")
+			Expect(client.Diagnostics()).To(ConsistOf(SatisfyAll(
+				WithTransform(DiagnosticCode, BeEmpty()),
+				HaveField("CodeDescription", BeZero()),
+			)))
+		})
+	})
+
 	Describe("Diagnostic Range", func() {
 		It(
 			"Should publish diagnostics with correct end position for undefined symbol",

@@ -158,6 +158,23 @@ export interface Bounds<T extends numeric.Value = number> {
   upper: T;
 }
 
+/**
+ * ClosedBounds is a closed interval [lower, upper] over an ordered numeric value space,
+ * such as the range of a hardware input. The TypeScript binding is generic over T;
+ * other languages emit a concrete float64-based type.
+ */
+export const closedBoundsZ = <T extends numeric.Value = number>(t?: z.ZodType<T>) =>
+  z.object({
+    /** lower is the inclusive lower bound. */
+    lower: t ?? z.number(),
+    /** upper is the inclusive upper bound. */
+    upper: t ?? z.number(),
+  });
+export interface ClosedBounds<T extends numeric.Value = number> {
+  lower: T;
+  upper: T;
+}
+
 export const decimalZ = z.number().min(0).max(1);
 export type Decimal = z.infer<typeof decimalZ>;
 
