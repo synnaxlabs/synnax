@@ -448,7 +448,7 @@ var _ = Describe("Join", func() {
 	DescribeTable(
 		"Should count an interval at a factor of 2 of the median as near it",
 		func(intervals ...float64) {
-			ss := []float64{0}
+			ss := make([]float64, 1, len(intervals)+1)
 			for _, iv := range intervals {
 				ss = append(ss, ss[len(ss)-1]+iv)
 			}
