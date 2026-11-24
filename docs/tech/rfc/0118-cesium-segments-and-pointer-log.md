@@ -801,12 +801,14 @@ valid frames follow the bad one, so repair loses only the records of the bad fra
      key to `Sweep`, and a lost Check makes the check pass run again. Both heads bad:
      the dead marks, kills, and cut segments of the lost heads.
 5. Ask, through the `confirm` call of `cesium.Repair`; nothing is written before it. On
-   yes, write a head and a log of a generation above every generation present, the log
-   starting with a Restart, and sync each file and the root. The header sector of the
-   new head is the commit point. Only after it, rename the damaged log or heads with the
-   suffix `.damaged`, and each orphan of step 4 with `.unrecovered`, and sync the root.
-   A crash before the commit point leaves the old files, and repair runs again; the
-   orphan pass keeps `.damaged` and `.undone` files.
+   yes, write a head and a log of the generation one above the newest head or log
+   without a suffix, the log starting with a Restart, and sync each file and the root.
+   The header sector of the new head is the commit point. Only after it, rename the
+   damaged log or heads with the suffix `.damaged`, and each orphan of step 4 with
+   `.unrecovered`, and sync the root. A rename never replaces a file: when the name is
+   in use, as after an undo that started the generations again, it adds the next free
+   `.<k>`. A crash before the commit point leaves the old files, and repair runs again;
+   the orphan pass keeps `.damaged` and `.undone` files.
 
 So repair loses the commit boundaries and the alignments of one frame, the unchecked
 tail block of a segment whose last commit was in it, and the deletes and compactions in
