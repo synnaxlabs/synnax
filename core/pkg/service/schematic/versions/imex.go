@@ -28,44 +28,13 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Schematic, erro
 		sch Schematic
 		err error
 	)
-	switch {
-	case env.Version > legacy.LastVersion:
+	if env.Version > legacy.LastVersion {
 		sch, err = autoDecodeEnvelope(ctx, env)
-	case env.Version == legacy.LastVersion:
-		// The v0.56 Console export: the typed schematic it retrieved from the Core,
-		// written back out in camelCase under the Console's own version stamp.
-		var body msgpack.EncodedJSON
-		if body, err = env.Decode[msgpack.EncodedJSON](); err != nil {
-			break
-		}
-		if err = imex.RequireFields(
-			body, "a schematic", "nodes", "configs",
-		); err != nil {
-			break
-		}
-		var doc legacy.Export
-		if doc, err = env.Decode[legacy.Export](); err == nil {
-			sch, err = liftFirst(ctx, v7.SchematicFromConsole(doc))
-		}
-	default:
-		// Console states embed the document inline: ride the storage lift, which
-		// dispatches on the version stamped inside the body.
-		var body msgpack.EncodedJSON
-		if body, err = env.Decode[msgpack.EncodedJSON](); err != nil {
-			break
-		}
-		if err = imex.RequireFields(
-			body, "a schematic", "nodes", "props",
-		); err != nil {
-			break
-		}
+	} else {
 		var s7 v7.Schematic
-		if s7, err = v7.MigrateSchematic(ctx, v0.Schematic{
-			Name: env.Name, Data: body,
-		}); err != nil {
-			break
+		if s7, err = decodeConsole(ctx, env); err == nil {
+			sch, err = liftFirst(ctx, s7)
 		}
-		sch, err = liftFirst(ctx, s7)
 	}
 	if err != nil {
 		return Schematic{}, err
@@ -81,6 +50,38 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Schematic, erro
 	// here for every path.
 	sch.Name = env.Name
 	return sch, nil
+}
+
+// decodeConsole decodes env, a file that the Console wrote, as the first exported
+// shape.
+func decodeConsole(ctx context.Context, env imex.Envelope) (v7.Schematic, error) {
+	body, err := env.Decode[msgpack.EncodedJSON]()
+	if err != nil {
+		return v7.Schematic{}, err
+	}
+	if env.Version == legacy.LastVersion {
+		// The v0.56 Console export: the typed schematic it retrieved from the Core,
+		// written back out in camelCase under the Console's own version stamp.
+		if err = imex.RequireFields(
+			body,
+			"a schematic",
+			"nodes",
+			"configs",
+		); err != nil {
+			return v7.Schematic{}, err
+		}
+		var doc legacy.Export
+		if doc, err = env.Decode[legacy.Export](); err != nil {
+			return v7.Schematic{}, err
+		}
+		return v7.SchematicFromConsole(doc), nil
+	}
+	// Console states embed the document inline: ride the storage lift, which dispatches
+	// on the version stamped inside the body.
+	if err = imex.RequireFields(body, "a schematic", "nodes", "props"); err != nil {
+		return v7.Schematic{}, err
+	}
+	return v7.MigrateSchematic(ctx, v0.Schematic{Name: env.Name, Data: body})
 }
 
 // positiveScales sets every scale of sch that is not positive to 1, as the

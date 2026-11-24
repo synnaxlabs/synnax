@@ -38,9 +38,13 @@ const {
   createResultSelector,
 } = Device.createRetrieveMultiple(SLAVE_SCHEMAS);
 
+/** The query for the slaves the keys name, with its state. */
+export const useResultSlavesByKeys = (keys: device.Key[]): Flux.Result<SlaveDevice[]> =>
+  useResultSlaves(keys.length === 0 ? null : { where: { key: { in: keys } } });
+
 /** The slaves the keys name, or undefined until they resolve or on failure. */
 export const useSlavesByKeys = (keys: device.Key[]): SlaveDevice[] | undefined =>
-  useResultSlaves(keys.length === 0 ? null : { where: { key: { in: keys } } }).data;
+  useResultSlavesByKeys(keys).data;
 
 // A status heartbeat changes no slave unless it connects or disconnects.
 const useResultSlavesOnRack = createResultSelector(

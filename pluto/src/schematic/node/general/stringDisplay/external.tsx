@@ -13,7 +13,7 @@ import type { ReactElement } from "react";
 
 import { Color } from "@/color";
 import { StringDisplayForm } from "@/schematic/node/general/stringDisplay/Form";
-import { StringDisplay } from "@/schematic/node/general/stringDisplay/Primitive";
+import { Primitive } from "@/schematic/node/general/stringDisplay/primitive";
 import { Symbol } from "@/schematic/node/general/stringDisplay/Symbol";
 import type { Spec } from "@/schematic/node/spec";
 
@@ -24,7 +24,7 @@ const Preview = ({
 }: schematic.StringDisplayNodeConfig): ReactElement => {
   const resolve = Color.useResolve();
   return (
-    <StringDisplay strokeColor={resolve(strokeColor)} level={level}>
+    <Primitive.StringDisplay strokeColor={resolve(strokeColor)} level={level}>
       <Text.Text
         level={level}
         color={resolve(textColor)}
@@ -33,7 +33,7 @@ const Preview = ({
       >
         Hello world!
       </Text.Text>
-    </StringDisplay>
+    </Primitive.StringDisplay>
   );
 };
 

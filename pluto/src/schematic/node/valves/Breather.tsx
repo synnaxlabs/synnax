@@ -19,7 +19,7 @@ import svg from "@/schematic/node/valves/Breather.svg?raw";
 export interface Props extends Toggle.ButtonProps, Primitive.SVGBasedProps {}
 
 export const SYMBOL: schematic.symbol.Spec = Custom.createBuiltIn({
-  variant: "actuator",
+  family: "valve",
   svg,
   handles: [
     { key: "1", position: { x: 0.08081, y: 0.5 }, orientation: "left" },

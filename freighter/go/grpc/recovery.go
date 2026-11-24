@@ -15,6 +15,7 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter/recovery"
+	"github.com/synnaxlabs/x/errors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -22,8 +23,9 @@ import (
 
 // RecoveryUnaryServerInterceptor returns a grpc.UnaryServerInterceptor that recovers
 // from panics in unary handlers, records the stack via ins, and returns a
-// codes.Internal status. It is a transport-level backstop for gRPC handlers that do not
-// pass through the freighter recovery Middleware, such as cluster-internal services.
+// codes.Internal status carrying recovery.ErrPanic encoded as the recovery Middleware
+// encodes it. It is a transport-level backstop for gRPC handlers that do not pass
+// through the freighter recovery Middleware, such as cluster-internal services.
 func RecoveryUnaryServerInterceptor(
 	ins alamos.Instrumentation,
 ) grpc.UnaryServerInterceptor {
@@ -36,7 +38,7 @@ func RecoveryUnaryServerInterceptor(
 		defer func() {
 			if r := recover(); r != nil {
 				recovery.LogPanic(ins, info.FullMethod, r, debug.Stack())
-				err = status.Error(codes.Internal, recovery.ErrPanic.Error())
+				err = panicStatus()
 			}
 		}()
 		return handler(ctx, req)
@@ -57,9 +59,14 @@ func RecoveryStreamServerInterceptor(
 		defer func() {
 			if r := recover(); r != nil {
 				recovery.LogPanic(ins, info.FullMethod, r, debug.Stack())
-				err = status.Error(codes.Internal, recovery.ErrPanic.Error())
+				err = panicStatus()
 			}
 		}()
 		return handler(srv, ss)
 	}
+}
+
+func panicStatus() error {
+	pld := errors.NewCodec(recovery.ErrorProvider()).Encode(recovery.ErrPanic, false)
+	return status.Error(codes.Internal, pld.Error())
 }

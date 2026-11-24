@@ -10,10 +10,14 @@
 package analyzer
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/domain/validation"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/diagnostics"
+	"github.com/synnaxlabs/x/set"
 )
 
 // checkOptionalDefaultInvariant enforces that a field is never both nullable (`?`) and
@@ -313,17 +317,16 @@ func defaultInvariantViolation(
 			return "", false
 		}
 		form, ok := ev.Type.Form.(resolution.EnumForm)
-		if !ok || !form.IsIntEnum {
-			// A string enum has no zero member (its zero is ""), so any default is
-			// safe.
+		if !ok {
 			return "", false
 		}
-		hasZero := lo.ContainsBy(form.Values, func(v resolution.EnumValue) bool {
-			return v.IntValue() == 0
-		})
-		if hasZero && ev.Variant.IntValue() != 0 {
-			return "an integer-enum default other than 0 leaves the member with " +
-				"value 0 (the zero value) as a valid, distinct value", true
+		// A string enum, or an integer enum with no member of 0, has no valid zero.
+		if zero, ok := form.ZeroMember(); ok && zero.Name != ev.Variant.Name {
+			return fmt.Sprintf(
+				"an integer-enum default other than %q, the member of value 0, leaves "+
+					"that member (the zero value) as a valid, distinct value",
+				zero.Name,
+			), true
 		}
 	case resolution.ValueKindString,
 		resolution.ValueKindInt,
@@ -480,4 +483,49 @@ func checkGroupMember(
 			"string, or a string-enum member.",
 		f.Name, typ.Name, group,
 	))
+}
+
+// checkDurationDefaults enforces that a duration literal defaults only a field whose
+// type is telem's TimeSpan.
+func checkDurationDefaults(c *analysisCtx) {
+	forEachDefaultedField(c, func(typ resolution.Type, f resolution.Field) {
+		if f.Default.Duration == "" || isTimeSpan(f.Type, c.table) {
+			return
+		}
+		c.diag.Add(diagnostics.Errorf(
+			nil,
+			"default %s on field %q in %q has a duration unit, but the field's type is "+
+				"not telem.TimeSpan. Write the value without a unit.",
+			f.Default.Duration,
+			f.Name,
+			typ.Name,
+		))
+	})
+}
+
+// isTimeSpan reports whether ref denotes telem's TimeSpan, live or at a pinned version,
+// through aliases and distinct bases.
+func isTimeSpan(ref resolution.TypeRef, table *resolution.Table) bool {
+	visited := set.New[string]()
+	for {
+		typ, _, ok := resolution.Dealias(ref, table)
+		if !ok || visited.Contains(typ.QualifiedName) {
+			return false
+		}
+		visited.Add(typ.QualifiedName)
+		if isTelem(typ.Namespace) && typ.Name == "TimeSpan" {
+			return true
+		}
+		distinct, ok := typ.Form.(resolution.DistinctForm)
+		if !ok {
+			return false
+		}
+		ref = distinct.Base
+	}
+}
+
+// isTelem reports whether ns is telem's namespace. A pinned version of telem registers
+// as x/telem@vN.
+func isTelem(ns string) bool {
+	return ns == "telem" || strings.HasPrefix(ns, "x/telem@v")
 }

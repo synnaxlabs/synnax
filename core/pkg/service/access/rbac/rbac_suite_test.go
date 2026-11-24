@@ -46,8 +46,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	}))
 	passwordSvc = MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
 	userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
-		DB:       db,
-		Password: passwordSvc,
+		DB: db,
 	}))
 	roles = MustOpen(rbac.OpenRoles(ctx, rbac.RolesConfig{DB: db}))
 	MustOpen(label.OpenService(ctx, label.ServiceConfig{

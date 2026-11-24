@@ -16,6 +16,7 @@ import { Spec } from "@/feature/schematic/symbol/spec";
 const STATE = Spec.createState().key;
 const RED = color.construct("#ff0000");
 const BLUE = color.construct("#0000ff");
+const GREEN = color.construct("#00ff00");
 
 const fixed = (c: color.Color): schematic.symbol.Paint => ({
   type: "color",
@@ -48,63 +49,292 @@ const createSpec = (
 });
 
 describe("symbol editor spec", () => {
-  describe("setColor", () => {
+  describe("effective", () => {
+    it("should return the field that wins for the part at the value", () => {
+      const looks: schematic.symbol.Look[] = [
+        { key: "a", part: "body", when: equals(0, 1), fill: fixed(RED) },
+        { key: "b", part: "body", fill: fixed(BLUE) },
+      ];
+      expect(Spec.effective({ looks }, "body", "fill", 0)).toEqual(fixed(BLUE));
+    });
+
+    it("should count a later look of the whole drawing for a part", () => {
+      const looks: schematic.symbol.Look[] = [
+        { key: "a", part: "body", fill: fixed(BLUE) },
+        { key: "b", when: equals(0), fill: fixed(RED) },
+      ];
+      expect(Spec.effective({ looks }, "body", "fill", 0)).toEqual(fixed(RED));
+      expect(Spec.effective({ looks }, "body", "fill", 1)).toEqual(fixed(BLUE));
+    });
+
+    it("should not count the looks of a part for the whole drawing", () => {
+      const looks: schematic.symbol.Look[] = [
+        { key: "a", part: "body", fill: fixed(RED) },
+      ];
+      expect(Spec.effective({ looks }, undefined, "fill", 0)).toBeUndefined();
+    });
+  });
+
+  describe("own", () => {
+    it("should not count a look of the whole drawing for a part", () => {
+      const looks: schematic.symbol.Look[] = [
+        { key: "a", part: "body", fill: fixed(BLUE) },
+        { key: "b", when: equals(0), fill: fixed(RED) },
+      ];
+      expect(Spec.own({ looks }, "body", "fill", 0)).toEqual(fixed(BLUE));
+      expect(Spec.own({ looks: looks.slice(1) }, "body", "fill", 0)).toBeUndefined();
+    });
+
+    it("should return the look of the whole drawing for the whole drawing", () => {
+      const looks: schematic.symbol.Look[] = [
+        { key: "a", part: "body", fill: fixed(BLUE) },
+        { key: "b", when: equals(0), fill: fixed(RED) },
+      ];
+      expect(Spec.own({ looks }, undefined, "fill", 0)).toEqual(fixed(RED));
+      expect(Spec.own({ looks }, undefined, "fill", 1)).toBeUndefined();
+    });
+  });
+
+  describe("setOwn", () => {
+    it("should add a drawing look after its last hider, not after every look", () => {
+      const spec = createSpec({
+        looks: [
+          { key: "a", part: "body", when: equals(0), fill: fixed(RED) },
+          { key: "b", fill: fixed(BLUE) },
+          { key: "c", part: "seat", when: equals(0), fill: fixed(RED) },
+        ],
+      });
+      const next = Spec.setOwn(spec, undefined, "fill", fixed(GREEN), 0);
+      expect(next.looks.map((l) => l.key)).toEqual(["a", "b", expect.any(String), "c"]);
+    });
+
+    it("should change the motion of a part that a whole drawing motion follows", () => {
+      const spec = createSpec({
+        looks: [
+          {
+            key: "a",
+            part: "body",
+            when: equals(0),
+            motion: { type: "spin", rate: 1 },
+          },
+          { key: "b", when: equals(0), motion: { type: "flow", rate: 1 } },
+        ],
+      });
+      const flow: schematic.symbol.Motion = { type: "flow", rate: 2 };
+      expect(Spec.setOwn(spec, "body", "motion", flow, 0).looks).toEqual([
+        { ...spec.looks[0], motion: flow },
+        spec.looks[1],
+      ]);
+    });
+
+    it("should change the blink of a part that a whole drawing blink follows", () => {
+      const spec = createSpec({
+        looks: [
+          { key: "a", part: "body", when: equals(0), blink: { period: 1e9 } },
+          { key: "b", when: equals(0), blink: { period: 2e9 } },
+        ],
+      });
+      const blink: schematic.symbol.Blink = { period: 3e9 };
+      expect(Spec.setOwn(spec, "body", "blink", blink, 0).looks).toEqual([
+        { ...spec.looks[0], blink },
+        spec.looks[1],
+      ]);
+    });
+
+    it("should clear a field at every value and keep it on single values", () => {
+      const spec = createSpec({
+        looks: [
+          { key: "a", part: "body", fill: fixed(RED), stroke: fixed(BLUE) },
+          { key: "b", part: "body", fill: fixed(RED) },
+          { key: "c", part: "body", when: equals(1), fill: fixed(BLUE) },
+        ],
+      });
+      expect(Spec.setOwn(spec, "body", "fill", undefined).looks).toEqual([
+        { key: "a", part: "body", stroke: fixed(BLUE) },
+        spec.looks[2],
+      ]);
+    });
+
     it("should set the field on the look of the part for the value alone", () => {
       const looks: schematic.symbol.Look[] = [
         { key: "a", part: "body", when: equals(0), fill: fixed(BLUE) },
       ];
       expect(
-        Spec.setColor(createSpec({ looks }), "body", 0, "stroke", RED).looks,
-      ).toEqual([
-        {
-          key: "a",
-          part: "body",
-          when: equals(0),
-          fill: fixed(BLUE),
-          stroke: fixed(RED),
-        },
-      ]);
+        Spec.setOwn(createSpec({ looks }), "body", "stroke", fixed(RED), 0).looks,
+      ).toEqual([{ ...looks[0], stroke: fixed(RED) }]);
+    });
+
+    it("should set a field that is not a paint", () => {
+      const looks: schematic.symbol.Look[] = [
+        { key: "a", part: "body", when: equals(1), fill: fixed(BLUE) },
+      ];
+      const blink = { period: 1e9 };
+      expect(
+        Spec.setOwn(createSpec({ looks }), "body", "blink", blink, 1).looks,
+      ).toEqual([{ ...looks[0], blink }]);
     });
 
     it("should add a look when the part has none for the value", () => {
       const looks: schematic.symbol.Look[] = [
         { key: "a", part: "body", when: equals(1), stroke: fixed(BLUE) },
       ];
-      const { looks: next } = Spec.setColor(
+      const { looks: next } = Spec.setOwn(
         createSpec({ looks }),
         "body",
-        0,
         "stroke",
-        RED,
+        fixed(RED),
+        0,
       );
-      expect(next).toHaveLength(2);
-      expect(next[0]).toEqual(looks[0]);
-      expect(next[1]).toMatchObject({
-        part: "body",
-        when: equals(0),
-        stroke: fixed(RED),
-      });
+      expect(next).toEqual([
+        looks[0],
+        {
+          key: expect.any(String),
+          part: "body",
+          when: equals(0),
+          stroke: fixed(RED),
+        },
+      ]);
     });
 
-    it("should add a look after a later look that sets the field", () => {
+    it("should split a look on several values when it sets the field at one", () => {
+      const entry: schematic.symbol.Look = {
+        key: "entry",
+        part: "body",
+        when: equals(0, 1),
+        fill: fixed(BLUE),
+        stroke: { type: "entry", state: STATE },
+      };
+      expect(
+        Spec.setOwn(createSpec({ looks: [entry] }), "body", "stroke", fixed(RED), 0)
+          .looks,
+      ).toEqual([
+        { ...entry, when: equals(1) },
+        { ...entry, key: expect.any(String), when: equals(0), stroke: fixed(RED) },
+      ]);
+    });
+
+    it("should add a look at the end when a later look on every value wins", () => {
       const looks: schematic.symbol.Look[] = [
-        { key: "a", part: "body", when: equals(0), fill: fixed(BLUE) },
-        {
-          key: "entry",
-          part: "body",
-          when: equals(0, 1),
-          stroke: { type: "entry", state: STATE },
-        },
+        { key: "a", part: "body", when: equals(0), stroke: fixed(BLUE) },
+        { key: "b", part: "body", stroke: fixed(BLUE) },
       ];
-      const { looks: next } = Spec.setColor(
+      const { looks: next } = Spec.setOwn(
         createSpec({ looks }),
         "body",
-        0,
         "stroke",
-        RED,
+        fixed(RED),
+        0,
       );
-      expect(next.slice(0, 2)).toEqual(looks);
-      expect(next[2]).toMatchObject({ part: "body", stroke: fixed(RED) });
+      expect(next).toEqual([
+        looks[1],
+        { key: expect.any(String), part: "body", when: equals(0), stroke: fixed(RED) },
+      ]);
+    });
+
+    it("should take an old motion of another kind off the owned look", () => {
+      const spin = {
+        key: "a",
+        part: "body",
+        when: equals(0),
+        motion: { type: "spin" as const, rate: 1 },
+      };
+      const flow = {
+        key: "b",
+        part: "body",
+        motion: { type: "flow" as const, rate: 1 },
+      };
+      const spec = createSpec({ looks: [{ ...spin, stroke: fixed(RED) }, flow] });
+      const next = Spec.setOwn(spec, "body", "motion", flow.motion, 0);
+      expect(next.looks).toEqual([
+        { key: "a", part: "body", when: equals(0), stroke: fixed(RED) },
+        flow,
+        { key: expect.any(String), part: "body", when: equals(0), motion: flow.motion },
+      ]);
+    });
+
+    it("should take an old motion off an earlier owned look", () => {
+      const spin = {
+        key: "a",
+        part: "body",
+        when: equals(0),
+        motion: { type: "spin" as const, rate: 1 },
+      };
+      const stroke = { key: "b", part: "body", stroke: fixed(BLUE) };
+      const first = Spec.setOwn(
+        createSpec({ looks: [spin, stroke] }),
+        "body",
+        "stroke",
+        fixed(RED),
+        0,
+      );
+      const flow = { type: "flow" as const, rate: 1 };
+      expect(Spec.setOwn(first, "body", "motion", flow, 0).looks).toEqual([
+        stroke,
+        {
+          key: expect.any(String),
+          part: "body",
+          when: equals(0),
+          stroke: fixed(RED),
+          motion: flow,
+        },
+      ]);
+    });
+
+    it("should set the field on the look of the part for every value", () => {
+      const looks: schematic.symbol.Look[] = [
+        { key: "a", part: "body", fill: fixed(BLUE) },
+        { key: "b", part: "body", when: equals(0), stroke: fixed(BLUE) },
+      ];
+      expect(
+        Spec.setOwn(createSpec({ looks }), "body", "stroke", fixed(RED)).looks,
+      ).toEqual([{ ...looks[0], stroke: fixed(RED) }, looks[1]]);
+    });
+
+    it("should add a look on every value before the looks on one value", () => {
+      const looks: schematic.symbol.Look[] = [
+        { key: "a", part: "body", when: equals(0), hidden: false },
+      ];
+      expect(Spec.setOwn(createSpec({ looks }), "body", "hidden", true).looks).toEqual([
+        { key: expect.any(String), part: "body", hidden: true },
+        looks[0],
+      ]);
+    });
+
+    it("should add a look of the whole drawing before the looks of the parts", () => {
+      const looks: schematic.symbol.Look[] = [
+        { key: "a", part: "body", fill: fixed(BLUE) },
+      ];
+      expect(
+        Spec.setOwn(createSpec({ looks }), undefined, "fill", fixed(RED)).looks,
+      ).toEqual([
+        { key: expect.any(String), part: undefined, fill: fixed(RED) },
+        looks[0],
+      ]);
+    });
+
+    it("should add a look of a part after the drawing looks on one value", () => {
+      const looks: schematic.symbol.Look[] = [
+        { key: "a", when: equals(0), fill: fixed(BLUE) },
+      ];
+      expect(
+        Spec.setOwn(createSpec({ looks }), "body", "fill", fixed(RED)).looks,
+      ).toEqual([
+        looks[0],
+        { key: expect.any(String), part: "body", fill: fixed(RED) },
+      ]);
+    });
+
+    it("should add a look at the end when a later drawing look wins", () => {
+      const looks: schematic.symbol.Look[] = [
+        { key: "a", part: "body", fill: fixed(BLUE) },
+        { key: "b", fill: fixed(BLUE) },
+      ];
+      expect(
+        Spec.setOwn(createSpec({ looks }), "body", "fill", fixed(RED)).looks,
+      ).toEqual([
+        looks[1],
+        { key: expect.any(String), part: "body", fill: fixed(RED) },
+      ]);
     });
 
     it("should clear the field and drop a look that then sets nothing", () => {
@@ -112,9 +342,9 @@ describe("symbol editor spec", () => {
         { key: "a", part: "body", when: equals(0), stroke: fixed(RED) },
         { key: "b", part: "seat", when: equals(0), stroke: fixed(RED) },
       ];
-      expect(Spec.setColor(createSpec({ looks }), "body", 0, "stroke").looks).toEqual([
-        looks[1],
-      ]);
+      expect(
+        Spec.setOwn(createSpec({ looks }), "body", "stroke", undefined, 0).looks,
+      ).toEqual([looks[1]]);
     });
 
     it("should keep the other fields of a look when it clears one", () => {
@@ -127,15 +357,9 @@ describe("symbol editor spec", () => {
           fill: fixed(BLUE),
         },
       ];
-      expect(Spec.setColor(createSpec({ looks }), "body", 0, "stroke").looks).toEqual([
-        {
-          key: "a",
-          part: "body",
-          when: equals(0),
-          stroke: undefined,
-          fill: fixed(BLUE),
-        },
-      ]);
+      expect(
+        Spec.setOwn(createSpec({ looks }), "body", "stroke", undefined, 0).looks,
+      ).toEqual([{ ...looks[0], stroke: undefined }]);
     });
 
     it("should narrow a look on several values when it clears one of them", () => {
@@ -146,7 +370,7 @@ describe("symbol editor spec", () => {
         fill: { type: "entry", state: STATE },
       };
       expect(
-        Spec.setColor(createSpec({ looks: [entry] }), "body", 1, "fill").looks,
+        Spec.setOwn(createSpec({ looks: [entry] }), "body", "fill", undefined, 1).looks,
       ).toEqual([{ ...entry, when: equals(0) }]);
     });
 
@@ -160,9 +384,9 @@ describe("symbol editor spec", () => {
         },
         { key: "a", part: "body", when: equals(1), fill: fixed(RED) },
       ];
-      expect(Spec.setColor(createSpec({ looks }), "body", 1, "fill").looks).toEqual([
-        { ...looks[0], when: equals(0) },
-      ]);
+      expect(
+        Spec.setOwn(createSpec({ looks }), "body", "fill", undefined, 1).looks,
+      ).toEqual([{ ...looks[0], when: equals(0) }]);
     });
 
     it("should keep the other fields at the value when it splits a look", () => {
@@ -174,7 +398,8 @@ describe("symbol editor spec", () => {
         fill: fixed(BLUE),
       };
       expect(
-        Spec.setColor(createSpec({ looks: [look] }), "body", 1, "stroke").looks,
+        Spec.setOwn(createSpec({ looks: [look] }), "body", "stroke", undefined, 1)
+          .looks,
       ).toEqual([
         { ...look, when: equals(0) },
         {
@@ -188,9 +413,15 @@ describe("symbol editor spec", () => {
     });
   });
 
-  describe("setColor on a spec with no state", () => {
-    it("should add the state with the look", () => {
-      const next = Spec.setColor(createSpec({ states: [] }), "body", 0, "stroke", RED);
+  describe("setOwn on a spec with no state", () => {
+    it("should add the state with a look on a value", () => {
+      const next = Spec.setOwn(
+        createSpec({ states: [] }),
+        "body",
+        "stroke",
+        fixed(RED),
+        0,
+      );
       expect(next.states).toEqual([Spec.createState()]);
       expect(next.looks).toEqual([
         expect.objectContaining({ part: "body", when: equals(0), stroke: fixed(RED) }),
@@ -199,19 +430,93 @@ describe("symbol editor spec", () => {
 
     it("should keep the other states", () => {
       const other: schematic.symbol.State = { ...Spec.createState(), key: "other" };
-      const next = Spec.setColor(
+      const next = Spec.setOwn(
         createSpec({ states: [other] }),
         "body",
-        0,
         "fill",
-        RED,
+        fixed(RED),
+        0,
       );
       expect(next.states).toEqual([other, Spec.createState()]);
     });
 
-    it("should not add the state when it clears a field", () => {
+    it("should not add the state for a look on every value", () => {
+      const next = Spec.setOwn(createSpec({ states: [] }), "body", "fill", fixed(RED));
+      expect(next.states).toEqual([]);
+    });
+
+    it("should keep the spec when it clears a field that no look sets", () => {
       const spec = createSpec({ states: [] });
-      expect(Spec.setColor(spec, "body", 0, "stroke")).toBe(spec);
+      expect(Spec.setOwn(spec, "body", "stroke", undefined, 0)).toBe(spec);
+    });
+  });
+
+  describe("setVariesByValue", () => {
+    it("should move the field on every value onto each value", () => {
+      const looks: schematic.symbol.Look[] = [{ key: "a", part: "body", hidden: true }];
+      const next = Spec.setVariesByValue(
+        createSpec({ looks }),
+        "body",
+        "hidden",
+        [0, 1],
+        true,
+      );
+      expect(next.looks).toEqual([
+        expect.objectContaining({ part: "body", when: equals(0), hidden: true }),
+        expect.objectContaining({ part: "body", when: equals(1), hidden: true }),
+      ]);
+      expect(Spec.variesByValue(next, "body", "hidden")).toBe(true);
+    });
+
+    it("should keep the field at the first value on every value", () => {
+      const looks: schematic.symbol.Look[] = [
+        { key: "a", part: "body", when: equals(0), fill: fixed(RED) },
+        { key: "b", part: "body", when: equals(1), fill: fixed(BLUE) },
+      ];
+      const next = Spec.setVariesByValue(
+        createSpec({ looks }),
+        "body",
+        "fill",
+        [0, 1],
+        false,
+      );
+      expect(next.looks).toEqual([
+        { key: expect.any(String), part: "body", fill: fixed(RED) },
+      ]);
+      expect(Spec.variesByValue(next, "body", "fill")).toBe(false);
+    });
+
+    it("should not give the part a field of the whole drawing", () => {
+      const looks: schematic.symbol.Look[] = [
+        { key: "a", fill: fixed(RED) },
+        { key: "b", part: "body", when: equals(1), fill: fixed(BLUE) },
+      ];
+      const next = Spec.setVariesByValue(
+        createSpec({ looks }),
+        "body",
+        "fill",
+        [0, 1],
+        false,
+      );
+      expect(next.looks).toEqual([looks[0]]);
+    });
+
+    it("should keep a spec with no field on every value", () => {
+      const spec = createSpec();
+      expect(Spec.setVariesByValue(spec, "body", "fill", [0, 1], true)).toBe(spec);
+    });
+  });
+
+  describe("nextPartName", () => {
+    it("should take the lowest number that no part has", () => {
+      const parts = [
+        { key: "a", name: "Part 2", selectors: [] },
+        { key: "b", name: "Part 3", selectors: [] },
+      ];
+      expect(Spec.nextPartName(parts)).toBe("Part 1");
+      expect(
+        Spec.nextPartName([...parts, { key: "c", name: "Part 1", selectors: [] }]),
+      ).toBe("Part 4");
     });
   });
 
@@ -245,6 +550,42 @@ describe("symbol editor spec", () => {
   });
 
   describe("setVariant", () => {
+    it("should copy a Base look of the whole drawing to Active", () => {
+      const spec = createSpec({
+        looks: [{ key: "a", when: equals(0), fill: fixed(RED) }],
+      });
+      const next = Spec.setVariant(spec, "actuator");
+      expect(next.looks).toEqual([
+        spec.looks[0],
+        { key: expect.any(String), when: equals(1), fill: fixed(RED) },
+      ]);
+    });
+
+    it("should copy a Base look of the whole drawing before the looks of parts", () => {
+      const spec = createSpec({
+        looks: [
+          { key: "a", when: equals(0), fill: fixed(RED) },
+          { key: "b", part: "body", when: equals(0, 1), fill: fixed(BLUE) },
+        ],
+      });
+      const next = Spec.setVariant(spec, "actuator");
+      expect(next.looks.map((l) => l.key)).toEqual(["a", expect.any(String), "b"]);
+      expect(Spec.effective(next, "body", "fill", 1)).toEqual(fixed(BLUE));
+    });
+
+    it("should drop an Active look of the whole drawing from a static symbol", () => {
+      const spec = createSpec({
+        variant: "actuator",
+        looks: [
+          { key: "a", when: equals(0), fill: fixed(RED) },
+          { key: "b", when: equals(1), fill: fixed(BLUE) },
+        ],
+      });
+      expect(Spec.setVariant(spec, "static").looks).toEqual([
+        { key: "a", fill: fixed(RED) },
+      ]);
+    });
+
     it("should give an actuator the commands, the match, and the Base looks on Active", () => {
       const spec = createSpec({
         looks: [{ key: "a", part: "body", when: equals(0), stroke: fixed(RED) }],
@@ -280,7 +621,10 @@ describe("symbol editor spec", () => {
         "actuator",
       );
       const next = Spec.setVariant(actuator, "static");
-      expect(next.looks.map((l) => l.key)).toEqual(["a", "b"]);
+      expect(next.looks).toEqual([
+        { key: "a", part: "body", stroke: fixed(RED) },
+        { key: "b", part: "body", fill: fixed(BLUE) },
+      ]);
       expect(next.commands).toEqual([]);
       expect(next.interactions).toEqual([]);
       expect(next.states[0]).toMatchObject({ match: { type: "exact" } });

@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/ni/versions/v3"
 	v4 "github.com/synnaxlabs/synnax/pkg/service/ni/versions/v4"
+	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 	"go.uber.org/zap"
@@ -119,6 +120,83 @@ var _ = Describe("MigrateCounterReadConfig", func() {
 		Expect(ch.Port).To(BeEquivalentTo(1))
 		Expect(ch.Divisor).To(Equal(uint32(8)))
 	})
+})
+
+var _ = Describe("MigrateCIChannel", func() {
+	measTimeOf := func(ctx SpecContext, old v3.CIChannel) telem.TimeSpan {
+		GinkgoHelper()
+		switch ch := MustSucceed(v4.MigrateCIChannel(ctx, old)).Variant.(type) {
+		case v4.CIFrequencyChannel:
+			return ch.MeasTime
+		case v4.CIPeriodChannel:
+			return ch.MeasTime
+		}
+		Fail("channel has no measurement time")
+		return 0
+	}
+
+	DescribeTable("Should store a frequency measurement time in seconds as a span",
+		func(ctx SpecContext, seconds float64, expected telem.TimeSpan) {
+			Expect(measTimeOf(ctx, v3.CIChannel{Variant: v3.CIFrequencyChannel{
+				MeasTime: seconds,
+			}})).To(Equal(expected))
+		},
+		Entry("the default", 0.000006, 6*telem.Microsecond),
+		Entry("a millisecond", 0.001, telem.Millisecond),
+		Entry("a fraction", 1.5, 1500*telem.Millisecond),
+		Entry("below a nanosecond", 1e-10, telem.Nanosecond),
+		Entry("zero", 0.0, 6*telem.Microsecond),
+		Entry("negative", -1.0, 6*telem.Microsecond),
+		Entry("NaN", math.NaN(), 6*telem.Microsecond),
+		Entry("infinite", math.Inf(1), telem.TimeSpan(1<<53-1)),
+	)
+
+	DescribeTable("Should store a period measurement time in seconds as a span",
+		func(ctx SpecContext, seconds float64, expected telem.TimeSpan) {
+			Expect(measTimeOf(ctx, v3.CIChannel{Variant: v3.CIPeriodChannel{
+				MeasTime: seconds,
+			}})).To(Equal(expected))
+		},
+		Entry("the default", 0.001, telem.Millisecond),
+		Entry("a microsecond", 0.000001, telem.Microsecond),
+		Entry("zero", 0.0, telem.Millisecond),
+		Entry("NaN", math.NaN(), telem.Millisecond),
+	)
+})
+
+var _ = Describe("CounterReadMigration", func() {
+	It("Should store each measurement time that v0.62 stored as a span",
+		func(ctx SpecContext) {
+			got, fields := runStored[v3.CounterReadConfig, v4.CounterReadConfig](
+				ctx,
+				"ni_counter_read_config",
+				v4.CounterReadMigration,
+				v3.CounterReadConfig{
+					Key: uuid.New(),
+					Channels: []v3.CIChannel{
+						{Variant: v3.CIFrequencyChannel{
+							BaseCIChannel: v3.BaseCIChannel{Key: "freq"},
+							CustomScale:   noScale,
+							MeasTime:      0.002,
+						}},
+						{Variant: v3.CIPeriodChannel{
+							BaseCIChannel: v3.BaseCIChannel{Key: "period"},
+							CustomScale:   noScale,
+							MeasTime:      0.0005,
+						}},
+					},
+				},
+			)
+			Expect(fields).To(BeEmpty())
+			Expect(got.Channels).To(HaveLen(2))
+			freq, ok := got.Channels[0].Variant.(v4.CIFrequencyChannel)
+			Expect(ok).To(BeTrue())
+			Expect(freq.MeasTime).To(Equal(2 * telem.Millisecond))
+			period, ok := got.Channels[1].Variant.(v4.CIPeriodChannel)
+			Expect(ok).To(BeTrue())
+			Expect(period.MeasTime).To(Equal(500 * telem.Microsecond))
+		},
+	)
 })
 
 var _ = Describe("MigrateDIChannel", func() {

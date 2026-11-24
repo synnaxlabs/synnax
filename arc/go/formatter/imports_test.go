@@ -113,3 +113,108 @@ var _ = Describe("RemoveImport", func() {
 		),
 	)
 })
+
+// applied returns source with edit made.
+func applied(source string, edit protocol.TextEdit) string {
+	return xlsp.ApplyIncrementalChange(
+		source,
+		&protocol.TextDocumentContentChangePartial{
+			Range: edit.Range,
+			Text:  edit.NewText,
+		},
+	)
+}
+
+var _ = Describe("RemoveToken", func() {
+	DescribeTable("Should remove the token and the white space after it",
+		func(source, expected string) {
+			token := MustSucceed(parser.Parse(source)).
+				TopLevelItem(0).
+				StageDeclaration().
+				IDENTIFIER().
+				GetSymbol()
+			Expect(applied(source, formatter.RemoveToken(token))).To(Equal(expected))
+		},
+		Entry("with a space after it", "stage s {}", "stage {}"),
+		Entry("with no space after it", "stage s{}", "stage {}"),
+		Entry("with a newline after it", "stage s\n  {}", "stage {}"),
+		Entry("with a comment after it", "stage s // c\n{}", "stage // c\n{}"),
+	)
+})
+
+var _ = Describe("ReplaceToken", func() {
+	It("Should change the token to the text", func() {
+		source := "stage s {}\nx := 1"
+		token := MustSucceed(parser.Parse(source)).
+			TopLevelItem(1).
+			VariableDeclaration().
+			LocalVariable().
+			DECLARE().
+			GetSymbol()
+		Expect(
+			applied(source, formatter.ReplaceToken(token, "$=")),
+		).To(Equal("stage s {}\nx $= 1"))
+	})
+})
+
+var _ = Describe("RemoveStatement", func() {
+	DescribeTable("Should remove the statement",
+		func(source, expected string) {
+			stmt := MustSucceed(parser.Parse(source)).TopLevelItem(0).AuthorityBlock()
+			Expect(applied(source, formatter.RemoveStatement(stmt))).To(Equal(expected))
+		},
+		Entry("with the newline after it", "authority 1\nx := 1\n", "x := 1\n"),
+		Entry("at the end of the source", "authority 1", ""),
+		Entry(
+			"on more than one line",
+			"authority (\n    1\n)\nx := 1\n",
+			"x := 1\n",
+		),
+	)
+
+	DescribeTable(
+		"Should remove a statement in a block",
+		func(source, expected string) {
+			stmt := MustSucceed(parser.Parse(source)).
+				TopLevelItem(0).
+				FunctionDeclaration().
+				Block().
+				Statement(0)
+			Expect(applied(source, formatter.RemoveStatement(stmt))).To(Equal(expected))
+		},
+		Entry(
+			"with its indent when it is alone on its line",
+			"func f() {\n    break\n    x := 1\n}",
+			"func f() {\n    x := 1\n}",
+		),
+		Entry(
+			"with its line when the line ends in CRLF",
+			"func f() {\r\n    break\r\n    x := 1\r\n}",
+			"func f() {\r\n    x := 1\r\n}",
+		),
+		Entry(
+			"with no other code of its line",
+			"func f() { break\n    x := 1\n}",
+			"func f() {     x := 1\n}",
+		),
+		Entry(
+			"with nothing more when code follows it",
+			"func f() { break }",
+			"func f() {  }",
+		),
+	)
+})
+
+var _ = Describe("Replace", func() {
+	It("Should change the code at the node to the text", func() {
+		source := "x := 1 + 2\ny := 3"
+		expr := MustSucceed(parser.Parse(source)).
+			TopLevelItem(0).
+			VariableDeclaration().
+			LocalVariable().
+			Expression()
+		Expect(
+			applied(source, formatter.Replace(expr, "f(1 + 2)")),
+		).To(Equal("x := f(1 + 2)\ny := 3"))
+	})
+})

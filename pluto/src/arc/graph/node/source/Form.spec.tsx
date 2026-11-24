@@ -15,11 +15,12 @@ import type { FC, PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it } from "vitest";
 import type { z } from "zod";
 
-import { configZ } from "@/arc/graph/node/source/config";
-import { Form } from "@/arc/graph/node/source/Form";
+import { Source } from "@/arc/graph/node/source";
 import { createAsyncSynnaxWrapper, renderForm } from "@/testutil";
 
-const path = deep.path<z.infer<typeof configZ>>();
+const path = deep.path<z.infer<typeof Source.configZ>>();
+
+const Form = Source.REGISTRY.on.Form;
 
 const client = createTestClient();
 
@@ -39,7 +40,7 @@ describe("source.Form", () => {
     const { findByLabelText, value } = renderForm(
       <Form />,
       { type: "on", channel: ch.key },
-      configZ,
+      Source.configZ,
       wrapper,
     );
     fireEvent.click(await findByLabelText(`Clear ${ch.name}`));
