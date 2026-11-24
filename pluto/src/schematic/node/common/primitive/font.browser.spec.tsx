@@ -13,6 +13,7 @@ import { describe, expect, it } from "vitest";
 
 import { Primitive } from "@/schematic/node/common/primitive";
 import { Input } from "@/schematic/node/general/input";
+import { Primitive as Select } from "@/schematic/node/general/select/primitive";
 import { Setpoint } from "@/schematic/node/general/setpoint";
 
 describe("symbol field fonts", () => {
@@ -32,6 +33,17 @@ describe("symbol field fonts", () => {
       />,
     );
     expect(treatment(getByRole("textbox").element())).toBe("numeric");
+  });
+
+  it("should draw a select label with tabular digits", async () => {
+    const { getByText } = await renderThemed(
+      <Select.Select
+        value="a"
+        options={[{ key: "a", name: "Stage 2", value: 2 }]}
+        onSend={() => {}}
+      />,
+    );
+    expect(treatment(getByText("Stage 2").element())).toBe("numeric");
   });
 
   it("should draw a readout value with tabular digits", async () => {

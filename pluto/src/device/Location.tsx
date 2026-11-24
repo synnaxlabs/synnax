@@ -132,8 +132,8 @@ const showsAll = (location: HTMLElement): boolean =>
 /**
  * Shows the telling part of a device's location on one line, brightest where it differs
  * most. A tooltip shows the whole value while any part is hidden. Set `min-width` to
- * `calc(var(--pluto-location-keep) * 1ch)` to keep that part in view while the rest
- * gives up its width.
+ * `calc(var(--pluto-location-keep) * 1ch)` to keep most of that part in view while the
+ * rest gives up its width. The text is proportional, so wide letters can still fade.
  */
 export const Location = ({
   value,
