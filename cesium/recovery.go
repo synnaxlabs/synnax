@@ -31,6 +31,9 @@ import (
 // then every log entry after it, in log order.
 type recovery struct {
 	fs xfs.FS
+	// readOnly keeps pickHead from removing the incomplete heads, for a repair that
+	// writes nothing before its confirm.
+	readOnly bool
 	// heads and logs are the generations of the head and log files in the listing taken
 	// at open.
 	heads, logs []uint64
@@ -125,12 +128,17 @@ func (r *recovery) loadHead(
 }
 
 // pickHead takes the newest head that passes, and removes each newer head that is not
-// complete. It returns nil when the root holds no head that passes and may start as a
-// new database: no head at all, or only an incomplete head 1 whose log holds no frame.
+// complete, unless r is read only. It returns nil when the root holds no head that
+// passes and may start as a new database: no head at all, or only an incomplete head 1
+// whose log holds no frame.
 func (r *recovery) pickHead() (*state.Snapshot, error) {
 	var incomplete []uint64
 	for _, g := range slices.Backward(r.heads) {
 		h, s, err := checkpoint.Read(r.fs, g)
+		if err == nil && r.readOnly {
+			r.db, r.head = h.DB, h
+			return s, nil
+		}
 		if err == nil {
 			for _, gen := range incomplete {
 				if err := r.fs.Remove(checkpoint.Name(gen)); err != nil {

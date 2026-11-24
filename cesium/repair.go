@@ -1,0 +1,329 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+package cesium
+
+import (
+	"bytes"
+	"context"
+
+	"github.com/synnaxlabs/cesium/internal/checkpoint"
+	"github.com/synnaxlabs/cesium/internal/log"
+	"github.com/synnaxlabs/cesium/internal/place"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/telem"
+)
+
+// Report is what a repair of the pointer log layout found in a root, and what it did.
+type Report struct {
+	// Damage holds each bad frame, in log order. A root with none opens.
+	Damage []Damage
+	// Lost holds the records of the bad frames, as far as they decode, in rising order
+	// of sequence. A repair never applies them.
+	Lost []Record
+	// Repaired is true when the repair committed.
+	Repaired bool
+}
+
+// Damage is a bad frame of a log, which valid frames follow.
+type Damage struct {
+	// Generation is the generation of the log, and Offset the offset of the frame.
+	Generation, Offset uint64
+	// FirstSequence and LastSequence are the sequences of the entries that the frame
+	// held: those between its neighbors.
+	FirstSequence, LastSequence uint64
+}
+
+// Record is a record of a log that a repair lists.
+type Record struct {
+	// Sequence is the sequence of the entry of the record.
+	Sequence uint64
+	// Kind names the record, such as Tombstone or Commit, or is empty when none
+	// decodes.
+	Kind string
+	// Key is the key that the record names, or 0.
+	Key ChannelKey
+	// TimeRange is the time range that the record names, or the zero range.
+	TimeRange telem.TimeRange
+	// Reason says why the repair lists the record.
+	Reason string
+}
+
+// damagedReason is the reason of each record of a bad frame.
+const damagedReason = "from a damaged frame, so it may be wrong"
+
+// Repair finds the damage of the log of the root dirname on the pointer log layout,
+// and reports it. opts are those of Open: a root with a database needs WithIdentity.
+// Repair refuses a root of the old layout, which Open converts, with an error that
+// wraps errors.ErrUnsupported, and another identity than the root's with no undo. It
+// writes nothing.
+func Repair(
+	ctx context.Context,
+	dirname string,
+	confirm func(Report) bool,
+	opts ...Option,
+) (Report, error) {
+	o, err := newOptions(dirname, opts...)
+	if err != nil {
+		return Report{}, err
+	}
+	if err = openFS(o); err != nil {
+		return Report{}, err
+	}
+	r := &recovery{fs: o.fs, readOnly: true}
+	old, err := r.list()
+	if err != nil {
+		return Report{}, err
+	}
+	if old && len(r.heads) == 0 {
+		return Report{}, errors.Wrap(
+			errors.ErrUnsupported,
+			"the root holds the old layout, which an open converts",
+		)
+	}
+	snapshot, err := r.pickHead()
+	if err != nil || snapshot == nil {
+		return Report{}, err
+	}
+	if err = refuseIdentity(o, r); err != nil {
+		return Report{}, err
+	}
+	if r.parts, err = checkpoint.LoadParts(o.fs, r.db, r.head); err != nil {
+		return Report{}, err
+	}
+	var rep Report
+	if rep.Damage, rep.Lost, err = r.damage(ctx); err != nil {
+		return Report{}, err
+	}
+	return rep, nil
+}
+
+// refuseIdentity refuses the database of r when the caller of o holds another identity
+// or none. Unlike Open, it undoes nothing.
+func refuseIdentity(o *options, r *recovery) error {
+	switch {
+	case !o.identified:
+		return errors.Newf(
+			"the root holds database %016x, and the caller gave no identity: pass the "+
+				"identity from DB.Identity, or 0 when none is held",
+			r.db,
+		)
+	case r.db != o.identity:
+		return errors.Newf("the root holds database %016x, not %016x, which the "+
+			"caller holds", r.db, o.identity)
+	}
+	return nil
+}
+
+// damage reads the logs after the head as replay does, and returns each bad frame that
+// a valid frame follows in its log, and the records of the bad frames. At a bad frame,
+// it goes on from the valid frame after it.
+func (r *recovery) damage(ctx context.Context) ([]Damage, []Record, error) {
+	b, h, prev, err := r.headLog()
+	if err != nil {
+		return nil, nil, err
+	}
+	var (
+		dmg      []Damage
+		lost     []Record
+		sequence = h.Sequence
+		end      = int64(log.FramesStart)
+	)
+	skip := func(uint64, []log.Record) error { return ctx.Err() }
+	for {
+		if end, sequence, prev, err = r.frames(
+			b,
+			end,
+			sequence,
+			prev,
+			skip,
+		); err != nil {
+			return nil, nil, err
+		}
+		at, f, found, err := r.validAfter(b, end)
+		if err != nil {
+			return nil, nil, err
+		}
+		if found {
+			d, records, err := r.damageOf(end, sequence, at, f)
+			if err != nil {
+				return nil, nil, err
+			}
+			dmg, lost = append(dmg, d), append(lost, records...)
+			sequence, prev, end = f.Sequence, f.PrevCRC, at
+			continue
+		}
+		next, crc, ok, err := r.follow(end, sequence, prev)
+		if err != nil || !ok {
+			return dmg, lost, err
+		}
+		r.buf, r.following = r.following, r.buf
+		b, prev, end = next, crc, log.FramesStart
+	}
+}
+
+// headLog reads the log of the head, and returns its bytes, its header, and the crc
+// that
+// its first frame links to.
+func (r *recovery) headLog() ([]byte, log.Header, uint32, error) {
+	r.gen = r.head.Generation
+	b, ok, err := r.read(r.gen)
+	if err != nil {
+		return nil, log.Header{}, 0, err
+	}
+	if !ok {
+		return nil, log.Header{}, 0, errors.Wrapf(place.ErrCorrupt, "log %d of the "+
+			"head is missing", r.gen)
+	}
+	h, prev, ok, err := r.verifiedHeader(b, r.db, r.gen)
+	if err != nil {
+		return nil, log.Header{}, 0, err
+	}
+	if !ok {
+		return nil, log.Header{}, 0, errors.Wrapf(place.ErrCorrupt, "no header of log "+
+			"%d passes", r.gen)
+	}
+	return b, h, prev, r.checkHeadLog(h, b)
+}
+
+// damageOf returns the damage of the bad frame at end of the newest log of r, which
+// entry sequence starts and the valid frame f at at follows, and its records.
+func (r *recovery) damageOf(
+	end int64,
+	sequence uint64,
+	at int64,
+	f log.Frame,
+) (Damage, []Record, error) {
+	if f.Sequence < sequence {
+		return Damage{}, nil, errors.Wrapf(place.ErrCorrupt, "log %d holds a frame of "+
+			"entry %d at %d after entry %d", r.gen, f.Sequence, at, sequence)
+	}
+	d := Damage{
+		Generation:    r.gen,
+		Offset:        uint64(end),
+		FirstSequence: sequence,
+		LastSequence:  f.Sequence - 1,
+	}
+	records, err := r.lostOf(d, end, at)
+	return d, records, err
+}
+
+// validAfter returns the first frame after off of the log in b that passes at its own
+// offset, and its offset. It reads the bytes twice.
+func (r *recovery) validAfter(b []byte, off int64) (int64, log.Frame, bool, error) {
+	if off >= int64(len(b)) {
+		return 0, log.Frame{}, false, nil
+	}
+	found := func(tail []byte) (int64, log.Frame, bool) {
+		for at := (off + 7) &^ 7; at+log.FrameHeaderSize <= off+int64(len(tail)); at += 8 {
+			c := tail[at-off:]
+			if !bytes.Equal(c[:4], frameMagic) {
+				continue
+			}
+			if f, err := log.DecodeFrame(c, r.db, r.gen, uint64(at)); err == nil {
+				return at, f, true
+			}
+		}
+		return 0, log.Frame{}, false
+	}
+	if at, f, ok := found(b[off:]); ok {
+		return at, f, true, nil
+	}
+	second := make([]byte, len(b)-int(off))
+	if err := r.reread(r.gen, second, off); err != nil {
+		return 0, log.Frame{}, false, err
+	}
+	at, f, ok := found(second)
+	return at, f, ok, nil
+}
+
+// lostOf returns the records of d, a bad frame from off to at of the newest log of r,
+// as far as a second read of its bytes decodes. It lists each entry that does not
+// decode by its sequence alone.
+func (r *recovery) lostOf(d Damage, off, at int64) ([]Record, error) {
+	b := make([]byte, at-off)
+	if err := r.reread(r.gen, b, off); err != nil {
+		return nil, err
+	}
+	var out []Record
+	sequence := d.FirstSequence
+	if _, count, entries, ok := log.DecodeDamaged(b); ok {
+		for range count {
+			records, n, ok := decodeEntry(&r.dec, entries)
+			if !ok || sequence > d.LastSequence {
+				break
+			}
+			for _, rec := range records {
+				out = append(out, recordOf(sequence, rec))
+			}
+			entries, sequence = entries[n:], sequence+1
+		}
+	}
+	for ; sequence <= d.LastSequence; sequence++ {
+		out = append(out, Record{Sequence: sequence, Reason: damagedReason})
+	}
+	return out, nil
+}
+
+// decodeEntry decodes the entry at the start of b with dec, and returns its records and
+// its length, or false when it does not decode.
+func decodeEntry(dec *log.Decoder, b []byte) ([]log.Record, int, bool) {
+	n, err := dec.Reset(b)
+	if err != nil {
+		return nil, 0, false
+	}
+	var records []log.Record
+	for {
+		rec, ok, err := dec.Next()
+		if err != nil {
+			return nil, 0, false
+		}
+		if !ok {
+			return records, n, true
+		}
+		records = append(records, log.Clone(rec))
+	}
+}
+
+// recordOf returns the line of the report for rec, a record of the entry of sequence of
+// a bad frame.
+func recordOf(sequence uint64, rec log.Record) Record {
+	out := Record{Sequence: sequence, Reason: damagedReason}
+	switch rec := rec.(type) {
+	case *log.Reserve:
+		out.Kind = "Reserve"
+	case *log.Create:
+		out.Kind, out.Key = "Create", rec.Key
+	case *log.Commit:
+		out.Kind = "Commit"
+		out.TimeRange = telem.TimeRange{
+			Start: telem.TimeStamp(rec.First),
+			End:   telem.TimeStamp(rec.Last) + 1,
+		}
+	case *log.Seal:
+		out.Kind = "Seal"
+	case *log.Tombstone:
+		out.Kind, out.Key = "Tombstone", rec.Key
+		out.TimeRange = telem.TimeRange{
+			Start: telem.TimeStamp(rec.Start),
+			End:   telem.TimeStamp(rec.End),
+		}
+	case *log.Replace:
+		out.Kind = "Replace"
+	case *log.Drop:
+		out.Kind, out.Key = "Drop", rec.Key
+	case *log.Restart:
+		out.Kind = "Restart"
+	case *log.Check:
+		out.Kind, out.Key = "Check", rec.Key
+	case *log.Intent:
+		out.Kind, out.Key = "Intent", rec.Key
+	}
+	return out
+}

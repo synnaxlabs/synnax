@@ -227,6 +227,28 @@ func DecodeFrame(b []byte, db, generation, offset uint64) (Frame, error) {
 	return f, nil
 }
 
+// DecodeDamaged decodes what it can of a frame at the start of b whose check fails: its
+// sequence, the count of its entries, and its entry bytes, as far as both its header
+// and b bound them. It reports false when b holds no frame header with the magic. The
+// values are not checked, so they may be wrong.
+func DecodeDamaged(b []byte) (sequence uint64, count uint32, entries []byte, ok bool) {
+	if len(b) < FrameHeaderSize || binary.LittleEndian.Uint32(b) != frameMagic {
+		return 0, 0, nil, false
+	}
+	size := min(
+		uint64(binary.LittleEndian.Uint32(b[8:])),
+		MaxFrame-FrameHeaderSize,
+		uint64(len(b)-FrameHeaderSize),
+	)
+	count = binary.LittleEndian.Uint32(b[12:])
+	if most := size / headerSize; uint64(count) > most {
+		count = uint32(most)
+	}
+	return binary.LittleEndian.Uint64(
+		b[16:],
+	), count, b[FrameHeaderSize : FrameHeaderSize+size], true
+}
+
 func allZero(b []byte) bool {
 	for _, c := range b {
 		if c != 0 {

@@ -222,3 +222,48 @@ var _ = Describe("Header", func() {
 			To(MatchError(ContainSubstring("needs 64 bytes, but 63 remain")))
 	})
 })
+
+var _ = Describe("Damaged frame", func() {
+	// damaged returns a frame of the entry of a Drop of key 4 and an Intent of key 8,
+	// at sequence 9, with a byte of its entries flipped after its check.
+	damaged := func() []byte {
+		f := log.Frame{
+			Count:    2,
+			Sequence: 9,
+			Entries: append(
+				entryOf(&log.Drop{Key: 4}),
+				entryOf(&log.Intent{Key: 8})...,
+			),
+		}
+		b := f.Append(nil, db, generation, 8_192)
+		b[len(b)-1] ^= 1
+		Expect(log.DecodeFrame(b, db, generation, 8_192)).Error().
+			To(MatchError(ContainSubstring("fails its check")))
+		return b
+	}
+
+	It("Should decode the sequence, the count, and the entries of a frame whose check "+
+		"fails", func() {
+		b := damaged()
+		sequence, count, entries, ok := log.DecodeDamaged(b)
+		Expect(ok).To(BeTrue())
+		Expect(sequence).To(Equal(uint64(9)))
+		Expect(count).To(Equal(uint32(2)))
+		Expect(entries).To(Equal(b[log.FrameHeaderSize:]))
+	})
+
+	It("Should bound the entries and the count by the bytes that remain", func() {
+		b := damaged()[:log.FrameHeaderSize+12]
+		_, count, entries, ok := log.DecodeDamaged(b)
+		Expect(ok).To(BeTrue())
+		Expect(entries).To(HaveLen(12))
+		Expect(count).To(Equal(uint32(1)))
+	})
+
+	It("Should report no frame where the magic is missing", func() {
+		b := damaged()
+		b[0] ^= 1
+		_, _, _, ok := log.DecodeDamaged(b)
+		Expect(ok).To(BeFalse())
+	})
+})
