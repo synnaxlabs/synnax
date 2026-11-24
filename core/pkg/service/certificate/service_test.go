@@ -438,6 +438,23 @@ var _ = Describe("Service", func() {
 			}).Should(Succeed())
 			Expect(found[0].Base().Name).To(Equal("Broker CA"))
 		})
+		matching := func(
+			ctx SpecContext,
+			e *env,
+			w certificate.Where,
+		) []certificate.Key {
+			GinkgoHelper()
+			var found []certificate.Certificate
+			Expect(e.svc.NewRetrieve().
+				Where(MustSucceed(certificate.MatchWhere(w))).
+				Entries(&found).
+				Exec(ctx, e.db)).To(Succeed())
+			keys := make([]certificate.Key, len(found))
+			for i, c := range found {
+				keys[i] = c.Base().Key
+			}
+			return keys
+		}
 		It("Should match certificates by source and by the rack of a file", func(
 			ctx SpecContext,
 		) {
@@ -449,28 +466,41 @@ var _ = Describe("Service", func() {
 			)
 			core := e.create(ctx, file("Core", coreRack), nil)
 			other := e.create(ctx, file("Other", otherRack), nil)
-			keys := func(w certificate.Where) []certificate.Key {
-				GinkgoHelper()
-				var found []certificate.Certificate
-				Expect(e.svc.NewRetrieve().
-					Where(MustSucceed(certificate.MatchWhere(w))).
-					Entries(&found).
-					Exec(ctx, e.db)).To(Succeed())
-				keys := make([]certificate.Key, len(found))
-				for i, c := range found {
-					keys[i] = c.Base().Key
-				}
-				return keys
-			}
 			src := secret.SourceStored
-			Expect(
-				keys(certificate.Where{Source: &filter.Set[secret.Source]{Eq: &src}}),
-			).
-				To(Equal([]certificate.Key{s.Base().Key}))
-			Expect(keys(certificate.Where{Racks: []rack.Key{otherRack}})).
+			Expect(matching(ctx, e, certificate.Where{
+				Source: &filter.Set[secret.Source]{Eq: &src},
+			})).To(Equal([]certificate.Key{s.Base().Key}))
+			Expect(matching(ctx, e, certificate.Where{Racks: []rack.Key{otherRack}})).
 				To(Equal([]certificate.Key{other.Base().Key}))
-			Expect(keys(certificate.Where{Racks: []rack.Key{coreRack, otherRack}})).
-				To(ConsistOf(core.Base().Key, other.Base().Key))
+			Expect(matching(ctx, e, certificate.Where{
+				Racks: []rack.Key{coreRack, otherRack},
+			})).To(ConsistOf(core.Base().Key, other.Base().Key))
+		})
+		It("Should match certificates by whether they have a private key", func(
+			ctx SpecContext,
+		) {
+			e := newEnv(ctx, telem.Hour)
+			key := newKey()
+			keyedStored := e.create(
+				ctx,
+				stored("Keyed", newCertificate(key, "a", time.Hour)),
+				encodeKey(key),
+			)
+			bareStored := e.create(
+				ctx,
+				stored("Bare", newCertificate(newKey(), "b", time.Hour)),
+				nil,
+			)
+			keyedFile := file("Keyed file", coreRack)
+			variant := fileOf(keyedFile)
+			variant.PrivateKeyFile = new("client.pem")
+			keyedFile.Variant = variant
+			keyedFile = e.create(ctx, keyedFile, nil)
+			bareFile := e.create(ctx, file("Bare file", coreRack), nil)
+			Expect(matching(ctx, e, certificate.Where{Keyed: new(true)})).
+				To(ConsistOf(keyedStored.Base().Key, keyedFile.Base().Key))
+			Expect(matching(ctx, e, certificate.Where{Keyed: new(false)})).
+				To(ConsistOf(bareStored.Base().Key, bareFile.Base().Key))
 		})
 	})
 
