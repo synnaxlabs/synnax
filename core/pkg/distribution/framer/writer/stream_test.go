@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -78,6 +79,51 @@ var _ = Describe("Streamed series", func() {
 			Expect(res.Frame.Get(idx.Key()).Series[0].TimeRange).To(Equal(expected))
 			Expect(res.Frame.Get(data.Key()).Series[0].TimeRange).To(Equal(expected))
 			Expect(w.Close()).To(Succeed())
+		},
+	)
+	It(
+		"Should stream an index and its data with one alignment from a writer that "+
+			"takes the clock from a writer of the data channel",
+		func(ctx SpecContext) {
+			idx := MustSucceed(host.CreateChannels(ctx, []channel.Channel{
+				{Name: "borges", IsIndex: true, DataType: telem.TimestampT},
+			}))[0]
+			data := MustSucceed(host.CreateChannels(ctx, []channel.Channel{
+				{
+					Name:       "cortazar",
+					DataType:   telem.Float32T,
+					LocalIndex: idx.LocalKey,
+				},
+			}))[0]
+			keys := channel.Keys{idx.Key(), data.Key()}
+			out := stream(ctx, keys)
+			open := func(
+				subject string,
+				keys channel.Keys,
+				authority control.Authority,
+			) *writer.Writer {
+				GinkgoHelper()
+				return MustSucceed(host.Framer.OpenWriter(ctx, writer.Config{
+					ControlSubject:   control.Subject{Key: subject},
+					Keys:             keys,
+					Start:            10 * telem.SecondTS,
+					Authorities:      []control.Authority{authority},
+					EnableAutoCommit: new(false),
+					Sync:             new(true),
+				}))
+			}
+			values := open("values", channel.Keys{data.Key()}, 100)
+			both := open("both", keys, 200)
+			Expect(both.Write(frame.NewMulti(keys, []telem.Series{
+				telem.NewSeriesSecondsTSV(10, 11, 12),
+				telem.NewSeriesV[float32](1, 2, 3),
+			}))).To(BeTrue())
+			var res framer.StreamerResponse
+			Eventually(out.Outlet()).Should(Receive(&res))
+			Expect(res.Frame.Get(data.Key()).Series[0].Alignment).
+				To(Equal(res.Frame.Get(idx.Key()).Series[0].Alignment))
+			Expect(both.Close()).To(Succeed())
+			Expect(values.Close()).To(Succeed())
 		},
 	)
 	It(
