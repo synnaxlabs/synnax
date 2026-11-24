@@ -26,9 +26,9 @@ uv run --project scripts scripts/compare_benchmarks.py --base main --head HEAD
   rise of any size at p < 0.05 (Go and C++), or when head does not have it.
 - `GROUPS` in the script lists the gate. A new gate benchmark needs a row there.
   `--only <regex>` limits a run to the groups a change touches.
-- The `cpu` suite runs on any quiet host. The `io` suite (`--suite io --io-dir <dir>`)
-  measures the disk that holds `<dir>`, so run it only on a host with a local NVMe
-  drive.
+- The `cpu` suite runs on any quiet Linux or macOS host. The `io` suite
+  (`--suite io --io-dir <dir>`) measures the disk that holds `<dir>`, so run it only on
+  a host with a local NVMe drive.
 - On a new host, first run with `main` as both refs. A failure there means the host is
   too noisy for the gate.
 - Never run two benchmark processes at once. Never compare numbers from two hosts or

@@ -127,6 +127,7 @@ func Open(ctx context.Context, configs ...Config) (*DB, error) {
 		claims:           &claim.Set[*sharedWriter]{},
 		wrapError:        wrapError,
 		closed:           &atomic.Bool{},
+		opening:          &atomic.Int32{},
 		leadingAlignment: telem.NewAlignmentCounter(telem.LeadingDomain),
 		resolver:         newOffsetResolver(cfg.Channel.DataType, cfg.Instrumentation),
 	}
