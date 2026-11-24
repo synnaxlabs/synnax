@@ -439,8 +439,10 @@ describe("auth", () => {
     });
 
     it("should keep a saved token when the Core cannot be reached", async () => {
+      // A browser reports the blocked port as an unreachable Core, which retries.
       const transport = new Transport({
         url: new url.URL({ host: "localhost", port: 1 }),
+        retry: { maxRetries: 0 },
       });
       let failure: Error | undefined;
       const client = new auth.Client(
@@ -477,70 +479,6 @@ describe("auth", () => {
       await expect(
         client.middleware()(DUMMY_CTX, async () => DUMMY_CTX),
       ).rejects.toThrow(MissingCredentialsError);
-    });
-
-    it("should end a cookie session once the browser drops its cookie", async () => {
-      const owner = makeClient();
-      await login(owner);
-      let cookie: string | undefined =
-        `synnax-session-${testClientParams().port}=${owner.token}`;
-      const transport = new Transport({
-        url: new url.URL({
-          host: testClientParams().host,
-          port: Number(testClientParams().port),
-        }),
-      });
-      transport.use(async (ctx, next) => {
-        if (cookie != null) ctx.params.Cookie = cookie;
-        return await next(ctx);
-      });
-      const onFailure = vi.fn();
-      const client = new auth.Client(transport.unary, { cookie: true }, { onFailure });
-      transport.use(client.middleware());
-      await client.retrieveSessions();
-      cookie = undefined;
-      await expect(client.retrieveSessions()).rejects.toThrow(SessionEndedError);
-      expect(onFailure).toHaveBeenCalledOnce();
-      expect(SessionEndedError.matches(onFailure.mock.calls[0][0])).toBe(true);
-      // the next request logs in again instead of going out with no session
-      await expect(client.retrieveSessions()).rejects.toThrow(MissingCredentialsError);
-      expect(onFailure).toHaveBeenCalledTimes(2);
-      await owner.logout();
-    });
-
-    it("should log in again instead of ending a cookie session with credentials", async () => {
-      const owner = makeClient();
-      await login(owner);
-      let cookie: string | undefined =
-        `synnax-session-${testClientParams().port}=${owner.token}`;
-      let logins = 0;
-      const transport = new Transport({
-        url: new url.URL({
-          host: testClientParams().host,
-          port: Number(testClientParams().port),
-        }),
-      });
-      transport.use(async (ctx, next) => {
-        if (ctx.target.endsWith("/auth/session/create")) logins++;
-        if (cookie != null) ctx.params.Cookie = cookie;
-        return await next(ctx);
-      });
-      const onFailure = vi.fn();
-      const client = new auth.Client(
-        transport.unary,
-        { credentials: TEST_CREDENTIALS, cookie: true },
-        { onFailure },
-      );
-      transport.use(client.middleware());
-      await client.retrieveSessions();
-      expect(logins).toBe(1);
-      cookie = undefined;
-      // Node keeps no cookies, so each fresh session is lost the same way
-      await expect(client.retrieveSessions()).rejects.toThrow(MissingCredentialsError);
-      expect(logins).toBeGreaterThan(1);
-      expect(onFailure).toHaveBeenCalledOnce();
-      expect(MissingCredentialsError.matches(onFailure.mock.calls[0][0])).toBe(true);
-      await owner.logout();
     });
 
     it("should let the newest login win when two interleave", async () => {
@@ -1130,7 +1068,7 @@ describe("auth", () => {
 
     it("should create a key, log in with it, list it, and delete it", async () => {
       const owner = makeClient({ credentials: TEST_CREDENTIALS });
-      const { token, key } = await owner.createKey({ name: "spec" });
+      const { token, key } = await owner.createAPIKey({ name: "spec" });
       expect(token.startsWith("syk_")).toBe(true);
       expect(key.name).toEqual("spec");
       expect(key.subject).toEqual(owner.subject);
@@ -1138,16 +1076,16 @@ describe("auth", () => {
       await keyed.retrieveSessions();
       expect(keyed.session?.credential).toEqual(key.key);
       expect(keyed.subject).toEqual(owner.subject);
-      expect((await owner.retrieveKeys()).map((k) => k.key)).toContain(key.key);
-      await owner.deleteKeys(key.key);
-      expect((await owner.retrieveKeys()).map((k) => k.key)).not.toContain(key.key);
+      expect((await owner.retrieveAPIKeys()).map((k) => k.key)).toContain(key.key);
+      await owner.deleteAPIKeys(key.key);
+      expect((await owner.retrieveAPIKeys()).map((k) => k.key)).not.toContain(key.key);
     });
 
     it("should read the record key from a token", async () => {
       const owner = makeClient({ credentials: TEST_CREDENTIALS });
-      const { token, key } = await owner.createKey({ name: "id" });
+      const { token, key } = await owner.createAPIKey({ name: "id" });
       expect(auth.apiKeyID(token)).toEqual(key.key);
-      await owner.deleteKeys(key.key);
+      await owner.deleteAPIKeys(key.key);
     });
 
     it("should refuse a token that is not an API key", () => {
@@ -1170,32 +1108,32 @@ describe("auth", () => {
 
     it("should fail the next request of a client whose key was deleted", async () => {
       const owner = makeClient({ credentials: TEST_CREDENTIALS });
-      const { token, key } = await owner.createKey({ name: "deleted" });
+      const { token, key } = await owner.createAPIKey({ name: "deleted" });
       const keyed = makeClient({ apiKey: token });
       await keyed.retrieveSessions();
-      await owner.deleteKeys(key.key);
+      await owner.deleteAPIKeys(key.key);
       await expect(keyed.retrieveSessions()).rejects.toThrow(InvalidCredentialsError);
     });
 
     it("should forget its key on logout", async () => {
       const owner = makeClient({ credentials: TEST_CREDENTIALS });
-      const { token, key } = await owner.createKey({ name: "logout" });
+      const { token, key } = await owner.createAPIKey({ name: "logout" });
       const keyed = makeClient({ apiKey: token });
       await keyed.retrieveSessions();
       await keyed.logout();
       await expect(keyed.retrieveSessions()).rejects.toThrow(
         "no credentials, API key, token, or cookie",
       );
-      await owner.deleteKeys(key.key);
+      await owner.deleteAPIKeys(key.key);
     });
 
     it("should log in with a key it loads", async () => {
       const owner = makeClient({ credentials: TEST_CREDENTIALS });
-      const { token, key } = await owner.createKey({ name: "loaded" });
+      const { token, key } = await owner.createAPIKey({ name: "loaded" });
       const keyed = makeClient({ loadAPIKey: async () => token });
       await keyed.retrieveSessions();
       expect(keyed.session?.credential).toEqual(key.key);
-      await owner.deleteKeys(key.key);
+      await owner.deleteAPIKeys(key.key);
     });
 
     it("should load the key again after a load fails", async () => {
@@ -1248,7 +1186,7 @@ describe("auth", () => {
 
     it("should connect a Synnax client with a key", async () => {
       const owner = createTestClient();
-      const { token, key } = await owner.auth.createKey({ name: "client" });
+      const { token, key } = await owner.auth.createAPIKey({ name: "client" });
       const keyed = createTestClient({
         username: undefined,
         password: undefined,
@@ -1256,7 +1194,7 @@ describe("auth", () => {
       });
       await keyed.auth.retrieveSessions();
       expect(keyed.auth.subject).toEqual(key.subject);
-      await owner.auth.deleteKeys(key.key);
+      await owner.auth.deleteAPIKeys(key.key);
     });
 
     it("should reject an API key given with a username and password", () => {

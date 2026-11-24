@@ -63,9 +63,9 @@ export const { useResult: useResultList } = Flux.createRetrieve<
 
 const ALL: ListQuery = {};
 
-// Every caller shares the one list of all named colors and selects its own keys.
+// Every caller shares the one list of all named colors and selects its own slice.
 const { createResultSelector } = Flux.createRetrieve<
-  RetrieveMultipleQuery,
+  Partial<RetrieveMultipleQuery>,
   color.Named[]
 >({
   name: PLURAL_RESOURCE_NAME,
@@ -81,6 +81,15 @@ export const useResultAmong = createResultSelector(
     const wanted = new Set(keys);
     return all.filter((c) => wanted.has(c.key));
   },
+  array.equal,
+);
+
+/**
+ * The series colors in palette order, kept live. The caller re-renders only when one of
+ * them changes.
+ */
+export const useResultSeries = createResultSelector(
+  (all) => all.filter((c) => c.group === color.SERIES_PALETTE).sort(color.compare),
   array.equal,
 );
 

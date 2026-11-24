@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	xjson "github.com/synnaxlabs/x/json"
 	"github.com/synnaxlabs/x/payload"
+	xstrconv "github.com/synnaxlabs/x/strconv"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -638,7 +639,9 @@ func appendBoolean(dst []byte, v float64) ([]byte, error) {
 	case 1:
 		return strconv.AppendBool(dst, true), nil
 	}
-	return nil, errors.Wrapf(validate.ErrValidation, "%v is not 0 or 1", v)
+	return nil, errors.Wrapf(
+		validate.ErrValidation, "%s is not 0 or 1", xstrconv.FormatFloat(v, 64),
+	)
 }
 
 // appendInteger appends n, unscaled and rounded to the nearest integer, to dst.
@@ -663,6 +666,9 @@ func (f *encodeField) appendInteger(dst []byte, n xjson.ParsedNumber) ([]byte, e
 		return strconv.AppendUint(dst, uint64(r), 10), nil
 	}
 	return nil, errors.Wrapf(
-		validate.ErrValidation, "%v is out of range for %s values", v, f.kind,
+		validate.ErrValidation,
+		"%s is out of range for %s values",
+		xstrconv.FormatFloat(v, 64),
+		f.kind,
 	)
 }

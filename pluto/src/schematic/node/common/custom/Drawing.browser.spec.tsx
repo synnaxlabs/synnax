@@ -244,6 +244,39 @@ describe("Custom.Drawing root paint", () => {
   );
 });
 
+const GROUP_SPEC = createSpec(
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">' +
+    '<g id="g">' +
+    '<rect class="inner" width="5" height="5" stroke="red" fill="blue"/></g>' +
+    '<rect class="leaf" x="5" width="5" height="5" stroke="red" fill="blue"/></svg>',
+);
+
+const GROUP_PAINTS: Custom.Paint[] = [
+  { selectors: ["#g"], stroke: STROKE, fill: FILL },
+  { selectors: [".leaf"], stroke: STROKE, fill: FILL },
+];
+
+describe("Custom.Drawing group paint", () => {
+  it("should paint each shape inside a group as it paints a shape", async () => {
+    const { container } = await render(
+      <Theming.Provider theme={Theming.SYNNAX_DARK}>
+        <Primitive.Div>
+          <Custom.Drawing spec={GROUP_SPEC} paints={GROUP_PAINTS} />
+        </Primitive.Div>
+      </Theming.Provider>,
+    );
+    const inner = container.querySelector(".inner");
+    const leaf = container.querySelector(".leaf");
+    if (inner == null || leaf == null) throw new Error("custom symbol not mounted");
+    const paint = (el: Element) => ({
+      fill: computed(el, "fill"),
+      stroke: computed(el, "stroke"),
+    });
+    expect(paint(inner).fill).toBe(resolve(color.hex(FILL), "fill"));
+    expect(paint(inner)).toEqual(paint(leaf));
+  });
+});
+
 const HOLD_DELAY = 10_000;
 const HOLD_SVG =
   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">' +
@@ -333,7 +366,7 @@ describe("Custom.Drawing hold fill", () => {
 });
 
 const BUILT_IN_TOGGLE_SPEC = Custom.createBuiltIn({
-  variant: "actuator",
+  family: "valve",
   svg:
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">' +
     '<rect class="shape" width="10" height="10"/></svg>',

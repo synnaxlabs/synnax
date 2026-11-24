@@ -35,6 +35,7 @@ cc_library(
     deps = [
         "//client/cpp/icd",
         "//driver/errors",
+        "//x/cpp/base64",
         "//x/cpp/errors",
         "//x/cpp/json",
         "//x/cpp/json:read",
@@ -51,10 +52,14 @@ cc_test(
         "binary_test.cpp",
         "bits_test.cpp",
         "decode_fixture_test.cpp",
+        "encode_fixture_test.cpp",
         "json_test.cpp",
         "text_test.cpp",
     ],
-    data = ["//core/pkg/service/icd:decode_fixtures"],
+    data = [
+        "//core/pkg/service/icd:decode_fixtures",
+        "//core/pkg/service/icd:encode_fixtures",
+    ],
     deps = [
         ":codec",
         "//client/cpp/icd",

@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
 #include <cmath>
 #include <optional>
 #include <string>
@@ -16,6 +17,7 @@
 #include "client/cpp/icd/types.gen.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/number.h"
+#include "x/cpp/json/pointer.h"
 #include "x/cpp/payload/types.gen.h"
 #include "x/cpp/telem/telem.h"
 
@@ -156,5 +158,10 @@ x::errors::Error check_raw_limits(const icd::BaseField &b, const double raw) {
         scaled + b.offset,
         DECODE_ROUNDING * (std::abs(scaled) + std::abs(b.offset))
     );
+}
+
+bool within(const x::json::Pointer &inner, const x::json::Pointer &outer) {
+    return outer.tokens.size() <= inner.tokens.size() &&
+           std::equal(outer.tokens.begin(), outer.tokens.end(), inner.tokens.begin());
 }
 }

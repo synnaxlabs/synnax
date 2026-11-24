@@ -19,6 +19,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import type { PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
 
+import { Color } from "@/color";
 import { LinePlot } from "@/lineplot";
 import { createAsyncSynnaxWrapper, renderHookSuspended } from "@/testutil";
 
@@ -607,9 +608,9 @@ describe("lineplot queries", () => {
         });
       });
       const series = (await retrieveSeries()).map((c) => c.light);
-      await waitFor(() => expect(result.current.colors).toHaveLength(2));
+      // The auto color resolves once the series colors load.
+      await waitFor(() => expect(series).toContainEqual(result.current.colors[1]));
       expect(result.current.colors[0]).toEqual(red);
-      expect(series).toContainEqual(result.current.colors[1]);
     });
 
     it("useYAxisChannels returns one axis's channels and updates after setChannels", async () => {
@@ -1698,6 +1699,175 @@ describe("lineplot queries", () => {
       });
       expect(result.current.rule).toBe(firstRule);
       expect(renderCount).toEqual(countBefore);
+    });
+  });
+
+  describe("color changes", () => {
+    // Each hook shows one element whose stored color is the named color `shown`.
+    interface Shown {
+      value: unknown;
+      color: color.Color | undefined;
+    }
+    interface Hook {
+      name: string;
+      use: (key: string, lineKey: string) => Shown;
+    }
+    const entry = <T>(
+      name: string,
+      use: (key: string, lineKey: string) => T,
+      colorOf: (value: T) => color.Color | undefined,
+    ): Hook => ({
+      name,
+      use: (key, lineKey) => {
+        const value = use(key, lineKey);
+        return { value, color: colorOf(value) };
+      },
+    });
+    const HOOKS = [
+      entry(
+        "useLine",
+        (key, lineKey) => LinePlot.useLine({ key, lineKey }),
+        (l) => l.color,
+      ),
+      entry(
+        "useLines",
+        (key) => LinePlot.useLines({ key }),
+        (l) => l[0]?.color,
+      ),
+      entry(
+        "useRule",
+        (key) => LinePlot.useRule({ key, ruleKey: "rl-a" }),
+        (r) => r.color,
+      ),
+      entry(
+        "useRules",
+        (key) => LinePlot.useRules({ key }),
+        (r) => r[0]?.color,
+      ),
+      entry(
+        "useRangeColors",
+        (key) => LinePlot.useRangeColors({ key }),
+        (c) => c[0],
+      ),
+    ];
+
+    const createNamed = async (hex: string) =>
+      await client.colors.create({
+        name: `stab_${uuid.create()}`,
+        light: color.construct(hex),
+      });
+
+    const setLight = async (key: string, hex: string) =>
+      await client.colors.dispatch(
+        key,
+        colorClient.set({ path: ["light"], value: color.construct(hex) }),
+      );
+
+    const setup = async (hook: Hook) => {
+      const shown = await createNamed("#ff0000");
+      const other = await createNamed("#00ff00");
+      const stored = { type: "named" as const, key: shown.key };
+      const yChannel = await createChannel();
+      const proj = await client.projects.create({ name: `color_ws_${uuid.create()}` });
+      const plot = await client.lineplots.create({ project: proj.key, name: "colors" });
+      const lineKey = lineplotClient.lineKey(plot.key, {
+        yAxis: "y1",
+        xChannel: 0,
+        yChannel,
+      });
+      const retrieve = await renderHookSuspended(
+        () => ({
+          plot: LinePlot.use({ key: plot.key }),
+          dispatch: LinePlot.useDispatch(),
+        }),
+        { wrapper },
+      );
+      await waitFor(() => expect(retrieve.result.current.plot).toBeDefined());
+      await act(async () => {
+        await retrieve.result.current.dispatch.dispatchAsync({
+          key: plot.key,
+          actions: [
+            lineplotClient.setLine({
+              line: {
+                key: lineKey,
+                label: "a",
+                yAxis: "y1",
+                yChannel,
+                xChannel: 0,
+                color: stored,
+                strokeWidth: 2,
+                aggregation: "min_max",
+                detail: "medium",
+              },
+            }),
+            lineplotClient.setRule({
+              rule: {
+                key: "rl-a",
+                label: "a",
+                color: stored,
+                axis: "y1",
+                lineWidth: 1,
+                lineDash: 0,
+                units: "psi",
+                position: 1,
+              },
+            }),
+            lineplotClient.addRange({
+              range: { variant: "key", key: uuid.create(), color: stored },
+            }),
+          ],
+        });
+      });
+      let renders = 0;
+      const { result } = renderHook(
+        () => {
+          renders++;
+          return hook.use(plot.key, lineKey);
+        },
+        { wrapper },
+      );
+      const colors = renderHook(() => Color.useResultList({}), { wrapper });
+      const red = color.construct("#ff0000");
+      await waitFor(() => expect(result.current.color).toEqual(red));
+      // The list shows a change once every hook has seen it.
+      const listed = async (key: string, hex: string) =>
+        await waitFor(() => {
+          const found = colors.result.current.data?.find((c) => c.key === key);
+          expect(found?.light).toEqual(color.construct(hex));
+        });
+      return { result, renders: () => renders, shown, other, listed };
+    };
+
+    describe.each(HOOKS)("$name", (hook) => {
+      it("should keep a stable reference when an unrelated color is created", async () => {
+        const { result, renders, listed } = await setup(hook);
+        const first = result.current.value;
+        const count = renders();
+        const created = await createNamed("#123456");
+        await listed(created.key, "#123456");
+        expect(result.current.value).toBe(first);
+        expect(renders()).toEqual(count);
+      });
+
+      it("should keep a stable reference when another named color changes", async () => {
+        const { result, renders, other, listed } = await setup(hook);
+        const first = result.current.value;
+        const count = renders();
+        await setLight(other.key, "#0000ff");
+        await listed(other.key, "#0000ff");
+        expect(result.current.value).toBe(first);
+        expect(renders()).toEqual(count);
+      });
+
+      it("should return a new value when the color that it shows changes", async () => {
+        const { result, shown } = await setup(hook);
+        const first = result.current.value;
+        await setLight(shown.key, "#0000ff");
+        await waitFor(() =>
+          expect(result.current.color).toEqual(color.construct("#0000ff")),
+        );
+        expect(result.current.value).not.toBe(first);
+      });
     });
   });
 });

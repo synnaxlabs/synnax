@@ -98,8 +98,8 @@ public:
     /// data type of the field and has room for one more sample.
     /// - A timestamp takes a string in ISO 8601 format, and a number or a string
     ///   holding one in a Unix format.
-    /// - A string takes a string, or the label of an enum. JSON takes any value,
-    ///   compacted but spelled as raw.
+    /// - A string takes a string, or the label of an enum. Any other value writes its
+    ///   JSON text, as for JSON. JSON takes any value, compacted but spelled as raw.
     /// - A UUID takes its string form.
     /// - Bytes take a string of standard, padded base64.
     /// - A numeric or boolean sample takes a number that it can hold exactly, a
@@ -137,6 +137,10 @@ public:
     /// or an enum label is not valid UTF-8.
     static std::pair<Encoder, errors::Error> create(Field field);
 
+    /// @brief returns the JSON text of the first enum label that v matches, or nullptr
+    /// when it matches none. v has the data type of the field, and a boolean is 0 or 1.
+    [[nodiscard]] const std::string *label(const telem::SampleValue &v) const;
+
     /// @brief appends JSON text to out: sample i of s, which holds the data type of the
     /// field.
     /// - A timestamp takes the time format of the field.
@@ -149,4 +153,8 @@ public:
     [[nodiscard]] errors::Error
     append(const telem::Series &s, std::size_t i, std::string &out) const;
 };
+
+/// @brief reports whether text is one JSON value in which no object repeats a member
+/// name, as RFC 7493 requires.
+[[nodiscard]] bool valid(std::string_view text);
 }

@@ -477,20 +477,35 @@ var _ = Describe("JSONEncoder", func() {
 		),
 	)
 
-	It("Should write the sample of a JSON field as it is", func() {
-		key := uuid.New()
-		enc := MustSucceed(codec.NewJSONEncoder(message(
-			[]icd.JSONField{{Variant: icd.JSONJSONField{
-				Key: key, Name: "config", Scale: 1, Pointer: "/config",
-			}}},
-			codec.Binding{Field: key, DataType: telem.JSONT},
-		)))
-		Expect(enc.Encode(nil, [][]byte{[]byte(`{"rate":10}`)})).
-			To(MatchJSON(`{"config":{"rate":10}}`))
-		Expect(enc.Encode(nil, [][]byte{[]byte(`{"rate"`)})).Error().To(SatisfyAll(
-			MatchError(validate.ErrValidation),
-			MatchError("message command: field config: invalid JSON: validation error"),
-		))
+	Describe("JSON samples", func() {
+		var enc *codec.JSONEncoder
+		BeforeEach(func() {
+			key := uuid.New()
+			enc = MustSucceed(codec.NewJSONEncoder(message(
+				[]icd.JSONField{{Variant: icd.JSONJSONField{
+					Key: key, Name: "config", Scale: 1, Pointer: "/config",
+				}}},
+				codec.Binding{Field: key, DataType: telem.JSONT},
+			)))
+		})
+
+		It("Should write a JSON sample as it is", func() {
+			Expect(enc.Encode(nil, [][]byte{[]byte(`{"rate":10}`)})).
+				To(MatchJSON(`{"config":{"rate":10}}`))
+		})
+
+		DescribeTable("Should refuse a JSON sample that is not valid",
+			func(sample string) {
+				Expect(enc.Encode(nil, [][]byte{[]byte(sample)})).Error().To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(
+						"message command: field config: invalid JSON: validation error",
+					),
+				))
+			},
+			Entry("truncated text", `{"rate"`),
+			Entry("a repeated name", `{"rate":1,"rate":2}`),
+		)
 	})
 
 	DescribeTable("Should reject a message whose rule or default has no type",

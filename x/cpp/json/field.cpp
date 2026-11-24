@@ -17,6 +17,8 @@
 #include <variant>
 #include <vector>
 
+#include "nlohmann/json.hpp"
+
 #include "x/cpp/base64/base64.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/field.h"
@@ -76,24 +78,6 @@ std::string kind_name(const std::string_view raw) {
 bool convertible(const telem::DataType &dt) {
     return dt == telem::TIMESTAMP_T || dt == telem::STRING_T || dt == telem::JSON_T ||
            dt == telem::UUID_T || dt == telem::BYTES_T || numeric(dt);
-}
-
-/// @brief returns v as a Number, or nothing when it is not numeric.
-std::optional<Number> to_number(const telem::SampleValue &v) {
-    return std::visit(
-        [](const auto &s) -> std::optional<Number> {
-            using T = std::decay_t<decltype(s)>;
-            if constexpr (std::is_floating_point_v<T>)
-                return Number(static_cast<double>(s));
-            else if constexpr (std::is_integral_v<T> && std::is_signed_v<T>)
-                return Number(static_cast<std::int64_t>(s));
-            else if constexpr (std::is_integral_v<T>)
-                return Number(static_cast<std::uint64_t>(s));
-            else
-                return std::nullopt;
-        },
-        v
-    );
 }
 
 /// @brief checks that the value of e converts to a sample of dt.
@@ -172,6 +156,14 @@ errors::Error compact(
 }
 }
 
+bool valid(const std::string_view text) {
+    if (!nlohmann::json::accept(text.begin(), text.end())) return false;
+    std::string dst;
+    std::vector<std::size_t> open;
+    std::vector<std::unordered_set<std::string>> names;
+    return !compact(text, dst, open, names);
+}
+
 std::pair<Decoder, errors::Error> Decoder::create(Field field) {
     const auto &dt = field.data_type;
     if (!convertible(dt))
@@ -213,7 +205,7 @@ errors::Error Decoder::append_float(const double v, telem::Series &dst) const {
 }
 
 errors::Error Decoder::append_string(const std::string_view raw, telem::Series &dst) {
-    if (kind_of(raw) != '"') return invalid("expected a string, got " + kind_name(raw));
+    if (kind_of(raw) != '"') return this->append_json(raw, dst);
     if (const auto err = unquote(raw, this->text)) return err;
     if (const auto *l = this->find_label(this->text); l != nullptr) {
         dst.write(l->text);
@@ -365,6 +357,12 @@ std::pair<Encoder, errors::Error> Encoder::create(Field field) {
     return {std::move(e), errors::NIL};
 }
 
+const std::string *Encoder::label(const telem::SampleValue &v) const {
+    for (const auto &l: this->labels)
+        if (l.sample == v || (is_nan(l.sample) && is_nan(v))) return &l.text;
+    return nullptr;
+}
+
 errors::Error
 Encoder::append(const telem::Series &s, const std::size_t i, std::string &out) const {
     const auto &dt = this->field.data_type;
@@ -388,11 +386,10 @@ Encoder::append(const telem::Series &s, const std::size_t i, std::string &out) c
     auto sample = s.at(index);
     // A boolean matches and writes as 0 or 1.
     if (dt == telem::BOOLEAN_T) sample = dt.cast(sample);
-    for (const auto &l: this->labels)
-        if (l.sample == sample || (is_nan(l.sample) && is_nan(sample))) {
-            out += l.text;
-            return errors::NIL;
-        }
+    if (const auto *l = this->label(sample)) {
+        out += *l;
+        return errors::NIL;
+    }
     if (!numeric(dt)) return append_quoted(std::get<std::string>(sample), out);
     const auto n = to_number(sample).value();
     if (this->field.type == Type::Boolean) {
