@@ -281,6 +281,50 @@ func (x *RefreshRequest) GetDetails() *pb.Details {
 	return nil
 }
 
+type DeleteRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Keys          []string               `protobuf:"bytes,1,rep,name=keys,proto3" json:"keys,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteRequest) Reset() {
+	*x = DeleteRequest{}
+	mi := &file_core_pkg_transport_grpc_certificate_certificate_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteRequest) ProtoMessage() {}
+
+func (x *DeleteRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_transport_grpc_certificate_certificate_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteRequest.ProtoReflect.Descriptor instead.
+func (*DeleteRequest) Descriptor() ([]byte, []int) {
+	return file_core_pkg_transport_grpc_certificate_certificate_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *DeleteRequest) GetKeys() []string {
+	if x != nil {
+		return x.Keys
+	}
+	return nil
+}
+
 var File_core_pkg_transport_grpc_certificate_certificate_proto protoreflect.FileDescriptor
 
 const file_core_pkg_transport_grpc_certificate_certificate_proto_rawDesc = "" +
@@ -306,13 +350,17 @@ const file_core_pkg_transport_grpc_certificate_certificate_proto_rawDesc = "" +
 	"\fcertificates\x18\x01 \x03(\v2#.service.certificate.pb.CertificateR\fcertificates\"]\n" +
 	"\x0eRefreshRequest\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x129\n" +
-	"\adetails\x18\x02 \x01(\v2\x1f.service.certificate.pb.DetailsR\adetails2o\n" +
+	"\adetails\x18\x02 \x01(\v2\x1f.service.certificate.pb.DetailsR\adetails\"#\n" +
+	"\rDeleteRequest\x12\x12\n" +
+	"\x04keys\x18\x01 \x03(\tR\x04keys2o\n" +
 	"\x1aCertificateRetrieveService\x12Q\n" +
 	"\x04Exec\x12#.api.certificate.pb.RetrieveRequest\x1a$.api.certificate.pb.RetrieveResponse2\\\n" +
 	"\x15CertificateSetService\x12C\n" +
 	"\x04Exec\x12\x1c.grpc.certificate.SetRequest\x1a\x1d.grpc.certificate.SetResponse2]\n" +
 	"\x19CertificateRefreshService\x12@\n" +
-	"\x04Exec\x12 .grpc.certificate.RefreshRequest\x1a\x16.google.protobuf.EmptyB\xc6\x01\n" +
+	"\x04Exec\x12 .grpc.certificate.RefreshRequest\x1a\x16.google.protobuf.Empty2[\n" +
+	"\x18CertificateDeleteService\x12?\n" +
+	"\x04Exec\x12\x1f.grpc.certificate.DeleteRequest\x1a\x16.google.protobuf.EmptyB\xc6\x01\n" +
 	"\x14com.grpc.certificateB\x10CertificateProtoP\x01Z;github.com/synnaxlabs/synnax/pkg/transport/grpc/certificate\xa2\x02\x03GCX\xaa\x02\x10Grpc.Certificate\xca\x02\x10Grpc\\Certificate\xe2\x02\x1cGrpc\\Certificate\\GPBMetadata\xea\x02\x11Grpc::Certificateb\x06proto3"
 
 var (
@@ -327,31 +375,34 @@ func file_core_pkg_transport_grpc_certificate_certificate_proto_rawDescGZIP() []
 	return file_core_pkg_transport_grpc_certificate_certificate_proto_rawDescData
 }
 
-var file_core_pkg_transport_grpc_certificate_certificate_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
+var file_core_pkg_transport_grpc_certificate_certificate_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_core_pkg_transport_grpc_certificate_certificate_proto_goTypes = []any{
 	(*Input)(nil),                // 0: grpc.certificate.Input
 	(*SetRequest)(nil),           // 1: grpc.certificate.SetRequest
 	(*SetResponse)(nil),          // 2: grpc.certificate.SetResponse
 	(*RefreshRequest)(nil),       // 3: grpc.certificate.RefreshRequest
-	(*pb.Details)(nil),           // 4: service.certificate.pb.Details
-	(*pb.Certificate)(nil),       // 5: service.certificate.pb.Certificate
-	(*pb1.RetrieveRequest)(nil),  // 6: api.certificate.pb.RetrieveRequest
-	(*pb1.RetrieveResponse)(nil), // 7: api.certificate.pb.RetrieveResponse
-	(*emptypb.Empty)(nil),        // 8: google.protobuf.Empty
+	(*DeleteRequest)(nil),        // 4: grpc.certificate.DeleteRequest
+	(*pb.Details)(nil),           // 5: service.certificate.pb.Details
+	(*pb.Certificate)(nil),       // 6: service.certificate.pb.Certificate
+	(*pb1.RetrieveRequest)(nil),  // 7: api.certificate.pb.RetrieveRequest
+	(*pb1.RetrieveResponse)(nil), // 8: api.certificate.pb.RetrieveResponse
+	(*emptypb.Empty)(nil),        // 9: google.protobuf.Empty
 }
 var file_core_pkg_transport_grpc_certificate_certificate_proto_depIdxs = []int32{
-	4, // 0: grpc.certificate.Input.details:type_name -> service.certificate.pb.Details
+	5, // 0: grpc.certificate.Input.details:type_name -> service.certificate.pb.Details
 	0, // 1: grpc.certificate.SetRequest.certificates:type_name -> grpc.certificate.Input
-	5, // 2: grpc.certificate.SetResponse.certificates:type_name -> service.certificate.pb.Certificate
-	4, // 3: grpc.certificate.RefreshRequest.details:type_name -> service.certificate.pb.Details
-	6, // 4: grpc.certificate.CertificateRetrieveService.Exec:input_type -> api.certificate.pb.RetrieveRequest
+	6, // 2: grpc.certificate.SetResponse.certificates:type_name -> service.certificate.pb.Certificate
+	5, // 3: grpc.certificate.RefreshRequest.details:type_name -> service.certificate.pb.Details
+	7, // 4: grpc.certificate.CertificateRetrieveService.Exec:input_type -> api.certificate.pb.RetrieveRequest
 	1, // 5: grpc.certificate.CertificateSetService.Exec:input_type -> grpc.certificate.SetRequest
 	3, // 6: grpc.certificate.CertificateRefreshService.Exec:input_type -> grpc.certificate.RefreshRequest
-	7, // 7: grpc.certificate.CertificateRetrieveService.Exec:output_type -> api.certificate.pb.RetrieveResponse
-	2, // 8: grpc.certificate.CertificateSetService.Exec:output_type -> grpc.certificate.SetResponse
-	8, // 9: grpc.certificate.CertificateRefreshService.Exec:output_type -> google.protobuf.Empty
-	7, // [7:10] is the sub-list for method output_type
-	4, // [4:7] is the sub-list for method input_type
+	4, // 7: grpc.certificate.CertificateDeleteService.Exec:input_type -> grpc.certificate.DeleteRequest
+	8, // 8: grpc.certificate.CertificateRetrieveService.Exec:output_type -> api.certificate.pb.RetrieveResponse
+	2, // 9: grpc.certificate.CertificateSetService.Exec:output_type -> grpc.certificate.SetResponse
+	9, // 10: grpc.certificate.CertificateRefreshService.Exec:output_type -> google.protobuf.Empty
+	9, // 11: grpc.certificate.CertificateDeleteService.Exec:output_type -> google.protobuf.Empty
+	8, // [8:12] is the sub-list for method output_type
+	4, // [4:8] is the sub-list for method input_type
 	4, // [4:4] is the sub-list for extension type_name
 	4, // [4:4] is the sub-list for extension extendee
 	0, // [0:4] is the sub-list for field type_name
@@ -369,9 +420,9 @@ func file_core_pkg_transport_grpc_certificate_certificate_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_pkg_transport_grpc_certificate_certificate_proto_rawDesc), len(file_core_pkg_transport_grpc_certificate_certificate_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   4,
+			NumMessages:   5,
 			NumExtensions: 0,
-			NumServices:   3,
+			NumServices:   4,
 		},
 		GoTypes:           file_core_pkg_transport_grpc_certificate_certificate_proto_goTypes,
 		DependencyIndexes: file_core_pkg_transport_grpc_certificate_certificate_proto_depIdxs,
