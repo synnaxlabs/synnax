@@ -351,7 +351,6 @@ func (e *engine) waitCovered(ctx context.Context, sequence uint64) error {
 		}
 	}
 }
-}
 
 // run runs the owners until ctx is done, then closes them in order: the log, so that
 // its queued entries and a clean mark reach the file, then the checkpointer, then the
