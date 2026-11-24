@@ -210,9 +210,9 @@ NodeConfig union on variant {
     }
 }
 FormatConfig struct {
-    units     string = ""
+    units     string?
     precision uint8?
-    notation  notation.Notation = "standard"
+    notation  notation.Notation?
 }
 StateBinding struct extends FormatConfig {
     key         string
@@ -339,7 +339,8 @@ import keeps every channel key the same way.
 
 The Core checks every save. It refuses a symbol with a duplicate key in a list, a key
 that names no part, state, or command, an `entry` or `contrast` paint or `equals`
-condition on a number state, or an `ask` command with no state. It refuses a node whose
+condition on a number state, or an `ask` command with no state. It refuses a second
+interaction on one part, or a second on the whole drawing. It refuses a node whose
 binding keys repeat or name no state or command of its symbol, whose overrides do not
 fit the type of their state, or whose `CommandBinding` names a command that has a state.
 The Core list of built-ins lets it check built-in nodes the same way. A `missing` node

@@ -48,8 +48,9 @@ func NewResolver(icds *icd.Service, channels icdv0.Channels) Resolver {
 // Check builds the encoder of each of writes from its ICD, from icds or else retrieved
 // through snap, and the data types of the channels that the lookup finds. It skips a
 // write whose ICD does not exist, which the reference check of the write reports. It
-// returns the validation error of the first write that does not build, at the path of
-// its message.
+// also skips a write with no bindings of a JSON message with no fields, because only
+// deploying refuses it. It returns the validation error of the first write that does
+// not build, at the path of its message.
 func (r Resolver) Check(
 	ctx context.Context,
 	snap gorp.Snapshot,
@@ -94,7 +95,7 @@ func (r Resolver) Check(
 	)
 	for _, w := range writes {
 		ic, ok := icds[w.ICD]
-		if !ok {
+		if !ok || unfilled(ic, w.Message) {
 			continue
 		}
 		if _, err := newEncoder(w.Message, ic, dataTypes); err != nil {
@@ -105,10 +106,26 @@ func (r Resolver) Check(
 	return nil
 }
 
+// unfilled reports whether wm has no bindings and sends a JSON message of ic with no
+// fields.
+func unfilled(ic icd.ICD, wm icd.WriteMessage) bool {
+	if len(wm.Bindings) > 0 {
+		return false
+	}
+	m, ok := lo.Find(ic.Messages, func(m icd.Message) bool {
+		return m.Key == wm.Message
+	})
+	if !ok {
+		return false
+	}
+	jp, ok := m.Payload.Variant.(icd.JSONPayload)
+	return ok && len(jp.Fields) == 0
+}
+
 // Hash writes to h the payload of each ICD message that writes send, retrieved through
 // snap, so an edit to the format of one changes the hash. A write of a message that its
-// ICD lacks writes only that the message is absent. Hash returns query.ErrNotFound
-// when an ICD of writes does not exist.
+// ICD lacks writes only that the message is absent. Hash returns query.ErrNotFound when
+// an ICD of writes does not exist.
 func (r Resolver) Hash(
 	ctx context.Context,
 	snap gorp.Snapshot,

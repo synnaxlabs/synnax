@@ -38,7 +38,7 @@ import { Kafka } from "@/feature/kafka";
 import { createKafkaDevice } from "@/feature/kafka/testutil";
 import { Device } from "@/platform/device";
 import { startRackHeartbeat } from "@/platform/device/testutil";
-import { pickMessageFormat } from "@/platform/icd/testutil";
+import { pickMessageFormat, retype } from "@/platform/icd/testutil";
 import {
   answerCommand,
   answerCommandsUntil,
@@ -177,19 +177,6 @@ const removeMessage = async ({ icd: key, messages }: Kafka.Task.ReadRecord) =>
     key,
     icd.remove({ path: ["messages"], key: messages[0].message }),
   );
-
-/** Gives a field of the record's message a new kind, in the ICD. */
-const retype = async (
-  { icd: key, messages }: Kafka.Task.ReadRecord,
-  field: icd.JSONField,
-  kind: payload.Kind,
-) => {
-  const path = ["messages", messages[0].message, "payload", "fields"];
-  await client.icds.dispatch(key, [
-    icd.remove({ path, key: field.key }),
-    icd.insert({ path, value: { ...field, type: kind } }),
-  ]);
-};
 
 /** @returns a client with the policies of the Owner role, which reads ICDs only. */
 const createICDReaderClient = async (): Promise<Synnax> => {
@@ -1819,7 +1806,13 @@ describe("Kafka read form", () => {
       });
       const { draft } = await renderRead({
         records: [rec],
-        beforeRender: () => retype(rec, count, "float"),
+        beforeRender: () =>
+          retype(
+            client,
+            { icd: rec.icd, message: rec.messages[0].message },
+            count,
+            "float",
+          ),
       });
       await waitFor(async () =>
         expect(await retrieveBindings(draft.key)).toEqual([

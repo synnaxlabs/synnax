@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"iter"
 	"slices"
+	"strconv"
 	"time"
 
 	"github.com/samber/lo"
@@ -219,6 +220,18 @@ func (w *writer) Close() error {
 	return nil
 }
 
+// validateTopics returns an error that names the first enabled target with no topic.
+func validateTopics(targets []WriteTarget) error {
+	for i, wt := range targets {
+		if !wt.Disabled && wt.Topic == "" {
+			return validate.PathedError(
+				validate.Errorf("required"), "targets", strconv.Itoa(i), "topic",
+			)
+		}
+	}
+	return nil
+}
+
 // configureTargets returns the write task of t, which produces the records of the
 // enabled targets of cfg.
 func (f *factory) configureTargets(
@@ -232,6 +245,9 @@ func (f *factory) configureTargets(
 		f.cfg.Device,
 		cfg.Device,
 	); err != nil {
+		return nil, err
+	}
+	if err := validateTopics(cfg.Targets); err != nil {
 		return nil, err
 	}
 	enabled := lo.Filter(cfg.Targets, func(wt WriteTarget, _ int) bool {

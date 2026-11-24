@@ -31,10 +31,9 @@ type writeResolver struct {
 }
 
 // resolve moves the inline channels of cfg into targets that send a new ICD named name,
-// then checks cfg, read through snap. A config holds channels or targets, not both.
-// Each enabled target needs a topic, and its message must build from its ICD and its
-// channels. It returns the write that creates the ICD, or nil when cfg holds no inline
-// channels.
+// then checks cfg, read through snap. A config holds channels or targets, not both, and
+// the message of each enabled target must build from its ICD and its channels. It
+// returns the write that creates the ICD, or nil when cfg holds no inline channels.
 func (r writeResolver) resolve(
 	ctx context.Context,
 	snap gorp.Snapshot,
@@ -51,13 +50,6 @@ func (r writeResolver) resolve(
 		return nil, validate.PathedError(
 			validate.Errorf("a task cannot have both channels and targets"), "targets",
 		)
-	}
-	for i, t := range cfg.Targets {
-		if !t.Disabled && t.Topic == "" {
-			return nil, validate.PathedError(
-				validate.Errorf("required"), "targets", strconv.Itoa(i), "topic",
-			)
-		}
 	}
 	icds := make(map[icd.Key]icd.ICD)
 	if ok {

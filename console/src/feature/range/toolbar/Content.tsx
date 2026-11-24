@@ -392,6 +392,7 @@ const Group = ({
   partial = false,
   children,
   icon,
+  actions,
 }: {
   id: Session.Range.Group;
   title: string;
@@ -400,6 +401,7 @@ const Group = ({
   partial?: boolean;
   children: ReactNode;
   icon?: ReactNode;
+  actions?: ReactNode;
 }): ReactElement => {
   const collapsed = Session.Range.useSelectGroupCollapsed(id);
   const dispatch = Session.useDispatch();
@@ -411,6 +413,7 @@ const Group = ({
         size="medium"
         open={!collapsed}
         onOpenChange={handleOpenChange}
+        actions={actions}
         className={CSS.BE(B, "group-header")}
       >
         <span className={CSS.BE(B, "group-icon")}>{icon}</span>
@@ -620,6 +623,23 @@ const FavoriteLines = ({ favorites }: { favorites: ranger.Range[] }): ReactEleme
   );
 };
 
+const UnfavoriteAll = (): ReactElement => {
+  const dispatch = Session.useDispatch();
+  // Holds the keys of deleted ranges too, so a click clears them with the rest.
+  const keys = Session.Range.useSelectFavoriteKeys();
+  return (
+    <Button.Button
+      size="tiny"
+      rounded="small"
+      textColor={9}
+      tooltip="Unfavorite all ranges"
+      onClick={() => dispatch(Session.Range.remove({ keys }))}
+    >
+      Clear
+    </Button.Button>
+  );
+};
+
 const Body = ({ groups }: { groups: Groups }): ReactElement => {
   const { draft } = useDraftContext("Range.Body");
   const { onNext, onStartChild } = useActionsContext("Range.Body");
@@ -672,6 +692,7 @@ const Body = ({ groups }: { groups: Groups }): ReactElement => {
             title="Favorites"
             count={groups.favorites.length}
             icon={<Icon.StarFilled color="goldenrod" />}
+            actions={groups.favorites.length > 0 ? <UnfavoriteAll /> : undefined}
           >
             <FavoriteLines favorites={groups.favorites} />
           </Group>

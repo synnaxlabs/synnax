@@ -415,6 +415,33 @@ jobs:
         with:
           bun-version: ${{ inputs.latest_runtimes && 'latest' || '1.4.4' }}
 
+      # A second Core serves TLS with a certificate from a CA it makes. The image's
+      # health check reads plain HTTP, so the step polls the Core over TLS instead.
+      - name: Start a TLS Core
+        if: inputs.runtimes && matrix.lint && env.FORK != 'true'
+        timeout-minutes: 5
+        env:
+          IMAGE: ${{ inputs.core_image }}
+          SYNNAX_AUTO_CERT: true
+          SYNNAX_MEM: true
+          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+        run: |
+          docker run --detach --name synnax-tls --publish 9091:9090 --no-healthcheck \
+            --env SYNNAX_AUTO_CERT --env SYNNAX_MEM --env SYNNAX_LICENSE_KEY "$IMAGE"
+          ca="$RUNNER_TEMP/ca.crt"
+          for _ in $(seq 60); do
+            if docker cp synnax-tls:/usr/local/synnax/certs/ca.crt "$ca" 2> /dev/null \
+              && curl --silent --fail --cacert "$ca" --request POST \
+                --header "Content-Type: application/json" --data '{}' \
+                https://localhost:9091/api/v1/connectivity/check > /dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs --tail 100 synnax-tls >&2
+          echo "The TLS Core did not start" >&2
+          exit 1
+
       # The smoke test needs the Core, which only the Linux runner has, and not for a
       # fork.
       - name: Smoke-test the packed package
@@ -423,6 +450,8 @@ jobs:
         timeout-minutes: 10
         env:
           PACKAGE: ${{ inputs.package }}
+          SYNNAX_TEST_CA_CERT_FILE: ${{ runner.temp }}/ca.crt
+          SYNNAX_TEST_TLS_PORT: 9091
         run: pnpm --filter "@synnaxlabs/$PACKAGE" smoke
 
       # Vitest saves a screenshot of each failed browser test in .vitest/attachments.
@@ -438,6 +467,9 @@ jobs:
             # The tail in the job output shows the Core side of a failure without the
             # artifact.
             tail -n 2000 "$RUNNER_TEMP/diagnostics/core.log"
+          fi
+          if [ "$RUNNER_OS" = Linux ] && docker inspect synnax-tls &> /dev/null; then
+            docker logs synnax-tls &> "$RUNNER_TEMP/diagnostics/core-tls.log"
           fi
           if [ -d "$ATTACHMENTS" ]; then
             cp -R "$ATTACHMENTS" "$RUNNER_TEMP/diagnostics/attachments"
@@ -469,4 +501,4 @@ jobs:
 
       - name: Stop the services
         if: always() && runner.os == 'Linux'
-        run: docker rm --force synnax freighter 2> /dev/null || true
+        run: docker rm --force synnax synnax-tls freighter 2> /dev/null || true

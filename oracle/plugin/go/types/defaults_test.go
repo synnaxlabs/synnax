@@ -1010,6 +1010,58 @@ var _ = Describe("SetDefaults and Validate generation", func() {
 			)
 		})
 
+		It("Should check an lt rule in a struct whose type parameters have defaults",
+			func() {
+				source := `
+					@go output "core/pkg/service/x"
+
+					Range struct<T extends numeric = float64> {
+						lower T {
+							@go validate lt upper
+						}
+						upper T
+					}
+
+					Holder struct {
+						range Range
+					}
+				`
+				resp := MustGenerate(source, "x", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").ToContain(
+					"Lower float64",
+					`v.Ternary("lower", !(r.Lower < r.Upper), "must be less than upper")`,
+					`h.Range.Validate()`,
+				)
+			},
+		)
+
+		It("Should fill the defaults of a struct whose type parameters have defaults",
+			func() {
+				source := `
+					@go output "core/pkg/service/x"
+
+					Range struct<T extends numeric = float64> {
+						lower T = 1
+						upper T = 2 {
+							@default group "ends"
+						}
+						floor T = 0 {
+							@default group "ends"
+						}
+					}
+
+					Holder struct {
+						range Range
+					}
+				`
+				resp := MustGenerate(source, "x", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").ToContain(
+					"h.Range.SetUngroupedDefaults()",
+					"h.Range.DefaultGroups()",
+				)
+			},
+		)
+
 		It("Should leave the lt check of a restated default to the embedded struct",
 			func() {
 				source := `

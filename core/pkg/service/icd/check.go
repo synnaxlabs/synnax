@@ -344,9 +344,9 @@ func nested(a, b xjson.Pointer) (string, bool) {
 	switch {
 	case slices.Equal(a, b):
 		return "pointer %q duplicates the pointer of field %q", true
-	case len(a) > len(b) && slices.Equal(a[:len(b)], b):
+	case a.HasPrefix(b):
 		return "pointer %q is inside the value of field %q", true
-	case len(b) > len(a) && slices.Equal(b[:len(a)], a):
+	case b.HasPrefix(a):
 		return "pointer %q holds the value of field %q", true
 	}
 	return "", false
