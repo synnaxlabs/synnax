@@ -346,12 +346,12 @@ var _ = Describe("Signal", func() {
 			ctx, _ := signal.Isolated()
 			ctx.Go(
 				inc1,
-				signal.WithRetryOnPanic(2),
+				signal.WithRetryOnPanic(1),
 				signal.RecoverWithErrOnPanic(),
 			)
 
 			Expect(ctx.Wait()).To(MatchError(ContainSubstring("panicking once")))
-			Expect(counter).To(Equal(3))
+			Expect(counter).To(Equal(2))
 		})
 
 		It(
@@ -368,12 +368,12 @@ var _ = Describe("Signal", func() {
 				ctx, _ := signal.Isolated()
 				ctx.Go(
 					inc1,
-					signal.WithRetryOnPanic(2),
+					signal.WithRetryOnPanic(1),
 					signal.RecoverWithoutErrOnPanic(),
 				)
 
 				Expect(ctx.Wait()).ToNot(HaveOccurred())
-				Expect(counter).To(Equal(3))
+				Expect(counter).To(Equal(2))
 			},
 		)
 
