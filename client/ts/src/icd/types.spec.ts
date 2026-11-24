@@ -60,8 +60,92 @@ describe("icdZ", () => {
       });
     });
 
-    it("should refuse an empty sync sequence", () => {
-      expect(() => parseFraming({ type: "sync", sync: "" })).toThrow();
-    });
+    const SYNC = { type: "sync", sync: "qg==" };
+    const BYTE_ORDER = 'Invalid option: expected one of "little_endian"|"big_endian"';
+    const ALGORITHM =
+      'Invalid option: expected one of "crc16_ccitt_false"|"crc16_modbus"|"crc32"';
+    const REFUSALS: [string, unknown, string[], string][] = [
+      [
+        "an empty sync sequence",
+        { type: "sync", sync: "" },
+        ["sync"],
+        "must be at least 1 bytes long",
+      ],
+      [
+        "an unknown length size",
+        { ...SYNC, lengthSize: "three" },
+        ["lengthSize"],
+        'Invalid option: expected one of "one"|"two"|"four"',
+      ],
+      [
+        "a max length of 0",
+        { ...SYNC, maxLength: 0 },
+        ["maxLength"],
+        "Too small: expected number to be >=1",
+      ],
+      [
+        "a max length of 65537",
+        { ...SYNC, maxLength: 65537 },
+        ["maxLength"],
+        "Too big: expected number to be <=65536",
+      ],
+      [
+        "an unknown byte order",
+        { ...SYNC, byteOrder: "middle_endian" },
+        ["byteOrder"],
+        BYTE_ORDER,
+      ],
+      [
+        "an unknown checksum byte order",
+        { ...SYNC, checksum: { algorithm: "crc32", byteOrder: "middle_endian" } },
+        ["checksum", "byteOrder"],
+        BYTE_ORDER,
+      ],
+      [
+        "a checksum with no algorithm",
+        { ...SYNC, checksum: {} },
+        ["checksum", "algorithm"],
+        ALGORITHM,
+      ],
+      [
+        "an unknown checksum algorithm",
+        { ...SYNC, checksum: { algorithm: "crc8" } },
+        ["checksum", "algorithm"],
+        ALGORITHM,
+      ],
+      [
+        "a fixed length of 0",
+        { type: "fixed", length: 0 },
+        ["length"],
+        "Too small: expected number to be >=1",
+      ],
+      [
+        "a fixed length of 65537",
+        { type: "fixed", length: 65537 },
+        ["length"],
+        "Too big: expected number to be <=65536",
+      ],
+      [
+        "an empty delimiter",
+        { type: "delimited", delimiter: "" },
+        ["delimiter"],
+        "Too small: expected string to have >=1 characters",
+      ],
+      [
+        "an unknown framing type",
+        { type: "bogus" },
+        ["type"],
+        "Invalid discriminator value. Expected 'delimited' | 'fixed' | 'sync' | 'cobs' | 'slip'",
+      ],
+    ];
+    it.each(REFUSALS)(
+      "should refuse %s with the path of its field",
+      (_, framing, path, message) => {
+        const result = icd.icdZ.safeParse({ ...ICD, framing });
+        expect(result.error?.issues).toMatchObject([
+          { path: ["framing", ...path], message },
+        ]);
+      },
+    );
   });
 });
