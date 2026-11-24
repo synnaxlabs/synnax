@@ -22,12 +22,20 @@ import (
 // Pending holds the uncommitted samples of the channels that Handoff took out of a
 // writer. They lie on clock stamps that the writer wrote. Pending is not safe for
 // concurrent use.
-type Pending struct{ idx *idxWriter }
+type Pending struct {
+	idx *idxWriter
+	log *logWriter
+}
 
 // Commit commits the samples of p once the clock holds a committed stamp at the last
 // clock stamp of the writer that wrote them, then releases p. It returns the end of the
-// commit, or false and commits nothing while the clock does not hold that stamp.
+// commit, or false and commits nothing while the clock does not hold that stamp. On the
+// pointer log layout, it fails when the clock holds other stamps there, and it returns
+// false, with the samples committed, until their stamps are durable.
 func (p *Pending) Commit(ctx context.Context) (telem.TimeStamp, bool, error) {
+	if p.log != nil {
+		return p.commitLog(ctx)
+	}
 	held, err := p.idx.indexHoldsHighWater(ctx)
 	if err != nil || !held {
 		return 0, false, err
@@ -40,7 +48,12 @@ func (p *Pending) Commit(ctx context.Context) (telem.TimeStamp, bool, error) {
 }
 
 // Close releases the channels of p and drops its uncommitted samples.
-func (p *Pending) Close() error { return errors.Join(p.idx.persist(), p.idx.Close()) }
+func (p *Pending) Close() error {
+	if p.log != nil {
+		return p.log.close()
+	}
+	return errors.Join(p.idx.persist(), p.idx.Close())
+}
 
 // Handoff closes w and opens a writer of cfg on the clock of w in its place. Each key
 // of cfg keeps the uncommitted samples that w or adopt holds for it, so the next commit
@@ -49,8 +62,7 @@ func (p *Pending) Close() error { return errors.Join(p.idx.persist(), p.idx.Clos
 // cfg lacks as a Pending, or nil when they have none. adopt is a Pending of an earlier
 // Handoff for the keys of cfg, or nil. On an error, Handoff closes w and adopt, which
 // drops their uncommitted samples, and its error names the clock and their time range.
-// On the pointer log layout, Handoff fails when w has uncommitted samples. Otherwise it
-// closes w, opens a writer of cfg, and returns no Pending.
+// On the pointer log layout, the new writer is the writer of w with the keys of cfg.
 func (db *DB) Handoff(
 	ctx context.Context,
 	w *Writer,
@@ -91,8 +103,7 @@ func (db *DB) Handoff(
 		)
 	}
 	if w.log != nil {
-		next, err := db.handoffLog(ctx, w, cfg, adopt)
-		return next, nil, err
+		return db.handoffLog(ctx, w, cfg, adopt)
 	}
 	if err = w.persist(); err != nil {
 		return nil, nil, err
@@ -105,32 +116,6 @@ func (db *DB) Handoff(
 	}
 	w.closed = true
 	return &Writer{WriterConfig: cfg, idx: next}, pending, nil
-}
-
-// handoffLog closes w and opens a writer of cfg. It fails when w has uncommitted
-// samples, which the pointer log layout does not move.
-func (db *DB) handoffLog(
-	ctx context.Context,
-	w *Writer,
-	cfg WriterConfig,
-	adopt *Pending,
-) (*Writer, error) {
-	if adopt != nil {
-		return nil, errors.Wrap(
-			validate.ErrValidation,
-			"a handoff on the pointer log layout adopts no pending samples",
-		)
-	}
-	if len(w.log.runs) > 0 {
-		return nil, errors.Wrap(
-			errors.ErrUnsupported,
-			"the pointer log layout does not move uncommitted samples",
-		)
-	}
-	if err := w.Close(); err != nil {
-		return nil, err
-	}
-	return db.OpenWriter(ctx, cfg)
 }
 
 // uncommitted returns the time range of the samples that w has not committed, and false

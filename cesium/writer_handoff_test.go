@@ -16,18 +16,22 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
 
-var _ = Describe("Handoff", func() {
+var _ = DescribeTableSubtree("Handoff", func(pointerLog bool) {
 	var (
 		db          *cesium.DB
 		clock, data cesium.ChannelKey
 	)
+	// texts holds the error texts that the layout gives.
+	texts := map[bool]struct{ order, stored string }{
+		false: {"index out of order", "already data in the writer's time range"},
+		true:  {"must be after", "inside its stored data"},
+	}[pointerLog]
 	create := func(ctx SpecContext) {
 		GinkgoHelper()
 		Expect(db.CreateChannel(
@@ -47,7 +51,15 @@ var _ = Describe("Handoff", func() {
 		)).To(Succeed())
 	}
 	BeforeEach(func(ctx SpecContext) {
-		db = mustOpenDBOnFS(ctx, fs.NewMem())
+		var opts []cesium.Option
+		if pointerLog {
+			opts = append(
+				opts,
+				cesium.WithPointerLog(),
+				cesium.WithRandom(rand.NewPCG(1, 2)),
+			)
+		}
+		db = mustOpenDBOnFS(ctx, fs.NewMem(), opts...)
 		clock, data = GenerateChannelKey(), GenerateChannelKey()
 		create(ctx)
 	})
@@ -97,6 +109,11 @@ var _ = Describe("Handoff", func() {
 		Expect(held).To(BeFalse())
 		Expect(stored(ctx, data)).To(BeZero())
 		MustSucceed2(w.Commit(ctx, nil))
+		if pointerLog {
+			_, held = MustSucceed2(p.Commit(ctx))
+			Expect(held).To(BeFalse(), "the pending waits until its stamps are durable")
+			Expect(w.Sync(ctx)).To(Succeed())
+		}
 		end, held := MustSucceed2(p.Commit(ctx))
 		Expect(held).To(BeTrue())
 		Expect(end).To(Equal(13*telem.SecondTS + 1))
@@ -159,8 +176,8 @@ var _ = Describe("Handoff", func() {
 			ctx,
 			telem.UnaryFrame(clock, telem.NewSeriesSecondsTSV(12)),
 			nil,
-		)).Error().To(MatchError(ContainSubstring("index out of order")))
-		Expect(w.Close()).To(MatchError(ContainSubstring("index out of order")))
+		)).Error().To(MatchError(ContainSubstring(texts.order)))
+		Expect(w.Close()).To(MatchError(ContainSubstring(texts.order)))
 		Expect(p.Close()).To(Succeed())
 	})
 
@@ -183,7 +200,7 @@ var _ = Describe("Handoff", func() {
 		first := openFirst(ctx)
 		MustSucceed2(first.Commit(ctx, nil))
 		Expect(db.Handoff(ctx, first, config(clock), nil)).Error().
-			To(MatchError(ContainSubstring("already data in the writer's time range")))
+			To(MatchError(ContainSubstring(texts.stored)))
 		Expect(stored(ctx, clock)).To(Equal(int64(4)))
 	})
 
@@ -205,46 +222,19 @@ var _ = Describe("Handoff", func() {
 			To(MatchError(ContainSubstring("the writer lacks a key of the pending")))
 	})
 
-	Describe("On the pointer log layout", func() {
-		BeforeEach(func(ctx SpecContext) {
-			db = mustOpenDBOnFS(
-				ctx,
-				fs.NewMem(),
-				cesium.WithPointerLog(),
-				cesium.WithRandom(rand.NewPCG(1, 2)),
-			)
-			create(ctx)
-		})
-
-		It("Should refuse to move uncommitted samples, and drop them", func(
-			ctx SpecContext,
-		) {
-			Expect(db.Handoff(ctx, openFirst(ctx), config(clock), nil)).Error().To(
-				SatisfyAll(
-					MatchError(errors.ErrUnsupported),
-					MatchError(ContainSubstring(
-						"dropped the uncommitted samples of clock",
-					)),
-				),
-			)
-			Expect(stored(ctx, clock)).To(BeZero())
-			Expect(stored(ctx, data)).To(BeZero())
-		})
-
-		It("Should open the next writer when there is nothing to move", func(
-			ctx SpecContext,
-		) {
-			first := openFirst(ctx)
-			MustSucceed2(first.Commit(ctx, nil))
-			cfg := config(clock)
-			cfg.Start = 13*telem.SecondTS + 1
-			w, p := MustSucceed2(db.Handoff(ctx, first, cfg, nil))
-			Expect(p).To(BeNil())
-			mustWrite(ctx, w, telem.UnaryFrame(clock, telem.NewSeriesSecondsTSV(14)))
-			Expect(MustSucceed2(w.Commit(ctx, nil))).To(Equal(14*telem.SecondTS + 1))
-			Expect(w.Close()).To(Succeed())
-			Expect(stored(ctx, clock)).To(Equal(int64(5)))
-			Expect(stored(ctx, data)).To(Equal(int64(4)))
-		})
+	It("Should open the next writer when there is nothing to move", func(
+		ctx SpecContext,
+	) {
+		first := openFirst(ctx)
+		MustSucceed2(first.Commit(ctx, nil))
+		cfg := config(clock)
+		cfg.Start = 13*telem.SecondTS + 1
+		w, p := MustSucceed2(db.Handoff(ctx, first, cfg, nil))
+		Expect(p).To(BeNil())
+		mustWrite(ctx, w, telem.UnaryFrame(clock, telem.NewSeriesSecondsTSV(14)))
+		Expect(MustSucceed2(w.Commit(ctx, nil))).To(Equal(14*telem.SecondTS + 1))
+		Expect(w.Close()).To(Succeed())
+		Expect(stored(ctx, clock)).To(Equal(int64(5)))
+		Expect(stored(ctx, data)).To(Equal(int64(4)))
 	})
-})
+}, Entry("old layout", false), Entry("pointer log", true))

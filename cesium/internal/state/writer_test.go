@@ -677,12 +677,12 @@ var _ = Describe("Writer", func() {
 			Expect(other.Join(d)).To(MatchError(ContainSubstring("joins no writer")))
 		})
 
-		It("Should add a key from the start of the clock's claim", func() {
-			Expect(w.Add([]state.WriterKey{{Key: 7, DataType: 4}})).To(Succeed())
+		It("Should add a key with a claim from its start", func() {
+			Expect(w.Add([]state.WriterKey{{Key: 7, DataType: 4}}, 100)).To(Succeed())
 			id := MustSucceed(w.NewSegment(7))
 			Expect(w.Commit([]*log.Commit{commit(2, n, 0, 100, 110, slot(clockID, 16),
 				slot(id, 16))})).To(Succeed())
-			Expect(w.Add([]state.WriterKey{{Key: 7, DataType: 4}})).
+			Expect(w.Add([]state.WriterKey{{Key: 7, DataType: 4}}, 100)).
 				To(MatchError(ContainSubstring("already writes key 7")))
 		})
 
@@ -693,7 +693,7 @@ var _ = Describe("Writer", func() {
 			Expect(other.Commit([]*log.Commit{commit(2, m, 0, 100, 110,
 				slot(id, 16))})).To(Succeed())
 			Expect(other.Close()).To(Succeed())
-			Expect(w.Add([]state.WriterKey{{Key: 8, DataType: 4}})).To(SatisfyAll(
+			Expect(w.Add([]state.WriterKey{{Key: 8, DataType: 4}}, 100)).To(SatisfyAll(
 				conflict(),
 				MatchError(ContainSubstring("inside its stored data")),
 			))

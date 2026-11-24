@@ -299,7 +299,11 @@ func (w *logWriter) extendRun(
 	first, last telem.TimeStamp,
 	n uint32,
 ) {
-	if len(w.runs) == 0 {
+	if k := len(
+		w.runs,
+	); k == 0 ||
+		w.runs[k-1].alignment.AddSamples(w.runs[k-1].samples) !=
+			alignment {
 		w.runs = append(w.runs, run{alignment: alignment, first: first})
 	}
 	r := &w.runs[len(w.runs)-1]
@@ -324,6 +328,9 @@ func (w *logWriter) stretch(
 	}
 	if w.number != 0 {
 		return false, nil
+	}
+	if n := len(w.runs); n > 0 {
+		w.runs[n-1].ends = w.ends(w.runs[n-1].ends, true)
 	}
 	w.next = 0
 	if w.unstored {
@@ -404,7 +411,7 @@ func (w *logWriter) checkOrder(
 	prev := w.last
 	for i := range int(s.Len()) {
 		stamp := s.ValueAt[telem.TimeStamp](i)
-		if (i > 0 || w.number != 0) && stamp <= prev {
+		if (i > 0 || w.number != 0 || len(w.runs) > 0) && stamp <= prev {
 			return 0, 0, channel.Wrap(w.clock, errors.Wrapf(
 				validate.ErrValidation,
 				"stamp %v must be after %v",

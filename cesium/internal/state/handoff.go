@@ -131,9 +131,10 @@ func (r *joinRequest) run(s *State) {
 func (w *Writer) Join(d *Writer) error { return w.call(&joinRequest{w: w, d: d}) }
 
 type addRequest struct {
-	w    *Writer
-	keys []WriterKey
-	pre  []Preload
+	w     *Writer
+	keys  []WriterKey
+	start telem.TimeStamp
+	pre   []Preload
 }
 
 func (r *addRequest) fail(err error) { r.w.done <- err }
@@ -144,7 +145,7 @@ func (r *addRequest) run(s *State) {
 		w.done <- w.pulled
 		return
 	}
-	start := w.claims[w.cfg.Clock].start
+	start := r.start
 	for _, k := range r.keys {
 		if _, written := w.types[k.Key]; written {
 			w.done <- errors.Newf("writer of clock %d already writes key %d",
@@ -164,11 +165,11 @@ func (r *addRequest) run(s *State) {
 	w.done <- nil
 }
 
-// Add makes w write keys too, after the checks that OpenWriter makes, at the start of
-// the claim of w on its clock. pre holds the preload of each key of keys at that start,
-// in rising order of key. It returns the errors of OpenWriter.
-func (w *Writer) Add(keys []WriterKey, pre ...Preload) error {
-	return w.call(&addRequest{w: w, keys: keys, pre: pre})
+// Add makes w write keys too, with claims from start, after the checks that
+// OpenWriter makes at start. pre holds the preload of each key of keys at start, in
+// rising order of key. It returns the errors of OpenWriter.
+func (w *Writer) Add(keys []WriterKey, start telem.TimeStamp, pre ...Preload) error {
+	return w.call(&addRequest{w: w, keys: keys, start: start, pre: pre})
 }
 
 type stampedRequest struct {
