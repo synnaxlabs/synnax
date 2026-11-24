@@ -884,15 +884,6 @@ var _ = Describe("Read task", func() {
 						)
 				},
 			),
-			Entry("fields of one topic on different indexes",
-				func(ctx context.Context) (msgpack.EncodedJSON, string) {
-					_, a := createIndexed(ctx, telem.Float64T)
-					_, b := createIndexed(ctx, telem.Float64T)
-					return readConfig(ctx, dev, plainEntry(
-						"plant/x", field("a", a[0], "/a"), field("b", b[0], "/b"),
-					)), "every channel must share one index channel"
-				},
-			),
 			Entry("two topics that write to one channel",
 				func(ctx context.Context) (msgpack.EncodedJSON, string) {
 					_, data := createIndexed(ctx, telem.Float64T)

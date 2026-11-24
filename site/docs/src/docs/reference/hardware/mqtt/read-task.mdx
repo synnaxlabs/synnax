@@ -216,9 +216,10 @@ timestamp type, such as **Timestamp (ms)**. Then, under **Timestamp**, set **Sou
 **Payload value** and select the **Field**. The list does not show the field, and
 **Channel** under **Timestamp** names its index channel.
 
-Timestamps in an index channel must increase. The task skips a payload whose timestamp
-is not after the last one it wrote. A broker can send such a payload when it delivers a
-message twice at quality of service 1.
+Timestamps in an index channel must increase. When a timestamp is not after the last one
+that the task wrote to the index channel, the task skips the fields of the payload on
+that index channel. A broker can send such a payload when it delivers a message twice at
+quality of service 1.
 
 In code, bind the timestamp field to the index channel, and put the key of the field in
 `index` on the message:
@@ -442,8 +443,9 @@ message and its fields, and the data types that each field type can write to.
 
 The task read some messages that it cannot record. The description gives the topic and
 the reason for the last one, such as `field temp: no value at /temp`, a payload that
-matches no message, or a timestamp that is not after the last one written. The warning
-clears 5 seconds after the last skip.
+matches no message, or a timestamp that is not after the last one written. A field that
+the task cannot read drops only the fields on its index channel, and the other fields of
+the payload still write. The warning clears 5 seconds after the last skip.
 
 </Problem.Cause>
 <Problem.Fix>
