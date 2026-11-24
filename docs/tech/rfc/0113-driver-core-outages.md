@@ -133,11 +133,10 @@ holds 10,000 calls. Unlike `task::StatusCache` (`driver/task/status_cache.cpp:32
 which keeps the latest status per task, it keeps every call, so the Core sees what
 happened. It lives in `data/outbox` in the state directory. The Linux unit lists
 `synnax-driver/data` in `StateDirectory`, so the service user owns it and root keeps
-`/var/lib/synnax-driver`. A root Driver with the default state directory and a `synnax`
-user uses `root-data/outbox`, so the service never meets a file that root owns. When the
-outbox fails to open, the Driver runs without it: the rack status shows the cause and
-the fix, and Arc tasks that set statuses fail to start. The Driver config sets its
-limits in `outage`.
+`/var/lib/synnax-driver`. A Driver run by root gives each file it creates there to the
+owner of `data`, so the service can open it. When the outbox fails to open, the Driver
+runs without it: the rack status shows the cause and the fix, and Arc tasks that set
+statuses fail to start. The Driver config sets its limits in `outage`.
 
 - **`status.set`**: The node stamps the time, queues the call, and never blocks. It
   returns the key of the last resolved set of that name, or an empty string before the

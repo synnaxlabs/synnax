@@ -61,10 +61,6 @@ const std::string OPCUA_STATE_DIR = "opcua";
 /// as it runs. The Linux service user owns it.
 const std::string DATA_DIR = "data";
 
-/// @brief the directory in the state directory of the computer that holds the files a
-/// Driver run by root writes on Linux, so the service user never meets a file of root.
-const std::string ROOT_DATA_DIR = "root-data";
-
 /// @brief the directory in the data directory that holds the outbox.
 const std::string OUTBOX_DIR = "outbox";
 
@@ -348,6 +344,23 @@ struct Config {
             return static_cast<std::size_t>(n);
         };
         this->outbox.max_bytes = count("outbox_size", this->outbox.max_bytes);
+        this->outbox.max_calls = count("outbox_max_calls", this->outbox.max_calls);
+        const auto max_payload = count("outbox_max_payload", this->outbox.max_payload);
+        if (max_payload > journal::MAX_PAYLOAD)
+            p.field_err(
+                "outbox_max_payload",
+                "must be at most " + std::to_string(journal::MAX_PAYLOAD)
+            );
+        this->outbox.max_payload = static_cast<std::uint32_t>(
+            std::min<std::size_t>(max_payload, journal::MAX_PAYLOAD)
+        );
+        const auto share = p.field("outbox_compact_share", this->outbox.compact_share);
+        if (share <= 0 || share >= 1)
+            p.field_err(
+                "outbox_compact_share",
+                "must be greater than 0 and less than 1"
+            );
+        this->outbox.compact_share = share;
         this->outbox.segment_calls = count(
             "outbox_segment_calls",
             this->outbox.segment_calls

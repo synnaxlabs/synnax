@@ -15,6 +15,7 @@
 
 #ifndef _WIN32
 #include <pwd.h>
+#include <sys/stat.h>
 #include <unistd.h>
 #endif
 
@@ -23,7 +24,9 @@
 #include "x/cpp/defer/defer.h"
 #include "x/cpp/env/env.h"
 #include "x/cpp/testutil/testutil.h"
+#include "x/cpp/uuid/uuid.h"
 
+#include "driver/outbox/outbox.h"
 #include "driver/rack/rack.h"
 #include "driver/rack/state.h"
 
@@ -297,36 +300,69 @@ TEST(StateTest, RefuseReadableRelativeStateFile) {
     ASSERT_OCCURRED_AS(cfg.load_persisted_state(args), STATE_ERROR);
 }
 
-/// @brief it should keep the files the Driver writes in the data directory of its state
-/// directory when it is not root.
-TEST(StateTest, DataDirOfANonRootDriver) {
-#ifndef _WIN32
-    if (geteuid() == 0) GTEST_SKIP() << "root on Linux uses its own data directory";
-#endif
-    EXPECT_EQ(
-        state::data_dir("/tmp/state"),
-        std::filesystem::path("/tmp/state") / DATA_DIR
-    );
-    EXPECT_EQ(state::data_dir(state::machine_dir()), state::machine_dir() / DATA_DIR);
+/// @brief returns a new temporary directory for an owner hook spec.
+std::filesystem::path owner_test_dir() {
+    const auto dir = std::filesystem::temp_directory_path() /
+                     ("owner_hook_" + x::uuid::create().to_string());
+    std::filesystem::create_directories(dir);
+    return dir;
 }
 
-/// @brief it should keep the files of root in their own data directory at the state
-/// directory of the computer when the service user exists, and in the data directory
-/// anywhere else.
-TEST(StateTest, DataDirOfARootDriver) {
-#ifndef __linux__
-    GTEST_SKIP() << "only Linux keeps the files of root apart";
+/// @brief it should leave the owner of new files unchanged when it is not root.
+TEST(StateTest, OwnerHookDoesNothingWithoutRoot) {
+    const auto dir = owner_test_dir();
+    x::defer::defer cleanup([&] { std::filesystem::remove_all(dir); });
+    auto [hook, err] = state::owner_hook(dir, false);
+    ASSERT_NIL(err);
+    ASSERT_NIL(hook(dir / "missing"));
+}
+
+/// @brief it should give a new file to the owner of the directory, and fail loud for a
+/// file it cannot give away.
+TEST(StateTest, OwnerHookGivesFilesToTheOwnerOfTheDirectory) {
+#ifdef _WIN32
+    GTEST_SKIP() << "Windows has no POSIX owners";
 #else
-    if (geteuid() != 0 || getpwnam("synnax") == nullptr)
-        GTEST_SKIP() << "requires root and the synnax user";
-    EXPECT_EQ(
-        state::data_dir(state::machine_dir()),
-        state::machine_dir() / ROOT_DATA_DIR
-    );
-    EXPECT_EQ(
-        state::data_dir("/tmp/state"),
-        std::filesystem::path("/tmp/state") / DATA_DIR
-    );
+    const auto dir = owner_test_dir();
+    x::defer::defer cleanup([&] { std::filesystem::remove_all(dir); });
+    auto [hook, err] = state::owner_hook(dir, true);
+    ASSERT_NIL(err);
+    std::ofstream(dir / "file") << "x";
+    ASSERT_NIL(hook(dir / "file"));
+    struct stat st{};
+    ASSERT_EQ(stat((dir / "file").c_str(), &st), 0);
+    EXPECT_EQ(st.st_uid, geteuid());
+    ASSERT_OCCURRED_AS(hook(dir / "missing"), STATE_ERROR);
+#endif
+}
+
+/// @brief it should give each file of an outbox that root opens to the owner of the
+/// data directory.
+TEST(StateTest, RootOutboxBelongsToTheOwnerOfTheDataDirectory) {
+#ifdef _WIN32
+    GTEST_SKIP() << "Windows has no POSIX owners";
+#else
+    const passwd *nobody = getpwnam("nobody");
+    if (geteuid() != 0 || nobody == nullptr)
+        GTEST_SKIP() << "requires root and the nobody user";
+    const auto dir = owner_test_dir();
+    x::defer::defer cleanup([&] { std::filesystem::remove_all(dir); });
+    ASSERT_EQ(chown(dir.c_str(), nobody->pw_uid, nobody->pw_gid), 0);
+    auto [hook, err] = state::owner_hook(dir);
+    ASSERT_NIL(err);
+    {
+        const auto outbox = ASSERT_NIL_P(
+            outbox::Outbox::open({.dir = dir / OUTBOX_DIR, .on_create = hook})
+        );
+    }
+    size_t files = 0;
+    for (const auto &entry: std::filesystem::recursive_directory_iterator(dir)) {
+        struct stat st{};
+        ASSERT_EQ(lstat(entry.path().c_str(), &st), 0);
+        EXPECT_EQ(st.st_uid, nobody->pw_uid) << entry.path();
+        files++;
+    }
+    EXPECT_GT(files, 1);
 #endif
 }
 }

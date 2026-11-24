@@ -32,8 +32,13 @@ fs::path machine_dir() {
     return "C:\\ProgramData\\synnax-driver";
 }
 
-fs::path data_dir(const fs::path &state_dir) {
-    return state_dir / DATA_DIR;
+std::pair<journal::OnCreate, x::errors::Error>
+owner_hook(const fs::path &, const bool) {
+    return {journal::no_create_hook, x::errors::NIL};
+}
+
+std::pair<journal::OnCreate, x::errors::Error> owner_hook(const fs::path &dir) {
+    return owner_hook(dir, false);
 }
 
 fs::path user_dir() {

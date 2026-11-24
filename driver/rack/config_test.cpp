@@ -637,6 +637,9 @@ TEST_F(RackConfigTest, OutboxConfigDefaults) {
     const auto cfg = ASSERT_NIL_P(Config::resolve(args, brk));
     const outbox::Config def;
     ASSERT_EQ(cfg.outbox.max_bytes, std::uint64_t{64} * 1024 * 1024);
+    ASSERT_EQ(cfg.outbox.max_calls, def.max_calls);
+    ASSERT_EQ(cfg.outbox.max_payload, def.max_payload);
+    ASSERT_EQ(cfg.outbox.compact_share, def.compact_share);
     ASSERT_EQ(cfg.outbox.segment_calls, def.segment_calls);
     ASSERT_EQ(cfg.outbox.send_timeout, def.send_timeout);
     ASSERT_EQ(cfg.outbox.retry.base_interval, def.retry.base_interval);
@@ -652,6 +655,9 @@ TEST_F(RackConfigTest, LoadOutboxConfigFromFile) {
     std::ofstream config_file(config_path);
     config_file << R"({"outage": {
         "outbox_size": 1048576,
+        "outbox_max_calls": 500,
+        "outbox_max_payload": 1024,
+        "outbox_compact_share": 0.5,
         "outbox_segment_calls": 50,
         "outbox_send_timeout": 3,
         "outbox_retry_interval": 0.5,
@@ -667,6 +673,9 @@ TEST_F(RackConfigTest, LoadOutboxConfigFromFile) {
     );
     const auto cfg = ASSERT_NIL_P(Config::resolve(config_args, brk));
     ASSERT_EQ(cfg.outbox.max_bytes, 1048576);
+    ASSERT_EQ(cfg.outbox.max_calls, 500);
+    ASSERT_EQ(cfg.outbox.max_payload, 1024);
+    ASSERT_EQ(cfg.outbox.compact_share, 0.5);
     ASSERT_EQ(cfg.outbox.segment_calls, 50);
     ASSERT_EQ(cfg.outbox.send_timeout, 3 * x::telem::SECOND);
     ASSERT_EQ(cfg.outbox.retry.base_interval, 500 * x::telem::MILLISECOND);
@@ -679,6 +688,9 @@ TEST_F(RackConfigTest, LoadOutboxConfigFromFile) {
 TEST_F(RackConfigTest, LoadOutboxConfigFromEnvironmentVariables) {
     const std::vector<std::pair<std::string, std::string>> vars = {
         {"SYNNAX_DRIVER_OUTBOX_SIZE", "2097152"},
+        {"SYNNAX_DRIVER_OUTBOX_MAX_CALLS", "300"},
+        {"SYNNAX_DRIVER_OUTBOX_MAX_PAYLOAD", "2048"},
+        {"SYNNAX_DRIVER_OUTBOX_COMPACT_SHARE", "0.1"},
         {"SYNNAX_DRIVER_OUTBOX_SEGMENT_CALLS", "20"},
         {"SYNNAX_DRIVER_OUTBOX_SEND_TIMEOUT", "4"},
         {"SYNNAX_DRIVER_OUTBOX_RETRY_INTERVAL", "2"},
@@ -694,12 +706,28 @@ TEST_F(RackConfigTest, LoadOutboxConfigFromEnvironmentVariables) {
     });
     const auto cfg = ASSERT_NIL_P(Config::resolve(args, brk));
     ASSERT_EQ(cfg.outbox.max_bytes, 2097152);
+    ASSERT_EQ(cfg.outbox.max_calls, 300);
+    ASSERT_EQ(cfg.outbox.max_payload, 2048);
+    ASSERT_EQ(cfg.outbox.compact_share, 0.1);
     ASSERT_EQ(cfg.outbox.segment_calls, 20);
     ASSERT_EQ(cfg.outbox.send_timeout, 4 * x::telem::SECOND);
     ASSERT_EQ(cfg.outbox.retry.base_interval, 2 * x::telem::SECOND);
     ASSERT_EQ(cfg.outbox.retry.max_interval, 2 * x::telem::MINUTE);
     ASSERT_EQ(cfg.outbox.sync_interval, 3 * x::telem::SECOND);
     ASSERT_EQ(cfg.outbox.stuck_after, 90 * x::telem::SECOND);
+}
+
+/// @brief it should refuse a compact share outside 0 to 1 and a payload past the
+/// journal limit.
+TEST_F(RackConfigTest, RefuseOutOfRangeOutboxSettings) {
+    for (const auto &[name, value]: std::vector<std::pair<std::string, std::string>>{
+             {"SYNNAX_DRIVER_OUTBOX_COMPACT_SHARE", "1"},
+             {"SYNNAX_DRIVER_OUTBOX_MAX_PAYLOAD", "67108865"},
+         }) {
+        x::env::set(name, value);
+        ASSERT_OCCURRED_AS_P(Config::resolve(args, brk), x::errors::VALIDATION);
+        x::env::unset(name);
+    }
 }
 
 /// @brief it should refuse an outbox setting that is not greater than 0.

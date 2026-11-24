@@ -32,7 +32,8 @@ namespace driver::rack {
 /// Driver cannot read.
 void write_future_segment(const std::filesystem::path &path) {
     std::string header(outbox::SEGMENT_MAGIC.data(), outbox::SEGMENT_MAGIC.size());
-    header += std::string("\x02\x00\x00\x00\x00\x00\x00\x00", 8);
+    header += std::string("\x02\x00", 2);
+    header += std::string(journal::HEADER_SIZE - 14, '\0');
     const auto crc = static_cast<std::uint32_t>(absl::ComputeCrc32c(header));
     for (int i = 0; i < 4; i++)
         header.push_back(static_cast<char>(crc >> (8 * i)));

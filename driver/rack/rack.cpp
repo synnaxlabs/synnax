@@ -107,8 +107,9 @@ void Rack::run(x::args::Parser &args, const std::function<void()> &on_shutdown) 
     VLOG(1) << "loaded config. starting task manager";
     const auto rt_manager = std::make_shared<x::thread::rt::Manager>();
     const auto client = cfg.new_client();
+    const auto data = cfg.state_dir / DATA_DIR;
     auto outbox_cfg = cfg.outbox;
-    outbox_cfg.dir = state::data_dir(cfg.state_dir) / OUTBOX_DIR;
+    outbox_cfg.dir = data / OUTBOX_DIR;
     outbox_cfg.statuses = client->statuses;
     outbox_cfg.on_stuck =
         [alert = cfg.outbox_alert,
@@ -123,7 +124,23 @@ void Rack::run(x::args::Parser &args, const std::function<void()> &on_shutdown) 
             alert->raise(std::move(health));
         };
     // The outbox serves only Arc status sets, so the rack runs without it.
-    auto [outbox, outbox_err] = outbox::Outbox::open(outbox_cfg);
+    auto [outbox, outbox_err] =
+        [&]() -> std::pair<std::unique_ptr<outbox::Outbox>, x::errors::Error> {
+        std::error_code ec;
+        std::filesystem::create_directories(data, ec);
+        if (ec)
+            return {
+                nullptr,
+                x::errors::Error(
+                    STATE_ERROR,
+                    "failed to create " + data.string() + ": " + ec.message()
+                )
+            };
+        auto [hook, hook_err] = state::owner_hook(data);
+        if (hook_err) return {nullptr, hook_err};
+        outbox_cfg.on_create = std::move(hook);
+        return outbox::Outbox::open(outbox_cfg);
+    }();
     if (outbox_err) {
         cfg.outbox_err = outbox_failure(outbox_cfg.dir, outbox_err);
         LOG(ERROR) << OUTBOX_FAILURE_MSG << ". " << cfg.outbox_err.data;

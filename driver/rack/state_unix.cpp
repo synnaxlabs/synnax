@@ -121,12 +121,24 @@ fs::path machine_dir() {
 #endif
 }
 
-fs::path data_dir(const fs::path &state_dir) {
-#ifdef __linux__
-    if (geteuid() == 0 && state_dir == machine_dir() && getpwnam("synnax") != nullptr)
-        return state_dir / ROOT_DATA_DIR;
-#endif
-    return state_dir / DATA_DIR;
+std::pair<journal::OnCreate, x::errors::Error>
+owner_hook(const fs::path &dir, const bool root) {
+    if (!root) return {journal::no_create_hook, x::errors::NIL};
+    struct stat st{};
+    if (stat(dir.c_str(), &st) != 0)
+        return {nullptr, errno_error("failed to read the owner of " + dir.string())};
+    return {
+        [uid = st.st_uid, gid = st.st_gid](const fs::path &path) {
+            if (lchown(path.c_str(), uid, gid) != 0)
+                return errno_error("failed to give " + path.string() + " to its owner");
+            return x::errors::NIL;
+        },
+        x::errors::NIL
+    };
+}
+
+std::pair<journal::OnCreate, x::errors::Error> owner_hook(const fs::path &dir) {
+    return owner_hook(dir, geteuid() == 0);
 }
 
 fs::path user_dir() {

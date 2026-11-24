@@ -163,10 +163,12 @@ cc_test(
         "//driver/version",
     ],
     deps = [
+        "//driver/outbox",
         "//driver/rack",
         "//x/cpp/defer",
         "//x/cpp/env",
         "//x/cpp/testutil",
+        "//x/cpp/uuid",
         "@googletest//:gtest_main",
     ],
 )
