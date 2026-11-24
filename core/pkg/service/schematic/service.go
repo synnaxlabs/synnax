@@ -11,6 +11,7 @@ package schematic
 
 import (
 	"context"
+	"slices"
 	"uuid"
 
 	"github.com/samber/lo"
@@ -225,7 +226,8 @@ func (s *Service) MoveGroups(
 	return s.NewWriter(tx).setProject(ctx, *p, keys...)
 }
 
-// actuatorSymbols returns the keys of the symbols that a custom_actuator node draws.
+// actuatorSymbols returns the keys of the symbols that a custom_actuator node draws. A
+// custom_actuator node that the upgrade made a symbol node binds a channel source.
 func (s *Service) actuatorSymbols(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -237,15 +239,27 @@ func (s *Service) actuatorSymbols(
 	keys := set.Set[symbol.Key]{}
 	for _, sc := range all {
 		for _, n := range sc.Nodes {
-			cfg, isActuator := n.Config.Variant.(CustomActuatorNodeConfig)
-			if !isActuator {
-				continue
-			}
-			// A spec key that is not a UUID names no symbol.
-			if key, err := uuid.Parse(cfg.SpecKey); err == nil {
-				keys.Add(key)
+			switch cfg := n.Config.Variant.(type) {
+			case CustomActuatorNodeConfig:
+				// A spec key that is not a UUID names no symbol.
+				if key, err := uuid.Parse(cfg.SpecKey); err == nil {
+					keys.Add(key)
+				}
+			case SymbolNodeConfig:
+				ref, isCustom := cfg.Spec.Variant.(symbol.CustomRef)
+				if isCustom && slices.ContainsFunc(cfg.States, readsChannel) {
+					keys.Add(ref.Key)
+				}
 			}
 		}
 	}
 	return keys, nil
+}
+
+func readsChannel(b StateBinding) bool {
+	if b.Source == nil {
+		return false
+	}
+	_, ok := b.Source.Variant.(ChannelSource)
+	return ok
 }

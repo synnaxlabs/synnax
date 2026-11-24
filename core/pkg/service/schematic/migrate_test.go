@@ -34,6 +34,7 @@ import (
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/set"
+	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
@@ -138,7 +139,7 @@ var _ = Describe("Stored v4 symbols", func() {
 })
 
 var _ = Describe("A store from core/v0.62.0", func() {
-	It("Should draw each equipment node as its built-in symbol", func(ctx SpecContext) {
+	It("Should draw each equipment node as a symbol node", func(ctx SpecContext) {
 		db := openShipped(ctx)
 		vent := decodeReleased[v4.Symbol]("symbol_vent_valve.hex")
 		tank := decodeReleased[v4.Symbol]("symbol_tank.hex")
@@ -166,13 +167,29 @@ var _ = Describe("A store from core/v0.62.0", func() {
 			if !ok {
 				continue
 			}
-			ref, ok := cfg.Spec.Variant.(symbol.BuiltinRef)
-			Expect(ok).To(BeTrue())
-			Expect(names.Contains(ref.Name)).To(BeTrue(), ref.Name)
+			if ref, ok := cfg.Spec.Variant.(symbol.BuiltinRef); ok {
+				Expect(names.Contains(ref.Name)).To(BeTrue(), ref.Name)
+			}
 			nodes[cfg.Label.Label] = cfg
 		}
-		// The fixture's lights and custom nodes stay as they are.
-		Expect(nodes).To(HaveLen(len(stored.Nodes) - 17))
+		// The 3 lights with an on color and 5 custom nodes with overrides stay.
+		Expect(nodes).To(HaveLen(len(stored.Nodes) - 8))
+		match := func(label string) *symbol.Matcher {
+			GinkgoHelper()
+			Expect(nodes[label].States).To(HaveLen(1))
+			return nodes[label].States[0].Match
+		}
+		Expect(match("Default threshold")).To(BeNil())
+		Expect(match("Empty threshold")).To(BeNil())
+		within := &symbol.Matcher{Variant: symbol.WithinMatcher{
+			Bounds: spatial.Bounds{Lower: 10, Upper: 20},
+		}}
+		Expect(match("Differing threshold")).To(Equal(within))
+		Expect(match("Inverted threshold")).To(Equal(within))
+		Expect(nodes["custom_actuator"].Spec.Variant).
+			To(Equal(symbol.CustomRef{Key: vent.Key}))
+		Expect(nodes["custom_static"].Spec.Variant).
+			To(Equal(symbol.CustomRef{Key: tank.Key}))
 		Expect(nodes["Normally open"].Spec.Variant).
 			To(Equal(symbol.BuiltinRef{Name: "normally_open_solenoid_valve"}))
 		Expect(nodes["Red filter"].Scale).To(Equal(1.5))

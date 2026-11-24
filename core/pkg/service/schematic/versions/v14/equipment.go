@@ -12,11 +12,13 @@ package v14
 import (
 	"encoding/json/v2"
 	"reflect"
+	"uuid"
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	symbol "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v5"
 	v13 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v13"
 	xcolor "github.com/synnaxlabs/x/color/versions/v2"
+	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
 )
 
 const (
@@ -24,19 +26,56 @@ const (
 	normallyOpenSolenoidName = "normally_open_solenoid_valve"
 )
 
-// SymbolNode returns the node that draws the built-in symbol of a stored equipment
-// node, with the same label, scale, color, timing, and channels. It returns false for a
-// node with no built-in symbol.
+// builtinWithin is the match of the active state of each built-in toggle and light.
+var builtinWithin = spatial.Bounds{Lower: 0.9, Upper: 1.1}
+
+// SymbolNode returns the symbol node that a stored equipment node becomes, with the
+// same label, scale, color, timing, and channels. A custom node draws the custom symbol
+// of its spec key. It returns false for a node with no symbol, and for a light with an
+// on color or a custom node with state overrides, since those need new records.
 func SymbolNode(old v13.NodeConfig) (SymbolNodeConfig, bool, error) {
-	if v, ok := old.Variant.(v13.SolenoidValveNodeConfig); ok {
-		n := toggle(v.ToggleSymbolConfig)
+	switch v := old.Variant.(type) {
+	case v13.SolenoidValveNodeConfig:
+		n := toggle(v.ToggleConfig, v.StrokeColor)
 		n.Spec = builtin(string(v13.SolenoidValveNodeConfigType))
 		if v.NormallyOpen {
 			n.Spec = builtin(normallyOpenSolenoidName)
 		}
 		return n, true, nil
+	case v13.LightNodeConfig:
+		if v.OnColor != nil {
+			return SymbolNodeConfig{}, false, nil
+		}
+		n := base(v.LabeledConfig, v.ScaledConfig, v.StrokeColor)
+		n.Spec = builtin(string(v13.LightNodeConfigType))
+		n.StalenessTimeout = v.StalenessTimeout
+		n.States = []StateBinding{{
+			Key:    activeState,
+			Source: &Source{Variant: ChannelSource{Key: channelKey(v.Channel)}},
+			Match:  lightMatch(v.Threshold),
+		}}
+		return n, true, nil
+	case v13.CustomActuatorNodeConfig:
+		if len(v.StateOverrides) > 0 {
+			return SymbolNodeConfig{}, false, nil
+		}
+		n := toggle(v.ToggleConfig, nil)
+		n.Spec = custom(v.SpecKey)
+		return n, true, nil
+	case v13.CustomStaticNodeConfig:
+		if len(v.StateOverrides) > 0 {
+			return SymbolNodeConfig{}, false, nil
+		}
+		n := base(v.LabeledConfig, v.ScaledConfig, nil)
+		n.Spec = custom(v.SpecKey)
+		n.States = []StateBinding{{Key: activeState}}
+		return n, true, nil
 	}
-	// Each other equipment variant holds its shape as its only field.
+	return shaped(old)
+}
+
+// shaped converts an equipment variant that holds its shape as its only field.
+func shaped(old v13.NodeConfig) (SymbolNodeConfig, bool, error) {
 	v := reflect.ValueOf(old.Variant)
 	if v.Kind() != reflect.Struct || v.NumField() != 1 {
 		return SymbolNodeConfig{}, false, nil
@@ -46,7 +85,7 @@ func SymbolNode(old v13.NodeConfig) (SymbolNodeConfig, bool, error) {
 	case v13.StaticSymbolConfig:
 		n = base(s.LabeledConfig, s.ScaledConfig, s.StrokeColor)
 	case v13.ToggleSymbolConfig:
-		n = toggle(s)
+		n = toggle(s.ToggleConfig, s.StrokeColor)
 	case v13.DummyToggleSymbolConfig:
 		n = base(s.LabeledConfig, s.ScaledConfig, s.StrokeColor)
 		value := 0.0
@@ -96,8 +135,34 @@ func base(
 	return n
 }
 
-func toggle(c v13.ToggleSymbolConfig) SymbolNodeConfig {
-	n := base(c.LabeledConfig, c.ScaledConfig, c.StrokeColor)
+// custom returns the ref of the custom symbol with key, or a missing ref when key is
+// not a symbol key.
+func custom(key string) symbol.Ref {
+	k, err := uuid.Parse(key)
+	if err != nil {
+		return symbol.Ref{Variant: symbol.MissingRef{Key: key}}
+	}
+	return symbol.Ref{Variant: symbol.CustomRef{Key: k}}
+}
+
+// lightMatch returns the match of a light's threshold, swapped when inverted, or nil
+// when the light has none, when it is empty, or when it equals the built-in's match.
+func lightMatch(threshold *spatial.Bounds) *symbol.Matcher {
+	if threshold == nil {
+		return nil
+	}
+	b := *threshold
+	if b.Lower > b.Upper {
+		b.Lower, b.Upper = b.Upper, b.Lower
+	}
+	if b.Lower == b.Upper || b == builtinWithin {
+		return nil
+	}
+	return &symbol.Matcher{Variant: symbol.WithinMatcher{Bounds: b}}
+}
+
+func toggle(c v13.ToggleConfig, stroke *xcolor.Color) SymbolNodeConfig {
+	n := base(c.LabeledConfig, c.ScaledConfig, stroke)
 	n.StalenessTimeout = c.StalenessTimeout
 	n.OnClickDelay = c.OnClickDelay
 	n.Control = &c.Control
