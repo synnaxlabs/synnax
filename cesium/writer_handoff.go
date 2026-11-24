@@ -244,7 +244,13 @@ func (db *DB) handoffIdx(
 	if len(old.held) > 0 && len(next.held) == 0 {
 		next.hasUncommittedData = true
 	}
-	// Only the channels that wrote since their last commit have samples to hand on.
+	p, err := pendRest(old)
+	return next, p, err
+}
+
+// pendRest returns the writers that remain in old after a handoff took its keys as a
+// Pending, with those that hold no uncommitted sample closed, or nil when none remain.
+func pendRest(old *idxWriter) (*Pending, error) {
 	var err error
 	for key, u := range old.internal {
 		if !u.uncommitted {
@@ -253,11 +259,11 @@ func (db *DB) handoffIdx(
 		}
 	}
 	if err != nil || len(old.internal) == 0 {
-		return next, nil, err
+		return nil, err
 	}
 	p := old.runState(old.internal)
 	p.dataPending, p.hasUncommittedData = true, false
-	return next, &Pending{idx: p}, nil
+	return &Pending{idx: p}, nil
 }
 
 // handoffIdle hands off old, which holds no uncommitted sample. In a new run, or when

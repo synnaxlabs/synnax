@@ -198,6 +198,18 @@ type unaryWriterState struct {
 	uncommitted bool
 }
 
+// writeAt writes series at alignment unless skip holds the channel, and marks the
+// channel uncommitted when it writes.
+func (u *unaryWriterState) writeAt(
+	series telem.Series,
+	alignment telem.Alignment,
+	skip func(ChannelKey) bool,
+) (bool, error) {
+	_, skipped, err := u.WriteAtUnless(series, alignment, skip)
+	u.uncommitted = u.uncommitted || (err == nil && !skipped)
+	return skipped, err
+}
+
 // idxWriter is a writer to a set of channels that all share the same index.
 type idxWriter struct {
 	internal map[ChannelKey]*unaryWriterState
@@ -321,7 +333,7 @@ func (w *idxWriter) write(
 		if idx.written {
 			uWriter.SetDomainStart(idx.timeRange.Start)
 		}
-		_, keySkipped, wErr := uWriter.WriteAtUnless(series, alignment, skip)
+		keySkipped, wErr := uWriter.writeAt(series, alignment, skip)
 		if wErr != nil {
 			return fr, wErr
 		}
@@ -331,7 +343,6 @@ func (w *idxWriter) write(
 			skipped = true
 			continue
 		}
-		uWriter.uncommitted = true
 		if !incrementedSampleCount {
 			w.countSamples(alignment, series.Len())
 			incrementedSampleCount = true

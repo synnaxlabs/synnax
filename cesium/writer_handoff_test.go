@@ -290,7 +290,7 @@ var _ = Describe("Handoff", func() {
 		end, _ = MustSucceed2(w.Commit(ctx, nil))
 		Expect(end).To(Equal(16*telem.SecondTS + 1))
 		Expect(w.Close()).To(Succeed())
-		var got []int64
+		got := make([]int64, 0, 7)
 		for _, s := range MustSucceed(
 			db.Read(ctx, telem.TimeRangeMax, data),
 		).Get(data).Series {
