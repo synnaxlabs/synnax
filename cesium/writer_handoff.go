@@ -20,27 +20,44 @@ import (
 )
 
 // Pending holds the uncommitted samples of the channels that Handoff took out of a
-// writer. They lie on clock stamps that the writer wrote. Pending is not safe for
-// concurrent use.
+// writer. They lie on stamps of the writer's clock. Pending is not safe for concurrent
+// use.
 type Pending struct {
 	idx *idxWriter
 	log *logWriter
 }
 
-// Commit commits the samples of p once the clock holds a committed stamp at the last
-// clock stamp of the writer that wrote them, then releases p. It returns the end of the
-// commit, or false and commits nothing while the clock does not hold that stamp. On the
-// pointer log layout, it fails when the clock holds other stamps there, and it returns
-// false, with the samples committed, until their stamps are durable.
+// Commit commits the samples of p once the clock holds committed stamps for them, then
+// releases p. It returns the end of the commit, or false and commits nothing while the
+// clock does not hold them. On the pointer log layout, it fails when the clock holds
+// other stamps there, and it returns false, with the samples committed, until their
+// stamps are durable.
 func (p *Pending) Commit(ctx context.Context) (telem.TimeStamp, bool, error) {
 	if p.log != nil {
 		return p.commitLog(ctx)
+	}
+	if p.idx.hasUncommittedData {
+		return p.commitData(ctx)
 	}
 	held, err := p.idx.indexHoldsHighWater(ctx)
 	if err != nil || !held {
 		return 0, false, err
 	}
 	end, _, err := p.idx.commitPendingData(ctx, nil)
+	if err != nil {
+		return 0, false, err
+	}
+	return end, true, p.Close()
+}
+
+// commitData commits the samples of p, which a writer of data alone left, once the
+// index holds a stamp for each of them, then releases p.
+func (p *Pending) commitData(ctx context.Context) (telem.TimeStamp, bool, error) {
+	_, count, err := p.idx.idx.Coverage(ctx, p.idx.start.Range(telem.TimeStampMax))
+	if err != nil || count < p.idx.sampleCount {
+		return 0, false, err
+	}
+	end, _, err := p.idx.Commit(ctx, nil)
 	if err != nil {
 		return 0, false, err
 	}
@@ -66,7 +83,9 @@ func (p *Pending) Close() error {
 // On the pointer log layout, the new writer is the writer of w with the keys of cfg. On
 // the old layout, Handoff refuses a start of cfg before the end of the last commit of
 // w, and a handoff that adopts a Pending when w holds no uncommitted sample starts a
-// new run.
+// new run. When w does not write its clock and cfg holds no channel, Handoff closes w
+// and opens no writer. It returns the uncommitted samples of w as a Pending, or nil
+// when w has none or stores no samples.
 func (db *DB) Handoff(
 	ctx context.Context,
 	w *Writer,
@@ -96,6 +115,11 @@ func (db *DB) Handoff(
 	if err = w.check(); err != nil {
 		return nil, nil, err
 	}
+	if len(cfg.Channels) == 0 && !slices.Contains(w.Channels, w.Clock) {
+		var pending *Pending
+		pending, err = w.pend()
+		return nil, pending, err
+	}
 	if cfg, err = config.New(WriterConfig{}, cfg); err != nil {
 		return nil, nil, err
 	}
@@ -116,6 +140,22 @@ func (db *DB) Handoff(
 	if w.log != nil {
 		return db.handoffLog(ctx, w, cfg, adopt)
 	}
+	if adopt != nil && adopt.idx.hasUncommittedData {
+		// The old layout matches data to its index by position, so the samples of a
+		// writer of data alone commit on their own.
+		var held bool
+		if _, held, err = adopt.Commit(ctx); err != nil {
+			return nil, nil, err
+		}
+		if !held {
+			return nil, nil, errors.Wrapf(
+				validate.ErrValidation,
+				"clock %d holds no stamps for the pending samples",
+				w.Clock,
+			)
+		}
+		adopt = nil
+	}
 	if err = w.persist(); err != nil {
 		return nil, nil, err
 	}
@@ -127,6 +167,26 @@ func (db *DB) Handoff(
 	}
 	w.closed = true
 	return &Writer{WriterConfig: cfg, idx: next}, pending, nil
+}
+
+// pend closes w, a writer of data alone, and returns its uncommitted samples as a
+// Pending, or nil when it has none or stores no samples.
+func (w *Writer) pend() (*Pending, error) {
+	if _, uncommitted := w.uncommitted(); !uncommitted || w.Unstored {
+		return nil, w.Close()
+	}
+	if w.log != nil {
+		if err := w.log.readStamps(); err != nil {
+			return nil, err
+		}
+		w.closed = true
+		return &Pending{log: w.log}, nil
+	}
+	if err := w.persist(); err != nil {
+		return nil, err
+	}
+	w.closed = true
+	return &Pending{idx: w.idx}, nil
 }
 
 // uncommitted returns the time range of the samples that w has not committed, and false
