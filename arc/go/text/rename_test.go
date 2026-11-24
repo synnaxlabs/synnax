@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/text"
+	"github.com/synnaxlabs/x/crdt"
 )
 
 var _ = Describe("RenameChannel", func() {
@@ -99,5 +100,37 @@ var _ = Describe("RenameChannel", func() {
 		)
 		Expect(ok).To(BeFalse())
 		Expect(renamed).To(Equal(source))
+	})
+
+	Describe("In a document", func() {
+		It("Should rename through the op-log so a later edit merges", func() {
+			doc := text.Create("x := sy_x * 2")
+			editor := crdt.New(7)
+			editor.Load(doc.Inserts, doc.Deletes)
+			typed := editor.Insert(len("x := sy_x *"), "0")
+			renamed, ok := text.RenameChannelInDocument(
+				doc,
+				"sy_x",
+				"sy_x_2",
+				parser.Config{},
+			)
+			Expect(ok).To(BeTrue())
+			merged := crdt.New(9)
+			merged.Load(renamed.Inserts, renamed.Deletes)
+			merged.ApplyInsert(typed...)
+			Expect(merged.String()).To(Equal("x := sy_x_2 *0 2"))
+		})
+
+		It("Should keep a document that names no such channel", func() {
+			doc := text.Create("x := other * 2")
+			renamed, ok := text.RenameChannelInDocument(
+				doc,
+				"sy_x",
+				"sy_x_2",
+				parser.Config{},
+			)
+			Expect(ok).To(BeTrue())
+			Expect(renamed).To(Equal(doc))
+		})
 	})
 })

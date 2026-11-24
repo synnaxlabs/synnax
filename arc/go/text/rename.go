@@ -10,11 +10,14 @@
 package text
 
 import (
+	"slices"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/literal"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/x/crdt"
 	"github.com/synnaxlabs/x/set"
 )
 
@@ -31,9 +34,58 @@ func RenameChannel(
 	from, to string,
 	cfg parser.Config,
 ) (string, bool) {
+	edits, ok := channelEdits(source, block, from, to, cfg)
+	if !ok || len(edits) == 0 {
+		return source, ok
+	}
+	var b strings.Builder
+	last := 0
+	for _, e := range edits {
+		b.WriteString(source[last:e.start])
+		b.WriteString(e.text)
+		last = e.end
+	}
+	b.WriteString(source[last:])
+	return b.String(), true
+}
+
+// RenameChannelInDocument returns doc, an Arc program, with the edits of
+// RenameChannel written to its op-log under SeedReplica, and false when a raw string
+// cannot hold a new token. Only the characters of renamed tokens change, so an editor
+// that holds doc merges the edits with its own.
+func RenameChannelInDocument(
+	doc Document,
+	from, to string,
+	cfg parser.Config,
+) (Document, bool) {
+	d := crdt.New(SeedReplica)
+	d.Load(doc.Inserts, doc.Deletes)
+	source := d.String()
+	edits, ok := channelEdits(source, false, from, to, cfg)
+	if !ok || len(edits) == 0 {
+		return doc, ok
+	}
+	// Later edits come first, so the index of each earlier one holds.
+	for _, e := range slices.Backward(edits) {
+		index := utf8.RuneCountInString(source[:e.start])
+		d.Delete(index, utf8.RuneCountInString(source[e.start:e.end]))
+		d.Insert(index, e.text)
+	}
+	inserts, deletes := d.Snapshot()
+	return Document{Inserts: inserts, Deletes: deletes}, true
+}
+
+// channelEdits returns the edits of RenameChannel in source order, and false when a
+// raw string cannot hold a new token.
+func channelEdits(
+	source string,
+	block bool,
+	from, to string,
+	cfg parser.Config,
+) ([]edit, bool) {
 	sites := ChannelSites(source, block, cfg)
 	if len(sites) == 0 {
-		return source, true
+		return nil, true
 	}
 	declared := declaredNames(source, block, cfg)
 	token := func(n parser.Name) (string, bool) {
@@ -52,7 +104,7 @@ func RenameChannel(
 		case parser.ArcLexerSTR_LITERAL, parser.ArcLexerSTR_LITERAL_MULTI:
 			inner, ok := placeholderEdits(t, at[t.GetStart()], cfg, token)
 			if !ok {
-				return source, false
+				return nil, false
 			}
 			edits = append(edits, inner...)
 		default:
@@ -68,18 +120,7 @@ func RenameChannel(
 			}
 		}
 	}
-	if len(edits) == 0 {
-		return source, true
-	}
-	var b strings.Builder
-	last := 0
-	for _, e := range edits {
-		b.WriteString(source[last:e.start])
-		b.WriteString(e.text)
-		last = e.end
-	}
-	b.WriteString(source[last:])
-	return b.String(), true
+	return edits, true
 }
 
 // edit replaces the bytes [start, end) of a source with text.
