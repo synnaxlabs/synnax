@@ -322,6 +322,15 @@ func (w *logWriter) checkOrder(
 				prev,
 			))
 		}
+		// A time range ends after its last stamp, so none holds the largest one.
+		if stamp == telem.TimeStampMax {
+			return 0, 0, channel.Wrap(w.clock, errors.Wrapf(
+				validate.ErrValidation,
+				"stamp %v must be before %v",
+				stamp,
+				telem.TimeStampMax,
+			))
+		}
 		if i == 0 {
 			first = stamp
 		}
