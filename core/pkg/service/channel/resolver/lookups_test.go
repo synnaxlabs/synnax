@@ -99,8 +99,8 @@ var _ = Describe("CompileConsistent", func() {
 				lookups *resolver.Lookups,
 			) (string, error) {
 				compiles++
-				_, err := resolver.CheckedRead(snap, lookups, name, same)(ctx, 1<<30)
-				Expect(err).To(MatchError(query.ErrNotFound))
+				Expect(resolver.CheckedRead(snap, lookups, name, same)(ctx, 1<<30)).
+					Error().To(MatchError(query.ErrNotFound))
 				return "", nil
 			})).To(Equal(""))
 			Expect(compiles).To(Equal(1))
