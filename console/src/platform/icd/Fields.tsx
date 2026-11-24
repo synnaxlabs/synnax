@@ -572,6 +572,8 @@ export const FieldsStatus = ({ path }: FieldsStatusProps): ReactElement | null =
 
 const POINTER_INPUT_PROPS = { placeholder: "/temperature" } as const;
 
+const FOCUSED_NAME_INPUT_PROPS = { autoFocus: true } as const;
+
 interface ScaleControlProps extends Input.Control<number> {
   offset: deep.Target<number>;
 }
@@ -589,13 +591,19 @@ export interface JSONFieldProps {
   path: deep.Path<icd.JSONField>;
   /** Actions in the header of the field's section. */
   actions?: ReactNode;
+  /** Name takes focus when the field mounts. */
+  autoFocus?: boolean;
 }
 
 /**
  * Edits one field of a JSON message: its name, pointer, type, and conversion, then its
  * default and enum mapping when its kind has them.
  */
-export const JSONField = ({ path, actions }: JSONFieldProps): ReactElement => {
+export const JSONField = ({
+  path,
+  actions,
+  autoFocus = false,
+}: JSONFieldProps): ReactElement => {
   const { get, set, mode } = Form.useContext();
   const field = Form.useFieldValue(path);
   const type = jsonTypeOf(field);
@@ -604,7 +612,12 @@ export const JSONField = ({ path, actions }: JSONFieldProps): ReactElement => {
   };
   return (
     <Form.Section title="Field" actions={actions}>
-      <Form.TextField path={path.name} label="Name" padHelpText={false} />
+      <Form.TextField
+        path={path.name}
+        label="Name"
+        padHelpText={false}
+        inputProps={autoFocus ? FOCUSED_NAME_INPUT_PROPS : undefined}
+      />
       <Form.TextField
         path={path.pointer}
         label="Pointer"

@@ -103,7 +103,7 @@ class TestAccessClient:
             ]
         )
         user = client.users.create(name=str(uuid.uuid4()), role=role.key)
-        subjects = [user.resource_id]
+        subjects = [sy.user.resource_id(user.key)]
         keys = [held.key, other.key]
         matched = client.access.policies.retrieve(subjects=subjects, keys=keys)
         assert [p.key for p in matched] == [held.key]
@@ -311,7 +311,7 @@ class TestRoleClient:
         """Should replace the role of each given user."""
         users = client.users.create(
             users=[
-                sy.user.New(name=str(uuid.uuid4()), role=two_roles[0].key)
+                sy.user.User(name=str(uuid.uuid4()), role=two_roles[0].key)
                 for _ in range(2)
             ]
         )
@@ -323,7 +323,11 @@ class TestRoleClient:
     def test_set_role_root(self, two_roles: list[sy.Role], client: sy.Synnax) -> None:
         """Should reject changing the role of the root user."""
         [p] = client.auth.passwords.retrieve(usernames=["synnax"])
-        root = next(u for u in client.users.retrieve() if u.resource_id == p.subject)
+        root = next(
+            u
+            for u in client.users.retrieve()
+            if sy.user.resource_id(u.key) == p.subject
+        )
         with pytest.raises(
             sy.ValidationError, match="cannot change the role of root user synnax"
         ):
