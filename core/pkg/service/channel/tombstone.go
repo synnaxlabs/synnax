@@ -136,10 +136,9 @@ func withGap(rewires []Rewire, now telem.TimeStamp) []Rewire {
 	return append(out, Rewire{At: at})
 }
 
-// takeLists drops the rewires of each new channel of channels, one with no local key:
-// only a heal or a delete writes a list. Each then takes a list through takeList.
-// takeLists returns the dead keys of the tombstones whose lists they take, by the
-// position of their channel.
+// takeLists gives each new channel of channels, one with no local key, the rewires of
+// the tombstone at its path, or none: only a heal or a delete writes a list. It returns
+// the dead keys of those tombstones by the position of their channel.
 func (w Writer) takeLists(
 	ctx context.Context,
 	channels []Channel,
@@ -260,7 +259,11 @@ func (w Writer) healLinks(ctx context.Context, to map[Key]Key) error {
 			return err
 		}
 		for _, d := range deps {
-			if w.svc.cfg.Retargets(d) {
+			retargets, err := w.svc.cfg.Retargets(d)
+			if err != nil {
+				return err
+			}
+			if retargets {
 				holders = append(holders, d)
 			}
 		}

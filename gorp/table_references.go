@@ -398,7 +398,8 @@ func (t *Table[K, E]) cascaded(
 	if err := t.NewRetrieve().
 		Where(MatchKeys[K, E](keys...)).
 		Entries(&entries).
-		Exec(ctx, tx); err != nil && !errors.Is(err, query.ErrNotFound) {
+		SkipMissingKeys().
+		Exec(ctx, tx); err != nil {
 		return nil, err
 	}
 	return entries, nil

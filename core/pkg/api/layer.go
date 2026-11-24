@@ -707,7 +707,9 @@ func (l *Layer) BindTo(t Transport) {
 	t.UserDispatch.BindHandler(bind.Write(l.binder, l.User.Dispatch))
 
 	// CHANNEL
-	t.ChannelCreate.BindHandler(bind.Write(l.binder, l.Channel.Create))
+	t.ChannelCreate.BindHandler(
+		bind.Write(l.binder, l.Channel.Create, bind.HideDerived(channel.Heal)),
+	)
 	t.ChannelRetrieve.BindHandler(bind.Read(l.binder, l.Channel.Retrieve))
 	t.ConnectivityCheck.BindHandler(l.Connectivity.Check)
 	t.ChannelDelete.BindHandler(bind.Write(l.binder, l.Channel.Delete))
@@ -715,7 +717,9 @@ func (l *Layer) BindTo(t Transport) {
 	t.ChannelRetrieveBuiltIns.BindHandler(
 		bind.Read(l.binder, l.Channel.RetrieveBuiltIns),
 	)
-	t.ChannelDispatch.BindHandler(bind.Write(l.binder, l.Channel.Dispatch))
+	t.ChannelDispatch.BindHandler(
+		bind.Write(l.binder, l.Channel.Dispatch, bind.HideDerived(channel.Heal)),
+	)
 
 	// FRAME
 	t.FrameWriter.BindHandler(l.Framer.Write)
@@ -1155,8 +1159,12 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		Status:          cfg.Service.Status,
 		Channel:         cfg.Service.Channel,
 		RBAC:            cfg.Service.RBAC,
-		DispatchChannel: bind.Write(l.binder, l.Channel.Dispatch),
-		Stopper:         cfg.Service.TaskStopper,
+		DispatchChannel: bind.Write(
+			l.binder,
+			l.Channel.Dispatch,
+			bind.HideDerived(channel.Heal),
+		),
+		Stopper: cfg.Service.TaskStopper,
 	}); err != nil {
 		return nil, err
 	}

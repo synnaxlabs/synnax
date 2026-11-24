@@ -40,8 +40,8 @@ var _ = Describe("Heal break p2", Ordered, ContinueOnFailure, func() {
 		StartRun(db.Run)
 		var cfg channel.ServiceConfig
 		cfg, groupSvc = serviceConfig(ctx, testutil.NewNode(ctx), db)
-		cfg.Retargets = func(d gorp.Dependent) bool {
-			return d.Holder.Table == "break_display"
+		cfg.Retargets = func(d gorp.Dependent) (bool, error) {
+			return d.Holder.Table == "break_display", nil
 		}
 		svc = MustOpen(channel.OpenService(ctx, cfg))
 		displays = MustSucceed(gorp.OpenTable(ctx, breakDisplayConfig(db)))
@@ -389,8 +389,8 @@ var _ = Describe("Heal break p2 before the service heals", Ordered, ContinueOnFa
 			StartRun(db.Run)
 			var cfg channel.ServiceConfig
 			cfg, groupSvc = serviceConfig(ctx, testutil.NewNode(ctx), db)
-			cfg.Retargets = func(d gorp.Dependent) bool {
-				return d.Holder.Table == "break_display"
+			cfg.Retargets = func(d gorp.Dependent) (bool, error) {
+				return d.Holder.Table == "break_display", nil
 			}
 			svc = MustOpen(channel.OpenService(ctx, cfg))
 			displays = MustSucceed(gorp.OpenTable(ctx, breakDisplayConfig(db)))

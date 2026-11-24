@@ -28,7 +28,7 @@ var _ = Describe("Heal rewires check", func() {
 			db := DeferClose(gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec)))
 			StartRun(db.Run)
 			cfg, _ := serviceConfig(ctx, testutil.NewNode(ctx), db)
-			cfg.Retargets = func(gorp.Dependent) bool { return false }
+			cfg.Retargets = func(gorp.Dependent) (bool, error) { return false, nil }
 			svc := MustOpen(channel.OpenService(ctx, cfg))
 			keepers := MustOpen(
 				gorp.OpenTable(ctx, gorp.TableConfig[string, healKeeper]{
