@@ -83,8 +83,32 @@ describe("Range.useCreateModal", () => {
     await waitFor(async () => {
       const retrieved = await client.ranges.retrieve(name);
       expect(retrieved.name).toEqual(name);
+      expect(retrieved.color).toBeUndefined();
     });
     expect(store.getState()[Session.Range.SLICE_NAME].ranges).toEqual([]);
+  });
+
+  it("should link the range to the named color picked from its swatch", async () => {
+    const palette = await client.groups.create({
+      scope: "color",
+      name: uniqueName("palette"),
+    });
+    const named = await client.colors.create({
+      name: uniqueName("color"),
+      light: "#00ff00",
+      group: palette.key,
+    });
+    const name = createTestRangeName(client, "colored");
+    await openModal({ name, timeRange: { start: 1, end: 2 } }, { client });
+    fireEvent.click(screen.getByRole("button", { name: "Color" }));
+    const swatch = await screen.findByRole("button", { name: named.name });
+    fireEvent.click(swatch);
+    fireEvent.keyDown(swatch, { code: "Escape" });
+    await clickWhenEnabled("Create");
+    await waitFor(async () => {
+      const { color: stored } = await client.ranges.retrieve(name);
+      expect(stored).toEqual({ type: "named", key: named.key });
+    });
   });
 
   it("should resolve with the key of the range it creates", async () => {

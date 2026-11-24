@@ -96,7 +96,7 @@ var _ = Describe("Switch", func() {
 				GinkgoHelper()
 				var seq uint64
 				for range 3 {
-					seq = MustSucceed(l.Append(bigEntry(logSize / 4)).Wait())
+					seq = MustSucceed(l.Append(deleteEntry(logSize / 4)).Wait())
 				}
 				return seq
 			}

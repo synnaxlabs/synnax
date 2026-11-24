@@ -26,6 +26,7 @@ from websockets.sync.client import (
 
 from freighter.context import Context
 from freighter.exceptions import EOF, StreamClosed
+from freighter.proxy import resolve
 from freighter.stream import AsyncStream, AsyncStreamClient, Stream, StreamClient
 from freighter.transport import RQ, RS, AsyncMiddlewareCollector, MiddlewareCollector
 from freighter.url import URL
@@ -322,6 +323,7 @@ class _Base:
     _registry: Registry
     _max_message_size: int
     _ssl_context: ssl.SSLContext | None
+    _proxy: str | None
     _kwargs: dict[str, Any]
 
     def __init__(
@@ -341,6 +343,7 @@ class _Base:
             protocol="ws" if ssl_context is None else "wss"
         )
         self._max_message_size = max_message_size
+        self._proxy = resolve(base_url, secure=ssl_context is not None)
         self._kwargs = kwargs
 
     def additional_headers(self, others: MutableMapping[str, str]) -> dict[str, str]:
@@ -368,6 +371,9 @@ class AsyncWebsocketClient(_Base, AsyncMiddlewareCollector, AsyncStreamClient):
         :param ssl_context: The TLS context that verifies the server. The client uses
             TLS when set and a plain connection when None.
         :param kwargs: Options for the websockets connect function.
+
+        The client connects through the proxy that freighter.proxy.resolve picks for
+        base_url.
         """
         AsyncMiddlewareCollector.__init__(self)
         _Base.__init__(
@@ -397,6 +403,7 @@ class AsyncWebsocketClient(_Base, AsyncMiddlewareCollector, AsyncStreamClient):
                 additional_headers=self.additional_headers(ctx.params),
                 max_size=self._max_message_size,
                 ssl=self._ssl_context,
+                proxy=self._proxy,
                 **self._kwargs,
             )
             socket = AsyncWebsocketStream[RQ, RS](
@@ -456,6 +463,9 @@ class WebsocketClient(_Base, MiddlewareCollector, StreamClient):
         :param ssl_context: The TLS context that verifies the server. The client uses
             TLS when set and a plain connection when None.
         :param kwargs: Options for the websockets connect function.
+
+        The client connects through the proxy that freighter.proxy.resolve picks for
+        base_url.
         """
         MiddlewareCollector.__init__(self)
         _Base.__init__(
@@ -485,6 +495,7 @@ class WebsocketClient(_Base, MiddlewareCollector, StreamClient):
                 max_size=self._max_message_size,
                 legacy=False,
                 ssl=self._ssl_context,
+                proxy=self._proxy,
                 **self._kwargs,
             )
             socket = SyncWebsocketStream[RQ, RS](

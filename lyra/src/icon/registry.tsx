@@ -42,12 +42,15 @@ import {
   FaAlignLeft,
   FaAlignRight,
   FaApple,
+  FaAws,
   FaBezierCurve,
   FaCreativeCommonsZero,
   FaDocker,
   FaLinux,
   FaMicrophone,
+  FaMicrosoft,
   FaRegStar,
+  FaSalesforce,
   FaStar,
   FaStream,
   FaWindows,
@@ -114,6 +117,7 @@ import {
   MdComputer,
   MdContentCut,
   MdContentPaste,
+  MdContrast,
   MdDarkMode,
   MdDataArray,
   MdDataObject,
@@ -219,10 +223,22 @@ import {
 import { RxComponentBoolean, RxReset } from "react-icons/rx";
 import {
   SiApachekafka,
+  SiAuth0,
+  SiAuthelia,
+  SiAuthentik,
+  SiCloudflare,
   SiCplusplus,
+  SiFusionauth,
+  SiGitea,
+  SiGitlab,
+  SiGoogle,
+  SiKeycloak,
   SiMqtt,
   SiNodedotjs,
   SiNpm,
+  SiOkta,
+  SiOpenid,
+  SiOry,
   SiPagerduty,
   SiPnpm,
   SiPython,
@@ -277,6 +293,7 @@ import { Device } from "@/icon/Device";
 import { EtherCAT } from "@/icon/EtherCAT";
 import { Fitting } from "@/icon/Fitting";
 import { type IconProps, type ReactElement, wrapSVGIcon } from "@/icon/Icon";
+import { Duo, JumpCloud, OneLogin, PingIdentity, Zitadel } from "@/icon/Identity";
 import { LabJack } from "@/icon/LabJack";
 import { Modbus } from "@/icon/Modbus";
 import { New } from "@/icon/New";
@@ -422,19 +439,39 @@ export const Menu = wrapSVGIcon(GiHamburgerMenu, "menu");
 export const Sidebar = wrapSVGIcon(TbLayoutSidebar, "sidebar");
 export const Logo = {
   Apple: wrapSVGIcon(FaApple, "logo-apple"),
+  Auth0: wrapSVGIcon(SiAuth0, "logo-auth0"),
+  Authelia: wrapSVGIcon(SiAuthelia, "logo-authelia"),
+  Authentik: wrapSVGIcon(SiAuthentik, "logo-authentik"),
+  AWS: wrapSVGIcon(FaAws, "logo-aws"),
+  Cloudflare: wrapSVGIcon(SiCloudflare, "logo-cloudflare"),
   Docker: wrapSVGIcon(FaDocker, "logo-docker"),
+  Duo,
+  FusionAuth: wrapSVGIcon(SiFusionauth, "logo-fusionauth"),
+  Gitea: wrapSVGIcon(SiGitea, "logo-gitea"),
   Github: wrapSVGIcon(AiFillGithub, "logo-github"),
+  GitLab: wrapSVGIcon(SiGitlab, "logo-gitlab"),
+  Google: wrapSVGIcon(SiGoogle, "logo-google"),
+  JumpCloud,
+  Keycloak: wrapSVGIcon(SiKeycloak, "logo-keycloak"),
   LabJack,
   LinkedIn: wrapSVGIcon(AiFillLinkedin, "logo-linkedin"),
   Linux: wrapSVGIcon(FaLinux, "logo-linux"),
+  Microsoft: wrapSVGIcon(FaMicrosoft, "logo-microsoft"),
   Modbus,
   MQTT: wrapSVGIcon(SiMqtt, "logo-mqtt"),
   NI,
+  Okta: wrapSVGIcon(SiOkta, "logo-okta"),
+  OneLogin,
+  OpenID: wrapSVGIcon(SiOpenid, "logo-openid"),
+  Ory: wrapSVGIcon(SiOry, "logo-ory"),
   OPCUA,
   PagerDuty: wrapSVGIcon(SiPagerduty, "logo-pagerduty"),
+  PingIdentity,
+  Salesforce: wrapSVGIcon(FaSalesforce, "logo-salesforce"),
   Sift,
   Windows: wrapSVGIcon(FaWindows, "logo-windows"),
   EtherCAT,
+  Zitadel,
   // Crops the view box to the mark, which fills only a thin strip of the original.
   HTTP: wrapSVGIcon((props) => <MdHttp {...props} viewBox="1 9 22 6" />, "logo-http"),
   Kafka: wrapSVGIcon(SiApachekafka, "logo-kafka"),
@@ -613,6 +650,7 @@ export const False = wrapSVGIcon(FaXmark, "false");
 export const KebabMenu = wrapSVGIcon(MdMoreVert, "kebab-menu");
 export const Annotation = wrapSVGIcon(MdComment, "annotation");
 export const Click = wrapSVGIcon(HiCursorClick, "click");
+export const Contrast = wrapSVGIcon(MdContrast, "contrast");
 export const DarkMode = wrapSVGIcon(MdDarkMode, "dark-mode");
 export const LightMode = wrapSVGIcon(MdLightMode, "light-mode");
 export const Safety = wrapSVGIcon(FaHelmetSafety, "safety");

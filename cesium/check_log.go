@@ -218,7 +218,8 @@ func (c *checker) targets() ([]target, error) {
 			_, last := bounds(seg)
 			targets = append(targets, target{key: key, seg: seg.ID, last: last})
 		}
-		if err = errors.Join(err, c.e.unpin(h)); err != nil {
+		c.e.unpin(h)
+		if err != nil {
 			return nil, err
 		}
 	}
@@ -233,8 +234,8 @@ func (c *checker) targets() ([]target, error) {
 // segments of its Channel that no part holds, and the live records of its parts. The
 // caller unpins h, also after an error.
 func (e *engine) loadLive(key ChannelKey) (segs []state.Segment, h held, err error) {
-	ch, h, err, unlinkErr := e.load(key, held{})
-	if err = errors.Join(err, unlinkErr); err != nil || ch == nil {
+	ch, h, err := e.load(key, held{})
+	if err != nil || ch == nil {
 		return nil, h, err
 	}
 	pre := state.Preload{Key: key}
@@ -262,13 +263,13 @@ func (c *checker) check(ctx context.Context, t target) (retry bool, err error) {
 	segs, h, err := c.e.loadLive(t.key)
 	fields := []zap.Field{zap.Uint32("key", t.key), zap.Uint64("segment", t.seg)}
 	if err != nil {
-		c.unpin(h)
+		c.e.unpin(h)
 		c.e.ins.L.Warn("check of a segment failed", append(fields, zap.Error(err))...)
 		return true, c.fatal(err)
 	}
 	i := slices.IndexFunc(segs, func(s state.Segment) bool { return s.ID == t.seg })
 	if i < 0 {
-		c.unpin(h)
+		c.e.unpin(h)
 		return false, nil
 	}
 	seg := segs[i]
@@ -327,13 +328,6 @@ func (c *checker) finish(
 	return false, c.fatal(err)
 }
 
-// unpin unpins h, and logs a failed unlink.
-func (c *checker) unpin(h held) {
-	if err := c.e.unpin(h); err != nil {
-		c.e.ins.L.Error("unlink of a checked segment failed", zap.Error(err))
-	}
-}
-
 // fatal returns err when the state failed, and nil otherwise.
 func (c *checker) fatal(err error) error {
 	if c.e.state.Err() != nil {
@@ -371,7 +365,7 @@ func (c *checker) read(
 		}
 	}
 	err = errors.Join(err, c.sg.h.Close())
-	c.unpin(h)
+	c.e.unpin(h)
 	var bad []badStamp
 	if c.sg.rise != nil {
 		bad = c.sg.rise.bad

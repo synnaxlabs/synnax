@@ -98,6 +98,7 @@ var _ = Describe("Part orphan check", func() {
 				}
 				wr := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 					Channels: keys,
+					Clock:    keys[0],
 					Start:    (w + 1) * telem.SecondTS,
 				}))
 				MustSucceed2(wr.Write(ctx, telem.MultiFrame(keys, series), nil))
@@ -135,6 +136,7 @@ var _ = Describe("Part orphan check", func() {
 			// A writer waits for the orphan pass.
 			w := MustSucceed(reopened.OpenWriter(ctx, cesium.WriterConfig{
 				Channels: keys[:2],
+				Clock:    keys[0],
 				Start:    1_000 * telem.SecondTS,
 			}))
 			Expect(w.Close()).To(Succeed())

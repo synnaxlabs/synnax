@@ -12,6 +12,7 @@ package state
 import (
 	"math"
 	"slices"
+	"sync/atomic"
 
 	"github.com/synnaxlabs/cesium/internal/log"
 	"github.com/synnaxlabs/x/errors"
@@ -54,9 +55,10 @@ type core struct {
 	// published the keys.
 	keysChanged bool
 	// dead holds the segments that left the state with a file left to unlink once no
-	// reader pins it.
-	dead []Dead
-	keys set.Set[uint32]
+	// reader pins it, and hasDead is true while it holds one.
+	dead    []Dead
+	hasDead atomic.Bool
+	keys    set.Set[uint32]
 	// generation is the generation of the log of the records that the core applies, or
 	// of the head before it for replayed records. It stamps each kill.
 	generation uint64
@@ -461,8 +463,18 @@ func (c *core) bury(s *segState) {
 	ch.remove(s.vis.ID)
 	delete(c.segments, s.vis.ID)
 	c.candidates.Remove(s.vis.ID)
-	c.dead = append(c.dead, Dead{Segment: s.vis.ID, Key: s.key, File: s.vis.File})
+	c.addDead(Dead{
+		Segment:  s.vis.ID,
+		Key:      s.key,
+		Sequence: c.sequence + 1,
+		File:     s.vis.File,
+	})
 	ch.publish()
+}
+
+func (c *core) addDead(d Dead) {
+	c.dead = append(c.dead, d)
+	c.hasDead.Store(true)
 }
 
 func (c *core) drop(key uint32, pre []Preload) error {
@@ -501,17 +513,28 @@ func (c *core) drop(key uint32, pre []Preload) error {
 				Kill{Key: key, All: true, Generation: c.generation},
 			)
 		}
-		// The database unlinks the file of each segment once no reader pins it. A
-		// record whose segment the state holds goes with that segment.
+		// The database unlinks the file of each segment once the log covers the Drop
+		// and no reader pins it. A record whose segment the state holds goes with that
+		// segment.
 		for _, rec := range records {
 			if _, held := c.segments[rec.ID]; !held {
-				c.dead = append(c.dead, Dead{Segment: rec.ID, Key: key, File: rec.File})
+				c.addDead(Dead{
+					Segment:  rec.ID,
+					Key:      key,
+					Sequence: c.sequence + 1,
+					File:     rec.File,
+				})
 			}
 		}
 		for _, s := range ch.segs {
 			delete(c.segments, s.vis.ID)
 			c.candidates.Remove(s.vis.ID)
-			c.dead = append(c.dead, Dead{Segment: s.vis.ID, Key: key, File: s.vis.File})
+			c.addDead(Dead{
+				Segment:  s.vis.ID,
+				Key:      key,
+				Sequence: c.sequence + 1,
+				File:     s.vis.File,
+			})
 		}
 		delete(c.channels, key)
 		c.count.begin()

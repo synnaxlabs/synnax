@@ -82,6 +82,7 @@ var _ = Describe("Check: a Drop during the orphan pass", func() {
 			)).To(Succeed())
 			w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 				Channels: keys,
+				Clock:    1,
 				Start:    10 * telem.SecondTS,
 			}))
 			MustSucceed2(w.Write(ctx, telem.MultiFrame(keys, []telem.Series{

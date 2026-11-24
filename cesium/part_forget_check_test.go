@@ -189,6 +189,7 @@ var _ = Describe("Check: segments that only parts hold", func() {
 		Eventually(fs.cleans.Load).Should(BeNumerically(">", cleans))
 		w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 			Channels: []cesium.ChannelKey{idx, data},
+			Clock:    idx,
 			Start:    1_000 * telem.SecondTS,
 		}))
 		Expect(w.Close()).To(Succeed())

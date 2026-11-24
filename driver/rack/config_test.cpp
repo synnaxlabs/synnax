@@ -362,7 +362,7 @@ TEST_F(RackConfigTest, LoginCreatesRackWhenSavedKeyRevoked) {
     const auto keys = ASSERT_NIL_P(
         client.api_keys.retrieve({{"rack", std::to_string(first.rack.key)}})
     );
-    std::vector<std::string> key_ids;
+    std::vector<synnax::auth::apikey::Key> key_ids;
     for (const auto &k: keys)
         key_ids.push_back(k.key);
     ASSERT_NIL(client.api_keys.del(key_ids));

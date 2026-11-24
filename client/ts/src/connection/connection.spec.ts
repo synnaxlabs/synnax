@@ -22,9 +22,11 @@ import { connection } from "@/connection";
 import { lifecycle } from "@/connection/lifecycle";
 import {
   AccessDeniedError,
+  APIKeyUnavailableError,
   AuthError,
   DisconnectedError,
   ExpiredLicenseError,
+  InvalidCredentialsError,
   MissingCredentialsError,
   MissingLicenseError,
   SessionEndedError,
@@ -666,6 +668,28 @@ describe("connection", () => {
       );
       expect(replaced.variant).toEqual("loading");
       expect(reasonOf(replaced)).toBeUndefined();
+    });
+
+    it("should come back up when a login succeeds after an auth failure", () => {
+      const status = apply(
+        createConfig(),
+        { type: "auth.failure", error: new AuthError("no key") },
+        { type: "auth.success", session: "a" },
+      );
+      expect(status.variant).toEqual("loading");
+      expect(reasonOf(status)).toBeUndefined();
+      expect(status.details.error).toBeUndefined();
+      expect(status.details.session).toEqual("a");
+    });
+
+    it("should replace the reason of an auth failure when a key fails to load", () => {
+      const status = apply(
+        createConfig(),
+        { type: "auth.failure", error: new InvalidCredentialsError("bad key") },
+        { type: "auth.failure", error: new APIKeyUnavailableError("not running") },
+      );
+      expect(reasonOf(status)).toEqual("auth");
+      expect(status.description).toEqual("not running");
     });
 
     it("should store the session key on auth success", () => {
@@ -1382,6 +1406,27 @@ describe("connection", () => {
       await client.close();
     });
 
+    it("should check again when a login succeeds after an auth failure", async () => {
+      const unary = mockUnary(() => TimeStamp.now());
+      const client = createClient(unary);
+      await observe.until(
+        client,
+        () => client.status,
+        (s) => s.variant === "success",
+      );
+      client.notify({ type: "auth.failure", error: new AuthError("no key") });
+      const send = vi.mocked(unary.send);
+      const calls = send.mock.calls.length;
+      client.notify({ type: "auth.success", session: "a" });
+      await observe.until(
+        client,
+        () => client.status,
+        (s) => s.variant === "success",
+      );
+      expect(send.mock.calls.length).toBeGreaterThan(calls);
+      await client.close();
+    });
+
     it("should discard an in-flight check from before a mode change", async () => {
       let rejectCheck: ((error: Error) => void) | undefined;
       const unary: UnaryClient = {
@@ -1465,6 +1510,77 @@ describe("connection", () => {
       expect(client.status.variant).toEqual("loading");
       client.notify({ type: "stream.live" });
       expect(client.status.variant).toEqual("success");
+      await client.close();
+    });
+
+    it("should not spend a finite budget on checks that succeed", async () => {
+      const unary = mockUnary(() => TimeStamp.now());
+      const client = createClient(
+        unary,
+        {
+          requiresStream: true,
+          stream: { reset: async () => {}, ensure: async () => {} },
+        },
+        { baseInterval: TimeSpan.milliseconds(5), scale: 1, maxRetries: 2 },
+      );
+      const send = unary.send as ReturnType<typeof vi.fn>;
+      await expect.poll(() => send.mock.calls.length, POLL).toBeGreaterThanOrEqual(6);
+      expect(client.status.variant).toEqual("loading");
+      client.notify({ type: "stream.live" });
+      expect(client.status.variant).toEqual("success");
+      await client.close();
+    });
+
+    it("should not exhaust a zero budget on checks that succeed", async () => {
+      const unary = mockUnary(() => TimeStamp.now());
+      const client = createClient(
+        unary,
+        {
+          requiresStream: true,
+          stream: { reset: async () => {}, ensure: async () => {} },
+        },
+        { baseInterval: TimeSpan.milliseconds(5), scale: 1, maxRetries: 0 },
+      );
+      const send = unary.send as ReturnType<typeof vi.fn>;
+      await expect.poll(() => send.mock.calls.length, POLL).toBeGreaterThanOrEqual(3);
+      expect(client.status.variant).toEqual("loading");
+      await client.close();
+    });
+
+    it("should back off to maxInterval while the stream stays dark", async () => {
+      const unary = mockUnary(() => TimeStamp.now());
+      const client = createClient(
+        unary,
+        {
+          requiresStream: true,
+          stream: { reset: async () => {}, ensure: async () => {} },
+        },
+        {
+          baseInterval: TimeSpan.milliseconds(5),
+          maxInterval: TimeSpan.milliseconds(40),
+          scale: 2,
+          jitter: 0,
+        },
+      );
+      const intervals: number[] = [];
+      client.onChange(({ time, details: { retry } }) => {
+        if (retry != null) intervals.push(retry.nextAt.span(time).milliseconds);
+      });
+      await expect.poll(() => Math.max(0, ...intervals), POLL).toBeGreaterThan(35);
+      expect(client.status.variant).toEqual("loading");
+      await client.close();
+    });
+
+    it("should back off and park an unlicensed Core on a finite budget", async () => {
+      const unary = createScriptedUnary({ license: "missing" });
+      const client = createClient(unary, {}, { ...FAST_RETRY, maxRetries: 3 });
+      const send = unary.send as ReturnType<typeof vi.fn>;
+      await expect.poll(() => send.mock.calls.length, POLL).toBeGreaterThanOrEqual(4);
+      await sleep.sleep(TimeSpan.milliseconds(30));
+      const calls = send.mock.calls.length;
+      await sleep.sleep(TimeSpan.milliseconds(30));
+      expect(send.mock.calls.length).toBe(calls);
+      expect(reasonOf(client.status)).toEqual("unlicensed");
       await client.close();
     });
 

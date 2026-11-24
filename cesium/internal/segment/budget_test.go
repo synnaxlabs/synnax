@@ -107,6 +107,27 @@ var _ = Describe("Budget", func() {
 				return hs
 			}
 
+			It("Should keep held handles open outside its limit", func() {
+				b := MustSucceed(segment.NewBudget(1, 1, segment.GoExecutor))
+				held := make([]*segment.Handle, 3)
+				for i := range held {
+					name := fmt.Sprintf("w%d.seg", i)
+					held[i] = MustSucceed(b.CreateHeld(fs, name))
+					Expect(held[i].WriteAt([]byte(name), 0)).To(Equal(len(name)))
+				}
+				first := MustSucceed(b.Create(fs, "r0.seg"))
+				second := MustSucceed(b.Create(fs, "r1.seg"))
+				for _, h := range slices.Concat(held, []*segment.Handle{first, second}) {
+					Expect(h.Close()).To(Succeed())
+				}
+				ops := fs.Ops()
+				Expect(ops).To(ContainElement("close r0.seg"))
+				Expect(slices.Index(ops, "close r0.seg")).
+					To(BeNumerically("<", slices.Index(ops, "close w0.seg")))
+				Expect(ops).ToNot(ContainElement(HavePrefix("sync w")))
+				Expect(fs.MaxOpen()).To(Equal(4))
+			})
+
 			Describe("SyncFiles", func() {
 				// old writes each of names with no sync, as the old layout did.
 				old := func(names ...string) {

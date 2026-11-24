@@ -882,6 +882,31 @@ TEST_F(TestReadTask, testUnboundDisabledChannel) {
     EXPECT_EQ(parsed->channels[0]->synnax_key, this->float_channel.key);
 }
 
+/// @brief it should reject two nodes that read into one channel.
+TEST_F(TestReadTask, testDuplicateChannel) {
+    x::json::json cfg{
+        {"data_saving_disabled", false},
+        {"device", this->dev.key},
+        {"channels",
+         x::json::json::array(
+             {{{"key", "NS=2;I=1"},
+               {"node_id", "NS=1;S=TestFloat"},
+               {"channel", this->float_channel.key},
+               {"disabled", false}},
+              {{"key", "NS=2;I=2"},
+               {"node_id", "NS=1;S=TestDouble"},
+               {"channel", this->float_channel.key},
+               {"disabled", false}}}
+         )},
+        {"sample_rate", 50},
+        {"sampling", {{"type", "unary"}}},
+        {"stream_rate", 25}
+    };
+    auto p = x::json::Parser(cfg);
+    const auto parsed = std::make_unique<ReadTaskConfig>(ctx->client, p);
+    ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
+}
+
 /// @brief it should sample one value per node when the config has no sampling.
 TEST_F(TestReadTask, testUnarySamplingByDefault) {
     task_cfg_json.erase("sampling");

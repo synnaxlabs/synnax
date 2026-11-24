@@ -50,6 +50,7 @@ var _ = Describe("Orphan pass before a delete", func() {
 			}
 			w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 				Channels: keys,
+				Clock:    keys[0],
 				Start:    stamps[0],
 			}))
 			MustSucceed2(w.Write(ctx, telem.MultiFrame(keys, []telem.Series{
