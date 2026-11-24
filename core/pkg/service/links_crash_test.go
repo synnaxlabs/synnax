@@ -38,14 +38,18 @@ var _ = Describe("ClearUnissuedChannelLinks after a start that did not finish", 
 	It("Should clear a never-issued key that the unfinished start gave a channel", func(
 		ctx SpecContext,
 	) {
-		store := DeferClose(storagetestutil.OpenLayer(ctx))
+		// The store and each Core run until the spec's cleanup closes them.
+		store := DeferClose(storagetestutil.OpenLayer(GinkgoT().Context()))
 		type core struct {
 			node  testutil.Node
 			layer *service.Layer
 		}
 		start := func() core {
 			GinkgoHelper()
-			n := testutil.OpenNode(ctx, distribution.LayerConfig{Storage: store.Layer})
+			n := testutil.OpenNode(
+				GinkgoT().Context(),
+				distribution.LayerConfig{Storage: store.Layer},
+			)
 			return core{node: n, layer: MustSucceed(svctestutil.OpenLayer(ctx, n))}
 		}
 		stop := func(c core) {

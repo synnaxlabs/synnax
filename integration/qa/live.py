@@ -42,7 +42,7 @@ def frame(stamps: np.ndarray) -> dict[str, np.ndarray]:
 
 def main(port: int, history: bool) -> None:
     client = sy.Synnax(
-        host="localhost", port=port, username="synnax", password="seldon"
+        host="localhost", port=port, username="synnax", password="seldon", secure=False
     )
     index = client.channels.create(
         name="qa_time",

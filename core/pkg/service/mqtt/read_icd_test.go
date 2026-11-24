@@ -28,6 +28,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/telem/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -146,9 +147,9 @@ var _ = Describe("Read task ICD messages", func() {
 			Eventually(func() int64 { return stored(ctx, data[0]).Len() }).
 				Should(BeEquivalentTo(1))
 			Expect(stored(ctx, data[0])).
-				To(telem.MatchSeriesData(telem.NewSeriesV(21.5)))
+				To(MatchSeriesData(telem.NewSeriesV(21.5)))
 			Expect(stored(ctx, data[1])).
-				To(telem.MatchSeriesData(telem.NewSeriesV("run")))
+				To(MatchSeriesData(telem.NewSeriesV("run")))
 			stamp := stored(ctx, idx).ValueAt[telem.TimeStamp](0)
 			Expect(stamp).To(BeNumerically(">=", before))
 			Expect(taskStatus(ctx, t).Variant).To(Equal(status.VariantSuccess))
@@ -200,13 +201,13 @@ var _ = Describe("Read task ICD messages", func() {
 			Eventually(func() int64 { return stored(ctx, eventData[0]).Len() }).
 				Should(BeEquivalentTo(1))
 			Expect(stored(ctx, statusData[0])).
-				To(telem.MatchSeriesData(telem.NewSeriesV(20.0)))
+				To(MatchSeriesData(telem.NewSeriesV(20.0)))
 			Expect(stored(ctx, eventData[0])).
-				To(telem.MatchSeriesData(telem.NewSeriesV(7.0)))
+				To(MatchSeriesData(telem.NewSeriesV(7.0)))
 			Expect(stored(ctx, statusIdx)).
-				To(telem.MatchSeriesData(telem.NewSeriesV(telem.SecondTS)))
+				To(MatchSeriesData(telem.NewSeriesV(telem.SecondTS)))
 			Expect(stored(ctx, eventIdx)).
-				To(telem.MatchSeriesData(telem.NewSeriesV(2 * telem.SecondTS)))
+				To(MatchSeriesData(telem.NewSeriesV(2 * telem.SecondTS)))
 		},
 	)
 
@@ -279,7 +280,7 @@ var _ = Describe("Read task ICD messages", func() {
 			Eventually(func() int64 { return stored(ctx, data[0]).Len() }).
 				Should(BeEquivalentTo(1))
 			Expect(stored(ctx, data[0])).
-				To(telem.MatchSeriesData(telem.NewSeriesV(-1.0)))
+				To(MatchSeriesData(telem.NewSeriesV(-1.0)))
 		},
 	)
 
@@ -317,7 +318,7 @@ var _ = Describe("Read task ICD messages", func() {
 				Eventually(func() int64 { return stored(ctx, data[0]).Len() }).
 					Should(BeEquivalentTo(1))
 				Expect(stored(ctx, data[0])).
-					To(telem.MatchSeriesData(telem.NewSeriesV(2.0)))
+					To(MatchSeriesData(telem.NewSeriesV(2.0)))
 			},
 		)
 

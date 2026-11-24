@@ -18,10 +18,10 @@ import { describe, expect, it } from "vitest";
 
 import { CSS } from "@/css";
 import { Node } from "@/schematic/node";
-import { GROUP } from "@/schematic/node/general/group";
-import { StringDisplayForm } from "@/schematic/node/general/stringDisplay/Form";
-import { StringDisplay as Primitive } from "@/schematic/node/general/stringDisplay/Primitive";
-import { createAsyncSynnaxWrapper, createSynnaxWrapper } from "@/testutil/Synnax";
+import { General } from "@/schematic/node/general";
+import { StringDisplay } from "@/schematic/node/general/stringDisplay";
+import { Primitive } from "@/schematic/node/general/stringDisplay/primitive";
+import { createAsyncSynnaxWrapper, createSynnaxWrapper } from "@/testutil";
 import { canvasTest } from "@/vis/render/testutil";
 import { stringValue } from "@/vis/stringValue/aether";
 
@@ -48,9 +48,11 @@ const getBox = (container: HTMLElement): HTMLElement => {
 };
 
 describe("StringDisplay", () => {
-  describe("Primitive", () => {
+  describe("Primitive.StringDisplay", () => {
     it("should render its children inside the box", () => {
-      const { container } = render(<Primitive>hello</Primitive>);
+      const { container } = render(
+        <Primitive.StringDisplay>hello</Primitive.StringDisplay>,
+      );
       expect(getBox(container).textContent).toBe("hello");
     });
 
@@ -58,12 +60,12 @@ describe("StringDisplay", () => {
     // at the content, not at the box around it.
     it("should pass the content element to the content ref", () => {
       const ref = createRef<HTMLDivElement>();
-      render(<Primitive contentRef={ref} />);
+      render(<Primitive.StringDisplay contentRef={ref} />);
       expect(ref.current?.className).toBe(CSS.BE("string-display", "content"));
     });
 
     it("should keep the configured width", () => {
-      const { container } = render(<Primitive inlineSize={100} />);
+      const { container } = render(<Primitive.StringDisplay inlineSize={100} />);
       expect(getBox(container).style.width).toBe("100px");
     });
   });
@@ -72,7 +74,7 @@ describe("StringDisplay", () => {
     const renderForm = (): ReturnType<typeof render> =>
       render(
         <FormWrapper>
-          <StringDisplayForm />
+          <StringDisplay.spec.Form />
         </FormWrapper>,
       );
 
@@ -102,7 +104,7 @@ describe("StringDisplay", () => {
   // Console's StaticSymbolList filters by group, so a symbol missing from
   // GROUP.symbols is reachable only through search.
   it("should be listed in the general group", () => {
-    expect(GROUP.symbols).toContain("string_display");
+    expect(General.GROUP.symbols).toContain("string_display");
   });
 });
 

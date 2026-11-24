@@ -22,9 +22,9 @@ import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { theming } from "@/theming/aether";
-import { formatRelativeTime } from "@/vis/axis/relative";
+import { axis } from "@/vis/axis";
 import { Draw2D } from "@/vis/draw2d";
-import type { FindResult } from "@/vis/line/aether/line";
+import type { line } from "@/vis/line/aether";
 import { render } from "@/vis/render";
 
 const TOOLTIP_LIST_OFFSET: xy.XY = xy.construct(12);
@@ -65,14 +65,14 @@ interface Row {
 
 // byValue sorts high to low, with NaN last.
 const byValue = (
-  { value: { y: a } }: FindResult,
-  { value: { y: b } }: FindResult,
+  { value: { y: a } }: line.FindResult,
+  { value: { y: b } }: line.FindResult,
 ): number => (a === b ? 0 : Number.isNaN(a) ? 1 : Number.isNaN(b) ? -1 : b - a);
 
 // rows lists the results of each tooltip group under a heading, sorted by value.
 // Results with no tooltip group keep their order.
-const rows = (results: FindResult[], hovered: Hovered | null): Row[] => {
-  const entry = (r: FindResult, label: string | undefined): Row => ({
+const rows = (results: line.FindResult[], hovered: Hovered | null): Row[] => {
+  const entry = (r: line.FindResult, label: string | undefined): Row => ({
     label: label ?? "",
     value: formatValue(r),
     color: r.color,
@@ -80,7 +80,7 @@ const rows = (results: FindResult[], hovered: Hovered | null): Row[] => {
   });
   if (!results.some((r) => r.tooltipGroup != null))
     return results.map((r) => entry(r, r.label));
-  const groups = new Map<string, FindResult[]>();
+  const groups = new Map<string, line.FindResult[]>();
   results.forEach((r) => {
     const key = r.tooltipGroup ?? r.key;
     groups.set(key, [...(groups.get(key) ?? []), r]);
@@ -122,7 +122,7 @@ interface InternalState {
 }
 
 export interface TooltipProps {
-  findByXDecimal: (position: number) => FindResult[];
+  findByXDecimal: (position: number) => line.FindResult[];
   /**
    * @returns the values that a closed break at a decimal position across the region
    * hides, or null.
@@ -176,7 +176,7 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
       validValues.reduce((p, c) => p + c.position.x, 0) / validValues.length;
     const avgX = validValues.reduce((p, c) => p + c.value.x, 0) / validValues.length;
     const timeValue = this.state.relative
-      ? formatRelativeTime(avgX, MILLISECOND)
+      ? axis.formatRelativeTime(avgX, MILLISECOND)
       : new TimeStamp(avgX).toString("preciseDate", "local");
     this.updateHovered(validValues, scale_);
 
@@ -285,10 +285,10 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
 
   // updateHovered sets hovered to the key of the line whose value is nearest the
   // cursor, or null when no value is within HOVER_DISTANCE.
-  private updateHovered(results: FindResult[], toPixels: scale.XY): void {
+  private updateHovered(results: line.FindResult[], toPixels: scale.XY): void {
     const { position } = this.state;
     if (position == null) return;
-    let nearest: FindResult | null = null;
+    let nearest: line.FindResult | null = null;
     let distance = HOVER_DISTANCE;
     for (const r of results) {
       if (!Number.isFinite(r.value.y)) continue;
@@ -306,7 +306,7 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
 
 const MILLISECOND = 1e6;
 
-const formatValue = ({ value: { y }, bounds }: FindResult): string => {
+const formatValue = ({ value: { y }, bounds }: line.FindResult): string => {
   if (y === Infinity) return "∞";
   if (y === -Infinity) return "-∞";
   return math.smartRound(y, bounds).toString();

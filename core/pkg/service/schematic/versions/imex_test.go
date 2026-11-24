@@ -247,9 +247,9 @@ var _ = Describe("DecodeImExEnvelope", func() {
 	) {
 		sch := decode(ctx, path)
 		Expect(gaugeConfig(sch, "g1").Bounds).
-			To(Equal(spatial.Bounds{Lower: -10, Upper: 0}))
+			To(Equal(spatial.ClosedBounds{Lower: -10, Upper: 0}))
 		Expect(gaugeConfig(sch, "g2").Bounds).
-			To(Equal(spatial.Bounds{Lower: 0, Upper: 100}))
+			To(Equal(spatial.ClosedBounds{Lower: 0, Upper: 100}))
 	},
 		Entry("current version", "testdata/import_v10_zeros.json"),
 		Entry("older version", "testdata/import_v8_zeros.json"),
@@ -263,7 +263,7 @@ var _ = Describe("DecodeImExEnvelope", func() {
 			Expect(valve.Scale).To(Equal(1.0))
 			Expect(valve.StalenessTimeout).To(Equal(5 * telem.Second))
 			Expect(gaugeConfig(sch, "g1").Bounds).
-				To(Equal(spatial.Bounds{Lower: -10, Upper: 0}))
+				To(Equal(spatial.ClosedBounds{Lower: -10, Upper: 0}))
 		},
 		Entry("current version", "testdata/import_v10_zero_scale.json"),
 		Entry("older version", "testdata/import_v8_zero_scale.json"),
