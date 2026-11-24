@@ -49,6 +49,32 @@ const createSpec = (
 });
 
 describe("symbol editor spec", () => {
+  describe("effective", () => {
+    it("should return the field that wins for the part at the value", () => {
+      const looks: schematic.symbol.Look[] = [
+        { key: "a", part: "body", when: equals(0, 1), fill: fixed(RED) },
+        { key: "b", part: "body", fill: fixed(BLUE) },
+      ];
+      expect(Spec.effective({ looks }, "body", "fill", 0)).toEqual(fixed(BLUE));
+    });
+
+    it("should count a later look of the whole drawing for a part", () => {
+      const looks: schematic.symbol.Look[] = [
+        { key: "a", part: "body", fill: fixed(BLUE) },
+        { key: "b", when: equals(0), fill: fixed(RED) },
+      ];
+      expect(Spec.effective({ looks }, "body", "fill", 0)).toEqual(fixed(RED));
+      expect(Spec.effective({ looks }, "body", "fill", 1)).toEqual(fixed(BLUE));
+    });
+
+    it("should not count the looks of a part for the whole drawing", () => {
+      const looks: schematic.symbol.Look[] = [
+        { key: "a", part: "body", fill: fixed(RED) },
+      ];
+      expect(Spec.effective({ looks }, undefined, "fill", 0)).toBeUndefined();
+    });
+  });
+
   describe("setOwn", () => {
     it("should add a drawing look after its last hider, not after every look", () => {
       const spec = createSpec({

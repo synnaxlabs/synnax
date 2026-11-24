@@ -13,8 +13,8 @@ import { id } from "@synnaxlabs/x";
 type Spec = schematic.symbol.Spec;
 type Look = schematic.symbol.Look;
 
-// STATE is the key of the one state that the editor edits.
-const STATE = "active";
+/** STATE is the key of the one state that the editor edits. */
+export const STATE = "active";
 
 /** Field is a field of a look that the editor sets. */
 export type Field = "fill" | "stroke" | "hidden" | "blink" | "motion";
@@ -92,6 +92,18 @@ const slot = (looks: Look[], look: Look): number => {
 
 const withActive = (states: Spec["states"]): Spec["states"] =>
   states.some((s) => s.key === STATE) ? states : [...states, createState()];
+
+/**
+ * @returns the field that target shows at value after the looks apply in order, or at
+ * every value when value is undefined. Looks of the whole drawing count for a part.
+ */
+export const effective = <F extends Field>(
+  spec: Pick<Spec, "looks">,
+  target: Target,
+  field: F,
+  value?: number,
+): Look[F] | undefined =>
+  spec.looks.findLast((l) => reaches(l, target, value) && l[field] != null)?.[field];
 
 /**
  * @returns spec in which target owns v for field at value alone, or at every value when

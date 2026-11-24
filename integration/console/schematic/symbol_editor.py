@@ -107,10 +107,8 @@ class SymbolEditor:
         self.wait_for_form_visible()
 
     def _region_rows(self) -> Locator:
-        """Locate the region rows (the only list items carrying color swatches)."""
-        return self.page.locator(".lyra-list__item").filter(
-            has=self.page.locator(".lyra-color-swatch")
-        )
+        """Locate the rows of the region list."""
+        return self.modal.locator(".console-schematic-region-list-item")
 
     def region_count(self) -> int:
         """Return the number of detected regions."""
@@ -124,55 +122,61 @@ class SymbolEditor:
             )
         )
 
-    def _region_swatch(self, swatch_index: int, region_index: int) -> Locator:
-        return (
-            self._region_rows()
-            .nth(region_index)
-            .locator(".lyra-color-swatch")
-            .nth(swatch_index)
-        )
+    def _paint(self, label: str, region_index: int) -> Locator:
+        """Locate the paint button of a region, "Fill" or "Stroke"."""
+        return self._region_rows().nth(region_index).get_by_label(label, exact=True)
 
-    def _set_region_color(
-        self, swatch_index: int, hex_color: str, region_index: int
-    ) -> None:
-        color.pick(
-            self.page,
-            self._region_swatch(swatch_index, region_index),
-            hex_color=hex_color,
-        )
+    def _pick_paint_kind(self, paint: Locator, kind: str) -> Locator:
+        """Open the dialog of a paint button, pick a kind, and return the dialog."""
+        paint.click()
+        dialog = self.page.locator(".console-schematic-paint-dialog")
+        dialog.wait_for(state="visible", timeout=2000)
+        dialog.get_by_role("button", name=kind, exact=True).click()
+        return dialog
+
+    def _close_paint(self, dialog: Locator) -> None:
+        self.page.keyboard.press("Escape")
+        dialog.wait_for(state="hidden", timeout=2000)
+
+    def _set_paint_color(self, paint: Locator, hex_color: str) -> None:
+        dialog = self._pick_paint_kind(paint, "Color")
+        picker = dialog.locator(".lyra-color-picker")
+        picker.wait_for(state="visible", timeout=2000)
+        color.enter(self.page, picker, hex_color=hex_color)
+        self._close_paint(dialog)
 
     def set_region_stroke_color(self, hex_color: str, *, region_index: int = 0) -> None:
-        """Set the stroke color for a region (the first swatch in the row).
+        """Set the stroke color for a region.
 
         :param hex_color: Hex color string (e.g., "#FF0000" or "FF0000").
         :param region_index: Index of the region (0-based).
         """
-        self._set_region_color(0, hex_color, region_index)
+        self._set_paint_color(self._paint("Stroke", region_index), hex_color)
 
     def set_region_fill_color(self, hex_color: str, *, region_index: int = 0) -> None:
-        """Set the fill color for a region (the second swatch in the row).
+        """Set the fill color for a region.
 
         :param hex_color: Hex color string (e.g., "#FF0000" or "FF0000").
         :param region_index: Index of the region (0-based).
         """
-        self._set_region_color(1, hex_color, region_index)
+        self._set_paint_color(self._paint("Fill", region_index), hex_color)
 
     def clear_region_fill_color(self, *, region_index: int = 0) -> None:
-        """Set the fill color for a region back to Auto, so the SVG's own fill paints.
+        """Set the fill of a region back to Drawing, so the SVG's own fill paints.
 
         :param region_index: Index of the region (0-based).
         """
-        color.pick_auto(self.page, self._region_swatch(1, region_index))
+        self._close_paint(
+            self._pick_paint_kind(self._paint("Fill", region_index), "Drawing")
+        )
 
     def get_region_fill_swatch_color(self, *, region_index: int = 0) -> str:
-        """Return the color a region's fill swatch shows, e.g. "#ff0000".
+        """Return the color a region's fill button shows, e.g. "#ff0000".
 
         :param region_index: Index of the region (0-based).
         """
-        swatch = self._region_swatch(1, region_index)
-        return str(
-            swatch.evaluate("(el) => el.style.getPropertyValue('--pluto-swatch-color')")
-        )
+        paint = self._paint("Fill", region_index)
+        return str(paint.evaluate("(el) => el.style.getPropertyValue('--pluto-bg')"))
 
     def get_preview_fill(self, selector: str) -> str:
         """Return the computed fill (e.g. "rgb(255, 0, 0)") of a rendered preview shape.
