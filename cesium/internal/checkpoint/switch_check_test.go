@@ -10,6 +10,7 @@
 package checkpoint_test
 
 import (
+	"context"
 	"encoding/binary"
 	"io"
 	"os"
@@ -169,7 +170,7 @@ var _ = Describe("Switch check", func() {
 		fs := xfs.NewMem()
 		l, st := owners(fs, func(f func()) { go f() })
 		// An open segment that no writer holds gets a Seal in the next log.
-		w := MustSucceed(st.OpenWriter(state.WriterConfig{
+		w := MustSucceed(st.OpenWriter(context.Background(), state.WriterConfig{
 			Keys: []state.WriterKey{{Key: 5, DataType: 4}}, Clock: 5, Start: 10,
 		}))
 		id := MustSucceed(w.NewSegment(5))

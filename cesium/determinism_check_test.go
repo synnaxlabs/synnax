@@ -132,7 +132,7 @@ var _ = Describe("Pointer log determinism check", func() {
 			Expect(w.Close()).To(Succeed())
 		}
 		Expect(db.Intend([]cesium.ChannelKey{11, 13})).To(Succeed())
-		Expect(db.Drop([]cesium.ChannelKey{11, 13})).To(Succeed())
+		Expect(db.Drop(ctx, []cesium.ChannelKey{11, 13})).To(Succeed())
 		Expect(closeDB()).To(Succeed())
 		_, closeDB = open()
 		Expect(closeDB()).To(Succeed())

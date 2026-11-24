@@ -89,7 +89,12 @@ type logRange struct {
 	start telem.TimeStamp
 }
 
+// timeRange returns the time range of r, or the zero range when r holds no pointer, as
+// for a cursor that never held a range.
 func (r logRange) timeRange() telem.TimeRange {
+	if r.ptr.Samples == 0 {
+		return telem.TimeRange{}
+	}
 	return telem.TimeRange{Start: r.start, End: r.ptr.Last + 1}
 }
 
