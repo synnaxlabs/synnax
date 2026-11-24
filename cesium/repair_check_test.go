@@ -123,14 +123,19 @@ func damage(ctx context.Context) damaged {
 	stop()
 	Expect(db.Close()).To(Succeed())
 	Expect(frames(d.fs, d.id)[len(frames(d.fs, d.id))-1]).To(BeNumerically(">", d.bad))
-	f := MustSucceed(d.fs.Open(log.Name(1), os.O_RDWR))
+	flipLog(d.fs, d.bad+log.FrameHeaderSize+16)
+	return d
+}
+
+// flipLog flips every bit of the byte at offset at of log 1.
+func flipLog(fs xfs.FS, at int64) {
+	GinkgoHelper()
+	f := MustSucceed(fs.Open(log.Name(1), os.O_RDWR))
 	b := make([]byte, 1)
-	at := d.bad + log.FrameHeaderSize + 16
 	MustSucceed(f.ReadAt(b, at))
 	b[0] ^= 0xFF
 	MustSucceed(f.WriteAt(b, at))
 	Expect(f.Close()).To(Succeed())
-	return d
 }
 
 func repairStamp(p int) telem.TimeStamp {
