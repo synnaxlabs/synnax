@@ -159,13 +159,16 @@ func (idx *index) unprotectedVisible(i, step int) (int, pointer, uint64, bool) {
 }
 
 // locate returns the domain in the index that is ptr, and the GC rewrite count of its
-// file. found is false if a delete removed or cut the domain.
+// file. found is false if a delete removed the domain or cut any bytes of ptr from it.
 func (idx *index) locate(ptr pointer) (current pointer, rewrites uint64, found bool) {
 	idx.read(func() {
 		rewrites = idx.mu.rewrites[ptr.fileKey]
 		i, exact := idx.unprotectedSearch(ptr.Start.SpanRange(0))
-		if exact && idx.mu.pointers[i].id == ptr.id {
-			current, found = idx.mu.pointers[i], true
+		if !exact {
+			return
+		}
+		if p := idx.mu.pointers[i]; p.id == ptr.id && p.size >= ptr.size {
+			current, found = p, true
 		}
 	})
 	return current, rewrites, found

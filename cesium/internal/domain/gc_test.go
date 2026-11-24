@@ -132,7 +132,9 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 					expectRead(ctx, data)
 				})
 
-				It("Should fail after a delete cuts the domain", func(ctx SpecContext) {
+				It("Should fail after a delete cuts the end of the domain", func(
+					ctx SpecContext,
+				) {
 					Expect(db.Delete(
 						ctx,
 						(23 * telem.SecondTS).Range(26*telem.SecondTS),
