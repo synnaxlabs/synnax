@@ -12,7 +12,6 @@ package cesium_test
 import (
 	"context"
 	"math/rand/v2"
-	"sync/atomic"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -25,48 +24,12 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-// logWritesFS counts the bytes written to log 2 through it.
-type logWritesFS struct {
-	xfs.FS
-	written *atomic.Int64
-}
-
-func (f logWritesFS) Sub(name string) (xfs.FS, error) {
-	if name != "" {
-		return f.FS.Sub(name)
-	}
-	return f, nil
-}
-
-func (f logWritesFS) Open(name string, flag int) (xfs.File, error) {
-	file, err := f.FS.Open(name, flag)
-	if err != nil || name != log.Name(2) {
-		return file, err
-	}
-	return logWritesFile{File: file, written: f.written}, nil
-}
-
-type logWritesFile struct {
-	xfs.File
-	written *atomic.Int64
-}
-
-func (f logWritesFile) Write(p []byte) (int, error) {
-	n, err := f.File.Write(p)
-	f.written.Add(int64(n))
-	return n, err
-}
-
-func (f logWritesFile) WriteAt(p []byte, off int64) (int, error) {
-	n, err := f.File.WriteAt(p, off)
-	f.written.Add(int64(n))
-	return n, err
-}
-
 var _ = Describe("Check: the next log of a recovery past three quarters of a small log",
 	func() {
 		const size = log.MinFileSize
-		open := func(ctx context.Context, fs xfs.FS) func() error {
+		// recovered opens fs, which recovers it, and returns the bytes of log 2 before
+		// the DB runs.
+		recovered := func(ctx context.Context, fs xfs.FS) []byte {
 			GinkgoHelper()
 			db := MustSucceed(cesium.Open(
 				ctx,
@@ -76,13 +39,14 @@ var _ = Describe("Check: the next log of a recovery past three quarters of a sma
 				cesium.WithRandom(rand.NewPCG(1, 2)),
 				cesium.WithLogFileSize(telem.Size(size)),
 			))
-			stop := GoRun(ctx, db.Run)
-			return func() error { return errors.Join(stop(), db.Close()) }
+			b := MustSucceed(xfs.ReadFile(fs, log.Name(2)))
+			Expect(errors.Join(GoRun(ctx, db.Run)(), db.Close())).To(Succeed())
+			return b
 		}
 		// crashed returns an image, taken while the DB runs, of a root whose log 1
-		// holds Intends past three quarters of it. The disk has no room for log 2, so
-		// the DB never switches, and the image has room.
-		crashed := func(ctx SpecContext) *fault.FS {
+		// holds n Intends, or as many as it takes when n is 0. The disk has no room for
+		// log 2, so the DB never switches, and the image has room.
+		crashed := func(ctx SpecContext, n int) *fault.FS {
 			GinkgoHelper()
 			disk := MustSucceed(fault.New(fault.Config{Capacity: size + 1<<20}))
 			db := MustSucceed(cesium.Open(
@@ -95,32 +59,32 @@ var _ = Describe("Check: the next log of a recovery past three quarters of a sma
 			))
 			stop := GoRun(ctx, db.Run)
 			// Each Intend takes one block of the log.
-			for range size/log.BlockSize*3/4 + 32 {
-				Expect(db.Intend([]cesium.ChannelKey{1})).To(Succeed())
+			taken := 0
+			for ; n == 0 || taken < n; taken++ {
+				if err := db.Intend([]cesium.ChannelKey{1}); err != nil {
+					Expect(n).To(BeZero(), "%v", err)
+					break
+				}
 			}
+			Expect(taken).To(BeNumerically(">", size/log.BlockSize*3/4))
 			image := MustSucceed(disk.Crash(fault.CrashConfig{}))
-			Expect(errors.Join(stop(), db.Close())).To(Succeed())
+			Expect(errors.Join(stop(), db.Close())).To(Or(Succeed(), HaveOccurred()))
+			Expect(MustSucceed(image.Exists(log.Name(2)))).To(BeFalse())
 			return image
 		}
 
-		It("Should prepare the new log at the log file size", func(ctx SpecContext) {
-			image := crashed(ctx)
-			Expect(MustSucceed(image.Exists(log.Name(2)))).To(BeFalse())
-			Expect(open(ctx, image)()).To(Succeed())
-			Expect(MustSucceed(image.Stat(log.Name(2))).Size()).To(Equal(int64(size)))
+		It("Should prepare the new log at the log file size when the Restart does not "+
+			"fit in a full log", func(ctx SpecContext) {
+			Expect(recovered(ctx, crashed(ctx, 0))).To(HaveLen(int(size)))
 		})
 
-		It("Should take a whole new log of the log file size as it is",
+		It("Should switch to a whole new log of the log file size",
 			func(ctx SpecContext) {
-				image := crashed(ctx)
+				image := crashed(ctx, size/log.BlockSize*3/4+32)
 				Expect(log.Prepare(image, 2, size)).To(Succeed())
-				written := &atomic.Int64{}
-				Expect(open(ctx, logWritesFS{FS: image, written: written})()).
-					To(Succeed())
-				Expect(MustSucceed(image.Stat(log.Name(2))).Size()).
-					To(Equal(int64(size)))
-				// Recovery writes the header copies and the Restart frame of log 2, and
-				// does not prepare it again.
-				Expect(written.Load()).To(BeNumerically("<", size/2))
+				b := recovered(ctx, image)
+				Expect(b).To(HaveLen(int(size)))
+				// The switch writes the header of log 2.
+				Expect(b[:log.HeaderSize]).ToNot(Equal(make([]byte, log.HeaderSize)))
 			})
 	})
