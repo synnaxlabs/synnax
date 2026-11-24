@@ -23,7 +23,7 @@ import type { Status } from "@synnaxlabs/lyra/status";
 import { id, TimeStamp } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { assert, beforeEach, describe, expect, it } from "vitest";
+import { assert, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import type { z } from "zod";
 
 import { EtherCAT } from "@/feature/ethercat";
@@ -2864,6 +2864,72 @@ describe("Read channel usage", () => {
         /^Start creates 2 channels and 1 time channel, \d+ channels? in use\.$/,
       ),
     ).toBeTruthy();
+  });
+
+  // A late resize of the panes during a ResizeObserver loop fails the loop in WebKit.
+  it("should keep the size of the channel panes when the counts load", async () => {
+    const slave = await createTwoEntrySlave();
+    let first: number | undefined;
+    const observer = new MutationObserver(() => {
+      const panes = document.querySelector(".console-panes");
+      if (first == null && panes != null) first = panes.getBoundingClientRect().height;
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+    try {
+      await renderRead(createConfig(slave));
+      await screen.findByText(/ in use\.$/);
+    } finally {
+      observer.disconnect();
+    }
+    const panes = document.querySelector(".console-panes");
+    assert(panes != null);
+    expect(panes.getBoundingClientRect().height).toBe(first);
+  });
+
+  it("should show no usage line for a task with no channels", async () => {
+    const { container } = await renderRead(EtherCAT.Task.READ_SCHEMAS.config.parse({}));
+    expect(container.querySelector(".console-ethercat-channel-usage__text")).toBeNull();
+  });
+
+  it("should show no usage line when the slaves fail to load", async () => {
+    const slave = await createTwoEntrySlave();
+    const draft = await createDraft(client, createConfig(slave));
+    const as = await createTestClientWithGrants(client, {
+      retrieve: [
+        task.TYPE_RESOURCE_ID,
+        channel.TYPE_RESOURCE_ID,
+        rack.TYPE_RESOURCE_ID,
+        panel.TYPE_RESOURCE_ID,
+        project.TYPE_RESOURCE_ID,
+        group.TYPE_RESOURCE_ID,
+      ],
+    });
+    // The denied slave query logs its error. Any other output still fails the test.
+    const denied = /cannot retrieve device/;
+    const record = console.error;
+    const errorSpy = vi
+      .spyOn(console, "error")
+      .mockImplementation((...args: unknown[]) => {
+        if (!(args[0] instanceof Error && denied.test(args[0].message)))
+          record(...args);
+      });
+    onTestFinished(() => errorSpy.mockRestore());
+    const { container } = await renderTaskFormTab(
+      EtherCAT.Task.FORMS[EtherCAT.Task.READ_TYPE],
+      { client, as, taskKey: draft.key },
+    );
+    await waitFor(() =>
+      expect(errorSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: expect.stringMatching(denied),
+        }),
+      ),
+    );
+    await waitFor(() =>
+      expect(
+        container.querySelector(".console-ethercat-channel-usage__text"),
+      ).toBeNull(),
+    );
   });
 
   it("should leave a disabled channel out of the count", async () => {

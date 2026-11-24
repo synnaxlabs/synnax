@@ -182,8 +182,7 @@ describe.skipIf(process.platform === "win32")("constructor with Synnax Desktop",
     const { token, key } = await owner.auth.createKey({ name: "desktop" });
     const ready = join(home, "ready");
     writeDesktop(`[ -f ${ready} ] || exit 1\necho ${token}`, testCoreAddress());
-    // the default retry budget outlasts the wait for the change stream
-    const client = new Synnax({ onInternalError: () => {} });
+    const client = createClient();
     await expect(client.connect()).rejects.toThrow(APIKeyUnavailableError);
     writeFileSync(ready, "");
     await expect(client.connect()).resolves.toBeDefined();
