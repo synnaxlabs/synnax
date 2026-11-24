@@ -49,57 +49,68 @@ func BenchmarkCommitDataPointerLog(b *testing.B) {
 		b.Run(fmt.Sprintf("channels=%d/samples=%d", channels, samples), func(
 			b *testing.B,
 		) {
-			db := openBenchDB(b, true, cesium.WithPointerLog())
-			keys := createIndexedChannels(b, db, 1, channels)
-			open := func(channels []cesium.ChannelKey) *cesium.Writer {
-				w, err := db.OpenWriter(b.Context(), cesium.WriterConfig{
-					Channels: channels,
-					Clock:    keys[0],
-					Start:    telem.SecondTS,
-				})
-				if err != nil {
-					b.Fatal(err)
-				}
-				return w
-			}
-			clock, data := open(keys[:1]), open(keys[1:])
-			values := telem.NewSeries(make([]float32, samples))
-			stamps := make([]telem.TimeStamp, samples)
-			start := telem.SecondTS
-			b.ReportAllocs()
-			for b.Loop() {
-				b.StopTimer()
-				for i := range stamps {
-					stamps[i] = start + telem.TimeStamp(i)
-				}
-				fr := telem.UnaryFrame(keys[0], telem.NewSeries(stamps))
-				if _, _, err := clock.Write(b.Context(), fr, nil); err != nil {
-					b.Fatal(err)
-				}
-				if _, _, err := clock.Commit(b.Context(), nil); err != nil {
-					b.Fatal(err)
-				}
-				series := make([]telem.Series, channels)
-				for i := range series {
-					series[i] = values
-				}
-				b.StartTimer()
-				written := telem.MultiFrame(keys[1:], series)
-				if _, _, err := data.Write(b.Context(), written, nil); err != nil {
-					b.Fatal(err)
-				}
-				if _, _, err := data.Commit(b.Context(), nil); err != nil {
-					b.Fatal(err)
-				}
-				start += samples
-			}
-			b.StopTimer()
-			for _, w := range []*cesium.Writer{data, clock} {
-				if err := w.Close(); err != nil {
-					b.Error(err)
-				}
-			}
+			benchmarkCommitData(b, channels, samples)
 		})
+	}
+}
+
+func benchmarkCommitData(b *testing.B, channels, samples int) {
+	b.Helper()
+	db := openBenchDB(b, true, cesium.WithPointerLog())
+	keys := createIndexedChannels(b, db, 1, channels)
+	clock, data := openBenchClock(b, db, keys[:1]), openBenchClock(b, db, keys[1:])
+	values := telem.NewSeries(make([]float32, samples))
+	stamps := make([]telem.TimeStamp, samples)
+	start := telem.SecondTS
+	b.ReportAllocs()
+	for b.Loop() {
+		b.StopTimer()
+		for i := range stamps {
+			stamps[i] = start + telem.TimeStamp(i)
+		}
+		writeAndCommit(b, clock, telem.UnaryFrame(keys[0], telem.NewSeries(stamps)))
+		series := make([]telem.Series, channels)
+		for i := range series {
+			series[i] = values
+		}
+		b.StartTimer()
+		writeAndCommit(b, data, telem.MultiFrame(keys[1:], series))
+		start += telem.TimeStamp(samples)
+	}
+	b.StopTimer()
+	for _, w := range []*cesium.Writer{data, clock} {
+		if err := w.Close(); err != nil {
+			b.Error(err)
+		}
+	}
+}
+
+// openBenchClock opens a writer of channels, timed by the first of the channels that
+// createIndexedChannels makes, from the first second.
+func openBenchClock(
+	b *testing.B,
+	db *cesium.DB,
+	channels []cesium.ChannelKey,
+) *cesium.Writer {
+	b.Helper()
+	w, err := db.OpenWriter(b.Context(), cesium.WriterConfig{
+		Channels: channels,
+		Clock:    1,
+		Start:    telem.SecondTS,
+	})
+	if err != nil {
+		b.Fatal(err)
+	}
+	return w
+}
+
+func writeAndCommit(b *testing.B, w *cesium.Writer, fr cesium.Frame) {
+	b.Helper()
+	if _, _, err := w.Write(b.Context(), fr, nil); err != nil {
+		b.Fatal(err)
+	}
+	if _, _, err := w.Commit(b.Context(), nil); err != nil {
+		b.Fatal(err)
 	}
 }
 
