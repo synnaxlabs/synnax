@@ -118,8 +118,8 @@ func (r *openRequest) run(s *State) { r.w.done <- s.openWriter(r.w, r.pre) }
 // inside another claim, or when another writer that is not bounded claims one of its
 // keys, and ErrStale when a preload is stale. The writer takes over each open segment
 // of its keys that no writer holds, when it has the same clock, type, and version, and
-// every commit of it is durable. The open queues until Run runs it: when ctx ends first,
-// OpenWriter returns the error of ctx, and the open never runs.
+// every commit of it is durable. The open queues until Run runs it: when ctx ends
+// first, OpenWriter returns the error of ctx, and the open never runs.
 func (s *State) OpenWriter(
 	ctx context.Context,
 	cfg WriterConfig,
