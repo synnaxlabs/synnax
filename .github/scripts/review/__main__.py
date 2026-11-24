@@ -45,8 +45,8 @@ fails when none is on the way or the review of the head failed.
 each rebuttal with Claude Code, and writes the judgments. It fails after it writes them
 when one rebuttal could not be judged. `rule` posts them, and takes KEY.
 `ci` takes only GH_TOKEN, GITHUB_REPOSITORY, and HEAD_SHA, and writes the CI results of
-the head from the GitHub API. `run` and `judge` give Claude Code the file at
-CI_RESULTS that it wrote.
+the head from the GitHub API, or a note that they are unavailable when the API fails.
+`run` and `judge` give Claude Code the file at CI_RESULTS that it wrote.
 
 When Claude Code stops at the usage limit of its login, `run` and `judge` write the
 reset time, in Unix seconds, as the `limited-until` step output. When Claude rejects the
@@ -91,7 +91,7 @@ from review import (
     run,
     threads,
 )
-from review.ci import log, results
+from review.ci import UNAVAILABLE, log, results
 
 _FILE = re.compile(r"diff --git a/.* b/(.*)")
 _INDEX = re.compile(r"(?m)^index .*\n")
@@ -342,8 +342,14 @@ def main(argv: list[str]) -> None:
         sys.exit(__doc__)
     env = os.environ
     if argv[0] == "ci":
-        repo = env["GITHUB_REPOSITORY"]
-        text = results(repo, env["HEAD_SHA"], gh, log(repo, env["GH_TOKEN"]))
+        repo, sha = env["GITHUB_REPOSITORY"], env["HEAD_SHA"]
+        # The results are context, so a failure of the API leaves the review without
+        # them instead of stopping it.
+        try:
+            text = results(repo, sha, gh, log(repo, env["GH_TOKEN"]))
+        except subprocess.CalledProcessError as e:
+            print(f"::warning::The CI results are unavailable: {e}")
+            text = UNAVAILABLE.format(sha=sha)
         Path(argv[1]).write_text(text)
         return
     target = Target(

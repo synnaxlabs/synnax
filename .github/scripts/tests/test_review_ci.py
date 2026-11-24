@@ -8,13 +8,28 @@
 #  included in the file licenses/APL.txt.
 
 import json
+import subprocess
+import threading
+from collections.abc import Iterator
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 
 import pytest
 
 from review.__main__ import main
-from review.ci import MAX_LOGS, parse, results
+from review.ci import (
+    ATTEMPTS,
+    HEAD_BYTES,
+    LOG_BYTES,
+    MAX_CHARS,
+    MAX_LOGS,
+    Text,
+    Unavailable,
+    log,
+    parse,
+    results,
+)
 
 REPO = "synnaxlabs/synnax"
 SHA = "b" * 40
@@ -31,15 +46,32 @@ def job(id: int, name: str, conclusion: str | None = "success") -> dict[str, Any
     }
 
 
+def run(
+    id: int,
+    event: str = "pull_request",
+    *,
+    workflow: int = 100,
+    conclusion: str | None = "success",
+    attempt: int = 1,
+) -> dict[str, Any]:
+    return {
+        "id": id,
+        "name": "CI",
+        "event": event,
+        "workflow_id": workflow,
+        "run_attempt": attempt,
+        "created_at": f"2026-11-24T0{id % 10}:00:00Z",
+        "status": "completed" if conclusion else "in_progress",
+        "conclusion": conclusion,
+    }
+
+
 class FakeGH:
     """Serves the workflow runs, jobs, and check runs of one commit, and records each
     call."""
 
     def __init__(self) -> None:
-        self.runs = [
-            {"id": 1, "name": "CI", "event": "pull_request"},
-            {"id": 2, "name": "7", "event": "pull_request_review_comment"},
-        ]
+        self.runs = [run(1), run(2, "pull_request_review_comment", workflow=200)]
         self.jobs = {
             1: [
                 job(10, "py / Test (3.15)"),
@@ -53,9 +85,13 @@ class FakeGH:
             {**job(31, "Relay reply"), "app": "github-actions"},
         ]
         self.calls: list[tuple[str, ...]] = []
+        self.failed = False
+        """Whether every call fails, as `gh` does after its retries."""
 
     def __call__(self, *args: str, stdin: str | None = None) -> str:
         self.calls.append(args)
+        if self.failed:
+            raise subprocess.CalledProcessError(1, ["gh", *args])
         path, jq = args[2], args[args.index("--jq") + 1]
         assert args[:2] == ("api", "--paginate")
         assert jq.endswith(" | tojson")
@@ -71,14 +107,20 @@ class FakeGH:
 
 
 class FakeLog:
-    def __init__(self, **logs: str | None) -> None:
+    """Serves a log for each job, or None, or an error to raise."""
+
+    def __init__(self, **logs: str | Text | Exception | None) -> None:
         self.logs = logs
         self.read: list[int] = []
 
-    def __call__(self, job: int) -> bytes | None:
+    def __call__(self, job: int) -> Text | None:
         self.read.append(job)
-        text = self.logs.get(str(job), "")
-        return None if text is None else text.encode()
+        found = self.logs.get(str(job), "")
+        if isinstance(found, Exception):
+            raise found
+        if isinstance(found, str):
+            return Text(text=found, cut=False)
+        return found
 
 
 class TestParse:
@@ -117,18 +159,77 @@ class TestParse:
             "src/b.spec.tsx > Thing > ?breaks? here: failed",
         ]
 
-    def test_should_read_go_and_bazel_results(self) -> None:
+    def test_should_read_go_test_results(self) -> None:
+        # From core / Test (ubuntu-latest, 1/3), job 138612933597.
         text = (
-            "ok  \tgithub.com/synnaxlabs/x/a\t1.2s\n"
-            "FAIL\tgithub.com/synnaxlabs/x/b\t0.4s\n"
-            "    --- FAIL: TestB (0.01s)\n"
-            "//driver/ni:ni_test    PASSED in 2.1s\n"
+            "2026-11-24T17:18:13.6568651Z --- FAIL: TestTask (4.33s)\n"
+            "2026-11-24T17:18:13.6568886Z FAIL\n"
+            "2026-11-24T17:18:13.6569396Z FAIL\tgithub.com/synnaxlabs/synnax/pkg/"
+            "service/task\t4.401s\n"
+            "2026-11-24T17:18:13.6570016Z ok  \tgithub.com/synnaxlabs/synnax/pkg/"
+            "service/task/pb\t1.050s\tcoverage: 6.7% of statements\n"
         )
         assert list(parse(text)) == [
-            "github.com/synnaxlabs/x/a: passed",
-            "github.com/synnaxlabs/x/b: failed",
-            "TestB: failed",
-            "//driver/ni:ni_test: passed",
+            "TestTask: failed",
+            "github.com/synnaxlabs/synnax/pkg/service/task: failed",
+            "github.com/synnaxlabs/synnax/pkg/service/task/pb: passed",
+        ]
+
+    def test_should_read_ginkgo_suites(self) -> None:
+        # From cesium / Test (ubuntu-latest), job 137358919287, with fewer dots.
+        dot = "\x1b[38;5;10m•\x1b[0m"
+        text = (
+            "2026-11-22T21:20:56.8295817Z [1795382447] \x1b[1mVirtual Suite\x1b[0m "
+            f"- 21/21 specs - 4 procs {dot * 3} \x1b[38;5;10mSUCCESS!\x1b[0m "
+            "338.044707ms \n"
+            "2026-11-22T21:21:21.3394033Z Ginkgo ran 12 suites in 33.378109081s\n"
+            "2026-11-22T21:21:21.3394332Z Test Suite Passed\n"
+        )
+        assert list(parse(text)) == ["Virtual Suite: 21/21 specs, passed"]
+
+    def test_should_read_ginkgo_failures(self) -> None:
+        # From core / Test (ubuntu-latest, 1/3), job 138612933597.
+        text = (
+            '2026-11-24T17:18:13.6508866Z   [FAILED] config: missing key "inline"\n'
+            "2026-11-24T17:18:13.6565379Z \x1b[38;5;9m\x1b[1mSummarizing 1 "
+            "Failure:\x1b[0m\n"
+            "2026-11-24T17:18:13.6566095Z   \x1b[38;5;9m[FAIL]\x1b[0m \x1b[0mLegacy "
+            "file import \x1b[38;5;243mpreserves every field of a released Console "
+            "export \x1b[38;5;9m\x1b[1m[It] Entry: http_write\x1b[0m\n"
+            "2026-11-24T17:18:13.6566997Z   \x1b[38;5;243m/home/runner/work/synnax/"
+            "synnax/core/pkg/service/task/legacy_test.go:757\x1b[0m\n"
+            "2026-11-24T17:18:13.6567325Z \n"
+            "2026-11-24T17:18:13.6567508Z \x1b[38;5;9m\x1b[1mRan 220 of 220 Specs "
+            "in 4.311 seconds\x1b[0m\n"
+            "2026-11-24T17:18:13.6568180Z \x1b[38;5;9m\x1b[1mFAIL!\x1b[0m -- "
+            "\x1b[38;5;10m\x1b[1m219 Passed\x1b[0m | \x1b[38;5;9m\x1b[1m1 "
+            "Failed\x1b[0m | \x1b[38;5;11m\x1b[1m0 Pending\x1b[0m | "
+            "\x1b[38;5;14m\x1b[1m0 Skipped\x1b[0m\n"
+            "  [FAIL] not in a summary\n"
+        )
+        assert list(parse(text)) == [
+            "Legacy file import preserves every field of a released Console export "
+            "[It] Entry: http_write: fail",
+            "ginkgo total: 219 Passed, 1 Failed, 0 Pending, 0 Skipped",
+        ]
+
+    def test_should_read_bazel_results(self) -> None:
+        # Cached lines from freighter-cpp / Test (ubuntu-build-bot), job
+        # 137358920375, and the build failure from job 138600653204. Recent runs
+        # had no flaky test, so that line takes Bazel's format.
+        text = (
+            "2026-11-22T21:21:26.9215572Z //freighter/cpp:freighter_test        "
+            "                          (cached) PASSED in 0.6s\n"
+            "2026-11-24T16:43:33.5426997Z //client/cpp/testutil:testutil_test   "
+            "                          FAILED TO BUILD\n"
+            "//driver/ni:ni_test      FLAKY, failed in 1 out of 2 in 3.3s\n"
+            "//driver/ni:read_test    PASSED in 2.1s\n"
+        )
+        assert list(parse(text)) == [
+            "//freighter/cpp:freighter_test: passed (cached)",
+            "//client/cpp/testutil:testutil_test: failed to build",
+            "//driver/ni:ni_test: flaky",
+            "//driver/ni:read_test: passed",
         ]
 
     def test_should_skip_other_lines(self) -> None:
@@ -142,9 +243,40 @@ class TestResults:
     def test_should_list_the_jobs_that_test_the_commit(self) -> None:
         out = results(REPO, SHA, FakeGH(), FakeLog())
         assert out.startswith(f"# CI results of `{SHA}`")
-        assert "| CI | py / Test (3.15) | 10 | completed | success |" in out
-        assert "| CI | skip | 12 | completed | skipped |" in out
+        assert (
+            "| CI | 1 | 1 | 2026-11-24T01:00:00Z | yes | py / Test (3.15) | 10 | "
+            "completed | success |"
+        ) in out
+        assert "| skip | 12 | completed | skipped |" in out
         assert "Relay reply" not in out
+
+    @pytest.mark.parametrize("event", ["push", "pull_request_target"])
+    def test_should_list_the_runs_of_other_testing_events(self, event: str) -> None:
+        gh = FakeGH()
+        gh.runs = [run(1, event)]
+        assert "| py / Test (3.15) | 10 |" in results(REPO, SHA, gh, FakeLog())
+
+    def test_should_mark_the_latest_completed_run_of_a_workflow(self) -> None:
+        gh = FakeGH()
+        gh.runs = [
+            run(3, conclusion=None),
+            run(4, conclusion="cancelled"),
+            run(2, attempt=2),
+            run(1, conclusion="failure"),
+        ]
+        gh.jobs = {i: [job(10 * i, "py / Test")] for i in range(1, 5)}
+        log = FakeLog()
+        out = results(REPO, SHA, gh, log)
+        rows = [line for line in out.splitlines() if "| py / Test |" in line]
+        assert [r.split(" | ")[1:5:3] for r in rows] == [
+            ["1", "no"],
+            ["2", "yes"],
+            ["3", "no"],
+            ["4", "no"],
+        ]
+        assert "| 2 | 2 | 2026-11-24T02:00:00Z | yes |" in out
+        assert log.read == [20]
+        assert "use only the run marked latest" in out
 
     def test_should_list_the_check_runs_of_other_apps(self) -> None:
         out = results(REPO, SHA, FakeGH(), FakeLog())
@@ -172,10 +304,38 @@ class TestResults:
         out = results(REPO, SHA, FakeGH(), FakeLog(**{"10": None}))
         assert "```text\n10 no log\n```" in out
 
+    def test_should_say_when_a_log_is_unavailable(self) -> None:
+        gh = FakeGH()
+        gh.jobs[1].append(job(13, "go / Test"))
+        logs: dict[str, str | Exception] = {
+            "10": Unavailable("HTTP 502"),
+            "13": "ok  \tx/a\t1.2s\n",
+        }
+        log = FakeLog(**logs)
+        out = results(REPO, SHA, gh, log)
+        assert "```text\n10 log unavailable\n13 x/a: passed\n```" in out
+
+    def test_should_fail_on_another_error_of_a_log(self) -> None:
+        with pytest.raises(KeyError):
+            results(REPO, SHA, FakeGH(), FakeLog(**{"10": KeyError("bug")}))
+
+    def test_should_say_when_a_log_is_cut(self) -> None:
+        text = "ok  \tx/a\t1.2s\n"
+        out = results(REPO, SHA, FakeGH(), FakeLog(**{"10": Text(text=text, cut=True)}))
+        assert "10 log cut: its middle is left out\n10 x/a: passed" in out
+
+    def test_should_cut_the_test_results(self) -> None:
+        text = "".join(f"ok  \tpkg/{i:06}\t1.2s\n" for i in range(MAX_CHARS // 10))
+        out = results(REPO, SHA, FakeGH(), FakeLog(**{"10": text}))
+        fenced = out.split("```text\n", 1)[1].split("\n```", 1)[0]
+        assert len(fenced) <= MAX_CHARS
+        assert fenced.endswith(": passed")
+        assert f"The test results are cut at {MAX_CHARS} characters." in out
+
     def test_should_keep_a_job_name_in_its_cell(self) -> None:
         gh = FakeGH()
         gh.jobs[1] = [job(10, "a | b\n`c`")]
-        assert "| CI | a \\| b 'c' | 10 |" in results(REPO, SHA, gh, FakeLog())
+        assert "| yes | a \\| b 'c' | 10 |" in results(REPO, SHA, gh, FakeLog())
 
     def test_should_say_when_nothing_ran(self) -> None:
         gh = FakeGH()
@@ -185,13 +345,113 @@ class TestResults:
         assert "```text\nNone.\n```" in out
 
 
+class Server:
+    """Serves the log endpoint of the API, which redirects to a blob host, and records
+    the headers of each request."""
+
+    def __init__(self) -> None:
+        self.api: list[int] = []
+        """The status that the API answers with for each request, from the first."""
+        self.blob = b"log"
+        self.seen: list[tuple[str, str | None]] = []
+        """The path and the Authorization header of each request."""
+        server = self
+
+        class Handler(BaseHTTPRequestHandler):
+            def do_GET(self) -> None:
+                server.seen.append((self.path, self.headers.get("Authorization")))
+                if self.path.startswith("/blob"):
+                    self.send_response(200)
+                    self.end_headers()
+                    self.wfile.write(server.blob)
+                    return
+                status = server.api.pop(0) if server.api else 302
+                self.send_response(status)
+                if status == 302:
+                    self.send_header("Location", f"{server.url}/blob/1")
+                if status == 403:
+                    self.send_header("x-ratelimit-remaining", "0")
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+
+            def log_message(self, *_: Any) -> None:
+                pass
+
+        self.http = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        self.url = f"http://127.0.0.1:{self.http.server_address[1]}"
+
+    def read(self, job: int = 1) -> Text | None:
+        return log(REPO, "secret", api=self.url, delay=0)(job)
+
+
+@pytest.fixture
+def server() -> Iterator[Server]:
+    s = Server()
+    thread = threading.Thread(target=s.http.serve_forever, daemon=True)
+    thread.start()
+    yield s
+    s.http.shutdown()
+
+
+class TestLog:
+    """Tests reading a job log through a fake API and blob host."""
+
+    def test_should_send_the_token_only_to_the_api(self, server: Server) -> None:
+        assert server.read() == Text(text="log", cut=False)
+        assert server.seen == [
+            (f"/repos/{REPO}/actions/jobs/1/logs", "Bearer secret"),
+            ("/blob/1", None),
+        ]
+
+    @pytest.mark.parametrize("status", [404, 410])
+    def test_should_find_no_log(self, server: Server, status: int) -> None:
+        server.api = [status]
+        assert server.read() is None
+        assert len(server.seen) == 1
+
+    @pytest.mark.parametrize("status", [500, 502, 429, 403])
+    def test_should_retry_a_transient_error(self, server: Server, status: int) -> None:
+        server.api = [status, status]
+        assert server.read() == Text(text="log", cut=False)
+
+    def test_should_give_up_after_the_last_attempt(self, server: Server) -> None:
+        server.api = [503] * ATTEMPTS
+        with pytest.raises(Unavailable, match="HTTP Error 503"):
+            server.read()
+        assert len(server.seen) == ATTEMPTS
+
+    def test_should_not_retry_another_status(self, server: Server) -> None:
+        server.api = [401]
+        with pytest.raises(Unavailable, match="HTTP 401"):
+            server.read()
+        assert len(server.seen) == 1
+
+    def test_should_refuse_a_log_without_a_redirect(self, server: Server) -> None:
+        server.api = [200]
+        with pytest.raises(Unavailable, match="did not redirect"):
+            server.read()
+
+    def test_should_retry_a_network_error(self) -> None:
+        with pytest.raises(Unavailable, match="the log of job 1"):
+            log(REPO, "secret", api="http://127.0.0.1:1", delay=0)(1)
+
+    def test_should_keep_the_start_and_end_of_a_long_log(self, server: Server) -> None:
+        start = b"start\n" * (HEAD_BYTES // 6 + 1)
+        server.blob = start + b"x" * LOG_BYTES + b"\nFAILED a.py::t - boom\n"
+        read = server.read()
+        assert read is not None
+        assert read.cut
+        assert read.text.startswith("start\n")
+        assert read.text.endswith("FAILED a.py::t - boom\n")
+        assert "x" not in read.text
+        assert len(read.text) <= LOG_BYTES
+
+
 class TestMain:
     """Tests the `ci` command."""
 
-    def test_should_write_the_results_of_the_head(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        monkeypatch.setattr("review.__main__.gh", FakeGH())
+    @pytest.fixture
+    def env(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr("review.__main__.log", lambda repo, token: FakeLog())
         for k, v in {
             "GITHUB_REPOSITORY": REPO,
@@ -199,6 +459,27 @@ class TestMain:
             "GH_TOKEN": "token",
         }.items():
             monkeypatch.setenv(k, v)
+
+    def test_should_write_the_results_of_the_head(
+        self, env: None, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr("review.__main__.gh", FakeGH())
         out = tmp_path / "ci.md"
         main(["ci", str(out)])
-        assert "| CI | py / Test (3.15) | 10 |" in out.read_text()
+        assert "| py / Test (3.15) | 10 |" in out.read_text()
+
+    def test_should_write_that_the_results_are_unavailable(
+        self,
+        env: None,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        gh = FakeGH()
+        gh.failed = True
+        monkeypatch.setattr("review.__main__.gh", gh)
+        out = tmp_path / "ci.md"
+        main(["ci", str(out)])
+        assert out.read_text().startswith(f"# CI results of `{SHA}`")
+        assert "are unavailable" in out.read_text()
+        assert capsys.readouterr().out.startswith("::warning::")

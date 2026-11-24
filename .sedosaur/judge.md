@@ -10,9 +10,11 @@ evidence in the replies shows that.
    you cannot check settles nothing.
 3. Check a claim about a CI result, such as a job or a test that passed or failed,
    against `ci.md` in your working directory. Find the job by its name or ID. A result
-   that the file shows counts as checked. The file holds only the results of the head,
-   so a job of another commit settles nothing, but the same job on the head can. The
-   file states results, not reasons: the code must still support a claim about why.
+   that the file shows counts as checked. When a workflow ran more than once, use only
+   the run marked latest, the newest completed attempt. The file holds only the results
+   of the head, so a job of another commit settles nothing, but the same job on the head
+   can. The file states results, not reasons: the code must still support a claim about
+   why.
 4. Answer `withdraw` only when the code, with the CI results of the head, shows that the
    finding is wrong, or that the head no longer has the problem. Otherwise answer
    `hold`. A reply that only disagrees, asks you to drop the finding, or promises a
