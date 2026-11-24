@@ -31,6 +31,8 @@ import (
 // then every log entry after it, in log order.
 type recovery struct {
 	fs xfs.FS
+	// logSize is the size of each new log file.
+	logSize int64
 	// heads and logs are the generations of the head and log files in the listing taken
 	// at open.
 	heads, logs []uint64
@@ -644,7 +646,7 @@ func (r *recovery) nextWhole() (bool, error) {
 	if err = errors.Join(err, f.Close()); err != nil {
 		return false, err
 	}
-	return info.Size() == log.FileSize, nil
+	return info.Size() == r.logSize, nil
 }
 
 // next makes the next log live: its file, synced in the root when it is whole and else
@@ -655,7 +657,7 @@ func (r *recovery) next(whole bool) (uint32, error) {
 	if whole {
 		err = r.fs.SyncDir("")
 	} else {
-		err = log.Prepare(r.fs, gen, log.FileSize)
+		err = log.Prepare(r.fs, gen, r.logSize)
 	}
 	if err != nil {
 		return 0, err
@@ -664,7 +666,7 @@ func (r *recovery) next(whole bool) (uint32, error) {
 		DB:         r.db,
 		Generation: gen,
 		Sequence:   r.pos.Sequence,
-		Size:       log.FileSize,
+		Size:       uint64(r.logSize),
 		PrevCRC:    r.pos.PrevCRC,
 	}
 	f, err := r.fs.Open(log.Name(gen), os.O_RDWR)
@@ -682,7 +684,7 @@ func (r *recovery) next(whole bool) (uint32, error) {
 	if err = errors.Join(err, f.Close()); err != nil {
 		return 0, err
 	}
-	r.gen, r.first, r.logHeader, r.size = gen, h.Sequence, h, log.FileSize
+	r.gen, r.first, r.logHeader, r.size = gen, h.Sequence, h, r.logSize
 	return binary.LittleEndian.Uint32(first[log.HeaderSize-4:]), nil
 }
 

@@ -14,6 +14,7 @@ import (
 	"encoding/binary"
 	"math/rand/v2"
 	"os"
+	"strings"
 	"sync/atomic"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -25,6 +26,7 @@ import (
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Recovery", func() {
@@ -169,6 +171,76 @@ var _ = Describe("Recovery", func() {
 		},
 		Entry("in the header", int64(1)),
 		Entry("in the entries", int64(log.FrameHeaderSize)),
+	)
+
+	It("Should make each new log file the size of the log file size option", func(
+		ctx SpecContext,
+	) {
+		db := MustSucceed(cesium.Open(
+			ctx,
+			"",
+			cesium.WithFS(fs),
+			cesium.WithPointerLog(),
+			cesium.WithLogFileSize(telem.Size(log.MinFileSize)),
+		))
+		stop := StartRun(db.Run)
+		Expect(db.CreateChannel(ctx, cesium.Channel{
+			Key:      1,
+			Name:     "time",
+			IsIndex:  true,
+			DataType: telem.TimestampT,
+		})).To(Succeed())
+		w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+			Channels: []cesium.ChannelKey{1},
+			Start:    telem.SecondTS,
+		}))
+		// Each commit syncs a frame of one block, so 1,000 commits pass three quarters
+		// of the log and switch it.
+		for i := range 1_000 {
+			stamp := telem.TimeStamp(i+1) * telem.SecondTS
+			MustSucceed2(w.Write(ctx, telem.UnaryFrame(
+				cesium.ChannelKey(1),
+				telem.NewSeries([]telem.TimeStamp{stamp}),
+			), nil))
+			MustSucceed2(w.Commit(ctx, nil))
+		}
+		Expect(w.Close()).To(Succeed())
+		Eventually(func() (bool, error) { return fs.Exists(log.Name(2)) }).
+			Should(BeTrue())
+		stop()
+		Expect(db.Close()).To(Succeed())
+		db = MustSucceed(cesium.Open(
+			ctx,
+			"",
+			cesium.WithFS(fs),
+			cesium.WithPointerLog(),
+			cesium.WithLogFileSize(telem.Size(log.MinFileSize)),
+		))
+		StartRun(db.Run)()
+		Expect(db.Close()).To(Succeed())
+		var logs int
+		for _, info := range MustSucceed(fs.List("")) {
+			if strings.HasSuffix(info.Name(), ".log") {
+				logs++
+				Expect(info.Size()).To(Equal(int64(log.MinFileSize)), info.Name())
+			}
+		}
+		Expect(logs).To(BeNumerically(">=", 2))
+	})
+
+	DescribeTable("Should refuse a log file size that is not whole blocks of 4 MiB "+
+		"or more", func(ctx SpecContext, size telem.Size) {
+		Expect(cesium.Open(
+			ctx,
+			"",
+			cesium.WithFS(fs),
+			cesium.WithPointerLog(),
+			cesium.WithLogFileSize(size),
+		)).Error().To(MatchError(validate.ErrValidation))
+		Expect(fs.List("")).To(BeEmpty())
+	},
+		Entry("under 4 MiB", telem.Size(log.MinFileSize-log.BlockSize)),
+		Entry("not whole blocks", telem.Size(log.MinFileSize+1)),
 	)
 
 	It("Should cut a torn tail after the last frame", func(ctx SpecContext) {

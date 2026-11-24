@@ -29,9 +29,9 @@ var (
 	errClosed = errors.New("log is closed")
 )
 
-// minSize is the smallest log file, in which the switch at three quarters comes before
-// the delete reserve stops entries that hold a Commit.
-const minSize = 4 * DeleteReserve
+// MinFileSize is the smallest log file, in which the switch at three quarters comes
+// before the delete reserve stops entries that hold a Commit.
+const MinFileSize = 4 * DeleteReserve
 
 // Name returns the file name of the log of generation.
 func Name(generation uint64) string { return fmt.Sprintf("%016x.log", generation) }
@@ -222,7 +222,7 @@ func newLog(cfg Config) (*Log, error) {
 }
 
 // openFile opens the file of the log of generation and returns its size, a whole number
-// of blocks of at least minSize.
+// of blocks of at least MinFileSize.
 func (l *Log) openFile(generation uint64) (xfs.File, int64, error) {
 	file, err := l.cfg.FS.Open(Name(generation), os.O_RDWR)
 	if err != nil {
@@ -233,12 +233,12 @@ func (l *Log) openFile(generation uint64) (xfs.File, int64, error) {
 		return nil, 0, errors.Join(err, file.Close())
 	}
 	size := info.Size()
-	if size < minSize || size%BlockSize != 0 {
+	if size < MinFileSize || size%BlockSize != 0 {
 		return nil, 0, errors.Join(errors.Wrapf(
 			validate.ErrValidation,
 			"log file of %d bytes is not a whole number of blocks of at least %d",
 			size,
-			minSize,
+			MinFileSize,
 		), file.Close())
 	}
 	return file, size, nil
