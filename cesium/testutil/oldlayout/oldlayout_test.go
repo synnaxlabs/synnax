@@ -94,6 +94,7 @@ func writeOld(ctx context.Context, fs xfs.FS) {
 	keys := []cesium.ChannelKey{1, 2, 3}
 	w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 		Channels: keys,
+		Clock:    keys[0],
 		Start:    stamps[0],
 	}))
 	for c := 0; c < n; c += 5 {
