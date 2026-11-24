@@ -106,6 +106,7 @@ class TestGhAPI:
             'Post "https://x": dial tcp 140.82.112.6:443: i/o timeout',
             'Post "https://x": net/http: TLS handshake timeout',
             'Post "https://x": unexpected EOF',
+            "stream error: stream ID 1; CANCEL; received from peer",
         ],
     )
     def test_retries_a_server_or_network_error(self, gh: FakeGH, error: str) -> None:

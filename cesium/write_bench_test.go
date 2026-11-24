@@ -178,8 +178,10 @@ func benchmarkCommit(b *testing.B, db *cesium.DB, indexes, channels, samples int
 // temporary directory otherwise. The DB runs until the benchmark ends, then closes.
 func openBenchDB(b *testing.B, mem bool, extra ...cesium.Option) *cesium.DB {
 	b.Helper()
-	opts := append([]cesium.Option{cesium.WithInstrumentation(alamos.New("bench"))},
-		extra...)
+	opts := append(
+		[]cesium.Option{cesium.WithInstrumentation(alamos.New("bench"))},
+		extra...,
+	)
 	dir := b.TempDir()
 	if mem {
 		dir = ""

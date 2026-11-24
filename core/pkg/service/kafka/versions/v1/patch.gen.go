@@ -176,3 +176,86 @@ func (rt *ReadTopic) HashContent(h *content.Hash) {
 		rt.Records[i0].HashContent(h)
 	}
 }
+
+// Patch applies the path action at c, which is not done, to the value.
+func (wc *WriteConfig) Patch(c patch.Cursor) error {
+	switch c.Segment() {
+	case "key":
+		return patch.Value(&wc.StartConfig.KeyedConfig.Key, c.Next())
+	case "auto_start":
+		return patch.Value(&wc.StartConfig.AutoStart, c.Next())
+	case "device":
+		return patch.Value(&wc.Device, c.Next())
+	case "topic":
+		return patch.Value(&wc.Topic, c.Next())
+	case "record_key":
+		return patch.Defaulted(&wc.RecordKey, c.Next(), func(def *WriteConfig) {
+			wc.RecordKey = def.RecordKey
+		})
+	case "record":
+		if c = c.Next(); c.Done() {
+			return patch.Defaulted(&wc.Record, c, func(def *WriteConfig) {
+				wc.Record = def.Record
+			})
+		}
+		return wc.Record.Patch(c)
+	case "channels":
+		return patch.List(&wc.Channels, c.Next())
+	case "targets":
+		return patch.List(&wc.Targets, c.Next())
+	default:
+		return c.UnknownField()
+	}
+}
+
+// HashContent writes the content of the value to h, without its keys.
+func (wc *WriteConfig) HashContent(h *content.Hash) {
+	h.Bool(wc.StartConfig.AutoStart)
+	h.String(wc.Device)
+	h.String(wc.Topic)
+	h.String(string(wc.RecordKey))
+	wc.Record.HashContent(h)
+	h.Len(len(wc.Channels))
+	for i0 := range wc.Channels {
+		wc.Channels[i0].HashContent(h)
+	}
+	h.Len(len(wc.Targets))
+	for i0 := range wc.Targets {
+		wc.Targets[i0].HashContent(h)
+	}
+}
+
+// Patch applies the path action at c, which is not done, to the value.
+func (wt *WriteTarget) Patch(c patch.Cursor) error {
+	switch c.Segment() {
+	case "key":
+		return patch.Value(&wt.Key, c.Next())
+	case "disabled":
+		return patch.Value(&wt.Disabled, c.Next())
+	case "topic":
+		return patch.Value(&wt.Topic, c.Next())
+	case "record_key":
+		return patch.Value(&wt.RecordKey, c.Next())
+	case "icd":
+		return patch.Value(&wt.ICD, c.Next())
+	case "message":
+		if c = c.Next(); c.Done() {
+			return patch.Value(&wt.Message, c)
+		}
+		return wt.Message.Patch(c)
+	default:
+		return c.UnknownField()
+	}
+}
+
+// PatchKey returns the key that paths name the value by in a list.
+func (wt *WriteTarget) PatchKey() string { return wt.Key }
+
+// HashContent writes the content of the value to h, without its keys.
+func (wt *WriteTarget) HashContent(h *content.Hash) {
+	h.Bool(wt.Disabled)
+	h.String(wt.Topic)
+	h.String(wt.RecordKey)
+	h.Bytes(wt.ICD[:])
+	wt.Message.HashContent(h)
+}

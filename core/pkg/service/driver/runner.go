@@ -189,9 +189,9 @@ func (r *Runner) current() *activeRun {
 	return r.mu.active
 }
 
-// Start opens and starts a run, and answers cmdKey. A factory calls it with NoCommand
-// for a task that starts automatically. It returns an error when the run did not start
-// or its status was not written.
+// Start opens and starts a run, and answers cmdKey. A factory that starts a task on its
+// own passes the cmdKey of its ConfigureTask. It returns an error when the run did not
+// start or its status was not written.
 func (r *Runner) Start(ctx context.Context, cmdKey string) error {
 	return errors.Combine(r.start(ctx, cmdKey))
 }

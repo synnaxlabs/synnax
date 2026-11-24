@@ -87,9 +87,8 @@ type State struct {
 	}
 	step    func()
 	stepped chan bool
-	// betweenLoads, when set, runs in Pair between the loads of its two Channels. Only
-	// a spec of this package sets it.
-	betweenLoads func()
+	// replayed is true once replay mode ends.
+	replayed bool
 	// The fields below belong to the owner.
 	nextID, nextAlign uint64
 	idBlocks          int
@@ -147,15 +146,25 @@ func (s *State) KeyOf(segment uint64) (uint32, bool) {
 	return seg.key, true
 }
 
-// Run ends replay mode, publishes the visible state of every key, and runs one step of
-// the owner on the executor each time requests are queued, until Close, until ctx is
-// done, or until a step fails the state. It returns the error of ctx, the error that
-// failed the state, or nil at Close. A request that Run leaves queued gets the error.
-func (s *State) Run(ctx context.Context) error {
-	defer close(s.exit)
+// EndReplay ends replay mode and publishes the visible state of every key, so readers
+// see the replayed state before Run. Replay must not follow it.
+func (s *State) EndReplay() {
 	s.core.endReplay()
 	s.storeKeys()
 	s.core.count.end()
+	s.replayed = true
+}
+
+// Run ends replay mode unless EndReplay did, publishes the visible state of every key,
+// and runs one step of the owner on the executor each time requests are queued, until
+// Close, until ctx is done, or until a step fails the state. It returns the error of
+// ctx, the error that failed the state, or nil at Close. A request that Run leaves
+// queued gets the error.
+func (s *State) Run(ctx context.Context) error {
+	defer close(s.exit)
+	if !s.replayed {
+		s.EndReplay()
+	}
 	s.nextID = max(s.nextID, s.core.limits.Segments, 1)
 	s.nextAlign = max(s.nextAlign, s.core.limits.Alignments)
 	for {
@@ -294,28 +303,27 @@ func (s *State) Channel(key uint32) *Channel {
 	return ch.pub.Load()
 }
 
-// Pair returns the visible state of key and of clock from one step of the owner, or nil
-// for a key that the state holds no segment of. It loads both again while the owner
-// publishes between its loads. It also returns the publish count of the loads, which
-// Unchanged takes.
-func (s *State) Pair(key, clock uint32) (ch, clocks *Channel, count uint64) {
+// Load sets each of chs to the visible state of the key of keys at its index, from one
+// step of the owner, or to nil for a key that the state holds no segment of. It loads
+// them all again while the owner publishes between its loads. It returns the publish
+// count of the loads, which Unchanged takes. chs must be as long as keys.
+func (s *State) Load(keys []uint32, chs []*Channel) uint64 {
 	for {
-		if count = s.core.count.n.Load(); count%2 == 1 {
+		count := s.core.count.n.Load()
+		if count%2 == 1 {
 			runtime.Gosched()
 			continue
 		}
-		ch = s.Channel(key)
-		if s.betweenLoads != nil {
-			s.betweenLoads()
+		for i, key := range keys {
+			chs[i] = s.Channel(key)
 		}
-		clocks = s.Channel(clock)
 		if s.core.count.n.Load() == count {
-			return ch, clocks, count
+			return count
 		}
 	}
 }
 
-// Unchanged reports whether the owner published nothing since the loads of Pair that
+// Unchanged reports whether the owner published nothing since the loads of Load that
 // returned count.
 func (s *State) Unchanged(count uint64) bool { return s.core.count.n.Load() == count }
 
@@ -459,6 +467,9 @@ type Dead struct {
 	Segment uint64
 	// Key is the key whose samples the segment held.
 	Key uint32
+	// Sequence is the entry whose record took the segment out of the state, or 0 when
+	// no durable record named the segment.
+	Sequence uint64
 }
 
 type deadRequest struct {
@@ -470,12 +481,18 @@ func (r *deadRequest) fail(err error) { r.done <- err }
 
 func (r *deadRequest) run(s *State) {
 	r.dead, s.core.dead = s.core.dead, nil
+	s.core.hasDead.Store(false)
 	r.done <- nil
 }
 
+// HasDead reports whether TakeDead has segments to return. It is safe to call from any
+// goroutine.
+func (s *State) HasDead() bool { return s.core.hasDead.Load() }
+
 // TakeDead returns the segments that left the state since the last call: by a Drop, or
 // by a Tombstone, a Seal, or a Restart that left them sealed with no durable pointer or
-// with no durable byte. The database unlinks their files once no reader pins them.
+// with no durable byte. The database unlinks their files once the log covers the record
+// that took them out and no reader pins them.
 func (s *State) TakeDead() ([]Dead, error) {
 	r := &deadRequest{done: make(chan error, 1)}
 	if err := s.enqueue(r); err != nil {

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import type { ni } from "@synnaxlabs/client";
-import { type bounds, unique } from "@synnaxlabs/x";
+import { closedBounds, unique } from "@synnaxlabs/x";
 import type { z } from "zod";
 
 import type { Device } from "@/feature/ni/device";
@@ -162,7 +162,7 @@ const format = (value: number): number => Number(value.toPrecision(6));
  */
 const checkRange = (
   { minVal, maxVal, customScale }: RangedChannel,
-  ranges: bounds.Bounds[],
+  ranges: closedBounds.ClosedBounds[],
   { units, symbol }: Measure,
   path: (string | number)[],
   report: Task.ReportIssue,
@@ -179,8 +179,8 @@ const checkRange = (
   if (min == null || max == null) return;
   const lo = Math.min(min, max);
   const hi = Math.max(min, max);
-  if (ranges.some(({ lower, upper }) => lower <= lo && hi <= upper)) return;
-  const maxFits = ranges.some(({ lower, upper }) => lower <= max && max <= upper);
+  if (ranges.some((r) => closedBounds.contains(r, { lower: lo, upper: hi }))) return;
+  const maxFits = ranges.some((r) => closedBounds.contains(r, max));
   const range = `${format(min)} to ${format(max)} ${symbol}`;
   let message = `The device has no range from ${range}`;
   if (customScale.type !== "none") {

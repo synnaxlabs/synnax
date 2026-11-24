@@ -107,7 +107,7 @@ var _ = Describe("Check: a rewrite whose Replace the log refuses", func() {
 					ctx,
 					cesium.WriterConfig{
 						Channels: keys,
-						Clock:    keys[0],
+						Clock:    idx,
 						Start:    stamp(first),
 					},
 				))
