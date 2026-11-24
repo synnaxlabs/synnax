@@ -72,6 +72,9 @@ export class InvalidCredentialsError extends AuthError.sub("invalid-credentials"
 /** Raised when a request or login has no credentials, API key, token, or cookie. */
 export class MissingCredentialsError extends AuthError.sub("missing_credentials") {}
 
+/** Raised when the client cannot load an API key, such as from Synnax Desktop. */
+export class APIKeyUnavailableError extends AuthError.sub("api_key_unavailable") {}
+
 /** InvalidTokenError is raised when an authentication token is invalid. */
 export class InvalidTokenError extends AuthError.sub("invalid_token") {}
 
@@ -177,6 +180,8 @@ const decode = (payload: errors.Payload): Error | null => {
       return new InvalidCredentialsError(payload.data);
     if (payload.type.startsWith(MissingCredentialsError.TYPE))
       return new MissingCredentialsError(payload.data);
+    if (payload.type.startsWith(APIKeyUnavailableError.TYPE))
+      return new APIKeyUnavailableError(payload.data);
     if (payload.type.startsWith(InvalidTokenError.TYPE))
       return new InvalidTokenError(payload.data);
     if (payload.type.startsWith(ExpiredTokenError.TYPE))
@@ -251,8 +256,10 @@ export const errorsMiddleware: Middleware = async (ctx, next) => {
   try {
     return await next(ctx);
   } catch (err) {
-    if (err instanceof Unreachable)
-      err.message = `Cannot reach Core at ${err.url.host}:${err.url.port}`;
+    if (err instanceof Unreachable) {
+      const message = `Cannot reach Core at ${err.url.host}:${err.url.port}`;
+      err.message = err.hint == null ? message : `${message}. ${err.hint}`;
+    }
     throw errors.fromUnknown(err);
   }
 };

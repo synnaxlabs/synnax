@@ -26,6 +26,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -226,7 +227,7 @@ var _ = Describe("Read", func() {
 			fr := MustSucceed(c.Decode(data[0]))
 			Expect(fr.Count()).To(Equal(1))
 			Expect(fr.Get(channels[0].Key()).Series[0]).
-				To(telem.MatchWrittenSeries(telem.NewSeriesV[float32](1, 2, 3)))
+				To(MatchWrittenSeries(telem.NewSeriesV[float32](1, 2, 3)))
 		})
 
 		It("Should encode the alignment multiples of a limited read", func(
@@ -258,7 +259,7 @@ var _ = Describe("Read", func() {
 			series := MustSucceed(c.Decode(data[0])).Get(channels[0].Key()).Series
 			Expect(series).To(HaveLen(1))
 			Expect(series[0].AlignmentMultiple).To(BeEquivalentTo(2))
-			Expect(series[0]).To(telem.MatchSeriesDataV[float32](1, 4, 5, 8))
+			Expect(series[0]).To(MatchSeriesDataV[float32](1, 4, 5, 8))
 		})
 
 		It("Should encode only the newest samples of a latest read", func(
@@ -288,7 +289,7 @@ var _ = Describe("Read", func() {
 			)
 			fr := MustSucceed(c.Decode(data[0]))
 			Expect(fr.Get(channels[0].Key()).Series[0]).
-				To(telem.MatchWrittenSeries(telem.NewSeriesV[float32](3, 4)))
+				To(MatchWrittenSeries(telem.NewSeriesV[float32](3, 4)))
 		})
 
 		It("Should encode only the oldest samples of an earliest read", func(
@@ -318,7 +319,7 @@ var _ = Describe("Read", func() {
 			)
 			fr := MustSucceed(c.Decode(data[0]))
 			Expect(fr.Get(channels[0].Key()).Series[0]).
-				To(telem.MatchWrittenSeries(telem.NewSeriesV[float32](1, 2)))
+				To(MatchWrittenSeries(telem.NewSeriesV[float32](1, 2)))
 		})
 
 		It("Should encode the samples of each time range in time order", func(

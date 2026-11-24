@@ -19,6 +19,17 @@ def pick(page: Page, swatch: Locator, *, hex_color: str) -> None:
     swatch.click()
     picker = page.locator(".lyra-color-picker")
     picker.wait_for(state="visible", timeout=2000)
+    enter(page, picker, hex_color=hex_color)
+    page.keyboard.press("Escape")
+    picker.wait_for(state="hidden", timeout=2000)
+
+
+def enter(page: Page, picker: Locator, *, hex_color: str) -> None:
+    """Enters a color in an open color picker and leaves its hex field.
+
+    :param picker: The open color picker.
+    :param hex_color: The color as hex digits, with or without a leading "#".
+    """
     # A picker with palettes opens on them for an absent or named value.
     custom = picker.get_by_text("Custom", exact=True)
     if custom.count() > 0:
@@ -29,19 +40,3 @@ def pick(page: Page, swatch: Locator, *, hex_color: str) -> None:
     page.keyboard.press("Enter")
     # Escape in a text box only leaves the box, so leave it first.
     hex_input.blur()
-    page.keyboard.press("Escape")
-    picker.wait_for(state="hidden", timeout=2000)
-
-
-def pick_auto(page: Page, swatch: Locator) -> None:
-    """Opens the color picker of an optional color's swatch, picks Auto, and closes
-    the picker.
-
-    :param swatch: The swatch that opens the picker.
-    """
-    swatch.click()
-    picker = page.locator(".lyra-color-picker")
-    picker.wait_for(state="visible", timeout=2000)
-    picker.get_by_label("Auto", exact=True).click()
-    page.keyboard.press("Escape")
-    picker.wait_for(state="hidden", timeout=2000)

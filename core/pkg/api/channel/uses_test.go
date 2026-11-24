@@ -196,17 +196,52 @@ var _ = Describe("Built-in channels", func() {
 		Expect(res.Channels[0].Internal).To(BeTrue())
 	})
 
-	It("Should return the built-in keys to a subject with no grants", func(
+	retrieveInternal := func(ctx SpecContext, u user.User) []apichannel.Channel {
+		GinkgoHelper()
+		return MustSucceed(retrieveChannels(
+			AuthedCtx(ctx, u),
+			apichannel.RetrieveRequest{
+				Where: &channel.Where{Internal: &filter.Bool{Eq: new(true)}},
+			},
+		)).Channels
+	}
+
+	It("Should list each built-in channel through the internal filter", func(
 		ctx SpecContext,
 	) {
 		u := MustSucceed(rbactestutil.CreateUser(
 			ctx, db, rbacSvc, userSvc, user.User{Name: uuid.New().String()},
 		))
-		res := MustSucceed(retrieveBuiltIns(
-			AuthedCtx(ctx, u),
-			apichannel.RetrieveBuiltInsRequest{},
+		grantOn(
+			ctx,
+			u.ResourceID(),
+			[]access.Action{access.ActionRetrieve},
+			resource.ID{Type: resource.TypeChannel},
+		)
+		plain := channel.Channel{
+			Name:     UniqueChannelName(),
+			DataType: telem.JSONT,
+			Virtual:  true,
+		}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return channelSvc.NewWriter(tx).Create(ctx, &plain)
+		})).To(Succeed())
+		chs := retrieveInternal(ctx, u)
+		keys := make([]channel.Key, 0, len(chs))
+		for _, ch := range chs {
+			Expect(ch.Internal).To(BeTrue())
+			keys = append(keys, ch.Key)
+		}
+		Expect(keys).To(ContainElement(builtIn.Key()))
+		Expect(keys).ToNot(ContainElement(plain.Key()))
+	})
+
+	It("Should leave out the built-in channels a subject cannot retrieve", func(
+		ctx SpecContext,
+	) {
+		u := MustSucceed(rbactestutil.CreateUser(
+			ctx, db, rbacSvc, userSvc, user.User{Name: uuid.New().String()},
 		))
-		Expect(res.Keys).To(ContainElement(builtIn.Key()))
-		Expect(res.Keys).To(Equal([]channel.Key(channelSvc.BuiltIns())))
+		Expect(retrieveInternal(ctx, u)).To(BeEmpty())
 	})
 })

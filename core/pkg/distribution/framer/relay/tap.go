@@ -40,6 +40,30 @@ type demand struct {
 	// could be dropped before the demand propagates. nil for demands that need no
 	// acknowledgment.
 	ack chan struct{}
+	// state is the state of the entity's demands. nil for a removal.
+	state *demandState
+}
+
+// demandState lets an entity withdraw its demands without waiting for the tapper. Its
+// state moves once, from pending to applied or to withdrawn.
+type demandState struct{ v atomic.Int32 }
+
+const (
+	demandPending int32 = iota
+	demandApplied
+	demandWithdrawn
+)
+
+// apply marks the demands applied and reports whether the tapper must apply them.
+func (s *demandState) apply() bool {
+	s.v.CompareAndSwap(demandPending, demandApplied)
+	return s.v.Load() == demandApplied
+}
+
+// withdraw reports whether the tapper never applied a demand of the entity. When it
+// returns true, the tapper skips the entity's queued demands.
+func (s *demandState) withdraw() bool {
+	return s.v.CompareAndSwap(demandPending, demandWithdrawn)
 }
 
 // tap is a tap into the storage engine or the free write pipeline. A tap streams the
@@ -54,8 +78,8 @@ type tap struct {
 // after setChannels returns (the cesium streamer drains pending requests before
 // filtering each frame), which is what lets a demand acknowledged by the tapper
 // guarantee its keys are already being filtered in (see demand.ack).
-func (t tap) setChannels(keys channel.Keys) {
-	t.requests.Inlet() <- Request{Keys: keys}
+func (t tap) setChannels(ctx context.Context, keys channel.Keys) error {
+	return signal.SendUnderContext(ctx, t.requests.Inlet(), Request{Keys: keys})
 }
 
 // tapper tracks the channels that readers demand to stream. It taps into the storage
@@ -93,9 +117,17 @@ func newTapper(config Config) confluence.Segment[demand, Response] {
 	return t
 }
 
-func (t *tapper) sink(_ context.Context, d demand) error {
+func (t *tapper) sink(ctx context.Context, d demand) error {
+	if !d.removed && !d.state.apply() {
+		if d.ack != nil {
+			close(d.ack)
+		}
+		return nil
+	}
 	stored, free := t.updateDemands(d)
-	t.updateTaps(stored, free)
+	if err := t.updateTaps(ctx, stored, free); err != nil {
+		return err
+	}
 	if d.ack != nil {
 		close(d.ack)
 	}
@@ -126,7 +158,7 @@ func (t *tapper) updateDemands(d demand) (stored, free channel.Keys) {
 // the storage engine and the free write pipeline.
 func (t *tapper) Flow(sCtx signal.Context, opts ...confluence.Option) {
 	t.free = &freeWriteTap{freeWrites: t.freeWrites}
-	_, t.closeFree = t.startTap(t.free, "free_write_tap")
+	_, t.closeFree = t.startTap(sCtx, t.free, "free_write_tap")
 	t.UnarySink.Flow(sCtx, append(opts,
 		// Order is very important here, we need to make sure the tapper deferral runs
 		// before we close the inlet to the delta.
@@ -136,53 +168,59 @@ func (t *tapper) Flow(sCtx signal.Context, opts ...confluence.Option) {
 }
 
 func (t *tapper) close() {
-	if t.storage != nil {
-		panic("[relay] - tapper closed with an open storage tap")
-	}
+	t.closeStorage()
 	if err := t.closeFree.Close(); err != nil {
 		t.L.Error("failed to close free write tap", zap.Error(err))
 	}
 }
 
-func (t *tapper) updateTaps(stored, free channel.Keys) {
+func (t *tapper) updateTaps(ctx context.Context, stored, free channel.Keys) error {
 	// Apply free-channel keys synchronously and lock-free. This is what lets a
 	// streamer's readiness acknowledgment guarantee its demanded free channels are
 	// already being filtered in by the time the ack fires.
 	t.free.setKeys(free)
 	if len(stored) == 0 {
-		if t.storage == nil {
-			return
-		}
-		// This does a hard shutdown on the tap, cancelling its context and causing it
-		// to immediately exit.
-		if err := t.storage.Close(); err != nil {
-			t.L.Error("tap failed to close", zap.Error(err))
-		}
-		t.storage = nil
-		return
+		t.closeStorage()
+		return nil
 	}
 	if t.storage != nil {
-		t.storage.setChannels(stored)
-		return
+		return t.storage.setChannels(ctx, stored)
 	}
-	tc, err := t.tapIntoStorage(stored)
+	tc, err := t.tapIntoStorage(ctx, stored)
 	if err != nil {
 		t.L.Error("failed to open storage tap", zap.Error(err))
-		return
+		return nil
 	}
 	t.storage = &tc
+	return nil
 }
 
-// startTap wires the given segment's frames into the tapper's outlet and starts it,
-// returning the segment's request inlet and a closer that hard-shuts it down.
+// closeStorage stops the storage tap, if one is open, and waits for it to exit.
+func (t *tapper) closeStorage() {
+	if t.storage == nil {
+		return
+	}
+	if err := t.storage.Close(); err != nil {
+		t.L.Error("tap failed to close", zap.Error(err))
+	}
+	t.storage = nil
+}
+
+// startTap wires the given segment's frames into the tapper's outlet and starts it
+// under a child of ctx, returning the segment's request inlet and a closer that
+// hard-shuts it down.
 func (t *tapper) startTap(
+	ctx context.Context,
 	seg confluence.Segment[Request, Response],
 	tapKey string,
 ) (confluence.Inlet[Request], io.Closer) {
 	requests := confluence.NewStream[Request](1)
 	seg.InFrom(requests)
 	seg.OutTo(t.Out)
-	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(t.Child(tapKey)))
+	sCtx, cancel := signal.WithCancel(
+		ctx,
+		signal.WithInstrumentation(t.Child(tapKey)),
+	)
 	seg.Flow(
 		sCtx,
 		confluence.RecoverWithErrOnPanic(),
@@ -193,7 +231,7 @@ func (t *tapper) startTap(
 
 // tapIntoStorage opens a new tap over the storage engine, subscribed to the given
 // channels.
-func (t *tapper) tapIntoStorage(keys channel.Keys) (tap, error) {
+func (t *tapper) tapIntoStorage(ctx context.Context, keys channel.Keys) (tap, error) {
 	str, err := t.TS.NewTranslatedStreamer(
 		cesium.StreamerConfig{Channels: keys.Uint32()},
 		reqToStorage,
@@ -202,7 +240,7 @@ func (t *tapper) tapIntoStorage(keys channel.Keys) (tap, error) {
 	if err != nil {
 		return tap{}, err
 	}
-	requests, closer := t.startTap(str, "storage_tap")
+	requests, closer := t.startTap(ctx, str, "storage_tap")
 	return tap{Closer: closer, requests: requests}, nil
 }
 
@@ -247,8 +285,20 @@ func (f *freeWriteTap) Flow(sCtx signal.Context, opts ...confluence.Option) {
 					continue
 				}
 				req.Frame = req.Frame.KeepKeys(*keys)
-				if !req.Frame.Empty() {
-					f.Out.Inlet() <- req
+				if req.Frame.Empty() {
+					continue
+				}
+				// A non-blocking send first keeps the select off the hot path.
+				select {
+				case f.Out.Inlet() <- req:
+				default:
+					if err := signal.SendUnderContext(
+						ctx,
+						f.Out.Inlet(),
+						req,
+					); err != nil {
+						return err
+					}
 				}
 			}
 		}

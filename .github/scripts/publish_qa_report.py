@@ -12,10 +12,11 @@
 Usage: publish_qa_report.py DIR [--label LABEL] [--dry-run]
 
 DIR holds `report.md`, whose first line is `# <issue title>`, and the PNG screenshots
-it links as `images/<name>.png`. The script pushes the linked screenshots to the
-`agent-assets` branch, points the links at them, and opens the issue with `gh`. It
-prints the issue URL. With --dry-run it writes the issue to `DIR/issue.md` instead,
-and touches neither Git nor GitHub.
+it links as `images/<name>.png`. The script stores the linked screenshots in Vercel
+Blob with the token in BLOB_READ_WRITE_TOKEN, points the links at them, and opens the
+issue with `gh`. It prints the issue URL. With --dry-run it writes the issue to
+`DIR/issue.md` instead, and touches neither Vercel Blob nor GitHub. Run it with
+`scripts` on PYTHONPATH.
 """
 
 import argparse
@@ -23,43 +24,11 @@ import os
 import re
 import subprocess
 import sys
-import tempfile
 from pathlib import Path
 
-ASSETS_BRANCH = "agent-assets"
+from agent.agent import BLOB_API, upload
+
 IMAGE_LINK = re.compile(r"\]\((images/[\w.-]+\.png)\)")
-
-
-def git(*args: str, env: dict[str, str] | None = None) -> str:
-    return subprocess.run(
-        ["git", *args], check=True, stdout=subprocess.PIPE, text=True, env=env
-    ).stdout.strip()
-
-
-def upload(paths: list[Path], *, prefix: str, repo: str) -> str:
-    """Commits paths under prefix on the assets branch and returns their base URL.
-
-    Retries when another publisher moves the branch between the fetch and the push.
-    """
-    ref = f"refs/heads/{ASSETS_BRANCH}"
-    for _ in range(3):
-        env = {**os.environ, "GIT_INDEX_FILE": str(Path(tempfile.mkdtemp()) / "i")}
-        parent: list[str] = []
-        ls = ["git", "ls-remote", "--exit-code", "origin", ref]
-        if subprocess.run(ls, stdout=subprocess.DEVNULL).returncode == 0:
-            git("fetch", "--quiet", "origin", ref)
-            git("read-tree", "FETCH_HEAD", env=env)
-            parent = ["-p", "FETCH_HEAD"]
-        for path in paths:
-            blob = git("hash-object", "-w", str(path))
-            info = f"100644,{blob},{prefix}/{path.name}"
-            git("update-index", "--add", "--cacheinfo", info, env=env)
-        tree = git("write-tree", env=env)
-        commit = git("commit-tree", tree, *parent, "-m", f"Add images for {prefix}")
-        push = ["git", "push", "--quiet", "origin", f"{commit}:{ref}"]
-        if subprocess.run(push).returncode == 0:
-            return f"https://raw.githubusercontent.com/{repo}/{commit}/{prefix}"
-    sys.exit(f"failed to push images to {ASSETS_BRANCH} three times")
 
 
 def main() -> int:
@@ -89,10 +58,14 @@ def main() -> int:
         print(out)
         return 0
 
-    if links:
-        prefix = f"console-qa-{run or os.getpid()}"
-        base = upload([a.dir / link for link in links], prefix=prefix, repo=repo)
-        body = IMAGE_LINK.sub(lambda m: f"]({base}/{Path(m[1]).name})", body)
+    token = os.environ.get("BLOB_READ_WRITE_TOKEN")
+    if not token:
+        sys.exit("BLOB_READ_WRITE_TOKEN must hold the Vercel Blob read-write token")
+    api = os.environ.get("VERCEL_BLOB_API_URL", BLOB_API)
+    paths = [a.dir / link for link in links]
+    urls = upload(paths, prefix="console-qa", token=token, api=api)
+    hosted = dict(zip(links, urls, strict=True))
+    body = IMAGE_LINK.sub(lambda m: f"]({hosted[m[1]]})", body)
     body_file = a.dir / "issue.md"
     body_file.write_text(body)
     cmd = ["gh", "issue", "create", "--title", title, "--label", a.label]

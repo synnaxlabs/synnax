@@ -28,7 +28,7 @@ import { useDropdownFocus } from "@/dialog/useDropdownFocus";
 import { Flex } from "@/flex";
 import { useCombinedRefs, usePopover } from "@/hooks";
 import { Portal } from "@/portal";
-import { getRootElement } from "@/util/rootElement";
+import { getRootElement } from "@/util";
 
 /** The class of the native modal dialog around a modal surface. */
 const BACKGROUND_CLASS = CSS.BE("dialog", "bg");
