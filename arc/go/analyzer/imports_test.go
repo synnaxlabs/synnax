@@ -15,11 +15,14 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/analyzer"
+	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/analyzer/context"
+	"github.com/synnaxlabs/arc/analyzer/testutil"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -99,6 +102,55 @@ var _ = Describe("Import Pass", func() {
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(ctx.Diagnostics.String()).To(ContainSubstring("duplicate import"))
 		})
+
+		DescribeTable(
+			"Should give a fix that removes a duplicate import",
+			func(bCtx SpecContext, source, fixed string) {
+				ctx := context.NewRoot(bCtx, MustSucceed(parser.Parse(source)), root)
+				analyzer.AnalyzeProgram(ctx)
+				var fixes []diagnostics.Fix
+				for _, d := range *ctx.Diagnostics {
+					if d.Code == codes.DuplicateImport.Code {
+						fixes = append(fixes, d.Fixes...)
+					}
+				}
+				Expect(fixes).To(HaveLen(1))
+				Expect(fixes[0].Title).To(Equal("Remove duplicate import"))
+				Expect(testutil.ApplyFix(source, fixes[0])).To(Equal(fixed))
+			},
+			Entry(
+				"in its own statement",
+				"import time\nimport time\n\nfunc f() {}\n",
+				"import time\n\nfunc f() {}\n",
+			),
+			Entry(
+				"in a block",
+				"import (\n    time\n    time\n)\n",
+				"import (\n    time\n)\n",
+			),
+			Entry(
+				"with the same alias",
+				"import time as t\nimport time as t\n",
+				"import time as t\n",
+			),
+		)
+
+		It(
+			"Should give no fix when a different module has the alias",
+			func(bCtx SpecContext) {
+				root.Parent.AddChild(&symbol.Symbol{
+					Name: "math",
+					Kind: symbol.KindModule,
+				})
+				prog := MustSucceed(parser.Parse("import time\nimport math as time\n"))
+				ctx := context.NewRoot(bCtx, prog, root)
+				analyzer.AnalyzeProgram(ctx)
+				Expect(*ctx.Diagnostics).To(ContainElement(SatisfyAll(
+					HaveField("Code", codes.DuplicateImport.Code),
+					HaveField("Fixes", BeEmpty()),
+				)))
+			},
+		)
 
 		It("Should diagnose an unknown module", func(bCtx SpecContext) {
 			prog := MustSucceed(parser.Parse(`import banana`))

@@ -8,16 +8,21 @@
 // included in the file licenses/APL.txt.
 
 import type { enumeration, schematic } from "@synnaxlabs/client";
-import { type color, id } from "@synnaxlabs/x";
+import { id } from "@synnaxlabs/x";
 
 type Spec = schematic.symbol.Spec;
 type Look = schematic.symbol.Look;
 
-// STATE is the key of the one state that the editor edits.
-const STATE = "active";
+/** STATE is the key of the one state that the editor edits. */
+export const STATE = "active";
 
-/** Field is a paint field of a look. */
-export type Field = "stroke" | "fill";
+/** Field is a field of a look that the editor sets. */
+export type Field = "fill" | "stroke" | "hidden" | "blink" | "motion";
+
+const FIELDS: Field[] = ["fill", "stroke", "hidden", "blink", "motion"];
+
+/** Target is the key of a part, or undefined for the whole drawing. */
+export type Target = string | undefined;
 
 const BASE = 0;
 const ACTIVE = 1;
@@ -41,95 +46,171 @@ export const enumerationKey = (
   return state?.type === "enumeration" ? state.enumeration : undefined;
 };
 
-const only = (look: Look, part: string, value: number): boolean =>
-  look.part === part &&
+const only = (look: Look, target: Target, value: number): boolean =>
+  look.part === target &&
   look.when?.state === STATE &&
   look.when.values.length === 1 &&
   look.when.values[0] === value;
 
-const reaches = (look: Look, part: string, value: number): boolean =>
-  (look.part == null || look.part === part) &&
+// owns is true for a look of target at value alone, or at every value when value is
+// undefined.
+const owns = (look: Look, target: Target, value?: number): boolean =>
+  value == null ? look.part === target && look.when == null : only(look, target, value);
+
+// reaches is true for a look that target shows at value, or at every value when value
+// is undefined. A look of the whole drawing reaches every part.
+const reaches = (look: Look, target: Target, value?: number): boolean =>
+  (look.part == null || look.part === target) &&
   (look.when == null ||
-    (look.when.state === STATE && look.when.values.includes(value)));
+    (value != null && look.when.state === STATE && look.when.values.includes(value)));
 
-type ConditionedLook = Look & { when: schematic.symbol.Condition };
+const setsNothing = (look: Look): boolean => FIELDS.every((f) => look[f] == null);
 
-const setsNothing = ({ fill, stroke, hidden, motion, blink }: Look): boolean =>
-  fill == null && stroke == null && hidden == null && motion == null && blink == null;
+// split copies onto value alone each look of target that sets field on value and other
+// values. An edit at value then leaves the other values as they are.
+const split = (looks: Look[], target: Target, field: Field, value: number): Look[] =>
+  looks.flatMap((l): Look[] => {
+    if (l.part !== target || l[field] == null || l.when == null) return [l];
+    const { values } = l.when;
+    if (l.when.state !== STATE || values.length < 2 || !values.includes(value))
+      return [l];
+    return [
+      { ...l, when: { ...l.when, values: values.filter((v) => v !== value) } },
+      { ...l, key: `look-${id.create()}`, when: { ...l.when, values: [value] } },
+    ];
+  });
 
-const clearColor = (spec: Spec, part: string, value: number, field: Field): Spec => {
-  const clears = (l: Look): l is ConditionedLook =>
-    l.part === part &&
-    l[field] != null &&
-    l.when?.state === STATE &&
-    l.when.values.includes(value);
-  if (!spec.looks.some(clears)) return spec;
-  return {
-    ...spec,
-    looks: spec.looks.flatMap((l): Look[] => {
-      if (!clears(l)) return [l];
-      const others = l.when.values.filter((v) => v !== value);
-      const cleared = {
-        ...l,
-        [field]: undefined,
-        when: { ...l.when, values: [value] },
-      };
-      if (others.length === 0) return setsNothing(cleared) ? [] : [cleared];
-      const narrowed = { ...l, when: { ...l.when, values: others } };
-      if (setsNothing(cleared)) return [narrowed];
-      return [narrowed, { ...cleared, key: `look-${id.create()}` }];
-    }),
-  };
+// rank orders the looks that the editor adds: a look on a part wins over a look on the
+// whole drawing, and a look on one value wins over a look on every value.
+const rank = (look: Look): number =>
+  (look.part == null ? 0 : 2) + (look.when == null ? 0 : 1);
+
+const slot = (looks: Look[], look: Look): number => {
+  const i = looks.findIndex((l) => rank(l) > rank(look));
+  return i < 0 ? looks.length : i;
 };
 
 const withActive = (states: Spec["states"]): Spec["states"] =>
   states.some((s) => s.key === STATE) ? states : [...states, createState()];
 
 /**
- * @returns spec in which part shows c in field at value. It sets the field on the
- * part's look for value alone, or adds a look when that look is missing or a later look
- * sets the field, and adds the state when spec lacks it. With no c, it takes the field
- * off every look of the part at value, so the drawing colors the part there. A look on
- * more values keeps the field on the others. Looks that other parts or values read stay
- * as they are.
+ * @returns the field that target shows at value after the looks apply in order, or at
+ * every value when value is undefined. Looks of the whole drawing count for a part.
  */
-export const setColor = (
+export const effective = <F extends Field>(
+  spec: Pick<Spec, "looks">,
+  target: Target,
+  field: F,
+  value?: number,
+): Look[F] | undefined =>
+  spec.looks.findLast((l) => reaches(l, target, value) && l[field] != null)?.[field];
+
+/**
+ * @returns the field that the looks of target give it at value, or at every value when
+ * value is undefined. Looks of the whole drawing do not count for a part.
+ */
+export const own = <F extends Field>(
+  spec: Pick<Spec, "looks">,
+  target: Target,
+  field: F,
+  value?: number,
+): Look[F] | undefined =>
+  effective(
+    { looks: spec.looks.filter((l) => l.part === target) },
+    target,
+    field,
+    value,
+  );
+
+/**
+ * @returns spec in which target owns v for field at value alone, or at every value when
+ * value is undefined. A new look on a value adds the state when spec lacks it. With no
+ * v, it takes field off the looks that target owns there, and a look on more values
+ * keeps field on the others.
+ */
+export const setOwn = <F extends Field>(
   spec: Spec,
-  part: string,
-  value: number,
-  field: Field,
-  c?: color.Color,
+  target: Target,
+  field: F,
+  v: Look[F] | undefined,
+  value?: number,
 ): Spec => {
-  if (c == null) return clearColor(spec, part, value, field);
-  const { looks } = spec;
-  const i = looks.findLastIndex((l) => only(l, part, value));
-  const paint: schematic.symbol.Paint = {
-    type: "color",
-    value: { type: "fixed", value: c },
-  };
-  const overridden = looks
-    .slice(i + 1)
-    .some((l) => reaches(l, part, value) && l[field] != null);
-  const states = withActive(spec.states);
-  if (i >= 0 && !overridden)
-    return {
-      ...spec,
-      states,
-      looks: looks.map((l, j) => (j === i ? { ...l, [field]: paint } : l)),
-    };
+  const looks = value == null ? spec.looks : split(spec.looks, target, field, value);
+  // Only the look at keep sets field, so no old motion of another kind keeps running.
+  const clear = (ls: Look[], keep = -1): Look[] =>
+    ls.flatMap((l, k): Look[] => {
+      if (k === keep || l[field] == null || !owns(l, target, value)) return [l];
+      const cleared = { ...l, [field]: undefined };
+      return setsNothing(cleared) ? [] : [cleared];
+    });
+  if (v == null) {
+    if (!looks.some((l) => owns(l, target, value) && l[field] != null)) return spec;
+    return { ...spec, looks: clear(looks) };
+  }
+  // Pluto gives each part its own motion and blink, and one motion of each kind, so
+  // only those looks hide v.
+  const kind = field === "motion" ? (v as schematic.symbol.Motion).type : undefined;
+  const hides = (l: Look): boolean =>
+    reaches(l, target, value) &&
+    l[field] != null &&
+    ((field !== "motion" && field !== "blink") || l.part === target) &&
+    (kind == null || l.motion?.type === kind);
+  const last = looks.findLastIndex(hides);
+  const i = looks.findLastIndex((l) => owns(l, target, value));
+  if (i >= 0 && last <= i)
+    return { ...spec, looks: clear(looks.with(i, { ...looks[i], [field]: v }), i) };
+  const look: Look = { key: `look-${id.create()}`, part: target, [field]: v };
+  if (value != null) look.when = { type: "equals", state: STATE, values: [value] };
+  const rest = clear(looks);
+  const at = Math.max(slot(rest, look), rest.findLastIndex(hides) + 1);
   return {
     ...spec,
-    states,
-    looks: [
-      ...looks,
-      {
-        key: `look-${id.create()}`,
-        part,
-        when: { type: "equals", state: STATE, values: [value] },
-        [field]: paint,
-      },
-    ],
+    states: value == null ? spec.states : withActive(spec.states),
+    looks: rest.toSpliced(at, 0, look),
   };
+};
+
+/** @returns whether a look of target sets field on some values alone. */
+export const variesByValue = (
+  spec: Pick<Spec, "looks">,
+  target: Target,
+  field: Field,
+): boolean =>
+  spec.looks.some(
+    (l) => l.part === target && l.when?.state === STATE && l[field] != null,
+  );
+
+/**
+ * @returns spec in which field of target varies by value, with each value starting from
+ * the field on every value. With varies false, it returns spec in which every value
+ * takes the field that target sets at the first value.
+ */
+export const setVariesByValue = (
+  spec: Spec,
+  target: Target,
+  field: Field,
+  values: number[],
+  varies: boolean,
+): Spec => {
+  if (varies) {
+    const shared = spec.looks.findLast((l) => owns(l, target) && l[field] != null);
+    if (shared == null) return spec;
+    const cleared = setOwn(spec, target, field, undefined);
+    return values.reduce((s, v) => setOwn(s, target, field, shared[field], v), cleared);
+  }
+  // Looks of the whole drawing stay out, so target takes no field that it did not set.
+  const mine = spec.looks.filter((l) => l.part === target);
+  const first = effective({ looks: mine }, target, field, values[0]);
+  const cleared = values.reduce((s, v) => setOwn(s, target, field, undefined, v), spec);
+  return setOwn(cleared, target, field, first);
+};
+
+/** @returns the name "Part N" with the lowest N that no part in parts has. */
+export const nextPartName = (parts: schematic.symbol.Part[]): string => {
+  const taken = new Set(parts.map((p) => p.name));
+  let n = 1;
+  while (taken.has(`Part ${n}`)) n++;
+  return `Part ${n}`;
 };
 
 /** @returns spec without part and the looks on it. */
@@ -164,15 +245,27 @@ const withState = (spec: Spec, match: schematic.symbol.Matcher): Spec["states"] 
   );
 
 /**
+ * @returns looks as a static symbol draws them, with only Base: each look on Base
+ * reaches every value, and the looks on other values go.
+ */
+export const staticLooks = (looks: Look[]): Look[] =>
+  looks.flatMap((l): Look[] => {
+    if (l.when?.state !== STATE) return [l];
+    if (!l.when.values.includes(BASE)) return [];
+    const { when: _, ...rest } = l;
+    return [rest];
+  });
+
+/**
  * @returns spec as variant. An actuator gets the Base looks again on Active, `within`
  * 0.9 to 1.1, the commands Off and On, and a click that picks between them, as the
- * migration gives a stored actuator. A static symbol loses the looks of Active alone,
- * the commands, and the clicks.
+ * migration gives a stored actuator. A static symbol keeps its Base looks on every
+ * value and loses its other looks on the state, the commands, and the clicks.
  */
 export const setVariant = (spec: Spec, variant: string): Spec => {
   if (variant === "actuator") {
     const copies = spec.looks
-      .filter((l) => l.part != null && only(l, l.part, BASE))
+      .filter((l) => only(l, l.part, BASE))
       .map((l) => ({
         ...l,
         key: `look-${id.create()}`,
@@ -185,7 +278,7 @@ export const setVariant = (spec: Spec, variant: string): Spec => {
         type: "within",
         bounds: { lower: 0.9, upper: 1.1 },
       }),
-      looks: [...spec.looks, ...copies],
+      looks: copies.reduce((ls, c) => ls.toSpliced(slot(ls, c), 0, c), spec.looks),
       commands: [
         {
           key: DEACTIVATE,
@@ -207,7 +300,7 @@ export const setVariant = (spec: Spec, variant: string): Spec => {
     ...spec,
     variant,
     states: withState(spec, { type: "exact" }),
-    looks: spec.looks.filter((l) => l.part == null || !only(l, l.part, ACTIVE)),
+    looks: staticLooks(spec.looks),
     commands: [],
     interactions: [],
   };
