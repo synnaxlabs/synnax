@@ -12,6 +12,7 @@ import {
   border,
   bounds,
   box,
+  closedBounds,
   color,
   type dimensions,
   direction,
@@ -36,7 +37,7 @@ import { staleness } from "@/vis/staleness/aether";
 export const scaleStateZ = staleness.stateZ.extend({
   box: box.box,
   telem: telem.numberSourceSpecZ.default(telem.noopNumericSourceSpec),
-  bounds: bounds.boundsZ().default(bounds.construct(0, 100)),
+  bounds: closedBounds.closedBoundsZ().default({ lower: 0, upper: 100 }),
   // Colors the fill. Absent uses the theme.
   color: color.colorZ.optional(),
   // Colors the bar outline, the spine, and the tick marks. Absent uses the theme.

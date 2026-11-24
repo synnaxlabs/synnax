@@ -10,7 +10,7 @@
 import { type binary, errors, sleep, TimeSpan, url } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type Connector, DEFAULT_CONNECTOR, type Socket } from "@/connector";
+import { type Connector, defaultConnector, type Socket } from "@/connector";
 import {
   asUntrustedCertificate,
   EOF,
@@ -294,7 +294,7 @@ export interface WebSocketClientConfig {
   secure?: boolean;
   /** Overrides for the default flow control limits. */
   flowControl?: Partial<FlowControl>;
-  /** Opens the WebSockets. Defaults to the global WebSocket. */
+  /** Opens the WebSockets. Defaults to {@link defaultConnector}. */
   connector?: Connector;
 }
 
@@ -315,7 +315,7 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
     codec,
     secure = false,
     flowControl = {},
-    connector = DEFAULT_CONNECTOR,
+    connector = defaultConnector(),
   }: WebSocketClientConfig) {
     super();
     this.secure = secure;

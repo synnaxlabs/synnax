@@ -150,7 +150,7 @@ State union on type extends BaseState {
         @doc value "is a state that shows the entries of an enumeration."
     }
     number {
-        bounds spatial.Bounds = { lower = 0, upper = 100 } {
+        bounds spatial.ClosedBounds = { lower = 0, upper = 100 } {
             @doc value "is the range of values that motion reads as 0 to 1."
         }
 

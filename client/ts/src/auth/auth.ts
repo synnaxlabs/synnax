@@ -11,6 +11,7 @@ import type { Context, Middleware, Next, UnaryClient } from "@synnaxlabs/freight
 import { binary, errors, TimeStamp, url, uuid } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { password } from "@/auth/password";
 import {
   type Credentials,
   type Method,
@@ -169,6 +170,21 @@ const passwordSetReqZ = z.object({
 });
 const passwordSetResZ = z.object({ token: z.string(), session: sessionZ.optional() });
 
+export interface RetrievePasswordsParams {
+  /** The users whose passwords to list. */
+  subjects?: resource.ID[];
+  /** The usernames of the passwords to list. */
+  usernames?: string[];
+}
+
+const passwordRetrieveReqZ = z.object({
+  subjects: resource.idZ.array().optional(),
+  usernames: z.string().array().optional(),
+});
+const passwordRetrieveResZ = z.object({
+  passwords: password.passwordZ.array().default(() => []),
+});
+
 // the login route a Core without sessions serves; kept for one release
 const METHODS_ENDPOINT = "/auth/methods";
 const LEGACY_LOGIN_ENDPOINT = "/auth/login";
@@ -193,6 +209,8 @@ const OIDC_RETRIEVE_ENDPOINT = "/auth/oidc/retrieve";
 const OIDC_UNLINK_ENDPOINT = "/auth/oidc/unlink";
 const PASSWORD_CREATE_ENDPOINT = "/auth/password/create";
 const PASSWORD_SET_ENDPOINT = "/auth/password/set";
+const PASSWORD_RETRIEVE_ENDPOINT = "/auth/password/retrieve";
+const PASSWORD_DISPATCH_ENDPOINT = "/auth/password/dispatch";
 
 // routes the Core serves without a token, so a request to one never logs in
 const TOKENLESS_ENDPOINTS = [
@@ -616,6 +634,53 @@ export class Client {
     this.authState = { authenticated: true, token: res.token, session: res.session };
     if (this.resumeToken != null) this.resumeToken = res.token;
     this.observer.onSuccess?.(res.session.key);
+  }
+
+  /**
+   * Lists passwords without their hashes: the caller's own by default, or those of the
+   * given users or usernames when the caller may retrieve their users. Unknown users
+   * and usernames are ignored.
+   * @throws {AccessDeniedError} when the caller may not retrieve another user.
+   */
+  async retrievePasswords(
+    params: RetrievePasswordsParams = {},
+  ): Promise<password.Password[]> {
+    const res = await this.client.send(
+      PASSWORD_RETRIEVE_ENDPOINT,
+      params,
+      passwordRetrieveReqZ,
+      passwordRetrieveResZ,
+    );
+    return res.passwords;
+  }
+
+  /**
+   * Applies the actions in order to the password with the given key. Sessions stay
+   * open. When the client logged in with the password, it keeps its credentials in step
+   * with the new username.
+   * @throws {AuthError} when another user holds the username that the actions set.
+   * @throws {AccessDeniedError} when the caller may not update the password's user.
+   * @throws {NotFoundError} when no password has the key.
+   * @throws {ValidationError} when an action sets an empty username.
+   */
+  async dispatchPassword(
+    key: password.Key,
+    ...actions: password.Action[]
+  ): Promise<void> {
+    const generation = this.generation;
+    await this.client.send(
+      PASSWORD_DISPATCH_ENDPOINT,
+      { key, dispatchKey: "", actions },
+      password.dispatchReqZ,
+      emptyResZ,
+    );
+    if (
+      generation !== this.generation ||
+      this.credentials == null ||
+      this.session?.credential !== key
+    )
+      return;
+    for (const a of actions) this.credentials.username = a.setUsername.username;
   }
 
   /**
