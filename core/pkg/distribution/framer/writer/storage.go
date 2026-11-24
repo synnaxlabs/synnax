@@ -95,10 +95,10 @@ func join(ctx context.Context, ts *cesium.DB, ws []*clockWriter) error {
 }
 
 // clockWriters returns the handle of the session of cfg on each clock of channels,
-// which are the stored channels of cfg. A session that persists and streams, and that
-// writes a clock, shares the clock's writer with the other sessions on it. The other
-// handles hold their own writer, which openOwn opens, and a handle whose session holds
-// a gate on the clock follows the clock's entry.
+// which are the stored channels of cfg. On the pointer log, a session that persists
+// and streams, and that writes a clock, shares the clock's writer with the other
+// sessions on it. The other handles hold their own writer, which openOwn opens, and a
+// handle whose session holds a gate on the clock follows the clock's entry.
 func (s *Service) clockWriters(
 	cfg Config,
 	channels []cesium.Channel,
@@ -108,7 +108,7 @@ func (s *Service) clockWriters(
 		keys    = make(map[cesium.ChannelKey][]cesium.ChannelKey, 1)
 		byKey   = make(map[cesium.ChannelKey]cesium.Channel, len(channels))
 		ws      = make([]*clockWriter, 0, 1)
-		sharing = cfg.Mode == ModePersistStream
+		sharing = cfg.Mode == ModePersistStream && *s.cfg.PointerLogEnabled
 	)
 	for _, ch := range channels {
 		clock := ch.Clock()
