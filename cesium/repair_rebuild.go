@@ -95,10 +95,11 @@ type plan struct {
 	rebuilt, unplaced, tails []Range
 }
 
-// rebuild returns the plan of the gap: the clock writes that its bytes hold, the ranges
-// that it places, those that it does not, and the tails that nothing checks.
-func (e *engine) rebuild(l *later, placed []placement) (plan, error) {
-	spans, err := e.spans(l, placed)
+// rebuild returns the plan of the gap, which the records of l end: the clock writes
+// that its bytes hold, the ranges that it places, those that it does not, and the
+// tails that nothing checks. all holds the records of every entry after the damage.
+func (e *engine) rebuild(l, all *later, placed []placement) (plan, error) {
+	spans, err := e.spans(l, all, placed)
 	if err != nil {
 		return plan{}, err
 	}
@@ -146,9 +147,8 @@ func (e *engine) rebuild(l *later, placed []placement) (plan, error) {
 	}, nil
 }
 
-// listSpans returns the spans of clocks of spans that hold samples by key, and lists
-// the
-// tails of spans and the bytes of spans that it does not place.
+// listSpans returns the spans of clocks of spans that hold samples, by key, and lists
+// the tails of spans and the bytes of spans that it does not place.
 func listSpans(spans []span) (clocks map[ChannelKey][]span, unplaced, tails []Range) {
 	clocks = make(map[ChannelKey][]span)
 	for _, s := range spans {
@@ -261,8 +261,8 @@ func (g group) ranges() (rebuilt, unplaced []Range) {
 
 // spans returns the span of each segment with bytes in the gap: each open segment of
 // the state with bytes past its committed length, and each placed orphan. A segment
-// that a later Replace retires has none, since the copy holds its bytes.
-func (e *engine) spans(l *later, placed []placement) ([]span, error) {
+// that a Replace of all retires has none, since the copy holds its bytes.
+func (e *engine) spans(l, all *later, placed []placement) ([]span, error) {
 	keys, err := e.keyDirs()
 	if err != nil {
 		return nil, err
@@ -277,7 +277,7 @@ func (e *engine) spans(l *later, placed []placement) ([]span, error) {
 	}
 	for _, key := range keys {
 		for _, seg := range e.state.ReplaySegments(key) {
-			if seg.Sealed || l.replaced.Contains(seg.ID) {
+			if seg.Sealed || all.replaced.Contains(seg.ID) {
 				continue
 			}
 			prev := telem.TimeStampMin

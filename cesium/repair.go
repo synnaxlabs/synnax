@@ -162,42 +162,61 @@ func Repair(
 	if err != nil {
 		return Report{}, err
 	}
-	var (
-		rep Report
-		l   = newLater()
-	)
-	pass := func(gap int, sequence uint64, records []log.Record) error {
-		if gap == 0 {
-			return e.replay(sequence, records)
-		}
-		return l.add(sequence, records)
-	}
-	if rep.Damage, rep.Lost, err = r.damage(ctx, pass); err != nil {
+	rep, l, after, err := e.find(ctx, r)
+	if err != nil {
 		return Report{}, err
 	}
 	rep.Buried = buried(e)
 	if len(rep.Damage) == 0 && len(rep.Buried) == 0 {
 		return rep, nil
 	}
-	if err = e.repairState(ctx, r, l, &rep); err != nil {
+	if err = e.repairState(ctx, r, l, after, &rep); err != nil {
 		return Report{}, err
 	}
 	return rep, nil
 }
 
+// find reads the logs of r once: it applies each entry before the first bad frame to
+// the state of e, and returns the damage, the records of the bad frames, what the
+// entries up to the second bad frame name, and what every entry after the first names.
+func (e *engine) find(
+	ctx context.Context,
+	r *recovery,
+) (Report, *later, *later, error) {
+	var (
+		rep      Report
+		l, after = newLater(), newLater()
+		err      error
+	)
+	pass := func(gap int, sequence uint64, records []log.Record) error {
+		if gap == 0 {
+			return e.replay(sequence, records)
+		}
+		if gap == 1 {
+			if err := l.add(sequence, records); err != nil {
+				return err
+			}
+		}
+		return after.add(sequence, records)
+	}
+	rep.Damage, rep.Lost, err = r.damage(ctx, pass)
+	return rep, l, after, err
+}
+
 // repairState repairs the state of e, as rep lists it. It rebuilds the gap of each bad
 // frame in log order: it places the orphans of the gap, rebuilds its ranges, and
-// applies the entries up to the next bad frame. Then it takes out the segments whose
-// files are gone. first holds what the entries after the first bad frame name.
+// applies the entries up to the next bad frame, by the records of those entries alone
+// (D-346). Then it takes out the segments whose files are gone. l holds what the
+// entries up to the second bad frame name, and after what every entry after the first
+// names.
 func (e *engine) repairState(
 	ctx context.Context,
 	r *recovery,
-	first *later,
+	l, after *later,
 	rep *Report,
-) (err error) {
-	l := first
+) error {
 	for k, d := range rep.Damage {
-		placed, unrecovered, err := e.place(r, l)
+		placed, unrecovered, err := e.place(r, l, after)
 		if err != nil {
 			return err
 		}
@@ -208,11 +227,11 @@ func (e *engine) repairState(
 				rep.Unrecovered = append(rep.Unrecovered, f)
 			}
 		}
-		p, err := e.rebuild(l, placed)
+		p, err := e.rebuild(l, after, placed)
 		if err != nil {
 			return err
 		}
-		if err = e.apply(d, l, placed, &p); err != nil {
+		if err = e.apply(d, l, after, placed, &p); err != nil {
 			return err
 		}
 		rep.Rebuilt = append(rep.Rebuilt, p.rebuilt...)
@@ -220,12 +239,10 @@ func (e *engine) repairState(
 		rep.Tails = append(rep.Tails, p.tails...)
 		next := newLater()
 		walk := func(gap int, sequence uint64, records []log.Record) error {
-			switch {
-			case gap == k+1:
-				skipped, err := e.replayEach(sequence, records)
-				rep.Skipped = append(rep.Skipped, skipped...)
-				return err
-			case gap > k+1:
+			switch gap {
+			case k + 1:
+				return e.replayEach(sequence, records, rep)
+			case k + 2:
 				return next.add(sequence, records)
 			}
 			return nil
@@ -241,8 +258,16 @@ func (e *engine) repairState(
 	slices.SortFunc(rep.Unrecovered, func(a, b File) int {
 		return cmp.Or(cmp.Compare(a.Key, b.Key), cmp.Compare(a.Segment, b.Segment))
 	})
-	rep.Removed, err = e.removeMissing(first)
-	return err
+	removed, err := e.removeMissing(after)
+	if err != nil {
+		return err
+	}
+	rep.Removed = append(rep.Removed, removed...)
+	slices.SortFunc(rep.Removed, func(a, b Segment) int {
+		return cmp.Or(cmp.Compare(a.Key, b.Key), cmp.Compare(a.Segment, b.Segment))
+	})
+	sortRanges(rep.Unplaced)
+	return nil
 }
 
 // sortRanges sorts ranges by key, segment, and time.
@@ -359,8 +384,7 @@ func (r *recovery) damage(
 }
 
 // headLog reads the log of the head, and returns its bytes, its header, and the crc
-// that
-// its first frame links to.
+// that its first frame links to.
 func (r *recovery) headLog() ([]byte, log.Header, uint32, error) {
 	r.gen = r.head.Generation
 	b, ok, err := r.read(r.gen)

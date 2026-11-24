@@ -152,12 +152,13 @@ type placement struct {
 	checked int64
 }
 
-// place searches the type and clock of each orphan that a record after the damage
-// names, and returns those that it places. It lists as unrecovered each one that it
-// cannot place, and each other orphan, unless the state left the segment or a Drop
-// after the damage drops its key: the next open removes those files.
-func (e *engine) place(r *recovery, l *later) ([]placement, []File, error) {
-	named, unrecovered, err := e.unheld(r, l)
+// place searches the type and clock of each orphan that a record of l, the entries up
+// to the next bad frame, names, and returns those that it places. It lists as
+// unrecovered each one that it cannot place, and each orphan that no record of all,
+// the entries after the damage, names, unless the state left the segment or a Drop of
+// all drops its key: the next open removes those files.
+func (e *engine) place(r *recovery, l, all *later) ([]placement, []File, error) {
+	named, unrecovered, err := e.unheld(r, l, all)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -189,10 +190,10 @@ func (e *engine) place(r *recovery, l *later) ([]placement, []File, error) {
 }
 
 // unheld returns, in order of key and identity, the segment files whose segments the
-// state lacks, no part of the head holds, and no Create after the damage makes, that a
-// record after the damage names. It lists the rest that the state never left as
-// unrecovered.
-func (e *engine) unheld(r *recovery, l *later) ([]orphan, []File, error) {
+// state lacks, no part of the head holds, and no Create of all makes, that a record of
+// l names. It lists as unrecovered those that no record of all names, that the state
+// never left.
+func (e *engine) unheld(r *recovery, l, all *later) ([]orphan, []File, error) {
 	dead := set.New[uint64]()
 	for _, d := range e.state.Dead() {
 		dead.Add(d.Segment)
@@ -219,14 +220,15 @@ func (e *engine) unheld(r *recovery, l *later) ([]orphan, []File, error) {
 			}
 			_, held := e.state.KeyOf(id)
 			_, parted := live[id]
-			_, created := l.created[id]
+			_, created := all.created[id]
 			if held || parted || created || dead.Contains(id) {
 				continue
 			}
 			o := orphan{key: key, id: id, size: info.Size()}
+			_, later := all.named[id]
 			if _, ok := l.named[id]; ok {
 				named = append(named, o)
-			} else if !l.dropped.Contains(o.key) {
+			} else if !later && !all.dropped.Contains(o.key) {
 				unrecovered = append(unrecovered, File{
 					Key:     o.key,
 					Segment: id,

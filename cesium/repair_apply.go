@@ -22,11 +22,12 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-// apply puts p into the state of e at the damage d: limits above the values of l and
-// of the files, the placed segments, a commit with a fresh alignment for each clock
-// write, and the end of the gap of each segment. It moves the ranges of a clock write
-// whose commit breaks a rule from rebuilt to unplaced, with the rule.
-func (e *engine) apply(d Damage, l *later, placed []placement, p *plan) error {
+// apply puts p into the state of e at the damage d: limits above the values of all,
+// the entries after the damage, and of the files, the placed segments, a commit with a
+// fresh alignment for each clock write, and the end of the gap of each segment, at the
+// records of l, the entries up to the next bad frame. It moves the ranges of a clock
+// write whose commit breaks a rule from rebuilt to unplaced, with the rule.
+func (e *engine) apply(d Damage, l, all *later, placed []placement, p *plan) error {
 	files, err := e.fileLimit()
 	if err != nil {
 		return err
@@ -34,8 +35,8 @@ func (e *engine) apply(d Damage, l *later, placed []placement, p *plan) error {
 	rb := state.Rebuild{
 		Sequence: d.LastSequence,
 		Limits: state.Limits{
-			Segments:   max(l.limits.Segments, files),
-			Alignments: l.limits.Alignments,
+			Segments:   max(all.limits.Segments, files),
+			Alignments: all.limits.Alignments,
 		},
 	}
 	created := make(map[uint64]ChannelKey, len(placed))
@@ -177,23 +178,138 @@ func (e *engine) fileLimit() (uint64, error) {
 }
 
 // replayEach applies the records of the entry of sequence after the damage one at a
-// time, and returns those that break a rule.
-func (e *engine) replayEach(sequence uint64, records []log.Record) ([]Record, error) {
+// time, and lists in rep those that break a rule. A Replace whose old segment has no
+// file takes that segment out of the state, and its copy takes the pointers of the
+// Replace when its blocks pass, or its bytes are unplaced (D-370).
+func (e *engine) replayEach(sequence uint64, records []log.Record, rep *Report) error {
 	pre, err := e.preloads(records)
 	if err != nil {
-		return nil, err
+		return err
+	}
+	gone, pre, err := e.markGone(records, pre)
+	if err != nil {
+		return err
 	}
 	skipped, err := e.state.ReplayEach(sequence, records, pre...)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	out := make([]Record, 0, len(skipped))
+	refused := make(map[log.Record]error, len(skipped))
 	for _, s := range skipped {
 		r := recordOf(sequence, s.Record)
 		r.Reason = s.Err.Error()
-		out = append(out, r)
+		rep.Skipped = append(rep.Skipped, r)
+		refused[s.Record] = s.Err
 	}
-	return out, nil
+	for _, rec := range records {
+		r, ok := rec.(*log.Replace)
+		if !ok {
+			continue
+		}
+		key, ok := gone[r.Old]
+		if !ok {
+			continue
+		}
+		if err, ok := refused[rec]; ok {
+			rep.Unplaced = append(rep.Unplaced, Range{
+				Key:     key,
+				Segment: r.New,
+				Bytes:   telem.Size(r.Length),
+				Samples: pointerSamples(r.Pointers),
+				Reason:  "the copy of a Replace whose old file is gone: " + err.Error(),
+			})
+			continue
+		}
+		rep.Removed = append(rep.Removed, Segment{Key: key, Segment: r.Old})
+	}
+	return nil
+}
+
+// markGone marks gone in the state of e the old segment of each Replace of records
+// whose file is gone and whose copy passes its checks, and adds the preload of its key
+// to pre. It returns the key of the old segment of each Replace whose file is gone.
+func (e *engine) markGone(
+	records []log.Record,
+	pre []state.Preload,
+) (map[uint64]ChannelKey, []state.Preload, error) {
+	gone := make(map[uint64]ChannelKey)
+	for _, rec := range records {
+		r, ok := rec.(*log.Replace)
+		if !ok {
+			continue
+		}
+		key, passes, missing, err := e.goneReplace(r)
+		if err != nil {
+			return nil, nil, err
+		}
+		if !missing {
+			continue
+		}
+		gone[r.Old] = key
+		if passes {
+			e.state.Gone(r.Old)
+			first, last := pointerSpan(r.Pointers)
+			if pre, err = e.addPreload(pre, key, first, last, false); err != nil {
+				return nil, nil, err
+			}
+		}
+	}
+	slices.SortFunc(
+		pre,
+		func(a, b state.Preload) int { return cmp.Compare(a.Key, b.Key) },
+	)
+	return gone, pre, nil
+}
+
+// goneReplace returns the key of the old segment of r, whether the state holds it
+// while its file is gone, and whether the blocks of the copy pass for the length and
+// the tail checksum of r.
+func (e *engine) goneReplace(
+	r *log.Replace,
+) (key ChannelKey, passes, missing bool, err error) {
+	key, held := e.state.KeyOf(r.Old)
+	if !held {
+		return 0, false, false, nil
+	}
+	i := slices.IndexFunc(e.state.ReplaySegments(key), func(s state.Segment) bool {
+		return s.ID == r.Old
+	})
+	old := e.state.ReplaySegments(key)[i]
+	exists, err := e.segmentExists(segmentName(key, old.ID, old.File), old.File)
+	if err != nil || exists {
+		return key, false, false, err
+	}
+	cfg := e.segmentConfig(old)
+	cfg.ID, cfg.Bare = r.New, false
+	f, err := e.fs.Open(segmentName(key, r.New, 0), os.O_RDONLY)
+	if errors.Is(err, os.ErrNotExist) {
+		return key, false, true, nil
+	}
+	if err != nil {
+		return key, false, true, err
+	}
+	defer func() { err = errors.Join(err, f.Close()) }()
+	end, err := checkedEnd(f, cfg, 0, int64(r.Length), r.TailCRC, true)
+	return key, end == int64(r.Length), true, err
+}
+
+// pointerSpan returns the first and the last stamp of ptrs.
+func pointerSpan(ptrs []log.Pointer) (first, last telem.TimeStamp) {
+	first, last = telem.TimeStampMax, telem.TimeStampMin
+	for _, p := range ptrs {
+		first = min(first, telem.TimeStamp(p.First))
+		last = max(last, telem.TimeStamp(p.Last))
+	}
+	return first, last
+}
+
+// pointerSamples returns the number of samples of ptrs.
+func pointerSamples(ptrs []log.Pointer) int64 {
+	var n int64
+	for _, p := range ptrs {
+		n += int64(p.Samples)
+	}
+	return n
 }
 
 // removeMissing takes out of the state of e each segment whose file is gone when a
