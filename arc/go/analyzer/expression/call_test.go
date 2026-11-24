@@ -121,6 +121,65 @@ var _ = Describe("AnalyzeCall", func() {
 			})
 	})
 
+	Describe("Rate arguments", func() {
+		DescribeTable("a rate for a time span parameter",
+			func(ctx SpecContext, code, expectedMsg string) {
+				expectFailure(ctx, code, nil, expectedMsg)
+			},
+			Entry("a literal", `
+				func hold(t i64 ns) i64 ns { return t }
+				func main() { d := hold(10hz) }
+			`, "incompatible dimensions: cannot write hz to parameter 't' of 'hold' (ns)"),
+			Entry("a variable", `
+				func hold(t i64 ns) i64 ns { return t }
+				func main(r i64 hz) { d := hold(r) }
+			`, "incompatible dimensions: cannot write hz to parameter 't' of 'hold' (ns)"),
+			Entry("a time span in another unit", `
+				func hold(t i64 s) i64 s { return t }
+				func main(r i64 khz) { d := hold(r) }
+			`, "incompatible dimensions: cannot write khz to parameter 't' of 'hold' (s)"),
+		)
+
+		DescribeTable("values that a time span parameter takes",
+			func(ctx SpecContext, code string) { expectSuccess(ctx, code, nil) },
+			Entry("a cast of a rate", `
+				func hold(t i64 ns) i64 ns { return t }
+				func main(r i64 hz) { d := hold(i64 ns(r)) }
+			`),
+			Entry("a time span in another unit", `
+				func hold(t i64 ns) i64 ns { return t }
+				func main(s i64 ms) { d := hold(s) }
+			`),
+		)
+
+		DescribeTable("the input that the function names",
+			func(bCtx SpecContext, reciprocalInput string, ok bool) {
+				expr := MustSucceed(parser.ParseExpression("10hz"))
+				ctx := context.NewRoot(bCtx, expr, NewRoot(nil))
+				fnType := types.Function(types.FunctionProperties{
+					Inputs: types.Params{
+						{Name: "period", Type: types.TimeSpan()},
+						{Name: "timeout", Type: types.TimeSpan(), Value: 0},
+					},
+				})
+				expression.AnalyzeCall(
+					ctx,
+					"f",
+					fnType,
+					[]symbol.Argument{{Name: "period", Expr: expr, AST: expr}},
+					nil,
+					expr,
+					"",
+					reciprocalInput,
+				)
+				Expect(ctx.Diagnostics.Ok()).To(Equal(ok), ctx.Diagnostics.String())
+			},
+			Entry("takes a rate", "period", true),
+			Entry("no input rejects a rate", "", false),
+			Entry("another input rejects a rate", "timeout", false),
+		)
+	})
+
 	Describe("Channel arguments", func() {
 		It(
 			"Should dereference a channel argument to a value-typed parameter",
@@ -235,6 +294,7 @@ var _ = Describe("Computed arguments", func() {
 			[]symbol.Argument{{Name: "a", Expr: expr, AST: expr}},
 			nil,
 			expr,
+			"",
 			"",
 		)
 		Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
