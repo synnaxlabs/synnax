@@ -46,8 +46,8 @@ type logView struct {
 	frozen bool
 	// readers counts the data cursors of the view. The Close of the last unpins it.
 	readers int
-	// parts holds the parts of the range of each Channel of chs, and nextParts the array
-	// that the next load fills.
+	// parts holds the parts of the range of each Channel of chs, and nextParts the
+	// array that the next load fills.
 	parts, nextParts [][]checkpoint.Part
 	// pinned holds the segments and parts of the last load, which the view pins until
 	// the next load or the Close of its last data cursor. spare is the segment array
