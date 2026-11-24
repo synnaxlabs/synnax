@@ -698,3 +698,32 @@ class TestHTTPDevicePropertyUpdates:
 
         props = client.devices.retrieve(key=device.key).properties
         assert obj(props, "write") == {key: stored.key}
+
+
+class TestHTTPRequestRows:
+    """Tests for the header and query parameter rows of a request."""
+
+    def test_rejects_a_header_with_no_name(self) -> None:
+        """Should reject a header row with no name."""
+        with pytest.raises(ValidationError):
+            sy.http.Header(name="", value="json")
+
+    def test_rejects_a_query_parameter_with_no_name(self) -> None:
+        """Should reject a query parameter row with no name."""
+        with pytest.raises(ValidationError):
+            sy.http.QueryParam(parameter="", value="1")
+
+    def test_drops_stored_health_check_rows_with_no_name(self) -> None:
+        """Should drop the stored health check rows that have no name."""
+        check = sy.http.HealthCheck.model_validate(
+            {
+                "headers": [
+                    {"name": "", "value": "x"},
+                    {"name": "Accept", "value": "json"},
+                ],
+                "query_params": [{"parameter": "", "value": "1"}],
+            }
+        )
+        assert check.headers is not None
+        assert [h.name for h in check.headers] == ["Accept"]
+        assert check.query_params == []

@@ -45,6 +45,40 @@ var _ = Describe("Validate", func() {
 		),
 		Entry("a read path with a query", v5.ReadEndpoint{Path: "/a?b=1"}, "path"),
 		Entry("a write path with a fragment", v5.WriteEndpoint{Path: "/a#b"}, "path"),
+		Entry(
+			"a header value with a NUL",
+			v5.Header{Name: "Accept", Value: "a\x00b"},
+			"value",
+		),
+		Entry(
+			"a header value with a DEL",
+			v5.Header{Name: "Accept", Value: "a\x7fb"},
+			"value",
+		),
+		Entry(
+			"a static write field pointer with no leading slash",
+			v5.WriteField{Variant: v5.StaticWriteField{
+				BaseWriteField: v5.BaseWriteField{Pointer: "value"},
+			}},
+			"pointer",
+		),
+		Entry(
+			"a generated write field pointer with a bad escape",
+			v5.WriteField{Variant: v5.GeneratedWriteField{
+				BaseWriteField: v5.BaseWriteField{Pointer: "/id~3"},
+			}},
+			"pointer",
+		),
+		Entry(
+			"a write endpoint with a header that has no name",
+			v5.WriteEndpoint{Headers: []v5.Header{{Value: "1"}}},
+			"headers",
+		),
+		Entry(
+			"a write endpoint with a query parameter that has no name",
+			v5.WriteEndpoint{QueryParams: []v5.QueryParam{{Value: "1"}}},
+			"query_params",
+		),
 	)
 
 	DescribeTable("Should accept a valid field",

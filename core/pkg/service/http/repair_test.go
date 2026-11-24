@@ -172,6 +172,28 @@ var _ = Describe("Upgrade repair", func() {
 		),
 	)
 
+	It("Should repair a shipped read config", func(ctx SpecContext) {
+		data := msgpack.EncodedJSON{
+			"device": dev,
+			"rate":   1,
+			"endpoints": []any{map[string]any{
+				"key":          "ep",
+				"method":       "GET",
+				"path":         "/now?units=si",
+				"headers":      []any{map[string]any{"name": "", "value": "x"}},
+				"query_params": []any{},
+				"fields":       []any{},
+			}},
+		}
+		normalized := MustSucceed(svc.Read.Normalize(ctx, db, 2, data))
+		ep := normalized["endpoints"].([]any)[0].(map[string]any)
+		Expect(ep["path"]).To(Equal("/now"))
+		Expect(ep["headers"]).To(Equal([]any{}))
+		Expect(ep["query_params"]).To(Equal([]any{
+			map[string]any{"parameter": "units", "value": "si"},
+		}))
+	})
+
 	It("Should set aside a query in the path that repeats a name",
 		func(ctx SpecContext) {
 			data := shipped(map[string]any{"path": "/cmd?a=1&a=2"})
