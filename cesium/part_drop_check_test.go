@@ -108,6 +108,7 @@ var _ = Describe("Check: a key dropped and created again during a switch", func(
 		Expect(db.CreateChannel(ctx, dataCh)).To(Succeed())
 		w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 			Channels: []cesium.ChannelKey{idx, data},
+			Clock:    idx,
 			Start:    1_000 * telem.SecondTS,
 		}))
 		MustSucceed2(w.Write(ctx, telem.MultiFrame(
@@ -128,6 +129,7 @@ var _ = Describe("Check: a key dropped and created again during a switch", func(
 		Eventually(fs.cleans.Load).Should(BeNumerically(">", cleans))
 		w = MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 			Channels: []cesium.ChannelKey{idx, data},
+			Clock:    idx,
 			Start:    2_000 * telem.SecondTS,
 		}))
 		Expect(w.Close()).To(Succeed())
