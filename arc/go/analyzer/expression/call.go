@@ -33,13 +33,14 @@ func AnalyzeCall[T antlr.ParserRuleContext](
 	hook symbol.ArgumentsHook,
 	site antlr.ParserRuleContext,
 	trigger string,
+	reciprocalInput string,
 	externallySatisfied ...string,
 ) {
 	signature := ir.FormatFunctionSignature(fnName, fnType)
 	supplied := set.New[string]()
 	for _, b := range bindArguments(ctx, fnName, fnType, args, signature, trigger) {
 		supplied.Add(b.param.Name)
-		checkArgType(ctx, fnName, b.param, b.arg, signature)
+		checkArgType(ctx, fnName, b.param, b.arg, signature, reciprocalInput)
 	}
 	satisfied := set.New(externallySatisfied...)
 	for _, param := range fnType.Inputs {
@@ -170,6 +171,7 @@ func checkArgType[T antlr.ParserRuleContext](
 	param types.Param,
 	arg symbol.Argument,
 	signature string,
+	reciprocalInput string,
 ) {
 	argType := computedArgType(ctx, arg.Expr)
 	if !argType.IsValid() {
@@ -182,13 +184,14 @@ func checkArgType[T antlr.ParserRuleContext](
 	// Lowering warns for a flow variable, which can be a constant.
 	if paramType.Unwrap().Kind != types.KindVariable {
 		converts, ok := CheckUnits(ctx, Write{
-			AST:         arg.AST,
-			Expr:        arg.Expr,
-			Source:      argType,
-			Target:      paramType,
-			Subject:     fmt.Sprintf("parameter '%s' of '%s'", param.Name, fnName),
-			Declaration: parameterType(ctx, fnName, param.Name),
-			Lowered:     readsFlowVariable(ctx, arg.Expr),
+			AST:           arg.AST,
+			Expr:          arg.Expr,
+			Source:        argType,
+			Target:        paramType,
+			Subject:       fmt.Sprintf("parameter '%s' of '%s'", param.Name, fnName),
+			Declaration:   parameterType(ctx, fnName, param.Name),
+			Lowered:       readsFlowVariable(ctx, arg.Expr),
+			SameDimension: param.Name != reciprocalInput,
 		})
 		if !ok {
 			return
@@ -231,7 +234,7 @@ func TakeUnit[T antlr.ParserRuleContext](
 ) {
 	node, err := ctx.Scope.Root().GetChildByParserRule(expr)
 	if err != nil || len(node.Type.Outputs) == 0 ||
-		!types.UnitsConvertible(node.Type.Outputs[0].Type.Unit, unit) {
+		!types.WriteConverts(node.Type.Outputs[0].Type.Unit, unit) {
 		return
 	}
 	node.Type.Outputs[0].Type.Unit = unit

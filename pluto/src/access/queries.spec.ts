@@ -23,6 +23,7 @@ import {
 import {
   createTestClient,
   createTestClientWithPolicy,
+  createTestUser,
 } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { renderHook, waitFor } from "@testing-library/react";
@@ -128,11 +129,10 @@ describe("Access Queries", () => {
         objects: [ranger.TYPE_RESOURCE_ID, ...baseObjects],
         actions: ["retrieve"],
       });
-      await client.users.create({
-        username,
-        password: "test",
-        name: "test test",
+      await createTestUser(client, {
         role: r.key,
+        username,
+        name: "test test",
       });
       const userClient = createTestClient({ username, password: "test" });
       const { result } = renderHook(
@@ -171,11 +171,10 @@ describe("Access Queries", () => {
           objects: [ranger.TYPE_RESOURCE_ID],
           actions: ["retrieve"],
         });
-        await client.users.create({
-          username,
-          password: "test",
-          name: "test test",
+        await createTestUser(client, {
           role: role.key,
+          username,
+          name: "test test",
         });
       });
 
@@ -472,11 +471,10 @@ describe("Access Queries", () => {
         objects: [label.TYPE_RESOURCE_ID],
         actions: ["retrieve", "update"],
       });
-      await client.users.create({
-        username,
-        password: "test",
-        name: "test test",
+      await createTestUser(client, {
         role: r.key,
+        username,
+        name: "test test",
       });
       const userClient = createTestClient({ username, password: "test" });
       const ids = [

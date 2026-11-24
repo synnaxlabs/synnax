@@ -1414,6 +1414,8 @@ describe("Task", async () => {
         timer: timers.start,
       });
       const cmd = await readCommand(streamer, t.key);
+      // The write timer starts only when the write ends before the first reply.
+      await timers.started(0);
       await setReply(t, cmd, "loading", "Starting task");
       const final = await timers.started(1);
       expect(final.span).toEqual(TimeSpan.minutes(2));
@@ -1439,6 +1441,7 @@ describe("Task", async () => {
         timer: timers.start,
       });
       const cmd = await readCommand(streamer, t.key);
+      await timers.started(0);
       await setReply(t, cmd, "loading", "Starting task");
       const first = await timers.started(1);
       await setReply(t, cmd, "loading", "Still starting task");

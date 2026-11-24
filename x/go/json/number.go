@@ -17,6 +17,7 @@ import (
 
 	"github.com/synnaxlabs/x/errors"
 	xmath "github.com/synnaxlabs/x/math"
+	xstrconv "github.com/synnaxlabs/x/strconv"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -235,18 +236,14 @@ func (n number) float() float64 {
 
 // appendText appends n as text: NaN, Infinity, or -Infinity when it is not finite.
 func (n number) appendText(dst []byte) []byte {
-	switch {
-	case n.kind == intNumber:
+	switch n.kind {
+	case intNumber:
 		return strconv.AppendInt(dst, n.i, 10)
-	case n.kind == uintNumber:
+	case uintNumber:
 		return strconv.AppendUint(dst, n.u, 10)
-	case math.IsInf(n.f, 1):
-		return append(dst, "Infinity"...)
-	case math.IsInf(n.f, -1):
-		return append(dst, "-Infinity"...)
-	default:
-		return strconv.AppendFloat(dst, n.f, 'g', -1, 64)
+	case floatNumber:
 	}
+	return xstrconv.AppendFloat(dst, n.f, 64)
 }
 
 func (n number) String() string {
@@ -415,18 +412,7 @@ func appendJSONNumber(dst []byte, n number) ([]byte, error) {
 	if !xmath.Finite(n.f) {
 		return nil, errors.Wrapf(validate.ErrValidation, "%s is not a JSON number", n)
 	}
-	format := byte('f')
-	if abs := math.Abs(n.f); abs != 0 && (abs < 1e-6 || abs >= 1e21) {
-		format = 'e'
-	}
-	dst = strconv.AppendFloat(dst, n.f, format, -1, 64)
-	// A JSON number writes an exponent without padding: e-9, not e-09.
-	if l := len(dst); format == 'e' && l >= 4 && dst[l-4] == 'e' && dst[l-3] == '-' &&
-		dst[l-2] == '0' {
-		dst[l-2] = dst[l-1]
-		dst = dst[:l-1]
-	}
-	return dst, nil
+	return xstrconv.AppendFloat(dst, n.f, 64), nil
 }
 
 // numeric reports whether dt holds numbers: an integer, float, or boolean type.

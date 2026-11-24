@@ -15,9 +15,9 @@ import { Color } from "@/color";
 import { Deleted } from "@/schematic/node/common/deleted";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
-import { Primitive } from "@/schematic/node/common/primitive";
+import { Primitive as BasePrimitive } from "@/schematic/node/common/primitive";
 import { Stale } from "@/schematic/node/common/stale";
-import { StringDisplay } from "@/schematic/node/general/stringDisplay/Primitive";
+import { Primitive } from "@/schematic/node/general/stringDisplay/primitive";
 import type { NodeProps } from "@/schematic/node/spec";
 import { telem } from "@/telem/aether";
 import { StringValue as BaseStringValue } from "@/vis/stringValue";
@@ -39,7 +39,7 @@ export const Symbol = ({
   },
 }: NodeProps<schematic.StringDisplayNodeConfig>): ReactElement => {
   const resolve = Color.useResolve();
-  const content = Primitive.useCanvasBox<HTMLDivElement>(position);
+  const content = BasePrimitive.useCanvasBox<HTMLDivElement>(position);
   const { stale } = BaseStringValue.use({
     aetherKey: nodeKey,
     box: content.box,
@@ -57,7 +57,7 @@ export const Symbol = ({
       <Label.Label config={label} onChange={onConfigChange} />
       {stale && <Stale.Indicator />}
       {deleted && <Deleted.Item />}
-      <StringDisplay
+      <Primitive.StringDisplay
         strokeColor={resolve(strokeColor)}
         level={level}
         inlineSize={inlineSize}

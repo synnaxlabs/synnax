@@ -22,7 +22,4 @@ var _ = Describe("Link", func() {
 		key := uuid.New()
 		Expect(v0.Link{Key: key}.GorpKey()).To(Equal(key))
 	})
-	It("Should return no options", func() {
-		Expect(v0.Link{}.SetOptions()).To(BeNil())
-	})
 })
