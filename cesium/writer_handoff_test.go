@@ -269,6 +269,21 @@ var _ = DescribeTableSubtree("Handoff", func(pointerLog bool) {
 		},
 	)
 
+	It("Should let a writer claim a pending key after the stamps of its samples", func(
+		ctx SpecContext,
+	) {
+		w, p := MustSucceed2(db.Handoff(ctx, openFirst(ctx), config(clock), nil))
+		after := config(data)
+		after.Start = 13*telem.SecondTS + 1
+		next := MustSucceed(db.OpenWriter(ctx, after))
+		Expect(next.Close()).To(Succeed())
+		MustSucceed2(w.Commit(ctx, nil))
+		Expect(w.Close()).To(Succeed())
+		_, held := MustSucceed2(p.Commit(ctx))
+		Expect(held).To(BeTrue())
+		Expect(stored(ctx, data)).To(Equal(int64(4)))
+	})
+
 	It("Should drop the pending samples on Close", func(ctx SpecContext) {
 		w, p := MustSucceed2(db.Handoff(ctx, openFirst(ctx), config(clock), nil))
 		Expect(p.Close()).To(Succeed())

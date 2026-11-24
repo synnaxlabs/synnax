@@ -123,7 +123,8 @@ func (w *logWriter) keysOutside(keys []ChannelKey) []ChannelKey {
 }
 
 // split moves keys out of w into a writer of data against the stamps of the runs of w,
-// and returns it as a Pending, or nil when keys hold no uncommitted sample.
+// and returns it as a Pending, or nil when keys hold no uncommitted sample. The Pending
+// claims its keys over the stamps of its samples alone.
 func (w *logWriter) split(keys []ChannelKey) (*Pending, error) {
 	st, err := w.st.Split(keys)
 	if err != nil {
@@ -170,6 +171,9 @@ func (w *logWriter) split(keys []ChannelKey) (*Pending, error) {
 		return nil, p.close()
 	}
 	last := p.runs[len(p.runs)-1]
+	if err = st.Bound(p.runs[0].first, last.last); err != nil {
+		return nil, errors.Join(err, p.close())
+	}
 	p.stamps = &placer{
 		e:       w.e,
 		clock:   w.clock,
