@@ -278,6 +278,42 @@ func (l *listener) DecodeOrc(r *orc.Reader) (err error) {
 	return err
 }
 
+// use opens a listener table on the DB of e and creates the listener with key k, which
+// uses the certificate with key cert.
+func (e *env) use(ctx SpecContext, k string, cert certificate.Key) {
+	GinkgoHelper()
+	listeners := MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[string, listener]{
+		DB:   e.db,
+		Name: "listener",
+		References: []gorp.Reference[string, listener]{
+			gorp.NewKeyReference(
+				gorp.KeyReferenceConfig[string, listener, certificate.Key]{
+					Name:     "certificate",
+					Table:    "certificate",
+					OnDelete: gorp.Restrict,
+					Kind:     gorp.Use,
+					Targets: func(l *listener) []certificate.Key {
+						return []certificate.Key{l.Certificate}
+					},
+				},
+			),
+		},
+	}))
+	Expect(listeners.NewCreate().
+		Entry(&listener{Key: k, Certificate: cert}).
+		Exec(ctx, e.db)).To(Succeed())
+}
+
+// keyedFile returns a file certificate named "Plant" on coreRack with a private key
+// file.
+func keyedFile() certificate.Certificate {
+	c := file("Plant", coreRack)
+	variant := fileOf(c)
+	variant.PrivateKeyFile = new("client.pem")
+	c.Variant = variant
+	return c
+}
+
 // storedOf returns the stored variant of c.
 func storedOf(c certificate.Certificate) certificate.StoredCertificate {
 	GinkgoHelper()
@@ -430,19 +466,15 @@ var _ = Describe("Service", func() {
 			)
 			core := e.create(ctx, file("Core", coreRack), nil)
 			other := e.create(ctx, file("Other", otherRack), nil)
-			keys := func(w certificate.Where) []certificate.Key {
-				GinkgoHelper()
-				return matching(ctx, e, w)
-			}
 			src := secret.SourceStored
-			Expect(
-				keys(certificate.Where{Source: &filter.Set[secret.Source]{Eq: &src}}),
-			).
-				To(Equal([]certificate.Key{s.Base().Key}))
-			Expect(keys(certificate.Where{Racks: []rack.Key{otherRack}})).
+			Expect(matching(ctx, e, certificate.Where{
+				Source: &filter.Set[secret.Source]{Eq: &src},
+			})).To(Equal([]certificate.Key{s.Base().Key}))
+			Expect(matching(ctx, e, certificate.Where{Racks: []rack.Key{otherRack}})).
 				To(Equal([]certificate.Key{other.Base().Key}))
-			Expect(keys(certificate.Where{Racks: []rack.Key{coreRack, otherRack}})).
-				To(ConsistOf(core.Base().Key, other.Base().Key))
+			Expect(matching(ctx, e, certificate.Where{
+				Racks: []rack.Key{coreRack, otherRack},
+			})).To(ConsistOf(core.Base().Key, other.Base().Key))
 		})
 		It("Should match certificates by whether they have a private key", func(
 			ctx SpecContext,

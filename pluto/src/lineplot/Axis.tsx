@@ -28,7 +28,6 @@ import type { z } from "zod";
 import { Aether } from "@/aether";
 import { CSS } from "@/css";
 import { lineplot } from "@/lineplot/aether";
-import { baseAxisStateZ, withinSizeThreshold } from "@/lineplot/aether/axis";
 import { useContext, useGridEntry } from "@/lineplot/Frame";
 import { text as aetherText } from "@/text/aether";
 
@@ -89,7 +88,7 @@ export const axisFactory = (dir: direction.Direction): FC<AxisProps> => {
     const [{ path }, { size, labelSize }, setState] = Aether.use({
       aetherKey: cKey,
       type: aetherType,
-      schema: baseAxisStateZ,
+      schema: lineplot.baseAxisStateZ,
       initialState: aetherProps,
     });
 
@@ -126,7 +125,7 @@ export const axisFactory = (dir: direction.Direction): FC<AxisProps> => {
         let labelSize = dims.height * 1.3;
         if (labelSize > 0) labelSize += 12;
         const prevSize = prevLabelSize.current;
-        if (!withinSizeThreshold(prevSize, labelSize)) {
+        if (!lineplot.withinSizeThreshold(prevSize, labelSize)) {
           prevLabelSize.current = labelSize;
           setState((state) => ({ ...state, labelSize }));
         }

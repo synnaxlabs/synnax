@@ -30,9 +30,7 @@
 
 namespace driver::codec::framing {
 namespace {
-std::span<const std::uint8_t> bytes(const std::string_view s) {
-    return {reinterpret_cast<const std::uint8_t *>(s.data()), s.size()};
-}
+using x::testutil::bytes;
 
 std::vector<std::uint8_t> vec(const std::string_view s) {
     return {s.begin(), s.end()};

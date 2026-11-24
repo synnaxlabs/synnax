@@ -11,30 +11,22 @@ package v3
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"reflect"
 	"slices"
 	"strconv"
-	"strings"
 	"uuid"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
-	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	icdv0 "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v0"
 	icd "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v1"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/mqtt/versions/v1"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/mqtt/versions/v2"
 	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
 	"github.com/synnaxlabs/x/errors"
-	xpayload "github.com/synnaxlabs/x/payload"
-	payload "github.com/synnaxlabs/x/payload/versions/v0"
 	"github.com/synnaxlabs/x/set"
-	"github.com/synnaxlabs/x/telem"
-	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 )
 
@@ -129,7 +121,7 @@ func ResolveWriteConfig(
 	}
 	names := make(set.Set[string])
 	for i, t := range staged {
-		msg, write, err := liftTarget(ctx, t, found, note)
+		msg, write, err := icd.LiftWrite(ctx, inlineWrite(t, note), found, note)
 		if err != nil {
 			return icd.ICD{}, false, err
 		}
@@ -237,229 +229,48 @@ func retrieveTasks(
 	return lo.KeyBy(tasks, func(t task.Task) uuid.UUID { return t.Key }), nil
 }
 
-// liftTarget returns the message that holds the channel field and the fields of t, with
-// no name, and the write of that message.
-func liftTarget(
-	ctx context.Context,
-	t InlineTarget,
-	found map[channel.Key]icdv0.Channel,
-	note func(path, change string),
-) (icd.Message, icd.WriteMessage, error) {
+// inlineWrite returns the write that t held inline. Each field takes its path in the
+// config. A null field is dropped, and note receives its path.
+func inlineWrite(t InlineTarget, note func(path, change string)) icd.InlineWrite {
 	var (
 		path   = "targets." + strconv.Itoa(int(t.At))
-		names  = make(set.Set[string])
-		fields = make([]icd.JSONField, 0, 1+len(t.Fields))
-		write  = icd.WriteMessage{Message: uuid.New()}
-		key    = uuid.New()
+		c      = t.Channel
+		fields = make([]icd.InlineWriteField, 0, len(t.Fields))
 	)
-	notef := func(path string) func(format string, args ...any) {
-		return func(format string, args ...any) {
-			note(path, fmt.Sprintf(format, args...))
+	for i, f := range t.Fields {
+		fieldPath := path + ".fields." + strconv.Itoa(i)
+		switch v := f.Variant.(type) {
+		case v1.StaticWriteField:
+			fields = append(fields, icd.StaticInlineField{
+				Path:    fieldPath,
+				Pointer: v.Pointer,
+				Value:   v.Value,
+			})
+		case v1.GeneratedWriteField:
+			fields = append(fields, icd.GeneratedInlineField{
+				Path:       fieldPath,
+				Pointer:    v.Pointer,
+				Generator:  v.Generator,
+				TimeFormat: v.TimeFormat,
+			})
+		case nil:
+			note(fieldPath, "a null field was dropped")
+		default:
+			panic(fmt.Sprintf("unknown write field variant %T", f.Variant))
 		}
 	}
-	ch, exists := found[t.Channel.Channel]
-	field, dataType, err := liftChannel(ctx, t.Channel, ch, exists, icd.JSONBaseField{
-		Key:     key,
-		Name:    icdv0.UniqueName(names, pointerName(t.Channel.Pointer)),
-		Scale:   1,
-		Pointer: t.Channel.Pointer,
-	}, notef(path+".channel"))
-	if err != nil {
-		return icd.Message{}, icd.WriteMessage{}, err
+	return icd.InlineWrite{
+		Target: "topic " + t.Topic,
+		Channel: icd.InlineChannelField{
+			Path:       path + ".channel",
+			Pointer:    c.Pointer,
+			JSONType:   c.JSONType,
+			Channel:    c.Channel,
+			Name:       c.Name,
+			DataType:   c.DataType,
+			TimeFormat: c.TimeFormat,
+			EnumValues: c.EnumValues,
+		},
+		Fields: fields,
 	}
-	fields = append(fields, field)
-	binding := icd.ChannelWriteBinding{Field: key, Channel: t.Channel.Channel}
-	if !exists {
-		binding.Channel, binding.DataType = 0, dataType
-		if t.Channel.Name != "" {
-			note(path+".channel", fmt.Sprintf(
-				"channel name %q of field %s on topic %s was dropped, so a client "+
-					"names the new channel",
-				t.Channel.Name, field.Base().Name, t.Topic,
-			))
-		}
-	}
-	write.Bindings = []icd.WriteBinding{{Variant: binding}}
-	for i, wf := range t.Fields {
-		base := icd.JSONBaseField{
-			Key:     uuid.New(),
-			Name:    icdv0.UniqueName(names, pointerName(wf.Base().Pointer)),
-			Scale:   1,
-			Pointer: wf.Base().Pointer,
-		}
-		f, ok, err := liftWriteField(wf, base, notef(path+".fields."+strconv.Itoa(i)))
-		if err != nil {
-			return icd.Message{}, icd.WriteMessage{}, err
-		}
-		if ok {
-			fields = append(fields, f)
-		}
-	}
-	return icd.Message{
-		Key:     write.Message,
-		Payload: icd.Payload{Variant: icd.JSONPayload{Fields: fields}},
-	}, write, nil
-}
-
-// liftChannel returns the JSON field of base that sends old the way v1 sent it, and the
-// data type of a new channel for it, or nil when that data type is not known. The data
-// type of ch, when old's channel exists, picks the kind. Otherwise the stored data type
-// picks it, and is the data type of a new channel. note receives each change to what
-// the field sends.
-func liftChannel(
-	ctx context.Context,
-	old v1.ChannelField,
-	ch icdv0.Channel,
-	exists bool,
-	base icd.JSONBaseField,
-	note func(format string, args ...any),
-) (icd.JSONField, *telem.DataType, error) {
-	dt := lo.CoalesceOrEmpty(old.DataType, telem.Float64T)
-	if exists {
-		dt = ch.DataType
-	}
-	kind, known := xpayload.KindOf(dt)
-	if !known {
-		kind = payload.KindFloat
-		note("unknown data type %q became the float kind", dt)
-	}
-	switch {
-	case kind == payload.KindJSON:
-		note("a %s channel sent as a JSON string now sends its JSON value", dt)
-	case !numeric(kind):
-	case old.JSONType == payload.JSONTypeBoolean:
-		if kind != payload.KindBoolean {
-			note("a %s channel sent as a JSON boolean now sends only 0 and 1", dt)
-		}
-		kind = payload.KindBoolean
-	default:
-		if old.JSONType == payload.JSONTypeString && len(old.EnumValues) == 0 {
-			note("a %s channel sent as a JSON string now sends a JSON number", dt)
-		}
-		if kind == payload.KindBoolean {
-			kind = payload.KindUnsigned
-		}
-	}
-	format := old.TimeFormat
-	if kind == payload.KindTimestamp {
-		format = validFormat(format, note)
-	}
-	field, err := icd.MigrateJSONField(ctx, icdv0.LiftKind(
-		icdv0.InlineField{EnumValues: old.EnumValues, TimeFormat: format},
-		kind,
-		base,
-		note,
-	))
-	if err != nil {
-		return icd.JSONField{}, nil, err
-	}
-	if !known {
-		return field, nil, nil
-	}
-	return field, &dt, nil
-}
-
-// numeric reports whether k holds numbers or booleans.
-func numeric(k payload.Kind) bool {
-	return k == payload.KindFloat || k == payload.KindInteger ||
-		k == payload.KindUnsigned || k == payload.KindBoolean
-}
-
-// liftWriteField returns the JSON field of base that sends what old sent, and false
-// when old is null. A static field sends its value as a constant default, and a
-// generated field sends a generator default.
-func liftWriteField(
-	old v1.WriteField,
-	base icd.JSONBaseField,
-	note func(format string, args ...any),
-) (icd.JSONField, bool, error) {
-	switch v := old.Variant.(type) {
-	case v1.StaticWriteField:
-		f, err := liftStatic(v.Value, base)
-		return f, err == nil, err
-	case v1.GeneratedWriteField:
-		if v.Generator != payload.GeneratorTypeTimestamp {
-			return icd.JSONField{Variant: icd.UuidJSONField{
-				JSONBaseField: base,
-				Default:       &icd.UUIDDefault{Variant: icd.RandomUUIDDefault{}},
-			}}, true, nil
-		}
-		format := payload.TimeFormatISO8601
-		if f := validFormat(v.TimeFormat, note); f != nil {
-			format = *f
-		}
-		return icd.JSONField{Variant: icd.TimestampJSONField{
-			JSONBaseField: base,
-			TimeFormat:    format,
-			Default:       &icd.TimestampDefault{Variant: icd.NowTimestampDefault{}},
-		}}, true, nil
-	case nil:
-		note("a null field was dropped")
-		return icd.JSONField{}, false, nil
-	}
-	panic(fmt.Sprintf("unknown write field variant %T", old.Variant))
-}
-
-// liftStatic returns the JSON field of base whose default is value: a string, boolean,
-// or float field for a value of that type, and a JSON field for any other value.
-func liftStatic(value any, base icd.JSONBaseField) (icd.JSONField, error) {
-	switch v := value.(type) {
-	case string:
-		return icd.JSONField{
-			Variant: icd.StringJSONField{JSONBaseField: base, Default: &v},
-		}, nil
-	case bool:
-		return icd.JSONField{
-			Variant: icd.BooleanJSONField{JSONBaseField: base, Default: &v},
-		}, nil
-	}
-	if n, ok := number(value); ok {
-		return icd.JSONField{Variant: icd.FloatJSONField{
-			JSONBaseField: base,
-			Default:       new(payload.Float(n)),
-		}}, nil
-	}
-	text, err := json.Marshal(value)
-	if err != nil {
-		return icd.JSONField{}, errors.Wrap(validate.ErrValidation, err.Error())
-	}
-	return icd.JSONField{Variant: icd.JSONJSONField{
-		JSONBaseField: base,
-		Default:       new(string(text)),
-	}}, nil
-}
-
-// number returns value as a float64, and false when value is not a number.
-func number(value any) (float64, bool) {
-	v := reflect.ValueOf(value)
-	switch {
-	case v.CanFloat():
-		return v.Float(), true
-	case v.CanInt():
-		return float64(v.Int()), true
-	case v.CanUint():
-		return float64(v.Uint()), true
-	}
-	return 0, false
-}
-
-// pointerName returns the name of the field at pointer.
-func pointerName(pointer string) string {
-	return lo.CoalesceOrEmpty(strings.TrimPrefix(pointer, "/"), "value")
-}
-
-// validFormat returns format, or nil when format is not valid.
-func validFormat(
-	format *payload.TimeFormat,
-	note func(format string, args ...any),
-) *payload.TimeFormat {
-	if format == nil || format.IsValid() {
-		return format
-	}
-	note(
-		"time format %q is not valid and became %s",
-		*format,
-		payload.TimeFormatISO8601,
-	)
-	return nil
 }

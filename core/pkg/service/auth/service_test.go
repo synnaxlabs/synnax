@@ -320,10 +320,10 @@ var _ = Describe("Service", func() {
 									Exec(ctx, tx); err != nil {
 									return err
 								}
-								if err := pw.NewWriter(tx).Apply(
+								if err := pw.NewWriter(tx).SetHash(
 									ctx,
 									alice,
-									password.NewSetHashAction(changed),
+									changed,
 								); err != nil {
 									return err
 								}
@@ -345,10 +345,10 @@ var _ = Describe("Service", func() {
 				session, token := login(ctx)
 				changed := hash(pw, "changed")
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					if err := pw.NewWriter(tx).Apply(
+					if err := pw.NewWriter(tx).SetHash(
 						ctx,
 						alice,
-						password.NewSetHashAction(changed),
+						changed,
 					); err != nil {
 						return err
 					}
@@ -467,8 +467,8 @@ var _ = Describe("Service", func() {
 				ended, release := MustSucceed2(svc.Hold(ctx, session.Key))
 				defer release()
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					changed := password.NewSetHashAction(hash(pw, "changed"))
-					return pw.NewWriter(tx).Apply(ctx, alice, changed)
+					changed := hash(pw, "changed")
+					return pw.NewWriter(tx).SetHash(ctx, alice, changed)
 				})).
 					To(Succeed())
 				Expect(svc.CheckHolds(ctx)).To(Succeed())
@@ -737,10 +737,10 @@ var _ = Describe("Service", func() {
 					)
 					changed := hash(pw, "changed")
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-						if err := pw.NewWriter(tx).Apply(
+						if err := pw.NewWriter(tx).SetHash(
 							ctx,
 							alice,
-							password.NewSetHashAction(changed),
+							changed,
 						); err != nil {
 							return err
 						}

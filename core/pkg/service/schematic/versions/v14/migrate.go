@@ -20,11 +20,13 @@ import (
 	symbol "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v5"
 	v13 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v13"
 	xcolor "github.com/synnaxlabs/x/color/versions/v2"
+	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
 )
 
 // MigrateSchematic lifts a v13 schematic to v14, which stores each stroke, fill, text,
 // level, and axis color of an edge, shape, or readout as a color reference. Each such
-// color becomes a fixed color, and an absent color stays absent.
+// color becomes a fixed color, and an absent color stays absent. It drops the staleness
+// color.
 func MigrateSchematic(ctx context.Context, old v13.Schematic) (Schematic, error) {
 	return autoMigrateSchematic(ctx, old)
 }
@@ -57,7 +59,7 @@ func MigrateSegmentedEdgeConfig(
 }
 
 // MigrateScaleIndicatorConfig lifts a v13 scale indicator config to v14. See
-// MigrateSchematic for colors.
+// MigrateSchematic for colors. Its bounds become closed bounds; see closed.
 func MigrateScaleIndicatorConfig(
 	ctx context.Context,
 	old v13.ScaleIndicatorConfig,
@@ -69,11 +71,30 @@ func MigrateScaleIndicatorConfig(
 	cfg.LevelColor = fixed(old.LevelColor)
 	cfg.AxisColor = fixed(old.AxisColor)
 	cfg.TextColor = fixed(old.TextColor)
+	cfg.Bounds = closed(old.Bounds)
 	return cfg, nil
 }
 
+// MigrateStalenessConfig lifts a v13 staleness config to v14. It drops the staleness
+// color.
+func MigrateStalenessConfig(
+	ctx context.Context,
+	old v13.StalenessConfig,
+) (StalenessConfig, error) {
+	return autoMigrateStalenessConfig(ctx, old)
+}
+
+// MigrateToggleConfig lifts a v13 toggle config to v14. See MigrateStalenessConfig.
+func MigrateToggleConfig(
+	ctx context.Context,
+	old v13.ToggleConfig,
+) (ToggleConfig, error) {
+	return autoMigrateToggleConfig(ctx, old)
+}
+
 // MigrateNodeConfig lifts a v13 node config to v14. See MigrateSchematic for colors. A
-// custom node keeps its state overrides.
+// custom node keeps its state overrides. The bounds of a gauge or tank become closed
+// bounds; see closed.
 func MigrateNodeConfig(ctx context.Context, old v13.NodeConfig) (NodeConfig, error) {
 	cfg, err := autoMigrateNodeConfig(ctx, old)
 	if err != nil {
@@ -167,10 +188,12 @@ func migrateReadoutColors(
 		n.LevelColor = fixed(o.LevelColor)
 		n.AxisColor = fixed(o.AxisColor)
 		n.TextColor = fixed(o.TextColor)
+		n.Bounds = closed(o.Bounds)
 		return n
 	case v13.GaugeNodeConfig:
 		n := as[GaugeNodeConfig](migrated)
 		n.StrokeColor = fixed(o.StrokeColor)
+		n.Bounds = closed(o.Bounds)
 		return n
 	case v13.StringDisplayNodeConfig:
 		n := as[StringDisplayNodeConfig](migrated)
@@ -223,4 +246,16 @@ func fixed(c *xcolor.Color) *servicecolor.Ref {
 		return nil
 	}
 	return &servicecolor.Ref{Variant: servicecolor.FixedRef{Value: *c}}
+}
+
+// closed returns b as closed bounds. Reversed ends swap, and equal ends take the
+// default of 0 to 100, since the Core refuses a lower that is not below the upper.
+func closed(b spatial.Bounds) spatial.ClosedBounds {
+	switch {
+	case b.Lower > b.Upper:
+		return spatial.ClosedBounds{Lower: b.Upper, Upper: b.Lower}
+	case b.Lower == b.Upper:
+		return spatial.ClosedBounds{Lower: 0, Upper: 100}
+	}
+	return spatial.ClosedBounds(b)
 }

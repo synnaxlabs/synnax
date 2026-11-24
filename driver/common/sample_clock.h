@@ -205,7 +205,8 @@ public:
             this->cfg.effective_max_integral()
         );
         const double i_term = this->cfg.k_i * this->integral;
-        const double d_term = this->cfg.k_d * (error - this->prev_error) / dt;
+        const double d_term = dt > 0 ? this->cfg.k_d * (error - this->prev_error) / dt
+                                     : 0.0;
         this->prev_error = error;
         const auto pid_output = p_term + i_term + d_term;
         auto correction = x::telem::TimeSpan(static_cast<int64_t>(pid_output));

@@ -20,6 +20,8 @@
 
 #include "wasmtime.hh"
 
+#include "x/cpp/strings/strings.h"
+
 #include "arc/cpp/stl/stl.h"
 #include "arc/cpp/stl/strings/state.h"
 
@@ -28,12 +30,9 @@ namespace arc::stl::strings {
 inline constexpr const char *MODULE_NAME = "strings";
 
 /// Formats v as the shortest round-trippable decimal, matching Go's
-/// strconv.FormatFloat(v, 'g', -1, bitSize). NaN and ±Inf are emitted as
-/// "NaN", "+Inf", "-Inf" to match Go's output exactly.
+/// strconv.FormatFloat(v, 'g', -1, bitSize). v must be finite.
 template<typename T>
-std::string format_float(T v) {
-    if (std::isnan(v)) return "NaN";
-    if (std::isinf(v)) return v > 0 ? "+Inf" : "-Inf";
+std::string format_float_general(T v) {
     char buf[32];
     const auto [end, ec] = std::to_chars(
         buf,
@@ -335,11 +334,12 @@ format_int_value(const std::string &spec_str, int64_t value, bool is_signed) {
     return apply_width(sign, prefix, body, f);
 }
 
-/// Formats a float value to match Go's fmt.Sprintf("%"+spec, v). Delegates
-/// finite values to snprintf; NaN/±Inf use Go's capitalization.
+/// Formats a float value to match Go's fmt.Sprintf("%"+spec, v). Delegates finite
+/// values to snprintf. NaN uses Go's capitalization, and an infinity is written as
+/// Infinity, signed only when negative or when spec asks for a sign.
 template<typename T>
 std::string format_float_value(const std::string &spec_str, T v) {
-    if (spec_str.empty()) return format_float(v);
+    if (spec_str.empty()) return x::strings::format_float(v);
     const FormatSpec f = parse_format_spec(spec_str);
     if (std::isnan(v)) {
         FormatSpec g = f;
@@ -352,23 +352,20 @@ std::string format_float_value(const std::string &spec_str, T v) {
         return apply_width(sign, "", "NaN", g);
     }
     if (std::isinf(v)) {
-        const bool neg = v < 0;
         std::string sign;
-        if (neg)
-            sign = "-";
-        else if (f.space)
-            sign = " ";
-        else
+        if (v > 0 && f.plus)
             sign = "+";
+        else if (v > 0 && f.space)
+            sign = " ";
         FormatSpec g = f;
         g.zero = false;
-        return apply_width(sign, "", "Inf", g);
+        return apply_width(sign, "", x::strings::format_float(v), g);
     }
     // Go's %g/%G with default precision uses shortest roundtrip. C's snprintf
     // defaults to 6 significant digits, so route those cases through
-    // format_float() which uses std::to_chars(general).
+    // format_float_general() which uses std::to_chars(general).
     if ((f.verb == 'g' || f.verb == 'G') && f.precision < 0) {
-        std::string body = format_float(v);
+        std::string body = format_float_general(v);
         if (f.verb == 'G')
             for (auto &c: body)
                 if (c == 'e') {
@@ -386,37 +383,25 @@ std::string format_float_value(const std::string &spec_str, T v) {
         }
         return apply_width(sign, "", body, f);
     }
-    const auto d = static_cast<double>(v);
-    char buf[128];
     const int prec = f.precision >= 0 ? f.precision : 6;
-    int n = 0;
     switch (f.verb) {
         case 'f':
         case 'F':
-            n = f.alt ? std::snprintf(buf, sizeof(buf), "%#.*f", prec, d)
-                      : std::snprintf(buf, sizeof(buf), "%.*f", prec, d);
-            break;
         case 'e':
-            n = f.alt ? std::snprintf(buf, sizeof(buf), "%#.*e", prec, d)
-                      : std::snprintf(buf, sizeof(buf), "%.*e", prec, d);
-            break;
         case 'E':
-            n = f.alt ? std::snprintf(buf, sizeof(buf), "%#.*E", prec, d)
-                      : std::snprintf(buf, sizeof(buf), "%.*E", prec, d);
-            break;
         case 'g':
-            n = f.alt ? std::snprintf(buf, sizeof(buf), "%#.*g", prec, d)
-                      : std::snprintf(buf, sizeof(buf), "%.*g", prec, d);
-            break;
         case 'G':
-            n = f.alt ? std::snprintf(buf, sizeof(buf), "%#.*G", prec, d)
-                      : std::snprintf(buf, sizeof(buf), "%.*G", prec, d);
             break;
         default:
             return "";
     }
-    if (n < 0 || std::cmp_greater_equal(n, sizeof(buf))) return "";
-    std::string body(buf, n);
+    const std::string fmt = std::string(f.alt ? "%#.*" : "%.*") + f.verb;
+    const auto d = static_cast<double>(v);
+    const int n = std::snprintf(nullptr, 0, fmt.c_str(), prec, d);
+    if (n < 0) return "";
+    std::string body(static_cast<size_t>(n) + 1, '\0');
+    std::snprintf(body.data(), body.size(), fmt.c_str(), prec, d);
+    body.resize(static_cast<size_t>(n));
     std::string sign;
     if (!body.empty() && (body[0] == '-' || body[0] == '+')) {
         sign = body.substr(0, 1);
@@ -639,14 +624,18 @@ public:
             .func_wrap(
                 MODULE_NAME,
                 "from_f32",
-                [ss](float v) -> uint32_t { return ss->create(format_float(v)); }
+                [ss](float v) -> uint32_t {
+                    return ss->create(x::strings::format_float(v));
+                }
             )
             .unwrap();
         linker
             .func_wrap(
                 MODULE_NAME,
                 "from_f64",
-                [ss](double v) -> uint32_t { return ss->create(format_float(v)); }
+                [ss](double v) -> uint32_t {
+                    return ss->create(x::strings::format_float(v));
+                }
             )
             .unwrap();
         linker

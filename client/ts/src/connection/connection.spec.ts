@@ -22,9 +22,11 @@ import { connection } from "@/connection";
 import { lifecycle } from "@/connection/lifecycle";
 import {
   AccessDeniedError,
+  APIKeyUnavailableError,
   AuthError,
   DisconnectedError,
   ExpiredLicenseError,
+  InvalidCredentialsError,
   MissingCredentialsError,
   MissingLicenseError,
   SessionEndedError,
@@ -666,6 +668,28 @@ describe("connection", () => {
       );
       expect(replaced.variant).toEqual("loading");
       expect(reasonOf(replaced)).toBeUndefined();
+    });
+
+    it("should come back up when a login succeeds after an auth failure", () => {
+      const status = apply(
+        createConfig(),
+        { type: "auth.failure", error: new AuthError("no key") },
+        { type: "auth.success", session: "a" },
+      );
+      expect(status.variant).toEqual("loading");
+      expect(reasonOf(status)).toBeUndefined();
+      expect(status.details.error).toBeUndefined();
+      expect(status.details.session).toEqual("a");
+    });
+
+    it("should replace the reason of an auth failure when a key fails to load", () => {
+      const status = apply(
+        createConfig(),
+        { type: "auth.failure", error: new InvalidCredentialsError("bad key") },
+        { type: "auth.failure", error: new APIKeyUnavailableError("not running") },
+      );
+      expect(reasonOf(status)).toEqual("auth");
+      expect(status.description).toEqual("not running");
     });
 
     it("should store the session key on auth success", () => {
@@ -1373,6 +1397,27 @@ describe("connection", () => {
       await sleep.sleep(TimeSpan.milliseconds(30));
       expect(send.mock.calls.length).toBe(calls);
       client.notify({ type: "credentials.replaced" });
+      await observe.until(
+        client,
+        () => client.status,
+        (s) => s.variant === "success",
+      );
+      expect(send.mock.calls.length).toBeGreaterThan(calls);
+      await client.close();
+    });
+
+    it("should check again when a login succeeds after an auth failure", async () => {
+      const unary = mockUnary(() => TimeStamp.now());
+      const client = createClient(unary);
+      await observe.until(
+        client,
+        () => client.status,
+        (s) => s.variant === "success",
+      );
+      client.notify({ type: "auth.failure", error: new AuthError("no key") });
+      const send = vi.mocked(unary.send);
+      const calls = send.mock.calls.length;
+      client.notify({ type: "auth.success", session: "a" });
       await observe.until(
         client,
         () => client.status,

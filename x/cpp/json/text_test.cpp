@@ -119,4 +119,35 @@ TEST(Unquote, RejectsNonString) {
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
     ASSERT_EQ(err.data, "expected a JSON string literal");
 }
+
+/// @brief it should append text as a JSON string after what out holds.
+TEST(AppendQuoted, AppendsString) {
+    std::string out = "x";
+    ASSERT_NIL(append_quoted("temp é", out));
+    ASSERT_EQ(out, "x\"temp é\"");
+}
+
+/// @brief it should escape quotes, backslashes, and control characters, with the short
+/// form where JSON has one.
+TEST(AppendQuoted, EscapesSpecialCharacters) {
+    std::string out;
+    ASSERT_NIL(append_quoted(std::string("a\"b\\\b\f\n\r\t\x00\x1f", 11), out));
+    ASSERT_EQ(out, R"("a\"b\\\b\f\n\r\t\u0000\u001f")");
+}
+
+/// @brief it should keep characters that JSON does not need escaped.
+TEST(AppendQuoted, KeepsCharactersJSONAllows) {
+    std::string out;
+    ASSERT_NIL(append_quoted("<>&/\x7f\xe2\x80\xa8\xc2\x85\xf0\x9f\x98\x80", out));
+    ASSERT_EQ(out, "\"<>&/\x7f\xe2\x80\xa8\xc2\x85\xf0\x9f\x98\x80\"");
+}
+
+/// @brief it should reject text that is not valid UTF-8, appending nothing.
+TEST(AppendQuoted, RejectsInvalidUTF8) {
+    std::string out = "x";
+    const auto err = append_quoted("a\xff", out);
+    ASSERT_OCCURRED_AS(err, errors::VALIDATION);
+    ASSERT_EQ(err.data, "invalid UTF-8");
+    ASSERT_EQ(out, "x");
+}
 }

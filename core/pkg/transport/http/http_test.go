@@ -36,6 +36,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/license"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
@@ -654,6 +655,41 @@ var _ = Describe("HTTP", func() {
 			)).To(Equal(http.StatusOK))
 			Expect(call("/api/v1/auth/session/renew", keyToken, struct{}{}, nil)).
 				To(Equal(http.StatusBadRequest))
+		})
+		It("Should list the caller's password and dispatch a rename", func() {
+			token := login(auth.Proof{Variant: auth.PasswordProof{Credentials: creds}})
+			var res apiauth.PasswordRetrieveResponse
+			Expect(call(
+				"/api/v1/auth/password/retrieve",
+				token,
+				apiauth.PasswordRetrieveRequest{},
+				&res,
+			)).To(Equal(http.StatusOK))
+			Expect(res.Passwords).To(ConsistOf(HaveField("Username", creds.Username)))
+			Expect(call(
+				"/api/v1/auth/password/dispatch",
+				token,
+				apiauth.PasswordDispatchRequest{
+					Key: res.Passwords[0].Key,
+					Actions: []password.Action{password.NewSetUsernameAction(
+						password.SetUsernamePayload{Username: "renamed"},
+					)},
+				},
+				nil,
+			)).To(Equal(http.StatusOK))
+			login(auth.Proof{Variant: auth.PasswordProof{Credentials: auth.Credentials{
+				Username: "renamed",
+				Password: creds.Password,
+			}}})
+		})
+		It("Should refuse a first password for a caller that has one", func() {
+			token := login(auth.Proof{Variant: auth.PasswordProof{Credentials: creds}})
+			Expect(call(
+				"/api/v1/auth/password/create",
+				token,
+				apiauth.PasswordCreateRequest{Username: "other", Password: "new"},
+				nil,
+			)).To(Equal(http.StatusBadRequest))
 		})
 		It("Should set the caller's own password", func() {
 			token := login(auth.Proof{Variant: auth.PasswordProof{Credentials: creds}})
