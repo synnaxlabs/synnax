@@ -19,24 +19,26 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { Errors } from "@/errors";
-import { resolveStack } from "@/errors/resolveStack";
+import { stack } from "@/errors/stack";
 
-// Resolution fetches scripts and source maps over the network; stub the resolveStack
-// module so Fallback's resolution effect is deterministic. Stacks containing the
+// Resolution fetches scripts and source maps over the network; stub the stack module so
+// Fallback's resolution effect is deterministic. Stacks containing the
 // RESOLVABLE_STACK / RESOLVABLE_COMPONENT tokens resolve; anything else degrades to
 // its raw input, mirroring the real module's never-rejecting contract. Rejection
 // itself is exercised via mockRejectedValueOnce in the dedicated failure test.
-vi.mock("@/errors/resolveStack", () => ({
-  resolveStack: vi.fn(async (error: Error, componentStack: string | null) => ({
-    stack:
-      error.stack === "RESOLVABLE_STACK"
-        ? "  at resolvedFn (src/resolved.ts:99:4)"
-        : (error.stack ?? ""),
-    componentStack:
-      componentStack === "RESOLVABLE_COMPONENT"
-        ? "  at ResolvedComponent (src/Resolved.tsx:12)"
-        : componentStack,
-  })),
+vi.mock("@/errors/stack", () => ({
+  stack: {
+    resolve: vi.fn(async (error: Error, componentStack: string | null) => ({
+      stack:
+        error.stack === "RESOLVABLE_STACK"
+          ? "  at resolvedFn (src/resolved.ts:99:4)"
+          : (error.stack ?? ""),
+      componentStack:
+        componentStack === "RESOLVABLE_COMPONENT"
+          ? "  at ResolvedComponent (src/Resolved.tsx:12)"
+          : componentStack,
+    })),
+  },
 }));
 
 /** Renders inside an async act, so the stack resolution settles before any check. */
@@ -402,7 +404,7 @@ describe("Fallback", () => {
     });
 
     it("should keep the raw stack and warn when resolution rejects", async () => {
-      vi.mocked(resolveStack).mockRejectedValueOnce(new Error("no maps in test env"));
+      vi.mocked(stack.resolve).mockRejectedValueOnce(new Error("no maps in test env"));
       const errorWithStack = new Error("Boom");
       errorWithStack.stack = "Error: Boom\n    at unresolvable (x.js:1:1)";
       const c = render(
@@ -412,8 +414,9 @@ describe("Fallback", () => {
           resetErrorBoundary={mockReset}
         />,
       );
-      // resolveStack never rejects in production; an unexpected rejection keeps the raw
-      // stack and is surfaced via console.warn rather than crashing the crash screen.
+      // stack.resolve never rejects in production; an unexpected rejection keeps the
+      // raw stack and is surfaced via console.warn rather than crashing the crash
+      // screen.
       await waitFor(() => {
         expect(warnSpy).toHaveBeenCalledTimes(1);
       });

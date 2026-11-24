@@ -8,13 +8,16 @@
 // included in the file licenses/APL.txt.
 
 import { id, observe } from "@synnaxlabs/x";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
-import type { channel } from "@/channel";
 import {
+  builtInsFetches,
   createProxiedTestClient,
   createTestClient,
   FAST_RETRY,
+  holdResponses,
+  isBuiltInsFetch,
+  spyOnSend,
   waitForStreamLive,
 } from "@/testutil";
 
@@ -38,21 +41,18 @@ describe("Internal line across a reconnect", () => {
       onRetry: () => {},
       onInternalError: (error) => internal.push(error),
     });
-    const original = client.channels.retrieveBuiltIns.bind(client.channels);
-    const builtIns = vi.spyOn(client.channels, "retrieveBuiltIns");
+    // The reply of the next connection is slow.
+    let later = false;
+    const held = holdResponses(
+      client,
+      (target, req) => later && isBuiltInsFetch(target, req),
+    );
+    const send = spyOnSend(client);
     await client.connect();
     await waitForStreamLive(client.connection);
-    await expect.poll(() => builtIns.mock.calls.length).toBeGreaterThanOrEqual(1);
-    await builtIns.mock.results[0].value;
-    // The reply of the next connection is slow.
-    let release: () => void = () => {};
-    const gate = new Promise<void>((resolve) => {
-      release = resolve;
-    });
-    builtIns.mockImplementation(async (): Promise<channel.Key[]> => {
-      await gate;
-      return await original();
-    });
+    await expect.poll(() => builtInsFetches(send).length).toBeGreaterThanOrEqual(1);
+    await builtInsFetches(send)[0];
+    later = true;
     const prefix = `internal_${id.create()}`;
     const list = client.channels.watch({
       where: { internal: { eq: false }, name: { startsWith: prefix } },
@@ -67,7 +67,7 @@ describe("Internal line across a reconnect", () => {
     );
     await proxy.restore();
     await waitForStreamLive(client.connection);
-    await expect.poll(() => builtIns.mock.calls.length).toBe(2);
+    await expect.poll(() => builtInsFetches(send).length).toBe(2);
     const ch = await remote.channels.create({
       name: `${prefix}_a`,
       dataType: "float32",
@@ -85,7 +85,7 @@ describe("Internal line across a reconnect", () => {
         });
       expect(internal.map(chainOf)).toEqual([]);
     } finally {
-      release();
+      held.release();
       off();
     }
   }, 30000);

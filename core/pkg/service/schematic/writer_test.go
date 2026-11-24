@@ -60,7 +60,7 @@ var _ = Describe("Writer", func() {
 		)
 
 		DescribeTable("Should keep the gauge bounds of a decoded schematic",
-			func(ctx SpecContext, config string, expected spatial.Bounds) {
+			func(ctx SpecContext, config string, expected spatial.ClosedBounds) {
 				tx := DeferClose(db.OpenTx())
 				var s schematic.Schematic
 				Expect(json.Unmarshal([]byte(
@@ -81,14 +81,27 @@ var _ = Describe("Writer", func() {
 			Entry(
 				"explicit zero upper bound stays",
 				`{"variant":"gauge","bounds":{"lower":-10,"upper":0}}`,
-				spatial.Bounds{Lower: -10, Upper: 0},
+				spatial.ClosedBounds{Lower: -10, Upper: 0},
 			),
 			Entry(
 				"omitted bounds take the default",
 				`{"variant":"gauge"}`,
-				spatial.Bounds{Lower: 0, Upper: 100},
+				spatial.ClosedBounds{Lower: 0, Upper: 100},
 			),
 		)
+		It("Should refuse a gauge whose lower bound is not below its upper", func(
+			ctx SpecContext,
+		) {
+			tx := DeferClose(db.OpenTx())
+			var s schematic.Schematic
+			Expect(json.Unmarshal([]byte(
+				`{"name":"gauges","nodes":[{"key":"g1","config":`+
+					`{"variant":"gauge","bounds":{"lower":5,"upper":5}}}]}`,
+			), &s)).To(Succeed())
+			s.Project = &proj.Key
+			Expect(svc.NewWriter(tx).Create(ctx, &s)).
+				To(MatchError(ContainSubstring("must be less than upper")))
+		})
 		It(
 			"Should return a validation error when the name is empty",
 			func(ctx SpecContext) {

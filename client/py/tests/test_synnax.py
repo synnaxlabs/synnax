@@ -20,7 +20,9 @@ import synnax as sy
 @pytest.fixture
 def fresh_client(login_info: tuple[str, int, str, str]) -> Iterator[sy.Synnax]:
     host, port, username, password = login_info
-    client = sy.Synnax(host=host, port=port, username=username, password=password)
+    client = sy.Synnax(
+        host=host, port=port, username=username, password=password, secure=False
+    )
     yield client
     client.close()
 
@@ -60,7 +62,7 @@ class TestSubClients:
         script = (
             "import sys, synnax as sy\n"
             f"c = sy.Synnax(host={host!r}, port={port}, username={username!r}, "
-            f"password={password!r})\n"
+            f"password={password!r}, secure=False)\n"
             "loaded = [m for m in ('synnax.schematic', 'synnax.ni') "
             "if m in sys.modules]\n"
             "c.close()\n"

@@ -262,6 +262,9 @@ WriteConfig struct extends task.StartConfig {
     channels   WriteChannel[] {
         @doc value "contains the channels whose samples are produced."
     }
+    targets    WriteTarget[]  {
+        @doc value "contains the topics and ICD messages to produce."
+    }
 
     @doc value           """
         configures a Kafka write task, which produces one record per sample of each
@@ -352,4 +355,34 @@ InlineRead struct {
     @doc value "holds the records of a read config from before ICDs."
     @py omit
     @ts omit
+}
+
+WriteTarget struct {
+    key        string = create {
+        @doc value "uniquely identifies the target within the task."
+        @key
+    }
+    disabled   bool = false {
+        @doc value "is true when the target is excluded from the task."
+    }
+    topic      string = "" {
+        @doc value "is the topic to produce to."
+    }
+    record_key string = "" {
+        @doc value "is the key of each record. Empty sends records with no key."
+    }
+    icd        icd.Key          {
+        @doc value     "is the key of the ICD that holds the message."
+        @ref kind      use
+        @ref on_delete restrict
+    }
+    message    icd.WriteMessage {
+        @doc value """
+            is the message the target produces. A command on any bound channel produces
+            one record.
+        """
+    }
+
+    @doc value  "produces the JSON documents of one ICD message as records of a topic."
+    @go marshal
 }
