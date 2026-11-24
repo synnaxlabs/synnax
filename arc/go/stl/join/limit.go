@@ -14,8 +14,8 @@ import "github.com/synnaxlabs/x/telem"
 // window is the number of an input's last intervals that set its hold limit.
 const window = 16
 
-// intervals holds an input's last intervals, in a fixed ring. The hold limit is 3 times
-// their median, and there is none before the input's second sample.
+// intervals holds an input's last intervals, in a fixed ring, and caches their hold
+// limit.
 type intervals struct {
 	ring  [window]telem.TimeSpan
 	n     int
@@ -31,25 +31,38 @@ func (iv *intervals) add(span telem.TimeSpan) {
 	iv.fresh = false
 }
 
-// limit returns 3 times the median of the intervals, or 0 when there are none.
+// limit returns the hold limit of the intervals.
 func (iv *intervals) limit() telem.TimeSpan {
-	if iv.n == 0 {
+	if !iv.fresh {
+		iv.held, iv.fresh = holdLimit(iv.ring[:iv.n]), true
+	}
+	return iv.held
+}
+
+// holdLimit returns 3 times the median of spans, or 0 for no limit: when spans is
+// empty, or when the input has no steady rate, as its largest span is over 2 times the
+// median.
+func holdLimit(spans []telem.TimeSpan) telem.TimeSpan {
+	n := len(spans)
+	if n == 0 {
 		return 0
 	}
-	if iv.fresh {
-		return iv.held
-	}
 	var sorted [window]telem.TimeSpan
-	copy(sorted[:iv.n], iv.ring[:iv.n])
-	for i := 1; i < iv.n; i++ {
+	copy(sorted[:n], spans)
+	for i := 1; i < n; i++ {
 		for k := i; k > 0 && sorted[k] < sorted[k-1]; k-- {
 			sorted[k], sorted[k-1] = sorted[k-1], sorted[k]
 		}
 	}
-	median := sorted[iv.n/2]
-	if iv.n%2 == 0 {
-		median = (sorted[iv.n/2-1] + median) / 2
+	median := sorted[n/2]
+	if n%2 == 0 {
+		median = sorted[n/2-1] + (median-sorted[n/2-1])/2
 	}
-	iv.held, iv.fresh = 3*median, true
-	return iv.held
+	if sorted[n-1]-median > median {
+		return 0
+	}
+	if median > telem.TimeSpanMax/3 {
+		return telem.TimeSpanMax
+	}
+	return 3 * median
 }

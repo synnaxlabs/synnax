@@ -77,6 +77,10 @@ type input struct {
 	stamps     []telem.TimeStamp
 	alignments []telem.Alignment
 	first      int
+	// last is the last stamp pushed to the input, and pushed is false before the first
+	// push.
+	last   telem.TimeStamp
+	pushed bool
 	// held is the last sample at or before the last stamp that Next passed.
 	held      []byte
 	heldStamp telem.TimeStamp
@@ -160,10 +164,12 @@ func (j *Join) Push(i int, data, t telem.Series) error {
 			t.Multiple(),
 		)
 	}
-	last, has := in.lastStamp()
+	stamps, alignments := len(in.stamps), len(in.alignments)
+	last, pushed := in.last, in.pushed
 	for k := range t.Len() {
 		stamp := telem.TimeStamp(telem.ByteOrder.Uint64(t.Data[k*8:]))
-		if has && stamp <= last {
+		if pushed && stamp <= last {
+			in.stamps, in.alignments = in.stamps[:stamps], in.alignments[:alignments]
 			return errors.Wrapf(
 				validate.ErrValidation,
 				"stamp %s of input %d does not follow %s",
@@ -172,22 +178,15 @@ func (j *Join) Push(i int, data, t telem.Series) error {
 				last,
 			)
 		}
-		last, has = stamp, true
+		last, pushed = stamp, true
 		in.stamps = append(in.stamps, stamp)
 		if i == j.primary {
 			in.alignments = append(in.alignments, t.Alignment+telem.Alignment(k))
 		}
 	}
 	in.data = append(in.data, data.Data...)
+	in.last, in.pushed = last, pushed
 	return nil
-}
-
-// lastStamp returns the last stamp pushed to in, and false when none was.
-func (in *input) lastStamp() (telem.TimeStamp, bool) {
-	if len(in.stamps) > in.first {
-		return in.stamps[len(in.stamps)-1], true
-	}
-	return in.heldStamp, in.holds
 }
 
 // Next appends to out a joined sample for each pushed primary stamp up to until. A live
@@ -211,7 +210,10 @@ func (j *Join) Next(until telem.TimeStamp, out *Output) {
 		}
 		j.emit(p.first, out)
 	}
-	for _, in := range j.inputs {
+	for i, in := range j.inputs {
+		if i != j.primary {
+			in.bound()
+		}
 		in.compact()
 	}
 }
@@ -223,15 +225,34 @@ func (j *Join) pass(stamp telem.TimeStamp) {
 		if i == j.primary {
 			continue
 		}
-		for ; in.first < len(in.stamps) && in.stamps[in.first] <= stamp; in.first++ {
-			next := in.stamps[in.first]
-			if in.holds {
-				in.intervals.add(telem.TimeSpan(next - in.heldStamp))
-			}
-			offset := in.first * in.density
-			copy(in.held, in.data[offset:offset+in.density])
-			in.heldStamp, in.holds = next, true
+		for in.first < len(in.stamps) && in.stamps[in.first] <= stamp {
+			in.step()
 		}
+	}
+}
+
+// step moves the held sample of in to its next pushed sample.
+func (in *input) step() {
+	next := in.stamps[in.first]
+	if in.holds {
+		in.intervals.add(telem.TimeSpan(next - in.heldStamp))
+	}
+	offset := in.first * in.density
+	copy(in.held, in.data[offset:offset+in.density])
+	in.heldStamp, in.holds = next, true
+	in.first++
+}
+
+// most is the number of samples past the held one that an input other than the
+// primary keeps.
+const most = 1 << 16
+
+// bound steps in past all but its last most samples, so a primary that stays silent
+// leaves memory bounded. A later primary stamp before the held sample gets no output,
+// as past the limit.
+func (in *input) bound() {
+	for len(in.stamps)-in.first > most {
+		in.step()
 	}
 }
 
@@ -242,7 +263,8 @@ func (j *Join) holdsAll(stamp telem.TimeStamp) bool {
 		if i == j.primary {
 			continue
 		}
-		if !in.holds {
+		// A sample that bound stepped to can lie after stamp.
+		if !in.holds || stamp < in.heldStamp {
 			return false
 		}
 		if limit := in.intervals.limit(); limit > 0 &&
@@ -264,10 +286,10 @@ func (j *Join) emit(k int, out *Output) {
 	run := &out.Runs[len(out.Runs)-1]
 	for i, in := range j.inputs {
 		run.Values[i].Data = append(run.Values[i].Data, in.held...)
-		run.Values[i].TimeRange.End = stamp + 1
+		run.Values[i].TimeRange.End = after(stamp)
 	}
 	run.Time.Data = telem.ByteOrder.AppendUint64(run.Time.Data, uint64(stamp))
-	run.Time.TimeRange.End = stamp + 1
+	run.Time.TimeRange.End = after(stamp)
 	j.last, j.joined = alignment, true
 }
 
@@ -283,7 +305,7 @@ func (j *Join) startRun(out *Output, alignment telem.Alignment, stamp telem.Time
 	if len(run.Values) != len(j.inputs) {
 		run.Values = make([]telem.Series, len(j.inputs))
 	}
-	tr := telem.TimeRange{Start: stamp, End: stamp + 1}
+	tr := telem.TimeRange{Start: stamp, End: after(stamp)}
 	for i, in := range j.inputs {
 		run.Values[i] = telem.Series{
 			DataType:  in.dataType,
@@ -298,6 +320,14 @@ func (j *Join) startRun(out *Output, alignment telem.Alignment, stamp telem.Time
 		Alignment: alignment,
 		TimeRange: tr,
 	}
+}
+
+// after returns the end of a time range whose last stamp is stamp.
+func after(stamp telem.TimeStamp) telem.TimeStamp {
+	if stamp == telem.TimeStampMax {
+		return stamp
+	}
+	return stamp + 1
 }
 
 // compact drops the samples that Next passed, once they are half of the buffer.

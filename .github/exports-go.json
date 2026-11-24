@@ -1,13 +1,7 @@
 {
   "gated": [
-    {
-      "module": "freighter/integration",
-      "usage": "tests-only"
-    },
-    {
-      "module": "freighter/integration",
-      "usage": "unused"
-    }
+    { "module": "freighter/integration", "usage": "tests-only" },
+    { "module": "freighter/integration", "usage": "unused" }
   ],
   "pending": [
     {

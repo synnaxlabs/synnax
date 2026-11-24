@@ -267,15 +267,15 @@ var _ = Describe("Join", func() {
 
 			It("Should take the median of the last 16 intervals", func() {
 				j := newJoin(2, 0, 0)
-				// 16 intervals of 1 s, then 2 of 10 s: the median of the last 16 is
+				// 16 intervals of 1 s, then 2 of 2 s: the median of the last 16 is
 				// still 1 s, so a stamp 4 s after the last sample drops.
 				vs, ss := make([]float64, 0, 19), make([]float64, 0, 19)
 				for i := range 17 {
 					vs, ss = append(vs, 0), append(ss, float64(i))
 				}
-				vs, ss = append(vs, 0, 0), append(ss, 26, 36)
+				vs, ss = append(vs, 0, 0), append(ss, 18, 20)
 				Expect(j.Push(1, values(vs...), stamps(0, ss...))).To(Succeed())
-				Expect(j.Push(0, values(1, 2), stamps(0, 36, 40))).To(Succeed())
+				Expect(j.Push(0, values(1, 2), stamps(0, 20, 24))).To(Succeed())
 				var out join.Output
 				j.Next(telem.TimeStampMax, &out)
 				got, _ := samples(out)
