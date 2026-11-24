@@ -776,12 +776,11 @@ var _ = Describe("Handoff on the pointer log", func() {
 		return out
 	}
 
-	It("Should go on with the stretch of the clock across a handoff", func(
-		ctx SpecContext,
-	) {
+	DescribeTable("Should go on with the stretch of the clock across a handoff that "+
+		"carries its uncommitted samples", func(ctx SpecContext, run cesium.HandoffRun) {
 		w := MustSucceed(db.OpenWriter(ctx, config(clock, data)))
 		before := mustWrite(ctx, w, both(10, 11)).Get(clock).Series[0].Alignment
-		next, p := MustSucceed2(db.Handoff(ctx, w, config(clock), nil, cesium.SameRun))
+		next, p := MustSucceed2(db.Handoff(ctx, w, config(clock), nil, run))
 		after := mustWrite(ctx, next, telem.UnaryFrame(
 			clock,
 			telem.NewSeriesSecondsTSV(12),
@@ -792,25 +791,10 @@ var _ = Describe("Handoff on the pointer log", func() {
 		Expect(stamps).To(HaveLen(1))
 		Expect(next.Close()).To(Succeed())
 		Expect(p.Close()).To(Succeed())
-	})
-
-	It("Should start a new stretch after a handoff in a new run that carries "+
-		"uncommitted samples", func(ctx SpecContext) {
-		w := MustSucceed(db.OpenWriter(ctx, config(clock, data)))
-		before := mustWrite(ctx, w, both(10, 11)).Get(clock).Series[0].Alignment
-		next, p := MustSucceed2(db.Handoff(ctx, w, config(clock), nil, cesium.NewRun))
-		after := mustWrite(ctx, next, telem.UnaryFrame(
-			clock,
-			telem.NewSeriesSecondsTSV(12),
-		)).Get(clock).Series[0].Alignment
-		Expect(after.DomainIndex()).ToNot(Equal(before.DomainIndex()))
-		Expect(MustSucceed2(next.Commit(ctx, nil))).To(Equal(12*telem.SecondTS + 1))
-		stamps := MustSucceed(db.Read(ctx, telem.TimeRangeMax, clock)).Get(clock)
-		Expect(stamps.Len()).To(Equal(int64(3)))
-		Expect(stamps.Series[0].Alignment).To(Equal(before), "the carried run keeps it")
-		Expect(next.Close()).To(Succeed())
-		Expect(p.Close()).To(Succeed())
-	})
+	},
+		Entry("in a new run, as the old layout does", cesium.NewRun),
+		Entry("in the same run", cesium.SameRun),
+	)
 
 	It("Should commit the samples written after pending samples that come back on "+
 		"committed stamps", func(ctx SpecContext) {
@@ -917,16 +901,17 @@ var _ = Describe("Handoff on the pointer log", func() {
 		"back with the stamps they were written at", func(
 		ctx SpecContext,
 		adopt bool,
+		run cesium.HandoffRun,
 	) {
 		first := MustSucceed(db.OpenWriter(ctx, config(clock, data)))
 		mustWrite(ctx, first, both(10, 11))
-		w, p := MustSucceed2(db.Handoff(ctx, first, config(clock), nil, cesium.NewRun))
+		w, p := MustSucceed2(db.Handoff(ctx, first, config(clock), nil, run))
 		mustWrite(ctx, w, telem.UnaryFrame(clock, telem.NewSeriesSecondsTSV(12)))
 		if !adopt {
 			Expect(p.Close()).To(Succeed())
 			p = nil
 		}
-		w, _ = MustSucceed2(db.Handoff(ctx, w, config(clock, data), p, cesium.NewRun))
+		w, _ = MustSucceed2(db.Handoff(ctx, w, config(clock, data), p, run))
 		mustWrite(ctx, w, both(13))
 		MustSucceed2(w.Commit(ctx, nil))
 		Expect(w.Close()).To(Succeed())
@@ -936,8 +921,10 @@ var _ = Describe("Handoff on the pointer log", func() {
 		}
 		Expect(seconds(ctx)).To(Equal(expected))
 	},
-		Entry("an added key", false),
-		Entry("an adopted key", true),
+		Entry("an added key, in a new run", false, cesium.NewRun),
+		Entry("an added key, in the same run", false, cesium.SameRun),
+		Entry("an adopted key, in a new run", true, cesium.NewRun),
+		Entry("an adopted key, in the same run", true, cesium.SameRun),
 	)
 
 	It("Should commit a key that a write skips only over the stamps of its samples",

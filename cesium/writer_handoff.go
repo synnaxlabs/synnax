@@ -109,11 +109,11 @@ const (
 // names the clock and their time range. A handoff refuses a start of cfg in stored
 // data, as an open does. On the old layout, a handoff that adopts a Pending when w
 // holds no uncommitted sample starts a new run. On the pointer log layout, the new
-// writer is the writer of w with the keys of cfg, and a NewRun handoff starts a new
-// stretch after the uncommitted runs of w. When w does not write its clock and cfg
-// holds no channel, Handoff closes w, opens no writer, and refuses a non-nil adopt. It
-// returns the uncommitted samples of w as a Pending, or nil when w has none or stores
-// no samples.
+// writer is the writer of w with the keys of cfg. On both layouts, run applies only
+// when w holds no uncommitted sample: the uncommitted run of w goes on in either run.
+// When w does not write its clock and cfg holds no channel, Handoff closes w, opens no
+// writer, and refuses a non-nil adopt. It returns the uncommitted samples of w as a
+// Pending, or nil when w has none or stores no samples.
 func (db *DB) Handoff(
 	ctx context.Context,
 	w *Writer,
