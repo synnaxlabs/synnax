@@ -138,8 +138,8 @@ const readSecure = (env: Env): boolean | undefined => {
 const isAbsolute = (path: string, platform: string): boolean =>
   platform === "win32" ? /^([a-z]:[\\/]|\\\\)/i.test(path) : path.startsWith("/");
 
-// The file is in the config directory of the OS, or in ~/.synnax, where Synnax Desktop
-// 1.1 and older clients keep it.
+// Returns desktop.json in the config directory of the OS, then in ~/.synnax, the legacy
+// path that Synnax Desktop 1.1 and older clients use.
 const desktopFiles = (env: Env, platform: string): string[] => {
   const dir = (name: string, fallback: string): string => {
     const value = read(env, name);
@@ -157,26 +157,28 @@ const desktopFiles = (env: Env, platform: string): string[] => {
   return [`${current}/desktop.json`, "~/.synnax/desktop.json"];
 };
 
-// A missing file or a Deno permission error means no Synnax Desktop that the script can
-// see, so the message does not name it.
+// Reads the first path that can be read. A missing file or a Deno permission error
+// means no Synnax Desktop that the script can see, so the message does not name it.
 const readDesktopFile = (system: System, env: Env): [string, string] => {
   let denied: Error | undefined;
+  const failed: [string, Error][] = [];
   for (const path of desktopFiles(env, system.platform)) {
     let text: string | null;
     try {
       text = system.readFile(path);
     } catch (e) {
       const err = errors.fromUnknown(e);
-      if (!isNotCapable(err))
-        throw new ValidationError(`Cannot read ${path}: ${err.message}`, {
-          cause: err,
-        });
-      denied ??= err;
+      if (isNotCapable(err)) denied ??= err;
+      else failed.push([path, err]);
       continue;
     }
     if (text != null) return [path, text];
   }
-  throw new ValidationError(NO_HOST_MSG, { cause: denied });
+  if (failed.length === 0) throw new ValidationError(NO_HOST_MSG, { cause: denied });
+  throw new ValidationError(
+    failed.map(([path, err]) => `Cannot read ${path}: ${err.message}`).join(". "),
+    { cause: failed[failed.length - 1][1] },
+  );
 };
 
 // The user chose this file, so unlike the file of Synnax Desktop, a Deno permission

@@ -293,13 +293,14 @@ describe("resolveParams with Synnax Desktop", () => {
     expect(error).toHaveProperty("cause", cause);
   });
 
-  it("should name the file when it cannot be read", () => {
+  it("should name each file when none can be read", () => {
     const cause = new Error("EACCES: permission denied");
     const error = thrown(reading(cause));
     expect(error).toBeInstanceOf(ValidationError);
     expect(error).toHaveProperty(
       "message",
-      "Cannot read ~/.config/synnax/desktop.json: EACCES: permission denied",
+      "Cannot read ~/.config/synnax/desktop.json: EACCES: permission denied. " +
+        "Cannot read ~/.synnax/desktop.json: EACCES: permission denied",
     );
     expect(error).toHaveProperty("cause", cause);
   });
@@ -480,16 +481,35 @@ describe("resolveParams finding the file of Synnax Desktop", () => {
     expect(env.resolveParams({}, {}, system).port).toEqual(9095);
   });
 
-  it("should read ~/.synnax when Deno cannot read the config directory", () => {
+  it.each([
+    ["Deno cannot read the config directory", notCapable()],
+    ["the config directory cannot be read", new Error("EACCES: permission denied")],
+  ])("should read ~/.synnax when %s", (_, error) => {
     const system: env.System = {
       platform: "linux",
       readFile: (path) => {
         if (path === "~/.synnax/desktop.json") return JSON.stringify(DESKTOP_FILE);
-        throw notCapable();
+        throw error;
       },
       run: async () => null,
     };
     expect(env.resolveParams({}, {}, system).port).toEqual(9095);
+  });
+
+  it("should name only the file that cannot be read when the other is missing", () => {
+    const system: env.System = {
+      platform: "linux",
+      readFile: (path) => {
+        if (path === "~/.synnax/desktop.json") return null;
+        throw new Error("ENOTDIR: not a directory");
+      },
+      run: async () => null,
+    };
+    expect(() => env.resolveParams({}, {}, system)).toThrow(
+      new ValidationError(
+        "Cannot read ~/.config/synnax/desktop.json: ENOTDIR: not a directory",
+      ),
+    );
   });
 
   it.each([true, false])(
