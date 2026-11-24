@@ -31,9 +31,10 @@ const (
 )
 
 // write commits the repair of rep to the root of r: the log of a generation above every
-// one in a name, with one Restart frame, then the head of that generation with the
-// state of e. The header sector of the head is the commit point. Then it renames each
-// damaged log and each unrecovered segment file aside, and syncs their directories.
+// head and log with no suffix, with one Restart frame, then the head of that generation
+// with the state of e. The header sector of the head is the commit point. Then it
+// renames each damaged log and each unrecovered segment file aside, and syncs their
+// directories.
 func (e *engine) write(
 	ctx context.Context,
 	o *options,
@@ -80,26 +81,33 @@ func (e *engine) write(
 
 // setAside renames each damaged log of rep with the suffix .damaged, and each
 // unrecovered segment file with the suffix .unrecovered, then syncs the root and each
-// channel directory that it changed.
+// channel directory that it changed. A rename never replaces a file: a name in use
+// takes the next free .<k> (D-376). It sets the name used in rep.
 func (e *engine) setAside(rep *Report) error {
-	gens := set.New[uint64]()
+	names := make(map[uint64]string)
 	for _, d := range rep.Damage {
-		gens.Add(d.Generation)
-	}
-	for _, g := range slices.Sorted(maps.Keys(gens)) {
-		if err := e.fs.Rename(log.Name(g), log.Name(g)+damagedSuffix); err != nil {
+		if _, ok := names[d.Generation]; ok {
+			continue
+		}
+		name, err := e.renameAside(log.Name(d.Generation), damagedSuffix)
+		if err != nil {
 			return err
 		}
+		names[d.Generation] = name
+	}
+	for i := range rep.Damage {
+		rep.Damage[i].Name = names[rep.Damage[i].Generation]
 	}
 	if err := e.fs.SyncDir(""); err != nil {
 		return err
 	}
 	dirs := set.New[ChannelKey]()
-	for _, f := range rep.Unrecovered {
-		name := segmentName(f.Key, f.Segment, 0)
-		if err := e.fs.Rename(name, name+unrecoveredSuffix); err != nil {
+	for i, f := range rep.Unrecovered {
+		name, err := e.renameAside(segmentName(f.Key, f.Segment, 0), unrecoveredSuffix)
+		if err != nil {
 			return err
 		}
+		rep.Unrecovered[i].Name = name
 		dirs.Add(f.Key)
 	}
 	for _, key := range slices.Sorted(maps.Keys(dirs)) {
@@ -110,8 +118,25 @@ func (e *engine) setAside(rep *Report) error {
 	return nil
 }
 
+// renameAside renames name to name with suffix, or with suffix and the next free .<k>
+// when that name is in use, and returns the name that it used.
+func (e *engine) renameAside(name, suffix string) (string, error) {
+	to := name + suffix
+	for k := 1; ; k++ {
+		used, err := e.fs.Exists(to)
+		if err != nil {
+			return "", err
+		}
+		if !used {
+			break
+		}
+		to = name + suffix + "." + strconv.Itoa(k)
+	}
+	return to, e.fs.Rename(name, to)
+}
+
 // nextGeneration returns one above the generation of every head and log in the root
-// fs, with any suffix.
+// fs with no suffix (D-376).
 func nextGeneration(fs xfs.FS) (uint64, error) {
 	infos, err := fs.List("")
 	if err != nil {
@@ -119,9 +144,8 @@ func nextGeneration(fs xfs.FS) (uint64, error) {
 	}
 	var g uint64
 	for _, info := range infos {
-		hex, rest, ok := strings.Cut(info.Name(), ".")
-		if !ok ||
-			(!strings.HasPrefix(rest, "head") && !strings.HasPrefix(rest, "log")) {
+		hex, ext, ok := strings.Cut(info.Name(), ".")
+		if !ok || (ext != "head" && ext != "log") {
 			continue
 		}
 		if n, err := strconv.ParseUint(hex, 16, 64); err == nil {

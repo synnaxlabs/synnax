@@ -614,6 +614,43 @@ var _ = Describe("Repair", func() {
 			Expect(got[data]).To(Equal(values))
 		})
 
+		// repairYes repairs fs with the identity id and a confirm that says yes.
+		repairYes := func(ctx context.Context) cesium.Report {
+			GinkgoHelper()
+			return MustSucceed(cesium.Repair(
+				ctx,
+				"",
+				func(cesium.Report) bool { return true },
+				cesium.WithFS(fs),
+				cesium.WithIdentity(id),
+			))
+		}
+
+		It("Should repair a root with an undone head above its newest log, and keep "+
+			"its damaged log renamed", func(ctx SpecContext) {
+			undone := checkpoint.Name(9) + ".00000000000000ab.undone"
+			Expect(xfs.WriteFile(fs, undone, []byte("undone"))).To(Succeed())
+			spoil(commitFrame(6*telem.SecondTS), 4)
+			rep := repairYes(ctx)
+			Expect(rep.Repaired).To(BeTrue())
+			Expect(rep.Damage[0].Name).To(Equal(log.Name(1) + ".damaged"))
+			Expect(fs.Exists(log.Name(1) + ".damaged")).To(BeTrue())
+			Expect(xfs.ReadFile(fs, undone)).To(Equal([]byte("undone")))
+			Expect(MustSucceed(open(ctx)).Close()).To(Succeed())
+		})
+
+		It("Should keep a damaged log of the same name from an earlier repair, and "+
+			"rename to the next free name", func(ctx SpecContext) {
+			earlier := log.Name(1) + ".damaged"
+			Expect(xfs.WriteFile(fs, earlier, []byte("earlier"))).To(Succeed())
+			spoil(commitFrame(6*telem.SecondTS), 4)
+			rep := repairYes(ctx)
+			Expect(rep.Damage[0].Name).To(Equal(earlier + ".1"))
+			Expect(xfs.ReadFile(fs, earlier)).To(Equal([]byte("earlier")))
+			Expect(fs.Exists(earlier + ".1")).To(BeTrue())
+			Expect(MustSucceed(open(ctx)).Close()).To(Succeed())
+		})
+
 		It("Should rebuild a lost commit up to the start of the later Commit",
 			func(ctx SpecContext) {
 				spoil(commitFrame(6*telem.SecondTS), 4)

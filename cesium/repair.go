@@ -63,6 +63,8 @@ type Damage struct {
 	// FirstSequence and LastSequence are the sequences of the entries that the frame
 	// held: those between its neighbors.
 	FirstSequence, LastSequence uint64
+	// Name is the name that a committed repair gave the damaged log, or empty.
+	Name string
 }
 
 // Range is a range of samples of a segment that a repair lists.
@@ -92,6 +94,8 @@ type File struct {
 	Bytes telem.Size
 	// Reason says why the repair lists the file.
 	Reason string
+	// Name is the name that a committed repair gave the file, or empty.
+	Name string
 }
 
 // Segment is a segment that a repair lists.
