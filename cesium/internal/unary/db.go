@@ -101,16 +101,6 @@ func (db *DB) HasDataFor(ctx context.Context, tr telem.TimeRange) (bool, error) 
 // Size returns the total size of all data stored in the database.
 func (db *DB) Size() telem.Size { return db.domain.Size() }
 
-// HasStoredDataFor reports whether stored data overlaps tr, with no regard for the
-// claims of open writers.
-func (db *DB) HasStoredDataFor(ctx context.Context, tr telem.TimeRange) (bool, error) {
-	if db.closed.Load() {
-		return false, ErrDBClosed
-	}
-	hasData, err := db.domain.HasDataFor(ctx, tr)
-	return hasData, db.wrapError(err)
-}
-
 // Close closes the unary database, releasing all resources associated with it. Close
 // will return an error if there are any unclosed writers, iterators, or delete
 // operations being executed on the database. Close is idempotent, and will return nil
