@@ -23,7 +23,6 @@
 
 namespace driver::rack {
 namespace {
-const std::string RACK_SUBJECT_TYPE = "rack";
 const std::string API_KEY_NAME = "synnax-driver";
 
 /// @brief returns the cluster key that a connectivity check reports, or the error of a
@@ -37,11 +36,10 @@ parse_cluster_key(const synnax::connection::State &state) {
 
 /// @brief returns the key of the rack that the subject names, and false when the
 /// subject is not a rack.
-std::pair<synnax::rack::Key, bool>
-parse_rack_key(const synnax::auth::Subject &subject) {
+std::pair<synnax::rack::Key, bool> parse_rack_key(const synnax::resource::ID &subject) {
     synnax::rack::Key key = 0;
     const auto *end = subject.key.data() + subject.key.size();
-    if (subject.type != RACK_SUBJECT_TYPE ||
+    if (subject.type != synnax::rack::TYPE_RESOURCE_ID.type ||
         std::from_chars(subject.key.data(), end, key).ptr != end)
         return {0, false};
     return {key, true};
@@ -99,7 +97,7 @@ x::errors::Error Config::enroll() {
     if (res.second) return res.second;
     auto [key, create_err] = client.api_keys.create(
         API_KEY_NAME,
-        {RACK_SUBJECT_TYPE, std::to_string(res.first.key)}
+        synnax::rack::resource_id(res.first.key)
     );
     if (create_err) {
         // A retry creates another rack, so remove the one no key logs in as.

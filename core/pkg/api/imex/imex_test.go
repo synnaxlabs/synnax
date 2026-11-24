@@ -116,6 +116,28 @@ var _ = Describe("Import", func() {
 		},
 	)
 
+	It("Should hand the importer what the subject can retrieve", func(ctx SpecContext) {
+		u := MustSucceed(rbactestutil.CreateUser(ctx, db, rbacSvc, userSvc, user.User{
+			Name: "importer-" + uuid.New().String(),
+		}))
+		seen := project.ResourceID(proj.Key)
+		hidden := project.ResourceID(uuid.New())
+		MustSucceed(rbactestutil.Grant(
+			ctx,
+			db,
+			rbacSvc,
+			userSvc,
+			u.Key,
+			[]access.Action{access.ActionRetrieve},
+			seen,
+		))
+		fctx := subjectCtx(ctx, u)
+		fctx.Set("params", `{"file_name":"Metrics Log.json"}`)
+		MustSucceed(importEnvelope(fctx, testEnvelope("retrievable")))
+		Expect(importer.opts.Retrievable(seen)).To(BeTrue())
+		Expect(importer.opts.Retrievable(hidden)).To(BeFalse())
+	})
+
 	It(
 		"Should resolve a typeless envelope through the registered matcher",
 		func(ctx SpecContext) {

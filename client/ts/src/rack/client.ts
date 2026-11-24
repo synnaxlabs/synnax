@@ -49,7 +49,7 @@ import {
 } from "@/rack/where.gen";
 import type { status } from "@/status";
 import type { task } from "@/task";
-import { checkForMultipleOrNoResults } from "@/util/retrieve";
+import { util } from "@/util";
 
 export const ACTION_CHANNEL_NAME = "sy_rack_action_set";
 export const DELETE_CHANNEL_NAME = "sy_rack_delete";
@@ -327,7 +327,7 @@ export class Client extends query.Retriever<
     // queries can be served from it.
     if ("key" in q && q.includeStatus !== true) {
       const racks = await this.store.retrieve([q.key]);
-      checkForMultipleOrNoResults(
+      util.checkForMultipleOrNoResults(
         "rack",
         { where: { key: { eq: q.key } } },
         racks,
@@ -337,7 +337,7 @@ export class Client extends query.Retriever<
     }
     const racks = await this.fetchThrough(q);
     const where = "key" in q ? { key: { eq: q.key } } : { name: { eq: q.name } };
-    checkForMultipleOrNoResults("rack", { where }, racks, true);
+    util.checkForMultipleOrNoResults("rack", { where }, racks, true);
     return this.sugar(racks[0]);
   }
 }

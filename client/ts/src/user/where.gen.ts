@@ -26,7 +26,6 @@ import {
  * that only the Core can check.
  */
 export interface Lines {
-  usernames: ((record: User, value: NonNullable<Where["usernames"]>) => boolean) | null;
   roles: ((record: User, value: NonNullable<Where["roles"]>) => boolean) | null;
 }
 
@@ -42,10 +41,6 @@ export const matches = (lines: Lines, record: User, where?: Where): boolean => {
     return false;
   if (where.not != null && matches(lines, record, where.not)) return false;
   if (where.key != null && !filter.matchesSet(where.key, record.key)) return false;
-  if (where.usernames != null) {
-    if (lines.usernames == null) throw new Error("only the Core can check usernames");
-    if (!lines.usernames(record, where.usernames)) return false;
-  }
   if (where.roles != null) {
     if (lines.roles == null) throw new Error("only the Core can check roles");
     if (!lines.roles(record, where.roles)) return false;
@@ -62,14 +57,11 @@ export const serverComputed = (lines: Lines, where?: Where): boolean =>
   (where.and?.some((w) => serverComputed(lines, w)) === true ||
     where.or?.some((w) => serverComputed(lines, w)) === true ||
     (where.not != null && serverComputed(lines, where.not)) ||
-    (where.usernames != null && lines.usernames == null) ||
     (where.roles != null && lines.roles == null));
 
 const inputs = {
   /** key selects by key. */
   key: filter.setInputZ(keyZ).exactOptional(),
-  /** usernames matches the users whose password has any of the given usernames. */
-  usernames: filter.listInputZ(z.string()).exactOptional(),
   /** roles matches the users that hold any of the given roles. */
   roles: filter.listInputZ(role.keyZ).exactOptional(),
 };
@@ -108,9 +100,7 @@ export const retrieveInputZ = <O extends z.core.$ZodShape>(options: O) =>
       ...inputs,
       ...options,
     })
-    .transform((input) =>
-      filter.split(input, ["and", "or", "not", "key", "usernames", "roles"]),
-    );
+    .transform((input) => filter.split(input, ["and", "or", "not", "key", "roles"]));
 
 /** LIST_FIELDS are the top-level fields that a list can read, by wire name. */
 export const LIST_FIELDS: readonly string[] = ["key", "name", "root_user", "role"];

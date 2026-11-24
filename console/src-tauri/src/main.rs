@@ -15,6 +15,7 @@ mod install;
 mod keychain;
 #[cfg(target_os = "macos")]
 mod mouse;
+mod oidc;
 #[cfg(feature = "desktop")]
 mod supervisor;
 #[cfg(not(feature = "desktop"))]
@@ -47,6 +48,8 @@ fn main() {
         #[cfg(target_os = "macos")]
         mouse::mouse_release,
         updater::updater_check,
+        oidc::oidc_listen,
+        oidc::oidc_wait,
     ]);
     #[cfg(feature = "desktop")]
     let builder = builder.invoke_handler(tauri::generate_handler![
@@ -55,6 +58,8 @@ fn main() {
         keychain::keychain_delete,
         #[cfg(target_os = "macos")]
         mouse::mouse_release,
+        oidc::oidc_listen,
+        oidc::oidc_wait,
         supervisor::commands::supervisor_status,
         supervisor::commands::supervisor_history,
         supervisor::commands::supervisor_restart,
@@ -75,6 +80,7 @@ fn main() {
     #[cfg(target_os = "linux")]
     let builder = builder.plugin(desktop::webkit::init());
     builder
+        .manage(oidc::Loopback::default())
         .plugin(prevent)
         .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
             #[cfg(feature = "desktop")]
