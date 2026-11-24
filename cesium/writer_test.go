@@ -193,6 +193,20 @@ var _ = Describe("Writer Behavior", func() {
 				fs = openFS()
 				db = mustOpenDBOnFS(ctx, fs)
 			})
+			// layoutDB returns db for the old layout, and for the pointer log a new
+			// database in a directory of fs, which closes when the spec ends.
+			layoutDB := func(ctx SpecContext, pointerLog bool) *cesium.DB {
+				GinkgoHelper()
+				if !pointerLog {
+					return db
+				}
+				dir := "pointer-log-" + strconv.Itoa(int(GenerateChannelKey()))
+				return mustOpenDBOnFS(
+					ctx,
+					MustSucceed(fs.Sub(dir)),
+					cesium.WithPointerLog(),
+				)
+			}
 
 			Describe("Happy Path", func() {
 				Context("Indexed", func() {
@@ -285,7 +299,11 @@ var _ = Describe("Writer Behavior", func() {
 						},
 					)
 
-					Context("Time Range Stamping", func() {
+					DescribeTableSubtree("Time Range Stamping", func(pointerLog bool) {
+						var db *cesium.DB
+						BeforeEach(
+							func(ctx SpecContext) { db = layoutDB(ctx, pointerLog) },
+						)
 						It(
 							"Should stamp written series with the index series' time range",
 							func(ctx SpecContext) {
@@ -384,7 +402,7 @@ var _ = Describe("Writer Behavior", func() {
 								Expect(w.Close()).To(Succeed())
 							},
 						)
-					})
+					}, Entry("old layout", false), Entry("pointer log", true))
 
 					Context("Disjoint Domain Alignment", func() {
 						It(
@@ -453,7 +471,13 @@ var _ = Describe("Writer Behavior", func() {
 						)
 					})
 
-					Context("Index-less Data Write Alignment", func() {
+					DescribeTableSubtree("Index-less Data Write Alignment", func(
+						pointerLog bool,
+					) {
+						var db *cesium.DB
+						BeforeEach(
+							func(ctx SpecContext) { db = layoutDB(ctx, pointerLog) },
+						)
 						It(
 							"Should keep streamed alignment monotonic when a data channel is written without its index",
 							func(ctx SpecContext) {
@@ -536,11 +560,17 @@ var _ = Describe("Writer Behavior", func() {
 
 								dataDomain := fC.Get(data).Series[0].Alignment
 
-								Expect(
-									dataDomain.DomainIndex(),
-								).To(BeNumerically(">", idxDomain.DomainIndex()),
-									"a data channel written without its index must draw a domain from the "+
-										"index's authority, not regress onto its own counter")
+								if pointerLog {
+									Expect(dataDomain).To(Equal(idxDomain),
+										"data written without its index takes the "+
+											"alignment of the stamp at its start")
+								} else {
+									Expect(
+										dataDomain.DomainIndex(),
+									).To(BeNumerically(">", idxDomain.DomainIndex()),
+										"a data channel written without its index must draw a domain from the "+
+											"index's authority, not regress onto its own counter")
+								}
 								Expect(wC.Close()).To(Succeed())
 							},
 						)
@@ -984,13 +1014,25 @@ var _ = Describe("Writer Behavior", func() {
 								By(
 									"Opening a co-writer over both channels, which joins the data channel's region",
 								)
-								wBoth := MustSucceed(
-									db.OpenWriter(ctx, cesium.WriterConfig{
-										Channels: []cesium.ChannelKey{idx, data},
-										Clock:    idx,
-										Start:    10 * telem.SecondTS,
-									}),
-								)
+								both := cesium.WriterConfig{
+									Channels: []cesium.ChannelKey{idx, data},
+									Clock:    idx,
+									Start:    10 * telem.SecondTS,
+								}
+								if pointerLog {
+									Expect(
+										db.OpenWriter(ctx, both),
+									).Error().
+										To(SatisfyAll(
+											MatchError(validate.ErrValidation),
+											MatchError(ContainSubstring(
+												"reaches the claim of another writer",
+											)),
+										), "the framer, not Cesium, joins a second writer "+
+											"to the region")
+									return
+								}
+								wBoth := MustSucceed(db.OpenWriter(ctx, both))
 								fr := mustWrite(ctx, wBoth, telem.MultiFrame(
 									[]cesium.ChannelKey{idx, data},
 									[]telem.Series{
@@ -1129,13 +1171,25 @@ var _ = Describe("Writer Behavior", func() {
 										Start:    10 * telem.SecondTS,
 									}),
 								)
-								wB := MustSucceed(
-									db.OpenWriter(ctx, cesium.WriterConfig{
-										Channels: []cesium.ChannelKey{idx, d1},
-										Clock:    idx,
-										Start:    10 * telem.SecondTS,
-									}),
-								)
+								second := cesium.WriterConfig{
+									Channels: []cesium.ChannelKey{idx, d1},
+									Clock:    idx,
+									Start:    10 * telem.SecondTS,
+								}
+								if pointerLog {
+									Expect(
+										db.OpenWriter(ctx, second),
+									).Error().
+										To(SatisfyAll(
+											MatchError(validate.ErrValidation),
+											MatchError(ContainSubstring(
+												"reaches the claim of another writer",
+											)),
+										), "the framer keeps one Cesium writer per clock")
+									Expect(wA.Close()).To(Succeed())
+									return
+								}
+								wB := MustSucceed(db.OpenWriter(ctx, second))
 
 								ts := 10 * telem.SecondTS
 								write := func(
@@ -1328,13 +1382,28 @@ var _ = Describe("Writer Behavior", func() {
 								By(
 									"Joining the data channel's advanced region from a later start",
 								)
-								wData := MustSucceed(
-									db.OpenWriter(ctx, cesium.WriterConfig{
-										Channels: []cesium.ChannelKey{data},
-										Clock:    idx,
-										Start:    13 * telem.SecondTS,
-									}),
-								)
+								join := cesium.WriterConfig{
+									Channels: []cesium.ChannelKey{data},
+									Clock:    idx,
+									Start:    13 * telem.SecondTS,
+								}
+								if pointerLog {
+									Expect(
+										db.OpenWriter(ctx, join),
+									).Error().
+										To(SatisfyAll(
+											MatchError(validate.ErrValidation),
+											MatchError(
+												ContainSubstring(
+													"inside its stored data",
+												),
+											),
+										), "the framer, not Cesium, joins a second writer "+
+											"to the region")
+									Expect(wBoth.Close()).To(Succeed())
+									return
+								}
+								wData := MustSucceed(db.OpenWriter(ctx, join))
 								mustWrite(ctx, wData, telem.MultiFrame(
 									[]cesium.ChannelKey{data},
 									[]telem.Series{telem.NewSeriesV[int64](6, 7)},
@@ -1352,7 +1421,7 @@ var _ = Describe("Writer Behavior", func() {
 								Expect(wBoth.Close()).To(Succeed())
 							},
 						)
-					})
+					}, Entry("old layout", false), Entry("pointer log", true))
 				})
 
 				Context("Multiple Indexes", func() {
@@ -1532,7 +1601,9 @@ var _ = Describe("Writer Behavior", func() {
 					})
 				})
 
-				Context("Variable Channels", func() {
+				DescribeTableSubtree("Variable Channels", func(pointerLog bool) {
+					var db *cesium.DB
+					BeforeEach(func(ctx SpecContext) { db = layoutDB(ctx, pointerLog) })
 					Specify("Exclusively variable", func(ctx SpecContext) {
 						var (
 							idx     = GenerateChannelKey()
@@ -1919,7 +1990,7 @@ var _ = Describe("Writer Behavior", func() {
 							Expect(w.Close()).To(MatchError(validate.ErrValidation))
 						},
 					)
-				})
+				}, Entry("old layout", false), Entry("pointer log", true))
 
 				Describe("Commit after each write", func() {
 					Describe("Indexed channels", func() {
@@ -4057,7 +4128,9 @@ var _ = Describe("Writer Behavior", func() {
 			})
 
 			Describe("Index Errors", func() {
-				Context("Discontinuous Index", func() {
+				DescribeTableSubtree("Discontinuous Index", func(pointerLog bool) {
+					var db *cesium.DB
+					BeforeEach(func(ctx SpecContext) { db = layoutDB(ctx, pointerLog) })
 					var (
 						disc1      = GenerateChannelKey()
 						disc1Index = GenerateChannelKey()
@@ -4171,7 +4244,7 @@ var _ = Describe("Writer Behavior", func() {
 							w.Close(),
 						).To(MatchError(ContainSubstring("does not exist in the index")))
 					})
-				})
+				}, Entry("old layout", false), Entry("pointer log", true))
 				Context("Index Behind Written Data", func() {
 					var (
 						idx, data cesium.ChannelKey

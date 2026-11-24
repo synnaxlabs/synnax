@@ -182,7 +182,7 @@ var _ = Describe("Data against stored stamps on the pointer log", func() {
 		Expect(streamed).To(HaveLen(2))
 		Expect(streamed[0]).To(telem.MatchSeriesDataV[int64](1, 2))
 		Expect(streamed[1]).To(telem.MatchSeriesDataV[int64](3))
-		Expect(streamed[1].Alignment).To(BeZero())
+		Expect(streamed[1].Alignment).To(Equal(telem.NewAlignment(0, 0)))
 		writeClock(ctx, 12)
 		past := SatisfyAll(
 			MatchError(index.ErrDiscontinuous),
@@ -213,7 +213,10 @@ var _ = Describe("Data against stored stamps on the pointer log", func() {
 		})).Error().To(SatisfyAll(
 			MatchError(validate.ErrValidation),
 			MatchError(ContainSubstring(
-				"writer needs a start to write the channel without its index",
+				"channel <%d>: writer needs a start to write the channel without its "+
+					"index <%d>",
+				data,
+				idx,
 			)),
 		))
 	})

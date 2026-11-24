@@ -124,10 +124,12 @@ type placer struct {
 	placed  int64
 	started bool
 	// err is the error of the first sample that had no stored stamp. No later sample
-	// gets a stamp.
-	err    error
-	runs   []stampRun
-	pieces []piece
+	// gets a stamp. unstamped counts the samples with no stamp, which stream with
+	// alignment number zero, which no stretch takes.
+	err       error
+	unstamped uint32
+	runs      []stampRun
+	pieces    []piece
 }
 
 // piece is the samples of a write that lie on one run of stored stamps.
@@ -246,12 +248,13 @@ func (e *engine) stampEnds(
 // write its clock, on the stored stamps of the clock, except the keys for which skip
 // returns true. Each piece of a series that lies on one run of stamps streams as its
 // own series with the alignment of its first stamp. The samples with no stored stamp
-// stream with no alignment and are never stored.
+// stream with alignment number zero, and are never stored.
 func (w *logWriter) writeData(
 	fr Frame,
 	n uint32,
 	skip func(ChannelKey) bool,
 ) (Frame, bool, error) {
+	placedBefore := w.stamps.placed
 	pieces, err := w.stamps.place(n)
 	if err != nil {
 		return fr, false, err
@@ -305,9 +308,11 @@ func (w *logWriter) writeData(
 		}
 	}
 	if w.stamps.err != nil {
+		a := telem.NewAlignment(0, w.stamps.unstamped)
+		w.stamps.unstamped += n - uint32(w.stamps.placed-placedBefore)
 		for i := range count {
 			if w.cuts[i] >= 0 {
-				split(len(pieces), i, len(whole[i].Data), 0)
+				split(len(pieces), i, len(whole[i].Data), a)
 			}
 		}
 	}

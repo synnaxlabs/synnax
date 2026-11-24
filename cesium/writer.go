@@ -127,8 +127,8 @@ func (w *Writer) Close() error {
 // On the pointer log layout, a writer that does not write its clock puts each sample on
 // the next stored stamp of the clock, and leaves the time range unset. A series that
 // reaches the end of a run of stamps comes back as one series for each run, with the
-// alignment of the run's stamps. A sample with no stored stamp comes back with no
-// alignment, and the next Commit fails.
+// alignment of the run's stamps. A sample with no stored stamp comes back with
+// alignment number zero, and the next Commit fails.
 func (w *Writer) Write(
 	ctx context.Context,
 	fr Frame,
