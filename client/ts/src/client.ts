@@ -138,6 +138,17 @@ export const synnaxParamsZ = z.object({
 
 // a refinement would stop callers from picking fields off synnaxParamsZ
 const constructorParamsZ = synnaxParamsZ
+  .refine((p) => p.cache == null || p.uncached == null, {
+    message: "Give uncached or the deprecated cache, not both",
+    path: ["cache"],
+  })
+  // uncached has no schema default, so a caller that parses synnaxParamsZ first and
+  // passes cache does not give both.
+  .transform(({ cache, uncached, ...p }) => {
+    if (cache == null) return { ...p, uncached: uncached ?? false };
+    console.warn("cache is deprecated. Use uncached, its inverse.");
+    return { ...p, uncached: !cache };
+  })
   .refine(
     (p) =>
       [
@@ -154,17 +165,6 @@ const constructorParamsZ = synnaxParamsZ
   .refine((p) => p.caCert == null || p.secure, {
     message: "caCert requires secure; leave secure out or set it to true",
     path: ["secure"],
-  })
-  .refine((p) => p.cache == null || p.uncached == null, {
-    message: "Give uncached or the deprecated cache, not both",
-    path: ["cache"],
-  })
-  // uncached has no schema default, so a caller that parses synnaxParamsZ first and
-  // passes cache does not give both.
-  .transform(({ cache, uncached, ...p }) => {
-    if (cache == null) return { ...p, uncached: uncached ?? false };
-    console.warn("cache is deprecated. Use uncached, its inverse.");
-    return { ...p, uncached: !cache };
   });
 
 export interface SynnaxParams extends Omit<z.input<typeof synnaxParamsZ>, "cache"> {
@@ -406,9 +406,9 @@ export default class Synnax extends framer.Client {
       node: () => this.conn.status.details.nodeKey,
     });
     const cache = new query.Cache({
-      openStreamer: !parsedParams.uncached
-        ? async (config) => await this.openStreamer(config)
-        : null,
+      openStreamer: parsedParams.uncached
+        ? null
+        : async (config) => await this.openStreamer(config),
       breaker: retry,
       onStreamLive: () => this.conn.notify({ type: "stream.live" }),
       onStreamDrop: (error) => this.conn.notify({ type: "stream.drop", error }),
