@@ -99,7 +99,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	channels := icd.ReadChannels(cfg.Channel)
 	s = &Service{resolver: readResolver{
 		icds:     cfg.ICD,
-		channels: readChannels(cfg.Channel),
+		channels: channels,
 		create:   createICD(cfg.ICD),
 		reads:    read.NewResolver(cfg.ICD, channels),
 		ins:      cfg.Instrumentation,
@@ -113,7 +113,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}
 	writes := writeResolver{
 		icds:     cfg.ICD,
-		channels: readChannels(cfg.Channel),
+		channels: channels,
 		writes:   write.NewResolver(cfg.ICD, channels),
 		ins:      cfg.Instrumentation,
 	}
@@ -126,15 +126,15 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Ladder:          versions.WriteConfigLadder,
 			Migrations: []gorp.Migration{
 				v1.WriteMigration,
-				v1.NewWriteMigration(writes.channels, createICD(cfg.ICD)),
+				v1.NewWriteMigration(writes.channels, createWriteICD(cfg.ICD)),
 			},
-			SetEntryKey:     (*WriteConfig).SetKey,
-			PatchEntry:      (*WriteConfig).Patch,
-			HashEntry:       (*WriteConfig).HashContent,
-			HashReferences:  writes.hash,
-			HashedTables:    []string{"icd"},
-			ResolveEntry:    writes.resolve,
-			ValidateEntry:   (*WriteConfig).Validate,
+			SetEntryKey:    (*WriteConfig).SetKey,
+			PatchEntry:     (*WriteConfig).Patch,
+			HashEntry:      (*WriteConfig).HashContent,
+			HashReferences: writes.hash,
+			HashedTables:   []string{"icd"},
+			ResolveEntry:   writes.resolve,
+			ValidateEntry:  (*WriteConfig).Validate,
 		},
 	); !ok(err, s.Write) {
 		return nil, err

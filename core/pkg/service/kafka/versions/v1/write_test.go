@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	http "github.com/synnaxlabs/synnax/pkg/service/http/versions/v4"
+	icdv0 "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v0"
 	icd "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v1"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/kafka/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/kafka/versions/v1"
@@ -125,12 +126,12 @@ var _ = Describe("MigrateWriteConfig", func() {
 
 var _ = Describe("ResolveWriteConfig", func() {
 	var (
-		found    map[channel.Key]v1.Channel
-		channels v1.Channels
+		found    map[channel.Key]icdv0.Channel
+		channels icdv0.Channels
 		changes  []string
 	)
 	BeforeEach(func() {
-		found = map[channel.Key]v1.Channel{
+		found = map[channel.Key]icdv0.Channel{
 			7: {Name: "valve_cmd", DataType: telem.Float64T},
 			8: {Name: "pump_cmd", DataType: telem.Float64T},
 		}
@@ -139,7 +140,7 @@ var _ = Describe("ResolveWriteConfig", func() {
 			context.Context,
 			gorp.Snapshot,
 			[]channel.Key,
-		) (map[channel.Key]v1.Channel, error) {
+		) (map[channel.Key]icdv0.Channel, error) {
 			return found, nil
 		}
 	})
@@ -385,7 +386,7 @@ var _ = Describe("ResolveWriteConfig", func() {
 
 	It("Should send a number channel as a boolean when it was sent as one",
 		func(ctx SpecContext) {
-			found[7] = v1.Channel{Name: "valve_cmd", DataType: telem.Uint8T}
+			found[7] = icdv0.Channel{Name: "valve_cmd", DataType: telem.Uint8T}
 			wc := writeChannel("c1", 7)
 			wc.JSONType = payload.JSONTypeBoolean
 			Expect(liftValue(ctx, wc).Type()).To(Equal(payload.KindBoolean))
@@ -393,7 +394,7 @@ var _ = Describe("ResolveWriteConfig", func() {
 	)
 
 	It("Should lift a timestamp channel with its time format", func(ctx SpecContext) {
-		found[7] = v1.Channel{Name: "valve_cmd", DataType: telem.TimestampT}
+		found[7] = icdv0.Channel{Name: "valve_cmd", DataType: telem.TimestampT}
 		wc := writeChannel("c1", 7)
 		wc.TimeFormat = new(payload.TimeFormatUnixMs)
 		Expect(variantOf[icd.TimestampJSONField](liftValue(ctx, wc)).TimeFormat).
@@ -402,7 +403,7 @@ var _ = Describe("ResolveWriteConfig", func() {
 
 	It("Should keep the enum labels of a number channel sent as a string",
 		func(ctx SpecContext) {
-			found[7] = v1.Channel{Name: "valve_cmd", DataType: telem.Int32T}
+			found[7] = icdv0.Channel{Name: "valve_cmd", DataType: telem.Int32T}
 			wc := writeChannel("c1", 7)
 			wc.JSONType = payload.JSONTypeString
 			wc.EnumValues = []payload.EnumEntry{
@@ -422,8 +423,8 @@ var _ = Describe("NewWriteMigration", func() {
 	var (
 		db       *gorp.DB
 		made     []icd.ICD
-		create   v1.CreateICD
-		channels v1.Channels
+		create   v1.CreateWriteICD
+		channels icdv0.Channels
 	)
 	BeforeEach(func() {
 		db = DeferClose(gorp.Wrap(memkv.New()))
@@ -438,8 +439,8 @@ var _ = Describe("NewWriteMigration", func() {
 			context.Context,
 			gorp.Snapshot,
 			[]channel.Key,
-		) (map[channel.Key]v1.Channel, error) {
-			return map[channel.Key]v1.Channel{
+		) (map[channel.Key]icdv0.Channel, error) {
+			return map[channel.Key]icdv0.Channel{
 				7: {Name: "valve_cmd", DataType: telem.Float64T},
 			}, nil
 		}

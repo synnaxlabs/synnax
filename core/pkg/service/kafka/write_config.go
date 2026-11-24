@@ -16,16 +16,24 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
+	icdv0 "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/icd/write"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/kafka/versions/v1"
 	"github.com/synnaxlabs/x/content"
 	"github.com/synnaxlabs/x/validate"
 )
 
+// createWriteICD returns the v1.CreateWriteICD that creates an ICD with svc.
+func createWriteICD(svc *icd.Service) v1.CreateWriteICD {
+	return func(ctx context.Context, tx gorp.Tx, ic icd.ICD) error {
+		return svc.NewWriter(tx).Create(ctx, &ic)
+	}
+}
+
 // writeResolver resolves write configs against the ICDs and channels that they write.
 type writeResolver struct {
 	icds     *icd.Service
-	channels v1.Channels
+	channels icdv0.Channels
 	writes   write.Resolver
 	ins      alamos.Instrumentation
 }

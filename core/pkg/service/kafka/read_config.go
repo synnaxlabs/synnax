@@ -13,45 +13,24 @@ import (
 	"context"
 	"strconv"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/icd/read"
+	icdv0 "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v0"
 	icdv1 "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v1"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/kafka/versions/v1"
 	"github.com/synnaxlabs/x/content"
 )
 
-// readChannels returns the v1.Channels that reads channels from svc.
-func readChannels(svc *channel.Service) v1.Channels {
-	return func(
-		ctx context.Context,
-		snap gorp.Snapshot,
-		keys []channel.Key,
-	) (map[channel.Key]v1.Channel, error) {
-		var found []channel.Channel
-		if err := svc.NewRetrieve().
-			Where(channel.MatchKeys(keys...)).
-			SkipMissingKeys().
-			Entries(&found).
-			Exec(ctx, snap); err != nil {
-			return nil, err
-		}
-		return lo.SliceToMap(found, func(c channel.Channel) (channel.Key, v1.Channel) {
-			return c.Key(), v1.Channel{
-				Name:     c.Name,
-				DataType: c.DataType,
-				Index:    c.IsIndex,
-			}
-		}), nil
-	}
-}
-
-// createICD returns the v1.CreateICD that creates an ICD with svc.
+// createICD returns the v1.CreateICD that lifts an ICD to the current shape and creates
+// it with svc.
 func createICD(svc *icd.Service) v1.CreateICD {
-	return func(ctx context.Context, tx gorp.Tx, ic icd.ICD) error {
+	return func(ctx context.Context, tx gorp.Tx, old icdv0.ICD) error {
+		ic, err := icdv1.MigrateICD(ctx, old)
+		if err != nil {
+			return err
+		}
 		return svc.NewWriter(tx).Create(ctx, &ic)
 	}
 }
@@ -59,7 +38,7 @@ func createICD(svc *icd.Service) v1.CreateICD {
 // readResolver resolves read configs against the ICDs and channels they read.
 type readResolver struct {
 	icds     *icd.Service
-	channels v1.Channels
+	channels icdv0.Channels
 	create   v1.CreateICD
 	reads    read.Resolver
 	ins      alamos.Instrumentation

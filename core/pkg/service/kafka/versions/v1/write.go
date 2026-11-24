@@ -30,8 +30,8 @@ import (
 	"github.com/synnaxlabs/x/set"
 )
 
-// CreateICD creates ic through tx.
-type CreateICD func(ctx context.Context, tx gorp.Tx, ic icd.ICD) error
+// CreateWriteICD creates ic, an ICD in the current shape, through tx.
+type CreateWriteICD func(ctx context.Context, tx gorp.Tx, ic icd.ICD) error
 
 // MigrateWriteConfig lifts a v0 write config to v1. When old has channels, it moves
 // them into Inline with the topic, record key, and record of old, for
@@ -73,7 +73,7 @@ func stage(cfg *WriteConfig) {
 func ResolveWriteConfig(
 	ctx context.Context,
 	snap gorp.Snapshot,
-	channels Channels,
+	channels icdv0.Channels,
 	name string,
 	cfg *WriteConfig,
 	note func(path, change string),
@@ -82,7 +82,13 @@ func ResolveWriteConfig(
 		return icd.ICD{}, false, nil
 	}
 	in := cfg.Inline
-	found, err := inlineWriteChannels(ctx, snap, channels, in.Channels)
+	found, err := channels.Of(
+		ctx,
+		snap,
+		lo.Map(in.Channels, func(wc WriteChannel, _ int) icdv0.InlineField {
+			return icdv0.InlineField{Channel: wc.Channel}
+		}),
+	)
 	if err != nil {
 		return icd.ICD{}, false, err
 	}
@@ -109,25 +115,16 @@ func ResolveWriteConfig(
 				}
 			}
 		}
-		name := found[wc.Channel].Name
-		msg, write, err := icd.LiftWrite(
-			ctx, inlineWrite(in, wc, name, path, chNote), found, chNote,
-		)
+		msg, t, err := liftTarget(ctx, in, wc, found, path, chNote)
 		if err != nil {
 			return icd.ICD{}, false, err
 		}
-		msg.Name = uniqueName(names, lo.CoalesceOrEmpty(name, "Untitled"))
+		msg.Name = icdv0.UniqueName(
+			names,
+			lo.CoalesceOrEmpty(found[wc.Channel].Name, "Untitled"),
+		)
 		ic.Messages[i] = msg
-		t := WriteTarget{
-			Key:      lo.CoalesceOrEmpty(wc.Key, uuid.New().String()),
-			Disabled: wc.Disabled,
-			Topic:    in.Topic,
-			ICD:      ic.Key,
-			Message:  write,
-		}
-		if in.RecordKey == RecordKeyChannelName {
-			t.RecordKey = name
-		}
+		t.ICD = ic.Key
 		cfg.Targets = append(cfg.Targets, t)
 	}
 	cfg.Inline = nil
@@ -139,7 +136,10 @@ func ResolveWriteConfig(
 // ResolveWriteConfig does, with the name of its task, creates the ICD with create, and
 // logs each change to a field. The config of a snapshot task gets no ICD and loses its
 // channels, because the task service deletes snapshots after this migration runs.
-func NewWriteMigration(channels Channels, create CreateICD) gorp.Migration {
+func NewWriteMigration(
+	channels icdv0.Channels,
+	create CreateWriteICD,
+) gorp.Migration {
 	return migrate.New(
 		"v63_kafka_write_icd",
 		func(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation) error {
@@ -180,8 +180,8 @@ func NewWriteMigration(channels Channels, create CreateICD) gorp.Migration {
 func migrateStored(
 	ctx context.Context,
 	tx gorp.Tx,
-	channels Channels,
-	create CreateICD,
+	channels icdv0.Channels,
+	create CreateWriteICD,
 	t task.Task,
 	cfg WriteConfig,
 	note func(path, change string),
@@ -215,22 +215,35 @@ func retrieveTasks(
 	return lo.KeyBy(tasks, func(t task.Task) uuid.UUID { return t.Key }), nil
 }
 
-func inlineWriteChannels(
+// liftTarget returns the message that sends wc in the shape of the record of in, with
+// no name, and the target that sends it, with no ICD. found holds the channel of wc
+// when it exists, and path is the path of wc. note receives the path and each change of
+// a field.
+func liftTarget(
 	ctx context.Context,
-	snap gorp.Snapshot,
-	channels Channels,
-	staged []WriteChannel,
-) (map[channel.Key]icdv0.Channel, error) {
-	keys := lo.FilterMap(staged, func(wc WriteChannel, _ int) (channel.Key, bool) {
-		return wc.Channel, wc.Channel != 0
-	})
-	if len(keys) == 0 {
-		return nil, nil
+	in *InlineWrite,
+	wc WriteChannel,
+	found map[channel.Key]icdv0.Channel,
+	path string,
+	note func(path, change string),
+) (icd.Message, WriteTarget, error) {
+	name := found[wc.Channel].Name
+	msg, write, err := icd.LiftWrite(
+		ctx, inlineWrite(in, wc, name, path, note), found, note,
+	)
+	if err != nil {
+		return icd.Message{}, WriteTarget{}, err
 	}
-	found, err := channels(ctx, snap, lo.Uniq(keys))
-	return lo.MapValues(found, func(c Channel, _ channel.Key) icdv0.Channel {
-		return icdv0.Channel(c)
-	}), err
+	t := WriteTarget{
+		Key:      lo.CoalesceOrEmpty(wc.Key, uuid.New().String()),
+		Disabled: wc.Disabled,
+		Topic:    in.Topic,
+		Message:  write,
+	}
+	if in.RecordKey == RecordKeyChannelName {
+		t.RecordKey = name
+	}
+	return msg, t, nil
 }
 
 // inlineWrite returns the write that sends wc, of the channel named name at path, in

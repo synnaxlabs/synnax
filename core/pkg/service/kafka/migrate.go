@@ -19,7 +19,6 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
-	icdv1 "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v1"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/kafka/versions/v1"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
@@ -70,7 +69,7 @@ func (s *Service) ICDMigration(names TaskNames) gorp.Migration {
 			for i := range cfgs {
 				cfg := &cfgs[i]
 				cfg.Inline = new(staged[cfg.Key])
-				staged, _, err := v1.ResolveReadConfig(
+				ic, _, err := v1.ResolveReadConfig(
 					ctx,
 					tx,
 					s.resolver.channels,
@@ -78,10 +77,6 @@ func (s *Service) ICDMigration(names TaskNames) gorp.Migration {
 					cfg,
 					v1.NoteLift(ins, cfg.Key),
 				)
-				if err != nil {
-					return errors.Wrapf(err, "config %s", cfg.Key)
-				}
-				ic, err := icdv1.MigrateICD(ctx, staged)
 				if err != nil {
 					return errors.Wrapf(err, "config %s", cfg.Key)
 				}
