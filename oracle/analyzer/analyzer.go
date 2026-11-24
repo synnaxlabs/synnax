@@ -525,11 +525,11 @@ func validateFieldOverrides(c *analysisCtx, typ resolution.Type) {
 	}
 }
 
-// finalizeEnumExtensions expands each extending enum's members to the union of the
-// enums it extends plus its own declared members, reporting unresolved parents,
-// non-enum parents, mismatched value kinds, and conflicting member values. It mutates
-// the table in place so downstream plugins read a fully populated member list just like
-// a plain enum's.
+// finalizeEnumExtensions resolves the members of each enum that extends or narrows
+// other
+// enums, reporting malformed parents, supersets, and members. It mutates the table in
+// place so downstream plugins read a fully populated member list just like a plain
+// enum's.
 func finalizeEnumExtensions(c *analysisCtx) {
 	for _, typ := range c.ownTypes() {
 		form, ok := typ.Form.(resolution.EnumForm)
@@ -556,8 +556,7 @@ func finalizeEnumExtensions(c *analysisCtx) {
 // narrowedEnumValues returns the members of form's superset that form's body names, in
 // body order. A member's own domains replace the superset member's domains of the same
 // name. The final bool is false when the superset is malformed or a member is unknown
-// or
-// repeated.
+// or repeated.
 func narrowedEnumValues(
 	c *analysisCtx,
 	typ resolution.Type,
@@ -614,9 +613,11 @@ func addTypeDiagf(c *analysisCtx, typ resolution.Type, format string, args ...an
 	c.diag.Report(typ.FilePath, d)
 }
 
-// effectiveEnumValues returns an enum's fully-resolved members: the union of the
-// members of every enum it extends (recursively), followed by its own declared members.
-// visited guards against cycles. The returned bool is the int/string kind; the final
+// effectiveEnumValues returns an enum's fully-resolved members. For an extending enum,
+// they are the union of the members of every enum it extends (recursively), followed by
+// its own declared members. For a narrowing enum, see narrowedEnumValues. visited
+// guards
+// against cycles. The returned bool is the int/string kind; the final
 // bool is false when the enum or a parent is malformed (a diagnostic is added in that
 // case).
 func effectiveEnumValues(
@@ -627,7 +628,7 @@ func effectiveEnumValues(
 		return nil, false, false
 	}
 	if visited.Contains(typ.QualifiedName) {
-		addTypeDiagf(c, typ, "enum %s has a cyclic extends chain", typ.QualifiedName)
+		addTypeDiagf(c, typ, "enum %s derives from itself", typ.QualifiedName)
 		return nil, false, false
 	}
 	visited.Add(typ.QualifiedName)

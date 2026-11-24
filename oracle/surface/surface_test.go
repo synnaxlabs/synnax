@@ -62,6 +62,24 @@ widget.Valve.size widget.Size
 `))
 	})
 
+	It("Should write a narrowing enum with its superset and kept members", func() {
+		Expect(report(`
+Size enum {
+	small = "small"
+	large = "large"
+}
+
+Fit enum of Size {
+	large
+}
+`)).To(Equal(`widget.Fit enum of widget.Size
+widget.Fit.large = "large"
+widget.Size enum
+widget.Size.small = "small"
+widget.Size.large = "large"
+`))
+	})
+
 	It(
 		"Should write aliases, distinct types, actions, and defaults",
 		func() {

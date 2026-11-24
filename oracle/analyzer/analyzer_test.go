@@ -2033,7 +2033,7 @@ Node union on variant {
 			`
 			_, diag := Analyze(source, "x", loader)
 			Expect(diag.Ok()).To(BeFalse())
-			Expect(diag.Error()).To(ContainSubstring("cyclic extends chain"))
+			Expect(diag.Error()).To(ContainSubstring("derives from itself"))
 		})
 
 		It("Should reject a cyclic extends chain", func() {
@@ -2043,7 +2043,7 @@ Node union on variant {
 			`
 			_, diag := Analyze(source, "x", loader)
 			Expect(diag.Ok()).To(BeFalse())
-			Expect(diag.Error()).To(ContainSubstring("cyclic extends chain"))
+			Expect(diag.Error()).To(ContainSubstring("derives from itself"))
 		})
 
 		It(
@@ -2267,7 +2267,7 @@ Node union on variant {
 				Entry("a cyclic narrowing chain", `
 				A enum of B { a }
 				B enum of A { a }
-			`, "cyclic extends chain"),
+			`, "derives from itself"),
 			)
 		})
 

@@ -235,10 +235,10 @@ the default must be that member, because 0 is also the type's zero value.
 `Kept enum of Base { ... }` narrows the enum `Base` to the members its body names.
 Members are bare names and take their values from `Base`. A member's own `@doc` replaces
 the one from `Base`. Every language generates `Kept` as a plain enum: a Go type with
-constants and `IsValid`, a Zod `enum`, a Python `Literal`, and C++ constants. A typed
-caller cannot build a value outside the subset, and a new `Base` member never joins it
-silently. Use a subset instead of a hand copy of part of a shared enum. An enum can
-narrow or extend, never both.
+constants and `IsValid`, a Zod `enum`, a Python `Literal`, and C++ constants. Zod
+parsing, Pydantic, and Go validation reject a value outside the subset, and a new `Base`
+member never joins it silently. Use a subset instead of a hand copy of part of a shared
+enum. An enum can narrow or extend, never both.
 
 ## Union bases
 
