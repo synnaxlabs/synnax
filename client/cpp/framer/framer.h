@@ -325,10 +325,9 @@ struct WriterConfig {
     ///     - WriterStreamOnly: stream data only.
     WriterMode mode = PersistStream;
 
-    /// @brief sets whether auto commit is enabled for the writer. If true, samples
-    /// will be made immediately available for reads. If false, samples will be made
-    /// available for reads only after a call to Writer::commit().
-    bool enable_auto_commit = true;
+    /// @brief when true, samples are available for reads only after a call to
+    /// Writer::commit(). When false, samples are available for reads at once.
+    bool auto_commit_disabled = false;
 
     /// @brief sets whether the writer returns error if the writer attempts to write
     /// to a channel that it does not have authority to write to. If false, the

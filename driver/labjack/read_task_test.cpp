@@ -653,9 +653,8 @@ TEST(TestReadTaskConfigParse, testLabJackDriverSetsAutoCommitTrue) {
     auto cfg = std::make_unique<ReadTaskConfig>(client, p);
     ASSERT_NIL(p.error());
 
-    // Verify that writer_config has enable_auto_commit set to true
     auto writer_cfg = cfg->writer();
-    ASSERT_TRUE(writer_cfg.enable_auto_commit);
+    ASSERT_FALSE(writer_cfg.auto_commit_disabled);
 }
 
 class SourceClaimTest : public ::testing::Test {

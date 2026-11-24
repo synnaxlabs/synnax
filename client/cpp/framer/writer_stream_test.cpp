@@ -90,4 +90,19 @@ TEST(WriterStream, ReturnsPermanentErrorOfEndedStream) {
     ASSERT_OCCURRED_AS_P(writer.commit(), x::errors::VALIDATION);
     ASSERT_OCCURRED_AS(writer.close(), x::errors::VALIDATION);
 }
+
+/// @brief it should enable auto commit on the wire by default.
+TEST(WriterConfig, EnablesAutoCommitByDefault) {
+    ASSERT_FALSE(WriterConfig{}.auto_commit_disabled);
+    grpc::framer::WriterConfig pb;
+    ASSERT_NIL(WriterConfig{}.to_proto(&pb));
+    ASSERT_TRUE(pb.enable_auto_commit());
+}
+
+/// @brief it should disable auto commit on the wire when auto commit is disabled.
+TEST(WriterConfig, DisablesAutoCommitOnWire) {
+    grpc::framer::WriterConfig pb;
+    ASSERT_NIL(WriterConfig{.auto_commit_disabled = true}.to_proto(&pb));
+    ASSERT_FALSE(pb.enable_auto_commit());
+}
 }

@@ -1661,7 +1661,7 @@ TEST(ReadTaskConfigTest, testMinimumSampleRateErrorMessageFormat) {
     EXPECT_TRUE(result.contains("below device minimum"));
 }
 
-/// Regression test to ensure enable_auto_commit is set to true in WriterConfig.
+/// Regression test to ensure auto commit is not disabled in WriterConfig.
 /// This prevents data from being written but not committed, making it unavailable for
 /// reads.
 /// @brief skew warnings should fire for analog read tasks when hardware reports
@@ -1753,9 +1753,8 @@ TEST(ReadTaskConfigTest, testNIDriverSetsAutoCommitTrue) {
     auto cfg = std::make_unique<ni::ReadTaskConfig>(client, p, "ni_analog_read");
     ASSERT_NIL(p.error());
 
-    // Verify that writer_config has enable_auto_commit set to true
     auto writer_cfg = cfg->writer();
-    ASSERT_TRUE(writer_cfg.enable_auto_commit);
+    ASSERT_FALSE(writer_cfg.auto_commit_disabled);
 }
 
 /// @brief a reader that blocks for one sample period, as DAQmx does. A reader that

@@ -971,7 +971,7 @@ TEST_F(ModbusReadTest, testMultiChannelRead) {
     ASSERT_EQ(fr.at<uint16_t>(input_ch.key, 0), 54321);
 }
 
-/// Regression test to ensure enable_auto_commit is set to true in WriterConfig.
+/// Regression test to ensure auto commit is not disabled in WriterConfig.
 /// This prevents data from being written but not committed, making it unavailable for
 /// reads.
 TEST_F(ModbusReadTest, testModbusDriverSetsAutoCommitTrue) {
@@ -989,9 +989,8 @@ TEST_F(ModbusReadTest, testModbusDriverSetsAutoCommitTrue) {
     auto task_cfg = std::make_unique<ReadTaskConfig>(client, p);
     ASSERT_NIL(p.error());
 
-    // Verify that writer_config has enable_auto_commit set to true
     auto writer_cfg = task_cfg->writer_config();
-    ASSERT_TRUE(writer_cfg.enable_auto_commit);
+    ASSERT_FALSE(writer_cfg.auto_commit_disabled);
 }
 
 /// Regression test for buffer size calculation bug with UINT8 registers.
