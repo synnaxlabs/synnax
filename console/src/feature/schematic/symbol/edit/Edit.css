@@ -209,20 +209,29 @@
         position: relative;
     }
 
-    .console-schematic-region-list-item {
+    .console-schematic-part-list-item {
         padding-right: 0.5rem;
     }
 
-    .console-schematic-region-name {
-        min-width: 80px;
+    .console-schematic-part-list {
+        max-height: 300px;
     }
 
-    .console-schematic-region-list {
-        max-height: 200px;
+    .console-schematic__canvas {
+        position: relative;
+        min-width: 0;
     }
 
-    .console-schematic-state-list-item {
-        min-width: 80px;
+    .console-schematic__value-bar {
+        position: absolute;
+        bottom: 2rem;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 5;
+    }
+
+    .console-schematic-inspector {
+        padding: 2rem;
     }
 }
 

@@ -652,7 +652,7 @@ describe("MQTT read form", () => {
     const { icd: icdKey, messages } = plainOf((await retrieveEntries(draft.key))[0]);
     await waitFor(async () =>
       expect((await client.icds.retrieve(icdKey)).messages[0].payload).toMatchObject({
-        fields: [{ key: temperature.key }, { name: "Field 2", pointer: "" }],
+        fields: [{ key: temperature.key }, { name: "Field 2", pointer: "/field_2" }],
       }),
     );
     const [, added] = jsonFieldsOf(await client.icds.retrieve(icdKey));

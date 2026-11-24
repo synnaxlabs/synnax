@@ -90,7 +90,7 @@ class UserRegister(ConsoleCase):
         new_username = f"logintest_{random_name()}"
         self.log(f"Changing username: {self.username} -> {new_username}")
 
-        [password] = self.client.auth.retrieve_passwords(usernames=[self.username])
+        [password] = self.client.auth.passwords.retrieve(usernames=[self.username])
         self.client.users.change_username(UUID(password.subject.key), new_username)
         self.username = new_username
 

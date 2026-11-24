@@ -75,6 +75,26 @@ describe("symbol editor spec", () => {
     });
   });
 
+  describe("own", () => {
+    it("should not count a look of the whole drawing for a part", () => {
+      const looks: schematic.symbol.Look[] = [
+        { key: "a", part: "body", fill: fixed(BLUE) },
+        { key: "b", when: equals(0), fill: fixed(RED) },
+      ];
+      expect(Spec.own({ looks }, "body", "fill", 0)).toEqual(fixed(BLUE));
+      expect(Spec.own({ looks: looks.slice(1) }, "body", "fill", 0)).toBeUndefined();
+    });
+
+    it("should return the look of the whole drawing for the whole drawing", () => {
+      const looks: schematic.symbol.Look[] = [
+        { key: "a", part: "body", fill: fixed(BLUE) },
+        { key: "b", when: equals(0), fill: fixed(RED) },
+      ];
+      expect(Spec.own({ looks }, undefined, "fill", 0)).toEqual(fixed(RED));
+      expect(Spec.own({ looks }, undefined, "fill", 1)).toBeUndefined();
+    });
+  });
+
   describe("setOwn", () => {
     it("should add a drawing look after its last hider, not after every look", () => {
       const spec = createSpec({
@@ -431,6 +451,19 @@ describe("symbol editor spec", () => {
     });
   });
 
+  describe("nextPartName", () => {
+    it("should take the lowest number that no part has", () => {
+      const parts = [
+        { key: "a", name: "Part 2", selectors: [] },
+        { key: "b", name: "Part 3", selectors: [] },
+      ];
+      expect(Spec.nextPartName(parts)).toBe("Part 1");
+      expect(
+        Spec.nextPartName([...parts, { key: "c", name: "Part 1", selectors: [] }]),
+      ).toBe("Part 4");
+    });
+  });
+
   describe("removePart", () => {
     it("should remove the part and the looks on it", () => {
       const spec = createSpec({
@@ -461,6 +494,40 @@ describe("symbol editor spec", () => {
   });
 
   describe("setVariant", () => {
+    it("should copy a Base look of the whole drawing to Active", () => {
+      const spec = createSpec({
+        looks: [{ key: "a", when: equals(0), fill: fixed(RED) }],
+      });
+      const next = Spec.setVariant(spec, "actuator");
+      expect(next.looks).toEqual([
+        spec.looks[0],
+        { key: expect.any(String), when: equals(1), fill: fixed(RED) },
+      ]);
+    });
+
+    it("should copy a Base look of the whole drawing before the looks of parts", () => {
+      const spec = createSpec({
+        looks: [
+          { key: "a", when: equals(0), fill: fixed(RED) },
+          { key: "b", part: "body", when: equals(0, 1), fill: fixed(BLUE) },
+        ],
+      });
+      const next = Spec.setVariant(spec, "actuator");
+      expect(next.looks.map((l) => l.key)).toEqual(["a", expect.any(String), "b"]);
+      expect(Spec.effective(next, "body", "fill", 1)).toEqual(fixed(BLUE));
+    });
+
+    it("should drop an Active look of the whole drawing from a static symbol", () => {
+      const spec = createSpec({
+        variant: "actuator",
+        looks: [
+          { key: "a", when: equals(0), fill: fixed(RED) },
+          { key: "b", when: equals(1), fill: fixed(BLUE) },
+        ],
+      });
+      expect(Spec.setVariant(spec, "static").looks.map((l) => l.key)).toEqual(["a"]);
+    });
+
     it("should give an actuator the commands, the match, and the Base looks on Active", () => {
       const spec = createSpec({
         looks: [{ key: "a", part: "body", when: equals(0), stroke: fixed(RED) }],

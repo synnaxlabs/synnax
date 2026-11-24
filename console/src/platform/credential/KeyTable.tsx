@@ -30,18 +30,19 @@ const COLUMNS: List.Column[] = [
   { name: "Live sessions", width: "14rem" },
 ];
 
-const keyName = (k: auth.APIKey): string => (k.name === "" ? "Unnamed key" : k.name);
+const keyName = (k: auth.apiKey.APIKey): string =>
+  k.name === "" ? "Unnamed key" : k.name;
 
-interface KeyItemProps extends List.ItemProps<auth.APIKeyKey> {
+interface KeyItemProps extends List.ItemProps<auth.apiKey.Key> {
   sessions: number | null;
 }
 
 const KeyItem = ({ sessions, ...rest }: KeyItemProps): ReactElement | null => {
-  const k = List.useItem<auth.APIKeyKey, auth.APIKey>(rest.itemKey);
+  const k = List.useItem<auth.apiKey.Key, auth.apiKey.APIKey>(rest.itemKey);
   const itemClass = Settings.useItemClass(rest.itemKey);
   if (k == null) return null;
   return (
-    <Select.Item<auth.APIKeyKey>
+    <Select.Item<auth.apiKey.Key>
       {...rest}
       checkable
       align="center"
@@ -73,7 +74,7 @@ const KeyItem = ({ sessions, ...rest }: KeyItemProps): ReactElement | null => {
 interface KeyActions {
   canCreate: boolean;
   canDelete: boolean;
-  remove: (keys: auth.APIKeyKey[]) => void;
+  remove: (keys: auth.apiKey.Key[]) => void;
 }
 
 /** Deletes the subject's keys as the user's access allows. */
@@ -115,7 +116,7 @@ ActionsContext.displayName = "Credential.KeyActions";
 
 const KeysMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement => {
   const actions = use(ActionsContext);
-  const { getItem } = List.useUtilContext<auth.APIKeyKey, auth.APIKey>();
+  const { getItem } = List.useUtilContext<auth.apiKey.Key, auth.apiKey.APIKey>();
   const items = (getItem?.(keys) ?? []).map((k) => ({ ...k, name: keyName(k) }));
   const confirm = Modals.useConfirmDelete({
     type: "API key",
@@ -152,16 +153,16 @@ export const KeyTable = ({ subject }: KeyTableProps): ReactElement => {
   const openCreate = useCreateKeyModal();
   const keys = Credential.useResultAPIKeys({ subject });
   const sessions = Credential.useResultSessions({ subject });
-  const list = List.useStaticData<auth.APIKeyKey, auth.APIKey>({
+  const list = List.useStaticData<auth.apiKey.Key, auth.apiKey.APIKey>({
     data: keys.data ?? [],
   });
-  const sessionCount = (key: auth.APIKeyKey): number | null =>
+  const sessionCount = (key: auth.apiKey.Key): number | null =>
     sessions.variant === "success"
       ? sessions.data.filter((s) => s.credential === key).length
       : null;
   return (
     <ActionsContext value={actions}>
-      <Settings.Table<auth.APIKeyKey, auth.APIKey>
+      <Settings.Table<auth.apiKey.Key, auth.apiKey.APIKey>
         list={{ ...list, answered: keys.variant !== "loading", status: keys.status }}
         columns={COLUMNS}
         noun="API keys"

@@ -20,15 +20,16 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
-import { Theming } from "@synnaxlabs/lyra/theming";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Text } from "@synnaxlabs/lyra/text";
 import { Schematic } from "@synnaxlabs/pluto";
-import { type bounds, color, id, type xy } from "@synnaxlabs/x";
+import { type bounds, id, type xy } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 
 import { HandleList } from "@/feature/schematic/symbol/edit/HandleList";
+import { Inspector } from "@/feature/schematic/symbol/edit/Inspector";
+import { PartList } from "@/feature/schematic/symbol/edit/PartList";
 import { Preview } from "@/feature/schematic/symbol/edit/Preview";
-import { RegionList } from "@/feature/schematic/symbol/edit/RegionList";
-import { StateList } from "@/feature/schematic/symbol/edit/StateList";
 import { useValues } from "@/feature/schematic/symbol/edit/useValues";
 import { SelectVariantField } from "@/feature/schematic/symbol/SelectVariant";
 import { Spec } from "@/feature/schematic/symbol/spec";
@@ -53,17 +54,35 @@ export interface ModalParams {
 
 const SCALE_BOUNDS: bounds.Bounds = { lower: 5, upper: 1000 };
 
-const DEFAULT_REGION_KEY = "default";
-
-interface StatesProps {
+interface ValueBarProps {
   value: number;
   onChange: (value: number) => void;
 }
 
-// States lists the values of the state, named by the entries of its enumeration.
-const States = ({ value, onChange }: StatesProps): ReactElement | null => (
-  <StateList value={value} onChange={onChange} tabs={useValues().list} />
-);
+// ValueBar picks the value of the state that the canvas draws.
+const ValueBar = ({ value, onChange }: ValueBarProps): ReactElement | null => {
+  const { list } = useValues();
+  if (list.length < 2) return null;
+  return (
+    <Flex.Box x align="center" gap="small" className={CSS.BE("schematic", "value-bar")}>
+      <Text.Text level="small" color={9}>
+        Preview
+      </Text.Text>
+      <Select.Buttons<number>
+        value={value}
+        onChange={onChange}
+        size="small"
+        variant="outlined"
+      >
+        {list.map((v) => (
+          <Select.Item<number> key={v.value} itemKey={v.value} size="small">
+            {v.name}
+          </Select.Item>
+        ))}
+      </Select.Buttons>
+    </Flex.Box>
+  );
+};
 
 const Editor = ({
   symbolKey,
@@ -72,7 +91,6 @@ const Editor = ({
   close,
 }: Modals.ContentProps<ModalParams, void>): ReactElement => {
   const isCreate = symbolKey == null;
-  const theme = Theming.use();
   const { form, save, variant } = Schematic.Symbol.useForm({
     query: symbolKey == null ? null : { key: symbolKey },
     initialValues: {
@@ -96,32 +114,20 @@ const Editor = ({
     afterSave: () => close(),
   });
   Modals.useBusy(variant === "loading");
-  const [selectedValue, setSelectedValue, selectedValueRef] =
-    useCombinedStateAndRef<number>(0);
-  const [selectedRegion, setSelectedRegion, selectedRegionRef] =
-    useCombinedStateAndRef<string>(DEFAULT_REGION_KEY);
+  const [selectedValue, setSelectedValue] = useState(0);
+  const [selectedPart, setSelectedPart, selectedPartRef] =
+    useCombinedStateAndRef<Spec.Target>(undefined);
   const [selectedHandle, setSelectedHandle] = useState<string | undefined>(undefined);
 
-  const addNewRegion = () => {
-    const spec = form.get(path.data).value;
+  const addPart = () => {
+    const parts = form.get(path.data.parts).value;
     const part: schematic.symbol.Part = {
-      key: `reg-${id.create()}`,
-      name: `Region ${spec.parts.length + 1}`,
+      key: `part-${id.create()}`,
+      name: Spec.nextPartName(parts),
       selectors: [],
     };
-    const value = selectedValueRef.current;
-    const stroke = theme.colors.gray.l10;
-    const withPart = { ...spec, parts: [...spec.parts, part] };
-    const paint = (c: color.Color): schematic.symbol.Paint => ({
-      type: "color",
-      value: { type: "fixed", value: c },
-    });
-    const stroked = Spec.setOwn(withPart, part.key, "stroke", paint(stroke), value);
-    form.set(
-      path.data,
-      Spec.setOwn(stroked, part.key, "fill", paint(color.setOpacity(stroke, 0)), value),
-    );
-    setSelectedRegion(part.key);
+    form.set(path.data.parts, [...parts, part]);
+    setSelectedPart(part.key);
   };
 
   const addNewHandle = () => {
@@ -146,15 +152,14 @@ const Editor = ({
     }
   };
 
-  const handleElementClick = (selector: string) =>
+  const handleElementClick = (selector: string) => {
+    const part = selectedPartRef.current;
+    if (part == null) return;
     form.set(
       path.data.parts,
-      Spec.toggleSelector(
-        form.get(path.data.parts).value,
-        selectedRegionRef.current,
-        selector,
-      ),
+      Spec.toggleSelector(form.get(path.data.parts).value, part, selector),
     );
+  };
   const hasSVG =
     Form.useFieldValue(path.data.drawing.markup, {
       ctx: form,
@@ -200,18 +205,16 @@ const Editor = ({
                   </Header.Header>
                   <Flex.Box className={CSS.BE("schematic", "states")}>
                     <SelectVariantField onSelectValue={setSelectedValue} />
-                    <States value={selectedValue} onChange={setSelectedValue} />
                   </Flex.Box>
                 </Flex.Box>
                 <Divider.Divider x />
-                <RegionList
-                  value={selectedRegion}
+                <PartList
+                  value={selectedPart}
                   onChange={(value) => {
-                    setSelectedRegion(value);
+                    setSelectedPart(value);
                     setSelectedHandle(undefined);
                   }}
-                  selectedValue={selectedValue}
-                  onAddRegion={addNewRegion}
+                  onAdd={addPart}
                 />
                 <Divider.Divider x />
                 <HandleList
@@ -250,22 +253,41 @@ const Editor = ({
                 </Flex.Box>
               </Flex.Box>
             )}
-            <Form.Field
-              path={path.data.drawing.markup}
-              showLabel={false}
-              showHelpText={false}
-            >
-              {({ onChange }) => (
-                <Preview
-                  selectedValue={selectedValue}
-                  selectedHandle={selectedHandle}
-                  onElementClick={handleElementClick}
-                  onContentsChange={onChange}
-                  onHandlePlace={handleHandlePlace}
-                  onHandleSelect={setSelectedHandle}
+            <Flex.Box y grow className={CSS.BE("schematic", "canvas")}>
+              <Form.Field
+                path={path.data.drawing.markup}
+                showLabel={false}
+                showHelpText={false}
+              >
+                {({ onChange }) => (
+                  <Preview
+                    selectedValue={selectedValue}
+                    selectedHandle={selectedHandle}
+                    onElementClick={handleElementClick}
+                    onContentsChange={onChange}
+                    onHandlePlace={handleHandlePlace}
+                    onHandleSelect={setSelectedHandle}
+                  />
+                )}
+              </Form.Field>
+              {hasSVG && <ValueBar value={selectedValue} onChange={setSelectedValue} />}
+            </Flex.Box>
+            {hasSVG && (
+              <Flex.Box
+                className={CSS.BE("schematic", "sidebar")}
+                y
+                rounded="small"
+                background={0}
+                bordered
+                borderColor={6}
+              >
+                <Inspector
+                  key={selectedPart ?? ""}
+                  part={selectedPart}
+                  preview={selectedValue}
                 />
-              )}
-            </Form.Field>
+              </Flex.Box>
+            )}
           </Flex.Box>
         </Modal.Body>
         {hasSVG && (

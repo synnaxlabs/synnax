@@ -106,6 +106,23 @@ export const effective = <F extends Field>(
   spec.looks.findLast((l) => reaches(l, target, value) && l[field] != null)?.[field];
 
 /**
+ * @returns the field that the looks of target give it at value, or at every value when
+ * value is undefined. Looks of the whole drawing do not count for a part.
+ */
+export const own = <F extends Field>(
+  spec: Pick<Spec, "looks">,
+  target: Target,
+  field: F,
+  value?: number,
+): Look[F] | undefined =>
+  effective(
+    { looks: spec.looks.filter((l) => l.part === target) },
+    target,
+    field,
+    value,
+  );
+
+/**
  * @returns spec in which target owns v for field at value alone, or at every value when
  * value is undefined. A new look on a value adds the state when spec lacks it. With no
  * v, it takes field off the looks that target owns there, and a look on more values
@@ -153,6 +170,14 @@ export const setOwn = <F extends Field>(
   };
 };
 
+/** @returns the name "Part N" with the lowest N that no part in parts has. */
+export const nextPartName = (parts: schematic.symbol.Part[]): string => {
+  const taken = new Set(parts.map((p) => p.name));
+  let n = 1;
+  while (taken.has(`Part ${n}`)) n++;
+  return `Part ${n}`;
+};
+
 /** @returns spec without part and the looks on it. */
 export const removePart = (spec: Spec, part: string): Spec => ({
   ...spec,
@@ -193,7 +218,7 @@ const withState = (spec: Spec, match: schematic.symbol.Matcher): Spec["states"] 
 export const setVariant = (spec: Spec, variant: string): Spec => {
   if (variant === "actuator") {
     const copies = spec.looks
-      .filter((l) => l.part != null && only(l, l.part, BASE))
+      .filter((l) => only(l, l.part, BASE))
       .map((l) => ({
         ...l,
         key: `look-${id.create()}`,
@@ -206,7 +231,7 @@ export const setVariant = (spec: Spec, variant: string): Spec => {
         type: "within",
         bounds: { lower: 0.9, upper: 1.1 },
       }),
-      looks: [...spec.looks, ...copies],
+      looks: copies.reduce((ls, c) => ls.toSpliced(slot(ls, c), 0, c), spec.looks),
       commands: [
         {
           key: DEACTIVATE,
@@ -228,7 +253,7 @@ export const setVariant = (spec: Spec, variant: string): Spec => {
     ...spec,
     variant,
     states: withState(spec, { type: "exact" }),
-    looks: spec.looks.filter((l) => l.part == null || !only(l, l.part, ACTIVE)),
+    looks: spec.looks.filter((l) => !only(l, l.part, ACTIVE)),
     commands: [],
     interactions: [],
   };

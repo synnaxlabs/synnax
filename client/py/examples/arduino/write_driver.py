@@ -21,6 +21,7 @@ client = sy.Synnax(
     port=9090,
     username="synnax",
     password="seldon",
+    secure=False,
 )
 
 command_channel = client.channels.create(
