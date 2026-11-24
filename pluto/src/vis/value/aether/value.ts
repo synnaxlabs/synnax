@@ -96,7 +96,7 @@ export class Value
     });
     i.fontString = theme.fontString(i.theme, {
       level: this.state.level,
-      numeric: true,
+      variant: "numeric",
     });
     i.backgroundTelem = telem.useSource(
       ctx,

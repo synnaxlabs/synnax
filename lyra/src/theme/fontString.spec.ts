@@ -15,14 +15,14 @@ const THEME = theme.themeZ.parse(theme.SYNNAX_LIGHT);
 
 describe("fontString", () => {
   it("should draw numeric text in the tabular face at its weight", () => {
-    expect(theme.fontString(THEME, { level: "p", weight: 450, numeric: true })).toMatch(
-      /^ 450 [\d.]+px Inter Tabular, sans-serif$/,
-    );
+    expect(
+      theme.fontString(THEME, { level: "p", weight: 450, variant: "numeric" }),
+    ).toMatch(/^ 450 [\d.]+px Inter Tabular, sans-serif$/);
   });
 
   it("should draw code in the code face", () => {
-    expect(
-      theme.fontString(THEME, { level: "p", code: true, numeric: true }),
-    ).toContain(THEME.typography.codeFamily);
+    expect(theme.fontString(THEME, { level: "p", variant: "code" })).toContain(
+      THEME.typography.codeFamily,
+    );
   });
 });

@@ -137,7 +137,7 @@ describe("value/aether/Value", () => {
       recorder.clear();
       component.render({});
       expect(drawCalls(recorder, "set:font").at(-1)?.args[0]).toBe(
-        theme.fontString(THEME, { level: "h2", numeric: true }),
+        theme.fontString(THEME, { level: "h2", variant: "numeric" }),
       );
     });
 

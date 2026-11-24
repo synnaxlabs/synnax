@@ -101,7 +101,7 @@ describe("stringValue.StringValue", () => {
     it("should draw with tabular digits at the configured level", () => {
       const { recorder } = setup({ value: "IDLE", state: { level: "h2" } });
       expect(calls(recorder, "set:font").at(-1)?.args[0]).toBe(
-        theme.fontString(THEME, { level: "h2", numeric: true }),
+        theme.fontString(THEME, { level: "h2", variant: "numeric" }),
       );
     });
 

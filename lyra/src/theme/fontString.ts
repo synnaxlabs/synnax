@@ -12,12 +12,13 @@ import type { text } from "@synnaxlabs/x";
 import { Component } from "@/component";
 import type { ThemeSpec } from "@/theme/theme";
 
+/** The canvas face: Inter, Inter with tabular digits ("Inter Tabular"), or code. */
+export type FontVariant = "prose" | "numeric" | "code";
+
 interface FontStringOptions {
   level: text.Level | Component.Size;
   weight?: text.Weight;
-  code?: boolean;
-  /** Inter with tabular digits. A host registers the face as "Inter Tabular". */
-  numeric?: boolean;
+  variant?: FontVariant;
 }
 
 type FontThreshold = {
@@ -50,15 +51,15 @@ const matchThreshold = (weight: text.Weight): FontThreshold | undefined =>
 
 export const fontString = (
   theme: ThemeSpec,
-  { level, weight, code, numeric }: FontStringOptions,
+  { level, weight, variant = "prose" }: FontStringOptions,
 ): string => {
   const {
     typography,
     sizes: { base },
   } = theme;
   let fmly = typography.family;
-  if (code) fmly = typography.codeFamily;
-  else if (numeric === true) fmly = NUMERIC_FAMILY;
+  if (variant === "code") fmly = typography.codeFamily;
+  else if (variant === "numeric") fmly = NUMERIC_FAMILY;
   else if (weight != null) {
     const threshold = matchThreshold(weight);
     if (threshold != null) fmly = threshold.value;

@@ -467,7 +467,7 @@ export class Scale
     const { units } = this.state;
     const { theme, tickLevel, fillColor } = this.internal;
     const ctx = draw.canvas;
-    ctx.font = baseTheme.fontString(theme, { level: tickLevel, numeric: true });
+    ctx.font = baseTheme.fontString(theme, { level: tickLevel, variant: "numeric" });
     const value = ctx.textDimensions(valueText, { useAtlas: true });
     const unitsWidth =
       units.length === 0
@@ -498,7 +498,7 @@ export class Scale
         justify: "left",
         align: "alphabetic",
         shade: 11,
-        numeric: true,
+        variant: "numeric",
         useAtlas: true,
       });
     text(valueText, left);
@@ -543,7 +543,7 @@ export class Scale
         color: textColor,
         align: vertical ? "center" : dir > 0 ? "top" : "bottom",
         justify: vertical ? (dir > 0 ? "left" : "right") : "center",
-        numeric: true,
+        variant: "numeric",
         useAtlas: true,
       });
     });

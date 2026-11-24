@@ -62,7 +62,7 @@ export class StringValue
     i.theme = theming.use(ctx);
     i.fontString = theme.fontString(i.theme, {
       level: this.state.level,
-      numeric: true,
+      variant: "numeric",
     });
     i.source = telem.useSource(ctx, this.state.telem, i.source);
     i.staleness = staleness.useStateRegistration(ctx, i.staleness, this, i.source);
