@@ -1095,6 +1095,70 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       expect(await screen.findByLabelText("Fill while Trip")).toBeDefined();
     });
 
+    it("keeps a command that a toggle sends fixed on its state", async () => {
+      const on = (key: string, value: number): schematic.symbol.Command => ({
+        key,
+        name: key,
+        state: "active",
+        value: { type: "fixed", value },
+      });
+      await openPainted({
+        states: [createState()],
+        commands: [on("off", 0), on("on", 1)],
+        interactions: [{ type: "next", key: "c", commands: ["off", "on"] }],
+      });
+      fireEvent.click(screen.getByText("on"));
+      await screen.findByRole("heading", { name: "on" });
+      const off = (text: string) =>
+        within(getInspector())
+          .getByText(text)
+          .closest("button")
+          ?.getAttribute("aria-disabled");
+      expect(off("None")).toBe("true");
+      expect(off("Ask")).toBe("true");
+      // Off sends Base, so On cannot.
+      expect(off("Base")).toBe("true");
+    });
+
+    it("starts a fixed value at the default of a new state", async () => {
+      const enumeration = await client.enumerations.create({
+        name: uniqueName("mode"),
+        entries: [
+          { key: "one", value: 1, name: "One" },
+          { key: "two", value: 2, name: "Two" },
+        ],
+      });
+      const mode = {
+        ...createState(enumeration.key),
+        key: "mode",
+        name: "Mode",
+        default: 2,
+      };
+      const symbol = await openPainted({
+        states: [createState(), mode],
+        commands: [GO],
+      });
+      fireEvent.click(screen.getByText("Go"));
+      fireEvent.click(await within(getInspector()).findByText("Mode"));
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () => {
+        const saved = await client.schematics.symbols.retrieve(symbol.key);
+        expect(saved.data.commands).toEqual([
+          { ...GO, state: "mode", value: { type: "fixed", value: 2 } },
+        ]);
+      });
+    });
+
+    it("shows the whole drawing again on a click of it after a command", async () => {
+      await openFault();
+      fireEvent.click(screen.getByText("Go"));
+      await screen.findByRole("heading", { name: "Go" });
+      fireEvent.click(getPartListItem("Whole drawing"));
+      expect(
+        await screen.findByRole("heading", { name: "Whole drawing" }),
+      ).toBeDefined();
+    });
+
     it("saves a symbol with no click as static", async () => {
       const symbol = await openPainted({
         variant: "actuator",

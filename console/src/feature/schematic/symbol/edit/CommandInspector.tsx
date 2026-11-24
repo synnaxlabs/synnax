@@ -26,6 +26,8 @@ const path = Schematic.Symbol.formPath;
 const NONE = "";
 
 const ASK_NEEDS_STATE = "A command that asks for a value needs a state.";
+const TOGGLED = "A toggle sends this command, so it keeps a fixed value on its state.";
+const TAKEN = "The other command of its toggle sends this value.";
 
 export interface CommandInspectorProps {
   /** command is the key of the command to edit. */
@@ -41,22 +43,45 @@ export const CommandInspector = ({
 }: CommandInspectorProps): ReactElement | null => {
   const command = Form.useFieldValue(path.data.commands[key], { optional: true });
   const states = Form.useFieldValue(path.data.states);
-  const { set } = Form.useContext();
+  const commands = Form.useFieldValue(path.data.commands);
+  const interactions = Form.useFieldValue(path.data.interactions);
+  const { get, set } = Form.useContext();
   const values = useValues(command?.state);
   if (command == null) return null;
-  const update = (next: Partial<schematic.symbol.Command>) =>
-    set(path.data.commands[key], { ...command, ...next });
-  const handleStateChange = (state: string) =>
+  // A late commit of the number field reads the command as it is then.
+  const update = (next: Partial<schematic.symbol.Command>) => {
+    const current = get(path.data.commands[key], { optional: true })?.value;
+    if (current != null) set(path.data.commands[key], { ...current, ...next });
+  };
+  // A fixed value starts at the default of an enumeration state, an entry of it.
+  const start = (state?: string): number => {
+    const found = states.find((s) => s.key === state);
+    return found?.type === "enumeration" ? found.default : 0;
+  };
+  const handleStateChange = (state: string) => {
+    const next = state === NONE ? undefined : state;
     update({
-      state: state === NONE ? undefined : state,
+      state: next,
       value:
-        state === NONE && command.value.type === "ask"
-          ? { type: "fixed", value: 0 }
+        command.value.type === "fixed" || next == null
+          ? { type: "fixed", value: start(next) }
           : command.value,
     });
+  };
   const fixed = (value: number) => update({ value: { type: "fixed", value } });
+  // The Core refuses a toggle unless its commands send other fixed values on one state.
+  const partners = interactions.flatMap((i) =>
+    i.type === "next" && i.commands.includes(key)
+      ? i.commands.filter((c) => c !== key)
+      : [],
+  );
+  const toggled = partners.length > 0;
+  const taken = commands.flatMap((c) =>
+    partners.includes(c.key) && c.value.type === "fixed" ? [c.value.value] : [],
+  );
   // useValues falls back to another state when the command's state lists no values.
-  const listed = command.state != null && values.state === command.state;
+  const listed =
+    command.state != null && values.state === command.state && values.list.length > 0;
   return (
     <Flex.Box y gap="medium" className={CSS.B("schematic-inspector")}>
       <Text.Text level="h5">{command.name}</Text.Text>
@@ -68,11 +93,22 @@ export const CommandInspector = ({
           size="small"
           variant="outlined"
         >
-          <Select.Item<string> itemKey={NONE} size="small">
+          <Select.Item<string>
+            itemKey={NONE}
+            size="small"
+            disabled={toggled}
+            tooltip={toggled ? TOGGLED : undefined}
+          >
             None
           </Select.Item>
           {states.map((s) => (
-            <Select.Item<string> key={s.key} itemKey={s.key} size="small">
+            <Select.Item<string>
+              key={s.key}
+              itemKey={s.key}
+              size="small"
+              disabled={toggled && s.key !== command.state}
+              tooltip={toggled && s.key !== command.state ? TOGGLED : undefined}
+            >
               {s.name}
             </Select.Item>
           ))}
@@ -82,7 +118,9 @@ export const CommandInspector = ({
         <Select.Buttons<schematic.symbol.CommandValueType>
           value={command.value.type}
           onChange={(type: schematic.symbol.CommandValueType) =>
-            update({ value: type === "ask" ? { type } : { type, value: 0 } })
+            update({
+              value: type === "ask" ? { type } : { type, value: start(command.state) },
+            })
           }
           size="small"
           variant="outlined"
@@ -93,8 +131,10 @@ export const CommandInspector = ({
           <Select.Item<schematic.symbol.CommandValueType>
             itemKey="ask"
             size="small"
-            disabled={command.state == null}
-            tooltip={command.state == null ? ASK_NEEDS_STATE : undefined}
+            disabled={command.state == null || toggled}
+            tooltip={
+              toggled ? TOGGLED : command.state == null ? ASK_NEEDS_STATE : undefined
+            }
           >
             Ask
           </Select.Item>
@@ -108,7 +148,13 @@ export const CommandInspector = ({
               variant="outlined"
             >
               {values.list.map((v) => (
-                <Select.Item<number> key={v.value} itemKey={v.value} size="small">
+                <Select.Item<number>
+                  key={v.value}
+                  itemKey={v.value}
+                  size="small"
+                  disabled={taken.includes(v.value)}
+                  tooltip={taken.includes(v.value) ? TAKEN : undefined}
+                >
                   {v.name}
                 </Select.Item>
               ))}

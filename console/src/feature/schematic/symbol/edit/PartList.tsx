@@ -30,7 +30,9 @@ const path = Schematic.Symbol.formPath;
 // WHOLE_DRAWING is the list key of the whole drawing, which has no part key.
 const WHOLE_DRAWING = "";
 
-export interface PartListProps extends Input.Control<Spec.Target> {
+export interface PartListProps extends Omit<Input.Control<Spec.Target>, "value"> {
+  /** value is the picked part, undefined for the whole drawing, or null for none. */
+  value: Spec.Target | null;
   onAdd: () => void;
 }
 
@@ -114,7 +116,7 @@ export const PartList = ({ value, onChange, onAdd }: PartListProps): ReactElemen
         </Header.Actions>
       </Header.Header>
       <Select.Frame
-        value={value ?? WHOLE_DRAWING}
+        value={value === null ? undefined : (value ?? WHOLE_DRAWING)}
         onChange={(key: string) => onChange(key === WHOLE_DRAWING ? undefined : key)}
         data={[WHOLE_DRAWING, ...parts.map((p) => p.key)]}
         closeDialogOnSelect={false}

@@ -308,11 +308,12 @@ const Editor = ({
                       remove={Spec.removeState}
                       value={preview.state}
                       onChange={(key) => {
+                        // The preview shows enumeration states alone.
                         const state = states.find((s) => s.key === key);
-                        if (state == null) return;
+                        if (state?.type !== "enumeration") return;
                         setPreview({
                           state: state.key,
-                          value: state.type === "enumeration" ? state.default : 0,
+                          value: state.default,
                         });
                       }}
                       onRemove={() => {
@@ -362,7 +363,7 @@ const Editor = ({
                 )}
                 <Divider.Divider x />
                 <PartList
-                  value={selectedPart}
+                  value={shownCommand == null ? selectedPart : null}
                   onChange={(value) => {
                     selectPart(value);
                     setSelectedHandle(undefined);
