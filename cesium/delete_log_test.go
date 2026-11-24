@@ -487,6 +487,7 @@ var _ = Describe("Delete on the pointer log", func() {
 				cesium.WithFS(fs),
 				cesium.WithPointerLog(),
 				cesium.WithRandom(rand.NewPCG(1, 2)),
+				cesium.WithIdentity(id),
 				cesium.WithInstrumentation(
 					alamos.New("test", alamos.WithLogger(logger)),
 				),

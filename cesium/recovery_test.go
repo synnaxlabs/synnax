@@ -215,6 +215,7 @@ var _ = Describe("Recovery", func() {
 		Eventually(func() (bool, error) { return fs.Exists(log.Name(2)) }).
 			Should(BeTrue())
 		stop()
+		id := db.Identity()
 		Expect(db.Close()).To(Succeed())
 		db = MustSucceed(cesium.Open(
 			ctx,
@@ -222,6 +223,7 @@ var _ = Describe("Recovery", func() {
 			cesium.WithFS(fs),
 			cesium.WithPointerLog(),
 			cesium.WithLogFileSize(telem.Size(log.MinFileSize)),
+			cesium.WithIdentity(id),
 		))
 		StartRun(db.Run)()
 		Expect(db.Close()).To(Succeed())
