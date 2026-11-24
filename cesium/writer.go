@@ -194,6 +194,8 @@ func (w *Writer) EndStretch(ctx context.Context) error {
 type unaryWriterState struct {
 	unary.Writer
 	lastWriteCall int
+	// uncommitted is true when the channel wrote samples since its last commit.
+	uncommitted bool
 }
 
 // idxWriter is a writer to a set of channels that all share the same index.
@@ -329,6 +331,7 @@ func (w *idxWriter) write(
 			skipped = true
 			continue
 		}
+		uWriter.uncommitted = true
 		if !incrementedSampleCount {
 			w.countSamples(alignment, series.Len())
 			incrementedSampleCount = true
@@ -481,6 +484,7 @@ func (w *idxWriter) Commit(
 	skipped := false
 	commit := func(chW *unaryWriterState) bool {
 		keySkipped, cErr := chW.CommitWithEndUnless(ctx, end.Lower, &w.group, skip)
+		chW.uncommitted = chW.uncommitted && (keySkipped || cErr != nil)
 		skipped = skipped || keySkipped
 		// Every channel shares the same end, so their errors repeat. Keep the first.
 		if err == nil {
@@ -538,6 +542,7 @@ func (w *idxWriter) commitPendingData(
 			continue
 		}
 		keySkipped, cErr := chW.CommitWithEndUnless(ctx, end, &w.group, skip)
+		chW.uncommitted = chW.uncommitted && (keySkipped || cErr != nil)
 		skipped = skipped || keySkipped
 		// Every channel shares the same end, so their errors repeat. Keep the first.
 		if err == nil {

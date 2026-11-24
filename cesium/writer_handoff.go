@@ -244,14 +244,19 @@ func (db *DB) handoffIdx(
 	if len(old.held) > 0 && len(next.held) == 0 {
 		next.hasUncommittedData = true
 	}
-	if len(old.internal) == 0 {
-		return next, nil, nil
+	// Only the channels that wrote since their last commit have samples to hand on.
+	var err error
+	for key, u := range old.internal {
+		if !u.uncommitted {
+			err = errors.Join(err, u.Close())
+			delete(old.internal, key)
+		}
+	}
+	if err != nil || len(old.internal) == 0 {
+		return next, nil, err
 	}
 	p := old.runState(old.internal)
-	p.dataPending, p.hasUncommittedData = old.holdsUncommitted(), false
-	if !p.dataPending {
-		return next, nil, p.Close()
-	}
+	p.dataPending, p.hasUncommittedData = true, false
 	return next, &Pending{idx: p}, nil
 }
 
