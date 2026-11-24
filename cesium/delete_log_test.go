@@ -361,7 +361,9 @@ var _ = Describe("Delete on the pointer log", func() {
 				Channels: []cesium.ChannelKey{data},
 			}))
 			Expect(iter.SeekFirst()).To(BeTrue())
-			Expect(db.Drop([]cesium.ChannelKey{data})).To(Succeed())
+			Expect(
+				db.Drop(context.Background(), []cesium.ChannelKey{data}),
+			).To(Succeed())
 			var got []int64
 			for iter.Next(cesium.AutoSpan) {
 				for _, s := range iter.Value().Get(data).Series {

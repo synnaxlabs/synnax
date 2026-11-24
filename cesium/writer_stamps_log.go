@@ -11,6 +11,7 @@ package cesium
 
 import (
 	"cmp"
+	"context"
 	"math"
 	"slices"
 
@@ -232,6 +233,7 @@ func (e *engine) stampEnds(
 // own series with the alignment of its first stamp. The samples with no stored stamp
 // stream with one alignment number of data that is not stored, and are never stored.
 func (w *logWriter) writeData(
+	ctx context.Context,
 	fr Frame,
 	n uint32,
 	skip func(ChannelKey) bool,
@@ -263,7 +265,7 @@ func (w *logWriter) writeData(
 			lk, s := w.byKey[keys[i]], whole[i]
 			to := w.cuts[i] + sampleBytes(s, w.cuts[i], p.samples)
 			if !w.unstored {
-				if err = w.append(lk, s.Data[w.cuts[i]:to]); err != nil {
+				if err = w.append(ctx, lk, s.Data[w.cuts[i]:to]); err != nil {
 					w.putBack()
 					return fr, false, err
 				}

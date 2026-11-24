@@ -10,8 +10,10 @@
 package state_test
 
 import (
+	"context"
 	"strconv"
 	"sync"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -59,8 +61,26 @@ var _ = Describe("Writer", func() {
 
 	open := func(cfg state.WriterConfig) *state.Writer {
 		GinkgoHelper()
-		return MustSucceed(s.OpenWriter(cfg))
+		return MustSucceed(s.OpenWriter(context.Background(), cfg))
 	}
+
+	It("Should return at the deadline of an open that waits for Run, and never run it",
+		func() {
+			a = &appended{}
+			s = MustSucceed(state.Open(config(a), head(5, 3)))
+			a.s, a.seq = s, 3
+			ctx, cancel := context.WithTimeout(
+				context.Background(),
+				50*time.Millisecond,
+			)
+			defer cancel()
+			Expect(s.OpenWriter(ctx, clockWriter(50, true, 5))).Error().
+				To(MatchError(context.DeadlineExceeded))
+			run(s)
+			// The open that gave up holds no claim, so the same start opens.
+			w := open(clockWriter(50, true, 5))
+			Expect(w.Close()).To(Succeed())
+		})
 
 	It("Should give out segment identities from the durable limit, after a Reserve of "+
 		"16 and then of 1,024", func() {
@@ -229,10 +249,15 @@ var _ = Describe("Writer", func() {
 			).
 				To(Succeed())
 			Expect(w.Close()).To(Succeed())
-			Expect(s.OpenWriter(clockWriter(50, true, 5))).Error().To(SatisfyAll(
-				conflict(),
-				MatchError(ContainSubstring("inside its stored data from 40 to 60")),
-			))
+			Expect(
+				s.OpenWriter(context.Background(), clockWriter(50, true, 5)),
+			).Error().
+				To(SatisfyAll(
+					conflict(),
+					MatchError(
+						ContainSubstring("inside its stored data from 40 to 60"),
+					),
+				))
 		})
 
 		DescribeTable(
@@ -352,17 +377,24 @@ var _ = Describe("Writer", func() {
 
 		It("Should refuse a second writer that is not bounded on a key", func() {
 			open(clockWriter(100, false, 5))
-			Expect(s.OpenWriter(clockWriter(200, false, 5))).Error().To(SatisfyAll(
-				conflict(),
-				MatchError(
-					ContainSubstring("reaches the claim of another writer from 100"),
-				),
-			))
+			Expect(
+				s.OpenWriter(context.Background(), clockWriter(200, false, 5)),
+			).Error().
+				To(SatisfyAll(
+					conflict(),
+					MatchError(
+						ContainSubstring(
+							"reaches the claim of another writer from 100",
+						),
+					),
+				))
 		})
 
 		It("Should refuse a bounded writer that starts inside another claim", func() {
 			open(clockWriter(100, false, 5))
-			Expect(s.OpenWriter(clockWriter(150, true, 5))).Error().
+			Expect(
+				s.OpenWriter(context.Background(), clockWriter(150, true, 5)),
+			).Error().
 				To(conflict())
 		})
 
@@ -407,10 +439,15 @@ var _ = Describe("Writer", func() {
 				w.Commit([]*log.Commit{commit(2, n, 0, 100, 110, slot(id, 16))}),
 			).To(Succeed())
 			Expect(w.Close()).To(Succeed())
-			Expect(s.OpenWriter(clockWriter(105, true, 5))).Error().To(SatisfyAll(
-				conflict(),
-				MatchError(ContainSubstring("inside its stored data from 100 to 110")),
-			))
+			Expect(
+				s.OpenWriter(context.Background(), clockWriter(105, true, 5)),
+			).Error().
+				To(SatisfyAll(
+					conflict(),
+					MatchError(
+						ContainSubstring("inside its stored data from 100 to 110"),
+					),
+				))
 		})
 
 		It("Should move a live claim back to its first stamp, over time no one wrote",
@@ -421,7 +458,9 @@ var _ = Describe("Writer", func() {
 				Expect(
 					w.Commit([]*log.Commit{commit(2, n, 0, 50, 60, slot(id, 16))}),
 				).To(Succeed())
-				Expect(s.OpenWriter(clockWriter(70, true, 5))).Error().
+				Expect(
+					s.OpenWriter(context.Background(), clockWriter(70, true, 5)),
+				).Error().
 					To(conflict())
 			})
 

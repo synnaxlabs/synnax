@@ -75,11 +75,13 @@ var _ = Describe("Purge", func() {
 		}
 		recorded = ch.Key()
 		l := openLayer(ctx)
+		stop := StartRun(l.Run)
 		createIndex(ctx, l, orphan)
 		createIndex(ctx, l, recorded)
 		Expect(gorp.NewCreate[channel.Key, channel.Channel]().
 			Entry(&ch).
 			Exec(ctx, l.Gorp)).To(Succeed())
+		stop()
 		Expect(l.Close()).To(Succeed())
 	})
 	run := func(vsn string, args ...string) (string, error) {

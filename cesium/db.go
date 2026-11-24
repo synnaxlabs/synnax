@@ -98,12 +98,17 @@ type DB struct {
 
 // lockRoot takes db.mu for a call that removes files or directories of the root. On the
 // pointer log, it first waits for the orphan pass of Run, which lists and removes files
-// with no lock.
-func (db *DB) lockRoot() {
+// with no lock. It returns the error of ctx, and takes no lock, when ctx ends first.
+func (db *DB) lockRoot(ctx context.Context) error {
 	if db.engine != nil {
-		<-db.engine.ready
+		select {
+		case <-db.engine.ready:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
 	}
 	db.mu.Lock()
+	return nil
 }
 
 // Read reads from the database at the specified time range and outputs a frame.

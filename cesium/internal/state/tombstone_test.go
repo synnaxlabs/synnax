@@ -10,6 +10,8 @@
 package state_test
 
 import (
+	"context"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/log"
@@ -187,7 +189,7 @@ var _ = Describe("Tombstone", func() {
 	It("Should refuse a delete that reaches the claim of a writer or another delete",
 		func() {
 			run(s)
-			MustSucceed(s.OpenWriter(state.WriterConfig{
+			MustSucceed(s.OpenWriter(context.Background(), state.WriterConfig{
 				Keys:  []state.WriterKey{{Key: 6, DataType: 4}},
 				Clock: 5,
 				Start: 40,
@@ -216,7 +218,7 @@ var _ = Describe("Tombstone", func() {
 			a.s, a.seq = s, sample().Sequence
 			run(s)
 			d := MustSucceed(s.BeginDelete(6, 35, 45))
-			w := MustSucceed(s.OpenWriter(state.WriterConfig{
+			w := MustSucceed(s.OpenWriter(context.Background(), state.WriterConfig{
 				Keys:  []state.WriterKey{{Key: 6, DataType: 4}},
 				Clock: 5,
 				Start: 300,
@@ -228,7 +230,7 @@ var _ = Describe("Tombstone", func() {
 				conflict(),
 				MatchError(ContainSubstring("reaches the claim of a delete from 35")),
 			))
-			Expect(s.OpenWriter(state.WriterConfig{
+			Expect(s.OpenWriter(context.Background(), state.WriterConfig{
 				Keys:    []state.WriterKey{{Key: 6, DataType: 4}},
 				Clock:   5,
 				Start:   40,
