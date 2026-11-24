@@ -14,6 +14,7 @@ import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
+import { useExclusiveCallback } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
@@ -21,7 +22,7 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import type { Tree } from "@synnaxlabs/lyra/tree";
 import { Channel, ICD as PICD, Synnax as PSynnax } from "@synnaxlabs/pluto";
-import { DataType, deep, errors, id, primitive, unique, uuid } from "@synnaxlabs/x";
+import { DataType, deep, id, primitive, unique, uuid } from "@synnaxlabs/x";
 import {
   createContext,
   type Dispatch,
@@ -889,19 +890,11 @@ const Endpoints: FC<EndpointsProps> = ({
   };
 
   // Adds run one at a time, so a second click cannot make a second ICD.
-  const adding = useRef(false);
+  const runExclusive = useExclusiveCallback(
+    async (add: () => Promise<void>) => await add(),
+  );
   const runAdd = (add: () => Promise<void>, message: string) =>
-    handleError(async () => {
-      if (adding.current) return;
-      adding.current = true;
-      try {
-        await add();
-      } catch (e) {
-        adding.current = false;
-        throw errors.fromUnknown(e);
-      }
-      adding.current = false;
-    }, message);
+    handleError(async () => await runExclusive(add), message);
 
   const handleAdd = () =>
     runAdd(async () => {

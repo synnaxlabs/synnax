@@ -13,12 +13,13 @@ import { channel, DisconnectedError, icd, mqtt, type Synnax } from "@synnaxlabs/
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
+import { useExclusiveCallback } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import type { Tree } from "@synnaxlabs/lyra/tree";
 import { ICD as PICD, Synnax as PSynnax } from "@synnaxlabs/pluto";
-import { DataType, deep, errors, map, primitive, unique, uuid } from "@synnaxlabs/x";
+import { DataType, deep, map, primitive, unique, uuid } from "@synnaxlabs/x";
 import {
   createContext,
   type Dispatch,
@@ -675,8 +676,6 @@ const Entries: FC<EntriesProps> = ({
   const home = ICD.mostRead(entries.filter(isPlain));
   const format = home == null ? undefined : formats.get(home);
 
-  // Adds run one at a time, so a second click cannot make a second ICD.
-  const adding = useRef(false);
   const add = async () => {
     if (client == null) throw new DisconnectedError();
     const plain = entries.filter(isPlain);
@@ -743,18 +742,9 @@ const Entries: FC<EntriesProps> = ({
     onSelect([firstKey]);
     tree.expand(firstKey);
   };
-  const handleAdd = () =>
-    handleError(async () => {
-      if (adding.current) return;
-      adding.current = true;
-      try {
-        await add();
-      } catch (e) {
-        adding.current = false;
-        throw errors.fromUnknown(e);
-      }
-      adding.current = false;
-    }, "Failed to add data");
+  // Adds run one at a time, so a second click cannot make a second ICD.
+  const addExclusive = useExclusiveCallback(add);
+  const handleAdd = () => handleError(addExclusive, "Failed to add data");
 
   const entry =
     current == null ? undefined : entries.find(({ key }) => key === current.source);
