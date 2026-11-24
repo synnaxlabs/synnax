@@ -181,6 +181,7 @@ var _ = Describe("Alignment", func() {
 						GinkgoHelper()
 						w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 							Channels: keys,
+							Clock:    idxKey,
 							Start:    run.start,
 						}))
 						for chunk := range slices.Chunk(run.stamps(), 3) {

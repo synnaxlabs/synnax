@@ -40,6 +40,7 @@ const (
 	typeSkippable uint16 = 1 << 15
 
 	headerSize      = 8
+	createSize      = 24
 	commitBaseSize  = 32
 	slotSize        = 16
 	tombstoneSize   = 88
@@ -51,6 +52,11 @@ const (
 	flagLeftCut       uint32 = 1
 	flagRightCut      uint32 = 2
 )
+
+// MaxReplacePointers is the most pointers of a Replace whose entry, with the Create of
+// its new segment, fits in a frame.
+const MaxReplacePointers = (MaxFrame - FrameHeaderSize - 3*headerSize - createSize -
+	replaceBaseSize) / pointerSize
 
 // Record is a record of a log entry: a *Reserve, *Create, *Commit, *Seal, *Tombstone,
 // *Replace, *Drop, *Restart, *Check, *Intent, or *Kept.
@@ -236,15 +242,15 @@ func (r *Reserve) decode(b []byte) error {
 }
 
 func (r *Create) append(dst []byte) []byte {
-	dst = le64(appendHeader(dst, typeCreate, 24), r.Segment)
+	dst = le64(appendHeader(dst, typeCreate, createSize), r.Segment)
 	dst = le32(dst, r.Key, r.Clock)
 	dst = binary.LittleEndian.AppendUint16(dst, r.Version)
 	return append(dst, r.DataType, 0, 0, 0, 0, 0)
 }
 
 func (r *Create) decode(b []byte) error {
-	if len(b) != 24 {
-		return sizeError("create", len(b), 24)
+	if len(b) != createSize {
+		return sizeError("create", len(b), createSize)
 	}
 	r.Segment = binary.LittleEndian.Uint64(b)
 	r.Key = binary.LittleEndian.Uint32(b[8:])

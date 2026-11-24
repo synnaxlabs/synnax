@@ -33,8 +33,6 @@ const createSubjectWithPolicy = async (pol: TestPolicy) => {
   });
   const p = await client.access.policies.create({ ...pol, role: r.key });
   const u = await client.users.create({
-    username: id.create(),
-    password: "test",
     name: "test",
     role: r.key,
   });

@@ -27,7 +27,7 @@ var _ = Describe("Tombstone, broken", func() {
 		})).To(Succeed())
 		run(s)
 		MustSucceed(s.Snapshot())
-		Expect(s.TakeDead()).To(Equal([]state.Dead{{Segment: 4, Key: 5}}))
+		Expect(s.TakeDead()).To(Equal([]state.Dead{{Segment: 4, Key: 5, Sequence: 10}}))
 		Expect(s.Channel(5).Segments).To(HaveLen(1))
 	})
 
@@ -40,7 +40,7 @@ var _ = Describe("Tombstone, broken", func() {
 		})).To(Succeed())
 		run(s)
 		MustSucceed(s.Snapshot())
-		Expect(s.TakeDead()).To(Equal([]state.Dead{{Segment: 4, Key: 5}}))
+		Expect(s.TakeDead()).To(Equal([]state.Dead{{Segment: 4, Key: 5, Sequence: 10}}))
 		Expect(s.Channel(5).Segments).To(HaveLen(1))
 	})
 })

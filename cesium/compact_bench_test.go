@@ -163,6 +163,7 @@ func benchmarkCompactCommit(
 	}
 	w, err := db.OpenWriter(b.Context(), cesium.WriterConfig{
 		Channels: keys,
+		Clock:    keys[0],
 		Start:    telem.SecondTS,
 	})
 	if err != nil {
@@ -295,6 +296,7 @@ func writeCompactFrame(
 	b.Helper()
 	w, err := db.OpenWriter(b.Context(), cesium.WriterConfig{
 		Channels: keys,
+		Clock:    keys[0],
 		Start:    start,
 	})
 	if err != nil {
@@ -382,6 +384,7 @@ func writeRewriteSegments(
 	for seg := range segments {
 		w, err := db.OpenWriter(b.Context(), cesium.WriterConfig{
 			Channels: keys,
+			Clock:    keys[0],
 			Start:    rewriteStamp(seg * rewritePer),
 		})
 		if err != nil {

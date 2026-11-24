@@ -13,7 +13,6 @@ package read
 
 import (
 	"context"
-	"encoding/json/v2"
 	"maps"
 	"slices"
 	"strconv"
@@ -83,17 +82,14 @@ func (r Resolver) NewChecker(
 		}
 	}
 	if len(icdKeys) > 0 {
-		var found []icd.ICD
-		if err := r.icds.NewRetrieve().
+		found, err := r.icds.NewRetrieve().
 			Where(icd.MatchKeys(lo.Uniq(icdKeys)...)).
 			SkipMissingKeys().
-			Entries(&found).
-			Exec(ctx, snap); err != nil {
+			ByKey(ctx, snap)
+		if err != nil {
 			return Checker{}, err
 		}
-		for _, ic := range found {
-			c.icds[ic.Key] = ic
-		}
+		maps.Copy(c.icds, found)
 	}
 	if len(channelKeys) > 0 {
 		var err error
@@ -106,8 +102,8 @@ func (r Resolver) NewChecker(
 
 // Hash writes to h the payload of each ICD message that reads read, retrieved through
 // snap, so an edit to the format of one changes the hash. A read of a message that its
-// ICD lacks writes only that the message is absent. Hash returns query.ErrNotFound
-// when an ICD of reads does not exist.
+// ICD lacks writes only that the message is absent. Hash returns query.ErrNotFound when
+// an ICD of reads does not exist.
 func (r Resolver) Hash(
 	ctx context.Context,
 	snap gorp.Snapshot,
@@ -118,17 +114,15 @@ func (r Resolver) Hash(
 		return nil
 	}
 	keys := lo.Uniq(lo.Map(reads, func(rd Read, _ int) icd.Key { return rd.ICD }))
-	var found []icd.ICD
-	if err := r.icds.NewRetrieve().
-		Where(icd.MatchKeys(keys...)).
-		Entries(&found).
-		Exec(ctx, snap); err != nil {
+	icds, err := r.icds.NewRetrieve().Where(icd.MatchKeys(keys...)).ByKey(ctx, snap)
+	if err != nil {
 		return err
 	}
-	icds := lo.KeyBy(found, func(ic icd.ICD) icd.Key { return ic.Key })
 	for _, rd := range reads {
-		if err := hash(h, icds[rd.ICD], rd.Messages); err != nil {
-			return err
+		for _, rm := range rd.Messages {
+			if err = icd.HashMessage(h, icds[rd.ICD], rm.Message); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -299,23 +293,4 @@ func (c Checker) checkBinding(
 		), "channel")
 	}
 	return c.Claim(b.Channel, slices.Concat(path, []string{"channel"}))
-}
-
-// hash writes to h the payload of the message of ic that each of rms reads.
-func hash(h *content.Hash, ic icd.ICD, rms []icd.ReadMessage) error {
-	for _, rm := range rms {
-		m, ok := lo.Find(ic.Messages, func(m icd.Message) bool {
-			return m.Key == rm.Message
-		})
-		h.Bool(ok)
-		if !ok {
-			continue
-		}
-		b, err := json.Marshal(m.Payload, json.Deterministic(true))
-		if err != nil {
-			return err
-		}
-		h.Bytes(b)
-	}
-	return nil
 }

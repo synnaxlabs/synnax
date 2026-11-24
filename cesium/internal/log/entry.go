@@ -23,7 +23,9 @@ import (
 type Entry struct {
 	b       []byte
 	records []Record
-	commit  bool
+	// fenced is true when a record of the entry is not a delete, a Restart, or a Seal,
+	// so the entry stops at the delete reserve.
+	fenced bool
 }
 
 // Add appends r to the entry. The entry keeps r, and Log.Append hands it to the
@@ -34,8 +36,10 @@ func (e *Entry) Add(r Record) {
 	}
 	e.b = r.append(e.b)
 	e.records = append(e.records, r)
-	if _, ok := r.(*Commit); ok {
-		e.commit = true
+	switch r.(type) {
+	case *Tombstone, *Intent, *Drop, *Restart, *Seal:
+	default:
+		e.fenced = true
 	}
 }
 
@@ -57,7 +61,7 @@ func (e *Entry) Bytes() []byte {
 func (e *Entry) Reset() {
 	e.b = e.b[:0]
 	e.records = nil
-	e.commit = false
+	e.fenced = false
 }
 
 // Decoder reads the records of entries. It owns one record of each type, so it

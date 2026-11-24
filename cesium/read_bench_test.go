@@ -52,7 +52,7 @@ func benchmarkReadDomains(b *testing.B, count int, open bool) {
 	}
 	for i := range count {
 		start, fr := frame(i)
-		if err := db.Write(ctx, start, fr); err != nil {
+		if err := write(ctx, db, start, fr); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -61,6 +61,7 @@ func benchmarkReadDomains(b *testing.B, count int, open bool) {
 		count++
 		w, err := db.OpenWriter(ctx, cesium.WriterConfig{
 			Channels: keys,
+			Clock:    keys[0],
 			Start:    start,
 		})
 		if err != nil {
@@ -137,7 +138,7 @@ func writeBenchData(
 		stamps := writeBenchStamps(b, db, keys[0], n)
 		data := telem.NewSeriesV(make([]float32, n-late)...)
 		for _, key := range keys[1:] {
-			if err := db.WriteSeries(b.Context(), key, stamps[late], data); err != nil {
+			if err := writeSeries(b.Context(), db, key, stamps[late], data); err != nil {
 				b.Fatal(err)
 			}
 		}
@@ -152,6 +153,7 @@ func writeBenchData(
 	}
 	w, err := db.OpenWriter(b.Context(), cesium.WriterConfig{
 		Channels: keys,
+		Clock:    keys[0],
 		Start:    stamps[late],
 	})
 	if err != nil {
@@ -191,8 +193,8 @@ func writeBenchStamps(
 	for i := range stamps {
 		stamps[i] = telem.TimeStamp(i+1) * telem.MillisecondTS
 	}
-	if err := db.WriteSeries(
-		b.Context(),
+	if err := writeSeries(
+		b.Context(), db,
 		key,
 		stamps[0],
 		telem.NewSeriesV(stamps...),
@@ -227,6 +229,52 @@ func readSamples(b *testing.B, pointerLog bool) {
 				}
 			}
 		})
+	}
+}
+
+// BenchmarkReadOneClock reads the middle half of the data channels of one clock, which
+// share the clock's index lookups, on each layout.
+func BenchmarkReadOneClock(b *testing.B) {
+	const n = 100_000
+	layouts := []struct {
+		name string
+		opts []cesium.Option
+	}{{name: "old"}, {name: "log", opts: []cesium.Option{cesium.WithPointerLog()}}}
+	for _, layout := range layouts {
+		for _, count := range []int{4, 16} {
+			name := fmt.Sprintf("layout=%s/keys=%d", layout.name, count)
+			b.Run(name, func(b *testing.B) {
+				db := openBenchDB(b, true, layout.opts...)
+				keys := createIndexedChannels(b, db, 1, count)
+				stamps := make([]telem.TimeStamp, n)
+				for i := range stamps {
+					stamps[i] = telem.TimeStamp(i+1) * telem.MillisecondTS
+				}
+				series := []telem.Series{telem.NewSeriesV(stamps...)}
+				for range count {
+					series = append(series, telem.NewSeriesV(make([]float32, n)...))
+				}
+				if err := write(
+					b.Context(),
+					db,
+					stamps[0],
+					telem.MultiFrame(keys, series),
+				); err != nil {
+					b.Fatal(err)
+				}
+				tr := stamps[n/4].Range(stamps[3*n/4])
+				b.ReportAllocs()
+				for b.Loop() {
+					fr, err := db.Read(b.Context(), tr, keys[1:]...)
+					if err != nil {
+						b.Fatal(err)
+					}
+					if got := fr.Count(); got < count {
+						b.Fatalf("read %d series, want at least %d", got, count)
+					}
+				}
+			})
+		}
 	}
 }
 

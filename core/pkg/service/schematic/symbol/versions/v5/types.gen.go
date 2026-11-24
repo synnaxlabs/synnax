@@ -20,6 +20,7 @@ import (
 	color "github.com/synnaxlabs/synnax/pkg/service/color/versions/v0"
 	enumeration "github.com/synnaxlabs/synnax/pkg/service/enumeration/versions/v0"
 	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
+	resource "github.com/synnaxlabs/synnax/pkg/service/resource/versions/v0"
 	v4 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v4"
 	"github.com/synnaxlabs/x/errors"
 	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
@@ -221,7 +222,7 @@ func (e EnumerationState) Validate() error {
 type NumberState struct {
 	BaseState
 	// Bounds is the range of values that motion reads as 0 to 1.
-	Bounds spatial.Bounds `json:"bounds" msgpack:"bounds"`
+	Bounds spatial.ClosedBounds `json:"bounds" msgpack:"bounds"`
 }
 
 func (NumberState) isStateVariant() {}
@@ -229,6 +230,14 @@ func (NumberState) isStateVariant() {}
 // SetDefaults sets every field that has a schema default to that default.
 func (n *NumberState) SetDefaults() {
 	n.Bounds.Upper = 100
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (n NumberState) Validate() error {
+	v := validate.New("NumberState")
+	v.Exec(func() error { return validate.PathedError(n.Bounds.Validate(), "bounds") })
+	return v.Error()
 }
 
 // State is what a symbol shows.
@@ -324,6 +333,8 @@ func (u State) Validate() error {
 	v.Ternary("type", u.Variant == nil, "required")
 	switch variant := u.Variant.(type) {
 	case EnumerationState:
+		v.Exec(variant.Validate)
+	case NumberState:
 		v.Exec(variant.Validate)
 	}
 	return v.Error()
@@ -1636,6 +1647,9 @@ type Symbol struct {
 	Data Spec `json:"data" msgpack:"data"`
 	// Group is the group the symbol sits in, if any.
 	Group *group.Key `json:"group,omitzero" msgpack:"group,omitempty"`
+	// Uses are the schematics that use the symbol and that the caller can read, filled
+	// only when a retrieve request asks for them.
+	Uses []resource.ID `json:"uses,omitzero" msgpack:"uses,omitempty"`
 }
 
 // SetDefaults sets every field that has a schema default to that default.

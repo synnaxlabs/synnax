@@ -38,7 +38,7 @@ import { Kafka } from "@/feature/kafka";
 import { createKafkaDevice } from "@/feature/kafka/testutil";
 import { Device } from "@/platform/device";
 import { startRackHeartbeat } from "@/platform/device/testutil";
-import { pickMessageFormat } from "@/platform/icd/testutil";
+import { pickMessageFormat, retype } from "@/platform/icd/testutil";
 import {
   answerCommand,
   answerCommandsUntil,
@@ -177,19 +177,6 @@ const removeMessage = async ({ icd: key, messages }: Kafka.Task.ReadRecord) =>
     key,
     icd.remove({ path: ["messages"], key: messages[0].message }),
   );
-
-/** Gives a field of the record's message a new kind, in the ICD. */
-const retype = async (
-  { icd: key, messages }: Kafka.Task.ReadRecord,
-  field: icd.JSONField,
-  kind: payload.Kind,
-) => {
-  const path = ["messages", messages[0].message, "payload", "fields"];
-  await client.icds.dispatch(key, [
-    icd.remove({ path, key: field.key }),
-    icd.insert({ path, value: { ...field, type: kind } }),
-  ]);
-};
 
 /** @returns a client with the policies of the Owner role, which reads ICDs only. */
 const createICDReaderClient = async (): Promise<Synnax> => {
@@ -358,7 +345,7 @@ const createSampledRecord = (offset: number, value: object) => ({
 /** Creates a Kafka scan task on the rack of dev, with a heartbeat. */
 const createScanTask = async (dev: device.Device) => {
   const rck = await client.racks.retrieve({ key: dev.rack });
-  await startRackHeartbeat(client, rck);
+  onTestFinished(await startRackHeartbeat(client, rck));
   return await rck.createTask({
     name: uniqueName("kafka_scan"),
     type: Kafka.Device.SCAN_TYPE,
@@ -965,6 +952,40 @@ describe("Kafka read form", () => {
       await waitFor(async () =>
         expect((await retrieveRecords(draft.key))[0].disabled).toBe(false),
       );
+    });
+
+    it("should copy a record after it in its topic, each field on a new channel", async () => {
+      const ch = await client.channels.create({
+        name: uniqueName("temperature"),
+        dataType: DataType.FLOAT64,
+        virtual: true,
+      });
+      const temperature = createField("temperature", "float");
+      const { draft } = await renderRead({
+        fields: [temperature],
+        recordKey: "pump",
+        bound: { [temperature.key]: ch.key },
+      });
+      fireEvent.contextMenu(
+        await screen.findByRole("treeitem", { name: /JSON.*pump/ }),
+      );
+      fireEvent.click(await screen.findByRole("menuitem", { name: "Duplicate" }));
+      const [original, copy] = await waitFor(async () => {
+        const [topic] = await retrieveTopics(draft.key);
+        expect(topic.records).toHaveLength(2);
+        return topic.records;
+      });
+      expect(copy.key).not.toBe(original.key);
+      expect(copy).toEqual({
+        ...original,
+        key: copy.key,
+        messages: [
+          {
+            ...original.messages[0],
+            bindings: [{ field: temperature.key, channel: 0, dataType: "" }],
+          },
+        ],
+      });
     });
 
     it.each([
@@ -1674,7 +1695,7 @@ describe("Kafka read form", () => {
       await waitFor(async () =>
         expect(jsonFieldsOf(await client.icds.retrieve(icdKey))).toMatchObject([
           { key: temperature.key },
-          { name: "Field 2", pointer: "" },
+          { name: "Field 2", pointer: "/field_2" },
         ]),
       );
       const [, added] = jsonFieldsOf(await client.icds.retrieve(icdKey));
@@ -1819,7 +1840,13 @@ describe("Kafka read form", () => {
       });
       const { draft } = await renderRead({
         records: [rec],
-        beforeRender: () => retype(rec, count, "float"),
+        beforeRender: () =>
+          retype(
+            client,
+            { icd: rec.icd, message: rec.messages[0].message },
+            count,
+            "float",
+          ),
       });
       await waitFor(async () =>
         expect(await retrieveBindings(draft.key)).toEqual([

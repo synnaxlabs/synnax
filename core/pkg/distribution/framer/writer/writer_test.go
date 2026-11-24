@@ -13,10 +13,13 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"math/rand/v2"
+	"sync"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/cesium"
+	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
@@ -24,13 +27,18 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 var _ = Describe("Writer", func() {
@@ -427,7 +435,7 @@ var _ = Describe("Writer", func() {
 				fill := MustSucceed(host.Framer.OpenWriter(ctx, writer.Config{
 					Keys:  keys,
 					Start: 12 * telem.SecondTS,
-					Mode:  cesium.WriterModePersistOnly,
+					Mode:  writer.ModePersistOnly,
 					Sync:  new(true),
 				}))
 				Expect(fill.Write(frameAt(12, 13))).To(BeTrue())
@@ -495,7 +503,7 @@ var _ = Describe("Writer", func() {
 			fill := MustSucceed(gw.Framer.OpenWriter(ctx, writer.Config{
 				Keys:             keys,
 				Start:            1 * telem.SecondTS,
-				Mode:             cesium.WriterModePersistOnly,
+				Mode:             writer.ModePersistOnly,
 				EnableAutoCommit: new(false),
 				Sync:             new(true),
 			}))
@@ -565,7 +573,7 @@ var _ = Describe("Writer", func() {
 			fill := MustSucceed(host.Framer.OpenWriter(ctx, writer.Config{
 				Keys:             keys,
 				Start:            1 * telem.SecondTS,
-				Mode:             cesium.WriterModePersistOnly,
+				Mode:             writer.ModePersistOnly,
 				EnableAutoCommit: new(false),
 				Sync:             new(true),
 			}))
@@ -644,7 +652,7 @@ var _ = Describe("Writer", func() {
 				}))
 				Expect(iter.SeekFirst()).To(BeTrue())
 				Expect(iter.Next(telem.TimeSpanMax)).To(BeTrue())
-				Expect(iter.Value().SeriesAt(0).Len()).To(Equal(int64(3)))
+				Expect(iter.Value().Get(keys[0]).Len()).To(Equal(int64(3)))
 				Expect(iter.Close()).To(Succeed())
 			},
 			Entry("sync", true),
@@ -705,6 +713,181 @@ var _ = Describe("Writer", func() {
 				Expect(iter.Value().SeriesAt(0).Data).To(Equal(
 					telem.NewSeriesV[int16](1, 2, 3, 4, 5, 6).Data,
 				))
+				Expect(iter.Close()).To(Succeed())
+			},
+		)
+		It(
+			"Should hand off a clock on the pointer log while both writers write and "+
+				"commit",
+			func(ctx SpecContext) {
+				// On the old layout, as on main, racing moves can leave the index one
+				// sample ahead of the data.
+				st := MustOpen(storage.OpenLayer(ctx, storage.LayerConfig{
+					InMemory:          new(true),
+					PointerLogEnabled: new(true),
+					Random:            rand.NewPCG(1, 2),
+				}))
+				DeferCleanup(StartRun(st.Run))
+				host := testutil.NewNode(ctx, distribution.LayerConfig{Storage: st})
+				idx := MustSucceed(host.CreateChannels(ctx, []channel.Channel{{
+					Name:     "race_time",
+					IsIndex:  true,
+					DataType: telem.TimestampT,
+				}}))[0]
+				data := MustSucceed(host.CreateChannels(ctx, []channel.Channel{{
+					Name:       "race_data",
+					DataType:   telem.Int64T,
+					LocalIndex: idx.LocalKey,
+				}}))[0]
+				keys := channel.Keys{idx.Key(), data.Key()}
+				open := func(key string, authority control.Authority) *writer.Writer {
+					GinkgoHelper()
+					return MustSucceed(host.Framer.OpenWriter(ctx, writer.Config{
+						ControlSubject:   control.Subject{Key: key},
+						Keys:             keys,
+						Start:            10 * telem.SecondTS,
+						Authorities:      []control.Authority{authority},
+						EnableAutoCommit: new(false),
+						Sync:             new(true),
+					}))
+				}
+				low, high := open("low", 1), open("high", 2)
+				var (
+					mu    sync.Mutex
+					stamp = 10 * telem.SecondTS
+					wg    sync.WaitGroup
+				)
+				// write takes the next stamp and writes it under one lock, so the
+				// stamps
+				// of the two writers rise in the order they reach the clock.
+				write := func(w *writer.Writer) {
+					mu.Lock()
+					defer mu.Unlock()
+					stamp += telem.SecondTS
+					MustSucceed(w.Write(frame.NewMulti(keys, []telem.Series{
+						telem.NewSeriesV(stamp),
+						telem.NewSeriesV(int64(stamp)),
+					})))
+				}
+				// Each writer has one caller. high takes the clock after its even
+				// commits and gives it back after its odd ones, so the clock moves
+				// between the commits of the two writers.
+				for _, w := range []*writer.Writer{low, high} {
+					wg.Go(func() {
+						defer GinkgoRecover()
+						for i := range 50 {
+							write(w)
+							MustSucceed2(w.Commit())
+							if w != high {
+								continue
+							}
+							authority := control.Authority(3)
+							if i%2 == 1 {
+								authority = 0
+							}
+							Expect(high.SetAuthority(writer.Config{
+								Authorities: []control.Authority{authority},
+							})).To(Succeed())
+						}
+					})
+				}
+				wg.Wait()
+				Expect(high.Close()).To(Succeed())
+				Expect(low.Close()).To(Succeed())
+				iter := MustSucceed(host.Framer.OpenIterator(ctx, iterator.Config{
+					Keys:   keys,
+					Bounds: telem.TimeRangeMax,
+				}))
+				Expect(iter.SeekFirst()).To(BeTrue())
+				Expect(iter.Next(telem.TimeSpanMax)).To(BeTrue())
+				fr := iter.Value()
+				Expect(iter.Close()).To(Succeed())
+				var last telem.TimeStamp
+				for _, s := range fr.Get(idx.Key()).Series {
+					for _, t := range s.Unmarshal[telem.TimeStamp]() {
+						Expect(t).To(BeNumerically(">", last))
+						last = t
+					}
+				}
+				Expect(fr.Get(data.Key()).Len()).To(Equal(fr.Get(idx.Key()).Len()))
+			},
+		)
+		It(
+			"Should drop with a warning the samples that the next holder of a clock "+
+				"cannot take",
+			func(ctx SpecContext) {
+				core, logs := observer.New(zapcore.WarnLevel)
+				logger := MustSucceed(alamos.NewLogger(alamos.LoggerConfig{
+					ZapLogger: zap.New(core),
+				}))
+				// A handoff on the pointer log does not move uncommitted samples.
+				st := MustOpen(storage.OpenLayer(ctx, storage.LayerConfig{
+					InMemory:          new(true),
+					PointerLogEnabled: new(true),
+					Random:            rand.NewPCG(1, 2),
+				}))
+				DeferCleanup(StartRun(st.Run))
+				host := testutil.NewNode(ctx, distribution.LayerConfig{
+					Storage:         st,
+					Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
+				})
+				idx := MustSucceed(host.CreateChannels(ctx, []channel.Channel{{
+					Name:     "untaken_time",
+					IsIndex:  true,
+					DataType: telem.TimestampT,
+				}}))[0]
+				data := MustSucceed(host.CreateChannels(ctx, []channel.Channel{{
+					Name:       "untaken",
+					DataType:   telem.Int64T,
+					LocalIndex: idx.LocalKey,
+				}}))[0]
+				keys := channel.Keys{idx.Key(), data.Key()}
+				open := func(key string, authority control.Authority) *writer.Writer {
+					GinkgoHelper()
+					return MustSucceed(host.Framer.OpenWriter(ctx, writer.Config{
+						ControlSubject:   control.Subject{Key: key},
+						Keys:             keys,
+						Start:            10 * telem.SecondTS,
+						Authorities:      []control.Authority{authority},
+						EnableAutoCommit: new(false),
+						Sync:             new(true),
+					}))
+				}
+				write := func(w *writer.Writer, at ...telem.TimeStamp) {
+					GinkgoHelper()
+					Expect(w.Write(frame.NewMulti(keys, []telem.Series{
+						telem.NewSeriesSecondsTSV(at...),
+						telem.NewSeries(make([]int64, len(at))),
+					}))).To(BeTrue())
+				}
+				holder := open("holder", 100)
+				write(holder, 10, 11, 12, 13)
+				taker := open("taker", 200)
+				warnings := logs.FilterMessage(
+					"dropped the uncommitted samples that the next holder of a clock " +
+						"could not take",
+				).All()
+				Expect(warnings).To(HaveLen(1))
+				Expect(warnings[0].ContextMap()).To(HaveKeyWithValue(
+					"clock",
+					uint32(idx.Key()),
+				))
+				Expect(warnings[0].ContextMap()["error"]).To(ContainSubstring(
+					"1970-01-01T00:00:10Z - :13.000000001",
+				))
+				_, authorized := MustSucceed2(holder.Commit())
+				Expect(authorized).To(BeFalse(), "the commit reports the drop")
+				write(taker, 14)
+				Expect(MustCommit(taker)).To(Equal(14*telem.SecondTS + 1))
+				Expect(taker.Close()).To(Succeed())
+				Expect(holder.Close()).To(Succeed())
+				iter := MustSucceed(host.Framer.OpenIterator(ctx, iterator.Config{
+					Keys:   channel.Keys{data.Key()},
+					Bounds: telem.TimeRangeMax,
+				}))
+				Expect(iter.SeekFirst()).To(BeTrue())
+				Expect(iter.Next(telem.TimeSpanMax)).To(BeTrue())
+				Expect(iter.Value().Get(data.Key()).Len()).To(Equal(int64(1)))
 				Expect(iter.Close()).To(Succeed())
 			},
 		)
@@ -850,6 +1033,27 @@ var _ = Describe("Writer", func() {
 				),
 			)
 			It(
+				"Should keep the samples of a writer while a stream-only writer holds "+
+					"its clock",
+				func(ctx SpecContext) {
+					w1 := openFirst(ctx)
+					streamer := MustSucceed(host.Framer.OpenWriter(ctx, writer.Config{
+						ControlSubject: control.Subject{Key: "streamer"},
+						Keys:           keys,
+						Start:          10 * telem.SecondTS,
+						Authorities:    []control.Authority{200},
+						Mode:           writer.ModeStreamOnly,
+					}))
+					_, authorized := MustSucceed2(w1.Commit())
+					Expect(authorized).To(BeFalse())
+					Expect(streamer.Close()).To(Succeed())
+					_, authorized = MustSucceed2(w1.Commit())
+					Expect(authorized).To(BeTrue())
+					Expect(w1.Close()).To(Succeed())
+					expectLengths(ctx, 4, 4)
+				},
+			)
+			It(
 				"Should commit the data written before a refused write once the "+
 					"writer controls the index again",
 				func(ctx SpecContext) {
@@ -886,7 +1090,7 @@ var _ = Describe("Writer", func() {
 				w := MustSucceed(host.Framer.OpenWriter(ctx, writer.Config{
 					Keys:             keys,
 					Start:            10 * telem.SecondTS,
-					Mode:             cesium.WriterModePersistOnly,
+					Mode:             writer.ModePersistOnly,
 					EnableAutoCommit: new(false),
 				}))
 				Expect(w.Write(frame.NewMulti(keys, []telem.Series{
@@ -923,7 +1127,7 @@ var _ = Describe("Writer", func() {
 				w := MustSucceed(host.Framer.OpenWriter(ctx, writer.Config{
 					Keys:             keys,
 					Start:            10 * telem.SecondTS,
-					Mode:             cesium.WriterModePersistOnly,
+					Mode:             writer.ModePersistOnly,
 					EnableAutoCommit: new(false),
 				}))
 				Expect(w.Write(frame.NewMulti(keys, []telem.Series{
@@ -958,7 +1162,7 @@ var _ = Describe("Writer", func() {
 				w := MustOpen(s.dist.Framer.OpenWriter(ctx, writer.Config{
 					Keys:  s.keys,
 					Start: 10 * telem.SecondTS,
-					Mode:  cesium.WriterModePersistOnly,
+					Mode:  writer.ModePersistOnly,
 					Sync:  new(true),
 				}))
 				Expect(w.Write(frame.NewMulti(
@@ -973,6 +1177,115 @@ var _ = Describe("Writer", func() {
 			},
 			Entry("Storage", storageScenario),
 			Entry("Free", freeWriterScenario),
+		)
+	})
+
+	Describe("Stream Only", func() {
+		var (
+			host      testutil.Node
+			idx, data channel.Channel
+		)
+		BeforeEach(func(ctx SpecContext) {
+			host = testutil.NewNode(ctx)
+			idx = MustSucceed(host.CreateChannels(ctx, []channel.Channel{{
+				Name:     "stream_only_time",
+				IsIndex:  true,
+				DataType: telem.TimestampT,
+			}}))[0]
+			data = MustSucceed(host.CreateChannels(ctx, []channel.Channel{{
+				Name:       "stream_only_data",
+				DataType:   telem.Int64T,
+				LocalIndex: idx.LocalKey,
+			}}))[0]
+		})
+		// stream returns the frames that a streamer of idx and data receives.
+		stream := func(ctx SpecContext) <-chan framer.StreamerResponse {
+			GinkgoHelper()
+			streamer := MustSucceed(host.Framer.NewStreamer(framer.StreamerConfig{
+				Keys:        channel.Keys{idx.Key(), data.Key()},
+				SendOpenAck: new(true),
+			}))
+			_, out := confluence.Attach(streamer, 10)
+			sCtx, cancel := signal.WithCancel(ctx)
+			DeferCleanup(cancel)
+			streamer.Flow(sCtx)
+			Eventually(out.Outlet()).Should(Receive())
+			return out.Outlet()
+		}
+		It(
+			"Should stream the stored channels of a stream-only writer without persisting them",
+			func(ctx SpecContext) {
+				frames := stream(ctx)
+				keys := channel.Keys{idx.Key(), data.Key()}
+				w := MustSucceed(host.Framer.OpenWriter(ctx, writer.Config{
+					Keys:  keys,
+					Start: 10 * telem.SecondTS,
+					Mode:  writer.ModeStreamOnly,
+				}))
+				Expect(w.Write(frame.NewMulti(keys, []telem.Series{
+					telem.NewSeriesSecondsTSV(10, 11, 12),
+					telem.NewSeriesV[int64](1, 2, 3),
+				}))).To(BeTrue())
+				var res framer.StreamerResponse
+				Eventually(frames).Should(Receive(&res))
+				stamps := res.Frame.Get(idx.Key()).Series[0]
+				Expect(res.Frame.Get(data.Key()).Series[0].Alignment).To(
+					Equal(stamps.Alignment),
+				)
+				Expect(w.Close()).To(Succeed())
+				iter := MustSucceed(host.Framer.OpenIterator(ctx, iterator.Config{
+					Keys:   keys,
+					Bounds: telem.TimeRangeMax,
+				}))
+				Expect(iter.SeekFirst()).To(BeFalse())
+				Expect(iter.Close()).To(Succeed())
+			},
+		)
+		It(
+			"Should give each stored series the time range of its index series",
+			func(ctx SpecContext) {
+				frames := stream(ctx)
+				keys := channel.Keys{idx.Key(), data.Key()}
+				w := MustSucceed(host.Framer.OpenWriter(ctx, writer.Config{
+					Keys:  keys,
+					Start: 10 * telem.SecondTS,
+					Mode:  writer.ModeStreamOnly,
+				}))
+				Expect(w.Write(frame.NewMulti(keys, []telem.Series{
+					telem.NewSeriesSecondsTSV(10, 11, 12),
+					telem.NewSeriesV[int64](1, 2, 3),
+				}))).To(BeTrue())
+				var res framer.StreamerResponse
+				Eventually(frames).Should(Receive(&res))
+				want := (10 * telem.SecondTS).Range(12*telem.SecondTS + 1)
+				Expect(res.Frame.Get(idx.Key()).Series[0].TimeRange).To(Equal(want))
+				Expect(res.Frame.Get(data.Key()).Series[0].TimeRange).To(Equal(want))
+				Expect(w.Close()).To(Succeed())
+			},
+		)
+		It(
+			"Should stamp the index that a stream-only writer with auto index omits",
+			func(ctx SpecContext) {
+				frames := stream(ctx)
+				w := MustSucceed(host.Framer.OpenWriter(ctx, writer.Config{
+					Keys:      channel.Keys{data.Key()},
+					Start:     10 * telem.SecondTS,
+					Mode:      writer.ModeStreamOnly,
+					AutoIndex: new(true),
+				}))
+				Expect(w.Write(frame.NewUnary(
+					data.Key(),
+					telem.NewSeriesV[int64](1, 2, 3),
+				))).To(BeTrue())
+				var res framer.StreamerResponse
+				Eventually(frames).Should(Receive(&res))
+				stamps := res.Frame.Get(idx.Key()).Series[0]
+				Expect(stamps.Len()).To(Equal(int64(3)))
+				Expect(res.Frame.Get(data.Key()).Series[0].Alignment).To(
+					Equal(stamps.Alignment),
+				)
+				Expect(w.Close()).To(Succeed())
+			},
 		)
 	})
 
@@ -1084,9 +1397,9 @@ var _ = Describe("Writer", func() {
 				Eventually(out.Outlet()).Should(Receive(&res))
 				Expect(res.Frame.KeysSlice()).To(Equal(keys))
 				writtenData := res.Frame.Get(dataCh.Key()).Series[0]
-				Expect(writtenData).To(telem.MatchSeriesData(data))
+				Expect(writtenData).To(MatchSeriesData(data))
 				writtenIdx := res.Frame.Get(idxCh.Key()).Series[0]
-				Expect(writtenIdx).To(telem.MatchSeriesData(idx))
+				Expect(writtenIdx).To(MatchSeriesData(idx))
 				groupDomain := writtenData.Alignment.DomainIndex()
 				Expect(groupDomain).To(BeNumerically(
 					">=",
@@ -1106,9 +1419,9 @@ var _ = Describe("Writer", func() {
 				Eventually(out.Outlet()).Should(Receive(&res))
 				Expect(res.Frame.KeysSlice()).To(Equal(keys))
 				writtenData = res.Frame.Get(dataCh.Key()).Series[0]
-				Expect(writtenData).To(telem.MatchSeriesData(data))
+				Expect(writtenData).To(MatchSeriesData(data))
 				writtenIdx = res.Frame.Get(idxCh.Key()).Series[0]
-				Expect(writtenIdx).To(telem.MatchSeriesData(idx))
+				Expect(writtenIdx).To(MatchSeriesData(idx))
 				Expect(writtenData.Alignment.DomainIndex()).To(Equal(groupDomain))
 				Expect(writtenData.Alignment.SampleIndex()).To(BeEquivalentTo(2))
 				Expect(writtenIdx.Alignment).To(Equal(writtenData.Alignment))
@@ -1153,7 +1466,7 @@ var _ = Describe("Writer", func() {
 				Eventually(out.Outlet()).Should(Receive(&res))
 				after := telem.Now()
 				written := res.Frame.Get(ch.Key()).Series[0]
-				Expect(written).To(telem.MatchSeriesData(data))
+				Expect(written).To(MatchSeriesData(data))
 				Expect(written.TimeRange.Span()).To(Equal(2 * telem.Nanosecond))
 				Expect(written.TimeRange.Start).To(BeNumerically(">=", before))
 				Expect(written.TimeRange.Start).To(BeNumerically("<=", after))
@@ -1302,7 +1615,7 @@ var _ = Describe("Writer", func() {
 					written := received[k][0]
 					Expect(
 						written,
-					).To(telem.MatchSeriesData(telem.NewSeriesV[int64](1, 2)))
+					).To(MatchSeriesData(telem.NewSeriesV[int64](1, 2)))
 					Expect(written.TimeRange.Span()).To(Equal(2 * telem.Nanosecond))
 					Expect(written.TimeRange.Start).To(BeNumerically(">=", before))
 					Expect(written.TimeRange.Start).To(BeNumerically("<=", after))
