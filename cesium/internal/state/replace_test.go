@@ -341,8 +341,10 @@ var _ = Describe("Rewrites", func() {
 			return called
 		}
 
-		It("Should list each candidate with its key", func() {
-			Expect(s.Candidates()).To(Equal([]state.Candidate{{Key: 6, Segment: 3}}))
+		It("Should list each candidate with its key and why it is one", func() {
+			Expect(
+				s.Candidates(),
+			).To(Equal([]state.Candidate{{Key: 6, Segment: 3, Reclaimable: true}}))
 		})
 
 		It("Should give out the identity of a new segment under a durable Reserve",
@@ -376,7 +378,7 @@ var _ = Describe("Rewrites", func() {
 				Expect(s.Refused(last(), errors.New("log failed"))).To(Succeed())
 				Eventually(done).Should(Receive(MatchError("log failed")))
 				Expect(s.Candidates()).
-					To(Equal([]state.Candidate{{Key: 6, Segment: 3}}))
+					To(Equal([]state.Candidate{{Key: 6, Segment: 3, Reclaimable: true}}))
 			})
 
 		DescribeTable("Should refuse a Replace as stale when its segment may change",
