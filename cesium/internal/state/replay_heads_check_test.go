@@ -445,7 +445,7 @@ var _ = Describe(
 								last,
 								false,
 								func(pre []state.Preload) error {
-									return w.Commit(cm, pre...)
+									return w.Commit([]*log.Commit{cm}, pre...)
 								},
 							)
 							add(cm)

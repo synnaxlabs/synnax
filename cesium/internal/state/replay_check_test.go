@@ -227,7 +227,7 @@ var _ = Describe("Check: the live and the replayed state", func() {
 					first := int64(start) + int64(pos)
 					last := first + int64(k) - 1
 					cm := commit(k, n, pos, first, last, slot(id, 8*(pos+k)))
-					Expect(w.Commit(cm)).To(Succeed())
+					Expect(w.Commit([]*log.Commit{cm})).To(Succeed())
 					add(cm)
 					point("a commit")
 					pos += k

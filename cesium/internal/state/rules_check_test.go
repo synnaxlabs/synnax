@@ -75,11 +75,17 @@ var _ = Describe("Check: state", func() {
 		w := MustSucceed(s.OpenWriter(live(100, false)))
 		id := MustSucceed(w.NewSegment(5))
 		n1 := MustSucceed(w.NewAlignment())
-		Expect(w.Commit(commit(2, n1, 0, 100, 110, slot(id, 16)))).To(Succeed())
+		Expect(
+			w.Commit([]*log.Commit{commit(2, n1, 0, 100, 110, slot(id, 16))}),
+		).To(Succeed())
 		n2 := MustSucceed(w.NewAlignment())
-		Expect(w.Commit(commit(2, n2, 0, 50, 60, slot(id, 32)))).To(Succeed())
+		Expect(
+			w.Commit([]*log.Commit{commit(2, n2, 0, 50, 60, slot(id, 32))}),
+		).To(Succeed())
 		n3 := MustSucceed(w.NewAlignment())
-		Expect(w.Commit(commit(2, n3, 0, 55, 58, slot(id, 48)))).To(SatisfyAll(
+		Expect(
+			w.Commit([]*log.Commit{commit(2, n3, 0, 55, 58, slot(id, 48))}),
+		).To(SatisfyAll(
 			MatchError(validate.ErrValidation),
 			MatchError(ContainSubstring("overlaps its stored data from 50 to 60")),
 			MatchError(ContainSubstring("write conflict")),
@@ -93,10 +99,10 @@ var _ = Describe("Check: state", func() {
 			id := MustSucceed(w.NewSegment(5))
 			n1 := MustSucceed(w.NewAlignment())
 			c1 := commit(2, n1, 0, 100, 110, slot(id, 16))
-			Expect(w.Commit(c1)).To(Succeed())
+			Expect(w.Commit([]*log.Commit{c1})).To(Succeed())
 			n2 := MustSucceed(w.NewAlignment())
 			c2 := commit(2, n2, 0, 50, 60, slot(id, 32))
-			Expect(w.Commit(c2)).To(Succeed())
+			Expect(w.Commit([]*log.Commit{c2})).To(Succeed())
 			logged(create(id, 5, 5), c1, c2)
 			Expect(w.Close()).To(Succeed())
 			Expect(s.OpenWriter(live(55, true))).Error().To(SatisfyAll(
@@ -111,8 +117,12 @@ var _ = Describe("Check: state", func() {
 		w := MustSucceed(s.OpenWriter(live(100, false)))
 		id := MustSucceed(w.NewSegment(5))
 		n := MustSucceed(w.NewAlignment())
-		Expect(w.Commit(commit(2, n, 0, 100, 110, slot(id, 16)))).To(Succeed())
-		Expect(w.Commit(commit(1, n, 2, 50, 50, slot(id, 24)))).To(SatisfyAny(
+		Expect(
+			w.Commit([]*log.Commit{commit(2, n, 0, 100, 110, slot(id, 16))}),
+		).To(Succeed())
+		Expect(
+			w.Commit([]*log.Commit{commit(1, n, 2, 50, 50, slot(id, 24))}),
+		).To(SatisfyAny(
 			SatisfyAll(
 				MatchError(validate.ErrValidation),
 				MatchError(ContainSubstring("write conflict")),
@@ -155,12 +165,12 @@ var _ = Describe("Check: state", func() {
 			idA := MustSucceed(first.NewSegment(5))
 			nA := MustSucceed(first.NewAlignment())
 			cA := commit(2, nA, 0, 10, 20, slot(idA, 16))
-			Expect(first.Commit(cA)).To(Succeed())
+			Expect(first.Commit([]*log.Commit{cA})).To(Succeed())
 			second := MustSucceed(s.OpenWriter(live(100, true)))
 			idB := MustSucceed(second.NewSegment(5))
 			nB := MustSucceed(second.NewAlignment())
 			cB := commit(2, nB, 0, 100, 110, slot(idB, 16))
-			Expect(second.Commit(cB)).To(Succeed())
+			Expect(second.Commit([]*log.Commit{cB})).To(Succeed())
 			logged(create(idA, 5, 5), create(idB, 5, 5), cA, cB)
 			Expect(first.Close()).To(Succeed())
 			Expect(second.Close()).To(Succeed())
@@ -176,7 +186,7 @@ var _ = Describe("Check: state", func() {
 		b := MustSucceed(s.OpenWriter(live(50, true)))
 		id := MustSucceed(b.NewSegment(5))
 		n := MustSucceed(b.NewAlignment())
-		Expect(b.Commit(commit(2, n, 0, 60, 120, slot(id, 16)))).
+		Expect(b.Commit([]*log.Commit{commit(2, n, 0, 60, 120, slot(id, 16))})).
 			To(SatisfyAll(
 				MatchError(validate.ErrValidation),
 				MatchError(ContainSubstring("write conflict")),
@@ -200,7 +210,9 @@ var _ = Describe("Check: state", func() {
 		w := MustSucceed(s.OpenWriter(live(100, false)))
 		id := MustSucceed(w.NewSegment(5))
 		n := MustSucceed(w.NewAlignment())
-		Expect(w.Commit(commit(2, n, 0, 100, 110, slot(id, 16)))).To(Succeed())
+		Expect(
+			w.Commit([]*log.Commit{commit(2, n, 0, 100, 110, slot(id, 16))}),
+		).To(Succeed())
 		// The sync of the segment fails: the writer sends no Commit, takes its samples
 		// back, and logs the Seals that TakeBack returns.
 		seals := MustSucceed(w.TakeBack())
