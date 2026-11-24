@@ -426,7 +426,7 @@ func (c *clockWriter) take(ctx context.Context, keys []cesium.ChannelKey) error 
 	}
 	if c.shares {
 		next := append(slices.Clone(e.keys), keys...)
-		start, err := e.start(ctx, c.ts, next)
+		start, err := e.start(c.ts, next)
 		if err != nil {
 			return err
 		}
@@ -495,7 +495,7 @@ func (e *clockEntry) release(
 		return nil
 	}
 	rest := without(e.keys, k)
-	start, err := e.start(ctx, ts, rest)
+	start, err := e.start(ts, rest)
 	if err != nil {
 		return err
 	}
@@ -510,7 +510,6 @@ func (e *clockEntry) release(
 // the owner's last commit and the end of the samples that keys have stored. The caller
 // holds e.mu.
 func (e *clockEntry) start(
-	ctx context.Context,
 	ts *cesium.DB,
 	keys []cesium.ChannelKey,
 ) (telem.TimeStamp, error) {
@@ -518,17 +517,13 @@ func (e *clockEntry) start(
 	if e.owner != nil {
 		start = max(start, e.owner.end, e.owner.last)
 	}
-	stored, err := committedEnd(ctx, ts, keys)
+	stored, err := committedEnd(ts, keys)
 	return max(start, stored), err
 }
 
 // committedEnd returns the end of the samples that keys have stored, or zero when they
 // hold none.
-func committedEnd(
-	ctx context.Context,
-	ts *cesium.DB,
-	keys []cesium.ChannelKey,
-) (telem.TimeStamp, error) {
+func committedEnd(ts *cesium.DB, keys []cesium.ChannelKey) (telem.TimeStamp, error) {
 	it, err := ts.OpenIterator(cesium.IteratorConfig{
 		Channels: keys,
 		Bounds:   telem.TimeRangeMax,
