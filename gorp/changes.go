@@ -38,6 +38,10 @@ type Change struct {
 	// Derived is true when Gorp made every write to the record by a cascade, a detach,
 	// or a Retarget.
 	Derived bool
+	// OnBehalf is true when the write was made on the caller's behalf: a write to a
+	// record that MarkOnBehalf marked before it, or a cascade or detach of such a
+	// write.
+	OnBehalf bool
 	// Value is a copy of the encoded record at the last set. It is nil for a delete.
 	Value []byte
 	// Added holds the links that the transaction added to the record.
@@ -71,7 +75,34 @@ type changeList struct {
 	// at maps each record the transaction wrote to its position in entries.
 	at      map[Target]int
 	entries []changeEntry
+	// onBehalf holds the records that MarkOnBehalf marked, and the cascades and
+	// detaches of their deletes.
+	onBehalf set.Set[Target]
 }
+
+// MarkOnBehalf marks the writes of tx to each of targets as made on the caller's
+// behalf, so ChangesOf reports each as OnBehalf, and so do the cascades and detaches of
+// their deletes. Mark a target before its write. Use it for the records that a write
+// changes on its caller's behalf and that the caller did not name. It panics when tx is
+// a DB.
+func MarkOnBehalf(tx Tx, targets ...Target) {
+	state := tx.txIdentity()
+	if state == nil {
+		panic("[gorp] - MarkOnBehalf needs a transaction, not a DB")
+	}
+	state.changes.markOnBehalf(targets...)
+}
+
+// markOnBehalf adds targets to the records made on the caller's behalf.
+func (l *changeList) markOnBehalf(targets ...Target) {
+	if l.onBehalf == nil {
+		l.onBehalf = make(set.Set[Target], len(targets))
+	}
+	l.onBehalf.Add(targets...)
+}
+
+// isOnBehalf reports whether t was made on the caller's behalf.
+func (l *changeList) isOnBehalf(t Target) bool { return l.onBehalf.Contains(t) }
 
 type changeEntry struct {
 	record Target
@@ -199,13 +230,14 @@ func (l *changeList) list() Changes {
 			links = e.before
 		}
 		out = append(out, Change{
-			Record:  e.record,
-			Kind:    kind,
-			Derived: e.derived,
-			Value:   e.value,
-			Added:   subtract(e.after, e.before),
-			Removed: subtract(e.before, e.after),
-			Links:   subtract(links, nil),
+			Record:   e.record,
+			Kind:     kind,
+			Derived:  e.derived,
+			OnBehalf: l.isOnBehalf(e.record),
+			Value:    e.value,
+			Added:    subtract(e.after, e.before),
+			Removed:  subtract(e.before, e.after),
+			Links:    subtract(links, nil),
 		})
 	}
 	return out

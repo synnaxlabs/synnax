@@ -28,9 +28,12 @@ import (
 	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/batch"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
+	"github.com/synnaxlabs/synnax/pkg/api/panel"
+	"github.com/synnaxlabs/synnax/pkg/api/secret"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	thttp "github.com/synnaxlabs/synnax/pkg/transport/http"
 	"github.com/synnaxlabs/x/encoding/json"
@@ -72,10 +75,15 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Distribution: node.Layer,
 		Errors:       errs,
 	}))
+	// The binder of the API layer, as api.NewLayer configures it.
 	binder := MustSucceed(bind.NewService(bind.ServiceConfig{
-		DB:   db,
-		RBAC: svc.RBAC,
-		Held: apiauth.HeldTables(),
+		DB:          db,
+		RBAC:        svc.RBAC,
+		Held:        apiauth.HeldTables(),
+		Owned:       panel.OwnedTables(),
+		OwnedPlaces: panel.OwnedPlaces(),
+		Mirrors:     channel.MirrorTables(),
+		Vouched:     secret.Vouched(svc.Certificate),
 	}))
 	exec = bind.Write(binder, apiLayer.Batch.Exec)
 	router := MustSucceed(

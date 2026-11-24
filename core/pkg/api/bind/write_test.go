@@ -11,6 +11,7 @@ package bind_test
 
 import (
 	"context"
+	"fmt"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -308,6 +309,44 @@ type rule struct {
 }
 
 var _ = Describe("Write", func() {
+	Describe("On the caller's behalf", func() {
+		// deleteOnBehalf deletes t as a write that marks it as made on the caller's
+		// behalf, so the delete of its status is too.
+		deleteOnBehalf := func(t task.Task) apply {
+			return func(ctx context.Context, tx gorp.Tx) error {
+				id := task.ResourceID(t.Key)
+				gorp.MarkOnBehalf(tx, gorp.Target{Table: string(id.Type), Key: id.Key})
+				return svc.Task.NewWriter(tx).Delete(ctx, t.Key, false)
+			}
+		}
+
+		It("Should count the hidden records and name none of them", func(
+			ctx SpecContext,
+		) {
+			u := newUser(ctx)
+			t := createTask(ctx)
+			grant(ctx, u, access.ActionUpdate, t.Rack.ResourceID())
+			err := write(ctx, u, deleteOnBehalf(t))
+			Expect(err).To(MatchError(access.ErrDenied))
+			Expect(err).To(MatchError(fmt.Sprintf(
+				"%s cannot change 2 records that this request changes and that it "+
+					"cannot retrieve: access denied: auth error",
+				u.ResourceID(),
+			)))
+		})
+
+		It("Should name a denied record that the caller can retrieve", func(
+			ctx SpecContext,
+		) {
+			u := newUser(ctx)
+			t := createTask(ctx)
+			grant(ctx, u, access.ActionUpdate, t.Rack.ResourceID())
+			grant(ctx, u, access.ActionRetrieve, task.ResourceID(t.Key))
+			Expect(write(ctx, u, deleteOnBehalf(t))).
+				To(denied(u, access.ActionDelete, task.ResourceID(t.Key)))
+		})
+	})
+
 	DescribeTable(
 		"Should deny a write and name the record without the access a rule requires",
 		func(ctx SpecContext, setup func(ctx context.Context) rule) {

@@ -410,6 +410,9 @@ type deletePlan struct {
 	// detaches holds the targets to remove or inline in each entry the delete keeps. An
 	// entry leaves detaches when the plan adds it to cascades.
 	detaches map[Target][]detachOp
+	// cascaded holds each entry of cascades in the order the walk added it, with the
+	// deleted entry whose reference brought it.
+	cascaded []cascadeOp
 	// size is the number of entries the plan deletes.
 	size int
 	// heldWanted is true when the delete asks for the Weak holders of its entries.
@@ -458,9 +461,15 @@ func (p *deletePlan) request(k string) bool {
 	return true
 }
 
-// cascade adds t to the entries that a cascade deletes. It reports false when the plan
-// already deletes t.
-func (p *deletePlan) cascade(t Target) bool {
+// cascadeOp is an entry that a cascade deletes, and the deleted entry that caused it.
+type cascadeOp struct {
+	entry Target
+	cause Target
+}
+
+// cascade adds t, which the delete of cause brings, to the entries that a cascade
+// deletes. It reports false when the plan already deletes t.
+func (p *deletePlan) cascade(t, cause Target) bool {
 	if p.contains(t) {
 		return false
 	}
@@ -470,9 +479,33 @@ func (p *deletePlan) cascade(t Target) bool {
 		p.cascades[t.Table] = keys
 	}
 	keys.Add(t.Key)
+	p.cascaded = append(p.cascaded, cascadeOp{entry: t, cause: cause})
 	p.size++
 	delete(p.detaches, t)
 	return true
+}
+
+// markOnBehalf marks each entry that p cascades or detaches because of a delete made on
+// the caller's behalf, so a chain of cascades carries the mark at each step.
+func (p *deletePlan) markOnBehalf(tx Tx) {
+	state := tx.txIdentity()
+	if state == nil || len(state.changes.onBehalf) == 0 {
+		return
+	}
+	changes := &state.changes
+	for _, op := range p.cascaded {
+		if changes.isOnBehalf(op.cause) {
+			changes.markOnBehalf(op.entry)
+		}
+	}
+	for dep, ops := range p.detaches {
+		for _, op := range ops {
+			if changes.isOnBehalf(op.target) {
+				changes.markOnBehalf(dep)
+				break
+			}
+		}
+	}
 }
 
 // plan returns the effect of deleting the entries with the text keys keys from the
@@ -553,7 +586,7 @@ func (r *registry) planned(
 		heldWanted: weak,
 	}
 	for _, e := range effects.Cascades {
-		p.cascade(e.Holder)
+		p.cascade(e.Holder, e.Target)
 	}
 	for _, e := range effects.Weak {
 		p.holdWeakly(e.Target, e.Dependent)
@@ -680,7 +713,7 @@ func (w *planWalk) visit(ref registeredReference, dep, target Target) error {
 		if !w.plan.isRequested(dep) {
 			w.record(ref, dep, target)
 		}
-		if !w.plan.cascade(dep) {
+		if !w.plan.cascade(dep, target) {
 			return nil
 		}
 		w.queue = append(w.queue, dep)
@@ -742,6 +775,7 @@ func (w *planWalk) checkRestrictions() error {
 // entries the caller asked to delete in place. Before the detaches, it releases the
 // unique values of every entry that p deletes, so a detached entry can take one.
 func (r *registry) apply(ctx context.Context, tx Tx, p *deletePlan) error {
+	p.markOnBehalf(tx)
 	if len(p.detaches) > 0 {
 		if err := r.release(tx, p); err != nil {
 			return err
