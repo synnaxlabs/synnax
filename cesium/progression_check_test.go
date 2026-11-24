@@ -12,6 +12,7 @@ package cesium_test
 import (
 	"context"
 	"encoding/binary"
+	"maps"
 	"math/rand/v2"
 	"slices"
 	"strconv"
@@ -331,10 +332,17 @@ var _ = Describe("Check: version 2 progressions", func() {
 		}
 		write(ctx, at...)
 		write(ctx, at[n-1]+far)
-		kept := sizes(idx)
+		// A segment file with no byte holds no sample, such as the file of an open
+		// writer or of a try in progress, so the compare leaves it out.
+		stored := func() map[string]int64 {
+			out := sizes(idx)
+			maps.DeleteFunc(out, func(_ string, size int64) bool { return size == 0 })
+			return out
+		}
+		kept := stored()
 		const keep = "clock segment kept at version 1"
 		settle(func() bool { return logs.FilterMessage(keep).Len() == 1 })
-		Expect(sizes(idx)).To(Equal(kept))
+		Expect(stored()).To(Equal(kept))
 		closeDB()
 		open(ctx)
 		Consistently(func() int {
@@ -343,7 +351,7 @@ var _ = Describe("Check: version 2 progressions", func() {
 			}
 			return logs.FilterMessage(keep).Len()
 		}, 500*time.Millisecond).Should(BeZero())
-		Expect(sizes(idx)).To(Equal(kept))
+		Expect(stored()).To(Equal(kept))
 		closeDB()
 	})
 })
