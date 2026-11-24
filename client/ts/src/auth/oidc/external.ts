@@ -8,3 +8,4 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/auth/oidc/client";
+export * from "@/auth/oidc/types.gen";
