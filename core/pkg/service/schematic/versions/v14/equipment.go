@@ -10,15 +10,19 @@
 package v14
 
 import (
+	"context"
 	"encoding/json/v2"
 	"reflect"
 	"uuid"
 
+	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/gorp"
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	symbol "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v5"
 	v13 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v13"
 	xcolor "github.com/synnaxlabs/x/color/versions/v2"
 	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
+	"go.uber.org/zap"
 )
 
 const (
@@ -182,4 +186,46 @@ func channelKey(k channel.Key) *channel.Key {
 		return nil
 	}
 	return &k
+}
+
+// markMissing gives each symbol node of s whose custom symbol the store does not hold a
+// missing ref.
+func markMissing(ctx context.Context, tx gorp.Tx, s *Schematic) error {
+	for i, n := range s.Nodes {
+		cfg, ok := n.Config.Variant.(SymbolNodeConfig)
+		if !ok {
+			continue
+		}
+		ref, ok := cfg.Spec.Variant.(symbol.CustomRef)
+		if !ok {
+			continue
+		}
+		held, err := gorp.NewRetrieve[symbol.Key, symbol.Symbol]().
+			Where(gorp.MatchKeys[symbol.Key, symbol.Symbol](ref.Key)).
+			Exists(ctx, tx)
+		if err != nil {
+			return err
+		}
+		if !held {
+			cfg.Spec = symbol.Ref{Variant: symbol.MissingRef{Key: ref.Key.String()}}
+			s.Nodes[i].Config.Variant = cfg
+		}
+	}
+	return nil
+}
+
+// warnEmptyThresholds logs each light of s whose threshold is empty. Such a light never
+// turned on, and its symbol node turns on as the built-in does.
+func warnEmptyThresholds(s v13.Schematic, ins alamos.Instrumentation) {
+	for _, n := range s.Nodes {
+		l, ok := n.Config.Variant.(v13.LightNodeConfig)
+		if ok && l.Threshold != nil && l.Threshold.Lower == l.Threshold.Upper {
+			ins.L.Warn(
+				"a light with an empty threshold now turns on at 0.9 to 1.1",
+				zap.Stringer("schematic", s.Key),
+				zap.String("schematic_name", s.Name),
+				zap.String("node", n.Key),
+			)
+		}
+	}
 }
