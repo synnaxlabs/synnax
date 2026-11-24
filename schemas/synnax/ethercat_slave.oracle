@@ -48,7 +48,7 @@ OpMode struct {
     assign_activate uint16 = 0 {
         @doc value "is the value of the DC activation registers 0x0980 and 0x0981."
     }
-    sync0_cycle     telem.TimeSpan = 0 {
+    sync0_cycle     telem.TimeSpan = 0s {
         @doc value "is the SYNC0 cycle. 0 when sync0_factor sets the cycle."
         @ts type   telem.NumericTimeSpan
     }
@@ -58,7 +58,7 @@ OpMode struct {
             fraction of it when negative.
         """
     }
-    sync0_shift     telem.TimeSpan = 0 {
+    sync0_shift     telem.TimeSpan = 0s {
         @doc value "is the SYNC0 shift."
         @ts type   telem.NumericTimeSpan
     }
@@ -68,7 +68,7 @@ OpMode struct {
             bus cycle when negative.
         """
     }
-    sync1_shift     telem.TimeSpan = 0 {
+    sync1_shift     telem.TimeSpan = 0s {
         @doc value "is the SYNC1 shift after SYNC0."
         @ts type   telem.NumericTimeSpan
     }
@@ -87,14 +87,14 @@ OpModeChoice struct {
             slave lists other modes.
         """
     }
-    sync0_cycle     telem.TimeSpan = 0 {
+    sync0_cycle     telem.TimeSpan = 0s {
         @doc value    """
             replaces the SYNC0 cycle of the mode. 0 keeps the cycle of the mode.
         """
         @ts type      telem.NumericTimeSpan
         @validate min 0
     }
-    sync1_cycle     telem.TimeSpan = 0 {
+    sync1_cycle     telem.TimeSpan = 0s {
         @doc value    """
             replaces the SYNC1 cycle of the mode. 0 keeps the cycle of the mode.
         """
