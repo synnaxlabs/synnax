@@ -253,7 +253,11 @@ describe("Auth login", () => {
 
   it("should drop the methods the client does not know", async () => {
     const { port } = await serveAuth(["api_key", "carrier_pigeon"]);
-    const client = auth.createTokenlessClient({ host: "127.0.0.1", port });
+    const client = auth.createTokenlessClient({
+      host: "127.0.0.1",
+      port,
+      secure: false,
+    });
     expect(await auth.retrieveMethods(client)).toEqual(["api_key"]);
   });
 

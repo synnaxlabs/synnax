@@ -42,6 +42,7 @@ const liveUnary = (): UnaryClient => {
       host: testClientParams().host,
       port: Number(testClientParams().port),
     }),
+    secure: false,
   });
   const client = new auth.Client(transport.unary, { credentials: TEST_CREDENTIALS });
   transport.use(client.middleware());
@@ -266,6 +267,7 @@ describe("connection", () => {
       const status = await connection.check({
         host: testClientParams().host,
         port: testClientParams().port,
+        secure: false,
         name: "test-cluster",
       });
       expect(status.variant).toEqual("success");
@@ -277,6 +279,7 @@ describe("connection", () => {
       const status = await connection.check({
         host: testClientParams().host,
         port: testClientParams().port,
+        secure: false,
       });
       expect(status.details.clientVersion).toBeDefined();
       expect(status.details.clientServerCompatible).toBe(true);
@@ -295,6 +298,7 @@ describe("connection", () => {
       const status = await connection.check({
         host: testClientParams().host,
         port: 9999,
+        secure: false,
       });
       expect(status.variant).toEqual("error");
     });

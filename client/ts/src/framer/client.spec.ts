@@ -21,7 +21,10 @@ const client = createTestClient();
 describe("Client", () => {
   describe("openFeed", () => {
     it("should report each failed stream reconnect to onRetry", async () => {
-      const transport = new Transport({ url: new url.URL(testCoreAddress()) });
+      const transport = new Transport({
+        url: new url.URL(testCoreAddress()),
+        secure: false,
+      });
       const retries: Error[] = [];
       const unreachable = new framer.Client({
         stream: transport.stream,

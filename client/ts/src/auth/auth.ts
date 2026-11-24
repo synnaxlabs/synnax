@@ -111,7 +111,7 @@ export interface TokenlessParams {
 export const createTokenlessClient = ({
   host,
   port,
-  secure = false,
+  secure = true,
 }: TokenlessParams): UnaryClient => {
   const transport = new Transport({
     url: new url.URL({ host, port: Number(port) }),
