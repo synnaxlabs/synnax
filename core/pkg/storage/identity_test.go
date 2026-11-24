@@ -20,9 +20,11 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/cockroachdb/pebble/v2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
+	"github.com/synnaxlabs/cesium/testutil/oldlayout"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
@@ -155,6 +157,52 @@ func undoneIn(fs xfs.FS, dir string) ([]string, error) {
 	return names, nil
 }
 
+// writeOld writes the data directory that a Core of v0.62.0 leaves in dir of fs after
+// write from each of starts to indexCh and dataCh: its empty key-value store, its
+// VERSION, and the old layout of Cesium, with one file for each key and one pointer for
+// each write. It returns the bytes of each channel that a read returns.
+func writeOld(fs xfs.FS, dir string, starts ...int) map[cesium.ChannelKey][]byte {
+	GinkgoHelper()
+	// Sub makes the directory, which the open of the store needs.
+	MustSucceed(fs.Sub(filepath.Join(dir, "kv")))
+	kv := MustSucceed(pebble.Open(filepath.Join(dir, "kv"), &pebble.Options{
+		FS:                 pebblefs.New(fs),
+		FormatMajorVersion: pebble.FormatNewest,
+	}))
+	Expect(kv.Close()).To(Succeed())
+	data := MustSucceed(fs.Sub(dir))
+	Expect(xfs.WriteFile(data, "VERSION", []byte("0.62.0"))).To(Succeed())
+	keys := []oldlayout.Key{
+		{Channel: indexCh, Counter: 1},
+		{Channel: dataCh, Counter: 1},
+	}
+	var stamps, values []byte
+	for _, start := range starts {
+		tr := telem.TimeRange{
+			Start: telem.TimeStamp(start) * telem.SecondTS,
+			End:   telem.TimeStamp(start+2)*telem.SecondTS + 1,
+		}
+		for i := range keys {
+			keys[i].Pointers = append(keys[i].Pointers, oldlayout.Pointer{
+				TimeRange: tr,
+				File:      1,
+				Offset:    uint32(len(stamps)),
+				Size:      24,
+			})
+		}
+		stamps = append(stamps, telem.NewSeriesSecondsTSV(
+			telem.TimeStamp(start),
+			telem.TimeStamp(start+1),
+			telem.TimeStamp(start+2),
+		).Data...)
+		values = append(values, telem.NewSeriesV(1.0, 2.0, 3.0).Data...)
+	}
+	keys[0].Files = map[uint16][]byte{1: stamps}
+	keys[1].Files = map[uint16][]byte{1: values}
+	Expect(oldlayout.Write(MustSucceed(data.Sub("cesium")), keys...)).To(Succeed())
+	return map[cesium.ChannelKey][]byte{indexCh.Key: stamps, dataCh.Key: values}
+}
+
 var _ = Describe("Cesium identity", func() {
 	It("Should store the identity of a new database and open with it", func(
 		ctx SpecContext,
@@ -180,11 +228,7 @@ var _ = Describe("Cesium identity", func() {
 		ctx SpecContext,
 	) {
 		dir := newDataDir()
-		l := openLayer(ctx, dir, "0.62.0")
-		Expect(l.TS.CreateChannel(ctx, indexCh, dataCh)).To(Succeed())
-		write(ctx, l, 1, indexCh.Key, dataCh.Key)
-		before := MustSucceed(samplesOf(ctx, l))
-		Expect(l.Close()).To(Succeed())
+		before := writeOld(xfs.Default, dir, 1)
 		cfg := storage.LayerConfig{Dirname: dir, Version: "0.63.0"}
 		l, closeLayer := MustSucceed2(openOnLog(ctx, cfg))
 		id := l.TS.Identity()
@@ -248,12 +292,7 @@ var _ = Describe("Cesium identity", func() {
 					UpdateBackupDisabled: new(true),
 				}
 			}
-			l := MustSucceed(storage.OpenLayer(ctx, cfg(disk)))
-			Expect(l.TS.CreateChannel(ctx, indexCh, dataCh)).To(Succeed())
-			write(ctx, l, 1, indexCh.Key, dataCh.Key)
-			write(ctx, l, 100, indexCh.Key, dataCh.Key)
-			held := MustSucceed(samplesOf(ctx, l))
-			Expect(l.Close()).To(Succeed())
+			held := writeOld(disk, "data", 1, 100)
 			// The old layout never syncs. Writeback makes its files durable, as time
 			// does.
 			disk.Writeback()

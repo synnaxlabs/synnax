@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
+	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/testutil/oldlayout"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/io/fs/testutil/fault"
@@ -183,6 +184,17 @@ var _ = Describe("Old layout", func() {
 		renamed.Channel.Name = "other"
 		Expect(oldlayout.Write(mem, renamed)).To(Succeed())
 		Expect(files(mem)).To(Equal(files(fixture("one-run"))))
+	})
+
+	It("Should give a channel with no version the version that v0.62 writes", func(
+		ctx SpecContext,
+	) {
+		mem := xfs.NewMem()
+		Expect(oldlayout.Write(mem, oldlayout.Key{Channel: cesium.Channel{
+			Key: 1, Name: "time", IsIndex: true, DataType: telem.TimestampT,
+		}})).To(Succeed())
+		keys := MustSucceed(oldlayout.Read(ctx, mem))
+		Expect(keys[0].Channel.Version).To(Equal(channel.Version3))
 	})
 
 	It("Should sync nothing, so a crash can lose every write", func(ctx SpecContext) {

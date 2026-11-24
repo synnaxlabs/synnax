@@ -72,7 +72,8 @@ type Key struct {
 // Write writes the directory of each of keys to fs as the old layout does: meta.json
 // when the directory lacks one, since the old layout writes it once at the create of
 // the channel, then counter.domain, index.domain, each data file in rising order of N,
-// and each leftover in rising order of name. It syncs nothing.
+// and each leftover in rising order of name. A channel with no version takes the one
+// that v0.62 writes. It syncs nothing.
 func Write(fs xfs.FS, keys ...Key) error {
 	for _, k := range keys {
 		sub, err := fs.Sub(strconv.FormatUint(uint64(k.Channel.Key), 10))
@@ -206,6 +207,9 @@ func writeMeta(fs xfs.FS, ch channel.Channel) error {
 	exists, err := fs.Exists(meta.File)
 	if err != nil || exists {
 		return err
+	}
+	if ch.Version == 0 {
+		ch.Version = channel.Version3
 	}
 	b, err := codec.Encode(ch)
 	if err != nil {
