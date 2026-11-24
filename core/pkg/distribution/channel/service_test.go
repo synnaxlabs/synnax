@@ -47,7 +47,6 @@ func validServiceConfig(ctx context.Context) channel.ServiceConfig {
 	return channel.ServiceConfig{
 		HostKey: node.Identity.HostKey,
 		KV:      node.DB,
-		TS:      node.Storage.TS,
 	}
 }
 
@@ -70,7 +69,6 @@ var _ = Describe("ServiceConfig", Ordered, func() {
 			},
 			Entry("host key", "host_key: must be non-zero"),
 			Entry("kv", "kv: must be non-nil"),
-			Entry("time-series database", "ts: must be non-nil"),
 		)
 	})
 
@@ -96,7 +94,6 @@ var _ = Describe("Service", Ordered, func() {
 			MatchError(SatisfyAll(
 				ContainSubstring("host_key: must be non-zero"),
 				ContainSubstring("kv: must be non-nil"),
-				ContainSubstring("ts: must be non-nil"),
 			)),
 		)
 	})

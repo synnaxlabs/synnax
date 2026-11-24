@@ -14,8 +14,9 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/calculation/compiler"
+	calctestutil "github.com/synnaxlabs/synnax/pkg/service/calculation/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/compiler"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -26,6 +27,7 @@ import (
 var (
 	db         *gorp.DB
 	channelSvc *channel.Service
+	creator    calctestutil.Creator
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -40,10 +42,12 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	}))
 	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 		Channel: node.Channel,
+		TS:      node.Storage.TS,
 		DB:      node.DB,
 		HostKey: node.Identity.HostKey,
 		Status:  statusSvc,
 	}))
+	creator = calctestutil.Creator{DB: db, Channel: channelSvc}
 })
 
 var _ = Describe("Compile", func() {
@@ -52,15 +56,11 @@ var _ = Describe("Compile", func() {
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return channelSvc.NewWriter(tx).Create(ctx, &base)
 		})).To(Succeed())
-		calc := channel.Channel{
+		calc := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
 			Name:       "calc",
 			DataType:   telem.Int64T,
-			Virtual:    true,
 			Expression: "return base * 2",
-		}
-		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			return channelSvc.NewWriter(tx).Create(ctx, &calc)
-		})).To(Succeed())
+		}))
 		mod := MustSucceed(compiler.Compile(ctx, db, compiler.Config{
 			ChannelService: channelSvc,
 			Channel:        calc,
@@ -75,16 +75,12 @@ var _ = Describe("Compile", func() {
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return channelSvc.NewWriter(tx).Create(ctx, &base)
 		})).To(Succeed())
-		calc := channel.Channel{
+		calc := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
 			Name:       "calc2",
 			DataType:   telem.Int64T,
-			Virtual:    true,
 			Expression: "return base2 + 1",
 			Operations: []channel.Operation{{Type: "avg", Duration: 5 * telem.Second}},
-		}
-		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			return channelSvc.NewWriter(tx).Create(ctx, &calc)
-		})).To(Succeed())
+		}))
 		mod := MustSucceed(compiler.Compile(ctx, db, compiler.Config{
 			ChannelService: channelSvc,
 			Channel:        calc,
@@ -101,15 +97,11 @@ var _ = Describe("Compile", func() {
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return channelSvc.NewWriter(tx).CreateMany(ctx, &channels)
 		})).To(Succeed())
-		calc := channel.Channel{
+		calc := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
 			Name:       "calc3",
 			DataType:   telem.Int64T,
-			Virtual:    true,
 			Expression: "return base3 + base4",
-		}
-		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			return channelSvc.NewWriter(tx).Create(ctx, &calc)
-		})).To(Succeed())
+		}))
 		mod := MustSucceed(compiler.Compile(ctx, db, compiler.Config{
 			ChannelService: channelSvc,
 			Channel:        calc,
@@ -129,16 +121,12 @@ var _ = Describe("Compile", func() {
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return channelSvc.NewWriter(tx).Create(ctx, &base)
 		})).To(Succeed())
-		calc := channel.Channel{
+		calc := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
 			Name:       UniqueChannelName(),
 			DataType:   telem.Float64T,
-			Virtual:    true,
 			Expression: "return " + base.Name,
 			Operations: []channel.Operation{{Type: "derivative"}},
-		}
-		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			return channelSvc.NewWriter(tx).Create(ctx, &calc)
-		})).To(Succeed())
+		}))
 		mod := MustSucceed(compiler.Compile(ctx, db, compiler.Config{
 			ChannelService: channelSvc,
 			Channel:        calc,
@@ -148,15 +136,11 @@ var _ = Describe("Compile", func() {
 	})
 
 	It("Should fail with invalid expression", func(ctx SpecContext) {
-		calc := channel.Channel{
+		calc := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
 			Name:       "calc4",
 			DataType:   telem.Int64T,
-			Virtual:    true,
 			Expression: "return 1",
-		}
-		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			return channelSvc.NewWriter(tx).Create(ctx, &calc)
-		})).To(Succeed())
+		}))
 		calc.Expression = "return invalid_syntax {{"
 		Expect(compiler.Compile(ctx, db, compiler.Config{
 			ChannelService: channelSvc,
