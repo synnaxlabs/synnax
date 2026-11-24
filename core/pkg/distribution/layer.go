@@ -125,8 +125,9 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}
 
 	if l.Framer, err = framer.OpenService(ctx, framer.ServiceConfig{
-		Instrumentation: cfg.Child("framer"),
-		TS:              cfg.Storage.TS,
+		Instrumentation:   cfg.Child("framer"),
+		TS:                cfg.Storage.TS,
+		PointerLogEnabled: new(cfg.Storage.PointerLogEnabled),
 	}); !ok(err, l.Framer) {
 		return nil, err
 	}

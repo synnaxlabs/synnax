@@ -13,7 +13,6 @@ import (
 	"context"
 	"slices"
 
-	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
@@ -23,38 +22,18 @@ import (
 // Pending holds the uncommitted samples of the channels that Handoff took out of a
 // writer. They lie on clock stamps that the writer wrote. Pending is not safe for
 // concurrent use.
-type Pending struct {
-	idx *idxWriter
-	log *logWriter
-}
+type Pending struct{ log *logWriter }
 
-// Commit commits the samples of p once the clock holds a committed stamp at the last
-// clock stamp of the writer that wrote them, then releases p. It returns the end of the
-// commit, or false and commits nothing while the clock does not hold that stamp. On the
-// pointer log layout, it fails when the clock holds other stamps there, and it returns
-// false, with the samples committed, until their stamps are durable.
+// Commit commits the samples of p once the clock holds the exact stamps of each of
+// their runs, then releases p once those stamps are durable. It returns the end of the
+// commit, or false while the clock does not hold those stamps or they are not durable,
+// and it fails when the clock holds other stamps there. It never waits.
 func (p *Pending) Commit(ctx context.Context) (telem.TimeStamp, bool, error) {
-	if p.log != nil {
-		return p.commitLog(ctx)
-	}
-	held, err := p.idx.indexHoldsHighWater(ctx)
-	if err != nil || !held {
-		return 0, false, err
-	}
-	end, _, err := p.idx.commitPendingData(ctx, nil)
-	if err != nil {
-		return 0, false, err
-	}
-	return end, true, p.Close()
+	return p.commitLog(ctx)
 }
 
 // Close releases the channels of p and drops its uncommitted samples.
-func (p *Pending) Close() error {
-	if p.log != nil {
-		return p.log.close()
-	}
-	return errors.Join(p.idx.persist(), p.idx.Close())
-}
+func (p *Pending) Close() error { return p.log.close() }
 
 // HandoffRun is the run of the writer that Handoff opens.
 type HandoffRun uint8
@@ -68,18 +47,16 @@ const (
 	SameRun
 )
 
-// Handoff closes w and opens a writer of cfg on the clock of w in its place, in the run
-// that run names. Each key of cfg keeps the uncommitted samples that w or adopt holds
-// for it, so the next commit of the new writer commits them, and the new writer keeps
-// the last clock stamp of the writer that wrote them. Handoff returns the uncommitted
-// samples of the keys of w that cfg lacks as a Pending, or nil when they have none.
-// adopt is a Pending of an earlier Handoff for the keys of cfg, or nil. On an error,
-// Handoff closes w and adopt, which drops their uncommitted samples, and its error
-// names the clock and their time range. A handoff refuses a start of cfg in stored
-// data, as an open does. On the old layout, a handoff that adopts a Pending when w
-// holds no uncommitted sample starts a new run. On the pointer log layout, the new
-// writer is the writer of w with the keys of cfg. On both layouts, run applies only
-// when w holds no uncommitted sample: the uncommitted run of w goes on in either run.
+// Handoff moves w to the keys of cfg on the pointer log layout, and returns the new
+// writer. Each key of cfg keeps the uncommitted samples that w or adopt holds for it,
+// so the next commit of the new writer commits them, and the uncommitted run of w goes
+// on in either run; run applies only when w holds no uncommitted sample. Handoff
+// returns the uncommitted samples of the keys of w that cfg lacks as a Pending, or nil
+// when they have none. adopt is a Pending of an earlier Handoff for the keys of cfg, or
+// nil. On an error, Handoff closes w and adopt, which drops their uncommitted samples,
+// and its error names the clock and their time range. A handoff refuses a start of cfg
+// in stored data, as an open does. Handoff fails on the old layout, where each writer
+// of a clock stays open.
 func (db *DB) Handoff(
 	ctx context.Context,
 	w *Writer,
@@ -87,6 +64,12 @@ func (db *DB) Handoff(
 	adopt *Pending,
 	run HandoffRun,
 ) (_ *Writer, _ *Pending, err error) {
+	if w.log == nil {
+		return nil, nil, errors.Join(
+			errors.Wrap(errors.ErrUnsupported, "the old layout hands off no writer"),
+			w.Close(),
+		)
+	}
 	dropped, uncommitted := w.uncommitted()
 	defer func() {
 		if err != nil && uncommitted {
@@ -116,20 +99,7 @@ func (db *DB) Handoff(
 	if err = checkHandoff(w, cfg, run); err != nil {
 		return nil, nil, err
 	}
-	if w.log != nil {
-		return db.handoffLog(ctx, w, cfg, adopt, run)
-	}
-	if err = w.persist(); err != nil {
-		return nil, nil, err
-	}
-	db.mu.RLock()
-	defer db.mu.RUnlock()
-	next, pending, err := db.handoffIdx(ctx, w.idx, cfg, adopt, run)
-	if err != nil {
-		return nil, nil, err
-	}
-	w.closed = true
-	return &Writer{WriterConfig: cfg, idx: next}, pending, nil
+	return db.handoffLog(ctx, w, cfg, adopt, run)
 }
 
 // checkHandoff refuses a handoff of w to cfg in run that changes the clock or whether
@@ -158,179 +128,9 @@ func checkHandoff(w *Writer, cfg WriterConfig, run HandoffRun) error {
 // uncommitted returns the time range of the samples that w has not committed, and false
 // when it has none.
 func (w *Writer) uncommitted() (telem.TimeRange, bool) {
-	if w.log != nil {
-		runs := w.log.runs
-		if len(runs) == 0 {
-			return telem.TimeRange{}, false
-		}
-		return telem.TimeRange{
-			Start: runs[0].first,
-			End:   runs[len(runs)-1].last + 1,
-		}, true
+	runs := w.log.runs
+	if len(runs) == 0 {
+		return telem.TimeRange{}, false
 	}
-	tr := telem.TimeRange{Start: w.idx.lastCommitEnd, End: w.idx.idx.highWaterMark + 1}
-	return tr, w.idx.holdsUncommitted()
-}
-
-// handoffIdx moves the unary writers of the keys of cfg out of old and adopt into a new
-// index writer of cfg, and returns the writers of the other keys of old that hold
-// uncommitted samples as a Pending. The new writer takes the run state of adopt when it
-// is not nil, or else of old. When old holds no uncommitted sample, the keys of an
-// adopting writer open again at the start of cfg. The caller holds db.mu.
-func (db *DB) handoffIdx(
-	ctx context.Context,
-	old *idxWriter,
-	cfg WriterConfig,
-	adopt *Pending,
-	run HandoffRun,
-) (*idxWriter, *Pending, error) {
-	if !old.holdsUncommitted() {
-		next, done, err := db.handoffIdle(ctx, old, cfg, adopt, run)
-		if done || err != nil {
-			return next, nil, err
-		}
-	}
-	base := old
-	if adopt != nil {
-		base = adopt.idx
-	}
-	next := base.runState(make(map[ChannelKey]*unaryWriterState, len(cfg.Channels)))
-	next.writingToIdx = true
-	// The clock run that old holds moves with the clock, so its samples join the run.
-	if adopt != nil && old.hasUncommittedData {
-		next.hasUncommittedData = true
-		next.idx.highWaterMark = max(next.idx.highWaterMark, old.idx.highWaterMark)
-		next.sampleCount = max(next.sampleCount, old.sampleCount)
-	}
-	for _, key := range cfg.Channels {
-		if next.take(old, key) || (adopt != nil && next.take(adopt.idx, key)) {
-			continue
-		}
-		if err := db.openChannelWriter(ctx, cfg, next, key); err != nil {
-			return nil, nil, errors.Join(err, next.Close())
-		}
-	}
-	if adopt != nil && len(adopt.idx.internal) > 0 {
-		return nil, nil, errors.Join(
-			errors.Wrap(
-				validate.ErrValidation,
-				"the writer lacks a key of the pending",
-			),
-			next.Close(),
-		)
-	}
-	// A run that skipped data channels held back is the new writer's to commit once the
-	// handoff drops every one of them.
-	for _, key := range old.held {
-		if slices.Contains(cfg.Channels, key) {
-			next.held = append(next.held, key)
-		}
-	}
-	if len(old.held) > 0 && len(next.held) == 0 {
-		next.hasUncommittedData = true
-	}
-	p, err := pendRest(old)
-	return next, p, err
-}
-
-// pendRest returns the writers that remain in old after a handoff took its keys as a
-// Pending, with those that hold no uncommitted sample closed, or nil when none remain.
-func pendRest(old *idxWriter) (*Pending, error) {
-	var err error
-	for key, u := range old.internal {
-		if !u.uncommitted {
-			err = errors.Join(err, u.Close())
-			delete(old.internal, key)
-		}
-	}
-	if err != nil || len(old.internal) == 0 {
-		return nil, err
-	}
-	p := old.runState(old.internal)
-	p.dataPending, p.hasUncommittedData = true, false
-	return &Pending{idx: p}, nil
-}
-
-// handoffIdle hands off old, which holds no uncommitted sample. In a new run, or when
-// it adopts samples, it closes old, and with nothing to adopt it returns done with a
-// new writer of cfg. In the same run, it keeps old open after the check of
-// refuseStored.
-func (db *DB) handoffIdle(
-	ctx context.Context,
-	old *idxWriter,
-	cfg WriterConfig,
-	adopt *Pending,
-	run HandoffRun,
-) (*idxWriter, bool, error) {
-	// The pending samples of an adopting handoff lie on stamps that old committed, so
-	// their run is not the clock run of old.
-	if run == SameRun && adopt == nil {
-		return nil, false, db.refuseStored(ctx, old, cfg)
-	}
-	if err := errors.Join(old.persist(), old.Close()); err != nil {
-		return nil, false, err
-	}
-	clear(old.internal)
-	if adopt != nil {
-		return nil, false, nil
-	}
-	next, err := db.openClockWriter(ctx, cfg)
-	return next, true, err
-}
-
-// refuseStored refuses a handoff from old to cfg in the same run when the start of cfg
-// lies in stored data of a key that old holds, as an open of cfg would.
-func (db *DB) refuseStored(
-	ctx context.Context,
-	old *idxWriter,
-	cfg WriterConfig,
-) error {
-	tr := cfg.Start.SpanRange(telem.Nanosecond)
-	for _, key := range cfg.Channels {
-		if _, held := old.internal[key]; !held {
-			continue
-		}
-		u := db.mu.dbs.unary[key]
-		stored, err := u.HasStoredDataFor(ctx, tr)
-		if err != nil {
-			return err
-		}
-		if stored {
-			return channel.Wrap(key, errors.Wrapf(
-				validate.ErrValidation,
-				"cannot open writer because there is already data in the writer's "+
-					"time range at %v",
-				cfg.Start,
-			))
-		}
-	}
-	return nil
-}
-
-// runState returns an index writer of internal with the clock and run state of w.
-func (w *idxWriter) runState(internal map[ChannelKey]*unaryWriterState) *idxWriter {
-	return &idxWriter{
-		internal:           internal,
-		idx:                w.idx,
-		sampleCount:        w.sampleCount,
-		start:              w.start,
-		anchor:             w.anchor,
-		anchorSet:          w.anchorSet,
-		hasUncommittedData: w.hasUncommittedData,
-		dataPending:        w.dataPending,
-		lastCommitEnd:      w.lastCommitEnd,
-	}
-}
-
-// take moves the unary writer of key from src into w, and returns false when src has
-// none.
-func (w *idxWriter) take(src *idxWriter, key ChannelKey) bool {
-	u, ok := src.internal[key]
-	if !ok {
-		return false
-	}
-	delete(src.internal, key)
-	u.lastWriteCall = 0
-	w.internal[key] = u
-	return true
+	return telem.TimeRange{Start: runs[0].first, End: runs[len(runs)-1].last + 1}, true
 }
