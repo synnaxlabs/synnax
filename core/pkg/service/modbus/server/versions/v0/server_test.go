@@ -318,7 +318,7 @@ var _ = Describe("Connection", func() {
 			SerialPort: "COM3",
 			BaudRate:   9600,
 			Parity:     v0.ParityNone,
-			StopBits:   2,
+			StopBits:   v0.StopBitsTwo,
 			UnitID:     7,
 		}}),
 		Entry("no variant", v0.Connection{}),
@@ -337,7 +337,7 @@ var _ = Describe("Connection", func() {
 			SerialPort: "COM3",
 			BaudRate:   19200,
 			Parity:     v0.ParityEven,
-			StopBits:   1,
+			StopBits:   v0.StopBitsOne,
 			UnitID:     1,
 		}))
 	})
@@ -348,4 +348,67 @@ var _ = Describe("Connection", func() {
 		Expect(msgpack.Unmarshal(raw, &decoded)).
 			To(MatchError(validate.ErrValidation))
 	})
+})
+
+var _ = Describe("Register", func() {
+	register := func(variant v0.RegisterVariant) v0.Register {
+		return v0.Register{Variant: variant}
+	}
+	DescribeTable("Should round trip through msgpack",
+		func(r v0.Register) {
+			var decoded v0.Register
+			Expect(msgpack.Unmarshal(MustSucceed(msgpack.Marshal(r)), &decoded)).
+				To(Succeed())
+			Expect(decoded).To(Equal(r))
+		},
+		Entry("a coil", register(v0.CoilRegister{
+			Address: 3,
+		})),
+		Entry("a discrete input", register(v0.DiscreteInputRegister{
+			Address: 4,
+		})),
+		Entry("a whole value", register(v0.HoldingRegisterRegister{
+			Address: 5,
+			Value: v0.Value{Variant: v0.WholeValue{
+				DataType:     v0.DataTypeFloat32,
+				WordsSwapped: new(true),
+			}},
+		})),
+		Entry("a bit", register(v0.InputRegisterRegister{
+			Address: 6,
+			Value:   v0.Value{Variant: v0.BitValue{Bit: 7}},
+		})),
+		Entry("a string", register(v0.InputRegisterRegister{
+			Address: 7,
+			Value:   v0.Value{Variant: v0.StringValue{Length: 8}},
+		})),
+		Entry("no variant", v0.Register{}),
+	)
+
+	It("Should apply the default data type of a whole value", func() {
+		raw := MustSucceed(msgpack.Marshal(map[string]any{
+			"type":    "holding_register",
+			"address": 2,
+			"value":   map[string]any{"type": "whole"},
+		}))
+		var decoded v0.Register
+		Expect(msgpack.Unmarshal(raw, &decoded)).To(Succeed())
+		Expect(decoded.Variant).To(Equal(v0.HoldingRegisterRegister{
+			Address: 2,
+			Value:   v0.Value{Variant: v0.WholeValue{DataType: v0.DataTypeUint16}},
+		}))
+	})
+
+	DescribeTable("Should reject an unknown type",
+		func(raw map[string]any) {
+			var decoded v0.Register
+			Expect(msgpack.Unmarshal(MustSucceed(msgpack.Marshal(raw)), &decoded)).
+				To(MatchError(validate.ErrValidation))
+		},
+		Entry("register", map[string]any{"type": "file_record"}),
+		Entry("value", map[string]any{
+			"type":  "input_register",
+			"value": map[string]any{"type": "half"},
+		}),
+	)
 })
