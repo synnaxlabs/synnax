@@ -81,7 +81,7 @@ interface FieldBindingProps {
   format: FormatForm;
   channelName: string;
   skipped: boolean;
-  /** The editor of the field starts open. */
+  /** The editor of the field starts open, with the focus on its name. */
   opened: boolean;
 }
 
@@ -188,7 +188,7 @@ const FieldBinding = ({
       </Button.Button>
       {open && (
         <PForm.Form<typeof PICD.formSchema> {...format}>
-          <JSONField path={fieldPath} />
+          <JSONField path={fieldPath} autoFocus={opened} />
         </PForm.Form>
       )}
     </PForm.Section>
