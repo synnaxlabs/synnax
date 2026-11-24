@@ -139,6 +139,7 @@ var _ = Describe("Check: a Reserve at each crash point", func() {
 					Versions:   config(&appended{}).Versions,
 					Version:    1,
 					Threshold:  0.2,
+					Block:      4,
 					Append:     func(e *log.Entry) { l.Append(e) },
 					Executor:   goExe,
 					OnHead:     func(uint64, *state.Snapshot) {},
