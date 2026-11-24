@@ -72,7 +72,7 @@ var _ = Describe("Primary check", func() {
 			Eventually(func() []calculation.Status {
 				return announced(ctx, out.Name)
 			}).Should(ContainElement(HaveField("Description", ContainSubstring(
-				"prc_twice_b is no longer read",
+				"no longer reads prc_twice_b",
 			))))
 			Expect(announced(ctx, out.Name)).To(HaveLen(1))
 		})
@@ -128,4 +128,47 @@ var _ = Describe("Primary check", func() {
 			}, 500*time.Millisecond).Should(BeEmpty())
 		},
 	)
+	It("Should delete the primary status when the calculation's output is deleted",
+		func(ctx SpecContext) {
+			virtual(ctx, "prc_out_del_a")
+			virtual(ctx, "prc_out_del_b")
+			out := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
+				Name:       "prc_out_del_out",
+				Expression: "return prc_out_del_a + prc_out_del_b",
+			}))
+			openGraph(ctx)
+			setExpression(ctx, out.Key(), "return prc_out_del_b")
+			Eventually(func() []calculation.Status {
+				return announced(ctx, out.Name)
+			}).Should(HaveLen(1))
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Delete(ctx, out.Key(), false)
+			})).To(Succeed())
+			Eventually(func() []calculation.Status {
+				return announced(ctx, out.Name)
+			}, 2*time.Second).Should(BeEmpty())
+		})
+
+	It("Should rename the primary status with the calculation's output",
+		func(ctx SpecContext) {
+			virtual(ctx, "prc_ren_a")
+			virtual(ctx, "prc_ren_b")
+			out := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
+				Name:       "prc_ren_out",
+				Expression: "return prc_ren_a + prc_ren_b",
+			}))
+			openGraph(ctx)
+			setExpression(ctx, out.Key(), "return prc_ren_b")
+			Eventually(func() []calculation.Status {
+				return announced(ctx, out.Name)
+			}).Should(HaveLen(1))
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).
+					Rename(ctx, out.Key(), "prc_ren_out_2", false)
+			})).To(Succeed())
+			Eventually(func() []calculation.Status {
+				return announced(ctx, "prc_ren_out_2")
+			}, 2*time.Second).Should(HaveLen(1))
+			Expect(announced(ctx, out.Name)).To(BeEmpty())
+		})
 })

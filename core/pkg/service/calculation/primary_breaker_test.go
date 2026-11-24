@@ -50,6 +50,7 @@ var _ = Describe("Primary breaker", func() {
 			DB:      node.DB,
 			Channel: channels,
 			Framer:  node.Framer,
+			Status:  statuses,
 		}))
 		DeferCleanup(func() { Expect(svc.Close()).To(Succeed()) })
 	})
