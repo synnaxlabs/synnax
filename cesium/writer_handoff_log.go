@@ -55,17 +55,8 @@ func (db *DB) handoffLog(
 		}
 	}
 	if len(l.runs) == 0 && adopt == nil {
-		run := *l
-		if err = w.Close(); err != nil {
-			return nil, nil, err
-		}
-		next, err := db.OpenWriter(ctx, cfg)
-		if err != nil {
-			return nil, nil, err
-		}
-		next.log.number, next.log.next = run.number, run.next
-		next.log.last, next.log.lastCommit = run.last, run.lastCommit
-		return next, nil, nil
+		next, err := db.reopenLog(ctx, w, cfg)
+		return next, nil, err
 	}
 	if adopt != nil {
 		for _, lk := range adopt.log.keys {
@@ -93,11 +84,31 @@ func (db *DB) handoffLog(
 			return nil, nil, err
 		}
 	}
-	if err = db.addKeys(ctx, l, cfg.Channels); err != nil {
+	if err = db.addKeys(l, cfg.Channels); err != nil {
 		return nil, nil, err
 	}
 	w.closed = true
 	return &Writer{WriterConfig: cfg, log: l}, pending, nil
+}
+
+// reopenLog closes w, which holds no uncommitted sample, and opens a writer of cfg that
+// goes on in the stretch of w.
+func (db *DB) reopenLog(
+	ctx context.Context,
+	w *Writer,
+	cfg WriterConfig,
+) (*Writer, error) {
+	run := *w.log
+	if err := w.Close(); err != nil {
+		return nil, err
+	}
+	next, err := db.OpenWriter(ctx, cfg)
+	if err != nil {
+		return nil, err
+	}
+	next.log.number, next.log.next = run.number, run.next
+	next.log.last, next.log.lastCommit = run.last, run.lastCommit
+	return next, nil
 }
 
 // keysOutside returns the keys of w that keys lacks.
@@ -259,7 +270,7 @@ func (w *logWriter) join(a *logWriter) error {
 
 // addKeys makes l write each key of keys that it does not, with claims from the start
 // of its first run.
-func (db *DB) addKeys(ctx context.Context, l *logWriter, keys []ChannelKey) error {
+func (db *DB) addKeys(l *logWriter, keys []ChannelKey) error {
 	db.mu.RLock()
 	defer db.mu.RUnlock()
 	var (
