@@ -1581,6 +1581,23 @@ var _ = Describe("Control handoff", func() {
 		Entry("when another writer raises its authority", raise),
 		Entry("when another writer opens with a higher authority", openAbove),
 	)
+
+	It(
+		"Should commit the samples written before a refused write once control returns",
+		func(ctx SpecContext) {
+			low := MustSucceed(db.OpenWriter(ctx, config("low", 1)))
+			Expect(MustSucceed(write(low, 10*telem.SecondTS))).To(BeTrue())
+			high = MustSucceed(db.OpenWriter(ctx, config("high", 2)))
+			Expect(MustSucceed(write(low, 11*telem.SecondTS))).To(BeFalse())
+			Expect(high.Close()).To(Succeed())
+			end, _ := MustSucceed2(low.Commit())
+			Expect(end).To(Equal(10*telem.SecondTS + 1))
+			Expect(low.Close()).To(Succeed())
+			stamps, values := samples(ctx)
+			Expect(stamps).To(Equal([]int64{int64(10 * telem.SecondTS)}))
+			Expect(values).To(Equal(stamps))
+		},
+	)
 })
 
 // fileHold stops the first armed file operation in the directory of one channel until
