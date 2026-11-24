@@ -268,16 +268,10 @@ func (c *logCursor) Size() telem.Size { return telem.Size(c.cur.ptr.Length) }
 func (c *logCursor) OpenReader(context.Context) (domain.RangeReader, error) {
 	r := c.cur
 	c.e.pin(r.seg.ID)
-	cfg := c.e.segmentConfig(r.seg)
-	cfg.Key = c.key
 	return &logReader{
-		e:  c.e,
-		rd: c.e.reader(),
-		seg: segment.Committed{
-			Config:  cfg,
-			Length:  int64(r.seg.Length),
-			TailCRC: r.seg.TailCRC,
-		},
+		e:      c.e,
+		rd:     c.e.reader(),
+		seg:    c.e.committed(c.key, r.seg),
 		h:      c.e.budget.Open(c.e.fs, segmentName(c.key, r.seg.ID)),
 		offset: int64(r.ptr.Offset),
 		size:   int64(r.ptr.Length),
@@ -311,19 +305,49 @@ var _ domain.RangeReader = (*logReader)(nil)
 
 // ReadAt implements domain.RangeReader. A read past the end of the pointer returns the
 // bytes before it with io.EOF. A block that fails its check on two reads returns an
-// error that wraps place.ErrCorrupt.
+// error that wraps place.ErrCorrupt. A read of a version 2 segment decodes its stamps,
+// so it must cover whole stamps.
 func (r *logReader) ReadAt(p []byte, off int64) (int, error) {
 	if off >= r.size {
 		return 0, io.EOF
 	}
 	n := int(min(int64(len(p)), r.size-off))
-	if err := r.rd.Read(r.h, r.seg, p[:n], r.offset+off); err != nil {
+	var err error
+	if r.seg.Version == segment.ProgressionVersion {
+		if (r.offset+off)%stampSize != 0 || n%stampSize != 0 {
+			return 0, errors.Newf("read of %d bytes at offset %d of a version 2 "+
+				"segment holds no whole stamps", n, r.offset+off)
+		}
+		err = r.rd.Stamps(r.h, r.seg, p[:n], (r.offset+off)/stampSize)
+	} else {
+		err = r.rd.Read(r.h, r.seg, p[:n], r.offset+off)
+	}
+	if err != nil {
 		return 0, err
 	}
 	if n < len(p) {
 		return n, io.EOF
 	}
 	return n, nil
+}
+
+// Search implements domain.RangeReader. A version 2 segment answers from its table,
+// with
+// one block of the table.
+func (r *logReader) Search(stamp telem.TimeStamp) (domain.Approximation[int64], error) {
+	if r.seg.Version != segment.ProgressionVersion {
+		return domain.SearchStamps(r, telem.Size(r.size), stamp)
+	}
+	pos, exact, err := r.rd.Search(r.h, r.seg, int64(stamp))
+	if err != nil {
+		return domain.Approximation[int64]{}, err
+	}
+	first, n := r.offset/stampSize, r.size/stampSize
+	at := min(max(pos-first, 0), n)
+	if exact && at == pos-first && at < n {
+		return domain.Exactly(at), nil
+	}
+	return domain.Between(at-1, at), nil
 }
 
 // Size implements domain.RangeReader.

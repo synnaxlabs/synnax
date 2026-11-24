@@ -42,6 +42,8 @@ const (
 	syncWidth = 32
 	// blockCacheSize is the budget of the cache of checked blocks that readers share.
 	blockCacheSize = 64 << 20
+	// stampSize is the stream bytes of one stamp of a clock.
+	stampSize = 8
 )
 
 // engine is the pointer log layout of a DB: the state owner, the log owner, the
@@ -597,6 +599,18 @@ func (e *engine) reader() *segment.Reader {
 		panic("cesium: the segment reader pool holds another type")
 	}
 	return rd
+}
+
+// committed returns the committed part of seg, a segment of key, that a checked read
+// covers.
+func (e *engine) committed(key ChannelKey, seg state.Segment) segment.Committed {
+	cfg := e.segmentConfig(seg)
+	cfg.Key = key
+	return segment.Committed{
+		Config:  cfg,
+		Length:  int64(seg.Length),
+		TailCRC: seg.TailCRC,
+	}
 }
 
 // segmentConfig returns the identity and block layout of seg.

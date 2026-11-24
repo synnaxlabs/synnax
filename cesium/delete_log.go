@@ -175,15 +175,18 @@ type stampSpan struct {
 	off    int64
 }
 
-// stampReader reads the stamps of samples of a clock for a search by time. It reads one
-// block of the clock at a time and keeps the last one, so a search reads a few blocks,
-// not every stamp. It keeps what the load of the clock pinned until close.
+// stampReader reads the stamps of samples of a clock for a search by time. It reads and
+// checks one block of the clock at a time, or decodes the stamps of one block of a
+// version 2 segment, and keeps the last one, so a search reads a few blocks, not every
+// stamp. It keeps what the load of the clock pinned, and a reader of the pool of the
+// engine, until close.
 type stampReader struct {
 	e       *engine
 	clock   ChannelKey
 	samples int
 	spans   []stampSpan
 	held    held
+	rd      *segment.Reader
 	// h is the handle of segment hSeg. buf holds stream bytes of span from stream
 	// offset from, or nothing when span is -1.
 	h    *segment.Handle
@@ -199,7 +202,14 @@ type stampReader struct {
 // Channel. The caller closes it.
 func (e *engine) openStamps(clock ChannelKey, p state.Pointer) (*stampReader, error) {
 	ch, h, err, unlinkErr := e.load(clock, held{})
-	r := &stampReader{e: e, clock: clock, samples: int(p.Samples), span: -1, held: h}
+	r := &stampReader{
+		e:       e,
+		clock:   clock,
+		samples: int(p.Samples),
+		span:    -1,
+		held:    h,
+		rd:      e.reader(),
+	}
 	if err = errors.Join(err, unlinkErr); err != nil {
 		return nil, errors.Join(err, r.close())
 	}
@@ -328,16 +338,25 @@ func (r *stampReader) load(s int, off int64) error {
 	to := min(max(start+segment.BlockSize, off+8), sp.off+int64(sp.hi-sp.lo)*8)
 	r.buf = slices.Grow(r.buf[:0], int(to-from))[:to-from]
 	r.span = -1
-	if err := r.e.segmentConfig(sp.seg).ReadAt(r.h, r.buf, from); err != nil {
+	c := r.e.committed(r.clock, sp.seg)
+	var err error
+	if sp.seg.Version == segment.ProgressionVersion {
+		err = r.rd.Stamps(r.h, c, r.buf, from/stampSize)
+	} else {
+		err = r.rd.Read(r.h, c, r.buf, from)
+	}
+	if err != nil {
 		return err
 	}
 	r.span, r.from = s, from
 	return nil
 }
 
-// close closes the handle of the segment that r reads and unpins what the load of
-// the clock pinned. It is called once.
+// close puts the reader of r back in the pool, closes the handle of the segment that r
+// reads, and unpins what the load of the clock pinned. It is called once.
 func (r *stampReader) close() error {
+	r.rd.Reset()
+	r.e.readers.Put(r.rd)
 	return errors.Join(r.closeHandle(), r.e.unpin(r.held))
 }
 

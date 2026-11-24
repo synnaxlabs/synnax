@@ -42,6 +42,11 @@ func (r *reader) ReadAt(p []byte, off int64) (int, error) {
 	return r.section.ReadAt(p, off)
 }
 
+// Search implements RangeReader.
+func (r *reader) Search(stamp telem.TimeStamp) (Approximation[int64], error) {
+	return SearchStamps(r, r.Size(), stamp)
+}
+
 // Close releases the reader's file handle back to the DB.
 func (r *reader) Close() error { return r.internal.Close() }
 

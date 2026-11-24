@@ -53,6 +53,9 @@ type Ranges interface {
 type RangeReader interface {
 	// ReadAt reads len(p) bytes at off of the range.
 	ReadAt(p []byte, off int64) (int, error)
+	// Search returns the position of stamp in a range of rising index stamps: exactly
+	// the first position that holds stamp, or the positions before and after it.
+	Search(stamp telem.TimeStamp) (Approximation[int64], error)
 	// Size returns the bytes of the range.
 	Size() telem.Size
 	// Close closes the reader.

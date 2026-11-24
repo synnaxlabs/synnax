@@ -86,7 +86,7 @@ func (i *Domain) Distance(
 	}
 	defer func() { err = errors.Combine(err, r.Close()) }()
 
-	startApprox, err := i.search(tr.Start, r)
+	startApprox, err := r.Search(tr.Start)
 	if err != nil {
 		return approx, err
 	}
@@ -130,7 +130,7 @@ func (i *Domain) searchEnd(
 	r domain.RangeReader,
 	startToDomain domain.Approximation[int64],
 ) (domain.Approximation[int64], bool, error) {
-	endApprox, err := i.search(end, r)
+	endApprox, err := r.Search(end)
 	if err != nil {
 		return domain.Approximation[int64]{}, false, err
 	}
@@ -339,7 +339,7 @@ func (i *Domain) position(
 		return 0, err
 	}
 	defer func() { err = errors.Combine(err, r.Close()) }()
-	approx, err := i.search(ts, r)
+	approx, err := r.Search(ts)
 	return approx.Upper, err
 }
 
@@ -413,7 +413,7 @@ func (i *Domain) endInDomain(
 	defer func() { err = errors.Combine(err, r.Close()) }()
 	var start int64
 	if iter.TimeRange().Start < ref {
-		approx, err := i.search(ref, r)
+		approx, err := r.Search(ref)
 		if err != nil {
 			return 0, false, n, err
 		}
@@ -447,7 +447,7 @@ func (i *Domain) zeroStamp(
 		return approx, err
 	}
 	defer func() { err = errors.Combine(err, r.Close()) }()
-	startApprox, err := i.search(ref, r)
+	startApprox, err := r.Search(ref)
 	if err != nil {
 		return approx, err
 	}
@@ -481,7 +481,7 @@ func (i *Domain) forwardStamp(
 	}
 	defer func() { err = errors.Combine(err, r.Close()) }()
 
-	startApprox, err := i.search(ref, r)
+	startApprox, err := r.Search(ref)
 	if err != nil {
 		return approx, err
 	}
@@ -651,7 +651,7 @@ func (i *Domain) backwardStamp(
 	}
 	defer func() { err = errors.Combine(err, r.Close()) }()
 
-	startApprox, err := i.search(ref, r)
+	startApprox, err := r.Search(ref)
 	if err != nil {
 		return approx, err
 	}
@@ -795,39 +795,6 @@ func resolveBackwardEffectiveDomainTR(
 		effectiveDomainBounds.Start = i.TimeRange().Start
 		effectiveDomainLen += sampleCount(i.Size())
 	}
-}
-
-// search returns an approximation for the number of samples before a given timestamp.
-// If the timestamp exists in the underlying index, the approximation will be exact and
-// point at the first sample with that timestamp.
-func (i *Domain) search(
-	ts telem.TimeStamp,
-	r domain.RangeReader,
-) (domain.Approximation[int64], error) {
-	var (
-		start int64
-		end   = sampleCount(r.Size()) - 1
-		read  = newStampReader()
-		midTs telem.TimeStamp
-		found = false
-		err   error
-	)
-	for start <= end {
-		mid := (start + end) / 2
-		if midTs, err = read(r, byteSize(mid)); err != nil {
-			return domain.Exactly[int64](0), err
-		}
-		if midTs < ts {
-			start = mid + 1
-		} else {
-			found = found || midTs == ts
-			end = mid - 1
-		}
-	}
-	if found {
-		return domain.Exactly(start), nil
-	}
-	return domain.Between(end, end+1), nil
 }
 
 func newStampReader() func(r io.ReaderAt, offset telem.Size) (telem.TimeStamp, error) {
