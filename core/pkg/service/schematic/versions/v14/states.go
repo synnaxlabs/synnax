@@ -33,14 +33,16 @@ type MigrationConfig struct {
 }
 
 // NewMigration returns the migration that lifts stored schematics from v13 to v14 as
-// MigrateSchematic does, then gives their selects and state indicators enumerations as
-// internStates does. A symbol node whose custom symbol is gone gets a missing ref.
+// MigrateSchematic does, then gives their selects, state indicators, and lights with an
+// on color enumerations. A custom node with state overrides gets an enumeration or a
+// copy of its symbol. A symbol node whose custom symbol is gone gets a missing ref.
 func NewMigration(cfg MigrationConfig) gorp.Migration {
 	const key = "v63_color_ref"
 	return migrate.New(
 		key,
 		func(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation) error {
 			intern := cfg.Intern(tx)
+			o := &overrides{tx: tx, intern: intern, copies: map[string]symbol.Key{}}
 			return migrate.NewInstrumentedEntry(
 				key,
 				func(
@@ -54,6 +56,12 @@ func NewMigration(cfg MigrationConfig) gorp.Migration {
 					}
 					lists := stateLists(old)
 					if err = internStates(ctx, &s, lists, intern, ins); err != nil {
+						return Schematic{}, err
+					}
+					if err = internLights(ctx, &s, old, intern); err != nil {
+						return Schematic{}, err
+					}
+					if err = o.apply(ctx, &s, old); err != nil {
 						return Schematic{}, err
 					}
 					warnEmptyThresholds(old, ins)

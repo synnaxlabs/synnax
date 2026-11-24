@@ -52,6 +52,24 @@ func MigrateSpec(ctx context.Context, old v4.Spec) (Spec, error) {
 	return m.finish(), nil
 }
 
+// MigrateStoredSpec returns the spec that NewMigration gives a stored symbol with spec
+// old, with no enumeration key and no commands from a custom_actuator node, and the
+// entries of its default enumeration.
+func MigrateStoredSpec(
+	ctx context.Context,
+	old v4.Spec,
+) (Spec, []enumeration.Entry, error) {
+	m, err := migrateSpec(ctx, old)
+	if err != nil {
+		return Spec{}, nil, err
+	}
+	var entries []enumeration.Entry
+	if len(old.States) > 0 {
+		entries = defaultEntries(old.States, m.entryLooks())
+	}
+	return m.finish(), entries, nil
+}
+
 // Intern returns the key of an enumeration with name and entries. It creates one in the
 // migration's transaction, or returns one that an earlier call made with equal entries.
 type Intern func(
