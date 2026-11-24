@@ -43,7 +43,7 @@ var _ = Describe("Symbol node bindings", func() {
 				{Key: "active", Source: &schematic.Source{
 					Variant: schematic.ChannelSource{Key: new(channel.Key(1))},
 				}},
-				{Key: "level", Bounds: &spatial.Bounds{Lower: 10, Upper: 20}},
+				{Key: "level", Bounds: &spatial.ClosedBounds{Lower: 10, Upper: 20}},
 			},
 			Commands: []schematic.CommandBinding{{Key: "reset", Channel: 2}},
 		}
@@ -141,7 +141,7 @@ var _ = Describe("Symbol node bindings", func() {
 			c.States = append(c.States, c.States[0])
 		}, `nodes.0.config.states.2.key: another state binding has the key "active"`),
 		Entry("bounds on an enumeration state", func(c *schematic.SymbolNodeConfig) {
-			c.States[0].Bounds = &spatial.Bounds{Lower: 0, Upper: 1}
+			c.States[0].Bounds = &spatial.ClosedBounds{Lower: 0, Upper: 1}
 		}, `nodes.0.config.states.0.bounds: enumeration state "active" has no bounds`),
 		Entry("an empty match on an enumeration state", func(
 			c *schematic.SymbolNodeConfig,
@@ -160,8 +160,8 @@ var _ = Describe("Symbol node bindings", func() {
 			c.States[1].Default = new(0.0)
 		}, `nodes.0.config.states.1.default: number state "level" has no default`),
 		Entry("empty bounds on a number state", func(c *schematic.SymbolNodeConfig) {
-			c.States[1].Bounds = &spatial.Bounds{Lower: 5, Upper: 2}
-		}, `nodes.0.config.states.1.bounds: lower 5 must be below upper 2`),
+			c.States[1].Bounds = &spatial.ClosedBounds{Lower: 5, Upper: 2}
+		}, `nodes.0.config.states.1.bounds.lower: must be less than upper`),
 		Entry("a repeated command binding", func(c *schematic.SymbolNodeConfig) {
 			c.Commands = append(c.Commands, c.Commands[0])
 		}, `nodes.0.config.commands.1.key: another command binding has the key "reset"`),
@@ -439,7 +439,7 @@ var _ = Describe("Symbol node bindings", func() {
 						Path: []string{"data", "states", "active"},
 						Value: fields(symbol.State{Variant: symbol.NumberState{
 							BaseState: symbol.BaseState{Key: "active", Name: "Active"},
-							Bounds:    spatial.Bounds{Lower: 0, Upper: 1},
+							Bounds:    spatial.ClosedBounds{Lower: 0, Upper: 1},
 						}}),
 					})
 				},
@@ -579,7 +579,7 @@ var _ = Describe("Symbol node bindings", func() {
 					Spec: customRef(sym),
 					States: []schematic.StateBinding{{
 						Key:    "active",
-						Bounds: &spatial.Bounds{Lower: 0, Upper: 1},
+						Bounds: &spatial.ClosedBounds{Lower: 0, Upper: 1},
 					}},
 				}
 			},

@@ -44,11 +44,11 @@ const iterElements = (
   fn: (el: SVGElement, paint: Paint) => void,
 ) =>
   paints.forEach((paint) => {
-    if (paint.selectors == null)
-      return Region.collectVisualElements(drawing).forEach((el) => fn(el, paint));
-    paint.selectors.forEach((selector) =>
-      drawing.querySelectorAll<SVGElement>(selector).forEach((el) => fn(el, paint)),
-    );
+    const elements =
+      paint.selectors == null
+        ? Region.allGraphics(drawing)
+        : Region.graphics(drawing, paint.selectors);
+    elements.forEach((el) => fn(el, paint));
   });
 
 // The theme band paints the stroke, as on built-in symbols. The fill stays as stored,
@@ -65,13 +65,13 @@ const setStroke = (el: SVGElement, strokeColor: color.Crude | undefined) => {
 };
 
 const setFill = (el: SVGElement, fillColor: color.Color | undefined) => {
-  if (!el.hasAttribute(ORIGINAL_FILL_ATTRIBUTE)) {
-    const originalFill = el.getAttribute("fill");
-    if (originalFill != null) el.setAttribute(ORIGINAL_FILL_ATTRIBUTE, originalFill);
-  }
-  const fill =
-    fillColor != null ? color.hex(fillColor) : el.getAttribute(ORIGINAL_FILL_ATTRIBUTE);
-  if (fill != null) el.setAttribute("fill", fill);
+  // An empty original marks an element with no fill of its own, such as a <use>.
+  const original =
+    el.getAttribute(ORIGINAL_FILL_ATTRIBUTE) ?? el.getAttribute("fill") ?? "";
+  el.setAttribute(ORIGINAL_FILL_ATTRIBUTE, original);
+  if (fillColor != null) el.setAttribute("fill", color.hex(fillColor));
+  else if (original === "") el.removeAttribute("fill");
+  else el.setAttribute("fill", original);
 };
 
 const setHidden = (el: SVGElement, hidden: boolean) => {
@@ -110,11 +110,12 @@ const applySymbolStrokes = (
   paints: Paint[],
   symbolColor: color.Crude | undefined,
 ) => {
-  const paintStrokes = new Map<Element, color.Color>();
+  const paintStrokes = new Map<SVGElement, color.Color>();
   iterElements(paints, drawing, (el, { stroke }) => {
     if (stroke != null) paintStrokes.set(el, stroke);
   });
-  Region.collectVisualElements(drawing).forEach((el) => {
+  const elements = new Set([...Region.allGraphics(drawing), ...paintStrokes.keys()]);
+  elements.forEach((el) => {
     const paintStroke = paintStrokes.get(el);
     const shown =
       paintStroke != null ? color.opacity(paintStroke) > 0 : isStoredStrokeShown(el);

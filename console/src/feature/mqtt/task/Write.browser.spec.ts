@@ -18,6 +18,7 @@ import { scheduler } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, onTestFinished } from "vitest";
+import { page } from "vitest/browser";
 
 import { MQTT } from "@/feature/mqtt";
 import { createBroker, openScanner } from "@/feature/mqtt/testutil";
@@ -883,6 +884,20 @@ describe("MQTT Write form", () => {
           },
         }),
       );
+    });
+
+    it("should scroll a field that Add field adds below the fold into view", async () => {
+      const fields = Array.from({ length: 8 }, (_, i) =>
+        createField(`value${i}`, "float"),
+      );
+      const { target } = await createFormatTarget(fields);
+      await renderWrite([target]);
+      await fieldGroup(fields[0].name);
+      fireEvent.click(screen.getByRole("button", { name: "Add field" }));
+      await fieldGroup("Field 9");
+      await expect
+        .element(page.getByRole("group", { name: "Field 9" }).getByText("Field 9"))
+        .toBeInViewport();
     });
 
     it("should add a first field to a message with no fields", async () => {

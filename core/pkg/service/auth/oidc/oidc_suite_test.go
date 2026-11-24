@@ -19,7 +19,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/oidc"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/oidc/testutil"
-	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
@@ -52,10 +51,8 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 func openUsers(ctx SpecContext, db *gorp.DB) (*user.Service, role.Key) {
 	GinkgoHelper()
 	StartRun(db.Run)
-	passwordSvc := MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
 	users := MustOpen(user.OpenService(ctx, user.ServiceConfig{
-		DB:       db,
-		Password: passwordSvc,
+		DB: db,
 	}))
 	roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{DB: db}))
 	r := role.Role{Name: "viewer"}

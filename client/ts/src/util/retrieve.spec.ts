@@ -11,21 +11,16 @@ import type { primitive } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { MultipleFoundError, NotFoundError } from "@/index";
-import {
-  analyzeParams,
-  checkForMultipleOrNoResults,
-  type ParamAnalysisResult,
-  type PartialTypeNameRecord,
-} from "@/util/retrieve";
+import { util } from "@/util";
 
 describe("retrieve utils", () => {
   describe("analyze params", () => {
     interface Spec {
       args: primitive.Value;
-      variantMap: PartialTypeNameRecord<primitive.Value>;
-      expected: ParamAnalysisResult<
+      variantMap: util.PartialTypeNameRecord<primitive.Value>;
+      expected: util.ParamAnalysisResult<
         primitive.Value,
-        PartialTypeNameRecord<primitive.Value>
+        util.PartialTypeNameRecord<primitive.Value>
       >;
     }
 
@@ -44,7 +39,7 @@ describe("retrieve utils", () => {
 
     SPECS.forEach(({ args, variantMap, expected }) => {
       it(`should analyze ${JSON.stringify(args)} with ${JSON.stringify(variantMap)}`, () => {
-        expect(analyzeParams(args, variantMap)).toEqual(expected);
+        expect(util.analyzeParams(args, variantMap)).toEqual(expected);
       });
     });
   });
@@ -54,24 +49,26 @@ describe("retrieve utils", () => {
 
     it("should accept exactly one result", () => {
       expect(() =>
-        checkForMultipleOrNoResults("range", request, [1], true),
+        util.checkForMultipleOrNoResults("range", request, [1], true),
       ).not.toThrow();
     });
 
     it("should check nothing for a retrieve of many", () => {
       expect(() =>
-        checkForMultipleOrNoResults("range", request, [], false),
+        util.checkForMultipleOrNoResults("range", request, [], false),
       ).not.toThrow();
     });
 
     it("should describe the filter when nothing matches", () => {
-      expect(() => checkForMultipleOrNoResults("range", request, [], true)).toThrow(
-        new NotFoundError('Found no range where name starts with "press"'),
-      );
+      expect(() =>
+        util.checkForMultipleOrNoResults("range", request, [], true),
+      ).toThrow(new NotFoundError('Found no range where name starts with "press"'));
     });
 
     it("should describe the filter when more than one record matches", () => {
-      expect(() => checkForMultipleOrNoResults("range", request, [1, 2], true)).toThrow(
+      expect(() =>
+        util.checkForMultipleOrNoResults("range", request, [1, 2], true),
+      ).toThrow(
         new MultipleFoundError(
           'Expected one range where name starts with "press", but found 2',
         ),
@@ -80,7 +77,9 @@ describe("retrieve utils", () => {
 
     it("should name the search term before the filter", () => {
       const searched = { ...request, searchTerm: "tank" };
-      expect(() => checkForMultipleOrNoResults("range", searched, [], true)).toThrow(
+      expect(() =>
+        util.checkForMultipleOrNoResults("range", searched, [], true),
+      ).toThrow(
         new NotFoundError(
           'Found no range matching "tank" where name starts with "press"',
         ),
@@ -89,18 +88,18 @@ describe("retrieve utils", () => {
 
     it("should name the search term when there is no filter", () => {
       expect(() =>
-        checkForMultipleOrNoResults("range", { searchTerm: "tank" }, [1, 2], true),
+        util.checkForMultipleOrNoResults("range", { searchTerm: "tank" }, [1, 2], true),
       ).toThrow(
         new MultipleFoundError('Expected one range matching "tank", but found 2'),
       );
     });
 
     it("should leave out the filter and search term when both are empty", () => {
-      expect(() => checkForMultipleOrNoResults("range", {}, [], true)).toThrow(
+      expect(() => util.checkForMultipleOrNoResults("range", {}, [], true)).toThrow(
         new NotFoundError("Found no range"),
       );
       expect(() =>
-        checkForMultipleOrNoResults(
+        util.checkForMultipleOrNoResults(
           "range",
           { where: {}, searchTerm: "" },
           [1, 2],
