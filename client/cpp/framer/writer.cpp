@@ -93,7 +93,7 @@ Writer::set_authority(const channel::Key &key, const x::control::Authority &auth
 x::errors::Error Writer::set_authority(
     const std::vector<channel::Key> &keys,
     const std::vector<x::control::Authority> &authorities,
-    const bool ack
+    const SetAuthorityOptions &options
 ) {
     if (this->close_err) return this->close_err;
     if (auto err = validate_authorities(keys, authorities)) return err;
@@ -101,7 +101,7 @@ x::errors::Error Writer::set_authority(
     grpc::framer::WriterRequest req;
     req.set_command(SET_AUTHORITY);
     if (const auto cfg_err = config.to_proto(req.mutable_config())) return cfg_err;
-    return this->exec(req, ack).second;
+    return this->exec(req, !options.unacknowledged).second;
 }
 
 x::errors::Error Writer::close() {

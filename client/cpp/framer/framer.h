@@ -375,6 +375,13 @@ struct CommitResult {
     from_proto(const grpc::framer::WriterResponse &res);
 };
 
+/// @brief options for changing the authority of a writer's channels.
+struct SetAuthorityOptions {
+    /// @brief when true, the writer sends the change without waiting for the Core to
+    /// acknowledge it.
+    bool unacknowledged = false;
+};
+
 /// @brief used to write a new domain of telemetry frames to a set of channels in
 /// time order. Writer cannot be constructed directly, and should instead be opened
 /// using the FrameClient.
@@ -427,12 +434,11 @@ public:
     /// @returns true if the authority was set successfully.
     /// @param keys the channels to set the authority of.
     /// @param authorities the authority levels to set the channels to.
-    /// @param ack if true, waits for server acknowledgment. If false, sends
-    /// fire-and-forget.
+    /// @param options the options for the change.
     [[nodiscard]] x::errors::Error set_authority(
         const std::vector<channel::Key> &keys,
         const std::vector<x::control::Authority> &authorities,
-        bool ack = true
+        const SetAuthorityOptions &options = {}
     );
 
     /// @brief commits all pending writes to the Synnax cluster. Commit can be
