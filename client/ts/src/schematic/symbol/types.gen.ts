@@ -510,7 +510,7 @@ export interface EnumerationState extends z.infer<typeof enumerationStateZ> {}
 export const numberStateZ = baseStateZ.extend({
   type: z.literal("number"),
   /** bounds is the range of values that motion reads as 0 to 1. */
-  bounds: spatial.boundsZ().prefault({ lower: 0, upper: 100 }),
+  bounds: spatial.closedBoundsZ().prefault({ lower: 0, upper: 100 }),
 });
 export interface NumberState extends z.infer<typeof numberStateZ> {}
 

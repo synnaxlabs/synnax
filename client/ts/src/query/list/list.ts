@@ -10,6 +10,7 @@
 import {
   array,
   type destructor,
+  errors,
   map,
   type record,
   type TimeSpan,
@@ -435,11 +436,18 @@ export class Lists<
     const size = finite(
       ranked ? entry.limit : Math.max(entry.limit, entry.keys.length),
     );
-    const page = await this.page(entry, { ...entry.query, limit: size }, options);
+    // A change during the fetch marks the window stale again, so the next read re-asks.
+    entry.stale = false;
+    let page;
+    try {
+      page = await this.page(entry, { ...entry.query, limit: size }, options);
+    } catch (exc) {
+      entry.stale = true;
+      throw errors.fromUnknown(exc);
+    }
     // A reset discarded the window, so the read goes to the new cluster.
     if (page == null) return await this.replace(entry, options);
     entry.fetched = true;
-    entry.stale = false;
     entry.end = this.endOf(entry, page.records, size);
     entry.covered = page.records.length;
     if (ranked) {
@@ -648,7 +656,14 @@ export class Lists<
     trigger: Trigger<Q, K>,
     result: K[] | "refetch",
   ): void {
-    if (entry.ingesting || !entry.fetched) return;
+    if (entry.ingesting) return;
+    if (!entry.fetched) {
+      // The first fetch's answer may predate the change.
+      if (trigger.contentOnly === true || entry.rechecks == null) return;
+      if (result === "refetch") this.scheduleRefetch(entry);
+      else result.forEach((key) => entry.rechecks?.add(key));
+      return;
+    }
     if (result === "refetch") {
       // The change can reach any member.
       entry.composedByKey = undefined;

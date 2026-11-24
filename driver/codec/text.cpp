@@ -108,11 +108,16 @@ x::errors::Error Text::Field::decode(
 ) const {
     std::string_view value;
     if (this->tagged) {
-        for (const auto item: items)
-            if (const auto t = x::strings::trim(item); t.starts_with(this->tag)) {
-                value = x::strings::trim(t.substr(this->tag.size()));
-                break;
-            }
+        for (const auto item: items) {
+            const auto t = x::strings::trim(item);
+            const auto claimed = [&t](const std::string &l) {
+                return t.starts_with(l);
+            };
+            if (!t.starts_with(this->tag) || std::ranges::any_of(this->longer, claimed))
+                continue;
+            value = x::strings::trim(t.substr(this->tag.size()));
+            break;
+        }
     } else if (this->position < items.size())
         value = x::strings::trim(items[this->position]);
     if (value.empty()) {
@@ -170,6 +175,12 @@ Text::create(const std::vector<TextMessage> &messages) {
                         "message " + m.name + ": field " + icd::base(f).name
                     ),
                 };
+            if (field.tagged)
+                for (const auto &other: m.payload.fields)
+                    if (const auto *o = std::get_if<icd::TaggedTextField>(&other);
+                        o != nullptr && o->tag.size() > field.tag.size() &&
+                        o->tag.starts_with(field.tag))
+                        field.longer.push_back(o->tag);
             msg.fields.push_back(std::move(field));
             msg.samples.emplace_back(b.data_type, 1);
         }
