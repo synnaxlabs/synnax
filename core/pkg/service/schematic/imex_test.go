@@ -147,8 +147,7 @@ var _ = Describe("ImEx", func() {
 					"versions/testdata/import_v13_states.json",
 					imex.ImportOptions{Parent: proj.ResourceID()},
 				)
-				light, ok := res.Nodes[2].Config.Variant.(schematic.SymbolNodeConfig)
-				Expect(ok).To(BeTrue())
+				light := as[schematic.SymbolNodeConfig](res.Nodes[2].Config.Variant)
 				Expect(light.States[0].Enumeration).ToNot(BeNil())
 				var states enumeration.Enumeration
 				Expect(enumSvc.NewRetrieve().
