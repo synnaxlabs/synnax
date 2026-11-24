@@ -459,8 +459,8 @@ func (w *Writer) Commit(cs []*log.Commit, pre ...Preload) error {
 	return w.call(&commitRequest{w: w, cs: cs, pre: pre})
 }
 
-// staged is the visible length and pointers of a segment after the commits of a call
-// to Commit that the owner has checked and not yet applied.
+// staged is the visible length and pointers of a segment after the commits of a call to
+// Commit that the owner has checked and not yet applied.
 type staged struct {
 	length   uint32
 	pointers []Pointer
