@@ -51,8 +51,7 @@ func (p *Pending) Commit(ctx context.Context) (telem.TimeStamp, bool, error) {
 }
 
 // commitData commits the samples of p, which a writer of data alone left, once the
-// index
-// holds a stamp for each of them, then releases p.
+// index holds a stamp for each of them, then releases p.
 func (p *Pending) commitData(ctx context.Context) (telem.TimeStamp, bool, error) {
 	_, count, err := p.idx.idx.Coverage(ctx, p.idx.start.Range(telem.TimeStampMax))
 	if err != nil || count < p.idx.sampleCount {
@@ -86,8 +85,7 @@ func (p *Pending) Close() error {
 // w, and a handoff that adopts a Pending when w holds no uncommitted sample starts a
 // new run. When w does not write its clock and cfg holds no channel, Handoff closes w
 // and opens no writer. It returns the uncommitted samples of w as a Pending, or nil
-// when
-// w has none or stores no samples.
+// when w has none or stores no samples.
 func (db *DB) Handoff(
 	ctx context.Context,
 	w *Writer,
