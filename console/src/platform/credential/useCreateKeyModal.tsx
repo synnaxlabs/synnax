@@ -31,20 +31,20 @@ export interface CreateKeyModalParams {
 }
 
 type CloseProps = Pick<
-  Modals.ContentProps<CreateKeyModalParams, auth.APIKeyKey>,
+  Modals.ContentProps<CreateKeyModalParams, auth.apiKey.Key>,
   "close"
 >;
 
 interface NameProps extends CloseProps {
   subject: resource.ID;
-  onCreated: (created: Credential.CreateKeyResult) => void;
+  onCreated: (created: Credential.CreateAPIKeyResult) => void;
 }
 
 const Name = ({ subject, close, onCreated }: NameProps): ReactElement => {
   const [name, setName] = useState("");
   const query = { subject };
-  const refreshKeys = Credential.useRefreshKeys();
-  const { update, variant } = Credential.useCreateKey({
+  const refreshKeys = Credential.useRefreshAPIKeys();
+  const { update, variant } = Credential.useCreateAPIKey({
     afterSuccess: ({ data }) => {
       refreshKeys(query);
       onCreated(data);
@@ -102,7 +102,7 @@ const Name = ({ subject, close, onCreated }: NameProps): ReactElement => {
 };
 
 interface TokenProps extends CloseProps {
-  created: Credential.CreateKeyResult;
+  created: Credential.CreateAPIKeyResult;
 }
 
 const Token = ({ created, close }: TokenProps): ReactElement => (
@@ -128,8 +128,8 @@ const Token = ({ created, close }: TokenProps): ReactElement => (
 const Content = ({
   subject,
   close,
-}: Modals.ContentProps<CreateKeyModalParams, auth.APIKeyKey>): ReactElement => {
-  const [created, setCreated] = useState<Credential.CreateKeyResult | null>(null);
+}: Modals.ContentProps<CreateKeyModalParams, auth.apiKey.Key>): ReactElement => {
+  const [created, setCreated] = useState<Credential.CreateAPIKeyResult | null>(null);
   return (
     <Modal.Frame className={CSS.B("create-key")}>
       <Modal.Header icon={<Icon.APIKey />}>Create API key</Modal.Header>
@@ -147,6 +147,6 @@ const Content = ({
  * with the key once the user is done, or null when the user cancels.
  */
 export const useCreateKeyModal = Modals.createPrompt<
-  auth.APIKeyKey,
+  auth.apiKey.Key,
   CreateKeyModalParams
 >(Content);

@@ -1,5 +1,5 @@
 {
-  "description": "Strings, JSON values, UUIDs, and bytes decode to their channels.",
+  "description": "Strings, JSON values, UUIDs, and bytes decode to their channels. A string field writes any other value as its JSON text.",
   "messages": [
     {
       "name": "reading",
@@ -99,6 +99,36 @@
       },
       "message": "reading",
       "samples": ["ON", 1, "6ba7b810-9dad-41d1-80b4-00c04fd430c8", ""]
+    },
+    {
+      "document": {
+        "state": 1.5,
+        "doc": 1,
+        "id": "6ba7b810-9dad-41d1-80b4-00c04fd430c8",
+        "blob": ""
+      },
+      "message": "reading",
+      "samples": ["1.5", 1, "6ba7b810-9dad-41d1-80b4-00c04fd430c8", ""]
+    },
+    {
+      "document": {
+        "state": true,
+        "doc": 1,
+        "id": "6ba7b810-9dad-41d1-80b4-00c04fd430c8",
+        "blob": ""
+      },
+      "message": "reading",
+      "samples": ["true", 1, "6ba7b810-9dad-41d1-80b4-00c04fd430c8", ""]
+    },
+    {
+      "document": {
+        "state": { "a": [1, 2] },
+        "doc": 1,
+        "id": "6ba7b810-9dad-41d1-80b4-00c04fd430c8",
+        "blob": ""
+      },
+      "message": "reading",
+      "samples": ["{\"a\":[1,2]}", 1, "6ba7b810-9dad-41d1-80b4-00c04fd430c8", ""]
     },
     {
       "document": {

@@ -11,6 +11,7 @@ package kafka_test
 
 import (
 	"context"
+	"strings"
 	"time"
 	"uuid"
 
@@ -173,21 +174,52 @@ var _ = Describe("Write task with targets", func() {
 		))
 	})
 
-	It("Should refuse an enabled target with no topic", func(ctx SpecContext) {
-		ch := createVirtual(ctx)
-		dev := createDevice(ctx, clusterProperties())
-		t := newTask(ctx, kafka.WriteTaskType, kafka.WriteConfig{
-			Device: dev.Key,
-			Targets: []kafka.WriteTarget{
-				writeTarget(uniqueTopic(), ic, setpoint, command(setpoint, 0, ch)),
-				writeTarget("", ic, setpoint, command(setpoint, 0, ch)),
-			},
-		})
-		Expect(f.ConfigureTask(ctx, t, "cmd-1")).Error().To(SatisfyAll(
-			MatchError(validate.ErrValidation),
-			MatchError(ContainSubstring("targets.1.topic: required")),
-		))
-	})
+	const nameRule = "must be 1 to 249 letters, digits, periods, underscores, or hyphens"
+
+	DescribeTable(
+		"Should refuse an enabled target whose topic Kafka does not accept",
+		func(ctx SpecContext, topic, problem string) {
+			ch := createVirtual(ctx)
+			dev := createDevice(ctx, clusterProperties())
+			t := newTask(ctx, kafka.WriteTaskType, kafka.WriteConfig{
+				Device: dev.Key,
+				Targets: []kafka.WriteTarget{
+					writeTarget(uniqueTopic(), ic, setpoint, command(setpoint, 0, ch)),
+					writeTarget(topic, ic, setpoint, command(setpoint, 0, ch)),
+				},
+			})
+			Expect(f.ConfigureTask(ctx, t, "cmd-1")).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("targets.1.topic: "+problem)),
+			))
+		},
+		Entry("no topic", "", "required"),
+		Entry("a space", "plant pumps", nameRule),
+		Entry("a character that Kafka forbids", "plant/pumps", nameRule),
+		Entry("a letter that is not ASCII", "plänt", nameRule),
+		Entry("250 characters", strings.Repeat("a", 250), nameRule),
+		Entry("one period", ".", `cannot be "." or ".."`),
+		Entry("two periods", "..", `cannot be "." or ".."`),
+	)
+
+	It("Should send to a 249-character topic with each kind of allowed character",
+		func(ctx SpecContext) {
+			ch := createVirtual(ctx)
+			dev := createDevice(ctx, clusterProperties())
+			topic := uniqueTopic() + "._-"
+			topic += strings.Repeat("A9", (249-len(topic))/2)
+			Expect(topic).To(HaveLen(249))
+			start(ctx, kafka.WriteConfig{
+				Device: dev.Key,
+				Targets: []kafka.WriteTarget{
+					writeTarget(topic, ic, setpoint, command(setpoint, 0, ch)),
+				},
+			})
+			write(ctx, ch.Key(), telem.Now(), telem.NewSeriesV(4.0))
+			Expect(decode(consume(ctx, topic, 1)[0])).
+				To(Equal(map[string]any{"value": 4.0}))
+		},
+	)
 
 	It("Should drop a command that arrives without its index", func(ctx SpecContext) {
 		index, data := createIndexed(ctx, telem.Float64T)

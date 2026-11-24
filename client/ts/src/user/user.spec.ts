@@ -32,7 +32,7 @@ const client = createTestClient();
 const empty = await createEmptyRole(client);
 
 const retrieveRoot = async (): Promise<user.User> => {
-  const [p] = await client.auth.retrievePasswords({
+  const [p] = await client.auth.passwords.retrieve({
     usernames: [TEST_CREDENTIALS.username],
   });
   return await client.users.retrieve(p.subject.key);
@@ -206,7 +206,7 @@ describe("User", () => {
       const username = id.create();
       await client.users.changeUsername(u.key, username);
       const renamed = createTestClientAs(username, password);
-      const [p] = await renamed.auth.retrievePasswords();
+      const [p] = await renamed.auth.passwords.retrieve();
       expect(p.subject).toEqual(user.resourceID(u.key));
     });
     test("should keep logging in after a user changes its own username", async () => {
@@ -226,14 +226,14 @@ describe("User", () => {
       const self = createTestClientAs(old, password);
       const username = id.create();
       await self.users.changeUsername(u.key, username);
-      const [p] = await client.auth.retrievePasswords({
+      const [p] = await client.auth.passwords.retrieve({
         subjects: [user.resourceID(u.key)],
       });
       expect(p.username).toEqual(username);
       const key = self.auth.session?.key;
       if (key == null) throw new Error("no session");
-      await self.auth.deleteSessions(key);
-      await self.auth.retrieveSessions();
+      await self.auth.sessions.delete(key);
+      await self.auth.sessions.retrieve();
       expect(self.auth.session?.key).not.toEqual(key);
     });
     test("should refuse a username another user holds", async () => {

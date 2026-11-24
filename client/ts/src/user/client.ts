@@ -193,9 +193,10 @@ export class Client extends query.Retriever<
    * @throws {ValidationError} if the username is empty.
    */
   async changeUsername(key: Key, username: string): Promise<void> {
-    const [p] = await this.cfg.auth.retrievePasswords({ subjects: [resourceID(key)] });
+    const { passwords } = this.cfg.auth;
+    const [p] = await passwords.retrieve({ subjects: [resourceID(key)] });
     if (p == null) throw new NotFoundError(`User ${key} has no password`);
-    await this.cfg.auth.dispatchPassword(p.key, password.setUsername({ username }));
+    await passwords.dispatch(p.key, password.setUsername({ username }));
   }
 
   async rename(key: Key, name: string): Promise<void> {

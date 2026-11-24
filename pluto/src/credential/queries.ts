@@ -17,13 +17,13 @@ export type SubjectQuery = {
 };
 
 export const {
-  useResult: useResultKeys,
-  useInvalidate: useInvalidateKeys,
-  useRefresh: useRefreshKeys,
-} = Flux.createRetrieve<SubjectQuery, auth.APIKey[]>({
+  useResult: useResultAPIKeys,
+  useInvalidate: useInvalidateAPIKeys,
+  useRefresh: useRefreshAPIKeys,
+} = Flux.createRetrieve<SubjectQuery, auth.apiKey.APIKey[]>({
   name: "API keys",
   retrieve: async ({ client, query: { subject } }) =>
-    await client.auth.retrieveKeys([subject]),
+    await client.auth.apiKeys.retrieve([subject]),
 });
 
 export const {
@@ -33,43 +33,45 @@ export const {
 } = Flux.createRetrieve<SubjectQuery, auth.Session[]>({
   name: "sessions",
   retrieve: async ({ client, query: { subject } }) =>
-    await client.auth.retrieveSessions([subject]),
+    await client.auth.sessions.retrieve([subject]),
 });
 
-export interface CreateKeyParams {
+export interface CreateAPIKeyParams {
   subject: resource.ID;
   name: string;
 }
 
-export interface CreateKeyResult {
+export interface CreateAPIKeyResult {
   /** The only copy of the key's secret. */
   token: string;
-  key: auth.APIKey;
+  key: auth.apiKey.APIKey;
 }
 
-export const { useUpdate: useCreateKey } = Flux.createUpdate<
-  CreateKeyParams,
-  CreateKeyResult
+export const { useUpdate: useCreateAPIKey } = Flux.createUpdate<
+  CreateAPIKeyParams,
+  CreateAPIKeyResult
 >({
   name: "API key",
   verbs: verbs.CREATE,
-  update: async ({ client, data }) => await client.auth.createKey(data),
+  update: async ({ client, data }) => await client.auth.apiKeys.create(data),
 });
 
-export const { useUpdate: useDeleteKey } = Flux.createUpdate<auth.APIKeyKey>({
+export const { useUpdate: useDeleteAPIKey } = Flux.createUpdate<auth.apiKey.Key>({
   name: "API key",
   verbs: verbs.DELETE,
   update: async ({ client, data }) => {
-    await client.auth.deleteKeys(data);
+    await client.auth.apiKeys.delete(data);
     return data;
   },
 });
 
-export const { useUpdate: useSetPassword } = Flux.createUpdate<auth.SetPasswordParams>({
-  name: "password",
-  verbs: verbs.SET,
-  update: async ({ client, data }) => {
-    await client.auth.setPassword(data);
-    return data;
+export const { useUpdate: useSetPassword } = Flux.createUpdate<auth.password.SetParams>(
+  {
+    name: "password",
+    verbs: verbs.SET,
+    update: async ({ client, data }) => {
+      await client.auth.passwords.set(data);
+      return data;
+    },
   },
-});
+);

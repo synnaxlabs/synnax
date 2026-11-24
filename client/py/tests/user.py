@@ -18,5 +18,5 @@ def create_user(
     the password.
     """
     user = client.users.create(name=username, role=role)
-    client.auth.create_password(username, password, subject=user.resource_id)
+    client.auth.passwords.create(username, password, subject=user.resource_id)
     return user

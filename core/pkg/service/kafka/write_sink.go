@@ -15,6 +15,7 @@ import (
 	"iter"
 	"slices"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/samber/lo"
@@ -220,16 +221,46 @@ func (w *writer) Close() error {
 	return nil
 }
 
-// validateTopics returns an error that names the first enabled target with no topic.
+// maxTopicLength is the length of the longest topic name that Kafka accepts.
+const maxTopicLength = 249
+
+// validateTopics returns an error that names the first enabled target whose topic Kafka
+// does not accept.
 func validateTopics(targets []WriteTarget) error {
 	for i, wt := range targets {
-		if !wt.Disabled && wt.Topic == "" {
+		if wt.Disabled {
+			continue
+		}
+		if problem := topicProblem(wt.Topic); problem != "" {
 			return validate.PathedError(
-				validate.Errorf("required"), "targets", strconv.Itoa(i), "topic",
+				validate.Errorf("%s", problem), "targets", strconv.Itoa(i), "topic",
 			)
 		}
 	}
 	return nil
+}
+
+// topicProblem returns why Kafka does not accept topic as a topic name, or "" when it
+// does.
+func topicProblem(topic string) string {
+	switch {
+	case topic == "":
+		return "required"
+	case topic == "." || topic == "..":
+		return `cannot be "." or ".."`
+	case len(topic) > maxTopicLength || strings.ContainsFunc(topic, notTopicRune):
+		return "must be 1 to 249 letters, digits, periods, underscores, or hyphens"
+	}
+	return ""
+}
+
+// notTopicRune reports whether r cannot be in a topic name.
+func notTopicRune(r rune) bool {
+	switch {
+	case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9':
+		return false
+	}
+	return r != '.' && r != '_' && r != '-'
 }
 
 // configureTargets returns the write task of t, which produces the records of the

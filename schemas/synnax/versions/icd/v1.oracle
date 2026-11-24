@@ -288,7 +288,128 @@ Message struct extends v0.Message {
     }
 }
 
-ICD struct extends v0.ICD {}
+ChecksumAlgorithm enum {
+    crc16_ccitt_false = "crc16_ccitt_false" {
+        @doc value "has polynomial 0x1021 and initial value 0xFFFF, with no reflection."
+    }
+    crc16_modbus      = "crc16_modbus" {
+        @doc value "has polynomial 0x8005 and initial value 0xFFFF, reflected."
+    }
+    crc32             = "crc32" {
+        @doc value "is the CRC of Ethernet and zlib."
+    }
+
+    @doc value "is a CRC that ends a sync frame."
+}
+
+Checksum struct {
+    algorithm  ChecksumAlgorithm {
+        @doc value "is the CRC that the checksum holds."
+    }
+    byte_order ByteOrder = little_endian {
+        @doc value "is the byte order of the checksum."
+    }
+
+    @doc value  "is the CRC that ends a sync frame and covers every byte before it."
+    @go marshal
+}
+
+LengthSize enum {
+    one  = "one" {
+        @doc value "is a 1-byte length field."
+    }
+    two  = "two" {
+        @doc value "is a 2-byte length field."
+    }
+    four = "four" {
+        @doc value "is a 4-byte length field."
+    }
+
+    @doc value "is the number of bytes in the length field of a sync frame."
+}
+
+Framing union on type {
+    delimited {
+        delimiter string = "\n" {
+            @doc value           "is the text whose UTF-8 bytes end each frame."
+            @validate min_length 1
+        }
+
+        @doc value "ends each frame with a delimiter."
+    }
+    fixed {
+        length uint32 = 1 {
+            @doc value    "is the number of bytes in each frame, from 1 to 65536."
+            @validate max 65536
+            @validate min 1
+        }
+
+        @doc value "splits the stream into frames of one length."
+    }
+    sync {
+        sync              bytes      {
+            @doc value           "is the byte sequence that starts each frame."
+            @validate min_length 1
+        }
+        length_offset     uint32 = 0 {
+            @doc value "is the offset of the length field from the start of the frame."
+        }
+        length_size       LengthSize = one {
+            @doc value "is the number of bytes in the length field."
+        }
+        byte_order        ByteOrder = little_endian {
+            @doc value "is the byte order of the length field."
+        }
+        length_adjustment int32 = 0 {
+            @doc value """
+                is added to the length field to give the number of bytes after the
+                length field, checksum included.
+            """
+        }
+        checksum          Checksum?  {
+            @doc value "is the CRC that ends each frame. Absent when frames have none."
+        }
+        max_length        uint32 = 65536 {
+            @doc value    """
+                is the most bytes in a frame, sync included and checksum excluded, from
+                1 to 65536. A length field that gives a longer frame marks a corrupt
+                frame.
+            """
+            @validate max 65536
+            @validate min 1
+        }
+
+        @doc value """
+            starts each frame with a sync sequence and a length field. A frame that the
+            task reads starts at the sync sequence and has no checksum, so the message
+            layout of an ICD can hold the header fields.
+        """
+    }
+    cobs {
+        @doc value """
+            stuffs each frame with consistent overhead byte stuffing (COBS) and ends it
+            with a zero byte.
+        """
+    }
+    slip {
+        @doc value """
+            escapes each frame with the serial line internet protocol (SLIP, RFC 1055)
+            and ends it with an END byte.
+        """
+    }
+
+    @doc value  "splits a byte stream into frames. The type field selects how."
+    @go marshal
+}
+
+ICD struct extends v0.ICD {
+    framing Framing? {
+        @doc value """
+            is how a byte stream splits into the ICD's messages, or absent when each
+            message arrives whole.
+        """
+    }
+}
 
 ReadBinding = v0.ReadBinding
 

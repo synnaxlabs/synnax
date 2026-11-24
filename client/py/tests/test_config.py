@@ -380,6 +380,7 @@ class TestLoadOptions:
             ("secure", None, {}, False),
             ("ca_cert", "/arg.crt", {"SYNNAX_CA_CERT": "/env.crt"}, "/arg.crt"),
             ("ca_cert", None, {"SYNNAX_CA_CERT": "/env.crt"}, "/env.crt"),
+            ("ca_cert", "", {"SYNNAX_CA_CERT": "/env.crt"}, "/env.crt"),
             ("ca_cert", None, {}, None),
         ],
     )

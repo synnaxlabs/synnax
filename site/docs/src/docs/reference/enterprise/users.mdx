@@ -116,7 +116,7 @@ Create a user with a role, then give it a password:
 ```python
 engineer = next(r for r in client.access.roles.retrieve() if r.name == "Engineer")
 user = client.users.create(name="Jane Doe", role=engineer.key)
-client.auth.create_password("jdoe", "secret", subject=user.resource_id)
+client.auth.passwords.create("jdoe", "secret", subject=user.resource_id)
 ```
 
   </Fragment>
@@ -128,7 +128,7 @@ const roles = await client.access.roles.retrieve({});
 const engineer = roles.find((r) => r.name === "Engineer");
 if (engineer == null) throw new Error("the Core has no Engineer role");
 const jane = await client.users.create({ name: "Jane Doe", role: engineer.key });
-await client.auth.createPassword({
+await client.auth.passwords.create({
   subject: user.resourceID(jane.key),
   username: "jdoe",
   password: "secret",
@@ -146,10 +146,11 @@ user. To change a username, call `client.users.change_username(key, username)` i
 or `client.users.changeUsername(key, username)` in TypeScript. To delete users, call
 `client.users.delete` with their keys.
 
-To set a password in TypeScript, call `client.auth.setPassword({ subject, password })`.
-Leave out `subject` and add `currentPassword` to set your own. To create an API key,
-call `client.auth.create_key(name, subject)` in Python or
-`client.auth.createKey({ name, subject })` in TypeScript.
+To set a password in TypeScript, call
+`client.auth.passwords.set({ subject, password })`. Leave out `subject` and add
+`currentPassword` to set your own. To create an API key, call
+`client.auth.api_keys.create(name, subject)` in Python or
+`client.auth.apiKeys.create({ name, subject })` in TypeScript.
 
 You cannot delete a role that a user holds. First give its users a different role.
 
