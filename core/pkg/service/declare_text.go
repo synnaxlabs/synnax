@@ -24,8 +24,7 @@ import (
 
 // passDeclaredCalculations rewrites the expression of each calculation for each rename
 // that Declare stored, as passDeclaredRenames does, and keeps the renames stored for
-// it.
-// It runs before the calculation graph compiles, after a start that stopped before
+// it. It runs before the calculation graph compiles, after a start that stopped before
 // passDeclaredRenames, and before the Arc table migrates, so it reads no Arc.
 func passDeclaredCalculations(
 	ctx context.Context,
