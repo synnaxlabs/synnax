@@ -183,7 +183,7 @@ func (s *State) openWriter(w *Writer) error {
 }
 
 // checkOpen refuses the open of w when its start lies in stored data of one of its
-// keys, or when the claim of w would reach another writer's claim.
+// keys, or when the claim of w would reach the claim of another writer or a delete.
 func (s *State) checkOpen(w *Writer) error {
 	start := w.cfg.Start
 	for key := range w.types {
