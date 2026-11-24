@@ -11,6 +11,7 @@ package fs_test
 
 import (
 	"os"
+	"syscall"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -20,6 +21,95 @@ import (
 )
 
 var _ = Describe("Mem", func() {
+	Describe("SyncDir", func() {
+		It("Should take a current directory element as the directory itself", func() {
+			fs := fs.NewMem()
+			MustSucceed(fs.Sub("a"))
+			Expect(fs.SyncDir(".")).To(Succeed())
+			Expect(fs.SyncDir("./a/.")).To(Succeed())
+		})
+		It("Should name the call and the path of the caller in its error", func() {
+			fs := fs.NewMem()
+			MustSucceed(fs.Sub("a/b"))
+			Expect(fs.SyncDir("a/b/missing")).To(MatchError(
+				&os.PathError{Op: "sync", Path: "a/b/missing", Err: os.ErrNotExist},
+			))
+		})
+	})
+
+	Describe("Current directory elements", func() {
+		It("Should refuse a rename onto the root, named by a lone .", func() {
+			mem := fs.NewMem()
+			MustSucceed(mem.Sub("x"))
+			Expect(mem.Rename("x", ".")).
+				To(MatchError(ContainSubstring("empty file name")))
+			Expect(mem.Exists("x")).To(BeTrue())
+		})
+		// Each backend is a root FS with no subFS, so no path.Join cleans a name. The
+		// string is the prefix that puts a relative name under the root.
+		backends := map[string]func() (fs.FS, string){
+			"memFS": func() (fs.FS, string) { return fs.NewMem(), "" },
+			"osFS": func() (fs.FS, string) {
+				return fs.Default, GinkgoT().TempDir() + "/"
+			},
+		}
+		for name, open := range backends {
+			Context(name, func() {
+				var (
+					fsys fs.FS
+					root string
+				)
+				BeforeEach(func() {
+					fsys, root = open()
+					MustSucceed(fsys.Sub(root + "a"))
+				})
+				It(
+					"Should stat a directory named with a trailing . like SyncDir",
+					func() {
+						Expect(fsys.SyncDir(root + "a/.")).To(Succeed())
+						info := MustSucceed(fsys.Stat(root + "a/."))
+						Expect(info.IsDir()).To(BeTrue())
+						Expect(fsys.Exists(root + "a/.")).To(BeTrue())
+					},
+				)
+				DescribeTable("Should fail to open a directory for a write",
+					func(flag int) {
+						Expect(fsys.Open(root+"a", flag)).Error().
+							To(MatchError(syscall.EISDIR))
+					},
+					Entry("write only", os.O_WRONLY),
+					Entry("read and write", os.O_RDWR),
+				)
+				It("Should not create a file named . in a directory", func() {
+					Expect(fsys.Open(root+"a/.", os.O_CREATE|os.O_WRONLY)).Error().
+						To(MatchError(syscall.EISDIR))
+					Expect(fsys.List(root + "a")).To(BeEmpty())
+				})
+				It(
+					"Should keep a file reachable after a rename onto a trailing .",
+					func() {
+						sub := MustSucceed(fsys.Sub(root + "x"))
+						f := MustSucceed(sub.Open("f.txt", os.O_CREATE|os.O_WRONLY))
+						Expect(f.Close()).To(Succeed())
+						renamed := fsys.Rename(root+"x", root+"a/.") == nil
+						at := root + "x/f.txt"
+						if renamed {
+							at = root + "a/./f.txt"
+						}
+						Expect(fsys.Exists(at)).To(BeTrue(), "renamed: %v", renamed)
+					},
+				)
+				It("Should return ENOTDIR from SyncDir for a file under a .", func() {
+					f := MustSucceed(fsys.Open(root+"a/./f.txt", os.O_CREATE))
+					Expect(f.Close()).To(Succeed())
+					Expect(fsys.SyncDir(root + "a/./f.txt")).
+						To(MatchError(syscall.ENOTDIR))
+					Expect(fsys.Exists(root + "a/f.txt")).To(BeTrue())
+				})
+			})
+		}
+	})
+
 	It("Should advance the modification time on every write", func() {
 		fs := fs.NewMem()
 		var prev time.Time
