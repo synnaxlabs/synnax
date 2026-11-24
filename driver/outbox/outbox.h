@@ -269,7 +269,7 @@ public:
     /// starts the send and sync threads. When a crash or a power loss cut off the last
     /// call of a segment, the outbox keeps the calls before it, cuts the bytes from it
     /// on from the segment, and counts them in cut(). It removes a segment that a crash
-    /// left during a compaction.
+    /// left during a compaction after the saved offset.
     /// @returns UNKNOWN_VERSION when a segment has a call kind this Driver cannot send.
     /// CORRUPT when a call does not decode. journal::LOCKED when another outbox has the
     /// directory. journal::CORRUPT when the saved offset is past the end of its
@@ -281,7 +281,9 @@ public:
     /// the send position to the disk.
     ~Outbox();
 
-    /// @brief queues a status set and returns without waiting for the Core or the disk.
+    /// @brief queues a status set without waiting for the Core. Can block for up to
+    /// sync_interval when a segment is full and the sync thread has not opened the
+    /// next.
     /// @param req the set, with its time stamped by the caller.
     /// @param done called once the Core answers the set.
     /// @returns FULL when the outbox holds max_bytes or max_calls, and counts the set

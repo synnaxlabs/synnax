@@ -171,7 +171,9 @@ std::pair<std::unique_ptr<Outbox>, x::errors::Error> Outbox::open(Config cfg) {
     for (auto seg = outbox->segments.begin(); seg != outbox->segments.end();) {
         const auto key = seg->first;
         outbox->next_key = std::max(outbox->next_key, key + 1);
-        if (key < offset.segment || (saved.has_value() && key == offset.segment)) {
+        // With no saved offset, the old segments load first, and their newer copies in
+        // a compacted segment replace them.
+        if (!saved.has_value() || key <= offset.segment) {
             ++seg;
             continue;
         }

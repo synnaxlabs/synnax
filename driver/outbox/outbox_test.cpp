@@ -907,6 +907,13 @@ TEST_F(OutboxTest, RemovesSegmentOfStoppedCompaction) {
         for (const auto *msg: {"first", "second"})
             ASSERT_NIL(outbox->set_status(set_of(msg), nullptr));
     }
+    ASSERT_NIL(
+        journal::commit_offset(
+            this->dir / "offset",
+            OFFSET_MAGIC,
+            {.segment = 0, .pos = journal::HEADER_SIZE}
+        )
+    );
     const auto partial = this->dir / "5.calls";
     {
         auto writer = ASSERT_NIL_P(
