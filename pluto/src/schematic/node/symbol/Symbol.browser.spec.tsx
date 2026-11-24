@@ -75,21 +75,26 @@ const renderLamp = async (
       </Node.Custom.MotionProvider>
     </Wrapper>,
   );
-  return (): string | null =>
-    container.querySelector(".lamp")?.getAttribute("opacity") ?? null;
+  return await vi.waitUntil(() => container.querySelector(".lamp"));
 };
 
-describe("Symbol node motion", () => {
+describe("Symbol node", () => {
   it("should move a part by the value of its bound state", async () => {
-    const opacity = await renderLamp();
+    const lamp = await renderLamp();
     // The lamp dims for the second half of each one second period.
-    await vi.waitFor(() => expect(opacity()).toBe("0.2"), { timeout: 2000 });
+    await vi.waitFor(() => expect(lamp.getAttribute("opacity")).toBe("0.2"), {
+      timeout: 2000,
+    });
   });
 
   it("should not move a part on a node with motion disabled", async () => {
-    const opacity = await renderLamp({ motionDisabled: true });
-    await vi.waitFor(() => expect(document.querySelector(".lamp")).not.toBeNull());
+    const lamp = await renderLamp({ motionDisabled: true });
     for (let i = 0; i < 3; i++) await new Promise(requestAnimationFrame);
-    expect(opacity()).toBeNull();
+    expect(lamp.getAttribute("opacity")).toBeNull();
+  });
+
+  it("should keep the stroke width of a custom drawing", async () => {
+    const lamp = await renderLamp();
+    expect(getComputedStyle(lamp).strokeWidth).toBe("1px");
   });
 });
