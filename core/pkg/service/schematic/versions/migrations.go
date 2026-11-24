@@ -22,22 +22,27 @@ import (
 	v9 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v9"
 )
 
-// Migrations is the ordered migration chain for stored schematics.
-var Migrations = []gorp.Migration{
-	v0.NormalizeKeys,
-	v0.Migration,
-	v7.Migration,
-	v8.Migration,
-	v8.ScaleMigration,
-	v9.Migration,
-	v9.ScaleMigration,
-	v10.Migration,
-	v11.Migration,
-	v11.MembersMigration,
-	v11.OwnersMigration,
-	v12.SnapshotMigration,
-	v12.Migration,
-	v13.Migration,
-	v13.NameMigration,
-	v14.Migration,
+// MigrationsConfig is the configuration for NewMigrations.
+type MigrationsConfig = v14.MigrationConfig
+
+// NewMigrations returns the migration chain of the schematic table.
+func NewMigrations(cfg MigrationsConfig) []gorp.Migration {
+	return []gorp.Migration{
+		v0.NormalizeKeys,
+		v0.Migration,
+		v7.Migration,
+		v8.Migration,
+		v8.ScaleMigration,
+		v9.Migration,
+		v9.ScaleMigration,
+		v10.Migration,
+		v11.Migration,
+		v11.MembersMigration,
+		v11.OwnersMigration,
+		v12.SnapshotMigration,
+		v12.Migration,
+		v13.Migration,
+		v13.NameMigration,
+		v14.NewMigration(cfg),
+	}
 }
