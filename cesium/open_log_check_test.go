@@ -222,14 +222,24 @@ var _ = Describe("Pointer log open check", func() {
 		Expect(failures).To(BeEmpty())
 	})
 
-	It("Should open with the channel that it created after one bad read of each "+
-		"block", func(ctx SpecContext) {
+	It("Should open with the channel that it created, and keep the intent that it "+
+		"logged, after one bad read of each block", func(ctx SpecContext) {
 		ch := cesium.Channel{
 			Key: 1, Name: "time", IsIndex: true, DataType: telem.TimestampT,
 		}
+		// Sweep keeps a channel with samples and no record unless it has an intent.
+		intended := cesium.Channel{
+			Key: 2, Name: "intended", IsIndex: true, DataType: telem.TimestampT,
+		}
 		disk := MustSucceed(fault.New(fault.Config{}))
 		db, closeDB := MustSucceed2(openLog(ctx, disk))
-		Expect(db.CreateChannel(ctx, ch)).To(Succeed())
+		Expect(db.CreateChannel(ctx, ch, intended)).To(Succeed())
+		Expect(db.Write(
+			ctx,
+			telem.SecondTS,
+			telem.UnaryFrame(intended.Key, telem.NewSeriesSecondsTSV(1)),
+		)).To(Succeed())
+		Expect(db.Intend([]cesium.ChannelKey{intended.Key})).To(Succeed())
 		ch = MustSucceed(db.RetrieveChannel(ctx, 1))
 		Expect(closeDB()).To(Succeed())
 		syncAll(disk, "")
@@ -249,6 +259,12 @@ var _ = Describe("Pointer log open check", func() {
 			if err != nil || got != ch {
 				failures = append(failures, fmt.Sprintf(
 					"run key %d: %+v: %v", runKey, plainChannel(got), err,
+				))
+			}
+			kept, _, err := db.Sweep(ctx, []cesium.ChannelKey{ch.Key})
+			if err != nil || len(kept) > 0 {
+				failures = append(failures, fmt.Sprintf(
+					"run key %d: Sweep kept %v: %v", runKey, kept, err,
 				))
 			}
 			Expect(closeImage()).To(Succeed())
