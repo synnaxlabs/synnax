@@ -10,6 +10,8 @@
 package state_test
 
 import (
+	"context"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/log"
@@ -65,14 +67,14 @@ var _ = Describe("Check: state", func() {
 	It("Should give out segment identities from 1 on a head that reserved none",
 		func() {
 			start(&state.Snapshot{})
-			w := MustSucceed(s.OpenWriter(live(100, false)))
+			w := MustSucceed(s.OpenWriter(context.Background(), live(100, false)))
 			Expect(w.NewSegment(5)).To(BeNumerically(">=", 1))
 		})
 
 	It("Should refuse a commit over stored data that a backfill wrote earlier in "+
 		"the segment", func() {
 		start(head(5, 3))
-		w := MustSucceed(s.OpenWriter(live(100, false)))
+		w := MustSucceed(s.OpenWriter(context.Background(), live(100, false)))
 		id := MustSucceed(w.NewSegment(5))
 		n1 := MustSucceed(w.NewAlignment())
 		Expect(
@@ -95,7 +97,7 @@ var _ = Describe("Check: state", func() {
 	It("Should refuse a writer that starts inside stored data that a backfill wrote",
 		func() {
 			start(head(5, 3))
-			w := MustSucceed(s.OpenWriter(live(100, false)))
+			w := MustSucceed(s.OpenWriter(context.Background(), live(100, false)))
 			id := MustSucceed(w.NewSegment(5))
 			n1 := MustSucceed(w.NewAlignment())
 			c1 := commit(2, n1, 0, 100, 110, slot(id, 16))
@@ -105,16 +107,21 @@ var _ = Describe("Check: state", func() {
 			Expect(w.Commit([]*log.Commit{c2})).To(Succeed())
 			logged(create(id, 5, 5), c1, c2)
 			Expect(w.Close()).To(Succeed())
-			Expect(s.OpenWriter(live(55, true))).Error().To(SatisfyAll(
-				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring("inside its stored data from 50 to 60")),
-				MatchError(ContainSubstring("write conflict")),
-			))
+			Expect(
+				s.OpenWriter(context.Background(), live(55, true)),
+			).Error().
+				To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(
+						ContainSubstring("inside its stored data from 50 to 60"),
+					),
+					MatchError(ContainSubstring("write conflict")),
+				))
 		})
 
 	It("Should refuse a commit whose stamps go back inside its stretch", func() {
 		start(head(5, 3))
-		w := MustSucceed(s.OpenWriter(live(100, false)))
+		w := MustSucceed(s.OpenWriter(context.Background(), live(100, false)))
 		id := MustSucceed(w.NewSegment(5))
 		n := MustSucceed(w.NewAlignment())
 		Expect(
@@ -161,12 +168,12 @@ var _ = Describe("Check: state", func() {
 	It("Should release every open segment that a writer took over at its Close",
 		func() {
 			start(head(5, 3))
-			first := MustSucceed(s.OpenWriter(live(10, true)))
+			first := MustSucceed(s.OpenWriter(context.Background(), live(10, true)))
 			idA := MustSucceed(first.NewSegment(5))
 			nA := MustSucceed(first.NewAlignment())
 			cA := commit(2, nA, 0, 10, 20, slot(idA, 16))
 			Expect(first.Commit([]*log.Commit{cA})).To(Succeed())
-			second := MustSucceed(s.OpenWriter(live(100, true)))
+			second := MustSucceed(s.OpenWriter(context.Background(), live(100, true)))
 			idB := MustSucceed(second.NewSegment(5))
 			nB := MustSucceed(second.NewAlignment())
 			cB := commit(2, nB, 0, 100, 110, slot(idB, 16))
@@ -174,7 +181,7 @@ var _ = Describe("Check: state", func() {
 			logged(create(idA, 5, 5), create(idB, 5, 5), cA, cB)
 			Expect(first.Close()).To(Succeed())
 			Expect(second.Close()).To(Succeed())
-			later := MustSucceed(s.OpenWriter(live(200, false)))
+			later := MustSucceed(s.OpenWriter(context.Background(), live(200, false)))
 			Expect(later.Close()).To(Succeed())
 			Expect(switched()).To(HaveLen(2))
 		})
@@ -182,8 +189,8 @@ var _ = Describe("Check: state", func() {
 	It("Should keep the state when the log takes the Seals of a switch after a "+
 		"writer whose commit was refused closes", func() {
 		start(head(5, 3))
-		MustSucceed(s.OpenWriter(live(100, false)))
-		b := MustSucceed(s.OpenWriter(live(50, true)))
+		MustSucceed(s.OpenWriter(context.Background(), live(100, false)))
+		b := MustSucceed(s.OpenWriter(context.Background(), live(50, true)))
 		id := MustSucceed(b.NewSegment(5))
 		n := MustSucceed(b.NewAlignment())
 		Expect(b.Commit([]*log.Commit{commit(2, n, 0, 60, 120, slot(id, 16))})).
@@ -207,7 +214,7 @@ var _ = Describe("Check: state", func() {
 	It("Should keep the state when the log takes the Seals of a take back of a "+
 		"segment whose Create it never got", func() {
 		start(head(5, 3))
-		w := MustSucceed(s.OpenWriter(live(100, false)))
+		w := MustSucceed(s.OpenWriter(context.Background(), live(100, false)))
 		id := MustSucceed(w.NewSegment(5))
 		n := MustSucceed(w.NewAlignment())
 		Expect(
