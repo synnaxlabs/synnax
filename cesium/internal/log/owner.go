@@ -83,6 +83,11 @@ type Config struct {
 	// refuses it, before the entry's ack. The log calls it on its step, or on the
 	// caller of Append for an entry refused at once. It must return at once.
 	OnRefused func(records []Record, err error)
+	// OnCovered gets a sequence below which every entry is covered: a frame or mark
+	// after it is durable and shares no block with it, so no crash cuts it. It gets a
+	// sequence after each sync, on the step of the owner, and must not block on the
+	// log. A nil OnCovered gets nothing.
+	OnCovered func(sequence uint64)
 	// Prepare asks for the file of the log of generation next and returns at once. The
 	// caller of Prepare later calls Log.Prepared.
 	Prepare func(next uint64)
@@ -150,9 +155,12 @@ type Log struct {
 		asked bool
 	}
 	// The fields below belong to the steps of the owner.
-	step     func()
-	stepped  chan bool
-	seq      uint64
+	step    func()
+	stepped chan bool
+	seq     uint64
+	// lastSeq is the sequence of the last frame written, which a frame that starts in
+	// its last block does not cover.
+	lastSeq  uint64
 	prevCRC  uint32
 	prevEnd  int64
 	lastEnd  int64
@@ -489,9 +497,17 @@ func (l *Log) writeFrame(start int64) error {
 		l.fail(err)
 		return l.failure()
 	}
+	covered := l.frame.Sequence
+	if start%BlockSize != 0 {
+		covered = l.lastSeq
+	}
+	l.lastSeq = l.frame.Sequence
 	l.seq += uint64(l.frame.Count)
 	l.prevCRC = l.frame.CRC
 	l.prevEnd, l.lastEnd = l.lastEnd, start+int64(len(b))
+	if l.cfg.OnCovered != nil {
+		l.cfg.OnCovered(covered)
+	}
 	return nil
 }
 
