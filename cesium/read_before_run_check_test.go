@@ -44,7 +44,7 @@ var _ = Describe("Check: a read before Run", func() {
 				DataType: telem.Int64T,
 			},
 		)).To(Succeed())
-		Expect(db.Write(ctx, 10*telem.SecondTS, telem.MultiFrame(keys, []telem.Series{
+		Expect(write(ctx, db, 10*telem.SecondTS, telem.MultiFrame(keys, []telem.Series{
 			telem.NewSeriesSecondsTSV(10, 11),
 			telem.NewSeriesV[int64](1, 2),
 		}))).To(Succeed())
