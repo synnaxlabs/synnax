@@ -34,7 +34,7 @@ type MigrationConfig struct {
 
 // NewMigration returns the migration that lifts stored schematics from v13 to v14 as
 // MigrateSchematic does, then gives their selects and state indicators enumerations as
-// internStates does.
+// InternStates does.
 func NewMigration(cfg MigrationConfig) gorp.Migration {
 	const key = "v63_color_ref"
 	return migrate.New(
