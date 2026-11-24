@@ -274,6 +274,7 @@ var _ = Describe("Reads through parts", func() {
 			GinkgoHelper()
 			w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 				Channels: []cesium.ChannelKey{idx, data},
+				Clock:    idx,
 				Start:    start,
 			}))
 			MustSucceed2(w.Write(ctx, telem.MultiFrame(
