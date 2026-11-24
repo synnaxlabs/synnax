@@ -11,6 +11,7 @@ package analyzer
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/domain/validation"
@@ -502,8 +503,8 @@ func checkDurationDefaults(c *analysisCtx) {
 	})
 }
 
-// isTimeSpan reports whether ref denotes telem's TimeSpan through aliases and distinct
-// bases.
+// isTimeSpan reports whether ref denotes telem's TimeSpan, live or at a pinned version,
+// through aliases and distinct bases.
 func isTimeSpan(ref resolution.TypeRef, table *resolution.Table) bool {
 	visited := set.New[string]()
 	for {
@@ -512,7 +513,7 @@ func isTimeSpan(ref resolution.TypeRef, table *resolution.Table) bool {
 			return false
 		}
 		visited.Add(typ.QualifiedName)
-		if typ.QualifiedName == "telem.TimeSpan" {
+		if isTelem(typ.Namespace) && typ.Name == "TimeSpan" {
 			return true
 		}
 		distinct, ok := typ.Form.(resolution.DistinctForm)
@@ -521,4 +522,10 @@ func isTimeSpan(ref resolution.TypeRef, table *resolution.Table) bool {
 		}
 		ref = distinct.Base
 	}
+}
+
+// isTelem reports whether ns is telem's namespace. A pinned version of telem registers
+// as x/telem@vN.
+func isTelem(ns string) bool {
+	return ns == "telem" || strings.HasPrefix(ns, "x/telem@v")
 }
