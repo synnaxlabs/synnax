@@ -2008,7 +2008,8 @@ var _ = Describe("Calculation", Ordered, func() {
 							return channelSvc.NewWriter(tx).
 								Rename(ctx, calc.Key(), UniqueChannelName(), false)
 						})
-						time.Sleep(200 * time.Millisecond)
+						// No hook marks the change's read, so a wait lets it read.
+						time.Sleep(time.Second)
 						hookErr = errors.Join(hookErr, dist.DB.WithTx(
 							ctx,
 							func(tx gorp.Tx) error {
