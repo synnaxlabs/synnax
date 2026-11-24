@@ -323,10 +323,10 @@ var _ = Describe("Delete intents", func() {
 			"channel drops", func(ctx SpecContext) {
 			Expect(sweep(ctx, db, nil)).To(HaveLen(2))
 			Expect(db.Intend([]cesium.ChannelKey{idx})).To(Succeed())
-			Expect(db.Drop([]cesium.ChannelKey{idx})).To(Succeed())
+			Expect(db.Drop(ctx, []cesium.ChannelKey{idx})).To(Succeed())
 			Expect(mem.Exists(channelKeyToPath(idx))).To(BeTrue())
 			Expect(db.Intend([]cesium.ChannelKey{data})).To(Succeed())
-			Expect(db.Drop([]cesium.ChannelKey{data})).To(Succeed())
+			Expect(db.Drop(ctx, []cesium.ChannelKey{data})).To(Succeed())
 			expectGone(ctx, db, mem, data)
 			restarted, fs := crash(ctx)
 			Expect(sweep(ctx, restarted, nil)).To(BeEmpty())
