@@ -25,12 +25,7 @@ import type { z } from "zod";
 
 import type { DispatchPayload } from "@/actions/actions";
 import type { batch } from "@/batch";
-import {
-  AccessDeniedError,
-  isConnectionError,
-  NotCachedError,
-  NotFoundError,
-} from "@/errors";
+import { AuthError, isConnectionError, NotCachedError, NotFoundError } from "@/errors";
 import { query } from "@/query";
 
 const DEFAULT_COALESCE_WINDOW = TimeSpan.milliseconds(500);
@@ -1249,11 +1244,11 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
         }
       } while (this.fetching.get(key) === true);
     } catch (exc) {
-      // A deleted or denied doc joins no list, and the reconcile after a reconnect
-      // fetches every doc again.
+      // A deleted or denied doc joins no list. The connection status reports a lost
+      // session, and the reconcile after a reconnect or login fetches every doc again.
       if (
         NotFoundError.matches(exc) ||
-        AccessDeniedError.matches(exc) ||
+        AuthError.matches(exc) ||
         isConnectionError(exc)
       )
         return;
