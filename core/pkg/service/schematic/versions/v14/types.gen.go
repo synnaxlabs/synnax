@@ -606,7 +606,7 @@ type ScaleIndicatorConfig struct {
 	NumericTelemConfig
 	StalenessConfig
 	// Bounds is the numeric range the indicator maps onto its extent.
-	Bounds spatial.Bounds `json:"bounds" msgpack:"bounds"`
+	Bounds spatial.ClosedBounds `json:"bounds" msgpack:"bounds"`
 	// LevelColor is the color of the filled portion, the caret, and the value readout
 	// border, a named color or a fixed color.
 	LevelColor *servicecolor.Ref `json:"level_color,omitzero" msgpack:"level_color,omitempty"`
@@ -649,6 +649,7 @@ func (s ScaleIndicatorConfig) Validate() error {
 	v.Ternaryf("level", !s.Level.IsValid(), "invalid level: %v", s.Level)
 	v.Exec(s.NumericTelemConfig.Validate)
 	v.Exec(s.StalenessConfig.Validate)
+	v.Exec(func() error { return validate.PathedError(s.Bounds.Validate(), "bounds") })
 	if s.LevelColor != nil {
 		v.Exec(func() error { return validate.PathedError(s.LevelColor.Validate(), "level_color") })
 	}
@@ -716,7 +717,7 @@ type StateBinding struct {
 	// Match replaces the match of the state.
 	Match *symbol.Matcher `json:"match,omitzero" msgpack:"match,omitempty"`
 	// Bounds replaces the bounds of a number state.
-	Bounds *spatial.Bounds `json:"bounds,omitzero" msgpack:"bounds,omitempty"`
+	Bounds *spatial.ClosedBounds `json:"bounds,omitzero" msgpack:"bounds,omitempty"`
 	// Default replaces the default of the state.
 	Default *float64 `json:"default,omitzero" msgpack:"default,omitempty"`
 }
@@ -731,6 +732,9 @@ func (s StateBinding) Validate() error {
 	}
 	if s.Match != nil {
 		v.Exec(func() error { return validate.PathedError(s.Match.Validate(), "match") })
+	}
+	if s.Bounds != nil {
+		v.Exec(func() error { return validate.PathedError(s.Bounds.Validate(), "bounds") })
 	}
 	return v.Error()
 }
@@ -1721,7 +1725,7 @@ type GaugeNodeConfig struct {
 	// StrokeColor is the color of the gauge arc, a named color or a fixed color.
 	StrokeColor *servicecolor.Ref `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
 	// Bounds is the numeric range displayed by the gauge.
-	Bounds spatial.Bounds `json:"bounds" msgpack:"bounds"`
+	Bounds spatial.ClosedBounds `json:"bounds" msgpack:"bounds"`
 	// BarWidth is the thickness of the gauge arc in pixels.
 	BarWidth uint16 `json:"bar_width" msgpack:"bar_width"`
 	// Location is the anchor of the value within the gauge.
@@ -1758,6 +1762,7 @@ func (g GaugeNodeConfig) Validate() error {
 	if g.StrokeColor != nil {
 		v.Exec(func() error { return validate.PathedError(g.StrokeColor.Validate(), "stroke_color") })
 	}
+	v.Exec(func() error { return validate.PathedError(g.Bounds.Validate(), "bounds") })
 	v.Exec(func() error { return validate.PathedError(g.Location.Validate(), "location") })
 	return v.Error()
 }
@@ -3450,7 +3455,7 @@ type TankNodeConfig struct {
 	// StalenessTimeout is the span after which the value is considered stale.
 	StalenessTimeout telem.TimeSpan `json:"staleness_timeout" msgpack:"staleness_timeout"`
 	// Bounds is the numeric range the indicator maps onto its extent.
-	Bounds spatial.Bounds `json:"bounds" msgpack:"bounds"`
+	Bounds spatial.ClosedBounds `json:"bounds" msgpack:"bounds"`
 	// LevelColor is the color of the filled portion, the caret, and the value readout
 	// border, a named color or a fixed color.
 	LevelColor *servicecolor.Ref `json:"level_color,omitzero" msgpack:"level_color,omitempty"`
@@ -3515,6 +3520,7 @@ func (t TankNodeConfig) Validate() error {
 	v.GreaterThanEq("staleness_timeout", t.StalenessTimeout, 1000000000)
 	v.LessThanEq("staleness_timeout", t.StalenessTimeout, 9007199254740991)
 	v.Exec(t.LabeledConfig.Validate)
+	v.Exec(func() error { return validate.PathedError(t.Bounds.Validate(), "bounds") })
 	if t.LevelColor != nil {
 		v.Exec(func() error { return validate.PathedError(t.LevelColor.Validate(), "level_color") })
 	}

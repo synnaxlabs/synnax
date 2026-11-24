@@ -183,7 +183,8 @@ An `@ref` scalar with a zero default (`= 0`, `= ""`) holds no target while it is
 This is the "not applicable" default above, so use it only where no valid key is zero. A
 `detach` reference needs `X?`, an array, or a zero default. A required field in an array
 element also detaches: the detach drops the element. The same rules hold for top-level
-and nested fields.
+and nested fields. A nested `map<K, Key>` holds one target per value, and its detach
+drops the entry. A walk also reaches through the values of a map of structs.
 
 `?` and `= value` are mutually exclusive; the analyzer rejects a field carrying both.
 
