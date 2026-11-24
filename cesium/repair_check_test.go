@@ -519,58 +519,52 @@ var _ = Describe("Check: repair of log damage", func() {
 		Expect(rep.Unrecovered).To(BeEmpty())
 	})
 
-	It("Should keep the live samples of a segment whose rewrite was in the bad frame",
-		func(ctx SpecContext) {
-			r := newRepairRoot(ctx)
-			idx, data := GenerateChannelKey(), GenerateChannelKey()
-			keys := []cesium.ChannelKey{idx, data}
-			r.create(ctx, idx, data)
-			open := func(p int) *cesium.Writer {
-				GinkgoHelper()
-				return MustSucceed(r.db.OpenWriter(
-					ctx,
-					cesium.WriterConfig{Channels: keys, Start: repairStamp(p)},
-				))
-			}
-			w := open(0)
-			put(ctx, w, keys, 0, commits, nil)
-			r.synced(ctx, w, 0)
-			Expect(w.Close()).To(Succeed())
-			Expect(r.db.DeleteTimeRange(ctx, keys, telem.TimeRange{
-				Start: repairStamp(commits / 2),
-				End:   repairStamp(commits),
-			})).To(Succeed())
-			old := onlySegment(r.fs, idx)
-			// The takeover Seal starts the rewrite of each cut segment, and a durable
-			// Replace removes its old file.
-			w = open(commits)
-			put(ctx, w, keys, commits, commits, nil)
-			r.synced(ctx, w, commits)
-			Eventually(func() []uint64 {
-				return segmentsOf(r.fs, idx)
-			}).WithTimeout(time.Minute).ShouldNot(ContainElement(old))
-			put(ctx, w, keys, 2*commits, commits, nil)
-			r.synced(ctx, w, 2*commits)
-			Expect(w.Close()).To(Succeed())
-			bad := frameOf(r.fs, r.db.Identity(), func(rec log.Record) bool {
-				rp, ok := rec.(*log.Replace)
-				return ok && rp.Old == old
-			})
-			id := r.spoil(bad)
-			rep := repairOf(ctx, r.fs, id)
-			// The repair keeps the samples when the old file holds them, or when it
-			// rebuilds them from the copy.
-			kept := slices.Contains(segmentsOf(r.fs, idx), old) ||
-				slices.ContainsFunc(rep.Rebuilt, func(rg cesium.Range) bool {
-					return rg.Key == idx && rg.Samples == commits/2 &&
-						rg.TimeRange == telem.TimeRange{
-							Start: repairStamp(0),
-							End:   repairStamp(commits/2-1) + 1,
-						}
-				})
-			Expect(kept).To(BeTrue(), "the live samples of segment %d of key %d are "+
-				"in no file that the repair keeps: %+v", old, idx, rep)
+	It("Should report a root whose lost Tombstone buried a sealed segment and removed "+
+		"its file", func(ctx SpecContext) {
+		r := newRepairRoot(ctx)
+		idx, data := GenerateChannelKey(), GenerateChannelKey()
+		keys := []cesium.ChannelKey{idx, data}
+		r.create(ctx, idx, data)
+		open := func(p int) *cesium.Writer {
+			GinkgoHelper()
+			return MustSucceed(r.db.OpenWriter(
+				ctx,
+				cesium.WriterConfig{Channels: keys, Start: repairStamp(p)},
+			))
+		}
+		w := open(0)
+		put(ctx, w, keys, 0, commits, nil)
+		r.synced(ctx, w, 0)
+		Expect(w.Close()).To(Succeed())
+		old := onlySegment(r.fs, idx)
+		// The takeover Seals make the first segments sealed before the delete empties
+		// them.
+		w = open(commits)
+		put(ctx, w, keys, commits, commits, nil)
+		r.synced(ctx, w, commits)
+		Expect(r.db.DeleteTimeRange(ctx, keys, telem.TimeRange{
+			Start: repairStamp(0),
+			End:   repairStamp(commits),
+		})).To(Succeed())
+		Eventually(func() []uint64 {
+			return segmentsOf(r.fs, idx)
+		}).WithTimeout(time.Minute).ShouldNot(ContainElement(old))
+		put(ctx, w, keys, 2*commits, commits, nil)
+		r.synced(ctx, w, 2*commits)
+		Expect(w.Close()).To(Succeed())
+		bad := frameOf(r.fs, r.db.Identity(), func(rec log.Record) bool {
+			t, ok := rec.(*log.Tombstone)
+			return ok && t.Key == idx
 		})
+		id := r.spoil(bad)
+		rep := repairOf(ctx, r.fs, id)
+		Expect(rep.Damage).To(HaveLen(1))
+		names := func(rg cesium.Range) bool { return rg.Segment == old }
+		Expect(slices.ContainsFunc(rep.Rebuilt, names)).To(BeFalse())
+		Expect(slices.ContainsFunc(rep.Unplaced, names)).To(BeFalse())
+		Expect(slices.ContainsFunc(rep.Tails, names)).To(BeFalse())
+		Expect(rep.Unrecovered).To(BeEmpty())
+	})
 
 	It("Should list the lost commits of both bad frames of a log",
 		func(ctx SpecContext) {
