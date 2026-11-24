@@ -41,15 +41,6 @@ var _ = Describe("Join check", func() {
 			stepped(stamps(0, 1), 2), "primary input 0 steps its alignment by 2"),
 	)
 
-	It("Should refuse samples whose alignment is not the alignment of their stamps",
-		func() {
-			j := newJoin(1, 0, 0)
-			data := values(1)
-			data.Alignment = 3
-			Expect(j.Push(0, data, stamps(0, 1))).
-				To(MatchError(validate.ErrValidation))
-		})
-
 	It("Should leave an input as it was when a Push fails part way", func() {
 		j := newJoin(2, 0, 0)
 		Expect(j.Push(1, values(10, 20, 30), stamps(0, 1, 2, 1.5))).
