@@ -207,7 +207,6 @@ var _ = DescribeTableSubtree("Control moved from Cesium", func(pointerLog bool) 
 				It(
 					"Should let a streaming writer take over next to an open persist writer",
 					func(ctx SpecContext) {
-						skipOnPointerLog(pointerLog, overlapTextOwner)
 						live := openLive(ctx, 1)
 						w := MustSucceed(
 							db.OpenWriter(ctx, persistConfig(1*telem.SecondTS)),

@@ -1876,8 +1876,9 @@ func freeWriterScenario(ctx context.Context, pointerLog bool) scenario {
 }
 
 // openNode opens a Node on an in-memory storage layer, on the pointer log when
-// pointerLog is true and on the old layout otherwise. The storage runs until the
-// returned closer closes the Node and then the storage, even when ctx ends first.
+// pointerLog is true and on the old layout otherwise. The Node and its storage run
+// until
+// the returned closer closes them, even when ctx ends first.
 func openNode(ctx context.Context, pointerLog bool) (testutil.Node, io.Closer) {
 	GinkgoHelper()
 	st := MustSucceed(storage.OpenLayer(ctx, storage.LayerConfig{
@@ -1885,7 +1886,7 @@ func openNode(ctx context.Context, pointerLog bool) (testutil.Node, io.Closer) {
 		PointerLogEnabled: new(pointerLog),
 	}))
 	stop := GoRun(GinkgoT().Context(), st.Run)
-	n := testutil.OpenNode(ctx, distribution.LayerConfig{Storage: st})
+	n := testutil.OpenNode(GinkgoT().Context(), distribution.LayerConfig{Storage: st})
 	return n, xio.CloserFunc(func() error {
 		return errors.Join(n.Close(), stop(), st.Close())
 	})

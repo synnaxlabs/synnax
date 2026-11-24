@@ -845,9 +845,9 @@ var _ = DescribeTableSubtree("Writer control moved from Cesium", func(pointerLog
 							// Each handoff of idx seals its writer and starts a
 							// new stretch.
 							Expect(series).To(HaveLen(3))
-							Expect(series[0]).To(telem.MatchSeriesDataV[int64](10, 11))
-							Expect(series[1]).To(telem.MatchSeriesDataV[int64](12))
-							Expect(series[2]).To(telem.MatchSeriesDataV[int64](20, 21))
+							Expect(series[0]).To(MatchSeriesDataV[int64](10, 11))
+							Expect(series[1]).To(MatchSeriesDataV[int64](12))
+							Expect(series[2]).To(MatchSeriesDataV[int64](20, 21))
 							return
 						}
 						Expect(series).To(HaveLen(2))
