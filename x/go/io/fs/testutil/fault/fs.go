@@ -200,6 +200,9 @@ func (f *FS) Exists(name string) (bool, error) {
 
 // Remove implements fs.FS.
 func (f *FS) Remove(name string) error {
+	if lastDot(name) {
+		return pathError("remove", name, syscall.EINVAL)
+	}
 	p, d := f.abs(name), f.d
 	d.mu.Lock()
 	defer d.mu.Unlock()
@@ -218,6 +221,14 @@ func (f *FS) Remove(name string) error {
 
 // Rename implements fs.FS.
 func (f *FS) Rename(oldPath, newPath string) error {
+	if lastDot(oldPath) {
+		return &os.LinkError{
+			Op:  "rename",
+			Old: oldPath,
+			New: newPath,
+			Err: syscall.EINVAL,
+		}
+	}
 	from, to, d := f.abs(oldPath), f.abs(newPath), f.d
 	d.mu.Lock()
 	defer d.mu.Unlock()
@@ -241,6 +252,12 @@ func (f *FS) Rename(oldPath, newPath string) error {
 	}
 	d.record(from, d.set(fromDir, fromBase, nil), d.set(toDir, toBase, n))
 	return nil
+}
+
+// lastDot reports whether the last element of name is ".", which path.Join cleans to
+// the directory itself. A disk refuses to remove or rename such a name.
+func lastDot(name string) bool {
+	return name == "." || strings.HasSuffix(name, "/.")
 }
 
 // Stat implements fs.FS.
