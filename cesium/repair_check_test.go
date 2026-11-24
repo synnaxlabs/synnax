@@ -196,9 +196,13 @@ func (r repairRoot) create(
 	data ...cesium.ChannelKey,
 ) {
 	GinkgoHelper()
-	chs := []cesium.Channel{
-		{Key: idx, Name: "time", IsIndex: true, DataType: telem.TimestampT},
-	}
+	chs := make([]cesium.Channel, 0, 1+len(data))
+	chs = append(chs, cesium.Channel{
+		Key:      idx,
+		Name:     "time",
+		IsIndex:  true,
+		DataType: telem.TimestampT,
+	})
 	for _, k := range data {
 		chs = append(
 			chs,
@@ -244,7 +248,8 @@ func put(
 	for i := range n {
 		stamps[i], values[i] = repairStamp(p+i), int64(p+i)
 	}
-	series := []telem.Series{telem.NewSeries(stamps)}
+	series := make([]telem.Series, 0, len(keys))
+	series = append(series, telem.NewSeries(stamps))
 	for range keys[1:] {
 		series = append(series, telem.NewSeries(values))
 	}
@@ -278,14 +283,12 @@ func segmentsOf(fs xfs.FS, key cesium.ChannelKey) []uint64 {
 	return out
 }
 
-// onlySegment returns the one segment of key in fs that before does not hold.
-func onlySegment(fs xfs.FS, key cesium.ChannelKey, before ...uint64) uint64 {
+// onlySegment returns the one segment of key in fs.
+func onlySegment(fs xfs.FS, key cesium.ChannelKey) uint64 {
 	GinkgoHelper()
-	added := slices.DeleteFunc(segmentsOf(fs, key), func(s uint64) bool {
-		return slices.Contains(before, s)
-	})
-	Expect(added).To(HaveLen(1))
-	return added[0]
+	segs := segmentsOf(fs, key)
+	Expect(segs).To(HaveLen(1))
+	return segs[0]
 }
 
 // bytesOf returns the bytes of each file under fs by its path.
