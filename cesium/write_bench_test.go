@@ -10,6 +10,7 @@
 package cesium_test
 
 import (
+	"fmt"
 	"sync"
 	"testing"
 
@@ -70,6 +71,63 @@ func benchmarkWrite(b *testing.B, mem, contended bool) {
 	stop()
 	if err := w.Close(); err != nil {
 		b.Error(err)
+	}
+}
+
+// BenchmarkCommit writes one frame of float32 samples and commits it to the index files
+// on the OS file system, per iteration.
+func BenchmarkCommit(b *testing.B) {
+	for _, c := range []struct{ indexes, channels, samples int }{
+		{indexes: 1, channels: 32, samples: 125},
+		{indexes: 10, channels: 990, samples: 100},
+	} {
+		name := fmt.Sprintf(
+			"indexes=%d/channels=%d/samples=%d",
+			c.indexes,
+			c.channels,
+			c.samples,
+		)
+		b.Run(name, func(b *testing.B) {
+			perIndex := c.channels / c.indexes
+			db := openBenchDB(b, false)
+			keys := createIndexedChannels(b, db, c.indexes, perIndex)
+			w, err := db.OpenWriter(b.Context(), cesium.WriterConfig{
+				Channels:                 keys,
+				Start:                    telem.SecondTS,
+				Sync:                     new(true),
+				AutoIndexPersistInterval: cesium.AlwaysIndexPersistOnAutoCommit,
+			})
+			if err != nil {
+				b.Fatal(err)
+			}
+			data := telem.NewSeries(make([]float32, c.samples))
+			stamps := make([]telem.TimeStamp, c.samples)
+			start := telem.SecondTS
+			b.ReportAllocs()
+			for b.Loop() {
+				for i := range stamps {
+					stamps[i] = start + telem.TimeStamp(i)
+				}
+				// The relay can hold a frame after Write returns, so each write gets
+				// its own series slice and stamps.
+				series := make([]telem.Series, len(keys))
+				for i := range series {
+					series[i] = data
+				}
+				time := telem.NewSeries(stamps)
+				for i := 0; i < len(series); i += perIndex + 1 {
+					series[i] = time
+				}
+				if _, err := w.Write(telem.MultiFrame(keys, series)); err != nil {
+					b.Fatal(err)
+				}
+				start += telem.TimeStamp(c.samples)
+			}
+			b.StopTimer()
+			if err := w.Close(); err != nil {
+				b.Error(err)
+			}
+		})
 	}
 }
 

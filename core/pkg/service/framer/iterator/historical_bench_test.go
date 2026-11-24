@@ -214,3 +214,20 @@ func BenchmarkIteratorCalculatedCount(b *testing.B) {
 		})
 	}
 }
+
+// BenchmarkIteratorCalc_TwoClocks reads a minute of the sum of two inputs that are on
+// two indexes, one at 1 kHz and one at 1 Hz.
+func BenchmarkIteratorCalc_TwoClocks(b *testing.B) {
+	env := newBenchIterEnv(b)
+	defer env.close(b)
+	fastIndex, fast := env.createChannels(b, "fast", 1)
+	slowIndex, slow := env.createChannels(b, "slow", 1)
+	env.writeHist(b, fastIndex, fast, 60_000, telem.Millisecond)
+	env.writeHist(b, slowIndex, slow, 60, telem.Second)
+	calc := env.createCalculation(
+		b,
+		"two_clocks",
+		"return fast_sensor_0 + slow_sensor_0",
+	)
+	runHistCase(b, env, []channel.Key{calc.Key(), calc.Index()})
+}

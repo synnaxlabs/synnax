@@ -7,6 +7,7 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
@@ -30,6 +31,17 @@ cc_library(
         "//x/cpp/telem",
         "//x/go/telem:telem_grpc",
         "@grpc//:grpc++",
+    ],
+)
+
+cc_binary(
+    name = "codec_bench",
+    srcs = ["codec_bench.cpp"],
+    deps = [
+        ":framer",
+        "//x/cpp/bench",
+        "//x/cpp/telem",
+        "@google_benchmark//:benchmark_main",
     ],
 )
 
