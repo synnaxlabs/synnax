@@ -102,10 +102,10 @@ func (r *cachingResolver) ResolveKey(
 	return r.SymbolResolver.ResolveKey(ctx, key)
 }
 
-// NewCalculationRoot returns the root that a calculation's expression resolves in: the
+// newCalculationRoot returns the root that a calculation's expression resolves in: the
 // channels that resolver gives and the standard library with no module that a program
 // can import, since a calculation imports none.
-func NewCalculationRoot(resolver arc.SymbolResolver) *symbol.Symbol {
+func newCalculationRoot(resolver arc.SymbolResolver) *symbol.Symbol {
 	return symbol.NewRoot(resolver, calculationSymbols())
 }
 

@@ -198,11 +198,11 @@ type Service struct {
 	directoryState *actions.State[directory.Key, directory.Action]
 }
 
-// NewRoot builds the production analysis root: the STL, status, and ranges modules, the
-// Core channel resolver, and the user modules below Arcs. The root looks up channels
-// and modules in snap and records each lookup in lookups. A root resolves each channel
-// name and module the same way for its lifetime, so build one per compile.
-func (s *Service) NewRoot(
+// checkedRoot builds the production analysis root: the STL, status, and ranges modules,
+// the Core channel resolver, and the user modules below Arcs. The root looks up
+// channels and modules in snap and records each lookup in lookups. A root resolves each
+// channel name and module the same way for its lifetime, so build one per compile.
+func (s *Service) checkedRoot(
 	snap gorp.Snapshot,
 	lookups *resolver.Lookups,
 ) *symbol.Symbol {
@@ -519,7 +519,7 @@ func (s *Service) buildIn(
 		return again == hash, err
 	})
 	b := Build{lookups: lookups, entry: a}
-	root := s.NewRoot(snap, lookups)
+	root := s.checkedRoot(snap, lookups)
 	switch v := a.Variant.(type) {
 	case AutomationArc:
 		b.program, b.err = s.cfg.Compile(ctx, v, root)

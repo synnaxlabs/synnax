@@ -56,6 +56,57 @@ var _ = Describe("CompileConsistent", func() {
 		Expect(checks).To(Equal(1))
 	})
 
+	Describe("CheckedRead", func() {
+		name := func(ctx context.Context, snap gorp.Snapshot, k channel.Key) (string, error) {
+			var ch channel.Channel
+			err := svc.NewRetrieve().
+				Where(channel.MatchKeys(k)).
+				Entry(&ch).
+				Exec(ctx, snap)
+			return ch.Name, err
+		}
+		same := func(a, b string) bool { return a == b }
+
+		It("Should compile again when a read changes inside the first compile", func(
+			ctx SpecContext,
+		) {
+			ch := createChannel(ctx, "checked_read_before")
+			var compiles int
+			got := MustSucceed(resolver.CompileConsistent(ctx, db, func(
+				snap gorp.Snapshot,
+				lookups *resolver.Lookups,
+			) (string, error) {
+				compiles++
+				n, err := resolver.CheckedRead(snap, lookups, name, same)(ctx, ch.Key())
+				if compiles == 1 {
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).
+							Rename(ctx, ch.Key(), "checked_read_after", false)
+					})).To(Succeed())
+				}
+				return n, err
+			}))
+			Expect(compiles).To(Equal(2))
+			Expect(got).To(Equal("checked_read_after"))
+		})
+
+		It("Should compile once when a read fails with the same error twice", func(
+			ctx SpecContext,
+		) {
+			var compiles int
+			Expect(resolver.CompileConsistent(ctx, db, func(
+				snap gorp.Snapshot,
+				lookups *resolver.Lookups,
+			) (string, error) {
+				compiles++
+				Expect(resolver.CheckedRead(snap, lookups, name, same)(ctx, 1<<30)).
+					Error().To(MatchError(query.ErrNotFound))
+				return "", nil
+			})).To(Equal(""))
+			Expect(compiles).To(Equal(1))
+		})
+	})
+
 	It("Should fail after five changed tries with no lock held", func(
 		ctx SpecContext,
 	) {

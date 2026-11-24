@@ -83,31 +83,9 @@ func describeRestrict(
 			Key:  restrict.Holder.Key,
 		}
 	}
-	var (
-		found  []resource.Resource
-		hidden bool
-	)
-	if rErr := db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
-		allowed, err := rbacSvc.NewEnforcer(snap).Allowed(
-			ctx,
-			auth.GetSubject(ctx),
-			access.ActionRetrieve,
-		)
-		if err != nil {
-			return err
-		}
-		hidden = !allowed(holder)
-		found, err = res.Retrieve(ctx, snap, lo.Filter(
-			[]resource.ID{target, holder},
-			func(id resource.ID, _ int) bool { return allowed(id) },
-		)...)
-		return err
-	}); rErr != nil {
+	names, hidden, rErr := visibleNames(ctx, db, res, rbacSvc, target, holder)
+	if rErr != nil {
 		return rErr
-	}
-	names := make(map[resource.ID]string, len(found))
-	for _, r := range found {
-		names[r.ID] = r.Name
 	}
 	// A target that the caller cannot retrieve shows its key, and so does a record
 	// that a concurrent delete removes between the refusal and the lookup.
@@ -133,4 +111,42 @@ func describeRestrict(
 		msg += string(holder.Type) + " " + name(holder) + " " + uses
 	}
 	return errors.Wrap(validate.ErrValidation, msg)
+}
+
+// visibleNames returns the names of target and holder that the subject of ctx can
+// retrieve, and whether the subject cannot retrieve holder.
+func visibleNames(
+	ctx context.Context,
+	db *gorp.DB,
+	res *resource.Service,
+	rbacSvc *rbac.Service,
+	target, holder resource.ID,
+) (map[resource.ID]string, bool, error) {
+	var (
+		found  []resource.Resource
+		hidden bool
+	)
+	if err := db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		allowed, err := rbacSvc.NewEnforcer(snap).Allowed(
+			ctx,
+			auth.GetSubject(ctx),
+			access.ActionRetrieve,
+		)
+		if err != nil {
+			return err
+		}
+		hidden = !allowed(holder)
+		found, err = res.Retrieve(ctx, snap, lo.Filter(
+			[]resource.ID{target, holder},
+			func(id resource.ID, _ int) bool { return allowed(id) },
+		)...)
+		return err
+	}); err != nil {
+		return nil, false, err
+	}
+	names := make(map[resource.ID]string, len(found))
+	for _, r := range found {
+		names[r.ID] = r.Name
+	}
+	return names, hidden, nil
 }

@@ -27,6 +27,8 @@
 //	import (
 //	    "context"
 //
+//	    "github.com/synnaxlabs/arc/compiler"
+//	    "github.com/synnaxlabs/arc/program"
 //	    "github.com/synnaxlabs/arc/text"
 //	)
 //
@@ -43,11 +45,12 @@
 //	    panic(diag.Error())
 //	}
 //
-//	// Compile to program with WASM
-//	prog, err := text.Compile(context.Background(), ir)
+//	// Compile the IR to WASM
+//	output, err := compiler.Compile(context.Background(), ir)
 //	if err != nil {
 //	    panic(err)
 //	}
+//	prog := program.Program{IR: ir, Output: output}
 //
 //	// Program now contains both IR and compiled WASM bytecode
 //	wasm := prog.WASM              // WebAssembly bytecode
@@ -73,7 +76,7 @@ import (
 //
 // Example:
 //
-//	prog, err := text.Compile(ctx, ir)
+//	prog, err := arc.CompileText(ctx, src, root)
 //	if err != nil {
 //	    return err
 //	}

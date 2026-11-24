@@ -31,7 +31,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/channel/resolver"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -407,7 +406,7 @@ var _ = Describe("NewLSP", func() {
 	})
 })
 
-var _ = Describe("NewRoot", func() {
+var _ = Describe("Channel names", func() {
 	var ch channel.Channel
 	BeforeEach(func(ctx SpecContext) {
 		ch = channel.Channel{
@@ -425,29 +424,37 @@ var _ = Describe("NewRoot", func() {
 				To(Succeed())
 		})
 	})
-
-	It("Should resolve a channel by the name it first had", func(ctx SpecContext) {
-		root := svc.NewRoot(db, &resolver.Lookups{})
-		Expect(root.Resolve(ctx, "new_root_ch")).To(HaveField("ID", int(ch.Key())))
+	compileRead := func(ctx SpecContext, arcName, name string) error {
+		GinkgoHelper()
+		a := newAutomation(arc.Base{
+			Name: arcName,
+			Source: arc.Source{Variant: arc.TextSource{
+				Text: text.Text{Raw: "func f() {\n\tx := " + name + "\n}"},
+			}},
+		})
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			return channelSvc.NewWriter(tx).
-				Rename(ctx, ch.Key(), "new_root_ch_2", false)
-		})).
-			To(Succeed())
-		Expect(root.Resolve(ctx, "new_root_ch")).To(HaveField("ID", int(ch.Key())))
-	})
+			return svc.NewWriter(tx).Create(ctx, &a)
+		})).To(Succeed())
+		DeferCleanup(func(ctx SpecContext) {
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Delete(ctx, a.Base().Key)
+			})).To(Succeed())
+		})
+		_, err := svc.CompileProgram(ctx, a.Base().Key)
+		return err
+	}
 
-	It("Should resolve a renamed channel by its new name", func(ctx SpecContext) {
+	It("Should compile a renamed channel by its new name and refuse its old name", func(
+		ctx SpecContext,
+	) {
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return channelSvc.NewWriter(tx).
 				Rename(ctx, ch.Key(), "new_root_ch_3", false)
 		})).
 			To(Succeed())
-		root := svc.NewRoot(db, &resolver.Lookups{})
-		Expect(root.Resolve(ctx, "new_root_ch_3")).To(HaveField("ID", int(ch.Key())))
-		_, err := root.Resolve(ctx, "new_root_ch")
-		Expect(MustBeOk(errors.AsType[*symbol.UndefinedSymbolError](err)).Name).
-			To(Equal("new_root_ch"))
+		Expect(compileRead(ctx, "names_new", "new_root_ch_3")).To(Succeed())
+		Expect(compileRead(ctx, "names_old", "new_root_ch")).
+			To(MatchError(ContainSubstring("undefined symbol: new_root_ch\n")))
 	})
 })
 

@@ -90,18 +90,14 @@ func (s *Service) checkedModuleSource(
 	snap gorp.Snapshot,
 	lookups *resolver.Lookups,
 ) func(context.Context, string) (arctext.Text, error) {
-	return func(ctx context.Context, path string) (arctext.Text, error) {
-		t, err := s.retrieveModuleText(ctx, snap, path)
-		lookups.Record(func(ctx context.Context, snap gorp.Snapshot) (bool, error) {
-			again, againErr := s.retrieveModuleText(ctx, snap, path)
-			if err != nil || againErr != nil {
-				return err != nil && againErr != nil &&
-					err.Error() == againErr.Error(), nil
-			}
-			return t.Raw == again.Raw, nil
-		})
-		return t, err
-	}
+	return resolver.CheckedRead(
+		snap,
+		lookups,
+		func(ctx context.Context, snap gorp.Snapshot, path string) (arctext.Text, error) {
+			return s.retrieveModuleText(ctx, snap, path)
+		},
+		func(a, b arctext.Text) bool { return a.Raw == b.Raw },
+	)
 }
 
 func (s *Service) retrieveModuleText(

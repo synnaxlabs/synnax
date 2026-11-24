@@ -10,8 +10,7 @@
  */
 
 .console-notifications {
-    position: absolute;
-    z-index: 20;
+    position: fixed;
     bottom: 3rem;
     right: 3rem;
     max-height: calc(100% - 6rem);

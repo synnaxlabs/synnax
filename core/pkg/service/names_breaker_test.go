@@ -49,14 +49,20 @@ func createNamedV062Store(
 	channels ...storedChannel,
 ) []channel.Key {
 	GinkgoHelper()
-	markApplied(
+	markAppliedBefore(
 		ctx,
 		n.DB,
 		"Channel",
 		channelversions.Migrations,
 		"v63_channel_name_rule",
 	)
-	markApplied(ctx, n.DB, "Group", groupversions.Migrations, "v63_folder_name_rule")
+	markAppliedBefore(
+		ctx,
+		n.DB,
+		"Group",
+		groupversions.Migrations,
+		"v63_folder_name_rule",
+	)
 	alloc := make([]distchannel.Channel, len(channels))
 	for i, c := range channels {
 		alloc[i] = distchannel.Channel{

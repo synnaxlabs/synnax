@@ -10,17 +10,16 @@
 package arc_test
 
 import (
+	"fmt"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/synnaxlabs/arc/lsp/testutil"
-	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/channel/resolver"
-	"github.com/synnaxlabs/x/crdt"
 	. "github.com/synnaxlabs/x/lsp/testutil"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -29,11 +28,12 @@ import (
 
 var _ = Describe("Modules", func() {
 	const source = "export func f() i64 { return 1 }"
-	var (
-		tx   gorp.Tx
-		w    arc.Writer
-		root directory.Key
-	)
+	write := func(ctx SpecContext, f func(w arc.Writer) error) {
+		GinkgoHelper()
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return f(svc.NewWriter(tx))
+		})).To(Succeed())
+	}
 	createDirectory := func(
 		ctx SpecContext,
 		name string,
@@ -41,55 +41,80 @@ var _ = Describe("Modules", func() {
 	) directory.Directory {
 		GinkgoHelper()
 		d := directory.Directory{Name: name}
-		Expect(w.CreateDirectory(ctx, &d, parent)).To(Succeed())
+		write(
+			ctx,
+			func(w arc.Writer) error { return w.CreateDirectory(ctx, &d, parent) },
+		)
+		DeferCleanup(func(ctx SpecContext) {
+			write(
+				ctx,
+				func(w arc.Writer) error { return w.DeleteDirectory(ctx, d.Key) },
+			)
+		})
 		return d
 	}
 	createArc := func(ctx SpecContext, t arc.Type, name string, src arc.Source) arc.Arc {
 		GinkgoHelper()
 		a := newArc(t, arc.Base{Name: name, Source: src})
-		Expect(w.Create(ctx, &a)).To(Succeed())
+		write(ctx, func(w arc.Writer) error { return w.Create(ctx, &a) })
+		DeferCleanup(func(ctx SpecContext) {
+			write(ctx, func(w arc.Writer) error { return w.Delete(ctx, a.Base().Key) })
+		})
 		return a
 	}
 	textSource := func(raw string) arc.Source {
 		return arc.Source{Variant: arc.TextSource{Text: text.Text{Raw: raw}}}
 	}
-	resolveModule := func(ctx SpecContext, path string) (*symbol.Symbol, error) {
-		return svc.NewRoot(tx, &resolver.Lookups{}).ResolveModule(ctx, path)
+	// compileImport compiles a stored automation that imports path and calls f of the
+	// module that name imports.
+	importers := 0
+	compileImport := func(ctx SpecContext, path, name string) error {
+		GinkgoHelper()
+		importers++
+		importer := fmt.Sprintf("rm_importer_%d", importers)
+		a := createArc(ctx, arc.TypeAutomation, importer, textSource(
+			"import "+path+"\n\nfunc g() i64 { return "+name+".f() }",
+		))
+		_, err := svc.CompileProgram(ctx, a.Base().Key)
+		return err
 	}
-	Context("ResolveModule", func() {
+	Context("Import", func() {
+		var root directory.Key
 		BeforeEach(func(ctx SpecContext) {
-			tx = DeferClose(db.OpenTx())
-			w = svc.NewWriter(tx)
+			tx := db.OpenTx()
 			root = rootDirectory(ctx, tx).Key
+			Expect(tx.Close()).To(Succeed())
 		})
 
-		It("Should resolve a module directly under Arcs", func(ctx SpecContext) {
-			createArc(ctx, arc.TypeModule, "m", textSource(source))
-			mod := MustSucceed(resolveModule(ctx, "m"))
-			Expect(mod.Kind).To(Equal(symbol.KindModule))
-			Expect(mod.FindChild("f").Exported).To(BeTrue())
+		It("Should import an exported function of a module directly under Arcs", func(
+			ctx SpecContext,
+		) {
+			createArc(ctx, arc.TypeModule, "rm_m", textSource(source))
+			Expect(compileImport(ctx, "rm_m", "rm_m")).To(Succeed())
 		})
 
-		It("Should resolve a module by its directory path", func(ctx SpecContext) {
-			lib := createDirectory(ctx, "lib", root)
-			sub := createDirectory(ctx, "sub", lib.Key)
-			a := createArc(ctx, arc.TypeModule, "m", textSource(source))
-			Expect(w.Move(ctx, root, sub.Key, a.ResourceID())).To(Succeed())
-			mod := MustSucceed(resolveModule(ctx, "lib.sub.m"))
-			Expect(mod.Name).To(Equal("lib.sub.m"))
-			Expect(resolveModule(ctx, "m")).Error().
-				To(MatchError(symbol.ErrModuleNotFound))
+		It("Should import a module by its directory path", func(ctx SpecContext) {
+			lib := createDirectory(ctx, "rm_lib", root)
+			sub := createDirectory(ctx, "rm_sub", lib.Key)
+			a := createArc(ctx, arc.TypeModule, "rm_m", textSource(source))
+			write(ctx, func(w arc.Writer) error {
+				return w.Move(ctx, root, sub.Key, a.ResourceID())
+			})
+			Expect(compileImport(ctx, "rm_lib.rm_sub.rm_m", "rm_m")).To(Succeed())
+			Expect(compileImport(ctx, "rm_m", "rm_m")).
+				To(MatchError(ContainSubstring(`import failed: unknown module "rm_m"`)))
 		})
 
 		It("Should report a path through a missing directory", func(ctx SpecContext) {
-			Expect(resolveModule(ctx, "nope.m")).Error().
-				To(MatchError(symbol.ErrModuleNotFound))
+			Expect(compileImport(ctx, "rm_nope.rm_m", "rm_m")).To(MatchError(
+				ContainSubstring(`import failed: unknown module "rm_nope.rm_m"`),
+			))
 		})
 
 		It("Should refuse to import an automation", func(ctx SpecContext) {
-			createArc(ctx, arc.TypeAutomation, "a", textSource(source))
-			Expect(resolveModule(ctx, "a")).Error().To(MatchError(
-				ContainSubstring(`"a" is an automation and cannot be imported`),
+			createArc(ctx, arc.TypeAutomation, "rm_a", textSource(source))
+			Expect(compileImport(ctx, "rm_a", "rm_a")).To(MatchError(
+				ContainSubstring(`"rm_a" is an automation and cannot be imported`),
 			))
 		})
 
@@ -97,17 +122,17 @@ var _ = Describe("Modules", func() {
 			createArc(
 				ctx,
 				arc.TypeModule,
-				"g",
+				"rm_g",
 				arc.Source{Variant: arc.GraphSource{}},
 			)
-			Expect(resolveModule(ctx, "g")).Error().To(MatchError(
-				ContainSubstring(`module "g" is a graph and cannot be imported`),
+			Expect(compileImport(ctx, "rm_g", "rm_g")).To(MatchError(
+				ContainSubstring(`module "rm_g" is a graph and cannot be imported`),
 			))
 		})
 
 		It("Should report an unknown module", func(ctx SpecContext) {
-			Expect(resolveModule(ctx, "nope")).Error().
-				To(MatchError(symbol.ErrModuleNotFound))
+			Expect(compileImport(ctx, "rm_nope", "rm_nope")).
+				To(MatchError(ContainSubstring(`import failed: unknown module "rm_nope"`)))
 		})
 	})
 
@@ -135,47 +160,6 @@ var _ = Describe("Modules", func() {
 			"import lsp_module\n\nfunc g() i64 { return lsp_module.f() }",
 		)
 		Expect(client.Diagnostics()).To(BeEmpty())
-	})
-
-	It("Should compile again when a module's text changes before the check", func(
-		ctx SpecContext,
-	) {
-		m := newArc(
-			arc.TypeModule,
-			arc.Base{Name: "checked_module", Source: textSource("")},
-		)
-		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			return svc.NewWriter(tx).Create(ctx, &m)
-		})).To(Succeed())
-		DeferCleanup(func(ctx SpecContext) {
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return svc.NewWriter(tx).Delete(ctx, m.Base().Key)
-			})).To(Succeed())
-		})
-		var compiles int
-		mod := MustSucceed(resolver.CompileConsistent(ctx, db, func(
-			snap gorp.Snapshot,
-			lookups *resolver.Lookups,
-		) (*symbol.Symbol, error) {
-			compiles++
-			mod, err := svc.NewRoot(snap, lookups).ResolveModule(ctx, "checked_module")
-			if compiles == 1 {
-				inserts := crdt.New(2).Insert(0, source)
-				acts := make([]arc.Action, len(inserts))
-				for i, in := range inserts {
-					acts[i] = arc.NewInsertCharAction(arc.InsertCharPayload{
-						ID:     in.ID,
-						Origin: in.Origin,
-						Side:   in.Side,
-						Char:   in.Char,
-					})
-				}
-				Expect(dispatch(ctx, m.Base().Key, "dk", acts)).To(Succeed())
-			}
-			return mod, err
-		}))
-		Expect(compiles).To(Equal(2))
-		Expect(mod.FindChild("f")).ToNot(BeNil())
 	})
 
 	It("Should link a module's code into its importer's program", func(

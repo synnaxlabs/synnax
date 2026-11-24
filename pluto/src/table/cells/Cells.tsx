@@ -12,6 +12,7 @@ import "@/table/cells/Cells.css";
 import { table } from "@synnaxlabs/client";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Text as BaseText } from "@synnaxlabs/lyra/text";
+import { Theming } from "@synnaxlabs/lyra/theming";
 import { type border, box, color, TimeSpan } from "@synnaxlabs/x";
 import type { ReactElement } from "react";
 
@@ -19,6 +20,7 @@ import { Channel } from "@/channel";
 import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Cell as Base } from "@/table/cells/Cell";
+import { Staleness } from "@/vis/staleness";
 import { Value as BaseValue } from "@/vis/value";
 
 export const textConfigZ = table.textCellConfigZ;
@@ -113,16 +115,18 @@ export const Value = ({
   stalenessColor,
 }: CellProps<ValueConfig>) => {
   const resolve = Color.useResolve();
+  const theme = Theming.use();
   const t = BaseValue.stringSource({ channel, rollingAverage, precision, notation });
   const backgroundTelem = BaseValue.backgroundTelem(t, redline, resolve(fillColor));
-  BaseValue.use({
+  const staleColor = Staleness.resolveColor(resolve(stalenessColor), theme);
+  const { stale } = BaseValue.use({
     aetherKey: cellKey,
     box: b,
     telem: t,
     level,
     color: resolve(textColor),
     stalenessTimeout: TimeSpan.seconds(stalenessTimeout).nanoseconds,
-    stalenessColor: resolve(stalenessColor),
+    stalenessColor: staleColor,
     backgroundTelem,
     location: { x: "center", y: "center" },
     clip: true,
@@ -150,7 +154,7 @@ export const Value = ({
         CSS.BEM("table", "cell", "value"),
       )}
     >
-      {deleted && <Channel.Deleted />}
+      {deleted && <Channel.Deleted color={stale ? staleColor : undefined} />}
     </Base>
   );
 };

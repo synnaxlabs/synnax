@@ -46,6 +46,29 @@ func (l *Lookups) Unchanged(ctx context.Context, snap gorp.Snapshot) (bool, erro
 	return true, nil
 }
 
+// CheckedRead returns read through snap, and records each call in lookups. A call gives
+// the same answer again when read returns a value that equal accepts, or an error with
+// the same text.
+func CheckedRead[K, V any](
+	snap gorp.Snapshot,
+	lookups *Lookups,
+	read func(context.Context, gorp.Snapshot, K) (V, error),
+	equal func(a, b V) bool,
+) func(context.Context, K) (V, error) {
+	return func(ctx context.Context, k K) (V, error) {
+		v, err := read(ctx, snap, k)
+		lookups.Record(func(ctx context.Context, snap gorp.Snapshot) (bool, error) {
+			again, againErr := read(ctx, snap, k)
+			if err != nil || againErr != nil {
+				return err != nil && againErr != nil &&
+					err.Error() == againErr.Error(), nil
+			}
+			return equal(v, again), nil
+		})
+		return v, err
+	}
+}
+
 const (
 	// compileTries is the number of compiles that CompileConsistent runs.
 	compileTries = 5

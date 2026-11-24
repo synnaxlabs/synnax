@@ -13,6 +13,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/analyzer/codes"
+	"github.com/synnaxlabs/arc/compiler"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
@@ -95,7 +96,7 @@ var _ = Describe("Bare channel paths (breaker)", func() {
 		)
 		Expect(*diagnostics).To(BeEmpty(), diagnostics.String())
 		Expect(inter.Nodes).ToNot(BeEmpty())
-		MustSucceed(text.Compile(ctx, inter))
+		MustSucceed(compiler.Compile(ctx, inter))
 	})
 
 	It("B4 names a missing path with the text that D-286 approved", func(

@@ -12,6 +12,7 @@ package text_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc/compiler"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
@@ -62,7 +63,7 @@ var _ = Describe("Quoted channel names (round 2 break)", func() {
 		func(ctx SpecContext, source string) {
 			inter, diagnostics := analyze(ctx, source)
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-			MustSucceed(text.Compile(ctx, inter))
+			MustSucceed(compiler.Compile(ctx, inter))
 		},
 		Entry("an apostrophe", "func f() {\n\tlog = f`{\"it's\"}`\n}\ntrig -> f()"),
 	)
@@ -92,7 +93,7 @@ var _ = Describe("Quoted channel names (round 2 break)", func() {
 		func(ctx SpecContext, source string) {
 			inter, diagnostics := analyze(ctx, source)
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-			MustSucceed(text.Compile(ctx, inter))
+			MustSucceed(compiler.Compile(ctx, inter))
 			Expect(onKeys(inter)).To(ConsistOf(uint32(60)))
 		},
 		Entry("a direct read (control)",

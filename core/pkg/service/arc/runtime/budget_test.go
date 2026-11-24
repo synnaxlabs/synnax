@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/compiler/wasm"
+	symboltestutil "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
 	"github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/testutil"
@@ -45,7 +46,11 @@ func recurse() i64 {
 // instantiate compiles source and instantiates it in a new wazero runtime that closes
 // with the calling spec or benchmark.
 func instantiate(ctx context.Context, source string) (api.Module, func()) {
-	program, err := arc.CompileText(ctx, arc.Text{Raw: source}, arc.NewRoot(nil))
+	program, err := arc.CompileText(
+		ctx,
+		arc.Text{Raw: source},
+		symboltestutil.NewRoot(nil),
+	)
 	if err != nil {
 		panic(err)
 	}

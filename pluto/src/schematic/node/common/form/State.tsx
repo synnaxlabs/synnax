@@ -10,20 +10,25 @@
 import type { channel } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
-import { deep } from "@synnaxlabs/x";
+import { DataType, deep } from "@synnaxlabs/x";
 import type { ReactElement } from "react";
 
 import { Channel } from "@/channel";
 
 const path = deep.path<{ stateChannel?: channel.Key }>();
 
+/** Lists the channels of variable density, which read as text. */
+export const VARIABLE_CHANNELS: Channel.ListQuery = {
+  where: { dataType: { in: [DataType.STRING, DataType.JSON, DataType.BYTES] } },
+};
+
 export interface StateSectionProps {
-  /** filter limits the channels the select offers. */
-  filter?: (ch: channel.Channel) => boolean;
+  /** The channels the select offers. */
+  query?: Channel.ListQuery;
 }
 
 /** StateSection edits the channel a control reads the device's value back from. */
-export const StateSection = ({ filter }: StateSectionProps): ReactElement => {
+export const StateSection = ({ query }: StateSectionProps): ReactElement => {
   const { value, onChange } = Form.useField(path);
   return (
     <Form.Section title="State">
@@ -34,7 +39,7 @@ export const StateSection = ({ filter }: StateSectionProps): ReactElement => {
           onChange={(v: channel.Key | null) =>
             onChange({ ...value, stateChannel: v ?? 0 })
           }
-          filter={filter}
+          query={query}
         />
       </Input.Item>
     </Form.Section>

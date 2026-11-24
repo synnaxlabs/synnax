@@ -16,6 +16,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/synnaxlabs/arc/compiler"
 	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/text"
@@ -107,7 +108,7 @@ func benchCompile(b *testing.B, source string, channels benchResolver) {
 		if !diag.Ok() {
 			return errors.New(diag.String())
 		}
-		_, err := text.Compile(ctx, inter)
+		_, err := compiler.Compile(ctx, inter)
 		return err
 	}
 	if err := compile(); err != nil {

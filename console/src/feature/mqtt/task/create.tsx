@@ -9,7 +9,7 @@
 
 import { Icon } from "@synnaxlabs/lyra/icon";
 
-import { MAKE } from "@/feature/mqtt/device/types";
+import { Device } from "@/feature/mqtt/device";
 import {
   EDGE_SCHEMAS,
   EDGE_TYPE,
@@ -37,7 +37,7 @@ const getReadInitialValues: Task.GetInitialValues<ReadSchemas> = ({
 
 export const useCreateRead = Task.createUseCreate({
   getInitialValues: getReadInitialValues,
-  deviceMake: MAKE,
+  deviceMake: Device.MAKE,
 });
 
 export const ReadSelectable: Selector.Selectable = {
@@ -59,7 +59,7 @@ const getWriteInitialValues: Task.GetInitialValues<WriteSchemas> = ({
 
 export const useCreateWrite = Task.createUseCreate({
   getInitialValues: getWriteInitialValues,
-  deviceMake: MAKE,
+  deviceMake: Device.MAKE,
 });
 
 export const WriteSelectable: Selector.Selectable = {
@@ -81,7 +81,7 @@ const getEdgeInitialValues: Task.GetInitialValues<EdgeSchemas> = ({
 
 export const useCreateEdge = Task.createUseCreate({
   getInitialValues: getEdgeInitialValues,
-  deviceMake: MAKE,
+  deviceMake: Device.MAKE,
 });
 
 export const EdgeSelectable: Selector.Selectable = {

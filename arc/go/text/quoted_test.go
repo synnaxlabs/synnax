@@ -12,6 +12,7 @@ package text_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc/compiler"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
@@ -107,7 +108,7 @@ func f() {
 			Expect(*diagnostics).To(BeEmpty(), diagnostics.String())
 			Expect(reads(inter, 40)).To(BeTrue())
 			Expect(writes(inter, 40)).To(BeTrue())
-			return MustSucceed(text.Compile(ctx, inter)).WASM
+			return MustSucceed(compiler.Compile(ctx, inter)).WASM
 		}
 		Expect(compile("x")).To(Equal(compile("y")))
 	})
