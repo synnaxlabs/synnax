@@ -241,7 +241,6 @@ func checkDerived(
 	needs accessNeeds,
 	effect string,
 ) error {
-	var visible func(resource.ID) bool
 	for _, action := range access.AllActions {
 		objects := lo.Uniq(needs[action])
 		if len(objects) == 0 {
@@ -257,14 +256,9 @@ func checkDerived(
 		if len(denied) == 0 {
 			continue
 		}
-		if visible == nil {
-			if visible, err = enforcer.Allowed(
-				ctx,
-				subject,
-				access.ActionRetrieve,
-			); err != nil {
-				return err
-			}
+		visible, err := enforcer.Allowed(ctx, subject, access.ActionRetrieve)
+		if err != nil {
+			return err
 		}
 		if shown, ok := lo.Find(denied, visible); ok {
 			return access.Denied(subject, action, shown)

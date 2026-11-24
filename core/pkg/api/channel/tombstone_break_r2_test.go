@@ -212,11 +212,14 @@ var _ = Describe("Tombstone break r2", Ordered, ContinueOnFailure, func() {
 			Actions: []channel.Action{
 				channel.NewRenameAction(channel.RenamePayload{Name: dead.Name}),
 			},
-		})).Error().To(MatchError(access.Denied(
-			u.ResourceID(),
-			access.ActionRetrieve,
-			channel.ResourceID(ch.Key()),
-		)))
+		})).Error().To(SatisfyAll(
+			MatchError(access.ErrDenied),
+			MatchError(ContainSubstring(
+				"%s cannot retrieve %s",
+				u.ResourceID(),
+				channel.ResourceID(ch.Key()),
+			)),
+		))
 		Expect(tombstoned(ctx, dead.Key())).To(BeTrue())
 	})
 
