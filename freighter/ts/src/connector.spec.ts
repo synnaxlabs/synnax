@@ -211,6 +211,43 @@ describe("trustCA", () => {
     expect(Unreachable.matches(err)).toBe(true);
   });
 
+  describe("with the CA in the system certificate store", () => {
+    beforeAll(() => {
+      const tls = process.getBuiltinModule("node:tls");
+      const getCACertificates: typeof tls.getCACertificates = (type) =>
+        type === "system" ? [ca] : tls.getCACertificates(type);
+      const getBuiltinModule = process.getBuiltinModule.bind(process);
+      vi.spyOn(process, "getBuiltinModule").mockImplementation((id: string) =>
+        id === "node:tls" ? { ...tls, getCACertificates } : getBuiltinModule(id),
+      );
+    });
+
+    afterAll(() => {
+      vi.restoreAllMocks();
+    });
+
+    it("should send a request without the CA", async () => {
+      const client = new HTTPClient({
+        endpoint,
+        codec: binary.JSON_CODEC,
+        secure: true,
+      });
+      const res = await client.send("/", { message: "hi" }, messageZ, messageZ);
+      expect(res).toEqual({ message: "hi" });
+    });
+
+    it("should open a stream without the CA", async () => {
+      const client = new WebSocketClient({
+        endpoint,
+        codec: binary.JSON_CODEC,
+        secure: true,
+      });
+      const stream = await client.stream("/", messageZ, messageZ);
+      expect(await stream.receive()).toEqual({ message: "hi" });
+      stream.closeSend();
+    });
+  });
+
   describe("in Node versions without tls.getCACertificates", () => {
     beforeAll(() => {
       const tls = {
