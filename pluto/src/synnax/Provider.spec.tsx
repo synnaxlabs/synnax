@@ -89,6 +89,41 @@ describe("Synnax.Provider", () => {
     unmount();
   });
 
+  it("should share the session with a page client built with secure false", async () => {
+    disableActEnvironment();
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const seen: Array<Client | null> = [];
+    const { mainSide } = aetherTest.createDriver({
+      ...synnax.REGISTRY,
+      ...status.REGISTRY,
+      [PROBE_TYPE]: createProbe(seen),
+    });
+    let page: Client | null = null;
+    const { insecure: _, ...address } = testClientParams();
+    const connParams = { ...address, secure: false };
+    const Tree = (): ReactElement => (
+      <Aether.Provider worker={mainSide}>
+        <Status.Aggregator log={() => {}}>
+          <Synnax.Provider connParams={connParams}>
+            <PageClient onClient={(c) => (page = c)} />
+            <ProbeComponent />
+          </Synnax.Provider>
+        </Status.Aggregator>
+      </Aether.Provider>
+    );
+    const { unmount } = render(<Tree />);
+    await waitFor(() => expect(seen.at(-1)).toBeDefined());
+    await waitFor(() => expect(seen.at(-1)).not.toBeNull());
+    const worker = seen.at(-1);
+    if (worker == null || page == null) throw new Error("expected both clients");
+    const pageClient: Client = page;
+    expect(worker.params.insecure).toBe(true);
+    await worker.connect();
+    expect(worker.auth.session?.key).toEqual(pageClient.auth.session?.key);
+    unmount();
+    warn.mockRestore();
+  });
+
   it("should not hand the worker one Core's token for another Core", async () => {
     disableActEnvironment();
     const seen: Array<Client | null> = [];
