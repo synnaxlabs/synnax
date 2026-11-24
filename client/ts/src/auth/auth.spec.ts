@@ -842,11 +842,11 @@ describe("auth", () => {
 
     it("should log in with a key it loads", async () => {
       const owner = makeClient({ credentials: TEST_CREDENTIALS });
-      const { token, key } = await owner.createAPIKey({ name: "loaded" });
+      const { token, key } = await owner.apiKeys.create({ name: "loaded" });
       const keyed = makeClient({ loadAPIKey: async () => token });
-      await keyed.retrieveSessions();
+      await keyed.sessions.retrieve();
       expect(keyed.session?.credential).toEqual(key.key);
-      await owner.deleteAPIKeys(key.key);
+      await owner.apiKeys.delete(key.key);
     });
 
     it("should load the key again after a load fails", async () => {
@@ -855,8 +855,8 @@ describe("auth", () => {
         .mockRejectedValueOnce(new Error("helper failed"))
         .mockResolvedValue(`syk_${id.create()}secret`);
       const keyed = makeClient({ loadAPIKey });
-      await expect(keyed.retrieveSessions()).rejects.toThrow("helper failed");
-      await expect(keyed.retrieveSessions()).rejects.toThrow(InvalidCredentialsError);
+      await expect(keyed.sessions.retrieve()).rejects.toThrow("helper failed");
+      await expect(keyed.sessions.retrieve()).rejects.toThrow(InvalidCredentialsError);
       expect(loadAPIKey).toHaveBeenCalledTimes(2);
     });
 
@@ -887,7 +887,7 @@ describe("auth", () => {
           throw new Error("no keychain");
         },
       });
-      await expect(keyed.retrieveSessions()).rejects.toThrow(
+      await expect(keyed.sessions.retrieve()).rejects.toThrow(
         new APIKeyUnavailableError("no keychain"),
       );
     });
