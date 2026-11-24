@@ -19,12 +19,12 @@ import (
 
 var _ = Describe("Check: the Drop of a key that holds nothing", func() {
 	It("Should record the same kills live and in a replay from a head that lacks the "+
-		"key", func() {
+		"key", func(ctx SpecContext) {
 		a := &appended{}
 		s := MustSucceed(state.Open(config(a), head(1, 1)))
 		a.s = s
 		run(s)
-		w := MustSucceed(s.OpenWriter(state.WriterConfig{
+		w := MustSucceed(s.OpenWriter(ctx, state.WriterConfig{
 			Keys:  []state.WriterKey{{Key: 5, DataType: 4}},
 			Clock: 5,
 			Start: 10,

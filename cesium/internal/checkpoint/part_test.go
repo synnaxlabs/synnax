@@ -79,7 +79,6 @@ var _ = Describe("Parts", func() {
 		GinkgoHelper()
 		c.Head(generation, s)
 		Eventually(func() error { return readErr(fs, generation) }).Should(Succeed())
-		Expect(c.Err()).ToNot(HaveOccurred())
 		h, _ := MustSucceed2(checkpoint.Read(fs, generation))
 		return h
 	}

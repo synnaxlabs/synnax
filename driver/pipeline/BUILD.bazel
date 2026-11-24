@@ -30,6 +30,7 @@ cc_library(
         "//x/cpp/breaker",
         "//x/cpp/errors",
         "//x/cpp/thread",
+        "@abseil-cpp//absl/log",
         "@nlohmann_json//:json",
     ],
 )

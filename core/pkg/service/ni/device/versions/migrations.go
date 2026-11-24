@@ -15,4 +15,4 @@ import (
 )
 
 // Migrations is the ordered migration chain for stored NI devices.
-var Migrations = []gorp.Migration{v1.Migration}
+var Migrations = []gorp.Migration{v1.Migration, v1.IdentifierMigration}

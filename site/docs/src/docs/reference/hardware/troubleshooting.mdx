@@ -6,6 +6,7 @@ description: "Fix common problems with the Driver, devices, and tasks."
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Edition } from "@/components/edition";
 import { Problem } from "@/components/problem";
+import { Releases } from "@/components/releases";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -62,9 +63,10 @@ the Core. See [install the Driver](/reference/enterprise/driver/install).
 <Problem.Body>
 <Problem.Cause>
 
-The Driver and the Core run different minor versions, such as Driver 0.60.2 and Core
-0.61.0. The Driver shows this error in the devices toolbar and starts no tasks. When you
-start a task, it shows "Failed to configure task", with this text in the description.
+The Driver and the Core run different minor versions, such as Driver <Releases.Version
+product="driver" previous /> and Core <Releases.Version />. The Driver shows this error
+in the devices toolbar and starts no tasks. When you start a task, it shows "Failed to
+configure task", with this text in the description.
 
 </Problem.Cause>
 <Problem.Fix>

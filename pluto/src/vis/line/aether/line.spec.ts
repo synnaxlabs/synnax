@@ -32,7 +32,7 @@ import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vites
 
 import { telem } from "@/telem/aether";
 import { telemTest } from "@/telem/aether/testutil";
-import { renderAether } from "@/testutil/renderAether";
+import { renderAether } from "@/testutil/internal";
 import {
   bridgeVertices,
   buildDrawOperations,
@@ -1065,10 +1065,26 @@ describe("line", () => {
       from: telem.Client = client,
     ) => createWindowed(dataKey, staticWindow(home), from);
 
+    // Resolves when done holds, checking it at each change of the sources. Core reads
+    // set the wait, so the test timeout bounds it, not a poll timeout.
+    const until = async (
+      sources: telem.ChannelData[],
+      done: () => boolean,
+    ): Promise<void> => {
+      const { promise, resolve } = Promise.withResolvers<void>();
+      const check = () => {
+        if (done()) resolve();
+      };
+      const stops = sources.map((s) => s.onChange(check));
+      check();
+      await promise;
+      stops.forEach((stop) => stop());
+    };
+
     const settle = async (...sources: telem.ChannelData[]): Promise<void> =>
-      await expect
-        .poll(() => sources.every((s) => s.value().status.variant !== "loading"))
-        .toBe(true);
+      await until(sources, () =>
+        sources.every((s) => s.value().status.variant !== "loading"),
+      );
 
     const drawn = (x: MultiSeries, y: MultiSeries) =>
       buildDrawOperations(x, y, DEFAULT_OVERLAP_THRESHOLD);
@@ -1146,9 +1162,7 @@ describe("line", () => {
       });
       await settle(y);
       expect(y.value().data[0].upper).toBeLessThan(SPIKE / 2);
-      await expect
-        .poll(() => y.value({ extremesKept: true }).data[0].upper)
-        .toBe(SPIKE);
+      await until([y], () => y.value({ extremesKept: true }).data[0].upper === SPIKE);
       y.cleanup();
     });
 
@@ -1167,16 +1181,14 @@ describe("line", () => {
       };
       x.value(v);
       y.value(v);
-      await expect
-        .poll(() => {
-          const [xr, yr] = [x.value(v), y.value(v)];
-          return (
-            xr.status.variant !== "loading" &&
-            yr.status.variant !== "loading" &&
-            yr.data[1].length > 0
-          );
-        })
-        .toBe(true);
+      await until([x, y], () => {
+        const [xr, yr] = [x.value(v), y.value(v)];
+        return (
+          xr.status.variant !== "loading" &&
+          yr.status.variant !== "loading" &&
+          yr.data[1].length > 0
+        );
+      });
       const xs = x.value(v).data[1];
       const ys = y.value(v).data[1];
       expect(ys.series.every((s) => s.alignmentMultiple === 1n)).toBe(true);
@@ -1197,7 +1209,7 @@ describe("line", () => {
       await settle(live.x, live.y);
       await writeRun(keys, start, count, step);
       await writeRun(keys, start.add(TimeSpan.seconds(1)), count, step);
-      await expect.poll(() => live.y.value().data[1].length).toBe(2 * count);
+      await until([live.y], () => live.y.value().data[1].length === 2 * count);
       expect(linesOf(live.x, live.y)).toBe(2);
       live.x.cleanup();
       live.y.cleanup();
@@ -1208,7 +1220,7 @@ describe("line", () => {
         feed: reloaded,
       });
       await settle(read.x, read.y);
-      await expect.poll(() => read.y.value().data[1].length).toBe(2 * count);
+      await until([read.y], () => read.y.value().data[1].length === 2 * count);
       expect(linesOf(read.x, read.y)).toBe(2);
       read.x.cleanup();
       read.y.cleanup();
@@ -1221,7 +1233,7 @@ describe("line", () => {
       const live = createWindowed(keys.data, dynamicWindow(TimeSpan.seconds(100)));
       await settle(live.x, live.y);
       await writeRun(keys, TimeStamp.now(), count, TimeSpan.milliseconds(10));
-      await expect.poll(() => live.y.value().data[1].length).toBe(count);
+      await until([live.y], () => live.y.value().data[1].length === count);
       expect(live.y.value().data[1].series.length).toBeGreaterThan(1);
       expect(linesOf(live.x, live.y)).toBe(1);
       live.x.cleanup();

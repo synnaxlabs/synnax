@@ -10,6 +10,8 @@
 package symbol_test
 
 import (
+	"math"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
@@ -32,6 +34,10 @@ func equals(state string, values ...float64) *symbol.Condition {
 
 func entry(state string) *symbol.Paint {
 	return &symbol.Paint{Variant: symbol.EntryPaint{State: state}}
+}
+
+func contrast(state string) *symbol.Paint {
+	return &symbol.Paint{Variant: symbol.ContrastPaint{State: state}}
 }
 
 func motion(m symbol.MotionVariant) *symbol.Motion { return &symbol.Motion{Variant: m} }
@@ -87,10 +93,11 @@ func valveSpec() symbol.Spec {
 		},
 		Looks: []symbol.Look{
 			{
-				Key:  "fill",
-				Part: new("body"),
-				When: equals("active", 1),
-				Fill: entry("active"),
+				Key:    "fill",
+				Part:   new("body"),
+				When:   equals("active", 1),
+				Fill:   entry("active"),
+				Stroke: contrast("active"),
 			},
 			{
 				Key:  "level",
@@ -115,6 +122,31 @@ var _ = Describe("Checks", func() {
 
 	It("Should accept a symbol that keeps every rule", func(ctx SpecContext) {
 		Expect(create(ctx, valveSpec())).To(Succeed())
+	})
+
+	It("Should keep a negative spin and flow rate", func(ctx SpecContext) {
+		data := valveSpec()
+		data.Looks[1].Motion = motion(
+			symbol.SpinMotion{Rate: -0.5, State: new("level")},
+		)
+		data.Looks = append(data.Looks, symbol.Look{
+			Key:    "flow",
+			Part:   new("body"),
+			Motion: motion(symbol.FlowMotion{Rate: -2}),
+		})
+		sym := symbol.Symbol{Name: "pump", Data: data}
+		tx := DeferClose(db.OpenTx())
+		Expect(svc.NewWriter(tx).Create(ctx, &sym)).To(Succeed())
+		var res symbol.Symbol
+		Expect(svc.NewRetrieve().
+			Where(symbol.MatchKeys(sym.Key)).
+			Entry(&res).
+			Exec(ctx, tx)).To(Succeed())
+		Expect(res.Data.Looks[1].Motion.Variant).To(Equal(symbol.SpinMotion{
+			Rate:  -0.5,
+			State: new("level"),
+		}))
+		Expect(res.Data.Looks[2].Motion.Variant).To(Equal(symbol.FlowMotion{Rate: -2}))
 	})
 
 	DescribeTable("Should refuse a symbol that breaks a rule",
@@ -189,12 +221,21 @@ var _ = Describe("Checks", func() {
 		Entry("an entry paint on a number state", func(s *symbol.Spec) {
 			s.Looks[0].Fill = entry("level")
 		}, `data.looks.0.fill.state: "level" names a number state`),
+		Entry("a contrast paint on a number state", func(s *symbol.Spec) {
+			s.Looks[0].Stroke = contrast("level")
+		}, `data.looks.0.stroke.state: "level" names a number state`),
 		Entry("a motion on an enumeration state", func(s *symbol.Spec) {
 			s.Looks[1].Motion = motion(symbol.LevelMotion{
 				State: "active",
 				Side:  spatial.OuterLocationBottom,
 			})
 		}, `data.looks.1.motion.state: "active" names an enumeration state`),
+		Entry("a spin rate that is not a number", func(s *symbol.Spec) {
+			s.Looks[1].Motion = motion(symbol.SpinMotion{Rate: math.NaN()})
+		}, "data.looks.1.motion.rate: must be finite"),
+		Entry("an infinite flow rate", func(s *symbol.Spec) {
+			s.Looks[1].Motion = motion(symbol.FlowMotion{Rate: math.Inf(-1)})
+		}, "data.looks.1.motion.rate: must be finite"),
 		Entry("an interaction on no part", func(s *symbol.Spec) {
 			s.Interactions[0] = symbol.Interaction{Variant: symbol.FireInteraction{
 				BaseInteraction: symbol.BaseInteraction{Key: "click", Part: new("lid")},

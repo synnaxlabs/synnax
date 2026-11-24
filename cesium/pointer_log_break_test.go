@@ -335,7 +335,7 @@ var _ = Describe("Pointer log breaker", func() {
 				}))
 				write(ctx, w, 10, 11)
 				Expect(w.Close()).To(Succeed())
-				Expect(db.Drop([]cesium.ChannelKey{idx, data})).To(Succeed())
+				Expect(db.Drop(ctx, []cesium.ChannelKey{idx, data})).To(Succeed())
 				Expect(db.RetrieveChannel(ctx, idx)).Error().
 					To(MatchError(cesium.ErrChannelNotFound))
 				closeDB()
@@ -352,7 +352,7 @@ var _ = Describe("Pointer log breaker", func() {
 				}))
 				write(ctx, w, 10, 11)
 				Expect(w.Close()).To(Succeed())
-				Expect(db.Drop([]cesium.ChannelKey{idx, data})).To(Succeed())
+				Expect(db.Drop(ctx, []cesium.ChannelKey{idx, data})).To(Succeed())
 				closeDB()
 				open(ctx)
 				Expect(db.RetrieveChannel(ctx, data)).Error().

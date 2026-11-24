@@ -864,8 +864,8 @@ func defaulted(
 }
 
 // zeroDefault reports whether the default v of a field of type ref leaves the Go zero
-// value. An ident default other than a union variant or a string enum member, such as
-// create or an integer enum member, sets nothing.
+// value. An ident default that is not a union variant or an enum member, such as
+// create, sets nothing, and so does an integer enum member with the value 0.
 func zeroDefault(
 	v resolution.ExpressionValue,
 	ref resolution.TypeRef,
@@ -881,7 +881,7 @@ func zeroDefault(
 			return true
 		}
 		form, _ := ev.Type.Form.(resolution.EnumForm)
-		return form.IsIntEnum
+		return form.IsIntEnum && ev.Variant.IntValue() == 0
 	case resolution.ValueKindString:
 		return v.StringValue == ""
 	case resolution.ValueKindInt:
