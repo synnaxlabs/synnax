@@ -329,9 +329,9 @@ message Hardware {
   repeated DigitalPort digital_ports = 5;
   // terminals are the terminals of the device, such as PFI0, without the device name.
   repeated string terminals = 6;
-  // ai_min_rate is the lowest analog input sample rate. Absent when the device does not
-  // support the attribute.
-  optional double ai_min_rate = 7;
+  // ai_min_rate is the lowest analog input sample rate. 0 means that the device has no
+  // minimum.
+  double ai_min_rate = 7;
   // ai_max_single_channel_rate is the highest analog input sample rate of one channel.
   // Absent when the device does not support the attribute.
   optional double ai_max_single_channel_rate = 8;

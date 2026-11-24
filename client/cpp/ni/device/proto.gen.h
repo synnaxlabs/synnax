@@ -1039,8 +1039,7 @@ Hardware::to_proto() const {
     }
     for (const auto &item: this->terminals)
         pb.add_terminals(item);
-    if (this->ai_min_rate.has_value())
-        pb.set_ai_min_rate(this->ai_min_rate->to_proto());
+    pb.set_ai_min_rate(this->ai_min_rate.to_proto());
     if (this->ai_max_single_channel_rate.has_value())
         pb.set_ai_max_single_channel_rate(this->ai_max_single_channel_rate->to_proto());
     if (this->ai_max_multi_channel_rate.has_value())
@@ -1100,8 +1099,7 @@ Hardware::from_proto(const ::service::ni_device::pb::Hardware &pb) {
         return {{}, err};
     for (const auto &item: pb.terminals())
         cpp.terminals.push_back(item);
-    if (pb.has_ai_min_rate())
-        cpp.ai_min_rate = ::x::telem::Rate::from_proto(pb.ai_min_rate());
+    cpp.ai_min_rate = ::x::telem::Rate::from_proto(pb.ai_min_rate());
     if (pb.has_ai_max_single_channel_rate())
         cpp.ai_max_single_channel_rate = ::x::telem::Rate::from_proto(
             pb.ai_max_single_channel_rate()

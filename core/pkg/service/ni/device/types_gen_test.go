@@ -21,20 +21,29 @@ import (
 
 var _ = Describe("Hardware", func() {
 	DescribeTable(
-		"Should reject an analog input rate that is not a positive number",
+		"Should reject a minimum analog input rate that is not a non-negative number",
 		func(rate telem.Rate) {
-			Expect(device.Hardware{AiMinRate: &rate}.Validate()).
+			Expect(device.Hardware{AiMinRate: rate}.Validate()).
 				To(MatchError(ContainSubstring("ai_min_rate")))
 		},
-		Entry("zero", telem.Rate(0)),
 		Entry("negative", telem.Rate(-1)),
 		Entry("positive infinity", telem.Rate(math.Inf(1))),
 		Entry("NaN", telem.Rate(math.NaN())),
 	)
 
-	It("Should accept an absent analog input rate", func() {
+	It("Should accept the default rates", func() {
 		Expect(device.Hardware{}.Validate()).To(Succeed())
 	})
+
+	DescribeTable(
+		"Should reject a maximum analog input rate that is not a positive number",
+		func(rate telem.Rate) {
+			Expect(device.Hardware{AiMaxSingleChannelRate: &rate}.Validate()).
+				To(MatchError(ContainSubstring("ai_max_single_channel_rate")))
+		},
+		Entry("zero", telem.Rate(0)),
+		Entry("negative", telem.Rate(-1)),
+	)
 
 	reversed := []spatial.ClosedBounds{{Lower: 10, Upper: -10}}
 	DescribeTable("Should reject a range whose lower is not below its upper",

@@ -1483,6 +1483,7 @@ func HardwareToPB(r device.Hardware) (*Hardware, error) {
 	}
 	pb := &Hardware{
 		Terminals:       r.Terminals,
+		AiMinRate:       float64(r.AiMinRate),
 		AnalogInputs:    analogInputsVal,
 		AnalogOutputs:   analogOutputsVal,
 		CounterInputs:   counterInputsVal,
@@ -1492,10 +1493,6 @@ func HardwareToPB(r device.Hardware) (*Hardware, error) {
 		AiCurrentRanges: aiCurrentRangesVal,
 		AoVoltageRanges: aoVoltageRangesVal,
 		AoCurrentRanges: aoCurrentRangesVal,
-	}
-	if r.AiMinRate != nil {
-		v := float64(*r.AiMinRate)
-		pb.AiMinRate = &v
 	}
 	if r.AiMaxSingleChannelRate != nil {
 		v := float64(*r.AiMaxSingleChannelRate)
@@ -1560,10 +1557,7 @@ func HardwareFromPB(pb *Hardware) (device.Hardware, error) {
 		return device.Hardware{}, err
 	}
 	r.Terminals = pb.Terminals
-	if pb.AiMinRate != nil {
-		v := telem.Rate(*pb.AiMinRate)
-		r.AiMinRate = &v
-	}
+	r.AiMinRate = telem.Rate(pb.AiMinRate)
 	if pb.AiMaxSingleChannelRate != nil {
 		v := telem.Rate(*pb.AiMaxSingleChannelRate)
 		r.AiMaxSingleChannelRate = &v

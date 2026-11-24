@@ -424,7 +424,7 @@ var _ = Describe("Service", func() {
 					Serial:       "02B",
 					ResourceName: "Mod2",
 					Model:        "PXI-6259",
-					Hardware:     &device.Hardware{AiMinRate: new(telem.Rate(10))},
+					Hardware:     &device.Hardware{AiMinRate: 10},
 				}},
 			})).To(Succeed())
 			got := retrieve(ctx, d.Key)
@@ -432,7 +432,7 @@ var _ = Describe("Service", func() {
 			Expect(got.ResourceName).To(Equal("Mod2"))
 			Expect(got.Model).To(Equal("PXI-6259"))
 			Expect(got.Hardware).
-				To(Equal(&device.Hardware{AiMinRate: new(telem.Rate(10))}))
+				To(Equal(&device.Hardware{AiMinRate: 10}))
 			Expect(got.Name).To(Equal(d.Name))
 			Expect(got.Identifier).To(Equal("dev1"))
 		})
@@ -610,7 +610,9 @@ var _ = Describe("Service", func() {
 		) {
 			d := create(ctx)
 			identity := newIdentity()
-			identity.Hardware = &device.Hardware{AiMinRate: new(telem.Rate(0))}
+			identity.Hardware = &device.Hardware{
+				AiMaxSingleChannelRate: new(telem.Rate(0)),
+			}
 			Expect(svc.NewWriter(tx).Apply(ctx, d.Key, device.Update{
 				Variant: device.IdentityUpdate{Identity: identity},
 			})).To(MatchError(validate.ErrValidation))
@@ -621,7 +623,7 @@ var _ = Describe("Service", func() {
 		) {
 			d := create(ctx)
 			identity := newIdentity()
-			identity.Hardware = &device.Hardware{AiMinRate: new(telem.Rate(10))}
+			identity.Hardware = &device.Hardware{AiMinRate: 10}
 			Expect(svc.NewWriter(tx).Apply(ctx, d.Key, device.Update{
 				Variant: device.IdentityUpdate{Identity: identity},
 			})).To(Succeed())
@@ -633,7 +635,7 @@ var _ = Describe("Service", func() {
 			got := retrieve(ctx, d.Key)
 			Expect(got.Model).To(Equal("PXI-6259A"))
 			Expect(got.Hardware).
-				To(Equal(&device.Hardware{AiMinRate: new(telem.Rate(10))}))
+				To(Equal(&device.Hardware{AiMinRate: 10}))
 		})
 	})
 

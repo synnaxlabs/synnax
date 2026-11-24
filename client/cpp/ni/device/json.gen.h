@@ -488,7 +488,8 @@ inline Hardware Hardware::parse(x::json::Parser parser) {
             "terminals",
             std::vector<std::string>{}
         ),
-        .ai_min_rate = parser.field<std::optional<::x::telem::Rate>>("ai_min_rate"),
+        .ai_min_rate = parser
+                           .field<::x::telem::Rate>("ai_min_rate", ::x::telem::Rate(0)),
         .ai_max_single_channel_rate = parser.field<std::optional<::x::telem::Rate>>(
             "ai_max_single_channel_rate"
         ),
@@ -523,7 +524,7 @@ inline x::json::json Hardware::to_json() const {
     j["counter_outputs"] = x::json::to_array(this->counter_outputs);
     j["digital_ports"] = x::json::to_array(this->digital_ports);
     j["terminals"] = this->terminals;
-    if (this->ai_min_rate.has_value()) j["ai_min_rate"] = *this->ai_min_rate;
+    j["ai_min_rate"] = this->ai_min_rate;
     if (this->ai_max_single_channel_rate.has_value())
         j["ai_max_single_channel_rate"] = *this->ai_max_single_channel_rate;
     if (this->ai_max_multi_channel_rate.has_value())

@@ -497,13 +497,12 @@ Hardware struct {
             are the terminals of the device, such as PFI0, without the device name.
         """
     }
-    ai_min_rate                telem.Rate?            {
-        @doc value   """
-            is the lowest analog input sample rate. Absent when the device does not
-            support the attribute.
+    ai_min_rate                telem.Rate = 0 {
+        @doc value """
+            is the lowest analog input sample rate. 0 means that the device has no
+            minimum.
         """
-        @ts type     "number"
-        @validate gt 0
+        @ts type   "number"
     }
     ai_max_single_channel_rate telem.Rate?            {
         @doc value   """

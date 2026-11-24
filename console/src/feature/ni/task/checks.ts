@@ -93,7 +93,7 @@ const checkAnalogRate = (
     const enabled = config.channels.filter((c) => c.device === key && !c.disabled);
     if (enabled.length === 0) return;
     const min = hardware.aiMinRate;
-    if (min != null && config.sampleRate < min)
+    if (min !== 0 && config.sampleRate < min)
       return report(["sampleRate"], `${model} samples at least ${formatMinRate(min)}`);
     const single = hardware.aiMaxSingleChannelRate;
     if (single != null && config.sampleRate > single)

@@ -451,8 +451,8 @@ class Hardware(BaseModel):
         digital_ports: Are the digital ports of the device.
         terminals: Are the terminals of the device, such as PFI0, without the device
             name.
-        ai_min_rate: Is the lowest analog input sample rate. Absent when the device does
-            not support the attribute.
+        ai_min_rate: Is the lowest analog input sample rate. 0 means that the device has
+            no minimum.
         ai_max_single_channel_rate: Is the highest analog input sample rate of one
             channel. Absent when the device does not support the attribute.
         ai_max_multi_channel_rate: Is the highest analog input sample rate of the
@@ -472,7 +472,7 @@ class Hardware(BaseModel):
     counter_outputs: list[CounterPort] = Field(default_factory=list)
     digital_ports: list[DigitalPort] = Field(default_factory=list)
     terminals: list[str] = Field(default_factory=list)
-    ai_min_rate: telem.Rate | None = Field(default=None, gt=0, allow_inf_nan=False)
+    ai_min_rate: telem.Rate = Field(default=telem.Rate(0), ge=0, allow_inf_nan=False)
     ai_max_single_channel_rate: telem.Rate | None = Field(
         default=None, gt=0, allow_inf_nan=False
     )

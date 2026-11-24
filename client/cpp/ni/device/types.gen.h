@@ -478,9 +478,9 @@ struct Hardware {
     /// @brief terminals are the terminals of the device, such as PFI0, without the
     /// device name.
     std::vector<std::string> terminals = {};
-    /// @brief ai_min_rate is the lowest analog input sample rate. Absent when the
-    /// device does not support the attribute.
-    std::optional<::x::telem::Rate> ai_min_rate;
+    /// @brief ai_min_rate is the lowest analog input sample rate. 0 means that the
+    /// device has no minimum.
+    ::x::telem::Rate ai_min_rate = ::x::telem::Rate(0);
     /// @brief ai_max_single_channel_rate is the highest analog input sample rate of one
     /// channel. Absent when the device does not support the attribute.
     std::optional<::x::telem::Rate> ai_max_single_channel_rate;

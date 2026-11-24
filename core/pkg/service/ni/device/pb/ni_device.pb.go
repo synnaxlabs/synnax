@@ -1773,9 +1773,9 @@ type Hardware struct {
 	DigitalPorts []*DigitalPort `protobuf:"bytes,5,rep,name=digital_ports,json=digitalPorts,proto3" json:"digital_ports,omitempty"`
 	// terminals are the terminals of the device, such as PFI0, without the device name.
 	Terminals []string `protobuf:"bytes,6,rep,name=terminals,proto3" json:"terminals,omitempty"`
-	// ai_min_rate is the lowest analog input sample rate. Absent when the device does not
-	// support the attribute.
-	AiMinRate *float64 `protobuf:"fixed64,7,opt,name=ai_min_rate,json=aiMinRate,proto3,oneof" json:"ai_min_rate,omitempty"`
+	// ai_min_rate is the lowest analog input sample rate. 0 means that the device has no
+	// minimum.
+	AiMinRate float64 `protobuf:"fixed64,7,opt,name=ai_min_rate,json=aiMinRate,proto3" json:"ai_min_rate,omitempty"`
 	// ai_max_single_channel_rate is the highest analog input sample rate of one channel.
 	// Absent when the device does not support the attribute.
 	AiMaxSingleChannelRate *float64 `protobuf:"fixed64,8,opt,name=ai_max_single_channel_rate,json=aiMaxSingleChannelRate,proto3,oneof" json:"ai_max_single_channel_rate,omitempty"`
@@ -1871,8 +1871,8 @@ func (x *Hardware) GetTerminals() []string {
 }
 
 func (x *Hardware) GetAiMinRate() float64 {
-	if x != nil && x.AiMinRate != nil {
-		return *x.AiMinRate
+	if x != nil {
+		return x.AiMinRate
 	}
 	return 0
 }
@@ -2166,24 +2166,23 @@ const file_core_pkg_service_ni_device_pb_ni_device_proto_rawDesc = "" +
 	"\x04port\x18\x01 \x01(\rR\x04port\x12\x14\n" +
 	"\x05lines\x18\x02 \x01(\rR\x05lines\x12\x14\n" +
 	"\x05input\x18\x03 \x01(\bR\x05input\x12\x16\n" +
-	"\x06output\x18\x04 \x01(\bR\x06output\"\xe8\a\n" +
+	"\x06output\x18\x04 \x01(\bR\x06output\"\xd3\a\n" +
 	"\bHardware\x12J\n" +
 	"\ranalog_inputs\x18\x01 \x03(\v2%.service.ni_device.pb.AnalogInputPortR\fanalogInputs\x12M\n" +
 	"\x0eanalog_outputs\x18\x02 \x03(\v2&.service.ni_device.pb.AnalogOutputPortR\ranalogOutputs\x12H\n" +
 	"\x0ecounter_inputs\x18\x03 \x03(\v2!.service.ni_device.pb.CounterPortR\rcounterInputs\x12J\n" +
 	"\x0fcounter_outputs\x18\x04 \x03(\v2!.service.ni_device.pb.CounterPortR\x0ecounterOutputs\x12F\n" +
 	"\rdigital_ports\x18\x05 \x03(\v2!.service.ni_device.pb.DigitalPortR\fdigitalPorts\x12\x1c\n" +
-	"\tterminals\x18\x06 \x03(\tR\tterminals\x12#\n" +
-	"\vai_min_rate\x18\a \x01(\x01H\x00R\taiMinRate\x88\x01\x01\x12?\n" +
-	"\x1aai_max_single_channel_rate\x18\b \x01(\x01H\x01R\x16aiMaxSingleChannelRate\x88\x01\x01\x12=\n" +
-	"\x19ai_max_multi_channel_rate\x18\t \x01(\x01H\x02R\x15aiMaxMultiChannelRate\x88\x01\x01\x12#\n" +
+	"\tterminals\x18\x06 \x03(\tR\tterminals\x12\x1e\n" +
+	"\vai_min_rate\x18\a \x01(\x01R\taiMinRate\x12?\n" +
+	"\x1aai_max_single_channel_rate\x18\b \x01(\x01H\x00R\x16aiMaxSingleChannelRate\x88\x01\x01\x12=\n" +
+	"\x19ai_max_multi_channel_rate\x18\t \x01(\x01H\x01R\x15aiMaxMultiChannelRate\x88\x01\x01\x12#\n" +
 	"\vao_max_rate\x18\n" +
-	" \x01(\x01H\x03R\taoMaxRate\x88\x01\x01\x12F\n" +
+	" \x01(\x01H\x02R\taoMaxRate\x88\x01\x01\x12F\n" +
 	"\x11ai_voltage_ranges\x18\v \x03(\v2\x1a.x.spatial.pb.ClosedBoundsR\x0faiVoltageRanges\x12F\n" +
 	"\x11ai_current_ranges\x18\f \x03(\v2\x1a.x.spatial.pb.ClosedBoundsR\x0faiCurrentRanges\x12F\n" +
 	"\x11ao_voltage_ranges\x18\r \x03(\v2\x1a.x.spatial.pb.ClosedBoundsR\x0faoVoltageRanges\x12F\n" +
-	"\x11ao_current_ranges\x18\x0e \x03(\v2\x1a.x.spatial.pb.ClosedBoundsR\x0faoCurrentRangesB\x0e\n" +
-	"\f_ai_min_rateB\x1d\n" +
+	"\x11ao_current_ranges\x18\x0e \x03(\v2\x1a.x.spatial.pb.ClosedBoundsR\x0faoCurrentRangesB\x1d\n" +
 	"\x1b_ai_max_single_channel_rateB\x1c\n" +
 	"\x1a_ai_max_multi_channel_rateB\x0e\n" +
 	"\f_ao_max_rate\"\x9e\x01\n" +

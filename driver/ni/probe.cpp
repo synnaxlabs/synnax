@@ -274,6 +274,15 @@ x::errors::Error read_rate(
     return x::errors::NIL;
 }
 
+/// @brief reads the minimum analog input rate, or leaves 0 when DAQmx reports none.
+x::errors::Error
+read_min_rate(daqmx::SugaredAPI &dmx, const std::string &device, x::telem::Rate &rate) {
+    std::optional<x::telem::Rate> read;
+    if (const auto err = read_rate(dmx, device, DAQmx_Dev_AI_MinRate, read)) return err;
+    rate = read.value_or(x::telem::Rate(0));
+    return x::errors::NIL;
+}
+
 x::errors::Error read_ranges(
     daqmx::SugaredAPI &dmx,
     const std::string &device,
@@ -384,8 +393,9 @@ x::errors::Error
 read_analog_inputs(daqmx::SugaredAPI &dmx, const std::string &device, Hardware &hw) {
     auto [ports, err] = read_ports(dmx, device, DAQmx_Dev_AI_PhysicalChans);
     if (err || ports.empty()) return err;
+    if (const auto rate_err = read_min_rate(dmx, device, hw.ai_min_rate))
+        return rate_err;
     for (const auto &[attribute, rate]: {
-             std::pair{DAQmx_Dev_AI_MinRate, &hw.ai_min_rate},
              std::pair{DAQmx_Dev_AI_MaxSingleChanRate, &hw.ai_max_single_channel_rate},
              std::pair{DAQmx_Dev_AI_MaxMultiChanRate, &hw.ai_max_multi_channel_rate},
          })

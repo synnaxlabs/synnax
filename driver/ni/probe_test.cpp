@@ -387,7 +387,7 @@ TEST(ProbeTest, testRoundTripsThroughJSON) {
     api->add_analog_inputs(1, RSE_NRSE_DIFF, {DAQmx_Val_Voltage});
     api->create_channel_status = DAQmxErrorInvalidDeviceID;
     const auto j = probe_api(api).to_json();
-    EXPECT_FALSE(j.contains("ai_min_rate"));
+    EXPECT_EQ(j["ai_min_rate"], 0);
     EXPECT_EQ(j["analog_inputs"][0]["negative"], 0);
     EXPECT_EQ(::synnax::ni::device::Hardware::parse(x::json::Parser(j)).to_json(), j);
 }
@@ -517,15 +517,18 @@ TEST(ProbeTest, testReadsCountersAndDigitalPorts) {
     EXPECT_TRUE(hw.digital_ports[2].output);
 }
 
-/// @brief it should leave a rate absent when DAQmx reports 0.
-TEST(ProbeTest, testLeavesZeroRateAbsent) {
+/// @brief it should write a minimum rate of 0 and leave a maximum rate absent when
+/// DAQmx reports 0.
+TEST(ProbeTest, testReadsZeroRates) {
     auto api = std::make_shared<FakeAPI>();
     api->add_analog_inputs(1, DAQmx_Val_Bit_TermCfg_Diff, {DAQmx_Val_Voltage});
     api->doubles[DAQmx_Dev_AI_MinRate] = 0;
     api->doubles[DAQmx_Dev_AI_MaxSingleChanRate] = 250000;
+    api->doubles[DAQmx_Dev_AI_MaxMultiChanRate] = 0;
     const auto hw = probe_api(api);
-    EXPECT_FALSE(hw.ai_min_rate.has_value());
+    EXPECT_EQ(hw.ai_min_rate.hz(), 0);
     EXPECT_EQ(hw.ai_max_single_channel_rate.value_or(x::telem::Rate(0)).hz(), 250000);
+    EXPECT_FALSE(hw.ai_max_multi_channel_rate.has_value());
 }
 
 /// @brief it should drop a DAQmx type that no channel type reads.
@@ -558,7 +561,7 @@ TEST(ProbeTest, testReadsRatesAndRanges) {
     api->double_arrays[DAQmx_Dev_AI_CurrentRngs] = {-0.02, 0.02};
     api->double_arrays[DAQmx_Dev_AO_VoltageRngs] = {-10, 10};
     const auto hw = probe_api(api);
-    EXPECT_DOUBLE_EQ(hw.ai_min_rate.value_or(x::telem::Rate(0)).hz(), 0.1);
+    EXPECT_DOUBLE_EQ(hw.ai_min_rate.hz(), 0.1);
     EXPECT_EQ(hw.ai_max_single_channel_rate.value_or(x::telem::Rate(0)).hz(), 250000);
     EXPECT_EQ(hw.ai_max_multi_channel_rate.value_or(x::telem::Rate(0)).hz(), 250000);
     EXPECT_DOUBLE_EQ(
@@ -589,7 +592,7 @@ TEST(ProbeTest, testReadsChassis) {
     EXPECT_TRUE(hw.counter_inputs.empty());
     EXPECT_TRUE(hw.counter_outputs.empty());
     EXPECT_TRUE(hw.digital_ports.empty());
-    EXPECT_FALSE(hw.ai_min_rate.has_value());
+    EXPECT_EQ(hw.ai_min_rate.hz(), 0);
     EXPECT_EQ(
         hw.terminals,
         std::vector<std::string>({"PFI0", "PFI1", "20MHzTimebase"})

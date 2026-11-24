@@ -287,9 +287,9 @@ type Hardware struct {
 	DigitalPorts []DigitalPort `json:"digital_ports" msgpack:"digital_ports"`
 	// Terminals are the terminals of the device, such as PFI0, without the device name.
 	Terminals []string `json:"terminals" msgpack:"terminals"`
-	// AiMinRate is the lowest analog input sample rate. Absent when the device does not
-	// support the attribute.
-	AiMinRate *telem.Rate `json:"ai_min_rate,omitzero" msgpack:"ai_min_rate,omitempty"`
+	// AiMinRate is the lowest analog input sample rate. 0 means that the device has no
+	// minimum.
+	AiMinRate telem.Rate `json:"ai_min_rate" msgpack:"ai_min_rate"`
 	// AiMaxSingleChannelRate is the highest analog input sample rate of one channel.
 	// Absent when the device does not support the attribute.
 	AiMaxSingleChannelRate *telem.Rate `json:"ai_max_single_channel_rate,omitzero" msgpack:"ai_max_single_channel_rate,omitempty"`
@@ -314,9 +314,7 @@ type Hardware struct {
 // schema constraints.
 func (h Hardware) Validate() error {
 	v := validate.New("Hardware")
-	if h.AiMinRate != nil {
-		v.GreaterThan("ai_min_rate", *h.AiMinRate, 0)
-	}
+	v.GreaterThanEq("ai_min_rate", h.AiMinRate, 0)
 	if h.AiMaxSingleChannelRate != nil {
 		v.GreaterThan("ai_max_single_channel_rate", *h.AiMaxSingleChannelRate, 0)
 	}

@@ -235,10 +235,10 @@ export const hardwareZ = z.object({
     .array()
     .default(() => []),
   /**
-   * aiMinRate is the lowest analog input sample rate. Absent when the device does not
-   * support the attribute.
+   * aiMinRate is the lowest analog input sample rate. 0 means that the device has no
+   * minimum.
    */
-  aiMinRate: z.number().gt(0).optional(),
+  aiMinRate: z.number().min(0).default(0),
   /**
    * aiMaxSingleChannelRate is the highest analog input sample rate of one channel.
    * Absent when the device does not support the attribute.

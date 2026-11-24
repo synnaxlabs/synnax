@@ -53,7 +53,7 @@ func newHardware() *device.Hardware {
 		},
 		DigitalPorts:           []device.DigitalPort{{Port: 0, Lines: 8, Input: true}},
 		Terminals:              []string{"PFI0"},
-		AiMinRate:              new(telem.Rate(1)),
+		AiMinRate:              1,
 		AiMaxSingleChannelRate: new(250 * telem.Kilohertz),
 		AiMaxMultiChannelRate:  new(250 * telem.Kilohertz),
 		AoMaxRate:              new(telem.Kilohertz),

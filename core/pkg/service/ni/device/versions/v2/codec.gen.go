@@ -527,12 +527,7 @@ func (h Hardware) EncodeOrc(w *orc.Writer) error {
 			w.String(h.Terminals[i])
 		}
 	}
-	if h.AiMinRate != nil {
-		w.Bool(true)
-		w.Float64(float64(*h.AiMinRate))
-	} else {
-		w.Bool(false)
-	}
+	w.Float64(float64(h.AiMinRate))
 	if h.AiMaxSingleChannelRate != nil {
 		w.Bool(true)
 		w.Float64(float64(*h.AiMaxSingleChannelRate))
@@ -697,21 +692,11 @@ func (h *Hardware) DecodeOrc(r *orc.Reader) error {
 		}
 	}
 	{
-		present, err := r.Bool()
+		rawV, err := r.Float64()
 		if err != nil {
 			return err
 		}
-		if present {
-			var hv telem.Rate
-			{
-				rawV, err := r.Float64()
-				if err != nil {
-					return err
-				}
-				hv = telem.Rate(rawV)
-			}
-			h.AiMinRate = &hv
-		}
+		h.AiMinRate = telem.Rate(rawV)
 	}
 	{
 		present, err := r.Bool()
