@@ -191,13 +191,11 @@ jobs:
           Import-Certificate -FilePath $env:CA `
             -CertStoreLocation Cert:\LocalMachine\Root | Out-Null
 
-      - name: Test the clients with the OS store
+      - name: Test the Python client with the OS store
+        working-directory: client/py
         env:
           SECURE: true
-          SYNNAX_TEST_SECURE: true
-        run: |
-          (cd client/py && uv run python -c "$CONNECT_PY")
-          (cd client/ts && node smoke/smoke.mjs)
+        run: uv run python -c "$CONNECT_PY"
 
       # The python.org installer adds no CA certificates to Python's OpenSSL until
       # "Install Certificates" runs.
@@ -226,6 +224,12 @@ jobs:
           UV_PYTHON_PREFERENCE: only-system
           UV_PROJECT_ENVIRONMENT: ${{ runner.temp }}/python-org
         run: UV_PYTHON="$PYTHON_ORG" uv run python -c "$CONNECT_PY"
+
+      - name: Test the TypeScript client with the OS store
+        working-directory: client/ts
+        env:
+          SYNNAX_TEST_SECURE: true
+        run: node smoke/smoke.mjs
 
       - name: Show the Core log
         if: failure()
