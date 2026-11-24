@@ -62,22 +62,20 @@ func validateFields(c *Cluster) error {
 	}
 	type read struct {
 		topic, recordKey, pointer string
+		keyed                     bool
 		message                   icd.MessageKey
 	}
 	reads := make(set.Set[read], len(c.Reads))
 	for i, r := range c.Reads {
-		k := read{
-			topic:     r.Topic,
-			recordKey: r.RecordKey,
-			pointer:   r.Pointer,
-			message:   r.Message,
+		k := read{topic: r.Topic, pointer: r.Pointer, message: r.Message}
+		if r.RecordKey != nil {
+			k.recordKey, k.keyed = *r.RecordKey, true
 		}
 		v.Ternaryf(
 			fmt.Sprintf("reads.%d", i),
 			reads.Contains(k),
-			"duplicates the read of %q from key %q of topic %s",
+			"duplicates the read of %q from topic %s",
 			r.Pointer,
-			r.RecordKey,
 			r.Topic,
 		)
 		reads.Add(k)

@@ -373,7 +373,7 @@ var _ = Describe("Service", func() {
 			s := createCluster(ctx)
 			reads := []cluster.Read{{
 				Topic:     "plant",
-				RecordKey: "pump",
+				RecordKey: new("pump"),
 				Message:   uuid.New(),
 				Index:     1,
 				Channel:   2,

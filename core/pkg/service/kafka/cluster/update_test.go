@@ -46,7 +46,7 @@ var _ = Describe("Update", func() {
 		Configuration: cluster.Configuration{
 			Reads: []cluster.Read{{
 				Topic:     "plant",
-				RecordKey: "pump",
+				RecordKey: new("pump"),
 				Message:   uuid.MustParse("55555555-5555-4555-8555-555555555555"),
 				Pointer:   "/temp",
 				Index:     1,

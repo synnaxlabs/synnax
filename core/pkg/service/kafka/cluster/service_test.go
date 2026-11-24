@@ -97,7 +97,7 @@ var _ = Describe("Service", func() {
 		c.Brokers = []cluster.Broker{{Host: "kafka.example.com"}}
 		return c
 	}
-	read := func(topic, recordKey, pointer string, message uuid.UUID) cluster.Read {
+	read := func(topic string, recordKey *string, pointer string, message uuid.UUID) cluster.Read {
 		return cluster.Read{
 			Topic:     topic,
 			RecordKey: recordKey,
@@ -241,11 +241,11 @@ var _ = Describe("Service", func() {
 			}
 			message := uuid.New()
 			c.Reads = []cluster.Read{
-				read("plant", "", "/t", message),
-				read("plant", "pump", "/t", message),
-				read("plant", "", "/p", message),
-				read("plant", "", "/t", uuid.New()),
-				read("other", "", "/t", message),
+				read("plant", nil, "/t", message),
+				read("plant", new("pump"), "/t", message),
+				read("plant", nil, "/p", message),
+				read("plant", nil, "/t", uuid.New()),
+				read("other", nil, "/t", message),
 			}
 			Expect(svc.NewWriter(tx).Create(ctx, &c)).To(Succeed())
 			Expect(retrieve(ctx, c.Key)).To(Equal(c))
@@ -301,10 +301,20 @@ var _ = Describe("Service", func() {
 			Entry("a duplicate read", func(c *cluster.Cluster) {
 				m := uuid.New()
 				c.Reads = []cluster.Read{
-					read("plant", "pump", "/t", m),
-					read("plant", "pump", "/t", m),
+					read("plant", new("pump"), "/t", m),
+					read("plant", new("pump"), "/t", m),
 				}
 			}, "reads.1"),
+			Entry("a duplicate read with no record key", func(c *cluster.Cluster) {
+				m := uuid.New()
+				c.Reads = []cluster.Read{
+					read("plant", nil, "", m),
+					read("plant", nil, "", m),
+				}
+			}, "reads.1"),
+			Entry("an empty record key", func(c *cluster.Cluster) {
+				c.Reads = []cluster.Read{read("plant", new(""), "", uuid.New())}
+			}, "record_key"),
 		)
 
 		It("Should reject a rack that does not run Kafka", func(ctx SpecContext) {
@@ -425,7 +435,7 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			c := newCluster()
-			c.Reads = []cluster.Read{read("plant", "", "", uuid.New())}
+			c.Reads = []cluster.Read{read("plant", nil, "", uuid.New())}
 			Expect(svc.NewWriter(tx).Create(ctx, &c)).To(Succeed())
 			update := identity(c)
 			update.Name = "Renamed"
@@ -447,7 +457,7 @@ var _ = Describe("Service", func() {
 		) {
 			c := create(ctx)
 			configuration := cluster.Configuration{
-				Reads: []cluster.Read{read("plant", "pump", "/t", uuid.New())},
+				Reads: []cluster.Read{read("plant", new("pump"), "/t", uuid.New())},
 			}
 			Expect(svc.NewWriter(tx).Apply(ctx, c.Key, cluster.Update{
 				Variant: cluster.ConfigurationUpdate{Configuration: configuration},
@@ -512,8 +522,8 @@ var _ = Describe("Service", func() {
 				m := uuid.New()
 				return cluster.Update{Variant: cluster.ConfigurationUpdate{
 					Configuration: cluster.Configuration{Reads: []cluster.Read{
-						read("plant", "", "", m),
-						read("plant", "", "", m),
+						read("plant", nil, "", m),
+						read("plant", nil, "", m),
 					}},
 				}}
 			}),
