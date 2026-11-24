@@ -14,6 +14,8 @@ import (
 	"encoding/binary"
 	"math/rand/v2"
 	"os"
+	"strconv"
+	"strings"
 	"sync/atomic"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -25,7 +27,9 @@ import (
 	"github.com/synnaxlabs/cesium/internal/state"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Recovery", func() {
@@ -135,6 +139,7 @@ var _ = Describe("Recovery", func() {
 			w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 				Channels: []cesium.ChannelKey{1},
 				Start:    telem.SecondTS,
+				Clock:    1,
 			}))
 			MustSucceed2(w.Write(ctx, telem.MultiFrame(
 				[]cesium.ChannelKey{1},
@@ -159,11 +164,90 @@ var _ = Describe("Recovery", func() {
 			DeferCleanup(StartRun(db.Run))
 			fr := MustSucceed(db.Read(ctx, telem.TimeRangeMax, 1))
 			Expect(fr.Get(1).Series[0]).To(
-				telem.MatchSeriesData(telem.NewSeriesSecondsTSV(1, 2)),
+				MatchSeriesData(telem.NewSeriesSecondsTSV(1, 2)),
 			)
 		},
 		Entry("in the header", int64(1)),
 		Entry("in the entries", int64(log.FrameHeaderSize)),
+	)
+
+	It("Should read a log whose size grows while recovery reads it", func(
+		ctx SpecContext,
+	) {
+		cycle(ctx)
+		fs = growingFS{FS: fs}
+		cycle(ctx)
+	})
+
+	It("Should make each new log file the size of the log file size option", func(
+		ctx SpecContext,
+	) {
+		db := MustSucceed(cesium.Open(
+			ctx,
+			"",
+			cesium.WithFS(fs),
+			cesium.WithPointerLog(),
+			cesium.WithLogFileSize(telem.Size(log.MinFileSize)),
+		))
+		stop := StartRun(db.Run)
+		Expect(db.CreateChannel(ctx, cesium.Channel{
+			Key:      1,
+			Name:     "time",
+			IsIndex:  true,
+			DataType: telem.TimestampT,
+		})).To(Succeed())
+		w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+			Channels: []cesium.ChannelKey{1},
+			Clock:    1,
+			Start:    telem.SecondTS,
+		}))
+		// Each commit syncs a frame of one block, so 1,000 commits pass three quarters
+		// of the log and switch it.
+		for i := range 1_000 {
+			stamp := telem.TimeStamp(i+1) * telem.SecondTS
+			MustSucceed2(w.Write(ctx, telem.UnaryFrame(
+				cesium.ChannelKey(1),
+				telem.NewSeries([]telem.TimeStamp{stamp}),
+			), nil))
+			MustSucceed2(w.Commit(ctx, nil))
+		}
+		Expect(w.Close()).To(Succeed())
+		Eventually(func() (bool, error) { return fs.Exists(log.Name(2)) }).
+			Should(BeTrue())
+		stop()
+		Expect(db.Close()).To(Succeed())
+		db = MustSucceed(cesium.Open(
+			ctx,
+			"",
+			cesium.WithFS(fs),
+			cesium.WithPointerLog(),
+			cesium.WithLogFileSize(telem.Size(log.MinFileSize)),
+		))
+		StartRun(db.Run)()
+		Expect(db.Close()).To(Succeed())
+		var logs int
+		for _, info := range MustSucceed(fs.List("")) {
+			if strings.HasSuffix(info.Name(), ".log") {
+				logs++
+				Expect(info.Size()).To(Equal(int64(log.MinFileSize)), info.Name())
+			}
+		}
+		Expect(logs).To(BeNumerically(">=", 2))
+	})
+
+	DescribeTable("Should refuse a log file size that is not whole blocks of 4 MiB "+
+		"or more", func(ctx SpecContext, size telem.Size) {
+		Expect(cesium.Open(
+			ctx,
+			"",
+			cesium.WithFS(fs),
+			cesium.WithPointerLog(),
+			cesium.WithLogFileSize(size),
+		)).Error().To(MatchError(validate.ErrValidation))
+		Expect(fs.List("")).To(BeEmpty())
+	},
+		Entry("under 4 MiB", telem.Size(log.MinFileSize-log.BlockSize)),
+		Entry("not whole blocks", telem.Size(log.MinFileSize+1)),
 	)
 
 	It("Should cut a torn tail after the last frame", func(ctx SpecContext) {
@@ -184,6 +268,58 @@ var _ = Describe("Recovery", func() {
 		Expect(open(ctx)).Error().To(And(
 			MatchError(place.ErrCorrupt),
 			MatchError(ContainSubstring("holds a valid frame at")),
+		))
+	})
+
+	It(
+		"Should refuse a log with a valid frame after a bad one that only a second read "+
+			"finds",
+		func(ctx SpecContext) {
+			cycle(ctx)
+			cycle(ctx)
+			offsets := frameOffsets()
+			Expect(offsets).To(HaveLen(2))
+			flip(offsets[0] + 8)
+			fs = damageFS{FS: fs, at: offsets[1] + 8, done: &atomic.Bool{}}
+			Expect(open(ctx)).Error().To(And(
+				MatchError(place.ErrCorrupt),
+				MatchError(ContainSubstring("holds a valid frame at")),
+			))
+		},
+	)
+
+	It("Should refuse a log whose valid frame after its last one only a second read "+
+		"finds, across the end of a block of that read", func(ctx SpecContext) {
+		// block is the size of the blocks of the second read.
+		const block = 4 << 20
+		cycle(ctx)
+		cycle(ctx)
+		f := MustSucceed(fs.Open(log.Name(1), os.O_RDWR))
+		b := make([]byte, 1<<20)
+		MustSucceed(f.ReadAt(b, 0))
+		end := int64(0)
+		for off := int64(log.FramesStart); off+log.FrameHeaderSize <= int64(len(b)); off += 8 {
+			if n, ok := log.FrameSize(b[off:]); ok {
+				end = off + int64(n)
+			}
+		}
+		Expect(end).ToNot(BeZero())
+		// The frame starts in the last 64 bytes of the first block from the end of the
+		// last frame, and ends past it.
+		at := (end + block - 64) &^ 7
+		frame := log.Frame{Count: 1, Sequence: 1, Entries: make([]byte, 256)}
+		MustSucceed(f.WriteAt(
+			frame.Append(nil, binary.LittleEndian.Uint64(b[16:]), 1, uint64(at)),
+			at,
+		))
+		Expect(f.Close()).To(Succeed())
+		fs = tailFS{FS: fs, from: at, done: &atomic.Bool{}}
+		Expect(open(ctx)).Error().To(And(
+			MatchError(place.ErrCorrupt),
+			MatchError(ContainSubstring("holds a valid frame at "+strconv.FormatInt(
+				at,
+				10,
+			))),
 		))
 	})
 
@@ -271,6 +407,43 @@ func (f logReadFile) ReadAt(p []byte, off int64) (int, error) {
 	return n, err
 }
 
+// tailFS zeroes the bytes of log 1 from from on in the first read that covers from.
+type tailFS struct {
+	xfs.FS
+	from int64
+	done *atomic.Bool
+}
+
+func (f tailFS) Sub(name string) (xfs.FS, error) {
+	sub, err := f.FS.Sub(name)
+	if err != nil || name != "" {
+		return sub, err
+	}
+	return tailFS{FS: sub, from: f.from, done: f.done}, nil
+}
+
+func (f tailFS) Open(name string, flag int) (xfs.File, error) {
+	file, err := f.FS.Open(name, flag)
+	if err != nil || name != log.Name(1) {
+		return file, err
+	}
+	return tailFile{File: file, fs: f}, nil
+}
+
+type tailFile struct {
+	xfs.File
+	fs tailFS
+}
+
+func (f tailFile) ReadAt(p []byte, off int64) (int, error) {
+	n, err := f.File.ReadAt(p, off)
+	covers := f.fs.from >= off && f.fs.from < off+int64(n)
+	if covers && f.fs.done.CompareAndSwap(false, true) {
+		clear(p[f.fs.from-off : n])
+	}
+	return n, err
+}
+
 // damageFS damages the byte at of log 1 in the first read that covers it.
 type damageFS struct {
 	xfs.FS
@@ -306,4 +479,41 @@ func (f damageFile) ReadAt(p []byte, off int64) (int, error) {
 		p[f.fs.at-off] ^= 0xFF
 	}
 	return n, err
+}
+
+// growingFS gives the log of generation 1 a size that grows by 1 MiB at each call, as
+// the live file of a writer on another database of the same files does.
+type growingFS struct{ xfs.FS }
+
+func (f growingFS) Sub(name string) (xfs.FS, error) {
+	sub, err := f.FS.Sub(name)
+	if err != nil || name != "" {
+		return sub, err
+	}
+	return growingFS{FS: sub}, nil
+}
+
+func (f growingFS) Open(name string, flag int) (xfs.File, error) {
+	file, err := f.FS.Open(name, flag)
+	if err != nil || name != log.Name(1) {
+		return file, err
+	}
+	return growingFile{File: file}, nil
+}
+
+type growingFile struct{ xfs.File }
+
+func (f growingFile) Stat() (os.FileInfo, error) {
+	info, err := f.File.Stat()
+	return &growingInfo{FileInfo: info}, err
+}
+
+type growingInfo struct {
+	os.FileInfo
+	calls int64
+}
+
+func (i *growingInfo) Size() int64 {
+	i.calls++
+	return i.FileInfo.Size() + (i.calls-1)<<20
 }

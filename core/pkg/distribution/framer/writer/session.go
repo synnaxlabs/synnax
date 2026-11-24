@@ -11,6 +11,7 @@ package writer
 
 import (
 	"context"
+	"slices"
 	"time"
 
 	"github.com/synnaxlabs/cesium"
@@ -26,15 +27,16 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// session runs the Cesium writer of a writer's stored channels behind the writer's
-// request and response streams. The first error ends the work of the session: every
-// later request gets it. A refusal for no control is not an error. A refused write
-// makes the next commit unauthorized, and a refused commit or end of domain is
+// session writes a writer's stored channels through one handle per clock, behind the
+// writer's request and response streams. The first error ends the work of the session:
+// every later request gets it. A refusal for no control is not an error. A refused
+// write makes the next commit unauthorized, and a refused commit or end of domain is
 // unauthorized.
 type session struct {
 	confluence.UnarySink[Request]
 	confluence.AbstractUnarySource[Response]
-	w *cesium.Writer
+	ws []*clockWriter
+	ts *cesium.DB
 	// gates gate the writes of the session on its control of each channel.
 	gates    *gates
 	controls *controls
@@ -57,7 +59,7 @@ type session struct {
 	writes confluence.Inlet[relay.Response]
 	mode   Mode
 	group  uint32
-	// err is the first error that the session raised itself. The Cesium writer keeps
+	// err is the first error that the session raised itself. Each Cesium writer keeps
 	// its own first error and returns it from every later call.
 	err     error
 	errSent bool
@@ -68,14 +70,15 @@ type session struct {
 }
 
 func (s *Service) newSession(
-	w *cesium.Writer,
+	ws []*clockWriter,
 	cfg Config,
 	autoIndex *indexStamper,
 	release func(),
 	g *gates,
 ) *session {
 	return &session{
-		w:               w,
+		ws:              ws,
+		ts:              s.cfg.TS,
 		gates:           g,
 		controls:        s.controls,
 		lacks:           g.lacks,
@@ -117,12 +120,15 @@ func (s *session) run(ctx context.Context) error {
 	}
 }
 
-// close closes the Cesium writer and releases the hold of the session on its channels
-// and on their control. It returns the first error of the session or of the close, and
+// close closes the Cesium writers and releases the hold of the session on its channels
+// and on their control. It returns the first error of the session or of the closes, and
 // otherwise cause.
 func (s *session) close(cause error) error {
-	err := errors.Combine(s.err, s.w.Close())
+	unlock := lockEntries(s.ws)
+	err := errors.Join(s.err, closeClocks(s.ws))
 	s.controls.notify(s.gates.release())
+	followAll(context.Background(), s.ts, s.ws)
+	unlock()
 	s.release()
 	if err != nil {
 		return err
@@ -152,10 +158,14 @@ func (s *session) exec(
 		return end, !writeRefused, nil
 	case CommandSetAuthority:
 		var transfers []transfer
+		unlock := lockEntries(s.ws)
 		if transfers, err = s.gates.setAuthority(req.Config); err != nil {
+			unlock()
 			s.err = err
 			return 0, false, err
 		}
+		followAll(ctx, s.ts, s.ws)
+		unlock()
 		s.controls.notify(transfers)
 	case CommandEndDomain:
 		err = s.endDomain(ctx, req.Config.Keys)
@@ -181,7 +191,7 @@ func (s *session) exec(
 }
 
 // write writes fr except the channels the session does not control, commits it when the
-// session auto commits, and relays the frame that the Cesium writer returns. A refusal
+// session auto commits, and relays the frame that the Cesium writers return. A refusal
 // for no control is not an error: write returns authorized false.
 func (s *session) write(
 	ctx context.Context,
@@ -191,9 +201,15 @@ func (s *session) write(
 	if s.autoIndex != nil {
 		st = s.autoIndex.stamp(st)
 	}
-	written, refused, err := s.w.Write(ctx, st, s.lacks)
-	if err != nil {
-		return false, s.fail(err)
+	var refused bool
+	// Each Cesium writer writes only its own channels, and returns the frame without
+	// the channels it skipped, so the next writer gets that frame.
+	for _, w := range s.ws {
+		var clockRefused bool
+		if st, clockRefused, err = w.Write(ctx, st, s.lacks); err != nil {
+			return false, s.fail(err)
+		}
+		refused = refused || clockRefused
 	}
 	if s.autoCommit {
 		_, commitRefused, err := s.commit(ctx)
@@ -203,35 +219,54 @@ func (s *session) write(
 		refused = refused || commitRefused
 	}
 	s.writeRefused = s.writeRefused || refused
-	return !refused, s.relay(ctx, written)
+	return !refused, s.relay(ctx, st)
 }
 
-// commit commits the channels the session controls, then syncs the Cesium writer when
-// the persist rule asks, also after a commit refused for no control. It returns true
-// when the session lacked control of a channel with samples to commit.
+// commit commits the channels the session controls, then syncs the Cesium writers when
+// the persist rule asks, also after a commit refused for no control. It returns the
+// latest end of the clocks, and true with a zero end when the session lacked control of
+// a channel with samples to commit.
 func (s *session) commit(ctx context.Context) (telem.TimeStamp, bool, error) {
-	end, refused, err := s.w.Commit(ctx, s.lacks)
-	if err != nil {
-		return 0, false, s.fail(err)
+	var (
+		end     = telem.TimeStampMin
+		refused bool
+	)
+	for _, w := range s.ws {
+		clockEnd, clockRefused, err := w.Commit(ctx, s.lacks)
+		if err != nil {
+			return 0, false, s.fail(err)
+		}
+		refused = refused || clockRefused
+		end = max(end, clockEnd)
 	}
 	if syncErr := s.maybeSync(); syncErr != nil {
 		return 0, false, syncErr
 	}
-	return end, refused, nil
+	if refused {
+		return 0, true, nil
+	}
+	return end, false, nil
 }
 
-// endDomain commits and ends the domains of the indexes the session may end, and
+// endDomain commits and ends the stretches of the indexes the session may end, and
 // commits the channels it controls of the others. It returns an error that wraps
 // control.ErrUnauthorized for an index it may not end.
 func (s *session) endDomain(ctx context.Context, indexes channel.Keys) error {
 	ended, skip, refusal := s.gates.endDomain(indexes)
 	if skip != nil {
-		if _, _, err := s.w.Commit(ctx, skip.Contains); err != nil {
-			return s.fail(err)
+		for _, w := range s.ws {
+			if _, _, err := w.Commit(ctx, skip.Contains); err != nil {
+				return s.fail(err)
+			}
 		}
 	}
-	if err := s.w.EndDomain(ctx, ended...); err != nil {
-		return s.fail(err)
+	for _, w := range s.ws {
+		if !slices.Contains(ended, w.clock) {
+			continue
+		}
+		if err := w.EndStretch(ctx); err != nil {
+			return s.fail(err)
+		}
 	}
 	return refusal
 }
@@ -246,7 +281,7 @@ func (s *session) fail(err error) error {
 	return named
 }
 
-// maybeSync syncs the Cesium writer on every commit when the session does not auto
+// maybeSync syncs the Cesium writers on every commit when the session does not auto
 // commit, and otherwise once persistInterval has passed since the last sync.
 func (s *session) maybeSync() error {
 	if s.autoCommit && s.persistInterval > 0 {
@@ -256,12 +291,17 @@ func (s *session) maybeSync() error {
 		}
 		s.lastSync = now
 	}
-	return s.w.Sync()
+	for _, w := range s.ws {
+		if err := w.Sync(); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // relay sends fr to the relay when the writer streams.
 func (s *session) relay(ctx context.Context, fr cesium.Frame) error {
-	if !s.mode.Stream() {
+	if !s.mode.stream() {
 		return nil
 	}
 	return signal.SendUnderContext(ctx, s.writes.Inlet(), relay.Response{

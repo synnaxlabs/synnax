@@ -280,7 +280,7 @@ var _ = Describe("Undo of a conversion", func() {
 		})
 
 	It("Should keep the undone files of a key when a channel that reuses the key "+
-		"drops", func(ctx SpecContext) {
+		"drops, through a later open and Sweep", func(ctx SpecContext) {
 		fs := xfs.NewMem()
 		db, closeDB := MustSucceed2(open(ctx, fs, 0, 1))
 		id := db.Identity()
@@ -288,6 +288,7 @@ var _ = Describe("Undo of a conversion", func() {
 		write(ctx, db, 1)
 		Expect(closeDB()).To(Succeed())
 		db, closeDB = MustSucceed2(open(ctx, fs, 0, 2))
+		next := db.Identity()
 		undone := MustSucceed(filesOf(fs, isUndone))
 		Expect(undone).To(ContainElement("1/channel" + undoneSuffix(id)))
 		// The restored channel table no longer holds the keys, so new channels take
@@ -303,6 +304,11 @@ var _ = Describe("Undo of a conversion", func() {
 		Expect(db.Drop(ctx, keys)).To(Succeed())
 		Expect(closeDB()).To(Succeed())
 		Expect(filesOf(fs, own)).To(BeEmpty())
+		Expect(filesOf(fs, isUndone)).To(Equal(undone))
+		// Only a person removes the undone files: no open and no Sweep does.
+		db, closeDB = MustSucceed2(open(ctx, fs, next, 3))
+		MustSucceed2(db.Sweep(ctx, nil))
+		Expect(closeDB()).To(Succeed())
 		Expect(filesOf(fs, isUndone)).To(Equal(undone))
 		Expect(fs.Exists("1")).To(BeTrue())
 		Expect(fs.Exists("2")).To(BeTrue())
