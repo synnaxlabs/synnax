@@ -48,7 +48,7 @@ var _ = Describe("Checker heal r1", Ordered, ContinueOnFailure, func() {
 		StartRun(db.Run)
 		var cfg channel.ServiceConfig
 		cfg, groupSvc = serviceConfig(ctx, testutil.NewNode(ctx), db)
-		cfg.Retargets = func(gorp.Dependent) bool { return true }
+		cfg.Retargets = func(gorp.Dependent) (bool, error) { return true, nil }
 		svc = MustOpen(channel.OpenService(ctx, cfg))
 		pairs = MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[string, pairHolder]{
 			DB:   db,

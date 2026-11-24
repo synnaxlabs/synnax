@@ -72,8 +72,8 @@ var _ = Describe("Heal break", Ordered, ContinueOnFailure, func() {
 		db = DeferClose(gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec)))
 		StartRun(db.Run)
 		cfg, _ := serviceConfig(ctx, testutil.NewNode(ctx), db)
-		cfg.Retargets = func(d gorp.Dependent) bool {
-			return d.Holder.Table == "break_display"
+		cfg.Retargets = func(d gorp.Dependent) (bool, error) {
+			return d.Holder.Table == "break_display", nil
 		}
 		svc = MustOpen(channel.OpenService(ctx, cfg))
 		displays = MustSucceed(gorp.OpenTable(ctx, breakDisplayConfig(db)))

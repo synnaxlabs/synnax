@@ -55,12 +55,14 @@ func openHealBench(b *testing.B) healBench {
 	}
 	h := healBench{b: b, db: db}
 	h.svc, err = channel.OpenService(ctx, channel.ServiceConfig{
-		Channel:   node.Channel,
-		DB:        db,
-		HostKey:   node.Identity.HostKey,
-		Status:    statusSvc,
-		TS:        node.Storage.TS,
-		Retargets: func(d gorp.Dependent) bool { return d.Holder.Table == "display" },
+		Channel: node.Channel,
+		DB:      db,
+		HostKey: node.Identity.HostKey,
+		Status:  statusSvc,
+		TS:      node.Storage.TS,
+		Retargets: func(d gorp.Dependent) (bool, error) {
+			return d.Holder.Table == "display", nil
+		},
 	})
 	if err != nil {
 		b.Fatal(err)
