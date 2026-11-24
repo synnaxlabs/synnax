@@ -58,6 +58,10 @@ type WriterConfig struct {
 	// Bounded makes each claim cover one nanosecond at Start and grow to the end of
 	// each commit. A claim that is not bounded runs from Start to the end of time.
 	Bounded bool
+	// Drops is the value of State.Drops when the caller read the channels of Keys and
+	// Clock. The open fails with a not-found error when a later Drop dropped one of
+	// them.
+	Drops uint64
 }
 
 // claim is the time range that a writer may write on one key. A pin keeps stamps that a
@@ -114,13 +118,14 @@ func (r *openRequest) fail(err error) { r.w.done <- err }
 
 func (r *openRequest) run(s *State) { r.w.done <- s.openWriter(r.w) }
 
-// OpenWriter opens a writer of cfg. It returns an error that wraps
-// validate.ErrValidation when the start lies in stored data of one of its keys, when a
-// bounded claim starts inside another claim, or when another writer that is not bounded
-// claims one of its keys. The writer takes over each open segment of its keys that no
-// writer holds, when it has the same clock, type, and version, and every commit of it
-// is durable. The open queues until Run runs it: when ctx ends first, OpenWriter
-// returns the error of ctx, and the open never runs.
+// OpenWriter opens a writer of cfg. It returns a not-found error when a Drop after
+// cfg.Drops dropped one of its keys, and an error that wraps validate.ErrValidation
+// when the start lies in stored data of one of its keys, when a bounded claim starts
+// inside another claim, or when another writer that is not bounded claims one of its
+// keys. The writer takes over each open segment of its keys that no writer holds, when
+// it has the same clock, type, and version, and every commit of it is durable. The open
+// queues until Run runs it: when ctx ends first, OpenWriter returns the error of ctx,
+// and the open never runs.
 func (s *State) OpenWriter(ctx context.Context, cfg WriterConfig) (*Writer, error) {
 	w := &Writer{
 		s:      s,
@@ -139,7 +144,24 @@ func (s *State) OpenWriter(ctx context.Context, cfg WriterConfig) (*Writer, erro
 	return w, nil
 }
 
+// checkDropped returns a not-found error when a Drop after the read of the channels of
+// w dropped one of its keys.
+func (s *State) checkDropped(w *Writer) error {
+	for _, k := range w.cfg.Keys {
+		if s.core.dropped[k.Key] > w.cfg.Drops {
+			return channel.NewNotFoundError(k.Key)
+		}
+	}
+	if s.core.dropped[w.cfg.Clock] > w.cfg.Drops {
+		return channel.NewNotFoundError(w.cfg.Clock)
+	}
+	return nil
+}
+
 func (s *State) openWriter(w *Writer) error {
+	if err := s.checkDropped(w); err != nil {
+		return err
+	}
 	if err := s.checkOpen(w); err != nil {
 		return err
 	}
