@@ -45,7 +45,7 @@ pub struct File {
 /// The field where Synnax Desktop 1.1 saved the API key in the discovery file.
 const LEGACY_KEY: &str = "api_key";
 
-/// The directory that holds the discovery file in the config directory of the OS.
+/// The folder of Synnax that holds the discovery file.
 const DIR: &str = if cfg!(target_os = "linux") {
     "synnax"
 } else {
@@ -54,10 +54,10 @@ const DIR: &str = if cfg!(target_os = "linux") {
 
 const FILE: &str = "desktop.json";
 
-/// Returns the path of the discovery file in `config_dir`, the config directory of the
-/// OS.
-pub fn path(config_dir: &Path) -> PathBuf {
-    config_dir.join(DIR).join(FILE)
+/// Returns the path of the discovery file in `dir`: the config directory of the OS, or
+/// the local data directory on Windows.
+pub fn path(dir: &Path) -> PathBuf {
+    dir.join(DIR).join(FILE)
 }
 
 /// Returns the path of the discovery file in the `.synnax` directory of `home`, where

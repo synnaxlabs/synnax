@@ -43,7 +43,8 @@ pub struct Paths {
 /// The discovery file and API key, managed as app state. Each window of the app writes
 /// them.
 pub struct Discovery {
-    /// The discovery file in the config directory of the OS.
+    /// The discovery file in the config directory of the OS, or in the local data
+    /// directory on Windows.
     path: PathBuf,
     /// The discovery file in `~/.synnax`, where Synnax Desktop 1.1 saved it.
     legacy_path: PathBuf,
@@ -139,7 +140,14 @@ pub fn init<R: Runtime>(app: &AppHandle<R>) -> Result<(), Box<dyn std::error::Er
     };
     let version = app.package_info().version.to_string();
     let data_dir = local.join("core");
-    let discovery_path = discovery::path(&app.path().config_dir()?);
+    // The file holds the port and helper of this computer, so on Windows it goes in
+    // %LOCALAPPDATA%, which does not roam.
+    let discovery_dir = if cfg!(windows) {
+        app.path().local_data_dir()?
+    } else {
+        app.path().config_dir()?
+    };
+    let discovery_path = discovery::path(&discovery_dir);
     let cfg = Config::new(program, local, data_dir.clone(), log_dir.clone());
     // Supervisor::open spawns onto the current runtime, which setup does not enter.
     let supervisor = tauri::async_runtime::block_on(async { Supervisor::open(cfg) })?;
