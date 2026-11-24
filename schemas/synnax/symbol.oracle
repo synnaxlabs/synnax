@@ -10,6 +10,7 @@
 import "schemas/synnax/color"
 import "schemas/synnax/enumeration"
 import "schemas/synnax/group"
+import "schemas/synnax/resource"
 import "schemas/x/color"
 import "schemas/x/filter"
 import "schemas/x/patch"
@@ -149,7 +150,7 @@ State union on type extends BaseState {
         @doc value "is a state that shows the entries of an enumeration."
     }
     number {
-        bounds spatial.Bounds = { lower = 0, upper = 100 } {
+        bounds spatial.ClosedBounds = { lower = 0, upper = 100 } {
             @doc value "is the range of values that motion reads as 0 to 1."
         }
 
@@ -247,7 +248,7 @@ Look struct {
 }
 
 Blink struct {
-    period telem.TimeSpan = 1000000000 {
+    period telem.TimeSpan = 1s {
         @doc value "is the time of one flash."
         @ts type   telem.NumericTimeSpan
     }
@@ -461,21 +462,30 @@ Symbol struct {
         @doc value "is the unique identifier for this symbol."
         @key
     }
-    name  string     {
+    name  string         {
         @doc value           "is a human-readable name for the symbol."
         @index sorted
         @search
         @validate min_length 1
     }
-    data  Spec       {
+    data  Spec           {
         @doc value "is the complete symbol specification."
     }
-    group group.Key? {
+    group group.Key?     {
         @doc value                 "is the group the symbol sits in, if any."
         @group scope               schematic_symbol
         @ref empty_holders_tracked
         @ref kind                  place
         @ref on_delete             detach
+    }
+    uses  resource.ID[]? {
+        @doc value     """
+            are the schematics that use the symbol and that the caller can read, filled
+            only when a retrieve request asks for them.
+        """
+        @go marshal    omit
+        @include
+        @validate skip
     }
 
     action Create {

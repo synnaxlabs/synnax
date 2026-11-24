@@ -54,8 +54,7 @@ var _ = Describe("ClearUnissuedChannelLinks", func() {
 		proj  project.Project
 	)
 	// openStore opens the store of the spec, which its Cores open on in turn. ctx must
-	// be
-	// the spec's, since the store runs until it ends.
+	// be the spec's, since the store runs until it ends.
 	openStore := func(ctx SpecContext) {
 		GinkgoHelper()
 		store = storagetestutil.OpenLayer(ctx)
@@ -141,8 +140,7 @@ var _ = Describe("ClearUnissuedChannelLinks", func() {
 	}
 
 	// storeUpgraded writes a schematic and a table that hold keys, as a 0.62 import
-	// left
-	// them: with no reference check.
+	// left them: with no reference check.
 	storeUpgraded := func(
 		ctx SpecContext,
 		c core,

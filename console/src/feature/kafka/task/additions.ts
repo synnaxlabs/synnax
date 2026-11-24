@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { icd, kafka } from "@synnaxlabs/client";
-import { DataType, type json, uuid } from "@synnaxlabs/x";
+import { type json, uuid } from "@synnaxlabs/x";
 
 import type { ReadRecord } from "@/feature/kafka/task/types";
 import { ICD } from "@/platform/icd";
@@ -134,22 +134,6 @@ export const defaultPicks = (shape: json.Shape, reads: Reads): Set<string> => {
 const freeKeys = (shape: json.Shape, { pointers }: Reads): string[] =>
   shape.sources.filter((key) => !pointers.has(key));
 
-const toJSONField = (
-  { pointer, type, dataType, timeFormat }: json.InferredField,
-  name: string,
-): icd.JSONField => {
-  const base = { key: uuid.create(), name, pointer };
-  if (timeFormat != null)
-    return icd.jsonFieldZ.parse({ ...base, type: "timestamp", timeFormat });
-  if (type === "boolean" || type === "string")
-    return icd.jsonFieldZ.parse({ ...base, type });
-  const dt = new DataType(dataType);
-  let number: "integer" | "unsigned" | "float" = "float";
-  if (dt.equals(DataType.INT64)) number = "integer";
-  else if (dt.equals(DataType.UINT64)) number = "unsigned";
-  return icd.jsonFieldZ.parse({ ...base, type: number });
-};
-
 /** @returns base, numbered from 2 until no message has the name. */
 export const uniqueName = (base: string, taken: icd.Message[]): string => {
   const names = new Set(taken.map(({ name }) => name));
@@ -186,7 +170,7 @@ export const createAdditions = (
       picked.map(({ pointer }) => pointer),
       [...carried.values()].map(({ name }) => name),
     );
-    const named = new Map(picked.map((f, i) => [f, toJSONField(f, names[i])]));
+    const named = new Map(picked.map((f, i) => [f, ICD.createField(f, names[i])]));
     const fields = shape.fields.flatMap((f): icd.JSONField[] => {
       const field = carried.get(f.pointer);
       if (field != null) return [{ ...field, key: uuid.create() }];
@@ -275,7 +259,7 @@ export const createExtensions = (
         missing.map(({ pointer }) => pointer),
         holds.map(({ name }) => name),
       );
-      const added = missing.map((f, i) => toJSONField(f, names[i]));
+      const added = missing.map((f, i) => ICD.createField(f, names[i]));
       extension.fields.push(...added);
       const existing = holds.filter((h) => picked.some((f) => f.pointer === h.pointer));
       extension.bindings.push({

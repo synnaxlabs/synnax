@@ -44,7 +44,7 @@ import {
 import { group } from "@/group";
 import { query } from "@/query";
 import type { status } from "@/status";
-import { checkForMultipleOrNoResults } from "@/util/retrieve";
+import { util } from "@/util";
 
 export const ACTION_CHANNEL_NAME = "sy_device_action_set";
 export const DELETE_CHANNEL_NAME = "sy_device_delete";
@@ -289,7 +289,7 @@ export class Client extends query.Retriever<
     if (schemas != null) {
       const request = retrieveParamsZ.parse(query.dropOne(rest));
       const devices = await this.fetchThrough(request, schemas);
-      checkForMultipleOrNoResults("device", request, devices, isSingle);
+      util.checkForMultipleOrNoResults("device", request, devices, isSingle);
       return isSingle ? devices[0] : devices;
     }
     if (isSingle) return await super.retrieve(rest);
@@ -459,7 +459,7 @@ export class Client extends query.Retriever<
     const devices = await this.store.retrieve([q.key], {
       refresh: q.includeStatus === true,
     });
-    checkForMultipleOrNoResults(
+    util.checkForMultipleOrNoResults(
       "device",
       { where: { key: { eq: q.key } } },
       devices,

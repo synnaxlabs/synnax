@@ -20,6 +20,7 @@ import (
 	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	apischematic "github.com/synnaxlabs/synnax/pkg/api/schematic"
+	apisymbol "github.com/synnaxlabs/synnax/pkg/api/schematic/symbol"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
@@ -50,8 +51,8 @@ var (
 	rbacSvc      *rbac.Service
 	schematicSvc *schematic.Service
 	apiSvc       *apischematic.Service
-	// create, del, dispatch, copySchematic, and retrieve run their routes as the API
-	// layer binds them.
+	// create, del, dispatch, copySchematic, retrieve, and dispatchSymbol run their
+	// routes as the API layer binds them.
 	create freighter.UnaryHandler[
 		apischematic.CreateRequest,
 		apischematic.CreateResponse,
@@ -66,10 +67,11 @@ var (
 		apischematic.RetrieveRequest,
 		apischematic.RetrieveResponse,
 	]
-	proj       project.Project
-	projectSvc *project.Service
-	author     user.User
-	userSvc    *user.Service
+	dispatchSymbol freighter.UnaryHandler[apisymbol.DispatchRequest, struct{}]
+	proj           project.Project
+	projectSvc     *project.Service
+	author         user.User
+	userSvc        *user.Service
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -81,8 +83,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	}))
 	passwordSvc := MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
 	userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
-		DB:       db,
-		Password: passwordSvc,
+		DB: db,
 	}))
 	projectSvc = MustOpen(project.OpenService(ctx, project.ServiceConfig{
 		DB: db,
@@ -124,6 +125,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	dispatch = bind.Write(binder, apiSvc.Dispatch)
 	copySchematic = bind.Write(binder, apiSvc.Copy)
 	retrieve = bind.Read(binder, apiSvc.Retrieve)
+	symbolSvc := MustSucceed(apisymbol.NewService(apisymbol.ServiceConfig{
+		Symbol: schematicSvc.Symbol,
+	}))
+	dispatchSymbol = bind.Write(binder, symbolSvc.Dispatch)
 	author = MustSucceed(rbactestutil.CreateUser(ctx, db, rbacSvc, userSvc, user.User{
 		Name: "test",
 	}))

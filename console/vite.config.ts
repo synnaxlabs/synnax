@@ -199,7 +199,7 @@ export default defineConfig({
     target: process.env.TAURI_ENV_PLATFORM === "windows" ? "chrome125" : "safari17.4",
     minify: !isDev,
     // Always emit source maps. The Fallback error UI fetches them at runtime to resolve
-    // minified stack traces (see pluto/src/errors/resolveStack.ts).
+    // minified stack traces (see pluto/src/errors/stack/stack.ts).
     sourcemap: true,
     // The Console ships two ways: bundled into the Tauri desktop app (loaded from disk)
     // and embedded into the Synnax Core binary (served over HTTP to browsers via
@@ -223,6 +223,9 @@ export default defineConfig({
     globals: true,
     testTimeout: 15_000,
     hookTimeout: 15_000,
+    // A Core write can take more than the 1 s default, so polls wait as long as Testing
+    // Library does.
+    expect: { poll: { timeout: 5000 } },
     // Specs cover the work that flags hide, as the integration build does.
     env: { VITE_FLAGS_ENABLED: "true" },
     // DESKTOP is a build constant, so the specs of each build run as their own project.
