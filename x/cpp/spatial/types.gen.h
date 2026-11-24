@@ -147,6 +147,19 @@ struct Bounds {
     [[nodiscard]] x::json::json to_json() const;
 };
 
+/// @brief ClosedBounds is a closed interval [lower, upper] over an ordered numeric
+/// value space, such as the range of a hardware input. The TypeScript binding is
+/// generic over T; other languages emit a concrete float64-based type.
+struct ClosedBounds {
+    /// @brief lower is the inclusive lower bound.
+    double lower = 0;
+    /// @brief upper is the inclusive upper bound.
+    double upper = 0;
+
+    static ClosedBounds parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
 /// @brief Viewport is the camera state of a viewport.
 struct Viewport {
     /// @brief zoom is the zoom level where 1.0 equals 100%.

@@ -39,6 +39,30 @@ type demand struct {
 	// could be dropped before the demand propagates. nil for demands that need no
 	// acknowledgment.
 	ack chan struct{}
+	// state is the state of the entity's demands. nil for a removal.
+	state *demandState
+}
+
+// demandState lets an entity withdraw its demands without waiting for the tapper. Its
+// state moves once, from pending to applied or to withdrawn.
+type demandState struct{ v atomic.Int32 }
+
+const (
+	demandPending int32 = iota
+	demandApplied
+	demandWithdrawn
+)
+
+// apply marks the demands applied and reports whether the tapper must apply them.
+func (s *demandState) apply() bool {
+	s.v.CompareAndSwap(demandPending, demandApplied)
+	return s.v.Load() == demandApplied
+}
+
+// withdraw reports whether the tapper never applied a demand of the entity. When it
+// returns true, the tapper skips the entity's queued demands.
+func (s *demandState) withdraw() bool {
+	return s.v.CompareAndSwap(demandPending, demandWithdrawn)
 }
 
 // tapper tracks the channels that readers demand to stream, and filters the frames that
@@ -73,6 +97,12 @@ func newTapper(config Config) confluence.Segment[demand, Response] {
 // sink applies d. The tap filters in the demanded channels before d's ack closes, so a
 // write issued after the ack reaches the reader.
 func (t *tapper) sink(_ context.Context, d demand) error {
+	if !d.removed && !d.state.apply() {
+		if d.ack != nil {
+			close(d.ack)
+		}
+		return nil
+	}
 	t.tap.setKeys(t.updateDemands(d))
 	if d.ack != nil {
 		close(d.ack)
@@ -98,7 +128,7 @@ func (t *tapper) updateDemands(d demand) channel.Keys {
 // writes.
 func (t *tapper) Flow(sCtx signal.Context, opts ...confluence.Option) {
 	t.tap = &writeTap{writes: t.writes}
-	_, t.closeTap = t.startTap(t.tap, "write_tap")
+	_, t.closeTap = t.startTap(sCtx, t.tap, "write_tap")
 	t.UnarySink.Flow(sCtx, append(opts,
 		// Order is very important here, we need to make sure the tapper deferral runs
 		// before we close the inlet to the delta.
@@ -113,16 +143,21 @@ func (t *tapper) close() {
 	}
 }
 
-// startTap wires the given segment's frames into the tapper's outlet and starts it,
-// returning the segment's request inlet and a closer that hard-shuts it down.
+// startTap wires the given segment's frames into the tapper's outlet and starts it
+// under a child of ctx, returning the segment's request inlet and a closer that
+// hard-shuts it down.
 func (t *tapper) startTap(
+	ctx context.Context,
 	seg confluence.Segment[Request, Response],
 	tapKey string,
 ) (confluence.Inlet[Request], io.Closer) {
 	requests := confluence.NewStream[Request](1)
 	seg.InFrom(requests)
 	seg.OutTo(t.Out)
-	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(t.Child(tapKey)))
+	sCtx, cancel := signal.WithCancel(
+		ctx,
+		signal.WithInstrumentation(t.Child(tapKey)),
+	)
 	seg.Flow(
 		sCtx,
 		confluence.RecoverWithErrOnPanic(),
@@ -172,8 +207,20 @@ func (f *writeTap) Flow(sCtx signal.Context, opts ...confluence.Option) {
 					continue
 				}
 				req.Frame = req.Frame.KeepKeys(*keys)
-				if !req.Frame.Empty() {
-					f.Out.Inlet() <- req
+				if req.Frame.Empty() {
+					continue
+				}
+				// A non-blocking send first keeps the select off the hot path.
+				select {
+				case f.Out.Inlet() <- req:
+				default:
+					if err := signal.SendUnderContext(
+						ctx,
+						f.Out.Inlet(),
+						req,
+					); err != nil {
+						return err
+					}
 				}
 			}
 		}

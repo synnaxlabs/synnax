@@ -638,21 +638,21 @@ inline Hardware Hardware::parse(x::json::Parser parser) {
         ),
         .ao_max_rate = parser
                            .field<::x::telem::Rate>("ao_max_rate", ::x::telem::Rate(0)),
-        .ai_voltage_ranges = parser.field<std::vector<::x::spatial::Bounds>>(
+        .ai_voltage_ranges = parser.field<std::vector<::x::spatial::ClosedBounds>>(
             "ai_voltage_ranges",
-            std::vector<::x::spatial::Bounds>{}
+            std::vector<::x::spatial::ClosedBounds>{}
         ),
-        .ai_current_ranges = parser.field<std::vector<::x::spatial::Bounds>>(
+        .ai_current_ranges = parser.field<std::vector<::x::spatial::ClosedBounds>>(
             "ai_current_ranges",
-            std::vector<::x::spatial::Bounds>{}
+            std::vector<::x::spatial::ClosedBounds>{}
         ),
-        .ao_voltage_ranges = parser.field<std::vector<::x::spatial::Bounds>>(
+        .ao_voltage_ranges = parser.field<std::vector<::x::spatial::ClosedBounds>>(
             "ao_voltage_ranges",
-            std::vector<::x::spatial::Bounds>{}
+            std::vector<::x::spatial::ClosedBounds>{}
         ),
-        .ao_current_ranges = parser.field<std::vector<::x::spatial::Bounds>>(
+        .ao_current_ranges = parser.field<std::vector<::x::spatial::ClosedBounds>>(
             "ao_current_ranges",
-            std::vector<::x::spatial::Bounds>{}
+            std::vector<::x::spatial::ClosedBounds>{}
         ),
     };
 }
@@ -1770,7 +1770,10 @@ inline CIFrequencyChannel CIFrequencyChannel::parse(x::json::Parser parser) {
     result.units = parser.field<std::string>("units", "Hz");
     result.edge = parser.field<std::string>("edge", "Rising");
     result.meas_method = parser.field<std::string>("meas_method", "DynamicAvg");
-    result.meas_time = parser.field<double>("meas_time", 0.000006);
+    result.meas_time = parser.field<::x::telem::TimeSpan>(
+        "meas_time",
+        ::x::telem::TimeSpan(6000)
+    );
     result.divisor = parser.field<std::uint32_t>("divisor", 4);
     result.terminal = parser.field<std::string>("terminal", "");
     result.type = parser.field<std::string>("type");
@@ -1789,7 +1792,7 @@ inline x::json::json CIFrequencyChannel::to_json() const {
     j["units"] = this->units;
     j["edge"] = this->edge;
     j["meas_method"] = this->meas_method;
-    j["meas_time"] = this->meas_time;
+    j["meas_time"] = this->meas_time.nanoseconds();
     j["divisor"] = this->divisor;
     j["terminal"] = this->terminal;
     j["type"] = this->type;
@@ -1829,7 +1832,10 @@ inline CIPeriodChannel CIPeriodChannel::parse(x::json::Parser parser) {
     result.units = parser.field<std::string>("units", "Seconds");
     result.starting_edge = parser.field<std::string>("starting_edge", "Rising");
     result.meas_method = parser.field<std::string>("meas_method", "DynamicAvg");
-    result.meas_time = parser.field<double>("meas_time", 0.001000);
+    result.meas_time = parser.field<::x::telem::TimeSpan>(
+        "meas_time",
+        ::x::telem::TimeSpan(1000000)
+    );
     result.divisor = parser.field<std::uint32_t>("divisor", 4);
     result.terminal = parser.field<std::string>("terminal", "");
     result.type = parser.field<std::string>("type");
@@ -1848,7 +1854,7 @@ inline x::json::json CIPeriodChannel::to_json() const {
     j["units"] = this->units;
     j["starting_edge"] = this->starting_edge;
     j["meas_method"] = this->meas_method;
-    j["meas_time"] = this->meas_time;
+    j["meas_time"] = this->meas_time.nanoseconds();
     j["divisor"] = this->divisor;
     j["terminal"] = this->terminal;
     j["type"] = this->type;

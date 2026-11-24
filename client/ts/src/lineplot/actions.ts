@@ -117,7 +117,7 @@ const setTimeMode = (
         manualBounds: actions.snapshotDraft(axis.manualBounds),
       }),
     );
-    axis.bounds = { lower: 0, upper: 0 };
+    delete axis.bounds;
     axis.manualBounds = { lower: false, upper: false };
   }
   axis.timeMode = timeMode;

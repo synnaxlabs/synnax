@@ -448,7 +448,7 @@ func refuseVirtual(channels []channel.Channel) error {
 		if ch.Virtual && !ch.IsCalculated() && !ch.Key().Free() {
 			return distchannel.Error{Key: ch.Key(), Err: errors.Wrap(
 				query.ErrUnsupported,
-				"cannot open an iterator on a virtual channel",
+				"cannot open iterator on virtual channel",
 			)}
 		}
 	}

@@ -27,6 +27,7 @@ import (
 	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -128,35 +129,35 @@ var _ = Describe("Iterator Behavior", func() {
 					Expect(
 						db.CreateChannel(ctx, index1, data1, index2, data2),
 					).To(Succeed())
-					Expect(db.Write(ctx, 0, telem.MultiFrame(
+					Expect(write(ctx, db, 0, telem.MultiFrame(
 						[]cesium.ChannelKey{index1Key, data1Key},
 						[]telem.Series{
 							telem.NewSeriesSecondsTSV(0, 1, 2),
 							telem.NewSeriesV[uint16](10, 11, 12),
 						},
 					))).To(Succeed())
-					Expect(db.Write(ctx, 10*telem.SecondTS, telem.MultiFrame(
+					Expect(write(ctx, db, 10*telem.SecondTS, telem.MultiFrame(
 						[]cesium.ChannelKey{index1Key, data1Key},
 						[]telem.Series{
 							telem.NewSeriesSecondsTSV(10, 12, 15),
 							telem.NewSeriesV[uint16](20, 22, 25),
 						},
 					))).To(Succeed())
-					Expect(db.Write(ctx, 4*telem.SecondTS, telem.MultiFrame(
+					Expect(write(ctx, db, 4*telem.SecondTS, telem.MultiFrame(
 						[]cesium.ChannelKey{index1Key, data1Key},
 						[]telem.Series{
 							telem.NewSeriesSecondsTSV(4, 7, 9),
 							telem.NewSeriesV[uint16](14, 17, 19),
 						},
 					))).To(Succeed())
-					Expect(db.Write(ctx, 2*telem.SecondTS, telem.MultiFrame(
+					Expect(write(ctx, db, 2*telem.SecondTS, telem.MultiFrame(
 						[]cesium.ChannelKey{index2Key, data2Key},
 						[]telem.Series{
 							telem.NewSeriesSecondsTSV(2, 3, 6, 8),
 							telem.NewSeriesV[uint16](2, 3, 6, 8),
 						},
 					))).To(Succeed())
-					Expect(db.Write(ctx, 11*telem.SecondTS, telem.MultiFrame(
+					Expect(write(ctx, db, 11*telem.SecondTS, telem.MultiFrame(
 						[]cesium.ChannelKey{index2Key, data2Key},
 						[]telem.Series{
 							telem.NewSeriesSecondsTSV(11, 12, 13, 15),
@@ -200,10 +201,10 @@ var _ = Describe("Iterator Behavior", func() {
 						Expect(f.Count()).To(Equal(2))
 						Expect(
 							f.Get(data1Key).Series[0],
-						).To(telem.MatchSeriesDataV[uint16](22, 25))
+						).To(MatchSeriesDataV[uint16](22, 25))
 						Expect(
 							f.Get(data2Key).Series[0],
-						).To(telem.MatchSeriesDataV[uint16](11, 12, 13, 15))
+						).To(MatchSeriesDataV[uint16](11, 12, 13, 15))
 						Expect(i.Close()).To(Succeed())
 					})
 					Specify("SeekLE", func() {
@@ -217,10 +218,10 @@ var _ = Describe("Iterator Behavior", func() {
 						Expect(f.Count()).To(Equal(2))
 						Expect(
 							f.Get(data1Key).Series[0],
-						).To(telem.MatchSeriesDataV[uint16](14, 17, 19))
+						).To(MatchSeriesDataV[uint16](14, 17, 19))
 						Expect(
 							f.Get(data2Key).Series[0],
-						).To(telem.MatchSeriesDataV[uint16](6, 8))
+						).To(MatchSeriesDataV[uint16](6, 8))
 						Expect(i.Close()).To(Succeed())
 					})
 
@@ -234,13 +235,13 @@ var _ = Describe("Iterator Behavior", func() {
 						f := i.Value()
 						Expect(
 							f.Get(data1Key).Series[0],
-						).To(telem.MatchSeriesData(telem.NewSeriesV[uint16](19)))
+						).To(MatchSeriesData(telem.NewSeriesV[uint16](19)))
 						Expect(
 							f.Get(data1Key).Series[1],
-						).To(telem.MatchSeriesData(telem.NewSeriesV[uint16](20)))
+						).To(MatchSeriesData(telem.NewSeriesV[uint16](20)))
 						Expect(
 							f.Get(data2Key).Series[0],
-						).To(telem.MatchSeriesData(telem.NewSeriesV[uint16](11, 12, 13)))
+						).To(MatchSeriesData(telem.NewSeriesV[uint16](11, 12, 13)))
 						Expect(i.Close()).To(Succeed())
 					})
 
@@ -273,19 +274,19 @@ var _ = Describe("Iterator Behavior", func() {
 					Expect(series1.Series).To(HaveLen(2))
 					Expect(
 						f.Get(data1Key).Series[0],
-					).To(telem.MatchSeriesDataV[uint16](11, 12))
+					).To(MatchSeriesDataV[uint16](11, 12))
 					Expect(
 						f.Get(data1Key).Series[0].TimeRange,
 					).To(Equal((1 * telem.SecondTS).Range(2*telem.SecondTS + 1)))
 					Expect(
 						f.Get(data1Key).Series[1],
-					).To(telem.MatchSeriesDataV[uint16](14))
+					).To(MatchSeriesDataV[uint16](14))
 					Expect(
 						f.Get(data1Key).Series[1].TimeRange,
 					).To(Equal((4 * telem.SecondTS).Range(5 * telem.SecondTS)))
 					Expect(
 						f.Get(data2Key).Series[0],
-					).To(telem.MatchSeriesDataV[uint16](2, 3))
+					).To(MatchSeriesDataV[uint16](2, 3))
 					Expect(
 						f.Get(data2Key).TimeRange(),
 					).To(Equal((2 * telem.SecondTS).Range(6 * telem.SecondTS)))
@@ -295,26 +296,26 @@ var _ = Describe("Iterator Behavior", func() {
 					Expect(f.Count()).To(Equal(4))
 					Expect(
 						f.Get(data1Key).Series[0],
-					).To(telem.MatchSeriesDataV[uint16](17, 19))
+					).To(MatchSeriesDataV[uint16](17, 19))
 					Expect(
 						f.Get(data1Key).Series[0].TimeRange,
 					).To(Equal((5 * telem.SecondTS).Range(9*telem.SecondTS + 1)))
 					Expect(
 						f.Get(data1Key).Series[1],
-					).To(telem.MatchSeriesDataV[uint16](20, 22))
+					).To(MatchSeriesDataV[uint16](20, 22))
 					Expect(
 						f.Get(data1Key).Series[1].TimeRange,
 					).To(Equal((10 * telem.SecondTS).Range(13 * telem.SecondTS)))
 
 					Expect(
 						f.Get(data2Key).Series[0],
-					).To(telem.MatchSeriesDataV[uint16](6, 8))
+					).To(MatchSeriesDataV[uint16](6, 8))
 					Expect(
 						f.Get(data2Key).Series[0].TimeRange,
 					).To(Equal((6 * telem.SecondTS).Range(8*telem.SecondTS + 1)))
 					Expect(
 						f.Get(data2Key).Series[1],
-					).To(telem.MatchSeriesDataV[uint16](11, 12))
+					).To(MatchSeriesDataV[uint16](11, 12))
 					Expect(
 						f.Get(data2Key).Series[1].TimeRange,
 					).To(Equal((11 * telem.SecondTS).Range(13 * telem.SecondTS)))
@@ -326,19 +327,19 @@ var _ = Describe("Iterator Behavior", func() {
 					Expect(f.Count()).To(Equal(5))
 					Expect(
 						f.Get(data1Key).Series[0],
-					).To(telem.MatchSeriesDataV[uint16](11, 12))
+					).To(MatchSeriesDataV[uint16](11, 12))
 					Expect(
 						f.Get(data1Key).Series[1],
-					).To(telem.MatchSeriesDataV[uint16](14, 17, 19))
+					).To(MatchSeriesDataV[uint16](14, 17, 19))
 					Expect(
 						f.Get(data1Key).Series[2],
-					).To(telem.MatchSeriesDataV[uint16](20, 22))
+					).To(MatchSeriesDataV[uint16](20, 22))
 					Expect(
 						f.Get(data2Key).Series[0],
-					).To(telem.MatchSeriesDataV[uint16](2, 3, 6, 8))
+					).To(MatchSeriesDataV[uint16](2, 3, 6, 8))
 					Expect(
 						f.Get(data2Key).Series[1],
-					).To(telem.MatchSeriesDataV[uint16](11, 12))
+					).To(MatchSeriesDataV[uint16](11, 12))
 					Expect(i.Close()).To(Succeed())
 				})
 
@@ -353,13 +354,13 @@ var _ = Describe("Iterator Behavior", func() {
 					Expect(f.Count()).To(Equal(2))
 					Expect(
 						f.Get(data1Key).Series[0],
-					).To(telem.MatchSeriesDataV[uint16](10, 11, 12))
+					).To(MatchSeriesDataV[uint16](10, 11, 12))
 					Expect(
 						f.Get(data1Key).Series[0].TimeRange,
 					).To(Equal((0 * telem.SecondTS).Range(2*telem.SecondTS + 1)))
 					Expect(
 						f.Get(data2Key).Series[0],
-					).To(telem.MatchSeriesDataV[uint16](2, 3))
+					).To(MatchSeriesDataV[uint16](2, 3))
 					Expect(
 						f.Get(data2Key).Series[0].TimeRange,
 					).To(Equal((2 * telem.SecondTS).Range(6 * telem.SecondTS)))
@@ -369,25 +370,25 @@ var _ = Describe("Iterator Behavior", func() {
 					Expect(f.Count()).To(Equal(4))
 					Expect(
 						f.Get(data1Key).Series[0],
-					).To(telem.MatchSeriesDataV[uint16](14, 17, 19))
+					).To(MatchSeriesDataV[uint16](14, 17, 19))
 					Expect(
 						f.Get(data1Key).Series[0].TimeRange,
 					).To(Equal((4 * telem.SecondTS).Range(9*telem.SecondTS + 1)))
 					Expect(
 						f.Get(data1Key).Series[1],
-					).To(telem.MatchSeriesDataV[uint16](20, 22, 25))
+					).To(MatchSeriesDataV[uint16](20, 22, 25))
 					Expect(
 						f.Get(data1Key).Series[1].TimeRange,
 					).To(Equal((10 * telem.SecondTS).Range(15*telem.SecondTS + 1)))
 					Expect(
 						f.Get(data2Key).Series[0],
-					).To(telem.MatchSeriesDataV[uint16](6, 8))
+					).To(MatchSeriesDataV[uint16](6, 8))
 					Expect(
 						f.Get(data2Key).Series[0].TimeRange,
 					).To(Equal((6 * telem.SecondTS).Range(8*telem.SecondTS + 1)))
 					Expect(
 						f.Get(data2Key).Series[1],
-					).To(telem.MatchSeriesDataV[uint16](11, 12, 13, 15))
+					).To(MatchSeriesDataV[uint16](11, 12, 13, 15))
 					Expect(
 						f.Get(data2Key).Series[1].TimeRange,
 					).To(Equal((11 * telem.SecondTS).Range(15*telem.SecondTS + 1)))
@@ -412,33 +413,33 @@ var _ = Describe("Iterator Behavior", func() {
 					Expect(f.Count()).To(Equal(3))
 					Expect(
 						f.Get(data1Key).Series[0],
-					).To(telem.MatchSeriesDataV[uint16](10, 11, 12))
+					).To(MatchSeriesDataV[uint16](10, 11, 12))
 					Expect(
 						f.Get(data1Key).Series[1],
-					).To(telem.MatchSeriesDataV[uint16](14))
+					).To(MatchSeriesDataV[uint16](14))
 					Expect(
 						f.Get(data2Key).Series[0],
-					).To(telem.MatchSeriesDataV[uint16](2, 3, 6, 8))
+					).To(MatchSeriesDataV[uint16](2, 3, 6, 8))
 
 					Expect(i.Next(cesium.AutoSpan)).To(BeTrue())
 					f = i.Value()
 					Expect(f.Count()).To(Equal(3))
 					Expect(
 						f.Get(data1Key).Series[0],
-					).To(telem.MatchSeriesDataV[uint16](17, 19))
+					).To(MatchSeriesDataV[uint16](17, 19))
 					Expect(
 						f.Get(data1Key).Series[1],
-					).To(telem.MatchSeriesDataV[uint16](20, 22))
+					).To(MatchSeriesDataV[uint16](20, 22))
 					Expect(
 						f.Get(data2Key).Series[0],
-					).To(telem.MatchSeriesDataV[uint16](11, 12, 13, 15))
+					).To(MatchSeriesDataV[uint16](11, 12, 13, 15))
 
 					Expect(i.Next(cesium.AutoSpan)).To(BeTrue())
 					f = i.Value()
 					Expect(f.Count()).To(Equal(1))
 					Expect(
 						f.Get(data1Key).Series[0],
-					).To(telem.MatchSeriesDataV[uint16](25))
+					).To(MatchSeriesDataV[uint16](25))
 					Expect(i.Close()).To(Succeed())
 				})
 			})
@@ -467,6 +468,7 @@ var _ = Describe("Iterator Behavior", func() {
 					)).To(Succeed())
 					w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 						Channels: []cesium.ChannelKey{idxKey, dataKey},
+						Clock:    idxKey,
 						Start:    1 * telem.SecondTS,
 					}))
 					mustWrite(ctx, w, telem.MultiFrame(
@@ -492,7 +494,7 @@ var _ = Describe("Iterator Behavior", func() {
 						Expect(i.SeekFirst()).To(BeTrue())
 						Expect(i.Next(cesium.AutoSpan)).To(BeTrue())
 						s := i.Value().SeriesAt(0)
-						Expect(s).To(telem.MatchSeriesData(telem.NewSeries(expected)))
+						Expect(s).To(MatchSeriesData(telem.NewSeries(expected)))
 						Expect(s.Alignment).To(Equal(telem.NewAlignment(0, alignment)))
 						Expect(i.Close()).To(Succeed())
 					},
@@ -704,6 +706,7 @@ var _ = Describe("Iterator Behavior", func() {
 						GinkgoHelper()
 						w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 							Channels: []cesium.ChannelKey{idxKey, dataKey},
+							Clock:    idxKey,
 							Start:    start,
 						}))
 						mustWrite(ctx, w, telem.MultiFrame(
@@ -847,6 +850,7 @@ var _ = Describe("Iterator Behavior", func() {
 						GinkgoHelper()
 						w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 							Channels: []cesium.ChannelKey{idxKey, dataKey},
+							Clock:    idxKey,
 							Start:    start,
 						}))
 						mustWrite(ctx, w, telem.MultiFrame(
@@ -921,7 +925,7 @@ var _ = Describe("Iterator Behavior", func() {
 							DataType: telem.StringT,
 						},
 					)).To(Succeed())
-					Expect(db.Write(ctx, 100*telem.SecondTS, telem.MultiFrame(
+					Expect(write(ctx, db, 100*telem.SecondTS, telem.MultiFrame(
 						[]cesium.ChannelKey{varIdxKey, varDataKey},
 						[]telem.Series{
 							telem.NewSeriesSecondsTSV(
@@ -1030,7 +1034,7 @@ var _ = Describe("Iterator Behavior", func() {
 							DataType: telem.StringT,
 						},
 					)).To(Succeed())
-					Expect(db.Write(ctx, 200*telem.SecondTS, telem.MultiFrame(
+					Expect(write(ctx, db, 200*telem.SecondTS, telem.MultiFrame(
 						[]cesium.ChannelKey{mixIdx, fixedKey, varKey},
 						[]telem.Series{
 							telem.NewSeriesSecondsTSV(
@@ -1123,14 +1127,14 @@ var _ = Describe("Iterator Behavior", func() {
 							DataType: telem.Int64T,
 						},
 					)).To(Succeed())
-					Expect(pdb.Write(ctx, telem.SecondTS, telem.MultiFrame(
+					Expect(write(ctx, pdb, telem.SecondTS, telem.MultiFrame(
 						[]cesium.ChannelKey{idxA, dataA},
 						[]telem.Series{
 							telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5, 6),
 							telem.NewSeriesV[int64](10, 20, 30, 40, 50, 60),
 						},
 					))).To(Succeed())
-					Expect(pdb.Write(ctx, 2*telem.SecondTS, telem.MultiFrame(
+					Expect(write(ctx, pdb, 2*telem.SecondTS, telem.MultiFrame(
 						[]cesium.ChannelKey{idxB, dataB},
 						[]telem.Series{
 							telem.NewSeriesSecondsTSV(2, 4, 6),
@@ -1271,7 +1275,7 @@ var _ = Describe("Iterator Behavior", func() {
 								DataType: telem.Int64T,
 							},
 						)).To(Succeed())
-						Expect(pdb.Write(ctx, telem.SecondTS, telem.MultiFrame(
+						Expect(write(ctx, pdb, telem.SecondTS, telem.MultiFrame(
 							[]cesium.ChannelKey{idx, data},
 							[]telem.Series{
 								telem.NewSeriesSecondsTSV(1, 2, 2, 2, 3),
@@ -1326,7 +1330,7 @@ var _ = Describe("Iterator Behavior", func() {
 							DataType: telem.Int64T,
 						},
 					)).To(Succeed())
-					Expect(pdb.Write(ctx, telem.SecondTS, telem.MultiFrame(
+					Expect(write(ctx, pdb, telem.SecondTS, telem.MultiFrame(
 						[]cesium.ChannelKey{idx, data},
 						[]telem.Series{
 							telem.NewSeriesSecondsTSV(1, 2, 2, 2, 3),
@@ -1338,7 +1342,7 @@ var _ = Describe("Iterator Behavior", func() {
 						(2 * telem.SecondTS).Range(3*telem.SecondTS),
 						data,
 					))
-					Expect(f.SeriesAt(0)).To(telem.MatchSeriesData(
+					Expect(f.SeriesAt(0)).To(MatchSeriesData(
 						telem.NewSeriesV[int64](20, 30, 40),
 					))
 				})
@@ -1363,7 +1367,7 @@ var _ = Describe("Iterator Behavior", func() {
 							DataType: telem.Int64T,
 						},
 					)).To(Succeed())
-					Expect(pdb.Write(ctx, telem.SecondTS, telem.MultiFrame(
+					Expect(write(ctx, pdb, telem.SecondTS, telem.MultiFrame(
 						[]cesium.ChannelKey{idx, data},
 						[]telem.Series{
 							telem.NewSeriesSecondsTSV(1, 2, 2, 2, 3),
@@ -1375,7 +1379,7 @@ var _ = Describe("Iterator Behavior", func() {
 						(1 * telem.SecondTS).Range(2*telem.SecondTS),
 						data,
 					))
-					Expect(f.SeriesAt(0)).To(telem.MatchSeriesData(
+					Expect(f.SeriesAt(0)).To(MatchSeriesData(
 						telem.NewSeriesV[int64](10),
 					))
 				})
@@ -1400,7 +1404,7 @@ var _ = Describe("Iterator Behavior", func() {
 								DataType: telem.Int64T,
 							},
 						)).To(Succeed())
-						Expect(pdb.Write(ctx, telem.SecondTS, telem.MultiFrame(
+						Expect(write(ctx, pdb, telem.SecondTS, telem.MultiFrame(
 							[]cesium.ChannelKey{idx, data},
 							[]telem.Series{
 								telem.NewSeriesSecondsTSV(1, 2, 2, 2, 3),
@@ -1463,7 +1467,7 @@ var _ = Describe("Iterator Behavior", func() {
 								DataType: telem.Float64T,
 							},
 						)).To(Succeed())
-						Expect(pdb.Write(ctx, telem.SecondTS, telem.MultiFrame(
+						Expect(write(ctx, pdb, telem.SecondTS, telem.MultiFrame(
 							[]cesium.ChannelKey{idx, data},
 							[]telem.Series{
 								telem.NewSeriesSecondsTSV(1, 2, 3, 4, 4, 5, 6, 7),
@@ -1526,14 +1530,14 @@ var _ = Describe("Iterator Behavior", func() {
 							DataType: telem.Int64T,
 						},
 					)).To(Succeed())
-					Expect(pdb.Write(ctx, telem.SecondTS, telem.MultiFrame(
+					Expect(write(ctx, pdb, telem.SecondTS, telem.MultiFrame(
 						[]cesium.ChannelKey{idx, data},
 						[]telem.Series{
 							telem.NewSeriesSecondsTSV(1, 2, 3),
 							telem.NewSeriesV[int64](1, 2, 3),
 						},
 					))).To(Succeed())
-					Expect(pdb.Write(ctx, 10*telem.SecondTS, telem.MultiFrame(
+					Expect(write(ctx, pdb, 10*telem.SecondTS, telem.MultiFrame(
 						[]cesium.ChannelKey{idx, data},
 						[]telem.Series{
 							telem.NewSeriesSecondsTSV(10, 11, 12),
@@ -1610,7 +1614,7 @@ var _ = Describe("Iterator Behavior", func() {
 							DataType: telem.Int64T,
 						},
 					)).To(Succeed())
-					Expect(db.Write(ctx, telem.SecondTS, telem.MultiFrame(
+					Expect(write(ctx, db, telem.SecondTS, telem.MultiFrame(
 						[]cesium.ChannelKey{idxKey, dataKey},
 						[]telem.Series{
 							telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5, 6),
@@ -1684,7 +1688,7 @@ var _ = Describe("Iterator Behavior", func() {
 								stamps[j] = telem.SecondTS.Add(telem.TimeSpan(j) * step)
 								values[j] = float32(j)
 							}
-							Expect(db.Write(ctx, telem.SecondTS, telem.MultiFrame(
+							Expect(write(ctx, db, telem.SecondTS, telem.MultiFrame(
 								[]cesium.ChannelKey{idx, data},
 								[]telem.Series{
 									telem.NewSeries(stamps),
@@ -1789,7 +1793,7 @@ var _ = Describe("Iterator Behavior", func() {
 						DataType: telem.Int64T,
 						Index:    indexKey,
 					})).To(Succeed())
-					Expect(db.Write(ctx, 10*telem.SecondTS, telem.MultiFrame(
+					Expect(write(ctx, db, 10*telem.SecondTS, telem.MultiFrame(
 						[]cesium.ChannelKey{indexKey},
 						[]telem.Series{telem.NewSeriesSecondsTSV(10, 11, 12)},
 					))).To(Succeed())
@@ -1852,7 +1856,7 @@ var _ = Describe("Iterator Behavior", func() {
 							DataType: telem.TimestampT,
 							IsIndex:  true,
 						})).To(Succeed())
-						Expect(subDB.Write(ctx, 10*telem.SecondTS, telem.MultiFrame(
+						Expect(write(ctx, subDB, 10*telem.SecondTS, telem.MultiFrame(
 							[]cesium.ChannelKey{key},
 							[]telem.Series{telem.NewSeriesSecondsTSV(10, 11, 12)},
 						))).To(Succeed())
@@ -1891,7 +1895,7 @@ var _ = Describe("Iterator Behavior", func() {
 							DataType: telem.TimestampT,
 							IsIndex:  true,
 						})).To(Succeed())
-						Expect(subDB.Write(ctx, 10*telem.SecondTS, telem.MultiFrame(
+						Expect(write(ctx, subDB, 10*telem.SecondTS, telem.MultiFrame(
 							[]cesium.ChannelKey{key},
 							[]telem.Series{telem.NewSeriesSecondsTSV(10, 11, 12)},
 						))).To(Succeed())
@@ -1971,7 +1975,7 @@ var _ = Describe("Iterator Behavior", func() {
 							Index:    indexKey,
 						},
 					)).To(Succeed())
-					Expect(faultyDB.Write(ctx, 10*telem.SecondTS, telem.MultiFrame(
+					Expect(write(ctx, faultyDB, 10*telem.SecondTS, telem.MultiFrame(
 						[]cesium.ChannelKey{indexKey, dataKey},
 						[]telem.Series{
 							telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14),
@@ -2126,9 +2130,12 @@ var _ = Describe("Iterator Behavior", func() {
 })
 
 var _ = Describe("Iterator index lookups", func() {
-	It("Should read the index once for every channel on it", func(ctx SpecContext) {
+	DescribeTable("Should read the index once for every channel on it", func(
+		ctx SpecContext,
+		opts ...cesium.Option,
+	) {
 		rec := NewRecorder(fs.NewMem())
-		db := mustOpenDBOnFS(ctx, rec)
+		db := mustOpenDBOnFS(ctx, rec, opts...)
 		idxKey := GenerateChannelKey()
 		Expect(db.CreateChannel(ctx, cesium.Channel{
 			Key:      idxKey,
@@ -2153,7 +2160,7 @@ var _ = Describe("Iterator index lookups", func() {
 			keys = append(keys, key)
 			series = append(series, telem.NewSeries(make([]float32, len(stamps))))
 		}
-		Expect(db.Write(ctx, 0, telem.MultiFrame(keys, series))).To(Succeed())
+		Expect(write(ctx, db, 0, telem.MultiFrame(keys, series))).To(Succeed())
 		tr := (100 * telem.SecondTS).Range(900 * telem.SecondTS)
 		// Index probes are the only 8-byte reads, since data reads span many samples.
 		indexReads := func(keys ...cesium.ChannelKey) int {
@@ -2163,10 +2170,13 @@ var _ = Describe("Iterator index lookups", func() {
 			Expect(fr.Count()).To(Equal(len(keys)))
 			return rec.Count(MatchOp(OpReadAt), MatchLength(8))
 		}
-		one := indexReads(keys[1])
-		Expect(one).To(BeNumerically(">", 0))
-		Expect(indexReads(keys[1:]...)).To(Equal(one))
-	})
+		// 48 is main's count for one channel.
+		Expect(indexReads(keys[1])).To(Equal(48))
+		Expect(indexReads(keys[1:]...)).To(Equal(48))
+	},
+		Entry("on the old layout"),
+		Entry("on the pointer log", cesium.WithPointerLog()),
+	)
 
 	It("Should see an index rewritten between commands", func(ctx SpecContext) {
 		db := mustOpenDBOnFS(ctx, fs.NewMem())
@@ -2198,7 +2208,7 @@ var _ = Describe("Iterator index lookups", func() {
 				stamps = append(stamps, ts)
 				values = append(values, int64(ts))
 			}
-			Expect(db.Write(ctx, 0, telem.MultiFrame(
+			Expect(write(ctx, db, 0, telem.MultiFrame(
 				[]cesium.ChannelKey{idxKey, dataKey},
 				[]telem.Series{telem.NewSeries(stamps), telem.NewSeries(values)},
 			))).To(Succeed())
@@ -2216,7 +2226,7 @@ var _ = Describe("Iterator index lookups", func() {
 			Expect(i.Next(cesium.AutoSpan)).To(BeTrue())
 			return i.Value().SeriesAt(0)
 		}
-		Expect(read()).To(telem.MatchSeriesDataV[int64](
+		Expect(read()).To(MatchSeriesDataV[int64](
 			int64(7*telem.SecondTS),
 			int64(8*telem.SecondTS),
 		))
@@ -2226,7 +2236,7 @@ var _ = Describe("Iterator index lookups", func() {
 			telem.TimeRangeMax,
 		)).To(Succeed())
 		write(telem.Second / 2)
-		Expect(read()).To(telem.MatchSeriesDataV[int64](
+		Expect(read()).To(MatchSeriesDataV[int64](
 			int64(7*telem.SecondTS),
 			int64(7*telem.SecondTS+telem.SecondTS/2),
 		))

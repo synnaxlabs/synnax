@@ -56,6 +56,7 @@ var _ = Describe("Calls on a pointer-log DB that does not run", func() {
 		Entry("a writer open", func(ctx context.Context) error {
 			_, err := db.OpenWriter(ctx, cesium.WriterConfig{
 				Channels: []cesium.ChannelKey{1},
+				Clock:    1,
 				Start:    telem.SecondTS,
 			})
 			return err

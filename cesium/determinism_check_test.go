@@ -116,6 +116,7 @@ var _ = Describe("Pointer log determinism check", func() {
 			)).To(Succeed())
 			w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 				Channels: []cesium.ChannelKey{idx, data},
+				Clock:    idx,
 				Start:    telem.SecondTS,
 			}))
 			for i := range telem.TimeStamp(3) {
