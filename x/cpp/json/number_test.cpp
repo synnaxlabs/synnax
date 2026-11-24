@@ -42,6 +42,20 @@ void expect_number(
     EXPECT_EQ(n.to_float64(), f);
 }
 
+/// @brief checks that text parses as a quoted number with the given integer and float
+/// values.
+void expect_quoted(
+    const std::string &text,
+    const std::optional<std::int64_t> i,
+    const std::optional<std::uint64_t> u,
+    const double f
+) {
+    const auto n = ASSERT_NIL_P(Number::parse_quoted(text));
+    EXPECT_EQ(n.to_int64(), i);
+    EXPECT_EQ(n.to_uint64(), u);
+    EXPECT_EQ(n.to_float64(), f);
+}
+
 /// @brief returns the error that check_fits gives for the number text and dt.
 errors::Error fits(const std::string &text, const telem::DataType &dt) {
     return ASSERT_NIL_P(Number::parse(text)).check_fits(dt);
@@ -106,6 +120,78 @@ TEST(Number, ParsesSmallestInt64) {
 /// @brief it should hold an integer past a uint64 as a double.
 TEST(Number, ParsesIntegerPastUint64) {
     expect_number("1e20", std::nullopt, std::nullopt, 1e20);
+}
+
+/// @brief it should hold the largest int64 in hex exactly.
+TEST(Number, ParsesQuotedLargestInt64Hex) {
+    const auto max = std::numeric_limits<std::int64_t>::max();
+    expect_quoted("0x7FFFFFFFFFFFFFFF", max, max, 9223372036854775807.0);
+}
+
+/// @brief it should hold the smallest int64 in hex exactly.
+TEST(Number, ParsesQuotedSmallestInt64Hex) {
+    expect_quoted(
+        "-0x8000000000000000",
+        std::numeric_limits<std::int64_t>::min(),
+        std::nullopt,
+        -9223372036854775808.0
+    );
+}
+
+/// @brief it should hold the largest uint64 in hex only as a uint64.
+TEST(Number, ParsesQuotedLargestUint64Hex) {
+    expect_quoted(
+        "0xffffffffffffffff",
+        std::nullopt,
+        UINT64_MAX_VALUE,
+        1.8446744073709552e19
+    );
+}
+
+/// @brief it should hold a hex integer past a uint64 as a double.
+TEST(Number, ParsesQuotedHexPastUint64) {
+    expect_quoted(
+        "0x10000000000000000",
+        std::nullopt,
+        std::nullopt,
+        1.8446744073709552e19
+    );
+}
+
+/// @brief it should read a hex fraction and a binary exponent.
+TEST(Number, ParsesQuotedHexFraction) {
+    expect_quoted("0x1.8", std::nullopt, std::nullopt, 1.5);
+    expect_quoted("0X1P4", 16, 16, 16.0);
+}
+
+/// @brief it should read each form of infinity in any case, with a sign.
+TEST(Number, ParsesQuotedInfinity) {
+    for (const std::string text: {"inf", "+Infinity", "INF"})
+        EXPECT_EQ(ASSERT_NIL_P(Number::parse_quoted(text)).to_float64(), INF) << text;
+    for (const std::string text: {"-inf", "-INFINITY"})
+        EXPECT_EQ(ASSERT_NIL_P(Number::parse_quoted(text)).to_float64(), -INF) << text;
+}
+
+/// @brief it should read each form of NaN in any case, with a sign.
+TEST(Number, ParsesQuotedNaN) {
+    for (const std::string text: {"nan", "-NaN", "NAN()", "nan(chars_1)"})
+        EXPECT_TRUE(std::isnan(ASSERT_NIL_P(Number::parse_quoted(text)).to_float64()))
+            << text;
+}
+
+/// @brief it should trim whitespace from each end of its text.
+TEST(Number, TrimsQuotedWhitespace) {
+    expect_quoted(" \t\n12\r ", 12, 12, 12.0);
+    expect_quoted("\v0x10\f", 16, 16, 16.0);
+}
+
+/// @brief it should reject text that is not one whole number.
+TEST(Number, RejectsQuotedTextThatIsNotNumber) {
+    for (const std::string text: {"0x", "0x1.8pz", "nan(a b)", "1 2"}) {
+        const auto err = Number::parse_quoted(text).second;
+        ASSERT_OCCURRED_AS(err, errors::VALIDATION);
+        EXPECT_EQ(err.data, "invalid number \"" + text + "\"");
+    }
 }
 
 /// @brief it should keep the sign of a negative zero as a double.

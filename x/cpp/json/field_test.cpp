@@ -239,6 +239,37 @@ TEST(Decoder, ConvertsEscapedEnumLabel) {
     );
 }
 
+/// @brief it should report an enum label, escaped or not, as a label.
+TEST(Decoder, ReportsLabel) {
+    auto d = ASSERT_NIL_P(
+        Decoder::create({.data_type = telem::FLOAT64_T, .enums = on_off()})
+    );
+    ASSERT_TRUE(d.labeled(R"("ON")"));
+    ASSERT_TRUE(d.labeled(R"("\u004fN")"));
+}
+
+/// @brief it should not report a string that is no enum label as a label.
+TEST(Decoder, DoesNotReportOtherStringAsLabel) {
+    auto d = ASSERT_NIL_P(
+        Decoder::create({.data_type = telem::FLOAT64_T, .enums = on_off()})
+    );
+    ASSERT_FALSE(d.labeled(R"("1")"));
+}
+
+/// @brief it should not report a string as a label for a field with no enums.
+TEST(Decoder, DoesNotReportLabelOfFieldWithNoEnums) {
+    auto d = ASSERT_NIL_P(Decoder::create({.data_type = telem::FLOAT64_T}));
+    ASSERT_FALSE(d.labeled(R"("ON")"));
+}
+
+/// @brief it should not report a value that is not a string as a label.
+TEST(Decoder, DoesNotReportValueThatIsNotStringAsLabel) {
+    auto d = ASSERT_NIL_P(
+        Decoder::create({.data_type = telem::FLOAT64_T, .enums = on_off()})
+    );
+    ASSERT_FALSE(d.labeled("1"));
+}
+
 /// @brief it should convert an int64 enum past 2^53.
 TEST(Decoder, ConvertsInt64EnumPast2To53) {
     ASSERT_EQ(

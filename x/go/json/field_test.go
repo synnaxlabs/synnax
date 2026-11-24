@@ -473,6 +473,23 @@ var _ = Describe("Field", func() {
 			dst = MustSucceed(d.Append(dst, jsontext.Value(`"bc"`)))
 			Expect(dst).To(Equal(append(text("a"), text("bc")...)))
 		})
+
+		DescribeTable("Should report whether a JSON value is the label of an enum",
+			func(f xjson.Field, raw string, expected bool) {
+				d := MustSucceed(xjson.NewDecoder(f))
+				Expect(d.Labeled(jsontext.Value(raw))).To(Equal(expected))
+			},
+			Entry("a label", xjson.Field{DataType: telem.Float64T, Enums: onOff},
+				`"ON"`, true),
+			Entry("a label that holds an escape",
+				xjson.Field{DataType: telem.Float64T, Enums: onOff}, `"\u004fN"`, true),
+			Entry("a string that is not a label",
+				xjson.Field{DataType: telem.Float64T, Enums: onOff}, `"1"`, false),
+			Entry("a field with no enums", xjson.Field{DataType: telem.Float64T},
+				`"ON"`, false),
+			Entry("a value that is not a string",
+				xjson.Field{DataType: telem.Float64T, Enums: onOff}, `1`, false),
+		)
 	})
 
 	Describe("Encoder", func() {
