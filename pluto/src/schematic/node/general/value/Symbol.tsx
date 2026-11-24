@@ -17,9 +17,9 @@ import { Color } from "@/color";
 import { Deleted } from "@/schematic/node/common/deleted";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
-import { LEVEL_SIZES } from "@/schematic/node/common/size";
+import { size } from "@/schematic/node/common/size";
 import { Stale } from "@/schematic/node/common/stale";
-import { Value } from "@/schematic/node/general/value/Primitive";
+import { Primitive } from "@/schematic/node/general/value/primitive";
 import type { NodeProps } from "@/schematic/node/spec";
 import { Value as BaseValue } from "@/vis/value";
 
@@ -49,7 +49,7 @@ export const Symbol = ({
   },
 }: NodeProps<schematic.ValueNodeConfig>): ReactElement => {
   const resolve = Color.useResolve();
-  const valueBoxHeight = Component.HEIGHTS[LEVEL_SIZES[level]];
+  const valueBoxHeight = Component.HEIGHTS[size.BY_LEVEL[level]];
   const t = BaseValue.stringSource({ channel, rollingAverage, precision, notation });
   const backgroundTelem = BaseValue.backgroundTelem(t, redline, resolve(fillColor));
   const { width: oWidth, stale } = BaseValue.use({
@@ -80,7 +80,7 @@ export const Symbol = ({
       <Label.Label config={label} onChange={onConfigChange} />
       {stale && <Stale.Indicator />}
       {deleted && <Deleted.Item />}
-      <Value
+      <Primitive.Value
         strokeColor={resolve(strokeColor)}
         orientation={orientation}
         dimensions={{ height: valueBoxHeight, width: oWidth }}

@@ -11,6 +11,7 @@ import { type device, type rack, type Synnax, task } from "@synnaxlabs/client";
 import { deep, TimeStamp } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, within } from "@testing-library/react";
+import { onTestFinished } from "vitest";
 
 import { Device } from "@/feature/mqtt/device";
 import { createTestDevice, startRackHeartbeat } from "@/platform/device/testutil";
@@ -63,7 +64,7 @@ export const openScanner = async (
   rackKey: rack.Key,
 ): Promise<Scanner> => {
   const rck = await client.racks.retrieve({ key: rackKey });
-  await startRackHeartbeat(client, rck);
+  onTestFinished(await startRackHeartbeat(client, rck));
   const scanTask = await rck.createTask({
     name: "MQTT scanner",
     type: Device.SCAN_TYPE,

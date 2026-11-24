@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Drift } from "@synnaxlabs/drift";
-import { act } from "@testing-library/react";
+import { act, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted((): { engine: "web" | "tauri" } => ({ engine: "web" }));
@@ -56,6 +56,17 @@ describe("Window.Controls", () => {
       <Window.Controls forceOS="macOS" visibleIfOS="Windows" />,
     );
     expect(container.querySelector(NATIVE_CONTROLS)).toBeNull();
+  });
+
+  it("dims the window controls while the window has no focus", async () => {
+    mocks.engine = "tauri";
+    const { store } = await renderWithConsole(<Window.Controls forceOS="Windows" />);
+    const group = screen.getByRole("group", { name: "Window controls" });
+    expect(group.classList.contains("console--inactive")).toBe(false);
+    act(() => {
+      store.dispatch(Drift.setWindowProps({ focus: false }));
+    });
+    expect(group.classList.contains("console--inactive")).toBe(true);
   });
 
   // The native controls leave the title bar in fullscreen, so their place goes too.

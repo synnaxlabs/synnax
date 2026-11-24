@@ -8,49 +8,54 @@
 // included in the file licenses/APL.txt.
 
 import { Form } from "@synnaxlabs/lyra/form";
-import type { Input } from "@synnaxlabs/lyra/input";
-import { bounds, type deep } from "@synnaxlabs/x";
+import { Input } from "@synnaxlabs/lyra/input";
+import type { closedBounds, deep } from "@synnaxlabs/x";
 import type { ReactElement } from "react";
 
 const STEP = 10;
+
+const MESSAGE = "Min value must be less than max value";
+
+type Edge = keyof closedBounds.ClosedBounds;
 
 export interface BoundsFieldsProps extends Pick<
   Partial<Form.NumericFieldProps>,
   "padHelpText"
 > {
   /** Path to the bounds within the symbol's config. */
-  path: deep.Path<bounds.Bounds>;
+  path: deep.Path<closedBounds.ClosedBounds>;
 }
 
 /**
- * The minimum and maximum of a range, each capped by the other so the pair cannot
- * cross.
+ * The minimum and maximum of a range. The Core refuses a minimum that is not below the
+ * maximum, so the fields refuse such an edit with an error and keep the stored range.
  */
 export const BoundsFields = ({ path, ...rest }: BoundsFieldsProps): ReactElement => {
-  const value = Form.useField(path, { optional: true })?.value;
-  const { lower, upper } = value ?? bounds.INFINITE;
-  const lowerProps: Partial<Input.NumericProps> = {
-    step: STEP,
-    bounds: { ...bounds.INFINITE, upper },
-  };
-  const upperProps: Partial<Input.NumericProps> = {
-    step: STEP,
-    bounds: { ...bounds.INFINITE, lower },
-  };
+  const ctx = Form.useContext();
+  const field = (edge: Edge, label: string): ReactElement => (
+    <Form.Field<number> path={path[edge]} label={label} {...rest}>
+      {({ value, onChange }) => (
+        <Input.Numeric
+          value={value}
+          step={STEP}
+          onChange={(next) => {
+            const range = { ...ctx.get(path).value, [edge]: next };
+            if (range.lower >= range.upper) {
+              ctx.setStatus(path[edge], { variant: "error", message: MESSAGE });
+              return;
+            }
+            ctx.clearStatus(path.lower);
+            ctx.clearStatus(path.upper);
+            onChange(next);
+          }}
+        />
+      )}
+    </Form.Field>
+  );
   return (
     <>
-      <Form.NumericField
-        path={path.lower}
-        label="Min value"
-        inputProps={lowerProps}
-        {...rest}
-      />
-      <Form.NumericField
-        path={path.upper}
-        label="Max value"
-        inputProps={upperProps}
-        {...rest}
-      />
+      {field("lower", "Min value")}
+      {field("upper", "Max value")}
     </>
   );
 };
