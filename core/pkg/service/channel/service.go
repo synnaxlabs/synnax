@@ -77,10 +77,10 @@ type ServiceConfig struct {
 	// [OPTIONAL] - Defaults to true.
 	ValidateNames *bool
 	// Retargets reports whether a heal moves a link that holds the dead key of a
-	// tombstone onto the channel that takes its path.
+	// tombstone onto the channel that takes its path. An error fails the heal.
 	//
 	// [OPTIONAL] - Defaults to keeping every link on the dead key.
-	Retargets func(gorp.Dependent) bool
+	Retargets func(gorp.Dependent) (bool, error)
 }
 
 var _ config.Config[ServiceConfig] = ServiceConfig{}
@@ -152,7 +152,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	cfg, err := config.New(ServiceConfig{
 		ValidateNames: new(true),
 		Limit:         func(types.Uint20) error { return nil },
-		Retargets:     func(gorp.Dependent) bool { return false },
+		Retargets:     func(gorp.Dependent) (bool, error) { return false, nil },
 	}, cfgs...)
 	if err != nil {
 		return nil, err

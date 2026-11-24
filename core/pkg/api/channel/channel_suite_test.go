@@ -98,9 +98,13 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 			Mirrors: channel.MirrorTables(),
 		}),
 	)
-	createChannels = bind.Write(binder, apiSvc.Create)
+	createChannels = bind.Write(
+		binder,
+		apiSvc.Create,
+		bind.HideDerived(apichannel.Heal),
+	)
 	deleteChannels = bind.Write(binder, apiSvc.Delete)
-	dispatch = bind.Write(binder, apiSvc.Dispatch)
+	dispatch = bind.Write(binder, apiSvc.Dispatch, bind.HideDerived(apichannel.Heal))
 	retrieveChannels = bind.Read(binder, apiSvc.Retrieve)
 	countLimited = bind.Read(binder, apiSvc.CountLimited)
 	retrieveBuiltIns = bind.Read(binder, apiSvc.RetrieveBuiltIns)

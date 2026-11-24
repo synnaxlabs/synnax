@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
@@ -60,11 +61,17 @@ type Returns interface {
 // no resource type must be placed in exactly one record, unless it is a mirror
 // (ServiceConfig.Mirrors), whose changes need nothing; a write that changes only
 // mirrors fails. Policies are read from committed state, so a policy or role that apply
-// stages grants nothing. A denial wraps access.ErrDenied and names the record.
+// stages grants nothing. A denial wraps access.ErrDenied and names the record, except
+// as HideDerived and HideDenied set.
 func Write[RQ, RS freighter.Payload](
 	s *Service,
 	apply func(context.Context, gorp.Tx, RQ) (RS, error),
+	opts ...WriteOption,
 ) freighter.UnaryHandler[RQ, RS] {
+	var cfg writeConfig
+	for _, o := range opts {
+		o(&cfg)
+	}
 	return func(ctx context.Context, req RQ) (RS, error) {
 		var (
 			res, zero RS
@@ -77,11 +84,45 @@ func Write[RQ, RS freighter.Payload](
 			if res, err = apply(ctx, tx, req); err != nil {
 				return err
 			}
-			return s.check(ctx, tx, append(slices.Clip(sources), unchanged(tx, res)...))
+			return s.check(
+				ctx,
+				tx,
+				append(slices.Clip(sources), unchanged(tx, res)...),
+				cfg,
+			)
 		}); err != nil {
 			return zero, err
 		}
 		return res, nil
+	}
+}
+
+// WriteOption sets how a handler that Write returns checks access.
+type WriteOption func(*writeConfig)
+
+type writeConfig struct {
+	// operation names what derives changes in a write, or is empty when a denial of
+	// one names its record.
+	operation string
+	// directHidden is true when a denial of a record that apply changed itself, or of a
+	// link target, counts the record as a derived one does.
+	directHidden bool
+}
+
+// HideDerived makes a denial of a record that Gorp changed in turn name the record only
+// when the subject can retrieve it. A denial of hidden records counts them as records
+// that the operation, such as "heal", changes.
+func HideDerived(operation string) WriteOption {
+	return func(c *writeConfig) { c.operation = operation }
+}
+
+// HideDenied makes every denial of the write name its record only when the subject can
+// retrieve it, as HideDerived does for derived records: the records that apply changes
+// itself and the targets of their links count too.
+func HideDenied(operation string) WriteOption {
+	return func(c *writeConfig) {
+		c.operation = operation
+		c.directHidden = true
 	}
 }
 
@@ -145,9 +186,15 @@ func unchanged[RS any](tx gorp.Tx, res RS) []resource.ID {
 
 // check returns an error wrapping access.ErrDenied when the subject of ctx cannot make
 // the changes of tx or read sources.
-func (s *Service) check(ctx context.Context, tx gorp.Tx, sources []resource.ID) error {
+func (s *Service) check(
+	ctx context.Context,
+	tx gorp.Tx,
+	sources []resource.ID,
+	cfg writeConfig,
+) error {
 	needs := make(accessNeeds, len(access.AllActions))
 	needs[access.ActionRetrieve] = slices.Clone(sources)
+	derived := make(accessNeeds, len(access.AllActions))
 	subject := auth.GetSubject(ctx)
 	changes := gorp.ChangesOf(tx)
 	createdOrDeleted := make(set.Set[gorp.Target], len(changes))
@@ -163,8 +210,14 @@ func (s *Service) check(ctx context.Context, tx gorp.Tx, sources []resource.ID) 
 			continue
 		}
 		checked = true
+		recordTo, linkTo := needs, needs
+		if cfg.directHidden {
+			recordTo, linkTo = derived, derived
+		} else if c.Derived && cfg.operation != "" {
+			recordTo = derived
+		}
 		if err := s.changeNeeds(
-			ctx, tx, subject, c, createdOrDeleted, needs,
+			ctx, tx, subject, c, createdOrDeleted, linkTo, recordTo,
 		); err != nil {
 			return err
 		}
@@ -190,7 +243,77 @@ func (s *Service) check(ctx context.Context, tx gorp.Tx, sources []resource.ID) 
 			return err
 		}
 	}
-	return nil
+	return checkDerived(ctx, enforcer, subject, derived, cfg.operation)
+}
+
+// checkDerived returns an error wrapping access.ErrDenied when subject cannot make the
+// changes that operation derived, which needs holds. It checks every one of them first.
+// The error names the first denied record that subject can retrieve, or else counts the
+// denied records through hiddenDenial.
+func checkDerived(
+	ctx context.Context,
+	enforcer *rbac.Enforcer,
+	subject resource.ID,
+	needs accessNeeds,
+	operation string,
+) error {
+	var (
+		denied  set.Set[resource.ID]
+		visible func(resource.ID) bool
+	)
+	for _, action := range access.AllActions {
+		objects := lo.Uniq(needs[action])
+		if len(objects) == 0 {
+			continue
+		}
+		allowed, err := enforcer.Allowed(ctx, subject, action)
+		if err != nil {
+			return err
+		}
+		for _, id := range objects {
+			if allowed(id) {
+				continue
+			}
+			if visible == nil {
+				if visible, err = enforcer.Allowed(
+					ctx,
+					subject,
+					access.ActionRetrieve,
+				); err != nil {
+					return err
+				}
+			}
+			if visible(id) {
+				return access.Denied(subject, action, id)
+			}
+			if denied == nil {
+				denied = make(set.Set[resource.ID])
+			}
+			denied.Add(id)
+		}
+	}
+	if len(denied) == 0 {
+		return nil
+	}
+	return hiddenDenial(subject, len(denied), operation)
+}
+
+// hiddenDenial returns an error wrapping access.ErrDenied for n records that the
+// operation changes and that subject may neither change nor retrieve. It names none of
+// them.
+func hiddenDenial(subject resource.ID, n int, operation string) error {
+	records := "records"
+	if n == 1 {
+		records = "record"
+	}
+	return errors.Wrapf(
+		access.ErrDenied,
+		"%s cannot change %d %s that the %s changes and that it cannot retrieve",
+		subject,
+		n,
+		records,
+		operation,
+	)
 }
 
 // accessNeeds maps each action to the resources that a write needs it on.
@@ -207,17 +330,18 @@ func (n accessNeeds) add(action access.Action, target gorp.Target) error {
 	return nil
 }
 
-// changeNeeds adds the access that subject needs to make c to needs.
+// changeNeeds adds the access that subject needs on the record of c to recordTo, and
+// the rest of the access that it needs to make c to needs.
 func (s *Service) changeNeeds(
 	ctx context.Context,
 	tx gorp.Tx,
 	subject resource.ID,
 	c gorp.Change,
 	createdOrDeleted set.Set[gorp.Target],
-	needs accessNeeds,
+	needs, recordTo accessNeeds,
 ) error {
 	owned := s.owned(c, subject)
-	owner, err := s.recordNeeds(c, owned, subject, createdOrDeleted, needs)
+	owner, err := s.recordNeeds(c, owned, subject, createdOrDeleted, recordTo)
 	if err != nil {
 		return err
 	}

@@ -168,4 +168,14 @@ var _ = Describe("Policies", Ordered, func() {
 			Reference: "channel",
 		})).To(BeFalse())
 	})
+
+	It("Should fail on a reference that it maps to no policy", func() {
+		policies := impact.Policies{Links: map[gorp.ReferenceID]impact.Policy{
+			display: impact.PolicyRetarget,
+		}}
+		Expect(policies.Retargets(gorp.Dependent{
+			Holder:    gorp.Target{Table: "keeper", Key: "a"},
+			Reference: "channel",
+		})).Error().To(MatchError("[impact] - no policy for keeper.channel"))
+	})
 })

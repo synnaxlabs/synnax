@@ -10,6 +10,7 @@
 package channel_test
 
 import (
+	"fmt"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -173,6 +174,8 @@ var _ = Describe("Tombstone break r2", Ordered, ContinueOnFailure, func() {
 			return channelSvc.NewWriter(tx).Delete(ctx, dead.Key(), false)
 		})).To(Succeed())
 		ch := createChannel(ctx, nil)
+		// The heal adds a use of the renamed channel to the schematic, which needs
+		// retrieve on the channel.
 		grantOn(
 			ctx,
 			u.ResourceID(),
@@ -190,8 +193,41 @@ var _ = Describe("Tombstone break r2", Ordered, ContinueOnFailure, func() {
 		Expect(tombstoned(ctx, dead.Key())).To(BeFalse())
 	})
 
+	It("Should refuse a rename onto the path of a tombstone when the caller cannot "+
+		"retrieve the renamed channel", func(ctx SpecContext) {
+		dead := createChannel(ctx, nil)
+		healed := display(ctx, dead.Key())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return channelSvc.NewWriter(tx).Delete(ctx, dead.Key(), false)
+		})).To(Succeed())
+		ch := createChannel(ctx, nil)
+		grantOn(
+			ctx,
+			u.ResourceID(),
+			[]access.Action{access.ActionUpdate},
+			channel.ResourceID(ch.Key()),
+		)
+		grantOn(ctx, u.ResourceID(), []access.Action{access.ActionUpdate}, healed)
+		Expect(dispatch(AuthedCtx(ctx, u), apichannel.DispatchRequest{
+			Key: ch.Key(),
+			Actions: []channel.Action{
+				channel.NewRenameAction(channel.RenamePayload{Name: dead.Name}),
+			},
+		})).Error().To(SatisfyAll(
+			MatchError(access.ErrDenied),
+			MatchError(ContainSubstring(
+				"%s cannot retrieve %s",
+				u.ResourceID(),
+				channel.ResourceID(ch.Key()),
+			)),
+		))
+		Expect(tombstoned(ctx, dead.Key())).To(BeTrue())
+	})
+
 	It("Should refuse a create at a tombstone path when the caller cannot update a "+
-		"display that the heal moves", func(ctx SpecContext) {
+		"display that the heal moves, and name no hidden display", func(
+		ctx SpecContext,
+	) {
 		dead := createChannel(ctx, nil)
 		healed := display(ctx, dead.Key())
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -211,7 +247,46 @@ var _ = Describe("Tombstone break r2", Ordered, ContinueOnFailure, func() {
 			}},
 		})).Error().To(SatisfyAll(
 			MatchError(access.ErrDenied),
-			MatchError(ContainSubstring("cannot update "+healed.String())),
+			MatchError(fmt.Sprintf(
+				"%s cannot change 1 record that the heal changes and that it cannot "+
+					"retrieve: access denied: auth error",
+				u.ResourceID(),
+			)),
+			Not(MatchError(ContainSubstring(healed.Key))),
+		))
+		Expect(tombstoned(ctx, dead.Key())).To(BeTrue())
+	})
+
+	It("Should count every hidden display that a refused heal moves", func(
+		ctx SpecContext,
+	) {
+		dead := createChannel(ctx, nil)
+		first := display(ctx, dead.Key())
+		second := display(ctx, dead.Key())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return channelSvc.NewWriter(tx).Delete(ctx, dead.Key(), false)
+		})).To(Succeed())
+		grantOn(
+			ctx,
+			u.ResourceID(),
+			[]access.Action{access.ActionCreate},
+			resource.ID{Type: resource.TypeChannel},
+		)
+		Expect(createChannels(AuthedCtx(ctx, u), apichannel.CreateRequest{
+			Channels: []apichannel.Channel{{
+				Name:     dead.Name,
+				DataType: telem.Float32T,
+				Virtual:  true,
+			}},
+		})).Error().To(SatisfyAll(
+			MatchError(access.ErrDenied),
+			MatchError(fmt.Sprintf(
+				"%s cannot change 2 records that the heal changes and that it cannot "+
+					"retrieve: access denied: auth error",
+				u.ResourceID(),
+			)),
+			Not(MatchError(ContainSubstring(first.Key))),
+			Not(MatchError(ContainSubstring(second.Key))),
 		))
 		Expect(tombstoned(ctx, dead.Key())).To(BeTrue())
 	})

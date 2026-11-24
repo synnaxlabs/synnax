@@ -77,8 +77,8 @@ var _ = Describe("Heal", Ordered, func() {
 		StartRun(db.Run)
 		var cfg channel.ServiceConfig
 		cfg, groupSvc = serviceConfig(ctx, testutil.NewNode(ctx), db)
-		cfg.Retargets = func(d gorp.Dependent) bool {
-			return d.Holder.Table == "display"
+		cfg.Retargets = func(d gorp.Dependent) (bool, error) {
+			return d.Holder.Table == "display", nil
 		}
 		svc = MustOpen(channel.OpenService(ctx, cfg))
 		displays = MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[string, healHolder]{

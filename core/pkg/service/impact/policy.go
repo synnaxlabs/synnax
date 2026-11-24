@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/set"
 )
 
 // channelTable is the name of the table of channels, which is its resource type.
@@ -42,10 +43,14 @@ type Policies struct {
 }
 
 // Retargets reports whether a heal moves the link of d onto the channel that takes the
-// path.
-func (p Policies) Retargets(d gorp.Dependent) bool {
-	policy, _ := p.of(d.ReferenceID())
-	return policy == PolicyRetarget
+// path. It returns an error when p holds no Policy for the reference of d.
+func (p Policies) Retargets(d gorp.Dependent) (bool, error) {
+	id := d.ReferenceID()
+	policy, ok := p.of(id)
+	if !ok {
+		return false, errors.Newf("[impact] - no policy for %s", referenceText(id))
+	}
+	return policy == PolicyRetarget, nil
 }
 
 // of returns the Policy of the reference with id, and false when p has none.
@@ -58,10 +63,11 @@ func (p Policies) of(id gorp.ReferenceID) (Policy, bool) {
 }
 
 // check returns an error naming each row of Links that holds no valid Policy, each row
-// in a table that KeptTables keeps, each reference of refs that p leaves out, and each
-// that p retargets but that cannot retarget.
+// in a table that KeptTables keeps, each row for a reference that refs lacks, each
+// reference of refs that p leaves out, and each that p retargets but that cannot
+// retarget.
 func (p Policies) check(refs []gorp.ReferenceInfo) error {
-	var invalid, kept, unmapped, fixed []string
+	var invalid, kept, stale, unmapped, fixed []string
 	for id, policy := range p.Links {
 		if policy != PolicyKeep && policy != PolicyRetarget {
 			invalid = append(invalid, referenceText(id))
@@ -77,6 +83,21 @@ func (p Policies) check(refs []gorp.ReferenceInfo) error {
 		return errors.Newf(
 			"[impact] - rows for %s, whose tables keep every link",
 			sorted(kept),
+		)
+	}
+	held := make(set.Set[gorp.ReferenceID], len(refs))
+	for _, r := range refs {
+		held.Add(r.ID)
+	}
+	for id := range p.Links {
+		if !held.Contains(id) {
+			stale = append(stale, referenceText(id))
+		}
+	}
+	if len(stale) > 0 {
+		return errors.Newf(
+			"[impact] - rows for %s, which the database does not hold",
+			sorted(stale),
 		)
 	}
 	for _, r := range refs {

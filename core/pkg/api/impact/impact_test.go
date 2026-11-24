@@ -10,6 +10,7 @@
 package impact_test
 
 import (
+	"fmt"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -198,11 +199,40 @@ var _ = Describe("Routes", Ordered, func() {
 			Hidden: new(impact.ChoiceDelete),
 		})
 		Expect(applied).To(BeZero())
+		// The task's delete takes its status, so the delete changes two records.
 		Expect(err).To(And(
 			MatchError(access.ErrDenied),
-			MatchError(ContainSubstring("a record that it cannot see")),
+			MatchError(fmt.Sprintf(
+				"%s cannot change 2 records that the delete changes and that it cannot "+
+					"retrieve: access denied: auth error",
+				u.ResourceID(),
+			)),
 		))
 		Expect(err.Error()).ToNot(ContainSubstring(tsk.Key.String()))
+		Expect(exists(ctx, ch)).To(BeTrue())
+	})
+
+	It("Should count every hidden record that a denied delete changes", func(
+		ctx SpecContext,
+	) {
+		ch := createChannel(ctx)
+		createTask(ctx, ch)
+		createTask(ctx, ch)
+		u := createUser(ctx)
+		grant(
+			ctx,
+			u,
+			[]access.Action{access.ActionRetrieve, access.ActionDelete},
+			channel.ResourceID(ch),
+		)
+		Expect(apply(AuthedCtx(ctx, u), apiimpact.ApplyRequest{
+			Change: deleteOf(ch),
+			Hidden: new(impact.ChoiceDelete),
+		})).Error().To(MatchError(fmt.Sprintf(
+			"%s cannot change 4 records that the delete changes and that it cannot "+
+				"retrieve: access denied: auth error",
+			u.ResourceID(),
+		)))
 		Expect(exists(ctx, ch)).To(BeTrue())
 	})
 

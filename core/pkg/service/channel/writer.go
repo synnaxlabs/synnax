@@ -37,8 +37,10 @@ const calculatedIndexNameSuffix = "_time"
 // DataTypes for calculated channels before persisting. It changes storage channels when
 // the transaction commits, before the channel records reach the store, and a storage
 // error aborts the commit. A failed commit does not undo the storage changes that ran
-// before the failure. Obtain one from Service.NewWriter. A Writer is not safe for
-// concurrent use.
+// before the failure. A create, rename, or move onto the path of a tombstone also moves
+// the links of other records onto the channel, so the write changes those records, and
+// a check of their changes can fail it. Obtain one from Service.NewWriter. A Writer is
+// not safe for concurrent use.
 type Writer struct {
 	svc        *Service
 	tx         gorp.Tx
@@ -176,8 +178,9 @@ func (w Writer) inferDataType(ctx context.Context, prev Channel, next *Channel) 
 	return nil
 }
 
-// takePath checks the rename of prev to next. When next takes a new path, it takes a
-// list through takeList, and takePath maps the dead key to next in to. It returns to.
+// takePath returns an error when the rename of prev to next is not valid. When next
+// takes the path of a tombstone, next gets its rewires, and takePath maps its dead key
+// to next in to. It returns to.
 func (w Writer) takePath(
 	ctx context.Context,
 	prev Channel,
