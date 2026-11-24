@@ -19,6 +19,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -373,8 +374,9 @@ var _ = Describe("Check: repair of log damage", func() {
 	// takeover writes written samples with a first writer, then deletes those from kept
 	// on, which cuts the last pointer of each open segment and keeps its length. A
 	// second writer seals each segment that it takes over in the entry of its first
-	// commit, whose frame goes bad, and commits again after it.
-	takeover := func(ctx context.Context, written, kept int) taken {
+	// commit, whose frame goes bad, and commits again after it. When rewritten is true,
+	// takeover waits until a rewrite removes the file of each cut segment.
+	takeover := func(ctx context.Context, written, kept int, rewritten bool) taken {
 		GinkgoHelper()
 		r := newRepairRoot(ctx)
 		t := taken{fs: r.fs, idx: GenerateChannelKey(), data: GenerateChannelKey()}
@@ -401,6 +403,14 @@ var _ = Describe("Check: repair of log damage", func() {
 		put(ctx, w, keys, written+commits, commits, nil)
 		r.synced(ctx, w, written+commits)
 		Expect(w.Close()).To(Succeed())
+		if rewritten {
+			Eventually(func() []uint64 {
+				return append(segmentsOf(r.fs, t.idx), segmentsOf(r.fs, t.data)...)
+			}).WithTimeout(time.Minute).Should(SatisfyAll(
+				Not(ContainElement(t.cut[0])),
+				Not(ContainElement(t.cut[1])),
+			))
+		}
 		t.id = r.spoil(bad)
 		// The second writer takes its segments before a rewrite can take one.
 		for i, key := range keys {
@@ -417,7 +427,7 @@ var _ = Describe("Check: repair of log damage", func() {
 		// The cut leaves the dead share under the threshold of a rewrite, and the last
 		// pointer ends inside the last full block.
 		const written = 3 * commits
-		t := takeover(ctx, written, written-5500)
+		t := takeover(ctx, written, written-5500, false)
 		Expect(segmentsOf(t.fs, t.idx)).To(Equal([]uint64{t.cut[0], t.next[0]}))
 		Expect(segmentsOf(t.fs, t.data)).To(Equal([]uint64{t.cut[1], t.next[1]}))
 		rep := repairOf(ctx, t.fs, t.id)
@@ -435,9 +445,7 @@ var _ = Describe("Check: repair of log damage", func() {
 		"takeover Seal was in the bad frame", func(ctx SpecContext) {
 		// The cut puts each sealed segment over the threshold of a rewrite, whose
 		// Replace removes its file in a frame after the bad one.
-		t := takeover(ctx, commits, commits/2)
-		Expect(segmentsOf(t.fs, t.idx)).ToNot(ContainElement(t.cut[0]))
-		Expect(segmentsOf(t.fs, t.data)).ToNot(ContainElement(t.cut[1]))
+		t := takeover(ctx, commits, commits/2, true)
 		rep := repairOf(ctx, t.fs, t.id)
 		Expect(rep.Damage).To(HaveLen(1))
 		Expect(rep.Rebuilt).To(ConsistOf(
@@ -446,6 +454,76 @@ var _ = Describe("Check: repair of log damage", func() {
 		))
 		Expect(rep.Unplaced).To(BeEmpty())
 		Expect(rep.Tails).To(BeEmpty())
+	})
+
+	It("Should report a root whose later Replace removed the file of an open segment "+
+		"with no bytes in the gap", func(ctx SpecContext) {
+		r := newRepairRoot(ctx)
+		cut := []cesium.ChannelKey{GenerateChannelKey(), GenerateChannelKey()}
+		lost := []cesium.ChannelKey{GenerateChannelKey(), GenerateChannelKey()}
+		r.create(ctx, cut[0], cut[1])
+		r.create(ctx, lost[0], lost[1])
+		open := func(keys []cesium.ChannelKey, p int) *cesium.Writer {
+			GinkgoHelper()
+			return MustSucceed(r.db.OpenWriter(
+				ctx,
+				cesium.WriterConfig{Channels: keys, Start: repairStamp(p)},
+			))
+		}
+		w := open(cut, 0)
+		put(ctx, w, cut, 0, commits, nil)
+		r.synced(ctx, w, 0)
+		Expect(w.Close()).To(Succeed())
+		Expect(r.db.DeleteTimeRange(ctx, cut, telem.TimeRange{
+			Start: repairStamp(commits / 2),
+			End:   repairStamp(commits),
+		})).To(Succeed())
+		old := []uint64{onlySegment(r.fs, cut[0]), onlySegment(r.fs, cut[1])}
+		const from = 10 * commits
+		w = open(lost, from)
+		put(ctx, w, lost, from, commits, nil)
+		bad := r.synced(ctx, w, from)
+		put(ctx, w, lost, from+commits, commits, nil)
+		r.synced(ctx, w, from+commits)
+		Expect(w.Close()).To(Succeed())
+		// The takeover Seals of the cut segments, after the bad frame, start their
+		// rewrite.
+		w = open(cut, commits)
+		put(ctx, w, cut, commits, commits, nil)
+		r.synced(ctx, w, commits)
+		Expect(w.Close()).To(Succeed())
+		Eventually(func() []uint64 {
+			return append(segmentsOf(r.fs, cut[0]), segmentsOf(r.fs, cut[1])...)
+		}).WithTimeout(time.Minute).Should(SatisfyAll(
+			Not(ContainElement(old[0])),
+			Not(ContainElement(old[1])),
+		))
+		id := r.spoil(bad)
+		rep := repairOf(ctx, r.fs, id)
+		Expect(rep.Rebuilt).To(ConsistOf(
+			rebuiltOf(lost[0], onlySegment(r.fs, lost[0]), from, commits),
+			rebuiltOf(lost[1], onlySegment(r.fs, lost[1]), from, commits),
+		))
+		Expect(rep.Unplaced).To(BeEmpty())
+		Expect(rep.Tails).To(BeEmpty())
+		Expect(rep.Unrecovered).To(BeEmpty())
+	})
+
+	It("Should fail a repair of a root that lost the file of an open segment that no "+
+		"record retires", func(ctx SpecContext) {
+		d := damage(ctx)
+		name := fmt.Sprintf("%d/%016x.seg", d.idx, onlySegment(d.fs, d.idx))
+		Expect(d.fs.Remove(name)).To(Succeed())
+		Expect(cesium.Repair(
+			ctx,
+			"",
+			func(cesium.Report) bool { return false },
+			cesium.WithFS(d.fs),
+			cesium.WithIdentity(d.id),
+		)).Error().To(SatisfyAll(
+			MatchError(os.ErrNotExist),
+			MatchError(ContainSubstring(name)),
+		))
 	})
 
 	It("Should leave unplaced a data range of a lost commit with fewer samples than "+
