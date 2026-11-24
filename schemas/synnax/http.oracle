@@ -266,8 +266,7 @@ BaseWriteField struct {
         @key
     }
     pointer string = "" {
-        @doc value   "is the JSON Pointer where the value is placed in the body."
-        @go validate pattern "^(/([^~/]|~[01])*)*$" "Pointer must be empty or a JSON Pointer that starts with / and escapes ~ as ~0 and / as ~1"
+        @doc value "is the JSON Pointer where the value is placed in the body."
     }
 
     @cpp omit
