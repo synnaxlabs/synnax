@@ -864,8 +864,8 @@ TEST_F(OutboxTest, KeepsCompactionWhenOffsetSaveFails) {
         }
     }
     ASSERT_TRUE(first.has_value());
-    EXPECT_EQ(first->segment, 0);
-    EXPECT_EQ(first->pos, journal::HEADER_SIZE);
+    EXPECT_EQ(first.value().segment, 0);
+    EXPECT_EQ(first.value().pos, journal::HEADER_SIZE);
     const auto transport = transport_of(
         std::vector<x::errors::Error>(1000, x::errors::NIL)
     );
