@@ -534,6 +534,34 @@ func (w *logWriter) commitRuns(ctx context.Context) error {
 	if w.unstored {
 		return nil
 	}
+	if err := w.buildCommits(); err != nil {
+		return err
+	}
+	first, last := w.runs[0].first, w.runs[len(w.runs)-1].last
+	var err error
+	w.pre, err = w.e.withPreloads(w.pre, w.preKeys, first, last, false, func(
+		pre []state.Preload,
+	) error {
+		return w.st.Commit(w.commits, pre...)
+	})
+	if err != nil {
+		return err
+	}
+	for _, c := range w.commits {
+		w.entry.Add(c)
+	}
+	for _, change := range w.changes {
+		w.history(ctx, change)
+	}
+	if w.stamps != nil {
+		w.addNeed()
+	}
+	return nil
+}
+
+// buildCommits sets commits to the Commit of each run, preKeys to the keys of their
+// preloads, and changes to the history changes of each run.
+func (w *logWriter) buildCommits() error {
 	w.commits, w.preKeys = w.commits[:0], w.preKeys[:0]
 	w.changes = w.changes[:0]
 	w.from = w.ends(w.from, false)
@@ -568,25 +596,6 @@ func (w *logWriter) commitRuns(ctx context.Context) error {
 	}
 	slices.Sort(w.preKeys)
 	w.preKeys = slices.Compact(w.preKeys)
-	first, last := w.runs[0].first, w.runs[len(w.runs)-1].last
-	var err error
-	w.pre, err = w.e.withPreloads(w.pre, w.preKeys, first, last, false, func(
-		pre []state.Preload,
-	) error {
-		return w.st.Commit(w.commits, pre...)
-	})
-	if err != nil {
-		return err
-	}
-	for _, c := range w.commits {
-		w.entry.Add(c)
-	}
-	for _, change := range w.changes {
-		w.history(ctx, change)
-	}
-	if w.stamps != nil {
-		w.addNeed()
-	}
 	return nil
 }
 
