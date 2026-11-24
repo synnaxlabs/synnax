@@ -72,10 +72,10 @@ var _ = Describe("ResolveWriteConfig", func() {
 			Expect(id.Default).To(Equal(&icdv1.UUIDDefault{
 				Variant: icdv1.RandomUUIDDefault{},
 			}))
-			for i, ep := range cfg.Endpoints {
-				Expect(ep.ICD).To(Equal(new(ic.Key)))
-				Expect(ep.Message.Message).To(Equal(ic.Messages[i].Key))
-			}
+			Expect(cfg.Endpoints[0].ICD).To(Equal(new(ic.Key)))
+			Expect(cfg.Endpoints[0].Message.Message).To(Equal(ic.Messages[0].Key))
+			Expect(cfg.Endpoints[1].ICD).To(Equal(new(ic.Key)))
+			Expect(cfg.Endpoints[1].Message.Message).To(Equal(ic.Messages[1].Key))
 			Expect(cfg.Endpoints[0].Message.Bindings).To(Equal([]icdv1.WriteBinding{{
 				Variant: icdv1.ChannelWriteBinding{
 					WriteBaseBinding: icdv1.WriteBaseBinding{Field: value.Key},
