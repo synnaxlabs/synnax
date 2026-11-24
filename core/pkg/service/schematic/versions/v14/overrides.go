@@ -18,6 +18,7 @@ import (
 	"uuid"
 
 	"github.com/synnaxlabs/gorp"
+	enumeration "github.com/synnaxlabs/synnax/pkg/service/enumeration/versions/v0"
 	symbolv4 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v4"
 	symbol "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v5"
 	v13 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v13"
@@ -87,27 +88,14 @@ func (o *overrides) node(
 	states []symbolv4.State,
 	schematic string,
 ) (SymbolNodeConfig, error) {
-	// State i drew the regions of override i, as a 0.62 Console drew it.
-	drawn := src.Data
-	drawn.States = slices.Clone(src.Data.States)
-	for i := range min(len(states), len(drawn.States)) {
-		drawn.States[i].Regions = states[i].Regions
-	}
-	want, entries, err := symbol.MigrateStoredSpec(ctx, drawn)
-	if err != nil {
+	entries, drawn, err := redraw(ctx, src.Data, states)
+	if err != nil || (entries == nil && drawn == nil) {
 		return cfg, err
 	}
-	has, hasEntries, err := symbol.MigrateStoredSpec(ctx, src.Data)
-	if err != nil {
-		return cfg, err
-	}
-	if !reflect.DeepEqual(want, has) {
-		key, err := o.copy(ctx, src, drawn, states, schematic)
+	if drawn != nil {
+		key, err := o.copy(ctx, src, *drawn, states, schematic)
 		cfg.Spec = symbol.Ref{Variant: symbol.CustomRef{Key: key}}
 		return cfg, err
-	}
-	if reflect.DeepEqual(entries, hasEntries) {
-		return cfg, nil
 	}
 	label := strings.TrimSpace(cfg.Label.Label)
 	if label == "" {
@@ -116,6 +104,37 @@ func (o *overrides) node(
 	key, err := o.intern(ctx, src.Name+": "+label, entries)
 	cfg.States[0].Enumeration = &key
 	return cfg, err
+}
+
+// redraw returns the entries of an enumeration that draws the overrides states on src,
+// or the spec of a copy of src when an enumeration cannot draw them. It returns neither
+// when the overrides equal src.
+func redraw(
+	ctx context.Context,
+	src symbolv4.Spec,
+	states []symbolv4.State,
+) ([]enumeration.Entry, *symbolv4.Spec, error) {
+	// State i drew the regions of override i, as a 0.62 Console drew it.
+	drawn := src
+	drawn.States = slices.Clone(src.States)
+	for i := range min(len(states), len(drawn.States)) {
+		drawn.States[i].Regions = states[i].Regions
+	}
+	want, entries, err := symbol.MigrateStoredSpec(ctx, drawn)
+	if err != nil {
+		return nil, nil, err
+	}
+	has, hasEntries, err := symbol.MigrateStoredSpec(ctx, src)
+	if err != nil {
+		return nil, nil, err
+	}
+	if !reflect.DeepEqual(want, has) {
+		return nil, &drawn, nil
+	}
+	if reflect.DeepEqual(entries, hasEntries) {
+		return nil, nil, nil
+	}
+	return entries, nil, nil
 }
 
 // copy returns the key of a copy of src that draws spec, in the group of src. Nodes

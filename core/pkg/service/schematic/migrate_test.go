@@ -13,6 +13,7 @@ import (
 	"embed"
 	"encoding/hex"
 	"slices"
+	"strconv"
 	"strings"
 	"uuid"
 
@@ -280,45 +281,130 @@ var _ = Describe("A store from core/v0.62.0", func() {
 })
 
 var _ = Describe("Stored v13 state overrides", func() {
-	It(
-		"Should give nodes with the same symbol and overrides one copy",
-		func(ctx SpecContext) {
-			db := openShipped(ctx)
-			vent := decodeReleased[v4.Symbol]("symbol_vent_valve.hex")
-			Expect(gorp.NewCreate[v4.Key, v4.Symbol]().Entry(&vent).Exec(ctx, db)).
-				To(Succeed())
-			// A white fill that no entry carries needs a copy.
-			white := &color.Color{R: 255, G: 255, B: 255, A: 255}
-			states := slices.Clone(vent.Data.States)
-			for i := range states {
-				states[i].Regions = slices.Clone(states[i].Regions)
-				states[i].Regions[0].FillColor = white
-			}
-			node := func(key string) v13.Node {
-				cfg := v13.CustomActuatorNodeConfig{SpecKey: vent.Key.String()}
-				cfg.StateOverrides = states
-				return v13.Node{Key: key, Config: v13.NodeConfig{Variant: cfg}}
-			}
-			stored := v13.Schematic{Key: uuid.New(), Name: "Panel", Nodes: []v13.Node{
-				node("a"), node("b"),
-			}}
-			Expect(
-				gorp.NewCreate[v13.Key, v13.Schematic]().Entry(&stored).Exec(ctx, db),
-			).
-				To(Succeed())
-			openService(ctx, db)
-			var sc schematic.Schematic
-			Expect(gorp.NewRetrieve[schematic.Key, schematic.Schematic]().
-				Where(gorp.MatchKeys[schematic.Key, schematic.Schematic](stored.Key)).
-				Entry(&sc).
-				Exec(ctx, db)).To(Succeed())
-			refs := lo.Map(sc.Nodes, func(n schematic.Node, _ int) symbol.RefVariant {
+	var (
+		red    = color.Color{R: 220, G: 40, B: 40, A: 255}
+		yellow = color.Color{R: 220, G: 200, B: 40, A: 255}
+		white  = color.Color{R: 255, G: 255, B: 255, A: 255}
+		// ventActive is the active color of the stored vent valve.
+		ventActive = color.Color{R: 40, G: 200, B: 90, A: 255}
+	)
+	// paint returns the states of the stored vent valve with the body of state i in
+	// strokes[i] and fills[i].
+	paint := func(vent v4.Symbol, strokes, fills []color.Color) []v4.State {
+		states := slices.Clone(vent.Data.States)
+		for i := range states {
+			states[i].Regions = slices.Clone(states[i].Regions)
+			states[i].Regions[0].StrokeColor = new(strokes[i])
+			states[i].Regions[0].FillColor = new(fills[i])
+		}
+		return states
+	}
+	// upgrade stores a node that draws the vent valve for each set of overrides that
+	// edit returns, opens the service, and returns the vent and the upgraded nodes.
+	upgrade := func(
+		ctx SpecContext,
+		edit func(vent v4.Symbol) [][]v4.State,
+	) (*gorp.DB, v4.Symbol, []schematic.SymbolNodeConfig) {
+		GinkgoHelper()
+		db := openShipped(ctx)
+		vent := decodeReleased[v4.Symbol]("symbol_vent_valve.hex")
+		Expect(gorp.NewCreate[v4.Key, v4.Symbol]().Entry(&vent).Exec(ctx, db)).
+			To(Succeed())
+		stored := v13.Schematic{Key: uuid.New(), Name: "Panel"}
+		for i, states := range edit(vent) {
+			cfg := v13.CustomActuatorNodeConfig{SpecKey: vent.Key.String()}
+			cfg.Label.Label, cfg.StateOverrides = "Vent", states
+			stored.Nodes = append(stored.Nodes, v13.Node{
+				Key:    strconv.Itoa(i),
+				Config: v13.NodeConfig{Variant: cfg},
+			})
+		}
+		Expect(gorp.NewCreate[v13.Key, v13.Schematic]().Entry(&stored).Exec(ctx, db)).
+			To(Succeed())
+		openService(ctx, db)
+		var sc schematic.Schematic
+		Expect(gorp.NewRetrieve[schematic.Key, schematic.Schematic]().
+			Where(gorp.MatchKeys[schematic.Key, schematic.Schematic](stored.Key)).
+			Entry(&sc).
+			Exec(ctx, db)).To(Succeed())
+		return db, vent, lo.Map(
+			sc.Nodes,
+			func(n schematic.Node, _ int) schematic.SymbolNodeConfig {
 				cfg, ok := n.Config.Variant.(schematic.SymbolNodeConfig)
 				Expect(ok).To(BeTrue())
-				return cfg.Spec.Variant
+				return cfg
+			},
+		)
+	}
+
+	DescribeTable("Should draw the overrides of a node as 0.62 drew them", func(
+		ctx SpecContext,
+		edit func(vent v4.Symbol) []v4.State,
+		copied bool,
+		entries []color.Color,
+	) {
+		db, vent, nodes := upgrade(ctx, func(vent v4.Symbol) [][]v4.State {
+			return [][]v4.State{edit(vent)}
+		})
+		n := nodes[0]
+		if copied {
+			Expect(n.Spec.Variant).ToNot(Equal(symbol.CustomRef{Key: vent.Key}))
+		} else {
+			Expect(n.Spec.Variant).To(Equal(symbol.CustomRef{Key: vent.Key}))
+		}
+		if entries == nil {
+			Expect(n.States[0].Enumeration).To(BeNil())
+			return
+		}
+		Expect(n.States[0].Enumeration).ToNot(BeNil())
+		var e enumeration.Enumeration
+		Expect(gorp.NewRetrieve[enumeration.Key, enumeration.Enumeration]().
+			Where(gorp.MatchKeys[enumeration.Key, enumeration.Enumeration](
+				*n.States[0].Enumeration,
+			)).
+			Entry(&e).
+			Exec(ctx, db)).To(Succeed())
+		Expect(e.Name).To(Equal("Vent valve: Vent"))
+		Expect(lo.Map(e.Entries, func(e enumeration.Entry, _ int) servicecolor.Ref {
+			return *e.Color
+		})).To(Equal(lo.Map(entries, func(c color.Color, _ int) servicecolor.Ref {
+			return servicecolor.Ref{Variant: servicecolor.FixedRef{Value: c}}
+		})))
+	},
+		Entry("overrides equal to the symbol", func(vent v4.Symbol) []v4.State {
+			return vent.Data.States
+		}, false, nil),
+		Entry("new entry colors", func(vent v4.Symbol) []v4.State {
+			c := []color.Color{red, yellow}
+			return paint(vent, c, c)
+		}, false, []color.Color{red, yellow}),
+		Entry("an override of the first state alone", func(vent v4.Symbol) []v4.State {
+			c := []color.Color{red, yellow}
+			return paint(vent, c, c)[:1]
+		}, false, []color.Color{red, ventActive}),
+		Entry("more overrides than states", func(vent v4.Symbol) []v4.State {
+			c := []color.Color{red, yellow}
+			return append(paint(vent, c, c), v4.State{Key: "extra"})
+		}, false, []color.Color{red, yellow}),
+		Entry("a fill that no entry carries", func(vent v4.Symbol) []v4.State {
+			return paint(vent, []color.Color{red, yellow}, []color.Color{white, white})
+		}, true, nil),
+	)
+
+	It(
+		"Should give nodes with the same symbol and overrides one copy, which the "+
+			"symbol migration converts after the schematic migration",
+		func(ctx SpecContext) {
+			db, vent, nodes := upgrade(ctx, func(vent v4.Symbol) [][]v4.State {
+				states := paint(
+					vent,
+					[]color.Color{red, yellow},
+					[]color.Color{white, white},
+				)
+				return [][]v4.State{states, states}
 			})
-			Expect(refs[1]).To(Equal(refs[0]))
-			ref, ok := refs[0].(symbol.CustomRef)
+			Expect(nodes[1].Spec).To(Equal(nodes[0].Spec))
+			ref, ok := nodes[0].Spec.Variant.(symbol.CustomRef)
 			Expect(ok).To(BeTrue())
 			Expect(ref.Key).ToNot(Equal(vent.Key))
 			var copied symbol.Symbol
@@ -328,6 +414,8 @@ var _ = Describe("Stored v13 state overrides", func() {
 				Exec(ctx, db)).To(Succeed())
 			Expect(copied.Name).To(Equal("Vent valve (Panel)"))
 			Expect(copied.Group).To(Equal(vent.Group))
+			// Only the symbol migration gives a symbol the commands of an actuator, so
+			// it ran after the schematic migration wrote the copy.
 			Expect(copied.Data.Commands).To(HaveLen(2))
 		},
 	)
