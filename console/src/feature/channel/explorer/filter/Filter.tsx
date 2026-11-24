@@ -140,8 +140,10 @@ const DATA_TYPE: View.Filter.Property<channel.Where, string[]> = {
     if (View.Filter.soleField(node) !== "dataType" || node.dataType == null)
       return null;
     const { eq, in: types } = node.dataType;
-    if (eq != null) return [eq.toString()];
-    return types == null || types.length === 0 ? null : types.map((t) => t.toString());
+    // A stored filter can hold a data type as its plain value, so each name goes
+    // through the constructor.
+    const crude = eq != null ? [eq] : (types ?? []);
+    return crude.length === 0 ? null : crude.map((t) => new DataType(t).toString());
   },
   encode: (types) => ({ dataType: { in: types.map((t) => new DataType(t)) } }),
   Picker: DataTypePicker,
