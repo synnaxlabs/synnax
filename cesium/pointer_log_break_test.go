@@ -172,7 +172,7 @@ var _ = Describe("Pointer log fatal path breaker", func() {
 		if _, _, err = w.Commit(ctx, nil); err != nil {
 			return err
 		}
-		return w.Sync()
+		return w.Sync(ctx)
 	}
 
 	It("Should end DB.Run after a failed sync of the log", func(ctx SpecContext) {
@@ -271,7 +271,7 @@ var _ = Describe("Pointer log breaker", func() {
 				}))
 				write(ctx, w, 10, 11)
 				fail.Store(true)
-				Expect(w.Sync()).To(MatchError(errBrkSync))
+				Expect(w.Sync(ctx)).To(MatchError(errBrkSync))
 				fail.Store(false)
 				Expect(w.Close()).To(MatchError(errBrkSync))
 				Expect(read(ctx).Series).To(BeEmpty())
@@ -288,10 +288,10 @@ var _ = Describe("Pointer log breaker", func() {
 					Start:    10 * telem.SecondTS,
 				}))
 				write(ctx, w, 10, 11)
-				Expect(w.Sync()).To(Succeed())
+				Expect(w.Sync(ctx)).To(Succeed())
 				write(ctx, w, 12)
 				fail.Store(true)
-				Expect(w.Sync()).To(MatchError(errBrkSync))
+				Expect(w.Sync(ctx)).To(MatchError(errBrkSync))
 				fail.Store(false)
 				Expect(w.Close()).To(MatchError(errBrkSync))
 				next := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
@@ -317,10 +317,10 @@ var _ = Describe("Pointer log breaker", func() {
 					Start:    10 * telem.SecondTS,
 				}))
 				write(ctx, w, 10, 11)
-				Expect(w.Sync()).To(Succeed())
+				Expect(w.Sync(ctx)).To(Succeed())
 				write(ctx, w, 12)
 				fail.Store(true)
-				Expect(w.Sync()).To(MatchError(errBrkSync))
+				Expect(w.Sync(ctx)).To(MatchError(errBrkSync))
 				fail.Store(false)
 				Expect(w.Close()).To(MatchError(errBrkSync))
 				closeDB()
@@ -430,7 +430,7 @@ var _ = Describe("Pointer log breaker", func() {
 				MustSucceed2(w.Write(ctx, telem.MultiFrame(wide, series), nil))
 				MustSucceed2(w.Commit(ctx, nil))
 			}
-			Expect(w.Sync()).To(Succeed())
+			Expect(w.Sync(ctx)).To(Succeed())
 			Expect(w.Close()).To(Succeed())
 		})
 
@@ -467,10 +467,10 @@ var _ = Describe("Pointer log breaker", func() {
 					Start:    1 * telem.SecondTS,
 				}))
 				commits(failed, 1)
-				Expect(failed.Sync()).To(Succeed())
+				Expect(failed.Sync(ctx)).To(Succeed())
 				commits(failed, 10_500)
 				fail.Store(true)
-				Expect(failed.Sync()).To(MatchError(errBrkSync))
+				Expect(failed.Sync(ctx)).To(MatchError(errBrkSync))
 				fail.Store(false)
 				Expect(failed.Close()).To(MatchError(errBrkSync))
 				w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
@@ -481,7 +481,7 @@ var _ = Describe("Pointer log breaker", func() {
 				// Four entries of about 15 MB pass three quarters of log 1.
 				for range 5 {
 					commits(w, 9_000)
-					Expect(w.Sync()).To(Succeed())
+					Expect(w.Sync(ctx)).To(Succeed())
 				}
 				Expect(w.Close()).To(Succeed())
 				closeDB()
@@ -522,7 +522,7 @@ var _ = Describe("Pointer log breaker", func() {
 							return err
 						}
 					}
-					return w.Sync()
+					return w.Sync(ctx)
 				}
 				failed := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 					Channels: wide,

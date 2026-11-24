@@ -128,7 +128,7 @@ var _ = Describe("Check: data against stored stamps across a clock roll", func()
 		// The clock passes the roll: segment A seals at 2^27 stamps, and B holds the
 		// rest.
 		write(roll-1, 17)
-		Expect(c.Sync()).To(Succeed())
+		Expect(c.Sync(ctx)).To(Succeed())
 		// M8: one Write across the roll, with A and B in the head, is one series.
 		w1 := open(d1)
 		streams(w1, d1, first.AddSamples(roll-4), 0, 1, 2, 3, 4, 5, 6, 7)
