@@ -1174,6 +1174,38 @@ describe("Answers", () => {
       expect(expectDeleted(handler.mock.lastCall?.[0]).corpse).toEqual(6);
     });
 
+    it("answers deleted when the record is deleted while a refetch is in flight", async () => {
+      const table = newTable();
+      const foreign = newTable();
+      let gate = Promise.resolve();
+      const fetch = vi.fn(async () => {
+        await gate;
+        table.ingest("a", rec("a", 6));
+        return ["a"];
+      });
+      const answers = new space.Space<Q, number, string, Rec>({
+        name: "thing",
+        table,
+        fetch,
+        compose: (records) => records[0].value,
+        keyOf: (q) => q.k,
+        single: true,
+        triggers: [query.trigger(foreign, () => "refetch")],
+      });
+      const handler = vi.fn();
+      answers.onChange(qA, handler);
+      await answers.retrieve(qA);
+      const { promise, resolve } = Promise.withResolvers<void>();
+      gate = promise;
+      foreign.set("f", rec("f", 1));
+      await expect.poll(() => fetch.mock.calls.length).toBe(2);
+      table.delete("a");
+      resolve();
+      await fetch.mock.results[1].value;
+      expect(expectDeleted(answers.getCached(qA)).corpse).toEqual(6);
+      expect(expectDeleted(handler.mock.lastCall?.[0]).corpse).toEqual(6);
+    });
+
     it("revives a deleted answer when a new record matches", async () => {
       const table = newTable();
       const fetch = vi.fn(async () => {
