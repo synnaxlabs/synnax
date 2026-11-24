@@ -26,7 +26,6 @@ import {
 import { channel } from "@/channel";
 import { AccessDeniedError, NotFoundError, ValidationError } from "@/errors";
 import { framer } from "@/framer";
-import type { CalculationOutputs } from "@/framer/cache/store";
 import { query } from "@/query";
 
 // Samples per series in an unreduced read, matching an iterator response.
@@ -87,7 +86,7 @@ interface Rewrite {
 }
 
 /** The calculation outputs of a Core with no calculations. */
-export const NO_OUTPUTS: CalculationOutputs = {
+export const NO_OUTPUTS: framer.CalculationOutputs = {
   retrieve: async () => new Set(),
   onChange: () => () => {},
 };
@@ -239,7 +238,7 @@ export class SyntheticCore {
   now = (): TimeStamp => this.clock;
 
   /** Answers which of the Core's channels a calculation writes. */
-  outputs: CalculationOutputs = {
+  outputs: framer.CalculationOutputs = {
     retrieve: async (keys) => new Set(keys.filter((k) => this.outputKeys.has(k))),
     onChange: (key, handler) => {
       const handlers = this.outputWatchers.get(key) ?? new Set();

@@ -197,7 +197,7 @@ describe("Store", () => {
           dataType: "float32",
           leaseholder: 1,
         }).payload,
-        false,
+        new Set(),
       );
       store.setSignalKey(99);
       store.setAcked(new Set([99]));
@@ -218,7 +218,7 @@ describe("Store", () => {
           dataType: "float32",
           leaseholder: 1,
         }).payload,
-        false,
+        new Set(),
       );
       store.setSignalKey(99);
       store.setAcked(new Set([99]));
@@ -565,8 +565,8 @@ describe("Store", () => {
         dynamicBufferSize: 8,
         now: () => now,
       });
-      store.setChannel(index, false);
-      store.setChannel(data, false);
+      store.setChannel(index, new Set());
+      store.setChannel(data, new Set());
       return store;
     };
 
@@ -598,7 +598,7 @@ describe("Store", () => {
         dynamicBufferSize: 8,
         now: () => BLOCK.end,
       });
-      store.setChannel(index, false);
+      store.setChannel(index, new Set());
       for (let offset = 0; offset < 10_000; offset += 4) {
         const start = BLOCK.start.add(TimeSpan.milliseconds(offset));
         store.append(
@@ -611,7 +611,7 @@ describe("Store", () => {
         );
       }
       const floor = store.floor(index.key);
-      store.setChannel(data, false);
+      store.setChannel(data, new Set());
       const block = store.raw(data.key, 100);
       const end = BLOCK.start.add(TimeSpan.milliseconds(10_000));
       block.fill(
