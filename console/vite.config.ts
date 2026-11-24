@@ -128,6 +128,33 @@ const workspaceSourcemaps = (): Plugin => {
   };
 };
 
+// Appends each response that is not 2xx or 304, and each request closed before its
+// response, to the file in SYNNAX_TEST_REQUEST_LOG. WebKit names no URL when a module
+// import fails.
+const requestLog = (): Plugin => ({
+  name: "request-log",
+  apply: "serve",
+  configureServer: (server) => {
+    const file = process.env.SYNNAX_TEST_REQUEST_LOG;
+    if (file == null) return;
+    const start = Date.now();
+    const log = (line: string): void =>
+      void fs.appendFile(file, `${new Date().toISOString()} ${line}\n`);
+    log(`server started (pid ${process.pid})`);
+    server.middlewares.use((req, res, next) => {
+      const begin = Date.now();
+      res.on("close", () => {
+        const at = `+${begin - start}ms (${Date.now() - begin}ms)`;
+        const { statusCode: status } = res;
+        if (!res.writableFinished) log(`${at} aborted ${req.method} ${req.url}`);
+        else if ((status < 200 || status >= 300) && status !== 304)
+          log(`${at} ${status} ${res.statusMessage} ${req.method} ${req.url}`);
+      });
+      next();
+    });
+  },
+});
+
 // The dev server loads the standalone React DevTools (`pnpm devtools`) before React, so
 // React finds the DevTools hook when it starts. Builds never load it.
 const reactDevtools = (): Plugin => ({
@@ -194,6 +221,7 @@ export default defineConfig({
     reactDevtools(),
     workspaceSourcemaps(),
     stripSourcesContent(),
+    requestLog(),
   ],
   build: {
     target: process.env.TAURI_ENV_PLATFORM === "windows" ? "chrome125" : "safari17.4",
