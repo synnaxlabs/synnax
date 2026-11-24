@@ -104,6 +104,8 @@ const FieldBinding = ({
   const { set } = PForm.useContext();
   const isPreview = Task.useIsPreview();
   const [open, setOpen] = useState(opened);
+  // A field just added follows its name until the user edits its pointer.
+  const [linked, setLinked] = useState(opened);
   const bindings = PForm.useFieldValue(path);
   const i = bindings.findIndex((b) => b.field === field.key);
   const binding = i >= 0 ? bindings[i] : undefined;
@@ -188,7 +190,11 @@ const FieldBinding = ({
       </Button.Button>
       {open && (
         <PForm.Form<typeof PICD.formSchema> {...format}>
-          <JSONField path={fieldPath} />
+          <JSONField
+            path={fieldPath}
+            pointerLinked={linked}
+            onPointerChange={() => setLinked(false)}
+          />
         </PForm.Form>
       )}
     </PForm.Section>

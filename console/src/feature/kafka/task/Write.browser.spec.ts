@@ -515,6 +515,47 @@ describe("Kafka Write form", () => {
       );
     });
 
+    it("should move the pointer of an added field when the field is renamed", async () => {
+      const { target } = await createTarget([createField("speed", "float")]);
+      await renderWrite([target]);
+      await selectTarget();
+      fireEvent.click(await screen.findByRole("button", { name: "Add field" }));
+      const group = await fieldGroup("Field 2");
+      fireEvent.change(group.getByDisplayValue("Field 2"), {
+        target: { value: "Pump Pressure" },
+      });
+      await waitFor(() => group.getByDisplayValue("/pump_pressure"));
+    });
+
+    it("should keep the pointer of an added field once the user edits it", async () => {
+      const { target } = await createTarget([createField("speed", "float")]);
+      await renderWrite([target]);
+      await selectTarget();
+      fireEvent.click(await screen.findByRole("button", { name: "Add field" }));
+      const group = await fieldGroup("Field 2");
+      fireEvent.change(group.getByDisplayValue("/field_2"), {
+        target: { value: "/limit" },
+      });
+      fireEvent.change(group.getByDisplayValue("Field 2"), {
+        target: { value: "pressure" },
+      });
+      await waitFor(() => group.getByDisplayValue("pressure"));
+      group.getByDisplayValue("/limit");
+    });
+
+    it("should keep the pointer of a field the message already had when it is renamed", async () => {
+      const { target } = await createTarget([createField("speed", "float")]);
+      await renderWrite([target]);
+      await selectTarget();
+      const group = await fieldGroup("speed");
+      fireEvent.click(group.getByRole("button", { name: "Edit field" }));
+      fireEvent.change(await group.findByDisplayValue("speed"), {
+        target: { value: "pressure" },
+      });
+      await waitFor(() => group.getByDisplayValue("pressure"));
+      group.getByDisplayValue("/speed");
+    });
+
     it("should add a first field to a message with no fields", async () => {
       const { target } = await createTarget([]);
       await renderWrite([target]);

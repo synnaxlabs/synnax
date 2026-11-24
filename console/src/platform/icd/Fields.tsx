@@ -357,6 +357,12 @@ const createField = (
   }
 };
 
+/** @returns the pointer of a field named name: the name in lowercase, spaces as "_". */
+const namePointer = (name: string): string => {
+  const token = name.toLowerCase().replaceAll(" ", "_");
+  return `/${token.replaceAll("~", "~0").replaceAll("/", "~1")}`;
+};
+
 /**
  * @returns a numbered name that no field takes, and the pointer of the same number. No
  * field at one of pointers reads the value at that pointer or a value in it.
@@ -368,7 +374,7 @@ const freeNameAndPointer = (
   const taken = new Set(names);
   for (let i = names.length + 1; ; i++) {
     const name = `Field ${i}`;
-    const pointer = `/field_${i}`;
+    const pointer = namePointer(name);
     const used = pointers.some((p) => p === pointer || p.startsWith(`${pointer}/`));
     if (!taken.has(name) && !used) return { name, pointer };
   }
@@ -589,13 +595,22 @@ export interface JSONFieldProps {
   path: deep.Path<icd.JSONField>;
   /** Actions in the header of the field's section. */
   actions?: ReactNode;
+  /** A rename moves the pointer to the pointer of the new name. */
+  pointerLinked?: boolean;
+  /** Called when the user edits the pointer. */
+  onPointerChange?: () => void;
 }
 
 /**
  * Edits one field of a JSON message: its name, pointer, type, and conversion, then its
  * default and enum mapping when its kind has them.
  */
-export const JSONField = ({ path, actions }: JSONFieldProps): ReactElement => {
+export const JSONField = ({
+  path,
+  actions,
+  pointerLinked = false,
+  onPointerChange,
+}: JSONFieldProps): ReactElement => {
   const { get, set, mode } = Form.useContext();
   const field = Form.useFieldValue(path);
   const type = jsonTypeOf(field);
@@ -604,12 +619,20 @@ export const JSONField = ({ path, actions }: JSONFieldProps): ReactElement => {
   };
   return (
     <Form.Section title="Field" actions={actions}>
-      <Form.TextField path={path.name} label="Name" padHelpText={false} />
+      <Form.TextField
+        path={path.name}
+        label="Name"
+        padHelpText={false}
+        onChange={
+          pointerLinked ? (name) => set(path.pointer, namePointer(name)) : undefined
+        }
+      />
       <Form.TextField
         path={path.pointer}
         label="Pointer"
         padHelpText={false}
         inputProps={POINTER_INPUT_PROPS}
+        onChange={onPointerChange}
       />
       <Input.Item label="Type" padHelpText={false}>
         <Select.Simple<JSONType>
