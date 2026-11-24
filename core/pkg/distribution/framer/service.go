@@ -197,13 +197,14 @@ func (s *Service) OnControlUpdate(
 	return s.writer.OnControlUpdate(handler)
 }
 
-// DeleteTimeRange deletes a time range in the specified channels.
+// DeleteTimeRange deletes a time range in the specified channels. It fails with
+// control.ErrUnauthorized, naming the writer, when a writer holds part of tr.
 func (s *Service) DeleteTimeRange(
 	ctx context.Context,
 	keys channel.Keys,
 	tr telem.TimeRange,
 ) error {
-	return s.deleter.DeleteTimeRange(ctx, keys, tr)
+	return s.writer.NameHolder(s.deleter.DeleteTimeRange(ctx, keys, tr))
 }
 
 // Close closes the Service.
