@@ -68,13 +68,21 @@ func breakWrite(ctx context.Context, db *cesium.DB, seconds ...telem.TimeStamp) 
 
 func breakValues(ctx context.Context, db *cesium.DB) []int64 {
 	GinkgoHelper()
-	series := MustSucceed(db.Read(ctx, telem.TimeRangeMax, breakData)).
-		Get(breakData).Series
+	return MustSucceed(breakRead(ctx, db))
+}
+
+// breakRead reads every sample of breakData in db.
+func breakRead(ctx context.Context, db *cesium.DB) ([]int64, error) {
+	fr, err := db.Read(ctx, telem.TimeRangeMax, breakData)
+	if err != nil {
+		return nil, err
+	}
+	series := fr.Get(breakData).Series
 	out := make([]int64, 0, len(series))
 	for _, s := range series {
 		out = append(out, s.Unmarshal[int64]()...)
 	}
-	return out
+	return out, nil
 }
 
 func breakSegments(fs xfs.FS, key cesium.ChannelKey) []string {
