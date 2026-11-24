@@ -1201,14 +1201,13 @@ describe("Answers", () => {
       await expect(answers.retrieve(qA)).rejects.toThrow(NotFoundError);
     });
 
-    it("deletes a keyed one-record answer when a refetch finds nothing", async () => {
+    // The Core answers NotFound for a record that an optimistic create has written to
+    // the table but not yet committed, so the entry must stay.
+    it("keeps the table entry of a keyed answer when a refetch finds nothing", async () => {
       const table = newTable();
       const foreign = newTable();
-      let found = true;
-      const fetch = vi.fn(async () => {
-        if (!found) throw new NotFoundError("thing not found");
-        table.ingest("a", rec("a", 6));
-        return ["a"];
+      const fetch = vi.fn(async (): Promise<string[]> => {
+        throw new NotFoundError("thing not found");
       });
       const answers = new space.Space<Q, number, string, Rec>({
         name: "thing",
@@ -1219,14 +1218,13 @@ describe("Answers", () => {
         single: true,
         triggers: [query.trigger(foreign, () => "refetch")],
       });
-      const handler = vi.fn();
-      answers.onChange(qA, handler);
-      await answers.retrieve(qA);
-      found = false;
+      table.set("a", rec("a", 6));
+      answers.onChange(qA, vi.fn());
       foreign.set("f", rec("f", 1));
-      await expect.poll(() => table.status("a")).toEqual("tombstoned");
-      expect(expectDeleted(answers.getCached(qA)).corpse).toEqual(6);
-      expect(expectDeleted(handler.mock.lastCall?.[0]).corpse).toEqual(6);
+      await expect.poll(() => fetch.mock.calls.length).toBeGreaterThan(0);
+      await sleep.sleep(TimeSpan.milliseconds(10));
+      expect(table.status("a")).toEqual("present");
+      expect(answers.getCached(qA)).toEqual(6);
     });
 
     it("keeps a deleted one-record answer when a refetch finds nothing", async () => {
