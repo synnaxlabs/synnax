@@ -16,6 +16,7 @@ import (
 
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -62,7 +63,11 @@ func (h *Host) Create(cfg node.Config) (node.Node, error) {
 	for _, p := range cfg.Node.Inputs {
 		switch {
 		case p.Name == PrimaryParam:
-			primary = int(types.DecodeValue(p.Value, p.Type).(int64))
+			v, ok := types.DecodeValue(p.Value, p.Type).(int64)
+			if !ok {
+				return nil, errors.Newf("join param %s is not an i64", PrimaryParam)
+			}
+			primary = int(v)
 		case strings.HasPrefix(p.Name, arrivalPrefix):
 		default:
 			idx, err := cfg.State.ResolveInput(p.Name)

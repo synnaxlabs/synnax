@@ -75,7 +75,7 @@ func (g Group) Next(
 		}
 		output = next
 		changed = changed || changedLocal
-		if c.Dropped() > 0 {
+		if c.dropped() > 0 {
 			c.failed = true
 			if !c.stale {
 				c.stale = report(

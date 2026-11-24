@@ -165,9 +165,9 @@ func Open(ctx context.Context, cfgs ...Config) (_ *Calculator, err error) {
 	return c, nil
 }
 
-// Dropped returns the number of primary stamps that the join gave no output since the
+// dropped returns the number of primary stamps that the join gave no output since the
 // last call.
-func (c *Calculator) Dropped() int {
+func (c *Calculator) dropped() int {
 	if c.join == nil {
 		return 0
 	}

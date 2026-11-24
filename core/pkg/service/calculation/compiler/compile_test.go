@@ -215,7 +215,7 @@ var _ = Describe("Join", func() {
 		})
 	}
 	joinOf := func(mod compiler.Module) (ir.Node, bool) {
-		for _, n := range mod.IR.Nodes {
+		for _, n := range mod.Nodes {
 			if n.Type == compiler.JoinType {
 				return n, true
 			}

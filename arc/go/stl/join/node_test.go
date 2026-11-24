@@ -32,17 +32,16 @@ const nodeType = "join_spec"
 // joinSetup is a join node of two f64 inputs, a and b, whose primary is a.
 type joinSetup struct {
 	state *node.ProgramState
-	n     node.Node
+	n     *join.Node
 	// now is the arrival clock of the join.
 	now telem.TimeStamp
 	// self counts the calls to MarkSelfChanged.
 	self int
 }
 
-// openJoin opens a join of a and b with a as the primary, and b pairing by arrival when
-// arrival is set.
-func openJoin(ctx SpecContext, arrival bool) *joinSetup {
-	GinkgoHelper()
+// joinParams returns the params of a join of a and b with a as the primary, and b
+// pairing by arrival when arrival is set.
+func joinParams(arrival bool) types.Params {
 	inputs := types.Params{
 		{Name: join.InputParam(0), Type: types.F64()},
 		{Name: join.InputParam(1), Type: types.F64()},
@@ -54,24 +53,17 @@ func openJoin(ctx SpecContext, arrival bool) *joinSetup {
 			Value: uint8(1),
 		})
 	}
-	inputs = append(inputs, types.Param{
+	return append(inputs, types.Param{
 		Name:  join.PrimaryParam,
 		Type:  types.I64(),
 		Value: int64(0),
 	})
-	sym := &symbol.Symbol{
-		Name: nodeType,
-		Kind: symbol.KindFunction,
-		Exec: symbol.ExecFlow,
-		Type: types.Function(types.FunctionProperties{
-			Inputs: inputs,
-			Outputs: types.Params{
-				{Name: join.OutputParam(0), Type: types.F64()},
-				{Name: join.OutputParam(1), Type: types.F64()},
-			},
-		}),
-	}
-	g := graph.Graph{
+}
+
+// joinGraph returns a graph that feeds sources a and b to a join with inputs.
+func joinGraph() graph.Graph {
+	output := types.Params{{Name: ir.DefaultOutputParam, Type: types.F64()}}
+	return graph.Graph{
 		Nodes: []graph.Node{{Key: "a"}, {Key: "b"}, {Key: "join"}},
 		Inputs: map[string]msgpack.EncodedJSON{
 			"a":    {"type": "a"},
@@ -89,25 +81,40 @@ func openJoin(ctx SpecContext, arrival bool) *joinSetup {
 			},
 		},
 		Functions: []ir.Function{
-			{
-				Key:     "a",
-				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.F64()}},
-			},
-			{
-				Key:     "b",
-				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.F64()}},
-			},
+			{Key: "a", Outputs: output},
+			{Key: "b", Outputs: output},
 		},
 	}
-	analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil, *sym))
+}
+
+// openJoin opens a join of a and b with a as the primary, and b pairing by arrival when
+// arrival is set.
+func openJoin(ctx SpecContext, arrival bool) *joinSetup {
+	GinkgoHelper()
+	inputs := joinParams(arrival)
+	sym := symbol.Symbol{
+		Name: nodeType,
+		Kind: symbol.KindFunction,
+		Exec: symbol.ExecFlow,
+		Type: types.Function(types.FunctionProperties{
+			Inputs: inputs,
+			Outputs: types.Params{
+				{Name: join.OutputParam(0), Type: types.F64()},
+				{Name: join.OutputParam(1), Type: types.F64()},
+			},
+		}),
+	}
+	analyzed, diagnostics := graph.Analyze(ctx, joinGraph(), NewGraphRoot(nil, sym))
 	Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 	j := &joinSetup{state: node.New(analyzed)}
 	h := join.NewHost(nodeType, func() telem.TimeStamp { return j.now })
-	j.n = MustSucceed(h.Create(node.Config{
+	n := MustSucceed(h.Create(node.Config{
 		Node:    ir.Node{Key: "join", Type: nodeType, Inputs: inputs},
 		State:   j.state.Node("join"),
 		Program: program.Program{IR: analyzed},
 	}))
+	Expect(n).To(BeAssignableToTypeOf(&join.Node{}))
+	j.n, _ = n.(*join.Node)
 	return j
 }
 
@@ -171,7 +178,7 @@ var _ = Describe("Node", func() {
 		}
 		Expect(bTime).To(MatchSeriesData(telem.NewSeriesSecondsTSV(2, 3, 4)))
 		Expect(j.self).To(BeZero())
-		Expect(j.n.(*join.Node).Dropped()).To(BeZero())
+		Expect(j.n.Dropped()).To(BeZero())
 	})
 
 	It("Should emit each run after a gap on its own step", func(ctx SpecContext) {
@@ -201,13 +208,13 @@ var _ = Describe("Node", func() {
 		// The join settles once 3 times the median frame gap passes from the primary's
 		// first frame to its last: on the fourth frame of frames 1 s apart.
 		for i := range 4 {
-			Expect(j.n.(*join.Node).Dropped()).To(BeZero())
+			Expect(j.n.Dropped()).To(BeZero())
 			j.now += telem.SecondTS
 			j.push("a", telem.Alignment(i), []float64{1}, telem.TimeStamp(i+1))
 			Expect(j.next(ctx)).To(BeEmpty())
 		}
-		Expect(j.n.(*join.Node).Dropped()).To(Equal(1))
-		Expect(j.n.(*join.Node).Dropped()).To(BeZero())
+		Expect(j.n.Dropped()).To(Equal(1))
+		Expect(j.n.Dropped()).To(BeZero())
 	})
 
 	It("Should pair an arrival input whatever stamps it carries", func(

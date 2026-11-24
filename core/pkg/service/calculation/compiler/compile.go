@@ -357,19 +357,7 @@ func addReads(
 			)
 			continue
 		}
-		in, out := join.InputParam(i), join.OutputParam(i)
-		props.Inputs = append(props.Inputs, types.Param{Name: in, Type: elem})
-		props.Outputs = append(props.Outputs, types.Param{Name: out, Type: elem})
-		addEdge(
-			g,
-			ir.Handle{Node: sym.Name, Param: ir.DefaultOutputParam},
-			ir.Handle{Node: joinKey, Param: in},
-		)
-		addEdge(
-			g,
-			ir.Handle{Node: joinKey, Param: out},
-			ir.Handle{Node: calculationKey, Param: sym.Name},
-		)
+		joinRead(g, &props, i, sym.Name, elem)
 		switch {
 		case virtual.Contains(k):
 			arrivals = append(arrivals, types.Param{
@@ -391,6 +379,16 @@ func addReads(
 		)
 	}
 	props.Inputs = append(props.Inputs, arrivals...)
+	return addJoin(g, props, primaryIdx), nil
+}
+
+// addJoin adds the join node to g, and returns the symbol of its type, with the
+// params of props and the primary at input primaryIdx.
+func addJoin(
+	g *arc.Graph,
+	props types.FunctionProperties,
+	primaryIdx int,
+) *symbol.Symbol {
 	props.Inputs = append(props.Inputs, types.Param{
 		Name:  join.PrimaryParam,
 		Type:  types.I64(),
@@ -402,7 +400,31 @@ func addReads(
 		Kind: symbol.KindFunction,
 		Exec: symbol.ExecFlow,
 		Type: types.Function(props),
-	}, nil
+	}
+}
+
+// joinRead wires the read node named name into input i of the join, and output i of the
+// join into the calculation, adding both params of type elem to props.
+func joinRead(
+	g *arc.Graph,
+	props *types.FunctionProperties,
+	i int,
+	name string,
+	elem types.Type,
+) {
+	in, out := join.InputParam(i), join.OutputParam(i)
+	props.Inputs = append(props.Inputs, types.Param{Name: in, Type: elem})
+	props.Outputs = append(props.Outputs, types.Param{Name: out, Type: elem})
+	addEdge(
+		g,
+		ir.Handle{Node: name, Param: ir.DefaultOutputParam},
+		ir.Handle{Node: joinKey, Param: in},
+	)
+	addEdge(
+		g,
+		ir.Handle{Node: joinKey, Param: out},
+		ir.Handle{Node: calculationKey, Param: name},
+	)
 }
 
 func compile(
