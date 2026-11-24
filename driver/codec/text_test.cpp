@@ -116,6 +116,22 @@ TEST(Text, DecodeTagged) {
     EXPECT_EQ(value(dec, 0, 1), 101.3);
 }
 
+/// @brief it should give each tagged item to the field with the longest tag that starts
+/// it, bound or not.
+TEST(Text, DecodeLongestTag) {
+    const auto t = tagged("t", "T");
+    const auto te = tagged("te", "TE");
+    auto both = ASSERT_NIL_P(Text::create({message("line", {t, te})}));
+    ASSERT_NIL_P(both.decode("TE5,T3"));
+    EXPECT_EQ(value(both, 0, 0), 3);
+    EXPECT_EQ(value(both, 0, 1), 5);
+    auto m = message("line", {t, te});
+    m.bindings.pop_back();
+    auto one = ASSERT_NIL_P(Text::create({m}));
+    ASSERT_NIL_P(one.decode("TE5,T3"));
+    EXPECT_EQ(value(one, 0, 0), 3);
+}
+
 /// @brief it should trim spaces, tabs, and carriage returns around a value.
 TEST(Text, DecodeTrimmed) {
     auto dec = ASSERT_NIL_P(Text::create({message("line", {at("a", 0), at("b", 1)})}));
@@ -416,6 +432,17 @@ TEST(TextEncoder, EncodeTagged) {
     );
     EXPECT_EQ(line, "1,T=21.5,H=40");
     assert_decodes(m, line, {21.5, 1, 40});
+}
+
+/// @brief it should write a tag that starts another tag, and read both back.
+TEST(TextEncoder, EncodeOverlappingTags) {
+    const auto m = message("cmd", {tagged("te", "TE"), tagged("t", "T")});
+    const auto line = encode(
+        m,
+        series_of(x::telem::Series(5.0), x::telem::Series(3.0))
+    );
+    EXPECT_EQ(line, "TE5,T3");
+    assert_decodes(m, line, {5, 3});
 }
 
 /// @brief it should write the shortest text that reads back as each sample, at the

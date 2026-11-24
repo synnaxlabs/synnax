@@ -273,7 +273,6 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.SecretGrantCreate = noop.UnaryServer[apisecret.GrantCreateRequest, apisecret.GrantCreateResponse]{}
 
 	// CERTIFICATE
-	t.CertificateDelete = noop.UnaryServer[apicertificate.DeleteRequest, struct{}]{}
 	t.CertificateDispatch = noop.UnaryServer[apicertificate.DispatchRequest, struct{}]{}
 
 	// IMPORT/EXPORT
