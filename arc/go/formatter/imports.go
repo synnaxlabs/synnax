@@ -125,6 +125,21 @@ func removeStatement(stmt antlr.ParserRuleContext) protocol.TextEdit {
 	}
 }
 
+// RemoveToken returns the edit that removes t and the white space after it.
+func RemoveToken(t antlr.Token) protocol.TextEdit {
+	end := endOf(t)
+	for i := t.GetStop() + 1; ; i++ {
+		switch t.GetInputStream().GetText(i, i) {
+		case " ", "\t", "\r":
+			end.Character++
+		case "\n":
+			end = protocol.Position{Line: end.Line + 1}
+		default:
+			return protocol.TextEdit{Range: protocol.Range{Start: startOf(t), End: end}}
+		}
+	}
+}
+
 func startOf(t antlr.Token) protocol.Position {
 	return protocol.Position{
 		Line:      uint32(t.GetLine() - 1),

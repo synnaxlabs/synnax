@@ -113,3 +113,31 @@ var _ = Describe("RemoveImport", func() {
 		),
 	)
 })
+
+// applied returns source with edit made.
+func applied(source string, edit protocol.TextEdit) string {
+	return xlsp.ApplyIncrementalChange(
+		source,
+		&protocol.TextDocumentContentChangePartial{
+			Range: edit.Range,
+			Text:  edit.NewText,
+		},
+	)
+}
+
+var _ = Describe("RemoveToken", func() {
+	DescribeTable("Should remove the token and the white space after it",
+		func(source, expected string) {
+			token := MustSucceed(parser.Parse(source)).
+				TopLevelItem(0).
+				StageDeclaration().
+				IDENTIFIER().
+				GetSymbol()
+			Expect(applied(source, formatter.RemoveToken(token))).To(Equal(expected))
+		},
+		Entry("with a space after it", "stage s {}", "stage {}"),
+		Entry("with no space after it", "stage s{}", "stage {}"),
+		Entry("with a newline after it", "stage s\n  {}", "stage {}"),
+		Entry("with a comment after it", "stage s // c\n{}", "stage // c\n{}"),
+	)
+})
