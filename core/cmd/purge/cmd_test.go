@@ -51,12 +51,17 @@ var _ = Describe("Purge", func() {
 			IsIndex:  true,
 			DataType: telem.TimestampT,
 		})).To(Succeed())
-		Expect(l.TS.WriteSeries(
-			ctx,
+		w := MustSucceed(l.TS.OpenWriter(ctx, cesium.WriterConfig{
+			Channels: []cesium.ChannelKey{uint32(key)},
+			Clock:    uint32(key),
+			Start:    10 * telem.SecondTS,
+		}))
+		MustSucceed2(w.Write(ctx, telem.UnaryFrame(
 			uint32(key),
-			10*telem.SecondTS,
 			telem.NewSeriesSecondsTSV(10, 11, 12),
-		)).To(Succeed())
+		), nil))
+		MustSucceed2(w.Commit(ctx, nil))
+		Expect(w.Close()).To(Succeed())
 	}
 	BeforeEach(func(ctx SpecContext) {
 		dir = GinkgoT().TempDir()

@@ -7,19 +7,45 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Serves the consumer project at argv[2] and loads two pages in Chromium, Firefox, and
-// WebKit: a Vite bundle, and importmap.html, which loads the packed files with no
-// bundler.
+// Serves the consumer project at argv[2] and loads four pages in Chromium, Firefox, and
+// WebKit: a Vite, an esbuild, and a webpack bundle, and importmap.html, which loads the
+// packed files with no bundler.
 
-import { readFile } from "node:fs/promises";
+import { copyFile, readFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { extname, join } from "node:path";
 
+import { build as esbuild } from "esbuild";
 import { chromium, firefox, webkit } from "playwright";
 import { build } from "vite";
+import webpack from "webpack";
 
 const root = process.argv[2];
 await build({ root, base: "./", logLevel: "error" });
+await esbuild({
+  entryPoints: [join(root, "smoke.mjs")],
+  bundle: true,
+  format: "esm",
+  outfile: join(root, "esbuild", "smoke.mjs"),
+  logLevel: "error",
+});
+const stats = await new Promise((resolve, reject) =>
+  webpack(
+    {
+      mode: "production",
+      target: "web",
+      context: root,
+      entry: "./smoke.mjs",
+      output: { path: join(root, "webpack"), filename: "smoke.mjs", module: true },
+      experiments: { outputModule: true },
+      performance: { hints: false },
+    },
+    (err, stats) => (err == null ? resolve(stats) : reject(err)),
+  ),
+);
+if (stats.hasErrors()) throw new Error(stats.toString("errors-only"));
+for (const bundler of ["esbuild", "webpack"])
+  await copyFile(join(root, "index.html"), join(root, bundler, "index.html"));
 
 const TYPES = {
   ".html": "text/html",
@@ -47,7 +73,13 @@ try {
   for (const type of [chromium, firefox, webkit]) {
     const browser = await type.launch();
     try {
-      for (const page of ["dist/index.html", "importmap.html"]) {
+      const pages = [
+        "dist/index.html",
+        "esbuild/index.html",
+        "webpack/index.html",
+        "importmap.html",
+      ];
+      for (const page of pages) {
         const tab = await browser.newPage();
         await tab.addInitScript((env) => (globalThis.smokeEnv = env), env);
         const failed = new Promise((_, reject) => {

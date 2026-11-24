@@ -700,6 +700,27 @@ var _ = Describe("Python Types Plugin", func() {
 			},
 		)
 
+		It("Should keep wide integer enum values and a non-first default", func() {
+			source := `
+				@py output "out"
+
+				BaudRate enum {
+					baud_1200 = 1200
+					baud_19200 = 19200
+					baud_230400 = 230400
+				}
+
+				Connection struct {
+					baud_rate BaudRate = baud_19200
+				}
+			`
+			resp := MustGenerate(source, "serial", loader, typesPlugin)
+			ExpectContent(resp, "types_gen.py").
+				ToContain("class BaudRate(IntEnum):").
+				ToContain("baud_230400 = 230400").
+				ToContain("baud_rate: BaudRate = BaudRate.baud_19200")
+		})
+
 		It("Should generate IntEnum for integer enums", func() {
 			source := `
 				@py output "out"
@@ -2737,6 +2758,45 @@ var _ = Describe("Python Types Plugin", func() {
 						`from_: str = Field(alias="from")`,
 						`name: str`,
 						`model_config = ConfigDict(populate_by_name=True)`,
+					)
+			})
+
+			DescribeTable("Should escape a field that shadows a BaseModel attribute",
+				func(field string) {
+					source := `
+					@py output "out"
+
+					Example struct {
+						` + field + ` string
+						name string
+					}
+				`
+					resp := MustGenerate(source, "example", loader, typesPlugin)
+					ExpectContent(resp, "types_gen.py").
+						ToContain(
+							field+`_: str = Field(alias="`+field+`")`,
+							`name: str`,
+							`model_config = ConfigDict(populate_by_name=True)`,
+						)
+				},
+				Entry("an ABCMeta method", "register"),
+				Entry("a deprecated v1 method", "validate"),
+				Entry("a model attribute", "model_config"),
+			)
+
+			It("Should clear the protected namespaces of a model_dump field", func() {
+				source := `
+					@py output "out"
+
+					Example struct {
+						model_dump string
+					}
+				`
+				resp := MustGenerate(source, "example", loader, typesPlugin)
+				ExpectContent(resp, "types_gen.py").
+					ToContain(
+						`model_dump_: str = Field(alias="model_dump")`,
+						`model_config = ConfigDict(populate_by_name=True, protected_namespaces=())`,
 					)
 			})
 		})

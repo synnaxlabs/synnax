@@ -2,8 +2,8 @@
 title: "Requirements"
 heading: "Synnax Enterprise requirements"
 description:
-  "Operating systems, hardware, and network for the Synnax Core, the Console, and the
-  Driver."
+  "Operating systems, CPU architectures, hardware, and network for the Synnax Core, the
+  Console, the Driver, and the client libraries."
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
@@ -11,20 +11,34 @@ import { Note } from "@/components/note";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-This page lists what the Synnax Core, the Synnax Console, and the standalone Synnax
-Driver need to run.
+This page lists what the Synnax Core, the Synnax Console, the standalone Synnax Driver,
+the Synnax Python client, and the Synnax TypeScript client need to run.
+
+<Divider.Divider x />
+
+## One Core per deployment
+
+A deployment has one Core. Cores do not form a cluster, so you cannot spread data or
+load across more than one Core. Size the computer of the Core for the full workload, as
+[Core hardware](#core-hardware) shows.
 
 <Divider.Divider x />
 
 ## Operating systems
 
-|                    | Linux                | Windows    | macOS         |
-| ------------------ | -------------------- | ---------- | ------------- |
-| Core               | x86-64               | x86-64     | Apple silicon |
-| Core in Docker     | `linux/amd64` image  | Docker     | Docker        |
-| Console app        | No                   | Windows 11 | macOS Sequoia |
-| Console in browser | Yes                  | Yes        | Yes           |
-| Standalone Driver  | Yes, and NI Linux RT | Yes        | Yes           |
+|                    | Linux                          | Windows                | macOS                        |
+| ------------------ | ------------------------------ | ---------------------- | ---------------------------- |
+| Core               | x86-64                         | x86-64                 | Apple silicon                |
+| Core in Docker     | `linux/amd64` image            | Docker                 | Docker                       |
+| Console app        | No                             | Windows 11, x86-64     | macOS Sequoia, Apple silicon |
+| Console in browser | Yes                            | Yes                    | Yes                          |
+| Standalone Driver  | x86-64, and NI Linux RT x86-64 | x86-64                 | Apple silicon                |
+| Python client      | Python 3.13 or later           | Python 3.13 or later   | Python 3.13 or later         |
+| TypeScript client  | Node.js 22.12 or later         | Node.js 22.12 or later | Node.js 22.12 or later       |
+
+There are no builds of the Core, the Driver, or the Console app for ARM Linux, Windows
+on ARM, or Intel Macs. On NI Linux RT, the Driver runs only on x86-64 cRIOs. We test it
+on a cRIO-9041. ARM cRIOs, such as the cRIO-906x series, are not supported.
 
 We test the Console app on Windows 11 and macOS Sequoia. Older versions can work, but we
 do not test them. On macOS, the Console app needs macOS Monterey or later with Safari
@@ -37,6 +51,26 @@ distribution, start the Core with `--no-driver` and run a
 
 The device integrations differ by operating system. To see which ones run where, see
 [supported integrations](/reference/hardware#supported-integrations).
+
+### Docker images
+
+The Core image is for `linux/amd64` only. It is on Docker Hub as `synnaxlabs/synnax` and
+on GitHub Container Registry as `ghcr.io/synnaxlabs/synnax`. Both have the same tags:
+
+- **A version, such as `0.62.0`** -> that release.
+- **`latest`** -> the newest stable release.
+- **`next`** -> the newest release candidate. After a stable release, it can be older
+  than `latest`.
+
+### Client libraries
+
+The Python client is pure Python. We test it on Python 3.13, 3.14, and 3.15, as
+[SPEC 0](https://scientific-python.org/specs/spec-0000/) sets. It runs on each computer
+where its dependencies, such as NumPy and pandas, have wheels, ARM Linux included.
+
+The TypeScript client is an ES module only, with no CommonJS build. It also runs in
+browsers, Deno, and Bun. To see the versions for each, see
+[languages](/reference/client#languages).
 
 <Divider.Divider x />
 

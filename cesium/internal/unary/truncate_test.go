@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/json"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -93,7 +94,7 @@ var _ = Describe("TruncateToIndex", func() {
 					Expect(dataDB.TruncateToIndex(ctx)).To(Succeed())
 					frame := MustSucceed(ReadUnary(ctx, dataDB, tr))
 					Expect(frame.Count()).To(Equal(1))
-					Expect(frame.SeriesAt(0)).To(telem.MatchSeriesData(expected))
+					Expect(frame.SeriesAt(0)).To(MatchSeriesData(expected))
 					Expect(frame.SeriesAt(0).TimeRange).To(Equal(
 						(10 * telem.SecondTS).Range(14 * telem.SecondTS),
 					))
@@ -396,7 +397,7 @@ var _ = Describe("TruncateToIndex", func() {
 				frame := MustSucceed(ReadUnary(ctx, dataDB, tr))
 				Expect(frame.Count()).To(Equal(1))
 				Expect(frame.SeriesAt(0)).To(
-					telem.MatchSeriesData(telem.NewSeriesV[int64](1, 2, 3)),
+					MatchSeriesData(telem.NewSeriesV[int64](1, 2, 3)),
 				)
 			})
 
@@ -410,7 +411,7 @@ var _ = Describe("TruncateToIndex", func() {
 				Expect(indexDB.TruncateToIndex(ctx)).To(Succeed())
 				frame := MustSucceed(ReadUnary(ctx, indexDB, tr))
 				Expect(frame.SeriesAt(0)).To(
-					telem.MatchSeriesData(telem.NewSeriesSecondsTSV(10, 11, 12)),
+					MatchSeriesData(telem.NewSeriesSecondsTSV(10, 11, 12)),
 				)
 			})
 		})
