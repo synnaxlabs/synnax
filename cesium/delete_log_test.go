@@ -27,6 +27,7 @@ import (
 	. "github.com/synnaxlabs/cesium/internal/testutil"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -139,6 +140,7 @@ var _ = Describe("Delete on the pointer log", func() {
 		GinkgoHelper()
 		w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 			Channels: keys,
+			Clock:    idx,
 			Start:    seconds[0] * telem.SecondTS,
 		}))
 		MustSucceed2(w.Write(ctx, frame(seconds...), nil))
@@ -166,6 +168,67 @@ var _ = Describe("Delete on the pointer log", func() {
 	span := func(start, end telem.TimeStamp) telem.TimeRange {
 		return (start * telem.SecondTS).Range(end * telem.SecondTS)
 	}
+
+	It(
+		"Should read every key on a clock from one state in each read step, so a delete "+
+			"between two steps shows in the second",
+		func(ctx SpecContext) {
+			more := GenerateChannelKey()
+			Expect(db.CreateChannel(ctx, cesium.Channel{
+				Key: more, Name: "more", Index: idx, DataType: telem.Int64T,
+			})).To(Succeed())
+			seconds := make([]telem.TimeStamp, 10)
+			ints := make([]int64, 10)
+			for i := range seconds {
+				seconds[i], ints[i] = telem.TimeStamp(10+i), int64(10+i)
+			}
+			all := []cesium.ChannelKey{idx, data, more}
+			w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+				Channels: all,
+				Clock:    idx,
+				Start:    10 * telem.SecondTS,
+			}))
+			MustSucceed2(w.Write(ctx, telem.MultiFrame(all, []telem.Series{
+				telem.NewSeriesSecondsTSV(seconds...),
+				telem.NewSeries(ints),
+				telem.NewSeries(ints),
+			}), nil))
+			MustSucceed2(w.Commit(ctx, nil))
+			Expect(w.Close()).To(Succeed())
+			iter := MustSucceed(db.OpenIterator(cesium.IteratorConfig{
+				Bounds:   telem.TimeRangeMax,
+				Channels: []cesium.ChannelKey{data, more},
+			}))
+			DeferCleanup(func() { Expect(iter.Close()).To(Succeed()) })
+			// step returns the values of each key in the next span. Each value is the
+			// second of its stamp, so a key whose samples and stamps came from two
+			// states returns
+			// values outside the span.
+			step := func(span telem.TimeSpan) map[cesium.ChannelKey][]int64 {
+				GinkgoHelper()
+				Expect(iter.Next(span)).To(BeTrue())
+				out := make(map[cesium.ChannelKey][]int64)
+				for _, key := range []cesium.ChannelKey{data, more} {
+					for _, se := range iter.Value().Get(key).Series {
+						for i := range int(se.Len()) {
+							out[key] = append(out[key], se.ValueAt[int64](i))
+						}
+					}
+				}
+				return out
+			}
+			Expect(iter.SeekFirst()).To(BeTrue())
+			Expect(step(3 * telem.Second)).To(Equal(map[cesium.ChannelKey][]int64{
+				data: {10, 11, 12},
+				more: {10, 11, 12},
+			}))
+			Expect(db.DeleteTimeRange(ctx, all, span(13, 16))).To(Succeed())
+			Expect(step(7 * telem.Second)).To(Equal(map[cesium.ChannelKey][]int64{
+				data: {16, 17, 18, 19},
+				more: {16, 17, 18, 19},
+			}))
+		},
+	)
 
 	It("Should delete a range from the middle of the data of a key", func(
 		ctx SpecContext,
@@ -225,6 +288,7 @@ var _ = Describe("Delete on the pointer log", func() {
 		})).To(Succeed())
 		w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 			Channels: []cesium.ChannelKey{idx, text},
+			Clock:    idx,
 			Start:    10 * telem.SecondTS,
 		}))
 		MustSucceed2(w.Write(ctx, telem.MultiFrame(
@@ -240,8 +304,8 @@ var _ = Describe("Delete on the pointer log", func() {
 			To(Succeed())
 		series := MustSucceed(db.Read(ctx, telem.TimeRangeMax, text)).Get(text).Series
 		Expect(series).To(HaveLen(2))
-		Expect(series[0]).To(telem.MatchSeriesDataV("a"))
-		Expect(series[1]).To(telem.MatchSeriesDataV("dddd"))
+		Expect(series[0]).To(MatchSeriesDataV("a"))
+		Expect(series[1]).To(MatchSeriesDataV("dddd"))
 	})
 
 	DescribeTable(
@@ -291,6 +355,7 @@ var _ = Describe("Delete on the pointer log", func() {
 		}
 		w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 			Channels: []cesium.ChannelKey{idx, text},
+			Clock:    idx,
 			Start:    stamps[0],
 		}))
 		MustSucceed2(w.Write(ctx, telem.MultiFrame(
@@ -358,9 +423,7 @@ var _ = Describe("Delete on the pointer log", func() {
 				Channels: []cesium.ChannelKey{data},
 			}))
 			Expect(iter.SeekFirst()).To(BeTrue())
-			Expect(
-				db.Drop(context.Background(), []cesium.ChannelKey{data}),
-			).To(Succeed())
+			Expect(db.Drop(ctx, []cesium.ChannelKey{data})).To(Succeed())
 			var got []int64
 			for iter.Next(cesium.AutoSpan) {
 				for _, s := range iter.Value().Get(data).Series {
@@ -383,6 +446,7 @@ var _ = Describe("Delete on the pointer log", func() {
 			write(ctx, 10, 11, 12, 13)
 			w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 				Channels: keys,
+				Clock:    idx,
 				Start:    30 * telem.SecondTS,
 			}))
 			tr := span(12, 15)

@@ -41,10 +41,6 @@ func (p MovePayload) Handle(u User) (User, error) {
 	return edit(u, patch.Move(p).Apply)
 }
 
-// Handle returns u unchanged, as the username lives on the user's password.
-// Writer.Apply renames the password.
-func (SetUsernamePayload) Handle(u User) (User, error) { return u, nil }
-
 // document is the part of a user that path actions edit.
 type document struct {
 	Name string   `json:"name"`

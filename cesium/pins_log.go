@@ -10,6 +10,7 @@
 package cesium
 
 import (
+	"slices"
 	"sync"
 
 	"github.com/synnaxlabs/cesium/internal/state"
@@ -25,57 +26,59 @@ type pins struct {
 	dead    map[uint64]ChannelKey
 }
 
-// loadView returns the visible Channels of key and of its clock from one step of the
-// state, and pins each of their segments under the same lock that release takes, so
-// release never unlinks a segment that a Channel it returned still names. It unpins
-// held, the segments of an earlier load, and returns the segments it pinned, in buf
-// when it has room. buf must not share an array with held.
+// loadView sets each of chs to the visible Channel of the key of keys at its index,
+// from one step of the state, and pins each of their segments under the same lock that
+// release takes, so release never unlinks a segment that a Channel it returned still
+// names. It pins a key that keys names twice once. It unpins held, the segments of an
+// earlier load, and returns the segments it pinned, in buf when it has room. buf must
+// not share an array with held.
 func (e *engine) loadView(
-	key, clock ChannelKey,
+	keys []ChannelKey,
+	chs []*state.Channel,
 	held, buf []uint64,
-) (ch, clocks *state.Channel, ids []uint64, err error) {
+) (ids []uint64, err error) {
 	for {
-		var count uint64
-		ch, clocks, count = e.state.Pair(key, clock)
+		count := e.state.Load(keys, chs)
 		e.pins.mu.Lock()
 		// A segment leaves the state only on a step that publishes, so with the count
-		// unchanged, release has unlinked no segment of ch or clocks.
+		// unchanged, release has unlinked no segment of chs.
 		if e.state.Unchanged(count) {
 			break
 		}
 		e.pins.mu.Unlock()
 	}
-	if clock == key {
-		clocks = nil
-	}
 	n := 0
-	if ch != nil {
-		n += len(ch.Segments)
-	}
-	if clocks != nil {
-		n += len(clocks.Segments)
+	for _, ch := range chs {
+		if ch != nil {
+			n += len(ch.Segments)
+		}
 	}
 	ids = buf[:0]
 	if cap(ids) < n {
 		ids = make([]uint64, 0, n)
 	}
-	if ch != nil {
+	for i, ch := range chs {
+		if ch == nil || slices.Contains(keys[:i], keys[i]) {
+			continue
+		}
 		for _, seg := range ch.Segments {
 			ids = append(ids, seg.ID)
 		}
 	}
-	if clocks != nil {
-		for _, seg := range clocks.Segments {
-			ids = append(ids, seg.ID)
-		}
-	}
-	if clock == key {
-		clocks = ch
-	}
 	e.pins.pin(ids)
 	free := e.pins.unpin(held)
 	e.pins.mu.Unlock()
-	return ch, clocks, ids, e.unlink(free)
+	return ids, e.unlink(free)
+}
+
+// repin pins ids and unpins held under one lock, and unlinks each dead segment that no
+// reader pins after it.
+func (e *engine) repin(held, ids []uint64) error {
+	e.pins.mu.Lock()
+	e.pins.pin(ids)
+	free := e.pins.unpin(held)
+	e.pins.mu.Unlock()
+	return e.unlink(free)
 }
 
 // pin pins segment id for a reader.

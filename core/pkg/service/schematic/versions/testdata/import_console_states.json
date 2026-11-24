@@ -1,0 +1,18 @@
+{
+  "version": "6.0.0",
+  "type": "schematic",
+  "name": "Valve panel",
+  "snapshot": false,
+  "nodes": [{ "key": "mode", "position": { "x": 0, "y": 0 } }],
+  "edges": [],
+  "configs": {
+    "mode": {
+      "variant": "select",
+      "label": { "label": "Mode" },
+      "options": [
+        { "key": "off", "name": "Off", "value": 0, "color": "#ff0000" },
+        { "key": "on", "name": "On", "value": 1, "color": "#00ff00" }
+      ]
+    }
+  }
+}

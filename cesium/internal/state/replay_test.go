@@ -212,6 +212,20 @@ var _ = Describe("Replay", func() {
 		},
 	)
 
+	It("Should show readers the replayed state at EndReplay, before Run", func() {
+		Expect(s.Channel(9)).To(BeNil())
+		Expect(s.Replay(10, []log.Record{
+			create(7, 9, 5),
+			commit(2, 3, 0, 60, 70, slot(7, 8)),
+		})).To(Succeed())
+		Expect(s.Channel(9)).To(BeNil())
+		s.EndReplay()
+		Expect(s.Channel(9).Segments).To(HaveLen(1))
+		Expect(s.Channel(9).Segments[0].Pointers).To(HaveLen(1))
+		run(s)
+		Expect(s.Channel(9).Segments[0].Pointers).To(HaveLen(1))
+	})
+
 	It("Should seal every open segment at a restart", func() {
 		Expect(replay(&log.Restart{})).To(Succeed())
 		run(s)

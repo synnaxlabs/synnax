@@ -51,6 +51,7 @@ var _ = Describe("Writer Commit with a skip", func() {
 				w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 					Channels: append([]cesium.ChannelKey{index}, data...),
 					Start:    10 * telem.SecondTS,
+					Clock:    index,
 				}))
 				series := make([]telem.Series, 0, 1+len(data))
 				series = append(series, telem.NewSeriesSecondsTSV(10, 11, 12, 13))
@@ -108,6 +109,7 @@ var _ = Describe("Writer Write with a skip", func() {
 		)).To(Succeed())
 		w = MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 			Channels: []cesium.ChannelKey{index, data},
+			Clock:    index,
 			Start:    10 * telem.SecondTS,
 		}))
 		fr = telem.MultiFrame([]cesium.ChannelKey{index, data}, []telem.Series{
