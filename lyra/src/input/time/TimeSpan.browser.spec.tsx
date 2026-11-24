@@ -8,14 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { act, fireEvent, render, screen } from "@testing-library/react";
-import { beforeAll, describe, expect, it, vi } from "vitest";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { Dialog } from "@/dialog";
 import { Input } from "@/input";
-import { loadLanguage } from "@/input/time/suggest";
 import { renderThemed } from "@/styletest";
+import { preloadTimeLanguage } from "@/testutil";
 import { Triggers } from "@/triggers";
 
 const HINT = "Try 2h 30min, 1:30:00, 90, or an hour and a half";
@@ -59,7 +59,7 @@ describe("Input.TimeSpan", () => {
     return screen.getByRole<HTMLInputElement>("textbox");
   };
 
-  beforeAll(loadLanguage);
+  preloadTimeLanguage();
 
   it("should not commit an unedited value finer than a microsecond", () => {
     const onChange = vi.fn();
@@ -237,6 +237,141 @@ describe("Input.TimeSpan", () => {
       expect(screen.getByText("Timeout must be 1min or less")).toBeTruthy();
       expect(onChange).not.toHaveBeenCalled();
     });
+  });
+
+  describe("readings", () => {
+    const ns = (span: TimeSpan): number => Number(span.valueOf());
+
+    // Types text into a fresh input and returns its readings and what Enter commits.
+    const edit = (
+      text: string,
+      unit?: TimeSpan,
+    ): { values: string[]; readings: string[]; committed?: number } => {
+      const onChange = vi.fn();
+      const { container } = render(
+        <Input.TimeSpan value={undefined} onChange={onChange} unit={unit} />,
+      );
+      const field = open(container);
+      fireEvent.change(field, { target: { value: text } });
+      const items = screen
+        .queryAllByRole("menuitem")
+        .filter((item) => item.classList.contains("lyra-time-editor__suggestion"));
+      const values = items.map((item) => item.firstElementChild?.textContent ?? "");
+      const readings = items.map((item) => item.lastElementChild?.textContent ?? "");
+      fireEvent.keyDown(field, { key: "Enter" });
+      const committed = onChange.mock.calls[0]?.[0] as number | undefined;
+      cleanup();
+      return { values, readings, committed };
+    };
+
+    it("should parse unit runs", () => {
+      const runs: [string, TimeSpan][] = [
+        ["30s", TimeSpan.seconds(30)],
+        ["2h 30m", TimeSpan.minutes(150)],
+        ["2h30m", TimeSpan.minutes(150)],
+        ["1.5h", TimeSpan.minutes(90)],
+        ["500ms", TimeSpan.milliseconds(500)],
+        ["250us", TimeSpan.microseconds(250)],
+        ["250µs", TimeSpan.microseconds(250)],
+        ["10ns", TimeSpan.nanoseconds(10)],
+        ["2d", TimeSpan.days(2)],
+      ];
+      for (const [text, span] of runs)
+        expect(edit(text).committed, text).toBe(ns(span));
+    });
+
+    it("should parse clock form", () => {
+      expect(edit("1:30:00").committed).toBe(ns(TimeSpan.minutes(90)));
+      expect(edit("0:30").committed).toBe(ns(TimeSpan.minutes(30)));
+      expect(edit("00:00:30.250").committed).toBe(ns(TimeSpan.milliseconds(30250)));
+    });
+
+    it("should treat a bare number as seconds", () => {
+      expect(edit("45").committed).toBe(ns(TimeSpan.seconds(45)));
+      expect(edit("0.5").committed).toBe(ns(TimeSpan.milliseconds(500)));
+    });
+
+    it("should read a bare number in the given unit", () => {
+      expect(edit("250", TimeSpan.MILLISECOND).committed).toBe(
+        ns(TimeSpan.milliseconds(250)),
+      );
+      expect(edit("2s", TimeSpan.MILLISECOND).committed).toBe(ns(TimeSpan.seconds(2)));
+    });
+
+    it("should name the unit of a bare number as its only reading", () => {
+      const { readings, committed } = edit("1000", TimeSpan.MILLISECOND);
+      expect(readings).toEqual(["milliseconds"]);
+      expect(committed).toBe(ns(TimeSpan.SECOND));
+    });
+
+    it("should lead with the grammar's reading", () => {
+      expect(edit("2h 30m").readings[0]).toBe("duration");
+      expect(edit("1:30:00").readings[0]).toBe("duration");
+      expect(edit("45").readings[0]).toBe("seconds");
+    });
+
+    it("should reject text that is not a duration", () => {
+      expect(edit("").committed).toBeUndefined();
+      for (const text of ["soon", "5 parsecs"]) {
+        const { readings, committed } = edit(text);
+        expect(readings, text).toEqual([]);
+        expect(committed, text).toBeUndefined();
+      }
+    });
+
+    it("should throw on a unit it cannot name", () => {
+      const { container } = render(
+        <Input.TimeSpan
+          value={undefined}
+          onChange={vi.fn()}
+          unit={TimeSpan.seconds(2)}
+        />,
+      );
+      const field = open(container);
+      expect(() => fireEvent.change(field, { target: { value: "5" } })).toThrow(
+        "2s is not a unit of time",
+      );
+    });
+
+    it("should read Ms only as megaseconds", () => {
+      const { values, committed } = edit("5Ms");
+      expect(values.length).toBeGreaterThan(0);
+      const label = TimeSpan.seconds(5e6).toString("full");
+      for (const value of values) expect(value).toBe(label);
+      expect(committed).toBe(ns(TimeSpan.seconds(5e6)));
+    });
+
+    it("should read natural language durations", () => {
+      const phrases: [string, TimeSpan][] = [
+        ["an hour and a half", TimeSpan.minutes(90)],
+        ["half an hour", TimeSpan.minutes(30)],
+        ["2 hours and 30 minutes", TimeSpan.minutes(150)],
+        ["five minutes", TimeSpan.minutes(5)],
+      ];
+      for (const [text, span] of phrases)
+        expect(edit(text).committed, text).toBe(ns(span));
+    });
+  });
+
+  it("should round its value to the nearest step on either side of zero", () => {
+    const rounded: [number, TimeSpan | undefined, string][] = [
+      [1600, undefined, "2μs"],
+      [-1000, undefined, "-1μs"],
+      [-400, undefined, "0s"],
+      [-1600, undefined, "-2μs"],
+      [62_500, TimeSpan.NANOSECOND, "62μs 500ns"],
+      [-62_500, TimeSpan.NANOSECOND, "-62μs -500ns"],
+      [15_000, TimeSpan.microseconds(10), "20μs"],
+      [-14_000, TimeSpan.microseconds(10), "-10μs"],
+    ];
+    for (const [value, precision, label] of rounded) {
+      const { container } = render(
+        <Input.TimeSpan value={value} onChange={vi.fn()} precision={precision} />,
+      );
+      const shown = container.querySelector(".lyra-timespan__label")?.textContent;
+      expect(shown, String(value)).toBe(label);
+      cleanup();
+    }
   });
 
   it("should stay open on Enter when the text is not a duration", () => {

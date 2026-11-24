@@ -35,6 +35,7 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
@@ -109,7 +110,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			}))
 			Expect(iter.SeekFirst()).To(BeTrue())
 			Expect(iter.Next(iterator.AutoSpan)).To(BeTrue())
-			Expect(iter.Value().Frame).To(telem.MatchWrittenFrame(fr.Frame))
+			Expect(iter.Value().Frame).To(MatchWrittenFrame(fr.Frame))
 			Expect(iter.Next(iterator.AutoSpan)).To(BeFalse())
 			Expect(iter.Close()).To(Succeed())
 		})
@@ -222,15 +223,15 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				Expect(iter.Next(iterator.AutoSpan)).To(BeTrue())
 				v := iter.Value().Get(calculation.Key())
 				Expect(v.Series).To(HaveLen(2))
-				Expect(v.Series[0]).To(telem.MatchSeriesDataV[float32](1, 2, 3, 4, 5))
+				Expect(v.Series[0]).To(MatchSeriesDataV[float32](1, 2, 3, 4, 5))
 				Expect(v.Series[0].Alignment).To(Equal(telem.NewAlignment(0, 0)))
-				Expect(v.Series[1]).To(telem.MatchSeriesDataV[float32](6, 7, 8, 9, 10))
+				Expect(v.Series[1]).To(MatchSeriesDataV[float32](6, 7, 8, 9, 10))
 				Expect(v.Series[1].Alignment).To(Equal(telem.NewAlignment(1, 0)))
 				v = iter.Value().Get(calculation.Index())
 				Expect(v.Series).To(HaveLen(2))
-				Expect(v.Series[0]).To(telem.MatchSeriesData(idxData.Series[0]))
+				Expect(v.Series[0]).To(MatchSeriesData(idxData.Series[0]))
 				Expect(v.Series[0].Alignment).To(Equal(telem.NewAlignment(0, 0)))
-				Expect(v.Series[1]).To(telem.MatchSeriesData(idxData.Series[1]))
+				Expect(v.Series[1]).To(MatchSeriesData(idxData.Series[1]))
 				Expect(v.Series[1].Alignment).To(Equal(telem.NewAlignment(1, 0)))
 				Expect(iter.Next(iterator.AutoSpan)).To(BeFalse())
 				Expect(iter.Close()).To(Succeed())
@@ -342,13 +343,13 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						Expect(v.Series).To(HaveLen(2))
 						Expect(
 							v.Series[0],
-						).To(telem.MatchSeriesDataV[float32](12, 14, 16, 18, 20))
+						).To(MatchSeriesDataV[float32](12, 14, 16, 18, 20))
 						Expect(
 							v.Series[0].Alignment,
 						).To(Equal(telem.NewAlignment(0, 0)))
 						Expect(
 							v.Series[1],
-						).To(telem.MatchSeriesDataV[float32](22, 24, 26, 28, 30))
+						).To(MatchSeriesDataV[float32](22, 24, 26, 28, 30))
 						Expect(
 							v.Series[1].Alignment,
 						).To(Equal(telem.NewAlignment(1, 0)))
@@ -356,11 +357,11 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						// Verify the index is correct
 						v = iter.Value().Get(calcC.Index())
 						Expect(v.Series).To(HaveLen(2))
-						Expect(v.Series[0]).To(telem.MatchSeriesData(idxData.Series[0]))
+						Expect(v.Series[0]).To(MatchSeriesData(idxData.Series[0]))
 						Expect(
 							v.Series[0].Alignment,
 						).To(Equal(telem.NewAlignment(0, 0)))
-						Expect(v.Series[1]).To(telem.MatchSeriesData(idxData.Series[1]))
+						Expect(v.Series[1]).To(MatchSeriesData(idxData.Series[1]))
 						Expect(
 							v.Series[1].Alignment,
 						).To(Equal(telem.NewAlignment(1, 0)))
@@ -418,13 +419,13 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						Expect(v.Series).To(HaveLen(2))
 						Expect(
 							v.Series[0],
-						).To(telem.MatchSeriesDataV[float32](21, 27, 33, 39, 45))
+						).To(MatchSeriesDataV[float32](21, 27, 33, 39, 45))
 						Expect(
 							v.Series[0].Alignment,
 						).To(Equal(telem.NewAlignment(0, 0)))
 						Expect(
 							v.Series[1],
-						).To(telem.MatchSeriesDataV[float32](51, 57, 63, 69, 75))
+						).To(MatchSeriesDataV[float32](51, 57, 63, 69, 75))
 						Expect(
 							v.Series[1].Alignment,
 						).To(Equal(telem.NewAlignment(1, 0)))
@@ -432,11 +433,11 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						// Verify the index is correct
 						v = iter.Value().Get(calcD.Index())
 						Expect(v.Series).To(HaveLen(2))
-						Expect(v.Series[0]).To(telem.MatchSeriesData(idxData.Series[0]))
+						Expect(v.Series[0]).To(MatchSeriesData(idxData.Series[0]))
 						Expect(
 							v.Series[0].Alignment,
 						).To(Equal(telem.NewAlignment(0, 0)))
-						Expect(v.Series[1]).To(telem.MatchSeriesData(idxData.Series[1]))
+						Expect(v.Series[1]).To(MatchSeriesData(idxData.Series[1]))
 						Expect(
 							v.Series[1].Alignment,
 						).To(Equal(telem.NewAlignment(1, 0)))
@@ -500,13 +501,13 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						Expect(v.Series).To(HaveLen(2))
 						Expect(
 							v.Series[0],
-						).To(telem.MatchSeriesDataV[float32](16, 22, 28, 34, 40))
+						).To(MatchSeriesDataV[float32](16, 22, 28, 34, 40))
 						Expect(
 							v.Series[0].Alignment,
 						).To(Equal(telem.NewAlignment(0, 0)))
 						Expect(
 							v.Series[1],
-						).To(telem.MatchSeriesDataV[float32](46, 52, 58, 64, 70))
+						).To(MatchSeriesDataV[float32](46, 52, 58, 64, 70))
 						// Note: Diamond pattern causes alignment increment, this is
 						// expected behavior
 						Expect(
@@ -516,11 +517,11 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						// Verify the index is correct
 						v = iter.Value().Get(calcE.Index())
 						Expect(v.Series).To(HaveLen(2))
-						Expect(v.Series[0]).To(telem.MatchSeriesData(idxData.Series[0]))
+						Expect(v.Series[0]).To(MatchSeriesData(idxData.Series[0]))
 						Expect(
 							v.Series[0].Alignment,
 						).To(Equal(telem.NewAlignment(0, 0)))
-						Expect(v.Series[1]).To(telem.MatchSeriesData(idxData.Series[1]))
+						Expect(v.Series[1]).To(MatchSeriesData(idxData.Series[1]))
 						// Note: Diamond pattern causes alignment increment, this is
 						// expected behavior
 						Expect(
@@ -611,20 +612,20 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						Expect(v.Series).To(HaveLen(2))
 						Expect(
 							v.Series[0],
-						).To(telem.MatchSeriesDataV[float32](1, 2, 3, 4, 5))
+						).To(MatchSeriesDataV[float32](1, 2, 3, 4, 5))
 						Expect(
 							v.Series[1],
-						).To(telem.MatchSeriesDataV[float32](6, 7, 8, 9, 10))
+						).To(MatchSeriesDataV[float32](6, 7, 8, 9, 10))
 
 						// Verify concrete channel sensor_2 has original values
 						v = iter.Value().Get(dataCh2.Key())
 						Expect(v.Series).To(HaveLen(2))
 						Expect(
 							v.Series[0],
-						).To(telem.MatchSeriesDataV[float32](-2, -3, -4, -5, -6))
+						).To(MatchSeriesDataV[float32](-2, -3, -4, -5, -6))
 						Expect(
 							v.Series[1],
-						).To(telem.MatchSeriesDataV[float32](-3, -4, -5, -6, -7))
+						).To(MatchSeriesDataV[float32](-3, -4, -5, -6, -7))
 
 						// Verify calculated channel has correct values
 						// sensor_1 = [1, 2, 3, 4, 5] and [6, 7, 8, 9, 10]
@@ -637,10 +638,10 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						Expect(v.Series).To(HaveLen(2))
 						Expect(
 							v.Series[0],
-						).To(telem.MatchSeriesDataV[float32](-2, -2, -2, -2, -2))
+						).To(MatchSeriesDataV[float32](-2, -2, -2, -2, -2))
 						Expect(
 							v.Series[1],
-						).To(telem.MatchSeriesDataV[float32](6, 6, 6, 6, 6))
+						).To(MatchSeriesDataV[float32](6, 6, 6, 6, 6))
 
 						Expect(iter.Next(iterator.AutoSpan)).To(BeFalse())
 						Expect(iter.Close()).To(Succeed())
@@ -756,19 +757,19 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						Expect(v.Series).To(HaveLen(3))
 
 						// Domain 0: sensor = [1, 2], calc = [2, 4]
-						Expect(v.Series[0]).To(telem.MatchSeriesDataV[float32](2, 4))
+						Expect(v.Series[0]).To(MatchSeriesDataV[float32](2, 4))
 						Expect(
 							v.Series[0].Alignment,
 						).To(Equal(telem.NewAlignment(0, 0)))
 
 						// Domain 1: sensor = [5, 6], calc = [10, 12]
-						Expect(v.Series[1]).To(telem.MatchSeriesDataV[float32](10, 12))
+						Expect(v.Series[1]).To(MatchSeriesDataV[float32](10, 12))
 						Expect(
 							v.Series[1].Alignment,
 						).To(Equal(telem.NewAlignment(1, 0)))
 
 						// Domain 2: sensor = [10, 11], calc = [20, 22]
-						Expect(v.Series[2]).To(telem.MatchSeriesDataV[float32](20, 22))
+						Expect(v.Series[2]).To(MatchSeriesDataV[float32](20, 22))
 						Expect(
 							v.Series[2].Alignment,
 						).To(Equal(telem.NewAlignment(2, 0)))
@@ -825,17 +826,17 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						v := iter.Value().Get(calcC.Key())
 						Expect(v.Series).To(HaveLen(3))
 
-						Expect(v.Series[0]).To(telem.MatchSeriesDataV[float32](12, 14))
+						Expect(v.Series[0]).To(MatchSeriesDataV[float32](12, 14))
 						Expect(
 							v.Series[0].Alignment,
 						).To(Equal(telem.NewAlignment(0, 0)))
 
-						Expect(v.Series[1]).To(telem.MatchSeriesDataV[float32](20, 22))
+						Expect(v.Series[1]).To(MatchSeriesDataV[float32](20, 22))
 						Expect(
 							v.Series[1].Alignment,
 						).To(Equal(telem.NewAlignment(1, 0)))
 
-						Expect(v.Series[2]).To(telem.MatchSeriesDataV[float32](30, 32))
+						Expect(v.Series[2]).To(MatchSeriesDataV[float32](30, 32))
 						Expect(
 							v.Series[2].Alignment,
 						).To(Equal(telem.NewAlignment(2, 0)))
@@ -901,16 +902,16 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						v := iter.Value().Get(calcE.Key())
 						Expect(v.Series).To(HaveLen(3))
 
-						Expect(v.Series[0]).To(telem.MatchSeriesDataV[float32](16, 22))
+						Expect(v.Series[0]).To(MatchSeriesDataV[float32](16, 22))
 						Expect(
 							v.Series[0].Alignment,
 						).To(Equal(telem.NewAlignment(0, 0)))
 
-						Expect(v.Series[1]).To(telem.MatchSeriesDataV[float32](40, 46))
+						Expect(v.Series[1]).To(MatchSeriesDataV[float32](40, 46))
 						// Note: Diamond pattern may cause alignment increment
 						Expect(v.Series[1].Alignment.SampleIndex()).To(Equal(uint32(0)))
 
-						Expect(v.Series[2]).To(telem.MatchSeriesDataV[float32](70, 76))
+						Expect(v.Series[2]).To(MatchSeriesDataV[float32](70, 76))
 						Expect(v.Series[2].Alignment.SampleIndex()).To(Equal(uint32(0)))
 
 						Expect(iter.Next(iterator.AutoSpan)).To(BeFalse())
@@ -948,19 +949,19 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						Expect(concreteV.Series).To(HaveLen(3))
 						Expect(
 							concreteV.Series[0],
-						).To(telem.MatchSeriesDataV[float32](1, 2))
+						).To(MatchSeriesDataV[float32](1, 2))
 						Expect(
 							concreteV.Series[0].Alignment,
 						).To(Equal(telem.NewAlignment(0, 0)))
 						Expect(
 							concreteV.Series[1],
-						).To(telem.MatchSeriesDataV[float32](5, 6))
+						).To(MatchSeriesDataV[float32](5, 6))
 						Expect(
 							concreteV.Series[1].Alignment,
 						).To(Equal(telem.NewAlignment(1, 0)))
 						Expect(
 							concreteV.Series[2],
-						).To(telem.MatchSeriesDataV[float32](10, 11))
+						).To(MatchSeriesDataV[float32](10, 11))
 						Expect(
 							concreteV.Series[2].Alignment,
 						).To(Equal(telem.NewAlignment(2, 0)))
@@ -970,19 +971,19 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						Expect(calcV.Series).To(HaveLen(3))
 						Expect(
 							calcV.Series[0],
-						).To(telem.MatchSeriesDataV[float32](3, 6))
+						).To(MatchSeriesDataV[float32](3, 6))
 						Expect(
 							calcV.Series[0].Alignment,
 						).To(Equal(telem.NewAlignment(0, 0)))
 						Expect(
 							calcV.Series[1],
-						).To(telem.MatchSeriesDataV[float32](15, 18))
+						).To(MatchSeriesDataV[float32](15, 18))
 						Expect(
 							calcV.Series[1].Alignment,
 						).To(Equal(telem.NewAlignment(1, 0)))
 						Expect(
 							calcV.Series[2],
-						).To(telem.MatchSeriesDataV[float32](30, 33))
+						).To(MatchSeriesDataV[float32](30, 33))
 						Expect(
 							calcV.Series[2].Alignment,
 						).To(Equal(telem.NewAlignment(2, 0)))
@@ -1069,7 +1070,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						// Domain 0
 						Expect(
 							v.Series[0],
-						).To(telem.MatchSeriesDataV[float32](101, 102, 103))
+						).To(MatchSeriesDataV[float32](101, 102, 103))
 						Expect(
 							v.Series[0].Alignment,
 						).To(Equal(telem.NewAlignment(0, 0)))
@@ -1077,7 +1078,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						// Domain 1
 						Expect(
 							v.Series[1],
-						).To(telem.MatchSeriesDataV[float32](1100, 1101, 1102))
+						).To(MatchSeriesDataV[float32](1100, 1101, 1102))
 						Expect(
 							v.Series[1].Alignment,
 						).To(Equal(telem.NewAlignment(1, 0)))
@@ -1132,19 +1133,19 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						Expect(doubleV.Series).To(HaveLen(3))
 						Expect(
 							doubleV.Series[0],
-						).To(telem.MatchSeriesDataV[float32](2, 4))
+						).To(MatchSeriesDataV[float32](2, 4))
 						Expect(
 							doubleV.Series[0].Alignment,
 						).To(Equal(telem.NewAlignment(0, 0)))
 						Expect(
 							doubleV.Series[1],
-						).To(telem.MatchSeriesDataV[float32](10, 12))
+						).To(MatchSeriesDataV[float32](10, 12))
 						Expect(
 							doubleV.Series[1].Alignment,
 						).To(Equal(telem.NewAlignment(1, 0)))
 						Expect(
 							doubleV.Series[2],
-						).To(telem.MatchSeriesDataV[float32](20, 22))
+						).To(MatchSeriesDataV[float32](20, 22))
 						Expect(
 							doubleV.Series[2].Alignment,
 						).To(Equal(telem.NewAlignment(2, 0)))
@@ -1154,19 +1155,19 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						Expect(squareV.Series).To(HaveLen(3))
 						Expect(
 							squareV.Series[0],
-						).To(telem.MatchSeriesDataV[float32](1, 4))
+						).To(MatchSeriesDataV[float32](1, 4))
 						Expect(
 							squareV.Series[0].Alignment,
 						).To(Equal(telem.NewAlignment(0, 0)))
 						Expect(
 							squareV.Series[1],
-						).To(telem.MatchSeriesDataV[float32](25, 36))
+						).To(MatchSeriesDataV[float32](25, 36))
 						Expect(
 							squareV.Series[1].Alignment,
 						).To(Equal(telem.NewAlignment(1, 0)))
 						Expect(
 							squareV.Series[2],
-						).To(telem.MatchSeriesDataV[float32](100, 121))
+						).To(MatchSeriesDataV[float32](100, 121))
 						Expect(
 							squareV.Series[2].Alignment,
 						).To(Equal(telem.NewAlignment(2, 0)))
@@ -1176,19 +1177,19 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						Expect(plusTenV.Series).To(HaveLen(3))
 						Expect(
 							plusTenV.Series[0],
-						).To(telem.MatchSeriesDataV[float32](11, 12))
+						).To(MatchSeriesDataV[float32](11, 12))
 						Expect(
 							plusTenV.Series[0].Alignment,
 						).To(Equal(telem.NewAlignment(0, 0)))
 						Expect(
 							plusTenV.Series[1],
-						).To(telem.MatchSeriesDataV[float32](15, 16))
+						).To(MatchSeriesDataV[float32](15, 16))
 						Expect(
 							plusTenV.Series[1].Alignment,
 						).To(Equal(telem.NewAlignment(1, 0)))
 						Expect(
 							plusTenV.Series[2],
-						).To(telem.MatchSeriesDataV[float32](20, 21))
+						).To(MatchSeriesDataV[float32](20, 21))
 						Expect(
 							plusTenV.Series[2].Alignment,
 						).To(Equal(telem.NewAlignment(2, 0)))
@@ -1285,7 +1286,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 
 					v := iter.Value().Get(calc.Key())
 					Expect(v.Series).To(HaveLen(1))
-					Expect(v.Series[0]).To(telem.MatchSeriesDataV[float32](11, 22, 33))
+					Expect(v.Series[0]).To(MatchSeriesDataV[float32](11, 22, 33))
 
 					Expect(iter.Next(iterator.AutoSpan)).To(BeFalse())
 					Expect(iter.Close()).To(Succeed())
@@ -1422,9 +1423,9 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					writeFirstAlone(ctx, c)
 					out := read(ctx, iterator.AutoSpan, c.sum.Key(), c.sum.Index())
 					Expect(merged(out[c.sum.Key()])).To(
-						telem.MatchSeriesDataV[float32](22, 33, 44),
+						MatchSeriesDataV[float32](22, 33, 44),
 					)
-					Expect(merged(out[c.sum.Index()])).To(telem.MatchSeriesData(
+					Expect(merged(out[c.sum.Index()])).To(MatchSeriesData(
 						telem.NewSeriesSecondsTSV(2, 3, 4),
 					))
 				})
@@ -1458,9 +1459,9 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					)
 					out := read(ctx, iterator.AutoSpan, c.sum.Key(), c.sum.Index())
 					Expect(merged(out[c.sum.Key()])).To(
-						telem.MatchSeriesDataV[float32](11, 22, 32, 44, 55),
+						MatchSeriesDataV[float32](11, 22, 32, 44, 55),
 					)
-					Expect(merged(out[c.sum.Index()])).To(telem.MatchSeriesData(
+					Expect(merged(out[c.sum.Index()])).To(MatchSeriesData(
 						telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5),
 					))
 				})
@@ -1472,9 +1473,9 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					writeLastAlone(ctx, c)
 					out := read(ctx, iterator.AutoSpan, c.sum.Key(), c.sum.Index())
 					Expect(merged(out[c.sum.Key()])).To(
-						telem.MatchSeriesDataV[float32](11, 22, 33, 43),
+						MatchSeriesDataV[float32](11, 22, 33, 43),
 					)
-					Expect(merged(out[c.sum.Index()])).To(telem.MatchSeriesData(
+					Expect(merged(out[c.sum.Index()])).To(MatchSeriesData(
 						telem.NewSeriesSecondsTSV(1, 2, 3, 4),
 					))
 				})
@@ -1501,9 +1502,9 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					Expect(w.Close()).To(Succeed())
 					out := read(ctx, iterator.AutoSpan, c.sum.Key(), c.sum.Index())
 					Expect(merged(out[c.sum.Key()])).To(
-						telem.MatchSeriesDataV[float32](12, 22, 32),
+						MatchSeriesDataV[float32](12, 22, 32),
 					)
-					Expect(merged(out[c.sum.Index()])).To(telem.MatchSeriesData(
+					Expect(merged(out[c.sum.Index()])).To(MatchSeriesData(
 						telem.NewSeriesSecondsTSV(1, 2, 3),
 					))
 				})
@@ -1517,10 +1518,10 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						ctx, iterator.AutoSpan, c.sum.Key(), c.sum.Index(), c.b.Key(),
 					)
 					Expect(merged(out[c.b.Key()])).To(
-						telem.MatchSeriesDataV[float32](1, 2, 3),
+						MatchSeriesDataV[float32](1, 2, 3),
 					)
 					Expect(merged(out[c.sum.Key()])).To(
-						telem.MatchSeriesDataV[float32](11, 22, 33, 43),
+						MatchSeriesDataV[float32](11, 22, 33, 43),
 					)
 				})
 
@@ -1531,9 +1532,9 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					writeLastAlone(ctx, c)
 					out := read(ctx, telem.Second, c.sum.Key(), c.sum.Index())
 					Expect(merged(out[c.sum.Key()])).To(
-						telem.MatchSeriesDataV[float32](11, 22, 33, 43),
+						MatchSeriesDataV[float32](11, 22, 33, 43),
 					)
-					Expect(merged(out[c.sum.Index()])).To(telem.MatchSeriesData(
+					Expect(merged(out[c.sum.Index()])).To(MatchSeriesData(
 						telem.NewSeriesSecondsTSV(1, 2, 3, 4),
 					))
 				})
@@ -1574,9 +1575,9 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					)
 					out := read(ctx, iterator.AutoSpan, c.sum.Key(), c.sum.Index())
 					Expect(merged(out[c.sum.Key()])).To(
-						telem.MatchSeriesDataV[float32](11, 22, 32, 42, 55),
+						MatchSeriesDataV[float32](11, 22, 32, 42, 55),
 					)
-					Expect(merged(out[c.sum.Index()])).To(telem.MatchSeriesData(
+					Expect(merged(out[c.sum.Index()])).To(MatchSeriesData(
 						telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5),
 					))
 				})
@@ -1593,9 +1594,9 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					writeLastAlone(ctx, c)
 					out := read(ctx, iterator.AutoSpan, nested.Key(), nested.Index())
 					Expect(merged(out[nested.Key()])).To(
-						telem.MatchSeriesDataV[float32](21, 42, 63, 83),
+						MatchSeriesDataV[float32](21, 42, 63, 83),
 					)
-					Expect(merged(out[nested.Index()])).To(telem.MatchSeriesData(
+					Expect(merged(out[nested.Index()])).To(MatchSeriesData(
 						telem.NewSeriesSecondsTSV(1, 2, 3, 4),
 					))
 				})
@@ -1612,9 +1613,9 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					writeFirstAlone(ctx, c)
 					out := read(ctx, iterator.AutoSpan, nested.Key(), nested.Index())
 					Expect(merged(out[nested.Key()])).To(
-						telem.MatchSeriesDataV[float32](42, 63, 84),
+						MatchSeriesDataV[float32](42, 63, 84),
 					)
-					Expect(merged(out[nested.Index()])).To(telem.MatchSeriesData(
+					Expect(merged(out[nested.Index()])).To(MatchSeriesData(
 						telem.NewSeriesSecondsTSV(2, 3, 4),
 					))
 				})
@@ -1624,9 +1625,9 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					writeFirstAlone(ctx, c)
 					out := read(ctx, telem.Second, c.sum.Key(), c.sum.Index())
 					Expect(merged(out[c.sum.Key()])).To(
-						telem.MatchSeriesDataV[float32](22, 33, 44),
+						MatchSeriesDataV[float32](22, 33, 44),
 					)
-					Expect(merged(out[c.sum.Index()])).To(telem.MatchSeriesData(
+					Expect(merged(out[c.sum.Index()])).To(MatchSeriesData(
 						telem.NewSeriesSecondsTSV(2, 3, 4),
 					))
 				})
@@ -1640,10 +1641,10 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						ctx, iterator.AutoSpan, c.sum.Key(), c.sum.Index(), c.a.Key(),
 					)
 					Expect(merged(out[c.a.Key()])).To(
-						telem.MatchSeriesDataV[float32](10, 20, 30, 40),
+						MatchSeriesDataV[float32](10, 20, 30, 40),
 					)
 					Expect(merged(out[c.sum.Key()])).To(
-						telem.MatchSeriesDataV[float32](22, 33, 44),
+						MatchSeriesDataV[float32](22, 33, 44),
 					)
 				})
 			})
@@ -1666,8 +1667,8 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					Expect(iter.Value().KeysSlice()).To(HaveEach(Equal(calc.Index())))
 					v := iter.Value().Get(calc.Index())
 					Expect(v.Series).To(HaveLen(2))
-					Expect(v.Series[0]).To(telem.MatchSeriesData(idxData.Series[0]))
-					Expect(v.Series[1]).To(telem.MatchSeriesData(idxData.Series[1]))
+					Expect(v.Series[0]).To(MatchSeriesData(idxData.Series[0]))
+					Expect(v.Series[1]).To(MatchSeriesData(idxData.Series[1]))
 					Expect(iter.Next(iterator.AutoSpan)).To(BeFalse())
 					Expect(iter.Close()).To(Succeed())
 				})
@@ -1699,8 +1700,8 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					Expect(iter.Value().KeysSlice()).To(HaveEach(Equal(calcC.Index())))
 					v := iter.Value().Get(calcC.Index())
 					Expect(v.Series).To(HaveLen(2))
-					Expect(v.Series[0]).To(telem.MatchSeriesData(idxData.Series[0]))
-					Expect(v.Series[1]).To(telem.MatchSeriesData(idxData.Series[1]))
+					Expect(v.Series[0]).To(MatchSeriesData(idxData.Series[0]))
+					Expect(v.Series[1]).To(MatchSeriesData(idxData.Series[1]))
 					Expect(iter.Next(iterator.AutoSpan)).To(BeFalse())
 					Expect(iter.Close()).To(Succeed())
 				})
@@ -1727,7 +1728,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					Expect(iter.Value().KeysSlice()).To(HaveEach(Equal(calc.Index())))
 					v := iter.Value().Get(calc.Index())
 					Expect(v.Series).To(HaveLen(2))
-					Expect(v.Series[0]).To(telem.MatchSeriesData(idxData.Series[0]))
+					Expect(v.Series[0]).To(MatchSeriesData(idxData.Series[0]))
 					Expect(iter.Close()).To(Succeed())
 				})
 
@@ -1956,13 +1957,13 @@ var _ = Describe("StreamIterator", Ordered, func() {
 
 			v := iterValue.Get(dataCh.Key())
 			Expect(v.Series).To(HaveLen(1))
-			Expect(v.Series[0]).To(telem.MatchSeriesDataV[float32](1, 3, 5, 7))
+			Expect(v.Series[0]).To(MatchSeriesDataV[float32](1, 3, 5, 7))
 			Expect(v.Series[0].AlignmentMultiple).To(Equal(uint32(2)))
 
 			idxV := iterValue.Get(indexCh.Key())
 			Expect(idxV.Series).To(HaveLen(1))
 			Expect(idxV.Series[0]).
-				To(telem.MatchSeriesData(telem.NewSeriesSecondsTSV(1, 3, 5, 7)))
+				To(MatchSeriesData(telem.NewSeriesSecondsTSV(1, 3, 5, 7)))
 			Expect(idxV.AlignmentBounds()).To(Equal(v.AlignmentBounds()))
 
 			Expect(iter.Next(iterator.AutoSpan)).To(BeFalse())
@@ -2022,7 +2023,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			Expect(v.Series).To(HaveLen(1))
 			// The running sum over every sample is 1, 3, 6, 10, 15, 21, 28, 36. Summing
 			// a strided input would instead give 1, 4, 9, 16.
-			Expect(v.Series[0]).To(telem.MatchSeriesDataV[float32](1, 6, 15, 28))
+			Expect(v.Series[0]).To(MatchSeriesDataV[float32](1, 6, 15, 28))
 			Expect(iter.Close()).To(Succeed())
 		})
 
@@ -2074,11 +2075,11 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			idxValue := iterValue.Get(indexCh.Key())
 			Expect(idxValue.Series).To(HaveLen(1))
 			Expect(idxValue.Series[0]).
-				To(telem.MatchSeriesData(telem.NewSeriesSecondsTSV(1, 4, 7)))
+				To(MatchSeriesData(telem.NewSeriesSecondsTSV(1, 4, 7)))
 
 			v := iterValue.Get(dataCh.Key())
 			Expect(v.Series).To(HaveLen(1))
-			Expect(v.Series[0]).To(telem.MatchSeriesDataV[float32](1, 4, 7))
+			Expect(v.Series[0]).To(MatchSeriesDataV[float32](1, 4, 7))
 
 			Expect(iter.Next(iterator.AutoSpan)).To(BeFalse())
 			Expect(iter.Close()).To(Succeed())
@@ -2144,15 +2145,15 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				Expect(iter.Next(iterator.AutoSpan)).To(BeTrue())
 				v := iter.Value()
 				Expect(v.Get(indexCh.Key()).Series[0]).
-					To(telem.MatchSeriesData(telem.NewSeriesSecondsTSV(1, 3, 5, 7)))
+					To(MatchSeriesData(telem.NewSeriesSecondsTSV(1, 3, 5, 7)))
 				data := v.Get(dataCh.Key()).Series[0]
-				Expect(data).To(telem.MatchSeriesDataV[float32](5, 7))
+				Expect(data).To(MatchSeriesDataV[float32](5, 7))
 				Expect(data.AlignmentMultiple).To(Equal(uint32(2)))
 				Expect(v.Get(indexCh.Key()).AlignmentBounds().Upper).
 					To(Equal(data.AlignmentBounds().Upper))
 				if calculated {
 					doubled := v.Get(calc.Key()).Series[0]
-					Expect(doubled).To(telem.MatchSeriesDataV[float32](10, 14))
+					Expect(doubled).To(MatchSeriesDataV[float32](10, 14))
 					Expect(doubled.AlignmentBounds()).To(Equal(data.AlignmentBounds()))
 				}
 				Expect(iter.Close()).To(Succeed())
@@ -2207,7 +2208,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				Expect(iter.Next(iterator.AutoSpan)).To(BeTrue())
 				v := iter.Value().Get(dataCh.Key())
 				Expect(v.Series).To(HaveLen(1))
-				Expect(v.Series[0]).To(telem.MatchSeriesDataV[float32](1, 2, 3, 4))
+				Expect(v.Series[0]).To(MatchSeriesDataV[float32](1, 2, 3, 4))
 				Expect(iter.Close()).To(Succeed())
 			},
 			Entry("factor is 0", uint32(0)),
@@ -2282,7 +2283,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				// downsampled by 2 = [2, 6, 10, 14]
 				v := iter.Value().Get(calculation.Key())
 				Expect(v.Series).To(HaveLen(1))
-				Expect(v.Series[0]).To(telem.MatchSeriesDataV[float32](2, 6, 10, 14))
+				Expect(v.Series[0]).To(MatchSeriesDataV[float32](2, 6, 10, 14))
 
 				Expect(iter.Next(iterator.AutoSpan)).To(BeFalse())
 				Expect(iter.Close()).To(Succeed())
@@ -2353,9 +2354,9 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				v := iter.Value().Get(dataCh.Key())
 				Expect(v.Series).To(HaveLen(2))
 				// Domain 0: [1, 2, 3, 4] downsampled by 2 = [1, 3]
-				Expect(v.Series[0]).To(telem.MatchSeriesDataV[float32](1, 3))
+				Expect(v.Series[0]).To(MatchSeriesDataV[float32](1, 3))
 				// Domain 1: [10, 11, 12, 13] downsampled by 2 = [10, 12]
-				Expect(v.Series[1]).To(telem.MatchSeriesDataV[float32](10, 12))
+				Expect(v.Series[1]).To(MatchSeriesDataV[float32](10, 12))
 
 				Expect(iter.Next(iterator.AutoSpan)).To(BeFalse())
 				Expect(iter.Close()).To(Succeed())
@@ -2595,7 +2596,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				for _, key := range []channel.Key{indexCh.Key(), sensorCh.Key()} {
 					Expect(mixed.Get(key).Series).To(HaveLen(1))
 					Expect(mixed.Get(key).Series[0]).
-						To(telem.MatchSeries(alone.Get(key).Series[0]))
+						To(MatchSeries(alone.Get(key).Series[0]))
 				}
 			},
 		)

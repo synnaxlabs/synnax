@@ -89,7 +89,7 @@ var _ = Describe("Writer", func() {
 					Name:     "root",
 					RootUser: true,
 					Role:     owner,
-				})).Error().To(MatchError(ContainSubstring("cannot create a root user; root users are provisioned at startup")))
+				})).Error().To(MatchError(validate.ErrValidation))
 			},
 		)
 	})

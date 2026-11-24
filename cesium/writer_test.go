@@ -35,6 +35,7 @@ import (
 	"github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -450,7 +451,7 @@ var _ = Describe("Writer Behavior", func() {
 								Expect(wSeed.Close()).To(Succeed())
 								Expect(
 									fSeed.Get(data).Series[0],
-								).To(telem.MatchSeriesDataV[int64](1, 2))
+								).To(MatchSeriesDataV[int64](1, 2))
 
 								By("Extending the index to cover the index-less writes")
 								wIdx := MustSucceed(
@@ -3067,7 +3068,7 @@ var _ = Describe("Writer Behavior", func() {
 						).To(Equal(106*telem.SecondTS + 1))
 						Expect(w.Close()).To(Succeed())
 						f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, data2))
-						Expect(f.SeriesAt(0)).To(telem.MatchSeriesData(
+						Expect(f.SeriesAt(0)).To(MatchSeriesData(
 							telem.NewSeriesV[int64](3, 4),
 						))
 						Expect(f.SeriesAt(0).TimeRange).To(Equal(
@@ -3318,9 +3319,9 @@ var _ = Describe("Writer Behavior", func() {
 						Expect(live.Close()).To(Succeed())
 						series := read(ctx, data).Series
 						Expect(series).To(HaveLen(3))
-						Expect(series[0]).To(telem.MatchSeriesDataV[int64](10, 11))
-						Expect(series[1]).To(telem.MatchSeriesDataV[int64](12, 13))
-						Expect(series[2]).To(telem.MatchSeriesDataV[int64](20, 21, 22))
+						Expect(series[0]).To(MatchSeriesDataV[int64](10, 11))
+						Expect(series[1]).To(MatchSeriesDataV[int64](12, 13))
+						Expect(series[2]).To(MatchSeriesDataV[int64](20, 21, 22))
 					},
 				)
 				It(
@@ -3339,12 +3340,12 @@ var _ = Describe("Writer Behavior", func() {
 						Expect(stamps[1].TimeRange).To(Equal(values[1].TimeRange))
 						Expect(stamps[0].Alignment).To(Equal(values[0].Alignment))
 						Expect(stamps[1].Alignment).To(Equal(values[1].Alignment))
-						Expect(stamps[1]).To(telem.MatchSeriesDataV(
+						Expect(stamps[1]).To(MatchSeriesDataV(
 							20*telem.SecondTS,
 							21*telem.SecondTS,
 							22*telem.SecondTS,
 						))
-						Expect(values[1]).To(telem.MatchSeriesDataV[int64](20, 21, 22))
+						Expect(values[1]).To(MatchSeriesDataV[int64](20, 21, 22))
 					},
 				)
 				It(
@@ -3414,7 +3415,7 @@ var _ = Describe("Writer Behavior", func() {
 					Expect(live.EndDomain(ctx, idx)).To(Succeed())
 					Expect(live.Close()).To(Succeed())
 					Expect(read(ctx, data).Series[0]).
-						To(telem.MatchSeriesDataV[int64](10, 11))
+						To(MatchSeriesDataV[int64](10, 11))
 				})
 				It(
 					"Should keep the last commit end until the next write",
@@ -3503,8 +3504,8 @@ var _ = Describe("Writer Behavior", func() {
 						Expect(live.Close()).To(Succeed())
 						series := read(ctx, text).Series
 						Expect(series).To(HaveLen(2))
-						Expect(series[0]).To(telem.MatchSeriesDataV("a", "bb"))
-						Expect(series[1]).To(telem.MatchSeriesDataV("ccc"))
+						Expect(series[0]).To(MatchSeriesDataV("a", "bb"))
+						Expect(series[1]).To(MatchSeriesDataV("ccc"))
 					},
 				)
 				It(
@@ -3525,8 +3526,8 @@ var _ = Describe("Writer Behavior", func() {
 						Expect(low.Close()).To(Succeed())
 						series := read(ctx, data).Series
 						Expect(series).To(HaveLen(2))
-						Expect(series[0]).To(telem.MatchSeriesDataV[int64](10, 11, 12))
-						Expect(series[1]).To(telem.MatchSeriesDataV[int64](20, 21))
+						Expect(series[0]).To(MatchSeriesDataV[int64](10, 11, 12))
+						Expect(series[1]).To(MatchSeriesDataV[int64](20, 21))
 					},
 				)
 				It(
@@ -3578,7 +3579,7 @@ var _ = Describe("Writer Behavior", func() {
 						Expect(dataOnly.Close()).To(Succeed())
 						series := read(ctx, data).Series
 						Expect(series).To(HaveLen(1))
-						Expect(series[0]).To(telem.MatchSeriesDataV[int64](1, 2, 3))
+						Expect(series[0]).To(MatchSeriesDataV[int64](1, 2, 3))
 					},
 				)
 				It("Should do nothing in stream only mode", func(ctx SpecContext) {
@@ -4132,7 +4133,7 @@ var _ = Describe("Writer Behavior", func() {
 					expectStored := func(ctx SpecContext, stamps ...telem.TimeStamp) {
 						GinkgoHelper()
 						f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, idx))
-						Expect(f.SeriesAt(0)).To(telem.MatchSeriesData(
+						Expect(f.SeriesAt(0)).To(MatchSeriesData(
 							telem.NewSeriesSecondsTSV(slices.Clone(stamps)...),
 						))
 					}

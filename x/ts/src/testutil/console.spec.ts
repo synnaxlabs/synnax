@@ -36,6 +36,10 @@ describe("failOnConsoleOutput", () => {
       console.warn("a slow step took 23ms");
     });
 
+    it("should match an ignore pattern against the cause of an error", () => {
+      console.warn(new Error("outer", { cause: new Error("a slow step took 23ms") }));
+    });
+
     it.fails("should fail a test that writes other output", () => {
       console.warn("a slow step took 23ms");
       console.warn("unexpected warning");

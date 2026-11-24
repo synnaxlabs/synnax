@@ -28,6 +28,7 @@ import (
 	xfstestutil "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -165,7 +166,7 @@ var _ = Describe("Delete intents", func() {
 				fr := MustSucceed(restarted.Read(ctx, telem.TimeRangeMax, data))
 				Expect(
 					fr.Get(data).Series[0],
-				).To(telem.MatchSeriesDataV[int64](1, 2, 3))
+				).To(MatchSeriesDataV[int64](1, 2, 3))
 			},
 		)
 

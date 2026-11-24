@@ -29,6 +29,7 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -1084,9 +1085,9 @@ var _ = Describe("Writer", func() {
 				Eventually(out.Outlet()).Should(Receive(&res))
 				Expect(res.Frame.KeysSlice()).To(Equal(keys))
 				writtenData := res.Frame.Get(dataCh.Key()).Series[0]
-				Expect(writtenData).To(telem.MatchSeriesData(data))
+				Expect(writtenData).To(MatchSeriesData(data))
 				writtenIdx := res.Frame.Get(idxCh.Key()).Series[0]
-				Expect(writtenIdx).To(telem.MatchSeriesData(idx))
+				Expect(writtenIdx).To(MatchSeriesData(idx))
 				groupDomain := writtenData.Alignment.DomainIndex()
 				Expect(groupDomain).To(BeNumerically(
 					">=",
@@ -1106,9 +1107,9 @@ var _ = Describe("Writer", func() {
 				Eventually(out.Outlet()).Should(Receive(&res))
 				Expect(res.Frame.KeysSlice()).To(Equal(keys))
 				writtenData = res.Frame.Get(dataCh.Key()).Series[0]
-				Expect(writtenData).To(telem.MatchSeriesData(data))
+				Expect(writtenData).To(MatchSeriesData(data))
 				writtenIdx = res.Frame.Get(idxCh.Key()).Series[0]
-				Expect(writtenIdx).To(telem.MatchSeriesData(idx))
+				Expect(writtenIdx).To(MatchSeriesData(idx))
 				Expect(writtenData.Alignment.DomainIndex()).To(Equal(groupDomain))
 				Expect(writtenData.Alignment.SampleIndex()).To(BeEquivalentTo(2))
 				Expect(writtenIdx.Alignment).To(Equal(writtenData.Alignment))
@@ -1153,7 +1154,7 @@ var _ = Describe("Writer", func() {
 				Eventually(out.Outlet()).Should(Receive(&res))
 				after := telem.Now()
 				written := res.Frame.Get(ch.Key()).Series[0]
-				Expect(written).To(telem.MatchSeriesData(data))
+				Expect(written).To(MatchSeriesData(data))
 				Expect(written.TimeRange.Span()).To(Equal(2 * telem.Nanosecond))
 				Expect(written.TimeRange.Start).To(BeNumerically(">=", before))
 				Expect(written.TimeRange.Start).To(BeNumerically("<=", after))
@@ -1302,7 +1303,7 @@ var _ = Describe("Writer", func() {
 					written := received[k][0]
 					Expect(
 						written,
-					).To(telem.MatchSeriesData(telem.NewSeriesV[int64](1, 2)))
+					).To(MatchSeriesData(telem.NewSeriesV[int64](1, 2)))
 					Expect(written.TimeRange.Span()).To(Equal(2 * telem.Nanosecond))
 					Expect(written.TimeRange.Start).To(BeNumerically(">=", before))
 					Expect(written.TimeRange.Start).To(BeNumerically("<=", after))
