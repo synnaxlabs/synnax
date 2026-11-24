@@ -60,17 +60,22 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     { text: true, zoom: false },
   );
   const active = modal
-    .locator(".console-schematic-state-list-item")
+    .locator(".console-schematic__value-bar .lyra-select-btn")
     .filter({ hasText: "Active" })
     .first();
   await session.waitFor(active);
   await session.hold(700);
   await session.click(active, { text: true, zoom: false });
   await session.hold(700);
+  await session.click(part, { text: true, zoom: false });
+  await session.hold(700);
 
-  // The 300px sidebar clips the fill of the part, so scroll the sidebar to it first:
-  // the rig clicks at screen coordinates.
-  const fill = part.getByLabel("Fill", { exact: true });
+  // The first "By state" belongs to the fill. It gives the fill one control per state.
+  await session.click(modal.getByText("By state", { exact: true }).first(), {
+    text: true,
+    zoom: false,
+  });
+  const fill = modal.getByLabel("Fill while Active", { exact: true });
   await fill.scrollIntoViewIfNeeded();
   await session.settle(300);
   await session.click(fill, { zoom: false });

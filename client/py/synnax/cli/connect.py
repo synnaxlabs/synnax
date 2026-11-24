@@ -54,7 +54,7 @@ def _save_api_key(
     owns it. Warns when that last deletion fails, because the login has succeeded.
     """
     previous = clusters.get()
-    token, key = client.auth.create_api_key(
+    token, key = client.auth.api_keys.create(
         name=f"Python CLI on {socket.gethostname()}"
     )
     try:
@@ -76,7 +76,7 @@ def _save_api_key(
             prompt.error(f"Saved the API key, but cannot delete the old password: {e}")
             return
         try:
-            client.auth.delete_api_keys(key.key)
+            client.auth.api_keys.delete(key.key)
         except Error as cleanup:
             e.add_note(f"The new API key {key.key} is still on the Core: {cleanup}")
         raise
@@ -89,8 +89,8 @@ def _save_api_key(
     previous_key = api_key_id(previous.options.api_key)
     try:
         # A key another account saved is not ours to delete.
-        if any(k.key == previous_key for k in client.auth.retrieve_api_keys()):
-            client.auth.delete_api_keys(previous_key)
+        if any(k.key == previous_key for k in client.auth.api_keys.retrieve()):
+            client.auth.api_keys.delete(previous_key)
     except Error as e:
         prompt.error(f"Saved the new API key, but cannot delete the old one: {e}")
 
