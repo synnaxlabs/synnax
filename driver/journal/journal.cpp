@@ -500,7 +500,8 @@ read_offset(const std::filesystem::path &path, const Magic &magic) {
 x::errors::Error commit_offset(
     const std::filesystem::path &path,
     const Magic &magic,
-    const Offset &offset
+    const Offset &offset,
+    const OnCreate &on_create
 ) {
     Record record{.type = OFFSET_TYPE};
     put(record.payload, offset.segment);
@@ -513,7 +514,7 @@ x::errors::Error commit_offset(
     };
     auto buf = encode_header(magic, header);
     encode_record(buf, header.salt, record);
-    return create(path, buf);
+    return create(path, buf, on_create);
 }
 
 x::errors::Error remove(const std::filesystem::path &path) {
@@ -529,9 +530,15 @@ Lock::Lock(std::unique_ptr<File> file): file(std::move(file)) {}
 Lock::~Lock() = default;
 
 std::pair<std::unique_ptr<Lock>, x::errors::Error>
-Lock::open(const std::filesystem::path &dir) {
-    auto [file, err] = File::open(dir / "LOCK");
+Lock::open(const std::filesystem::path &dir, const OnCreate &on_create) {
+    const auto path = dir / "LOCK";
+    std::error_code ec;
+    const auto existed = std::filesystem::exists(path, ec);
+    if (ec) return {nullptr, fs_error("failed to stat " + path.string(), ec)};
+    auto [file, err] = File::open(path);
     if (err) return {nullptr, err};
+    if (!existed)
+        if (err = on_create(path); err) return {nullptr, err};
     if (err = file->lock(); err.matches(LOCKED))
         return {nullptr, x::errors::Error(LOCKED, dir.string() + " is in use")};
     if (err) return {nullptr, err};

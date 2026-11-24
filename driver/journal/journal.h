@@ -290,20 +290,22 @@ struct Offset {
     std::uint64_t pos = 0;
 };
 
-/// @brief reads the offset file at path, and removes the temp files that a crash
-/// during commit_offset left. Call it only while no commit_offset to path runs.
-/// @returns std::nullopt when the file does not exist. UNKNOWN_MAGIC,
-/// UNKNOWN_VERSION, UNKNOWN_FLAG, UNKNOWN_TYPE, or CORRUPT when the file is not a
-/// valid offset file for this Driver.
+/// @brief reads the offset file at path, and removes the temp files that a crash during
+/// commit_offset left. Call it only while no commit_offset to path runs.
+/// @returns std::nullopt when the file does not exist. UNKNOWN_MAGIC, UNKNOWN_VERSION,
+/// UNKNOWN_FLAG, UNKNOWN_TYPE, or CORRUPT when the file is not a valid offset file for
+/// this Driver.
 std::pair<std::optional<Offset>, x::errors::Error>
 read_offset(const std::filesystem::path &path, const Magic &magic);
 
-/// @brief replaces the offset file at path with the offset, so a crash leaves the
-/// old or the new offset. Returns after the new offset is on the disk.
+/// @brief replaces the offset file at path with the offset, so a crash leaves the old
+/// or the new offset. Returns after the new offset is on the disk. Calls on_create with
+/// the temp file it writes.
 x::errors::Error commit_offset(
     const std::filesystem::path &path,
     const Magic &magic,
-    const Offset &offset
+    const Offset &offset,
+    const OnCreate &on_create = no_create_hook
 );
 
 /// @brief removes the file at path, and returns after the removal is on the disk.
@@ -320,10 +322,11 @@ public:
     /// @brief releases the lock.
     ~Lock();
 
-    /// @brief takes the lock of dir, which must exist.
-    /// @returns LOCKED when another holder has the lock, or the error of the lock
-    /// call for any other failure.
+    /// @brief takes the lock of dir, which must exist, and calls on_create with the
+    /// lock file when it creates it.
+    /// @returns LOCKED when another holder has the lock, or the error of the lock call
+    /// for any other failure.
     static std::pair<std::unique_ptr<Lock>, x::errors::Error>
-    open(const std::filesystem::path &dir);
+    open(const std::filesystem::path &dir, const OnCreate &on_create = no_create_hook);
 };
 }

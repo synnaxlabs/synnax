@@ -983,6 +983,26 @@ TEST_F(JournalTest, RemovesFile) {
     EXPECT_FALSE(std::filesystem::exists(this->path));
 }
 
+/// @brief it should call on_create with the temp file of an offset and with a new lock
+/// file.
+TEST_F(JournalTest, OffsetAndLockCallOnCreate) {
+    std::vector<std::filesystem::path> created;
+    const auto record = [&](const std::filesystem::path &p) {
+        created.push_back(p);
+        return x::errors::NIL;
+    };
+    const auto offset_path = this->dir / "0.offset";
+    ASSERT_NIL(commit_offset(offset_path, OFFSET, {.segment = 1, .pos = 20}, record));
+    ASSERT_EQ(created.size(), 1);
+    EXPECT_TRUE(created[0].filename().string().starts_with("0.offset.tmp."));
+    auto lock = ASSERT_NIL_P(Lock::open(this->dir, record));
+    ASSERT_EQ(created.size(), 2);
+    EXPECT_EQ(created[1], this->dir / "LOCK");
+    lock.reset();
+    ASSERT_NIL_P(Lock::open(this->dir, record));
+    EXPECT_EQ(created.size(), 2);
+}
+
 /// @brief it should refuse a second lock on a directory until the first releases.
 TEST_F(JournalTest, LockIsExclusive) {
     auto lock = ASSERT_NIL_P(Lock::open(this->dir));
