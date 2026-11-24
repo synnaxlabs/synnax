@@ -428,9 +428,7 @@ func (s *Service) deleteChannels(
 	if r.cancel != nil {
 		return Plan{}, *r.cancel
 	}
-	if targets := r.onBehalf(); targets != nil {
-		gorp.MarkOnBehalf(tx, targets...)
-	}
+	r.markOnBehalf(tx)
 	if len(r.records) > 0 {
 		if err = s.cfg.Delete(ctx, tx, r.records); err != nil {
 			return Plan{}, err
@@ -490,30 +488,25 @@ type resolution struct {
 	cancel *gorp.RestrictError
 }
 
-// onBehalf returns the targets that the delete of r changes on its caller's behalf: the
-// records and the channels that picks add, and not the caller's own channels.
-func (r resolution) onBehalf() []gorp.Target {
+// markOnBehalf marks in tx the targets that the delete of r changes on its caller's
+// behalf: the records and the channels that picks add, and not the caller's own
+// channels. Each mark is its own call, so no slice of targets is built.
+func (r resolution) markOnBehalf(tx gorp.Tx) {
+	for _, id := range r.records {
+		gorp.MarkOnBehalf(tx, gorp.Target{Table: string(id.Type), Key: id.Key})
+	}
 	// A pick only adds to the delete, so the last plan holds every channel of the
 	// first.
-	added := len(r.last.keys) - len(r.own)
-	if len(r.records) == 0 && added == 0 {
-		return nil
-	}
-	targets := make([]gorp.Target, 0, len(r.records)+added)
-	for _, id := range r.records {
-		targets = append(targets, gorp.Target{Table: string(id.Type), Key: id.Key})
-	}
-	if added == 0 {
-		return targets
+	if len(r.last.keys) == len(r.own) {
+		return
 	}
 	own := set.New(r.own...)
 	for _, k := range r.last.keys {
 		if !own.Contains(k) {
 			id := channel.ResourceID(k)
-			targets = append(targets, gorp.Target{Table: string(id.Type), Key: id.Key})
+			gorp.MarkOnBehalf(tx, gorp.Target{Table: string(id.Type), Key: id.Key})
 		}
 	}
-	return targets
 }
 
 // resolve plans the delete of the channels with keys in snap with chosen, then plans
