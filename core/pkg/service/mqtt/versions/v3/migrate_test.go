@@ -23,6 +23,7 @@ import (
 	v3 "github.com/synnaxlabs/synnax/pkg/service/mqtt/versions/v3"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 var _ = Describe("MigrateReadConfig", func() {
@@ -48,6 +49,41 @@ var _ = Describe("MigrateReadConfig", func() {
 		inline := &v2.InlineRead{Entries: []v2.InlineEntry{{Topic: "plant/a"}}}
 		cfg := MustSucceed(v3.MigrateReadConfig(ctx, v2.ReadConfig{Inline: inline}))
 		Expect(cfg.Inline).To(Equal(inline))
+	})
+})
+
+var _ = Describe("ReadMigration", func() {
+	It("Should lift each stored read config", func(ctx SpecContext) {
+		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
+		MustOpen(
+			gorp.OpenTable(ctx, gorp.TableConfig[uuid.UUID, v2.ReadConfig]{DB: db}),
+		)
+		field := uuid.New()
+		old := v2.ReadConfig{
+			Key: uuid.New(),
+			Entries: []v2.ReadEntry{{Variant: v2.PlainReadEntry{
+				Topic: "plant/a",
+				Messages: []icdv0.ReadMessage{{
+					Message:  uuid.New(),
+					Bindings: []icdv0.ReadBinding{{Field: field, Channel: 7}},
+				}},
+			}}},
+		}
+		Expect(gorp.NewCreate[uuid.UUID, v2.ReadConfig]().Entry(&old).Exec(ctx, db)).
+			To(Succeed())
+		MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[uuid.UUID, v3.ReadConfig]{
+			DB: db, Migrations: []gorp.Migration{v3.ReadMigration},
+		}))
+		var got v3.ReadConfig
+		Expect(gorp.NewRetrieve[uuid.UUID, v3.ReadConfig]().
+			Where(gorp.MatchKeys[uuid.UUID, v3.ReadConfig](old.Key)).
+			Entry(&got).Exec(ctx, db)).To(Succeed())
+		plain, ok := got.Entries[0].Variant.(v3.PlainReadEntry)
+		Expect(ok).To(BeTrue())
+		Expect(plain.Messages[0].Bindings).To(Equal([]icd.ReadBinding{
+			{Field: field, Channel: 7},
+		}))
 	})
 })
 

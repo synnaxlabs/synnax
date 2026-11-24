@@ -127,7 +127,6 @@ const createRecord = async ({
   const bindings = Object.entries(bound).map(([field, channel]) => ({
     field,
     channel,
-    dataType: "",
   }));
   return kafka.readRecordZ.parse({
     icd: format.key,
@@ -277,7 +276,7 @@ const addMessage = async (
       after: rec.messages.at(-1)?.message,
     }),
   );
-  const bindings = fields.map(({ key }) => ({ field: key, channel: 0, dataType: "" }));
+  const bindings = fields.map(({ key }) => ({ field: key, channel: 0 }));
   rec.messages.push(icd.readMessageZ.parse({ message: message.key, bindings }));
   return message;
 };
@@ -1057,7 +1056,7 @@ describe("Kafka read form", () => {
         messages: [
           {
             ...original.messages[0],
-            bindings: [{ field: temperature.key, channel: 0, dataType: "" }],
+            bindings: [{ field: temperature.key, channel: 0 }],
           },
         ],
       });
@@ -2073,7 +2072,7 @@ describe("Kafka read form", () => {
       await waitFor(async () =>
         expect(await retrieveBindings(draft.key)).toEqual([
           messages[0].bindings[0],
-          { field: added.key, channel: 0, dataType: "" },
+          { field: added.key, channel: 0 },
         ]),
       );
     });
@@ -2163,7 +2162,7 @@ describe("Kafka read form", () => {
       fireEvent.click(box);
       await waitFor(async () =>
         expect(await retrieveBindings(draft.key)).toEqual([
-          { field: temperature.key, channel: 0, dataType: "" },
+          { field: temperature.key, channel: 0 },
         ]),
       );
     });
@@ -2221,7 +2220,7 @@ describe("Kafka read form", () => {
       });
       await waitFor(async () =>
         expect(await retrieveBindings(draft.key)).toEqual([
-          { field: count.key, channel: 0, dataType: "" },
+          { field: count.key, channel: 0 },
         ]),
       );
     });
@@ -2241,8 +2240,8 @@ describe("Kafka read form", () => {
           message: expect.any(String),
           index: time.key,
           bindings: [
-            { field: temperature.key, channel: 0, dataType: "" },
-            { field: time.key, channel: 0, dataType: "" },
+            { field: temperature.key, channel: 0 },
+            { field: time.key, channel: 0 },
           ],
         }),
       );
@@ -2252,7 +2251,7 @@ describe("Kafka read form", () => {
       await waitFor(async () =>
         expect((await retrieveRecords(draft.key))[0].messages[0]).toEqual({
           message: expect.any(String),
-          bindings: [{ field: temperature.key, channel: 0, dataType: "" }],
+          bindings: [{ field: temperature.key, channel: 0 }],
         }),
       );
     });
@@ -2274,7 +2273,7 @@ describe("Kafka read form", () => {
         expect((await retrieveRecords(draft.key))[0].messages[0]).toEqual({
           message: expect.any(String),
           index: sent.key,
-          bindings: [{ field: sent.key, channel: timeCh.key, dataType: "" }],
+          bindings: [{ field: sent.key, channel: timeCh.key }],
         }),
       );
     });
@@ -2477,7 +2476,7 @@ describe("Kafka read form", () => {
       const { ch, next, draft } = await switchTemperature("integer");
       await waitFor(async () =>
         expect(await retrieveBindings(draft.key)).toEqual([
-          { field: next.key, channel: ch.key, dataType: "" },
+          { field: next.key, channel: ch.key },
         ]),
       );
     });
@@ -2486,7 +2485,7 @@ describe("Kafka read form", () => {
       const { next, draft } = await switchTemperature("string");
       await waitFor(async () =>
         expect(await retrieveBindings(draft.key)).toEqual([
-          { field: next.key, channel: 0, dataType: "" },
+          { field: next.key, channel: 0 },
         ]),
       );
     });
