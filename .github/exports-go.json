@@ -1,7 +1,13 @@
 {
   "gated": [
-    { "module": "freighter/integration", "usage": "tests-only" },
-    { "module": "freighter/integration", "usage": "unused" }
+    {
+      "module": "freighter/integration",
+      "usage": "tests-only"
+    },
+    {
+      "module": "freighter/integration",
+      "usage": "unused"
+    }
   ],
   "pending": [
     {
@@ -29,6 +35,57 @@
       "receiver": "Validator",
       "name": "MinBytes",
       "caller": "https://github.com/synnaxlabs/synnax/pull/7346"
+    },
+    {
+      "module": "arc/go",
+      "package": "github.com/synnaxlabs/arc/stl/join",
+      "name": "Config",
+      "caller": "sy-6882-pair-live-calculation-inputs-through-the-join"
+    },
+    {
+      "module": "arc/go",
+      "package": "github.com/synnaxlabs/arc/stl/join",
+      "name": "Run",
+      "caller": "sy-6882-pair-live-calculation-inputs-through-the-join"
+    },
+    {
+      "module": "arc/go",
+      "package": "github.com/synnaxlabs/arc/stl/join",
+      "name": "Output",
+      "caller": "sy-6882-pair-live-calculation-inputs-through-the-join"
+    },
+    {
+      "module": "arc/go",
+      "package": "github.com/synnaxlabs/arc/stl/join",
+      "receiver": "Output",
+      "name": "Reset",
+      "caller": "sy-6882-pair-live-calculation-inputs-through-the-join"
+    },
+    {
+      "module": "arc/go",
+      "package": "github.com/synnaxlabs/arc/stl/join",
+      "name": "Join",
+      "caller": "sy-6882-pair-live-calculation-inputs-through-the-join"
+    },
+    {
+      "module": "arc/go",
+      "package": "github.com/synnaxlabs/arc/stl/join",
+      "name": "New",
+      "caller": "sy-6882-pair-live-calculation-inputs-through-the-join"
+    },
+    {
+      "module": "arc/go",
+      "package": "github.com/synnaxlabs/arc/stl/join",
+      "receiver": "Join",
+      "name": "Push",
+      "caller": "sy-6882-pair-live-calculation-inputs-through-the-join"
+    },
+    {
+      "module": "arc/go",
+      "package": "github.com/synnaxlabs/arc/stl/join",
+      "receiver": "Join",
+      "name": "Next",
+      "caller": "sy-6882-pair-live-calculation-inputs-through-the-join"
     }
   ]
 }
