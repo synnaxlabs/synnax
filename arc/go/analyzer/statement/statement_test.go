@@ -10,6 +10,7 @@
 package statement_test
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/antlr4-go/antlr/v4"
@@ -272,6 +273,22 @@ var _ = Describe("Statement", func() {
 						"stateful variables cannot be declared at the top level",
 					))
 				},
+			)
+
+			DescribeTable(
+				"gives a fix that changes a top-level '$=' to ':='",
+				func(bCtx SpecContext, source, fixed string) {
+					stmt := MustSucceed(parser.ParseStatement(source))
+					ctx := context.NewRoot(bCtx, stmt, NewRoot(nil))
+					statement.Analyze(ctx)
+					Expect(*ctx.Diagnostics).To(HaveLen(1))
+					fixes := (*ctx.Diagnostics)[0].Fixes
+					Expect(fixes).To(HaveLen(1))
+					Expect(fixes[0].Title).To(Equal("Change to `:=`"))
+					Expect(testutil.ApplyFix(source, fixes[0])).To(Equal(fixed))
+				},
+				Entry("with no type", "counter $= 0", "counter := 0"),
+				Entry("with a type", "counter i64 $= 0", "counter i64 := 0"),
 			)
 		})
 
@@ -3628,6 +3645,90 @@ var _ = Describe("Statement", func() {
 					(*ctx.Diagnostics)[0].Message,
 				).To(ContainSubstring("continue can only be used inside a for loop"))
 			})
+
+			DescribeTable(
+				"should give a fix that removes the statement outside a for loop",
+				func(bCtx SpecContext, title, source, fixed string) {
+					ctx := context.NewRoot(
+						bCtx,
+						MustSucceed(parser.Parse(source)),
+						NewRoot(nil),
+					)
+					analyzer.AnalyzeProgram(ctx)
+					Expect(*ctx.Diagnostics).To(HaveLen(1))
+					fixes := (*ctx.Diagnostics)[0].Fixes
+					Expect(fixes).To(HaveLen(1))
+					Expect(fixes[0].Title).To(Equal(title))
+					Expect(testutil.ApplyFix(source, fixes[0])).To(Equal(fixed))
+				},
+				Entry(
+					"break",
+					"Remove break",
+					"func check() i64 {\n    break\n    return 0\n}\n",
+					"func check() i64 {\n    return 0\n}\n",
+				),
+				Entry(
+					"continue",
+					"Remove continue",
+					"func check() i64 {\n    continue\n    return 0\n}\n",
+					"func check() i64 {\n    return 0\n}\n",
+				),
+				Entry(
+					"break in a block of one line",
+					"Remove break",
+					"func check(a i64) {\n    if a > 0 { break }\n}\n",
+					"func check(a i64) {\n    if a > 0 {  }\n}\n",
+				),
+			)
+
+			DescribeTable(
+				"should give a fix that puts an integer of a for loop in range()",
+				func(bCtx SpecContext, value string) {
+					const format = "func count(n i64) i64 {\n    total i64 := 0\n" +
+						"    for i := %s {\n        total = total + i\n    }\n" +
+						"    return total\n}\n"
+					source := fmt.Sprintf(format, value)
+					ctx := context.NewRoot(
+						bCtx,
+						MustSucceed(parser.Parse(source)),
+						NewRoot(nil),
+					)
+					analyzer.AnalyzeProgram(ctx)
+					Expect(*ctx.Diagnostics).ToNot(BeEmpty())
+					d := (*ctx.Diagnostics)[0]
+					Expect(d.Code).To(Equal(codes.InvalidOperand.Code))
+					Expect(d.Fixes).To(HaveLen(1))
+					Expect(
+						d.Fixes[0].Title,
+					).To(Equal("Change to `range(" + value + ")`"))
+					fixed := testutil.ApplyFix(source, d.Fixes[0])
+					Expect(fixed).To(Equal(fmt.Sprintf(format, "range("+value+")")))
+					ctx = context.NewRoot(
+						bCtx,
+						MustSucceed(parser.Parse(fixed)),
+						NewRoot(nil),
+					)
+					analyzer.AnalyzeProgram(ctx)
+					Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+				},
+				Entry("a literal", "5"),
+				Entry("a variable", "n"),
+				Entry("a calculation", "n + 1"),
+			)
+
+			It(
+				"should give no range() fix for a value that is not an integer",
+				func(bCtx SpecContext) {
+					ctx := context.NewRoot(bCtx, MustSucceed(parser.Parse(
+						"func count() {\n    for c := \"abc\" {\n    }\n}\n",
+					)), NewRoot(nil))
+					analyzer.AnalyzeProgram(ctx)
+					Expect(*ctx.Diagnostics).ToNot(BeEmpty())
+					d := (*ctx.Diagnostics)[0]
+					Expect(d.Code).To(Equal(codes.InvalidOperand.Code))
+					Expect(d.Fixes).To(BeEmpty())
+				},
+			)
 
 			It("should accept break in nested if inside loop", func(bCtx SpecContext) {
 				stmt := MustSucceed(parser.ParseStatement(`for i := range(10) {
