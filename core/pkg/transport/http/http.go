@@ -17,6 +17,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/arc"
 	arcdirectory "github.com/synnaxlabs/synnax/pkg/api/arc/directory"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
+	"github.com/synnaxlabs/synnax/pkg/api/auth/apikey"
+	"github.com/synnaxlabs/synnax/pkg/api/auth/oidc"
+	"github.com/synnaxlabs/synnax/pkg/api/auth/password"
+	"github.com/synnaxlabs/synnax/pkg/api/auth/session"
 	"github.com/synnaxlabs/synnax/pkg/api/batch"
 	"github.com/synnaxlabs/synnax/pkg/api/calculation"
 	"github.com/synnaxlabs/synnax/pkg/api/certificate"
@@ -66,7 +70,7 @@ func Bind(layer *api.Layer, router *http.Router) {
 	csvEncoder := framer.NewCSVEncoder(ctx)
 	layer.BindTo(api.Transport{
 		// AUTH
-		AuthLogin: unary[auth.LoginRequest, auth.LoginResponse](
+		AuthLogin: unary[session.LoginRequest, session.LoginResponse](
 			router,
 			"/api/v1/auth/login",
 		),
@@ -74,51 +78,63 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/auth/methods",
 		),
-		AuthChangePassword: unary[auth.ChangePasswordRequest, struct{}](
+		AuthChangePassword: unary[password.ChangeRequest, struct{}](
 			router,
 			"/api/v1/auth/change-password",
 		),
-		AuthSessionCreate: unary[auth.SessionCreateRequest, auth.SessionCreateResponse](
+		AuthSessionCreate: unary[session.CreateRequest, session.CreateResponse](
 			router,
 			"/api/v1/auth/session/create",
 		),
-		AuthSessionRenew: unary[struct{}, auth.SessionRenewResponse](
+		AuthSessionRenew: unary[struct{}, session.RenewResponse](
 			router,
 			"/api/v1/auth/session/renew",
 		),
-		AuthSessionRetrieve: unary[auth.SessionRetrieveRequest, auth.SessionRetrieveResponse](
+		AuthSessionRetrieve: unary[session.RetrieveRequest, session.RetrieveResponse](
 			router,
 			"/api/v1/auth/session/retrieve",
 		),
-		AuthSessionDelete: unary[auth.SessionDeleteRequest, struct{}](
+		AuthSessionDelete: unary[session.DeleteRequest, struct{}](
 			router,
 			"/api/v1/auth/session/delete",
 		),
-		AuthKeyCreate: unary[auth.KeyCreateRequest, auth.KeyCreateResponse](
+		AuthAPIKeyCreate: unary[apikey.CreateRequest, apikey.CreateResponse](
 			router,
-			"/api/v1/auth/key/create",
+			"/api/v1/auth/api-key/create",
 		),
-		AuthKeyRetrieve: unary[auth.KeyRetrieveRequest, auth.KeyRetrieveResponse](
+		AuthAPIKeyRetrieve: unary[apikey.RetrieveRequest, apikey.RetrieveResponse](
 			router,
-			"/api/v1/auth/key/retrieve",
+			"/api/v1/auth/api-key/retrieve",
 		),
-		AuthKeyDelete: unary[auth.KeyDeleteRequest, struct{}](
+		AuthAPIKeyDelete: unary[apikey.DeleteRequest, struct{}](
 			router,
-			"/api/v1/auth/key/delete",
+			"/api/v1/auth/api-key/delete",
 		),
-		AuthOIDCLink: unary[auth.OIDCLinkRequest, auth.OIDCLinkResponse](
+		AuthOIDCLink: unary[oidc.LinkRequest, oidc.LinkResponse](
 			router,
 			"/api/v1/auth/oidc/link",
 		),
-		AuthOIDCRetrieve: unary[auth.OIDCRetrieveRequest, auth.OIDCRetrieveResponse](
+		AuthOIDCRetrieve: unary[oidc.RetrieveRequest, oidc.RetrieveResponse](
 			router,
 			"/api/v1/auth/oidc/retrieve",
 		),
-		AuthOIDCUnlink: unary[auth.OIDCUnlinkRequest, struct{}](
+		AuthOIDCUnlink: unary[oidc.UnlinkRequest, struct{}](
 			router,
 			"/api/v1/auth/oidc/unlink",
 		),
-		AuthPasswordSet: unary[auth.PasswordSetRequest, auth.PasswordSetResponse](
+		AuthPasswordCreate: unary[password.CreateRequest, struct{}](
+			router,
+			"/api/v1/auth/password/create",
+		),
+		AuthPasswordRetrieve: unary[
+			password.RetrieveRequest,
+			password.RetrieveResponse,
+		](router, "/api/v1/auth/password/retrieve"),
+		AuthPasswordDispatch: unary[password.DispatchRequest, struct{}](
+			router,
+			"/api/v1/auth/password/dispatch",
+		),
+		AuthPasswordSet: unary[password.SetRequest, password.SetResponse](
 			router,
 			"/api/v1/auth/password/set",
 		),
@@ -158,10 +174,6 @@ func Bind(layer *api.Layer, router *http.Router) {
 			channel.CountLimitedRequest,
 			channel.CountLimitedResponse,
 		](router, "/api/v1/channel/count-limited"),
-		ChannelRetrieveBuiltIns: unary[
-			channel.RetrieveBuiltInsRequest,
-			channel.RetrieveBuiltInsResponse,
-		](router, "/api/v1/channel/retrieve-built-ins"),
 		ChannelDispatch: unary[channel.DispatchRequest, channel.DispatchResponse](
 			router,
 			"/api/v1"+api.PathChannelDispatch,

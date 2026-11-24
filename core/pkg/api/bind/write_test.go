@@ -23,7 +23,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
-	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/certificate"
 	certtestutil "github.com/synnaxlabs/synnax/pkg/service/certificate/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
@@ -38,6 +37,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/synnax/pkg/service/sift"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
@@ -584,10 +584,10 @@ var _ = Describe("Write", func() {
 				changed := MustSucceed(svc.Password.Hash("changed"))
 				return rule{
 					write: func(ctx context.Context, tx gorp.Tx) error {
-						return svc.Password.NewWriter(tx).Apply(
+						return svc.Password.NewWriter(tx).SetHash(
 							ctx,
 							other.ResourceID(),
-							password.NewSetHashAction(changed),
+							changed,
 						)
 					},
 					needed: need{access.ActionUpdate, other.ResourceID()},
@@ -1128,6 +1128,150 @@ var _ = Describe("Owned records", func() {
 	})
 })
 
+var _ = Describe("Records placed in owned records", func() {
+	var (
+		rck, other rack.Rack
+		cert       certificate.Certificate
+	)
+	BeforeEach(func(ctx SpecContext) {
+		rck = rack.Rack{Name: "rack-" + uuid.New().String()}
+		other = rack.Rack{Name: "rack-" + uuid.New().String()}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			w := svc.Rack.NewWriter(tx)
+			if err := w.Create(ctx, &rck); err != nil {
+				return err
+			}
+			if err := w.Create(ctx, &other); err != nil {
+				return err
+			}
+			cert = certificate.Certificate{Variant: certificate.FileCertificate{
+				Base:            certificate.Base{Name: "Driver"},
+				CertificatePath: "/var/lib/synnax/driver.der",
+				Rack:            rck.Key,
+			}}
+			return svc.Certificate.NewWriter(tx).Set(ctx, &cert, nil)
+		})).To(Succeed())
+	})
+	newStatus := func() status.Status[any] {
+		return status.Status[any]{
+			Owner:   new(cert.ResourceID()),
+			Name:    "expiry",
+			Variant: status.VariantSuccess,
+			Message: "valid",
+			Time:    telem.Now(),
+		}
+	}
+	setStatus := func(st *status.Status[any]) apply {
+		return func(ctx context.Context, tx gorp.Tx) error {
+			return svc.Status.NewWriter(tx).Set(ctx, st)
+		}
+	}
+	setRack := func(key certificate.Key, r rack.Key) apply {
+		return func(ctx context.Context, tx gorp.Tx) error {
+			c := certificate.Certificate{Variant: certificate.FileCertificate{
+				Base:            certificate.Base{Key: key, Name: "Driver"},
+				CertificatePath: "/var/lib/synnax/driver.der",
+				Rack:            r,
+			}}
+			return svc.Certificate.NewWriter(tx).Set(ctx, &c, nil)
+		}
+	}
+	deniedUpdate := func(subject resource.ID) OmegaMatcher {
+		return SatisfyAll(
+			MatchError(access.ErrDenied),
+			MatchError(ContainSubstring(
+				"%s cannot update %s",
+				subject,
+				cert.ResourceID(),
+			)),
+		)
+	}
+
+	It("Should let a rack place a status in a certificate that it owns",
+		func(ctx SpecContext) {
+			st := newStatus()
+			Expect(writeAs(ctx, rck.ResourceID(), setStatus(&st))).To(Succeed())
+		},
+	)
+
+	It("Should let a rack take a status out of a certificate that it owns",
+		func(ctx SpecContext) {
+			st := newStatus()
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return setStatus(&st)(ctx, tx)
+			})).To(Succeed())
+			Expect(
+				writeAs(
+					ctx,
+					rck.ResourceID(),
+					func(ctx context.Context, tx gorp.Tx) error {
+						return svc.Status.NewWriter(tx).Delete(ctx, st.Key)
+					},
+				),
+			).To(Succeed())
+		},
+	)
+
+	It("Should require update to place a status in a certificate of another rack",
+		func(ctx SpecContext) {
+			st := newStatus()
+			Expect(writeAs(ctx, other.ResourceID(), setStatus(&st))).
+				To(deniedUpdate(other.ResourceID()))
+		},
+	)
+
+	It("Should require update to take a certificate and place a status in it",
+		func(ctx SpecContext) {
+			st := newStatus()
+			Expect(
+				writeAs(
+					ctx,
+					other.ResourceID(),
+					func(ctx context.Context, tx gorp.Tx) error {
+						if err := setRack(
+							cert.Base().Key,
+							other.Key,
+						)(
+							ctx,
+							tx,
+						); err != nil {
+							return err
+						}
+						return setStatus(&st)(ctx, tx)
+					},
+				),
+			).To(deniedUpdate(other.ResourceID()))
+		},
+	)
+
+	It("Should require update to give a certificate away and take a status out of it",
+		func(ctx SpecContext) {
+			st := newStatus()
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return setStatus(&st)(ctx, tx)
+			})).To(Succeed())
+			Expect(
+				writeAs(
+					ctx,
+					rck.ResourceID(),
+					func(ctx context.Context, tx gorp.Tx) error {
+						if err := setRack(
+							cert.Base().Key,
+							other.Key,
+						)(
+							ctx,
+							tx,
+						); err != nil {
+							return err
+						}
+						return svc.Status.NewWriter(tx).Delete(ctx, st.Key)
+					},
+				),
+			).To(deniedUpdate(rck.ResourceID()))
+		},
+	)
+})
+
 var _ = Describe("Vouched records", func() {
 	var (
 		rck rack.Rack
@@ -1423,6 +1567,28 @@ var _ = Describe("WritePrepared", func() {
 			},
 		)(AuthedCtx(ctx, u), "request")).Error().To(MatchError(failed))
 		Expect(applied).To(BeFalse())
+	})
+})
+
+var _ = Describe("WriteRetrievable", func() {
+	It("Should pass apply what the subject can retrieve", func(ctx SpecContext) {
+		u := newUser(ctx)
+		seen, hidden := createLabel(ctx), createLabel(ctx)
+		grant(ctx, u, access.ActionRetrieve, seen.ResourceID())
+		Expect(bind.WriteRetrievable(
+			binder,
+			func(
+				_ context.Context,
+				_ gorp.Tx,
+				retrievable bind.Retrievable,
+				_ string,
+			) ([]bool, error) {
+				return []bool{
+					retrievable(seen.ResourceID()),
+					retrievable(hidden.ResourceID()),
+				}, nil
+			},
+		)(AuthedCtx(ctx, u), "request")).To(Equal([]bool{true, false}))
 	})
 })
 
