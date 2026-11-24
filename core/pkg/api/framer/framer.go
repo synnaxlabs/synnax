@@ -96,8 +96,8 @@ type ServiceConfig struct {
 
 var (
 	_ config.Config[ServiceConfig] = ServiceConfig{}
-	// DefaultServiceConfig is the default configuration for the framer API service.
-	DefaultServiceConfig = ServiceConfig{ReferenceQueue: 1024}
+	// defaultServiceConfig is the default configuration for the framer API service.
+	defaultServiceConfig = ServiceConfig{ReferenceQueue: 1024}
 )
 
 // Override implements config.Config.
@@ -142,7 +142,7 @@ type Service struct {
 }
 
 func NewService(cfgs ...ServiceConfig) (*Service, error) {
-	cfg, err := config.New(DefaultServiceConfig, cfgs...)
+	cfg, err := config.New(defaultServiceConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
