@@ -46,22 +46,8 @@ func oldDataFiles(fs xfs.FS, key cesium.ChannelKey) int {
 func sharedStampRoot() xfs.FS {
 	GinkgoHelper()
 	pointers := []oldlayout.Pointer{
-		{
-			TimeRange: telem.TimeRange{
-				Start: telem.SecondTS,
-				End:   3*telem.SecondTS + 1,
-			},
-			File: 1,
-			Size: 24,
-		},
-		{
-			TimeRange: telem.TimeRange{
-				Start: 3*telem.SecondTS + 1,
-				End:   4*telem.SecondTS + 1,
-			},
-			File: 2,
-			Size: 16,
-		},
+		{Start: telem.SecondTS, End: 3*telem.SecondTS + 1, File: 1, Size: 24},
+		{Start: 3*telem.SecondTS + 1, End: 4*telem.SecondTS + 1, File: 2, Size: 16},
 	}
 	fs := xfs.NewMem()
 	Expect(oldlayout.Write(
