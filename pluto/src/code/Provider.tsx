@@ -83,7 +83,7 @@ const doInitialize = async (
   // permanently unavailable (the LSP client and token theming both depend on it).
   const [
     ,
-    { initialize },
+    { initialize, LogLevel },
     { default: getTextMateServiceOverride },
     { default: getThemeServiceOverride },
     { default: getLanguagesServiceOverride },
@@ -102,8 +102,12 @@ const doInitialize = async (
       ...getLanguagesServiceOverride(),
     },
     undefined,
-    // Monaco shows its own prompt before it opens a link to a domain it does not trust.
-    { additionalTrustedDomains: ["*"] },
+    {
+      // Monaco shows its own prompt before it opens a link to a domain it does not
+      // trust.
+      additionalTrustedDomains: ["*"],
+      developmentOptions: { logLevel: LogLevel.Warning },
+    },
   );
   const monaco = await import("@codingame/monaco-vscode-editor-api");
   for (const language of languages) await registerLanguage(language);

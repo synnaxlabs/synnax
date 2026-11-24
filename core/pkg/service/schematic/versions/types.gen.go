@@ -316,83 +316,88 @@ const (
 	TurboCompressorNodeConfigType NodeConfigType = v14.TurboCompressorNodeConfigType
 	// VacuumPumpNodeConfigType is the configuration for vacuum pump symbols.
 	VacuumPumpNodeConfigType NodeConfigType = v14.VacuumPumpNodeConfigType
-	// BurstDiscNodeConfigType selects the BurstDiscNodeConfig variant.
+	// BurstDiscNodeConfigType is the configuration for burst disc symbols.
 	BurstDiscNodeConfigType NodeConfigType = v14.BurstDiscNodeConfigType
-	// FlameArrestorNodeConfigType selects the FlameArrestorNodeConfig variant.
+	// FlameArrestorNodeConfigType is the configuration for flame arrestor symbols.
 	FlameArrestorNodeConfigType NodeConfigType = v14.FlameArrestorNodeConfigType
-	// FlameArrestorDetonationNodeConfigType selects the
-	// FlameArrestorDetonationNodeConfig variant.
+	// FlameArrestorDetonationNodeConfigType is the configuration for detonation-proof
+	// flame arrestor symbols.
 	FlameArrestorDetonationNodeConfigType NodeConfigType = v14.FlameArrestorDetonationNodeConfigType
-	// FlameArrestorExplosionNodeConfigType selects the FlameArrestorExplosionNodeConfig
-	// variant.
+	// FlameArrestorExplosionNodeConfigType is the configuration for explosion-proof
+	// flame arrestor symbols.
 	FlameArrestorExplosionNodeConfigType NodeConfigType = v14.FlameArrestorExplosionNodeConfigType
-	// FlameArrestorFireResNodeConfigType selects the FlameArrestorFireResNodeConfig
-	// variant.
+	// FlameArrestorFireResNodeConfigType is the configuration for fire resistant flame
+	// arrestor symbols.
 	FlameArrestorFireResNodeConfigType NodeConfigType = v14.FlameArrestorFireResNodeConfigType
-	// FlameArrestorFireResDetonationNodeConfigType selects the
-	// FlameArrestorFireResDetonationNodeConfig variant.
+	// FlameArrestorFireResDetonationNodeConfigType is the configuration for fire
+	// resistant and detonation-proof flame arrestor symbols.
 	FlameArrestorFireResDetonationNodeConfigType NodeConfigType = v14.FlameArrestorFireResDetonationNodeConfigType
-	// IsoBurstDiscNodeConfigType selects the IsoBurstDiscNodeConfig variant.
+	// IsoBurstDiscNodeConfigType is the configuration for ISO burst disc symbols.
 	IsoBurstDiscNodeConfigType NodeConfigType = v14.IsoBurstDiscNodeConfigType
-	// AngledValveNodeConfigType selects the AngledValveNodeConfig variant.
+	// AngledValveNodeConfigType is the configuration for angled valve symbols.
 	AngledValveNodeConfigType NodeConfigType = v14.AngledValveNodeConfigType
-	// AngledReliefValveNodeConfigType selects the AngledReliefValveNodeConfig variant.
+	// AngledReliefValveNodeConfigType is the configuration for angled relief valve
+	// symbols.
 	AngledReliefValveNodeConfigType NodeConfigType = v14.AngledReliefValveNodeConfigType
-	// AngledSpringLoadedReliefValveNodeConfigType selects the
-	// AngledSpringLoadedReliefValveNodeConfig variant.
+	// AngledSpringLoadedReliefValveNodeConfigType is the configuration for angled
+	// spring loaded relief valve symbols.
 	AngledSpringLoadedReliefValveNodeConfigType NodeConfigType = v14.AngledSpringLoadedReliefValveNodeConfigType
-	// BallValveNodeConfigType selects the BallValveNodeConfig variant.
+	// BallValveNodeConfigType is the configuration for ball valve symbols.
 	BallValveNodeConfigType NodeConfigType = v14.BallValveNodeConfigType
-	// BreatherValveNodeConfigType selects the BreatherValveNodeConfig variant.
+	// BreatherValveNodeConfigType is the configuration for breather valve symbols.
 	BreatherValveNodeConfigType NodeConfigType = v14.BreatherValveNodeConfigType
-	// ButterflyValveOneNodeConfigType selects the ButterflyValveOneNodeConfig variant.
+	// ButterflyValveOneNodeConfigType is the configuration for remote butterfly valve
+	// symbols.
 	ButterflyValveOneNodeConfigType NodeConfigType = v14.ButterflyValveOneNodeConfigType
-	// ButterflyValveTwoNodeConfigType selects the ButterflyValveTwoNodeConfig variant.
+	// ButterflyValveTwoNodeConfigType is the configuration for manual butterfly valve
+	// symbols.
 	ButterflyValveTwoNodeConfigType NodeConfigType = v14.ButterflyValveTwoNodeConfigType
-	// CheckValveNodeConfigType selects the CheckValveNodeConfig variant.
+	// CheckValveNodeConfigType is the configuration for check valve symbols.
 	CheckValveNodeConfigType NodeConfigType = v14.CheckValveNodeConfigType
-	// CheckValveWithArrowNodeConfigType selects the CheckValveWithArrowNodeConfig
-	// variant.
+	// CheckValveWithArrowNodeConfigType is the configuration for check valve symbols
+	// drawn with an arrow.
 	CheckValveWithArrowNodeConfigType NodeConfigType = v14.CheckValveWithArrowNodeConfigType
-	// ElectricRegulatorNodeConfigType selects the ElectricRegulatorNodeConfig variant.
+	// ElectricRegulatorNodeConfigType is the configuration for electric regulator
+	// symbols.
 	ElectricRegulatorNodeConfigType NodeConfigType = v14.ElectricRegulatorNodeConfigType
-	// ElectricRegulatorMotorizedNodeConfigType selects the
-	// ElectricRegulatorMotorizedNodeConfig variant.
+	// ElectricRegulatorMotorizedNodeConfigType is the configuration for motorized
+	// electric regulator symbols.
 	ElectricRegulatorMotorizedNodeConfigType NodeConfigType = v14.ElectricRegulatorMotorizedNodeConfigType
-	// FourWayValveNodeConfigType selects the FourWayValveNodeConfig variant.
+	// FourWayValveNodeConfigType is the configuration for four way valve symbols.
 	FourWayValveNodeConfigType NodeConfigType = v14.FourWayValveNodeConfigType
-	// GateValveNodeConfigType selects the GateValveNodeConfig variant.
+	// GateValveNodeConfigType is the configuration for gate valve symbols.
 	GateValveNodeConfigType NodeConfigType = v14.GateValveNodeConfigType
-	// IsoCheckValveNodeConfigType selects the IsoCheckValveNodeConfig variant.
+	// IsoCheckValveNodeConfigType is the configuration for ISO check valve symbols.
 	IsoCheckValveNodeConfigType NodeConfigType = v14.IsoCheckValveNodeConfigType
-	// ManualValveNodeConfigType selects the ManualValveNodeConfig variant.
+	// ManualValveNodeConfigType is the configuration for manual valve symbols.
 	ManualValveNodeConfigType NodeConfigType = v14.ManualValveNodeConfigType
-	// NeedleValveNodeConfigType selects the NeedleValveNodeConfig variant.
+	// NeedleValveNodeConfigType is the configuration for needle valve symbols.
 	NeedleValveNodeConfigType NodeConfigType = v14.NeedleValveNodeConfigType
-	// RegulatorNodeConfigType selects the RegulatorNodeConfig variant.
+	// RegulatorNodeConfigType is the configuration for regulator symbols.
 	RegulatorNodeConfigType NodeConfigType = v14.RegulatorNodeConfigType
-	// RegulatorManualNodeConfigType selects the RegulatorManualNodeConfig variant.
+	// RegulatorManualNodeConfigType is the configuration for manual regulator symbols.
 	RegulatorManualNodeConfigType NodeConfigType = v14.RegulatorManualNodeConfigType
-	// ReliefValveNodeConfigType selects the ReliefValveNodeConfig variant.
+	// ReliefValveNodeConfigType is the configuration for relief valve symbols.
 	ReliefValveNodeConfigType NodeConfigType = v14.ReliefValveNodeConfigType
 	// SolenoidValveNodeConfigType is the configuration for solenoid valve symbols.
 	SolenoidValveNodeConfigType NodeConfigType = v14.SolenoidValveNodeConfigType
-	// SpringLoadedReliefValveNodeConfigType selects the
-	// SpringLoadedReliefValveNodeConfig variant.
+	// SpringLoadedReliefValveNodeConfigType is the configuration for spring loaded
+	// relief valve symbols.
 	SpringLoadedReliefValveNodeConfigType NodeConfigType = v14.SpringLoadedReliefValveNodeConfigType
-	// ThreeWayValveNodeConfigType selects the ThreeWayValveNodeConfig variant.
+	// ThreeWayValveNodeConfigType is the configuration for three way valve symbols.
 	ThreeWayValveNodeConfigType NodeConfigType = v14.ThreeWayValveNodeConfigType
-	// ThreeWayBallValveNodeConfigType selects the ThreeWayBallValveNodeConfig variant.
+	// ThreeWayBallValveNodeConfigType is the configuration for three-way ball valve
+	// symbols.
 	ThreeWayBallValveNodeConfigType NodeConfigType = v14.ThreeWayBallValveNodeConfigType
-	// ValveNodeConfigType selects the ValveNodeConfig variant.
+	// ValveNodeConfigType is the configuration for generic valve symbols.
 	ValveNodeConfigType NodeConfigType = v14.ValveNodeConfigType
-	// CrossJunctionNodeConfigType selects the CrossJunctionNodeConfig variant.
+	// CrossJunctionNodeConfigType is the configuration for cross junction symbols.
 	CrossJunctionNodeConfigType NodeConfigType = v14.CrossJunctionNodeConfigType
 	// CylinderNodeConfigType is the configuration for cylinder vessel symbols.
 	CylinderNodeConfigType NodeConfigType = v14.CylinderNodeConfigType
 	// TankNodeConfigType is the configuration for tank vessel symbols.
 	TankNodeConfigType NodeConfigType = v14.TankNodeConfigType
-	// TJunctionNodeConfigType selects the TJunctionNodeConfig variant.
+	// TJunctionNodeConfigType is the configuration for T junction symbols.
 	TJunctionNodeConfigType NodeConfigType = v14.TJunctionNodeConfigType
 	// CustomActuatorNodeConfigType is the configuration for user-defined actuator
 	// symbols.
@@ -612,39 +617,109 @@ type TurboCompressorNodeConfig = v14.TurboCompressorNodeConfig
 
 // VacuumPumpNodeConfig is the configuration for vacuum pump symbols.
 type VacuumPumpNodeConfig = v14.VacuumPumpNodeConfig
+
+// BurstDiscNodeConfig is the configuration for burst disc symbols.
 type BurstDiscNodeConfig = v14.BurstDiscNodeConfig
+
+// FlameArrestorNodeConfig is the configuration for flame arrestor symbols.
 type FlameArrestorNodeConfig = v14.FlameArrestorNodeConfig
+
+// FlameArrestorDetonationNodeConfig is the configuration for detonation-proof flame
+// arrestor symbols.
 type FlameArrestorDetonationNodeConfig = v14.FlameArrestorDetonationNodeConfig
+
+// FlameArrestorExplosionNodeConfig is the configuration for explosion-proof flame
+// arrestor symbols.
 type FlameArrestorExplosionNodeConfig = v14.FlameArrestorExplosionNodeConfig
+
+// FlameArrestorFireResNodeConfig is the configuration for fire resistant flame arrestor
+// symbols.
 type FlameArrestorFireResNodeConfig = v14.FlameArrestorFireResNodeConfig
+
+// FlameArrestorFireResDetonationNodeConfig is the configuration for fire resistant and
+// detonation-proof flame arrestor symbols.
 type FlameArrestorFireResDetonationNodeConfig = v14.FlameArrestorFireResDetonationNodeConfig
+
+// IsoBurstDiscNodeConfig is the configuration for ISO burst disc symbols.
 type IsoBurstDiscNodeConfig = v14.IsoBurstDiscNodeConfig
+
+// AngledValveNodeConfig is the configuration for angled valve symbols.
 type AngledValveNodeConfig = v14.AngledValveNodeConfig
+
+// AngledReliefValveNodeConfig is the configuration for angled relief valve symbols.
 type AngledReliefValveNodeConfig = v14.AngledReliefValveNodeConfig
+
+// AngledSpringLoadedReliefValveNodeConfig is the configuration for angled spring loaded
+// relief valve symbols.
 type AngledSpringLoadedReliefValveNodeConfig = v14.AngledSpringLoadedReliefValveNodeConfig
+
+// BallValveNodeConfig is the configuration for ball valve symbols.
 type BallValveNodeConfig = v14.BallValveNodeConfig
+
+// BreatherValveNodeConfig is the configuration for breather valve symbols.
 type BreatherValveNodeConfig = v14.BreatherValveNodeConfig
+
+// ButterflyValveOneNodeConfig is the configuration for remote butterfly valve symbols.
 type ButterflyValveOneNodeConfig = v14.ButterflyValveOneNodeConfig
+
+// ButterflyValveTwoNodeConfig is the configuration for manual butterfly valve symbols.
 type ButterflyValveTwoNodeConfig = v14.ButterflyValveTwoNodeConfig
+
+// CheckValveNodeConfig is the configuration for check valve symbols.
 type CheckValveNodeConfig = v14.CheckValveNodeConfig
+
+// CheckValveWithArrowNodeConfig is the configuration for check valve symbols drawn with
+// an arrow.
 type CheckValveWithArrowNodeConfig = v14.CheckValveWithArrowNodeConfig
+
+// ElectricRegulatorNodeConfig is the configuration for electric regulator symbols.
 type ElectricRegulatorNodeConfig = v14.ElectricRegulatorNodeConfig
+
+// ElectricRegulatorMotorizedNodeConfig is the configuration for motorized electric
+// regulator symbols.
 type ElectricRegulatorMotorizedNodeConfig = v14.ElectricRegulatorMotorizedNodeConfig
+
+// FourWayValveNodeConfig is the configuration for four way valve symbols.
 type FourWayValveNodeConfig = v14.FourWayValveNodeConfig
+
+// GateValveNodeConfig is the configuration for gate valve symbols.
 type GateValveNodeConfig = v14.GateValveNodeConfig
+
+// IsoCheckValveNodeConfig is the configuration for ISO check valve symbols.
 type IsoCheckValveNodeConfig = v14.IsoCheckValveNodeConfig
+
+// ManualValveNodeConfig is the configuration for manual valve symbols.
 type ManualValveNodeConfig = v14.ManualValveNodeConfig
+
+// NeedleValveNodeConfig is the configuration for needle valve symbols.
 type NeedleValveNodeConfig = v14.NeedleValveNodeConfig
+
+// RegulatorNodeConfig is the configuration for regulator symbols.
 type RegulatorNodeConfig = v14.RegulatorNodeConfig
+
+// RegulatorManualNodeConfig is the configuration for manual regulator symbols.
 type RegulatorManualNodeConfig = v14.RegulatorManualNodeConfig
+
+// ReliefValveNodeConfig is the configuration for relief valve symbols.
 type ReliefValveNodeConfig = v14.ReliefValveNodeConfig
 
 // SolenoidValveNodeConfig is the configuration for solenoid valve symbols.
 type SolenoidValveNodeConfig = v14.SolenoidValveNodeConfig
+
+// SpringLoadedReliefValveNodeConfig is the configuration for spring loaded relief valve
+// symbols.
 type SpringLoadedReliefValveNodeConfig = v14.SpringLoadedReliefValveNodeConfig
+
+// ThreeWayValveNodeConfig is the configuration for three way valve symbols.
 type ThreeWayValveNodeConfig = v14.ThreeWayValveNodeConfig
+
+// ThreeWayBallValveNodeConfig is the configuration for three-way ball valve symbols.
 type ThreeWayBallValveNodeConfig = v14.ThreeWayBallValveNodeConfig
+
+// ValveNodeConfig is the configuration for generic valve symbols.
 type ValveNodeConfig = v14.ValveNodeConfig
+
+// CrossJunctionNodeConfig is the configuration for cross junction symbols.
 type CrossJunctionNodeConfig = v14.CrossJunctionNodeConfig
 
 // CylinderNodeConfig is the configuration for cylinder vessel symbols.
@@ -652,6 +727,8 @@ type CylinderNodeConfig = v14.CylinderNodeConfig
 
 // TankNodeConfig is the configuration for tank vessel symbols.
 type TankNodeConfig = v14.TankNodeConfig
+
+// TJunctionNodeConfig is the configuration for T junction symbols.
 type TJunctionNodeConfig = v14.TJunctionNodeConfig
 
 // CustomActuatorNodeConfig is the configuration for user-defined actuator symbols.
