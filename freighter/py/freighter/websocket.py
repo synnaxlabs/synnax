@@ -7,13 +7,17 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import selectors
+import socket
 import ssl
-from collections.abc import MutableMapping
+import threading
+from collections.abc import Buffer, Callable, MutableMapping
 from contextlib import ExitStack
 from typing import Any, Literal, Self, override
 
 from pydantic import BaseModel
 from websockets.asyncio.client import ClientConnection as AsyncClientConnection, connect
+from websockets.client import ClientProtocol
 from websockets.exceptions import (
     ConnectionClosedError as ConnectionClosedError,
     ConnectionClosedOK,
@@ -317,6 +321,84 @@ class SyncWebsocketStream(Stream[RQ, RS]):
             self._connection.close()
 
 
+class _TLSSocket(socket.socket):
+    """A TLS socket that one thread can read while another writes. OpenSSL breaks
+    when a TLS 1.3 session ticket arrives during a concurrent write, so this socket
+    serializes every SSL call and waits for the socket outside the lock.
+    """
+
+    _tls: ssl.SSLSocket
+    _lock: threading.Lock
+    _timeout: float | None
+    _wake_read: socket.socket
+    _wake_write: socket.socket
+
+    def __init__(self, tls: ssl.SSLSocket) -> None:
+        super().__init__(tls.family, tls.type, tls.proto, socket.dup(tls.fileno()))
+        tls.setblocking(False)
+        self._tls = tls
+        self._lock = threading.Lock()
+        self._timeout = None
+        self._wake_read, self._wake_write = socket.socketpair()
+
+    @override
+    def settimeout(self, value: float | None) -> None:
+        self._timeout = value
+
+    @override
+    def recv(self, bufsize: int, flags: int = 0, /) -> bytes:
+        return self._run(self._tls.recv, bufsize, flags)
+
+    @override
+    def sendall(self, data: Buffer, flags: int = 0, /) -> None:
+        view = memoryview(data).cast("B")
+        while view:
+            view = view[self._run(self._tls.send, view, flags) :]
+
+    @override
+    def shutdown(self, how: int, /) -> None:
+        with self._lock:
+            self._tls.shutdown(how)
+
+    @override
+    def close(self) -> None:
+        self._wake_write.close()
+        with self._lock:
+            self._tls.close()
+        self._wake_read.close()
+        super().close()
+
+    def _run[T](self, call: Callable[..., T], *args: Any) -> T:
+        with selectors.DefaultSelector() as selector:
+            selector.register(self._wake_read, selectors.EVENT_READ)
+            while True:
+                with self._lock:
+                    try:
+                        return call(*args)
+                    except ssl.SSLWantReadError:
+                        event = selectors.EVENT_READ
+                    except ssl.SSLWantWriteError:
+                        event = selectors.EVENT_WRITE
+                selector.register(self._tls, event)
+                ready = selector.select(self._timeout)
+                selector.unregister(self._tls)
+                if not ready:
+                    raise TimeoutError("timed out waiting for the socket")
+                if any(key.fileobj is self._wake_read for key, _ in ready):
+                    raise OSError("socket closed")
+
+
+class _SyncConnection(SyncClientProtocol):
+    """Reads and writes a TLS connection through a _TLSSocket."""
+
+    def __init__(
+        self, sock: socket.socket, protocol: ClientProtocol, **kwargs: Any
+    ) -> None:
+        if isinstance(sock, ssl.SSLSocket):
+            sock = _TLSSocket(sock)
+        super().__init__(sock, protocol, **kwargs)
+
+
 class _Base:
     _endpoint: URL
     _encoder: Codec
@@ -496,6 +578,7 @@ class WebsocketClient(_Base, MiddlewareCollector, StreamClient):
                 legacy=False,
                 ssl=self._ssl_context,
                 proxy=self._proxy,
+                create_connection=_SyncConnection,
                 **self._kwargs,
             )
             socket = SyncWebsocketStream[RQ, RS](
