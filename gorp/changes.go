@@ -75,10 +75,16 @@ type changeList struct {
 	// at maps each record the transaction wrote to its position in entries.
 	at      map[Target]int
 	entries []changeEntry
-	// onBehalf holds the records that MarkOnBehalf marked, and the cascades and
-	// detaches of their deletes.
-	onBehalf set.Set[Target]
+	// onBehalf holds the first onBehalfLen records made on the caller's behalf, and
+	// moreOnBehalf the rest. Past onBehalfScan of them, onBehalfSet holds them all.
+	onBehalf     [2]Target
+	onBehalfLen  int
+	moreOnBehalf []Target
+	onBehalfSet  set.Set[Target]
 }
+
+// onBehalfScan is the number of marks that isOnBehalf scans before a set holds them.
+const onBehalfScan = 16
 
 // MarkOnBehalf marks the writes of tx to each of targets as made on the caller's
 // behalf, so ChangesOf reports each as OnBehalf, and so do the cascades and detaches of
@@ -95,14 +101,41 @@ func MarkOnBehalf(tx Tx, targets ...Target) {
 
 // markOnBehalf adds targets to the records made on the caller's behalf.
 func (l *changeList) markOnBehalf(targets ...Target) {
-	if l.onBehalf == nil {
-		l.onBehalf = make(set.Set[Target], len(targets))
+	for _, t := range targets {
+		l.markOneOnBehalf(t)
 	}
-	l.onBehalf.Add(targets...)
+}
+
+// markOneOnBehalf adds t to the records made on the caller's behalf. The first two
+// take no allocation.
+func (l *changeList) markOneOnBehalf(t Target) {
+	switch {
+	case l.onBehalfSet != nil:
+		l.onBehalfSet.Add(t)
+	case l.onBehalfLen < len(l.onBehalf):
+		l.onBehalf[l.onBehalfLen] = t
+		l.onBehalfLen++
+	default:
+		l.moreOnBehalf = append(l.moreOnBehalf, t)
+		if l.onBehalfLen+len(l.moreOnBehalf) > onBehalfScan {
+			l.onBehalfSet = set.New(l.onBehalf[:l.onBehalfLen]...)
+			l.onBehalfSet.Add(l.moreOnBehalf...)
+			l.moreOnBehalf = nil
+		}
+	}
 }
 
 // isOnBehalf reports whether t was made on the caller's behalf.
-func (l *changeList) isOnBehalf(t Target) bool { return l.onBehalf.Contains(t) }
+func (l *changeList) isOnBehalf(t Target) bool {
+	if l.onBehalfSet != nil {
+		return l.onBehalfSet.Contains(t)
+	}
+	return slices.Contains(l.onBehalf[:l.onBehalfLen], t) ||
+		slices.Contains(l.moreOnBehalf, t)
+}
+
+// anyOnBehalf reports whether a record was made on the caller's behalf.
+func (l *changeList) anyOnBehalf() bool { return l.onBehalfLen > 0 }
 
 type changeEntry struct {
 	record Target
