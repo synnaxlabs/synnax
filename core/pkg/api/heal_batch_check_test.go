@@ -15,9 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
-	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/batch"
-	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
@@ -83,22 +81,19 @@ var _ = Describe("Heal batch check", func() {
 				[]access.Action{access.ActionUpdate, access.ActionRetrieve},
 				channel.ResourceID(ch.Key()),
 			))
-			// The batch route as the API layer binds it, with the binder's production
-			// tables.
-			binder := MustSucceed(bind.NewService(bind.ServiceConfig{
-				DB:      db,
-				RBAC:    svc.RBAC,
-				Held:    apiauth.HeldTables(),
-				Mirrors: channel.MirrorTables(),
-			}))
 			var req batch.ExecRequest
 			Expect(json.Codec.Decode([]byte(fmt.Sprintf(`{"requests": [
 				{"endpoint": "/channel/dispatch", "payload": {"key": %d, "actions": [
 					{"type": "rename", "rename": {"name": %q}}
 				]}}
 			]}`, ch.Key(), dead.Name)), &req)).To(Succeed())
-			_, err := bind.Write(binder, apiLayer.Batch.Exec)(AuthedCtx(ctx, u), req)
+			_, err := exec(AuthedCtx(ctx, u), req)
 			Expect(err).To(MatchError(access.ErrDenied))
+			Expect(err).To(MatchError(fmt.Sprintf(
+				"%s cannot change 1 record that this request changes and that it "+
+					"cannot retrieve: access denied: auth error",
+				u.ResourceID(),
+			)))
 			Expect(err.Error()).ToNot(ContainSubstring(sch.Key.String()))
 		},
 	)
