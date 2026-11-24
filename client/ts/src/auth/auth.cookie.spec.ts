@@ -56,13 +56,13 @@ describe("auth cookie sessions", () => {
     const onFailure = vi.fn();
     const client = new auth.Client(transport.unary, { cookie: true }, { onFailure });
     transport.use(client.middleware());
-    await client.retrieveSessions();
+    await client.sessions.retrieve();
     cookie = undefined;
-    await expect(client.retrieveSessions()).rejects.toThrow(SessionEndedError);
+    await expect(client.sessions.retrieve()).rejects.toThrow(SessionEndedError);
     expect(onFailure).toHaveBeenCalledOnce();
     expect(SessionEndedError.matches(onFailure.mock.calls[0][0])).toBe(true);
     // the next request logs in again instead of going out with no session
-    await expect(client.retrieveSessions()).rejects.toThrow(MissingCredentialsError);
+    await expect(client.sessions.retrieve()).rejects.toThrow(MissingCredentialsError);
     expect(onFailure).toHaveBeenCalledTimes(2);
     await owner.logout();
   });
@@ -86,11 +86,11 @@ describe("auth cookie sessions", () => {
       { onFailure },
     );
     transport.use(client.middleware());
-    await client.retrieveSessions();
+    await client.sessions.retrieve();
     expect(logins).toBe(1);
     cookie = undefined;
     // Node keeps no cookies, so each fresh session is lost the same way
-    await expect(client.retrieveSessions()).rejects.toThrow(MissingCredentialsError);
+    await expect(client.sessions.retrieve()).rejects.toThrow(MissingCredentialsError);
     expect(logins).toBeGreaterThan(1);
     expect(onFailure).toHaveBeenCalledOnce();
     expect(MissingCredentialsError.matches(onFailure.mock.calls[0][0])).toBe(true);

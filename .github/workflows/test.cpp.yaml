@@ -201,7 +201,7 @@ jobs:
         run: |
           read -ra args <<< "$TARGETS $TAG_FLAG $TEST_FLAGS"
           bazel test ${{ inputs.sanitizers && '--config=asan' || '' }} \
-            --test_output=all "${args[@]}"
+            --test_output=errors "${args[@]}"
 
       # The Ubuntu build bots have 16 GB and no swap. A sanitized compile takes up to
       # 3.5 GB, the Bazel server up to 4 GB, and the Core service container holds more,
@@ -227,7 +227,7 @@ jobs:
               "--instrumentation_filter=${filter%,}")
           fi
           bazel "$verb" --jobs=3 \
-            ${{ inputs.sanitizers && '--config=asan-leak' || '' }} --test_output=all \
+            ${{ inputs.sanitizers && '--config=asan-leak' || '' }} --test_output=errors \
             --test_env=LSAN_OPTIONS=suppressions="$lsan" "${args[@]}"
 
       # GCC counts the exception edge of every call as a branch, so Codecov marks most
@@ -260,7 +260,7 @@ jobs:
         run: |
           export MSYS_NO_PATHCONV=1
           read -ra args <<< "$BAZEL_REMOTE_CACHE_FLAGS $TARGETS $TAG_FLAG $TEST_FLAGS"
-          scripts/run_bazel.sh test --test_output=all "${args[@]}"
+          scripts/run_bazel.sh test --test_output=errors "${args[@]}"
 
       - name: Clean build caches (Ubuntu)
         if: always() && runner.os == 'Linux'

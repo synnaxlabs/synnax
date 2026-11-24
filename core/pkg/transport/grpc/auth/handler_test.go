@@ -10,162 +10,44 @@
 package auth_test
 
 import (
-	"uuid"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	. "github.com/onsi/gomega/gstruct"
-	"github.com/onsi/gomega/types"
 	"github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	svcauth "github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	grpcauth "github.com/synnaxlabs/synnax/pkg/transport/grpc/auth"
-	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
-	"github.com/synnaxlabs/x/validate"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-type (
-	loginServer = grpc.UnaryServer[
-		auth.LoginRequest,
-		*grpcauth.LoginRequest,
-		auth.LoginResponse,
-		*grpcauth.LoginResponse,
-	]
-	sessionCreateServer = grpc.UnaryServer[
-		auth.SessionCreateRequest,
-		*grpcauth.SessionCreateRequest,
-		auth.SessionCreateResponse,
-		*grpcauth.SessionCreateResponse,
-	]
-	sessionRenewServer = grpc.UnaryServer[
-		struct{},
-		*emptypb.Empty,
-		auth.SessionRenewResponse,
-		*grpcauth.SessionRenewResponse,
-	]
-	sessionRetrieveServer = grpc.UnaryServer[
-		auth.SessionRetrieveRequest,
-		*grpcauth.SessionRetrieveRequest,
-		auth.SessionRetrieveResponse,
-		*grpcauth.SessionRetrieveResponse,
-	]
-	sessionDeleteServer = grpc.UnaryServer[
-		auth.SessionDeleteRequest,
-		*grpcauth.SessionDeleteRequest,
-		struct{},
-		*emptypb.Empty,
-	]
-	keyCreateServer = grpc.UnaryServer[
-		auth.APIKeyCreateRequest,
-		*grpcauth.APIKeyCreateRequest,
-		auth.APIKeyCreateResponse,
-		*grpcauth.APIKeyCreateResponse,
-	]
-	keyRetrieveServer = grpc.UnaryServer[
-		auth.APIKeyRetrieveRequest,
-		*grpcauth.APIKeyRetrieveRequest,
-		auth.APIKeyRetrieveResponse,
-		*grpcauth.APIKeyRetrieveResponse,
-	]
-	methodsServer = grpc.UnaryServer[
-		struct{},
-		*emptypb.Empty,
-		auth.MethodsResponse,
-		*grpcauth.MethodsResponse,
-	]
-	keyDeleteServer = grpc.UnaryServer[
-		auth.APIKeyDeleteRequest,
-		*grpcauth.APIKeyDeleteRequest,
-		struct{},
-		*emptypb.Empty,
-	]
-)
-
-const errInvalidUUID = "invalid uuid"
-
-func matchSession(s svcauth.Session) types.GomegaMatcher {
-	return PointTo(MatchFields(IgnoreExtras, Fields{
-		"Key": Equal(s.Key.String()),
-		"Subject": PointTo(MatchFields(IgnoreExtras, Fields{
-			"Type": Equal(string(s.Subject.Type)),
-			"Key":  Equal(s.Subject.Key),
-		})),
-		"Credential": Equal(s.Credential.String()),
-		"LastActive": Equal(int64(s.LastActive)),
-	}))
-}
-
-func matchAPIKey(k auth.APIKey) types.GomegaMatcher {
-	return PointTo(MatchFields(IgnoreExtras, Fields{
-		"Key": Equal(k.Key.String()),
-		"Subject": PointTo(MatchFields(IgnoreExtras, Fields{
-			"Type": Equal(string(k.Subject.Type)),
-			"Key":  Equal(k.Subject.Key),
-		})),
-		"Name":    Equal(k.Name),
-		"Created": Equal(int64(k.Created)),
-	}))
-}
-
-var (
-	bob    = auth.User{Key: uuid.New()}
-	apiKey = auth.APIKey{
-		Key:     uuid.New(),
-		Subject: bob.ResourceID(),
-		Name:    "ci",
-		Created: telem.TimeStamp(9),
-	}
-	session = svcauth.Session{
-		Key:        uuid.New(),
-		Subject:    bob.ResourceID(),
-		Credential: uuid.New(),
-		LastActive: telem.TimeStamp(42),
-	}
-)
+type methodsServer = grpc.UnaryServer[
+	struct{},
+	*emptypb.Empty,
+	auth.MethodsResponse,
+	*grpcauth.MethodsResponse,
+]
 
 var _ = Describe("Auth", func() {
 	var transport api.Transport
-	bindable, ok := grpcauth.New(
-		&transport,
-		api.NewErrorCodec(),
-	).(grpc.CompoundBindableTransport)
-	Expect(ok).To(BeTrue())
-	login, ok := transport.AuthLogin.(*loginServer)
-	Expect(ok).To(BeTrue())
+	bindable := grpcauth.New(&transport, api.NewErrorCodec())
 	methods, ok := transport.AuthMethods.(*methodsServer)
-	Expect(ok).To(BeTrue())
-	create, ok := transport.AuthSessionCreate.(*sessionCreateServer)
-	Expect(ok).To(BeTrue())
-	renew, ok := transport.AuthSessionRenew.(*sessionRenewServer)
-	Expect(ok).To(BeTrue())
-	retrieve, ok := transport.AuthSessionRetrieve.(*sessionRetrieveServer)
-	Expect(ok).To(BeTrue())
-	del, ok := transport.AuthSessionDelete.(*sessionDeleteServer)
-	Expect(ok).To(BeTrue())
-	keyCreate, ok := transport.AuthAPIKeyCreate.(*keyCreateServer)
-	Expect(ok).To(BeTrue())
-	keyRetrieve, ok := transport.AuthAPIKeyRetrieve.(*keyRetrieveServer)
-	Expect(ok).To(BeTrue())
-	keyDelete, ok := transport.AuthAPIKeyDelete.(*keyDeleteServer)
 	Expect(ok).To(BeTrue())
 
 	Describe("New", func() {
-		It("Should bind every auth server onto the API transport", func() {
-			Expect(bindable).To(HaveExactElements(
-				BeIdenticalTo(login),
-				BeIdenticalTo(create),
-				BeIdenticalTo(renew),
-				BeIdenticalTo(retrieve),
-				BeIdenticalTo(del),
-				BeIdenticalTo(keyCreate),
-				BeIdenticalTo(keyRetrieve),
-				BeIdenticalTo(keyDelete),
-				BeIdenticalTo(methods),
-			))
+		It("Should bind the methods server onto the API transport", func() {
+			Expect(bindable).To(BeIdenticalTo(methods))
+		})
+	})
+
+	Describe("Subject", func() {
+		It("Should round-trip a resource ID", func() {
+			id := resource.ID{Type: resource.TypeUser, Key: "bob"}
+			Expect(grpcauth.SubjectBackward(grpcauth.SubjectForward(id))).To(Equal(id))
+		})
+		It("Should read a missing subject as the zero ID", func() {
+			Expect(grpcauth.SubjectBackward(nil)).To(BeZero())
 		})
 	})
 
@@ -184,253 +66,6 @@ var _ = Describe("Auth", func() {
 				ctx,
 				auth.MethodsResponse{Methods: []svcauth.Method{}},
 			)).Methods).To(BeEmpty())
-		})
-	})
-
-	Describe("LoginRequest", func() {
-		It("Should translate the credentials", func(ctx SpecContext) {
-			Expect(MustSucceed(login.RequestTranslator.Backward(
-				ctx,
-				&grpcauth.LoginRequest{Username: "bob", Password: "p"},
-			))).To(Equal(auth.LoginRequest{Username: "bob", Password: "p"}))
-		})
-	})
-
-	Describe("LoginResponse", func() {
-		It("Should translate the token, user, and cluster info", func(
-			ctx SpecContext,
-		) {
-			pb := MustSucceed(login.ResponseTranslator.Forward(ctx, auth.LoginResponse{
-				Token: "tk",
-				User:  bob,
-				ClusterInfo: auth.ClusterInfo{
-					ClusterKey:  "cluster",
-					NodeVersion: "0.1.0",
-					NodeKey:     1,
-					NodeTime:    telem.TimeStamp(7),
-				},
-			}))
-			Expect(pb.Token).To(Equal("tk"))
-			Expect(pb.User.Key).To(Equal(bob.Key.String()))
-			Expect(pb.ClusterInfo.ClusterKey).To(Equal("cluster"))
-			Expect(pb.ClusterInfo.NodeVersion).To(Equal("0.1.0"))
-			Expect(pb.ClusterInfo.NodeKey).To(Equal(uint32(1)))
-			Expect(pb.ClusterInfo.NodeTime).To(Equal(int64(7)))
-		})
-	})
-
-	Describe("SessionCreateRequest", func() {
-		It("Should translate a password proof", func(ctx SpecContext) {
-			Expect(
-				MustSucceed(create.RequestTranslator.Backward(
-					ctx,
-					&grpcauth.SessionCreateRequest{Proof: &grpcauth.Proof{
-						Method:   string(svcauth.MethodPassword),
-						Username: "bob",
-						Password: "p",
-					}},
-				)),
-			).To(Equal(auth.SessionCreateRequest{Proof: svcauth.Proof{
-				Variant: svcauth.PasswordProof{
-					Credentials: svcauth.Credentials{Username: "bob", Password: "p"},
-				},
-			}}))
-		})
-		It("Should translate an API key proof", func(ctx SpecContext) {
-			Expect(
-				MustSucceed(create.RequestTranslator.Backward(
-					ctx,
-					&grpcauth.SessionCreateRequest{Proof: &grpcauth.Proof{
-						Method: string(svcauth.MethodAPIKey),
-						Key:    "syk_secret",
-					}},
-				)),
-			).To(Equal(auth.SessionCreateRequest{Proof: svcauth.Proof{
-				Variant: svcauth.APIKeyProof{
-					APIKeyCredentials: svcauth.APIKeyCredentials{Key: "syk_secret"},
-				},
-			}}))
-		})
-		It("Should translate an OIDC proof", func(ctx SpecContext) {
-			Expect(
-				MustSucceed(create.RequestTranslator.Backward(
-					ctx,
-					&grpcauth.SessionCreateRequest{Proof: &grpcauth.Proof{
-						Method:      string(svcauth.MethodOIDC),
-						Provider:    "idp",
-						Code:        "code",
-						Verifier:    "verifier",
-						RedirectUri: "http://127.0.0.1:4242/callback",
-					}},
-				)),
-			).To(Equal(auth.SessionCreateRequest{Proof: svcauth.Proof{
-				Variant: svcauth.OIDCProof{
-					OIDCCredentials: svcauth.OIDCCredentials{
-						Provider:    "idp",
-						Code:        "code",
-						Verifier:    "verifier",
-						RedirectURI: "http://127.0.0.1:4242/callback",
-					},
-				},
-			}}))
-		})
-		It("Should reject a missing proof", func(ctx SpecContext) {
-			Expect(create.RequestTranslator.Backward(
-				ctx,
-				&grpcauth.SessionCreateRequest{},
-			)).Error().To(MatchError(validate.ErrValidation))
-		})
-		It("Should reject an unknown method", func(ctx SpecContext) {
-			Expect(
-				create.RequestTranslator.Backward(ctx, &grpcauth.SessionCreateRequest{
-					Proof: &grpcauth.Proof{Method: "carrier_pigeon"},
-				}),
-			).Error().
-				To(MatchError(validate.ErrValidation))
-		})
-	})
-
-	Describe("SessionCreateResponse", func() {
-		It("Should translate the token, session, and user", func(ctx SpecContext) {
-			pb := MustSucceed(create.ResponseTranslator.Forward(
-				ctx,
-				auth.SessionCreateResponse{Token: "tk", Session: session, User: &bob},
-			))
-			Expect(pb.Token).To(Equal("tk"))
-			Expect(pb.Session).To(matchSession(session))
-			Expect(pb.User.Key).To(Equal(bob.Key.String()))
-		})
-		It("Should translate a subject that is not a user", func(ctx SpecContext) {
-			pb := MustSucceed(create.ResponseTranslator.Forward(
-				ctx,
-				auth.SessionCreateResponse{Token: "tk", Session: session},
-			))
-			Expect(pb.User).To(BeNil())
-		})
-	})
-
-	Describe("SessionRenewResponse", func() {
-		It("Should translate the session and user", func(ctx SpecContext) {
-			pb := MustSucceed(renew.ResponseTranslator.Forward(
-				ctx,
-				auth.SessionRenewResponse{Session: session, User: &bob},
-			))
-			Expect(pb.Session).To(matchSession(session))
-			Expect(pb.User.Key).To(Equal(bob.Key.String()))
-		})
-		It("Should translate a subject that is not a user", func(ctx SpecContext) {
-			pb := MustSucceed(renew.ResponseTranslator.Forward(
-				ctx,
-				auth.SessionRenewResponse{Session: session},
-			))
-			Expect(pb.User).To(BeNil())
-		})
-	})
-
-	Describe("SessionRetrieveRequest", func() {
-		It("Should translate the subjects", func(ctx SpecContext) {
-			id := bob.ResourceID()
-			Expect(MustSucceed(retrieve.RequestTranslator.Backward(
-				ctx,
-				&grpcauth.SessionRetrieveRequest{Subjects: []*grpcauth.Subject{
-					{Type: string(id.Type), Key: id.Key},
-				}},
-			)).Subjects).To(Equal([]resource.ID{id}))
-		})
-		It("Should read a missing subject as the zero ID", func(ctx SpecContext) {
-			res := MustSucceed(retrieve.RequestTranslator.Backward(
-				ctx,
-				&grpcauth.SessionRetrieveRequest{Subjects: []*grpcauth.Subject{nil}},
-			))
-			Expect(res.Subjects).To(Equal([]resource.ID{{}}))
-		})
-	})
-
-	Describe("SessionRetrieveResponse", func() {
-		It("Should translate the sessions", func(ctx SpecContext) {
-			pb := MustSucceed(retrieve.ResponseTranslator.Forward(
-				ctx,
-				auth.SessionRetrieveResponse{Sessions: []svcauth.Session{session}},
-			))
-			Expect(pb.Sessions).To(ConsistOf(matchSession(session)))
-		})
-	})
-
-	Describe("SessionDeleteRequest", func() {
-		It("Should translate the keys", func(ctx SpecContext) {
-			key := uuid.New()
-			Expect(MustSucceed(del.RequestTranslator.Backward(
-				ctx,
-				&grpcauth.SessionDeleteRequest{Keys: []string{key.String()}},
-			))).To(Equal(auth.SessionDeleteRequest{Keys: []svcauth.SessionKey{key}}))
-		})
-		It("Should reject a malformed key", func(ctx SpecContext) {
-			Expect(del.RequestTranslator.Backward(
-				ctx,
-				&grpcauth.SessionDeleteRequest{Keys: []string{"bad"}},
-			)).Error().To(MatchError(errInvalidUUID))
-		})
-	})
-
-	Describe("APIKeyCreateRequest", func() {
-		It("Should translate the subject and name", func(ctx SpecContext) {
-			id := bob.ResourceID()
-			Expect(MustSucceed(keyCreate.RequestTranslator.Backward(
-				ctx,
-				&grpcauth.APIKeyCreateRequest{
-					Subject: &grpcauth.Subject{Type: string(id.Type), Key: id.Key},
-					Name:    "ci",
-				},
-			))).To(Equal(auth.APIKeyCreateRequest{Subject: id, Name: "ci"}))
-		})
-	})
-
-	Describe("APIKeyCreateResponse", func() {
-		It("Should translate the token and key", func(ctx SpecContext) {
-			pb := MustSucceed(keyCreate.ResponseTranslator.Forward(
-				ctx,
-				auth.APIKeyCreateResponse{Token: "syk_secret", Key: apiKey},
-			))
-			Expect(pb.Token).To(Equal("syk_secret"))
-			Expect(pb.Key).To(matchAPIKey(apiKey))
-		})
-	})
-
-	Describe("APIKeyRetrieveRequest", func() {
-		It("Should translate the subjects", func(ctx SpecContext) {
-			id := bob.ResourceID()
-			Expect(MustSucceed(keyRetrieve.RequestTranslator.Backward(
-				ctx,
-				&grpcauth.APIKeyRetrieveRequest{Subjects: []*grpcauth.Subject{
-					{Type: string(id.Type), Key: id.Key},
-				}},
-			)).Subjects).To(Equal([]resource.ID{id}))
-		})
-	})
-
-	Describe("APIKeyRetrieveResponse", func() {
-		It("Should translate the keys", func(ctx SpecContext) {
-			pb := MustSucceed(keyRetrieve.ResponseTranslator.Forward(
-				ctx,
-				auth.APIKeyRetrieveResponse{Keys: []auth.APIKey{apiKey}},
-			))
-			Expect(pb.Keys).To(ConsistOf(matchAPIKey(apiKey)))
-		})
-	})
-
-	Describe("APIKeyDeleteRequest", func() {
-		It("Should translate the keys", func(ctx SpecContext) {
-			key := uuid.New()
-			Expect(MustSucceed(keyDelete.RequestTranslator.Backward(
-				ctx,
-				&grpcauth.APIKeyDeleteRequest{Keys: []string{key.String()}},
-			))).To(Equal(auth.APIKeyDeleteRequest{Keys: []uuid.UUID{key}}))
-		})
-		It("Should reject a malformed key", func(ctx SpecContext) {
-			Expect(keyDelete.RequestTranslator.Backward(
-				ctx,
-				&grpcauth.APIKeyDeleteRequest{Keys: []string{"bad"}},
-			)).Error().To(MatchError(errInvalidUUID))
 		})
 	})
 })
