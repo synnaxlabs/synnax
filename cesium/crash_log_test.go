@@ -23,7 +23,8 @@ import (
 // Each entry holds on the pointer log, where a commit is durable once its writer
 // closes: a refusal is allowed only where the profile allows one, and only with the
 // corruption error.
-var _ = DescribeTable("Crash harness, pointer log",
+var _ = DescribeTable(
+	"Crash harness, pointer log",
 	func(ctx SpecContext, ack crash.Ack, profile crash.Profile, ordered bool) {
 		MustSucceed(crash.Run(ctx, crash.Config{
 			Open: openCrashEngine(
@@ -41,13 +42,23 @@ var _ = DescribeTable("Crash harness, pointer log",
 			},
 		}))
 	},
-	// Mixed joins the faults of Partial, SyncErrors, FullDisk, and OneTimeReadFaults,
-	// so those profiles need no entry of their own.
 	Entry("Durable, Strict", crash.Durable, crash.Strict, false),
+	Entry("Durable, SyncErrors", crash.Durable, crash.SyncErrors, false),
+	Entry("Durable, FullDisk", crash.Durable, crash.FullDisk, false),
 	Entry("Durable, Partial", crash.Durable, crash.Partial, false),
 	Entry("Durable, OldCorruption", crash.Durable, crash.OldCorruption, false),
 	Entry("Durable, NewCorruption", crash.Durable, crash.NewCorruption, false),
+	Entry("Durable, OneTimeReadFaults", crash.Durable, crash.OneTimeReadFaults, false),
+	Entry(
+		"Durable, RepeatedReadFaults",
+		crash.Durable,
+		crash.RepeatedReadFaults,
+		false,
+	),
 	Entry("Durable, Mixed", crash.Durable, crash.Mixed, false),
 	Entry("Durable, Mixed, ordered", crash.Durable, crash.Mixed, true),
+	Entry("Visible, Strict", crash.Visible, crash.Strict, false),
+	Entry("Visible, FullDisk", crash.Visible, crash.FullDisk, false),
+	Entry("Visible, Partial", crash.Visible, crash.Partial, false),
 	Entry("Visible, Mixed", crash.Visible, crash.Mixed, false),
 )
