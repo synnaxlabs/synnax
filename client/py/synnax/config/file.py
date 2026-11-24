@@ -7,6 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import contextlib
 import copy
 import json
 import os
@@ -93,26 +94,34 @@ class File:
 
     def _write(self, config: dict[str, Any]) -> None:
         # Clients of Synnax 0.62 read only the legacy file. Drop it when 0.62 support
-        # ends. A failed write puts every file back as it was.
+        # ends. A failed write puts back each file that it replaced.
         temps: list[str] = []
-        backups: list[tuple[pathlib.Path, str | None]] = []
+        backups: list[pathlib.Path] = []
+        replaced: list[tuple[pathlib.Path, pathlib.Path | None]] = []
         try:
             staged = [_stage(path, config, temps) for path in self._paths]
-            backups.extend((path, _backup(path)) for _, path in staged)
             for temp, path in staged:
+                backup = _backup(path)
+                if backup is not None:
+                    backups.append(backup)
                 _replace(temp, path)
-        except BaseException:
-            for path, backup in backups:
-                if backup is None:
-                    path.unlink(missing_ok=True)
-                else:
-                    _replace(backup, path)
-            for temp in temps:
-                pathlib.Path(temp).unlink(missing_ok=True)
+                replaced.append((path, backup))
+        except BaseException as e:
+            for path, backup in replaced:
+                try:
+                    if backup is None:
+                        path.unlink()
+                    else:
+                        _replace(str(backup), path)
+                except OSError as restore_err:
+                    e.add_note(f"Cannot restore {path}: {restore_err.strerror}.")
             raise
-        for _, backup in backups:
-            if backup is not None:
-                os.unlink(backup)
+        finally:
+            # Once every file is replaced, the write is done, so a backup that cannot be
+            # removed stays behind, and the next write replaces it.
+            for leftover in [*map(pathlib.Path, temps), *backups]:
+                with contextlib.suppress(OSError):
+                    leftover.unlink(missing_ok=True)
 
     def get(self, key: str) -> Any:
         """Gets a value from the config file."""
@@ -158,19 +167,14 @@ def _stage(
     return f.name, path
 
 
-def _backup(path: pathlib.Path) -> str | None:
-    """Copies path beside itself and returns the copy, or None if path does not
-    exist.
+def _backup(path: pathlib.Path) -> pathlib.Path | None:
+    """Copies path to a backup beside itself and returns the backup, or None if path
+    does not exist.
     """
     if not path.exists():
         return None
-    fd, backup = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.bak.")
-    os.close(fd)
-    try:
-        shutil.copy2(path, backup)
-    except BaseException:
-        os.unlink(backup)
-        raise
+    backup = path.with_name(f".{path.name}.bak")
+    shutil.copy2(path, backup)
     return backup
 
 

@@ -255,6 +255,54 @@ class TestFile:
             assert cluster.options.host == "a.lab"
             assert cluster.options.api_key == "syk_a"
 
+    def test_failed_first_replace_restores_nothing(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Should replace and restore no file, and leave no other file, when the first
+        file cannot be replaced.
+        """
+        current, legacy = tmp_path / "current", tmp_path / "legacy"
+        config = File(config_dir=current, legacy_dir=legacy)
+        config.set("a", 1)
+        calls: list[Path] = []
+
+        def fail(src: str, dst: Path) -> None:
+            calls.append(dst)
+            raise PermissionError("replace")
+
+        monkeypatch.setattr(file, "_replace", fail)
+        with pytest.raises(PermissionError):
+            config.set("a", 2)
+        assert calls == [(current / "config.json").resolve()]
+        for d in (current, legacy):
+            assert [p.name for p in d.iterdir()] == ["config.json"]
+            assert File(config_dir=d).config == {"a": 1}
+
+    def test_backup_left_behind_after_a_save(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Should save when a backup cannot be removed, and remove it on the next
+        save.
+        """
+        current, legacy = tmp_path / "current", tmp_path / "legacy"
+        config = File(config_dir=current, legacy_dir=legacy)
+        config.set("a", 1)
+        unlink = Path.unlink
+
+        def keep_backups(self: Path, missing_ok: bool = False) -> None:
+            if self.name.endswith(".bak"):
+                raise PermissionError("in use")
+            unlink(self, missing_ok=missing_ok)
+
+        with monkeypatch.context() as m:
+            m.setattr(Path, "unlink", keep_backups)
+            config.set("a", 2)
+        for d in (current, legacy):
+            assert File(config_dir=d).config == {"a": 2}
+        config.set("a", 3)
+        for d in (current, legacy):
+            assert [p.name for p in d.iterdir()] == ["config.json"]
+
     def test_legacy_reader_sees_a_new_login(self, tmp_path: Path) -> None:
         """Should keep the legacy file current, so an older client reads the Core of
         the last login.
