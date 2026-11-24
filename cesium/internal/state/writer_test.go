@@ -381,7 +381,7 @@ var _ = Describe("Writer", func() {
 				s.OpenWriter(context.Background(), clockWriter(200, false, 5)),
 			).Error().
 				To(SatisfyAll(
-					conflict(),
+					refusedOpen(),
 					MatchError(
 						ContainSubstring(
 							"reaches the claim of another writer from 100",
@@ -395,7 +395,7 @@ var _ = Describe("Writer", func() {
 			Expect(
 				s.OpenWriter(context.Background(), clockWriter(150, true, 5)),
 			).Error().
-				To(conflict())
+				To(refusedOpen())
 		})
 
 		It(
@@ -427,7 +427,7 @@ var _ = Describe("Writer", func() {
 				id := MustSucceed(w.NewSegment(5))
 				n := MustSucceed(w.NewAlignment())
 				Expect(w.Commit([]*log.Commit{commit(2, n, 0, 45, 50, slot(id, 16))})).
-					To(conflict())
+					To(refusedCommit())
 			},
 		)
 
@@ -461,7 +461,7 @@ var _ = Describe("Writer", func() {
 				Expect(
 					s.OpenWriter(context.Background(), clockWriter(70, true, 5)),
 				).Error().
-					To(conflict())
+					To(refusedOpen())
 			})
 
 		It("Should let another writer claim a key after Close", func() {
@@ -682,7 +682,7 @@ var _ = Describe("Writer", func() {
 				Start: 111,
 				Keys:  []state.WriterKey{{Key: 6, DataType: 4}},
 			}
-			Expect(s.OpenWriter(context.Background(), after)).Error().To(conflict())
+			Expect(s.OpenWriter(context.Background(), after)).Error().To(refusedOpen())
 			Expect(d.Bound(100, 110)).To(Succeed())
 			Expect(open(after).Close()).To(Succeed())
 			Expect(s.BeginDelete(5, 100, 111)).Error().To(conflict(),
@@ -700,7 +700,7 @@ var _ = Describe("Writer", func() {
 					Clock: 5,
 					Start: 120,
 					Keys:  []state.WriterKey{{Key: 6, DataType: 4}},
-				})).Error().To(conflict())
+				})).Error().To(refusedOpen())
 			},
 		)
 
@@ -714,7 +714,7 @@ var _ = Describe("Writer", func() {
 				Keys:  []state.WriterKey{{Key: 6, DataType: 4}},
 			})
 			Expect(w.Join(d)).To(SatisfyAll(
-				conflict(),
+				refusedOpen(),
 				MatchError(ContainSubstring("reaches the claim of")),
 			))
 			Expect(o.Close()).To(Succeed())

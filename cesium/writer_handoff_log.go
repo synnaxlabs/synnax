@@ -23,16 +23,17 @@ import (
 
 // handoffLog moves the writer of w on the pointer log layout to the keys of cfg. The
 // writer keeps its uncommitted runs, so the next commit of the new writer commits them,
-// and its stretch goes on after their last stamp. The keys of w that cfg lacks leave in
-// a Pending, the keys of adopt join with their samples, and the other keys of cfg open
-// from the start of the first run. With no run and no adopt, it closes w and opens a
-// writer of cfg that goes on in the stretch of w. A writer that stores no samples
-// commits its runs first, and adopts no Pending.
+// and its stretch goes on after their last stamp in SameRun, or starts again at the
+// next write in NewRun. The keys of w that cfg lacks leave in a Pending, the keys of
+// adopt join with their samples, and the other keys of cfg open from the start of the
+// first run. With no run and no adopt, it closes w and opens a writer of cfg in run. A
+// writer that stores no samples commits its runs first, and adopts no Pending.
 func (db *DB) handoffLog(
 	ctx context.Context,
 	w *Writer,
 	cfg WriterConfig,
 	adopt *Pending,
+	run HandoffRun,
 ) (_ *Writer, pending *Pending, err error) {
 	l := w.log
 	if adopt != nil && adopt.log == nil {
@@ -55,7 +56,7 @@ func (db *DB) handoffLog(
 		}
 	}
 	if len(l.runs) == 0 && adopt == nil {
-		next, err := db.reopenLog(ctx, w, cfg)
+		next, err := db.reopenLog(ctx, w, cfg, run)
 		return next, nil, err
 	}
 	if adopt != nil {
@@ -89,27 +90,31 @@ func (db *DB) handoffLog(
 	}
 	// The samples of a key that joined w start after its runs.
 	l.closeRun()
+	if run == NewRun {
+		l.number = 0
+	}
 	w.closed = true
 	return &Writer{WriterConfig: cfg, log: l}, pending, nil
 }
 
 // reopenLog closes w, which holds no uncommitted sample, and opens a writer of cfg that
-// goes on in the stretch of w.
+// goes on in the stretch of w when run is SameRun.
 func (db *DB) reopenLog(
 	ctx context.Context,
 	w *Writer,
 	cfg WriterConfig,
+	run HandoffRun,
 ) (*Writer, error) {
-	run := *w.log
+	old := *w.log
 	if err := w.Close(); err != nil {
 		return nil, err
 	}
 	next, err := db.OpenWriter(ctx, cfg)
-	if err != nil {
-		return nil, err
+	if err != nil || run != SameRun {
+		return next, err
 	}
-	next.log.number, next.log.next = run.number, run.next
-	next.log.last, next.log.lastCommit = run.last, run.lastCommit
+	next.log.number, next.log.next = old.number, old.next
+	next.log.last, next.log.lastCommit = old.last, old.lastCommit
 	return next, nil
 }
 

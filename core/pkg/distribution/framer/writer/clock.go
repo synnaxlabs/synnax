@@ -248,7 +248,7 @@ func (e *clockEntry) handTo(
 	cfg cesium.WriterConfig,
 ) {
 	owner, adopt, before := e.owner, leader.adopt(cfg.Channels), e.keys
-	w, parked, err := ts.Handoff(ctx, e.w, cfg, adopt)
+	w, parked, err := ts.Handoff(ctx, e.w, cfg, adopt, cesium.NewRun)
 	e.w, e.owner, e.keys = w, leader, cfg.Channels
 	if err != nil {
 		owner.dropped, owner.pending = owner.pending, false
@@ -474,7 +474,13 @@ func (c *clockWriter) take(ctx context.Context, keys []cesium.ChannelKey) error 
 			return err
 		}
 		cfg := cesium.WriterConfig{Channels: next, Clock: e.clock, Start: start}
-		w, parked, err := c.ts.Handoff(ctx, e.w, cfg, c.member.adopt(next))
+		w, parked, err := c.ts.Handoff(
+			ctx,
+			e.w,
+			cfg,
+			c.member.adopt(next),
+			cesium.SameRun,
+		)
 		e.w, e.keys = w, next
 		c.member.park(parked, nil)
 		return err
@@ -499,7 +505,7 @@ func (c *clockWriter) take(ctx context.Context, keys []cesium.ChannelKey) error 
 			parked *cesium.Pending
 			err    error
 		)
-		c.own, parked, err = c.ts.Handoff(ctx, c.own, cfg, adopt)
+		c.own, parked, err = c.ts.Handoff(ctx, c.own, cfg, adopt, cesium.NewRun)
 		c.member.park(parked, nil)
 		if err != nil {
 			return err
@@ -548,7 +554,7 @@ func (e *clockEntry) release(
 			Clock:    e.clock,
 			Start:    x.member.start,
 		}
-		w, parked, err := ts.Handoff(ctx, x.own, cfg, nil)
+		w, parked, err := ts.Handoff(ctx, x.own, cfg, nil, cesium.NewRun)
 		x.own, x.claimed = w, rest
 		x.member.keep(parked, k)
 		return err
@@ -562,7 +568,7 @@ func (e *clockEntry) release(
 		return err
 	}
 	cfg := cesium.WriterConfig{Channels: rest, Clock: e.clock, Start: start}
-	w, parked, err := ts.Handoff(ctx, e.w, cfg, nil)
+	w, parked, err := ts.Handoff(ctx, e.w, cfg, nil, cesium.SameRun)
 	e.w, e.keys = w, rest
 	e.owner.keep(parked, k)
 	return err
