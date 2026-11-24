@@ -10,6 +10,7 @@
 #pragma once
 
 #include <chrono>
+#include <mutex>
 #include <optional>
 #include <stdexcept>
 #include <string>
@@ -42,6 +43,12 @@ public:
     /// @brief the deadline of each request, or std::nullopt for a request with none.
     std::vector<std::optional<std::chrono::system_clock::time_point>> deadlines;
 
+    /// @returns a copy of requests, safe while another thread sends.
+    std::vector<RQ> sent() const {
+        std::lock_guard lock(this->requests_mu);
+        return this->requests;
+    }
+
     std::pair<RS, x::errors::Error>
     send(const std::string &target, RQ &request) override {
         return this->exec(target, request, std::nullopt);
@@ -65,13 +72,17 @@ public:
 
 private:
     MiddlewareCollector<RQ, RS> mw;
+    mutable std::mutex requests_mu;
 
     std::pair<RS, x::errors::Error> exec(
         const std::string &target,
         RQ &request,
         const std::optional<std::chrono::system_clock::time_point> deadline
     ) {
-        requests.push_back(request);
+        {
+            std::lock_guard lock(this->requests_mu);
+            requests.push_back(request);
+        }
         deadlines.push_back(deadline);
         if (responses.empty())
             throw std::runtime_error("mock unary client has no responses left!");

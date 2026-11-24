@@ -60,8 +60,8 @@ std::pair<pb::Call, x::errors::Error> decode(const journal::Record &record) {
     return {call, x::errors::NIL};
 }
 
-/// @returns whether err has type, or a type under it. Error::matches also matches
-/// a type that only starts with the same letters.
+/// @returns whether err has type, or a type under it. Error::matches also matches a
+/// type that only starts with the same letters.
 bool is_kind(const x::errors::Error &err, const std::string &type) {
     return err.type == type || err.type.starts_with(type + ".");
 }
@@ -94,23 +94,40 @@ std::filesystem::path Outbox::segment_path(const std::uint64_t key) const {
 }
 
 std::pair<std::shared_ptr<journal::Writer>, x::errors::Error>
-Outbox::open_writer(const std::uint64_t key) const {
+Outbox::open_writer(const std::uint64_t key, const std::uint16_t flags) const {
     // The sync thread syncs the writer, so a write never waits for the disk.
     auto [writer, err] = journal::Writer::open({
         .path = this->segment_path(key),
         .magic = SEGMENT_MAGIC,
+        .flags = flags,
         .sync_interval = x::telem::TimeSpan(std::numeric_limits<std::int64_t>::max()),
         .sync_bytes = std::numeric_limits<std::uint64_t>::max(),
+        .max_payload = this->cfg.max_payload,
+        .on_create = this->cfg.on_create,
         .on_sync = this->cfg.on_sync,
     });
     return {std::move(writer), err};
 }
 
 std::pair<std::unique_ptr<Outbox>, x::errors::Error> Outbox::open(Config cfg) {
+    if (!(cfg.compact_share > 0 && cfg.compact_share <= 1))
+        return {
+            nullptr,
+            x::errors::Error(BASE_ERROR, "compact_share is not in (0, 1]")
+        };
     std::error_code ec;
+    std::vector<std::filesystem::path> new_dirs;
+    for (auto d = cfg.dir; !d.empty() && !std::filesystem::exists(d, ec) && !ec;
+         d = d.parent_path()) {
+        new_dirs.push_back(d);
+        if (d == d.parent_path()) break;
+    }
+    if (ec) return {nullptr, fs_error("failed to stat outbox directory", ec)};
     std::filesystem::create_directories(cfg.dir, ec);
     if (ec) return {nullptr, fs_error("failed to create outbox directory", ec)};
-    auto [dir_lock, lock_err] = journal::Lock::open(cfg.dir);
+    for (auto d = new_dirs.rbegin(); d != new_dirs.rend(); ++d)
+        if (const auto err = cfg.on_create(*d)) return {nullptr, err};
+    auto [dir_lock, lock_err] = journal::Lock::open(cfg.dir, cfg.on_create);
     if (lock_err) return {nullptr, lock_err};
     auto outbox = std::unique_ptr<Outbox>(new Outbox(std::move(cfg)));
     outbox->dir_lock = std::move(dir_lock);
@@ -150,18 +167,43 @@ std::pair<std::unique_ptr<Outbox>, x::errors::Error> Outbox::open(Config cfg) {
     const auto offset = saved.value_or(journal::Offset{});
     // New segments go after the saved offset, which outlives its sent segments.
     if (saved.has_value()) outbox->next_key = offset.segment + 1;
-    for (const auto &[key, size]: outbox->segments) {
+    for (auto seg = outbox->segments.begin(); seg != outbox->segments.end();) {
+        const auto key = seg->first;
         outbox->next_key = std::max(outbox->next_key, key + 1);
+        if (key < offset.segment || (saved.has_value() && key == offset.segment)) {
+            ++seg;
+            continue;
+        }
+        auto [reader, err] = journal::Reader::open(
+            {.path = outbox->segment_path(key), .magic = SEGMENT_MAGIC}
+        );
+        if (err) return {nullptr, err};
+        const auto compacted = (reader->header.flags & COMPACTED_FLAG) != 0;
+        reader.reset();
+        // A compaction saves the offset at its segment once the segment is whole.
+        if (!compacted) {
+            ++seg;
+            continue;
+        }
+        if (err = journal::remove(outbox->segment_path(key)); err)
+            return {nullptr, err};
+        seg = outbox->segments.erase(seg);
+    }
+    for (const auto &[key, size]: outbox->segments) {
         if (key < offset.segment) continue;
         const auto pos = key == offset.segment ? offset.pos : 0;
         if (const auto err = outbox->load(key, pos)) return {nullptr, err};
     }
     for (const auto &[key, size]: outbox->segments)
         outbox->bytes += size;
-    {
-        std::lock_guard lock(outbox->mu);
-        if (const auto err = outbox->next_tail()) return {nullptr, err};
-    }
+    const auto tail_key = outbox->next_key++;
+    auto [tail, tail_err] = outbox->open_writer(tail_key);
+    if (tail_err) return {nullptr, tail_err};
+    outbox->tail = {.key = tail_key, .writer = tail};
+    outbox->writers[tail_key] = tail;
+    outbox->segments[tail_key] = tail->pos();
+    outbox->bytes += tail->pos();
+    outbox->spare_wanted = true;
     outbox->remove_sent();
     outbox->sender = std::thread([ptr = outbox.get()] { ptr->run(); });
     outbox->syncer = std::thread([ptr = outbox.get()] { ptr->run_syncs(); });
@@ -198,7 +240,7 @@ x::errors::Error Outbox::load(const std::uint64_t key, const std::uint64_t pos) 
         auto [request, decode_err] = decode(*record);
         if (decode_err) return decode_err;
         this->enqueue({
-            .request = std::move(request),
+            .request = std::make_shared<const pb::Call>(std::move(request)),
             .set_status_done = nullptr,
             .segment = key,
             .end = reader->pos(),
@@ -218,14 +260,15 @@ x::errors::Error Outbox::load(const std::uint64_t key, const std::uint64_t pos) 
 }
 
 void Outbox::enqueue(Call call) {
-    if (call.request.call_case() == pb::Call::kSetStatus) {
+    if (call.request->call_case() == pb::Call::kSetStatus) {
         const auto [it, inserted] = this->latest.try_emplace(
-            call.request.set_status().key_or_name(),
-            call.seq
+            call.request->set_status().key_or_name(),
+            Newest{.seq = call.seq, .size = call.size}
         );
         if (!inserted) {
             ++this->replaced;
-            it->second = call.seq;
+            this->replaced_bytes += it->second.size;
+            it->second = {.seq = call.seq, .size = call.size};
         }
     }
     this->queued_bytes += call.size;
@@ -233,15 +276,28 @@ void Outbox::enqueue(Call call) {
 }
 
 bool Outbox::reclaimable() const {
-    const auto needed = this->queued_bytes +
-                        journal::HEADER_SIZE * this->segments.size();
-    return this->replaced > 0 ||
-           (this->bytes > needed && this->bytes - needed >= this->cfg.max_bytes / 4);
+    // A compaction leaves the calls no newer set replaced, in the compacted segment,
+    // the tail, and the spare.
+    const auto kept = this->queued_bytes - this->replaced_bytes +
+                      3 * journal::HEADER_SIZE;
+    if (this->bytes <= kept) return false;
+    const auto freed = static_cast<double>(this->bytes - kept);
+    const auto free = this->cfg.max_bytes > kept ? this->cfg.max_bytes - kept : 0;
+    return freed >=
+           std::min(
+               this->cfg.compact_share * static_cast<double>(this->cfg.max_bytes),
+               static_cast<double>(free) / 2
+           );
+}
+
+void Outbox::unreplace(const Call &call) {
+    --this->replaced;
+    this->replaced_bytes -= call.size;
 }
 
 bool Outbox::is_replaced(const Call &call) const {
-    if (call.request.call_case() != pb::Call::kSetStatus) return false;
-    return this->latest.at(call.request.set_status().key_or_name()) != call.seq;
+    if (call.request->call_case() != pb::Call::kSetStatus) return false;
+    return this->latest.at(call.request->set_status().key_or_name()).seq != call.seq;
 }
 
 Outbox::~Outbox() {
@@ -276,9 +332,19 @@ x::errors::Error Outbox::set_status(
 
 x::errors::Error Outbox::push(pb::Call request, SetStatusDone done) {
     const auto payload = request.SerializeAsString();
+    if (payload.size() > this->cfg.max_payload)
+        return x::errors::Error(
+            journal::TOO_LARGE,
+            "the call has " + std::to_string(payload.size()) +
+                " bytes, and the outbox takes at most " +
+                std::to_string(this->cfg.max_payload)
+        );
     const auto size = journal::RECORD_PREFIX_SIZE + payload.size();
+    auto shared = std::make_shared<const pb::Call>(std::move(request));
     {
-        std::lock_guard lock(this->mu);
+        std::unique_lock lock(this->mu);
+        if (this->tail.writer == nullptr || this->tail_calls >= this->cfg.segment_calls)
+            if (const auto err = this->next_tail(lock)) return err;
         if (this->bytes + size > this->cfg.max_bytes) {
             ++this->refused_count;
             if (this->reclaimable()) {
@@ -292,8 +358,6 @@ x::errors::Error Outbox::push(pb::Call request, SetStatusDone done) {
                     "connection to the Core."
             );
         }
-        if (this->tail.writer == nullptr || this->tail_calls >= this->cfg.segment_calls)
-            if (const auto err = this->next_tail()) return err;
         if (const auto err = this->tail.writer->write(
                 {.type = CALL_TYPE, .payload = payload}
             )) {
@@ -307,7 +371,7 @@ x::errors::Error Outbox::push(pb::Call request, SetStatusDone done) {
         this->bytes += end - this->segments[this->tail.key];
         this->segments[this->tail.key] = end;
         this->enqueue({
-            .request = std::move(request),
+            .request = std::move(shared),
             .set_status_done = std::move(done),
             .segment = this->tail.key,
             .end = end,
@@ -325,31 +389,27 @@ x::errors::Error Outbox::push(pb::Call request, SetStatusDone done) {
     return x::errors::NIL;
 }
 
-x::errors::Error Outbox::next_tail() {
-    if (this->tail.writer != nullptr) this->closing.push_back(this->tail);
-    this->tail.writer = nullptr;
-    this->tail_calls = 0;
-    this->sync_cv.notify_one();
-    if (this->spare.has_value()) {
-        this->tail = *this->spare;
-        this->spare.reset();
+x::errors::Error Outbox::next_tail(std::unique_lock<std::mutex> &lock) {
+    if (!this->spare.has_value()) {
         this->spare_wanted = true;
-        return x::errors::NIL;
+        this->sync_cv.notify_one();
+        this->spare_cv.wait_for(lock, this->cfg.sync_interval.chrono(), [this] {
+            return this->spare.has_value() ||
+                   (this->tail.writer != nullptr &&
+                    this->tail_calls < this->cfg.segment_calls);
+        });
+        // A full tail takes more calls when the sync thread is slow to open a spare.
+        if (!this->spare.has_value()) {
+            if (this->tail.writer != nullptr) return x::errors::NIL;
+            return x::errors::Error(BASE_ERROR, "no segment is open to take the call");
+        }
     }
-    // Only a burst faster than the sync thread opens a segment here.
-    const auto key = this->failed_key.has_value() && *this->failed_key > this->tail.key
-                       ? *this->failed_key
-                       : this->next_key++;
-    this->failed_key.reset();
-    auto [writer, err] = this->open_writer(key);
-    if (err) {
-        this->fail_open(key);
-        return err;
-    }
-    this->tail = {.key = key, .writer = writer};
-    this->writers[key] = writer;
-    this->bytes += writer->pos() - this->segments[key];
-    this->segments[key] = writer->pos();
+    if (this->tail.writer != nullptr) this->closing.push_back(this->tail);
+    this->tail = *this->spare;
+    this->tail_calls = 0;
+    this->spare.reset();
+    this->spare_wanted = true;
+    this->sync_cv.notify_one();
     return x::errors::NIL;
 }
 
@@ -413,7 +473,7 @@ bool Outbox::wait_retry(const std::size_t failures) {
 }
 
 x::errors::Error Outbox::send(const Call &call) const {
-    const auto &set = call.request.set_status();
+    const auto &set = call.request->set_status();
     auto [res, err] = this->cfg.statuses.set_by_key_or_name(
         set.key_or_name(),
         set.message(),
@@ -428,18 +488,18 @@ x::errors::Error Outbox::send(const Call &call) const {
 
 void Outbox::commit(const std::uint64_t seq) {
     std::lock_guard lock(this->mu);
-    // A compaction can drop a replaced call while the send thread skips it, and it
-    // can move a call to a new segment.
+    // A compaction can drop a replaced call while the send thread skips it, and it can
+    // move a call to a new segment.
     if (this->calls.empty() || this->calls.front().seq != seq) return;
     const auto done = std::move(this->calls.front());
     this->calls.pop_front();
     this->queued_bytes -= done.size;
-    if (done.request.call_case() == pb::Call::kSetStatus) {
-        const auto it = this->latest.find(done.request.set_status().key_or_name());
-        if (it->second == done.seq)
+    if (done.request->call_case() == pb::Call::kSetStatus) {
+        const auto it = this->latest.find(done.request->set_status().key_or_name());
+        if (it->second.seq == done.seq)
             this->latest.erase(it);
         else
-            --this->replaced;
+            this->unreplace(done);
     }
     this->sent = journal::Offset{.segment = done.segment, .pos = done.end};
     if (done.segment != this->tail.key &&
@@ -500,16 +560,7 @@ void Outbox::sync_once(
         }
         this->spare_wanted = false;
     }
-    // A closed segment can be one that a compaction or a send left behind.
-    if (this->close_segments(to_close)) this->remove_sent();
-    const auto now = steady_now();
-    if (!stopping && tail_writer != nullptr &&
-        now - last_sync >= this->cfg.sync_interval) {
-        last_sync = now;
-        // A failed sync also fails the next write, which moves the tail.
-        if (const auto err = tail_writer->sync())
-            LOG(ERROR) << "[outbox] failed to sync a segment: " << err;
-    }
+    // A push can wait for the spare, so it opens first.
     if (spare_key.has_value()) {
         auto [writer, err] = this->open_writer(*spare_key);
         if (err) LOG(ERROR) << "[outbox] failed to open a segment: " << err;
@@ -521,6 +572,7 @@ void Outbox::sync_once(
             this->writers[*spare_key] = writer;
             this->bytes += writer->pos();
             this->segments[*spare_key] = writer->pos();
+            this->spare_cv.notify_all();
         } else {
             lock.unlock();
             // The send thread or a compaction took a later segment first.
@@ -529,6 +581,16 @@ void Outbox::sync_once(
                 LOG(WARNING) << "[outbox] failed to remove an unused segment: "
                              << rm_err;
         }
+    }
+    // A closed segment can be one that a compaction or a send left behind.
+    if (this->close_segments(to_close)) this->remove_sent();
+    const auto now = steady_now();
+    if (!stopping && tail_writer != nullptr &&
+        now - last_sync >= this->cfg.sync_interval) {
+        last_sync = now;
+        // A failed sync also fails the next write, which moves the tail.
+        if (const auto err = tail_writer->sync())
+            LOG(ERROR) << "[outbox] failed to sync a segment: " << err;
     }
     if (compacting) this->compact();
     std::optional<journal::Offset> offset;
@@ -550,11 +612,7 @@ void Outbox::sync_once(
          this->saved->pos == offset->pos))
         return;
     last_save = now;
-    if (const auto err = journal::commit_offset(
-            this->cfg.dir / OFFSET_FILE,
-            OFFSET_MAGIC,
-            *offset
-        )) {
+    if (const auto err = this->save(*offset)) {
         LOG(ERROR) << "[outbox] failed to save the send position: " << err;
         return;
     }
@@ -575,49 +633,87 @@ bool Outbox::close_segments(const std::vector<Segment> &segments) {
     return !segments.empty();
 }
 
+x::errors::Error Outbox::save(const journal::Offset &offset) const {
+    return this->cfg.on_save(
+        journal::commit_offset(
+            this->cfg.dir / OFFSET_FILE,
+            OFFSET_MAGIC,
+            offset,
+            this->cfg.on_create
+        )
+    );
+}
+
 void Outbox::compact() {
-    std::vector<std::pair<std::uint64_t, std::string>> kept;
-    std::vector<Segment> old;
     std::uint64_t key = 0;
-    std::uint64_t first_new_seq = 0;
+    std::uint64_t tail_key = 0;
     {
         std::lock_guard lock(this->mu);
         this->compact_wanted = false;
         if (!this->reclaimable()) return;
         key = this->next_key++;
+        tail_key = this->next_key++;
+    }
+    // Calls that come during the compaction go to a tail after the new segment.
+    auto [tail_writer, tail_err] = this->open_writer(tail_key);
+    if (tail_err) {
+        LOG(ERROR) << "[outbox] failed to open a segment: " << tail_err;
+        std::lock_guard lock(this->mu);
+        this->fail_open(tail_key);
+        return;
+    }
+    std::vector<std::pair<std::uint64_t, std::shared_ptr<const pb::Call>>> kept;
+    std::uint64_t first_new_seq = 0;
+    {
+        std::lock_guard lock(this->mu);
         first_new_seq = this->next_seq;
         // The first call can be in flight on the send thread, so it stays.
         for (const auto &call: this->calls)
             if (kept.empty() || !this->is_replaced(call))
-                kept.emplace_back(call.seq, call.request.SerializeAsString());
-        // Later calls go to segments after the new one.
+                kept.emplace_back(call.seq, call.request);
         if (this->tail.writer != nullptr) this->closing.push_back(this->tail);
         if (this->spare.has_value()) this->closing.push_back(*this->spare);
         this->spare.reset();
-        this->tail = {.key = key, .writer = nullptr};
+        this->spare_wanted = true;
+        this->tail = {.key = tail_key, .writer = tail_writer};
+        this->tail_calls = 0;
+        this->writers[tail_key] = tail_writer;
+        this->segments[tail_key] = tail_writer->pos();
+        this->bytes += tail_writer->pos();
     }
-    auto [writer, err] = this->open_writer(key);
+    this->spare_cv.notify_all();
+    auto [writer, err] = this->open_writer(key, COMPACTED_FLAG);
     std::vector<std::uint64_t> ends;
     for (std::size_t i = 0; !err && i < kept.size(); i++) {
-        err = writer->write({.type = CALL_TYPE, .payload = kept[i].second});
+        err = writer->write(
+            {.type = CALL_TYPE, .payload = kept[i].second->SerializeAsString()}
+        );
         ends.push_back(writer->pos());
     }
     const auto size = writer == nullptr ? 0 : writer->pos();
     if (!err) err = writer->close();
-    // The new segment and the offset at its start are on the disk before the old
-    // segments go, so a crash leaves the old calls or the new ones.
-    const auto offset = journal::Offset{.segment = key, .pos = journal::HEADER_SIZE};
-    if (!err)
-        err = journal::commit_offset(this->cfg.dir / OFFSET_FILE, OFFSET_MAGIC, offset);
     if (err) {
         LOG(ERROR) << "[outbox] failed to compact: " << err;
         writer.reset();
-        if (const auto rm_err = journal::remove(this->segment_path(key)))
-            LOG(WARNING) << "[outbox] failed to remove " << this->segment_path(key)
-                         << ": " << rm_err;
+        this->remove_segments({key});
+        return;
+    }
+    // The new segment and the offset at its start are on the disk before the old
+    // segments go, so a crash leaves the old calls or the new ones.
+    const auto offset = journal::Offset{.segment = key, .pos = journal::HEADER_SIZE};
+    if (err = this->save(offset); err) {
+        LOG(ERROR) << "[outbox] failed to save the offset of a compaction: " << err;
+        // The offset can be on the disk, so the new segment stays, and the next save
+        // writes the offset again.
+        std::lock_guard lock(this->mu);
+        this->segments[key] = size;
+        this->bytes += size;
+        this->saved.reset();
         return;
     }
     this->saved = offset;
+    std::vector<Segment> old;
+    std::vector<std::uint64_t> old_keys;
     {
         std::lock_guard lock(this->mu);
         this->segments[key] = size;
@@ -634,16 +730,35 @@ void Outbox::compact() {
             } else if (call.seq >= first_new_seq)
                 next.push_back(std::move(call));
             else {
-                --this->replaced;
+                this->unreplace(call);
                 this->queued_bytes -= call.size;
             }
         }
         this->calls = std::move(next);
         if (this->sent.has_value() && this->sent->segment < key) this->sent = offset;
+        // The old segments stop counting toward max_bytes before their files go.
+        for (auto it = this->segments.begin();
+             it != this->segments.end() && it->first < key;) {
+            old_keys.push_back(it->first);
+            this->bytes -= it->second;
+            this->writers.erase(it->first);
+            it = this->segments.erase(it);
+        }
         std::swap(old, this->closing);
     }
     this->close_segments(old);
-    this->remove_sent();
+    this->remove_segments(old_keys);
+}
+
+void Outbox::remove_segments(const std::vector<std::uint64_t> &keys) const {
+    std::error_code ec;
+    for (const auto key: keys)
+        // The next open removes a file that fails to remove here.
+        if (std::filesystem::remove(this->segment_path(key), ec); ec)
+            LOG(WARNING) << "[outbox] failed to remove " << this->segment_path(key)
+                         << ": " << ec.message();
+    if (const auto err = journal::sync_dir(this->cfg.dir))
+        LOG(WARNING) << "[outbox] failed to sync " << this->cfg.dir << ": " << err;
 }
 
 void Outbox::remove_sent() {
@@ -663,8 +778,8 @@ void Outbox::remove_sent() {
         }
     }
     for (const auto key: sent_keys) {
-        // A file another process holds open can fail to remove on Windows, and the
-        // next save tries again.
+        // A file another process holds open can fail to remove on Windows, and the next
+        // save tries again.
         if (const auto err = journal::remove(this->segment_path(key))) {
             LOG(WARNING) << "[outbox] failed to remove a sent segment: " << err;
             continue;

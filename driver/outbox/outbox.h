@@ -42,6 +42,9 @@ constexpr journal::Magic SEGMENT_MAGIC = {'S', 'Y', 'O', 'U', 'T', 'B', 'S', 'G'
 constexpr journal::Magic OFFSET_MAGIC = {'S', 'Y', 'O', 'U', 'T', 'B', 'O', 'F'};
 /// @brief the record type of a call in a segment file.
 constexpr std::uint8_t CALL_TYPE = 1;
+/// @brief the segment flag of a segment that a compaction wrote. It holds copies of the
+/// calls of the segments before it.
+constexpr std::uint16_t COMPACTED_FLAG = 0x0001;
 
 const x::errors::Error BASE_ERROR = x::errors::Error("outbox", "");
 /// @brief the outbox has no room for a call.
@@ -57,9 +60,15 @@ struct Config {
     std::filesystem::path dir;
     /// @brief the client that sends status sets to the Core.
     synnax::status::Client statuses;
-    /// @brief the most bytes the files of the outbox can hold. A full outbox keeps
-    /// only the last status set of each status, and then refuses calls.
+    /// @brief the most bytes the files of the outbox can hold. A full outbox keeps only
+    /// the last status set of each status, and then refuses calls.
     std::uint64_t max_bytes = std::uint64_t{64} * 1024 * 1024;
+    /// @brief the largest encoded call, at most journal::MAX_PAYLOAD. The outbox
+    /// refuses a larger call.
+    std::uint32_t max_payload = 64 * 1024;
+    /// @brief the share of max_bytes that a compaction must free before it runs, or
+    /// half of the free bytes when the files are close to max_bytes.
+    double compact_share = 0.25;
     /// @brief the number of calls in a segment file, after which the next starts.
     std::size_t segment_calls = 1000;
     /// @brief how long one send waits for the Core.
@@ -72,43 +81,50 @@ struct Config {
         .scale = 2,
         .max_interval = 5 * x::telem::SECOND,
     };
-    /// @brief the maximum time between a write and its sync, and between a send and
-    /// the save of the send position.
+    /// @brief the maximum time between a write and its sync, and between a send and the
+    /// save of the send position.
     x::telem::TimeSpan sync_interval = x::telem::SECOND;
     /// @brief how long the first call can fail before the outbox calls on_stuck.
     x::telem::TimeSpan stuck_after = 5 * x::telem::MINUTE;
-    /// @brief called on the send thread with the error once the first call failed
-    /// for stuck_after, and with nil once the outbox sends it.
+    /// @brief called on the send thread with the error once the first call failed for
+    /// stuck_after, and with nil once the outbox sends it.
     std::function<void(const x::errors::Error &)> on_stuck =
         [](const x::errors::Error &) {};
-    /// @brief gets the result of each sync of a segment file and returns the result
-    /// the outbox uses.
+    /// @brief gets the result of each sync of a segment file and returns the result the
+    /// outbox uses.
     std::function<x::errors::Error(const x::errors::Error &)> on_sync =
+        [](const x::errors::Error &err) { return err; };
+    /// @brief called with each file and directory that the outbox creates, before the
+    /// outbox uses it, such as to set its owner.
+    journal::OnCreate on_create = journal::no_create_hook;
+    /// @brief gets the result of each save of the send position and returns the result
+    /// the outbox uses.
+    std::function<x::errors::Error(const x::errors::Error &)> on_save =
         [](const x::errors::Error &err) { return err; };
 };
 
-/// @brief called on the send thread once the Core answers a status set. An error
-/// means the outbox dropped the set. The outbox does not call it for a set that a
-/// newer set of the same status replaced. The outbox sends no other call until it
-/// returns.
+/// @brief called on the send thread once the Core answers a status set. An error means
+/// the outbox dropped the set. The outbox does not call it for a set that a newer set
+/// of the same status replaced. The outbox sends no other call until it returns.
 using SetStatusDone = std::function<
     void(const synnax::status::SetByKeyOrNameResult &, const x::errors::Error &)>;
 
-/// @returns whether err means the Core refused a call, so a retry cannot succeed.
-/// Every other error, such as a lost connection or a timeout, needs a retry.
+/// @returns whether err means the Core refused a call, so a retry cannot succeed. Every
+/// other error, such as a lost connection or a timeout, needs a retry.
 [[nodiscard]] bool rejected(const x::errors::Error &err);
 
 /// @brief a queue of Core calls on disk, which one thread sends in order. The queue
-/// keeps its calls across process restarts. A second thread syncs the calls to the
-/// disk each sync_interval, so a power loss can lose the calls of the last interval.
-/// The same thread saves the send position each sync_interval, so after a crash the
-/// outbox can send the calls of the last interval again. This is safe, because the
-/// Core does not let an older status set replace a newer one. The send thread skips a
-/// status set when a newer set of the same status is queued. It drops a call the Core
-/// rejected, and retries any other error with no limit. Safe for concurrent use.
+/// keeps its calls across process restarts. A second thread syncs the calls to the disk
+/// each sync_interval, so a power loss can lose the calls of the last interval. The
+/// same thread saves the send position each sync_interval, so after a crash the outbox
+/// can send the calls of the last interval again. This is safe, because the Core does
+/// not let an older status set replace a newer one. The send thread skips a status set
+/// when a newer set of the same status is queued. It drops a call the Core rejected,
+/// and retries any other error with no limit. Safe for concurrent use.
 class Outbox {
     struct Call {
-        pb::Call request;
+        /// @brief shared, so a compaction can encode it outside the lock.
+        std::shared_ptr<const pb::Call> request;
         /// @brief null for a call loaded from disk.
         SetStatusDone set_status_done;
         std::uint64_t segment = 0;
@@ -131,14 +147,25 @@ class Outbox {
     mutable std::mutex mu;
     std::condition_variable cv;
     std::condition_variable sync_cv;
+    /// @brief notified when the sync thread opens a spare.
+    std::condition_variable spare_cv;
     bool stopped = false;
     bool sync_stopped = false;
     std::deque<Call> calls;
     std::uint64_t next_seq = 0;
-    /// @brief the seq of the newest queued set of each status.
-    std::unordered_map<std::string, std::uint64_t> latest;
+    /// @brief the newest queued set of a status.
+    struct Newest {
+        std::uint64_t seq = 0;
+        /// @brief the byte size of the record of the set.
+        std::uint64_t size = 0;
+    };
+
+    /// @brief the newest queued set of each status.
+    std::unordered_map<std::string, Newest> latest;
     /// @brief the number of queued sets that a newer set of their status replaced.
     std::size_t replaced = 0;
+    /// @brief the byte size of the records of the replaced sets.
+    std::uint64_t replaced_bytes = 0;
     /// @brief the byte size of each segment file on the disk.
     std::map<std::uint64_t, std::uint64_t> segments;
     /// @brief the byte size of all segment files.
@@ -179,17 +206,21 @@ class Outbox {
     explicit Outbox(Config cfg);
     [[nodiscard]] std::filesystem::path segment_path(std::uint64_t key) const;
     std::pair<std::shared_ptr<journal::Writer>, x::errors::Error>
-    open_writer(std::uint64_t key) const;
+    open_writer(std::uint64_t key, std::uint16_t flags = 0) const;
     x::errors::Error load(std::uint64_t key, std::uint64_t pos);
     /// @brief queues a call that is on the disk. Requires mu.
     void enqueue(Call call);
     x::errors::Error push(pb::Call request, SetStatusDone done);
-    /// @brief moves the tail to a new segment. Requires mu.
-    x::errors::Error next_tail();
+    /// @brief moves the tail to the spare, and waits up to sync_interval for the sync
+    /// thread to open one. Keeps a full tail when the wait ends with no spare. Requires
+    /// a lock on mu.
+    x::errors::Error next_tail(std::unique_lock<std::mutex> &lock);
     /// @brief records a segment that failed to open. Requires mu.
     void fail_open(std::uint64_t key);
-    /// @returns whether a compaction can free a part of the files. Requires mu.
+    /// @returns whether a compaction frees enough of the files to run. Requires mu.
     [[nodiscard]] bool reclaimable() const;
+    /// @brief takes a replaced set off the byte counts. Requires mu.
+    void unreplace(const Call &call);
     /// @returns whether a newer set of the same status replaced call. Requires mu.
     [[nodiscard]] bool is_replaced(const Call &call) const;
     void run();
@@ -201,8 +232,7 @@ class Outbox {
     void commit(std::uint64_t seq);
     void run_syncs();
     /// @brief closes the segments that left the tail, syncs the tail, opens a spare,
-    /// compacts, and saves the offset when due. stopping closes the tail and the
-    /// spare.
+    /// compacts, and saves the offset when due. stopping closes the tail and the spare.
     void sync_once(
         bool stopping,
         x::telem::TimeStamp &last_sync,
@@ -214,8 +244,12 @@ class Outbox {
     /// @brief writes the calls that no newer set replaced to a new segment, saves an
     /// offset at its start, and then removes the old segments.
     void compact();
-    /// @brief removes the segments whose calls were all sent, and keeps a segment
-    /// that fails to remove for the next try.
+    /// @brief saves offset as the send position on the disk.
+    [[nodiscard]] x::errors::Error save(const journal::Offset &offset) const;
+    /// @brief removes the segment files of keys, and syncs the directory once.
+    void remove_segments(const std::vector<std::uint64_t> &keys) const;
+    /// @brief removes the segments whose calls were all sent, and keeps a segment that
+    /// fails to remove for the next try.
     void remove_sent();
 
 public:
@@ -223,27 +257,28 @@ public:
     Outbox &operator=(const Outbox &) = delete;
 
     /// @brief opens the outbox in the directory of the config, creates the directory
-    /// when it does not exist, locks it, removes the temporary files a crash left,
-    /// and starts the send and sync threads. When a crash or a power loss cut off the
-    /// last call of a segment, the outbox keeps the calls before it, cuts the bytes
-    /// from it on from the segment, and counts them in cut().
-    /// @returns UNKNOWN_VERSION when a segment has a call kind this Driver cannot
-    /// send. CORRUPT when a call does not decode. journal::LOCKED when another
-    /// outbox has the directory. journal::CORRUPT when the saved offset is past the
-    /// end of its segment. The errors of journal::Writer::open and
-    /// journal::Reader::next when a segment or the offset is not valid.
+    /// when it does not exist, locks it, removes the temporary files a crash left, and
+    /// starts the send and sync threads. When a crash or a power loss cut off the last
+    /// call of a segment, the outbox keeps the calls before it, cuts the bytes from it
+    /// on from the segment, and counts them in cut(). It removes a segment that a crash
+    /// left during a compaction.
+    /// @returns UNKNOWN_VERSION when a segment has a call kind this Driver cannot send.
+    /// CORRUPT when a call does not decode. journal::LOCKED when another outbox has the
+    /// directory. journal::CORRUPT when the saved offset is past the end of its
+    /// segment. The errors of journal::Writer::open and journal::Reader::next when a
+    /// segment or the offset is not valid.
     static std::pair<std::unique_ptr<Outbox>, x::errors::Error> open(Config cfg);
 
-    /// @brief stops the threads, waits for a send in progress, and syncs the calls
-    /// and the send position to the disk.
+    /// @brief stops the threads, waits for a send in progress, and syncs the calls and
+    /// the send position to the disk.
     ~Outbox();
 
-    /// @brief queues a status set and returns without waiting for the Core or the
-    /// disk.
+    /// @brief queues a status set and returns without waiting for the Core or the disk.
     /// @param req the set, with its time stamped by the caller.
     /// @param done called once the Core answers the set.
     /// @returns FULL when the outbox has no room, and counts the set in refused().
-    /// The error of a failed write, and then the outbox does not hold the set.
+    /// journal::TOO_LARGE when the encoded set is larger than max_payload. The error of
+    /// a failed write, and then the outbox does not hold the set.
     x::errors::Error
     set_status(const ::grpc::status::SetByKeyOrNameRequest &req, SetStatusDone done);
 
@@ -253,8 +288,8 @@ public:
     /// @returns the number of calls the outbox refused because it was full.
     [[nodiscard]] std::uint64_t refused() const;
 
-    /// @returns the number of bytes open lost at the ends of segments, which a crash,
-    /// a power loss, or a damaged disk left. Not 0 means the outbox lost calls.
+    /// @returns the number of bytes open lost at the ends of segments, which a crash, a
+    /// power loss, or a damaged disk left. Not 0 means the outbox lost calls.
     [[nodiscard]] std::uint64_t cut() const;
 
     /// @returns the number of calls the outbox holds.

@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <cstdint>
@@ -17,6 +18,7 @@
 #include <memory>
 #include <mutex>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include "absl/crc/crc32c.h"
@@ -44,8 +46,8 @@ using Transport = freighter::testutil::UnaryClient<
     ::grpc::status::SetByKeyOrNameRequest,
     ::grpc::status::SetByKeyOrNameResponse>;
 
-/// @brief returns a transport that answers with each error in order, and with the
-/// key "key" when the error is nil.
+/// @brief returns a transport that answers with each error in order, and with the key
+/// "key" when the error is nil.
 std::shared_ptr<Transport> transport_of(const std::vector<x::errors::Error> &errors) {
     ::grpc::status::SetByKeyOrNameResponse res;
     res.set_key("key");
@@ -83,8 +85,7 @@ std::vector<std::string> payloads_of(const std::filesystem::path &path) {
 
 std::vector<std::string> messages_of(const Transport &transport) {
     std::vector<std::string> messages;
-    messages.reserve(transport.requests.size());
-    for (const auto &req: transport.requests)
+    for (const auto &req: transport.sent())
         messages.push_back(req.message());
     return messages;
 }
@@ -177,7 +178,7 @@ TEST_F(OutboxTest, SendsCallsInOrder) {
         ));
     ASSERT_EVENTUALLY_EQ(outbox->size(), 0);
     ASSERT_EQ(messages_of(*transport), (std::vector<std::string>{"first", "second"}));
-    ASSERT_EQ(transport->requests[0].time(), 42);
+    ASSERT_EQ(transport->sent()[0].time(), 42);
     std::lock_guard lock(mu);
     ASSERT_EQ(keys, (std::vector<std::string>{"key", "key"}));
 }
@@ -206,8 +207,7 @@ TEST_F(OutboxTest, DoesNotResendSentCalls) {
     ASSERT_EQ(outbox->size(), 0);
 }
 
-/// @brief it should send only the unsent calls of a partly sent segment after a
-/// reopen.
+/// @brief it should send only the unsent calls of a partly sent segment after a reopen.
 TEST_F(OutboxTest, SendsOnlyUnsentCallsAfterReopen) {
     {
         const auto outbox = this->open_outbox(
@@ -274,7 +274,7 @@ TEST_F(OutboxTest, RetriesWhileUnreachable) {
         }
     ));
     ASSERT_EVENTUALLY_EQ(outbox->size(), 0);
-    ASSERT_EQ(transport->requests.size(), 3);
+    ASSERT_EQ(transport->sent().size(), 3);
     ASSERT_EQ(answers, 1);
     ASSERT_EQ(outbox->dropped(), 0);
 }
@@ -287,7 +287,7 @@ TEST_F(OutboxTest, RetriesWhileUnlicensed) {
     const auto outbox = this->open_outbox(transport);
     ASSERT_NIL(outbox->set_status(set_of("first"), nullptr));
     ASSERT_EVENTUALLY_EQ(outbox->size(), 0);
-    ASSERT_EQ(transport->requests.size(), 2);
+    ASSERT_EQ(transport->sent().size(), 2);
     ASSERT_EQ(outbox->dropped(), 0);
 }
 
@@ -401,7 +401,8 @@ TEST_F(OutboxTest, RefusesUnknownVersion) {
     std::filesystem::create_directories(this->dir);
     {
         std::string header(SEGMENT_MAGIC.data(), SEGMENT_MAGIC.size());
-        header += std::string("\x02\x00\x00\x00\x00\x00\x00\x00", 8);
+        header += std::string("\x02\x00", 2);
+        header += std::string(journal::HEADER_SIZE - 14, '\0');
         const auto crc = static_cast<std::uint32_t>(absl::ComputeCrc32c(header));
         for (int i = 0; i < 4; i++)
             header.push_back(static_cast<char>(crc >> (8 * i)));
@@ -410,8 +411,8 @@ TEST_F(OutboxTest, RefusesUnknownVersion) {
     ASSERT_OCCURRED_AS_P(Outbox::open({.dir = this->dir}), journal::UNKNOWN_VERSION);
 }
 
-/// @brief it should refuse to open, and keep, a call that passes its checksum but
-/// does not decode.
+/// @brief it should refuse to open, and keep, a call that passes its checksum but does
+/// not decode.
 TEST_F(OutboxTest, RefusesUndecodableCall) {
     this->write_call(
         std::string(
@@ -471,7 +472,7 @@ TEST_F(OutboxTest, SendsV1Segment) {
     ASSERT_EVENTUALLY_EQ(outbox->size(), 0);
     ASSERT_EQ(messages_of(*transport), (std::vector<std::string>{"first", "second"}));
     ASSERT_EQ(outbox->cut(), 0);
-    for (const auto &req: transport->requests) {
+    for (const auto &req: transport->sent()) {
         EXPECT_EQ(req.key_or_name(), req.message());
         EXPECT_EQ(req.variant(), "info");
         EXPECT_EQ(req.time(), 42);
@@ -501,6 +502,7 @@ TEST_F(OutboxTest, WritesV1Segment) {
     const auto fixture = read_file(TESTDATA / "v1_segment.bin");
     ASSERT_EQ(written.size(), fixture.size());
     ASSERT_EQ(written.substr(0, 12), fixture.substr(0, 12));
+    ASSERT_EQ(written.substr(16, 12), fixture.substr(16, 12));
     ASSERT_EQ(payloads_of(this->segment()), payloads_of(TESTDATA / "v1_segment.bin"));
 }
 
@@ -523,8 +525,8 @@ TEST_F(OutboxTest, RemovesSentSegments) {
     ASSERT_TRUE(std::filesystem::exists(this->dir / "1.calls"));
 }
 
-/// @brief it should hold a call whose write succeeded before a failed sync, and
-/// refuse the next call that the failed segment cannot take.
+/// @brief it should hold a call whose write succeeded before a failed sync, and refuse
+/// the next call that the failed segment cannot take.
 TEST_F(OutboxTest, MovesToNewSegmentAfterFailedSync) {
     std::atomic<bool> failing = false;
     std::atomic<int> failed_syncs = 0;
@@ -577,8 +579,8 @@ TEST_F(OutboxTest, KeepsSendingAfterFailedOffsetSave) {
     ASSERT_EQ(outbox->size(), 2);
 }
 
-/// @brief it should never save an offset past the bytes of a segment that are on
-/// the disk.
+/// @brief it should never save an offset past the bytes of a segment that are on the
+/// disk.
 TEST_F(OutboxTest, SavesOffsetOnlyAfterSync) {
     std::atomic<bool> failing = false;
     {
@@ -672,12 +674,11 @@ TEST_F(OutboxTest, RetriesUntypedErrors) {
     const auto outbox = this->open_outbox(transport);
     ASSERT_NIL(outbox->set_status(set_of("first"), nullptr));
     ASSERT_EVENTUALLY_EQ(outbox->size(), 0);
-    ASSERT_EQ(transport->requests.size(), 2);
+    ASSERT_EQ(transport->sent().size(), 2);
     ASSERT_EQ(outbox->dropped(), 0);
 }
 
-/// @brief it should report a call that keeps failing, and report again once it is
-/// sent.
+/// @brief it should report a call that keeps failing, and report again once it is sent.
 TEST_F(OutboxTest, ReportsStuckCall) {
     std::mutex mu;
     std::vector<x::errors::Error> reports;
@@ -730,7 +731,7 @@ TEST_F(OutboxTest, SkipsReplacedSets) {
         x::telem::SECOND
     );
     ASSERT_NIL(outbox->set_status(set_of("1", "a"), nullptr));
-    ASSERT_EVENTUALLY_EQ(transport->requests.size(), 1);
+    ASSERT_EVENTUALLY_EQ(transport->sent().size(), 1);
     ASSERT_NIL(outbox->set_status(set_of("x", "b"), nullptr));
     ASSERT_NIL(outbox->set_status(set_of("2", "a"), nullptr));
     ASSERT_EVENTUALLY_EQ_WITH_TIMEOUT(
@@ -783,8 +784,8 @@ TEST_F(OutboxTest, CompactsToNewestSets) {
     EXPECT_EQ(messages.back(), "299");
 }
 
-/// @brief it should send no set twice when a crash leaves the old segments next to
-/// the compacted one.
+/// @brief it should send no set twice when a crash leaves the old segments next to the
+/// compacted one.
 TEST_F(OutboxTest, SkipsOldSegmentsAfterCrashInCompaction) {
     const auto aside = this->dir.string() + "_aside";
     {
@@ -815,5 +816,148 @@ TEST_F(OutboxTest, SkipsOldSegmentsAfterCrashInCompaction) {
     const auto outbox = this->open_outbox(transport);
     ASSERT_EVENTUALLY_EQ(outbox->size(), 0);
     ASSERT_EQ(messages_of(*transport), (std::vector<std::string>{"299"}));
+}
+
+/// @brief it should keep the calls of a compaction whose offset save failed after the
+/// offset reached the disk.
+TEST_F(OutboxTest, KeepsCompactionWhenOffsetSaveFails) {
+    std::atomic<int> saves = 0;
+    {
+        Config cfg{
+            .dir = this->dir,
+            .statuses = synnax::status::Client(
+                nullptr,
+                nullptr,
+                nullptr,
+                transport_of({freighter::UNREACHABLE})
+            ),
+            .max_bytes = 4096,
+            .on_save = [&](const x::errors::Error &err) {
+                if (++saves == 1)
+                    return x::errors::Error(journal::BASE_ERROR, "disk failed");
+                return err;
+            },
+        };
+        cfg.retry.base_interval = x::telem::HOUR;
+        cfg.retry.max_interval = x::telem::HOUR;
+        const auto outbox = ASSERT_NIL_P(Outbox::open(cfg));
+        ASSERT_NIL(outbox->set_status(set_of("keep"), nullptr));
+        for (int i = 0; saves == 0; i++) {
+            ASSERT_LT(i, 100000);
+            (void) outbox->set_status(
+                set_of(std::to_string(i), i % 2 == 0 ? "a" : "b"),
+                nullptr
+            );
+            std::this_thread::sleep_for(std::chrono::microseconds(100));
+        }
+    }
+    const auto transport = transport_of(
+        std::vector<x::errors::Error>(1000, x::errors::NIL)
+    );
+    const auto outbox = this->open_outbox(transport);
+    ASSERT_EVENTUALLY_EQ(outbox->size(), 0);
+    const auto messages = messages_of(*transport);
+    ASSERT_FALSE(messages.empty());
+    EXPECT_EQ(messages.front(), "keep");
+}
+
+/// @brief it should compact before newer sets of repeated statuses fill the room that
+/// unique statuses leave.
+TEST_F(OutboxTest, CompactsWithoutRefusingNewerSets) {
+    constexpr std::uint64_t max_bytes = std::uint64_t{8} * 1000 * 1000;
+    const auto outbox = this->open_unreachable(max_bytes);
+    const auto message = std::string(1000, 'm');
+    const auto call_bytes = journal::RECORD_PREFIX_SIZE + 1020;
+    const auto unique = 6700 * 1000 / call_bytes;
+    for (std::size_t i = 0; i < unique; i++)
+        ASSERT_NIL(
+            outbox->set_status(set_of(message, "u" + std::to_string(i)), nullptr)
+        );
+    for (int i = 0; i < 3000; i++) {
+        ASSERT_NIL(
+            outbox->set_status(set_of(message, "r" + std::to_string(i % 100)), nullptr)
+        );
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    EXPECT_EQ(outbox->refused(), 0);
+}
+
+/// @brief it should refuse a call larger than max_payload and keep taking calls.
+TEST_F(OutboxTest, RefusesTooLargeCall) {
+    const auto outbox = this->open_unreachable();
+    ASSERT_OCCURRED_AS(
+        outbox->set_status(set_of(std::string(Config{}.max_payload, 'a')), nullptr),
+        journal::TOO_LARGE
+    );
+    ASSERT_EQ(outbox->size(), 0);
+    ASSERT_NIL(outbox->set_status(set_of("first"), nullptr));
+    ASSERT_EQ(outbox->size(), 1);
+}
+
+/// @brief it should remove the segment of a compaction that a crash stopped, and count
+/// none of its bytes as lost.
+TEST_F(OutboxTest, RemovesSegmentOfStoppedCompaction) {
+    {
+        const auto outbox = this->open_unreachable();
+        for (const auto *msg: {"first", "second"})
+            ASSERT_NIL(outbox->set_status(set_of(msg), nullptr));
+    }
+    const auto partial = this->dir / "5.calls";
+    {
+        auto writer = ASSERT_NIL_P(
+            journal::Writer::open(
+                {.path = partial, .magic = SEGMENT_MAGIC, .flags = COMPACTED_FLAG}
+            )
+        );
+        ASSERT_NIL(writer->write(
+            {.type = CALL_TYPE, .payload = payloads_of(this->segment()).at(0)}
+        ));
+        ASSERT_NIL(writer->close());
+    }
+    std::ofstream(partial, std::ios::binary | std::ios::app).write("\x10\x00\x00", 3);
+    const auto outbox = this->open_unreachable();
+    ASSERT_EQ(outbox->size(), 2);
+    ASSERT_EQ(outbox->cut(), 0);
+    ASSERT_FALSE(std::filesystem::exists(partial));
+}
+
+/// @brief it should call on_create with its directory and each file it creates.
+TEST_F(OutboxTest, CallsOnCreateForEveryFile) {
+    std::mutex mu;
+    std::vector<std::filesystem::path> created;
+    const auto transport = transport_of(
+        std::vector<x::errors::Error>(5, x::errors::NIL)
+    );
+    {
+        Config cfg{
+            .dir = this->dir / "data",
+            .statuses = synnax::status::Client(nullptr, nullptr, nullptr, transport),
+            .segment_calls = 2,
+            .on_create = [&](const std::filesystem::path &path) {
+                std::lock_guard lock(mu);
+                created.push_back(path);
+                return x::errors::NIL;
+            },
+        };
+        const auto outbox = ASSERT_NIL_P(Outbox::open(cfg));
+        for (int i = 0; i < 5; i++)
+            ASSERT_NIL(outbox->set_status(set_of(std::to_string(i)), nullptr));
+        ASSERT_EVENTUALLY_EQ(outbox->size(), 0);
+    }
+    std::lock_guard lock(mu);
+    ASSERT_GE(created.size(), 2);
+    EXPECT_EQ(created[0], this->dir);
+    EXPECT_EQ(created[1], this->dir / "data");
+    const auto was_created = [&](const std::filesystem::path &path) {
+        return std::ranges::any_of(created, [&](const std::filesystem::path &c) {
+            return c == path || c.string().starts_with(path.string() + ".tmp.");
+        });
+    };
+    int files = 0;
+    for (const auto &entry: std::filesystem::directory_iterator(this->dir / "data")) {
+        files++;
+        EXPECT_TRUE(was_created(entry.path())) << entry.path();
+    }
+    EXPECT_GE(files, 3);
 }
 }
