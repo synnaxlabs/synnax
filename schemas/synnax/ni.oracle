@@ -1851,17 +1851,17 @@ Hardware struct {
         """
         @ts type   "number"
     }
-    ai_voltage_ranges          spatial.Bounds[] = [] {
-        @doc value "are the analog input voltage ranges of the device, ends included."
+    ai_voltage_ranges          spatial.ClosedBounds[] = [] {
+        @doc value "are the analog input voltage ranges of the device."
     }
-    ai_current_ranges          spatial.Bounds[] = [] {
-        @doc value "are the analog input current ranges of the device, ends included."
+    ai_current_ranges          spatial.ClosedBounds[] = [] {
+        @doc value "are the analog input current ranges of the device."
     }
-    ao_voltage_ranges          spatial.Bounds[] = [] {
-        @doc value "are the analog output voltage ranges of the device, ends included."
+    ao_voltage_ranges          spatial.ClosedBounds[] = [] {
+        @doc value "are the analog output voltage ranges of the device."
     }
-    ao_current_ranges          spatial.Bounds[] = [] {
-        @doc value "are the analog output current ranges of the device, ends included."
+    ao_current_ranges          spatial.ClosedBounds[] = [] {
+        @doc value "are the analog output current ranges of the device."
     }
 
     @doc value """

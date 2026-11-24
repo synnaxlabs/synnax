@@ -286,10 +286,7 @@ func checkOverrides(b StateBinding, st symbol.State) error {
 				)
 			}
 		}
-		if b.Bounds == nil {
-			return nil
-		}
-		return symbol.CheckBounds([]string{"bounds"}, *b.Bounds)
+		return nil
 	}
 	if b.Bounds != nil {
 		return invalid([]string{"bounds"}, "enumeration state %q has no bounds", b.Key)

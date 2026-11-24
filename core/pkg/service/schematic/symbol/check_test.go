@@ -85,7 +85,7 @@ func valveSpec() symbol.Spec {
 			{Variant: symbol.NumberState{
 				Key:    "level",
 				Name:   "Level",
-				Bounds: spatial.Bounds{Upper: 100},
+				Bounds: spatial.ClosedBounds{Upper: 100},
 			}},
 		},
 		Commands: []symbol.Command{
@@ -227,9 +227,9 @@ var _ = Describe("Checks", func() {
 		Entry("number bounds whose lower is not below the upper", func(s *symbol.Spec) {
 			s.States[1] = symbol.State{Variant: symbol.NumberState{
 				Key:    "level",
-				Bounds: spatial.Bounds{Lower: 5, Upper: 0},
+				Bounds: spatial.ClosedBounds{Lower: 5, Upper: 0},
 			}}
-		}, "data.states.1.bounds: lower 5 must be below upper 0"),
+		}, "must be less than upper"),
 		Entry("an ask command with no state", func(s *symbol.Spec) {
 			s.Commands[2].State = nil
 		}, "data.commands.2.state: an ask command needs a state"),
