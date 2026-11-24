@@ -347,14 +347,14 @@ var _ = Describe("MigrateReadMessage", func() {
 	It(
 		"Should keep each part and drop an empty binding data type",
 		func(ctx SpecContext) {
-			index := v0.FieldKey(uuid.New())
+			index := uuid.New()
 			old := v0.ReadMessage{
-				Message: v0.MessageKey(uuid.New()),
+				Message: uuid.New(),
 				Index:   &index,
 				Bindings: []v0.ReadBinding{
 					{Field: index, Channel: 3},
 					{
-						Field:    v0.FieldKey(uuid.New()),
+						Field:    uuid.New(),
 						Channel:  4,
 						DataType: telem.Int32T,
 					},
