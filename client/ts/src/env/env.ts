@@ -138,8 +138,8 @@ const readSecure = (env: Env): boolean | undefined => {
 const isAbsolute = (path: string, platform: string): boolean =>
   platform === "win32" ? /^([a-z]:[\\/]|\\\\)/i.test(path) : path.startsWith("/");
 
-// Returns desktop.json in the config directory of the OS, then in ~/.synnax, the legacy
-// path that Synnax Desktop 1.1 and older clients use.
+// Returns desktop.json in the OS config folder first, then in ~/.synnax, which every
+// Synnax Desktop writes.
 const desktopFiles = (env: Env, platform: string): string[] => {
   const dir = (name: string, fallback: string): string => {
     const value = read(env, name);

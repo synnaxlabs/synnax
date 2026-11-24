@@ -57,8 +57,17 @@ you set come first.
 This works in Node.js, Bun, and Deno. In Deno, give these flags:
 
 ```bash
-deno run --allow-sys=homedir --allow-read="$HOME/.synnax" --allow-run --allow-env \
-  my_script.ts
+deno run --allow-sys=homedir \
+  --allow-read="${XDG_CONFIG_HOME:-$HOME/.config}/synnax,$HOME/.synnax" \
+  --allow-run --allow-env my_script.ts
+```
+
+On macOS, replace `${XDG_CONFIG_HOME:-$HOME/.config}/synnax` with
+`$HOME/Library/Application Support/Synnax`. On Windows, in PowerShell:
+
+```powershell
+deno run --allow-sys=homedir --allow-read="$env:APPDATA\Synnax,$HOME\.synnax" `
+  --allow-run --allow-env my_script.ts
 ```
 
 Without `--allow-sys` or `--allow-read`, the client cannot see Synnax Desktop and asks
