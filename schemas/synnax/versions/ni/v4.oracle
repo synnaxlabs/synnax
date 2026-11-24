@@ -126,14 +126,14 @@ BaseCIChannel struct extends v3.BaseCIChannel {
 
 CIChannel union on type extends v3.CIChannel {
     ci_frequency {
-        meas_time telem.TimeSpan = 6000 {
+        meas_time telem.TimeSpan = 6us {
             @doc value    "is the averaging window for high-frequency measurement."
             @validate max 9007199254740991
             @validate min 1
         }
     }
     ci_period {
-        meas_time telem.TimeSpan = 1000000 {
+        meas_time telem.TimeSpan = 1ms {
             @doc value    "is the averaging window for high-frequency measurement."
             @validate max 9007199254740991
             @validate min 1

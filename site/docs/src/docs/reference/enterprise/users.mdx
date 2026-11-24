@@ -148,8 +148,8 @@ or `client.users.changeUsername(key, username)` in TypeScript. To delete users, 
 
 To set a password in TypeScript, call `client.auth.setPassword({ subject, password })`.
 Leave out `subject` and add `currentPassword` to set your own. To create an API key,
-call `client.auth.create_key(name, subject)` in Python or
-`client.auth.createKey({ name, subject })` in TypeScript.
+call `client.auth.create_api_key(name, subject)` in Python or
+`client.auth.createAPIKey({ name, subject })` in TypeScript.
 
 You cannot delete a role that a user holds. First give its users a different role.
 
