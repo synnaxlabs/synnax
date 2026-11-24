@@ -268,7 +268,7 @@ const Editor = ({
       ? `Sends ${name(click.command)}`
       : `Toggles ${click.commands.map(name).join(" and ")}`;
   };
-  const clickDisabled =
+  const clickDisabledReason =
     commands.length === 0
       ? "Add a command first"
       : Spec.freeTargets({ parts, interactions }).length === 0
@@ -382,7 +382,7 @@ const Editor = ({
                       label={(i) => targetName(parts, i.part)}
                       detail={describeClick}
                       add={Spec.addInteraction}
-                      addDisabled={clickDisabled}
+                      addDisabledReason={clickDisabledReason}
                       remove={Spec.removeInteraction}
                       value={shown?.type === "click" ? shown.key : undefined}
                       onChange={selectItem("click")}

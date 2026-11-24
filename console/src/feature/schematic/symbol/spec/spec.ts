@@ -396,8 +396,8 @@ export const freeTargets = (spec: Pick<Spec, "parts" | "interactions">): Target[
 };
 
 /**
- * @returns spec with a new click on the first free target that sends the first
- * command, and the key of the click.
+ * @returns spec with a new click on the first free target that sends the first command,
+ * and the key of the click.
  * @throws when every target has a click, or spec has no command.
  */
 export const addInteraction = (spec: Spec): [Spec, string] => {
