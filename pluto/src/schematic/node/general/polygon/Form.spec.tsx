@@ -12,7 +12,7 @@ import { deep } from "@synnaxlabs/x";
 import { fireEvent, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { PolygonForm } from "@/schematic/node/general/polygon/Form";
+import { Polygon } from "@/schematic/node/general/polygon";
 import { renderForm } from "@/testutil";
 
 const path = deep.path<schematic.PolygonNodeConfig>();
@@ -24,7 +24,7 @@ describe("PolygonForm", () => {
     { label: "Border radius", field: path.borderRadius, typed: "4.4", expected: 4 },
   ])("should store a whole $label", async ({ label, field, typed, expected }) => {
     const { getByLabelText, value } = renderForm(
-      <PolygonForm />,
+      <Polygon.spec.Form />,
       schematic.polygonNodeConfigZ.parse({ variant: "polygon" }),
       schematic.polygonNodeConfigZ,
     );

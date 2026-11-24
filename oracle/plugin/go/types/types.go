@@ -753,12 +753,16 @@ func processEnum(e resolution.Type) enumData {
 			IntValue: v.IntValue(),
 		})
 	}
-	return enumData{
+	ed := enumData{
 		Name:      name,
 		Doc:       doc.Get(e.Domains),
 		Values:    values,
 		IsIntEnum: form.IsIntEnum,
 	}
+	if form.IsIntEnum {
+		ed.Base = form.IntBase()
+	}
+	return ed
 }
 
 func processTypeDef(td resolution.Type, data *templateData) typeDefData {
@@ -1393,6 +1397,8 @@ type enumData struct {
 	Doc       string
 	Values    []enumValueData
 	IsIntEnum bool
+	// Base is the Go underlying type of an integer enum.
+	Base string
 }
 
 // Receiver returns the single-letter, lowercased method receiver name for the enum type
@@ -1496,7 +1502,7 @@ type {{.Name}}{{if .IsGeneric}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end
 {{formatDoc $enum.Name $enum.Doc}}
 {{- end}}
 {{- if $enum.IsIntEnum}}
-type {{$enum.Name}} uint8
+type {{$enum.Name}} {{$enum.Base}}
 
 {{"//"}}go:generate go tool stringer -type={{$enum.Name}}
 {{- if eq (len $enum.Values) 1}}
@@ -1689,8 +1695,6 @@ func ({{$s.Receiver}} {{$s.Name}}) Validate() error {
 	v.MaxLength("{{.FieldName}}", {{$val}}, {{.Arg}})
 {{- else if eq .Kind "min_bytes"}}
 	v.MinBytes("{{.FieldName}}", {{$val}}, {{.Arg}})
-{{- else if eq .Kind "max_bytes"}}
-	v.MaxBytes("{{.FieldName}}", {{$val}}, {{.Arg}})
 {{- else if eq .Kind "ge"}}
 	v.GreaterThanEq("{{.FieldName}}", {{$val}}, {{.Arg}})
 {{- else if eq .Kind "gt"}}
@@ -1833,8 +1837,6 @@ func ({{$vt.Receiver}} {{$vt.TypeName}}) Validate() error {
 	v.MaxLength("{{.FieldName}}", {{$val}}, {{.Arg}})
 {{- else if eq .Kind "min_bytes"}}
 	v.MinBytes("{{.FieldName}}", {{$val}}, {{.Arg}})
-{{- else if eq .Kind "max_bytes"}}
-	v.MaxBytes("{{.FieldName}}", {{$val}}, {{.Arg}})
 {{- else if eq .Kind "ge"}}
 	v.GreaterThanEq("{{.FieldName}}", {{$val}}, {{.Arg}})
 {{- else if eq .Kind "gt"}}

@@ -40,14 +40,24 @@ const fieldsZ = z.object({
   privateKeyFile: z.string(),
 });
 
-const formZ = z.discriminatedUnion("source", [
-  fieldsZ.extend({
-    source: z.literal("stored"),
-    pem: z.string().trim().min(1, "Certificate is required"),
+const storedZ = fieldsZ.extend({
+  source: z.literal("stored"),
+  pem: z.string().trim().min(1, "Certificate is required"),
+});
+
+const fileZ = fieldsZ.extend({
+  source: z.literal("file"),
+  certificatePath: z.string().trim().min(1, "Certificate file is required"),
+});
+
+const formZ = z.discriminatedUnion("source", [storedZ, fileZ]);
+
+const keyedFormZ = z.discriminatedUnion("source", [
+  storedZ.extend({
+    privateKeyPem: z.string().trim().min(1, "Private key is required"),
   }),
-  fieldsZ.extend({
-    source: z.literal("file"),
-    certificatePath: z.string().trim().min(1, "Certificate file is required"),
+  fileZ.extend({
+    privateKeyFile: z.string().min(1, "Private key file is required"),
   }),
 ]);
 
@@ -107,9 +117,15 @@ interface FileFieldsProps {
   rack: rack.Key;
   picked: FileBrowser.Entry | null;
   onPick: (entry: FileBrowser.Entry) => void;
+  privateKeyRequired: boolean;
 }
 
-const FileFields = ({ rack, picked, onPick }: FileFieldsProps): ReactElement => {
+const FileFields = ({
+  rack,
+  picked,
+  onPick,
+  privateKeyRequired,
+}: FileFieldsProps): ReactElement => {
   const browse = FileBrowser.useModal();
   const now = useNow(nextMinute);
   return (
@@ -164,7 +180,7 @@ const FileFields = ({ rack, picked, onPick }: FileFieldsProps): ReactElement => 
             rack={rack}
             value={value}
             onChange={onChange}
-            allowNone
+            allowNone={!privateKeyRequired}
           />
         )}
       </Form.Field>
@@ -177,6 +193,8 @@ export interface CreateModalParams {
   name?: string;
   /** The rack whose files the modal browses. Zero offers no file. */
   rack?: rack.Key;
+  /** Whether the certificate must have a private key, as a client certificate does. */
+  privateKeyRequired?: boolean;
 }
 
 const INITIAL_VALUES: Omit<FormValues, "name"> = {
@@ -191,11 +209,12 @@ const Create = ({
   close,
   name: initialName = "",
   rack = 0,
+  privateKeyRequired = false,
 }: Modals.ContentProps<CreateModalParams, certificate.Key>): ReactElement => {
   const client = Synnax.use();
   const form = Form.use({
     values: { name: initialName, ...INITIAL_VALUES },
-    schema: formZ,
+    schema: privateKeyRequired ? keyedFormZ : formZ,
   });
   const source = Form.useFieldValue<secret.Source>(path.source, { ctx: form });
   const [picked, setPicked] = useState<FileBrowser.Entry | null>(null);
@@ -260,7 +279,12 @@ const Create = ({
             </Form.Field>
           )}
           {source === "file" ? (
-            <FileFields rack={rack} picked={picked} onPick={setPicked} />
+            <FileFields
+              rack={rack}
+              picked={picked}
+              onPick={setPicked}
+              privateKeyRequired={privateKeyRequired}
+            />
           ) : (
             <StoredFields named={named} />
           )}

@@ -14,7 +14,6 @@ import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from "vite
 import { Button } from "@/button";
 import { Icon } from "@/icon";
 import { Status } from "@/status";
-import type { NotificationSpec } from "@/status/Aggregator";
 import {
   stubClipboardUnavailable,
   stubClipboardWriteText,
@@ -22,7 +21,11 @@ import {
   stubCopyCommandUnavailable,
 } from "@/testutil";
 
-const StatusSpy = ({ onStatuses }: { onStatuses: (s: NotificationSpec[]) => void }) => {
+const StatusSpy = ({
+  onStatuses,
+}: {
+  onStatuses: (s: Status.NotificationSpec[]) => void;
+}) => {
   const { statuses } = Status.useNotifications();
   onStatuses(statuses);
   return null;
@@ -243,7 +246,7 @@ describe("Copy", () => {
       await act(async () => {
         fireEvent.click(c.container.querySelector(".lyra-icon--copy")!);
       });
-      const lastCall = spy.mock.lastCall?.[0] as NotificationSpec[];
+      const lastCall = spy.mock.lastCall?.[0] as Status.NotificationSpec[];
       expect(lastCall).toHaveLength(1);
       expect(lastCall[0].message).toBe("Copied!");
       expect(lastCall[0].variant).toBe("success");
@@ -262,7 +265,7 @@ describe("Copy", () => {
       await act(async () => {
         fireEvent.click(c.container.querySelector(".lyra-icon--copy")!);
       });
-      const lastCall = spy.mock.lastCall?.[0] as NotificationSpec[];
+      const lastCall = spy.mock.lastCall?.[0] as Status.NotificationSpec[];
       expect(lastCall).toHaveLength(1);
       expect(lastCall[0].message).toBe("Copied Task B");
     });
@@ -284,7 +287,7 @@ describe("Copy", () => {
       await act(async () => {
         fireEvent.click(c.container.querySelector(".lyra-icon--copy")!);
       });
-      const lastCall = spy.mock.lastCall?.[0] as NotificationSpec[];
+      const lastCall = spy.mock.lastCall?.[0] as Status.NotificationSpec[];
       expect(lastCall).toHaveLength(1);
       expect(lastCall[0].name).toBe("Run 12");
       expect(lastCall[0].message).toBe("Copied Python code to clipboard");
@@ -308,7 +311,7 @@ describe("Copy", () => {
       await act(async () => {
         fireEvent.click(c.container.querySelector(".lyra-icon--copy")!);
       });
-      const lastCall = spy.mock.lastCall?.[0] as NotificationSpec[];
+      const lastCall = spy.mock.lastCall?.[0] as Status.NotificationSpec[];
       expect(lastCall).toHaveLength(1);
       expect(lastCall[0].variant).toBe("error");
       expect(lastCall[0].name).toBe("Run 12");
@@ -339,7 +342,7 @@ describe("Copy", () => {
       await act(async () => {
         fireEvent.click(c.container.querySelector(".lyra-icon--copy")!);
       });
-      const lastCall = spy.mock.lastCall?.[0] as NotificationSpec[];
+      const lastCall = spy.mock.lastCall?.[0] as Status.NotificationSpec[];
       expect(lastCall).toHaveLength(0);
     });
 
@@ -355,7 +358,7 @@ describe("Copy", () => {
       await act(async () => {
         fireEvent.click(c.container.querySelector(".lyra-icon--copy")!);
       });
-      const lastCall = spy.mock.lastCall?.[0] as NotificationSpec[];
+      const lastCall = spy.mock.lastCall?.[0] as Status.NotificationSpec[];
       expect(lastCall).toHaveLength(1);
       expect(lastCall[0].variant).toBe("error");
       expect(lastCall[0].message).toBe("Failed to copy to clipboard");
@@ -374,7 +377,7 @@ describe("Copy", () => {
       await act(async () => {
         fireEvent.click(c.container.querySelector(".lyra-icon--copy")!);
       });
-      const lastCall = spy.mock.lastCall?.[0] as NotificationSpec[];
+      const lastCall = spy.mock.lastCall?.[0] as Status.NotificationSpec[];
       expect(lastCall).toHaveLength(1);
       expect(lastCall[0].variant).toBe("error");
       expect(lastCall[0].message).toBe("Failed to copy to clipboard");
