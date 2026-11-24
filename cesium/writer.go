@@ -749,7 +749,7 @@ func (w *idxWriter) resolveCommitEnd(
 	ctx context.Context,
 ) (index.TimeStampApproximation, error) {
 	if w.writingToIdx {
-		return index.Exactly(w.idx.highWaterMark), nil
+		return domain.Exactly(w.idx.highWaterMark), nil
 	}
 	approx, err := w.idx.Stamp(ctx, w.start, w.sampleCount-1, index.MustBeContinuous)
 	if err != nil {

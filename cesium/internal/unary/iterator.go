@@ -1367,7 +1367,7 @@ func (i *Iterator) approximateEnd(
 	if err != nil {
 		return index.DistanceApproximation{}, err
 	}
-	endApprox.Approximation = index.Exactly(total)
+	endApprox.Approximation = domain.Exactly(total)
 	if i.internal.TimeRange().End.After(i.view.End) {
 		target := i.internal.TimeRange().Start.Range(i.view.End)
 		endApprox, err = i.Cache.Distance(ctx, i.idx, target, index.MustBeContinuous)

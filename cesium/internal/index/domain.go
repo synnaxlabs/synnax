@@ -98,7 +98,7 @@ func (i *Domain) Distance(
 		approx.Approximation, approx.EndExact, err = i.searchEnd(
 			tr.End,
 			r,
-			Between(-startApprox.Upper, -startApprox.Lower),
+			domain.Between(-startApprox.Upper, -startApprox.Lower),
 		)
 		return approx, err
 	}
@@ -128,13 +128,13 @@ func (i *Domain) Distance(
 func (i *Domain) searchEnd(
 	end telem.TimeStamp,
 	r domain.RangeReader,
-	startToDomain Approximation[int64],
-) (Approximation[int64], bool, error) {
+	startToDomain domain.Approximation[int64],
+) (domain.Approximation[int64], bool, error) {
 	endApprox, err := i.search(end, r)
 	if err != nil {
-		return Approximation[int64]{}, false, err
+		return domain.Approximation[int64]{}, false, err
 	}
-	return Between(
+	return domain.Between(
 		startToDomain.Lower+endApprox.Lower,
 		startToDomain.Upper+endApprox.Upper,
 	), endApprox.Exact(), nil
@@ -182,24 +182,27 @@ func (i *Domain) seekDistanceStart(
 func seekEnd(
 	iter *domain.Cursor,
 	tr telem.TimeRange,
-	startApprox Approximation[int64],
+	startApprox domain.Approximation[int64],
 	domainLen int64,
 	effectiveDomainTR telem.TimeRange,
 	continuous continuousPolicy,
-) (Approximation[int64], bool, error) {
+) (domain.Approximation[int64], bool, error) {
 	// Unless the effective domain contains the end of the time range, the distance is
 	// discontinuous.
 	if continuous &&
 		!effectiveDomainTR.ContainsStamp(tr.End) &&
 		effectiveDomainTR.End != tr.End {
-		return Approximation[int64]{}, false, newDiscontinuousTRError(tr)
+		return domain.Approximation[int64]{}, false, newDiscontinuousTRError(tr)
 	}
-	traversed := Between(domainLen-startApprox.Upper, domainLen-startApprox.Lower)
+	traversed := domain.Between(
+		domainLen-startApprox.Upper,
+		domainLen-startApprox.Lower,
+	)
 	for {
 		if !iter.Next() ||
 			(continuous && !effectiveDomainTR.ContainsRange(iter.TimeRange())) {
 			if continuous {
-				return Approximation[int64]{}, false, newDiscontinuousTRError(tr)
+				return domain.Approximation[int64]{}, false, newDiscontinuousTRError(tr)
 			}
 			return traversed, false, nil
 		}
@@ -454,7 +457,7 @@ func (i *Domain) zeroStamp(
 		return approx, err
 	}
 	s, err := readStamp(r, byteSize(startApprox.Upper))
-	approx = Exactly(s)
+	approx = domain.Exactly(s)
 	return approx, err
 }
 
@@ -506,7 +509,7 @@ func (i *Domain) forwardStamp(
 				err = newDiscontinuousOffsetError(endOffset, effectiveDomainLen)
 				return approx, err
 			}
-			approx = Between(iter.TimeRange().End, telem.TimeStampMax)
+			approx = domain.Between(iter.TimeRange().End, telem.TimeStampMax)
 			return approx, err
 		}
 		if r, err = reopenReader(ctx, &iter, r); err != nil {
@@ -583,7 +586,7 @@ func (i *Domain) approximateStamp(
 	}
 	if lowerTSByteOffset >= 0 {
 		lowerTS, err := readStamp(r, lowerTSByteOffset)
-		return Between(lowerTS, upperTS), err
+		return domain.Between(lowerTS, upperTS), err
 	}
 	lowerTS, ok, err := i.previousDomainStamp(ctx, iter, -lowerTSByteOffset)
 	if err != nil {
@@ -591,9 +594,9 @@ func (i *Domain) approximateStamp(
 	}
 	// Nothing precedes the first domain, so no sample bounds the stamp from below.
 	if !ok {
-		return Between(telem.TimeStampMin, upperTS), nil
+		return domain.Between(telem.TimeStampMin, upperTS), nil
 	}
-	return Between(lowerTS, upperTS), nil
+	return domain.Between(lowerTS, upperTS), nil
 }
 
 // previousDomainStamp reads the timestamp sitting offset bytes before the end of the
@@ -680,7 +683,7 @@ func (i *Domain) backwardStamp(
 				err = newDiscontinuousOffsetError(endOffset, domainLen)
 				return approx, err
 			}
-			approx = Between(telem.TimeStampMin, iter.TimeRange().Start)
+			approx = domain.Between(telem.TimeStampMin, iter.TimeRange().Start)
 			return approx, err
 		}
 		if r, err = reopenReader(ctx, &iter, r); err != nil {
@@ -800,7 +803,7 @@ func resolveBackwardEffectiveDomainTR(
 func (i *Domain) search(
 	ts telem.TimeStamp,
 	r domain.RangeReader,
-) (Approximation[int64], error) {
+) (domain.Approximation[int64], error) {
 	var (
 		start int64
 		end   = sampleCount(r.Size()) - 1
@@ -812,7 +815,7 @@ func (i *Domain) search(
 	for start <= end {
 		mid := (start + end) / 2
 		if midTs, err = read(r, byteSize(mid)); err != nil {
-			return Exactly[int64](0), err
+			return domain.Exactly[int64](0), err
 		}
 		if midTs < ts {
 			start = mid + 1
@@ -822,9 +825,9 @@ func (i *Domain) search(
 		}
 	}
 	if found {
-		return Exactly(start), nil
+		return domain.Exactly(start), nil
 	}
-	return Between(end, end+1), nil
+	return domain.Between(end, end+1), nil
 }
 
 func newStampReader() func(r io.ReaderAt, offset telem.Size) (telem.TimeStamp, error) {
