@@ -746,7 +746,7 @@ class TestHome:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """Should ask for a host, and write nothing, when the home is read-only."""
-        if os.geteuid() == 0:
+        if sys.platform != "win32" and os.geteuid() == 0:
             pytest.skip("root writes to a read-only directory")
         monkeypatch.setenv("HOME", str(tmp_path))
         tmp_path.chmod(0o500)

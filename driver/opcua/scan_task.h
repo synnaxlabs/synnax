@@ -9,6 +9,8 @@
 
 #pragma once
 
+#include <chrono>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <string>
@@ -157,6 +159,7 @@ private:
 
     /// @brief connects to the server that a browse command names and finds its node.
     /// When a step fails, sets the command's status with the failure message.
+    /// @param deadline_of gives the deadline of the steps from the connection config.
     /// @returns the connection and the node, which borrows from args, or nothing after
     /// a failure.
     std::optional<std::pair<connection::Pool::Connection, UA_NodeId>> target(
@@ -164,7 +167,10 @@ private:
         const ScanCommandArgs &args,
         const std::optional<synnax::secret::Grant> &grant,
         synnax::task::Status &status,
-        const std::string &failure
+        const std::string &failure,
+        const std::function<
+            std::chrono::steady_clock::time_point(const connection::Config &)>
+            &deadline_of
     ) const;
 
     /// @brief Browse child nodes of a given OPC UA node.
