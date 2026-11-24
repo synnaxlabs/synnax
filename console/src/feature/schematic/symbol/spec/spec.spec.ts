@@ -451,6 +451,62 @@ describe("symbol editor spec", () => {
     });
   });
 
+  describe("setVariesByValue", () => {
+    it("should move the field on every value onto each value", () => {
+      const looks: schematic.symbol.Look[] = [{ key: "a", part: "body", hidden: true }];
+      const next = Spec.setVariesByValue(
+        createSpec({ looks }),
+        "body",
+        "hidden",
+        [0, 1],
+        true,
+      );
+      expect(next.looks).toEqual([
+        expect.objectContaining({ part: "body", when: equals(0), hidden: true }),
+        expect.objectContaining({ part: "body", when: equals(1), hidden: true }),
+      ]);
+      expect(Spec.variesByValue(next, "body", "hidden")).toBe(true);
+    });
+
+    it("should keep the field at the first value on every value", () => {
+      const looks: schematic.symbol.Look[] = [
+        { key: "a", part: "body", when: equals(0), fill: fixed(RED) },
+        { key: "b", part: "body", when: equals(1), fill: fixed(BLUE) },
+      ];
+      const next = Spec.setVariesByValue(
+        createSpec({ looks }),
+        "body",
+        "fill",
+        [0, 1],
+        false,
+      );
+      expect(next.looks).toEqual([
+        { key: expect.any(String), part: "body", fill: fixed(RED) },
+      ]);
+      expect(Spec.variesByValue(next, "body", "fill")).toBe(false);
+    });
+
+    it("should not give the part a field of the whole drawing", () => {
+      const looks: schematic.symbol.Look[] = [
+        { key: "a", fill: fixed(RED) },
+        { key: "b", part: "body", when: equals(1), fill: fixed(BLUE) },
+      ];
+      const next = Spec.setVariesByValue(
+        createSpec({ looks }),
+        "body",
+        "fill",
+        [0, 1],
+        false,
+      );
+      expect(next.looks).toEqual([looks[0]]);
+    });
+
+    it("should keep a spec with no field on every value", () => {
+      const spec = createSpec();
+      expect(Spec.setVariesByValue(spec, "body", "fill", [0, 1], true)).toBe(spec);
+    });
+  });
+
   describe("nextPartName", () => {
     it("should take the lowest number that no part has", () => {
       const parts = [
@@ -525,7 +581,9 @@ describe("symbol editor spec", () => {
           { key: "b", when: equals(1), fill: fixed(BLUE) },
         ],
       });
-      expect(Spec.setVariant(spec, "static").looks.map((l) => l.key)).toEqual(["a"]);
+      expect(Spec.setVariant(spec, "static").looks).toEqual([
+        { key: "a", fill: fixed(RED) },
+      ]);
     });
 
     it("should give an actuator the commands, the match, and the Base looks on Active", () => {
@@ -563,7 +621,10 @@ describe("symbol editor spec", () => {
         "actuator",
       );
       const next = Spec.setVariant(actuator, "static");
-      expect(next.looks.map((l) => l.key)).toEqual(["a", "b"]);
+      expect(next.looks).toEqual([
+        { key: "a", part: "body", stroke: fixed(RED) },
+        { key: "b", part: "body", fill: fixed(BLUE) },
+      ]);
       expect(next.commands).toEqual([]);
       expect(next.interactions).toEqual([]);
       expect(next.states[0]).toMatchObject({ match: { type: "exact" } });
