@@ -14,14 +14,19 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/http"
 	"github.com/synnaxlabs/synnax/pkg/service/http/versions/legacy"
+	v4 "github.com/synnaxlabs/synnax/pkg/service/http/versions/v4"
+	v5 "github.com/synnaxlabs/synnax/pkg/service/http/versions/v5"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	tasktestutil "github.com/synnaxlabs/synnax/pkg/service/task/testutil"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 var _ = Describe("Service", func() {
@@ -59,6 +64,30 @@ var _ = Describe("Service", func() {
 				Channel: channelSvc,
 			})).Error().To(MatchError(ContainSubstring("icd: must be non-nil")))
 		})
+
+		It("Should stage the channel and fields of each stored v4 write config",
+			func(ctx SpecContext) {
+				db := DeferClose(gorp.Wrap(memkv.New()))
+				StartRun(db.Run)
+				old := v4.WriteConfig{Key: uuid.New(), Endpoints: []v4.WriteEndpoint{{
+					Key:     "sp",
+					Path:    "/setpoint",
+					Channel: v4.ChannelField{Pointer: "/value"},
+				}}}
+				Expect(gorp.WrapWriter[uuid.UUID, v4.WriteConfig](db).Set(ctx, old)).
+					To(Succeed())
+				MustOpen(http.OpenService(ctx, http.ServiceConfig{
+					DB:      db,
+					Channel: channelSvc,
+					ICD: MustOpen(icd.OpenService(ctx, icd.ServiceConfig{
+						DB:   db,
+						ImEx: imex.NewService(),
+					})),
+				}))
+				_, closer := MustSucceed2(db.Get(v5.StagedWriteFieldsKVKey(old.Key)))
+				Expect(closer.Close()).To(Succeed())
+			},
+		)
 	})
 
 	Describe("Stores", func() {
