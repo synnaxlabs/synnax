@@ -175,8 +175,7 @@ var _ = Describe("A store from core/v0.62.0", func() {
 			symbols = append(symbols, cfg)
 			nodes[cfg.Label.Label] = cfg
 		}
-		// The 5 custom nodes with overrides stay.
-		Expect(symbols).To(HaveLen(len(stored.Nodes) - 5))
+		Expect(symbols).To(HaveLen(len(stored.Nodes)))
 		match := func(label string) *symbol.Matcher {
 			GinkgoHelper()
 			Expect(nodes[label].States).To(HaveLen(1))
@@ -252,6 +251,31 @@ var _ = Describe("A store from core/v0.62.0", func() {
 		Expect(name).To(Equal("Light: Equipment"))
 		Expect(lit).To(Equal(fixedRef(color.Color{R: 40, G: 80, B: 220, A: 255})))
 		Expect(nodes["light"].States[0].Enumeration).To(BeNil())
+		redVent := nodes["Red vent"]
+		Expect(redVent.Spec.Variant).To(Equal(symbol.CustomRef{Key: vent.Key}))
+		name, lit = onColor(redVent.States[0].Enumeration)
+		Expect(name).To(Equal("Vent valve: Red vent"))
+		Expect(lit).To(Equal(fixedRef(red)))
+		Expect(nodes["Red vent twin"].States[0].Enumeration).
+			To(Equal(redVent.States[0].Enumeration))
+		Expect(nodes["Vent equal overrides"].Spec.Variant).
+			To(Equal(symbol.CustomRef{Key: vent.Key}))
+		Expect(nodes["Vent equal overrides"].States[0].Enumeration).To(BeNil())
+		Expect(nodes["Missing actuator"].Spec.Variant).
+			To(Equal(symbol.MissingRef{Key: "8c10471e-6e57-4560-9f38-8d68d58ee6d5"}))
+		ref, ok := nodes["Red tank custom"].Spec.Variant.(symbol.CustomRef)
+		Expect(ok).To(BeTrue())
+		var tankCopy symbol.Symbol
+		Expect(gorp.NewRetrieve[symbol.Key, symbol.Symbol]().
+			Where(gorp.MatchKeys[symbol.Key, symbol.Symbol](ref.Key)).
+			Entry(&tankCopy).
+			Exec(ctx, db)).To(Succeed())
+		Expect(tankCopy.Name).To(Equal("Tank (Equipment)"))
+		Expect(tankCopy.Group).To(Equal(tank.Group))
+		paint := &symbol.Paint{Variant: symbol.ColorPaint{Value: *fixedRef(red)}}
+		Expect(tankCopy.Data.Looks).To(HaveLen(1))
+		Expect(tankCopy.Data.Looks[0].Fill).To(Equal(paint))
+		Expect(tankCopy.Data.Looks[0].Stroke).To(Equal(paint))
 	})
 })
 

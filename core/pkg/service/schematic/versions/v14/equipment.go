@@ -38,8 +38,9 @@ var builtinWithin = spatial.Bounds{Lower: 0.9, Upper: 1.1}
 
 // SymbolNode returns the symbol node that a stored equipment node becomes, with the
 // same label, scale, color, timing, and channels. A custom node draws the custom symbol
-// of its spec key. It returns false for a node with no symbol, and for a custom node
-// with state overrides, since those need new records. See internLights for on colors.
+// of its spec key. It returns false for a node with no symbol, and for a light with an
+// on color or a custom node with state overrides, which need the records that
+// NewMigration makes.
 func SymbolNode(old v13.NodeConfig) (SymbolNodeConfig, bool, error) {
 	switch v := old.Variant.(type) {
 	case v13.SolenoidValveNodeConfig:
@@ -50,6 +51,9 @@ func SymbolNode(old v13.NodeConfig) (SymbolNodeConfig, bool, error) {
 		}
 		return n, true, nil
 	case v13.LightNodeConfig:
+		if v.OnColor != nil {
+			return SymbolNodeConfig{}, false, nil
+		}
 		n := base(v.LabeledConfig, v.ScaledConfig, v.StrokeColor)
 		n.Spec = builtin(string(v13.LightNodeConfigType))
 		n.StalenessTimeout = v.StalenessTimeout
@@ -230,20 +234,25 @@ func warnEmptyThresholds(s v13.Schematic, ins alamos.Instrumentation) {
 	}
 }
 
-// internLights gives the binding of each light that had an on color in old an
-// enumeration through intern: the built-in's entries, with On in that color. The
-// enumeration is named for the light's label, or the schematic name when it is empty.
+// internLights makes each light of old with an on color a symbol node in s, whose
+// binding has an enumeration from intern: the built-in's entries, with On in that
+// color. It is named for the light's label, or the schematic name when it is empty.
 func internLights(
 	ctx context.Context,
 	s *Schematic,
 	old v13.Schematic,
 	intern symbol.Intern,
 ) error {
-	for i, n := range s.Nodes {
-		cfg, isSymbol := n.Config.Variant.(SymbolNodeConfig)
-		light, isLight := old.Nodes[i].Config.Variant.(v13.LightNodeConfig)
-		if !isSymbol || !isLight || light.OnColor == nil {
+	for i, n := range old.Nodes {
+		light, isLight := n.Config.Variant.(v13.LightNodeConfig)
+		if !isLight || light.OnColor == nil {
 			continue
+		}
+		on := light.OnColor
+		light.OnColor = nil
+		cfg, _, err := SymbolNode(v13.NodeConfig{Variant: light})
+		if err != nil {
+			return err
 		}
 		label := strings.TrimSpace(light.Label.Label)
 		if label == "" {
@@ -251,7 +260,7 @@ func internLights(
 		}
 		k, err := intern(ctx, "Light: "+label, []enumeration.Entry{
 			{Key: "off", Value: 0, Name: "Off"},
-			{Key: "on", Value: 1, Name: "On", Color: fixed(light.OnColor)},
+			{Key: "on", Value: 1, Name: "On", Color: fixed(on)},
 		})
 		if err != nil {
 			return errors.Wrapf(err, "node %s", n.Key)
