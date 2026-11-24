@@ -134,6 +134,53 @@ var _ = Describe("Codec", func() {
 			}}),
 		)
 	})
+	Describe("Checksum", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v1.Checksum) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v1.Checksum
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", v1.Checksum{
+				Algorithm: v1.ChecksumAlgorithm("crc16_ccitt_false"),
+				ByteOrder: v1.ByteOrder("little_endian"),
+			}),
+			Entry("zero values", v1.Checksum{Algorithm: v1.ChecksumAlgorithm(""), ByteOrder: v1.ByteOrder("")}),
+		)
+	})
+	Describe("Framing", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v1.Framing) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v1.Framing
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("delimited variant", v1.Framing{Variant: v1.DelimitedFraming{Delimiter: "test_1"}}),
+			Entry("fixed variant", v1.Framing{Variant: v1.FixedFraming{Length: 2}}),
+			Entry("sync variant", v1.Framing{Variant: v1.SyncFraming{
+				Sync:             []byte{1, 2, 3},
+				LengthOffset:     3,
+				LengthSize:       v1.LengthSize("one"),
+				ByteOrder:        v1.ByteOrder("little_endian"),
+				LengthAdjustment: 6,
+				Checksum: new(v1.Checksum{
+					Algorithm: v1.ChecksumAlgorithm("crc16_ccitt_false"),
+					ByteOrder: v1.ByteOrder("little_endian"),
+				}),
+				MaxLength: 10,
+			}}),
+			Entry("cobs variant", v1.Framing{Variant: v1.CobsFraming{}}),
+			Entry("slip variant", v1.Framing{Variant: v1.SlipFraming{}}),
+		)
+	})
 	Describe("ICD", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original v1.ICD) {
@@ -171,16 +218,19 @@ var _ = Describe("Codec", func() {
 						CycleTime: new(telem.TimeSpan(17)),
 					},
 				},
+				Framing: new(v1.Framing{Variant: v1.DelimitedFraming{Delimiter: "test_18"}}),
 			}),
 			Entry("zero values", v1.ICD{
 				Key:      uuid.Nil(),
 				Name:     "",
 				Messages: []v1.Message{},
+				Framing:  nil,
 			}),
 			Entry("empty collections", v1.ICD{
 				Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 				Name:     "test_2",
 				Messages: []v1.Message{},
+				Framing:  new(v1.Framing{Variant: v1.DelimitedFraming{Delimiter: "test_5"}}),
 			}),
 		)
 	})
@@ -557,6 +607,43 @@ func BenchmarkEncodeDecodeBinaryField(b *testing.B) {
 	}
 }
 
+func BenchmarkEncodeDecodeChecksum(b *testing.B) {
+	seed := v1.Checksum{
+		Algorithm: v1.ChecksumAlgorithm("crc16_ccitt_false"),
+		ByteOrder: v1.ByteOrder("little_endian"),
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v1.Checksum
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeFraming(b *testing.B) {
+	seed := v1.Framing{Variant: v1.DelimitedFraming{Delimiter: "test_1"}}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v1.Framing
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func BenchmarkEncodeDecodeICD(b *testing.B) {
 	seed := v1.ICD{
 		Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
@@ -584,6 +671,7 @@ func BenchmarkEncodeDecodeICD(b *testing.B) {
 				CycleTime: new(telem.TimeSpan(17)),
 			},
 		},
+		Framing: new(v1.Framing{Variant: v1.DelimitedFraming{Delimiter: "test_18"}}),
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -990,6 +1078,122 @@ func FuzzDecodeBinaryField(f *testing.F) {
 	})
 }
 
+func FuzzDecodeChecksum(f *testing.F) {
+	{
+		seed := v1.Checksum{
+			Algorithm: v1.ChecksumAlgorithm("crc16_ccitt_false"),
+			ByteOrder: v1.ByteOrder("little_endian"),
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v1.Checksum{Algorithm: v1.ChecksumAlgorithm(""), ByteOrder: v1.ByteOrder("")}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v1.Checksum
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v1.Checksum
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeFraming(f *testing.F) {
+	{
+		seed := v1.Framing{Variant: v1.DelimitedFraming{Delimiter: "test_1"}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v1.Framing{Variant: v1.FixedFraming{Length: 2}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v1.Framing{Variant: v1.SyncFraming{
+			Sync:             []byte{1, 2, 3},
+			LengthOffset:     3,
+			LengthSize:       v1.LengthSize("one"),
+			ByteOrder:        v1.ByteOrder("little_endian"),
+			LengthAdjustment: 6,
+			Checksum: new(v1.Checksum{
+				Algorithm: v1.ChecksumAlgorithm("crc16_ccitt_false"),
+				ByteOrder: v1.ByteOrder("little_endian"),
+			}),
+			MaxLength: 10,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v1.Framing{Variant: v1.CobsFraming{}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v1.Framing{Variant: v1.SlipFraming{}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v1.Framing
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v1.Framing
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
 func FuzzDecodeICD(f *testing.F) {
 	{
 		seed := v1.ICD{
@@ -1018,6 +1222,7 @@ func FuzzDecodeICD(f *testing.F) {
 					CycleTime: new(telem.TimeSpan(17)),
 				},
 			},
+			Framing: new(v1.Framing{Variant: v1.DelimitedFraming{Delimiter: "test_18"}}),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -1030,6 +1235,7 @@ func FuzzDecodeICD(f *testing.F) {
 			Key:      uuid.Nil(),
 			Name:     "",
 			Messages: []v1.Message{},
+			Framing:  nil,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -1042,6 +1248,7 @@ func FuzzDecodeICD(f *testing.F) {
 			Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 			Name:     "test_2",
 			Messages: []v1.Message{},
+			Framing:  new(v1.Framing{Variant: v1.DelimitedFraming{Delimiter: "test_5"}}),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

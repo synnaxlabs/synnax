@@ -10,6 +10,7 @@
 package v7_test
 
 import (
+	"math"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -19,6 +20,7 @@ import (
 	v6 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v6"
 	v7 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v7"
 	color "github.com/synnaxlabs/x/color/versions/v2"
+	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
@@ -40,10 +42,18 @@ var _ = Describe("MigrateCellConfig", func() {
 		),
 		Entry("value with colors",
 			v6.CellConfig{Variant: v6.ValueCellConfig{
-				Channel: 1, FillColor: &c, TextColor: &c, StalenessColor: &c,
+				Channel:          1,
+				FillColor:        &c,
+				TextColor:        &c,
+				StalenessColor:   &c,
+				StalenessTimeout: 5,
 			}},
 			v7.CellConfig{Variant: v7.ValueCellConfig{
-				Channel: 1, FillColor: fixed, TextColor: fixed, StalenessColor: fixed,
+				Channel:          1,
+				FillColor:        fixed,
+				TextColor:        fixed,
+				StalenessColor:   fixed,
+				StalenessTimeout: 5 * telem.Second,
 			}},
 		),
 		Entry("text with absent colors",
@@ -51,14 +61,36 @@ var _ = Describe("MigrateCellConfig", func() {
 			v7.CellConfig{Variant: v7.TextCellConfig{Value: "Pressure"}},
 		),
 		Entry("value with absent colors",
-			v6.CellConfig{Variant: v6.ValueCellConfig{Channel: 1}},
-			v7.CellConfig{Variant: v7.ValueCellConfig{Channel: 1}},
+			v6.CellConfig{Variant: v6.ValueCellConfig{Channel: 1, StalenessTimeout: 5}},
+			v7.CellConfig{Variant: v7.ValueCellConfig{
+				Channel: 1, StalenessTimeout: 5 * telem.Second,
+			}},
 		),
+	)
+	DescribeTable("Should store the staleness timeout in seconds as a span",
+		func(ctx SpecContext, seconds float64, expected telem.TimeSpan) {
+			c := MustSucceed(v7.MigrateCellConfig(ctx, v6.CellConfig{
+				Variant: v6.ValueCellConfig{StalenessTimeout: seconds},
+			}))
+			v, ok := c.Variant.(v7.ValueCellConfig)
+			Expect(ok).To(BeTrue())
+			Expect(v.StalenessTimeout).To(Equal(expected))
+		},
+		Entry("whole", 5.0, 5*telem.Second),
+		Entry("fraction", 1.5, 1500*telem.Millisecond),
+		Entry("sub-nanosecond fraction", 2.0000000004, 2*telem.Second),
+		Entry("one second", 1.0, telem.Second),
+		Entry("below a second", 0.5, telem.Second),
+		Entry("zero", 0.0, 5*telem.Second),
+		Entry("negative", -2.0, 5*telem.Second),
+		Entry("NaN", math.NaN(), 5*telem.Second),
+		Entry("too large", 1e12, telem.TimeSpan(1<<53-1)),
+		Entry("infinite", math.Inf(1), telem.TimeSpan(1<<53-1)),
 	)
 })
 
 var _ = Describe("Migration", func() {
-	It("Should store each cell color of a table that v0.62 stored as a fixed color",
+	It("Should store the colors and staleness timeout of a table that v0.62 stored",
 		func(ctx SpecContext) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
 			StartRun(db.Run)
@@ -72,9 +104,10 @@ var _ = Describe("Migration", func() {
 						Value: "Pressure", FillColor: c(1),
 					}}},
 					{Key: "value", Config: v6.CellConfig{Variant: v6.ValueCellConfig{
-						FillColor:      c(3),
-						TextColor:      c(4),
-						StalenessColor: c(5),
+						FillColor:        c(3),
+						TextColor:        c(4),
+						StalenessColor:   c(5),
+						StalenessTimeout: 2.5,
 						Redline: color.Scale{Bands: []color.Band{
 							{Key: "b", Color: *c(6)},
 						}},
@@ -108,6 +141,7 @@ var _ = Describe("Migration", func() {
 			Expect(value.FillColor).To(Equal(fixed(3)))
 			Expect(value.TextColor).To(Equal(fixed(4)))
 			Expect(value.StalenessColor).To(Equal(fixed(5)))
+			Expect(value.StalenessTimeout).To(Equal(2500 * telem.Millisecond))
 			Expect(
 				value.Redline.Bands,
 			).To(Equal([]color.Band{{Key: "b", Color: *c(6)}}))

@@ -34,7 +34,7 @@ import {
 } from "@/ni/device/where.gen";
 import { query } from "@/query";
 import type { status } from "@/status";
-import { checkForMultipleOrNoResults } from "@/util/retrieve";
+import { util } from "@/util";
 
 export const SET_CHANNEL_NAME = "sy_ni_device_set";
 export const DELETE_CHANNEL_NAME = "sy_ni_device_delete";
@@ -291,7 +291,7 @@ export class Client extends query.Retriever<
     const devices = await this.store.retrieve([q.key], {
       refresh: q.includeStatus === true,
     });
-    checkForMultipleOrNoResults(
+    util.checkForMultipleOrNoResults(
       "NI device",
       { where: { key: { eq: q.key } } },
       devices,

@@ -15,7 +15,7 @@ import {
   colorFallbacks,
   OffPageReferenceForm,
 } from "@/schematic/node/general/offPageReference/Form";
-import { OffPageReference } from "@/schematic/node/general/offPageReference/Primitive";
+import { Primitive } from "@/schematic/node/general/offPageReference/primitive";
 import { Symbol } from "@/schematic/node/general/offPageReference/Symbol";
 import type { Spec } from "@/schematic/node/spec";
 
@@ -26,7 +26,7 @@ const Preview = ({
 }: schematic.OffPageReferenceNodeConfig): ReactElement => {
   const resolve = Color.useResolve();
   return (
-    <OffPageReference
+    <Primitive.OffPageReference
       label="Off page"
       {...rest}
       fillColor={resolve(fillColor)}
