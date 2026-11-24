@@ -118,19 +118,8 @@ func openEngine(o *options) (*engine, error) {
 	if err != nil {
 		return nil, err
 	}
-	e := &engine{
-		ins:      o.Instrumentation,
-		fs:       o.fs,
-		exec:     o.executor,
-		ready:    make(chan struct{}),
-		failed:   make(chan struct{}),
-		unstored: telem.NewAlignmentCounter(telem.LeadingDomain),
-		partSize: o.partSize,
-		loaded:   snapshot != nil,
-	}
-	e.pins.readers, e.pins.dead = make(map[uint64]int), make(map[uint64]state.Dead)
-	e.pins.parts, e.pins.keys = make(map[uint64]int), make(map[ChannelKey]int)
-	if e.budget, err = segment.NewBudget(handleLimit, syncWidth, e.exec); err != nil {
+	e, err := newEngine(o, snapshot != nil)
+	if err != nil {
 		return nil, err
 	}
 	created := snapshot == nil
@@ -152,16 +141,7 @@ func openEngine(o *options) (*engine, error) {
 			return nil, err
 		}
 	}
-	e.db, e.head, e.opened = r.db, r.head.Generation, r.parts
-	e.stored = set.New[ChannelKey]()
-	for _, ch := range snapshot.Channels {
-		e.stored.Add(ch.Key)
-	}
-	// Replay preloads the part records that its records reach.
-	e.cache = checkpoint.NewCache(e.fs, r.db, partCacheSize)
-	e.parts.Store(&partSets{
-		live: headParts{generation: r.head.Generation, parts: r.head.Parts},
-	})
+	e.attach(r, snapshot)
 	if head1 != nil {
 		// The state holds every record of the created snapshot. It tags the ones that
 		// the parts of head 1 hold, as for the parts of a switch.
@@ -175,6 +155,39 @@ func openEngine(o *options) (*engine, error) {
 	e.compact = newCompactor(e, o.clock, e.limit)
 	e.check = newChecker(e, o.clock, e.limit, o.gcCfg.TryInterval)
 	return e, nil
+}
+
+// newEngine returns an engine with no state, which loaded marks as opened from a head.
+func newEngine(o *options, loaded bool) (*engine, error) {
+	e := &engine{
+		ins:      o.Instrumentation,
+		fs:       o.fs,
+		exec:     o.executor,
+		ready:    make(chan struct{}),
+		failed:   make(chan struct{}),
+		unstored: telem.NewAlignmentCounter(telem.LeadingDomain),
+		partSize: o.partSize,
+		loaded:   loaded,
+	}
+	e.pins.readers, e.pins.dead = make(map[uint64]int), make(map[uint64]state.Dead)
+	e.pins.parts, e.pins.keys = make(map[uint64]int), make(map[ChannelKey]int)
+	var err error
+	e.budget, err = segment.NewBudget(handleLimit, syncWidth, e.exec)
+	return e, err
+}
+
+// attach gives e the identity, the keys, and the parts of snapshot, the head of r, so
+// that replay preloads the part records that its records reach.
+func (e *engine) attach(r *recovery, snapshot *state.Snapshot) {
+	e.db, e.head, e.opened = r.db, r.head.Generation, r.parts
+	e.stored = set.New[ChannelKey]()
+	for _, ch := range snapshot.Channels {
+		e.stored.Add(ch.Key)
+	}
+	e.cache = checkpoint.NewCache(e.fs, r.db, partCacheSize)
+	e.parts.Store(&partSets{
+		live: headParts{generation: r.head.Generation, parts: r.head.Parts},
+	})
 }
 
 // openState opens the state of e from snapshot, the head of generation.
@@ -193,6 +206,7 @@ func openState(
 		Executor:           e.exec,
 		OnHead:             e.onHead,
 		Generation:         generation,
+		Repairing:          o.repairing,
 	}, snapshot)
 }
 

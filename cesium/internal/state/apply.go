@@ -35,6 +35,10 @@ type core struct {
 	threshold float32
 	// rewritable0 makes a checked version 0 segment a candidate too.
 	rewritable0 bool
+	// repairing makes load bury each sealed segment with no pointer. buried counts
+	// them, at the start of dead.
+	repairing bool
+	buried    int
 	// candidates holds the segments that pass the candidate test.
 	candidates set.Set[uint64]
 	// checking is the segment of the Check in flight, which a switch keeps, or 0.
@@ -85,6 +89,7 @@ func newCore(cfg Config) *core {
 		version:     cfg.Version,
 		threshold:   cfg.Threshold,
 		rewritable0: cfg.Version0Rewritable,
+		repairing:   cfg.Repairing,
 		candidates:  set.Set[uint64]{},
 		count:       &pubCount{},
 		channels:    map[uint32]*chanState{},

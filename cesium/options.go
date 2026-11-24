@@ -51,6 +51,9 @@ type options struct {
 	// when identified is true.
 	identity   uint64
 	identified bool
+	// repairing makes the state of a repair bury each sealed segment of the head with
+	// no pointer, which an open refuses.
+	repairing bool
 	// partSize is the size of the sealed segment records in a head at which a switch
 	// moves them to a part, or zero for 8 MiB.
 	partSize int

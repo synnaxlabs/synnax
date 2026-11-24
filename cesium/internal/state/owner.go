@@ -49,6 +49,9 @@ type Config struct {
 	OnHead func(generation uint64, s *Snapshot)
 	// Generation is the generation of the head that Open loads, from 1.
 	Generation uint64
+	// Repairing makes Open bury each sealed segment of the head with no pointer, which
+	// Buried lists, where it refuses one otherwise.
+	Repairing bool
 }
 
 // Validate returns an error that wraps validate.ErrValidation when a field of c is not
@@ -149,6 +152,14 @@ func (s *State) KeyOf(segment uint64) (uint32, bool) {
 	}
 	return seg.key, true
 }
+
+// Buried returns the sealed segments with no pointer that Open buried in repair mode,
+// in head order. Call it in replay mode, before Run.
+func (s *State) Buried() []Dead { return s.core.dead[:s.core.buried] }
+
+// Dead returns the segments that left the state since Open, those that Open buried
+// first. Call it in replay mode, before Run.
+func (s *State) Dead() []Dead { return s.core.dead }
 
 // Run ends replay mode, publishes the visible state of every key, and runs one step of
 // the owner on the executor each time requests are queued, until Close, until ctx is

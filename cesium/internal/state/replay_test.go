@@ -166,6 +166,55 @@ var _ = Describe("Load", func() {
 	)
 })
 
+var _ = Describe("Repair load", func() {
+	repairing := func() state.Config {
+		cfg := config(&appended{})
+		cfg.Repairing = true
+		return cfg
+	}
+
+	It("Should bury a sealed segment with no pointer, and list it", func() {
+		h := sample()
+		seg := &h.Channels[1].Segments[0]
+		seg.Sealed, seg.Pointers = true, nil
+		s := MustSucceed(state.Open(repairing(), h))
+		buried := []state.Dead{{Segment: 3, Key: 6}}
+		Expect(s.Buried()).To(Equal(buried))
+		Expect(s.Dead()).To(Equal(buried))
+		_, held := s.KeyOf(3)
+		Expect(held).To(BeFalse())
+		key, held := s.KeyOf(2)
+		Expect(held).To(BeTrue())
+		Expect(key).To(Equal(uint32(5)))
+	})
+
+	It("Should bury nothing of a head that breaks no rule", func() {
+		s := MustSucceed(state.Open(repairing(), sample()))
+		Expect(s.Buried()).To(BeEmpty())
+		run(s)
+		Expect(MustSucceed(s.Snapshot())).To(Equal(sample()))
+	})
+
+	It("Should give the segments of a key as replay leaves them", func() {
+		s := MustSucceed(state.Open(repairing(), sample()))
+		Expect(s.ReplaySegments(5)).To(Equal(sample().Channels[0].Segments))
+		Expect(s.ReplaySegments(9)).To(BeNil())
+		Expect(s.Replay(10, []log.Record{
+			&log.Seal{Segment: 4, Length: 16, TailCRC: 2},
+		})).To(Succeed())
+		want := sample().Channels[0].Segments
+		want[1].Sealed = true
+		Expect(s.ReplaySegments(5)).To(Equal(want))
+	})
+
+	It("Should still refuse a head that breaks another rule", func() {
+		h := sample()
+		h.Channels[1].Segments[0].ID = 2
+		Expect(state.Open(repairing(), h)).Error().
+			To(MatchError(ContainSubstring("head names segment 2 twice")))
+	})
+})
+
 var _ = Describe("Run", func() {
 	It("Should return the error that fails the state, and refuse later calls with it",
 		func() {

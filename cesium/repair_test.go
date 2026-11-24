@@ -13,6 +13,9 @@ import (
 	"context"
 	"math/rand/v2"
 	"path"
+	"slices"
+	"strconv"
+	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -31,26 +34,20 @@ type logFrame struct {
 	frame log.Frame
 }
 
-// framesOf returns the valid frames of the log of generation of database db in fs, in
-// order, from the first frame to the first that fails at its offset and at the next
-// block.
-func framesOf(fs xfs.FS, db, generation uint64) []logFrame {
+// framesOf returns the valid frames of log 1 of database db in fs, in order, from the
+// first frame to the first that fails at its offset and at the next block.
+func framesOf(fs xfs.FS, db uint64) []logFrame {
 	GinkgoHelper()
-	b := MustSucceed(xfs.ReadFile(fs, log.Name(generation)))
+	b := MustSucceed(xfs.ReadFile(fs, log.Name(1)))
 	var out []logFrame
 	for off := int64(log.FramesStart); ; {
-		f, err := log.DecodeFrame(b[off:], db, generation, uint64(off))
+		f, err := log.DecodeFrame(b[off:], db, 1, uint64(off))
 		if err != nil {
 			next := (off + log.BlockSize - 1) &^ (log.BlockSize - 1)
 			if next == off || next >= int64(len(b)) {
 				return out
 			}
-			if f, err = log.DecodeFrame(
-				b[next:],
-				db,
-				generation,
-				uint64(next),
-			); err != nil {
+			if f, err = log.DecodeFrame(b[next:], db, 1, uint64(next)); err != nil {
 				return out
 			}
 			off = next
@@ -76,6 +73,71 @@ func rootFiles(fs xfs.FS) map[string][]byte {
 		}
 	}
 	walk("")
+	return out
+}
+
+// recordsOf returns the records of the entries of f.
+func recordsOf(f logFrame) []log.Record {
+	GinkgoHelper()
+	var (
+		dec     log.Decoder
+		out     []log.Record
+		entries = f.frame.Entries
+	)
+	for range f.frame.Count {
+		n := MustSucceed(dec.Reset(entries))
+		for {
+			rec, ok := MustSucceed2(dec.Next())
+			if !ok {
+				break
+			}
+			out = append(out, log.Clone(rec))
+		}
+		entries = entries[n:]
+	}
+	return out
+}
+
+// frameWith returns the index among frames of the first frame that holds a record that
+// match matches.
+func frameWith(frames []logFrame, match func(log.Record) bool) int {
+	GinkgoHelper()
+	for i, f := range frames {
+		if slices.ContainsFunc(recordsOf(f), match) {
+			return i
+		}
+	}
+	Fail("no frame holds the record")
+	return 0
+}
+
+// plainFrame returns the index among frames of the first frame from from on that holds
+// entries and no Create, and that a frame follows.
+func plainFrame(frames []logFrame, from int) int {
+	GinkgoHelper()
+	created := func(rec log.Record) bool {
+		_, ok := rec.(*log.Create)
+		return ok
+	}
+	for i := from; i < len(frames)-1; i++ {
+		records := recordsOf(frames[i])
+		if frames[i].frame.Count > 0 && !slices.ContainsFunc(records, created) {
+			return i
+		}
+	}
+	Fail("no frame holds entries and no Create")
+	return 0
+}
+
+// segmentSizes returns the size of each segment file of the directory of key in fs.
+func segmentSizes(fs xfs.FS, key cesium.ChannelKey) map[string]int64 {
+	GinkgoHelper()
+	out := make(map[string]int64)
+	for _, info := range MustSucceed(fs.List(strconv.Itoa(int(key)))) {
+		if strings.HasSuffix(info.Name(), ".seg") {
+			out[info.Name()] = info.Size()
+		}
+	}
 	return out
 }
 
@@ -106,24 +168,26 @@ var _ = Describe("Repair", func() {
 			cesium.WithIdentity(id),
 		)
 	}
-	// write writes and commits 4 frames of 5 samples to both keys from 1 second.
-	write := func(ctx context.Context, db *cesium.DB) {
+	// write writes, commits, and syncs 4 frames of 5 samples to both keys from 1 second
+	// after from.
+	write := func(ctx context.Context, db *cesium.DB, from telem.TimeStamp) {
 		GinkgoHelper()
 		keys := []cesium.ChannelKey{idx, data}
 		w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 			Channels: keys,
-			Start:    telem.SecondTS,
+			Start:    from + telem.SecondTS,
 		}))
 		for c := range telem.TimeStamp(4) {
 			stamps := make([]telem.TimeStamp, 5)
 			for i := range stamps {
-				stamps[i] = (c*5 + telem.TimeStamp(i) + 1) * telem.SecondTS
+				stamps[i] = from + (c*5+telem.TimeStamp(i)+1)*telem.SecondTS
 			}
 			MustSucceed2(w.Write(ctx, telem.MultiFrame(keys, []telem.Series{
 				telem.NewSeries(stamps),
 				telem.NewSeriesV[int64](1, 2, 3, 4, 5),
 			}), nil))
 			MustSucceed2(w.Commit(ctx, nil))
+			Expect(w.Sync()).To(Succeed())
 		}
 		Expect(w.Close()).To(Succeed())
 	}
@@ -142,22 +206,35 @@ var _ = Describe("Repair", func() {
 			},
 			cesium.Channel{Key: data, Name: "data", Index: idx, DataType: telem.Int64T},
 		)).To(Succeed())
-		write(ctx, db)
+		write(ctx, db, 0)
 		Expect(errors.Join(stop(), db.Close())).To(Succeed())
 	})
-	// spoil changes byte at of the frame that index picks among the frames of log 1,
-	// and returns that frame.
-	spoil := func(pick func(n int) int, at int) logFrame {
+	// spoil changes byte at of the frame of index i among the frames of log 1, and
+	// returns that frame and the end of the frame before it.
+	spoil := func(i, at int) (logFrame, uint64) {
 		GinkgoHelper()
-		frames := framesOf(fs, id, 1)
-		Expect(len(frames)).To(BeNumerically(">=", 3))
-		f := frames[pick(len(frames))]
+		frames := framesOf(fs, id)
+		Expect(i).To(BeNumerically(">", 0))
+		Expect(i).To(BeNumerically("<", len(frames)-1))
+		f, prev := frames[i], frames[i-1]
 		b := MustSucceed(xfs.ReadFile(fs, log.Name(1)))
 		b[f.off+int64(at)] ^= 0xFF
 		Expect(xfs.WriteFile(fs, log.Name(1), b)).To(Succeed())
-		return f
+		return f, uint64(prev.off) + uint64(prev.frame.Size())
 	}
-	middle := func(n int) int { return n / 2 }
+	// middle returns the index of the first frame of log 1 from the middle on that
+	// holds entries.
+	middle := func() int {
+		GinkgoHelper()
+		frames := framesOf(fs, id)
+		for i := len(frames) / 2; i < len(frames)-1; i++ {
+			if frames[i].frame.Count > 0 {
+				return i
+			}
+		}
+		Fail("no frame from the middle on holds entries")
+		return 0
+	}
 
 	It("Should report no damage of a healthy root, call no confirm, and write nothing",
 		func(ctx SpecContext) {
@@ -173,7 +250,7 @@ var _ = Describe("Repair", func() {
 	It("Should report a bad frame that valid frames follow, and each record that it "+
 		"held", func(ctx SpecContext) {
 		// A changed check leaves the entries whole.
-		f := spoil(middle, 4)
+		f, start := spoil(middle(), 4)
 		Expect(open(ctx)).Error().To(SatisfyAll(
 			MatchError(place.ErrCorrupt),
 			MatchError(ContainSubstring("holds a valid frame at")),
@@ -184,7 +261,7 @@ var _ = Describe("Repair", func() {
 		last := f.frame.Sequence + uint64(f.frame.Count) - 1
 		Expect(rep.Damage).To(Equal([]cesium.Damage{{
 			Generation:    1,
-			Offset:        uint64(f.off),
+			Offset:        start,
 			FirstSequence: f.frame.Sequence,
 			LastSequence:  last,
 		}}))
@@ -201,7 +278,7 @@ var _ = Describe("Repair", func() {
 	It("Should list by sequence alone each entry of a bad frame that does not decode",
 		func(ctx SpecContext) {
 			// A changed entry count bounds the entries by the frame's bytes.
-			f := spoil(middle, log.FrameHeaderSize)
+			f, _ := spoil(middle(), log.FrameHeaderSize)
 			rep := MustSucceed(repair(ctx, new(int)))
 			Expect(rep.Damage).To(HaveLen(1))
 			last := f.frame.Sequence + uint64(f.frame.Count) - 1
@@ -209,6 +286,181 @@ var _ = Describe("Repair", func() {
 			Expect(rep.Lost[len(rep.Lost)-1].Sequence).To(Equal(last))
 			Expect(rep.Lost[0].Kind).To(BeEmpty())
 		})
+
+	Describe("Place", func() {
+		const (
+			newIdx  cesium.ChannelKey = 3
+			newData cesium.ChannelKey = 4
+		)
+		// writeNew creates newIdx and newData, writes and syncs commits of n samples to
+		// both, and returns the segment files of each.
+		writeNew := func(ctx context.Context, n, commits int) [2]map[string]int64 {
+			GinkgoHelper()
+			db := MustSucceed(open(ctx))
+			stop := GoRun(ctx, db.Run)
+			Expect(db.CreateChannel(
+				ctx,
+				cesium.Channel{
+					Key:      newIdx,
+					Name:     "new_time",
+					IsIndex:  true,
+					DataType: telem.TimestampT,
+				},
+				cesium.Channel{
+					Key:      newData,
+					Name:     "new_data",
+					Index:    newIdx,
+					DataType: telem.Int64T,
+				},
+			)).To(Succeed())
+			keys := []cesium.ChannelKey{newIdx, newData}
+			w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+				Channels: keys,
+				Start:    telem.SecondTS,
+			}))
+			for c := range commits {
+				stamps := make([]telem.TimeStamp, n)
+				values := make([]int64, n)
+				for i := range stamps {
+					stamps[i] = telem.TimeStamp(c*n+i+1) * telem.SecondTS
+					values[i] = int64(c*n + i)
+				}
+				MustSucceed2(w.Write(ctx, telem.MultiFrame(keys, []telem.Series{
+					telem.NewSeries(stamps),
+					telem.NewSeries(values),
+				}), nil))
+				MustSucceed2(w.Commit(ctx, nil))
+				Expect(w.Sync()).To(Succeed())
+			}
+			Expect(w.Close()).To(Succeed())
+			Expect(errors.Join(stop(), db.Close())).To(Succeed())
+			return [2]map[string]int64{
+				segmentSizes(fs, newIdx),
+				segmentSizes(fs, newData),
+			}
+		}
+		// spoilCreates changes the check of the frame that holds the Create of the
+		// segments of newIdx.
+		spoilCreates := func() {
+			GinkgoHelper()
+			created := func(rec log.Record) bool {
+				c, ok := rec.(*log.Create)
+				return ok && c.Key == newIdx
+			}
+			spoil(frameWith(framesOf(fs, id), created), 4)
+		}
+		// unrecovered returns the files of key that files lists, with reason.
+		unrecovered := func(
+			key cesium.ChannelKey,
+			files map[string]int64,
+			reason string,
+		) []cesium.File {
+			GinkgoHelper()
+			out := make([]cesium.File, 0, len(files))
+			for name, size := range files {
+				hex := strings.TrimSuffix(name, ".seg")
+				seg := MustSucceed(strconv.ParseUint(hex, 16, 64))
+				out = append(out, cesium.File{
+					Key:     key,
+					Segment: seg,
+					Bytes:   telem.Size(size),
+					Reason:  reason,
+				})
+			}
+			return out
+		}
+
+		It("Should place each segment of over 64 KiB that a later Commit names",
+			func(ctx SpecContext) {
+				files := writeNew(ctx, 10_000, 2)
+				Expect(files[0]).To(HaveLen(1))
+				Expect(files[1]).To(HaveLen(1))
+				spoilCreates()
+				before := rootFiles(fs)
+				rep := MustSucceed(repair(ctx, new(int)))
+				Expect(rep.Damage).To(HaveLen(1))
+				Expect(rep.Unrecovered).To(BeEmpty())
+				Expect(rep.Buried).To(BeEmpty())
+				Expect(rootFiles(fs)).To(Equal(before))
+			})
+
+		It("Should list as unrecovered each segment under 64 KiB that a later Commit "+
+			"names", func(ctx SpecContext) {
+			files := writeNew(ctx, 5, 2)
+			spoilCreates()
+			rep := MustSucceed(repair(ctx, new(int)))
+			Expect(rep.Unrecovered).To(Equal(append(
+				unrecovered(newIdx, files[0], "it holds no full block"),
+				unrecovered(newData, files[1], "it holds no full block")...,
+			)))
+		})
+
+		It("Should list as unrecovered a segment file that no record names",
+			func(ctx SpecContext) {
+				Expect(xfs.WriteFile(fs, "2/00000000000000ff.seg", make([]byte, 70))).
+					To(Succeed())
+				spoil(middle(), 4)
+				rep := MustSucceed(repair(ctx, new(int)))
+				Expect(rep.Unrecovered).To(Equal([]cesium.File{{
+					Key:     data,
+					Segment: 0xff,
+					Bytes:   70,
+					Reason:  "no record names it",
+				}}))
+			})
+
+		// dropNew drops newData, and returns the frames of log 1 and the index of the
+		// frame of the Drop.
+		dropNew := func(ctx context.Context) ([]logFrame, int) {
+			GinkgoHelper()
+			db := MustSucceed(open(ctx))
+			stop := GoRun(ctx, db.Run)
+			Expect(db.Drop([]cesium.ChannelKey{newData})).To(Succeed())
+			write(ctx, db, 100*telem.SecondTS)
+			Expect(errors.Join(stop(), db.Close())).To(Succeed())
+			frames := framesOf(fs, id)
+			return frames, frameWith(frames, func(rec log.Record) bool {
+				_, ok := rec.(*log.Drop)
+				return ok
+			})
+		}
+		// putBack writes files to the directory of newData.
+		putBack := func(files map[string][]byte) {
+			GinkgoHelper()
+			dir := MustSucceed(fs.Sub(strconv.Itoa(int(newData))))
+			for name, b := range files {
+				Expect(xfs.WriteFile(dir, name, b)).To(Succeed())
+			}
+		}
+
+		It("Should leave out the file of a segment that a Drop before the damage drops",
+			func(ctx SpecContext) {
+				files := writeNew(ctx, 5, 2)
+				kept := make(map[string][]byte)
+				for name := range files[1] {
+					kept[name] = MustSucceed(xfs.ReadFile(fs, "4/"+name))
+				}
+				frames, dropped := dropNew(ctx)
+				putBack(kept)
+				spoil(plainFrame(frames, dropped+1), 4)
+				rep := MustSucceed(repair(ctx, new(int)))
+				Expect(rep.Damage).To(HaveLen(1))
+				Expect(rep.Unrecovered).To(BeEmpty())
+			})
+
+		It("Should leave out a segment file that no record names of a key that a Drop "+
+			"after the damage drops", func(ctx SpecContext) {
+			writeNew(ctx, 5, 2)
+			frames, dropped := dropNew(ctx)
+			putBack(map[string][]byte{"00000000000000ff.seg": make([]byte, 70)})
+			i := plainFrame(frames, 1)
+			Expect(i).To(BeNumerically("<", dropped))
+			spoil(i, 4)
+			rep := MustSucceed(repair(ctx, new(int)))
+			Expect(rep.Damage).To(HaveLen(1))
+			Expect(rep.Unrecovered).To(BeEmpty())
+		})
+	})
 
 	It("Should refuse a root of the old layout", func(ctx SpecContext) {
 		fs = xfs.NewMem()

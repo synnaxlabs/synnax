@@ -11,11 +11,14 @@ package cesium
 
 import (
 	"bytes"
+	"cmp"
 	"context"
+	"slices"
 
 	"github.com/synnaxlabs/cesium/internal/checkpoint"
 	"github.com/synnaxlabs/cesium/internal/log"
 	"github.com/synnaxlabs/cesium/internal/place"
+	"github.com/synnaxlabs/cesium/internal/state"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -24,6 +27,12 @@ import (
 type Report struct {
 	// Damage holds each bad frame, in log order. A root with none opens.
 	Damage []Damage
+	// Unrecovered holds each segment file that the repair cannot place, which it
+	// renames <S>.seg.unrecovered, by key and segment.
+	Unrecovered []File
+	// Buried holds each sealed segment of the head with no pointer, which leaves the
+	// state, by key and segment.
+	Buried []Segment
 	// Lost holds the records of the bad frames, as far as they decode, in rising order
 	// of sequence. A repair never applies them.
 	Lost []Record
@@ -33,11 +42,30 @@ type Report struct {
 
 // Damage is a bad frame of a log, which valid frames follow.
 type Damage struct {
-	// Generation is the generation of the log, and Offset the offset of the frame.
+	// Generation is the generation of the log, and Offset the end of the valid frame
+	// before the bad frame, where the bad bytes can start.
 	Generation, Offset uint64
 	// FirstSequence and LastSequence are the sequences of the entries that the frame
 	// held: those between its neighbors.
 	FirstSequence, LastSequence uint64
+}
+
+// File is a segment file that a repair lists.
+type File struct {
+	// Key is the key of the directory of the file, and Segment the identity in its
+	// name.
+	Key     ChannelKey
+	Segment uint64
+	// Bytes is the size of the file.
+	Bytes telem.Size
+	// Reason says why the repair lists the file.
+	Reason string
+}
+
+// Segment is a segment that a repair lists.
+type Segment struct {
+	Key     ChannelKey
+	Segment uint64
 }
 
 // Record is a record of a log that a repair lists.
@@ -59,10 +87,10 @@ type Record struct {
 const damagedReason = "from a damaged frame, so it may be wrong"
 
 // Repair finds the damage of the log of the root dirname on the pointer log layout,
-// and reports it. opts are those of Open: a root with a database needs WithIdentity.
-// Repair refuses a root of the old layout, which Open converts, with an error that
-// wraps errors.ErrUnsupported, and another identity than the root's with no undo. It
-// writes nothing.
+// and the segment files that it cannot place, and reports them. opts are those of
+// Open: a root with a database needs WithIdentity. Repair refuses a root of the old
+// layout, which Open converts, with an error that wraps errors.ErrUnsupported, and
+// another identity than the root's with no undo. It writes nothing.
 func Repair(
 	ctx context.Context,
 	dirname string,
@@ -97,11 +125,54 @@ func Repair(
 	if r.parts, err = checkpoint.LoadParts(o.fs, r.db, r.head); err != nil {
 		return Report{}, err
 	}
-	var rep Report
-	if rep.Damage, rep.Lost, err = r.damage(ctx); err != nil {
+	e, err := replayEngine(o, r, snapshot)
+	if err != nil {
+		return Report{}, err
+	}
+	var (
+		rep Report
+		l   = newLater()
+	)
+	if rep.Damage, rep.Lost, err = r.damage(ctx, e.replay, l.add); err != nil {
+		return Report{}, err
+	}
+	rep.Buried = buried(e)
+	if len(rep.Damage) == 0 && len(rep.Buried) == 0 {
+		return rep, nil
+	}
+	if _, rep.Unrecovered, err = e.place(r, l); err != nil {
 		return Report{}, err
 	}
 	return rep, nil
+}
+
+// replayEngine returns an engine in replay mode on snapshot, the head of r, whose state
+// buries each sealed segment with no pointer.
+func replayEngine(o *options, r *recovery, snapshot *state.Snapshot) (*engine, error) {
+	o.repairing = true
+	e, err := newEngine(o, true)
+	if err != nil {
+		return nil, err
+	}
+	if e.state, err = openState(o, e, r.head.Generation, snapshot); err != nil {
+		return nil, err
+	}
+	e.attach(r, snapshot)
+	e.replaying = true
+	return e, nil
+}
+
+// buried returns the segments that the state of e buried at its load, by key and
+// segment.
+func buried(e *engine) []Segment {
+	out := make([]Segment, 0, len(e.state.Buried()))
+	for _, d := range e.state.Buried() {
+		out = append(out, Segment{Key: d.Key, Segment: d.Segment})
+	}
+	slices.SortFunc(out, func(a, b Segment) int {
+		return cmp.Or(cmp.Compare(a.Key, b.Key), cmp.Compare(a.Segment, b.Segment))
+	})
+	return out
 }
 
 // refuseIdentity refuses the database of r when the caller of o holds another identity
@@ -123,8 +194,12 @@ func refuseIdentity(o *options, r *recovery) error {
 
 // damage reads the logs after the head as replay does, and returns each bad frame that
 // a valid frame follows in its log, and the records of the bad frames. At a bad frame,
-// it goes on from the valid frame after it.
-func (r *recovery) damage(ctx context.Context) ([]Damage, []Record, error) {
+// it goes on from the valid frame after it. It gives each entry before the first bad
+// frame to before, and each entry of a valid frame after it to after.
+func (r *recovery) damage(
+	ctx context.Context,
+	before, after func(sequence uint64, records []log.Record) error,
+) ([]Damage, []Record, error) {
 	b, h, prev, err := r.headLog()
 	if err != nil {
 		return nil, nil, err
@@ -135,14 +210,22 @@ func (r *recovery) damage(ctx context.Context) ([]Damage, []Record, error) {
 		sequence = h.Sequence
 		end      = int64(log.FramesStart)
 	)
-	skip := func(uint64, []log.Record) error { return ctx.Err() }
+	apply := func(sequence uint64, records []log.Record) error {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		if dmg == nil {
+			return before(sequence, records)
+		}
+		return after(sequence, records)
+	}
 	for {
 		if end, sequence, prev, err = r.frames(
 			b,
 			end,
 			sequence,
 			prev,
-			skip,
+			apply,
 		); err != nil {
 			return nil, nil, err
 		}

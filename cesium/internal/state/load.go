@@ -42,6 +42,14 @@ func (c *core) load(s *Snapshot, generation uint64) error {
 			if err := c.checkSegment(ch.Key, seg); err != nil {
 				return err
 			}
+			if seg.Sealed && len(seg.Pointers) == 0 {
+				c.dead = append(
+					c.dead,
+					Dead{Segment: seg.ID, Key: ch.Key, File: seg.File},
+				)
+				c.buried++
+				continue
+			}
 			st := &segState{key: ch.Key, vis: seg, dur: durable{
 				created:  true,
 				sealed:   seg.Sealed,
@@ -68,7 +76,7 @@ func (c *core) checkSegment(key uint32, seg Segment) error {
 			c.limits.Segments)
 	case c.segments[seg.ID] != nil:
 		return refuse("head names segment %d twice", seg.ID)
-	case seg.Sealed && len(seg.Pointers) == 0:
+	case seg.Sealed && len(seg.Pointers) == 0 && !c.repairing:
 		return refuse("head names segment %d, sealed with no pointer", seg.ID)
 	case !c.versions.Contains(seg.Version):
 		return errors.Wrapf(log.ErrUnknown, "segment %d has format version %d", seg.ID,

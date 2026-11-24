@@ -52,6 +52,23 @@ func (s *State) ReplayParts(key uint32) (*Parts, bool) {
 	return ch.parts, true
 }
 
+// ReplaySegments returns the segments of key that the state holds, as replay has left
+// them, or nil when it holds none. Call it in replay mode, before Run.
+func (s *State) ReplaySegments(key uint32) []Segment {
+	ch := s.core.channels[key]
+	if ch == nil {
+		return nil
+	}
+	out := make([]Segment, len(ch.segs))
+	for i, seg := range ch.segs {
+		out[i] = seg.vis
+		out[i].Sealed, out[i].Length, out[i].TailCRC = seg.dur.sealed, seg.dur.length,
+			seg.dur.tailCRC
+		out[i].Pointers = slices.Clone(seg.dur.pointers)
+	}
+	return out
+}
+
 // usersOf returns the users of the preload of key in pre, or none.
 func usersOf(pre []Preload, key uint32) []User {
 	if i, found := search(pre, key); found {
