@@ -462,9 +462,9 @@ alignment and inputs of two clocks by sample time:
   of input alignments (`arc/go/stl/wasm/node.go:242-262`), the `<name>_time` index
   channels (`core/pkg/service/channel/writer.go:548`), the history rounds
   (`core/pkg/service/framer/iterator/calculation.go:102-129`), and the window reset at
-  the first stamp (`arc/go/stl/math/math.go:441-447`). The calculation compiler sets the
-  joined bounds and the windows of absolute time as options of those nodes; Arc flows
-  keep both as today, in the Go and C++ runtimes.
+  the first stamp (`arc/go/stl/math/math.go:441-447`). The calculator sets the joined
+  bounds and the windows of absolute time for its nodes, through the hosts that it
+  builds; Arc flows keep both as today, in the Go and C++ runtimes.
 - **Stored `<name>_time` records**: Phase 5 deletes each `<name>_time` index channel
   that a v0.62 Core stored. First it retargets every reference to the record onto the
   output's new clock, the primary's index, through the references of RFC 0119, and it
