@@ -161,7 +161,7 @@ func defaultLayerConfig() LayerConfig {
 		KVEngine:             KVEnginePebble,
 		TSEngine:             TSEngineCesium,
 		UpdateBackupDisabled: new(false),
-		PointerLogEnabled:    new(false),
+		PointerLogEnabled:    new(true),
 	}
 }
 
