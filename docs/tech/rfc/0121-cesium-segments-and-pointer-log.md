@@ -1,4 +1,4 @@
-# 118 Cesium - Segments and pointer log
+# 121 Cesium - Segments and pointer log
 
 - **Author**: Emiliano Bonilla
 - **Date**: 2026-11-19
@@ -35,12 +35,12 @@ telemetry (§9.0).
   commit does not undo it (`:35-39`).
 - **Cesium holds facts that belong to the Core**: A name, a virtual flag, a concurrency
   setting (`cesium/internal/channel/channel.go:45-49`, `:69-78`), sessions, and write
-  control. It also fixes one type and one index per channel for life (RFC 0117).
+  control. It also fixes one type and one index per channel for life (RFC 0120).
 
 ## 2 Vocabulary
 
 - **Clock**: A key whose stored samples are `int64` nanosecond stamps that strictly
-  increase (RFC 0117). A data sample takes its time by position from its clock. A
+  increase (RFC 0120). A data sample takes its time by position from its clock. A
   **clock write** is one write of a clock and the data channels that it timed.
 - **Segment**: A file of samples of one key, with one data type, one clock key, and one
   format version. It is open, or sealed and never changed again.
@@ -80,8 +80,8 @@ last segment is dropped. `CreateChannel`, `RetrieveChannels`, and `RenameChannel
 rename (`core/pkg/distribution/channel/create.go:66`, `rename.go:27`).
 
 - **Channel lookup**: The framer reads channels from Cesium today. It gains a lookup
-  that the channel service provides: for a key, the declared type (RFC 0117), the
-  live-only flag, and the index key until RFC 0117 retires it. The framer opens before
+  that the channel service provides: for a key, the declared type (RFC 0120), the
+  live-only flag, and the index key until RFC 0120 retires it. The framer opens before
   the channel service, so the lookup arrives through the existing late-bound seam
   (`core/pkg/distribution/framer/service.go:178`), not through the framer's config.
 - **Errors carry keys**: A Cesium error carries the key, never a name
@@ -194,7 +194,7 @@ The errors `ErrCorrupt`, `ErrDiskFull`, and `ErrFatal` are NEW. The framer calls
 on the interval of auto commit, and its `EndDomain` command keeps its name. The framer
 opens one Cesium writer per clock of a session. On a control handoff, its region owner
 closes the writer of the old session's clock and opens one on the new session's clock,
-as one event (RFC 0117 §4.8), at the cost of one sealed segment and one new stretch.
+as one event (RFC 0120 §4.8), at the cost of one sealed segment and one new stretch.
 
 ### 4.3 Package boundaries
 
@@ -202,7 +202,7 @@ as one event (RFC 0117 §4.8), at the cost of one sealed segment and one new str
 | ----------------------------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------- | ------------------------------------------------ |
 | `x/go/io/fs`                              | `FS`, `File`, `SyncDir`, the memory file system                                                  | The standard library, `x/go`                | `cesium`, `core`                                 |
 | `x/go/io/fs/testutil/fault` (NEW)         | The fault file system                                                                            | `x/go/io/fs`                                | No production package imports it                 |
-| `x/go/control` (from RFC 0117 Phase 2)    | The controller, with the key as a type parameter                                                 | `x/go`                                      | `cesium`, `core`                                 |
+| `x/go/control` (from RFC 0120 Phase 2)    | The controller, with the key as a type parameter                                                 | `x/go`                                      | `cesium`, `core`                                 |
 | `x/go/telem`                              | `Alignment`, and the constant that splits its numbers at 2^31 (moves from Cesium)                | The standard library                        | `cesium`, `core`                                 |
 | `cesium`                                  | The API of §4.2, open and recovery order, the four owners of §7, the background passes, `Repair` | `cesium/internal`, `x/go`                   | `core`, `gorp`, `x/go/control`, OS-specific code |
 | `cesium/internal/place` (NEW)             | The place, the CRC rule of §5.0, and `ErrCorrupt`                                                | The standard library                        | Every other `cesium` package                     |
@@ -242,7 +242,7 @@ Every checksum is CRC32C (Castagnoli, initial value and final XOR `0xFFFFFFFF`) 
 | 8      | 8    | `uint64` | File identity: a segment identity, a generation, or a part identity |
 | 16     | 8    | `uint64` | File offset of the first covered byte                               |
 | 24     | 1    | `uint8`  | Kind: 1 segment, 2 check file, 3 log, 4 head, 5 part                |
-| 25     | 1    | `uint8`  | Segment kind: its data type code (RFC 0117). Other kinds: zero      |
+| 25     | 1    | `uint8`  | Segment kind: its data type code (RFC 0120). Other kinds: zero      |
 | 26     | 2    | `uint16` | Format version of the file                                          |
 | 28     | 4    | `uint32` | Segment kind: its clock key. Other kinds: zero                      |
 
@@ -396,7 +396,7 @@ not know. Without the bit, that binary refuses to open.
 | Reserve (1)   | 0        | 16   | `uint64` each           | Segment identity limit, then alignment number limit (at most 2^31). Every value given out is below a limit that a durable Reserve holds; the log reserves ahead, so a writer seldom waits for one |
 | Create (2)    | 0        | 8    | `uint64`                | Segment identity                                                                                                                                                                                  |
 |               | 8        | 8    | `uint32` each           | Key, then clock key. They are equal for a clock                                                                                                                                                   |
-|               | 16       | 8    | mixed                   | Segment format version (`uint16`), data type code of RFC 0117 (`uint8`), zero (5 bytes)                                                                                                           |
+|               | 16       | 8    | mixed                   | Segment format version (`uint16`), data type code of RFC 0120 (`uint8`), zero (5 bytes)                                                                                                           |
 | Commit (3)    | 0        | 8    | `uint32` each           | Slot count `k`, then the samples that each slot gains                                                                                                                                             |
 |               | 8        | 8    | `uint64`                | Alignment of the first sample                                                                                                                                                                     |
 |               | 16       | 16   | `int64` each            | Stamp of the first sample, then stamp of the last sample                                                                                                                                          |
@@ -641,7 +641,7 @@ that starts again at each restart (`cesium/internal/alignment/alignment.go:23`, 
   clock, and data written against stored stamps takes the alignment of the stamp at its
   start. Each pointer stores the alignment of its first sample, so a live stream and
   every later read agree. A number is an identity, not an order in time: a backfill
-  takes a higher number than later data (RFC 0117).
+  takes a higher number than later data (RFC 0120).
 
 Readers treat a break in alignment as a gap and index 0 as the start of a stretch: the
 frame codec merges series whose alignments touch
@@ -658,7 +658,7 @@ assumptions.
 | Segments from one unclean stop per month          | 167       | 0.6 million files in 10 years |
 | 100 script runs per day on 10 channels each       | 1,100     | 4 million files in 10 years   |
 
-A script run has a new clock key (RFC 0117 §4.0), so it starts one segment per channel
+A script run has a new clock key (RFC 0120 §4.0), so it starts one segment per channel
 and one for its clock. The Core raises a warning status at half of the numbers, and at
 the end a new stretch fails with a typed error.
 
@@ -837,7 +837,7 @@ it. It keeps every sample that a checked block holds.
 
 A target is a ratio to a floor that a Go benchmark of the standard library measures in
 the same run, or to a named benchmark on `main`. The floors are NEW in
-`cesium/floor_bench_test.go` (RFC 0117 Phase 1): `BenchmarkFloorSync` (append and sync,
+`cesium/floor_bench_test.go` (RFC 0120 Phase 1): `BenchmarkFloorSync` (append and sync,
 4 KiB to 1 MiB), `BenchmarkFloorSyncFiles` (1,000 files at a fan-out width),
 `BenchmarkFloorWrite`, `BenchmarkFloorCopy`, and `BenchmarkFloorCRC32C`: `F_sync(s)`,
 `F_files(k)`, `F_write`, `F_copy`, and `F_crc` below, with `F_cpu` = 1 / (1/`F_copy` +
@@ -845,7 +845,7 @@ the same run, or to a named benchmark on `main`. The floors are NEW in
 in the cold group, gives `F_page`: one 4 KiB read at a random offset of a cold file.
 Recovery and the cold scan, with their read floor `F_read`, run as a cold group of the
 compare script, with a page cache drop between its two processes. The gate method is in
-RFC 0117 §4.11. Two baselines move by design: Phase 6 raises `BenchmarkCommit` (commits
+RFC 0120 §4.11. Two baselines move by design: Phase 6 raises `BenchmarkCommit` (commits
 sync), and Phase 7 raises `BenchmarkReadSamples` and `BenchmarkStreamFixedSpan` (reads
 check).
 
@@ -988,7 +988,7 @@ not a key (`cesium/open.go:69-78`).
 ## 11 What this RFC does not cover
 
 - The wire, `Series.Clock`, the type code list, the reader rules, and the reserved
-  `"time"` key (RFC 0117). Channel names, records, and references (RFC 0116).
+  `"time"` key (RFC 0120). Channel names, records, and references (RFC 0119).
 - Compression of sample bytes, clock correction, T-zero, replication of segments between
   Cores, and a build of struct storage (§5.9).
 - The undo of a later update that changes a Cesium format. That update states it.
@@ -1016,15 +1016,15 @@ From Phase 6 the framer opens one Cesium writer per live clock, for the session 
 holds the clock, over that session's keys on it. A handoff of the clock closes that
 writer (a `Sync`, then a Seal) and opens one for the new holder, as one event, at one
 sealed segment and one new stretch. The predicate stays for data channels that the
-holder lacks, until RFC 0117 Phase 6 gives each control writer its own clock. One clock
+holder lacks, until RFC 0120 Phase 6 gives each control writer its own clock. One clock
 per writer and the refusal of an overlapping writer (§5.8) arrive with Phase 6. Phase 6
 builds the log, heads, `Sync` and the framer's call to it, recovery, the state owner,
 the handle budget, version 1 segments, and replay from a run key, behind a Cesium open
 option that keeps the old layout the default. Phase 7 builds parts, versions 0 and 2,
 tombstones, compaction, the conversion with a crash test at each of its steps, the
 backup change, and `synnax repair` (§6.1), and makes the new layout the only one that
-opens. RFC 0117 Phase 8 deletes the old code, except the old-layout reader of the
-conversion. Phase 5 comes after RFC 0117 Phases 1 and 2, and RFC 0117 Phases 6 to 8 come
+opens. RFC 0120 Phase 8 deletes the old code, except the old-layout reader of the
+conversion. Phase 5 comes after RFC 0120 Phases 1 and 2, and RFC 0120 Phases 6 to 8 come
 after Phase 7.
 
 | Phase | Scope                                                      | Touches                                                                                                                                                       | Depends on |
