@@ -368,17 +368,18 @@ a format version it does not know.
 ### 5.2 Pointer log
 
 A log file is 64 MiB of zeros, written and synced before use (§5.3): `fs.FS` has no
-allocate call, and a written file gives each log sync no size change. Commit records
-stop 1 MiB before the end, so a delete can be logged on a full disk. The log owner takes
-its size as a `Config` field: 64 MiB in a database, and at least 4 MiB. `C` makes the
-file of the next log right after each switch, so a switch at three quarters finds it
-ready. A batch goes out as frames of at most 16 MiB, and a frame never ends past the
-commit limit when it holds a Commit, or past the end of the file. A frame that would
-cross three quarters goes to the next log once its file is ready; until then frames stop
-at those limits, and an entry that does not fit before them is refused. An entry larger
-than a frame is refused, so the compactor and progression encoding try no rewrite whose
-Replace would be larger than a frame. The file header is 64 bytes at offset 0, and again
-at 4,096. Frames start at 8,192.
+allocate call, and a written file gives each log sync no size change. Every entry but a
+delete (Tombstone, Intent, Drop), a Restart, and a Seal stops 1 MiB before the end, at
+the commit limit, so a delete can be logged on a full disk. The log owner takes its size
+as a `Config` field: 64 MiB in a database, and at least 4 MiB. `C` makes the file of the
+next log right after each switch, so a switch at three quarters finds it ready. A batch
+goes out as frames of at most 16 MiB, and a frame never ends past the commit limit
+unless it holds only deletes, Restarts, and Seals, and never past the end of the file. A
+frame that would cross three quarters goes to the next log once its file is ready; until
+then frames stop at those limits, and an entry that does not fit before them is refused.
+An entry larger than a frame is refused, so the compactor and progression encoding try
+no rewrite whose Replace would be larger than a frame. The file header is 64 bytes at
+offset 0, and again at 4,096. Frames start at 8,192.
 
 | Offset | Size | Type     | Meaning                                                      |
 | ------ | ---- | -------- | ------------------------------------------------------------ |
