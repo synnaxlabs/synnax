@@ -644,8 +644,8 @@ var _ = Describe("Relay", func() {
 				send(8)
 				_, markers = drain(stalled)
 				Expect(markers).To(Equal([]int{5}))
-				// Reading during the drops lets the streamer take the signal of the
-				// first drop before the next ones, which must not add a marker.
+				// Reading two frames between two runs of drops puts frames between the
+				// runs, so each run gets its own marker.
 				for range 10 {
 					send(8)
 					for range 2 {
@@ -653,8 +653,24 @@ var _ = Describe("Relay", func() {
 					}
 					send(8)
 					frames, markers = drain(stalled)
-					Expect(markers).To(Equal([]int{frames}))
+					Expect(markers).To(Equal([]int{3, frames}))
 				}
+				// The relay gets two frames for each frame the test reads, so the
+				// buffer never empties while the drops go on. The marker must still
+				// come right after the frames buffered before the first drop.
+				send(8)
+				frames = 0
+				for {
+					var res relay.Response
+					Eventually(stalled.Outlet()).Should(Receive(&res))
+					if res.Missed {
+						break
+					}
+					frames++
+					Expect(frames).To(BeNumerically("<", 30))
+					send(2)
+				}
+				Expect(frames).To(Equal(5))
 			},
 		)
 
