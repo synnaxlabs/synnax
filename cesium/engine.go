@@ -110,19 +110,8 @@ func openEngine(o *options) (*engine, error) {
 	if err != nil {
 		return nil, err
 	}
-	e := &engine{
-		ins:      o.Instrumentation,
-		fs:       o.fs,
-		exec:     o.executor,
-		ready:    make(chan struct{}),
-		failed:   make(chan struct{}),
-		unstored: telem.NewAlignmentCounter(telem.LeadingDomain),
-		partSize: o.partSize,
-		loaded:   snapshot != nil,
-	}
-	e.pins.readers, e.pins.dead = make(map[uint64]int), make(map[uint64]state.Dead)
-	e.pins.parts, e.pins.keys = make(map[uint64]int), make(map[ChannelKey]int)
-	if e.budget, err = segment.NewBudget(handleLimit, syncWidth, e.exec); err != nil {
+	e, err := newEngine(o, snapshot != nil)
+	if err != nil {
 		return nil, err
 	}
 	created := snapshot == nil
@@ -171,6 +160,25 @@ func openEngine(o *options) (*engine, error) {
 		return nil, err
 	}
 	return e, nil
+}
+
+// newEngine returns an engine with no state, which loaded marks as opened from a head.
+func newEngine(o *options, loaded bool) (*engine, error) {
+	e := &engine{
+		ins:      o.Instrumentation,
+		fs:       o.fs,
+		exec:     o.executor,
+		ready:    make(chan struct{}),
+		failed:   make(chan struct{}),
+		unstored: telem.NewAlignmentCounter(telem.LeadingDomain),
+		partSize: o.partSize,
+		loaded:   loaded,
+	}
+	e.pins.readers, e.pins.dead = make(map[uint64]int), make(map[uint64]state.Dead)
+	e.pins.parts, e.pins.keys = make(map[uint64]int), make(map[ChannelKey]int)
+	var err error
+	e.budget, err = segment.NewBudget(handleLimit, syncWidth, e.exec)
+	return e, err
 }
 
 // create starts a new database in a root with no head that passes: it removes the head
