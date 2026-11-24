@@ -163,71 +163,92 @@ func Repair(
 		rep Report
 		l   = newLater()
 	)
-	if rep.Damage, rep.Lost, err = r.damage(ctx, e.replay, l.add); err != nil {
+	pass := func(gap int, sequence uint64, records []log.Record) error {
+		if gap == 0 {
+			return e.replay(sequence, records)
+		}
+		return l.add(sequence, records)
+	}
+	if rep.Damage, rep.Lost, err = r.damage(ctx, pass); err != nil {
 		return Report{}, err
 	}
 	rep.Buried = buried(e)
 	if len(rep.Damage) == 0 && len(rep.Buried) == 0 {
 		return rep, nil
 	}
-	if err = e.rebuildGap(ctx, r, l, &rep); err != nil {
+	if err = e.rebuildGaps(ctx, r, l, &rep); err != nil {
 		return Report{}, err
 	}
 	return rep, nil
 }
 
-// rebuildGap places the orphans of the gap, rebuilds its ranges into the state of e,
-// and applies the entries after the damage, as rep lists them.
-func (e *engine) rebuildGap(
+// rebuildGaps rebuilds the gap of each bad frame of rep in log order: it places the
+// orphans of the gap, rebuilds its ranges into the state of e, and applies the entries
+// up to the next bad frame, and lists them in rep. l holds what the entries after the
+// first bad frame name.
+func (e *engine) rebuildGaps(
 	ctx context.Context,
 	r *recovery,
 	l *later,
 	rep *Report,
 ) error {
-	placed, unrecovered, err := e.place(r, l)
-	if err != nil {
-		return err
-	}
-	rep.Unrecovered = unrecovered
-	p, err := e.rebuild(l, placed)
-	if err != nil {
-		return err
-	}
-	if len(rep.Damage) > 0 {
-		if err = e.apply(rep.Damage[0], l, placed, &p); err != nil {
+	for k, d := range rep.Damage {
+		placed, unrecovered, err := e.place(r, l)
+		if err != nil {
 			return err
 		}
-		if rep.Skipped, err = e.replayAfter(ctx, r); err != nil {
+		for _, f := range unrecovered {
+			if !slices.ContainsFunc(rep.Unrecovered, func(o File) bool {
+				return o.Key == f.Key && o.Segment == f.Segment
+			}) {
+				rep.Unrecovered = append(rep.Unrecovered, f)
+			}
+		}
+		p, err := e.rebuild(l, placed)
+		if err != nil {
 			return err
 		}
+		if err = e.apply(d, l, placed, &p); err != nil {
+			return err
+		}
+		rep.Rebuilt = append(rep.Rebuilt, p.rebuilt...)
+		rep.Unplaced = append(rep.Unplaced, p.unplaced...)
+		rep.Tails = append(rep.Tails, p.tails...)
+		next := newLater()
+		walk := func(gap int, sequence uint64, records []log.Record) error {
+			switch {
+			case gap == k+1:
+				skipped, err := e.replayEach(sequence, records)
+				rep.Skipped = append(rep.Skipped, skipped...)
+				return err
+			case gap > k+1:
+				return next.add(sequence, records)
+			}
+			return nil
+		}
+		if _, _, err = r.damage(ctx, walk); err != nil {
+			return err
+		}
+		l = next
 	}
-	rep.Rebuilt, rep.Unplaced, rep.Tails = p.rebuilt, p.unplaced, p.tails
+	for _, list := range [][]Range{rep.Rebuilt, rep.Unplaced, rep.Tails} {
+		sortRanges(list)
+	}
+	slices.SortFunc(rep.Unrecovered, func(a, b File) int {
+		return cmp.Or(cmp.Compare(a.Key, b.Key), cmp.Compare(a.Segment, b.Segment))
+	})
 	return nil
 }
 
-// replayAfter reads the logs of r again, applies each entry after the first bad frame
-// to the state of e one record at a time, and returns the records that it skips. At
-// each later bad frame, it moves the state past the entries of the frame.
-func (e *engine) replayAfter(ctx context.Context, r *recovery) ([]Record, error) {
-	var (
-		skipped []Record
-		next    uint64
-	)
-	skip := func(uint64, []log.Record) error { return nil }
-	each := func(sequence uint64, records []log.Record) error {
-		if next != 0 && sequence > next {
-			if _, err := e.state.Rebuild(
-				state.Rebuild{Sequence: sequence - 1},
-			); err != nil {
-				return err
-			}
-		}
-		s, err := e.replayEach(sequence, records)
-		skipped, next = append(skipped, s...), sequence+1
-		return err
-	}
-	_, _, err := r.damage(ctx, skip, each)
-	return skipped, err
+// sortRanges sorts ranges by key, segment, and time.
+func sortRanges(ranges []Range) {
+	slices.SortFunc(ranges, func(a, b Range) int {
+		return cmp.Or(
+			cmp.Compare(a.Key, b.Key),
+			cmp.Compare(a.Segment, b.Segment),
+			cmp.Compare(a.TimeRange.Start, b.TimeRange.Start),
+		)
+	})
 }
 
 // replayEngine returns an engine in replay mode on snapshot, the head of r, whose state
@@ -278,11 +299,11 @@ func refuseIdentity(o *options, r *recovery) error {
 
 // damage reads the logs after the head as replay does, and returns each bad frame that
 // a valid frame follows in its log, and the records of the bad frames. At a bad frame,
-// it goes on from the valid frame after it. It gives each entry before the first bad
-// frame to before, and each entry of a valid frame after it to after.
+// it goes on from the valid frame after it. It gives each entry of a valid frame to
+// apply with the number of bad frames before it.
 func (r *recovery) damage(
 	ctx context.Context,
-	before, after func(sequence uint64, records []log.Record) error,
+	apply func(gap int, sequence uint64, records []log.Record) error,
 ) ([]Damage, []Record, error) {
 	b, h, prev, err := r.headLog()
 	if err != nil {
@@ -294,14 +315,11 @@ func (r *recovery) damage(
 		sequence = h.Sequence
 		end      = int64(log.FramesStart)
 	)
-	apply := func(sequence uint64, records []log.Record) error {
+	each := func(sequence uint64, records []log.Record) error {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		if dmg == nil {
-			return before(sequence, records)
-		}
-		return after(sequence, records)
+		return apply(len(dmg), sequence, records)
 	}
 	for {
 		if end, sequence, prev, err = r.frames(
@@ -309,7 +327,7 @@ func (r *recovery) damage(
 			end,
 			sequence,
 			prev,
-			apply,
+			each,
 		); err != nil {
 			return nil, nil, err
 		}

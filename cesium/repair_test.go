@@ -513,13 +513,26 @@ var _ = Describe("Repair", func() {
 	})
 
 	Describe("Rebuild", func() {
-		// commitFrame returns the index of the frame of log 1 that holds the Commit
-		// whose first stamp is first.
+		// commitFrame returns the index of the frame of log 1 that holds the first
+		// Commit whose first stamp is first.
 		commitFrame := func(first telem.TimeStamp) int {
 			GinkgoHelper()
 			return frameWith(framesOf(fs, id), func(rec log.Record) bool {
 				c, ok := rec.(*log.Commit)
 				return ok && telem.TimeStamp(c.First) == first
+			})
+		}
+		// newFrame returns the index of the frame of log 1 that holds the Commit of the
+		// first segment of newIdx whose first stamp is first.
+		newFrame := func(first telem.TimeStamp) int {
+			GinkgoHelper()
+			seg := segmentIDs(fs, newIdx)[0]
+			return frameWith(framesOf(fs, id), func(rec log.Record) bool {
+				c, ok := rec.(*log.Commit)
+				return ok && telem.TimeStamp(c.First) == first &&
+					slices.ContainsFunc(c.Slots, func(s log.Slot) bool {
+						return s.Segment == seg
+					})
 			})
 		}
 		// pair returns the ranges of the first segments of idx and data, of samples
@@ -559,13 +572,30 @@ var _ = Describe("Repair", func() {
 				Expect(rep.Skipped).To(BeEmpty())
 			})
 
-		It("Should apply the entries between and after two bad frames of one log",
+		It("Should rebuild the gap of each of two bad frames of one log, in log order",
 			func(ctx SpecContext) {
-				spoil(commitFrame(6*telem.SecondTS), 4)
-				spoil(commitFrame(16*telem.SecondTS), 4)
+				writeNew(ctx, 5, 5)
+				spoil(newFrame(6*telem.SecondTS), 4)
+				spoil(newFrame(16*telem.SecondTS), 4)
 				rep := MustSucceed(repair(ctx, new(int)))
 				Expect(rep.Damage).To(HaveLen(2))
-				Expect(rep.Rebuilt).To(Equal(pair(5, 6*telem.SecondTS)))
+				want := make([]cesium.Range, 0, 4)
+				for _, key := range []cesium.ChannelKey{newIdx, newData} {
+					for _, first := range []telem.TimeStamp{6, 16} {
+						want = append(want, cesium.Range{
+							Key:     key,
+							Segment: segmentIDs(fs, key)[0],
+							Bytes:   40,
+							Samples: 5,
+							TimeRange: telem.TimeRange{
+								Start: first * telem.SecondTS,
+								End:   (first+4)*telem.SecondTS + 1,
+							},
+						})
+					}
+				}
+				Expect(rep.Rebuilt).To(Equal(want))
+				Expect(rep.Unplaced).To(BeEmpty())
 				Expect(rep.Skipped).To(BeEmpty())
 			})
 
