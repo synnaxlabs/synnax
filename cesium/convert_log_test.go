@@ -295,13 +295,13 @@ var _ = Describe("Conversion on the pointer log", func() {
 			Version:  3,
 		})))
 		put("1/1.domain", telem.NewSeriesSecondsTSV(1, 2, 3).Data)
-		put("1/2.domain", telem.NewSeriesSecondsTSV(2, 3, 4).Data)
-		// Two old index pointers that overlap in time.
+		put("1/2.domain", telem.NewSeriesSecondsTSV(6, 5, 4).Data)
+		// The second old index pointer holds stamps that fall.
 		ptrs := make([]byte, 52)
 		for i, p := range []struct {
 			start, end telem.TimeStamp
 			file       uint16
-		}{{1, 4, 1}, {2, 5, 2}} {
+		}{{1, 4, 1}, {4, 7, 2}} {
 			e := ptrs[26*i:]
 			binary.LittleEndian.PutUint64(e, uint64(p.start*telem.SecondTS))
 			binary.LittleEndian.PutUint64(e[8:], uint64(p.end*telem.SecondTS))
@@ -311,7 +311,7 @@ var _ = Describe("Conversion on the pointer log", func() {
 		put("1/index.domain", ptrs)
 		Expect(openLog(ctx, fs)).Error().To(SatisfyAll(
 			MatchError(ContainSubstring("refused by the state")),
-			MatchError(ContainSubstring("key 1 has pointers that overlap")),
+			MatchError(ContainSubstring("from 6000000000 to 4000000000")),
 		))
 		Expect(fs.Exists(checkpoint.Name(1))).To(BeFalse())
 	})
