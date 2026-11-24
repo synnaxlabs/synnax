@@ -12,7 +12,9 @@ import { Device as PDevice } from "@synnaxlabs/pluto";
 import { SCHEMAS } from "@/feature/http/device/types";
 import { Device as PlatformDevice } from "@/platform/device";
 
-const { useResult } = PDevice.createRetrieve(SCHEMAS);
+const retrieve = PDevice.createRetrieve(SCHEMAS);
+
+export const { use } = retrieve;
 
 /** The device the form's config names, or undefined until it resolves or on failure. */
-export const useFromConfig = PlatformDevice.createUseFromConfig(useResult);
+export const useFromConfig = PlatformDevice.createUseFromConfig(retrieve.useResult);

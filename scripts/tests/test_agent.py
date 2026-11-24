@@ -8,15 +8,20 @@
 #  included in the file licenses/APL.txt.
 
 import base64
+import hashlib
 import json
+import os
 import shutil
 import subprocess
 import sys
 import tempfile
 import time
+import urllib.error
+from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
+from scripts_common import FakeBlob, FakeGH
 
 from agent.agent import (
     LIMITED,
@@ -33,7 +38,7 @@ from agent.agent import (
     render_body,
     run_agent,
     skill_prompt,
-    stored_names,
+    upload,
 )
 
 TEMPLATE = """## Linear issue
@@ -193,6 +198,13 @@ class TestRenderBody:
         )
 
 
+@pytest.fixture
+def blob() -> Iterator[FakeBlob]:
+    blob = FakeBlob()
+    yield blob
+    blob.close()
+
+
 FAKE_AGENT = """#!/usr/bin/env python3
 import json, os, pathlib
 out = pathlib.Path(os.environ["AGENT_OUT_DIR"])
@@ -218,6 +230,7 @@ def repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     monkeypatch.setenv("AGENT_GIT_NAME", "Synnax Claude Code[bot]")
     monkeypatch.setenv("AGENT_GIT_EMAIL", "1+bot@users.noreply.github.com")
     monkeypatch.setenv("GH_TOKEN", "token")
+    monkeypatch.setenv("BLOB_READ_WRITE_TOKEN", "token")
     monkeypatch.delenv("GITHUB_OUTPUT", raising=False)
     return root
 
@@ -291,7 +304,7 @@ class TestMain:
         assert "dry run: git push origin" in err
         assert "dry run: gh pr create" in err
         assert "[SY-1](https://linear.app/synnax/issue/SY-1)" in err
-        assert "![1-shot.png](https://raw.githubusercontent.com/" in err
+        assert "![shot.png](file://" in err
 
     @pytest.mark.skipif(sys.platform == "win32", reason="fake agent is a script")
     def test_should_write_the_report_as_a_step_output(
@@ -398,9 +411,58 @@ class TestMain:
         assert main([*argv, "--output", "report"]) == 0
         assert capsys.readouterr().out == "Stopped.\n"
 
+    @pytest.mark.skipif(sys.platform == "win32", reason="fake agent is a script")
+    def test_should_push_the_work_and_show_hosted_images_in_the_pr(
+        self,
+        repo: Path,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        blob: FakeBlob,
+    ) -> None:
+        origin = tmp_path / "origin.git"
+        git(tmp_path, "init", "--quiet", "--bare", str(origin))
+        git(repo, "remote", "add", "origin", str(origin))
+        gh = FakeGH(tmp_path)
+        gh.serve("pr create", "https://github.com/synnaxlabs/synnax/pull/1")
+        monkeypatch.setenv("PATH", f"{gh.bin_dir}:{os.environ['PATH']}")
+        monkeypatch.setenv("VERCEL_BLOB_API_URL", blob.url)
+        assert main(fake_agent(tmp_path)) == 0
+        head = git(repo, "branch", "--show-current")
+        assert git(origin, "log", "-1", "--format=%s", head) == "SY-1: Fix the thing"
+        [put] = blob.puts
+        assert put.body == b"png"
+        call = gh.calls()[-1]
+        body = Path(call[call.index("--body-file") + 1]).read_text()
+        assert f"![shot.png]({FakeBlob.PUBLIC}/{put.pathname})" in body
+
+    @pytest.mark.skipif(sys.platform == "win32", reason="fake agent is a script")
+    def test_should_push_the_work_before_a_failed_upload(
+        self,
+        repo: Path,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        blob: FakeBlob,
+    ) -> None:
+        origin = tmp_path / "origin.git"
+        git(tmp_path, "init", "--quiet", "--bare", str(origin))
+        git(repo, "remote", "add", "origin", str(origin))
+        monkeypatch.setenv("VERCEL_BLOB_API_URL", blob.url)
+        blob.failures = [401]
+        with pytest.raises(urllib.error.HTTPError):
+            main(fake_agent(tmp_path))
+        head = git(repo, "branch", "--show-current")
+        assert git(origin, "log", "-1", "--format=%s", head) == "SY-1: Fix the thing"
+
     def test_should_reject_a_dirty_checkout(self, repo: Path, tmp_path: Path) -> None:
         (repo / "stray.txt").write_text("not the agent's")
         with pytest.raises(SystemExit, match="uncommitted changes"):
+            main(fake_agent(tmp_path))
+
+    def test_should_reject_a_missing_blob_token(
+        self, repo: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.delenv("BLOB_READ_WRITE_TOKEN")
+        with pytest.raises(SystemExit, match="BLOB_READ_WRITE_TOKEN"):
             main(fake_agent(tmp_path))
 
     def test_should_reject_a_missing_bot_identity(
@@ -415,7 +477,8 @@ class TestMain:
 PRIVATE_AGENT = """#!/bin/sh
 echo "secret on stderr" >&2
 printf '{"type": "result", "is_error": false, "result": "%s"}\\n' \
-    "secret report token=$GH_TOKEN summary=$GITHUB_STEP_SUMMARY \
+    "secret report token=$GH_TOKEN blob=$BLOB_READ_WRITE_TOKEN \
+summary=$GITHUB_STEP_SUMMARY \
 login=$(cat "$CLAUDE_SECURESTORAGE_CONFIG_DIR/.credentials.json")"
 echo "$CLAUDE_CONFIG_DIR" > "$STATE_FILE"
 echo refreshed > "$CLAUDE_SECURESTORAGE_CONFIG_DIR/new"
@@ -475,7 +538,7 @@ class TestPrivateReport:
         plain = subprocess.run(
             [*gpg, "--decrypt"], input=armor, capture_output=True, text=True
         ).stdout
-        assert plain == "secret report token= summary= login=seat"
+        assert plain == "secret report token= blob= summary= login=seat"
         state = Path((tmp_path / "state").read_text().strip())
         assert state.is_relative_to(runner_temp)
         assert not state.exists()
@@ -508,9 +571,44 @@ class TestPrivateReport:
 class TestDelivery:
     """Tests for image storage, timeouts, and Git authentication."""
 
-    def test_should_name_stored_images_uniquely_and_url_safe(self) -> None:
-        paths = [Path("before/shot.png"), Path("after/shot.png"), Path("a#1 [x].png")]
-        assert stored_names(paths) == ["1-shot.png", "2-shot.png", "3-a_1__x_.png"]
+    def test_should_store_images_as_public_blobs_by_content(
+        self, tmp_path: Path, blob: FakeBlob
+    ) -> None:
+        before, after = tmp_path / "before.PNG", tmp_path / "after.jpg"
+        before.write_bytes(b"before")
+        after.write_bytes(b"after")
+        urls = upload([before, after], prefix="agent", token="t", api=blob.url)
+        digests = [hashlib.sha256(b).hexdigest() for b in (b"before", b"after")]
+        names = [f"agent/{digests[0]}.png", f"agent/{digests[1]}.jpg"]
+        assert urls == [f"{FakeBlob.PUBLIC}/{name}" for name in names]
+        assert [put.pathname for put in blob.puts] == names
+        assert [put.body for put in blob.puts] == [b"before", b"after"]
+        put = blob.puts[1]
+        assert put.headers["authorization"] == "Bearer t"
+        assert put.headers["x-api-version"] == "13"
+        assert put.headers["x-vercel-blob-access"] == "public"
+        assert put.headers["x-content-type"] == "image/jpeg"
+
+    def test_should_fail_when_the_blob_api_rejects_an_upload(
+        self, tmp_path: Path, blob: FakeBlob
+    ) -> None:
+        blob.failures = [403]
+        shot = tmp_path / "shot.png"
+        shot.write_bytes(b"png")
+        with pytest.raises(urllib.error.HTTPError, match="403"):
+            upload([shot], prefix="agent", token="t", api=blob.url)
+        assert blob.failures == []
+        assert blob.puts == []
+
+    def test_should_retry_a_failed_upload_on_a_server_error(
+        self, tmp_path: Path, blob: FakeBlob
+    ) -> None:
+        blob.failures = [503]
+        shot = tmp_path / "shot.png"
+        shot.write_bytes(b"png")
+        [url] = upload([shot], prefix="agent", token="t", api=blob.url, backoff=0)
+        assert url.startswith(f"{FakeBlob.PUBLIC}/agent/")
+        assert len(blob.puts) == 1
 
     @pytest.mark.skipif(sys.platform == "win32", reason="uses a POSIX shell")
     def test_should_kill_the_agent_and_its_children_on_timeout(
