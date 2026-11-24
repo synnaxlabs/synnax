@@ -478,18 +478,12 @@ describe("Writer", () => {
         channels: [indexCh.key, dataCh.key],
       });
 
-      await expect(async () => {
-        for (let i = 0; i < 10; i++) {
-          await sleep.sleep(TimeSpan.milliseconds(5));
-          await writer.write({
-            [indexCh.key]: TimeStamp.seconds(10 - i),
-            [dataCh.key]: i,
-          });
-        }
-      }).rejects.toThrow(ValidationError);
-      await expect(async () => {
-        await writer.close();
-      }).rejects.toThrow(ValidationError);
+      await writer.write({ [indexCh.key]: TimeStamp.seconds(10), [dataCh.key]: 0 });
+      await writer.write({ [indexCh.key]: TimeStamp.seconds(9), [dataCh.key]: 1 });
+      // A write does not wait for the Core, so the commit is the first call that must
+      // see the error.
+      await expect(writer.commit()).rejects.toThrow(ValidationError);
+      await expect(writer.close()).rejects.toThrow(ValidationError);
     });
 
     test("write with errOnUnauthorized", async () => {

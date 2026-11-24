@@ -277,6 +277,24 @@ type Bounds struct {
 	Upper float64 `json:"upper" msgpack:"upper"`
 }
 
+// ClosedBounds is a closed interval [lower, upper] over an ordered numeric value space,
+// such as the range of a hardware input. The TypeScript binding is generic over T;
+// other languages emit a concrete float64-based type.
+type ClosedBounds struct {
+	// Lower is the inclusive lower bound.
+	Lower float64 `json:"lower" msgpack:"lower"`
+	// Upper is the inclusive upper bound.
+	Upper float64 `json:"upper" msgpack:"upper"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (c ClosedBounds) Validate() error {
+	v := validate.New("ClosedBounds")
+	v.Ternary("lower", !(c.Lower < c.Upper), "must be less than upper")
+	return v.Error()
+}
+
 // Location is a position indicator covering the four outer edges of a container and its
 // center.
 type Location string

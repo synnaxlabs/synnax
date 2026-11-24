@@ -59,6 +59,7 @@ jobs:
       CLAUDE_CODE_APP_PRIVATE_KEY: ${{ secrets.CLAUDE_CODE_APP_PRIVATE_KEY }}
       CODEX_APP_PRIVATE_KEY: ${{ secrets.CODEX_APP_PRIVATE_KEY }}
       SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+      BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
 
   relay-failure:
     name: Relay the failure

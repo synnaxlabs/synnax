@@ -18,7 +18,7 @@ import {
 } from "react";
 
 import { Button } from "@/button";
-import { SIZE_TEXT_LEVELS } from "@/component/text";
+import { Component } from "@/component";
 import { CSS } from "@/css";
 import { Dialog } from "@/dialog";
 import { Flex } from "@/flex";
@@ -202,10 +202,11 @@ export const Text = ({
   };
 
   // An input's text is no scroll container a CSS scroll timeline can watch, so the
-  // input measures itself to fade a cut value.
-  const [cut, setCut] = useState(false);
+  // input measures itself to fade a cut value. It marks the element without a render:
+  // a render in a ResizeObserver callback flushes pending updates in the observer loop.
   const measureCut = (el: HTMLElement | null): void => {
-    if (el != null && !area) setCut(el.scrollWidth > el.clientWidth);
+    if (el != null && !area)
+      el.classList.toggle(CSS.M("cut"), el.scrollWidth > el.clientWidth);
   };
   const resizeRef = useResize<HTMLInputElement>((_, el) => measureCut(el));
   useLayoutEffect(
@@ -299,7 +300,7 @@ export const Text = ({
             CSS.BE("input", "placeholder"),
             centerPlaceholder && CSS.M("centered"),
           )}
-          level={level ?? SIZE_TEXT_LEVELS[size]}
+          level={level ?? Component.SIZE_TEXT_LEVELS[size]}
         >
           {placeholder}
         </BaseText.Text>
@@ -308,7 +309,7 @@ export const Text = ({
         <BaseText.Text
           el="div"
           className={CSS.BE("input", "start-content")}
-          level={level ?? SIZE_TEXT_LEVELS[size]}
+          level={level ?? Component.SIZE_TEXT_LEVELS[size]}
         >
           {startContent}
         </BaseText.Text>
@@ -316,7 +317,7 @@ export const Text = ({
       {staticPreview ? (
         <BaseText.Text
           className={CSS.BE("input", "preview-value")}
-          level={level ?? SIZE_TEXT_LEVELS[size]}
+          level={level ?? Component.SIZE_TEXT_LEVELS[size]}
           overflow={area ? undefined : "nowrap"}
         >
           {value}
@@ -325,7 +326,6 @@ export const Text = ({
         <Generic.Element<"textarea" | "input">
           el={area ? "textarea" : "input"}
           ref={combinedRef}
-          className={cut ? CSS.M("cut") : undefined}
           value={tempValue ?? value ?? ""}
           role="textbox"
           onChange={handleChange}
@@ -350,7 +350,7 @@ export const Text = ({
         <BaseText.Text
           el="div"
           className={CSS.BE("input", "end-content")}
-          level={level ?? SIZE_TEXT_LEVELS[size]}
+          level={level ?? Component.SIZE_TEXT_LEVELS[size]}
         >
           {endContent}
         </BaseText.Text>

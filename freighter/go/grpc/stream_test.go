@@ -261,11 +261,15 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 		ctx SpecContext,
 	) {
 		server, client, addr := startPair()
+		// The server shares the client's deadline, so a handler that returns on it can
+		// close the stream before the client sees the deadline.
+		release := make(chan struct{})
+		DeferCleanup(func() { close(release) })
 		server.BindHandler(func(
-			ctx context.Context,
-			_ freighter.ServerStream[testutil.Request, testutil.Response],
+			context.Context,
+			freighter.ServerStream[testutil.Request, testutil.Response],
 		) error {
-			<-ctx.Done()
+			<-release
 			return nil
 		})
 		timeoutCtx, cancel := context.WithTimeout(ctx, 200*time.Millisecond)

@@ -36,24 +36,34 @@ func fieldsOf(c Calculation, writes bool) []channel.Action {
 	}
 }
 
-// announce attaches acts for output through cw as one batch, which goes only to a
-// subject who reads c.
-func (s *Service) announce(
+// announce attaches through cw a set of whether c writes its output, in a batch that
+// goes to every subject who reads the output, then the fields of c as announceFields
+// does.
+func (s *Service) announce(tx gorp.Tx, cw channel.Writer, c Calculation, writes bool) {
+	cw.Announce(c.Output, channel.NewSetAction(channel.SetPayload{
+		Path:  []string{"calculated"},
+		Value: writes,
+	}))
+	s.announceFields(tx, cw, c, writes)
+}
+
+// announceFields attaches through cw a set of the fields of c for its output, or of no
+// fields when writes is false, as one batch that goes only to a subject who reads c.
+func (s *Service) announceFields(
 	tx gorp.Tx,
 	cw channel.Writer,
-	output channel.Key,
 	c Calculation,
-	acts ...channel.Action,
+	writes bool,
 ) {
-	seq := cw.Announce(output, acts...)
+	seq := cw.Announce(c.Output, fieldsOf(c, writes)...)
 	s.outputChecks.Add(tx, batchCheck[channel.Key]{
-		id:    batchID[channel.Key]{key: output, seq: seq},
+		id:    batchID[channel.Key]{key: c.Output, seq: seq},
 		check: s.Readable(c),
 	})
 }
 
-// AnnounceOutputs announces through w, in tx, the calculation fields of each channel
-// among keys that a calculation writes.
+// AnnounceOutputs announces through w, in tx, that a calculation writes each channel
+// among keys that one writes, and the fields of that calculation.
 func (s *Service) AnnounceOutputs(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -64,16 +74,16 @@ func (s *Service) AnnounceOutputs(
 	if err != nil {
 		return err
 	}
-	for key, c := range calcs {
-		s.announce(tx, w, key, c, fieldsOf(c, true)...)
+	for _, c := range calcs {
+		s.announce(tx, w, c, true)
 	}
 	return nil
 }
 
 // ChannelBatchChecks returns the lookup of the check of each channel action batch that
 // c holds, by the key of its channel and its number. A batch that announces the
-// calculation fields of an output goes only to a subject who reads the calculation, and
-// any other batch has no check of its own.
+// expression and operations of an output goes only to a subject who reads the
+// calculation, and any other batch has no check of its own.
 func (s *Service) ChannelBatchChecks(
 	c gorp.Commit,
 ) func(key channel.Key, seq uint64) (func(allowed func(resource.ID) bool) bool, bool) {

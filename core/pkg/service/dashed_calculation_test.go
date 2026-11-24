@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -62,6 +63,6 @@ var _ = Describe("Dashed calculation upgrade", func() {
 		Expect(w.Close()).To(Succeed())
 		var res framer.StreamerResponse
 		Eventually(responses.Outlet(), 5*time.Second).Should(Receive(&res))
-		Expect(res.Frame.SeriesAt(0)).To(telem.MatchSeriesDataV[float32](6))
+		Expect(res.Frame.SeriesAt(0)).To(MatchSeriesDataV[float32](6))
 	})
 })
