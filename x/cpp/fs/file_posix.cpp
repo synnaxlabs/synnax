@@ -169,9 +169,8 @@ rename_new(const std::filesystem::path &from, const std::filesystem::path &to) {
     if (rename_exclusive(from.c_str(), to.c_str()) == 0) return x::errors::NIL;
     if (errno == EEXIST) return x::errors::Error(EXISTS, to.string());
     if (!unsupported(errno)) return errno_error("failed to rename " + from.string());
-    // FAT and some network volumes have no exclusive rename. An exclusive create
-    // takes the name first, and its lock keeps a writer from using it before the
-    // rename.
+    // FAT and some network volumes have no exclusive rename. An exclusive create takes
+    // the name first, and its lock keeps a writer from using it before the rename.
     const int fd = ::open(to.c_str(), O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, 0644);
     if (fd < 0) {
         if (errno == EEXIST) return x::errors::Error(EXISTS, to.string());

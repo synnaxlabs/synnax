@@ -16,10 +16,14 @@
 
 namespace x::fs {
 namespace {
-x::errors::Error
-write_synced(const std::filesystem::path &path, std::string_view data) {
+x::errors::Error write_synced(
+    const std::filesystem::path &path,
+    std::string_view data,
+    const OnCreate &on_create
+) {
     auto [file, err] = File::open(path);
     if (err) return err;
+    if (err = on_create(path); err) return err;
     if (err = file->truncate(0); err) return err;
     if (err = file->write(data); err) return err;
     return file->sync();
@@ -28,11 +32,14 @@ write_synced(const std::filesystem::path &path, std::string_view data) {
 const std::string TEMP_INFIX = ".tmp.";
 }
 
-x::errors::Error
-create(const std::filesystem::path &path, const std::string_view data) {
+x::errors::Error create(
+    const std::filesystem::path &path,
+    const std::string_view data,
+    const OnCreate &on_create
+) {
     auto tmp = path;
     tmp += TEMP_INFIX + std::to_string(std::random_device()());
-    auto err = write_synced(tmp, data);
+    auto err = write_synced(tmp, data, on_create);
     if (!err) err = replace(tmp, path);
     if (err) {
         std::error_code ec;
@@ -43,11 +50,14 @@ create(const std::filesystem::path &path, const std::string_view data) {
     return sync_dir(dir.empty() ? "." : dir);
 }
 
-x::errors::Error
-create_new(const std::filesystem::path &path, const std::string_view data) {
+x::errors::Error create_new(
+    const std::filesystem::path &path,
+    const std::string_view data,
+    const OnCreate &on_create
+) {
     auto tmp = path;
     tmp += TEMP_INFIX + std::to_string(std::random_device()());
-    auto err = write_synced(tmp, data);
+    auto err = write_synced(tmp, data, on_create);
     if (!err) err = rename_new(tmp, path);
     if (err) {
         std::error_code ec;

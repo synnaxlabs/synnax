@@ -12,6 +12,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
+#include <functional>
 #include <memory>
 #include <string_view>
 #include <utility>
@@ -24,6 +25,16 @@ namespace x::fs {
 const x::errors::Error LOCKED = FS_ERROR.sub("locked");
 /// @brief a file is already at a path.
 const x::errors::Error EXISTS = FS_ERROR.sub("exists");
+
+/// @brief gets each file that the journal creates, before the journal uses it, such as
+/// to set its owner.
+/// @returns an error to fail the create, and then the journal removes the file.
+using OnCreate = std::function<x::errors::Error(const std::filesystem::path &)>;
+
+/// @brief an OnCreate that does nothing.
+inline x::errors::Error no_create_hook(const std::filesystem::path &) {
+    return x::errors::NIL;
+}
 
 /// @brief a file opened for appending or for reading.
 class File {
@@ -39,8 +50,8 @@ public:
     static std::pair<std::unique_ptr<File>, x::errors::Error>
     open(const std::filesystem::path &path);
 
-    /// @brief opens the file at path for reading. Other handles can rename, replace,
-    /// or remove the file while it is open.
+    /// @brief opens the file at path for reading. Other handles can rename, replace, or
+    /// remove the file while it is open.
     static std::pair<std::unique_ptr<File>, x::errors::Error>
     open_read(const std::filesystem::path &path);
 
@@ -53,8 +64,7 @@ public:
     /// @returns the byte size of the file.
     [[nodiscard]] std::pair<std::uint64_t, x::errors::Error> size() const;
 
-    /// @returns whether the file has no name, because a removal or a replace took
-    /// it.
+    /// @returns whether the file has no name, because a removal or a replace took it.
     [[nodiscard]] std::pair<bool, x::errors::Error> removed() const;
 
     /// @brief writes all of data at the end of the file.
@@ -66,8 +76,8 @@ public:
     /// @brief returns after the data and size of the file are on the disk.
     [[nodiscard]] x::errors::Error sync() const;
 
-    /// @brief takes an exclusive lock on the file without blocking. The lock does
-    /// not block reads of the file. Closing the file releases the lock.
+    /// @brief takes an exclusive lock on the file without blocking. The lock does not
+    /// block reads of the file. Closing the file releases the lock.
     /// @returns LOCKED when another holder has a lock on the file.
     [[nodiscard]] x::errors::Error lock() const;
 };
@@ -84,12 +94,17 @@ replace(const std::filesystem::path &from, const std::filesystem::path &to);
 
 /// @brief writes a file at path with data, and replaces an existing file. A crash
 /// leaves the old file or the new one, and can leave a temp file named
-/// `<path>.tmp.<n>`. Returns after the new file is on the disk.
-x::errors::Error create(const std::filesystem::path &path, std::string_view data);
+/// `<path>.tmp.<n>`. Returns after the new file is on the disk. Calls on_create with
+/// the temp file before the rename.
+x::errors::Error create(
+    const std::filesystem::path &path,
+    std::string_view data,
+    const OnCreate &on_create = no_create_hook
+);
 
 /// @brief renames from to to when no file is at to. On a volume with no exclusive
-/// rename, such as FAT, it first creates an empty file at to and holds its lock, and
-/// a crash can leave that empty file.
+/// rename, such as FAT, it first creates an empty file at to and holds its lock, and a
+/// crash can leave that empty file.
 /// @returns EXISTS when a file is at to, and then both files are unchanged, or when
 /// another holder locked that empty file first.
 x::errors::Error
@@ -97,10 +112,15 @@ rename_new(const std::filesystem::path &from, const std::filesystem::path &to);
 
 /// @brief writes a file at path with data when no file is at path. A crash leaves no
 /// file or the whole file, or the empty file of rename_new, and can leave a temp file
-/// named `<path>.tmp.<n>`. Returns after the new file is on the disk.
-/// @returns EXISTS when a file is at path, and then that file is unchanged. Also
-/// EXISTS when a remove_temps(path) after a concurrent create took the temp file.
-x::errors::Error create_new(const std::filesystem::path &path, std::string_view data);
+/// named `<path>.tmp.<n>`. Returns after the new file is on the disk. Calls on_create
+/// with the temp file before the rename.
+/// @returns EXISTS when a file is at path, and then that file is unchanged. Also EXISTS
+/// when a remove_temps(path) after a concurrent create took the temp file.
+x::errors::Error create_new(
+    const std::filesystem::path &path,
+    std::string_view data,
+    const OnCreate &on_create = no_create_hook
+);
 
 /// @brief removes the temp files that a crash during create(path) or create_new(path)
 /// left. Call it only while no create(path) runs.

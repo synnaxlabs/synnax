@@ -76,8 +76,8 @@ encode(const std::uint32_t salt, const std::uint8_t type, const std::string &pay
     return len + le32(crc) + static_cast<char>(type) + payload;
 }
 
-/// @brief writes the file start of the file at path with version and flags, and a
-/// valid checksum.
+/// @brief writes the file start of the file at path with version and flags, and a valid
+/// checksum.
 void set_header(
     const std::filesystem::path &path,
     const std::uint16_t version,
@@ -506,6 +506,45 @@ TEST_F(JournalTest, ConcurrentCreateHasOneWinner) {
     }
 }
 
+/// @brief it should call on_create with the file it creates before it writes the file,
+/// and fail and remove the file when on_create fails.
+TEST_F(JournalTest, CallsOnCreate) {
+    std::vector<std::filesystem::path> created;
+    const auto record = [&](const std::filesystem::path &p) {
+        created.push_back(p);
+        EXPECT_EQ(std::filesystem::file_size(p), 0);
+        return x::errors::NIL;
+    };
+    ASSERT_NIL_P(
+        Writer::open({.path = this->path, .magic = SEGMENT, .on_create = record})
+    );
+    ASSERT_EQ(created.size(), 1);
+    EXPECT_EQ(created[0].parent_path(), this->dir);
+    EXPECT_TRUE(created[0].filename().string().starts_with("0.seg.tmp."));
+    ASSERT_NIL_P(
+        Writer::open({.path = this->path, .magic = SEGMENT, .on_create = record})
+    );
+    EXPECT_EQ(created.size(), 1);
+    const auto other = this->dir / "1.seg";
+    const auto failed = x::errors::Error(BASE_ERROR, "chown failed");
+    ASSERT_OCCURRED_AS_P(
+        Writer::open(
+            {.path = other,
+             .magic = SEGMENT,
+             .on_create = [&](const std::filesystem::path &) { return failed; }}
+        ),
+        BASE_ERROR
+    );
+    EXPECT_FALSE(std::filesystem::exists(other));
+    EXPECT_EQ(
+        std::distance(
+            std::filesystem::directory_iterator(this->dir),
+            std::filesystem::directory_iterator()
+        ),
+        1
+    );
+}
+
 /// @brief it should treat a file start of zeros as a file with no start.
 TEST_F(JournalTest, ZeroFileStartIsEmptyLog) {
     write_file(this->path, std::string(HEADER_SIZE, '\0'));
@@ -533,8 +572,8 @@ TEST_F(JournalTest, RecoversBadChecksumAtEnd) {
     EXPECT_EQ(writer->cut(), data.size() + 50 - second);
 }
 
-/// @brief it should read a position at a record that a crash cut off as the end of
-/// the file.
+/// @brief it should read a position at a record that a crash cut off as the end of the
+/// file.
 TEST_F(JournalTest, PositionAtCutOffRecordIsEnd) {
     this->write({{.type = 1, .payload = "a"}});
     const auto end = std::filesystem::file_size(this->path);

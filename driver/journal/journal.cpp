@@ -134,7 +134,11 @@ std::pair<std::unique_ptr<Writer>, x::errors::Error> Writer::open(WriterConfig c
                     "failed to stat " + cfg.path.string() + ": " + ec.message()
                 )
             };
-        const auto err = create_new(cfg.path, encode_header(cfg.magic, header));
+        const auto err = create_new(
+            cfg.path,
+            encode_header(cfg.magic, header),
+            cfg.on_create
+        );
         if (err && !err.matches(EXISTS)) return {nullptr, err};
         created = !err;
     }
