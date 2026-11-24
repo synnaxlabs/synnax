@@ -11,8 +11,8 @@ import { type Connector, HTTPClient } from "@synnaxlabs/freighter";
 import { binary, errors, url } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { PlanChangedError } from "@/errors";
 import { impact } from "@/impact";
+import { PlanChangedError } from "@/index";
 
 interface Sent {
   target: string;

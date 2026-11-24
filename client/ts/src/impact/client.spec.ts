@@ -14,8 +14,8 @@ import { DataType, id, TimeSpan, url } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 
 import { channel } from "@/channel";
-import { NotFoundError, PlanChangedError } from "@/errors";
 import { impact } from "@/impact";
+import { NotFoundError, PlanChangedError } from "@/index";
 import { lineplot } from "@/lineplot";
 import { resource } from "@/resource";
 import { task } from "@/task";
