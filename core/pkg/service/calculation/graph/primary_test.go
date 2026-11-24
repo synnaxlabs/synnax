@@ -32,6 +32,24 @@ var _ = Describe("Primary", func() {
 		})).To(Succeed())
 		return ch
 	}
+	stored := func(ctx SpecContext, name string) channel.Channel {
+		GinkgoHelper()
+		index := channel.Channel{
+			Name:     name + "_time",
+			DataType: telem.TimestampT,
+			IsIndex:  true,
+		}
+		ch := channel.Channel{Name: name, DataType: telem.Float32T}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			w := channelSvc.NewWriter(tx)
+			if err := w.Create(ctx, &index); err != nil {
+				return err
+			}
+			ch.LocalIndex = index.LocalKey
+			return w.Create(ctx, &ch)
+		})).To(Succeed())
+		return ch
+	}
 	// store replaces the stored primary and reads of the calculation that writes
 	// output, as an upgrade or a user leaves them.
 	store := func(ctx SpecContext, output channel.Key, primary *channel.Key) {
@@ -126,6 +144,40 @@ var _ = Describe("Primary", func() {
 				"Description",
 				"The expression no longer reads pr_move_b, so the outputs now use the "+
 					"timestamps of pr_move_c.",
+			)))
+		}).Should(Succeed())
+	})
+	It("Should post a status when the primary moves off a virtual read", func(
+		ctx SpecContext,
+	) {
+		virtual(ctx, "pr_virt_v")
+		s := stored(ctx, "pr_virt_s")
+		out := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
+			Name:       "pr_virt_out",
+			Expression: "return pr_virt_v * 2",
+		}))
+		openGraph(ctx)
+		Expect(creator.Apply(
+			ctx,
+			out.Key(),
+			calculation.NewSetAction(calculation.SetPayload{
+				Path:  []string{"expression"},
+				Value: "return pr_virt_v * pr_virt_s",
+			}),
+		)).To(Succeed())
+		Expect(primaryOf(ctx, out.Key())).To(HaveValue(Equal(s.Key())))
+		Eventually(func(g Gomega) {
+			var all []calculation.Status
+			g.Expect(statusSvc.NewRetrieve[struct{}]().Entries(&all).Exec(ctx, db)).
+				To(Succeed())
+			g.Expect(all).To(ContainElement(And(
+				HaveField("Name", out.Name),
+				HaveField("Owner", BeNil()),
+				HaveField(
+					"Description",
+					"pr_virt_v is virtual, so the outputs now use the timestamps of "+
+						"pr_virt_s.",
+				),
 			)))
 		}).Should(Succeed())
 	})
