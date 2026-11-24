@@ -92,6 +92,7 @@ const Editor = ({
   close,
 }: Modals.ContentProps<ModalParams, void>): ReactElement => {
   const isCreate = symbolKey == null;
+  const [unsaved, setUnsaved] = useState(false);
   const { form, save, variant } = Schematic.Symbol.useForm({
     query: symbolKey == null ? null : { key: symbolKey },
     initialValues: {
@@ -113,8 +114,10 @@ const Editor = ({
       },
     },
     afterSave: () => close(),
+    onHasTouched: setUnsaved,
   });
   Modals.useBusy(variant === "loading");
+  Modals.useUnsaved(unsaved);
   const stored = Schematic.Symbol.useResult(
     symbolKey == null ? null : { key: symbolKey, includeUses: true },
   );

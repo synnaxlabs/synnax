@@ -593,6 +593,56 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       });
     });
 
+    // openStored opens the editor on a new symbol, and edits nothing.
+    const openStored = async () => {
+      const grp = await createParentGroup();
+      const symbol = await client.schematics.symbols.create({
+        ...createSymbolPayload(uniqueName("stored")),
+        group: grp.key,
+      });
+      await renderModalOpener(
+        Schematic.Symbol.Edit.useModal,
+        [{ symbolKey: symbol.key, group: grp.key }],
+        { client, additionalRegistry: theming.REGISTRY },
+      );
+      await waitFor(() => expect(findNameInput().value).toBe(symbol.name), {
+        timeout: 5000,
+      });
+      return symbol;
+    };
+
+    const closeEditor = (): void => {
+      fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    };
+
+    it("closes at once when nothing changed", async () => {
+      await openStored();
+      closeEditor();
+      await waitFor(() =>
+        expect(screen.queryByPlaceholderText("Symbol name")).toBeNull(),
+      );
+      expect(screen.queryByText("Discard unsaved edits?")).toBeNull();
+    });
+
+    it("asks before it drops unsaved edits on close", async () => {
+      const symbol = await openStored();
+      const renamed = uniqueName("renamed");
+      fireEvent.change(findNameInput(), { target: { value: renamed } });
+      closeEditor();
+      expect(await screen.findByText("Discard unsaved edits?")).toBeDefined();
+      fireEvent.click(findButton("Keep editing"));
+      await waitFor(() =>
+        expect(screen.queryByText("Discard unsaved edits?")).toBeNull(),
+      );
+      expect(findNameInput().value).toBe(renamed);
+      closeEditor();
+      fireEvent.click(await waitFor(() => findButton("Discard")));
+      await waitFor(() =>
+        expect(screen.queryByPlaceholderText("Symbol name")).toBeNull(),
+      );
+      expect((await retrieveStored(symbol.key)).name).toBe(symbol.name);
+    });
+
     const BODY: schematic.symbol.Part = {
       key: "body",
       name: "Body",

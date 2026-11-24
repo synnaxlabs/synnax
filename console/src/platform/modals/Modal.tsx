@@ -14,6 +14,7 @@ import { Errors as PErrors } from "@synnaxlabs/pluto";
 import { type ReactElement, useLayoutEffect } from "react";
 
 import { Errors } from "@/platform/errors";
+import { useConfirm } from "@/platform/modals/useConfirm";
 import type { Session } from "@/session";
 
 const [BusyContext, useSetBusy] = context.create<Session.Modals.Entry["setBusy"]>({
@@ -36,6 +37,26 @@ export const useBusy = (busy: boolean): void => {
   }, [busy, setBusy]);
 };
 
+const [UnsavedContext, useSetUnsaved] = context.create<(unsaved: boolean) => void>({
+  displayName: "Modals.UnsavedContext",
+  defaultValue: () => {},
+});
+
+/**
+ * Asks before the modal closes while unsaved is true: Escape, the close trigger, and a
+ * click outside open a confirm, and the modal closes only when the user discards. A
+ * close that the content calls, as after a save, does not ask. Does nothing outside a
+ * modal.
+ */
+export const useUnsaved = (unsaved: boolean): void => {
+  const setUnsaved = useSetUnsaved();
+  useLayoutEffect(() => {
+    if (!unsaved) return;
+    setUnsaved(true);
+    return () => setUnsaved(false);
+  }, [unsaved, setUnsaved]);
+};
+
 // The content draws its own surface, so a fallback in its place needs one too.
 const Fallback = (props: PErrors.FallbackProps): ReactElement => (
   <Base.Frame>
@@ -45,7 +66,22 @@ const Fallback = (props: PErrors.FallbackProps): ReactElement => (
 
 interface ModalProps extends Session.Modals.Entry {}
 
-export const Modal = ({ dismiss, render, setBusy }: ModalProps): ReactElement => {
+export const Modal = ({
+  dismiss,
+  render,
+  setBusy,
+  setGuard,
+}: ModalProps): ReactElement => {
+  const confirm = useConfirm();
+  const discard = async () =>
+    (await confirm({
+      message: "Discard unsaved edits?",
+      description: "If you close now, you lose the edits since the last save.",
+      confirm: { label: "Discard" },
+      cancel: { label: "Keep editing" },
+      title: "Unsaved edits",
+    })) === true;
+  const setUnsaved = (unsaved: boolean) => setGuard(unsaved ? discard : undefined);
   const handleDismiss = () => dismiss();
   return (
     <Dialog.Frame
@@ -55,9 +91,11 @@ export const Modal = ({ dismiss, render, setBusy }: ModalProps): ReactElement =>
       background={0}
     >
       <BusyContext value={setBusy}>
-        <PErrors.SuspenseBoundary FallbackComponent={Fallback}>
-          {render()}
-        </PErrors.SuspenseBoundary>
+        <UnsavedContext value={setUnsaved}>
+          <PErrors.SuspenseBoundary FallbackComponent={Fallback}>
+            {render()}
+          </PErrors.SuspenseBoundary>
+        </UnsavedContext>
       </BusyContext>
     </Dialog.Frame>
   );
