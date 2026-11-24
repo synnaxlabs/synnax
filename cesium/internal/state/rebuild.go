@@ -271,3 +271,7 @@ func (c *chanState) overlapsOther(
 	}
 	return Pointer{}, false
 }
+
+// ReplaySnapshot returns the durable state as replay has left it, which a repair
+// writes as a head. Call it in replay mode, before Run.
+func (s *State) ReplaySnapshot() *Snapshot { return s.core.snapshot() }

@@ -445,6 +445,30 @@ var _ = Describe("Repair", func() {
 			}))
 		})
 
+		It("Should rename each unrecovered segment file aside on confirm, so that the "+
+			"root opens", func(ctx SpecContext) {
+			files := writeNew(ctx, 5, 2)
+			spoilCreates()
+			rep := MustSucceed(cesium.Repair(
+				ctx,
+				"",
+				func(cesium.Report) bool { return true },
+				cesium.WithFS(fs),
+				cesium.WithIdentity(id),
+			))
+			Expect(rep.Repaired).To(BeTrue())
+			Expect(rep.Unrecovered).To(HaveLen(2))
+			for i, key := range []cesium.ChannelKey{newIdx, newData} {
+				for name := range files[i] {
+					dir := strconv.Itoa(int(key))
+					Expect(fs.Exists(dir + "/" + name)).To(BeFalse())
+					Expect(fs.Exists(dir + "/" + name + ".unrecovered")).To(BeTrue())
+				}
+			}
+			db := MustSucceed(open(ctx))
+			Expect(db.Close()).To(Succeed())
+		})
+
 		It("Should list as unrecovered a segment file that no record names",
 			func(ctx SpecContext) {
 				Expect(xfs.WriteFile(fs, "2/00000000000000ff.seg", make([]byte, 70))).
@@ -560,6 +584,35 @@ var _ = Describe("Repair", func() {
 			Start: 10_001 * telem.SecondTS,
 			End:   16_384*telem.SecondTS + 1,
 		}
+
+		It("Should write the repair on confirm, so that the root opens and every "+
+			"sample reads with its stamp", func(ctx SpecContext) {
+			spoil(commitFrame(6*telem.SecondTS), 4)
+			Expect(open(ctx)).Error().To(MatchError(place.ErrCorrupt))
+			rep := MustSucceed(cesium.Repair(
+				ctx,
+				"",
+				func(cesium.Report) bool { return true },
+				cesium.WithFS(fs),
+				cesium.WithIdentity(id),
+			))
+			Expect(rep.Repaired).To(BeTrue())
+			Expect(fs.Exists(log.Name(1) + ".damaged")).To(BeTrue())
+			db := MustSucceed(open(ctx))
+			stop := GoRun(ctx, db.Run)
+			got := MustSucceed(dataOf(ctx, db, []cesium.ChannelKey{idx, data}))
+			Expect(errors.Join(stop(), db.Close())).To(Succeed())
+			var stamps, values []byte
+			for i := range int64(20) {
+				stamps = binary.LittleEndian.AppendUint64(
+					stamps,
+					uint64(telem.TimeStamp(i+1)*telem.SecondTS),
+				)
+				values = binary.LittleEndian.AppendUint64(values, uint64(i%5+1))
+			}
+			Expect(got[idx]).To(Equal(stamps))
+			Expect(got[data]).To(Equal(values))
+		})
 
 		It("Should rebuild a lost commit up to the start of the later Commit",
 			func(ctx SpecContext) {

@@ -120,10 +120,13 @@ const damagedReason = "from a damaged frame, so it may be wrong"
 
 // Repair finds the damage of the log of the root dirname on the pointer log layout,
 // the ranges of the bad frames that it rebuilds, and the bytes that it cannot place,
-// and reports them. opts are those of
-// Open: a root with a database needs WithIdentity. Repair refuses a root of the old
+// and reports them to confirm. opts are those of Open: a root with a database needs
+// WithIdentity. A root with damage or a buried segment gets the report, and only when
+// confirm returns true does Repair write: a new log and head, whose header sector is
+// the commit point, then the damaged logs and the unrecovered segment files renamed
+// aside. A healthy root gets no confirm and no write. Repair refuses a root of the old
 // layout, which Open converts, with an error that wraps errors.ErrUnsupported, and
-// another identity than the root's with no undo. It writes nothing.
+// another identity than the root's with no undo.
 func Repair(
 	ctx context.Context,
 	dirname string,
@@ -173,7 +176,11 @@ func Repair(
 	if err = e.repairState(ctx, r, l, after, &rep); err != nil {
 		return Report{}, err
 	}
-	return rep, nil
+	if !confirm(rep) {
+		return rep, nil
+	}
+	err = e.write(ctx, o, r, &rep)
+	return rep, err
 }
 
 // find reads the logs of r once: it applies each entry before the first bad frame to
@@ -330,7 +337,8 @@ func refuseIdentity(o *options, r *recovery) error {
 // damage reads the logs after the head as replay does, and returns each bad frame that
 // a valid frame follows in its log, and the records of the bad frames. At a bad frame,
 // it goes on from the valid frame after it. It gives each entry of a valid frame to
-// apply with the number of bad frames before it.
+// apply with the number of bad frames before it, and leaves r at the end of the last
+// valid frame.
 func (r *recovery) damage(
 	ctx context.Context,
 	apply func(gap int, sequence uint64, records []log.Record) error,
@@ -376,6 +384,7 @@ func (r *recovery) damage(
 		}
 		next, crc, ok, err := r.follow(end, sequence, prev)
 		if err != nil || !ok {
+			r.pos = log.Position{End: end, Sequence: sequence, PrevCRC: prev}
 			return dmg, lost, err
 		}
 		r.buf, r.following = r.following, r.buf
