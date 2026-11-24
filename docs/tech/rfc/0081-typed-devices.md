@@ -214,7 +214,7 @@ Field groups per make:
   `thermocouple_index`, `write_state_index`, four port channel maps.
 - **EtherCAT master**: identity `interface`, `slaves Slave.Key[]` in bus order.
 - **EtherCAT slave**: identity `serial`, `vendor_id`, `product_code`, `revision`,
-  `master Master.Key`, `pdos`; configuration `identifier`, `enabled`,
+  `master Master.Key`, `pdos`; configuration `identifier`, `disabled`,
   `startup_parameters`, `read_index`, `write_state_index`, input and output channel
   maps.
 - **OPC UA server**: identity `rack`, `name`, and `connection` (`auth`, `security`, and
@@ -386,7 +386,7 @@ Release 0.59 shipped the single table. One ordered startup migration cuts over:
 
    An EtherCAT slave row also converts, with a warning per drop:
    - Nanosecond integers become spans; a `switched_at` of 0 becomes absent.
-   - `enabled` false becomes `disabled` true; an invalid `identifier` is cleared.
+   - `disabled` is `!enabled`, and a missing `enabled` is `true`. Bad identifiers clear.
    - Startup parameters take their `data_type` variant; out-of-range ones are dropped.
    - Bindings, map form included, convert as the Console reads them; ones to a missing
      or repeated entry are dropped. `network_name` moves to the master.
