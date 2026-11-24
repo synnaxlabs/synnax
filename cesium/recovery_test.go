@@ -26,6 +26,7 @@ import (
 	xerrors "github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -167,7 +168,7 @@ var _ = Describe("Recovery", func() {
 			DeferCleanup(StartRun(db.Run))
 			fr := MustSucceed(db.Read(ctx, telem.TimeRangeMax, 1))
 			Expect(fr.Get(1).Series[0]).To(
-				telem.MatchSeriesData(telem.NewSeriesSecondsTSV(1, 2)),
+				MatchSeriesData(telem.NewSeriesSecondsTSV(1, 2)),
 			)
 		},
 		Entry("in the header", int64(1)),

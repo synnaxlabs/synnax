@@ -23,6 +23,7 @@ import (
 	xerrors "github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -135,12 +136,12 @@ var _ = Describe("Writer on the pointer log", func() {
 			MustSucceed2(w.Commit(ctx, nil))
 			values := read(ctx, data)
 			Expect(values.Series).To(HaveLen(1))
-			Expect(values.Series[0]).To(telem.MatchSeriesDataV[int64](10, 11, 12))
+			Expect(values.Series[0]).To(MatchSeriesDataV[int64](10, 11, 12))
 			Expect(values.Series[0].Alignment).To(
 				Equal(written.Get(data).Series[0].Alignment),
 			)
 			Expect(read(ctx, idx).Series[0]).To(
-				telem.MatchSeriesData(telem.NewSeriesSecondsTSV(10, 11, 12)),
+				MatchSeriesData(telem.NewSeriesSecondsTSV(10, 11, 12)),
 			)
 			Expect(w.Close()).To(Succeed())
 		})
@@ -172,9 +173,9 @@ var _ = Describe("Writer on the pointer log", func() {
 			MustSucceed2(w.Commit(ctx, nil))
 			Expect(w.Close()).To(Succeed())
 			Expect(read(ctx, idx).Series[0]).To(
-				telem.MatchSeriesData(telem.NewSeriesSecondsTSV(10, 11)),
+				MatchSeriesData(telem.NewSeriesSecondsTSV(10, 11)),
 			)
-			Expect(read(ctx, data).Series[0]).To(telem.MatchSeriesDataV[int64](1, 2))
+			Expect(read(ctx, data).Series[0]).To(MatchSeriesDataV[int64](1, 2))
 		})
 		It("Should report a commit before the newest data of a key to history", func(
 			ctx SpecContext,
@@ -275,7 +276,7 @@ var _ = Describe("Writer on the pointer log", func() {
 			reopen(ctx)
 			values := read(ctx, data)
 			Expect(values.Series).To(HaveLen(1))
-			Expect(values.Series[0]).To(telem.MatchSeriesDataV[int64](10, 11, 12))
+			Expect(values.Series[0]).To(MatchSeriesDataV[int64](10, 11, 12))
 		})
 		It("Should read the stretches of two writers in time order", func(
 			ctx SpecContext,
@@ -288,8 +289,8 @@ var _ = Describe("Writer on the pointer log", func() {
 			}
 			values := read(ctx, data)
 			Expect(values.Series).To(HaveLen(2))
-			Expect(values.Series[0]).To(telem.MatchSeriesDataV[int64](10, 11))
-			Expect(values.Series[1]).To(telem.MatchSeriesDataV[int64](20, 21))
+			Expect(values.Series[0]).To(MatchSeriesDataV[int64](10, 11))
+			Expect(values.Series[1]).To(MatchSeriesDataV[int64](20, 21))
 			Expect(values.Series[0].Alignment.DomainIndex()).ToNot(
 				Equal(values.Series[1].Alignment.DomainIndex()),
 			)
@@ -313,7 +314,7 @@ var _ = Describe("Writer on the pointer log", func() {
 			MustSucceed2(w.Commit(ctx, nil))
 			Expect(w.Close()).To(Succeed())
 			Expect(read(ctx, text).Series[0]).To(
-				telem.MatchSeriesDataV("hello", "world"),
+				MatchSeriesDataV("hello", "world"),
 			)
 		})
 	})
