@@ -842,9 +842,11 @@ TEST_F(OutboxTest, KeepsCompactionWhenOffsetSaveFails) {
             .on_save = [&](const x::errors::Error &err) {
                 // The first save comes before the compaction writes its segment, and
                 // the second ends the compaction.
-                if (++saves == 2)
-                    return x::errors::Error(journal::BASE_ERROR, "disk failed");
-                first = journal::read_offset(this->dir / "offset", OFFSET_MAGIC).first;
+                const auto n = ++saves;
+                if (n == 2) return x::errors::Error(journal::BASE_ERROR, "disk failed");
+                if (n == 1)
+                    first = journal::read_offset(this->dir / "offset", OFFSET_MAGIC)
+                                .first;
                 return err;
             },
         };
