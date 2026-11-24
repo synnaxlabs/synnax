@@ -303,18 +303,44 @@ func errVariantChanged(channel string, variant any) error {
 
 // aiBase returns the BaseAIChannel that an analog input variant embeds, or false for a
 // variant without one. Every variant but the built-in temperature channel embeds one.
-func aiBase[B any](variant any) (B, bool) {
+func aiBase[B any](
+	variant any,
+) (B, bool) {
+	return embedded[B](variant, "BaseAIChannel")
+}
+
+// embedded returns the struct named name that variant embeds, or false for a variant
+// without one.
+func embedded[B any](variant any, name string) (B, bool) {
 	v := reflect.ValueOf(variant)
 	if v.Kind() != reflect.Struct {
 		var zero B
 		return zero, false
 	}
-	field := v.FieldByName("BaseAIChannel")
+	field := v.FieldByName(name)
 	if !field.IsValid() {
 		var zero B
 		return zero, false
 	}
 	return reflect.TypeAssert[B](field)
+}
+
+// logRange logs the range of a channel when the migration swaps it or gives it the
+// default of its type. An all-zero pair is unset, so its default is no change.
+func logRange(l changeLog, old, migrated any) {
+	o, ok := embedded[v3.MinMaxVal](old, "MinMaxVal")
+	if !ok || (o.MinVal == 0 && o.MaxVal == 0) {
+		return
+	}
+	n, ok := embedded[MinMaxVal](migrated, "MinMaxVal")
+	if !ok || (o.MinVal == n.Range.Lower && o.MaxVal == n.Range.Upper) {
+		return
+	}
+	l.warn(
+		"Range",
+		zap.Float64s("old", []float64{o.MinVal, o.MaxVal}),
+		zap.Float64s("new", []float64{n.Range.Lower, n.Range.Upper}),
+	)
 }
 
 func logAIChannel(l changeLog, old v3.AIChannel, migrated AIChannel) error {
@@ -341,6 +367,7 @@ func logAIChannel(l changeLog, old v3.AIChannel, migrated AIChannel) error {
 	l.channel = o.Key
 	logNumber(l, "Port", o.Port, n.Port)
 	logDisabled(l, o.Disabled, n.Disabled)
+	logRange(l, old.Variant, migrated.Variant)
 	tc, ok := old.Variant.(v3.AIThermocoupleChannel)
 	if !ok {
 		return nil
@@ -376,6 +403,7 @@ func logAOChannel(l changeLog, old v3.AOChannel, migrated AOChannel) error {
 		logNumber(l, "Frequency", gen.Frequency, after.Frequency)
 	}
 	logDisabled(l, o.Disabled, n.Disabled)
+	logRange(l, old.Variant, migrated.Variant)
 	return nil
 }
 
@@ -387,6 +415,7 @@ func logCIChannel(l changeLog, old v3.CIChannel, migrated CIChannel) error {
 	l.channel = o.Key
 	logNumber(l, "Port", o.Port, n.Port)
 	logDisabled(l, o.Disabled, n.Disabled)
+	logRange(l, old.Variant, migrated.Variant)
 	return nil
 }
 

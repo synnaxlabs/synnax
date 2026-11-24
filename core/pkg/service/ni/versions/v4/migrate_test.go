@@ -559,3 +559,31 @@ var _ = Describe("Range defaults", func() {
 		))
 	})
 })
+
+var _ = Describe("Range logs", func() {
+	DescribeTable("Should log a stored range that the migration changes",
+		func(ctx SpecContext, minVal, maxVal float64, logged bool) {
+			_, fields := runStored[v3.AnalogWriteConfig, v4.AnalogWriteConfig](
+				ctx,
+				"ni_analog_write_config",
+				v4.AnalogWriteMigration,
+				v3.AnalogWriteConfig{
+					Key: uuid.New(),
+					Channels: []v3.AOChannel{{Variant: v3.AOVoltageChannel{
+						BaseAOChannel: v3.BaseAOChannel{Key: "ao"},
+						MinMaxVal:     v3.MinMaxVal{MinVal: minVal, MaxVal: maxVal},
+						CustomScale:   noScale,
+					}}},
+				},
+			)
+			if logged {
+				Expect(fields).To(ContainElement("Range"))
+			} else {
+				Expect(fields).ToNot(ContainElement("Range"))
+			}
+		},
+		Entry("a reversed range", 10.0, -10.0, true),
+		Entry("an equal range", 10.0, 10.0, true),
+		Entry("a range in order", -10.0, 10.0, false),
+	)
+})
