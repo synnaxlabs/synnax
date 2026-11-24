@@ -63,9 +63,9 @@ public:
     virtual std::pair<x::telem::Frame, x::errors::Error> read() = 0;
 
     /// @brief closes the streamer, returning any error that occurred during normal
-    /// operation. After a transient error (synnax::errors::classify), the control
-    /// pipeline backs off and retries with no retry limit. Any other error is
-    /// permanent, and the pipeline exits.
+    /// operation. After a transient or interrupted error (synnax::errors::classify),
+    /// the control pipeline backs off and retries with no retry limit. Any other error
+    /// is permanent, and the pipeline exits.
     virtual x::errors::Error close() = 0;
 
     /// @brief signals the streamer that the caller is done sending requests, and that
@@ -82,9 +82,9 @@ public:
 class StreamerFactory {
 public:
     /// @brief opens a streamer with the given configuration, returning the streamer and
-    /// an error if one occurs. After a transient error (synnax::errors::classify), the
-    /// control pipeline backs off and retries with no retry limit. Any other error is
-    /// permanent, and the pipeline exits.
+    /// an error if one occurs. After a transient or interrupted error
+    /// (synnax::errors::classify), the control pipeline backs off and retries with no
+    /// retry limit. Any other error is permanent, and the pipeline exits.
     virtual std::pair<std::unique_ptr<Streamer>, x::errors::Error>
     open_streamer(synnax::framer::StreamerConfig config) = 0;
 
