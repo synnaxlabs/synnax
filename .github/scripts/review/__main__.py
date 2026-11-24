@@ -17,6 +17,7 @@
     python3 -m review restore
     python3 -m review judge <judgments.json>
     python3 -m review rule <judgments.json>
+    python3 -m review ci <ci.md>
 
 Run it from `.github/scripts`. Environment: GH_TOKEN, GITHUB_REPOSITORY, PR, HEAD_SHA,
 BASE_SHA, CHECK_RUN, RUN_URL, and BOT, the slug of the GitHub App the review posts as.
@@ -43,6 +44,9 @@ fails when none is on the way or the review of the head failed.
 `judge` takes POLICY_DIR, HEAD_DIR, and CLAUDE_CODE_OAUTH_TOKEN as `run` does, judges
 each rebuttal with Claude Code, and writes the judgments. It fails after it writes them
 when one rebuttal could not be judged. `rule` posts them, and takes KEY.
+`ci` takes only GH_TOKEN, GITHUB_REPOSITORY, and HEAD_SHA, and writes the CI results of
+the head from the GitHub API. `run` and `judge` give Claude Code the file at
+CI_RESULTS that it wrote.
 
 When Claude Code stops at the usage limit of its login, `run` and `judge` write the
 reset time, in Unix seconds, as the `limited-until` step output. When Claude rejects the
@@ -87,6 +91,7 @@ from review import (
     run,
     threads,
 )
+from review.ci import log, results
 
 _FILE = re.compile(r"diff --git a/.* b/(.*)")
 _INDEX = re.compile(r"(?m)^index .*\n")
@@ -186,6 +191,7 @@ def review(target: Target, path: Path, *, replay: bool) -> None:
         new=new,
         dropped=dropped,
         reviewed=since is not None or rewritten,
+        ci=Path(os.environ["CI_RESULTS"]).read_text(),
     )
     with tempfile.TemporaryDirectory() as workdir:
         result, usage, passes = run(config, pr, claude=claude, workdir=Path(workdir))
@@ -215,6 +221,7 @@ def judgments(target: Target, path: Path) -> None:
             diff=diff,
             claude=claude,
             workdir=Path(workdir),
+            ci=Path(os.environ["CI_RESULTS"]).read_text(),
         )
     path.write_text(json.dumps([dataclasses.asdict(j) for j in found]))
     if failed:
@@ -329,10 +336,16 @@ def main(argv: list[str]) -> None:
         "restore": 1,
         "judge": 2,
         "rule": 2,
+        "ci": 2,
     }
     if not argv or args.get(argv[0]) != len(argv):
         sys.exit(__doc__)
     env = os.environ
+    if argv[0] == "ci":
+        repo = env["GITHUB_REPOSITORY"]
+        text = results(repo, env["HEAD_SHA"], gh, log(repo, env["GH_TOKEN"]))
+        Path(argv[1]).write_text(text)
+        return
     target = Target(
         repo=env["GITHUB_REPOSITORY"],
         pr=int(env["PR"]),

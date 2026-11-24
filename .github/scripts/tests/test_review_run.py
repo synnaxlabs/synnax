@@ -371,6 +371,11 @@ class TestPrompt:
         assert rest.startswith("diff --git a/web/b.ts b/web/b.ts")
         assert "       -x\n     1 +y" in rest
 
+    def test_should_give_the_ci_results_in_a_file(self, tmp_path: Path) -> None:
+        claude = review(pr=pull(ci="# CI results\n"), workdir=tmp_path)
+        assert "`ci.md` in your working directory" in claude.system
+        assert (tmp_path / "ci.md").read_text() == "# CI results\n"
+
     def test_should_write_no_file_when_the_diff_fits(self, tmp_path: Path) -> None:
         review(workdir=tmp_path)
         assert list(tmp_path.iterdir()) == []
@@ -913,6 +918,8 @@ class TestMain:
         base = git(head, "rev-parse", "HEAD")
         (head / "a.go").write_text("one\ntwo\n")
         git(head, "commit", "-qam", "head")
+        ci = tmp_path / "ci.md"
+        ci.write_text("# CI results\n")
         bindir = tmp_path / "bin"
         bindir.mkdir()
         executable(
@@ -949,6 +956,7 @@ class TestMain:
             "POLICY_DIR": str(tmp_path / "policy"),
             "POLICY_SHA": "policy",
             "HEAD_DIR": str(head),
+            "CI_RESULTS": str(ci),
             "CLAUDE_CODE_OAUTH_TOKEN": "claude-token",
         }
         for k, v in env.items():

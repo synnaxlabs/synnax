@@ -57,6 +57,10 @@ Report a bug when you can name the input or the interleaving that breaks it, and
 path in a real deployment or in CI that makes it. Leave out what you cannot trace.
 Before you call a check redundant or suggest that it go, trace what it guards.
 
+Check a claim about a CI result, such as a test that a reply says passed, against
+`ci.md` in your working directory, by the job's name or ID. A result that the file shows
+counts as checked. The file states results, not reasons, and CI can still run.
+
 ## How likely it is
 
 Name the trigger of each bug in its body: the user action, the call path, or the event

@@ -154,8 +154,9 @@ jobs:
           judge=$(python3 -m review dismiss)
           echo "judge=$judge" >> "$GITHUB_OUTPUT"
 
-  # Claude Code gets only read tools, a checkout of the head, and its OAuth token, as in
-  # a review. The App token that posts is minted after it exits.
+  # Claude Code gets only read tools, a checkout of the head, the CI results of the
+  # head, and its OAuth token, as in a review. The App token that posts is minted after
+  # it exits.
   judge:
     needs: dismiss
     # A thread reply skips the record job, and a skipped job up the chain fails the
@@ -168,6 +169,8 @@ jobs:
     runs-on: [self-hosted, review]
     timeout-minutes: 30
     permissions:
+      actions: read
+      checks: read
       contents: read
       pull-requests: read
     env:
@@ -192,6 +195,13 @@ jobs:
           git worktree prune
           git fetch --no-tags origin "$BASE_SHA" "$HEAD_SHA"
           git worktree add --detach "$RUNNER_TEMP/head" "$HEAD_SHA"
+
+      # The results come from the GitHub API, never from the pull request.
+      - name: Read the CI results of the head
+        working-directory: .github/scripts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 -m review ci "$RUNNER_TEMP/ci.md"
 
       - name: Install Claude Code
         run: |
@@ -222,6 +232,7 @@ jobs:
           BOT: ${{ needs.dismiss.outputs.bot }}
           POLICY_DIR: ${{ github.workspace }}
           HEAD_DIR: ${{ runner.temp }}/head
+          CI_RESULTS: ${{ runner.temp }}/ci.md
         run: python3 -m review judge "$RUNNER_TEMP/judgments.json"
 
       # A usage limit or a rejected token stops every job of the seat. The seat leaves
