@@ -109,9 +109,8 @@ func WritePrepared[RQ, RS freighter.Payload, P any](
 type Retrievable func(id resource.ID) bool
 
 // WriteRetrievable returns a handler that runs apply as Write does, and passes apply
-// what the subject of the request can retrieve, read from committed policies as Write
-// reads them. apply uses it to reuse only records that the subject can retrieve, so the
-// access check of each use link that it adds passes.
+// what the subject can retrieve, by the committed policies that Write checks. Use it
+// when apply reuses stored records, so that each use link it adds passes the check.
 func WriteRetrievable[RQ, RS freighter.Payload](
 	s *Service,
 	apply func(context.Context, gorp.Tx, Retrievable, RQ) (RS, error),

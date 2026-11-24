@@ -403,8 +403,8 @@ type ImportOptions struct {
 	// Group is the group a groupable resource sits in, or nil for none. An importer
 	// ignores any group the envelope carries.
 	Group *group.Key
-	// Retrievable reports whether the importer can retrieve a stored record, so that an
-	// import reuses only records that the importer can retrieve. Nil means none.
+	// Retrievable reports whether the importer can retrieve a stored record. An import
+	// reuses only such records. Nil means none.
 	Retrievable func(resource.ID) bool
 }
 
