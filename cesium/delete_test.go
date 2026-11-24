@@ -57,7 +57,9 @@ var _ = Describe("Delete", func() {
 					Specify(
 						"Deleting a nonexistent channel should be idempotent",
 						func() {
-							Expect(db.Drop([]cesium.ChannelKey{999})).To(Succeed())
+							Expect(
+								db.Drop(context.Background(), []cesium.ChannelKey{999}),
+							).To(Succeed())
 						},
 					)
 					Specify(
@@ -101,7 +103,7 @@ var _ = Describe("Delete", func() {
 						Expect(subDB.Close()).To(Succeed())
 
 						Expect(
-							subDB.Drop([]cesium.ChannelKey{key}),
+							subDB.Drop(context.Background(), []cesium.ChannelKey{key}),
 						).To(MatchError(cesium.ErrDBClosed))
 
 						Expect(fs.Remove("closed-fs")).To(Succeed())
@@ -122,7 +124,7 @@ var _ = Describe("Delete", func() {
 									),
 								)
 								Expect(
-									db.Drop([]cesium.ChannelKey{uChannelKey}),
+									db.Drop(ctx, []cesium.ChannelKey{uChannelKey}),
 								).To(Succeed())
 								expectDropped(ctx, db, uChannelKey)
 								Expect(
@@ -145,7 +147,7 @@ var _ = Describe("Delete", func() {
 									w1 := MustSucceed(db.OpenWriter(ctx, cfg))
 									w2 := MustSucceed(db.OpenWriter(ctx, cfg))
 									Expect(
-										db.Drop([]cesium.ChannelKey{uChannelKey}),
+										db.Drop(ctx, []cesium.ChannelKey{uChannelKey}),
 									).To(Succeed())
 									expectDropped(ctx, db, uChannelKey)
 									Expect(w1.Close()).To(Succeed())
@@ -172,7 +174,7 @@ var _ = Describe("Delete", func() {
 									),
 								)
 								Expect(
-									db.Drop([]cesium.ChannelKey{uChannelKey}),
+									db.Drop(ctx, []cesium.ChannelKey{uChannelKey}),
 								).To(Succeed())
 								expectDropped(ctx, db, uChannelKey)
 								Expect(
@@ -209,7 +211,7 @@ var _ = Describe("Delete", func() {
 										),
 									)
 									Expect(
-										db.Drop([]cesium.ChannelKey{uChannelKey}),
+										db.Drop(ctx, []cesium.ChannelKey{uChannelKey}),
 									).To(Succeed())
 									expectDropped(ctx, db, uChannelKey)
 									Expect(i.Close()).To(Succeed())
@@ -242,7 +244,7 @@ var _ = Describe("Delete", func() {
 									)
 
 									Expect(
-										db.Drop([]cesium.ChannelKey{uChannelKey}),
+										db.Drop(ctx, []cesium.ChannelKey{uChannelKey}),
 									).To(Succeed())
 									expectDropped(ctx, db, uChannelKey)
 									Expect(
@@ -296,7 +298,7 @@ var _ = Describe("Delete", func() {
 
 									By("Dropping channel")
 									Expect(
-										db.Drop([]cesium.ChannelKey{dependent}),
+										db.Drop(ctx, []cesium.ChannelKey{dependent}),
 									).To(Succeed())
 									MustSucceed(db.RetrieveChannel(ctx, dependent))
 									fr := MustSucceed(db.Read(
@@ -324,12 +326,12 @@ var _ = Describe("Delete", func() {
 
 									By("Dropping channel that depend on it")
 									Expect(
-										db.Drop([]cesium.ChannelKey{dependee}),
+										db.Drop(ctx, []cesium.ChannelKey{dependee}),
 									).To(Succeed())
 
 									By("Dropping the index channel again")
 									Expect(
-										db.Drop([]cesium.ChannelKey{dependent}),
+										db.Drop(ctx, []cesium.ChannelKey{dependent}),
 									).To(Succeed())
 									Expect(
 										db.RetrieveChannel(ctx, 12),
@@ -428,7 +430,7 @@ var _ = Describe("Delete", func() {
 							)).To(Succeed())
 
 							By("Deleting the channel")
-							Expect(db.Drop([]cesium.ChannelKey{key})).To(Succeed())
+							Expect(db.Drop(ctx, []cesium.ChannelKey{key})).To(Succeed())
 						},
 					)
 
@@ -454,7 +456,7 @@ var _ = Describe("Delete", func() {
 						Expect(fs.Exists(channelKeyToPath(key))).To(BeTrue())
 
 						By("Deleting the channel")
-						Expect(db.Drop([]cesium.ChannelKey{key})).To(Succeed())
+						Expect(db.Drop(ctx, []cesium.ChannelKey{key})).To(Succeed())
 
 						By("The deletion should be complete when Drop returns")
 						expectRemoved(fs, key)
@@ -498,7 +500,7 @@ var _ = Describe("Delete", func() {
 							),
 						).To(Succeed())
 						Expect(fs.Exists(channelKeyToPath(key))).To(BeTrue())
-						Expect(db.Drop([]cesium.ChannelKey{key})).To(Succeed())
+						Expect(db.Drop(ctx, []cesium.ChannelKey{key})).To(Succeed())
 						expectRemoved(fs, key)
 						Expect(
 							db.RetrieveChannel(ctx, key),
@@ -533,7 +535,7 @@ var _ = Describe("Delete", func() {
 								Bounds:   telem.TimeRangeMax,
 								Channels: []cesium.ChannelKey{key},
 							}))
-							Expect(db.Drop([]cesium.ChannelKey{key})).To(Succeed())
+							Expect(db.Drop(ctx, []cesium.ChannelKey{key})).To(Succeed())
 							Expect(fs.Exists(channelKeyToPath(key))).To(BeTrue())
 							Expect(i.Close()).To(Succeed())
 							expectRemoved(fs, key)
@@ -570,7 +572,7 @@ var _ = Describe("Delete", func() {
 								Channels: []cesium.ChannelKey{data},
 							}))
 							Expect(
-								db.Drop([]cesium.ChannelKey{data, key}),
+								db.Drop(ctx, []cesium.ChannelKey{data, key}),
 							).To(Succeed())
 							expectDropped(ctx, db, key)
 							Expect(fs.Exists(channelKeyToPath(key))).To(BeTrue())
@@ -601,7 +603,7 @@ var _ = Describe("Delete", func() {
 									leftover.Open("meta.json", os.O_CREATE),
 								).Close(),
 							).To(Succeed())
-							Expect(db.Drop([]cesium.ChannelKey{key})).To(Succeed())
+							Expect(db.Drop(ctx, []cesium.ChannelKey{key})).To(Succeed())
 							expectRemoved(fs, key)
 						},
 					)
@@ -625,7 +627,7 @@ var _ = Describe("Delete", func() {
 							))
 
 							mustCommit(ctx, w)
-							Expect(db.Drop([]cesium.ChannelKey{key})).To(Succeed())
+							Expect(db.Drop(ctx, []cesium.ChannelKey{key})).To(Succeed())
 							Expect(fs.Exists(channelKeyToPath(key))).To(BeTrue())
 							Expect(w.Close()).To(Succeed())
 							expectRemoved(fs, key)
@@ -684,7 +686,7 @@ var _ = Describe("Delete", func() {
 				})
 				AfterEach(func() {
 					Expect(
-						db.Drop(
+						db.Drop(context.Background(),
 							lo.Map(
 								channels,
 								func(c cesium.Channel, _ int) channel.Key { return c.Key },
@@ -698,19 +700,28 @@ var _ = Describe("Delete", func() {
 				Describe("Happy paths", func() {
 					It("Should be idempotent", func() {
 						Expect(
-							db.Drop([]cesium.ChannelKey{index1, data1}),
+							db.Drop(
+								context.Background(),
+								[]cesium.ChannelKey{index1, data1},
+							),
 						).To(Succeed())
 						Expect(
-							db.Drop([]cesium.ChannelKey{index1, data1}),
+							db.Drop(
+								context.Background(),
+								[]cesium.ChannelKey{index1, data1},
+							),
 						).To(Succeed())
 						Expect(
-							db.Drop([]cesium.ChannelKey{index1, data1}),
+							db.Drop(
+								context.Background(),
+								[]cesium.ChannelKey{index1, data1},
+							),
 						).To(Succeed())
 					})
 					DescribeTable(
 						"Deleting permutations of channels",
 						func(ctx SpecContext, chs ...channel.Key) {
-							Expect(db.Drop(chs)).To(Succeed())
+							Expect(db.Drop(ctx, chs)).To(Succeed())
 							for _, c := range chs {
 								Expect(
 									db.RetrieveChannel(ctx, c),
@@ -755,7 +766,7 @@ var _ = Describe("Delete", func() {
 						Expect(subDB.Close()).To(Succeed())
 
 						Expect(
-							subDB.Drop([]cesium.ChannelKey{key}),
+							subDB.Drop(context.Background(), []cesium.ChannelKey{key}),
 						).To(MatchError(cesium.ErrDBClosed))
 
 						Expect(fs.Remove("closed-fs")).To(Succeed())
@@ -781,7 +792,7 @@ var _ = Describe("Delete", func() {
 								Clock:    index2,
 							}))
 							Expect(
-								db.Drop([]cesium.ChannelKey{data2, data3}),
+								db.Drop(ctx, []cesium.ChannelKey{data2, data3}),
 							).To(Succeed())
 							expectDropped(ctx, db, data2)
 							expectRemoved(fs, data2)
@@ -795,7 +806,7 @@ var _ = Describe("Delete", func() {
 						"Should keep an index that has outside data",
 						func(ctx SpecContext) {
 							Expect(
-								db.Drop([]cesium.ChannelKey{data2, index2}),
+								db.Drop(ctx, []cesium.ChannelKey{data2, index2}),
 							).To(Succeed())
 							expectDropped(ctx, db, data2)
 							expectRemoved(fs, data2)
@@ -1734,7 +1745,7 @@ var _ = Describe("Removal", func() {
 	It("Should remove the files before Drop returns", func() {
 		removing, release := holdRemoval()
 		dropped := make(chan error, 1)
-		go func() { dropped <- db.Drop([]cesium.ChannelKey{key}) }()
+		go func() { dropped <- db.Drop(context.Background(), []cesium.ChannelKey{key}) }()
 		Eventually(removing).Should(BeClosed())
 		Consistently(dropped).ShouldNot(Receive())
 		release()
@@ -1751,7 +1762,7 @@ var _ = Describe("Removal", func() {
 				fsys.SetOptions(WithFailRemove())
 			}
 		}))
-		Expect(db.Drop([]cesium.ChannelKey{key})).To(MatchError(ErrFault))
+		Expect(db.Drop(ctx, []cesium.ChannelKey{key})).To(MatchError(ErrFault))
 		Expect(db.Close()).To(Succeed())
 		Expect(deletedDirs(fsys, key)).To(HaveLen(1))
 		fsys.SetOptions()
@@ -1785,7 +1796,7 @@ var _ = Describe("Removal", func() {
 			})).To(Succeed())
 			fsys.SetOptions(WithFailRename(channelKeyToPath(key)))
 			Expect(
-				db.Drop([]cesium.ChannelKey{key, later}),
+				db.Drop(ctx, []cesium.ChannelKey{key, later}),
 			).To(MatchError(ErrFault))
 			for _, k := range []cesium.ChannelKey{key, later} {
 				Expect(db.RetrieveChannel(ctx, k)).Error().
@@ -1816,7 +1827,7 @@ var _ = Describe("Removal", func() {
 			))).To(Succeed())
 			fsys.SetOptions(WithFailRename(channelKeyToPath(data)))
 			Expect(
-				db.Drop([]cesium.ChannelKey{key, data}),
+				db.Drop(ctx, []cesium.ChannelKey{key, data}),
 			).To(MatchError(ErrFault))
 			for _, k := range []cesium.ChannelKey{key, data} {
 				Expect(db.RetrieveChannel(ctx, k)).Error().
@@ -1829,17 +1840,19 @@ var _ = Describe("Removal", func() {
 
 	It("Should delete a channel whose files fail to close", func(ctx SpecContext) {
 		fsys.SetOptions(WithFailClose("index.domain"))
-		Expect(db.Drop([]cesium.ChannelKey{key})).To(Succeed())
+		Expect(db.Drop(ctx, []cesium.ChannelKey{key})).To(Succeed())
 		fsys.SetOptions()
 		Expect(db.RetrieveChannel(ctx, key)).Error().
 			To(MatchError(cesium.ErrChannelNotFound))
 		Expect(fsys.Exists(channelKeyToPath(key))).To(BeFalse())
-		Expect(db.Drop([]cesium.ChannelKey{key})).To(Succeed())
+		Expect(db.Drop(ctx, []cesium.ChannelKey{key})).To(Succeed())
 	})
 
 	It("Should not delete a channel once the DB is closed", func() {
 		Expect(db.Close()).To(Succeed())
-		Expect(db.Drop([]cesium.ChannelKey{key})).To(MatchError(cesium.ErrDBClosed))
+		Expect(
+			db.Drop(context.Background(), []cesium.ChannelKey{key}),
+		).To(MatchError(cesium.ErrDBClosed))
 	})
 })
 

@@ -139,7 +139,7 @@ var _ = Describe("Delete intents", func() {
 				}
 				Expect(logged.Intend(keys)).To(Succeed())
 				ops = nil
-				Expect(logged.Drop(keys)).To(Succeed())
+				Expect(logged.Drop(context.Background(), keys)).To(Succeed())
 				Expect(ops).To(HaveExactElements("syncdir", "sync delete-intents"))
 			},
 		)
@@ -147,7 +147,7 @@ var _ = Describe("Delete intents", func() {
 		It("Should clear the intent after it removes the files", func(ctx SpecContext) {
 			Expect(db.Intend([]cesium.ChannelKey{data})).To(Succeed())
 			Expect(intents(mem)).To(Equal(1))
-			Expect(db.Drop([]cesium.ChannelKey{data})).To(Succeed())
+			Expect(db.Drop(ctx, []cesium.ChannelKey{data})).To(Succeed())
 			Expect(intents(mem)).To(BeZero())
 			Expect(mem.Exists(channelKeyToPath(data))).To(BeFalse())
 		})
@@ -224,7 +224,7 @@ var _ = Describe("Delete intents", func() {
 			Expect(mem.Exists(channelKeyToPath(empty))).To(BeTrue())
 			Expect(mem.Exists(channelKeyToPath(idx))).To(BeTrue())
 			Expect(db.Intend([]cesium.ChannelKey{data})).To(Succeed())
-			Expect(db.Drop([]cesium.ChannelKey{data})).To(Succeed())
+			Expect(db.Drop(ctx, []cesium.ChannelKey{data})).To(Succeed())
 			Expect(sweep(ctx, db, []cesium.ChannelKey{idx})).To(BeEmpty())
 		})
 
@@ -292,7 +292,7 @@ var _ = Describe("Delete intents", func() {
 				HaveField("Key", data),
 			))
 			Expect(db.Intend([]cesium.ChannelKey{idx})).To(Succeed())
-			Expect(db.Drop([]cesium.ChannelKey{idx})).To(Succeed())
+			Expect(db.Drop(ctx, []cesium.ChannelKey{idx})).To(Succeed())
 			restarted, fs := crash(ctx)
 			Expect(sweep(ctx, restarted, nil)).To(ConsistOf(HaveField("Key", data)))
 			Expect(fs.Exists(channelKeyToPath(idx))).To(BeTrue())
@@ -314,7 +314,7 @@ var _ = Describe("Delete intents", func() {
 		It("Should remove a key that Sweep keeps", func(ctx SpecContext) {
 			Expect(sweep(ctx, db, []cesium.ChannelKey{idx})).To(HaveLen(1))
 			Expect(db.Intend([]cesium.ChannelKey{data})).To(Succeed())
-			Expect(db.Drop([]cesium.ChannelKey{data})).To(Succeed())
+			Expect(db.Drop(ctx, []cesium.ChannelKey{data})).To(Succeed())
 			expectGone(ctx, db, mem, data)
 			Expect(intents(mem)).To(BeZero())
 		})
@@ -331,7 +331,9 @@ var _ = Describe("Delete intents", func() {
 				})).To(Succeed())
 				Expect(logged.Intend([]cesium.ChannelKey{idx})).To(Succeed())
 				ops = nil
-				Expect(logged.Drop([]cesium.ChannelKey{idx})).To(Succeed())
+				Expect(
+					logged.Drop(context.Background(), []cesium.ChannelKey{idx}),
+				).To(Succeed())
 				Expect(ops).To(HaveExactElements("syncdir", "sync delete-intents"))
 			},
 		)
@@ -381,7 +383,9 @@ var _ = Describe("Delete intents", func() {
 
 			It("Should keep the intents that a clear leaves", func(ctx SpecContext) {
 				Expect(ldb.Intend([]cesium.ChannelKey{idx, other})).To(Succeed())
-				Expect(ldb.Drop([]cesium.ChannelKey{idx})).To(Succeed())
+				Expect(
+					ldb.Drop(context.Background(), []cesium.ChannelKey{idx}),
+				).To(Succeed())
 				fs := lossy.crash()
 				restarted := mustOpenDBOnFS(ctx, fs)
 				Expect(sweep(ctx, restarted, nil)).To(BeEmpty())
@@ -521,7 +525,7 @@ var _ = Describe("Delete intents", func() {
 				channelKeyToPath(idx) + "-DELETE/meta.json",
 			))
 			Expect(
-				fdb.Drop([]cesium.ChannelKey{idx}),
+				fdb.Drop(context.Background(), []cesium.ChannelKey{idx}),
 			).To(MatchError(xfstestutil.ErrFault))
 			faulty.SetOptions()
 			cp := xfs.NewMem()

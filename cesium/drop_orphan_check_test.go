@@ -106,7 +106,7 @@ var _ = Describe("Check: a Drop during the orphan pass", func() {
 			stop = GoRun(ctx, re.Run)
 			Eventually(gate.held).WithTimeout(10 * time.Second).Should(BeClosed())
 			dropped := make(chan error, 1)
-			go func() { dropped <- re.Drop([]cesium.ChannelKey{3}) }()
+			go func() { dropped <- re.Drop(ctx, []cesium.ChannelKey{3}) }()
 			// A Drop that waits for the orphan pass returns only after the release.
 			select {
 			case err := <-dropped:

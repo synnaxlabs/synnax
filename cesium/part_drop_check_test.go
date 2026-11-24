@@ -104,7 +104,7 @@ var _ = Describe("Check: a key dropped and created again during a switch", func(
 		switched := make(chan error, 1)
 		go func() { switched <- switchLog(db, fs, 3) }()
 		Eventually(fs.held).WithTimeout(time.Minute).Should(Receive())
-		Expect(db.Drop([]cesium.ChannelKey{data})).To(Succeed())
+		Expect(db.Drop(ctx, []cesium.ChannelKey{data})).To(Succeed())
 		Expect(db.CreateChannel(ctx, dataCh)).To(Succeed())
 		w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 			Channels: []cesium.ChannelKey{idx, data},
