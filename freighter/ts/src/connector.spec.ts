@@ -285,6 +285,19 @@ describe("trustCA", () => {
       const res = await httpClient().send("/", { message: "hi" }, messageZ, messageZ);
       expect(res).toEqual({ message: "hi" });
     });
+
+    it("should trust only Node's defaults without the CA", async () => {
+      const client = new HTTPClient({
+        endpoint,
+        codec: binary.JSON_CODEC,
+        secure: true,
+      });
+      const err = await client.send("/", { message: "" }, messageZ, messageZ).then(
+        () => null,
+        (e: unknown) => e,
+      );
+      expect(UntrustedCertificate.matches(err)).toBe(true);
+    });
   });
 
   describe("in runtimes without a CA option for WebSockets", () => {
