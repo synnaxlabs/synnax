@@ -163,6 +163,71 @@ var _ = Describe("Check", func() {
 		),
 	)
 
+	DescribeTable(
+		"Should refuse a tag that the Driver cannot tell from another tag",
+		func(first, second string, field int, message string) {
+			ic := icd.ICD{Name: "L", Messages: []icd.Message{textMessage(
+				"M",
+				icd.TextField{Variant: icd.TaggedTextField{
+					BaseField: icd.BaseField{Name: "temp", Scale: 1},
+					Tag:       first,
+				}},
+				icd.TextField{Variant: icd.TaggedTextField{
+					BaseField: icd.BaseField{Name: "hum", Scale: 1},
+					Tag:       second,
+				}},
+			)}}
+			Expect(problemsOf(ic)).To(ConsistOf(problem{
+				Path:    fmt.Sprintf("messages.0.payload.fields.%d.tag", field),
+				Message: message,
+			}))
+		},
+		Entry("a tag and a digit", "T", "T1", 1,
+			`a value of field temp after its tag "T" reads as this tag`),
+		Entry("a tag that ends in a digit and another digit", "CH1", "CH10", 1,
+			`a value of field temp after its tag "CH1" reads as this tag`),
+		Entry("a tag and a minus sign", "T", "T-", 1,
+			`a value of field temp after its tag "T" reads as this tag`),
+		Entry("a tag and a plus sign", "T", "T+", 1,
+			`a value of field temp after its tag "T" reads as this tag`),
+		Entry("a tag and a point", "T", "T.", 1,
+			`a value of field temp after its tag "T" reads as this tag`),
+		Entry("a tag, a space, and a digit", "T", "T 5", 1,
+			`a value of field temp after its tag "T" reads as this tag`),
+		Entry("a tag and a space", "T", "T ", 1,
+			`a value of field temp after its tag "T" reads as this tag`),
+		Entry("the longer tag first", "T=1", "T=", 0,
+			`a value of field hum after its tag "T=" reads as this tag`),
+		Entry(
+			"two equal tags",
+			"T",
+			"T",
+			1,
+			`the tag "T" is also the tag of field temp`,
+		),
+	)
+
+	DescribeTable(
+		"Should accept a tag that starts another tag with text no value starts with",
+		func(first, second string) {
+			ic := icd.ICD{Name: "L", Messages: []icd.Message{textMessage(
+				"M",
+				icd.TextField{Variant: icd.TaggedTextField{
+					BaseField: icd.BaseField{Name: "temp", Scale: 1},
+					Tag:       first,
+				}},
+				icd.TextField{Variant: icd.TaggedTextField{
+					BaseField: icd.BaseField{Name: "hum", Scale: 1},
+					Tag:       second,
+				}},
+			)}}
+			Expect(problemsOf(ic)).To(BeEmpty())
+		},
+		Entry("a tag and a letter", "T", "TE"),
+		Entry("a tag and an equals sign", "T", "T="),
+		Entry("the longer tag first", "TE", "T"),
+	)
+
 	It("Should refuse an empty delimiter but not each tag in its message", func() {
 		ic := icd.ICD{Name: "L", Messages: []icd.Message{{
 			Name: "M",

@@ -170,6 +170,54 @@ func (c *checker) checkTextFields(path []string, p TextPayload, untyped set.Set[
 		}
 		checkDefaultRange(c, fieldPath, b.BaseField, b.Default)
 	}
+	c.checkTagOverlaps(pathOf(path, "fields"), p.Fields)
+}
+
+// checkTagOverlaps refuses a tag that the Driver cannot tell from the tag of another
+// field: an equal tag, or the other tag followed by text that can start a value. The
+// Driver gives each item to the longest tag that starts it, so a value after the
+// shorter tag reads as the longer one. A field gets at most one such problem.
+func (c *checker) checkTagOverlaps(path []string, fields []TextField) {
+	for j, f := range fields {
+		long, ok := f.Variant.(TaggedTextField)
+		if !ok || long.Tag == "" {
+			continue
+		}
+		for i, g := range fields {
+			short, ok := g.Variant.(TaggedTextField)
+			if i == j || !ok || short.Tag == "" ||
+				!strings.HasPrefix(long.Tag, short.Tag) {
+				continue
+			}
+			tagPath := pathOf(path, strconv.Itoa(j), "tag")
+			switch rest := long.Tag[len(short.Tag):]; {
+			case rest == "" && i < j:
+				c.addf(
+					tagPath,
+					"the tag %q is also the tag of field %s",
+					long.Tag,
+					short.Name,
+				)
+			case rest != "" && startsValue(rest):
+				c.addf(
+					tagPath,
+					"a value of field %s after its tag %q reads as this tag",
+					short.Name, short.Tag,
+				)
+			default:
+				continue
+			}
+			break
+		}
+	}
+}
+
+// startsValue reports whether rest, the text of a longer tag after a shorter tag, can
+// start a number that the Driver reads after the shorter tag. The Driver trims
+// textSpace before it reads the number.
+func startsValue(rest string) bool {
+	rest = strings.TrimLeft(rest, textSpace)
+	return rest == "" || strings.IndexByte("0123456789+-.", rest[0]) >= 0
 }
 
 // checkDefaultRange adds a problem when the finite default d of a number field with
