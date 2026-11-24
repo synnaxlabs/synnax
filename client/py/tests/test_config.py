@@ -695,11 +695,21 @@ class TestOptions:
         with pytest.warns(DeprecationWarning, match="stop working in Synnax 0.64"):
             assert not opts.secure
 
-    def test_insecure_and_secure(self) -> None:
-        """Should reject insecure and the deprecated secure together."""
-        with pytest.raises(ValidationError, match="not the deprecated secure"):
+    @pytest.mark.parametrize("insecure", [True, False])
+    def test_agreeing_insecure_and_secure(self, insecure: bool) -> None:
+        """Should take insecure and the deprecated secure when they agree, and warn."""
+        with pytest.warns(DeprecationWarning, match="stop working in Synnax 0.64"):
+            opts = Options.model_validate(
+                {"host": "h", "port": 1, "insecure": insecure, "secure": not insecure}
+            )
+        assert opts.insecure == insecure
+
+    @pytest.mark.parametrize("insecure", [True, False])
+    def test_disagreeing_insecure_and_secure(self, insecure: bool) -> None:
+        """Should reject insecure and the deprecated secure when they disagree."""
+        with pytest.raises(ValidationError, match="disagree"):
             Options.model_validate(
-                {"host": "h", "port": 1, "insecure": True, "secure": True}
+                {"host": "h", "port": 1, "insecure": insecure, "secure": insecure}
             )
 
 
@@ -992,22 +1002,58 @@ class TestLoadOptions:
         assert opts.insecure == insecure
 
     @pytest.mark.parametrize(
+        ("args", "env", "insecure"),
+        [
+            ({"insecure": True, "secure": False}, {}, True),
+            ({"insecure": False, "secure": True}, {}, False),
+            ({}, {"SYNNAX_INSECURE": "true", "SYNNAX_SECURE": "false"}, True),
+            ({}, {"SYNNAX_INSECURE": "false", "SYNNAX_SECURE": "true"}, False),
+        ],
+        ids=["args-cleartext", "args-tls", "env-cleartext", "env-tls"],
+    )
+    def test_agreeing_insecure_and_secure(
+        self,
+        clusters: Clusters,
+        desktop_file: Path,
+        args: dict[str, Any],
+        env: dict[str, str],
+        insecure: bool,
+    ) -> None:
+        """Should take insecure and the deprecated secure from one source when they
+        agree, and warn.
+        """
+        with pytest.warns(DeprecationWarning, match="stop working in Synnax 0.64"):
+            opts, _ = load_options(
+                host="h",
+                api_key="syk_k",
+                **args,
+                env=env,
+                clusters=clusters,
+                desktop_file=desktop_file,
+            )
+        assert opts.insecure == insecure
+
+    @pytest.mark.parametrize(
         ("args", "env"),
         [
             ({"insecure": True, "secure": True}, {}),
+            ({"insecure": False, "secure": False}, {}),
             ({}, {"SYNNAX_INSECURE": "true", "SYNNAX_SECURE": "true"}),
+            ({}, {"SYNNAX_INSECURE": "false", "SYNNAX_SECURE": "false"}),
         ],
-        ids=["args", "env"],
+        ids=["args-true", "args-false", "env-true", "env-false"],
     )
-    def test_insecure_and_secure(
+    def test_disagreeing_insecure_and_secure(
         self,
         clusters: Clusters,
         desktop_file: Path,
         args: dict[str, Any],
         env: dict[str, str],
     ) -> None:
-        """Should reject insecure and the deprecated secure from one source."""
-        with pytest.raises(ValidationError, match="not the deprecated secure"):
+        """Should reject insecure and the deprecated secure from one source when they
+        disagree.
+        """
+        with pytest.raises(ValidationError, match="disagree"):
             load_options(
                 host="h",
                 api_key="syk_k",

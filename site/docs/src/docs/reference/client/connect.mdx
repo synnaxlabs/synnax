@@ -335,8 +335,9 @@ Two groups come whole from the first source that sets one of their options:
   store of the operating system, even when `SYNNAX_CA_CERT` is set.
 
 `secure` and `SYNNAX_SECURE` still work in 0.63 as the inverse of `insecure` and
-`SYNNAX_INSECURE`, and they stop working in 0.64. The client warns when it reads one,
-and raises `sy.ValidationError` when one source gives both names.
+`SYNNAX_INSECURE`, and they stop working in 0.64. The client warns when it reads one.
+One source can give both names when they agree, such as both variables for old and new
+clients. When they disagree, the client raises `sy.ValidationError`.
 
 To keep the API key out of your code, give the host and set only `SYNNAX_API_KEY`:
 

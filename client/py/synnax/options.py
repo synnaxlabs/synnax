@@ -21,7 +21,7 @@ from x import params
 
 class Options(BaseModel):
     """Options class for the Synnax py. Takes the deprecated secure as the inverse of
-    insecure, and raises ValidationError when given both.
+    insecure, and raises ValidationError when the two disagree.
     """
 
     host: str
@@ -54,8 +54,9 @@ def from_stored(raw: Mapping[str, Any]) -> dict[str, Any]:
     return stored
 
 
-_BOTH_TLS_FLAGS_MSG = (
-    "Give insecure or SYNNAX_INSECURE, not the deprecated secure or SYNNAX_SECURE too."
+_TLS_FLAGS_DISAGREE_MSG = (
+    "insecure and the deprecated secure disagree. secure must be the inverse of "
+    "insecure, and SYNNAX_SECURE the inverse of SYNNAX_INSECURE. Give only insecure."
 )
 
 _SECURE_DEPRECATED_MSG = (
@@ -77,14 +78,17 @@ def _warn_secure() -> None:
 
 def without_secure(source: Mapping[str, Any]) -> Mapping[str, Any]:
     """Returns the options that one source sets, with the deprecated secure replaced by
-    insecure. Warns with DeprecationWarning when the source sets secure.
+    insecure. Warns with DeprecationWarning when the source sets secure. A source may
+    set both when they agree, so that old and new clients read the same choice.
 
-    :raises ValidationError: If the source sets both insecure and secure.
+    :raises ValidationError: If the source sets both, and secure is not the inverse of
+        insecure.
     """
     if "secure" not in source:
         return source
-    if "insecure" in source:
-        raise ValidationError(_BOTH_TLS_FLAGS_MSG)
+    insecure = not source["secure"]
+    if source.get("insecure", insecure) != insecure:
+        raise ValidationError(_TLS_FLAGS_DISAGREE_MSG)
     _warn_secure()
     rest = {k: v for k, v in source.items() if k != "secure"}
-    return {**rest, "insecure": not source["secure"]}
+    return {**rest, "insecure": insecure}
