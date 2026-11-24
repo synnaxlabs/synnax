@@ -1,4 +1,4 @@
-# 117 Channel storage and time
+# 120 Channel storage and time
 
 - **Author**: Emiliano Bonilla
 - **Date**: 2026-11-19
@@ -65,7 +65,7 @@ save.
 
 ### 4.0 Clocks and keys
 
-A clock is a key under which Cesium stores timestamps (RFC 0118). The Core keeps no
+A clock is a key under which Cesium stores timestamps (RFC 0121). The Core keeps no
 clock record and no channel record for it. A clock belongs to one producer and lives as
 long as that producer names it.
 
@@ -84,7 +84,7 @@ long as that producer names it.
 - **The framer's entries**: The framer writer service keeps one entry per subject,
   client ID, and channel set, so a subject that sends another's client ID gets a clock
   of its own. A session reuses the entry's clock, so `client.write` in a loop writes one
-  clock, and parallel sessions on time ranges that do not overlap share it (RFC 0118
+  clock, and parallel sessions on time ranges that do not overlap share it (RFC 0121
   §5.8). A session whose claim overlaps an open session's claim on that clock, or whose
   kind differs from the entry's last session, takes a new clock; the entry keeps its
   first. A sweep on the injected time source removes an entry one hour after its last
@@ -98,10 +98,10 @@ long as that producer names it.
   that has an index channel that index key (§4.8). No client names a clock. An open
   fails on a key that is not issued, and on a key of a record that is not an index
   channel.
-- **Claims**: A clock key takes claims like a channel key (RFC 0118 §5.8). Sessions of
+- **Claims**: A clock key takes claims like a channel key (RFC 0121 §5.8). Sessions of
   one producer may write one clock on time ranges that do not overlap, and an open that
   overlaps fails. A calculation session names no clock and takes no claim (§4.5).
-- **Unique**: Clock keys in producer configs share one unique space (RFC 0116 §4.1), so
+- **Unique**: Clock keys in producer configs share one unique space (RFC 0119 §4.1), so
   a save that names another producer's clock fails. A task copy and an import allocate
   new clock keys. A spooled Driver frame keeps its key.
 - **One clock, one producer**: Stored writes of two producers never share a clock. An
@@ -112,7 +112,7 @@ long as that producer names it.
   hold a larger one. From Phase 6, clock keys come from their own counter in
   [`0x00200000`, `0xFFF00000`). The free keys of today sit at `0xFFF00000` and up, and
   their counter is frozen. The v3 record of Phase 9 stores `key` whole and drops
-  `leaseholder` and `local_key` (RFC 0116 §4.0); from then one counter serves both,
+  `leaseholder` and `local_key` (RFC 0119 §4.0); from then one counter serves both,
   above the largest key issued. So no value is both a channel and a clock. The channel
   table answers "issued" for the leased range, the clock range, and the free range up to
   its frozen counter. One new clock per second lasts 136 years.
@@ -227,7 +227,7 @@ override sits before the length, so a decoder knows the type before it reads dat
 - `equalLens` is set only when no series in the frame has a variable type, by the type
   each series has.
 - An alignment is an identity for pairing, never an order in time: the alignment counter
-  of RFC 0118 covers the whole database, so a backfill takes a higher number than data
+  of RFC 0121 covers the whole database, so a backfill takes a higher number than data
   that follows it in time. The encoder sorts by key and keeps the producer's order
   within a key. It no longer sorts by alignment (`codec.go:119-127`).
 - Two adjacent series of one key merge only when their alignments are contiguous, as
@@ -406,7 +406,7 @@ names no clock key.
 ### 4.6 Type and clock changes
 
 A channel's declared type can change to any type, from Phase 7. Open writers keep the
-type they opened with. The next segment starts the new type (RFC 0118), and a read
+type they opened with. The next segment starts the new type (RFC 0121), and a read
 returns each segment in its stored type. A task save that changes an output's type
 changes the channel's declared type. A type change on an index channel fails. A clock
 move is not a channel edit: a channel moves when a writer writes it against another
@@ -483,7 +483,7 @@ writer.write({"time": sy.TimeStamp.now(), "temperature": 20.0})
   on each series. Live-only channels, which nothing stores, have no clock.
 - **Control handoff**: The framer's region owner closes the Cesium writer of the old
   session's clock and opens one on the new session's clock, as one event in its queue
-  (RFC 0118 §4.2). The cost is one sealed segment and one stretch per handoff.
+  (RFC 0121 §4.2). The cost is one sealed segment and one stretch per handoff.
 - **Other producers**: The metrics service writes on its own clock. The Arc runtimes
   stop adding index keys to a program's reads and writes, and Driver common code builds
   one time series per clock.
@@ -543,8 +543,8 @@ writes a warning status.
    migrations start from what `core/v0.62.0` shipped: mqtt v2, whose plain entries bind
    channels through `icd.ReadMessage` and `ReadBinding` (icd v0), and kafka v0, which
    has no ICD. Kafka's address form waits on the ICD program.
-5. **Names and paths**: A device name follows the channel name rule of RFC 0116 and is
-   unique across device types through the shared unique space of RFC 0116 §4.1. A device
+5. **Names and paths**: A device name follows the channel name rule of RFC 0119 and is
+   unique across device types through the shared unique space of RFC 0119 §4.1. A device
    path (`dev1.ai_0`) is computed, never stored, and accepted by search, pickers, and
    client lookups, through a resolver that each integration injects at the API layer. A
    string that matches a channel path and a device path of two channels fails an exact
@@ -553,8 +553,8 @@ writes a warning status.
 
 **Retiring index channels**: Phase 9 has a fixed order. RFC 0081 Phase 22 has moved
 every integration's index keys into its task config. The migration then applies, to
-every holder of an index channel key, the link policy of RFC 0116 §4.3, and deletes the
-index channel records last. Storage keeps the stamps: `Drop` in RFC 0118 never refuses,
+every holder of an index channel key, the link policy of RFC 0119 §4.3, and deletes the
+index channel records last. Storage keeps the stamps: `Drop` in RFC 0121 never refuses,
 and it keeps stamps that segments of other keys name.
 
 | Holder                                                  | Rule                                                                                                  |
@@ -576,12 +576,12 @@ The channel record drops `is_index`, `local_index`, and `concurrency` in schema 
 | Frame codec                                                   | the framer codec package and the three client codecs                         | `x/telem`, the key types of `distribution/channel`                               | read a channel record on decode; resolve anything per frame |
 | Declared type                                                 | the channel service                                                          | Gorp                                                                             | Cesium                                                      |
 | Key types and the key allocator (the counters and `Allocate`) | `core/pkg/distribution/channel`                                              | Gorp KV                                                                          | hold a service; make a record for a clock                   |
-| New clocks and claims at open                                 | the framer writer                                                            | the channel key allocator in `distribution/channel`, the claim table of RFC 0118 | Gorp records                                                |
+| New clocks and claims at open                                 | the framer writer                                                            | the channel key allocator in `distribution/channel`, the claim table of RFC 0121 | Gorp records                                                |
 | New clock keys of a task at save                              | the task service                                                             | the channel key allocator in `distribution/channel`                              | the framer                                                  |
 | Clock keys                                                    | the producer's own config, or the framer's entry for a subject and client ID | -                                                                                | the channel record                                          |
 | Clock owner lookup                                            | each producer service, injected at the API layer                             | the unique space of clock keys                                                   | the framer                                                  |
 | Setting `Clock` on a series                                   | the framer writer and iterator                                               | Cesium's public API                                                              | client readers                                              |
-| Type and clock per segment                                    | Cesium (RFC 0118)                                                            | `x/telem`                                                                        | channel names, Gorp                                         |
+| Type and clock per segment                                    | Cesium (RFC 0121)                                                            | `x/telem`                                                                        | channel names, Gorp                                         |
 | The `"time"` key                                              | client write APIs                                                            | the writer open response                                                         | the Core's channel lookup                                   |
 | Arrival stamps                                                | the framer writer                                                            | `x/telem`                                                                        | Cesium                                                      |
 | Join node                                                     | `arc/go/stl`                                                                 | Arc runtime types                                                                | the Core, channel records                                   |
@@ -590,7 +590,7 @@ The channel record drops `is_index`, `local_index`, and `concurrency` in schema 
 | Name proposers                                                | each integration, injected into the task service                             | channel and group services                                                       | load-time registration                                      |
 | Port to channel link                                          | the typed device (RFC 0081)                                                  | the channel key type                                                             | the task config                                             |
 | Device path resolver                                          | each integration, injected at the API layer                                  | its device package, channel paths                                                | the channel service                                         |
-| Device name uniqueness                                        | the shared unique space of RFC 0116 §4.1                                     | Gorp                                                                             | a check across tables in a service                          |
+| Device name uniqueness                                        | the shared unique space of RFC 0119 §4.1                                     | Gorp                                                                             | a check across tables in a service                          |
 
 Two shallow packages change. `core/pkg/storage/ts` holds only Cesium aliases
 (`core/pkg/storage/ts/ts.go:23-30`), so callers import Cesium. Only the three calls of
@@ -604,7 +604,7 @@ which allocates clock keys from it.
   host, after one run of `main` against `main` that measures the noise.
 - **Fail rule**: A time rise over 5% at p < 0.05 in `benchstat`, or any rise in
   allocations per operation. TypeScript and Python gate on time only. New work that the
-  base never did is held to its bound in RFC 0116 §4.8 instead.
+  base never did is held to its bound in RFC 0119 §4.8 instead.
 - **Floors**: A target is a ratio to a floor measured in the same run by a Go benchmark
   of the standard library: `BenchmarkFloorCopy`, the time of `copy` over n bytes. A
   floor never gates. Each ratio is on a shape that Phase 1 records, as channels ×
@@ -641,13 +641,13 @@ from closed frames.
 
 Dependencies on other RFCs:
 
-- Phase 2 carries code moves that RFC 0116 Phases 3 and 25 and RFC 0118 Phase 5 (the
+- Phase 2 carries code moves that RFC 0119 Phases 3 and 25 and RFC 0121 Phase 5 (the
   move of Cesium sessions to the framer) need.
-- Phases 5 and 6 follow RFC 0116 Phase 3 (the calculation record), which also stops the
+- Phases 5 and 6 follow RFC 0119 Phase 3 (the calculation record), which also stops the
   Core from reading node bits, so Phase 6 can give clock keys their own range.
-- Phases 6, 7, and 8 follow RFC 0118 Phase 7 (the conversion to the new segment format),
+- Phases 6, 7, and 8 follow RFC 0121 Phase 7 (the conversion to the new segment format),
   because a clock per producer is a clock per segment.
-- Phase 8 follows RFC 0116 Phase 31 (names unique within a folder). Phase 9 follows RFC
+- Phase 8 follows RFC 0119 Phase 31 (names unique within a folder). Phase 9 follows RFC
   0116 Phases 1 and 31, RFC 0081 Phases 21 to 23 for every integration, and the typed
   MQTT and Kafka devices.
 
@@ -675,8 +675,8 @@ that name in its config from Phase 6. Keys of `core/v0.62.0` keep their numbers.
 
 ## 6 What this RFC does not cover
 
-- Channel names, folders, references, and the calculation record (RFC 0116).
-- Cesium formats, the alignment counter, claims, and the conversion (RFC 0118).
+- Channel names, folders, references, and the calculation record (RFC 0119).
+- Cesium formats, the alignment counter, claims, and the conversion (RFC 0121).
 - The constant-step time series and frame compression (PR #6147).
 - Units, limits, the link from a channel to an enumeration, T-zero, templates, the
   maximum length of a string sample, state and command pairs, and clock correction.

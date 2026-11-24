@@ -147,7 +147,7 @@ one shared behavior, and it stays in the status service (§4.2).
 | Modbus      | `modbus.Server`   | `modbus_server`   | connected  |
 | HTTP        | `http.Server`     | `http_server`     | connected  |
 
-_(Amended by [RFC 0117](0117-channel-storage-and-time.md) §4.9: MQTT and Kafka get typed
+_(Amended by [RFC 0120](0120-channel-storage-and-time.md) §4.9: MQTT and Kafka get typed
 devices that hold the link from a topic and field to a channel.)_
 
 An `ni.Device` is a module in a chassis or a standalone USB or PCIe device; the two
@@ -210,7 +210,7 @@ Device struct {
 the port maps are the configuration group. The port maps are the typed form of today's
 `analogInput.channels` and friends (`console/src/feature/ni/device/types.ts:18-63`).
 
-_(Amended by [RFC 0117](0117-channel-storage-and-time.md) §4.9: the port maps are lists
+_(Amended by [RFC 0120](0120-channel-storage-and-time.md) §4.9: the port maps are lists
 of entries with a tracked channel link, and no typed device stores an index key.)_
 
 Field groups per make:
@@ -452,9 +452,9 @@ green at every step. The migration brings 0.59 data forward near the end.
   for the next phase.
 - **Phase 22: Task config references.** Typed device keys on every config, with the
   config migrations of §4.8 step 4 reading the map. _(Amended by
-  [RFC 0117](0117-channel-storage-and-time.md) §4.9: a config holds the typed device
+  [RFC 0120](0120-channel-storage-and-time.md) §4.9: a config holds the typed device
   key, ports, hardware facts, scales, and one `clock` per sample clock, each taking one
-  index key of the integration. Until Phase 9 of RFC 0117 the Console still makes
+  index key of the integration. Until Phase 9 of RFC 0120 the Console still makes
   channels.)_
 - **Phase 23: Delete the legacy path.** §4.8 step 5, the legacy service, `/device/*`
   routes, `client.devices`, `sy.Device`, `synnax::device::Client`, `pluto/src/device`,
@@ -471,7 +471,7 @@ reference, and policy carried forward. A client older than Phase 23 gets a not-f
 - Device import and export. The typed structs are shaped for a later `@go imex`.
 - A secret store for server credentials.
 - Kafka clusters (RFC 0079) and integrations that do not exist yet; each follows §4.1.
-  _(Amended by [RFC 0117](0117-channel-storage-and-time.md) §4.9: MQTT and Kafka devices
+  _(Amended by [RFC 0120](0120-channel-storage-and-time.md) §4.9: MQTT and Kafka devices
   are typed.)_
 
 ## 8 Resolved decisions
