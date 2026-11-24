@@ -110,7 +110,7 @@ var _ = Describe("NewDocuments", func() {
 		d := MustSucceed(documents(wm, ic))
 		skips := driver.NewSkips("command", driver.SkipHold)
 		var docs []string
-		for doc := range d.From(frame.NewUnary(valueKey, command), skips) {
+		for _, doc := range d.From(frame.NewUnary(valueKey, command), skips) {
 			docs = append(docs, string(doc))
 		}
 		Expect(docs).To(HaveLen(1))

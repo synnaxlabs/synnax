@@ -14,7 +14,7 @@ import { theming } from "@synnaxlabs/pluto/ether";
 import { color, uuid } from "@synnaxlabs/x";
 import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({ symbolNodes: true }));
 
@@ -36,6 +36,7 @@ import {
   createSymbolPayload,
   getEditSectionHeaderButton,
   getOverlayHandles,
+  getPartListItem,
   getPreviewTransformWrapper,
   SYMBOL_FILE_DROP_PROMPT,
   symbolNames,
@@ -94,7 +95,7 @@ const loadSVG = async (
   fireEvent.click(await screen.findByText(SYMBOL_FILE_DROP_PROMPT));
   await waitFor(() => expect(picker.lastInput()).toBeDefined());
   picker.selectFiles([fakePickedFile(fileName, contents)]);
-  await screen.findByText("Colors");
+  await screen.findByText("Parts");
 };
 
 const findNameInput = (): HTMLInputElement =>
@@ -146,26 +147,24 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       });
     });
 
-    it("adds a new region to the selected state", async () => {
+    it("adds a part with no shapes and selects it", async () => {
       const { picker } = await openCreateModal();
       await loadSVG(picker);
-      fireEvent.click(getEditSectionHeaderButton("Colors"));
-      expect(await screen.findByText("Region 1")).toBeDefined();
-      expect(screen.getByText("0 elements")).toBeDefined();
+      fireEvent.click(getEditSectionHeaderButton("Parts"));
+      expect(await screen.findByRole("heading", { name: "Part 1" })).toBeDefined();
+      expect(screen.getByText("0 shapes")).toBeDefined();
+      expect(
+        screen.getByText("Click shapes in the drawing to add or remove them."),
+      ).toBeDefined();
     });
 
-    it("saves a region stroke picked from its paint", async () => {
+    it("saves a part stroke picked in the inspector", async () => {
       const createKey = uuid.create();
-      const { picker, handle } = await openCreateModal(createKey);
+      const { picker } = await openCreateModal(createKey);
       await loadSVG(picker);
-      fireEvent.click(getEditSectionHeaderButton("Colors"));
-      await screen.findByText("Region 1");
-      const item = handle.baseElement.querySelector<HTMLElement>(
-        ".console-schematic-region-list-item",
-      );
-      assertDefined(item);
-      expect(within(item).queryAllByRole("textbox")).toHaveLength(0);
-      fireEvent.click(within(item).getByLabelText("Stroke"));
+      fireEvent.click(getEditSectionHeaderButton("Parts"));
+      await screen.findByRole("heading", { name: "Part 1" });
+      fireEvent.click(screen.getByLabelText("Stroke"));
       fireEvent.click(await screen.findByText("Color"));
       fireEvent.change(await screen.findByLabelText("Hex"), {
         target: { value: "ff0000" },
@@ -177,24 +176,21 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       await waitFor(async () => {
         const created = await client.schematics.symbols.retrieve(createKey);
         const part = created.data.parts[0].key;
-        expect(created.data.looks.find((l) => l.part === part)?.stroke).toEqual({
+        const look = created.data.looks.find((l) => l.part === part);
+        expect(look?.when).toEqual({ type: "equals", state: "active", values: [0] });
+        expect(look?.stroke).toEqual({
           type: "color",
           value: { type: "fixed", value: color.construct("#ff0000") },
         });
       });
     });
 
-    it("saves the node color as a region fill", async () => {
+    it("saves the node color as the fill of the whole drawing", async () => {
       const createKey = uuid.create();
-      const { picker, handle } = await openCreateModal(createKey);
+      const { picker } = await openCreateModal(createKey);
       await loadSVG(picker);
-      fireEvent.click(getEditSectionHeaderButton("Colors"));
-      await screen.findByText("Region 1");
-      const item = handle.baseElement.querySelector<HTMLElement>(
-        ".console-schematic-region-list-item",
-      );
-      assertDefined(item);
-      fireEvent.click(within(item).getByLabelText("Fill"));
+      expect(await screen.findByText("Looks here reach every shape.")).toBeDefined();
+      fireEvent.click(screen.getByLabelText("Fill"));
       expect(findButton("State color").getAttribute("aria-disabled")).toBe("true");
       expect(findButton("Contrast").getAttribute("aria-disabled")).toBe("true");
       fireEvent.click(screen.getByText("Node color"));
@@ -204,10 +200,41 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       fireEvent.click(findButton("Create"));
       await waitFor(async () => {
         const created = await client.schematics.symbols.retrieve(createKey);
+        expect(created.data.looks).toEqual([
+          {
+            key: expect.any(String),
+            when: { type: "equals", state: "active", values: [0] },
+            fill: { type: "node" },
+          },
+        ]);
+      });
+    });
+
+    it("saves a fill for the previewed state of an actuator", async () => {
+      const createKey = uuid.create();
+      const { picker } = await openCreateModal(createKey);
+      await loadSVG(picker);
+      fireEvent.click(await screen.findByText("Actuator"));
+      fireEvent.click(getEditSectionHeaderButton("Parts"));
+      await screen.findByRole("heading", { name: "Part 1" });
+      fireEvent.click(await screen.findByText("Active"));
+      fireEvent.click(screen.getByLabelText("Fill"));
+      fireEvent.click(screen.getByText("Node color"));
+      fireEvent.change(findNameInput(), {
+        target: { value: uniqueName("previewed_state_symbol") },
+      });
+      fireEvent.click(findButton("Create"));
+      await waitFor(async () => {
+        const created = await client.schematics.symbols.retrieve(createKey);
         const part = created.data.parts[0].key;
-        expect(created.data.looks.find((l) => l.part === part)?.fill).toEqual({
-          type: "node",
-        });
+        expect(created.data.looks.filter((l) => l.part === part)).toEqual([
+          {
+            key: expect.any(String),
+            part,
+            when: { type: "equals", state: "active", values: [1] },
+            fill: { type: "node" },
+          },
+        ]);
       });
     });
 
@@ -303,7 +330,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       fireEvent.click(await screen.findByText(SYMBOL_FILE_DROP_PROMPT));
       await waitFor(() => expect(picker.lastInput()).toBeDefined());
       picker.selectFiles([fakePickedFile("not_an_svg.txt", "hello")]);
-      await waitFor(() => expect(screen.queryByText("Colors")).toBeNull());
+      await waitFor(() => expect(screen.queryByText("Parts")).toBeNull());
       expect(screen.getByText(SYMBOL_FILE_DROP_PROMPT)).toBeDefined();
     });
   });
@@ -335,18 +362,14 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       await waitFor(() => expect(findNameInput().value).toBe(symbol.name), {
         timeout: 5000,
       });
-      fireEvent.click(getEditSectionHeaderButton("Colors"));
-      await screen.findByText("Region 1");
+      fireEvent.click(getEditSectionHeaderButton("Parts"));
+      await screen.findByRole("heading", { name: "Part 1" });
       return { symbol, handle };
     };
 
-    it("saves a new region and its color on a symbol with no state", async () => {
-      const { symbol, handle } = await openEditModal();
-      const item = handle.baseElement.querySelector<HTMLElement>(
-        ".console-schematic-region-list-item",
-      );
-      assertDefined(item);
-      fireEvent.click(within(item).getByLabelText("Stroke"));
+    it("saves a new part and its stroke on a symbol with no state", async () => {
+      const { symbol } = await openEditModal();
+      fireEvent.click(screen.getByLabelText("Stroke"));
       fireEvent.click(await screen.findByText("Color"));
       fireEvent.change(await screen.findByLabelText("Hex"), {
         target: { value: "ff0000" },
@@ -355,7 +378,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       await waitFor(async () => {
         const saved = await retrieveStored(symbol.key);
         expect(saved.data.states.map((s) => s.key)).toEqual(["active"]);
-        const part = saved.data.parts.find((p) => p.name === "Region 1");
+        const part = saved.data.parts.find((p) => p.name === "Part 1");
         assertDefined(part);
         expect(saved.data.looks.find((l) => l.part === part.key)?.stroke).toEqual({
           type: "color",
@@ -364,7 +387,54 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       });
     });
 
-    it("names an unnamed shape in the drawing when a click adds it to a region", async () => {
+    it("bands a stroke in the theme of the preview", async () => {
+      // The preview's theme leaf loads fonts on this thread, which has no self.fonts.
+      vi.stubGlobal("fonts", document.fonts);
+      onTestFinished(() => {
+        vi.unstubAllGlobals();
+      });
+      const grp = await createParentGroup();
+      const payload = createSymbolPayload(uniqueName("banded"));
+      const symbol = await client.schematics.symbols.create({
+        ...payload,
+        group: grp.key,
+        data: {
+          ...payload.data,
+          drawing: {
+            type: "svg",
+            markup:
+              '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">' +
+              '<rect class="main" width="10" height="10"/></svg>',
+          },
+          parts: [{ key: "main", name: "Main", selectors: [".main"] }],
+          looks: [
+            {
+              key: "stroke",
+              part: "main",
+              stroke: {
+                type: "color",
+                value: { type: "fixed", value: color.construct("#ffffff") },
+              },
+            },
+          ],
+        },
+      });
+      const handle = await renderModalOpener(
+        Schematic.Symbol.Edit.useModal,
+        [{ symbolKey: symbol.key, group: grp.key }],
+        { client, additionalRegistry: theming.REGISTRY },
+      );
+      const stroke = () =>
+        getPreviewTransformWrapper(handle.baseElement).querySelector<SVGElement>(
+          "rect.main",
+        )?.style.stroke;
+      // The light theme shows white as black.
+      await waitFor(() => expect(stroke()).toBe("rgb(0, 0, 0)"), { timeout: 5000 });
+      fireEvent.click(getIconButton(handle.baseElement, "light-mode"));
+      await waitFor(() => expect(stroke()).toBe("rgb(255, 255, 255)"));
+    });
+
+    it("names an unnamed shape in the drawing when a click adds it to a part", async () => {
       const { symbol, handle } = await openEditModal(
         '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">' +
           '<rect data-region-id="region-1" width="10" height="10" fill="#ffffff"/>' +
@@ -375,11 +445,11 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       );
       assertDefined(circle);
       fireEvent.click(circle);
-      await screen.findByText("1 element");
+      await screen.findByText("1 shape");
       fireEvent.click(findButton("Save"));
       await waitFor(async () => {
         const saved = await retrieveStored(symbol.key);
-        const part = saved.data.parts.find((p) => p.name === "Region 1");
+        const part = saved.data.parts.find((p) => p.name === "Part 1");
         expect(part?.selectors).toEqual(['[data-region-id="region-2"]']);
         expect(saved.data.drawing.markup).toContain(
           '<circle cx="5" cy="5" r="2" fill="#000000" data-region-id="region-2"/>',
@@ -448,7 +518,8 @@ describe("Schematic.Symbol.Edit.useModal", () => {
         ],
       });
 
-    // openPainted opens the editor on a new symbol whose one part, Body, selects #a.
+    // openPainted opens the editor on a new symbol whose one part, Body, selects #a,
+    // and selects Body.
     const openPainted = async (data: Partial<schematic.symbol.Spec>) => {
       const grp = await createParentGroup();
       const payload = createSymbolPayload(uniqueName("painted"));
@@ -462,12 +533,59 @@ describe("Schematic.Symbol.Edit.useModal", () => {
         [{ symbolKey: symbol.key, group: grp.key }],
         { client, additionalRegistry: theming.REGISTRY },
       );
-      const item = (await screen.findByText("Body")).closest<HTMLElement>(
-        ".console-schematic-region-list-item",
-      );
-      assertDefined(item);
-      return { symbol, fill: within(item).getByLabelText("Fill") };
+      fireEvent.click(await screen.findByText("Body"));
+      await screen.findByRole("heading", { name: "Body" });
+      return { symbol, fill: screen.getByLabelText("Fill") };
     };
+
+    it("shows the paint that the whole drawing gives a part with none", async () => {
+      const { fill } = await openPainted({
+        looks: [{ key: "node", fill: { type: "node" } }],
+      });
+      expect(queryIcon(fill, "node")).not.toBeNull();
+    });
+
+    it("keeps Drawing from a part that the whole drawing paints", async () => {
+      const { fill } = await openPainted({
+        looks: [{ key: "node", fill: { type: "node" } }],
+      });
+      fireEvent.click(fill);
+      await waitFor(() =>
+        expect(findButton("Drawing").getAttribute("aria-disabled")).toBe("true"),
+      );
+    });
+
+    it("gives an overriding part the paint of the whole drawing back", async () => {
+      const node: schematic.symbol.Look = { key: "node", fill: { type: "node" } };
+      const { symbol, fill } = await openPainted({
+        states: [createState()],
+        looks: [
+          node,
+          {
+            key: "red",
+            part: "body",
+            when: { type: "equals", state: "active", values: [0] },
+            fill: {
+              type: "color",
+              value: { type: "fixed", value: color.construct("#ff0000") },
+            },
+          },
+        ],
+      });
+      fireEvent.click(fill);
+      const dialog = await waitFor(() => {
+        const el = document.querySelector<HTMLElement>(
+          ".console-schematic-paint-dialog",
+        );
+        assertDefined(el);
+        return el;
+      });
+      fireEvent.click(within(dialog).getByText("Whole drawing"));
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () =>
+        expect((await retrieveStored(symbol.key)).data.looks).toEqual([node]),
+      );
+    });
 
     it("hides Node color on a static symbol while symbol nodes are off", async () => {
       mocks.symbolNodes = false;
@@ -599,7 +717,31 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       });
     });
 
-    it("counts the elements of each part in the singular and the plural", async () => {
+    it("selects the whole drawing again when the selected part is removed", async () => {
+      const { symbol, handle } = await openEditModal(
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">' +
+          '<rect id="a" width="10" height="10"/></svg>',
+      );
+      fireEvent.click(getIconButton(getPartListItem("Part 1"), "close"));
+      await waitFor(() => expect(screen.queryByText("Part 1")).toBeNull());
+      expect(
+        getPartListItem("Whole drawing").classList.contains("lyra--selected"),
+      ).toBe(true);
+      const shape = getPreviewTransformWrapper(handle.baseElement).querySelector("#a");
+      assertDefined(shape);
+      fireEvent.click(shape);
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () =>
+        expect((await retrieveStored(symbol.key)).data.parts).toEqual([]),
+      );
+    });
+
+    it("counts the looks of a part beside its shapes", async () => {
+      await openPainted({ looks: [{ key: "l", part: "body", hidden: true }] });
+      expect(await screen.findByText("1 shape · 1 look")).toBeDefined();
+    });
+
+    it("counts the shapes of each part in the singular and the plural", async () => {
       const grp = await createParentGroup();
       const payload = createSymbolPayload(uniqueName("counted"));
       const parts = [
@@ -616,8 +758,8 @@ describe("Schematic.Symbol.Edit.useModal", () => {
         [{ symbolKey: symbol.key, group: grp.key }],
         { client, additionalRegistry: theming.REGISTRY },
       );
-      expect(await screen.findByText("1 element")).toBeDefined();
-      expect(screen.getByText("2 elements")).toBeDefined();
+      expect(await screen.findByText("1 shape")).toBeDefined();
+      expect(screen.getByText("2 shapes")).toBeDefined();
     });
   });
 });

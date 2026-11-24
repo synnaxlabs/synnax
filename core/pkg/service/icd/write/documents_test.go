@@ -63,7 +63,7 @@ var _ = Describe("Documents", func() {
 	// from returns the documents that d builds from fr, as text.
 	from := func(d *write.Documents, fr frame.Frame) []string {
 		var docs []string
-		for doc := range d.From(fr, skips) {
+		for _, doc := range d.From(fr, skips) {
 			docs = append(docs, string(doc))
 		}
 		return docs
@@ -165,6 +165,17 @@ var _ = Describe("Documents", func() {
 			To(BeEmpty())
 		Expect(from(d, frame.NewUnary(yKey, telem.NewSeriesV(2.0)))).
 			To(HaveExactElements(`{"x":1,"y":2}`))
+	})
+
+	It("Should give each document the row of the commands that it holds", func() {
+		d := point(icd.FloatJSONField{})
+		var rows []int
+		for row := range d.From(both(
+			telem.NewSeriesV(math.NaN(), 3.0, 5.0), telem.NewSeriesV(2.0),
+		), skips) {
+			rows = append(rows, row)
+		}
+		Expect(rows).To(HaveExactElements(1, 2))
 	})
 
 	It("Should send the good commands of a frame that holds a bad one", func() {

@@ -8,21 +8,22 @@
 // included in the file licenses/APL.txt.
 
 import type { Context, Middleware, Next, UnaryClient } from "@synnaxlabs/freighter";
-import { binary, errors, TimeStamp, url, uuid } from "@synnaxlabs/x";
+import { errors, url } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { apiKey } from "@/auth/apikey";
+import { oidc } from "@/auth/oidc";
 import { password } from "@/auth/password";
+import { session } from "@/auth/session";
 import {
   type Credentials,
   type Method,
   methodZ,
   type OIDCCredentials,
-  oidcCredentialsZ,
   type Proof,
   proofZ,
   type Session,
   type SessionKey,
-  sessionKeyZ,
   sessionZ,
 } from "@/auth/types.gen";
 import {
@@ -34,7 +35,7 @@ import {
   MissingCredentialsError,
   SessionEndedError,
 } from "@/errors";
-import { resource } from "@/resource";
+import type { resource } from "@/resource";
 import { Transport } from "@/transport";
 import { user } from "@/user";
 
@@ -45,80 +46,6 @@ const createResZ = z.object({
   user: user.userZ.optional(),
 });
 const renewResZ = z.object({ session: sessionZ, user: user.userZ.optional() });
-const retrieveReqZ = z.object({ subjects: resource.idZ.array().optional() });
-const retrieveResZ = z.object({ sessions: sessionZ.array() });
-const deleteReqZ = z.object({ keys: sessionKeyZ.array() });
-const emptyResZ = z.object({});
-
-const apiKeyKeyZ = z.uuid();
-export type APIKeyKey = z.infer<typeof apiKeyKeyZ>;
-
-const apiKeyZ = z.object({
-  /** key is the unique identifier for this API key. */
-  key: apiKeyKeyZ,
-  /** subject is the user or rack the key logs in as. */
-  subject: resource.idZ,
-  /** name is a label that tells the subject's keys apart. */
-  name: z.string(),
-  /** created is when the key was created. */
-  created: TimeStamp.z,
-});
-/** APIKey is an API key as the API returns it: the stored record without its hash. */
-export interface APIKey extends z.infer<typeof apiKeyZ> {}
-
-const API_KEY_PREFIX = "syk_";
-/** An API key token holds the 16 bytes of the record key and a 32 byte secret. */
-const API_KEY_LENGTH = 48;
-
-/**
- * Returns the key of the API key record that a token belongs to.
- * @throws {InvalidTokenError} when the token is not an API key.
- */
-export const apiKeyID = (token: string): APIKeyKey => {
-  if (!token.startsWith(API_KEY_PREFIX)) throw new InvalidTokenError("not an API key");
-  let raw: Uint8Array;
-  try {
-    raw = binary.decodeBase64(token.slice(API_KEY_PREFIX.length), {
-      alphabet: "base64url",
-    });
-  } catch {
-    throw new InvalidTokenError("malformed API key");
-  }
-  if (raw.length !== API_KEY_LENGTH) throw new InvalidTokenError("malformed API key");
-  return uuid.fromBytes(raw);
-};
-
-export interface NewAPIKey {
-  /** The user or rack the key logs in as. Defaults to the caller. */
-  subject?: resource.ID;
-  /** A label that tells the subject's keys apart. */
-  name: string;
-}
-
-const keyCreateReqZ = z.object({ subject: resource.idZ.optional(), name: z.string() });
-const keyCreateResZ = z.object({ token: z.string(), key: apiKeyZ });
-const keyRetrieveReqZ = z.object({ subjects: resource.idZ.array().optional() });
-const keyRetrieveResZ = z.object({ keys: apiKeyZ.array() });
-const keyDeleteReqZ = z.object({ keys: apiKeyKeyZ.array() });
-
-const oidcLinkKeyZ = z.uuid();
-export type OIDCLinkKey = z.infer<typeof oidcLinkKeyZ>;
-
-const oidcLinkZ = z.object({
-  /** key is the unique identifier for this link. */
-  key: oidcLinkKeyZ,
-  /** user is the key of the user the provider account logs in as. */
-  user: user.keyZ,
-  /**
-   * issuer is the issuer URL of the provider that proved the account, its `iss` claim.
-   * With account, it identifies the provider account.
-   */
-  issuer: z.string(),
-  /** account is the provider's permanent ID for the account, its `sub` claim. */
-  account: z.string(),
-});
-/** OIDCLink links an OpenID Connect provider account to a user. */
-export interface OIDCLink extends z.infer<typeof oidcLinkZ> {}
 
 const oidcLoginZ = z.object({
   /** provider is the name of the provider. */
@@ -133,84 +60,20 @@ const oidcLoginZ = z.object({
 /** OIDCLogin is where to send a person to log in through a provider. */
 export interface OIDCLogin extends z.infer<typeof oidcLoginZ> {}
 
-const oidcLinkReqZ = z.object({ credentials: oidcCredentialsZ });
-const oidcLinkResZ = z.object({ link: oidcLinkZ });
-const oidcRetrieveReqZ = z.object({ subjects: resource.idZ.array().optional() });
-const oidcRetrieveResZ = z.object({ links: oidcLinkZ.array() });
-const oidcUnlinkReqZ = z.object({ keys: oidcLinkKeyZ.array() });
-export interface CreatePasswordParams {
-  /** The user to give the password. Defaults to the caller. */
-  subject?: resource.ID;
-  /** The username to log in with. */
-  username: string;
-  /** The password. */
-  password: string;
-}
-
-const passwordCreateReqZ = z.object({
-  subject: resource.idZ.optional(),
-  username: z.string(),
-  password: z.string(),
-});
-
-export interface SetPasswordParams {
-  /** The user whose password to set. Defaults to the caller. */
-  subject?: resource.ID;
-  /** The new password. */
-  password: string;
-  /** The caller's current password. Required when the caller sets its own. */
-  currentPassword?: string;
-}
-
-const passwordSetReqZ = z.object({
-  subject: resource.idZ.optional(),
-  password: z.string(),
-  currentPassword: z.string().optional(),
-  cookie: z.boolean().optional(),
-});
-const passwordSetResZ = z.object({ token: z.string(), session: sessionZ.optional() });
-
-export interface RetrievePasswordsParams {
-  /** The users whose passwords to list. */
-  subjects?: resource.ID[];
-  /** The usernames of the passwords to list. */
-  usernames?: string[];
-}
-
-const passwordRetrieveReqZ = z.object({
-  subjects: resource.idZ.array().optional(),
-  usernames: z.string().array().optional(),
-});
-const passwordRetrieveResZ = z.object({
-  passwords: password.passwordZ.array().default(() => []),
-});
-
 // the login route a Core without sessions serves; kept for one release
 const METHODS_ENDPOINT = "/auth/methods";
 const LEGACY_LOGIN_ENDPOINT = "/auth/login";
 const SESSION_CREATE_ENDPOINT = "/auth/session/create";
 const SESSION_RENEW_ENDPOINT = "/auth/session/renew";
-const SESSION_RETRIEVE_ENDPOINT = "/auth/session/retrieve";
-const SESSION_DELETE_ENDPOINT = "/auth/session/delete";
 
 /** The routes the client sends to as it opens, keeps, and ends a session. */
 export const SESSION_ENDPOINTS = [
   LEGACY_LOGIN_ENDPOINT,
   SESSION_CREATE_ENDPOINT,
   SESSION_RENEW_ENDPOINT,
-  SESSION_RETRIEVE_ENDPOINT,
-  SESSION_DELETE_ENDPOINT,
+  session.RETRIEVE_ENDPOINT,
+  session.DELETE_ENDPOINT,
 ] as const;
-const KEY_CREATE_ENDPOINT = "/auth/key/create";
-const KEY_RETRIEVE_ENDPOINT = "/auth/key/retrieve";
-const KEY_DELETE_ENDPOINT = "/auth/key/delete";
-const OIDC_LINK_ENDPOINT = "/auth/oidc/link";
-const OIDC_RETRIEVE_ENDPOINT = "/auth/oidc/retrieve";
-const OIDC_UNLINK_ENDPOINT = "/auth/oidc/unlink";
-const PASSWORD_CREATE_ENDPOINT = "/auth/password/create";
-const PASSWORD_SET_ENDPOINT = "/auth/password/set";
-const PASSWORD_RETRIEVE_ENDPOINT = "/auth/password/retrieve";
-const PASSWORD_DISPATCH_ENDPOINT = "/auth/password/dispatch";
 
 // routes the Core serves without a token, so a request to one never logs in
 const TOKENLESS_ENDPOINTS = [
@@ -356,8 +219,8 @@ export interface Observer {
    */
   onUser?: (user: user.User | undefined) => void;
   /**
-   * Fires with the session's key after every successful login, and after setPassword
-   * opens a new session.
+   * Fires with the session's key after every successful login, and after setting a
+   * password opens a new session.
    */
   onSuccess?: (session: SessionKey) => void;
   /**
@@ -368,10 +231,14 @@ export interface Observer {
 }
 
 export class Client {
+  readonly apiKeys: apiKey.Client;
+  readonly sessions: session.Client;
+  readonly passwords: password.Client;
+  readonly oidc: oidc.Client;
   private readonly client: UnaryClient;
   private credentials?: Credentials;
   private apiKey?: string;
-  private oidc?: OIDCCredentials;
+  private oidcCredentials?: OIDCCredentials;
   private loadAPIKey?: () => Promise<string>;
   private resumeToken?: string;
   private readonly cookie: boolean;
@@ -395,19 +262,45 @@ export class Client {
     this.credentials =
       authority.credentials == null ? undefined : { ...authority.credentials };
     this.apiKey = authority.apiKey;
-    this.oidc = authority.oidc == null ? undefined : { ...authority.oidc };
+    this.oidcCredentials = authority.oidc == null ? undefined : { ...authority.oidc };
     this.loadAPIKey = authority.loadAPIKey;
     this.resumeToken = authority.token;
     this.cookie = authority.cookie ?? false;
     this.persistent = authority.persistent ?? false;
     this.observer = observer;
+    this.apiKeys = new apiKey.Client(client);
+    this.sessions = new session.Client(client);
+    this.passwords = new password.Client(client, {
+      cookie: this.cookie,
+      generation: () => this.generation,
+      credential: () => this.session?.credential,
+      onChange: (subject, change) => this.updateOwnCredentials(subject, change),
+      onSession: (token, replacement) => this.replaceSession(token, replacement),
+    });
+    this.oidc = new oidc.Client(client);
+  }
+
+  private updateOwnCredentials(
+    subject: resource.ID | undefined,
+    change: Partial<Credentials>,
+  ): void {
+    const own = subject == null || subject.key === this.subject?.key;
+    if (own && this.credentials != null) Object.assign(this.credentials, change);
+  }
+
+  private replaceSession(token: string, replacement: Session): void {
+    if (this.ownedSession != null && this.session?.key === this.ownedSession)
+      this.ownedSession = replacement.key;
+    this.authState = { authenticated: true, token, session: replacement };
+    if (this.resumeToken != null) this.resumeToken = token;
+    this.observer.onSuccess?.(replacement.key);
   }
 
   /** Replaces the stored credentials and clears auth state for a fresh login. */
   setCredentials({ username, password }: Credentials): void {
     this.credentials = { username, password };
     this.apiKey = undefined;
-    this.oidc = undefined;
+    this.oidcCredentials = undefined;
     this.loadAPIKey = undefined;
     this.resumeToken = undefined;
     this.authState = { authenticated: false };
@@ -486,204 +379,6 @@ export class Client {
   }
 
   /**
-   * Lists sessions: the caller's own by default, or those of the given subjects when
-   * the caller may retrieve them.
-   * @throws {AccessDeniedError} when the caller may not retrieve another subject's
-   * sessions.
-   * @throws {AuthError} when the login before the request fails.
-   */
-  async retrieveSessions(subjects?: resource.ID[]): Promise<Session[]> {
-    const res = await this.client.send(
-      SESSION_RETRIEVE_ENDPOINT,
-      { subjects },
-      retrieveReqZ,
-      retrieveResZ,
-    );
-    return res.sessions;
-  }
-
-  /**
-   * Ends the given sessions. Unknown keys are ignored.
-   * @throws {AccessDeniedError} when the caller may not end another subject's sessions.
-   * @throws {AuthError} when the login before the request fails.
-   */
-  async deleteSessions(...keys: SessionKey[]): Promise<void> {
-    await this.client.send(SESSION_DELETE_ENDPOINT, { keys }, deleteReqZ, emptyResZ);
-  }
-
-  /**
-   * Creates an API key. The returned token is the only copy of the key's secret.
-   * @throws {AccessDeniedError} when the caller may not create a key for the subject.
-   * @throws {NotFoundError} when the subject does not exist.
-   */
-  async createKey(key: NewAPIKey): Promise<{ token: string; key: APIKey }> {
-    return await this.client.send(
-      KEY_CREATE_ENDPOINT,
-      key,
-      keyCreateReqZ,
-      keyCreateResZ,
-    );
-  }
-
-  /**
-   * Lists API keys: the caller's own by default, or those of the given subjects when
-   * the caller may retrieve them.
-   * @throws {AccessDeniedError} when the caller may not retrieve another subject's
-   * keys.
-   */
-  async retrieveKeys(subjects?: resource.ID[]): Promise<APIKey[]> {
-    const res = await this.client.send(
-      KEY_RETRIEVE_ENDPOINT,
-      { subjects },
-      keyRetrieveReqZ,
-      keyRetrieveResZ,
-    );
-    return res.keys;
-  }
-
-  /**
-   * Deletes API keys and ends their sessions. Unknown keys are ignored.
-   * @throws {AccessDeniedError} when the caller may not delete another subject's keys.
-   */
-  async deleteKeys(...keys: APIKeyKey[]): Promise<void> {
-    await this.client.send(KEY_DELETE_ENDPOINT, { keys }, keyDeleteReqZ, emptyResZ);
-  }
-
-  /**
-   * Links the OpenID Connect provider account that the credentials prove to the
-   * caller, so the account can log in as the caller.
-   * @throws {InvalidCredentialsError} when the provider rejects the credentials.
-   * @throws {ValidationError} when the account or the caller already has a link for
-   * the provider.
-   */
-  async linkOIDC(credentials: OIDCCredentials): Promise<OIDCLink> {
-    const res = await this.client.send(
-      OIDC_LINK_ENDPOINT,
-      { credentials },
-      oidcLinkReqZ,
-      oidcLinkResZ,
-    );
-    return res.link;
-  }
-
-  /**
-   * Lists OpenID Connect provider links: the caller's own by default, or those of the
-   * given users when the caller may retrieve them.
-   * @throws {AccessDeniedError} when the caller may not retrieve another user's links.
-   */
-  async retrieveOIDCLinks(subjects?: resource.ID[]): Promise<OIDCLink[]> {
-    const res = await this.client.send(
-      OIDC_RETRIEVE_ENDPOINT,
-      { subjects },
-      oidcRetrieveReqZ,
-      oidcRetrieveResZ,
-    );
-    return res.links;
-  }
-
-  /**
-   * Removes OpenID Connect provider links and ends their sessions. Unknown keys are
-   * ignored.
-   * @throws {AccessDeniedError} when the caller may not remove another user's links.
-   */
-  async unlinkOIDC(...keys: OIDCLinkKey[]): Promise<void> {
-    await this.client.send(OIDC_UNLINK_ENDPOINT, { keys }, oidcUnlinkReqZ, emptyResZ);
-  }
-
-  /**
-   * Gives the caller, or another user when the caller may create and update that user,
-   * its first password.
-   * @throws {AuthError} when another user holds the username.
-   * @throws {AccessDeniedError} when the caller may not create and update the user.
-   * @throws {NotFoundError} when the user does not exist.
-   * @throws {ValidationError} when the username or password is empty, or the user
-   * already has a password.
-   */
-  async createPassword(params: CreatePasswordParams): Promise<void> {
-    await this.client.send(
-      PASSWORD_CREATE_ENDPOINT,
-      params,
-      passwordCreateReqZ,
-      emptyResZ,
-    );
-  }
-
-  /**
-   * Sets the caller's password, or another user's when the caller may update that
-   * user, and ends every session the old password opened. When that ends the client's
-   * own session, the client switches to the session the Core opens in its place.
-   * @throws {AuthError} when the caller sets its own password with a wrong current one.
-   * @throws {AccessDeniedError} when the caller may not update the user.
-   * @throws {ValidationError} when the password is empty, or the caller sets its own
-   * without the current one.
-   */
-  async setPassword(params: SetPasswordParams): Promise<void> {
-    const generation = this.generation;
-    const res = await this.client.send(
-      PASSWORD_SET_ENDPOINT,
-      { ...params, cookie: this.cookie || undefined },
-      passwordSetReqZ,
-      passwordSetResZ,
-    );
-    if (generation !== this.generation) return;
-    const own = params.subject == null || params.subject.key === this.subject?.key;
-    if (own && this.credentials != null) this.credentials.password = params.password;
-    if (res.session == null) return;
-    if (this.ownedSession != null && this.session?.key === this.ownedSession)
-      this.ownedSession = res.session.key;
-    this.authState = { authenticated: true, token: res.token, session: res.session };
-    if (this.resumeToken != null) this.resumeToken = res.token;
-    this.observer.onSuccess?.(res.session.key);
-  }
-
-  /**
-   * Lists passwords without their hashes: the caller's own by default, or those of the
-   * given users or usernames when the caller may retrieve their users. Unknown users
-   * and usernames are ignored.
-   * @throws {AccessDeniedError} when the caller may not retrieve another user.
-   */
-  async retrievePasswords(
-    params: RetrievePasswordsParams = {},
-  ): Promise<password.Password[]> {
-    const res = await this.client.send(
-      PASSWORD_RETRIEVE_ENDPOINT,
-      params,
-      passwordRetrieveReqZ,
-      passwordRetrieveResZ,
-    );
-    return res.passwords;
-  }
-
-  /**
-   * Applies the actions in order to the password with the given key. Sessions stay
-   * open. When the client logged in with the password, it keeps its credentials in step
-   * with the new username.
-   * @throws {AuthError} when another user holds the username that the actions set.
-   * @throws {AccessDeniedError} when the caller may not update the password's user.
-   * @throws {NotFoundError} when no password has the key.
-   * @throws {ValidationError} when an action sets an empty username.
-   */
-  async dispatchPassword(
-    key: password.Key,
-    ...actions: password.Action[]
-  ): Promise<void> {
-    const generation = this.generation;
-    await this.client.send(
-      PASSWORD_DISPATCH_ENDPOINT,
-      { key, dispatchKey: "", actions },
-      password.dispatchReqZ,
-      emptyResZ,
-    );
-    if (
-      generation !== this.generation ||
-      this.credentials == null ||
-      this.session?.credential !== key
-    )
-      return;
-    for (const a of actions) this.credentials.username = a.setUsername.username;
-  }
-
-  /**
    * Ends the client's own session and forgets it and the credentials, so later requests
    * fail until new credentials are set. Waits for a login in flight, then ends its
    * session too. A session the Core already ended counts as logged out.
@@ -704,10 +399,10 @@ export class Client {
     try {
       await this.sendAs(
         authState.token,
-        SESSION_DELETE_ENDPOINT,
+        session.DELETE_ENDPOINT,
         { keys: [key] },
-        deleteReqZ,
-        emptyResZ,
+        session.deleteReqZ,
+        session.deleteResZ,
       );
     } catch (err) {
       if (!RETRY_ON.some((e) => e.matches(err))) throw errors.fromUnknown(err);
@@ -724,7 +419,7 @@ export class Client {
   private forget(): void {
     this.credentials = undefined;
     this.apiKey = undefined;
-    this.oidc = undefined;
+    this.oidcCredentials = undefined;
     this.loadAPIKey = undefined;
     this.resumeToken = undefined;
   }
@@ -816,7 +511,7 @@ export class Client {
       if (generation !== this.generation) return null;
       // a code works once, so a later login resumes the session it opened
       if (spentCode) {
-        this.oidc = undefined;
+        this.oidcCredentials = undefined;
         this.resumeToken = state.token;
       }
       this.authState = state;
@@ -830,7 +525,7 @@ export class Client {
       this.authState = { authenticated: false };
       if (AuthError.matches(parsed)) {
         // the Core spent or refused the code; a Core that was not reached did neither
-        this.oidc = undefined;
+        this.oidcCredentials = undefined;
         this.resumeToken = undefined;
         // the next login loads a key again
         if (this.loadAPIKey != null) this.apiKey = undefined;
@@ -843,7 +538,8 @@ export class Client {
   private proof(): Proof | undefined {
     if (this.credentials != null) return { method: "password", ...this.credentials };
     if (this.apiKey != null) return { method: "api_key", key: this.apiKey };
-    if (this.oidc != null) return { method: "oidc", ...this.oidc };
+    if (this.oidcCredentials != null)
+      return { method: "oidc", ...this.oidcCredentials };
     return undefined;
   }
 
