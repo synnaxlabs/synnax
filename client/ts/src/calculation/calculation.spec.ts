@@ -12,7 +12,7 @@ import { describe, expect, it } from "vitest";
 
 import { calculation } from "@/calculation";
 import type { channel } from "@/channel";
-import { PathError } from "@/errors";
+import { PathError } from "@/index";
 import { createTestClient } from "@/testutil";
 
 const client = createTestClient();
