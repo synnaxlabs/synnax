@@ -21,7 +21,7 @@ import (
 )
 
 var _ = DescribeTable("Check: a handoff to a start in another writer's stored data",
-	func(ctx SpecContext, opts ...cesium.Option) {
+	func(ctx SpecContext, run cesium.HandoffRun, opts ...cesium.Option) {
 		const idx, data = cesium.ChannelKey(1), cesium.ChannelKey(2)
 		keys := []cesium.ChannelKey{idx, data}
 		db := MustSucceed(cesium.Open(ctx, "", append([]cesium.Option{
@@ -66,7 +66,7 @@ var _ = DescribeTable("Check: a handoff to a start in another writer's stored da
 		write(w, 10, 11, 12)
 		// The new writer would start inside the data of the other writer, as an open
 		// of it refuses.
-		Expect(db.Handoff(ctx, w, open(30), nil)).Error().To(MatchError(
+		Expect(db.Handoff(ctx, w, open(30), nil, run)).Error().To(MatchError(
 			ContainSubstring(
 				"cannot open writer because there is already data in the " +
 					"writer's time range",
@@ -75,6 +75,12 @@ var _ = DescribeTable("Check: a handoff to a start in another writer's stored da
 		stop()
 		Expect(db.Close()).To(Succeed())
 	},
-	Entry("on the old layout"),
-	Entry("on the pointer log", cesium.WithPointerLog()),
+	Entry("in a new run on the old layout", cesium.NewRun),
+	Entry("in the same run on the old layout", cesium.SameRun),
+	Entry("in a new run on the pointer log", cesium.NewRun, cesium.WithPointerLog()),
+	Entry(
+		"in the same run on the pointer log",
+		cesium.SameRun,
+		cesium.WithPointerLog(),
+	),
 )
