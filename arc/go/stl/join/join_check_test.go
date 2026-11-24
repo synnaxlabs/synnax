@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/stl/join"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -99,4 +100,78 @@ var _ = Describe("Join check", func() {
 		got, _ := samples(out)
 		Expect(got).To(Equal([]sample{{130, 0, []float64{1, 0}}}))
 	})
+	It("Should hold a live input that stops through the next primary frame, and drop "+
+		"each stamp of the frames after it", func() {
+		// Two 1 kHz inputs in frames of 40 samples, the other's frame after the
+		// primary's. The other input stops after frame 3.
+		const frame, frames, stop = 40, 7, 4
+		j := MustSucceed(join.New(join.Config{
+			DataTypes: []telem.DataType{telem.Float64T, telem.Float64T},
+			Live:      true,
+		}))
+		var out join.Output
+		dropped := make([]int, 0, frames)
+		for f := range frames {
+			ps, vs := make([]float64, frame), make([]float64, frame)
+			for k := range frame {
+				ps[k] = float64(f*frame+k) / 1000
+				vs[k] = float64(f*frame + k)
+			}
+			Expect(j.Push(0, values(vs...), stamps(telem.Alignment(f*frame), ps...))).
+				To(Succeed())
+			before := out.Dropped
+			j.Next(telem.TimeStamp(ps[frame-1]*float64(telem.Second)), &out)
+			dropped = append(dropped, out.Dropped-before)
+			if f < stop {
+				others := make([]float64, frame)
+				for k := range frame {
+					others[k] = ps[k] + 0.0005
+				}
+				Expect(j.Push(1, values(vs...), stamps(0, others...))).To(Succeed())
+			}
+		}
+		Expect(dropped).To(Equal([]int{frame, 0, 0, 0, 0, frame, frame}))
+	})
+
+	It("Should fail a history push that puts an input past 65,536 samples after its "+
+		"held one, and name the input", func() {
+		const most = 1 << 16
+		ss := make([]float64, most+1)
+		for i := range ss {
+			ss[i] = float64(i) / 1000
+		}
+		history := newJoin(2, 0, 0)
+		full := values(make([]float64, most)...)
+		Expect(history.Push(1, full, stamps(0, ss[:most]...))).To(Succeed())
+		Expect(history.Push(1, values(0), stamps(0, ss[most]))).
+			To(MatchError(ContainSubstring("input 1")))
+		live := MustSucceed(join.New(join.Config{
+			DataTypes: []telem.DataType{telem.Float64T, telem.Float64T},
+			Live:      true,
+		}))
+		Expect(live.Push(1, values(make([]float64, most+1)...), stamps(0, ss...))).
+			To(Succeed())
+	})
+	DescribeTable("Should keep the hold limit up to a largest interval of 2 times the "+
+		"median, and drop it past that",
+		func(largest float64, held bool) {
+			// 15 intervals of 1 s, then one of largest: the median is 1 s.
+			ss := make([]float64, 0, 17)
+			for i := range 16 {
+				ss = append(ss, float64(i))
+			}
+			ss = append(ss, 15+largest)
+			j := newJoin(2, 0, 0)
+			Expect(j.Push(1, values(make([]float64, len(ss))...), stamps(0, ss...))).
+				To(Succeed())
+			last := ss[len(ss)-1]
+			Expect(j.Push(0, values(1), stamps(0, last+4))).To(Succeed())
+			var out join.Output
+			j.Next(telem.TimeStampMax, &out)
+			got, _ := samples(out)
+			Expect(got).To(HaveLen(map[bool]int{true: 1, false: 0}[held]))
+		},
+		Entry("at 2 times: a limit of 3 s, so 4 s past drops", 2.0, false),
+		Entry("past 2 times: no limit, so 4 s past holds", 2.5, true),
+	)
 })

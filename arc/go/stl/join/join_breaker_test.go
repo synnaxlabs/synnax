@@ -78,7 +78,10 @@ var _ = Describe("Join breaker", func() {
 		var want join.Output
 		history.Next(telem.TimeStampMax, &want)
 
-		live := newJoin(2, 0, 0)
+		live := MustSucceed(join.New(join.Config{
+			DataTypes: []telem.DataType{telem.Float64T, telem.Float64T},
+			Live:      true,
+		}))
 		var (
 			got   join.Output
 			first int
