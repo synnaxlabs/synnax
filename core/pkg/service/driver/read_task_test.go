@@ -30,6 +30,7 @@ import (
 	"github.com/synnaxlabs/x/breaker"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -251,7 +252,7 @@ var _ = Describe("ReadTask", func() {
 				Expect(stopped.Details.Cmd).To(Equal("cmd-2"))
 				Expect(src.closes.Load()).To(BeEquivalentTo(1))
 				Expect(written(ctx, framerSvc, dataCh)).
-					To(telem.MatchWrittenSeries(telem.NewSeriesV[float32](1, 2, 3)))
+					To(MatchWrittenSeries(telem.NewSeriesV[float32](1, 2, 3)))
 			},
 		)
 
@@ -265,7 +266,7 @@ var _ = Describe("ReadTask", func() {
 				Eventually(src.results).Should(BeEmpty())
 				Expect(rt.Stop(false)).To(Succeed())
 				Expect(written(ctx, framerSvc, dataCh)).
-					To(telem.MatchWrittenSeries(telem.NewSeriesV[float32](1, 2)))
+					To(MatchWrittenSeries(telem.NewSeriesV[float32](1, 2)))
 			},
 		)
 
@@ -309,9 +310,9 @@ var _ = Describe("ReadTask", func() {
 				Eventually(src.results).Should(BeEmpty())
 				Expect(rt.Stop(false)).To(Succeed())
 				Expect(written(ctx, framerSvc, dataCh)).
-					To(telem.MatchWrittenSeries(telem.NewSeriesV[float32](5, 6)))
+					To(MatchWrittenSeries(telem.NewSeriesV[float32](5, 6)))
 				Expect(written(ctx, framerSvc, earlyData)).
-					To(telem.MatchWrittenSeries(telem.NewSeriesV[float32](1, 2)))
+					To(MatchWrittenSeries(telem.NewSeriesV[float32](1, 2)))
 			},
 		)
 
@@ -361,9 +362,9 @@ var _ = Describe("ReadTask", func() {
 				Eventually(src.results).Should(BeEmpty())
 				Expect(rt.Stop(false)).To(Succeed())
 				Expect(written(ctx, framerSvc, dataCh)).
-					To(telem.MatchWrittenSeries(telem.NewSeriesV[float32](1, 10, 20, 21)))
+					To(MatchWrittenSeries(telem.NewSeriesV[float32](1, 10, 20, 21)))
 				Expect(written(ctx, framerSvc, behindData)).
-					To(telem.MatchWrittenSeries(telem.NewSeriesV[float32](5, 6)))
+					To(MatchWrittenSeries(telem.NewSeriesV[float32](5, 6)))
 			},
 		)
 
@@ -387,7 +388,7 @@ var _ = Describe("ReadTask", func() {
 				Expect(w.Write(samples(5).frame)).To(BeTrue())
 				Expect(w.Close()).To(Succeed())
 				Expect(written(ctx, framerSvc, dataCh)).To(
-					telem.MatchWrittenSeries(telem.NewSeriesV[float32](1, 5, 10)),
+					MatchWrittenSeries(telem.NewSeriesV[float32](1, 5, 10)),
 				)
 			},
 			Entry("in a batch with a frame", func() []readResult {
@@ -505,7 +506,7 @@ var _ = Describe("ReadTask", func() {
 				}).Should(Succeed())
 				Expect(rt.Stop(false)).To(Succeed())
 				Expect(written(ctx, framerSvc, dataCh)).
-					To(telem.MatchWrittenSeries(telem.NewSeriesV[float32](1, 2)))
+					To(MatchWrittenSeries(telem.NewSeriesV[float32](1, 2)))
 			},
 		)
 

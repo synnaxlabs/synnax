@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/enumeration"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	"github.com/synnaxlabs/x/defaults"
@@ -42,7 +43,7 @@ func heater() symbol.Symbol {
 				}},
 				{Variant: symbol.NumberState{
 					BaseState: symbol.BaseState{Key: "level", Name: "Level"},
-					Bounds:    spatial.Bounds{Lower: 0, Upper: 100},
+					Bounds:    spatial.ClosedBounds{Lower: 0, Upper: 100},
 				}},
 			},
 			Commands: []symbol.Command{
@@ -128,6 +129,36 @@ var _ = Describe("Symbol nodes", func() {
 			Holder:    gorp.NewTarget("schematic", s.Key),
 			Reference: "nodes.config.spec.key",
 		}))
+	})
+
+	It("Should return the schematics whose symbol nodes draw the symbol as uses", func(
+		ctx SpecContext,
+	) {
+		sym := heater()
+		createSymbol(ctx, &sym)
+		s := schematic.Schematic{
+			Project: &proj.Key,
+			Name:    "symbols",
+			Nodes: []schematic.Node{
+				symbolNode("n", schematic.SymbolNodeConfig{Spec: customRef(sym)}),
+			},
+		}
+		createSchematic(ctx, &s)
+		legacy := schematic.Schematic{
+			Project: &proj.Key,
+			Name:    "custom statics",
+			Nodes: []schematic.Node{configured(
+				node("n", 0, 0),
+				defaults.Fill(schematic.NodeConfig{
+					Variant: schematic.CustomStaticNodeConfig{
+						SpecKey: sym.Key.String(),
+					},
+				}),
+			)},
+		}
+		createSchematic(ctx, &legacy)
+		Expect(svc.Symbol.Uses(ctx, db, sym.Key)).
+			To(Equal([]resource.ID{schematic.ResourceID(s.Key)}))
 	})
 
 	Describe("State enumerations", func() {
@@ -273,12 +304,18 @@ var _ = Describe("Symbol nodes", func() {
 })
 
 var _ = Describe("Symbol node channel bindings", func() {
-	bound := func(state, command, written channel.Key) schematic.Schematic {
+	// bound draws a heater, which commands reset with no state, from the channels.
+	bound := func(
+		ctx SpecContext,
+		state, command, written channel.Key,
+	) schematic.Schematic {
+		sym := heater()
+		createSymbol(ctx, &sym)
 		return schematic.Schematic{
 			Project: &proj.Key,
 			Name:    "bound",
 			Nodes: []schematic.Node{symbolNode("n", schematic.SymbolNodeConfig{
-				Spec: builtinRef("valve"),
+				Spec: customRef(sym),
 				States: []schematic.StateBinding{{
 					Key: "active",
 					Source: &schematic.Source{Variant: schematic.ChannelSource{
@@ -293,7 +330,7 @@ var _ = Describe("Symbol node channel bindings", func() {
 
 	It("Should list a node as a reader of its state's channel and a writer of its "+
 		"command channels", func(ctx SpecContext) {
-		s := bound(ch1, ch2, ch3)
+		s := bound(ctx, ch1, ch2, ch3)
 		createSchematic(ctx, &s)
 		holder := gorp.NewTarget("schematic", s.Key)
 		Expect(channelSvc.Uses(ctx, db, []channel.Key{ch1, ch2, ch3})).To(Equal(
@@ -309,7 +346,7 @@ var _ = Describe("Symbol node channel bindings", func() {
 		ctx SpecContext,
 	) {
 		keys := MustSucceed(channeltestutil.CreateVirtual(ctx, db, channelSvc, 3))
-		s := bound(keys[0], keys[1], keys[2])
+		s := bound(ctx, keys[0], keys[1], keys[2])
 		createSchematic(ctx, &s)
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return channelSvc.NewWriter(tx).DeleteMany(ctx, keys, false)

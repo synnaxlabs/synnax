@@ -27,6 +27,11 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
+// OwnedTables returns the tables of the records that a rack can own, so the write
+// binder lets the rack change them without other access. A file certificate is owned
+// by the rack it uses.
+func OwnedTables() []string { return []string{string(resource.TypeCertificate)} }
+
 // ServiceConfig is the configuration for the certificate API service.
 type ServiceConfig struct {
 	// Certificate stores certificates.
@@ -35,12 +40,7 @@ type ServiceConfig struct {
 	Certificate *certificate.Service
 }
 
-var (
-	_ config.Config[ServiceConfig] = ServiceConfig{}
-	// DefaultServiceConfig is the default configuration for the certificate API
-	// service.
-	DefaultServiceConfig = ServiceConfig{}
-)
+var _ config.Config[ServiceConfig] = ServiceConfig{}
 
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
@@ -62,7 +62,7 @@ type Service struct {
 
 // NewService opens a Service with the given configuration.
 func NewService(cfgs ...ServiceConfig) (*Service, error) {
-	cfg, err := config.New(DefaultServiceConfig, cfgs...)
+	cfg, err := config.New(ServiceConfig{}, cfgs...)
 	if err != nil {
 		return nil, err
 	}

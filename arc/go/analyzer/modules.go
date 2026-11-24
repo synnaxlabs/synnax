@@ -13,6 +13,7 @@ import (
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/analyzer/codes"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
+	"github.com/synnaxlabs/arc/formatter"
 	"github.com/synnaxlabs/arc/parser"
 )
 
@@ -23,7 +24,7 @@ func checkModuleRules(ctx acontext.Context[parser.IProgramContext]) {
 			if auth := item.AuthorityBlock(); auth != nil {
 				ctx.Diagnostics.Add(codes.ModuleAuthority.Atf(
 					auth, "a module cannot have an authority block",
-				))
+				).WithEdits("Remove authority block", formatter.RemoveStatement(auth)))
 			}
 			if flow := item.FlowStatement(); flow != nil {
 				ctx.Diagnostics.Add(codes.ModuleFlow.Atf(
@@ -37,6 +38,8 @@ func checkModuleRules(ctx acontext.Context[parser.IProgramContext]) {
 		if !ctx.Module {
 			ctx.Diagnostics.Add(codes.ExportOutsideModule.Atf(
 				item, "export is only valid in a module",
+			).WithEdits(
+				"Remove export", formatter.RemoveToken(item.EXPORT().GetSymbol()),
 			))
 			continue
 		}
