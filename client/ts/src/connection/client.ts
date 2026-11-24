@@ -431,6 +431,8 @@ export class Client implements Handle {
       const info = await sendCheck(this.unary);
       if (generation !== this.generation || this.closed) return;
       this.attempts = 0;
+      // only failed checks spend the retry budget, not ones waiting on the stream
+      this.brk?.reset();
       this.dispatch({ type: "check.success", info });
       this.warn(this.current.details);
       const replaced = prevKey !== "" && info.clusterKey !== prevKey;

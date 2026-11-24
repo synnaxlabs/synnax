@@ -1513,6 +1513,24 @@ describe("connection", () => {
       await client.close();
     });
 
+    it("should not spend a finite budget on checks that succeed", async () => {
+      const unary = mockUnary(() => TimeStamp.now());
+      const client = createClient(
+        unary,
+        {
+          requiresStream: true,
+          stream: { reset: async () => {}, ensure: async () => {} },
+        },
+        { baseInterval: TimeSpan.milliseconds(5), scale: 1, maxRetries: 2 },
+      );
+      const send = unary.send as ReturnType<typeof vi.fn>;
+      await expect.poll(() => send.mock.calls.length, POLL).toBeGreaterThanOrEqual(6);
+      expect(client.status.variant).toEqual("loading");
+      client.notify({ type: "stream.live" });
+      expect(client.status.variant).toEqual("success");
+      await client.close();
+    });
+
     it("should not demand the stream until the Core is licensed", async () => {
       const ensured = vi.fn(async () => {});
       const unary = createScriptedUnary({ license: "missing" });
