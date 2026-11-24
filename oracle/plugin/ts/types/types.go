@@ -2894,7 +2894,11 @@ func applyStringRules(
 	data *templateData,
 ) string {
 	if rules.Required {
-		zodType = fmt.Sprintf("%s.min(1, \"%s is required\")", zodType, fieldName)
+		zodType = fmt.Sprintf(
+			"%s.min(1, \"%s is required\")",
+			zodType,
+			casing.Label(fieldName),
+		)
 	}
 	// Zod's .min and .max count UTF-16 code units, but the other languages count code
 	// points. The two agree on whether a string is empty.
@@ -2942,7 +2946,7 @@ func applyNumberRules(
 		zodType = fmt.Sprintf(
 			"%s.refine((v) => v !== 0, \"%s is required\")",
 			zodType,
-			fieldName,
+			casing.Label(fieldName),
 		)
 	}
 	if rules.Min != nil {
