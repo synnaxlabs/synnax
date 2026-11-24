@@ -28,9 +28,9 @@ var (
 	ErrRangeNotFound = errors.Wrap(query.ErrNotFound, "time range not found")
 	// ErrDBClosed is returned when an operation is attempted on a closed DB.
 	ErrDBClosed = resource.NewClosedError("domain.db")
-	// ErrChanged is returned by Iterator.OpenReader when GC moved the iterator's domain
+	// errChanged is returned by Iterator.OpenReader when GC moved the iterator's domain
 	// and a delete changed it since the iterator reached it. A new seek clears it.
-	ErrChanged = errors.New("domain changed since the iterator reached it")
+	errChanged = errors.New("domain changed since the iterator reached it")
 	// ErrFileLimit is returned when the DB needs a new file but already holds the
 	// maximum of 65535 files.
 	ErrFileLimit = errors.New("domain DB holds the maximum number of files")
