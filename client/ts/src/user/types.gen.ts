@@ -56,7 +56,6 @@ export type Where = {
   or?: Where[];
   not?: Where;
   key?: filter.Set<typeof keyZ>;
-  usernames?: string[];
   roles?: role.Key[];
 };
 export const whereZ: z.ZodType<Where> = z.strictObject({
@@ -74,8 +73,6 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   },
   /** key selects by key. */
   key: filter.setZ(keyZ).optional(),
-  /** usernames matches the users whose password has any of the given usernames. */
-  usernames: zod.nullToUndefined(z.string().array()),
   /** roles matches the users that hold any of the given roles. */
   roles: zod.nullToUndefined(role.keyZ.array()),
 });
@@ -89,13 +86,7 @@ export const cursorZ = z.object({
 });
 export interface Cursor extends z.infer<typeof cursorZ> {}
 
-export const newZ = userZ
-  .omit({ rootUser: true })
-  .partial({ key: true, name: true })
-  .extend({
-    username: z.string().min(1, "username is required"),
-    password: z.string().min(1),
-  });
+export const newZ = userZ.omit({ rootUser: true }).partial({ key: true });
 export interface New extends z.input<typeof newZ> {}
 
 /** RetrieveResponse holds the users a RetrieveRequest selects. */
