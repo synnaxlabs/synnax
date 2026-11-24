@@ -238,6 +238,40 @@ var _ = Describe("Routes", Ordered, func() {
 		Expect(exists(ctx, ch)).To(BeTrue())
 	})
 
+	It("Should apply a current token with a pick that the plan does not reach", func(
+		ctx SpecContext,
+	) {
+		ch := createChannel(ctx)
+		tsk := createTask(ctx, createChannel(ctx))
+		u := createUser(ctx)
+		grant(
+			ctx,
+			u,
+			[]access.Action{access.ActionRetrieve, access.ActionDelete},
+			channel.ResourceID(ch),
+		)
+		picks := map[string]impact.Choice{
+			task.ResourceID(tsk.Key).String(): impact.ChoiceDelete,
+		}
+		picked := MustSucceed(plan(
+			AuthedCtx(ctx, u),
+			apiimpact.PlanRequest{Change: deleteOf(ch), Picks: picks},
+		))
+		unpicked := MustSucceed(
+			plan(AuthedCtx(ctx, u), apiimpact.PlanRequest{Change: deleteOf(ch)}),
+		)
+		Expect(picked.Token).To(Equal(unpicked.Token))
+		MustSucceed(apply(AuthedCtx(ctx, u), apiimpact.ApplyRequest{
+			Change: deleteOf(ch),
+			Token:  picked.Token,
+			Picks:  picks,
+		}))
+		Expect(exists(ctx, ch)).To(BeFalse())
+		Expect(MustSucceed(layer.Task.NewRetrieve().
+			Where(task.MatchKeys(tsk.Key)).
+			Exists(ctx, db))).To(BeTrue())
+	})
+
 	It("Should send a changed plan through the error codec", func(ctx SpecContext) {
 		ch := createChannel(ctx)
 		changed := impact.PlanChangedError{Plan: impact.Plan{

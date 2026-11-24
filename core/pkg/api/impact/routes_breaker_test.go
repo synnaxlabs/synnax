@@ -332,11 +332,17 @@ var _ = Describe("Routes breaker", Ordered, ContinueOnFailure, func() {
 		// A second subject with the same plan never saw the task.
 		other := createUser(ctx)
 		grant(ctx, other, retrieveDelete, channel.ResourceID(ch))
-		Expect(apply(AuthedCtx(ctx, other), apiimpact.ApplyRequest{
+		// The plan that the other subject sees differs, so the token refuses the apply
+		// before the pick does, with a plan that does not name the task.
+		_, err := apply(AuthedCtx(ctx, other), apiimpact.ApplyRequest{
 			Change: deleteOf(ch),
 			Token:  p.Token,
 			Picks:  map[string]impact.Choice{id.String(): impact.ChoiceDelete},
-		})).Error().To(MatchError(ContainSubstring("no entry is " + id.String())))
+		})
+		changed, ok := errors.AsType[impact.PlanChangedError](err)
+		Expect(ok).To(BeTrue(), "%v", err)
+		Expect(changed.Plan.Entries).To(BeEmpty())
+		Expect(changed.Plan.Hidden).To(Equal(impact.Hidden{Restrict: 1}))
 		Expect(MustSucceed(layer.Task.NewRetrieve().
 			Where(task.MatchKeys(tsk.Key)).
 			Exists(ctx, db))).To(BeTrue())

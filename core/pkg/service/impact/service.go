@@ -101,8 +101,9 @@ type PlanOptions struct {
 
 // Plan returns every record that c touches with the picks of opts, as seen by snap, and
 // the token that Apply checks. A delete pick on a channel adds its holders, as Apply
-// does. It writes nothing. A pick that is not a choice, that names no visible entry, or
-// that its entry does not allow fails with a validation error.
+// does. A pick for a record that the plan does not reach has no effect, and the token
+// does not hold it. Plan writes nothing. A pick that is not a choice, or that its entry
+// does not allow, fails with a validation error.
 func (s *Service) Plan(
 	ctx context.Context,
 	snap gorp.Snapshot,
@@ -169,7 +170,11 @@ func newPicks(opts PlanOptions) (picks, error) {
 		}
 		id, err := resource.ParseID(text)
 		if err != nil {
-			return picks{}, errors.Wrapf(validate.ErrValidation, "no entry is %s", text)
+			return picks{}, errors.Wrapf(
+				validate.ErrValidation,
+				"%s is not a record",
+				text,
+			)
 		}
 		p.named[id] = pick
 	}
@@ -331,7 +336,6 @@ func (s *Service) resolve(
 		r       resolution
 		all     = keys
 		earlier []Entry
-		visible = set.New[resource.ID]()
 		deleted = set.New[resource.ID]()
 	)
 	for {
@@ -346,11 +350,6 @@ func (s *Service) resolve(
 		if r.cancel == nil {
 			r.cancel = cancel
 		}
-		for _, e := range p.Entries {
-			if chosen.sees(e.Record) {
-				visible.Add(e.Record)
-			}
-		}
 		for _, rec := range picked {
 			if !deleted.Contains(rec) {
 				deleted.Add(rec)
@@ -363,15 +362,6 @@ func (s *Service) resolve(
 		}
 		earlier = append(earlier, p.Entries...)
 		all = append(slices.Clip(all), more...)
-	}
-	for id := range chosen.named {
-		if !visible.Contains(id) {
-			return resolution{}, errors.Wrapf(
-				validate.ErrValidation,
-				"no entry is %s",
-				id,
-			)
-		}
 	}
 	applied := Plan{Entries: r.last.Entries, Kept: r.last.Kept}
 	if len(earlier) > 0 {
