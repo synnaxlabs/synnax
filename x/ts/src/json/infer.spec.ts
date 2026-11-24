@@ -55,3 +55,22 @@ describe("shapeZ", () => {
     expect(() => json.inferredFieldZ.parse({ ...field, type: "null" })).toThrow();
   });
 });
+
+describe("shapeKey", () => {
+  const shape = (...pointers: string[]) => ({
+    fields: pointers.map((pointer) => json.inferredFieldZ.parse({ ...field, pointer })),
+  });
+
+  it("should give shapes with one set of fields one key, in any order", () => {
+    expect(json.shapeKey(shape("/ts", "/rpm"))).toEqual(
+      json.shapeKey(shape("/rpm", "/ts")),
+    );
+  });
+
+  it("should give shapes with other fields other keys", () => {
+    expect(json.shapeKey(shape("/ts", "/rpm"))).not.toEqual(
+      json.shapeKey(shape("/ts", "/fault")),
+    );
+    expect(json.shapeKey(shape("/a/b"))).not.toEqual(json.shapeKey(shape("/a", "/b")));
+  });
+});

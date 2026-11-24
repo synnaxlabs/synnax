@@ -1149,6 +1149,39 @@ describe("Kafka read form", () => {
       expect(record.messages.map(({ bindings }) => bindings.length)).toEqual([3, 2]);
     });
 
+    it("should offer a field of a kind that only the message of another kind reads", async () => {
+      const time = createTimeField();
+      const rec = await createRecord({
+        fields: [time, createField("rpm", "float"), createField("status", "float")],
+        recordKey: "pump",
+        index: time.key,
+        match: { type: "present", pointer: "/rpm" },
+      });
+      const { draft, dev } = await renderRead({ records: [rec] });
+      const dialog = await openAddData(dev, {
+        data: sampleOf(createKind("/rpm", "/status"), createKind("/fault", "/status")),
+      });
+      await dialog.findByText("pump · 2 records with /fault");
+      const [read, unread] = dialog.getAllByRole("checkbox", {
+        name: "Record /status",
+      });
+      expect(read).toHaveProperty("disabled", true);
+      expect(unread).toHaveProperty("disabled", false);
+      fireEvent.click(dialog.getByRole("button", { name: "Select all" }));
+      fireEvent.click(dialog.getByRole("button", { name: "Add 2 fields" }));
+      const [record] = await waitFor(async () => {
+        const next = await retrieveRecords(draft.key);
+        expect(next[0].messages).toHaveLength(2);
+        return next;
+      });
+      const { messages } = await client.icds.retrieve(record.icd);
+      expect(ICD.jsonFields(messages[1]).map(({ pointer }) => pointer)).toEqual([
+        "/time",
+        "/fault",
+        "/status",
+      ]);
+    });
+
     it("should show the hint with the fields and count the picks", async () => {
       const { dev } = await renderRead();
       const dialog = await openAddData(dev, { data: sampleOf(OVEN_SHAPE) });

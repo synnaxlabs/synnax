@@ -8,23 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { icd, kafka } from "@synnaxlabs/client";
-import { type json, map, uuid } from "@synnaxlabs/x";
+import { json, map, uuid } from "@synnaxlabs/x";
 
 import type { ReadRecord } from "@/feature/kafka/task/types";
 import { ICD } from "@/platform/icd";
 
 /** The pointers of the fields picked from each shape of a sample, by shape key. */
 export type Picks = Map<string, Set<string>>;
-
-/**
- * @returns a key for a shape that stays the same across samples while its fields do.
- * The Core groups the keys of a topic into shapes by their set of fields.
- */
-export const shapeKey = ({ fields }: json.Shape): string =>
-  fields
-    .map(({ pointer }) => pointer)
-    .sort()
-    .join("\n");
 
 /** A message that Add data puts in the task's ICD, and the records that read it. */
 export interface Addition {
@@ -38,10 +28,19 @@ export interface Addition {
 /** @returns the messages of an ICD, by its key. */
 export type MessagesOf = (icdKey: icd.Key) => icd.Message[];
 
+/** What a record reads in one of its JSON messages. */
+interface MessageRead {
+  /** The position of the message in the reads of the record. */
+  read: number;
+  match?: icd.JSONMatch;
+  /** The pointers of the fields that the record reads in the message. */
+  pointers: Set<string>;
+}
+
 /** What the records of the task read, by Kafka key. */
 export interface Reads {
-  /** The pointers of the fields that the records of each key read. */
-  pointers: Map<string, Set<string>>;
+  /** What the records of each key read, in each of their JSON messages. */
+  messages: Map<string, MessageRead[]>;
   /** The keys with a record that reads no JSON message. */
   jsonless: Set<string>;
   /**
@@ -51,34 +50,47 @@ export interface Reads {
   anyKey: Map<string, icd.JSONField>;
 }
 
-/** @returns the index of the first JSON message that a record reads, or -1 for none. */
-const jsonRead = (record: ReadRecord, held: icd.Message[]): number =>
-  record.messages.findIndex(
-    ({ message }) => held.find(({ key }) => key === message)?.payload.format === "json",
-  );
+/** @returns what a record reads in each of its JSON messages. */
+const messageReads = (record: ReadRecord, held: icd.Message[]): MessageRead[] =>
+  record.messages.flatMap(({ message, bindings }, read): MessageRead[] => {
+    const { payload } = held.find(({ key }) => key === message) ?? {};
+    if (payload?.format !== "json") return [];
+    const bound = new Set(bindings.map(({ field }) => field));
+    const pointers = payload.fields
+      .filter(({ key }) => bound.has(key))
+      .map(({ pointer }) => pointer);
+    return [{ read, match: payload.match, pointers: new Set(pointers) }];
+  });
 
-/** @returns the fields that a record binds, in any of its messages. */
-const boundFields = (record: ReadRecord, messagesOf: MessagesOf): icd.JSONField[] => {
-  const held = messagesOf(record.icd);
-  return record.messages.flatMap(({ message, bindings }) =>
-    ICD.jsonFields(held.find(({ key }) => key === message)).filter(({ key }) =>
-      bindings.some(({ field }) => field === key),
-    ),
+/**
+ * @returns the read whose message the Core gives the documents of shape: the one with
+ * a present rule at a field of the shape, else the one with no rule.
+ */
+const route = (shape: json.Shape, reads: MessageRead[]): MessageRead | undefined => {
+  const holds = (pointer: string): boolean =>
+    shape.fields.some(
+      (f) => f.pointer === pointer || f.pointer.startsWith(`${pointer}/`),
+    );
+  return (
+    reads.find(({ match }) => match?.type === "present" && holds(match.pointer)) ??
+    reads.find(({ match }) => match == null)
   );
 };
 
 /** @returns what the records of each Kafka key read. */
 export const readsOf = (records: ReadRecord[], messagesOf: MessagesOf): Reads => {
-  const reads: Reads = { pointers: new Map(), jsonless: new Set(), anyKey: new Map() };
+  const reads: Reads = { messages: new Map(), jsonless: new Set(), anyKey: new Map() };
   for (const record of records) {
     const { recordKey } = record;
-    if (jsonRead(record, messagesOf(record.icd)) < 0) reads.jsonless.add(recordKey);
-    const pointers = reads.pointers.get(recordKey) ?? new Set<string>();
-    for (const field of boundFields(record, messagesOf)) {
-      pointers.add(field.pointer);
-      if (recordKey === "") reads.anyKey.set(field.pointer, field);
-    }
-    reads.pointers.set(recordKey, pointers);
+    const held = messagesOf(record.icd);
+    const own = messageReads(record, held);
+    if (own.length === 0) reads.jsonless.add(recordKey);
+    map.getOrInsert(reads.messages, recordKey, () => []).push(...own);
+    if (recordKey !== "") continue;
+    for (const { message, bindings } of record.messages)
+      for (const field of ICD.jsonFields(held.find(({ key }) => key === message)))
+        if (bindings.some((b) => b.field === field.key))
+          reads.anyKey.set(field.pointer, field);
   }
   return reads;
 };
@@ -90,10 +102,10 @@ export const readsOf = (records: ReadRecord[], messagesOf: MessagesOf): Reads =>
  */
 export const carriedFields = (
   shape: json.Shape,
-  { pointers, anyKey }: Reads,
+  { messages, anyKey }: Reads,
 ): Map<string, icd.JSONField> => {
   const carried = new Map<string, icd.JSONField>();
-  if (shape.sources.every((key) => pointers.has(key))) return carried;
+  if (shape.sources.every((key) => messages.has(key))) return carried;
   shape.fields.forEach(({ pointer }, i) => {
     const field = anyKey.get(pointer);
     if (i !== shape.index && field != null) carried.set(pointer, field);
@@ -106,12 +118,15 @@ export const isExtendable = (shape: json.Shape, { jsonless }: Reads): boolean =>
   !shape.sources.some((key) => jsonless.has(key));
 
 /**
- * @returns the pointers that every key of a shape reads: its fields in the task. A key
- * with no record of its own reads what the record of the empty key reads.
+ * @returns the pointers that every key of a shape reads in the message that the Core
+ * gives the documents of the shape: its fields in the task. A key with no record of its
+ * own reads what the record of the empty key reads.
  */
-export const takenPointers = (shape: json.Shape, { pointers }: Reads): Set<string> => {
+export const takenPointers = (shape: json.Shape, { messages }: Reads): Set<string> => {
   const [first, ...rest] = shape.sources.map(
-    (key) => pointers.get(key) ?? pointers.get("") ?? new Set<string>(),
+    (key) =>
+      route(shape, messages.get(key) ?? messages.get("") ?? [])?.pointers ??
+      new Set<string>(),
   );
   return new Set([...(first ?? [])].filter((p) => rest.every((r) => r.has(p))));
 };
@@ -131,8 +146,8 @@ export const defaultPicks = (shape: json.Shape, reads: Reads): Set<string> => {
 };
 
 /** @returns the Kafka keys of a shape with no record of their own. */
-const freeKeys = (shape: json.Shape, { pointers }: Reads): string[] =>
-  shape.sources.filter((key) => !pointers.has(key));
+const freeKeys = (shape: json.Shape, { messages }: Reads): string[] =>
+  shape.sources.filter((key) => !messages.has(key));
 
 /** @returns the field that tells the documents of shape apart from other kinds. */
 const presentOf = (shape: json.Shape): json.InferredField | undefined =>
@@ -187,7 +202,7 @@ export const createAdditions = (
 ): Addition[] => {
   const taken = [...held];
   return shapes.flatMap((shape): Addition[] => {
-    const pointers = picks.get(shapeKey(shape));
+    const pointers = picks.get(json.shapeKey(shape));
     const recordKeys = freeKeys(shape, reads);
     if (pointers == null || pointers.size === 0 || recordKeys.length === 0) return [];
     const carried = carriedFields(shape, reads);
@@ -257,32 +272,11 @@ export interface KindMessage {
 }
 
 /**
- * @returns the position of the read of record whose message the Core gives the
- * documents of shape, or -1 for none. That is the message with a present rule at a
- * field of the shape, else the message with no rule.
- */
-const routedRead = (shape: json.Shape, record: ReadRecord, held: icd.Message[]) => {
-  const payloads = record.messages.map(
-    ({ message }) => held.find(({ key }) => key === message)?.payload,
-  );
-  const holds = (pointer: string): boolean =>
-    shape.fields.some(
-      (f) => f.pointer === pointer || f.pointer.startsWith(`${pointer}/`),
-    );
-  const ruled = payloads.findIndex(
-    (p) =>
-      p?.format === "json" && p.match?.type === "present" && holds(p.match.pointer),
-  );
-  if (ruled >= 0) return ruled;
-  return payloads.findIndex((p) => p?.format === "json" && p.match == null);
-};
-
-/**
  * @returns the picks that the records of the task gain, in the message that the Core
  * gives the documents of each picked shape. A message gains each picked field that it
  * does not hold, once for all of its records. A record starts to read each picked
- * field that it does not. When no message of a record takes a shape, the records of
- * its ICD start to read a new message for the kind.
+ * field that it does not read in that message. When no message of a record takes a
+ * shape, the records of its ICD start to read a new message for the kind.
  * @throws if a picked shape is not extendable.
  */
 export const createExtensions = (
@@ -295,30 +289,33 @@ export const createExtensions = (
   const extensions = new Map<icd.MessageKey, Extension>();
   const kinds = new Map<string, KindMessage>();
   for (const shape of shapes) {
-    const pointers = picks.get(shapeKey(shape));
+    const pointers = picks.get(json.shapeKey(shape));
     if (pointers == null) continue;
     for (const record of records) {
       if (!shape.sources.includes(record.recordKey)) continue;
       const held = messagesOf(record.icd);
-      if (jsonRead(record, held) < 0)
+      const own = messageReads(record, held);
+      if (own.length === 0)
         throw new Error(`Record ${record.key} reads no JSON message`);
-      const bound = new Set(
-        boundFields(record, messagesOf).map(({ pointer }) => pointer),
-      );
+      const routed = route(shape, own);
       const picked = shape.fields.filter(
-        (f) => pointers.has(f.pointer) && !bound.has(f.pointer),
+        (f) => pointers.has(f.pointer) && routed?.pointers.has(f.pointer) !== true,
       );
       if (picked.length === 0) continue;
-      const read = routedRead(shape, record, held);
-      if (read < 0) {
-        const kind = map.getOrInsert(kinds, `${record.icd}\n${shapeKey(shape)}`, () => {
-          const made = [...kinds.values()].filter(({ icd }) => icd === record.icd);
-          const taken = [...held, ...made.map(({ message }) => message)];
-          return createKindMessage(shape, picked, record, taken, label);
-        });
+      if (routed == null) {
+        const kind = map.getOrInsert(
+          kinds,
+          `${record.icd}\n${json.shapeKey(shape)}`,
+          () => {
+            const made = [...kinds.values()].filter(({ icd }) => icd === record.icd);
+            const taken = [...held, ...made.map(({ message }) => message)];
+            return createKindMessage(shape, picked, record, taken, label);
+          },
+        );
         kind.records.push(record.key);
         continue;
       }
+      const { read } = routed;
       const { message } = record.messages[read];
       const extension = map.getOrInsert(extensions, message, () => ({
         icd: record.icd,
