@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type CrudeSeries, Series } from "@synnaxlabs/x";
+import { type CrudeSeries, type destructor, Series } from "@synnaxlabs/x";
 
 import { channel } from "@/channel";
 import { NotFoundError, ValidationError } from "@/errors";
@@ -17,6 +17,20 @@ import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 /** Fetches channel payloads. Missing channels are omitted, not thrown. */
 export type ChannelRetriever = (channels: channel.Params) => Promise<channel.Payload[]>;
+
+/** Answers which channels a calculation writes, whether the reader sees it or not. */
+export interface CalculationOutputs {
+  /** @returns the keys among keys that a calculation writes. */
+  retrieve: (keys: channel.Key[]) => Promise<Set<channel.Key>>;
+  /**
+   * Calls handler with whether a calculation writes the channel, each time the answer
+   * changes on the Core. A first answer for the channel is not a change.
+   */
+  onChange: (
+    key: channel.Key,
+    handler: (output: boolean) => void,
+  ) => destructor.Destructor;
+}
 
 /** Fetches channel payloads, throwing a {@link NotFoundError} when any is missing. */
 export const retrieveRequired = async (

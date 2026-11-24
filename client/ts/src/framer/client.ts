@@ -22,8 +22,7 @@ import {
 } from "@synnaxlabs/x";
 
 import { channel } from "@/channel";
-import type { ChannelRetriever } from "@/framer/adapter";
-import type { CalculationOutputs } from "@/framer/cache/store";
+import type { CalculationOutputs, ChannelRetriever } from "@/framer/adapter";
 import { Deleter } from "@/framer/deleter";
 import { Feed, type FeedOptions } from "@/framer/feed";
 import { Frame } from "@/framer/frame";

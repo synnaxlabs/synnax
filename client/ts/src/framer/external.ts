@@ -7,9 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export type { ChannelRetriever } from "@/framer/adapter";
+export type { CalculationOutputs, ChannelRetriever } from "@/framer/adapter";
 export { NO_HISTORY } from "@/framer/cache/status";
-export { type CalculationOutputs } from "@/framer/cache/store";
 export * from "@/framer/client";
 export * from "@/framer/feed";
 export * from "@/framer/frame";

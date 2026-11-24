@@ -381,11 +381,10 @@ export default class Synnax extends framer.Client {
             .map(({ key }) => key),
         ),
       onChange: (key, handler) =>
-        this.calculations.outputs.subscribe(
-          (event) =>
-            handler(event.variant === "set" && calculation.isOutput(event.value)),
-          key,
-        ),
+        this.calculations.outputs.subscribe((event) => {
+          if (event.variant === "set" && query.isChange(event))
+            handler(calculation.isOutput(event.value));
+        }, key),
     };
     super({
       stream: transport.stream,
