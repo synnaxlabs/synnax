@@ -52,6 +52,10 @@ type Reader struct {
 		db, id      uint64
 		start, size int64
 	}
+	// tab is the table of the version 2 segment that the reader read last.
+	tab table
+	// word holds a footer, an entry, or a stamp of a version 2 table.
+	word [footerSize]byte
 }
 
 // NewReader returns a reader that shares the blocks of cache, or that reads each block

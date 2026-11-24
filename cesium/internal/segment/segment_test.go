@@ -27,13 +27,21 @@ import (
 )
 
 var (
-	cfg    = segment.Config{Key: 6, DB: 7, ID: 3, DataType: 4, Clock: 0x00200001}
+	cfg = segment.Config{
+		Key:      6,
+		DB:       7,
+		ID:       3,
+		DataType: 4,
+		Clock:    0x00200001,
+		Version:  segment.Version,
+	}
 	varCfg = segment.Config{
 		Key:      6,
 		DB:       7,
 		ID:       3,
 		DataType: 9,
 		Clock:    0x00200001,
+		Version:  segment.Version,
 		Variable: true,
 	}
 )
@@ -49,7 +57,7 @@ func pattern(n int) []byte {
 
 // placeAt returns the place of bytes at file offset off of the segment of c.
 func placeAt(c segment.Config, off int64) place.Place {
-	return place.Segment(c.DB, c.ID, uint64(off), segment.Version, c.DataType, c.Clock)
+	return place.Segment(c.DB, c.ID, uint64(off), c.Version, c.DataType, c.Clock)
 }
 
 // samples returns the stream of variable-density samples with the body sizes, and the

@@ -31,8 +31,11 @@ const (
 	VariableTrailer = 16
 	// NoStart is the first_off of a block in which no sample starts.
 	NoStart uint32 = 0xFFFFFFFF
-	// Version is the segment format version that this package writes.
+	// Version is the format version of the segments that writers write: raw samples.
 	Version uint16 = 1
+	// ProgressionVersion is the format version of a sealed clock segment that holds its
+	// stamps as progressions.
+	ProgressionVersion uint16 = 2
 	// lengthSize is the size of the length that starts each variable-density sample.
 	lengthSize = 4
 )
@@ -50,13 +53,15 @@ type Config struct {
 	DataType uint8
 	// Clock is the key of the clock that times the samples.
 	Clock uint32
+	// Version is the format version of the segment.
+	Version uint16
 	// Variable is true for a variable-density type. Each of its samples is a uint32
 	// length and then that many bytes, and a sample can cross blocks.
 	Variable bool
 }
 
 func (c Config) place(offset int64) place.Place {
-	return place.Segment(c.DB, c.ID, uint64(offset), Version, c.DataType, c.Clock)
+	return place.Segment(c.DB, c.ID, uint64(offset), c.Version, c.DataType, c.Clock)
 }
 
 func (c Config) trailer() int64 {
@@ -184,15 +189,30 @@ func (w *Writer) Write(p []byte) error {
 			return err
 		}
 	}
-	return w.write(p)
+	return w.write(p, true)
 }
 
 // Copy is Write for p that may start or end inside a variable-density sample, whose
 // other bytes the Copy before or after it holds. The bytes up to a commit must hold
 // whole samples.
-func (w *Writer) Copy(p []byte) error { return w.write(p) }
+func (w *Writer) Copy(p []byte) error { return w.write(p, true) }
 
-func (w *Writer) write(p []byte) error {
+// zeroBlock is the source of the zeros that Pad writes. Nothing writes to it.
+var zeroBlock [BlockSize]byte
+
+// Pad appends zeros to the end of the unfinished last block, with its trailer, and
+// counts no sample in them. The written bytes must end with a whole sample.
+func (w *Writer) Pad() error {
+	if w.cfg.Variable && (w.at.rest != 0 || w.at.split != 0) {
+		return errors.Newf("pad of a segment at %d stream bytes, inside a sample",
+			w.at.length)
+	}
+	return w.write(zeroBlock[:(BlockSize-w.at.length%BlockSize)%BlockSize], false)
+}
+
+// write appends p, and counts the variable-density samples that start in it when count
+// is true.
+func (w *Writer) write(p []byte, count bool) error {
 	if w.at.length+int64(len(p)) > math.MaxUint32 {
 		return errors.Newf(
 			"segment of %d stream bytes cannot grow by %d past 4 GiB",
@@ -214,9 +234,10 @@ func (w *Writer) write(p []byte) error {
 		w.buf = w.buf[:0]
 		return nil
 	}
+	count = count && w.cfg.Variable
 	// next is the offset in p of the next variable-density sample.
 	next := 0
-	if w.cfg.Variable {
+	if count {
 		next = w.start(p)
 	}
 	for i := 0; i < len(p); {
@@ -227,7 +248,7 @@ func (w *Writer) write(p []byte) error {
 				return err
 			}
 		}
-		if w.cfg.Variable {
+		if count {
 			next = w.countStarts(p, next, i, n)
 		}
 		w.at.crc = place.Update(w.at.crc, p[i:i+n])
