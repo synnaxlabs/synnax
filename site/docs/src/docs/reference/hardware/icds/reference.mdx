@@ -175,17 +175,17 @@ and **Enum mapping** settings.
 
 ### Types
 
-| Type                                           | Python class         | New channel | Notes                                            |
-| ---------------------------------------------- | -------------------- | ----------- | ------------------------------------------------ |
-| Float                                          | `FloatJSONField`     | `float64`   | A number.                                        |
-| Signed integer                                 | `IntegerJSONField`   | `int64`     | An integer.                                      |
-| Unsigned integer                               | `UnsignedJSONField`  | `uint64`    | An integer of 0 or more.                         |
-| Boolean                                        | `BooleanJSONField`   | `uint8`     | `true` or `false`, as 1 or 0. Not a number.      |
-| String                                         | `StringJSONField`    | `string`    | A string.                                        |
-| JSON                                           | `JSONJSONField`      | `json`      | Any JSON value.                                  |
-| UUID                                           | `UuidJSONField`      | `uuid`      | A UUID in a string.                              |
-| Bytes (base64)                                 | `BytesJSONField`     | `bytes`     | Base64 text in a string. Needs a pointer.        |
-| Timestamp (ISO 8601), (s), (ms), (µs), or (ns) | `TimestampJSONField` | `timestamp` | ISO 8601 text, or Unix time in s, ms, µs, or ns. |
+| Type                                           | Python class         | New channel | Notes                                                               |
+| ---------------------------------------------- | -------------------- | ----------- | ------------------------------------------------------------------- |
+| Float                                          | `FloatJSONField`     | `float64`   | A number.                                                           |
+| Signed integer                                 | `IntegerJSONField`   | `int64`     | An integer.                                                         |
+| Unsigned integer                               | `UnsignedJSONField`  | `uint64`    | An integer of 0 or more.                                            |
+| Boolean                                        | `BooleanJSONField`   | `uint8`     | `true` or `false`, as 1 or 0. Not a number.                         |
+| String                                         | `StringJSONField`    | `string`    | A string. A number, Boolean, object, or array writes its JSON text. |
+| JSON                                           | `JSONJSONField`      | `json`      | Any JSON value.                                                     |
+| UUID                                           | `UuidJSONField`      | `uuid`      | A UUID in a string.                                                 |
+| Bytes (base64)                                 | `BytesJSONField`     | `bytes`     | Base64 text in a string. Needs a pointer.                           |
+| Timestamp (ISO 8601), (s), (ms), (µs), or (ns) | `TimestampJSONField` | `timestamp` | ISO 8601 text, or Unix time in s, ms, µs, or ns.                    |
 
 In TypeScript, the `type` of a field is `"float"`, `"integer"`, `"unsigned"`,
 `"boolean"`, `"string"`, `"json"`, `"uuid"`, `"bytes"`, or `"timestamp"`.
