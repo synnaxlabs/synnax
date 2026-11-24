@@ -531,18 +531,11 @@ func (r *avgNode) nextEpoch(ctx node.Context) {
 	for start := int64(0); start < length; {
 		end := length
 		if timed && duration > 0 {
-			w := windowOf(inputTime.ValueAt[telem.TimeStamp](int(start)), duration)
+			var w int64
+			end, w = windowEnd(inputTime, start, duration)
 			if !r.windowed || w != r.window {
 				r.restartRunning()
 				r.window, r.windowed = w, true
-			}
-			for end = start + 1; end < length; end++ {
-				if windowOf(
-					inputTime.ValueAt[telem.TimeStamp](int(end)),
-					duration,
-				) != w {
-					break
-				}
 			}
 		} else {
 			r.windowed = false
@@ -567,6 +560,19 @@ func (r *avgNode) nextEpoch(ctx node.Context) {
 	out.Alignment, out.TimeRange = alignment, timeRange
 	outTime.Alignment, outTime.TimeRange = alignment, timeRange
 	r.Emit(ctx, 0)
+}
+
+// windowEnd returns the index past the last stamp of t from start on that lies in the
+// window of the stamp at start, and that window.
+func windowEnd(t telem.Series, start int64, duration telem.TimeSpan) (int64, int64) {
+	w := windowOf(t.ValueAt[telem.TimeStamp](int(start)), duration)
+	end := start + 1
+	for ; end < t.Len(); end++ {
+		if windowOf(t.ValueAt[telem.TimeStamp](int(end)), duration) != w {
+			break
+		}
+	}
+	return end, w
 }
 
 // windowOf returns the window that holds stamp, counted in window lengths of duration
