@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/lifetime"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
@@ -97,14 +98,9 @@ type Service struct {
 	table      *gorp.Table[SessionKey, Session]
 	indexes    indexes
 	disconnect observe.Disconnect
-	// lifecycle orders Run against Close.
-	lifecycle struct {
-		sync.Mutex
-		running bool
-		ran     bool
-		closed  bool
-	}
-	mu struct {
+	// guard orders Run against Close.
+	guard lifetime.Guard
+	mu    struct {
 		sync.Mutex
 		holds map[SessionKey]*hold
 		// seen leads the stored activity by up to a quarter of the idle timeout.
@@ -156,22 +152,10 @@ func (s *Service) IdleTimeout() time.Duration { return s.cfg.IdleTimeout }
 // then returns nil once both stop. A second Run, or a Run after Close, returns an
 // error.
 func (s *Service) Run(ctx context.Context) error {
-	s.lifecycle.Lock()
-	if s.lifecycle.closed {
-		s.lifecycle.Unlock()
-		return errors.New("run called after close")
+	if err := s.guard.Begin(); err != nil {
+		return err
 	}
-	if s.lifecycle.ran {
-		s.lifecycle.Unlock()
-		return errors.New("run called twice")
-	}
-	s.lifecycle.ran, s.lifecycle.running = true, true
-	s.lifecycle.Unlock()
-	defer func() {
-		s.lifecycle.Lock()
-		s.lifecycle.running = false
-		s.lifecycle.Unlock()
-	}()
+	defer s.guard.End()
 	var wg sync.WaitGroup
 	wg.Go(func() {
 		s.tick(ctx, "session_sweep", s.cfg.IdleTimeout/4, s.Sweep)
@@ -215,15 +199,9 @@ func (s *Service) tick(
 // Close releases the resources of the Service. Call it after Run returns: while Run
 // runs, Close returns an error and closes nothing.
 func (s *Service) Close() error {
-	s.lifecycle.Lock()
-	defer s.lifecycle.Unlock()
-	if s.lifecycle.running {
-		return errors.New("close called while Run runs")
+	if first, err := s.guard.Close(); !first || err != nil {
+		return err
 	}
-	if s.lifecycle.closed {
-		return nil
-	}
-	s.lifecycle.closed = true
 	s.disconnect()
 	return s.table.Close()
 }
