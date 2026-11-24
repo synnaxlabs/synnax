@@ -1476,11 +1476,12 @@ TEST(TestCommonWriteTask, WarnsWhileCommandStreamerWaitsForALicense) {
     const auto lost = std::make_shared<std::vector<x::telem::Frame>>();
     lost->emplace_back();
     auto streamer_factory = std::make_shared<pipeline::testutil::StreamerFactory>(
-        std::vector{
-            x::errors::NIL,
-            synnax::errors::LICENSE_MISSING,
-            synnax::errors::LICENSE_MISSING,
-        },
+        // Enough failed reopens that the wait outlasts the status flusher.
+        [] {
+            std::vector<x::errors::Error> errs(301, synnax::errors::LICENSE_MISSING);
+            errs[0] = x::errors::NIL;
+            return errs;
+        }(),
         std::make_shared<std::vector<pipeline::testutil::StreamerConfig>>(
             std::vector<pipeline::testutil::StreamerConfig>{
                 {lost,
