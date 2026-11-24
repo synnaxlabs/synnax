@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/http/versions/legacy"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/icd/read"
+	"github.com/synnaxlabs/synnax/pkg/service/icd/write"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	xconfig "github.com/synnaxlabs/x/config"
 	xio "github.com/synnaxlabs/x/io"
@@ -91,6 +92,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}, writes: writeResolver{
 		icds:     cfg.ICD,
 		channels: channels,
+		writes:   write.NewResolver(cfg.ICD, channels),
 		ins:      cfg.Instrumentation,
 	}}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
@@ -129,6 +131,8 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			SetEntryKey:     (*WriteConfig).SetKey,
 			PatchEntry:      (*WriteConfig).Patch,
 			HashEntry:       (*WriteConfig).HashContent,
+			HashReferences:  s.writes.hash,
+			HashedTables:    []string{"icd"},
 			ResolveEntry:    s.writes.resolve,
 			ValidateEntry:   (*WriteConfig).Validate,
 		},
