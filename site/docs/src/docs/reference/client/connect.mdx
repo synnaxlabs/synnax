@@ -283,19 +283,19 @@ password.
 | `SYNNAX_HOST`    | The host of the Core.                                       |
 | `SYNNAX_API_KEY` | An API key.                                                 |
 | `SYNNAX_PORT`    | The port of the Core. The default is `9090`.                |
-| `SYNNAX_SECURE`  | `false` or `0` to not use TLS. The default is `true`.       |
+| `SYNNAX_SECURE`  | `true` or `1` to use TLS, `false` or `0` to not use TLS.    |
 | `SYNNAX_CA_CERT` | The path to the PEM file of the CA certificate of the Core. |
 
 Each client takes each option from the first source that sets it: the argument, then its
 variable, then its default.
 
-| Python    | TypeScript | Variable         | Default |
-| --------- | ---------- | ---------------- | ------- |
-| `host`    | `host`     | `SYNNAX_HOST`    | None    |
-| `port`    | `port`     | `SYNNAX_PORT`    | `9090`  |
-| `api_key` | `apiKey`   | `SYNNAX_API_KEY` | None    |
-| `secure`  | `secure`   | `SYNNAX_SECURE`  | True    |
-| `ca_cert` | `caCert`   | `SYNNAX_CA_CERT` | None    |
+| Python    | TypeScript | Variable         | Default                             |
+| --------- | ---------- | ---------------- | ----------------------------------- |
+| `host`    | `host`     | `SYNNAX_HOST`    | None                                |
+| `port`    | `port`     | `SYNNAX_PORT`    | `9090`                              |
+| `api_key` | `apiKey`   | `SYNNAX_API_KEY` | None                                |
+| `secure`  | `secure`   | `SYNNAX_SECURE`  | False in Python, true in TypeScript |
+| `ca_cert` | `caCert`   | `SYNNAX_CA_CERT` | None                                |
 
 <Client.Tabs exclude={["console"]}>
 
@@ -386,9 +386,10 @@ cannot show. If a script stops at `sy.Synnax()` over SSH, set the environment va
 
 ## Connect with TLS
 
-The clients connect with TLS by default. For how to give the Core a certificate, see
-[Set up TLS](/reference/enterprise/tls). A Core that runs with `--insecure` does not
-serve TLS. To connect to it, set `secure` to false.
+The TypeScript client connects with TLS by default. In Python, set `secure` to true. For
+how to give the Core a certificate, see [Set up TLS](/reference/enterprise/tls). A Core
+that runs with `--insecure` does not serve TLS. To connect to it from TypeScript, set
+`secure` to false.
 
 <Client.Tabs exclude={["console"]}>
 
@@ -652,8 +653,8 @@ A Node.js script does not exit until you close the client.
   The password to log in with.
 </Field.Item>
 
-<Field.Item name="secure" id="python-secure" type="bool" default="True">
-  Connect with TLS. Set it to `False` for a Core that runs with `--insecure`.
+<Field.Item name="secure" id="python-secure" type="bool" default="False">
+  Connect with TLS.
 </Field.Item>
 
 <Field.Item name="ca_cert" id="python-ca-cert" type="str">
