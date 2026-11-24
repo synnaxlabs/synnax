@@ -169,13 +169,6 @@ const parse = (payload: string): unknown => {
   }
 };
 
-/** @returns the shape of the most records, the first of a tie, or null for none. */
-const mostRecords = (shapes: json.Shape[]): json.Shape | null =>
-  shapes.reduce<json.Shape | null>(
-    (top, shape) => (top == null || shape.count > top.count ? shape : top),
-    null,
-  );
-
 /** @returns the parsed JSON records of a shape's keys, newest first. */
 const newestFirst = (sample: kafka.SampledTopic, shape: json.Shape): unknown[] =>
   sample.records
@@ -504,7 +497,14 @@ const Content = ({
       set({ variant: "success", data });
       setPicks((prev) => rebase(prev, topic, data.shapes));
       setWholePicks((prev) =>
-        prev.has(topic) ? withWhole(prev, topic, true, mostRecords(data.shapes)) : prev,
+        prev.has(topic)
+          ? withWhole(
+              prev,
+              topic,
+              true,
+              ICD.Write.mostCommon(data.shapes, (shape) => shape),
+            )
+          : prev,
       );
       return data;
     } catch (e) {
@@ -584,7 +584,8 @@ const Content = ({
     let data = sample?.variant === "success" ? sample.data : null;
     if (data == null && (entry == null || sampleable(entry)))
       data = await loadSample(topic);
-    const shape = data == null ? null : mostRecords(data.shapes);
+    const shape =
+      data == null ? null : ICD.Write.mostCommon(data.shapes, (shape) => shape);
     setWholePicks((prev) => withWhole(prev, topic, true, shape));
   };
 
@@ -681,7 +682,7 @@ const Content = ({
         : activeTopic == null
           ? "Not listed by the cluster"
           : describeTopic(activeTopic, listing.listedAt);
-    const shape = mostRecords(data.shapes);
+    const shape = ICD.Write.mostCommon(data.shapes, (shape) => shape);
     pane =
       whole && shape != null ? (
         <WholeValues
