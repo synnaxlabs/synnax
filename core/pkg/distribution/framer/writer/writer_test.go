@@ -708,14 +708,9 @@ var _ = Describe("Writer", func() {
 				}))
 				Expect(iter.SeekFirst()).To(BeTrue())
 				Expect(iter.Next(telem.TimeSpanMax)).To(BeTrue())
-				// The handoff to second seals the writer of first, so the samples
-				// of second start a new stretch.
-				Expect(iter.Value().Count()).To(Equal(2))
+				Expect(iter.Value().Count()).To(Equal(1))
 				Expect(iter.Value().SeriesAt(0).Data).To(Equal(
-					telem.NewSeriesV[int16](1, 2, 3).Data,
-				))
-				Expect(iter.Value().SeriesAt(1).Data).To(Equal(
-					telem.NewSeriesV[int16](4, 5, 6).Data,
+					telem.NewSeriesV[int16](1, 2, 3, 4, 5, 6).Data,
 				))
 				Expect(iter.Close()).To(Succeed())
 			},
