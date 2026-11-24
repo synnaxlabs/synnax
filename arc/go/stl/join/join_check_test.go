@@ -10,6 +10,8 @@
 package join_test
 
 import (
+	"math/rand/v2"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/stl/join"
@@ -152,26 +154,62 @@ var _ = Describe("Join check", func() {
 		Expect(live.Push(1, values(make([]float64, most+1)...), stamps(0, ss...))).
 			To(Succeed())
 	})
-	DescribeTable("Should keep the hold limit up to a largest interval of 2 times the "+
-		"median, and drop it past that",
-		func(largest float64, held bool) {
-			// 15 intervals of 1 s, then one of largest: the median is 1 s.
-			ss := make([]float64, 0, 17)
-			for i := range 16 {
-				ss = append(ss, float64(i))
+	DescribeTable("Should keep the hold limit while 3 in 4 of the last intervals lie "+
+		"within a factor of 2 of their median, and drop it below that",
+		func(spans []float64, held bool) {
+			ss := make([]float64, 0, len(spans)+1)
+			ss = append(ss, 0)
+			for _, span := range spans {
+				ss = append(ss, ss[len(ss)-1]+span)
 			}
-			ss = append(ss, 15+largest)
 			j := newJoin(2, 0, 0)
 			Expect(j.Push(1, values(make([]float64, len(ss))...), stamps(0, ss...))).
 				To(Succeed())
 			last := ss[len(ss)-1]
-			Expect(j.Push(0, values(1), stamps(0, last+4))).To(Succeed())
+			Expect(j.Push(0, values(1), stamps(0, last+100))).To(Succeed())
 			var out join.Output
 			j.Next(telem.TimeStampMax, &out)
 			got, _ := samples(out)
 			Expect(got).To(HaveLen(map[bool]int{true: 1, false: 0}[held]))
 		},
-		Entry("at 2 times: a limit of 3 s, so 4 s past drops", 2.0, false),
-		Entry("past 2 times: no limit, so 4 s past holds", 2.5, true),
+		Entry("12 of 16 within: steady, so 100 s past drops",
+			[]float64{1, 1, 3, 1, 1, 3, 1, 1, 3, 1, 1, 3, 1, 1, 1, 1}, false),
+		Entry("11 of 16 within: no limit, so 100 s past holds",
+			[]float64{1, 1, 3, 1, 1, 3, 1, 1, 3, 1, 1, 3, 1, 3, 1, 1}, true),
+		Entry("3 of 4 within: steady", []float64{1, 1, 1, 5}, false),
+		Entry("2 of 4 within: no limit", []float64{1, 1, 5, 5}, true),
 	)
+
+	It(
+		"Should drop stamps long after an input stops that had one gap before it stopped",
+		func() {
+			// A 1 Hz input with one 3 s gap among its last 16 intervals stops at 18 s.
+			ss := []float64{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 12, 13, 14, 15, 16, 17, 18}
+			j := newJoin(2, 0, 0)
+			Expect(j.Push(1, values(make([]float64, len(ss))...), stamps(0, ss...))).
+				To(Succeed())
+			Expect(j.Push(0, values(1, 2), stamps(0, 19, 1000))).To(Succeed())
+			var out join.Output
+			j.Next(telem.TimeStampMax, &out)
+			Expect(out.Dropped).To(Equal(1))
+		},
+	)
+
+	It("Should hold an input of Poisson stamps with no limit", func() {
+		for seed := range uint64(8) {
+			r := rand.New(rand.NewPCG(seed, 1))
+			ss := make([]float64, 0, 33)
+			ss = append(ss, 0)
+			for range 32 {
+				ss = append(ss, ss[len(ss)-1]+r.ExpFloat64())
+			}
+			j := newJoin(2, 0, 0)
+			Expect(j.Push(1, values(make([]float64, len(ss))...), stamps(0, ss...))).
+				To(Succeed())
+			Expect(j.Push(0, values(1), stamps(0, ss[len(ss)-1]+1000))).To(Succeed())
+			var out join.Output
+			j.Next(telem.TimeStampMax, &out)
+			Expect(out.Dropped).To(BeZero(), "seed %d", seed)
+		}
+	})
 })
