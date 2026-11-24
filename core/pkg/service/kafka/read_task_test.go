@@ -2086,7 +2086,8 @@ var _ = Describe("Read task", func() {
 			},
 		)
 
-		It("Should reject two Kafka-stamped records on one index channel",
+		It("Should save two Kafka-stamped records on one index channel, then refuse "+
+			"to configure them",
 			func(ctx SpecContext) {
 				index, data := createIndexed(ctx, telem.Float64T)
 				other := channel.Channel{
@@ -2113,17 +2114,27 @@ var _ = Describe("Read task", func() {
 						record("b", ic, value(other)),
 					}),
 				}
-				Expect(
-					f.ConfigureTask(
-						ctx,
-						newTask(ctx, kafka.ReadTaskType, cfg),
-						"cmd-1",
-					),
-				).Error().To(MatchError(ContainSubstring(fmt.Sprintf(
-					"topics.0.records.1.messages.0: channel %d is also written by "+
-						"topics.0.records.0.messages.0",
-					index.Key(),
-				))))
+				t := task.Task{
+					Rack:   rackSvc.EmbeddedKey,
+					Name:   "Plant",
+					Type:   kafka.ReadTaskType,
+					Config: toJSON(cfg, json.OmitZeroStructFields(true)),
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return taskSvc.NewWriter(tx).Create(ctx, &t)
+				})).To(Succeed())
+				DeferCleanup(func(ctx SpecContext) {
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return taskSvc.NewWriter(tx).Delete(ctx, t.Key, true)
+					})).To(Succeed())
+				})
+				Expect(f.ConfigureTask(ctx, t, "cmd-1")).Error().To(MatchError(
+					ContainSubstring(fmt.Sprintf(
+						"topics.0.records.1.messages.0: channel %d is also written by "+
+							"topics.0.records.0.messages.0",
+						index.Key(),
+					)),
+				))
 			},
 		)
 

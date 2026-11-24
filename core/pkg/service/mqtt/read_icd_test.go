@@ -470,19 +470,39 @@ var _ = Describe("Read task ICD messages", func() {
 			))))
 		})
 
-		It("Should reject two messages on one index", func(ctx SpecContext) {
-			f := createFormat(ctx)
-			cfg := readConfig(ctx, dev, icdEntry(
-				"plant/status", f.ic,
-				readMessage(f.m, binding(f.m, 1, f.data[0])),
-				readMessage(f.n, binding(f.n, 0, f.data[1])),
-			))
-			Expect(configureErr(ctx, cfg)).To(MatchError(ContainSubstring(fmt.Sprintf(
-				"entries.0.messages.1: channel %d is also written by "+
-					"entries.0.messages.0",
-				f.idx.Key(),
-			))))
-		})
+		It("Should save two messages on one index, then refuse to configure them",
+			func(ctx SpecContext) {
+				f := createFormat(ctx)
+				t := task.Task{
+					Name: "Plant",
+					Type: mqtt.ReadTaskType,
+					Rack: rackKey,
+					Config: readConfig(ctx, dev, icdEntry(
+						"plant/status", f.ic,
+						readMessage(f.m, binding(f.m, 1, f.data[0])),
+						readMessage(f.n, binding(f.n, 0, f.data[1])),
+					)),
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return taskSvc.NewWriter(tx).Create(ctx, &t)
+				})).To(Succeed())
+				DeferCleanup(func(ctx SpecContext) {
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return taskSvc.NewWriter(tx).Delete(ctx, t.Key, true)
+					})).To(Succeed())
+				})
+				Expect(
+					factory.ConfigureTask(ctx, t, "configure"),
+				).Error().
+					To(MatchError(
+						ContainSubstring(fmt.Sprintf(
+							"entries.0.messages.1: channel %d is also written by "+
+								"entries.0.messages.0",
+							f.idx.Key(),
+						)),
+					))
+			},
+		)
 
 		It("Should reject an ICD that does not exist", func(ctx SpecContext) {
 			m := jsonMessage("Status", nil, jsonField("t", "/t", icd.FloatJSONField{}))

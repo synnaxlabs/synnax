@@ -391,7 +391,11 @@ func (f *Factory) configureRead(
 		return nil, cfg.AutoStart, err
 	}
 	if err = f.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
-		return check(ctx, snap, f.reads, &cfg, icds)
+		c, err := check(ctx, snap, f.reads, &cfg, icds)
+		if err != nil {
+			return err
+		}
+		return claimIndexes(c, &cfg)
 	}); err != nil {
 		return nil, cfg.AutoStart, err
 	}

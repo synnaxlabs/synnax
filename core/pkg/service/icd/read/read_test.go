@@ -137,18 +137,27 @@ var _ = Describe("Read", func() {
 		})
 	})
 
-	// check checks reads with the Checker of them, which is given plant.
-	check := func(ctx context.Context, reads ...read.Read) error {
+	// checker returns the Checker of reads, which is given plant, after it reads each
+	// of
+	// them, and the error of the first read that it refuses.
+	checker := func(ctx context.Context, reads ...read.Read) (read.Checker, error) {
 		GinkgoHelper()
 		c := MustSucceed(resolver.NewChecker(
 			ctx, db, reads, nil, map[icd.Key]icd.ICD{plant.Key: plant},
 		))
 		for _, rd := range reads {
 			if err := c.Read(rd); err != nil {
-				return err
+				return c, err
 			}
 		}
-		return nil
+		return c, nil
+	}
+
+	// check checks reads with the Checker of them.
+	check := func(ctx context.Context, reads ...read.Read) error {
+		GinkgoHelper()
+		_, err := checker(ctx, reads...)
+		return err
 	}
 
 	Describe("Checker", func() {
@@ -276,10 +285,61 @@ var _ = Describe("Read", func() {
 						"written by reads.0.messages.0.bindings.0.channel",
 				))
 			})
+		})
+
+		Describe("ClaimIndexes", func() {
+			// claimIndexes claims the index channels of reads with the Checker of them,
+			// which accepts each of them first.
+			claimIndexes := func(ctx context.Context, reads ...read.Read) error {
+				GinkgoHelper()
+				c := MustSucceed(checker(ctx, reads...))
+				for _, rd := range reads {
+					if err := c.ClaimIndexes(rd); err != nil {
+						return err
+					}
+				}
+				return nil
+			}
+
+			It("Should take an index channel that the index field binds", func(
+				ctx SpecContext,
+			) {
+				rm := indexed(
+					ts,
+					readOf(status, bind(ts, timeKey), bind(temp, valueKey)),
+				)
+				Expect(claimIndexes(ctx, readAt(0, plant.Key, rm))).To(Succeed())
+			})
+
+			It("Should take an index channel of two bound channels once", func(
+				ctx SpecContext,
+			) {
+				rm := readOf(status, bind(temp, valueKey), bind(temp, levelKey))
+				Expect(claimIndexes(ctx, readAt(0, plant.Key, rm))).To(Succeed())
+			})
+
+			It("Should reject a message that writes the index channel of another", func(
+				ctx SpecContext,
+			) {
+				rd := readAt(
+					0,
+					plant.Key,
+					indexed(
+						ts,
+						readOf(status, bind(ts, timeKey), bind(temp, valueKey)),
+					),
+					readOf(status, bind(temp, levelKey)),
+				)
+				Expect(claimIndexes(ctx, rd)).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError("reads.0.messages.1: channel 1 is also written by "+
+						"reads.0.messages.0.bindings.0.channel"),
+				))
+			})
 
 			DescribeTable("Should reject two messages that write one index channel",
 				func(ctx SpecContext, first icd.ReadMessage, other string) {
-					Expect(check(
+					Expect(claimIndexes(
 						ctx,
 						readAt(0, plant.Key, first),
 						readAt(1, plant.Key, readOf(status, bind(temp, levelKey))),
@@ -323,22 +383,29 @@ var _ = Describe("Read", func() {
 					"b.channel: channel 2 is also written by a.channel",
 				))
 			})
+		})
 
+		Describe("ClaimIndex", func() {
 			It("Should reject a tag whose index channel another tag writes", func(
 				ctx SpecContext,
 			) {
 				tags := []channel.Key{valueKey, levelKey}
 				c := MustSucceed(resolver.NewChecker(ctx, db, nil, tags, nil))
 				Expect(c.Claim(valueKey, []string{"a", "channel"})).To(Succeed())
-				Expect(c.Claim(levelKey, []string{"b", "channel"})).To(MatchError(
+				Expect(c.Claim(levelKey, []string{"b", "channel"})).To(Succeed())
+				Expect(c.ClaimIndex(valueKey, []string{"a", "channel"})).To(Succeed())
+				Expect(c.ClaimIndex(levelKey, []string{"b", "channel"})).To(MatchError(
 					"b.channel: channel 1 is also written by a.channel",
 				))
 			})
 
-			It("Should take a tag on an index channel once", func(ctx SpecContext) {
+			It("Should take nothing for a tag on an index channel", func(
+				ctx SpecContext,
+			) {
 				tags := []channel.Key{timeKey}
 				c := MustSucceed(resolver.NewChecker(ctx, db, nil, tags, nil))
 				Expect(c.Claim(timeKey, []string{"a", "channel"})).To(Succeed())
+				Expect(c.ClaimIndex(timeKey, []string{"a", "channel"})).To(Succeed())
 			})
 		})
 	})
