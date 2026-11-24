@@ -926,50 +926,51 @@ describe("Select", () => {
       ).toBeGreaterThanOrEqual(inset);
     });
 
-    it("should read a failed page once at the dialog's height cap", async () => {
-      const keys = Array.from({ length: 50 }, (_, i) => `key-${i}`);
-      const reads = vi.fn();
-      // Fails each read after a load that outlasts the scroll, as an unreachable Core
-      // does, and starts no read while one runs, as a Flux list does.
-      const Paged = (): ReactElement => {
-        const [status, setStatus] = useState<Status.Status>();
-        const [loading, setLoading] = useState(false);
-        const fetchMore = (): void => {
-          if (loading) return;
-          reads();
-          setLoading(true);
-          setStatus(Status.create({ variant: "loading", message: "Loading" }));
-          setTimeout(() => {
-            setLoading(false);
-            setStatus(
-              Status.create({
-                variant: "error",
-                message: "Failed to load channels",
-                description: "Cannot reach the Core",
-              }),
-            );
-          }, 500);
-        };
-        return (
-          <Select.Single<string, undefined>
-            resourceName="channel"
-            value={undefined}
-            onChange={() => {}}
-            data={keys}
-            initialVisible
-            allowNone
-            status={status}
-            onFetchMore={fetchMore}
-          >
-            {({ key, ...rest }) => (
-              <Select.Item key={key} {...rest} textValue={rest.itemKey}>
-                {rest.itemKey}
-              </Select.Item>
-            )}
-          </Select.Single>
-        );
+    // Fails each read after a load that outlasts the scroll, as an unreachable Core
+    // does, and starts no read while one runs, as a Flux list does.
+    const Paged = ({ reads }: { reads: () => void }): ReactElement => {
+      const [status, setStatus] = useState<Status.Status>();
+      const [loading, setLoading] = useState(false);
+      const fetchMore = (): void => {
+        if (loading) return;
+        reads();
+        setLoading(true);
+        setStatus(Status.create({ variant: "loading", message: "Loading" }));
+        setTimeout(() => {
+          setLoading(false);
+          setStatus(
+            Status.create({
+              variant: "error",
+              message: "Failed to load channels",
+              description: "Cannot reach the Core",
+            }),
+          );
+        }, 500);
       };
-      const { getByRole } = await renderThemed(<Paged />);
+      return (
+        <Select.Single<string, undefined>
+          resourceName="channel"
+          value={undefined}
+          onChange={() => {}}
+          data={Array.from({ length: 50 }, (_, i) => `key-${i}`)}
+          initialVisible
+          allowNone
+          status={status}
+          onFetchMore={fetchMore}
+        >
+          {({ key, ...rest }) => (
+            <Select.Item key={key} {...rest} textValue={rest.itemKey}>
+              {rest.itemKey}
+            </Select.Item>
+          )}
+        </Select.Single>
+      );
+    };
+
+    // Returns how many reads a scroll to the end of a failing paged select starts.
+    const readsOfScroll = async (): Promise<number> => {
+      const reads = vi.fn();
+      const { getByRole } = await renderThemed(<Paged reads={reads} />);
       await expect.element(page.getByText("Failed to load channels")).toBeVisible();
       const scroll = getByRole("listbox").element();
       const before = reads.mock.calls.length;
@@ -977,7 +978,19 @@ describe("Select", () => {
       await expect.poll(() => reads.mock.calls.length).toBe(before + 1);
       await expect.element(page.getByText("Failed to load channels")).toBeVisible();
       await sleep.sleep(TimeSpan.seconds(2));
-      expect(reads).toHaveBeenCalledTimes(before + 1);
+      return reads.mock.calls.length - before;
+    };
+
+    it("should read a failed page once at the dialog's height cap", async () => {
+      expect(await readsOfScroll()).toBe(1);
+    });
+
+    it("should read a failed page once in a window shorter than the cap", async () => {
+      const { innerWidth, innerHeight } = window;
+      onTestFinished(async () => await page.viewport(innerWidth, innerHeight));
+      await page.viewport(800, 300);
+      expect(window.innerHeight).toBe(300);
+      expect(await readsOfScroll()).toBe(1);
     });
   });
 
