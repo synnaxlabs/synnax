@@ -10,6 +10,7 @@
 package state_test
 
 import (
+	"context"
 	"fmt"
 	"slices"
 
@@ -254,7 +255,7 @@ var _ = Describe("Rewrites", func() {
 				Expect(s.Replay(10, []log.Record{seal, cut})).To(Succeed())
 				a.s, a.seq = s, 10
 				run(s)
-				w := MustSucceed(s.OpenWriter(state.WriterConfig{
+				w := MustSucceed(s.OpenWriter(context.Background(), state.WriterConfig{
 					Clock: 5,
 					Start: 100,
 					Keys:  []state.WriterKey{{Key: 6, DataType: 4}},

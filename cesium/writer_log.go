@@ -11,6 +11,7 @@ package cesium
 
 import (
 	"cmp"
+	"context"
 	"math"
 	"slices"
 
@@ -36,6 +37,8 @@ const entryLimit = log.MaxFrame / 4
 type logWriter struct {
 	e  *engine
 	st *state.Writer
+	// history reports the time range of a commit before the newest data of a key.
+	history func(context.Context, HistoryChange)
 	// clock is the key of the clock, and keys holds the clock first.
 	clock ChannelKey
 	keys  []*logKey
@@ -61,6 +64,9 @@ type logWriter struct {
 	// committed holds the keys of the commit in progress, and pre their preloads.
 	committed []ChannelKey
 	pre       []state.Preload
+	// backfilled holds the keys of the commit in progress that readers see data of
+	// after it.
+	backfilled []ChannelKey
 }
 
 // logKey is the open segment of one key of a logWriter.
@@ -82,9 +88,10 @@ type logKey struct {
 
 // openLogWriter opens a writer of cfg on the pointer log layout. The writer writes one
 // clock and the channels it times, the clock included. The caller holds db.mu.
-func (db *DB) openLogWriter(cfg WriterConfig) (*logWriter, error) {
+func (db *DB) openLogWriter(ctx context.Context, cfg WriterConfig) (*logWriter, error) {
 	w := &logWriter{
 		e:        db.engine,
+		history:  db.historyChanges.Notify,
 		byKey:    make(map[ChannelKey]*logKey, len(cfg.Channels)),
 		unstored: cfg.Mode == WriterModeStreamOnly,
 	}
@@ -120,7 +127,7 @@ func (db *DB) openLogWriter(cfg WriterConfig) (*logWriter, error) {
 	slices.SortStableFunc(w.keys, func(a, b *logKey) int {
 		return boolOrder(b.ch.Key == w.clock) - boolOrder(a.ch.Key == w.clock)
 	})
-	if err := w.openState(db, cfg, keys); err != nil {
+	if err := w.openState(ctx, db, cfg, keys); err != nil {
 		return nil, err
 	}
 	return w, nil
@@ -128,7 +135,12 @@ func (db *DB) openLogWriter(cfg WriterConfig) (*logWriter, error) {
 
 // openState opens the state writer of w, and seals each open segment of its keys that
 // the state hands over, since a writer starts a new segment for each key.
-func (w *logWriter) openState(db *DB, cfg WriterConfig, keys []state.WriterKey) error {
+func (w *logWriter) openState(
+	ctx context.Context,
+	db *DB,
+	cfg WriterConfig,
+	keys []state.WriterKey,
+) error {
 	start := cfg.Start
 	if start.IsZero() {
 		start = telem.NewTimeStamp(db.clock.Now())
@@ -148,7 +160,7 @@ func (w *logWriter) openState(db *DB, cfg WriterConfig, keys []state.WriterKey) 
 	_, err := db.engine.withPreloads(nil, stateKeys, start, start, false, func(
 		pre []state.Preload,
 	) (err error) {
-		st, err = db.engine.state.OpenWriter(stateCfg, pre...)
+		st, err = db.engine.state.OpenWriter(ctx, stateCfg, pre...)
 		return err
 	})
 	if err != nil {
@@ -182,7 +194,11 @@ func boolOrder(b bool) int {
 // write writes the series of fr for the keys of w, except the keys for which skip
 // returns true. A skipped clock skips every key, and a key skipped in a write stays
 // skipped until the next commit.
-func (w *logWriter) write(fr Frame, skip func(ChannelKey) bool) (Frame, bool, error) {
+func (w *logWriter) write(
+	ctx context.Context,
+	fr Frame,
+	skip func(ChannelKey) bool,
+) (Frame, bool, error) {
 	w.excluded = w.excluded[:0]
 	w.frames++
 	clock, n, err := w.validate(fr)
@@ -201,7 +217,7 @@ func (w *logWriter) write(fr Frame, skip func(ChannelKey) bool) (Frame, bool, er
 	if err != nil {
 		return fr, false, err
 	}
-	if refused, err := w.stretch(n, skip); err != nil || refused {
+	if refused, err := w.stretch(ctx, n, skip); err != nil || refused {
 		return fr, refused, err
 	}
 	alignment := telem.NewAlignment(w.number, w.next)
@@ -218,7 +234,7 @@ func (w *logWriter) write(fr Frame, skip func(ChannelKey) bool) (Frame, bool, er
 		}
 		s := fr.RawSeriesAt(i)
 		if !w.unstored {
-			if err = w.append(lk, s.Data); err != nil {
+			if err = w.append(ctx, lk, s.Data); err != nil {
 				w.putBack()
 				return fr, false, err
 			}
@@ -238,9 +254,13 @@ func (w *logWriter) write(fr Frame, skip func(ChannelKey) bool) (Frame, bool, er
 // stretch makes room for n samples in the stretch of w. It starts a new stretch when w
 // has none, or when n samples would pass the 2^32 - 1 samples of one, after a commit of
 // the uncommitted run with skip. It returns true when skip refuses that commit.
-func (w *logWriter) stretch(n int64, skip func(ChannelKey) bool) (bool, error) {
+func (w *logWriter) stretch(
+	ctx context.Context,
+	n int64,
+	skip func(ChannelKey) bool,
+) (bool, error) {
 	if w.number != 0 && uint64(w.next)+uint64(n) > math.MaxUint32 {
-		if _, refused, err := w.commit(skip); err != nil || refused {
+		if _, refused, err := w.commit(ctx, skip); err != nil || refused {
 			return refused, err
 		}
 		w.number = 0
@@ -274,7 +294,9 @@ func (w *logWriter) validate(fr Frame) (telem.Series, int64, error) {
 			continue
 		}
 		s := fr.RawSeriesAt(i)
-		if s.DataType != lk.ch.DataType {
+		// The clock takes int64 stamps too, as the index writer of the old layout does.
+		if s.DataType != lk.ch.DataType &&
+			(k != w.clock || s.DataType != telem.Int64T) {
 			return clock, 0, invalidDataTypeError(lk.ch, s.DataType)
 		}
 		if lk.frame == w.frames {
@@ -331,6 +353,15 @@ func (w *logWriter) checkOrder(
 				prev,
 			))
 		}
+		// A time range ends after its last stamp, so none holds the largest one.
+		if stamp == telem.TimeStampMax {
+			return 0, 0, channel.Wrap(w.clock, errors.Wrapf(
+				validate.ErrValidation,
+				"stamp %v must be before %v",
+				stamp,
+				telem.TimeStampMax,
+			))
+		}
 		if i == 0 {
 			first = stamp
 		}
@@ -340,9 +371,13 @@ func (w *logWriter) checkOrder(
 }
 
 // append appends p to the open segment of lk, which it creates first when lk has none.
-func (w *logWriter) append(lk *logKey, p []byte) error {
+func (w *logWriter) append(ctx context.Context, lk *logKey, p []byte) error {
 	if lk.w == nil {
-		<-w.e.ready
+		select {
+		case <-w.e.ready:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
 		id, err := w.st.NewSegment(lk.ch.Key)
 		if err != nil {
 			return err
@@ -387,8 +422,12 @@ func (w *logWriter) putBack() {
 }
 
 // commit makes the uncommitted run visible and returns its end. It commits nothing and
-// returns true when skip holds a key with samples to commit.
-func (w *logWriter) commit(skip func(ChannelKey) bool) (telem.TimeStamp, bool, error) {
+// returns true when skip holds a key with samples to commit. It reports to history each
+// key whose committed samples lie before data that readers see.
+func (w *logWriter) commit(
+	ctx context.Context,
+	skip func(ChannelKey) bool,
+) (telem.TimeStamp, bool, error) {
 	if w.samples == 0 {
 		return w.lastCommit, false, nil
 	}
@@ -425,6 +464,9 @@ func (w *logWriter) commit(skip func(ChannelKey) bool) (telem.TimeStamp, bool, e
 				lk.committed = int64(length)
 			}
 		}
+		for _, key := range w.backfilled {
+			w.history(ctx, HistoryChange{Key: key, TimeRange: w.first.Range(end)})
+		}
 		w.entry.Add(c)
 	}
 	w.samples, w.lastCommit = 0, end
@@ -439,14 +481,19 @@ func (w *logWriter) commit(skip func(ChannelKey) bool) (telem.TimeStamp, bool, e
 }
 
 // collectSlots sets keySegments to a slot for each segment with uncommitted samples, in
-// rising order of segment, and committed to the keys of those segments in rising order.
+// rising order of segment, committed to the keys of those segments in rising order, and
+// backfilled to those keys that readers see data of after the uncommitted run.
 func (w *logWriter) collectSlots() {
 	w.keySegments, w.committed = w.keySegments[:0], w.committed[:0]
+	w.backfilled = w.backfilled[:0]
 	for _, lk := range w.keys {
 		if lk.w == nil || lk.w.Len() == lk.committed {
 			continue
 		}
 		w.committed = append(w.committed, lk.ch.Key)
+		if w.e.storedAfter(lk.ch.Key, w.end) {
+			w.backfilled = append(w.backfilled, lk.ch.Key)
+		}
 		length, crc := lk.w.Pending()
 		w.keySegments = append(w.keySegments, log.Slot{
 			Segment: lk.id,
@@ -486,8 +533,8 @@ func (w *logWriter) seal(lk *logKey) error {
 }
 
 // endStretch commits, then makes the next write start a new stretch.
-func (w *logWriter) endStretch() error {
-	if _, _, err := w.commit(nil); err != nil {
+func (w *logWriter) endStretch(ctx context.Context) error {
+	if _, _, err := w.commit(ctx, nil); err != nil {
 		return err
 	}
 	w.number = 0

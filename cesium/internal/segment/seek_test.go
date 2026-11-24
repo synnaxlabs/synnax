@@ -141,6 +141,71 @@ var _ = Describe("Seek", func() {
 				},
 			)
 
+			// trailer is a change to field off (0 first_pos, 4 first_off) of the
+			// trailer
+			// of full block b.
+			type trailer struct {
+				b, off int64
+				v      uint32
+			}
+			// allBut sets first_pos to v in each of n full blocks but block b.
+			allBut := func(n, b int64, v uint32) []trailer {
+				var t []trailer
+				for i := range n {
+					if i != b {
+						t = append(t, trailer{i, 0, v})
+					}
+				}
+				return t
+			}
+
+			// Each entry seeks 10 samples from sample 2, at the start of block 1. The
+			// walk ends at sample 4, the start of block 2, whose trailer stays good.
+			// The search
+			// for sample 12 then reads only the changed trailers that lead it astray.
+			DescribeTable(
+				"Should refuse trailers that disagree with one another past the first "+
+					"block that the walk reaches",
+				func(changes []trailer, msg string) {
+					stream, starts := write(repeat(segment.BlockSize/2-4, 200)...)
+					for _, c := range changes {
+						at := varCfg.FileOffset((c.b+1)*segment.BlockSize) - 16 + c.off
+						Expect(
+							h.WriteAt(binary.LittleEndian.AppendUint32(nil, c.v), at),
+						).To(Equal(4))
+					}
+					Expect(
+						varCfg.SeekFrom(
+							h,
+							make([]byte, 16),
+							starts[2],
+							10,
+							int64(len(stream)),
+						),
+					).Error().To(SatisfyAll(
+						MatchError(place.ErrCorrupt),
+						MatchError(ContainSubstring(msg)),
+					))
+				},
+				Entry("every block but block 2 counts more samples before it",
+					allBut(100, 2, 1<<31), "segment block 0 counts samples before it"),
+				Entry(
+					"block 6 starts no sample, and blocks 0, 1, and 3 count too many",
+					[]trailer{
+						{0, 0, 12},
+						{1, 0, 12},
+						{3, 0, 12},
+						{6, 4, segment.NoStart},
+					},
+					"segment block 0 starts no sample",
+				),
+				Entry(
+					"blocks 5 and 6 start no sample",
+					[]trailer{{5, 4, segment.NoStart}, {6, 4, segment.NoStart}},
+					"segment block 5 starts no sample, but the block after it counts more",
+				),
+			)
+
 			It("Should refuse a sample length that runs past the segment", func() {
 				stream, starts := write(5, 5, 5)
 				Expect(

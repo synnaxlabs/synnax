@@ -173,7 +173,7 @@ var _ = Describe("Check: a Reserve at each crash point", func() {
 				for i := range keys {
 					keys[i] = state.WriterKey{Key: uint32(5 + i), DataType: 4}
 				}
-				w := MustSucceed(st.OpenWriter(state.WriterConfig{
+				w := MustSucceed(st.OpenWriter(context.Background(), state.WriterConfig{
 					Keys: keys, Clock: 5, Start: 10,
 				}))
 				for _, k := range keys {
