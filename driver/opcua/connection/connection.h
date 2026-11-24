@@ -401,8 +401,8 @@ public:
     /// Timing::min_cooldown and doubles up to Timing::max_cooldown. A connection that
     /// no one uses for Timing::idle_timeout closes.
     ///
-    /// Starts no new step once deadline passes, so a step in progress can still run
-    /// for the client timeout. A deadline does not count as a failure.
+    /// Does not start to connect once deadline passes, and keeps a connection that
+    /// opens after it. A deadline does not count as a failure.
     /// @returns errors::DEADLINE_EXCEEDED when deadline stops the attempt.
     std::pair<Connection, x::errors::Error> acquire(
         const Config &cfg,

@@ -249,8 +249,7 @@ Pending add_page(
 std::pair<types::ReadResponse, x::errors::Error> read_values(
     UA_Client *client,
     const std::vector<UA_UInt32> &nodes,
-    const size_t limit,
-    const std::chrono::steady_clock::time_point deadline
+    const size_t limit
 ) {
     std::vector<UA_ReadValueId> ids(nodes.size());
     for (size_t i = 0; i < nodes.size(); ++i) {
@@ -267,8 +266,6 @@ std::pair<types::ReadResponse, x::errors::Error> read_values(
     out.resultsSize = ids.size();
     const size_t step = limit == 0 ? ids.size() : limit;
     for (size_t offset = 0; offset < ids.size(); offset += step) {
-        if (std::chrono::steady_clock::now() >= deadline)
-            return {types::ReadResponse(), errors::DEADLINE_EXCEEDED};
         if (const auto err = lost(client)) return {types::ReadResponse(), err};
         UA_ReadRequest req;
         UA_ReadRequest_init(&req);
@@ -316,10 +313,8 @@ parse_namespaces(const UA_DataValue &value) {
 
 /// @brief reads what the Driver needs to know about the client's server, which also
 /// checks that the server answers. A server that lacks an operation limit has none.
-/// @returns errors::CRITICAL if the server has no namespace array, or
-/// errors::DEADLINE_EXCEEDED once deadline passes.
-std::pair<Server, x::errors::Error>
-read_server(UA_Client *client, const std::chrono::steady_clock::time_point deadline) {
+/// @returns errors::CRITICAL if the server has no namespace array.
+std::pair<Server, x::errors::Error> read_server(UA_Client *client) {
     if (const auto status = UA_Client_run_iterate(client, 0);
         status != UA_STATUSCODE_GOOD)
         return {Server{}, errors::parse(status)};
@@ -328,8 +323,7 @@ read_server(UA_Client *client, const std::chrono::steady_clock::time_point deadl
     const auto [limit, limit_err] = read_values(
         client,
         {UA_NS0ID_SERVER_SERVERCAPABILITIES_OPERATIONLIMITS_MAXNODESPERREAD},
-        0,
-        deadline
+        0
     );
     if (limit_err) return {Server{}, limit_err};
     server.max_nodes_per_read = uint32_value(limit.get().results[0]);
@@ -340,8 +334,7 @@ read_server(UA_Client *client, const std::chrono::steady_clock::time_point deadl
             UA_NS0ID_SERVER_SERVERCAPABILITIES_OPERATIONLIMITS_MAXNODESPERWRITE,
             UA_NS0ID_SERVER_SERVERCAPABILITIES_OPERATIONLIMITS_MAXNODESPERBROWSE,
         },
-        server.max_nodes_per_read,
-        deadline
+        server.max_nodes_per_read
     );
     if (err) return {Server{}, err};
     const auto *results = facts.get().results;
@@ -697,7 +690,7 @@ std::pair<Pool::Connection, x::errors::Error> Pool::acquire(
     }
     std::shared_ptr<const Server> server;
     if (!err) {
-        auto [read, read_err] = read_server(client.get(), deadline);
+        auto [read, read_err] = read_server(client.get());
         err = read_err;
         server = std::make_shared<const Server>(std::move(read));
     }
@@ -710,8 +703,7 @@ std::pair<Pool::Connection, x::errors::Error> Pool::acquire(
     lock.lock();
     breaker.connecting = false;
     if (err) {
-        if (!err.matches(errors::DEADLINE_EXCEEDED))
-            breaker.failed(err, this->timing, log_prefix);
+        breaker.failed(err, this->timing, log_prefix);
         // A lost connection keeps its entry, so its Session is activated again on the
         // next attempt instead of being left on the server.
         if (!created) this->put_back(key, client);

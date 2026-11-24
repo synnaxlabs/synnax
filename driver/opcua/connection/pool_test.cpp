@@ -788,22 +788,20 @@ TEST_F(ConnectionPoolTest, AcquireFailsAfterDeadline) {
     ASSERT_NIL_P(pool.acquire(conn_cfg, "[test] "));
 }
 
-/// @brief it should stop reading the facts of a server once its deadline passes, which
-/// does not count toward pausing the connections to that server.
-TEST_F(ConnectionPoolTest, AcquireDeadlineDoesNotOpenBreaker) {
+/// @brief it should keep a connection that opens after its deadline, so the next
+/// caller uses it without a new session.
+TEST_F(ConnectionPoolTest, AcquireKeepsConnectionOpenedAfterDeadline) {
     Pool pool(testutil::create_store());
     server->probe_delay = 50 * x::telem::MILLISECOND;
-    for (int i = 0; i < 4; ++i)
-        ASSERT_OCCURRED_AS_P(
-            pool.acquire(
-                conn_cfg,
-                "[test] ",
-                std::chrono::steady_clock::now() + std::chrono::milliseconds(5)
-            ),
-            errors::DEADLINE_EXCEEDED
-        );
+    const auto sessions = server->sessions_created.load();
+    ASSERT_NIL_P(pool.acquire(
+        conn_cfg,
+        "[test] ",
+        std::chrono::steady_clock::now() + std::chrono::milliseconds(20)
+    ));
     server->probe_delay = x::telem::TimeSpan{};
     ASSERT_NIL_P(pool.acquire(conn_cfg, "[test] "));
+    EXPECT_EQ(server->sessions_created.load(), sessions + 1);
 }
 
 /// @brief it should stop waiting for the connection attempt of another caller once its
