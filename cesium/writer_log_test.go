@@ -126,7 +126,7 @@ var _ = Describe("Writer on the pointer log", func() {
 		Expect(w.Close()).To(Succeed())
 		stored := MustSucceed(db.Read(ctx, telem.TimeRangeMax, idx)).Get(idx)
 		Expect(stored.Series[0]).To(
-			telem.MatchSeriesData(telem.NewSeriesSecondsTSV(10, 11, 12)),
+			MatchSeriesData(telem.NewSeriesSecondsTSV(10, 11, 12)),
 		)
 	})
 
@@ -303,7 +303,7 @@ var _ = Describe("Writer on the pointer log", func() {
 				w = openWriter(ctx, 10*telem.SecondTS)
 				MustSucceed2(w.Write(ctx, frame(10, 11), nil))
 				MustSucceed2(w.Commit(ctx, nil))
-				Expect(w.EndDomain(ctx, idx)).To(Succeed())
+				Expect(w.EndStretch(ctx)).To(Succeed())
 				changes = nil
 				MustSucceed2(w.Write(ctx, frame(12, 13), nil))
 				MustSucceed2(w.Commit(ctx, nil))

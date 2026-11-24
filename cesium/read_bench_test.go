@@ -181,8 +181,9 @@ func BenchmarkReadOneClock(b *testing.B) {
 				for range count {
 					series = append(series, telem.NewSeriesV(make([]float32, n)...))
 				}
-				if err := db.Write(
+				if err := write(
 					b.Context(),
+					db,
 					stamps[0],
 					telem.MultiFrame(keys, series),
 				); err != nil {
