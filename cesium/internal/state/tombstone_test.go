@@ -88,7 +88,7 @@ var _ = Describe("Tombstone", func() {
 		MustSucceed(s.Snapshot())
 		Expect(s.Channel(5).Segments).To(HaveLen(1))
 		Expect(s.Channel(5).Segments[0].ID).To(Equal(uint64(4)))
-		Expect(s.TakeDead()).To(Equal([]state.Dead{{Segment: 2, Key: 5}}))
+		Expect(s.TakeDead()).To(Equal([]state.Dead{{Segment: 2, Key: 5, Sequence: 10}}))
 		Expect(s.TakeDead()).To(BeEmpty())
 	})
 
@@ -100,7 +100,9 @@ var _ = Describe("Tombstone", func() {
 				seal,
 			})).To(Succeed())
 			run(s)
-			Expect(s.TakeDead()).To(Equal([]state.Dead{{Segment: 3, Key: 6}}))
+			Expect(
+				s.TakeDead(),
+			).To(Equal([]state.Dead{{Segment: 3, Key: 6, Sequence: 10}}))
 			Expect(s.Channel(6).Segments).To(BeEmpty())
 		},
 		Entry("by its Seal", &log.Seal{Segment: 3, Length: 12, TailCRC: 3}),
@@ -113,7 +115,7 @@ var _ = Describe("Tombstone", func() {
 			&log.Tombstone{Key: 6, Start: 0, End: 100},
 		})).To(Succeed())
 		run(s)
-		Expect(s.TakeDead()).To(Equal([]state.Dead{{Segment: 3, Key: 6}}))
+		Expect(s.TakeDead()).To(Equal([]state.Dead{{Segment: 3, Key: 6, Sequence: 10}}))
 	})
 
 	DescribeTable(

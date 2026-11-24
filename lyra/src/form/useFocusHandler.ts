@@ -11,7 +11,7 @@ import type { deep } from "@synnaxlabs/x";
 import { useEffect } from "react";
 
 import { useContext } from "@/form/Context";
-import { useSyncedRef } from "@/hooks/ref";
+import { useSyncedRef } from "@/hooks";
 
 /**
  * Runs the handler with the path that the form asks to take focus, when the handler is

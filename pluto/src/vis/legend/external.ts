@@ -8,5 +8,6 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/vis/legend/Container";
+export * from "@/vis/legend/Entries";
 export * from "@/vis/legend/Grouped";
 export * from "@/vis/legend/Simple";

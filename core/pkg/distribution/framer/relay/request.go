@@ -12,6 +12,7 @@ package relay
 import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
+	"github.com/synnaxlabs/x/telem"
 )
 
 // Request opens or updates a relay subscription, streaming live samples for the given
@@ -43,4 +44,8 @@ type Response struct {
 	// buffered before the drops. Changes in the dropped frames never arrive, so a
 	// consumer that holds state from the stream must read it again.
 	Missed bool `json:"missed" msgpack:"missed"`
+	// MissedRanges maps each channel with samples in the frames that a missed marker
+	// reports to the time range of those samples. A channel whose dropped samples carry
+	// no time range, such as a virtual channel, maps to the zero range.
+	MissedRanges map[channel.Key]telem.TimeRange `json:"missed_ranges,omitempty" msgpack:"missed_ranges,omitempty"`
 }

@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/cesium/internal/state"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
+	"go.uber.org/zap"
 )
 
 // pins counts the readers of each segment, and holds the key of each dead segment that
@@ -36,23 +37,23 @@ type held struct {
 	parts    []checkpoint.Part
 }
 
-// loadView returns the visible Channels of key and of its clock from one step of the
-// state, so the samples of key and their stamps come from one state, with the parts of
-// their ranges, or the error of parts that e no longer holds. It pins each segment and
-// part under the same lock that release takes, so release never unlinks a segment that
-// a Channel it returned still names, and a switch keeps each part. It unpins prev, the
-// pins of an earlier load, and returns the new pins and the error of the unlinks that
-// the unpin frees. It puts the segments that it pins in the arrays of buf when they
-// have room, which must not share an array with prev. For an index, clock is key, and
-// the clock half of the view is the same Channel with no pins of its own.
+// loadView sets each of chs to the visible Channel of the key of keys at its index, and
+// each of parts to the parts of its range, from one step of the state. It pins each of
+// their segments and parts under the same lock that release takes, so release never
+// unlinks a segment that a Channel it returned still names, and a switch keeps each
+// part. It pins a key that keys names twice once. It unpins prev, the pins of an earlier
+// load, as unpin does, and returns the new pins and the error of parts that e no longer
+// holds. It puts the segments that it pins in buf when it has room, which must not
+// share an array with prev.
 func (e *engine) loadView(
-	key, clock ChannelKey,
-	prev [2]held,
-	buf [2][]uint64,
-) (chs [2]*state.Channel, hs [2]held, err, unlinkErr error) {
+	keys []ChannelKey,
+	chs []*state.Channel,
+	parts [][]checkpoint.Part,
+	prev held,
+	buf []uint64,
+) (h held, err error) {
 	for {
-		var count uint64
-		chs[0], chs[1], count = e.state.Pair(key, clock)
+		count := e.state.Load(keys, chs)
 		e.pins.mu.Lock()
 		// A segment leaves the state only on a step that publishes, so with the count
 		// unchanged, release has unlinked no segment of chs.
@@ -61,39 +62,47 @@ func (e *engine) loadView(
 		}
 		e.pins.mu.Unlock()
 	}
-	hs[0], err = e.pinLocked(key, chs[0], buf[0])
-	if clock == key {
-		chs[1] = chs[0]
-	} else {
-		var clockErr error
-		hs[1], clockErr = e.pinLocked(clock, chs[1], buf[1])
-		err = errors.Join(err, clockErr)
+	n := 0
+	for _, ch := range chs {
+		if ch != nil {
+			n += len(ch.Segments)
+		}
 	}
-	free := append(e.pins.unpin(prev[0]), e.pins.unpin(prev[1])...)
-	e.pins.mu.Unlock()
-	return chs, hs, err, e.unlink(free)
-}
-
-// pinLocked pins each segment of ch, the visible Channel of key, and the parts of its
-// range, and returns them, or the error of parts that e no longer holds. It puts the
-// segments in buf when it has room. The caller holds e.pins.mu.
-func (e *engine) pinLocked(
-	key ChannelKey,
-	ch *state.Channel,
-	buf []uint64,
-) (h held, err error) {
-	if ch != nil {
-		h.segments = buf[:0]
-		if cap(h.segments) < len(ch.Segments) {
-			h.segments = make([]uint64, 0, len(ch.Segments))
+	h.segments = buf[:0]
+	if cap(h.segments) < n {
+		h.segments = make([]uint64, 0, n)
+	}
+	for i, ch := range chs {
+		if j := slices.Index(keys[:i], keys[i]); j >= 0 {
+			parts[i] = parts[j]
+			continue
+		}
+		parts[i] = nil
+		if ch == nil {
+			continue
 		}
 		for _, seg := range ch.Segments {
 			h.segments = append(h.segments, seg.ID)
 		}
-		h.parts, err = e.partsOf(key, ch.Parts)
+		p, partErr := e.partsOf(keys[i], ch.Parts)
+		parts[i], err = p, errors.Join(err, partErr)
+		h.parts = append(h.parts, p...)
 	}
 	e.pins.pin(h)
+	free := e.pins.unpin(prev)
+	e.pins.mu.Unlock()
+	e.unlinkLate(free)
 	return h, err
+}
+
+// repin pins next and unpins prev under one lock, and unlinks each dead segment that no
+// reader pins after it, as unlinkLate does.
+func (e *engine) repin(prev, next held) {
+	e.pins.mu.Lock()
+	e.pins.pin(next)
+	free := e.pins.unpin(prev)
+	e.pins.mu.Unlock()
+	e.unlinkLate(free)
 }
 
 // pinned returns the parts that readers pin.
@@ -111,12 +120,12 @@ func (e *engine) pin(id uint64) {
 }
 
 // unpin drops a reader's pins of h, and unlinks each dead segment that no reader pins
-// after it.
-func (e *engine) unpin(h held) error {
+// after it, as unlinkLate does.
+func (e *engine) unpin(h held) {
 	e.pins.mu.Lock()
 	free := e.pins.unpin(h)
 	e.pins.mu.Unlock()
-	return e.unlink(free)
+	e.unlinkLate(free)
 }
 
 // release unlinks the file of each segment of dead, which left the state, once no
@@ -135,18 +144,34 @@ func (e *engine) release(dead []state.Dead) error {
 	return e.unlink(free)
 }
 
-// pinnedDead returns the file names of the dead segments of key that wait for their
-// last reader.
-func (e *engine) pinnedDead(key ChannelKey) set.Set[string] {
+// pinnedFiles returns the file names of the segments of key that a reader pins. After a
+// Drop, the engine unlinks each of them once the log covers the Drop and no reader pins
+// it, so a file that waits for either stays.
+func (e *engine) pinnedFiles(key ChannelKey) set.Set[string] {
 	e.pins.mu.Lock()
 	defer e.pins.mu.Unlock()
 	names := set.New[string]()
-	for id, k := range e.pins.dead {
-		if k == key {
-			names.Add(segmentName(k, id))
-		}
+	for id := range e.pins.readers {
+		names.Add(segmentName(key, id))
 	}
 	return names
+}
+
+// unlinkLate removes the file of each segment of dead that its last reader unpinned.
+// The removal belongs to no caller then, so a failure is logged with the key and the
+// file, and the file waits for the orphan pass of the next open.
+func (e *engine) unlinkLate(dead []state.Dead) {
+	for _, d := range dead {
+		name := segmentName(d.Key, d.Segment)
+		if err := e.fs.Remove(name); err != nil {
+			e.ins.L.Error(
+				"Failed to remove the file of a dead segment",
+				zap.Uint32("key", d.Key),
+				zap.String("file", name),
+				zap.Error(err),
+			)
+		}
+	}
 }
 
 // unlink removes the file of each segment of dead, and tries every removal.

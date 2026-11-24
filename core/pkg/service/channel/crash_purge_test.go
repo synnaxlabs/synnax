@@ -120,12 +120,10 @@ var _ = Describe("Crash adapter, purge", func() {
 				Expect(ts.CreateChannel(ctx, cesium.Channel{
 					Key: key, Name: "time", IsIndex: true, DataType: telem.TimestampT,
 				})).To(Succeed())
-				Expect(ts.WriteSeries(
-					ctx,
+				Expect(commitFrame(ctx, ts, key, 10*telem.SecondTS, telem.UnaryFrame(
 					key,
-					10*telem.SecondTS,
 					telem.NewSeriesSecondsTSV(10, 11, 12),
-				)).To(Succeed())
+				))).To(Succeed())
 				Expect(ts.Close()).To(Succeed())
 				syncAll(disk, "")
 				var (

@@ -18,9 +18,9 @@ import { Color } from "@/color";
 import { Control } from "@/schematic/node/common/control";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
-import { Primitive } from "@/schematic/node/common/primitive";
+import { Primitive as BasePrimitive } from "@/schematic/node/common/primitive";
 import { Telem } from "@/schematic/node/common/telem";
-import { Setpoint } from "@/schematic/node/general/setpoint/Primitive";
+import { Primitive } from "@/schematic/node/general/setpoint/primitive";
 import type { NodeProps } from "@/schematic/node/spec";
 import { Setpoint as BaseSetpoint } from "@/vis/setpoint";
 import { Staleness } from "@/vis/staleness";
@@ -52,7 +52,7 @@ const useReadback = ({
   stalenessTimeout,
 }: UseReadbackProps): UseReadbackReturn => {
   const theme = Theming.use();
-  const level = Primitive.READOUT_LEVELS[size];
+  const level = BasePrimitive.READOUT_LEVELS[size];
   const fontHeight = theme.typography[level].size * theme.sizes.base;
   const textInset = 6 + fontHeight * 0.75;
   const offset = xy.construct(READOUT_INSET - textInset, Component.HEIGHTS[size]);
@@ -69,7 +69,7 @@ const useReadback = ({
     // The box ends at the value cell's right edge, and the clip keeps a long value
     // inside it.
     box: box.construct(xy.translate(position ?? xy.ZERO, offset), {
-      height: Primitive.readoutHeight(size),
+      height: BasePrimitive.readoutHeight(size),
       width: textInset + cellWidth,
     }),
     clip: true,
@@ -124,7 +124,7 @@ export const Symbol = ({
         {stale ? <Staleness.Badge /> : null}
       </Control.State>
       <Label.Label config={label} onChange={onConfigChange} />
-      <Setpoint
+      <Primitive.Setpoint
         onSend={set}
         value={value}
         units={units}
@@ -136,7 +136,7 @@ export const Symbol = ({
         inlineSize={inlineSize}
         readback={
           stateChannel !== 0 && (
-            <Primitive.Readout size={size} units={units} valueRef={valueRef} />
+            <BasePrimitive.Readout size={size} units={units} valueRef={valueRef} />
           )
         }
       />

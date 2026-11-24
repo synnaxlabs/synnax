@@ -23,56 +23,154 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-// logView is what one iterator of a key reads: the visible Channels of the key and of
-// its clock, with the parts of their ranges, which the engine loads from one step of
-// the state and pins together, so the samples and their stamps come from one state. The
-// data cursor loads the view at each seek. The clock cursors that the index opens read
-// the view and never load the live state. Each lookup of the index closes its clock
-// cursor and reader before it returns, and the calls of an iterator never overlap, so a
-// reload never unpins what a clock cursor still reads.
+// logView is what the iterators of a read on one clock read: the visible Channels of
+// the clock and of each key of the read that it times, which the engine loads from one
+// step of the state and pins together, so the samples of every key and their stamps
+// come from one state. The view loads once in each step of the read: the first seek of
+// the step loads it, and the stream iterator makes it stale before the next. A data
+// cursor keeps the ranges of its last seek, and their segments, until it seeks again.
+// So the view keeps its last load for the rest of the read once a load would take away
+// stamps that such ranges can need: a key or the clock gone, as a Drop leaves them, or
+// a stamp of the clock gone, as a delete of the clock leaves it. Each lookup of the
+// index closes its clock cursor and reader before it returns, and the calls of a read
+// never overlap, so a load never unpins what a cursor still reads.
 type logView struct {
-	e          *engine
-	key, clock ChannelKey
-	// chs and pinned hold the Channels of the key and the clock of the last load, and
-	// what it pins until the next load or the Close of the data cursor. spare holds the
-	// segment arrays that the next load fills.
-	chs    [2]*state.Channel
-	pinned [2]held
-	spare  [2][]uint64
-	loaded bool
+	e *engine
+	// keys holds the clock and then each key of the read on it, and chs their Channels.
+	// next is the array that the next load fills.
+	keys      []ChannelKey
+	chs, next []*state.Channel
+	loaded    bool
+	fresh     bool
+	// frozen is true once the view keeps its last load for the rest of the read.
+	frozen bool
+	// readers counts the data cursors of the view. The Close of the last unpins it.
+	readers int
+	// parts holds the parts of the range of each Channel of chs, and nextParts the array
+	// that the next load fills.
+	parts, nextParts [][]checkpoint.Part
+	// pinned holds the segments and parts of the last load, which the view pins until
+	// the next load or the Close of its last data cursor. spare is the segment array
+	// that the next load fills.
+	pinned held
+	spare  []uint64
 	// failed is true when the last load failed to read the parts of a range.
 	failed bool
-	// err holds the errors of the loads, a part read or an unlink after an unpin, which
-	// Close returns.
+	// err holds the errors of the part reads of the loads, which Close returns.
 	err error
 }
 
+func newLogView(e *engine, clock ChannelKey) *logView {
+	return &logView{e: e, keys: []ChannelKey{clock}}
+}
+
+// add adds key to the keys of v, and returns its index.
+func (v *logView) add(key ChannelKey) int {
+	v.keys = append(v.keys, key)
+	return len(v.keys) - 1
+}
+
+// channel returns the Channel of the key at index i in the load of the step, and the
+// parts of its range.
+func (v *logView) channel(i int) (*state.Channel, []checkpoint.Part) {
+	v.load()
+	return v.chs[i], v.parts[i]
+}
+
+// load loads v again when it is stale and not frozen. It keeps the last load, and
+// freezes v, when the new one would take away stamps of the last.
 func (v *logView) load() {
-	chs, pinned, err, unlinkErr := v.e.loadView(v.key, v.clock, v.pinned, v.spare)
-	v.spare = [2][]uint64{v.pinned[0].segments[:0], v.pinned[1].segments[:0]}
-	v.chs, v.pinned, v.loaded, v.failed = chs, pinned, true, err != nil
-	v.err = errors.Join(v.err, err, unlinkErr)
-}
-
-// half returns the Channel of the key, or of the clock when clock is true, and the
-// parts of its range that the view pins.
-func (v *logView) half(clock bool) (*state.Channel, []checkpoint.Part) {
-	if clock && v.clock != v.key {
-		return v.chs[1], v.pinned[1].parts
+	if v.fresh || v.frozen {
+		return
 	}
-	return v.chs[0], v.pinned[0].parts
+	v.fresh = true
+	v.next = slices.Grow(v.next[:0], len(v.keys))[:len(v.keys)]
+	v.nextParts = slices.Grow(v.nextParts[:0], len(v.keys))[:len(v.keys)]
+	h, err := v.e.loadView(v.keys, v.next, v.nextParts, held{}, v.spare)
+	if v.loaded && (gone(v.chs, v.next) || cut(v.chs[0], v.next[0])) {
+		v.e.unpin(h)
+		v.spare, v.frozen = h.segments[:0], true
+		return
+	}
+	v.e.unpin(v.pinned)
+	v.err = errors.Join(v.err, err)
+	v.chs, v.next = v.next, v.chs
+	v.parts, v.nextParts = v.nextParts, v.parts
+	v.pinned, v.spare = h, v.pinned.segments[:0]
+	v.loaded, v.failed = true, err != nil
 }
 
+// gone reports whether a Channel that last holds is missing from next.
+func gone(last, next []*state.Channel) bool {
+	for i, ch := range last {
+		if ch != nil && next[i] == nil {
+			return true
+		}
+	}
+	return false
+}
+
+// cut reports whether the pointers of next leave out a stamp range of a pointer of
+// last, as a delete of the clock leaves them. A rewrite that keeps every stamp cuts
+// nothing.
+func cut(last, next *state.Channel) bool {
+	if last == nil || next == nil {
+		return false
+	}
+	var spans []telem.TimeRange
+	for _, seg := range next.Segments {
+		for _, p := range seg.Pointers {
+			spans = append(spans, telem.TimeRange{Start: p.First, End: p.Last})
+		}
+	}
+	slices.SortFunc(spans, func(a, b telem.TimeRange) int {
+		return cmp.Compare(a.Start, b.Start)
+	})
+	// The union of the spans, each end inclusive.
+	union := spans[:0]
+	for _, sp := range spans {
+		if n := len(union); n > 0 && sp.Start <= union[n-1].End+1 {
+			union[n-1].End = max(union[n-1].End, sp.End)
+			continue
+		}
+		union = append(union, sp)
+	}
+	for _, seg := range last.Segments {
+		for _, p := range seg.Pointers {
+			i, _ := slices.BinarySearchFunc(union, p.First,
+				func(sp telem.TimeRange, t telem.TimeStamp) int {
+					return cmp.Compare(sp.End, t)
+				})
+			if i == len(union) || union[i].Start > p.First || union[i].End < p.Last {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// stale makes the next seek load v again.
+func (v *logView) stale() { v.fresh = false }
+
+// close drops a data cursor of v, and unpins v after the last one.
 func (v *logView) close() error {
-	err := errors.Join(v.err, v.e.unpin(v.pinned[0]), v.e.unpin(v.pinned[1]))
-	*v = logView{e: v.e, key: v.key, clock: v.clock}
+	if v.readers--; v.readers > 0 {
+		return nil
+	}
+	v.e.unpin(v.pinned)
+	err := v.err
+	v.err, v.fresh, v.loaded, v.frozen, v.failed = nil, false, false, false, false
+	clear(v.chs)
+	clear(v.parts)
+	v.pinned, v.spare = held{}, v.pinned.segments[:0]
 	return err
 }
 
-// logSource opens the cursors of the key of view, or of its clock when clock is true,
-// on the pointer log layout.
+// logSource opens the cursors of the key at index slot of view on the pointer log
+// layout. clock is true for the source of the index, whose slot is 0.
 type logSource struct {
 	view  *logView
+	slot  int
 	clock bool
 }
 
@@ -80,14 +178,14 @@ var _ domain.Source = logSource{}
 
 // OpenCursor implements domain.Source.
 func (s logSource) OpenCursor(cfg domain.IteratorConfig) domain.Cursor {
-	key := s.view.key
-	if s.clock {
-		key = s.view.clock
+	if !s.clock {
+		s.view.readers++
 	}
 	return domain.NewCursor(&logCursor{
 		e:      s.view.e,
-		key:    key,
+		key:    s.view.keys[s.slot],
 		view:   s.view,
+		slot:   s.slot,
 		clock:  s.clock,
 		bounds: cfg.Bounds,
 	})
@@ -114,10 +212,17 @@ func (r logRange) timeRange() telem.TimeRange {
 // logCursor moves over the pointers of one key in time order. Each seek loads the
 // visible pointers of the key, which never change once the state publishes them.
 type logCursor struct {
-	e      *engine
-	key    ChannelKey
-	view   *logView
-	clock  bool
+	e     *engine
+	key   ChannelKey
+	view  *logView
+	slot  int
+	clock bool
+	// held holds the segments of the ranges of a data cursor and the parts that its
+	// ranges come from, which it pins until its next load or Close, since a seek of
+	// another cursor of the view can load the view again while the ranges of this one
+	// still name them. spare is the segment array that the next load fills.
+	held   held
+	spare  []uint64
 	bounds telem.TimeRange
 	ranges []logRange
 	pos    int
@@ -133,20 +238,26 @@ type logCursor struct {
 
 var _ domain.Ranges = (*logCursor)(nil)
 
-// load loads the visible pointers of the key in time order: the live records of the
-// parts of its range, through the part cache, then the segments of the state that no
-// part holds. The data cursor loads the view again, and a clock cursor reads the clock
-// of the view, which it loads only when no seek loaded it yet.
+// load loads the visible pointers of the key in time order, from the view: the live
+// records of the parts of its range, through the part cache, then the segments of the
+// state that no part holds. A data cursor pins their segments and parts.
 func (c *logCursor) load() {
 	c.ranges = c.ranges[:0]
-	if !c.clock || !c.view.loaded {
-		c.view.load()
+	ch, parts := c.view.channel(c.slot)
+	if !c.clock {
+		next := held{segments: c.spare[:0], parts: parts}
+		if ch != nil {
+			for _, seg := range ch.Segments {
+				next.segments = append(next.segments, seg.ID)
+			}
+		}
+		c.e.repin(c.held, next)
+		c.held, c.spare = next, c.held.segments[:0]
 	}
 	if c.view.failed {
 		c.broken = true
 		return
 	}
-	ch, parts := c.view.half(c.clock)
 	if ch == nil {
 		return
 	}
@@ -280,7 +391,8 @@ func (c *logCursor) OpenReader(context.Context) (domain.RangeReader, error) {
 	}, nil
 }
 
-// Close implements domain.Ranges. The Close of the data cursor unpins the view.
+// Close implements domain.Ranges. The Close of a data cursor unpins its segments, and
+// the view after the last data cursor of the view.
 func (c *logCursor) Close() error {
 	c.valid = false
 	err := c.err
@@ -288,6 +400,8 @@ func (c *logCursor) Close() error {
 	if c.clock {
 		return err
 	}
+	c.e.unpin(c.held)
+	c.held, c.spare = held{}, c.held.segments[:0]
 	return errors.Join(err, c.view.close())
 }
 
@@ -325,5 +439,7 @@ func (r *logReader) Size() telem.Size { return telem.Size(r.size) }
 
 // Close implements domain.RangeReader.
 func (r *logReader) Close() error {
-	return errors.Join(r.h.Close(), r.e.unpin(held{segments: []uint64{r.id}}))
+	err := r.h.Close()
+	r.e.unpin(held{segments: []uint64{r.id}})
+	return err
 }

@@ -52,10 +52,12 @@ type logWriter struct {
 	last telem.TimeStamp
 	// The uncommitted run: the index of its first sample, its first and last stamps,
 	// and its sample count.
-	from        uint32
-	first, end  telem.TimeStamp
-	samples     uint32
-	lastCommit  telem.TimeStamp
+	from       uint32
+	first, end telem.TimeStamp
+	samples    uint32
+	lastCommit telem.TimeStamp
+	// since is the end of the last commit of the stretch, or zero before its first.
+	since       telem.TimeStamp
 	frames      int
 	entry       log.Entry
 	excluded    []ChannelKey
@@ -86,32 +88,36 @@ type logKey struct {
 	skipped bool
 }
 
-// openLogWriter opens a writer of cfg on the pointer log layout. The writer writes one
-// clock and the channels it times, the clock included. The caller holds db.mu.
+// openLogWriter opens a writer of cfg on the pointer log layout. The writer writes its
+// clock and the channels that the clock times. The caller holds db.mu.
 func (db *DB) openLogWriter(ctx context.Context, cfg WriterConfig) (*logWriter, error) {
 	w := &logWriter{
 		e:        db.engine,
+		clock:    cfg.Clock,
 		history:  db.historyChanges.Notify,
 		byKey:    make(map[ChannelKey]*logKey, len(cfg.Channels)),
-		unstored: cfg.Mode == WriterModeStreamOnly,
+		unstored: cfg.Unstored,
+	}
+	if clock, ok := db.channelOf(cfg.Clock); !ok {
+		return nil, channel.NewNotFoundError(cfg.Clock)
+	} else if !clock.IsIndex {
+		return nil, channel.Wrap(cfg.Clock, errors.Wrap(
+			validate.ErrValidation,
+			"writer clock is not an index",
+		))
 	}
 	keys := make([]state.WriterKey, 0, len(cfg.Channels))
-	for i, key := range cfg.Channels {
+	for _, key := range cfg.Channels {
 		ch, ok := db.channelOf(key)
 		if !ok {
 			return nil, channel.NewNotFoundError(key)
 		}
-		clock := ch.Index
-		if ch.IsIndex {
-			clock = ch.Key
-		}
-		if i == 0 {
-			w.clock = clock
-		} else if clock != w.clock {
-			return nil, errors.Wrap(
-				errors.ErrUnsupported,
-				"a writer of the pointer log writes one clock",
-			)
+		if ch.Clock() != cfg.Clock {
+			return nil, channel.Wrap(key, errors.Wrapf(
+				validate.ErrValidation,
+				"channel is not timed by the writer clock <%d>",
+				cfg.Clock,
+			))
 		}
 		lk := &logKey{ch: ch, code: telem.CodeOf(ch.DataType)}
 		w.byKey[key] = lk
@@ -127,6 +133,9 @@ func (db *DB) openLogWriter(ctx context.Context, cfg WriterConfig) (*logWriter, 
 	slices.SortStableFunc(w.keys, func(a, b *logKey) int {
 		return boolOrder(b.ch.Key == w.clock) - boolOrder(a.ch.Key == w.clock)
 	})
+	if w.unstored {
+		return w, nil
+	}
 	if err := w.openState(ctx, db, cfg, keys); err != nil {
 		return nil, err
 	}
@@ -149,7 +158,7 @@ func (w *logWriter) openState(
 		Keys:    keys,
 		Clock:   w.clock,
 		Start:   start,
-		Bounded: cfg.Mode == WriterModePersistOnly,
+		Bounded: cfg.Bounded,
 	}
 	stateKeys := make([]ChannelKey, len(keys))
 	for i, k := range keys {
@@ -268,7 +277,7 @@ func (w *logWriter) stretch(
 	if w.number != 0 {
 		return false, nil
 	}
-	w.next = 0
+	w.next, w.since = 0, 0
 	if w.unstored {
 		a, err := w.e.unstored.Next()
 		w.number = a.DomainIndex()
@@ -295,9 +304,8 @@ func (w *logWriter) validate(fr Frame) (telem.Series, int64, error) {
 		}
 		s := fr.RawSeriesAt(i)
 		// The clock takes int64 stamps too, as the index writer of the old layout does.
-		if s.DataType != lk.ch.DataType &&
-			(k != w.clock || s.DataType != telem.Int64T) {
-			return clock, 0, invalidDataTypeError(lk.ch, s.DataType)
+		if err := lk.ch.ValidateSeries(s); err != nil {
+			return clock, 0, channel.Wrap(k, err)
 		}
 		if lk.frame == w.frames {
 			return clock, 0, oneSeriesPerChannelError(lk.ch)
@@ -348,8 +356,9 @@ func (w *logWriter) checkOrder(
 		if (i > 0 || w.number != 0) && stamp <= prev {
 			return 0, 0, channel.Wrap(w.clock, errors.Wrapf(
 				validate.ErrValidation,
-				"stamp %v must be after %v",
+				"index out of order: timestamp %v at sample %d must be after %v",
 				stamp,
+				i,
 				prev,
 			))
 		}
@@ -396,7 +405,7 @@ func (w *logWriter) append(ctx context.Context, lk *logKey, p []byte) error {
 			Clock:    w.clock,
 			Variable: lk.ch.DataType.IsVariable(),
 		}
-		h, err := w.e.budget.Create(w.e.fs, segmentName(lk.ch.Key, id))
+		h, err := w.e.budget.CreateHeld(w.e.fs, segmentName(lk.ch.Key, id))
 		if err != nil {
 			return err
 		}
@@ -463,12 +472,18 @@ func (w *logWriter) commit(
 				lk.committed = int64(length)
 			}
 		}
+		// A commit that goes on in a stretch changes the time from the end of the
+		// commit before it, as the domain of the old layout does.
+		start := w.first
+		if w.since != 0 {
+			start = w.since
+		}
 		for _, key := range w.backfilled {
-			w.history(ctx, HistoryChange{Key: key, TimeRange: w.first.Range(end)})
+			w.history(ctx, HistoryChange{Key: key, TimeRange: start.Range(end)})
 		}
 		w.entry.Add(c)
 	}
-	w.samples, w.lastCommit = 0, end
+	w.samples, w.lastCommit, w.since = 0, end, end
 	for _, lk := range w.keys {
 		lk.skipped = false
 	}
@@ -586,8 +601,12 @@ func (w *logWriter) flush() error {
 	return err
 }
 
-// close syncs, releases the claims of w, and closes its segment files.
+// close syncs, releases the claims of w, and closes its segment files. An unstored
+// writer holds none of them.
 func (w *logWriter) close() error {
+	if w.unstored {
+		return nil
+	}
 	err := w.sync()
 	err = errors.Join(err, w.st.Close())
 	for _, lk := range w.keys {

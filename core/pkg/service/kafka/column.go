@@ -41,6 +41,17 @@ func (c *column) sample(data []byte, i int) []byte {
 	return data[start:c.ends[i]]
 }
 
+// end returns the end of the first n samples in the data.
+func (c *column) end(n int) int {
+	if c.density != 0 {
+		return n * c.density
+	}
+	if n == 0 {
+		return 0
+	}
+	return c.ends[n-1]
+}
+
 // appended records that a new sample ends data.
 func (c *column) appended(data []byte) {
 	if c.density == 0 {
