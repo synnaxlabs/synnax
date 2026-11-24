@@ -205,8 +205,8 @@ func (r RetrieveRequest) Named() []resource.ID {
 }
 
 // Retrieve retrieves the channels that the request selects and that the subject can
-// retrieve. A channel that the top level of Where names by exact name needs retrieve,
-// as a named key does.
+// retrieve. Every channel that the top level of Where names by exact name needs
+// retrieve, as a named key does, whatever the other lines of Where match.
 func (s *Service) Retrieve(
 	ctx context.Context,
 	snap bind.Snapshot,
@@ -243,17 +243,27 @@ func (s *Service) retrieve(
 	if err != nil {
 		return nil, err
 	}
-	named := namesByName(req.Where)
-	if !named {
+	if namesByName(req.Where) {
+		// The other lines would answer questions about each channel the name matches.
+		var named []channel.Channel
+		f, err := channel.MatchWhere(channel.Where{Name: req.Where.Name})
+		if err != nil {
+			return nil, validate.PathedError(err, "where")
+		}
+		if err = s.internal.NewRetrieve().
+			Where(f).
+			Entries(&named).
+			Exec(ctx, snap); err != nil {
+			return nil, err
+		}
+		if err = snap.Enforce(channel.ResourceIDsFromChannels(named)...); err != nil {
+			return nil, err
+		}
+	} else {
 		q = q.Where(bind.Filter(snap, channel.Match))
 	}
 	if err = q.Exec(ctx, snap); err != nil {
 		return nil, err
-	}
-	if named {
-		if err = snap.Enforce(channel.ResourceIDsFromChannels(res)...); err != nil {
-			return nil, err
-		}
 	}
 	return res, nil
 }
