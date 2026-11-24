@@ -960,6 +960,29 @@ var _ = Describe("Go PB Plugin", func() {
 			)
 		})
 
+		It("Should translate an enum member by its @go name", func() {
+			source := `
+					@go output "core/ranger"
+					@pb
+
+					Stage enum {
+						to_do = "to_do" {
+							@go name "ToDo"
+						}
+						done = "done"
+					}
+
+					Range struct {
+						key uuid
+						stage Stage
+					}
+				`
+			resp := MustGenerate(source, "ranger", loader, pbPlugin)
+			ExpectContent(resp, "translator.gen.go").
+				ToContain("case ranger.StageToDo:").
+				ToNotContain("StageToDO")
+		})
+
 		It("Should preserve enum declaration order", func() {
 			source := `
 					@go output "core/status"

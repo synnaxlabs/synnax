@@ -124,6 +124,31 @@ var _ = Describe("GetStringFromField", func() {
 	})
 })
 
+var _ = Describe("GetStringFromEnumValue", func() {
+	It("should return the string value from an enum value's domain expression", func() {
+		v := resolution.EnumValue{
+			Name: "to_do",
+			Domains: makeDomains(struct {
+				domain string
+				exprs  []resolution.Expression
+			}{
+				domain: "go",
+				exprs: []resolution.Expression{
+					{Name: "name", Values: []resolution.ExpressionValue{
+						{StringValue: "ToDo"},
+					}},
+				},
+			}),
+		}
+		Expect(domain.GetStringFromEnumValue(v, "go", "name")).To(Equal("ToDo"))
+	})
+
+	It("should return an empty string when the enum value has no domain", func() {
+		v := resolution.EnumValue{Name: "to_do"}
+		Expect(domain.GetStringFromEnumValue(v, "go", "name")).To(BeEmpty())
+	})
+})
+
 var _ = Describe("getAllStrings", func() {
 	It("should collect values from all expressions with the same name", func() {
 		t := makeType(map[string]resolution.Domain{

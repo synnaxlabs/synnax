@@ -1030,6 +1030,72 @@ var _ = Describe("Stored references through the importing version file", func() 
 	})
 })
 
+var _ = Describe("Enum member with a @go name", func() {
+	It("Should alias the member by its @go name in a later version", func() {
+		root := GinkgoT().TempDir()
+		for rel, content := range map[string]string{
+			"schemas/synnax/versions/doc/v0.oracle": `
+Stage enum {
+	to_do = "to_do" {
+		@go name "ToDo"
+	}
+}
+
+Doc struct {
+	key uuid @key
+	stage Stage
+
+	@go marshal
+}
+`,
+			"schemas/synnax/versions/doc/v1.oracle": `
+Stage = v0.Stage
+
+Doc struct {
+	key uuid @key
+	stage Stage
+	name string
+
+	@go marshal
+}
+`,
+			"schemas/synnax/doc.oracle": `
+@go output "core/pkg/service/doc"
+
+Stage enum {
+	to_do = "to_do" {
+		@go name "ToDo"
+	}
+}
+
+Doc struct {
+	key uuid @key
+	stage Stage
+	name string
+}
+`,
+		} {
+			full := filepath.Join(root, rel)
+			Expect(os.MkdirAll(filepath.Dir(full), 0o755)).To(Succeed())
+			Expect(os.WriteFile(full, []byte(content), 0o644)).To(Succeed())
+		}
+		chains := MustSucceed(versions.Discover(root))
+		loader := analyzer.NewStandardFileLoader(root)
+		table, diag := analyzer.Analyze([]string{"schemas/synnax/doc"}, loader)
+		Expect(diag.Ok()).To(BeTrue(), diag.String())
+		resp := MustSucceed(gotypes.New(gotypes.DefaultOptions()).Generate(
+			&plugin.Request{
+				Resolutions: table,
+				RepoRoot:    root,
+				Versions:    versions.NewResolver(chains, loader),
+			},
+		))
+		v1 := generatedFile(resp, "core/pkg/service/doc/versions/v1/types.gen.go")
+		Expect(v1).To(ContainSubstring("StageToDo Stage = v0.StageToDo"))
+		Expect(v1).ToNot(ContainSubstring("StageToDO"))
+	})
+})
+
 var _ = Describe("Frozen enum that the live file omits", func() {
 	generate := func(v0, v1, live string) *plugin.Response {
 		GinkgoHelper()
