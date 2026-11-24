@@ -102,7 +102,7 @@ one shared behavior, and it stays in the status service (§4.2).
 - **Discovered resource**: A resource the scanner creates: NI chassis and devices,
   LabJack devices, EtherCAT masters and slaves.
 - **Connected resource**: A resource a user creates from a connect form: OPC UA, Modbus,
-  and HTTP servers.
+  and HTTP servers, MQTT brokers, Kafka clusters, and Sift environments.
 - **Identity group**: The fields of a discovered resource that the scanner owns: rack,
   serial, NI-MAX resource name, model, chassis, bus topology.
 - **Configuration group**: The fields a user owns: name, identifier, index channel keys,
@@ -136,16 +136,19 @@ one shared behavior, and it stays in the status service (§4.2).
 
 ### 4.0 Resources
 
-| Integration | Resource          | Ontology type     | Class      |
-| ----------- | ----------------- | ----------------- | ---------- |
-| NI          | `ni.Chassis`      | `ni_chassis`      | discovered |
-| NI          | `ni.Device`       | `ni_device`       | discovered |
-| LabJack     | `labjack.Device`  | `labjack_device`  | discovered |
-| EtherCAT    | `ethercat.Master` | `ethercat_master` | discovered |
-| EtherCAT    | `ethercat.Slave`  | `ethercat_slave`  | discovered |
-| OPC UA      | `opcua.Server`    | `opcua_server`    | connected  |
-| Modbus      | `modbus.Server`   | `modbus_server`   | connected  |
-| HTTP        | `http.Server`     | `http_server`     | connected  |
+| Integration | Resource           | Ontology type      | Class      |
+| ----------- | ------------------ | ------------------ | ---------- |
+| NI          | `ni.Chassis`       | `ni_chassis`       | discovered |
+| NI          | `ni.Device`        | `ni_device`        | discovered |
+| LabJack     | `labjack.Device`   | `labjack_device`   | discovered |
+| EtherCAT    | `ethercat.Master`  | `ethercat_master`  | discovered |
+| EtherCAT    | `ethercat.Slave`   | `ethercat_slave`   | discovered |
+| OPC UA      | `opcua.Server`     | `opcua_server`     | connected  |
+| Modbus      | `modbus.Server`    | `modbus_server`    | connected  |
+| HTTP        | `http.Server`      | `http_server`      | connected  |
+| MQTT        | `mqtt.Broker`      | `mqtt_broker`      | connected  |
+| Kafka       | `kafka.Cluster`    | `kafka_cluster`    | connected  |
+| Sift        | `sift.Environment` | `sift_environment` | connected  |
 
 An `ni.Device` is a module in a chassis or a standalone USB or PCIe device; the two
 differ only in whether `chassis` is set. A chassis carries identity only: no task
@@ -230,6 +233,18 @@ Field groups per make:
   maps (`console/src/feature/http/device/types.ts:224-239`). The `base_url` the Driver
   injects from `location` (`driver/http/device/device.cpp:100-106`) is derived from
   `host` and `secure` in generated code.
+- **MQTT broker**: `host`, `port?`, `transport` (`tcp`, or `tls` with an optional CA,
+  client certificate, and `certificate_validation_disabled`), `auth`, `client_id?`,
+  `keep_alive` (whole seconds), `mode` (`passive`, or `primary` with `host_id`),
+  `groups`; unique `reads`, `writes` (`plain` or `sparkplug`), and `edge_commands`.
+- **Kafka cluster**: unique `brokers` (`host`, `port?`), `transport` (`plaintext`, or
+  `tls` with an optional CA), `auth`; `reads` by topic, record key, message, pointer.
+- **Sift environment**: `host`, `port?`, `transport` (`tls` or `plaintext`), `api_key`;
+  `update` writes the whole record.
+- **Writer**: an MQTT or Kafka CA is optional, and the writer refuses a `file`
+  certificate of another rack. All three refuse a rack that does not run them.
+- **Credentials**: every typed device holds credentials as `secret.Key` and TLS material
+  as `certificate.Key`, never plaintext.
 
 A connected resource has no scanned identity: the connect form writes its identity
 group, `rack` included. The OPC UA certificate pin is a narrow write that only moves
@@ -319,8 +334,9 @@ rewrites the parked task node IDs.
 
 Clients expose one namespace per resource: `client.ni.devices`, `client.ni.chassis`,
 `client.labjack.devices`, `client.ethercat.masters`, `client.ethercat.slaves`,
-`client.opcua.servers`, `client.modbus.servers`, `client.http.servers`. Retrieve returns
-the typed struct. The generic `client.devices`, Python `sy.Device`, and
+`client.opcua.servers`, `client.modbus.servers`, `client.http.servers`,
+`client.mqtt.brokers`, `client.kafka.clusters`, `client.sift.environments`. Retrieve
+returns the typed struct. The generic `client.devices`, Python `sy.Device`, and
 `synnax::device::Client` are deleted. The Python per-make classes keep their keyword
 constructors as thin wrappers over the generated types.
 
@@ -348,7 +364,9 @@ zero-serial slaves by the stored list, and only the last step writes it. A
 single-resource integration runs one `Sync`. Read and write tasks take the generated
 struct in place of `parser.field` reads. NI looks up the DAQmx alias for physical
 channel names from `resource_name` when a task starts. LabJack opens by `serial`
-(`driver/labjack/read_task.h:535` uses the key today).
+(`driver/labjack/read_task.h:535` uses the key today). In the Core, `driver.ScanTask`,
+the MQTT, Kafka, and Sift factories, the MQTT edge session, and the Sift uploader read
+the typed resource, and each observer subscribes before its first read.
 
 ### 4.7 Console
 
@@ -398,16 +416,36 @@ Release 0.59 shipped the single table. One ordered startup migration cuts over:
 Steps 1 to 3 are one migration, step 4 is one per integration, and step 5 runs last.
 They are ordered by version, so a 0.59 Core runs all of them on its first start.
 
+Step 2 fixes MQTT, Kafka, and Sift rows:
+
+- **MQTT**: `location` is `host`; `secure` gives the transport; `verification_skipped`
+  gives `certificate_validation_disabled`; `ca_file` becomes a `file` certificate;
+  `cert_file` and `key_file` become a stored certificate with a secret key, and an
+  unreadable file quarantines the row.
+- **MQTT fields**: an empty `client_id` stores the ID derived from the legacy key; a
+  password becomes a secret, or `none` with a warning when there is no user name;
+  `keep_alive` seconds become a span, absent 30 s; an empty `host_id` is `passive`.
+- **MQTT keys**: a `spBv1.0/` key takes four levels and the rest as the tag, unless a
+  plain task subscribes to that topic; other keys split at the last `#`. A bare
+  `<topic>` loses to `<topic>#<message>`, else takes the message that binds its
+  channels, else the first, else is dropped with a warning. `edge` keys become
+  `edge_commands`, and Sparkplug `groups` carry over.
+- **Kafka**: brokers split at the last `:` and deduplicate; `secure` gives the
+  transport; a PEM CA becomes a stored certificate; SASL follows MQTT auth; `read` keys
+  split at the first and last `#`.
+- **Sift**: a scheme and trailing `/` are dropped before the split; a loopback host is
+  `plaintext`, any other `tls`. `UploadDetails.device` is re-keyed.
+
 Between the typed services landing and this migration landing, a development Core with
 0.59 rows shows them only through the legacy path. Writes through that path in the
 candidate era are not carried forward; the migration targets the 0.59 shape.
 
 ### 4.9 Access control
 
-`ontology.ResourceType` gains the eight types. The builtin role lists that name
-`ResourceTypeDevice` (`core/pkg/service/access/rbac/builtin/builtin.go:34,85,123`) name
-all eight; provisioning rewrites them on the next boot. The migration expands a custom
-policy object `{type: "device"}` into the eight typed objects and maps a per-key
+`ontology.ResourceType` gains the eleven types. The builtin role lists that name
+`resource.TypeDevice` (`core/pkg/service/access/rbac/builtin/builtin.go:33,97,148`) name
+all eleven; provisioning rewrites them on the next boot. The migration expands a custom
+policy object `{type: "device"}` into the eleven typed objects and maps a per-key
 `device:<key>` object to its typed successor.
 
 ### 4.10 Testing
@@ -438,17 +476,23 @@ green at every step. The migration brings 0.59 data forward near the end.
 - **Phase 1: Legacy move.** `core/pkg/service/device` moves to
   `core/pkg/service/legacy/device` (SY-5190). The package name, proto package, and C++
   namespace stay `device`, so only import paths change. Mechanical, `review/bot`.
-- **Phase 2: Ontology types and roles.** The eight `ResourceType` members, regenerated
-  clients, and the builtin role lists.
+- **Phase 2: Ontology types and roles.** The first eight `ResourceType` members,
+  regenerated clients, and the builtin role lists.
 - **Phases 3 to 8: Schemas and services, one integration each.** NI, LabJack, EtherCAT,
   OPC UA, Modbus, HTTP: the Oracle structs, generated types in four languages, the
   writers, and routes. Each lands dark.
+- **Phases 8a to 8c: Schemas and services.** MQTT, Kafka, and Sift, as Phases 3 to 8,
+  each with its `ResourceType` member and role grants.
 - **Phases 9 to 14: Driver, one integration each.** Scanner and tasks on the typed
   client. Phase 9 also adds `common::Sync<D>`. OPC UA adds certificate login, and its
   scanner resolves parked `ns=` bindings through `/opcua/server/resolve`.
+- **Phases 14a to 14c: Core scanners and factories.** MQTT, Kafka, and Sift tasks on the
+  typed resource (§4.6).
 - **Phases 15 to 20: Console, one integration each.** Forms, tree items, menus, links,
   and palette commands on the typed client. Each phase removes its make from `make.tsx`;
   Phase 20 deletes the file.
+- **Phases 20a to 20c: Console.** MQTT, Kafka, and Sift, as Phases 15 to 19. Phase 20
+  waits for them.
 - **Phase 21: Migration.** §4.8 steps 1 to 3 and the policy rewrite. The map now exists
   for the next phase.
 - **Phase 22: Task config references.** Typed device keys on every config, with the
@@ -466,18 +510,17 @@ reference, and policy carried forward. A client older than Phase 23 gets a not-f
 ## 7 What this RFC does not cover
 
 - Device import and export. The typed structs are shaped for a later `@go imex`.
-- A secret store for server credentials.
-- Kafka clusters (RFC 0079) and integrations that do not exist yet; each follows §4.1.
+- Integrations that do not exist yet; each follows §4.1.
 
 ## 8 Resolved decisions
 
 1. **No generic device table**: Only `key`, `rack`, and `name` mean the same thing for
    every resource; the rest are placeholders for most makes, and every consumer
-   dispatches on `make` (§1.1). The trade is real: eight ontology types instead of one,
-   eight client namespaces, and a custom policy migration.
+   dispatches on `make` (§1.1). The trade is real: eleven ontology types instead of one,
+   eleven client namespaces, and a custom policy migration.
 2. **No `device.Base` struct**: `key`, `rack`, and `name` are cheap to repeat, and a
    base would force one `Status` shape on every type. The trade is real: three fields
-   are declared eight times.
+   are declared eleven times.
 3. **UUID keys, serial as a field**: Natural keys made the scanner's upsert free but put
    hardware identity in the key, which the pre-0.54 key normalization migration shows is
    fragile. The trade is real: one indexed lookup per found device.
@@ -501,7 +544,7 @@ reference, and policy carried forward. A client older than Phase 23 gets a not-f
 11. **Naming by what the thing is**: `opcua.Server`, not `opcua.Device`. The `model`
     constants `HTTP server` and `OPC UA` existed only to fill a generic column.
 12. **No generic device store**: A `device.Service[D]` needed 8 hooks, did not fit
-    racks, and left the same code in every other resource. The trade is real: eight
+    racks, and left the same code in every other resource. The trade is real: eleven
     hand-written writers until a project deduplicates all resources.
 
 ## 9 Open questions
