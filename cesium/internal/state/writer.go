@@ -150,64 +150,76 @@ func (s *State) OpenWriter(
 func (s *State) openWriter(w *Writer, pre []Preload) error {
 	start := w.cfg.Start
 	for key := range w.types {
-		ch := s.core.channels[key]
-		if ch == nil {
-			continue
-		}
-		records, err := s.core.preloadOf(ch, pre)
-		if err != nil {
+		if err := s.checkOpen(w, key, start, pre); err != nil {
 			return err
 		}
-		if p, ok := ch.stored(start, start, records); ok {
-			return errors.Wrapf(
-				errConflict,
-				"writer of key %d starts at %d, inside its "+
-					"stored data from %d to %d",
-				key,
-				start,
-				p.First,
-				p.Last,
-			)
-		}
-		for _, o := range ch.claims {
-			refused := false
-			switch {
-			case o.pinned:
-			case w.cfg.Bounded, o.w == nil:
-				refused = o.reaches(start, start)
-			default:
-				refused = !o.bounded
-			}
-			if refused {
-				return errors.Wrapf(errConflict, "writer of key %d starting at %d "+
-					"reaches the claim of %s from %d", key, start, o.owner(), o.start)
-			}
-		}
-	}
-	end := telem.TimeStamp(math.MaxInt64)
-	if w.cfg.Bounded {
-		end = start
 	}
 	keys := append(slices.Collect(maps.Keys(w.types)), w.cfg.Clock)
 	for _, key := range keys {
-		if _, ok := w.claims[key]; ok {
-			continue
+		if _, ok := w.claims[key]; !ok {
+			_, written := w.types[key]
+			s.claim(w, key, start, !written)
 		}
-		_, written := w.types[key]
-		c := &claim{
-			w:       w,
-			start:   start,
-			end:     end,
-			bounded: w.cfg.Bounded,
-			pinned:  !written,
-		}
-		w.claims[key] = c
-		ch := s.core.channel(key)
-		ch.claims = append(ch.claims, c)
 	}
 	s.takeOver(w)
 	s.storeKeysIfChanged()
 	return nil
+}
+
+// checkOpen refuses a writer w of key that starts at start inside stored data of key,
+// or where another claim on key refuses it.
+func (s *State) checkOpen(
+	w *Writer,
+	key uint32,
+	start telem.TimeStamp,
+	pre []Preload,
+) error {
+	ch := s.core.channels[key]
+	if ch == nil {
+		return nil
+	}
+	records, err := s.core.preloadOf(ch, pre)
+	if err != nil {
+		return err
+	}
+	if p, ok := ch.stored(start, start, records); ok {
+		return errors.Wrapf(
+			errConflict,
+			"writer of key %d starts at %d, inside its "+
+				"stored data from %d to %d",
+			key,
+			start,
+			p.First,
+			p.Last,
+		)
+	}
+	for _, o := range ch.claims {
+		refused := false
+		switch {
+		case o.pinned:
+		case w.cfg.Bounded, o.w == nil:
+			refused = o.reaches(start, start)
+		default:
+			refused = !o.bounded
+		}
+		if refused {
+			return errors.Wrapf(errConflict, "writer of key %d starting at %d "+
+				"reaches the claim of %s from %d", key, start, o.owner(), o.start)
+		}
+	}
+	return nil
+}
+
+// claim gives w a claim on key from start, which pins key when pinned is true.
+func (s *State) claim(w *Writer, key uint32, start telem.TimeStamp, pinned bool) {
+	end := telem.TimeStamp(math.MaxInt64)
+	if w.cfg.Bounded {
+		end = start
+	}
+	c := &claim{w: w, start: start, end: end, bounded: w.cfg.Bounded, pinned: pinned}
+	w.claims[key] = c
+	ch := s.core.channel(key)
+	ch.claims = append(ch.claims, c)
 }
 
 // takeOver gives w, for each key it writes, the first open segment that no writer holds

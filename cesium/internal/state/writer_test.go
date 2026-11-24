@@ -621,6 +621,95 @@ var _ = Describe("Writer", func() {
 		})
 	})
 
+	Describe("Handoff", func() {
+		var (
+			w        *state.Writer
+			n        uint32
+			clockID  uint64
+			dataID   uint64
+			stamps   *log.Commit
+			together *log.Commit
+		)
+		BeforeEach(func() {
+			start(head(10, 4))
+			w = open(clockWriter(100, false, 5, 6))
+			clockID, dataID = MustSucceed(w.NewSegment(5)), MustSucceed(w.NewSegment(6))
+			n = MustSucceed(w.NewAlignment())
+			stamps = commit(2, n, 0, 100, 110, slot(clockID, 16))
+			together = commit(2, n, 0, 100, 110, slot(clockID, 16), slot(dataID, 16))
+		})
+
+		It("Should split a key off with its claim and segment, and commit it against "+
+			"the stamps the writer commits", func() {
+			d := MustSucceed(w.Split([]uint32{6}))
+			Expect(w.Commit([]*log.Commit{together})).To(MatchError(
+				ContainSubstring("which the writer does not hold"),
+			))
+			data := commit(2, n, 0, 100, 110, slot(dataID, 16))
+			Expect(d.Commit([]*log.Commit{data})).To(SatisfyAll(
+				conflict(),
+				MatchError(ContainSubstring("finds no stored stamps of clock 5")),
+			))
+			Expect(w.Commit([]*log.Commit{stamps})).To(Succeed())
+			Expect(d.Commit([]*log.Commit{data})).To(Succeed())
+		})
+
+		DescribeTable("Should refuse to split off a key the writer cannot give",
+			func(key uint32) {
+				Expect(w.Split([]uint32{key})).Error().
+					To(MatchError(ContainSubstring("to split off")))
+			},
+			Entry("the clock", uint32(5)),
+			Entry("a key the writer does not write", uint32(7)),
+		)
+
+		It("Should join the keys of a split back, with their segments", func() {
+			d := MustSucceed(w.Split([]uint32{6}))
+			Expect(w.Join(d)).To(Succeed())
+			Expect(w.Commit([]*log.Commit{together})).To(Succeed())
+			Expect(s.BeginDelete(5, 100, 111)).Error().To(conflict(),
+				"the claim of the writer keeps the clock")
+		})
+
+		It("Should refuse to join a writer of another clock", func() {
+			d := MustSucceed(w.Split([]uint32{6}))
+			other := open(clockWriter(200, false, 7))
+			Expect(other.Join(d)).To(MatchError(ContainSubstring("joins no writer")))
+		})
+
+		It("Should add a key from the start of the clock's claim", func() {
+			Expect(w.Add([]state.WriterKey{{Key: 7, DataType: 4}})).To(Succeed())
+			id := MustSucceed(w.NewSegment(7))
+			Expect(w.Commit([]*log.Commit{commit(2, n, 0, 100, 110, slot(clockID, 16),
+				slot(id, 16))})).To(Succeed())
+			Expect(w.Add([]state.WriterKey{{Key: 7, DataType: 4}})).
+				To(MatchError(ContainSubstring("already writes key 7")))
+		})
+
+		It("Should refuse to add a key whose stored data holds the start", func() {
+			other := open(clockWriter(100, false, 8))
+			id := MustSucceed(other.NewSegment(8))
+			m := MustSucceed(other.NewAlignment())
+			Expect(other.Commit([]*log.Commit{commit(2, m, 0, 100, 110,
+				slot(id, 16))})).To(Succeed())
+			Expect(other.Close()).To(Succeed())
+			Expect(w.Add([]state.WriterKey{{Key: 8, DataType: 4}})).To(SatisfyAll(
+				conflict(),
+				MatchError(ContainSubstring("inside its stored data")),
+			))
+		})
+
+		It("Should report the stamps of a run once the clock holds them, and fail on "+
+			"other stamps", func() {
+			d := MustSucceed(w.Split([]uint32{6}))
+			Expect(d.Stamped(telem.NewAlignment(n, 0), 2, 100, 110)).To(BeFalse())
+			Expect(w.Commit([]*log.Commit{stamps})).To(Succeed())
+			Expect(d.Stamped(telem.NewAlignment(n, 0), 2, 100, 110)).To(BeTrue())
+			Expect(d.Stamped(telem.NewAlignment(n, 0), 2, 100, 115)).Error().
+				To(MatchError(ContainSubstring("holds other stamps")))
+		})
+	})
+
 	Describe("Takeover", func() {
 		BeforeEach(func() { start(head(5, 3)) })
 
