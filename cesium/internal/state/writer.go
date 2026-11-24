@@ -194,7 +194,8 @@ func (s *State) openWriter(w *Writer, pre []Preload) error {
 }
 
 // checkOpen refuses the open of w when its start lies in stored data of one of its
-// keys, or when the claim of w would reach another writer's claim.
+// keys, or when the claim of w would reach the claim of another writer or a delete. pre
+// holds the preloads of the keys of w at its start.
 func (s *State) checkOpen(w *Writer, pre []Preload) error {
 	start := w.cfg.Start
 	for key := range w.types {
