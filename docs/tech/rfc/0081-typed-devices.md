@@ -147,6 +147,9 @@ one shared behavior, and it stays in the status service (§4.2).
 | Modbus      | `modbus.Server`   | `modbus_server`   | connected  |
 | HTTP        | `http.Server`     | `http_server`     | connected  |
 
+_(Amended by [RFC 0120](0120-channel-storage-and-time.md) §4.9: MQTT and Kafka get typed
+devices that hold the link from a topic and field to a channel.)_
+
 An `ni.Device` is a module in a chassis or a standalone USB or PCIe device; the two
 differ only in whether `chassis` is set. A chassis carries identity only: no task
 references it, so it has no identifier and no channel maps.
@@ -161,6 +164,9 @@ struct carries `@create`, `@retrieve`, `@go marshal`, `@go migrate`, and
 `@ref kind place` and `@ref on_delete restrict`, `name string` with `@filter` and
 `@search`, and a `status` of its own `Status` type with `@go marshal omit`. A base
 struct would carry nothing else, so the three fields repeat.
+
+_(Amended by [RFC 0120](0120-channel-storage-and-time.md) §4.9: a device name follows
+the channel name rule of RFC 0119 and is unique across device types.)_
 
 Gorp names a table by its Go type, so each resource sets `CustomTypeName`. Otherwise
 `ni.Device` shares a table with the legacy `Device`.
@@ -206,6 +212,9 @@ Device struct {
 `rack` and `serial` through `chassis` are the identity group. `name`, `identifier`, and
 the port maps are the configuration group. The port maps are the typed form of today's
 `analogInput.channels` and friends (`console/src/feature/ni/device/types.ts:18-63`).
+
+_(Amended by [RFC 0120](0120-channel-storage-and-time.md) §4.9: the port maps are lists
+of entries with a tracked channel link, and no typed device stores an index key.)_
 
 Field groups per make:
 
@@ -445,7 +454,12 @@ green at every step. The migration brings 0.59 data forward near the end.
 - **Phase 21: Migration.** §4.8 steps 1 to 3 and the policy rewrite. The map now exists
   for the next phase.
 - **Phase 22: Task config references.** Typed device keys on every config, with the
-  config migrations of §4.8 step 4 reading the map.
+  config migrations of §4.8 step 4 reading the map. _(Amended by
+  [RFC 0120](0120-channel-storage-and-time.md) §4.9: a config holds the typed device
+  key, ports, hardware facts, scales, and one `clock` per sample clock, each taking one
+  index key of the integration. Where several configs name one index key, the lowest
+  task key keeps it and each other config gets a new clock key. Until Phase 9 of RFC
+  0120 the Console still makes channels.)_
 - **Phase 23: Delete the legacy path.** §4.8 step 5, the legacy service, `/device/*`
   routes, `client.devices`, `sy.Device`, `synnax::device::Client`, `pluto/src/device`,
   and the Console's generic device layer.
@@ -461,6 +475,8 @@ reference, and policy carried forward. A client older than Phase 23 gets a not-f
 - Device import and export. The typed structs are shaped for a later `@go imex`.
 - A secret store for server credentials.
 - Kafka clusters (RFC 0079) and integrations that do not exist yet; each follows §4.1.
+  _(Amended by [RFC 0120](0120-channel-storage-and-time.md) §4.9: MQTT and Kafka devices
+  are typed.)_
 
 ## 8 Resolved decisions
 
