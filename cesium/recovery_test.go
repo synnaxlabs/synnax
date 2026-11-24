@@ -203,6 +203,7 @@ var _ = Describe("Recovery", func() {
 		})).To(Succeed())
 		w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 			Channels: []cesium.ChannelKey{1},
+			Clock:    1,
 			Start:    telem.SecondTS,
 		}))
 		// Each commit syncs a frame of one block, so 1,000 commits pass three quarters

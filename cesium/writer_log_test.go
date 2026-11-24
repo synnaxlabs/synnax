@@ -622,6 +622,7 @@ var _ = Describe("Writer handles on the pointer log", func() {
 		Expect(db.CreateChannel(ctx, channels...)).To(Succeed())
 		w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 			Channels: keys,
+			Clock:    clock,
 			Start:    10 * telem.SecondTS,
 		}))
 		mustWrite(ctx, w, telem.MultiFrame(keys, series))
