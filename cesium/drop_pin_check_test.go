@@ -88,7 +88,7 @@ var _ = Describe("Check: a read across the Drop of its key and its index", func(
 		if both {
 			dropped = keys
 		}
-		Expect(db.Drop(dropped)).To(Succeed())
+		Expect(db.Drop(ctx, dropped)).To(Succeed())
 		var got []int64
 		for iter.Next(cesium.AutoSpan) {
 			for _, s := range iter.Value().Get(data).Series {
