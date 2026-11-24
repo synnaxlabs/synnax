@@ -3840,6 +3840,34 @@ var _ = Describe("Routing entry strictness", func() {
 			}`),
 	)
 
+	DescribeTable("Should give a fix that changes '=>' to '->'",
+		func(bCtx SpecContext, source, fixed string) {
+			ast := MustSucceed(parser.Parse(source))
+			ctx := context.NewRoot(bCtx, ast, NewRoot(routingResolver))
+			analyzer.AnalyzeProgram(ctx)
+			errs := ctx.Diagnostics.Errors()
+			Expect(errs).To(HaveLen(1))
+			Expect(errs[0].Fixes).To(HaveLen(1))
+			Expect(errs[0].Fixes[0].Title).To(Equal("Change to `->`"))
+			Expect(testutil.ApplyFix(source, errs[0].Fixes[0])).To(Equal(fixed))
+		},
+		Entry(
+			"into a routing table",
+			"flag -> select() => {\n    true: true -> vlv_cmd\n}",
+			"flag -> select() -> {\n    true: true -> vlv_cmd\n}",
+		),
+		Entry(
+			"into select",
+			"flag => select() -> {\n    true: true -> vlv_cmd\n}",
+			"flag -> select() -> {\n    true: true -> vlv_cmd\n}",
+		),
+		Entry(
+			"after another '=>' on the line",
+			"flag -> select() -> { true: true => next, false: flag => select() }",
+			"flag -> select() -> { true: true => next, false: flag -> select() }",
+		),
+	)
+
 	It("Should report every '=>' feeding select", func(bCtx SpecContext) {
 		ast := MustSucceed(parser.Parse(`
 			flag -> select() -> {

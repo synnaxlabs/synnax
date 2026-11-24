@@ -140,6 +140,14 @@ func RemoveToken(t antlr.Token) protocol.TextEdit {
 	}
 }
 
+// ReplaceToken returns the edit that changes t to text.
+func ReplaceToken(t antlr.Token, text string) protocol.TextEdit {
+	return protocol.TextEdit{
+		Range:   protocol.Range{Start: startOf(t), End: endOf(t)},
+		NewText: text,
+	}
+}
+
 func startOf(t antlr.Token) protocol.Position {
 	return protocol.Position{
 		Line:      uint32(t.GetLine() - 1),

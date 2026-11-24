@@ -273,6 +273,22 @@ var _ = Describe("Statement", func() {
 					))
 				},
 			)
+
+			DescribeTable(
+				"gives a fix that changes a top-level '$=' to ':='",
+				func(bCtx SpecContext, source, fixed string) {
+					stmt := MustSucceed(parser.ParseStatement(source))
+					ctx := context.NewRoot(bCtx, stmt, NewRoot(nil))
+					statement.Analyze(ctx)
+					Expect(*ctx.Diagnostics).To(HaveLen(1))
+					fixes := (*ctx.Diagnostics)[0].Fixes
+					Expect(fixes).To(HaveLen(1))
+					Expect(fixes[0].Title).To(Equal("Change to `:=`"))
+					Expect(testutil.ApplyFix(source, fixes[0])).To(Equal(fixed))
+				},
+				Entry("with no type", "counter $= 0", "counter := 0"),
+				Entry("with a type", "counter i64 $= 0", "counter i64 := 0"),
+			)
 		})
 
 		Context("scoped declarations", func() {

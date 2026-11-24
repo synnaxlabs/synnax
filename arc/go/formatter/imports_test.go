@@ -142,6 +142,21 @@ var _ = Describe("RemoveToken", func() {
 	)
 })
 
+var _ = Describe("ReplaceToken", func() {
+	It("Should change the token to the text", func() {
+		source := "stage s {}\nx := 1"
+		token := MustSucceed(parser.Parse(source)).
+			TopLevelItem(1).
+			VariableDeclaration().
+			LocalVariable().
+			DECLARE().
+			GetSymbol()
+		Expect(
+			applied(source, formatter.ReplaceToken(token, "$=")),
+		).To(Equal("stage s {}\nx $= 1"))
+	})
+})
+
 var _ = Describe("RemoveStatement", func() {
 	DescribeTable("Should remove the statement",
 		func(source, expected string) {

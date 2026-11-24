@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/arc/analyzer/flow"
 	atypes "github.com/synnaxlabs/arc/analyzer/types"
 	"github.com/synnaxlabs/arc/analyzer/units"
+	"github.com/synnaxlabs/arc/formatter"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/literal"
 	"github.com/synnaxlabs/arc/parser"
@@ -567,7 +568,11 @@ func getChannelSourceFromExpr[ASTNode antlr.ParserRuleContext](
 func analyzeStatefulVariable(ctx context.Context[parser.IStatefulVariableContext]) {
 	if ctx.Scope == ctx.Scope.Root() {
 		ctx.Diagnostics.Add(codes.StatefulVariable.Atf(ctx.AST,
-			"stateful variables cannot be declared at the top level"))
+			"stateful variables cannot be declared at the top level",
+		).WithEdits(
+			"Change to `:=`",
+			formatter.ReplaceToken(ctx.AST.STATE_DECLARE().GetSymbol(), ":="),
+		))
 		return
 	}
 	name := ctx.AST.IDENTIFIER().GetText()
