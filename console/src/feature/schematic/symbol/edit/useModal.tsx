@@ -60,8 +60,8 @@ interface ValueBarProps {
   onChange: (value: Spec.At) => void;
 }
 
-// ValueBar picks the state, and the value of it, that the canvas draws and the
-// inspector edits.
+// ValueBar picks the state that the inspector edits, and the value that the canvas
+// draws.
 const ValueBar = ({ value, onChange }: ValueBarProps): ReactElement | null => {
   const { state, states, list } = useValues(value.state);
   if (list.length < 2 && states.length < 2) return null;

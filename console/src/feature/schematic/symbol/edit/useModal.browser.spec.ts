@@ -898,6 +898,50 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       );
     });
 
+    it("moves the preview to the default of a picked state", async () => {
+      const enumeration = await client.enumerations.create({
+        name: uniqueName("fault"),
+        entries: [
+          { key: "ok", value: 0, name: "OK" },
+          { key: "trip", value: 2, name: "Trip" },
+        ],
+      });
+      await openPainted({
+        variant: "actuator",
+        states: [
+          createState(),
+          {
+            type: "enumeration",
+            key: "fault",
+            name: "Fault",
+            enumeration: enumeration.key,
+            match: { type: "exact" },
+            default: 2,
+          },
+        ],
+      });
+      fireEvent.click(screen.getByText("Fault"));
+      await waitFor(() =>
+        expect(findButton("Trip").classList.contains("lyra--selected")).toBe(true),
+      );
+      expect(findButton("OK").classList.contains("lyra--selected")).toBe(false);
+    });
+
+    it("turns By state off when the preview picks another state", async () => {
+      await openPainted({
+        variant: "actuator",
+        states: [createState(), { ...createState(), key: "fault", name: "Fault" }],
+      });
+      byState("Fill");
+      expect(screen.getByLabelText("Fill by state").getAttribute("aria-pressed")).toBe(
+        "true",
+      );
+      fireEvent.click(screen.getByText("Fault"));
+      expect(screen.getByLabelText("Fill by state").getAttribute("aria-pressed")).toBe(
+        "false",
+      );
+    });
+
     it("lists the entries of a picked state and the values of its looks", async () => {
       const enumeration = await client.enumerations.create({
         name: uniqueName("fault"),

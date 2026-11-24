@@ -78,19 +78,18 @@ export const useValues = (key?: string): Values => {
 };
 
 /**
- * @returns the color of the entry for value in the enumeration of the state key, or of
- * the entry for the default value of the state when value has none.
+ * @returns the color of the entry for value in the enumeration of state, or of the
+ * entry for the default value of state when value has none.
  */
 export const useEntryColor = (
-  key: string | undefined,
+  state: schematic.symbol.EnumerationState | undefined,
   value: number,
 ): color.Color | undefined => {
-  const states = Form.useFieldValue(path.data.states);
-  const state = states.find((s) => s.key === key);
-  const enumeration = state?.type === "enumeration" ? state.enumeration : undefined;
-  const res = Enumeration.useResult(enumeration == null ? null : { key: enumeration });
+  const res = Enumeration.useResult(
+    state?.enumeration == null ? null : { key: state.enumeration },
+  );
   const resolve = Color.useResolve();
-  if (state?.type !== "enumeration" || res.variant !== "success") return undefined;
+  if (state == null || res.variant !== "success") return undefined;
   const { entries } = res.data;
   const entry =
     entries.find((e) => e.value === value) ??
