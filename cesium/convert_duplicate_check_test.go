@@ -10,6 +10,7 @@
 package cesium_test
 
 import (
+	"context"
 	"encoding/binary"
 	"math/rand/v2"
 	"strconv"
@@ -37,48 +38,59 @@ func oldDataFiles(fs xfs.FS, key cesium.ChannelKey) int {
 	return n
 }
 
+// sharedStampRoot returns a root of the old layout in memory whose writer commits
+// stamps 1 to 3 s, rolls to a new file, then commits 3 and 4 s, which the old layout
+// takes (SY-6883). The index gives the new file the domain from 3 s + 1 ns.
+func sharedStampRoot(ctx context.Context) xfs.FS {
+	GinkgoHelper()
+	const idx, data = cesium.ChannelKey(1), cesium.ChannelKey(2)
+	keys := []cesium.ChannelKey{idx, data}
+	fs := xfs.NewMem()
+	db := MustSucceed(cesium.Open(
+		ctx,
+		"",
+		cesium.WithFS(fs),
+		cesium.WithFileSizeCap(telem.Byte),
+	))
+	Expect(db.CreateChannel(
+		ctx,
+		cesium.Channel{
+			Key:      idx,
+			Name:     "time",
+			IsIndex:  true,
+			DataType: telem.TimestampT,
+		},
+		cesium.Channel{Key: data, Name: "data", Index: idx, DataType: telem.Int64T},
+	)).To(Succeed())
+	w := MustSucceed(db.OpenWriter(
+		ctx,
+		cesium.WriterConfig{Channels: keys, Start: telem.SecondTS},
+	))
+	MustSucceed2(w.Write(ctx, telem.MultiFrame(keys, []telem.Series{
+		telem.NewSeriesSecondsTSV(1, 2, 3),
+		telem.NewSeriesV[int64](1, 2, 3),
+	}), nil))
+	MustSucceed2(w.Commit(ctx, nil))
+	// The first file is over the cap, so the next commit goes to a new file, and
+	// the old layout takes the stamp of the last commit again (SY-6883).
+	MustSucceed2(w.Write(ctx, telem.MultiFrame(keys, []telem.Series{
+		telem.NewSeriesSecondsTSV(3, 4),
+		telem.NewSeriesV[int64](4, 5),
+	}), nil))
+	MustSucceed2(w.Commit(ctx, nil))
+	Expect(w.Close()).To(Succeed())
+	Expect(db.Close()).To(Succeed())
+	Expect(oldDataFiles(fs, idx)).To(Equal(2))
+	return fs
+}
+
 var _ = Describe("Check: conversion of a stamp that two old files share", func() {
 	It("Should convert a root whose writer wrote its last committed stamp again in a "+
 		"new file", func(ctx SpecContext) {
 		const idx, data = cesium.ChannelKey(1), cesium.ChannelKey(2)
 		keys := []cesium.ChannelKey{idx, data}
-		fs := xfs.NewMem()
+		fs := sharedStampRoot(ctx)
 		db := MustSucceed(cesium.Open(
-			ctx,
-			"",
-			cesium.WithFS(fs),
-			cesium.WithFileSizeCap(telem.Byte),
-		))
-		Expect(db.CreateChannel(
-			ctx,
-			cesium.Channel{
-				Key:      idx,
-				Name:     "time",
-				IsIndex:  true,
-				DataType: telem.TimestampT,
-			},
-			cesium.Channel{Key: data, Name: "data", Index: idx, DataType: telem.Int64T},
-		)).To(Succeed())
-		w := MustSucceed(db.OpenWriter(
-			ctx,
-			cesium.WriterConfig{Channels: keys, Start: telem.SecondTS},
-		))
-		MustSucceed2(w.Write(ctx, telem.MultiFrame(keys, []telem.Series{
-			telem.NewSeriesSecondsTSV(1, 2, 3),
-			telem.NewSeriesV[int64](1, 2, 3),
-		}), nil))
-		MustSucceed2(w.Commit(ctx, nil))
-		// The first file is over the cap, so the next commit goes to a new file, and
-		// the old layout takes the stamp of the last commit again (SY-6883).
-		MustSucceed2(w.Write(ctx, telem.MultiFrame(keys, []telem.Series{
-			telem.NewSeriesSecondsTSV(3, 4),
-			telem.NewSeriesV[int64](4, 5),
-		}), nil))
-		MustSucceed2(w.Commit(ctx, nil))
-		Expect(w.Close()).To(Succeed())
-		Expect(db.Close()).To(Succeed())
-		Expect(oldDataFiles(fs, idx)).To(Equal(2))
-		db = MustSucceed(cesium.Open(
 			ctx,
 			"",
 			cesium.WithFS(fs),
@@ -111,5 +123,32 @@ var _ = Describe("Check: conversion of a stamp that two old files share", func()
 		Expect(values).To(Equal([]int64{1, 2, 3, 5}))
 		stop()
 		Expect(db.Close()).To(Succeed())
+	})
+
+	It("Should refuse to convert a file whose domain overlaps the one before it, and "+
+		"name a file of the domain", func(ctx SpecContext) {
+		fs := sharedStampRoot(ctx)
+		// The index of the clock gives file 2 a domain from 3 s, inside the domain of
+		// file 1, which no cut can place.
+		b := MustSucceed(xfs.ReadFile(fs, "1/index.domain"))
+		moved := false
+		for i := 0; i+26 <= len(b); i += 26 {
+			if binary.LittleEndian.Uint16(b[i+16:]) == 2 {
+				binary.LittleEndian.PutUint64(b[i:], uint64(3*telem.SecondTS))
+				moved = true
+			}
+		}
+		Expect(moved).To(BeTrue())
+		Expect(xfs.WriteFile(fs, "1/index.domain", b)).To(Succeed())
+		Expect(cesium.Open(
+			ctx,
+			"",
+			cesium.WithFS(fs),
+			cesium.WithPointerLog(),
+			cesium.WithRandom(rand.NewPCG(1, 2)),
+		)).Error().To(MatchError(SatisfyAny(
+			ContainSubstring("1/2.domain"),
+			ContainSubstring("2/2.domain"),
+		)))
 	})
 })
