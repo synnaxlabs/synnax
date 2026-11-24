@@ -136,7 +136,7 @@ func damage(ctx context.Context) damaged {
 	)).To(Succeed())
 	w := MustSucceed(db.OpenWriter(
 		ctx,
-		cesium.WriterConfig{Channels: keys, Start: repairStamp(0)},
+		cesium.WriterConfig{Channels: keys, Clock: keys[0], Start: repairStamp(0)},
 	))
 	for c := range 3 {
 		stamps := make([]telem.TimeStamp, commits)
@@ -591,7 +591,7 @@ var _ = Describe("Check: repair of log damage", func() {
 		r.create(ctx, t.idx, t.data)
 		w := MustSucceed(r.db.OpenWriter(
 			ctx,
-			cesium.WriterConfig{Channels: keys, Start: repairStamp(0)},
+			cesium.WriterConfig{Channels: keys, Clock: keys[0], Start: repairStamp(0)},
 		))
 		put(ctx, w, keys, 0, written, nil)
 		r.synced(ctx, w, 0)
@@ -603,7 +603,11 @@ var _ = Describe("Check: repair of log damage", func() {
 		t.cut = [2]uint64{onlySegment(r.fs, t.idx), onlySegment(r.fs, t.data)}
 		w = MustSucceed(r.db.OpenWriter(
 			ctx,
-			cesium.WriterConfig{Channels: keys, Start: repairStamp(written)},
+			cesium.WriterConfig{
+				Channels: keys,
+				Clock:    keys[0],
+				Start:    repairStamp(written),
+			},
 		))
 		put(ctx, w, keys, written, commits, nil)
 		bad := r.synced(ctx, w, written)
@@ -678,7 +682,11 @@ var _ = Describe("Check: repair of log damage", func() {
 			GinkgoHelper()
 			return MustSucceed(r.db.OpenWriter(
 				ctx,
-				cesium.WriterConfig{Channels: keys, Start: repairStamp(p)},
+				cesium.WriterConfig{
+					Channels: keys,
+					Clock:    keys[0],
+					Start:    repairStamp(p),
+				},
 			))
 		}
 		w := open(cut, 0)
@@ -730,7 +738,11 @@ var _ = Describe("Check: repair of log damage", func() {
 			GinkgoHelper()
 			return MustSucceed(r.db.OpenWriter(
 				ctx,
-				cesium.WriterConfig{Channels: keys, Start: repairStamp(p)},
+				cesium.WriterConfig{
+					Channels: keys,
+					Clock:    keys[0],
+					Start:    repairStamp(p),
+				},
 			))
 		}
 		w := open(0)
@@ -778,8 +790,9 @@ var _ = Describe("Check: repair of log damage", func() {
 			GinkgoHelper()
 			return MustSucceed(r.db.OpenWriter(ctx, cesium.WriterConfig{
 				Channels: keys,
+				Clock:    keys[0],
 				Start:    repairStamp(p),
-				Mode:     cesium.WriterModePersistOnly,
+				Bounded:  true,
 			}))
 		}
 		// The two commits of a share the bad frame, and the commit of b between them
@@ -829,7 +842,7 @@ var _ = Describe("Check: repair of log damage", func() {
 		r.create(ctx, idx, data)
 		w := MustSucceed(r.db.OpenWriter(
 			ctx,
-			cesium.WriterConfig{Channels: keys, Start: repairStamp(0)},
+			cesium.WriterConfig{Channels: keys, Clock: keys[0], Start: repairStamp(0)},
 		))
 		// The skip keeps data out of the frames up to the second bad one, which makes
 		// its first segment. Both bad frames hold as many samples of the clock.
@@ -872,7 +885,11 @@ var _ = Describe("Check: repair of log damage", func() {
 			r.create(ctx, idx, data)
 			w := MustSucceed(r.db.OpenWriter(
 				ctx,
-				cesium.WriterConfig{Channels: keys, Start: repairStamp(0)},
+				cesium.WriterConfig{
+					Channels: keys,
+					Clock:    keys[0],
+					Start:    repairStamp(0),
+				},
 			))
 			var bad []int64
 			for c := range 5 {
@@ -922,7 +939,7 @@ var _ = Describe("Check: repair of log damage", func() {
 		r.create(ctx, idx, d1, d2)
 		w := MustSucceed(r.db.OpenWriter(
 			ctx,
-			cesium.WriterConfig{Channels: keys, Start: repairStamp(0)},
+			cesium.WriterConfig{Channels: keys, Clock: keys[0], Start: repairStamp(0)},
 		))
 		put(ctx, w, keys, 0, 10, nil)
 		r.synced(ctx, w, 0)
@@ -957,7 +974,7 @@ var _ = Describe("Check: repair of log damage", func() {
 		r.create(ctx, idx, data)
 		w := MustSucceed(r.db.OpenWriter(
 			ctx,
-			cesium.WriterConfig{Channels: keys, Start: repairStamp(0)},
+			cesium.WriterConfig{Channels: keys, Clock: keys[0], Start: repairStamp(0)},
 		))
 		// The skip makes the first segment of data in the bad frame, after the
 		// segment of its clock.
