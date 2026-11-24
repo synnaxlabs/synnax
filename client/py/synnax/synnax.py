@@ -15,7 +15,6 @@ import os
 import threading
 import weakref
 from collections.abc import Callable
-from importlib.metadata import version as _version
 from typing import Self, overload
 
 from urllib3.exceptions import MaxRetryError
@@ -63,6 +62,7 @@ from synnax.exceptions import ValidationError
 from synnax.options import Options
 from synnax.telem import CrudeTimeSpan, TimeSpan
 from synnax.transport import Transport
+from synnax.version import VERSION
 from x.exceptions import Registry
 from x.params import deprecate_positional
 
@@ -185,8 +185,8 @@ class Synnax(framer.Client):
         :param password: Password to authenticate with.
         :param secure: Whether to use TLS when connecting to the Core. None means True
             with a ca_cert, else the choice of the next source. The client verifies the
-            Core's certificate against ca_cert, or the system trust roots when ca_cert
-            is None.
+            Core's certificate against only ca_cert, or against the operating system
+            certificate store when ca_cert is None.
         :param open_timeout: The time to wait for a connection. A bare number is
             seconds.
         :param read_timeout: The time to wait for a response. A bare number is seconds.
@@ -243,7 +243,7 @@ class Synnax(framer.Client):
         self._transport.use_async(self.auth.async_middleware())
         self.connectivity = connection.Checker(
             client=self._transport.unary,
-            client_version=_version("synnax"),
+            client_version=VERSION,
             clock_skew_threshold=clock_skew_threshold,
             embedded=embedded,
         )
@@ -287,7 +287,7 @@ class Synnax(framer.Client):
 
     @_Lazy
     def users(self) -> user.Client:
-        return user.Client(self._transport.unary)
+        return user.Client(self._transport.unary, self.auth)
 
     @_Lazy
     def ranges(self) -> ranger.Client:

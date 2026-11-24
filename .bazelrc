@@ -9,6 +9,10 @@ build --test_env=SYNNAX_TEST_PORT
 # Enable platform-specific configs
 common --enable_platform_specific_config
 
+# Headers of external repositories are system headers (-isystem, /external:I), so the
+# compiler does not warn about their code. The rules_cc `includes` attribute gives -I.
+build --features=external_include_paths
+
 # vendor/registry holds module versions the Bazel Central Registry does not have yet,
 # such as security releases. Bazel takes each module version from the first registry
 # that has it. A Windows workspace path starts with a drive letter, so its file URL
@@ -96,7 +100,6 @@ build:windows --per_file_copt=vendor/.*,-.*\\.[sS]$,-.*\\.asm$@/WX-,/w
 # 10 API that cpp-httplib requires. Each dependency picks its own.
 build:windows --per_file_copt=.*,-external/.*,-vendor/.*@/DWIN32_LEAN_AND_MEAN,/DNOMINMAX,/D_WIN32_WINNT=0x0A00
 # External headers warn at level 0, as -isystem does on the other platforms.
-build:windows --features=external_include_paths
 build:windows --copt=/external:W0
 
 # The static CRT removes the dependency on the VC++ Redistributable DLLs. An old copy of

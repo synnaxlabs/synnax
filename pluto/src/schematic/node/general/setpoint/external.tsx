@@ -13,7 +13,7 @@ import type { ReactElement } from "react";
 import { Color } from "@/color";
 import { CSS } from "@/css";
 import { colorFallbacks, SetpointForm } from "@/schematic/node/general/setpoint/Form";
-import { Setpoint } from "@/schematic/node/general/setpoint/Primitive";
+import { Primitive } from "@/schematic/node/general/setpoint/primitive";
 import { Symbol } from "@/schematic/node/general/setpoint/Symbol";
 import type { Spec } from "@/schematic/node/spec";
 
@@ -24,7 +24,7 @@ const Preview = ({
 }: schematic.SetpointNodeConfig): ReactElement => {
   const resolve = Color.useResolve();
   return (
-    <Setpoint
+    <Primitive.Setpoint
       {...rest}
       fillColor={resolve(fillColor)}
       onSend={() => {}}

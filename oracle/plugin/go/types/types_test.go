@@ -2516,6 +2516,70 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 						ToNotContain("iota")
 				},
 			)
+
+			DescribeTable(
+				"Should pick the smallest underlying type that holds every member",
+				func(values, base string) {
+					source := `
+					@go output "core/rate"
+
+					Rate enum {
+						` + values + `
+					}
+				`
+					resp := MustGenerate(source, "rate", loader, goPlugin)
+					ExpectContent(resp, "types.gen.go").ToContain("type Rate " + base)
+				},
+				Entry("uint8", "a = 0\n b = 255", "uint8"),
+				Entry("uint16", "a = 0\n b = 256", "uint16"),
+				Entry("uint32", "a = 1200\n b = 230400", "uint32"),
+				Entry("uint64", "a = 0\n b = 4294967296", "uint64"),
+				Entry("int8", "a = -1\n b = 1", "int8"),
+				Entry("int32", "a = -1\n b = 65536", "int32"),
+			)
+
+			It(
+				"Should fill a non-first default of an enum with no member of 0",
+				func() {
+					source := `
+				@go output "core/serial"
+
+				BaudRate enum {
+					baud_1200 = 1200
+					baud_19200 = 19200
+					baud_230400 = 230400
+				}
+
+				Connection struct {
+					baud_rate BaudRate = baud_19200
+				}
+			`
+					resp := MustGenerate(source, "serial", loader, goPlugin)
+					ExpectContent(resp, "types.gen.go").
+						ToContain("type BaudRate uint32").
+						ToContain("BaudRateBaud1200 BaudRate = 1200").
+						ToContain("BaudRateBaud230400 BaudRate = 230400").
+						ToContain("c.BaudRate = BaudRateBaud19200")
+				},
+			)
+
+			It("Should not fill a default on the member of value 0", func() {
+				source := `
+				@go output "core/priority"
+
+				Priority enum {
+					low = 0
+					high = 1
+				}
+
+				Task struct {
+					priority Priority = low
+				}
+			`
+				resp := MustGenerate(source, "priority", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").
+					ToNotContain("t.Priority = PriorityLow")
+			})
 		})
 
 		Context("generic distinct types", func() {

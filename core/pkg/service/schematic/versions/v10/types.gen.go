@@ -57,28 +57,41 @@ type EdgeConfigVariant = v9.EdgeConfigVariant
 type EdgeConfigType = v9.EdgeConfigType
 
 const (
-	// PipeEdgeConfigType selects the PipeEdgeConfig variant.
+	// PipeEdgeConfigType is the configuration for pipe edges.
 	PipeEdgeConfigType EdgeConfigType = v9.PipeEdgeConfigType
-	// ElectricEdgeConfigType selects the ElectricEdgeConfig variant.
+	// ElectricEdgeConfigType is the configuration for electrical edges.
 	ElectricEdgeConfigType EdgeConfigType = v9.ElectricEdgeConfigType
-	// SecondaryEdgeConfigType selects the SecondaryEdgeConfig variant.
+	// SecondaryEdgeConfigType is the configuration for secondary edges.
 	SecondaryEdgeConfigType EdgeConfigType = v9.SecondaryEdgeConfigType
-	// JacketedEdgeConfigType selects the JacketedEdgeConfig variant.
+	// JacketedEdgeConfigType is the configuration for jacketed edges.
 	JacketedEdgeConfigType EdgeConfigType = v9.JacketedEdgeConfigType
-	// HydraulicEdgeConfigType selects the HydraulicEdgeConfig variant.
+	// HydraulicEdgeConfigType is the configuration for hydraulic edges.
 	HydraulicEdgeConfigType EdgeConfigType = v9.HydraulicEdgeConfigType
-	// PneumaticEdgeConfigType selects the PneumaticEdgeConfig variant.
+	// PneumaticEdgeConfigType is the configuration for pneumatic edges.
 	PneumaticEdgeConfigType EdgeConfigType = v9.PneumaticEdgeConfigType
-	// DataEdgeConfigType selects the DataEdgeConfig variant.
+	// DataEdgeConfigType is the configuration for data edges.
 	DataEdgeConfigType EdgeConfigType = v9.DataEdgeConfigType
 )
 
+// PipeEdgeConfig is the configuration for pipe edges.
 type PipeEdgeConfig = v9.PipeEdgeConfig
+
+// ElectricEdgeConfig is the configuration for electrical edges.
 type ElectricEdgeConfig = v9.ElectricEdgeConfig
+
+// SecondaryEdgeConfig is the configuration for secondary edges.
 type SecondaryEdgeConfig = v9.SecondaryEdgeConfig
+
+// JacketedEdgeConfig is the configuration for jacketed edges.
 type JacketedEdgeConfig = v9.JacketedEdgeConfig
+
+// HydraulicEdgeConfig is the configuration for hydraulic edges.
 type HydraulicEdgeConfig = v9.HydraulicEdgeConfig
+
+// PneumaticEdgeConfig is the configuration for pneumatic edges.
 type PneumaticEdgeConfig = v9.PneumaticEdgeConfig
+
+// DataEdgeConfig is the configuration for data edges.
 type DataEdgeConfig = v9.DataEdgeConfig
 
 // FlexAlignment is a flex alignment for laid-out content.
@@ -187,60 +200,66 @@ type Page = v9.Page
 type NodeConfigType string
 
 const (
-	// CapNodeConfigType selects the CapNodeConfig variant.
+	// CapNodeConfigType is the configuration for cap symbols.
 	CapNodeConfigType NodeConfigType = "cap"
-	// FilterNodeConfigType selects the FilterNodeConfig variant.
+	// FilterNodeConfigType is the configuration for filter symbols.
 	FilterNodeConfigType NodeConfigType = "filter"
-	// FlowStraightenerNodeConfigType selects the FlowStraightenerNodeConfig variant.
+	// FlowStraightenerNodeConfigType is the configuration for flow straightener
+	// symbols.
 	FlowStraightenerNodeConfigType NodeConfigType = "flow_straightener"
-	// HeaterElementNodeConfigType selects the HeaterElementNodeConfig variant.
+	// HeaterElementNodeConfigType is the configuration for heater element symbols.
 	HeaterElementNodeConfigType NodeConfigType = "heater_element"
-	// IsoCapNodeConfigType selects the IsoCapNodeConfig variant.
+	// IsoCapNodeConfigType is the configuration for ISO cap symbols.
 	IsoCapNodeConfigType NodeConfigType = "iso_cap"
-	// IsoFilterNodeConfigType selects the IsoFilterNodeConfig variant.
+	// IsoFilterNodeConfigType is the configuration for ISO filter symbols.
 	IsoFilterNodeConfigType NodeConfigType = "iso_filter"
-	// NozzleNodeConfigType selects the NozzleNodeConfig variant.
+	// NozzleNodeConfigType is the configuration for nozzle symbols.
 	NozzleNodeConfigType NodeConfigType = "nozzle"
-	// OrificeNodeConfigType selects the OrificeNodeConfig variant.
+	// OrificeNodeConfigType is the configuration for orifice symbols.
 	OrificeNodeConfigType NodeConfigType = "orifice"
-	// OrificePlateNodeConfigType selects the OrificePlateNodeConfig variant.
+	// OrificePlateNodeConfigType is the configuration for orifice plate symbols.
 	OrificePlateNodeConfigType NodeConfigType = "orifice_plate"
-	// StrainerNodeConfigType selects the StrainerNodeConfig variant.
+	// StrainerNodeConfigType is the configuration for strainer symbols.
 	StrainerNodeConfigType NodeConfigType = "strainer"
-	// StrainerConeNodeConfigType selects the StrainerConeNodeConfig variant.
+	// StrainerConeNodeConfigType is the configuration for strainer cone symbols.
 	StrainerConeNodeConfigType NodeConfigType = "strainer_cone"
-	// ThrusterNodeConfigType selects the ThrusterNodeConfig variant.
+	// ThrusterNodeConfigType is the configuration for thruster symbols.
 	ThrusterNodeConfigType NodeConfigType = "thruster"
-	// VentNodeConfigType selects the VentNodeConfig variant.
+	// VentNodeConfigType is the configuration for vent symbols.
 	VentNodeConfigType NodeConfigType = "vent"
-	// FlowmeterGeneralNodeConfigType selects the FlowmeterGeneralNodeConfig variant.
+	// FlowmeterGeneralNodeConfigType is the configuration for general flowmeter
+	// symbols.
 	FlowmeterGeneralNodeConfigType NodeConfigType = "flowmeter_general"
-	// FlowmeterElectromagneticNodeConfigType selects the
-	// FlowmeterElectromagneticNodeConfig variant.
+	// FlowmeterElectromagneticNodeConfigType is the configuration for electromagnetic
+	// flowmeter symbols.
 	FlowmeterElectromagneticNodeConfigType NodeConfigType = "flowmeter_electromagnetic"
-	// FlowmeterVariableAreaNodeConfigType selects the FlowmeterVariableAreaNodeConfig
-	// variant.
+	// FlowmeterVariableAreaNodeConfigType is the configuration for variable area
+	// flowmeter symbols.
 	FlowmeterVariableAreaNodeConfigType NodeConfigType = "flowmeter_variable_area"
-	// FlowmeterCoriolisNodeConfigType selects the FlowmeterCoriolisNodeConfig variant.
+	// FlowmeterCoriolisNodeConfigType is the configuration for Coriolis flowmeter
+	// symbols.
 	FlowmeterCoriolisNodeConfigType NodeConfigType = "flowmeter_coriolis"
-	// FlowmeterNozzleNodeConfigType selects the FlowmeterNozzleNodeConfig variant.
+	// FlowmeterNozzleNodeConfigType is the configuration for nozzle flowmeter symbols.
 	FlowmeterNozzleNodeConfigType NodeConfigType = "flowmeter_nozzle"
-	// FlowmeterVenturiNodeConfigType selects the FlowmeterVenturiNodeConfig variant.
+	// FlowmeterVenturiNodeConfigType is the configuration for venturi flowmeter
+	// symbols.
 	FlowmeterVenturiNodeConfigType NodeConfigType = "flowmeter_venturi"
-	// FlowmeterRingPistonNodeConfigType selects the FlowmeterRingPistonNodeConfig
-	// variant.
+	// FlowmeterRingPistonNodeConfigType is the configuration for ring piston flowmeter
+	// symbols.
 	FlowmeterRingPistonNodeConfigType NodeConfigType = "flowmeter_ring_piston"
-	// FlowmeterPositiveDisplacementNodeConfigType selects the
-	// FlowmeterPositiveDisplacementNodeConfig variant.
+	// FlowmeterPositiveDisplacementNodeConfigType is the configuration for positive
+	// displacement flowmeter symbols.
 	FlowmeterPositiveDisplacementNodeConfigType NodeConfigType = "flowmeter_positive_displacement"
-	// FlowmeterTurbineNodeConfigType selects the FlowmeterTurbineNodeConfig variant.
+	// FlowmeterTurbineNodeConfigType is the configuration for turbine flowmeter
+	// symbols.
 	FlowmeterTurbineNodeConfigType NodeConfigType = "flowmeter_turbine"
-	// FlowmeterPulseNodeConfigType selects the FlowmeterPulseNodeConfig variant.
+	// FlowmeterPulseNodeConfigType is the configuration for pulse flowmeter symbols.
 	FlowmeterPulseNodeConfigType NodeConfigType = "flowmeter_pulse"
-	// FlowmeterFloatSensorNodeConfigType selects the FlowmeterFloatSensorNodeConfig
-	// variant.
+	// FlowmeterFloatSensorNodeConfigType is the configuration for float sensor
+	// flowmeter symbols.
 	FlowmeterFloatSensorNodeConfigType NodeConfigType = "flowmeter_float_sensor"
-	// FlowmeterOrificeNodeConfigType selects the FlowmeterOrificeNodeConfig variant.
+	// FlowmeterOrificeNodeConfigType is the configuration for orifice flowmeter
+	// symbols.
 	FlowmeterOrificeNodeConfigType NodeConfigType = "flowmeter_orifice"
 	// BoxNodeConfigType is the configuration for box annotation symbols.
 	BoxNodeConfigType NodeConfigType = "box"
@@ -272,142 +291,152 @@ const (
 	StateIndicatorNodeConfigType NodeConfigType = "state_indicator"
 	// StringDisplayNodeConfigType is the configuration for live string display symbols.
 	StringDisplayNodeConfigType NodeConfigType = "string_display"
-	// SwitchNodeConfigType selects the SwitchNodeConfig variant.
+	// SwitchNodeConfigType is the configuration for switch symbols.
 	SwitchNodeConfigType NodeConfigType = "switch"
 	// TextBoxNodeConfigType is the configuration for text box annotation symbols.
 	TextBoxNodeConfigType NodeConfigType = "text_box"
 	// ValueNodeConfigType is the configuration for live telemetry value symbols.
 	ValueNodeConfigType NodeConfigType = "value"
-	// AgitatorNodeConfigType selects the AgitatorNodeConfig variant.
+	// AgitatorNodeConfigType is the configuration for agitator symbols.
 	AgitatorNodeConfigType NodeConfigType = "agitator"
-	// CrossBeamAgitatorNodeConfigType selects the CrossBeamAgitatorNodeConfig variant.
+	// CrossBeamAgitatorNodeConfigType is the configuration for cross beam agitator
+	// symbols.
 	CrossBeamAgitatorNodeConfigType NodeConfigType = "cross_beam_agitator"
-	// FlatBladeAgitatorNodeConfigType selects the FlatBladeAgitatorNodeConfig variant.
+	// FlatBladeAgitatorNodeConfigType is the configuration for flat blade agitator
+	// symbols.
 	FlatBladeAgitatorNodeConfigType NodeConfigType = "flat_blade_agitator"
-	// HeatExchangerGeneralNodeConfigType selects the HeatExchangerGeneralNodeConfig
-	// variant.
+	// HeatExchangerGeneralNodeConfigType is the configuration for general heat
+	// exchanger symbols.
 	HeatExchangerGeneralNodeConfigType NodeConfigType = "heat_exchanger_general"
-	// HeatExchangerMNodeConfigType selects the HeatExchangerMNodeConfig variant.
+	// HeatExchangerMNodeConfigType is the configuration for M-type heat exchanger
+	// symbols.
 	HeatExchangerMNodeConfigType NodeConfigType = "heat_exchanger_m"
-	// HeatExchangerStraightTubeNodeConfigType selects the
-	// HeatExchangerStraightTubeNodeConfig variant.
+	// HeatExchangerStraightTubeNodeConfigType is the configuration for straight tube
+	// heat exchanger symbols.
 	HeatExchangerStraightTubeNodeConfigType NodeConfigType = "heat_exchanger_straight_tube"
-	// HelicalAgitatorNodeConfigType selects the HelicalAgitatorNodeConfig variant.
+	// HelicalAgitatorNodeConfigType is the configuration for helical agitator symbols.
 	HelicalAgitatorNodeConfigType NodeConfigType = "helical_agitator"
-	// PaddleAgitatorNodeConfigType selects the PaddleAgitatorNodeConfig variant.
+	// PaddleAgitatorNodeConfigType is the configuration for paddle agitator symbols.
 	PaddleAgitatorNodeConfigType NodeConfigType = "paddle_agitator"
-	// PropellerAgitatorNodeConfigType selects the PropellerAgitatorNodeConfig variant.
+	// PropellerAgitatorNodeConfigType is the configuration for propeller agitator
+	// symbols.
 	PropellerAgitatorNodeConfigType NodeConfigType = "propeller_agitator"
-	// RotaryMixerNodeConfigType selects the RotaryMixerNodeConfig variant.
+	// RotaryMixerNodeConfigType is the configuration for rotary mixer symbols.
 	RotaryMixerNodeConfigType NodeConfigType = "rotary_mixer"
-	// StaticMixerNodeConfigType selects the StaticMixerNodeConfig variant.
+	// StaticMixerNodeConfigType is the configuration for static mixer symbols.
 	StaticMixerNodeConfigType NodeConfigType = "static_mixer"
-	// CavityPumpNodeConfigType selects the CavityPumpNodeConfig variant.
+	// CavityPumpNodeConfigType is the configuration for cavity pump symbols.
 	CavityPumpNodeConfigType NodeConfigType = "cavity_pump"
-	// CentrifugalCompressorNodeConfigType selects the CentrifugalCompressorNodeConfig
-	// variant.
+	// CentrifugalCompressorNodeConfigType is the configuration for centrifugal
+	// compressor symbols.
 	CentrifugalCompressorNodeConfigType NodeConfigType = "centrifugal_compressor"
-	// CompressorNodeConfigType selects the CompressorNodeConfig variant.
+	// CompressorNodeConfigType is the configuration for compressor symbols.
 	CompressorNodeConfigType NodeConfigType = "compressor"
-	// DiaphragmPumpNodeConfigType selects the DiaphragmPumpNodeConfig variant.
+	// DiaphragmPumpNodeConfigType is the configuration for diaphragm pump symbols.
 	DiaphragmPumpNodeConfigType NodeConfigType = "diaphragm_pump"
-	// EjectionPumpNodeConfigType selects the EjectionPumpNodeConfig variant.
+	// EjectionPumpNodeConfigType is the configuration for ejection pump symbols.
 	EjectionPumpNodeConfigType NodeConfigType = "ejection_pump"
-	// EjectorCompressorNodeConfigType selects the EjectorCompressorNodeConfig variant.
+	// EjectorCompressorNodeConfigType is the configuration for ejector compressor
+	// symbols.
 	EjectorCompressorNodeConfigType NodeConfigType = "ejector_compressor"
-	// LiquidRingCompressorNodeConfigType selects the LiquidRingCompressorNodeConfig
-	// variant.
+	// LiquidRingCompressorNodeConfigType is the configuration for liquid ring
+	// compressor symbols.
 	LiquidRingCompressorNodeConfigType NodeConfigType = "liquid_ring_compressor"
-	// PistonPumpNodeConfigType selects the PistonPumpNodeConfig variant.
+	// PistonPumpNodeConfigType is the configuration for piston pump symbols.
 	PistonPumpNodeConfigType NodeConfigType = "piston_pump"
-	// PumpNodeConfigType selects the PumpNodeConfig variant.
+	// PumpNodeConfigType is the configuration for pump symbols.
 	PumpNodeConfigType NodeConfigType = "pump"
-	// RollerVaneCompressorNodeConfigType selects the RollerVaneCompressorNodeConfig
-	// variant.
+	// RollerVaneCompressorNodeConfigType is the configuration for roller vane
+	// compressor symbols.
 	RollerVaneCompressorNodeConfigType NodeConfigType = "roller_vane_compressor"
-	// ScrewPumpNodeConfigType selects the ScrewPumpNodeConfig variant.
+	// ScrewPumpNodeConfigType is the configuration for screw pump symbols.
 	ScrewPumpNodeConfigType NodeConfigType = "screw_pump"
-	// TurboCompressorNodeConfigType selects the TurboCompressorNodeConfig variant.
+	// TurboCompressorNodeConfigType is the configuration for turbo compressor symbols.
 	TurboCompressorNodeConfigType NodeConfigType = "turbo_compressor"
-	// VacuumPumpNodeConfigType selects the VacuumPumpNodeConfig variant.
+	// VacuumPumpNodeConfigType is the configuration for vacuum pump symbols.
 	VacuumPumpNodeConfigType NodeConfigType = "vacuum_pump"
-	// BurstDiscNodeConfigType selects the BurstDiscNodeConfig variant.
+	// BurstDiscNodeConfigType is the configuration for burst disc symbols.
 	BurstDiscNodeConfigType NodeConfigType = "burst_disc"
-	// FlameArrestorNodeConfigType selects the FlameArrestorNodeConfig variant.
+	// FlameArrestorNodeConfigType is the configuration for flame arrestor symbols.
 	FlameArrestorNodeConfigType NodeConfigType = "flame_arrestor"
-	// FlameArrestorDetonationNodeConfigType selects the
-	// FlameArrestorDetonationNodeConfig variant.
+	// FlameArrestorDetonationNodeConfigType is the configuration for detonation-proof
+	// flame arrestor symbols.
 	FlameArrestorDetonationNodeConfigType NodeConfigType = "flame_arrestor_detonation"
-	// FlameArrestorExplosionNodeConfigType selects the FlameArrestorExplosionNodeConfig
-	// variant.
+	// FlameArrestorExplosionNodeConfigType is the configuration for explosion-proof
+	// flame arrestor symbols.
 	FlameArrestorExplosionNodeConfigType NodeConfigType = "flame_arrestor_explosion"
-	// FlameArrestorFireResNodeConfigType selects the FlameArrestorFireResNodeConfig
-	// variant.
+	// FlameArrestorFireResNodeConfigType is the configuration for fire resistant flame
+	// arrestor symbols.
 	FlameArrestorFireResNodeConfigType NodeConfigType = "flame_arrestor_fire_res"
-	// FlameArrestorFireResDetonationNodeConfigType selects the
-	// FlameArrestorFireResDetonationNodeConfig variant.
+	// FlameArrestorFireResDetonationNodeConfigType is the configuration for fire
+	// resistant and detonation-proof flame arrestor symbols.
 	FlameArrestorFireResDetonationNodeConfigType NodeConfigType = "flame_arrestor_fire_res_detonation"
-	// IsoBurstDiscNodeConfigType selects the IsoBurstDiscNodeConfig variant.
+	// IsoBurstDiscNodeConfigType is the configuration for ISO burst disc symbols.
 	IsoBurstDiscNodeConfigType NodeConfigType = "iso_burst_disc"
-	// AngledValveNodeConfigType selects the AngledValveNodeConfig variant.
+	// AngledValveNodeConfigType is the configuration for angled valve symbols.
 	AngledValveNodeConfigType NodeConfigType = "angled_valve"
-	// AngledReliefValveNodeConfigType selects the AngledReliefValveNodeConfig variant.
+	// AngledReliefValveNodeConfigType is the configuration for angled relief valve
+	// symbols.
 	AngledReliefValveNodeConfigType NodeConfigType = "angled_relief_valve"
-	// AngledSpringLoadedReliefValveNodeConfigType selects the
-	// AngledSpringLoadedReliefValveNodeConfig variant.
+	// AngledSpringLoadedReliefValveNodeConfigType is the configuration for angled
+	// spring loaded relief valve symbols.
 	AngledSpringLoadedReliefValveNodeConfigType NodeConfigType = "angled_spring_loaded_relief_valve"
-	// BallValveNodeConfigType selects the BallValveNodeConfig variant.
+	// BallValveNodeConfigType is the configuration for ball valve symbols.
 	BallValveNodeConfigType NodeConfigType = "ball_valve"
-	// BreatherValveNodeConfigType selects the BreatherValveNodeConfig variant.
+	// BreatherValveNodeConfigType is the configuration for breather valve symbols.
 	BreatherValveNodeConfigType NodeConfigType = "breather_valve"
-	// ButterflyValveOneNodeConfigType selects the ButterflyValveOneNodeConfig variant.
+	// ButterflyValveOneNodeConfigType is the configuration for remote butterfly valve
+	// symbols.
 	ButterflyValveOneNodeConfigType NodeConfigType = "butterfly_valve_one"
-	// ButterflyValveTwoNodeConfigType selects the ButterflyValveTwoNodeConfig variant.
+	// ButterflyValveTwoNodeConfigType is the configuration for manual butterfly valve
+	// symbols.
 	ButterflyValveTwoNodeConfigType NodeConfigType = "butterfly_valve_two"
-	// CheckValveNodeConfigType selects the CheckValveNodeConfig variant.
+	// CheckValveNodeConfigType is the configuration for check valve symbols.
 	CheckValveNodeConfigType NodeConfigType = "check_valve"
-	// CheckValveWithArrowNodeConfigType selects the CheckValveWithArrowNodeConfig
-	// variant.
+	// CheckValveWithArrowNodeConfigType is the configuration for check valve symbols
+	// drawn with an arrow.
 	CheckValveWithArrowNodeConfigType NodeConfigType = "check_valve_with_arrow"
-	// ElectricRegulatorNodeConfigType selects the ElectricRegulatorNodeConfig variant.
+	// ElectricRegulatorNodeConfigType is the configuration for electric regulator
+	// symbols.
 	ElectricRegulatorNodeConfigType NodeConfigType = "electric_regulator"
-	// ElectricRegulatorMotorizedNodeConfigType selects the
-	// ElectricRegulatorMotorizedNodeConfig variant.
+	// ElectricRegulatorMotorizedNodeConfigType is the configuration for motorized
+	// electric regulator symbols.
 	ElectricRegulatorMotorizedNodeConfigType NodeConfigType = "electric_regulator_motorized"
-	// FourWayValveNodeConfigType selects the FourWayValveNodeConfig variant.
+	// FourWayValveNodeConfigType is the configuration for four way valve symbols.
 	FourWayValveNodeConfigType NodeConfigType = "four_way_valve"
-	// GateValveNodeConfigType selects the GateValveNodeConfig variant.
+	// GateValveNodeConfigType is the configuration for gate valve symbols.
 	GateValveNodeConfigType NodeConfigType = "gate_valve"
-	// IsoCheckValveNodeConfigType selects the IsoCheckValveNodeConfig variant.
+	// IsoCheckValveNodeConfigType is the configuration for ISO check valve symbols.
 	IsoCheckValveNodeConfigType NodeConfigType = "iso_check_valve"
-	// ManualValveNodeConfigType selects the ManualValveNodeConfig variant.
+	// ManualValveNodeConfigType is the configuration for manual valve symbols.
 	ManualValveNodeConfigType NodeConfigType = "manual_valve"
-	// NeedleValveNodeConfigType selects the NeedleValveNodeConfig variant.
+	// NeedleValveNodeConfigType is the configuration for needle valve symbols.
 	NeedleValveNodeConfigType NodeConfigType = "needle_valve"
-	// RegulatorNodeConfigType selects the RegulatorNodeConfig variant.
+	// RegulatorNodeConfigType is the configuration for regulator symbols.
 	RegulatorNodeConfigType NodeConfigType = "regulator"
-	// RegulatorManualNodeConfigType selects the RegulatorManualNodeConfig variant.
+	// RegulatorManualNodeConfigType is the configuration for manual regulator symbols.
 	RegulatorManualNodeConfigType NodeConfigType = "regulator_manual"
-	// ReliefValveNodeConfigType selects the ReliefValveNodeConfig variant.
+	// ReliefValveNodeConfigType is the configuration for relief valve symbols.
 	ReliefValveNodeConfigType NodeConfigType = "relief_valve"
 	// SolenoidValveNodeConfigType is the configuration for solenoid valve symbols.
 	SolenoidValveNodeConfigType NodeConfigType = "solenoid_valve"
-	// SpringLoadedReliefValveNodeConfigType selects the
-	// SpringLoadedReliefValveNodeConfig variant.
+	// SpringLoadedReliefValveNodeConfigType is the configuration for spring loaded
+	// relief valve symbols.
 	SpringLoadedReliefValveNodeConfigType NodeConfigType = "spring_loaded_relief_valve"
-	// ThreeWayValveNodeConfigType selects the ThreeWayValveNodeConfig variant.
+	// ThreeWayValveNodeConfigType is the configuration for three way valve symbols.
 	ThreeWayValveNodeConfigType NodeConfigType = "three_way_valve"
-	// ThreeWayBallValveNodeConfigType selects the ThreeWayBallValveNodeConfig variant.
+	// ThreeWayBallValveNodeConfigType is the configuration for three-way ball valve
+	// symbols.
 	ThreeWayBallValveNodeConfigType NodeConfigType = "three_way_ball_valve"
-	// ValveNodeConfigType selects the ValveNodeConfig variant.
+	// ValveNodeConfigType is the configuration for generic valve symbols.
 	ValveNodeConfigType NodeConfigType = "valve"
-	// CrossJunctionNodeConfigType selects the CrossJunctionNodeConfig variant.
+	// CrossJunctionNodeConfigType is the configuration for cross junction symbols.
 	CrossJunctionNodeConfigType NodeConfigType = "cross_junction"
 	// CylinderNodeConfigType is the configuration for cylinder vessel symbols.
 	CylinderNodeConfigType NodeConfigType = "cylinder"
 	// TankNodeConfigType is the configuration for tank vessel symbols.
 	TankNodeConfigType NodeConfigType = "tank"
-	// TJunctionNodeConfigType selects the TJunctionNodeConfig variant.
+	// TJunctionNodeConfigType is the configuration for T junction symbols.
 	TJunctionNodeConfigType NodeConfigType = "t_junction"
 	// CustomActuatorNodeConfigType is the configuration for user-defined actuator
 	// symbols.
@@ -424,6 +453,7 @@ type NodeConfigVariant interface {
 	isNodeConfigVariant()
 }
 
+// CapNodeConfig is the configuration for cap symbols.
 type CapNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -443,6 +473,7 @@ func (c CapNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// FilterNodeConfig is the configuration for filter symbols.
 type FilterNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -462,6 +493,7 @@ func (f FilterNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// FlowStraightenerNodeConfig is the configuration for flow straightener symbols.
 type FlowStraightenerNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -481,6 +513,7 @@ func (f FlowStraightenerNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// HeaterElementNodeConfig is the configuration for heater element symbols.
 type HeaterElementNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -500,6 +533,7 @@ func (h HeaterElementNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// IsoCapNodeConfig is the configuration for ISO cap symbols.
 type IsoCapNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -519,6 +553,7 @@ func (i IsoCapNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// IsoFilterNodeConfig is the configuration for ISO filter symbols.
 type IsoFilterNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -538,6 +573,7 @@ func (i IsoFilterNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// NozzleNodeConfig is the configuration for nozzle symbols.
 type NozzleNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -557,6 +593,7 @@ func (n NozzleNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// OrificeNodeConfig is the configuration for orifice symbols.
 type OrificeNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -576,6 +613,7 @@ func (o OrificeNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// OrificePlateNodeConfig is the configuration for orifice plate symbols.
 type OrificePlateNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -595,6 +633,7 @@ func (o OrificePlateNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// StrainerNodeConfig is the configuration for strainer symbols.
 type StrainerNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -614,6 +653,7 @@ func (s StrainerNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// StrainerConeNodeConfig is the configuration for strainer cone symbols.
 type StrainerConeNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -633,6 +673,7 @@ func (s StrainerConeNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// ThrusterNodeConfig is the configuration for thruster symbols.
 type ThrusterNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -652,6 +693,7 @@ func (t ThrusterNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// VentNodeConfig is the configuration for vent symbols.
 type VentNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -671,6 +713,7 @@ func (ve VentNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// FlowmeterGeneralNodeConfig is the configuration for general flowmeter symbols.
 type FlowmeterGeneralNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -690,6 +733,8 @@ func (f FlowmeterGeneralNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// FlowmeterElectromagneticNodeConfig is the configuration for electromagnetic flowmeter
+// symbols.
 type FlowmeterElectromagneticNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -709,6 +754,8 @@ func (f FlowmeterElectromagneticNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// FlowmeterVariableAreaNodeConfig is the configuration for variable area flowmeter
+// symbols.
 type FlowmeterVariableAreaNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -728,6 +775,7 @@ func (f FlowmeterVariableAreaNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// FlowmeterCoriolisNodeConfig is the configuration for Coriolis flowmeter symbols.
 type FlowmeterCoriolisNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -747,6 +795,7 @@ func (f FlowmeterCoriolisNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// FlowmeterNozzleNodeConfig is the configuration for nozzle flowmeter symbols.
 type FlowmeterNozzleNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -766,6 +815,7 @@ func (f FlowmeterNozzleNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// FlowmeterVenturiNodeConfig is the configuration for venturi flowmeter symbols.
 type FlowmeterVenturiNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -785,6 +835,7 @@ func (f FlowmeterVenturiNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// FlowmeterRingPistonNodeConfig is the configuration for ring piston flowmeter symbols.
 type FlowmeterRingPistonNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -804,6 +855,8 @@ func (f FlowmeterRingPistonNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// FlowmeterPositiveDisplacementNodeConfig is the configuration for positive
+// displacement flowmeter symbols.
 type FlowmeterPositiveDisplacementNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -823,6 +876,7 @@ func (f FlowmeterPositiveDisplacementNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// FlowmeterTurbineNodeConfig is the configuration for turbine flowmeter symbols.
 type FlowmeterTurbineNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -842,6 +896,7 @@ func (f FlowmeterTurbineNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// FlowmeterPulseNodeConfig is the configuration for pulse flowmeter symbols.
 type FlowmeterPulseNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -861,6 +916,8 @@ func (f FlowmeterPulseNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// FlowmeterFloatSensorNodeConfig is the configuration for float sensor flowmeter
+// symbols.
 type FlowmeterFloatSensorNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -880,6 +937,7 @@ func (f FlowmeterFloatSensorNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// FlowmeterOrificeNodeConfig is the configuration for orifice flowmeter symbols.
 type FlowmeterOrificeNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -1419,6 +1477,7 @@ func (s StringDisplayNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// SwitchNodeConfig is the configuration for switch symbols.
 type SwitchNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -1528,6 +1587,7 @@ func (va ValueNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// AgitatorNodeConfig is the configuration for agitator symbols.
 type AgitatorNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -1547,6 +1607,7 @@ func (a AgitatorNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// CrossBeamAgitatorNodeConfig is the configuration for cross beam agitator symbols.
 type CrossBeamAgitatorNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -1566,6 +1627,7 @@ func (c CrossBeamAgitatorNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// FlatBladeAgitatorNodeConfig is the configuration for flat blade agitator symbols.
 type FlatBladeAgitatorNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -1585,6 +1647,8 @@ func (f FlatBladeAgitatorNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// HeatExchangerGeneralNodeConfig is the configuration for general heat exchanger
+// symbols.
 type HeatExchangerGeneralNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -1604,6 +1668,7 @@ func (h HeatExchangerGeneralNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// HeatExchangerMNodeConfig is the configuration for M-type heat exchanger symbols.
 type HeatExchangerMNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -1623,6 +1688,8 @@ func (h HeatExchangerMNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// HeatExchangerStraightTubeNodeConfig is the configuration for straight tube heat
+// exchanger symbols.
 type HeatExchangerStraightTubeNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -1642,6 +1709,7 @@ func (h HeatExchangerStraightTubeNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// HelicalAgitatorNodeConfig is the configuration for helical agitator symbols.
 type HelicalAgitatorNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -1661,6 +1729,7 @@ func (h HelicalAgitatorNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// PaddleAgitatorNodeConfig is the configuration for paddle agitator symbols.
 type PaddleAgitatorNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -1680,6 +1749,7 @@ func (p PaddleAgitatorNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// PropellerAgitatorNodeConfig is the configuration for propeller agitator symbols.
 type PropellerAgitatorNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -1699,6 +1769,7 @@ func (p PropellerAgitatorNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// RotaryMixerNodeConfig is the configuration for rotary mixer symbols.
 type RotaryMixerNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -1718,6 +1789,7 @@ func (r RotaryMixerNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// StaticMixerNodeConfig is the configuration for static mixer symbols.
 type StaticMixerNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -1737,6 +1809,7 @@ func (s StaticMixerNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// CavityPumpNodeConfig is the configuration for cavity pump symbols.
 type CavityPumpNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -1756,6 +1829,8 @@ func (c CavityPumpNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// CentrifugalCompressorNodeConfig is the configuration for centrifugal compressor
+// symbols.
 type CentrifugalCompressorNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -1775,6 +1850,7 @@ func (c CentrifugalCompressorNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// CompressorNodeConfig is the configuration for compressor symbols.
 type CompressorNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -1794,6 +1870,7 @@ func (c CompressorNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// DiaphragmPumpNodeConfig is the configuration for diaphragm pump symbols.
 type DiaphragmPumpNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -1813,6 +1890,7 @@ func (d DiaphragmPumpNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// EjectionPumpNodeConfig is the configuration for ejection pump symbols.
 type EjectionPumpNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -1832,6 +1910,7 @@ func (e EjectionPumpNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// EjectorCompressorNodeConfig is the configuration for ejector compressor symbols.
 type EjectorCompressorNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -1851,6 +1930,8 @@ func (e EjectorCompressorNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// LiquidRingCompressorNodeConfig is the configuration for liquid ring compressor
+// symbols.
 type LiquidRingCompressorNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -1870,6 +1951,7 @@ func (l LiquidRingCompressorNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// PistonPumpNodeConfig is the configuration for piston pump symbols.
 type PistonPumpNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -1889,6 +1971,7 @@ func (p PistonPumpNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// PumpNodeConfig is the configuration for pump symbols.
 type PumpNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -1908,6 +1991,8 @@ func (p PumpNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// RollerVaneCompressorNodeConfig is the configuration for roller vane compressor
+// symbols.
 type RollerVaneCompressorNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -1927,6 +2012,7 @@ func (r RollerVaneCompressorNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// ScrewPumpNodeConfig is the configuration for screw pump symbols.
 type ScrewPumpNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -1946,6 +2032,7 @@ func (s ScrewPumpNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// TurboCompressorNodeConfig is the configuration for turbo compressor symbols.
 type TurboCompressorNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -1965,6 +2052,7 @@ func (t TurboCompressorNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// VacuumPumpNodeConfig is the configuration for vacuum pump symbols.
 type VacuumPumpNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -1984,6 +2072,7 @@ func (va VacuumPumpNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// BurstDiscNodeConfig is the configuration for burst disc symbols.
 type BurstDiscNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -2003,6 +2092,7 @@ func (b BurstDiscNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// FlameArrestorNodeConfig is the configuration for flame arrestor symbols.
 type FlameArrestorNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -2022,6 +2112,8 @@ func (f FlameArrestorNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// FlameArrestorDetonationNodeConfig is the configuration for detonation-proof flame
+// arrestor symbols.
 type FlameArrestorDetonationNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -2041,6 +2133,8 @@ func (f FlameArrestorDetonationNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// FlameArrestorExplosionNodeConfig is the configuration for explosion-proof flame
+// arrestor symbols.
 type FlameArrestorExplosionNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -2060,6 +2154,8 @@ func (f FlameArrestorExplosionNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// FlameArrestorFireResNodeConfig is the configuration for fire resistant flame arrestor
+// symbols.
 type FlameArrestorFireResNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -2079,6 +2175,8 @@ func (f FlameArrestorFireResNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// FlameArrestorFireResDetonationNodeConfig is the configuration for fire resistant and
+// detonation-proof flame arrestor symbols.
 type FlameArrestorFireResDetonationNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -2098,6 +2196,7 @@ func (f FlameArrestorFireResDetonationNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// IsoBurstDiscNodeConfig is the configuration for ISO burst disc symbols.
 type IsoBurstDiscNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -2117,6 +2216,7 @@ func (i IsoBurstDiscNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// AngledValveNodeConfig is the configuration for angled valve symbols.
 type AngledValveNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -2136,6 +2236,7 @@ func (a AngledValveNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// AngledReliefValveNodeConfig is the configuration for angled relief valve symbols.
 type AngledReliefValveNodeConfig struct {
 	DummyToggleSymbolConfig
 }
@@ -2155,6 +2256,8 @@ func (a AngledReliefValveNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// AngledSpringLoadedReliefValveNodeConfig is the configuration for angled spring loaded
+// relief valve symbols.
 type AngledSpringLoadedReliefValveNodeConfig struct {
 	DummyToggleSymbolConfig
 }
@@ -2174,6 +2277,7 @@ func (a AngledSpringLoadedReliefValveNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// BallValveNodeConfig is the configuration for ball valve symbols.
 type BallValveNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -2193,6 +2297,7 @@ func (b BallValveNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// BreatherValveNodeConfig is the configuration for breather valve symbols.
 type BreatherValveNodeConfig struct {
 	DummyToggleSymbolConfig
 }
@@ -2212,6 +2317,7 @@ func (b BreatherValveNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// ButterflyValveOneNodeConfig is the configuration for remote butterfly valve symbols.
 type ButterflyValveOneNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -2231,6 +2337,7 @@ func (b ButterflyValveOneNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// ButterflyValveTwoNodeConfig is the configuration for manual butterfly valve symbols.
 type ButterflyValveTwoNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -2250,6 +2357,7 @@ func (b ButterflyValveTwoNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// CheckValveNodeConfig is the configuration for check valve symbols.
 type CheckValveNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -2269,6 +2377,8 @@ func (c CheckValveNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// CheckValveWithArrowNodeConfig is the configuration for check valve symbols drawn with
+// an arrow.
 type CheckValveWithArrowNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -2288,6 +2398,7 @@ func (c CheckValveWithArrowNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// ElectricRegulatorNodeConfig is the configuration for electric regulator symbols.
 type ElectricRegulatorNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -2307,6 +2418,8 @@ func (e ElectricRegulatorNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// ElectricRegulatorMotorizedNodeConfig is the configuration for motorized electric
+// regulator symbols.
 type ElectricRegulatorMotorizedNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -2326,6 +2439,7 @@ func (e ElectricRegulatorMotorizedNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// FourWayValveNodeConfig is the configuration for four way valve symbols.
 type FourWayValveNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -2345,6 +2459,7 @@ func (f FourWayValveNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// GateValveNodeConfig is the configuration for gate valve symbols.
 type GateValveNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -2364,6 +2479,7 @@ func (g GateValveNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// IsoCheckValveNodeConfig is the configuration for ISO check valve symbols.
 type IsoCheckValveNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -2383,6 +2499,7 @@ func (i IsoCheckValveNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// ManualValveNodeConfig is the configuration for manual valve symbols.
 type ManualValveNodeConfig struct {
 	DummyToggleSymbolConfig
 }
@@ -2402,6 +2519,7 @@ func (m ManualValveNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// NeedleValveNodeConfig is the configuration for needle valve symbols.
 type NeedleValveNodeConfig struct {
 	DummyToggleSymbolConfig
 }
@@ -2421,6 +2539,7 @@ func (n NeedleValveNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// RegulatorNodeConfig is the configuration for regulator symbols.
 type RegulatorNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -2440,6 +2559,7 @@ func (r RegulatorNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// RegulatorManualNodeConfig is the configuration for manual regulator symbols.
 type RegulatorManualNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -2459,6 +2579,7 @@ func (r RegulatorManualNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// ReliefValveNodeConfig is the configuration for relief valve symbols.
 type ReliefValveNodeConfig struct {
 	DummyToggleSymbolConfig
 }
@@ -2500,6 +2621,8 @@ func (s SolenoidValveNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// SpringLoadedReliefValveNodeConfig is the configuration for spring loaded relief valve
+// symbols.
 type SpringLoadedReliefValveNodeConfig struct {
 	DummyToggleSymbolConfig
 }
@@ -2519,6 +2642,7 @@ func (s SpringLoadedReliefValveNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// ThreeWayValveNodeConfig is the configuration for three way valve symbols.
 type ThreeWayValveNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -2538,6 +2662,7 @@ func (t ThreeWayValveNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// ThreeWayBallValveNodeConfig is the configuration for three-way ball valve symbols.
 type ThreeWayBallValveNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -2557,6 +2682,7 @@ func (t ThreeWayBallValveNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// ValveNodeConfig is the configuration for generic valve symbols.
 type ValveNodeConfig struct {
 	ToggleSymbolConfig
 }
@@ -2576,6 +2702,7 @@ func (va ValveNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// CrossJunctionNodeConfig is the configuration for cross junction symbols.
 type CrossJunctionNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -2715,6 +2842,7 @@ func (t TankNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// TJunctionNodeConfig is the configuration for T junction symbols.
 type TJunctionNodeConfig struct {
 	StaticSymbolConfig
 }
@@ -4621,67 +4749,67 @@ func (u NodeConfig) Validate() error {
 type ElementConfigType string
 
 const (
-	// CapElementConfigType selects the CapElementConfig variant.
+	// CapElementConfigType is the configuration for cap symbols.
 	CapElementConfigType ElementConfigType = "cap"
-	// FilterElementConfigType selects the FilterElementConfig variant.
+	// FilterElementConfigType is the configuration for filter symbols.
 	FilterElementConfigType ElementConfigType = "filter"
-	// FlowStraightenerElementConfigType selects the FlowStraightenerElementConfig
-	// variant.
+	// FlowStraightenerElementConfigType is the configuration for flow straightener
+	// symbols.
 	FlowStraightenerElementConfigType ElementConfigType = "flow_straightener"
-	// HeaterElementElementConfigType selects the HeaterElementElementConfig variant.
+	// HeaterElementElementConfigType is the configuration for heater element symbols.
 	HeaterElementElementConfigType ElementConfigType = "heater_element"
-	// IsoCapElementConfigType selects the IsoCapElementConfig variant.
+	// IsoCapElementConfigType is the configuration for ISO cap symbols.
 	IsoCapElementConfigType ElementConfigType = "iso_cap"
-	// IsoFilterElementConfigType selects the IsoFilterElementConfig variant.
+	// IsoFilterElementConfigType is the configuration for ISO filter symbols.
 	IsoFilterElementConfigType ElementConfigType = "iso_filter"
-	// NozzleElementConfigType selects the NozzleElementConfig variant.
+	// NozzleElementConfigType is the configuration for nozzle symbols.
 	NozzleElementConfigType ElementConfigType = "nozzle"
-	// OrificeElementConfigType selects the OrificeElementConfig variant.
+	// OrificeElementConfigType is the configuration for orifice symbols.
 	OrificeElementConfigType ElementConfigType = "orifice"
-	// OrificePlateElementConfigType selects the OrificePlateElementConfig variant.
+	// OrificePlateElementConfigType is the configuration for orifice plate symbols.
 	OrificePlateElementConfigType ElementConfigType = "orifice_plate"
-	// StrainerElementConfigType selects the StrainerElementConfig variant.
+	// StrainerElementConfigType is the configuration for strainer symbols.
 	StrainerElementConfigType ElementConfigType = "strainer"
-	// StrainerConeElementConfigType selects the StrainerConeElementConfig variant.
+	// StrainerConeElementConfigType is the configuration for strainer cone symbols.
 	StrainerConeElementConfigType ElementConfigType = "strainer_cone"
-	// ThrusterElementConfigType selects the ThrusterElementConfig variant.
+	// ThrusterElementConfigType is the configuration for thruster symbols.
 	ThrusterElementConfigType ElementConfigType = "thruster"
-	// VentElementConfigType selects the VentElementConfig variant.
+	// VentElementConfigType is the configuration for vent symbols.
 	VentElementConfigType ElementConfigType = "vent"
-	// FlowmeterGeneralElementConfigType selects the FlowmeterGeneralElementConfig
-	// variant.
+	// FlowmeterGeneralElementConfigType is the configuration for general flowmeter
+	// symbols.
 	FlowmeterGeneralElementConfigType ElementConfigType = "flowmeter_general"
-	// FlowmeterElectromagneticElementConfigType selects the
-	// FlowmeterElectromagneticElementConfig variant.
+	// FlowmeterElectromagneticElementConfigType is the configuration for
+	// electromagnetic flowmeter symbols.
 	FlowmeterElectromagneticElementConfigType ElementConfigType = "flowmeter_electromagnetic"
-	// FlowmeterVariableAreaElementConfigType selects the
-	// FlowmeterVariableAreaElementConfig variant.
+	// FlowmeterVariableAreaElementConfigType is the configuration for variable area
+	// flowmeter symbols.
 	FlowmeterVariableAreaElementConfigType ElementConfigType = "flowmeter_variable_area"
-	// FlowmeterCoriolisElementConfigType selects the FlowmeterCoriolisElementConfig
-	// variant.
+	// FlowmeterCoriolisElementConfigType is the configuration for Coriolis flowmeter
+	// symbols.
 	FlowmeterCoriolisElementConfigType ElementConfigType = "flowmeter_coriolis"
-	// FlowmeterNozzleElementConfigType selects the FlowmeterNozzleElementConfig
-	// variant.
+	// FlowmeterNozzleElementConfigType is the configuration for nozzle flowmeter
+	// symbols.
 	FlowmeterNozzleElementConfigType ElementConfigType = "flowmeter_nozzle"
-	// FlowmeterVenturiElementConfigType selects the FlowmeterVenturiElementConfig
-	// variant.
+	// FlowmeterVenturiElementConfigType is the configuration for venturi flowmeter
+	// symbols.
 	FlowmeterVenturiElementConfigType ElementConfigType = "flowmeter_venturi"
-	// FlowmeterRingPistonElementConfigType selects the FlowmeterRingPistonElementConfig
-	// variant.
+	// FlowmeterRingPistonElementConfigType is the configuration for ring piston
+	// flowmeter symbols.
 	FlowmeterRingPistonElementConfigType ElementConfigType = "flowmeter_ring_piston"
-	// FlowmeterPositiveDisplacementElementConfigType selects the
-	// FlowmeterPositiveDisplacementElementConfig variant.
+	// FlowmeterPositiveDisplacementElementConfigType is the configuration for positive
+	// displacement flowmeter symbols.
 	FlowmeterPositiveDisplacementElementConfigType ElementConfigType = "flowmeter_positive_displacement"
-	// FlowmeterTurbineElementConfigType selects the FlowmeterTurbineElementConfig
-	// variant.
+	// FlowmeterTurbineElementConfigType is the configuration for turbine flowmeter
+	// symbols.
 	FlowmeterTurbineElementConfigType ElementConfigType = "flowmeter_turbine"
-	// FlowmeterPulseElementConfigType selects the FlowmeterPulseElementConfig variant.
+	// FlowmeterPulseElementConfigType is the configuration for pulse flowmeter symbols.
 	FlowmeterPulseElementConfigType ElementConfigType = "flowmeter_pulse"
-	// FlowmeterFloatSensorElementConfigType selects the
-	// FlowmeterFloatSensorElementConfig variant.
+	// FlowmeterFloatSensorElementConfigType is the configuration for float sensor
+	// flowmeter symbols.
 	FlowmeterFloatSensorElementConfigType ElementConfigType = "flowmeter_float_sensor"
-	// FlowmeterOrificeElementConfigType selects the FlowmeterOrificeElementConfig
-	// variant.
+	// FlowmeterOrificeElementConfigType is the configuration for orifice flowmeter
+	// symbols.
 	FlowmeterOrificeElementConfigType ElementConfigType = "flowmeter_orifice"
 	// BoxElementConfigType is the configuration for box annotation symbols.
 	BoxElementConfigType ElementConfigType = "box"
@@ -4714,154 +4842,155 @@ const (
 	// StringDisplayElementConfigType is the configuration for live string display
 	// symbols.
 	StringDisplayElementConfigType ElementConfigType = "string_display"
-	// SwitchElementConfigType selects the SwitchElementConfig variant.
+	// SwitchElementConfigType is the configuration for switch symbols.
 	SwitchElementConfigType ElementConfigType = "switch"
 	// TextBoxElementConfigType is the configuration for text box annotation symbols.
 	TextBoxElementConfigType ElementConfigType = "text_box"
 	// ValueElementConfigType is the configuration for live telemetry value symbols.
 	ValueElementConfigType ElementConfigType = "value"
-	// AgitatorElementConfigType selects the AgitatorElementConfig variant.
+	// AgitatorElementConfigType is the configuration for agitator symbols.
 	AgitatorElementConfigType ElementConfigType = "agitator"
-	// CrossBeamAgitatorElementConfigType selects the CrossBeamAgitatorElementConfig
-	// variant.
+	// CrossBeamAgitatorElementConfigType is the configuration for cross beam agitator
+	// symbols.
 	CrossBeamAgitatorElementConfigType ElementConfigType = "cross_beam_agitator"
-	// FlatBladeAgitatorElementConfigType selects the FlatBladeAgitatorElementConfig
-	// variant.
+	// FlatBladeAgitatorElementConfigType is the configuration for flat blade agitator
+	// symbols.
 	FlatBladeAgitatorElementConfigType ElementConfigType = "flat_blade_agitator"
-	// HeatExchangerGeneralElementConfigType selects the
-	// HeatExchangerGeneralElementConfig variant.
+	// HeatExchangerGeneralElementConfigType is the configuration for general heat
+	// exchanger symbols.
 	HeatExchangerGeneralElementConfigType ElementConfigType = "heat_exchanger_general"
-	// HeatExchangerMElementConfigType selects the HeatExchangerMElementConfig variant.
+	// HeatExchangerMElementConfigType is the configuration for M-type heat exchanger
+	// symbols.
 	HeatExchangerMElementConfigType ElementConfigType = "heat_exchanger_m"
-	// HeatExchangerStraightTubeElementConfigType selects the
-	// HeatExchangerStraightTubeElementConfig variant.
+	// HeatExchangerStraightTubeElementConfigType is the configuration for straight tube
+	// heat exchanger symbols.
 	HeatExchangerStraightTubeElementConfigType ElementConfigType = "heat_exchanger_straight_tube"
-	// HelicalAgitatorElementConfigType selects the HelicalAgitatorElementConfig
-	// variant.
+	// HelicalAgitatorElementConfigType is the configuration for helical agitator
+	// symbols.
 	HelicalAgitatorElementConfigType ElementConfigType = "helical_agitator"
-	// PaddleAgitatorElementConfigType selects the PaddleAgitatorElementConfig variant.
+	// PaddleAgitatorElementConfigType is the configuration for paddle agitator symbols.
 	PaddleAgitatorElementConfigType ElementConfigType = "paddle_agitator"
-	// PropellerAgitatorElementConfigType selects the PropellerAgitatorElementConfig
-	// variant.
+	// PropellerAgitatorElementConfigType is the configuration for propeller agitator
+	// symbols.
 	PropellerAgitatorElementConfigType ElementConfigType = "propeller_agitator"
-	// RotaryMixerElementConfigType selects the RotaryMixerElementConfig variant.
+	// RotaryMixerElementConfigType is the configuration for rotary mixer symbols.
 	RotaryMixerElementConfigType ElementConfigType = "rotary_mixer"
-	// StaticMixerElementConfigType selects the StaticMixerElementConfig variant.
+	// StaticMixerElementConfigType is the configuration for static mixer symbols.
 	StaticMixerElementConfigType ElementConfigType = "static_mixer"
-	// CavityPumpElementConfigType selects the CavityPumpElementConfig variant.
+	// CavityPumpElementConfigType is the configuration for cavity pump symbols.
 	CavityPumpElementConfigType ElementConfigType = "cavity_pump"
-	// CentrifugalCompressorElementConfigType selects the
-	// CentrifugalCompressorElementConfig variant.
+	// CentrifugalCompressorElementConfigType is the configuration for centrifugal
+	// compressor symbols.
 	CentrifugalCompressorElementConfigType ElementConfigType = "centrifugal_compressor"
-	// CompressorElementConfigType selects the CompressorElementConfig variant.
+	// CompressorElementConfigType is the configuration for compressor symbols.
 	CompressorElementConfigType ElementConfigType = "compressor"
-	// DiaphragmPumpElementConfigType selects the DiaphragmPumpElementConfig variant.
+	// DiaphragmPumpElementConfigType is the configuration for diaphragm pump symbols.
 	DiaphragmPumpElementConfigType ElementConfigType = "diaphragm_pump"
-	// EjectionPumpElementConfigType selects the EjectionPumpElementConfig variant.
+	// EjectionPumpElementConfigType is the configuration for ejection pump symbols.
 	EjectionPumpElementConfigType ElementConfigType = "ejection_pump"
-	// EjectorCompressorElementConfigType selects the EjectorCompressorElementConfig
-	// variant.
+	// EjectorCompressorElementConfigType is the configuration for ejector compressor
+	// symbols.
 	EjectorCompressorElementConfigType ElementConfigType = "ejector_compressor"
-	// LiquidRingCompressorElementConfigType selects the
-	// LiquidRingCompressorElementConfig variant.
+	// LiquidRingCompressorElementConfigType is the configuration for liquid ring
+	// compressor symbols.
 	LiquidRingCompressorElementConfigType ElementConfigType = "liquid_ring_compressor"
-	// PistonPumpElementConfigType selects the PistonPumpElementConfig variant.
+	// PistonPumpElementConfigType is the configuration for piston pump symbols.
 	PistonPumpElementConfigType ElementConfigType = "piston_pump"
-	// PumpElementConfigType selects the PumpElementConfig variant.
+	// PumpElementConfigType is the configuration for pump symbols.
 	PumpElementConfigType ElementConfigType = "pump"
-	// RollerVaneCompressorElementConfigType selects the
-	// RollerVaneCompressorElementConfig variant.
+	// RollerVaneCompressorElementConfigType is the configuration for roller vane
+	// compressor symbols.
 	RollerVaneCompressorElementConfigType ElementConfigType = "roller_vane_compressor"
-	// ScrewPumpElementConfigType selects the ScrewPumpElementConfig variant.
+	// ScrewPumpElementConfigType is the configuration for screw pump symbols.
 	ScrewPumpElementConfigType ElementConfigType = "screw_pump"
-	// TurboCompressorElementConfigType selects the TurboCompressorElementConfig
-	// variant.
+	// TurboCompressorElementConfigType is the configuration for turbo compressor
+	// symbols.
 	TurboCompressorElementConfigType ElementConfigType = "turbo_compressor"
-	// VacuumPumpElementConfigType selects the VacuumPumpElementConfig variant.
+	// VacuumPumpElementConfigType is the configuration for vacuum pump symbols.
 	VacuumPumpElementConfigType ElementConfigType = "vacuum_pump"
-	// BurstDiscElementConfigType selects the BurstDiscElementConfig variant.
+	// BurstDiscElementConfigType is the configuration for burst disc symbols.
 	BurstDiscElementConfigType ElementConfigType = "burst_disc"
-	// FlameArrestorElementConfigType selects the FlameArrestorElementConfig variant.
+	// FlameArrestorElementConfigType is the configuration for flame arrestor symbols.
 	FlameArrestorElementConfigType ElementConfigType = "flame_arrestor"
-	// FlameArrestorDetonationElementConfigType selects the
-	// FlameArrestorDetonationElementConfig variant.
+	// FlameArrestorDetonationElementConfigType is the configuration for
+	// detonation-proof flame arrestor symbols.
 	FlameArrestorDetonationElementConfigType ElementConfigType = "flame_arrestor_detonation"
-	// FlameArrestorExplosionElementConfigType selects the
-	// FlameArrestorExplosionElementConfig variant.
+	// FlameArrestorExplosionElementConfigType is the configuration for explosion-proof
+	// flame arrestor symbols.
 	FlameArrestorExplosionElementConfigType ElementConfigType = "flame_arrestor_explosion"
-	// FlameArrestorFireResElementConfigType selects the
-	// FlameArrestorFireResElementConfig variant.
+	// FlameArrestorFireResElementConfigType is the configuration for fire resistant
+	// flame arrestor symbols.
 	FlameArrestorFireResElementConfigType ElementConfigType = "flame_arrestor_fire_res"
-	// FlameArrestorFireResDetonationElementConfigType selects the
-	// FlameArrestorFireResDetonationElementConfig variant.
+	// FlameArrestorFireResDetonationElementConfigType is the configuration for fire
+	// resistant and detonation-proof flame arrestor symbols.
 	FlameArrestorFireResDetonationElementConfigType ElementConfigType = "flame_arrestor_fire_res_detonation"
-	// IsoBurstDiscElementConfigType selects the IsoBurstDiscElementConfig variant.
+	// IsoBurstDiscElementConfigType is the configuration for ISO burst disc symbols.
 	IsoBurstDiscElementConfigType ElementConfigType = "iso_burst_disc"
-	// AngledValveElementConfigType selects the AngledValveElementConfig variant.
+	// AngledValveElementConfigType is the configuration for angled valve symbols.
 	AngledValveElementConfigType ElementConfigType = "angled_valve"
-	// AngledReliefValveElementConfigType selects the AngledReliefValveElementConfig
-	// variant.
+	// AngledReliefValveElementConfigType is the configuration for angled relief valve
+	// symbols.
 	AngledReliefValveElementConfigType ElementConfigType = "angled_relief_valve"
-	// AngledSpringLoadedReliefValveElementConfigType selects the
-	// AngledSpringLoadedReliefValveElementConfig variant.
+	// AngledSpringLoadedReliefValveElementConfigType is the configuration for angled
+	// spring loaded relief valve symbols.
 	AngledSpringLoadedReliefValveElementConfigType ElementConfigType = "angled_spring_loaded_relief_valve"
-	// BallValveElementConfigType selects the BallValveElementConfig variant.
+	// BallValveElementConfigType is the configuration for ball valve symbols.
 	BallValveElementConfigType ElementConfigType = "ball_valve"
-	// BreatherValveElementConfigType selects the BreatherValveElementConfig variant.
+	// BreatherValveElementConfigType is the configuration for breather valve symbols.
 	BreatherValveElementConfigType ElementConfigType = "breather_valve"
-	// ButterflyValveOneElementConfigType selects the ButterflyValveOneElementConfig
-	// variant.
+	// ButterflyValveOneElementConfigType is the configuration for remote butterfly
+	// valve symbols.
 	ButterflyValveOneElementConfigType ElementConfigType = "butterfly_valve_one"
-	// ButterflyValveTwoElementConfigType selects the ButterflyValveTwoElementConfig
-	// variant.
+	// ButterflyValveTwoElementConfigType is the configuration for manual butterfly
+	// valve symbols.
 	ButterflyValveTwoElementConfigType ElementConfigType = "butterfly_valve_two"
-	// CheckValveElementConfigType selects the CheckValveElementConfig variant.
+	// CheckValveElementConfigType is the configuration for check valve symbols.
 	CheckValveElementConfigType ElementConfigType = "check_valve"
-	// CheckValveWithArrowElementConfigType selects the CheckValveWithArrowElementConfig
-	// variant.
+	// CheckValveWithArrowElementConfigType is the configuration for check valve symbols
+	// drawn with an arrow.
 	CheckValveWithArrowElementConfigType ElementConfigType = "check_valve_with_arrow"
-	// ElectricRegulatorElementConfigType selects the ElectricRegulatorElementConfig
-	// variant.
+	// ElectricRegulatorElementConfigType is the configuration for electric regulator
+	// symbols.
 	ElectricRegulatorElementConfigType ElementConfigType = "electric_regulator"
-	// ElectricRegulatorMotorizedElementConfigType selects the
-	// ElectricRegulatorMotorizedElementConfig variant.
+	// ElectricRegulatorMotorizedElementConfigType is the configuration for motorized
+	// electric regulator symbols.
 	ElectricRegulatorMotorizedElementConfigType ElementConfigType = "electric_regulator_motorized"
-	// FourWayValveElementConfigType selects the FourWayValveElementConfig variant.
+	// FourWayValveElementConfigType is the configuration for four way valve symbols.
 	FourWayValveElementConfigType ElementConfigType = "four_way_valve"
-	// GateValveElementConfigType selects the GateValveElementConfig variant.
+	// GateValveElementConfigType is the configuration for gate valve symbols.
 	GateValveElementConfigType ElementConfigType = "gate_valve"
-	// IsoCheckValveElementConfigType selects the IsoCheckValveElementConfig variant.
+	// IsoCheckValveElementConfigType is the configuration for ISO check valve symbols.
 	IsoCheckValveElementConfigType ElementConfigType = "iso_check_valve"
-	// ManualValveElementConfigType selects the ManualValveElementConfig variant.
+	// ManualValveElementConfigType is the configuration for manual valve symbols.
 	ManualValveElementConfigType ElementConfigType = "manual_valve"
-	// NeedleValveElementConfigType selects the NeedleValveElementConfig variant.
+	// NeedleValveElementConfigType is the configuration for needle valve symbols.
 	NeedleValveElementConfigType ElementConfigType = "needle_valve"
-	// RegulatorElementConfigType selects the RegulatorElementConfig variant.
+	// RegulatorElementConfigType is the configuration for regulator symbols.
 	RegulatorElementConfigType ElementConfigType = "regulator"
-	// RegulatorManualElementConfigType selects the RegulatorManualElementConfig
-	// variant.
+	// RegulatorManualElementConfigType is the configuration for manual regulator
+	// symbols.
 	RegulatorManualElementConfigType ElementConfigType = "regulator_manual"
-	// ReliefValveElementConfigType selects the ReliefValveElementConfig variant.
+	// ReliefValveElementConfigType is the configuration for relief valve symbols.
 	ReliefValveElementConfigType ElementConfigType = "relief_valve"
 	// SolenoidValveElementConfigType is the configuration for solenoid valve symbols.
 	SolenoidValveElementConfigType ElementConfigType = "solenoid_valve"
-	// SpringLoadedReliefValveElementConfigType selects the
-	// SpringLoadedReliefValveElementConfig variant.
+	// SpringLoadedReliefValveElementConfigType is the configuration for spring loaded
+	// relief valve symbols.
 	SpringLoadedReliefValveElementConfigType ElementConfigType = "spring_loaded_relief_valve"
-	// ThreeWayValveElementConfigType selects the ThreeWayValveElementConfig variant.
+	// ThreeWayValveElementConfigType is the configuration for three way valve symbols.
 	ThreeWayValveElementConfigType ElementConfigType = "three_way_valve"
-	// ThreeWayBallValveElementConfigType selects the ThreeWayBallValveElementConfig
-	// variant.
+	// ThreeWayBallValveElementConfigType is the configuration for three-way ball valve
+	// symbols.
 	ThreeWayBallValveElementConfigType ElementConfigType = "three_way_ball_valve"
-	// ValveElementConfigType selects the ValveElementConfig variant.
+	// ValveElementConfigType is the configuration for generic valve symbols.
 	ValveElementConfigType ElementConfigType = "valve"
-	// CrossJunctionElementConfigType selects the CrossJunctionElementConfig variant.
+	// CrossJunctionElementConfigType is the configuration for cross junction symbols.
 	CrossJunctionElementConfigType ElementConfigType = "cross_junction"
 	// CylinderElementConfigType is the configuration for cylinder vessel symbols.
 	CylinderElementConfigType ElementConfigType = "cylinder"
 	// TankElementConfigType is the configuration for tank vessel symbols.
 	TankElementConfigType ElementConfigType = "tank"
-	// TJunctionElementConfigType selects the TJunctionElementConfig variant.
+	// TJunctionElementConfigType is the configuration for T junction symbols.
 	TJunctionElementConfigType ElementConfigType = "t_junction"
 	// CustomActuatorElementConfigType is the configuration for user-defined actuator
 	// symbols.
@@ -4872,19 +5001,19 @@ const (
 	// GroupBoxElementConfigType is the configuration for a group box, the symbol that
 	// bounds a set of grouped symbols. Groups nest: a member may itself be a group.
 	GroupBoxElementConfigType ElementConfigType = "group_box"
-	// PipeElementConfigType selects the PipeElementConfig variant.
+	// PipeElementConfigType is the configuration for pipe edges.
 	PipeElementConfigType ElementConfigType = "pipe"
-	// ElectricElementConfigType selects the ElectricElementConfig variant.
+	// ElectricElementConfigType is the configuration for electrical edges.
 	ElectricElementConfigType ElementConfigType = "electric"
-	// SecondaryElementConfigType selects the SecondaryElementConfig variant.
+	// SecondaryElementConfigType is the configuration for secondary edges.
 	SecondaryElementConfigType ElementConfigType = "secondary"
-	// JacketedElementConfigType selects the JacketedElementConfig variant.
+	// JacketedElementConfigType is the configuration for jacketed edges.
 	JacketedElementConfigType ElementConfigType = "jacketed"
-	// HydraulicElementConfigType selects the HydraulicElementConfig variant.
+	// HydraulicElementConfigType is the configuration for hydraulic edges.
 	HydraulicElementConfigType ElementConfigType = "hydraulic"
-	// PneumaticElementConfigType selects the PneumaticElementConfig variant.
+	// PneumaticElementConfigType is the configuration for pneumatic edges.
 	PneumaticElementConfigType ElementConfigType = "pneumatic"
-	// DataElementConfigType selects the DataElementConfig variant.
+	// DataElementConfigType is the configuration for data edges.
 	DataElementConfigType ElementConfigType = "data"
 )
 
@@ -4893,6 +5022,7 @@ type ElementConfigVariant interface {
 	isElementConfigVariant()
 }
 
+// CapElementConfig is the configuration for cap symbols.
 type CapElementConfig struct {
 	StaticSymbolConfig
 }
@@ -4912,6 +5042,7 @@ func (c CapElementConfig) Validate() error {
 	return v.Error()
 }
 
+// FilterElementConfig is the configuration for filter symbols.
 type FilterElementConfig struct {
 	StaticSymbolConfig
 }
@@ -4931,6 +5062,7 @@ func (f FilterElementConfig) Validate() error {
 	return v.Error()
 }
 
+// FlowStraightenerElementConfig is the configuration for flow straightener symbols.
 type FlowStraightenerElementConfig struct {
 	StaticSymbolConfig
 }
@@ -4950,6 +5082,7 @@ func (f FlowStraightenerElementConfig) Validate() error {
 	return v.Error()
 }
 
+// HeaterElementElementConfig is the configuration for heater element symbols.
 type HeaterElementElementConfig struct {
 	StaticSymbolConfig
 }
@@ -4969,6 +5102,7 @@ func (h HeaterElementElementConfig) Validate() error {
 	return v.Error()
 }
 
+// IsoCapElementConfig is the configuration for ISO cap symbols.
 type IsoCapElementConfig struct {
 	StaticSymbolConfig
 }
@@ -4988,6 +5122,7 @@ func (i IsoCapElementConfig) Validate() error {
 	return v.Error()
 }
 
+// IsoFilterElementConfig is the configuration for ISO filter symbols.
 type IsoFilterElementConfig struct {
 	StaticSymbolConfig
 }
@@ -5007,6 +5142,7 @@ func (i IsoFilterElementConfig) Validate() error {
 	return v.Error()
 }
 
+// NozzleElementConfig is the configuration for nozzle symbols.
 type NozzleElementConfig struct {
 	StaticSymbolConfig
 }
@@ -5026,6 +5162,7 @@ func (n NozzleElementConfig) Validate() error {
 	return v.Error()
 }
 
+// OrificeElementConfig is the configuration for orifice symbols.
 type OrificeElementConfig struct {
 	StaticSymbolConfig
 }
@@ -5045,6 +5182,7 @@ func (o OrificeElementConfig) Validate() error {
 	return v.Error()
 }
 
+// OrificePlateElementConfig is the configuration for orifice plate symbols.
 type OrificePlateElementConfig struct {
 	StaticSymbolConfig
 }
@@ -5064,6 +5202,7 @@ func (o OrificePlateElementConfig) Validate() error {
 	return v.Error()
 }
 
+// StrainerElementConfig is the configuration for strainer symbols.
 type StrainerElementConfig struct {
 	StaticSymbolConfig
 }
@@ -5083,6 +5222,7 @@ func (s StrainerElementConfig) Validate() error {
 	return v.Error()
 }
 
+// StrainerConeElementConfig is the configuration for strainer cone symbols.
 type StrainerConeElementConfig struct {
 	StaticSymbolConfig
 }
@@ -5102,6 +5242,7 @@ func (s StrainerConeElementConfig) Validate() error {
 	return v.Error()
 }
 
+// ThrusterElementConfig is the configuration for thruster symbols.
 type ThrusterElementConfig struct {
 	ToggleSymbolConfig
 }
@@ -5121,6 +5262,7 @@ func (t ThrusterElementConfig) Validate() error {
 	return v.Error()
 }
 
+// VentElementConfig is the configuration for vent symbols.
 type VentElementConfig struct {
 	StaticSymbolConfig
 }
@@ -5140,6 +5282,7 @@ func (ve VentElementConfig) Validate() error {
 	return v.Error()
 }
 
+// FlowmeterGeneralElementConfig is the configuration for general flowmeter symbols.
 type FlowmeterGeneralElementConfig struct {
 	StaticSymbolConfig
 }
@@ -5159,6 +5302,8 @@ func (f FlowmeterGeneralElementConfig) Validate() error {
 	return v.Error()
 }
 
+// FlowmeterElectromagneticElementConfig is the configuration for electromagnetic
+// flowmeter symbols.
 type FlowmeterElectromagneticElementConfig struct {
 	StaticSymbolConfig
 }
@@ -5178,6 +5323,8 @@ func (f FlowmeterElectromagneticElementConfig) Validate() error {
 	return v.Error()
 }
 
+// FlowmeterVariableAreaElementConfig is the configuration for variable area flowmeter
+// symbols.
 type FlowmeterVariableAreaElementConfig struct {
 	StaticSymbolConfig
 }
@@ -5197,6 +5344,7 @@ func (f FlowmeterVariableAreaElementConfig) Validate() error {
 	return v.Error()
 }
 
+// FlowmeterCoriolisElementConfig is the configuration for Coriolis flowmeter symbols.
 type FlowmeterCoriolisElementConfig struct {
 	StaticSymbolConfig
 }
@@ -5216,6 +5364,7 @@ func (f FlowmeterCoriolisElementConfig) Validate() error {
 	return v.Error()
 }
 
+// FlowmeterNozzleElementConfig is the configuration for nozzle flowmeter symbols.
 type FlowmeterNozzleElementConfig struct {
 	StaticSymbolConfig
 }
@@ -5235,6 +5384,7 @@ func (f FlowmeterNozzleElementConfig) Validate() error {
 	return v.Error()
 }
 
+// FlowmeterVenturiElementConfig is the configuration for venturi flowmeter symbols.
 type FlowmeterVenturiElementConfig struct {
 	StaticSymbolConfig
 }
@@ -5254,6 +5404,8 @@ func (f FlowmeterVenturiElementConfig) Validate() error {
 	return v.Error()
 }
 
+// FlowmeterRingPistonElementConfig is the configuration for ring piston flowmeter
+// symbols.
 type FlowmeterRingPistonElementConfig struct {
 	StaticSymbolConfig
 }
@@ -5273,6 +5425,8 @@ func (f FlowmeterRingPistonElementConfig) Validate() error {
 	return v.Error()
 }
 
+// FlowmeterPositiveDisplacementElementConfig is the configuration for positive
+// displacement flowmeter symbols.
 type FlowmeterPositiveDisplacementElementConfig struct {
 	StaticSymbolConfig
 }
@@ -5292,6 +5446,7 @@ func (f FlowmeterPositiveDisplacementElementConfig) Validate() error {
 	return v.Error()
 }
 
+// FlowmeterTurbineElementConfig is the configuration for turbine flowmeter symbols.
 type FlowmeterTurbineElementConfig struct {
 	StaticSymbolConfig
 }
@@ -5311,6 +5466,7 @@ func (f FlowmeterTurbineElementConfig) Validate() error {
 	return v.Error()
 }
 
+// FlowmeterPulseElementConfig is the configuration for pulse flowmeter symbols.
 type FlowmeterPulseElementConfig struct {
 	StaticSymbolConfig
 }
@@ -5330,6 +5486,8 @@ func (f FlowmeterPulseElementConfig) Validate() error {
 	return v.Error()
 }
 
+// FlowmeterFloatSensorElementConfig is the configuration for float sensor flowmeter
+// symbols.
 type FlowmeterFloatSensorElementConfig struct {
 	StaticSymbolConfig
 }
@@ -5349,6 +5507,7 @@ func (f FlowmeterFloatSensorElementConfig) Validate() error {
 	return v.Error()
 }
 
+// FlowmeterOrificeElementConfig is the configuration for orifice flowmeter symbols.
 type FlowmeterOrificeElementConfig struct {
 	StaticSymbolConfig
 }
@@ -5888,6 +6047,7 @@ func (s StringDisplayElementConfig) Validate() error {
 	return v.Error()
 }
 
+// SwitchElementConfig is the configuration for switch symbols.
 type SwitchElementConfig struct {
 	ToggleSymbolConfig
 }
@@ -5997,6 +6157,7 @@ func (va ValueElementConfig) Validate() error {
 	return v.Error()
 }
 
+// AgitatorElementConfig is the configuration for agitator symbols.
 type AgitatorElementConfig struct {
 	ToggleSymbolConfig
 }
@@ -6016,6 +6177,7 @@ func (a AgitatorElementConfig) Validate() error {
 	return v.Error()
 }
 
+// CrossBeamAgitatorElementConfig is the configuration for cross beam agitator symbols.
 type CrossBeamAgitatorElementConfig struct {
 	ToggleSymbolConfig
 }
@@ -6035,6 +6197,7 @@ func (c CrossBeamAgitatorElementConfig) Validate() error {
 	return v.Error()
 }
 
+// FlatBladeAgitatorElementConfig is the configuration for flat blade agitator symbols.
 type FlatBladeAgitatorElementConfig struct {
 	ToggleSymbolConfig
 }
@@ -6054,6 +6217,8 @@ func (f FlatBladeAgitatorElementConfig) Validate() error {
 	return v.Error()
 }
 
+// HeatExchangerGeneralElementConfig is the configuration for general heat exchanger
+// symbols.
 type HeatExchangerGeneralElementConfig struct {
 	StaticSymbolConfig
 }
@@ -6073,6 +6238,7 @@ func (h HeatExchangerGeneralElementConfig) Validate() error {
 	return v.Error()
 }
 
+// HeatExchangerMElementConfig is the configuration for M-type heat exchanger symbols.
 type HeatExchangerMElementConfig struct {
 	StaticSymbolConfig
 }
@@ -6092,6 +6258,8 @@ func (h HeatExchangerMElementConfig) Validate() error {
 	return v.Error()
 }
 
+// HeatExchangerStraightTubeElementConfig is the configuration for straight tube heat
+// exchanger symbols.
 type HeatExchangerStraightTubeElementConfig struct {
 	StaticSymbolConfig
 }
@@ -6111,6 +6279,7 @@ func (h HeatExchangerStraightTubeElementConfig) Validate() error {
 	return v.Error()
 }
 
+// HelicalAgitatorElementConfig is the configuration for helical agitator symbols.
 type HelicalAgitatorElementConfig struct {
 	ToggleSymbolConfig
 }
@@ -6130,6 +6299,7 @@ func (h HelicalAgitatorElementConfig) Validate() error {
 	return v.Error()
 }
 
+// PaddleAgitatorElementConfig is the configuration for paddle agitator symbols.
 type PaddleAgitatorElementConfig struct {
 	ToggleSymbolConfig
 }
@@ -6149,6 +6319,7 @@ func (p PaddleAgitatorElementConfig) Validate() error {
 	return v.Error()
 }
 
+// PropellerAgitatorElementConfig is the configuration for propeller agitator symbols.
 type PropellerAgitatorElementConfig struct {
 	ToggleSymbolConfig
 }
@@ -6168,6 +6339,7 @@ func (p PropellerAgitatorElementConfig) Validate() error {
 	return v.Error()
 }
 
+// RotaryMixerElementConfig is the configuration for rotary mixer symbols.
 type RotaryMixerElementConfig struct {
 	ToggleSymbolConfig
 }
@@ -6187,6 +6359,7 @@ func (r RotaryMixerElementConfig) Validate() error {
 	return v.Error()
 }
 
+// StaticMixerElementConfig is the configuration for static mixer symbols.
 type StaticMixerElementConfig struct {
 	StaticSymbolConfig
 }
@@ -6206,6 +6379,7 @@ func (s StaticMixerElementConfig) Validate() error {
 	return v.Error()
 }
 
+// CavityPumpElementConfig is the configuration for cavity pump symbols.
 type CavityPumpElementConfig struct {
 	ToggleSymbolConfig
 }
@@ -6225,6 +6399,8 @@ func (c CavityPumpElementConfig) Validate() error {
 	return v.Error()
 }
 
+// CentrifugalCompressorElementConfig is the configuration for centrifugal compressor
+// symbols.
 type CentrifugalCompressorElementConfig struct {
 	ToggleSymbolConfig
 }
@@ -6244,6 +6420,7 @@ func (c CentrifugalCompressorElementConfig) Validate() error {
 	return v.Error()
 }
 
+// CompressorElementConfig is the configuration for compressor symbols.
 type CompressorElementConfig struct {
 	ToggleSymbolConfig
 }
@@ -6263,6 +6440,7 @@ func (c CompressorElementConfig) Validate() error {
 	return v.Error()
 }
 
+// DiaphragmPumpElementConfig is the configuration for diaphragm pump symbols.
 type DiaphragmPumpElementConfig struct {
 	ToggleSymbolConfig
 }
@@ -6282,6 +6460,7 @@ func (d DiaphragmPumpElementConfig) Validate() error {
 	return v.Error()
 }
 
+// EjectionPumpElementConfig is the configuration for ejection pump symbols.
 type EjectionPumpElementConfig struct {
 	ToggleSymbolConfig
 }
@@ -6301,6 +6480,7 @@ func (e EjectionPumpElementConfig) Validate() error {
 	return v.Error()
 }
 
+// EjectorCompressorElementConfig is the configuration for ejector compressor symbols.
 type EjectorCompressorElementConfig struct {
 	ToggleSymbolConfig
 }
@@ -6320,6 +6500,8 @@ func (e EjectorCompressorElementConfig) Validate() error {
 	return v.Error()
 }
 
+// LiquidRingCompressorElementConfig is the configuration for liquid ring compressor
+// symbols.
 type LiquidRingCompressorElementConfig struct {
 	ToggleSymbolConfig
 }
@@ -6339,6 +6521,7 @@ func (l LiquidRingCompressorElementConfig) Validate() error {
 	return v.Error()
 }
 
+// PistonPumpElementConfig is the configuration for piston pump symbols.
 type PistonPumpElementConfig struct {
 	ToggleSymbolConfig
 }
@@ -6358,6 +6541,7 @@ func (p PistonPumpElementConfig) Validate() error {
 	return v.Error()
 }
 
+// PumpElementConfig is the configuration for pump symbols.
 type PumpElementConfig struct {
 	ToggleSymbolConfig
 }
@@ -6377,6 +6561,8 @@ func (p PumpElementConfig) Validate() error {
 	return v.Error()
 }
 
+// RollerVaneCompressorElementConfig is the configuration for roller vane compressor
+// symbols.
 type RollerVaneCompressorElementConfig struct {
 	ToggleSymbolConfig
 }
@@ -6396,6 +6582,7 @@ func (r RollerVaneCompressorElementConfig) Validate() error {
 	return v.Error()
 }
 
+// ScrewPumpElementConfig is the configuration for screw pump symbols.
 type ScrewPumpElementConfig struct {
 	ToggleSymbolConfig
 }
@@ -6415,6 +6602,7 @@ func (s ScrewPumpElementConfig) Validate() error {
 	return v.Error()
 }
 
+// TurboCompressorElementConfig is the configuration for turbo compressor symbols.
 type TurboCompressorElementConfig struct {
 	ToggleSymbolConfig
 }
@@ -6434,6 +6622,7 @@ func (t TurboCompressorElementConfig) Validate() error {
 	return v.Error()
 }
 
+// VacuumPumpElementConfig is the configuration for vacuum pump symbols.
 type VacuumPumpElementConfig struct {
 	ToggleSymbolConfig
 }
@@ -6453,6 +6642,7 @@ func (va VacuumPumpElementConfig) Validate() error {
 	return v.Error()
 }
 
+// BurstDiscElementConfig is the configuration for burst disc symbols.
 type BurstDiscElementConfig struct {
 	StaticSymbolConfig
 }
@@ -6472,6 +6662,7 @@ func (b BurstDiscElementConfig) Validate() error {
 	return v.Error()
 }
 
+// FlameArrestorElementConfig is the configuration for flame arrestor symbols.
 type FlameArrestorElementConfig struct {
 	StaticSymbolConfig
 }
@@ -6491,6 +6682,8 @@ func (f FlameArrestorElementConfig) Validate() error {
 	return v.Error()
 }
 
+// FlameArrestorDetonationElementConfig is the configuration for detonation-proof flame
+// arrestor symbols.
 type FlameArrestorDetonationElementConfig struct {
 	StaticSymbolConfig
 }
@@ -6510,6 +6703,8 @@ func (f FlameArrestorDetonationElementConfig) Validate() error {
 	return v.Error()
 }
 
+// FlameArrestorExplosionElementConfig is the configuration for explosion-proof flame
+// arrestor symbols.
 type FlameArrestorExplosionElementConfig struct {
 	StaticSymbolConfig
 }
@@ -6529,6 +6724,8 @@ func (f FlameArrestorExplosionElementConfig) Validate() error {
 	return v.Error()
 }
 
+// FlameArrestorFireResElementConfig is the configuration for fire resistant flame
+// arrestor symbols.
 type FlameArrestorFireResElementConfig struct {
 	StaticSymbolConfig
 }
@@ -6548,6 +6745,8 @@ func (f FlameArrestorFireResElementConfig) Validate() error {
 	return v.Error()
 }
 
+// FlameArrestorFireResDetonationElementConfig is the configuration for fire resistant
+// and detonation-proof flame arrestor symbols.
 type FlameArrestorFireResDetonationElementConfig struct {
 	StaticSymbolConfig
 }
@@ -6567,6 +6766,7 @@ func (f FlameArrestorFireResDetonationElementConfig) Validate() error {
 	return v.Error()
 }
 
+// IsoBurstDiscElementConfig is the configuration for ISO burst disc symbols.
 type IsoBurstDiscElementConfig struct {
 	StaticSymbolConfig
 }
@@ -6586,6 +6786,7 @@ func (i IsoBurstDiscElementConfig) Validate() error {
 	return v.Error()
 }
 
+// AngledValveElementConfig is the configuration for angled valve symbols.
 type AngledValveElementConfig struct {
 	ToggleSymbolConfig
 }
@@ -6605,6 +6806,7 @@ func (a AngledValveElementConfig) Validate() error {
 	return v.Error()
 }
 
+// AngledReliefValveElementConfig is the configuration for angled relief valve symbols.
 type AngledReliefValveElementConfig struct {
 	DummyToggleSymbolConfig
 }
@@ -6624,6 +6826,8 @@ func (a AngledReliefValveElementConfig) Validate() error {
 	return v.Error()
 }
 
+// AngledSpringLoadedReliefValveElementConfig is the configuration for angled spring
+// loaded relief valve symbols.
 type AngledSpringLoadedReliefValveElementConfig struct {
 	DummyToggleSymbolConfig
 }
@@ -6643,6 +6847,7 @@ func (a AngledSpringLoadedReliefValveElementConfig) Validate() error {
 	return v.Error()
 }
 
+// BallValveElementConfig is the configuration for ball valve symbols.
 type BallValveElementConfig struct {
 	ToggleSymbolConfig
 }
@@ -6662,6 +6867,7 @@ func (b BallValveElementConfig) Validate() error {
 	return v.Error()
 }
 
+// BreatherValveElementConfig is the configuration for breather valve symbols.
 type BreatherValveElementConfig struct {
 	DummyToggleSymbolConfig
 }
@@ -6681,6 +6887,8 @@ func (b BreatherValveElementConfig) Validate() error {
 	return v.Error()
 }
 
+// ButterflyValveOneElementConfig is the configuration for remote butterfly valve
+// symbols.
 type ButterflyValveOneElementConfig struct {
 	ToggleSymbolConfig
 }
@@ -6700,6 +6908,8 @@ func (b ButterflyValveOneElementConfig) Validate() error {
 	return v.Error()
 }
 
+// ButterflyValveTwoElementConfig is the configuration for manual butterfly valve
+// symbols.
 type ButterflyValveTwoElementConfig struct {
 	ToggleSymbolConfig
 }
@@ -6719,6 +6929,7 @@ func (b ButterflyValveTwoElementConfig) Validate() error {
 	return v.Error()
 }
 
+// CheckValveElementConfig is the configuration for check valve symbols.
 type CheckValveElementConfig struct {
 	StaticSymbolConfig
 }
@@ -6738,6 +6949,8 @@ func (c CheckValveElementConfig) Validate() error {
 	return v.Error()
 }
 
+// CheckValveWithArrowElementConfig is the configuration for check valve symbols drawn
+// with an arrow.
 type CheckValveWithArrowElementConfig struct {
 	StaticSymbolConfig
 }
@@ -6757,6 +6970,7 @@ func (c CheckValveWithArrowElementConfig) Validate() error {
 	return v.Error()
 }
 
+// ElectricRegulatorElementConfig is the configuration for electric regulator symbols.
 type ElectricRegulatorElementConfig struct {
 	StaticSymbolConfig
 }
@@ -6776,6 +6990,8 @@ func (e ElectricRegulatorElementConfig) Validate() error {
 	return v.Error()
 }
 
+// ElectricRegulatorMotorizedElementConfig is the configuration for motorized electric
+// regulator symbols.
 type ElectricRegulatorMotorizedElementConfig struct {
 	StaticSymbolConfig
 }
@@ -6795,6 +7011,7 @@ func (e ElectricRegulatorMotorizedElementConfig) Validate() error {
 	return v.Error()
 }
 
+// FourWayValveElementConfig is the configuration for four way valve symbols.
 type FourWayValveElementConfig struct {
 	ToggleSymbolConfig
 }
@@ -6814,6 +7031,7 @@ func (f FourWayValveElementConfig) Validate() error {
 	return v.Error()
 }
 
+// GateValveElementConfig is the configuration for gate valve symbols.
 type GateValveElementConfig struct {
 	ToggleSymbolConfig
 }
@@ -6833,6 +7051,7 @@ func (g GateValveElementConfig) Validate() error {
 	return v.Error()
 }
 
+// IsoCheckValveElementConfig is the configuration for ISO check valve symbols.
 type IsoCheckValveElementConfig struct {
 	StaticSymbolConfig
 }
@@ -6852,6 +7071,7 @@ func (i IsoCheckValveElementConfig) Validate() error {
 	return v.Error()
 }
 
+// ManualValveElementConfig is the configuration for manual valve symbols.
 type ManualValveElementConfig struct {
 	DummyToggleSymbolConfig
 }
@@ -6871,6 +7091,7 @@ func (m ManualValveElementConfig) Validate() error {
 	return v.Error()
 }
 
+// NeedleValveElementConfig is the configuration for needle valve symbols.
 type NeedleValveElementConfig struct {
 	DummyToggleSymbolConfig
 }
@@ -6890,6 +7111,7 @@ func (n NeedleValveElementConfig) Validate() error {
 	return v.Error()
 }
 
+// RegulatorElementConfig is the configuration for regulator symbols.
 type RegulatorElementConfig struct {
 	StaticSymbolConfig
 }
@@ -6909,6 +7131,7 @@ func (r RegulatorElementConfig) Validate() error {
 	return v.Error()
 }
 
+// RegulatorManualElementConfig is the configuration for manual regulator symbols.
 type RegulatorManualElementConfig struct {
 	StaticSymbolConfig
 }
@@ -6928,6 +7151,7 @@ func (r RegulatorManualElementConfig) Validate() error {
 	return v.Error()
 }
 
+// ReliefValveElementConfig is the configuration for relief valve symbols.
 type ReliefValveElementConfig struct {
 	DummyToggleSymbolConfig
 }
@@ -6969,6 +7193,8 @@ func (s SolenoidValveElementConfig) Validate() error {
 	return v.Error()
 }
 
+// SpringLoadedReliefValveElementConfig is the configuration for spring loaded relief
+// valve symbols.
 type SpringLoadedReliefValveElementConfig struct {
 	DummyToggleSymbolConfig
 }
@@ -6988,6 +7214,7 @@ func (s SpringLoadedReliefValveElementConfig) Validate() error {
 	return v.Error()
 }
 
+// ThreeWayValveElementConfig is the configuration for three way valve symbols.
 type ThreeWayValveElementConfig struct {
 	ToggleSymbolConfig
 }
@@ -7007,6 +7234,7 @@ func (t ThreeWayValveElementConfig) Validate() error {
 	return v.Error()
 }
 
+// ThreeWayBallValveElementConfig is the configuration for three-way ball valve symbols.
 type ThreeWayBallValveElementConfig struct {
 	ToggleSymbolConfig
 }
@@ -7026,6 +7254,7 @@ func (t ThreeWayBallValveElementConfig) Validate() error {
 	return v.Error()
 }
 
+// ValveElementConfig is the configuration for generic valve symbols.
 type ValveElementConfig struct {
 	ToggleSymbolConfig
 }
@@ -7045,6 +7274,7 @@ func (va ValveElementConfig) Validate() error {
 	return v.Error()
 }
 
+// CrossJunctionElementConfig is the configuration for cross junction symbols.
 type CrossJunctionElementConfig struct {
 	StaticSymbolConfig
 }
@@ -7184,6 +7414,7 @@ func (t TankElementConfig) Validate() error {
 	return v.Error()
 }
 
+// TJunctionElementConfig is the configuration for T junction symbols.
 type TJunctionElementConfig struct {
 	StaticSymbolConfig
 }
@@ -7267,6 +7498,7 @@ type GroupBoxElementConfig struct {
 
 func (GroupBoxElementConfig) isElementConfigVariant() {}
 
+// PipeElementConfig is the configuration for pipe edges.
 type PipeElementConfig struct {
 	SegmentedEdgeConfig
 }
@@ -7281,6 +7513,7 @@ func (p PipeElementConfig) Validate() error {
 	return v.Error()
 }
 
+// ElectricElementConfig is the configuration for electrical edges.
 type ElectricElementConfig struct {
 	SegmentedEdgeConfig
 }
@@ -7295,6 +7528,7 @@ func (e ElectricElementConfig) Validate() error {
 	return v.Error()
 }
 
+// SecondaryElementConfig is the configuration for secondary edges.
 type SecondaryElementConfig struct {
 	SegmentedEdgeConfig
 }
@@ -7309,6 +7543,7 @@ func (s SecondaryElementConfig) Validate() error {
 	return v.Error()
 }
 
+// JacketedElementConfig is the configuration for jacketed edges.
 type JacketedElementConfig struct {
 	SegmentedEdgeConfig
 }
@@ -7323,6 +7558,7 @@ func (j JacketedElementConfig) Validate() error {
 	return v.Error()
 }
 
+// HydraulicElementConfig is the configuration for hydraulic edges.
 type HydraulicElementConfig struct {
 	SegmentedEdgeConfig
 }
@@ -7337,6 +7573,7 @@ func (h HydraulicElementConfig) Validate() error {
 	return v.Error()
 }
 
+// PneumaticElementConfig is the configuration for pneumatic edges.
 type PneumaticElementConfig struct {
 	SegmentedEdgeConfig
 }
@@ -7351,6 +7588,7 @@ func (p PneumaticElementConfig) Validate() error {
 	return v.Error()
 }
 
+// DataElementConfig is the configuration for data edges.
 type DataElementConfig struct {
 	SegmentedEdgeConfig
 }

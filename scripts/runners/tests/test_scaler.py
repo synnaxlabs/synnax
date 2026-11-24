@@ -197,7 +197,7 @@ class TestScaler:
         assert runner_commands(client) == [True, False]
         assert instance_commands(client) == [False]
 
-    def test_should_delete_the_registration_before_the_stop(
+    def test_should_delete_the_registration_before_the_drain(
         self, client: Client
     ) -> None:
         server = Server(Clock())
@@ -211,12 +211,14 @@ class TestScaler:
             "running": set(),
         }
         cycle(s, status={A: IDLE}, **poll)
-        assert server.registered == {A: 7}
-        cycle(s, status={A: OFFLINE}, **poll)
         assert server.registered == {}
+        assert runner_commands(client) == [True, False]
+        cycle(s, status={A: OFFLINE}, **poll)
         assert instance_commands(client) == [False]
 
-    def test_should_start_the_runner_github_has_a_job_for(self, client: Client) -> None:
+    def test_should_not_drain_the_runner_github_has_a_job_for(
+        self, client: Client
+    ) -> None:
         server = Server(Clock())
         server.registered[A] = 7
         server.busy.add(A)
@@ -230,12 +232,34 @@ class TestScaler:
         }
         s.idle_since[A] = LONG_AGO
         cycle(s, status={A: IDLE}, **poll)
+        cycle(s, status={A: IDLE}, **poll)
+        assert runner_commands(client) == [True]
+        assert instance_commands(client) == []
+        assert server.deletes() == [f"{API}/repos/{REPO}/actions/runners/7"]
+        assert len(client.written("log")) == 1
+
+    def test_should_start_a_drained_runner_github_has_a_job_for(
+        self, client: Client
+    ) -> None:
+        server = Server(Clock())
+        server.registered[A] = 7
+        s = scaler(client, cooldown=sy.TimeSpan.HOUR, server=server)
+        poll: dict[str, Any] = {
+            "known": {A},
+            "labels": {A: LABELS},
+            "queued": {},
+            "found": {"i-0aaa": instance("running")},
+            "running": set(),
+        }
+        s.idle_since[A] = LONG_AGO
+        cycle(s, status={A: IDLE}, **poll)
+        # The runner registered again and took a job before it stopped.
+        server.registered[A] = 8
+        server.busy.add(A)
         cycle(s, status={A: OFFLINE}, **poll)
         cycle(s, status={A: OFFLINE}, **poll)
         assert runner_commands(client) == [True, False, True]
         assert instance_commands(client) == []
-        assert server.deletes() == [f"{API}/repos/{REPO}/actions/runners/7"]
-        assert len(client.written("log")) == 1
 
     def test_should_start_a_deleted_runner_from_its_stored_labels(
         self, client: Client, tmp_path: Path
@@ -271,11 +295,10 @@ class TestScaler:
             "found": {"i-0aaa": instance("running")},
             "running": set(),
         }
-        cycle(s, status={A: IDLE}, **poll)
         server.failures[f"{API}/repos/{REPO}/actions/runners/7"] = 403
         with pytest.raises(urllib.error.HTTPError):
-            cycle(s, status={A: OFFLINE}, **poll)
-        assert instance_commands(client) == []
+            cycle(s, status={A: IDLE}, **poll)
+        assert runner_commands(client) == [True]
 
     def test_should_keep_the_instance_of_a_runner_that_took_a_job_after_the_drain(
         self, client: Client
@@ -549,8 +572,8 @@ class TestScaler:
             "found": {"i-0aaa": instance("running")},
             "running": set(),
         }
-        cycle(s, status={A: IDLE}, **poll)
         s.enabled = False
+        cycle(s, status={A: IDLE}, **poll)
         cycle(s, status={A: OFFLINE}, **poll)
         assert server.registered == {A: 7}
         assert instance_commands(client) == []
