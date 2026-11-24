@@ -19,13 +19,14 @@ import { type ReactElement, useEffect, useState } from "react";
 
 import { Core } from "@/platform/core";
 import { CSS } from "@/platform/css";
+import { Modals } from "@/platform/modals";
 import { Session } from "@/session";
 
 interface RowProps {
   link: auth.oidc.Link;
   /** The name of the provider whose issuer the link holds. */
   label: string;
-  onUnlink?: (key: auth.oidc.LinkKey) => void;
+  onUnlink?: (link: auth.oidc.Link, label: string) => void;
 }
 
 const Row = ({ link, label, onUnlink }: RowProps): ReactElement => (
@@ -40,7 +41,7 @@ const Row = ({ link, label, onUnlink }: RowProps): ReactElement => (
       <Button.Button
         variant="text"
         tooltip="Unlink account"
-        onClick={() => onUnlink(link.key)}
+        onClick={() => onUnlink(link, label)}
       >
         <Icon.Delete />
       </Button.Button>
@@ -53,7 +54,7 @@ interface ListProps {
   providers: auth.OIDCLogin[];
   linking: boolean;
   onLink?: (login: auth.OIDCLogin) => void;
-  onUnlink?: (key: auth.oidc.LinkKey) => void;
+  onUnlink?: (link: auth.oidc.Link, label: string) => void;
 }
 
 const List = ({
@@ -169,9 +170,22 @@ export const Section = ({ subject, onMessage }: SectionProps): ReactElement => {
       if (failure != null) throw failure;
     }, "Failed to link provider account");
   };
-  const handleUnlink = (key: auth.oidc.LinkKey) => {
+  const confirm = Modals.useConfirm();
+  const handleUnlink = (link: auth.oidc.Link, label: string) => {
     onMessage(null);
-    unlink.update(key);
+    // a session opened through the link ends with it
+    const current = client?.auth.session?.credential === link.key;
+    handleError(async () => {
+      const confirmed = await confirm({
+        message: `Are you sure you want to unlink ${link.account}?`,
+        description: current
+          ? `You logged in with this ${label} account, so unlinking it ends this session. You can no longer log in with it.`
+          : `This user can no longer log in with this ${label} account.`,
+        confirm: { variant: "error", label: "Unlink" },
+        cancel: { label: "Cancel" },
+      });
+      if (confirmed === true) unlink.update(link.key);
+    }, "Failed to unlink provider account");
   };
   useEffect(() => () => invalidate(query), []);
   return (

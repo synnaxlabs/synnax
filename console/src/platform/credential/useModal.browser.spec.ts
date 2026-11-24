@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { rack, user } from "@synnaxlabs/client";
+import { type auth, rack, user } from "@synnaxlabs/client";
 import {
   createEmptyRole,
   createTestClient,
@@ -15,6 +15,7 @@ import {
   createTestClientWithRole,
   createTestUser,
 } from "@synnaxlabs/client/testutil";
+import { uuid } from "@synnaxlabs/x";
 import { expectAlways, uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
@@ -32,6 +33,7 @@ import { createCore, createCoreState } from "@/session/core/testutil";
 import {
   clickAndSettle,
   createTestClientWithGrants,
+  getIconButton,
   openContextMenu,
 } from "@/testutil";
 
@@ -364,5 +366,52 @@ describe("useModal", () => {
     await screen.findByText("Successfully changed password");
     const stored = store.getState()[Session.Core.SLICE_NAME].cores[core.key];
     expect(stored.password).toEqual("changed123");
+  });
+
+  describe("provider accounts", () => {
+    // No IdP backs the test Core, so the client reads and unlinks a stand-in link.
+    const openWithLink = async (current = false) => {
+      answerMethods(["password", "api_key", "oidc"]);
+      const client = createTestClient();
+      await client.auth.sessions.retrieve();
+      const { subject, session } = client.auth;
+      if (subject == null || session == null) throw new Error("not logged in");
+      const link: auth.oidc.Link = {
+        key: current ? session.credential : uuid.create(),
+        user: subject.key,
+        issuer: "https://sso.example.com",
+        account: "ada@example.com",
+      };
+      vi.spyOn(client.auth.oidc, "retrieve").mockResolvedValue([link]);
+      const unlink = vi.spyOn(client.auth.oidc, "unlink").mockResolvedValue();
+      await openModal(Credential.useModal, { client, params: { subject } });
+      await screen.findByText("ada@example.com");
+      fireEvent.click(getIconButton(document.body, "delete"));
+      await screen.findByText("Are you sure you want to unlink ada@example.com?");
+      return { link, unlink };
+    };
+
+    it("should unlink an account once the user confirms", async () => {
+      const { link, unlink } = await openWithLink();
+      expect(screen.getByText(/can no longer log in with this/)).toBeTruthy();
+      fireEvent.click(findButton("Unlink"));
+      await screen.findByText("Successfully unlinked account");
+      expect(unlink).toHaveBeenCalledWith(link.key);
+    });
+
+    it("should keep the account when the user cancels", async () => {
+      const { unlink } = await openWithLink();
+      fireEvent.click(findButton("Cancel"));
+      await waitFor(() =>
+        expect(screen.queryByText(/Are you sure you want to unlink/)).toBeNull(),
+      );
+      await expectAlways(() => expect(unlink).not.toHaveBeenCalled());
+      expect(screen.getByText("ada@example.com")).toBeTruthy();
+    });
+
+    it("should say that unlinking the session's own account ends it", async () => {
+      await openWithLink(true);
+      expect(screen.getByText(/so unlinking it ends this session/)).toBeTruthy();
+    });
   });
 });
