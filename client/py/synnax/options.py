@@ -64,26 +64,23 @@ _SECURE_DEPRECATED_MSG = (
     "insecure and SYNNAX_INSECURE, which mean the inverse."
 )
 
-_SECURE_REDUNDANT_MSG = (
-    "secure and SYNNAX_SECURE are deprecated and stop working in Synnax 0.64. They "
-    "agree with insecure and SYNNAX_INSECURE, so drop them once every client is "
-    "Synnax 0.63 or newer."
-)
-
 # The warning names the first frame of the caller's code.
 _LIBRARY_DIRS = tuple(
     str(Path(f).parent) for f in (__file__, pydantic.__file__, params.__file__) if f
 )
 
 
-def _warn_secure(message: str = _SECURE_DEPRECATED_MSG) -> None:
-    warnings.warn(message, DeprecationWarning, skip_file_prefixes=_LIBRARY_DIRS)
+def _warn_secure() -> None:
+    warnings.warn(
+        _SECURE_DEPRECATED_MSG, DeprecationWarning, skip_file_prefixes=_LIBRARY_DIRS
+    )
 
 
 def without_secure(source: Mapping[str, Any]) -> Mapping[str, Any]:
     """Returns the options that one source sets, with the deprecated secure replaced by
-    insecure. Warns with DeprecationWarning when the source sets secure. A source may
-    set both when they agree, so that old and new clients read the same choice.
+    insecure. Warns with DeprecationWarning when the source sets secure without
+    insecure. A source may set both when they agree, with no warning, so that clients
+    older and newer than Synnax 0.63 read the same choice.
 
     :raises ValidationError: If the source sets both, and secure is not the inverse of
         insecure.
@@ -93,9 +90,7 @@ def without_secure(source: Mapping[str, Any]) -> Mapping[str, Any]:
     insecure = not source["secure"]
     if "insecure" not in source:
         _warn_secure()
-    elif source["insecure"] == insecure:
-        _warn_secure(_SECURE_REDUNDANT_MSG)
-    else:
+    elif source["insecure"] != insecure:
         raise ValidationError(_TLS_FLAGS_DISAGREE_MSG)
     rest = {k: v for k, v in source.items() if k != "secure"}
     return {**rest, "insecure": insecure}

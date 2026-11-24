@@ -15,6 +15,7 @@ import struct
 import subprocess
 import sys
 import threading
+import warnings
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -704,10 +705,11 @@ class TestOptions:
 
     @pytest.mark.parametrize("insecure", [True, False])
     def test_agreeing_insecure_and_secure(self, insecure: bool) -> None:
-        """Should take insecure and the deprecated secure when they agree, and warn
-        that secure can be dropped.
+        """Should take insecure and the deprecated secure when they agree, with no
+        warning.
         """
-        with pytest.warns(DeprecationWarning, match="drop them once every client"):
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
             opts = Options.model_validate(
                 {"host": "h", "port": 1, "insecure": insecure, "secure": not insecure}
             )
@@ -1044,9 +1046,10 @@ class TestLoadOptions:
         insecure: bool,
     ) -> None:
         """Should take insecure and the deprecated secure from one source when they
-        agree, and warn that secure can be dropped.
+        agree, with no warning.
         """
-        with pytest.warns(DeprecationWarning, match="drop them once every client"):
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
             opts, _ = load_options(
                 host="h",
                 api_key="syk_k",
