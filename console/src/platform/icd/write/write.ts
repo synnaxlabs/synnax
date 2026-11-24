@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { channel, icd, Synnax } from "@synnaxlabs/client";
+import { channel, type icd, type Synnax } from "@synnaxlabs/client";
 import { ICD as PICD } from "@synnaxlabs/pluto";
 
 import { bindingDataType, encodes } from "@/platform/icd/dataType";
@@ -21,6 +21,10 @@ const channelBinding = (field: icd.FieldKey): icd.ChannelWriteBinding => ({
   field,
   channel: 0,
 });
+
+/** @returns the name that deploying gives the command channel of field after prefix. */
+export const commandName = (prefix: string, field: icd.JSONField): string =>
+  `${prefix}_${channel.escapeInvalidName(field.name)}_cmd`;
 
 /** Tells the user what to do when the ICD no longer has the message of a write. */
 export const MISSING_DESCRIPTION =

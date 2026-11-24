@@ -266,10 +266,6 @@ const commandPrefix = (
     : `${prefix}_${channel.escapeInvalidName(recordKey)}`;
 };
 
-/** The name deploying gives the command channel of a field of a target. */
-const commandName = (prefix: string, field: icd.JSONField): string =>
-  `${prefix}_${channel.escapeInvalidName(field.name)}_cmd`;
-
 /** The key of the command channel of a target's field in the device's write record. */
 const writeKey = (
   { topic, recordKey }: Pick<WriteTarget, "topic" | "recordKey">,
@@ -317,7 +313,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
       const prefix = commandPrefix(dev.name, target);
       await ICD.Write.configureChannels(client, dev.properties.write, target, {
         key: (field) => writeKey(target, field),
-        name: (field) => commandName(prefix, field),
+        name: (field) => ICD.Write.commandName(prefix, field),
       });
     }
   } finally {
@@ -347,7 +343,13 @@ const TargetLabel = ({ path }: { path: deep.Path<WriteTarget> }) => {
         {topic === "" ? "New topic" : topic}
       </Task.Views.ItemLabel>
       {recordKey !== "" && (
-        <Text.Text level="small" color={9} variant="code" overflow="fade">
+        <Text.Text
+          level="small"
+          color={9}
+          variant="code"
+          overflow="fade"
+          className={CSS.BE("kafka-target-label", "key")}
+        >
           {recordKey}
         </Text.Text>
       )}
@@ -422,7 +424,7 @@ const TargetPane = ({ path, deviceName }: TargetPaneProps) => {
           path={path.message.bindings}
           icdKey={target.icd}
           message={target.message.message}
-          channelName={(field) => commandName(prefix, field)}
+          channelName={(field) => ICD.Write.commandName(prefix, field)}
           skipped={target.disabled}
         />
       </PForm.Sections>

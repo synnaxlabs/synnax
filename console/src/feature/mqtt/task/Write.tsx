@@ -9,7 +9,7 @@
 
 import "@/feature/mqtt/task/Form.css";
 
-import { channel, DisconnectedError, type icd, mqtt } from "@synnaxlabs/client";
+import { DisconnectedError, type icd, mqtt } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
@@ -57,10 +57,6 @@ import { Task } from "@/platform/task";
 const root = deep.path<Task.Values<WriteSchemas>>();
 
 const Properties = () => <Device.Select />;
-
-/** The name deploying gives the command channel of a field of a plain target. */
-const commandName = (prefix: string, field: icd.JSONField): string =>
-  `${prefix}_${channel.escapeInvalidName(field.name)}_cmd`;
 
 /** The name deploying gives a tag's command channel while it has none. */
 const defaultCommandName = (devName: string, target: SparkplugWriteTarget): string =>
@@ -214,7 +210,7 @@ const PlainTargetPane = ({
         path={path.message.bindings}
         icdKey={target.icd}
         message={target.message.message}
-        channelName={(field) => commandName(prefix, field)}
+        channelName={(field) => ICD.Write.commandName(prefix, field)}
         skipped={target.disabled}
         opened={opened}
       />
@@ -458,7 +454,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
         const prefix = namePrefix(dev.name, target.topic);
         await ICD.Write.configureChannels(client, dev.properties.write, target, {
           key: (field) => `${target.topic}#${field.key}`,
-          name: (field) => commandName(prefix, field),
+          name: (field) => ICD.Write.commandName(prefix, field),
         });
         continue;
       }
