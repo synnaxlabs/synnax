@@ -69,8 +69,8 @@ const createIndex = async (name: string) =>
   await client.channels.create({ name, dataType: "timestamp", isIndex: true });
 
 interface Kind {
-  /** The name of the timestamp field that the kind reads as its index. */
-  index: string;
+  /** The name of the timestamp field that the kind reads as its index, if any. */
+  index?: string;
   /** The names of its float fields. The match rule needs the first one. */
   fields: string[];
   /** The channel of each field by name. A field with none gets a new one. */
@@ -85,14 +85,18 @@ const createKinds = (kinds: Kind[]) => {
     messages: [] as icd.ReadMessage[],
   };
   return kinds.map(({ index, fields: names, channels = {} }, read) => {
+    const indexField =
+      index == null
+        ? undefined
+        : icd.jsonFieldZ.parse({
+            key: uuid.create(),
+            name: index,
+            pointer: `/${index}`,
+            type: "timestamp",
+            timeFormat: "unix_ms",
+          });
     const fields = [
-      icd.jsonFieldZ.parse({
-        key: uuid.create(),
-        name: index,
-        pointer: `/${index}`,
-        type: "timestamp",
-        timeFormat: "unix_ms",
-      }),
+      ...(indexField == null ? [] : [indexField]),
       ...names.map((name) =>
         icd.jsonFieldZ.parse({
           key: uuid.create(),
@@ -113,7 +117,7 @@ const createKinds = (kinds: Kind[]) => {
     };
     source.messages.push({
       message: message.key,
-      index: fields[0].key,
+      index: indexField?.key,
       bindings: fields.map(({ key, name }) => ({
         field: key,
         channel: channels[name] ?? 0,
@@ -432,6 +436,20 @@ describe("planMessage", () => {
         [`${prefix}_ts`, `${prefix}_rpm`],
         [`${prefix}_code_ts`, `${prefix}_code`],
       ]);
+    });
+
+    it("should name both new indexes of arrival times after their kinds", async () => {
+      const prefix = uniqueName("src");
+      const bound = createKinds([{ fields: ["rpm"] }, { fields: ["code"] }]);
+      await deployKinds(prefix, bound);
+      const indexes = await Promise.all(
+        bound.map(async ({ source, read }) => {
+          const [{ channel: key }] = source.messages[read].bindings;
+          const { index } = await client.channels.retrieve(key);
+          return (await client.channels.retrieve(index)).name;
+        }),
+      );
+      expect(indexes).toEqual([`${prefix}_rpm_time`, `${prefix}_code_time`]);
     });
 
     it("should name both new value channels of the same name after their kinds", async () => {

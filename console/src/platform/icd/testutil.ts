@@ -113,6 +113,6 @@ export const selectedIn = (
 export const titleOf = (note: HTMLElement): string =>
   note.parentElement?.firstChild?.textContent ?? "";
 
-/** @returns whether the field picker shows the value whose name is value faded. */
+/** @returns whether the field picker fades value, the name of one of its values. */
 export const isDimmed = (value: HTMLElement): boolean =>
   value.closest(".console--dimmed") != null;

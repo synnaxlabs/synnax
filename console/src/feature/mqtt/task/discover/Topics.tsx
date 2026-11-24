@@ -326,21 +326,26 @@ const TopicValues = ({
     });
     onChange(next);
   };
+  // The tree alone picks a whole topic.
+  const pickAll = whole
+    ? {}
+    : {
+        free: countOf(free),
+        picked: picked.length,
+        onPickAll: () => onChange(free),
+        onClear: () => onChange(new Map()),
+      };
   return (
     <>
       <ICD.Picker.PaneHeader
         title={topic.topic}
         note={topic.retained ? "Retained" : undefined}
-        free={countOf(free)}
-        picked={picked.length}
-        onPickAll={() => onChange(free)}
-        onClear={() => onChange(new Map())}
+        {...pickAll}
       />
       <ICD.Picker.Values
         noun="Field"
         groups={groups}
         value={picked}
-        // The tree picks a whole topic, so its fields are a preview.
         onChange={whole ? undefined : handleChange}
       />
       <Flex.Box y align="start" className={CSS.BE("mqtt-discover", "raw")}>

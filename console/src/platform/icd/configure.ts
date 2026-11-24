@@ -67,9 +67,6 @@ export const boundMessage = <S extends ReadSource>(
   return { source, read, message, fields };
 };
 
-/** The name of a new index of arrival times, after its prefix. */
-const ARRIVAL_NAME = "time";
-
 /**
  * @returns the name of the channel of each field that a message reads, after its
  * prefix, and the name of a new index of arrival times when it has no index field.
@@ -77,7 +74,7 @@ const ARRIVAL_NAME = "time";
 const channelNames = ({ source, read, fields }: BoundMessage<ReadSource>): string[] => {
   const names = fields.map(({ name }) => channel.escapeInvalidName(name));
   const indexed = fields.some(({ key }) => key === source.messages[read].index);
-  return indexed ? names : [...names, ARRIVAL_NAME];
+  return indexed ? names : [...names, Task.ARRIVAL_NAME];
 };
 
 /** A field that a message reads, with the binding that deploying writes for it. */
@@ -232,7 +229,7 @@ export const planMessage = async (
     namer,
     props: props == null ? undefined : { index: storedIndex, channels: held },
     fields: planned,
-    namePrefix: prefixOf(ARRIVAL_NAME),
+    namePrefix: prefixOf(Task.ARRIVAL_NAME),
     indexKey: index ?? "",
     indexed: () => indexed,
   });
