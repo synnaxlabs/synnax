@@ -115,6 +115,21 @@ var _ = Describe("Service", func() {
 		Expect(secrets.NewWriter(tx).Set(ctx, &s, []byte("hunter2"))).To(Succeed())
 		return s.Base().Key
 	}
+	createFileSecret := func(ctx context.Context, r rack.Key) secret.Key {
+		GinkgoHelper()
+		s := secret.Secret{Variant: secret.FileSecret{
+			Base:     secret.Base{Name: "Cluster password file"},
+			FileName: "password.txt",
+			Rack:     r,
+		}}
+		Expect(secrets.NewWriter(tx).Set(ctx, &s, nil)).To(Succeed())
+		return s.Base().Key
+	}
+	plain := func(password secret.Key) cluster.Auth {
+		return cluster.Auth{Variant: cluster.PlainAuth{
+			Credentials: cluster.Credentials{Username: "admin", Password: password},
+		}}
+	}
 	createFileCertificate := func(ctx context.Context, r rack.Key) certificate.Key {
 		GinkgoHelper()
 		c := certificate.Certificate{Variant: certificate.FileCertificate{
@@ -415,6 +430,41 @@ var _ = Describe("Service", func() {
 					c.Key,
 				),
 			))
+		})
+
+		It("Should store a file secret of the rack", func(ctx SpecContext) {
+			c := newCluster()
+			c.Auth = plain(createFileSecret(ctx, rackSvc.EmbeddedKey))
+			Expect(svc.NewWriter(tx).Create(ctx, &c)).To(Succeed())
+			Expect(retrieve(ctx, c.Key).Auth).To(Equal(c.Auth))
+		})
+
+		It("Should reject a file secret of another rack", func(ctx SpecContext) {
+			other := createRack(ctx, cluster.Integration)
+			c := newCluster()
+			c.Auth = plain(createFileSecret(ctx, other))
+			Expect(svc.NewWriter(tx).Create(ctx, &c)).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring(
+					"is a file of rack %d, not of rack %d",
+					other,
+					c.Rack,
+				)),
+			))
+		})
+
+		It("Should reject a move to a rack of which the password is not a file", func(
+			ctx SpecContext,
+		) {
+			c := newCluster()
+			c.Auth = plain(createFileSecret(ctx, rackSvc.EmbeddedKey))
+			Expect(svc.NewWriter(tx).Create(ctx, &c)).To(Succeed())
+			update := identity(c)
+			update.Rack = createRack(ctx, cluster.Integration)
+			Expect(svc.NewWriter(tx).Apply(ctx, c.Key, cluster.Update{
+				Variant: cluster.IdentityUpdate{Identity: update},
+			})).To(MatchError(validate.ErrValidation))
+			Expect(retrieve(ctx, c.Key).Rack).To(Equal(c.Rack))
 		})
 
 		It("Should reject a missing password secret", func(ctx SpecContext) {
