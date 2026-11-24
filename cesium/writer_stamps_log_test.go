@@ -78,6 +78,42 @@ var _ = Describe("Data against stored stamps on the pointer log", func() {
 		return MustSucceed(db.Read(ctx, telem.TimeRangeMax, key)).Get(key).Series
 	}
 
+	It("Should store a key that a write skips only over the stamps of its samples",
+		func(ctx SpecContext) {
+			writeClock(ctx, 10, 11, 12, 13)
+			other := GenerateChannelKey()
+			Expect(db.CreateChannel(ctx, cesium.Channel{
+				Key:      other,
+				Name:     "other",
+				Index:    idx,
+				DataType: telem.Int64T,
+			})).To(Succeed())
+			keys := []cesium.ChannelKey{data, other}
+			w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+				Clock:    idx,
+				Channels: keys,
+				Start:    10 * telem.SecondTS,
+			}))
+			both := func(v ...int64) cesium.Frame {
+				return telem.MultiFrame(
+					keys,
+					[]telem.Series{telem.NewSeriesV(v...), telem.NewSeriesV(v...)},
+				)
+			}
+			MustSucceed2(w.Write(ctx, both(1, 2), nil))
+			MustSucceed2(w.Write(
+				ctx,
+				both(3, 4),
+				func(k cesium.ChannelKey) bool { return k == other },
+			))
+			Expect(MustSucceed2(w.Commit(ctx, nil))).To(Equal(13*telem.SecondTS + 1))
+			Expect(w.Close()).To(Succeed())
+			skipped := read(ctx, other)
+			Expect(skipped).To(HaveLen(1))
+			Expect(skipped[0].TimeRange).
+				To(Equal((10 * telem.SecondTS).Range(11*telem.SecondTS + 1)))
+		})
+
 	It("Should stream and store each sample with the alignment of its stamp", func(
 		ctx SpecContext,
 	) {

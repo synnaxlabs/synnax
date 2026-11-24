@@ -298,8 +298,12 @@ func (w *logWriter) cut(fr Frame, skip func(ChannelKey) bool) []telem.Series {
 		switch {
 		case !ok || fr.ShouldExcludeRaw(i):
 			w.cuts = append(w.cuts, -1)
-		case lk.skipped || (skip != nil && skip(k)):
+		case lk.skipped:
+			w.excluded = append(w.excluded, k)
+			w.cuts = append(w.cuts, -1)
+		case skip != nil && skip(k):
 			lk.skipped = true
+			w.closeRun()
 			w.excluded = append(w.excluded, k)
 			w.cuts = append(w.cuts, -1)
 		default:
@@ -329,11 +333,11 @@ func (p *placer) unstoredAt(k uint32) (telem.Alignment, error) {
 func (w *logWriter) extendRuns(p piece) {
 	if n := len(w.runs); n > 0 {
 		r := &w.runs[n-1]
-		if r.alignment.AddSamples(r.samples) == p.alignment {
+		if r.ends == nil && r.alignment.AddSamples(r.samples) == p.alignment {
 			r.samples += p.samples
 			return
 		}
-		r.ends = w.ends(r.ends, true)
+		w.closeRun()
 	}
 	w.runs = append(
 		w.runs,

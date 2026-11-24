@@ -271,13 +271,13 @@ func (w *logWriter) write(
 	}
 	alignment := telem.NewAlignment(w.number, w.next)
 	tr := telem.TimeRange{Start: first, End: last + 1}
+	w.skipKeys(fr, skip)
 	for i, k := range fr.RawKeys() {
 		lk, ok := w.byKey[k]
 		if !ok || fr.ShouldExcludeRaw(i) {
 			continue
 		}
-		if lk.skipped || (k != w.clock && skip != nil && skip(k)) {
-			lk.skipped = true
+		if lk.skipped {
 			w.excluded = append(w.excluded, k)
 			continue
 		}
@@ -293,6 +293,30 @@ func (w *logWriter) write(
 	}
 	w.extendRun(alignment, first, last, uint32(n))
 	return fr.ExcludeKeys(w.excluded), len(w.excluded) > 0, nil
+}
+
+// skipKeys marks each key of fr for which skip returns true as skipped. The first skip
+// of a key closes the open run, since the samples of each key of a run start at its
+// first sample.
+func (w *logWriter) skipKeys(fr Frame, skip func(ChannelKey) bool) {
+	if skip == nil {
+		return
+	}
+	for i, k := range fr.RawKeys() {
+		lk, ok := w.byKey[k]
+		if !ok || lk.skipped || k == w.clock || fr.ShouldExcludeRaw(i) || !skip(k) {
+			continue
+		}
+		lk.skipped = true
+		w.closeRun()
+	}
+}
+
+// closeRun closes the open run of w, so that the next write starts a new run.
+func (w *logWriter) closeRun() {
+	if n := len(w.runs); n > 0 && w.runs[n-1].ends == nil {
+		w.runs[n-1].ends = w.ends(nil, true)
+	}
 }
 
 // extendRun adds n samples from alignment, with stamps from first to last, to the open
@@ -329,9 +353,7 @@ func (w *logWriter) stretch(
 	if w.number != 0 {
 		return false, nil
 	}
-	if n := len(w.runs); n > 0 {
-		w.runs[n-1].ends = w.ends(w.runs[n-1].ends, true)
-	}
+	w.closeRun()
 	w.next = 0
 	if w.unstored {
 		a, err := w.e.unstored.Next()

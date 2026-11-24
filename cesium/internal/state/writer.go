@@ -193,10 +193,20 @@ func (s *State) checkOpen(
 			p.Last,
 		)
 	}
+	return s.checkClaims(w, nil, key, start)
+}
+
+// checkClaims refuses a claim of w on key from start that reaches the claim of a writer
+// other than w and from.
+func (s *State) checkClaims(w, from *Writer, key uint32, start telem.TimeStamp) error {
+	ch := s.core.channels[key]
+	if ch == nil {
+		return nil
+	}
 	for _, o := range ch.claims {
 		refused := false
 		switch {
-		case o.pinned:
+		case o.pinned, o.w != nil && (o.w == w || o.w == from):
 		case w.cfg.Bounded, o.w == nil:
 			refused = o.reaches(start, start)
 		default:
