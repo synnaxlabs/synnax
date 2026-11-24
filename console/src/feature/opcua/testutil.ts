@@ -13,7 +13,7 @@ import { uniqueName } from "@synnaxlabs/x/testutil";
 import { screen } from "@testing-library/react";
 
 import { Device } from "@/feature/opcua/device";
-import { createRunningRack, startRackHeartbeat } from "@/platform/device/testutil";
+import { createRunningRack } from "@/platform/device/testutil";
 import { dragOnto } from "@/testutil";
 
 /** A real self-signed certificate, with the details a Driver reports for it. */
@@ -87,7 +87,6 @@ export const createScannedDevice = async (
   client: Synnax,
 ): Promise<{ scan: task.Task; device: Device.Device }> => {
   const rack = await createRunningRack(client, "opc");
-  await startRackHeartbeat(client, rack);
   const scan = await rack.createTask({
     name: uniqueName("opcua_scan"),
     type: Device.SCAN_TYPE,

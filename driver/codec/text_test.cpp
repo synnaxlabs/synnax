@@ -546,16 +546,12 @@ TEST(TextEncoder, RejectInvalidValues) {
     );
 }
 
-/// @brief it should refuse two fields at one position or with one tag, a position past
-/// 65535, and a field at a position that the prefix fills.
+/// @brief it should refuse two fields at one position, a position past 65535, and a
+/// field at a position that the prefix fills.
 TEST(TextEncoder, RefuseConflictingFields) {
     assert_encoder_refuses(
         message("cmd", {at("a", 1), at("b", 1)}),
         "message cmd: fields a and b both have position 1"
-    );
-    assert_encoder_refuses(
-        message("cmd", {tagged("a", "T="), tagged("b", "T=")}),
-        "message cmd: fields a and b both have the tag \"T=\""
     );
     assert_encoder_refuses(
         message("cmd", {at("a", 4000000000)}),

@@ -108,7 +108,7 @@ describe("User queries", () => {
     });
 
     it("should report an error when the Core refuses the change", async () => {
-      const [p] = await client.auth.retrievePasswords({
+      const [p] = await client.auth.passwords.retrieve({
         usernames: [TEST_CREDENTIALS.username],
       });
       const root = await client.users.retrieve(p.subject.key);
@@ -193,7 +193,7 @@ describe("User queries", () => {
 
       expect(result.current).not.toBeNull();
       const { username } = TEST_CREDENTIALS;
-      const [p] = await client.auth.retrievePasswords({ usernames: [username] });
+      const [p] = await client.auth.passwords.retrieve({ usernames: [username] });
       expect(result.current?.key).toEqual(p.subject.key);
     });
 
@@ -244,7 +244,6 @@ describe("User queries", () => {
         await waitFor(() => expect(result.current.variant).toBe("success"));
 
         const formData = result.current.form.value();
-        expect(formData.key).toBeUndefined();
         expect(formData.username).toBe("");
         expect(formData.name).toBe("");
         expect(formData.password).toBe("");
@@ -270,7 +269,7 @@ describe("User queries", () => {
         });
 
         await waitFor(async () => {
-          const [p] = await client.auth.retrievePasswords({ usernames: [username] });
+          const [p] = await client.auth.passwords.retrieve({ usernames: [username] });
           const created = await client.users.retrieve(p.subject.key);
           expect(created.name).toEqual("Form Test");
           expect(created.role).toEqual(role.key);

@@ -61,7 +61,8 @@ Chassis struct {
         @go marshal omit
     }
 
-    @doc value  "is an NI chassis that holds device modules."
+    @doc value     "is an NI chassis that holds device modules."
     @go marshal
     @go migrate
+    @resource type "ni_chassis"
 }

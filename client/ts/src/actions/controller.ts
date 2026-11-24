@@ -15,6 +15,7 @@ import {
   errors,
   id,
   map,
+  narrow,
   type record,
   TimeSpan,
   TimeStamp,
@@ -24,12 +25,7 @@ import type { z } from "zod";
 
 import type { DispatchPayload } from "@/actions/actions";
 import type { batch } from "@/batch";
-import {
-  AccessDeniedError,
-  isConnectionError,
-  NotCachedError,
-  NotFoundError,
-} from "@/errors";
+import { AuthError, isConnectionError, NotCachedError, NotFoundError } from "@/errors";
 import { query } from "@/query";
 
 const DEFAULT_COALESCE_WINDOW = TimeSpan.milliseconds(500);
@@ -587,19 +583,27 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     const r = this.rebases.get(key);
     if (r == null || this.writing) return doc;
     r.base = doc;
-    return this.rebuild(r);
+    return this.rebuild(key, r);
   }
 
-  /** Returns the base with the pending entries applied. */
-  private rebuild(r: Rebase<State, Action>): State {
-    return r.pending.reduce(
+  /**
+   * Returns the base with the pending entries applied. In a plain-object doc, each part
+   * equal to the part of the cached doc keeps the identity of that part, so selectors
+   * over it stay stable.
+   */
+  private rebuild(key: Key, r: Rebase<State, Action>): State {
+    const next = r.pending.reduce(
       (state, { actions }) => this.params.reduce(state, actions).next,
       r.base,
     );
+    // A class doc, such as a channel, can refer back to the client, which deep.reuse
+    // cannot walk.
+    if (!narrow.isPlainObject(next)) return next;
+    return deep.reuse(this.docs.get(key), next);
   }
 
   private write(key: Key, r: Rebase<State, Action>): void {
-    this.set(key, this.rebuild(r));
+    this.set(key, this.rebuild(key, r));
   }
 
   private set(key: Key, doc: State): void {
@@ -1240,11 +1244,11 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
         }
       } while (this.fetching.get(key) === true);
     } catch (exc) {
-      // A deleted or denied doc joins no list, and the reconcile after a reconnect
-      // fetches every doc again.
+      // A deleted or denied doc joins no list. The connection status reports a lost
+      // session, and the reconcile after a reconnect or login fetches every doc again.
       if (
         NotFoundError.matches(exc) ||
-        AccessDeniedError.matches(exc) ||
+        AuthError.matches(exc) ||
         isConnectionError(exc)
       )
         return;

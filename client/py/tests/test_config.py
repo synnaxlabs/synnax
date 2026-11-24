@@ -380,6 +380,7 @@ class TestLoadOptions:
             ("secure", None, {}, False),
             ("ca_cert", "/arg.crt", {"SYNNAX_CA_CERT": "/env.crt"}, "/arg.crt"),
             ("ca_cert", None, {"SYNNAX_CA_CERT": "/env.crt"}, "/env.crt"),
+            ("ca_cert", "", {"SYNNAX_CA_CERT": "/env.crt"}, "/env.crt"),
             ("ca_cert", None, {}, None),
         ],
     )
@@ -745,7 +746,7 @@ class TestHome:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """Should ask for a host, and write nothing, when the home is read-only."""
-        if os.geteuid() == 0:
+        if sys.platform != "win32" and os.geteuid() == 0:
             pytest.skip("root writes to a read-only directory")
         monkeypatch.setenv("HOME", str(tmp_path))
         tmp_path.chmod(0o500)
