@@ -34,7 +34,7 @@ import (
 // layoutName matches the paths of the files of the pointer log layout: the heads, logs,
 // and parts of the root, and the segment and channel files of the channel directories.
 var layoutName = regexp.MustCompile(
-	`^([0-9a-f]{16}\.(head|log|part)|\d+/([0-9a-f]{16}\.seg|channel))$`,
+	`^([0-9a-f]{16}\.(head|log|part)|\d+/([0-9a-f]{16}\.(seg|chk)|channel))$`,
 )
 
 func isUndone(name string) bool { return strings.HasSuffix(name, ".undone") }

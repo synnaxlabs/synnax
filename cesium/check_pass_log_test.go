@@ -495,6 +495,28 @@ var _ = Describe("Check pass on the pointer log", func() {
 		Expect(c.failures).To(BeEmpty())
 	})
 
+	It("Should keep the check file of a segment that a reader pins across a Drop of "+
+		"its key", func(ctx SpecContext) {
+		db, closeDB := openConverted(ctx, disk, ins)
+		allChecked(checked(db))
+		iter := MustSucceed(db.OpenIterator(cesium.IteratorConfig{
+			Bounds:   telem.TimeRangeMax,
+			Channels: []cesium.ChannelKey{i32},
+		}))
+		Expect(iter.SeekFirst()).To(BeTrue())
+		Expect(db.Drop([]cesium.ChannelKey{i32})).To(Succeed())
+		var got []byte
+		for iter.Next(cesium.AutoSpan) {
+			for _, s := range iter.Value().Get(i32).Series {
+				got = append(got, s.Data...)
+			}
+		}
+		Expect(iter.Error()).To(Succeed())
+		Expect(got).To(Equal(old.bytes(nil)[i32]))
+		Expect(iter.Close()).To(Succeed())
+		Expect(closeDB()).To(Succeed())
+	})
+
 	It("Should drop the check of a segment that a delete buries during its pass",
 		func(ctx SpecContext) {
 			gate := &gateFS{FS: disk}

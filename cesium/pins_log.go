@@ -176,19 +176,24 @@ func (e *engine) release(dead []state.Dead) error {
 }
 
 // pinnedFiles reports which files of the directory of key a reader may still read: the
-// file of each dead segment of key that waits for its last reader, and every segment
-// file of key while a load of key pins parts, since that load may read any segment of
-// key that a part held a record of.
+// file of each dead segment of key that waits for its last reader, with the check file
+// of a version 0 one, and every segment and check file of key while a load of key pins
+// parts, since that load may read any segment of key that a part held a record of.
 func (e *engine) pinnedFiles(key ChannelKey) func(name string) bool {
 	e.pins.mu.Lock()
 	defer e.pins.mu.Unlock()
 	if e.pins.keys[key] > 0 {
-		return isSegmentFile
+		return func(name string) bool {
+			return isSegmentFile(name) || strings.HasSuffix(name, ".chk")
+		}
 	}
 	names := set.New[string]()
 	for _, d := range e.pins.dead {
 		if d.Key == key {
 			names.Add(segmentName(key, d.Segment, d.File))
+			if d.File != 0 {
+				names.Add(checkName(key, d.Segment))
+			}
 		}
 	}
 	return names.Contains
