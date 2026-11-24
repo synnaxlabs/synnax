@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package control_test
+package compiler_test
 
 import (
 	"testing"
@@ -17,9 +17,9 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-func TestControl(t *testing.T) {
+func TestCompiler(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Control Suite", SuiteConfig())
+	RunSpecs(t, "Service Calculation Compiler Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

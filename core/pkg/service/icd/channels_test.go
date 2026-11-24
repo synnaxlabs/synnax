@@ -41,6 +41,7 @@ var _ = Describe("ReadChannels", Ordered, func() {
 		}))
 		channelSvc := MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 			Channel: core.Channel,
+			TS:      core.Storage.TS,
 			DB:      core.DB,
 			HostKey: core.Identity.HostKey,
 			Status:  statusSvc,
