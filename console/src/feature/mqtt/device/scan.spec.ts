@@ -28,7 +28,12 @@ describe("MQTT Scan Task", () => {
         {
           topic: "plant/temp",
           payload: "21.5",
-          fields: [{ pointer: "", type: "number", sample: "21.5" }],
+          shapes: [
+            {
+              fields: [{ pointer: "", type: "number", kind: "float", sample: "21.5" }],
+              count: 1,
+            },
+          ],
           retained: true,
         },
       ],

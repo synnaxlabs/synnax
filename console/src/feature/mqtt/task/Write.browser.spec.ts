@@ -884,9 +884,14 @@ describe("MQTT Write form", () => {
     const TOPIC = {
       topic: "plant/valve/set",
       payload: '{"setpoint": 1, "mode": "auto"}',
-      fields: [
-        { pointer: "/setpoint", type: "number", sample: "1" },
-        { pointer: "/mode", type: "string", sample: '"auto"' },
+      shapes: [
+        {
+          fields: [
+            { pointer: "/setpoint", type: "number", kind: "float", sample: "1" },
+            { pointer: "/mode", type: "string", kind: "string", sample: '"auto"' },
+          ],
+          count: 1,
+        },
       ],
       retained: true,
     };

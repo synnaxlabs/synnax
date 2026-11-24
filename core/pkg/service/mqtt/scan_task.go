@@ -68,13 +68,13 @@ type browsedField struct {
 	// Sample is the start of the JSON text of the scalar.
 	Sample string `json:"sample"`
 	// Kind is the kind of a payload field that holds most values heard at Pointer.
-	// Absent when the topic holds more fields than inference keeps.
-	Kind payload.Kind `json:"kind,omitempty"`
+	Kind payload.Kind `json:"kind"`
 	// TimeFormat is the format of a timestamp field. Nil for any other field.
 	TimeFormat *xjson.TimeFormat `json:"time_format,omitempty"`
 }
 
-// browsedTopic is one topic that a browse heard, with its last payload.
+// browsedTopic is one topic that a browse heard, with its last payload and the shapes
+// of its JSON messages.
 type browsedTopic struct {
 	Topic string `json:"topic"`
 	// Count is the number of messages heard, with a retained message.
@@ -86,13 +86,8 @@ type browsedTopic struct {
 	// Payload is the start of the last payload. Empty when the payload is not text.
 	Payload string `json:"payload"`
 	// Format is the format of the whole last payload.
-	Format payload.Format `json:"format"`
-	// Fields are the scalars of the whole last payload. Empty when it is not JSON.
-	Fields []browsedField `json:"fields"`
-	// Index is the pointer of the field in Fields that indexes the messages heard.
-	// Absent when no field can.
-	Index    string `json:"index,omitempty"`
-	Retained bool   `json:"retained"`
+	Format   payload.Format `json:"format"`
+	Retained bool           `json:"retained"`
 	// Shapes are the shapes of the JSON messages heard, in the order first heard.
 	Shapes []browsedShape `json:"shapes"`
 }

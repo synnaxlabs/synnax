@@ -211,35 +211,12 @@ func (t *heardTopic) hold(fields []browsedField) {
 	}
 }
 
-// infer sets the shapes of the messages heard. It also sets the kind and the time
-// format of each field, and the index, from the shape that a read task matches the last
-// message to.
+// infer sets the shapes of the messages heard.
 func (t *heardTopic) infer() {
 	shapes := t.inferrer.Shapes()
 	t.Shapes = make([]browsedShape, len(shapes))
 	for i, s := range shapes {
 		t.Shapes[i] = t.shape(s)
-	}
-	shape, ok := lastShape(shapes, t.Fields)
-	if !ok {
-		return
-	}
-	byPointer := make(map[string]xjson.InferredField, len(shape.Fields))
-	for _, f := range shape.Fields {
-		byPointer[f.Pointer.String()] = f
-	}
-	for i := range t.Fields {
-		f := byPointer[t.Fields[i].Pointer]
-		t.Fields[i].Kind, t.Fields[i].TimeFormat = f.Kind, f.TimeFormat
-	}
-	if shape.Index < 0 {
-		return
-	}
-	index := shape.Fields[shape.Index].Pointer.String()
-	if slices.ContainsFunc(t.Fields, func(f browsedField) bool {
-		return f.Pointer == index
-	}) {
-		t.Index = index
 	}
 }
 
@@ -262,28 +239,6 @@ func (t *heardTopic) shape(s xjson.Shape) browsedShape {
 		}
 	}
 	return b
-}
-
-// lastShape returns the shape that a read task matches a message with fields to: the
-// shape whose present field the message holds, or else the shape with none.
-func lastShape(shapes []xjson.Shape, fields []browsedField) (xjson.Shape, bool) {
-	bare := -1
-	for i, s := range shapes {
-		if s.Present < 0 {
-			bare = i
-			continue
-		}
-		present := s.Fields[s.Present].Pointer.String()
-		if slices.ContainsFunc(fields, func(f browsedField) bool {
-			return f.Pointer == present
-		}) {
-			return s, true
-		}
-	}
-	if bare < 0 {
-		return xjson.Shape{}, false
-	}
-	return shapes[bare], true
 }
 
 // heard is what a browse heard on each topic.
@@ -335,9 +290,8 @@ func (s *scanner) hear(ctx context.Context, args browseArgs) (heard, error) {
 			}
 			p := m.Payload()
 			t.LastSeen, t.Retained = telem.Now(), m.Retained()
-			t.Payload, t.Format, t.Fields = payloadSample(p), driver.FormatOf(p),
-				payloadFields(p)
-			t.hold(t.Fields)
+			t.Payload, t.Format = payloadSample(p), driver.FormatOf(p)
+			t.hold(payloadFields(p))
 			t.inferrer.Add(p, t.LastSeen)
 			return false
 		},

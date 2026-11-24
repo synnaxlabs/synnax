@@ -623,6 +623,11 @@ var _ = Describe("Scan task", func() {
 			}
 		}
 
+		// oneShape matches a topic whose messages all have one shape that matches m.
+		oneShape := func(m types.GomegaMatcher) types.GomegaMatcher {
+			return HaveKeyWithValue("shapes", HaveExactElements(m))
+		}
+
 		It("Should list the retained topics with their payloads, in order",
 			func(ctx SpecContext) {
 				broker.publish("plant/b", `{"v":2}`, true)
@@ -638,10 +643,10 @@ var _ = Describe("Scan task", func() {
 						HaveKeyWithValue("topic", name),
 						HaveKeyWithValue("payload", text),
 						HaveKeyWithValue("format", "json"),
-						HaveKeyWithValue(
+						oneShape(HaveKeyWithValue(
 							"fields",
 							[]any{field("/v", "number", value, payload.KindInteger)},
-						),
+						)),
 						HaveKeyWithValue("retained", true),
 					))
 				}
@@ -715,16 +720,17 @@ var _ = Describe("Scan task", func() {
 				broker.publish("plant/e", `{"v": 1, "v": 2}`, true)
 				broker.publish("plant/f", `{"v": 1} {"v": 2}`, true)
 				stat := browse(ctx, msgpack.EncodedJSON{"duration": 200})
-				fields := func(t map[string]any) any { return t["fields"] }
+				fields := func(fields ...any) types.GomegaMatcher {
+					return oneShape(HaveKeyWithValue("fields", fields))
+				}
+				none := HaveKeyWithValue("shapes", BeEmpty())
 				Expect(stat.Details.Data["topics"]).To(HaveExactElements(
-					WithTransform(fields, Equal([]any{
-						field("", "number", "23.4", payload.KindFloat),
-					})),
-					WithTransform(fields, Equal([]any{
+					fields(field("", "number", "23.4", payload.KindFloat)),
+					fields(
 						field("/state", "string", `"ON"`, payload.KindString),
 						field("/mode", "string", `"AUTO"`, payload.KindString),
-					})),
-					WithTransform(fields, Equal([]any{
+					),
+					fields(
 						field(
 							"/out/flow~1rate~0avg",
 							"number",
@@ -732,10 +738,10 @@ var _ = Describe("Scan task", func() {
 							payload.KindFloat,
 						),
 						field("/on", "boolean", "true", payload.KindBoolean),
-					})),
-					WithTransform(fields, BeEmpty()),
-					WithTransform(fields, BeEmpty()),
-					WithTransform(fields, BeEmpty()),
+					),
+					none,
+					none,
+					none,
 				))
 			},
 		)
@@ -749,10 +755,10 @@ var _ = Describe("Scan task", func() {
 				Expect(ok).To(BeTrue())
 				topic := topics[0]
 				Expect(topic).To(HaveKeyWithValue("payload", HaveLen(256)))
-				Expect(topic).To(HaveKeyWithValue("fields", []any{
+				Expect(topic).To(oneShape(HaveKeyWithValue("fields", []any{
 					field("/text", "string", `"`+long[:63], payload.KindString),
 					field("/v", "number", "1", payload.KindInteger),
-				}))
+				})))
 			},
 		)
 
@@ -768,36 +774,20 @@ var _ = Describe("Scan task", func() {
 				stat := browse(ctx, msgpack.EncodedJSON{"duration": 200})
 				topics, ok := stat.Details.Data["topics"].([]any)
 				Expect(ok).To(BeTrue())
-				topic, ok := topics[0].(map[string]any)
-				Expect(ok).To(BeTrue())
-				fields, ok := topic["fields"].([]any)
-				Expect(ok).To(BeTrue())
-				Expect(fields).To(HaveLen(256))
-				Expect(fields[255]).To(
-					Equal(field("/f255", "number", "255", payload.KindInteger)),
-				)
-				Expect(topic).ToNot(HaveKey("index"))
+				Expect(topics[0]).To(oneShape(SatisfyAll(
+					HaveKeyWithValue("fields", SatisfyAll(
+						HaveLen(256),
+						HaveEach(Not(HaveKeyWithValue("pointer", "/ts"))),
+						ContainElement(
+							field("/f255", "number", "255", payload.KindInteger),
+						),
+					)),
+					Not(HaveKey("index")),
+				)))
 			},
 		)
 
-		It("Should give no kind to a field past the first 1,024 fields of a topic",
-			func(ctx SpecContext) {
-				names := make([]string, 1024)
-				for i := range names {
-					names[i] = fmt.Sprintf(`"f%04d": %d`, i, i)
-				}
-				broker.publish("plant/a", "{"+strings.Join(names, ", ")+"}", true)
-				publishUntilDone(broker, "plant/a", `{"late": 1}`)
-				stat := browse(ctx, msgpack.EncodedJSON{"duration": 300})
-				topics, ok := stat.Details.Data["topics"].([]any)
-				Expect(ok).To(BeTrue())
-				Expect(topics[0]).To(HaveKeyWithValue("fields", []any{
-					map[string]any{"pointer": "/late", "type": "number", "sample": "1"},
-				}))
-			},
-		)
-
-		It("Should give no index when the last payload is not JSON",
+		It("Should give the shape of the JSON messages when the last one is not JSON",
 			func(ctx SpecContext) {
 				ms := int64(telem.Now() / telem.MillisecondTS)
 				broker.publish("plant/a", fmt.Sprintf(`{"ts":%d}`, ms), true)
@@ -807,8 +797,7 @@ var _ = Describe("Scan task", func() {
 				Expect(ok).To(BeTrue())
 				Expect(topics[0]).To(SatisfyAll(
 					HaveKeyWithValue("format", "text"),
-					HaveKeyWithValue("fields", BeEmpty()),
-					Not(HaveKey("index")),
+					oneShape(HaveKeyWithValue("index", "/ts")),
 				))
 			},
 		)
@@ -826,7 +815,7 @@ var _ = Describe("Scan task", func() {
 				topics, ok := stat.Details.Data["topics"].([]any)
 				Expect(ok).To(BeTrue())
 				Expect(topics).To(HaveLen(1))
-				Expect(topics[0]).To(SatisfyAll(
+				Expect(topics[0]).To(oneShape(SatisfyAll(
 					HaveKeyWithValue("index", "/ts"),
 					HaveKeyWithValue("fields", []any{
 						map[string]any{
@@ -838,36 +827,7 @@ var _ = Describe("Scan task", func() {
 						},
 						field("/v", "number", "2", payload.KindFloat),
 					}),
-				))
-			},
-		)
-
-		It("Should infer the kinds and the index from the messages of the last kind",
-			func(ctx SpecContext) {
-				ms := int64(telem.Now() / telem.MillisecondTS)
-				broker.publish("plant/a", fmt.Sprintf(`{"ts":%d,"rpm":1.5}`, ms), true)
-				publishUntilDone(
-					broker,
-					"plant/a",
-					fmt.Sprintf(`{"time":%d,"code":3}`, ms+1),
-				)
-				stat := browse(ctx, msgpack.EncodedJSON{"duration": 300})
-				topics, ok := stat.Details.Data["topics"].([]any)
-				Expect(ok).To(BeTrue())
-				Expect(topics).To(HaveLen(1))
-				Expect(topics[0]).To(SatisfyAll(
-					HaveKeyWithValue("index", "/time"),
-					HaveKeyWithValue("fields", []any{
-						map[string]any{
-							"pointer":     "/time",
-							"type":        "number",
-							"sample":      strconv.FormatInt(ms+1, 10),
-							"kind":        "timestamp",
-							"time_format": "unix_ms",
-						},
-						field("/code", "number", "3", payload.KindInteger),
-					}),
-				))
+				)))
 			},
 		)
 
@@ -967,13 +927,13 @@ var _ = Describe("Scan task", func() {
 				stat := browse(ctx, msgpack.EncodedJSON{"duration": 200})
 				topics, ok := stat.Details.Data["topics"].([]any)
 				Expect(ok).To(BeTrue())
-				Expect(topics[0]).To(SatisfyAll(
+				Expect(topics[0]).To(oneShape(SatisfyAll(
 					Not(HaveKey("index")),
 					HaveKeyWithValue("fields", []any{
 						field("/time", "string", `"soon"`, payload.KindString),
 						field("/v", "number", "1", payload.KindInteger),
 					}),
-				))
+				)))
 			},
 		)
 

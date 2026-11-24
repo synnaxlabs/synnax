@@ -220,7 +220,12 @@ const addField = async (rackKey: rack.Key, topic: string, name: string) => {
   const scanned = {
     topic,
     payload: `{"${name}": 1}`,
-    fields: [{ pointer: `/${name}`, type: "number", sample: "1" }],
+    shapes: [
+      {
+        fields: [{ pointer: `/${name}`, type: "number", kind: "float", sample: "1" }],
+        count: 1,
+      },
+    ],
     retained: true,
   };
   await scanner.answer({ data: { topics: [scanned], truncated: false } });
@@ -300,25 +305,30 @@ const TIMED_TOPIC = {
   payload:
     '{"time": 1763900000000000000, "count": 3, "temperature": 21.5, ' +
     '"updated": "2026-11-23T10:00:00Z"}',
-  fields: [
+  shapes: [
     {
-      pointer: "/time",
-      type: "number",
-      sample: "1763900000000000000",
-      kind: "timestamp",
-      timeFormat: "unix_ns",
-    },
-    { pointer: "/count", type: "number", sample: "3", kind: "integer" },
-    { pointer: "/temperature", type: "number", sample: "21.5", kind: "float" },
-    {
-      pointer: "/updated",
-      type: "string",
-      sample: '"2026-11-23T10:00:00Z"',
-      kind: "timestamp",
-      timeFormat: "iso8601",
+      fields: [
+        {
+          pointer: "/time",
+          type: "number",
+          sample: "1763900000000000000",
+          kind: "timestamp",
+          timeFormat: "unix_ns",
+        },
+        { pointer: "/count", type: "number", sample: "3", kind: "integer" },
+        { pointer: "/temperature", type: "number", sample: "21.5", kind: "float" },
+        {
+          pointer: "/updated",
+          type: "string",
+          sample: '"2026-11-23T10:00:00Z"',
+          kind: "timestamp",
+          timeFormat: "iso8601",
+        },
+      ],
+      index: "/time",
+      count: 1,
     },
   ],
-  index: "/time",
   retained: true,
 };
 
@@ -327,6 +337,41 @@ const openTimedTopic = async (rackKey: rack.Key) => {
   const scanner = await openScanner(client, rackKey);
   const dialog = await openAddData();
   await scanner.answer({ data: { topics: [TIMED_TOPIC], truncated: false } });
+  scanner.close();
+  return dialog;
+};
+
+/** @returns a shape with the time of TIMED_TOPIC and a number that only it holds. */
+const createShape = (pointer: string, kind: string, count: number) => ({
+  fields: [
+    TIMED_TOPIC.shapes[0].fields[0],
+    { pointer, type: "number", sample: "1", kind },
+  ],
+  index: "/time",
+  present: pointer,
+  count,
+});
+
+/** Opens Add data on a topic of 44 messages with /temperature and 11 with /fault. */
+const openShapedTopic = async (rackKey: rack.Key) => {
+  const scanner = await openScanner(client, rackKey);
+  const dialog = await openAddData();
+  await scanner.answer({
+    data: {
+      topics: [
+        {
+          topic: TOPIC,
+          payload: '{"time": 1763900000000000000, "fault": 1}',
+          shapes: [
+            createShape("/temperature", "float", 44),
+            createShape("/fault", "integer", 11),
+          ],
+          retained: true,
+        },
+      ],
+      truncated: false,
+    },
+  });
   scanner.close();
   return dialog;
 };
@@ -356,9 +401,19 @@ describe("MQTT read form", () => {
       {
         topic: TOPIC,
         payload: '{"temperature": 21.5, "label": "ok"}',
-        fields: [
-          { pointer: "/temperature", type: "number", sample: "21.5" },
-          { pointer: "/label", type: "string", sample: '"ok"' },
+        shapes: [
+          {
+            fields: [
+              {
+                pointer: "/temperature",
+                type: "number",
+                kind: "float",
+                sample: "21.5",
+              },
+              { pointer: "/label", type: "string", kind: "string", sample: '"ok"' },
+            ],
+            count: 1,
+          },
         ],
         retained: true,
       },
@@ -421,9 +476,19 @@ describe("MQTT read form", () => {
           {
             topic: TOPIC,
             payload: '{"temperature": 21.5, "label": "ok"}',
-            fields: [
-              { pointer: "/temperature", type: "number", sample: "21.5" },
-              { pointer: "/label", type: "string", sample: '"ok"' },
+            shapes: [
+              {
+                fields: [
+                  {
+                    pointer: "/temperature",
+                    type: "number",
+                    kind: "float",
+                    sample: "21.5",
+                  },
+                  { pointer: "/label", type: "string", kind: "string", sample: '"ok"' },
+                ],
+                count: 1,
+              },
             ],
             retained: true,
           },
@@ -555,7 +620,9 @@ describe("MQTT read form", () => {
           {
             ...TIMED_TOPIC,
             payload: '{"time": 1763900000000000000}',
-            fields: [TIMED_TOPIC.fields[0]],
+            shapes: [
+              { ...TIMED_TOPIC.shapes[0], fields: [TIMED_TOPIC.shapes[0].fields[0]] },
+            ],
           },
         ],
         truncated: false,
@@ -572,6 +639,86 @@ describe("MQTT read form", () => {
         { pointer: "/time", type: "timestamp", timeFormat: "unix_ns" },
       ]);
       expect(entry.messages[0].index).toBe(fields[0].key);
+    });
+  });
+
+  it("should add a message for each shape of a new topic, matching its own documents", async () => {
+    const { dev, draft } = await renderRead();
+    const dialog = await openShapedTopic(dev.rack);
+    await dialog.findByText("44 messages with /temperature");
+    expect(dialog.getByText("11 messages with /fault")).toBeTruthy();
+    fireEvent.click(dialog.getByRole("checkbox", { name: "Pick oven" }));
+    fireEvent.click(dialog.getByRole("button", { name: "Add 2 fields" }));
+    await waitFor(async () => {
+      const entries = (await retrieveEntries(draft.key)).map(plainOf);
+      expect(entries).toHaveLength(1);
+      const { messages } = await client.icds.retrieve(entries[0].icd);
+      expect(messages).toMatchObject([
+        {
+          name: TOPIC,
+          payload: {
+            match: { type: "present", pointer: "/temperature" },
+            fields: [{ pointer: "/time" }, { pointer: "/temperature" }],
+          },
+        },
+        {
+          name: `${TOPIC} 2`,
+          payload: {
+            match: { type: "present", pointer: "/fault" },
+            fields: [{ pointer: "/time" }, { pointer: "/fault" }],
+          },
+        },
+      ]);
+      const timeKeys = messages.map((m) =>
+        m.payload.format === "json" ? m.payload.fields[0].key : "",
+      );
+      expect(entries[0].messages).toMatchObject(
+        messages.map(({ key }, i) => ({ message: key, index: timeKeys[i] })),
+      );
+    });
+  });
+
+  it("should read the whole payload of a topic that is not JSON as a string", async () => {
+    const { dev, draft } = await renderRead();
+    const scanner = await openScanner(client, dev.rack);
+    const dialog = await openAddData();
+    await scanner.answer({
+      data: {
+        topics: [{ topic: TOPIC, payload: "ON", shapes: [], retained: true }],
+        truncated: false,
+      },
+    });
+    scanner.close();
+    (await findValue(dialog, "Whole payload")).getByText("ON");
+    fireEvent.click(dialog.getByRole("checkbox", { name: "Record Whole payload" }));
+    fireEvent.click(dialog.getByRole("button", { name: "Add 1 field" }));
+    await waitFor(async () => {
+      const [entry] = (await retrieveEntries(draft.key)).map(plainOf);
+      expect(await retrieveFields(entry.icd)).toMatchObject([
+        { pointer: "", type: "string" },
+      ]);
+    });
+  });
+
+  it("should append the picks of each shape to the message of a topic that the task reads", async () => {
+    const { dev, draft } = await renderRead({
+      fields: [createField("count", "integer")],
+    });
+    const dialog = await openShapedTopic(dev.rack);
+    fireEvent.click(
+      await dialog.findByRole("checkbox", { name: "Record temperature" }),
+    );
+    fireEvent.click(dialog.getByRole("checkbox", { name: "Record fault" }));
+    fireEvent.click(dialog.getByRole("button", { name: "Add 2 fields" }));
+    await waitFor(async () => {
+      const entries = (await retrieveEntries(draft.key)).map(plainOf);
+      expect(entries).toHaveLength(1);
+      expect(entries[0].messages).toHaveLength(1);
+      expect(await retrieveFields(entries[0].icd)).toMatchObject([
+        { pointer: "/count" },
+        { pointer: "/temperature" },
+        { pointer: "/fault" },
+      ]);
     });
   });
 
@@ -2461,7 +2608,14 @@ describe("MQTT read form", () => {
       const topic = {
         topic: TOPIC,
         payload: '{"temperature": 1}',
-        fields: [{ pointer: "/temperature", type: "number", sample: "1" }],
+        shapes: [
+          {
+            fields: [
+              { pointer: "/temperature", type: "number", kind: "float", sample: "1" },
+            ],
+            count: 1,
+          },
+        ],
         retained: true,
       };
       await scanner.answer({ data: { topics: [topic], truncated: false } });

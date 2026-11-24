@@ -21,7 +21,11 @@ import { useState } from "react";
 
 import type { Device } from "@/feature/mqtt/device";
 import { TagPicker, type TagPicks } from "@/feature/mqtt/task/discover/Tags";
-import { TopicPicker, type TopicPicks } from "@/feature/mqtt/task/discover/Topics";
+import {
+  countOf,
+  TopicPicker,
+  type TopicPicks,
+} from "@/feature/mqtt/task/discover/Topics";
 import type { HeldEntry } from "@/feature/mqtt/task/types";
 import { CSS } from "@/platform/css";
 import { ICD } from "@/platform/icd";
@@ -107,7 +111,7 @@ export const Discover = <E,>({ device, entries, close, kind }: DiscoverProps<E>)
   const entryCount =
     kind.whole === true
       ? topicPicks.size
-      : math.sum([...topicPicks.values()].map((p) => p.pointers.size));
+      : math.sum([...topicPicks.values()].map(countOf));
   const parts: string[] = [];
   const topics = pluralize("topic", topicPicks.size, true);
   if (kind.whole === true && entryCount > 0) parts.push(topics);

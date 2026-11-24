@@ -36,6 +36,7 @@ import { Device } from "@/feature/mqtt/device";
 import { DEFAULT_READ_NAME } from "@/feature/mqtt/task/create";
 import type { Kind } from "@/feature/mqtt/task/discover/Discover";
 import { createDiscoverModal } from "@/feature/mqtt/task/discover/modal";
+import type { ShapePick, TopicPick } from "@/feature/mqtt/task/discover/Topics";
 import { createSparkplugEntry, namePrefix } from "@/feature/mqtt/task/entries";
 import { EntryLabel } from "@/feature/mqtt/task/EntryLabel";
 import type { Leaf } from "@/feature/mqtt/task/leaves";
@@ -94,6 +95,11 @@ interface Draft {
   fields: icd.JSONField[];
   /** The key of the field in fields that indexes a new message. */
   index?: icd.FieldKey;
+  /**
+   * The pointer of the field that each document of a new message holds. Absent when the
+   * message reads every document of the topic.
+   */
+  present?: string;
 }
 
 /** What the discovery dialog adds: topics to read and Sparkplug B tags. */
@@ -102,7 +108,12 @@ type Addition = Draft | SparkplugReadEntry;
 const isDraft = (addition: Addition): addition is Draft => addition.type === "plain";
 
 /** @param index - The pointer of the leaf that indexes the message. */
-const createDraft = (topic: string, leaves: Leaf[] = [], index?: string): Draft => {
+const createDraft = (
+  topic: string,
+  leaves: Leaf[] = [],
+  index?: string,
+  present?: string,
+): Draft => {
   const names = ICD.fieldNames(leaves.map(({ pointer }) => pointer));
   const fields = leaves.map((leaf, i) => ICD.createField(leaf, names[i]));
   return {
@@ -110,7 +121,26 @@ const createDraft = (topic: string, leaves: Leaf[] = [], index?: string): Draft 
     topic,
     fields,
     index: fields.find(({ pointer }) => pointer === index)?.key,
+    present,
   };
+};
+
+/** @returns the leaves of a pick, with its index. */
+const pickedLeaves = ({ shape, pointers, index }: ShapePick): Leaf[] =>
+  shape.leaves.filter((l) => pointers.has(l.pointer) || l.pointer === index);
+
+/**
+ * @returns the drafts of the picks of a topic. A topic that the task reads gets one,
+ * with the picks of every shape. A new topic gets one for each picked shape.
+ */
+const draftsOf = (topic: string, pick: TopicPick, held: boolean): Draft[] => {
+  const picks = [...pick.values()];
+  if (!held)
+    return picks.map((p) =>
+      createDraft(topic, pickedLeaves(p), p.index, p.shape.present),
+    );
+  const leaves = unique.by(picks.flatMap(pickedLeaves), ({ pointer }) => pointer);
+  return [createDraft(topic, leaves, picks.find((p) => p.index != null)?.index)];
 };
 
 const DISCOVER_KIND: Kind<Addition> = {
@@ -120,12 +150,12 @@ const DISCOVER_KIND: Kind<Addition> = {
   noun: "field",
   tagNoun: "tag",
   indexed: true,
-  create: ({ topics, tags }) => [
-    ...[...topics].map(([topic, { leaves, pointers, index }]) =>
-      createDraft(
+  create: ({ topics, tags }, entries) => [
+    ...[...topics].flatMap(([topic, pick]) =>
+      draftsOf(
         topic,
-        leaves.filter((l) => pointers.has(l.pointer) || l.pointer === index),
-        index,
+        pick,
+        entries.some((e) => e.type === "plain" && e.topic === topic),
       ),
     ),
     ...[...tags.values()].map((t) => createSparkplugEntry(t)),
@@ -210,27 +240,42 @@ const appendFields = (
 };
 
 /**
- * @returns a message for the fields of a topic, named after the topic. A name that a
+ * @returns a message for the fields of a draft, named after its topic. A name that a
  * message in taken holds gets a number, such as `plant/oven 2`.
  */
 const createMessage = (
-  topic: string,
-  fields: icd.JSONField[],
+  { topic, fields, present }: Draft,
   taken: icd.Message[],
 ): icd.Message => {
   const names = new Set(taken.map(({ name }) => name));
   const base = topic === "" ? "Untitled" : topic;
   let name = base;
   for (let n = 2; names.has(name); n++) name = `${base} ${n}`;
-  return { key: uuid.create(), name, payload: { format: "json", fields } };
+  return {
+    key: uuid.create(),
+    name,
+    payload: {
+      format: "json",
+      fields,
+      ...(present == null ? {} : { match: { type: "present", pointer: present } }),
+    },
+  };
 };
 
-const entryOf = (
+type Read = Pick<icd.ReadMessage, "message" | "index" | "bindings">;
+
+/** @returns an entry for each topic of reads, which reads its messages in order. */
+const entriesOf = (
   icdKey: icd.Key,
-  topic: string,
-  read: Pick<icd.ReadMessage, "message" | "index" | "bindings">,
-): PlainReadEntry =>
-  mqtt.plainReadEntryZ.parse({ type: "plain", icd: icdKey, topic, messages: [read] });
+  reads: [topic: string, Read][],
+): PlainReadEntry[] => {
+  const byTopic = new Map<string, Read[]>();
+  for (const [topic, read] of reads)
+    map.getOrInsert(byTopic, topic, () => []).push(read);
+  return [...byTopic].map(([topic, messages]) =>
+    mqtt.plainReadEntryZ.parse({ type: "plain", icd: icdKey, topic, messages }),
+  );
+};
 
 interface AddTopicsResult {
   /** The entries of the topics that the task does not read yet. */
@@ -266,15 +311,18 @@ const createICD = async (
   bind: Bind,
 ): Promise<AddTopicsResult> => {
   const messages: icd.Message[] = [];
-  for (const { topic, fields } of drafts)
-    messages.push(createMessage(topic, fields, messages));
+  for (const draft of drafts) messages.push(createMessage(draft, messages));
   const { key } = await client.icds.create({ name, messages });
-  const added = drafts.map((d, i) =>
-    entryOf(key, d.topic, {
-      message: messages[i].key,
-      index: d.index,
-      bindings: bind(d, d.fields, messages[i].key),
-    }),
+  const added = entriesOf(
+    key,
+    drafts.map((d, i) => [
+      d.topic,
+      {
+        message: messages[i].key,
+        index: d.index,
+        bindings: bind(d, d.fields, messages[i].key),
+      },
+    ]),
   );
   return { added, held: [] };
 };
@@ -312,6 +360,7 @@ const addTopics = async ({
     };
   };
   const result: AddTopicsResult = { added: [], held: [] };
+  const reads: [topic: string, Read][] = [];
   format.form.batch(() => {
     for (const draft of drafts) {
       const entry = entries.find((e) => e.topic === draft.topic);
@@ -327,18 +376,15 @@ const addTopics = async ({
         continue;
       }
       const prior = messages.get(key) ?? [];
-      const created = createMessage(draft.topic, draft.fields, prior);
+      const created = createMessage(draft, prior);
       inserterOf(key).insert(PICD.formPath.messages, created, prior.at(-1)?.key);
       messages.set(key, [...prior, created]);
       const bindings = bind(draft, draft.fields, created.key);
       if (entry == null)
-        result.added.push(
-          entryOf(key, draft.topic, {
-            message: created.key,
-            index: draft.index,
-            bindings,
-          }),
-        );
+        reads.push([
+          draft.topic,
+          { message: created.key, index: draft.index, bindings },
+        ]);
       else
         result.held.push({
           key: entry.key,
@@ -348,6 +394,7 @@ const addTopics = async ({
         });
     }
   });
+  result.added = entriesOf(format.key, reads);
   for (const [key, pending] of actions) await client.icds.dispatch(key, pending);
   return result;
 };
@@ -716,7 +763,8 @@ const Entries: FC<EntriesProps> = ({
               bind,
             });
     push([...added, ...tags]);
-    for (const { messages } of added) made.current.add(messages[0].message);
+    for (const { messages } of added)
+      for (const { message } of messages) made.current.add(message);
     for (const { message } of grown) if (message != null) made.current.add(message);
     grown.forEach(({ key, message, index, bindings }) => {
       const read = plainPath(key).messages[0];
