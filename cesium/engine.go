@@ -606,6 +606,7 @@ func (e *engine) segmentConfig(seg state.Segment) segment.Config {
 		ID:       seg.ID,
 		DataType: seg.DataType,
 		Clock:    seg.Clock,
+		Version:  seg.Version,
 		Variable: telem.DataTypeCode(seg.DataType).DataType().IsVariable(),
 	}
 }
