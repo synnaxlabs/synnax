@@ -44,7 +44,6 @@ class CDAQDigitalWriteLatency(CDAQDigitalWrite):
             self.client.open_writer(
                 sy.TimeStamp.now(),
                 [_CMD, "hitl_cdaq_do_cmd_time"],
-                enable_auto_commit=True,
             ) as writer,
         ):
             for i in range(_WARMUP + _COMMANDS):

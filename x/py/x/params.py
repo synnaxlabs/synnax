@@ -145,3 +145,45 @@ def deprecate_positional[**P, R](
         return wrapper
 
     return decorator
+
+
+def deprecate_negated[**P, R](
+    **renames: str,
+) -> Callable[[Callable[P, R]], Callable[P, R]]:
+    """Lets callers pass each old keyword in place of the new keyword it names, with
+    the opposite value. A call that passes an old keyword emits a DeprecationWarning.
+
+    :param renames: Maps each old keyword to a keyword-only parameter of the function.
+    :raises ValueError: If a new name is not a keyword-only parameter.
+    :raises TypeError: On a call that passes both an old keyword and its new keyword.
+    """
+
+    def decorator(f: Callable[P, R]) -> Callable[P, R]:
+        params = inspect.signature(f).parameters
+        for new in renames.values():
+            p = params.get(new)
+            if p is None or p.kind != inspect.Parameter.KEYWORD_ONLY:
+                raise ValueError(f"{new} is not a keyword-only parameter of {f}")
+
+        @functools.wraps(f)
+        def wrapper(*args: Any, **kwargs: Any) -> R:
+            for old, new in renames.items():
+                if old not in kwargs:
+                    continue
+                if new in kwargs:
+                    raise TypeError(
+                        f"{f.__qualname__}() got both {old} and {new}. Pass only {new}."
+                    )
+                value = not kwargs.pop(old)
+                warnings.warn(
+                    f"{old} in {f.__qualname__}() is deprecated and stops working in "
+                    f"the next minor release. Pass {new}={value}.",
+                    DeprecationWarning,
+                    skip_file_prefixes=(__file__,),
+                )
+                kwargs[new] = value
+            return f(*args, **kwargs)
+
+        return wrapper
+
+    return decorator

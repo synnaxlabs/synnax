@@ -166,7 +166,6 @@ class CoreRestart(TestCase):
             with self._scratch.open_writer(
                 start=sy.TimeStamp.now(),
                 channels=[START, PRESSURE],
-                enable_auto_commit=True,
             ) as w:
                 # The Arc reads a channel with no value as 0, which would leave the
                 # stage at once.
@@ -188,7 +187,6 @@ class CoreRestart(TestCase):
             with self._scratch.open_writer(
                 start=sy.TimeStamp.now(),
                 channels=[PRESSURE],
-                enable_auto_commit=True,
             ) as w:
                 timer = sy.Timer()
                 while timer.elapsed() < VENT_TIMEOUT:

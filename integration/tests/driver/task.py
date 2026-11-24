@@ -162,7 +162,6 @@ def send_and_verify_commands(
                     start=sy.TimeStamp.now(),
                     channels=all_writer_keys,
                     name=writer_name,
-                    enable_auto_commit=True,
                 )
                 try:
                     for values in command_values:

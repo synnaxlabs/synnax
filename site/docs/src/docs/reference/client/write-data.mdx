@@ -265,7 +265,7 @@ not valid. The writer stays open, so it can write again when it gets control bac
 ```python
 with client.open_writer(
     channels=["time", "temperature"],
-    enable_auto_commit=False,
+    auto_commit_disabled=True,
 ) as writer:
     for path in files:
         for frame in read_chunks(path):
@@ -419,12 +419,12 @@ read each sample.
 </Field.Item>
 
 <Field.Item
-  name="enable_auto_commit"
-  id="python-enable-auto-commit"
+  name="auto_commit_disabled"
+  id="python-auto-commit-disabled"
   type="bool"
-  default="True"
+  default="False"
 >
-  Commit after each write. See [auto-commit](#auto-commit).
+  Do not commit after each write. See [auto-commit](#auto-commit).
 </Field.Item>
 
 <Field.Item

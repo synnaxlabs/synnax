@@ -16,7 +16,7 @@ import numpy as np
 import pytest
 
 from x.exceptions import Error
-from x.params import deprecate_positional, require_named_params
+from x.params import deprecate_negated, deprecate_positional, require_named_params
 from x.telem import Density, MultiSeries, Rate, Series, Size, TimeRange, TimeSpan
 from x.telem.telem import convert_time_units
 from x.testutil import untyped
@@ -182,3 +182,41 @@ class TestDeprecatePositional:
         """Positional forms that 0.60 accepted should still work and warn."""
         with pytest.warns(DeprecationWarning, match="by position is deprecated"):
             call()
+
+
+class TestDeprecateNegated:
+    def test_new_keyword_does_not_warn(self) -> None:
+        @deprecate_negated(enabled="disabled")
+        def f(*, disabled: bool = False) -> bool:
+            return disabled
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            assert f() is False
+            assert f(disabled=True) is True
+
+    def test_old_keyword_warns_and_maps_to_the_opposite(self) -> None:
+        @deprecate_negated(enabled="disabled")
+        def f(*, disabled: bool = False) -> bool:
+            return disabled
+
+        with pytest.warns(DeprecationWarning, match="Pass disabled=True") as record:
+            assert untyped(f)(enabled=False) is True
+        assert record[0].filename == __file__
+        with pytest.warns(DeprecationWarning, match="enabled in .*f\\(\\)"):
+            assert untyped(f)(enabled=True) is False
+
+    def test_both_keywords_raise(self) -> None:
+        @deprecate_negated(enabled="disabled")
+        def f(*, disabled: bool = False) -> bool:
+            return disabled
+
+        with pytest.raises(TypeError, match="both enabled and disabled"):
+            untyped(f)(enabled=True, disabled=True)
+
+    def test_new_name_that_is_not_keyword_only_raises(self) -> None:
+        with pytest.raises(ValueError, match="keyword-only"):
+
+            @deprecate_negated(enabled="disabled")
+            def f(disabled: bool = False) -> bool:
+                return disabled

@@ -117,7 +117,6 @@ class StaleBatchAbort(ArcCase):
             self.client.open_writer(
                 first,
                 [f"{self._sensor}_time", self._sensor],
-                enable_auto_commit=True,
             ) as w,
         ):
             w.write({f"{self._sensor}_time": stamps, self._sensor: values})

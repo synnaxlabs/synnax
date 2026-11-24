@@ -99,7 +99,6 @@ class WriterOpenCloseStress(TestCase):
                 w = client.open_writer(
                     start=sy.TimeStamp.now(),
                     channels=[ch],
-                    enable_auto_commit=True,
                 )
                 w.write({ch: [float(i)]})
                 w.close()

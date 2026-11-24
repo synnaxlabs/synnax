@@ -136,7 +136,6 @@ with tsk.run():
             opcua_cmd_2_time.key,
             cmd_channel_2.key,
         ],
-        enable_auto_commit=True,
     ) as writer:
         # Write some test values to the OPC UA nodes
         for i in range(10):

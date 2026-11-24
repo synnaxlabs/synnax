@@ -180,7 +180,6 @@ class StageEntrySamples(ArcCase):
         with self.client.open_writer(
             start=stamps[0],
             channels=[f"{pt}_time", pt],
-            enable_auto_commit=True,
         ) as w:
             w.write({f"{pt}_time": stamps, pt: values})
 

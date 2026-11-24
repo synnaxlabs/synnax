@@ -139,7 +139,6 @@ try:
                 fio4_cmd_time.key,
                 fio4_cmd.key,
             ],
-            enable_auto_commit=True,
         ) as writer:
             # Write test commands
             for i in range(10):

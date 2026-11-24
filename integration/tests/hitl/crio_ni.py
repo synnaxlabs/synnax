@@ -135,7 +135,6 @@ class CRIOAnalogLoopback(CRIOAnalogRead):
                 self.client.open_writer(
                     sy.TimeStamp.now(),
                     [*commands, cmd_index],
-                    enable_auto_commit=True,
                 ) as writer,
             ):
                 for levels in _LEVELS:
