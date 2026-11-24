@@ -475,7 +475,7 @@ green at every step. The migration brings 0.59 data forward near the end.
 - **Phases 3 to 8: Schemas and services, one integration each.** NI, LabJack, EtherCAT,
   OPC UA, Modbus, HTTP: the Oracle structs, generated types in four languages, the
   writers, and routes. Each lands dark.
-- **Phases 8a to 8c: Schemas and services.** MQTT, Kafka, Sift, with resource types.
+- **Phases 8a to 8c: Schemas and services.** MQTT, Kafka, Sift, with types and roles.
 - **Phases 9 to 14: Driver, one integration each.** Scanner and tasks on the typed
   client. Phase 9 also adds `common::Sync<D>`. OPC UA adds certificate login, and its
   scanner resolves parked `ns=` bindings through `/opcua/server/resolve`.
