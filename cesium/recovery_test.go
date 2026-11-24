@@ -172,6 +172,14 @@ var _ = Describe("Recovery", func() {
 		Entry("in the entries", int64(log.FrameHeaderSize)),
 	)
 
+	It("Should read a log whose size grows while recovery reads it", func(
+		ctx SpecContext,
+	) {
+		cycle(ctx)
+		fs = growingFS{FS: fs}
+		cycle(ctx)
+	})
+
 	It("Should cut a torn tail after the last frame", func(ctx SpecContext) {
 		cycle(ctx)
 		last := frameOffsets()[0]
@@ -284,4 +292,41 @@ func (f damageFile) ReadAt(p []byte, off int64) (int, error) {
 		p[f.fs.at-off] ^= 0xFF
 	}
 	return n, err
+}
+
+// growingFS gives the log of generation 1 a size that grows by 1 MiB at each call, as
+// the live file of a writer on another database of the same files does.
+type growingFS struct{ xfs.FS }
+
+func (f growingFS) Sub(name string) (xfs.FS, error) {
+	sub, err := f.FS.Sub(name)
+	if err != nil || name != "" {
+		return sub, err
+	}
+	return growingFS{FS: sub}, nil
+}
+
+func (f growingFS) Open(name string, flag int) (xfs.File, error) {
+	file, err := f.FS.Open(name, flag)
+	if err != nil || name != log.Name(1) {
+		return file, err
+	}
+	return growingFile{File: file}, nil
+}
+
+type growingFile struct{ xfs.File }
+
+func (f growingFile) Stat() (os.FileInfo, error) {
+	info, err := f.File.Stat()
+	return &growingInfo{FileInfo: info}, err
+}
+
+type growingInfo struct {
+	os.FileInfo
+	calls int64
+}
+
+func (i *growingInfo) Size() int64 {
+	i.calls++
+	return i.FileInfo.Size() + (i.calls-1)<<20
 }
