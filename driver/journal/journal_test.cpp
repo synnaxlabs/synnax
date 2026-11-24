@@ -483,6 +483,7 @@ TEST_F(JournalTest, ConcurrentCreateHasOneWinner) {
         std::atomic<int> done = 0;
         std::vector<x::errors::Error> errs(openers);
         std::vector<std::thread> threads;
+        threads.reserve(openers);
         for (int i = 0; i < openers; i++)
             threads.emplace_back([&, i] {
                 ++ready;
