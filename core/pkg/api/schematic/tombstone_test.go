@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package symbol_test
+package schematic_test
 
 import (
 	. "github.com/onsi/ginkgo/v2"
@@ -60,8 +60,8 @@ var _ = Describe("DeleteGroup of a channel folder", func() {
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return channelSvc.NewWriter(tx).Delete(ctx, ch.Key(), false)
 		})).To(Succeed())
-		u := createUser(ctx)
-		grantDeleteOn(ctx, u.ResourceID(), folder.ResourceID())
+		u := newUser(ctx)
+		grantOn(ctx, u.ResourceID(), access.ActionDelete, folder.ResourceID())
 		grantOn(ctx, u.ResourceID(), access.ActionUpdate, folder.ResourceID())
 		MustSucceed(deleteGroup(
 			AuthedCtx(ctx, u),

@@ -74,6 +74,7 @@ var (
 		apischematic.RetrieveResponse,
 	]
 	dispatchSymbol freighter.UnaryHandler[apisymbol.DispatchRequest, struct{}]
+	deleteGroup    freighter.UnaryHandler[apisymbol.DeleteGroupRequest, struct{}]
 	proj           project.Project
 	projectSvc     *project.Service
 	author         user.User
@@ -129,9 +130,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Schematic: schematicSvc,
 	}))
 	binder := MustSucceed(bind.NewService(bind.ServiceConfig{
-		DB:   db,
-		RBAC: rbacSvc,
-		Held: apiauth.HeldTables(),
+		DB:      db,
+		RBAC:    rbacSvc,
+		Held:    apiauth.HeldTables(),
+		Mirrors: channel.MirrorTables(),
 	}))
 	create = bind.Write(binder, apiSvc.Create)
 	del = bind.Write(binder, apiSvc.Delete)
@@ -151,6 +153,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Impact: impactSvc,
 	}))
 	dispatchSymbol = bind.Write(binder, symbolSvc.Dispatch)
+	deleteGroup = bind.Write(binder, symbolSvc.DeleteGroup)
 	author = MustSucceed(rbactestutil.CreateUser(ctx, db, rbacSvc, userSvc, user.User{
 		Name: "test",
 	}))

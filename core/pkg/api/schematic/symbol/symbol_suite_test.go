@@ -33,15 +33,14 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/impact"
-	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
-	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/set"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -80,11 +79,6 @@ var (
 		apisymbol.ExportGroupResponse,
 	]
 	author user.User
-	// channelSvc holds the channels and tombstones of channel folders.
-	channelSvc *channel.Service
-	// projectSvc and schematicSvc hold the schematics that hold channels.
-	projectSvc   *project.Service
-	schematicSvc *schematic.Service
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -115,23 +109,23 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 			rbacSvc.Builtin.OwnerKey,
 		),
 	)
-	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
-		Channel: node.Channel,
-		TS:      node.Storage.TS,
-		DB:      db,
-		HostKey: node.Identity.HostKey,
-		Status:  statusSvc,
-	}))
-	projectSvc = MustOpen(project.OpenService(ctx, project.ServiceConfig{DB: db}))
-	schematicSvc = MustOpen(schematic.OpenService(ctx, schematic.ServiceConfig{
+	symbolSvc = MustOpen(symbol.OpenService(ctx, symbol.ServiceConfig{
 		DB:    db,
 		Group: groupSvc,
 		ImEx:  imex.NewService(),
 		Enumeration: MustOpen(enumeration.OpenService(ctx, enumeration.ServiceConfig{
 			DB: db,
 		})),
+		Actuators:     noActuators,
+		RemoveOrphans: noOrphans,
 	}))
-	symbolSvc = schematicSvc.Symbol
+	channelSvc := MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
+		Channel: node.Channel,
+		TS:      node.Storage.TS,
+		DB:      db,
+		HostKey: node.Identity.HostKey,
+		Status:  statusSvc,
+	}))
 	impactSvc := MustSucceed(impact.OpenService(impact.ServiceConfig{
 		Channel:  channelSvc,
 		Group:    groupSvc,
@@ -253,3 +247,9 @@ func grantDeleteOn(ctx SpecContext, subject resource.ID, objects ...resource.ID)
 	GinkgoHelper()
 	grantOn(ctx, subject, access.ActionDelete, objects...)
 }
+
+func noActuators(context.Context, gorp.Tx) (set.Set[symbol.Key], error) {
+	return nil, nil
+}
+
+func noOrphans(context.Context, gorp.Tx, symbol.Symbol) error { return nil }
