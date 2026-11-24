@@ -11,10 +11,12 @@ import { TimeSpan } from "@synnaxlabs/client";
 import { describe, expect, it } from "vitest";
 
 import { readNodeTimeout } from "@/feature/opcua/device/commandTimeout";
-import { type ConnectionConfig } from "@/feature/opcua/device/types";
+import { type ConnectionConfig, ZERO_PROPERTIES } from "@/feature/opcua/device/types";
 
-const config = (clientTimeoutMs: number) =>
-  ({ clientTimeoutMs }) as unknown as ConnectionConfig;
+const config = (clientTimeoutMs: number): ConnectionConfig => ({
+  ...ZERO_PROPERTIES.connection,
+  clientTimeoutMs,
+});
 
 describe("readNodeTimeout", () => {
   it("should outlast the Driver deadline and two client timeouts", () => {

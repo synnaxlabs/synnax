@@ -79,6 +79,8 @@ struct Config {
     /// @brief the timeout of each request and connection attempt in milliseconds. 0
     /// selects 5 seconds.
     uint32_t client_timeout_ms = 0;
+    /// @brief how long a read node command may run, from receipt, before it fails.
+    x::telem::TimeSpan read_node_timeout = 20 * x::telem::SECOND;
 
     Config() = default;
 
@@ -94,7 +96,12 @@ struct Config {
             parser.field<uint32_t>("secure_channel_lifetime_ms", 0)
         ),
         session_timeout_ms(parser.field<uint32_t>("session_timeout_ms", 0)),
-        client_timeout_ms(parser.field<uint32_t>("client_timeout_ms", 0)) {
+        client_timeout_ms(parser.field<uint32_t>("client_timeout_ms", 0)),
+        read_node_timeout(
+            parser.field<x::telem::TimeSpan>("read_node_timeout", 20 * x::telem::SECOND)
+        ) {
+        if (this->read_node_timeout <= x::telem::TimeSpan{})
+            parser.field_err("read_node_timeout", "must be greater than zero");
         this->password_secret = parse_item(parser, "password", "secret");
         this->client_certificate_item = parse_item(
             parser,

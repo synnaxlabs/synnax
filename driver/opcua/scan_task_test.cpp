@@ -1411,21 +1411,21 @@ synnax::task::Status run_command(
     const std::string &type,
     const int port,
     x::json::json args,
-    const std::chrono::steady_clock::duration read_node_deadline = READ_NODE_DEADLINE
+    const x::telem::TimeSpan read_node_timeout = connection::Config{}.read_node_timeout
 ) {
     Scanner scanner(
         ctx,
         task,
         pool,
         store,
-        std::make_shared<secret::Reader>(ctx->client, secret::Config{}),
-        read_node_deadline
+        std::make_shared<secret::Reader>(ctx->client, secret::Config{})
     );
     auto cmd = command(
         type,
         "opc.tcp://localhost:" + std::to_string(port),
         std::move(args)
     );
+    cmd.args["connection"]["read_node_timeout"] = read_node_timeout.nanoseconds();
     const auto before = ctx->statuses.size();
     EXPECT_TRUE(scanner.exec(cmd, task, ctx));
     EXPECT_EQ(ctx->statuses.size(), before + 1);
@@ -1683,7 +1683,7 @@ TEST_F(TestScanTask, testReadNodeStopsAtDeadline) {
         READ_NODE_CMD_TYPE,
         4882,
         {{"node_id", "NS=1;S=TestDouble"}},
-        std::chrono::milliseconds(300)
+        300 * x::telem::MILLISECOND
     );
     EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(status.message, "Failed to read node");
@@ -1704,7 +1704,7 @@ TEST_F(TestScanTask, testReadNodeDeadlineCoversNamespaceRead) {
         READ_NODE_CMD_TYPE,
         4882,
         {{"node_id", "NS=1;S=TestDouble"}},
-        std::chrono::milliseconds(10)
+        10 * x::telem::MILLISECOND
     );
     EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(status.message, "Failed to read node");
@@ -1722,7 +1722,7 @@ TEST_F(TestScanTask, testReadNodeDeadlineCoversConnection) {
         READ_NODE_CMD_TYPE,
         4840,
         {{"node_id", "NS=1;S=TestDouble"}},
-        std::chrono::milliseconds(0)
+        x::telem::TimeSpan(1)
     );
     EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(status.message, "Failed to connect to server");
