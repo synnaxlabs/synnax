@@ -69,3 +69,6 @@ func (d *defaultFS) Rename(name, newName string) error {
 
 // Stat implements FS.
 func (d *defaultFS) Stat(name string) (os.FileInfo, error) { return os.Stat(name) }
+
+// SyncDir implements FS.
+func (d *defaultFS) SyncDir(name string) error { return syncDir(name) }
