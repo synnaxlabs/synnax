@@ -274,6 +274,7 @@ var _ = Describe("Reads through parts", func() {
 			GinkgoHelper()
 			w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 				Channels: []cesium.ChannelKey{idx, data},
+				Clock:    idx,
 				Start:    start,
 			}))
 			MustSucceed2(w.Write(ctx, telem.MultiFrame(
@@ -469,6 +470,7 @@ var _ = Describe("Drop of parted records", func() {
 		start := telem.TimeStamp(1_000_000) * telem.SecondTS
 		w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 			Channels: []cesium.ChannelKey{idx},
+			Clock:    idx,
 			Start:    start,
 		}))
 		DeferCleanup(func() { Expect(w.Close()).To(Succeed()) })
