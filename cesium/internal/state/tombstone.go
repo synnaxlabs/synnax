@@ -266,7 +266,7 @@ func (r *beginDeleteRequest) run(s *State) {
 	last := r.end - 1
 	for _, cl := range ch.claims {
 		if cl.reaches(r.start, last) {
-			r.d.done <- errors.Wrapf(ErrConflict, "delete of key %d from %d to %d "+
+			r.d.done <- errors.Wrapf(errConflict, "delete of key %d from %d to %d "+
 				"reaches the claim of %s from %d", r.d.key, r.start, r.end, cl.owner(),
 				cl.start)
 			return
@@ -319,11 +319,11 @@ func (r *beginDeleteRequest) edges(seg *Segment, ptrs []Pointer, last telem.Time
 // BeginDelete claims the time range from start to end of key for a delete, and returns
 // the durable pointers at its ends, from which the caller builds the cuts of a
 // Tombstone. pre is the preload of key over the range. Until Release, a commit or a
-// writer start that reaches the range gets an error that wraps ErrConflict, so the
-// durable view of the range does not change. It returns an error that wraps ErrConflict
-// when the claim of a writer or another delete reaches the range, and ErrStale when pre
-// is stale. It waits for a Replace or a Check in flight of a segment of key or one that
-// key times.
+// writer start that reaches the range gets an error that wraps validate.ErrValidation,
+// so the durable view of the range does not change. It returns an error that wraps
+// validate.ErrValidation when the claim of a writer or another delete reaches the
+// range, and ErrStale when pre is stale. It waits for a Replace or a Check in flight of
+// a segment of key or one that key times.
 func (s *State) BeginDelete(
 	key uint32,
 	start, end telem.TimeStamp,
@@ -356,8 +356,8 @@ func (r *checkDeleteRequest) run(s *State) {
 }
 
 // Check checks t with the rule that a durable Tombstone must pass, so the caller logs
-// only a Tombstone that the state applies. It returns an error that wraps ErrRefused
-// for a rule that t breaks.
+// only a Tombstone that the state applies. It returns an error for a rule that t
+// breaks.
 func (d *Delete) Check(t *log.Tombstone) error {
 	if err := d.s.enqueue(&checkDeleteRequest{d: d, t: t}); err != nil {
 		return err

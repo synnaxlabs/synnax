@@ -5,6 +5,7 @@
   "endpoints": [
     {
       "body": "",
+      "disabled": false,
       "fields": [
         {
           "channel": 10010,
@@ -61,8 +62,26 @@
           "value": "fixture-api-key-123"
         }
       ],
+      "icd": "http_read",
       "index": "fixture_http_time_index",
       "key": "ep-read-get",
+      "messages": [
+        {
+          "bindings": [
+            {
+              "channel": 10010,
+              "data_type": "",
+              "field": "fixture_http_timestamp"
+            },
+            {
+              "channel": 10020,
+              "data_type": "",
+              "field": "fixture_http_mode"
+            }
+          ],
+          "message": "GET /api/v1/fixtureTelemetry"
+        }
+      ],
       "method": "GET",
       "path": "/api/v1/fixtureTelemetry",
       "query_params": [
@@ -78,6 +97,7 @@
     },
     {
       "body": "{\"deviceId\": \"fixture-42\"}",
+      "disabled": false,
       "fields": [
         {
           "channel": 10040,
@@ -96,8 +116,21 @@
           "value": "fixture"
         }
       ],
+      "icd": "http_read",
       "index": "",
       "key": "ep-read-post",
+      "messages": [
+        {
+          "bindings": [
+            {
+              "channel": 10040,
+              "data_type": "",
+              "field": "fixture_http_temperature"
+            }
+          ],
+          "message": "POST /api/v1/fixtureQuery"
+        }
+      ],
       "method": "POST",
       "path": "/api/v1/fixtureQuery",
       "query_params": [

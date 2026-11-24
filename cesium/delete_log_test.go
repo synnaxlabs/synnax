@@ -13,7 +13,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"fmt"
 	"math/rand/v2"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -21,7 +23,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
-	"github.com/synnaxlabs/cesium/internal/state"
+	"github.com/synnaxlabs/cesium/internal/segment"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
@@ -202,7 +204,7 @@ var _ = Describe("Delete on the pointer log", func() {
 			write(ctx, 10, 11, 12)
 			Expect(db.DeleteTimeRange(ctx, []cesium.ChannelKey{idx}, span(11, 12))).
 				To(SatisfyAll(
-					MatchError(state.ErrRefused),
+					MatchError(ContainSubstring("refused by the state")),
 					MatchError(
 						ContainSubstring("key "+strconv.Itoa(int(data))+" uses"),
 					),
@@ -246,6 +248,84 @@ var _ = Describe("Delete on the pointer log", func() {
 		Expect(series[1]).To(telem.MatchSeriesDataV("dddd"))
 	})
 
+	DescribeTable(
+		"Should cut a pointer of several blocks of stamps on a block edge and "+
+			"inside a block",
+		func(ctx SpecContext, start, end int) {
+			// perBlock is the number of stamps in a block of a clock segment.
+			const perBlock = segment.BlockSize / 8
+			seconds := make([]telem.TimeStamp, 3*perBlock+1000)
+			for i := range seconds {
+				seconds[i] = telem.TimeStamp(i + 1)
+			}
+			// The series of write scales its stamps in place.
+			write(ctx, slices.Clone(seconds)...)
+			Expect(db.DeleteTimeRange(ctx, keys, span(seconds[start], seconds[end]))).
+				To(Succeed())
+			want := make([]int64, 0, len(seconds))
+			for i, s := range seconds {
+				if i < start || i >= end {
+					want = append(want, int64(s))
+				}
+			}
+			Expect(values(ctx, data)).To(Equal(want))
+			Expect(values(ctx, idx)).To(Equal(want))
+		},
+		Entry("left on an edge, right inside", 2*segment.BlockSize/8,
+			2*segment.BlockSize/8+100),
+		Entry("left inside, right on an edge", 8000, segment.BlockSize/8),
+		Entry("in blocks far apart", 100, 3*segment.BlockSize/8+5),
+	)
+
+	DescribeTable("Should cut a key of variable density over several blocks on a "+
+		"block edge and inside a block", func(ctx SpecContext, start, end int) {
+		// Each sample is a 4 byte length and 60 bytes, so a block holds perBlock whole
+		// samples, and sample perBlock * m starts block m.
+		const perBlock = segment.BlockSize / 64
+		text := GenerateChannelKey()
+		Expect(db.CreateChannel(ctx, cesium.Channel{
+			Key: text, Name: "text", Index: idx, DataType: telem.StringT,
+		})).To(Succeed())
+		n := 3*perBlock + 100
+		stamps := make([]telem.TimeStamp, n)
+		strs := make([]string, n)
+		for i := range n {
+			stamps[i] = telem.TimeStamp(i+1) * telem.SecondTS
+			strs[i] = fmt.Sprintf("%060d", i)
+		}
+		w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+			Channels: []cesium.ChannelKey{idx, text},
+			Start:    stamps[0],
+		}))
+		MustSucceed2(w.Write(ctx, telem.MultiFrame(
+			[]cesium.ChannelKey{idx, text},
+			[]telem.Series{telem.NewSeries(stamps), telem.NewSeries(strs)},
+		), nil))
+		MustSucceed2(w.Commit(ctx, nil))
+		Expect(w.Close()).To(Succeed())
+		// The first delete leaves a pointer that starts at sample 10, past offset 0.
+		for _, tr := range []telem.TimeRange{
+			stamps[0].Range(stamps[10]),
+			stamps[start].Range(stamps[end]),
+		} {
+			Expect(db.DeleteTimeRange(ctx, []cesium.ChannelKey{text}, tr)).
+				To(Succeed())
+		}
+		var got []string
+		for _, series := range MustSucceed(db.Read(ctx, telem.TimeRangeMax, text)).
+			Get(text).Series {
+			for i := range int(series.Len()) {
+				got = append(got, string(series.At(i)))
+			}
+		}
+		Expect(got).To(Equal(slices.Concat(strs[10:start], strs[end:])))
+	},
+		Entry("left on an edge, right inside", 2*segment.BlockSize/64,
+			2*segment.BlockSize/64+10),
+		Entry("left inside, right on an edge", 1000, segment.BlockSize/64),
+		Entry("in blocks far apart", 17, 3*segment.BlockSize/64+50),
+	)
+
 	It("Should unlink a segment that a delete leaves empty once no reader pins it",
 		func(ctx SpecContext) {
 			write(ctx, 10, 11)
@@ -282,7 +362,9 @@ var _ = Describe("Delete on the pointer log", func() {
 				Channels: []cesium.ChannelKey{data},
 			}))
 			Expect(iter.SeekFirst()).To(BeTrue())
-			Expect(db.Drop([]cesium.ChannelKey{data})).To(Succeed())
+			Expect(
+				db.Drop(context.Background(), []cesium.ChannelKey{data}),
+			).To(Succeed())
 			var got []int64
 			for iter.Next(cesium.AutoSpan) {
 				for _, s := range iter.Value().Get(data).Series {

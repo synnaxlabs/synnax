@@ -115,18 +115,19 @@ var _ = Describe("Check: a Reserve on a full log", func() {
 					key++
 				}
 				if _, err := l.Append(&e).Wait(); err != nil {
-					Expect(err).To(MatchError(log.ErrFull))
+					Expect(err).To(MatchError(ContainSubstring("log file is full")))
 					break
 				}
 			}
 		}
-		w := MustSucceed(st.OpenWriter(state.WriterConfig{
+		w := MustSucceed(st.OpenWriter(context.Background(), state.WriterConfig{
 			Keys:  []state.WriterKey{{Key: 5, DataType: 4}},
 			Clock: 5,
 			Start: 100,
 		}))
 		// The Reserve of this identity reaches a full log, so no value is given out.
-		Expect(w.NewSegment(5)).Error().To(MatchError(log.ErrFull))
+		Expect(w.NewSegment(5)).Error().
+			To(MatchError(ContainSubstring("log file is full")))
 		// Space frees up. The writer asks again, and logs its Create until the log
 		// takes it.
 		room.Store(true)

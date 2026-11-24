@@ -17,6 +17,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/http/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/http/versions/legacy"
+	"github.com/synnaxlabs/synnax/pkg/service/icd"
+	"github.com/synnaxlabs/synnax/pkg/service/icd/read"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	xconfig "github.com/synnaxlabs/x/config"
 	xio "github.com/synnaxlabs/x/io"
@@ -33,6 +35,9 @@ type ServiceConfig struct {
 	// Channel holds the channels that config fields read from and write to.
 	// [REQUIRED]
 	Channel *channel.Service
+	// ICD holds the ICDs whose messages read configs read.
+	// [REQUIRED]
+	ICD *icd.Service
 	alamos.Instrumentation
 }
 
@@ -42,6 +47,7 @@ var _ xconfig.Config[ServiceConfig] = ServiceConfig{}
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Channel = override.Nil(c.Channel, other.Channel)
+	c.ICD = override.Nil(c.ICD, other.ICD)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	return c
 }
@@ -51,6 +57,7 @@ func (c ServiceConfig) Validate() error {
 	v := validate.New("http.service")
 	v.NotNil("db", c.DB)
 	v.NotNil("channel", c.Channel)
+	v.NotNil("icd", c.ICD)
 	return v.Error()
 }
 
@@ -61,8 +68,9 @@ type Service struct {
 	// Write stores http_write task configuration records.
 	Write *config.Service[WriteConfig]
 	// Scan stores http_scan task configuration records.
-	Scan   *config.Service[ScanConfig]
-	closer xio.MultiCloser
+	Scan     *config.Service[ScanConfig]
+	resolver readResolver
+	closer   xio.MultiCloser
 }
 
 // OpenService opens the HTTP task config service with the provided configuration.
@@ -73,7 +81,13 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{}
+	channels := icd.ReadChannels(cfg.Channel)
+	s = &Service{resolver: readResolver{
+		icds:     cfg.ICD,
+		channels: channels,
+		reads:    read.NewResolver(cfg.ICD, channels),
+		ins:      cfg.Instrumentation,
+	}}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.Read, err = config.OpenService(
@@ -89,6 +103,9 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			SetEntryKey:     (*ReadConfig).SetKey,
 			PatchEntry:      (*ReadConfig).Patch,
 			HashEntry:       (*ReadConfig).HashContent,
+			HashReferences:  s.resolver.hash,
+			HashedTables:    []string{"icd"},
+			ResolveEntry:    s.resolver.resolve,
 			ValidateEntry:   (*ReadConfig).Validate,
 		},
 	); !ok(err, s.Read) {

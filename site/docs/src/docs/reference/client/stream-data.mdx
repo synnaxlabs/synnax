@@ -182,7 +182,9 @@ When your Python code reads more slowly than frames come, the Core drops frames.
 TypeScript client keeps unread frames in memory instead. When they pass 256 MB, it
 closes the streamer, and `read` throws
 `stream holds more than 268435456 bytes of unread messages`. To get all the samples,
-slow the stream, or read the stored data later. Two options reduce the data:
+slow the stream, or read the stored data later. When the Core drops frames for a Python
+streamer, the client logs a warning and calls `on_missed` if you set it. The dropped
+frames never arrive. Two options reduce the data:
 
 <Client.Tabs exclude={["console"]}>
 
@@ -284,6 +286,11 @@ declared with `await using` closes when its block ends.
   How often the Core sends a keep-alive message. A read raises `Unreachable` after three
   intervals with no message. Use at least 2 seconds, or 0 to turn off the check. A
   number is seconds.
+</Field.Item>
+
+<Field.Item name="on_missed" id="python-on-missed" type="Callable[[], None]">
+  Called once each time the Core drops frames because the streamer fell behind. The
+  stream continues.
 </Field.Item>
 
 </Field.List>

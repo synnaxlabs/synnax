@@ -386,37 +386,25 @@ std::string format_float_value(const std::string &spec_str, T v) {
         }
         return apply_width(sign, "", body, f);
     }
-    const auto d = static_cast<double>(v);
-    char buf[128];
     const int prec = f.precision >= 0 ? f.precision : 6;
-    int n = 0;
     switch (f.verb) {
         case 'f':
         case 'F':
-            n = f.alt ? std::snprintf(buf, sizeof(buf), "%#.*f", prec, d)
-                      : std::snprintf(buf, sizeof(buf), "%.*f", prec, d);
-            break;
         case 'e':
-            n = f.alt ? std::snprintf(buf, sizeof(buf), "%#.*e", prec, d)
-                      : std::snprintf(buf, sizeof(buf), "%.*e", prec, d);
-            break;
         case 'E':
-            n = f.alt ? std::snprintf(buf, sizeof(buf), "%#.*E", prec, d)
-                      : std::snprintf(buf, sizeof(buf), "%.*E", prec, d);
-            break;
         case 'g':
-            n = f.alt ? std::snprintf(buf, sizeof(buf), "%#.*g", prec, d)
-                      : std::snprintf(buf, sizeof(buf), "%.*g", prec, d);
-            break;
         case 'G':
-            n = f.alt ? std::snprintf(buf, sizeof(buf), "%#.*G", prec, d)
-                      : std::snprintf(buf, sizeof(buf), "%.*G", prec, d);
             break;
         default:
             return "";
     }
-    if (n < 0 || std::cmp_greater_equal(n, sizeof(buf))) return "";
-    std::string body(buf, n);
+    const std::string fmt = std::string(f.alt ? "%#.*" : "%.*") + f.verb;
+    const auto d = static_cast<double>(v);
+    const int n = std::snprintf(nullptr, 0, fmt.c_str(), prec, d);
+    if (n < 0) return "";
+    std::string body(static_cast<size_t>(n) + 1, '\0');
+    std::snprintf(body.data(), body.size(), fmt.c_str(), prec, d);
+    body.resize(static_cast<size_t>(n));
     std::string sign;
     if (!body.empty() && (body[0] == '-' || body[0] == '+')) {
         sign = body.substr(0, 1);

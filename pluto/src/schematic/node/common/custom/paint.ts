@@ -9,7 +9,7 @@
 
 import type { color as clientColor, enumeration, schematic } from "@synnaxlabs/client";
 import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
-import { color } from "@synnaxlabs/x";
+import { bounds, color } from "@synnaxlabs/x";
 
 import { Color } from "@/color";
 import { Enumeration } from "@/enumeration";
@@ -33,7 +33,8 @@ export interface PaintContext {
   nodeColor?: color.Color;
 }
 
-const matched = (state: schematic.symbol.State, value: number): number => {
+/** @returns value as a state reads it after its match. */
+export const matched = (state: schematic.symbol.State, value: number): number => {
   if (state.type !== "enumeration" || state.match.type === "exact") return value;
   const { lower, upper } = state.match.bounds;
   return value >= lower && value < upper ? 1 : 0;
@@ -52,6 +53,14 @@ const entryColor = (
   return entry?.color == null ? undefined : ctx.resolve(entry.color);
 };
 
+// The detail lines of built-in symbols draw contrast at 90% opacity. The steep ramp
+// matches --pluto-symbol-contrast.
+const contrastColor = (c: color.Color | undefined): color.Color | undefined => {
+  if (c == null) return undefined;
+  const [l] = color.oklch(c);
+  return color.fromOKLCH([bounds.clamp(bounds.DECIMAL, (0.6 - l) * 100), 0, 0, 0.9]);
+};
+
 const resolvePaint = (
   paint: schematic.symbol.Paint | undefined,
   states: Map<string, schematic.symbol.State>,
@@ -64,6 +73,8 @@ const resolvePaint = (
       return ctx.resolve(paint.value);
     case "entry":
       return entryColor(states.get(paint.state), ctx);
+    case "contrast":
+      return contrastColor(entryColor(states.get(paint.state), ctx));
     case "node":
       return ctx.nodeColor;
   }

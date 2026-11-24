@@ -14,7 +14,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/types"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 func TestState(t *testing.T) {
@@ -23,3 +25,22 @@ func TestState(t *testing.T) {
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
+
+// refused matches the error of a log record or a head that breaks a rule of the state.
+func refused() types.GomegaMatcher {
+	return MatchError(ContainSubstring("refused by the state"))
+}
+
+// closed matches the error of a call that the state ends at its close.
+func closed() types.GomegaMatcher {
+	return MatchError(ContainSubstring("state is closed"))
+}
+
+// conflict matches the error of a writer open or a commit that reaches stored data or
+// another writer's claim.
+func conflict() types.GomegaMatcher {
+	return SatisfyAll(
+		MatchError(validate.ErrValidation),
+		MatchError(ContainSubstring("write conflict")),
+	)
+}

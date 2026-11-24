@@ -150,7 +150,7 @@ var _ = Describe("Pointer log replay breaker", func() {
 			Expect(w.Close()).To(Succeed())
 		}
 		Expect(db.Intend([]cesium.ChannelKey{other})).To(Succeed())
-		Expect(db.Drop([]cesium.ChannelKey{other})).To(Succeed())
+		Expect(db.Drop(ctx, []cesium.ChannelKey{other})).To(Succeed())
 		stop()
 		Expect(db.Close()).To(Succeed())
 		db = open()

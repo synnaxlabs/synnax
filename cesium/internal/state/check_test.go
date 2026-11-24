@@ -76,7 +76,7 @@ var _ = Describe("Check", func() {
 		) {
 			s := MustSucceed(state.Open(config(&appended{}), head()))
 			Expect(s.Replay(10, records)).To(SatisfyAll(
-				MatchError(state.ErrRefused),
+				refused(),
 				MatchError(ContainSubstring(msg)),
 			))
 		},
@@ -101,7 +101,7 @@ var _ = Describe("Check", func() {
 			head := sample()
 			head.Channels[0].Segments[0].Checked = true
 			Expect(state.Open(config(&appended{}), head)).Error().To(SatisfyAll(
-				MatchError(state.ErrRefused),
+				refused(),
 				MatchError(ContainSubstring(
 					"segment 2 of version 1 has the check flag of an old file",
 				)),
@@ -228,7 +228,7 @@ var _ = Describe("Check in flight", func() {
 
 	It("Should refuse a Check that names another key than the segment's", func() {
 		Expect(s.Check(&log.Check{Segment: 2, Key: 6})).To(SatisfyAll(
-			MatchError(state.ErrRefused),
+			refused(),
 			MatchError(ContainSubstring("check of segment 2 of key 6, which key 5 "+
 				"holds")),
 		))
@@ -239,7 +239,7 @@ var _ = Describe("Check in flight", func() {
 		Expect(a.durable(last())).To(Succeed())
 		Eventually(done).Should(Receive(BeNil()))
 		Expect(s.Check(check)).To(SatisfyAll(
-			MatchError(state.ErrRefused),
+			refused(),
 			MatchError(ContainSubstring("check of segment 3, which has its checks")),
 		))
 	})
@@ -334,8 +334,8 @@ var _ = Describe("Check in flight", func() {
 		called := later(func() error { return s.BeginDrop(6) })
 		Consistently(called).ShouldNot(Receive())
 		Expect(s.Close()).To(Succeed())
-		Eventually(done).Should(Receive(MatchError(state.ErrClosed)))
-		Eventually(called).Should(Receive(MatchError(state.ErrClosed)))
+		Eventually(done).Should(Receive(closed()))
+		Eventually(called).Should(Receive(closed()))
 	})
 })
 
@@ -376,7 +376,7 @@ var _ = Describe("Replay of a Check", func() {
 	It("Should refuse the Check of a parted segment with no preload", func() {
 		Expect(open().Replay(10, []log.Record{&log.Check{Segment: 3, Key: 6}})).
 			To(SatisfyAll(
-				MatchError(state.ErrRefused),
+				refused(),
 				MatchError(
 					ContainSubstring("check of segment 3, which no create made"),
 				),
@@ -513,6 +513,6 @@ var _ = Describe("Rewrite of version 0 segments", func() {
 			Expect(ok).To(BeTrue())
 			Expect(created.Version).To(Equal(uint16(1)))
 			Expect(s.Close()).To(Succeed())
-			Eventually(done).Should(Receive(MatchError(state.ErrClosed)))
+			Eventually(done).Should(Receive(closed()))
 		})
 })
