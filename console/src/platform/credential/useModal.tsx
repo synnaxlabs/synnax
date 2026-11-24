@@ -17,8 +17,8 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement, useState } from "react";
 
-import { KeyTable } from "@/platform/credential/KeyTable";
-import { Password } from "@/platform/credential/Password";
+import { APIKey } from "@/platform/credential/apikey";
+import { Password } from "@/platform/credential/password";
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
 
@@ -40,12 +40,12 @@ const Credentials = ({
         <Flex.Box y gap="large">
           <Flex.Box y>
             <Text.Text level="h5">API keys</Text.Text>
-            <KeyTable subject={subject} />
+            <APIKey.Table subject={subject} />
           </Flex.Box>
           {subject.type === "user" && (
             <Flex.Box y>
               <Text.Text level="h5">Password</Text.Text>
-              <Password subject={subject} onChanged={setPasswordChanged} />
+              <Password.Form subject={subject} onChanged={setPasswordChanged} />
             </Flex.Box>
           )}
         </Flex.Box>

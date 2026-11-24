@@ -1,0 +1,530 @@
+{
+  "edges": [],
+  "name": "Valve panel A",
+  "nodes": [
+    {
+      "key": "sel-mode",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "select",
+        "label": {
+          "label": "Mode",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "staleness_timeout": "5000000000",
+        "size": "medium",
+        "command_channel": 1048588,
+        "state_channel": 1048587,
+        "inline_size": 100,
+        "options": [
+          {
+            "key": "0",
+            "name": "Off",
+            "value": 0,
+            "color": "#dc2828"
+          },
+          {
+            "key": "1",
+            "name": "Auto",
+            "value": 1,
+            "color": "#28c85a"
+          },
+          {
+            "key": "2",
+            "name": "Manual",
+            "value": 2,
+            "color": "#2850dc"
+          }
+        ],
+        "disabled": false,
+        "on_click_delay": "0",
+        "control": {
+          "hidden": false,
+          "chip_hidden": false,
+          "indicator_hidden": false,
+          "orientation": "bottom"
+        }
+      }
+    },
+    {
+      "key": "sel-mode-copy",
+      "position": {
+        "x": 200,
+        "y": 0
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "select",
+        "label": {
+          "label": "Mode 2",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "staleness_timeout": "5000000000",
+        "size": "medium",
+        "command_channel": 1048588,
+        "state_channel": 1048587,
+        "inline_size": 100,
+        "options": [
+          {
+            "key": "c0",
+            "name": "Manual",
+            "value": 2,
+            "color": "#2850dc"
+          },
+          {
+            "key": "c1",
+            "name": "Off",
+            "value": 0,
+            "color": "#dc2828"
+          },
+          {
+            "key": "c2",
+            "name": "Auto",
+            "value": 1,
+            "color": "#28c85a"
+          }
+        ],
+        "disabled": false,
+        "on_click_delay": "0",
+        "control": {
+          "hidden": false,
+          "chip_hidden": false,
+          "indicator_hidden": false,
+          "orientation": "bottom"
+        }
+      }
+    },
+    {
+      "key": "sel-recolor",
+      "position": {
+        "x": 400,
+        "y": 0
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "select",
+        "label": {
+          "label": "Mode 3",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "staleness_timeout": "5000000000",
+        "size": "medium",
+        "command_channel": 1048588,
+        "state_channel": 1048587,
+        "inline_size": 100,
+        "options": [
+          {
+            "key": "0",
+            "name": "Off",
+            "value": 0,
+            "color": "#dc2828"
+          },
+          {
+            "key": "1",
+            "name": "Auto",
+            "value": 1,
+            "color": "#28c85a"
+          },
+          {
+            "key": "2",
+            "name": "Manual",
+            "value": 2,
+            "color": "#f08c14"
+          }
+        ],
+        "disabled": false,
+        "on_click_delay": "0",
+        "control": {
+          "hidden": false,
+          "chip_hidden": false,
+          "indicator_hidden": false,
+          "orientation": "bottom"
+        }
+      }
+    },
+    {
+      "key": "sel-empty",
+      "position": {
+        "x": 600,
+        "y": 0
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "select",
+        "label": {
+          "label": "Unused",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "staleness_timeout": "5000000000",
+        "size": "medium",
+        "command_channel": 1048588,
+        "state_channel": 1048587,
+        "inline_size": 100,
+        "options": [],
+        "disabled": false,
+        "on_click_delay": "0",
+        "control": {
+          "hidden": false,
+          "chip_hidden": false,
+          "indicator_hidden": false,
+          "orientation": "bottom"
+        }
+      }
+    },
+    {
+      "key": "sel-repeat",
+      "position": {
+        "x": 0,
+        "y": 150
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "select",
+        "label": {
+          "label": "Repeat",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "staleness_timeout": "5000000000",
+        "size": "medium",
+        "command_channel": 1048588,
+        "state_channel": 1048587,
+        "inline_size": 100,
+        "options": [
+          {
+            "key": "0",
+            "name": "Open",
+            "value": 1,
+            "color": "#28c85a"
+          },
+          {
+            "key": "1",
+            "name": "Also open",
+            "value": 1,
+            "color": "#dc2828"
+          },
+          {
+            "key": "2",
+            "name": "Closed",
+            "value": 0,
+            "color": "#808080"
+          }
+        ],
+        "disabled": false,
+        "on_click_delay": "0",
+        "control": {
+          "hidden": false,
+          "chip_hidden": false,
+          "indicator_hidden": false,
+          "orientation": "bottom"
+        }
+      }
+    },
+    {
+      "key": "sel-nolabel",
+      "position": {
+        "x": 200,
+        "y": 150
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "select",
+        "label": {
+          "label": "",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "staleness_timeout": "5000000000",
+        "size": "medium",
+        "command_channel": 1048588,
+        "state_channel": 1048587,
+        "inline_size": 100,
+        "options": [
+          {
+            "key": "0",
+            "name": "Low",
+            "value": 0
+          },
+          {
+            "key": "1",
+            "name": "High",
+            "value": 1
+          }
+        ],
+        "disabled": false,
+        "on_click_delay": "0",
+        "control": {
+          "hidden": false,
+          "chip_hidden": false,
+          "indicator_hidden": false,
+          "orientation": "bottom"
+        }
+      }
+    },
+    {
+      "key": "sel-odd",
+      "position": {
+        "x": 400,
+        "y": 150
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "select",
+        "label": {
+          "label": "Odd",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "staleness_timeout": "5000000000",
+        "size": "medium",
+        "command_channel": 1048588,
+        "state_channel": 1048587,
+        "inline_size": 100,
+        "options": [
+          {
+            "key": "0",
+            "name": "Reverse",
+            "value": -1
+          },
+          {
+            "key": "1",
+            "name": "Half",
+            "value": 0.5
+          },
+          {
+            "key": "2",
+            "name": "Max",
+            "value": 1000000
+          }
+        ],
+        "disabled": false,
+        "on_click_delay": "0",
+        "control": {
+          "hidden": false,
+          "chip_hidden": false,
+          "indicator_hidden": false,
+          "orientation": "bottom"
+        }
+      }
+    },
+    {
+      "key": "ind-state",
+      "position": {
+        "x": 600,
+        "y": 150
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "state_indicator",
+        "label": {
+          "label": "Tank state",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "staleness_timeout": "5000000000",
+        "channel": 1048589,
+        "inline_size": 100,
+        "options": [
+          {
+            "key": "0",
+            "name": "Empty",
+            "value": 0,
+            "color": "#dc2828"
+          },
+          {
+            "key": "1",
+            "name": "Full",
+            "value": 1,
+            "color": "#28c85a"
+          }
+        ],
+        "size": "medium"
+      }
+    },
+    {
+      "key": "ind-same-as-select",
+      "position": {
+        "x": 0,
+        "y": 300
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "state_indicator",
+        "label": {
+          "label": "Shared",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "staleness_timeout": "5000000000",
+        "channel": 1048589,
+        "inline_size": 100,
+        "options": [
+          {
+            "key": "0",
+            "name": "Off",
+            "value": 0,
+            "color": "#dc2828"
+          },
+          {
+            "key": "1",
+            "name": "Auto",
+            "value": 1,
+            "color": "#28c85a"
+          },
+          {
+            "key": "2",
+            "name": "Manual",
+            "value": 2,
+            "color": "#2850dc"
+          }
+        ],
+        "size": "medium"
+      }
+    },
+    {
+      "key": "ind-transparent",
+      "position": {
+        "x": 200,
+        "y": 300
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "state_indicator",
+        "label": {
+          "label": "Clear",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "staleness_timeout": "5000000000",
+        "channel": 1048589,
+        "inline_size": 100,
+        "options": [
+          {
+            "key": "0",
+            "name": "Idle",
+            "value": 0,
+            "color": "#00000000"
+          },
+          {
+            "key": "1",
+            "name": "Run",
+            "value": 1,
+            "color": "#28c85a"
+          }
+        ],
+        "size": "medium"
+      }
+    },
+    {
+      "key": "ind-default",
+      "position": {
+        "x": 400,
+        "y": 300
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "state_indicator",
+        "label": {
+          "label": "Default",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "staleness_timeout": "5000000000",
+        "channel": 1048589,
+        "inline_size": 100,
+        "options": [],
+        "size": "medium"
+      }
+    },
+    {
+      "key": "ind-nochannel",
+      "position": {
+        "x": 600,
+        "y": 300
+      },
+      "z_index": 0,
+      "config": {
+        "variant": "state_indicator",
+        "label": {
+          "label": "Spare",
+          "level": "h5",
+          "orientation": "top",
+          "direction": "x",
+          "max_inline_size": 150,
+          "align": "center"
+        },
+        "orientation": "left",
+        "staleness_timeout": "5000000000",
+        "channel": 0,
+        "inline_size": 100,
+        "options": [
+          {
+            "key": "0",
+            "name": "Off",
+            "value": 0
+          },
+          {
+            "key": "1",
+            "name": "On",
+            "value": 1
+          }
+        ],
+        "size": "medium"
+      }
+    }
+  ],
+  "type": "schematic",
+  "version": 13
+}

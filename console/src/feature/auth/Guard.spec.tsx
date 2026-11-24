@@ -11,6 +11,7 @@ import { channel } from "@synnaxlabs/client";
 import {
   createProxiedTestClient,
   createTestClient,
+  createTestUser,
   FAST_RETRY,
 } from "@synnaxlabs/client/testutil";
 import { Access, Synnax } from "@synnaxlabs/pluto";
@@ -117,6 +118,34 @@ describe("auth guard", () => {
     await renderGuard(CORE_KEY);
     expect(screen.getByText("authenticated content")).toBeTruthy();
     expect(screen.queryByText("Log in")).toBeNull();
+  });
+
+  it("should finish a browser login even when a Core is already selected", async () => {
+    sessionStorage.setItem(
+      "synnax-oidc-login",
+      JSON.stringify({
+        core: CORE_KEY,
+        provider: "company-sso",
+        verifier: "verifier",
+        state: "state",
+        redirectUri: "https://core.example.com/",
+      }),
+    );
+    window.history.replaceState(null, "", "/?code=abc&state=state");
+    onTestFinished(() => {
+      sessionStorage.clear();
+      window.history.replaceState(null, "", "/");
+    });
+    const store = await renderGuard(CORE_KEY);
+    await waitFor(() =>
+      expect(store.getState()[Session.Core.SLICE_NAME].cores[CORE_KEY].oidc).toEqual({
+        provider: "company-sso",
+        code: "abc",
+        verifier: "verifier",
+        redirectUri: "https://core.example.com/",
+      }),
+    );
+    expect(window.location.search).toBe("");
   });
 
   it("should render the login screen when no Core is selected", async () => {
@@ -316,8 +345,11 @@ describe("connection guard permissions", () => {
     const roles = await client.access.roles.retrieve({});
     const role = roles.find(({ name }) => name === roleName);
     if (role == null) throw new Error(`${roleName} role not provisioned`);
-    const username = uniqueName("role_user");
-    await client.users.create({ username, password: PASSWORD, role: role.key });
+    const { username } = await createTestUser(client, {
+      role: role.key,
+      username: uniqueName("role_user"),
+      password: PASSWORD,
+    });
     return username;
   };
 

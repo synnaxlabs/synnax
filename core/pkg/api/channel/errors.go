@@ -13,20 +13,21 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
 // NameErrors returns err with each channel error in it naming its channel by record,
-// for the channels that the subject of ctx can retrieve. A channel the subject cannot
-// retrieve keeps its key. When the access check fails, NameErrors returns err.
+// for the channels that subject can retrieve. A channel that subject cannot retrieve
+// keeps its key. When the access check fails, NameErrors returns err.
 func NameErrors(
 	ctx context.Context,
 	db *gorp.DB,
 	channels *channel.Service,
 	rbacSvc *rbac.Service,
+	subject resource.ID,
 	err error,
 ) error {
 	if err == nil {
@@ -36,7 +37,7 @@ func NameErrors(
 	if sErr := db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
 		allowed, aErr := rbacSvc.NewEnforcer(snap).Allowed(
 			ctx,
-			auth.GetSubject(ctx),
+			subject,
 			access.ActionRetrieve,
 		)
 		if aErr != nil {

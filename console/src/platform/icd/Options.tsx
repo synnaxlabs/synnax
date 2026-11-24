@@ -20,6 +20,7 @@ import type { ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 import { EnumValues } from "@/platform/icd/EnumValues";
+import { ValueField } from "@/platform/icd/ValueField";
 
 /** A JSON field of a kind with a default and an enum mapping. */
 type Mappable =
@@ -69,7 +70,8 @@ const UUID_DEFAULTS: Record<icd.UUIDDefaultType, () => icd.UUIDDefault> = {
   constant: () => ({ type: "constant", value: uuid.create() }),
 };
 
-const formatDefault = (field: icd.JSONField): string | null => {
+/** @returns the default of the field as text, or null when it has none. */
+export const formatDefault = (field: icd.JSONField): string | null => {
   if (field.default == null) return null;
   switch (field.type) {
     case "string":
@@ -102,10 +104,6 @@ const OPTIONAL_INPUT_PROPS = {
   tooltip: "Write the default when the document has no value.",
 } as const;
 
-const BOOLEANS = { false: false, true: true } as const;
-
-type BooleanKey = keyof typeof BOOLEANS;
-
 interface DefaultProps {
   path: deep.Path<icd.JSONField>;
   type: Type;
@@ -137,19 +135,7 @@ const TimestampDefault = ({ path }: TimestampDefaultProps): ReactElement => {
         )}
       </Form.Field>
       {type === "constant" && (
-        <Form.Field<TimeStamp>
-          path={deep.variant(path, "type", type).value}
-          label="Value"
-          padHelpText={false}
-        >
-          {({ value, onChange, preview }) => (
-            <Input.DateTime
-              value={value.nanoseconds}
-              onChange={(ns: number) => onChange(new TimeStamp(ns))}
-              preview={preview}
-            />
-          )}
-        </Form.Field>
+        <ValueField type="timestamp" path={deep.variant(path, "type", type).value} />
       )}
     </>
   );
@@ -177,12 +163,7 @@ const UUIDDefault = ({ path }: UUIDDefaultProps): ReactElement => {
         )}
       </Form.Field>
       {type === "constant" && (
-        <Form.TextField
-          path={deep.variant(path, "type", type).value}
-          label="Value"
-          padHelpText={false}
-          emptiable={false}
-        />
+        <ValueField type="uuid" path={deep.variant(path, "type", type).value} />
       )}
     </>
   );
@@ -190,59 +171,21 @@ const UUIDDefault = ({ path }: UUIDDefaultProps): ReactElement => {
 
 /** Edits the default of the field's kind. */
 const Default = ({ path, type }: DefaultProps): ReactElement => {
-  switch (type) {
-    case "float":
-      return (
-        <Form.NumericField
-          path={deep.variant(path, "type", type).default}
-          label="Default"
-          padHelpText={false}
-          emptiable={false}
-        />
-      );
-    case "integer":
-    case "unsigned":
-    case "string":
-    case "json":
-    case "bytes":
-      return (
-        <Form.TextField
-          path={deep.variant(path, "type", type).default}
-          label="Default"
-          padHelpText={false}
-          emptiable={false}
-        />
-      );
-    case "boolean":
-      return (
-        <Form.Field<boolean>
-          path={deep.present(deep.variant(path, "type", type).default)}
-          label="Default"
-          padHelpText={false}
-        >
-          {({ value, onChange, preview }) => (
-            <Select.Buttons<BooleanKey>
-              value={String(value) as BooleanKey}
-              onChange={(key: BooleanKey) => onChange(BOOLEANS[key])}
-              preview={preview}
-            >
-              <Select.Item<BooleanKey> itemKey="false">False</Select.Item>
-              <Select.Item<BooleanKey> itemKey="true">True</Select.Item>
-            </Select.Buttons>
-          )}
-        </Form.Field>
-      );
-    case "timestamp":
-      return (
-        <TimestampDefault
-          path={deep.present(deep.variant(path, "type", type).default)}
-        />
-      );
-    case "uuid":
-      return (
-        <UUIDDefault path={deep.present(deep.variant(path, "type", type).default)} />
-      );
-  }
+  if (type === "timestamp")
+    return (
+      <TimestampDefault path={deep.present(deep.variant(path, "type", type).default)} />
+    );
+  if (type === "uuid")
+    return (
+      <UUIDDefault path={deep.present(deep.variant(path, "type", type).default)} />
+    );
+  return (
+    <ValueField
+      type={type}
+      path={deep.variant(path, "type", type).default}
+      label="Default"
+    />
+  );
 };
 
 export interface OptionalProps {

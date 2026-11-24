@@ -99,6 +99,29 @@ var _ = Describe("StructurallyEqual", func() {
 		)).To(BeTrue())
 	})
 
+	It("Should equate a duration default with its nanoseconds", func() {
+		loader := testutil.NewMockFileLoader()
+		loader.Files["schemas/x/telem"] = "TimeSpan int64"
+		analyzeSpan := func(def string) *resolution.Table {
+			GinkgoHelper()
+			table := resolution.NewTable()
+			diag := analyzer.AnalyzeSeeded(
+				"import \"schemas/x/telem\"\nRow struct {\n\tt telem.TimeSpan = "+
+					def+"\n}\n",
+				"schemas/synnax/channel.oracle", "channel", loader, table,
+			)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			return table
+		}
+		a, b, c := analyzeSpan("5000000000"), analyzeSpan("5s"), analyzeSpan("6s")
+		Expect(schemadiff.StructurallyEqual(
+			typeOf(a, "Row"), typeOf(b, "Row"), a, b,
+		)).To(BeTrue())
+		Expect(schemadiff.StructurallyEqual(
+			typeOf(b, "Row"), typeOf(c, "Row"), b, c,
+		)).To(BeFalse())
+	})
+
 	It("Should distinguish enums by member list", func() {
 		a := analyze("State enum {\n\tidle = 0\n}\n")
 		b := analyze("State enum {\n\tidle = 0\n\trunning = 1\n}\n")

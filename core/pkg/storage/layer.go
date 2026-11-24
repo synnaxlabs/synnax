@@ -233,6 +233,8 @@ type Layer struct {
 	KV kv.DB
 	// TS is the time-series engine for the node.
 	TS *cesium.DB
+	// PointerLogEnabled is true when TS is on its pointer log layout.
+	PointerLogEnabled bool
 	// Gorp is the metadata DB of the node, stored in KV.
 	Gorp *gorp.DB
 	// Update is the update of the data that OpenLayer started, or nil when it started
@@ -323,6 +325,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.TS, err = openTS(ctx, cfg, tsFS); !ok(err, l.TS) {
 		return nil, err
 	}
+	l.PointerLogEnabled = *cfg.PointerLogEnabled
 	l.Update = update
 	return l, nil
 }

@@ -50,12 +50,6 @@ var _ = Describe("Secret", func() {
 		})
 	})
 
-	Describe("SetOptions", func() {
-		It("Should return no options", func() {
-			Expect(stored.SetOptions()).To(BeNil())
-		})
-	})
-
 	Describe("ResourceID", func() {
 		It("Should return a secret resource ID with the key", func() {
 			Expect(stored.ResourceID()).To(Equal(resource.ID{

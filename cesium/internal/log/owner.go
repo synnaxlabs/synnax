@@ -22,16 +22,16 @@ import (
 )
 
 var (
-	// errFull is the error of an entry that does not fit in the log file. An entry that
-	// holds a Commit stops DeleteReserve bytes before the end of the file.
+	// errFull is the error of an entry that does not fit in the log file. Only deletes,
+	// Restarts, and Seals use the last DeleteReserve bytes of the file.
 	errFull = errors.New("log file is full")
 	// errClosed is the error of an entry appended after Close.
 	errClosed = errors.New("log is closed")
 )
 
-// minSize is the smallest log file, in which the switch at three quarters comes before
-// the delete reserve stops entries that hold a Commit.
-const minSize = 4 * DeleteReserve
+// MinFileSize is the smallest log file, in which the switch at three quarters comes
+// before the delete reserve stops a fenced entry.
+const MinFileSize = 4 * DeleteReserve
 
 // Name returns the file name of the log of generation.
 func Name(generation uint64) string { return fmt.Sprintf("%016x.log", generation) }
@@ -118,7 +118,7 @@ func (c Config) validate() error {
 type pending struct {
 	entry   []byte
 	records []Record
-	commit  bool
+	fenced  bool
 	done    chan result
 }
 
@@ -222,7 +222,7 @@ func newLog(cfg Config) (*Log, error) {
 }
 
 // openFile opens the file of the log of generation and returns its size, a whole number
-// of blocks of at least minSize.
+// of blocks of at least MinFileSize.
 func (l *Log) openFile(generation uint64) (xfs.File, int64, error) {
 	file, err := l.cfg.FS.Open(Name(generation), os.O_RDWR)
 	if err != nil {
@@ -233,12 +233,12 @@ func (l *Log) openFile(generation uint64) (xfs.File, int64, error) {
 		return nil, 0, errors.Join(err, file.Close())
 	}
 	size := info.Size()
-	if size < minSize || size%BlockSize != 0 {
+	if size < MinFileSize || size%BlockSize != 0 {
 		return nil, 0, errors.Join(errors.Wrapf(
 			validate.ErrValidation,
 			"log file of %d bytes is not a whole number of blocks of at least %d",
 			size,
-			minSize,
+			MinFileSize,
 		), file.Close())
 	}
 	return file, size, nil
@@ -284,9 +284,9 @@ func (a Ack) Wait() (uint64, error) {
 }
 
 // Append queues a copy of the bytes of e and its records, and returns at once. Entries
-// reach the log in the order of their Append calls. An entry that holds no Commit may
-// use the last DeleteReserve bytes of the file. After a failed write or sync, every
-// entry fails with that error until a restart.
+// reach the log in the order of their Append calls. An entry of deletes, Restarts, and
+// Seals alone may use the last DeleteReserve bytes of the file. After a failed write or
+// sync, every entry fails with that error until a restart.
 func (l *Log) Append(e *Entry) Ack {
 	a := Ack{done: make(chan result, 1)}
 	l.mu.Lock()
@@ -299,7 +299,7 @@ func (l *Log) Append(e *Entry) Ack {
 	l.mu.queue = append(l.mu.queue, pending{
 		entry:   append([]byte(nil), e.Bytes()...),
 		records: e.records,
-		commit:  e.commit,
+		fenced:  e.fenced,
 		done:    a.done,
 	})
 	l.mu.Unlock()
@@ -449,7 +449,7 @@ func (l *Log) write(queue []pending) {
 // must still fit after the frame.
 func (l *Log) fits(p pending, start, size int64) error {
 	limit := l.size - 2*BlockSize
-	if p.commit {
+	if p.fenced {
 		limit = l.size - DeleteReserve
 	}
 	if size > MaxFrame || start+size > limit {

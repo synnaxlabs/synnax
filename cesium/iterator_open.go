@@ -54,7 +54,11 @@ func (db *DB) newStreamIterator(cfg IteratorConfig) (si *streamIterator, err err
 	var (
 		internal []*unary.Iterator
 		cache    = index.NewCache()
+		clocks   map[ChannelKey]*index.Domain
 	)
+	if db.engine != nil {
+		clocks = make(map[ChannelKey]*index.Domain, 1)
+	}
 	defer func() {
 		if err == nil {
 			return
@@ -73,7 +77,7 @@ func (db *DB) newStreamIterator(cfg IteratorConfig) (si *streamIterator, err err
 			Cache:         cache,
 		}
 		if db.engine != nil {
-			iter, iterErr := db.openLogIterator(key, ucfg)
+			iter, iterErr := db.openLogIterator(key, ucfg, clocks)
 			if iterErr != nil {
 				return nil, iterErr
 			}
@@ -104,23 +108,26 @@ func (db *DB) newStreamIterator(cfg IteratorConfig) (si *streamIterator, err err
 }
 
 // openLogIterator opens the iterator of key on the pointer log layout, which takes the
-// stamps of a data channel from its clock. The caller holds db.mu.
+// stamps of a data channel from its clock. The keys on one clock share its index in
+// clocks, so they share the lookups of cfg.Cache. The caller holds db.mu.
 func (db *DB) openLogIterator(
 	key ChannelKey,
 	cfg unary.IteratorConfig,
+	clocks map[ChannelKey]*index.Domain,
 ) (*unary.Iterator, error) {
 	ch, ok := db.mu.channels[key]
 	if !ok {
 		return nil, channel.NewNotFoundError(key)
 	}
-	clock := ch.Index
-	if ch.IsIndex {
-		clock = ch.Key
-	}
-	idx := &index.Domain{
-		Instrumentation: db.Instrumentation,
-		DB:              logSource{e: db.engine, key: clock},
-		Channel:         db.mu.channels[clock],
+	clock := ch.Clock()
+	idx, ok := clocks[clock]
+	if !ok {
+		idx = &index.Domain{
+			Instrumentation: db.Instrumentation,
+			DB:              logSource{e: db.engine, key: clock},
+			Channel:         db.mu.channels[clock],
+		}
+		clocks[clock] = idx
 	}
 	return unary.NewIterator(
 		db.Instrumentation,

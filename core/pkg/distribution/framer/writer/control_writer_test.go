@@ -14,8 +14,10 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/x/control"
+	"github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -103,7 +105,7 @@ var _ = Describe("Writer control moved from Cesium", func() {
 					).Get(x).
 						Series
 					Expect(series).To(HaveLen(1))
-					Expect(series[0]).To(telem.MatchSeriesDataV[int64](10, 11))
+					Expect(series[0]).To(MatchSeriesDataV[int64](10, 11))
 					Expect(b.Close()).To(Succeed())
 					Expect(a.Close()).To(Succeed())
 				},
@@ -165,7 +167,7 @@ var _ = Describe("Writer control moved from Cesium", func() {
 					Expect(
 						MustSucceed(db.Read(ctx, telem.TimeRangeMax, data)).Get(data).
 							Series,
-					).To(HaveExactElements(telem.MatchSeriesDataV[int64](7, 8)))
+					).To(HaveExactElements(MatchSeriesDataV[int64](7, 8)))
 					Expect(holder.Close()).To(Succeed())
 				},
 			)
@@ -415,7 +417,7 @@ var _ = Describe("Writer control moved from Cesium", func() {
 						).Get(key).
 							Series
 						Expect(series).To(HaveLen(1))
-						Expect(series[0]).To(telem.MatchSeriesDataV[telem.TimeStamp](
+						Expect(series[0]).To(MatchSeriesDataV[telem.TimeStamp](
 							10*telem.SecondTS,
 							11*telem.SecondTS,
 							12*telem.SecondTS,
@@ -667,7 +669,7 @@ var _ = Describe("Writer control moved from Cesium", func() {
 						f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, data))
 						Expect(f.Get(data).Series).To(HaveLen(1))
 						Expect(f.Get(data).Series[0]).
-							To(telem.MatchSeriesDataV[int64](1, 2, 3, 4, 5))
+							To(MatchSeriesDataV[int64](1, 2, 3, 4, 5))
 					},
 				)
 				It(
@@ -832,11 +834,62 @@ var _ = Describe("Writer control moved from Cesium", func() {
 						Expect(low.Close()).To(Succeed())
 						series := read(ctx, data).Series
 						Expect(series).To(HaveLen(2))
-						Expect(series[0]).To(telem.MatchSeriesDataV[int64](10, 11, 12))
-						Expect(series[1]).To(telem.MatchSeriesDataV[int64](20, 21))
+						Expect(series[0]).To(MatchSeriesDataV[int64](10, 11, 12))
+						Expect(series[1]).To(MatchSeriesDataV[int64](20, 21))
 					},
 				)
 			})
 		})
 	}
+})
+
+var _ = Describe("Writer control on the pointer log", func() {
+	It(
+		"Should fail a writer that takes its clock over stored data",
+		func(ctx SpecContext) {
+			db := mustOpenLogDBOnFS(ctx, fs.NewMem())
+			key := GenerateChannelKey()
+			Expect(db.CreateChannel(ctx, cesium.Channel{
+				Key:      key,
+				Name:     "Nansen",
+				IsIndex:  true,
+				DataType: telem.TimestampT,
+			})).To(Succeed())
+			backfill := MustSucceed(
+				db.DB.OpenWriter(ctx, cesium.WriterConfig{
+					Channels: []cesium.ChannelKey{key},
+					Clock:    key,
+					Start:    19 * telem.SecondTS,
+				}),
+			)
+			MustSucceed2(backfill.Write(ctx, telem.UnaryFrame(
+				key,
+				telem.NewSeriesSecondsTSV(19, 20, 21),
+			), nil))
+			MustSucceed2(backfill.Commit(ctx, nil))
+			Expect(backfill.Close()).To(Succeed())
+			w1 := MustSucceed(db.OpenWriter(ctx, storageConfig{
+				Channels:    []cesium.ChannelKey{key},
+				Start:       10 * telem.SecondTS,
+				Authorities: []control.Authority{control.AuthorityAbsolute},
+			}))
+			w2 := MustSucceed(db.OpenWriter(ctx, storageConfig{
+				Channels: []cesium.ChannelKey{key},
+				Start:    20 * telem.SecondTS,
+				Authorities: []control.Authority{
+					control.AuthorityAbsolute - 1,
+				},
+			}))
+			Expect(w1.Close()).To(Succeed())
+			overlap := ContainSubstring(
+				"cannot open writer because there is already data in the " +
+					"writer's time range",
+			)
+			Expect(w2.Write(ctx, telem.UnaryFrame(
+				key,
+				telem.NewSeriesSecondsTSV(22),
+			))).Error().To(MatchError(overlap))
+			Expect(w2.Close()).To(MatchError(overlap))
+		},
+	)
 })
