@@ -113,6 +113,8 @@ export interface Item extends FC<ItemProps> {
   ContextMenu?: ContextMenu;
   /** A deep link opens a resource of this type. */
   linkable: boolean;
+  /** The name of the resource type, such as "Task", when the item gives one. */
+  typeName?: string;
   /** Returns the icon that the item shows for the resource. */
   icon: (resource: Resource) => Icon.ReactElement | undefined;
   /** Renders its children with the handler that a double click on the item runs. */
@@ -229,6 +231,7 @@ export const createItem = ({
   item.haulPreview = haulPreview ?? defaultHaulPreview;
   item.ContextMenu = ContextMenu;
   item.linkable = linkable;
+  item.typeName = typeName;
   return item;
 };
 

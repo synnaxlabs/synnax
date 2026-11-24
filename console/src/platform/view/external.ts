@@ -11,7 +11,11 @@ import { UnexpectedError, view } from "@synnaxlabs/client";
 import { View as PView } from "@synnaxlabs/pluto";
 import { useState } from "react";
 
-import { useContext as useCtx, useSearchContext } from "@/platform/view/context";
+import {
+  useContext as useCtx,
+  useFormContext,
+  useSearchContext,
+} from "@/platform/view/context";
 
 export * from "@/platform/view/filter";
 export * from "@/platform/view/Form";
@@ -59,6 +63,9 @@ export const useField = <T extends view.Type, F extends keyof Of<T> & string>(
       update({ key: selected, actions: view.set({ path: [field], value: next }) }),
   ];
 };
+
+/** Returns the keys of the selected items of the enclosing form's list. */
+export const useSelected = () => useFormContext("View.useSelected").selected;
 
 /** Returns the search term of the enclosing frame, which changes on each key. */
 export const useSearch = () => useSearchContext("View.useSearch");

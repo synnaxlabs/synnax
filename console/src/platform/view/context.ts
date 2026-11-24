@@ -9,9 +9,12 @@
 
 import type { view } from "@synnaxlabs/client";
 import { context } from "@synnaxlabs/lyra/context";
+import type { record } from "@synnaxlabs/x";
 
 export interface FormContextValue {
   answered: boolean;
+  /** The keys of the selected items of the list. */
+  selected: record.Key[];
 }
 
 export const [FormContext, useFormContext] = context.create<FormContextValue>({

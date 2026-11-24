@@ -85,7 +85,7 @@ export const Form = <K extends record.Key, E extends record.Keyed<K>, W>({
   };
   PView.useSetSynchronizer(handleSet);
   const [selected, setSelected] = useState<K[]>([]);
-  const contextValue = { answered };
+  const contextValue = { answered, selected };
   return (
     <PForm.Form<typeof PView.formSchema> {...form}>
       <Select.Frame

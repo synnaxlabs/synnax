@@ -61,6 +61,7 @@ interface InternalProps extends Pick<List.ScrollProps, "ref" | "onKeyDown"> {
   rootContextMenu?: FC<RootContextMenuProps>;
   results?: Store.Results;
   className?: string;
+  onSelectedChange?: (ids: resource.ID[]) => void;
 }
 
 interface ContextValue extends DragAndDrop {
@@ -196,6 +197,7 @@ const Internal = ({
   className,
   ref,
   onKeyDown,
+  onSelectedChange,
 }: InternalProps): ReactElement => {
   const items = useItems();
   const contextMenus = useContextMenus();
@@ -232,6 +234,8 @@ const Internal = ({
       return next.length === prev.length ? prev : next;
     });
   }, [nodes, setSelected]);
+
+  useEffect(() => onSelectedChange?.(selected.map(resource.parseID)), [selected]);
 
   const treeProps = Base.use({
     nodes,
@@ -364,6 +368,7 @@ interface AnswerProps extends Pick<
   root: resource.ID;
   answer: SearchAnswer;
   emptyMatches?: ReactNode;
+  onSelectedChange?: (ids: resource.ID[]) => void;
 }
 
 const Answer = ({
@@ -375,6 +380,7 @@ const Answer = ({
   fieldRef,
   resultsRef,
   emptyMatches,
+  onSelectedChange,
 }: AnswerProps): ReactElement => {
   // A second Escape, in the field, closes the search.
   const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
@@ -400,6 +406,7 @@ const Answer = ({
         results={answer.results}
         ref={resultsRef}
         onKeyDown={handleKeyDown}
+        onSelectedChange={onSelectedChange}
         emptyContent={
           emptyMatches ?? <NoMatches noun={noun} term={answer.match.term} />
         }
@@ -430,6 +437,8 @@ export interface TreeProps {
   search?: Search;
   /** Shows when the search answer holds no matches. Defaults to a line of text. */
   emptyMatches?: ReactNode;
+  /** Called with the selected resources of the tree or the search answer it shows. */
+  onSelectedChange?: (ids: resource.ID[]) => void;
 }
 
 export const Tree = ({
@@ -439,6 +448,7 @@ export const Tree = ({
   rootContextMenu,
   search,
   emptyMatches,
+  onSelectedChange,
 }: TreeProps): ReactElement | null => {
   const client = Synnax.use();
   if (root == null || client == null) return null;
@@ -457,6 +467,7 @@ export const Tree = ({
           fieldRef={search.fieldRef}
           resultsRef={search.resultsRef}
           emptyMatches={emptyMatches}
+          onSelectedChange={onSelectedChange}
         />
       )}
       <Internal
@@ -468,6 +479,7 @@ export const Tree = ({
         emptyContent={emptyContent}
         rootContextMenu={rootContextMenu}
         className={search?.answer != null ? CSS.BM("tree", "hidden") : undefined}
+        onSelectedChange={onSelectedChange}
       />
     </>
   );
