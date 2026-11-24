@@ -98,6 +98,16 @@ var _ = DescribeTableSubtree("Claim move", func(pointerLog bool) {
 		}
 		return out
 	}
+	// expectOneRun expects the stored series of the index to touch, as one run of the
+	// clock.
+	expectOneRun := func(ctx SpecContext) {
+		GinkgoHelper()
+		series := read(ctx, idx, telem.TimeRangeMax).Series
+		Expect(series).ToNot(BeEmpty())
+		for i := 1; i < len(series); i++ {
+			Expect(series[i].Alignment).To(Equal(series[i-1].AlignmentBounds().Upper))
+		}
+	}
 	stamps := func(ctx SpecContext) []telem.TimeStamp {
 		GinkgoHelper()
 		series := read(ctx, idx, telem.TimeRangeMax)
@@ -184,6 +194,7 @@ var _ = DescribeTableSubtree("Claim move", func(pointerLog bool) {
 			Expect(values(ctx, telem.TimeRangeMax)).To(Equal([]int64{1, 2, 30, 40, 5}))
 			Expect(values(ctx, (12 * telem.SecondTS).Range(14*telem.SecondTS))).
 				To(Equal([]int64{30, 40}))
+			expectOneRun(ctx)
 		},
 	)
 
@@ -202,12 +213,7 @@ var _ = DescribeTableSubtree("Claim move", func(pointerLog bool) {
 			Expect(authorized).To(BeFalse(), "the session lost the data channel")
 			Expect(moved.Close()).To(Succeed())
 			Expect(clock.Close()).To(Succeed())
-			series := read(ctx, idx, telem.TimeRangeMax).Series
-			Expect(series).ToNot(BeEmpty())
-			for i := 1; i < len(series); i++ {
-				Expect(series[i].Alignment).
-					To(Equal(series[i-1].AlignmentBounds().Upper))
-			}
+			expectOneRun(ctx)
 		},
 	)
 }, Entry("old layout", false), Entry("pointer log", true))

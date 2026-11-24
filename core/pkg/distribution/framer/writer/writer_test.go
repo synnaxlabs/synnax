@@ -1885,7 +1885,6 @@ func newNode(ctx context.Context, pointerLog bool) testutil.Node {
 const (
 	unstoredClaimOwner = "cesium-0c, D-375 (Unstored takes no claim)"
 	errorTextOwner     = "cesium-0c, main's error text (coordinator, 2026-11-24)"
-	newRunReadOwner    = "clients-c9, a NewRun handoff reads as two series"
 	overlapTextOwner   = "cesium-53, a commit over stored data names no holder"
 	endDomainFillOwner = "cesium-53, a fill after EndDomain is refused (coordinator)"
 	durableProbeOwner  = "storage-checker-ea, a probe DB on live files reads nothing"

@@ -382,7 +382,6 @@ var _ = DescribeTableSubtree("Writer control moved from Cesium", func(pointerLog
 				It(
 					"Should write below its start once it takes the clock",
 					func(ctx SpecContext) {
-						skipOnPointerLog(pointerLog, newRunReadOwner)
 						key := GenerateChannelKey()
 						Expect(db.CreateChannel(ctx, cesium.Channel{
 							Key:      key,
