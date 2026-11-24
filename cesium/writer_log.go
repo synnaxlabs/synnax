@@ -483,7 +483,13 @@ func (w *logWriter) commitRun(i int) error {
 	r := &w.runs[i]
 	if w.stamps != nil {
 		var err error
-		if r.first, r.last, err = w.e.stampEnds(w.clock, *r); err != nil {
+		// A later run starts on a later pointer, and the placer's pointer holds the
+		// stamp of the last sample placed.
+		to := w.stamps.cur.Last
+		if i < len(w.runs)-1 {
+			to = w.runs[i+1].from
+		}
+		if r.first, r.last, err = w.e.stampEnds(w.clock, *r, to); err != nil {
 			return err
 		}
 	}

@@ -204,14 +204,15 @@ func (p *placer) locate() error {
 }
 
 // stampEnds returns the stamps of the first and last samples of r, a run of a writer
-// that does not write clock.
+// that does not write clock, whose stamps lie at or before to.
 func (e *engine) stampEnds(
 	clock ChannelKey,
 	r run,
+	to telem.TimeStamp,
 ) (first, last telem.TimeStamp, err error) {
 	sr, err := e.openStamps(clock, state.Pointer{
 		First:     r.from,
-		Last:      math.MaxInt64,
+		Last:      to,
 		Alignment: r.alignment,
 		Samples:   r.samples,
 	})
