@@ -951,6 +951,31 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       expect(screen.queryByText(/Its uses go with it/)).toBeNull();
     });
 
+    it("adds a command that sends 0", async () => {
+      await openPainted({ variant: "actuator", states: [createState()] });
+      fireEvent.click(getEditSectionHeaderButton("Commands"));
+      expect(await screen.findByText("Command 1")).toBeDefined();
+      expect(screen.getByText("Sends 0")).toBeDefined();
+    });
+
+    it("removes a command and its click after a confirm", async () => {
+      const symbol = await openPainted({
+        variant: "actuator",
+        states: [createState()],
+        commands: [{ key: "on", name: "On", value: { type: "fixed", value: 1 } }],
+        interactions: [{ type: "fire", key: "c", part: "body", command: "on" }],
+      });
+      fireEvent.click(screen.getByLabelText("Remove On"));
+      expect(await screen.findByText("Its uses go with it: 1 click.")).toBeDefined();
+      fireEvent.click(findButton("Remove"));
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () => {
+        const saved = await client.schematics.symbols.retrieve(symbol.key);
+        expect(saved.data.commands).toEqual([]);
+        expect(saved.data.interactions).toEqual([]);
+      });
+    });
+
     it("saves a symbol with no click as static", async () => {
       const symbol = await openPainted({
         variant: "actuator",
