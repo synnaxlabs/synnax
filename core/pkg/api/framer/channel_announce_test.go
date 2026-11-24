@@ -57,6 +57,7 @@ var _ = Describe("Old API edits that let a subject read a calculation", func() {
 			Channel:     svc.Channel,
 			Status:      svc.Status,
 			Calculation: svc.Calculation,
+			Impact:      svc.Impact,
 		}))
 		binder := MustSucceed(bind.NewService(bind.ServiceConfig{
 			DB:   db,
