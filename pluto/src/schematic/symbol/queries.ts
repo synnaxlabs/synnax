@@ -40,11 +40,12 @@ export const { use, useResult } = Flux.createRetrieve<
 
 export interface Resolved {
   symbol?: schematic.symbol.Symbol;
-  // missing reports whether the key points at a symbol that no longer exists
-  // (or never did), as opposed to one still loading.
+  /**
+   * missing reports whether the key points at a symbol that no longer exists (or never
+   * did), as opposed to one still loading.
+   */
   missing: boolean;
-  // failed reports whether the symbol did not load for any other reason, such as a
-  // network or permission error.
+  /** failed reports whether the load ended in any other error, such as a denied read. */
   failed: boolean;
 }
 
