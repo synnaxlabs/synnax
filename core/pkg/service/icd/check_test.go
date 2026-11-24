@@ -193,6 +193,8 @@ var _ = Describe("Check", func() {
 			`a value of field a after its tag "T" reads as this tag`),
 		Entry("a tag and a point", "T", "T.", 1,
 			`a value of field a after its tag "T" reads as this tag`),
+		Entry("a tag and the start of an exponent", "T", "T1e+", 1,
+			`a value of field a after its tag "T" reads as this tag`),
 		Entry("a tag, a space, and a digit", "T", "T 5", 1,
 			`a value of field a after its tag "T" reads as this tag`),
 		Entry("a tag and a space", "T", "T ", 1,
@@ -210,6 +212,12 @@ var _ = Describe("Check", func() {
 		Entry("a tag and a letter", "T", "TE"),
 		Entry("a tag and an equals sign", "T", "T="),
 		Entry("the longer tag first", "TE", "T"),
+		Entry("a tag, a minus sign, and a letter", "T", "T-A"),
+		Entry("a tag, a point, and a letter", "T", "T.X"),
+		Entry("a tag, a plus sign, and a letter", "T", "T+Z"),
+		Entry("a tag, a digit, and a letter", "T", "T1A"),
+		Entry("a tag, a minus sign, and a word", "V", "V-SET"),
+		Entry("a tag and an exponent with no digit before it", "T", "T.e"),
 	)
 
 	It("Should refuse a tag that two shorter tags start only once", func() {

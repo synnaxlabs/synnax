@@ -230,11 +230,37 @@ func (c *checker) checkTagOverlaps(path []string, fields []TextField) {
 	}
 }
 
-// startsValue reports whether rest, once the Driver trims textSpace from it, is the
-// start of some number. An empty rest starts every number.
+// startsValue reports whether rest, once the Driver trims textSpace from it, is empty
+// or the start of a number that the Driver reads: an optional sign, digits, an optional
+// point and digits, and an optional e or E with an optional sign and digits.
 func startsValue(rest string) bool {
-	rest = strings.TrimLeft(rest, textSpace)
-	return rest == "" || strings.IndexByte("0123456789+-.", rest[0]) >= 0
+	s := strings.TrimLeft(rest, textSpace)
+	i := 0
+	skipSign := func() {
+		if i < len(s) && (s[i] == '+' || s[i] == '-') {
+			i++
+		}
+	}
+	skipDigits := func() int {
+		start := i
+		for i < len(s) && s[i] >= '0' && s[i] <= '9' {
+			i++
+		}
+		return i - start
+	}
+	skipSign()
+	n := skipDigits()
+	if i < len(s) && s[i] == '.' {
+		i++
+		n += skipDigits()
+	}
+	// An exponent needs a digit before it.
+	if i < len(s) && n > 0 && (s[i] == 'e' || s[i] == 'E') {
+		i++
+		skipSign()
+		skipDigits()
+	}
+	return i == len(s)
 }
 
 // checkDefaultRange adds a problem when the finite default d of a number field with
