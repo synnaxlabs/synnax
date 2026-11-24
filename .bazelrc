@@ -9,6 +9,10 @@ build --test_env=SYNNAX_TEST_PORT
 # Enable platform-specific configs
 common --enable_platform_specific_config
 
+# Python targets get no generated __init__.py files, including those of external
+# repositories. Each package must ship its own.
+build --incompatible_default_to_explicit_init_py
+
 # Headers of external repositories are system headers (-isystem, /external:I), so the
 # compiler does not warn about their code. The rules_cc `includes` attribute gives -I.
 build --features=external_include_paths
@@ -138,6 +142,7 @@ build:asan --copt=-fsanitize=address
 build:asan --copt=-fno-omit-frame-pointer
 build:asan --copt=-O1
 build:asan --copt=-g
+build:asan --strip=never
 build:asan --copt=-fno-optimize-sibling-calls
 build:asan --copt=-fdebug-prefix-map=/proc/self/cwd=.
 build:asan --linkopt=-fsanitize=address
@@ -161,6 +166,7 @@ build:tsan --copt=-fsanitize=thread
 build:tsan --copt=-fno-omit-frame-pointer
 build:tsan --copt=-O1
 build:tsan --copt=-g
+build:tsan --strip=never
 build:tsan --copt=-fdebug-prefix-map=/proc/self/cwd=.
 build:tsan --linkopt=-fsanitize=thread
 build:tsan --test_env=TSAN_OPTIONS=halt_on_error=1:second_deadlock_stack=1
