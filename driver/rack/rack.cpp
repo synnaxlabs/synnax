@@ -54,6 +54,8 @@ void Rack::run(x::args::Parser &args, const std::function<void()> &on_shutdown) 
             cfg = std::move(loaded);
             break;
         }
+        // A failed load returns the settings it read before it failed, so the limit
+        // comes from them, or is the default.
         this->breaker.set_max_retries(loaded.retry.startup_retries);
         if (this->should_exit(err, on_shutdown)) return;
     }

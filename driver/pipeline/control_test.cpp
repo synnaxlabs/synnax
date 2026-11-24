@@ -169,6 +169,12 @@ TEST(ControlPipeline, testOpenRetrySuccessful) {
 TEST(ControlPipeline, testOpenRetryUnlicensed) {
     assert_open_retries(synnax::errors::LICENSE_MISSING);
 }
+
+/// @brief it should open the streamer again after an interrupted open, since a
+/// streamer only reads.
+TEST(ControlPipeline, RetriesOpenAfterInterruptedError) {
+    assert_open_retries(synnax::errors::INTERRUPTED);
+}
 /// @brief it should tell the sink once the streamer is open.
 TEST(ControlPipeline, OpenedFollowsStreamerOpen) {
     const auto factory = testutil::simple_streamer_factory(
