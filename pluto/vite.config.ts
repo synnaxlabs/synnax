@@ -37,6 +37,8 @@ export default defineConfig({
       external: [
         "vitest",
         /^@vitest\//,
+        // A bundled copy would ignore the configure() calls of the specs that run it.
+        /^@testing-library\//,
         "react-hook-form",
         /^zod(\/|$)/,
         "@synnaxlabs/x",
