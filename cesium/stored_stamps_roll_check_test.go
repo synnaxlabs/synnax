@@ -164,7 +164,8 @@ var _ = Describe("Check: data against stored stamps across a clock roll", func()
 			write(from, chunk)
 		}
 		Expect(c.Close()).To(Succeed())
-		// The clock holds A, B, and the segment after B, in rising order.
+		// The clock holds A and B, in rising order. The commit that fills B seals it,
+		// and no write follows to start another.
 		var segments []uint64
 		for _, info := range MustSucceed(fs.List(strconv.FormatUint(uint64(idx), 10))) {
 			if hex, ok := strings.CutSuffix(info.Name(), ".seg"); ok {
@@ -172,7 +173,7 @@ var _ = Describe("Check: data against stored stamps across a clock roll", func()
 			}
 		}
 		slices.Sort(segments)
-		Expect(segments).To(HaveLen(3))
+		Expect(segments).To(HaveLen(2))
 		Expect(len(switched(4).Parts)).To(BeNumerically(">", len(parted.Parts)))
 		_, head := MustSucceed2(checkpoint.Read(fs, 3))
 		var inHead []uint64
