@@ -346,12 +346,13 @@ var _ = Describe("Signal", func() {
 			ctx, _ := signal.Isolated()
 			ctx.Go(
 				inc1,
-				signal.WithRetryOnPanic(1),
+				signal.WithRetryOnPanic(100),
+				signal.WithBaseRetryInterval(time.Millisecond),
 				signal.RecoverWithErrOnPanic(),
 			)
 
 			Expect(ctx.Wait()).To(MatchError(ContainSubstring("panicking once")))
-			Expect(counter).To(Equal(2))
+			Expect(counter).To(Equal(101))
 		})
 
 		It(
@@ -368,12 +369,13 @@ var _ = Describe("Signal", func() {
 				ctx, _ := signal.Isolated()
 				ctx.Go(
 					inc1,
-					signal.WithRetryOnPanic(1),
+					signal.WithRetryOnPanic(100),
+					signal.WithBaseRetryInterval(time.Millisecond),
 					signal.RecoverWithoutErrOnPanic(),
 				)
 
 				Expect(ctx.Wait()).ToNot(HaveOccurred())
-				Expect(counter).To(Equal(2))
+				Expect(counter).To(Equal(101))
 			},
 		)
 
@@ -395,6 +397,7 @@ var _ = Describe("Signal", func() {
 			ctx.Go(
 				f,
 				signal.WithRetryOnPanic(),
+				signal.WithBaseRetryInterval(time.Millisecond),
 			)
 
 			wg.Go(func() {
@@ -521,10 +524,13 @@ var _ = Describe("Signal", func() {
 				}
 				<-ctx.Done()
 				return ctx.Err()
-			}, signal.WithRetryOnPanic())
+			},
+				signal.WithRetryOnPanic(),
+				signal.WithBaseRetryInterval(100*time.Millisecond),
+			)
 			Eventually(attempts.Load).Should(Equal(int32(1)))
 			ctx.Go(immediatelyReturnNil)
-			Consistently(ctx.Stopped(), 100*time.Millisecond).ShouldNot(BeClosed())
+			Consistently(ctx.Stopped(), 50*time.Millisecond).ShouldNot(BeClosed())
 			cancel()
 			Expect(ctx.Wait()).To(MatchError(context.Canceled))
 			Eventually(ctx.Stopped()).Should(BeClosed())

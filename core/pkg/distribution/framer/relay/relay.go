@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/signal"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -64,6 +65,11 @@ type Config struct {
 	//
 	// [OPTIONAL] - Defaults to 50.
 	DemandBufferSize int
+	// RestartInterval is how long the relay waits before it restarts a goroutine that
+	// panicked.
+	//
+	// [OPTIONAL] - Defaults to 1 second.
+	RestartInterval telem.TimeSpan
 }
 
 var (
@@ -76,6 +82,7 @@ var (
 		// 72 B * 1000 = 72 kB
 		ResponseBufferSize: 1000,
 		DemandBufferSize:   50,
+		RestartInterval:    telem.Second,
 	}
 )
 
@@ -93,6 +100,7 @@ func (c Config) Override(other Config) Config {
 		other.ResponseBufferSize,
 	)
 	c.DemandBufferSize = override.Numeric(c.DemandBufferSize, other.DemandBufferSize)
+	c.RestartInterval = override.Numeric(c.RestartInterval, other.RestartInterval)
 	return c
 }
 
@@ -104,6 +112,7 @@ func (c Config) Validate() error {
 	v.Positive("streamer_buffer_size", c.StreamerBufferSize)
 	v.Positive("response_buffer_size", c.ResponseBufferSize)
 	v.Positive("demand_buffer_size", c.DemandBufferSize)
+	v.Positive("restart_interval", c.RestartInterval)
 	return v.Error()
 }
 
@@ -186,6 +195,7 @@ func (r *Relay) Run(ctx context.Context) error {
 		confluence.WithAddress("delta"),
 		confluence.RecoverWithErrOnPanic(),
 		confluence.WithRetryOnPanic(),
+		confluence.WithBaseRetryInterval(r.cfg.RestartInterval.Duration()),
 	)
 	r.tapper.Flow(
 		sCtx,
@@ -193,6 +203,7 @@ func (r *Relay) Run(ctx context.Context) error {
 		confluence.CloseOutputInletsOnExit(),
 		confluence.RecoverWithErrOnPanic(),
 		confluence.WithRetryOnPanic(),
+		confluence.WithBaseRetryInterval(r.cfg.RestartInterval.Duration()),
 	)
 	return errors.Skip(sCtx.Wait(), context.Canceled)
 }

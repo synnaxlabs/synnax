@@ -74,6 +74,11 @@ type ServiceConfig struct {
 	//
 	// [OPTIONAL] - Defaults to 100 milliseconds.
 	RetryDelay telem.TimeSpan
+	// RestartInterval is how long a calculation group waits before it restarts a
+	// pipeline that panicked.
+	//
+	// [OPTIONAL] - Defaults to 1 second.
+	RestartInterval telem.TimeSpan
 	// Compile compiles a calculated channel. It is injectable for testing.
 	//
 	// [OPTIONAL] - Defaults to compiler.Compile.
@@ -95,6 +100,7 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("channel", c.Channel)
 	v.NotNil("channel_graph", c.ChannelGraph)
 	v.Positive("retry_delay", c.RetryDelay)
+	v.Positive("restart_interval", c.RestartInterval)
 	return v.Error()
 }
 
@@ -107,6 +113,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.ChannelGraph = override.Nil(c.ChannelGraph, other.ChannelGraph)
 	c.RetryDelay = override.Numeric(c.RetryDelay, other.RetryDelay)
+	c.RestartInterval = override.Numeric(c.RestartInterval, other.RestartInterval)
 	c.Compile = override.Nil(c.Compile, other.Compile)
 	return c
 }
@@ -130,7 +137,10 @@ type Service struct {
 // closed when it is no longer needed.
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	cfg, err := config.New(
-		ServiceConfig{RetryDelay: 100 * telem.Millisecond},
+		ServiceConfig{
+			RetryDelay:      100 * telem.Millisecond,
+			RestartInterval: telem.Second,
+		},
 		cfgs...,
 	)
 	if err != nil {
@@ -421,6 +431,7 @@ func (s *Service) updateGroup(
 			report:          s.report,
 			framer:          s.cfg.Framer,
 			writer:          s.cfg.Writer,
+			restartInterval: s.cfg.RestartInterval,
 		},
 	)
 	if err != nil {

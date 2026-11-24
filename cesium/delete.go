@@ -350,6 +350,7 @@ func (db *DB) startGC(sCtx signal.Context, opts *options) {
 			return nil
 		},
 		signal.WithRetryOnPanic(10),
+		signal.WithBaseRetryInterval(opts.restartInterval),
 		signal.RecoverWithoutErrOnPanic(),
 		signal.WithKey("gc-ticker"),
 	)

@@ -27,6 +27,7 @@ type relay struct {
 	delta            *confluence.DynamicDeltaMultiplier[relayResponse]
 	inlet            confluence.Inlet[relayResponse]
 	streamBufferSize int
+	restartInterval  time.Duration
 }
 
 const (
@@ -54,7 +55,12 @@ func newRelay(o *options) *relay {
 	)
 	writes := confluence.NewStream[relayResponse](o.relayBufferSize)
 	delta.InFrom(writes)
-	return &relay{delta: delta, inlet: writes, streamBufferSize: o.streamBufferSize}
+	return &relay{
+		delta:            delta,
+		inlet:            writes,
+		streamBufferSize: o.streamBufferSize,
+		restartInterval:  o.restartInterval,
+	}
 }
 
 func (r *relay) flow(sCtx signal.Context) {
@@ -62,6 +68,7 @@ func (r *relay) flow(sCtx signal.Context) {
 		sCtx,
 		confluence.RecoverWithErrOnPanic(),
 		confluence.WithRetryOnPanic(),
+		confluence.WithBaseRetryInterval(r.restartInterval),
 		confluence.WithAddress("relay"),
 	)
 }

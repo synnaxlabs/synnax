@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"runtime/pprof"
 	"strconv"
+	"time"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/breaker"
@@ -135,6 +136,12 @@ func RecoverWithoutErrOnPanic() RoutineOption {
 	return func(r *routineOptions) {
 		r.panicPolicy = recoverNoErr
 	}
+}
+
+// WithBaseRetryInterval sets how long the routine waits before its first restart after
+// a panic. It applies with WithRetryOnPanic. (Default: 1 second).
+func WithBaseRetryInterval(interval time.Duration) RoutineOption {
+	return func(r *routineOptions) { r.breakerCfg.BaseInterval = interval }
 }
 
 // WithRetryOnPanic attempts to recover from a panicking goroutine and restarts it.

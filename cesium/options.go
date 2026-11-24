@@ -39,6 +39,9 @@ type options struct {
 	slowConsumerTimeout time.Duration
 	chunkSize           int64
 	clock               xtime.Clock
+	// restartInterval is how long the relay and the garbage collector wait before they
+	// restart after a panic.
+	restartInterval time.Duration
 }
 
 func (o *options) Report() alamos.Report { return alamos.Report{"dirname": o.dirname} }
@@ -50,6 +53,7 @@ func newOptions(dirname string, opts ...Option) (*options, error) {
 		streamBufferSize:    defaultStreamBufferSize,
 		slowConsumerTimeout: defaultSlowConsumerTimeout,
 		chunkSize:           defaultChunkSize,
+		restartInterval:     time.Second,
 	}
 	for _, opt := range opts {
 		opt(o)
