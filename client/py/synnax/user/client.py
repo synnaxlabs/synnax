@@ -12,12 +12,22 @@ from typing import Any, Literal, overload
 from pydantic import BaseModel, Field
 
 from freighter import Empty, UnaryClient
+from synnax import auth as auth_
 from synnax.access import role as role_
-from synnax.exceptions import ValidationError
+from synnax.auth import password
+from synnax.exceptions import NotFoundError
 from synnax.transport import send_batch
 from synnax.user import actions_gen
-from synnax.user.payload import New, User
-from synnax.user.types_gen import Cursor, Key, Order, RetrieveRequest, Where, WhereInput
+from synnax.user.types_gen import (
+    Cursor,
+    Key,
+    Order,
+    RetrieveRequest,
+    User,
+    Where,
+    WhereInput,
+    resource_id,
+)
 from synnax.util import request_where, returns_one, sole
 from x import filter
 from x.lists import normalize
@@ -25,7 +35,7 @@ from x.params import require_named_params
 
 
 class _CreateRequest(BaseModel):
-    users: list[New]
+    users: list[User]
 
 
 class _CreateResponse(BaseModel):
@@ -49,51 +59,45 @@ class _DispatchRequest(BaseModel):
 class Client:
     client: UnaryClient
 
-    def __init__(self, transport: UnaryClient) -> None:
+    def __init__(self, transport: UnaryClient, auth: auth_.Client) -> None:
         self.client = transport
+        self._auth = auth
 
     @overload
+    def create(self, *, name: str, role: role_.Key, key: Key | None = None) -> User: ...
+
+    @overload
+    def create(self, *, user: User) -> User: ...
+
+    @overload
+    def create(self, *, users: list[User]) -> list[User]: ...
+
+    @require_named_params(example_params=("user", "User(name='Hari Seldon')"))
     def create(
         self,
         *,
-        username: str,
-        password: str,
-        role: role_.Key,
-        name: str = "",
-        key: Key | None = None,
-    ) -> User: ...
-
-    @overload
-    def create(self, *, user: New) -> User: ...
-
-    @overload
-    def create(self, *, users: list[New]) -> list[User]: ...
-
-    @require_named_params(example_params=("user", "New(username='synnax')"))
-    def create(
-        self,
-        *,
-        username: str | None = None,
-        password: str | None = None,
+        name: str | None = None,
         role: role_.Key | None = None,
-        name: str = "",
         key: Key | None = None,
-        user: New | None = None,
-        users: list[New] | None = None,
+        user: User | None = None,
+        users: list[User] | None = None,
     ) -> User | list[User]:
-        if username is not None:
-            if password is None:
-                raise ValueError("password is required when username is provided")
+        """Creates users with no password. Give a user its first password with
+        client.auth.passwords.create.
+        """
+        if name is not None:
             if role is None:
-                raise ValueError("role is required when username is provided")
-            user = New(
-                username=username, password=password, name=name, key=key, role=role
+                raise ValueError("role is required when name is provided")
+            user = (
+                User(name=name, role=role)
+                if key is None
+                else User(name=name, key=key, role=role)
             )
         single = user is not None
         if user is not None:
             users = [user]
         if users is None:
-            raise ValueError("Either username, user, or users must be provided")
+            raise ValueError("Either name, user, or users must be provided")
         res = self.client.send(
             "/user/create", _CreateRequest(users=users), _CreateResponse
         ).users
@@ -102,11 +106,20 @@ class Client:
         return res
 
     def change_username(self, key: Key, username: str) -> None:
-        action = actions_gen.set_username(
-            actions_gen.SetUsernamePayload(username=username)
-        )
-        self.client.send(
-            "/user/dispatch", _DispatchRequest(key=key, actions=[action]), Empty
+        """Changes the username of the user's password. Sessions stay open. A client
+        that logged in with the password logs in again under the new username.
+
+        :raises NotFoundError: if the user has no password.
+        :raises AuthError: if another user holds the username.
+        :raises AccessDenied: if the caller may not retrieve or update the user.
+        :raises ValidationError: if the username is empty.
+        """
+        passwords = self._auth.passwords.retrieve(subjects=[resource_id(key)])
+        if len(passwords) == 0:
+            raise NotFoundError(f"user {key} has no password")
+        self._auth.passwords.dispatch(
+            passwords[0].key,
+            password.set_username(password.SetUsernamePayload(username=username)),
         )
 
     def change_name(self, key: Key, *, name: str) -> None:
@@ -137,7 +150,6 @@ class Client:
         self,
         *,
         key: Key,
-        usernames: str | list[str] = ...,
         roles: role_.Key | list[role_.Key] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
@@ -152,23 +164,6 @@ class Client:
         self,
         *,
         key: filter.SetInput[Key] = ...,
-        username: str,
-        usernames: str | list[str] = ...,
-        roles: role_.Key | list[role_.Key] = ...,
-        and_: list[WhereInput] = ...,
-        or_: list[WhereInput] = ...,
-        not_: WhereInput = ...,
-        where: Where | None = ...,
-        search_term: str = ...,
-        one: bool = ...,
-    ) -> User: ...
-
-    @overload
-    def retrieve(
-        self,
-        *,
-        key: filter.SetInput[Key] = ...,
-        usernames: str | list[str] = ...,
         roles: role_.Key | list[role_.Key] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
@@ -184,7 +179,6 @@ class Client:
         self,
         *,
         key: list[Key] | filter.SetDict[Key] | filter.Set[Key] = ...,
-        usernames: str | list[str] = ...,
         roles: role_.Key | list[role_.Key] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
@@ -198,7 +192,7 @@ class Client:
         one: Literal[False] = ...,
     ) -> list[User]: ...
 
-    @require_named_params(example_params=("username", "synnax"))
+    @require_named_params(example_params=("key", "UUID('...')"))
     def retrieve(
         self,
         *,
@@ -214,11 +208,9 @@ class Client:
         """Retrieves users from the Core. With no arguments, retrieves every user.
 
         Each filter field takes a value, a list of values, or an operator, and a user
-        must match every field. A plain ``key`` or a ``username`` returns one user.
+        must match every field. A plain ``key`` returns one user.
 
         :param key: Keeps users with this key.
-        :param username: Keeps the user with this username.
-        :param usernames: Keeps users with this username, or any username in the list.
         :param roles: Keeps the users that hold any of these roles.
         :param and_: Keeps users that match every filter in the list.
         :param or_: Keeps users that match any filter in the list.
@@ -231,22 +223,13 @@ class Client:
         :param after: Retrieves the users past this position in the order: the key of
             the last user of the page before, and its value of the order field.
         :param one: Returns one user for any filter.
-        :returns: One user for a plain ``key``, a ``username``, or when ``one`` is
-            set, otherwise a list of users. The list leaves out keys that do not
-            exist.
+        :returns: One user for a plain ``key`` or when ``one`` is set, otherwise a
+            list of users. The list leaves out keys that do not exist.
         :raises NotFoundError: If one user is wanted and none matches.
         :raises MultipleFoundError: If one user is wanted and more than one matches.
-        :raises ValidationError: If a filter field or ``username`` is None, or if one
-            user is wanted beside a limit or a cursor.
+        :raises ValidationError: If a filter field is None, or if one user is wanted
+            beside a limit or a cursor.
         """
-        if "username" in fields:
-            username = fields.pop("username")
-            if username is None:
-                raise ValidationError(
-                    "username is None. Leave a field out to match every record."
-                )
-            where = filter.merge(where, Where(usernames=[username]))
-            one = True
         single = returns_one(fields, one, limit=limit, after=after)
         flat = Where(key=None if keys is None else filter.Set[Key](in_=keys))
         req = RetrieveRequest(

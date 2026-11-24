@@ -204,11 +204,11 @@ func (e *crashEngine) openServices(ctx context.Context, store kv.DB) (err error)
 		return err
 	}
 	e.closers = append(e.closers, statuses.Close)
-	frames, err := framer.OpenService(ctx, framer.ServiceConfig{TS: e.cesium})
+	frames, err := framer.OpenService(framer.ServiceConfig{TS: e.cesium})
 	if err != nil {
 		return err
 	}
-	e.closers = append(e.closers, frames.Close)
+	e.closers = append(e.closers, frames.Close, GoRun(ctx, frames.Run))
 	if e.svc, err = channel.OpenService(ctx, channel.ServiceConfig{
 		Channel:      dist,
 		DB:           e.db,

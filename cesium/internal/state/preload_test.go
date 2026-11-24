@@ -355,7 +355,8 @@ var _ = Describe("Drop of parted records", func() {
 		cfg.Generation = 5
 		return MustSucceed(state.Open(cfg, head))
 	}
-	dead := state.Dead{Segment: 3, Key: 6}
+	// dead is the parted record of key 6 that a Drop at entry 10 takes out.
+	dead := state.Dead{Segment: 3, Key: 6, Sequence: 10}
 
 	It("Should give the parted records of a key to TakeDead at its durable Drop",
 		func() {
@@ -407,6 +408,7 @@ var _ = Describe("Drop of parted records", func() {
 		)).To(Succeed())
 		Expect(s.Durable(11, []log.Record{&log.Drop{Key: 6}})).To(Succeed())
 		MustSucceed(s.Snapshot())
-		Expect(s.TakeDead()).To(Equal([]state.Dead{dead}))
+		Expect(s.TakeDead()).
+			To(Equal([]state.Dead{{Segment: 3, Key: 6, Sequence: 11}}))
 	})
 })

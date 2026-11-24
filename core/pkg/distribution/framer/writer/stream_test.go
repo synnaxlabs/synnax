@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -193,7 +194,7 @@ var _ = Describe("Streamed series", func() {
 				Eventually(out.Outlet()).Should(Receive(&res))
 				Expect(res.Frame.Count()).To(Equal(1))
 				s := res.Frame.SeriesAt(0)
-				Expect(s).To(telem.MatchSeriesDataV(3*i+1, 3*i+2, 3*i+3))
+				Expect(s).To(MatchSeriesDataV(3*i+1, 3*i+2, 3*i+3))
 				Expect(s.Alignment).To(Equal(
 					telem.NewAlignment(telem.LeadingDomain+1, uint32(3*i)),
 				))
@@ -232,7 +233,7 @@ var _ = Describe("Streamed series", func() {
 				var res framer.StreamerResponse
 				Eventually(out.Outlet()).Should(Receive(&res))
 				Expect(res.Frame.Get(data.Key()).Series[0]).To(
-					telem.MatchSeriesDataV(i),
+					MatchSeriesDataV(i),
 				)
 				Expect(res.Frame.Get(data.Key()).Series[0].Alignment).To(Equal(
 					res.Frame.Get(idx.Key()).Series[0].Alignment,

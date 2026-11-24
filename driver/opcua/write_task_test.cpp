@@ -1017,4 +1017,26 @@ TEST_F(TestWriteTask, testUnboundDisabledChannel) {
     EXPECT_TRUE(parsed->channels.contains(this->bool_cmd_channel.key));
 }
 
+/// @brief it should reject two channels that take commands from one channel.
+TEST_F(TestWriteTask, testDuplicateCommandChannel) {
+    x::json::json task_cfg{
+        {"data_saving_disabled", false},
+        {"device", this->dev.key},
+        {"channels",
+         x::json::json::array(
+             {{{"key", "NS=2;I=1"},
+               {"node_id", "NS=1;S=TestBoolean"},
+               {"cmd_channel", this->bool_cmd_channel.key},
+               {"disabled", false}},
+              {{"key", "NS=2;I=2"},
+               {"node_id", "NS=1;S=TestUInt16"},
+               {"cmd_channel", this->bool_cmd_channel.key},
+               {"disabled", false}}}
+         )}
+    };
+    auto p = x::json::Parser(task_cfg);
+    const auto parsed = std::make_unique<WriteTaskConfig>(ctx->client, p);
+    ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
+}
+
 }
