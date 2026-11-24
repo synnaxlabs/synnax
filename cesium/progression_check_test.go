@@ -98,7 +98,7 @@ var _ = Describe("Check: version 2 progressions", func() {
 		}
 		w := MustSucceed(db.OpenWriter(
 			ctx,
-			cesium.WriterConfig{Channels: keys, Start: stamps[0]},
+			cesium.WriterConfig{Channels: keys, Clock: keys[0], Start: stamps[0]},
 		))
 		fr, _ := MustSucceed2(w.Write(ctx, telem.MultiFrame(
 			keys,
