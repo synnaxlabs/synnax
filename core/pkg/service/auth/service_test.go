@@ -593,8 +593,8 @@ var _ = Describe("Service", func() {
 			ended, release := MustSucceed2(svc.Hold(ctx, session.Key))
 			defer release()
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				changed := password.NewSetHashAction(hash(pw, "changed"))
-				return pw.NewWriter(tx).Apply(ctx, alice, changed)
+				changed := hash(pw, "changed")
+				return pw.NewWriter(tx).SetHash(ctx, alice, changed)
 			})).To(Succeed())
 			Consistently(ended).ShouldNot(BeClosed())
 			StartRun(svc.Run)
