@@ -447,6 +447,41 @@ var _ = Describe("Graph", func() {
 			Expect(flat[2].Channel.Name).To(Equal("flat3"))
 		})
 
+		It("Should return independent modules in key order", func(ctx SpecContext) {
+			bases := []channel.Channel{
+				{Name: "orderbase", DataType: telem.Int64T, Virtual: true},
+			}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).CreateMany(ctx, &bases)
+			})).To(Succeed())
+			calcs := make([]channel.Channel, 8)
+			for i := range calcs {
+				calcs[i] = channel.Channel{
+					Name:       fmt.Sprintf("order%d", i),
+					DataType:   telem.Int64T,
+					Virtual:    true,
+					Expression: "return orderbase",
+				}
+			}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).CreateMany(ctx, &calcs)
+			})).To(Succeed())
+			for _, c := range calcs {
+				Expect(g.Add(ctx, c)).To(Succeed())
+			}
+			keys := func() []channel.Key {
+				return lo.Map(
+					g.CalculateFlat(),
+					func(m compiler.Module, _ int) channel.Key { return m.Channel.Key() },
+				)
+			}
+			first := keys()
+			Expect(slices.IsSorted(first)).To(BeTrue())
+			for range 20 {
+				Expect(keys()).To(Equal(first))
+			}
+		})
+
 		It("Should return empty list when no channels", func() {
 			flat := g.CalculateFlat()
 			Expect(flat).To(BeEmpty())
