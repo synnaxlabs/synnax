@@ -19,7 +19,7 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Synnax as PSynnax } from "@synnaxlabs/pluto";
-import { deep, id, primitive } from "@synnaxlabs/x";
+import { deep, id } from "@synnaxlabs/x";
 import { type FC, useState } from "react";
 
 import { Device } from "@/feature/http/device";
@@ -33,7 +33,6 @@ import {
   writeEndpointZ,
   type WriteSchemas,
 } from "@/feature/http/task/types";
-import { FLAGS } from "@/flags";
 import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
 import { Empty } from "@/platform/empty";
@@ -60,50 +59,6 @@ const SelectMethod = (p: Select.ButtonsProps<http.Method>) => (
 );
 
 const renderMethodSelect = Component.renderProp(SelectMethod);
-
-/** The name deploying gives an endpoint's command channel while it has none. */
-const commandChannelName = (device: string, endpoint: string): string =>
-  `${channel.escapeInvalidName(device)}${channel.escapeInvalidName(endpoint)}_cmd`;
-
-const EndpointItem = (props: Task.ChannelListItemProps) => {
-  const { itemKey } = props;
-  const path = root.config.endpoints[itemKey];
-  const channelKey = PForm.useFieldValue(path.channel.channel);
-  const endpointPath = PForm.useFieldValue(path.path);
-  const disabled = PForm.useFieldValue(path.disabled);
-  const dev = Device.useFromConfig();
-  return (
-    <Select.Item
-      {...props}
-      y
-      align="start"
-      gap="small"
-      className={CSS.B("endpoint-item")}
-    >
-      <Flex.Box x align="center" gap="small" full="x">
-        <EndpointLabel path={path} />
-      </Flex.Box>
-      <Flex.Box x align="center" justify="between" gap="small" full="x">
-        <Task.ChannelName
-          channel={channelKey}
-          namePath={path.channel.name}
-          defaultName={
-            dev == null ? undefined : commandChannelName(dev.name, endpointPath)
-          }
-          skipped={disabled}
-          id={Task.getChannelNameID(itemKey)}
-          level="small"
-          weight={450}
-          color={9}
-          overflow="fade"
-        />
-        <Task.EnabledCheckbox path={path.disabled} />
-      </Flex.Box>
-    </Select.Item>
-  );
-};
-
-const endpointItem = Component.renderProp(EndpointItem);
 
 const EMPTY_ENDPOINTS = <Empty.Action message="No endpoints" />;
 
@@ -135,107 +90,7 @@ const RequestSection: FC<{ path: deep.Path<WriteEndpoint> }> = ({ path }) => (
   </PForm.Section>
 );
 
-const EndpointDetails: FC<{ epKey: string }> = ({ epKey }) => {
-  const path = root.config.endpoints[epKey];
-  return (
-    <Flex.Box y grow empty className={CSS.B("endpoint-details")}>
-      <PForm.Sections className={CSS.B("endpoint-form")}>
-        <RequestSection path={path} />
-        <Task.Payload.ChannelSections path={path.channel} pointerPlaceholder="/value" />
-        <Task.Payload.AdditionalFields key={epKey} path={path.fields} />
-      </PForm.Sections>
-    </Flex.Box>
-  );
-};
-
 const PATH_INPUT_PROPS = { placeholder: "/api/control" } as const;
-
-const createEndpoint = (): WriteEndpoint => writeEndpointZ.parse({});
-
-const duplicateEndpoints = (
-  endpoints: WriteEndpoint[],
-  keys: string[],
-): WriteEndpoint[] =>
-  endpoints
-    .filter(({ key }) => keys.includes(key))
-    .map((ep) => ({
-      ...ep,
-      key: id.create(),
-      channel: { ...ep.channel, channel: 0 },
-      fields: ep.fields.map((f) => ({ ...f, key: id.create() })),
-    }));
-
-const Form: FC = () => {
-  const [selected, setSelected] = useState<string[]>([]);
-  const dev = Device.useFromConfig();
-  const resolve = (ep: WriteEndpoint) =>
-    dev == null
-      ? null
-      : { channel: { ...ep.channel, channel: dev.properties.write[ep.path] ?? 0 } };
-  const current = selected.length > 0 ? selected[0] : null;
-  return (
-    <Task.Views.Panes
-      listTitle="Endpoints"
-      list={
-        <Task.Views.ChannelList<WriteEndpoint>
-          path={root.config.endpoints}
-          header={null}
-          emptyContent={EMPTY_ENDPOINTS}
-          addLabel="Add endpoint"
-          createChannel={createEndpoint}
-          createChannels={duplicateEndpoints}
-          listItem={endpointItem}
-          contextMenuItems={Task.readChannelContextMenuItem}
-          resolve={resolve}
-          selected={selected}
-          onSelect={setSelected}
-          grow
-        />
-      }
-      detailsPath={current != null ? root.config.endpoints[current] : null}
-      title={current != null && <EndpointLabel path={root.config.endpoints[current]} />}
-    >
-      {current != null ? (
-        <EndpointDetails epKey={current} />
-      ) : (
-        <Flex.Box y grow align="center" justify="center">
-          <Text.Text status="disabled">Select an endpoint to configure</Text.Text>
-        </Flex.Box>
-      )}
-    </Task.Views.Panes>
-  );
-};
-
-const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
-  client,
-  config,
-) => {
-  const dev = await client.devices.retrieve({
-    key: config.device,
-    schemas: Device.SCHEMAS,
-  });
-  const before = deep.copy(dev.properties);
-  try {
-    for (const ep of config.endpoints) {
-      if (ep.disabled) continue;
-      ep.channel.channel = await Task.configureCommandChannel(
-        client,
-        dev.properties.write,
-        {
-          propertiesKey: ep.path,
-          channel: ep.channel.channel,
-          name: primitive.isNonZero(ep.channel.name)
-            ? ep.channel.name
-            : commandChannelName(dev.name, ep.path),
-          dataType: ep.channel.dataType,
-        },
-      );
-    }
-  } finally {
-    await PlatformDevice.setProperties(client, dev, before, Device.SCHEMAS);
-  }
-  return [config, dev.rack];
-};
 
 /** An endpoint whose request body is a message of an ICD. */
 interface ICDEndpoint extends WriteEndpoint {
@@ -261,7 +116,7 @@ const fieldCommandName = (
 const icdName = (name: string): string =>
   name.trim() === "" ? DEFAULT_WRITE_NAME : name;
 
-const ICDEndpointItem = (props: Task.ChannelListItemProps) => {
+const EndpointItem = (props: Task.ChannelListItemProps) => {
   const path = root.config.endpoints[props.itemKey];
   const disabled = PForm.useFieldValue(path.disabled);
   return (
@@ -280,15 +135,15 @@ const ICDEndpointItem = (props: Task.ChannelListItemProps) => {
   );
 };
 
-const icdEndpointItem = Component.renderProp(ICDEndpointItem);
+const endpointItem = Component.renderProp(EndpointItem);
 
-interface ICDDetailsProps {
+interface DetailsProps {
   epKey: string;
   deviceName: string;
 }
 
 /** The message of an endpoint that sends one, and the binding of each of its fields. */
-const MessageDetails = ({ epKey, deviceName }: ICDDetailsProps) => {
+const MessageDetails = ({ epKey, deviceName }: DetailsProps) => {
   const path = icdPath(epKey);
   const { set } = PForm.useContext();
   const isPreview = Task.useIsPreview();
@@ -358,7 +213,7 @@ const MessagePick = ({ epKey }: { epKey: string }) => {
   );
 };
 
-const ICDEndpointDetails = ({ epKey, deviceName }: ICDDetailsProps) => {
+const EndpointDetails = ({ epKey, deviceName }: DetailsProps) => {
   const sends = sendsICD(PForm.useFieldValue(root.config.endpoints[epKey]));
   return (
     <Flex.Box y grow empty className={CSS.B("endpoint-details")}>
@@ -374,7 +229,7 @@ const ICDEndpointDetails = ({ epKey, deviceName }: ICDDetailsProps) => {
   );
 };
 
-const duplicateICDEndpoints = (
+const duplicateEndpoints = (
   endpoints: WriteEndpoint[],
   keys: string[],
 ): WriteEndpoint[] =>
@@ -442,8 +297,8 @@ const Endpoints = ({ device }: EndpointsProps) => {
               </Button.CreateListItem>
             )
           }
-          createChannels={duplicateICDEndpoints}
-          listItem={icdEndpointItem}
+          createChannels={duplicateEndpoints}
+          listItem={endpointItem}
           resolve={null}
           selected={selected}
           onSelect={setSelected}
@@ -454,7 +309,7 @@ const Endpoints = ({ device }: EndpointsProps) => {
       title={currentPath != null && <EndpointLabel path={currentPath} />}
     >
       {current != null ? (
-        <ICDEndpointDetails key={current} epKey={current} deviceName={device.name} />
+        <EndpointDetails key={current} epKey={current} deviceName={device.name} />
       ) : (
         <Flex.Box y grow align="center" justify="center">
           <Text.Text status="disabled">Select an endpoint to configure</Text.Text>
@@ -467,7 +322,7 @@ const Endpoints = ({ device }: EndpointsProps) => {
   );
 };
 
-const ICDContent = ({ device }: PlatformDevice.TaskFormContentProps<Device.Device>) => {
+const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device.Device>) => {
   const icds = PForm.useFieldValue(root.config.endpoints)
     .filter(sendsICD)
     .map((ep) => ep.icd);
@@ -479,15 +334,15 @@ const ICDContent = ({ device }: PlatformDevice.TaskFormContentProps<Device.Devic
 };
 
 /** The endpoints of the task, each with the message of an ICD that it sends. */
-const ICDForm = PlatformDevice.wrapTaskForm({
+const Form = PlatformDevice.wrapTaskForm({
   use: Device.use,
   useConfigure: Device.useConnectModal,
   useNoneSelected: Device.useNoneSelected,
-  Content: ICDContent,
+  Content,
 });
 
 /** Gives each channel binding of an enabled endpoint a command channel. */
-const configureICD: Task.OnConfigure<WriteSchemas["config"]> = async (
+const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
   client,
   config,
 ) => {
@@ -512,9 +367,9 @@ const configureICD: Task.OnConfigure<WriteSchemas["config"]> = async (
 
 export const Write = Task.wrapForm({
   Properties,
-  Form: FLAGS.icds ? ICDForm : Form,
+  Form,
   schemas: WRITE_SCHEMAS,
   deployConfigZ: deployWriteConfigZ,
   type: WRITE_TYPE,
-  onConfigure: FLAGS.icds ? configureICD : onConfigure,
+  onConfigure,
 });
