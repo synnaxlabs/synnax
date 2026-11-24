@@ -46,7 +46,7 @@ const iterElements = (
   paints.forEach((paint) => {
     const elements =
       paint.selectors == null
-        ? Region.collectVisualElements(drawing)
+        ? Region.allGraphics(drawing)
         : Region.graphics(drawing, paint.selectors);
     elements.forEach((el) => fn(el, paint));
   });
@@ -114,10 +114,7 @@ const applySymbolStrokes = (
   iterElements(paints, drawing, (el, { stroke }) => {
     if (stroke != null) paintStrokes.set(el, stroke);
   });
-  const elements = new Set([
-    ...Region.collectVisualElements(drawing),
-    ...paintStrokes.keys(),
-  ]);
+  const elements = new Set([...Region.allGraphics(drawing), ...paintStrokes.keys()]);
   elements.forEach((el) => {
     const paintStroke = paintStrokes.get(el);
     const shown =

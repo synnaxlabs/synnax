@@ -206,6 +206,10 @@ export const extract = (svgElement: SVGElement): schematic.symbol.Region[] => {
 // GRAPHICS selects each SVG element that draws.
 const GRAPHICS = [...VISUAL_ELEMENTS, "use", "image"].join(",");
 
+/** @returns each element inside root that draws, in document order. */
+export const allGraphics = (root: Element): SVGElement[] =>
+  Array.from(root.querySelectorAll<SVGElement>(GRAPHICS)).filter(isRendered);
+
 /**
  * @returns the elements that selectors match in root, in selector order. A selector
  * that matches a group stands for each element inside it that draws, in document order.
@@ -213,9 +217,7 @@ const GRAPHICS = [...VISUAL_ELEMENTS, "use", "image"].join(",");
 export const graphics = (root: Element, selectors: string[]): SVGElement[] =>
   selectors.flatMap((s) =>
     Array.from(root.querySelectorAll<SVGElement>(s)).flatMap((el) =>
-      el.tagName === "g"
-        ? Array.from(el.querySelectorAll<SVGElement>(GRAPHICS)).filter(isRendered)
-        : [el],
+      el.tagName === "g" ? allGraphics(el) : [el],
     ),
   );
 

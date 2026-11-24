@@ -452,6 +452,14 @@ describe("Custom.useRender", () => {
         inside(container).forEach((el) => expect(el.style.display).toBe(""));
       });
 
+      it("should hide each element that draws when the whole drawing hides", () => {
+        const container = document.createElement("div");
+        renderAttached({ paints: [{ hidden: true }], spec }, container);
+        inside(container).forEach((el) => expect(el.style.display).toBe("none"));
+        const tile = container.querySelector("#tile") as SVGElement;
+        expect(tile.style.display).toBe("");
+      });
+
       it("should draw the symbol stroke on each element of a stroked group", () => {
         const container = document.createElement("div");
         renderAttached(
