@@ -173,14 +173,20 @@ private:
         }
         auto [opened, open_err] = this->factory->open_streamer(config);
         if (open_err) return open_err;
+        x::errors::Error set_err;
+        std::unique_ptr<::driver::pipeline::Streamer> rejected;
         {
             std::lock_guard lock(this->core_mu);
             this->core = std::move(opened);
             if (!this->breaker.running()) this->core->close_send();
-            // A set_channels that ran during the open missed this streamer. A Core
-            // streamer that rejects the channels fails its next read.
+            // A set_channels that ran during the open missed this streamer.
             else if (this->channels != config.channels)
-                static_cast<void>(this->core->set_channels(this->channels));
+                set_err = this->core->set_channels(this->channels);
+            if (set_err) rejected = std::move(this->core);
+        }
+        if (set_err) {
+            if (const auto close_err = rejected->close()) return close_err;
+            return set_err;
         }
         return this->read_core();
     }

@@ -144,9 +144,10 @@ to the `arc.Program` the Driver runs
 each module on its base inputs and streams those inputs instead. Inputs from another
 Driver go stale during an outage. The Core keeps computing the channel for the Console.
 
-The modules run on the control (streamer) thread, before the frame reaches the runtime.
-Each costs about 450 ns per input sample, the same as a runtime cycle, so a slow
-calculation delays commands to the Arc. A module whose inputs are not in a frame does
+The modules run on the control task's streamer thread, before the frame reaches the
+runtime, at the C++ Arc runtime's cost of about 0.4 µs per sample per module. A
+10,000-sample frame holds the thread for about 4 ms per module, which delays commands to
+the Arc. SY-6901 tracks cutting that cost. A module whose inputs are not in a frame does
 not run.
 
 When a channel a module uses changes, and on each reconnect, the task gets the modules
