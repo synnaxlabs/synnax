@@ -85,6 +85,10 @@ interface FieldBindingProps {
   opened: boolean;
 }
 
+/** Shows a field that opens on mount, such as one just added below the fold. */
+const reveal = (el: HTMLElement | null): void =>
+  el?.scrollIntoView({ block: "nearest" });
+
 const FieldBinding = ({
   path,
   field,
@@ -149,6 +153,7 @@ const FieldBinding = ({
       actions={modes}
       role="group"
       aria-label={field.name}
+      ref={opened ? reveal : undefined}
     >
       {bound && binding.type === "channel" && (
         <>

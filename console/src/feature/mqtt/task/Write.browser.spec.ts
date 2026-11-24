@@ -17,7 +17,7 @@ import type { Status } from "@synnaxlabs/lyra/status";
 import { scheduler } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it, onTestFinished } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { MQTT } from "@/feature/mqtt";
 import { createBroker, openScanner } from "@/feature/mqtt/testutil";
@@ -858,8 +858,13 @@ describe("MQTT Write form", () => {
       const { target, ic, message } = await createFormatTarget([setpoint]);
       const { draft } = await renderWrite([target]);
       await fieldGroup(setpoint.name);
+      const scrolled = vi.spyOn(HTMLElement.prototype, "scrollIntoView");
+      onTestFinished(() => scrolled.mockRestore());
       fireEvent.click(screen.getByRole("button", { name: "Add field" }));
       const group = await fieldGroup("Field 2");
+      expect(scrolled.mock.contexts).toContain(
+        screen.getByRole("group", { name: "Field 2" }),
+      );
       group.getByDisplayValue("Field 2");
       // A new field reads the whole document, which the value of setpoint takes.
       await group.findByText('Pointer "" holds the value of field "setpoint"', {
