@@ -214,8 +214,8 @@ class TestClustersConfig:
 
 
 def delete_new_keys(client: sy.Synnax, before: set[UUID]) -> None:
-    client.auth.delete_keys(
-        *[k.key for k in client.auth.retrieve_keys() if k.key not in before]
+    client.auth.delete_api_keys(
+        *[k.key for k in client.auth.retrieve_api_keys() if k.key not in before]
     )
 
 
@@ -230,7 +230,7 @@ class TestLogin:
     ) -> None:
         """Should save an API key in place of the password it logged in with."""
         host, port, username, password = login_info
-        before = {k.key for k in client.auth.retrieve_keys()}
+        before = {k.key for k in client.auth.retrieve_api_keys()}
         assert connect.login(
             Scripted(host, port, username, password, "n").prompt, clusters
         )
@@ -249,7 +249,7 @@ class TestLogin:
     ) -> None:
         """Should delete the key an earlier login saved once the new one is saved."""
         host, port, username, password = login_info
-        before = {k.key for k in client.auth.retrieve_keys()}
+        before = {k.key for k in client.auth.retrieve_api_keys()}
         answers = (host, port, username, password, "n")
         assert connect.login(Scripted(*answers).prompt, clusters)
         first = clusters.get()
@@ -258,7 +258,7 @@ class TestLogin:
         second = clusters.get()
         assert second is not None
         assert second.options.api_key != first.options.api_key
-        remaining = {k.key for k in client.auth.retrieve_keys()} - before
+        remaining = {k.key for k in client.auth.retrieve_api_keys()} - before
         assert remaining == {sy.auth.api_key_id(second.options.api_key)}
         delete_new_keys(client, before)
 
@@ -271,7 +271,7 @@ class TestLogin:
     ) -> None:
         """Should log in as a second account and keep the key the first one saved."""
         host, port, username, password = login_info
-        before = {k.key for k in client.auth.retrieve_keys()}
+        before = {k.key for k in client.auth.retrieve_api_keys()}
         assert connect.login(
             Scripted(host, port, username, password, "n").prompt, clusters
         )
@@ -283,7 +283,7 @@ class TestLogin:
             Scripted(host, port, other_username, "password123", "n").prompt, clusters
         )
         first_key = sy.auth.api_key_id(first.options.api_key)
-        assert first_key in {k.key for k in client.auth.retrieve_keys()}
+        assert first_key in {k.key for k in client.auth.retrieve_api_keys()}
         client.users.delete(other.key)
         delete_new_keys(client, before)
 
@@ -310,7 +310,7 @@ class TestLogin:
         fails.
         """
         host, port, username, password = login_info
-        before = {k.key for k in client.auth.retrieve_keys()}
+        before = {k.key for k in client.auth.retrieve_api_keys()}
         save_legacy_password(
             clusters,
             keyring,
@@ -321,7 +321,7 @@ class TestLogin:
         assert not connect.login(scripted.prompt, clusters)
         assert scripted.err.getvalue().startswith("Cannot save the API key:")
         assert keyring.values == {("synnax", "default"): password}
-        assert {k.key for k in client.auth.retrieve_keys()} == before
+        assert {k.key for k in client.auth.retrieve_api_keys()} == before
 
     def test_keeps_saved_key_when_cleanup_fails(
         self,
@@ -333,7 +333,7 @@ class TestLogin:
         deleted.
         """
         host, port, username, password = login_info
-        before = {k.key for k in client.auth.retrieve_keys()}
+        before = {k.key for k in client.auth.retrieve_api_keys()}
         keyring = UndeletableKeyring()
         clusters = Clusters(File(config_dir=tmp_path), keyring)
         save_legacy_password(
@@ -362,13 +362,13 @@ class TestLogin:
         the key it could not save.
         """
         host, port, username, password = login_info
-        before = {k.key for k in client.auth.retrieve_keys()}
+        before = {k.key for k in client.auth.retrieve_api_keys()}
         user = Scripted(host, port, username, password, "n")
         assert not connect.login(
             user.prompt, Clusters(File(config_dir=tmp_path), NoKeychain())
         )
         assert user.err.getvalue().strip() == KEYCHAIN_UNAVAILABLE_MSG
-        assert {k.key for k in client.auth.retrieve_keys()} == before
+        assert {k.key for k in client.auth.retrieve_api_keys()} == before
 
     def test_fails_with_a_saved_login_and_no_keychain(
         self,
@@ -380,7 +380,7 @@ class TestLogin:
         no key.
         """
         host, port, username, password = login_info
-        before = {k.key for k in client.auth.retrieve_keys()}
+        before = {k.key for k in client.auth.retrieve_api_keys()}
         config = File(config_dir=tmp_path)
         Clusters(config, MemoryKeyring()).set(
             Cluster(options=Options(host="core.lab", port=9090, api_key="syk_k"))
@@ -390,4 +390,4 @@ class TestLogin:
         assert user.err.getvalue().strip() == (
             "Cannot read the login saved for core.lab:9090. " + KEYCHAIN_UNAVAILABLE_MSG
         )
-        assert {k.key for k in client.auth.retrieve_keys()} == before
+        assert {k.key for k in client.auth.retrieve_api_keys()} == before

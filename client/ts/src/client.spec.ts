@@ -179,7 +179,7 @@ describe.skipIf(process.platform === "win32")("constructor with Synnax Desktop",
 
   it("should connect once the helper gives a key after it failed", async () => {
     const owner = createTestClient();
-    const { token, key } = await owner.auth.createKey({ name: "desktop" });
+    const { token, key } = await owner.auth.createAPIKey({ name: "desktop" });
     const ready = join(home, "ready");
     writeDesktop(`[ -f ${ready} ] || exit 1\necho ${token}`, testCoreAddress());
     const client = createClient();
@@ -187,7 +187,7 @@ describe.skipIf(process.platform === "win32")("constructor with Synnax Desktop",
     writeFileSync(ready, "");
     await expect(client.connect()).resolves.toBeDefined();
     await client.close();
-    await owner.auth.deleteKeys(key.key);
+    await owner.auth.deleteAPIKeys(key.key);
   });
 
   it("should tell the user to open Synnax Desktop when its helper is gone", async () => {

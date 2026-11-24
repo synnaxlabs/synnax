@@ -84,12 +84,12 @@ const useKeyActions = (subject: resource.ID): KeyActions => {
   const canCreate = Access.useUpdateGranted(subject) || own;
   const canDelete = Access.useDeleteGranted(subject) || own;
   const query = { subject };
-  const refreshKeys = Credential.useRefreshKeys();
+  const refreshKeys = Credential.useRefreshAPIKeys();
   const refreshSessions = Credential.useRefreshSessions();
-  const invalidateKeys = Credential.useInvalidateKeys();
+  const invalidateKeys = Credential.useInvalidateAPIKeys();
   const invalidateSessions = Credential.useInvalidateSessions();
   // These reads have no live updates, so a change made here fetches them again.
-  const del = Credential.useDeleteKey({
+  const del = Credential.useDeleteAPIKey({
     afterSuccess: () => {
       refreshKeys(query);
       refreshSessions(query);
@@ -150,7 +150,7 @@ export interface KeyTableProps {
 export const KeyTable = ({ subject }: KeyTableProps): ReactElement => {
   const actions = useKeyActions(subject);
   const openCreate = useCreateKeyModal();
-  const keys = Credential.useResultKeys({ subject });
+  const keys = Credential.useResultAPIKeys({ subject });
   const sessions = Credential.useResultSessions({ subject });
   const list = List.useStaticData<auth.APIKeyKey, auth.APIKey>({
     data: keys.data ?? [],
