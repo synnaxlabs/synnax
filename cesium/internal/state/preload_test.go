@@ -10,6 +10,8 @@
 package state_test
 
 import (
+	"context"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/log"
@@ -51,28 +53,34 @@ var _ = Describe("Preloads", func() {
 
 	It("Should refuse a writer that starts in a parted segment, through its "+
 		"preloaded record", func() {
-		Expect(s.OpenWriter(writer, preload(5, record))).Error().To(SatisfyAll(
-			conflict(),
-			MatchError(ContainSubstring("inside its stored data from 10 to 30")),
-		))
+		Expect(
+			s.OpenWriter(context.Background(), writer, preload(5, record)),
+		).Error().
+			To(SatisfyAll(
+				conflict(),
+				MatchError(ContainSubstring("inside its stored data from 10 to 30")),
+			))
 	})
 
 	It("Should take the records of a parted segment from the preload alone", func() {
-		w := MustSucceed(s.OpenWriter(writer, preload(5)))
+		w := MustSucceed(s.OpenWriter(context.Background(), writer, preload(5)))
 		Expect(w.Close()).To(Succeed())
 	})
 
 	It("Should refuse a preload from the parts of an older head as stale", func() {
-		Expect(s.OpenWriter(writer, preload(4, record))).Error().To(SatisfyAll(
-			MatchError(state.ErrStale),
-			MatchError(ContainSubstring("key 6 reads the parts of head 5, not 4")),
-		))
+		Expect(
+			s.OpenWriter(context.Background(), writer, preload(4, record)),
+		).Error().
+			To(SatisfyAll(
+				MatchError(state.ErrStale),
+				MatchError(ContainSubstring("key 6 reads the parts of head 5, not 4")),
+			))
 		Expect(s.BeginDelete(6, 15, 25, preload(4, record))).Error().
 			To(MatchError(state.ErrStale))
 	})
 
 	It("Should refuse a step with no preload of a key that parts hold", func() {
-		Expect(s.OpenWriter(writer)).Error().To(SatisfyAll(
+		Expect(s.OpenWriter(context.Background(), writer)).Error().To(SatisfyAll(
 			refused(),
 			MatchError(ContainSubstring("no preload of key 6, which parts hold")),
 		))
