@@ -79,9 +79,9 @@ type run struct {
 	alignment   telem.Alignment
 	samples     uint32
 	first, last telem.TimeStamp
-	// lo and hi bound the stamps of the stored pointers that hold the stamps of a run
-	// of a writer that does not write its clock.
-	lo, hi telem.TimeStamp
+	// from is the first stamp of the stored pointer that holds the stamp of the first
+	// sample of a run of a writer that does not write its clock.
+	from telem.TimeStamp
 	// ends holds the segment end of each key, in the order of keys, at the end of a run
 	// that a later run follows.
 	ends []segmentEnd

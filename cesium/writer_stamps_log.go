@@ -95,12 +95,12 @@ type placer struct {
 	pieces              []piece
 }
 
-// piece is the samples of a write whose stamps touch, and lo and hi bound the stamps of
-// the stored pointers that hold them.
+// piece is the samples of a write whose stamps touch, and from is the first stamp of
+// the stored pointer that holds the stamp of its first sample.
 type piece struct {
 	alignment telem.Alignment
 	samples   uint32
-	lo, hi    telem.TimeStamp
+	from      telem.TimeStamp
 }
 
 // place places n samples, and returns the pieces of those that have stored stamps, in
@@ -132,15 +132,13 @@ func (p *placer) extend(k uint32) {
 		last := &p.pieces[n-1]
 		if last.alignment.AddSamples(last.samples) == p.next {
 			last.samples += k
-			last.lo, last.hi = min(last.lo, p.cur.First), max(last.hi, p.cur.Last)
 			return
 		}
 	}
 	p.pieces = append(p.pieces, piece{
 		alignment: p.next,
 		samples:   k,
-		lo:        p.cur.First,
-		hi:        p.cur.Last,
+		from:      p.cur.First,
 	})
 }
 
@@ -212,8 +210,8 @@ func (e *engine) stampEnds(
 	r run,
 ) (first, last telem.TimeStamp, err error) {
 	sr, err := e.openStamps(clock, state.Pointer{
-		First:     r.lo,
-		Last:      r.hi,
+		First:     r.from,
+		Last:      math.MaxInt64,
 		Alignment: r.alignment,
 		Samples:   r.samples,
 	})
@@ -330,14 +328,13 @@ func (w *logWriter) extendRuns(p piece) {
 		r := &w.runs[n-1]
 		if r.alignment.AddSamples(r.samples) == p.alignment {
 			r.samples += p.samples
-			r.lo, r.hi = min(r.lo, p.lo), max(r.hi, p.hi)
 			return
 		}
 		r.ends = w.ends(r.ends, true)
 	}
 	w.runs = append(
 		w.runs,
-		run{alignment: p.alignment, samples: p.samples, lo: p.lo, hi: p.hi},
+		run{alignment: p.alignment, samples: p.samples, from: p.from},
 	)
 }
 
