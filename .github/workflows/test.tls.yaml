@@ -178,11 +178,9 @@ jobs:
           sudo cp "$CA" /usr/local/share/ca-certificates/synnax-test-ca.crt
           sudo update-ca-certificates
 
-      # The runner has no user to approve a change to the trust settings.
       - name: Install the CA in the macOS Keychain
         if: runner.os == 'macOS'
         run: |
-          sudo security authorizationdb write com.apple.trust-settings.admin allow
           sudo security add-trusted-cert -d -r trustRoot \
             -k /Library/Keychains/System.keychain "$CA"
 
