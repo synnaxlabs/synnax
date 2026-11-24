@@ -219,7 +219,7 @@ var _ = Describe("Cluster", func() {
 			r.RecordKey = new("pump")
 			c.Reads = []v0.Read{r}
 		}),
-		Entry("a read of every unclaimed record", func(c *v0.Cluster) {
+		Entry("a read of the records with no key", func(c *v0.Cluster) {
 			c.Reads = []v0.Read{read()}
 		}),
 	)

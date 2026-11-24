@@ -406,8 +406,7 @@ type Read struct {
 	// Topic is the topic to consume.
 	Topic string `json:"topic" msgpack:"topic"`
 	// RecordKey is the Kafka key of the records read here, never empty. Absent reads
-	// the records with no key or an empty key, and every record of the topic that no
-	// other read claims.
+	// only the records with no key or an empty key.
 	RecordKey *string `json:"record_key,omitzero" msgpack:"record_key,omitempty"`
 	// Message is the ICD message that the values of the records hold.
 	Message icd.MessageKey `json:"message" msgpack:"message"`

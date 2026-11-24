@@ -59,8 +59,7 @@ class Read(BaseModel):
     Attributes:
         topic: Is the topic to consume.
         record_key: Is the Kafka key of the records read here, never empty. Absent reads
-            the records with no key or an empty key, and every record of the topic that
-            no other read claims.
+            only the records with no key or an empty key.
         message: Is the ICD message that the values of the records hold.
         pointer: Is the JSON Pointer to the value in the message.
         index: Is the index channel of the channel.

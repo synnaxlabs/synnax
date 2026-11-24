@@ -98,9 +98,8 @@ Read struct {
     }
     record_key string?        {
         @doc value           """
-            is the Kafka key of the records read here, never empty. Absent reads the
-            records with no key or an empty key, and every record of the topic that no
-            other read claims.
+            is the Kafka key of the records read here, never empty. Absent reads only
+            the records with no key or an empty key.
         """
         @validate min_length 1
     }

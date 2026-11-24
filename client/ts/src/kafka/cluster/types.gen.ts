@@ -43,9 +43,8 @@ export const readZ = z.object({
   /** topic is the topic to consume. */
   topic: z.string().min(1, "topic is required"),
   /**
-   * recordKey is the Kafka key of the records read here, never empty. Absent reads the
-   * records with no key or an empty key, and every record of the topic that no other
-   * read claims.
+   * recordKey is the Kafka key of the records read here, never empty. Absent reads only
+   * the records with no key or an empty key.
    */
   recordKey: z.string().min(1).optional(),
   /** message is the ICD message that the values of the records hold. */
