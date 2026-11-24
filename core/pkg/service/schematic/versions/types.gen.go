@@ -43,28 +43,41 @@ type EdgeConfigVariant = v14.EdgeConfigVariant
 type EdgeConfigType = v14.EdgeConfigType
 
 const (
-	// PipeEdgeConfigType selects the PipeEdgeConfig variant.
+	// PipeEdgeConfigType is the configuration for pipe edges.
 	PipeEdgeConfigType EdgeConfigType = v14.PipeEdgeConfigType
-	// ElectricEdgeConfigType selects the ElectricEdgeConfig variant.
+	// ElectricEdgeConfigType is the configuration for electrical edges.
 	ElectricEdgeConfigType EdgeConfigType = v14.ElectricEdgeConfigType
-	// SecondaryEdgeConfigType selects the SecondaryEdgeConfig variant.
+	// SecondaryEdgeConfigType is the configuration for secondary edges.
 	SecondaryEdgeConfigType EdgeConfigType = v14.SecondaryEdgeConfigType
-	// JacketedEdgeConfigType selects the JacketedEdgeConfig variant.
+	// JacketedEdgeConfigType is the configuration for jacketed edges.
 	JacketedEdgeConfigType EdgeConfigType = v14.JacketedEdgeConfigType
-	// HydraulicEdgeConfigType selects the HydraulicEdgeConfig variant.
+	// HydraulicEdgeConfigType is the configuration for hydraulic edges.
 	HydraulicEdgeConfigType EdgeConfigType = v14.HydraulicEdgeConfigType
-	// PneumaticEdgeConfigType selects the PneumaticEdgeConfig variant.
+	// PneumaticEdgeConfigType is the configuration for pneumatic edges.
 	PneumaticEdgeConfigType EdgeConfigType = v14.PneumaticEdgeConfigType
-	// DataEdgeConfigType selects the DataEdgeConfig variant.
+	// DataEdgeConfigType is the configuration for data edges.
 	DataEdgeConfigType EdgeConfigType = v14.DataEdgeConfigType
 )
 
+// PipeEdgeConfig is the configuration for pipe edges.
 type PipeEdgeConfig = v14.PipeEdgeConfig
+
+// ElectricEdgeConfig is the configuration for electrical edges.
 type ElectricEdgeConfig = v14.ElectricEdgeConfig
+
+// SecondaryEdgeConfig is the configuration for secondary edges.
 type SecondaryEdgeConfig = v14.SecondaryEdgeConfig
+
+// JacketedEdgeConfig is the configuration for jacketed edges.
 type JacketedEdgeConfig = v14.JacketedEdgeConfig
+
+// HydraulicEdgeConfig is the configuration for hydraulic edges.
 type HydraulicEdgeConfig = v14.HydraulicEdgeConfig
+
+// PneumaticEdgeConfig is the configuration for pneumatic edges.
 type PneumaticEdgeConfig = v14.PneumaticEdgeConfig
+
+// DataEdgeConfig is the configuration for data edges.
 type DataEdgeConfig = v14.DataEdgeConfig
 
 // FlexAlignment is a flex alignment for laid-out content.
@@ -148,60 +161,66 @@ type NodeConfigVariant = v14.NodeConfigVariant
 type NodeConfigType = v14.NodeConfigType
 
 const (
-	// CapNodeConfigType selects the CapNodeConfig variant.
+	// CapNodeConfigType is the configuration for cap symbols.
 	CapNodeConfigType NodeConfigType = v14.CapNodeConfigType
-	// FilterNodeConfigType selects the FilterNodeConfig variant.
+	// FilterNodeConfigType is the configuration for filter symbols.
 	FilterNodeConfigType NodeConfigType = v14.FilterNodeConfigType
-	// FlowStraightenerNodeConfigType selects the FlowStraightenerNodeConfig variant.
+	// FlowStraightenerNodeConfigType is the configuration for flow straightener
+	// symbols.
 	FlowStraightenerNodeConfigType NodeConfigType = v14.FlowStraightenerNodeConfigType
-	// HeaterElementNodeConfigType selects the HeaterElementNodeConfig variant.
+	// HeaterElementNodeConfigType is the configuration for heater element symbols.
 	HeaterElementNodeConfigType NodeConfigType = v14.HeaterElementNodeConfigType
-	// IsoCapNodeConfigType selects the IsoCapNodeConfig variant.
+	// IsoCapNodeConfigType is the configuration for ISO cap symbols.
 	IsoCapNodeConfigType NodeConfigType = v14.IsoCapNodeConfigType
-	// IsoFilterNodeConfigType selects the IsoFilterNodeConfig variant.
+	// IsoFilterNodeConfigType is the configuration for ISO filter symbols.
 	IsoFilterNodeConfigType NodeConfigType = v14.IsoFilterNodeConfigType
-	// NozzleNodeConfigType selects the NozzleNodeConfig variant.
+	// NozzleNodeConfigType is the configuration for nozzle symbols.
 	NozzleNodeConfigType NodeConfigType = v14.NozzleNodeConfigType
-	// OrificeNodeConfigType selects the OrificeNodeConfig variant.
+	// OrificeNodeConfigType is the configuration for orifice symbols.
 	OrificeNodeConfigType NodeConfigType = v14.OrificeNodeConfigType
-	// OrificePlateNodeConfigType selects the OrificePlateNodeConfig variant.
+	// OrificePlateNodeConfigType is the configuration for orifice plate symbols.
 	OrificePlateNodeConfigType NodeConfigType = v14.OrificePlateNodeConfigType
-	// StrainerNodeConfigType selects the StrainerNodeConfig variant.
+	// StrainerNodeConfigType is the configuration for strainer symbols.
 	StrainerNodeConfigType NodeConfigType = v14.StrainerNodeConfigType
-	// StrainerConeNodeConfigType selects the StrainerConeNodeConfig variant.
+	// StrainerConeNodeConfigType is the configuration for strainer cone symbols.
 	StrainerConeNodeConfigType NodeConfigType = v14.StrainerConeNodeConfigType
-	// ThrusterNodeConfigType selects the ThrusterNodeConfig variant.
+	// ThrusterNodeConfigType is the configuration for thruster symbols.
 	ThrusterNodeConfigType NodeConfigType = v14.ThrusterNodeConfigType
-	// VentNodeConfigType selects the VentNodeConfig variant.
+	// VentNodeConfigType is the configuration for vent symbols.
 	VentNodeConfigType NodeConfigType = v14.VentNodeConfigType
-	// FlowmeterGeneralNodeConfigType selects the FlowmeterGeneralNodeConfig variant.
+	// FlowmeterGeneralNodeConfigType is the configuration for general flowmeter
+	// symbols.
 	FlowmeterGeneralNodeConfigType NodeConfigType = v14.FlowmeterGeneralNodeConfigType
-	// FlowmeterElectromagneticNodeConfigType selects the
-	// FlowmeterElectromagneticNodeConfig variant.
+	// FlowmeterElectromagneticNodeConfigType is the configuration for electromagnetic
+	// flowmeter symbols.
 	FlowmeterElectromagneticNodeConfigType NodeConfigType = v14.FlowmeterElectromagneticNodeConfigType
-	// FlowmeterVariableAreaNodeConfigType selects the FlowmeterVariableAreaNodeConfig
-	// variant.
+	// FlowmeterVariableAreaNodeConfigType is the configuration for variable area
+	// flowmeter symbols.
 	FlowmeterVariableAreaNodeConfigType NodeConfigType = v14.FlowmeterVariableAreaNodeConfigType
-	// FlowmeterCoriolisNodeConfigType selects the FlowmeterCoriolisNodeConfig variant.
+	// FlowmeterCoriolisNodeConfigType is the configuration for Coriolis flowmeter
+	// symbols.
 	FlowmeterCoriolisNodeConfigType NodeConfigType = v14.FlowmeterCoriolisNodeConfigType
-	// FlowmeterNozzleNodeConfigType selects the FlowmeterNozzleNodeConfig variant.
+	// FlowmeterNozzleNodeConfigType is the configuration for nozzle flowmeter symbols.
 	FlowmeterNozzleNodeConfigType NodeConfigType = v14.FlowmeterNozzleNodeConfigType
-	// FlowmeterVenturiNodeConfigType selects the FlowmeterVenturiNodeConfig variant.
+	// FlowmeterVenturiNodeConfigType is the configuration for venturi flowmeter
+	// symbols.
 	FlowmeterVenturiNodeConfigType NodeConfigType = v14.FlowmeterVenturiNodeConfigType
-	// FlowmeterRingPistonNodeConfigType selects the FlowmeterRingPistonNodeConfig
-	// variant.
+	// FlowmeterRingPistonNodeConfigType is the configuration for ring piston flowmeter
+	// symbols.
 	FlowmeterRingPistonNodeConfigType NodeConfigType = v14.FlowmeterRingPistonNodeConfigType
-	// FlowmeterPositiveDisplacementNodeConfigType selects the
-	// FlowmeterPositiveDisplacementNodeConfig variant.
+	// FlowmeterPositiveDisplacementNodeConfigType is the configuration for positive
+	// displacement flowmeter symbols.
 	FlowmeterPositiveDisplacementNodeConfigType NodeConfigType = v14.FlowmeterPositiveDisplacementNodeConfigType
-	// FlowmeterTurbineNodeConfigType selects the FlowmeterTurbineNodeConfig variant.
+	// FlowmeterTurbineNodeConfigType is the configuration for turbine flowmeter
+	// symbols.
 	FlowmeterTurbineNodeConfigType NodeConfigType = v14.FlowmeterTurbineNodeConfigType
-	// FlowmeterPulseNodeConfigType selects the FlowmeterPulseNodeConfig variant.
+	// FlowmeterPulseNodeConfigType is the configuration for pulse flowmeter symbols.
 	FlowmeterPulseNodeConfigType NodeConfigType = v14.FlowmeterPulseNodeConfigType
-	// FlowmeterFloatSensorNodeConfigType selects the FlowmeterFloatSensorNodeConfig
-	// variant.
+	// FlowmeterFloatSensorNodeConfigType is the configuration for float sensor
+	// flowmeter symbols.
 	FlowmeterFloatSensorNodeConfigType NodeConfigType = v14.FlowmeterFloatSensorNodeConfigType
-	// FlowmeterOrificeNodeConfigType selects the FlowmeterOrificeNodeConfig variant.
+	// FlowmeterOrificeNodeConfigType is the configuration for orifice flowmeter
+	// symbols.
 	FlowmeterOrificeNodeConfigType NodeConfigType = v14.FlowmeterOrificeNodeConfigType
 	// BoxNodeConfigType is the configuration for box annotation symbols.
 	BoxNodeConfigType NodeConfigType = v14.BoxNodeConfigType
@@ -382,30 +401,83 @@ const (
 	SymbolNodeConfigType NodeConfigType = v14.SymbolNodeConfigType
 )
 
+// CapNodeConfig is the configuration for cap symbols.
 type CapNodeConfig = v14.CapNodeConfig
+
+// FilterNodeConfig is the configuration for filter symbols.
 type FilterNodeConfig = v14.FilterNodeConfig
+
+// FlowStraightenerNodeConfig is the configuration for flow straightener symbols.
 type FlowStraightenerNodeConfig = v14.FlowStraightenerNodeConfig
+
+// HeaterElementNodeConfig is the configuration for heater element symbols.
 type HeaterElementNodeConfig = v14.HeaterElementNodeConfig
+
+// IsoCapNodeConfig is the configuration for ISO cap symbols.
 type IsoCapNodeConfig = v14.IsoCapNodeConfig
+
+// IsoFilterNodeConfig is the configuration for ISO filter symbols.
 type IsoFilterNodeConfig = v14.IsoFilterNodeConfig
+
+// NozzleNodeConfig is the configuration for nozzle symbols.
 type NozzleNodeConfig = v14.NozzleNodeConfig
+
+// OrificeNodeConfig is the configuration for orifice symbols.
 type OrificeNodeConfig = v14.OrificeNodeConfig
+
+// OrificePlateNodeConfig is the configuration for orifice plate symbols.
 type OrificePlateNodeConfig = v14.OrificePlateNodeConfig
+
+// StrainerNodeConfig is the configuration for strainer symbols.
 type StrainerNodeConfig = v14.StrainerNodeConfig
+
+// StrainerConeNodeConfig is the configuration for strainer cone symbols.
 type StrainerConeNodeConfig = v14.StrainerConeNodeConfig
+
+// ThrusterNodeConfig is the configuration for thruster symbols.
 type ThrusterNodeConfig = v14.ThrusterNodeConfig
+
+// VentNodeConfig is the configuration for vent symbols.
 type VentNodeConfig = v14.VentNodeConfig
+
+// FlowmeterGeneralNodeConfig is the configuration for general flowmeter symbols.
 type FlowmeterGeneralNodeConfig = v14.FlowmeterGeneralNodeConfig
+
+// FlowmeterElectromagneticNodeConfig is the configuration for electromagnetic flowmeter
+// symbols.
 type FlowmeterElectromagneticNodeConfig = v14.FlowmeterElectromagneticNodeConfig
+
+// FlowmeterVariableAreaNodeConfig is the configuration for variable area flowmeter
+// symbols.
 type FlowmeterVariableAreaNodeConfig = v14.FlowmeterVariableAreaNodeConfig
+
+// FlowmeterCoriolisNodeConfig is the configuration for Coriolis flowmeter symbols.
 type FlowmeterCoriolisNodeConfig = v14.FlowmeterCoriolisNodeConfig
+
+// FlowmeterNozzleNodeConfig is the configuration for nozzle flowmeter symbols.
 type FlowmeterNozzleNodeConfig = v14.FlowmeterNozzleNodeConfig
+
+// FlowmeterVenturiNodeConfig is the configuration for venturi flowmeter symbols.
 type FlowmeterVenturiNodeConfig = v14.FlowmeterVenturiNodeConfig
+
+// FlowmeterRingPistonNodeConfig is the configuration for ring piston flowmeter symbols.
 type FlowmeterRingPistonNodeConfig = v14.FlowmeterRingPistonNodeConfig
+
+// FlowmeterPositiveDisplacementNodeConfig is the configuration for positive
+// displacement flowmeter symbols.
 type FlowmeterPositiveDisplacementNodeConfig = v14.FlowmeterPositiveDisplacementNodeConfig
+
+// FlowmeterTurbineNodeConfig is the configuration for turbine flowmeter symbols.
 type FlowmeterTurbineNodeConfig = v14.FlowmeterTurbineNodeConfig
+
+// FlowmeterPulseNodeConfig is the configuration for pulse flowmeter symbols.
 type FlowmeterPulseNodeConfig = v14.FlowmeterPulseNodeConfig
+
+// FlowmeterFloatSensorNodeConfig is the configuration for float sensor flowmeter
+// symbols.
 type FlowmeterFloatSensorNodeConfig = v14.FlowmeterFloatSensorNodeConfig
+
+// FlowmeterOrificeNodeConfig is the configuration for orifice flowmeter symbols.
 type FlowmeterOrificeNodeConfig = v14.FlowmeterOrificeNodeConfig
 
 // BoxNodeConfig is the configuration for box annotation symbols.
