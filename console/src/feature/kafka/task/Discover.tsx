@@ -396,8 +396,6 @@ interface WholeValuesProps {
   /** The shape that a pick of the topic sends. */
   shape: json.Shape;
   label: Params["label"];
-  value: boolean;
-  onChange: (value: boolean) => void;
 }
 
 /** The fields that a pick of a whole topic sends. */
@@ -408,21 +406,12 @@ const WholeValues = ({
   sample,
   shape,
   label,
-  value,
-  onChange,
 }: WholeValuesProps) => {
   const newest = newestFirst(sample, shape);
   const values = shape.fields.map((f) => valueOf(f.pointer, f, newest));
   return (
     <>
-      <ICD.Picker.PaneHeader
-        title={name}
-        note={note}
-        free={values.length}
-        picked={value ? values.length : 0}
-        onPickAll={() => onChange(true)}
-        onClear={() => onChange(false)}
-      />
+      <ICD.Picker.PaneHeader title={name} note={note} />
       <PaneWarning warning={warning} />
       <ICD.Picker.Values
         noun="Field"
@@ -689,10 +678,6 @@ const Content = ({
           sample={data}
           shape={shape}
           label={label}
-          value={wholePicks.has(topic)}
-          onChange={(picked) =>
-            setWholePicks((prev) => withWhole(prev, topic, picked, shape))
-          }
         />
       ) : (
         <TopicValues

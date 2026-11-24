@@ -48,14 +48,18 @@ export interface ValueGroup {
   values: Value[];
 }
 
-interface PaneHeaderProps {
-  title: string;
-  note?: string;
+/** The values that Select all picks, and how many of them are picked. */
+interface PickAllProps {
   free: number;
   picked: number;
   onPickAll: () => void;
   onClear: () => void;
 }
+
+/** Without the props of Select all, the header has neither Select all nor Clear. */
+type PaneHeaderProps = { title: string; note?: string } & (
+  PickAllProps | { [K in keyof PickAllProps]?: never }
+);
 
 const Hint = () => (
   <Text.Text level="small" color={9} className={CSS.BE("icd-picker", "hint")}>
@@ -63,41 +67,39 @@ const Hint = () => (
   </Text.Text>
 );
 
+const PickAll = ({ free, picked, onPickAll, onClear }: PickAllProps) =>
+  picked > 0 ? (
+    <Button.Button variant="text" size="small" onClick={onClear}>
+      Clear
+    </Button.Button>
+  ) : (
+    <Button.Button
+      variant="text"
+      size="small"
+      disabled={free === 0}
+      onClick={onPickAll}
+    >
+      Select all
+    </Button.Button>
+  );
+
 /** The head of a pane: its title, Select all or Clear, then the hint of the dialog. */
-export const PaneHeader = ({
-  title,
-  note,
-  free,
-  picked,
-  onPickAll,
-  onClear,
-}: PaneHeaderProps) => (
+export const PaneHeader = (props: PaneHeaderProps) => (
   <>
     <Header.Header bordered={false} className={CSS.BE("icd-picker", "pane-header")}>
       <Header.Title weight={500} color={10} variant="code">
-        {title}
-        {note != null && (
+        {props.title}
+        {props.note != null && (
           <Text.Text el="span" level="small" color={9}>
-            {note}
+            {props.note}
           </Text.Text>
         )}
       </Header.Title>
-      <Header.Actions>
-        {picked > 0 ? (
-          <Button.Button variant="text" size="small" onClick={onClear}>
-            Clear
-          </Button.Button>
-        ) : (
-          <Button.Button
-            variant="text"
-            size="small"
-            disabled={free === 0}
-            onClick={onPickAll}
-          >
-            Select all
-          </Button.Button>
-        )}
-      </Header.Actions>
+      {props.onPickAll != null && (
+        <Header.Actions>
+          <PickAll {...props} />
+        </Header.Actions>
+      )}
     </Header.Header>
     <Hint />
   </>
