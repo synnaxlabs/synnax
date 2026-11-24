@@ -19,11 +19,11 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//client/cpp/channel",
-        "//client/cpp/http",
         "//client/cpp/rack:key",
         "//client/cpp/resource",
         "//client/cpp/secret",
         "//client/cpp/status",
+        "//x/cpp/http",
         "//x/cpp/json",
         "//x/cpp/telem",
         "//x/cpp/uuid",

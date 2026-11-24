@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import "schemas/synnax/versions/channel/v1"
-import "schemas/synnax/versions/http/v5"
 import "schemas/synnax/versions/rack/v3"
 import "schemas/synnax/versions/secret/v1"
 import "schemas/synnax/versions/status/v2"
+import "schemas/x/versions/http/v0"
 import "schemas/x/versions/telem/v0"
 
 Key = uuid {

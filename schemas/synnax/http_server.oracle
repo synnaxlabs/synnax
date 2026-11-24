@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import "schemas/synnax/channel"
-import "schemas/synnax/http"
 import "schemas/synnax/rack"
 import "schemas/synnax/secret"
 import "schemas/synnax/status"
+import "schemas/x/http"
 import "schemas/x/telem"
 
 @cpp output "client/cpp/http/server"

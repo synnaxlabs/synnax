@@ -13,10 +13,10 @@ package v0
 
 import (
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v1"
-	http "github.com/synnaxlabs/synnax/pkg/service/http/versions/v5"
 	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v3"
 	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/errors"
+	http "github.com/synnaxlabs/x/http/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 )
 

@@ -18,11 +18,11 @@
 #include <vector>
 
 #include "client/cpp/channel/types.gen.h"
-#include "client/cpp/http/types.gen.h"
 #include "client/cpp/rack/key.h"
 #include "client/cpp/resource/id.h"
 #include "client/cpp/secret/types.gen.h"
 #include "client/cpp/status/types.gen.h"
+#include "x/cpp/http/types.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/telem/types.gen.h"
 #include "x/cpp/uuid/uuid.h"
@@ -55,11 +55,11 @@ struct BaseResponse {
 /// @brief Request identifies the request that a write task sends.
 struct Request {
     /// @brief method is the method of the request.
-    std::string method = ::synnax::http::METHOD_POST;
+    std::string method = ::x::http::METHOD_POST;
     /// @brief path is the path appended to the base URL. Empty requests the base URL.
     std::string path = "";
     /// @brief query are the query parameters of the request, in sorted order.
-    std::vector<::synnax::http::QueryParam> query = {};
+    std::vector<::x::http::QueryParam> query = {};
 
     static Request parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -68,11 +68,11 @@ struct Request {
 /// @brief ReadRequest identifies the request that a read task polls.
 struct ReadRequest {
     /// @brief method is the method of the request.
-    std::string method = ::synnax::http::METHOD_GET;
+    std::string method = ::x::http::METHOD_GET;
     /// @brief path is the path appended to the base URL. Empty requests the base URL.
     std::string path = "";
     /// @brief query are the query parameters of the request, in sorted order.
-    std::vector<::synnax::http::QueryParam> query = {};
+    std::vector<::x::http::QueryParam> query = {};
 
     static ReadRequest parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -248,13 +248,13 @@ using Status = ::synnax::status::Status<StatusDetails>;
 /// answers.
 struct HealthCheck {
     /// @brief method is the method of the health check request.
-    std::string method = ::synnax::http::METHOD_GET;
+    std::string method = ::x::http::METHOD_GET;
     /// @brief path is the path appended to the base URL. Empty requests the base URL.
     std::string path = "";
     /// @brief headers are the headers sent with the request.
-    std::vector<::synnax::http::Header> headers = {};
+    std::vector<::x::http::Header> headers = {};
     /// @brief query_params are the query parameters sent with the request.
-    std::vector<::synnax::http::QueryParam> query_params = {};
+    std::vector<::x::http::QueryParam> query_params = {};
     /// @brief body is the body sent with the request. Empty sends no body.
     std::string body = "";
     /// @brief response is the value that the response must hold. Absent accepts any

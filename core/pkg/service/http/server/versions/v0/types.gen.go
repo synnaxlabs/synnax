@@ -20,11 +20,11 @@ import (
 	"uuid"
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v1"
-	http "github.com/synnaxlabs/synnax/pkg/service/http/versions/v5"
 	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v3"
 	secret "github.com/synnaxlabs/synnax/pkg/service/secret/versions/v1"
 	status "github.com/synnaxlabs/synnax/pkg/service/status/versions/v2"
 	"github.com/synnaxlabs/x/errors"
+	http "github.com/synnaxlabs/x/http/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"
 	vmsgpack "github.com/vmihailenco/msgpack/v5"

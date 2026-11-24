@@ -17,9 +17,8 @@ from uuid import UUID, uuid4
 from pydantic import BaseModel, Field
 
 from synnax import channel as channel_, rack as rack_, secret, status as status_
-from synnax.http import types_gen
 from synnax.resource import ID
-from x import telem
+from x import http, telem
 
 SEND_AS_HEADER: Literal["header"] = "header"
 
@@ -50,9 +49,9 @@ class Request(BaseModel):
         query: Are the query parameters of the request, in sorted order.
     """
 
-    method: types_gen.Method = "POST"
+    method: http.Method = "POST"
     path: str = ""
-    query: list[types_gen.QueryParam] = Field(default_factory=list)
+    query: list[http.QueryParam] = Field(default_factory=list)
 
 
 class ReadRequest(BaseModel):
@@ -64,9 +63,9 @@ class ReadRequest(BaseModel):
         query: Are the query parameters of the request, in sorted order.
     """
 
-    method: types_gen.Method = "GET"
+    method: http.Method = "GET"
     path: str = ""
-    query: list[types_gen.QueryParam] = Field(default_factory=list)
+    query: list[http.QueryParam] = Field(default_factory=list)
 
 
 class HttpsScheme(BaseModel):
@@ -218,10 +217,10 @@ class HealthCheck(BaseModel):
             successful response.
     """
 
-    method: types_gen.Method = "GET"
+    method: http.Method = "GET"
     path: str = ""
-    headers: list[types_gen.Header] = Field(default_factory=list)
-    query_params: list[types_gen.QueryParam] = Field(default_factory=list)
+    headers: list[http.Header] = Field(default_factory=list)
+    query_params: list[http.QueryParam] = Field(default_factory=list)
     body: str = ""
     response: Response | None = None
 

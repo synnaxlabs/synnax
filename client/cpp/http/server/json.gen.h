@@ -17,11 +17,11 @@
 #include <vector>
 
 #include "client/cpp/channel/json.gen.h"
-#include "client/cpp/http/json.gen.h"
 #include "client/cpp/http/server/types.gen.h"
 #include "client/cpp/rack/key.h"
 #include "client/cpp/secret/json.gen.h"
 #include "client/cpp/status/json.gen.h"
+#include "x/cpp/http/json.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/telem/types.gen.h"
 
@@ -43,13 +43,13 @@ inline HealthCheck HealthCheck::parse(x::json::Parser parser) {
     return HealthCheck{
         .method = parser.field<std::string>("method", "GET"),
         .path = parser.field<std::string>("path", ""),
-        .headers = parser.field<std::vector<::synnax::http::Header>>(
+        .headers = parser.field<std::vector<::x::http::Header>>(
             "headers",
-            std::vector<::synnax::http::Header>{}
+            std::vector<::x::http::Header>{}
         ),
-        .query_params = parser.field<std::vector<::synnax::http::QueryParam>>(
+        .query_params = parser.field<std::vector<::x::http::QueryParam>>(
             "query_params",
-            std::vector<::synnax::http::QueryParam>{}
+            std::vector<::x::http::QueryParam>{}
         ),
         .body = parser.field<std::string>("body", ""),
         .response = parser.has("response") ? std::optional<Response>(parse_response(
@@ -75,9 +75,9 @@ inline Request Request::parse(x::json::Parser parser) {
     return Request{
         .method = parser.field<std::string>("method", "POST"),
         .path = parser.field<std::string>("path", ""),
-        .query = parser.field<std::vector<::synnax::http::QueryParam>>(
+        .query = parser.field<std::vector<::x::http::QueryParam>>(
             "query",
-            std::vector<::synnax::http::QueryParam>{}
+            std::vector<::x::http::QueryParam>{}
         ),
     };
 }
@@ -94,9 +94,9 @@ inline ReadRequest ReadRequest::parse(x::json::Parser parser) {
     return ReadRequest{
         .method = parser.field<std::string>("method", "GET"),
         .path = parser.field<std::string>("path", ""),
-        .query = parser.field<std::vector<::synnax::http::QueryParam>>(
+        .query = parser.field<std::vector<::x::http::QueryParam>>(
             "query",
-            std::vector<::synnax::http::QueryParam>{}
+            std::vector<::x::http::QueryParam>{}
         ),
     };
 }
