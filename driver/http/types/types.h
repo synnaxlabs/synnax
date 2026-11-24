@@ -23,8 +23,9 @@
 #include "x/cpp/telem/telem.h"
 
 namespace driver::http {
-/// @brief supported HTTP methods.
-enum class Method { GET, HEAD, POST, PUT, DEL, PATCH, OPTIONS, QUERY };
+/// @brief supported HTTP methods. QUERY_METHOD is QUERY, renamed because a system
+/// header defines QUERY as a macro.
+enum class Method { GET, HEAD, POST, PUT, DEL, PATCH, OPTIONS, QUERY_METHOD };
 
 /// @brief returns the HTTP method string (e.g., Method::DEL returns "DELETE").
 /// @param m the method.
@@ -45,7 +46,7 @@ constexpr const char *to_string(const Method m) {
             return "PATCH";
         case Method::OPTIONS:
             return "OPTIONS";
-        case Method::QUERY:
+        case Method::QUERY_METHOD:
             return "QUERY";
     }
     throw std::invalid_argument("unknown HTTP method");
@@ -62,7 +63,7 @@ inline std::pair<Method, x::errors::Error> parse_method(const std::string &str) 
     if (str == "DELETE") return {Method::DEL, x::errors::NIL};
     if (str == "PATCH") return {Method::PATCH, x::errors::NIL};
     if (str == "OPTIONS") return {Method::OPTIONS, x::errors::NIL};
-    if (str == "QUERY") return {Method::QUERY, x::errors::NIL};
+    if (str == "QUERY") return {Method::QUERY_METHOD, x::errors::NIL};
     return {
         Method::GET,
         x::errors::Error(x::errors::VALIDATION, "unknown HTTP method '" + str + "'"),
@@ -94,12 +95,7 @@ constexpr bool has_request_body(const Method m) {
 
 /// @brief returns true if the method produces a response body.
 constexpr bool has_response_body(const Method m) {
-    switch (m) {
-        case Method::HEAD:
-            return false;
-        default:
-            return true;
-    }
+    return m != Method::HEAD;
 }
 
 /// @brief static request configuration, set once at task setup time.

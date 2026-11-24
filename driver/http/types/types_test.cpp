@@ -57,7 +57,7 @@ TEST(ParseMethodTest, ParsesOPTIONS) {
 
 TEST(ParseMethodTest, ParsesQUERY) {
     x::json::Parser p(x::json::json{{"method", "QUERY"}});
-    EXPECT_EQ(parse_method(p, "method"), Method::QUERY);
+    EXPECT_EQ(parse_method(p, "method"), Method::QUERY_METHOD);
     EXPECT_TRUE(p.ok());
 }
 
@@ -112,7 +112,7 @@ TEST(ToStringTest, OPTIONS) {
 }
 
 TEST(ToStringTest, QUERY) {
-    EXPECT_STREQ(to_string(Method::QUERY), "QUERY");
+    EXPECT_STREQ(to_string(Method::QUERY_METHOD), "QUERY");
 }
 
 TEST(ToStringTest, InvalidMethodThrows) {
@@ -148,7 +148,7 @@ TEST(HasRequestBodyTest, DEL) {
 }
 
 TEST(HasRequestBodyTest, QUERY) {
-    EXPECT_TRUE(has_request_body(Method::QUERY));
+    EXPECT_TRUE(has_request_body(Method::QUERY_METHOD));
 }
 
 TEST(HasResponseBodyTest, GET) {
@@ -176,7 +176,7 @@ TEST(HasResponseBodyTest, OPTIONS) {
 }
 
 TEST(HasResponseBodyTest, QUERY) {
-    EXPECT_TRUE(has_response_body(Method::QUERY));
+    EXPECT_TRUE(has_response_body(Method::QUERY_METHOD));
 }
 
 TEST(HasResponseBodyTest, HEAD) {

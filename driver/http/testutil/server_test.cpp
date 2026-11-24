@@ -399,7 +399,7 @@ TEST(MockServerTest, HEADRouteRegistrationErrors) {
 
 TEST(MockServerTest, QUERYRouteRegistrationErrors) {
     testutil::ServerConfig cfg;
-    cfg.routes = {{.method = Method::QUERY, .path = "/x", .response_body = "x"}};
+    cfg.routes = {{.method = Method::QUERY_METHOD, .path = "/x", .response_body = "x"}};
     EXPECT_THROW(testutil::Server server(cfg), std::runtime_error);
 }
 
