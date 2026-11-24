@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/feature/kafka/task/AddData.css";
+import "@/feature/kafka/task/Discover.css";
 
 import { type kafka, status } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -33,7 +33,19 @@ import { CSS } from "@/platform/css";
 import { ICD } from "@/platform/icd";
 import { Modals } from "@/platform/modals";
 
-interface Params {
+/** The words that a dialog uses for its picks. */
+export interface Kind {
+  /** Names the dialog. */
+  title: string;
+  /** Says what a pick becomes, under the title of the pane. */
+  hint: string;
+  /** Names what one pick adds, such as "field". */
+  noun: string;
+  /** Starts the side action that adds a topic by name, such as "Read". */
+  verb: string;
+}
+
+export interface Params {
   device: Device.Device;
   /** The topic that the dialog shows first, or "" for the first that holds records. */
   topic: string;
@@ -60,9 +72,6 @@ export interface Result {
 }
 
 const FRAME = "records";
-
-const HINT =
-  "Select the fields to read. Records that hold the same fields share a message.";
 
 const ANY_KEY: ICD.Picker.Lock = { checked: true, label: "Any key" };
 
@@ -302,7 +311,7 @@ const TopicValues = ({
         <Text.Text
           level="small"
           status="warning"
-          className={CSS.BE("kafka-add-data", "warning")}
+          className={CSS.BE("kafka-discover", "warning")}
         >
           {warning}
         </Text.Text>
@@ -332,6 +341,8 @@ const SKELETON: ICD.Picker.SkeletonItem[] = [
   [0, "12ch"],
 ];
 
+type ContentProps = Modals.ContentProps<Params, Result> & { kind: Kind };
+
 const Content = ({
   device,
   topic: initial,
@@ -339,7 +350,8 @@ const Content = ({
   reads: readsOf,
   label,
   close,
-}: Modals.ContentProps<Params, Result>) => {
+  kind,
+}: ContentProps) => {
   const [term, setTerm] = useState("");
   const [selected, setSelected] = useState<string | null>(null);
   const [entered, setEntered] = useState<string[]>([]);
@@ -556,7 +568,7 @@ const Content = ({
   if (unknownTerm)
     sideAction = (
       <ICD.Picker.SideAction onClick={handleReadTerm}>
-        {`Read “${trimmed}”`}
+        {`${kind.verb} “${trimmed}”`}
       </ICD.Picker.SideAction>
     );
   else if (activeEntry != null && (activeTopic == null || activeTopic.readable))
@@ -567,10 +579,10 @@ const Content = ({
     );
 
   return (
-    <ICD.Picker.Root value={FRAME} className={CSS.B("kafka-add-data")}>
-      <Modal.Header icon={<Icon.Logo.Kafka />}>Add data</Modal.Header>
+    <ICD.Picker.Root value={FRAME} className={CSS.B("kafka-discover")}>
+      <Modal.Header icon={<Icon.Logo.Kafka />}>{kind.title}</Modal.Header>
       <ICD.Picker.Bar />
-      <ICD.Picker.Frame itemKey={FRAME} hint={HINT}>
+      <ICD.Picker.Frame itemKey={FRAME} hint={kind.hint}>
         <ICD.Picker.Status
           status={statusText}
           loading={browsing || reading != null}
@@ -588,14 +600,14 @@ const Content = ({
         <ICD.Picker.Pane>{pane}</ICD.Picker.Pane>
       </ICD.Picker.Frame>
       <ICD.Picker.Footer
-        counts={[["field", count]]}
-        idle="field"
+        counts={[[kind.noun, count]]}
+        idle={kind.noun}
         onAdd={() => finish(null)}
         onCancel={() => close()}
       >
         {count > 0 && (
           <Text.Text level="small" color={10}>
-            {`${pluralize("field", count, true)} selected`}
+            {`${pluralize(kind.noun, count, true)} selected`}
           </Text.Text>
         )}
       </ICD.Picker.Footer>
@@ -604,8 +616,14 @@ const Content = ({
 };
 
 /**
- * Opens a dialog that lists the topics of a cluster and of the task, and reads records
- * of the one selected, so the user can pick the fields of each shape of their values.
- * It resolves with the picks and any empty record, or null when the user closes it.
+ * Creates a hook that opens a dialog of the topics of a cluster and of the task. It
+ * reads records of the topic selected, so the user can pick fields of each shape of
+ * their values. The dialog resolves with the picks and any empty record, or null when
+ * the user closes it.
  */
-export const useAddDataModal = Modals.createPrompt<Result, Params>(Content);
+export const createDiscoverModal = (kind: Kind): Modals.PromptHook<Params, Result> => {
+  const Dialog = (props: Modals.ContentProps<Params, Result>) => (
+    <Content {...props} kind={kind} />
+  );
+  return Modals.createPrompt<Result, Params>(Dialog);
+};

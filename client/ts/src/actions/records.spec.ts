@@ -116,8 +116,6 @@ const CASES: Case[] = [
     async (c) => {
       const role = await c.access.roles.create({ name: uniqueName("dispatch") });
       return await c.users.create({
-        username: id.create(),
-        password: "test",
         name: uniqueName("dispatch"),
         role: role.key,
       });

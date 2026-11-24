@@ -105,13 +105,10 @@ type checker struct {
 }
 
 func checkState(i int, st State) error {
-	switch v := st.Variant.(type) {
-	case EnumerationState:
+	if v, ok := st.Variant.(EnumerationState); ok {
 		if w, ok := v.Match.Variant.(WithinMatcher); ok {
 			return CheckBounds(at("states", i, "match", "bounds"), w.Bounds)
 		}
-	case NumberState:
-		return CheckBounds(at("states", i, "bounds"), v.Bounds)
 	}
 	return nil
 }

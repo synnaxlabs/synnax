@@ -1555,6 +1555,23 @@ Node union on variant {
 			`),
 		)
 
+		It(
+			"Should reject a max_length rule on bytes in a type that generates Go",
+			func() {
+				_, diag := Analyze(`
+				@go output "core/pkg/service/x"
+
+				Entry struct {
+					value bytes { @validate max_length 64 }
+				}
+			`, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.String()).To(ContainSubstring(
+					"test.Entry.value has a max_length rule on bytes, which Go does not check",
+				))
+			},
+		)
+
 		DescribeTable(
 			"Should accept a length rule on a string or bytes field",
 			func(source string) {

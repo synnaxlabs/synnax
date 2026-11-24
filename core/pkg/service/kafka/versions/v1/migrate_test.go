@@ -71,17 +71,18 @@ func inlineConfig(records ...v1.InlineRecord) v1.ReadConfig {
 
 var _ = Describe("ResolveReadConfig", func() {
 	var (
-		found    map[channel.Key]v1.Channel
-		channels v1.Channels
+		found    map[channel.Key]icd.Channel
+		channels icd.Channels
+		paths    []string
 		changes  []string
 	)
 	BeforeEach(func() {
-		found, changes = nil, nil
+		found, paths, changes = nil, nil, nil
 		channels = func(
 			context.Context,
 			gorp.Snapshot,
 			[]channel.Key,
-		) (map[channel.Key]v1.Channel, error) {
+		) (map[channel.Key]icd.Channel, error) {
 			return found, nil
 		}
 	})
@@ -95,7 +96,10 @@ var _ = Describe("ResolveReadConfig", func() {
 			channels,
 			"Plant",
 			cfg,
-			func(_, change string) { changes = append(changes, change) },
+			func(path, change string) {
+				paths = append(paths, path)
+				changes = append(changes, change)
+			},
 		))
 		Expect(ok).To(BeTrue())
 		return ic
@@ -163,7 +167,7 @@ var _ = Describe("ResolveReadConfig", func() {
 
 	It("Should bind the channel of a field and take the kind of the channel",
 		func(ctx SpecContext) {
-			found = map[channel.Key]v1.Channel{
+			found = map[channel.Key]icd.Channel{
 				7: {Name: "level", DataType: telem.Int32T},
 			}
 			cfg := inlineConfig(v1.InlineRecord{
@@ -280,7 +284,24 @@ var _ = Describe("ResolveReadConfig", func() {
 			})
 			ic := resolve(ctx, &cfg)
 			Expect(fields(ic.Messages[0])[0].Base().Name).To(Equal("a"))
-			Expect(fields(ic.Messages[0])[1].Base().Name).To(Equal("a (2)"))
+			Expect(fields(ic.Messages[0])[1].Base().Name).To(Equal("a_2"))
+		},
+	)
+
+	It("Should note a field that reads a value inside an earlier field",
+		func(ctx SpecContext) {
+			raw := storedField("raw", telem.Float64T)
+			raw.Pointer = "/level/raw"
+			cfg := inlineConfig(v1.InlineRecord{
+				Key:    "r1",
+				Fields: []v1.ReadField{storedField("level", telem.Float64T), raw},
+			})
+			resolve(ctx, &cfg)
+			Expect(paths).To(Equal([]string{"records.0.fields.1"}))
+			Expect(changes).To(Equal([]string{
+				`field "raw" reads a value inside field "level", so keep one of ` +
+					"them before you edit the ICD",
+			}))
 		},
 	)
 

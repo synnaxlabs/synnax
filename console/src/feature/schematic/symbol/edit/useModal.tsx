@@ -140,10 +140,14 @@ const Editor = ({
     const value = selectedValueRef.current;
     const stroke = theme.colors.gray.l10;
     const withPart = { ...spec, parts: [...spec.parts, part] };
-    const stroked = Spec.setColor(withPart, part.key, value, "stroke", stroke);
+    const paint = (c: color.Color): schematic.symbol.Paint => ({
+      type: "color",
+      value: { type: "fixed", value: c },
+    });
+    const stroked = Spec.setOwn(withPart, part.key, "stroke", paint(stroke), value);
     form.set(
       path.data,
-      Spec.setColor(stroked, part.key, value, "fill", color.setOpacity(stroke, 0)),
+      Spec.setOwn(stroked, part.key, "fill", paint(color.setOpacity(stroke, 0)), value),
     );
     setSelectedRegion(part.key);
   };
