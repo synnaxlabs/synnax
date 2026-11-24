@@ -716,9 +716,18 @@ var _ = Describe("Writer", func() {
 			},
 		)
 		It(
-			"Should hand off a clock while both writers write and commit",
+			"Should hand off a clock on the pointer log while both writers write and "+
+				"commit",
 			func(ctx SpecContext) {
-				host := testutil.NewNode(ctx)
+				// On the old layout, as on main, racing moves can leave the index one
+				// sample ahead of the data.
+				st := MustOpen(storage.OpenLayer(ctx, storage.LayerConfig{
+					InMemory:          new(true),
+					PointerLogEnabled: new(true),
+					Random:            rand.NewPCG(1, 2),
+				}))
+				DeferCleanup(StartRun(st.Run))
+				host := testutil.NewNode(ctx, distribution.LayerConfig{Storage: st})
 				idx := MustSucceed(host.CreateChannels(ctx, []channel.Channel{{
 					Name:     "race_time",
 					IsIndex:  true,
