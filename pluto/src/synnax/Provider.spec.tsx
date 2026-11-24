@@ -84,8 +84,6 @@ describe("Synnax.Provider", () => {
     const worker = seen.at(-1);
     if (worker == null || page == null) throw new Error("expected both clients");
     const pageClient: Client = page;
-    expect(worker.params.password).toBeUndefined();
-    expect(worker.params.token).toEqual(pageClient.auth.token);
     await worker.connect();
     expect(worker.auth.session?.key).toEqual(pageClient.auth.session?.key);
     unmount();
@@ -111,19 +109,19 @@ describe("Synnax.Provider", () => {
         </Status.Aggregator>
       </Aether.Provider>
     );
-    const tokenOf = (host: string): string | undefined =>
-      pages.findLast((p) => p.params.host === host)?.auth.token;
+    const sessionOf = (host: string): string | undefined =>
+      pages.findLast((p) => p.params.host === host)?.auth.session?.key;
     const { rerender, unmount } = render(<Tree host="localhost" />);
     await waitFor(() => expect(seen.at(-1)?.params.host).toEqual("localhost"));
-    const first = tokenOf("localhost");
+    const first = sessionOf("localhost");
     rerender(<Tree host="127.0.0.1" />);
     await waitFor(() => expect(seen.at(-1)?.params.host).toEqual("127.0.0.1"));
-    const second = tokenOf("127.0.0.1");
+    const second = sessionOf("127.0.0.1");
     expect(second).not.toEqual(first);
-    const tokens = seen
-      .filter((w) => w?.params.host === "127.0.0.1")
-      .map((w) => w?.params.token);
-    expect(tokens).not.toContain(first);
+    const worker = seen.at(-1);
+    if (worker == null) throw new Error("expected a worker client");
+    await worker.connect();
+    expect(worker.auth.session?.key).toEqual(second);
     unmount();
   });
 

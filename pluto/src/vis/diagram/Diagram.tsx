@@ -61,27 +61,13 @@ import { CSS } from "@/css";
 import { Viewport as BaseViewport } from "@/viewport";
 import { Canvas } from "@/vis/canvas";
 import { diagram } from "@/vis/diagram/aether";
-import {
-  type Edge,
-  type EdgeChange,
-  type Node,
-  type NodeChange,
-  translateEdgeChangeForward,
-  translateEdgesForward,
-  translateNodeChangeForward,
-  translateNodesForward,
-  translateViewportBackward,
-  translateViewportForward,
-  type Viewport,
-} from "@/vis/diagram/aether/types";
 import { Context } from "@/vis/diagram/Context";
-import { useFitView, useInitialFitView } from "@/vis/diagram/useFitView";
-import { useOnViewportChange } from "@/vis/diagram/useOnViewportChange";
 import {
   calculateCursorPosition,
   internalNodeBox,
   partitionNodeChanges,
 } from "@/vis/diagram/util";
+import { View } from "@/vis/diagram/view";
 
 export interface NodeProps {
   nodeKey: string;
@@ -172,16 +158,16 @@ export interface DiagramProps
       | "onNodeDragStart"
       | "edgesReconnectable"
     > {
-  edges: Edge[];
-  nodes: Node[];
-  onNodesChange: (changes: NodeChange[]) => void;
-  onEdgesChange: (changes: EdgeChange[]) => void;
+  edges: diagram.Edge[];
+  nodes: diagram.Node[];
+  onNodesChange: (changes: diagram.NodeChange[]) => void;
+  onEdgesChange: (changes: diagram.EdgeChange[]) => void;
   selected?: string[];
   onSelectionChange?: (selected: string[]) => void;
   editable: boolean;
   onEditableChange: (v: boolean) => void;
-  onViewportChange: (vp: Viewport) => void;
-  viewport: Viewport;
+  onViewportChange: (vp: diagram.Viewport) => void;
+  viewport: diagram.Viewport;
   fitViewOnResize: boolean;
   setFitViewOnResize: (v: boolean) => void;
   viewportMode: BaseViewport.Mode;
@@ -328,7 +314,7 @@ export const create = ({
       [visible, autoRenderInterval],
     );
 
-    const fitView = useFitView();
+    const fitView = View.useFit();
     const debouncedFitView = useDebouncedCallback(
       (args: diagram.FitViewOptions) => fitView(args),
       FIT_VIEW_DEBOUNCE,
@@ -345,7 +331,7 @@ export const create = ({
       setState((prev) => ({ ...prev, region }));
     });
 
-    useInitialFitView(visible && isSized, fitViewOptions);
+    View.useInitialFit(visible && isSized, fitViewOptions);
 
     const triggers = useMemoCompare(
       () => pTriggers ?? BaseViewport.DEFAULT_TRIGGERS.zoom,
@@ -365,25 +351,25 @@ export const create = ({
       viewportRef.current = vp;
       if (isNaN(vp.x) || isNaN(vp.y) || isNaN(vp.zoom)) return;
       setState((prev) => ({ ...prev, position: vp, zoom: vp.zoom }));
-      onViewportChange(translateViewportBackward(vp));
+      onViewportChange(diagram.translateViewportBackward(vp));
     };
-    useOnViewportChange(handleViewportChange);
+    View.useOnChange(handleViewportChange);
 
     const selectedSet = new Set(selected);
     const selectedRef = useSyncedRef(selectedSet);
 
-    const rfEdges = translateEdgesForward(edges, selectedSet);
+    const rfEdges = diagram.translateEdgesForward(edges, selectedSet);
     const [measured, setMeasured] = useState<Record<string, dimensions.Dimensions>>({});
-    const rfNodes = translateNodesForward(nodes, selectedSet, dragHandleSelector).map(
-      (node) => ({
+    const rfNodes = diagram
+      .translateNodesForward(nodes, selectedSet, dragHandleSelector)
+      .map((node) => ({
         ...node,
         measured: measured[node.id],
-      }),
-    );
+      }));
 
     const processChanges = <
       RFChange extends RFEdgeChange | RFNodeChange,
-      Change extends EdgeChange | NodeChange,
+      Change extends diagram.EdgeChange | diagram.NodeChange,
     >(
       rfChanges: Iterable<RFChange>,
       translate: (c: RFChange) => Change | null,
@@ -423,11 +409,11 @@ export const create = ({
           return next;
         });
       if (passthrough.length > 0)
-        processChanges(passthrough, translateNodeChangeForward, onNodesChange);
+        processChanges(passthrough, diagram.translateNodeChangeForward, onNodesChange);
     };
 
     const handleEdgesChange = (changes: EdgeChangeset) =>
-      processChanges(changes, translateEdgeChangeForward, onEdgesChange);
+      processChanges(changes, diagram.translateEdgeChangeForward, onEdgesChange);
 
     const handleConnect = (conn: RFConnection) =>
       onEdgesChange([{ type: "add", edge: diagram.createEdgeFromConnection(conn) }]);
@@ -474,7 +460,7 @@ export const create = ({
       triggers,
     };
 
-    const defautlViewport = translateViewportForward(viewport);
+    const defautlViewport = diagram.translateViewportForward(viewport);
 
     const viewportSyncRef = useSyncedRef(viewport);
     const cursorRef = useRef<xy.XY>(xy.ZERO);

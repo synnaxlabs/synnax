@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/arc/analyzer/flow"
 	atypes "github.com/synnaxlabs/arc/analyzer/types"
 	"github.com/synnaxlabs/arc/analyzer/units"
+	"github.com/synnaxlabs/arc/formatter"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/literal"
 	"github.com/synnaxlabs/arc/parser"
@@ -438,7 +439,7 @@ func castValue(cast parser.ITypeCastContext, t types.Type) any {
 	if err != nil {
 		return nil
 	}
-	if types.UnitsConvertible(castType.Unit, t.Unit) {
+	if types.WriteConverts(castType.Unit, t.Unit) {
 		parsed, err = literal.Convert(
 			telem.CastNumeric[float64](parsed.Value), castType.Unit, t,
 		)
@@ -567,7 +568,11 @@ func getChannelSourceFromExpr[ASTNode antlr.ParserRuleContext](
 func analyzeStatefulVariable(ctx context.Context[parser.IStatefulVariableContext]) {
 	if ctx.Scope == ctx.Scope.Root() {
 		ctx.Diagnostics.Add(codes.StatefulVariable.Atf(ctx.AST,
-			"stateful variables cannot be declared at the top level"))
+			"stateful variables cannot be declared at the top level",
+		).WithEdits(
+			"Change to `:=`",
+			formatter.ReplaceToken(ctx.AST.STATE_DECLARE().GetSymbol(), ":="),
+		))
 		return
 	}
 	name := ctx.AST.IDENTIFIER().GetText()
@@ -745,12 +750,15 @@ func analyzeForSingleIdent(
 		return
 	}
 
-	ctx.Diagnostics.Add(codes.InvalidOperand.Atf(
-		ctx.AST,
-		"cannot iterate over %s; did you mean range(%s)?",
-		exprType,
-		parser.GetExpressionText(expr),
-	))
+	text := parser.GetExpressionText(expr)
+	d := codes.InvalidOperand.Atf(
+		ctx.AST, "cannot iterate over %s; did you mean range(%s)?", exprType, text,
+	)
+	if exprType.IsInteger() || isIntegerLiteral(exprType) {
+		call := "range(" + text + ")"
+		d = d.WithEdits("Change to `"+call+"`", formatter.Replace(expr, call))
+	}
+	ctx.Diagnostics.Add(d)
 }
 
 func analyzeForTwoIdent(
@@ -935,7 +943,7 @@ func analyzeBreakStatement(ctx context.Context[parser.IBreakStatementContext]) {
 		ctx.Diagnostics.Add(codes.BreakOutsideLoop.Atf(
 			ctx.AST,
 			"break can only be used inside a for loop",
-		))
+		).WithEdits("Remove break", formatter.RemoveStatement(ctx.AST)))
 	}
 }
 
@@ -945,7 +953,7 @@ func analyzeContinueStatement(ctx context.Context[parser.IContinueStatementConte
 		ctx.Diagnostics.Add(codes.BreakOutsideLoop.Atf(
 			ctx.AST,
 			"continue can only be used inside a for loop",
-		))
+		).WithEdits("Remove continue", formatter.RemoveStatement(ctx.AST)))
 	}
 }
 
