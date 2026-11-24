@@ -186,7 +186,7 @@ var _ = Describe("Check: state", func() {
 		Expect(b.Commit(commit(2, n, 0, 60, 120, slot(id, 16)))).
 			To(SatisfyAll(
 				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring("write conflict")),
+				MatchError(ContainSubstring("cannot write to time range")),
 			))
 		Expect(b.Close()).To(Succeed())
 		// The switch logs a Seal for each open segment that no writer holds.
