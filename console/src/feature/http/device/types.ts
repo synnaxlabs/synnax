@@ -81,21 +81,20 @@ export const ZERO_AUTH_CONFIGS: Record<AuthType, AuthConfig> = {
   basic: { type: "basic", username: "", password: "" },
 };
 
-export const headersZ = http.headerZ.array().check(
-  zod.uniqueBy<http.Header, "name">(
-    "name",
-    (name) => `Duplicate header "${name}"`,
-    ({ name }) => name === "",
-  ),
-);
+export const headersZ = http.headerZ
+  .array()
+  .check(
+    zod.uniqueBy<http.Header, "name">("name", (name) => `Duplicate header "${name}"`),
+  );
 
-export const queryParamsZ = http.queryParamZ.array().check(
-  zod.uniqueBy<http.QueryParam, "parameter">(
-    "parameter",
-    (parameter) => `Duplicate query parameter "${parameter}"`,
-    ({ parameter }) => parameter === "",
-  ),
-);
+export const queryParamsZ = http.queryParamZ
+  .array()
+  .check(
+    zod.uniqueBy<http.QueryParam, "parameter">(
+      "parameter",
+      (parameter) => `Duplicate query parameter "${parameter}"`,
+    ),
+  );
 
 const sharedHealthCheckZ = z.object({
   path: z.string(),

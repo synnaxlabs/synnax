@@ -726,12 +726,9 @@ describe("HTTP Device Properties", () => {
       expect(result).toEqual([]);
     });
 
-    it("should skip duplicate check for empty name", () => {
-      const result = HTTP.Device.headersZ.safeParse([
-        { name: "", value: "a" },
-        { name: "", value: "b" },
-      ]);
-      expect(result.success).toBe(true);
+    it("should reject an empty header name", () => {
+      const result = HTTP.Device.headersZ.safeParse([{ name: "", value: "a" }]);
+      expect(result.success).toBe(false);
     });
   });
 
@@ -764,12 +761,11 @@ describe("HTTP Device Properties", () => {
       expect(result).toEqual([]);
     });
 
-    it("should skip duplicate check for empty parameter", () => {
+    it("should reject an empty parameter name", () => {
       const result = HTTP.Device.queryParamsZ.safeParse([
         { parameter: "", value: "a" },
-        { parameter: "", value: "b" },
       ]);
-      expect(result.success).toBe(true);
+      expect(result.success).toBe(false);
     });
   });
 });

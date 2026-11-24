@@ -51,7 +51,7 @@ class Header(BaseModel):
         value: Is the header value.
     """
 
-    name: str = ""
+    name: str = Field(min_length=1, default="")
     value: str = ""
 
 
@@ -63,7 +63,7 @@ class QueryParam(BaseModel):
         value: Is the parameter value.
     """
 
-    parameter: str = ""
+    parameter: str = Field(min_length=1, default="")
     value: str = ""
 
 

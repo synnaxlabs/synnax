@@ -53,10 +53,13 @@ Method enum {
 
 Header struct {
     name  string = "" {
-        @doc value "is the header name, unique within a request."
+        @doc value         "is the header name, unique within a request."
+        @go validate       pattern "^[!#$%&'*+.^_`|~0-9A-Za-z-]+$" "Header name must be a token: letters, digits, and !#$%&'*+-.^_`|~"
+        @validate required
     }
     value string = "" {
-        @doc value "is the header value."
+        @doc value   "is the header value."
+        @go validate pattern "^([^[:cntrl:]]|[[:blank:]])*$" "Header value must not hold a line break or other control character"
     }
 
     @doc value  "is a single HTTP header sent with a request."
@@ -65,7 +68,8 @@ Header struct {
 
 QueryParam struct {
     parameter string = "" {
-        @doc value "is the parameter name, unique within a request."
+        @doc value         "is the parameter name, unique within a request."
+        @validate required
     }
     value     string = "" {
         @doc value "is the parameter value."
@@ -104,7 +108,8 @@ ReadField struct {
         @ref on_delete restrict
     }
     pointer     string = "" {
-        @doc value "is the JSON Pointer to the value within the response body."
+        @doc value   "is the JSON Pointer to the value within the response body."
+        @go validate pattern "^(/([^~/]|~[01])*)*$" "Pointer must be empty or a JSON Pointer that starts with / and escapes ~ as ~0 and / as ~1"
     }
     data_type   telem.DataType = "float64" {
         @doc value "is the data type of the extracted value."
@@ -139,7 +144,8 @@ ReadEndpoint struct {
         @doc value "is the HTTP method used to poll the endpoint."
     }
     path         string = "" {
-        @doc value "is the URL path appended to the device's base URL."
+        @doc value   "is the URL path appended to the device's base URL."
+        @go validate pattern "^[^?#[:space:]]*$" "Path must not hold a query, a fragment, or whitespace"
     }
     headers      Header[]          {
         @doc value "contains additional headers merged into the request."
@@ -212,11 +218,12 @@ ReadConfig struct extends task.PersistConfig {
 
 ChannelField struct {
     pointer     string = "" {
-        @doc value """
+        @doc value   """
             is the JSON Pointer where the channel value is placed in the body. An empty
             pointer sends the bare value as the entire body, in which case the endpoint
             may not declare any additional fields.
         """
+        @go validate pattern "^(/([^~/]|~[01])*)*$" "Pointer must be empty or a JSON Pointer that starts with / and escapes ~ as ~0 and / as ~1"
     }
     json_type   payload.JSONType = number {
         @doc value "is the JSON type the channel value is serialized as."
@@ -259,7 +266,8 @@ BaseWriteField struct {
         @key
     }
     pointer string = "" {
-        @doc value "is the JSON Pointer where the value is placed in the body."
+        @doc value   "is the JSON Pointer where the value is placed in the body."
+        @go validate pattern "^(/([^~/]|~[01])*)*$" "Pointer must be empty or a JSON Pointer that starts with / and escapes ~ as ~0 and / as ~1"
     }
 
     @cpp omit
@@ -315,7 +323,8 @@ WriteEndpoint struct {
         @doc value "is the HTTP method used to send the request."
     }
     path         string = "" {
-        @doc value "is the URL path appended to the device's base URL."
+        @doc value   "is the URL path appended to the device's base URL."
+        @go validate pattern "^[^?#[:space:]]*$" "Path must not hold a query, a fragment, or whitespace"
     }
     headers      Header[]          {
         @doc value "contains additional headers merged into the request."
