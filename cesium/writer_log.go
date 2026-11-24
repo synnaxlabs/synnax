@@ -445,7 +445,10 @@ func (w *logWriter) commit(
 			First:     int64(w.first),
 			Last:      int64(w.end),
 		}
-		w.collectSlots()
+		if err := w.collectSlots(); err != nil {
+			w.putBack()
+			return 0, false, err
+		}
 		c.Slots = slices.Clone(w.keySegments)
 		var err error
 		w.pre, err = w.e.withPreloads(w.pre, w.committed, w.first, w.end, false, func(
@@ -482,7 +485,7 @@ func (w *logWriter) commit(
 // collectSlots sets keySegments to a slot for each segment with uncommitted samples, in
 // rising order of segment, committed to the keys of those segments in rising order, and
 // backfilled to those keys that readers see data of after the uncommitted run.
-func (w *logWriter) collectSlots() {
+func (w *logWriter) collectSlots() error {
 	w.keySegments, w.committed = w.keySegments[:0], w.committed[:0]
 	w.backfilled = w.backfilled[:0]
 	for _, lk := range w.keys {
@@ -490,7 +493,11 @@ func (w *logWriter) collectSlots() {
 			continue
 		}
 		w.committed = append(w.committed, lk.ch.Key)
-		if w.e.storedAfter(lk.ch.Key, w.end) {
+		after, err := w.e.storedAfter(lk.ch.Key, w.end)
+		if err != nil {
+			return err
+		}
+		if after {
 			w.backfilled = append(w.backfilled, lk.ch.Key)
 		}
 		length, crc := lk.w.Pending()
@@ -504,6 +511,7 @@ func (w *logWriter) collectSlots() {
 		return cmp.Compare(a.Segment, b.Segment)
 	})
 	slices.Sort(w.committed)
+	return nil
 }
 
 // sealFull seals each segment that reached segmentLimit, so the next write creates
