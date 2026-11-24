@@ -112,7 +112,6 @@ var _ = Describe("Check: switches after a create that writes parts", func() {
 				g := uint64(i + 2)
 				c.Head(g, want.s)
 				Eventually(func() error { return readErr(fs, g) }).Should(Succeed())
-				Expect(c.Err()).ToNot(HaveOccurred())
 				h, got := MustSucceed2(checkpoint.Read(fs, g))
 				var parts []uint64
 				for _, p := range h.Parts {

@@ -26,12 +26,6 @@ type Gate[K comparable, R Resource[K]] struct {
 	authority Authority
 }
 
-// Subject returns information about the subject controlling this gate.
-func (g *Gate[K, R]) Subject() Subject { return g.subject }
-
-// Authority returns the control authority for this gate.
-func (g *Gate[K, R]) Authority() Authority { return g.authority }
-
 // State returns the current control State of the gate.
 func (g *Gate[K, R]) state() *State[K] {
 	return &State[K]{
@@ -39,14 +33,6 @@ func (g *Gate[K, R]) state() *State[K] {
 		Resource:  g.region.resource.Key(),
 		Authority: g.authority,
 	}
-}
-
-// PeekResource returns the resource controlled by the gate. The resource is NOT valid
-// for modification or use.
-func (g *Gate[K, R]) PeekResource() R {
-	g.region.RLock()
-	defer g.region.RUnlock()
-	return g.region.resource
 }
 
 // Authorize calls f with the resource if the gate has control over it, returning the
@@ -84,7 +70,7 @@ func (g *Gate[K, R]) authorize() (r R, err error) {
 		return r, errors.Wrapf(
 			ErrUnauthorized,
 			"%s has no control authority - gate was already released",
-			g.Subject(),
+			g.subject,
 		)
 	}
 	// In the case of exclusive concurrency, we only need to check if the gate is the
@@ -99,8 +85,8 @@ func (g *Gate[K, R]) authorize() (r R, err error) {
 	return r, errors.Wrapf(
 		ErrUnauthorized,
 		"%s has no control authority - it is currently held by %s",
-		g.Subject(),
-		g.region.curr.Subject(),
+		g.subject,
+		g.region.curr.subject,
 	)
 }
 

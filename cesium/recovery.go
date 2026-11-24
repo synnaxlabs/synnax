@@ -273,7 +273,9 @@ func (r *recovery) verifiedHeader(
 
 // frameAt returns the frame at off of the log of generation in b when it is valid: its
 // magic, bounds, and check pass, and it continues sequence with a link to prev. A frame
-// that fails is read a second time before frameAt decides.
+// that fails is read a second time before frameAt decides: its header, and then the
+// bytes that the header bounds, so the padding after a synced frame costs one small
+// read.
 func (r *recovery) frameAt(
 	b []byte,
 	generation uint64,
@@ -291,9 +293,15 @@ func (r *recovery) frameAt(
 	if f, ok := valid(); ok {
 		return f, true, nil
 	}
-	end := min(off+log.MaxFrame, int64(len(b)))
-	if err := r.reread(generation, b[off:end], off); err != nil {
+	head := min(off+log.FrameHeaderSize, int64(len(b)))
+	if err := r.reread(generation, b[off:head], off); err != nil {
 		return log.Frame{}, false, err
+	}
+	if size, ok := log.FrameSize(b[off:head]); ok {
+		end := min(off+int64(size), int64(len(b)))
+		if err := r.reread(generation, b[head:end], head); err != nil {
+			return log.Frame{}, false, err
+		}
 	}
 	f, ok := valid()
 	return f, ok, nil

@@ -113,6 +113,29 @@ var _ = Describe("Frame", func() {
 		},
 		refusalEntries(frameRefusals),
 	)
+
+	It("Should give the size of a frame from its header alone", func() {
+		f := log.Frame{Count: 1, Sequence: 9, Entries: entries}
+		b := f.Append(nil, db, generation, 8_192)
+		b[40] ^= 0xFF
+		size, ok := log.FrameSize(b[:log.FrameHeaderSize])
+		Expect(ok).To(BeTrue())
+		Expect(size).To(Equal(f.Size()))
+	})
+
+	DescribeTable(
+		"Should give no size for a header that breaks the format",
+		func(b []byte) {
+			_, ok := log.FrameSize(b)
+			Expect(ok).To(BeFalse())
+		},
+		Entry("a short header", le32(0x464C5043, 0, 0, 0)),
+		Entry("no magic", concat(le32(0x464C5044, 0, 0, 0), make([]byte, 16))),
+		Entry(
+			"entries past the largest frame",
+			concat(le32(0x464C5043, 0, log.MaxFrame-31, 0), make([]byte, 16)),
+		),
+	)
 })
 
 var _ = Describe("Header", func() {

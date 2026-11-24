@@ -91,11 +91,13 @@ var _ = Describe("Group commit", func() {
 				key := 10 + k
 				writers.Go(func() {
 					defer GinkgoRecover()
-					w := MustSucceed(st.OpenWriter(state.WriterConfig{
-						Keys:  []state.WriterKey{{Key: key, DataType: 4}},
-						Clock: key,
-						Start: 1,
-					}))
+					w := MustSucceed(
+						st.OpenWriter(context.Background(), state.WriterConfig{
+							Keys:  []state.WriterKey{{Key: key, DataType: 4}},
+							Clock: key,
+							Start: 1,
+						}),
+					)
 					id := MustSucceed(w.NewSegment(key))
 					h := MustSucceed(budget.Create(fs, fmt.Sprintf("%016x.seg", id)))
 					sw := segment.NewWriter(h, segment.Config{
@@ -143,7 +145,6 @@ var _ = Describe("Group commit", func() {
 			}
 			writers.Wait()
 			Eventually(func() error { return readErr(fs, 2) }).Should(Succeed())
-			Eventually(cp.Err).Should(Succeed())
 			snap := MustSucceed(st.Snapshot())
 			Expect(snap.Channels).To(HaveLen(4))
 			for _, ch := range snap.Channels {

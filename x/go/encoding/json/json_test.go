@@ -218,6 +218,29 @@ var _ = Describe("Wire format", func() {
 		Expect(MustSucceed(json.Codec.Encode(shape{Empty: []int{}}))).
 			To(MatchJSON(`{"empty":[]}`))
 	})
+	It("Should encode bytes as standard, padded base64 and decode them back", func() {
+		type shape struct {
+			Data []byte `json:"data"`
+		}
+		data := []byte{0xfb, 0xff, 0x00, 0x61, 0x73, 0x6d, 0xff}
+		encoded := MustSucceed(json.Codec.Encode(shape{Data: data}))
+		Expect(encoded).To(MatchJSON(`{"data":"+/8AYXNt/w=="}`))
+		var decoded shape
+		Expect(json.Codec.Decode(encoded, &decoded)).To(Succeed())
+		Expect(decoded.Data).To(Equal(data))
+	})
+	DescribeTable("Should reject bytes that are not standard base64 text",
+		func(wire string) {
+			var decoded struct {
+				Data []byte `json:"data"`
+			}
+			Expect(json.Codec.Decode([]byte(`{"data":`+wire+`}`), &decoded)).
+				To(MatchError(ContainSubstring("failed to decode")))
+		},
+		Entry("unpadded", `"+/8AYXNt/w"`),
+		Entry("URL alphabet", `"-_8AYXNt_w=="`),
+		Entry("array", `[251, 255]`),
+	)
 	It("Should match object names case-sensitively", func() {
 		var d toEncode
 		Expect(json.Codec.Decode([]byte(`{"value":7}`), &d)).To(Succeed())

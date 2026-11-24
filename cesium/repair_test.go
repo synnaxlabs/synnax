@@ -465,7 +465,7 @@ var _ = Describe("Repair", func() {
 			GinkgoHelper()
 			db := MustSucceed(open(ctx))
 			stop := GoRun(ctx, db.Run)
-			Expect(db.Drop([]cesium.ChannelKey{newData})).To(Succeed())
+			Expect(db.Drop(ctx, []cesium.ChannelKey{newData})).To(Succeed())
 			write(ctx, db, 100*telem.SecondTS)
 			Expect(errors.Join(stop(), db.Close())).To(Succeed())
 			frames := framesOf(fs, id)

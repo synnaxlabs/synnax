@@ -141,9 +141,8 @@ func inferVarKind(ctx context.Context[parser.IVariableDeclarationContext]) {
 	}
 	// A lone name bound to a reactive variable is itself reactive; one bound to a
 	// value variable is a computed copy and registers below.
-	var buf [2]string
-	if parts := parser.AppendExpressionNameParts(buf[:0], expr); len(parts) > 0 {
-		ref, rerr := ctx.Scope.ResolveMember(ctx, parts)
+	if head, tail := parser.ExpressionNameParts(expr); head != "" {
+		ref, rerr := ctx.Scope.ResolveMember(ctx, head, tail)
 		if rerr != nil {
 			return
 		}
@@ -199,12 +198,11 @@ func rhsBindsChannel[T antlr.ParserRuleContext](
 	ctx context.Context[T],
 	expr parser.IExpressionContext,
 ) (bound, bare bool) {
-	var buf [2]string
-	parts := parser.AppendExpressionNameParts(buf[:0], expr)
-	if len(parts) == 0 {
+	head, tail := parser.ExpressionNameParts(expr)
+	if head == "" {
 		return false, false
 	}
-	ref, err := ctx.Scope.ResolveMember(ctx, parts)
+	ref, err := ctx.Scope.ResolveMember(ctx, head, tail)
 	if err != nil {
 		return false, true
 	}
@@ -266,9 +264,8 @@ func synthReadsChannel[T antlr.ParserRuleContext](
 		return true
 	}
 	for _, pe := range parser.CollectNamedPrimaries(expr, ctx.FmtStrings) {
-		var buf [2]string
-		parts := parser.AppendPrimaryNameParts(buf[:0], pe)
-		if ref, err := synth.ResolveMember(ctx, parts); err == nil &&
+		head, tail := parser.PrimaryNameParts(pe)
+		if ref, err := synth.ResolveMember(ctx, head, tail); err == nil &&
 			ref.IsReactive() {
 			return true
 		}
@@ -282,9 +279,8 @@ func rhsReadsVariable[T antlr.ParserRuleContext](
 	expr parser.IExpressionContext,
 ) bool {
 	for _, pe := range parser.CollectNamedPrimaries(expr, ctx.FmtStrings) {
-		var buf [2]string
-		parts := parser.AppendPrimaryNameParts(buf[:0], pe)
-		sym, err := ctx.Scope.ResolveMember(ctx, parts)
+		head, tail := parser.PrimaryNameParts(pe)
+		sym, err := ctx.Scope.ResolveMember(ctx, head, tail)
 		if err != nil {
 			continue
 		}
@@ -525,12 +521,11 @@ func analyzeLocalVariable(ctx context.Context[parser.ILocalVariableContext]) {
 // getChannelSymbol checks if an expression is a simple identifier referencing
 // a global channel symbol (KindChannel). Returns the symbol if so, nil otherwise.
 func getChannelSymbol(ctx context.Context[parser.IExpressionContext]) *symbol.Symbol {
-	var buf [2]string
-	parts := parser.AppendExpressionNameParts(buf[:0], ctx.AST)
-	if len(parts) == 0 {
+	head, tail := parser.ExpressionNameParts(ctx.AST)
+	if head == "" {
 		return nil
 	}
-	sym, err := ctx.Scope.ResolveMember(ctx, parts)
+	sym, err := ctx.Scope.ResolveMember(ctx, head, tail)
 	if err != nil {
 		return nil
 	}
@@ -549,12 +544,11 @@ func getChannelSourceFromExpr[ASTNode antlr.ParserRuleContext](
 	ctx context.Context[ASTNode],
 	expr parser.IExpressionContext,
 ) *int {
-	var buf [2]string
-	parts := parser.AppendExpressionNameParts(buf[:0], expr)
-	if len(parts) == 0 {
+	head, tail := parser.ExpressionNameParts(expr)
+	if head == "" {
 		return nil
 	}
-	sym, err := ctx.Scope.ResolveMember(ctx, parts)
+	sym, err := ctx.Scope.ResolveMember(ctx, head, tail)
 	if err != nil {
 		return nil
 	}

@@ -88,7 +88,7 @@ var _ = Describe("Rebuild", func() {
 			}))
 			Expect(errs).To(HaveLen(2))
 			Expect(errs[0]).To(SatisfyAll(
-				MatchError(state.ErrRefused),
+				refused(),
 				MatchError(ContainSubstring("overlaps its pointer")),
 			))
 			Expect(errs[1]).ToNot(HaveOccurred())
@@ -131,7 +131,7 @@ var _ = Describe("Rebuild", func() {
 	DescribeTable("Should refuse a rebuild that breaks a rule",
 		func(r state.Rebuild, msg string) {
 			Expect(s.Rebuild(r)).Error().To(SatisfyAll(
-				MatchError(state.ErrRefused),
+				refused(),
 				MatchError(ContainSubstring(msg)),
 			))
 		},
@@ -182,7 +182,7 @@ var _ = Describe("ReplayEach", func() {
 		Expect(skipped).To(HaveLen(2))
 		Expect(skipped[0].Record).To(BeIdenticalTo(seal))
 		Expect(skipped[0].Err).To(SatisfyAll(
-			MatchError(state.ErrRefused),
+			refused(),
 			MatchError(ContainSubstring("not its committed 16")),
 		))
 		Expect(skipped[1].Record).To(BeIdenticalTo(c))
@@ -196,7 +196,7 @@ var _ = Describe("ReplayEach", func() {
 	It("Should refuse an entry that does not follow the entry of the state", func() {
 		s := MustSucceed(state.Open(config(&appended{}), sample()))
 		Expect(s.ReplayEach(11, nil)).Error().To(SatisfyAll(
-			MatchError(state.ErrRefused),
+			refused(),
 			MatchError(ContainSubstring("entry 11 follows entry 9")),
 		))
 	})
@@ -241,7 +241,7 @@ var _ = Describe("Remove", func() {
 		func(key uint32, segment uint64) {
 			open(sample())
 			Expect(s.Remove(key, segment, false)).To(SatisfyAll(
-				MatchError(state.ErrRefused),
+				refused(),
 				MatchError(ContainSubstring("which the state does not hold")),
 			))
 		},

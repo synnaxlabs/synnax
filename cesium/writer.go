@@ -123,12 +123,13 @@ func (w *Writer) Close() error {
 }
 
 // Write writes fr except the channels for which skip returns true, and returns it
-// without them, with the alignment and time range of each written series set. A skipped
-// index also skips the data channels it indexes in the writer. The returned bool is
-// true when Write skipped a series of fr, and the next commit of that index then
-// commits nothing. Write validates every series of fr. When skip returns true with no
-// lock held, Write skips at once. If not, it calls skip again under the lock of each
-// channel's claim. A nil skip skips nothing.
+// without them, with the alignment and time range of each written series set. It sets
+// them in fr too, so the caller must not use fr again. Pass a ShallowCopy to keep using
+// it. A skipped index also skips the data channels it indexes in the writer. The
+// returned bool is true when Write skipped a series of fr, and the next commit of that
+// index then commits nothing. Write validates every series of fr. When skip returns
+// true with no lock held, Write skips at once. If not, it calls skip again under the
+// lock of each channel's claim. A nil skip skips nothing.
 func (w *Writer) Write(
 	ctx context.Context,
 	fr Frame,
@@ -138,7 +139,7 @@ func (w *Writer) Write(
 		return Frame{}, false, err
 	}
 	if w.log != nil {
-		fr, skipped, err := w.log.write(fr, skip)
+		fr, skipped, err := w.log.write(ctx, fr, skip)
 		if err != nil {
 			return Frame{}, false, w.fail(err)
 		}
@@ -167,7 +168,7 @@ func (w *Writer) Commit(
 		return 0, false, err
 	}
 	if w.log != nil {
-		end, skipped, err := w.log.commit(skip)
+		end, skipped, err := w.log.commit(ctx, skip)
 		if err != nil {
 			return 0, false, w.fail(err)
 		}
@@ -205,7 +206,7 @@ func (w *Writer) EndDomain(ctx context.Context, indexes ...ChannelKey) error {
 		if !slices.Contains(indexes, w.log.clock) {
 			return nil
 		}
-		return w.fail(w.log.endStretch())
+		return w.fail(w.log.endStretch(ctx))
 	}
 	for _, idx := range w.internal {
 		if !idx.writingToIdx || !slices.Contains(indexes, idx.idx.ch.Key) {

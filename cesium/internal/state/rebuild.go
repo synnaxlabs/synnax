@@ -40,9 +40,9 @@ type Rebuild struct {
 // Creates, each Commit, then the Ends. Each Commit takes the next alignment number at
 // the limit, which rises past it. pre holds, in rising order of key, the part records
 // that the Commits reach. It returns the error of each Commit that breaks a rule, which
-// applies nothing, or nil for each that applies. It returns an error that wraps
-// ErrRefused when the sequence of r is before the state's, when the alignment number
-// limit passes the domain limit, or when a Create or an End breaks a rule.
+// applies nothing, or nil for each that applies. It returns an error when the sequence
+// of r is before the state's, when the alignment number limit passes the domain limit,
+// or when a Create or an End breaks a rule.
 func (s *State) Rebuild(r Rebuild, pre ...Preload) ([]error, error) {
 	defer s.core.count.end()
 	return s.core.rebuild(r, pre)
@@ -103,8 +103,8 @@ type Skipped struct {
 // replay mode, before Run, and returns each one that breaks a rule. Such a record
 // changes nothing, but for the part records that its preload put back, which keep
 // their tags. pre holds, in rising order of key, the part records that the records
-// reach. It returns an error that wraps ErrRefused when sequence does not follow the
-// entry of the state, or log.ErrUnknown for a record that this binary does not apply.
+// reach. It returns an error when sequence does not follow the entry of the state, or
+// one that wraps log.ErrUnknown for a record that this binary does not apply.
 func (s *State) ReplayEach(
 	sequence uint64,
 	records []log.Record,
@@ -125,7 +125,7 @@ func (c *core) applyEach(
 	var skipped []Skipped
 	for _, r := range records {
 		err := c.record(r, pre)
-		if errors.Is(err, ErrRefused) {
+		if errors.Is(err, errRefused) {
 			skipped = append(skipped, Skipped{Record: r, Err: err})
 			continue
 		}
@@ -145,8 +145,8 @@ func (s *State) ReplayKeys() []uint32 {
 
 // Remove takes segment of key out of the state for a repair whose file is gone, in
 // replay mode, before Run. A segment that a part holds gets a kill, when parted is true
-// or the state holds the record of the part. It returns an error that wraps ErrRefused
-// when the state holds neither the segment nor key.
+// or the state holds the record of the part. It returns an error when the state holds
+// neither the segment nor key.
 func (s *State) Remove(key uint32, segment uint64, parted bool) error {
 	defer s.core.count.end()
 	return s.core.remove(key, segment, parted)

@@ -10,6 +10,8 @@
 package state_test
 
 import (
+	"context"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/log"
@@ -118,7 +120,7 @@ var _ = Describe("Tombstone", func() {
 		"Should refuse a tombstone that breaks a rule",
 		func(t *log.Tombstone, msg string) {
 			Expect(s.Replay(10, []log.Record{t})).To(SatisfyAll(
-				MatchError(state.ErrRefused),
+				refused(),
 				MatchError(ContainSubstring(msg)),
 			))
 		},
@@ -175,7 +177,7 @@ var _ = Describe("Tombstone", func() {
 				Left: cutOf(1, 10), Right: cutOf(2, 30),
 			})).To(Succeed())
 			Expect(d.Check(&log.Tombstone{Key: 6, Start: 15, End: 100})).
-				To(MatchError(state.ErrRefused))
+				To(refused())
 			Expect(d.Release()).To(Succeed())
 			d = MustSucceed(s.BeginDelete(6, 0, 100))
 			Expect(d.Left).To(BeNil())
@@ -187,20 +189,20 @@ var _ = Describe("Tombstone", func() {
 	It("Should refuse a delete that reaches the claim of a writer or another delete",
 		func() {
 			run(s)
-			MustSucceed(s.OpenWriter(state.WriterConfig{
+			MustSucceed(s.OpenWriter(context.Background(), state.WriterConfig{
 				Keys:  []state.WriterKey{{Key: 6, DataType: 4}},
 				Clock: 5,
 				Start: 40,
 			}))
 			Expect(s.BeginDelete(6, 35, 45)).Error().To(SatisfyAll(
-				MatchError(state.ErrConflict),
+				conflict(),
 				MatchError(
 					ContainSubstring("reaches the claim of another writer from 40"),
 				),
 			))
 			d := MustSucceed(s.BeginDelete(6, 35, 40))
 			Expect(s.BeginDelete(6, 39, 40)).Error().To(SatisfyAll(
-				MatchError(state.ErrConflict),
+				conflict(),
 				MatchError(ContainSubstring("reaches the claim of a delete from 35")),
 			))
 			Expect(d.Release()).To(Succeed())
@@ -216,7 +218,7 @@ var _ = Describe("Tombstone", func() {
 			a.s, a.seq = s, sample().Sequence
 			run(s)
 			d := MustSucceed(s.BeginDelete(6, 100, 200))
-			w := MustSucceed(s.OpenWriter(state.WriterConfig{
+			w := MustSucceed(s.OpenWriter(context.Background(), state.WriterConfig{
 				Keys:  []state.WriterKey{{Key: 6, DataType: 4}},
 				Clock: 5,
 				Start: 300,
@@ -226,16 +228,16 @@ var _ = Describe("Tombstone", func() {
 			n := MustSucceed(w.NewAlignment())
 			backfill := commit(1, n, 0, 150, 150, slot(held.ID, held.Length+4))
 			Expect(w.Commit(backfill)).To(SatisfyAll(
-				MatchError(state.ErrConflict),
+				conflict(),
 				MatchError(ContainSubstring("reaches the claim of a delete from 100")),
 			))
-			Expect(s.OpenWriter(state.WriterConfig{
+			Expect(s.OpenWriter(context.Background(), state.WriterConfig{
 				Keys:    []state.WriterKey{{Key: 6, DataType: 4}},
 				Clock:   5,
 				Start:   150,
 				Bounded: true,
 			})).Error().To(SatisfyAll(
-				MatchError(state.ErrConflict),
+				conflict(),
 				MatchError(ContainSubstring("reaches the claim of a delete from 100")),
 			))
 			Expect(d.Release()).To(Succeed())

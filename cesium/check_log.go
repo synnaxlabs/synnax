@@ -28,6 +28,7 @@ import (
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	xtime "github.com/synnaxlabs/x/time"
+	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 )
 
@@ -289,7 +290,7 @@ func (c *checker) finish(
 	switch {
 	case err == nil:
 		return false, nil
-	case errors.Is(err, state.ErrConflict):
+	case errors.Is(err, validate.ErrValidation):
 		c.e.ins.L.Debug("a claim holds a cut of the check pass", fields...)
 		return true, nil
 	case errors.Is(err, state.ErrStale):
@@ -409,7 +410,7 @@ func (c *checker) agree(off int64, size int) ([]byte, error) {
 // check, with the samples of each key that clock times there. The cuts are by position,
 // since the stamps there do not rise. The timed keys go first, since the state refuses
 // a cut of a range of clock that a key still uses. It returns an error that wraps
-// state.ErrConflict when another claim reaches the range.
+// validate.ErrValidation when another claim reaches the range.
 func (c *checker) cut(clock ChannelKey, b badStamp) error {
 	tr := telem.TimeRange{Start: b.prev + 1, End: b.p.Last + 1}
 	if b.i == 0 {
