@@ -1198,7 +1198,12 @@ TEST(TestCommonReadTask, WarnsWhileWaitingForALicense) {
     ASSERT_EVENTUALLY_TRUE(std::ranges::any_of(ctx->snapshot(), [](const auto &s) {
         return s.message == "Waiting for a license";
     }));
-    ASSERT_EVENTUALLY_FALSE(shows("Waiting for a license"));
+    // A status that answers no command goes out at most once per second.
+    ASSERT_EVENTUALLY_FALSE_WITH_TIMEOUT(
+        shows("Waiting for a license"),
+        std::chrono::seconds(5),
+        std::chrono::milliseconds(10)
+    );
     read_task.stop("stop_cmd", true);
 }
 }
