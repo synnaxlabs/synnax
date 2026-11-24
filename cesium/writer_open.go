@@ -96,11 +96,6 @@ func (c WriterConfig) unaryConfig() unary.WriterConfig {
 
 // OpenWriter implements DB.
 func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (*Writer, error) {
-	if db.closed.Load() {
-		return nil, ErrDBClosed
-	}
-	db.mu.RLock()
-	defer db.mu.RUnlock()
 	cfg, err := config.New(WriterConfig{}, cfgs...)
 	if err != nil {
 		return nil, err
@@ -112,6 +107,11 @@ func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (*Writer, er
 		}
 		return &Writer{WriterConfig: cfg, log: lw}, nil
 	}
+	if db.closed.Load() {
+		return nil, ErrDBClosed
+	}
+	db.mu.RLock()
+	defer db.mu.RUnlock()
 	idx, err := db.openClockWriter(ctx, cfg)
 	if err != nil {
 		return nil, err

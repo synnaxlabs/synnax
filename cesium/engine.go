@@ -77,6 +77,9 @@ type engine struct {
 		// advanced is closed and replaced each time covered rises.
 		advanced chan struct{}
 	}
+	// reaps asks Run for a reap. A reap waits for a step of the state, so it never runs
+	// on the executor that runs those steps.
+	reaps    chan struct{}
 	shutdown sync.Once
 	closeErr error
 	pins     pins
@@ -106,6 +109,7 @@ func openEngine(o *options) (*engine, error) {
 		exec:     o.executor,
 		ready:    make(chan struct{}),
 		failed:   make(chan struct{}),
+		reaps:    make(chan struct{}, 1),
 		unstored: telem.NewAlignmentCounter(telem.LeadingDomain),
 	}
 	e.pins.readers, e.pins.dead = make(map[uint64]int), make(map[uint64]ChannelKey)
@@ -282,23 +286,25 @@ func (e *engine) reap() error {
 }
 
 // covered unlinks, off the step of the log, the file of each dead segment whose record
-// the log now covers and that no reader pins, and takes the segments that left the
-// state since the last reap.
+// the log now covers and that no reader pins, and asks Run to take the segments that
+// left the state since the last reap.
 func (e *engine) covered(sequence uint64) {
-	free := e.uncover(sequence, nil)
-	taking := e.state.HasDead()
-	if len(free) == 0 && !taking {
-		return
+	if free := e.uncover(sequence, nil); len(free) > 0 {
+		e.exec(func() {
+			if err := e.release(free); err != nil {
+				e.ins.L.Error(
+					"failed to unlink the file of a dead segment",
+					zap.Error(err),
+				)
+			}
+		})
 	}
-	e.exec(func() {
-		err := e.release(free)
-		if taking {
-			err = errors.Join(err, e.reap())
+	if e.state.HasDead() {
+		select {
+		case e.reaps <- struct{}{}:
+		default:
 		}
-		if err != nil {
-			e.ins.L.Error("failed to unlink the file of a dead segment", zap.Error(err))
-		}
-	})
+	}
 }
 
 // uncover raises the covered sequence to covered, adds dead to the segments that wait,
@@ -365,14 +371,31 @@ func (e *engine) run(ctx context.Context) error {
 	}
 	close(e.ready)
 	if err == nil {
-		select {
-		case <-ctx.Done():
-		case <-owners.Done():
-		case <-e.failed:
-			err = e.failure
-		}
+		err = e.serve(ctx, owners)
 	}
 	return errors.Join(err, e.close(), errors.Skip(owners.Wait(), context.Canceled))
+}
+
+// serve reaps each time covered asks, until ctx is done, an owner stops, or a caller
+// fails the engine.
+func (e *engine) serve(ctx context.Context, owners signal.Context) error {
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-owners.Done():
+			return nil
+		case <-e.failed:
+			return e.failure
+		case <-e.reaps:
+			if err := e.reap(); err != nil {
+				e.ins.L.Error(
+					"failed to unlink the file of a dead segment",
+					zap.Error(err),
+				)
+			}
+		}
+	}
 }
 
 // fail ends Run with err, when no fatal error ended it first.
