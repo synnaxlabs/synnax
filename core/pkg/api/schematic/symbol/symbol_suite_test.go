@@ -42,7 +42,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/set"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -271,8 +270,4 @@ func suitePolicies() impact.Policies {
 		{Table: "schematic", Name: "nodes.config.command_channel"}: retarget,
 		{Table: "schematic", Name: "nodes.config.state_channel"}:   retarget,
 	}}
-}
-
-func noActuators(context.Context, gorp.Tx) (set.Set[symbol.Key], error) {
-	return nil, nil
 }
