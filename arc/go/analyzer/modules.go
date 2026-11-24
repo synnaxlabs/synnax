@@ -10,10 +10,14 @@
 package analyzer
 
 import (
+	"strings"
+
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/analyzer/codes"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/x/diagnostics"
+	"go.lsp.dev/protocol"
 )
 
 // checkModuleRules reports a misplaced export, authority block, or top-level flow.
@@ -37,7 +41,7 @@ func checkModuleRules(ctx acontext.Context[parser.IProgramContext]) {
 		if !ctx.Module {
 			ctx.Diagnostics.Add(codes.ExportOutsideModule.Atf(
 				item, "export is only valid in a module",
-			))
+			).WithEdits("Remove export", removeExport(item)))
 			continue
 		}
 		if decl, name := exportedDeclaration(item); name == nil {
@@ -46,6 +50,31 @@ func checkModuleRules(ctx acontext.Context[parser.IProgramContext]) {
 			))
 		}
 	}
+}
+
+// removeExport returns the edit that deletes the export of item and the space after it.
+func removeExport(item parser.ITopLevelItemContext) protocol.TextEdit {
+	var (
+		export  = item.EXPORT().GetSymbol()
+		decl, _ = exportedDeclaration(item)
+		after   = export.GetInputStream().GetText(
+			export.GetStop()+1,
+			decl.GetStart().GetStart()-1,
+		)
+		start = protocol.Position{
+			Line:      uint32(export.GetLine() - 1),
+			Character: uint32(export.GetColumn()),
+		}
+		end = protocol.Position{
+			Line:      start.Line,
+			Character: start.Character + uint32(len(export.GetText())),
+		}
+		space = len(after) - len(strings.TrimLeft(after, " \t\r\n"))
+	)
+	return protocol.TextEdit{Range: protocol.Range{
+		Start: start,
+		End:   diagnostics.Advance(end, after, space),
+	}}
 }
 
 // markExports flags the root symbol of every exported declaration.

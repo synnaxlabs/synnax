@@ -18,7 +18,9 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
+	xlsp "github.com/synnaxlabs/x/lsp"
 	. "github.com/synnaxlabs/x/testutil"
+	"go.lsp.dev/protocol"
 )
 
 var _ = Describe("Modules", func() {
@@ -66,6 +68,50 @@ var _ = Describe("Modules", func() {
 			Expect(ctx.Diagnostics.String()).To(
 				ContainSubstring("export is only valid in a module"),
 			)
+		})
+
+		DescribeTable(
+			"Should give a fix that removes export outside a module",
+			func(bCtx SpecContext, source, fixed string) {
+				ctx := analyze(bCtx, source, false)
+				Expect(*ctx.Diagnostics).To(HaveLen(1))
+				fixes := (*ctx.Diagnostics)[0].Fixes
+				Expect(fixes).To(HaveLen(1))
+				Expect(fixes[0].Title).To(Equal("Remove export"))
+				Expect(fixes[0].Edits).To(HaveLen(1))
+				Expect(xlsp.ApplyIncrementalChange(
+					source,
+					&protocol.TextDocumentContentChangePartial{
+						Range: fixes[0].Edits[0].Range,
+						Text:  fixes[0].Edits[0].NewText,
+					},
+				)).To(Equal(fixed))
+			},
+			Entry("function", "export func f() {}", "func f() {}"),
+			Entry(
+				"sequence",
+				"export sequence s { stage a {} }",
+				"sequence s { stage a {} }",
+			),
+			Entry("stage", "export stage s {}", "stage s {}"),
+			Entry("variable", "export x := 1", "x := 1"),
+			Entry(
+				"declaration after another",
+				"func g() {}\nexport func f() {}",
+				"func g() {}\nfunc f() {}",
+			),
+			Entry("declaration on the next line", "export\nfunc f() {}", "func f() {}"),
+			Entry(
+				"comment after export",
+				"export // why\nfunc f() {}",
+				"// why\nfunc f() {}",
+			),
+		)
+
+		It("Should give no fix for an export in a module", func(bCtx SpecContext) {
+			ctx := analyze(bCtx, "export sequence { stage s {} }", true)
+			Expect(*ctx.Diagnostics).To(HaveLen(1))
+			Expect((*ctx.Diagnostics)[0].Fixes).To(BeEmpty())
 		})
 
 		It("Should reject an unnamed exported declaration", func(bCtx SpecContext) {
