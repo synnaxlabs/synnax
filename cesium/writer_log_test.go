@@ -103,6 +103,31 @@ var _ = Describe("Writer on the pointer log", func() {
 		Expect(w.Close()).To(Succeed())
 	})
 
+	It("Should open an unstored writer beside a live writer of the same channels, at "+
+		"a start in their stored data", func(ctx SpecContext) {
+		w := openWriter(ctx, 10*telem.SecondTS)
+		MustSucceed2(w.Write(ctx, frame(10, 11), nil))
+		MustSucceed2(w.Commit(ctx, nil))
+		stream := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+			Clock:    idx,
+			Channels: keys,
+			Start:    10 * telem.SecondTS,
+			Unstored: true,
+		}))
+		written, _ := MustSucceed2(stream.Write(ctx, frame(10, 11), nil))
+		Expect(written.Get(idx).Series[0].Alignment.DomainIndex()).
+			To(BeNumerically(">", telem.LeadingDomain))
+		Expect(MustSucceed2(stream.Commit(ctx, nil))).To(Equal(11*telem.SecondTS + 1))
+		Expect(stream.Close()).To(Succeed())
+		MustSucceed2(w.Write(ctx, frame(12), nil))
+		Expect(MustSucceed2(w.Commit(ctx, nil))).To(Equal(12*telem.SecondTS + 1))
+		Expect(w.Close()).To(Succeed())
+		stored := MustSucceed(db.Read(ctx, telem.TimeRangeMax, idx)).Get(idx)
+		Expect(stored.Series[0]).To(
+			telem.MatchSeriesData(telem.NewSeriesSecondsTSV(10, 11, 12)),
+		)
+	})
+
 	It("Should keep the channel list and the commits of a synced writer across a "+
 		"reopen", func(ctx SpecContext) {
 		w := openWriter(ctx, 10*telem.SecondTS)

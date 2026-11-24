@@ -131,6 +131,9 @@ func (db *DB) openLogWriter(ctx context.Context, cfg WriterConfig) (*logWriter, 
 	slices.SortStableFunc(w.keys, func(a, b *logKey) int {
 		return boolOrder(b.ch.Key == w.clock) - boolOrder(a.ch.Key == w.clock)
 	})
+	if w.unstored {
+		return w, nil
+	}
 	if err := w.openState(ctx, db, cfg, keys); err != nil {
 		return nil, err
 	}
@@ -598,8 +601,12 @@ func (w *logWriter) flush() error {
 	return err
 }
 
-// close syncs, releases the claims of w, and closes its segment files.
+// close syncs, releases the claims of w, and closes its segment files. An unstored
+// writer holds none of them.
 func (w *logWriter) close() error {
+	if w.unstored {
+		return nil
+	}
 	err := w.sync()
 	err = errors.Join(err, w.st.Close())
 	for _, lk := range w.keys {
