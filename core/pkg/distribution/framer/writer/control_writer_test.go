@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -106,7 +107,7 @@ var _ = DescribeTableSubtree("Writer control moved from Cesium", func(pointerLog
 					).Get(x).
 						Series
 					Expect(series).To(HaveLen(1))
-					Expect(series[0]).To(telem.MatchSeriesDataV[int64](10, 11))
+					Expect(series[0]).To(MatchSeriesDataV[int64](10, 11))
 					Expect(b.Close()).To(Succeed())
 					Expect(a.Close()).To(Succeed())
 				},
@@ -168,7 +169,7 @@ var _ = DescribeTableSubtree("Writer control moved from Cesium", func(pointerLog
 					Expect(
 						MustSucceed(db.Read(ctx, telem.TimeRangeMax, data)).Get(data).
 							Series,
-					).To(HaveExactElements(telem.MatchSeriesDataV[int64](7, 8)))
+					).To(HaveExactElements(MatchSeriesDataV[int64](7, 8)))
 					Expect(holder.Close()).To(Succeed())
 				},
 			)
@@ -418,7 +419,7 @@ var _ = DescribeTableSubtree("Writer control moved from Cesium", func(pointerLog
 						).Get(key).
 							Series
 						Expect(series).To(HaveLen(1))
-						Expect(series[0]).To(telem.MatchSeriesDataV[telem.TimeStamp](
+						Expect(series[0]).To(MatchSeriesDataV[telem.TimeStamp](
 							10*telem.SecondTS,
 							11*telem.SecondTS,
 							12*telem.SecondTS,
@@ -670,7 +671,7 @@ var _ = DescribeTableSubtree("Writer control moved from Cesium", func(pointerLog
 						f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, data))
 						Expect(f.Get(data).Series).To(HaveLen(1))
 						Expect(f.Get(data).Series[0]).
-							To(telem.MatchSeriesDataV[int64](1, 2, 3, 4, 5))
+							To(MatchSeriesDataV[int64](1, 2, 3, 4, 5))
 					},
 				)
 				It(
@@ -850,8 +851,8 @@ var _ = DescribeTableSubtree("Writer control moved from Cesium", func(pointerLog
 							return
 						}
 						Expect(series).To(HaveLen(2))
-						Expect(series[0]).To(telem.MatchSeriesDataV[int64](10, 11, 12))
-						Expect(series[1]).To(telem.MatchSeriesDataV[int64](20, 21))
+						Expect(series[0]).To(MatchSeriesDataV[int64](10, 11, 12))
+						Expect(series[1]).To(MatchSeriesDataV[int64](20, 21))
 					},
 				)
 			})

@@ -153,12 +153,7 @@ func (c *compactor) rewrite(ctx context.Context, cand state.Candidate) error {
 	if !ok {
 		return nil
 	}
-	pin := held{segments: []uint64{old.ID}}
-	defer func() {
-		if err := c.e.unpin(pin); err != nil {
-			c.e.ins.L.Error("unlink of a rewritten segment failed", zap.Error(err))
-		}
-	}()
+	defer c.e.unpin(held{segments: []uint64{old.ID}})
 	id, err := c.e.state.NewID()
 	if err != nil {
 		if c.e.state.Err() != nil {

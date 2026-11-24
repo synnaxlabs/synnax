@@ -17,9 +17,11 @@ import (
 	"time"
 
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/cesium/internal/log"
 	"github.com/synnaxlabs/cesium/internal/segment"
 	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/encoding/json"
+	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
@@ -40,9 +42,11 @@ type options struct {
 	gcCfg     GCConfig
 	fileSize  telem.Size
 	chunkSize int64
-	clock     xtime.Clock
-	random    rand.Source
-	executor  func(f func())
+	// logFileSize is the size of each new log file of the pointer log layout.
+	logFileSize int64
+	clock       xtime.Clock
+	random      rand.Source
+	executor    func(f func())
 	// pointerLog opens the database on the pointer log layout.
 	pointerLog bool
 	// partSize is the size of the sealed segment records in a head at which a switch
@@ -88,6 +92,17 @@ func mergeAndValidateOptions(o *options) error {
 	}
 	if o.executor == nil {
 		o.executor = segment.GoExecutor
+	}
+	o.logFileSize = override.Numeric(int64(log.FileSize), o.logFileSize)
+	if o.logFileSize < log.MinFileSize || o.logFileSize%log.BlockSize != 0 {
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"log file size %d is not a whole number of %d-byte blocks of at least %d "+
+				"bytes",
+			o.logFileSize,
+			log.BlockSize,
+			log.MinFileSize,
+		)
 	}
 	gcCfg := GCConfig{
 		MaxGoroutine: 10,
@@ -148,6 +163,12 @@ func WithInstrumentation(i alamos.Instrumentation) Option {
 // commits. Defaults to 1GB.
 func WithFileSizeCap(size telem.Size) Option {
 	return func(o *options) { o.fileSize = size }
+}
+
+// WithLogFileSize sets the size of each new log file of the pointer log layout, a whole
+// number of 4 KiB blocks of at least 4 MiB. Defaults to 64 MiB.
+func WithLogFileSize(size telem.Size) Option {
+	return func(o *options) { o.logFileSize = int64(size) }
 }
 
 // WithChunkSize sets the most samples, summed over an iterator's channels, that one

@@ -187,8 +187,9 @@ client_ts: &client_ts
   - *ts
   - *x_ts
   - client/ts/**
-  # The client's filter specs read the Core's shared filter cases.
+  # The client's filter and orphan specs read the Core's shared vectors.
   - core/testdata/filter/**
+  - core/testdata/orphans/**
   # The codec specs read the golden frames that all four codecs share.
   - x/testdata/framecodec/**
 
@@ -488,6 +489,11 @@ suppressions_py:
 runners:
   - *py
   - scripts/runners/**
+
+tls:
+  - *client_py
+  - *client_ts
+  - .github/workflows/test.tls.yaml
 
 console_deps:
   - console/src-tauri/.cargo/audit.toml

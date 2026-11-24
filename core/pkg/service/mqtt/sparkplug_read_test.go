@@ -27,6 +27,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -105,7 +106,7 @@ var _ = Describe("Sparkplug B read entries", func() {
 				Eventually(func() int64 { return stored(ctx, data[0]).Len() }).
 					Should(BeEquivalentTo(1))
 				Expect(stored(ctx, data[0])).
-					To(telem.MatchSeriesData(telem.NewSeriesV(23.5)))
+					To(MatchSeriesData(telem.NewSeriesV(23.5)))
 				Expect(stored(ctx, idx).ValueAt[telem.TimeStamp](0)).
 					To(Equal(1700000000000 * telem.MillisecondTS))
 				Expect(taskStatus(ctx, t).Variant).To(Equal(status.VariantSuccess))
@@ -125,7 +126,7 @@ var _ = Describe("Sparkplug B read entries", func() {
 			Eventually(func() int64 { return stored(ctx, data[0]).Len() }).
 				Should(BeEquivalentTo(3))
 			Expect(stored(ctx, data[0])).
-				To(telem.MatchSeriesData(telem.NewSeriesV(1.0, 2.0, 3.0)))
+				To(MatchSeriesData(telem.NewSeriesV(1.0, 2.0, 3.0)))
 		})
 
 		It("Should give each tag of one message its own index", func(ctx SpecContext) {
@@ -149,9 +150,9 @@ var _ = Describe("Sparkplug B read entries", func() {
 			// Each index commits on its own, so the two channels can fill in any order.
 			Eventually(func(g Gomega) {
 				g.Expect(stored(ctx, first[0])).
-					To(telem.MatchSeriesData(telem.NewSeriesV(1.0)))
+					To(MatchSeriesData(telem.NewSeriesV(1.0)))
 				g.Expect(stored(ctx, second[0])).
-					To(telem.MatchSeriesData(telem.NewSeriesV[int32](-4)))
+					To(MatchSeriesData(telem.NewSeriesV[int32](-4)))
 			}).Should(Succeed())
 		})
 
@@ -167,7 +168,7 @@ var _ = Describe("Sparkplug B read entries", func() {
 			Eventually(func() int64 { return stored(ctx, data[0]).Len() }).
 				Should(BeEquivalentTo(2))
 			Expect(stored(ctx, data[0])).
-				To(telem.MatchSeriesData(telem.NewSeriesV[uint8](0, 1)))
+				To(MatchSeriesData(telem.NewSeriesV[uint8](0, 1)))
 		})
 
 		It("Should write a string tag to a virtual channel", func(ctx SpecContext) {
@@ -225,7 +226,7 @@ var _ = Describe("Sparkplug B read entries", func() {
 		expectStored := func(ctx context.Context, ch channel.Channel, values ...float64) {
 			GinkgoHelper()
 			Eventually(func() telem.Series { return stored(ctx, ch) }, timeout).
-				Should(telem.MatchSeriesData(telem.NewSeriesV(values...)))
+				Should(MatchSeriesData(telem.NewSeriesV(values...)))
 		}
 		expectWarning := func(ctx context.Context, t task.Task, description any) {
 			GinkgoHelper()
@@ -296,7 +297,7 @@ var _ = Describe("Sparkplug B read entries", func() {
 				stamp := func(seconds telem.TimeStamp) telem.TimeStamp {
 					return baseMillis*telem.MillisecondTS + seconds*telem.SecondTS
 				}
-				Expect(stored(ctx, idx)).To(telem.MatchSeriesData(telem.NewSeriesV(
+				Expect(stored(ctx, idx)).To(MatchSeriesData(telem.NewSeriesV(
 					stamp(1), stamp(2), stamp(3), stamp(4),
 				)))
 				Expect(taskStatus(ctx, t).Variant).To(Equal(status.VariantSuccess))
@@ -334,7 +335,7 @@ var _ = Describe("Sparkplug B read entries", func() {
 					"its timestamp is not inside an outage",
 			))
 			Expect(stored(ctx, data)).
-				To(telem.MatchSeriesData(telem.NewSeriesV(1.0, 3.0)))
+				To(MatchSeriesData(telem.NewSeriesV(1.0, 3.0)))
 		})
 
 		It("Should not take a rebirth as an outage", func(ctx SpecContext) {
@@ -345,7 +346,7 @@ var _ = Describe("Sparkplug B read entries", func() {
 				"rejected a historical value of tag plant/line1/temperature: "+
 					"its timestamp is not inside an outage",
 			))
-			Expect(stored(ctx, data)).To(telem.MatchSeriesData(telem.NewSeriesV(1.0)))
+			Expect(stored(ctx, data)).To(MatchSeriesData(telem.NewSeriesV(1.0)))
 		})
 
 		It("Should write a burst in time order and write each timestamp once",
@@ -498,30 +499,29 @@ var _ = Describe("Sparkplug B read entries", func() {
 			expectStored(ctx, data[0], 1, 9, 4, 5)
 		})
 
-		It(
-			"Should write a value into the outage of a writer that waits for its clock",
-			func(
-				ctx SpecContext,
-			) {
-				idx, data := createIndexed(ctx, telem.Float64T)
-				node.setTags("", live(1))
-				start(ctx, readConfig(
-					ctx, dev, tagEntry("plant", "line1", "", "temperature", data[0]),
-				))
-				expectStored(ctx, data[0], 1)
-				node.death()
-				node.setTags("", live(4))
-				node.birth()
-				expectStored(ctx, data[0], 1, 4)
-				w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
-					Keys:  channel.Keys{idx.Key(), data[0].Key()},
-					Start: baseMillis*telem.MillisecondTS + 2*telem.SecondTS,
-				}))
-				defer func() { Expect(w.Close()).To(Succeed()) }()
-				node.data("", past(3))
-				expectStored(ctx, data[0], 1, 3, 4)
-			},
-		)
+		It("Should warn when another writer holds an outage", func(ctx SpecContext) {
+			idx, data := createIndexed(ctx, telem.Float64T)
+			node.setTags("", live(1))
+			t := start(ctx, readConfig(
+				ctx, dev, tagEntry("plant", "line1", "", "temperature", data[0]),
+			))
+			expectStored(ctx, data[0], 1)
+			node.death()
+			node.setTags("", live(4))
+			node.birth()
+			expectStored(ctx, data[0], 1, 4)
+			w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+				Keys:  channel.Keys{idx.Key(), data[0].Key()},
+				Start: baseMillis*telem.MillisecondTS + 2*telem.SecondTS,
+			}))
+			defer func() { Expect(w.Close()).To(Succeed()) }()
+			node.data("", past(3))
+			expectWarning(ctx, t, ContainSubstring(
+				"failed to write historical values of tag plant/line1/temperature",
+			))
+			Expect(stored(ctx, data[0])).
+				To(MatchSeriesData(telem.NewSeriesV(1.0, 4.0)))
+		})
 
 		It("Should write a value once a writer leaves its outage",
 			func(ctx SpecContext) {
@@ -605,7 +605,7 @@ var _ = Describe("Sparkplug B read entries", func() {
 				Eventually(func() int64 { return stored(ctx, data[0]).Len() }).
 					Should(BeEquivalentTo(2))
 				Expect(stored(ctx, data[0])).
-					To(telem.MatchSeriesData(telem.NewSeriesV(1.0, 2.0)))
+					To(MatchSeriesData(telem.NewSeriesV(1.0, 2.0)))
 			},
 		)
 
@@ -785,7 +785,7 @@ var _ = Describe("Sparkplug B read entries", func() {
 				))
 				Eventually(func() int64 { return stored(ctx, data[0]).Len() }).
 					Should(BeEquivalentTo(1))
-				Expect(stored(ctx, data[0])).To(telem.MatchSeriesData(expected))
+				Expect(stored(ctx, data[0])).To(MatchSeriesData(expected))
 			},
 			Entry("NaN into float64", nan, telem.NewSeriesV(nan)),
 			Entry("+Inf into float64", math.Inf(1), telem.NewSeriesV(math.Inf(1))),

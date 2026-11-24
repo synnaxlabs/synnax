@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/cesium/internal/resource"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/lifetime"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/signal"
@@ -62,12 +63,10 @@ type DB struct {
 	corruptIntents int
 	// engine is the pointer log layout of the DB, and nil on the old layout.
 	engine *engine
-	// lifecycle orders the start of Run against Close.
-	lifecycle struct {
-		sync.Mutex
-		state runState
-	}
-	mu struct {
+	// run orders the start of Run against Close, and started is true once Run began.
+	run     lifetime.Guard
+	started atomic.Bool
+	mu      struct {
 		dbs struct {
 			unary map[ChannelKey]unary.DB
 			// hidden holds the channels that Sweep keeps: they hold samples but have no
@@ -156,35 +155,18 @@ func (db *DB) Metrics() Metrics {
 	return Metrics{DiskSize: size}
 }
 
-// runState is the stage of DB.Run.
-type runState uint8
-
-const (
-	runIdle runState = iota
-	runRunning
-	runStopped
-)
-
 // Run runs the garbage collector until ctx ends. It then waits for it to stop and
 // returns its error. Call Run once, after Open and before Close. A second Run returns
 // an error, and a Run after Close returns ErrDBClosed.
 func (db *DB) Run(ctx context.Context) error {
-	db.lifecycle.Lock()
 	if db.closed.Load() {
-		db.lifecycle.Unlock()
 		return ErrDBClosed
 	}
-	if db.lifecycle.state != runIdle {
-		db.lifecycle.Unlock()
-		return errors.New("run called twice")
+	if err := db.run.Begin(); err != nil {
+		return err
 	}
-	db.lifecycle.state = runRunning
-	db.lifecycle.Unlock()
-	defer func() {
-		db.lifecycle.Lock()
-		db.lifecycle.state = runStopped
-		db.lifecycle.Unlock()
-	}()
+	defer db.run.End()
+	db.started.Store(true)
 	sCtx, cancel := signal.WithCancel(
 		ctx,
 		signal.WithInstrumentation(db.Instrumentation),
@@ -204,19 +186,16 @@ func (db *DB) Run(ctx context.Context) error {
 // If there is an error in closing the cesium database, the database will be marked as
 // closed regardless of whether an error occurred.
 func (db *DB) Close() error {
-	db.lifecycle.Lock()
-	if db.lifecycle.state == runRunning {
-		db.lifecycle.Unlock()
-		return errors.Wrap(resource.ErrOpen, "close called while Run runs")
+	first, err := db.run.Close()
+	if err != nil {
+		return errors.Wrap(resource.ErrOpen, err.Error())
 	}
-	closing := db.closed.CompareAndSwap(false, true)
-	ran := db.lifecycle.state != runIdle
-	db.lifecycle.Unlock()
-	if !closing {
+	if !first {
 		return nil
 	}
+	db.closed.Store(true)
 	if db.engine != nil {
-		if ran {
+		if db.started.Load() {
 			return db.engine.close()
 		}
 		// The owners close only while they run, so a DB that never ran runs them with a
@@ -225,7 +204,6 @@ func (db *DB) Close() error {
 		cancel()
 		return db.engine.run(done)
 	}
-	var err error
 	db.mu.Lock()
 	defer db.mu.Unlock()
 	for _, u := range db.mu.dbs.unary {

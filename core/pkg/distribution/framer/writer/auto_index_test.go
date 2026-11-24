@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -399,7 +400,7 @@ var _ = DescribeTableSubtree("Writer AutoIndex", func(pointerLog bool) {
 				fr := MustSucceed(
 					host.Storage.TS.Read(ctx, telem.TimeRangeMax, uint32(idx.Key())),
 				)
-				Expect(fr.SeriesAt(0)).To(telem.MatchSeriesData(
+				Expect(fr.SeriesAt(0)).To(MatchSeriesData(
 					telem.NewSeriesSecondsTSV(1),
 				))
 			},

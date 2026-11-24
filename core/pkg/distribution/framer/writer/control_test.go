@@ -20,6 +20,7 @@ import (
 	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -131,9 +132,9 @@ var _ = DescribeTableSubtree("Control moved from Cesium", func(pointerLog bool) 
 						f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, dataCh))
 						Expect(f.Get(dataCh).Series).To(HaveLen(2))
 						Expect(f.Get(dataCh).Series[0]).
-							To(telem.MatchSeriesDataV[int16](1, 2, 3))
+							To(MatchSeriesDataV[int16](1, 2, 3))
 						Expect(f.Get(dataCh).Series[1]).
-							To(telem.MatchSeriesDataV[int16](10, 11, 12))
+							To(MatchSeriesDataV[int16](10, 11, 12))
 					},
 				)
 				It(
@@ -238,7 +239,7 @@ var _ = DescribeTableSubtree("Control moved from Cesium", func(pointerLog bool) 
 						f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, dataCh))
 						Expect(f.Get(dataCh).Series).To(HaveLen(1))
 						Expect(f.Get(dataCh).Series[0]).
-							To(telem.MatchSeriesDataV[int16](21, 22))
+							To(MatchSeriesDataV[int16](21, 22))
 					},
 				)
 				It(
@@ -289,7 +290,7 @@ var _ = DescribeTableSubtree("Control moved from Cesium", func(pointerLog bool) 
 						f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, dataCh))
 						Expect(f.Get(dataCh).Series).To(HaveLen(1))
 						Expect(f.Get(dataCh).Series[0]).
-							To(telem.MatchSeriesDataV[int16](1))
+							To(MatchSeriesDataV[int16](1))
 					},
 				)
 			})
@@ -1132,7 +1133,7 @@ var _ = DescribeTableSubtree("Control moved from Cesium", func(pointerLog bool) 
 							Expect(r.Count()).To(Equal(1))
 							Expect(
 								r.Get(virtualChKey).Series[0],
-							).To(telem.MatchSeriesDataV[uint8](1))
+							).To(MatchSeriesDataV[uint8](1))
 						},
 					)
 				})
