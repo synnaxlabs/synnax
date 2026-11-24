@@ -201,7 +201,12 @@ var _ = Describe("Source", func() {
 		Expect(samples).To(Equal([]read.Sample{
 			{Group: 1, Data: [][]byte{f64(2.5)}},
 		}))
-		Expect(src.Groups()[1].Index).To(Equal(tick.Key()))
+		Expect(src.Groups()[1]).To(Equal(read.Group{
+			Read:      1,
+			Index:     tick.Key(),
+			Channels:  channel.Keys{levelCh.Key()},
+			DataTypes: []telem.DataType{telem.Float64T},
+		}))
 	})
 
 	DescribeTable("Should refuse reads that it cannot decode",
