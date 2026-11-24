@@ -85,12 +85,11 @@ export const ClickInspector = ({
   const [first, second] =
     click.type === "fire" ? [click.command, undefined] : click.commands;
   const partners = Spec.nextPartners({ states, commands }, first);
-  const toggle = (command: string): Interaction => ({
-    type: "next",
-    key,
-    part: click.part,
-    commands: [command, Spec.nextPartners({ states, commands }, command)[0]?.key ?? ""],
-  });
+  const toggle = (command: string): Interaction => {
+    const [partner] = Spec.nextPartners({ states, commands }, command);
+    if (partner == null) throw new Error(`command ${command} has no toggle partner`);
+    return { type: "next", key, part: click.part, commands: [command, partner.key] };
+  };
   const handleTypeChange = (type: schematic.symbol.InteractionType) =>
     update(
       type === "next" ? toggle(first) : { type, key, part: click.part, command: first },
@@ -133,7 +132,7 @@ export const ClickInspector = ({
           <Select.Item<schematic.symbol.InteractionType>
             itemKey="next"
             size="small"
-            disabled={click.type === "fire" && partners.length === 0}
+            disabled={partners.length === 0}
             tooltip={partners.length === 0 ? TOGGLE_NEEDS_PAIR : undefined}
           >
             Toggle

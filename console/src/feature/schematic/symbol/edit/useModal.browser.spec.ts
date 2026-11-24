@@ -1339,8 +1339,23 @@ describe("Schematic.Symbol.Edit.useModal", () => {
         interactions: [{ type: "fire", key: "c", command: "go" }],
       });
       fireEvent.click(screen.getByText("Sends Go"));
-      const toggle = await within(getInspector()).findByText("Toggle");
-      expect(toggle.closest("button")?.getAttribute("aria-disabled")).toBe("true");
+      await within(getInspector()).findByText("Toggle");
+      expect(findButton("Toggle").getAttribute("aria-disabled")).toBe("true");
+    });
+
+    it("lists only the commands that pair in a toggle", async () => {
+      await openPainted({
+        states: [createState()],
+        commands: [on("off", 0), on("on", 1), GO],
+        interactions: [{ type: "next", key: "c", commands: ["off", "on"] }],
+      });
+      fireEvent.click(screen.getByText("Toggles off and on"));
+      const inspector = within(getInspector());
+      await inspector.findByText("First command");
+      expect(inspector.queryByText("Go")).toBeNull();
+      // The second command lists only the partner of Off.
+      expect(inspector.getAllByText("off")).toHaveLength(1);
+      expect(inspector.getAllByText("on")).toHaveLength(2);
     });
 
     it("turns off the add of a click with no command", async () => {
