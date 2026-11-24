@@ -299,11 +299,8 @@ func (w *logWriter) extendRun(
 	first, last telem.TimeStamp,
 	n uint32,
 ) {
-	if k := len(
-		w.runs,
-	); k == 0 ||
-		w.runs[k-1].alignment.AddSamples(w.runs[k-1].samples) !=
-			alignment {
+	if k := len(w.runs); k == 0 || w.runs[k-1].ends != nil ||
+		w.runs[k-1].alignment.AddSamples(w.runs[k-1].samples) != alignment {
 		w.runs = append(w.runs, run{alignment: alignment, first: first})
 	}
 	r := &w.runs[len(w.runs)-1]

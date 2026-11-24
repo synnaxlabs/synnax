@@ -240,11 +240,13 @@ var _ = DescribeTableSubtree("Handoff", func(pointerLog bool) {
 }, Entry("old layout", false), Entry("pointer log", true))
 
 var _ = Describe("Handoff on the pointer log", func() {
-	It("Should go on with the stretch of the clock across a handoff", func(
-		ctx SpecContext,
-	) {
-		db := mustOpenDBOnFS(ctx, fs.NewMem(), cesium.WithPointerLog())
-		clock, data := GenerateChannelKey(), GenerateChannelKey()
+	var (
+		db          *cesium.DB
+		clock, data cesium.ChannelKey
+	)
+	BeforeEach(func(ctx SpecContext) {
+		db = mustOpenDBOnFS(ctx, fs.NewMem(), cesium.WithPointerLog())
+		clock, data = GenerateChannelKey(), GenerateChannelKey()
 		Expect(db.CreateChannel(
 			ctx,
 			cesium.Channel{
@@ -257,23 +259,45 @@ var _ = Describe("Handoff on the pointer log", func() {
 				DataType: telem.Int64T,
 			},
 		)).To(Succeed())
-		w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
-			Channels: []cesium.ChannelKey{clock, data},
+	})
+	config := func(keys ...cesium.ChannelKey) cesium.WriterConfig {
+		return cesium.WriterConfig{
+			Channels: keys,
 			Clock:    clock,
 			Start:    10 * telem.SecondTS,
-		}))
-		before := mustWrite(ctx, w, telem.MultiFrame(
+		}
+	}
+	// both returns a frame of the clock at seconds and of data with values from 1.
+	both := func(seconds ...telem.TimeStamp) cesium.Frame {
+		values := make([]int64, len(seconds))
+		for i, s := range seconds {
+			values[i] = int64(s) - 9
+		}
+		return telem.MultiFrame(
 			[]cesium.ChannelKey{clock, data},
 			[]telem.Series{
-				telem.NewSeriesSecondsTSV(10, 11),
-				telem.NewSeriesV[int64](1, 2),
+				telem.NewSeriesSecondsTSV(seconds...),
+				telem.NewSeriesV(values...),
 			},
-		)).Get(clock).Series[0].Alignment
-		next, p := MustSucceed2(db.Handoff(ctx, w, cesium.WriterConfig{
-			Channels: []cesium.ChannelKey{clock},
-			Clock:    clock,
-			Start:    10 * telem.SecondTS,
-		}, nil))
+		)
+	}
+	stored := func(ctx SpecContext) []int64 {
+		GinkgoHelper()
+		var out []int64
+		fr := MustSucceed(db.Read(ctx, telem.TimeRangeMax, clock, data))
+		for _, s := range fr.Get(data).Series {
+			out = append(out, s.Unmarshal[int64]()...)
+		}
+		Expect(fr.Get(clock).Len()).To(Equal(int64(len(out))))
+		return out
+	}
+
+	It("Should go on with the stretch of the clock across a handoff", func(
+		ctx SpecContext,
+	) {
+		w := MustSucceed(db.OpenWriter(ctx, config(clock, data)))
+		before := mustWrite(ctx, w, both(10, 11)).Get(clock).Series[0].Alignment
+		next, p := MustSucceed2(db.Handoff(ctx, w, config(clock), nil))
 		after := mustWrite(ctx, next, telem.UnaryFrame(
 			clock,
 			telem.NewSeriesSecondsTSV(12),
@@ -284,5 +308,62 @@ var _ = Describe("Handoff on the pointer log", func() {
 		Expect(stamps).To(HaveLen(1))
 		Expect(next.Close()).To(Succeed())
 		Expect(p.Close()).To(Succeed())
+	})
+
+	It("Should commit the samples written after pending samples that come back on "+
+		"committed stamps", func(ctx SpecContext) {
+		first := MustSucceed(db.OpenWriter(ctx, config(clock, data)))
+		mustWrite(ctx, first, both(10, 11, 12, 13))
+		w, p := MustSucceed2(db.Handoff(ctx, first, config(clock), nil))
+		MustSucceed2(w.Commit(ctx, nil))
+		back, _ := MustSucceed2(db.Handoff(ctx, w, config(clock, data), p))
+		mustWrite(ctx, back, both(14))
+		Expect(MustSucceed2(back.Commit(ctx, nil))).To(Equal(14*telem.SecondTS + 1))
+		Expect(stored(ctx)).To(Equal([]int64{1, 2, 3, 4, 5}))
+		Expect(back.Close()).To(Succeed())
+	})
+
+	It("Should commit the pending samples of each run that they come back to", func(
+		ctx SpecContext,
+	) {
+		first := MustSucceed(db.OpenWriter(ctx, config(clock, data)))
+		mustWrite(ctx, first, both(10, 11, 12, 13))
+		w, p := MustSucceed2(db.Handoff(ctx, first, config(clock), nil))
+		MustSucceed2(w.Commit(ctx, nil))
+		w, _ = MustSucceed2(db.Handoff(ctx, w, config(clock, data), p))
+		mustWrite(ctx, w, both(14))
+		w, p = MustSucceed2(db.Handoff(ctx, w, config(clock), nil))
+		w, _ = MustSucceed2(db.Handoff(ctx, w, config(clock, data), p))
+		Expect(MustSucceed2(w.Commit(ctx, nil))).To(Equal(14*telem.SecondTS + 1))
+		Expect(stored(ctx)).To(Equal([]int64{1, 2, 3, 4, 5}))
+		Expect(w.Close()).To(Succeed())
+	})
+
+	It("Should refuse a stamp before the pending samples that come back after the "+
+		"stretch ended", func(ctx SpecContext) {
+		first := MustSucceed(db.OpenWriter(ctx, config(clock, data)))
+		mustWrite(ctx, first, both(10, 11, 12, 13))
+		w, p := MustSucceed2(db.Handoff(ctx, first, config(clock), nil))
+		Expect(w.EndStretch(ctx)).To(Succeed())
+		back, _ := MustSucceed2(db.Handoff(ctx, w, config(clock, data), p))
+		Expect(back.Write(ctx, both(12), nil)).Error().
+			To(MatchError(ContainSubstring("stamp 1970-01-01T00:00:12Z must be after")))
+		Expect(back.Close()).To(MatchError(ContainSubstring("must be after")))
+	})
+
+	It("Should return no pending samples for a key that the writer added with no "+
+		"sample since", func(ctx SpecContext) {
+		first := MustSucceed(db.OpenWriter(ctx, config(clock)))
+		mustWrite(
+			ctx,
+			first,
+			telem.UnaryFrame(clock, telem.NewSeriesSecondsTSV(10, 11)),
+		)
+		w, p := MustSucceed2(db.Handoff(ctx, first, config(clock, data), nil))
+		Expect(p).To(BeNil())
+		w, p = MustSucceed2(db.Handoff(ctx, w, config(clock), nil))
+		Expect(p).To(BeNil())
+		Expect(MustSucceed2(w.Commit(ctx, nil))).To(Equal(11*telem.SecondTS + 1))
+		Expect(w.Close()).To(Succeed())
 	})
 })
