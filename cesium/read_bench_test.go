@@ -130,7 +130,13 @@ func writeBenchData(
 		stamps := writeBenchStamps(b, db, keys[0], n)
 		data := telem.NewSeriesV(make([]float32, n-late)...)
 		for _, key := range keys[1:] {
-			if err := writeSeries(b.Context(), db, key, stamps[late], data); err != nil {
+			if err := writeSeries(
+				b.Context(),
+				db,
+				key,
+				stamps[late],
+				data,
+			); err != nil {
 				b.Fatal(err)
 			}
 		}
