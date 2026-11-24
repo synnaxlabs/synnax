@@ -31,8 +31,7 @@ type pointer struct {
 	// size is the size of the domain within the file.
 	// 4 bytes
 	size uint32
-	// id tells domains apart for the life of the DB. An update to the domain keeps it,
-	// and a delete that cuts the domain gives what remains a new one. It is not
-	// persisted.
+	// id names the domain that an insert made for the life of the DB. An update and
+	// each part that a delete leaves of the domain keep it. It is not persisted.
 	id uint64
 }
