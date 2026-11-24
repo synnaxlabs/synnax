@@ -434,7 +434,9 @@ var _ = Describe("Drop of parted records", func() {
 			sought := make(chan bool, 1)
 			go func() { sought <- it.SeekFirst() }()
 			Eventually(gate.waiting).WithTimeout(10 * time.Second).Should(Receive())
-			Expect(db.Drop([]cesium.ChannelKey{data})).To(Succeed())
+			Expect(
+				db.Drop(context.Background(), []cesium.ChannelKey{data}),
+			).To(Succeed())
 			Expect(segments(gate, data)).To(Equal(3))
 			close(gate.release)
 			Eventually(sought).WithTimeout(10 * time.Second).Should(Receive())
