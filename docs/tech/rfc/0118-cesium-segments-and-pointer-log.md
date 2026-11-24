@@ -776,15 +776,16 @@ valid frames follow the bad one, so repair loses only the records of the bad fra
    which already hold them. An orphan segment whose samples a live segment of its key
    already holds (equal bytes in version 1, equal stamps in version 2) is the output of
    a lost rewrite: it is listed and renamed `<S>.seg.unrecovered`, not placed.
-3. Rebuild the commits of the bad frame. For each segment, the samples between the end
-   of its last pointer before the bad frame and the start of its first pointer after it
-   are one range, from the full blocks that pass their check in the clock segment and in
-   every data segment of the clock write. A segment that a valid frame seals ends at the
-   Seal's length, so samples that a refused commit wrote never return. Past the last
-   pointer of an open segment, only the clock range is placed, to its last full checked
-   block: a lost commit may have skipped a data key, and nothing there shows it. A data
-   range whose clock has more than one segment that could time it is not placed and is
-   listed.
+3. Rebuild the commits of the bad frame. For each segment, the samples between its
+   committed length before the bad frame and the start of its first pointer after it are
+   one range, from the full blocks that pass their check in the clock segment and in
+   every data segment of the clock write. The range starts at that length, not at the
+   end of the last pointer: bytes between the two are data that a delete cut. A segment
+   that a valid frame seals ends at the Seal's length, so samples that a refused commit
+   wrote never return. Past the last pointer of an open segment, only the clock range is
+   placed, to its last full checked block: a lost commit may have skipped a data key,
+   and nothing there shows it. A data range whose clock has more than one segment that
+   could time it is not placed and is listed.
 4. List, with key, segment, bytes, and the time range where it is known:
    - each rebuilt range, which takes its own stretch;
    - each rebuilt clock range past the last pointer of a segment, which may hold samples
