@@ -701,16 +701,6 @@ describe("symbol editor spec", () => {
     });
   });
 
-  describe("createKey", () => {
-    it("should make a key from the name", () => {
-      expect(Spec.createKey("Valve Mode", [])).toBe("valve-mode");
-    });
-
-    it("should add the lowest free number to a taken key", () => {
-      expect(Spec.createKey("Mode", ["mode", "mode-2"])).toBe("mode-3");
-    });
-  });
-
   describe("addState", () => {
     it("should add an enumeration state with a key from its name", () => {
       expect(Spec.addState(createSpec()).states[1]).toEqual({
@@ -718,6 +708,13 @@ describe("symbol editor spec", () => {
         key: "state-2",
         name: "State 2",
       });
+    });
+
+    it("should add a number to a key that a state has", () => {
+      const spec = createSpec({
+        states: [Spec.createState(), { ...FAULT, key: "state-2", name: "Trip" }],
+      });
+      expect(Spec.addState(spec).states[2]).toMatchObject({ key: "state-2-2" });
     });
 
     it("should skip a name that a state has", () => {

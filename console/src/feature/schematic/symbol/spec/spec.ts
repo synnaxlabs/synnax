@@ -280,8 +280,8 @@ export interface Removed {
   interactions: string[];
 }
 
-/** @returns a key from name, such as mode, or mode-2 when taken has mode. */
-export const createKey = (name: string, taken: string[]): string => {
+// createKey returns a key from name, such as mode, or mode-2 when taken has mode.
+const createKey = (name: string, taken: string[]): string => {
   const base = name
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
