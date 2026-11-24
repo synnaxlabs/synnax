@@ -568,19 +568,17 @@ func (e *clockEntry) release(
 	return err
 }
 
-// start returns the start of a writer of the entry over keys: the later of the end of
-// the owner's last commit and the end of the samples that keys have stored. The caller
-// holds e.mu.
+// start returns the start of a writer of the entry over keys: the later of the owner's
+// start and the end of the samples that keys have stored. The caller holds e.mu.
 func (e *clockEntry) start(
 	ts *cesium.DB,
 	keys []cesium.ChannelKey,
 ) (telem.TimeStamp, error) {
-	start := e.end
-	if e.owner != nil {
-		start = max(start, e.owner.end, e.owner.last)
-	}
 	stored, err := committedEnd(ts, keys)
-	return max(start, stored), err
+	if e.owner == nil {
+		return stored, err
+	}
+	return max(e.owner.start, stored), err
 }
 
 // committedEnd returns the end of the samples that keys have stored, or zero when they
@@ -594,7 +592,7 @@ func committedEnd(ts *cesium.DB, keys []cesium.ChannelKey) (telem.TimeStamp, err
 		return 0, err
 	}
 	var end telem.TimeStamp
-	if it.SeekLast() {
+	if it.SeekLast() && it.Prev(cesium.AutoSpan) {
 		for _, s := range it.Value().RawSeries() {
 			end = max(end, s.TimeRange.End)
 		}
