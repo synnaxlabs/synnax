@@ -613,8 +613,8 @@ var _ = Describe("Calculation", Ordered, func() {
 						baseCh2.Key(),
 					},
 					[]telem.Series{
-						telem.NewSeriesSecondsTSV(1, 2),
-						telem.NewSeriesSecondsTSV(3, 4),
+						telem.NewSeriesSecondsTSV(2, 4),
+						telem.NewSeriesSecondsTSV(1, 3),
 						telem.NewSeriesV[float32](1, 2),
 						telem.NewSeriesV[float32](2, 4),
 					},
@@ -678,16 +678,16 @@ var _ = Describe("Calculation", Ordered, func() {
 					calcCh  = calcs[0]
 				)
 				Expect(w.Write(frame.NewMulti(
-					[]channel.Key{idxCh1.Key(), baseCh1.Key()},
+					[]channel.Key{idxCh2.Key(), baseCh2.Key()},
 					[]telem.Series{
-						telem.NewSeriesSecondsTSV(3, 4),
+						telem.NewSeriesSecondsTSV(1, 2),
 						telem.NewSeriesV[float32](2, 4),
 					},
 				))).To(BeTrue())
 				Expect(w.Write(frame.NewMulti(
-					[]channel.Key{idxCh2.Key(), baseCh2.Key()},
+					[]channel.Key{idxCh1.Key(), baseCh1.Key()},
 					[]telem.Series{
-						telem.NewSeriesSecondsTSV(1, 2),
+						telem.NewSeriesSecondsTSV(3, 4),
 						telem.NewSeriesV[float32](2, 4),
 					},
 				))).To(BeTrue())
@@ -695,7 +695,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				Eventually(sOutlet.Outlet(), 1*time.Second).Should(Receive(&res))
 				Expect(
 					res.Frame.Get(calcCh.Key()).Series[0],
-				).To(telem.MatchSeriesDataV[float32](4, 16))
+				).To(telem.MatchSeriesDataV[float32](8, 16))
 			})
 		})
 

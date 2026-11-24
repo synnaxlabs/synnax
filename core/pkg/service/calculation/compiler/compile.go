@@ -48,6 +48,12 @@ type Config struct {
 	//
 	// [REQUIRED]
 	Calculation calculation.Calculation
+	// Live pairs the reads that have an index through a live join by sample time. A
+	// program that reads history, or that reads no channel with an index, pairs its
+	// reads by alignment.
+	//
+	// [OPTIONAL] - Defaults to false.
+	Live bool
 }
 
 var _ config.Config[Config] = Config{}
@@ -56,6 +62,7 @@ func (c Config) Override(other Config) Config {
 	c.Channel = other.Channel
 	c.Calculation = other.Calculation
 	c.ChannelService = override.Nil(c.ChannelService, other.ChannelService)
+	c.Live = override.If(c.Live, other.Live, other.Live)
 	return c
 }
 
@@ -272,20 +279,45 @@ func addOperations(g *arc.Graph, ops []calculation.Operation) {
 	}
 }
 
+// joinsReads reports whether the live program of cfg pairs reads through a join: when
+// one of them has an index.
+func joinsReads(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	cfg Config,
+	reads map[uint32]string,
+) (bool, error) {
+	if !cfg.Live || len(reads) == 0 {
+		return false, nil
+	}
+	keys := make(channel.Keys, 0, len(reads))
+	for k := range reads {
+		keys = append(keys, channel.Key(k))
+	}
+	var channels []channel.Channel
+	if err := cfg.ChannelService.NewRetrieve().
+		Where(channel.MatchKeys(keys...)).
+		Entries(&channels).
+		Exec(ctx, snap); err != nil {
+		return false, err
+	}
+	return slices.ContainsFunc(channels, func(ch channel.Channel) bool {
+		return ch.Index() != 0
+	}), nil
+}
+
 // addReads adds an input to the calculation function of g for each channel in reads,
-// fed through one join by a node that reads the channel. The join pairs the reads by
-// sample time on the stamps of primary. It returns the symbol of the join, or nil when
-// reads is empty.
+// fed by a node that reads the channel. When joined, the reads pass through one join
+// that pairs them by sample time on the stamps of primary, and addReads returns the
+// symbol of the join. Otherwise it returns nil.
 func addReads(
 	ctx context.Context,
 	g *arc.Graph,
 	symbols arc.SymbolResolver,
 	reads map[uint32]string,
 	primary *channel.Key,
+	joined bool,
 ) (*symbol.Symbol, error) {
-	if len(reads) == 0 {
-		return nil, nil
-	}
 	var (
 		props      types.FunctionProperties
 		primaryIdx int
@@ -303,6 +335,14 @@ func addReads(
 			types.Param{Name: sym.Name, Type: elem},
 		)
 		addNode(g, sym.Name, "on", xmsgpack.EncodedJSON{"channel": k})
+		if !joined {
+			addEdge(
+				g,
+				ir.Handle{Node: sym.Name, Param: ir.DefaultOutputParam},
+				ir.Handle{Node: calculationKey, Param: sym.Name},
+			)
+			continue
+		}
 		in, out := join.InputParam(i), join.OutputParam(i)
 		props.Inputs = append(props.Inputs, types.Param{Name: in, Type: elem})
 		props.Outputs = append(props.Outputs, types.Param{Name: out, Type: elem})
@@ -319,6 +359,9 @@ func addReads(
 		if primary != nil && channel.Key(k) == *primary {
 			primaryIdx = i
 		}
+	}
+	if !joined {
+		return nil, nil
 	}
 	props.Inputs = append(props.Inputs, types.Param{
 		Name:  join.PrimaryParam,
@@ -377,7 +420,18 @@ func compileAnalyzed(
 	addNode(&g, calculationKey, calculationKey, nil)
 	addNode(&g, writeKey, writeKey, xmsgpack.EncodedJSON{"channel": cfg.Channel.Key()})
 	addOperations(&g, cfg.Calculation.Operations)
-	joinSym, err := addReads(ctx, &g, symbols, result.Reads, cfg.Calculation.Primary)
+	joined, err := joinsReads(ctx, snap, cfg, result.Reads)
+	if err != nil {
+		return Module{}, err
+	}
+	joinSym, err := addReads(
+		ctx,
+		&g,
+		symbols,
+		result.Reads,
+		cfg.Calculation.Primary,
+		joined,
+	)
 	if err != nil {
 		return Module{}, err
 	}

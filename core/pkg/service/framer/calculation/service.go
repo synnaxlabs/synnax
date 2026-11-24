@@ -151,6 +151,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		Calculation:     cfg.Calculation,
 		DB:              cfg.DB,
 		Compile:         cfg.Compile,
+		Live:            true,
 	})
 	if err != nil {
 		return nil, err

@@ -46,6 +46,11 @@ type Config struct {
 	//
 	// [REQUIRED]
 	DB *gorp.DB
+	// Live compiles the calculations of a live read, which pairs their reads through a
+	// join.
+	//
+	// [OPTIONAL] - Defaults to false.
+	Live bool
 	// Compile compiles a calculated channel. It is injectable for testing.
 	//
 	// [OPTIONAL] - defaults to compiler.Compile.
@@ -68,6 +73,7 @@ func (c Config) Override(other Config) Config {
 	c.Calculation = override.Nil(c.Calculation, other.Calculation)
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Compile = override.Nil(c.Compile, other.Compile)
+	c.Live = override.If(c.Live, other.Live, other.Live)
 	return c
 }
 
@@ -735,6 +741,7 @@ func (g *Graph) compile(
 		ChannelService: g.cfg.Channel,
 		Channel:        ch,
 		Calculation:    c,
+		Live:           g.cfg.Live,
 	})
 }
 
