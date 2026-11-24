@@ -154,17 +154,35 @@ func (e *engine) cutAt(
 	at telem.TimeStamp,
 	left bool,
 ) (*log.Cut, error) {
-	p := edge.Pointer
-	c, err := e.openStamps(clock, p)
+	c, err := e.openStamps(clock, edge.Pointer)
 	if err != nil {
 		return nil, err
 	}
+	return e.cutWith(c, key, dt, edge, at, left)
+}
+
+// errNoCut is the error of a cut whose stamp lies at an end of its pointer, not inside.
+var errNoCut = errors.New("no cut inside the pointer")
+
+// cutWith returns the cut of the pointer of edge at at, as cutAt does, from the stamps
+// of c, which it closes. It returns an error that wraps errNoCut when the stamps of the
+// pointer do not hold at inside it.
+func (e *engine) cutWith(
+	c *stampReader,
+	key ChannelKey,
+	dt telem.DataType,
+	edge *state.Edge,
+	at telem.TimeStamp,
+	left bool,
+) (*log.Cut, error) {
+	p := edge.Pointer
 	k, stamp, err := c.search(at, left)
 	if err = errors.Join(err, c.close()); err != nil {
 		return nil, err
 	}
 	if k == 0 || k == int(p.Samples) {
-		return nil, errors.Newf(
+		return nil, errors.Wrapf(
+			errNoCut,
 			"stamps of segment %d of key %d do not hold %d inside its pointer",
 			edge.Segment.ID,
 			key,
@@ -256,6 +274,15 @@ func (e *engine) openStamps(clock ChannelKey, p state.Pointer) (*stampReader, er
 			segs = append(segs, seg)
 		}
 	}
+	if err = r.spansOf(segs, p); err != nil {
+		return nil, errors.Join(err, r.close())
+	}
+	return r, nil
+}
+
+// spansOf sets the spans of r to the stamps that segs, segments of the clock of r, hold
+// for the samples of pointer p.
+func (r *stampReader) spansOf(segs []state.Segment, p state.Pointer) error {
 	from, found := p.Alignment.SampleIndex(), uint32(0)
 	for _, seg := range segs {
 		for _, q := range seg.Pointers {
@@ -277,17 +304,14 @@ func (e *engine) openStamps(clock ChannelKey, p state.Pointer) (*stampReader, er
 		}
 	}
 	if found != p.Samples {
-		return nil, errors.Join(
-			errors.Newf("clock %d holds %d of the %d stamps from alignment %d",
-				clock, found, p.Samples, uint64(p.Alignment)),
-			r.close(),
-		)
+		return errors.Newf("clock %d holds %d of the %d stamps from alignment %d",
+			r.clock, found, p.Samples, uint64(p.Alignment))
 	}
 	slices.SortFunc(
 		r.spans,
 		func(a, b stampSpan) int { return cmp.Compare(a.lo, b.lo) },
 	)
-	return r, nil
+	return nil
 }
 
 // search returns k, the index of the first stamp at or after at, by a binary search

@@ -698,6 +698,57 @@ var _ = Describe("Repair", func() {
 			}}))
 		})
 
+		It("Should cut a later Tombstone again when it cuts a range that the repair "+
+			"rebuilt", func(ctx SpecContext) {
+			db := MustSucceed(open(ctx))
+			stop := GoRun(ctx, db.Run)
+			Expect(db.CreateChannel(
+				ctx,
+				cesium.Channel{
+					Key:      newIdx,
+					Name:     "new_time",
+					IsIndex:  true,
+					DataType: telem.TimestampT,
+				},
+				cesium.Channel{
+					Key:      newData,
+					Name:     "new_data",
+					Index:    newIdx,
+					DataType: telem.Int64T,
+				},
+			)).To(Succeed())
+			keys := []cesium.ChannelKey{newIdx, newData}
+			w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+				Channels: keys,
+				Start:    telem.SecondTS,
+			}))
+			for c := range 3 {
+				stamps := make([]telem.TimeStamp, 5)
+				for i := range stamps {
+					stamps[i] = telem.TimeStamp(c*5+i+1) * telem.SecondTS
+				}
+				MustSucceed2(w.Write(ctx, telem.MultiFrame(keys, []telem.Series{
+					telem.NewSeries(stamps),
+					telem.NewSeriesV[int64](1, 2, 3, 4, 5),
+				}), nil))
+				MustSucceed2(w.Commit(ctx, nil))
+				Expect(w.Sync()).To(Succeed())
+			}
+			Expect(w.Close()).To(Succeed())
+			Expect(
+				db.DeleteTimeRange(ctx, []cesium.ChannelKey{newData}, telem.TimeRange{
+					Start: 7 * telem.SecondTS,
+					End:   9 * telem.SecondTS,
+				}),
+			).To(Succeed())
+			Expect(errors.Join(stop(), db.Close())).To(Succeed())
+			spoil(newFrame(6*telem.SecondTS), 4)
+			rep := MustSucceed(repair(ctx, new(int)))
+			Expect(rep.Damage).To(HaveLen(1))
+			Expect(rep.Rebuilt).To(HaveLen(2))
+			Expect(rep.Skipped).To(BeEmpty())
+		})
+
 		It(
 			"Should end a lost commit at the length of a later Seal",
 			func(ctx SpecContext) {

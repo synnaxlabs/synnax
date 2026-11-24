@@ -178,12 +178,16 @@ func (e *engine) fileLimit() (uint64, error) {
 }
 
 // replayEach applies the records of the entry of sequence after the damage one at a
-// time, and lists in rep those that break a rule. A Replace whose old segment has no
+// time, with the Tombstones cut again by recuts, and lists in rep those that break a
+// rule. A Replace whose old segment has no
 // file takes that segment out of the state, and its copy takes the pointers of the
 // Replace when its blocks pass, or its bytes are unplaced (D-370).
 func (e *engine) replayEach(sequence uint64, records []log.Record, rep *Report) error {
 	pre, err := e.preloads(records)
 	if err != nil {
+		return err
+	}
+	if records, err = e.recuts(records); err != nil {
 		return err
 	}
 	gone, pre, err := e.markGone(records, pre)
@@ -223,6 +227,32 @@ func (e *engine) replayEach(sequence uint64, records []log.Record, rep *Report) 
 		rep.Removed = append(rep.Removed, Segment{Key: key, Segment: r.Old})
 	}
 	return nil
+}
+
+// recuts returns records with each Tombstone that names a pointer by another alignment
+// number cut again against the state of e (D-346).
+func (e *engine) recuts(records []log.Record) ([]log.Record, error) {
+	var out []log.Record
+	for i, rec := range records {
+		t, ok := rec.(*log.Tombstone)
+		if !ok {
+			continue
+		}
+		cut, err := e.recut(t)
+		if err != nil {
+			return nil, err
+		}
+		if cut != t {
+			if out == nil {
+				out = slices.Clone(records)
+			}
+			out[i] = cut
+		}
+	}
+	if out == nil {
+		return records, nil
+	}
+	return out, nil
 }
 
 // markGone marks gone in the state of e the old segment of each Replace of records
