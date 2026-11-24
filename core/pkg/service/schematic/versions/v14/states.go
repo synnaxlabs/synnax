@@ -108,13 +108,13 @@ func InternStates(
 		case SelectNodeConfig:
 			kind, label = "Select", cfg.Label.Label
 			link = func(k *enumeration.Key) NodeConfigVariant {
-				cfg.Enumeration, cfg.Options = k, nil
+				cfg.Enumeration = k
 				return cfg
 			}
 		case StateIndicatorNodeConfig:
 			kind, label = "State indicator", cfg.Label.Label
 			link = func(k *enumeration.Key) NodeConfigVariant {
-				cfg.Enumeration, cfg.Options = k, nil
+				cfg.Enumeration = k
 				return cfg
 			}
 		default:
