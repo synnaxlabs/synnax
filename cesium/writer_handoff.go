@@ -93,6 +93,13 @@ func (db *DB) Handoff(
 			w.Clock,
 		)
 	}
+	if cfg.Unstored != w.Unstored {
+		return nil, nil, errors.Wrapf(
+			validate.ErrValidation,
+			"a handoff of the writer of clock %d keeps whether it stores samples",
+			w.Clock,
+		)
+	}
 	if w.log != nil {
 		next, err := db.handoffLog(ctx, w, cfg, adopt)
 		return next, nil, err

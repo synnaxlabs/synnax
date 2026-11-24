@@ -143,6 +143,15 @@ var _ = Describe("Handoff", func() {
 			Expect(w.Close()).To(Succeed())
 			Expect(run(ctx, data, 2)).To(Equal(run(ctx, clock, 6).AddSamples(4)))
 		})
+
+		It("Should refuse a handoff that changes whether the writer stores samples",
+			func(ctx SpecContext) {
+				cfg := next(clock)
+				cfg.Unstored = true
+				Expect(db.Handoff(ctx, committedFirst(ctx, clock), cfg, nil)).Error().
+					To(MatchError(ContainSubstring("keeps whether it stores samples")))
+				Expect(stored(ctx, clock)).To(Equal(int64(4)))
+			})
 	}
 	carry()
 
