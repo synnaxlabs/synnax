@@ -437,17 +437,25 @@ func (idx *index) unprotectedSearch(tr telem.TimeRange) (int, bool) {
 	return end, false
 }
 
-// next returns the first domain that starts at or after end, the end of the current
-// domain, and its position. It finds both under one lock, so a concurrent insert
-// cannot shift one off the other. A delete can trim the start of the current domain but
-// not its end.
+// next returns the first domain that ends after tr.End and starts after tr.Start,
+// where tr is a domain the caller has seen, and its position. That skips what remains
+// of tr after a delete, and tr if it has grown. It finds both under one lock, so a
+// concurrent insert cannot shift one off the other.
 func (idx *index) next(
-	end telem.TimeStamp,
+	tr telem.TimeRange,
 ) (i int, ptr pointer, rewrites uint64, ok bool) {
 	idx.read(func() {
-		var exact bool
-		i, exact = idx.unprotectedSearch(end.SpanRange(0))
-		if !exact || idx.mu.pointers[i].Start != end {
+		i, _ = slices.BinarySearchFunc(
+			idx.mu.pointers,
+			tr.End,
+			func(p pointer, end telem.TimeStamp) int {
+				if p.End > end {
+					return 1
+				}
+				return -1
+			},
+		)
+		if i < len(idx.mu.pointers) && idx.mu.pointers[i].Start <= tr.Start {
 			i++
 		}
 		i, ptr, rewrites, ok = idx.unprotectedVisible(i, 1)
@@ -455,15 +463,25 @@ func (idx *index) next(
 	return i, ptr, rewrites, ok
 }
 
-// prev returns the last domain that starts before start, the start of the current
-// domain, and its position. A delete can trim the end of the current domain but not its
-// start.
+// prev returns the last domain that starts before tr.Start and ends before tr.End,
+// where tr is a domain the caller has seen, and its position. That skips a domain that
+// replaced tr and holds all of it.
 func (idx *index) prev(
-	start telem.TimeStamp,
+	tr telem.TimeRange,
 ) (i int, ptr pointer, rewrites uint64, ok bool) {
 	idx.read(func() {
-		var exact bool
-		if i, exact = idx.unprotectedSearch(start.SpanRange(0)); exact {
+		i, _ = slices.BinarySearchFunc(
+			idx.mu.pointers,
+			tr.Start,
+			func(p pointer, start telem.TimeStamp) int {
+				if p.Start >= start {
+					return 1
+				}
+				return -1
+			},
+		)
+		i--
+		if i >= 0 && idx.mu.pointers[i].End >= tr.End {
 			i--
 		}
 		i, ptr, rewrites, ok = idx.unprotectedVisible(i, -1)

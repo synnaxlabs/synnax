@@ -121,7 +121,7 @@ func (i *Iterator) Next() bool {
 	if !i.valid {
 		return false
 	}
-	return i.load(i.db.idx.next(i.currPtr.End))
+	return i.load(i.db.idx.next(i.currPtr.TimeRange))
 }
 
 // Prev advances the iterator to the previous domain. If the iterator has been
@@ -130,7 +130,7 @@ func (i *Iterator) Prev() bool {
 	if !i.valid {
 		return false
 	}
-	return i.load(i.db.idx.prev(i.currPtr.Start))
+	return i.load(i.db.idx.prev(i.currPtr.TimeRange))
 }
 
 // Valid returns true if the iterator is currently pointing to a valid domain and has
