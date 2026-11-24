@@ -189,18 +189,13 @@ describe("oidc", () => {
 
     it("should clear a saved login that is not valid", () => {
       sessionStorage.setItem("synnax-oidc-login", JSON.stringify({ core: "alpha" }));
-      expect(() => Core.pendingPurpose()).toThrow(
-        "The saved provider login is not valid",
-      );
-      expect(sessionStorage.getItem("synnax-oidc-login")).toBeNull();
       expect(Core.pendingPurpose()).toBeUndefined();
+      expect(sessionStorage.getItem("synnax-oidc-login")).toBeNull();
     });
 
     it("should clear a saved login that is not JSON", () => {
       sessionStorage.setItem("synnax-oidc-login", "{");
-      expect(() => Core.pendingPurpose()).toThrow(
-        "The saved provider login is not valid",
-      );
+      expect(Core.pendingPurpose()).toBeUndefined();
       expect(sessionStorage.getItem("synnax-oidc-login")).toBeNull();
     });
   });
@@ -256,17 +251,23 @@ describe("oidc", () => {
       expect(window.location.search).toBe("");
     });
 
-    it("should report the provider's error", () => {
-      pending("s");
-      window.history.replaceState(
-        null,
-        "",
-        "/?error=server_error&error_description=Broken&state=s",
-      );
-      expect(() => Core.completeBrowserLogin()).toThrow("Broken");
+    it("should clear a saved login that is not valid on a page that is not a redirect", () => {
+      sessionStorage.setItem("synnax-oidc-login", JSON.stringify({ core: "alpha" }));
+      expect(Core.completeBrowserLogin()).toBeUndefined();
+      expect(sessionStorage.getItem("synnax-oidc-login")).toBeNull();
     });
 
-    it("should report a denied login as not finished with the provider's reason", () => {
+    it("should clean the address bar on a redirect for a saved login that is not valid", () => {
+      sessionStorage.setItem("synnax-oidc-login", "{");
+      window.history.replaceState(null, "", "/?code=abc&state=s");
+      expect(() => Core.completeBrowserLogin()).toThrow(
+        "The saved provider login is not valid",
+      );
+      expect(window.location.search).toBe("");
+      expect(sessionStorage.getItem("synnax-oidc-login")).toBeNull();
+    });
+
+    it("should report the provider's refusal", () => {
       pending("s");
       window.history.replaceState(
         null,

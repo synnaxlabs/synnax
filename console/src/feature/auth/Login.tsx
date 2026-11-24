@@ -94,13 +94,7 @@ export const useCompleteBrowserLogin = (): void => {
   const [pendingLink, setPendingLink] = useState<Core.CompletedLogin>();
   const link = Credential.OIDC.useLink();
   useEffect(() => {
-    let purpose: Core.Purpose | undefined;
-    try {
-      purpose = Core.pendingPurpose();
-    } catch (e) {
-      handleError(e, "Failed to log in");
-      return;
-    }
+    const purpose = Core.pendingPurpose();
     handleError(
       () => {
         const completed = Core.completeBrowserLogin();

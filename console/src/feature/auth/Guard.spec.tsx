@@ -16,7 +16,7 @@ import {
 } from "@synnaxlabs/client/testutil";
 import type { Status } from "@synnaxlabs/lyra/status";
 import { Access, Synnax } from "@synnaxlabs/pluto";
-import { uniqueName } from "@synnaxlabs/x/testutil";
+import { expectAlways, uniqueName } from "@synnaxlabs/x/testutil";
 import { clearMocks, mockIPC, mockWindows } from "@tauri-apps/api/mocks";
 import {
   act,
@@ -237,6 +237,16 @@ describe("auth guard", () => {
       );
       return { store, statuses: () => statuses.map((s) => s.message) };
     };
+
+    it("should clear a saved login that is not valid without a status", async () => {
+      const server = await serveOIDC();
+      sessionStorage.setItem("synnax-oidc-login", JSON.stringify({ core: CORE_KEY }));
+      onTestFinished(() => sessionStorage.clear());
+      const { statuses } = await renderReturn(server);
+      await screen.findByText("authenticated content");
+      expect(sessionStorage.getItem("synnax-oidc-login")).toBeNull();
+      await expectAlways(() => expect(statuses()).toEqual([]));
+    });
 
     it("should link the account and keep the session", async () => {
       const server = await serveOIDC();

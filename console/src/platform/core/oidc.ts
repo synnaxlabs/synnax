@@ -206,39 +206,41 @@ export interface CompletedLogin {
   credentials: auth.OIDCCredentials;
 }
 
-/**
- * @returns the purpose of the browser login in progress, if any.
- * @throws {Error} when the saved login is not valid. The saved login is then cleared.
- */
-export const pendingPurpose = (): Purpose | undefined => {
+// Clears a saved login that is not valid, such as one from an older Console.
+const readPending = (): z.infer<typeof pendingZ> | undefined => {
   const raw = sessionStorage.getItem(PENDING_KEY);
   if (raw == null) return undefined;
   try {
-    return pendingZ.parse(JSON.parse(raw)).purpose;
-  } catch (e) {
+    return pendingZ.parse(JSON.parse(raw));
+  } catch {
     sessionStorage.removeItem(PENDING_KEY);
-    throw new Error("The saved provider login is not valid. Please log in again.", {
-      cause: e,
-    });
+    return undefined;
   }
 };
+
+/**
+ * @returns the purpose of the browser login in progress, if any. A saved login that is
+ * not valid is cleared and has no purpose.
+ */
+export const pendingPurpose = (): Purpose | undefined => readPending()?.purpose;
 
 /**
  * Finishes a browser login on the page load the provider redirected to. Removes the
  * code from the address bar either way. Resolves undefined when the page did not come
  * back from a login.
- * @throws {UnfinishedLoginError} when the person cancelled or the provider denied the
- * login.
- * @throws {Error} when the provider failed or the redirect belongs to another login.
+ * @throws {Error} when the provider refused, the redirect belongs to another login, or
+ * the saved login is not valid.
  */
 export const completeBrowserLogin = (): CompletedLogin | undefined => {
-  const raw = sessionStorage.getItem(PENDING_KEY);
+  const saved = sessionStorage.getItem(PENDING_KEY) != null;
+  const pending = readPending();
   const { search } = window.location;
   const params = new URLSearchParams(search);
-  if (raw == null || (!params.has("code") && !params.has("error"))) return undefined;
+  if (!saved || (!params.has("code") && !params.has("error"))) return undefined;
   sessionStorage.removeItem(PENDING_KEY);
   window.history.replaceState(null, "", window.location.pathname);
-  const pending = pendingZ.parse(JSON.parse(raw));
+  if (pending == null)
+    throw new Error("The saved provider login is not valid. Please log in again.");
   const code = parseCallback(search, pending.state);
   return {
     purpose: pending.purpose,
