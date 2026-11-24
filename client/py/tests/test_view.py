@@ -12,8 +12,8 @@ from uuid import uuid4
 import pytest
 
 import synnax as sy
-from synnax import ranger, status, view
-from synnax.view import RangeView, StatusView
+from synnax import channel, ranger, status, view
+from synnax.view import ChannelView, RangeView, StatusView
 from x.testutil import assert_eventually
 
 
@@ -86,6 +86,22 @@ class TestView:
         assert isinstance(updated, RangeView)
         assert updated.sort == "name"
         assert updated.icon == "star"
+
+    def test_channel_view(self, client: sy.Synnax) -> None:
+        """Should store a channel filter and set the layout of a channel view."""
+        where = channel.Where(groups=[uuid4()], virtual=False)
+        v = client.views.create(ChannelView(name="Channels", where=where))
+        retrieved = client.views.retrieve(key=v.key)
+        assert isinstance(retrieved, ChannelView)
+        assert retrieved.where == where
+        assert retrieved.layout == "folders"
+        client.views.dispatch(
+            v.key, view.set(view.SetPayload(path=["layout"], value="list"))
+        )
+        updated = client.views.retrieve(key=v.key)
+        assert isinstance(updated, ChannelView)
+        assert updated.layout == "list"
+        assert updated.where == where
 
     def test_create_multiple(self, client: sy.Synnax) -> None:
         """Should create multiple views of different types."""

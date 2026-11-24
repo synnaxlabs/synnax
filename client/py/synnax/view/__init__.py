@@ -23,6 +23,8 @@ from synnax.view.actions_gen import (
 from synnax.view.client import Client
 from synnax.view.types_gen import (
     TYPE_RESOURCE_ID,
+    ChannelLayout,
+    ChannelView,
     Cursor,
     Key,
     Order,
@@ -40,6 +42,8 @@ from synnax.view.types_gen import (
 __all__ = [
     "TYPE_RESOURCE_ID",
     "Action",
+    "ChannelLayout",
+    "ChannelView",
     "Client",
     "CreatePayload",
     "Cursor",
