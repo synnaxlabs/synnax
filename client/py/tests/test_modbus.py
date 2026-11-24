@@ -1087,17 +1087,22 @@ class TestModbusServerResource:
     SERVER: ClassVar[dict[str, Any]] = {
         "rack": 1,
         "name": "PLC",
-        "connection": {"transport": "tcp", "host": "plc", "port": 502},
+        "connection": {"transport": "tcp", "host": "plc"},
     }
 
     def test_applies_the_tcp_defaults(self) -> None:
         """Should parse a TCP server and fill in its defaults."""
         server = sy.modbus.server.Server.model_validate(self.SERVER)
         assert isinstance(server.connection, sy.modbus.server.TcpConnection)
+        assert server.connection.port == 502
         assert server.connection.unit_id == 255
         assert server.connection.timeout == sy.TimeSpan.SECOND
-        assert server.requests.max_registers == 125
-        assert server.requests.write_codes == sy.modbus.server.WRITE_CODES_MULTIPLE
+        assert server.request_policy.max_read_registers == 125
+        assert server.request_policy.max_write_bits == 1968
+        assert (
+            server.request_policy.write_function
+            == sy.modbus.server.WRITE_FUNCTION_MULTIPLE
+        )
         assert server.reads == []
         assert server.writes == []
 
@@ -1111,17 +1116,33 @@ class TestModbusServerResource:
                         "register": {
                             "type": "holding_register",
                             "address": 5,
-                            "data_type": "float32",
+                            "value": {"type": "whole", "data_type": "float32"},
                         },
                         "index": 3,
                         "channel": 4,
-                    }
+                    },
+                    {
+                        "register": {
+                            "type": "input_register",
+                            "address": 6,
+                            "value": {"type": "string", "length": 8},
+                        },
+                        "index": 3,
+                        "channel": 5,
+                    },
                 ],
                 "writes": [{"register": {"type": "coil", "address": 1}, "channel": 6}],
             }
         )
-        assert server.reads[0].register_.data_type == "float32"
-        assert server.reads[0].register_.bit is None
+        register = server.reads[0].register_
+        assert isinstance(register, sy.modbus.server.HoldingRegisterRegister)
+        assert isinstance(register.value, sy.modbus.server.WholeValue)
+        assert register.value.data_type == "float32"
+        assert register.value.words_swapped is None
+        string = server.reads[1].register_
+        assert isinstance(string, sy.modbus.server.InputRegisterRegister)
+        assert isinstance(string.value, sy.modbus.server.StringValue)
+        assert string.value.length == 8
         assert server.writes[0].register_.type == "coil"
         assert server.writes[0].model_dump(by_alias=True)["register"]["type"] == "coil"
 
@@ -1133,6 +1154,7 @@ class TestModbusServerResource:
         assert isinstance(server.connection, sy.modbus.server.RtuConnection)
         assert server.connection.baud_rate == 19200
         assert server.connection.parity == sy.modbus.server.PARITY_EVEN
+        assert server.connection.stop_bits == sy.modbus.server.StopBits.one
         assert server.connection.unit_id == 1
 
     @pytest.mark.parametrize(
@@ -1143,11 +1165,13 @@ class TestModbusServerResource:
             {"transport": "rtu", "serial_port": "COM3", "parity": "mark"},
             {"transport": "rtu", "serial_port": "COM3", "baud_rate": 14400},
             {"transport": "rtu", "serial_port": "COM3", "unit_id": 248},
+            {"transport": "rtu", "serial_port": "COM3", "stop_bits": 3},
+            {"transport": "tcp", "host": "plc", "port": 0},
         ],
     )
     def test_rejects_an_invalid_connection(self, connection: dict[str, Any]) -> None:
-        """Should reject a missing transport, a zero timeout, an unknown parity, and
-        an RTU unit above 247."""
+        """Should reject a missing transport, a zero timeout, an unknown parity, an
+        RTU unit above 247, three stop bits, and port 0."""
         with pytest.raises(ValidationError):
             sy.modbus.server.Server.model_validate(
                 {**self.SERVER, "connection": connection}

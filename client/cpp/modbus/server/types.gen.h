@@ -28,33 +28,16 @@
 namespace synnax::modbus::server {
 
 struct BaseConnection;
+struct BaseRegister;
 struct Stats;
 struct StatusDetails;
-struct Requests;
-struct Register;
+struct RequestPolicy;
 struct Read;
 struct Write;
 struct Server;
 
-constexpr const char *WRITE_CODES_MULTIPLE = "multiple";
-constexpr const char *WRITE_CODES_SINGLE = "single";
-
-constexpr const char *REGISTER_TYPE_COIL = "coil";
-constexpr const char *REGISTER_TYPE_DISCRETE_INPUT = "discrete_input";
-constexpr const char *REGISTER_TYPE_HOLDING_REGISTER = "holding_register";
-constexpr const char *REGISTER_TYPE_INPUT_REGISTER = "input_register";
-
-constexpr const char *DATA_TYPE_INT_8 = "int8";
-constexpr const char *DATA_TYPE_INT_16 = "int16";
-constexpr const char *DATA_TYPE_INT_32 = "int32";
-constexpr const char *DATA_TYPE_INT_64 = "int64";
-constexpr const char *DATA_TYPE_UINT_8 = "uint8";
-constexpr const char *DATA_TYPE_UINT_16 = "uint16";
-constexpr const char *DATA_TYPE_UINT_32 = "uint32";
-constexpr const char *DATA_TYPE_UINT_64 = "uint64";
-constexpr const char *DATA_TYPE_FLOAT_32 = "float32";
-constexpr const char *DATA_TYPE_FLOAT_64 = "float64";
-constexpr const char *DATA_TYPE_STRING = "string";
+constexpr const char *WRITE_FUNCTION_MULTIPLE = "multiple";
+constexpr const char *WRITE_FUNCTION_SINGLE = "single";
 
 constexpr const char *PARITY_NONE = "none";
 constexpr const char *PARITY_EVEN = "even";
@@ -72,6 +55,22 @@ enum class BaudRate : std::uint32_t {
     B230400 = 230400,
 };
 
+enum class StopBits : std::uint8_t {
+    One = 1,
+    Two = 2,
+};
+
+constexpr const char *DATA_TYPE_INT_8 = "int8";
+constexpr const char *DATA_TYPE_INT_16 = "int16";
+constexpr const char *DATA_TYPE_INT_32 = "int32";
+constexpr const char *DATA_TYPE_INT_64 = "int64";
+constexpr const char *DATA_TYPE_UINT_8 = "uint8";
+constexpr const char *DATA_TYPE_UINT_16 = "uint16";
+constexpr const char *DATA_TYPE_UINT_32 = "uint32";
+constexpr const char *DATA_TYPE_UINT_64 = "uint64";
+constexpr const char *DATA_TYPE_FLOAT_32 = "float32";
+constexpr const char *DATA_TYPE_FLOAT_64 = "float64";
+
 using Key = x::uuid::UUID;
 
 /// @brief BaseConnection carries the fields that every Modbus connection shares.
@@ -87,6 +86,15 @@ struct BaseConnection {
     std::uint8_t retries = 1;
 
     static BaseConnection parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief BaseRegister carries the address that every register has.
+struct BaseRegister {
+    /// @brief address is the address of the first register or bit.
+    std::uint16_t address = 0;
+
+    static BaseRegister parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
@@ -126,13 +134,39 @@ struct StatusDetails {
     [[nodiscard]] x::json::json to_json() const;
 };
 
+/// @brief RequestPolicy limits and paces the requests that the Driver sends to a
+/// server.
+struct RequestPolicy {
+    /// @brief max_read_registers is the most registers that one read requests.
+    std::uint16_t max_read_registers = 125;
+    /// @brief max_write_registers is the most registers that one write sets.
+    std::uint16_t max_write_registers = 123;
+    /// @brief max_read_bits is the most coils or discrete inputs that one read
+    /// requests.
+    std::uint16_t max_read_bits = 2000;
+    /// @brief max_write_bits is the most coils that one write sets.
+    std::uint16_t max_write_bits = 1968;
+    /// @brief max_gap is the most unbound addresses between two values that one read
+    /// spans. It is at most max_read_registers.
+    std::uint16_t max_gap = 125;
+    /// @brief write_function selects the function codes that write tasks use.
+    std::string write_function = WRITE_FUNCTION_MULTIPLE;
+    /// @brief mask_write_supported is true when bit writes use function code 22.
+    bool mask_write_supported = false;
+    /// @brief delay is the wait between two requests.
+    ::x::telem::TimeSpan delay = ::x::telem::TimeSpan(0);
+
+    static RequestPolicy parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
 /// @brief TcpConnection connects to a server over Modbus TCP.
 struct TcpConnection : public BaseConnection {
     std::string transport = "tcp";
     /// @brief host is the hostname, IPv4, or IPv6 address of the server.
     std::string host;
     /// @brief port is the TCP port of the server.
-    std::uint16_t port = 0;
+    std::uint16_t port = 502;
     /// @brief unit_id is the unit that requests address.
     std::uint8_t unit_id = 255;
 
@@ -150,7 +184,7 @@ struct RtuConnection : public BaseConnection {
     /// @brief parity is the parity of the line.
     std::string parity = PARITY_EVEN;
     /// @brief stop_bits is the number of stop bits of the line.
-    std::uint8_t stop_bits = 1;
+    StopBits stop_bits = StopBits::One;
     /// @brief unit_id is the unit that requests address.
     std::uint8_t unit_id = 1;
 
@@ -169,40 +203,104 @@ Connection parse_connection(x::json::Parser parser);
     return std::visit([](const auto &v) -> const BaseConnection & { return v; }, value);
 }
 
-/// @brief Requests shapes the requests that the Driver sends to a server.
-struct Requests {
-    /// @brief max_registers is the largest number of registers that one read requests.
-    std::uint16_t max_registers = 125;
-    /// @brief max_gap is the widest gap between two channels that one read spans.
-    std::uint16_t max_gap = 125;
-    /// @brief write_codes selects the function codes that write tasks use.
-    std::string write_codes = WRITE_CODES_MULTIPLE;
-    /// @brief mask_write_supported is true when bit writes use function code 22.
-    bool mask_write_supported = false;
-    /// @brief delay is the wait between two requests.
-    ::x::telem::TimeSpan delay = ::x::telem::TimeSpan(0);
+/// @brief WholeValue is a number that fills one or more registers.
+struct WholeValue {
+    std::string type = "whole";
+    /// @brief data_type is the type of the value in the registers.
+    std::string data_type = DATA_TYPE_UINT_16;
+    /// @brief bytes_swapped overrides the bytes_swapped of the connection for the
+    /// value.
+    std::optional<bool> bytes_swapped;
+    /// @brief words_swapped overrides the words_swapped of the connection for the
+    /// value.
+    std::optional<bool> words_swapped;
 
-    static Requests parse(x::json::Parser parser);
+    static WholeValue parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief BitValue is one bit of a register.
+struct BitValue {
+    std::string type = "bit";
+    /// @brief bit is the bit of the register, from 0 to 15.
+    std::uint8_t bit = 0;
+
+    static BitValue parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief StringValue is a fixed-length string that read tasks read.
+struct StringValue {
+    std::string type = "string";
+    /// @brief length is the number of characters, two to each register.
+    std::uint16_t length = 0;
+    /// @brief bytes_swapped overrides the bytes_swapped of the connection for the
+    /// value.
+    std::optional<bool> bytes_swapped;
+
+    static StringValue parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief Value is how one or more registers hold a value.
+using Value = std::variant<WholeValue, BitValue, StringValue>;
+
+Value parse_value(x::json::Parser parser);
+[[nodiscard]] x::json::json to_json(const Value &value);
+
+using Status = ::synnax::status::Status<StatusDetails>;
+
+/// @brief CoilRegister is a coil, which tasks can read and write.
+struct CoilRegister : public BaseRegister {
+    std::string type = "coil";
+
+    static CoilRegister parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief DiscreteInputRegister is a discrete input, which tasks can only read.
+struct DiscreteInputRegister : public BaseRegister {
+    std::string type = "discrete_input";
+
+    static DiscreteInputRegister parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief HoldingRegisterRegister is a holding register value, which tasks can read and
+/// write.
+struct HoldingRegisterRegister : public BaseRegister {
+    std::string type = "holding_register";
+    /// @brief value is how the registers hold the value.
+    Value value;
+
+    static HoldingRegisterRegister parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief InputRegisterRegister is an input register value, which tasks can only read.
+struct InputRegisterRegister : public BaseRegister {
+    std::string type = "input_register";
+    /// @brief value is how the registers hold the value.
+    Value value;
+
+    static InputRegisterRegister parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
 /// @brief Register identifies a value at one Modbus address.
-struct Register {
-    /// @brief type is the address space of the register.
-    std::string type;
-    /// @brief address is the address of the first register.
-    std::uint16_t address = 0;
-    /// @brief data_type is the type of the value in the registers. Absent for a coil, a
-    /// discrete input, and a bit of a register.
-    std::optional<std::string> data_type;
-    /// @brief bit is the bit of the register, from 0 to 15. Absent for a whole value.
-    std::optional<std::uint8_t> bit;
+using Register = std::variant<
+    CoilRegister,
+    DiscreteInputRegister,
+    HoldingRegisterRegister,
+    InputRegisterRegister>;
 
-    static Register parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
+Register parse_register(x::json::Parser parser);
+[[nodiscard]] x::json::json to_json(const Register &value);
 
-using Status = ::synnax::status::Status<StatusDetails>;
+/// @brief returns the fields every variant of the union shares.
+[[nodiscard]] inline const BaseRegister &base(const Register &value) {
+    return std::visit([](const auto &v) -> const BaseRegister & { return v; }, value);
+}
 
 /// @brief Read binds a value that read tasks read to its channel.
 struct Read {
@@ -238,8 +336,8 @@ struct Server {
     std::string name;
     /// @brief connection holds the settings that the Driver connects with.
     Connection connection;
-    /// @brief requests shapes the requests that the Driver sends.
-    Requests requests = {};
+    /// @brief request_policy limits and paces the requests that the Driver sends.
+    RequestPolicy request_policy = {};
     /// @brief reads bind the values that read tasks read to their channels.
     std::vector<Read> reads = {};
     /// @brief writes bind the values that write tasks write to their command channels.

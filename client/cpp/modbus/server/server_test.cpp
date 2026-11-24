@@ -19,7 +19,7 @@ x::json::json valid_server() {
         {"key", "22222222-2222-4222-8222-222222222222"},
         {"rack", 1},
         {"name", "PLC"},
-        {"connection", {{"transport", "tcp"}, {"host", "plc"}, {"port", 502}}},
+        {"connection", {{"transport", "tcp"}, {"host", "plc"}}},
     };
 }
 }
@@ -34,7 +34,8 @@ TEST(Server, AppliesTCPDefaults) {
     ASSERT_EQ(tcp.port, 502);
     ASSERT_EQ(tcp.unit_id, 255);
     ASSERT_EQ(tcp.timeout, x::telem::SECOND);
-    ASSERT_EQ(server.requests.write_codes, WRITE_CODES_MULTIPLE);
+    ASSERT_EQ(server.request_policy.write_function, WRITE_FUNCTION_MULTIPLE);
+    ASSERT_EQ(server.request_policy.max_write_registers, 123);
     ASSERT_TRUE(server.reads.empty());
     ASSERT_TRUE(server.writes.empty());
     ASSERT_FALSE(server.status.has_value());
@@ -50,6 +51,7 @@ TEST(Server, AppliesRTUDefaults) {
     const auto &rtu = std::get<RtuConnection>(server.connection);
     ASSERT_EQ(rtu.baud_rate, BaudRate::B19200);
     ASSERT_EQ(rtu.parity, PARITY_EVEN);
+    ASSERT_EQ(rtu.stop_bits, StopBits::One);
     ASSERT_EQ(rtu.unit_id, 1);
 }
 
@@ -58,32 +60,30 @@ TEST(Server, RoundTrips) {
     x::json::Parser parser(valid_server());
     auto server = Server::parse(parser);
     ASSERT_NIL(parser.error());
-    server.reads.push_back(
-        Read{
-            .register_ =
-                Register{
-                    .type = REGISTER_TYPE_HOLDING_REGISTER,
-                    .address = 5,
-                    .data_type = DATA_TYPE_FLOAT_32,
-                },
-            .index = 3,
-            .channel = 4,
-        }
-    );
-    server.writes.push_back(
-        Write{
-            .register_ = Register{.type = REGISTER_TYPE_COIL, .address = 1, .bit = 3},
-            .channel = 5,
-        }
-    );
+    HoldingRegisterRegister holding;
+    holding.address = 5;
+    holding.value = WholeValue{.data_type = DATA_TYPE_FLOAT_32, .words_swapped = true};
+    server.reads.push_back(Read{.register_ = holding, .index = 3, .channel = 4});
+    HoldingRegisterRegister bit;
+    bit.address = 1;
+    bit.value = BitValue{.bit = 3};
+    server.writes.push_back(Write{.register_ = bit, .channel = 5});
     x::json::Parser round(server.to_json());
     const auto parsed = Server::parse(round);
     ASSERT_NIL(round.error());
     ASSERT_EQ(std::get<TcpConnection>(parsed.connection).host, "plc");
-    ASSERT_EQ(parsed.reads.at(0).register_.data_type, DATA_TYPE_FLOAT_32);
+    const auto &read = std::get<HoldingRegisterRegister>(parsed.reads.at(0).register_);
+    ASSERT_EQ(read.address, 5);
+    const auto &whole = std::get<WholeValue>(read.value);
+    ASSERT_EQ(whole.data_type, DATA_TYPE_FLOAT_32);
+    ASSERT_EQ(whole.words_swapped, true);
+    ASSERT_FALSE(whole.bytes_swapped.has_value());
     ASSERT_EQ(parsed.reads.at(0).index, 3);
     ASSERT_EQ(parsed.reads.at(0).channel, 4);
-    ASSERT_EQ(parsed.writes.at(0).register_.bit, 3);
+    const auto &write = std::get<HoldingRegisterRegister>(
+        parsed.writes.at(0).register_
+    );
+    ASSERT_EQ(std::get<BitValue>(write.value).bit, 3);
     ASSERT_EQ(parsed.writes.at(0).channel, 5);
 }
 }

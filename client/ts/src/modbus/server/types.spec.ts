@@ -15,7 +15,7 @@ const SERVER = {
   key: "22222222-2222-4222-8222-222222222222",
   rack: 1,
   name: "PLC",
-  connection: { transport: "tcp", host: "plc", port: 502 },
+  connection: { transport: "tcp", host: "plc" },
 } as const;
 
 describe("serverZ", () => {
@@ -31,10 +31,13 @@ describe("serverZ", () => {
       timeout: 1000000000,
       retries: 1,
     });
-    expect(server.requests).toEqual({
-      maxRegisters: 125,
+    expect(server.requestPolicy).toEqual({
+      maxReadRegisters: 125,
+      maxWriteRegisters: 123,
+      maxReadBits: 2000,
+      maxWriteBits: 1968,
       maxGap: 125,
-      writeCodes: "multiple",
+      writeFunction: "multiple",
       maskWriteSupported: false,
       delay: 0,
     });
@@ -60,20 +63,44 @@ describe("serverZ", () => {
       ...SERVER,
       reads: [
         {
-          register: { type: "holding_register", address: 5, dataType: "float32" },
+          register: {
+            type: "holding_register",
+            address: 5,
+            value: { type: "whole", dataType: "float32", wordsSwapped: true },
+          },
           index: 3,
           channel: 4,
         },
         {
-          register: { type: "input_register", address: 6, bit: 3 },
+          register: {
+            type: "input_register",
+            address: 6,
+            value: { type: "bit", bit: 3 },
+          },
           index: 3,
           channel: 5,
         },
+        {
+          register: {
+            type: "holding_register",
+            address: 7,
+            value: { type: "string", length: 8 },
+          },
+          index: 3,
+          channel: 6,
+        },
       ],
-      writes: [{ register: { type: "coil", address: 1 }, channel: 6 }],
+      writes: [{ register: { type: "coil", address: 1 }, channel: 7 }],
     });
-    expect(server.reads[0].register.dataType).toEqual("float32");
-    expect(server.reads[1].register.bit).toEqual(3);
+    expect(server.reads.map(({ register }) => register)).toEqual([
+      {
+        type: "holding_register",
+        address: 5,
+        value: { type: "whole", dataType: "float32", wordsSwapped: true },
+      },
+      { type: "input_register", address: 6, value: { type: "bit", bit: 3 } },
+      { type: "holding_register", address: 7, value: { type: "string", length: 8 } },
+    ]);
     expect(server.writes[0].register).toEqual({ type: "coil", address: 1 });
   });
 
@@ -96,6 +123,11 @@ describe("serverZ", () => {
     ],
     ["an empty name", { name: "" }],
     ["no transport", { connection: { host: "plc", port: 502 } }],
+    ["port 0", { connection: { ...SERVER.connection, port: 0 } }],
+    [
+      "three stop bits",
+      { connection: { transport: "rtu", serialPort: "COM3", stopBits: 3 } },
+    ],
     ["an empty host", { connection: { ...SERVER.connection, host: "" } }],
     [
       "a timeout under a millisecond",
@@ -117,15 +149,45 @@ describe("serverZ", () => {
       "a write of bit 16",
       {
         writes: [
-          { register: { type: "holding_register", address: 0, bit: 16 }, channel: 1 },
+          {
+            register: {
+              type: "holding_register",
+              address: 0,
+              value: { type: "bit", bit: 16 },
+            },
+            channel: 1,
+          },
         ],
+      },
+    ],
+    [
+      "a string of no characters",
+      {
+        reads: [
+          {
+            register: {
+              type: "input_register",
+              address: 0,
+              value: { type: "string", length: 0 },
+            },
+            index: 1,
+            channel: 2,
+          },
+        ],
+      },
+    ],
+    [
+      "a holding register with no value",
+      {
+        writes: [{ register: { type: "holding_register", address: 0 }, channel: 1 }],
       },
     ],
     [
       "an RTU unit of 248",
       { connection: { transport: "rtu", serialPort: "COM3", unitId: 248 } },
     ],
-    ["an unknown write code", { requests: { writeCodes: "masked" } }],
+    ["an unknown write function", { requestPolicy: { writeFunction: "masked" } }],
+    ["a read of 126 registers", { requestPolicy: { maxReadRegisters: 126 } }],
   ];
   it.each(INVALID)("should reject %s", (_, change) => {
     expect(modbus.server.serverZ.safeParse({ ...SERVER, ...change }).success).toBe(

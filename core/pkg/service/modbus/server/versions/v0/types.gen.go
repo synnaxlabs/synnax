@@ -15,7 +15,6 @@ import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
 	"reflect"
-	"regexp"
 	"strconv"
 	"uuid"
 
@@ -27,8 +26,6 @@ import (
 	"github.com/synnaxlabs/x/validate"
 	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
-
-var validatePattern0 = regexp.MustCompile("^([A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?([.][A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*|[0-9A-Fa-f.]*:[0-9A-Fa-f:.]*)$")
 
 // Key uniquely identifies a Modbus server.
 type Key = uuid.UUID
@@ -93,48 +90,44 @@ func (b BaudRate) IsValid() bool {
 	}
 }
 
-// WriteCodes selects the function codes that write tasks use.
-type WriteCodes string
+// WriteFunction selects the function codes that write tasks use.
+type WriteFunction string
 
 const (
-	// WriteCodesMultiple writes with function codes 15 and 16.
-	WriteCodesMultiple WriteCodes = "multiple"
-	// WriteCodesSingle writes with function codes 5 and 6.
-	WriteCodesSingle WriteCodes = "single"
+	// WriteFunctionMultiple writes with function codes 15 and 16.
+	WriteFunctionMultiple WriteFunction = "multiple"
+	// WriteFunctionSingle writes with function codes 5 and 6.
+	WriteFunctionSingle WriteFunction = "single"
 )
 
-// IsValid reports whether w is one of the defined WriteCodes
+// IsValid reports whether w is one of the defined WriteFunction
 // values.
-func (w WriteCodes) IsValid() bool {
+func (w WriteFunction) IsValid() bool {
 	switch w {
-	case WriteCodesMultiple, WriteCodesSingle:
+	case WriteFunctionMultiple, WriteFunctionSingle:
 		return true
 	default:
 		return false
 	}
 }
 
-// RegisterType is the Modbus address space that a register is in.
-type RegisterType string
+// StopBits is the number of stop bits of a serial line.
+type StopBits uint8
+
+//go:generate go tool stringer -type=StopBits
 
 const (
-	// RegisterTypeCoil is a single-bit coil, which tasks can read and write.
-	RegisterTypeCoil RegisterType = "coil"
-	// RegisterTypeDiscreteInput is a single-bit discrete input, which tasks can only
-	// read.
-	RegisterTypeDiscreteInput RegisterType = "discrete_input"
-	// RegisterTypeHoldingRegister is a 16-bit holding register, which tasks can read
-	// and write.
-	RegisterTypeHoldingRegister RegisterType = "holding_register"
-	// RegisterTypeInputRegister is a 16-bit input register, which tasks can only read.
-	RegisterTypeInputRegister RegisterType = "input_register"
+	// StopBitsOne is one stop bit.
+	StopBitsOne StopBits = 1
+	// StopBitsTwo is two stop bits.
+	StopBitsTwo StopBits = 2
 )
 
-// IsValid reports whether r is one of the defined RegisterType
+// IsValid reports whether s is one of the defined StopBits
 // values.
-func (r RegisterType) IsValid() bool {
-	switch r {
-	case RegisterTypeCoil, RegisterTypeDiscreteInput, RegisterTypeHoldingRegister, RegisterTypeInputRegister:
+func (s StopBits) IsValid() bool {
+	switch s {
+	case StopBitsOne, StopBitsTwo:
 		return true
 	default:
 		return false
@@ -165,15 +158,13 @@ const (
 	DataTypeFloat32 DataType = "float32"
 	// DataTypeFloat64 is a 64-bit float.
 	DataTypeFloat64 DataType = "float64"
-	// DataTypeString is a string of two characters to each register.
-	DataTypeString DataType = "string"
 )
 
 // IsValid reports whether d is one of the defined DataType
 // values.
 func (d DataType) IsValid() bool {
 	switch d {
-	case DataTypeInt8, DataTypeInt16, DataTypeInt32, DataTypeInt64, DataTypeUint8, DataTypeUint16, DataTypeUint32, DataTypeUint64, DataTypeFloat32, DataTypeFloat64, DataTypeString:
+	case DataTypeInt8, DataTypeInt16, DataTypeInt32, DataTypeInt64, DataTypeUint8, DataTypeUint16, DataTypeUint32, DataTypeUint64, DataTypeFloat32, DataTypeFloat64:
 		return true
 	default:
 		return false
@@ -239,6 +230,7 @@ func (TcpConnection) isConnectionVariant() {}
 // SetDefaults sets every field that has a schema default to that default.
 func (t *TcpConnection) SetDefaults() {
 	t.BaseConnection.SetDefaults()
+	t.Port = 502
 	t.UnitID = 255
 }
 
@@ -247,8 +239,7 @@ func (t *TcpConnection) SetDefaults() {
 func (t TcpConnection) Validate() error {
 	v := validate.New("TcpConnection")
 	v.NotEmptyString("host", t.Host)
-	v.Ternary("host", !validatePattern0.MatchString(string(t.Host)), "Host must be a hostname, an IPv4 address, or an IPv6 address")
-	v.NonZero("port", t.Port)
+	v.GreaterThanEq("port", t.Port, 1)
 	v.Exec(t.BaseConnection.Validate)
 	return v.Error()
 }
@@ -263,7 +254,7 @@ type RtuConnection struct {
 	// Parity is the parity of the line.
 	Parity Parity `json:"parity" msgpack:"parity"`
 	// StopBits is the number of stop bits of the line.
-	StopBits uint8 `json:"stop_bits" msgpack:"stop_bits"`
+	StopBits StopBits `json:"stop_bits" msgpack:"stop_bits"`
 	// UnitID is the unit that requests address.
 	UnitID uint8 `json:"unit_id" msgpack:"unit_id"`
 }
@@ -275,7 +266,7 @@ func (r *RtuConnection) SetDefaults() {
 	r.BaseConnection.SetDefaults()
 	r.BaudRate = BaudRateB19200
 	r.Parity = ParityEven
-	r.StopBits = 1
+	r.StopBits = StopBitsOne
 	r.UnitID = 1
 }
 
@@ -285,9 +276,8 @@ func (r RtuConnection) Validate() error {
 	v := validate.New("RtuConnection")
 	v.Ternaryf("baud_rate", !r.BaudRate.IsValid(), "invalid baud_rate: %v", r.BaudRate)
 	v.Ternaryf("parity", !r.Parity.IsValid(), "invalid parity: %v", r.Parity)
+	v.Ternaryf("stop_bits", !r.StopBits.IsValid(), "invalid stop_bits: %v", r.StopBits)
 	v.NotEmptyString("serial_port", r.SerialPort)
-	v.GreaterThanEq("stop_bits", r.StopBits, 1)
-	v.LessThanEq("stop_bits", r.StopBits, 2)
 	v.GreaterThanEq("unit_id", r.UnitID, 1)
 	v.LessThanEq("unit_id", r.UnitID, 247)
 	v.Exec(r.BaseConnection.Validate)
@@ -420,14 +410,21 @@ func (u *Connection) SetBase(base BaseConnection) {
 	}
 }
 
-// Requests shapes the requests that the Driver sends to a server.
-type Requests struct {
-	// MaxRegisters is the largest number of registers that one read requests.
-	MaxRegisters uint16 `json:"max_registers" msgpack:"max_registers"`
-	// MaxGap is the widest gap between two channels that one read spans.
+// RequestPolicy limits and paces the requests that the Driver sends to a server.
+type RequestPolicy struct {
+	// MaxReadRegisters is the most registers that one read requests.
+	MaxReadRegisters uint16 `json:"max_read_registers" msgpack:"max_read_registers"`
+	// MaxWriteRegisters is the most registers that one write sets.
+	MaxWriteRegisters uint16 `json:"max_write_registers" msgpack:"max_write_registers"`
+	// MaxReadBits is the most coils or discrete inputs that one read requests.
+	MaxReadBits uint16 `json:"max_read_bits" msgpack:"max_read_bits"`
+	// MaxWriteBits is the most coils that one write sets.
+	MaxWriteBits uint16 `json:"max_write_bits" msgpack:"max_write_bits"`
+	// MaxGap is the most unbound addresses between two values that one read spans. It
+	// is at most max_read_registers.
 	MaxGap uint16 `json:"max_gap" msgpack:"max_gap"`
-	// WriteCodes selects the function codes that write tasks use.
-	WriteCodes WriteCodes `json:"write_codes" msgpack:"write_codes"`
+	// WriteFunction selects the function codes that write tasks use.
+	WriteFunction WriteFunction `json:"write_function" msgpack:"write_function"`
 	// MaskWriteSupported is true when bit writes use function code 22.
 	MaskWriteSupported bool `json:"mask_write_supported" msgpack:"mask_write_supported"`
 	// Delay is the wait between two requests.
@@ -435,16 +432,19 @@ type Requests struct {
 }
 
 // SetDefaults sets every field that has a schema default to that default.
-func (r *Requests) SetDefaults() {
-	r.MaxRegisters = 125
+func (r *RequestPolicy) SetDefaults() {
+	r.MaxReadRegisters = 125
+	r.MaxWriteRegisters = 123
+	r.MaxReadBits = 2000
+	r.MaxWriteBits = 1968
 	r.MaxGap = 125
-	r.WriteCodes = WriteCodesMultiple
+	r.WriteFunction = WriteFunctionMultiple
 }
 
 // UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
 // schema defaults, so an omitted member takes its default and a zero stays.
-func (r *Requests) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	type plain Requests
+func (r *RequestPolicy) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain RequestPolicy
 	if reflect.ValueOf(*r).IsZero() {
 		r.SetDefaults()
 	}
@@ -452,8 +452,8 @@ func (r *Requests) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 }
 
 // DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
-func (r *Requests) DecodeMsgpack(dec *vmsgpack.Decoder) error {
-	type plain Requests
+func (r *RequestPolicy) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain RequestPolicy
 	if reflect.ValueOf(*r).IsZero() {
 		r.SetDefaults()
 	}
@@ -462,41 +462,454 @@ func (r *Requests) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
-func (r Requests) Validate() error {
-	v := validate.New("Requests")
-	v.Ternaryf("write_codes", !r.WriteCodes.IsValid(), "invalid write_codes: %v", r.WriteCodes)
-	v.GreaterThanEq("max_registers", r.MaxRegisters, 1)
-	v.LessThanEq("max_registers", r.MaxRegisters, 125)
+func (r RequestPolicy) Validate() error {
+	v := validate.New("RequestPolicy")
+	v.Ternaryf("write_function", !r.WriteFunction.IsValid(), "invalid write_function: %v", r.WriteFunction)
+	v.GreaterThanEq("max_read_registers", r.MaxReadRegisters, 1)
+	v.LessThanEq("max_read_registers", r.MaxReadRegisters, 125)
+	v.GreaterThanEq("max_write_registers", r.MaxWriteRegisters, 1)
+	v.LessThanEq("max_write_registers", r.MaxWriteRegisters, 123)
+	v.GreaterThanEq("max_read_bits", r.MaxReadBits, 1)
+	v.LessThanEq("max_read_bits", r.MaxReadBits, 2000)
+	v.GreaterThanEq("max_write_bits", r.MaxWriteBits, 1)
+	v.LessThanEq("max_write_bits", r.MaxWriteBits, 1968)
+	v.LessThanEq("max_gap", r.MaxGap, 125)
 	v.GreaterThanEq("delay", r.Delay, 0)
 	v.LessThanEq("delay", r.Delay, 5000000000)
 	return v.Error()
 }
 
-// Register identifies a value at one Modbus address.
-type Register struct {
-	// Type is the address space of the register.
-	Type RegisterType `json:"type" msgpack:"type"`
-	// Address is the address of the first register.
-	Address uint16 `json:"address" msgpack:"address"`
-	// DataType is the type of the value in the registers. Absent for a coil, a discrete
-	// input, and a bit of a register.
-	DataType *DataType `json:"data_type,omitzero" msgpack:"data_type,omitempty"`
-	// Bit is the bit of the register, from 0 to 15. Absent for a whole value.
-	Bit *uint8 `json:"bit,omitzero" msgpack:"bit,omitempty"`
+// ValueType is the "type" value that selects a variant of Value.
+type ValueType string
+
+const (
+	// WholeValueType is a number that fills one or more registers.
+	WholeValueType ValueType = "whole"
+	// BitValueType is one bit of a register.
+	BitValueType ValueType = "bit"
+	// StringValueType is a fixed-length string that read tasks read.
+	StringValueType ValueType = "string"
+)
+
+// ValueVariant is implemented by every Value variant.
+type ValueVariant interface {
+	isValueVariant()
+}
+
+// WholeValue is a number that fills one or more registers.
+type WholeValue struct {
+	// DataType is the type of the value in the registers.
+	DataType DataType `json:"data_type" msgpack:"data_type"`
+	// BytesSwapped overrides the bytes_swapped of the connection for the value.
+	BytesSwapped *bool `json:"bytes_swapped,omitzero" msgpack:"bytes_swapped,omitempty"`
+	// WordsSwapped overrides the words_swapped of the connection for the value.
+	WordsSwapped *bool `json:"words_swapped,omitzero" msgpack:"words_swapped,omitempty"`
+}
+
+func (WholeValue) isValueVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (w *WholeValue) SetDefaults() {
+	w.DataType = DataTypeUint16
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
-func (r Register) Validate() error {
-	v := validate.New("Register")
-	v.Ternaryf("type", !r.Type.IsValid(), "invalid type: %v", r.Type)
-	if r.DataType != nil {
-		v.Ternaryf("data_type", !r.DataType.IsValid(), "invalid data_type: %v", *r.DataType)
+func (w WholeValue) Validate() error {
+	v := validate.New("WholeValue")
+	v.Ternaryf("data_type", !w.DataType.IsValid(), "invalid data_type: %v", w.DataType)
+	return v.Error()
+}
+
+// BitValue is one bit of a register.
+type BitValue struct {
+	// Bit is the bit of the register, from 0 to 15.
+	Bit uint8 `json:"bit" msgpack:"bit"`
+}
+
+func (BitValue) isValueVariant() {}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (b BitValue) Validate() error {
+	v := validate.New("BitValue")
+	v.LessThanEq("bit", b.Bit, 15)
+	return v.Error()
+}
+
+// StringValue is a fixed-length string that read tasks read.
+type StringValue struct {
+	// Length is the number of characters, two to each register.
+	Length uint16 `json:"length" msgpack:"length"`
+	// BytesSwapped overrides the bytes_swapped of the connection for the value.
+	BytesSwapped *bool `json:"bytes_swapped,omitzero" msgpack:"bytes_swapped,omitempty"`
+}
+
+func (StringValue) isValueVariant() {}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (s StringValue) Validate() error {
+	v := validate.New("StringValue")
+	v.GreaterThanEq("length", s.Length, 1)
+	v.LessThanEq("length", s.Length, 250)
+	return v.Error()
+}
+
+// Value is how one or more registers hold a value.
+type Value struct {
+	Variant ValueVariant
+}
+
+// MarshalJSONTo encodes the active variant with its "type" tag injected.
+func (u Value) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
+	case WholeValue:
+		return json.MarshalEncode(enc, struct {
+			Type ValueType `json:"type"`
+			WholeValue
+		}{Type: WholeValueType, WholeValue: v})
+	case BitValue:
+		return json.MarshalEncode(enc, struct {
+			Type ValueType `json:"type"`
+			BitValue
+		}{Type: BitValueType, BitValue: v})
+	case StringValue:
+		return json.MarshalEncode(enc, struct {
+			Type ValueType `json:"type"`
+			StringValue
+		}{Type: StringValueType, StringValue: v})
+	default:
+		return errors.Newf("Value: unknown variant %T", v)
 	}
-	if r.Bit != nil {
-		v.LessThanEq("bit", *r.Bit, 15)
+}
+
+// UnmarshalJSONFrom decodes the variant selected by the "type" field.
+func (u *Value) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
+		u.Variant = nil
+		return nil
+	}
+	opts := dec.Options()
+	var disc struct {
+		Type ValueType `json:"type"`
+	}
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case WholeValueType:
+		var v struct {
+			Type ValueType `json:"type"`
+			WholeValue
+		}
+		v.WholeValue.SetDefaults()
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.WholeValue
+	case BitValueType:
+		var v struct {
+			Type ValueType `json:"type"`
+			BitValue
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.BitValue
+	case StringValueType:
+		var v struct {
+			Type ValueType `json:"type"`
+			StringValue
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.StringValue
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"Value: unknown type %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u Value) Type() ValueType {
+	switch u.Variant.(type) {
+	case WholeValue:
+		return WholeValueType
+	case BitValue:
+		return BitValueType
+	case StringValue:
+		return StringValueType
+	}
+	return ""
+}
+
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
+func (u Value) Validate() error {
+	v := validate.New("Value")
+	v.Ternary("type", u.Variant == nil, "required")
+	switch variant := u.Variant.(type) {
+	case WholeValue:
+		v.Exec(variant.Validate)
+	case BitValue:
+		v.Exec(variant.Validate)
+	case StringValue:
+		v.Exec(variant.Validate)
 	}
 	return v.Error()
+}
+
+// BaseRegister carries the address that every register has.
+type BaseRegister struct {
+	// Address is the address of the first register or bit.
+	Address uint16 `json:"address" msgpack:"address"`
+}
+
+// RegisterType is the "type" value that selects a variant of Register.
+type RegisterType string
+
+const (
+	// CoilRegisterType is a coil, which tasks can read and write.
+	CoilRegisterType RegisterType = "coil"
+	// DiscreteInputRegisterType is a discrete input, which tasks can only read.
+	DiscreteInputRegisterType RegisterType = "discrete_input"
+	// HoldingRegisterRegisterType is a holding register value, which tasks can read and
+	// write.
+	HoldingRegisterRegisterType RegisterType = "holding_register"
+	// InputRegisterRegisterType is an input register value, which tasks can only read.
+	InputRegisterRegisterType RegisterType = "input_register"
+)
+
+// RegisterVariant is implemented by every Register variant.
+type RegisterVariant interface {
+	isRegisterVariant()
+}
+
+// CoilRegister is a coil, which tasks can read and write.
+type CoilRegister struct {
+	BaseRegister
+}
+
+func (CoilRegister) isRegisterVariant() {}
+
+// DiscreteInputRegister is a discrete input, which tasks can only read.
+type DiscreteInputRegister struct {
+	BaseRegister
+}
+
+func (DiscreteInputRegister) isRegisterVariant() {}
+
+// HoldingRegisterRegister is a holding register value, which tasks can read and write.
+type HoldingRegisterRegister struct {
+	BaseRegister
+	// Value is how the registers hold the value.
+	Value Value `json:"value" msgpack:"value"`
+}
+
+func (HoldingRegisterRegister) isRegisterVariant() {}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (h HoldingRegisterRegister) Validate() error {
+	v := validate.New("HoldingRegisterRegister")
+	v.Exec(func() error { return validate.PathedError(h.Value.Validate(), "value") })
+	return v.Error()
+}
+
+// InputRegisterRegister is an input register value, which tasks can only read.
+type InputRegisterRegister struct {
+	BaseRegister
+	// Value is how the registers hold the value.
+	Value Value `json:"value" msgpack:"value"`
+}
+
+func (InputRegisterRegister) isRegisterVariant() {}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (i InputRegisterRegister) Validate() error {
+	v := validate.New("InputRegisterRegister")
+	v.Exec(func() error { return validate.PathedError(i.Value.Validate(), "value") })
+	return v.Error()
+}
+
+// Register identifies a value at one Modbus address.
+type Register struct {
+	Variant RegisterVariant
+}
+
+// MarshalJSONTo encodes the active variant with its "type" tag injected.
+func (u Register) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
+	case CoilRegister:
+		return json.MarshalEncode(enc, struct {
+			Type RegisterType `json:"type"`
+			CoilRegister
+		}{Type: CoilRegisterType, CoilRegister: v})
+	case DiscreteInputRegister:
+		return json.MarshalEncode(enc, struct {
+			Type RegisterType `json:"type"`
+			DiscreteInputRegister
+		}{Type: DiscreteInputRegisterType, DiscreteInputRegister: v})
+	case HoldingRegisterRegister:
+		return json.MarshalEncode(enc, struct {
+			Type RegisterType `json:"type"`
+			HoldingRegisterRegister
+		}{Type: HoldingRegisterRegisterType, HoldingRegisterRegister: v})
+	case InputRegisterRegister:
+		return json.MarshalEncode(enc, struct {
+			Type RegisterType `json:"type"`
+			InputRegisterRegister
+		}{Type: InputRegisterRegisterType, InputRegisterRegister: v})
+	default:
+		return errors.Newf("Register: unknown variant %T", v)
+	}
+}
+
+// UnmarshalJSONFrom decodes the variant selected by the "type" field.
+func (u *Register) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
+		u.Variant = nil
+		return nil
+	}
+	opts := dec.Options()
+	var disc struct {
+		Type RegisterType `json:"type"`
+	}
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case CoilRegisterType:
+		var v struct {
+			Type RegisterType `json:"type"`
+			CoilRegister
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.CoilRegister
+	case DiscreteInputRegisterType:
+		var v struct {
+			Type RegisterType `json:"type"`
+			DiscreteInputRegister
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.DiscreteInputRegister
+	case HoldingRegisterRegisterType:
+		var v struct {
+			Type RegisterType `json:"type"`
+			HoldingRegisterRegister
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.HoldingRegisterRegister
+	case InputRegisterRegisterType:
+		var v struct {
+			Type RegisterType `json:"type"`
+			InputRegisterRegister
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.InputRegisterRegister
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"Register: unknown type %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u Register) Type() RegisterType {
+	switch u.Variant.(type) {
+	case CoilRegister:
+		return CoilRegisterType
+	case DiscreteInputRegister:
+		return DiscreteInputRegisterType
+	case HoldingRegisterRegister:
+		return HoldingRegisterRegisterType
+	case InputRegisterRegister:
+		return InputRegisterRegisterType
+	}
+	return ""
+}
+
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
+func (u Register) Validate() error {
+	v := validate.New("Register")
+	v.Ternary("type", u.Variant == nil, "required")
+	switch variant := u.Variant.(type) {
+	case HoldingRegisterRegister:
+		v.Exec(variant.Validate)
+	case InputRegisterRegister:
+		v.Exec(variant.Validate)
+	}
+	return v.Error()
+}
+
+// Base returns the fields every variant shares, or the zero value if Variant is nil.
+func (u Register) Base() BaseRegister {
+	switch variant := u.Variant.(type) {
+	case CoilRegister:
+		return variant.BaseRegister
+	case DiscreteInputRegister:
+		return variant.BaseRegister
+	case HoldingRegisterRegister:
+		return variant.BaseRegister
+	case InputRegisterRegister:
+		return variant.BaseRegister
+	}
+	return BaseRegister{}
+}
+
+// SetBase replaces the fields every variant shares. It panics if Variant is nil.
+func (u *Register) SetBase(base BaseRegister) {
+	switch variant := u.Variant.(type) {
+	case CoilRegister:
+		variant.BaseRegister = base
+		u.Variant = variant
+	case DiscreteInputRegister:
+		variant.BaseRegister = base
+		u.Variant = variant
+	case HoldingRegisterRegister:
+		variant.BaseRegister = base
+		u.Variant = variant
+	case InputRegisterRegister:
+		variant.BaseRegister = base
+		u.Variant = variant
+	default:
+		panic(errors.Newf("Register: cannot set the base of variant %T", variant))
+	}
 }
 
 // Read binds a value that read tasks read to its channel.
@@ -577,8 +990,8 @@ type Server struct {
 	Name string `json:"name" msgpack:"name"`
 	// Connection holds the settings that the Driver connects with.
 	Connection Connection `json:"connection" msgpack:"connection"`
-	// Requests shapes the requests that the Driver sends.
-	Requests Requests `json:"requests" msgpack:"requests"`
+	// RequestPolicy limits and paces the requests that the Driver sends.
+	RequestPolicy RequestPolicy `json:"request_policy" msgpack:"request_policy"`
 	// Reads bind the values that read tasks read to their channels.
 	Reads []Read `json:"reads" msgpack:"reads"`
 	// Writes bind the values that write tasks write to their command channels.
@@ -589,7 +1002,7 @@ type Server struct {
 
 // SetDefaults sets every field that has a schema default to that default.
 func (s *Server) SetDefaults() {
-	s.Requests.SetDefaults()
+	s.RequestPolicy.SetDefaults()
 }
 
 // UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
@@ -617,7 +1030,7 @@ func (s Server) Validate() error {
 	v := validate.New("Server")
 	v.NotEmptyString("name", s.Name)
 	v.Exec(func() error { return validate.PathedError(s.Connection.Validate(), "connection") })
-	v.Exec(func() error { return validate.PathedError(s.Requests.Validate(), "requests") })
+	v.Exec(func() error { return validate.PathedError(s.RequestPolicy.Validate(), "request_policy") })
 	for i := range s.Reads {
 		v.Exec(func() error { return validate.PathedError(s.Reads[i].Validate(), "reads", strconv.Itoa(i)) })
 	}

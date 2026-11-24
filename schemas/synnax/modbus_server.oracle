@@ -67,7 +67,7 @@ BaudRate enum {
     @doc value "is a serial line rate that the Driver sets on every platform."
 }
 
-WriteCodes enum {
+WriteFunction enum {
     multiple = "multiple" {
         @doc value "writes with function codes 15 and 16."
     }
@@ -78,21 +78,15 @@ WriteCodes enum {
     @doc value "selects the function codes that write tasks use."
 }
 
-RegisterType enum {
-    coil             = "coil" {
-        @doc value "is a single-bit coil, which tasks can read and write."
+StopBits enum {
+    one = 1 {
+        @doc value "is one stop bit."
     }
-    discrete_input   = "discrete_input" {
-        @doc value "is a single-bit discrete input, which tasks can only read."
-    }
-    holding_register = "holding_register" {
-        @doc value "is a 16-bit holding register, which tasks can read and write."
-    }
-    input_register   = "input_register" {
-        @doc value "is a 16-bit input register, which tasks can only read."
+    two = 2 {
+        @doc value "is two stop bits."
     }
 
-    @doc value "is the Modbus address space that a register is in."
+    @doc value "is the number of stop bits of a serial line."
 }
 
 DataType enum {
@@ -126,9 +120,6 @@ DataType enum {
     float64 = "float64" {
         @doc value "is a 64-bit float."
     }
-    string  = "string" {
-        @doc value "is a string of two characters to each register."
-    }
 
     @doc value "is the type of the value that one or more registers hold."
 }
@@ -159,12 +150,11 @@ Connection union on transport extends BaseConnection {
     tcp {
         host    string {
             @doc value         "is the hostname, IPv4, or IPv6 address of the server."
-            @go validate       pattern "^([A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?([.][A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*|[0-9A-Fa-f.]*:[0-9A-Fa-f:.]*)$" "Host must be a hostname, an IPv4 address, or an IPv6 address"
             @validate required
         }
-        port    uint16 {
-            @doc value         "is the TCP port of the server."
-            @validate required
+        port    uint16 = 502 {
+            @doc value    "is the TCP port of the server."
+            @validate min 1
         }
         unit_id uint8 = 255 {
             @doc value "is the unit that requests address."
@@ -185,10 +175,8 @@ Connection union on transport extends BaseConnection {
         parity      Parity = even {
             @doc value "is the parity of the line."
         }
-        stop_bits   uint8 = 1 {
-            @doc value    "is the number of stop bits of the line."
-            @validate max 2
-            @validate min 1
+        stop_bits   StopBits = one {
+            @doc value "is the number of stop bits of the line."
         }
         unit_id     uint8 = 1 {
             @doc value    "is the unit that requests address."
@@ -203,16 +191,35 @@ Connection union on transport extends BaseConnection {
     @go marshal
 }
 
-Requests struct {
-    max_registers        uint16 = 125 {
-        @doc value    "is the largest number of registers that one read requests."
+RequestPolicy struct {
+    max_read_registers   uint16 = 125 {
+        @doc value    "is the most registers that one read requests."
         @validate max 125
         @validate min 1
     }
-    max_gap              uint16 = 125 {
-        @doc value "is the widest gap between two channels that one read spans."
+    max_write_registers  uint16 = 123 {
+        @doc value    "is the most registers that one write sets."
+        @validate max 123
+        @validate min 1
     }
-    write_codes          WriteCodes = multiple {
+    max_read_bits        uint16 = 2000 {
+        @doc value    "is the most coils or discrete inputs that one read requests."
+        @validate max 2000
+        @validate min 1
+    }
+    max_write_bits       uint16 = 1968 {
+        @doc value    "is the most coils that one write sets."
+        @validate max 1968
+        @validate min 1
+    }
+    max_gap              uint16 = 125 {
+        @doc value    """
+            is the most unbound addresses between two values that one read spans. It is
+            at most max_read_registers.
+        """
+        @validate max 125
+    }
+    write_function       WriteFunction = multiple {
         @doc value "selects the function codes that write tasks use."
     }
     mask_write_supported bool = false {
@@ -225,28 +232,78 @@ Requests struct {
         @validate min 0
     }
 
-    @doc value  "shapes the requests that the Driver sends to a server."
+    @doc value  "limits and paces the requests that the Driver sends to a server."
     @go marshal
 }
 
-Register struct {
-    type      RegisterType {
-        @doc value "is the address space of the register."
+Value union on type {
+    whole {
+        data_type     DataType = uint16 {
+            @doc value "is the type of the value in the registers."
+        }
+        bytes_swapped bool?    {
+            @doc value "overrides the bytes_swapped of the connection for the value."
+        }
+        words_swapped bool?    {
+            @doc value "overrides the words_swapped of the connection for the value."
+        }
+
+        @doc value "is a number that fills one or more registers."
     }
-    address   uint16 = 0 {
-        @doc value "is the address of the first register."
+    bit {
+        bit uint8 = 0 {
+            @doc value    "is the bit of the register, from 0 to 15."
+            @validate max 15
+        }
+
+        @doc value "is one bit of a register."
     }
-    data_type DataType?    {
-        @doc value """
-            is the type of the value in the registers. Absent for a coil, a discrete
-            input, and a bit of a register.
-        """
+    string {
+        length        uint16 {
+            @doc value    "is the number of characters, two to each register."
+            @validate max 250
+            @validate min 1
+        }
+        bytes_swapped bool?  {
+            @doc value "overrides the bytes_swapped of the connection for the value."
+        }
+
+        @doc value "is a fixed-length string that read tasks read."
     }
-    bit       uint8?       {
-        @doc value    """
-            is the bit of the register, from 0 to 15. Absent for a whole value.
-        """
-        @validate max 15
+
+    @doc value  "is how one or more registers hold a value."
+    @go marshal
+}
+
+BaseRegister struct {
+    address uint16 = 0 {
+        @doc value "is the address of the first register or bit."
+    }
+
+    @doc value  "carries the address that every register has."
+    @go marshal
+}
+
+Register union on type extends BaseRegister {
+    coil {
+        @doc value "is a coil, which tasks can read and write."
+    }
+    discrete_input {
+        @doc value "is a discrete input, which tasks can only read."
+    }
+    holding_register {
+        value Value {
+            @doc value "is how the registers hold the value."
+        }
+
+        @doc value "is a holding register value, which tasks can read and write."
+    }
+    input_register {
+        value Value {
+            @doc value "is how the registers hold the value."
+        }
+
+        @doc value "is an input register value, which tasks can only read."
     }
 
     @doc value  "identifies a value at one Modbus address."
@@ -336,34 +393,34 @@ Status = status.Status<StatusDetails> {
 }
 
 Server struct {
-    key        Key = create {
+    key            Key = create {
         @doc value "uniquely identifies the server."
         @key
     }
-    rack       rack.Key   {
+    rack           rack.Key      {
         @doc value     "is the key of the rack whose Driver connects to the server."
         @ref kind      place
         @ref on_delete restrict
     }
-    name       string     {
+    name           string        {
         @doc value         "is a human-readable name for the server."
         @filter
         @search
         @validate required
     }
-    connection Connection {
+    connection     Connection    {
         @doc value "holds the settings that the Driver connects with."
     }
-    requests   Requests = {} {
-        @doc value "shapes the requests that the Driver sends."
+    request_policy RequestPolicy = {} {
+        @doc value "limits and paces the requests that the Driver sends."
     }
-    reads      Read[] = [] {
+    reads          Read[] = [] {
         @doc value "bind the values that read tasks read to their channels."
     }
-    writes     Write[] = [] {
+    writes         Write[] = [] {
         @doc value "bind the values that write tasks write to their command channels."
     }
-    status     Status?    {
+    status         Status?       {
         @doc value  "is the current connection status of the server."
         @go marshal omit
         @include

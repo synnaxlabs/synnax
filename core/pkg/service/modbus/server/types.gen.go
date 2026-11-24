@@ -52,30 +52,24 @@ const (
 	BaudRateB230400 BaudRate = versions.BaudRateB230400
 )
 
-// WriteCodes selects the function codes that write tasks use.
-type WriteCodes = versions.WriteCodes
+// WriteFunction selects the function codes that write tasks use.
+type WriteFunction = versions.WriteFunction
 
 const (
-	// WriteCodesMultiple writes with function codes 15 and 16.
-	WriteCodesMultiple WriteCodes = versions.WriteCodesMultiple
-	// WriteCodesSingle writes with function codes 5 and 6.
-	WriteCodesSingle WriteCodes = versions.WriteCodesSingle
+	// WriteFunctionMultiple writes with function codes 15 and 16.
+	WriteFunctionMultiple WriteFunction = versions.WriteFunctionMultiple
+	// WriteFunctionSingle writes with function codes 5 and 6.
+	WriteFunctionSingle WriteFunction = versions.WriteFunctionSingle
 )
 
-// RegisterType is the Modbus address space that a register is in.
-type RegisterType = versions.RegisterType
+// StopBits is the number of stop bits of a serial line.
+type StopBits = versions.StopBits
 
 const (
-	// RegisterTypeCoil is a single-bit coil, which tasks can read and write.
-	RegisterTypeCoil RegisterType = versions.RegisterTypeCoil
-	// RegisterTypeDiscreteInput is a single-bit discrete input, which tasks can only
-	// read.
-	RegisterTypeDiscreteInput RegisterType = versions.RegisterTypeDiscreteInput
-	// RegisterTypeHoldingRegister is a 16-bit holding register, which tasks can read
-	// and write.
-	RegisterTypeHoldingRegister RegisterType = versions.RegisterTypeHoldingRegister
-	// RegisterTypeInputRegister is a 16-bit input register, which tasks can only read.
-	RegisterTypeInputRegister RegisterType = versions.RegisterTypeInputRegister
+	// StopBitsOne is one stop bit.
+	StopBitsOne StopBits = versions.StopBitsOne
+	// StopBitsTwo is two stop bits.
+	StopBitsTwo StopBits = versions.StopBitsTwo
 )
 
 // DataType is the type of the value that one or more registers hold.
@@ -102,8 +96,6 @@ const (
 	DataTypeFloat32 DataType = versions.DataTypeFloat32
 	// DataTypeFloat64 is a 64-bit float.
 	DataTypeFloat64 DataType = versions.DataTypeFloat64
-	// DataTypeString is a string of two characters to each register.
-	DataTypeString DataType = versions.DataTypeString
 )
 
 // BaseConnection carries the fields that every Modbus connection shares.
@@ -131,11 +123,71 @@ type TcpConnection = versions.TcpConnection
 // RtuConnection connects to a unit on a serial line over Modbus RTU.
 type RtuConnection = versions.RtuConnection
 
-// Requests shapes the requests that the Driver sends to a server.
-type Requests = versions.Requests
+// RequestPolicy limits and paces the requests that the Driver sends to a server.
+type RequestPolicy = versions.RequestPolicy
+
+// Value is how one or more registers hold a value.
+type Value = versions.Value
+
+// ValueVariant is implemented by every Value variant.
+type ValueVariant = versions.ValueVariant
+
+// ValueType is the "type" value that selects a variant of Value.
+type ValueType = versions.ValueType
+
+const (
+	// WholeValueType is a number that fills one or more registers.
+	WholeValueType ValueType = versions.WholeValueType
+	// BitValueType is one bit of a register.
+	BitValueType ValueType = versions.BitValueType
+	// StringValueType is a fixed-length string that read tasks read.
+	StringValueType ValueType = versions.StringValueType
+)
+
+// WholeValue is a number that fills one or more registers.
+type WholeValue = versions.WholeValue
+
+// BitValue is one bit of a register.
+type BitValue = versions.BitValue
+
+// StringValue is a fixed-length string that read tasks read.
+type StringValue = versions.StringValue
+
+// BaseRegister carries the address that every register has.
+type BaseRegister = versions.BaseRegister
 
 // Register identifies a value at one Modbus address.
 type Register = versions.Register
+
+// RegisterVariant is implemented by every Register variant.
+type RegisterVariant = versions.RegisterVariant
+
+// RegisterType is the "type" value that selects a variant of Register.
+type RegisterType = versions.RegisterType
+
+const (
+	// CoilRegisterType is a coil, which tasks can read and write.
+	CoilRegisterType RegisterType = versions.CoilRegisterType
+	// DiscreteInputRegisterType is a discrete input, which tasks can only read.
+	DiscreteInputRegisterType RegisterType = versions.DiscreteInputRegisterType
+	// HoldingRegisterRegisterType is a holding register value, which tasks can read and
+	// write.
+	HoldingRegisterRegisterType RegisterType = versions.HoldingRegisterRegisterType
+	// InputRegisterRegisterType is an input register value, which tasks can only read.
+	InputRegisterRegisterType RegisterType = versions.InputRegisterRegisterType
+)
+
+// CoilRegister is a coil, which tasks can read and write.
+type CoilRegister = versions.CoilRegister
+
+// DiscreteInputRegister is a discrete input, which tasks can only read.
+type DiscreteInputRegister = versions.DiscreteInputRegister
+
+// HoldingRegisterRegister is a holding register value, which tasks can read and write.
+type HoldingRegisterRegister = versions.HoldingRegisterRegister
+
+// InputRegisterRegister is an input register value, which tasks can only read.
+type InputRegisterRegister = versions.InputRegisterRegister
 
 // Read binds a value that read tasks read to its channel.
 type Read = versions.Read

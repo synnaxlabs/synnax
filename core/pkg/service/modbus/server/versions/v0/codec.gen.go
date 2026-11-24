@@ -51,6 +51,21 @@ func (bc *BaseConnection) DecodeOrc(r *orc.Reader) error {
 }
 
 // EncodeOrc writes the value to w in the Orc binary format.
+func (br BaseRegister) EncodeOrc(w *orc.Writer) error {
+	w.Uint16(uint16(br.Address))
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (br *BaseRegister) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if br.Address, err = r.Uint16(); err != nil {
+		return err
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
 func (c Connection) EncodeOrc(w *orc.Writer) error {
 	switch v := c.Variant.(type) {
 	case TcpConnection:
@@ -69,7 +84,7 @@ func (c Connection) EncodeOrc(w *orc.Writer) error {
 		w.String(v.SerialPort)
 		w.Int64(int64(v.BaudRate))
 		w.String(string(v.Parity))
-		w.Uint8(uint8(v.StopBits))
+		w.Int64(int64(v.StopBits))
 		w.Uint8(uint8(v.UnitID))
 	default:
 		return errors.Newf("Connection: nil or unknown variant %T", c.Variant)
@@ -121,8 +136,12 @@ func (c *Connection) DecodeOrc(r *orc.Reader) error {
 			}
 			v.Parity = Parity(rawV)
 		}
-		if v.StopBits, err = r.Uint8(); err != nil {
-			return err
+		{
+			rawV, err := r.Int64()
+			if err != nil {
+				return err
+			}
+			v.StopBits = StopBits(rawV)
 		}
 		if v.UnitID, err = r.Uint8(); err != nil {
 			return err
@@ -169,86 +188,111 @@ func (rv *Read) DecodeOrc(r *orc.Reader) error {
 
 // EncodeOrc writes the value to w in the Orc binary format.
 func (rv Register) EncodeOrc(w *orc.Writer) error {
-	w.String(string(rv.Type))
-	w.Uint16(uint16(rv.Address))
-	if rv.DataType != nil {
-		w.Bool(true)
-		w.String(string(*rv.DataType))
-	} else {
-		w.Bool(false)
-	}
-	if rv.Bit != nil {
-		w.Bool(true)
-		w.Uint8(uint8(*rv.Bit))
-	} else {
-		w.Bool(false)
+	switch v := rv.Variant.(type) {
+	case CoilRegister:
+		w.String("coil")
+		if err := v.BaseRegister.EncodeOrc(w); err != nil {
+			return err
+		}
+	case DiscreteInputRegister:
+		w.String("discrete_input")
+		if err := v.BaseRegister.EncodeOrc(w); err != nil {
+			return err
+		}
+	case HoldingRegisterRegister:
+		w.String("holding_register")
+		if err := v.BaseRegister.EncodeOrc(w); err != nil {
+			return err
+		}
+		if err := v.Value.EncodeOrc(w); err != nil {
+			return err
+		}
+	case InputRegisterRegister:
+		w.String("input_register")
+		if err := v.BaseRegister.EncodeOrc(w); err != nil {
+			return err
+		}
+		if err := v.Value.EncodeOrc(w); err != nil {
+			return err
+		}
+	default:
+		return errors.Newf("Register: nil or unknown variant %T", rv.Variant)
 	}
 	return nil
 }
 
 // DecodeOrc reads the value from r in the Orc binary format.
 func (rv *Register) DecodeOrc(r *orc.Reader) error {
-	var err error
-	{
-		rawV, err := r.String()
-		if err != nil {
-			return err
-		}
-		rv.Type = RegisterType(rawV)
-	}
-	if rv.Address, err = r.Uint16(); err != nil {
+	tag, err := r.StringBytes()
+	if err != nil {
 		return err
 	}
-	{
-		present, err := r.Bool()
-		if err != nil {
+	switch string(tag) {
+	case "coil":
+		var v CoilRegister
+		if err := v.BaseRegister.DecodeOrc(r); err != nil {
 			return err
 		}
-		if present {
-			var hv DataType
-			{
-				rawV, err := r.String()
-				if err != nil {
-					return err
-				}
-				hv = DataType(rawV)
-			}
-			rv.DataType = &hv
-		}
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
+		rv.Variant = v
+	case "discrete_input":
+		var v DiscreteInputRegister
+		if err := v.BaseRegister.DecodeOrc(r); err != nil {
 			return err
 		}
-		if present {
-			var hv uint8
-			if hv, err = r.Uint8(); err != nil {
-				return err
-			}
-			rv.Bit = &hv
+		rv.Variant = v
+	case "holding_register":
+		var v HoldingRegisterRegister
+		if err := v.BaseRegister.DecodeOrc(r); err != nil {
+			return err
 		}
+		if err = v.Value.DecodeOrc(r); err != nil {
+			return err
+		}
+		rv.Variant = v
+	case "input_register":
+		var v InputRegisterRegister
+		if err := v.BaseRegister.DecodeOrc(r); err != nil {
+			return err
+		}
+		if err = v.Value.DecodeOrc(r); err != nil {
+			return err
+		}
+		rv.Variant = v
+	default:
+		return errors.Newf("Register: unknown variant %q", tag)
 	}
 	return nil
 }
 
 // EncodeOrc writes the value to w in the Orc binary format.
-func (rv Requests) EncodeOrc(w *orc.Writer) error {
-	w.Uint16(uint16(rv.MaxRegisters))
-	w.Uint16(uint16(rv.MaxGap))
-	w.String(string(rv.WriteCodes))
-	w.Bool(rv.MaskWriteSupported)
-	w.Int64(int64(rv.Delay))
+func (rp RequestPolicy) EncodeOrc(w *orc.Writer) error {
+	w.Uint16(uint16(rp.MaxReadRegisters))
+	w.Uint16(uint16(rp.MaxWriteRegisters))
+	w.Uint16(uint16(rp.MaxReadBits))
+	w.Uint16(uint16(rp.MaxWriteBits))
+	w.Uint16(uint16(rp.MaxGap))
+	w.String(string(rp.WriteFunction))
+	w.Bool(rp.MaskWriteSupported)
+	w.Int64(int64(rp.Delay))
 	return nil
 }
 
 // DecodeOrc reads the value from r in the Orc binary format.
-func (rv *Requests) DecodeOrc(r *orc.Reader) error {
+func (rp *RequestPolicy) DecodeOrc(r *orc.Reader) error {
 	var err error
-	if rv.MaxRegisters, err = r.Uint16(); err != nil {
+	if rp.MaxReadRegisters, err = r.Uint16(); err != nil {
 		return err
 	}
-	if rv.MaxGap, err = r.Uint16(); err != nil {
+	if rp.MaxWriteRegisters, err = r.Uint16(); err != nil {
+		return err
+	}
+	if rp.MaxReadBits, err = r.Uint16(); err != nil {
+		return err
+	}
+	if rp.MaxWriteBits, err = r.Uint16(); err != nil {
+		return err
+	}
+	if rp.MaxGap, err = r.Uint16(); err != nil {
 		return err
 	}
 	{
@@ -256,9 +300,9 @@ func (rv *Requests) DecodeOrc(r *orc.Reader) error {
 		if err != nil {
 			return err
 		}
-		rv.WriteCodes = WriteCodes(rawV)
+		rp.WriteFunction = WriteFunction(rawV)
 	}
-	if rv.MaskWriteSupported, err = r.Bool(); err != nil {
+	if rp.MaskWriteSupported, err = r.Bool(); err != nil {
 		return err
 	}
 	{
@@ -266,7 +310,7 @@ func (rv *Requests) DecodeOrc(r *orc.Reader) error {
 		if err != nil {
 			return err
 		}
-		rv.Delay = telem.TimeSpan(rawV)
+		rp.Delay = telem.TimeSpan(rawV)
 	}
 	return nil
 }
@@ -279,7 +323,7 @@ func (s Server) EncodeOrc(w *orc.Writer) error {
 	if err := s.Connection.EncodeOrc(w); err != nil {
 		return err
 	}
-	if err := s.Requests.EncodeOrc(w); err != nil {
+	if err := s.RequestPolicy.EncodeOrc(w); err != nil {
 		return err
 	}
 	w.Bool(s.Reads != nil)
@@ -322,7 +366,7 @@ func (s *Server) DecodeOrc(r *orc.Reader) error {
 	if err = s.Connection.DecodeOrc(r); err != nil {
 		return err
 	}
-	if err = s.Requests.DecodeOrc(r); err != nil {
+	if err = s.RequestPolicy.DecodeOrc(r); err != nil {
 		return err
 	}
 	{
@@ -360,6 +404,116 @@ func (s *Server) DecodeOrc(r *orc.Reader) error {
 				}
 			}
 		}
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (vv Value) EncodeOrc(w *orc.Writer) error {
+	switch v := vv.Variant.(type) {
+	case WholeValue:
+		w.String("whole")
+		w.String(string(v.DataType))
+		if v.BytesSwapped != nil {
+			w.Bool(true)
+			w.Bool(*v.BytesSwapped)
+		} else {
+			w.Bool(false)
+		}
+		if v.WordsSwapped != nil {
+			w.Bool(true)
+			w.Bool(*v.WordsSwapped)
+		} else {
+			w.Bool(false)
+		}
+	case BitValue:
+		w.String("bit")
+		w.Uint8(uint8(v.Bit))
+	case StringValue:
+		w.String("string")
+		w.Uint16(uint16(v.Length))
+		if v.BytesSwapped != nil {
+			w.Bool(true)
+			w.Bool(*v.BytesSwapped)
+		} else {
+			w.Bool(false)
+		}
+	default:
+		return errors.Newf("Value: nil or unknown variant %T", vv.Variant)
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (vv *Value) DecodeOrc(r *orc.Reader) error {
+	tag, err := r.StringBytes()
+	if err != nil {
+		return err
+	}
+	switch string(tag) {
+	case "whole":
+		var v WholeValue
+		{
+			rawV, err := r.String()
+			if err != nil {
+				return err
+			}
+			v.DataType = DataType(rawV)
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv bool
+				if hv, err = r.Bool(); err != nil {
+					return err
+				}
+				v.BytesSwapped = &hv
+			}
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv bool
+				if hv, err = r.Bool(); err != nil {
+					return err
+				}
+				v.WordsSwapped = &hv
+			}
+		}
+		vv.Variant = v
+	case "bit":
+		var v BitValue
+		if v.Bit, err = r.Uint8(); err != nil {
+			return err
+		}
+		vv.Variant = v
+	case "string":
+		var v StringValue
+		if v.Length, err = r.Uint16(); err != nil {
+			return err
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv bool
+				if hv, err = r.Bool(); err != nil {
+					return err
+				}
+				v.BytesSwapped = &hv
+			}
+		}
+		vv.Variant = v
+	default:
+		return errors.Newf("Value: unknown variant %q", tag)
 	}
 	return nil
 }

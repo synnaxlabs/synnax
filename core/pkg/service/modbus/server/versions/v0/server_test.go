@@ -40,9 +40,20 @@ var _ = Describe("Server", func() {
 			SerialPort: "/dev/ttyUSB0",
 			BaudRate:   19200,
 			Parity:     v0.ParityEven,
-			StopBits:   1,
+			StopBits:   v0.StopBitsOne,
 			UnitID:     1,
 		}
+	}
+	coil := func(address uint16) v0.Register {
+		return v0.Register{Variant: v0.CoilRegister{
+			BaseRegister: v0.BaseRegister{Address: address},
+		}}
+	}
+	holding := func(address uint16, value v0.ValueVariant) v0.Register {
+		return v0.Register{Variant: v0.HoldingRegisterRegister{
+			BaseRegister: v0.BaseRegister{Address: address},
+			Value:        v0.Value{Variant: value},
+		}}
 	}
 	server := func() v0.Server {
 		return v0.Server{
@@ -50,10 +61,13 @@ var _ = Describe("Server", func() {
 			Rack:       1,
 			Name:       "PLC",
 			Connection: v0.Connection{Variant: tcp()},
-			Requests: v0.Requests{
-				MaxRegisters: 125,
-				MaxGap:       125,
-				WriteCodes:   v0.WriteCodesMultiple,
+			RequestPolicy: v0.RequestPolicy{
+				MaxReadRegisters:  125,
+				MaxWriteRegisters: 123,
+				MaxReadBits:       2000,
+				MaxWriteBits:      1968,
+				MaxGap:            125,
+				WriteFunction:     v0.WriteFunctionMultiple,
 			},
 		}
 	}
@@ -81,10 +95,10 @@ var _ = Describe("Server", func() {
 				"connection": `+connection+`
 			}`), &s)).To(Succeed())
 			Expect(s.Connection.Variant).To(Equal(expected))
-			Expect(s.Requests).To(Equal(server().Requests))
+			Expect(s.RequestPolicy).To(Equal(server().RequestPolicy))
 			Expect(s.Validate()).To(Succeed())
 		},
-		Entry("TCP", `{"transport": "tcp", "host": "plc", "port": 502}`, tcp()),
+		Entry("TCP", `{"transport": "tcp", "host": "plc"}`, tcp()),
 		Entry(
 			"RTU",
 			`{"transport": "rtu", "serial_port": "/dev/ttyUSB0"}`,
@@ -96,26 +110,25 @@ var _ = Describe("Server", func() {
 		s := server()
 		s.Connection = v0.Connection{Variant: rtu()}
 		s.Reads = []v0.Read{{
-			Register: v0.Register{
-				Type:     v0.RegisterTypeHoldingRegister,
-				Address:  5,
-				DataType: new(v0.DataTypeFloat32),
-			},
+			Register: holding(5, v0.WholeValue{
+				DataType:     v0.DataTypeFloat32,
+				WordsSwapped: new(true),
+			}),
 			Index:   3,
 			Channel: 4,
 		}, {
-			Register: v0.Register{
-				Type:    v0.RegisterTypeInputRegister,
-				Address: 6,
-				Bit:     new(uint8(3)),
-			},
+			Register: v0.Register{Variant: v0.InputRegisterRegister{
+				BaseRegister: v0.BaseRegister{Address: 6},
+				Value:        v0.Value{Variant: v0.BitValue{Bit: 3}},
+			}},
 			Index:   3,
 			Channel: 5,
-		}}
-		s.Writes = []v0.Write{{
-			Register: v0.Register{Type: v0.RegisterTypeCoil, Address: 1},
+		}, {
+			Register: holding(7, v0.StringValue{Length: 8}),
+			Index:    3,
 			Channel:  6,
 		}}
+		s.Writes = []v0.Write{{Register: coil(1), Channel: 7}}
 		var decoded v0.Server
 		Expect(json.Unmarshal(MustSucceed(json.Marshal(s)), &decoded)).To(Succeed())
 		Expect(decoded).To(Equal(s))
@@ -149,7 +162,7 @@ var _ = Describe("Server", func() {
 			c.Host = ""
 			s.Connection = v0.Connection{Variant: c}
 		}, "host"),
-		Entry("no port", func(s *v0.Server) {
+		Entry("port 0", func(s *v0.Server) {
 			c := tcp()
 			c.Port = 0
 			s.Connection = v0.Connection{Variant: c}
@@ -164,11 +177,6 @@ var _ = Describe("Server", func() {
 			c.Timeout = 61 * telem.Second
 			s.Connection = v0.Connection{Variant: c}
 		}, "timeout"),
-		Entry("a host that is not a hostname or an address", func(s *v0.Server) {
-			c := tcp()
-			c.Host = "plc/1"
-			s.Connection = v0.Connection{Variant: c}
-		}, "Host must be a hostname"),
 		Entry("too many retries", func(s *v0.Server) {
 			c := tcp()
 			c.Retries = 11
@@ -200,56 +208,79 @@ var _ = Describe("Server", func() {
 			s.Connection = v0.Connection{Variant: c}
 		}, "unit_id"),
 		Entry("a read of 126 registers", func(s *v0.Server) {
-			s.Requests.MaxRegisters = 126
-		}, "max_registers"),
-		Entry("an unknown write code", func(s *v0.Server) {
-			s.Requests.WriteCodes = "masked"
-		}, "write_codes"),
+			s.RequestPolicy.MaxReadRegisters = 126
+		}, "max_read_registers"),
+		Entry("a write of 124 registers", func(s *v0.Server) {
+			s.RequestPolicy.MaxWriteRegisters = 124
+		}, "max_write_registers"),
+		Entry("a read of 2001 bits", func(s *v0.Server) {
+			s.RequestPolicy.MaxReadBits = 2001
+		}, "max_read_bits"),
+		Entry("a write of 1969 bits", func(s *v0.Server) {
+			s.RequestPolicy.MaxWriteBits = 1969
+		}, "max_write_bits"),
+		Entry("a read of no registers", func(s *v0.Server) {
+			s.RequestPolicy.MaxReadRegisters = 0
+		}, "max_read_registers"),
+		Entry("an unknown write function", func(s *v0.Server) {
+			s.RequestPolicy.WriteFunction = "masked"
+		}, "write_function"),
 		Entry("a delay above five seconds", func(s *v0.Server) {
-			s.Requests.Delay = 5*telem.Second + 1
+			s.RequestPolicy.Delay = 5*telem.Second + 1
 		}, "delay"),
 		Entry("a negative delay", func(s *v0.Server) {
-			s.Requests.Delay = -1
+			s.RequestPolicy.Delay = -1
 		}, "delay"),
 		Entry("a read with no index", func(s *v0.Server) {
 			s.Reads = []v0.Read{{
-				Register: v0.Register{Type: v0.RegisterTypeCoil},
+				Register: coil(0),
 				Channel:  1,
 			}}
 		}, "reads.0.index"),
 		Entry("a read with no channel", func(s *v0.Server) {
 			s.Reads = []v0.Read{
-				{Register: v0.Register{Type: v0.RegisterTypeCoil}, Index: 1},
+				{Register: coil(0), Index: 1},
 			}
 		}, "reads.0.channel"),
-		Entry("a read of an unknown register type", func(s *v0.Server) {
+		Entry("a read with no register type", func(s *v0.Server) {
+			s.Reads = []v0.Read{{Index: 1, Channel: 2}}
+		}, "reads.0.register.type"),
+		Entry("a read with no value type", func(s *v0.Server) {
 			s.Reads = []v0.Read{{
-				Register: v0.Register{Type: "file_record"},
+				Register: holding(0, nil),
 				Index:    1,
 				Channel:  2,
 			}}
-		}, "reads.0.register.type"),
+		}, "reads.0.register.value.type"),
 		Entry("a read of bit 16", func(s *v0.Server) {
 			s.Reads = []v0.Read{{
-				Register: v0.Register{
-					Type: v0.RegisterTypeHoldingRegister,
-					Bit:  new(uint8(16)),
-				},
-				Index:   1,
-				Channel: 2,
+				Register: holding(0, v0.BitValue{Bit: 16}),
+				Index:    1,
+				Channel:  2,
 			}}
-		}, "reads.0.register.bit"),
+		}, "reads.0.register.value.bit"),
+		Entry("a read of an empty string", func(s *v0.Server) {
+			s.Reads = []v0.Read{{
+				Register: holding(0, v0.StringValue{}),
+				Index:    1,
+				Channel:  2,
+			}}
+		}, "reads.0.register.value.length"),
+		Entry("a read of a string of 251 characters", func(s *v0.Server) {
+			s.Reads = []v0.Read{{
+				Register: holding(0, v0.StringValue{Length: 251}),
+				Index:    1,
+				Channel:  2,
+			}}
+		}, "reads.0.register.value.length"),
 		Entry("a write of an unknown data type", func(s *v0.Server) {
 			s.Writes = []v0.Write{{
-				Register: v0.Register{
-					Type:     v0.RegisterTypeHoldingRegister,
-					DataType: new(v0.DataType("bfloat16")),
-				},
-				Channel: 1,
+				Register: holding(0, v0.WholeValue{DataType: "bfloat16"}),
+				Channel:  1,
 			}}
-		}, "writes.0.register.data_type"),
+		}, "writes.0.register.value.data_type"),
 		Entry("a write with no channel", func(s *v0.Server) {
-			s.Writes = []v0.Write{{Register: v0.Register{Type: v0.RegisterTypeCoil}}}
+			s.Writes = []v0.Write{{Register: coil(0)}}
 		}, "writes.0.channel"),
 	)
 })

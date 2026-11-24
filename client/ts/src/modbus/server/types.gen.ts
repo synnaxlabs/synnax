@@ -17,34 +17,9 @@ import { rack } from "@/rack";
 import { resource } from "@/resource";
 import { status } from "@/status";
 
-export const WRITE_CODES = ["multiple", "single"] as const;
-export const writeCodesZ = z.enum(WRITE_CODES);
-export type WriteCodes = z.infer<typeof writeCodesZ>;
-
-export const REGISTER_TYPES = [
-  "coil",
-  "discrete_input",
-  "holding_register",
-  "input_register",
-] as const;
-export const registerTypeZ = z.enum(REGISTER_TYPES);
-export type RegisterType = z.infer<typeof registerTypeZ>;
-
-export const DATA_TYPES = [
-  "int8",
-  "int16",
-  "int32",
-  "int64",
-  "uint8",
-  "uint16",
-  "uint32",
-  "uint64",
-  "float32",
-  "float64",
-  "string",
-] as const;
-export const dataTypeZ = z.enum(DATA_TYPES);
-export type DataType = z.infer<typeof dataTypeZ>;
+export const WRITE_FUNCTIONS = ["multiple", "single"] as const;
+export const writeFunctionZ = z.enum(WRITE_FUNCTIONS);
+export type WriteFunction = z.infer<typeof writeFunctionZ>;
 
 export const PARITYS = ["none", "even", "odd"] as const;
 export const parityZ = z.enum(PARITYS);
@@ -63,6 +38,27 @@ export enum BaudRate {
 }
 export const baudRateZ = z.enum(BaudRate);
 
+export enum StopBits {
+  one = 1,
+  two = 2,
+}
+export const stopBitsZ = z.enum(StopBits);
+
+export const DATA_TYPES = [
+  "int8",
+  "int16",
+  "int32",
+  "int64",
+  "uint8",
+  "uint16",
+  "uint32",
+  "uint64",
+  "float32",
+  "float64",
+] as const;
+export const dataTypeZ = z.enum(DATA_TYPES);
+export type DataType = z.infer<typeof dataTypeZ>;
+
 /** BaseConnection carries the fields that every Modbus connection shares. */
 export const baseConnectionZ = z.object({
   /** bytesSwapped is true when the bytes of each 16-bit register are swapped. */
@@ -78,36 +74,36 @@ export const baseConnectionZ = z.object({
 });
 export interface BaseConnection extends z.infer<typeof baseConnectionZ> {}
 
-/** Requests shapes the requests that the Driver sends to a server. */
-export const requestsZ = z.object({
-  /** maxRegisters is the largest number of registers that one read requests. */
-  maxRegisters: zod.uint16.min(1).max(125).default(125),
-  /** maxGap is the widest gap between two channels that one read spans. */
-  maxGap: zod.uint16.default(125),
-  /** writeCodes selects the function codes that write tasks use. */
-  writeCodes: writeCodesZ.default("multiple"),
+/** RequestPolicy limits and paces the requests that the Driver sends to a server. */
+export const requestPolicyZ = z.object({
+  /** maxReadRegisters is the most registers that one read requests. */
+  maxReadRegisters: zod.uint16.min(1).max(125).default(125),
+  /** maxWriteRegisters is the most registers that one write sets. */
+  maxWriteRegisters: zod.uint16.min(1).max(123).default(123),
+  /** maxReadBits is the most coils or discrete inputs that one read requests. */
+  maxReadBits: zod.uint16.min(1).max(2000).default(2000),
+  /** maxWriteBits is the most coils that one write sets. */
+  maxWriteBits: zod.uint16.min(1).max(1968).default(1968),
+  /**
+   * maxGap is the most unbound addresses between two values that one read spans. It is
+   * at most max_read_registers.
+   */
+  maxGap: zod.uint16.max(125).default(125),
+  /** writeFunction selects the function codes that write tasks use. */
+  writeFunction: writeFunctionZ.default("multiple"),
   /** maskWriteSupported is true when bit writes use function code 22. */
   maskWriteSupported: z.boolean().default(false),
   /** delay is the wait between two requests. */
   delay: telem.numericTimeSpanZ.check(z.gte(0), z.lte(5000000000)).default(0),
 });
-export interface Requests extends z.infer<typeof requestsZ> {}
+export interface RequestPolicy extends z.infer<typeof requestPolicyZ> {}
 
-/** Register identifies a value at one Modbus address. */
-export const registerZ = z.object({
-  /** type is the address space of the register. */
-  type: registerTypeZ,
-  /** address is the address of the first register. */
+/** BaseRegister carries the address that every register has. */
+export const baseRegisterZ = z.object({
+  /** address is the address of the first register or bit. */
   address: zod.uint16.default(0),
-  /**
-   * dataType is the type of the value in the registers. Absent for a coil, a discrete
-   * input, and a bit of a register.
-   */
-  dataType: dataTypeZ.optional(),
-  /** bit is the bit of the register, from 0 to 15. Absent for a whole value. */
-  bit: zod.uint8.max(15).optional(),
 });
-export interface Register extends z.infer<typeof registerZ> {}
+export interface BaseRegister extends z.infer<typeof baseRegisterZ> {}
 
 /** Stats holds the request counters of a server. */
 export const statsZ = z.object({
@@ -129,13 +125,63 @@ export interface Stats extends z.infer<typeof statsZ> {}
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 
+/** WholeValue is a number that fills one or more registers. */
+export const wholeValueZ = z.object({
+  type: z.literal("whole"),
+  /** dataType is the type of the value in the registers. */
+  dataType: dataTypeZ.default("uint16"),
+  /** bytesSwapped overrides the bytes_swapped of the connection for the value. */
+  bytesSwapped: z.boolean().optional(),
+  /** wordsSwapped overrides the words_swapped of the connection for the value. */
+  wordsSwapped: z.boolean().optional(),
+});
+export interface WholeValue extends z.infer<typeof wholeValueZ> {}
+
+/** BitValue is one bit of a register. */
+export const bitValueZ = z.object({
+  type: z.literal("bit"),
+  /** bit is the bit of the register, from 0 to 15. */
+  bit: zod.uint8.max(15).default(0),
+});
+export interface BitValue extends z.infer<typeof bitValueZ> {}
+
+/** StringValue is a fixed-length string that read tasks read. */
+export const stringValueZ = z.object({
+  type: z.literal("string"),
+  /** length is the number of characters, two to each register. */
+  length: zod.uint16.min(1).max(250),
+  /** bytesSwapped overrides the bytes_swapped of the connection for the value. */
+  bytesSwapped: z.boolean().optional(),
+});
+export interface StringValue extends z.infer<typeof stringValueZ> {}
+
+export const VALUE_TYPES = ["whole", "bit", "string"] as const;
+export const valueTypeZ = z.enum(VALUE_TYPES);
+export type ValueType = z.infer<typeof valueTypeZ>;
+
+/** Value is how one or more registers hold a value. */
+export const valueZ = z.discriminatedUnion("type", [
+  wholeValueZ,
+  bitValueZ,
+  stringValueZ,
+]);
+export type Value = WholeValue | BitValue | StringValue;
+
+export const VALUE_SCHEMAS: {
+  [K in ValueType]: z.ZodType<Extract<Value, { type: K }>>;
+} = {
+  whole: wholeValueZ,
+  bit: bitValueZ,
+  string: stringValueZ,
+};
+
 /** TcpConnection connects to a server over Modbus TCP. */
 export const tcpConnectionZ = baseConnectionZ.extend({
   transport: z.literal("tcp"),
   /** host is the hostname, IPv4, or IPv6 address of the server. */
   host: z.string().min(1, "host is required"),
   /** port is the TCP port of the server. */
-  port: zod.uint16.refine((v) => v !== 0, "port is required"),
+  port: zod.uint16.min(1).default(502),
   /** unitId is the unit that requests address. */
   unitId: zod.uint8.default(255),
 });
@@ -151,7 +197,7 @@ export const rtuConnectionZ = baseConnectionZ.extend({
   /** parity is the parity of the line. */
   parity: parityZ.default("even"),
   /** stopBits is the number of stop bits of the line. */
-  stopBits: zod.uint8.min(1).max(2).default(1),
+  stopBits: stopBitsZ.default(StopBits.one),
   /** unitId is the unit that requests address. */
   unitId: zod.uint8.min(1).max(247).default(1),
 });
@@ -175,6 +221,85 @@ export const CONNECTION_SCHEMAS: {
   rtu: rtuConnectionZ,
 };
 
+/** StatusDetails identifies the server and rack that a status pertains to. */
+export const statusDetailsZ = z.object({
+  /** rack is the key of the rack the server belongs to. */
+  rack: rack.keyZ,
+  /** server is the key of the server. */
+  server: keyZ,
+  /** connected is true when the server answered the last probe. */
+  connected: z.boolean().default(false),
+  /** stats holds the request counters. Absent until the first scan counts them. */
+  stats: statsZ.optional(),
+});
+export interface StatusDetails extends z.infer<typeof statusDetailsZ> {}
+
+/** CoilRegister is a coil, which tasks can read and write. */
+export const coilRegisterZ = baseRegisterZ.extend({
+  type: z.literal("coil"),
+});
+export interface CoilRegister extends z.infer<typeof coilRegisterZ> {}
+
+/** DiscreteInputRegister is a discrete input, which tasks can only read. */
+export const discreteInputRegisterZ = baseRegisterZ.extend({
+  type: z.literal("discrete_input"),
+});
+export interface DiscreteInputRegister extends z.infer<typeof discreteInputRegisterZ> {}
+
+/**
+ * HoldingRegisterRegister is a holding register value, which tasks can read and write.
+ */
+export const holdingRegisterRegisterZ = baseRegisterZ.extend({
+  type: z.literal("holding_register"),
+  /** value is how the registers hold the value. */
+  value: valueZ,
+});
+export interface HoldingRegisterRegister extends z.infer<
+  typeof holdingRegisterRegisterZ
+> {}
+
+/** InputRegisterRegister is an input register value, which tasks can only read. */
+export const inputRegisterRegisterZ = baseRegisterZ.extend({
+  type: z.literal("input_register"),
+  /** value is how the registers hold the value. */
+  value: valueZ,
+});
+export interface InputRegisterRegister extends z.infer<typeof inputRegisterRegisterZ> {}
+
+export const REGISTER_TYPES = [
+  "coil",
+  "discrete_input",
+  "holding_register",
+  "input_register",
+] as const;
+export const registerTypeZ = z.enum(REGISTER_TYPES);
+export type RegisterType = z.infer<typeof registerTypeZ>;
+
+/** Register identifies a value at one Modbus address. */
+export const registerZ = z.discriminatedUnion("type", [
+  coilRegisterZ,
+  discreteInputRegisterZ,
+  holdingRegisterRegisterZ,
+  inputRegisterRegisterZ,
+]);
+export type Register =
+  | CoilRegister
+  | DiscreteInputRegister
+  | HoldingRegisterRegister
+  | InputRegisterRegister;
+
+export const REGISTER_SCHEMAS: {
+  [K in RegisterType]: z.ZodType<Extract<Register, { type: K }>>;
+} = {
+  coil: coilRegisterZ,
+  discrete_input: discreteInputRegisterZ,
+  holding_register: holdingRegisterRegisterZ,
+  input_register: inputRegisterRegisterZ,
+};
+
+export const statusZ = status.statusZ({ details: statusDetailsZ });
+export type Status = z.infer<typeof statusZ>;
+
 /** Read binds a value that read tasks read to its channel. */
 export const readZ = z.object({
   /** register is the value that the channel holds. */
@@ -195,22 +320,6 @@ export const writeZ = z.object({
 });
 export interface Write extends z.infer<typeof writeZ> {}
 
-/** StatusDetails identifies the server and rack that a status pertains to. */
-export const statusDetailsZ = z.object({
-  /** rack is the key of the rack the server belongs to. */
-  rack: rack.keyZ,
-  /** server is the key of the server. */
-  server: keyZ,
-  /** connected is true when the server answered the last probe. */
-  connected: z.boolean().default(false),
-  /** stats holds the request counters. Absent until the first scan counts them. */
-  stats: statsZ.optional(),
-});
-export interface StatusDetails extends z.infer<typeof statusDetailsZ> {}
-
-export const statusZ = status.statusZ({ details: statusDetailsZ });
-export type Status = z.infer<typeof statusZ>;
-
 /** Server is a Modbus server that a rack's Driver connects to. */
 export const serverZ = z.object({
   /** key uniquely identifies the server. */
@@ -221,8 +330,8 @@ export const serverZ = z.object({
   name: z.string().min(1, "name is required"),
   /** connection holds the settings that the Driver connects with. */
   connection: connectionZ,
-  /** requests shapes the requests that the Driver sends. */
-  requests: requestsZ.prefault({}),
+  /** requestPolicy limits and paces the requests that the Driver sends. */
+  requestPolicy: requestPolicyZ.prefault({}),
   /** reads bind the values that read tasks read to their channels. */
   reads: readZ.array().default(() => []),
   /** writes bind the values that write tasks write to their command channels. */

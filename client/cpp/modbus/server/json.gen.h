@@ -46,47 +46,47 @@ inline x::json::json BaseConnection::to_json() const {
     return j;
 }
 
-inline Requests Requests::parse(x::json::Parser parser) {
-    return Requests{
-        .max_registers = parser.field<std::uint16_t>("max_registers", 125),
+inline RequestPolicy RequestPolicy::parse(x::json::Parser parser) {
+    return RequestPolicy{
+        .max_read_registers = parser.field<std::uint16_t>("max_read_registers", 125),
+        .max_write_registers = parser.field<std::uint16_t>("max_write_registers", 123),
+        .max_read_bits = parser.field<std::uint16_t>("max_read_bits", 2000),
+        .max_write_bits = parser.field<std::uint16_t>("max_write_bits", 1968),
         .max_gap = parser.field<std::uint16_t>("max_gap", 125),
-        .write_codes = parser.field<std::string>("write_codes", "multiple"),
+        .write_function = parser.field<std::string>("write_function", "multiple"),
         .mask_write_supported = parser.field<bool>("mask_write_supported", false),
         .delay = parser.field<::x::telem::TimeSpan>("delay", ::x::telem::TimeSpan(0)),
     };
 }
 
-inline x::json::json Requests::to_json() const {
+inline x::json::json RequestPolicy::to_json() const {
     x::json::json j = x::json::json::object();
-    j["max_registers"] = this->max_registers;
+    j["max_read_registers"] = this->max_read_registers;
+    j["max_write_registers"] = this->max_write_registers;
+    j["max_read_bits"] = this->max_read_bits;
+    j["max_write_bits"] = this->max_write_bits;
     j["max_gap"] = this->max_gap;
-    j["write_codes"] = this->write_codes;
+    j["write_function"] = this->write_function;
     j["mask_write_supported"] = this->mask_write_supported;
     j["delay"] = this->delay.nanoseconds();
     return j;
 }
 
-inline Register Register::parse(x::json::Parser parser) {
-    return Register{
-        .type = parser.field<std::string>("type"),
+inline BaseRegister BaseRegister::parse(x::json::Parser parser) {
+    return BaseRegister{
         .address = parser.field<std::uint16_t>("address", 0),
-        .data_type = parser.field<std::optional<std::string>>("data_type"),
-        .bit = parser.field<std::optional<std::uint8_t>>("bit"),
     };
 }
 
-inline x::json::json Register::to_json() const {
+inline x::json::json BaseRegister::to_json() const {
     x::json::json j = x::json::json::object();
-    j["type"] = this->type;
     j["address"] = this->address;
-    if (this->data_type.has_value()) j["data_type"] = *this->data_type;
-    if (this->bit.has_value()) j["bit"] = *this->bit;
     return j;
 }
 
 inline Read Read::parse(x::json::Parser parser) {
     return Read{
-        .register_ = parser.field<Register>("register"),
+        .register_ = parse_register(parser.child("register")),
         .index = parser.required_field<::synnax::channel::Key>("index"),
         .channel = parser.required_field<::synnax::channel::Key>("channel"),
     };
@@ -94,7 +94,7 @@ inline Read Read::parse(x::json::Parser parser) {
 
 inline x::json::json Read::to_json() const {
     x::json::json j = x::json::json::object();
-    j["register"] = this->register_.to_json();
+    j["register"] = ::synnax::modbus::server::to_json(this->register_);
     j["index"] = this->index;
     j["channel"] = this->channel;
     return j;
@@ -102,14 +102,14 @@ inline x::json::json Read::to_json() const {
 
 inline Write Write::parse(x::json::Parser parser) {
     return Write{
-        .register_ = parser.field<Register>("register"),
+        .register_ = parse_register(parser.child("register")),
         .channel = parser.required_field<::synnax::channel::Key>("channel"),
     };
 }
 
 inline x::json::json Write::to_json() const {
     x::json::json j = x::json::json::object();
-    j["register"] = this->register_.to_json();
+    j["register"] = ::synnax::modbus::server::to_json(this->register_);
     j["channel"] = this->channel;
     return j;
 }
@@ -166,7 +166,8 @@ inline Server Server::parse(x::json::Parser parser) {
         .rack = parser.field<::synnax::rack::Key>("rack"),
         .name = parser.required_field<std::string>("name"),
         .connection = parse_connection(parser.child("connection")),
-        .requests = parser.field<Requests>("requests", Requests{}),
+        .request_policy = parser
+                              .field<RequestPolicy>("request_policy", RequestPolicy{}),
         .reads = parser.field<std::vector<Read>>("reads", std::vector<Read>{}),
         .writes = parser.field<std::vector<Write>>("writes", std::vector<Write>{}),
         .status = parser.field<std::optional<Status>>("status"),
@@ -179,7 +180,7 @@ inline x::json::json Server::to_json() const {
     j["rack"] = this->rack;
     j["name"] = this->name;
     j["connection"] = ::synnax::modbus::server::to_json(this->connection);
-    j["requests"] = this->requests.to_json();
+    j["request_policy"] = this->request_policy.to_json();
     j["reads"] = x::json::to_array(this->reads);
     j["writes"] = x::json::to_array(this->writes);
     if (this->status.has_value()) j["status"] = this->status->to_json();
@@ -190,7 +191,7 @@ inline TcpConnection TcpConnection::parse(x::json::Parser parser) {
     TcpConnection result;
     static_cast<BaseConnection &>(result) = BaseConnection::parse(parser);
     result.host = parser.required_field<std::string>("host");
-    result.port = parser.required_field<std::uint16_t>("port");
+    result.port = parser.field<std::uint16_t>("port", 502);
     result.unit_id = parser.field<std::uint8_t>("unit_id", 255);
     result.transport = parser.field<std::string>("transport");
     return result;
@@ -213,7 +214,7 @@ inline RtuConnection RtuConnection::parse(x::json::Parser parser) {
     result.serial_port = parser.required_field<std::string>("serial_port");
     result.baud_rate = parser.field<BaudRate>("baud_rate", BaudRate::B19200);
     result.parity = parser.field<std::string>("parity", "even");
-    result.stop_bits = parser.field<std::uint8_t>("stop_bits", 1);
+    result.stop_bits = parser.field<StopBits>("stop_bits", StopBits::One);
     result.unit_id = parser.field<std::uint8_t>("unit_id", 1);
     result.transport = parser.field<std::string>("transport");
     return result;
@@ -232,6 +233,118 @@ inline x::json::json RtuConnection::to_json() const {
     return j;
 }
 
+inline WholeValue WholeValue::parse(x::json::Parser parser) {
+    WholeValue result;
+    result.data_type = parser.field<std::string>("data_type", "uint16");
+    result.bytes_swapped = parser.field<std::optional<bool>>("bytes_swapped");
+    result.words_swapped = parser.field<std::optional<bool>>("words_swapped");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json WholeValue::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["data_type"] = this->data_type;
+    if (this->bytes_swapped.has_value()) j["bytes_swapped"] = *this->bytes_swapped;
+    if (this->words_swapped.has_value()) j["words_swapped"] = *this->words_swapped;
+    j["type"] = this->type;
+    return j;
+}
+
+inline BitValue BitValue::parse(x::json::Parser parser) {
+    BitValue result;
+    result.bit = parser.field<std::uint8_t>("bit", 0);
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json BitValue::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["bit"] = this->bit;
+    j["type"] = this->type;
+    return j;
+}
+
+inline StringValue StringValue::parse(x::json::Parser parser) {
+    StringValue result;
+    result.length = parser.field<std::uint16_t>("length");
+    result.bytes_swapped = parser.field<std::optional<bool>>("bytes_swapped");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json StringValue::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["length"] = this->length;
+    if (this->bytes_swapped.has_value()) j["bytes_swapped"] = *this->bytes_swapped;
+    j["type"] = this->type;
+    return j;
+}
+
+inline CoilRegister CoilRegister::parse(x::json::Parser parser) {
+    CoilRegister result;
+    static_cast<BaseRegister &>(result) = BaseRegister::parse(parser);
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json CoilRegister::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (const auto parent = BaseRegister::to_json(); parent.is_object())
+        j.update(parent);
+    j["type"] = this->type;
+    return j;
+}
+
+inline DiscreteInputRegister DiscreteInputRegister::parse(x::json::Parser parser) {
+    DiscreteInputRegister result;
+    static_cast<BaseRegister &>(result) = BaseRegister::parse(parser);
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json DiscreteInputRegister::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (const auto parent = BaseRegister::to_json(); parent.is_object())
+        j.update(parent);
+    j["type"] = this->type;
+    return j;
+}
+
+inline HoldingRegisterRegister HoldingRegisterRegister::parse(x::json::Parser parser) {
+    HoldingRegisterRegister result;
+    static_cast<BaseRegister &>(result) = BaseRegister::parse(parser);
+    result.value = parse_value(parser.child("value"));
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json HoldingRegisterRegister::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (const auto parent = BaseRegister::to_json(); parent.is_object())
+        j.update(parent);
+    j["value"] = ::synnax::modbus::server::to_json(this->value);
+    j["type"] = this->type;
+    return j;
+}
+
+inline InputRegisterRegister InputRegisterRegister::parse(x::json::Parser parser) {
+    InputRegisterRegister result;
+    static_cast<BaseRegister &>(result) = BaseRegister::parse(parser);
+    result.value = parse_value(parser.child("value"));
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json InputRegisterRegister::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (const auto parent = BaseRegister::to_json(); parent.is_object())
+        j.update(parent);
+    j["value"] = ::synnax::modbus::server::to_json(this->value);
+    j["type"] = this->type;
+    return j;
+}
+
 inline Connection parse_connection(x::json::Parser parser) {
     const auto discriminator = parser.field<std::string>("transport");
     if (discriminator == "tcp") return TcpConnection::parse(parser);
@@ -241,6 +354,34 @@ inline Connection parse_connection(x::json::Parser parser) {
 }
 
 inline x::json::json to_json(const Connection &value) {
+    return std::visit([](const auto &v) { return v.to_json(); }, value);
+}
+
+inline Value parse_value(x::json::Parser parser) {
+    const auto discriminator = parser.field<std::string>("type");
+    if (discriminator == "whole") return WholeValue::parse(parser);
+    if (discriminator == "bit") return BitValue::parse(parser);
+    if (discriminator == "string") return StringValue::parse(parser);
+    parser.field_err("type", "unknown Value type: " + discriminator);
+    return {};
+}
+
+inline x::json::json to_json(const Value &value) {
+    return std::visit([](const auto &v) { return v.to_json(); }, value);
+}
+
+inline Register parse_register(x::json::Parser parser) {
+    const auto discriminator = parser.field<std::string>("type");
+    if (discriminator == "coil") return CoilRegister::parse(parser);
+    if (discriminator == "discrete_input") return DiscreteInputRegister::parse(parser);
+    if (discriminator == "holding_register")
+        return HoldingRegisterRegister::parse(parser);
+    if (discriminator == "input_register") return InputRegisterRegister::parse(parser);
+    parser.field_err("type", "unknown Register type: " + discriminator);
+    return {};
+}
+
+inline x::json::json to_json(const Register &value) {
     return std::visit([](const auto &v) { return v.to_json(); }, value);
 }
 

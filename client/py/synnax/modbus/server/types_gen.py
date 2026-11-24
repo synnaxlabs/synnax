@@ -21,60 +21,12 @@ from synnax import channel as channel_, rack as rack_, status as status_
 from synnax.resource import ID
 from x import telem
 
-WRITE_CODES_MULTIPLE: Literal["multiple"] = "multiple"
+WRITE_FUNCTION_MULTIPLE: Literal["multiple"] = "multiple"
 
-WRITE_CODES_SINGLE: Literal["single"] = "single"
-
-
-WriteCodes = Literal["multiple", "single"]
-
-REGISTER_TYPE_COIL: Literal["coil"] = "coil"
-
-REGISTER_TYPE_DISCRETE_INPUT: Literal["discrete_input"] = "discrete_input"
-
-REGISTER_TYPE_HOLDING_REGISTER: Literal["holding_register"] = "holding_register"
-
-REGISTER_TYPE_INPUT_REGISTER: Literal["input_register"] = "input_register"
+WRITE_FUNCTION_SINGLE: Literal["single"] = "single"
 
 
-RegisterType = Literal["coil", "discrete_input", "holding_register", "input_register"]
-
-DATA_TYPE_INT8: Literal["int8"] = "int8"
-
-DATA_TYPE_INT16: Literal["int16"] = "int16"
-
-DATA_TYPE_INT32: Literal["int32"] = "int32"
-
-DATA_TYPE_INT64: Literal["int64"] = "int64"
-
-DATA_TYPE_UINT8: Literal["uint8"] = "uint8"
-
-DATA_TYPE_UINT16: Literal["uint16"] = "uint16"
-
-DATA_TYPE_UINT32: Literal["uint32"] = "uint32"
-
-DATA_TYPE_UINT64: Literal["uint64"] = "uint64"
-
-DATA_TYPE_FLOAT32: Literal["float32"] = "float32"
-
-DATA_TYPE_FLOAT64: Literal["float64"] = "float64"
-
-DATA_TYPE_STRING: Literal["string"] = "string"
-
-
-DataType = Literal[
-    "int8",
-    "int16",
-    "int32",
-    "int64",
-    "uint8",
-    "uint16",
-    "uint32",
-    "uint64",
-    "float32",
-    "float64",
-    "string",
-]
+WriteFunction = Literal["multiple", "single"]
 
 PARITY_NONE: Literal["none"] = "none"
 
@@ -98,6 +50,45 @@ class BaudRate(IntEnum):
     b230400 = 230400
 
 
+class StopBits(IntEnum):
+    one = 1
+    two = 2
+
+
+DATA_TYPE_INT8: Literal["int8"] = "int8"
+
+DATA_TYPE_INT16: Literal["int16"] = "int16"
+
+DATA_TYPE_INT32: Literal["int32"] = "int32"
+
+DATA_TYPE_INT64: Literal["int64"] = "int64"
+
+DATA_TYPE_UINT8: Literal["uint8"] = "uint8"
+
+DATA_TYPE_UINT16: Literal["uint16"] = "uint16"
+
+DATA_TYPE_UINT32: Literal["uint32"] = "uint32"
+
+DATA_TYPE_UINT64: Literal["uint64"] = "uint64"
+
+DATA_TYPE_FLOAT32: Literal["float32"] = "float32"
+
+DATA_TYPE_FLOAT64: Literal["float64"] = "float64"
+
+
+DataType = Literal[
+    "int8",
+    "int16",
+    "int32",
+    "int64",
+    "uint8",
+    "uint16",
+    "uint32",
+    "uint64",
+    "float32",
+    "float64",
+]
+
 Key: TypeAlias = UUID
 
 
@@ -119,39 +110,39 @@ class BaseConnection(BaseModel):
     retries: int = Field(default=1, ge=0, le=10)
 
 
-class Requests(BaseModel):
-    """Shapes the requests that the Driver sends to a server.
+class RequestPolicy(BaseModel):
+    """Limits and paces the requests that the Driver sends to a server.
 
     Attributes:
-        max_registers: Is the largest number of registers that one read requests.
-        max_gap: Is the widest gap between two channels that one read spans.
-        write_codes: Selects the function codes that write tasks use.
+        max_read_registers: Is the most registers that one read requests.
+        max_write_registers: Is the most registers that one write sets.
+        max_read_bits: Is the most coils or discrete inputs that one read requests.
+        max_write_bits: Is the most coils that one write sets.
+        max_gap: Is the most unbound addresses between two values that one read spans.
+            It is at most max_read_registers.
+        write_function: Selects the function codes that write tasks use.
         mask_write_supported: Is true when bit writes use function code 22.
         delay: Is the wait between two requests.
     """
 
-    max_registers: int = Field(default=125, ge=1, le=125)
-    max_gap: int = Field(default=125, ge=0, le=65535)
-    write_codes: WriteCodes = "multiple"
+    max_read_registers: int = Field(default=125, ge=1, le=125)
+    max_write_registers: int = Field(default=123, ge=1, le=123)
+    max_read_bits: int = Field(default=2000, ge=1, le=2000)
+    max_write_bits: int = Field(default=1968, ge=1, le=1968)
+    max_gap: int = Field(default=125, ge=0, le=125)
+    write_function: WriteFunction = "multiple"
     mask_write_supported: bool = False
     delay: telem.TimeSpan = Field(default=telem.TimeSpan(0), ge=0, le=5000000000)
 
 
-class Register(BaseModel):
-    """Identifies a value at one Modbus address.
+class BaseRegister(BaseModel):
+    """Carries the address that every register has.
 
     Attributes:
-        type: Is the address space of the register.
-        address: Is the address of the first register.
-        data_type: Is the type of the value in the registers. Absent for a coil, a
-            discrete input, and a bit of a register.
-        bit: Is the bit of the register, from 0 to 15. Absent for a whole value.
+        address: Is the address of the first register or bit.
     """
 
-    type: RegisterType
     address: int = Field(default=0, ge=0, le=65535)
-    data_type: DataType | None = None
-    bit: int | None = Field(default=None, ge=0, le=15)
 
 
 class Stats(BaseModel):
@@ -178,12 +169,43 @@ class Stats(BaseModel):
     )
 
 
+class WholeValue(BaseModel):
+    """Is a number that fills one or more registers."""
+
+    type: Literal["whole"] = "whole"
+    data_type: DataType = "uint16"
+    bytes_swapped: bool | None = None
+    words_swapped: bool | None = None
+
+
+class BitValue(BaseModel):
+    """Is one bit of a register."""
+
+    type: Literal["bit"] = "bit"
+    bit: int = Field(default=0, ge=0, le=15)
+
+
+class StringValue(BaseModel):
+    """Is a fixed-length string that read tasks read."""
+
+    type: Literal["string"] = "string"
+    length: int = Field(ge=1, le=250)
+    bytes_swapped: bool | None = None
+
+
+# Is how one or more registers hold a value.
+Value = Annotated[
+    WholeValue | BitValue | StringValue,
+    Field(discriminator="type"),
+]
+
+
 class TcpConnection(BaseConnection):
     """Connects to a server over Modbus TCP."""
 
     transport: Literal["tcp"] = "tcp"
     host: str = Field(min_length=1)
-    port: int = Field(gt=0, le=65535)
+    port: int = Field(default=502, ge=1, le=65535)
     unit_id: int = Field(default=255, ge=0, le=255)
 
 
@@ -194,7 +216,7 @@ class RtuConnection(BaseConnection):
     serial_port: str = Field(min_length=1)
     baud_rate: BaudRate = BaudRate.b19200
     parity: Parity = "even"
-    stop_bits: int = Field(default=1, ge=1, le=2)
+    stop_bits: StopBits = StopBits.one
     unit_id: int = Field(default=1, ge=1, le=247)
 
 
@@ -203,6 +225,60 @@ Connection = Annotated[
     TcpConnection | RtuConnection,
     Field(discriminator="transport"),
 ]
+
+
+class StatusDetails(BaseModel):
+    """Identifies the server and rack that a status pertains to.
+
+    Attributes:
+        rack: Is the key of the rack the server belongs to.
+        server: Is the key of the server.
+        connected: Is true when the server answered the last probe.
+        stats: Holds the request counters. Absent until the first scan counts them.
+    """
+
+    rack: rack_.Key = Field(ge=0, le=4294967295)
+    server: Key
+    connected: bool = False
+    stats: Stats | None = None
+
+
+class CoilRegister(BaseRegister):
+    """Is a coil, which tasks can read and write."""
+
+    type: Literal["coil"] = "coil"
+
+
+class DiscreteInputRegister(BaseRegister):
+    """Is a discrete input, which tasks can only read."""
+
+    type: Literal["discrete_input"] = "discrete_input"
+
+
+class HoldingRegisterRegister(BaseRegister):
+    """Is a holding register value, which tasks can read and write."""
+
+    type: Literal["holding_register"] = "holding_register"
+    value: Value
+
+
+class InputRegisterRegister(BaseRegister):
+    """Is an input register value, which tasks can only read."""
+
+    type: Literal["input_register"] = "input_register"
+    value: Value
+
+
+# Identifies a value at one Modbus address.
+Register = Annotated[
+    CoilRegister
+    | DiscreteInputRegister
+    | HoldingRegisterRegister
+    | InputRegisterRegister,
+    Field(discriminator="type"),
+]
+
+Status: TypeAlias = status_.Status[StatusDetails]
 
 
 class Read(BaseModel):
@@ -235,25 +311,6 @@ class Write(BaseModel):
     channel: channel_.Key = Field(gt=0, le=4294967295)
 
 
-class StatusDetails(BaseModel):
-    """Identifies the server and rack that a status pertains to.
-
-    Attributes:
-        rack: Is the key of the rack the server belongs to.
-        server: Is the key of the server.
-        connected: Is true when the server answered the last probe.
-        stats: Holds the request counters. Absent until the first scan counts them.
-    """
-
-    rack: rack_.Key = Field(ge=0, le=4294967295)
-    server: Key
-    connected: bool = False
-    stats: Stats | None = None
-
-
-Status: TypeAlias = status_.Status[StatusDetails]
-
-
 class Server(BaseModel):
     """Is a Modbus server that a rack's Driver connects to.
 
@@ -262,7 +319,7 @@ class Server(BaseModel):
         rack: Is the key of the rack whose Driver connects to the server.
         name: Is a human-readable name for the server.
         connection: Holds the settings that the Driver connects with.
-        requests: Shapes the requests that the Driver sends.
+        request_policy: Limits and paces the requests that the Driver sends.
         reads: Bind the values that read tasks read to their channels.
         writes: Bind the values that write tasks write to their command channels.
         status: Is the current connection status of the server.
@@ -272,7 +329,7 @@ class Server(BaseModel):
     rack: rack_.Key = Field(ge=0, le=4294967295)
     name: str = Field(min_length=1)
     connection: Connection
-    requests: Requests = Field(default_factory=lambda: Requests())
+    request_policy: RequestPolicy = Field(default_factory=lambda: RequestPolicy())
     reads: list[Read] = Field(default_factory=list)
     writes: list[Write] = Field(default_factory=list)
     status: Status | None = None
