@@ -37,7 +37,6 @@ var _ = DescribeTableSubtree("Persist", func(pointerLog bool) {
 		keys  = channel.Keys{idx, data}
 	)
 	BeforeEach(func(ctx SpecContext) {
-		skipOnPointerLog(pointerLog, durableProbeOwner)
 		fs = xfs.NewMem()
 		db = MustOpen(
 			cesium.Open(ctx, "db", append(layout(pointerLog), cesium.WithFS(fs))...),
@@ -92,14 +91,17 @@ var _ = DescribeTableSubtree("Persist", func(pointerLog bool) {
 		return MustSucceed(db.Read(ctx, telem.TimeRangeMax, uint32(data))).
 			Get(uint32(data)).Len()
 	}
-	// durable returns the number of samples of the data channel that a DB opened on the
-	// same files sees, as a restart after a crash would.
+	// durable returns the number of samples of the data channel that a DB opened on a
+	// copy of the files sees, as a restart after a crash would.
 	durable := func(ctx SpecContext) int64 {
 		GinkgoHelper()
+		image := xfs.NewMem()
+		Expect(xfs.CopyDir(fs, image, "db")).To(Succeed())
 		probe := MustSucceed(
-			cesium.Open(ctx, "db", append(layout(pointerLog), cesium.WithFS(fs))...),
+			cesium.Open(ctx, "db", append(layout(pointerLog), cesium.WithFS(image))...),
 		)
 		defer func() { Expect(probe.Close()).To(Succeed()) }()
+		defer StartRun(probe.Run)()
 		return MustSucceed(probe.Read(ctx, telem.TimeRangeMax, uint32(data))).
 			Get(uint32(data)).Len()
 	}

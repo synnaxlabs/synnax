@@ -38,7 +38,6 @@ var _ = DescribeTableSubtree("Persist with partial control", func(pointerLog boo
 		dataB = channel.NewKey(1, 4)
 	)
 	BeforeEach(func(ctx SpecContext) {
-		skipOnPointerLog(pointerLog, durableProbeOwner)
 		fs = xfs.NewMem()
 		db = MustOpen(
 			cesium.Open(ctx, "db", append(layout(pointerLog), cesium.WithFS(fs))...),
@@ -79,10 +78,13 @@ var _ = DescribeTableSubtree("Persist with partial control", func(pointerLog boo
 	})
 	durable := func(ctx SpecContext, key channel.Key) int64 {
 		GinkgoHelper()
+		image := xfs.NewMem()
+		Expect(xfs.CopyDir(fs, image, "db")).To(Succeed())
 		probe := MustSucceed(
-			cesium.Open(ctx, "db", append(layout(pointerLog), cesium.WithFS(fs))...),
+			cesium.Open(ctx, "db", append(layout(pointerLog), cesium.WithFS(image))...),
 		)
 		defer func() { Expect(probe.Close()).To(Succeed()) }()
+		defer StartRun(probe.Run)()
 		return MustSucceed(probe.Read(ctx, telem.TimeRangeMax, uint32(key))).
 			Get(uint32(key)).Len()
 	}

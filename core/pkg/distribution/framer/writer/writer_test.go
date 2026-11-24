@@ -1887,7 +1887,6 @@ const (
 	errorTextOwner     = "cesium-0c, main's error text (coordinator, 2026-11-24)"
 	overlapTextOwner   = "cesium-53, a commit over stored data names no holder"
 	endDomainFillOwner = "cesium-53, a fill after EndDomain is refused (coordinator)"
-	durableProbeOwner  = "storage-checker-ea, a probe DB on live files reads nothing"
 )
 
 // skipOnPointerLog skips the spec on the pointer log until owner fixes it there.
