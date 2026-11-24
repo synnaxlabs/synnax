@@ -268,6 +268,13 @@ func (w Writer) healLinks(ctx context.Context, to map[Key]Key) error {
 			}
 		}
 	}
+	targets := make([]gorp.Target, len(holders))
+	for i, d := range holders {
+		targets[i] = d.Holder
+	}
+	// The request names a channel and not its holders, so the heal changes them on its
+	// behalf.
+	gorp.MarkOnBehalf(w.tx, targets...)
 	if err := w.svc.table.RetargetHolders(ctx, w.tx, to, holders...); err != nil {
 		return err
 	}
