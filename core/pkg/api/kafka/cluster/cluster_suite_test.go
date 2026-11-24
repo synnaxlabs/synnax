@@ -24,6 +24,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/kafka/cluster"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
@@ -42,6 +44,9 @@ var (
 	svc    *service.Layer
 	apiSvc *apicluster.Service
 	// These handlers run their routes as the API layer binds them.
+	create   freighter.UnaryHandler[apicluster.CreateRequest, apicluster.CreateResponse]
+	update   freighter.UnaryHandler[apicluster.UpdateRequest, struct{}]
+	del      freighter.UnaryHandler[apicluster.DeleteRequest, struct{}]
 	retrieve freighter.UnaryHandler[
 		apicluster.RetrieveRequest,
 		apicluster.RetrieveResponse,
@@ -53,6 +58,16 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	node := testutil.NewNode(ctx)
 	db = node.DB
 	svc = MustOpen(svctestutil.OpenLayer(ctx, node))
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return svc.Rack.NewWriter(tx).Apply(
+			ctx,
+			svc.Rack.EmbeddedKey,
+			rack.NewSetAction(rack.SetPayload{
+				Path:  []string{"integrations"},
+				Value: []string{cluster.Integration},
+			}),
+		)
+	})).To(Succeed())
 	apiSvc = MustSucceed(apicluster.NewService(apicluster.ServiceConfig{
 		Cluster: svc.Kafka.Clusters,
 		Status:  svc.Status,
@@ -62,6 +77,9 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		RBAC: svc.RBAC,
 		Held: apiauth.HeldTables(),
 	}))
+	create = bind.Write(binder, apiSvc.Create)
+	update = bind.Write(binder, apiSvc.Update)
+	del = bind.Write(binder, apiSvc.Delete)
 	retrieve = bind.Read(binder, apiSvc.Retrieve)
 })
 

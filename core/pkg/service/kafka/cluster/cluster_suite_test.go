@@ -15,11 +15,15 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 var db *gorp.DB
+
+// secretsKey encrypts the secrets of every spec, which share their database.
+var secretsKey = secret.NewEncryptionKey()
 
 var _ = BeforeSuite(func() {
 	ShouldNotLeakGoroutines()

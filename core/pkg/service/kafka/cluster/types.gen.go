@@ -12,9 +12,14 @@
 package cluster
 
 import (
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"github.com/synnaxlabs/synnax/pkg/service/kafka/cluster/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/filter"
+	"github.com/synnaxlabs/x/validate"
+	"strconv"
 )
 
 // Key uniquely identifies a Kafka cluster.
@@ -106,4 +111,205 @@ type Where struct {
 	Name *filter.String `json:"name,omitzero" msgpack:"name,omitempty"`
 	// Rack selects by rack.
 	Rack *filter.Set[rack.Key] `json:"rack,omitzero" msgpack:"rack,omitempty"`
+}
+
+// Identity holds the cluster fields that the connect form owns.
+type Identity struct {
+	// Rack is the key of the rack that connects to the cluster.
+	Rack rack.Key `json:"rack" msgpack:"rack"`
+	// Name is a human-readable name for the cluster.
+	Name string `json:"name" msgpack:"name"`
+	// Brokers are the bootstrap brokers of the cluster. A cluster has at least one.
+	Brokers []Broker `json:"brokers" msgpack:"brokers"`
+	// Transport is the transport that the Core connects to the brokers over.
+	Transport Transport `json:"transport" msgpack:"transport"`
+	// Auth is the authentication that the brokers require.
+	Auth Auth `json:"auth" msgpack:"auth"`
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (id *Identity) SetDefaults() {
+	id.Transport.Variant = PlaintextTransport{}
+	id.Auth.Variant = NoneAuth{}
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (id Identity) Validate() error {
+	v := validate.New("Identity")
+	v.NonZero("rack", id.Rack)
+	v.NotEmptyString("name", id.Name)
+	for i := range id.Brokers {
+		v.Exec(func() error { return validate.PathedError(id.Brokers[i].Validate(), "brokers", strconv.Itoa(i)) })
+	}
+	v.Exec(func() error { return validate.PathedError(id.Transport.Validate(), "transport") })
+	v.Exec(func() error { return validate.PathedError(id.Auth.Validate(), "auth") })
+	return v.Error()
+}
+
+// Configuration holds the cluster fields that the task forms own.
+type Configuration struct {
+	// Reads bind the values that read tasks consume to channels.
+	Reads []Read `json:"reads" msgpack:"reads"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (c Configuration) Validate() error {
+	v := validate.New("Configuration")
+	for i := range c.Reads {
+		v.Exec(func() error { return validate.PathedError(c.Reads[i].Validate(), "reads", strconv.Itoa(i)) })
+	}
+	return v.Error()
+}
+
+// UpdateType is the "group" value that selects a variant of Update.
+type UpdateType string
+
+const (
+	// IdentityUpdateType writes the fields of the cluster that the connect form owns.
+	IdentityUpdateType UpdateType = "identity"
+	// ConfigurationUpdateType replaces the reads of the cluster. A client sends the
+	// whole group, because a field it leaves out is cleared.
+	ConfigurationUpdateType UpdateType = "configuration"
+)
+
+// UpdateVariant is implemented by every Update variant.
+type UpdateVariant interface {
+	isUpdateVariant()
+}
+
+// IdentityUpdate writes the fields of the cluster that the connect form owns.
+type IdentityUpdate struct {
+	Identity
+}
+
+func (IdentityUpdate) isUpdateVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (i *IdentityUpdate) SetDefaults() {
+	i.Identity.SetDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (i IdentityUpdate) Validate() error {
+	v := validate.New("IdentityUpdate")
+	v.Exec(i.Identity.Validate)
+	return v.Error()
+}
+
+// ConfigurationUpdate replaces the reads of the cluster. A client sends the whole
+// group, because a field it leaves out is cleared.
+type ConfigurationUpdate struct {
+	Configuration
+}
+
+func (ConfigurationUpdate) isUpdateVariant() {}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (c ConfigurationUpdate) Validate() error {
+	v := validate.New("ConfigurationUpdate")
+	v.Exec(c.Configuration.Validate)
+	return v.Error()
+}
+
+// Update is a write to one field group of a cluster.
+type Update struct {
+	Variant UpdateVariant
+}
+
+// MarshalJSONTo encodes the active variant with its "group" tag injected.
+func (u Update) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
+	case IdentityUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type UpdateType `json:"group"`
+			IdentityUpdate
+		}{Type: IdentityUpdateType, IdentityUpdate: v})
+	case ConfigurationUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type UpdateType `json:"group"`
+			ConfigurationUpdate
+		}{Type: ConfigurationUpdateType, ConfigurationUpdate: v})
+	default:
+		return errors.Newf("Update: unknown variant %T", v)
+	}
+}
+
+// UnmarshalJSONFrom decodes the variant selected by the "group" field.
+func (u *Update) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
+		u.Variant = nil
+		return nil
+	}
+	opts := dec.Options()
+	var disc struct {
+		Type UpdateType `json:"group"`
+	}
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case IdentityUpdateType:
+		var v struct {
+			Type UpdateType `json:"group"`
+			IdentityUpdate
+		}
+		v.IdentityUpdate.SetDefaults()
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.IdentityUpdate
+	case ConfigurationUpdateType:
+		var v struct {
+			Type UpdateType `json:"group"`
+			ConfigurationUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.ConfigurationUpdate
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"Update: unknown group %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+// Group returns the group of the active variant, or an empty group when there is none.
+func (u Update) Group() UpdateType {
+	switch u.Variant.(type) {
+	case IdentityUpdate:
+		return IdentityUpdateType
+	case ConfigurationUpdate:
+		return ConfigurationUpdateType
+	}
+	return ""
+}
+
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
+func (u Update) Validate() error {
+	v := validate.New("Update")
+	v.Ternary("group", u.Variant == nil, "required")
+	switch variant := u.Variant.(type) {
+	case IdentityUpdate:
+		v.Exec(variant.Validate)
+	case ConfigurationUpdate:
+		v.Exec(variant.Validate)
+	}
+	return v.Error()
 }

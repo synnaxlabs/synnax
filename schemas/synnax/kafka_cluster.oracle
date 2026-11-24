@@ -206,3 +206,49 @@ Where filter Cluster {
     @doc value         "is a filter that selects Kafka clusters."
     @go request_output "core/pkg/api/kafka/cluster"
 }
+
+Identity struct {
+    rack      rack.Key  {
+        @doc value         "is the key of the rack that connects to the cluster."
+        @validate required
+    }
+    name      string    {
+        @doc value         "is a human-readable name for the cluster."
+        @validate required
+    }
+    brokers   Broker[]  {
+        @doc value """
+            are the bootstrap brokers of the cluster. A cluster has at least one.
+        """
+    }
+    transport Transport = plaintext {
+        @doc value "is the transport that the Core connects to the brokers over."
+    }
+    auth      Auth = none {
+        @doc value "is the authentication that the brokers require."
+    }
+
+    @doc value "holds the cluster fields that the connect form owns."
+}
+
+Configuration struct {
+    reads Read[] = [] {
+        @doc value "bind the values that read tasks consume to channels."
+    }
+
+    @doc value "holds the cluster fields that the task forms own."
+}
+
+Update union on group {
+    identity      Identity {
+        @doc value "writes the fields of the cluster that the connect form owns."
+    }
+    configuration Configuration {
+        @doc value """
+            replaces the reads of the cluster. A client sends the whole group, because a
+            field it leaves out is cleared.
+        """
+    }
+
+    @doc value "is a write to one field group of a cluster."
+}

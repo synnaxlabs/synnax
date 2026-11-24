@@ -149,6 +149,13 @@ export const AUTH_SCHEMAS: {
   scram_sha_512: scramSha512AuthZ,
 };
 
+/** Configuration holds the cluster fields that the task forms own. */
+export const configurationZ = z.object({
+  /** reads bind the values that read tasks consume to channels. */
+  reads: readZ.array().default(() => []),
+});
+export interface Configuration extends z.infer<typeof configurationZ> {}
+
 /** StatusDetails identifies the cluster and rack that a status pertains to. */
 export const statusDetailsZ = z.object({
   /** rack is the key of the rack the cluster belongs to. */
@@ -200,6 +207,21 @@ export const cursorZ = z.object({
 });
 export interface Cursor extends z.infer<typeof cursorZ> {}
 
+/** Identity holds the cluster fields that the connect form owns. */
+export const identityZ = z.object({
+  /** rack is the key of the rack that connects to the cluster. */
+  rack: rack.keyZ.refine((v) => v !== 0, "rack is required"),
+  /** name is a human-readable name for the cluster. */
+  name: z.string().min(1, "name is required"),
+  /** brokers are the bootstrap brokers of the cluster. A cluster has at least one. */
+  brokers: brokerZ.array().default(() => []),
+  /** transport is the transport that the Core connects to the brokers over. */
+  transport: transportZ.prefault({ type: "plaintext" }),
+  /** auth is the authentication that the brokers require. */
+  auth: authZ.prefault({ mechanism: "none" }),
+});
+export interface Identity extends z.infer<typeof identityZ> {}
+
 export const statusZ = status.statusZ({ details: statusDetailsZ });
 export type Status = z.infer<typeof statusZ>;
 
@@ -217,6 +239,39 @@ export const retrieveRequestZ = z.strictObject({
   includeStatus: z.boolean().optional(),
 });
 export type RetrieveRequest = z.infer<typeof retrieveRequestZ>;
+
+/** IdentityUpdate writes the fields of the cluster that the connect form owns. */
+export const identityUpdateZ = identityZ.extend({
+  group: z.literal("identity"),
+});
+export interface IdentityUpdate extends z.infer<typeof identityUpdateZ> {}
+
+/**
+ * ConfigurationUpdate replaces the reads of the cluster. A client sends the whole
+ * group, because a field it leaves out is cleared.
+ */
+export const configurationUpdateZ = configurationZ.extend({
+  group: z.literal("configuration"),
+});
+export interface ConfigurationUpdate extends z.infer<typeof configurationUpdateZ> {}
+
+export const UPDATE_TYPES = ["identity", "configuration"] as const;
+export const updateTypeZ = z.enum(UPDATE_TYPES);
+export type UpdateType = z.infer<typeof updateTypeZ>;
+
+/** Update is a write to one field group of a cluster. */
+export const updateZ = z.discriminatedUnion("group", [
+  identityUpdateZ,
+  configurationUpdateZ,
+]);
+export type Update = IdentityUpdate | ConfigurationUpdate;
+
+export const UPDATE_SCHEMAS: {
+  [K in UpdateType]: z.ZodType<Extract<Update, { group: K }>>;
+} = {
+  identity: identityUpdateZ,
+  configuration: configurationUpdateZ,
+};
 
 /** Cluster is a Kafka cluster that a rack connects to. */
 export const clusterZ = z.object({
