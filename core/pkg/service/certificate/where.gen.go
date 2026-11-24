@@ -118,6 +118,9 @@ func MatchWhere(w Where) (Filter, error) {
 	if l := w.Racks; l != nil {
 		fs = append(fs, MatchRacks(l...))
 	}
+	if l := w.Keyed; l != nil {
+		fs = append(fs, MatchKeyed(*l))
+	}
 	return And(fs...), nil
 }
 

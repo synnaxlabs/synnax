@@ -13,13 +13,15 @@
 package relay
 
 import (
-	"io"
+	"context"
+	"sync"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/signal"
@@ -106,88 +108,185 @@ func (c Config) Validate() error {
 }
 
 // Relay is the central mechanism for streaming real-time telemetry within the
-// distribution layer. It moves frames from writers to the streamers that demand them.
+// distribution layer. It moves frames from writers to the streamers that demand them
+// while Run runs.
 type Relay struct {
-	ins      alamos.Instrumentation
-	demands  confluence.Inlet[demand]
-	shutdown io.Closer
-	delta    *delta
-	cfg      Config
+	ins     alamos.Instrumentation
+	demands confluence.Inlet[demand]
+	tapper  confluence.Segment[demand, Response]
+	delta   *delta
+	// stopped closes when Run returns, or on a Close without a Run.
+	stopped   chan struct{}
+	lifecycle struct {
+		sync.Mutex
+		state runState
+	}
+	cfg Config
 }
 
+type runState uint8
+
+const (
+	runIdle runState = iota
+	runRunning
+	runStopped
+	runClosed
+)
+
+// Open opens a Relay. It starts no goroutines: streamers wait for Run to start.
 func Open(configs ...Config) (*Relay, error) {
 	cfg, err := config.New(DefaultConfig, configs...)
 	if err != nil {
 		return nil, err
 	}
-
-	r := &Relay{cfg: cfg, ins: cfg.Instrumentation}
-
-	tpr := newTapper(cfg)
+	r := &Relay{
+		cfg:     cfg,
+		ins:     cfg.Instrumentation,
+		tapper:  newTapper(cfg),
+		delta:   newDelta(cfg.Instrumentation),
+		stopped: make(chan struct{}),
+	}
 	demands := confluence.NewStream[demand](cfg.DemandBufferSize)
 	demands.SetOutletAddress("demands")
-	demands.Acquire(1)
-	tpr.InFrom(demands)
+	r.tapper.InFrom(demands)
 	r.demands = demands
-
-	r.delta = newDelta(cfg.Instrumentation)
 	writes := confluence.NewStream[Response](cfg.ResponseBufferSize)
 	writes.SetInletAddress("delta")
 	writes.SetOutletAddress("taps")
 	r.delta.InFrom(writes)
-	tpr.OutTo(writes)
+	r.tapper.OutTo(writes)
+	return r, nil
+}
 
-	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(cfg.Instrumentation))
-	r.shutdown = signal.NewGracefulShutdown(sCtx, cancel)
-
+// Run moves frames to streamers until ctx ends. It then stops the taps into storage
+// and free writes, drops every streamer, and returns. A streamer that runs after Run
+// returns fails. A second Run, or a Run after Close, returns an error.
+func (r *Relay) Run(ctx context.Context) error {
+	r.lifecycle.Lock()
+	if r.lifecycle.state == runClosed {
+		r.lifecycle.Unlock()
+		return errors.New("run called after close")
+	}
+	if r.lifecycle.state != runIdle {
+		r.lifecycle.Unlock()
+		return errors.New("run called twice")
+	}
+	r.lifecycle.state = runRunning
+	r.lifecycle.Unlock()
+	defer func() {
+		r.lifecycle.Lock()
+		r.lifecycle.state = runStopped
+		close(r.stopped)
+		r.lifecycle.Unlock()
+	}()
+	sCtx, cancel := signal.WithCancel(ctx, signal.WithInstrumentation(r.ins))
+	defer cancel()
 	r.delta.Flow(
 		sCtx,
 		confluence.WithAddress("delta"),
 		confluence.RecoverWithErrOnPanic(),
 		confluence.WithRetryOnPanic(),
 	)
-	tpr.Flow(
+	r.tapper.Flow(
 		sCtx,
 		confluence.WithAddress("tapper"),
 		confluence.CloseOutputInletsOnExit(),
 		confluence.RecoverWithErrOnPanic(),
 		confluence.WithRetryOnPanic(),
 	)
-
-	return r, nil
+	return errors.Skip(sCtx.Wait(), context.Canceled)
 }
 
 // StreamerBufferSize returns the most frames that the relay holds for each streamer
 // before it drops them.
 func (r *Relay) StreamerBufferSize() int { return r.cfg.StreamerBufferSize }
 
+// Close fails streamers that wait for a Run that has not started, and makes a later
+// Run fail. Close while Run runs returns an error. Close after Run returns does
+// nothing.
 func (r *Relay) Close() error {
-	r.demands.Close()
-	err := r.shutdown.Close()
-	return err
+	r.lifecycle.Lock()
+	defer r.lifecycle.Unlock()
+	if r.lifecycle.state == runRunning {
+		return errors.New("close called while Run runs")
+	}
+	if r.lifecycle.state == runIdle {
+		r.lifecycle.state = runClosed
+		close(r.stopped)
+	}
+	return nil
 }
 
-func (r *Relay) connectToDelta(
-	accepts func(Response) bool,
-) (<-chan Response, <-chan struct{}, observe.Disconnect) {
-	s := &subscriber{
-		responses: make(chan Response, r.cfg.StreamerBufferSize),
-		missed:    make(chan struct{}, 1),
-		accepts:   accepts,
-		addr:      address.Newf("%s_%s", r.ins.Meta.Path, address.Rand().String()),
+var (
+	errStopped = errors.New("relay stopped")
+	errDropped = errors.New("relay dropped the streamer")
+)
+
+// sendDemand sends d to the tapper. It fails when ctx ends or the relay stops first.
+func (r *Relay) sendDemand(ctx context.Context, d demand) error {
+	select {
+	case r.demands.Inlet() <- d:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-r.stopped:
+		return errStopped
 	}
-	r.delta.connections <- s
-	return s.responses, s.missed, func() {
+}
+
+// removeDemand tells the tapper that the entity at addr, whose demands share state,
+// demands no channels. It returns at once when the tapper has applied none of the
+// entity's demands. Otherwise it returns once the tapper takes the removal, or once
+// the relay stops.
+func (r *Relay) removeDemand(addr address.Address, state *demandState) {
+	if state.withdraw() {
+		return
+	}
+	select {
+	case r.demands.Inlet() <- demand{addr: addr, removed: true}:
+	case <-r.stopped:
+	}
+}
+
+// connectToDelta connects a subscriber to the delta and returns it. Its responses close
+// when the delta drops it. It fails when ctx ends or the relay stops first. Call the
+// returned disconnect once, before or after the responses close.
+func (r *Relay) connectToDelta(
+	ctx context.Context,
+	accepts func(Response) bool,
+	missedRequested bool,
+) (*subscriber, observe.Disconnect, error) {
+	s := &subscriber{
+		responses:       make(chan Response, r.cfg.StreamerBufferSize),
+		missed:          make(chan struct{}, 1),
+		accepts:         accepts,
+		missedRequested: missedRequested,
+		addr: address.Newf(
+			"%s_%s",
+			r.ins.Meta.Path,
+			address.Rand().String(),
+		),
+	}
+	select {
+	case r.delta.connections <- s:
+	case <-ctx.Done():
+		return nil, nil, ctx.Err()
+	case <-r.stopped:
+		return nil, nil, errStopped
+	}
+	return s, func() {
 		// NOTE: This area is a source of concurrency bugs. BE CAREFUL. We need to make
 		// sure we drain the frames in a SEPARATE goroutine. This prevents deadlocks
 		// inside the relay.
-		c := make(chan struct{})
-		go func() {
+		var wg sync.WaitGroup
+		wg.Go(func() {
 			for range s.responses {
 			}
-			close(c)
-		}()
-		r.delta.disconnections <- s
-		<-c
-	}
+		})
+		select {
+		case r.delta.disconnections <- s:
+		case <-r.stopped:
+		}
+		wg.Wait()
+	}, nil
 }

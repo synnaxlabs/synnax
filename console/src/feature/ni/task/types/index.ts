@@ -9,7 +9,7 @@
 
 import { ni, type task } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { bounds } from "@synnaxlabs/x";
+import { closedBounds } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Task } from "@/platform/task";
@@ -119,9 +119,11 @@ export type AIChannel = ni.AIChannel;
 export type AIChannelType = ni.AIChannelType;
 export const AI_CHANNEL_SCHEMAS = ni.AI_CHANNEL_SCHEMAS;
 
-const widest = (ranges: bounds.Bounds[]): bounds.Bounds | undefined =>
-  ranges.reduce<bounds.Bounds | undefined>(
-    (w, r) => (w == null || bounds.span(r) > bounds.span(w) ? r : w),
+const widest = (
+  ranges: closedBounds.ClosedBounds[],
+): closedBounds.ClosedBounds | undefined =>
+  ranges.reduce<closedBounds.ClosedBounds | undefined>(
+    (w, r) => (w == null || closedBounds.span(r) > closedBounds.span(w) ? r : w),
     undefined,
   );
 
@@ -138,7 +140,7 @@ const isTemperature = (channel: AIChannel): channel is TemperatureChannel =>
   TEMPERATURE_TYPES.has(channel.type);
 
 // NI's own default for a temperature channel, 0 to 100 °C, in each unit.
-const TEMPERATURE_RANGES: Record<ni.TemperatureUnits, bounds.Bounds> = {
+const TEMPERATURE_RANGES: Record<ni.TemperatureUnits, closedBounds.ClosedBounds> = {
   DegC: { lower: 0, upper: 100 },
   DegF: { lower: 32, upper: 212 },
   Kelvins: { lower: 273.15, upper: 373.15 },
@@ -154,20 +156,22 @@ export const defaultAIRange = (
   previous: AIChannelType,
   channel: AIChannel,
   hardware?: ni.Hardware,
-): bounds.Bounds | undefined => {
+): closedBounds.ClosedBounds | undefined => {
   if (channel.type === "ai_current") return widest(hardware?.aiCurrentRanges ?? []);
   if (!isTemperature(channel) || TEMPERATURE_TYPES.has(previous)) return undefined;
   return TEMPERATURE_RANGES[channel.units];
 };
 
 // Most NI voltage inputs have a ±10 V range.
-const VOLTAGE_RANGE: bounds.Bounds = { lower: -10, upper: 10 };
+const VOLTAGE_RANGE: closedBounds.ClosedBounds = { lower: -10, upper: 10 };
 
 /**
  * The range a new voltage input takes: the widest voltage range of the device, or ±10
  * V when the device reports none.
  */
-export const defaultAIVoltageRange = (hardware?: ni.Hardware): bounds.Bounds =>
+export const defaultAIVoltageRange = (
+  hardware?: ni.Hardware,
+): closedBounds.ClosedBounds =>
   widest(hardware?.aiVoltageRanges ?? []) ?? VOLTAGE_RANGE;
 
 export const createAIChannel = (type: AIChannelType = "ai_voltage"): AIChannel =>
@@ -305,7 +309,7 @@ export const AO_CHANNEL_TYPES = ni.AO_CHANNEL_TYPES;
 export const defaultAORange = (
   type: AOChannelType,
   hardware?: ni.Hardware,
-): bounds.Bounds | undefined =>
+): closedBounds.ClosedBounds | undefined =>
   type === "ao_current" ? widest(hardware?.aoCurrentRanges ?? []) : undefined;
 
 export const createAOChannel = (type: AOChannelType = "ao_voltage"): AOChannel =>

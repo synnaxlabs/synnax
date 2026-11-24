@@ -42,6 +42,7 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -232,7 +233,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			var res framer.StreamerResponse
 			Eventually(sOutlet.Outlet(), 1*time.Second).Should(Receive(&res))
 			Expect(res.Frame.Get(output.Key()).Series[0]).
-				To(telem.MatchSeriesDataV[int64](2, 4))
+				To(MatchSeriesDataV[int64](2, 4))
 
 			By("Editing the expression of the calculation")
 			Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
@@ -254,7 +255,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				g.Eventually(sOutlet.Outlet(), 200*time.Millisecond).
 					Should(Receive(&res))
 				g.Expect(res.Frame.Get(output.Key()).Series[0]).
-					To(telem.MatchSeriesDataV[int64](9))
+					To(MatchSeriesDataV[int64](9))
 			}, 5*time.Second, 10*time.Millisecond).Should(Succeed())
 		})
 	})
@@ -312,7 +313,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				g.Eventually(sOutlet.Outlet(), 200*time.Millisecond).
 					Should(Receive(&res))
 				g.Expect(res.Frame.Get(output.Key()).Series[0]).
-					To(telem.MatchSeriesDataV[int64](6))
+					To(MatchSeriesDataV[int64](6))
 			}, 5*time.Second, 10*time.Millisecond).Should(Succeed())
 		})
 	})
@@ -347,7 +348,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			Expect(res.Frame.KeysSlice()).To(Equal([]channel.Key{calcCh.Key()}))
 			Expect(
 				res.Frame.Get(calcCh.Key()).Series[0],
-			).To(telem.MatchSeriesDataV[int64](2, 4))
+			).To(MatchSeriesDataV[int64](2, 4))
 			Consistently(sOutlet.Outlet(), 10*time.Millisecond).ShouldNot(Receive())
 		})
 
@@ -405,7 +406,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				Expect(res.Frame.KeysSlice()).To(Equal([]channel.Key{calcCh.Key()}))
 				Expect(
 					res.Frame.Get(calcCh.Key()).Series[0],
-				).To(telem.MatchSeriesDataV[int64](2, 8))
+				).To(MatchSeriesDataV[int64](2, 8))
 				Consistently(sOutlet.Outlet(), 10*time.Millisecond).ShouldNot(Receive())
 			})
 
@@ -444,7 +445,7 @@ var _ = Describe("Calculation", Ordered, func() {
 					Expect(res.Frame.KeysSlice()).To(Equal([]channel.Key{calcCh.Key()}))
 					Expect(
 						res.Frame.Get(calcCh.Key()).Series[0],
-					).To(telem.MatchSeriesDataV[int64](2, 8))
+					).To(MatchSeriesDataV[int64](2, 8))
 					Consistently(
 						sOutlet.Outlet(),
 						10*time.Millisecond,
@@ -493,7 +494,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			Expect(res.Frame.KeysSlice()).To(Equal([]channel.Key{calcCh.Key()}))
 			Expect(
 				res.Frame.Get(calcCh.Key()).Series[0],
-			).To(telem.MatchSeriesDataV[int64](2, 4))
+			).To(MatchSeriesDataV[int64](2, 4))
 			Consistently(sOutlet.Outlet(), 10*time.Millisecond).ShouldNot(Receive())
 		})
 
@@ -551,7 +552,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				Eventually(sOutlet.Outlet(), 1*time.Second).Should(Receive(&res))
 				Expect(
 					res.Frame.Get(calcCh.Key()).Series[0],
-				).To(telem.MatchSeriesDataV[float32](2, 8))
+				).To(MatchSeriesDataV[float32](2, 8))
 			})
 
 			Specify("Unique Indexes", func(ctx SpecContext) {
@@ -623,7 +624,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				Eventually(sOutlet.Outlet(), 1*time.Second).Should(Receive(&res))
 				Expect(
 					res.Frame.Get(calcCh.Key()).Series[0],
-				).To(telem.MatchSeriesDataV[float32](2, 8))
+				).To(MatchSeriesDataV[float32](2, 8))
 			})
 
 			Specify("Unique Indexes, Separate Writes", func(ctx SpecContext) {
@@ -695,7 +696,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				Eventually(sOutlet.Outlet(), 1*time.Second).Should(Receive(&res))
 				Expect(
 					res.Frame.Get(calcCh.Key()).Series[0],
-				).To(telem.MatchSeriesDataV[float32](4, 16))
+				).To(MatchSeriesDataV[float32](4, 16))
 			})
 		})
 
@@ -746,10 +747,10 @@ var _ = Describe("Calculation", Ordered, func() {
 				).To(Equal([]channel.Key{calcCh.Key(), calc2Ch.Key()}))
 				Expect(
 					res.Frame.Get(calcCh.Key()).Series[0],
-				).To(telem.MatchSeriesDataV[int64](2, 4))
+				).To(MatchSeriesDataV[int64](2, 4))
 				Expect(
 					res.Frame.Get(calc2Ch.Key()).Series[0],
-				).To(telem.MatchSeriesDataV[int64](4, 8))
+				).To(MatchSeriesDataV[int64](4, 8))
 			})
 
 			Specify(
@@ -780,7 +781,7 @@ var _ = Describe("Calculation", Ordered, func() {
 					).To(Equal([]channel.Key{calc2Ch.Key()}))
 					Expect(
 						res.Frame.Get(calc2Ch.Key()).Series[0],
-					).To(telem.MatchSeriesDataV[int64](4, 8))
+					).To(MatchSeriesDataV[int64](4, 8))
 				},
 			)
 		})
@@ -847,7 +848,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				Eventually(sOutlet.Outlet(), 1*time.Second).Should(Receive(&res))
 				Expect(res.Frame.Get(est.Key()).Series).To(HaveLen(1))
 				Expect(res.Frame.Get(est.Key()).Series[0]).
-					To(telem.MatchSeriesDataV(5 * v))
+					To(MatchSeriesDataV(5 * v))
 				Consistently(sOutlet.Outlet(), 100*time.Millisecond).
 					ShouldNot(Receive())
 			}
@@ -891,7 +892,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				var res framer.StreamerResponse
 				Eventually(sOutlet.Outlet(), 1*time.Second).Should(Receive(&res))
 				Expect(res.Frame.Get(calc.Key()).Series[0]).
-					To(telem.MatchSeriesDataV[int64](30))
+					To(MatchSeriesDataV[int64](30))
 
 				Expect(w.Write(frame.NewMulti(
 					keys,
@@ -899,7 +900,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				))).To(BeTrue())
 				Eventually(sOutlet.Outlet(), 1*time.Second).Should(Receive(&res))
 				Expect(res.Frame.Get(calc.Key()).Series[0]).
-					To(telem.MatchSeriesDataV[int64](7))
+					To(MatchSeriesDataV[int64](7))
 			}
 
 			BeforeEach(func() {
@@ -1018,7 +1019,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				Eventually(outlet.Outlet()).Should(Receive(&res))
 				Expect(
 					res.Frame.Get(calc.Key()).Series[0],
-				).To(telem.MatchSeriesDataV[int64](2, 4))
+				).To(MatchSeriesDataV[int64](2, 4))
 			},
 		)
 
@@ -1067,7 +1068,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				Eventually(outlet.Outlet()).Should(Receive(&res))
 				Expect(
 					res.Frame.Get(calc.Key()).Series[0],
-				).To(telem.MatchSeriesDataV[int64](2, 4))
+				).To(MatchSeriesDataV[int64](2, 4))
 			},
 		)
 	})
@@ -1152,7 +1153,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				Eventually(outlet.Outlet()).Should(Receive(&res))
 				Expect(
 					res.Frame.Get(held.Key()).Series[0],
-				).To(telem.MatchSeriesDataV[int64](2, 4))
+				).To(MatchSeriesDataV[int64](2, 4))
 			},
 		)
 
@@ -1243,7 +1244,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				}).Should(Succeed())
 				Expect(
 					res.Frame.Get(held.Key()).Series[0],
-				).To(telem.MatchSeriesDataV[int64](2, 4))
+				).To(MatchSeriesDataV[int64](2, 4))
 			},
 		)
 	})
@@ -1297,16 +1298,22 @@ var _ = Describe("Calculation", Ordered, func() {
 						ctx, base.Key(), false,
 					)
 				})).To(Succeed())
+				owner := statusOwner(ctx, calc)
+				stored := func() (calculation.Status, error) {
+					var st calculation.Status
+					err := statusSvc.NewRetrieve[struct{}]().
+						Where(status.MatchOwners[struct{}](owner)).
+						Entry(&st).
+						Exec(ctx, dist.DB)
+					return st, err
+				}
+				Eventually(stored).
+					Should(HaveField("Message", "Failed to compile calculation"))
 				rm := c.OpenRequestManager()
 				Expect(
 					rm.Set(ctx, channel.KeysFromChannels([]channel.Channel{calc})),
 				).To(Succeed())
-				var st calculation.Status
-				owner := statusOwner(ctx, calc)
-				Expect(statusSvc.NewRetrieve[struct{}]().
-					Where(status.MatchOwners[struct{}](owner)).
-					Entry(&st).
-					Exec(ctx, dist.DB)).To(Succeed())
+				st := MustSucceed(stored())
 				Expect(st.Variant).To(Equal(status.VariantError))
 				Expect(st.Name).To(Equal(calc.Name))
 				Expect(st.Message).To(Equal("Failed to request calculation"))
@@ -1515,7 +1522,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				var res framer.StreamerResponse
 				Eventually(out.Outlet()).Should(Receive(&res))
 				Expect(res.Frame.Get(calc.Key()).Series[0]).
-					To(telem.MatchSeriesDataV[int64](20))
+					To(MatchSeriesDataV[int64](20))
 			}
 			failure := func() types.GomegaMatcher {
 				return SatisfyAll(
@@ -1916,9 +1923,9 @@ var _ = Describe("Calculation", Ordered, func() {
 				g.Expect(res.Frame.Get(keys[1]).Series).To(HaveLen(1))
 			}, 5*time.Second).Should(Succeed())
 			Expect(res.Frame.Get(keys[0]).Series[0]).
-				To(telem.MatchSeriesDataV[int64](2, 4))
+				To(MatchSeriesDataV[int64](2, 4))
 			Expect(res.Frame.Get(keys[1]).Series[0]).
-				To(telem.MatchSeriesDataV[int64](3, 6))
+				To(MatchSeriesDataV[int64](3, 6))
 			Consistently(func(g Gomega) {
 				write()
 				g.Eventually(sOutlet.Outlet(), 200*time.Millisecond).
@@ -2123,7 +2130,7 @@ var _ = Describe("Calculation", Ordered, func() {
 					g.Eventually(sOutlet.Outlet(), 200*time.Millisecond).
 						Should(Receive(&res))
 					g.Expect(res.Frame.Get(calc.Key()).Series[0]).
-						To(telem.MatchSeriesDataV[int64](3, 6))
+						To(MatchSeriesDataV[int64](3, 6))
 				}, 5*time.Second).Should(Succeed())
 			},
 		)
@@ -2157,7 +2164,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			Expect(res.Frame.KeysSlice()).To(Equal([]channel.Key{calcCh.Key()}))
 			Expect(
 				res.Frame.Get(calcCh.Key()).Series[0],
-			).To(telem.MatchSeriesDataV[int64](2, 4))
+			).To(MatchSeriesDataV[int64](2, 4))
 
 			Expect(creator.Apply(
 				ctx,
@@ -2178,7 +2185,7 @@ var _ = Describe("Calculation", Ordered, func() {
 					Should(Receive(&res))
 				g.Expect(res.Frame.KeysSlice()).To(Equal([]channel.Key{calcCh.Key()}))
 				g.Expect(res.Frame.Get(calcCh.Key()).Series[0]).
-					To(telem.MatchSeriesDataV[int64](3, 6))
+					To(MatchSeriesDataV[int64](3, 6))
 			}, 5*time.Second).Should(Succeed())
 
 			Consistently(sOutlet.Outlet(), 10*time.Millisecond).ShouldNot(Receive())
@@ -2218,7 +2225,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			var res framer.StreamerResponse
 			Eventually(sOutlet.Outlet(), 1*time.Second).Should(Receive(&res))
 			Expect(res.Frame.Get(calcCh.Key()).Series[0]).
-				To(telem.MatchSeriesDataV[int64](2, 4))
+				To(MatchSeriesDataV[int64](2, 4))
 
 			target.Store(uint32(calcCh.Key()))
 			changes.Store(3)
@@ -2250,7 +2257,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				g.Eventually(sOutlet.Outlet(), 200*time.Millisecond).
 					Should(Receive(&res))
 				g.Expect(res.Frame.Get(calcCh.Key()).Series[0]).
-					To(telem.MatchSeriesDataV[int64](3, 6))
+					To(MatchSeriesDataV[int64](3, 6))
 			}, 5*time.Second).Should(Succeed())
 			Expect(changes.Load()).To(BeNumerically("<", 0))
 		})
@@ -2289,7 +2296,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			Expect(res.Frame.KeysSlice()).To(Equal([]channel.Key{calcCh.Key()}))
 			Expect(
 				res.Frame.Get(calcCh.Key()).Series[0],
-			).To(telem.MatchSeriesDataV[int64](2, 4))
+			).To(MatchSeriesDataV[int64](2, 4))
 
 			Expect(creator.Apply(
 				ctx,
@@ -2310,7 +2317,7 @@ var _ = Describe("Calculation", Ordered, func() {
 					Should(Receive(&res))
 				g.Expect(res.Frame.KeysSlice()).To(Equal([]channel.Key{calcCh.Key()}))
 				g.Expect(res.Frame.Get(calcCh.Key()).Series[0]).
-					To(telem.MatchSeriesDataV[int64](3, 6))
+					To(MatchSeriesDataV[int64](3, 6))
 			}, 5*time.Second).Should(Succeed())
 
 			Consistently(sOutlet.Outlet(), 10*time.Millisecond).ShouldNot(Receive())

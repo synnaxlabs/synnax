@@ -314,14 +314,7 @@ def _claude(target: Target, command: str, path: Path) -> None:
 
 def _writer(token: str) -> GH:
     def run(*args: str, stdin: str | None = None) -> str:
-        return subprocess.run(
-            ["gh", *args],
-            input=stdin,
-            stdout=subprocess.PIPE,
-            text=True,
-            check=True,
-            env=os.environ | {"GH_TOKEN": token},
-        ).stdout
+        return gh(*args, stdin=stdin, env=os.environ | {"GH_TOKEN": token})
 
     return run
 
