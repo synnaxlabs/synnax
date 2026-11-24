@@ -1330,6 +1330,17 @@ jobs:
       SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
 
+  tls:
+    needs: changes
+    if:
+      inputs.full || needs.changes.outputs.client_py == 'true' ||
+      needs.changes.outputs.client_ts == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'tls')
+    uses: ./.github/workflows/test.tls.yaml
+    secrets:
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+
   vite-plugin:
     needs: changes
     if:
@@ -1590,6 +1601,7 @@ jobs:
       - stylelint
       - stylelint-config
       - suppressions-py
+      - tls
       - vite-plugin
       - www
       - www-site
