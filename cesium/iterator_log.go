@@ -56,8 +56,7 @@ type logView struct {
 	spare  []uint64
 	// failed is true when the last load failed to read the parts of a range.
 	failed bool
-	// err holds the errors of the loads, a part read or an unlink after an unpin, which
-	// Close returns.
+	// err holds the errors of the part reads of the loads, which Close returns.
 	err error
 }
 
@@ -87,14 +86,14 @@ func (v *logView) load() {
 	v.fresh = true
 	v.next = slices.Grow(v.next[:0], len(v.keys))[:len(v.keys)]
 	v.nextParts = slices.Grow(v.nextParts[:0], len(v.keys))[:len(v.keys)]
-	h, err, unlinkErr := v.e.loadView(v.keys, v.next, v.nextParts, held{}, v.spare)
-	v.err = errors.Join(v.err, unlinkErr)
+	h, err := v.e.loadView(v.keys, v.next, v.nextParts, held{}, v.spare)
 	if v.loaded && (gone(v.chs, v.next) || cut(v.chs[0], v.next[0])) {
-		v.err = errors.Join(v.err, v.e.unpin(h))
+		v.e.unpin(h)
 		v.spare, v.frozen = h.segments[:0], true
 		return
 	}
-	v.err = errors.Join(v.err, err, v.e.unpin(v.pinned))
+	v.e.unpin(v.pinned)
+	v.err = errors.Join(v.err, err)
 	v.chs, v.next = v.next, v.chs
 	v.parts, v.nextParts = v.nextParts, v.parts
 	v.pinned, v.spare = h, v.pinned.segments[:0]
@@ -158,7 +157,8 @@ func (v *logView) close() error {
 	if v.readers--; v.readers > 0 {
 		return nil
 	}
-	err := errors.Join(v.err, v.e.unpin(v.pinned))
+	v.e.unpin(v.pinned)
+	err := v.err
 	v.err, v.fresh, v.loaded, v.frozen, v.failed = nil, false, false, false, false
 	clear(v.chs)
 	clear(v.parts)
@@ -230,9 +230,8 @@ type logCursor struct {
 	// cur is the range of the last valid move, which a move that fails keeps, as on the
 	// old layout.
 	cur logRange
-	// err holds the errors that Close returns: of an unlink after an unpin, and of the
-	// part record reads. broken is true once a load failed to read a part, which ends
-	// the cursor.
+	// err holds the errors of the part record reads, which Close returns. broken is
+	// true once a load failed to read a part, which ends the cursor.
 	err    error
 	broken bool
 }
@@ -252,7 +251,7 @@ func (c *logCursor) load() {
 				next.segments = append(next.segments, seg.ID)
 			}
 		}
-		c.err = errors.Join(c.err, c.e.repin(c.held, next))
+		c.e.repin(c.held, next)
 		c.held, c.spare = next, c.held.segments[:0]
 	}
 	if c.view.failed {
@@ -401,7 +400,7 @@ func (c *logCursor) Close() error {
 	if c.clock {
 		return err
 	}
-	err = errors.Join(err, c.e.unpin(c.held))
+	c.e.unpin(c.held)
 	c.held, c.spare = held{}, c.held.segments[:0]
 	return errors.Join(err, c.view.close())
 }
@@ -440,5 +439,7 @@ func (r *logReader) Size() telem.Size { return telem.Size(r.size) }
 
 // Close implements domain.RangeReader.
 func (r *logReader) Close() error {
-	return errors.Join(r.h.Close(), r.e.unpin(held{segments: []uint64{r.id}}))
+	err := r.h.Close()
+	r.e.unpin(held{segments: []uint64{r.id}})
+	return err
 }

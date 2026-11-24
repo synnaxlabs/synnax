@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/cesium/internal/state"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
+	"go.uber.org/zap"
 )
 
 // pins counts the readers of each segment, and holds the key of each dead segment that
@@ -41,16 +42,16 @@ type held struct {
 // their segments and parts under the same lock that release takes, so release never
 // unlinks a segment that a Channel it returned still names, and a switch keeps each
 // part. It pins a key that keys names twice once. It unpins prev, the pins of an earlier
-// load, and returns the new pins, the error of parts that e no longer holds, and the
-// error of the unlinks that the unpin frees. It puts the segments that it pins in buf
-// when it has room, which must not share an array with prev.
+// load, as unpin does, and returns the new pins and the error of parts that e no longer
+// holds. It puts the segments that it pins in buf when it has room, which must not
+// share an array with prev.
 func (e *engine) loadView(
 	keys []ChannelKey,
 	chs []*state.Channel,
 	parts [][]checkpoint.Part,
 	prev held,
 	buf []uint64,
-) (h held, err, unlinkErr error) {
+) (h held, err error) {
 	for {
 		count := e.state.Load(keys, chs)
 		e.pins.mu.Lock()
@@ -90,17 +91,18 @@ func (e *engine) loadView(
 	e.pins.pin(h)
 	free := e.pins.unpin(prev)
 	e.pins.mu.Unlock()
-	return h, err, e.unlink(free)
+	e.unlinkLate(free)
+	return h, err
 }
 
 // repin pins next and unpins prev under one lock, and unlinks each dead segment that no
-// reader pins after it.
-func (e *engine) repin(prev, next held) error {
+// reader pins after it, as unlinkLate does.
+func (e *engine) repin(prev, next held) {
 	e.pins.mu.Lock()
 	e.pins.pin(next)
 	free := e.pins.unpin(prev)
 	e.pins.mu.Unlock()
-	return e.unlink(free)
+	e.unlinkLate(free)
 }
 
 // pinned returns the parts that readers pin.
@@ -118,12 +120,12 @@ func (e *engine) pin(id uint64) {
 }
 
 // unpin drops a reader's pins of h, and unlinks each dead segment that no reader pins
-// after it.
-func (e *engine) unpin(h held) error {
+// after it, as unlinkLate does.
+func (e *engine) unpin(h held) {
 	e.pins.mu.Lock()
 	free := e.pins.unpin(h)
 	e.pins.mu.Unlock()
-	return e.unlink(free)
+	e.unlinkLate(free)
 }
 
 // release unlinks the file of each segment of dead, which left the state, once no
@@ -153,6 +155,23 @@ func (e *engine) pinnedFiles(key ChannelKey) set.Set[string] {
 		names.Add(segmentName(key, id))
 	}
 	return names
+}
+
+// unlinkLate removes the file of each segment of dead that its last reader unpinned.
+// The removal belongs to no caller then, so a failure is logged with the key and the
+// file, and the file waits for the orphan pass of the next open.
+func (e *engine) unlinkLate(dead []state.Dead) {
+	for _, d := range dead {
+		name := segmentName(d.Key, d.Segment)
+		if err := e.fs.Remove(name); err != nil {
+			e.ins.L.Error(
+				"Failed to remove the file of a dead segment",
+				zap.Uint32("key", d.Key),
+				zap.String("file", name),
+				zap.Error(err),
+			)
+		}
+	}
 }
 
 // unlink removes the file of each segment of dead, and tries every removal.
