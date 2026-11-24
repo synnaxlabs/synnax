@@ -9,7 +9,8 @@
 
 import "@/feature/kafka/task/Discover.css";
 
-import { type kafka, status } from "@synnaxlabs/client";
+import { type icd, type kafka, status } from "@synnaxlabs/client";
+import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Status } from "@synnaxlabs/lyra/status";
@@ -33,7 +34,7 @@ import { CSS } from "@/platform/css";
 import { ICD } from "@/platform/icd";
 import { Modals } from "@/platform/modals";
 
-/** The words that a dialog uses for its picks. */
+/** How the dialog picks topics, and the words for what a pick adds. */
 export interface Kind {
   /** Names the dialog. */
   title: string;
@@ -43,6 +44,11 @@ export interface Kind {
   noun: string;
   /** Starts the side action that adds a topic by name, such as "Read". */
   verb: string;
+  /**
+   * Each pick is a whole topic. It sends the shape of the most records of the topic, or
+   * a message that a field under the topics picks.
+   */
+  whole?: boolean;
 }
 
 export interface Params {
@@ -51,8 +57,8 @@ export interface Params {
   topic: string;
   /** The names of the topics that the task holds now. */
   topics: string[];
-  /** What the task reads now from a topic, by its name. */
-  reads: (topic: string) => Reads;
+  /** What the task reads now from a topic, by its name. Absent, it reads nothing. */
+  reads?: (topic: string) => Reads;
   /** Names the Kafka key of a record, such as "Any key" for the empty key. */
   label: (recordKey: string) => string;
 }
@@ -64,14 +70,38 @@ export interface TopicPick {
   picks: Picks;
 }
 
-/** What the dialog adds: the fields picked from topics, and an empty record. */
+/** A topic picked whole. */
+export interface WholePick {
+  topic: string;
+  /** The shape of the most records of a sample of the topic, or null for none. */
+  shape: json.Shape | null;
+}
+
+/** A message of an ICD. */
+export interface Format {
+  icd: icd.Key;
+  message: icd.Message;
+}
+
+/** What the dialog adds. */
 export interface Result {
+  /** The fields picked from topics. */
   topics: TopicPick[];
   /** The topic that gets a record of any key with no fields, or null for none. */
   record: string | null;
+  /** The topics picked whole. */
+  whole: WholePick[];
+  /** The message that each topic picked whole sends, or null for one from its shape. */
+  format: Format | null;
 }
 
 const FRAME = "records";
+
+const FORMAT_HELP = "Optional. A topic with no format gets one from its records.";
+
+const NO_READS: Reads = { pointers: new Map(), jsonless: new Set(), anyKey: new Map() };
+
+const readNothing = (): Reads => NO_READS;
 
 const ANY_KEY: ICD.Picker.Lock = { checked: true, label: "Any key" };
 
@@ -110,11 +140,15 @@ interface ListingSamples {
 
 const NO_TOPICS: kafka.Topic[] = [];
 
-const NO_RECORDS =
-  "The topic holds no records. Add an empty record to set its fields by hand.";
+const UNREADABLE = "The cluster does not let Synnax read this topic.";
 
-const NO_JSON_RECORDS =
-  "The topic holds no JSON records. Add an empty record to set its fields by hand.";
+const NO_RECORDS = "The topic holds no records.";
+
+const NO_JSON_RECORDS = "The topic holds no JSON records.";
+
+const ADD_EMPTY = "Add an empty record to set its fields by hand.";
+
+const NO_FIELDS = "Its target gets a message with no fields.";
 
 /** @returns the value at a JSON pointer of a document, or undefined for none. */
 const valueAt = (doc: unknown, pointer: string): unknown => {
@@ -134,6 +168,13 @@ const parse = (payload: string): unknown => {
     return undefined;
   }
 };
+
+/** @returns the shape of the most records, the first of a tie, or null for none. */
+const mostRecords = (shapes: json.Shape[]): json.Shape | null =>
+  shapes.reduce<json.Shape | null>(
+    (top, shape) => (top == null || shape.count > top.count ? shape : top),
+    null,
+  );
 
 /** @returns the parsed JSON records of a shape's keys, newest first. */
 const newestFirst = (sample: kafka.SampledTopic, shape: json.Shape): unknown[] =>
@@ -201,6 +242,22 @@ const defaultsOf = (shapes: json.Shape[], reads: Reads): Picks =>
 const countOf = (picks: Picks | undefined): number =>
   picks == null ? 0 : [...picks.values()].reduce((n, p) => n + p.size, 0);
 
+/** The shape that each topic picked whole sends, by topic. */
+type WholePicks = Map<string, json.Shape | null>;
+
+/** @returns picks with topic picked whole to send shape, or dropped when not picked. */
+const withWhole = (
+  picks: WholePicks,
+  topic: string,
+  picked: boolean,
+  shape: json.Shape | null,
+): WholePicks => {
+  const next = new Map(picks);
+  if (picked) next.set(topic, shape);
+  else next.delete(topic);
+  return next;
+};
+
 /** @returns picks with the picks of topic replaced by value. */
 const withTopic = (
   picks: Map<string, TopicPick>,
@@ -229,6 +286,33 @@ const rebase = (
   const kept: Picks = new Map([...pick.picks].filter(([key]) => keys.has(key)));
   return withTopic(picks, topic, shapes, kept);
 };
+
+/** @returns the value that a pane shows for a field of a shape. */
+const valueOf = (
+  key: string,
+  field: json.InferredField,
+  newest: unknown[],
+): ICD.Picker.Value => ({
+  key,
+  name: field.pointer === "" ? "Whole value" : field.pointer,
+  sample: show(newestValue(newest, field.pointer)),
+  dataType: ICD.DEFAULT_DATA_TYPES[field.kind],
+});
+
+/** @returns the title of the fields of a shape: its keys and its record count. */
+const titleOf = (shape: json.Shape, label: Params["label"]): string =>
+  `${shape.sources.map(label).join(", ")} · ${pluralize("record", shape.count, true)}`;
+
+const PaneWarning = ({ warning }: { warning: string | null }) =>
+  warning == null ? null : (
+    <Text.Text
+      level="small"
+      status="warning"
+      className={CSS.BE("kafka-discover", "warning")}
+    >
+      {warning}
+    </Text.Text>
+  );
 
 interface TopicValuesProps {
   name: string;
@@ -262,9 +346,8 @@ const TopicValues = ({
     const extendable = isExtendable(shape, reads);
     const taken = takenPointers(shape, reads);
     const carried = carriedFields(shape, reads);
-    const keys = shape.sources.map(label).join(", ");
     return {
-      title: `${keys} · ${pluralize("record", shape.count, true)}`,
+      title: titleOf(shape, label),
       values: shape.fields.map((f, j): ICD.Picker.Value => {
         const key = `${i}${f.pointer}`;
         fields.set(key, [shapeKey(shape), f.pointer]);
@@ -273,13 +356,7 @@ const TopicValues = ({
         else if (taken.has(f.pointer))
           lock = carried.has(f.pointer) ? ANY_KEY : ICD.Picker.TAKEN;
         else if (!extendable) lock = NOT_EXTENDABLE;
-        return {
-          key,
-          name: f.pointer === "" ? "Whole value" : f.pointer,
-          sample: show(newestValue(newest, f.pointer)),
-          dataType: ICD.DEFAULT_DATA_TYPES[f.kind],
-          lock,
-        };
+        return { ...valueOf(key, f, newest), lock };
       }),
     };
   });
@@ -307,20 +384,60 @@ const TopicValues = ({
         onPickAll={() => onChange(defaults)}
         onClear={() => onChange(new Map())}
       />
-      {warning != null && (
-        <Text.Text
-          level="small"
-          status="warning"
-          className={CSS.BE("kafka-discover", "warning")}
-        >
-          {warning}
-        </Text.Text>
-      )}
+      <PaneWarning warning={warning} />
       <ICD.Picker.Values
         noun="Field"
         groups={groups}
         value={picked}
         onChange={handleChange}
+      />
+    </>
+  );
+};
+
+interface WholeValuesProps {
+  name: string;
+  note?: string;
+  warning: string | null;
+  sample: kafka.SampledTopic;
+  /** The shape that a pick of the topic sends. */
+  shape: json.Shape;
+  label: Params["label"];
+  value: boolean;
+  onChange: (value: boolean) => void;
+}
+
+/** The fields that a pick of a whole topic sends. */
+const WholeValues = ({
+  name,
+  note,
+  warning,
+  sample,
+  shape,
+  label,
+  value,
+  onChange,
+}: WholeValuesProps) => {
+  const newest = newestFirst(sample, shape);
+  const values = shape.fields.map((f) => valueOf(f.pointer, f, newest));
+  const picked = value ? values.map(({ key }) => key) : [];
+  return (
+    <>
+      <ICD.Picker.PaneHeader
+        title={name}
+        note={note}
+        free={values.length}
+        picked={picked.length}
+        onPickAll={() => onChange(true)}
+        onClear={() => onChange(false)}
+      />
+      <PaneWarning warning={warning} />
+      <ICD.Picker.Values
+        noun="Field"
+        groups={[{ title: titleOf(shape, label), values }]}
+        value={picked}
+        // One tick or untick picks or drops the whole topic.
+        onChange={(keys) => onChange(keys.length > picked.length)}
       />
     </>
   );
@@ -347,15 +464,18 @@ const Content = ({
   device,
   topic: initial,
   topics: held,
-  reads: readsOf,
+  reads: readsOf = readNothing,
   label,
   close,
   kind,
 }: ContentProps) => {
+  const { whole = false } = kind;
   const [term, setTerm] = useState("");
   const [selected, setSelected] = useState<string | null>(null);
   const [entered, setEntered] = useState<string[]>([]);
   const [picks, setPicks] = useState<Map<string, TopicPick>>(() => new Map());
+  const [wholePicks, setWholePicks] = useState<WholePicks>(() => new Map());
+  const [format, setFormat] = useState<Format | null>(null);
   const [samples, setSamples] = useState<ListingSamples>(() => ({
     listing: null,
     topics: new Map(),
@@ -383,6 +503,9 @@ const Content = ({
       if (data == null) return null;
       set({ variant: "success", data });
       setPicks((prev) => rebase(prev, topic, data.shapes));
+      setWholePicks((prev) =>
+        prev.has(topic) ? withWhole(prev, topic, true, mostRecords(data.shapes)) : prev,
+      );
       return data;
     } catch (e) {
       set({
@@ -399,7 +522,7 @@ const Content = ({
   const listed = listing?.topics ?? NO_TOPICS;
   const listedNames = new Set(listed.map(({ name }) => name));
   const unlisted = unique
-    .unique([...held, ...entered, ...picks.keys()])
+    .unique([...held, ...entered, ...picks.keys(), ...wholePicks.keys()])
     .filter((name) => name !== "" && !listedNames.has(name));
   const entries: Entry[] = [
     ...listed.map((t): Entry => ({ name: t.name, listed: t })),
@@ -425,15 +548,19 @@ const Content = ({
   const items = visible.map((entry): ICD.Picker.TreeItem => {
     const { name, listed: topic } = entry;
     const sample = samples.topics.get(name);
-    const picked = countOf(picks.get(name)?.picks);
-    const free =
+    let picked = countOf(picks.get(name)?.picks);
+    let free =
       sample?.variant === "success"
         ? countOf(defaultsOf(sample.data.shapes, readsOf(name)))
         : null;
+    if (whole) {
+      picked = wholePicks.has(name) ? 1 : 0;
+      free = 1;
+    }
     let meta =
       topic != null ? formatRate(topic.rate) : listing == null ? "" : "Not listed";
     if (picked > 0) meta = `${picked} selected`;
-    else if (topic != null && !topic.readable) meta = "No access";
+    else if (!whole && topic != null && !topic.readable) meta = "No access";
     else if (topic != null && !holdsRecords(topic)) meta = "Empty";
     else if (held.includes(name)) meta = "In task";
     const loading = sample?.variant === "loading";
@@ -442,13 +569,31 @@ const Content = ({
       name,
       meta,
       picked: pickedOf(picked, free),
-      disabled: !sampleable(entry) || free === 0 || loading,
+      disabled: loading || (!whole && (!sampleable(entry) || free === 0)),
       loading,
     };
   });
 
+  const pickWhole = async (topic: string) => {
+    if (wholePicks.has(topic)) {
+      setWholePicks((prev) => withWhole(prev, topic, false, null));
+      return;
+    }
+    const sample = samples.topics.get(topic);
+    const entry = entries.find(({ name }) => name === topic);
+    let data = sample?.variant === "success" ? sample.data : null;
+    if (data == null && (entry == null || sampleable(entry)))
+      data = await loadSample(topic);
+    const shape = data == null ? null : mostRecords(data.shapes);
+    setWholePicks((prev) => withWhole(prev, topic, true, shape));
+  };
+
   const handlePick = async (topic: string) => {
     setSelected(topic);
+    if (whole) {
+      await pickWhole(topic);
+      return;
+    }
     const sample = samples.topics.get(topic);
     const data = sample?.variant === "success" ? sample.data : await loadSample(topic);
     if (data == null) return;
@@ -460,10 +605,11 @@ const Content = ({
     });
   };
 
-  const handleReadTerm = () => {
+  const handleTerm = () => {
     setEntered((prev) => unique.unique([...prev, trimmed]));
     setSelected(trimmed);
     setTerm("");
+    if (whole) void pickWhole(trimmed);
   };
 
   const browsing = result.variant === "loading";
@@ -496,6 +642,7 @@ const Content = ({
   else tree = <ICD.Picker.TreeSkeleton items={SKELETON} />;
 
   const activeTopic = activeEntry?.listed ?? null;
+  const fill = whole ? NO_FIELDS : ADD_EMPTY;
   let pane: ReactNode;
   if (activeEntry == null && browseFailed)
     pane = <Status.Summary center status={result.status} />;
@@ -503,12 +650,16 @@ const Content = ({
     pane = <ICD.Picker.PaneSkeleton noun="Field" />;
   else if (activeEntry == null)
     pane = <ICD.Picker.Notice message="Select a topic to see its records." />;
-  else if (activeTopic != null && !activeTopic.readable)
+  else if (whole && format != null)
     pane = (
-      <ICD.Picker.Notice message="The cluster does not let Synnax read this topic." />
+      <ICD.Picker.Notice
+        message={`Each picked topic sends “${format.message.name}”.`}
+      />
     );
+  else if (activeTopic != null && !activeTopic.readable)
+    pane = <ICD.Picker.Notice message={whole ? `${UNREADABLE} ${fill}` : UNREADABLE} />;
   else if (activeTopic != null && !holdsRecords(activeTopic))
-    pane = <ICD.Picker.Notice message={NO_RECORDS} />;
+    pane = <ICD.Picker.Notice message={`${NO_RECORDS} ${fill}`} />;
   else if (activeSample == null || activeSample.variant === "loading")
     pane = <ICD.Picker.PaneSkeleton noun="Field" title={activeEntry.name} />;
   else if (activeSample.variant === "error")
@@ -524,27 +675,43 @@ const Content = ({
     ]
       .filter((w) => w != null)
       .join(" ");
-    pane = (
-      <TopicValues
-        key={`${samples.listing}/${topic}`}
-        name={topic}
-        note={
-          listing == null
-            ? undefined
-            : activeTopic == null
-              ? "Not listed by the cluster"
-              : describeTopic(activeTopic, listing.listedAt)
-        }
-        warning={warning === "" ? null : warning}
-        sample={data}
-        reads={readsOf(topic)}
-        label={label}
-        value={picks.get(topic)?.picks ?? new Map()}
-        onChange={(value) =>
-          setPicks((prev) => withTopic(prev, topic, data.shapes, value))
-        }
-      />
-    );
+    const note =
+      listing == null
+        ? undefined
+        : activeTopic == null
+          ? "Not listed by the cluster"
+          : describeTopic(activeTopic, listing.listedAt);
+    const shape = mostRecords(data.shapes);
+    pane =
+      whole && shape != null ? (
+        <WholeValues
+          key={`${samples.listing}/${topic}`}
+          name={topic}
+          note={note}
+          warning={warning === "" ? null : warning}
+          sample={data}
+          shape={shape}
+          label={label}
+          value={wholePicks.has(topic)}
+          onChange={(picked) =>
+            setWholePicks((prev) => withWhole(prev, topic, picked, shape))
+          }
+        />
+      ) : (
+        <TopicValues
+          key={`${samples.listing}/${topic}`}
+          name={topic}
+          note={note}
+          warning={warning === "" ? null : warning}
+          sample={data}
+          reads={readsOf(topic)}
+          label={label}
+          value={picks.get(topic)?.picks ?? new Map()}
+          onChange={(value) =>
+            setPicks((prev) => withTopic(prev, topic, data.shapes, value))
+          }
+        />
+      );
   } else if (activeSample.data.error !== "")
     pane = (
       <Status.Summary
@@ -554,24 +721,34 @@ const Content = ({
         description={activeSample.data.error}
       />
     );
-  else pane = <ICD.Picker.Notice message={NO_JSON_RECORDS} />;
+  else pane = <ICD.Picker.Notice message={`${NO_JSON_RECORDS} ${fill}`} />;
 
-  const count = [...picks.values()].reduce((n, p) => n + countOf(p.picks), 0);
+  const count = whole
+    ? wholePicks.size
+    : [...picks.values()].reduce((n, p) => n + countOf(p.picks), 0);
   const unknownTerm = trimmed !== "" && !entries.some(({ name }) => name === trimmed);
   const finish = (record: string | null) =>
     close({
       topics: [...picks.values()].sort(compare.by(({ topic }) => topic)),
       record,
+      whole: [...wholePicks]
+        .map(([topic, shape]): WholePick => ({ topic, shape }))
+        .sort(compare.by(({ topic }) => topic)),
+      format,
     });
 
   let sideAction: ReactNode = null;
   if (unknownTerm)
     sideAction = (
-      <ICD.Picker.SideAction onClick={handleReadTerm}>
+      <ICD.Picker.SideAction onClick={handleTerm}>
         {`${kind.verb} “${trimmed}”`}
       </ICD.Picker.SideAction>
     );
-  else if (activeEntry != null && (activeTopic == null || activeTopic.readable))
+  else if (
+    !whole &&
+    activeEntry != null &&
+    (activeTopic == null || activeTopic.readable)
+  )
     sideAction = (
       <ICD.Picker.SideAction onClick={() => finish(activeEntry.name)}>
         Add an empty record
@@ -596,6 +773,17 @@ const Content = ({
           />
           <ICD.Picker.SideList>{tree}</ICD.Picker.SideList>
           {sideAction}
+          {whole && (
+            <Flex.Box y empty className={CSS.BE("kafka-discover", "format")}>
+              <ICD.MessageFormatField
+                icdKey={format?.icd}
+                message={format?.message.key}
+                onChange={(icdKey, message) => setFormat({ icd: icdKey, message })}
+                helpText={FORMAT_HELP}
+                padHelpText
+              />
+            </Flex.Box>
+          )}
         </ICD.Picker.Side>
         <ICD.Picker.Pane>{pane}</ICD.Picker.Pane>
       </ICD.Picker.Frame>
@@ -616,10 +804,9 @@ const Content = ({
 };
 
 /**
- * Creates a hook that opens a dialog of the topics of a cluster and of the task. It
- * reads records of the topic selected, so the user can pick fields of each shape of
- * their values. The dialog resolves with the picks and any empty record, or null when
- * the user closes it.
+ * Creates a hook that opens a dialog of the topics of a cluster and of the task. The
+ * user picks fields of the records of a topic, or whole topics, as kind says. The
+ * dialog resolves with the picks, or null when the user closes it.
  */
 export const createDiscoverModal = (kind: Kind): Modals.PromptHook<Params, Result> => {
   const Dialog = (props: Modals.ContentProps<Params, Result>) => (

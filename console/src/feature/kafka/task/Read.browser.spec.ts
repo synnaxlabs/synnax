@@ -25,7 +25,7 @@ import {
   array,
   DataType,
   deep,
-  payload,
+  type payload,
   TimeSpan,
   TimeStamp,
   uuid,
@@ -35,9 +35,15 @@ import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { Kafka } from "@/feature/kafka";
-import { createKafkaDevice } from "@/feature/kafka/testutil";
+import {
+  browseOf,
+  createInferredField,
+  createKafkaDevice,
+  createScanTask,
+  listTopic,
+  sampleOfTopic,
+} from "@/feature/kafka/testutil";
 import { Device } from "@/platform/device";
-import { startRackHeartbeat } from "@/platform/device/testutil";
 import { pickMessageFormat, retype } from "@/platform/icd/testutil";
 import {
   answerCommand,
@@ -297,22 +303,6 @@ const createTimeChannel = async () =>
     isIndex: true,
   });
 
-const createInferredField = (
-  pointer: string,
-  dataType: string,
-  type: "number" | "boolean" | "string",
-  timeFormat?: payload.TimeFormat,
-) => ({
-  pointer,
-  dataType,
-  kind: payload.kindOf(dataType),
-  type,
-  timeFormat,
-  enum: [],
-  count: 2,
-  mismatched: 0,
-});
-
 /** Two keys of values that hold a time, a temperature, and a state. */
 const OVEN_SHAPE = {
   sources: ["oven-1", "oven-2"],
@@ -342,34 +332,6 @@ const createSampledRecord = (offset: number, value: object) => ({
   payload: JSON.stringify(value),
 });
 
-/** Creates a Kafka scan task on the rack of dev, with a heartbeat. */
-const createScanTask = async (dev: device.Device) => {
-  const rck = await client.racks.retrieve({ key: dev.rack });
-  onTestFinished(await startRackHeartbeat(client, rck));
-  return await rck.createTask({
-    name: uniqueName("kafka_scan"),
-    type: Kafka.Device.SCAN_TYPE,
-    config: {},
-  });
-};
-
-/** @returns a topic of a cluster as a browse lists it, holding ten JSON records. */
-const listTopic = (name: string, overrides: object = {}) => ({
-  name,
-  partitions: 1,
-  records: 10,
-  compacted: false,
-  rate: 0,
-  newest: 0,
-  format: "json",
-  readable: true,
-  error: "",
-  ...overrides,
-});
-
-/** @returns the data of a browse that lists the topics. */
-const browseOf = (...topics: object[]) => ({ topics, truncated: false });
-
 /** Clicks Add data. @returns queries scoped to the dialog. */
 const clickAddData = async () => {
   fireEvent.click(await screen.findByRole("button", { name: "Add data" }));
@@ -388,7 +350,7 @@ const openAddData = async (
   topic = TOPIC,
   browse = browseOf(listTopic(topic)),
 ) => {
-  const scan = await createScanTask(dev);
+  const scan = await createScanTask(client, dev);
   const { answered } = await answerCommandsUntil(client, [scan], "sample", {
     browse: { data: browse },
     sample: answer,
@@ -402,11 +364,6 @@ const openAddData = async (
 
 /** @returns the data of a sample of a topic that read values of the shapes. */
 const sampleOf = (...shapes: object[]) => sampleOfTopic(TOPIC, ...shapes);
-
-const sampleOfTopic = (topic: string, ...shapes: object[]) => ({
-  topics: [{ topic, records: [], shapes, error: "" }],
-  truncated: false,
-});
 
 /** @returns the topics of the task. */
 const retrieveTopics = async (key: string) =>
@@ -444,7 +401,7 @@ describe("Kafka read form", () => {
     it("should pick fields from two topics in one dialog", async () => {
       const { draft, dev } = await renderRead({ empty: true });
       await screen.findByText("No topics");
-      const scan = await createScanTask(dev);
+      const scan = await createScanTask(client, dev);
       const first = await answerCommandsUntil(client, [scan], "sample", {
         browse: { data: browseOf(listTopic("kiln"), listTopic("plant")) },
         sample: { data: sampleOfTopic("kiln", OVEN_SHAPE) },
@@ -487,7 +444,7 @@ describe("Kafka read form", () => {
     it("should add the picked fields with an empty record of another topic", async () => {
       const { draft, dev } = await renderRead({ empty: true });
       await screen.findByText("No topics");
-      const scan = await createScanTask(dev);
+      const scan = await createScanTask(client, dev);
       const { answered } = await answerCommandsUntil(client, [scan], "sample", {
         browse: {
           data: browseOf(listTopic("kiln"), listTopic("plant", { records: 0 })),
@@ -549,7 +506,7 @@ describe("Kafka read form", () => {
     it("should add an empty record to a topic that holds no records", async () => {
       const { draft, dev } = await renderRead({ empty: true });
       await screen.findByText("No topics");
-      const scan = await createScanTask(dev);
+      const scan = await createScanTask(client, dev);
       const { answered } = await answerCommandsUntil(client, [scan], "browse", {
         browse: { data: browseOf(listTopic("plant", { records: 0 })) },
       });
@@ -572,7 +529,7 @@ describe("Kafka read form", () => {
     it("should not offer a topic that Synnax may not read", async () => {
       const { dev } = await renderRead({ empty: true });
       await screen.findByText("No topics");
-      const scan = await createScanTask(dev);
+      const scan = await createScanTask(client, dev);
       const { answered } = await answerCommandsUntil(client, [scan], "browse", {
         browse: { data: browseOf(listTopic("audit", { readable: false })) },
       });
@@ -585,7 +542,7 @@ describe("Kafka read form", () => {
 
     it("should list and read the topics again on Listen again", async () => {
       const { dev } = await renderRead();
-      const scan = await createScanTask(dev);
+      const scan = await createScanTask(client, dev);
       const first = await answerCommandsUntil(client, [scan], "sample", {
         browse: { data: browseOf(listTopic(TOPIC)) },
         sample: { data: sampleOf() },
@@ -608,7 +565,7 @@ describe("Kafka read form", () => {
 
     it("should disable Listen again while a topic reads", async () => {
       const { dev } = await renderRead();
-      const scan = await createScanTask(dev);
+      const scan = await createScanTask(client, dev);
       const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
       onTestFinished(() => streamer.close());
       const dialog = await clickAddData();
@@ -634,7 +591,7 @@ describe("Kafka read form", () => {
     it("should read a topic past the end of a full list by name", async () => {
       const { dev } = await renderRead({ empty: true });
       await screen.findByText("No topics");
-      const scan = await createScanTask(dev);
+      const scan = await createScanTask(client, dev);
       const first = await answerCommandsUntil(client, [scan], "sample", {
         browse: { data: { topics: [listTopic("alarms")], truncated: true } },
         sample: { data: sampleOfTopic("alarms") },
@@ -655,7 +612,7 @@ describe("Kafka read form", () => {
 
     it("should keep the topics of the task when the browse fails", async () => {
       const { dev } = await renderRead();
-      const scan = await createScanTask(dev);
+      const scan = await createScanTask(client, dev);
       const first = await answerCommandsUntil(client, [scan], "browse", {
         browse: { variant: "error", message: "Failed to reach the cluster" },
       });
@@ -1543,7 +1500,7 @@ describe("Kafka read form", () => {
         index: 0,
         count: 1,
       };
-      const scan = await createScanTask(dev);
+      const scan = await createScanTask(client, dev);
       const first = await answerCommandsUntil(client, [scan], "sample", {
         browse: { data: browseOf(listTopic(TOPIC), listTopic("plant")) },
         sample: { data: sampleOfTopic(TOPIC, shape) },
@@ -2033,7 +1990,7 @@ describe("Kafka read form", () => {
       });
       const { draft, dev } = await renderRead({ empty: true });
       await screen.findByText("No topics");
-      const scan = await createScanTask(dev);
+      const scan = await createScanTask(client, dev);
       const { answered } = await answerCommandsUntil(client, [scan], "browse", {
         browse: { data: browseOf(listTopic("plant", { records: 0 })) },
       });

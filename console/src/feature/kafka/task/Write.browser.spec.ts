@@ -18,14 +18,24 @@ import {
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import type { Status } from "@synnaxlabs/lyra/status";
 import { uniqueName } from "@synnaxlabs/x/testutil";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Kafka } from "@/feature/kafka";
-import { createKafkaDevice } from "@/feature/kafka/testutil";
-import { ICD } from "@/platform/icd";
 import {
+  browseOf,
+  createInferredField,
+  createKafkaDevice,
+  createScanTask,
+  listTopic,
+  sampleOfTopic,
+} from "@/feature/kafka/testutil";
+import { ICD } from "@/platform/icd";
+import { pickMessageFormat } from "@/platform/icd/testutil";
+import {
+  answerCommandsUntil,
   clickDeploy,
+  type CommandAnswer,
   countFailedSaves,
   deployAndAwaitTask,
   preloadForms,
@@ -116,25 +126,135 @@ const retrieveWriteRecord = async (key: device.Key) =>
   (await client.devices.retrieve({ key, schemas: Kafka.Device.SCHEMAS })).properties
     .write;
 
-// The add button renders once the form leaves its loading preview.
-const addTarget = async () =>
-  fireEvent.click(await screen.findByRole("button", { name: "Add target" }));
+const TOPIC = "plant.pumps";
+
+/** @returns a shape of count records that hold the fields, sent by the keys. */
+const createShape = (sources: string[], count: number, ...pointers: string[]) => ({
+  sources,
+  fields: pointers.map((p) => createInferredField(p, "float64", "number")),
+  index: -1,
+  count,
+});
+
+/**
+ * Answers the commands of the Add targets dialog of the task on dev until one of the
+ * type last.
+ */
+const answerScan = async (
+  dev: device.Device,
+  last: "browse" | "sample",
+  answers: Record<string, Omit<CommandAnswer, "type">>,
+) =>
+  await answerCommandsUntil(client, [await createScanTask(client, dev)], last, answers);
+
+/**
+ * Opens the Add targets dialog, which renders once the form leaves its loading preview.
+ * @returns queries scoped to the dialog.
+ */
+const clickAddTargets = async () => {
+  fireEvent.click(await screen.findByRole("button", { name: "Add targets" }));
+  return within(await screen.findByRole("dialog"));
+};
+
+/**
+ * Adds the target of a topic that the browse lists, from a sample of the shapes.
+ * @returns the targets of the task once it holds count of them.
+ */
+const addSampledTarget = async (
+  dev: device.Device,
+  draft: task.Key,
+  shapes: object[],
+  count = 1,
+) => {
+  const { answered } = await answerScan(dev, "sample", {
+    browse: { data: browseOf(listTopic(TOPIC)) },
+    sample: { data: sampleOfTopic(TOPIC, ...shapes) },
+  });
+  const dialog = await clickAddTargets();
+  await answered;
+  fireEvent.click(await dialog.findByRole("button", { name: "Select all" }));
+  fireEvent.click(dialog.getByRole("button", { name: "Add 1 target" }));
+  return await waitFor(async () => {
+    const targets = await retrieveTargets(draft);
+    expect(targets).toHaveLength(count);
+    return targets;
+  });
+};
 
 describe("Kafka Write form", () => {
   // This first test pays the one-time load of the lazy form, which takes over 10 s on
   // a loaded CI runner.
   it("should show the empty state and add + select a target", async () => {
-    await renderWrite();
+    const { dev, draft } = await renderWrite();
     await screen.findByText("Select a target to configure");
-    await addTarget();
+    await addSampledTarget(dev, draft.key, [createShape(["pump-1"], 2, "/speed")]);
     await screen.findByText("Produce");
-    expect(screen.getByText("Message has no fields")).toBeTruthy();
+    expect(screen.getByDisplayValue(TOPIC)).toBeTruthy();
   }, 30_000);
 
-  it("should save a new target with an empty message in an ICD named after the task", async () => {
+  it("should send the shape of the most records, in a message named after the topic", async () => {
     let statuses: Status.NotificationSpec[] = [];
-    const { draft } = await renderWrite([], { onStatuses: (s) => (statuses = s) });
-    await addTarget();
+    const { dev, draft } = await renderWrite([], {
+      onStatuses: (s) => (statuses = s),
+    });
+    const [target] = await addSampledTarget(dev, draft.key, [
+      createShape(["pump-1"], 2, "/speed"),
+      createShape(["pump-2"], 5, "/speed", "/mode"),
+    ]);
+    expect(target).toMatchObject({ topic: TOPIC, recordKey: "pump-2" });
+    const [ic] = await client.icds.retrieve([target.icd]);
+    expect(ic.name).toBe(Kafka.Task.DEFAULT_WRITE_NAME);
+    expect(ic.messages).toMatchObject([
+      {
+        key: target.message.message,
+        name: TOPIC,
+        payload: { fields: [{ pointer: "/speed" }, { pointer: "/mode" }] },
+      },
+    ]);
+    expect(target.message.bindings).toMatchObject([
+      { type: "channel", channel: 0 },
+      { type: "channel", channel: 0 },
+    ]);
+    expect(countFailedSaves(statuses)).toBe(0);
+  });
+
+  it("should give a target no record key when several keys sent its shape", async () => {
+    const { dev, draft } = await renderWrite();
+    const [target] = await addSampledTarget(dev, draft.key, [
+      createShape(["pump-1", "pump-2"], 2, "/speed"),
+    ]);
+    expect(target.recordKey).toBe("");
+  });
+
+  it("should add the message of a new target to the ICD of the most targets", async () => {
+    const { ic, target } = await createTarget([createField("speed", "float")]);
+    const { dev, draft } = await renderWrite([target]);
+    await screen.findByRole("option", { name: /plant\.pumps/ });
+    const [, added] = await addSampledTarget(
+      dev,
+      draft.key,
+      [createShape(["pump-1"], 2, "/speed")],
+      2,
+    );
+    expect(added.icd).toBe(ic.key);
+    await waitFor(async () => {
+      const [saved] = await client.icds.retrieve([ic.key]);
+      expect(saved.messages.at(-1)).toMatchObject({
+        key: added.message.message,
+        name: TOPIC,
+      });
+    });
+  });
+
+  it("should add a target with an empty message for a topic that holds no records", async () => {
+    const { dev, draft } = await renderWrite();
+    const { answered } = await answerScan(dev, "browse", {
+      browse: { data: browseOf(listTopic(TOPIC, { records: 0 })) },
+    });
+    const dialog = await clickAddTargets();
+    await answered;
+    fireEvent.click(await dialog.findByRole("checkbox", { name: `Pick ${TOPIC}` }));
+    fireEvent.click(dialog.getByRole("button", { name: "Add 1 target" }));
     const target = await waitFor(async () => {
       const [t] = await retrieveTargets(draft.key);
       expect(t).toBeDefined();
@@ -142,35 +262,70 @@ describe("Kafka Write form", () => {
     });
     expect(target.message.bindings).toEqual([]);
     const [ic] = await client.icds.retrieve([target.icd]);
-    expect(ic.name).toBe(Kafka.Task.DEFAULT_WRITE_NAME);
     expect(ic.messages).toMatchObject([
-      {
-        key: target.message.message,
-        name: "Untitled",
-        payload: { format: "json", fields: [] },
-      },
+      { name: TOPIC, payload: { format: "json", fields: [] } },
     ]);
-    expect(countFailedSaves(statuses)).toBe(0);
   });
 
-  it("should add the message of a new target to the ICD of the most targets", async () => {
-    const { ic, target } = await createTarget([createField("speed", "float")]);
-    const { draft } = await renderWrite([target]);
-    await screen.findByRole("option", { name: /plant\.pumps/ });
-    await addTarget();
-    const added = await waitFor(async () => {
-      const targets = await retrieveTargets(draft.key);
-      expect(targets).toHaveLength(2);
-      return targets[1];
+  it("should add a target for a topic that the cluster does not let Synnax read", async () => {
+    const { dev, draft } = await renderWrite();
+    const { answered } = await answerScan(dev, "browse", {
+      browse: { data: browseOf(listTopic(TOPIC, { readable: false })) },
     });
-    expect(added.icd).toBe(ic.key);
-    await waitFor(async () => {
-      const [saved] = await client.icds.retrieve([ic.key]);
-      expect(saved.messages.at(-1)).toMatchObject({
-        key: added.message.message,
-        name: "Untitled",
-      });
+    const dialog = await clickAddTargets();
+    await answered;
+    await dialog.findByText(
+      "The cluster does not let Synnax read this topic. Its target gets a message with no fields.",
+    );
+    fireEvent.click(dialog.getByRole("checkbox", { name: `Pick ${TOPIC}` }));
+    fireEvent.click(dialog.getByRole("button", { name: "Add 1 target" }));
+    await waitFor(async () =>
+      expect(await retrieveTargets(draft.key)).toMatchObject([
+        { topic: TOPIC, message: { bindings: [] } },
+      ]),
+    );
+  });
+
+  it("should add a target for a topic typed by name", async () => {
+    const { dev, draft } = await renderWrite();
+    const { answered } = await answerScan(dev, "sample", {
+      browse: { data: browseOf() },
+      sample: { data: sampleOfTopic(TOPIC) },
     });
+    const dialog = await clickAddTargets();
+    fireEvent.change(await dialog.findByPlaceholderText("Search topics"), {
+      target: { value: TOPIC },
+    });
+    fireEvent.click(await dialog.findByRole("button", { name: `Write “${TOPIC}”` }));
+    await answered;
+    fireEvent.click(await dialog.findByRole("button", { name: "Add 1 target" }));
+    await waitFor(async () =>
+      expect(await retrieveTargets(draft.key)).toMatchObject([
+        { topic: TOPIC, recordKey: "" },
+      ]),
+    );
+  });
+
+  it("should send a picked message format from a new target", async () => {
+    const { ic, message } = await createTarget([createField("speed", "float")]);
+    const { dev, draft } = await renderWrite();
+    const { answered } = await answerScan(dev, "sample", {
+      browse: { data: browseOf(listTopic(TOPIC)) },
+      sample: { data: sampleOfTopic(TOPIC, createShape(["pump-1"], 2, "/mode")) },
+    });
+    const dialog = await clickAddTargets();
+    await answered;
+    fireEvent.click(await dialog.findByRole("button", { name: "Select all" }));
+    await pickMessageFormat("Select message format", message.name, ic.name);
+    await dialog.findByText(`Each picked topic sends “${message.name}”.`);
+    fireEvent.click(dialog.getByRole("button", { name: "Add 1 target" }));
+    await waitFor(async () =>
+      expect(await retrieveTargets(draft.key)).toMatchObject([
+        { topic: TOPIC, icd: ic.key, message: { message: message.key } },
+      ]),
+    );
+    const [saved] = await client.icds.retrieve([ic.key]);
+    expect(saved.messages).toHaveLength(1);
   });
 
   it("should show the topic and record key of a target", async () => {

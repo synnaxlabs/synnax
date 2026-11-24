@@ -19,11 +19,12 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Channel as PChannel, Synnax as PSynnax } from "@synnaxlabs/pluto";
-import { DataType, deep, id, primitive } from "@synnaxlabs/x";
+import { DataType, deep, id, type json, primitive } from "@synnaxlabs/x";
 import { type FC, useState } from "react";
 
 import { Device } from "@/feature/kafka/device";
 import { DEFAULT_WRITE_NAME } from "@/feature/kafka/task/create";
+import { createDiscoverModal, type Format } from "@/feature/kafka/task/Discover";
 import {
   deployICDWriteConfigZ,
   deployWriteConfigZ,
@@ -434,6 +435,21 @@ const TargetPane = ({ path, deviceName }: TargetPaneProps) => {
 const icdName = (name: string): string =>
   name.trim() === "" ? DEFAULT_WRITE_NAME : name;
 
+const keyLabel = (recordKey: string): string =>
+  recordKey === "" ? "No key" : recordKey;
+
+/** @returns the key that sent every record of shape, or "" for none or several. */
+const recordKeyOf = (shape: json.Shape | null): string =>
+  shape?.sources.length === 1 ? shape.sources[0] : "";
+
+const useAddTargetsModal = createDiscoverModal({
+  title: "Add targets",
+  hint: "Select the topics to write. Each one becomes a target.",
+  noun: "target",
+  verb: "Write",
+  whole: true,
+});
+
 const duplicateTargets = (targets: WriteTarget[], keys: string[]): WriteTarget[] =>
   targets
     .filter(({ key }) => keys.includes(key))
@@ -457,32 +473,49 @@ const Targets = ({ device, selected, onSelect }: TargetsProps) => {
   const formats = ICD.useFormats();
   const targets = PForm.useFieldListUtils(root.config.targets);
   const all = PForm.useFieldValue(root.config.targets);
+  const addTargets = useAddTargetsModal();
+  const current = selected.at(0);
+  const currentPath = current == null ? null : root.config.targets[current];
 
   const add = async () => {
     if (client == null) throw new DisconnectedError();
-    const {
-      icd: icdKey,
-      messages: [message],
-    } = await ICD.Write.addMessages({
-      client,
-      formats,
-      targets: targets.value(),
-      name: icdName(ctx.get(root.name).value),
-      messages: [{ name: "", fields: [] }],
+    const result = await addTargets({
+      device,
+      topic: currentPath == null ? "" : ctx.get(currentPath.topic).value,
+      topics: targets.value().map(({ topic }) => topic),
+      label: keyLabel,
     });
-    const target = kafka.writeTargetZ.parse({
-      icd: icdKey,
-      message: ICD.Write.create(message),
-    });
-    targets.push([target]);
-    onSelect([target.key]);
+    if (result == null || result.whole.length === 0) return;
+    const { whole, format } = result;
+    let sent: Format[];
+    if (format != null) sent = whole.map(() => format);
+    else {
+      const { icd: icdKey, messages } = await ICD.Write.addMessages({
+        client,
+        formats,
+        targets: targets.value(),
+        name: icdName(ctx.get(root.name).value),
+        messages: whole.map(({ topic, shape }) => ({
+          name: topic,
+          fields: ICD.createFields(shape?.fields ?? []),
+        })),
+      });
+      sent = messages.map((message) => ({ icd: icdKey, message }));
+    }
+    const added = whole.map(({ topic, shape }, i) =>
+      kafka.writeTargetZ.parse({
+        topic,
+        recordKey: recordKeyOf(shape),
+        icd: sent[i].icd,
+        message: ICD.Write.create(sent[i].message),
+      }),
+    );
+    targets.push(added);
+    onSelect([added[0].key]);
   };
   // Adds run one at a time, so a second click cannot make a second ICD.
   const addExclusive = useExclusiveCallback(add);
-  const handleAdd = () => handleError(addExclusive, "Failed to add a target");
-
-  const current = selected.at(0);
-  const currentPath = current == null ? null : root.config.targets[current];
+  const handleAdd = () => handleError(addExclusive, "Failed to add targets");
 
   return (
     <Task.Views.Panes
@@ -495,7 +528,7 @@ const Targets = ({ device, selected, onSelect }: TargetsProps) => {
           footer={
             !isPreview && (
               <Button.CreateListItem size="small" onClick={handleAdd}>
-                Add target
+                Add targets
               </Button.CreateListItem>
             )
           }
