@@ -90,6 +90,7 @@ var _ = Describe("Undo of a conversion", func() {
 		GinkgoHelper()
 		w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 			Channels: keys,
+			Clock:    idx,
 			Start:    start * telem.SecondTS,
 		}))
 		for c := range telem.TimeStamp(2) {
