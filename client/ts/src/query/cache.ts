@@ -18,7 +18,7 @@ import {
 } from "@synnaxlabs/x";
 import type z from "zod";
 
-import { AccessDeniedError } from "@/errors";
+import { AccessDeniedError, InternalError } from "@/errors";
 import type { framer } from "@/framer";
 import { bindDerived, type DeriveParams } from "@/query/derived";
 import { list } from "@/query/list";
@@ -426,7 +426,11 @@ export class Cache {
           await reconcile();
         } catch (exc) {
           if (isOffline(exc)) return;
-          this.onError(new Error(`failed to reconcile ${name} cache`, { cause: exc }));
+          this.onError(
+            new InternalError("cacheRefresh", {
+              cause: new Error(`failed to reconcile ${name} cache`, { cause: exc }),
+            }),
+          );
         }
       }),
     );
@@ -483,7 +487,7 @@ export class Cache {
     }
     this.reconciling = this.reconcile()
       .catch((exc: unknown) =>
-        this.onError(new Error("failed to reconcile caches", { cause: exc })),
+        this.onError(new InternalError("cacheRefresh", { cause: exc })),
       )
       .finally(() => {
         this.reconciling = null;

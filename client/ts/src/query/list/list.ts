@@ -17,7 +17,7 @@ import {
   TimeStamp,
 } from "@synnaxlabs/x";
 
-import { ValidationError } from "@/errors";
+import { InternalError, ValidationError } from "@/errors";
 import { hash, type Trigger } from "@/query/query";
 import { space } from "@/query/space";
 import { isChange, type Keyed, type Table, type TableEvent } from "@/query/table";
@@ -850,7 +850,7 @@ export class Lists<
       try {
         handler(window);
       } catch (exc) {
-        this.report(exc, `failed to notify ${this.config.name} list subscriber`);
+        this.report(exc, "notify");
       }
     });
   }
@@ -865,11 +865,8 @@ export class Lists<
     return Math.max(entry.covered, entry.keys.length) >= limit;
   }
 
-  private report(
-    exc: unknown,
-    message = `failed to maintain ${this.config.name} lists`,
-  ): void {
-    this.hooks.onError(new Error(message, { cause: exc }));
+  private report(exc: unknown, kind: "viewRefresh" | "notify" = "viewRefresh"): void {
+    this.hooks.onError(new InternalError(kind, { cause: exc }));
   }
 }
 

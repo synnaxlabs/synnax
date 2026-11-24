@@ -130,7 +130,6 @@ export class DisconnectedError extends SynnaxError.sub("disconnected") {
 export const isConnectionError = (err: unknown): boolean =>
   Unreachable.matches(err) || Timeout.matches(err) || DisconnectedError.matches(err);
 
-const RELOAD_TO_FETCH = "Reload the window to fetch them again.";
 const DOCUMENT_REFETCHES =
   "The document fetches its latest state from the Core. No action is needed.";
 
@@ -164,8 +163,8 @@ const INTERNAL_STATUSES = {
   cacheRefresh: {
     message: "Failed to refresh cached data",
     description:
-      "Some lists and values may be out of date until they change again. " +
-      RELOAD_TO_FETCH,
+      "Some lists and values may be out of date until they change again. Reload " +
+      "the window to fetch them again.",
   },
   notify: {
     message: "Failed to show a change",
@@ -180,7 +179,9 @@ const INTERNAL_STATUSES = {
   },
   recordLoad: {
     message: "Failed to load some records",
-    description: `A view may leave out records that it should show. ${RELOAD_TO_FETCH}`,
+    description:
+      "A view may leave out records that it should show. Reload the window to " +
+      "fetch them again.",
   },
   documentChange: {
     message: "Failed to apply a change to a document",
