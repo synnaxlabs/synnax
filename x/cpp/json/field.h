@@ -153,4 +153,8 @@ public:
     [[nodiscard]] errors::Error
     append(const telem::Series &s, std::size_t i, std::string &out) const;
 };
+
+/// @brief reports whether text is one JSON value in which no object repeats a member
+/// name, as RFC 7493 requires.
+[[nodiscard]] bool valid(std::string_view text);
 }

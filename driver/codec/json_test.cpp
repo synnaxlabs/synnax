@@ -252,6 +252,15 @@ TEST(JSON, RejectsJSONDefaultThatIsNotJSON) {
     ASSERT_EQ(err.data, "message reading: field v: default: not valid JSON");
 }
 
+/// @brief it should reject a JSON field whose default repeats a member name.
+TEST(JSON, RejectsJSONDefaultWithRepeatedName) {
+    auto m = reading<icd::JSONJSONField>(x::telem::JSON_T);
+    std::get<icd::JSONJSONField>(m.payload.fields[0]).default_ = R"({"a":1,"a":2})";
+    const auto err = JSON::create({m}).second;
+    ASSERT_OCCURRED_AS(err, CONFIG_ERROR);
+    ASSERT_EQ(err.data, "message reading: field v: default: not valid JSON");
+}
+
 /// @brief it should decode a document without allocating when a string match rule
 /// finds its message.
 TEST(JSON, DecodesWithoutAllocatingByString) {
@@ -453,6 +462,26 @@ TEST(JSONEncoder, WritesJSONSample) {
     );
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
     ASSERT_EQ(err.data, "message command: field config: invalid JSON");
+}
+
+/// @brief it should reject a JSON sample that repeats a member name, in encode and in
+/// check.
+TEST(JSONEncoder, RejectsJSONSampleWithRepeatedName) {
+    auto enc = ASSERT_NIL_P(
+        JSONEncoder::create(
+            command({field<icd::JSONJSONField>("config")}, {x::telem::JSON_T})
+        )
+    );
+    const auto samples = series_of(
+        x::telem::Series(std::string(R"({"pid":{"p":1,"p":2}})"), x::telem::JSON_T)
+    );
+    std::vector<std::uint8_t> payload;
+    const auto err = enc.encode(samples, payload);
+    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+    ASSERT_EQ(err.data, "message command: field config: invalid JSON");
+    const auto check_err = enc.check(0, samples[0], 0);
+    ASSERT_OCCURRED_AS(check_err, x::errors::VALIDATION);
+    ASSERT_EQ(check_err.data, err.data);
 }
 
 /// @brief it should encode a document without allocating, once a first encode is done.

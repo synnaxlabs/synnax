@@ -1225,4 +1225,26 @@ TEST(Encoder, RejectsEnumLabelThatIsNotUTF8) {
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
     ASSERT_EQ(err.data, "enum label \"a\\xff\": invalid UTF-8");
 }
+
+/// @brief it should accept one JSON value in which no object repeats a member name.
+TEST(Valid, AcceptsValueWithNoRepeatedName) {
+    for (const auto *text:
+         {R"({"a":1,"b":{"a":2}})", R"([{"a":1},{"a":2}])", R"( "a" )", "1", "null"})
+        ASSERT_TRUE(valid(text)) << text;
+}
+
+/// @brief it should refuse an object that repeats a member name, nested or not.
+TEST(Valid, RefusesRepeatedName) {
+    for (const auto *text:
+         {R"({"a":1,"a":2})",
+          R"({"o":[{"a":1,"\u0061":2}]})",
+          R"([{"b":{"a":1,"a":2}}])"})
+        ASSERT_FALSE(valid(text)) << text;
+}
+
+/// @brief it should refuse text that is not one JSON value.
+TEST(Valid, RefusesTextThatIsNotJSON) {
+    for (const auto *text: {"", R"({"a":)", "1 2", "{'a':1}"})
+        ASSERT_FALSE(valid(text)) << text;
+}
 }

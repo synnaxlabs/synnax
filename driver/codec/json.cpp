@@ -143,7 +143,7 @@ read_variant(const icd::JSONField &jf, const x::telem::DataType &dt) {
             } else if constexpr (std::is_same_v<F, icd::JSONJSONField>) {
                 out.kind = payload::KIND_JSON;
                 if (v.default_.has_value()) {
-                    if (!x::json::json::accept(*v.default_))
+                    if (!x::json::valid(*v.default_))
                         return {
                             {},
                             x::errors::Error(
@@ -491,7 +491,7 @@ JSONEncoder::Default::create(const icd::JSONField &f) {
                     return x::errors::NIL;
                 }
             } else if constexpr (std::is_same_v<F, icd::JSONJSONField>) {
-                if (!x::json::json::accept(v.default_.value()))
+                if (!x::json::valid(v.default_.value()))
                     return invalid("must be valid JSON");
                 text = v.default_.value();
             } else if constexpr (std::is_same_v<F, icd::UuidJSONField>) {
@@ -591,7 +591,7 @@ x::errors::Error JSONEncoder::Field::append(
 ) const {
     if (this->kind == payload::KIND_JSON) {
         const auto text = s.at<std::string>(static_cast<int>(i));
-        if (!x::json::json::accept(text)) return invalid("invalid JSON");
+        if (!x::json::valid(text)) return invalid("invalid JSON");
         out += text;
         return x::errors::NIL;
     }

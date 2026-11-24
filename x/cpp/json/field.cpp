@@ -17,6 +17,8 @@
 #include <variant>
 #include <vector>
 
+#include "nlohmann/json.hpp"
+
 #include "x/cpp/base64/base64.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/field.h"
@@ -152,6 +154,14 @@ errors::Error compact(
     }
     return errors::NIL;
 }
+}
+
+bool valid(const std::string_view text) {
+    if (!nlohmann::json::accept(text.begin(), text.end())) return false;
+    std::string dst;
+    std::vector<std::size_t> open;
+    std::vector<std::unordered_set<std::string>> names;
+    return !compact(text, dst, open, names);
 }
 
 std::pair<Decoder, errors::Error> Decoder::create(Field field) {
