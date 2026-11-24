@@ -83,13 +83,8 @@ export const isCut = ({ start, end }: Spec): boolean => start != null || end != 
 /**
  * @returns the store key of the tile. A tile cut short at either end is never cached.
  */
-export const storeKey = ({
-  key,
-  level,
-  tile,
-  pointLimit,
-  aggregation,
-}: Spec): string => `${key}/${level}/${tile}/${pointLimit}/${aggregation}`;
+export const storeKey = ({ key, level, tile, pointLimit, aggregation }: Spec): string =>
+  `${key}/${level}/${tile}/${pointLimit}/${aggregation}`;
 
 /**
  * @returns a key for the time range and reduction of the tile's read. Specs with equal

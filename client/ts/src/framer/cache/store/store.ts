@@ -375,7 +375,8 @@ export class Store {
       at.before(start.time)
     )
       return false;
-    const indexBlock = index === block.channel ? block : this.peekRaw(index, block.tile);
+    const indexBlock =
+      index === block.channel ? block : this.peekRaw(index, block.tile);
     const offset = indexBlock?.indexOffset(at);
     if (offset == null) return false;
     block.truncate(cacheBlock.alignmentOf(block.tile, offset), at);
