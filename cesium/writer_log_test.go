@@ -289,7 +289,7 @@ var _ = Describe("Writer on the pointer log", func() {
 			commit(ctx)
 			Expect(segments(data)).To(HaveLen(1))
 			Expect(db.Intend([]cesium.ChannelKey{data})).To(Succeed())
-			Expect(db.Drop([]cesium.ChannelKey{data})).To(Succeed())
+			Expect(db.Drop(ctx, []cesium.ChannelKey{data})).To(Succeed())
 			Expect(db.RetrieveChannel(ctx, data)).Error().
 				To(MatchError(cesium.ErrChannelNotFound))
 			Expect(fs.Exists(strconv.Itoa(int(data)))).To(BeFalse())
@@ -302,7 +302,7 @@ var _ = Describe("Writer on the pointer log", func() {
 			ctx SpecContext,
 		) {
 			commit(ctx)
-			Expect(db.Drop([]cesium.ChannelKey{idx})).To(Succeed())
+			Expect(db.Drop(ctx, []cesium.ChannelKey{idx})).To(Succeed())
 			Expect(MustSucceed(db.RetrieveChannel(ctx, idx)).Key).To(Equal(idx))
 			Expect(segments(idx)).To(HaveLen(1))
 		})

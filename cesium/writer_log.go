@@ -219,7 +219,7 @@ func (w *logWriter) write(
 		}
 		s := fr.RawSeriesAt(i)
 		if !w.unstored {
-			if err = w.append(lk, s.Data); err != nil {
+			if err = w.append(ctx, lk, s.Data); err != nil {
 				w.putBack()
 				return fr, false, err
 			}
@@ -356,9 +356,13 @@ func (w *logWriter) checkOrder(
 }
 
 // append appends p to the open segment of lk, which it creates first when lk has none.
-func (w *logWriter) append(lk *logKey, p []byte) error {
+func (w *logWriter) append(ctx context.Context, lk *logKey, p []byte) error {
 	if lk.w == nil {
-		<-w.e.ready
+		select {
+		case <-w.e.ready:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
 		id, err := w.st.NewSegment(lk.ch.Key)
 		if err != nil {
 			return err
