@@ -19,8 +19,8 @@ import (
 var (
 	_ msgpack.CustomEncoder = Value{}
 	_ msgpack.CustomDecoder = (*Value)(nil)
-	_ msgpack.CustomEncoder = Register{}
-	_ msgpack.CustomDecoder = (*Register)(nil)
+	_ msgpack.CustomEncoder = Location{}
+	_ msgpack.CustomDecoder = (*Location)(nil)
 )
 
 // EncodeMsgpack implements msgpack.CustomEncoder. It writes the active variant's fields
@@ -53,7 +53,7 @@ func (val Value) EncodeMsgpack(enc *msgpack.Encoder) error {
 // an omitted field takes its default. It returns a validation error for an unknown
 // type.
 func (val *Value) DecodeMsgpack(dec *msgpack.Decoder) error {
-	raw, typ, err := decodeTagged[ValueType](dec)
+	raw, typ, err := decodeTagged[ValueType](dec, "type")
 	if err != nil || raw == nil {
 		val.Variant = nil
 		return err
@@ -79,77 +79,81 @@ func (val *Value) DecodeMsgpack(dec *msgpack.Decoder) error {
 }
 
 // EncodeMsgpack implements msgpack.CustomEncoder. It writes the active variant's fields
-// with its type under "type", the same shape as the JSON encoding.
-func (reg Register) EncodeMsgpack(enc *msgpack.Encoder) error {
-	switch v := reg.Variant.(type) {
+// with its table under "table", the same shape as the JSON encoding.
+func (loc Location) EncodeMsgpack(enc *msgpack.Encoder) error {
+	switch v := loc.Variant.(type) {
 	case nil:
 		return enc.EncodeNil()
-	case CoilRegister:
+	case CoilLocation:
 		return enc.Encode(struct {
-			Type RegisterType `msgpack:"type"`
-			CoilRegister
-		}{Type: CoilRegisterType, CoilRegister: v})
-	case DiscreteInputRegister:
+			Table LocationType `msgpack:"table"`
+			CoilLocation
+		}{Table: CoilLocationType, CoilLocation: v})
+	case DiscreteInputLocation:
 		return enc.Encode(struct {
-			Type RegisterType `msgpack:"type"`
-			DiscreteInputRegister
-		}{Type: DiscreteInputRegisterType, DiscreteInputRegister: v})
-	case HoldingRegisterRegister:
+			Table LocationType `msgpack:"table"`
+			DiscreteInputLocation
+		}{Table: DiscreteInputLocationType, DiscreteInputLocation: v})
+	case HoldingRegisterLocation:
 		return enc.Encode(struct {
-			Type RegisterType `msgpack:"type"`
-			HoldingRegisterRegister
-		}{Type: HoldingRegisterRegisterType, HoldingRegisterRegister: v})
-	case InputRegisterRegister:
+			Table LocationType `msgpack:"table"`
+			HoldingRegisterLocation
+		}{Table: HoldingRegisterLocationType, HoldingRegisterLocation: v})
+	case InputRegisterLocation:
 		return enc.Encode(struct {
-			Type RegisterType `msgpack:"type"`
-			InputRegisterRegister
-		}{Type: InputRegisterRegisterType, InputRegisterRegister: v})
+			Table LocationType `msgpack:"table"`
+			InputRegisterLocation
+		}{Table: InputRegisterLocationType, InputRegisterLocation: v})
 	default:
-		return errors.Newf("Register: unknown variant %T", v)
+		return errors.Newf("Location: unknown variant %T", v)
 	}
 }
 
 // DecodeMsgpack implements msgpack.CustomDecoder. A nil value clears the variant. It
 // returns a validation error for an unknown type.
-func (reg *Register) DecodeMsgpack(dec *msgpack.Decoder) error {
-	raw, typ, err := decodeTagged[RegisterType](dec)
+func (loc *Location) DecodeMsgpack(dec *msgpack.Decoder) error {
+	raw, typ, err := decodeTagged[LocationType](dec, "table")
 	if err != nil || raw == nil {
-		reg.Variant = nil
+		loc.Variant = nil
 		return err
 	}
 	switch typ {
-	case CoilRegisterType:
-		var v CoilRegister
+	case CoilLocationType:
+		var v CoilLocation
 		err = msgpack.Unmarshal(raw, &v)
-		reg.Variant = v
-	case DiscreteInputRegisterType:
-		var v DiscreteInputRegister
+		loc.Variant = v
+	case DiscreteInputLocationType:
+		var v DiscreteInputLocation
 		err = msgpack.Unmarshal(raw, &v)
-		reg.Variant = v
-	case HoldingRegisterRegisterType:
-		var v HoldingRegisterRegister
+		loc.Variant = v
+	case HoldingRegisterLocationType:
+		var v HoldingRegisterLocation
 		err = msgpack.Unmarshal(raw, &v)
-		reg.Variant = v
-	case InputRegisterRegisterType:
-		var v InputRegisterRegister
+		loc.Variant = v
+	case InputRegisterLocationType:
+		var v InputRegisterLocation
 		err = msgpack.Unmarshal(raw, &v)
-		reg.Variant = v
+		loc.Variant = v
 	default:
-		return errors.Wrapf(validate.ErrValidation, "unknown register type %q", typ)
+		return errors.Wrapf(validate.ErrValidation, "unknown location table %q", typ)
 	}
 	return err
 }
 
-// decodeTagged reads the next value and its "type" tag. It returns a nil raw value for
-// a msgpack nil.
-func decodeTagged[T ~string](dec *msgpack.Decoder) ([]byte, T, error) {
+// decodeTagged reads the next value and the tag under key. It returns a nil raw value
+// for a msgpack nil.
+func decodeTagged[T ~string](dec *msgpack.Decoder, key string) ([]byte, T, error) {
 	raw, err := dec.DecodeRaw()
 	if err != nil || (len(raw) == 1 && raw[0] == msgpcode.Nil) {
 		return nil, "", err
 	}
-	var tag struct {
-		Type T `msgpack:"type"`
+	var fields map[string]msgpack.RawMessage
+	if err = msgpack.Unmarshal(raw, &fields); err != nil {
+		return nil, "", err
 	}
-	err = msgpack.Unmarshal(raw, &tag)
-	return raw, tag.Type, err
+	var tag T
+	if t, ok := fields[key]; ok {
+		err = msgpack.Unmarshal(t, &tag)
+	}
+	return raw, tag, err
 }

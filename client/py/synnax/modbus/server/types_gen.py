@@ -15,7 +15,7 @@ from enum import IntEnum
 from typing import Annotated, Literal, TypeAlias, override as _override
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from synnax import channel as channel_, rack as rack_, status as status_
 from synnax.resource import ID
