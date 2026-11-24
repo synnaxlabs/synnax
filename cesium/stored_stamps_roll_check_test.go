@@ -12,6 +12,9 @@ package cesium_test
 import (
 	"encoding/binary"
 	"math/rand/v2"
+	"slices"
+	"strconv"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -152,12 +155,36 @@ var _ = Describe("Check: data against stored stamps across a clock roll", func()
 			}).WithTimeout(time.Minute).Should(Succeed())
 			return h
 		}
-		// M15: a switch parts A. The close of the clock writer seals B, and a second
-		// switch parts B into a later part, which the first bounds of d2's run miss.
+		// M15: a switch parts A. The clock writer then fills B to 2^27 stamps, so B
+		// seals in turn, and a second switch parts B into a later part, which the first
+		// bounds of d2's run miss.
 		parted := switched(3)
 		Expect(parted.Parts).ToNot(BeEmpty())
+		for from := roll + 16; from < 2*roll+16; from += chunk {
+			write(from, chunk)
+		}
 		Expect(c.Close()).To(Succeed())
+		// The clock holds A and B, in rising order. The commit that fills B seals it,
+		// and no write follows to start another.
+		var segments []uint64
+		for _, info := range MustSucceed(fs.List(strconv.FormatUint(uint64(idx), 10))) {
+			if hex, ok := strings.CutSuffix(info.Name(), ".seg"); ok {
+				segments = append(segments, MustSucceed(strconv.ParseUint(hex, 16, 64)))
+			}
+		}
+		slices.Sort(segments)
+		Expect(segments).To(HaveLen(2))
 		Expect(len(switched(4).Parts)).To(BeNumerically(">", len(parted.Parts)))
+		_, head := MustSucceed2(checkpoint.Read(fs, 3))
+		var inHead []uint64
+		for _, ch := range head.Channels {
+			if ch.Key == idx {
+				for _, seg := range ch.Segments {
+					inHead = append(inHead, seg.ID)
+				}
+			}
+		}
+		Expect(inHead).ToNot(ContainElement(segments[1]), "segment B is in the head")
 		streams(w2, d2, first.AddSamples(roll-2), 2, 3, 4, 5, 6, 7)
 		Expect(MustSucceed2(w2.Commit(ctx, nil))).To(Equal(stamp(roll+3) + 1))
 		Expect(w2.Close()).To(Succeed())
