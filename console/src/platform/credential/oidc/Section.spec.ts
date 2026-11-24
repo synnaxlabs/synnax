@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import {
+  type access,
   AccountLinkedError,
   type auth,
   connection,
@@ -214,11 +215,12 @@ describe("OIDC section", () => {
   describe("invites", () => {
     const CREATE = "Create invite";
     const REPLACE = "Replace invite";
+    const ALL: access.Action[] = ["create", "update", "delete"];
 
     it.each([
       ["another user", OTHER_USER],
       ["the caller", LOCAL_SUBJECT],
-    ])("should hide without update permission on %s", async (_, subject) => {
+    ])("should hide without permission to change invites of %s", async (_, subject) => {
       const { client, server } = await open({ userActions: ["retrieve"] });
       await renderLocal(client, subject);
       await screen.findByText("Provider accounts");
@@ -227,7 +229,7 @@ describe("OIDC section", () => {
     });
 
     it("should show a new invite's code until the section unmounts", async () => {
-      const { client, server } = await open({ userActions: ["update"] });
+      const { client, server } = await open({ userActions: ALL });
       const onMessage = await renderLocal(client, OTHER_USER);
       fireEvent.click(await screen.findByText(CREATE));
       await waitFor(() => expect(server.invites).toHaveLength(1));
@@ -248,7 +250,7 @@ describe("OIDC section", () => {
     it("should revoke a live invite and hide its code", async () => {
       const old = createInvite(OTHER_USER);
       const { client, server } = await open({
-        userActions: ["update"],
+        userActions: ALL,
         invites: [old],
       });
       const onMessage = await renderLocal(client, OTHER_USER);
@@ -270,7 +272,7 @@ describe("OIDC section", () => {
     it("should say that a new invite replaces a live one", async () => {
       const old = createInvite(OTHER_USER);
       const { client, server } = await open({
-        userActions: ["update"],
+        userActions: ALL,
         invites: [old],
       });
       await renderLocal(client, OTHER_USER);
@@ -280,13 +282,42 @@ describe("OIDC section", () => {
       expect(server.invites).toHaveLength(1);
     });
 
+    it("should offer no new invite without create permission", async () => {
+      const { client, server } = await open({ userActions: ["update"] });
+      await renderLocal(client, OTHER_USER);
+      await screen.findByText("Provider accounts");
+      await waitFor(() => expect(server.policyReads).toBeGreaterThan(0));
+      await expectAlways(() => expect(screen.queryByText(CREATE)).toBeNull());
+    });
+
+    it("should replace but not revoke an invite without delete permission", async () => {
+      const { client, server } = await open({
+        userActions: ["update"],
+        invites: [createInvite(OTHER_USER)],
+      });
+      await renderLocal(client, OTHER_USER);
+      await screen.findByText(REPLACE);
+      await waitFor(() => expect(server.policyReads).toBeGreaterThan(0));
+      expect(screen.queryByText("Revoke")).toBeNull();
+    });
+
+    it("should create a first invite with create permission alone", async () => {
+      const { client, server } = await open({ userActions: ["create"] });
+      await renderLocal(client, OTHER_USER);
+      fireEvent.click(await screen.findByText(CREATE));
+      await waitFor(() => expect(server.invites).toHaveLength(1));
+      await screen.findByText(/^Invite expires/);
+      expect(screen.queryByText(REPLACE)).toBeNull();
+      expect(screen.queryByText("Revoke")).toBeNull();
+    });
+
     it.each([
       ["Revoke", REPLACE, "Successfully revoked invite"],
       [REPLACE, "Revoke", "Successfully created invite"],
     ])("should keep %s from running with %s", async (first, second, done) => {
       const hold = createHold("/auth/oidc/invite/create", "/auth/oidc/invite/delete");
       const { client, server } = await open({
-        userActions: ["update"],
+        userActions: ALL,
         invites: [createInvite(OTHER_USER)],
         hold,
       });

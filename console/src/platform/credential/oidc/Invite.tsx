@@ -17,8 +17,19 @@ import { type ReactElement, useEffect, useState } from "react";
 import { Code } from "@/platform/code";
 import { Modals } from "@/platform/modals";
 
+/** What the caller may do with the user's invite. */
+export interface Grants {
+  /** Creating an invite for a user with none. */
+  create: boolean;
+  /** Replacing a live invite with a new one. */
+  replace: boolean;
+  /** Revoking a live invite. */
+  revoke: boolean;
+}
+
 interface LiveProps {
   subject: resource.ID;
+  grants: Grants;
   createStatus: status.Variant;
   changing: boolean;
   onCreate: () => void;
@@ -27,6 +38,7 @@ interface LiveProps {
 
 const Live = ({
   subject,
+  grants,
   createStatus,
   changing,
   onCreate,
@@ -34,6 +46,7 @@ const Live = ({
 }: LiveProps): ReactElement => {
   const invites = Credential.OIDC.Invite.useResult({ subject });
   const live = invites.data?.at(0);
+  const canCreate = live == null ? grants.create : grants.replace;
   return (
     <>
       {invites.variant === "error" && (
@@ -44,16 +57,18 @@ const Live = ({
           <Text.Text level="small" color={9}>
             {`Invite expires ${live.expiry.toString("dateTime", "local")}`}
           </Text.Text>
-          <Button.Button
-            variant="text"
-            disabled={changing}
-            onClick={() => onRevoke(live.key)}
-          >
-            Revoke
-          </Button.Button>
+          {grants.revoke && (
+            <Button.Button
+              variant="text"
+              disabled={changing}
+              onClick={() => onRevoke(live.key)}
+            >
+              Revoke
+            </Button.Button>
+          )}
         </Flex.Box>
       )}
-      {invites.variant !== "loading" && (
+      {invites.variant !== "loading" && canCreate && (
         <Button.Button
           variant="outlined"
           full="x"
@@ -72,6 +87,7 @@ const Live = ({
 export interface InviteProps {
   /** The user to invite. */
   subject: resource.ID;
+  grants: Grants;
   /** Receives the result of a change, or null when a new one starts. */
   onMessage: (message: string | null) => void;
 }
@@ -80,7 +96,7 @@ export interface InviteProps {
  * Creates and revokes the one-time code that links a provider account to a user. The
  * Core replaces a user's live invite with each new one.
  */
-export const Invite = ({ subject, onMessage }: InviteProps): ReactElement => {
+export const Invite = ({ subject, grants, onMessage }: InviteProps): ReactElement => {
   const query = { subject };
   const invalidate = Credential.OIDC.Invite.useInvalidate();
   const [token, setToken] = useState<string | null>(null);
@@ -119,6 +135,7 @@ export const Invite = ({ subject, onMessage }: InviteProps): ReactElement => {
       <Live
         key={generation}
         subject={subject}
+        grants={grants}
         createStatus={create.variant}
         changing={create.variant === "loading" || revoke.variant === "loading"}
         onCreate={handleCreate}
