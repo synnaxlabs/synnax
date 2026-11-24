@@ -1174,6 +1174,33 @@ describe("Answers", () => {
       expect(expectDeleted(handler.mock.lastCall?.[0]).corpse).toEqual(6);
     });
 
+    it("empties a one-record answer when a refetch finds nothing", async () => {
+      const table = newTable();
+      const foreign = newTable();
+      let found = true;
+      const fetch = vi.fn(async () => {
+        if (!found) throw new NotFoundError("thing not found");
+        table.ingest("a", rec("a", 6));
+        return ["a"];
+      });
+      const answers = new space.Space<Q, number, string, Rec>({
+        name: "thing",
+        table,
+        fetch,
+        compose: (records) => records[0].value,
+        single: true,
+        triggers: [query.trigger(foreign, () => "refetch")],
+      });
+      const handler = vi.fn();
+      answers.onChange(qA, handler);
+      await answers.retrieve(qA);
+      found = false;
+      foreign.set("f", rec("f", 1));
+      await expect.poll(() => answers.getCached(qA)).toBeUndefined();
+      expect(handler).toHaveBeenLastCalledWith(undefined);
+      await expect(answers.retrieve(qA)).rejects.toThrow(NotFoundError);
+    });
+
     it("revives a deleted answer when a new record matches", async () => {
       const table = newTable();
       const fetch = vi.fn(async () => {
