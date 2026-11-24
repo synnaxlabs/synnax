@@ -197,7 +197,14 @@ export class Client extends query.Retriever<
     // still name the deleted calculation.
     store.subscribe((event) => {
       if (event.variant === "set") {
-        outputs.set({ key: event.value.output, hidden: false, calculation: event.key });
+        const output = {
+          key: event.value.output,
+          hidden: false,
+          calculation: event.key,
+        };
+        // A calculation that a fetch found is new to the client, not to the Core.
+        if (event.discovered === true) outputs.ingest(output);
+        else outputs.set(output);
         return;
       }
       const named = outputs.get(
