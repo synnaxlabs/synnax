@@ -138,17 +138,17 @@ var _ = Describe("Primary breaker", func() {
 		Expect(c.Primary).To(HaveValue(Equal(a.Key())))
 		rec := &acttestutil.Recorder[calculation.Key, calculation.Action]{}
 		DeferCleanup(svc.Actions().OnChange(rec.Record))
-		clear := calculation.NewSetAction(calculation.SetPayload{
+		cleared := calculation.NewSetAction(calculation.SetPayload{
 			Path:  []string{"primary"},
 			Value: nil,
 		})
-		computed := MustSucceed(apply(ctx, c.Key, clear))
+		computed := MustSucceed(apply(ctx, c.Key, cleared))
 		stored := retrieve(ctx, c.Key)
 		Expect(stored.Primary).To(HaveValue(Equal(a.Key())))
 		// The sender applies its actions and the computed ones to its copy.
 		sender := MustSucceed(calculation.Reduce(
 			c,
-			slices.Concat([]calculation.Action{clear}, computed)...,
+			slices.Concat([]calculation.Action{cleared}, computed)...,
 		))
 		// Another client applies each broadcast batch, minus the Core-only reads.
 		Eventually(rec.Snapshot).ShouldNot(BeEmpty())
@@ -178,7 +178,7 @@ var _ = Describe("Primary breaker", func() {
 		}
 		Expect(create(ctx, &c)).To(Succeed())
 		Expect(c.Primary).To(HaveValue(Equal(a.Key())))
-		_, err := apply(
+		Expect(apply(
 			ctx,
 			c.Key,
 			calculation.NewSetAction(calculation.SetPayload{
@@ -189,8 +189,7 @@ var _ = Describe("Primary breaker", func() {
 				Path:  []string{"primary"},
 				Value: a.Key(),
 			}),
-		)
-		Expect(err).To(MatchError(validate.ErrValidation))
+		)).Error().To(MatchError(validate.ErrValidation))
 	})
 
 	It("Should pick the first read when its index holds no samples", func(

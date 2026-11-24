@@ -98,36 +98,39 @@ var _ = Describe("Primary check", func() {
 		}, 2*time.Second).Should(BeEmpty())
 	})
 
-	It(
-		"Should not announce a primary that the save sets itself",
-		func(ctx SpecContext) {
-			virtual(ctx, "prc_set_a")
-			virtual(ctx, "prc_set_b")
-			chosen := virtual(ctx, "prc_set_c")
-			out := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
-				Name:       "prc_set_out",
-				Expression: "return prc_set_a + prc_set_b + prc_set_c",
-			}))
-			openGraph(ctx)
-			Expect(creator.Apply(
-				ctx,
-				out.Key(),
-				calculation.NewSetAction(calculation.SetPayload{
-					Path:  []string{"expression"},
-					Value: "return prc_set_b + prc_set_c",
-				}),
-				calculation.NewSetAction(calculation.SetPayload{
-					Path:  []string{"primary"},
-					Value: chosen.Key(),
-				}),
-			)).To(Succeed())
-			Expect(MustSucceed(creator.CalculationOf(ctx, out.Key())).Primary).
-				To(HaveValue(Equal(chosen.Key())))
-			Consistently(func() []calculation.Status {
-				return announced(ctx, out.Name)
-			}, 500*time.Millisecond).Should(BeEmpty())
-		},
-	)
+	It("Should announce, with its true text, a primary that the save sets while its "+
+		"expression drops the held one", func(ctx SpecContext) {
+		// The graph sees only the stored record, so it announces a set primary as it
+		// does a pick.
+		virtual(ctx, "prc_set_a")
+		virtual(ctx, "prc_set_b")
+		chosen := virtual(ctx, "prc_set_c")
+		out := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
+			Name:       "prc_set_out",
+			Expression: "return prc_set_a + prc_set_b + prc_set_c",
+		}))
+		openGraph(ctx)
+		Expect(creator.Apply(
+			ctx,
+			out.Key(),
+			calculation.NewSetAction(calculation.SetPayload{
+				Path:  []string{"expression"},
+				Value: "return prc_set_b + prc_set_c",
+			}),
+			calculation.NewSetAction(calculation.SetPayload{
+				Path:  []string{"primary"},
+				Value: chosen.Key(),
+			}),
+		)).To(Succeed())
+		Expect(MustSucceed(creator.CalculationOf(ctx, out.Key())).Primary).
+			To(HaveValue(Equal(chosen.Key())))
+		Eventually(func() []calculation.Status {
+			return announced(ctx, out.Name)
+		}).Should(ConsistOf(HaveField("Description",
+			"The expression no longer reads prc_set_a, so the outputs now use the "+
+				"timestamps of prc_set_c.",
+		)))
+	})
 	It("Should delete the primary status when the calculation's output is deleted",
 		func(ctx SpecContext) {
 			virtual(ctx, "prc_out_del_a")
