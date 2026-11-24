@@ -26,8 +26,7 @@ type ungrouping struct {
 	// plan lists each tombstone that drops, with no token.
 	plan Plan
 	// groups are the groups that the ungroup deletes, sorted by key, each with the
-	// parent
-	// that takes its children.
+	// parent that takes its children.
 	groups []group.Group
 	// moves maps each of groups to the group that takes its children, or to nil.
 	moves map[group.Key]*group.Key
