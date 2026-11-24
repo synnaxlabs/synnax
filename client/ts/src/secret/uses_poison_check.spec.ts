@@ -12,8 +12,8 @@ import { Series, TimeSpan, uuid } from "@synnaxlabs/x";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 import type { z } from "zod";
 
-import { AccessDeniedError } from "@/errors";
 import { framer } from "@/framer";
+import { AccessDeniedError } from "@/index";
 import { query } from "@/query";
 import { secret } from "@/secret";
 import { expectLive, PushStreamer } from "@/testutil";
