@@ -251,7 +251,7 @@ Broker struct {
             is the MQTT client ID. Absent derives one from the key of the broker.
         """
     }
-    keep_alive    telem.TimeSpan = 30000000000 {
+    keep_alive    telem.TimeSpan = 30s {
         @doc value "is the keep alive interval, in whole seconds."
     }
     sparkplug     Sparkplug = {} {
