@@ -716,6 +716,15 @@ export class Space<
     this.applyRechecks(query, pending);
   }
 
+  // Hydration leaves a tombstone in place, so a record deleted while its fetch was in
+  // flight answers as a deletion rather than an empty record.
+  private deletedWhileFetched(keys: K[]): boolean {
+    const { table, single } = this.config;
+    return (
+      single === true && keys.length === 1 && table.status(keys[0]) === "tombstoned"
+    );
+  }
+
   private fetch(query: Query<P, K, D, V>, options?: FetchOptions): Promise<D> {
     // This fetch covers what a pending refetch would confirm, and a refetch that fails
     // during this fetch would replace its loading state.
@@ -727,16 +736,9 @@ export class Space<
     query.generation++;
     const promise = this.config.fetch(query.params, options).then(
       (keys) => {
-        const { table, single, name } = this.config;
-        // Hydration leaves a tombstone in place, so a record deleted while its fetch
-        // was in flight answers as a deletion rather than an empty record.
-        if (
-          single === true &&
-          keys.length === 1 &&
-          table.status(keys[0]) === "tombstoned"
-        ) {
+        if (this.deletedWhileFetched(keys)) {
           this.settle(query, loading, { variant: "deleted", key: keys[0] }, basis);
-          throw new NotFoundError(`${name} was deleted`);
+          throw new NotFoundError(`${this.config.name} was deleted`);
         }
         this.settle(query, loading, { variant: "ready", keys }, basis);
         // The settle drains membership changes that raced the fetch, so the answer
@@ -800,7 +802,13 @@ export class Space<
     }
     if (query.refetchRechecks === rechecks) query.refetchRechecks = undefined;
     if (query.generation !== generation) return;
-    this.confirm(query, { variant: "ready", keys }, basis);
+    this.confirm(
+      query,
+      this.deletedWhileFetched(keys)
+        ? { variant: "deleted", key: keys[0] }
+        : { variant: "ready", keys },
+      basis,
+    );
     // The answer is as of when the Core ran the fetch, so a change that raced it
     // applies again.
     this.applyRechecks(query, rechecks);
