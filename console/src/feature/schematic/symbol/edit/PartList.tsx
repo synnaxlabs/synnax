@@ -120,6 +120,7 @@ export const PartList = ({ value, onChange, onAdd }: PartListProps): ReactElemen
         onChange={(key: string) => onChange(key === WHOLE_DRAWING ? undefined : key)}
         data={[WHOLE_DRAWING, ...parts.map((p) => p.key)]}
         closeDialogOnSelect={false}
+        cursor="selection"
       >
         <List.Scroll y gap={1}>
           <List.Items<string>>

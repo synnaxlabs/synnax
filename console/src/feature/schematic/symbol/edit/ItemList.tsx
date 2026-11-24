@@ -20,7 +20,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Schematic } from "@synnaxlabs/pluto";
 import { type deep, strings } from "@synnaxlabs/x";
 import pluralize from "pluralize";
-import type { ReactElement } from "react";
+import type { ReactElement, ReactNode } from "react";
 
 import type { Spec } from "@/feature/schematic/symbol/spec";
 import { Modals } from "@/platform/modals";
@@ -57,7 +57,7 @@ export interface ItemListProps<T extends Item> extends Input.Control<
   /** name returns the path of the name of an item, which makes the name editable. */
   name?: (key: string) => deep.Target<string>;
   /** detail returns the second line of an item. */
-  detail: (item: T) => string;
+  detail: (item: T) => ReactNode;
   /** add returns spec with a new item, and the key of the item. */
   add: (spec: schematic.symbol.Spec) => [schematic.symbol.Spec, string];
   /** addDisabled, when set, turns off the add button and says why. */
@@ -138,6 +138,7 @@ export const ItemList = <T extends Item>({
         onChange={onChange}
         data={keys}
         closeDialogOnSelect={false}
+        cursor="selection"
       >
         <List.Scroll y gap={1}>
           <List.Items<string>>

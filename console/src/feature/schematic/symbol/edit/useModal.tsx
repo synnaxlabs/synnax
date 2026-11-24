@@ -24,7 +24,7 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Schematic } from "@synnaxlabs/pluto";
 import { type bounds, id, type xy } from "@synnaxlabs/x";
-import { type ReactElement, useRef, useState } from "react";
+import { type ReactElement, type ReactNode, useRef, useState } from "react";
 
 import {
   ClickInspector,
@@ -66,8 +66,22 @@ const STATE_TYPES: Record<schematic.symbol.StateType, string> = {
   number: "Number",
 };
 
-const describeCommand = ({ value }: schematic.symbol.Command): string =>
-  value.type === "fixed" ? `Sends ${value.value}` : "Asks for a value";
+interface CommandDetailProps {
+  command: schematic.symbol.Command;
+}
+
+// CommandDetail names the value that a command sends, by the enumeration of its state
+// when it has one.
+const CommandDetail = ({ command }: CommandDetailProps): ReactNode => {
+  const values = useValues(command.state);
+  if (command.value.type === "ask") return "Asks for a value";
+  const { value } = command.value;
+  const named =
+    values.state === command.state
+      ? values.list.find((v) => v.value === value)?.name
+      : undefined;
+  return `Sends ${named ?? value}`;
+};
 
 // Item is a command or a click that the inspector edits.
 interface Item {
@@ -93,31 +107,33 @@ const ValueBar = ({ value, onChange }: ValueBarProps): ReactElement | null => {
         Preview
       </Text.Text>
       {states.length > 1 && (
-        <Select.Buttons<string>
+        <Select.Simple<string>
+          resourceName="state"
           value={state}
           onChange={handleStateChange}
-          size="small"
-          variant="outlined"
+          allowNone={false}
+          triggerProps={{ "aria-label": "Preview state" }}
         >
           {states.map((s) => (
-            <Select.Item<string> key={s.key} itemKey={s.key} size="small">
+            <Select.Item<string> key={s.key} itemKey={s.key}>
               {s.name}
             </Select.Item>
           ))}
-        </Select.Buttons>
+        </Select.Simple>
       )}
-      <Select.Buttons<number>
+      <Select.Simple<number>
+        resourceName="value"
         value={value.value}
         onChange={(v: number) => onChange({ state, value: v })}
-        size="small"
-        variant="outlined"
+        allowNone={false}
+        triggerProps={{ "aria-label": "Preview value" }}
       >
         {list.map((v) => (
-          <Select.Item<number> key={v.value} itemKey={v.value} size="small">
+          <Select.Item<number> key={v.value} itemKey={v.value}>
             {v.name}
           </Select.Item>
         ))}
-      </Select.Buttons>
+      </Select.Simple>
     </Flex.Box>
   );
 };
@@ -335,7 +351,8 @@ const Editor = ({
                       detail={(s) => STATE_TYPES[s.type]}
                       add={Spec.addState}
                       remove={Spec.removeState}
-                      value={preview.state}
+                      // The inspector shows no state, so no state looks selected.
+                      value={undefined}
                       onChange={(key) => {
                         // The preview shows enumeration states alone.
                         const state = states.find((s) => s.key === key);
@@ -368,7 +385,7 @@ const Editor = ({
                       items={commands}
                       label={(c) => c.name}
                       name={(key) => path.data.commands[key].name}
-                      detail={describeCommand}
+                      detail={(c) => <CommandDetail command={c} />}
                       add={Spec.addCommand}
                       remove={Spec.removeCommand}
                       value={shown?.type === "command" ? shown.key : undefined}

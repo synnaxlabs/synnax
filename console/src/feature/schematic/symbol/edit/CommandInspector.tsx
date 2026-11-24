@@ -87,15 +87,15 @@ export const CommandInspector = ({
       <Text.Text level="h5">{command.name}</Text.Text>
       <Divider.Divider x />
       <Input.Item label="State">
-        <Select.Buttons<string>
+        <Select.Simple<string>
+          resourceName="state"
           value={command.state ?? NONE}
           onChange={handleStateChange}
-          size="small"
-          variant="outlined"
+          allowNone={false}
+          triggerProps={{ "aria-label": "State" }}
         >
           <Select.Item<string>
             itemKey={NONE}
-            size="small"
             disabled={toggled}
             tooltip={toggled ? TOGGLED : undefined}
           >
@@ -105,14 +105,13 @@ export const CommandInspector = ({
             <Select.Item<string>
               key={s.key}
               itemKey={s.key}
-              size="small"
               disabled={toggled && s.key !== command.state}
               tooltip={toggled && s.key !== command.state ? TOGGLED : undefined}
             >
               {s.name}
             </Select.Item>
           ))}
-        </Select.Buttons>
+        </Select.Simple>
       </Input.Item>
       <Input.Item label="Value">
         <Select.Buttons<schematic.symbol.CommandValueType>
@@ -141,24 +140,24 @@ export const CommandInspector = ({
         </Select.Buttons>
         {command.value.type === "fixed" &&
           (listed ? (
-            <Select.Buttons<number>
+            <Select.Simple<number>
+              resourceName="value"
               value={command.value.value}
               onChange={fixed}
-              size="small"
-              variant="outlined"
+              allowNone={false}
+              triggerProps={{ "aria-label": "Fixed value" }}
             >
               {values.list.map((v) => (
                 <Select.Item<number>
                   key={v.value}
                   itemKey={v.value}
-                  size="small"
                   disabled={taken.includes(v.value)}
                   tooltip={taken.includes(v.value) ? TAKEN : undefined}
                 >
                   {v.name}
                 </Select.Item>
               ))}
-            </Select.Buttons>
+            </Select.Simple>
           ) : (
             <Input.Numeric value={command.value.value} onChange={fixed} />
           ))}
