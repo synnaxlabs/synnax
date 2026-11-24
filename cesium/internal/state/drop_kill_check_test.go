@@ -33,7 +33,7 @@ var _ = Describe("Check: the Drop of a key that holds nothing", func() {
 		Expect(a.durable([]log.Record{create(id, 5, 5)})).To(Succeed())
 		n := MustSucceed(w.NewAlignment())
 		cm := commit(3, n, 0, 10, 12, slot(id, 24))
-		Expect(w.Commit(cm)).To(Succeed())
+		Expect(w.Commit([]*log.Commit{cm})).To(Succeed())
 		Expect(a.durable([]log.Record{cm})).To(Succeed())
 		seal := MustSucceed(w.Seal(5))
 		Expect(a.durable([]log.Record{&seal})).To(Succeed())

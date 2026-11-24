@@ -159,7 +159,7 @@ var _ = Describe("Check: a sealed segment with no pointer", func() {
 						first,
 						slot(id, uint32(8*(c+1))),
 					)
-					Expect(w.Commit(cm)).To(Succeed())
+					Expect(w.Commit([]*log.Commit{cm})).To(Succeed())
 					pending = append(pending, add(cm))
 				}
 				expectNone("the commits")
