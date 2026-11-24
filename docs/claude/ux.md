@@ -125,11 +125,19 @@ in a color picker has no "+".
 - A button label at the p or small level is weight 450. Inputs, switches, list items,
   menu items, tabs, and select triggers keep the weight of their text. Do not change any
   other weight, and do not change font smoothing.
-- DOM text is Inter. Data components (live values, times, tables) use
-  `variant="numeric"`, which adds tabular digits. Names, IDs, and static counts do not.
-- In the DOM, monospace (`variant="code"`) is only for code editors, logs, pasted
-  machine blocks such as a PEM certificate, and code inside a sentence. Canvas text has
-  its own rules.
+- DOM text is Inter, and its `Text` variant sets the treatment. Canvas text has its own
+  rules.
+
+| Variant           | Use for                                             | Examples                                                                                           |
+| ----------------- | --------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `prose` (default) | All other text, including static numbers            | Labels, names, IDs and UUIDs, URLs and topics, OPC UA node IDs, hex codes, "Tank 1", static counts |
+| `numeric`         | Numbers that change in place or line up in a column | Live values, relative times, timestamps, table value columns                                       |
+| `code`            | Code and raw machine text                           | Code editors, logs, pasted PEM or JSON, code inside a sentence                                     |
+| `keyboard`        | Key caps                                            | Shortcut hints                                                                                     |
+| `link`            | Links                                               | Docs links                                                                                         |
+
+When unsure, use `prose`.
+
 - Canvas data (axis ticks, values, tooltip and measure values) draws in Inter with
   tabular digits, through `variant: "numeric"` in `theme.fontString`.
 
