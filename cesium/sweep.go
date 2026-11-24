@@ -52,7 +52,7 @@ func (db *DB) Sweep(
 		return nil, 0, ErrDBClosed
 	}
 	if db.engine != nil {
-		return db.sweepLog(records)
+		return db.sweepLog(ctx, records)
 	}
 	if db.mu.swept {
 		if db.mu.sweepErr != nil {
@@ -71,10 +71,13 @@ func (db *DB) Sweep(
 }
 
 // sweepLog is Sweep on the pointer log layout. The caller holds db.mu.
-func (db *DB) sweepLog(records []ChannelKey) ([]KeptChannel, ChannelKey, error) {
+func (db *DB) sweepLog(
+	ctx context.Context,
+	records []ChannelKey,
+) ([]KeptChannel, ChannelKey, error) {
 	if !db.mu.swept {
 		db.mu.swept = true
-		db.mu.kept, db.mu.sweepErr = db.decideLog(set.New(records...))
+		db.mu.kept, db.mu.sweepErr = db.decideLog(ctx, set.New(records...))
 	}
 	if db.mu.sweepErr != nil {
 		return nil, 0, db.mu.sweepErr

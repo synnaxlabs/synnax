@@ -530,3 +530,88 @@ func (f segmentSyncFile) Sync() error {
 	f.syncs.Add(1)
 	return f.File.Sync()
 }
+
+var _ = Describe("Drop on the pointer log", func() {
+	It("Should remove the files of a key only once the log covers its Drop", func(
+		ctx SpecContext,
+	) {
+		gate := &logGate{release: make(chan struct{})}
+		mem := xfs.NewMem()
+		db := mustOpenDBOnFS(
+			ctx,
+			logGateFS{FS: mem, gate: gate},
+			cesium.WithPointerLog(),
+		)
+		clock := GenerateChannelKey()
+		Expect(db.CreateChannel(ctx, cesium.Channel{
+			Key: clock, Name: "time", IsIndex: true, DataType: telem.TimestampT,
+		})).To(Succeed())
+		w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+			Channels: []cesium.ChannelKey{clock},
+			Start:    10 * telem.SecondTS,
+		}))
+		mustWrite(ctx, w, telem.UnaryFrame(clock, telem.NewSeriesSecondsTSV(10)))
+		MustSucceed2(w.Commit(ctx, nil))
+		Expect(w.Close()).To(Succeed())
+		Expect(db.Intend([]cesium.ChannelKey{clock})).To(Succeed())
+		dir := strconv.Itoa(int(clock))
+		gate.after(1)
+		dropped := make(chan error, 1)
+		go func() { dropped <- db.Drop(ctx, []cesium.ChannelKey{clock}) }()
+		Consistently(dropped).ShouldNot(Receive())
+		Expect(mem.Exists(dir)).To(BeTrue())
+		close(gate.release)
+		Eventually(dropped).Should(Receive(BeNil()))
+		Expect(mem.Exists(dir)).To(BeFalse())
+	})
+})
+
+// logGate holds each log sync after the next n until release closes.
+type logGate struct {
+	armed   atomic.Bool
+	left    atomic.Int64
+	release chan struct{}
+}
+
+func (g *logGate) after(n int64) {
+	g.left.Store(n)
+	g.armed.Store(true)
+}
+
+func (g *logGate) wait() {
+	if g.armed.Load() && g.left.Add(-1) < 0 {
+		<-g.release
+	}
+}
+
+// logGateFS holds the syncs of log files at its gate.
+type logGateFS struct {
+	xfs.FS
+	gate *logGate
+}
+
+func (f logGateFS) Sub(name string) (xfs.FS, error) {
+	sub, err := f.FS.Sub(name)
+	if err != nil {
+		return nil, err
+	}
+	return logGateFS{FS: sub, gate: f.gate}, nil
+}
+
+func (f logGateFS) Open(name string, flag int) (xfs.File, error) {
+	file, err := f.FS.Open(name, flag)
+	if err != nil || !strings.HasSuffix(name, ".log") {
+		return file, err
+	}
+	return logGateFile{File: file, gate: f.gate}, nil
+}
+
+type logGateFile struct {
+	xfs.File
+	gate *logGate
+}
+
+func (f logGateFile) Sync() error {
+	f.gate.wait()
+	return f.File.Sync()
+}
