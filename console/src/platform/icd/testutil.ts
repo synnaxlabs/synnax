@@ -78,6 +78,18 @@ export const retype = async (
   ]);
 };
 
+/** Replaces the field of a message that has the key of field, in the ICD. */
+export const setField = async (
+  client: Synnax,
+  { icd: key, message }: MessageRef,
+  field: icd.JSONField,
+): Promise<void> => {
+  await client.icds.dispatch(
+    key,
+    icd.set({ path: [...fieldsPath(message), field.key], value: field }),
+  );
+};
+
 /** Removes a field of a message, in the ICD. */
 export const removeField = async (
   client: Synnax,

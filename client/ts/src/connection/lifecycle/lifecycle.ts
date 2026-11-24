@@ -327,6 +327,13 @@ export const reduce = (prev: Status, event: Event, config: Config): Status => {
     case "stream.denied":
       return enterStreamDenied(prev);
     case "auth.success":
+      // a login after a rejected one brings the connection back up
+      if (prev.variant === "error" && prev.details.reason === "auth")
+        return enter(prev, "loading", CONNECTING, {
+          authenticated: true,
+          session: event.session,
+          error: undefined,
+        });
       return update(prev, { authenticated: true, session: event.session });
     case "auth.failure":
       return reduceAuthFailure(prev, event.error);
