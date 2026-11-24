@@ -397,13 +397,7 @@ std::pair<TextEncoder, x::errors::Error> TextEncoder::create(const TextMessage &
             field.binding = found->second;
             enc.bound[found->second] = index;
         }
-        if (const auto *t = std::get_if<icd::TaggedTextField>(&f)) {
-            for (const auto i: enc.tagged)
-                if (enc.fields[i].tag == t->tag)
-                    return refuse(
-                        "fields " + enc.fields[i].name + " and " + b.name +
-                        " both have the tag " + x::json::quote(t->tag)
-                    );
+        if (std::holds_alternative<icd::TaggedTextField>(f)) {
             enc.tagged.push_back(index);
         } else {
             const auto position = std::get<icd::DelimitedTextField>(f).position;
