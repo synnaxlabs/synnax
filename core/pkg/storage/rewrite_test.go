@@ -19,6 +19,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/synnax/pkg/storage"
+	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -29,12 +30,7 @@ var _ = Describe("Rewrite of version 0 segments", func() {
 			"backup is older than the first release that writes segments",
 		func(ctx SpecContext, backups []string, backupDisabled, rewritten bool) {
 			dir := newDataDir()
-			l := openLayer(ctx, dir, "0.62.0")
-			Expect(l.TS.CreateChannel(ctx, indexCh, dataCh)).To(Succeed())
-			for _, start := range []int{1, 10, 20} {
-				write(ctx, l, start, indexCh.Key, dataCh.Key)
-			}
-			Expect(l.Close()).To(Succeed())
+			writeOld(xfs.Default, dir, 1, 10, 20)
 			Expect(os.MkdirAll(filepath.Join(dir, "backups"), 0o700)).To(Succeed())
 			for _, name := range backups {
 				writeFile(archiveFile(dir, name), "")
