@@ -632,6 +632,24 @@ var _ = Describe("Handoff on the pointer log", func() {
 		Expect(p.Close()).To(Succeed())
 	})
 
+	It("Should start a new stretch after a handoff in a new run that carries "+
+		"uncommitted samples", func(ctx SpecContext) {
+		w := MustSucceed(db.OpenWriter(ctx, config(clock, data)))
+		before := mustWrite(ctx, w, both(10, 11)).Get(clock).Series[0].Alignment
+		next, p := MustSucceed2(db.Handoff(ctx, w, config(clock), nil, cesium.NewRun))
+		after := mustWrite(ctx, next, telem.UnaryFrame(
+			clock,
+			telem.NewSeriesSecondsTSV(12),
+		)).Get(clock).Series[0].Alignment
+		Expect(after.DomainIndex()).ToNot(Equal(before.DomainIndex()))
+		Expect(MustSucceed2(next.Commit(ctx, nil))).To(Equal(12*telem.SecondTS + 1))
+		stamps := MustSucceed(db.Read(ctx, telem.TimeRangeMax, clock)).Get(clock)
+		Expect(stamps.Len()).To(Equal(int64(3)))
+		Expect(stamps.Series[0].Alignment).To(Equal(before), "the carried run keeps it")
+		Expect(next.Close()).To(Succeed())
+		Expect(p.Close()).To(Succeed())
+	})
+
 	It("Should commit the samples written after pending samples that come back on "+
 		"committed stamps", func(ctx SpecContext) {
 		first := MustSucceed(db.OpenWriter(ctx, config(clock, data)))
