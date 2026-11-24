@@ -358,12 +358,13 @@ var _ = Describe("Claims over parts", func() {
 		DeferCleanup(StartRun(db.Run))
 		Expect(db.OpenWriter(ctx, cesium.WriterConfig{
 			Channels: []cesium.ChannelKey{idx, data},
+			Clock:    idx,
 			Start:    15 * telem.SecondTS,
 		})).Error().To(SatisfyAll(
 			MatchError(validate.ErrValidation),
 			MatchError(ContainSubstring("inside its stored data from 11000000000")),
 		))
-		Expect(db.Write(ctx, telem.SecondTS/2, telem.MultiFrame(
+		Expect(write(ctx, db, telem.SecondTS/2, telem.MultiFrame(
 			[]cesium.ChannelKey{idx, data},
 			[]telem.Series{
 				telem.NewSeries(
