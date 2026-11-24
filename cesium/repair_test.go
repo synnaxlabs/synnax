@@ -159,6 +159,30 @@ func segmentSizes(fs xfs.FS, key cesium.ChannelKey) map[string]int64 {
 	return out
 }
 
+// errRenameFailed is the error of a rename that failRenameFS fails.
+var errRenameFailed = errors.New("rename failed")
+
+// failRenameFS fails each rename to a name with suffix.
+type failRenameFS struct {
+	xfs.FS
+	suffix string
+}
+
+func (f failRenameFS) Sub(name string) (xfs.FS, error) {
+	sub, err := f.FS.Sub(name)
+	if err != nil || name != "" {
+		return sub, err
+	}
+	return failRenameFS{FS: sub, suffix: f.suffix}, nil
+}
+
+func (f failRenameFS) Rename(from, to string) error {
+	if strings.HasSuffix(to, f.suffix) {
+		return errRenameFailed
+	}
+	return f.FS.Rename(from, to)
+}
+
 var _ = Describe("Repair", func() {
 	const (
 		idx  cesium.ChannelKey = 1
@@ -468,6 +492,37 @@ var _ = Describe("Repair", func() {
 			db := MustSucceed(open(ctx))
 			Expect(db.Close()).To(Succeed())
 		})
+
+		It(
+			"Should set each unrecovered segment file aside before the commit point, so "+
+				"that the orphan pass keeps them after a stop past it",
+			func(ctx SpecContext) {
+				files := writeNew(ctx, 5, 2)
+				spoilCreates()
+				// The commit point passes before the rename of the damaged log fails.
+				stopped := func() error {
+					_, err := cesium.Repair(
+						ctx,
+						"",
+						func(cesium.Report) bool { return true },
+						cesium.WithFS(failRenameFS{FS: fs, suffix: ".damaged"}),
+						cesium.WithIdentity(id),
+					)
+					return err
+				}
+				Expect(stopped()).To(MatchError(errRenameFailed))
+				db := MustSucceed(open(ctx))
+				Expect(db.Close()).To(Succeed())
+				for i, key := range []cesium.ChannelKey{newIdx, newData} {
+					for name := range files[i] {
+						dir := strconv.Itoa(int(key))
+						Expect(
+							fs.Exists(dir + "/" + name + ".unrecovered"),
+						).To(BeTrue())
+					}
+				}
+			},
+		)
 
 		It("Should list as unrecovered a segment file that no record names",
 			func(ctx SpecContext) {

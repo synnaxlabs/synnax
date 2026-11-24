@@ -30,11 +30,12 @@ const (
 	unrecoveredSuffix = ".unrecovered"
 )
 
-// write commits the repair of rep to the root of r: the log of a generation above every
-// head and log with no suffix, with one Restart frame, then the head of that generation
-// with the state of e. The header sector of the head is the commit point. Then it
-// renames each damaged log and each unrecovered segment file aside, and syncs their
-// directories.
+// write commits the repair of rep to the root of r. First it renames each unrecovered
+// segment file aside and syncs its directory, so no orphan pass after a crash removes
+// a file that the repair keeps. Then it writes the log of a generation above every head
+// and log with no suffix, with one Restart frame, then the head of that generation with
+// the state of e. The header sector of the head is the commit point. Last it renames
+// each damaged log aside and syncs the root.
 func (e *engine) write(
 	ctx context.Context,
 	o *options,
@@ -42,6 +43,9 @@ func (e *engine) write(
 	rep *Report,
 ) error {
 	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if err := e.setAsideFiles(rep); err != nil {
 		return err
 	}
 	g, err := nextGeneration(e.fs)
@@ -76,14 +80,13 @@ func (e *engine) write(
 		return err
 	}
 	rep.Repaired = true
-	return e.setAside(rep)
+	return e.setAsideLogs(rep)
 }
 
-// setAside renames each damaged log of rep with the suffix .damaged, and each
-// unrecovered segment file with the suffix .unrecovered, then syncs the root and each
-// channel directory that it changed. A rename never replaces a file: a name in use
-// takes the next free .<k> (D-376). It sets the name used in rep.
-func (e *engine) setAside(rep *Report) error {
+// setAsideLogs renames each damaged log of rep with the suffix .damaged, then syncs the
+// root. A rename never replaces a file: a name in use takes the next free .<k> (D-376).
+// It sets the name used in rep.
+func (e *engine) setAsideLogs(rep *Report) error {
 	names := make(map[uint64]string)
 	for _, d := range rep.Damage {
 		if _, ok := names[d.Generation]; ok {
@@ -98,9 +101,13 @@ func (e *engine) setAside(rep *Report) error {
 	for i := range rep.Damage {
 		rep.Damage[i].Name = names[rep.Damage[i].Generation]
 	}
-	if err := e.fs.SyncDir(""); err != nil {
-		return err
-	}
+	return e.fs.SyncDir("")
+}
+
+// setAsideFiles renames each unrecovered segment file of rep with the suffix
+// .unrecovered, as setAsideLogs does, then syncs each channel directory that it
+// changed. It sets the name used in rep.
+func (e *engine) setAsideFiles(rep *Report) error {
 	dirs := set.New[ChannelKey]()
 	for i, f := range rep.Unrecovered {
 		name, err := e.renameAside(segmentName(f.Key, f.Segment, 0), unrecoveredSuffix)
