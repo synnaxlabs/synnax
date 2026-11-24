@@ -32,6 +32,7 @@ interface Resolved {
   spec?: schematic.symbol.Spec;
   builtIn: boolean;
   missing: boolean;
+  invalid: boolean;
 }
 
 const useSpec = (ref: schematic.symbol.Ref): Resolved => {
@@ -39,12 +40,16 @@ const useSpec = (ref: schematic.symbol.Ref): Resolved => {
   switch (ref.type) {
     case "builtin": {
       const spec = BUILT_INS.get(ref.name);
-      return { spec, builtIn: true, missing: spec == null };
+      return { spec, builtIn: true, missing: spec == null, invalid: false };
     }
-    case "custom":
-      return { spec: custom.symbol?.data, builtIn: false, missing: custom.missing };
+    case "custom": {
+      const spec = custom.symbol?.data;
+      // The check parses the markup, so it runs here, where it is cached on the spec.
+      const invalid = spec != null && !Custom.isValidSVG(spec.drawing.markup);
+      return { spec, builtIn: false, missing: custom.missing, invalid };
+    }
     case "missing":
-      return { builtIn: false, missing: true };
+      return { builtIn: false, missing: true, invalid: false };
   }
 };
 
@@ -66,11 +71,10 @@ const Drawn = ({
   value,
   readings,
 }: DrawnProps): ReactElement => {
-  const { spec, builtIn, missing } = useSpec(ref);
+  const { spec, builtIn, missing, invalid } = useSpec(ref);
   const bound = spec == null ? undefined : bind.spec(spec, states);
   const [nodeColor] = Color.useValues([color]);
   const paints = Custom.usePaints(bound, value, { nodeColor, builtIn });
-  const invalid = bound != null && !builtIn && !Custom.isValidSVG(bound.drawing.markup);
   if (missing || invalid)
     return (
       <Note.Note variant="warning">

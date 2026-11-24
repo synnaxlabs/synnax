@@ -59,21 +59,27 @@ const renderNode = (
 
 const createCustomSymbol = async (
   markup: string,
+  data: Partial<z.input<typeof schematic.symbol.specZ>> = {},
+  core?: SyntheticCore,
 ): Promise<{ key: string; Wrapper: FC<PropsWithChildren> }> => {
   const client = createTestClient();
   const { key } = await client.schematics.symbols.create({
     name: "Custom",
-    data: { drawing: { type: "svg", markup }, variant: "static" },
+    data: { drawing: { type: "svg", markup }, variant: "static", ...data },
   });
   const Wrapper = await createAsyncSynnaxWrapper({
     client,
     additionalRegistry: symbolNode.REGISTRY,
+    telemFactories: core == null ? undefined : [telemTest.createRemoteFactory(core)],
   });
   return { key, Wrapper };
 };
 
 describe("Symbol node", () => {
-  afterEach(() => vi.useRealTimers());
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
 
   it("should fill a built-in symbol while a local state reads active", async () => {
     const { container } = renderNode({
@@ -172,6 +178,61 @@ describe("Symbol node", () => {
       expect(container.querySelector(".pluto-symbol svg")).not.toBeNull(),
     );
     expect(container.querySelector(".pluto-symbol--custom")).toBeNull();
+  });
+
+  it("should parse the markup of a custom symbol once while its channel reads", async () => {
+    const now = TimeStamp.now();
+    const core = new SyntheticCore({ rate: Rate.hz(10), start: now, now });
+    const [reading] = core.data;
+    const { key, Wrapper } = await createCustomSymbol(
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">' +
+        '<rect class="body" width="10" height="10" /></svg>',
+      {
+        parts: [{ key: "body", name: "Body", selectors: [".body"] }],
+        states: [
+          {
+            type: "enumeration",
+            key: "active",
+            name: "Active",
+            match: { type: "exact" },
+            default: 0,
+          },
+        ],
+        looks: [
+          {
+            key: "on",
+            part: "body",
+            when: { type: "equals", state: "active", values: [1] },
+            fill: { type: "color", value: { type: "fixed", value: "#ff0000" } },
+          },
+        ],
+      },
+      core,
+    );
+    const parse = vi.spyOn(DOMParser.prototype, "parseFromString");
+    const { container } = renderNode(
+      {
+        spec: { type: "custom", key },
+        states: [
+          {
+            key: "active",
+            source: { type: "channel", key: reading.key },
+            match: WITHIN,
+          },
+        ],
+      },
+      Wrapper,
+    );
+    await act(
+      async () => await vi.waitFor(() => expect(core.streams(reading.key)).toBe(true)),
+    );
+    await vi.waitFor(() => expect(container.querySelector("rect.body")).not.toBeNull());
+    const parsed = parse.mock.calls.length;
+    await act(async () => core.advance(TimeSpan.seconds(1)));
+    await vi.waitFor(() =>
+      expect(container.querySelector("rect.body[fill='#ff0000']")).not.toBeNull(),
+    );
+    expect(parse.mock.calls.length).toBe(parsed);
   });
 
   it("should warn for a custom symbol whose markup does not parse", async () => {
