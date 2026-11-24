@@ -15,11 +15,9 @@ type Address = Pick<Session.Core.Core, "host" | "port" | "secure" | "username">;
 
 type Target = Address & Pick<Session.Core.Core, "key">;
 
-/**
- * The scheme, user, and address of a Core. The scheme is part of it, so a token saved
- * for TLS never goes out in plain text.
- */
-export const addressOf = ({ host, port, secure, username }: Address): string =>
+// The scheme is part of the address, so a token saved for TLS never goes out in plain
+// text.
+const addressOf = ({ host, port, secure, username }: Address): string =>
   `${secure ? "https" : "http"}://${encodeURIComponent(username)}@${host}:${port}`;
 
 /**
