@@ -79,6 +79,8 @@ class Connector {
     std::string log_prefix;
     /// @brief the device's connection settings as of the last retrieve.
     connection::Config cfg;
+    /// @brief whether a retrieve has set cfg.
+    bool loaded = false;
 
 public:
     Connector(
@@ -101,17 +103,23 @@ public:
         auto [cfg, err] = read_connection(*this->client, *this->reader, this->key);
         if (err) return {connection::Pool::Connection(nullptr, nullptr, ""), err};
         this->cfg = std::move(cfg);
+        this->loaded = true;
         return this->pool->acquire(this->cfg, this->log_prefix);
     }
 
     /// @brief retrieves the device and reads its password, then connects. Keeps the
     /// last settings while the Core is unavailable.
-    /// @returns the error of the retrieve, the read, or the connection.
+    /// @returns the error of the retrieve, the read, or the connection. Before any
+    /// retrieve has succeeded, returns any retrieve or read error.
     std::pair<connection::Pool::Connection, x::errors::Error> connect() {
         auto [cfg, err] = read_connection(*this->client, *this->reader, this->key);
-        if (!err)
+        if (!err) {
             this->cfg = std::move(cfg);
-        else if (synnax::errors::classify(err) != synnax::errors::Kind::TRANSIENT)
+            this->loaded = true;
+        } else if (
+            !this->loaded ||
+            synnax::errors::classify(err) != synnax::errors::Kind::TRANSIENT
+        )
             return {connection::Pool::Connection(nullptr, nullptr, ""), err};
         return this->pool->acquire(this->cfg, this->log_prefix);
     }

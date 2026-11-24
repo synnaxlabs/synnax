@@ -36,6 +36,7 @@ cc_test(
         "//client/cpp/testutil",
         "//driver/errors",
         "//driver/opcua/testutil",
+        "//freighter/cpp:freighter",
         "//x/cpp/errors",
         "//x/cpp/testutil",
         "@googletest//:gtest_main",
