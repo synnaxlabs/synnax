@@ -211,6 +211,26 @@ var _ = Describe("Handoff", func() {
 			},
 		)
 
+		It("Should hand off in the same run before data that another writer stored",
+			func(ctx SpecContext) {
+				other := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+					Channels: []cesium.ChannelKey{clock},
+					Clock:    clock,
+					Start:    30 * telem.SecondTS,
+				}))
+				mustWrite(ctx, other, telem.UnaryFrame(
+					clock,
+					telem.NewSeriesSecondsTSV(30, 31),
+				))
+				MustSucceed2(other.Commit(ctx, nil))
+				Expect(other.Close()).To(Succeed())
+				first := committedFirst(ctx, clock)
+				w, _ := MustSucceed2(
+					db.Handoff(ctx, first, next(clock), nil, cesium.SameRun),
+				)
+				Expect(w.Close()).To(Succeed())
+			})
+
 		It("Should refuse an unknown handoff run", func(ctx SpecContext) {
 			Expect(db.Handoff(ctx, committedFirst(ctx, clock), next(clock), nil, 2)).
 				Error().To(MatchError(ContainSubstring("unknown handoff run 2")))

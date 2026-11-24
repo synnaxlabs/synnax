@@ -99,26 +99,8 @@ func (db *DB) Handoff(
 	if cfg, err = config.New(WriterConfig{}, cfg); err != nil {
 		return nil, nil, err
 	}
-	if cfg.Clock != w.Clock || !slices.Contains(cfg.Channels, cfg.Clock) {
-		return nil, nil, errors.Wrapf(
-			validate.ErrValidation,
-			"a handoff of the writer of clock %d writes that clock",
-			w.Clock,
-		)
-	}
-	if run != NewRun && run != SameRun {
-		return nil, nil, errors.Wrapf(
-			validate.ErrValidation,
-			"unknown handoff run %d",
-			run,
-		)
-	}
-	if cfg.Unstored != w.Unstored {
-		return nil, nil, errors.Wrapf(
-			validate.ErrValidation,
-			"a handoff of the writer of clock %d keeps whether it stores samples",
-			w.Clock,
-		)
+	if err = checkHandoff(w, cfg, run); err != nil {
+		return nil, nil, err
 	}
 	if w.log != nil {
 		next, err := db.handoffLog(ctx, w, cfg, adopt, run)
@@ -135,6 +117,29 @@ func (db *DB) Handoff(
 	}
 	w.closed = true
 	return &Writer{WriterConfig: cfg, idx: next}, pending, nil
+}
+
+// checkHandoff refuses a handoff of w to cfg in run that changes the clock or whether
+// the writer stores samples, or that names an unknown run.
+func checkHandoff(w *Writer, cfg WriterConfig, run HandoffRun) error {
+	if cfg.Clock != w.Clock || !slices.Contains(cfg.Channels, cfg.Clock) {
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"a handoff of the writer of clock %d writes that clock",
+			w.Clock,
+		)
+	}
+	if run != NewRun && run != SameRun {
+		return errors.Wrapf(validate.ErrValidation, "unknown handoff run %d", run)
+	}
+	if cfg.Unstored != w.Unstored {
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"a handoff of the writer of clock %d keeps whether it stores samples",
+			w.Clock,
+		)
+	}
+	return nil
 }
 
 // handoffLog closes w and opens a writer of cfg in run. It fails when w has uncommitted
@@ -195,19 +200,9 @@ func (db *DB) handoffIdx(
 	run HandoffRun,
 ) (*idxWriter, *Pending, error) {
 	if !old.hasUncommittedData && !old.dataPending {
-		// The pending samples of an adopting handoff lie on stamps that old committed,
-		// so their run is not the clock run of old.
-		if run != SameRun || adopt != nil {
-			if err := errors.Join(old.persist(), old.Close()); err != nil {
-				return nil, nil, err
-			}
-			clear(old.internal)
-			if adopt == nil {
-				next, err := db.openClockWriter(ctx, cfg)
-				return next, nil, err
-			}
-		} else if err := db.refuseStored(ctx, old, cfg); err != nil {
-			return nil, nil, err
+		next, done, err := db.handoffIdle(ctx, old, cfg, adopt, run)
+		if done || err != nil {
+			return next, nil, err
 		}
 	}
 	base := old
@@ -251,14 +246,41 @@ func (db *DB) handoffIdx(
 	return next, &Pending{idx: p}, nil
 }
 
-// refuseStored refuses a handoff from old to cfg in the same run when stored data of a
-// key that old holds lies at or after the start of cfg, as an open of cfg would.
+// handoffIdle hands off old, which holds no uncommitted sample. In a new run, or when
+// it adopts samples, it closes old, and with nothing to adopt it returns done with a
+// new writer of cfg. In the same run, it keeps old open after the check of
+// refuseStored.
+func (db *DB) handoffIdle(
+	ctx context.Context,
+	old *idxWriter,
+	cfg WriterConfig,
+	adopt *Pending,
+	run HandoffRun,
+) (*idxWriter, bool, error) {
+	// The pending samples of an adopting handoff lie on stamps that old committed, so
+	// their run is not the clock run of old.
+	if run == SameRun && adopt == nil {
+		return nil, false, db.refuseStored(ctx, old, cfg)
+	}
+	if err := errors.Join(old.persist(), old.Close()); err != nil {
+		return nil, false, err
+	}
+	clear(old.internal)
+	if adopt != nil {
+		return nil, false, nil
+	}
+	next, err := db.openClockWriter(ctx, cfg)
+	return next, true, err
+}
+
+// refuseStored refuses a handoff from old to cfg in the same run when the start of cfg
+// lies in stored data of a key that old holds, as an open of cfg would.
 func (db *DB) refuseStored(
 	ctx context.Context,
 	old *idxWriter,
 	cfg WriterConfig,
 ) error {
-	tr := telem.TimeRange{Start: cfg.Start, End: telem.TimeStampMax}
+	tr := cfg.Start.SpanRange(telem.Nanosecond)
 	for _, key := range cfg.Channels {
 		if _, held := old.internal[key]; !held {
 			continue
@@ -272,7 +294,7 @@ func (db *DB) refuseStored(
 			return channel.Wrap(key, errors.Wrapf(
 				validate.ErrValidation,
 				"cannot open writer because there is already data in the writer's "+
-					"time range from %v",
+					"time range at %v",
 				cfg.Start,
 			))
 		}
