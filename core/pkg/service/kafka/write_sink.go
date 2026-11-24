@@ -323,6 +323,7 @@ func (f *factory) configureTargets(
 		DB:              f.cfg.DB,
 		Status:          f.cfg.Status,
 		Framer:          f.cfg.Framer,
+		Channel:         f.cfg.Channel,
 		Channels:        streamed.Unique(),
 		Task:            t,
 	})
