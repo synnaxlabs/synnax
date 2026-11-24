@@ -121,7 +121,8 @@ func RemoveStatement(stmt antlr.ParserRuleContext) protocol.TextEdit {
 		input       = first.GetInputStream()
 		r           = protocol.Range{Start: startOf(first), End: endOf(last)}
 	)
-	if input.GetText(last.GetStop()+1, last.GetStop()+1) != "\n" {
+	next := input.GetText(last.GetStop()+1, last.GetStop()+2)
+	if next != "\r\n" && !strings.HasPrefix(next, "\n") {
 		return protocol.TextEdit{Range: r}
 	}
 	r.End = protocol.Position{Line: r.End.Line + 1}

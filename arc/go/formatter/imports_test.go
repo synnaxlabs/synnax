@@ -188,6 +188,11 @@ var _ = Describe("RemoveStatement", func() {
 			"func f() {\n    x := 1\n}",
 		),
 		Entry(
+			"with its line when the line ends in CRLF",
+			"func f() {\r\n    break\r\n    x := 1\r\n}",
+			"func f() {\r\n    x := 1\r\n}",
+		),
+		Entry(
 			"with no other code of its line",
 			"func f() { break\n    x := 1\n}",
 			"func f() {     x := 1\n}",
