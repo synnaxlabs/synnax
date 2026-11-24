@@ -59,7 +59,7 @@ synnax::channel::Channel create_virtual_channel(
     const x::telem::DataType &data_type
 ) {
     return ASSERT_NIL_P(
-        client.channels.create(make_unique_channel_name("virtual"), data_type, true)
+        client.channels.create_virtual(make_unique_channel_name("virtual"), data_type)
     );
 }
 

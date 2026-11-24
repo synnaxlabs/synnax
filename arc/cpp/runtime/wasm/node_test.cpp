@@ -127,10 +127,9 @@ T call_func(
 /// @brief Factory::handles returns true for functions in the module.
 TEST(FactoryTest, HandlesReturnsTrueForExistingFunction) {
     const auto client = new_test_client();
-    const auto ch = ASSERT_NIL_P(client.channels.create(
+    const auto ch = ASSERT_NIL_P(client.channels.create_virtual(
         make_unique_channel_name("input"),
-        x::telem::FLOAT32_T,
-        true
+        x::telem::FLOAT32_T
     ));
 
     const std::string source = R"(
@@ -150,10 +149,9 @@ func double() {val f32} f32 {
 /// @brief Factory::create returns NOT_FOUND when function doesn't exist.
 TEST(FactoryTest, CreateReturnsErrorWhenFunctionNotFound) {
     const auto client = new_test_client();
-    const auto ch = ASSERT_NIL_P(client.channels.create(
+    const auto ch = ASSERT_NIL_P(client.channels.create_virtual(
         make_unique_channel_name("input"),
-        x::telem::FLOAT32_T,
-        true
+        x::telem::FLOAT32_T
     ));
 
     const std::string source = R"(
@@ -184,10 +182,9 @@ func double() {val f32} f32 {
 /// @brief Factory::create succeeds with valid function.
 TEST(FactoryTest, CreateSucceedsWithValidConfig) {
     const auto client = new_test_client();
-    const auto ch = ASSERT_NIL_P(client.channels.create(
+    const auto ch = ASSERT_NIL_P(client.channels.create_virtual(
         make_unique_channel_name("input"),
-        x::telem::FLOAT32_T,
-        true
+        x::telem::FLOAT32_T
     ));
 
     const std::string source = R"(
@@ -218,10 +215,9 @@ func double() {val f32} f32 {
 /// @brief Factory::create rejects a node whose params do not match its signature.
 TEST(FactoryTest, CreateReturnsErrorWhenParamsMismatchSignature) {
     const auto client = new_test_client();
-    const auto ch = ASSERT_NIL_P(client.channels.create(
+    const auto ch = ASSERT_NIL_P(client.channels.create_virtual(
         make_unique_channel_name("input"),
-        x::telem::FLOAT32_T,
-        true
+        x::telem::FLOAT32_T
     ));
 
     const std::string source = R"(
@@ -253,10 +249,9 @@ func double() {val f32} f32 {
 /// @brief Node::next returns early and doesn't mark outputs when no inputs refreshed.
 TEST(NodeTest, NextReturnsEarlyWhenNoInputsRefreshed) {
     const auto client = new_test_client();
-    const auto ch = ASSERT_NIL_P(client.channels.create(
+    const auto ch = ASSERT_NIL_P(client.channels.create_virtual(
         make_unique_channel_name("input"),
-        x::telem::FLOAT32_T,
-        true
+        x::telem::FLOAT32_T
     ));
 
     const std::string source = R"(
@@ -857,10 +852,9 @@ func reciprocal() {val i32} i32 {
 /// @brief Node::is_output_truthy returns false for nonexistent outputs.
 TEST(NodeTest, IsOutputTruthyReturnsFalseForNonexistent) {
     const auto client = new_test_client();
-    const auto ch = ASSERT_NIL_P(client.channels.create(
+    const auto ch = ASSERT_NIL_P(client.channels.create_virtual(
         make_unique_channel_name("input"),
-        x::telem::FLOAT32_T,
-        true
+        x::telem::FLOAT32_T
     ));
 
     const std::string source = R"(
@@ -3373,10 +3367,9 @@ func loop_state() {trigger i64} i64 {
 /// @brief Module::func returns VALIDATION error for unresolved output types.
 TEST(ModuleFuncTest, ReturnsErrorForUnresolvedOutputType) {
     const auto client = new_test_client();
-    const auto ch = ASSERT_NIL_P(client.channels.create(
+    const auto ch = ASSERT_NIL_P(client.channels.create_virtual(
         make_unique_channel_name("input"),
-        x::telem::FLOAT32_T,
-        true
+        x::telem::FLOAT32_T
     ));
 
     const std::string source = R"(

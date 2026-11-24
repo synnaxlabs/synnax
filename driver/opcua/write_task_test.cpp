@@ -54,55 +54,45 @@ protected:
         auto client = std::make_shared<synnax::Synnax>(new_test_client());
 
         // Create command channels for different OPC UA data types
-        this->bool_cmd_channel = ASSERT_NIL_P(client->channels.create(
+        this->bool_cmd_channel = ASSERT_NIL_P(client->channels.create_virtual(
             make_unique_channel_name("bool_cmd"),
-            x::telem::UINT8_T,
-            true
+            x::telem::UINT8_T
         ));
-        this->uint16_cmd_channel = ASSERT_NIL_P(client->channels.create(
+        this->uint16_cmd_channel = ASSERT_NIL_P(client->channels.create_virtual(
             make_unique_channel_name("uint16_cmd"),
-            x::telem::UINT16_T,
-            true
+            x::telem::UINT16_T
         ));
-        this->uint32_cmd_channel = ASSERT_NIL_P(client->channels.create(
+        this->uint32_cmd_channel = ASSERT_NIL_P(client->channels.create_virtual(
             make_unique_channel_name("uint32_cmd"),
-            x::telem::UINT32_T,
-            true
+            x::telem::UINT32_T
         ));
-        this->uint64_cmd_channel = ASSERT_NIL_P(client->channels.create(
+        this->uint64_cmd_channel = ASSERT_NIL_P(client->channels.create_virtual(
             make_unique_channel_name("uint64_cmd"),
-            x::telem::UINT64_T,
-            true
+            x::telem::UINT64_T
         ));
-        this->int8_cmd_channel = ASSERT_NIL_P(client->channels.create(
+        this->int8_cmd_channel = ASSERT_NIL_P(client->channels.create_virtual(
             make_unique_channel_name("int8_cmd"),
-            x::telem::INT8_T,
-            true
+            x::telem::INT8_T
         ));
-        this->int16_cmd_channel = ASSERT_NIL_P(client->channels.create(
+        this->int16_cmd_channel = ASSERT_NIL_P(client->channels.create_virtual(
             make_unique_channel_name("int16_cmd"),
-            x::telem::INT16_T,
-            true
+            x::telem::INT16_T
         ));
-        this->int32_cmd_channel = ASSERT_NIL_P(client->channels.create(
+        this->int32_cmd_channel = ASSERT_NIL_P(client->channels.create_virtual(
             make_unique_channel_name("int32_cmd"),
-            x::telem::INT32_T,
-            true
+            x::telem::INT32_T
         ));
-        this->int64_cmd_channel = ASSERT_NIL_P(client->channels.create(
+        this->int64_cmd_channel = ASSERT_NIL_P(client->channels.create_virtual(
             make_unique_channel_name("int64_cmd"),
-            x::telem::INT64_T,
-            true
+            x::telem::INT64_T
         ));
-        this->float_cmd_channel = ASSERT_NIL_P(client->channels.create(
+        this->float_cmd_channel = ASSERT_NIL_P(client->channels.create_virtual(
             make_unique_channel_name("float_cmd"),
-            x::telem::FLOAT32_T,
-            true
+            x::telem::FLOAT32_T
         ));
-        this->double_cmd_channel = ASSERT_NIL_P(client->channels.create(
+        this->double_cmd_channel = ASSERT_NIL_P(client->channels.create_virtual(
             make_unique_channel_name("double_cmd"),
-            x::telem::FLOAT64_T,
-            true
+            x::telem::FLOAT64_T
         ));
 
         auto rack = ASSERT_NIL_P(client->racks.create("cat"));
@@ -313,10 +303,9 @@ protected:
         const std::string &username = "",
         const x::uuid::UUID &password_secret = {}
     ) {
-        this->secured_cmd_channel = ASSERT_NIL_P(ctx->client->channels.create(
+        this->secured_cmd_channel = ASSERT_NIL_P(ctx->client->channels.create_virtual(
             make_unique_channel_name("secured_cmd"),
-            x::telem::UINT32_T,
-            true
+            x::telem::UINT32_T
         ));
         const auto rack = ASSERT_NIL_P(ctx->client->racks.create("secured_write_rack"));
         connection::Config secured_cfg;
@@ -586,10 +575,9 @@ TEST_F(TestWriteTask, testMultipleSequentialWrites) {
 /// @brief it should warn about a node that the server rejects and still write the other
 /// nodes in the command.
 TEST_F(TestWriteTask, testRejectedNodeWritesOthers) {
-    const auto bad_cmd = ASSERT_NIL_P(ctx->client->channels.create(
+    const auto bad_cmd = ASSERT_NIL_P(ctx->client->channels.create_virtual(
         make_unique_channel_name("bad_node_cmd"),
-        x::telem::UINT32_T,
-        true
+        x::telem::UINT32_T
     ));
     x::json::json task_cfg = {
         {"data_saving_disabled", false},
@@ -716,10 +704,9 @@ TEST_F(TestWriteTask, testUnknownNamespaceRejectsValue) {
 
 /// @brief it should convert a command to the data type of its node.
 TEST_F(TestWriteTask, testConvertsCommandToNodeType) {
-    const auto cmd = ASSERT_NIL_P(ctx->client->channels.create(
+    const auto cmd = ASSERT_NIL_P(ctx->client->channels.create_virtual(
         make_unique_channel_name("float_cmd"),
-        x::telem::FLOAT64_T,
-        true
+        x::telem::FLOAT64_T
     ));
     const auto sink = sink_for(
         ctx->client,
@@ -742,10 +729,9 @@ TEST_F(TestWriteTask, testConvertsCommandToNodeType) {
 
 /// @brief it should not send a command that the type of its node cannot hold.
 TEST_F(TestWriteTask, testRejectsCommandOutOfRange) {
-    const auto cmd = ASSERT_NIL_P(ctx->client->channels.create(
+    const auto cmd = ASSERT_NIL_P(ctx->client->channels.create_virtual(
         make_unique_channel_name("float_cmd"),
-        x::telem::FLOAT64_T,
-        true
+        x::telem::FLOAT64_T
     ));
     const auto sink = sink_for(
         ctx->client,
@@ -766,10 +752,9 @@ TEST_F(TestWriteTask, testRejectsCommandOutOfRange) {
 /// @brief it should write a node in a namespace that the server adds after the task
 /// starts, on the same Session, converted to the data type of the node.
 TEST_F(TestWriteTask, testNamespaceAddedAfterStart) {
-    const auto cmd = ASSERT_NIL_P(ctx->client->channels.create(
+    const auto cmd = ASSERT_NIL_P(ctx->client->channels.create_virtual(
         make_unique_channel_name("float_cmd"),
-        x::telem::FLOAT64_T,
-        true
+        x::telem::FLOAT64_T
     ));
     const auto sink = sink_for(
         ctx->client,
@@ -801,10 +786,9 @@ TEST_F(TestWriteTask, testNamespaceAddedAfterStart) {
 /// @brief it should convert a command to the data type of a node that the server adds
 /// after the task starts, on the same Session.
 TEST_F(TestWriteTask, testNodeAddedAfterStart) {
-    const auto cmd = ASSERT_NIL_P(ctx->client->channels.create(
+    const auto cmd = ASSERT_NIL_P(ctx->client->channels.create_virtual(
         make_unique_channel_name("float_cmd"),
-        x::telem::FLOAT64_T,
-        true
+        x::telem::FLOAT64_T
     ));
     const auto
         sink = sink_for(ctx->client, conn_pool, this->dev.key, cmd.key, "NS=1;S=Late");

@@ -67,10 +67,9 @@ TEST(ReadTaskConfigTest, testBasicAnalogReadTaskConfigParse) {
         .name = "my_device",
     };
     ASSERT_NIL(client->devices.create(dev));
-    auto ch = ASSERT_NIL_P(client->channels.create(
+    auto ch = ASSERT_NIL_P(client->channels.create_virtual(
         make_unique_channel_name("virtual"),
-        x::telem::FLOAT64_T,
-        true
+        x::telem::FLOAT64_T
     ));
 
     auto j = base_analog_config();
@@ -96,10 +95,9 @@ TEST(ReadTaskConfigTest, testApplyTurnsOffReadAutoStart) {
         .name = "my_device",
     };
     ASSERT_NIL(client->devices.create(dev));
-    auto ch = ASSERT_NIL_P(client->channels.create(
+    auto ch = ASSERT_NIL_P(client->channels.create_virtual(
         make_unique_channel_name("virtual"),
-        x::telem::FLOAT64_T,
-        true
+        x::telem::FLOAT64_T
     ));
     auto j = base_analog_config();
     j["channels"][0]["device"] = dev.key;
@@ -119,10 +117,9 @@ TEST(ReadTaskConfigTest, testApplyTurnsOffReadAutoStart) {
 TEST(ReadTaskConfigTest, testNonExistingAnalogReadDevice) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("cat"));
-    auto ch = ASSERT_NIL_P(client->channels.create(
+    auto ch = ASSERT_NIL_P(client->channels.create_virtual(
         make_unique_channel_name("virtual"),
-        x::telem::FLOAT64_T,
-        true
+        x::telem::FLOAT64_T
     ));
 
     auto j = base_analog_config();
@@ -172,10 +169,9 @@ TEST(ReadTaskConfigTest, testSampleRateLessThanStreamRate) {
     };
     ASSERT_NIL(client->devices.create(dev));
 
-    auto ch = ASSERT_NIL_P(client->channels.create(
+    auto ch = ASSERT_NIL_P(client->channels.create_virtual(
         make_unique_channel_name("virtual"),
-        x::telem::FLOAT64_T,
-        true
+        x::telem::FLOAT64_T
     ));
 
     auto j = base_analog_config();
@@ -201,10 +197,9 @@ TEST(ReadTaskConfigTest, testNoEnabledChannels) {
         .name = "my_device",
     };
     ASSERT_NIL(client->devices.create(dev));
-    auto ch = ASSERT_NIL_P(client->channels.create(
+    auto ch = ASSERT_NIL_P(client->channels.create_virtual(
         make_unique_channel_name("virtual"),
-        x::telem::FLOAT64_T,
-        true
+        x::telem::FLOAT64_T
     ));
 
     auto j = base_analog_config();
@@ -230,10 +225,9 @@ TEST(ReadTaskConfigTest, testUnknownChannelType) {
         .name = "my_device",
     };
     ASSERT_NIL(client->devices.create(dev));
-    auto ch = ASSERT_NIL_P(client->channels.create(
+    auto ch = ASSERT_NIL_P(client->channels.create_virtual(
         make_unique_channel_name("virtual"),
-        x::telem::FLOAT64_T,
-        true
+        x::telem::FLOAT64_T
     ));
 
     auto j = base_analog_config();
@@ -1001,10 +995,9 @@ TEST(ReadTaskConfigTest, testDeviceLocationsFromChannels) {
         .name = "test_device",
     };
     ASSERT_NIL(client->devices.create(dev));
-    auto ch = ASSERT_NIL_P(client->channels.create(
+    auto ch = ASSERT_NIL_P(client->channels.create_virtual(
         make_unique_channel_name("test_ch"),
-        x::telem::FLOAT64_T,
-        true
+        x::telem::FLOAT64_T
     ));
 
     auto j = base_analog_config();
@@ -1323,10 +1316,9 @@ TEST(ReadTaskConfigTest, testCounterEdgeCountConfig) {
         .name = "test_counter_device",
     };
     ASSERT_NIL(client->devices.create(dev));
-    auto ch = ASSERT_NIL_P(client->channels.create(
+    auto ch = ASSERT_NIL_P(client->channels.create_virtual(
         make_unique_channel_name("edge_count"),
-        x::telem::UINT32_T,
-        true
+        x::telem::UINT32_T
     ));
 
     x::json::json j{
@@ -1371,10 +1363,9 @@ TEST(ReadTaskConfigTest, testCounterPeriodConfig) {
         .name = "test_period_device",
     };
     ASSERT_NIL(client->devices.create(dev));
-    auto ch = ASSERT_NIL_P(client->channels.create(
+    auto ch = ASSERT_NIL_P(client->channels.create_virtual(
         make_unique_channel_name("period"),
-        x::telem::FLOAT64_T,
-        true
+        x::telem::FLOAT64_T
     ));
 
     x::json::json j{
@@ -1435,20 +1426,17 @@ TEST(ReadTaskConfigTest, testCrossDeviceChannelLocations) {
     };
     ASSERT_NIL(client->devices.create(dev2));
 
-    auto ch1 = ASSERT_NIL_P(client->channels.create(
+    auto ch1 = ASSERT_NIL_P(client->channels.create_virtual(
         make_unique_channel_name("ch1"),
-        x::telem::FLOAT64_T,
-        true
+        x::telem::FLOAT64_T
     ));
-    auto ch2 = ASSERT_NIL_P(client->channels.create(
+    auto ch2 = ASSERT_NIL_P(client->channels.create_virtual(
         make_unique_channel_name("ch2"),
-        x::telem::FLOAT64_T,
-        true
+        x::telem::FLOAT64_T
     ));
-    auto ch = ASSERT_NIL_P(client->channels.create(
+    auto ch = ASSERT_NIL_P(client->channels.create_virtual(
         make_unique_channel_name("period"),
-        x::telem::FLOAT64_T,
-        true
+        x::telem::FLOAT64_T
     ));
 
     x::json::json j{
@@ -1512,15 +1500,13 @@ TEST(ReadTaskConfigTest, testCrossDeviceMissingDevice) {
         .name = "dev1",
     };
     ASSERT_NIL(client->devices.create(dev));
-    auto ch1 = ASSERT_NIL_P(client->channels.create(
+    auto ch1 = ASSERT_NIL_P(client->channels.create_virtual(
         make_unique_channel_name("ch1"),
-        x::telem::FLOAT64_T,
-        true
+        x::telem::FLOAT64_T
     ));
-    auto ch2 = ASSERT_NIL_P(client->channels.create(
+    auto ch2 = ASSERT_NIL_P(client->channels.create_virtual(
         make_unique_channel_name("ch2"),
-        x::telem::FLOAT64_T,
-        true
+        x::telem::FLOAT64_T
     ));
     const auto voltage_channel = [](const synnax::channel::Key key,
                                     const std::string &device) {
@@ -1579,15 +1565,13 @@ TEST(ReadTaskConfigTest, testCounterReadCrossDeviceChannelLocations) {
     };
     ASSERT_NIL(client->devices.create(dev2));
 
-    auto ch1 = ASSERT_NIL_P(client->channels.create(
+    auto ch1 = ASSERT_NIL_P(client->channels.create_virtual(
         make_unique_channel_name("ci_ch1"),
-        x::telem::FLOAT64_T,
-        true
+        x::telem::FLOAT64_T
     ));
-    auto ch2 = ASSERT_NIL_P(client->channels.create(
+    auto ch2 = ASSERT_NIL_P(client->channels.create_virtual(
         make_unique_channel_name("ci_ch2"),
-        x::telem::FLOAT64_T,
-        true
+        x::telem::FLOAT64_T
     ));
 
     x::json::json j{
@@ -1738,10 +1722,9 @@ TEST(ReadTaskConfigTest, testNIDriverSetsAutoCommitTrue) {
         .name = "test_device",
     };
     ASSERT_NIL(client->devices.create(dev));
-    auto ch = ASSERT_NIL_P(client->channels.create(
+    auto ch = ASSERT_NIL_P(client->channels.create_virtual(
         make_unique_channel_name("test_channel"),
-        x::telem::FLOAT64_T,
-        true
+        x::telem::FLOAT64_T
     ));
 
     auto j = base_analog_config();

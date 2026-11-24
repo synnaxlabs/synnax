@@ -521,20 +521,17 @@ TEST(TestReadTaskConfigParse, testBasicReadTaskConfigParse) {
     ASSERT_NIL(client->devices.create(dev));
 
     // Create channels for each input type
-    auto tc_ch = ASSERT_NIL_P(client->channels.create(
+    auto tc_ch = ASSERT_NIL_P(client->channels.create_virtual(
         make_unique_channel_name("tc_channel"),
-        x::telem::FLOAT64_T,
-        true
+        x::telem::FLOAT64_T
     ));
-    auto di_ch = ASSERT_NIL_P(client->channels.create(
+    auto di_ch = ASSERT_NIL_P(client->channels.create_virtual(
         make_unique_channel_name("di_channel"),
-        x::telem::UINT8_T,
-        true
+        x::telem::UINT8_T
     ));
-    auto ai_ch = ASSERT_NIL_P(client->channels.create(
+    auto ai_ch = ASSERT_NIL_P(client->channels.create_virtual(
         make_unique_channel_name("ai_channel"),
-        x::telem::FLOAT64_T,
-        true
+        x::telem::FLOAT64_T
     ));
 
     auto j = basic_read_task_config(dev.key);
@@ -595,10 +592,9 @@ TEST(TestReadTaskConfigParse, testInvalidChannelTypeInConfig) {
     ASSERT_NIL(client->devices.create(dev));
 
     // Create a channel
-    auto ch = ASSERT_NIL_P(client->channels.create(
+    auto ch = ASSERT_NIL_P(client->channels.create_virtual(
         make_unique_channel_name("test_channel"),
-        x::telem::FLOAT64_T,
-        true
+        x::telem::FLOAT64_T
     ));
 
     // Create a config with an invalid channel type
@@ -631,10 +627,9 @@ TEST(TestReadTaskConfigParse, testLabJackDriverSetsAutoCommitTrue) {
         .name = "test_device",
     };
     ASSERT_NIL(client->devices.create(dev));
-    auto ch = ASSERT_NIL_P(client->channels.create(
+    auto ch = ASSERT_NIL_P(client->channels.create_virtual(
         make_unique_channel_name("test_channel"),
-        x::telem::FLOAT64_T,
-        true
+        x::telem::FLOAT64_T
     ));
 
     auto j = basic_read_task_config(dev.key);
@@ -679,10 +674,9 @@ protected:
             .name = "my_device",
         };
         ASSERT_NIL(client->devices.create(dev));
-        auto ch = ASSERT_NIL_P(client->channels.create(
+        auto ch = ASSERT_NIL_P(client->channels.create_virtual(
             make_unique_channel_name("claim_channel"),
-            x::telem::FLOAT64_T,
-            true
+            x::telem::FLOAT64_T
         ));
         auto j = basic_read_task_config(dev.key);
         if (thermocouple)
@@ -1027,10 +1021,9 @@ protected:
         const std::string &port,
         const std::string &cjc_source = DEVICE_CJC_SOURCE
     ) {
-        const auto ch = ASSERT_NIL_P(this->client->channels.create(
+        const auto ch = ASSERT_NIL_P(this->client->channels.create_virtual(
             make_unique_channel_name("tc"),
-            x::telem::FLOAT64_T,
-            true
+            x::telem::FLOAT64_T
         ));
         return {
             {"port", port},
@@ -1047,10 +1040,9 @@ protected:
 
     /// @brief returns an analog channel on the port.
     x::json::json analog(const std::string &port) {
-        const auto ch = ASSERT_NIL_P(this->client->channels.create(
+        const auto ch = ASSERT_NIL_P(this->client->channels.create_virtual(
             make_unique_channel_name("ai"),
-            x::telem::FLOAT64_T,
-            true
+            x::telem::FLOAT64_T
         ));
         return {
             {"port", port},

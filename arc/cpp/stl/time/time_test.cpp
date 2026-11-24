@@ -1390,10 +1390,10 @@ TEST(WaitVarTest, StaysOneShotAfterAShorteningWrite) {
 x::telem::TimeSpan
 compile_shortest(const synnax::Synnax &client, const std::string &source) {
     const auto a = ASSERT_NIL_P(
-        client.channels.create(make_unique_channel_name("a"), x::telem::UINT8_T, true)
+        client.channels.create_virtual(make_unique_channel_name("a"), x::telem::UINT8_T)
     );
     const auto b = ASSERT_NIL_P(
-        client.channels.create(make_unique_channel_name("b"), x::telem::UINT8_T, true)
+        client.channels.create_virtual(make_unique_channel_name("b"), x::telem::UINT8_T)
     );
     const auto prog = runtime::testutil::compile_text(
         client,

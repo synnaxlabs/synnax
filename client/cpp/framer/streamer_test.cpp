@@ -204,10 +204,9 @@ TEST(StreamerTests, TestStreamDownsample) {
 /// @brief it should correctly stream data from a variable density channel.
 TEST(StreamerTests, TestStreamVariableChannel) {
     auto client = new_test_client();
-    auto data = ASSERT_NIL_P(client.channels.create(
+    auto data = ASSERT_NIL_P(client.channels.create_virtual(
         make_unique_channel_name("stream_variable_channel_data"),
-        x::telem::STRING_T,
-        true
+        x::telem::STRING_T
     ));
     auto now = x::telem::TimeStamp::now();
     std::vector channels = {data.key};

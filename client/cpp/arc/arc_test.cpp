@@ -271,15 +271,13 @@ TEST(TestArc, testProgramField) {
 TEST(TestArc, testRetrieveWithCompile) {
     const auto client = new_test_client();
 
-    auto ox_pt_1 = ASSERT_NIL_P(client.channels.create(
+    auto ox_pt_1 = ASSERT_NIL_P(client.channels.create_virtual(
         make_unique_channel_name("ox_pt_1"),
-        x::telem::FLOAT32_T,
-        true
+        x::telem::FLOAT32_T
     ));
-    auto ox_pt_doubled = ASSERT_NIL_P(client.channels.create(
+    auto ox_pt_doubled = ASSERT_NIL_P(client.channels.create_virtual(
         make_unique_channel_name("ox_pt_doubled"),
-        x::telem::FLOAT32_T,
-        true
+        x::telem::FLOAT32_T
     ));
 
     Arc arc = AutomationArc{{.name = random_arc_name("compile_test")}};
@@ -396,12 +394,14 @@ sequence main {
 /// included, with dependencies first.
 TEST(TestArc, testRetrieveWithCalculations) {
     const auto client = new_test_client();
-    const auto base_ch = ASSERT_NIL_P(
-        client.channels.create(make_unique_channel_name("calc_base"), x::telem::INT64_T)
-    );
-    const auto out = ASSERT_NIL_P(
-        client.channels.create(make_unique_channel_name("calc_out"), x::telem::INT64_T)
-    );
+    const auto base_ch = ASSERT_NIL_P(client.channels.create_virtual(
+        make_unique_channel_name("calc_base"),
+        x::telem::INT64_T
+    ));
+    const auto out = ASSERT_NIL_P(client.channels.create_virtual(
+        make_unique_channel_name("calc_out"),
+        x::telem::INT64_T
+    ));
     channel::Channel inner{
         .name = make_unique_channel_name("calc_inner"),
         .data_type = x::telem::INT64_T,

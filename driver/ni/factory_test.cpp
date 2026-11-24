@@ -62,10 +62,9 @@ protected:
             .name = "my_device",
         };
         ASSERT_NIL(client->devices.create(dev));
-        const auto ch = ASSERT_NIL_P(client->channels.create(
+        const auto ch = ASSERT_NIL_P(client->channels.create_virtual(
             make_unique_channel_name("ni_factory"),
-            x::telem::FLOAT64_T,
-            true
+            x::telem::FLOAT64_T
         ));
         this->task = synnax::task::Task{
             .rack = rack.key,

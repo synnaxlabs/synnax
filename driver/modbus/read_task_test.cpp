@@ -126,10 +126,9 @@ TEST_F(ModbusReadTest, testInvalidDeviceConfig) {
     auto cfg = create_base_config();
     cfg["device"] = "non_existent_device";
 
-    auto ch = ASSERT_NIL_P(client->channels.create(
+    auto ch = ASSERT_NIL_P(client->channels.create_virtual(
         make_unique_channel_name("test"),
-        x::telem::UINT8_T,
-        true
+        x::telem::UINT8_T
     ));
     cfg["channels"].push_back(create_channel_config("coil", ch, 0));
 
@@ -153,10 +152,9 @@ TEST_F(ModbusReadTest, testInvalidChannelConfig) {
 TEST_F(ModbusReadTest, testInvalidChannelType) {
     auto cfg = create_base_config();
 
-    auto ch = ASSERT_NIL_P(client->channels.create(
+    auto ch = ASSERT_NIL_P(client->channels.create_virtual(
         make_unique_channel_name("test"),
-        x::telem::UINT8_T,
-        true
+        x::telem::UINT8_T
     ));
     cfg["channels"].push_back(
         {{"type", "invalid_type"},
@@ -236,25 +234,21 @@ TEST_F(ModbusReadTest, testMultiChannelConfig) {
     auto cfg = create_base_config();
 
     // Create channels for different types
-    auto coil_ch = ASSERT_NIL_P(client->channels.create(
+    auto coil_ch = ASSERT_NIL_P(client->channels.create_virtual(
         make_unique_channel_name("coil"),
-        x::telem::UINT8_T,
-        true
+        x::telem::UINT8_T
     ));
-    auto discrete_ch = ASSERT_NIL_P(client->channels.create(
+    auto discrete_ch = ASSERT_NIL_P(client->channels.create_virtual(
         make_unique_channel_name("discrete"),
-        x::telem::UINT8_T,
-        true
+        x::telem::UINT8_T
     ));
-    auto holding_ch = ASSERT_NIL_P(client->channels.create(
+    auto holding_ch = ASSERT_NIL_P(client->channels.create_virtual(
         make_unique_channel_name("holding"),
-        x::telem::UINT16_T,
-        true
+        x::telem::UINT16_T
     ));
-    auto input_ch = ASSERT_NIL_P(client->channels.create(
+    auto input_ch = ASSERT_NIL_P(client->channels.create_virtual(
         make_unique_channel_name("input"),
-        x::telem::UINT16_T,
-        true
+        x::telem::UINT16_T
     ));
 
     // Add different channel types
@@ -272,10 +266,9 @@ TEST_F(ModbusReadTest, testMultiChannelConfig) {
 /// to it.
 TEST_F(ModbusReadTest, testUnboundDisabledChannel) {
     auto cfg = create_base_config();
-    const auto ch = ASSERT_NIL_P(client->channels.create(
+    const auto ch = ASSERT_NIL_P(client->channels.create_virtual(
         make_unique_channel_name("coil"),
-        x::telem::UINT8_T,
-        true
+        x::telem::UINT8_T
     ));
     cfg["channels"].push_back(create_channel_config("coil", ch, 0));
     synnax::channel::Channel unbound;
@@ -913,25 +906,21 @@ TEST_F(ModbusReadTest, testMultiChannelRead) {
     x::defer::defer stop_slave([&slave] { slave.stop(); });
 
     // Create channels for different types
-    auto coil_ch = ASSERT_NIL_P(client->channels.create(
+    auto coil_ch = ASSERT_NIL_P(client->channels.create_virtual(
         make_unique_channel_name("coil"),
-        x::telem::UINT8_T,
-        true
+        x::telem::UINT8_T
     ));
-    auto discrete_ch = ASSERT_NIL_P(client->channels.create(
+    auto discrete_ch = ASSERT_NIL_P(client->channels.create_virtual(
         make_unique_channel_name("discrete"),
-        x::telem::UINT8_T,
-        true
+        x::telem::UINT8_T
     ));
-    auto holding_ch = ASSERT_NIL_P(client->channels.create(
+    auto holding_ch = ASSERT_NIL_P(client->channels.create_virtual(
         make_unique_channel_name("holding"),
-        x::telem::UINT16_T,
-        true
+        x::telem::UINT16_T
     ));
-    auto input_ch = ASSERT_NIL_P(client->channels.create(
+    auto input_ch = ASSERT_NIL_P(client->channels.create_virtual(
         make_unique_channel_name("input"),
-        x::telem::UINT16_T,
-        true
+        x::telem::UINT16_T
     ));
 
     // Create task configuration with all channel types
@@ -1334,10 +1323,9 @@ TEST_F(ModbusReadTest, testHoldsSampleRate) {
 
 /// @brief it should reject a Synnax channel that two channels of the task read into.
 TEST_F(ModbusReadTest, testDuplicateChannelRejected) {
-    auto ch = ASSERT_NIL_P(client->channels.create(
+    auto ch = ASSERT_NIL_P(client->channels.create_virtual(
         make_unique_channel_name("dup"),
-        x::telem::UINT8_T,
-        true
+        x::telem::UINT8_T
     ));
     auto cfg = create_base_config();
     cfg["channels"].push_back(create_channel_config("coil", ch, 0));
@@ -1353,10 +1341,9 @@ TEST_F(ModbusReadTest, testDuplicateChannelRejected) {
 
 /// @brief it should reject a register data type the Driver cannot decode.
 TEST_F(ModbusReadTest, testUnsupportedDataTypeRejected) {
-    auto ch = ASSERT_NIL_P(client->channels.create(
+    auto ch = ASSERT_NIL_P(client->channels.create_virtual(
         make_unique_channel_name("ts"),
-        x::telem::FLOAT32_T,
-        true
+        x::telem::FLOAT32_T
     ));
     auto cfg = create_base_config();
     cfg["channels"].push_back(create_channel_config("holding_register", ch, 0));
@@ -1373,25 +1360,21 @@ TEST_F(ModbusReadTest, testUnsupportedDataTypeRejected) {
 /// @brief it should reject a string of no characters, a string read into a channel
 /// that is not a string, a bit past 15, and a register value of the string data type.
 TEST_F(ModbusReadTest, testStringAndBitRejected) {
-    auto str = ASSERT_NIL_P(client->channels.create(
+    auto str = ASSERT_NIL_P(client->channels.create_virtual(
         make_unique_channel_name("str"),
-        x::telem::STRING_T,
-        true
+        x::telem::STRING_T
     ));
-    auto value = ASSERT_NIL_P(client->channels.create(
+    auto value = ASSERT_NIL_P(client->channels.create_virtual(
         make_unique_channel_name("value"),
-        x::telem::STRING_T,
-        true
+        x::telem::STRING_T
     ));
-    auto num = ASSERT_NIL_P(client->channels.create(
+    auto num = ASSERT_NIL_P(client->channels.create_virtual(
         make_unique_channel_name("num"),
-        x::telem::UINT16_T,
-        true
+        x::telem::UINT16_T
     ));
-    auto bit = ASSERT_NIL_P(client->channels.create(
+    auto bit = ASSERT_NIL_P(client->channels.create_virtual(
         make_unique_channel_name("bit"),
-        x::telem::UINT8_T,
-        true
+        x::telem::UINT8_T
     ));
     auto cfg = create_base_config();
     cfg["channels"].push_back(
@@ -1505,10 +1488,9 @@ TEST_F(ModbusReadTest, testValueWiderThanMaxRegistersRejected) {
              .value = x::json::json{{"max_registers", 1}}}
         )}
     ));
-    auto ch = ASSERT_NIL_P(client->channels.create(
+    auto ch = ASSERT_NIL_P(client->channels.create_virtual(
         make_unique_channel_name("wide"),
-        x::telem::FLOAT32_T,
-        true
+        x::telem::FLOAT32_T
     ));
     auto cfg = create_base_config();
     cfg["channels"].push_back(create_channel_config("holding_register", ch, 0));
@@ -1534,10 +1516,9 @@ TEST_F(ModbusReadTest, testStringWiderThanMaxRegistersRejected) {
              .value = x::json::json{{"max_registers", 2}}}
         )}
     ));
-    auto ch = ASSERT_NIL_P(client->channels.create(
+    auto ch = ASSERT_NIL_P(client->channels.create_virtual(
         make_unique_channel_name("wide_str"),
-        x::telem::STRING_T,
-        true
+        x::telem::STRING_T
     ));
     auto cfg = create_base_config();
     cfg["channels"].push_back(
@@ -1560,10 +1541,9 @@ TEST_F(ModbusReadTest, testStringWiderThanMaxRegistersRejected) {
 
 /// @brief it should reject a Synnax channel that cannot hold a number.
 TEST_F(ModbusReadTest, testStringChannelRejected) {
-    auto ch = ASSERT_NIL_P(client->channels.create(
+    auto ch = ASSERT_NIL_P(client->channels.create_virtual(
         make_unique_channel_name("str"),
-        x::telem::STRING_T,
-        true
+        x::telem::STRING_T
     ));
     auto cfg = create_base_config();
     cfg["channels"].push_back(create_channel_config("coil", ch, 0));

@@ -19,15 +19,18 @@
 #include "x/cpp/testutil/testutil.h"
 
 namespace synnax::channel {
-/// @brief it should create a rate based channel and assign it a non-zero key.
-TEST(TestChannel, testCreate) {
+/// @brief it should create a virtual channel and assign it a non-zero key.
+TEST(TestChannel, testCreateVirtual) {
     const auto client = new_test_client();
     const auto name = make_unique_channel_name("test");
     const auto channel = ASSERT_NIL_P(
-        client.channels.create(name, x::telem::FLOAT64_T, true)
+        client.channels.create_virtual(name, x::telem::FLOAT64_T)
     );
     ASSERT_EQ(channel.name, name);
+    ASSERT_TRUE(channel.is_virtual);
     ASSERT_FALSE(channel.key == 0);
+    const auto retrieved = ASSERT_NIL_P(client.channels.retrieve(channel.key));
+    ASSERT_TRUE(retrieved.is_virtual);
 }
 
 /// @brief it should return a validation error when an index channel has the
@@ -112,10 +115,9 @@ TEST(TestChannel, testCreateMany) {
 /// @brief it should retrieve a channel by key.
 TEST(TestChannel, testRetrieve) {
     auto client = new_test_client();
-    auto channel = ASSERT_NIL_P(client.channels.create(
+    auto channel = ASSERT_NIL_P(client.channels.create_virtual(
         make_unique_channel_name("retrieve"),
-        x::telem::FLOAT64_T,
-        true
+        x::telem::FLOAT64_T
     ));
     auto retrieved = ASSERT_NIL_P(client.channels.retrieve(channel.key));
     ASSERT_EQ(channel.name, retrieved.name);
@@ -138,7 +140,7 @@ TEST(TestChannel, testRetrieveByName) {
     auto client = new_test_client();
     const auto name = make_unique_channel_name("retrieve_by_name_test");
     auto channel = ASSERT_NIL_P(
-        client.channels.create(name, x::telem::FLOAT64_T, true)
+        client.channels.create_virtual(name, x::telem::FLOAT64_T)
     );
     auto retrieved = ASSERT_NIL_P(client.channels.retrieve(name));
     ASSERT_EQ(channel.name, retrieved.name);
@@ -163,8 +165,8 @@ TEST(TestChannel, testRetrieveByNameNotFound) {
 TEST(TestChannel, testRetrieveByNamePattern) {
     const auto client = new_test_client();
     const auto prefix = make_unique_channel_name("retrieve_by_name_pattern");
-    ASSERT_NIL_P(client.channels.create(prefix + "_a", x::telem::FLOAT64_T, true));
-    ASSERT_NIL_P(client.channels.create(prefix + "_b", x::telem::FLOAT64_T, true));
+    ASSERT_NIL_P(client.channels.create_virtual(prefix + "_a", x::telem::FLOAT64_T));
+    ASSERT_NIL_P(client.channels.create_virtual(prefix + "_b", x::telem::FLOAT64_T));
     ASSERT_OCCURRED_AS_P(
         client.channels.retrieve(prefix + "_.*"),
         x::errors::NOT_FOUND
@@ -248,9 +250,9 @@ TEST(TestChannel, testRetrieveManyByNameNotPattern) {
     const auto client = new_test_client();
     const auto prefix = make_unique_channel_name("pattern");
     const auto a = ASSERT_NIL_P(
-        client.channels.create(prefix + "_a", x::telem::FLOAT32_T, true)
+        client.channels.create_virtual(prefix + "_a", x::telem::FLOAT32_T)
     );
-    ASSERT_NIL_P(client.channels.create(prefix + "_b", x::telem::FLOAT32_T, true));
+    ASSERT_NIL_P(client.channels.create_virtual(prefix + "_b", x::telem::FLOAT32_T));
     const auto channels = ASSERT_NIL_P(
         client.channels.retrieve(std::vector<std::string>{a.name, prefix + "_.*"})
     );
