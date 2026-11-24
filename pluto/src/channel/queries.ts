@@ -7,7 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { actions, channel, DataType, query } from "@synnaxlabs/client";
+import {
+  actions,
+  channel,
+  DataType,
+  query,
+  type Synnax as Client,
+} from "@synnaxlabs/client";
 import { control, deep, primitive, scheduler, TimeSpan, verbs } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import { z } from "zod";
@@ -116,32 +122,6 @@ export const useResultKind = createResultSelector(
   (ch) => ({ icon: resolveIcon(ch.payload), virtual: ch.virtual }),
   (a, b) => a.icon === b.icon && a.virtual === b.virtual,
 );
-
-// The state is always cached, so a failed fetch is data the query shows, never an error
-// that a reconnect could drop.
-const { useResult: useResultBuiltInsQuery } = Flux.createRetrieve<
-  Record<string, never>,
-  channel.BuiltInsState
->({
-  name: "built-in channels",
-  retrieve: async ({ client }) => await client.channels.builtIns.retrieve(),
-  getCached: ({ client }) => client.channels.builtIns.state(),
-  onChange: ({ client }, handler) => client.channels.builtIns.onChange(handler),
-});
-
-/**
- * @returns the built-in keys of the client: the keys of the built-in channels, which
- * Core services declare for their own work, or the error of a failed fetch. The client
- * fetches them once per connection, and the first mount starts that fetch.
- */
-export const useResultBuiltIns = (): Flux.Result<channel.BuiltInsState> => {
-  const client = Synnax.use();
-  // A read of the state starts no fetch, so the awaited read starts it after commit.
-  useEffect(() => {
-    if (client != null) void client.channels.builtIns.retrieve();
-  }, [client]);
-  return useResultBuiltInsQuery({});
-};
 
 export const { use: useMultiple, useResult: useResultMultiple } = Flux.createRetrieve<
   RetrieveMultipleQuery,
@@ -279,6 +259,28 @@ export const { useResult: useResultList } = Flux.createRetrieve<
   normalizeQuery: normalizeListQuery,
   ...flux.listReads(({ client, query }) => client.channels.watch(query)),
 });
+
+const BUILT_INS: ListQuery = { where: { internal: { eq: true } } };
+
+/**
+ * @returns the built-in channels, which Core services declare for their own work. The
+ * client fetches them once per connection, and the first mount starts that fetch.
+ */
+export const useResultBuiltIns = (): Flux.Result<channel.Channel[]> =>
+  useResultList(BUILT_INS);
+
+/**
+ * @returns whether the channel is built-in, from the client cache, or undefined when
+ * the cache holds no built-in channels. It never fetches.
+ */
+export const isCachedBuiltIn = (
+  client: Client,
+  key: channel.Key,
+): boolean | undefined =>
+  client.channels
+    .watch(BUILT_INS)
+    .getCached()
+    ?.records.some((ch) => ch.key === key);
 
 export interface RenameParams extends Pick<channel.Payload, "key" | "name"> {}
 

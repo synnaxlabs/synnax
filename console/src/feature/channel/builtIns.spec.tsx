@@ -15,6 +15,7 @@ import {
   createTestClientWithPolicy,
   failRequests,
   FAST_RETRY,
+  isBuiltInsFetch,
   rejectRequests,
   spyOnSend,
   testClientParams,
@@ -41,7 +42,7 @@ import { CaptureStatuses, createConnectedConsoleWrapper } from "@/testutil";
 
 const client = createTestClient();
 
-const TARGET = "/channel/retrieve-built-ins";
+const BUILT_INS = { where: { internal: { eq: true } } };
 
 const REPORT = "Failed to fetch built-in channels. refused";
 
@@ -85,7 +86,7 @@ describe("channel/tree built-in keys", () => {
     const fault = { on: true };
     rejectRequests(
       proxied,
-      (target) => fault.on && target === TARGET,
+      (target, req) => fault.on && isBuiltInsFetch(target, req),
       new Error("refused"),
     );
     await renderLiveTree({
@@ -126,7 +127,9 @@ describe("channel/tree built-in keys", () => {
     await proxied.connect();
     await waitForStreamLive(proxied.connection);
     const epoch = proxied.connection.status.details.epoch;
-    proxy.cutNext(TARGET);
+    // The fetch of the built-in channels is the next retrieve the proxy sees.
+    proxy.cutNext("/channel/retrieve");
+    void proxied.channels.retrieve(BUILT_INS).catch(() => undefined);
     await renderLiveTree({
       client: proxied,
       root: HOST_ID,
@@ -168,7 +171,8 @@ describe("channel/tree built-in keys", () => {
     });
     await screen.findByText(ch.name);
     await waitFor(() => editable(ch.name));
-    expect(restricted.channels.builtIns.state().keys?.size).toBeGreaterThan(0);
+    // The Core leaves out the built-in channels that the user cannot retrieve.
+    expect(await restricted.channels.retrieve(BUILT_INS)).toHaveLength(0);
   }, 30000);
 });
 
@@ -179,10 +183,10 @@ describe("channel/Toolbar built-in keys", () => {
     await reporting.connect();
     await waitForStreamLive(reporting.connection);
     await createIndexes();
-    failRequests(reporting, TARGET, new Error("refused"));
+    failRequests(reporting, isBuiltInsFetch, new Error("refused"));
     const send = spyOnSend(reporting);
     const fetches = () =>
-      send.mock.calls.filter(([target]) => target === TARGET).length;
+      send.mock.calls.filter(([target, req]) => isBuiltInsFetch(target, req)).length;
     let setShown: (shown: boolean) => void = () => {};
     const Drawer = (): ReactElement | null => {
       const [shown, set] = useState(true);
@@ -196,7 +200,9 @@ describe("channel/Toolbar built-in keys", () => {
     await act(async () => setShown(false));
     await act(async () => setShown(true));
     await waitFor(() => expect(fetches()).toBeGreaterThan(before));
-    await act(async () => await reporting.channels.builtIns.retrieve());
+    await act(async () => {
+      await expect(reporting.channels.retrieve(BUILT_INS)).rejects.toThrow();
+    });
     expect(internal.map((e) => e.message)).toEqual([REPORT]);
   });
 
@@ -209,8 +215,10 @@ describe("channel/Toolbar built-in keys", () => {
     const spy = vi
       .spyOn(HTTPClient.prototype, "send")
       .mockImplementation(async function (this: HTTPClient, ...args) {
-        sent.push(args[0]);
-        if (args[0] === TARGET) throw new Error("refused");
+        if (isBuiltInsFetch(args[0], args[1])) {
+          sent.push(args[0]);
+          throw new Error("refused");
+        }
         return await original.apply(this, args);
       });
     onTestFinished(() => spy.mockRestore());
@@ -241,9 +249,7 @@ describe("channel/Toolbar built-in keys", () => {
     await waitFor(() =>
       expect(document.querySelectorAll(".lyra-tree__item").length).toBeGreaterThan(1),
     );
-    await waitFor(() =>
-      expect(sent.filter((t) => t === TARGET).length).toBeGreaterThan(0),
-    );
+    await waitFor(() => expect(sent.length).toBeGreaterThan(0));
     await act(async () => {});
     expect(errors()).toEqual([
       {

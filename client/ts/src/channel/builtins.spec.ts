@@ -10,16 +10,18 @@
 import { id, observe } from "@synnaxlabs/x";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 
-import { channel } from "@/channel";
+import type { channel } from "@/channel";
+import { BuiltIns } from "@/channel/builtins";
 import Synnax from "@/client";
 import { DisconnectedError } from "@/errors";
 import {
+  builtInsFetches,
   createCuttingProxy,
   createProxiedTestClient,
   createTestClient,
   FAST_RETRY,
   holdResponses,
-  recordResponses,
+  isBuiltInsFetch,
   rejectRequests,
   spyOnSend,
   testClientParams,
@@ -28,18 +30,24 @@ import {
 
 const remote = createTestClient();
 
-const TARGET = "/channel/retrieve-built-ins";
+const BUILT_INS = { where: { internal: { eq: true } } };
+
+const retrieveBuiltIns = async (client: Synnax): Promise<channel.Channel[]> =>
+  await client.channels.retrieve(BUILT_INS);
 
 const PENDING = { keys: null, error: null };
 
 const MESSAGE = "failed to fetch built-in channels";
+
+// Fewer than the built-in channels of a Core, so their list takes several pages.
+const PAGE = 5;
 
 // Builds the built-in keys over a fetch whose answers the spec gives by hand.
 const createBuiltIns = () => {
   const epochs = new observe.Observer<number>();
   const fetches: Array<PromiseWithResolvers<channel.Key[]>> = [];
   const errors: Error[] = [];
-  const builtIns = new channel.BuiltIns({
+  const builtIns = new BuiltIns({
     fetch: async () => {
       const fetched = Promise.withResolvers<channel.Key[]>();
       fetches.push(fetched);
@@ -82,18 +90,17 @@ describe("BuiltIns", () => {
 
   it("should fetch again on each later connection and keep the last keys", async () => {
     const { builtIns, connect, fetches } = createBuiltIns();
-    const changes: Array<Set<channel.Key> | null> = [];
-    builtIns.onChange(({ keys }) => changes.push(keys));
     const retrieved = builtIns.retrieve();
     fetches[0].resolve([1]);
     const first = await retrieved;
     connect();
     expect(fetches).toHaveLength(2);
     expect(builtIns.state()).toBe(first);
-    expect(await builtIns.retrieve()).toBe(first);
+    // A read during the fetch of the connection waits for its answer.
+    const during = builtIns.retrieve();
     fetches[1].resolve([1, 3]);
-    await expect.poll(() => builtIns.state().keys).toEqual(new Set([1, 3]));
-    expect(changes).toEqual([new Set([1]), new Set([1, 3])]);
+    expect((await during).keys).toEqual(new Set([1, 3]));
+    expect(fetches).toHaveLength(2);
   });
 
   it("should keep the state when a later connection fetches the same keys", async () => {
@@ -101,14 +108,9 @@ describe("BuiltIns", () => {
     const retrieved = builtIns.retrieve();
     fetches[0].resolve([1, 2]);
     const first = await retrieved;
-    const changes: channel.BuiltInsState[] = [];
-    builtIns.onChange((state) => changes.push(state));
     connect();
     fetches[1].resolve([2, 1]);
-    await fetches[1].promise;
-    await builtIns.retrieve();
-    expect(builtIns.state()).toBe(first);
-    expect(changes).toEqual([]);
+    expect(await builtIns.retrieve()).toBe(first);
   });
 
   it("should hold a failed fetch as its error and report a run of failures once", async () => {
@@ -218,7 +220,7 @@ const pageToEnd = async (client: Synnax, prefix: string): Promise<number> => {
 };
 
 describe("Built-in channels on a live client", () => {
-  it("should settle the keys after one response is cut while the stream stays live", async () => {
+  it("should get the built-ins when one response is cut while the stream stays live", async () => {
     const proxy = await createCuttingProxy();
     const internal: Error[] = [];
     const client = new Synnax({
@@ -233,16 +235,12 @@ describe("Built-in channels on a live client", () => {
     await client.connect();
     await waitForStreamLive(client.connection);
     const epoch = client.connection.status.details.epoch;
-    proxy.cutNext(TARGET);
-    const state = await client.channels.builtIns.retrieve();
+    proxy.cutNext("/channel/retrieve");
+    // The transport sends the cut retrieve again, so the fetch of the keys passes.
+    expect(await retrieveBuiltIns(client)).not.toHaveLength(0);
     expect(proxy.cuts()).toBe(1);
-    expect(state.error?.message).toBe(MESSAGE);
-    expect(internal.map((e) => e.message)).toEqual([
-      `Failed to fetch built-in channels. Cannot reach Core at localhost:${proxy.port}`,
-    ]);
+    expect(internal).toEqual([]);
     expect(client.connection.status.details.epoch).toBe(epoch);
-    // The link is healthy again, so the next awaited read gets the keys.
-    expect((await client.channels.builtIns.retrieve()).keys).not.toBeNull();
   }, 30000);
 
   it("should page a non-internal list to the end when the keys already arrived", async () => {
@@ -250,7 +248,7 @@ describe("Built-in channels on a live client", () => {
     const client = createTestClient();
     await client.connect();
     await waitForStreamLive(client.connection);
-    await client.channels.builtIns.retrieve();
+    await retrieveBuiltIns(client);
     expect(await pageToEnd(client, prefix)).toBe(PAGE_COUNT);
   }, 60000);
 
@@ -273,10 +271,12 @@ describe("Built-in channels on a live client", () => {
     });
     let length = 0;
     onTestFinished(list.onChange((w) => (length = w?.records.length ?? 0)));
-    await list.retrieve();
-    // The list fetched the keys; nothing else read them.
-    await expect.poll(() => client.channels.builtIns.state().keys).not.toBeNull();
     const send = spyOnSend(client);
+    await list.retrieve();
+    // The list started the fetch of the keys, and a read of the built-ins waits for it.
+    await retrieveBuiltIns(client);
+    expect(builtInsFetches(send)).toHaveLength(1);
+    const from = send.mock.calls.length;
     for (let i = 0; i < 5; i++) {
       await remote.channels.create({
         name: `${prefix}${i}`,
@@ -285,41 +285,55 @@ describe("Built-in channels on a live client", () => {
       });
       await expect.poll(() => length).toBe(i + 1);
     }
-    const refetches = send.mock.calls.filter(
-      ([target]) => target === "/channel/retrieve",
-    );
+    const refetches = send.mock.calls
+      .slice(from)
+      .filter(([target]) => target === "/channel/retrieve");
     expect(refetches).toHaveLength(0);
   }, 60000);
 
   it("should answer an awaited read on a client with no change stream", async () => {
     const client = createTestClient({ cache: false });
     await client.connect();
-    const { keys } = await client.channels.builtIns.retrieve();
-    expect(keys?.size).toBeGreaterThan(0);
+    expect(await retrieveBuiltIns(client)).not.toHaveLength(0);
   }, 15000);
 
-  it("should keep the state across a reconnect that fetches the same keys", async () => {
+  it("should keep a built-ins list across a reconnect that fetches the same keys", async () => {
     const { proxy, client } = await createProxiedTestClient({
       retry: FAST_RETRY,
       onRetry: () => {},
     });
+    const send = spyOnSend(client);
     await client.connect();
     await waitForStreamLive(client.connection);
-    const before = await client.channels.builtIns.retrieve();
-    const changes: channel.BuiltInsState[] = [];
-    client.channels.builtIns.onChange((s) => changes.push(s));
-    const responses = recordResponses(client, TARGET);
+    const list = client.channels.watch(BUILT_INS);
+    onTestFinished(list.onChange(() => {}));
+    const before = (await list.retrieve()).records.map(({ key }) => key);
     const epoch = client.connection.status.details.epoch;
     await proxy.sever();
     await proxy.restore();
     await expect
       .poll(() => client.connection.status.details.epoch, { timeout: 15000 })
       .toBeGreaterThan(epoch);
-    await expect.poll(() => responses.length, { timeout: 8000 }).toBe(1);
-    await responses[0];
-    await client.channels.builtIns.retrieve();
-    expect(client.channels.builtIns.state()).toBe(before);
-    expect(changes).toEqual([]);
+    await expect.poll(() => builtInsFetches(send).length, { timeout: 8000 }).toBe(2);
+    await builtInsFetches(send)[1];
+    expect(list.getCached()?.records.map(({ key }) => key)).toEqual(before);
+  }, 30000);
+
+  it("should page a built-ins list to the end in pages smaller than the built-ins", async () => {
+    const client = createTestClient();
+    const send = spyOnSend(client);
+    const list = client.channels.watch({ ...BUILT_INS, limit: PAGE });
+    onTestFinished(list.onChange(() => {}));
+    let window = await list.retrieve();
+    for (let i = 0; i < 100 && window.end != null; i++) window = await list.more(PAGE);
+    const fetches = builtInsFetches(send);
+    expect(fetches).toHaveLength(1);
+    const { channels } = (await fetches[0]) as { channels: channel.Payload[] };
+    expect(channels.length).toBeGreaterThan(PAGE);
+    expect(window.end).toBeNull();
+    expect(window.records.map(({ key }) => key)).toEqual(
+      channels.map(({ key }) => key).sort((a, b) => a - b),
+    );
   }, 30000);
 });
 
@@ -337,22 +351,22 @@ const reconnectWithList = async (after: AfterReconnect): Promise<void> => {
   });
   await local.connect();
   await waitForStreamLive(local.connection);
-  await local.channels.builtIns.retrieve();
+  await retrieveBuiltIns(local);
   const first = await remote.channels.create({
     name: `builtin_${id.create()}`,
     dataType: "float32",
     virtual: true,
   });
   const secondName = `builtin_${id.create()}`;
-  const held = after === "answers-late" ? holdResponses(local, TARGET) : null;
+  const held = after === "answers-late" ? holdResponses(local, isBuiltInsFetch) : null;
   // A link that drops once can fail the first request after it returns.
   let failed = false;
   const rejected =
     after === "fails-once"
       ? rejectRequests(
           local,
-          (target) => {
-            if (target !== TARGET || failed) return false;
+          (target, req) => {
+            if (!isBuiltInsFetch(target, req) || failed) return false;
             failed = true;
             return true;
           },

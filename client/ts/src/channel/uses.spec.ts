@@ -78,10 +78,14 @@ describe("Uses", () => {
 });
 
 describe("Built-in channels", () => {
-  it("should retrieve the keys of the built-in channels", async () => {
+  it("should retrieve the built-in channels through the internal filter", async () => {
     const cmd = await client.channels.retrieve("sy_task_cmd");
-    const { keys } = await client.channels.builtIns.retrieve();
-    expect(keys?.has(cmd.key)).toBe(true);
+    const user = await createChannel();
+    const builtIns = await client.channels.retrieve({
+      where: { internal: { eq: true } },
+    });
+    expect(builtIns.map(({ key }) => key)).toContain(cmd.key);
+    expect(builtIns.map(({ key }) => key)).not.toContain(user.key);
   });
 
   it("should match the built-in channels with the internal line", async () => {

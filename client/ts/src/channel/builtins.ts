@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type destructor, errors, observe, sync, TimeSpan } from "@synnaxlabs/x";
+import { type destructor, errors, sync, TimeSpan } from "@synnaxlabs/x";
 
 import type { Key } from "@/channel/types.gen";
 
@@ -42,12 +42,11 @@ const equal = (a: Set<Key>, b: Set<Key>): boolean =>
  * Holds the keys of the built-in channels, which Core services declare for their own
  * work. The first awaited read fetches them, and each later connection to the Core
  * fetches them again, keeping the last keys until the new answer lands. A client that
- * never awaits them fetches nothing. Reach it through `client.channels.builtIns`.
+ * never awaits them fetches nothing.
  */
 export class BuiltIns {
   private readonly cfg: BuiltInsConfig;
   private current: BuiltInsState = PENDING;
-  private readonly changes = new observe.Observer<BuiltInsState>();
   private started = false;
   private fetching: Promise<void> | null = null;
   private refetch = false;
@@ -76,20 +75,15 @@ export class BuiltIns {
 
   /**
    * Fetches the keys when none are known and no fetch runs, so a fetch that failed runs
-   * again, and waits until no fetch runs.
+   * again, and waits until no fetch runs. A connection's fetch thus answers the reads
+   * that it overlaps.
    * @returns the state then. It never rejects.
    */
   async retrieve(): Promise<BuiltInsState> {
     this.started = true;
-    if (this.current.keys != null) return this.current;
-    if (this.fetching == null) this.fetch();
+    if (this.current.keys == null && this.fetching == null) this.fetch();
     while (this.fetching != null) await this.fetching;
     return this.current;
-  }
-
-  /** Calls handler with the state each time it changes. */
-  onChange(handler: (state: BuiltInsState) => void): destructor.Destructor {
-    return this.changes.onChange(handler);
   }
 
   private fetch(): void {
@@ -136,6 +130,5 @@ export class BuiltIns {
 
   private set(state: BuiltInsState): void {
     this.current = state;
-    this.changes.notify(state);
   }
 }

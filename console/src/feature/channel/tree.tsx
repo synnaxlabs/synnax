@@ -36,7 +36,7 @@ import { Tree } from "@/platform/tree";
 
 const haulItems: Tree.HaulItems = ({ name, id: { key } }, client) => {
   const ch = Number(key);
-  if (client.channels.builtIns.state().keys?.has(ch) !== true)
+  if (PChannel.isCachedBuiltIn(client, ch) !== true)
     return [PChannel.createHaulItem(ch)];
   return [
     PSchematic.createHaulItem({
@@ -54,16 +54,16 @@ interface Renaming {
 
 /**
  * @returns a refusal for a built-in channel, and for every channel until the built-in
- * keys arrive. A failed fetch allows a rename, since the Core refuses a built-in
+ * channels arrive. A failed fetch allows a rename, since the Core refuses a built-in
  * rename.
  */
 const useRenaming = (key: channel.Key): Renaming => {
-  const { data } = PChannel.useResultBuiltIns();
-  if (data?.keys != null)
-    return data.keys.has(key)
+  const { variant, data } = PChannel.useResultBuiltIns();
+  if (data != null)
+    return data.some((ch) => ch.key === key)
       ? { allowed: false, reason: "Built-in channels cannot be renamed" }
       : { allowed: true };
-  if (data?.error != null) return { allowed: true };
+  if (variant === "error") return { allowed: true };
   return { allowed: false, reason: "Waiting for the Core's list of built-in channels" };
 };
 

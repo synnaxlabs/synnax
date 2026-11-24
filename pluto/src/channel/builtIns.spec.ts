@@ -12,6 +12,7 @@ import {
   answerRequests,
   createProxiedTestClient,
   FAST_RETRY,
+  isBuiltInsFetch,
   rejectRequests,
   waitForStreamLive,
 } from "@synnaxlabs/client/testutil";
@@ -22,7 +23,10 @@ import { describe, expect, it } from "vitest";
 import { Channel } from "@/channel";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
-const TARGET = "/channel/retrieve-built-ins";
+const BUILT_INS = { where: { internal: { eq: true } } };
+
+const keysOf = (channels?: Array<{ key: number }>): number[] | undefined =>
+  channels?.map(({ key }) => key);
 
 // Drops the connection of client and waits for the next one.
 const reconnect = async (
@@ -50,8 +54,8 @@ describe("useResultBuiltIns across a reconnect", () => {
     let dropped = false;
     const rejected = rejectRequests(
       client,
-      (target) => {
-        if (target !== TARGET || dropped) return false;
+      (target, req) => {
+        if (!isBuiltInsFetch(target, req) || dropped) return false;
         dropped = true;
         return true;
       },
@@ -60,16 +64,17 @@ describe("useResultBuiltIns across a reconnect", () => {
     const wrapper = await createAsyncSynnaxWrapper({ client });
     await waitForStreamLive(client.connection);
     const { result } = renderHook(() => Channel.useResultBuiltIns(), { wrapper });
-    await waitFor(() => expect(result.current.data?.error).not.toBeNull());
+    await waitFor(() => expect(result.current.variant).toBe("error"));
     expect(dropped).toBe(true);
-    expect(result.current.data?.keys).toBeNull();
+    expect(result.current.data).toBeUndefined();
     expect(internal.map((e) => e.message)).toEqual([
       "Failed to fetch built-in channels. Operation failed because no Core is connected.",
     ]);
     await reconnect(client, proxy);
-    await waitFor(() => expect(result.current.data?.keys).not.toBeNull(), {
+    await waitFor(() => expect(result.current.variant).toBe("success"), {
       timeout: 8000,
     });
+    expect(result.current.data).not.toHaveLength(0);
     rejected.mockRestore();
   }, 60000);
 
@@ -81,7 +86,7 @@ describe("useResultBuiltIns across a reconnect", () => {
     const wrapper = await createAsyncSynnaxWrapper({ client });
     await waitForStreamLive(client.connection);
     const { result } = renderHook(() => Channel.useResultBuiltIns(), { wrapper });
-    await waitFor(() => expect(result.current.data?.keys).not.toBeNull());
+    await waitFor(() => expect(result.current.variant).toBe("success"));
     // A channel that the restarted Core declares as a built-in, as an upgrade that
     // adopts a channel of a new built-in's name does.
     const adopted = await client.channels.create({
@@ -89,17 +94,18 @@ describe("useResultBuiltIns across a reconnect", () => {
       dataType: DataType.FLOAT32,
       virtual: true,
     });
-    const before = (await client.channels.builtIns.retrieve()).keys ?? [];
-    answerRequests(client, TARGET, async () => ({ keys: [...before, adopted.key] }));
+    const before = await client.channels.retrieve(BUILT_INS);
+    answerRequests(client, isBuiltInsFetch, async () => ({
+      channels: [...before, adopted].map(({ payload }) => payload),
+    }));
     await reconnect(client, proxy);
-    await waitFor(
-      () => expect(result.current.data?.keys?.has(adopted.key)).toBe(true),
-      { timeout: 8000 },
-    );
-    expect(client.channels.builtIns.state().keys?.has(adopted.key)).toBe(true);
+    await waitFor(() => expect(keysOf(result.current.data)).toContain(adopted.key), {
+      timeout: 8000,
+    });
+    expect(keysOf(await client.channels.retrieve(BUILT_INS))).toContain(adopted.key);
   }, 60000);
 
-  it("should settle a failed fetch that a reconnect overtook", async () => {
+  it("should report a failed fetch that a reconnect overtook once, and fail on the next mount", async () => {
     const internal: Error[] = [];
     const { proxy, client } = await createProxiedTestClient({
       retry: FAST_RETRY,
@@ -109,21 +115,27 @@ describe("useResultBuiltIns across a reconnect", () => {
     const wrapper = await createAsyncSynnaxWrapper({ client });
     await waitForStreamLive(client.connection);
     const answered = Promise.withResolvers<void>();
-    answerRequests(client, TARGET, async () => {
+    answerRequests(client, isBuiltInsFetch, async () => {
       await answered.promise;
       throw new Error("refused");
     });
-    const { result } = renderHook(() => Channel.useResultBuiltIns(), { wrapper });
-    expect(result.current.data).toEqual({ keys: null, error: null });
+    const first = renderHook(() => Channel.useResultBuiltIns(), { wrapper });
+    expect(first.result.current.variant).toBe("loading");
     // The stream reconnects while the fetch runs.
     await reconnect(client, proxy);
     answered.resolve();
-    await waitFor(() => expect(result.current.data?.error).not.toBeNull(), {
+    // The answer of the first connection is stale, so only the second one reports.
+    const reported = ["Failed to fetch built-in channels. refused"];
+    await waitFor(() => expect(internal.map((e) => e.message)).toEqual(reported), {
       timeout: 8000,
     });
-    // The answer of the first connection is stale, so only the second one reports.
-    expect(internal.map((e) => e.message)).toEqual([
-      "Failed to fetch built-in channels. refused",
-    ]);
+    // Flux drops a failure that a reconnect overtook, and a mount fetches once, so the
+    // next mount shows the failure.
+    first.unmount();
+    const { result } = renderHook(() => Channel.useResultBuiltIns(), { wrapper });
+    await waitFor(() => expect(result.current.variant).toBe("error"), {
+      timeout: 8000,
+    });
+    expect(internal.map((e) => e.message)).toEqual(reported);
   }, 60000);
 });

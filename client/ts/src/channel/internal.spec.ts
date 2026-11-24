@@ -15,6 +15,7 @@ import {
   createTestClient,
   FAST_RETRY,
   holdResponses,
+  isBuiltInsFetch,
   waitForStreamLive,
 } from "@/testutil";
 
@@ -40,9 +41,9 @@ describe("Internal line across a reconnect", () => {
     });
     await client.connect();
     await waitForStreamLive(client.connection);
-    await client.channels.builtIns.retrieve();
+    await client.channels.retrieve({ where: { internal: { eq: true } } });
     // The reply of the next connection is slow.
-    const held = holdResponses(client, "/channel/retrieve-built-ins");
+    const held = holdResponses(client, isBuiltInsFetch);
     const prefix = `internal_${id.create()}`;
     const list = client.channels.watch({
       where: { internal: { eq: false }, name: { startsWith: prefix } },

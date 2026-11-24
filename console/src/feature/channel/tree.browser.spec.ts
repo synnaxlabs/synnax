@@ -18,6 +18,7 @@ import {
   createTestClient,
   failRequests,
   holdRequests,
+  isBuiltInsFetch,
   RoleClients,
 } from "@synnaxlabs/client/testutil";
 import type { Status } from "@synnaxlabs/lyra/status";
@@ -33,7 +34,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { createElement, type ReactNode } from "react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
 
 import { Channel } from "@/feature/channel";
 import { findButton } from "@/platform/modals/testutil";
@@ -74,8 +75,6 @@ const retrieveInternalChannel = async (): Promise<channelClient.Channel> => {
   assertDefined(ch);
   return ch;
 };
-
-const BUILT_INS_TARGET = "/channel/retrieve-built-ins";
 
 // Hosts the channels under the host root, outside any group.
 const hostChannels = (...channels: { key: channelClient.Key }[]) =>
@@ -129,7 +128,10 @@ describe("channel/tree", () => {
 
     it("hauls a built-in channel as a schematic value element only", async () => {
       const ch = await retrieveInternalChannel();
-      await client.channels.builtIns.retrieve();
+      // A mounted tree holds the list of built-in channels live.
+      const builtIns = client.channels.watch({ where: { internal: { eq: true } } });
+      onTestFinished(builtIns.onChange(() => {}));
+      await builtIns.retrieve();
       const items = Item.haulItems(
         createResource(channelClient.resourceID(ch.key), ch.name),
         client,
@@ -361,7 +363,7 @@ describe("channel/tree", () => {
     it("disables rename for a built-in channel and says why", async () => {
       const ch = await retrieveInternalChannel();
       // With the keys in hand the menu renders its final items at once.
-      await client.channels.builtIns.retrieve();
+      await client.channels.retrieve({ where: { internal: { eq: true } } });
       assertDefined(Item.ContextMenu);
       await renderTreeContextMenu(Item.ContextMenu, {
         client,
@@ -373,7 +375,7 @@ describe("channel/tree", () => {
     it("disables rename for every channel until the built-in keys arrive", async () => {
       const ch = await createChannel();
       const pending = createTestClient();
-      holdRequests(pending, BUILT_INS_TARGET);
+      holdRequests(pending, isBuiltInsFetch);
       await renderLiveTree({
         client: pending,
         root: HOST_ID,
@@ -390,7 +392,7 @@ describe("channel/tree", () => {
       // The client fetches the keys for itself too, and reports its own failure.
       const internal: Error[] = [];
       const failed = createTestClient({ onInternalError: (e) => internal.push(e) });
-      failRequests(failed, BUILT_INS_TARGET, new Error("built-in keys refused"));
+      failRequests(failed, isBuiltInsFetch, new Error("built-in keys refused"));
       await renderLiveTree({
         client: failed,
         root: HOST_ID,

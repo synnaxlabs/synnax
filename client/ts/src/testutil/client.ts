@@ -100,6 +100,12 @@ export const createProxiedTestClient = async (
   return { proxy, client };
 };
 
+/** A request target, or a predicate on the target and body of each request. */
+export type RequestMatch = string | ((target: string, req: unknown) => boolean);
+
+const matcherOf = (match: RequestMatch) =>
+  typeof match === "string" ? (target: string) => target === match : match;
+
 /** Spies on the client's unary send so specs can count requests on the wire. */
 export const spyOnSend = (client: Synnax, field: "transport" = "transport") =>
   vi.spyOn(client[field].unary, "send");
@@ -122,19 +128,20 @@ export const recordResponses = (
 };
 
 /**
- * Holds each request to target until release is called, so the Core does not get it.
- * Call it inside a test: the hold ends when that test finishes.
+ * Holds each request that target matches until release is called, so the Core does not
+ * get it. Call it inside a test: the hold ends when that test finishes.
  */
 export const holdRequests = (
   client: Synnax,
-  target: string,
+  target: RequestMatch,
   field: "transport" = "transport",
 ) => {
+  const matches = matcherOf(target);
   const { unary } = client[field];
   const send = unary.send.bind(unary);
   const released = Promise.withResolvers<void>();
   const spy = vi.spyOn(unary, "send").mockImplementation(async (...args) => {
-    if (args[0] === target) await released.promise;
+    if (matches(args[0], args[1])) await released.promise;
     return await send(...args);
   });
   onTestFinished(() => {
@@ -191,21 +198,22 @@ export const rejectRequests = (
 };
 
 /**
- * Answers each request to target with answer, so the Core does not get it. An Error
- * fails the request, a function answers each request with what it returns or throws,
- * and any other value is the response, parsed by the request's schema. Call it inside a
- * test: the answers end when that test finishes.
+ * Answers each request that target matches with answer, so the Core does not get it.
+ * An Error fails the request, a function answers each request with what it returns or
+ * throws, and any other value is the response, parsed by the request's schema. Call it
+ * inside a test: the answers end when that test finishes.
  */
 export const answerRequests = (
   client: Synnax,
-  target: string,
+  target: RequestMatch,
   answer: unknown,
   field: "transport" = "transport",
 ) => {
+  const matches = matcherOf(target);
   const { unary } = client[field];
   const send = unary.send.bind(unary);
   const spy = vi.spyOn(unary, "send").mockImplementation(async (...args) => {
-    if (args[0] !== target) return await send(...args);
+    if (!matches(args[0], args[1])) return await send(...args);
     if (answer instanceof Error) throw answer;
     const response = typeof answer === "function" ? await answer() : answer;
     return args[3].parse(response);
@@ -214,12 +222,12 @@ export const answerRequests = (
 };
 
 /**
- * Fails each request to target with the error, so the Core does not get it. Call it
- * inside a test: the failures end when that test finishes.
+ * Fails each request that target matches with the error, so the Core does not get it.
+ * Call it inside a test: the failures end when that test finishes.
  */
 export const failRequests = (
   client: Synnax,
-  target: string,
+  target: RequestMatch,
   error: Error,
   field: "transport" = "transport",
 ) => answerRequests(client, target, error, field);
@@ -231,10 +239,10 @@ export const failRequests = (
  */
 export const holdResponses = (
   client: Synnax,
-  target: string | ((target: string, req: unknown) => boolean),
+  target: RequestMatch,
   field: "transport" = "transport",
 ) => {
-  const matches = typeof target === "string" ? (t: string) => t === target : target;
+  const matches = matcherOf(target);
   const { unary } = client[field];
   const send = unary.send.bind(unary);
   const { promise: responded, resolve: respond } = Promise.withResolvers<void>();

@@ -12,6 +12,7 @@ import {
   createTestClient,
   failRequests,
   holdRequests,
+  isBuiltInsFetch,
   spyOnSend,
   waitForStreamLive,
 } from "@synnaxlabs/client/testutil";
@@ -53,18 +54,23 @@ const scrollToEnd = async (client: Synnax) => {
   return { length: result.current.data.length, complete: result.current.complete };
 };
 
+const BUILT_INS = { where: { internal: { eq: true } } };
+
+const keysOf = (channels?: channel.Channel[]): channel.Key[] | undefined =>
+  channels?.map(({ key }) => key);
+
 describe("useList with the built-in keys", () => {
   it("should scroll to the end once the built-in keys arrived", async () => {
     const client = createTestClient();
     await client.connect();
     await waitForStreamLive(client.connection);
-    await client.channels.builtIns.retrieve();
+    await client.channels.retrieve(BUILT_INS);
     expect(await scrollToEnd(client)).toEqual({ length: SCROLL_COUNT, complete: true });
   }, 60000);
 
   it("should scroll to the end before the built-in keys arrive", async () => {
     const client = createTestClient();
-    holdRequests(client, "/channel/retrieve-built-ins");
+    holdRequests(client, isBuiltInsFetch);
     await client.connect();
     await waitForStreamLive(client.connection);
     expect(await scrollToEnd(client)).toEqual({ length: SCROLL_COUNT, complete: true });
@@ -679,48 +685,44 @@ describe("queries", () => {
   });
 
   describe("useResultBuiltIns", () => {
-    it("should hold the keys of the built-in channels", async () => {
+    it("should hold the built-in channels", async () => {
       const ch = await client.channels.create({
         name: id.create(),
         dataType: DataType.FLOAT32,
         virtual: true,
       });
       const { result } = renderHook(() => Channel.useResultBuiltIns(), { wrapper });
-      const { keys } = await client.channels.builtIns.retrieve();
-      await waitFor(() => expect(result.current.data?.keys).toBe(keys));
-      expect(keys?.size).toBeGreaterThan(0);
-      expect(keys?.has(ch.key)).toBe(false);
+      const builtIns = keysOf(await client.channels.retrieve(BUILT_INS));
+      await waitFor(() => expect(keysOf(result.current.data)).toEqual(builtIns));
+      expect(builtIns).not.toHaveLength(0);
+      expect(builtIns).not.toContain(ch.key);
     });
 
-    it("should read the keys the client fetched and fetch nothing", async () => {
+    it("should read the built-in channels the client fetched and fetch nothing", async () => {
       const local = createTestClient();
       await local.connect();
       await waitForStreamLive(local.connection);
-      const { keys } = await local.channels.builtIns.retrieve();
+      const builtIns = keysOf(await local.channels.retrieve(BUILT_INS));
       const send = spyOnSend(local);
       const { result } = renderHook(() => Channel.useResultBuiltIns(), {
         wrapper: await createAsyncSynnaxWrapper({ client: local }),
       });
-      expect(result.current.data?.keys).toBe(keys);
+      await waitFor(() => expect(keysOf(result.current.data)).toEqual(builtIns));
       const targets = send.mock.calls.map(([target]) => target);
-      expect(targets).not.toContain("/channel/retrieve-built-ins");
+      expect(targets).not.toContain("/channel/retrieve");
     });
 
-    it("should hold the error when the fetch of the client fails", async () => {
+    it("should fail when the fetch of the client fails, and report it once", async () => {
       const internal: Error[] = [];
       const local = createTestClient({ onInternalError: (e) => internal.push(e) });
-      failRequests(local, "/channel/retrieve-built-ins", new Error("refused"));
+      failRequests(local, isBuiltInsFetch, new Error("refused"));
       await local.connect();
       await waitForStreamLive(local.connection);
       const { result } = renderHook(() => Channel.useResultBuiltIns(), {
         wrapper: await createAsyncSynnaxWrapper({ client: local }),
       });
-      await waitFor(() =>
-        expect(result.current.data?.error?.message).toBe(
-          "failed to fetch built-in channels",
-        ),
-      );
-      expect(result.current.data?.keys).toBeNull();
+      await waitFor(() => expect(result.current.variant).toBe("error"));
+      expect(result.current.data).toBeUndefined();
       expect(internal.map((e) => e.message)).toEqual([
         "Failed to fetch built-in channels. refused",
       ]);

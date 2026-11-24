@@ -252,6 +252,20 @@ const isOneParams = (params: object): params is RetrieveSingleParams | OneParams
   query.addressesOne(params);
 
 /** Statuses and uses are composed from their stores on read. */
+/** The request for the built-in channels: the Core's one answer to which they are. */
+const BUILT_INS: RetrieveRequest = { where: { internal: { eq: true } } };
+
+/** @returns whether req asks for the built-in channels and nothing else but a page. */
+const isBuiltInsRequest = ({
+  where,
+  order: _order,
+  after: _after,
+  limit: _limit,
+  ...rest
+}: RetrieveRequest): boolean =>
+  deep.equal(where, BUILT_INS.where) &&
+  Object.values(rest).every((v) => v == null || v === false || v === "");
+
 const stripComposed = ({ status: _status, uses: _uses, ...rest }: Payload): Payload =>
   rest;
 
@@ -325,8 +339,7 @@ export class Client extends query.Retriever<
   private readonly usesStore: query.Table<Key, Uses>;
   private readonly usesChanges: { count: number };
   private readonly refetchUses: () => void;
-  /** The keys of the built-in channels, fetched on the first awaited read. */
-  readonly builtIns: BuiltIns;
+  private readonly builtIns: BuiltIns;
 
   constructor(cfg: ClientConfig) {
     const { writer, statuses, cache } = cfg;
@@ -421,12 +434,17 @@ export class Client extends query.Retriever<
         },
       }),
     );
-    // The Core checks the internal line until the built-in keys arrive.
+    // The Core checks the internal line until the built-in keys arrive. Their channels
+    // land in the store, so a request for the built-ins reads them without a fetch.
     const builtIns = new BuiltIns({
       fetch: async () =>
-        (await this.execRetrieve({ where: { internal: { eq: true } } })).map(
-          ({ key }) => key,
-        ),
+        await store.track(async (since) => {
+          const channels = (await this.execRetrieve(BUILT_INS)).map((p) =>
+            sugar(stripComposed(p)),
+          );
+          store.ingest(channels, { since });
+          return channels.map(({ key }) => key);
+        }),
       onEpoch: (callback) => cache.onEpoch(callback),
       onError: (error) => cache.onError(error),
     });
@@ -452,7 +470,9 @@ export class Client extends query.Retriever<
         schema: retrieveParamsZ,
         // A list that checks the internal line decides its records itself once the
         // built-in keys arrive, so its fetch starts theirs and does not wait for it.
+        // A request for the built-ins alone waits for them instead.
         fetch: async (query) => {
+          if (isBuiltInsRequest(query)) return await this.fetchBuiltIns(query);
           if (
             serverComputed(lines, query.where) &&
             !serverComputed(lasting, query.where)
@@ -806,6 +826,26 @@ export class Client extends query.Retriever<
       resolved.push(matches[0]);
     }
     return resolved;
+  }
+
+  /**
+   * Answers a request for the built-in channels from the keys of the fetch that the
+   * request overlaps, or of the last one, in the request's order and page.
+   * @throws {Error} the error of the fetch when it failed and no keys are known.
+   */
+  private async fetchBuiltIns(req: RetrieveRequest): Promise<Channel[]> {
+    const { keys, error } = await this.builtIns.retrieve();
+    if (keys == null) throw error ?? new Error("no built-in keys after their fetch");
+    const { order, after, limit } = req;
+    const at = (ch: Channel) => cursor(ch, order);
+    const sorted = (await this.store.retrieve([...keys])).sort((a, b) =>
+      compareCursors(at(a), at(b), order),
+    );
+    const page =
+      after == null
+        ? sorted
+        : sorted.filter((ch) => compareCursors(at(ch), after, order) > 0);
+    return limit == null ? page : page.slice(0, limit);
   }
 
   private async fetchRequest(req: RetrieveRequest): Promise<Channel[]> {
