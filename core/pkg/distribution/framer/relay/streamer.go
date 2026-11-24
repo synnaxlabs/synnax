@@ -31,7 +31,6 @@ type Streamer = confluence.Segment[Request, Response]
 
 type streamer struct {
 	confluence.AbstractLinear[Request, Response]
-	demands         confluence.Inlet[demand]
 	relay           *Relay
 	addr            address.Address
 	sendOpenAck     bool
@@ -103,7 +102,6 @@ func (r *Relay) NewStreamer(cfgs ...StreamerConfig) (Streamer, error) {
 		missedRequested: *cfg.MissedRequested,
 		excludeGroups:   cfg.ExcludeGroups,
 		addr:            address.Rand(),
-		demands:         r.demands,
 		relay:           r,
 	}
 	s.setKeys(cfg.Keys)
@@ -134,11 +132,6 @@ func (s *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 	o := confluence.NewOptions(opts)
 	o.AttachClosables(s.Out)
 	ctx.Go(func(ctx context.Context) error {
-		// A canceled request can outlive the relay, whose closed demands would panic.
-		if err := ctx.Err(); err != nil {
-			return err
-		}
-		s.demands.Acquire(1)
 		// We only set demands when we start the streamer, avoiding unnecessary overhead
 		// when the streamer is not in use. We also need to make sure we send these
 		// demands before we connect to the delta, otherwise, under extreme load we may
@@ -149,27 +142,38 @@ func (s *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 		if s.sendOpenAck {
 			ack = make(chan struct{})
 		}
-		s.demands.Inlet() <- demand{addr: s.addr, keys: s.keys.Load().Slice(), ack: ack}
+		state := &demandState{}
+		if err := s.relay.sendDemand(ctx, demand{
+			addr:  s.addr,
+			keys:  s.keys.Load().Slice(),
+			ack:   ack,
+			state: state,
+		}); err != nil {
+			return err
+		}
 		// NOTE: BEYOND THIS POINT THERE IS AN INHERENT RISK OF DEADLOCKING THE RELAY.
 		// BE CAREFUL WHEN MAKING CHANGES TO THIS SECTION.
-		sub, disconnect := s.relay.connectToDelta(s.accepts, s.missedRequested)
+		sub, disconnect, err := s.relay.connectToDelta(
+			ctx,
+			s.accepts,
+			s.missedRequested,
+		)
+		if err != nil {
+			s.relay.removeDemand(s.addr, state)
+			return err
+		}
 		defer func() {
 			// Disconnect from the relay and drain the response channel. Important that
 			// we do this before updating our demands, otherwise we may deadlock.
 			disconnect()
-			// Tell the tapper that we are no longer requesting any channels.
-			s.demands.Inlet() <- demand{addr: s.addr, removed: true}
-			// If we add this in AttachClosables, it may not be closed at the end of if
-			// the caller does not use the confluence.CloseOutputInletsOnExit option, so
-			// we explicitly close it here.
-			s.demands.Close()
+			s.relay.removeDemand(s.addr, state)
 		}()
 		if s.sendOpenAck {
 			if err := s.awaitOpenAck(ctx, ack); err != nil {
 				return err
 			}
 		}
-		return s.forward(ctx, sub)
+		return s.forward(ctx, sub, state)
 	}, o.Signal...)
 }
 
@@ -197,6 +201,8 @@ func (s *streamer) awaitOpenAck(ctx context.Context, ack chan struct{}) error {
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
+	case <-s.relay.stopped:
+		return errStopped
 	case <-ack:
 	}
 	return signal.SendUnderContext(ctx, s.Out.Inlet(), Response{})
@@ -204,10 +210,12 @@ func (s *streamer) awaitOpenAck(ctx context.Context, ack chan struct{}) error {
 
 // forward applies key updates from the inlet and sends matching frames from responses
 // until the context is canceled or the inlet closes. After a value on missed, it sends
-// a missed marker once it has sent every frame buffered before the drop.
+// a missed marker once it has sent every frame buffered before the drop. It returns
+// errDropped when responses closes.
 func (s *streamer) forward(
 	ctx context.Context,
 	sub *subscriber,
+	state *demandState,
 ) error {
 	responses, missed := sub.responses, sub.missed
 	// pendingAcks holds the ack channels of key updates the tapper has not applied
@@ -251,15 +259,24 @@ func (s *streamer) forward(
 			// The keys must change before the demand, so the delta accepts frames for
 			// an added channel as soon as the relay taps it.
 			s.setKeys(req.Keys)
-			d := demand{addr: s.addr, keys: req.Keys}
+			d := demand{addr: s.addr, keys: req.Keys, state: state}
 			if req.AckRequested {
 				d.ack = make(chan struct{})
 				pendingAcks = append(pendingAcks, d.ack)
 			}
-			if err := signal.SendUnderContext(ctx, s.demands.Inlet(), d); err != nil {
+			if err := s.relay.sendDemand(ctx, d); err != nil {
 				return err
 			}
-		case r := <-responses:
+		case r, ok := <-responses:
+			if !ok {
+				// The select can take the closed responses before a pending signal.
+				if len(missed) > 0 {
+					if err := s.sendMissed(ctx, sub); err != nil {
+						return err
+					}
+				}
+				return errDropped
+			}
 			// A frame buffered before a key update can hold channels the streamer no
 			// longer wants.
 			filtered := r.Frame.KeepKeys(*s.keys.Load())

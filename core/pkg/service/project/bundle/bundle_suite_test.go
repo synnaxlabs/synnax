@@ -21,7 +21,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
-	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/color"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
@@ -111,8 +110,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB: db,
 	}))
 	userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
-		DB:       db,
-		Password: MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db})),
+		DB: db,
 	}))
 	rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 		DB:         db,

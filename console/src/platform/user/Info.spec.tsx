@@ -49,8 +49,9 @@ describe("User.Info", () => {
       client: other,
       preloadedState: createStateWithUser("core_user"),
     });
+    const { name } = await other.users.current.retrieve();
     render(<User.Info />, { wrapper });
-    expect(await screen.findByText("test")).toBeTruthy();
+    expect(await screen.findByText(name)).toBeTruthy();
     expect(screen.queryByText("core_user")).toBeNull();
   });
 });
