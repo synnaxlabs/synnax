@@ -19,6 +19,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import type { PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
 
+import { Color } from "@/color";
 import { LinePlot } from "@/lineplot";
 import { createAsyncSynnaxWrapper, renderHookSuspended } from "@/testutil";
 
@@ -1697,6 +1698,61 @@ describe("lineplot queries", () => {
         });
       });
       expect(result.current.rule).toBe(firstRule);
+      expect(renderCount).toEqual(countBefore);
+    });
+
+    it("useRule keeps a stable reference when an unrelated color is created", async () => {
+      const created = await createPlot();
+      const setup = await renderHookSuspended(
+        () => ({
+          retrieve: LinePlot.use({ key: created.key }),
+          dispatch: LinePlot.useDispatch(),
+        }),
+        { wrapper },
+      );
+      await waitFor(() => expect(setup.result.current.retrieve).toBeDefined());
+      await act(async () => {
+        await setup.result.current.dispatch.dispatchAsync({
+          key: created.key,
+          actions: [
+            lineplotClient.setRule({
+              rule: {
+                key: "rl-a",
+                label: "a",
+                color: { type: "fixed", value: color.construct("#ff0000") },
+                axis: "y1",
+                lineWidth: 1,
+                lineDash: 0,
+                units: "psi",
+                position: 1,
+              },
+            }),
+          ],
+        });
+      });
+      let renderCount = 0;
+      const { result } = renderHook(
+        () => {
+          renderCount++;
+          return LinePlot.useRule({ key: created.key, ruleKey: "rl-a" });
+        },
+        { wrapper },
+      );
+      const colors = renderHook(() => Color.useResultList({}), { wrapper });
+      await waitFor(() => {
+        expect(result.current.position).toEqual(1);
+        expect(colors.result.current.variant).toEqual("success");
+      });
+      const firstRule = result.current;
+      const countBefore = renderCount;
+      const named = await client.colors.create({
+        name: `unrelated_${uuid.create()}`,
+        light: color.construct("#123456"),
+      });
+      await waitFor(() =>
+        expect(colors.result.current.data?.map((c) => c.key)).toContain(named.key),
+      );
+      expect(result.current).toBe(firstRule);
       expect(renderCount).toEqual(countBefore);
     });
   });
