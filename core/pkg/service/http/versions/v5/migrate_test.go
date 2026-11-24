@@ -206,3 +206,161 @@ var _ = Describe("ReadMigration", func() {
 			To(MatchError(query.ErrNotFound))
 	})
 })
+
+// storedWriteConfig returns a v4 write config with two endpoints, as the Console stores
+// it. The first sends a static and a generated field beside its channel, and the second
+// is disabled.
+func storedWriteConfig() v4.WriteConfig {
+	return v4.WriteConfig{
+		Key:    uuid.New(),
+		Device: "dev",
+		Endpoints: []v4.WriteEndpoint{
+			{
+				Key:     "sp",
+				Method:  v4.MethodPut,
+				Path:    "/setpoint",
+				Headers: []v4.Header{{Name: "Accept", Value: "application/json"}},
+				Channel: v4.ChannelField{
+					Pointer:    "/value",
+					JSONType:   payload.JSONTypeNumber,
+					Channel:    42,
+					Name:       "setpoint_cmd",
+					DataType:   "float64",
+					EnumValues: []payload.EnumEntry{},
+				},
+				Fields: []v4.WriteField{
+					{Variant: v4.StaticWriteField{
+						BaseWriteField: v4.BaseWriteField{Key: "u", Pointer: "/unit"},
+						JSONType:       payload.JSONTypeString,
+						Value:          "psi",
+					}},
+					{Variant: v4.GeneratedWriteField{
+						BaseWriteField: v4.BaseWriteField{
+							Key:     "id",
+							Pointer: "/request_id",
+						},
+						Generator: payload.GeneratorTypeUUID,
+					}},
+				},
+			},
+			{
+				Key:      "valve",
+				Disabled: true,
+				Method:   v4.MethodPost,
+				Path:     "/valve",
+				Channel: v4.ChannelField{
+					Channel:    43,
+					DataType:   "uint8",
+					EnumValues: []payload.EnumEntry{},
+				},
+				Fields: []v4.WriteField{},
+			},
+		},
+	}
+}
+
+// stagedWrite returns the endpoints of old as MigrateWriteConfig stages them.
+func stagedWrite(old v4.WriteConfig) v5.InlineWrite {
+	return v5.InlineWrite{Endpoints: []v5.InlineWriteEndpoint{
+		{
+			Key:     "sp",
+			Channel: old.Endpoints[0].Channel,
+			Fields:  old.Endpoints[0].Fields,
+		},
+		{
+			Key:     "valve",
+			Channel: old.Endpoints[1].Channel,
+			Fields:  old.Endpoints[1].Fields,
+		},
+	}}
+}
+
+var _ = Describe("MigrateWriteConfig", func() {
+	It("Should stage the channel and fields of each endpoint and keep its request",
+		func(ctx SpecContext) {
+			old := storedWriteConfig()
+			cfg := MustSucceed(v5.MigrateWriteConfig(ctx, old))
+			Expect(cfg.Device).To(Equal(old.Device))
+			Expect(cfg.Endpoints).To(HaveLen(2))
+			ep := cfg.Endpoints[0]
+			Expect(ep.Method).To(Equal(v4.MethodPut))
+			Expect(ep.Path).To(Equal("/setpoint"))
+			Expect(ep.Headers).To(Equal(old.Endpoints[0].Headers))
+			Expect(ep.Channel).To(Equal(old.Endpoints[0].Channel))
+			Expect(ep.Fields).To(Equal(old.Endpoints[0].Fields))
+			Expect(ep.ICD).To(BeNil())
+			Expect(ep.Message).To(BeNil())
+			Expect(cfg.Endpoints[1].Disabled).To(BeTrue())
+			Expect(cfg.Inline).To(Equal(new(stagedWrite(old))))
+		},
+	)
+
+	It("Should stage nothing for a config with no endpoints", func(ctx SpecContext) {
+		cfg := MustSucceed(v5.MigrateWriteConfig(ctx, v4.WriteConfig{Key: uuid.New()}))
+		Expect(cfg.Inline).To(BeNil())
+	})
+})
+
+var _ = Describe("StagedWriteFieldsKVKey", func() {
+	It("Should key the staged channel and fields of a config under the prefix",
+		func() {
+			key := uuid.New()
+			Expect(string(v5.StagedWriteFieldsKVKey(key))).
+				To(Equal(v5.StagedWriteFieldsKVPrefix + key.String()))
+		},
+	)
+})
+
+var _ = Describe("WriteMigration", func() {
+	var db *gorp.DB
+	BeforeEach(func() { db = DeferClose(gorp.Wrap(memkv.New())) })
+
+	migrate := func(ctx SpecContext, olds ...v4.WriteConfig) {
+		GinkgoHelper()
+		Expect(gorp.WrapWriter[uuid.UUID, v4.WriteConfig](db).Set(ctx, olds...)).
+			To(Succeed())
+		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+			DB:         db,
+			Namespace:  "http_write_config",
+			Migrations: []gorp.Migration{v5.WriteMigration},
+		})).To(Succeed())
+	}
+	read := func(ctx SpecContext, key uuid.UUID) v5.WriteConfig {
+		GinkgoHelper()
+		var cfg v5.WriteConfig
+		Expect(gorp.NewRetrieve[uuid.UUID, v5.WriteConfig]().
+			Where(gorp.MatchKeys[uuid.UUID, v5.WriteConfig](key)).
+			Entry(&cfg).
+			Exec(ctx, db)).To(Succeed())
+		return cfg
+	}
+
+	It("Should store the shape that v4 stored under the same table name", func() {
+		Expect(v5.WriteConfig{}.CustomTypeName()).
+			To(Equal(v4.WriteConfig{}.CustomTypeName()))
+	})
+
+	It("Should stage the channel and fields of each config under its own KV key",
+		func(ctx SpecContext) {
+			old := storedWriteConfig()
+			migrate(ctx, old)
+			migrated := read(ctx, old.Key)
+			Expect(migrated.Inline).To(BeNil())
+			Expect(migrated.Endpoints).To(HaveLen(2))
+			Expect(migrated.Endpoints[0].Path).To(Equal("/setpoint"))
+			b, closer := MustSucceed2(db.Get(v5.StagedWriteFieldsKVKey(old.Key)))
+			var staged v5.InlineWrite
+			Expect(json.Unmarshal(b, &staged)).To(Succeed())
+			Expect(closer.Close()).To(Succeed())
+			Expect(staged).To(Equal(stagedWrite(old)))
+		},
+	)
+
+	It("Should stage nothing for a config without endpoints", func(ctx SpecContext) {
+		old := v4.WriteConfig{Key: uuid.New(), Device: "dev"}
+		migrate(ctx, old)
+		Expect(read(ctx, old.Key).Device).To(Equal("dev"))
+		Expect(db.Get(v5.StagedWriteFieldsKVKey(old.Key))).Error().
+			To(MatchError(query.ErrNotFound))
+	})
+})

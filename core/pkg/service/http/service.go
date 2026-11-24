@@ -117,6 +117,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			References:      writeConfigReferences(),
 			Instrumentation: cfg.Instrumentation,
 			Type:            "http_write",
+			Migrations:      versions.WriteMigrations,
 			LegacyVersion:   legacy.LastVersion,
 			Ladder:          versions.WriteConfigLadder,
 			Legacy:          &legacy.Write,
