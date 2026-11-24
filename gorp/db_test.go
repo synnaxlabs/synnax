@@ -192,12 +192,12 @@ var _ = Describe("DB", func() {
 
 		It("Should fail a second Run", func(ctx SpecContext) {
 			StartRun(runDB.Run)
-			Expect(runDB.Run(ctx)).To(MatchError(ContainSubstring("Run called twice")))
+			Expect(runDB.Run(ctx)).To(MatchError(ContainSubstring("run called twice")))
 		})
 
 		It("Should fail a Run after an earlier Run returns", func(ctx SpecContext) {
 			StartRun(runDB.Run)()
-			Expect(runDB.Run(ctx)).To(MatchError(ContainSubstring("Run called twice")))
+			Expect(runDB.Run(ctx)).To(MatchError(ContainSubstring("run called twice")))
 		})
 
 		It("Should fail a Run after Close", func(ctx SpecContext) {
@@ -205,7 +205,7 @@ var _ = Describe("DB", func() {
 			Expect(closed.Close()).To(Succeed())
 			Expect(
 				closed.Run(ctx),
-			).To(MatchError(ContainSubstring("Run called after Close")))
+			).To(MatchError(ContainSubstring("run called after close")))
 		})
 
 		It("Should fail Close while Run runs", func() {

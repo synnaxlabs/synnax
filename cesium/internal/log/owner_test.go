@@ -85,6 +85,13 @@ func commitEntry(n int) *log.Entry {
 	return fill(&e, n)
 }
 
+// deleteEntry returns an entry of n bytes, a multiple of 8, of a Drop and Restarts,
+// which may use the delete reserve.
+func deleteEntry(n int) *log.Entry {
+	GinkgoHelper()
+	return fill(of(&log.Drop{Key: 1}), n)
+}
+
 // fill adds Restart records of 8 bytes to e until it is n bytes long.
 func fill(e *log.Entry, n int) *log.Entry {
 	GinkgoHelper()
@@ -503,17 +510,55 @@ var _ = Describe("Log", func() {
 				Expect(frames[2].Count).To(Equal(uint32(1)))
 			})
 
-			It("Should stop an entry with a Commit at the delete reserve, and take "+
-				"another entry there", func() {
+			DescribeTable("Should stop an entry at the delete reserve, and take a "+
+				"delete there", func(fenced func(n int) *log.Entry) {
 				open(logSize)
 				DeferCleanup(closeLog)
 				n := logSize - log.DeleteReserve - log.FramesStart - 24
-				Expect(l.Append(commitEntry(n)).Wait()).Error().
+				Expect(l.Append(fenced(n)).Wait()).Error().
 					To(MatchError(ContainSubstring("does not fit in log 3: log file is full")))
 				Expect(hook.refusals()).
 					To(HaveExactElements(MatchError(ContainSubstring("log file is full"))))
-				Expect(l.Append(bigEntry(n)).Wait()).To(Equal(uint64(5)))
+				Expect(l.Append(deleteEntry(n)).Wait()).To(Equal(uint64(5)))
 				Expect(hook.refusals()).To(HaveLen(1))
+			},
+				Entry("a Commit", commitEntry),
+				Entry("a Replace", bigEntry),
+				Entry("a Create", func(n int) *log.Entry {
+					return fill(of(&log.Create{Segment: 1, Key: 1, Clock: 1}), n)
+				}),
+				Entry("a Reserve", func(n int) *log.Entry {
+					return fill(of(&log.Reserve{}), n)
+				}),
+				Entry("a Check", func(n int) *log.Entry {
+					return fill(of(&log.Check{Segment: 1}), n)
+				}),
+			)
+
+			DescribeTable("Should take an entry of deletes, Restarts, or Seals in the "+
+				"delete reserve", func(r log.Record) {
+				open(logSize)
+				DeferCleanup(closeLog)
+				n := logSize - log.DeleteReserve - log.FramesStart - 24
+				Expect(l.Append(fill(of(r), n)).Wait()).To(Equal(uint64(5)))
+				Expect(hook.refusals()).To(BeEmpty())
+			},
+				Entry("a Tombstone", &log.Tombstone{Key: 1, Start: 1, End: 2}),
+				Entry("an Intent", &log.Intent{Key: 1}),
+				Entry("a Drop", &log.Drop{Key: 1}),
+				Entry("a Seal", &log.Seal{Segment: 1, Length: 8}),
+				Entry("a Restart", &log.Restart{}),
+			)
+
+			It("Should take a delete in the delete reserve from an entry reset after "+
+				"a Commit", func() {
+				open(logSize)
+				DeferCleanup(closeLog)
+				n := logSize - log.DeleteReserve - log.FramesStart - 24
+				e := commitEntry(64)
+				e.Reset()
+				e.Add(&log.Drop{Key: 1})
+				Expect(l.Append(fill(e, n)).Wait()).To(Equal(uint64(5)))
 			})
 
 			It("Should take an entry that fits in a log that cannot switch after the "+
@@ -523,8 +568,8 @@ var _ = Describe("Log", func() {
 				fs.Hold()
 				first := l.Append(of(&log.Drop{Key: 1}))
 				Eventually(fs.held).Should(Receive())
-				half := l.Append(bigEntry(logSize / 2))
-				quarter := l.Append(bigEntry(logSize / 4))
+				half := l.Append(deleteEntry(logSize / 2))
+				quarter := l.Append(deleteEntry(logSize / 4))
 				fs.Unhold()
 				Expect(first.Wait()).To(Equal(uint64(5)))
 				Expect(half.Wait()).To(Equal(uint64(6)))
@@ -541,13 +586,13 @@ var _ = Describe("Log", func() {
 					To(HaveExactElements(MatchError("log is closed")))
 			})
 
-			It("Should stop an entry with no Commit two blocks before the end, so "+
-				"both last marks fit", func() {
+			It("Should stop a delete two blocks before the end, so both last marks "+
+				"fit", func() {
 				open(logSize)
 				n := logSize - 2*log.BlockSize - log.FramesStart - 32
-				Expect(l.Append(bigEntry(n + 8)).Wait()).Error().
+				Expect(l.Append(deleteEntry(n + 8)).Wait()).Error().
 					To(MatchError(ContainSubstring("does not fit in log 3: log file is full")))
-				Expect(l.Append(bigEntry(n)).Wait()).To(Equal(uint64(5)))
+				Expect(l.Append(deleteEntry(n)).Wait()).To(Equal(uint64(5)))
 				Eventually(func() []int64 { return writes(fs.Ops()) }).
 					Should(Equal([]int64{8_192, logSize - 2*log.BlockSize}))
 				closeLog()

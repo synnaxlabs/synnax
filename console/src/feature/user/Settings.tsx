@@ -26,7 +26,7 @@ const Password = ({ userKey }: { userKey: user.Key }): ReactElement => {
   return (
     <PlatformSettings.Card title="Password">
       <PlatformSettings.Body>
-        <Credential.Password
+        <Credential.Password.Form
           subject={user.resourceID(userKey)}
           onChanged={setChanged}
         />
@@ -74,7 +74,7 @@ export const ProfileSettings = (): ReactElement | null => {
     <>
       <PlatformSettings.Card>
         <Name current={current} />
-        {core != null && (
+        {core != null && core.username !== "" && (
           <PlatformSettings.Entry label="Username" description="You log in with it.">
             <Text.Text color={10}>{core.username}</Text.Text>
           </PlatformSettings.Entry>
@@ -89,5 +89,5 @@ export const ProfileSettings = (): ReactElement | null => {
 export const KeySettings = (): ReactElement | null => {
   const { data: key } = User.useResultKey({});
   if (key == null) return null;
-  return <Credential.KeyTable subject={user.resourceID(key)} />;
+  return <Credential.APIKey.Table subject={user.resourceID(key)} />;
 };

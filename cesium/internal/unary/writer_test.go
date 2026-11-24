@@ -29,6 +29,7 @@ import (
 	"github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -163,7 +164,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					expectStored := func(ctx SpecContext, s telem.Series) {
 						GinkgoHelper()
 						f := MustSucceed(ReadUnary(ctx, db, telem.TimeRangeMax))
-						Expect(f.SeriesAt(0)).To(telem.MatchSeriesData(s))
+						Expect(f.SeriesAt(0)).To(MatchSeriesData(s))
 					}
 					DescribeTable(
 						"Should reject an index series that goes back",
@@ -1156,13 +1157,13 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 								f := i.Value()
 								Expect(
 									f.SeriesAt(0),
-								).To(telem.MatchSeriesDataV[int64](100, 101, 103, 104, 105, 106, 107))
+								).To(MatchSeriesDataV[int64](100, 101, 103, 104, 105, 106, 107))
 								Expect(
 									f.SeriesAt(0).TimeRange,
 								).To(Equal((10 * telem.SecondTS).Range(17*telem.SecondTS + 1)))
 								Expect(
 									f.SeriesAt(1),
-								).To(telem.MatchSeriesDataV[int64](203, 209, 301, 307, 401, 403))
+								).To(MatchSeriesDataV[int64](203, 209, 301, 307, 401, 403))
 								Expect(
 									f.SeriesAt(1).TimeRange,
 								).To(Equal((17*telem.SecondTS + 1).Range(43*telem.SecondTS + 1)))

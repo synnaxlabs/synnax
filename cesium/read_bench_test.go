@@ -159,6 +159,51 @@ func BenchmarkReadSamples(b *testing.B) {
 	}
 }
 
+// BenchmarkReadOneClock reads the middle half of the data channels of one clock, which
+// share the clock's index lookups, on each layout.
+func BenchmarkReadOneClock(b *testing.B) {
+	const n = 100_000
+	layouts := []struct {
+		name string
+		opts []cesium.Option
+	}{{name: "old"}, {name: "log", opts: []cesium.Option{cesium.WithPointerLog()}}}
+	for _, layout := range layouts {
+		for _, count := range []int{4, 16} {
+			name := fmt.Sprintf("layout=%s/keys=%d", layout.name, count)
+			b.Run(name, func(b *testing.B) {
+				db := openBenchDB(b, true, layout.opts...)
+				keys := createIndexedChannels(b, db, 1, count)
+				stamps := make([]telem.TimeStamp, n)
+				for i := range stamps {
+					stamps[i] = telem.TimeStamp(i+1) * telem.MillisecondTS
+				}
+				series := []telem.Series{telem.NewSeriesV(stamps...)}
+				for range count {
+					series = append(series, telem.NewSeriesV(make([]float32, n)...))
+				}
+				if err := db.Write(
+					b.Context(),
+					stamps[0],
+					telem.MultiFrame(keys, series),
+				); err != nil {
+					b.Fatal(err)
+				}
+				tr := stamps[n/4].Range(stamps[3*n/4])
+				b.ReportAllocs()
+				for b.Loop() {
+					fr, err := db.Read(b.Context(), tr, keys[1:]...)
+					if err != nil {
+						b.Fatal(err)
+					}
+					if got := fr.Count(); got < count {
+						b.Fatalf("read %d series, want at least %d", got, count)
+					}
+				}
+			})
+		}
+	}
+}
+
 // BenchmarkStreamFixedSpan reads an index and its data channels with one fixed-span
 // Next over every sample, taking each chunk as the stream iterator sends it.
 func BenchmarkStreamFixedSpan(b *testing.B) {
