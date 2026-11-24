@@ -42,7 +42,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/set"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -254,8 +253,4 @@ func grantUpdateOn(ctx SpecContext, subject resource.ID, objects ...resource.ID)
 func grantDeleteOn(ctx SpecContext, subject resource.ID, objects ...resource.ID) {
 	GinkgoHelper()
 	grantOn(ctx, subject, access.ActionDelete, objects...)
-}
-
-func noActuators(context.Context, gorp.Tx) (set.Set[symbol.Key], error) {
-	return nil, nil
 }
