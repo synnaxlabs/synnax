@@ -2114,6 +2114,163 @@ Node union on variant {
 			},
 		)
 
+		Describe("Narrowing enums", func() {
+			names := func(form resolution.EnumForm) []string {
+				GinkgoHelper()
+				out := make([]string, len(form.Values))
+				for i, v := range form.Values {
+					out[i] = v.Name
+				}
+				return out
+			}
+
+			It("Should keep the named members of an imported enum", func() {
+				loader.Add("schemas/telem", `
+				DataType enum {
+					float64 = "float64" {
+						@doc value "is a 64-bit float."
+					}
+					int16   = "int16" {
+						@doc value "is a signed 16-bit integer."
+					}
+					json    = "json"
+				}
+			`)
+				source := `
+				import "schemas/telem"
+
+				DataType enum of telem.DataType {
+					int16
+					float64 {
+						@doc value "is a 64-bit float in four registers."
+					}
+				}
+			`
+				table, diag := Analyze(source, "modbus", loader)
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+				form, ok := table.MustGet("modbus.DataType").Form.(resolution.EnumForm)
+				Expect(ok).To(BeTrue())
+				Expect(form.Narrows()).To(BeTrue())
+				Expect(form.Superset.Name).To(Equal("telem.DataType"))
+				Expect(form.IsIntEnum).To(BeFalse())
+				Expect(names(form)).To(Equal([]string{"int16", "float64"}))
+				Expect(form.Values[0].StringValue()).To(Equal("int16"))
+				Expect(
+					form.Values[0].Domains["doc"].Expressions[0].Values[0].StringValue,
+				).
+					To(Equal("is a signed 16-bit integer."))
+				Expect(
+					form.Values[1].Domains["doc"].Expressions[0].Values[0].StringValue,
+				).
+					To(Equal("is a 64-bit float in four registers."))
+				Expect(form.Declared).To(HaveLen(2))
+				Expect(form.Declared[0].Value).To(BeNil())
+				superset, ok := table.MustGet("telem.DataType").Form.(resolution.EnumForm)
+				Expect(ok).To(BeTrue())
+				Expect(superset.Values[1].Domains["doc"].Expressions[0].Values[0].
+					StringValue).To(Equal("is a signed 16-bit integer."))
+				Expect(superset.Values[0].Domains["doc"].Expressions[0].Values[0].
+					StringValue).To(Equal("is a 64-bit float."))
+			})
+
+			It("Should take the int kind and values of the superset", func() {
+				source := `
+				Rate enum {
+					slow = 1
+					fast = 2
+					max  = 3
+				}
+
+				Supported enum of Rate {
+					fast
+				}
+			`
+				table, diag := Analyze(source, "x", loader)
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+				form, ok := table.MustGet("x.Supported").Form.(resolution.EnumForm)
+				Expect(ok).To(BeTrue())
+				Expect(form.IsIntEnum).To(BeTrue())
+				Expect(form.Values).To(HaveLen(1))
+				Expect(form.Values[0].IntValue()).To(Equal(int64(2)))
+			})
+
+			It("Should narrow an extending enum and a narrowing enum", func() {
+				source := `
+				A enum { a = "a" }
+				B enum extends A { b = "b" }
+				Narrow enum of B {
+					a
+					b
+				}
+				Narrower enum of Narrow {
+					b
+				}
+			`
+				table, diag := Analyze(source, "x", loader)
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+				narrow, ok := table.MustGet("x.Narrow").Form.(resolution.EnumForm)
+				Expect(ok).To(BeTrue())
+				Expect(names(narrow)).To(Equal([]string{"a", "b"}))
+				narrower, ok := table.MustGet("x.Narrower").Form.(resolution.EnumForm)
+				Expect(ok).To(BeTrue())
+				Expect(names(narrower)).To(Equal([]string{"b"}))
+				Expect(narrower.Values[0].StringValue()).To(Equal("b"))
+			})
+
+			DescribeTable("Should reject a malformed narrowing enum",
+				func(source, message string) {
+					_, diag := Analyze(source, "x", loader)
+					Expect(diag.Ok()).To(BeFalse())
+					Expect(diag.Error()).To(ContainSubstring(message))
+				},
+				Entry("a member the superset lacks", `
+				Base enum { a = "a" }
+				Sub enum of Base { b }
+			`, "names b, which is not a member of x.Base"),
+				Entry("a repeated member", `
+				Base enum { a = "a" }
+				Sub enum of Base {
+					a
+					a
+				}
+			`, "names member a twice"),
+				Entry("no members", `
+				Base enum { a = "a" }
+				Sub enum of Base {}
+			`, "narrows x.Base to no members"),
+				Entry("a member with its own value", `
+				Base enum { a = "a" }
+				Sub enum of Base { a = "a" }
+			`, "member a takes its value from the narrowed enum"),
+				Entry("a bare member in a plain enum", `
+				Plain enum { a }
+			`, "member a needs a value"),
+				Entry("a superset that is not an enum", `
+				Thing struct { name string }
+				Sub enum of Thing { name }
+			`, "narrows x.Thing, which is not an enum"),
+				Entry("an unknown superset", `
+				Sub enum of Missing { a }
+			`, "narrows unknown enum"),
+				Entry("a keyword other than of", `
+				Base enum { a = "a" }
+				Sub enum from Base { a }
+			`, "expected 'of' before the enum it narrows"),
+				Entry("a superset that is not a plain reference", `
+				Base enum { a = "a" }
+				Sub enum of Base[] { a }
+			`, "must be a plain enum reference"),
+				Entry("narrowing and extending at once", `
+				Base enum { a = "a" }
+				Sub enum of Base extends Base { a }
+			`, "cannot both narrow and extend"),
+				Entry("a cyclic narrowing chain", `
+				A enum of B { a }
+				B enum of A { a }
+			`, "cyclic extends chain"),
+			)
+		})
+
 		It("Should collect field domains", func() {
 			source := `
 				User struct {

@@ -319,8 +319,14 @@ expressionValue
 // An enum may extend one or more other enums, taking the union of their
 // members (and optionally adding its own):
 //   AxisKey enum extends XAxisKey, YAxisKey {}
+// An enum may instead narrow another enum with the soft keyword `of`, keeping only the
+// members its body names. Each member is bare and takes its value from the superset:
+//   DataType enum of telem.DataType {
+//       int16
+//       float32
+//   }
 enumDef
-    : IDENT ENUM (EXTENDS typeRefList)? nl* LBRACE nl* enumBody RBRACE
+    : IDENT ENUM (IDENT typeRef)? (EXTENDS typeRefList)? nl* LBRACE nl* enumBody RBRACE
     ;
 
 // Enum body contains values and/or enum-level domains
@@ -328,10 +334,11 @@ enumBody
     : ((enumValue | domain) nl*)*
     ;
 
-// Enum values require explicit values (integer or string)
+// Enum values carry explicit values (integer or string), except in an enum that
+// narrows another, where each member is bare.
 // Optional body block for value-level domains (e.g., @doc)
 enumValue
-    : IDENT EQUALS (INT_LIT | STRING_LIT) enumValueBody?
+    : IDENT (EQUALS (INT_LIT | STRING_LIT))? enumValueBody?
     ;
 
 // Optional body for enum values (domains only)

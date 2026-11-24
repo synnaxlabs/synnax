@@ -255,6 +255,14 @@ var _ = Describe("Format", func() {
 			).To(ContainSubstring("AxisKey enum extends XAxisKey, YAxisKey {}"))
 		})
 
+		It("should format an enum that narrows another", func() {
+			Expect(format(
+				"DataType enum of telem.DataType {\n  int16\n  float64 { @doc value \"is a float.\" }\n}\n",
+			)).To(Equal(
+				"DataType enum of telem.DataType {\n    int16\n    float64 {\n        @doc value \"is a float.\"\n    }\n}\n",
+			))
+		})
+
 		It("should format an enum with domains", func() {
 			source := "Status enum {\n  ACTIVE = 1\n  INACTIVE = 2\n\n  @go output \"core/pkg/status\"\n}\n"
 			result := format(source)

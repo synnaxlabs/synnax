@@ -249,6 +249,10 @@ func (r *renderer) renderField(typeName, keyPrefix string, f resolution.Field) {
 func (r *renderer) renderEnum(t resolution.Type, f resolution.EnumForm) {
 	head := t.Name + " enum"
 	values := f.Values
+	if f.Narrows() {
+		head += " of " + r.ref(f.Superset)
+		values = f.Declared
+	}
 	if len(f.Extends) > 0 {
 		head += " extends " + r.refList(f.Extends)
 		values = f.Declared
@@ -256,11 +260,13 @@ func (r *renderer) renderEnum(t resolution.Type, f resolution.EnumForm) {
 	r.line(head + " {")
 	r.indent++
 	for _, v := range values {
-		line := v.Name + " = "
-		if f.IsIntEnum {
-			line += strconv.FormatInt(v.IntValue(), 10)
-		} else {
-			line += strconv.Quote(v.StringValue())
+		line := v.Name
+		switch {
+		case f.Narrows():
+		case f.IsIntEnum:
+			line += " = " + strconv.FormatInt(v.IntValue(), 10)
+		default:
+			line += " = " + strconv.Quote(v.StringValue())
 		}
 		exprs := append(
 			r.keptExpressions(v.Domains), r.extraValueLines(t.Name, v.Name)...,

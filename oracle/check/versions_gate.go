@@ -461,6 +461,9 @@ func (w depWalker) decl(
 		}
 	case resolution.EnumForm:
 		visit(form.Extends...)
+		if form.Narrows() {
+			visit(form.Superset)
+		}
 	case resolution.UnionForm:
 		for _, v := range form.Variants {
 			visit(v.Type)

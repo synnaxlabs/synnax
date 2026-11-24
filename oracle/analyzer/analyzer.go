@@ -533,7 +533,7 @@ func validateFieldOverrides(c *analysisCtx, typ resolution.Type) {
 func finalizeEnumExtensions(c *analysisCtx) {
 	for _, typ := range c.ownTypes() {
 		form, ok := typ.Form.(resolution.EnumForm)
-		if !ok || len(form.Extends) == 0 {
+		if !ok || (len(form.Extends) == 0 && !form.Narrows()) {
 			continue
 		}
 		merged, isInt, ok := effectiveEnumValues(c, typ, set.New[string]())
@@ -551,6 +551,61 @@ func finalizeEnumExtensions(c *analysisCtx) {
 			}
 		}
 	}
+}
+
+// narrowedEnumValues returns the members of form's superset that form's body names, in
+// body order. A member's own domains replace the superset member's domains of the same
+// name. The final bool is false when the superset is malformed or a member is unknown
+// or
+// repeated.
+func narrowedEnumValues(
+	c *analysisCtx,
+	typ resolution.Type,
+	form resolution.EnumForm,
+	visited set.Set[string],
+) ([]resolution.EnumValue, bool, bool) {
+	superset, _, ok := resolution.Dealias(form.Superset, c.table)
+	if !ok {
+		addTypeDiagf(c, typ, "enum %s narrows unknown enum %q",
+			typ.QualifiedName, form.Superset.Name)
+		return nil, false, false
+	}
+	if _, ok := superset.Form.(resolution.EnumForm); !ok {
+		addTypeDiagf(c, typ, "enum %s narrows %s, which is not an enum",
+			typ.QualifiedName, superset.QualifiedName)
+		return nil, false, false
+	}
+	members, isInt, ok := effectiveEnumValues(c, superset, visited)
+	if !ok {
+		return nil, false, false
+	}
+	if len(form.Values) == 0 {
+		addTypeDiagf(c, typ, "enum %s narrows %s to no members",
+			typ.QualifiedName, superset.QualifiedName)
+		return nil, false, false
+	}
+	picked := make([]resolution.EnumValue, 0, len(form.Values))
+	seen := set.New[string]()
+	for _, v := range form.Values {
+		if seen.Contains(v.Name) {
+			addTypeDiagf(c, typ, "enum %s names member %s twice",
+				typ.QualifiedName, v.Name)
+			return nil, false, false
+		}
+		seen.Add(v.Name)
+		member, found := lo.Find(members, func(m resolution.EnumValue) bool {
+			return m.Name == v.Name
+		})
+		if !found {
+			addTypeDiagf(c, typ, "enum %s names %s, which is not a member of %s",
+				typ.QualifiedName, v.Name, superset.QualifiedName)
+			return nil, false, false
+		}
+		member.Domains = maps.Clone(member.Domains)
+		maps.Copy(member.Domains, v.Domains)
+		picked = append(picked, member)
+	}
+	return picked, isInt, true
 }
 
 // addTypeDiagf records an error diagnostic attributed to the file that declares typ.
@@ -576,6 +631,9 @@ func effectiveEnumValues(
 		return nil, false, false
 	}
 	visited.Add(typ.QualifiedName)
+	if form.Narrows() {
+		return narrowedEnumValues(c, typ, form, visited)
+	}
 
 	var (
 		merged  []resolution.EnumValue
@@ -1780,7 +1838,7 @@ func pascalIdent(s string) string {
 }
 
 func collectEnum(c *analysisCtx, def parser.IEnumDefContext) {
-	name := def.IDENT().GetText()
+	name := def.IDENT(0).GetText()
 	qname := c.namespace + "." + name
 	if _, exists := c.table.Get(qname); exists {
 		d := diagnostics.Errorf(def, "duplicate type definition: %s", qname)
@@ -1789,6 +1847,34 @@ func collectEnum(c *analysisCtx, def parser.IEnumDefContext) {
 	}
 
 	form := resolution.EnumForm{}
+	if keyword := def.IDENT(1); keyword != nil {
+		if keyword.GetText() != "of" {
+			c.report(diagnostics.Errorf(
+				def,
+				"enum %s: expected 'of' before the enum it narrows, got %q",
+				name,
+				keyword.GetText(),
+			))
+			return
+		}
+		tr := def.TypeRef()
+		if !plainTypeRef(tr) {
+			c.report(diagnostics.Errorf(
+				def,
+				"enum %s: the narrowed type must be a plain enum reference, got %q",
+				name,
+				tr.GetText(),
+			))
+			return
+		}
+		if def.EXTENDS() != nil {
+			c.report(diagnostics.Errorf(
+				def, "enum %s cannot both narrow and extend enums", name,
+			))
+			return
+		}
+		form.Superset = collectTypeRef(c, tr, nil, "narrowed type")
+	}
 	if def.EXTENDS() != nil {
 		if typeRefList := def.TypeRefList(); typeRefList != nil {
 			for _, tr := range typeRefList.AllTypeRef() {
@@ -1810,6 +1896,13 @@ func collectEnum(c *analysisCtx, def parser.IEnumDefContext) {
 			ev := resolution.EnumValue{
 				Name:    v.IDENT().GetText(),
 				Domains: make(map[string]resolution.Domain),
+			}
+			if bare := v.EQUALS() == nil; bare != form.Narrows() {
+				format := "enum %s: member %s needs a value"
+				if !bare {
+					format = "enum %s: member %s takes its value from the narrowed enum"
+				}
+				c.report(diagnostics.Errorf(v, format, name, ev.Name))
 			}
 			if i := v.INT_LIT(); i != nil {
 				ev.Value = parseInt(c, v, i.GetText())
@@ -1956,12 +2049,13 @@ func resolveTypeRefs(c *analysisCtx, typ *resolution.Type) {
 		resolveActionRefs(c, typ, form.Actions)
 		typ.Form = form
 	case resolution.EnumForm:
-		if len(form.Extends) > 0 {
-			for i := range form.Extends {
-				resolveTypeRef(c, typ, &form.Extends[i])
-			}
-			typ.Form = form
+		for i := range form.Extends {
+			resolveTypeRef(c, typ, &form.Extends[i])
 		}
+		if form.Narrows() {
+			resolveTypeRef(c, typ, &form.Superset)
+		}
+		typ.Form = form
 	}
 }
 

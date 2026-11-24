@@ -586,7 +586,7 @@ var _ = Describe("Parser", func() {
 			Expect(schema.AllDefinition()).To(HaveLen(1))
 			enumDef := schema.Definition(0).EnumDef()
 			Expect(enumDef).NotTo(BeNil())
-			Expect(enumDef.IDENT().GetText()).To(Equal("TaskState"))
+			Expect(enumDef.IDENT(0).GetText()).To(Equal("TaskState"))
 
 			values := enumDef.EnumBody().AllEnumValue()
 			Expect(values).To(HaveLen(4))
@@ -740,14 +740,30 @@ var _ = Describe("Parser", func() {
 			Expect(diag.Ok()).To(BeFalse())
 		})
 
-		It("Should report errors for invalid enum value", func() {
+		It("Should report errors for an enum value without a literal", func() {
 			_, diag := parser.Parse(`
 				State enum {
-					pending
+					pending =
 				}
-			`) // missing = value
-			Expect(diag).To(MatchError(ContainSubstring("expecting '='")))
+			`)
+			Expect(diag).To(MatchError(ContainSubstring("pending")))
 			Expect(diag.Ok()).To(BeFalse())
+		})
+
+		It("Should parse an enum that narrows another enum", func() {
+			schema := MustSucceed(parser.Parse(`
+				DataType enum of telem.DataType {
+					int16
+					float32 { @doc value "is a 32-bit float." }
+				}
+			`))
+			enumDef := schema.Definition(0).EnumDef()
+			Expect(enumDef.IDENT(1).GetText()).To(Equal("of"))
+			Expect(enumDef.TypeRef().GetText()).To(Equal("telem.DataType"))
+			values := enumDef.EnumBody().AllEnumValue()
+			Expect(values).To(HaveLen(2))
+			Expect(values[0].EQUALS()).To(BeNil())
+			Expect(values[1].EnumValueBody()).NotTo(BeNil())
 		})
 
 		It("Should parse an enum that extends other enums", func() {

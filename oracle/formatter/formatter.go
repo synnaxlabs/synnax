@@ -1482,8 +1482,11 @@ func (f *formatter) formatTypeArgs(ctx parser.ITypeArgsContext) {
 func (f *formatter) formatTypeModifiers() { f.write("?") }
 
 func (f *formatter) formatEnumDef(ctx parser.IEnumDefContext) {
-	f.write(ctx.IDENT().GetText())
+	f.write(ctx.IDENT(0).GetText())
 	f.write(" enum")
+	if keyword, ref := ctx.IDENT(1), ctx.TypeRef(); keyword != nil && ref != nil {
+		f.write(" " + keyword.GetText() + " " + ref.GetText())
+	}
 	if ctx.EXTENDS() != nil && ctx.TypeRefList() != nil {
 		f.write(" extends ")
 		refs := ctx.TypeRefList().AllTypeRef()
@@ -1539,13 +1542,9 @@ func (f *formatter) formatEnumValue(ctx parser.IEnumValueContext, alignTo int) {
 	name := ctx.IDENT().GetText()
 	f.write(name)
 
-	// Pad for alignment
-	padding := alignTo - len(name)
-	for range padding {
-		f.write(" ")
+	if ctx.EQUALS() != nil {
+		f.write(strings.Repeat(" ", alignTo-len(name)) + " = ")
 	}
-
-	f.write(" = ")
 	if ctx.INT_LIT() != nil {
 		f.write(ctx.INT_LIT().GetText())
 	} else if ctx.STRING_LIT() != nil {
