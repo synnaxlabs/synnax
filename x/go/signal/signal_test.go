@@ -511,6 +511,24 @@ var _ = Describe("Signal", func() {
 			Expect(ctx.Wait()).To(Succeed())
 			Eventually(ctx.Stopped()).Should(BeClosed())
 		})
+
+		It("Should not close while a routine waits to retry after a panic", func() {
+			ctx, cancel := signal.Isolated()
+			var attempts atomic.Int32
+			ctx.Go(func(ctx context.Context) error {
+				if attempts.Add(1) == 1 {
+					panic("first attempt")
+				}
+				<-ctx.Done()
+				return ctx.Err()
+			}, signal.WithRetryOnPanic())
+			Eventually(attempts.Load).Should(Equal(int32(1)))
+			ctx.Go(immediatelyReturnNil)
+			Consistently(ctx.Stopped(), 100*time.Millisecond).ShouldNot(BeClosed())
+			cancel()
+			Expect(ctx.Wait()).To(MatchError(context.Canceled))
+			Eventually(ctx.Stopped()).Should(BeClosed())
+		})
 	})
 
 	Describe("Shutdown Closers", func() {

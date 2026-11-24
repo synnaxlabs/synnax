@@ -12,7 +12,6 @@ package confluence_test
 import (
 	"context"
 	"sync/atomic"
-	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -58,12 +57,6 @@ var _ = Describe("Confluence", func() {
 				ctx,
 				CloseOutputInletsOnExit(),
 				WithRetryOnPanic(1),
-				func(opts *Options) {
-					opts.Signal = append(
-						opts.Signal,
-						signal.WithBaseRetryInterval(time.Millisecond),
-					)
-				},
 			)
 			// this panics
 			i.Inlet() <- 1
