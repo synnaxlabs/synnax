@@ -15,8 +15,10 @@ package actions
 
 import (
 	"bytes"
+	"strings"
 	"text/template"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/domain/doc"
 	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/internal/casing"
@@ -99,9 +101,10 @@ func (p *Plugin) generateFile(
 			Payload:  casing.TypePascal(action.Name) + "Payload",
 			Envelope: casing.VariantTypeName("Action", snake),
 			Type:     snake,
-			Field:    keywords.Escape(snake),
+			Field:    keywords.EscapeField(snake),
 			Doc:      doc.Get(action.Domains),
 		}
+		a.Config = envelopeConfig(a.Field, snake)
 		fp.Reserve(a.Payload)
 		fp.Reserve(a.Envelope)
 		fp.Reserve(a.Field)
@@ -111,7 +114,7 @@ func (p *Plugin) generateFile(
 		data.Actions = append(data.Actions, a)
 	}
 	fp.Reserve("Action")
-	hasAlias := false
+	hasConfig := false
 	for i, action := range actions {
 		a := &data.Actions[i]
 		if action.IsAlias() {
@@ -120,11 +123,11 @@ func (p *Plugin) generateFile(
 		for _, field := range action.Fields {
 			fd := fp.ProcessField(field)
 			a.Fields = append(a.Fields, fd)
-			a.HasAlias = a.HasAlias || fd.Alias != ""
 		}
-		hasAlias = hasAlias || a.HasAlias || a.Field != a.Type
+		a.PayloadConfig = payloadConfig(a.Fields)
+		hasConfig = hasConfig || a.PayloadConfig != "" || a.Config != ""
 	}
-	if hasAlias {
+	if hasConfig {
 		fp.AddPydantic("ConfigDict")
 	}
 	imports, err := fp.Imports()
@@ -146,6 +149,34 @@ type templateData struct {
 	Actions    []actionData
 }
 
+// payloadConfig returns the model_config options of a payload with fields, or empty
+// for none.
+func payloadConfig(fields []pytypes.FieldData) string {
+	var opts []string
+	if lo.SomeBy(fields, func(f pytypes.FieldData) bool { return f.Alias != "" }) {
+		opts = append(opts, "populate_by_name=True")
+	}
+	if lo.SomeBy(fields, func(f pytypes.FieldData) bool {
+		return keywords.Protected(f.Name)
+	}) {
+		opts = append(opts, "protected_namespaces=()")
+	}
+	return strings.Join(opts, ", ")
+}
+
+// envelopeConfig returns the model_config options of an envelope whose payload field is
+// named field and sent as typ, or empty for none.
+func envelopeConfig(field, typ string) string {
+	var opts []string
+	if field != typ {
+		opts = append(opts, "populate_by_name=True")
+	}
+	if keywords.Protected(field) {
+		opts = append(opts, "protected_namespaces=()")
+	}
+	return strings.Join(opts, ", ")
+}
+
 type actionData struct {
 	// Payload is the name of the payload model.
 	Payload string
@@ -159,9 +190,11 @@ type actionData struct {
 	Doc   string
 	// Target is the Python type of the struct that an action alias uses as its payload.
 	Target string
-	// HasAlias is true when a payload field has a wire name other than its attribute.
-	HasAlias bool
-	Fields   []pytypes.FieldData
+	// Config is the options of the envelope's model_config, or empty for none.
+	Config string
+	// PayloadConfig is the options of the payload's model_config, or empty for none.
+	PayloadConfig string
+	Fields        []pytypes.FieldData
 }
 
 func payloadDocstring(a actionData) string {
@@ -200,8 +233,8 @@ class {{ .Payload }}(BaseModel):
 {{- with payloadDocstring . }}
 {{ . }}
 {{- end }}
-{{- if .HasAlias }}
-    model_config = ConfigDict(populate_by_name=True)
+{{- with .PayloadConfig }}
+    model_config = ConfigDict({{ . }})
 {{ end }}
 {{- range .Fields }}
     {{ .Name }}: {{ .PyType }}{{ .Default }}
@@ -215,8 +248,8 @@ class {{ .Payload }}(BaseModel):
 
 
 class {{ .Envelope }}(BaseModel):
-{{- if ne .Field .Type }}
-    model_config = ConfigDict(populate_by_name=True)
+{{- with .Config }}
+    model_config = ConfigDict({{ . }})
 {{ end }}
     type: Literal["{{ .Type }}"] = "{{ .Type }}"
     {{ .Field }}: {{ .Payload }}{{ if ne .Field .Type }} = Field(alias="{{ .Type }}"){{ end }}

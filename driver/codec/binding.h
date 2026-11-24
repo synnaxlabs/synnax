@@ -9,7 +9,10 @@
 
 #pragma once
 
+#include <cstddef>
+
 #include "client/cpp/icd/types.gen.h"
+#include "x/cpp/errors/errors.h"
 #include "x/cpp/telem/telem.h"
 
 namespace driver::codec {
@@ -19,5 +22,17 @@ struct Binding {
     synnax::icd::FieldKey field;
     /// @brief data_type is the data type of the channel that the field writes to.
     x::telem::DataType data_type;
+};
+
+/// @brief Failure is a field that the last decode of its message could not decode.
+struct Failure {
+    /// @brief binding is the position of the field in the bindings of its message.
+    std::size_t binding = 0;
+    /// @brief missing is true when the payload has no value for the field, and the
+    /// field has no default.
+    bool missing = false;
+    /// @brief error is why the field did not decode. It names the field, and also the
+    /// message when the decoder holds more than one.
+    x::errors::Error error;
 };
 }

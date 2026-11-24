@@ -99,7 +99,10 @@ export interface Streamer {
    * once streaming is live. Safe to call concurrently and repeatedly.
    */
   demand: () => Promise<void>;
-  /** Closes the stream. A no-op when the stream was never demanded. */
+  /**
+   * Closes the stream, then waits for the changes it already received to finish
+   * handling. A no-op when the stream was never demanded.
+   */
   close: () => Promise<void>;
 }
 
@@ -124,6 +127,8 @@ export const createStreamer = ({
   let opened: Promise<ObservableStreamer> | null = null;
   let hardened: HardenedStreamer | null = null;
   let closed = false;
+  // A listener can await, so each frame waits for the one before it to apply.
+  let applied: Promise<void> = Promise.resolve();
   const report = (exc: unknown, message: string) => {
     if (NotFoundError.matches(exc)) return;
     if (isOffline(exc)) return;
@@ -160,8 +165,6 @@ export const createStreamer = ({
     // ObservableStreamer construction below starts reads, so onOpen precedes any frame.
     onLive?.();
     onOpen?.();
-    // A listener can await, so each frame waits for the one before it to apply.
-    let applied: Promise<void> = Promise.resolve();
     const handleChange = (frame: framer.Frame) => {
       const namesInFrame = frame.uniqueNames.sort(channelNameSort);
       applied = applied.then(async () => {
@@ -234,11 +237,18 @@ export const createStreamer = ({
     },
     close: async () => {
       closed = true;
-      // Interrupts an in-flight open's retry loop; opened then settles.
-      hardened?.close();
-      if (opened == null) return;
-      const streamer = await opened.catch(() => null);
+      try {
+        // Interrupts an in-flight open's retry loop; opened then settles.
+        hardened?.close();
+      } catch (exc) {
+        // The read loop can wait forever on a socket that failed to close, so only the
+        // changes already received are awaited.
+        await applied;
+        throw errors.fromUnknown(exc);
+      }
+      const streamer = await opened?.catch(() => null);
       if (streamer != null) await streamer.close();
+      await applied;
     },
   };
 };

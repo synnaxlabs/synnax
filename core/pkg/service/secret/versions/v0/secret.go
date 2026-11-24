@@ -19,9 +19,6 @@ var _ gorp.Entry[Key] = Secret{}
 // GorpKey returns the secret's storage key.
 func (s Secret) GorpKey() Key { return s.Base().Key }
 
-// SetOptions returns no additional storage options.
-func (Secret) SetOptions() []any { return nil }
-
 // ResourceID returns the secret's resource identifier.
 func (s Secret) ResourceID() resource.ID {
 	return resource.ID{Type: resource.TypeSecret, Key: s.Base().Key.String()}

@@ -50,7 +50,7 @@ export interface UseChildrenReturn {
 interface Lists {
   client: Client | null;
   order: ranger.Order;
-  byParent: Map<ranger.Key, query.List<ranger.Range, unknown>>;
+  byParent: Map<ranger.Key, query.list.List<ranger.Range, unknown>>;
 }
 
 /**
@@ -73,7 +73,7 @@ export const useChildren = ({
   if (lists.client !== client || lists.order !== stableOrder)
     setLists({ client, order: stableOrder, byParent: new Map() });
   const read = lists.client == null ? NO_PARENTS : keys;
-  const listOf = (key: ranger.Key): query.List<ranger.Range, unknown> =>
+  const listOf = (key: ranger.Key): query.list.List<ranger.Range, unknown> =>
     map.getOrInsert(lists.byParent, key, () => {
       if (lists.client == null) throw new Error("useChildren reads with no client");
       return lists.client.ranges.watch({

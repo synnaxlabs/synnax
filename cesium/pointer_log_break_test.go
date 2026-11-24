@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -156,6 +157,7 @@ var _ = Describe("Pointer log fatal path breaker", func() {
 		GinkgoHelper()
 		w, err := db.OpenWriter(ctx, cesium.WriterConfig{
 			Channels: keys,
+			Clock:    idx,
 			Start:    10 * telem.SecondTS,
 		})
 		if err != nil {
@@ -265,6 +267,7 @@ var _ = Describe("Pointer log breaker", func() {
 			func(ctx SpecContext) {
 				w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 					Channels: keys,
+					Clock:    idx,
 					Start:    10 * telem.SecondTS,
 				}))
 				write(ctx, w, 10, 11)
@@ -282,6 +285,7 @@ var _ = Describe("Pointer log breaker", func() {
 			func(ctx SpecContext) {
 				w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 					Channels: keys,
+					Clock:    idx,
 					Start:    10 * telem.SecondTS,
 				}))
 				write(ctx, w, 10, 11)
@@ -293,6 +297,7 @@ var _ = Describe("Pointer log breaker", func() {
 				Expect(w.Close()).To(MatchError(errBrkSync))
 				next := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 					Channels: keys,
+					Clock:    idx,
 					Start:    20 * telem.SecondTS,
 				}))
 				write(ctx, next, 20)
@@ -301,14 +306,15 @@ var _ = Describe("Pointer log breaker", func() {
 				open(ctx)
 				values := read(ctx)
 				Expect(values.Series).To(HaveLen(2))
-				Expect(values.Series[0]).To(telem.MatchSeriesDataV[int64](10, 11))
-				Expect(values.Series[1]).To(telem.MatchSeriesDataV[int64](20))
+				Expect(values.Series[0]).To(MatchSeriesDataV[int64](10, 11))
+				Expect(values.Series[1]).To(MatchSeriesDataV[int64](20))
 			})
 
 		It("Should reopen after a later commit of a writer fails its segment sync",
 			func(ctx SpecContext) {
 				w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 					Channels: keys,
+					Clock:    idx,
 					Start:    10 * telem.SecondTS,
 				}))
 				write(ctx, w, 10, 11)
@@ -320,7 +326,7 @@ var _ = Describe("Pointer log breaker", func() {
 				Expect(w.Close()).To(MatchError(errBrkSync))
 				closeDB()
 				open(ctx)
-				Expect(read(ctx).Series[0]).To(telem.MatchSeriesDataV[int64](10, 11))
+				Expect(read(ctx).Series[0]).To(MatchSeriesDataV[int64](10, 11))
 			})
 	})
 
@@ -329,6 +335,7 @@ var _ = Describe("Pointer log breaker", func() {
 			func(ctx SpecContext) {
 				w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 					Channels: keys,
+					Clock:    idx,
 					Start:    10 * telem.SecondTS,
 				}))
 				write(ctx, w, 10, 11)
@@ -346,6 +353,7 @@ var _ = Describe("Pointer log breaker", func() {
 			func(ctx SpecContext) {
 				w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 					Channels: keys,
+					Clock:    idx,
 					Start:    10 * telem.SecondTS,
 				}))
 				write(ctx, w, 10, 11)
@@ -361,6 +369,7 @@ var _ = Describe("Pointer log breaker", func() {
 			func(ctx SpecContext) {
 				w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 					Channels: keys,
+					Clock:    idx,
 					Start:    10 * telem.SecondTS,
 				}))
 				write(ctx, w, 10, 11)
@@ -382,8 +391,9 @@ var _ = Describe("Pointer log breaker", func() {
 			func(ctx SpecContext) {
 				w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 					Channels: keys,
+					Clock:    idx,
 					Start:    10 * telem.SecondTS,
-					Mode:     cesium.WriterModeStreamOnly,
+					Unstored: true,
 				}))
 				written, _ := MustSucceed2(w.Write(ctx, frame(10, 11), nil))
 				Expect(written.Get(data).Series[0].Alignment.DomainIndex()).To(
@@ -406,6 +416,7 @@ var _ = Describe("Pointer log breaker", func() {
 			}
 			w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 				Channels: wide,
+				Clock:    idx,
 				Start:    1 * telem.SecondTS,
 			}))
 			series := make([]telem.Series, len(wide))
@@ -453,6 +464,7 @@ var _ = Describe("Pointer log breaker", func() {
 				}
 				failed := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 					Channels: wide,
+					Clock:    idx,
 					Start:    1 * telem.SecondTS,
 				}))
 				commits(failed, 1)
@@ -464,6 +476,7 @@ var _ = Describe("Pointer log breaker", func() {
 				Expect(failed.Close()).To(MatchError(errBrkSync))
 				w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 					Channels: wide,
+					Clock:    idx,
 					Start:    (second + 1) * telem.SecondTS,
 				}))
 				// Four entries of about 15 MB pass three quarters of log 1.
@@ -514,6 +527,7 @@ var _ = Describe("Pointer log breaker", func() {
 				}
 				failed := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 					Channels: wide,
+					Clock:    idx,
 					Start:    1 * telem.SecondTS,
 				}))
 				Expect(commits(failed, 1)).To(Succeed())
@@ -523,6 +537,7 @@ var _ = Describe("Pointer log breaker", func() {
 				Expect(failed.Close()).To(MatchError(errBrkSync))
 				w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 					Channels: wide,
+					Clock:    idx,
 					Start:    (second + 1) * telem.SecondTS,
 				}))
 				for range 5 {

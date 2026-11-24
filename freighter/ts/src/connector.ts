@@ -46,18 +46,16 @@ export interface Socket {
   onerror: Listener<object> | null;
 }
 
-/** Opens a WebSocket to the URL and sends the headers with the upgrade request. */
+/**
+ * Opens a WebSocket to the URL and sends the headers with the upgrade request. A dial
+ * that cannot send headers sends the Authorization header as the {@link subprotocols}.
+ */
 export type Dial = (url: string, headers: Record<string, string>) => Promise<Socket>;
 
 /** The functions a transport opens its connections with. */
 export interface Connector {
   fetch: Fetch;
   dial: Dial;
-  /**
-   * True when dial sends the Authorization header to the server. Otherwise the client
-   * puts it in the URL.
-   */
-  sendsHeaders?: boolean;
 }
 
 // Node, Bun, and Deno take a headers option that the DOM types do not have.
@@ -71,40 +69,43 @@ const SUBPROTOCOL = "synnax.v1";
 const TOKEN_SUBPROTOCOL_PREFIX = "synnax.token.";
 const BEARER_PREFIX = "Bearer ";
 
-// A session token or API key holds only base64url characters, which a subprotocol
-// allows.
-const openWithSubprotocol = (url: string, authorization?: string): Socket => {
-  if (authorization == null) return new WebSocket(url);
+/**
+ * Returns the WebSocket subprotocols that carry the Authorization header to the Core.
+ * @param authorization - The Authorization header value, or undefined for none.
+ * @throws {Error} if the authorization is not a Bearer token.
+ */
+export const subprotocols = (authorization?: string): string[] => {
+  if (authorization == null) return [];
   if (!authorization.startsWith(BEARER_PREFIX))
     throw new Error("WebSocket authorization must be a Bearer token");
+  // A session token or API key holds only base64url characters, which a subprotocol
+  // allows.
   const token = authorization.slice(BEARER_PREFIX.length);
-  return new WebSocket(url, [SUBPROTOCOL, `${TOKEN_SUBPROTOCOL_PREFIX}${token}`]);
+  return [SUBPROTOCOL, `${TOKEN_SUBPROTOCOL_PREFIX}${token}`];
 };
 
-/**
- * Opens connections with the runtime's global fetch and WebSocket. A DOM WebSocket
- * cannot send headers, so it sends only the Authorization header, as a subprotocol.
- */
-export const DEFAULT_CONNECTOR: Connector = {
+// A DOM WebSocket cannot send headers, so it sends only the Authorization header, as a
+// subprotocol.
+const GLOBAL_CONNECTOR: Connector = {
   fetch: async (target, init) => await fetch(target, init),
   // An Electron renderer or jsdom page sets process.versions.node but has a DOM
   // WebSocket.
   dial: async (url, headers) =>
     runtime.RUNTIME === "node" && typeof document === "undefined"
       ? openWithOptions(url, { headers })
-      : openWithSubprotocol(url, headers.Authorization),
-  sendsHeaders: true,
+      : new WebSocket(url, subprotocols(headers.Authorization)),
 };
 
 // A CA list replaces the default list in Node and Bun, so it must keep the defaults.
 const withDefaultCAs = async (ca: string): Promise<string[]> => {
-  const { getCACertificates, rootCertificates } = await import("node:tls");
+  // webpack cannot build a node: import for a browser, but it skips getBuiltinModule.
+  const { getCACertificates, rootCertificates } = process.getBuiltinModule("node:tls");
   // Node 22.15 added getCACertificates. Before it, the defaults are the bundled roots
   // and NODE_EXTRA_CA_CERTS.
   if (getCACertificates != null) return [...getCACertificates("default"), ca];
   const extra = process.env.NODE_EXTRA_CA_CERTS;
   if (extra == null || extra === "") return [...rootCertificates, ca];
-  const { readFile } = await import("node:fs/promises");
+  const { readFile } = process.getBuiltinModule("node:fs/promises");
   // Node warns and skips an unreadable NODE_EXTRA_CA_CERTS file, so this skips it too.
   const extraCAs = await readFile(extra, "utf8").catch(() => null);
   return extraCAs == null
@@ -112,13 +113,37 @@ const withDefaultCAs = async (ca: string): Promise<string[]> => {
     : [...rootCertificates, extraCAs, ca];
 };
 
-const loadUndici = async (ca: string) => {
-  const { Agent, fetch, WebSocket } = await import("undici");
-  const connect = { ca: await withDefaultCAs(ca) };
-  return { fetch, WebSocket, dispatcher: new Agent({ connect }) };
+const loadUndici = async (ca?: string) => {
+  const { EnvHttpProxyAgent, fetch, WebSocket } = await import("undici");
+  // The agent uses connect for a direct connection and requestTls through a proxy.
+  const tls = ca == null ? undefined : { ca: await withDefaultCAs(ca) };
+  const dispatcher = new EnvHttpProxyAgent({ connect: tls, requestTls: tls });
+  return { fetch, WebSocket, dispatcher };
 };
 
-const nodeConnector = (ca: string): Connector => {
+const PROXY_VARIABLES: Array<[string, string]> = [
+  ["http_proxy", "HTTP_PROXY"],
+  ["https_proxy", "HTTPS_PROXY"],
+];
+
+// Undici reads the lowercase name first, and an empty value sets no proxy.
+const proxyVariables = (): Array<[string, string]> =>
+  PROXY_VARIABLES.flatMap(([lower, upper]): Array<[string, string]> => {
+    const name = process.env[lower] == null ? upper : lower;
+    const value = process.env[name];
+    return value == null || value === "" ? [] : [[name, value]];
+  });
+
+// URL reads the host of "host:port" as a scheme, so the protocol must be checked.
+const isProxyURL = (value: string): boolean =>
+  URL.canParse(value) && ["http:", "https:"].includes(new URL(value).protocol);
+
+const nodeConnector = (ca?: string): Connector => {
+  // Undici throws for an invalid proxy URL only at the first connection, and without
+  // the name of the variable.
+  for (const [name, value] of proxyVariables())
+    if (!isProxyURL(value))
+      throw new Error(`${name} is not a valid proxy URL: "${value}"`);
   // Node's built-in fetch and WebSocket reject an Agent from the undici package, so
   // the connections use the package's own fetch and WebSocket. The import waits for
   // the first connection, so a client that never connects never loads undici.
@@ -145,7 +170,6 @@ const nodeConnector = (ca: string): Connector => {
       const { WebSocket, dispatcher } = await load();
       return new WebSocket(url, { dispatcher, headers });
     },
-    sendsHeaders: true,
   };
 };
 
@@ -158,7 +182,6 @@ const bunConnector = (ca: string): Connector => {
       return await fetch(target, req);
     },
     dial: async (url, headers) => openWithOptions(url, { headers, tls: await load() }),
-    sendsHeaders: true,
   };
 };
 
@@ -181,13 +204,32 @@ const denoConnector = (deno: object, ca: string): Connector => {
   };
 };
 
+// Bun and Deno read the proxy variables themselves. Node's global fetch does not.
+const usesNodeProxy = (): boolean =>
+  runtime.RUNTIME === "node" &&
+  typeof document === "undefined" &&
+  !("Bun" in globalThis) &&
+  !("Deno" in globalThis) &&
+  proxyVariables().length > 0;
+
+/**
+ * Returns the connector a client uses when it is given none: the runtime's global
+ * fetch and WebSocket. In Node, when HTTP_PROXY or HTTPS_PROXY is set, the connector
+ * sends connections through that proxy, except to the hosts in NO_PROXY.
+ * @throws {Error} in Node, if a proxy variable is not an http or https URL.
+ */
+export const defaultConnector = (): Connector =>
+  usesNodeProxy() ? nodeConnector() : GLOBAL_CONNECTOR;
+
 /**
  * Returns a connector that trusts the CA certificate and the runtime's default
- * certificates. In Deno, the connector's dial throws, because a Deno WebSocket cannot
+ * certificates. In Node, the connector uses the proxy that HTTP_PROXY, HTTPS_PROXY, and
+ * NO_PROXY name. In Deno, the connector's dial throws, because a Deno WebSocket cannot
  * trust a CA certificate of its own.
  * @param caCert - The PEM text of the CA certificate.
  * @throws {Error} in a browser, which trusts only the operating system or browser
  * certificate store.
+ * @throws {Error} in Node, if a proxy variable is not an http or https URL.
  */
 export const trustCA = (caCert: string): Connector => {
   const deno: unknown = Reflect.get(globalThis, "Deno");
