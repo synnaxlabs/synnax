@@ -20,7 +20,7 @@ import {
 import { z } from "zod";
 
 import { channel } from "@/channel";
-import { SynnaxError } from "@/errors";
+import { SynnaxError, ValidationError } from "@/errors";
 import { type ChannelRetriever, WriteAdapter } from "@/framer/adapter";
 import { WSWriterCodec } from "@/framer/codec";
 import { type CrudeFrame, frameZ } from "@/framer/frame";
@@ -83,12 +83,6 @@ const baseWriterConfigZ = z.object({
    * to a channel without permission.
    */
   errOnUnauthorized: z.boolean().default(false),
-  /**
-   * enableAutoCommit determines whether the writer will automatically commit. If
-   * enableAutoCommit is true, then the writer will commit after each write, and will
-   * flush that commit to index after the specified autoIndexPersistInterval.
-   */
-  enableAutoCommit: z.boolean().default(true),
   /** autoIndexPersistInterval sets the interval at which commits will be flushed to
    * disk. */
   autoIndexPersistInterval: TimeSpan.z.default(TimeSpan.SECOND),
@@ -105,6 +99,7 @@ const baseWriterConfigZ = z.object({
 
 const netWriterConfigZ = baseWriterConfigZ.extend({
   keys: channel.keyZ.array().optional(),
+  enableAutoCommit: z.boolean().optional(),
 });
 
 export type NetWriterConfig = z.input<typeof netWriterConfigZ>;
@@ -112,6 +107,14 @@ export type NetWriterConfig = z.input<typeof netWriterConfigZ>;
 // Intermediate utility type to allow for the use of paramsZ in the writer config.
 const intermediateWriterConfigZ = baseWriterConfigZ.extend({
   channels: channel.paramsZ,
+  /**
+   * autoCommitDisabled sets whether the writer waits for a call to commit. By default,
+   * the writer commits after each write, and flushes that commit to the index after
+   * autoIndexPersistInterval.
+   */
+  autoCommitDisabled: z.boolean().optional(),
+  // WriterOptions marks it deprecated, since a tag here flags the schema's own reads.
+  enableAutoCommit: z.boolean().optional(),
 });
 
 /** Zod schema for {@link WriterConfig}. A bare channel list parses as a config. */
@@ -121,8 +124,16 @@ export const writerConfigZ = intermediateWriterConfigZ.or(
   ),
 );
 
+interface WriterOptions extends Omit<
+  z.input<typeof intermediateWriterConfigZ>,
+  "enableAutoCommit"
+> {
+  /** @deprecated Use autoCommitDisabled, its inverse. Removed in 0.64. */
+  enableAutoCommit?: boolean;
+}
+
 /** Config for a writer. Pass it to `client.telem.openWriter`. */
-export type WriterConfig = z.input<typeof writerConfigZ>;
+export type WriterConfig = WriterOptions | z.input<typeof channel.paramsZ>;
 
 const reqZ = z.object({
   command: z.enum(WriterCommand),
@@ -188,6 +199,22 @@ export type AuthorityParams = z.input<typeof authorityParamsZ>;
 
 interface Response extends z.infer<typeof resZ> {}
 
+const resolveAutoCommitDisabled = ({
+  autoCommitDisabled,
+  enableAutoCommit,
+}: {
+  autoCommitDisabled?: boolean;
+  enableAutoCommit?: boolean;
+}): boolean => {
+  if (enableAutoCommit == null) return autoCommitDisabled ?? false;
+  if (autoCommitDisabled != null)
+    throw new ValidationError(
+      "Give autoCommitDisabled or the deprecated enableAutoCommit, not both",
+    );
+  console.warn("enableAutoCommit is deprecated. Use autoCommitDisabled, its inverse.");
+  return !enableAutoCommit;
+};
+
 /**
  * Writes telemetry to a set of channels in time order. Open one with
  * {@link FrameClient#openWriter}, never directly. Prefer the frame client's write
@@ -221,14 +248,21 @@ export class Writer {
     client: WebSocketClient,
     config: WriterConfig,
   ): Promise<Writer> {
-    const cfg = zod.parse(writerConfigZ, config);
+    const { autoCommitDisabled, enableAutoCommit, ...cfg } = zod.parse(
+      writerConfigZ,
+      config,
+    );
+    const autoCommit = !resolveAutoCommitDisabled({
+      autoCommitDisabled,
+      enableAutoCommit,
+    });
     const adapter = await WriteAdapter.open(retrieveChannels, cfg.channels);
     client = client.withCodec(new WSWriterCodec(adapter.codec));
     const stream = await client.stream("/frame/write", reqZ, resZ);
     const writer = new Writer(stream, adapter);
     await writer.execute({
       command: WriterCommand.Open,
-      config: { ...cfg, keys: adapter.keys },
+      config: { ...cfg, keys: adapter.keys, enableAutoCommit: autoCommit },
     });
     return writer;
   }

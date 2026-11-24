@@ -362,7 +362,7 @@ describe("Writer", () => {
         start,
         channels,
         authorities: 10,
-        enableAutoCommit: false,
+        autoCommitDisabled: true,
       });
       await low.write(frame(5));
       // The acknowledged command orders the write before the next writer opens.
@@ -378,6 +378,71 @@ describe("Writer", () => {
       const granted = await low.commitResult();
       expect(granted.authorized).toBe(true);
       expect(granted.end).toEqual(TimeStamp.seconds(6).add(1));
+    });
+
+    describe("auto commit", () => {
+      const time = new channel.Channel({
+        key: 1,
+        name: "time",
+        dataType: DataType.TIMESTAMP,
+        isIndex: true,
+      });
+      // Opens a writer on a fake transport and returns the open request it sent.
+      const openRequest = async (config: {
+        autoCommitDisabled?: boolean;
+        enableAutoCommit?: boolean;
+      }): Promise<framer.WriteRequest> => {
+        const sent: framer.WriteRequest[] = [];
+        const stream = {
+          send: (req: framer.WriteRequest) => {
+            sent.push(req);
+          },
+          closeSend: () => {},
+          received: () => false,
+          receive: async () => ({
+            command: framer.WriterCommand.Open,
+            end: TimeStamp.ZERO,
+            authorized: true,
+          }),
+        };
+        const transport = { withCodec: () => transport, stream: async () => stream };
+        await framer.Writer._open(
+          async () => [time.payload],
+          transport as unknown as WebSocketClient,
+          { channels: [time.key], ...config },
+        );
+        return sent[0];
+      };
+
+      test("should send enable_auto_commit true by default", async () => {
+        const req = await openRequest({});
+        expect(req.config?.enableAutoCommit).toBe(true);
+        expect(req.config).not.toHaveProperty("autoCommitDisabled");
+      });
+
+      test("should send enable_auto_commit false when autoCommitDisabled", async () => {
+        const req = await openRequest({ autoCommitDisabled: true });
+        expect(req.config?.enableAutoCommit).toBe(false);
+      });
+
+      test("should map the deprecated enableAutoCommit with a warning", async () => {
+        const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+        try {
+          const req = await openRequest({ enableAutoCommit: false });
+          expect(req.config?.enableAutoCommit).toBe(false);
+          expect(warn).toHaveBeenCalledExactlyOnceWith(
+            "enableAutoCommit is deprecated. Use autoCommitDisabled, its inverse.",
+          );
+        } finally {
+          warn.mockRestore();
+        }
+      });
+
+      test("should throw when both names are given", async () => {
+        await expect(
+          openRequest({ autoCommitDisabled: true, enableAutoCommit: true }),
+        ).rejects.toThrow(ValidationError);
+      });
     });
 
     describe("commitResult after the stream ends", () => {

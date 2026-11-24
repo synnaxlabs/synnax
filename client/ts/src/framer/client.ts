@@ -89,6 +89,8 @@ export class Client {
    * @param config - The configuration for the created writer, see documentation for
    * writerConfig for more detail.
    * @returns a new {@link Writer}.
+   * @throws {ValidationError} if config gives both autoCommitDisabled and
+   * enableAutoCommit.
    */
   async openWriter(config: WriterConfig): Promise<Writer> {
     return await Writer._open(this.cfg.retrieveChannels, this.cfg.stream, config);
