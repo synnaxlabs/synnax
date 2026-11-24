@@ -168,11 +168,24 @@ const PlainTargetPane = ({
 }: PaneProps<PlainWriteTarget>): ReactElement => {
   const { set } = PForm.useContext();
   const isPreview = Task.useIsPreview();
+  const formats = ICD.useFormats();
+  const [opened, setOpened] = useState<icd.FieldKey>();
   const target = PForm.useFieldValue(path);
   const message = ICD.useMessage(target.icd, target.message.message);
   const prefix = namePrefix(deviceName, target.topic);
   const handleFormatChange = (icdKey: icd.Key, picked: icd.Message) =>
     set(path, { ...target, icd: icdKey, message: ICD.Write.create(picked) });
+  // The Suit of the target binds the new field.
+  const handleAddField = () => {
+    const fields = ICD.jsonFields(message);
+    const field = ICD.createJSONField(fields);
+    ICD.formatOf(formats, target.icd).insert(
+      ICD.fieldsPath(target.message.message),
+      field,
+      fields.at(-1)?.key,
+    );
+    setOpened(field.key);
+  };
   return (
     <PForm.Sections>
       <PForm.Section title="Publish">
@@ -185,7 +198,15 @@ const PlainTargetPane = ({
         <QoSField path={path.qos} />
         <PForm.CheckboxField path={path.retained} label="Retain" padHelpText={false} />
       </PForm.Section>
-      <PForm.Section title="Message">
+      <PForm.Section
+        title="Message"
+        actions={
+          <ICD.AddField
+            onClick={handleAddField}
+            disabled={message?.payload.format !== "json"}
+          />
+        }
+      >
         <ICD.MessageFormatField
           icdKey={target.icd}
           message={target.message.message}
@@ -196,9 +217,11 @@ const PlainTargetPane = ({
       <ICD.MessageStatus message={message} missingDescription={MISSING_DESCRIPTION} />
       <ICD.Write.Bindings
         path={path.message.bindings}
-        fields={ICD.jsonFields(message)}
+        icdKey={target.icd}
+        message={target.message.message}
         channelName={(field) => commandName(prefix, field)}
         skipped={target.disabled}
+        opened={opened}
       />
     </PForm.Sections>
   );

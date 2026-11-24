@@ -9,7 +9,7 @@
 
 /// <reference types="vitest/config" />
 
-import { layers, plutoLayers, reactCompiler } from "@synnaxlabs/vite-plugin";
+import { layers, plutoLayers, reactCompiler, testCore } from "@synnaxlabs/vite-plugin";
 import react from "@vitejs/plugin-react";
 import { playwright } from "@vitest/browser-playwright";
 import * as fs from "node:fs/promises";
@@ -75,13 +75,6 @@ const browserProject = ({
       setupFiles: ["src/testutil/browser.ts"],
       include,
       exclude,
-      // A browser has no `process` to read the test Core from.
-      provide: {
-        synnaxTestCore: {
-          host: process.env.SYNNAX_TEST_HOST ?? "localhost",
-          port: Number(process.env.SYNNAX_TEST_PORT ?? 9090),
-        },
-      },
       browser: {
         enabled: true,
         headless: true,
@@ -221,6 +214,7 @@ export default defineConfig({
   },
   test: {
     globals: true,
+    provide: testCore(),
     testTimeout: 15_000,
     hookTimeout: 15_000,
     // A Core write can take more than the 1 s default, so polls wait as long as Testing
