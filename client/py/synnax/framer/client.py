@@ -130,9 +130,9 @@ class Client:
         particular channel does not exactly match this data type. When False, the
         default, the writer will automatically convert the data to the correct type if
         possible.
-        :param warnings_shown: when True, the writer warns each time it converts
-        samples to the data type of the channel. The deprecated suppress_warnings
-        keyword is the opposite of this one.
+        :param warnings_shown: when True, the writer warns each time it converts samples
+        to the data type of the channel. The deprecated suppress_warnings keyword is the
+        opposite of this one.
         :param mode: sets the persistence and streaming mode of the writer. The default
         mode is WriterModePersistStream. See the WriterMode documentation for more.
         :param err_on_unauthorized: sets whether the writer should return an error if it
@@ -153,8 +153,8 @@ class Client:
         to the writer implicitly.
         :param extra_channels_allowed: when True, a write of a Frame or DataFrame leaves
         out the channel names that the writer is not open on instead of raising
-        ValidationError.
-        The deprecated err_on_extra_chans keyword is the opposite of this one.
+        ValidationError. The deprecated err_on_extra_chans keyword is the opposite of
+        this one.
         """
         if channels is None:
             raise ValidationError("open_writer requires channels")
