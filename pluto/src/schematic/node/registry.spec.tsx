@@ -43,6 +43,18 @@ describe("Schematic.Node.REGISTRY", () => {
   });
 });
 
+describe("Schematic.Node.BUILT_INS", () => {
+  it("should hold a spec for each symbol that the Core lists", async () => {
+    const builtins = await createTestClient().schematics.symbols.retrieveBuiltins();
+    expect([...Node.BUILT_INS.keys()].sort()).toEqual(
+      builtins.map((b) => b.name).sort(),
+    );
+  });
+  it("should hold no spec for a name that only an object prototype has", () => {
+    expect(Node.BUILT_INS.get("constructor")).toBeUndefined();
+  });
+});
+
 describe("Schematic.Node.isConfig", () => {
   it("should accept a node config", () => {
     expect(Node.isConfig(Node.createConfig({ variant: "tank" }))).toBe(true);
@@ -91,9 +103,9 @@ describe("Schematic.Node.STATIC_SPECS", () => {
     for (const variant of Node.CUSTOM_VARIANTS) expect(keys).not.toContain(variant);
   });
 
-  it("should include all non-custom registry entries except groupBox", () => {
+  it("should include all non-custom registry entries except groupBox and symbol", () => {
     const expectedKeys = Object.keys(Node.REGISTRY).filter(
-      (k) => !Node.isCustomVariant(k) && k !== GroupBox.VARIANT,
+      (k) => !Node.isCustomVariant(k) && k !== GroupBox.VARIANT && k !== "symbol",
     );
     const actualKeys = Node.STATIC_SPECS.map((s) => s.key);
     expect(actualKeys).toEqual(expect.arrayContaining(expectedKeys));
@@ -103,6 +115,10 @@ describe("Schematic.Node.STATIC_SPECS", () => {
   it("should not include groupBox", () => {
     const keys = Node.STATIC_SPECS.map((s) => s.key);
     expect(keys).not.toContain(GroupBox.VARIANT);
+  });
+
+  it("should not include the symbol placeholder", () => {
+    expect(Node.STATIC_SPECS.map((s) => s.key)).not.toContain("symbol");
   });
 
   it("groupBox should exist in the registry", () => {

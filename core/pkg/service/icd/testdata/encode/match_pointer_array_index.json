@@ -1,0 +1,17 @@
+{
+  "description": "A match pointer cannot hold an array index.",
+  "message": {
+    "name": "command",
+    "payload": {
+      "format": "json",
+      "match": {
+        "type": "integer",
+        "pointer": "/10",
+        "value": "1"
+      },
+      "fields": []
+    },
+    "bindings": []
+  },
+  "error": "message command: match: pointer \"/10\" holds an array index, which a document cannot place: validation error"
+}

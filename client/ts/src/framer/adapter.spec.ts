@@ -11,9 +11,8 @@ import { array, DataType, id, Series, TimeStamp } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import type { channel } from "@/channel";
-import { NotFoundError } from "@/errors";
 import { type ChannelRetriever, ReadAdapter, WriteAdapter } from "@/framer/adapter";
-import { Frame } from "@/index";
+import { Frame, NotFoundError } from "@/index";
 import { createTestClient } from "@/testutil";
 
 const client = createTestClient();

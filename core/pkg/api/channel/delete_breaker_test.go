@@ -45,10 +45,17 @@ func oldDelete(
 			return err
 		}
 	}
-	if len(req.Names) > 0 {
-		return w.DeleteManyByNames(ctx, req.Names)
+	if len(req.Names) == 0 {
+		return nil
 	}
-	return nil
+	var named []channel.Channel
+	if err := svc.NewRetrieve().
+		Where(channel.MatchNames(channel.NormalizeNames(req.Names)...)).
+		Entries(&named).
+		Exec(ctx, tx); err != nil {
+		return err
+	}
+	return w.DeleteMany(ctx, channel.KeysFromChannels(named), false)
 }
 
 var _ = Describe("Delete breaker", func() {

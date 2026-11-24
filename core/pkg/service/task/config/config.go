@@ -209,10 +209,11 @@ type ServiceConfig[E gorp.Entry[uuid.UUID]] struct {
 		name string,
 		e *E,
 	) (func(context.Context, gorp.Tx) error, error)
-	// ReconcileEntry changes a normalized entry to agree with other resources, read
-	// through tx, so that a config from an older version or another Core passes
-	// ResolveEntry. Normalize runs it at every version. Prepare and Edit do not.
-	// [OPTIONAL] - nil when the entry depends on no other resource.
+	// ReconcileEntry changes a normalized entry, such as to agree with other resources
+	// read through tx, so that a config from an older version or another Core passes
+	// ResolveEntry and ValidateEntry. Normalize runs it at every version. Prepare and
+	// Edit do not.
+	// [OPTIONAL] - nil when every such config passes as it is.
 	ReconcileEntry func(ctx context.Context, tx gorp.Tx, e *E) error
 	// ValidateEntry checks a decoded entry before it is stored.
 	// [OPTIONAL] - nil when the entry type has no validation rules.

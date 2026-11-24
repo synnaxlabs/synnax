@@ -7,8 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import re
-
 from console.notifications import click_past
 from console.schematic.symbol import Properties, Symbol
 from x.notation import Notation
@@ -33,7 +31,6 @@ class Value(Symbol):
         notation: Notation | None = None,
         precision: int | None = None,
         averaging_window: int | None = None,
-        stale_color: str | None = None,
         stale_timeout: int | None = None,
         symbol_type: str = "Value",
     ):
@@ -44,7 +41,6 @@ class Value(Symbol):
         :param notation: Number notation format (optional)
         :param precision: Decimal precision (optional)
         :param averaging_window: Averaging window size (optional)
-        :param stale_color: Color for stale data (optional)
         :param stale_timeout: Timeout for stale data in milliseconds (optional)
         :param symbol_type: The type of symbol (default: "Value")
         """
@@ -53,7 +49,6 @@ class Value(Symbol):
         self.notation = notation
         self.precision = precision
         self.averaging_window = averaging_window
-        self.stale_color = stale_color
         self.stale_timeout = stale_timeout
 
     def _apply_properties(self) -> None:
@@ -63,7 +58,6 @@ class Value(Symbol):
             notation=self.notation,
             precision=self.precision,
             averaging_window=self.averaging_window,
-            stale_color=self.stale_color,
             stale_timeout=self.stale_timeout,
         )
 
@@ -74,7 +68,6 @@ class Value(Symbol):
         notation: Notation | None = None,
         precision: int | None = None,
         averaging_window: int | None = None,
-        stale_color: str | None = None,
         stale_timeout: int | None = None,
     ) -> None:
         """Set Value symbol properties including channel and telemetry settings."""
@@ -104,14 +97,6 @@ class Value(Symbol):
             self.layout.fill_input_field("Averaging window", str(averaging_window))
             self.page.keyboard.press("Enter")
 
-        if stale_color is not None:
-            if not re.match(r"^#[0-9A-Fa-f]{6}$", stale_color):
-                raise ValueError(
-                    "stale_color must be a valid hex color (e.g., #FF5733)"
-                )
-            self.layout.fill_input_field("Color", stale_color.replace("#", ""))
-            self.page.keyboard.press("Enter")
-
         if stale_timeout is not None:
             self.layout.fill_input_field("Timeout", str(stale_timeout))
             self.page.keyboard.press("Enter")
@@ -124,7 +109,6 @@ class Value(Symbol):
             "channel": "",
             "precision": -1,
             "averaging_window": -1,
-            "stale_color": "",
             "stale_timeout": -1,
         }
 
@@ -151,10 +135,5 @@ class Value(Symbol):
             for notation, label in _NOTATION_LABELS.items()
             if label == selected
         )
-
-        # The staleness color box is empty while the theme picks the color.
-        hex_value = self.layout.get_input_field("Color")
-        if hex_value:
-            props["stale_color"] = f"#{hex_value.upper()}"
 
         return props

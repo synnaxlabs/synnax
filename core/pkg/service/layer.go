@@ -477,13 +477,15 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Limit:           l.License.CheckChannelLimit,
 		ValidateNames:   cfg.ValidateChannelNames,
 		Status:          l.Status,
-		// The calculation service opens after this one, so a fill reads it as it runs.
-		Fills: func(
+		// The calculation service opens after this one, so an announce reads it as it
+		// runs.
+		AnnounceLinked: func(
 			ctx context.Context,
 			tx gorp.Tx,
+			w channel.Writer,
 			keys ...channel.Key,
-		) (map[channel.Key]channel.Fill, error) {
-			return l.Calculation.Fills(ctx, tx, keys...)
+		) error {
+			return l.Calculation.AnnounceOutputs(ctx, tx, w, keys...)
 		},
 		Computes: func(u channel.Use) bool {
 			return u.Holder.Table == string(resource.TypeCalculation) &&
@@ -557,9 +559,10 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if err = l.Signals.PublishActions(
 		ctx,
 		signals.ActionConfig[channel.Key, channel.Action]{
-			Name:     "sy_channel_action_set",
-			Actions:  l.Channel.Actions(),
-			Resource: channel.ResourceID,
+			Name:        "sy_channel_action_set",
+			Actions:     l.Channel.Actions(),
+			Resource:    channel.ResourceID,
+			BatchChecks: l.Calculation.ChannelBatchChecks,
 		},
 	); !ok(err, nil) {
 		return nil, err
@@ -1049,6 +1052,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Instrumentation: cfg.Child("http"),
 		DB:              cfg.Distribution.DB,
 		Channel:         l.Channel,
+		ICD:             l.ICD,
 	}); !ok(err, l.HTTP) {
 		return nil, err
 	}
@@ -1248,9 +1252,10 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			rangeAliasDropMigration,
 			l.PagerDuty.SecretMigration(taskNames(l.Task)),
 			l.Kafka.ICDMigration(taskNames(l.Task)),
+			l.HTTP.ICDMigration(taskNames(l.Task)),
 			opcua.PasswordMigration(l.Secret),
 			opcua.CertificateMigration(l.Certificate, l.Status),
-			ClearUnissuedChannelLinks(
+			clearUnissuedChannelLinks(
 				l.Schematic,
 				l.Table,
 				cfg.Distribution.Channel.IssuedAtFirstOpen,

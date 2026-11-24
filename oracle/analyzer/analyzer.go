@@ -12,6 +12,7 @@ package analyzer
 import (
 	"fmt"
 	"maps"
+	"math"
 	"slices"
 	"strconv"
 	"strings"
@@ -107,6 +108,7 @@ func Analyze(
 	validateLengthRules(table, diag)
 	validateFiniteRules(table, diag)
 	validatePatternRules(table, diag)
+	validateComparisonRules(table, diag)
 	validateRuleRanges(table, diag)
 	return table, diag
 }
@@ -144,6 +146,7 @@ func AnalyzeSeeded(
 	validateLengthRules(table, diag)
 	validateFiniteRules(table, diag)
 	validatePatternRules(table, diag)
+	validateComparisonRules(table, diag)
 	validateRuleRanges(table, diag)
 	return diag
 }
@@ -398,6 +401,7 @@ func analyze(c *analysisCtx) {
 		validateActionAliases(c, typ)
 		validateTypeParams(c, typ)
 		validateUnion(c, typ)
+		validateIntEnum(c, typ)
 		validateFieldOverrides(c, typ)
 	}
 
@@ -2486,6 +2490,36 @@ func validateUnionEnum(c *analysisCtx, typ resolution.Type, form resolution.Unio
 				"enum %s member %q has no variant in union %s",
 				enumType.Name, v.StringValue(), typ.Name))
 		}
+	}
+}
+
+// validateIntEnum reports an integer enum member that Go and C++ cannot hold in a
+// uint8, and two members that share a value.
+func validateIntEnum(c *analysisCtx, typ resolution.Type) {
+	form, ok := typ.Form.(resolution.EnumForm)
+	if !ok || !form.IsIntEnum {
+		return
+	}
+	byValue := make(map[int64]string, len(form.Values))
+	for _, v := range form.Values {
+		n := v.IntValue()
+		if n < 0 || n > math.MaxUint8 {
+			c.report(diagnostics.Errorf(
+				ruleCtx(typ.AST),
+				"enum %s member %s has value %d, which is not from 0 to 255",
+				typ.Name, v.Name, n,
+			))
+			continue
+		}
+		if other, dup := byValue[n]; dup {
+			c.report(diagnostics.Errorf(
+				ruleCtx(typ.AST),
+				"enum %s members %s and %s have the same value %d",
+				typ.Name, other, v.Name, n,
+			))
+			continue
+		}
+		byValue[n] = v.Name
 	}
 }
 
