@@ -287,6 +287,9 @@ const isLoop = (kind: schematic.symbol.MotionType): kind is Loop =>
 // replaces it in sight.
 const FOLLOWS = "Only a client can set a motion that follows a value.";
 
+// A part under a motion of the whole drawing takes no new motion of its own.
+const MOVES_WITH_DRAWING = "The whole drawing moves, and this part with it.";
+
 const MotionControl = (): ReactElement => {
   const { value, inherited, own, onChange, label } =
     useScope<"motion">("MotionControl");
@@ -314,9 +317,7 @@ const MotionControl = (): ReactElement => {
           itemKey="none"
           size="small"
           disabled={locked}
-          tooltip={
-            locked ? "The whole drawing moves, and this part with it." : undefined
-          }
+          tooltip={locked ? MOVES_WITH_DRAWING : undefined}
         >
           None
         </Select.Item>
@@ -334,8 +335,10 @@ const MotionControl = (): ReactElement => {
                   key={k.kind}
                   itemKey={k.kind}
                   size="small"
-                  disabled={!isLoop(k.kind)}
-                  tooltip={isLoop(k.kind) ? undefined : FOLLOWS}
+                  disabled={locked || !isLoop(k.kind)}
+                  tooltip={
+                    !isLoop(k.kind) ? FOLLOWS : locked ? MOVES_WITH_DRAWING : undefined
+                  }
                 >
                   {k.name}
                 </Select.Item>
