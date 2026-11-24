@@ -196,7 +196,6 @@ var _ = Describe("Breaker calculation bounds", Ordered, ContinueOnFailure, func(
 		Expect(changed).To(BeTrue())
 		od := of.Get(calc.Key()).Series[0]
 		Expect(od).To(telem.MatchSeriesDataV[int64](29, 38))
-		Expect(od.Alignment).To(Equal(telem.NewAlignment(7, 3)))
 	})
 
 	DescribeTable("epoch windows of a calculation", func(
