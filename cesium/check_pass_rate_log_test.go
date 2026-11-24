@@ -120,17 +120,18 @@ var _ = Describe("Check pass rate on the pointer log", func() {
 		// At a rate of half the old bytes a second, two reads of each block take at
 		// least four seconds of the clock.
 		db, closeDB := open(ctx, cesium.GCConfig{Rate: telem.Size(total / 2)})
-		seconds := 0
+		const step = 10 * time.Millisecond
+		var waited time.Duration
 		for {
 			Eventually(func() bool { return finished() || fake.Pending() > 0 }).
 				Should(BeTrue())
 			if finished() {
 				break
 			}
-			fake.Advance(time.Second)
-			seconds++
+			fake.Advance(step)
+			waited += step
 		}
-		Expect(seconds).To(BeNumerically(">=", 4))
+		Expect(waited).To(BeNumerically(">=", 4*time.Second))
 		Expect(dataOf(ctx, db, keys)).To(Equal(old.bytes(nil)))
 		Expect(closeDB()).To(Succeed())
 	})
