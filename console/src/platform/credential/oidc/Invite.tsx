@@ -46,7 +46,9 @@ const Live = ({
 }: LiveProps): ReactElement => {
   const invites = Credential.OIDC.Invite.useResult({ subject });
   const live = invites.data?.at(0);
-  const canCreate = live == null ? grants.create : grants.replace;
+  // An expired invite stays stored and hidden, and a new one writes over it, so the
+  // Core may ask for either action when no live invite shows.
+  const canCreate = live == null ? grants.create && grants.replace : grants.replace;
   return (
     <>
       {invites.variant === "error" && (

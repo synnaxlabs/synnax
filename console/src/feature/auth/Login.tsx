@@ -414,12 +414,32 @@ export const Login = (): ReactElement => {
                   />
                 )}
                 {providers.length > 0 && window.isSecureContext && (
-                  <Flex.Box
-                    y
-                    gap="small"
-                    full="x"
-                    className={CSS.BE("login", "providers")}
-                  >
+                  <>
+                    <Flex.Box
+                      y
+                      gap="small"
+                      full="x"
+                      className={CSS.BE("login", "providers")}
+                    >
+                      <Icon.Colored>
+                        {providers.map((login) => {
+                          const { label, icon } = display(login);
+                          return (
+                            <Button.Button
+                              key={login.provider}
+                              onClick={() => handleProvider(login)}
+                              variant="outlined"
+                              size="large"
+                              full="x"
+                              justify="center"
+                            >
+                              {icon}
+                              Log in with {label}
+                            </Button.Button>
+                          );
+                        })}
+                      </Icon.Colored>
+                    </Flex.Box>
                     {inviteRevealed ? (
                       <Input.Text
                         value={inviteCode}
@@ -432,6 +452,7 @@ export const Login = (): ReactElement => {
                     ) : (
                       <Button.Button
                         variant="text"
+                        size="large"
                         full="x"
                         justify="center"
                         onClick={() => setInviteRevealed(true)}
@@ -439,25 +460,7 @@ export const Login = (): ReactElement => {
                         I have an invite code
                       </Button.Button>
                     )}
-                    <Icon.Colored>
-                      {providers.map((login) => {
-                        const { label, icon } = display(login);
-                        return (
-                          <Button.Button
-                            key={login.provider}
-                            onClick={() => handleProvider(login)}
-                            variant="outlined"
-                            size="large"
-                            full="x"
-                            justify="center"
-                          >
-                            {icon}
-                            Log in with {label}
-                          </Button.Button>
-                        );
-                      })}
-                    </Icon.Colored>
-                  </Flex.Box>
+                  </>
                 )}
                 {errorNote}
               </Flex.Box>

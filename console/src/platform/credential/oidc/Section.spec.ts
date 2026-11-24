@@ -301,13 +301,22 @@ describe("OIDC section", () => {
       expect(screen.queryByText("Revoke")).toBeNull();
     });
 
-    it("should create a first invite with create permission alone", async () => {
+    // an expired invite stays stored, so a new one may be an update on the Core
+    it("should offer no new invite with create permission alone", async () => {
       const { client, server } = await open({ userActions: ["create"] });
+      await renderLocal(client, OTHER_USER);
+      await screen.findByText("Provider accounts");
+      await waitFor(() => expect(server.policyReads).toBeGreaterThan(0));
+      await expectAlways(() => expect(screen.queryByText(CREATE)).toBeNull());
+    });
+
+    it("should create a new invite with create and update permission", async () => {
+      const { client, server } = await open({ userActions: ["create", "update"] });
       await renderLocal(client, OTHER_USER);
       fireEvent.click(await screen.findByText(CREATE));
       await waitFor(() => expect(server.invites).toHaveLength(1));
       await screen.findByText(/^Invite expires/);
-      expect(screen.queryByText(REPLACE)).toBeNull();
+      expect(screen.getByText(REPLACE)).toBeTruthy();
       expect(screen.queryByText("Revoke")).toBeNull();
     });
 

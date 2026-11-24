@@ -9,9 +9,10 @@
  * included in the file licenses/APL.txt.
  */
 
-/* the password form and the provider window do not fit the Shell's usual card */
+/* the password form, the provider window, and the invite code do not fit the Shell's
+   usual card */
 .console-login.console--providers .console-shell__card {
-    height: 640px;
+    height: calc(640px + var(--pluto-height-large) + 1.5rem);
 }
 
 .console-login__form {
