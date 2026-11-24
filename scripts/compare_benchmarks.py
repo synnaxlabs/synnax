@@ -200,7 +200,7 @@ GROUPS: tuple[Group, ...] = (
     go(
         "calculator", "cpu", f"{FRAMER}/calculation/calculator", "^BenchmarkCalculator_"
     ),
-    vitest("ts/codec", "src/framer/codec.bench.ts"),
+    vitest("ts/codec", "src/framer/codec/codec.bench.ts"),
     vitest("ts/cache", "src/framer/cache/"),
     Group(
         "py/codec",
@@ -533,6 +533,8 @@ def parse(argv: Sequence[str] | None) -> Config:
     parser.add_argument("--only", default="", help="a regex on the group names")
     parser.add_argument("--out", type=Path, help="a new directory for the results")
     args = parser.parse_args(argv)
+    if platform.system() not in HOST_FACTS:
+        parser.error("the benchmarks run only on Linux and macOS")
     if args.suite == "io" and args.io_dir is None:
         parser.error("the io suite needs --io-dir")
     if args.rounds < MIN_ROUNDS:
