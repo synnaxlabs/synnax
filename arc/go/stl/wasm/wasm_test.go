@@ -1274,7 +1274,7 @@ sequence main {
 
 	Describe("Alignment and TimeRange Propagation", func() {
 		It(
-			"Should sum alignments from multiple inputs and propagate to outputs",
+			"Should give the outputs the alignment and range of the input whose stamps they take",
 			func(ctx SpecContext) {
 				g := binaryOpGraph(
 					"add",
@@ -1309,8 +1309,8 @@ sequence main {
 				Expect(
 					result.Unmarshal[int64](),
 				).To(Equal([]int64{11, 22, 33}))
-				Expect(result.Alignment).To(Equal(telem.Alignment(150)))
-				Expect(result.TimeRange.Start).To(Equal(5 * telem.SecondTS))
+				Expect(result.Alignment).To(Equal(telem.Alignment(100)))
+				Expect(result.TimeRange.Start).To(Equal(10 * telem.SecondTS))
 				Expect(result.TimeRange.End).To(Equal(30 * telem.SecondTS))
 			},
 		)
@@ -1394,10 +1394,10 @@ sequence main {
 
 				h.Execute(ctx, "math_ops")
 
-				expectedAlignment := telem.Alignment(500)
+				expectedAlignment := telem.Alignment(200)
 				expectedTimeRange := telem.TimeRange{
-					Start: 50 * telem.SecondTS,
-					End:   250 * telem.SecondTS,
+					Start: 100 * telem.SecondTS,
+					End:   200 * telem.SecondTS,
 				}
 
 				sumResult := h.Output("math_ops", 0)

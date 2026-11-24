@@ -520,6 +520,38 @@ var _ = Describe("Avg", func() {
 		expectOutputTime(s.state, 7*telem.SecondTS)
 	})
 
+	It("Should start each window at a multiple of the duration from the epoch", func(
+		ctx SpecContext,
+	) {
+		s := openMath(ctx, "avg", types.F64(), types.Params{
+			{Name: "duration", Type: types.TimeSpan(), Value: 5 * telem.Second},
+		})
+		*s.inputNode.Output(0) = telem.NewSeriesV(10.0)
+		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(4)
+		s.inputNode.MarkFresh(0)
+		nextChanged(ctx, s.n)
+		expectOutput(s.state, 10.0)
+
+		*s.inputNode.Output(0) = telem.NewSeriesV(30.0)
+		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(6)
+		s.inputNode.MarkFresh(0)
+		nextChanged(ctx, s.n)
+		expectOutput(s.state, 30.0)
+		expectOutputTime(s.state, 6*telem.SecondTS)
+	})
+
+	It("Should split a frame that crosses a window boundary", func(ctx SpecContext) {
+		s := openMath(ctx, "avg", types.F64(), types.Params{
+			{Name: "duration", Type: types.TimeSpan(), Value: 5 * telem.Second},
+		})
+		*s.inputNode.Output(0) = telem.NewSeriesV(10.0, 20.0, 100.0, 200.0, 7.0)
+		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(3, 4, 6, 7, 11)
+		s.inputNode.MarkFresh(0)
+		nextChanged(ctx, s.n)
+		expectOutput(s.state, 15.0, 150.0, 7.0)
+		expectOutputTime(s.state, 4*telem.SecondTS, 7*telem.SecondTS, 11*telem.SecondTS)
+	})
+
 	It("Should read a variable-bound count on each batch", func(ctx SpecContext) {
 		s, w := openMathWithVar(ctx, "avg", "count", types.I64())
 		*s.inputNode.Output(0) = telem.NewSeriesV(10.0, 20.0, 30.0)
@@ -964,39 +996,42 @@ var _ = Describe("Alignment", func() {
 		Expect(resultTime.Alignment).To(Equal(telem.Alignment(250)))
 	})
 
-	It("Should sum alignments when reset signal is connected", func(ctx SpecContext) {
-		s := openMathWithReset(ctx, "avg", types.I64())
-		resetNode := s.state.Node("reset_signal")
+	It(
+		"Should take the alignment of the input whose stamps it takes, not the reset's",
+		func(ctx SpecContext) {
+			s := openMathWithReset(ctx, "avg", types.I64())
+			resetNode := s.state.Node("reset_signal")
 
-		inputSeries := telem.NewSeriesV[int64](10, 20, 30)
-		inputSeries.Alignment = 100
-		inputSeries.TimeRange = telem.TimeRange{
-			Start: 50 * telem.SecondTS,
-			End:   150 * telem.SecondTS,
-		}
-		*s.inputNode.Output(0) = inputSeries
-		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(50, 100, 150)
-		s.inputNode.MarkFresh(0)
+			inputSeries := telem.NewSeriesV[int64](10, 20, 30)
+			inputSeries.Alignment = 100
+			inputSeries.TimeRange = telem.TimeRange{
+				Start: 50 * telem.SecondTS,
+				End:   150 * telem.SecondTS,
+			}
+			*s.inputNode.Output(0) = inputSeries
+			*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(50, 100, 150)
+			s.inputNode.MarkFresh(0)
 
-		resetSeries := telem.NewSeriesV(false)
-		resetSeries.Alignment = 75
-		resetSeries.TimeRange = telem.TimeRange{
-			Start: 25 * telem.SecondTS,
-			End:   175 * telem.SecondTS,
-		}
-		*resetNode.Output(0) = resetSeries
-		*resetNode.OutputTime(0) = telem.NewSeriesSecondsTSV(25)
-		resetNode.MarkFresh(0)
-		nextChanged(ctx, s.n)
+			resetSeries := telem.NewSeriesV(false)
+			resetSeries.Alignment = 75
+			resetSeries.TimeRange = telem.TimeRange{
+				Start: 25 * telem.SecondTS,
+				End:   175 * telem.SecondTS,
+			}
+			*resetNode.Output(0) = resetSeries
+			*resetNode.OutputTime(0) = telem.NewSeriesSecondsTSV(25)
+			resetNode.MarkFresh(0)
+			nextChanged(ctx, s.n)
 
-		result := *s.state.Node("math").Output(0)
-		Expect(result.Alignment).To(Equal(telem.Alignment(175)))
-		Expect(result.TimeRange.Start).To(Equal(25 * telem.SecondTS))
-		Expect(result.TimeRange.End).To(Equal(175 * telem.SecondTS))
+			result := *s.state.Node("math").Output(0)
+			Expect(result.Alignment).To(Equal(telem.Alignment(100)))
+			Expect(result.TimeRange.Start).To(Equal(50 * telem.SecondTS))
+			Expect(result.TimeRange.End).To(Equal(150 * telem.SecondTS))
 
-		resultTime := *s.state.Node("math").OutputTime(0)
-		Expect(resultTime.Alignment).To(Equal(telem.Alignment(175)))
-	})
+			resultTime := *s.state.Node("math").OutputTime(0)
+			Expect(resultTime.Alignment).To(Equal(telem.Alignment(100)))
+		},
+	)
 })
 
 var _ = Describe("Derivative", func() {
