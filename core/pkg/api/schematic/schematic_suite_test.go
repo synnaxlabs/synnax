@@ -10,6 +10,7 @@
 package schematic_test
 
 import (
+	"context"
 	"testing"
 	"uuid"
 
@@ -31,11 +32,14 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/enumeration"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
+	"github.com/synnaxlabs/synnax/pkg/service/impact"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
+	"github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -134,8 +138,17 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	dispatch = bind.Write(binder, apiSvc.Dispatch)
 	copySchematic = bind.Write(binder, apiSvc.Copy)
 	retrieve = bind.Read(binder, apiSvc.Retrieve)
+	impactSvc := MustSucceed(impact.OpenService(impact.ServiceConfig{
+		Channel:  channelSvc,
+		Group:    groupSvc,
+		RecordOf: taskconfig.RecordOf,
+		Delete: func(context.Context, gorp.Tx, []resource.ID) error {
+			return errors.New("[schematic suite] - no record to delete")
+		},
+	}))
 	symbolSvc := MustSucceed(apisymbol.NewService(apisymbol.ServiceConfig{
 		Symbol: schematicSvc.Symbol,
+		Impact: impactSvc,
 	}))
 	dispatchSymbol = bind.Write(binder, symbolSvc.Dispatch)
 	author = MustSucceed(rbactestutil.CreateUser(ctx, db, rbacSvc, userSvc, user.User{
