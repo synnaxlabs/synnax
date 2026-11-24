@@ -10,7 +10,6 @@
 package cesium
 
 import (
-	"bytes"
 	"cmp"
 	"context"
 	"slices"
@@ -373,7 +372,7 @@ func (r *recovery) damage(
 		); err != nil {
 			return nil, nil, err
 		}
-		at, f, found, err := r.validAfter(b, end)
+		at, f, found, err := r.findFrame(b, r.gen, end)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -439,35 +438,6 @@ func (r *recovery) damageOf(
 	}
 	records, err := r.lostOf(d, end, at)
 	return d, records, err
-}
-
-// validAfter returns the first frame after off of the log in b that passes at its own
-// offset, and its offset. It reads the bytes twice.
-func (r *recovery) validAfter(b []byte, off int64) (int64, log.Frame, bool, error) {
-	if off >= int64(len(b)) {
-		return 0, log.Frame{}, false, nil
-	}
-	found := func(tail []byte) (int64, log.Frame, bool) {
-		for at := (off + 7) &^ 7; at+log.FrameHeaderSize <= off+int64(len(tail)); at += 8 {
-			c := tail[at-off:]
-			if !bytes.Equal(c[:4], frameMagic) {
-				continue
-			}
-			if f, err := log.DecodeFrame(c, r.db, r.gen, uint64(at)); err == nil {
-				return at, f, true
-			}
-		}
-		return 0, log.Frame{}, false
-	}
-	if at, f, ok := found(b[off:]); ok {
-		return at, f, true, nil
-	}
-	second := make([]byte, len(b)-int(off))
-	if err := r.reread(r.gen, second, off); err != nil {
-		return 0, log.Frame{}, false, err
-	}
-	at, f, ok := found(second)
-	return at, f, ok, nil
 }
 
 // lostOf returns the records of d, a bad frame from off to at of the newest log of r,
