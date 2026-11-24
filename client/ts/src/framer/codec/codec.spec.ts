@@ -859,14 +859,15 @@ describe("encoder", () => {
         const c = new Codec([6], [DataType.FLOAT32]);
         const encoded = c.encode(
           new framer.Frame(
-            [5, 6, 7],
+            [5, 6, 6, 7],
             [
               new Series({
                 data: new BigInt64Array([1n]),
                 dataType: DataType.TIMESTAMP,
                 clock: 5,
               }),
-              new Series(new Float32Array([1])),
+              new Series({ data: new Float32Array([1]), clock: 5 }),
+              new Series({ data: new Float32Array([2]), clock: 7 }),
               new Series({
                 data: new BigInt64Array([1n]),
                 dataType: DataType.TIMESTAMP,
@@ -891,6 +892,40 @@ describe("encoder", () => {
         new DataView(b.buffer).setUint32(8, 0xffffffff, true);
         expect(() => workedCodec().decode(b)).toThrow(
           new ValidationError("remote sent a frame that ends early"),
+        );
+      });
+
+      it("should drop an unrequested time series that no requested series names", () => {
+        const data = new Series(new Float32Array([1]));
+        const stamps = new Series({
+          data: new BigInt64Array([1n]),
+          dataType: DataType.TIMESTAMP,
+          clock: 9,
+        });
+        const withStamps = new Codec([6], [DataType.FLOAT32]).encode(
+          new framer.Frame([6, 9], [data, stamps]),
+        );
+        const without = new Codec([6], [DataType.FLOAT32]).encode(
+          new framer.Frame([6], [data]),
+        );
+        expect(withStamps).toEqual(without);
+      });
+
+      it("should throw on a series whose size a length field cannot hold", () => {
+        // A 4 GiB buffer is too large to allocate in a spec, so the series reports one.
+        const s = new Proxy(new Series({ data: ["a"], dataType: DataType.STRING }), {
+          get: (target, prop, receiver) =>
+            prop === "data"
+              ? { byteOffset: 0, byteLength: 2 ** 32, buffer: { byteLength: 2 ** 32 } }
+              : (Reflect.get(target, prop, receiver) as unknown),
+        });
+        expect(() =>
+          new Codec([6], [DataType.STRING]).encode(new framer.Frame([6], [s])),
+        ).toThrow(
+          new ValidationError(
+            "series of channel 6 holds 4294967296 bytes, more than a frame length " +
+              "field holds",
+          ),
         );
       });
 

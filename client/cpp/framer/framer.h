@@ -163,6 +163,8 @@ class Codec {
     std::vector<Entry> entries;
     /// @brief the declared clocks of the frame being encoded.
     std::vector<channel::Key> declared;
+    /// @brief the clocks that the requested series of the frame being encoded name.
+    std::vector<std::uint32_t> named;
 
     /// @brief the current sequence number for the codec. This is used to identify
     /// which codec state to use when encoding/decoding frames.

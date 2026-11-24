@@ -718,9 +718,14 @@ TEST(CodecTests, RejectsDeclaredClockErrors) {
     t5.clock = 5;
     auto t7 = x::telem::Series(std::vector<int64_t>{1});
     t7.clock = 7;
-    x::telem::Frame fr(3);
+    auto on5 = x::telem::Series(std::vector<float>{1});
+    on5.clock = 5;
+    auto on7 = x::telem::Series(std::vector<float>{2});
+    on7.clock = 7;
+    x::telem::Frame fr(4);
     fr.emplace(5, std::move(t5));
-    fr.emplace(6, x::telem::Series(std::vector<float>{1}));
+    fr.emplace(6, std::move(on5));
+    fr.emplace(6, std::move(on7));
     fr.emplace(7, std::move(t7));
     std::vector<uint8_t> encoded;
     ASSERT_NIL(c.encode(fr, encoded));
@@ -730,6 +735,25 @@ TEST(CodecTests, RejectsDeclaredClockErrors) {
         c.decode(encoded).second.data,
         "remote declared clock 5 after clock 7, so the list is not ascending"
     );
+}
+
+/// @brief it should drop an unrequested time series that no requested series names as
+/// its clock.
+TEST(CodecTests, DropsAnUnnamedClock) {
+    const auto encode = [](const bool with_stamps) {
+        Codec c({6}, {x::telem::FLOAT32_T});
+        x::telem::Frame fr(2);
+        fr.emplace(6, x::telem::Series(std::vector<float>{1}));
+        if (with_stamps) {
+            auto stamps = x::telem::Series(std::vector<int64_t>{1});
+            stamps.clock = 9;
+            fr.emplace(9, std::move(stamps));
+        }
+        std::vector<uint8_t> encoded;
+        EXPECT_NIL(c.encode(fr, encoded));
+        return encoded;
+    };
+    ASSERT_EQ(encode(true), encode(false));
 }
 
 /// @brief it should keep a declared clock list unchanged when a frame carries one of

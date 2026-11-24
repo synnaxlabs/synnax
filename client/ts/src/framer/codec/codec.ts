@@ -33,6 +33,20 @@ const bitPackedByteCount = (nSamples: number): number =>
 const seriesPldLength = (series: SeriesPayload): number =>
   series.data.byteLength / series.dataType.density.valueOf();
 
+// MAX_LENGTH is the largest sample count or byte size that a frame length field holds.
+const MAX_LENGTH = 0xffffffff;
+
+// Throws when the length field of series, a sample count or a byte size for a variable
+// type, cannot hold its length.
+const checkLength = (key: channel.Key, series: SeriesPayload): void => {
+  const variable = series.dataType.isVariable;
+  const length = variable ? series.data.byteLength : seriesPldLength(series);
+  if (length <= MAX_LENGTH) return;
+  throw new ValidationError(
+    `series of channel ${key} holds ${length} ${variable ? "bytes" : "samples"}, more than a frame length field holds`,
+  );
+};
+
 const seriesWireByteLength = (series: SeriesPayload): number => {
   if (series.dataType.equals(DataType.BOOLEAN))
     return bitPackedByteCount(seriesPldLength(series));
@@ -265,17 +279,26 @@ export class Codec {
   }
 
   // Returns the series of src in key order, keeping the producer's order within a key.
+  // It drops an unrequested time series under its own clock that no requested series
+  // names as its clock.
   private entries(src: Payload, state: CodecState): Entry[] {
+    const named = new Set<number>();
     const entries = src.keys.map((key, i): Entry => {
       const series = src.series[i];
       const index = state.index.get(key);
-      if (index != null) return { key, series, index };
+      if (index != null) {
+        const clock = series.clock ?? 0;
+        if (clock !== 0) named.add(clock);
+        return { key, series, index };
+      }
       if (isOwnClock(key, series)) return { key, series, index: -1 };
       throw new ValidationError(
         `Channel ${key} was not provided in the list of channels when opening the writer`,
       );
     });
-    return entries.sort((a, b) => compareKeys(a.key, b.key));
+    return entries
+      .filter(({ key, index }) => index >= 0 || named.has(key))
+      .sort((a, b) => compareKeys(a.key, b.key));
   }
 
   // Plans the extension of the next frame of ag without changing ag.
@@ -357,7 +380,8 @@ export class Codec {
     );
     if (!channelFlag) byteArraySize += entries.length * KEY_SIZE;
 
-    entries.forEach(({ series }) => {
+    entries.forEach(({ key, series }) => {
+      checkLength(key, series);
       const pldLength = seriesPldLength(series);
       const start = series.timeRange?.start.valueOf() ?? 0n;
       const end = series.timeRange?.end.valueOf() ?? 0n;

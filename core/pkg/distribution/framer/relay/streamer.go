@@ -177,19 +177,15 @@ func (s *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 	}, o.Signal...)
 }
 
-// sendMissed sends a missed marker that covers every drop signaled so far, with the
-// missed ranges of the streamer's channels.
-func (s *streamer) sendMissed(ctx context.Context, sub *subscriber) error {
+// missedResponse returns a missed marker that covers every drop signaled so far, with
+// the missed ranges of the streamer's channels.
+func (s *streamer) missedResponse(sub *subscriber) Response {
 	ranges := sub.takeMissed()
 	keys := *s.keys.Load()
 	maps.DeleteFunc(ranges, func(k channel.Key, _ telem.TimeRange) bool {
 		return !keys.Contains(k)
 	})
-	return signal.SendUnderContext(
-		ctx,
-		s.Out.Inlet(),
-		Response{Missed: true, MissedRanges: ranges},
-	)
+	return Response{Missed: true, MissedRanges: ranges}
 }
 
 // awaitOpenAck waits for the relay to confirm the opening demand, then signals
@@ -210,8 +206,9 @@ func (s *streamer) awaitOpenAck(ctx context.Context, ack chan struct{}) error {
 
 // forward applies key updates from the inlet and sends matching frames from responses
 // until the context is canceled or the inlet closes. After a value on missed, it sends
-// a missed marker once it has sent every frame buffered before the drop. It returns
-// errDropped when responses closes.
+// a missed marker once it has sent every frame buffered before the drop. The next
+// response after a request that lists keys counts it in Applied. It returns errDropped
+// when responses closes.
 func (s *streamer) forward(
 	ctx context.Context,
 	sub *subscriber,
@@ -226,10 +223,17 @@ func (s *streamer) forward(
 	// The relay drops a frame only when responses is full, so once responses empties,
 	// every frame buffered before the drop has been sent.
 	lost := false
+	// applied counts the requests that list keys since the last send, which the next
+	// response carries.
+	applied := 0
+	send := func(res Response) error {
+		res.Applied, applied = applied, 0
+		return signal.SendUnderContext(ctx, s.Out.Inlet(), res)
+	}
 	for {
 		if lost && len(responses) == 0 {
 			lost = false
-			if err := s.sendMissed(ctx, sub); err != nil {
+			if err := send(s.missedResponse(sub)); err != nil {
 				return err
 			}
 		}
@@ -244,11 +248,7 @@ func (s *streamer) forward(
 			lost = true
 		case <-nextAck:
 			pendingAcks = pendingAcks[1:]
-			if err := signal.SendUnderContext(
-				ctx,
-				s.Out.Inlet(),
-				Response{Ack: true},
-			); err != nil {
+			if err := send(Response{Ack: true}); err != nil {
 				return err
 			}
 		case req, ok := <-s.In.Outlet():
@@ -259,6 +259,9 @@ func (s *streamer) forward(
 			// The keys must change before the demand, so the delta accepts frames for
 			// an added channel as soon as the relay taps it.
 			s.setKeys(req.Keys)
+			if len(req.Keys) > 0 {
+				applied++
+			}
 			d := demand{addr: s.addr, keys: req.Keys, state: state}
 			if req.AckRequested {
 				d.ack = make(chan struct{})
@@ -271,7 +274,7 @@ func (s *streamer) forward(
 			if !ok {
 				// The select can take the closed responses before a pending signal.
 				if len(missed) > 0 {
-					if err := s.sendMissed(ctx, sub); err != nil {
+					if err := send(s.missedResponse(sub)); err != nil {
 						return err
 					}
 				}
@@ -283,8 +286,7 @@ func (s *streamer) forward(
 			if filtered.Empty() {
 				continue
 			}
-			res := Response{Frame: filtered, Group: r.Group}
-			if err := signal.SendUnderContext(ctx, s.Out.Inlet(), res); err != nil {
+			if err := send(Response{Frame: filtered, Group: r.Group}); err != nil {
 				return err
 			}
 		}

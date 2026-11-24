@@ -186,6 +186,78 @@ var _ = Describe("Streamer", Ordered, func() {
 		)
 	})
 
+	Describe("Applied", func() {
+		// open opens a streamer of cfg with no keys, takes its open response, and
+		// returns a writer of a new virtual channel with the streamer's inlet and
+		// outlet. With no keys, no frame of the channel passes before a key update.
+		open := func(ctx SpecContext, cfg streamer.Config) (
+			channel.Key,
+			*framer.Writer,
+			confluence.Inlet[streamer.Config],
+			confluence.Outlet[streamer.Response],
+		) {
+			GinkgoHelper()
+			ch := &channel.Channel{
+				Name:     UniqueChannelName(),
+				DataType: telem.Float32T,
+				Virtual:  true,
+			}
+			Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, ch)
+			})).To(Succeed())
+			w := MustOpen(node.Framer.OpenWriter(ctx, framer.WriterConfig{
+				Start: telem.Now(),
+				Keys:  []channel.Key{ch.Key()},
+			}))
+			cfg.SendOpenAck = true
+			s := MustSucceed(streamerSvc.New(ctx, cfg))
+			sCtx, cancel := signal.Isolated()
+			DeferCleanup(cancel)
+			inlet, outlet := confluence.Attach(s)
+			s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+			Eventually(outlet.Outlet()).Should(Receive())
+			DeferCleanup(func() {
+				inlet.Close()
+				Eventually(outlet.Outlet()).Should(BeClosed())
+			})
+			return ch.Key(), w, inlet, outlet
+		}
+
+		// receive writes one sample of key at a time until the streamer sends a
+		// response, and returns it. A streamer opened with no keys takes no frame of
+		// the key before the key update, so the response is the first after it.
+		receive := func(
+			w *framer.Writer,
+			key channel.Key,
+			outlet confluence.Outlet[streamer.Response],
+		) streamer.Response {
+			GinkgoHelper()
+			var res streamer.Response
+			Eventually(func(g Gomega) {
+				g.Expect(w.Write(frame.NewUnary(key, telem.NewSeriesV[float32](1)))).
+					To(BeTrue())
+				g.Expect(outlet.Outlet()).To(Receive(&res))
+			}).WithTimeout(10 * time.Second).WithPolling(5 * time.Millisecond).
+				Should(Succeed())
+			return res
+		}
+
+		DescribeTable("Should carry a key update to the first response after it",
+			func(ctx SpecContext, cfg streamer.Config) {
+				key, w, inlet, outlet := open(ctx, cfg)
+				inlet.Inlet() <- streamer.Config{Keys: []channel.Key{key}}
+				res := receive(w, key, outlet)
+				Expect(res.Applied).To(Equal(1))
+				Expect(res.Frame.Get(key).Series).ToNot(BeEmpty())
+			},
+			Entry("no throttle", streamer.Config{}),
+			Entry("a throttle", streamer.Config{ThrottleRate: telem.Rate(5)}),
+			// With a factor of 64, the downsampler drops nearly every frame before
+			// the one it sends, so the count rides past the frames it drops.
+			Entry("a downsampler", streamer.Config{DownsampleFactor: 64}),
+		)
+	})
+
 	Describe("Calculations", func() {
 		var (
 			indexCh *channel.Channel

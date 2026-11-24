@@ -70,6 +70,22 @@ _CLOCK_KIND = 1 << 1
 _RESERVED_KINDS = 0b1111_1100
 # The next override ordinal that ends the chain.
 _NO_OVERRIDE = 0xFFFFFFFF
+# The largest sample count or byte size that a frame length field holds.
+_MAX_LENGTH = 0xFFFFFFFF
+
+
+def _check_length(key: channel.Key, ser: Series) -> None:
+    """Raises a ValidationError when the length field of ser, a sample count or a
+    byte size for a variable type, cannot hold its length."""
+    variable = ser.data_type.is_variable
+    length = len(ser.data) if variable else len(ser)
+    if length <= _MAX_LENGTH:
+        return
+    unit = "bytes" if variable else "samples"
+    raise ValidationError(
+        f"series of channel {key} holds {length} {unit}, more than a frame length "
+        "field holds"
+    )
 
 
 def _is_int64_like(dt: DataType) -> bool:
@@ -212,17 +228,23 @@ class Codec:
         pld: FramePayload, state: CodecState
     ) -> list[tuple[channel.Key, Series, int]]:
         entries = []
+        named: set[int] = set()
         for key, ser in zip(pld.keys, pld.series, strict=True):
             i = state.index.get(key)
             if i is not None:
                 entries.append((key, ser, i))
+                if ser.clock:
+                    named.add(ser.clock)
             elif ser.clock == key and _is_int64_like(ser.data_type):
                 entries.append((key, ser, -1))
             else:
                 raise ValidationError(
                     f"encoder was provided a key {key} that is not in the codec state."
                 )
-        # A stable sort keeps the producer's order within a key.
+        # An unrequested time series under its own clock stays only when a requested
+        # series names it as its clock. A stable sort keeps the producer's order
+        # within a key.
+        entries = [e for e in entries if e[2] >= 0 or e[0] in named]
         entries.sort(key=lambda e: e[0])
         return entries
 
@@ -290,7 +312,8 @@ class Codec:
         all_present = [k for k, _, _ in entries] == plan.all
         if not all_present:
             size += n * _KEY_SIZE
-        for _, ser, _ in entries:
+        for key, ser, _ in entries:
+            _check_length(key, ser)
             tr = TimeRange.ZERO if ser.time_range is None else ser.time_range
             if ser.data_type.is_variable:
                 eq_len = False
