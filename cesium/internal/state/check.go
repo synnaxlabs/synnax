@@ -61,25 +61,26 @@ func (s *State) checkCheck(r *log.Check, pre []Preload) (Segment, error) {
 		return Segment{}, errors.Wrapf(ErrStale, "key %d of segment %d holds no "+
 			"segment", r.Key, r.Segment)
 	}
-	records, err := s.core.preloadOf(ch, pre)
-	if err != nil {
-		return Segment{}, err
-	}
-	var seg Segment
 	cur := s.core.segments[r.Segment]
 	if cur != nil && cur.key != r.Key {
 		return Segment{}, refuse("check of segment %d of key %d, which key %d holds",
 			r.Segment, r.Key, cur.key)
 	}
-	if cur != nil && cur.vis.Part == 0 {
-		seg = cur.vis
-	} else if i := slices.IndexFunc(records, func(s Segment) bool {
-		return s.ID == r.Segment
-	}); i >= 0 {
-		seg = records[i]
-	} else {
+	records := recordsOf(pre, r.Key)
+	i := slices.IndexFunc(records, func(s Segment) bool { return s.ID == r.Segment })
+	inHead := cur != nil && cur.vis.Part == 0
+	if !inHead && (i < 0 || ch.killed(r.Segment)) {
 		return Segment{}, errors.Wrapf(ErrStale, "segment %d of key %d left the state",
 			r.Segment, r.Key)
+	}
+	if _, err := s.core.preloadOf(ch, pre); err != nil {
+		return Segment{}, err
+	}
+	var seg Segment
+	if inHead {
+		seg = cur.vis
+	} else {
+		seg = records[i]
 	}
 	switch {
 	case seg.Version != 0 || !seg.Sealed:

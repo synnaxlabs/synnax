@@ -381,3 +381,59 @@ var _ = Describe("Replay of a Check", func() {
 			))
 	})
 })
+
+var _ = Describe("Preload of a killed record", func() {
+	var (
+		a      *appended
+		s      *state.State
+		record state.Segment
+		pre    state.Preload
+	)
+	// A delete buries segment 3 of key 6, which part 7 of head 5 holds, after pre was
+	// loaded.
+	BeforeEach(func() {
+		a = &appended{}
+		s = MustSucceed(state.Open(config(a), converted()))
+		a.s, a.seq = s, 9
+		run(s)
+		MustSucceed(s.Snapshot())
+		record = s.Channel(6).Segments[0]
+		record.Part = 7
+		Expect(s.Parted(
+			5,
+			[]state.Tag{{Part: 7, Segment: record}},
+			[]state.Range{{Key: 6, Oldest: 7, Newest: 7}},
+			func() {},
+		)).To(Succeed())
+		MustSucceed(s.Snapshot())
+		Expect(s.Channel(6).Segments).To(BeEmpty())
+		pre = state.Preload{Key: 6, Generation: 5, Segments: []state.Segment{record}}
+		d := MustSucceed(s.BeginDelete(6, 0, 100, pre))
+		Expect(a.durable([]log.Record{&log.Tombstone{Key: 6, End: 100}})).To(Succeed())
+		Expect(d.Release()).To(Succeed())
+		MustSucceed(s.Snapshot())
+		Expect(s.Channel(6).Segments).To(BeEmpty())
+	})
+
+	It("Should refuse a Check of the buried segment as stale", func() {
+		checked := make(chan error, 1)
+		go func() { checked <- s.Check(&log.Check{Segment: 3, Key: 6}, pre) }()
+		Eventually(checked).Should(Receive(SatisfyAll(
+			MatchError(state.ErrStale),
+			MatchError(ContainSubstring("segment 3 of key 6 left the state")),
+		)))
+		Expect(s.Channel(6).Segments).To(BeEmpty())
+	})
+
+	It("Should refuse a delete that would put the buried record back as stale",
+		func() {
+			Expect(s.BeginDelete(6, 0, 100, pre)).Error().To(SatisfyAll(
+				MatchError(state.ErrStale),
+				MatchError(
+					ContainSubstring("key 6 reads the part record of segment 3, "+
+						"which a kill took after the preload"),
+				),
+			))
+			Expect(s.Channel(6).Segments).To(BeEmpty())
+		})
+})

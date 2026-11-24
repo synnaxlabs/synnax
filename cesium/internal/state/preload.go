@@ -62,7 +62,8 @@ func usersOf(pre []Preload, key uint32) []User {
 
 // preloadOf returns the records of the preload of ch in pre, which is in rising order
 // of key. It returns ErrStale for a preload from the parts of a head other than the
-// head of the core, and refuses a step with none when ch has a part range.
+// head of the core, or with a record that a kill took after the preload, and refuses a
+// step with none when ch has a part range.
 func (c *core) preloadOf(ch *chanState, pre []Preload) ([]Segment, error) {
 	i, found := search(pre, ch.key)
 	switch {
@@ -74,7 +75,26 @@ func (c *core) preloadOf(ch *chanState, pre []Preload) ([]Segment, error) {
 		return nil, errors.Wrapf(ErrStale, "key %d reads the parts of head %d, not %d",
 			ch.key, c.head, pre[i].Generation)
 	}
+	for _, rec := range pre[i].Segments {
+		if ch.killed(rec.ID) {
+			return nil, errors.Wrapf(
+				ErrStale,
+				"key %d reads the part record of segment "+
+					"%d, which a kill took after the preload",
+				ch.key,
+				rec.ID,
+			)
+		}
+	}
 	return pre[i].Segments, nil
+}
+
+// killed reports whether a kill of c that no head holds yet takes the part records of
+// segment id. Each such kill is newer than every part of the head.
+func (c *chanState) killed(id uint64) bool {
+	return slices.ContainsFunc(c.kills, func(k Kill) bool {
+		return k.All || k.Segment == id
+	})
 }
 
 // stored returns the first visible pointer of c that shares a stamp with [first,
