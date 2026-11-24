@@ -97,7 +97,7 @@ var _ = Describe("Check: a rewrite whose Replace frame fault 5d cuts", func() {
 			stamp(0).Range(stamp(1<<17)),
 		)).To(Succeed())
 		Eventually(fake.Pending).Should(Equal(1))
-		old := breakSegments(disk, breakData)[0]
+		old := breakSegments(disk)[0]
 		// A Drop returns once the log covers it, so the next frame is the Replace.
 		Expect(db.Drop(ctx, []cesium.ChannelKey{coverSpare})).To(Succeed())
 		h.armed.Store(true)
@@ -112,14 +112,14 @@ var _ = Describe("Check: a rewrite whose Replace frame fault 5d cuts", func() {
 				return false
 			}
 		}).Should(BeTrue())
-		Consistently(func() []string { return breakSegments(disk, breakData) }).
+		Consistently(func() []string { return breakSegments(disk) }).
 			Should(ContainElement(old), "the old file before the cover of the Replace")
 		want := slices.Concat(values[1<<17:], []int64{-1})
 		kept := MustSucceed(disk.Crash(fault.CrashConfig{}))
 		re, closeRe := breakOpen(ctx, kept)
 		Expect(breakRead(ctx, re)).To(Equal(want))
 		closeRe()
-		Expect(breakSegments(kept, breakData)).ToNot(ContainElement(old))
+		Expect(breakSegments(kept)).ToNot(ContainElement(old))
 		var failures []string
 		for runKey := range uint64(8) {
 			image := MustSucceed(disk.Crash(fault.CrashConfig{
@@ -138,7 +138,7 @@ var _ = Describe("Check: a rewrite whose Replace frame fault 5d cuts", func() {
 				failures = append(failures, fmt.Sprintf(
 					"run key %d: %d samples, %d wanted", runKey, len(got), len(want),
 				))
-			case !slices.Contains(breakSegments(image, breakData), old):
+			case !slices.Contains(breakSegments(image), old):
 				failures = append(failures, fmt.Sprintf(
 					"run key %d: no old file %s", runKey, old,
 				))
