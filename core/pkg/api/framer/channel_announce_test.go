@@ -58,6 +58,7 @@ var _ = Describe("Old API edits that let a subject read a calculation", func() {
 			Status:      svc.Status,
 			Calculation: svc.Calculation,
 			Holders:     svc.TaskHolders,
+			Impact:      svc.Impact,
 		}))
 		binder := MustSucceed(bind.NewService(bind.ServiceConfig{
 			DB:      db,
