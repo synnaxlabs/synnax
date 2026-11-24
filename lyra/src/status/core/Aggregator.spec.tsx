@@ -77,7 +77,6 @@ describe("Aggregator", () => {
           add: Status.useAdder(),
           statuses: Status.useNotifications({
             expiration: TimeSpan.milliseconds(1),
-            poll: TimeSpan.milliseconds(1),
           }),
         }),
         { wrapper },
@@ -121,6 +120,39 @@ describe("Aggregator", () => {
         expect(result.current.statuses.statuses).toHaveLength(1);
         act(() => void vi.advanceTimersByTime(TimeSpan.seconds(2).milliseconds));
         expect(result.current.statuses.statuses).toHaveLength(0);
+      });
+
+      it("should wake only when a notification expires", () => {
+        vi.useFakeTimers({
+          toFake: ["setTimeout", "clearTimeout", "Date", "Temporal"],
+        });
+        let renders = 0;
+        const { result } = renderHook(
+          () => {
+            renders++;
+            return { add: Status.useAdder(), statuses: Status.useNotifications() };
+          },
+          { wrapper },
+        );
+        expect(vi.getTimerCount()).toBe(0);
+        act(() => {
+          result.current.add({ variant: "info", message: "first" });
+        });
+        act(() => void vi.advanceTimersByTime(TimeSpan.seconds(3).milliseconds));
+        act(() => {
+          result.current.add({ variant: "info", message: "second" });
+        });
+        const before = renders;
+        act(() => void vi.advanceTimersByTime(TimeSpan.seconds(4).milliseconds - 1));
+        expect(renders).toBe(before);
+        expect(result.current.statuses.statuses).toHaveLength(2);
+        act(() => void vi.advanceTimersByTime(1));
+        expect(result.current.statuses.statuses.map(({ message }) => message)).toEqual([
+          "second",
+        ]);
+        act(() => void vi.advanceTimersByTime(TimeSpan.seconds(3).milliseconds));
+        expect(result.current.statuses.statuses).toHaveLength(0);
+        expect(vi.getTimerCount()).toBe(0);
       });
     });
   });
