@@ -14,7 +14,7 @@ import { theming } from "@synnaxlabs/pluto/ether";
 import { color, uuid } from "@synnaxlabs/x";
 import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({ symbolNodes: true }));
 
@@ -385,6 +385,53 @@ describe("Schematic.Symbol.Edit.useModal", () => {
           value: { type: "fixed", value: color.construct("#ff0000") },
         });
       });
+    });
+
+    it("bands a stroke in the theme of the preview", async () => {
+      // The preview's theme leaf loads fonts on this thread, which has no self.fonts.
+      vi.stubGlobal("fonts", document.fonts);
+      onTestFinished(() => {
+        vi.unstubAllGlobals();
+      });
+      const grp = await createParentGroup();
+      const payload = createSymbolPayload(uniqueName("banded"));
+      const symbol = await client.schematics.symbols.create({
+        ...payload,
+        group: grp.key,
+        data: {
+          ...payload.data,
+          drawing: {
+            type: "svg",
+            markup:
+              '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">' +
+              '<rect class="main" width="10" height="10"/></svg>',
+          },
+          parts: [{ key: "main", name: "Main", selectors: [".main"] }],
+          looks: [
+            {
+              key: "stroke",
+              part: "main",
+              stroke: {
+                type: "color",
+                value: { type: "fixed", value: color.construct("#ffffff") },
+              },
+            },
+          ],
+        },
+      });
+      const handle = await renderModalOpener(
+        Schematic.Symbol.Edit.useModal,
+        [{ symbolKey: symbol.key, group: grp.key }],
+        { client, additionalRegistry: theming.REGISTRY },
+      );
+      const stroke = () =>
+        getPreviewTransformWrapper(handle.baseElement).querySelector<SVGElement>(
+          "rect.main",
+        )?.style.stroke;
+      // The light theme shows white as black.
+      await waitFor(() => expect(stroke()).toBe("rgb(0, 0, 0)"), { timeout: 5000 });
+      fireEvent.click(getIconButton(handle.baseElement, "light-mode"));
+      await waitFor(() => expect(stroke()).toBe("rgb(255, 255, 255)"));
     });
 
     it("names an unnamed shape in the drawing when a click adds it to a part", async () => {
