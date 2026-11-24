@@ -815,7 +815,6 @@ var _ = Describe("Writer", func() {
 				logger := MustSucceed(alamos.NewLogger(alamos.LoggerConfig{
 					ZapLogger: zap.New(core),
 				}))
-				// A handoff on the pointer log does not move uncommitted samples.
 				st := MustOpen(storage.OpenLayer(ctx, storage.LayerConfig{
 					InMemory:          new(true),
 					PointerLogEnabled: new(true),
@@ -837,7 +836,11 @@ var _ = Describe("Writer", func() {
 					LocalIndex: idx.LocalKey,
 				}}))[0]
 				keys := channel.Keys{idx.Key(), data.Key()}
-				open := func(key string, authority control.Authority) *writer.Writer {
+				open := func(
+					key string,
+					authority control.Authority,
+					keys channel.Keys,
+				) *writer.Writer {
 					GinkgoHelper()
 					return MustSucceed(host.Framer.OpenWriter(ctx, writer.Config{
 						ControlSubject:   control.Subject{Key: key},
@@ -855,9 +858,16 @@ var _ = Describe("Writer", func() {
 						telem.NewSeries(make([]int64, len(at))),
 					}))).To(BeTrue())
 				}
-				holder := open("holder", 100)
+				holder := open("holder", 100, keys)
 				write(holder, 10, 11, 12, 13)
-				taker := open("taker", 200)
+				taker := open("taker", 200, channel.Keys{idx.Key()})
+				// A stamp out of order breaks the clock's writer, so the holder cannot
+				// take back its samples when the taker leaves.
+				Expect(taker.Write(frame.NewUnary(
+					idx.Key(),
+					telem.NewSeriesSecondsTSV(12),
+				))).Error().To(MatchError(ContainSubstring("must be after")))
+				Expect(taker.Close()).To(MatchError(ContainSubstring("must be after")))
 				warnings := logs.FilterMessage(
 					"dropped the uncommitted samples that the next holder of a clock " +
 						"could not take",
@@ -872,9 +882,8 @@ var _ = Describe("Writer", func() {
 				))
 				_, authorized := MustSucceed2(holder.Commit())
 				Expect(authorized).To(BeFalse(), "the commit reports the drop")
-				write(taker, 14)
-				Expect(MustCommit(taker)).To(Equal(14*telem.SecondTS + 1))
-				Expect(taker.Close()).To(Succeed())
+				write(holder, 14)
+				Expect(MustCommit(holder)).To(Equal(14*telem.SecondTS + 1))
 				Expect(holder.Close()).To(Succeed())
 				iter := MustSucceed(host.Framer.OpenIterator(ctx, iterator.Config{
 					Keys:   channel.Keys{data.Key()},
