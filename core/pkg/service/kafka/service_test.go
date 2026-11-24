@@ -667,6 +667,12 @@ var _ = Describe("Service", func() {
 			},
 		)
 
+		It("Should save an enabled target with no topic", func(ctx SpecContext) {
+			Expect(prepare(ctx, kafka.WriteConfig{Targets: []kafka.WriteTarget{
+				writeTarget("", ic, setpoint, command(setpoint, 0, value)),
+			}})).To(Succeed())
+		})
+
 		It("Should skip the checks of a disabled target", func(ctx SpecContext) {
 			wt := writeTarget("", ic, setpoint, command(setpoint, 1, value))
 			wt.Disabled = true
@@ -688,12 +694,6 @@ var _ = Describe("Service", func() {
 					},
 				}
 			}, "targets: a task cannot have both channels and targets"),
-			Entry("an enabled target with no topic", func() kafka.WriteConfig {
-				return kafka.WriteConfig{Targets: []kafka.WriteTarget{
-					writeTarget("plant", ic, setpoint, command(setpoint, 0, value)),
-					writeTarget("", ic, setpoint, command(setpoint, 0, value)),
-				}}
-			}, "targets.1.topic: required"),
 			Entry("a message that does not build", func() kafka.WriteConfig {
 				return kafka.WriteConfig{Targets: []kafka.WriteTarget{writeTarget(
 					"plant", ic, setpoint,

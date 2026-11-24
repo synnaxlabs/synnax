@@ -22,9 +22,9 @@ import (
 // writeResolver checks write configs against the ICDs and channels that they write.
 type writeResolver struct{ writes write.Resolver }
 
-// resolve checks cfg, read through snap. A config holds channels or targets, not both.
-// Each enabled target needs a topic, and its message must build from its ICD and its
-// channels. resolve writes nothing.
+// resolve checks cfg, read through snap. A config holds channels or targets, not both,
+// and the message of each enabled target must build from its ICD and its channels.
+// resolve writes nothing.
 func (r writeResolver) resolve(
 	ctx context.Context,
 	snap gorp.Snapshot,
@@ -35,13 +35,6 @@ func (r writeResolver) resolve(
 		return nil, validate.PathedError(
 			validate.Errorf("a task cannot have both channels and targets"), "targets",
 		)
-	}
-	for i, t := range cfg.Targets {
-		if !t.Disabled && t.Topic == "" {
-			return nil, validate.PathedError(
-				validate.Errorf("required"), "targets", strconv.Itoa(i), "topic",
-			)
-		}
 	}
 	return nil, r.writes.Check(ctx, snap, writesOf(cfg), nil)
 }

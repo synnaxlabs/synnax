@@ -173,6 +173,22 @@ var _ = Describe("Write task with targets", func() {
 		))
 	})
 
+	It("Should refuse an enabled target with no topic", func(ctx SpecContext) {
+		ch := createVirtual(ctx)
+		dev := createDevice(ctx, clusterProperties())
+		t := newTask(ctx, kafka.WriteTaskType, kafka.WriteConfig{
+			Device: dev.Key,
+			Targets: []kafka.WriteTarget{
+				writeTarget(uniqueTopic(), ic, setpoint, command(setpoint, 0, ch)),
+				writeTarget("", ic, setpoint, command(setpoint, 0, ch)),
+			},
+		})
+		Expect(f.ConfigureTask(ctx, t, "cmd-1")).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring("targets.1.topic: required")),
+		))
+	})
+
 	It("Should drop a command that arrives without its index", func(ctx SpecContext) {
 		index, data := createIndexed(ctx, telem.Float64T)
 		dev := createDevice(ctx, clusterProperties())
