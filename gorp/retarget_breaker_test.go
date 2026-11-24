@@ -104,7 +104,7 @@ var _ = Describe("Retarget breaker", func() {
 		holders []gorp.Dependent,
 	) error {
 		return db.WithTx(ctx, func(tx gorp.Tx) error {
-			return channels.RetargetHolders(ctx, tx, to, holders)
+			return channels.RetargetHolders(ctx, tx, to, holders...)
 		})
 	}
 	retrieveOwner := func(ctx SpecContext, k string) rtOwner {

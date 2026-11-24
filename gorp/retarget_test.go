@@ -226,7 +226,7 @@ var _ = Describe("RetargetHolders", func() {
 		holders []gorp.Dependent,
 	) error {
 		return db.WithTx(ctx, func(tx gorp.Tx) error {
-			return channels.RetargetHolders(ctx, tx, to, holders)
+			return channels.RetargetHolders(ctx, tx, to, holders...)
 		})
 	}
 	holder := func(key, reference string) gorp.Dependent {
@@ -318,7 +318,7 @@ var _ = Describe("RetargetHolders", func() {
 		to := map[uint32]uint32{1: 3}
 		var err error
 		Expect(testing.AllocsPerRun(100, func() {
-			err = channels.RetargetHolders(ctx, tx, to, nil)
+			err = channels.RetargetHolders(ctx, tx, to)
 		})).To(BeZero())
 		Expect(err).ToNot(HaveOccurred())
 	})
