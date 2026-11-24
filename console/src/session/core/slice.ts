@@ -19,6 +19,16 @@ export const coreZ = synnaxParamsZ.pick({ host: true, secure: true }).extend({
   // accepts them empty where the login form does not.
   username: z.string(),
   password: z.string(),
+  /**
+   * An OpenID Connect code the person has just logged in with. It works once, so it
+   * never reaches the disk; the session it opens resumes from its token or cookie.
+   */
+  oidc: synnaxParamsZ.shape.oidc,
+  /**
+   * When a login on this machine last saved a session for the Core in the keychain.
+   * Each window reads the keychain again when it changes.
+   */
+  lastLogin: z.number().optional(),
   key: z.string(),
   name: z.string().min(1, { message: "Name is required" }),
   // Coerced because the connect form's port field yields a string. One type reaches
@@ -99,6 +109,12 @@ export interface RenamePayload {
   name: string;
 }
 
+export interface RecordLoginPayload {
+  key: string;
+  /** When the login finished, in milliseconds since the Unix epoch. */
+  at: number;
+}
+
 export interface SetClusterKeyPayload {
   key: string;
   clusterKey: string;
@@ -139,6 +155,19 @@ const { actions, reducer } = createSlice({
       const core = state.cores[key];
       if (core != null) core.name = name;
     },
+    // a removed Core stays removed; the record keeps any edit made during the login
+    recordLogin: (
+      state,
+      { payload: { key, at } }: PayloadAction<RecordLoginPayload>,
+    ) => {
+      const core = state.cores[key];
+      if (core == null) return;
+      core.username = "";
+      core.password = "";
+      core.oidc = undefined;
+      core.lastLogin = at;
+      state.selected = key;
+    },
     setClusterKey: (
       state,
       { payload: { key, clusterKey } }: PayloadAction<SetClusterKeyPayload>,
@@ -149,14 +178,22 @@ const { actions, reducer } = createSlice({
   },
 });
 
-export const { set, select, clearSelected, remove, rename, setClusterKey } = actions;
+export const {
+  set,
+  select,
+  clearSelected,
+  remove,
+  rename,
+  recordLogin,
+  setClusterKey,
+} = actions;
 
-const purgePasswords = <S extends StoreState>(state: S): S => ({
+const purgeSecrets = <S extends StoreState>(state: S): S => ({
   ...state,
   [SLICE_NAME]: {
     ...state[SLICE_NAME],
     cores: Object.fromEntries(
-      Object.entries(state[SLICE_NAME].cores).map(([key, core]) => [
+      Object.entries(state[SLICE_NAME].cores).map(([key, { oidc: _, ...core }]) => [
         key,
         { ...core, password: "" },
       ]),
@@ -164,8 +201,11 @@ const purgePasswords = <S extends StoreState>(state: S): S => ({
   },
 });
 
-/** Keeps every password out of the stored state; a session resumes from its token. */
-export const PERSIST_EXCLUDE = [purgePasswords];
+/**
+ * Keeps every password and OpenID Connect code out of the stored state; a session
+ * resumes from its token.
+ */
+export const PERSIST_EXCLUDE = [purgeSecrets];
 
 export { reducer };
 

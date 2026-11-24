@@ -15,6 +15,9 @@ import "math"
 // It is 4 times the float64 epsilon.
 const wholeFactorTolerance = 4 * 0x1p-52
 
+// nanosecondsPerSecond is the period of 1 hz in ns, the units of scale 1.
+const nanosecondsPerSecond = 1e9
+
 // UnitsAssignable reports whether a value with unit a may be assigned to a target with
 // unit b. A nil unit on either side is treated as a wildcard, matching the WASM and
 // Cesium representation where i64 and i64 ns share the same wire type (timestamp <->
@@ -45,6 +48,19 @@ func InputScale(t Type) (up, down float64) {
 		return 1, 1
 	}
 	return UnitFactor(t.Elem.Unit, t.Unit), UnitFactor(t.Unit, t.Elem.Unit)
+}
+
+// InputPeriod returns what an input divides by the rate that it reads, or 0 if none.
+func InputPeriod(t Type) float64 {
+	if t.Kind != KindVarRef || t.Elem == nil || !UnitsReciprocal(t.Elem.Unit, t.Unit) {
+		return 0
+	}
+	return PeriodFactor(t.Elem.Unit, t.Unit)
+}
+
+// PeriodFactor returns what to divide by a rate in from to get its period in to.
+func PeriodFactor(from, to *Unit) float64 {
+	return nanosecondsPerSecond / (from.Scale * to.Scale)
 }
 
 // UnitFactor returns what to multiply a value in from by to get its value in to. A
@@ -112,4 +128,15 @@ func UnitsIncompatible(a, b *Unit) bool {
 // UnitsConvertible reports whether a and b are different units of the same dimensions.
 func UnitsConvertible(a, b *Unit) bool {
 	return a != nil && b != nil && !a.Equal(*b) && a.Dimensions.Equal(b.Dimensions)
+}
+
+// UnitsReciprocal reports whether from is a rate that converts to the time span to.
+func UnitsReciprocal(from, to *Unit) bool {
+	return from != nil && to != nil && from.Dimensions.Equal(DimFrequency) &&
+		to.Dimensions.Equal(DimTime)
+}
+
+// WriteConverts reports whether a value in from converts on its way to a target in to.
+func WriteConverts(from, to *Unit) bool {
+	return UnitsConvertible(from, to) || UnitsReciprocal(from, to)
 }

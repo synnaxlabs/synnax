@@ -10,12 +10,15 @@
 package sequence_test
 
 import (
+	"fmt"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/analyzer"
 	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/sequence"
+	"github.com/synnaxlabs/arc/analyzer/testutil"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
@@ -754,6 +757,42 @@ var _ = Describe("Sequence Analyzer", func() {
 					}
 				}
 			`, `an inline stage or sequence cannot have a name`),
+		)
+		DescribeTable(
+			"Should give a fix that removes the name of an inline routing case body",
+			func(bCtx SpecContext, body, fixed string) {
+				const format = "sequence main {\n    stage hold {\n" +
+					"        start_cmd -> select() -> { true: %s }\n    }\n}\n"
+				source := fmt.Sprintf(format, body)
+				ctx := context.NewRoot(
+					bCtx,
+					MustSucceed(parser.Parse(source)),
+					NewRoot(nil, resolver...),
+				)
+				analyzer.AnalyzeProgram(ctx)
+				Expect(*ctx.Diagnostics).ToNot(BeEmpty())
+				fixes := (*ctx.Diagnostics)[0].Fixes
+				Expect(fixes).To(HaveLen(1))
+				Expect(fixes[0].Title).To(Equal("Remove name"))
+				Expect(
+					testutil.ApplyFix(source, fixes[0]),
+				).To(Equal(fmt.Sprintf(format, fixed)))
+			},
+			Entry(
+				"stage",
+				"stage my_stage { 1 -> abort_btn }",
+				"stage { 1 -> abort_btn }",
+			),
+			Entry(
+				"sequence",
+				"sequence my_seq { 1 -> abort_btn }",
+				"sequence { 1 -> abort_btn }",
+			),
+			Entry(
+				"name on the line before the body",
+				"stage my_stage\n{ 1 -> abort_btn }",
+				"stage { 1 -> abort_btn }",
+			),
 		)
 	})
 

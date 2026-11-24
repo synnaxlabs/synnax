@@ -254,6 +254,100 @@ describe("channel.Client", () => {
     });
   });
 
+  describe("the calculated flag", () => {
+    const RENAMED_STORED: channel.Stored = {
+      ...CREATED,
+      name: RENAMED.name,
+      leaseholder: 0,
+      localKey: RENAMED.key,
+      localIndex: 0,
+      virtual: true,
+    };
+    // pushActions pushes acts as another client's dispatch on key, then a rename of
+    // OTHER that it waits for, since frames apply in order.
+    let seq = 0;
+    const pushActions = async (
+      { stream, channels }: Awaited<ReturnType<typeof createStreamedClient>>,
+      key: channel.Key,
+      ...acts: channel.Action[]
+    ) => {
+      seq++;
+      const mark = `mark-${seq}`;
+      stream.push(
+        new framer.Frame({
+          [channel.ACTION_CHANNEL_NAME]: new Series([
+            { key, dispatchKey: `other-${seq}`, seq, actions: acts },
+            {
+              key: OTHER.key,
+              dispatchKey: `other-${seq}`,
+              seq,
+              actions: [channel.rename({ name: mark })],
+            },
+          ]),
+        }),
+      );
+      await expect.poll(() => channels.store.get(OTHER.key)?.name).toEqual(mark);
+    };
+    const setOf = (path: string, value: unknown): channel.Action =>
+      channel.set({ path: [path], value });
+
+    it("should not mark a channel calculated by its expression", async () => {
+      const client = await createStreamedClient();
+      await pushActions(client, RENAMED.key, setOf("expression", "return 1"));
+      const edited = client.channels.store.get(RENAMED.key);
+      expect(edited?.expression).toEqual("return 1");
+      expect(edited != null && channel.isCalculated(edited)).toBe(false);
+      await pushActions(client, CREATED_KEY, {
+        type: "create",
+        create: { channel: { ...CREATED, virtual: true, expression: "return 1" } },
+      });
+      const created = client.channels.store.get(CREATED_KEY);
+      expect(created != null && channel.isCalculated(created)).toBe(false);
+    });
+
+    it("should mark and unmark a channel only when the Core sets calculated", async () => {
+      const client = await createStreamedClient();
+      const calculated = () => {
+        const ch = client.channels.store.get(RENAMED.key);
+        return ch != null && channel.isCalculated(ch);
+      };
+      await pushActions(
+        client,
+        RENAMED.key,
+        setOf("calculated", true),
+        setOf("expression", "return 1"),
+      );
+      expect(calculated()).toBe(true);
+      await pushActions(client, RENAMED.key, setOf("expression", ""));
+      expect(calculated()).toBe(true);
+      await pushActions(client, RENAMED.key, setOf("calculated", false));
+      expect(calculated()).toBe(false);
+    });
+
+    it("should keep calculated and the expression through other sets and a create", async () => {
+      const client = await createStreamedClient();
+      await pushActions(
+        client,
+        RENAMED.key,
+        setOf("calculated", true),
+        setOf("expression", "return 1"),
+      );
+      await pushActions(
+        client,
+        RENAMED.key,
+        setOf("group", G1),
+        setOf("data_type", "float64"),
+        setOf("operations", [
+          { type: "max", reset_channel: 0, duration: "1000000000" },
+        ]),
+        { type: "create", create: { channel: RENAMED_STORED } },
+      );
+      const next = client.channels.store.get(RENAMED.key);
+      expect(next?.expression).toEqual("return 1");
+      expect(next != null && channel.isCalculated(next)).toBe(true);
+    });
+  });
+
   describe("a channel another client creates", () => {
     it("should cache the channel with the keys its stored form encodes", async () => {
       const { stream, channels } = await createStreamedClient();

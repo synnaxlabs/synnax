@@ -13,7 +13,7 @@ import type { ReactElement } from "react";
 import { Color } from "@/color";
 import { CSS } from "@/css";
 import { colorFallbacks, InputForm } from "@/schematic/node/general/input/Form";
-import { Input } from "@/schematic/node/general/input/Primitive";
+import { Primitive } from "@/schematic/node/general/input/primitive";
 import { Symbol } from "@/schematic/node/general/input/Symbol";
 import type { Spec } from "@/schematic/node/spec";
 
@@ -24,7 +24,7 @@ const Preview = ({
 }: schematic.InputNodeConfig): ReactElement => {
   const resolve = Color.useResolve();
   return (
-    <Input
+    <Primitive.Input
       value="send message"
       fillColor={resolve(fillColor)}
       orientation={orientation}

@@ -1163,10 +1163,15 @@ class TestChannelUses:
         )
         assert client.channels.retrieve(ch.key).uses is None
 
-    def test_retrieve_built_ins(self, client: sy.Synnax) -> None:
-        """Should retrieve the keys of the built-in channels."""
+    def test_retrieve_internal(self, client: sy.Synnax) -> None:
+        """Should retrieve the built-in channels through the internal filter."""
         cmd = client.channels.retrieve("sy_task_cmd")
-        assert cmd.key in client.channels.retrieve_built_ins()
+        plain = client.channels.create(
+            name=channel_name(), virtual=True, data_type=sy.DataType.FLOAT32
+        )
+        keys = [ch.key for ch in client.channels.retrieve(internal=True)]
+        assert cmd.key in keys
+        assert plain.key not in keys
 
 
 class TestChannelPayload:

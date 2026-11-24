@@ -971,8 +971,8 @@ var _ = Describe("Change channels", func() {
 			}
 
 			It(
-				"Should send no action of an existing output to a subject that cannot "+
-					"read its calculation",
+				"Should send only the calculated flag of an existing output to a "+
+					"subject that cannot read its calculation",
 				func(ctx SpecContext) {
 					in, output, witness := virtual(ctx), virtual(ctx), virtual(ctx)
 					stream(
@@ -987,7 +987,27 @@ var _ = Describe("Change channels", func() {
 						return svc.Calculation.NewWriter(tx).Delete(ctx, key)
 					})).To(Succeed())
 					rename(ctx, witness)
-					Expect(batches()).To(ConsistOf(HaveField("Key", witness.Key())))
+					var calculated []any
+					for {
+						received := batches()
+						for _, b := range received {
+							Expect(setsExpression(b)).To(BeFalse())
+							if b.Key != output.Key() {
+								continue
+							}
+							for _, a := range b.Actions {
+								Expect(a.Set).ToNot(BeNil())
+								Expect(a.Set.Path).To(Equal([]string{"calculated"}))
+								calculated = append(calculated, a.Set.Value)
+							}
+						}
+						if slices.ContainsFunc(received, func(b batch) bool {
+							return b.Key == witness.Key()
+						}) {
+							break
+						}
+					}
+					Expect(calculated).To(Equal([]any{true, false}))
 				},
 				SpecTimeout(30*time.Second),
 			)

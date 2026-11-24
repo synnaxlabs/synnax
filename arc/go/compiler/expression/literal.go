@@ -100,7 +100,7 @@ func compileSeriesLiteral(
 		if err != nil {
 			return types.Type{}, err
 		}
-		if t = t.UnwrapChan(); types.UnitsConvertible(t.Unit, elemType.Unit) {
+		if t = t.UnwrapChan(); types.WriteConverts(t.Unit, elemType.Unit) {
 			if err = EmitCast(ctx, t, *elemType); err != nil {
 				return types.Type{}, err
 			}
