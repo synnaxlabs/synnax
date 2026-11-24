@@ -119,17 +119,18 @@ export interface ChannelUsageProps {
 /**
  * Says how many channels a Start creates and how many of the channels that the license
  * allows are in use. Holds an empty line while the counts load, so the form above it
- * keeps its size when they arrive.
+ * keeps its size when they arrive. Renders nothing for a task whose channels use no
+ * slave, or when a channel query fails.
  */
 export const ChannelUsage = ({
   indexOptions,
   pdoType,
   path,
   slaves,
-}: ChannelUsageProps): ReactElement => {
+}: ChannelUsageProps): ReactElement | null => {
   const channels = Form.useFieldValue(path);
   const keys = mappedKeys(slaves ?? []);
-  const { data: mapped } = Channel.useResultMultiple(
+  const { data: mapped, variant: mappedVariant } = Channel.useResultMultiple(
     keys.length === 0 ? null : query.keysRequest(keys),
   );
   const existing: DataTypes | undefined =
@@ -141,11 +142,14 @@ export const ChannelUsage = ({
       ? undefined
       : creationsOf(indexOptions, pdoType, slaves, channels, existing);
   const names = unique.unique((creations ?? []).map(({ name }) => name));
-  const { data: named } = Channel.useResultMultiple(
+  const { data: named, variant: namedVariant } = Channel.useResultMultiple(
     names.length === 0 ? null : { where: { name: { in: names } } },
   );
   const count = Channel.useResultCountLimited();
   const license = License.useResult({});
+  // Without a slave to read, or after a failed query, no counts arrive.
+  const noSlaves = channels.every((ch) => primitive.isZero(ch.device));
+  if (noSlaves || mappedVariant === "error" || namedVariant === "error") return null;
   const className = CSS.BE("ethercat-channel-usage", "text");
   const empty = <Text.Text level="small" className={className} />;
   if (creations == null || (names.length > 0 && named == null)) return empty;

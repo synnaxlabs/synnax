@@ -2886,6 +2886,11 @@ describe("Read channel usage", () => {
     expect(panes.getBoundingClientRect().height).toBe(first);
   });
 
+  it("should show no usage line for a task with no channels", async () => {
+    const { container } = await renderRead(EtherCAT.Task.READ_SCHEMAS.config.parse({}));
+    expect(container.querySelector(".console-ethercat-channel-usage__text")).toBeNull();
+  });
+
   it("should leave a disabled channel out of the count", async () => {
     const slave = await createTwoEntrySlave();
     await renderRead(createConfig(slave, true));
