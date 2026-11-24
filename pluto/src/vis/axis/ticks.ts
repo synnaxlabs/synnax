@@ -19,7 +19,7 @@ import { type ScaleLinear, scaleLinear, type ScaleTime, scaleTime } from "d3-sca
 import { timeTickInterval } from "d3-time";
 import { z } from "zod";
 
-import { type PreciseTimeScale, preciseTimeScale } from "@/vis/axis/preciseTimeScale";
+import { precise } from "@/vis/axis/precise";
 import { formatRelativeTime, RELATIVE_STEPS } from "@/vis/axis/relative";
 
 export interface Tick {
@@ -83,7 +83,7 @@ class TimeTickFactory implements TickFactory {
   private currTicks: Tick[];
 
   private readonly normalScale: ScaleTime<number, number>;
-  private readonly preciseScale: PreciseTimeScale;
+  private readonly preciseScale: precise.TimeScale;
 
   private prevSegmentKey: number[] = [];
   private segmentTickCache: Tick[] = [];
@@ -91,7 +91,7 @@ class TimeTickFactory implements TickFactory {
   constructor(props: ParsedTickFactoryProps) {
     this.props = props;
     this.normalScale = scaleTime();
-    this.preciseScale = preciseTimeScale();
+    this.preciseScale = precise.timeScale();
     this.prevScaleSize = 0;
     this.prevDomain = new TimeRange(new TimeStamp(0), new TimeStamp(0));
     this.currTicks = [];

@@ -78,13 +78,4 @@ var _ = Describe("Actions", func() {
 			}))).To(Equal(base))
 		})
 	})
-
-	Describe("SetUsernamePayload", func() {
-		It("Should leave the user unchanged", func() {
-			Expect(user.Reduce(
-				base,
-				user.NewSetUsernameAction(user.SetUsernamePayload{Username: "bob"}),
-			)).To(Equal(base))
-		})
-	})
 })

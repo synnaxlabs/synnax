@@ -96,10 +96,9 @@ type Config struct {
 	//
 	// [OPTIONAL] - Defaults to 1s.
 	AutoIndexPersistInterval telem.TimeSpan
-	// Mode sets the persistence and streaming mode for the writer. The default mode is
-	// WriterModePersistStream.
+	// Mode sets whether the writer persists its frames, streams them, or both.
 	//
-	// [OPTIONAL] - Defaults to WriterModePersistStream.
+	// [OPTIONAL] - Defaults to ModePersistStream.
 	Mode Mode
 	// AutoIndex causes the writer to generate timestamps for any index channel in its
 	// Keys whose series is omitted from a Write frame. The first sample in each Write
@@ -125,7 +124,7 @@ func DefaultConfig() Config {
 		ControlSubject:           control.Subject{Key: uuid.New().String()},
 		Authorities:              []control.Authority{control.AuthorityAbsolute},
 		ErrOnUnauthorized:        new(false),
-		Mode:                     cesium.WriterModePersistStream,
+		Mode:                     ModePersistStream,
 		EnableAutoCommit:         new(true),
 		AutoIndexPersistInterval: 1 * telem.Second,
 		Sync:                     new(false),
@@ -177,14 +176,6 @@ func (c Config) split(
 	return stored, leased, free
 }
 
-func (c Config) toStorage() cesium.WriterConfig {
-	return cesium.WriterConfig{
-		Channels: c.Keys.Uint32(),
-		Start:    c.Start,
-		Mode:     c.Mode,
-	}
-}
-
 // Validate implements config.Config.
 func (c Config) Validate() error {
 	v := validate.New("distribution.framer.writer")
@@ -194,6 +185,12 @@ func (c Config) Validate() error {
 	v.NotNil("sync", c.Sync)
 	v.NotNil("err_on_unauthorized", c.ErrOnUnauthorized)
 	v.NotNil("auto_index", c.AutoIndex)
+	v.Ternaryf(
+		"mode",
+		c.Mode < ModePersistStream || c.Mode > ModeStreamOnly,
+		"unknown writer mode %d",
+		c.Mode,
+	)
 	v.Ternaryf(
 		"authorities",
 		len(c.Authorities) != 1 && len(c.Authorities) != len(c.Keys),
@@ -241,6 +238,11 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	TS *cesium.DB
+	// PointerLogEnabled is true when TS is on its pointer log layout. The sessions on a
+	// clock then share one writer, and on the old layout each keeps its own.
+	//
+	// [OPTIONAL] - Defaults to false.
+	PointerLogEnabled *bool
 	// Clock times the AutoIndexPersistInterval of each writer. It must be monotonic.
 	//
 	// [OPTIONAL] - Defaults to xtime.Real.
@@ -258,6 +260,7 @@ func (cfg ServiceConfig) Validate() error {
 	v := validate.New("distribution.framer.writer")
 	v.NotNil("writes", cfg.Writes)
 	v.NotNil("ts", cfg.TS)
+	v.NotNil("pointer_log_enabled", cfg.PointerLogEnabled)
 	v.NotNil("clock", cfg.Clock)
 	return v.Error()
 }
@@ -266,6 +269,7 @@ func (cfg ServiceConfig) Validate() error {
 func (cfg ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	cfg.Writes = override.Nil(cfg.Writes, other.Writes)
 	cfg.TS = override.Nil(cfg.TS, other.TS)
+	cfg.PointerLogEnabled = override.Nil(cfg.PointerLogEnabled, other.PointerLogEnabled)
 	cfg.Clock = override.Nil(cfg.Clock, other.Clock)
 	cfg.Instrumentation = override.Zero(cfg.Instrumentation, other.Instrumentation)
 	return cfg
@@ -330,6 +334,13 @@ func (s *Service) ClaimDelete(keys channel.Keys) (release func(), err error) {
 	return release, err
 }
 
+// NameHolder returns err with a refusal of a time range that a writer holds rewritten
+// to name that writer, as the refusal of a writer open does.
+func (s *Service) NameHolder(err error) error {
+	named, _ := s.controls.nameHolder(err)
+	return named
+}
+
 // SetChannelResolver injects the resolver used to look up the records of free and
 // virtual channels when a writer is opened. It must be called before opening writers on
 // such channels; the service layer registers its channel service here at startup.
@@ -337,14 +348,17 @@ func (s *Service) SetChannelResolver(r ChannelResolver) { s.resolver.Store(&r) }
 
 // NewService opens the writer service using the given configuration.
 func NewService(cfgs ...ServiceConfig) (*Service, error) {
-	cfg, err := config.New(ServiceConfig{Clock: xtime.Real}, cfgs...)
+	cfg, err := config.New(
+		ServiceConfig{Clock: xtime.Real, PointerLogEnabled: new(false)},
+		cfgs...,
+	)
 	if err != nil {
 		return nil, err
 	}
 	return &Service{
 		cfg:      cfg,
 		claims:   newClaims(),
-		controls: newControls(),
+		controls: newControls(cfg.Instrumentation),
 		freeWriteAlignments: &freeWriteAlignments{
 			counters: make(map[channel.Key]*telem.AlignmentCounter),
 		},

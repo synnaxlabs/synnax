@@ -52,7 +52,7 @@ class TestPositionalArguments:
     ) -> None:
         host, port, username, password = login_info
         with deprecated():
-            c = untyped(sy.Synnax)(host, port, username, password)
+            c = untyped(sy.Synnax)(host, port, username, password, False)
         try:
             assert c.channels.retrieve(virtual_channel.key).key == virtual_channel.key
         finally:
@@ -162,15 +162,13 @@ class TestPositionalArguments:
         policy = client.access.policies.create(
             sy.Policy(name="deprecation", actions=["retrieve"], role=role.key)
         )
-        user = client.users.create(
-            username=str(uuid4()), password="test", role=role.key
-        )
+        user = client.users.create(name=str(uuid4()), role=role.key)
         retrieve: Callable[..., list[sy.Policy]] = client.access.policies.retrieve
         with deprecated():
             matched = retrieve([policy.key])
         assert [p.key for p in matched] == [policy.key]
         with deprecated():
-            matched = retrieve(None, [user.resource_id], False)
+            matched = retrieve(None, [sy.user.resource_id(user.key)], False)
         assert [p.key for p in matched] == [policy.key]
         with deprecated():
             matched = retrieve(None, None, True)

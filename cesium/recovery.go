@@ -31,6 +31,8 @@ import (
 // then every log entry after it, in log order.
 type recovery struct {
 	fs xfs.FS
+	// logSize is the size of each new log file.
+	logSize int64
 	// heads and logs are the generations of the head and log files in the listing taken
 	// at open.
 	heads, logs []uint64
@@ -209,7 +211,9 @@ func (r *recovery) readInto(
 	if err != nil {
 		return nil, false, err
 	}
-	*buf = slices.Grow((*buf)[:0], int(info.Size()))[:info.Size()]
+	// A file that a live writer grows may give a new size at each call.
+	size := int(info.Size())
+	*buf = slices.Grow((*buf)[:0], size)[:size]
 	if _, err = f.ReadAt(*buf, 0); err != nil && !errors.Is(err, io.EOF) {
 		return nil, false, err
 	}
@@ -524,32 +528,9 @@ func (r *recovery) entries(
 // passes at its own offset there proves that synced bytes are bad. It reads the bytes
 // twice.
 func (r *recovery) scan(b []byte, generation uint64, off int64, sequence uint64) error {
-	if off >= int64(len(b)) {
-		return nil
-	}
-	// found scans tail, the bytes of the log from base on.
-	found := func(tail []byte, base int64) (int64, bool) {
-		for at := (off + 7) &^ 7; at+log.FrameHeaderSize <= base+int64(len(tail)); at += 8 {
-			b := tail[at-base:]
-			if !bytes.Equal(b[:4], frameMagic) {
-				continue
-			}
-			if _, err := log.DecodeFrame(b, r.db, generation, uint64(at)); err == nil {
-				return at, true
-			}
-		}
-		return 0, false
-	}
-	at, ok := found(b[off:], off)
-	if !ok {
-		second := make([]byte, len(b)-int(off))
-		if err := r.reread(generation, second, off); err != nil {
-			return err
-		}
-		at, ok = found(second, off)
-	}
-	if !ok {
-		return nil
+	at, _, ok, err := r.findFrame(b, generation, off)
+	if err != nil || !ok {
+		return err
 	}
 	return errors.Wrapf(
 		place.ErrCorrupt,
@@ -558,6 +539,90 @@ func (r *recovery) scan(b []byte, generation uint64, off int64, sequence uint64)
 		at,
 		sequence,
 	)
+}
+
+// rereadBlock is the size of the blocks of the second read of findFrame.
+const rereadBlock = 4 << 20
+
+// findFrame returns the first frame from off on of the log of generation in b that
+// passes at its own offset, and its offset. When b holds none, it reads the file again
+// in blocks of rereadBlock, since the first read can be wrong. It returns false when
+// neither read holds one.
+func (r *recovery) findFrame(
+	b []byte,
+	generation uint64,
+	off int64,
+) (at int64, f log.Frame, ok bool, err error) {
+	size := int64(len(b))
+	if off >= size {
+		return 0, log.Frame{}, false, nil
+	}
+	if at, f, ok = r.frameIn(b[off:], off, off, generation); ok {
+		return at, f, true, nil
+	}
+	file, err := r.fs.Open(log.Name(generation), os.O_RDONLY)
+	if err != nil {
+		return 0, log.Frame{}, false, err
+	}
+	defer func() { err = errors.Join(err, file.Close()) }()
+	block := make([]byte, min(rereadBlock+log.FrameHeaderSize, size-off))
+	for pos := off; pos < size; pos += rereadBlock {
+		n := min(int64(len(block)), size-pos)
+		if _, err = file.ReadAt(block[:n], pos); err != nil && !errors.Is(err, io.EOF) {
+			return 0, log.Frame{}, false, err
+		}
+		end := min(pos+rereadBlock, size)
+		if at, f, ok, err = r.frameAcross(file, block[:n], pos, max(pos, off), end,
+			size, generation); err != nil || ok {
+			return at, f, ok, err
+		}
+	}
+	return 0, log.Frame{}, false, nil
+}
+
+// frameIn returns the first frame of the log of generation that starts at from or after
+// it and passes at its own offset, from tail, the bytes of the log from base on.
+func (r *recovery) frameIn(
+	tail []byte,
+	base, from int64,
+	generation uint64,
+) (int64, log.Frame, bool) {
+	for at := (from + 7) &^ 7; at+log.FrameHeaderSize <= base+int64(len(tail)); at += 8 {
+		c := tail[at-base:]
+		if !bytes.Equal(c[:4], frameMagic) {
+			continue
+		}
+		if f, err := log.DecodeFrame(c, r.db, generation, uint64(at)); err == nil {
+			return at, f, true
+		}
+	}
+	return 0, log.Frame{}, false
+}
+
+// frameAcross returns the first frame of the log of generation in file, of size bytes,
+// that starts from from to below end and passes at its own offset. block holds the
+// bytes of file from pos on. It reads each frame that a header in block names whole
+// from file.
+func (r *recovery) frameAcross(
+	file xfs.File,
+	block []byte,
+	pos, from, end, size int64,
+	generation uint64,
+) (int64, log.Frame, bool, error) {
+	for at := (from + 7) &^ 7; at < end && at+log.FrameHeaderSize <= size; at += 8 {
+		n, ok := log.FrameSize(block[at-pos:])
+		if !ok || at+int64(n) > size {
+			continue
+		}
+		c := make([]byte, n)
+		if _, err := file.ReadAt(c, at); err != nil && !errors.Is(err, io.EOF) {
+			return 0, log.Frame{}, false, err
+		}
+		if f, err := log.DecodeFrame(c, r.db, generation, uint64(at)); err == nil {
+			return at, f, true, nil
+		}
+	}
+	return 0, log.Frame{}, false, nil
 }
 
 // rewrite writes again, with the same bytes, what recovery read and builds on: the last
@@ -629,8 +694,10 @@ func (r *recovery) restart() (
 		if err != nil {
 			return 0, nil, false, err
 		}
-		if whole || end > r.size {
-			if frame.PrevCRC, err = r.next(whole); err != nil {
+		// The writer keeps the last two blocks of a log for marks, so a Restart always
+		// fits in it when no whole next log stands.
+		if whole {
+			if frame.PrevCRC, err = r.next(); err != nil {
 				return 0, nil, false, err
 			}
 			start, switched = log.FramesStart, true
@@ -671,27 +738,21 @@ func (r *recovery) nextWhole() (bool, error) {
 	if err = errors.Join(err, f.Close()); err != nil {
 		return false, err
 	}
-	return info.Size() == log.FileSize, nil
+	return info.Size() == r.logSize, nil
 }
 
-// next makes the next log live: its file, synced in the root when it is whole and else
-// prepared, then both header copies, synced. It returns the crc field of the copy at 0.
-func (r *recovery) next(whole bool) (uint32, error) {
+// next makes the whole next log live: its entry in the root, synced, then both header
+// copies, synced. It returns the crc field of the copy at 0.
+func (r *recovery) next() (uint32, error) {
 	gen := r.gen + 1
-	var err error
-	if whole {
-		err = r.fs.SyncDir("")
-	} else {
-		err = log.Prepare(r.fs, gen, log.FileSize)
-	}
-	if err != nil {
+	if err := r.fs.SyncDir(""); err != nil {
 		return 0, err
 	}
 	h := log.Header{
 		DB:         r.db,
 		Generation: gen,
 		Sequence:   r.pos.Sequence,
-		Size:       log.FileSize,
+		Size:       uint64(r.logSize),
 		PrevCRC:    r.pos.PrevCRC,
 	}
 	f, err := r.fs.Open(log.Name(gen), os.O_RDWR)
@@ -709,7 +770,7 @@ func (r *recovery) next(whole bool) (uint32, error) {
 	if err = errors.Join(err, f.Close()); err != nil {
 		return 0, err
 	}
-	r.gen, r.first, r.logHeader, r.size = gen, h.Sequence, h, log.FileSize
+	r.gen, r.first, r.logHeader, r.size = gen, h.Sequence, h, r.logSize
 	return binary.LittleEndian.Uint32(first[log.HeaderSize-4:]), nil
 }
 

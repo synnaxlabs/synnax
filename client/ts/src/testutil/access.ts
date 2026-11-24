@@ -15,6 +15,7 @@ import type Synnax from "@/client";
 import type { SynnaxParams } from "@/client";
 import { AccessDeniedError, NotFoundError } from "@/errors";
 import { createFileTestClient, createTestClient } from "@/testutil/client";
+import { createTestUser, type TestUser } from "@/testutil/user";
 import { user } from "@/user";
 
 /** Reports whether the error, or any error in its cause chain, is an access denial. */
@@ -39,25 +40,13 @@ export const createTestClientAs = (username: string, password: string): Synnax =
  * as in {@link createTestClientAs}.
  */
 const connectAs = async (
-  username: string,
-  key: user.Key,
+  { user: { key }, username, password }: TestUser,
   onInternalError: (err: Error) => void = logAllButDenials,
   create = createTestClient,
 ) => {
-  const client = create({ username, password: "test", onInternalError });
+  const client = create({ username, password, onInternalError });
   await client.access.policies.retrieve({ subjects: [user.resourceID(key)] });
   return client;
-};
-
-const createUser = async (client: Synnax, role: role.Key) => {
-  const username = id.create();
-  const u = await client.users.create({
-    username,
-    password: "test",
-    name: "test",
-    role,
-  });
-  return { username, key: u.key };
 };
 
 /** Creates a role with no policies, for a user that can do nothing. */
@@ -85,12 +74,9 @@ export const createTestClientWithPolicy = async (
   await client.access.policies.create(
     array.toArray(pol).map((p) => ({ ...p, role: r.key })),
   );
-  const u = await createUser(client, r.key);
-  return await connectAs(
-    u.username,
-    u.key,
-    onInternalError ?? params?.onInternalError,
-    (p) => createTestClient({ ...params, ...p }),
+  const u = await createTestUser(client, { role: r.key });
+  return await connectAs(u, onInternalError ?? params?.onInternalError, (p) =>
+    createTestClient({ ...params, ...p }),
   );
 };
 
@@ -124,8 +110,8 @@ const connectAsRole = async (
   const roles = await client.access.roles.retrieve({});
   const r = roles.find((r) => r.name === name);
   if (r == null) throw new NotFoundError(`no built-in role named ${name}`);
-  const u = await createUser(client, r.key);
-  return await connectAs(u.username, u.key, undefined, create);
+  const u = await createTestUser(client, { role: r.key });
+  return await connectAs(u, undefined, create);
 };
 
 /**

@@ -67,9 +67,11 @@ func writePair(
 	data, scratch channel.Channel,
 	payload []byte,
 ) error {
-	return e.cesium.Write(ctx, telem.TimeStamp(id)*telem.SecondTS, telem.MultiFrame(
+	clock := cesium.ChannelKey(e.clock.Key())
+	start := telem.TimeStamp(id) * telem.SecondTS
+	return commitFrame(ctx, e.cesium, clock, start, telem.MultiFrame(
 		[]cesium.ChannelKey{
-			cesium.ChannelKey(e.clock.Key()),
+			clock,
 			cesium.ChannelKey(data.Key()),
 			cesium.ChannelKey(scratch.Key()),
 		},
