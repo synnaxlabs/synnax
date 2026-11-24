@@ -485,6 +485,7 @@ func (db *DB) swapCollectedFile(
 	if err := db.cfg.FS.Rename(copyName, name); err != nil {
 		return errors.Combine(err, db.cfg.FS.Rename(name+"_temp", name))
 	}
+	db.idx.mu.rewrites[key]++
 	for i, ptr := range db.idx.mu.pointers {
 		if ptr.fileKey != key {
 			continue
