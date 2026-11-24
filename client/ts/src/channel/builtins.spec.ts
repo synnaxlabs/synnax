@@ -285,9 +285,14 @@ describe("Built-in channels on a live client", () => {
       });
       await expect.poll(() => length).toBe(i + 1);
     }
+    // Other specs on the Core change uses, which the client fetches for itself.
     const refetches = send.mock.calls
       .slice(from)
-      .filter(([target]) => target === "/channel/retrieve");
+      .filter(
+        ([target, req]) =>
+          target === "/channel/retrieve" &&
+          (req as channel.RetrieveRequest).where?.name?.startsWith === prefix,
+      );
     expect(refetches).toHaveLength(0);
   }, 60000);
 
