@@ -279,6 +279,60 @@ var _ = Describe("A store from core/v0.62.0", func() {
 	})
 })
 
+var _ = Describe("Stored v13 state overrides", func() {
+	It(
+		"Should give nodes with the same symbol and overrides one copy",
+		func(ctx SpecContext) {
+			db := openShipped(ctx)
+			vent := decodeReleased[v4.Symbol]("symbol_vent_valve.hex")
+			Expect(gorp.NewCreate[v4.Key, v4.Symbol]().Entry(&vent).Exec(ctx, db)).
+				To(Succeed())
+			// A white fill that no entry carries needs a copy.
+			white := &color.Color{R: 255, G: 255, B: 255, A: 255}
+			states := slices.Clone(vent.Data.States)
+			for i := range states {
+				states[i].Regions = slices.Clone(states[i].Regions)
+				states[i].Regions[0].FillColor = white
+			}
+			node := func(key string) v13.Node {
+				cfg := v13.CustomActuatorNodeConfig{SpecKey: vent.Key.String()}
+				cfg.StateOverrides = states
+				return v13.Node{Key: key, Config: v13.NodeConfig{Variant: cfg}}
+			}
+			stored := v13.Schematic{Key: uuid.New(), Name: "Panel", Nodes: []v13.Node{
+				node("a"), node("b"),
+			}}
+			Expect(
+				gorp.NewCreate[v13.Key, v13.Schematic]().Entry(&stored).Exec(ctx, db),
+			).
+				To(Succeed())
+			openService(ctx, db)
+			var sc schematic.Schematic
+			Expect(gorp.NewRetrieve[schematic.Key, schematic.Schematic]().
+				Where(gorp.MatchKeys[schematic.Key, schematic.Schematic](stored.Key)).
+				Entry(&sc).
+				Exec(ctx, db)).To(Succeed())
+			refs := lo.Map(sc.Nodes, func(n schematic.Node, _ int) symbol.RefVariant {
+				cfg, ok := n.Config.Variant.(schematic.SymbolNodeConfig)
+				Expect(ok).To(BeTrue())
+				return cfg.Spec.Variant
+			})
+			Expect(refs[1]).To(Equal(refs[0]))
+			ref, ok := refs[0].(symbol.CustomRef)
+			Expect(ok).To(BeTrue())
+			Expect(ref.Key).ToNot(Equal(vent.Key))
+			var copied symbol.Symbol
+			Expect(gorp.NewRetrieve[symbol.Key, symbol.Symbol]().
+				Where(gorp.MatchKeys[symbol.Key, symbol.Symbol](ref.Key)).
+				Entry(&copied).
+				Exec(ctx, db)).To(Succeed())
+			Expect(copied.Name).To(Equal("Vent valve (Panel)"))
+			Expect(copied.Group).To(Equal(vent.Group))
+			Expect(copied.Data.Commands).To(HaveLen(2))
+		},
+	)
+})
+
 var _ = Describe("Stored v13 selects", func() {
 	It("Should give each select an enumeration for its options when the service "+
 		"opens", func(ctx SpecContext) {
