@@ -377,6 +377,9 @@ var _ = Describe("Check: repair of log damage", func() {
 		Expect(rep.Tails).To(BeEmpty())
 		Expect(rep.Unrecovered).To(BeEmpty())
 		Expect(rep.Buried).To(BeEmpty())
+		// The later delete names the alignment of the lost commit, and the repair cuts
+		// it again against the rebuilt range.
+		Expect(rep.Skipped).To(BeEmpty())
 		Expect(rep.Repaired).To(BeFalse())
 		Expect(bytesOf(d.fs)).To(Equal(before))
 	})
