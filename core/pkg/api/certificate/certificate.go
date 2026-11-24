@@ -27,6 +27,11 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
+// OwnedTables returns the tables of the records that a rack can own, so the write
+// binder lets the rack change them without other access. A file certificate is owned
+// by the rack it uses.
+func OwnedTables() []string { return []string{string(resource.TypeCertificate)} }
+
 // ServiceConfig is the configuration for the certificate API service.
 type ServiceConfig struct {
 	// Certificate stores certificates.

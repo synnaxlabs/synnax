@@ -20,13 +20,14 @@ import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
+import { useExclusiveCallback } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import type { Tree } from "@synnaxlabs/lyra/tree";
 import { ICD as PICD, Synnax as PSynnax } from "@synnaxlabs/pluto";
-import { deep, errors, unique, uuid } from "@synnaxlabs/x";
+import { deep, unique, uuid } from "@synnaxlabs/x";
 import {
   type Dispatch,
   type FC,
@@ -39,7 +40,6 @@ import {
 } from "react";
 
 import { Device } from "@/feature/kafka/device";
-import { useAddDataModal } from "@/feature/kafka/task/AddData";
 import {
   type Addition,
   createAdditions,
@@ -51,6 +51,7 @@ import {
   uniqueName,
 } from "@/feature/kafka/task/additions";
 import { DEFAULT_READ_NAME } from "@/feature/kafka/task/create";
+import { createDiscoverModal } from "@/feature/kafka/task/Discover";
 import {
   deployReadConfigZ,
   READ_SCHEMAS,
@@ -86,6 +87,13 @@ const TEXT_FIELD_CLASS = CSS.BE("kafka-properties", "text");
 const TOPIC_INPUT_PROPS = { placeholder: "sensor-readings" } as const;
 
 const TOPIC_KIND_COLOR = "var(--pluto-primary-z)";
+
+const useAddDataModal = createDiscoverModal({
+  title: "Add data",
+  hint: "Select the fields to read. Records that hold the same fields share a message.",
+  noun: "field",
+  verb: "Read",
+});
 
 const GROUP_INPUT_PROPS = { placeholder: "Derived from the task" } as const;
 
@@ -640,19 +648,8 @@ const Records: FC<RecordsProps> = ({
   };
 
   // Adds run one at a time, so a second click cannot make a second ICD.
-  const adding = useRef(false);
-  const handleAdd = () =>
-    handleError(async () => {
-      if (adding.current) return;
-      adding.current = true;
-      try {
-        await add();
-      } catch (e) {
-        adding.current = false;
-        throw errors.fromUnknown(e);
-      }
-      adding.current = false;
-    }, "Failed to add data");
+  const addExclusive = useExclusiveCallback(add);
+  const handleAdd = () => handleError(addExclusive, "Failed to add data");
 
   const rec =
     current == null ? undefined : records.find(({ key }) => key === current.source);
