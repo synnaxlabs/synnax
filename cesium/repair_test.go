@@ -613,17 +613,23 @@ var _ = Describe("Repair", func() {
 			}))
 		})
 
-		It("Should place no range of a clock write whose clock stamps do not rise",
-			func(ctx SpecContext) {
+		DescribeTable(
+			"Should place no range of a clock write whose clock stamps do not "+
+				"rise inside the pointers around them",
+			func(ctx SpecContext, at int) {
 				writeNew(ctx, 10_000, 3)
 				spoil(commitFrame(10_001*telem.SecondTS), 4)
 				segs := [2]uint64{segmentIDs(fs, newIdx)[0], segmentIDs(fs, newData)[0]}
 				name := fmt.Sprintf("%d/%016x.seg", newIdx, segs[0])
 				b := MustSucceed(xfs.ReadFile(fs, name))
-				// The stamp at stream offset 90,000 goes to 0, and block 1 gets the
-				// checksum of its new bytes.
+				// The stamp at stream offset at, in block 1, goes to 5 s, and the block
+				// gets
+				// the checksum of its new bytes.
 				const slot = 65_536 + 4
-				binary.LittleEndian.PutUint64(b[slot+90_000-65_536:], 0)
+				binary.LittleEndian.PutUint64(
+					b[slot+at-65_536:],
+					uint64(5*telem.SecondTS),
+				)
 				sum := place.Segment(id, segs[0], slot, 1,
 					uint8(telem.DataTypeCodeTimestamp), newIdx).
 					Sum(b[slot : slot+65_536])
@@ -648,7 +654,10 @@ var _ = Describe("Repair", func() {
 						Reason:  rise,
 					},
 				}))
-			})
+			},
+			Entry("a stamp that falls", 90_000),
+			Entry("a first stamp before the pointer before it", 80_000),
+		)
 
 		It("Should end a clock write at the shortest range of it in checked blocks",
 			func(ctx SpecContext) {
