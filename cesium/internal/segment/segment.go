@@ -137,28 +137,36 @@ func (c Config) ReadChecked(
 			out += copy(buf[out:], block[:n])
 			continue
 		}
-		sum := place.Update(c.place(c.FileOffset(k*BlockSize)).Start(), block[:n])
-		want := tailCRC
-		if n == BlockSize {
-			trailer := block[BlockSize:slot]
-			if c.Variable {
-				at := c.FileOffset((k+1)*BlockSize) - VariableTrailer
-				tcrc := binary.LittleEndian.Uint32(trailer[12:])
-				if c.place(at).Sum(trailer[:12]) != tcrc {
-					return 0, errors.Wrapf(place.ErrCorrupt, "trailer of segment "+
-						"block %d fails its checksum", k)
-				}
-				trailer = trailer[8:]
-			}
-			want = binary.LittleEndian.Uint32(trailer)
-		}
-		if sum != want {
-			return 0, errors.Wrapf(place.ErrCorrupt, "segment block %d fails its "+
-				"checksum", k)
+		if err := c.checkBlock(k, block, n, tailCRC); err != nil {
+			return 0, err
 		}
 		out += copy(buf[out:], block[:n])
 	}
 	return out, nil
+}
+
+// checkBlock checks the checksums of block k of a version 1 segment, which holds n
+// stream bytes and, when full, its trailer. The last block checks against tailCRC.
+func (c Config) checkBlock(k int64, block []byte, n int, tailCRC uint32) error {
+	sum := place.Update(c.place(c.FileOffset(k*BlockSize)).Start(), block[:n])
+	want := tailCRC
+	if n == BlockSize {
+		trailer := block[BlockSize : BlockSize+c.trailer()]
+		if c.Variable {
+			at := c.FileOffset((k+1)*BlockSize) - VariableTrailer
+			tcrc := binary.LittleEndian.Uint32(trailer[12:])
+			if c.place(at).Sum(trailer[:12]) != tcrc {
+				return errors.Wrapf(place.ErrCorrupt, "trailer of segment block %d "+
+					"fails its checksum", k)
+			}
+			trailer = trailer[8:]
+		}
+		want = binary.LittleEndian.Uint32(trailer)
+	}
+	if sum != want {
+		return errors.Wrapf(place.ErrCorrupt, "segment block %d fails its checksum", k)
+	}
+	return nil
 }
 
 // cursor is the position of a writer in its stream.
