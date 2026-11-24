@@ -23,9 +23,9 @@ import (
 )
 
 var _ = Describe("Concurrent opens on the pointer log", func() {
-	It(
-		"Should open every session on one data key at once with one live claim",
-		func(ctx SpecContext) {
+	DescribeTable(
+		"Should open every session on one clock at once with one live claim per key",
+		func(ctx SpecContext, withIndex bool) {
 			host := newNode(ctx, true)
 			idx := MustSucceed(host.CreateChannels(ctx, []channel.Channel{{
 				Name:     "concurrent_time",
@@ -37,9 +37,13 @@ var _ = Describe("Concurrent opens on the pointer log", func() {
 				DataType:   telem.Int64T,
 				LocalIndex: idx.LocalKey,
 			}}))[0]
-			// A pick and a claim that did not run under one lock would let two
-			// sessions open Cesium writers on the key, and the pointer log refuses
-			// the second.
+			keys := channel.Keys{data.Key()}
+			if withIndex {
+				keys = channel.Keys{idx.Key(), data.Key()}
+			}
+			// A pick and a claim, or a join of the clock's writer, that did not run
+			// under one lock would let two sessions open Cesium writers on a key,
+			// and the pointer log refuses the second.
 			const sessions = 8
 			var (
 				wg      sync.WaitGroup
@@ -50,7 +54,7 @@ var _ = Describe("Concurrent opens on the pointer log", func() {
 				wg.Go(func() {
 					writers[i], errs[i] = host.Framer.OpenWriter(ctx, writer.Config{
 						ControlSubject: control.Subject{Key: fmt.Sprintf("open-%d", i)},
-						Keys:           channel.Keys{data.Key()},
+						Keys:           keys,
 						Start:          10 * telem.SecondTS,
 						Authorities: []control.Authority{
 							control.AuthorityAbsolute - control.Authority(i),
@@ -66,5 +70,7 @@ var _ = Describe("Concurrent opens on the pointer log", func() {
 				Expect(w.Close()).To(Succeed())
 			}
 		},
+		Entry("a data key", false),
+		Entry("the index and a data key", true),
 	)
 })
