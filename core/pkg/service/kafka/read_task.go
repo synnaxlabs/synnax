@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
@@ -193,10 +194,14 @@ func (f *factory) buildReadRecords(
 	if err != nil {
 		return nil, nil, err
 	}
+	if err = f.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		return check(ctx, snap, f.reads, &cfg, icds)
+	}); err != nil {
+		return nil, nil, err
+	}
 	var (
 		records = make(map[string]map[string]*readRecord, len(cfg.Topics))
 		groups  []*readGroup
-		w       = writers{channels: channels, names: make(map[channel.Key]string)}
 	)
 	for _, rec := range enabled {
 		keys, ok := records[rec.topic]
@@ -216,11 +221,6 @@ func (f *factory) buildReadRecords(
 			return nil, nil, errors.Wrapf(
 				err, "topic %q: record key %q", rec.topic, rec.RecordKey,
 			)
-		}
-		for _, g := range rd.groups {
-			if err = w.claim(g); err != nil {
-				return nil, nil, err
-			}
 		}
 		keys[rec.RecordKey] = rd
 		groups = append(groups, rd.groups...)
@@ -295,35 +295,6 @@ func (f *factory) readChannels(
 	return channels, nil
 }
 
-// writers holds the channels that the groups of a read task write to.
-type writers struct {
-	channels map[channel.Key]channel.Channel
-	// names names the group that writes to each channel.
-	names map[channel.Key]string
-}
-
-// claim takes the channels of g. Two groups on one index would write frames that lack
-// the channels of the other.
-func (w writers) claim(g *readGroup) error {
-	for _, key := range g.keys {
-		other, ok := w.names[key]
-		if !ok {
-			w.names[key] = g.name
-			continue
-		}
-		what := "channel"
-		if key == g.index {
-			what = "index channel"
-		}
-		return errors.Wrapf(
-			validate.ErrValidation,
-			"records: %s and %s write to the same %s %s",
-			other, g.name, what, w.channels[key].Name,
-		)
-	}
-	return nil
-}
-
 // newReadRecord validates rec, a record of topic, against ic, the ICD it names, and
 // channels, which holds every channel that a binding of rec names.
 func newReadRecord(
@@ -357,8 +328,8 @@ func newReadRecord(
 	return rd, nil
 }
 
-// newReadGroup validates rm, a message of the record of topic with recordKey, and fills
-// decoded with what the decoder needs to read it.
+// newReadGroup returns the group of rm, a message of the record with recordKey on
+// topic, and fills decoded with what the decoder needs to read it. rm must pass check.
 func newReadGroup(
 	topic string,
 	recordKey string,
@@ -371,17 +342,12 @@ func newReadGroup(
 		return m.Key == rm.Message
 	})
 	if i < 0 {
-		return nil, errors.Wrapf(
-			validate.ErrValidation,
-			"message %s does not exist in ICD %s", rm.Message, ic.Name,
-		)
+		panic(errors.Newf("kafka: message %s is not in ICD %s", rm.Message, ic.Name))
 	}
 	msg := ic.Messages[i]
 	payload, ok := msg.Payload.Variant.(icd.JSONPayload)
 	if !ok {
-		return nil, errors.Wrapf(
-			validate.ErrValidation, "message %s is not a JSON message", msg.Name,
-		)
+		panic(errors.Newf("kafka: message %s is not a JSON message", msg.Name))
 	}
 	if len(rm.Bindings) == 0 {
 		return nil, errors.Wrapf(
@@ -420,12 +386,7 @@ func (g *readGroup) bind(
 	bindings := make([]codec.Binding, len(rm.Bindings))
 	for i, b := range rm.Bindings {
 		ch, ok := channels[b.Channel]
-		switch {
-		case b.Channel == 0:
-			return nil, errors.Wrapf(
-				validate.ErrValidation, "binding %d has no channel", i,
-			)
-		case !ok:
+		if !ok {
 			return nil, errors.Wrapf(
 				validate.ErrValidation, "channel %d does not exist", b.Channel,
 			)
@@ -443,27 +404,9 @@ func (g *readGroup) bind(
 				validate.ErrValidation, "every channel must share one index channel",
 			)
 		}
-		isIndexField := rm.Index != nil && *rm.Index == b.Field
-		switch {
-		case isIndexField && !ch.IsIndex:
-			return nil, errors.Wrap(
-				validate.ErrValidation,
-				"the index field must write to an index channel",
-			)
-		case !isIndexField && ch.IsIndex:
-			return nil, errors.Wrap(
-				validate.ErrValidation,
-				"only the index field can write to an index channel",
-			)
-		case isIndexField:
+		if rm.Index != nil && *rm.Index == b.Field {
 			g.stamp = i
 		}
-	}
-	if rm.Index != nil && g.stamp == -1 {
-		return nil, errors.Wrap(
-			validate.ErrValidation,
-			"the index field has no binding",
-		)
 	}
 	return bindings, nil
 }

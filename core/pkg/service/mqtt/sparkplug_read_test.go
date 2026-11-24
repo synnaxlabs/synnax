@@ -11,6 +11,7 @@ package mqtt_test
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"time"
 
@@ -875,12 +876,14 @@ var _ = Describe("Sparkplug B read entries", func() {
 			),
 			Entry("two tags that share an index",
 				func(ctx context.Context) (msgpack.EncodedJSON, string) {
-					_, data := createIndexed(ctx, telem.Float64T, telem.Float64T)
+					idx, data := createIndexed(ctx, telem.Float64T, telem.Float64T)
 					a := tagEntry("plant", "line1", "", "a", data[0])
 					b := tagEntry("plant", "line1", "", "b", data[1])
-					return readConfig(ctx, dev, a, b),
-						"tag plant/line1/a and tag plant/line1/b " +
-							"write to the same channel"
+					return readConfig(ctx, dev, a, b), fmt.Sprintf(
+						"entries.1.channel: channel %d is also written by "+
+							"entries.0.channel",
+						idx.Key(),
+					)
 				},
 			),
 			Entry("an index channel as the channel of a tag",

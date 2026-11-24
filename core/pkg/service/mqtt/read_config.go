@@ -69,7 +69,7 @@ func (r readResolver) resolve(
 		}
 		icds[ic.Key] = ic
 	}
-	if err = r.check(ctx, snap, cfg, icds); err != nil || !ok {
+	if err = check(ctx, snap, r.reads, cfg, icds); err != nil || !ok {
 		return nil, err
 	}
 	return func(ctx context.Context, tx gorp.Tx) error {
@@ -89,14 +89,15 @@ func (r readResolver) hash(
 }
 
 // check checks each enabled entry of cfg, in order, against its ICD, from icds or else
-// read through snap, and its channels.
-func (r readResolver) check(
+// read through snap, and its channels. A task save and a task configure both run it.
+func check(
 	ctx context.Context,
 	snap gorp.Snapshot,
+	resolver read.Resolver,
 	cfg *ReadConfig,
 	icds map[icd.Key]icd.ICD,
 ) error {
-	c, err := r.reads.NewChecker(ctx, snap, readsOf(cfg), tagsOf(cfg), icds)
+	c, err := resolver.NewChecker(ctx, snap, readsOf(cfg), tagsOf(cfg), icds)
 	if err != nil {
 		return err
 	}
