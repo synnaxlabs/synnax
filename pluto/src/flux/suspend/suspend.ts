@@ -213,7 +213,10 @@ export const ensureFetch = <Query extends query.Params, Data extends query.Data>
   };
   let promise = local.inFlight.get(hash);
   if (promise == null) {
-    const epoch = local.epoch;
+    // The local cache learns of a reconnect only when a reader renders, so the fetch
+    // reads the connection itself.
+    const epochOf = (): number => params.client.connection.status.details.epoch;
+    const epoch = epochOf();
     const generation = generationOf(local, hash);
     const release = holdGeneration(local, hash);
     const current = (): boolean => generationOf(local, hash) === generation;
@@ -229,7 +232,7 @@ export const ensureFetch = <Query extends query.Params, Data extends query.Data>
     const fail = async (error: Error): Promise<Data> => {
       if (!current()) return await follow();
       // A reconnected Core may answer what the old connection could not.
-      if (local.epoch !== epoch) {
+      if (epochOf() !== epoch) {
         local.inFlight.delete(hash);
         return await ensureFetch(params, fetchParams);
       }
