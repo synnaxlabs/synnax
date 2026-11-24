@@ -293,6 +293,18 @@ class HealthCheck(BaseModel):
     response: Response | None = None
 
 
+class Configuration(BaseModel):
+    """Holds the server fields that the task forms own.
+
+    Attributes:
+        reads: Bind the values that read tasks poll to channels.
+        writes: Bind the requests that write tasks send to channels.
+    """
+
+    reads: list[Read] = Field(default_factory=list)
+    writes: list[Write] = Field(default_factory=list)
+
+
 class Server(BaseModel):
     """Is an HTTP server that a rack's Driver connects to.
 
@@ -336,6 +348,37 @@ class Server(BaseModel):
         return hash(self.key)
 
 
+class Identity(BaseModel):
+    """Holds the server fields that the connect form owns.
+
+    Attributes:
+        rack: Is the key of the rack whose Driver connects to the server.
+        name: Is a human-readable name for the server.
+        scheme: Is the URL scheme that the Driver reaches the server with.
+        host: Is the hostname or IP address of the server.
+        port: Is the TCP port. Absent takes the default port of the scheme.
+        base_path: Is the path that prefixes the path of every request.
+        timeout: Is the timeout of each request.
+        max_concurrent_requests: Is the largest number of requests in flight to the
+            server.
+        auth: Holds the credentials that the Driver sends with each request.
+        health_check: Is the request that the Driver checks the server with.
+    """
+
+    rack: rack_.Key = Field(gt=0, le=4294967295)
+    name: str = Field(min_length=1)
+    scheme: Scheme = Field(default_factory=lambda: HttpsScheme(type="https"))
+    host: str = Field(min_length=1)
+    port: int | None = Field(default=None, ge=1, le=65535)
+    base_path: str = ""
+    timeout: telem.TimeSpan = Field(
+        default=telem.TimeSpan(1000000000), ge=10000000, le=9007199254740991
+    )
+    max_concurrent_requests: int = Field(default=6, ge=1, le=64)
+    auth: Auth = Field(default_factory=lambda: NoneAuth(type="none"))
+    health_check: HealthCheck = Field(default_factory=lambda: HealthCheck())
+
+
 class RetrieveResponse(BaseModel):
     """Holds the servers a RetrieveRequest selects.
 
@@ -344,6 +387,27 @@ class RetrieveResponse(BaseModel):
     """
 
     servers: list[Server] = Field(default_factory=list)
+
+
+class IdentityUpdate(Identity):
+    """Writes the fields of the server that the connect form owns."""
+
+    group: Literal["identity"] = "identity"
+
+
+class ConfigurationUpdate(Configuration):
+    """Replaces the bindings of the server. A client sends the whole group, because a
+    field it leaves out is cleared.
+    """
+
+    group: Literal["configuration"] = "configuration"
+
+
+# Is a write to one field group of a server.
+Update = Annotated[
+    IdentityUpdate | ConfigurationUpdate,
+    Field(discriminator="group"),
+]
 
 
 Where.model_rebuild()

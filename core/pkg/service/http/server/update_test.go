@@ -15,8 +15,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/service/http"
 	"github.com/synnaxlabs/synnax/pkg/service/http/server"
+	"github.com/synnaxlabs/x/http"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"

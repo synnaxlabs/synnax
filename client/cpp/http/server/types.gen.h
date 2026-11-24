@@ -43,7 +43,9 @@ struct Write;
 struct Read;
 struct RetrieveRequest;
 struct HealthCheck;
+struct Configuration;
 struct Server;
+struct Identity;
 struct RetrieveResponse;
 
 constexpr const char *SEND_AS_HEADER = "header";
@@ -368,6 +370,17 @@ struct HealthCheck {
     [[nodiscard]] x::json::json to_json() const;
 };
 
+/// @brief Configuration holds the server fields that the task forms own.
+struct Configuration {
+    /// @brief reads bind the values that read tasks poll to channels.
+    std::vector<Read> reads = {};
+    /// @brief writes bind the requests that write tasks send to channels.
+    std::vector<Write> writes = {};
+
+    static Configuration parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
 /// @brief Server is an HTTP server that a rack's Driver connects to.
 struct Server {
     /// @brief key uniquely identifies the server.
@@ -404,6 +417,34 @@ struct Server {
     [[nodiscard]] x::json::json to_json() const;
 };
 
+/// @brief Identity holds the server fields that the connect form owns.
+struct Identity {
+    /// @brief rack is the key of the rack whose Driver connects to the server.
+    ::synnax::rack::Key rack = 0;
+    /// @brief name is a human-readable name for the server.
+    std::string name;
+    /// @brief scheme is the URL scheme that the Driver reaches the server with.
+    Scheme scheme = HttpsScheme{};
+    /// @brief host is the hostname or IP address of the server.
+    std::string host;
+    /// @brief port is the TCP port. Absent takes the default port of the scheme.
+    std::optional<std::uint16_t> port;
+    /// @brief base_path is the path that prefixes the path of every request.
+    std::string base_path = "";
+    /// @brief timeout is the timeout of each request.
+    ::x::telem::TimeSpan timeout = ::x::telem::TimeSpan(1000000000);
+    /// @brief max_concurrent_requests is the largest number of requests in flight to
+    /// the server.
+    std::uint32_t max_concurrent_requests = 6;
+    /// @brief auth holds the credentials that the Driver sends with each request.
+    Auth auth = NoneAuth{};
+    /// @brief health_check is the request that the Driver checks the server with.
+    HealthCheck health_check = {};
+
+    static Identity parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
 /// @brief RetrieveResponse holds the servers a RetrieveRequest selects.
 struct RetrieveResponse {
     /// @brief servers are the servers the request selects.
@@ -412,6 +453,29 @@ struct RetrieveResponse {
     static RetrieveResponse parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
+
+/// @brief IdentityUpdate writes the fields of the server that the connect form owns.
+struct IdentityUpdate : public Identity {
+    std::string group = "identity";
+
+    static IdentityUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief ConfigurationUpdate replaces the bindings of the server. A client sends the
+/// whole group, because a field it leaves out is cleared.
+struct ConfigurationUpdate : public Configuration {
+    std::string group = "configuration";
+
+    static ConfigurationUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief Update is a write to one field group of a server.
+using Update = std::variant<IdentityUpdate, ConfigurationUpdate>;
+
+Update parse_update(x::json::Parser parser);
+[[nodiscard]] x::json::json to_json(const Update &value);
 
 const synnax::resource::ID TYPE_RESOURCE_ID("http_server", "");
 

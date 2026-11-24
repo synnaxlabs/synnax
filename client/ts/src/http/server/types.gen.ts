@@ -288,6 +288,15 @@ export const healthCheckZ = z.object({
 });
 export interface HealthCheck extends z.infer<typeof healthCheckZ> {}
 
+/** Configuration holds the server fields that the task forms own. */
+export const configurationZ = z.object({
+  /** reads bind the values that read tasks poll to channels. */
+  reads: readZ.array().default(() => []),
+  /** writes bind the requests that write tasks send to channels. */
+  writes: writeZ.array().default(() => []),
+});
+export interface Configuration extends z.infer<typeof configurationZ> {}
+
 export const statusZ = status.statusZ({ details: statusDetailsZ });
 export type Status = z.infer<typeof statusZ>;
 
@@ -305,6 +314,35 @@ export const retrieveRequestZ = z.strictObject({
   includeStatus: z.boolean().optional(),
 });
 export type RetrieveRequest = z.infer<typeof retrieveRequestZ>;
+
+/** Identity holds the server fields that the connect form owns. */
+export const identityZ = z.object({
+  /** rack is the key of the rack whose Driver connects to the server. */
+  rack: rack.keyZ.refine((v) => v !== 0, "rack is required"),
+  /** name is a human-readable name for the server. */
+  name: z.string().min(1, "name is required"),
+  /** scheme is the URL scheme that the Driver reaches the server with. */
+  scheme: schemeZ.prefault({ type: "https" }),
+  /** host is the hostname or IP address of the server. */
+  host: z.string().min(1, "host is required"),
+  /** port is the TCP port. Absent takes the default port of the scheme. */
+  port: zod.uint16.min(1).optional(),
+  /** basePath is the path that prefixes the path of every request. */
+  basePath: z.string().default(""),
+  /** timeout is the timeout of each request. */
+  timeout: telem.numericTimeSpanZ
+    .check(z.gte(10000000), z.lte(9007199254740991))
+    .default(1000000000),
+  /**
+   * maxConcurrentRequests is the largest number of requests in flight to the server.
+   */
+  maxConcurrentRequests: z.uint32().min(1).max(64).default(6),
+  /** auth holds the credentials that the Driver sends with each request. */
+  auth: authZ.prefault({ type: "none" }),
+  /** healthCheck is the request that the Driver checks the server with. */
+  healthCheck: healthCheckZ.prefault({}),
+});
+export interface Identity extends z.infer<typeof identityZ> {}
 
 /** Server is an HTTP server that a rack's Driver connects to. */
 export const serverZ = z.object({
@@ -342,6 +380,39 @@ export const serverZ = z.object({
   status: statusZ.optional(),
 });
 export interface Server extends z.infer<typeof serverZ> {}
+
+/** IdentityUpdate writes the fields of the server that the connect form owns. */
+export const identityUpdateZ = identityZ.extend({
+  group: z.literal("identity"),
+});
+export interface IdentityUpdate extends z.infer<typeof identityUpdateZ> {}
+
+/**
+ * ConfigurationUpdate replaces the bindings of the server. A client sends the whole
+ * group, because a field it leaves out is cleared.
+ */
+export const configurationUpdateZ = configurationZ.extend({
+  group: z.literal("configuration"),
+});
+export interface ConfigurationUpdate extends z.infer<typeof configurationUpdateZ> {}
+
+export const UPDATE_TYPES = ["identity", "configuration"] as const;
+export const updateTypeZ = z.enum(UPDATE_TYPES);
+export type UpdateType = z.infer<typeof updateTypeZ>;
+
+/** Update is a write to one field group of a server. */
+export const updateZ = z.discriminatedUnion("group", [
+  identityUpdateZ,
+  configurationUpdateZ,
+]);
+export type Update = IdentityUpdate | ConfigurationUpdate;
+
+export const UPDATE_SCHEMAS: {
+  [K in UpdateType]: z.ZodType<Extract<Update, { group: K }>>;
+} = {
+  identity: identityUpdateZ,
+  configuration: configurationUpdateZ,
+};
 export interface New extends z.input<typeof serverZ> {}
 
 /** RetrieveResponse holds the servers a RetrieveRequest selects. */
