@@ -275,7 +275,7 @@ class WriteTask final : public driver::task::Task {
         // The start status waits for the streamer, so a client that waits for it can
         // send commands at once.
         void opened() override {
-            this->p.cmd_wait.opened(x::telem::TimeStamp::now());
+            this->p.wait_opened(this->p.cmd_wait);
             std::lock_guard lock(this->p.state_mu);
             if (!this->p.opening) return;
             this->p.answer_pending_starts();
@@ -289,14 +289,11 @@ class WriteTask final : public driver::task::Task {
         }
 
         void waiting_for_core(const x::errors::Error &err) override {
-            this->p.show_wait(
-                this->p.cmd_wait_warning,
-                this->p.cmd_wait.failed(err, x::telem::TimeStamp::now())
-            );
+            this->p.wait_failed(this->p.cmd_wait, this->p.cmd_wait_warning, err);
         }
 
         x::errors::Error write(x::telem::Frame &frame) override {
-            this->p.clear_recovered(this->p.cmd_wait, this->p.cmd_wait_warning);
+            this->p.clear_recovered();
             if (frame.empty()) return x::errors::NIL;
             auto err = this->internal->write(frame);
             const auto warning = this->internal->take_warning();
@@ -330,16 +327,13 @@ class WriteTask final : public driver::task::Task {
         explicit StateSource(WriteTask &p): p(p) {}
 
         void writer_opened() override {
-            this->p.state_wait.opened(x::telem::TimeStamp::now());
+            this->p.wait_opened(this->p.state_wait);
             std::lock_guard lock(this->p.state_mu);
             this->writer_open = true;
         }
 
         void waiting_for_core(const x::errors::Error &err) override {
-            this->p.show_wait(
-                this->p.state_wait_warning,
-                this->p.state_wait.failed(err, x::telem::TimeStamp::now())
-            );
+            this->p.wait_failed(this->p.state_wait, this->p.state_wait_warning, err);
         }
 
         void stopped_with_err(const x::errors::Error &err) override {
@@ -359,7 +353,7 @@ class WriteTask final : public driver::task::Task {
             x::telem::Frame &fr,
             pipeline::Authorities &authorities
         ) override {
-            this->p.clear_recovered(this->p.state_wait, this->p.state_wait_warning);
+            this->p.clear_recovered();
             return this->p.sink->internal->read(breaker, fr, authorities);
         }
 
@@ -379,46 +373,55 @@ class WriteTask final : public driver::task::Task {
     StatusHandler state;
     /// @brief how long the task retries a Core error before it shows a warning.
     x::telem::TimeSpan core_warning_delay;
-    /// @brief the waits for the Core of the command pipeline and the state pipeline.
-    /// Each is used only on the thread of its pipeline.
+    /// @brief guards cmd_wait, state_wait, and their warnings.
+    std::mutex wait_mu;
+    /// @brief the waits for the Core of the command pipeline and the state pipeline,
+    /// and the warning that each shows.
     CoreWait cmd_wait;
     CoreWait state_wait;
-    /// @brief guards the warnings of the two waits.
-    std::mutex wait_mu;
     Warning cmd_wait_warning;
     Warning state_wait_warning;
 
-    /// @brief stores warning as the warning of one pipeline's wait, then shows the
-    /// warning of either wait, the command pipeline's first.
-    void show_wait(Warning &slot, const Warning &warning) {
-        std::lock_guard lock(this->wait_mu);
-        slot = warning;
+    /// @brief shows the warning of either wait, the command pipeline's first. Requires
+    /// wait_mu.
+    void show_wait_locked() {
         this->state.set_background_warning(
             this->cmd_wait_warning.empty() ? this->state_wait_warning
                                            : this->cmd_wait_warning
         );
+    }
+
+    /// @brief records a failed request to the Core of one pipeline.
+    void wait_failed(CoreWait &wait, Warning &slot, const x::errors::Error &err) {
+        std::lock_guard lock(this->wait_mu);
+        slot = wait.failed(err, x::telem::TimeStamp::now());
+        this->show_wait_locked();
+    }
+
+    /// @brief records that the writer or streamer of one pipeline opened.
+    void wait_opened(CoreWait &wait) {
+        std::lock_guard lock(this->wait_mu);
+        wait.opened(x::telem::TimeStamp::now());
     }
 
     /// @brief forgets both waits and their warning before the pipelines start.
     void forget_waits() {
+        std::lock_guard lock(this->wait_mu);
         this->cmd_wait.reset();
         this->state_wait.reset();
-        std::lock_guard lock(this->wait_mu);
         this->cmd_wait_warning = {};
         this->state_wait_warning = {};
-        this->state.set_background_warning({});
+        this->show_wait_locked();
     }
 
-    /// @brief clears the warning of a wait that its pipeline has recovered from.
-    void clear_recovered(CoreWait &wait, Warning &slot) {
-        if (!wait.recovered(x::telem::TimeStamp::now())) return;
+    /// @brief clears the warning of each wait that its pipeline has recovered from.
+    void clear_recovered() {
         std::lock_guard lock(this->wait_mu);
-        if (slot.empty()) return;
-        slot = {};
-        this->state.set_background_warning(
-            this->cmd_wait_warning.empty() ? this->state_wait_warning
-                                           : this->cmd_wait_warning
-        );
+        if (this->cmd_wait_warning.empty() && this->state_wait_warning.empty()) return;
+        const auto now = x::telem::TimeStamp::now();
+        if (this->cmd_wait.recovered(now)) this->cmd_wait_warning = {};
+        if (this->state_wait.recovered(now)) this->state_wait_warning = {};
+        this->show_wait_locked();
     }
     /// @brief true from a start until the command streamer opens or fails to open.
     bool opening = false;

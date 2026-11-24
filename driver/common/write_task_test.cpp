@@ -1388,4 +1388,73 @@ TEST(BaseWriteTaskConfigTest, testEmptyDevice) {
     [[maybe_unused]] auto _ = BaseWriteTaskConfig(p);
     ASSERT_MATCHES(p.error(), x::errors::VALIDATION);
 }
+
+/// @brief it should show a license warning while its state writer waits for a license,
+/// and clear it once the writer has stayed open for the warning delay.
+TEST(TestCommonWriteTask, WarnsWhileStateWriterWaitsForALicense) {
+    x::breaker::Breaker cancel;
+    synnax::channel::Channel state_index;
+    state_index.key = 2;
+    state_index.data_type = x::telem::TIMESTAMP_T;
+    state_index.index = 2;
+    synnax::channel::Channel state;
+    state.key = 3;
+    state.data_type = x::telem::UINT8_T;
+    state.index = 2;
+    auto sink = std::make_unique<MockSink>(
+        x::telem::HERTZ * 100,
+        std::vector<Sink::Output>{{1, state}},
+        false,
+        std::make_shared<x::sync::List<x::telem::Frame>>(),
+        std::make_shared<std::vector<x::errors::Error>>()
+    );
+    auto writer_factory = std::make_shared<pipeline::testutil::WriterFactory>();
+    writer_factory->open_errors = {
+        synnax::errors::LICENSE_MISSING,
+        synnax::errors::LICENSE_MISSING,
+    };
+    auto streamer_factory = pipeline::testutil::simple_streamer_factory(
+        std::vector<synnax::channel::Key>{1},
+        std::make_shared<std::vector<x::telem::Frame>>()
+    );
+    synnax::task::Task task;
+    task.key = x::uuid::create();
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    ctx->warning_delay = x::telem::MILLISECOND * 50;
+    WriteTask write_task(
+        task,
+        ctx,
+        x::breaker::Config{
+            .name = "license",
+            .base_interval = x::telem::MILLISECOND,
+            .max_retries = x::breaker::RETRY_INFINITELY,
+            .scale = 1,
+        },
+        std::move(sink),
+        writer_factory,
+        streamer_factory
+    );
+    ASSERT_TRUE(write_task.start("cmd", cancel));
+    const auto showed = [&] {
+        return std::ranges::any_of(ctx->snapshot(), [](const auto &s) {
+            return s.message == "Waiting for a license";
+        });
+    };
+    const auto shows = [&] {
+        const auto statuses = ctx->snapshot();
+        return !statuses.empty() && statuses.back().message == "Waiting for a license";
+    };
+    ASSERT_EVENTUALLY_TRUE_WITH_TIMEOUT(
+        showed(),
+        std::chrono::seconds(5),
+        std::chrono::milliseconds(10)
+    );
+    // A status that answers no command goes out at most once per second.
+    ASSERT_EVENTUALLY_FALSE_WITH_TIMEOUT(
+        shows(),
+        std::chrono::seconds(5),
+        std::chrono::milliseconds(10)
+    );
+    ASSERT_TRUE(write_task.stop("stop", true));
+}
 }
