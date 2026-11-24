@@ -185,7 +185,6 @@ var _ = DescribeTableSubtree("One clock check", func(pointerLog bool) {
 		Entry(
 			"wrong data type",
 			func() cesium.Frame {
-				skipOnPointerLog(pointerLog, errorTextOwner)
 				return telem.MultiFrame(keys, []telem.Series{
 					telem.NewSeriesSecondsTSV(10, 11),
 					telem.NewSeriesV[float64](1, 2),
@@ -251,7 +250,6 @@ var _ = DescribeTableSubtree("One clock check", func(pointerLog bool) {
 	It(
 		"Should hand off control on a set authority after a write error",
 		func(ctx SpecContext) {
-			skipOnPointerLog(pointerLog, errorTextOwner)
 			waiting := open(ctx, storageConfig{
 				ControlSubject: control.Subject{Key: "waiting"},
 				Channels:       keys,

@@ -135,7 +135,6 @@ var _ = DescribeTableSubtree("One clock handoff check", func(pointerLog bool) {
 	if pointerLog {
 		It("Should keep the clock with its holder when a writer that takes it fails "+
 			"to open", func(ctx SpecContext) {
-			skipOnPointerLog(pointerLog, errorTextOwner)
 			c := open(ctx, storageConfig{
 				Channels: keys,
 				Start:    30 * telem.SecondTS,

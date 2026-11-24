@@ -177,7 +177,6 @@ var _ = DescribeTableSubtree("One clock model check", func(pointerLog bool) {
 	)
 
 	It("Should end the session on the error of one clock", func(ctx SpecContext) {
-		skipOnPointerLog(pointerLog, errorTextOwner)
 		s := open(ctx, storageConfig{Channels: all, Start: 10 * telem.SecondTS})
 		Expect(s.Write(ctx, both(
 			[]int64{10, 11}, []int64{12, 11}, []int64{1, 2}, []int64{5, 6},
