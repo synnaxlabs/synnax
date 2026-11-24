@@ -39,7 +39,8 @@ func (*Service) Match(body map[string]any) bool {
 // discarded so every import mints a new resource. An unknown envelope version is a
 // path-scoped validation error.
 //
-// The Write ignores opts: the writer puts every new Arc in the root directory.
+// The Write ignores the parent and group in opts: the writer puts every new Arc in the
+// root directory.
 func (s *Service) Decode(ctx context.Context, env imex.Envelope) (imex.Write, error) {
 	a, err := versions.DecodeImExEnvelope(ctx, env)
 	if err != nil {
@@ -50,10 +51,10 @@ func (s *Service) Decode(ctx context.Context, env imex.Envelope) (imex.Write, er
 	return func(
 		ctx context.Context,
 		tx gorp.Tx,
-		_ imex.ImportOptions,
+		opts imex.ImportOptions,
 	) (resource.ID, error) {
 		if bare {
-			if err := s.quoteDashedNames(ctx, tx, &a); err != nil {
+			if err := s.quoteDashedNames(ctx, tx, &a, opts.Retrievable); err != nil {
 				return resource.ID{}, err
 			}
 		}
@@ -65,8 +66,16 @@ func (s *Service) Decode(ctx context.Context, env imex.Envelope) (imex.Write, er
 }
 
 // quoteDashedNames quotes each dashed channel name in the source of a that a channel
-// holds. A dashed name that no channel holds stays, as the v63 lexer reads it.
-func (s *Service) quoteDashedNames(ctx context.Context, tx gorp.Tx, a *Arc) error {
+// holds. A dashed name that no channel holds stays, as the v63 lexer reads it. A
+// channel
+// that a non-nil retrievable refuses counts as absent, so the result shows no hidden
+// channel.
+func (s *Service) quoteDashedNames(
+	ctx context.Context,
+	tx gorp.Tx,
+	a *Arc,
+	retrievable func(resource.ID) bool,
+) error {
 	b := a.Base()
 	var dashed []channel.Name
 	RenameChannels(&b.Source, func(name string) (string, bool) {
@@ -87,7 +96,9 @@ func (s *Service) quoteDashedNames(ctx context.Context, tx gorp.Tx, a *Arc) erro
 	}
 	names := make(set.Set[string], len(held))
 	for _, c := range held {
-		names.Add(c.Name)
+		if retrievable == nil || retrievable(c.ResourceID()) {
+			names.Add(c.Name)
+		}
 	}
 	if RenameChannels(&b.Source, func(name string) (string, bool) {
 		return name, names.Contains(name)
