@@ -526,10 +526,9 @@ func validateFieldOverrides(c *analysisCtx, typ resolution.Type) {
 }
 
 // finalizeEnumExtensions resolves the members of each enum that extends or narrows
-// other
-// enums, reporting malformed parents, supersets, and members. It mutates the table in
-// place so downstream plugins read a fully populated member list just like a plain
-// enum's.
+// other enums, reporting malformed parents, supersets, and members. It mutates the
+// table in place so downstream plugins read a fully populated member list just like a
+// plain enum's.
 func finalizeEnumExtensions(c *analysisCtx) {
 	for _, typ := range c.ownTypes() {
 		form, ok := typ.Form.(resolution.EnumForm)
@@ -616,10 +615,8 @@ func addTypeDiagf(c *analysisCtx, typ resolution.Type, format string, args ...an
 // effectiveEnumValues returns an enum's fully-resolved members. For an extending enum,
 // they are the union of the members of every enum it extends (recursively), followed by
 // its own declared members. For a narrowing enum, see narrowedEnumValues. visited
-// guards
-// against cycles. The returned bool is the int/string kind; the final
-// bool is false when the enum or a parent is malformed (a diagnostic is added in that
-// case).
+// guards against cycles. The returned bool is the int/string kind; the final bool is
+// false when the enum or a parent is malformed (a diagnostic is added in that case).
 func effectiveEnumValues(
 	c *analysisCtx, typ resolution.Type, visited set.Set[string],
 ) ([]resolution.EnumValue, bool, bool) {
