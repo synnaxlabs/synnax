@@ -27,7 +27,9 @@ type Module struct {
 	Memory        api.Memory
 	Strings       *stlstrings.ProgramState
 	NodeKeySetter NodeKeySetter
-	arena         *arena
+	// StampBounded gives node outputs the bounds of the input whose stamps they take.
+	StampBounded bool
+	arena        *arena
 }
 
 func (w *Module) Create(cfg node.Config) (node.Node, error) {
@@ -70,6 +72,7 @@ func (w *Module) Create(cfg node.Config) (node.Node, error) {
 		ir:            cfg.Node,
 		fn:            fn,
 		mem:           w.Memory,
+		stampBounded:  w.StampBounded,
 		fnOutputs:     irFn.Outputs,
 		memOffsets:    memOffsets,
 		outputValues:  make([]result, len(irFn.Outputs)),

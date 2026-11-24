@@ -52,6 +52,7 @@ type nodeImpl struct {
 	stack         []uint64
 	offsets       []int
 	selIdx        int
+	stampBounded  bool
 	nodeKeySetter NodeKeySetter
 	stringInputs  []bool
 	chanInputs    []bool
@@ -138,7 +139,7 @@ func (n *nodeImpl) Next(ctx node.Context) {
 		n.offsets[j] = 0
 	}
 	stringResults := n.resizeOutputs(maxLength)
-	n.copyInputBounds()
+	n.copyInputBounds(longestInputIdx)
 	// Dispatcher drivers alternate; no input's time is honest, so stamp the clock.
 	stamps := sampleStamps{clock: longestInputIdx < 0 || n.selIdx >= 0}
 	if longestInputIdx >= 0 {
@@ -238,17 +239,38 @@ func (n *nodeImpl) resizeOutputs(maxLength int64) [][]string {
 	return stringResults
 }
 
-// copyInputBounds copies alignment and time range from the inputs to the outputs.
-// Alignments are summed to guarantee uniqueness across different input sources.
-func (n *nodeImpl) copyInputBounds() {
-	var alignmentSum telem.Alignment
-	var timeRange telem.TimeRange
+// copyInputBounds gives every output the bounds of input src, the longest input, when
+// stampBounded, and summedBounds otherwise.
+func (n *nodeImpl) copyInputBounds(src int) {
+	alignment, timeRange := n.summedBounds()
+	if n.stampBounded {
+		alignment, timeRange = 0, telem.TimeRange{}
+		if src >= 0 {
+			input := n.Input(src)
+			alignment, timeRange = input.Alignment, input.TimeRange
+		}
+	}
+	for i := range n.ir.Outputs {
+		n.Output(i).Alignment = alignment
+		n.Output(i).TimeRange = timeRange
+		n.OutputTime(i).Alignment = alignment
+		n.OutputTime(i).TimeRange = timeRange
+	}
+}
+
+// summedBounds returns the sum of the alignments of the streamed inputs, which keeps
+// them unique across sources, and the time range that spans them.
+func (n *nodeImpl) summedBounds() (telem.Alignment, telem.TimeRange) {
+	var (
+		alignment telem.Alignment
+		timeRange telem.TimeRange
+	)
 	for i := range n.ir.Inputs {
 		if !n.streamed(i) {
 			continue
 		}
 		input := n.Input(i)
-		alignmentSum += input.Alignment
+		alignment += input.Alignment
 		if timeRange.Start.IsZero() || input.TimeRange.Start < timeRange.Start {
 			timeRange.Start = input.TimeRange.Start
 		}
@@ -256,12 +278,7 @@ func (n *nodeImpl) copyInputBounds() {
 			timeRange.End = input.TimeRange.End
 		}
 	}
-	for i := range n.ir.Outputs {
-		n.Output(i).Alignment = alignmentSum
-		n.Output(i).TimeRange = timeRange
-		n.OutputTime(i).Alignment = alignmentSum
-		n.OutputTime(i).TimeRange = timeRange
-	}
+	return alignment, timeRange
 }
 
 // sampleStamps picks the timestamp of each output sample: the longest input's, or a
