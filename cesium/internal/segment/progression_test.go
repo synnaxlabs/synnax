@@ -189,6 +189,21 @@ var _ = Describe("Progressions", func() {
 				Entry("entries in more than one table block", driver(9_000, 5, 1_000)),
 			)
 
+			It("Should find a time with the last block and one block of the table",
+				func() {
+					stamps := driver(9_000, 5, 1_000)
+					h, s := mustEncode(stamps)
+					r := &countingReader{ReaderAt: h}
+					cold := segment.NewReader(nil)
+					pos, exact := MustSucceed2(cold.Search(r, s, stamps[20_000]))
+					Expect(pos).To(BeEquivalentTo(20_000))
+					Expect(exact).To(BeTrue())
+					Expect(r.reads.Load()).To(BeEquivalentTo(2),
+						"the last block, with the footer and the fences, and one table block")
+					MustSucceed2(cold.Search(r, s, stamps[24_000]))
+					Expect(r.reads.Load()).To(BeEquivalentTo(3))
+				})
+
 			It("Should store a Driver clock in 16 bytes per write", func() {
 				h, s := mustEncode(driver(10_000, 125, 40_000))
 				entries, _, raw := footer(h, s)

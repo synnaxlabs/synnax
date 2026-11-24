@@ -72,6 +72,8 @@ var _ = Describe("Compaction on the pointer log", func() {
 		stop      func()
 		logs      *observer.ObservedLogs
 		idx, data cesium.ChannelKey
+		// fake is the clock of the Rate specs, or nil.
+		fake *timetestutil.Clock
 	)
 	open := func(ctx context.Context) {
 		GinkgoHelper()
@@ -98,7 +100,9 @@ var _ = Describe("Compaction on the pointer log", func() {
 		open(ctx)
 	}
 	BeforeEach(func() {
-		fs, clock, gc = &failFS{FS: xfs.NewMem()}, xtime.Real, cesium.GCConfig{}
+		fs, clock, gc, fake = &failFS{
+			FS: xfs.NewMem(),
+		}, xtime.Real, cesium.GCConfig{}, nil
 	})
 	JustBeforeEach(func(ctx SpecContext) {
 		open(ctx)
@@ -154,6 +158,21 @@ var _ = Describe("Compaction on the pointer log", func() {
 	files := func(key cesium.ChannelKey) func() map[string]int64 {
 		return func() map[string]int64 { return segments(key) }
 	}
+	// encoded waits, when the clock segment holds n stamps, 2 blocks or more, until the
+	// compactor stores it as progressions: one block and its trailer. It advances the
+	// fake clock of the Rate specs.
+	encoded := func(n int) {
+		GinkgoHelper()
+		if n < 2<<13 {
+			return
+		}
+		Eventually(func() []int64 {
+			if fake != nil && fake.Pending() > 0 {
+				fake.Advance(time.Second)
+			}
+			return slices.Collect(maps.Values(segments(idx)))
+		}).Should(ContainElement(int64(65_540)))
+	}
 	// written writes s to key in a segment that a later write of end seals, and returns
 	// the name of its file.
 	written := func(
@@ -166,6 +185,7 @@ var _ = Describe("Compaction on the pointer log", func() {
 		write(ctx, key, end, 1<<22)
 		names := slices.Sorted(maps.Keys(segments(key)))
 		Expect(names).To(HaveLen(2))
+		encoded(int(s.Len()))
 		return names[0]
 	}
 	// rewritten returns a function that reports whether the segment file old of key is
@@ -187,6 +207,21 @@ var _ = Describe("Compaction on the pointer log", func() {
 		return out
 	}
 	end := telem.NewSeries([]int64{-1})
+	// n samples of int64 fill 3 blocks, and a delete of the samples from 2 to cut
+	// leaves one block live, so its rewrite frees two of them.
+	const n, cut = 3 << 13, 2 + 2<<13
+	// kept returns the integers from 0 to n that no range of dead holds, then -1.
+	kept := func(dead ...[2]int) []int64 {
+		var out []int64
+		for i := range int64(n) {
+			if !slices.ContainsFunc(dead, func(d [2]int) bool {
+				return i >= int64(d[0]) && i < int64(d[1])
+			}) {
+				out = append(out, i)
+			}
+		}
+		return append(out, -1)
+	}
 	// samples returns the samples of key.
 	samples := func(ctx context.Context, key cesium.ChannelKey) [][]byte {
 		GinkgoHelper()
@@ -222,12 +257,14 @@ var _ = Describe("Compaction on the pointer log", func() {
 
 	It("Should rewrite a segment that a delete leaves above the dead share with its "+
 		"live samples", func(ctx SpecContext) {
-		old := written(ctx, data, telem.NewSeries(count(10)), end)
+		old := written(ctx, data, telem.NewSeries(count(n)), end)
 		done := rewritten(data, old)
-		deleteRange(ctx, data, 2, 6)
+		deleteRange(ctx, data, 2, cut)
 		Eventually(done).Should(BeTrue())
-		Expect(segments(data)).To(ConsistOf(int64(6*8), int64(8)))
-		want := []int64{0, 1, 6, 7, 8, 9, -1}
+		Expect(
+			segments(data),
+		).To(ConsistOf(int64(65_540), int64(8)), "padded to a block")
+		want := kept([2]int{2, cut})
 		Expect(values(ctx)).To(Equal(want))
 		reopen(ctx)
 		Expect(values(ctx)).To(Equal(want))
@@ -235,14 +272,15 @@ var _ = Describe("Compaction on the pointer log", func() {
 
 	It("Should rewrite a segment that a delete cut while open once a write seals it",
 		func(ctx SpecContext) {
-			write(ctx, data, telem.NewSeries(count(10)), 0)
-			deleteRange(ctx, data, 2, 6)
+			write(ctx, data, telem.NewSeries(count(n)), 0)
+			deleteRange(ctx, data, 2, cut)
 			names := slices.Sorted(maps.Keys(segments(data)))
 			Expect(names).To(HaveLen(1))
 			Consistently(files(data)).Should(HaveKey(names[0]))
 			write(ctx, data, end, 1<<22)
+			encoded(n)
 			Eventually(files(data)).ShouldNot(HaveKey(names[0]))
-			Expect(values(ctx)).To(Equal([]int64{0, 1, 6, 7, 8, 9, -1}))
+			Expect(values(ctx)).To(Equal(kept([2]int{2, cut})))
 		})
 
 	It("Should copy a segment over many jobs, with a whole sample past a job",
@@ -287,7 +325,7 @@ var _ = Describe("Compaction on the pointer log", func() {
 
 	It("Should keep a segment that fails a block check out of the rewrites until the "+
 		"next open", func(ctx SpecContext) {
-		name := written(ctx, data, telem.NewSeries(count(10)), end)
+		name := written(ctx, data, telem.NewSeries(count(n)), end)
 		f := MustSucceed(fs.Open(
 			strconv.FormatUint(uint64(data), 10)+"/"+name,
 			os.O_RDWR,
@@ -295,10 +333,10 @@ var _ = Describe("Compaction on the pointer log", func() {
 		MustSucceed(f.WriteAt([]byte{0xFF}, 0))
 		Expect(f.Close()).To(Succeed())
 		failed := messages("segment failed a block check and is not rewritten")
-		deleteRange(ctx, data, 2, 6)
+		deleteRange(ctx, data, 2, cut)
 		Eventually(failed).Should(Equal(1))
 		Expect(segments(data)).To(HaveKey(name))
-		deleteRange(ctx, data, 7, 8)
+		deleteRange(ctx, data, cut+5, cut+6)
 		Consistently(failed).Should(Equal(1))
 		Expect(segments(data)).To(HaveKey(name))
 		reopen(ctx)
@@ -308,27 +346,27 @@ var _ = Describe("Compaction on the pointer log", func() {
 
 	It("Should remove the file of a rewrite that fails to write, and rewrite the "+
 		"segment at a later signal", func(ctx SpecContext) {
-		old := written(ctx, data, telem.NewSeries(count(10)), end)
+		old := written(ctx, data, telem.NewSeries(count(n)), end)
 		done := rewritten(data, old)
 		fs.armed.Store(true)
-		deleteRange(ctx, data, 2, 6)
+		deleteRange(ctx, data, 2, cut)
 		Eventually(messages("rewrite of a segment failed")).Should(Equal(1))
 		Expect(segments(data)).To(SatisfyAll(HaveLen(2), HaveKey(old)))
 		fs.armed.Store(false)
-		deleteRange(ctx, data, 7, 8)
+		deleteRange(ctx, data, cut+5, cut+6)
 		Eventually(done).Should(BeTrue())
-		Expect(values(ctx)).To(Equal([]int64{0, 1, 6, 8, 9, -1}))
+		Expect(values(ctx)).To(Equal(kept([2]int{2, cut}, [2]int{cut + 5, cut + 6})))
 	})
 
 	It("Should keep the old file for an iterator that reads it, until the iterator "+
 		"closes", func(ctx SpecContext) {
-		old := written(ctx, data, telem.NewSeries(count(10)), end)
+		old := written(ctx, data, telem.NewSeries(count(n)), end)
 		iter := MustSucceed(db.OpenIterator(cesium.IteratorConfig{
 			Bounds:   telem.TimeRangeMax,
 			Channels: []cesium.ChannelKey{data},
 		}))
 		Expect(iter.SeekFirst()).To(BeTrue())
-		deleteRange(ctx, data, 2, 6)
+		deleteRange(ctx, data, 2, cut)
 		Eventually(files(data)).Should(HaveLen(3))
 		Consistently(files(data)).Should(HaveKey(old))
 		Expect(iter.Close()).To(Succeed())
@@ -336,7 +374,6 @@ var _ = Describe("Compaction on the pointer log", func() {
 	})
 
 	Describe("Rate", func() {
-		var fake *timetestutil.Clock
 		BeforeEach(func() {
 			fake = timetestutil.NewClock(time.Unix(0, 0))
 			clock, gc.Rate = fake, 1<<20

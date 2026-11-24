@@ -329,16 +329,20 @@ func (c *core) seal(r *log.Seal) error {
 // encoding. It takes s out when not. A segment that a part holds gets no test until a
 // Tombstone puts its record back in the head.
 func (c *core) test(s *segState) {
-	if s.dur.sealed && s.vis.Part == 0 && s.vis.Version == c.version {
-		length := int64(s.dur.length)
-		padded := (live(s) + c.block - 1) / c.block * c.block
-		if float64(length-padded) > float64(c.threshold)*float64(length) ||
-			c.encodable(s) {
-			c.candidates.Add(s.vis.ID)
-			return
-		}
+	if s.dur.sealed && s.vis.Part == 0 && s.vis.Version == c.version &&
+		(c.reclaimable(s) || c.encodable(s)) {
+		c.candidates.Add(s.vis.ID)
+		return
 	}
 	c.candidates.Remove(s.vis.ID)
+}
+
+// reclaimable reports whether a rewrite of the live bytes of s, padded to whole blocks,
+// frees more than the threshold of its length.
+func (c *core) reclaimable(s *segState) bool {
+	length := int64(s.dur.length)
+	padded := (live(s) + c.block - 1) / c.block * c.block
+	return float64(length-padded) > float64(c.threshold)*float64(length)
 }
 
 // live returns the live stream bytes of s in the durable view.

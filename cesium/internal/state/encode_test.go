@@ -87,6 +87,9 @@ var _ = Describe("Encoding", func() {
 	It("Should name a sealed clock segment with 2 blocks or more live", func() {
 		s := open([]log.Record{seal4})
 		Expect(MustSucceed(s.Snapshot()).Candidates).To(Equal([]uint64{4}))
+		Expect(s.Candidates()).To(Equal([]state.Candidate{
+			{Key: 5, Segment: 4, Encodable: true},
+		}))
 	})
 
 	It("Should not name a clock segment with less than 2 blocks live", func() {
@@ -98,7 +101,7 @@ var _ = Describe("Encoding", func() {
 	DescribeTable(
 		"Should name a segment only when its rewrite, padded to whole blocks, frees more "+
 			"than the threshold",
-		func(block uint32, want []uint64) {
+		func(block uint32, want []state.Candidate) {
 			cfg.Block, cfg.Threshold = block, 0.5
 			head := sample()
 			head.Channels[0].Segments[0].Pointers = []state.Pointer{
@@ -106,10 +109,11 @@ var _ = Describe("Encoding", func() {
 			}
 			s := MustSucceed(state.Open(cfg, head))
 			run(s)
-			Expect(MustSucceed(s.Snapshot()).Candidates).To(Equal(want))
+			Expect(s.Candidates()).To(Equal(want))
 		},
-		Entry("8 of 24 bytes live in blocks of 4", uint32(4), []uint64{2}),
-		Entry("8 of 24 bytes live in blocks of 16", uint32(16), []uint64(nil)),
+		Entry("8 of 24 bytes live in blocks of 4", uint32(4),
+			[]state.Candidate{{Key: 5, Segment: 2, Reclaimable: true}}),
+		Entry("8 of 24 bytes live in blocks of 16", uint32(16), []state.Candidate{}),
 	)
 
 	It("Should take a Kept segment out of the candidates, live and in replay", func() {

@@ -331,9 +331,8 @@ func (r *logReader) ReadAt(p []byte, off int64) (int, error) {
 	return n, nil
 }
 
-// Search implements domain.RangeReader. A version 2 segment answers from its table,
-// with
-// one block of the table.
+// Search implements domain.RangeReader. A version 2 segment answers from one block of
+// its table.
 func (r *logReader) Search(stamp telem.TimeStamp) (domain.Approximation[int64], error) {
 	if r.seg.Version != segment.ProgressionVersion {
 		return domain.SearchStamps(r, telem.Size(r.size), stamp)

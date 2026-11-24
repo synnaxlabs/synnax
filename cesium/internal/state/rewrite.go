@@ -23,6 +23,11 @@ type Candidate struct {
 	Key uint32
 	// Segment is the identity of the segment.
 	Segment uint64
+	// Encodable is true for a candidate of encoding as progressions.
+	Encodable bool
+	// Reclaimable is true when a rewrite of the live bytes, padded to whole blocks,
+	// frees more than the threshold of the length of the segment.
+	Reclaimable bool
 }
 
 type candidatesRequest struct {
@@ -35,10 +40,13 @@ func (r *candidatesRequest) fail(err error) { r.done <- err }
 func (r *candidatesRequest) run(s *State) {
 	r.candidates = make([]Candidate, 0, len(s.core.candidates))
 	for id := range s.core.candidates {
-		r.candidates = append(
-			r.candidates,
-			Candidate{Key: s.core.segments[id].key, Segment: id},
-		)
+		seg := s.core.segments[id]
+		r.candidates = append(r.candidates, Candidate{
+			Key:         seg.key,
+			Segment:     id,
+			Encodable:   s.core.encodable(seg),
+			Reclaimable: s.core.reclaimable(seg),
+		})
 	}
 	slices.SortFunc(r.candidates, func(a, b Candidate) int {
 		return cmp.Compare(a.Segment, b.Segment)

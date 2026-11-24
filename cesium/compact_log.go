@@ -11,6 +11,7 @@ package cesium
 
 import (
 	"context"
+	"slices"
 	"sync"
 
 	"github.com/synnaxlabs/cesium/internal/log"
@@ -26,7 +27,11 @@ import (
 // jobBlocks is the most blocks of an old segment that one job of a rewrite reads.
 const jobBlocks = 16
 
-var errStopped = errors.New("compactor stopped")
+var (
+	errStopped = errors.New("compactor stopped")
+	// errNoFit stops the first pass of an encoding that takes more than its limit.
+	errNoFit = errors.New("progressions do not fit")
+)
 
 // compactor rewrites the candidates of the state into new segments that hold only their
 // live ranges, one segment at a time. Each job of a rewrite runs on the executor: it
@@ -60,13 +65,15 @@ type rewrite struct {
 	old state.Segment
 	cfg segment.Config
 	src *segment.Handle
-	w   *segment.Writer
+	// sink takes the live bytes of a pass in order.
+	sink func([]byte) error
 	// ptrs are the pointers of the copy, at their offsets in the new segment.
 	ptrs []log.Pointer
-	// ptr is the pointer of the next live byte, done the bytes of it copied, and read
-	// the stream bytes read.
+	// ptr is the pointer of the next live byte, done the bytes of it copied, out the
+	// live bytes of the pass so far, and read the stream bytes read.
 	ptr  int
 	done int64
+	out  int64
 	read int64
 }
 
@@ -143,10 +150,11 @@ func (c *compactor) close() {
 }
 
 // rewrite copies the live ranges of cand into a new segment, then replaces cand with
-// it, and logs a failure. It removes the new file when the copy fails or the Replace is
-// stale. After any other Replace error, the log can hold the Replace, so the file stays
-// for the orphan pass of the next open. It returns only an error of ctx, of close, or
-// of a failed state.
+// it, and logs a failure. A candidate of encoding whose progressions do not fit, and
+// that no rewrite frees enough of, is marked Kept in place of a copy. It removes the
+// new file when the copy fails or the Replace is stale. After any other Replace error,
+// the log can hold the Replace, so the file stays for the orphan pass of the next open.
+// It returns only an error of ctx, of close, or of a failed state.
 func (c *compactor) rewrite(ctx context.Context, cand state.Candidate) error {
 	key := cand.Key
 	old, ok := c.e.pinSegment(key, cand.Segment)
@@ -168,17 +176,13 @@ func (c *compactor) rewrite(ctx context.Context, cand state.Candidate) error {
 			zap.Uint64("segment", old.ID), zap.Error(err))
 		return nil
 	}
-	r, err := c.copyLive(ctx, key, old, id)
-	copied := err == nil
-	if copied {
-		if err = c.e.state.Replace(r, old.Version); err == nil {
-			if err = c.e.reap(); err != nil {
-				c.e.ins.L.Error("unlink of a rewritten segment failed", zap.Error(err))
-			}
+	r, version, err := c.copyLive(ctx, key, old, id, cand)
+	if err == nil {
+		if err = c.apply(key, old.ID, r, version); err == nil {
 			return nil
 		}
 	}
-	if name := segmentName(key, id); !copied || errors.Is(err, state.ErrStale) {
+	if name := segmentName(key, id); r != nil && errors.Is(err, state.ErrStale) {
 		if rmErr := c.e.fs.Remove(name); rmErr != nil {
 			c.e.ins.L.Error(
 				"removal of a failed rewrite failed",
@@ -205,23 +209,47 @@ func (c *compactor) rewrite(ctx context.Context, cand state.Candidate) error {
 	return nil
 }
 
+// apply hands the result of a rewrite of segment old of key to the state: a Replace by
+// a copy of version, or a Kept mark when r is nil.
+func (c *compactor) apply(
+	key ChannelKey,
+	old uint64,
+	r *log.Replace,
+	version uint16,
+) error {
+	if r == nil {
+		err := c.e.state.Keep(old)
+		if err == nil {
+			c.e.ins.L.Debug("clock segment kept at version 1", zap.Uint32("key", key),
+				zap.Uint64("segment", old))
+		}
+		return err
+	}
+	if err := c.e.state.Replace(r, version); err != nil {
+		return err
+	}
+	if err := c.e.reap(); err != nil {
+		c.e.ins.L.Error("unlink of a rewritten segment failed", zap.Error(err))
+	}
+	return nil
+}
+
 // copyLive copies the live ranges of old, a segment of key, into the new segment id,
-// and returns the Replace of old by it. The file of the new segment is synced.
+// and returns the Replace of old by it with the format version of the new segment. A
+// candidate of encoding is first written as version 2, when that takes at most half of
+// its live bytes. When it does not fit and no rewrite frees enough of old, copyLive
+// returns a nil Replace: the caller marks old Kept. The file of the new segment is
+// synced.
 func (c *compactor) copyLive(
 	ctx context.Context,
 	key ChannelKey,
 	old state.Segment,
 	id uint64,
-) (*log.Replace, error) {
+	cand state.Candidate,
+) (*log.Replace, uint16, error) {
 	src := c.e.budget.Open(c.e.fs, segmentName(key, old.ID))
-	dst, err := c.e.budget.Create(c.e.fs, segmentName(key, id))
-	if err != nil {
-		return nil, errors.Join(err, src.Close())
-	}
-	cfg := c.e.segmentConfig(old)
-	newCfg := cfg
-	newCfg.ID = id
 	ptrs := make([]log.Pointer, len(old.Pointers))
+	var live int64
 	for i, p := range old.Pointers {
 		ptrs[i] = log.Pointer{
 			Length:    p.Length,
@@ -230,36 +258,108 @@ func (c *compactor) copyLive(
 			First:     int64(p.First),
 			Last:      int64(p.Last),
 		}
+		live += int64(p.Length)
 	}
-	c.rw = rewrite{
-		old:  old,
-		cfg:  cfg,
-		src:  src,
-		w:    segment.NewWriter(dst, newCfg),
-		ptrs: ptrs,
+	c.rw = rewrite{old: old, cfg: c.e.segmentConfig(old), src: src, ptrs: ptrs}
+	defer func() { c.rw = rewrite{} }()
+	if cand.Encodable {
+		encode := func(w *segment.Writer) (bool, error) { return c.encode(ctx, w, live/2) }
+		r, err := c.write(key, id, segment.ProgressionVersion, encode)
+		if r != nil || err != nil || !cand.Reclaimable {
+			return r, segment.ProgressionVersion, errors.Join(err, src.Close())
+		}
 	}
-	for c.rw.ptr < len(ptrs) && err == nil {
+	r, err := c.write(key, id, old.Version, func(w *segment.Writer) (bool, error) {
+		if err := c.pass(ctx, w.Copy); err != nil {
+			return false, err
+		}
+		return true, w.Pad()
+	})
+	return r, old.Version, errors.Join(err, src.Close())
+}
+
+// write creates the file of the new segment id of key at version, fills it with fill,
+// and syncs it. It returns the Replace of the old segment of the rewrite in progress by
+// it, or a nil Replace when fill reports that the result does not fit. A file that is
+// not synced and replaced is removed.
+func (c *compactor) write(
+	key ChannelKey,
+	id uint64,
+	version uint16,
+	fill func(w *segment.Writer) (bool, error),
+) (*log.Replace, error) {
+	name := segmentName(key, id)
+	dst, err := c.e.budget.Create(c.e.fs, name)
+	if err != nil {
+		return nil, err
+	}
+	cfg := c.rw.cfg
+	cfg.ID, cfg.Version = id, version
+	w := segment.NewWriter(dst, cfg)
+	fits, err := fill(w)
+	if err == nil && fits {
+		err = c.e.budget.Sync([]*segment.Handle{dst})
+	}
+	length, tailCRC := w.Commit()
+	if err = errors.Join(err, dst.Close()); err != nil || !fits {
+		return nil, errors.Join(err, c.e.fs.Remove(name))
+	}
+	return &log.Replace{
+		Old:      c.rw.old.ID,
+		New:      id,
+		Length:   length,
+		TailCRC:  tailCRC,
+		Pointers: slices.Clone(c.rw.ptrs),
+	}, nil
+}
+
+// encode writes the stamps of the live pointers of the clock segment of the rewrite in
+// progress to w as version 2, in two passes. It reports false when the result would
+// take more than limit bytes, or the stamps do not rise.
+func (c *compactor) encode(
+	ctx context.Context,
+	w *segment.Writer,
+	limit int64,
+) (bool, error) {
+	enc := segment.NewEncoder(w, limit)
+	err := c.pass(ctx, func(p []byte) error {
+		if err := enc.Add(p); err != nil {
+			return err
+		}
+		if !enc.Fits() {
+			return errNoFit
+		}
+		return nil
+	})
+	if errors.Is(err, errNoFit) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	if fits, err := enc.Rewind(); err != nil || !fits {
+		return false, err
+	}
+	if err = c.pass(ctx, enc.Add); err != nil {
+		return false, err
+	}
+	return true, enc.Close()
+}
+
+// pass reads the live bytes of the old segment of the rewrite in progress, in jobs of
+// the executor whose reads count in the limit, and hands them to sink in order. It
+// returns the error of a read, of sink, or of pace.
+func (c *compactor) pass(ctx context.Context, sink func([]byte) error) error {
+	c.rw.sink, c.rw.ptr, c.rw.done, c.rw.out = sink, 0, 0, 0
+	var err error
+	for c.rw.ptr < len(c.rw.ptrs) && err == nil {
 		read := c.rw.read
 		c.e.exec(c.step)
 		if err = <-c.stepped; err == nil {
 			err = c.pace(ctx, c.rw.read-read)
 		}
 	}
-	if err == nil {
-		err = c.e.budget.Sync([]*segment.Handle{dst})
-	}
-	length, tailCRC := c.rw.w.Commit()
-	c.rw = rewrite{}
-	if err = errors.Join(err, dst.Close(), src.Close()); err != nil {
-		return nil, err
-	}
-	return &log.Replace{
-		Old:      old.ID,
-		New:      id,
-		Length:   length,
-		TailCRC:  tailCRC,
-		Pointers: ptrs,
-	}, nil
+	return err
 }
 
 // copyBlocks is one job of the rewrite in progress: it reads and checks the blocks from
@@ -289,12 +389,13 @@ func (c *compactor) copyBlocks() error {
 			break
 		}
 		if rw.done == 0 {
-			rw.ptrs[rw.ptr].Offset = uint32(rw.w.Len())
+			rw.ptrs[rw.ptr].Offset = uint32(rw.out)
 		}
 		end := min(int64(p.Offset+p.Length), to)
-		if err = rw.w.Copy(c.buf[at-from : end-from]); err != nil {
+		if err = rw.sink(c.buf[at-from : end-from]); err != nil {
 			return err
 		}
+		rw.out += end - at
 		if rw.done += end - at; rw.done == int64(p.Length) {
 			rw.ptr, rw.done = rw.ptr+1, 0
 		}
