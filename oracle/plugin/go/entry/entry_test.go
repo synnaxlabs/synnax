@@ -10,6 +10,11 @@
 package entry_test
 
 import (
+	"go/ast"
+	"go/importer"
+	"go/parser"
+	"go/token"
+	"go/types"
 	"maps"
 	"os"
 	"path/filepath"
@@ -98,7 +103,95 @@ func fileAt(resp *plugin.Response, path string) string {
 	return ""
 }
 
+// resourceStub stands in for the Core's resource package when type-checking generated
+// methods.
+const resourceStub = `package resource
+
+type Type string
+
+const TypeLabel Type = "label"
+
+type ID struct {
+	Type Type
+	Key  string
+}
+`
+
+// stubImporter serves resourceStub for the resource package and type-checks every
+// other import from the Go source tree.
+type stubImporter struct {
+	fset     *token.FileSet
+	fallback types.Importer
+}
+
+func (i stubImporter) Import(path string) (*types.Package, error) {
+	if path != entry.DefaultOptions().ResourceImportPath {
+		return i.fallback.Import(path)
+	}
+	f := MustSucceed(parser.ParseFile(i.fset, "resource.go", resourceStub, 0))
+	return (&types.Config{}).Check(path, i.fset, []*ast.File{f}, nil)
+}
+
+// typeCheck type-checks the generated source together with the declarations it
+// attaches methods to.
+func typeCheck(generated, declarations string) error {
+	fset := token.NewFileSet()
+	gen := MustSucceed(parser.ParseFile(fset, "entry.gen.go", generated, 0))
+	decl := MustSucceed(parser.ParseFile(fset, "types.gen.go", declarations, 0))
+	cfg := types.Config{Importer: stubImporter{
+		fset:     fset,
+		fallback: importer.ForCompiler(fset, "source", nil),
+	}}
+	_, err := cfg.Check("v0", fset, []*ast.File{gen, decl}, nil)
+	return err
+}
+
 var _ = Describe("Go Entry Plugin", func() {
+	It(
+		"Should generate methods that compile for uuid, integer, and string keys",
+		func() {
+			source := `
+Uuid struct {
+	key uuid @key
+
+	@go entry "uuid_entry"
+	@resource type "label"
+}
+
+Integer struct {
+	key uint32 @key
+
+	@go entry
+	@resource type "label"
+}
+
+Text struct {
+	key string @key
+
+	@go entry
+	@resource type "label"
+}
+`
+			resp := MustSucceed(generate("label",
+				"@go output \"core/pkg/service/label\"\n"+source,
+				map[string]string{"label/v0.oracle": source},
+			))
+			Expect(typeCheck(
+				fileAt(resp, "core/pkg/service/label/versions/v0/entry.gen.go"),
+				`package v0
+
+import "uuid"
+
+type Uuid struct{ Key uuid.UUID }
+
+type Integer struct{ Key uint32 }
+
+type Text struct{ Key string }
+`,
+			)).To(Succeed())
+		},
+	)
+
 	It("Should generate the methods in every version that declares the entry", func() {
 		resp := MustSucceed(generate("label", `
 @go output "core/pkg/service/label"
