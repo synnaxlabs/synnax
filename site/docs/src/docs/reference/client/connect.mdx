@@ -240,12 +240,17 @@ import synnax as sy
 client = sy.Synnax()
 ```
 
-The command saves the host, port, TLS setting, and CA certificate path in
-`~/.synnax/config.json`. It saves the API key in the keychain of your operating system,
-under the name `synnax.api_key`. It does not save your username or password, and it
-deletes a password that an older version saved. In the Console, the key shows in
-**Manage sign-in** for your user. When the login fails, the command prints why, saves
-nothing, and exits with code 1. Run `sy login` again to change the values.
+The command saves the host, port, TLS setting, and CA certificate path in `config.json`
+in the config folder of your operating system, such as `~/.config/synnax` on Linux
+(`$XDG_CONFIG_HOME/synnax` when set) and `~/Library/Application Support/Synnax` on
+macOS. While clients of Synnax 0.62 are supported, it also saves them in
+`~/.synnax/config.json`. The Python client reads the config folder first, then
+`~/.synnax`, so a login saved by an older version keeps working. It saves the API key in
+the keychain of your operating system, under the name `synnax.api_key`. It does not save
+your username or password, and it deletes a password that an older version saved. In the
+Console, the key shows in **Manage sign-in** for your user. When the login fails, the
+command prints why, saves nothing, and exits with code 1. Run `sy login` again to change
+the values.
 
 `sy login` never saves the key in a file. When the session has no keychain, the command
 fails and saves nothing. See [Connect without a keychain](#connect-without-a-keychain).

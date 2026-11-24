@@ -33,6 +33,7 @@ from synnax.config import (
     Clusters,
     File,
     config_dirs,
+    file,
     load_desktop_options,
     load_env_options,
     load_options,
@@ -214,6 +215,39 @@ class TestFile:
         finally:
             legacy.chmod(0o700)
         after = {p: p.read_bytes() for p in (current, legacy) for p in p.iterdir()}
+        assert after == before
+        for d in (current, legacy):
+            cluster = Clusters(File(config_dir=d), keyring).get()
+            assert cluster is not None
+            assert cluster.options.host == "a.lab"
+            assert cluster.options.api_key == "syk_a"
+
+    def test_failed_replace_changes_nothing(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Should put both files and the keyring back, and leave no other file, when
+        the second file cannot be replaced.
+        """
+        current, legacy = tmp_path / "current", tmp_path / "legacy"
+        keyring = MemoryKeyring()
+        clusters = Clusters(File(config_dir=current, legacy_dir=legacy), keyring)
+        clusters.set(Cluster(options=Options(host="a.lab", port=9090, api_key="syk_a")))
+        before = {p: p.read_bytes() for d in (current, legacy) for p in d.iterdir()}
+        replace = file._replace
+        calls: list[Path] = []
+
+        def fail_second(src: str, dst: Path) -> None:
+            calls.append(dst)
+            if len(calls) == 2:
+                raise PermissionError("replace")
+            replace(src, dst)
+
+        monkeypatch.setattr(file, "_replace", fail_second)
+        with pytest.raises(PermissionError):
+            clusters.set(
+                Cluster(options=Options(host="b.lab", port=9090, api_key="syk_b"))
+            )
+        after = {p: p.read_bytes() for d in (current, legacy) for p in d.iterdir()}
         assert after == before
         for d in (current, legacy):
             cluster = Clusters(File(config_dir=d), keyring).get()

@@ -93,17 +93,26 @@ class File:
 
     def _write(self, config: dict[str, Any]) -> None:
         # Clients of Synnax 0.62 read only the legacy file. Drop it when 0.62 support
-        # ends. Staging every file before replacing any makes a failed write change
-        # none.
-        staged: list[tuple[str, pathlib.Path]] = []
+        # ends. A failed write puts every file back as it was.
+        temps: list[str] = []
+        backups: list[tuple[pathlib.Path, str | None]] = []
         try:
-            staged.extend(_stage(path, config) for path in self._paths)
+            staged = [_stage(path, config, temps) for path in self._paths]
+            backups.extend((path, _backup(path)) for _, path in staged)
+            for temp, path in staged:
+                _replace(temp, path)
         except BaseException:
-            for temp, _ in staged:
-                os.unlink(temp)
+            for path, backup in backups:
+                if backup is None:
+                    path.unlink(missing_ok=True)
+                else:
+                    _replace(backup, path)
+            for temp in temps:
+                pathlib.Path(temp).unlink(missing_ok=True)
             raise
-        for temp, path in staged:
-            _replace(temp, path)
+        for _, backup in backups:
+            if backup is not None:
+                os.unlink(backup)
 
     def get(self, key: str) -> Any:
         """Gets a value from the config file."""
@@ -124,9 +133,11 @@ class File:
         self.save()
 
 
-def _stage(file: pathlib.Path, config: dict[str, Any]) -> tuple[str, pathlib.Path]:
-    """Writes config to a temporary file beside file, and returns the temporary file
-    and the path it replaces. Removes the temporary file if the write fails.
+def _stage(
+    file: pathlib.Path, config: dict[str, Any], temps: list[str]
+) -> tuple[str, pathlib.Path]:
+    """Writes config to a temporary file beside file, adds it to temps, and returns
+    it with the path it replaces.
     """
     # Resolving first writes through a symlink instead of replacing it.
     path = file.resolve()
@@ -138,18 +149,29 @@ def _stage(file: pathlib.Path, config: dict[str, Any]) -> tuple[str, pathlib.Pat
         prefix=f".{path.name}.",
         delete=False,
     ) as f:
-        try:
-            json.dump(config, f)
-            f.flush()
-            os.fsync(f.fileno())
-            f.close()
-            if path.exists():
-                shutil.copymode(path, f.name)
-        except BaseException:
-            f.close()
-            os.unlink(f.name)
-            raise
+        temps.append(f.name)
+        json.dump(config, f)
+        f.flush()
+        os.fsync(f.fileno())
+    if path.exists():
+        shutil.copymode(path, f.name)
     return f.name, path
+
+
+def _backup(path: pathlib.Path) -> str | None:
+    """Copies path beside itself and returns the copy, or None if path does not
+    exist.
+    """
+    if not path.exists():
+        return None
+    fd, backup = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.bak.")
+    os.close(fd)
+    try:
+        shutil.copy2(path, backup)
+    except BaseException:
+        os.unlink(backup)
+        raise
+    return backup
 
 
 # Windows refuses to replace a file that another process, such as a virus scanner,
