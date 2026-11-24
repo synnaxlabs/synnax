@@ -211,6 +211,7 @@ func writeOld(ctx context.Context, disk *fault.FS) oldSamples {
 	keys := []cesium.ChannelKey{oldIdx, oldI32, oldStr}
 	w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 		Channels: keys,
+		Clock:    oldIdx,
 		Start:    o.stamps[0],
 	}))
 	for c := 0; c < oldN; c += 5 {
