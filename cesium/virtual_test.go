@@ -63,7 +63,7 @@ var _ = Describe("Virtual channel directories", func() {
 		ctx SpecContext,
 	) {
 		db := mustOpenDBOnFS(ctx, mem)
-		Expect(db.Drop([]cesium.ChannelKey{key})).To(Succeed())
+		Expect(db.Drop(ctx, []cesium.ChannelKey{key})).To(Succeed())
 		Expect(mem.Exists(channelKeyToPath(key))).To(BeFalse())
 	})
 

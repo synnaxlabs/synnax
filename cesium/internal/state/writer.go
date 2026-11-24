@@ -11,6 +11,7 @@ package state
 
 import (
 	"cmp"
+	"context"
 	"maps"
 	"math"
 	"slices"
@@ -114,8 +115,13 @@ func (r *openRequest) run(s *State) { r.w.done <- s.openWriter(r.w, r.pre) }
 // inside another claim, or when another writer that is not bounded claims one of its
 // keys, and ErrStale when a preload is stale. The writer takes over each open segment
 // of its keys that no writer holds, when it has the same clock, type, and version, and
-// every commit of it is durable.
-func (s *State) OpenWriter(cfg WriterConfig, pre ...Preload) (*Writer, error) {
+// every commit of it is durable. The open queues until Run runs it: when ctx ends first,
+// OpenWriter returns the error of ctx, and the open never runs.
+func (s *State) OpenWriter(
+	ctx context.Context,
+	cfg WriterConfig,
+	pre ...Preload,
+) (*Writer, error) {
 	w := &Writer{
 		s:      s,
 		cfg:    cfg,
@@ -127,7 +133,7 @@ func (s *State) OpenWriter(cfg WriterConfig, pre ...Preload) (*Writer, error) {
 	for _, k := range cfg.Keys {
 		w.types[k.Key] = k.DataType
 	}
-	if err := w.call(&openRequest{w: w, pre: pre}); err != nil {
+	if err := waitFor(ctx, s, &openRequest{w: w, pre: pre}, w.done); err != nil {
 		return nil, err
 	}
 	return w, nil
