@@ -73,6 +73,7 @@ var _ = Describe("Check: claims over a parted segment that a delete cut", func()
 			writeAt := func(seconds ...telem.TimeStamp) error {
 				w, err := db.OpenWriter(ctx, cesium.WriterConfig{
 					Channels: keys,
+					Clock:    idx,
 					Start:    seconds[0] * telem.SecondTS,
 				})
 				if err != nil {
@@ -99,8 +100,7 @@ var _ = Describe("Check: claims over a parted segment that a delete cut", func()
 			db = partedDB(ctx, fs)
 			stop = StartRun(db.Run)
 			// The delete cuts segment 2 to seconds 11 and 12 and 17 to 20. Kills mark
-			// its
-			// two records in part 1 dead, two of the eight that part 1 holds.
+			// its two records in part 1 dead, two of the eight that part 1 holds.
 			Expect(db.DeleteTimeRange(
 				ctx,
 				keys,
