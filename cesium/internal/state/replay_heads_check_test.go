@@ -248,15 +248,15 @@ var _ = Describe(
 					heads := xfs.NewMem()
 					var (
 						mu sync.Mutex
-						// appended counts the entries handed to the log, by the
+						// handed counts the entries handed to the log, by the
 						// workload and by the state, and settled the entries that came
 						// back durable or refused.
-						appended, settled atomic.Int64
-						entries           []durableEntry
-						failed            error
-						l                 *log.Log
-						st                *state.State
-						goExe             = func(f func()) { go f() }
+						handed, settled atomic.Int64
+						entries         []durableEntry
+						failed          error
+						l               *log.Log
+						st              *state.State
+						goExe           = func(f func()) { go f() }
 						// steps holds the steps of the checkpointer, which the workload
 						// runs at a later event, so events land between a switch and
 						// its Parted.
@@ -301,7 +301,7 @@ var _ = Describe(
 					}))
 					cfg := config(&appended{})
 					cfg.Append = func(e *log.Entry) {
-						appended.Add(1)
+						handed.Add(1)
 						l.Append(e)
 					}
 					cfg.OnHead = func(g uint64, s *state.Snapshot) { ckpt.Head(g, s) }
@@ -345,7 +345,7 @@ var _ = Describe(
 						for _, r := range records {
 							e.Add(r)
 						}
-						appended.Add(1)
+						handed.Add(1)
 						MustSucceed(l.Append(&e).Wait())
 					}
 					// withPreloads runs op with the preloads of keys, and again while
@@ -384,7 +384,7 @@ var _ = Describe(
 						// switch, so a point first waits for every entry to settle. The
 						// owner then applies each before the requests below.
 						Eventually(func() bool {
-							return settled.Load() == appended.Load()
+							return settled.Load() == handed.Load()
 						}).Should(BeTrue())
 						dead = append(dead, MustSucceed(st.TakeDead())...)
 						if parting {
