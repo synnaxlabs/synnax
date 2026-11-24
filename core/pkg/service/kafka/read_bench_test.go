@@ -32,9 +32,11 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/service/kafka"
+	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/payload"
@@ -382,12 +384,114 @@ func runBench(ctx SpecContext, sc benchScenario) benchResult {
 	GinkgoHelper()
 	f := newFactory()
 	groups := createBenchGroups(ctx, sc)
-	brokers := cluster.ListenAddrs()
-	if b := os.Getenv("KAFKA_BENCH_BROKERS"); b != "" {
-		brokers = strings.Split(b, ",")
-	}
+	brokers := benchBrokers()
 	dev := createDevice(ctx, kafka.Properties{Brokers: brokers})
 	topic := uniqueTopic()
+	producer := openBenchProducer(ctx, brokers, topic)
+	t, startTask := configureBenchTask(ctx, f, dev, topic, groups, sc)
+	if !sc.backlog {
+		startTask()
+	}
+	outlet, isIndex, closeRequests := openBenchStreamer(ctx, groups)
+
+	var (
+		ll       latencyLog
+		received atomic.Int64
+		t0       time.Time
+	)
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		ll.collect(outlet, isIndex, &received, &t0)
+	}()
+
+	ticks := int(sc.duration.Seconds() * float64(sc.rate))
+	bp := newBenchProducer(producer, topic, sc, groups, ticks)
+
+	var m benchMeasure
+	if !sc.backlog {
+		m.begin(sc.name())
+	}
+	t0 = time.Now()
+	period := time.Second / time.Duration(sc.rate)
+	base := telem.Now() - telem.TimeStamp(sc.duration)
+	bp.produceTicks(ctx, ticks, t0, period, base)
+	produceSecs := time.Since(t0).Seconds()
+	bp.flush(ctx)
+	if sc.backlog {
+		m.begin(sc.name())
+		startTask()
+	}
+	drain := waitReceived(&received, int64(ticks*len(groups)))
+	elapsed, cpu, alloc := m.end()
+	closeRequests()
+	Eventually(done).Should(BeClosed())
+
+	res := newBenchResult(sc, ticks, produceSecs, drain, elapsed, cpu, alloc)
+	res.TaskStatus = statusText(taskStatus(ctx, t))
+
+	ll.summarize(&res, produceSecs)
+	intervals := checkStored(ctx, sc, groups, bp.produced, ticks, &res)
+	res.IntervalJitterMs = stddevFrom(intervals, float64(period)/1e6)
+	return res
+}
+
+func statusText(stat task.Status) string {
+	return fmt.Sprintf("%s: %s %s", stat.Variant, stat.Message, stat.Description)
+}
+
+// waitReceived waits until received reaches want and returns how long it took.
+func waitReceived(received *atomic.Int64, want int64) time.Duration {
+	GinkgoHelper()
+	start := time.Now()
+	Eventually(received.Load).WithTimeout(5 * time.Minute).
+		WithPolling(5 * time.Millisecond).Should(BeNumerically(">=", want))
+	return time.Since(start)
+}
+
+// newBenchResult returns the throughput and cost of a scenario that produced ticks
+// ticks in produceSecs seconds, drained in drain, and used cpu and alloc bytes in
+// elapsed.
+func newBenchResult(
+	sc benchScenario,
+	ticks int,
+	produceSecs float64,
+	drain, elapsed, cpu time.Duration,
+	alloc uint64,
+) benchResult {
+	res := benchResult{
+		Scenario:       sc.name(),
+		Records:        producedRecords(sc, ticks),
+		Samples:        int64(ticks * sc.channels),
+		ProduceSeconds: produceSecs,
+		AchievedRate:   float64(ticks) / produceSecs,
+		DrainMs:        float64(drain) / 1e6,
+		CPUCores:       cpu.Seconds() / elapsed.Seconds(),
+		AllocMBPerSec:  float64(alloc) / 1e6 / elapsed.Seconds(),
+	}
+	if sc.backlog {
+		res.DrainSamplesPerS = float64(res.Samples) / drain.Seconds()
+		res.DrainRecordsPerS = float64(res.Records) / drain.Seconds()
+	}
+	return res
+}
+
+// benchBrokers returns the brokers that KAFKA_BENCH_BROKERS names, or else the brokers
+// of the fake cluster.
+func benchBrokers() []string {
+	if b := os.Getenv("KAFKA_BENCH_BROKERS"); b != "" {
+		return strings.Split(b, ",")
+	}
+	return cluster.ListenAddrs()
+}
+
+// openBenchProducer opens a Kafka producer on brokers and creates topic.
+func openBenchProducer(
+	ctx context.Context,
+	brokers []string,
+	topic string,
+) *kgo.Client {
+	GinkgoHelper()
 	producer := MustSucceed(kgo.NewClient(
 		kgo.SeedBrokers(brokers...),
 		kgo.ProducerLinger(time.Millisecond),
@@ -397,6 +501,20 @@ func runBench(ctx SpecContext, sc benchScenario) benchResult {
 	))
 	DeferCleanup(producer.Close)
 	MustSucceed(kadm.NewClient(producer).CreateTopic(ctx, 1, 1, nil, topic))
+	return producer
+}
+
+// configureBenchTask configures a read task of topic on dev and returns it with a
+// function that starts it.
+func configureBenchTask(
+	ctx context.Context,
+	f driver.Factory,
+	dev device.Device,
+	topic string,
+	groups []benchGroup,
+	sc benchScenario,
+) (task.Task, func()) {
+	GinkgoHelper()
 	cfg := kafka.ReadConfig{
 		Device:      dev.Key,
 		Topics:      oneTopic(topic, benchRecords(ctx, groups, sc)),
@@ -410,10 +528,16 @@ func runBench(ctx SpecContext, sc benchScenario) benchResult {
 		Expect(dt.Exec(ctx, task.Command{Task: t.Key, Type: "start", Key: "cmd-2"})).
 			To(Succeed())
 	}
-	if !sc.backlog {
-		startTask()
-	}
+	return t, startTask
+}
 
+// openBenchStreamer streams the index channels of groups. It returns the responses, the
+// set of streamed keys, and a function that closes the requests.
+func openBenchStreamer(
+	ctx context.Context,
+	groups []benchGroup,
+) (<-chan framer.StreamerResponse, set.Set[channel.Key], func()) {
+	GinkgoHelper()
 	streamKeys := make(channel.Keys, 0, len(groups))
 	isIndex := make(set.Set[channel.Key])
 	for _, g := range groups {
@@ -434,176 +558,46 @@ func runBench(ctx SpecContext, sc benchScenario) benchResult {
 		Expect(sCtx.Wait()).To(Or(Succeed(), MatchError(context.Canceled)))
 	})
 	Eventually(responses.Outlet()).Should(Receive())
+	return responses.Outlet(), isIndex, requests.Close
+}
 
-	var (
-		ll       latencyLog
-		received atomic.Int64
-		t0       time.Time
-	)
-	done := make(chan struct{})
-	go func() {
-		defer close(done)
-		for res := range responses.Outlet() {
-			now := telem.Now()
-			since := time.Since(t0)
-			ll.mu.Lock()
-			for key, s := range res.Frame.Entries() {
-				if !isIndex.Contains(key) {
-					continue
-				}
-				for i := range int(s.Len()) {
-					ts := s.ValueAt[telem.TimeStamp](i)
-					ll.lat = append(ll.lat, float64(now-ts)/1e6)
-					ll.seen = append(ll.seen, since)
-				}
-				received.Add(s.Len())
-			}
-			ll.mu.Unlock()
-		}
-	}()
+// benchMeasure measures the CPU time and allocations of a scenario.
+type benchMeasure struct {
+	profile   *benchProfile
+	msBefore  runtime.MemStats
+	cpuBefore time.Duration
+	measureAt time.Time
+}
 
-	ticks := int(sc.duration.Seconds() * float64(sc.rate))
-	produced := make([][]telem.TimeStamp, len(groups))
-	for i := range produced {
-		produced[i] = make([]telem.TimeStamp, 0, ticks)
-	}
-	var produceErr atomic.Pointer[error]
-	promise := func(_ *kgo.Record, err error) {
-		if err != nil {
-			produceErr.CompareAndSwap(nil, &err)
-		}
-	}
+func (m *benchMeasure) begin(name string) {
+	m.profile = startBenchProfile(name)
+	runtime.ReadMemStats(&m.msBefore)
+	m.cpuBefore = cpuTime()
+	m.measureAt = time.Now()
+}
 
-	var (
-		profile   *benchProfile
-		msBefore  runtime.MemStats
-		cpuBefore time.Duration
-		measureAt time.Time
-	)
-	beginMeasure := func() {
-		profile = startBenchProfile(sc.name())
-		runtime.ReadMemStats(&msBefore)
-		cpuBefore = cpuTime()
-		measureAt = time.Now()
-	}
-	if !sc.backlog {
-		beginMeasure()
-	}
-	t0 = time.Now()
-	period := time.Second / time.Duration(sc.rate)
-	base := telem.Now() - telem.TimeStamp(sc.duration)
-	var last telem.TimeStamp
-	body := make(map[string]any, sc.channels+1)
-	for k := range ticks {
-		var ts telem.TimeStamp
-		if sc.backlog {
-			ts = base + telem.TimeStamp(time.Duration(k)*period)
-		} else {
-			if wait := time.Until(t0.Add(time.Duration(k) * period)); wait > 0 {
-				time.Sleep(wait)
-			}
-			ts = max(telem.Now(), last+1)
-		}
-		last = ts
-		if sc.shape == wide {
-			clear(body)
-			body["ts"] = int64(ts)
-			for i := range sc.channels {
-				body["c"+strconv.Itoa(i)] = benchValue(i, k)
-			}
-			b := MustSucceed(json.Marshal(body))
-			producer.Produce(ctx, &kgo.Record{
-				Topic:     topic,
-				Key:       []byte("tick"),
-				Timestamp: time.Unix(0, int64(ts)),
-				Value:     b,
-			}, promise)
-			produced[0] = append(produced[0], ts)
-			continue
-		}
-		for gi, g := range groups {
-			b := MustSucceed(json.Marshal(map[string]any{
-				"ts":    int64(ts),
-				"value": benchValue(gi, k),
-			}))
-			producer.Produce(ctx, &kgo.Record{
-				Topic:     topic,
-				Key:       []byte(g.key),
-				Timestamp: time.Unix(0, int64(ts)),
-				Value:     b,
-			}, promise)
-			produced[gi] = append(produced[gi], ts)
-		}
-	}
-	produceSecs := time.Since(t0).Seconds()
-	Expect(producer.Flush(ctx)).To(Succeed())
-	if p := produceErr.Load(); p != nil {
-		Fail((*p).Error())
-	}
-	wantIndex := int64(ticks * len(groups))
-	if sc.backlog {
-		beginMeasure()
-		startTask()
-	}
-	drainStart := time.Now()
-	Eventually(received.Load).WithTimeout(5 * time.Minute).
-		WithPolling(5 * time.Millisecond).Should(BeNumerically(">=", wantIndex))
-	drain := time.Since(drainStart)
-	elapsed := time.Since(measureAt)
-	cpu := cpuTime() - cpuBefore
+// end returns the time, CPU time, and bytes allocated since begin.
+func (m *benchMeasure) end() (elapsed, cpu time.Duration, alloc uint64) {
+	elapsed = time.Since(m.measureAt)
+	cpu = cpuTime() - m.cpuBefore
 	var msAfter runtime.MemStats
 	runtime.ReadMemStats(&msAfter)
-	profile.stop()
-	requests.Close()
-	Eventually(done).Should(BeClosed())
+	m.profile.stop()
+	return elapsed, cpu, msAfter.TotalAlloc - m.msBefore.TotalAlloc
+}
 
-	res := benchResult{
-		Scenario:       sc.name(),
-		Records:        producedRecords(sc, ticks),
-		Samples:        int64(ticks * sc.channels),
-		ProduceSeconds: produceSecs,
-		AchievedRate:   float64(ticks) / produceSecs,
-		DrainMs:        float64(drain) / 1e6,
-		CPUCores:       cpu.Seconds() / elapsed.Seconds(),
-		AllocMBPerSec: float64(msAfter.TotalAlloc-msBefore.TotalAlloc) / 1e6 /
-			elapsed.Seconds(),
-	}
-	if sc.backlog {
-		res.DrainSamplesPerS = float64(res.Samples) / drain.Seconds()
-		res.DrainRecordsPerS = float64(res.Records) / drain.Seconds()
-	}
-	stat := taskStatus(ctx, t)
-	res.TaskStatus = fmt.Sprintf(
-		"%s: %s %s",
-		stat.Variant,
-		stat.Message,
-		stat.Description,
-	)
-
-	ll.mu.Lock()
-	sorted := slices.Clone(ll.lat)
-	slices.Sort(sorted)
-	res.LatencyP50Ms = percentile(sorted, 0.5)
-	res.LatencyP95Ms = percentile(sorted, 0.95)
-	res.LatencyP99Ms = percentile(sorted, 0.99)
-	if len(sorted) > 0 {
-		res.LatencyMaxMs = sorted[len(sorted)-1]
-	}
-	var first, lastSec []float64
-	for i, s := range ll.seen {
-		if s < time.Second {
-			first = append(first, ll.lat[i])
-		}
-		if s > time.Duration(produceSecs*float64(time.Second))-time.Second {
-			lastSec = append(lastSec, ll.lat[i])
-		}
-	}
-	ll.mu.Unlock()
-	slices.Sort(first)
-	slices.Sort(lastSec)
-	res.LatencyFirstSecMs = percentile(first, 0.5)
-	res.LatencyLastSecMs = percentile(lastSec, 0.5)
-
+// checkStored compares the stored index and data channels of each group to what was
+// produced, records the mismatches and stamp errors in res, and returns the intervals
+// between stored index stamps in milliseconds.
+func checkStored(
+	ctx context.Context,
+	sc benchScenario,
+	groups []benchGroup,
+	produced [][]telem.TimeStamp,
+	ticks int,
+	res *benchResult,
+) []float64 {
+	GinkgoHelper()
 	var stampErrs, intervals []float64
 	for gi, g := range groups {
 		idx := storedSeries(ctx, g.index.Key())
@@ -626,24 +620,7 @@ func runBench(ctx SpecContext, sc benchScenario) benchResult {
 				intervals = append(intervals, float64(got[i]-got[i-1])/1e6)
 			}
 		}
-		for ci, ch := range g.data {
-			s := storedSeries(ctx, ch.Key())
-			chIndex := g.first + ci
-			if sc.shape == wide {
-				chIndex = ci
-			}
-			for k := range min(int(s.Len()), ticks) {
-				if math.Float64bits(s.ValueAt[float64](k)) !=
-					math.Float64bits(benchValue(chIndex, k)) {
-					res.ValueMismatches++
-				}
-			}
-			if n := s.Len() - int64(ticks); n > 0 {
-				res.Extra += n
-			} else {
-				res.Missing -= n
-			}
-		}
+		checkStoredValues(ctx, sc, g, ticks, res)
 	}
 	slices.Sort(stampErrs)
 	res.StampErrP50Ms = percentile(stampErrs, 0.5)
@@ -651,8 +628,203 @@ func runBench(ctx SpecContext, sc benchScenario) benchResult {
 	if len(stampErrs) > 0 {
 		res.StampErrMaxMs = stampErrs[len(stampErrs)-1]
 	}
-	res.IntervalJitterMs = stddevFrom(intervals, float64(period)/1e6)
-	return res
+	return intervals
+}
+
+// checkStoredValues compares the stored data channels of g to the values produced in
+// ticks ticks and records the mismatches in res.
+func checkStoredValues(
+	ctx context.Context,
+	sc benchScenario,
+	g benchGroup,
+	ticks int,
+	res *benchResult,
+) {
+	GinkgoHelper()
+	for ci, ch := range g.data {
+		s := storedSeries(ctx, ch.Key())
+		chIndex := g.first + ci
+		if sc.shape == wide {
+			chIndex = ci
+		}
+		for k := range min(int(s.Len()), ticks) {
+			if math.Float64bits(s.ValueAt[float64](k)) !=
+				math.Float64bits(benchValue(chIndex, k)) {
+				res.ValueMismatches++
+			}
+		}
+		if n := s.Len() - int64(ticks); n > 0 {
+			res.Extra += n
+		} else {
+			res.Missing -= n
+		}
+	}
+}
+
+// benchProducer produces the records of a bench scenario.
+type benchProducer struct {
+	client *kgo.Client
+	topic  string
+	sc     benchScenario
+	groups []benchGroup
+	// body is the reused record body of the wide shape.
+	body map[string]any
+	// produced[i] holds the stamps produced for group i.
+	produced [][]telem.TimeStamp
+	promise  func(*kgo.Record, error)
+	// produceErr holds the first error that a produce returned.
+	produceErr atomic.Pointer[error]
+}
+
+// newBenchProducer returns a producer of ticks ticks of records on client.
+func newBenchProducer(
+	client *kgo.Client,
+	topic string,
+	sc benchScenario,
+	groups []benchGroup,
+	ticks int,
+) *benchProducer {
+	bp := &benchProducer{
+		client:   client,
+		topic:    topic,
+		sc:       sc,
+		groups:   groups,
+		body:     make(map[string]any, sc.channels+1),
+		produced: make([][]telem.TimeStamp, len(groups)),
+	}
+	for i := range bp.produced {
+		bp.produced[i] = make([]telem.TimeStamp, 0, ticks)
+	}
+	bp.promise = func(_ *kgo.Record, err error) {
+		if err != nil {
+			bp.produceErr.CompareAndSwap(nil, &err)
+		}
+	}
+	return bp
+}
+
+// flush waits for every record to be produced and fails on the first produce error.
+func (bp *benchProducer) flush(ctx context.Context) {
+	GinkgoHelper()
+	Expect(bp.client.Flush(ctx)).To(Succeed())
+	if p := bp.produceErr.Load(); p != nil {
+		Fail((*p).Error())
+	}
+}
+
+// produce produces the records of tick k, stamped ts.
+func (bp *benchProducer) produce(ctx context.Context, k int, ts telem.TimeStamp) {
+	GinkgoHelper()
+	if bp.sc.shape == wide {
+		clear(bp.body)
+		bp.body["ts"] = int64(ts)
+		for i := range bp.sc.channels {
+			bp.body["c"+strconv.Itoa(i)] = benchValue(i, k)
+		}
+		b := MustSucceed(json.Marshal(bp.body))
+		bp.client.Produce(ctx, &kgo.Record{
+			Topic:     bp.topic,
+			Key:       []byte("tick"),
+			Timestamp: time.Unix(0, int64(ts)),
+			Value:     b,
+		}, bp.promise)
+		bp.produced[0] = append(bp.produced[0], ts)
+		return
+	}
+	for gi, g := range bp.groups {
+		b := MustSucceed(json.Marshal(map[string]any{
+			"ts":    int64(ts),
+			"value": benchValue(gi, k),
+		}))
+		bp.client.Produce(ctx, &kgo.Record{
+			Topic:     bp.topic,
+			Key:       []byte(g.key),
+			Timestamp: time.Unix(0, int64(ts)),
+			Value:     b,
+		}, bp.promise)
+		bp.produced[gi] = append(bp.produced[gi], ts)
+	}
+}
+
+// produceTicks produces ticks ticks of records, period apart from t0. A backlog
+// scenario stamps them period apart from base without waiting.
+func (bp *benchProducer) produceTicks(
+	ctx context.Context,
+	ticks int,
+	t0 time.Time,
+	period time.Duration,
+	base telem.TimeStamp,
+) {
+	GinkgoHelper()
+	var last telem.TimeStamp
+	for k := range ticks {
+		var ts telem.TimeStamp
+		if bp.sc.backlog {
+			ts = base + telem.TimeStamp(time.Duration(k)*period)
+		} else {
+			if wait := time.Until(t0.Add(time.Duration(k) * period)); wait > 0 {
+				time.Sleep(wait)
+			}
+			ts = max(telem.Now(), last+1)
+		}
+		last = ts
+		bp.produce(ctx, k, ts)
+	}
+}
+
+// collect records the latency of each index sample in the streamer responses, and adds
+// the count of each index series to received. t0 is when production started.
+func (l *latencyLog) collect(
+	responses <-chan framer.StreamerResponse,
+	isIndex set.Set[channel.Key],
+	received *atomic.Int64,
+	t0 *time.Time,
+) {
+	for res := range responses {
+		now := telem.Now()
+		since := time.Since(*t0)
+		l.mu.Lock()
+		for key, s := range res.Frame.Entries() {
+			if !isIndex.Contains(key) {
+				continue
+			}
+			for i := range int(s.Len()) {
+				ts := s.ValueAt[telem.TimeStamp](i)
+				l.lat = append(l.lat, float64(now-ts)/1e6)
+				l.seen = append(l.seen, since)
+			}
+			received.Add(s.Len())
+		}
+		l.mu.Unlock()
+	}
+}
+
+// summarize records the latency percentiles in res, overall and for the first and last
+// second of a production that took produceSecs.
+func (l *latencyLog) summarize(res *benchResult, produceSecs float64) {
+	l.mu.Lock()
+	sorted := slices.Clone(l.lat)
+	slices.Sort(sorted)
+	res.LatencyP50Ms = percentile(sorted, 0.5)
+	res.LatencyP95Ms = percentile(sorted, 0.95)
+	res.LatencyP99Ms = percentile(sorted, 0.99)
+	if len(sorted) > 0 {
+		res.LatencyMaxMs = sorted[len(sorted)-1]
+	}
+	var first, lastSec []float64
+	for i, s := range l.seen {
+		if s < time.Second {
+			first = append(first, l.lat[i])
+		}
+		if s > time.Duration(produceSecs*float64(time.Second))-time.Second {
+			lastSec = append(lastSec, l.lat[i])
+		}
+	}
+	l.mu.Unlock()
+	slices.Sort(first)
+	slices.Sort(lastSec)
+	res.LatencyFirstSecMs = percentile(first, 0.5)
+	res.LatencyLastSecMs = percentile(lastSec, 0.5)
 }
 
 func producedRecords(sc benchScenario, ticks int) int64 {

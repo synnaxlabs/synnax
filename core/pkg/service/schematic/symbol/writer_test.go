@@ -10,6 +10,7 @@
 package symbol_test
 
 import (
+	"context"
 	"encoding/json/v2"
 	"uuid"
 
@@ -17,11 +18,14 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	"github.com/synnaxlabs/x/defaults"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -311,5 +315,67 @@ var _ = Describe("Writer", func() {
 			Expect(svc.Resources().Retrieve(ctx, tx, []resource.ID{sym.ResourceID()})).
 				To(BeEmpty())
 		})
+	})
+})
+
+var _ = Describe("Orphan removal", func() {
+	var (
+		orphanDB  *gorp.DB
+		orphanSvc *symbol.Service
+		saved     []symbol.Symbol
+		refusal   error
+		sym       symbol.Symbol
+	)
+	apply := func(ctx SpecContext, act symbol.Action) error {
+		return orphanDB.WithTx(ctx, func(tx gorp.Tx) error {
+			return orphanSvc.NewWriter(tx).Apply(ctx, sym.Key, act)
+		})
+	}
+	rename := symbol.NewSetAction(symbol.SetPayload{
+		Path:  []string{"name"},
+		Value: "After",
+	})
+	BeforeEach(func(ctx SpecContext) {
+		saved, refusal = nil, nil
+		orphanDB = DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(orphanDB.Run)
+		orphanSvc = MustOpen(symbol.OpenService(ctx, symbol.ServiceConfig{
+			DB: orphanDB,
+			Group: MustOpen(
+				group.OpenService(ctx, group.ServiceConfig{DB: orphanDB}),
+			),
+			ImEx:        imex.NewService(),
+			Enumeration: openEnumerations(ctx, orphanDB),
+			Actuators:   noActuators,
+			RemoveOrphans: func(_ context.Context, _ gorp.Tx, s symbol.Symbol) error {
+				saved = append(saved, s)
+				return refusal
+			},
+		}))
+		sym = symbol.Symbol{
+			Name: "Before",
+			Data: symbol.Spec{Drawing: svg("<svg/>"), Variant: "static", Scale: 1},
+		}
+		Expect(orphanDB.WithTx(ctx, func(tx gorp.Tx) error {
+			return orphanSvc.NewWriter(tx).Create(ctx, &sym)
+		})).To(Succeed())
+	})
+
+	It("Should remove the orphans of the symbol that a save stores", func(
+		ctx SpecContext,
+	) {
+		Expect(apply(ctx, rename)).To(Succeed())
+		Expect(saved).To(HaveExactElements(HaveField("Name", "After")))
+	})
+
+	It("Should refuse a save whose orphans fail to be removed", func(ctx SpecContext) {
+		refusal = errors.New("schematic unavailable")
+		Expect(apply(ctx, rename)).To(MatchError(refusal))
+		var stored symbol.Symbol
+		Expect(orphanSvc.NewRetrieve().
+			Where(symbol.MatchKeys(sym.Key)).
+			Entry(&stored).
+			Exec(ctx, orphanDB)).To(Succeed())
+		Expect(stored.Name).To(Equal("Before"))
 	})
 })

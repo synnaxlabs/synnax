@@ -442,6 +442,23 @@ var _ = Describe("Delete", Ordered, func() {
 			Expect(seen.Hidden).To(Equal(impact.Hidden{Restrict: 1, Detach: 1}))
 		})
 
+		It("Should give a new token when a hidden entry has another effect", func(
+			ctx SpecContext,
+		) {
+			ch := createChannel(ctx, channel.Channel{})
+			tsk := createTask(ctx, ch.Key())
+			restricted := plan(ctx, hide(task.ResourceID(tsk.Key)), ch.Key())
+			Expect(restricted.Hidden).To(Equal(impact.Hidden{Restrict: 1}))
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return layer.Task.NewWriter(tx).Delete(ctx, tsk.Key, false)
+			})).To(Succeed())
+			plot := createPlot(ctx, ch.Key())
+			detached := plan(ctx, hide(lineplot.ResourceID(plot.Key)), ch.Key())
+			Expect(detached.Hidden).To(Equal(impact.Hidden{Detach: 1}))
+			Expect(detached.Entries).To(Equal(restricted.Entries))
+			Expect(detached.Token).ToNot(Equal(restricted.Token))
+		})
+
 		It("Should keep the token and apply the hidden pick when a hidden entry is "+
 			"swapped for another", func(ctx SpecContext) {
 			ch := createChannel(ctx, channel.Channel{})

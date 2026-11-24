@@ -1,0 +1,110 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { schematic } from "@synnaxlabs/client";
+import { describe, expect, it } from "vitest";
+
+import { Edge } from "@/schematic/edge";
+import { Gesture } from "@/schematic/gesture";
+import type { Diagram as Base } from "@/vis/diagram";
+
+describe("nodeChangesToActions", () => {
+  it("returns an empty array for empty input", () => {
+    expect(Gesture.nodeChangesToActions([])).toEqual([]);
+  });
+
+  it("translates a position change to a setNodePosition action", () => {
+    const change: Base.NodeChange = {
+      type: "position",
+      key: "n1",
+      position: { x: 10, y: 20 },
+      dragging: true,
+    };
+    expect(Gesture.nodeChangesToActions([change])).toEqual([
+      schematic.setNodePosition({ key: "n1", position: { x: 10, y: 20 } }),
+    ]);
+  });
+
+  it("translates a remove change to a removeNode action", () => {
+    const change: Base.NodeChange = { type: "remove", key: "n1" };
+    expect(Gesture.nodeChangesToActions([change])).toEqual([
+      schematic.removeNode({ key: "n1" }),
+    ]);
+  });
+
+  it("silently drops select changes since selection lives outside the schematic", () => {
+    const changes: Base.NodeChange[] = [
+      { type: "select", key: "n1", selected: true },
+      { type: "select", key: "n2", selected: false },
+    ];
+    expect(Gesture.nodeChangesToActions(changes)).toEqual([]);
+  });
+
+  it("preserves input order across a mixed batch of change types", () => {
+    const changes: Base.NodeChange[] = [
+      { type: "position", key: "n1", position: { x: 1, y: 2 }, dragging: false },
+      { type: "select", key: "n3", selected: true },
+      { type: "remove", key: "n2" },
+    ];
+    expect(Gesture.nodeChangesToActions(changes)).toEqual([
+      schematic.setNodePosition({ key: "n1", position: { x: 1, y: 2 } }),
+      schematic.removeNode({ key: "n2" }),
+    ]);
+  });
+});
+
+describe("edgeChangesToActions", () => {
+  const newEdge = (key: string): Base.Edge => ({
+    key,
+    source: { node: "n1", param: "out" },
+    target: { node: "n2", param: "in" },
+  });
+  const pipeDefault = Edge.REGISTRY.pipe.defaultConfig();
+
+  it("returns an empty array for empty input", () => {
+    expect(Gesture.edgeChangesToActions([])).toEqual([]);
+  });
+
+  it("translates an add change into an addEdge with the pipe variant's default", () => {
+    const edge = newEdge("e1");
+    expect(Gesture.edgeChangesToActions([{ type: "add", edge }])).toEqual([
+      schematic.addEdge({ edge: { ...edge, config: pipeDefault } }),
+    ]);
+  });
+
+  it("translates a remove change to a removeEdge action", () => {
+    expect(Gesture.edgeChangesToActions([{ type: "remove", key: "e1" }])).toEqual([
+      schematic.removeEdge({ key: "e1" }),
+    ]);
+  });
+
+  it("silently drops select changes since selection lives outside the schematic", () => {
+    const changes: Base.EdgeChange[] = [
+      { type: "select", key: "e1", selected: true },
+      { type: "select", key: "e2", selected: false },
+    ];
+    expect(Gesture.edgeChangesToActions(changes)).toEqual([]);
+  });
+
+  it("preserves input order and emits one addEdge for each add", () => {
+    const e1 = newEdge("e1");
+    const e3 = newEdge("e3");
+    const changes: Base.EdgeChange[] = [
+      { type: "add", edge: e1 },
+      { type: "select", key: "e2", selected: true },
+      { type: "remove", key: "e2" },
+      { type: "add", edge: e3 },
+    ];
+    expect(Gesture.edgeChangesToActions(changes)).toEqual([
+      schematic.addEdge({ edge: { ...e1, config: pipeDefault } }),
+      schematic.removeEdge({ key: "e2" }),
+      schematic.addEdge({ edge: { ...e3, config: pipeDefault } }),
+    ]);
+  });
+});

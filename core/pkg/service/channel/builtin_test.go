@@ -10,8 +10,6 @@
 package channel_test
 
 import (
-	"slices"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
@@ -82,7 +80,6 @@ var _ = Describe("Built-in channels", func() {
 		Expect(declare(ctx, &ch)).To(Succeed())
 		Expect(ch.Key()).ToNot(BeZero())
 		Expect(svc.IsBuiltIn(ch.Key())).To(BeTrue())
-		Expect(svc.BuiltIns()).To(ContainElement(ch.Key()))
 		Expect(retrieve(ctx, ch.Name)).To(HaveLen(1))
 	})
 
@@ -118,9 +115,6 @@ var _ = Describe("Built-in channels", func() {
 		for _, ch := range []channel.Channel{before, beforeIndex, after, afterIndex} {
 			Expect(svc.IsBuiltIn(ch.Key())).To(BeFalse())
 		}
-		builtIns := svc.BuiltIns()
-		Expect(builtIns).To(ContainElements(free.Key(), leased.Key()))
-		Expect(slices.IsSorted(builtIns)).To(BeTrue())
 	})
 
 	It("Should adopt a channel of the same data type and virtual flag", func(

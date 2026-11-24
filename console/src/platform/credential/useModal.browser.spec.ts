@@ -13,6 +13,7 @@ import {
   createTestClient,
   createTestClientAs,
   createTestClientWithRole,
+  createTestUser,
 } from "@synnaxlabs/client/testutil";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
@@ -44,7 +45,7 @@ const expectPassword = async (username: string, password: string): Promise<void>
   await expect
     .poll(async () => {
       try {
-        await createTestClientAs(username, password).auth.retrieveSessions();
+        await createTestClientAs(username, password).auth.sessions.retrieve();
         return true;
       } catch {
         return false;
@@ -57,11 +58,7 @@ describe("useModal", () => {
   it("should create a key, show it once, list it, and delete it", async () => {
     const client = createTestClient();
     const { key: role } = await createEmptyRole(client);
-    const subject = await client.users.create({
-      username: uniqueName("user"),
-      password: "password123",
-      role,
-    });
+    const subject = await client.users.create({ name: uniqueName("user"), role });
     const id = user.resourceID(subject.key);
     await openModal(Credential.useModal, { client, params: { subject: id } });
     await screen.findByText("No API keys");
@@ -69,7 +66,7 @@ describe("useModal", () => {
     await createKey(name);
     await screen.findByText(`Copy the key for ${name}`);
     expect(screen.getByText(/^syk_/)).toBeTruthy();
-    const [created] = await client.auth.retrieveKeys([id]);
+    const [created] = await client.auth.apiKeys.retrieve([id]);
     expect(created.name).toEqual(name);
     fireEvent.click(findButton("Done"));
     await waitFor(() => expect(screen.queryByText(/^syk_/)).toBeNull());
@@ -77,24 +74,20 @@ describe("useModal", () => {
     await clickAndSettle("Delete");
     fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
     await screen.findByText("No API keys");
-    expect(await client.auth.retrieveKeys([id])).toHaveLength(0);
+    expect(await client.auth.apiKeys.retrieve([id])).toHaveLength(0);
   });
 
   it("should stay open while a key saves", async () => {
     const client = createTestClient();
     const { key: role } = await createEmptyRole(client);
-    const subject = await client.users.create({
-      username: uniqueName("user"),
-      password: "password123",
-      role,
-    });
+    const { user: subject } = await createTestUser(client, { role });
     const id = user.resourceID(subject.key);
     await openModal(Credential.useModal, { client, params: { subject: id } });
     await screen.findByText("No API keys");
     // A real key press takes longer than the save, so the save waits for it.
     const { promise: pressed, resolve: release } = Promise.withResolvers<void>();
-    const save = client.auth.createKey.bind(client.auth);
-    vi.spyOn(client.auth, "createKey").mockImplementation(async (props) => {
+    const save = client.auth.apiKeys.create.bind(client.auth.apiKeys);
+    vi.spyOn(client.auth.apiKeys, "create").mockImplementation(async (props) => {
       await pressed;
       return await save(props);
     });
@@ -119,7 +112,7 @@ describe("useModal", () => {
     const name = uniqueName("key");
     await createKey(name);
     await screen.findByText(`Copy the key for ${name}`);
-    expect(await client.auth.retrieveKeys([id])).toHaveLength(1);
+    expect(await client.auth.apiKeys.retrieve([id])).toHaveLength(1);
   });
 
   it("should hide key actions the caller has no permission for", async () => {
@@ -127,7 +120,7 @@ describe("useModal", () => {
     const r = await owner.racks.create({ name: uniqueName("rack") });
     const id = rack.resourceID(r.key);
     const name = uniqueName("key");
-    await owner.auth.createKey({ subject: id, name });
+    await owner.auth.apiKeys.create({ subject: id, name });
     const viewer = await createTestClientWithRole(owner, "Viewer");
     await openModal(Credential.useModal, { client: viewer, params: { subject: id } });
     await screen.findByText(name);
@@ -151,7 +144,7 @@ describe("useModal", () => {
   it("should set the caller's own password given the current one", async () => {
     const self = await createTestClientWithRole(createTestClient(), "Viewer");
     const { username } = self.params;
-    await self.auth.retrieveSessions();
+    await self.auth.sessions.retrieve();
     const { subject } = self.auth;
     if (subject == null || username == null) throw new Error("not logged in");
     await openModal(Credential.useModal, { client: self, params: { subject } });
@@ -164,19 +157,15 @@ describe("useModal", () => {
   it("should stay open while a password saves", async () => {
     const client = createTestClient();
     const { key: role } = await createEmptyRole(client);
-    const subject = await client.users.create({
-      username: uniqueName("user"),
-      password: "password123",
-      role,
-    });
+    const { user: subject } = await createTestUser(client, { role });
     await openModal(Credential.useModal, {
       client,
       params: { subject: user.resourceID(subject.key) },
     });
     // A real key press takes longer than the save, so the save waits for it.
     const { promise: pressed, resolve: release } = Promise.withResolvers<void>();
-    const save = client.auth.setPassword.bind(client.auth);
-    vi.spyOn(client.auth, "setPassword").mockImplementation(async (props) => {
+    const save = client.auth.passwords.set.bind(client.auth.passwords);
+    vi.spyOn(client.auth.passwords, "set").mockImplementation(async (props) => {
       await pressed;
       return await save(props);
     });
@@ -190,12 +179,10 @@ describe("useModal", () => {
 
   it("should let an owner set another user's password", async () => {
     const client = createTestClient();
-    const username = uniqueName("user");
     const { key: role } = await createEmptyRole(client);
-    const subject = await client.users.create({
-      username,
-      password: "password123",
+    const { user: subject, username } = await createTestUser(client, {
       role,
+      username: uniqueName("user"),
     });
     await openModal(Credential.useModal, {
       client,

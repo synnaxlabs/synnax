@@ -11,6 +11,7 @@ package api
 
 import (
 	"github.com/synnaxlabs/freighter"
+	"github.com/synnaxlabs/freighter/recovery"
 	"github.com/synnaxlabs/synnax/pkg/api/arc"
 	"github.com/synnaxlabs/synnax/pkg/api/impact"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
@@ -26,6 +27,7 @@ import (
 func NewErrorCodec() *errors.Codec {
 	return errors.NewCodec(
 		freighter.ErrorProvider(),
+		recovery.ErrorProvider(),
 		query.ErrorProvider(),
 		validate.ErrorProvider(),
 		control.ErrorProvider(),
