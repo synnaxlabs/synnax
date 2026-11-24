@@ -325,7 +325,8 @@ export default class Synnax extends framer.Client {
    * A Synnax client must be closed when it is no longer needed. This stops the
    * connection machine and closes the change stream.
    * @param props.caCert - The PEM text of a CA certificate that signs the Core's
-   * certificate. Turns on props.secure when it is not given. When props.secure and
+   * certificate. In Node and Bun, the client trusts only this CA. Turns on props.secure
+   * when it is not given. When props.secure and
    * props.caCert are both left out, defaults to the text of the file at SYNNAX_CA_CERT,
    * except in Deno, where TLS trusts the store that --cert or DENO_CERT fills.
    * The key helper of Synnax Desktop runs before the first login. If it is gone or

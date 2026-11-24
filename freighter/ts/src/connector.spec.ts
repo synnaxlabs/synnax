@@ -236,6 +236,20 @@ describe("trustCA", () => {
       expect(res).toEqual({ message: "hi" });
     });
 
+    it("should trust only the caCert, not the system store", async () => {
+      const client = new HTTPClient({
+        endpoint,
+        codec: binary.JSON_CODEC,
+        secure: true,
+        connector: trustCA(createCA(dir, "other")),
+      });
+      const err = await client.send("/", { message: "" }, messageZ, messageZ).then(
+        () => null,
+        (e: unknown) => e,
+      );
+      expect(UntrustedCertificate.matches(err)).toBe(true);
+    });
+
     it("should open a stream without the CA", async () => {
       const client = new WebSocketClient({
         endpoint,
@@ -268,7 +282,7 @@ describe("trustCA", () => {
       vi.unstubAllEnvs();
     });
 
-    it("should keep the certificates in NODE_EXTRA_CA_CERTS", async () => {
+    it("should not trust NODE_EXTRA_CA_CERTS with a caCert", async () => {
       vi.stubEnv("NODE_EXTRA_CA_CERTS", join(dir, "ca.crt"));
       const client = new HTTPClient({
         endpoint,
@@ -276,14 +290,11 @@ describe("trustCA", () => {
         secure: true,
         connector: trustCA(createCA(dir, "other")),
       });
-      const res = await client.send("/", { message: "hi" }, messageZ, messageZ);
-      expect(res).toEqual({ message: "hi" });
-    });
-
-    it("should skip a NODE_EXTRA_CA_CERTS file that does not exist", async () => {
-      vi.stubEnv("NODE_EXTRA_CA_CERTS", join(dir, "missing.crt"));
-      const res = await httpClient().send("/", { message: "hi" }, messageZ, messageZ);
-      expect(res).toEqual({ message: "hi" });
+      const err = await client.send("/", { message: "" }, messageZ, messageZ).then(
+        () => null,
+        (e: unknown) => e,
+      );
+      expect(UntrustedCertificate.matches(err)).toBe(true);
     });
 
     it("should trust only Node's defaults without the CA", async () => {

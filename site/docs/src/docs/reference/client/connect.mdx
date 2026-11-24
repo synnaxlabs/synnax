@@ -439,10 +439,8 @@ const client = new Synnax({
 });
 ```
 
-The TypeScript client checks the certificate of the Core. In Node.js 22.15, 23.10, or
-later, a certificate that the operating system trusts needs no setup. Bun, Deno, and
-older Node.js versions do not read the operating system store. Otherwise, give the text
-of the CA certificate in `caCert`:
+The TypeScript client checks the certificate of the Core. When the Core uses a
+self-signed certificate, give the text of its CA certificate in `caCert`:
 
 ```typescript
 import { readFileSync } from "node:fs";
@@ -456,6 +454,10 @@ const client = new Synnax({
   caCert: readFileSync("/path/to/ca.crt", "utf8"),
 });
 ```
+
+In Node.js and Bun, the client then trusts only that CA. In Node.js 22.15, 23.10, or
+later, a certificate that the operating system trusts needs no `caCert`. Bun, Deno, and
+older Node.js versions do not read the operating system store.
 
 `caCert` works in Node.js and Bun. In Deno, leave out `caCert` and give Deno the CA file
 with `--cert /path/to/ca.crt` or `DENO_CERT`. In Deno, `SYNNAX_CA_CERT` turns on TLS,
@@ -764,10 +766,9 @@ A Node.js script does not exit until you close the client.
 <Field.Item name="caCert" id="typescript-ca-cert" type="string">
   The PEM text of the CA certificate that signs the certificate of the Core. With
   `caCert`, the client connects with TLS when you leave out `secure`. With `caCert` and
-  `secure` set to false, the client throws an error. The client also trusts the default
-  CA certificates of the runtime. With no `caCert` and no `secure`, the default is the
-  text of the file at `SYNNAX_CA_CERT`. Node.js and Bun only. In Deno, use `--cert` or
-  `DENO_CERT`.
+  `secure` set to false, the client throws an error. In Node.js and Bun, the client
+  trusts only that CA. With no `caCert` and no `secure`, the default is the text of the
+  file at `SYNNAX_CA_CERT`. Node.js and Bun only. In Deno, use `--cert` or `DENO_CERT`.
 </Field.Item>
 
 <Field.Item
