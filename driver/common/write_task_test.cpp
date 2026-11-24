@@ -562,6 +562,9 @@ public:
         std::lock_guard lock(this->queue->mu);
         this->queue->closed = true;
     }
+    x::errors::Error set_channels(const std::vector<synnax::channel::Key> &) override {
+        return x::errors::NIL;
+    }
 };
 
 /// @brief opens QueueStreamers on one queue and keeps the config of the last open.

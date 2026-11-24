@@ -4230,6 +4230,25 @@ TEST_F(OutageTest, KeepsCalculationsWhenReloadFails) {
     task->stop("test_stop", true);
 }
 
+/// @brief it should drop a nested calculation that an edit leaves unread.
+TEST_F(OutageTest, DropsCalculationNoLongerRead) {
+    const auto a = this->create_channel("a", x::telem::FLOAT32_T);
+    const auto out = this->create_channel("out", x::telem::FLOAT32_T);
+    const auto inner = this->create_calculated("inner", a.name + " * 2");
+    const auto outer = this->create_calculated("outer", inner.name + " + 1");
+    const auto task = this->create_task(outer.name + " -> " + out.name, {a.key});
+    this->start(*task);
+    this->publish(a.key, 1.0f);
+    ASSERT_EVENTUALLY_TRUE(this->wrote(out.key, 3.0f));
+    this->set_expression(outer, a.name + " * 5");
+    ASSERT_EVENTUALLY_TRUE([&] {
+        this->publish(a.key, 1.0f);
+        return this->wrote(out.key, 5.0f);
+    }());
+    EXPECT_EQ(this->warning(), "");
+    task->stop("test_stop", true);
+}
+
 /// @brief it should keep a calculation and warn when the Core can no longer compile it,
 /// as the Core keeps computing its last good version.
 TEST_F(OutageTest, KeepsCalculationThatNoLongerCompiles) {

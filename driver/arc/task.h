@@ -288,32 +288,41 @@ class Task final : public task::Task {
             }
         }
 
-        /// @returns an error if a calculation that the Core left out still exists, as
-        /// the Core keeps computing its last good version. A calculation whose channel,
-        /// or a channel it reads, was deleted can go.
-        x::errors::Error
-        check_dropped(const std::vector<synnax::arc::Calculation> &calculations) const {
+        /// @returns an error if the Arc, or a calculation in next, still needs a
+        /// calculation that the Core left out, as the Core keeps computing its last
+        /// good version. A calculation whose channel, or a channel it reads, was
+        /// deleted can go.
+        [[nodiscard]] x::errors::Error check_dropped(const Calculator &next) const {
+            const auto &arc_reads = this->task.runtime->read_channels;
+            std::set needed(arc_reads.begin(), arc_reads.end());
             std::set<::arc::types::ChannelKey> kept;
-            for (const auto &c: calculations)
-                kept.insert(c.channel);
+            for (const auto &[key, reads]: next.dependencies()) {
+                kept.insert(key);
+                needed.insert(reads.begin(), reads.end());
+            }
             std::set<::arc::types::ChannelKey> gone;
             for (const auto &[key, reads]: this->dependencies) {
                 if (kept.contains(key)) continue;
-                if (std::ranges::none_of(reads, [&](const auto k) {
+                if (std::ranges::any_of(reads, [&](const auto k) {
                         return gone.contains(k);
                     })) {
-                    std::vector keys(reads.begin(), reads.end());
-                    keys.push_back(key);
-                    const auto [channels, err] = this->client->channels.retrieve(keys);
-                    if (!err)
-                        return x::errors::Error(
-                            x::errors::VALIDATION,
-                            "The Core cannot compute " + channels.back().name +
-                                ". Fix its expression."
-                        );
-                    if (!err.matches(x::errors::NOT_FOUND)) return err;
+                    gone.insert(key);
+                    continue;
                 }
-                gone.insert(key);
+                std::vector keys(reads.begin(), reads.end());
+                keys.push_back(key);
+                const auto [channels, err] = this->client->channels.retrieve(keys);
+                if (err.matches(x::errors::NOT_FOUND)) {
+                    gone.insert(key);
+                    continue;
+                }
+                if (err) return err;
+                if (needed.contains(key))
+                    return x::errors::Error(
+                        x::errors::VALIDATION,
+                        "The Core cannot compute " + channels.back().name +
+                            ". Fix its expression."
+                    );
             }
             return x::errors::NIL;
         }
@@ -323,25 +332,25 @@ class Task final : public task::Task {
             if (err) return err;
             auto loaded = x::json::to_array(compiled.calculations);
             if (loaded == this->loaded) return x::errors::NIL;
-            if (const auto drop_err = this->check_dropped(compiled.calculations))
-                return drop_err;
             auto [calc, load_err] = Calculator::load(
                 compiled.calculations,
                 this->cfg,
                 this->on_error
             );
             if (load_err) return load_err;
+            if (const auto drop_err = this->check_dropped(calc)) return drop_err;
+            auto streamed = calc.streamed(this->task.runtime->read_channels);
+            if (streamed != this->streamed) {
+                if (const auto set_err = this->task.control->set_channels(streamed))
+                    return set_err;
+                this->streamed = std::move(streamed);
+            }
             this->loaded = std::move(loaded);
             this->dependencies = calc.dependencies();
             {
                 std::lock_guard lock(this->mu);
                 const auto channels = calc.channels();
                 this->watched.insert(channels.begin(), channels.end());
-            }
-            auto streamed = calc.streamed(this->task.runtime->read_channels);
-            if (streamed != this->streamed) {
-                this->task.control->set_channels(streamed);
-                this->streamed = std::move(streamed);
             }
             std::lock_guard lock(this->task.reload_mu);
             this->task.reloaded = std::make_unique<Calculator>(std::move(calc));

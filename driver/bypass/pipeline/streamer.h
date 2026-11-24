@@ -133,13 +133,17 @@ public:
     }
 
     /// @brief subscribes to the new channels on the bus, then sets them on the Core
-    /// half. A Core half that rejects them fails and reopens with them.
+    /// half. If the Core half rejects them, the streamer keeps the channels it had.
     x::errors::Error
     set_channels(const std::vector<synnax::channel::Key> &channels) override {
-        this->subscription->set_keys(channels);
         std::lock_guard lock(this->core_mu);
+        this->subscription->set_keys(channels);
+        if (this->core != nullptr)
+            if (const auto err = this->core->set_channels(channels)) {
+                this->subscription->set_keys(this->channels);
+                return err;
+            }
         this->channels = channels;
-        if (this->core != nullptr) return this->core->set_channels(channels);
         return x::errors::NIL;
     }
 
@@ -172,11 +176,11 @@ private:
         {
             std::lock_guard lock(this->core_mu);
             this->core = std::move(opened);
-            if (!this->breaker.running())
-                this->core->close_send();
+            if (!this->breaker.running()) this->core->close_send();
+            // A set_channels that ran during the open missed this streamer. A Core
+            // streamer that rejects the channels fails its next read.
             else if (this->channels != config.channels)
-                if (const auto err = this->core->set_channels(this->channels))
-                    return err;
+                static_cast<void>(this->core->set_channels(this->channels));
         }
         return this->read_core();
     }

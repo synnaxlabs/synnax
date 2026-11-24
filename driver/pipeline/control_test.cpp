@@ -56,6 +56,45 @@ TEST(ControlPipeline, testHappyPath) {
     control.stop();
 }
 
+/// @brief it should set the channels of the open streamer.
+TEST(ControlPipeline, SetChannelsReachesOpenStreamer) {
+    const auto sets = std::make_shared<testutil::ChannelSets>();
+    const auto factory = std::make_shared<testutil::StreamerFactory>(
+        std::vector<x::errors::Error>{},
+        std::make_shared<std::vector<testutil::StreamerConfig>>(
+            std::vector{testutil::StreamerConfig{
+                std::make_shared<std::vector<x::telem::Frame>>(),
+                {},
+                x::errors::NIL,
+                sets,
+            }}
+        )
+    );
+    const auto sink = std::make_shared<testutil::Sink>();
+    auto control = Control(factory, {.channels = {1}}, sink, x::breaker::Config{});
+    control.start();
+    ASSERT_EVENTUALLY_GE(factory->streamer_opens.load(), 1);
+    ASSERT_EVENTUALLY_TRUE(sink->opens.load() >= 1);
+    ASSERT_NIL(control.set_channels({2}));
+    ASSERT_EQ(sets->snapshot(), std::vector<std::vector<synnax::channel::Key>>{{2}});
+    control.stop();
+}
+
+/// @brief it should open the next streamer with the channels that set_channels named.
+TEST(ControlPipeline, SetChannelsAppliesToNextOpen) {
+    const auto factory = testutil::simple_streamer_factory(
+        {1},
+        std::make_shared<std::vector<x::telem::Frame>>()
+    );
+    const auto sink = std::make_shared<testutil::Sink>();
+    auto control = Control(factory, {.channels = {1}}, sink, x::breaker::Config{});
+    ASSERT_NIL(control.set_channels({3}));
+    control.start();
+    ASSERT_EVENTUALLY_GE(factory->streamer_opens.load(), 1);
+    ASSERT_EQ(factory->config.channels, std::vector<synnax::channel::Key>{3});
+    control.stop();
+}
+
 /// @brief it should report missed commands to the sink and keep running.
 TEST(ControlPipeline, ReportsMissedCommands) {
     const auto streamer_factory = std::make_shared<testutil::StreamerFactory>(
