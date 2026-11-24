@@ -32,7 +32,7 @@ import {
   log as logAudience,
   resend as resendAudience,
 } from "@/server/audience";
-import { open as openStore, type Store } from "@/server/db/db";
+import { open as openStore, type Store } from "@/server/db";
 import { clerk, type Directory } from "@/server/directory";
 import { kms, type Signer } from "@/server/license/sign";
 import { log, type Mailer, resend } from "@/server/mail";

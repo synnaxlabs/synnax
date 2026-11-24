@@ -19,6 +19,7 @@ import { createPortal } from "react-dom";
 
 import { context } from "@/context";
 import { useContext } from "@/portal/Context";
+import { createDetachedElement } from "@/portal/detached";
 
 export interface InProps {
   /**
@@ -29,14 +30,6 @@ export interface InProps {
   /** children renders the content registered under itemKey. */
   children: ReactNode;
 }
-
-// display: contents keeps the element out of layout entirely, so children size and
-// position against the hosting Out's element as if they were its direct children.
-const createDetachedElement = (): HTMLElement => {
-  const el = document.createElement("div");
-  el.style.display = "contents";
-  return el;
-};
 
 interface Attachment {
   subscribe: (listener: () => void) => destructor.Destructor;

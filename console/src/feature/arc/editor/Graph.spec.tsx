@@ -7,15 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { arc } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { Arc } from "@synnaxlabs/pluto";
+import { Panel as PlutoPanel } from "@synnaxlabs/pluto";
 import { canvas } from "@synnaxlabs/pluto/ether";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { screen } from "@testing-library/react";
 import { Suspense } from "react";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 
-import { Graph } from "@/feature/arc/editor/Graph";
+import { Editor } from "@/feature/arc/editor";
+import { createResourceTab } from "@/platform/panel/testutil";
 import { Vis } from "@/platform/vis";
 import {
   createConsoleWrapper,
@@ -26,7 +28,11 @@ import {
 
 const client = createTestClient();
 
-describe("arc/editor/Graph", () => {
+const { Content } = Editor.TABS[arc.TYPE_RESOURCE_ID.type];
+
+beforeAll(Content.preload);
+
+describe("Arc editor graph", () => {
   describe("when the canvas has no GPU", () => {
     installMissingGPU();
 
@@ -40,13 +46,19 @@ describe("arc/editor/Graph", () => {
         client,
         additionalRegistry: canvas.REGISTRY,
       });
+      const { panelKey, tabKey } = await createResourceTab(
+        client,
+        arc.resourceID(a.key),
+      );
       const { container } = await renderSuspended(
         <Vis.Canvas>
-          <Suspense fallback={null}>
-            <Arc.Suspended arcKey={a.key}>
-              <Graph />
-            </Arc.Suspended>
-          </Suspense>
+          <PlutoPanel.Scope.Provider value={panelKey}>
+            <PlutoPanel.TabScope.Provider value={tabKey}>
+              <Suspense fallback={null}>
+                <Content />
+              </Suspense>
+            </PlutoPanel.TabScope.Provider>
+          </PlutoPanel.Scope.Provider>
         </Vis.Canvas>,
         { wrapper },
       );

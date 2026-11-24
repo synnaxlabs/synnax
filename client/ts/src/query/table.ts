@@ -22,14 +22,10 @@ import {
 } from "@synnaxlabs/x";
 import z from "zod";
 
-import {
-  AccessDeniedError,
-  DisconnectedError,
-  isConnectionError,
-  NotFoundError,
-} from "@/errors";
+import { AccessDeniedError, DisconnectedError, NotFoundError } from "@/errors";
 import { Deleted } from "@/query/deleted";
 import type { LookupIndex } from "@/query/indexes";
+import { isOffline } from "@/query/offline";
 import type { Listener } from "@/query/streamer";
 
 /**
@@ -282,6 +278,9 @@ export class Table<
   // The touch sequence when the last trim ran. A trim keeps every entry touched since,
   // since a fetch in flight may not yet hold the records it just wrote.
   private trimmedAt = 0;
+  // Counts reconciles. A fetch in flight across one refetches its keys once it lands,
+  // since the reconcile could not see them.
+  private reconciles = 0;
 
   constructor({
     onError,
@@ -753,6 +752,7 @@ export class Table<
         opts.refresh === true ? keys : keys.filter((key) => !this.entries.has(key));
       if (misses.length > 0) {
         if (this.closed) throw closedError();
+        const reconciles = this.reconciles;
         await this.track(async (since) => {
           const fetched = await fetchBatcher.enqueue(misses);
           if (opts.refresh === true) {
@@ -772,6 +772,7 @@ export class Table<
             });
           } else if (fetched.length > 0) this.ingest(fetched, { since });
         });
+        if (this.reconciles !== reconciles) this.refetch(misses);
       }
     }
     const seen = new Set<Key>();
@@ -902,7 +903,7 @@ export class Table<
     this.retrieve(keys, { refresh: true }).catch((exc: unknown) => {
       // The reconcile after the next reconnect fetches them, and a delete tombstones a
       // vanished one.
-      if (isConnectionError(exc) || NotFoundError.matches(exc)) return;
+      if (isOffline(exc) || NotFoundError.matches(exc)) return;
       this.onError(new Error("failed to refetch entries", { cause: exc }));
     });
   }
@@ -915,6 +916,7 @@ export class Table<
   async reconcile(): Promise<void> {
     const { fetchEntries } = this;
     if (fetchEntries == null) return;
+    this.reconciles++;
     const keys = this.keys();
     if (keys.length === 0) return;
     await this.track(async (since) => {

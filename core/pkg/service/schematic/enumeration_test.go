@@ -153,36 +153,6 @@ var _ = Describe("Enumeration references", func() {
 			})).To(Succeed())
 			return WireRoundTrip(env)
 		}
-		importEnvelope := func(
-			ctx SpecContext,
-			env imex.Envelope,
-		) schematic.Schematic {
-			GinkgoHelper()
-			var res schematic.Schematic
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				id, err := imexSvc.Import(
-					ctx, tx, env, imex.ImportOptions{Parent: proj.ResourceID()},
-				)
-				if err != nil {
-					return err
-				}
-				key, err := uuid.Parse(id.Key)
-				if err != nil {
-					return err
-				}
-				return svc.NewRetrieve().
-					Where(schematic.MatchKeys(key)).
-					Entry(&res).
-					Exec(ctx, tx)
-			})).To(Succeed())
-			DeferCleanup(func(ctx SpecContext) {
-				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					return svc.NewWriter(tx).Delete(ctx, res.Key)
-				})).To(Succeed())
-			})
-			return res
-		}
-
 		It("Should clear an enumeration that the Core lacks and keep the options", func(
 			ctx SpecContext,
 		) {
@@ -191,7 +161,7 @@ var _ = Describe("Enumeration references", func() {
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return enumSvc.NewWriter(tx).Delete(ctx, gone.Key)
 			})).To(Succeed())
-			res := importEnvelope(ctx, env)
+			res := importSchematic(ctx, env)
 			Expect(enumerationsOf(res)).To(Equal([]*enumeration.Key{nil, nil}))
 			sel, ok := res.Nodes[0].Config.Variant.(schematic.SelectNodeConfig)
 			Expect(ok).To(BeTrue())
@@ -199,9 +169,41 @@ var _ = Describe("Enumeration references", func() {
 		})
 
 		It("Should keep an enumeration that the Core has", func(ctx SpecContext) {
-			res := importEnvelope(ctx, exportNaming(ctx, other.Key))
+			res := importSchematic(ctx, exportNaming(ctx, other.Key))
 			want := []*enumeration.Key{&other.Key, &other.Key}
 			Expect(enumerationsOf(res)).To(Equal(want))
 		})
 	})
 })
+
+// importSchematic imports env into the project and deletes the schematic when the spec
+// ends.
+func importSchematic(
+	ctx SpecContext,
+	env imex.Envelope,
+) schematic.Schematic {
+	GinkgoHelper()
+	var res schematic.Schematic
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		id, err := imexSvc.Import(
+			ctx, tx, env, imex.ImportOptions{Parent: proj.ResourceID()},
+		)
+		if err != nil {
+			return err
+		}
+		key, err := uuid.Parse(id.Key)
+		if err != nil {
+			return err
+		}
+		return svc.NewRetrieve().
+			Where(schematic.MatchKeys(key)).
+			Entry(&res).
+			Exec(ctx, tx)
+	})).To(Succeed())
+	DeferCleanup(func(ctx SpecContext) {
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Delete(ctx, res.Key)
+		})).To(Succeed())
+	})
+	return res
+}
