@@ -399,7 +399,6 @@ var _ = DescribeTableSubtree("Writer", func(pointerLog bool) {
 		It(
 			"Should end the domain of an index",
 			func(ctx SpecContext) {
-				skipOnPointerLog(pointerLog, endDomainFillOwner)
 				host := newNode(ctx, pointerLog)
 				idx := MustSucceed(host.CreateChannels(ctx, []channel.Channel{{
 					Name:     "local_time",
@@ -1892,7 +1891,6 @@ func newNode(ctx context.Context, pointerLog bool) testutil.Node {
 const (
 	unstoredClaimOwner = "cesium-0c, D-375 (Unstored takes no claim)"
 	overlapTextOwner   = "cesium-53, a commit over stored data names no holder"
-	endDomainFillOwner = "cesium-53, a fill after EndDomain is refused (coordinator)"
 )
 
 // skipOnPointerLog skips the spec on the pointer log until owner fixes it there.
