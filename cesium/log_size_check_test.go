@@ -28,7 +28,7 @@ var _ = Describe("Check: the next log of a recovery past three quarters of a sma
 	func() {
 		const size = log.MinFileSize
 		// recovered opens fs, which recovers it, and returns the bytes of log 2 before
-		// the DB runs.
+		// the DB runs, or nil when there is no log 2.
 		recovered := func(ctx context.Context, fs xfs.FS) []byte {
 			GinkgoHelper()
 			db := MustSucceed(cesium.Open(
@@ -39,7 +39,10 @@ var _ = Describe("Check: the next log of a recovery past three quarters of a sma
 				cesium.WithRandom(rand.NewPCG(1, 2)),
 				cesium.WithLogFileSize(telem.Size(size)),
 			))
-			b := MustSucceed(xfs.ReadFile(fs, log.Name(2)))
+			var b []byte
+			if MustSucceed(fs.Exists(log.Name(2))) {
+				b = MustSucceed(xfs.ReadFile(fs, log.Name(2)))
+			}
 			Expect(errors.Join(GoRun(ctx, db.Run)(), db.Close())).To(Succeed())
 			return b
 		}
@@ -77,10 +80,13 @@ var _ = Describe("Check: the next log of a recovery past three quarters of a sma
 			return image
 		}
 
-		It("Should prepare the new log at the log file size when the Restart does not "+
-			"fit in a full log", func(ctx SpecContext) {
-			Expect(recovered(ctx, crashed(ctx, 0))).To(HaveLen(int(size)))
-		})
+		It(
+			"Should keep the Restart in a full log, whose last two blocks only marks and "+
+				"the Restart may take",
+			func(ctx SpecContext) {
+				Expect(recovered(ctx, crashed(ctx, 0))).To(BeNil())
+			},
+		)
 
 		It("Should switch to a whole new log of the log file size",
 			func(ctx SpecContext) {
