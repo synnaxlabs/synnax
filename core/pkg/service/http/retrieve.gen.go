@@ -55,6 +55,9 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 				var targets []icd.Key
 				for _, v1 := range e.Endpoints {
 					if v1.ICD != nil {
+						if targets == nil {
+							targets = make([]icd.Key, 0, len(e.Endpoints))
+						}
 						targets = append(targets, *v1.ICD)
 					}
 				}
@@ -80,12 +83,16 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 			Table:    "channel",
 			OnDelete: gorp.Restrict,
 			Kind:     gorp.Use,
+			Tag:      2, // direction write
 			Targets: func(e *ReadConfig) []channel.Key {
 				var targets []channel.Key
 				for _, v1 := range e.Endpoints {
 					for _, v2 := range v1.Messages {
 						for _, v3 := range v2.Bindings {
 							if v3.Channel != 0 {
+								if targets == nil {
+									targets = make([]channel.Key, 0, len(e.Endpoints))
+								}
 								targets = append(targets, v3.Channel)
 							}
 						}
@@ -121,11 +128,15 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 			Table:    "channel",
 			OnDelete: gorp.Restrict,
 			Kind:     gorp.Use,
+			Tag:      2, // direction write
 			Targets: func(e *ReadConfig) []channel.Key {
 				var targets []channel.Key
 				for _, v1 := range e.Endpoints {
 					for _, v2 := range v1.Fields {
 						if v2.Channel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Endpoints))
+							}
 							targets = append(targets, v2.Channel)
 						}
 					}
@@ -156,6 +167,7 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 			Table:    "channel",
 			OnDelete: gorp.Restrict,
 			Kind:     gorp.Use,
+			Tag:      2, // direction write
 			Targets: func(e *ReadConfig) []channel.Key {
 				var targets []channel.Key
 				if e.Inline != nil {
@@ -226,10 +238,14 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 			Table:    "channel",
 			OnDelete: gorp.Restrict,
 			Kind:     gorp.Use,
+			Tag:      1, // direction read
 			Targets: func(e *WriteConfig) []channel.Key {
 				var targets []channel.Key
 				for _, v1 := range e.Endpoints {
 					if v1.Channel.Channel != 0 {
+						if targets == nil {
+							targets = make([]channel.Key, 0, len(e.Endpoints))
+						}
 						targets = append(targets, v1.Channel.Channel)
 					}
 				}

@@ -17,6 +17,7 @@ import (
 	servicechannel "github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/telem"
@@ -65,6 +66,10 @@ type Channel struct {
 	Status *Status `json:"status,omitzero" msgpack:"status,omitempty"`
 	// Group is the group the channel sits in, if any.
 	Group *group.Key `json:"group,omitzero" msgpack:"group,omitempty"`
+	// Uses are the records that read or write the channel and that the caller can
+	// retrieve, filled only when a retrieve request asks for them. A task config shows
+	// as its task.
+	Uses []Use `json:"uses,omitzero" msgpack:"uses,omitempty"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -76,6 +81,26 @@ func (c Channel) Validate() error {
 	for i := range c.Operations {
 		v.Exec(func() error { return validate.PathedError(c.Operations[i].Validate(), "operations", strconv.Itoa(i)) })
 	}
+	for i := range c.Uses {
+		v.Exec(func() error { return validate.PathedError(c.Uses[i].Validate(), "uses", strconv.Itoa(i)) })
+	}
+	return v.Error()
+}
+
+// Use is a record that reads or writes a channel.
+type Use struct {
+	// ID is the record that uses the channel.
+	ID resource.ID `json:"id" msgpack:"id"`
+	// Direction is how the record uses the channel.
+	Direction servicechannel.Direction `json:"direction" msgpack:"direction"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (u Use) Validate() error {
+	v := validate.New("Use")
+	v.Ternaryf("direction", !u.Direction.IsValid(), "invalid direction: %v", u.Direction)
+	v.Exec(func() error { return validate.PathedError(u.ID.Validate(), "id") })
 	return v.Error()
 }
 
@@ -142,6 +167,8 @@ type RetrieveRequest struct {
 	Limit *uint32 `json:"limit,omitzero" msgpack:"limit,omitempty"`
 	// IncludeStatus includes the status of each record.
 	IncludeStatus bool `json:"include_status" msgpack:"include_status"`
+	// IncludeUses includes the uses of each record.
+	IncludeUses bool `json:"include_uses" msgpack:"include_uses"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

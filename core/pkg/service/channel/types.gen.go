@@ -60,6 +60,27 @@ type Operation = versions.Operation
 // use APIChannel instead.
 type Channel = versions.Channel
 
+// Direction is how a record uses a channel.
+type Direction string
+
+const (
+	// DirectionRead is a record that reads the channel.
+	DirectionRead Direction = "read"
+	// DirectionWrite is a record that writes the channel.
+	DirectionWrite Direction = "write"
+)
+
+// IsValid reports whether d is one of the defined Direction
+// values.
+func (d Direction) IsValid() bool {
+	switch d {
+	case DirectionRead, DirectionWrite:
+		return true
+	default:
+		return false
+	}
+}
+
 // Where is a filter that selects channels.
 type Where struct {
 	// And matches when every child matches.
@@ -78,7 +99,7 @@ type Where struct {
 	DataType *filter.Set[telem.DataType] `json:"data_type,omitzero" msgpack:"data_type,omitempty"`
 	// IsIndex selects by is_index.
 	IsIndex *filter.Bool `json:"is_index,omitzero" msgpack:"is_index,omitempty"`
-	// Internal selects by internal.
+	// Internal matches the built-in channels, or every other channel when false.
 	Internal *filter.Bool `json:"internal,omitzero" msgpack:"internal,omitempty"`
 	// Virtual matches virtual channels that are not calculated, or every other channel
 	// when false.

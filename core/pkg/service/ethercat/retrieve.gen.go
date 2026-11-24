@@ -27,16 +27,23 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 			Table:    "channel",
 			OnDelete: gorp.Restrict,
 			Kind:     gorp.Use,
+			Tag:      2, // direction write
 			Targets: func(e *ReadConfig) []channel.Key {
 				var targets []channel.Key
 				for _, v1 := range e.Channels {
 					switch v2 := v1.Variant.(type) {
 					case EntryReadChannel:
 						if v2.Channel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Channel)
 						}
 					case UnresolvedReadChannel:
 						if v2.Channel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Channel)
 						}
 					}
@@ -87,10 +94,16 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 					switch v2 := v1.Variant.(type) {
 					case EntryReadChannel:
 						if v2.Device != "" {
+							if targets == nil {
+								targets = make([]device.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Device)
 						}
 					case UnresolvedReadChannel:
 						if v2.Device != "" {
+							if targets == nil {
+								targets = make([]device.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Device)
 						}
 					}
@@ -139,6 +152,9 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 				var targets []device.Key
 				for _, v1 := range e.StartupParameters {
 					if v1.Device != "" {
+						if targets == nil {
+							targets = make([]device.Key, 0, len(e.StartupParameters))
+						}
 						targets = append(targets, v1.Device)
 					}
 				}
@@ -170,16 +186,23 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 			Table:    "channel",
 			OnDelete: gorp.Restrict,
 			Kind:     gorp.Use,
+			Tag:      1, // direction read
 			Targets: func(e *WriteConfig) []channel.Key {
 				var targets []channel.Key
 				for _, v1 := range e.Channels {
 					switch v2 := v1.Variant.(type) {
 					case EntryWriteChannel:
 						if v2.CmdChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.CmdChannel)
 						}
 					case UnresolvedWriteChannel:
 						if v2.CmdChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.CmdChannel)
 						}
 					}
@@ -224,16 +247,23 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 			Table:    "channel",
 			OnDelete: gorp.Restrict,
 			Kind:     gorp.Use,
+			Tag:      2, // direction write
 			Targets: func(e *WriteConfig) []channel.Key {
 				var targets []channel.Key
 				for _, v1 := range e.Channels {
 					switch v2 := v1.Variant.(type) {
 					case EntryWriteChannel:
 						if v2.StateChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.StateChannel)
 						}
 					case UnresolvedWriteChannel:
 						if v2.StateChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.StateChannel)
 						}
 					}
@@ -284,10 +314,16 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 					switch v2 := v1.Variant.(type) {
 					case EntryWriteChannel:
 						if v2.Device != "" {
+							if targets == nil {
+								targets = make([]device.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Device)
 						}
 					case UnresolvedWriteChannel:
 						if v2.Device != "" {
+							if targets == nil {
+								targets = make([]device.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Device)
 						}
 					}

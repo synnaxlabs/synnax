@@ -15,6 +15,7 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/color"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
@@ -42,6 +43,7 @@ type indexes struct {
 	project                          *gorp.KeyReference[Key, Table, project.Key]
 	rowsCellsConfigFillColorKey      *gorp.KeyReference[Key, Table, color.Key]
 	rowsCellsConfigTextColorKey      *gorp.KeyReference[Key, Table, color.Key]
+	rowsCellsConfigChannel           *gorp.KeyReference[Key, Table, channel.Key]
 	rowsCellsConfigStalenessColorKey *gorp.KeyReference[Key, Table, color.Key]
 	search                           *gorp.SearchIndex[Key, Table]
 }
@@ -104,6 +106,9 @@ func newIndexes() indexes {
 							if v3.FillColor != nil {
 								switch v4 := v3.FillColor.Variant.(type) {
 								case color.NamedRef:
+									if targets == nil {
+										targets = make([]color.Key, 0, len(e.Rows))
+									}
 									targets = append(targets, v4.Key)
 								}
 							}
@@ -111,6 +116,9 @@ func newIndexes() indexes {
 							if v3.FillColor != nil {
 								switch v5 := v3.FillColor.Variant.(type) {
 								case color.NamedRef:
+									if targets == nil {
+										targets = make([]color.Key, 0, len(e.Rows))
+									}
 									targets = append(targets, v5.Key)
 								}
 							}
@@ -221,6 +229,9 @@ func newIndexes() indexes {
 							if v3.TextColor != nil {
 								switch v4 := v3.TextColor.Variant.(type) {
 								case color.NamedRef:
+									if targets == nil {
+										targets = make([]color.Key, 0, len(e.Rows))
+									}
 									targets = append(targets, v4.Key)
 								}
 							}
@@ -228,6 +239,9 @@ func newIndexes() indexes {
 							if v3.TextColor != nil {
 								switch v5 := v3.TextColor.Variant.(type) {
 								case color.NamedRef:
+									if targets == nil {
+										targets = make([]color.Key, 0, len(e.Rows))
+									}
 									targets = append(targets, v5.Key)
 								}
 							}
@@ -324,6 +338,56 @@ func newIndexes() indexes {
 				return nil
 			},
 		}),
+		rowsCellsConfigChannel: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Table, channel.Key]{
+			Name:     "rows.cells.config.channel",
+			Table:    "channel",
+			OnDelete: gorp.Weak,
+			Kind:     gorp.Use,
+			Tag:      1, // direction read
+			Targets: func(e *Table) []channel.Key {
+				var targets []channel.Key
+				for _, v1 := range e.Rows {
+					for _, v2 := range v1.Cells {
+						switch v3 := v2.Config.Variant.(type) {
+						case ValueCellConfig:
+							if v3.Channel != 0 {
+								if targets == nil {
+									targets = make([]channel.Key, 0, len(e.Rows))
+								}
+								targets = append(targets, v3.Channel)
+							}
+						}
+					}
+				}
+				return targets
+			},
+			Detach: func(e *Table, t channel.Key) {
+				for i4 := range e.Rows {
+					for i5 := range e.Rows[i4].Cells {
+						switch v6 := e.Rows[i4].Cells[i5].Config.Variant.(type) {
+						case ValueCellConfig:
+							if v6.Channel == t {
+								v6.Channel = 0
+							}
+							e.Rows[i4].Cells[i5].Config.Variant = v6
+						}
+					}
+				}
+			},
+			Retarget: func(e *Table, from, to channel.Key) {
+				for i7 := range e.Rows {
+					for i8 := range e.Rows[i7].Cells {
+						switch v9 := e.Rows[i7].Cells[i8].Config.Variant.(type) {
+						case ValueCellConfig:
+							if v9.Channel == from {
+								v9.Channel = to
+							}
+							e.Rows[i7].Cells[i8].Config.Variant = v9
+						}
+					}
+				}
+			},
+		}),
 		rowsCellsConfigStalenessColorKey: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Table, color.Key]{
 			Name:     "rows.cells.config.staleness_color.key",
 			Table:    "color",
@@ -338,6 +402,9 @@ func newIndexes() indexes {
 							if v3.StalenessColor != nil {
 								switch v4 := v3.StalenessColor.Variant.(type) {
 								case color.NamedRef:
+									if targets == nil {
+										targets = make([]color.Key, 0, len(e.Rows))
+									}
 									targets = append(targets, v4.Key)
 								}
 							}
@@ -435,6 +502,7 @@ func (i indexes) references() []gorp.Reference[Key, Table] {
 		i.project,
 		i.rowsCellsConfigFillColorKey,
 		i.rowsCellsConfigTextColorKey,
+		i.rowsCellsConfigChannel,
 		i.rowsCellsConfigStalenessColorKey,
 	}
 }

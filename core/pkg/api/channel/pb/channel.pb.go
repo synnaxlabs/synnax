@@ -496,7 +496,7 @@ var File_core_pkg_api_channel_pb_channel_proto protoreflect.FileDescriptor
 
 const file_core_pkg_api_channel_pb_channel_proto_rawDesc = "" +
 	"\n" +
-	"%core/pkg/api/channel/pb/channel.proto\x12\x0eapi.channel.pb\x1a)core/pkg/service/channel/pb/channel.proto\x1a'core/pkg/service/status/pb/status.proto\x1a\x1dx/go/control/pb/control.proto\"\xd9\x03\n" +
+	"%core/pkg/api/channel/pb/channel.proto\x12\x0eapi.channel.pb\x1a)core/pkg/service/channel/pb/channel.proto\x1a'core/pkg/service/status/pb/status.proto\x1a\x1dx/go/control/pb/control.proto\"\xdf\x03\n" +
 	"\aChannel\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\rR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12 \n" +
@@ -517,7 +517,7 @@ const file_core_pkg_api_channel_pb_channel_proto_rawDesc = "" +
 	"\x06status\x18\f \x01(\v2\x19.service.status.pb.StatusH\x00R\x06status\x88\x01\x01\x12\x19\n" +
 	"\x05group\x18\r \x01(\tH\x01R\x05group\x88\x01\x01B\t\n" +
 	"\a_statusB\b\n" +
-	"\x06_group\"<\n" +
+	"\x06_groupJ\x04\b\x0e\x10\x0f\"<\n" +
 	"\x06Cursor\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\rR\x03key\x12\x17\n" +
 	"\x04name\x18\x02 \x01(\tH\x00R\x04name\x88\x01\x01B\a\n" +
@@ -526,7 +526,7 @@ const file_core_pkg_api_channel_pb_channel_proto_rawDesc = "" +
 	"\x05field\x18\x01 \x01(\x0e2\x1a.api.channel.pb.OrderFieldR\x05field\x12\x1e\n" +
 	"\n" +
 	"descending\x18\x02 \x01(\bR\n" +
-	"descending\"\xb7\x02\n" +
+	"descending\"\xbd\x02\n" +
 	"\x0fRetrieveRequest\x124\n" +
 	"\x05where\x18\x01 \x01(\v2\x19.service.channel.pb.WhereH\x00R\x05where\x88\x01\x01\x12\x1f\n" +
 	"\vsearch_term\x18\x02 \x01(\tR\n" +
@@ -538,7 +538,7 @@ const file_core_pkg_api_channel_pb_channel_proto_rawDesc = "" +
 	"\x06_whereB\b\n" +
 	"\x06_orderB\b\n" +
 	"\x06_afterB\b\n" +
-	"\x06_limit\"G\n" +
+	"\x06_limitJ\x04\b\a\x10\b\"G\n" +
 	"\x10RetrieveResponse\x123\n" +
 	"\bchannels\x18\x01 \x03(\v2\x17.api.channel.pb.ChannelR\bchannels*\"\n" +
 	"\n" +

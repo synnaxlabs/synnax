@@ -106,7 +106,6 @@ func ChannelToPB(r channel.Channel) (*Channel, error) {
 		LocalKey:    uint32(r.LocalKey),
 		LocalIndex:  uint32(r.LocalIndex),
 		Virtual:     r.Virtual,
-		Internal:    r.Internal,
 		Expression:  r.Expression,
 		Concurrency: concurrencyVal,
 		Operations:  operationsVal,
@@ -140,7 +139,6 @@ func ChannelFromPB(pb *Channel) (channel.Channel, error) {
 	r.LocalKey = channel.LocalKey(pb.LocalKey)
 	r.LocalIndex = channel.LocalKey(pb.LocalIndex)
 	r.Virtual = pb.Virtual
-	r.Internal = pb.Internal
 	r.Expression = pb.Expression
 	if pb.Group != nil {
 		v, err := uuid.Parse(*pb.Group)
