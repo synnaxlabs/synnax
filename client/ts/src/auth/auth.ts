@@ -25,6 +25,7 @@ import {
   sessionZ,
 } from "@/auth/types.gen";
 import {
+  APIKeyUnavailableError,
   AuthError,
   errorsMiddleware,
   ExpiredTokenError,
@@ -315,6 +316,12 @@ export interface Authority {
    * A code works only once, so later logins resume the session it opened.
    */
   oidc?: OIDCCredentials;
+  /**
+   * Loads an API key to log in with when the authority gives no other proof. Runs on
+   * each login until a load succeeds, and again after the Core rejects the key. A
+   * rejection fails the login with an APIKeyUnavailableError.
+   */
+  loadAPIKey?: () => Promise<string>;
   /** The token of an earlier login to resume. */
   token?: string;
   /** Whether the Core keeps the token in a cookie the client never sees. */
@@ -347,6 +354,7 @@ export class Client {
   private credentials?: Credentials;
   private apiKey?: string;
   private oidc?: OIDCCredentials;
+  private loadAPIKey?: () => Promise<string>;
   private resumeToken?: string;
   private readonly cookie: boolean;
   private readonly persistent: boolean;
@@ -370,6 +378,7 @@ export class Client {
       authority.credentials == null ? undefined : { ...authority.credentials };
     this.apiKey = authority.apiKey;
     this.oidc = authority.oidc == null ? undefined : { ...authority.oidc };
+    this.loadAPIKey = authority.loadAPIKey;
     this.resumeToken = authority.token;
     this.cookie = authority.cookie ?? false;
     this.persistent = authority.persistent ?? false;
@@ -381,6 +390,7 @@ export class Client {
     this.credentials = { username, password };
     this.apiKey = undefined;
     this.oidc = undefined;
+    this.loadAPIKey = undefined;
     this.resumeToken = undefined;
     this.authState = { authenticated: false };
     this.authenticating = undefined;
@@ -390,6 +400,11 @@ export class Client {
 
   get authenticated(): boolean {
     return this.authState.authenticated;
+  }
+
+  /** Whether the next login can load an API key, so a failed login may work later. */
+  get apiKeyLoadable(): boolean {
+    return this.loadAPIKey != null;
   }
 
   /** The session the client holds, once logged in. */
@@ -645,6 +660,7 @@ export class Client {
     this.credentials = undefined;
     this.apiKey = undefined;
     this.oidc = undefined;
+    this.loadAPIKey = undefined;
     this.resumeToken = undefined;
   }
 
@@ -691,6 +707,17 @@ export class Client {
       let owned: string | undefined;
       let u: user.User | undefined;
       let spentCode = false;
+      if (this.loadAPIKey != null && this.proof() == null) {
+        let key: string;
+        try {
+          key = await this.loadAPIKey();
+        } catch (e) {
+          const err = errors.fromUnknown(e);
+          throw new APIKeyUnavailableError(err.message, { cause: err });
+        }
+        if (generation !== this.generation) return null;
+        this.apiKey = key;
+      }
       const proof = this.proof();
       if (proof != null) {
         const res = await this.client.send(
@@ -740,6 +767,8 @@ export class Client {
         // the Core spent or refused the code; a Core that was not reached did neither
         this.oidc = undefined;
         this.resumeToken = undefined;
+        // the next login loads a key again
+        if (this.loadAPIKey != null) this.apiKey = undefined;
         this.observer.onFailure?.(parsed);
       }
       return parsed;

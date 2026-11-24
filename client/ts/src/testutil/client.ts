@@ -211,9 +211,9 @@ export const failRequests = (
 
 /**
  * Holds each response to target, or to each request that target matches, until release
- * is called or the test finishes. responded resolves when the first held response
- * arrives, and sent returns the count of held requests. via picks the transport client:
- * auth requests use unaryNoRetry.
+ * is called or the test finishes. A held request that fails holds its error too.
+ * responded resolves when the first held response arrives, and sent returns the count
+ * of held requests. via picks the transport client: auth requests use unaryNoRetry.
  */
 export const holdResponses = (
   client: Synnax,
@@ -230,12 +230,13 @@ export const holdResponses = (
   const spy = vi.spyOn(unary, "send").mockImplementation(async (...args) => {
     const held = matches(args[0], args[1]);
     if (held) sent++;
-    const res = await send(...args);
+    const res = send(...args);
     if (held) {
+      await res.catch(() => undefined);
       respond();
       await released;
     }
-    return res;
+    return await res;
   });
   onTestFinished(() => {
     release();
