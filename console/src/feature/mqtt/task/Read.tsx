@@ -1087,6 +1087,7 @@ const planRead = async (
       namePrefix(dev.name, entry.topic),
       ICD.Stored.of(stored, storedSource(entry), r),
       kept,
+      bound,
     );
     ICD.keptChannels(plan).forEach((ch) => kept.add(ch));
     messages.push(plan);

@@ -11,6 +11,7 @@ import { channel, type icd, type Synnax, ValidationError } from "@synnaxlabs/cli
 import { DataType, primitive } from "@synnaxlabs/x";
 
 import { bindingDataType, converts, defaultDataType } from "@/platform/icd/dataType";
+import { kindOf } from "@/platform/icd/inferred";
 import {
   isIndexable,
   type Messages,
@@ -66,6 +67,19 @@ export const boundMessage = <S extends ReadSource>(
   return { source, read, message, fields };
 };
 
+/** The name of a new index of arrival times, after its prefix. */
+const ARRIVAL_NAME = "time";
+
+/**
+ * @returns the name of the channel of each field that a message reads, after its
+ * prefix, and the name of a new index of arrival times when it has no index field.
+ */
+const channelNames = ({ source, read, fields }: BoundMessage<ReadSource>): string[] => {
+  const names = fields.map(({ name }) => channel.escapeInvalidName(name));
+  const indexed = fields.some(({ key }) => key === source.messages[read].index);
+  return indexed ? names : [...names, ARRIVAL_NAME];
+};
+
 /** A field that a message reads, with the binding that deploying writes for it. */
 export interface MessageField extends Task.ReadChannelField {
   binding: icd.ReadBinding;
@@ -92,17 +106,30 @@ export interface MessagePlan {
  * its index and every channel on it are replaced. A channel that props store on an
  * index that the message's own bindings write is lent: the message keeps the index,
  * and its field takes the channel back.
+ * @param reads - The messages that the task reads. When another message of the source
+ * names a channel the same, a new channel takes the kind of its message, such as
+ * `plant_pump_code_ts`.
  */
 export const planMessage = async (
   client: Synnax,
   namer: Task.Namer,
-  { source, read: r, fields }: BoundMessage<ReadSource>,
+  { source, read: r, message, fields }: BoundMessage<ReadSource>,
   prefix: string,
   props?: Task.ReadChannelProps,
   written: ReadonlySet<channel.Key> = new Set(),
+  reads: readonly BoundMessage<ReadSource>[] = [],
 ): Promise<MessagePlan> => {
   const read = source.messages[r];
   const index = fields.find(({ key }) => key === read.index)?.key;
+  const clashes = new Set(
+    reads.filter((b) => b.source === source && b.read !== r).flatMap(channelNames),
+  );
+  const match = message.payload.format === "json" ? message.payload.match : undefined;
+  const kindPrefix =
+    match?.type === "present"
+      ? `${prefix}_${channel.escapeInvalidName(kindOf(match.pointer))}`
+      : prefix;
+  const prefixOf = (name: string): string => (clashes.has(name) ? kindPrefix : prefix);
   const held = { ...props?.channels };
   const bindingOf = (f: icd.JSONField): icd.ReadBinding =>
     read.bindings.find(({ field }) => field === f.key) ?? {
@@ -187,10 +214,11 @@ export const planMessage = async (
     // channel too.
     const replaced = ch == null ? reused[i] !== 0 : stale(f, ch) || onTaken(ch);
     if (stale(f, live.get(storedKeys[i]))) delete held[f.pointer];
+    const name = channel.escapeInvalidName(f.name);
     return {
       key: f.key,
       pointer: f.pointer,
-      name: `${prefix}_${channel.escapeInvalidName(f.name)}`,
+      name: `${prefixOf(name)}_${name}`,
       dataType: isIndex
         ? DataType.TIMESTAMP.toString()
         : bindingDataType({ dataType }, f),
@@ -204,7 +232,7 @@ export const planMessage = async (
     namer,
     props: props == null ? undefined : { index: storedIndex, channels: held },
     fields: planned,
-    namePrefix: prefix,
+    namePrefix: prefixOf(ARRIVAL_NAME),
     indexKey: index ?? "",
     indexed: () => indexed,
   });

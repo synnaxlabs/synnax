@@ -1073,6 +1073,7 @@ const planMessages = async (
       prefixOf(dev.name, b),
       storedPropsOf(stored, endpoints, b),
       written,
+      bound,
     );
     ICD.keptChannels(plan).forEach((ch) => written.add(ch));
     plans.push(plan);

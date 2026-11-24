@@ -795,6 +795,7 @@ const planRead = async (
       prefixOf(dev.name, b),
       dev.properties.read[storedKeyOf(b)],
       written,
+      bound,
     );
     ICD.keptChannels(plan).forEach((ch) => written.add(ch));
     plans.push(plan);
