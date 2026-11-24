@@ -84,7 +84,9 @@ func (c Config) Validate() error {
 const (
 	calculationKey = "calculation"
 	writeKey       = "write"
-	joinKey        = "join"
+	// joinKey keys the join node by its type, so no read node, which takes the name of
+	// its channel, has its key.
+	joinKey = JoinType
 )
 
 // JoinType is the node type of the join that pairs the reads of a calculation by

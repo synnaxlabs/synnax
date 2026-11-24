@@ -12,6 +12,8 @@ package compiler_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/stl/join"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/calculation"
@@ -165,5 +167,140 @@ var _ = Describe("Compile", func() {
 			Channel:        calc,
 			Calculation:    c,
 		})).Error().To(ContainSubstring("extraneous input '{'"))
+	})
+})
+
+var _ = Describe("Join", func() {
+	virtual := func(ctx SpecContext, name string) channel.Channel {
+		GinkgoHelper()
+		ch := channel.Channel{Name: name, DataType: telem.Float64T, Virtual: true}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return channelSvc.NewWriter(tx).Create(ctx, &ch)
+		})).To(Succeed())
+		return ch
+	}
+	stored := func(ctx SpecContext, name string) channel.Channel {
+		GinkgoHelper()
+		index := channel.Channel{
+			Name:     name + "_time",
+			DataType: telem.TimestampT,
+			IsIndex:  true,
+		}
+		ch := channel.Channel{Name: name, DataType: telem.Float64T}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			w := channelSvc.NewWriter(tx)
+			if err := w.Create(ctx, &index); err != nil {
+				return err
+			}
+			ch.LocalIndex = index.LocalKey
+			return w.Create(ctx, &ch)
+		})).To(Succeed())
+		return ch
+	}
+	compile := func(
+		ctx SpecContext,
+		expression string,
+		live bool,
+	) (compiler.Module, error) {
+		calc := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
+			Name:       UniqueChannelName(),
+			DataType:   telem.Float64T,
+			Expression: expression,
+		}))
+		return compiler.Compile(ctx, db, compiler.Config{
+			ChannelService: channelSvc,
+			Channel:        calc,
+			Calculation:    MustSucceed(creator.CalculationOf(ctx, calc.Key())),
+			Live:           live,
+		})
+	}
+	joinOf := func(mod compiler.Module) (ir.Node, bool) {
+		for _, n := range mod.IR.Nodes {
+			if n.Type == compiler.JoinType {
+				return n, true
+			}
+		}
+		return ir.Node{}, false
+	}
+
+	It("Should pair the reads of a live program through a join", func(ctx SpecContext) {
+		stored(ctx, "join_a")
+		stored(ctx, "join_b")
+		mod := MustSucceed(compile(ctx, "return join_a + join_b", true))
+		Expect(mod.Joined).To(BeTrue())
+		n, found := joinOf(mod)
+		Expect(found).To(BeTrue())
+		Expect(n.Inputs).ToNot(ContainElement(
+			HaveField("Name", HavePrefix("arrival_")),
+		))
+	})
+
+	It("Should not join the reads of a history program", func(ctx SpecContext) {
+		stored(ctx, "history_a")
+		stored(ctx, "history_b")
+		mod := MustSucceed(compile(ctx, "return history_a + history_b", false))
+		Expect(mod.Joined).To(BeFalse())
+		_, found := joinOf(mod)
+		Expect(found).To(BeFalse())
+	})
+
+	It("Should not join reads that are all virtual", func(ctx SpecContext) {
+		virtual(ctx, "virtual_a")
+		virtual(ctx, "virtual_b")
+		mod := MustSucceed(compile(ctx, "return virtual_a + virtual_b", true))
+		Expect(mod.Joined).To(BeFalse())
+		_, found := joinOf(mod)
+		Expect(found).To(BeFalse())
+	})
+
+	It("Should pair a virtual read beside a stored one by arrival", func(
+		ctx SpecContext,
+	) {
+		s := stored(ctx, "mixed_stored")
+		v := virtual(ctx, "mixed_virtual")
+		mod := MustSucceed(compile(ctx, "return mixed_stored + mixed_virtual", true))
+		n, found := joinOf(mod)
+		Expect(found).To(BeTrue())
+		// The inputs take the order of their keys.
+		arrival := 1
+		if v.Key() < s.Key() {
+			arrival = 0
+		}
+		Expect(n.Inputs).To(ContainElement(
+			HaveField("Name", join.ArrivalParam(arrival)),
+		))
+		Expect(n.Inputs).ToNot(ContainElement(
+			HaveField("Name", join.ArrivalParam(1-arrival)),
+		))
+	})
+
+	It("Should fail a joined program whose primary is not a stored read", func(
+		ctx SpecContext,
+	) {
+		stored(ctx, "primary_stored")
+		v := virtual(ctx, "primary_virtual")
+		calc := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
+			Name:       UniqueChannelName(),
+			DataType:   telem.Float64T,
+			Expression: "return primary_stored + primary_virtual",
+		}))
+		c := MustSucceed(creator.CalculationOf(ctx, calc.Key()))
+		c.Primary = new(v.Key())
+		Expect(compiler.Compile(ctx, db, compiler.Config{
+			ChannelService: channelSvc,
+			Channel:        calc,
+			Calculation:    c,
+			Live:           true,
+		})).Error().To(MatchError(ContainSubstring(
+			"of a joined calculation is not a stored read",
+		)))
+	})
+
+	It("Should bind a channel named join in the expression", func(ctx SpecContext) {
+		named := stored(ctx, "join")
+		stored(ctx, "join_other")
+		mod := MustSucceed(compile(ctx, "return join + join_other", true))
+		Expect(mod.Joined).To(BeTrue())
+		Expect(mod.Dependencies.Reads.Slice()).To(ContainElement(named.Key()))
 	})
 })
