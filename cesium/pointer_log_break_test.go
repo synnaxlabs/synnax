@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -301,8 +302,8 @@ var _ = Describe("Pointer log breaker", func() {
 				open(ctx)
 				values := read(ctx)
 				Expect(values.Series).To(HaveLen(2))
-				Expect(values.Series[0]).To(telem.MatchSeriesDataV[int64](10, 11))
-				Expect(values.Series[1]).To(telem.MatchSeriesDataV[int64](20))
+				Expect(values.Series[0]).To(MatchSeriesDataV[int64](10, 11))
+				Expect(values.Series[1]).To(MatchSeriesDataV[int64](20))
 			})
 
 		It("Should reopen after a later commit of a writer fails its segment sync",
@@ -320,7 +321,7 @@ var _ = Describe("Pointer log breaker", func() {
 				Expect(w.Close()).To(MatchError(errBrkSync))
 				closeDB()
 				open(ctx)
-				Expect(read(ctx).Series[0]).To(telem.MatchSeriesDataV[int64](10, 11))
+				Expect(read(ctx).Series[0]).To(MatchSeriesDataV[int64](10, 11))
 			})
 	})
 
