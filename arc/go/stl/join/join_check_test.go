@@ -14,9 +14,42 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/stl/join"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
 )
 
+// stepped returns s with an alignment multiple of m.
+func stepped(s telem.Series, m uint32) telem.Series {
+	s.AlignmentMultiple = m
+	return s
+}
+
 var _ = Describe("Join check", func() {
+	DescribeTable(
+		"Should refuse each push that Push documents as invalid",
+		func(i int, data, t telem.Series, msg string) {
+			j := newJoin(2, 0, 0)
+			Expect(j.Push(i, data, t)).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring(msg)),
+			))
+		},
+		Entry("an input that does not exist", 2, values(1), stamps(0, 1),
+			"input 2 does not exist"),
+		Entry("stamps that are not timestamps", 1, values(1), values(1),
+			"stamps of input 1 have data type float64, not timestamp"),
+		Entry("a primary whose alignment steps by more than 1", 0, values(1),
+			stepped(stamps(0, 1), 2), "primary input 0 steps its alignment by 2"),
+	)
+
+	It("Should refuse samples whose alignment is not the alignment of their stamps",
+		func() {
+			j := newJoin(1, 0, 0)
+			data := values(1)
+			data.Alignment = 3
+			Expect(j.Push(0, data, stamps(0, 1))).
+				To(MatchError(validate.ErrValidation))
+		})
+
 	It("Should leave an input as it was when a Push fails part way", func() {
 		j := newJoin(2, 0, 0)
 		Expect(j.Push(1, values(10, 20, 30), stamps(0, 1, 2, 1.5))).
