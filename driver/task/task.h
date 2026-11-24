@@ -40,8 +40,17 @@ struct RackWarning {
     std::string message;
     /// @brief why it happened and what to do now.
     std::string description;
+    /// @brief when the warning stops showing, or zero to show it until it is replaced.
+    x::telem::TimeStamp clears_at = x::telem::TimeStamp(0);
 
     [[nodiscard]] bool empty() const { return this->message.empty(); }
+
+    /// @returns the warning as it shows at now: empty once it clears.
+    [[nodiscard]] RackWarning at(const x::telem::TimeStamp now) const {
+        if (this->clears_at != x::telem::TimeStamp(0) && now >= this->clears_at)
+            return {};
+        return *this;
+    }
 
     bool operator==(const RackWarning &) const = default;
 };
@@ -146,9 +155,13 @@ class MockContext final : public Context {
 
 public:
     std::vector<synnax::task::Status> statuses;
+    /// @brief what core_warning_delay returns.
+    x::telem::TimeSpan warning_delay = DEFAULT_CORE_WARNING_DELAY;
 
     explicit MockContext(const std::shared_ptr<synnax::Synnax> &client):
         Context(client) {}
+
+    x::telem::TimeSpan core_warning_delay() override { return this->warning_delay; }
 
     void set_status(synnax::task::Status &status) override {
         mu.lock();
@@ -223,7 +236,7 @@ public:
 
     RackWarning rack_warning() override {
         std::lock_guard lock{this->warning_mu};
-        return this->warning;
+        return this->warning.at(x::telem::TimeStamp::now());
     }
 
     /// @brief sets the warning that the rack status shows. An empty one clears it.

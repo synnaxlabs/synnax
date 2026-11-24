@@ -101,11 +101,8 @@ void Acquisition::stopped_with_err(const x::errors::Error &err) {
     this->source->stopped_with_err(err);
 }
 
-void Acquisition::waiting(
-    const x::errors::Error &err,
-    const x::telem::TimeSpan &waited
-) {
-    this->source->waiting_for_core(err, waited);
+void Acquisition::waiting(const x::errors::Error &err) {
+    this->source->waiting_for_core(err);
 }
 
 bool Acquisition::run_once(Run &run) {
@@ -119,7 +116,7 @@ bool Acquisition::run_once(Run &run) {
         this->breaker.stop();
         return false;
     }
-    this->reached_core();
+    this->breaker.reset_unlimited();
     this->source->writer_opened();
     x::errors::Error source_err;
     // A running breaker means the pipeline user has not called stop.

@@ -61,4 +61,46 @@ TEST(CoreWarning, ShowsOtherErrorsAfterTheDelay) {
     ASSERT_EQ(w.message, "Failed to reach the Core");
     ASSERT_NE(w.description.find(freighter::TRANSPORT.type), std::string::npos);
 }
+
+/// @brief it should show no warning before the delay, and one once the wait reaches it.
+TEST(CoreWait, WarnsOnceTheWaitReachesTheDelay) {
+    CoreWait wait(x::telem::SECOND);
+    const auto t0 = x::telem::TimeStamp(x::telem::SECOND);
+    ASSERT_TRUE(wait.failed(freighter::TRANSPORT, t0).empty());
+    ASSERT_EQ(
+        wait.failed(freighter::TRANSPORT, t0 + x::telem::SECOND).message,
+        "Failed to reach the Core"
+    );
+}
+
+/// @brief it should keep waiting through an open that fails again before the delay.
+TEST(CoreWait, KeepsWaitingThroughAShortOpen) {
+    CoreWait wait(x::telem::SECOND);
+    const auto t0 = x::telem::TimeStamp(x::telem::SECOND);
+    ASSERT_TRUE(wait.failed(freighter::TRANSPORT, t0).empty());
+    wait.opened(t0 + x::telem::MILLISECOND * 500);
+    ASSERT_FALSE(wait.recovered(t0 + x::telem::MILLISECOND * 600));
+    ASSERT_FALSE(
+        wait.failed(freighter::TRANSPORT, t0 + x::telem::MILLISECOND * 1100).empty()
+    );
+}
+
+/// @brief it should end the wait once an open lasts the delay.
+TEST(CoreWait, EndsTheWaitAfterALongOpen) {
+    CoreWait wait(x::telem::SECOND);
+    const auto t0 = x::telem::TimeStamp(x::telem::SECOND);
+    ASSERT_TRUE(wait.failed(freighter::TRANSPORT, t0).empty());
+    wait.opened(t0 + x::telem::SECOND);
+    ASSERT_TRUE(wait.recovered(t0 + x::telem::SECOND * 2));
+    ASSERT_TRUE(wait.failed(freighter::TRANSPORT, t0 + x::telem::SECOND * 3).empty());
+}
+
+/// @brief it should forget the wait on reset, as a restart does.
+TEST(CoreWait, ForgetsTheWaitOnReset) {
+    CoreWait wait(x::telem::SECOND);
+    const auto t0 = x::telem::TimeStamp(x::telem::SECOND);
+    ASSERT_TRUE(wait.failed(freighter::TRANSPORT, t0).empty());
+    wait.reset();
+    ASSERT_TRUE(wait.failed(freighter::TRANSPORT, t0 + x::telem::SECOND * 2).empty());
+}
 }

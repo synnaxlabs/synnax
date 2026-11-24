@@ -37,20 +37,18 @@ bool Rack::should_exit(
 }
 
 void Rack::warn_while_waiting(const x::errors::Error &err) {
-    const auto now = x::telem::TimeStamp::now();
-    if (this->waiting_since == x::telem::TimeStamp(0)) this->waiting_since = now;
-    const auto warning = common::core_warning(
-        err,
-        now - this->waiting_since,
-        this->warning_delay
-    );
-    this->task_manager->set_rack_warning({warning.message, warning.description});
+    const auto warning = this->wait.failed(err, x::telem::TimeStamp::now());
+    this->warning = {.message = warning.message, .description = warning.description};
+    this->task_manager->set_rack_warning(this->warning);
 }
 
 void Rack::reached_core() {
     this->breaker.reset();
-    this->waiting_since = x::telem::TimeStamp(0);
-    this->task_manager->set_rack_warning({});
+    const auto now = x::telem::TimeStamp::now();
+    this->wait.opened(now);
+    // A run that fails before the delay keeps the warning, so it does not flicker.
+    this->warning.clears_at = now + this->warning_delay;
+    this->task_manager->set_rack_warning(this->warning);
 }
 
 Rack::~Rack() {
@@ -94,6 +92,7 @@ void Rack::run(x::args::Parser &args, const std::function<void()> &on_shutdown) 
         );
     }
     this->warning_delay = cfg.manager.core_warning_delay;
+    this->wait = common::CoreWait(this->warning_delay);
     // A run that lost the Core leaves its tasks running for the next run.
     x::defer::defer close([this] { this->task_manager->close(); });
     while (true) {

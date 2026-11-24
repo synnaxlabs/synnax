@@ -72,9 +72,7 @@ public:
     virtual void writer_opened() {}
 
     /// @brief called on the pipeline thread before each wait for the Core after err.
-    /// waited is how long the pipeline has waited since its writer last opened.
-    virtual void
-    waiting_for_core(const x::errors::Error &err, const x::telem::TimeSpan &waited) {}
+    virtual void waiting_for_core(const x::errors::Error &err) {}
 
     /// @brief unblocks a read when the pipeline stops. Called on the stopping thread
     /// after the breaker stops, and before the pipeline joins its thread. It can come
@@ -214,8 +212,7 @@ class Acquisition final : public Base {
     bool run_once(Run &run);
 
 protected:
-    void
-    waiting(const x::errors::Error &err, const x::telem::TimeSpan &waited) override;
+    void waiting(const x::errors::Error &err) override;
 
 public:
     /// @brief construct an acquisition pipeline that opens writers on a Synnax

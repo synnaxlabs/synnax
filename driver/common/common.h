@@ -65,6 +65,45 @@ inline Warning core_warning(
     };
 }
 
+/// @brief tracks a wait for the Core and the warning that it shows. A wait ends only
+/// once a writer or streamer stays open for the delay, so a stream that opens and
+/// then fails again keeps waiting. Not safe for concurrent use.
+class CoreWait {
+    x::telem::TimeSpan delay;
+    x::telem::TimeStamp since = x::telem::TimeStamp(0);
+    x::telem::TimeStamp last_failure = x::telem::TimeStamp(0);
+    x::telem::TimeStamp opened_at = x::telem::TimeStamp(0);
+
+public:
+    explicit CoreWait(const x::telem::TimeSpan delay): delay(delay) {}
+
+    /// @brief records a failed request to the Core at now.
+    /// @returns the warning to show, or an empty warning while none should show.
+    Warning failed(const x::errors::Error &err, const x::telem::TimeStamp now) {
+        if (this->since == x::telem::TimeStamp(0) || this->recovered(now))
+            this->since = now;
+        this->last_failure = now;
+        return core_warning(err, now - this->since, this->delay);
+    }
+
+    /// @brief records that a writer or streamer opened at now.
+    void opened(const x::telem::TimeStamp now) { this->opened_at = now; }
+
+    /// @returns whether the last open has lasted the delay with no failure since,
+    /// which ends the wait.
+    [[nodiscard]] bool recovered(const x::telem::TimeStamp now) const {
+        return this->opened_at > this->last_failure &&
+               now - this->opened_at >= this->delay;
+    }
+
+    /// @brief forgets the wait, as a task does when it starts again.
+    void reset() {
+        this->since = x::telem::TimeStamp(0);
+        this->last_failure = x::telem::TimeStamp(0);
+        this->opened_at = x::telem::TimeStamp(0);
+    }
+};
+
 /// @brief returns a breaker configuration that retries without a limit, at most 5 s
 /// apart, so a task waits for a lost device to return.
 inline x::breaker::Config unlimited_retry_config(const std::string &name) {

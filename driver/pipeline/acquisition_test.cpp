@@ -62,14 +62,11 @@ public:
     void writer_opened() override { this->writer_opens.fetch_add(1); }
 
     std::mutex waits_mu;
-    std::vector<std::pair<x::errors::Error, x::telem::TimeSpan>> waits;
+    std::vector<x::errors::Error> waits;
 
-    void waiting_for_core(
-        const x::errors::Error &err,
-        const x::telem::TimeSpan &waited
-    ) override {
+    void waiting_for_core(const x::errors::Error &err) override {
         std::lock_guard lock(this->waits_mu);
-        this->waits.emplace_back(err, waited);
+        this->waits.push_back(err);
     }
 };
 
@@ -1311,8 +1308,7 @@ TEST(AcquisitionPipeline, StopsOnInterruptedError) {
     ASSERT_MATCHES(source->stopped_err, synnax::errors::INTERRUPTED);
 }
 
-/// @brief it should tell the source about each wait for the Core, with the time waited
-/// since the writer last opened.
+/// @brief it should tell the source about each wait for the Core.
 TEST(AcquisitionPipeline, ReportsEachWaitForTheCore) {
     const auto factory = std::make_shared<ScriptedWriterFactory>(std::vector{
         freighter::UNREACHABLE,
@@ -1331,8 +1327,7 @@ TEST(AcquisitionPipeline, ReportsEachWaitForTheCore) {
     pipeline.stop();
     std::lock_guard lock(source->waits_mu);
     ASSERT_EQ(source->waits.size(), 2);
-    ASSERT_MATCHES(source->waits[0].first, freighter::UNREACHABLE);
-    ASSERT_EQ(source->waits[0].second, x::telem::TimeSpan::ZERO());
-    ASSERT_GT(source->waits[1].second, x::telem::TimeSpan::ZERO());
+    for (const auto &err: source->waits)
+        ASSERT_MATCHES(err, freighter::UNREACHABLE);
 }
 }

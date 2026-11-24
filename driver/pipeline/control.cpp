@@ -61,8 +61,8 @@ void Control::stopped_with_err(const x::errors::Error &err) {
     this->sink->stopped_with_err(err);
 }
 
-void Control::waiting(const x::errors::Error &err, const x::telem::TimeSpan &waited) {
-    this->sink->waiting_for_core(err, waited);
+void Control::waiting(const x::errors::Error &err) {
+    this->sink->waiting_for_core(err);
 }
 
 bool Control::run_once() {
@@ -76,7 +76,7 @@ bool Control::run_once() {
         this->sink->stopped_with_err(open_err);
         return false;
     }
-    this->reached_core();
+    this->breaker.reset_unlimited();
     this->sink->opened();
 
     x::errors::Error sink_err = x::errors::NIL;

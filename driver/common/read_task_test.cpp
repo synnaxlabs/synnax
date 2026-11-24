@@ -1162,4 +1162,43 @@ TEST(TestCommonReadTask, testTransferBufIntegerType) {
     EXPECT_EQ(fr.series->at(1).at<int32_t>(0), 3);
     EXPECT_EQ(fr.series->at(1).at<int32_t>(1), 4);
 }
+
+/// @brief it should show a license warning while its writer waits for a license, and
+/// clear it once the writer has stayed open for the warning delay.
+TEST(TestCommonReadTask, WarnsWhileWaitingForALicense) {
+    x::breaker::Breaker cancel;
+    auto factory = std::make_shared<pipeline::testutil::WriterFactory>();
+    factory->open_errors = {
+        synnax::errors::LICENSE_MISSING,
+        synnax::errors::LICENSE_MISSING,
+    };
+    synnax::task::Task t;
+    t.key = x::uuid::create();
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    ctx->warning_delay = x::telem::MILLISECOND * 50;
+    auto reads = std::make_shared<std::vector<x::telem::Frame>>();
+    reads->emplace_back(0, x::telem::Series(x::telem::TimeStamp::now()));
+    ReadTask read_task(
+        t,
+        ctx,
+        x::breaker::Config{
+            .name = "license",
+            .base_interval = x::telem::MILLISECOND,
+            .max_retries = x::breaker::RETRY_INFINITELY,
+            .scale = 1,
+        },
+        std::make_unique<MockSource>(reads),
+        factory
+    );
+    read_task.start("start_cmd", cancel);
+    const auto shows = [&](const std::string &message) {
+        const auto statuses = ctx->snapshot();
+        return !statuses.empty() && statuses.back().message == message;
+    };
+    ASSERT_EVENTUALLY_TRUE(std::ranges::any_of(ctx->snapshot(), [](const auto &s) {
+        return s.message == "Waiting for a license";
+    }));
+    ASSERT_EVENTUALLY_FALSE(shows("Waiting for a license"));
+    read_task.stop("stop_cmd", true);
+}
 }

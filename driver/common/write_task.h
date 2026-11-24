@@ -275,7 +275,7 @@ class WriteTask final : public driver::task::Task {
         // The start status waits for the streamer, so a client that waits for it can
         // send commands at once.
         void opened() override {
-            this->p.state.set_background_warning({});
+            this->p.cmd_wait.opened(x::telem::TimeStamp::now());
             std::lock_guard lock(this->p.state_mu);
             if (!this->p.opening) return;
             this->p.answer_pending_starts();
@@ -288,16 +288,15 @@ class WriteTask final : public driver::task::Task {
             this->show_locked(MISSED_COMMANDS);
         }
 
-        void waiting_for_core(
-            const x::errors::Error &err,
-            const x::telem::TimeSpan &waited
-        ) override {
-            this->p.state.set_background_warning(
-                core_warning(err, waited, this->p.core_warning_delay)
+        void waiting_for_core(const x::errors::Error &err) override {
+            this->p.show_wait(
+                this->p.cmd_wait_warning,
+                this->p.cmd_wait.failed(err, x::telem::TimeStamp::now())
             );
         }
 
         x::errors::Error write(x::telem::Frame &frame) override {
+            this->p.clear_recovered(this->p.cmd_wait, this->p.cmd_wait_warning);
             if (frame.empty()) return x::errors::NIL;
             auto err = this->internal->write(frame);
             const auto warning = this->internal->take_warning();
@@ -331,17 +330,15 @@ class WriteTask final : public driver::task::Task {
         explicit StateSource(WriteTask &p): p(p) {}
 
         void writer_opened() override {
-            this->p.state.set_background_warning({});
+            this->p.state_wait.opened(x::telem::TimeStamp::now());
             std::lock_guard lock(this->p.state_mu);
             this->writer_open = true;
         }
 
-        void waiting_for_core(
-            const x::errors::Error &err,
-            const x::telem::TimeSpan &waited
-        ) override {
-            this->p.state.set_background_warning(
-                core_warning(err, waited, this->p.core_warning_delay)
+        void waiting_for_core(const x::errors::Error &err) override {
+            this->p.show_wait(
+                this->p.state_wait_warning,
+                this->p.state_wait.failed(err, x::telem::TimeStamp::now())
             );
         }
 
@@ -362,6 +359,7 @@ class WriteTask final : public driver::task::Task {
             x::telem::Frame &fr,
             pipeline::Authorities &authorities
         ) override {
+            this->p.clear_recovered(this->p.state_wait, this->p.state_wait_warning);
             return this->p.sink->internal->read(breaker, fr, authorities);
         }
 
@@ -381,6 +379,47 @@ class WriteTask final : public driver::task::Task {
     StatusHandler state;
     /// @brief how long the task retries a Core error before it shows a warning.
     x::telem::TimeSpan core_warning_delay;
+    /// @brief the waits for the Core of the command pipeline and the state pipeline.
+    /// Each is used only on the thread of its pipeline.
+    CoreWait cmd_wait;
+    CoreWait state_wait;
+    /// @brief guards the warnings of the two waits.
+    std::mutex wait_mu;
+    Warning cmd_wait_warning;
+    Warning state_wait_warning;
+
+    /// @brief stores warning as the warning of one pipeline's wait, then shows the
+    /// warning of either wait, the command pipeline's first.
+    void show_wait(Warning &slot, const Warning &warning) {
+        std::lock_guard lock(this->wait_mu);
+        slot = warning;
+        this->state.set_background_warning(
+            this->cmd_wait_warning.empty() ? this->state_wait_warning
+                                           : this->cmd_wait_warning
+        );
+    }
+
+    /// @brief forgets both waits and their warning before the pipelines start.
+    void forget_waits() {
+        this->cmd_wait.reset();
+        this->state_wait.reset();
+        std::lock_guard lock(this->wait_mu);
+        this->cmd_wait_warning = {};
+        this->state_wait_warning = {};
+        this->state.set_background_warning({});
+    }
+
+    /// @brief clears the warning of a wait that its pipeline has recovered from.
+    void clear_recovered(CoreWait &wait, Warning &slot) {
+        if (!wait.recovered(x::telem::TimeStamp::now())) return;
+        std::lock_guard lock(this->wait_mu);
+        if (slot.empty()) return;
+        slot = {};
+        this->state.set_background_warning(
+            this->cmd_wait_warning.empty() ? this->state_wait_warning
+                                           : this->cmd_wait_warning
+        );
+    }
     /// @brief true from a start until the command streamer opens or fails to open.
     bool opening = false;
     /// @brief true while a sink with no command channels holds its hardware. Such a
@@ -524,6 +563,8 @@ public:
     ):
         state(ctx, task),
         core_warning_delay(ctx->core_warning_delay()),
+        cmd_wait(this->core_warning_delay),
+        state_wait(this->core_warning_delay),
         sink(std::make_shared<WrappedSink>(*this, std::move(sink))),
         state_source(std::make_shared<StateSource>(*this)),
         cmd_write_pipe(
@@ -653,6 +694,7 @@ public:
             this->state_source->writer_open = false;
             this->pending_starts = {cmd_key};
         }
+        this->forget_waits();
         this->cmd_write_pipe.start();
         if (!this->sink->internal->writer_config().channels.empty())
             this->state_write_pipe.start();
