@@ -11,19 +11,25 @@ from x.payload.float import Float
 from x.payload.integer import Integer, Unsigned
 from x.payload.types_gen import (
     BooleanEntry,
+    BooleanScalar,
     EnumEntry,
     FloatEntry,
     GeneratorType,
     IntegerEntry,
     JSONType,
     Kind,
+    NullScalar,
+    NumberScalar,
+    Scalar,
     StringEntry,
+    StringScalar,
     TimeFormat,
     UnsignedEntry,
 )
 
 __all__ = [
     "BooleanEntry",
+    "BooleanScalar",
     "EnumEntry",
     "Float",
     "FloatEntry",
@@ -32,7 +38,11 @@ __all__ = [
     "IntegerEntry",
     "JSONType",
     "Kind",
+    "NullScalar",
+    "NumberScalar",
+    "Scalar",
     "StringEntry",
+    "StringScalar",
     "TimeFormat",
     "Unsigned",
     "UnsignedEntry",

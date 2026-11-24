@@ -11,7 +11,7 @@ import math
 import re
 
 import pytest
-from pydantic import ValidationError
+from pydantic import TypeAdapter, ValidationError
 
 from x import payload
 
@@ -117,3 +117,27 @@ class TestUnsigned:
         """Should reject a value that is not an unsigned 64-bit integer."""
         with pytest.raises(ValidationError, match=re.escape(message)):
             payload.UnsignedEntry.model_validate({"label": "L", "value": value})
+
+
+class TestScalar:
+    """Tests for the JSON scalar union."""
+
+    ADAPTER = TypeAdapter(payload.Scalar)
+
+    @pytest.mark.parametrize(
+        ("data", "variant"),
+        [
+            ({"type": "number", "value": 200}, payload.NumberScalar),
+            ({"type": "string", "value": "ok"}, payload.StringScalar),
+            ({"type": "boolean", "value": True}, payload.BooleanScalar),
+            ({"type": "null"}, payload.NullScalar),
+        ],
+    )
+    def test_parses_each_variant(self, data: dict[str, object], variant: type) -> None:
+        """Should parse each variant by its type."""
+        assert isinstance(self.ADAPTER.validate_python(data), variant)
+
+    def test_rejects_an_unknown_type(self) -> None:
+        """Should reject a type that no variant has."""
+        with pytest.raises(ValidationError):
+            self.ADAPTER.validate_python({"type": "date"})
