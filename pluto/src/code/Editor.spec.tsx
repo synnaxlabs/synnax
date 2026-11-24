@@ -131,7 +131,7 @@ const SEVERITY = { Hint: 1, Info: 2, Warning: 4, Error: 8 } as const;
 interface Marker {
   severity: number;
   source?: string;
-  code?: string;
+  code?: string | { value: string; target: string };
 }
 
 const createFakeEditor = (model: FakeModel) => {
@@ -715,6 +715,13 @@ describe("Editor", () => {
 
     it("should color a warning that has a code as a warning", async () => {
       expect(await hoverSeverities([WARNING], `${SOURCE}(W1)`)).toEqual(["warning"]);
+    });
+
+    it("should color a warning that has a linked code as a warning", async () => {
+      const code = { value: "W1", target: "https://example.com/w1" };
+      expect(await hoverSeverities([{ ...WARNING, code }], `${SOURCE}W1`)).toEqual([
+        "warning",
+      ]);
     });
 
     it("should color a warning that has no code as an error", async () => {

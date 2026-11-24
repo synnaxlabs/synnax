@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -247,9 +248,9 @@ var _ = Describe("Sparkplug B host session", func() {
 				Eventually(func() int64 { return stored(ctx, b[0]).Len() }).
 					Should(BeEquivalentTo(2))
 				Expect(stored(ctx, a[0])).
-					To(telem.MatchSeriesData(telem.NewSeriesV(1.5, 3.5)))
+					To(MatchSeriesData(telem.NewSeriesV(1.5, 3.5)))
 				Expect(stored(ctx, b[0])).
-					To(telem.MatchSeriesData(telem.NewSeriesV(2.5, 4.5)))
+					To(MatchSeriesData(telem.NewSeriesV(2.5, 4.5)))
 				Expect(taskStatus(ctx, first).Variant).To(Equal(status.VariantSuccess))
 				Expect(taskStatus(ctx, second).Variant).To(Equal(status.VariantSuccess))
 				Expect(node.births()).To(Equal(2))
@@ -323,7 +324,7 @@ var _ = Describe("Sparkplug B host session", func() {
 				Eventually(func() int64 { return stored(ctx, data[0]).Len() }).
 					Should(BeEquivalentTo(1))
 				Expect(stored(ctx, data[0])).
-					To(telem.MatchSeriesData(telem.NewSeriesV(2.5)))
+					To(MatchSeriesData(telem.NewSeriesV(2.5)))
 			},
 		)
 
@@ -357,7 +358,7 @@ var _ = Describe("Sparkplug B host session", func() {
 				Eventually(func() int64 { return stored(ctx, data[0]).Len() }).
 					Should(BeEquivalentTo(2))
 				Expect(stored(ctx, data[0])).
-					To(telem.MatchSeriesData(telem.NewSeriesV(1.0, 2.0)))
+					To(MatchSeriesData(telem.NewSeriesV(1.0, 2.0)))
 				Eventually(func() status.Variant { return taskStatus(ctx, t).Variant }).
 					Should(Equal(status.VariantSuccess))
 			},
@@ -412,7 +413,7 @@ var _ = Describe("Sparkplug B host session", func() {
 				Eventually(func() int64 { return stored(ctx, b[0]).Len() }).
 					Should(BeEquivalentTo(1))
 				Expect(stored(ctx, b[0])).
-					To(telem.MatchSeriesData(telem.NewSeriesV(2.0)))
+					To(MatchSeriesData(telem.NewSeriesV(2.0)))
 				node.data("", tagValue{alias: 1, value: 3.0, timestamp: 1700000002000})
 				Eventually(func() int64 { return stored(ctx, b[0]).Len() }).
 					Should(BeEquivalentTo(2))
@@ -447,9 +448,9 @@ var _ = Describe("Sparkplug B host session", func() {
 				Eventually(func() int64 { return stored(ctx, plain[0]).Len() }).
 					Should(BeEquivalentTo(1))
 				Expect(stored(ctx, tag[0])).
-					To(telem.MatchSeriesData(telem.NewSeriesV(23.5)))
+					To(MatchSeriesData(telem.NewSeriesV(23.5)))
 				Expect(stored(ctx, plain[0])).
-					To(telem.MatchSeriesData(telem.NewSeriesV(7.0)))
+					To(MatchSeriesData(telem.NewSeriesV(7.0)))
 				Expect(broker.clientCount()).To(Equal(1))
 				Expect(taskStatus(ctx, t).Variant).To(Equal(status.VariantSuccess))
 			},

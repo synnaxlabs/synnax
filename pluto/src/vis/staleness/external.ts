@@ -7,8 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export { DEFAULT_TIMEOUT, resolveColor } from "@/vis/staleness/aether/staleness";
+import { staleness } from "@/vis/staleness/aether";
+
 export * from "@/vis/staleness/Badge";
 export * from "@/vis/staleness/config";
 export * from "@/vis/staleness/Fields";
 export * from "@/vis/staleness/Provider";
+
+export const DEFAULT_TIMEOUT = staleness.DEFAULT_TIMEOUT;
+export const resolveColor = staleness.resolveColor;
