@@ -53,14 +53,20 @@ inline void signal_shutdown() {
     details::shutdown_cv.notify_all();
 }
 
-/// @brief listens for shutdown signals from SIGINT, SIGTERM, and stdin.
-/// @param sig_enabled whether to listen for SIGINT and SIGTERM signals. Default is
-/// true.
-/// @param stdin_enabled whether to listen for stdin input. Default is true. On Windows,
-/// a broken stdin pipe ends the process at once.
-inline void listen(const bool sig_enabled = true, const bool stdin_enabled = true) {
-    if (sig_enabled) details::listen_signal();
-    if (stdin_enabled) {
+/// @brief options for listening to shutdown signals.
+struct ListenOptions {
+    /// @brief when true, SIGINT and SIGTERM do not signal a shutdown.
+    bool signals_ignored = false;
+    /// @brief when true, typing STOP into stdin does not signal a shutdown.
+    bool stdin_ignored = false;
+};
+
+/// @brief blocks until a shutdown is signaled by SIGINT, SIGTERM, stdin, or
+/// signal_shutdown. On Windows, a broken stdin pipe ends the process at once.
+/// @param options the sources of shutdown signals to ignore.
+inline void listen(const ListenOptions &options = {}) {
+    if (!options.signals_ignored) details::listen_signal();
+    if (!options.stdin_ignored) {
         details::listen_stdin();
         return;
     }

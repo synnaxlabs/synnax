@@ -29,7 +29,7 @@ TEST(ListenDeathTest, BrokenStdinPipeEndsProcess) {
     EXPECT_EXIT(
         {
             CloseHandle(pipe_stdin());
-            listen(false, true);
+            listen({.signals_ignored = true});
         },
         ::testing::ExitedWithCode(1),
         ""
@@ -44,7 +44,7 @@ TEST(ListenDeathTest, StopBeforeBrokenPipeReturns) {
             DWORD written = 0;
             WriteFile(write_end, "STOP\n", 5, &written, nullptr);
             CloseHandle(write_end);
-            listen(false, true);
+            listen({.signals_ignored = true});
             std::exit(0);
         },
         ::testing::ExitedWithCode(0),
