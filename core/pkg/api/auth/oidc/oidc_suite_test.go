@@ -203,7 +203,7 @@ func authed(ctx context.Context, token string) freighter.Context {
 	return seen
 }
 
-func createUser(ctx context.Context, username, pwd string) user.User {
+func createUser(ctx context.Context, username string) user.User {
 	GinkgoHelper()
 	u := MustSucceed(
 		rbactestutil.CreateUser(ctx, db, rbacSvc, userSvc, user.User{Name: username}),
@@ -213,7 +213,7 @@ func createUser(ctx context.Context, username, pwd string) user.User {
 			ctx,
 			u.ResourceID(),
 			username,
-			MustSucceed(passwordSvc.Hash(pwd)),
+			MustSucceed(passwordSvc.Hash("p")),
 		)
 	})).To(Succeed())
 	return u

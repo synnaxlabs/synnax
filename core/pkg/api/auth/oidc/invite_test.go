@@ -106,8 +106,8 @@ var _ = Describe("OIDC invites", func() {
 			Count(ctx, db))
 	}
 	BeforeEach(func(ctx SpecContext) {
-		carol = createUser(ctx, "carol-"+uuid.New().String(), "p")
-		bob = createUser(ctx, "bob-"+uuid.New().String(), "p")
+		carol = createUser(ctx, "carol-"+uuid.New().String())
+		bob = createUser(ctx, "bob-"+uuid.New().String())
 		bobToken = login(ctx, passwordProof(bob.Name, "p"))
 		rootToken = login(ctx, passwordProof(creds.Username, creds.Password))
 	})
@@ -257,9 +257,10 @@ var _ = Describe("OIDC invites", func() {
 				Cookie:      true,
 			}))
 			Expect(res.Token).To(BeEmpty())
-			cookie := MustBeOk(
+			cookie, ok := MustBeOk(
 				fctx.Get(apiauth.SessionCookieParam),
 			).(apiauth.SessionCookie)
+			Expect(ok).To(BeTrue())
 			Expect(MustSucceed(authSvc.Authenticate(ctx, cookie.Token)).Subject).
 				To(Equal(carol.ResourceID()))
 		})

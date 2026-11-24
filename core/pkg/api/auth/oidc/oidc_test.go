@@ -157,7 +157,7 @@ var _ = Describe("OIDC links", func() {
 		rootToken string
 	)
 	BeforeEach(func(ctx SpecContext) {
-		bob = createUser(ctx, "bob-"+uuid.New().String(), "p")
+		bob = createUser(ctx, "bob-"+uuid.New().String())
 		bobToken = login(ctx, passwordProof(bob.Name, "p"))
 		rootToken = login(ctx, passwordProof(creds.Username, creds.Password))
 	})
@@ -267,7 +267,7 @@ var _ = Describe("OIDC links", func() {
 				To(MatchError(auth.ErrInvalidToken))
 		})
 		It("Should deny a user removing another user's link", func(ctx SpecContext) {
-			alice := createUser(ctx, "alice-"+uuid.New().String(), "p")
+			alice := createUser(ctx, "alice-"+uuid.New().String())
 			link := linkAccount(
 				ctx,
 				login(ctx, passwordProof(alice.Name, "p")),
