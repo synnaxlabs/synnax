@@ -184,6 +184,7 @@ export const serveOIDC = async ({
         name: "Local",
         objects: [{ type: "user", key: "" }],
         actions: userActions,
+        role: USER.role,
       };
       return { body: { policies: [policy] } };
     }

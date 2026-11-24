@@ -232,7 +232,7 @@ describe("OIDC section", () => {
       fireEvent.click(await screen.findByText(CREATE));
       await waitFor(() => expect(server.invites).toHaveLength(1));
       const token = `syi_${server.invites[0].key}`;
-      expect(await screen.findByDisplayValue(token)).toBeTruthy();
+      expect(await screen.findByText(token)).toBeTruthy();
       expect(
         screen.getByText("Copy this invite code now. You won't see it again."),
       ).toBeTruthy();
@@ -242,7 +242,7 @@ describe("OIDC section", () => {
       cleanup();
       await renderLocal(client, OTHER_USER);
       await screen.findByText(REPLACE);
-      expect(screen.queryByDisplayValue(token)).toBeNull();
+      expect(screen.queryByText(token)).toBeNull();
     });
 
     it("should revoke a live invite and hide its code", async () => {
@@ -256,12 +256,12 @@ describe("OIDC section", () => {
       fireEvent.click(await screen.findByText(REPLACE));
       await waitFor(() => expect(server.invites[0].key).not.toBe(old.key));
       const token = `syi_${server.invites[0].key}`;
-      await screen.findByDisplayValue(token);
+      await screen.findByText(token);
       fireEvent.click(await screen.findByText("Revoke"));
       await screen.findByText(CREATE);
       expect(server.invites).toEqual([]);
       expect(screen.queryByText(/^Invite expires/)).toBeNull();
-      expect(screen.queryByDisplayValue(token)).toBeNull();
+      expect(screen.queryByText(token)).toBeNull();
       await waitFor(() =>
         expect(onMessage).toHaveBeenLastCalledWith("Successfully revoked invite"),
       );

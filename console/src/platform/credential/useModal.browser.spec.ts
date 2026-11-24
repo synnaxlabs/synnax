@@ -67,7 +67,7 @@ const expectPassword = async (username: string, password: string): Promise<void>
 
 // The test Core rejects invites, so the stub answers them and accepts OIDC. Each invite
 // create waits for the release.
-const holdInviteCreate = () => {
+const holdInviteCreate = (subject: user.Key) => {
   const real = globalThis.fetch;
   const held = Promise.withResolvers<void>();
   const released = Promise.withResolvers<void>();
@@ -84,7 +84,7 @@ const holdInviteCreate = () => {
       held.resolve();
       await released.promise;
       const key = crypto.randomUUID();
-      return json({ token: `syi_${key}`, invite: { key, user: "", expiry: 1 } });
+      return json({ token: `syi_${key}`, invite: { key, user: subject, expiry: 1 } });
     }
     return await real(input, init);
   });
@@ -315,10 +315,10 @@ describe("useModal", () => {
   });
 
   it("should stay open while an invite is being created", async () => {
-    const { held, release } = holdInviteCreate();
     const client = createTestClient();
     const { key: role } = await createEmptyRole(client);
     const subject = await client.users.create({ name: uniqueName("user"), role });
+    const { held, release } = holdInviteCreate(subject.key);
     const id = user.resourceID(subject.key);
     await openModal(Credential.useModal, { client, params: { subject: id } });
     fireEvent.click(await screen.findByText("Create invite"));
@@ -326,7 +326,7 @@ describe("useModal", () => {
     fireEvent.click(findDismissButton());
     expect(screen.queryByText("Create invite")).not.toBeNull();
     release();
-    await screen.findByDisplayValue(/^syi_/);
+    await screen.findByText(/^syi_/);
   });
 
   it("should hide provider accounts for a rack", async () => {
