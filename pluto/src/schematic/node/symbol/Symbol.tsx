@@ -22,13 +22,7 @@ import { Label } from "@/schematic/node/common/label";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { Stale } from "@/schematic/node/common/stale";
 import type { NodeProps, PreviewProps } from "@/schematic/node/spec";
-import {
-  bindSpec,
-  sources,
-  stale,
-  stateChannels,
-  values,
-} from "@/schematic/node/symbol/bind";
+import { bind } from "@/schematic/node/symbol/bind";
 import { Symbol } from "@/schematic/symbol";
 import { SymbolNode } from "@/vis/symbolNode";
 
@@ -70,7 +64,7 @@ const Drawn = ({
   value,
 }: DrawnProps): ReactElement => {
   const { spec, builtIn, missing } = useSpec(ref);
-  const bound = spec == null ? undefined : bindSpec(spec, states);
+  const bound = spec == null ? undefined : bind.spec(spec, states);
   const [nodeColor] = Color.useValues([color]);
   const paints = Custom.usePaints(bound, value, { nodeColor, builtIn });
   const invalid = bound != null && !builtIn && !Custom.isValidSVG(bound.drawing.markup);
@@ -107,7 +101,7 @@ export const Node = ({
   const { label, orientation, scale, spec, color, states, stalenessTimeout } = config;
   const { readings } = SymbolNode.use({
     aetherKey: nodeKey,
-    sources: sources(stateChannels(states)),
+    sources: bind.sources(bind.stateChannels(states)),
     sinks: {},
     stalenessTimeout,
   });
@@ -121,14 +115,14 @@ export const Node = ({
       {...scaleResize}
     >
       <Label.Label config={label} onChange={onConfigChange} />
-      {stale(states, readings) && <Stale.Indicator />}
+      {bind.stale(states, readings) && <Stale.Indicator />}
       <Drawn
         spec={spec}
         color={color}
         states={states}
         orientation={orientation}
         scale={scale}
-        value={values(states, readings)}
+        value={bind.values(states, readings)}
       />
     </Grid.Grid>
   );

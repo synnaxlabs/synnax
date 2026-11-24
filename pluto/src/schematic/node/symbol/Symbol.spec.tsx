@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { schematic } from "@synnaxlabs/client";
-import { SyntheticCore } from "@synnaxlabs/client/testutil";
+import { createTestClient, SyntheticCore } from "@synnaxlabs/client/testutil";
 import { Rate, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, render } from "@testing-library/react";
 import { ReactFlowProvider } from "@xyflow/react";
@@ -16,9 +16,9 @@ import type { FC, PropsWithChildren } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { z } from "zod";
 
-import { symbolSpec } from "@/schematic/node/symbol/spec";
+import { Node } from "@/schematic/node";
 import { telemTest } from "@/telem/aether/testutil";
-import { createSynnaxWrapper } from "@/testutil";
+import { createAsyncSynnaxWrapper, createSynnaxWrapper } from "@/testutil";
 import { symbolNode } from "@/vis/symbolNode/aether";
 
 const LocalWrapper = createSynnaxWrapper({
@@ -47,7 +47,7 @@ const renderNode = (
   render(
     <Wrapper>
       <ReactFlowProvider>
-        <symbolSpec.Node
+        <Node.REGISTRY.symbol.Node
           nodeKey="s1"
           selected={false}
           onConfigChange={vi.fn()}
@@ -138,6 +138,31 @@ describe("Symbol node", () => {
     });
     await vi.waitFor(() => expect(container.querySelector(FILLED)).not.toBeNull());
     expect(queryByRole("img", { name: "Stale" })).toBeNull();
+  });
+
+  it("should draw a custom symbol that the Core holds", async () => {
+    const client = createTestClient();
+    const symbol = await client.schematics.symbols.create({
+      name: "Custom",
+      data: {
+        drawing: {
+          type: "svg",
+          markup:
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">' +
+            '<rect class="body" width="10" height="10" /></svg>',
+        },
+        variant: "static",
+      },
+    });
+    const Wrapper = await createAsyncSynnaxWrapper({
+      client,
+      additionalRegistry: symbolNode.REGISTRY,
+    });
+    const { container } = renderNode(
+      { spec: { type: "custom", key: symbol.key } },
+      Wrapper,
+    );
+    await vi.waitFor(() => expect(container.querySelector("rect.body")).not.toBeNull());
   });
 
   it.each([
