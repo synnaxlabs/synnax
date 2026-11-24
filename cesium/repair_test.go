@@ -21,6 +21,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gstruct"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/checkpoint"
 	"github.com/synnaxlabs/cesium/internal/log"
@@ -226,17 +227,20 @@ var _ = Describe("Repair", func() {
 		write(ctx, db, 0)
 		Expect(errors.Join(stop(), db.Close())).To(Succeed())
 	})
-	// spoil changes byte at of the frame of index i among the frames of log 1, and
-	// returns that frame and the end of the frame before it.
+	// spoil changes byte at of frame i of log 1, and returns that frame and where its
+	// bad bytes start: the end of the frame before it, or the start of the frames.
 	spoil := func(i, at int) (logFrame, uint64) {
 		GinkgoHelper()
 		frames := framesOf(fs, id)
-		Expect(i).To(BeNumerically(">", 0))
 		Expect(i).To(BeNumerically("<", len(frames)-1))
-		f, prev := frames[i], frames[i-1]
+		f := frames[i]
 		b := MustSucceed(xfs.ReadFile(fs, log.Name(1)))
 		b[f.off+int64(at)] ^= 0xFF
 		Expect(xfs.WriteFile(fs, log.Name(1), b)).To(Succeed())
+		if i == 0 {
+			return f, log.FramesStart
+		}
+		prev := frames[i-1]
 		return f, uint64(prev.off) + uint64(prev.frame.Size())
 	}
 	// middle returns the index of the first frame of log 1 from the middle on that
@@ -430,6 +434,15 @@ var _ = Describe("Repair", func() {
 				unrecovered(newIdx, files[0], "it holds no full block"),
 				unrecovered(newData, files[1], "it holds no full block")...,
 			)))
+			Expect(rep.Skipped).To(HaveLen(1))
+			Expect(rep.Skipped[0]).To(MatchFields(IgnoreExtras, Fields{
+				"Kind": Equal("Commit"),
+				"TimeRange": Equal(telem.TimeRange{
+					Start: 6 * telem.SecondTS,
+					End:   10*telem.SecondTS + 1,
+				}),
+				"Reason": ContainSubstring("which no create made"),
+			}))
 		})
 
 		It("Should list as unrecovered a segment file that no record names",
@@ -543,7 +556,35 @@ var _ = Describe("Repair", func() {
 				Expect(rep.Rebuilt).To(Equal(pair(5, 6*telem.SecondTS)))
 				Expect(rep.Unplaced).To(BeEmpty())
 				Expect(rep.Tails).To(BeEmpty())
+				Expect(rep.Skipped).To(BeEmpty())
 			})
+
+		It("Should apply the entries between and after two bad frames of one log",
+			func(ctx SpecContext) {
+				spoil(commitFrame(6*telem.SecondTS), 4)
+				spoil(commitFrame(16*telem.SecondTS), 4)
+				rep := MustSucceed(repair(ctx, new(int)))
+				Expect(rep.Damage).To(HaveLen(2))
+				Expect(rep.Rebuilt).To(Equal(pair(5, 6*telem.SecondTS)))
+				Expect(rep.Skipped).To(BeEmpty())
+			})
+
+		It(
+			"Should raise the limits above the values of the later entries when the bad "+
+				"frame held a Reserve",
+			func(ctx SpecContext) {
+				frames := framesOf(fs, id)
+				i := frameWith(frames, func(rec log.Record) bool {
+					_, ok := rec.(*log.Reserve)
+					return ok
+				})
+				spoil(i, 4)
+				rep := MustSucceed(repair(ctx, new(int)))
+				Expect(rep.Damage).To(HaveLen(1))
+				Expect(rep.Lost).To(ContainElement(HaveField("Kind", "Reserve")))
+				Expect(rep.Skipped).To(BeEmpty())
+			},
+		)
 
 		It("Should start a rebuilt range at the committed length, so a delete of the "+
 			"tail of its last pointer stays cut", func(ctx SpecContext) {
@@ -638,6 +679,7 @@ var _ = Describe("Repair", func() {
 				rep := MustSucceed(repair(ctx, new(int)))
 				Expect(rep.Rebuilt).To(Equal(pair(5, 16*telem.SecondTS)))
 				Expect(rep.Unplaced).To(BeEmpty())
+				Expect(rep.Skipped).To(BeEmpty())
 			},
 		)
 

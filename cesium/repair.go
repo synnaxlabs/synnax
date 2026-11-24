@@ -45,6 +45,9 @@ type Report struct {
 	// Lost holds the records of the bad frames, as far as they decode, in rising order
 	// of sequence. A repair never applies them.
 	Lost []Record
+	// Skipped holds each record of a valid frame after the damage that breaks a rule,
+	// which the repair skips, in rising order of sequence. Reason names the rule.
+	Skipped []Record
 	// Repaired is true when the repair committed.
 	Repaired bool
 }
@@ -167,17 +170,64 @@ func Repair(
 	if len(rep.Damage) == 0 && len(rep.Buried) == 0 {
 		return rep, nil
 	}
+	if err = e.rebuildGap(ctx, r, l, &rep); err != nil {
+		return Report{}, err
+	}
+	return rep, nil
+}
+
+// rebuildGap places the orphans of the gap, rebuilds its ranges into the state of e,
+// and applies the entries after the damage, as rep lists them.
+func (e *engine) rebuildGap(
+	ctx context.Context,
+	r *recovery,
+	l *later,
+	rep *Report,
+) error {
 	placed, unrecovered, err := e.place(r, l)
 	if err != nil {
-		return Report{}, err
+		return err
 	}
 	rep.Unrecovered = unrecovered
 	p, err := e.rebuild(l, placed)
 	if err != nil {
-		return Report{}, err
+		return err
+	}
+	if len(rep.Damage) > 0 {
+		if err = e.apply(rep.Damage[0], l, placed, &p); err != nil {
+			return err
+		}
+		if rep.Skipped, err = e.replayAfter(ctx, r); err != nil {
+			return err
+		}
 	}
 	rep.Rebuilt, rep.Unplaced, rep.Tails = p.rebuilt, p.unplaced, p.tails
-	return rep, nil
+	return nil
+}
+
+// replayAfter reads the logs of r again, applies each entry after the first bad frame
+// to the state of e one record at a time, and returns the records that it skips. At
+// each later bad frame, it moves the state past the entries of the frame.
+func (e *engine) replayAfter(ctx context.Context, r *recovery) ([]Record, error) {
+	var (
+		skipped []Record
+		next    uint64
+	)
+	skip := func(uint64, []log.Record) error { return nil }
+	each := func(sequence uint64, records []log.Record) error {
+		if next != 0 && sequence > next {
+			if _, err := e.state.Rebuild(
+				state.Rebuild{Sequence: sequence - 1},
+			); err != nil {
+				return err
+			}
+		}
+		s, err := e.replayEach(sequence, records)
+		skipped, next = append(skipped, s...), sequence+1
+		return err
+	}
+	_, _, err := r.damage(ctx, skip, each)
+	return skipped, err
 }
 
 // replayEngine returns an engine in replay mode on snapshot, the head of r, whose state
