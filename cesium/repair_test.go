@@ -217,6 +217,7 @@ var _ = Describe("Repair", func() {
 		keys := []cesium.ChannelKey{idx, data}
 		w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 			Channels: keys,
+			Clock:    keys[0],
 			Start:    from + telem.SecondTS,
 		}))
 		for c := range telem.TimeStamp(4) {
@@ -360,6 +361,7 @@ var _ = Describe("Repair", func() {
 		keys := []cesium.ChannelKey{newIdx, newData}
 		w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 			Channels: keys,
+			Clock:    keys[0],
 			Start:    telem.SecondTS,
 		}))
 		for c := range commits {
@@ -783,6 +785,7 @@ var _ = Describe("Repair", func() {
 			keys := []cesium.ChannelKey{newIdx, newData}
 			w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 				Channels: keys,
+				Clock:    keys[0],
 				Start:    telem.SecondTS,
 			}))
 			// put writes n samples from stamp from seconds, and commits them when
@@ -865,6 +868,7 @@ var _ = Describe("Repair", func() {
 			keys := []cesium.ChannelKey{newIdx, newData}
 			w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 				Channels: keys,
+				Clock:    keys[0],
 				Start:    telem.SecondTS,
 			}))
 			for c := range 3 {
@@ -1017,6 +1021,7 @@ var _ = Describe("Repair", func() {
 				keys := []cesium.ChannelKey{newIdx, newData}
 				w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 					Channels: keys,
+					Clock:    keys[0],
 					Start:    30_000 * telem.SecondTS,
 				}))
 				MustSucceed2(w.Write(ctx, telem.MultiFrame(keys, []telem.Series{
