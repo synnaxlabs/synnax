@@ -186,6 +186,7 @@ const desktop = (
   run: env.Run | null = { status: 0, stdout: "syk_desktop\n", stderr: "" },
 ): env.System => ({
   platform: "linux",
+  modified: () => 0,
   readFile: () => (file == null ? null : JSON.stringify(file)),
   run: vi.fn(async () => run),
 });
@@ -243,6 +244,7 @@ describe("resolveParams with Synnax Desktop", () => {
   it("should not read Synnax Desktop when the params give a host", () => {
     const system: env.System = {
       platform: "linux",
+      modified: () => 0,
       readFile: () => {
         throw new Error("read");
       },
@@ -273,6 +275,7 @@ describe("resolveParams with Synnax Desktop", () => {
 
   const reading = (error: Error): env.System => ({
     platform: "linux",
+    modified: () => 0,
     readFile: () => {
       throw error;
     },
@@ -309,6 +312,7 @@ describe("resolveParams with Synnax Desktop", () => {
     const cause = notCapable();
     const system: env.System = {
       platform: "linux",
+      modified: () => 0,
       readFile: () => JSON.stringify(DESKTOP_FILE),
       run: async () => {
         throw cause;
@@ -346,7 +350,12 @@ describe("resolveParams with Synnax Desktop", () => {
     ],
     [
       "the file is not valid JSON",
-      { platform: "linux", readFile: () => "{", run: async () => null },
+      {
+        platform: "linux",
+        modified: () => 0,
+        readFile: () => "{",
+        run: async () => null,
+      },
       "Cannot read ~/.config/synnax/desktop.json",
     ],
   ])("should reject when %s", (_, system, message) => {
@@ -399,6 +408,7 @@ describe("resolveParams with Synnax Desktop", () => {
         const helper = writeHelper(dir, 0o755);
         const system: env.System = {
           platform: "linux",
+          modified: () => 0,
           readFile: () => JSON.stringify({ ...DESKTOP_FILE, api_key_helper: helper }),
           run: real.run,
         };
@@ -448,6 +458,7 @@ describe("resolveParams with Synnax Desktop", () => {
 describe("resolveParams finding the file of Synnax Desktop", () => {
   const at = (platform: string, files: Record<string, object>): env.System => ({
     platform,
+    modified: () => 0,
     readFile: (path) => (path in files ? JSON.stringify(files[path]) : null),
     run: async () => null,
   });
@@ -482,12 +493,32 @@ describe("resolveParams finding the file of Synnax Desktop", () => {
     expect(env.resolveParams({}, {}, system).port).toEqual(9095);
   });
 
+  it.each<[string, number, number, number]>([
+    ["the newer file in ~/.synnax", 1, 2, 1],
+    ["the newer file in the config directory", 2, 1, 9095],
+    ["the config directory on a tie", 1, 1, 9095],
+  ])("should read %s", (_, current, legacy, port) => {
+    const times: Record<string, number> = {
+      "~/.config/synnax/desktop.json": current,
+      "~/.synnax/desktop.json": legacy,
+    };
+    const system: env.System = {
+      ...at("linux", {
+        "~/.config/synnax/desktop.json": DESKTOP_FILE,
+        "~/.synnax/desktop.json": { ...DESKTOP_FILE, port: 1 },
+      }),
+      modified: (path) => times[path],
+    };
+    expect(env.resolveParams({}, {}, system).port).toEqual(port);
+  });
+
   it.each([
     ["Deno cannot read the config directory", notCapable()],
     ["the config directory cannot be read", new Error("EACCES: permission denied")],
   ])("should read ~/.synnax when %s", (_, error) => {
     const system: env.System = {
       platform: "linux",
+      modified: () => 0,
       readFile: (path) => {
         if (path === "~/.synnax/desktop.json") return JSON.stringify(DESKTOP_FILE);
         throw error;
@@ -500,6 +531,7 @@ describe("resolveParams finding the file of Synnax Desktop", () => {
   it("should name only the file that cannot be read when the other is missing", () => {
     const system: env.System = {
       platform: "linux",
+      modified: () => 0,
       readFile: (path) => {
         if (path === "~/.synnax/desktop.json") return null;
         throw new Error("ENOTDIR: not a directory");
@@ -584,6 +616,7 @@ const PEM = "-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----\n";
 // Reads only the files in the map, and runs no program.
 const files = (map: Record<string, string>): env.System => ({
   platform: "linux",
+  modified: () => 0,
   readFile: (path) => map[path] ?? null,
   run: async () => null,
 });
@@ -631,6 +664,7 @@ describe("resolveParams with SYNNAX_CA_CERT", () => {
   it("should fill the rest from Synnax Desktop", () => {
     const system: env.System = {
       platform: "linux",
+      modified: () => 0,
       readFile: (path) =>
         path === "~/ca.pem" ? PEM : JSON.stringify({ ...DESKTOP_FILE, secure: false }),
       run: async () => ({ status: 0, stdout: "syk_desktop\n", stderr: "" }),
@@ -685,6 +719,7 @@ describe("resolveParams with SYNNAX_CA_CERT", () => {
   it("should turn on TLS without reading the file when the CA is unsupported", () => {
     const deno: env.System = {
       platform: "linux",
+      modified: () => 0,
       readFile: vi.fn(() => PEM),
       run: async () => null,
       caCertUnsupported: true,
@@ -711,6 +746,7 @@ describe("resolveParams with SYNNAX_CA_CERT", () => {
     const cause = notCapable();
     const system: env.System = {
       platform: "linux",
+      modified: () => 0,
       readFile: () => {
         throw cause;
       },

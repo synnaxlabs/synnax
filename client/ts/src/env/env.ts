@@ -47,6 +47,11 @@ export interface System {
    */
   readFile: (path: string) => string | null;
   /**
+   * Returns when the file at path was last modified, in milliseconds since the epoch. A
+   * leading `~` is the home directory.
+   */
+  modified: (path: string) => number;
+  /**
    * Runs the program at path with no arguments. Resolves null if there is none. The
    * signal stops the program.
    */
@@ -138,8 +143,8 @@ const readSecure = (env: Env): boolean | undefined => {
 const isAbsolute = (path: string, platform: string): boolean =>
   platform === "win32" ? /^([a-z]:[\\/]|\\\\)/i.test(path) : path.startsWith("/");
 
-// Returns desktop.json in the OS config folder first, then in ~/.synnax, which every
-// Synnax Desktop writes.
+// Returns desktop.json in the OS config folder, then in ~/.synnax, which every Synnax
+// Desktop writes.
 const desktopFiles = (env: Env, platform: string): string[] => {
   const dir = (name: string, fallback: string): string => {
     const value = read(env, name);
@@ -157,23 +162,29 @@ const desktopFiles = (env: Env, platform: string): string[] => {
   return [`${current}/desktop.json`, "~/.synnax/desktop.json"];
 };
 
-// Reads the first path that can be read. A missing file or a Deno permission error
+// Reads the file that was modified last. A missing file or a Deno permission error
 // means no Synnax Desktop that the script can see, so the message does not name it.
 const readDesktopFile = (system: System, env: Env): [string, string] => {
+  // Synnax Desktop 1.1 writes only the legacy file, so the newer copy is the current
+  // one. Read only the first path when 0.62 support ends.
   let denied: Error | undefined;
   const failed: [string, Error][] = [];
+  let latest: [number, string, string] | undefined;
   for (const path of desktopFiles(env, system.platform)) {
-    let text: string | null;
+    let read: [number, string] | undefined;
     try {
-      text = system.readFile(path);
+      const text = system.readFile(path);
+      if (text != null) read = [system.modified(path), text];
     } catch (e) {
       const err = errors.fromUnknown(e);
       if (isNotCapable(err)) denied ??= err;
       else failed.push([path, err]);
       continue;
     }
-    if (text != null) return [path, text];
+    if (read != null && (latest == null || read[0] > latest[0]))
+      latest = [read[0], path, read[1]];
   }
+  if (latest != null) return [latest[1], latest[2]];
   if (failed.length === 0) throw new ValidationError(NO_HOST_MSG, { cause: denied });
   throw new ValidationError(
     failed.map(([path, err]) => `Cannot read ${path}: ${err.message}`).join(". "),
@@ -283,18 +294,21 @@ export const nodeSystem = (
 ): System | undefined => {
   const proc = globalThis.process;
   if (proc?.getBuiltinModule == null) return undefined;
+  const expand = (path: string): string => {
+    const paths = proc.getBuiltinModule("node:path");
+    const home =
+      path === "~" || path.startsWith("~/") || path.startsWith(`~${paths.sep}`);
+    return home
+      ? paths.join(proc.getBuiltinModule("node:os").homedir(), path.slice(1))
+      : path;
+  };
   return {
     platform: proc.platform,
+    modified: (path) => proc.getBuiltinModule("node:fs").statSync(expand(path)).mtimeMs,
     caCertUnsupported: "Deno" in globalThis,
     readFile: (path) => {
-      const paths = proc.getBuiltinModule("node:path");
-      const home =
-        path === "~" || path.startsWith("~/") || path.startsWith(`~${paths.sep}`);
-      const file = home
-        ? paths.join(proc.getBuiltinModule("node:os").homedir(), path.slice(1))
-        : path;
       try {
-        return proc.getBuiltinModule("node:fs").readFileSync(file, "utf8");
+        return proc.getBuiltinModule("node:fs").readFileSync(expand(path), "utf8");
       } catch (e) {
         const err = errors.fromUnknown(e);
         if (isNotFound(err)) return null;
@@ -362,8 +376,9 @@ export const nodeSystem = (
  * SYNNAX_PORT or SYNNAX_SECURE is not valid, if SYNNAX_CA_CERT is set with
  * SYNNAX_SECURE false, if the SYNNAX_CA_CERT file is missing, empty, not PEM text, or
  * cannot be read, if the desktop.json of Synnax Desktop cannot be read, or if Synnax
- * Desktop is too old. Reads desktop.json in the config directory of the OS, then in
- * ~/.synnax. In Deno, a missing permission to read the file is the same as no file.
+ * Desktop is too old. Reads the desktop.json of the config directory of the OS or of
+ * ~/.synnax that was modified last. In Deno, a missing permission to read the file is
+ * the same as no file.
  */
 export const resolveParams = <P extends Given>(
   params: P,

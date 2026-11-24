@@ -70,6 +70,8 @@ deno run --allow-sys=homedir --allow-read="$env:LOCALAPPDATA\Synnax,$HOME\.synna
   --allow-run --allow-env my_script.ts
 ```
 
+When both folders hold a `desktop.json`, the client reads the one that was written last.
+
 Without `--allow-sys` or `--allow-read`, the client cannot see Synnax Desktop and asks
 for a host. Without `--allow-run` or `--allow-env`, it throws an error that names the
 flag. A browser cannot read the file, so give a host. When there is no file, the
