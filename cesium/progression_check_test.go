@@ -13,18 +13,23 @@ import (
 	"context"
 	"encoding/binary"
 	"math/rand/v2"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	timetestutil "github.com/synnaxlabs/x/time/testutil"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 // block is the file size of one full block of a fixed-density segment and its trailer.
@@ -52,12 +57,18 @@ var _ = Describe("Check: version 2 progressions", func() {
 		stop      func() error
 		idx, data cesium.ChannelKey
 		keys      []cesium.ChannelKey
+		logs      *observer.ObservedLogs
 	)
 	stamp := func(i int) telem.TimeStamp {
 		return telem.SecondTS + telem.TimeStamp(i)*step
 	}
 	open := func(ctx context.Context) {
 		GinkgoHelper()
+		core, observed := observer.New(zapcore.DebugLevel)
+		logs = observed
+		ins := alamos.New("cesium", alamos.WithLogger(MustSucceed(alamos.NewLogger(
+			alamos.LoggerConfig{ZapLogger: zap.New(core)},
+		))))
 		db = MustSucceed(cesium.Open(
 			ctx,
 			"",
@@ -66,6 +77,7 @@ var _ = Describe("Check: version 2 progressions", func() {
 			cesium.WithClock(fake),
 			cesium.WithRandom(rand.NewPCG(1, 2)),
 			cesium.WithGCConfig(cesium.GCConfig{Rate: 1 << 20}),
+			cesium.WithInstrumentation(ins),
 		))
 		stop = GoRun(ctx, db.Run)
 	}
@@ -235,7 +247,16 @@ var _ = Describe("Check: version 2 progressions", func() {
 		before := readAll(ctx)
 		write(ctx, far)
 		settle(func() bool { return hasSize(idx, block) && !hasSize(idx, 4*block) })
-		Expect(readAll(ctx)).To(Equal(before))
+		// The reads before the sealing write lack its series.
+		after := readAll(ctx)
+		for _, byKey := range after {
+			for k, rs := range byKey {
+				byKey[k] = slices.DeleteFunc(rs, func(r readout) bool {
+					return r.TimeRange.Start >= stamp(far)
+				})
+			}
+		}
+		Expect(after).To(Equal(before))
 		expectAligned(ctx, a0)
 		want := values(ctx)
 		cut := telem.TimeRange{Start: stamp(5000), End: stamp(5003)}
@@ -311,12 +332,17 @@ var _ = Describe("Check: version 2 progressions", func() {
 		write(ctx, at...)
 		write(ctx, at[n-1]+far)
 		kept := sizes(idx)
-		Eventually(fake.Pending).Should(Equal(1))
-		settle(func() bool { return fake.Pending() == 0 })
+		const keep = "clock segment kept at version 1"
+		settle(func() bool { return logs.FilterMessage(keep).Len() == 1 })
 		Expect(sizes(idx)).To(Equal(kept))
 		closeDB()
 		open(ctx)
-		Consistently(fake.Pending, 500*time.Millisecond).Should(Equal(0))
+		Consistently(func() int {
+			if fake.Pending() > 0 {
+				fake.Advance(time.Second)
+			}
+			return logs.FilterMessage(keep).Len()
+		}, 500*time.Millisecond).Should(BeZero())
 		Expect(sizes(idx)).To(Equal(kept))
 		closeDB()
 	})
