@@ -61,17 +61,14 @@ type Returns interface {
 // no resource type must be placed in exactly one record, unless it is a mirror
 // (ServiceConfig.Mirrors), whose changes need nothing; a write that changes only
 // mirrors fails. Policies are read from committed state, so a policy or role that apply
-// stages grants nothing. A denial wraps access.ErrDenied and names the record, except
-// as HideDerived and HideDenied set.
+// stages grants nothing. A denial wraps access.ErrDenied and names the record. For a
+// change made on behalf of the request (gorp.Change.OnBehalf), which the request did
+// not name, it names the record only when the subject can retrieve it, and counts the
+// hidden records otherwise.
 func Write[RQ, RS freighter.Payload](
 	s *Service,
 	apply func(context.Context, gorp.Tx, RQ) (RS, error),
-	opts ...WriteOption,
 ) freighter.UnaryHandler[RQ, RS] {
-	var cfg writeConfig
-	for _, o := range opts {
-		o(&cfg)
-	}
 	return func(ctx context.Context, req RQ) (RS, error) {
 		var (
 			res, zero RS
@@ -84,45 +81,11 @@ func Write[RQ, RS freighter.Payload](
 			if res, err = apply(ctx, tx, req); err != nil {
 				return err
 			}
-			return s.check(
-				ctx,
-				tx,
-				append(slices.Clip(sources), unchanged(tx, res)...),
-				cfg,
-			)
+			return s.check(ctx, tx, append(slices.Clip(sources), unchanged(tx, res)...))
 		}); err != nil {
 			return zero, err
 		}
 		return res, nil
-	}
-}
-
-// WriteOption sets how a handler that Write returns checks access.
-type WriteOption func(*writeConfig)
-
-type writeConfig struct {
-	// operation names what derives changes in a write, or is empty when a denial of
-	// one names its record.
-	operation string
-	// directHidden is true when a denial of a record that apply changed itself, or of a
-	// link target, counts the record as a derived one does.
-	directHidden bool
-}
-
-// HideDerived makes a denial of a record that Gorp changed in turn name the record only
-// when the subject can retrieve it. A denial of hidden records counts them as records
-// that the operation, such as "heal", changes.
-func HideDerived(operation string) WriteOption {
-	return func(c *writeConfig) { c.operation = operation }
-}
-
-// HideDenied makes every denial of the write name its record only when the subject can
-// retrieve it, as HideDerived does for derived records: the records that apply changes
-// itself and the targets of their links count too.
-func HideDenied(operation string) WriteOption {
-	return func(c *writeConfig) {
-		c.operation = operation
-		c.directHidden = true
 	}
 }
 
@@ -186,12 +149,7 @@ func unchanged[RS any](tx gorp.Tx, res RS) []resource.ID {
 
 // check returns an error wrapping access.ErrDenied when the subject of ctx cannot make
 // the changes of tx or read sources.
-func (s *Service) check(
-	ctx context.Context,
-	tx gorp.Tx,
-	sources []resource.ID,
-	cfg writeConfig,
-) error {
+func (s *Service) check(ctx context.Context, tx gorp.Tx, sources []resource.ID) error {
 	needs := make(accessNeeds, len(access.AllActions))
 	needs[access.ActionRetrieve] = slices.Clone(sources)
 	derived := make(accessNeeds, len(access.AllActions))
@@ -210,14 +168,12 @@ func (s *Service) check(
 			continue
 		}
 		checked = true
-		recordTo, linkTo := needs, needs
-		if cfg.directHidden {
-			recordTo, linkTo = derived, derived
-		} else if c.Derived && cfg.operation != "" {
+		recordTo := needs
+		if c.OnBehalf {
 			recordTo = derived
 		}
 		if err := s.changeNeeds(
-			ctx, tx, subject, c, createdOrDeleted, linkTo, recordTo,
+			ctx, tx, subject, c, createdOrDeleted, needs, recordTo,
 		); err != nil {
 			return err
 		}
@@ -243,19 +199,18 @@ func (s *Service) check(
 			return err
 		}
 	}
-	return checkDerived(ctx, enforcer, subject, derived, cfg.operation)
+	return checkDerived(ctx, enforcer, subject, derived)
 }
 
 // checkDerived returns an error wrapping access.ErrDenied when subject cannot make the
-// changes that operation derived, which needs holds. It checks every one of them first.
-// The error names the first denied record that subject can retrieve, or else counts the
-// denied records through hiddenDenial.
+// changes made on behalf of the request, which needs holds. It checks every one of them
+// first. The error names the first denied record that subject can retrieve, or else
+// counts the denied records through hiddenDenial.
 func checkDerived(
 	ctx context.Context,
 	enforcer *rbac.Enforcer,
 	subject resource.ID,
 	needs accessNeeds,
-	operation string,
 ) error {
 	var (
 		denied  set.Set[resource.ID]
@@ -295,24 +250,22 @@ func checkDerived(
 	if len(denied) == 0 {
 		return nil
 	}
-	return hiddenDenial(subject, len(denied), operation)
+	return hiddenDenial(subject, len(denied))
 }
 
-// hiddenDenial returns an error wrapping access.ErrDenied for n records that the
-// operation changes and that subject may neither change nor retrieve. It names none of
-// them.
-func hiddenDenial(subject resource.ID, n int, operation string) error {
+// hiddenDenial returns an error wrapping access.ErrDenied for n records that a request
+// changes and that subject may neither change nor retrieve. It names none of them.
+func hiddenDenial(subject resource.ID, n int) error {
 	records := "records"
 	if n == 1 {
 		records = "record"
 	}
 	return errors.Wrapf(
 		access.ErrDenied,
-		"%s cannot change %d %s that the %s changes and that it cannot retrieve",
+		"%s cannot change %d %s that this request changes and that it cannot retrieve",
 		subject,
 		n,
 		records,
-		operation,
 	)
 }
 

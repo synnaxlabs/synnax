@@ -203,8 +203,8 @@ var _ = Describe("Routes", Ordered, func() {
 		Expect(err).To(And(
 			MatchError(access.ErrDenied),
 			MatchError(fmt.Sprintf(
-				"%s cannot change 2 records that the delete changes and that it cannot "+
-					"retrieve: access denied: auth error",
+				"%s cannot change 2 records that this request changes and that it "+
+					"cannot retrieve: access denied: auth error",
 				u.ResourceID(),
 			)),
 		))
@@ -229,10 +229,60 @@ var _ = Describe("Routes", Ordered, func() {
 			Change: deleteOf(ch),
 			Hidden: new(impact.ChoiceDelete),
 		})).Error().To(MatchError(fmt.Sprintf(
-			"%s cannot change 4 records that the delete changes and that it cannot "+
+			"%s cannot change 4 records that this request changes and that it cannot "+
 				"retrieve: access denied: auth error",
 			u.ResourceID(),
 		)))
+		Expect(exists(ctx, ch)).To(BeTrue())
+	})
+
+	It("Should count a hidden channel that the hidden pick deletes", func(
+		ctx SpecContext,
+	) {
+		index := channel.Channel{
+			Name:     UniqueChannelName(),
+			DataType: telem.TimestampT,
+			IsIndex:  true,
+		}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return layer.Channel.NewWriter(tx).Create(ctx, &index)
+		})).To(Succeed())
+		data := channel.Channel{
+			Name:       UniqueChannelName(),
+			DataType:   telem.Float32T,
+			LocalIndex: index.LocalKey,
+		}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return layer.Channel.NewWriter(tx).Create(ctx, &data)
+		})).To(Succeed())
+		u := createUser(ctx)
+		grant(
+			ctx,
+			u,
+			[]access.Action{access.ActionRetrieve, access.ActionDelete},
+			channel.ResourceID(index.Key()),
+		)
+		Expect(apply(AuthedCtx(ctx, u), apiimpact.ApplyRequest{
+			Change: deleteOf(index.Key()),
+			Hidden: new(impact.ChoiceDelete),
+		})).Error().To(MatchError(fmt.Sprintf(
+			"%s cannot change 1 record that this request changes and that it cannot "+
+				"retrieve: access denied: auth error",
+			u.ResourceID(),
+		)))
+		Expect(exists(ctx, data.Key())).To(BeTrue())
+	})
+
+	It("Should name the caller's own channel in a denial", func(ctx SpecContext) {
+		ch := createChannel(ctx)
+		u := createUser(ctx)
+		Expect(apply(AuthedCtx(ctx, u), apiimpact.ApplyRequest{
+			Change: deleteOf(ch),
+			Hidden: new(impact.ChoiceDelete),
+		})).Error().To(And(
+			MatchError(access.ErrDenied),
+			MatchError(ContainSubstring("cannot delete %s", channel.ResourceID(ch))),
+		))
 		Expect(exists(ctx, ch)).To(BeTrue())
 	})
 

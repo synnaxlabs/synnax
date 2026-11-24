@@ -248,8 +248,8 @@ var _ = Describe("Tombstone break r2", Ordered, ContinueOnFailure, func() {
 		})).Error().To(SatisfyAll(
 			MatchError(access.ErrDenied),
 			MatchError(fmt.Sprintf(
-				"%s cannot change 1 record that the heal changes and that it cannot "+
-					"retrieve: access denied: auth error",
+				"%s cannot change 1 record that this request changes and that it "+
+					"cannot retrieve: access denied: auth error",
 				u.ResourceID(),
 			)),
 			Not(MatchError(ContainSubstring(healed.Key))),
@@ -281,8 +281,8 @@ var _ = Describe("Tombstone break r2", Ordered, ContinueOnFailure, func() {
 		})).Error().To(SatisfyAll(
 			MatchError(access.ErrDenied),
 			MatchError(fmt.Sprintf(
-				"%s cannot change 2 records that the heal changes and that it cannot "+
-					"retrieve: access denied: auth error",
+				"%s cannot change 2 records that this request changes and that it "+
+					"cannot retrieve: access denied: auth error",
 				u.ResourceID(),
 			)),
 			Not(MatchError(ContainSubstring(first.Key))),

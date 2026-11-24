@@ -125,5 +125,5 @@ func (s *Service) ApplyHandler(
 			Visible: visible,
 		})
 	}
-	return bind.Write(binder, apply, bind.HideDenied("delete"))
+	return bind.Write(binder, apply)
 }
