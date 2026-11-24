@@ -12,7 +12,7 @@ import { describe, expect, it, onTestFinished, vi } from "vitest";
 
 import type { channel } from "@/channel";
 import { BuiltIns } from "@/channel/builtins";
-import { DisconnectedError, type Synnax } from "@/index";
+import { DisconnectedError, Synnax } from "@/index";
 import {
   builtInsFetches,
   createCuttingProxy,
