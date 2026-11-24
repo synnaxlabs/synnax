@@ -24,7 +24,13 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest
 import { WebSocketServer } from "ws";
 import { z } from "zod";
 
-import { HTTPClient, trustCA, Unreachable, WebSocketClient } from "@/index";
+import {
+  HTTPClient,
+  trustCA,
+  Unreachable,
+  UntrustedCertificate,
+  WebSocketClient,
+} from "@/index";
 
 const messageZ = z.object({ message: z.string() });
 
@@ -144,11 +150,17 @@ describe("trustCA", () => {
     expect(upgrade?.url).not.toContain("test-token");
   });
 
-  it("should reject a request without the CA", async () => {
+  it("should reject a request without the CA as an untrusted certificate", async () => {
     const client = new HTTPClient({ endpoint, codec: binary.JSON_CODEC, secure: true });
-    await expect(
-      client.send("/", { message: "" }, messageZ, messageZ),
-    ).rejects.toMatchObject({ cause: { code: "UNABLE_TO_VERIFY_LEAF_SIGNATURE" } });
+    const err = await client.send("/", { message: "" }, messageZ, messageZ).then(
+      () => null,
+      (e: unknown) => e,
+    );
+    expect(UntrustedCertificate.matches(err)).toBe(true);
+    expect(err).toHaveProperty(
+      "message",
+      expect.stringMatching(/certificate of .* is not trusted.*caCert/),
+    );
   });
 
   it("should reject a stream without the CA", async () => {
@@ -163,6 +175,7 @@ describe("trustCA", () => {
       (e: unknown) => e,
     );
     expect(Unreachable.matches(err)).toBe(true);
+    expect(err).toHaveProperty("message", expect.stringContaining("certificate"));
   });
 
   it("should throw Unreachable when a stream cannot connect", async () => {

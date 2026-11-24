@@ -13,6 +13,7 @@ import { describe, expect, it, onTestFinished, test, vi } from "vitest";
 
 import { auth } from "@/auth";
 import {
+  APIKeyUnavailableError,
   AuthError,
   ExpiredTokenError,
   InvalidCredentialsError,
@@ -1094,6 +1095,58 @@ describe("auth", () => {
         "no credentials, API key, token, or cookie",
       );
       await owner.deleteKeys(key.key);
+    });
+
+    it("should log in with a key it loads", async () => {
+      const owner = makeClient({ credentials: TEST_CREDENTIALS });
+      const { token, key } = await owner.createKey({ name: "loaded" });
+      const keyed = makeClient({ loadAPIKey: async () => token });
+      await keyed.retrieveSessions();
+      expect(keyed.session?.credential).toEqual(key.key);
+      await owner.deleteKeys(key.key);
+    });
+
+    it("should load the key again after a load fails", async () => {
+      const loadAPIKey = vi
+        .fn<() => Promise<string>>()
+        .mockRejectedValueOnce(new Error("helper failed"))
+        .mockResolvedValue(`syk_${id.create()}secret`);
+      const keyed = makeClient({ loadAPIKey });
+      await expect(keyed.retrieveSessions()).rejects.toThrow("helper failed");
+      await expect(keyed.retrieveSessions()).rejects.toThrow(InvalidCredentialsError);
+      expect(loadAPIKey).toHaveBeenCalledTimes(2);
+    });
+
+    it("should load the key again after the Core rejects it", async () => {
+      const unary: UnaryClient = {
+        use: () => {},
+        send: async () => {
+          throw new InvalidCredentialsError("invalid API key");
+        },
+      };
+      const loadAPIKey = vi
+        .fn<() => Promise<string>>()
+        .mockResolvedValueOnce("syk_old")
+        .mockResolvedValue("syk_new");
+      const mw = new auth.Client(unary, { loadAPIKey }).middleware();
+      await expect(mw(DUMMY_CTX, async () => DUMMY_CTX)).rejects.toThrow(
+        InvalidCredentialsError,
+      );
+      await expect(mw(DUMMY_CTX, async () => DUMMY_CTX)).rejects.toThrow(
+        InvalidCredentialsError,
+      );
+      expect(loadAPIKey).toHaveBeenCalledTimes(2);
+    });
+
+    it("should fail the login with the error of a load", async () => {
+      const keyed = makeClient({
+        loadAPIKey: async () => {
+          throw new Error("no keychain");
+        },
+      });
+      await expect(keyed.retrieveSessions()).rejects.toThrow(
+        new APIKeyUnavailableError("no keychain"),
+      );
     });
 
     it("should reject a key the Core never issued", async () => {

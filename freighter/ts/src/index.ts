@@ -24,6 +24,7 @@ export {
   StreamClosed,
   Timeout,
   Unreachable,
+  UntrustedCertificate,
 } from "@/errors";
 export type { FileEncoding, FileOptions, FileTransport, UploadBody } from "@/file";
 export { HTTPClient, type HTTPClientConfig } from "@/http";
