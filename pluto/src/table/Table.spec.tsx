@@ -20,8 +20,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Errors } from "@/errors";
 import { Table } from "@/table";
 import { table as aetherTable } from "@/table/aether";
-import { INDICATOR_SIZE } from "@/table/Indicator";
-import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+import { Indicator } from "@/table/indicator";
+import { createAsyncSynnaxWrapper } from "@/testutil";
 import { canvasTest } from "@/vis/render/testutil";
 import { value } from "@/vis/value/aether";
 
@@ -39,8 +39,8 @@ const VALUE_CONFIG = {
 } as const;
 
 const expectedOffset = (contentWidth: number, contentHeight: number) => ({
-  x: Math.floor((SURFACE_WIDTH - contentWidth - INDICATOR_SIZE) / 2),
-  y: Math.floor((SURFACE_HEIGHT - contentHeight - INDICATOR_SIZE) / 2),
+  x: Math.floor((SURFACE_WIDTH - contentWidth - Indicator.SIZE) / 2),
+  y: Math.floor((SURFACE_HEIGHT - contentHeight - Indicator.SIZE) / 2),
 });
 
 const RECT = mockBoundingClientRect(0, 0, SURFACE_WIDTH, SURFACE_HEIGHT)();
@@ -193,7 +193,7 @@ describe("Table", () => {
       pumpRender();
       const b = lastCellBox();
       expect(box.topLeft(b)).toEqual(
-        xy.translate(offset, { x: INDICATOR_SIZE, y: INDICATOR_SIZE }),
+        xy.translate(offset, { x: Indicator.SIZE, y: Indicator.SIZE }),
       );
       expect(box.dims(b)).toEqual({ width: COL_SIZE, height: rowSize });
     });
@@ -250,7 +250,7 @@ describe("Table", () => {
   });
 
   describe("scrolling", () => {
-    const ORIGIN: xy.XY = { x: INDICATOR_SIZE, y: INDICATOR_SIZE };
+    const ORIGIN: xy.XY = { x: Indicator.SIZE, y: Indicator.SIZE };
 
     const drawnAt = (): xy.XY => {
       const applied = recorder.upper2d.calls.findLast((c) => c.op === "applyScale");
@@ -503,8 +503,8 @@ describe("Table", () => {
     const POINTER = { pointerId: 1, button: 0, isPrimary: true };
     const at = ({ x, y }: xy.XY) => ({
       ...POINTER,
-      clientX: x + INDICATOR_SIZE,
-      clientY: y + INDICATOR_SIZE,
+      clientX: x + Indicator.SIZE,
+      clientY: y + Indicator.SIZE,
     });
 
     const press = (label: HTMLElement, to: xy.XY): void => {
@@ -791,7 +791,7 @@ describe("Table", () => {
           .map((s) => box.topLeft(s.args[0] as box.Box).x)
           .sort((a, b) => a - b);
       };
-      const ALL = keys.map((_, i) => INDICATOR_SIZE + i * COL_SIZE);
+      const ALL = keys.map((_, i) => Indicator.SIZE + i * COL_SIZE);
       await waitFor(() => expect(drawn()).toEqual(ALL));
       // A lands past B, so A and B slide and C stays put.
       press(c.getByText("A"), { x: 100, y: 5 });

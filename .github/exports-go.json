@@ -15,20 +15,6 @@
       "package": "github.com/synnaxlabs/cesium",
       "name": "Writer",
       "caller": "sy-6397-move-cesium-sessions-to-the-framer-and-fix-channel"
-    },
-    {
-      "module": "x/go",
-      "package": "github.com/synnaxlabs/x/validate",
-      "receiver": "Validator",
-      "name": "MaxBytes",
-      "caller": "https://github.com/synnaxlabs/synnax/pull/7346"
-    },
-    {
-      "module": "x/go",
-      "package": "github.com/synnaxlabs/x/validate",
-      "receiver": "Validator",
-      "name": "MinBytes",
-      "caller": "https://github.com/synnaxlabs/synnax/pull/7346"
     }
   ]
 }

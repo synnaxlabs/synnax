@@ -8,3 +8,4 @@
 // included in the file licenses/APL.txt.
 
 export * as status from "@/status/external";
+export type { StatusZodObject } from "@/status/types.gen";

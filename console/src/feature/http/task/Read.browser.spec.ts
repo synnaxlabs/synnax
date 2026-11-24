@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, http, type Synnax, type task } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
-import { DataType } from "@synnaxlabs/x";
+import { channel, http, icd, type Synnax, type task } from "@synnaxlabs/client";
+import { createTestClient, holdRequests } from "@synnaxlabs/client/testutil";
+import { DataType, type payload, uuid } from "@synnaxlabs/x";
 import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -17,19 +17,18 @@ import type { z } from "zod";
 
 import { HTTP } from "@/feature/http";
 import { createHTTPDevice } from "@/feature/http/testutil";
-import { Device } from "@/platform/device";
+import { pickMessageFormat } from "@/platform/icd/testutil";
 import {
   awaitEditableForm,
   awaitTare,
   clickDeploy,
-  commitFieldInput,
   deployAndAwaitTask,
   preloadForms,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
   reportTaskRunning,
 } from "@/platform/task/testutil";
-import { findIconButton, getLabeledInput } from "@/testutil";
+import { findDialogTriggerByText, findIconButton, getLabeledInput } from "@/testutil";
 
 // The form renders read-only until the update grant lands, and a preview field renders
 // no input, so wait for it to become editable before querying fields.
@@ -42,25 +41,10 @@ const renderRead = async (options: RenderTaskFormTabOptions = {}) => {
   return rendered;
 };
 
-const addField = (): void => {
-  fireEvent.click(screen.getAllByRole("button", { name: "Add field" })[0]);
-};
-
 const addEndpoint = async (): Promise<void> => {
   fireEvent.click(await screen.findByRole("button", { name: "Add endpoint" }));
   await screen.findByText("Request");
 };
-
-const createReadField = (
-  key: string,
-  pointer: string,
-  overrides: Partial<HTTP.Task.ReadField> = {},
-): HTTP.Task.ReadField => ({
-  ...http.readFieldZ.parse({}),
-  key,
-  pointer,
-  ...overrides,
-});
 
 const createReadConfig = (
   device: string,
@@ -85,9 +69,121 @@ const createDraft = async (
 
 preloadForms(HTTP.Task.FORMS);
 
+const client = createTestClient();
+
+const createField = (name: string, kind: payload.Kind = "float"): icd.JSONField =>
+  icd.jsonFieldZ.parse({ name, pointer: `/${name}`, type: kind });
+
+interface EndpointParams extends Partial<Omit<HTTP.Task.ReadEndpoint, "fields">> {
+  /** The fields of the message that the endpoint reads, each bound to channel 0. */
+  fields?: icd.JSONField[];
+}
+
+/** @returns an endpoint that reads a new message, in a new ICD, of its fields. */
+const createEndpoint = async ({
+  fields: messageFields = [],
+  ...rest
+}: EndpointParams = {}): Promise<HTTP.Task.ReadEndpoint> => {
+  const ep = http.readEndpointZ.parse(rest);
+  const message: icd.Message = {
+    key: uuid.create(),
+    name: `${ep.method} ${ep.path}`.trim(),
+    payload: { format: "json", fields: messageFields },
+  };
+  const format = await client.icds.create({
+    name: uniqueName("format"),
+    messages: [message],
+  });
+  const bindings = messageFields.map(({ key }) =>
+    icd.readBindingZ.parse({ field: key }),
+  );
+  return {
+    ...ep,
+    icd: format.key,
+    messages: [icd.readMessageZ.parse({ message: message.key, bindings })],
+  };
+};
+
+/** Adds a message of fields to the ICD of ep, and reads it after the others. */
+const addMessage = async (
+  ep: HTTP.Task.ReadEndpoint,
+  name: string,
+  fields: icd.JSONField[],
+): Promise<icd.Message> => {
+  const icdKey = ep.icd;
+  assertDefined(icdKey, "the endpoint reads no ICD");
+  const message: icd.Message = {
+    key: uuid.create(),
+    name,
+    payload: {
+      format: "json",
+      match: { type: "string", pointer: "/kind", value: name },
+      fields,
+    },
+  };
+  await client.icds.dispatch(
+    icdKey,
+    icd.insert({
+      path: ["messages"],
+      value: message,
+      after: ep.messages.at(-1)?.message,
+    }),
+  );
+  const bindings = fields.map(({ key }) => icd.readBindingZ.parse({ field: key }));
+  ep.messages.push(icd.readMessageZ.parse({ message: message.key, bindings }));
+  return message;
+};
+
+// The form body renders against a device only. `as` is the client that renders the
+// form, when not the one that saves the task.
+const renderWithDevice = async (
+  endpoints: HTTP.Task.ReadEndpoint[] = [],
+  properties?: Partial<HTTP.Device.Properties>,
+  as: Synnax = client,
+) => {
+  const dev = await createHTTPDevice(client, { properties });
+  const draft = await createDraft(client, createReadConfig(dev.key, endpoints));
+  const rendered = await renderRead({ client: as, taskKey: draft.key });
+  return { ...rendered, dev, draft };
+};
+
+/**
+ * Stops and then starts reading the field named name, once its checkbox enables. Waits
+ * for bindings to hold none in between.
+ */
+const readAgain = async (
+  name: string,
+  bindings: () => Promise<unknown>,
+): Promise<void> => {
+  fireEvent.click(
+    await screen.findByRole("treeitem", { name: new RegExp(`^${name}`) }),
+  );
+  const box = await screen.findByRole<HTMLInputElement>("checkbox", {
+    name: `Read ${name}`,
+  });
+  await waitFor(() => expect(box.disabled).toBe(false));
+  fireEvent.click(box);
+  await waitFor(async () => expect(await bindings()).toEqual([]));
+  fireEvent.click(box);
+};
+
+const retrieveEndpoints = async (key: string) =>
+  (await client.tasks.retrieve({ key, schemas: HTTP.Task.READ_SCHEMAS })).config
+    .endpoints;
+
+const deploy = async (container: HTMLElement, key: string) =>
+  await deployAndAwaitTask(client, container, key, HTTP.Task.READ_SCHEMAS);
+
 describe("Read", () => {
-  it("should show the empty state and add + select an endpoint", async () => {
+  it("should ask for a device while the task has none", async () => {
+    await createHTTPDevice(client);
     await renderRead();
+    await screen.findByText("No device selected");
+    expect(screen.queryByText("No endpoints")).toBeNull();
+  });
+
+  it("should show the empty state and add + select an endpoint", async () => {
+    await renderWithDevice();
     await screen.findByText("Select an endpoint or field to configure");
     await screen.findByText("No endpoints");
     await addEndpoint();
@@ -96,12 +192,177 @@ describe("Read", () => {
     expect(screen.getByPlaceholderText("/api/data")).toBeTruthy();
     expect(screen.getByText("Headers")).toBeTruthy();
     expect(screen.getByText("Query parameters")).toBeTruthy();
-    expect(screen.queryByText("New field")).toBeNull();
     expect(screen.queryByText("Select an endpoint or field to configure")).toBeNull();
   });
 
+  it("should make an ICD named after the task for the message of a new endpoint", async () => {
+    const { draft } = await renderWithDevice();
+    await addEndpoint();
+    const [ep] = await waitFor(async () => {
+      const endpoints = await retrieveEndpoints(draft.key);
+      expect(endpoints[0]?.icd).toBeDefined();
+      return endpoints;
+    });
+    const icdKey = ep.icd;
+    assertDefined(icdKey, "the endpoint reads no ICD");
+    const format = await client.icds.retrieve(icdKey);
+    expect(format.name).toBe("HTTP read task");
+    expect(format.messages.map(({ name }) => name)).toEqual(["GET"]);
+    expect(ep.messages).toEqual([{ message: format.messages[0].key, bindings: [] }]);
+  });
+
+  it("should add the message of a later endpoint to the ICD of the first", async () => {
+    const first = await createEndpoint({ key: "ep1", path: "/a" });
+    const { draft } = await renderWithDevice([first]);
+    await screen.findByRole("treeitem", { name: /\/a/ });
+    await addEndpoint();
+    await waitFor(async () =>
+      expect(await retrieveEndpoints(draft.key)).toHaveLength(2),
+    );
+    const [, added] = await retrieveEndpoints(draft.key);
+    const icdKey = first.icd;
+    assertDefined(icdKey, "the first endpoint reads no ICD");
+    expect(added.icd).toBe(icdKey);
+    await waitFor(async () =>
+      expect(
+        (await client.icds.retrieve(icdKey)).messages.map(({ name }) => name),
+      ).toEqual(["GET /a", "GET"]),
+    );
+  });
+
+  it("should number the name of a new message that the ICD already holds", async () => {
+    const first = await createEndpoint({ key: "ep1" });
+    const icdKey = first.icd;
+    assertDefined(icdKey, "the first endpoint reads no ICD");
+    const { draft } = await renderWithDevice([first]);
+    await screen.findByRole("treeitem", { name: /GET/ });
+    await addEndpoint();
+    await waitFor(async () =>
+      expect(await retrieveEndpoints(draft.key)).toHaveLength(2),
+    );
+    await waitFor(async () =>
+      expect(
+        (await client.icds.retrieve(icdKey)).messages.map(({ name }) => name),
+      ).toEqual(["GET", "GET 2"]),
+    );
+  });
+
+  it("should add a message to an endpoint from its details", async () => {
+    const ep = await createEndpoint({ key: "ep1", path: "/a" });
+    const icdKey = ep.icd;
+    assertDefined(icdKey, "the endpoint reads no ICD");
+    const { draft } = await renderWithDevice([ep]);
+    fireEvent.click(await screen.findByRole("treeitem", { name: /\/a/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "Add message" }));
+    await waitFor(async () => {
+      const { messages } = await client.icds.retrieve(icdKey);
+      expect(messages.map(({ name }) => name)).toEqual(["GET /a", "GET /a 2"]);
+      const [{ messages: reads }] = await retrieveEndpoints(draft.key);
+      expect(reads.map(({ message }) => message)).toEqual(
+        messages.map(({ key }) => key),
+      );
+    });
+  });
+
+  it("should add a message from the context menu of an endpoint", async () => {
+    const { draft } = await renderWithDevice([
+      await createEndpoint({ key: "ep1", path: "/a" }),
+    ]);
+    fireEvent.contextMenu(await screen.findByRole("treeitem", { name: /\/a/ }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Add message" }));
+    await screen.findByRole("treeitem", { name: "GET /a 2" });
+    await waitFor(async () =>
+      expect((await retrieveEndpoints(draft.key))[0].messages).toHaveLength(2),
+    );
+  });
+
+  it("should read a new message in a new ICD for an endpoint that reads none", async () => {
+    const { draft } = await renderWithDevice([
+      http.readEndpointZ.parse({ key: "ep1", path: "/a" }),
+    ]);
+    fireEvent.click(await screen.findByRole("treeitem", { name: /\/a/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "Add message" }));
+    const [ep] = await waitFor(async () => {
+      const endpoints = await retrieveEndpoints(draft.key);
+      expect(endpoints[0].icd).toBeDefined();
+      return endpoints;
+    });
+    const icdKey = ep.icd;
+    assertDefined(icdKey, "the endpoint reads no ICD");
+    const format = await client.icds.retrieve(icdKey);
+    expect(format.name).toBe("HTTP read task");
+    expect(format.messages.map(({ name }) => name)).toEqual(["GET /a"]);
+    expect(ep.messages).toEqual([{ message: format.messages[0].key, bindings: [] }]);
+  });
+
+  it("should add a field to the message of an endpoint and read it", async () => {
+    const { draft } = await renderWithDevice([
+      await createEndpoint({ key: "ep1", path: "/data", fields: [createField("v")] }),
+    ]);
+    fireEvent.click(await screen.findByRole("treeitem", { name: /\/data/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "Add field" }));
+    await screen.findByDisplayValue("Field 2");
+    await waitFor(async () =>
+      expect((await retrieveEndpoints(draft.key))[0].messages[0].bindings).toHaveLength(
+        2,
+      ),
+    );
+  });
+
+  it("should read a message of another ICD with each of its fields", async () => {
+    const ep = await createEndpoint({
+      key: "ep1",
+      path: "/data",
+      fields: [createField("temperature")],
+    });
+    const pressure = createField("pressure");
+    const mode = createField("mode", "string");
+    const message: icd.Message = {
+      key: uuid.create(),
+      name: uniqueName("status"),
+      payload: { format: "json", fields: [pressure, mode] },
+    };
+    const shared = await client.icds.create({
+      name: uniqueName("pump"),
+      messages: [message],
+    });
+    const { draft } = await renderWithDevice([ep]);
+    fireEvent.click(await screen.findByRole("treeitem", { name: /\/data/ }));
+    fireEvent.click(await findDialogTriggerByText("GET /data"));
+    const dialogs = await screen.findAllByRole("dialog");
+    const dialog = within(dialogs[dialogs.length - 1]);
+    fireEvent.change(await dialog.findByPlaceholderText("Search message formats..."), {
+      target: { value: shared.name },
+    });
+    // waitFor resolves a timer tick after its match. A render in that tick can replace
+    // the option. A click in the callback goes to the option on the page.
+    await waitFor(() => {
+      const [match] = dialog
+        .getAllByText(message.name)
+        .filter((n) => n.parentElement?.textContent?.includes(shared.name));
+      if (match == null) throw new Error(`no ${message.name} of ${shared.name}`);
+      fireEvent.click(match);
+    });
+    await waitFor(async () =>
+      expect((await retrieveEndpoints(draft.key))[0]).toMatchObject({
+        icd: shared.key,
+        messages: [
+          {
+            message: message.key,
+            bindings: [
+              { field: pressure.key, channel: 0 },
+              { field: mode.key, channel: 0 },
+            ],
+          },
+        ],
+      }),
+    );
+    await screen.findByRole("treeitem", { name: /^pressure/ });
+    await screen.findByRole("treeitem", { name: /^mode/ });
+  });
+
   it("should reveal the request body field when the method switches to POST", async () => {
-    await renderRead();
+    await renderWithDevice();
     await addEndpoint();
     expect(screen.queryByPlaceholderText('{"query": "latest"}')).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "POST" }));
@@ -112,491 +373,41 @@ describe("Read", () => {
     );
   });
 
-  it("should add a timestamp field on value timing that stays out of the fields list", async () => {
-    await renderRead();
-    await addEndpoint();
-    fireEvent.click(screen.getByRole("button", { name: "Response value" }));
-    await screen.findByText("Pointer");
-    expect(screen.getByText("Format")).toBeTruthy();
-    expect(screen.queryByText("New field")).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Poll time" }));
-    await waitFor(() => expect(screen.queryByText("Format")).toBeNull());
-  });
-
-  it("should add a field, select it, and show the enum mapping editor", async () => {
-    await renderRead();
-    await addEndpoint();
-    addField();
-    await screen.findByPlaceholderText("/temperature");
-    await screen.findByText("Enum mapping");
-  });
-
-  it("should copy the previous field's settings when adding another field", async () => {
-    await renderRead();
-    await addEndpoint();
-    addField();
-    const pointer = await screen.findByPlaceholderText("/temperature");
-    fireEvent.change(pointer, { target: { value: "/a" } });
-    fireEvent.blur(pointer);
-    addField();
-    // Both entries carry the copied pointer. The details header repeats it, so the
-    // assertion reads the tree alone.
-    await waitFor(() =>
-      expect(within(screen.getByRole("tree")).getAllByText("/a")).toHaveLength(2),
-    );
-  });
-
-  it("should preview a numbered name for the new channel of a field whose name is taken", async () => {
-    const dev = await createHTTPDevice(client);
-    const name = channel.escapeInvalidName(`${dev.name}/data/value`);
-    await client.channels.create({ name, dataType: DataType.FLOAT64, virtual: true });
-    const draft = await createDraft(
-      client,
-      createReadConfig(dev.key, [
-        {
-          ...http.readEndpointZ.parse({}),
-          key: "ep1",
-          path: "/data",
-          fields: [createReadField("f1", "/value")],
-        },
-      ]),
-    );
-    await renderRead({ client, taskKey: draft.key });
-    fireEvent.click(await screen.findByRole("treeitem", { name: /\/value/ }));
-    await screen.findByPlaceholderText(`${name}_2`);
-  });
-
-  it("should preview the channel that an earlier endpoint with the same path creates", async () => {
-    const dev = await createHTTPDevice(client);
-    const name = channel.escapeInvalidName(`${dev.name}/data/value`);
-    await client.channels.create({ name, dataType: DataType.FLOAT64, virtual: true });
-    const endpoint = (key: string) => ({
-      ...http.readEndpointZ.parse({}),
-      key,
-      path: "/data",
-      fields: [createReadField(`${key}_f`, "/value")],
-    });
-    const draft = await createDraft(
-      client,
-      createReadConfig(dev.key, [endpoint("ep1"), endpoint("ep2")]),
-    );
-    await renderRead({ client, taskKey: draft.key });
-    const items = await screen.findAllByRole("treeitem", { name: /\/value/ });
-    fireEvent.click(items[1]);
-    await screen.findByPlaceholderText(`${name}_2`);
-  });
-
-  describe("a typed channel name", () => {
-    const renderTyped = async (typed: string) => {
-      const dev = await createHTTPDevice(client);
-      const draft = await createDraft(
-        client,
-        createReadConfig(dev.key, [
-          {
-            ...http.readEndpointZ.parse({}),
-            key: "ep1",
-            path: "/data",
-            fields: [createReadField("f1", "/value")],
-          },
-        ]),
-      );
-      await renderRead({ client, taskKey: draft.key });
-      fireEvent.click(await screen.findByRole("treeitem", { name: /\/value/ }));
-      const input = await screen.findByPlaceholderText(
-        channel.escapeInvalidName(`${dev.name}/data/value`),
-      );
-      fireEvent.change(input, { target: { value: typed } });
-      return input;
-    };
-
-    it("should say the numbered name that a taken name saves as", async () => {
-      const typed = uniqueName("pressure");
-      await client.channels.create({
-        name: typed,
-        dataType: DataType.FLOAT64,
-        virtual: true,
-      });
-      await renderTyped(typed);
-      await screen.findByText(`Saves as ${typed}_2`);
-    });
-
-    it("should say the numbered name that a name typed in an earlier endpoint saves as", async () => {
-      const typed = uniqueName("pressure");
-      const dev = await createHTTPDevice(client);
-      const endpoint = (key: string, path: string, name = "") => ({
-        ...http.readEndpointZ.parse({}),
-        key,
-        path,
-        fields: [createReadField(`${key}_f`, "/value", { name })],
-      });
-      const draft = await createDraft(
-        client,
-        createReadConfig(dev.key, [
-          endpoint("ep1", "/a", typed),
-          endpoint("ep2", "/b"),
-        ]),
-      );
-      await renderRead({ client, taskKey: draft.key });
-      const items = await screen.findAllByRole("treeitem", { name: /\/value/ });
-      fireEvent.click(items[1]);
-      const input = await screen.findByPlaceholderText(
-        channel.escapeInvalidName(`${dev.name}/b/value`),
-      );
-      fireEvent.change(input, { target: { value: typed } });
-      await screen.findByText(`Saves as ${typed}_2`);
-    });
-
-    it("should show no help text for a free name", async () => {
-      const typed = uniqueName("pressure");
-      const input = await renderTyped(typed);
-      // The plan names the new channel in the placeholder once it is done.
-      await waitFor(() => expect(input.getAttribute("placeholder")).toBe(typed));
-      expect(screen.queryByText(/^Saves as/)).toBeNull();
-    });
-  });
-
-  describe("folding an endpoint from its caret", () => {
-    const fold = (): void => {
-      const endpoint = screen.getByRole("treeitem", { name: /New endpoint/ });
-      const caret = endpoint.querySelector(".lyra-tree__expansion-indicator");
-      if (caret == null) throw new Error("no caret");
-      fireEvent.click(caret);
-    };
-
-    it("should hide the fields and keep a selected endpoint", async () => {
-      await renderRead();
-      await addEndpoint();
-      addField();
-      await screen.findByPlaceholderText("/temperature");
-      fireEvent.click(screen.getByRole("treeitem", { name: /New endpoint/ }));
-      await screen.findByPlaceholderText("/api/data");
-      fold();
-      await waitFor(() =>
-        expect(screen.queryByRole("treeitem", { name: /New field/ })).toBeNull(),
-      );
-      expect(screen.getByPlaceholderText("/api/data")).toBeTruthy();
-    });
-
-    it("should move the selection from a hidden field up to its endpoint", async () => {
-      await renderRead();
-      await addEndpoint();
-      addField();
-      await screen.findByPlaceholderText("/temperature");
-      fold();
-      await waitFor(() =>
-        expect(screen.queryByRole("treeitem", { name: /New field/ })).toBeNull(),
-      );
-      await screen.findByPlaceholderText("/api/data");
-      expect(screen.queryByPlaceholderText("/temperature")).toBeNull();
-    });
-  });
-
-  it("should disable and enable a field through its checkbox and context menu", async () => {
-    await renderRead();
-    await addEndpoint();
-    addField();
-    const field = await screen.findByRole("treeitem", { name: /New field/ });
-    const checkbox = within(field).getByRole("checkbox", { name: "Enabled" });
-    fireEvent.click(checkbox);
-    await waitFor(() => expect(checkbox).toHaveProperty("checked", false));
-    fireEvent.contextMenu(field);
-    fireEvent.click(await screen.findByText("Enable"));
-    await waitFor(() => expect(checkbox).toHaveProperty("checked", true));
-    fireEvent.contextMenu(field);
+  it("should disable and enable an endpoint through the context menu", async () => {
+    const { draft } = await renderWithDevice([
+      await createEndpoint({ key: "ep1", path: "/data", fields: [createField("v")] }),
+    ]);
+    const item = () => screen.findByRole("treeitem", { name: /\/data/ });
+    fireEvent.contextMenu(await item());
     fireEvent.click(await screen.findByText("Disable"));
-    await waitFor(() => expect(checkbox).toHaveProperty("checked", false));
+    await waitFor(async () =>
+      expect((await retrieveEndpoints(draft.key))[0].disabled).toBe(true),
+    );
+    fireEvent.contextMenu(await item());
+    fireEvent.click(await screen.findByText("Enable"));
+    await waitFor(async () =>
+      expect((await retrieveEndpoints(draft.key))[0].disabled).toBe(false),
+    );
   });
 
-  it("should add a field from the endpoint context menu", async () => {
-    await renderRead();
-    await addEndpoint();
-    fireEvent.contextMenu(screen.getByRole("treeitem", { name: /New endpoint/ }));
-    fireEvent.click(await screen.findByRole("menuitem", { name: "Add field" }));
-    await screen.findByRole("treeitem", { name: /New field/ });
-    expect(screen.getByPlaceholderText("/temperature")).toBeTruthy();
-  });
-
-  it("should select the entry below a removed field", async () => {
-    await renderRead();
-    await addEndpoint();
-    addField();
-    commitFieldInput(await screen.findByPlaceholderText("/temperature"), "/a");
-    addField();
-    await waitFor(() =>
-      expect(within(screen.getByRole("tree")).getAllByText("/a")).toHaveLength(2),
-    );
-    commitFieldInput(screen.getByPlaceholderText("/temperature"), "/b");
-    const tree = within(screen.getByRole("tree"));
-    fireEvent.click(await tree.findByText("/a"));
-    await waitFor(() =>
-      expect(screen.getByPlaceholderText("/temperature")).toHaveProperty("value", "/a"),
-    );
-    fireEvent.contextMenu(tree.getByRole("treeitem", { name: /\/a/ }));
+  it("should remove an endpoint through the context menu", async () => {
+    const { draft } = await renderWithDevice([
+      await createEndpoint({ key: "ep1", path: "/a" }),
+      await createEndpoint({ key: "ep2", path: "/b" }),
+    ]);
+    fireEvent.contextMenu(await screen.findByRole("treeitem", { name: /\/a/ }));
     fireEvent.click(await screen.findByText("Remove"));
-    await waitFor(() =>
-      expect(screen.getByPlaceholderText("/temperature")).toHaveProperty("value", "/b"),
-    );
-  });
-
-  it("should duplicate and delete endpoints through the context menu", async () => {
-    await renderRead();
-    await addEndpoint();
-    const path = screen.getByPlaceholderText("/api/data");
-    fireEvent.change(path, { target: { value: "/api/v1" } });
-    fireEvent.blur(path);
-    const item = await screen.findByRole("treeitem", { name: /\/api\/v1/ });
-    fireEvent.contextMenu(item);
-    fireEvent.click(await screen.findByText("Duplicate"));
-    await waitFor(() =>
-      expect(screen.getAllByRole("treeitem", { name: /\/api\/v1/ })).toHaveLength(2),
-    );
-    fireEvent.contextMenu(screen.getAllByRole("treeitem", { name: /\/api\/v1/ })[0]);
-    fireEvent.click(await screen.findByText("Remove"));
-    await waitFor(() =>
-      expect(screen.getAllByRole("treeitem", { name: /\/api\/v1/ })).toHaveLength(1),
+    await waitFor(async () =>
+      expect((await retrieveEndpoints(draft.key)).map(({ key }) => key)).toEqual([
+        "ep2",
+      ]),
     );
   });
 
   it("should offer Reload Console from the endpoint context menu", async () => {
-    await renderRead();
-    await addEndpoint();
-    const path = screen.getByPlaceholderText("/api/data");
-    fireEvent.change(path, { target: { value: "/api/v1" } });
-    fireEvent.blur(path);
+    await renderWithDevice([await createEndpoint({ key: "ep1", path: "/api/v1" })]);
     fireEvent.contextMenu(await screen.findByRole("treeitem", { name: /\/api\/v1/ }));
     expect(await screen.findByText("Reload Console")).toBeTruthy();
-  });
-
-  it("should tare a float field from its button while the task runs", async () => {
-    const client = createTestClient();
-    const dev = await createHTTPDevice(client);
-    const float = await client.channels.create({
-      name: uniqueName("tare"),
-      dataType: DataType.FLOAT32,
-      virtual: true,
-    });
-    const draft = await createDraft(
-      client,
-      createReadConfig(dev.key, [
-        {
-          ...http.readEndpointZ.parse({}),
-          key: "ep1",
-          path: "/data",
-          fields: [createReadField("f1", "/value", { channel: float.key })],
-        },
-      ]),
-    );
-    await reportTaskRunning(client, draft);
-    const args = await awaitTare(client, draft.key, async () => {
-      const { container } = await renderRead({ client, taskKey: draft.key });
-      fireEvent.click(await findIconButton(container, "tare"));
-    });
-    expect(args).toEqual({ keys: [float.key] });
-  });
-
-  it("should seed the form from the task row's config", async () => {
-    const client = createTestClient();
-    const dev = await createHTTPDevice(client);
-    const config = createReadConfig(dev.key, [
-      {
-        ...http.readEndpointZ.parse({}),
-        key: "ep1",
-        path: "/seeded",
-        fields: [createReadField("f1", "/temp")],
-      },
-    ]);
-    const draft = await createDraft(client, config);
-    await renderRead({ client, taskKey: draft.key });
-    await screen.findByRole("treeitem", { name: /\/seeded/ });
-  });
-
-  describe("fill value", () => {
-    const renderField = async (overrides: Partial<HTTP.Task.ReadField>) => {
-      const dev = await createHTTPDevice(client);
-      const draft = await createDraft(
-        client,
-        createReadConfig(dev.key, [
-          {
-            ...http.readEndpointZ.parse({}),
-            key: "ep1",
-            path: "/data",
-            fields: [createReadField("f1", "/value", overrides)],
-          },
-        ]),
-      );
-      const { container } = await renderRead({ client, taskKey: draft.key });
-      fireEvent.click(await screen.findByRole("treeitem", { name: /\/value/ }));
-      const deploy = async (): Promise<HTTP.Task.ReadField> => {
-        const created = await deployAndAwaitTask(
-          client,
-          container,
-          draft.key,
-          HTTP.Task.READ_SCHEMAS,
-        );
-        return created.config.endpoints[0].fields[0];
-      };
-      return { deploy };
-    };
-
-    const findFillValue = async (): Promise<HTMLInputElement> =>
-      await screen.findByRole<HTMLInputElement>("textbox", { name: "Fill value" });
-
-    it("should show the input only when the field is optional", async () => {
-      await renderField({});
-      const optional = await waitFor(() => getLabeledInput("Optional"));
-      expect(screen.queryByRole("textbox", { name: "Fill value" })).toBeNull();
-      fireEvent.click(optional);
-      await findFillValue();
-      fireEvent.click(optional);
-      await waitFor(() =>
-        expect(screen.queryByRole("textbox", { name: "Fill value" })).toBeNull(),
-      );
-    });
-
-    it("should store a numeric fill value of 0", async () => {
-      const { deploy } = await renderField({ optional: true });
-      commitFieldInput(await findFillValue(), "0");
-      const field = await deploy();
-      expect(field.optional).toBe(true);
-      expect(field.fillValue).toBe(0);
-    });
-
-    it("should store text on a string channel", async () => {
-      const { deploy } = await renderField({ optional: true, dataType: "string" });
-      commitFieldInput(await findFillValue(), "off");
-      expect((await deploy()).fillValue).toBe("off");
-    });
-
-    it("should store digits as text on a string channel", async () => {
-      const { deploy } = await renderField({ optional: true, dataType: "string" });
-      commitFieldInput(await findFillValue(), "5");
-      expect((await deploy()).fillValue).toBe("5");
-    });
-
-    it("should store an enum label as text on a numeric channel", async () => {
-      const { deploy } = await renderField({ optional: true });
-      commitFieldInput(await findFillValue(), "off");
-      expect((await deploy()).fillValue).toBe("off");
-    });
-
-    it("should hold a partial number until the input commits", async () => {
-      const { deploy } = await renderField({ optional: true });
-      const input = await findFillValue();
-      fireEvent.change(input, { target: { value: "1." } });
-      expect(input.value).toBe("1.");
-      commitFieldInput(input, "1.5");
-      expect((await deploy()).fillValue).toBe(1.5);
-    });
-
-    it.each([
-      { stored: "off", dataType: "float64", text: "off" },
-      { stored: false, dataType: "string", text: "false" },
-      { stored: true, dataType: "float64", text: "true" },
-    ])(
-      "should show and clear a stored $stored on a $dataType channel",
-      async ({ stored, dataType, text }) => {
-        const { deploy } = await renderField({
-          optional: true,
-          dataType,
-          fillValue: stored,
-        });
-        const input = await findFillValue();
-        await waitFor(() => expect(input.value).toBe(text));
-        commitFieldInput(input, "");
-        await waitFor(() => expect(input.value).toBe(""));
-        expect((await deploy()).fillValue).toBeUndefined();
-      },
-    );
-
-    it("should keep the stored type when the input blurs with no edit", async () => {
-      const { deploy } = await renderField({
-        optional: true,
-        dataType: "string",
-        fillValue: false,
-      });
-      const input = await findFillValue();
-      await waitFor(() => expect(input.value).toBe("false"));
-      fireEvent.focus(input);
-      fireEvent.blur(input);
-      expect((await deploy()).fillValue).toBe(false);
-    });
-
-    describe("bound to a channel", () => {
-      const createChannel = async (dataType: DataType) =>
-        await client.channels.create({
-          name: uniqueName("fill_value"),
-          dataType,
-          virtual: true,
-        });
-
-      it("should take text when the channel is a string channel", async () => {
-        const ch = await createChannel(DataType.STRING);
-        await renderField({ optional: true, channel: ch.key, dataType: "float64" });
-        const input = await screen.findByPlaceholderText<HTMLInputElement>("Required");
-        commitFieldInput(input, "off");
-        await waitFor(() => expect(input).toHaveProperty("value", "off"));
-      });
-
-      it("should show NaN when the channel is a float channel", async () => {
-        const ch = await createChannel(DataType.FLOAT32);
-        await renderField({ optional: true, channel: ch.key, dataType: "string" });
-        await screen.findByPlaceholderText("NaN");
-        expect(screen.queryByPlaceholderText("Required")).toBeNull();
-      });
-
-      it("should require a fill value when the channel is not a float", async () => {
-        const ch = await createChannel(DataType.INT32);
-        await renderField({ optional: true, channel: ch.key, dataType: "float64" });
-        await screen.findByPlaceholderText("Required");
-        expect(screen.queryByPlaceholderText("NaN")).toBeNull();
-      });
-
-      it("should show a string fill value on a numeric channel", async () => {
-        const ch = await createChannel(DataType.INT32);
-        await renderField({
-          optional: true,
-          channel: ch.key,
-          dataType: "string",
-          fillValue: "off",
-        });
-        const input = await findFillValue();
-        await waitFor(() => expect(input.value).toBe("off"));
-      });
-    });
-
-    it("should unset the fill value when the numeric input is emptied", async () => {
-      const { deploy } = await renderField({ optional: true, fillValue: 5 });
-      const input = await findFillValue();
-      await waitFor(() => expect(input.value).toBe("5"));
-      commitFieldInput(input, "");
-      await waitFor(() => expect(input.value).toBe(""));
-      expect((await deploy()).fillValue).toBeUndefined();
-    });
-
-    it("should unset the fill value when the string input is emptied", async () => {
-      const { deploy } = await renderField({
-        optional: true,
-        dataType: "string",
-        fillValue: "off",
-      });
-      const input = await findFillValue();
-      await waitFor(() => expect(input.value).toBe("off"));
-      commitFieldInput(input, "");
-      await waitFor(() => expect(input.value).toBe(""));
-      expect((await deploy()).fillValue).toBeUndefined();
-    });
-
-    it("should unset the fill value when Optional turns off", async () => {
-      const { deploy } = await renderField({ optional: true, fillValue: 5 });
-      await findFillValue();
-      fireEvent.click(getLabeledInput("Optional"));
-      await waitFor(() =>
-        expect(screen.queryByRole("textbox", { name: "Fill value" })).toBeNull(),
-      );
-      const field = await deploy();
-      expect(field.optional).toBe(false);
-      expect(field.fillValue).toBeUndefined();
-    });
   });
 
   it("should toggle the NaN fill switch", async () => {
@@ -607,555 +418,683 @@ describe("Read", () => {
     expect(toggle.checked).toBe(true);
   });
 
-  const client = createTestClient();
-
-  it("should create index, data, and virtual channels and persist them to the device", async () => {
+  it("should tare a float field from its button while the task runs", async () => {
+    const float = await client.channels.create({
+      name: uniqueName("tare"),
+      dataType: DataType.FLOAT32,
+      virtual: true,
+    });
+    const ep = await createEndpoint({
+      key: "ep1",
+      path: "/data",
+      fields: [createField("value")],
+    });
+    ep.messages[0].bindings[0].channel = float.key;
     const dev = await createHTTPDevice(client);
-    const config = createReadConfig(dev.key, [
-      {
-        ...http.readEndpointZ.parse({}),
-        key: "ep1",
-        path: "/data",
-        index: "tf",
-        fields: [
-          createReadField("f1", "/temperature"),
-          createReadField("f2", "/label", { dataType: "string" }),
-          createReadField("tf", "/ts", { timeFormat: "unix_sec" }),
-        ],
-      },
-    ]);
-    const draft = await createDraft(client, config);
-    const { container } = await renderRead({ client, taskKey: draft.key });
-    const created = await deployAndAwaitTask(
-      client,
-      container,
-      draft.key,
-      HTTP.Task.READ_SCHEMAS,
-    );
+    const draft = await createDraft(client, createReadConfig(dev.key, [ep]));
+    await reportTaskRunning(client, draft);
+    const args = await awaitTare(client, draft.key, async () => {
+      const { container } = await renderRead({ client, taskKey: draft.key });
+      fireEvent.click(await findIconButton(container, "tare"));
+    });
+    expect(args).toEqual({ keys: [float.key] });
+  });
 
-    const updated = await client.devices.retrieve({
+  it("should open each endpoint of a saved task with the fields it reads", async () => {
+    await renderWithDevice([
+      await createEndpoint({
+        key: "ep1",
+        path: "/plant",
+        fields: [createField("temperature"), createField("pressure")],
+      }),
+      await createEndpoint({
+        key: "ep2",
+        path: "/status",
+        fields: [createField("mode")],
+      }),
+    ]);
+    await screen.findByRole("treeitem", { name: /\/plant/ });
+    await screen.findByRole("treeitem", { name: /\/status/ });
+    const tree = screen.getByRole("tree");
+    for (const name of ["temperature", "pressure", "mode"])
+      expect(within(tree).getByText(name)).toBeTruthy();
+  });
+
+  it("should read a field again with the channel that the device stores for it", async () => {
+    const ch = await client.channels.create({
+      name: uniqueName("temperature"),
+      dataType: DataType.FLOAT64,
+      virtual: true,
+    });
+    const temperature = createField("temperature");
+    const ep = await createEndpoint({
+      key: "ep1",
+      path: "/data",
+      fields: [temperature],
+    });
+    const stored = { index: 0, channels: { "/temperature": ch.key } };
+    const { draft } = await renderWithDevice([ep], {
+      read: { [`/data#${ep.messages[0].message}`]: stored },
+    });
+    const bindings = async () =>
+      (await retrieveEndpoints(draft.key))[0].messages[0].bindings;
+    await readAgain("temperature", bindings);
+    await waitFor(async () =>
+      expect(await bindings()).toEqual([
+        { field: temperature.key, channel: ch.key, dataType: "" },
+      ]),
+    );
+  });
+
+  it("should keep the stored channel of a pointer when the message format changes", async () => {
+    const ch = await client.channels.create({
+      name: uniqueName("temperature"),
+      dataType: DataType.FLOAT64,
+      virtual: true,
+    });
+    const ep = await createEndpoint({
+      key: "ep1",
+      path: "/data",
+      fields: [createField("temperature")],
+    });
+    const next = createField("temperature");
+    const message: icd.Message = {
+      key: uuid.create(),
+      name: uniqueName("status"),
+      payload: { format: "json", fields: [next] },
+    };
+    const shared = await client.icds.create({
+      name: uniqueName("pump"),
+      messages: [message],
+    });
+    const stored = { index: 0, channels: { "/temperature": ch.key } };
+    const { draft } = await renderWithDevice([ep], {
+      read: { [`/data#${ep.messages[0].message}`]: stored },
+    });
+    fireEvent.click(await screen.findByRole("treeitem", { name: /\/data/ }));
+    await pickMessageFormat("GET /data", message.name, shared.name);
+    await waitFor(async () =>
+      expect((await retrieveEndpoints(draft.key))[0].messages).toEqual([
+        {
+          message: message.key,
+          bindings: [{ field: next.key, channel: ch.key, dataType: "" }],
+        },
+      ]),
+    );
+  });
+
+  it("should reuse the channel that an older Console stored under the path", async () => {
+    const ch = await client.channels.create({
+      name: uniqueName("temperature"),
+      dataType: DataType.FLOAT64,
+      virtual: true,
+    });
+    const temperature = createField("temperature");
+    const ep = await createEndpoint({
+      key: "ep1",
+      path: "/data",
+      fields: [temperature],
+    });
+    const { draft } = await renderWithDevice([ep], {
+      read: { "/data": { index: 0, channels: { "/temperature": ch.key } } },
+    });
+    const bindings = async () =>
+      (await retrieveEndpoints(draft.key))[0].messages[0].bindings;
+    await readAgain("temperature", bindings);
+    await waitFor(async () =>
+      expect(await bindings()).toEqual([
+        { field: temperature.key, channel: ch.key, dataType: "" },
+      ]),
+    );
+  });
+
+  it("should reuse a channel stored under the path for a second endpoint on it", async () => {
+    const [temperature, pressure] = await client.channels.create([
+      { name: uniqueName("temperature"), dataType: DataType.FLOAT64, virtual: true },
+      { name: uniqueName("pressure"), dataType: DataType.FLOAT64, virtual: true },
+    ]);
+    const first = await createEndpoint({
+      key: "ep1",
+      path: "/data",
+      fields: [createField("temperature")],
+    });
+    const pressureField = createField("pressure");
+    const second = await createEndpoint({
+      key: "ep2",
+      method: "POST",
+      path: "/data",
+      fields: [pressureField],
+    });
+    const channels = { "/temperature": temperature.key, "/pressure": pressure.key };
+    const { draft } = await renderWithDevice([first, second], {
+      read: { "/data": { index: 0, channels } },
+    });
+    const bindings = async () =>
+      (await retrieveEndpoints(draft.key))[1].messages[0].bindings;
+    await readAgain("pressure", bindings);
+    await waitFor(async () =>
+      expect(await bindings()).toEqual([
+        { field: pressureField.key, channel: pressure.key, dataType: "" },
+      ]),
+    );
+  });
+
+  it("should not reuse a stored channel that another endpoint reads", async () => {
+    const ch = await client.channels.create({
+      name: uniqueName("temperature"),
+      dataType: DataType.FLOAT64,
+      virtual: true,
+    });
+    const temperature = createField("temperature");
+    const ep = await createEndpoint({
+      key: "ep1",
+      path: "/data",
+      fields: [temperature],
+    });
+    const other = await createEndpoint({
+      key: "ep2",
+      path: "/other",
+      fields: [createField("reading")],
+    });
+    other.messages[0].bindings[0].channel = ch.key;
+    const stored = { index: 0, channels: { "/temperature": ch.key } };
+    const { draft } = await renderWithDevice([ep, other], {
+      read: { [`/data#${ep.messages[0].message}`]: stored },
+    });
+    const bindings = async () =>
+      (await retrieveEndpoints(draft.key))[0].messages[0].bindings;
+    await readAgain("temperature", bindings);
+    await waitFor(async () =>
+      expect(await bindings()).toEqual([
+        { field: temperature.key, channel: 0, dataType: "" },
+      ]),
+    );
+  });
+
+  it("should not reuse a stored channel of another endpoint with the same path", async () => {
+    const ch = await client.channels.create({
+      name: uniqueName("temperature"),
+      dataType: DataType.FLOAT64,
+      virtual: true,
+    });
+    const other = await createEndpoint({
+      key: "ep1",
+      method: "POST",
+      path: "/query",
+      disabled: true,
+      fields: [
+        icd.jsonFieldZ.parse({
+          name: "reading",
+          pointer: "/temperature",
+          type: "float",
+        }),
+      ],
+    });
+    other.messages[0].bindings[0].channel = ch.key;
+    const temperature = createField("temperature");
+    const ep = await createEndpoint({
+      key: "ep2",
+      method: "POST",
+      path: "/query",
+      fields: [temperature],
+    });
+    const stored = { index: 0, channels: { "/temperature": ch.key } };
+    const { draft } = await renderWithDevice([other, ep], {
+      read: { [`/query#${other.messages[0].message}`]: stored },
+    });
+    const bindings = async () =>
+      (await retrieveEndpoints(draft.key))[1].messages[0].bindings;
+    await readAgain("temperature", bindings);
+    await waitFor(async () =>
+      expect(await bindings()).toEqual([
+        { field: temperature.key, channel: 0, dataType: "" },
+      ]),
+    );
+  });
+
+  it("should not reuse a channel stored under the path that another endpoint binds", async () => {
+    const ch = await client.channels.create({
+      name: uniqueName("temperature"),
+      dataType: DataType.FLOAT64,
+      virtual: true,
+    });
+    const other = await createEndpoint({
+      key: "ep1",
+      method: "POST",
+      path: "/query",
+      disabled: true,
+      fields: [
+        icd.jsonFieldZ.parse({
+          name: "reading",
+          pointer: "/temperature",
+          type: "float",
+        }),
+      ],
+    });
+    other.messages[0].bindings[0].channel = ch.key;
+    const temperature = createField("temperature");
+    const ep = await createEndpoint({
+      key: "ep2",
+      method: "POST",
+      path: "/query",
+      fields: [temperature],
+    });
+    const { draft } = await renderWithDevice([other, ep], {
+      read: { "/query": { index: 0, channels: { "/temperature": ch.key } } },
+    });
+    const bindings = async () =>
+      (await retrieveEndpoints(draft.key))[1].messages[0].bindings;
+    await readAgain("temperature", bindings);
+    await waitFor(async () =>
+      expect(await bindings()).toEqual([
+        { field: temperature.key, channel: 0, dataType: "" },
+      ]),
+    );
+  });
+
+  it("should keep the channel of the first endpoint that reads a path and message", async () => {
+    const temperature = createField("temperature");
+    const first = await createEndpoint({
+      key: "ep1",
+      method: "POST",
+      path: "/query",
+      fields: [temperature],
+    });
+    const later: HTTP.Task.ReadEndpoint = {
+      ...http.readEndpointZ.parse({ key: "ep2", method: "POST", path: "/query" }),
+      icd: first.icd,
+      messages: [
+        icd.readMessageZ.parse({
+          message: first.messages[0].message,
+          bindings: [icd.readBindingZ.parse({ field: temperature.key })],
+        }),
+      ],
+    };
+    const { container, draft, dev } = await renderWithDevice([first, later]);
+    await screen.findAllByRole("treeitem", { name: /\/query/ });
+    const created = await deploy(container, draft.key);
+    const [kept, other] = created.config.endpoints.map(
+      ({ messages }) => messages[0].bindings[0].channel,
+    );
+    expect(kept).not.toBe(other);
+    const { properties } = await client.devices.retrieve({
       key: dev.key,
       schemas: HTTP.Device.SCHEMAS,
     });
-    const epProps = updated.properties.read["/data"];
-    expect(epProps.index).toBeGreaterThan(0);
-
-    const indexCh = await client.channels.retrieve(epProps.index);
-    expect(indexCh.name).toBe(`${dev.name}_data_time`);
-
-    const dataKey = epProps.channels["/temperature"];
-    const dataCh = await client.channels.retrieve(dataKey);
-    expect(dataCh.index).toBe(epProps.index);
-    expect(dataCh.name).toBe(`${dev.name}_data_temperature`);
-
-    const virtualKey = epProps.channels["/label"];
-    const virtualCh = await client.channels.retrieve(virtualKey);
-    expect(virtualCh.virtual).toBe(true);
-    expect(virtualCh.name).toBe(`${dev.name}_data_label`);
-
-    const fields = created.config.endpoints[0].fields;
-    expect(fields.find((f) => f.key === "f1")?.channel).toBe(dataKey);
-    expect(fields.find((f) => f.key === "f2")?.channel).toBe(virtualKey);
-    expect(fields.find((f) => f.key === "tf")?.channel).toBe(epProps.index);
-  });
-
-  it("should number a typed name that an earlier endpoint takes", async () => {
-    const dev = await createHTTPDevice(client);
-    const name = uniqueName("temperature");
-    const endpoint = (key: string, path: string): HTTP.Task.ReadEndpoint => ({
-      ...http.readEndpointZ.parse({}),
-      key,
-      path,
-      fields: [createReadField(`${key}_f`, "/temperature", { name })],
+    expect(
+      properties.read[`/query#${first.messages[0].message}`].channels["/temperature"],
+    ).toBe(kept);
+    const channelOf = async () =>
+      (await retrieveEndpoints(draft.key))[0].messages[0].bindings[0]?.channel;
+    const [item] = await screen.findAllByRole("treeitem", { name: /^temperature/ });
+    fireEvent.click(item);
+    const box = await within(item).findByRole<HTMLInputElement>("checkbox", {
+      name: "Read temperature",
     });
-    const draft = await createDraft(
-      client,
-      createReadConfig(dev.key, [endpoint("ep1", "/a"), endpoint("ep2", "/b")]),
-    );
-    const { container } = await renderRead({ client, taskKey: draft.key });
-    const created = await deployAndAwaitTask(
-      client,
-      container,
-      draft.key,
-      HTTP.Task.READ_SCHEMAS,
-    );
-    const names = await Promise.all(
-      created.config.endpoints.map(
-        async ({ fields }) => (await client.channels.retrieve(fields[0].channel)).name,
-      ),
-    );
-    expect(names).toEqual([name, `${name}_2`]);
+    await waitFor(() => expect(box.disabled).toBe(false));
+    fireEvent.click(box);
+    await waitFor(async () => expect(await channelOf()).toBeUndefined());
+    fireEvent.click(box);
+    await waitFor(async () => expect(await channelOf()).toBe(kept));
   });
 
-  it("should save the channels it created when a later channel fails", async () => {
-    const dev = await createHTTPDevice(client);
-    const config = createReadConfig(dev.key, [
-      {
-        ...http.readEndpointZ.parse({}),
-        key: "ep1",
-        path: "/data",
-        fields: [
-          createReadField("f1", "/temperature"),
-          createReadField("f2", "/pressure", { name: "bad.name" }),
-        ],
-      },
+  it("should not reuse a stored channel that the field does not convert to", async () => {
+    const ch = await client.channels.create({
+      name: uniqueName("mode"),
+      dataType: DataType.FLOAT64,
+      virtual: true,
+    });
+    const mode = createField("mode", "string");
+    const ep = await createEndpoint({ key: "ep1", path: "/data", fields: [mode] });
+    const stored = { index: 0, channels: { "/mode": ch.key } };
+    const { draft } = await renderWithDevice([ep], {
+      read: { [`/data#${ep.messages[0].message}`]: stored },
+    });
+    const bindings = async () =>
+      (await retrieveEndpoints(draft.key))[0].messages[0].bindings;
+    await readAgain("mode", bindings);
+    await waitFor(async () =>
+      expect(await bindings()).toEqual([{ field: mode.key, channel: 0, dataType: "" }]),
+    );
+  });
+
+  it("should not reuse a stored channel that no longer exists", async () => {
+    const ch = await client.channels.create({
+      name: uniqueName("temperature"),
+      dataType: DataType.FLOAT64,
+      virtual: true,
+    });
+    await client.channels.delete(ch.key);
+    const temperature = createField("temperature");
+    const ep = await createEndpoint({
+      key: "ep1",
+      path: "/data",
+      fields: [temperature],
+    });
+    const stored = { index: 0, channels: { "/temperature": ch.key } };
+    const { draft } = await renderWithDevice([ep], {
+      read: { [`/data#${ep.messages[0].message}`]: stored },
+    });
+    const bindings = async () =>
+      (await retrieveEndpoints(draft.key))[0].messages[0].bindings;
+    await readAgain("temperature", bindings);
+    await waitFor(async () =>
+      expect(await bindings()).toEqual([
+        { field: temperature.key, channel: 0, dataType: "" },
+      ]),
+    );
+  });
+
+  it("should wait for the data types of the stored channels before it binds", async () => {
+    const ch = await client.channels.create({
+      name: uniqueName("temperature"),
+      dataType: DataType.FLOAT64,
+      virtual: true,
+    });
+    const ep = await createEndpoint({
+      key: "ep1",
+      path: "/data",
+      fields: [createField("temperature")],
+    });
+    // A new client has no channels cached, so the form fetches the stored one.
+    const viewer = createTestClient();
+    await viewer.connect();
+    const { release } = holdRequests(viewer, "/channel/retrieve");
+    const stored = { index: 0, channels: { "/temperature": ch.key } };
+    await renderWithDevice(
+      [ep],
+      { read: { [`/data#${ep.messages[0].message}`]: stored } },
+      viewer,
+    );
+    fireEvent.click(await screen.findByRole("treeitem", { name: /\/data/ }));
+    const addField = await screen.findByRole("button", { name: "Add field" });
+    const format = await findDialogTriggerByText("GET /data");
+    const read = await screen.findByRole<HTMLInputElement>("checkbox", {
+      name: "Read temperature",
+    });
+    expect(addField.getAttribute("aria-disabled")).toBe("true");
+    expect(format.getAttribute("aria-disabled")).toBe("true");
+    expect(read.disabled).toBe(true);
+    release();
+    await waitFor(() => {
+      expect(addField.getAttribute("aria-disabled")).toBeNull();
+      expect(format.getAttribute("aria-disabled")).toBeNull();
+      expect(read.disabled).toBe(false);
+    });
+  });
+  it("should create and bind the channel of each field on deploy", async () => {
+    const ep = await createEndpoint({
+      key: "ep1",
+      path: "/data",
+      fields: [createField("v")],
+    });
+    const { container, draft, dev } = await renderWithDevice([ep]);
+    await screen.findByRole("treeitem", { name: /\/data/ });
+    const created = await deploy(container, draft.key);
+    const [{ messages }] = created.config.endpoints;
+    const [binding] = messages[0].bindings;
+    expect(binding.channel).not.toBe(0);
+    const ch = await client.channels.retrieve(binding.channel);
+    expect(ch.name).toBe(`${channel.escapeInvalidName(dev.name)}_data_v`);
+    const stored = await client.devices.retrieve({
+      key: dev.key,
+      schemas: HTTP.Device.SCHEMAS,
+    });
+    expect(Object.keys(stored.properties.read)).toEqual([
+      `/data#${messages[0].message}`,
     ]);
-    const draft = await createDraft(client, config);
-    const { container } = await renderRead({ client, taskKey: draft.key });
+  });
+
+  it("should name and store the channels of a later message by that message", async () => {
+    const ep = await createEndpoint({
+      key: "ep1",
+      path: "/data",
+      fields: [createField("v")],
+    });
+    const status = await addMessage(ep, "status", [createField("w")]);
+    const { container, draft, dev } = await renderWithDevice([ep]);
+    await screen.findAllByRole("treeitem", { name: /\/data/ });
+    const created = await deploy(container, draft.key);
+    const [, later] = created.config.endpoints[0].messages;
+    const ch = await client.channels.retrieve(later.bindings[0].channel);
+    expect(ch.name).toBe(`${channel.escapeInvalidName(dev.name)}_data_status_w`);
+    const stored = await client.devices.retrieve({
+      key: dev.key,
+      schemas: HTTP.Device.SCHEMAS,
+    });
+    expect(stored.properties.read[`/data#${status.key}`].channels).toEqual({
+      "/w": ch.key,
+    });
+  });
+
+  it("should deploy with the channels stored under the path and move them to the message", async () => {
+    const time = await client.channels.create({
+      name: uniqueName("time"),
+      dataType: DataType.TIMESTAMP,
+      isIndex: true,
+    });
+    const ch = await client.channels.create({
+      name: uniqueName("temperature"),
+      dataType: DataType.FLOAT64,
+      index: time.key,
+    });
+    const ep = await createEndpoint({
+      key: "ep1",
+      path: "/data",
+      fields: [createField("temperature")],
+    });
+    const stored = { index: time.key, channels: { "/temperature": ch.key } };
+    const { container, draft, dev } = await renderWithDevice([ep], {
+      read: { "/data": stored },
+    });
+    await screen.findByRole("treeitem", { name: /\/data/ });
+    const created = await deploy(container, draft.key);
+    expect(created.config.endpoints[0].messages[0].bindings[0].channel).toBe(ch.key);
+    const { properties } = await client.devices.retrieve({
+      key: dev.key,
+      schemas: HTTP.Device.SCHEMAS,
+    });
+    expect(properties.read).toEqual({
+      [`/data#${ep.messages[0].message}`]: stored,
+    });
+  });
+
+  it("should deploy a new channel for a field whose stored channel a disabled endpoint binds", async () => {
+    const ch = await client.channels.create({
+      name: uniqueName("temperature"),
+      dataType: DataType.FLOAT64,
+      virtual: true,
+    });
+    const other = await createEndpoint({
+      key: "ep1",
+      method: "POST",
+      path: "/query",
+      disabled: true,
+      fields: [createField("temperature")],
+    });
+    other.messages[0].bindings[0].channel = ch.key;
+    const ep = await createEndpoint({
+      key: "ep2",
+      path: "/query",
+      fields: [createField("temperature")],
+    });
+    const stored = { index: 0, channels: { "/temperature": ch.key } };
+    const { container, draft, dev } = await renderWithDevice([other, ep], {
+      read: { "/query": stored },
+    });
+    await screen.findAllByRole("treeitem", { name: /\/query/ });
+    const created = await deploy(container, draft.key);
+    const bound = created.config.endpoints[1].messages[0].bindings[0].channel;
+    expect(bound).not.toBe(0);
+    expect(bound).not.toBe(ch.key);
+    const { properties } = await client.devices.retrieve({
+      key: dev.key,
+      schemas: HTTP.Device.SCHEMAS,
+    });
+    expect(properties.read[`/query#${other.messages[0].message}`]).toEqual(stored);
+    expect(properties.read).not.toHaveProperty("/query");
+  });
+
+  it("should store the channels under a path for each endpoint that reads it, disabled ones too", async () => {
+    const time = await client.channels.create({
+      name: uniqueName("time"),
+      dataType: DataType.TIMESTAMP,
+      isIndex: true,
+    });
+    const [a, b] = await client.channels.create([
+      { name: uniqueName("a"), dataType: DataType.FLOAT64, index: time.key },
+      { name: uniqueName("b"), dataType: DataType.FLOAT64, index: time.key },
+    ]);
+    const first = await createEndpoint({
+      key: "ep1",
+      path: "/data",
+      fields: [createField("a")],
+    });
+    first.messages[0].bindings[0].channel = a.key;
+    const second = await createEndpoint({
+      key: "ep2",
+      method: "POST",
+      path: "/data",
+      disabled: true,
+      fields: [createField("b")],
+    });
+    second.messages[0].bindings[0].channel = b.key;
+    const stored = { index: time.key, channels: { "/a": a.key, "/b": b.key } };
+    const { container, draft, dev } = await renderWithDevice([first, second], {
+      read: { "/data": stored },
+    });
+    await screen.findAllByRole("treeitem", { name: /\/data/ });
+    const created = await deploy(container, draft.key);
+    expect(created.config.endpoints[0].messages[0].bindings[0].channel).toBe(a.key);
+    const { properties } = await client.devices.retrieve({
+      key: dev.key,
+      schemas: HTTP.Device.SCHEMAS,
+    });
+    expect(properties.read).toEqual({
+      [`/data#${first.messages[0].message}`]: stored,
+      [`/data#${second.messages[0].message}`]: { index: 0, channels: { "/b": b.key } },
+    });
+  });
+
+  it("should keep the channel and index of an enabled endpoint before a disabled one", async () => {
+    const time = await client.channels.create({
+      name: uniqueName("time"),
+      dataType: DataType.TIMESTAMP,
+      isIndex: true,
+    });
+    const [a, b] = await client.channels.create([
+      { name: uniqueName("a"), dataType: DataType.FLOAT64, index: time.key },
+      { name: uniqueName("b"), dataType: DataType.FLOAT64, index: time.key },
+    ]);
+    const disabled = await createEndpoint({
+      key: "ep1",
+      path: "/data",
+      disabled: true,
+      fields: [createField("a")],
+    });
+    disabled.messages[0].bindings[0].channel = a.key;
+    const enabled = await createEndpoint({
+      key: "ep2",
+      method: "POST",
+      path: "/data",
+      fields: [createField("b")],
+    });
+    enabled.messages[0].bindings[0].channel = b.key;
+    const stored = { index: time.key, channels: { "/a": a.key, "/b": b.key } };
+    const { container, draft, dev } = await renderWithDevice([disabled, enabled], {
+      read: { "/data": stored },
+    });
+    await screen.findAllByRole("treeitem", { name: /\/data/ });
+    const created = await deploy(container, draft.key);
+    expect(created.config.endpoints[1].messages[0].bindings[0].channel).toBe(b.key);
+    const { properties } = await client.devices.retrieve({
+      key: dev.key,
+      schemas: HTTP.Device.SCHEMAS,
+    });
+    expect(properties.read).toEqual({
+      [`/data#${disabled.messages[0].message}`]: {
+        index: 0,
+        channels: { "/a": a.key },
+      },
+      [`/data#${enabled.messages[0].message}`]: stored,
+    });
+  });
+
+  it("should keep the channels of an earlier message when a later one fails", async () => {
+    const time = await client.channels.create({
+      name: uniqueName("time"),
+      dataType: DataType.TIMESTAMP,
+      isIndex: true,
+    });
+    const notIndex = await client.channels.create({
+      name: uniqueName("not_index"),
+      dataType: DataType.FLOAT64,
+      index: time.key,
+    });
+    const ep = await createEndpoint({
+      key: "ep1",
+      path: "/data",
+      fields: [createField("v")],
+    });
+    const failing = await addMessage(ep, "failing", [createField("w")]);
+    const { container, dev } = await renderWithDevice([ep], {
+      read: { [`/data#${failing.key}`]: { index: notIndex.key, channels: {} } },
+    });
+    await screen.findAllByRole("treeitem", { name: /\/data/ });
     await clickDeploy(container);
-    await waitFor(async () => {
-      const updated = await client.devices.retrieve({
+    const kept = await waitFor(async () => {
+      const { properties } = await client.devices.retrieve({
         key: dev.key,
         schemas: HTTP.Device.SCHEMAS,
       });
-      const epProps = updated.properties.read["/data"];
-      expect(epProps.index).toBeGreaterThan(0);
-      expect(Object.keys(epProps.channels)).toEqual(["/temperature"]);
+      const channels = properties.read[`/data#${ep.messages[0].message}`]?.channels;
+      expect(channels?.["/v"]).toBeGreaterThan(0);
+      return channels["/v"];
     });
+    const ch = await client.channels.retrieve(kept);
+    expect(ch.name).toBe(`${channel.escapeInvalidName(dev.name)}_data_v`);
   });
 
-  it("should rename a field's existing channel from the details pane", async () => {
-    const dev = await createHTTPDevice(client);
-    const ch = await client.channels.create({
-      name: uniqueName("http_read"),
-      dataType: "float64",
-      virtual: true,
-    });
-    const config = createReadConfig(dev.key, [
-      {
-        ...http.readEndpointZ.parse({}),
-        key: "ep1",
-        path: "/data",
-        fields: [createReadField("f1", "/temperature", { channel: ch.key })],
-      },
-    ]);
-    const draft = await createDraft(client, config);
-    await renderRead({ client, taskKey: draft.key });
-    fireEvent.click(await screen.findByRole("treeitem", { name: /\/temperature/ }));
-    const field = await screen.findByRole<HTMLInputElement>("textbox", {
-      name: "Channel",
-    });
-    await waitFor(() => expect(field.value).toBe(ch.name));
-    const renamed = uniqueName("http_renamed");
-    fireEvent.change(field, { target: { value: renamed } });
-    fireEvent.blur(field);
-    await waitFor(async () =>
-      expect((await client.channels.retrieve(ch.key)).name).toBe(renamed),
-    );
-  });
-
-  it("should keep a duplicated endpoint's timestamp bound to the index", async () => {
-    const dev = await createHTTPDevice(client);
-    const config = createReadConfig(dev.key, [
-      {
-        ...http.readEndpointZ.parse({}),
-        key: "ep1",
-        path: "/data",
-        index: "tf",
-        fields: [
-          createReadField("f1", "/temperature"),
-          createReadField("tf", "/ts", { timeFormat: "unix_sec" }),
-        ],
-      },
-    ]);
-    const draft = await createDraft(client, config);
-    const { container } = await renderRead({ client, taskKey: draft.key });
-    fireEvent.contextMenu(await screen.findByRole("treeitem", { name: /\/data/ }));
-    fireEvent.click(await screen.findByText("Duplicate"));
-    await waitFor(() =>
-      expect(screen.getAllByRole("treeitem", { name: /\/data/ })).toHaveLength(2),
-    );
-    const created = await deployAndAwaitTask(
-      client,
-      container,
-      draft.key,
-      HTTP.Task.READ_SCHEMAS,
-    );
-    const updated = await client.devices.retrieve({
-      key: dev.key,
-      schemas: HTTP.Device.SCHEMAS,
-    });
-    const copy = created.config.endpoints[1];
-    const timing = copy.fields.find((f) => f.timeFormat != null);
-    expect(copy.index).toBe(timing?.key);
-    expect(timing?.channel).toBe(updated.properties.read["/data"].index);
-  });
-
-  it("should give a later endpoint with the same path the channels of the first", async () => {
-    const dev = await createHTTPDevice(client);
-    const endpoint = (key: string) => ({
-      ...http.readEndpointZ.parse({}),
-      key,
+  it("should skip a disabled endpoint on deploy", async () => {
+    const ep = await createEndpoint({
+      key: "ep1",
       path: "/data",
-      index: `${key}_time`,
-      fields: [
-        createReadField(`${key}_temperature`, "/temperature"),
-        createReadField(`${key}_time`, "/ts", { timeFormat: "unix_sec" }),
-      ],
+      disabled: true,
+      fields: [createField("v")],
     });
-    const draft = await createDraft(
-      client,
-      createReadConfig(dev.key, [endpoint("ep1"), endpoint("ep2")]),
-    );
-    const { container } = await renderRead({ client, taskKey: draft.key });
-    const created = await deployAndAwaitTask(
-      client,
-      container,
-      draft.key,
-      HTTP.Task.READ_SCHEMAS,
-    );
-    const [first, second] = created.config.endpoints.map(({ fields }) =>
-      fields.map(({ channel }) => channel),
-    );
-    expect(second).toEqual(first);
-    const names = (await client.channels.retrieve({ searchTerm: dev.name })).map(
-      ({ name }) => name,
-    );
-    expect(names.filter((name) => name.endsWith("_2"))).toEqual([]);
-    const updated = await client.devices.retrieve({
-      key: dev.key,
-      schemas: HTTP.Device.SCHEMAS,
-    });
-    expect(updated.properties.read["/data"]).toEqual({
-      index: first[1],
-      channels: { "/temperature": first[0] },
-    });
-  });
-
-  it("should bind a new field to the channel the device already stores", async () => {
-    const dev = await createHTTPDevice(client);
-    const idxCh = await client.channels.create({
-      name: uniqueName("http_idx"),
-      dataType: "timestamp",
-      isIndex: true,
-    });
-    const dataCh = await client.channels.create({
-      name: uniqueName("http_data"),
-      dataType: "float64",
-      index: idxCh.key,
-    });
-    const properties = {
-      ...HTTP.Device.ZERO_PROPERTIES,
-      read: {
-        "/data": { index: idxCh.key, channels: { "/temperature": dataCh.key } },
-      },
-    };
-    await Device.setProperties(
-      client,
-      { key: dev.key, properties },
-      HTTP.Device.ZERO_PROPERTIES,
-      HTTP.Device.SCHEMAS,
-    );
-    const draft = await createDraft(
-      client,
-      createReadConfig(dev.key, [
-        {
-          ...http.readEndpointZ.parse({}),
-          key: "ep1",
-          path: "/data",
-          fields: [createReadField("f1", "/temperature")],
-        },
-      ]),
-    );
-    await renderRead({ client, taskKey: draft.key });
-    await waitFor(async () => {
-      const saved = await client.tasks.retrieve({
-        key: draft.key,
-        schemas: HTTP.Task.READ_SCHEMAS,
-      });
-      expect(saved.config.endpoints[0].fields[0].channel).toBe(dataCh.key);
-    });
-  });
-
-  it("should lock the data type of a field bound to a channel", async () => {
-    const dev = await createHTTPDevice(client);
-    const idxCh = await client.channels.create({
-      name: uniqueName("http_idx"),
-      dataType: "timestamp",
-      isIndex: true,
-    });
-    const dataCh = await client.channels.create({
-      name: uniqueName("http_data"),
-      dataType: "float64",
-      index: idxCh.key,
-    });
-    const properties = {
-      ...HTTP.Device.ZERO_PROPERTIES,
-      read: {
-        "/data": { index: idxCh.key, channels: { "/temperature": dataCh.key } },
-      },
-    };
-    await Device.setProperties(
-      client,
-      { key: dev.key, properties },
-      HTTP.Device.ZERO_PROPERTIES,
-      HTTP.Device.SCHEMAS,
-    );
-    const draft = await createDraft(
-      client,
-      createReadConfig(dev.key, [
-        {
-          ...http.readEndpointZ.parse({}),
-          key: "ep1",
-          path: "/data",
-          fields: [createReadField("f1", "/temperature")],
-        },
-      ]),
-    );
-    await renderRead({ client, taskKey: draft.key });
-    fireEvent.click(await screen.findByRole("treeitem", { name: /\/temperature/ }));
-    await screen.findByText("Set on the channel");
-  });
-
-  it("should bind the fields of every endpoint on open, not only the selected one", async () => {
-    const dev = await createHTTPDevice(client);
-    const idxCh = await client.channels.create({
-      name: uniqueName("http_idx"),
-      dataType: "timestamp",
-      isIndex: true,
-    });
-    const [firstCh, secondCh] = await Promise.all(
-      ["http_first", "http_second"].map(
-        async (prefix) =>
-          await client.channels.create({
-            name: uniqueName(prefix),
-            dataType: "float64",
-            index: idxCh.key,
-          }),
-      ),
-    );
-    const properties = {
-      ...HTTP.Device.ZERO_PROPERTIES,
-      read: {
-        "/first": { index: idxCh.key, channels: { "/temperature": firstCh.key } },
-        "/second": { index: idxCh.key, channels: { "/temperature": secondCh.key } },
-      },
-    };
-    await Device.setProperties(
-      client,
-      { key: dev.key, properties },
-      HTTP.Device.ZERO_PROPERTIES,
-      HTTP.Device.SCHEMAS,
-    );
-    const endpoint = (key: string, path: string) => ({
-      ...http.readEndpointZ.parse({}),
-      key,
-      path,
-      fields: [createReadField(`${key}_f`, "/temperature")],
-    });
-    const draft = await createDraft(
-      client,
-      createReadConfig(dev.key, [
-        endpoint("ep1", "/first"),
-        endpoint("ep2", "/second"),
-      ]),
-    );
-    await renderRead({ client, taskKey: draft.key });
-    // The form opens on the first endpoint, so the second one's field shows whether
-    // binding reached an endpoint nobody selected.
-    const fields = await screen.findAllByRole("treeitem", { name: /\/temperature/ });
-    fireEvent.click(fields[1]);
-    await screen.findByDisplayValue(secondCh.name);
-    await waitFor(async () => {
-      const saved = await client.tasks.retrieve({
-        key: draft.key,
-        schemas: HTTP.Task.READ_SCHEMAS,
-      });
-      expect(saved.config.endpoints.map((ep) => ep.fields[0].channel)).toEqual([
-        firstCh.key,
-        secondCh.key,
-      ]);
-    });
-  });
-
-  it("should follow a path edit to the channel the new path maps, or to none", async () => {
-    const dev = await createHTTPDevice(client);
-    const idxCh = await client.channels.create({
-      name: uniqueName("http_idx"),
-      dataType: "timestamp",
-      isIndex: true,
-    });
-    const [dataCh, otherCh] = await Promise.all(
-      ["http_data", "http_other"].map(
-        async (prefix) =>
-          await client.channels.create({
-            name: uniqueName(prefix),
-            dataType: "float64",
-            index: idxCh.key,
-          }),
-      ),
-    );
-    const properties = {
-      ...HTTP.Device.ZERO_PROPERTIES,
-      read: {
-        "/data": { index: idxCh.key, channels: { "/temperature": dataCh.key } },
-        "/other": { index: idxCh.key, channels: { "/temperature": otherCh.key } },
-      },
-    };
-    await Device.setProperties(
-      client,
-      { key: dev.key, properties },
-      HTTP.Device.ZERO_PROPERTIES,
-      HTTP.Device.SCHEMAS,
-    );
-    const draft = await createDraft(
-      client,
-      createReadConfig(dev.key, [
-        {
-          ...http.readEndpointZ.parse({}),
-          key: "ep1",
-          path: "/data",
-          fields: [createReadField("f1", "/temperature")],
-        },
-      ]),
-    );
-    await renderRead({ client, taskKey: draft.key });
-    const selectField = () =>
-      fireEvent.click(screen.getByRole("treeitem", { name: /\/temperature/ }));
-    const selectEndpoint = (path: RegExp) =>
-      fireEvent.click(screen.getByRole("treeitem", { name: path }));
-    fireEvent.click(await screen.findByRole("treeitem", { name: /\/temperature/ }));
-    await screen.findByDisplayValue(dataCh.name);
-    const savedChannel = async () =>
-      (
-        await client.tasks.retrieve({
-          key: draft.key,
-          schemas: HTTP.Task.READ_SCHEMAS,
-        })
-      ).config.endpoints[0].fields[0].channel;
-    selectEndpoint(/\/data/);
-    commitFieldInput(await screen.findByDisplayValue("/data"), "/other");
-    await waitFor(async () => expect(await savedChannel()).toBe(otherCh.key));
-    selectField();
-    await screen.findByDisplayValue(otherCh.name);
-    selectEndpoint(/\/other/);
-    commitFieldInput(await screen.findByDisplayValue("/other"), "/none");
-    await waitFor(async () => expect(await savedChannel()).toBe(0));
-    selectField();
-    await screen.findByPlaceholderText("/temperature");
-    expect(screen.queryByDisplayValue(otherCh.name)).toBeNull();
-  });
-
-  it("should reuse channels already stored on the device instead of creating new ones", async () => {
-    const dev = await createHTTPDevice(client);
-    const idxCh = await client.channels.create({
-      name: uniqueName("http_idx"),
-      dataType: "timestamp",
-      isIndex: true,
-    });
-    const dataCh = await client.channels.create({
-      name: uniqueName("http_data"),
-      dataType: "float64",
-      index: idxCh.key,
-    });
-    const properties = {
-      ...HTTP.Device.ZERO_PROPERTIES,
-      read: {
-        "/data": { index: idxCh.key, channels: { "/temperature": dataCh.key } },
-      },
-    };
-    await Device.setProperties(
-      client,
-      { key: dev.key, properties },
-      HTTP.Device.ZERO_PROPERTIES,
-      HTTP.Device.SCHEMAS,
-    );
-    const config = createReadConfig(dev.key, [
-      {
-        ...http.readEndpointZ.parse({}),
-        key: "ep1",
-        path: "/data",
-        fields: [createReadField("f1", "/temperature")],
-      },
-    ]);
-    const draft = await createDraft(client, config);
-    const { container } = await renderRead({ client, taskKey: draft.key });
-    const created = await deployAndAwaitTask(
-      client,
-      container,
-      draft.key,
-      HTTP.Task.READ_SCHEMAS,
-    );
-    expect(created.config.endpoints[0].fields[0].channel).toBe(dataCh.key);
+    const { container, draft } = await renderWithDevice([ep]);
+    await screen.findByRole("treeitem", { name: /\/data/ });
+    const created = await deploy(container, draft.key);
+    expect(created.config.endpoints[0].messages[0].bindings[0].channel).toBe(0);
   });
 
   it("should drop a request body left over from POST when the method switches to GET", async () => {
-    const dev = await createHTTPDevice(client);
-    const config = createReadConfig(dev.key, [
-      {
-        ...http.readEndpointZ.parse({}),
+    const { container, draft } = await renderWithDevice([
+      await createEndpoint({
         key: "ep1",
         path: "/switched",
         method: "POST",
         body: '{"query": "latest"}',
-        fields: [createReadField("f1", "/temperature")],
-      },
-      {
-        ...http.readEndpointZ.parse({}),
+        fields: [createField("temperature")],
+      }),
+      await createEndpoint({
         key: "ep2",
         path: "/kept",
         method: "POST",
         body: '{"query": "kept"}',
-        fields: [createReadField("f2", "/pressure")],
-      },
+        fields: [createField("pressure")],
+      }),
     ]);
-    const draft = await createDraft(client, config);
-    const { container } = await renderRead({ client, taskKey: draft.key });
     fireEvent.click(await screen.findByRole("treeitem", { name: /\/switched/ }));
     await screen.findByDisplayValue('{"query": "latest"}');
     fireEvent.click(screen.getByRole("button", { name: "GET" }));
     await waitFor(() =>
       expect(screen.queryByDisplayValue('{"query": "latest"}')).toBeNull(),
     );
-    const created = await deployAndAwaitTask(
-      client,
-      container,
-      draft.key,
-      HTTP.Task.READ_SCHEMAS,
-    );
+    const created = await deploy(container, draft.key);
     const endpoints = created.config.endpoints;
     expect(endpoints.find((e) => e.key === "ep1")?.body).toBe("");
     expect(endpoints.find((e) => e.key === "ep2")?.body).toBe('{"query": "kept"}');
-  });
-
-  it("should recover the index from an existing data channel when the stored index is gone", async () => {
-    const dev = await createHTTPDevice(client);
-    const idxCh = await client.channels.create({
-      name: uniqueName("http_idx"),
-      dataType: "timestamp",
-      isIndex: true,
-    });
-    const dataCh = await client.channels.create({
-      name: uniqueName("http_data"),
-      dataType: "float64",
-      index: idxCh.key,
-    });
-    const properties = {
-      ...HTTP.Device.ZERO_PROPERTIES,
-      read: { "/data": { index: 0, channels: { "/existing": dataCh.key } } },
-    };
-    await Device.setProperties(
-      client,
-      { key: dev.key, properties },
-      HTTP.Device.ZERO_PROPERTIES,
-      HTTP.Device.SCHEMAS,
-    );
-    const config = createReadConfig(dev.key, [
-      {
-        ...http.readEndpointZ.parse({}),
-        key: "ep1",
-        path: "/data",
-        fields: [createReadField("f1", "/temperature")],
-      },
-    ]);
-    const draft = await createDraft(client, config);
-    const { container } = await renderRead({ client, taskKey: draft.key });
-    await deployAndAwaitTask(client, container, draft.key, HTTP.Task.READ_SCHEMAS);
-    const updated = await client.devices.retrieve({
-      key: dev.key,
-      schemas: HTTP.Device.SCHEMAS,
-    });
-    expect(updated.properties.read["/data"].index).toBe(idxCh.key);
   });
 });
 
@@ -1175,5 +1114,27 @@ describe("plotChannels", () => {
       ],
     };
     expect(plotChannels(config)).toEqual([1, 3]);
+  });
+
+  it("should find the bound channels of each enabled endpoint that reads an ICD", () => {
+    const plotChannels = HTTP.Task.INTEGRATION.plotChannels?.[HTTP.Task.READ_TYPE];
+    assertDefined(plotChannels, "read tasks have no channels to plot");
+    const endpoint = (disabled: boolean, ...channels: number[][]) => ({
+      disabled,
+      icd: uuid.create(),
+      messages: channels.map((keys) => ({
+        message: uuid.create(),
+        bindings: keys.map((channel) => ({ field: uuid.create(), channel })),
+      })),
+    });
+    const config = {
+      endpoints: [
+        endpoint(false, [1, 0], [2]),
+        endpoint(true, [3]),
+        { disabled: true, fields: [{ channel: 4, disabled: false }] },
+        { fields: [{ channel: 5, disabled: false }] },
+      ],
+    };
+    expect(plotChannels(config)).toEqual([1, 2, 5]);
   });
 });

@@ -55,7 +55,7 @@ import {
 } from "@/ranger/where.gen";
 import { Writer } from "@/ranger/writer";
 import type { resource } from "@/resource";
-import { checkForMultipleOrNoResults } from "@/util/retrieve";
+import { util } from "@/util";
 
 export const ACTION_CHANNEL_NAME = "sy_range_action_set";
 export const DELETE_CHANNEL_NAME = "sy_range_delete";
@@ -496,7 +496,12 @@ export class Client extends query.Retriever<
     const cached = this.store.get(key);
     if (cached != null) return cached;
     const ranges = await this.store.retrieve([key]);
-    checkForMultipleOrNoResults("range", { where: { key: { eq: key } } }, ranges, true);
+    util.checkForMultipleOrNoResults(
+      "range",
+      { where: { key: { eq: key } } },
+      ranges,
+      true,
+    );
     return ranges[0];
   }
 

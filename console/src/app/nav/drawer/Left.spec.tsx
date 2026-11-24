@@ -7,7 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createEmptyRole, createTestClientAs } from "@synnaxlabs/client/testutil";
+import {
+  createEmptyRole,
+  createTestClientAs,
+  createTestUser,
+} from "@synnaxlabs/client/testutil";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { within } from "@testing-library/react";
@@ -21,9 +25,11 @@ import type { ConsolePreloadedState } from "@/testutil";
 // A user whose role holds no policies, so they may open no toolbar.
 const createUnprivilegedClient = async () => {
   const { key: role } = await createEmptyRole(client);
-  const username = uniqueName("user");
-  await client.users.create({ username, password: "password123", role });
-  return createTestClientAs(username, "password123");
+  const { username, password } = await createTestUser(client, {
+    role,
+    username: uniqueName("user"),
+  });
+  return createTestClientAs(username, password);
 };
 
 const withSelected = (key: string): ConsolePreloadedState =>

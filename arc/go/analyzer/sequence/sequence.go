@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/flow"
 	"github.com/synnaxlabs/arc/analyzer/statement"
+	"github.com/synnaxlabs/arc/formatter"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
@@ -203,7 +204,9 @@ func registerInlineBody(
 		id = d.IDENTIFIER()
 	}
 	if id != nil {
-		ctx.Diagnostics.Add(codes.NamedInlineBody.At(decl))
+		ctx.Diagnostics.Add(codes.NamedInlineBody.At(decl).WithEdits(
+			"Remove name", formatter.RemoveToken(id.GetSymbol()),
+		))
 		return nil
 	}
 	synth, err := parentScope.Add(ctx, symbol.Symbol{

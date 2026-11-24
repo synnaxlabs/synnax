@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/tetratelabs/wazero"
 )
@@ -101,7 +102,7 @@ var _ = Describe("Quoted channel names in a calculation", Ordered, func() {
 				ref = "'" + base.Name + "'"
 			}
 			Expect(doubled(ctx, base, "return "+ref+" * 2")).
-				To(telem.MatchSeriesDataV[int64](20, 40, 60))
+				To(MatchSeriesDataV[int64](20, 40, 60))
 		},
 		Entry("by its bare name", false),
 		Entry("by its quoted name", true),
@@ -112,6 +113,6 @@ var _ = Describe("Quoted channel names in a calculation", Ordered, func() {
 	) {
 		base := newBase(ctx)
 		Expect(doubled(ctx, base, "return "+base.Name+" + '"+base.Name+"'")).
-			To(telem.MatchSeriesDataV[int64](20, 40, 60))
+			To(MatchSeriesDataV[int64](20, 40, 60))
 	})
 })

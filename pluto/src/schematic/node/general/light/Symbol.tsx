@@ -16,7 +16,7 @@ import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
 import { Stale } from "@/schematic/node/common/stale";
 import { Telem } from "@/schematic/node/common/telem";
-import { Light, WIDTH_PER_SCALE } from "@/schematic/node/general/light/Primitive";
+import { Primitive } from "@/schematic/node/general/light/primitive";
 import type { NodeProps } from "@/schematic/node/spec";
 import { Light as BaseLight } from "@/vis/light";
 
@@ -47,12 +47,14 @@ export const Symbol = ({
       editable={selected}
       nodeKey={nodeKey}
       keepAspectRatio
-      onResize={({ width }) => onConfigChange({ scale: width / WIDTH_PER_SCALE })}
+      onResize={({ width }) =>
+        onConfigChange({ scale: width / Primitive.WIDTH_PER_SCALE })
+      }
     >
       <Label.Label config={label} onChange={onConfigChange} />
       {stale && <Stale.Indicator />}
       {deleted && <Deleted.Item />}
-      <Light enabled={enabled} orientation={orientation} {...rest} />
+      <Primitive.Light enabled={enabled} orientation={orientation} {...rest} />
     </Grid.Grid>
   );
 };

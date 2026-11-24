@@ -29,7 +29,6 @@
     /* The add button stays quiet until the group is hovered or chosen, so a long list
        reads as data rather than a column of buttons. */
     .console-group-item__add {
-        margin-left: auto;
         opacity: 0;
     }
 
@@ -49,7 +48,8 @@
     }
 }
 
-.console-field-pointer {
+.console-field-pointer,
+.console-group-item__label {
     min-width: 0;
     flex-grow: 1;
 }

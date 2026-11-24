@@ -25,6 +25,7 @@ import type { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
 export const DEFAULT_READ_NAME = "MQTT read task";
+export const DEFAULT_WRITE_NAME = "MQTT write task";
 
 const getReadInitialValues: Task.GetInitialValues<ReadSchemas> = ({
   deviceKey,
@@ -54,7 +55,7 @@ const getWriteInitialValues: Task.GetInitialValues<WriteSchemas> = ({
 }) => {
   const cfg = WRITE_SCHEMAS.config.parse(config ?? {});
   if (deviceKey != null) cfg.device = deviceKey;
-  return { name: "MQTT write task", type: WRITE_TYPE, config: cfg };
+  return { name: DEFAULT_WRITE_NAME, type: WRITE_TYPE, config: cfg };
 };
 
 export const useCreateWrite = Task.createUseCreate({
@@ -64,7 +65,7 @@ export const useCreateWrite = Task.createUseCreate({
 
 export const WriteSelectable: Selector.Selectable = {
   type: WRITE_TYPE,
-  title: "MQTT write task",
+  title: DEFAULT_WRITE_NAME,
   label: "Write",
   icon: <Icon.Logo.MQTT />,
   useOnSelect: useCreateWrite,
