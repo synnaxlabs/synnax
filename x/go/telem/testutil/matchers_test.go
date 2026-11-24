@@ -133,6 +133,28 @@ TimeRange:
 			Expect(diff).ToNot(ContainSubstring("Data:"))
 		})
 	})
+	Describe("MatchWrittenFrame", func() {
+		written := func(dt telem.DataType, data ...int64) telem.Frame[int64] {
+			s := telem.NewSeriesV(data...)
+			s.DataType = dt
+			return telem.UnaryFrame[int64](1, s)
+		}
+		It("Should match frames that differ only in TimeRange and Alignment", func() {
+			s := telem.NewSeriesV[int64](1, 2, 3)
+			s.TimeRange = telem.TimeRange{Start: 10, End: 20}
+			s.Alignment = telem.NewAlignment(2, 5)
+			Expect(telem.UnaryFrame[int64](1, s)).
+				To(MatchWrittenFrame(written(telem.Int64T, 1, 2, 3)))
+		})
+		It("Should not match frames whose data types differ", func() {
+			Expect(written(telem.Uint64T, 1, 2, 3)).
+				NotTo(MatchWrittenFrame(written(telem.Int64T, 1, 2, 3)))
+		})
+		It("Should not match frames whose data differs", func() {
+			Expect(written(telem.Int64T, 1, 2, 4)).
+				NotTo(MatchWrittenFrame(written(telem.Int64T, 1, 2, 3)))
+		})
+	})
 	Describe("MatchFrame", func() {
 		It("Should return true if two frames match", func() {
 			f1 := telem.UnaryFrame[int64](1, telem.NewSeriesV[int64](1, 2, 3))
