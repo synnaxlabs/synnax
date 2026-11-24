@@ -414,11 +414,11 @@ const TargetPane = ({ path, deviceName }: TargetPaneProps) => {
             onChange={handleFormatChange}
             preview={isPreview}
           />
+          <ICD.MessageWarning
+            message={message}
+            missingDescription={ICD.Write.MISSING_DESCRIPTION}
+          />
         </PForm.Section>
-        <ICD.MessageStatus
-          message={message}
-          missingDescription={ICD.Write.MISSING_DESCRIPTION}
-        />
         <ICD.Write.Bindings
           path={path.message.bindings}
           icdKey={target.icd}

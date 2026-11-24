@@ -712,7 +712,21 @@ const Content = ({
           }
         />
       );
-  } else if (activeSample.data.error !== "")
+  } else if (
+    whole &&
+    listing != null &&
+    activeTopic == null &&
+    activeSample.data.records.length === 0
+  )
+    pane = (
+      <Status.Summary
+        center
+        variant="info"
+        message="Topic does not exist yet"
+        description={`${NO_FIELDS} Add fields in the target pane.`}
+      />
+    );
+  else if (activeSample.data.error !== "")
     pane = (
       <Status.Summary
         center

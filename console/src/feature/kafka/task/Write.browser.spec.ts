@@ -306,6 +306,39 @@ describe("Kafka Write form", () => {
     );
   });
 
+  it("should show that a typed topic the cluster does not list does not exist yet", async () => {
+    const { dev } = await renderWrite();
+    const missing = {
+      topic: TOPIC,
+      records: [],
+      shapes: [],
+      error: "The topic does not exist.",
+    };
+    const { answered } = await answerScan(dev, "sample", {
+      browse: { data: browseOf() },
+      sample: { data: { topics: [missing], truncated: false } },
+    });
+    const dialog = await clickAddTargets();
+    fireEvent.change(await dialog.findByPlaceholderText("Search topics"), {
+      target: { value: TOPIC },
+    });
+    fireEvent.click(await dialog.findByRole("button", { name: `Write “${TOPIC}”` }));
+    await answered;
+    await dialog.findByText("Topic does not exist yet");
+    dialog.getByText(
+      "Its target gets a message with no fields. Add fields in the target pane.",
+    );
+    expect(dialog.queryByText("Read no records")).toBeNull();
+  });
+
+  it("should show one Message section for a target whose message has no fields", async () => {
+    const { target } = await createTarget([]);
+    await renderWrite([target]);
+    fireEvent.click(await screen.findByRole("option", { name: /plant\.pumps/ }));
+    await screen.findByText("Message has no fields");
+    expect(screen.getAllByText("Message", { exact: true })).toHaveLength(1);
+  });
+
   it("should send a picked message format from a new target", async () => {
     const { ic, message } = await createTarget([createField("speed", "float")]);
     const { dev, draft } = await renderWrite();
