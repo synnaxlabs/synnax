@@ -199,6 +199,14 @@ func (w *refWalker) walkField(
 			mode:  leafModeOf(f, isSlice),
 		}
 		if isMap {
+			if value := f.Type.TypeArgs[1]; value.Name == "Array" || isMapType(value) {
+				return errors.Newf(
+					"%s: @ref field %s needs a map of keys, not a map of %s",
+					owner.QualifiedName,
+					f.Name,
+					value.Name,
+				)
+			}
 			site.field.Type = f.Type.TypeArgs[1]
 			site.field.Default = nil
 			site.mode = leafMap
@@ -615,7 +623,7 @@ func (rd *renderer) detachLeafBody(ref *walkedRef, mode leafMode) string {
 				k,
 				v,
 				expr,
-				rd.target(v),
+				rd.operand(v),
 				expr,
 				k,
 			)

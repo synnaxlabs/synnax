@@ -1274,6 +1274,55 @@ var _ = Describe("@ref", func() {
 					"if v2.Command == t {",
 					"v2.Command = 0",
 					"e.Lines[k3] = v2",
+					"for k5, v4 := range e.Lines {",
+					"if v4.Command == from {",
+					"v4.Command = to",
+					"e.Lines[k5] = v4",
+				)
+		})
+
+		It("Should switch over each union value of a map and write it back", func() {
+			generate(`
+				Base struct {
+					channel channel.Key = 0 @ref on_delete restrict @ref kind use
+				}
+				Channel union on type extends Base {
+					coil {}
+					register {
+						address uint16
+					}
+				}
+			`, `
+				channels map<uint16, Channel> = {}
+			`).
+				ToContain(
+					`Name:     "channels.channel",`,
+					"for k4, v3 := range e.Channels {",
+					"switch v5 := v3.Variant.(type) {",
+					"case CoilChannel:",
+					"v3.Variant = v5",
+					"e.Channels[k4] = v3",
+				)
+		})
+
+		It("Should drop each map entry that holds a deleted resource ID", func() {
+			generate(`
+				Inner struct {
+					owners map<uint8, resource.ID> = {} {
+						@ref {
+							on_delete detach
+							kind      use
+							types     rack
+						}
+					}
+				}
+			`, `
+				inner Inner
+				rack  rack.Key = 0 @ref on_delete restrict @ref kind use
+			`).
+				ToContain(
+					"if (gorp.Target{Table: string(v3.Type), Key: v3.Key}) == t {",
+					"delete(e.Inner.Owners, k2)",
 				)
 		})
 
@@ -1434,6 +1483,29 @@ var _ = Describe("@ref", func() {
 				}`,
 				`tree Node`,
 				"@ref fields inside the recursive type Node are not supported",
+			),
+			Entry(
+				"a recursive type that holds a reference through a map",
+				`Pair struct {
+					rack rack.Key = 0 @ref on_delete restrict @ref kind use
+				}
+				Node struct {
+					ports    map<uint8, Pair> = {}
+					children Node[]
+				}`,
+				`tree Node`,
+				"@ref fields inside the recursive type Node are not supported",
+			),
+			Entry(
+				"a reference to a map of key arrays",
+				`Ports struct {
+					channels map<uint16, channel.Key[]> = {} {
+						@ref on_delete restrict
+						@ref kind      use
+					}
+				}`,
+				`ports Ports`,
+				"@ref field channels needs a map of keys, not a map of Array",
 			),
 			Entry(
 				"detaching a required key outside an array",
