@@ -101,16 +101,16 @@ func Write[RQ, RS freighter.Payload](
 type WriteOption func(*writeConfig)
 
 type writeConfig struct {
-	// effect names what makes the derived changes of a write, or is empty when a denial
-	// of one names its record.
-	effect string
+	// operation names what derives changes in a write, or is empty when a denial of
+	// one names its record.
+	operation string
 }
 
 // HideDerived makes a denial of a record that Gorp changed in turn name the record only
 // when the subject can retrieve it. A denial of hidden records counts them as records
-// that effect changes, such as "a heal".
-func HideDerived(effect string) WriteOption {
-	return func(c *writeConfig) { c.effect = effect }
+// that the operation, such as "heal", changes.
+func HideDerived(operation string) WriteOption {
+	return func(c *writeConfig) { c.operation = operation }
 }
 
 // WritePrepared returns a handler that runs prepare outside any transaction, then runs
@@ -198,7 +198,7 @@ func (s *Service) check(
 		}
 		checked = true
 		recordTo := needs
-		if c.Derived && cfg.effect != "" {
+		if c.Derived && cfg.operation != "" {
 			recordTo = derived
 		}
 		if err := s.changeNeeds(
@@ -228,19 +228,24 @@ func (s *Service) check(
 			return err
 		}
 	}
-	return checkDerived(ctx, enforcer, subject, derived, cfg.effect)
+	return checkDerived(ctx, enforcer, subject, derived, cfg.operation)
 }
 
 // checkDerived returns an error wrapping access.ErrDenied when subject cannot make the
-// changes that effect derived, which needs holds. The error names a denied record only
-// when subject can retrieve it.
+// changes that operation derived, which needs holds. It checks every one of them first.
+// The error names the first denied record that subject can retrieve, or else counts the
+// denied records through hiddenDenial.
 func checkDerived(
 	ctx context.Context,
 	enforcer *rbac.Enforcer,
 	subject resource.ID,
 	needs accessNeeds,
-	effect string,
+	operation string,
 ) error {
+	var (
+		denied  set.Set[resource.ID]
+		visible func(resource.ID) bool
+	)
 	for _, action := range access.AllActions {
 		objects := lo.Uniq(needs[action])
 		if len(objects) == 0 {
@@ -250,34 +255,50 @@ func checkDerived(
 		if err != nil {
 			return err
 		}
-		denied := lo.Reject(objects, func(id resource.ID, _ int) bool {
-			return allowed(id)
-		})
-		if len(denied) == 0 {
-			continue
+		for _, id := range objects {
+			if allowed(id) {
+				continue
+			}
+			if visible == nil {
+				if visible, err = enforcer.Allowed(
+					ctx,
+					subject,
+					access.ActionRetrieve,
+				); err != nil {
+					return err
+				}
+			}
+			if visible(id) {
+				return access.Denied(subject, action, id)
+			}
+			if denied == nil {
+				denied = make(set.Set[resource.ID])
+			}
+			denied.Add(id)
 		}
-		visible, err := enforcer.Allowed(ctx, subject, access.ActionRetrieve)
-		if err != nil {
-			return err
-		}
-		if shown, ok := lo.Find(denied, visible); ok {
-			return access.Denied(subject, action, shown)
-		}
-		records := "records"
-		if len(denied) == 1 {
-			records = "record"
-		}
-		return errors.Wrapf(
-			access.ErrDenied,
-			"%s cannot %s %d %s that %s changes",
-			subject,
-			action,
-			len(denied),
-			records,
-			effect,
-		)
 	}
-	return nil
+	if len(denied) == 0 {
+		return nil
+	}
+	return hiddenDenial(subject, len(denied), operation)
+}
+
+// hiddenDenial returns an error wrapping access.ErrDenied for n records that the
+// operation changes and that subject may neither change nor retrieve. It names none of
+// them.
+func hiddenDenial(subject resource.ID, n int, operation string) error {
+	records := "records"
+	if n == 1 {
+		records = "record"
+	}
+	return errors.Wrapf(
+		access.ErrDenied,
+		"%s cannot change %d %s that the %s changes and that it cannot retrieve",
+		subject,
+		n,
+		records,
+		operation,
+	)
 }
 
 // accessNeeds maps each action to the resources that a write needs it on.

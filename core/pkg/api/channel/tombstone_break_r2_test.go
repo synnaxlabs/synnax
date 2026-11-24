@@ -10,6 +10,7 @@
 package channel_test
 
 import (
+	"fmt"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -246,11 +247,46 @@ var _ = Describe("Tombstone break r2", Ordered, ContinueOnFailure, func() {
 			}},
 		})).Error().To(SatisfyAll(
 			MatchError(access.ErrDenied),
-			MatchError(ContainSubstring(
-				"%s cannot update 1 record that a heal changes",
+			MatchError(fmt.Sprintf(
+				"%s cannot change 1 record that the heal changes and that it cannot "+
+					"retrieve: access denied: auth error",
 				u.ResourceID(),
 			)),
 			Not(MatchError(ContainSubstring(healed.Key))),
+		))
+		Expect(tombstoned(ctx, dead.Key())).To(BeTrue())
+	})
+
+	It("Should count every hidden display that a refused heal moves", func(
+		ctx SpecContext,
+	) {
+		dead := createChannel(ctx, nil)
+		first := display(ctx, dead.Key())
+		second := display(ctx, dead.Key())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return channelSvc.NewWriter(tx).Delete(ctx, dead.Key(), false)
+		})).To(Succeed())
+		grantOn(
+			ctx,
+			u.ResourceID(),
+			[]access.Action{access.ActionCreate},
+			resource.ID{Type: resource.TypeChannel},
+		)
+		Expect(createChannels(AuthedCtx(ctx, u), apichannel.CreateRequest{
+			Channels: []apichannel.Channel{{
+				Name:     dead.Name,
+				DataType: telem.Float32T,
+				Virtual:  true,
+			}},
+		})).Error().To(SatisfyAll(
+			MatchError(access.ErrDenied),
+			MatchError(fmt.Sprintf(
+				"%s cannot change 2 records that the heal changes and that it cannot "+
+					"retrieve: access denied: auth error",
+				u.ResourceID(),
+			)),
+			Not(MatchError(ContainSubstring(first.Key))),
+			Not(MatchError(ContainSubstring(second.Key))),
 		))
 		Expect(tombstoned(ctx, dead.Key())).To(BeTrue())
 	})
