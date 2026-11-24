@@ -29,7 +29,7 @@ func (f *FS) Fill(room int64) {
 	d := f.d
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	d.cfg.Capacity = d.used() + max(room, 0)
+	d.capacity, d.capped = d.used()+max(room, 0), true
 }
 
 // Unsynced reports whether the disk of f holds a change that a crash can lose in part:
