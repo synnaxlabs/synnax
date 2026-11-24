@@ -27,16 +27,28 @@ func (p Ports) EncodeMsgpack(enc *msgpack.Encoder) error {
 	case nil:
 		return enc.EncodeNil()
 	case T4Ports:
+		v.AnalogInput = orEmpty(v.AnalogInput)
+		v.AnalogOutput = orEmpty(v.AnalogOutput)
+		v.DigitalInput = orEmpty(v.DigitalInput)
+		v.DigitalOutput = orEmpty(v.DigitalOutput)
 		return enc.Encode(struct {
 			Model Model `msgpack:"model"`
 			T4Ports
 		}{Model: ModelT4, T4Ports: v})
 	case T7Ports:
+		v.AnalogInput = orEmpty(v.AnalogInput)
+		v.AnalogOutput = orEmpty(v.AnalogOutput)
+		v.DigitalInput = orEmpty(v.DigitalInput)
+		v.DigitalOutput = orEmpty(v.DigitalOutput)
 		return enc.Encode(struct {
 			Model Model `msgpack:"model"`
 			T7Ports
 		}{Model: ModelT7, T7Ports: v})
 	case T8Ports:
+		v.AnalogInput = orEmpty(v.AnalogInput)
+		v.AnalogOutput = orEmpty(v.AnalogOutput)
+		v.DigitalInput = orEmpty(v.DigitalInput)
+		v.DigitalOutput = orEmpty(v.DigitalOutput)
 		return enc.Encode(struct {
 			Model Model `msgpack:"model"`
 			T8Ports
@@ -76,4 +88,12 @@ func (p *Ports) DecodeMsgpack(dec *msgpack.Decoder) error {
 		return errors.Wrapf(validate.ErrValidation, "unknown model %q", disc.Model)
 	}
 	return err
+}
+
+// orEmpty returns m, or an empty map when m is nil, as the JSON encoding writes it.
+func orEmpty[K comparable, V any](m map[K]V) map[K]V {
+	if m == nil {
+		return map[K]V{}
+	}
+	return m
 }

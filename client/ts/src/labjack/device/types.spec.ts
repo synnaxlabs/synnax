@@ -32,6 +32,8 @@ describe("deviceZ", () => {
       digitalInput: {},
       digitalOutput: {},
     });
+    expect(device.identifier).toEqual("");
+    expect(device.readIndex).toEqual(0);
   });
 
   it("should parse the port maps of a device", () => {
@@ -47,8 +49,6 @@ describe("deviceZ", () => {
       analogInput: { AIN0: 1, AIN48: 2 },
       digitalOutput: { DIO22: { command: 3, state: 4 } },
     });
-    expect(device.identifier).toEqual("");
-    expect(device.readIndex).toEqual(0);
   });
 
   const INVALID: [string, Record<string, unknown>][] = [

@@ -21,12 +21,15 @@ import (
 )
 
 var _ = Describe("Ports", func() {
-	DescribeTable("Should keep the model through msgpack",
+	DescribeTable("Should decode msgpack as it decodes JSON",
 		func(ports v0.Ports) {
-			var got v0.Ports
+			var got, want v0.Ports
 			Expect(msgpack.Unmarshal(MustSucceed(msgpack.Marshal(ports)), &got)).
 				To(Succeed())
-			Expect(got).To(Equal(ports))
+			Expect(json.Unmarshal(MustSucceed(json.Marshal(ports)), &want)).
+				To(Succeed())
+			Expect(got).To(Equal(want))
+			Expect(got.Model()).To(Equal(ports.Model()))
 		},
 		Entry("T4", v0.Ports{Variant: v0.T4Ports{}}),
 		Entry("T7", v0.Ports{Variant: v0.T7Ports{Mux80Attached: true}}),
@@ -41,9 +44,7 @@ var _ = Describe("Ports", func() {
 			To(Succeed())
 		Expect(json.Unmarshal(MustSucceed(json.Marshal(ports)), &fromJSON)).
 			To(Succeed())
-		for _, key := range []string{"model", "mux80_attached"} {
-			Expect(wire[key]).To(Equal(fromJSON[key]))
-		}
+		Expect(wire).To(Equal(fromJSON))
 	})
 
 	It("Should reject an unknown model in msgpack", func() {
