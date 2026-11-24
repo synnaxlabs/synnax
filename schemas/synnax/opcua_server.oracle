@@ -144,18 +144,18 @@ Connection struct {
     security                Security = none {
         @doc value "is the message security of the connection."
     }
-    client_timeout          telem.TimeSpan = 5000000000 {
+    client_timeout          telem.TimeSpan = 5s {
         @doc value    "is the timeout of each request and connection attempt."
         @go validate  lt session_timeout "Client timeout must be less than the session timeout"
         @ts type      telem.NumericTimeSpan
         @validate min 100000000
     }
-    secure_channel_lifetime telem.TimeSpan = 600000000000 {
+    secure_channel_lifetime telem.TimeSpan = 10m {
         @doc value    "is the lifetime of the secure channel."
         @ts type      telem.NumericTimeSpan
         @validate min 1000000000
     }
-    session_timeout         telem.TimeSpan = 1200000000000 {
+    session_timeout         telem.TimeSpan = 20m {
         @doc value    "is the timeout of the session."
         @ts type      telem.NumericTimeSpan
         @validate min 1000000000
