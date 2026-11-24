@@ -36,21 +36,11 @@ func (db *DB) handoffLog(
 	run HandoffRun,
 ) (_ *Writer, pending *Pending, err error) {
 	l := w.log
-	if adopt != nil && adopt.log == nil {
-		return nil, nil, errors.Wrap(
-			validate.ErrValidation,
-			"a handoff on the pointer log layout adopts no pending samples of the "+
-				"old layout",
-		)
+	if err = l.checkAdopt(cfg, adopt); err != nil {
+		return nil, nil, err
 	}
+	// The commit of a writer that stores nothing only ends its runs.
 	if l.unstored {
-		if adopt != nil {
-			return nil, nil, errors.Wrap(
-				validate.ErrValidation,
-				"a writer that stores no samples adopts no pending samples",
-			)
-		}
-		// The commit of a writer that stores nothing only ends its runs.
 		if _, _, err = l.commit(ctx, nil); err != nil {
 			return nil, nil, err
 		}
@@ -58,16 +48,6 @@ func (db *DB) handoffLog(
 	if len(l.runs) == 0 && adopt == nil {
 		next, err := db.reopenLog(ctx, w, cfg, run)
 		return next, nil, err
-	}
-	if adopt != nil {
-		for _, lk := range adopt.log.keys {
-			if !slices.Contains(cfg.Channels, lk.ch.Key) {
-				return nil, nil, errors.Wrap(
-					validate.ErrValidation,
-					"the writer lacks a key of the pending",
-				)
-			}
-		}
 	}
 	defer func() {
 		if err != nil && pending != nil {
@@ -95,6 +75,35 @@ func (db *DB) handoffLog(
 	}
 	w.closed = true
 	return &Writer{WriterConfig: cfg, log: l}, pending, nil
+}
+
+// checkAdopt refuses an adopt of a Pending of the old layout, an adopt by a writer that
+// stores no samples, and an adopt of a key that cfg lacks.
+func (w *logWriter) checkAdopt(cfg WriterConfig, adopt *Pending) error {
+	switch {
+	case adopt == nil:
+		return nil
+	case adopt.log == nil:
+		return errors.Wrap(
+			validate.ErrValidation,
+			"a handoff on the pointer log layout adopts no pending samples of the "+
+				"old layout",
+		)
+	case w.unstored:
+		return errors.Wrap(
+			validate.ErrValidation,
+			"a writer that stores no samples adopts no pending samples",
+		)
+	}
+	for _, lk := range adopt.log.keys {
+		if !slices.Contains(cfg.Channels, lk.ch.Key) {
+			return errors.Wrap(
+				validate.ErrValidation,
+				"the writer lacks a key of the pending",
+			)
+		}
+	}
+	return nil
 }
 
 // reopenLog closes w, which holds no uncommitted sample, and opens a writer of cfg that
