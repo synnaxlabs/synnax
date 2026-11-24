@@ -134,6 +134,24 @@ var _ = Describe("Encoding", func() {
 	})
 
 	DescribeTable(
+		"Should return ErrStale from Keep while a delete or a Drop may read the segment",
+		func(change func(s *state.State), message string) {
+			s := open([]log.Record{seal4})
+			change(s)
+			Expect(s.Keep(4)).To(SatisfyAll(
+				MatchError(state.ErrStale),
+				MatchError(ContainSubstring(message)),
+			))
+		},
+		Entry("a delete of its clock", func(s *state.State) {
+			MustSucceed(s.BeginDelete(5, 42, 48))
+		}, "delete of key 5 from 42 reads segment 4"),
+		Entry("a Drop of its clock", func(s *state.State) {
+			Expect(s.BeginDrop(5)).To(Succeed())
+		}, "drop of key 5 reads segment 4"),
+	)
+
+	DescribeTable(
 		"Should refuse a Kept of a segment that is no candidate of encoding",
 		func(before []log.Record, id uint64) {
 			s := MustSucceed(state.Open(cfg, sample()))
