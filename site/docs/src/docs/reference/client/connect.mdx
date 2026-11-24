@@ -460,19 +460,20 @@ instead.
 
 ## Proxies
 
-The Python client reads the standard proxy environment variables. It sends requests and
+Both clients read the standard proxy environment variables. A client sends requests and
 streams through the proxy in `HTTPS_PROXY` when it uses TLS, and through the proxy in
 `HTTP_PROXY` when it does not. It connects to the Core directly when `NO_PROXY` names
-its host:
+its host. Set the variables before you create the client:
+
+<Client.Tabs exclude={["console"]}>
+
+  <Fragment slot="python">
 
 ```bash
 export HTTPS_PROXY=http://proxy.example.com:3128
 export NO_PROXY=localhost,core.internal.example.com
 python my_script.py
 ```
-
-With TLS, the client tunnels through the proxy and checks the certificate of the Core as
-it does with no proxy. The client reads the variables when you create it.
 
 - **Credentials** -> put them in the proxy URL, such as
   `http://user:password@proxy.example.com:3128`. Encode special characters, such as
@@ -481,6 +482,30 @@ it does with no proxy. The client reads the variables when you create it.
   `http`. For a SOCKS proxy, the client raises `ValueError` when you create it.
 - **System settings** -> when no proxy variable is set, the client on macOS and Windows
   uses the proxy and the bypass list in the network settings of the computer.
+
+With TLS, the client tunnels through the proxy and checks the certificate of the Core as
+it does with no proxy.
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```bash
+export HTTPS_PROXY=http://proxy.example.com:3128
+export NO_PROXY=localhost,core.internal.example.com
+node my_script.js
+```
+
+The TypeScript client uses the proxy in Node.js. When `HTTPS_PROXY` is not set, TLS
+connections also use `HTTP_PROXY`. The client reads the lowercase name of each variable
+first. The proxy URL must start with `http://` or `https://`. For another value, the
+client throws an error that names the variable when you create it. `caCert` works
+through the proxy. Bun and Deno use their own proxy support, and a browser uses the
+proxy of the browser.
+
+  </Fragment>
+
+</Client.Tabs>
 
 <Divider.Divider x />
 
