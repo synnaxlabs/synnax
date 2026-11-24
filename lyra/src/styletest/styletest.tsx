@@ -9,7 +9,7 @@
 
 import { scheduler } from "@synnaxlabs/x";
 import type { PropsWithChildren, ReactElement, ReactNode } from "react";
-import { afterEach } from "vitest";
+import { afterEach, beforeEach } from "vitest";
 import { userEvent } from "vitest/browser";
 import { render, type RenderResult } from "vitest-browser-react";
 
@@ -44,8 +44,13 @@ export const setupBrowser = (): void => {
   };
   for (const type of ["pointermove", "pointerdown", "pointerout"])
     window.addEventListener(type, onPointer, { capture: true });
+  let spec = 0;
+  beforeEach(() => {
+    spec++;
+  });
   afterEach(async () => {
     if (!pointerMoved) return;
+    const parked = spec;
     const corner = document.createElement("div");
     // The id keeps the selector of the hover unique while a late render adds elements.
     corner.id = "styletest-corner";
@@ -60,7 +65,8 @@ export const setupBrowser = (): void => {
     // WebKit can draw no frames for seconds after the first pointer move, and a forced
     // hover does not wait for them. The next spec then waits on a frame that is late.
     await scheduler.nextFrame();
-    pointerMoved = false;
+    // A park that outlives its hook timeout ends during a later spec.
+    if (spec === parked) pointerMoved = false;
   });
 };
 
