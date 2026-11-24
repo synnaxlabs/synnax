@@ -534,6 +534,94 @@ var _ = Describe("Handoff on the pointer log", func() {
 		Expect(stored(ctx)).To(Equal([]int64{1, 2, 3, 4, 5}))
 	})
 
+	// seconds returns the stamp of each stored sample of data, in seconds.
+	seconds := func(ctx SpecContext) []int64 {
+		GinkgoHelper()
+		fr := MustSucceed(db.Read(ctx, telem.TimeRangeMax, clock, data))
+		out := make([]int64, 0, fr.Get(data).Len())
+		for _, s := range fr.Get(data).Series {
+			for i := range s.Len() {
+				at := s.Alignment.AddSamples(uint32(i))
+				for _, c := range fr.Get(clock).Series {
+					if b := c.AlignmentBounds(); b.Contains(at) {
+						t := c.Unmarshal[telem.TimeStamp]()[at.SampleIndex()-
+							b.Lower.SampleIndex()]
+						out = append(out, int64(t/telem.SecondTS))
+					}
+				}
+			}
+		}
+		return out
+	}
+
+	DescribeTable("Should stamp the samples of a key that a handoff adds or brings "+
+		"back with the stamps they were written at", func(
+		ctx SpecContext,
+		adopt bool,
+	) {
+		first := MustSucceed(db.OpenWriter(ctx, config(clock, data)))
+		mustWrite(ctx, first, both(10, 11))
+		w, p := MustSucceed2(db.Handoff(ctx, first, config(clock), nil))
+		mustWrite(ctx, w, telem.UnaryFrame(clock, telem.NewSeriesSecondsTSV(12)))
+		if !adopt {
+			Expect(p.Close()).To(Succeed())
+			p = nil
+		}
+		w, _ = MustSucceed2(db.Handoff(ctx, w, config(clock, data), p))
+		mustWrite(ctx, w, both(13))
+		MustSucceed2(w.Commit(ctx, nil))
+		Expect(w.Close()).To(Succeed())
+		expected := []int64{13}
+		if adopt {
+			expected = []int64{10, 11, 13}
+		}
+		Expect(seconds(ctx)).To(Equal(expected))
+	},
+		Entry("an added key", false),
+		Entry("an adopted key", true),
+	)
+
+	It("Should commit a key that a write skips only over the stamps of its samples",
+		func(ctx SpecContext) {
+			w := MustSucceed(db.OpenWriter(ctx, config(clock, data)))
+			mustWrite(ctx, w, both(10, 11))
+			_, skipped := MustSucceed2(w.Write(
+				ctx,
+				both(12, 13),
+				func(k cesium.ChannelKey) bool { return k == data },
+			))
+			Expect(skipped).To(BeTrue())
+			w, p := MustSucceed2(db.Handoff(ctx, w, config(clock), nil))
+			after := config(data)
+			after.Start = 12 * telem.SecondTS
+			next := MustSucceed(db.OpenWriter(ctx, after))
+			MustSucceed2(w.Commit(ctx, nil))
+			Expect(w.Close()).To(Succeed())
+			end, held := MustSucceed2(p.Commit(ctx))
+			Expect(held).To(BeTrue())
+			Expect(end).To(Equal(11*telem.SecondTS + 1))
+			Expect(next.Close()).To(Succeed())
+			Expect(seconds(ctx)).To(Equal([]int64{10, 11}))
+		})
+
+	It("Should write a key again after a handoff brings back its samples that a "+
+		"write skipped", func(ctx SpecContext) {
+		w := MustSucceed(db.OpenWriter(ctx, config(clock, data)))
+		mustWrite(ctx, w, both(10, 11))
+		MustSucceed2(w.Write(
+			ctx,
+			both(12, 13),
+			func(k cesium.ChannelKey) bool { return k == data },
+		))
+		w, p := MustSucceed2(db.Handoff(ctx, w, config(clock), nil))
+		w, _ = MustSucceed2(db.Handoff(ctx, w, config(clock, data), p))
+		_, skipped := MustSucceed2(w.Write(ctx, both(14), nil))
+		Expect(skipped).To(BeFalse())
+		MustSucceed2(w.Commit(ctx, nil))
+		Expect(w.Close()).To(Succeed())
+		Expect(seconds(ctx)).To(Equal([]int64{10, 11, 14}))
+	})
+
 	It("Should go on in the stretch of a writer that stores no samples, with no "+
 		"pending samples", func(ctx SpecContext) {
 		cfg := config(clock, data)
