@@ -120,7 +120,7 @@ TEST(ErrorsTest, ClassifyTable) {
         {freighter::UNREACHABLE, Kind::TRANSIENT},
         {freighter::TIMEOUT, Kind::TRANSIENT},
         {freighter::TRANSPORT, Kind::TRANSIENT},
-        {freighter::RESOURCE_EXHAUSTED, Kind::TRANSIENT},
+        {freighter::RESOURCE_EXHAUSTED, Kind::REJECTED},
         {freighter::CANCELLED, Kind::TRANSIENT},
         {freighter::STREAM_CLOSED, Kind::TRANSIENT},
         {freighter::ERR_EOF, Kind::TRANSIENT},

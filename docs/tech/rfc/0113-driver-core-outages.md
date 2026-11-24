@@ -173,12 +173,12 @@ from one table. The first matching row wins. Each caller sets how long it waits.
 caller may retry a `REJECTED` error that it knows clears, as the drainer of §3.3 retries
 `sy.control.unauthorized`.
 
-| Kind          | Types                                                                                                                                                                           | Caller                                             |
-| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
-| `TRANSIENT`   | `freighter.unreachable`, `.timeout`, `.transport`, `.resource_exhausted`, `.cancelled`, `.stream_closed`, `.eof`, `sy.license.missing`, `.expired`, `sy.auth` token and session | Waits, then retries                                |
-| `INTERRUPTED` | `freighter.interrupted`: the Core stopped while it handled the call                                                                                                             | Waits, then resends only a call that is safe twice |
-| `REJECTED`    | Other `sy.license` and `sy.auth`, `sy.validation`, `sy.query`, `sy.control`, `sy.not_supported`, `arc`                                                                          | Reports it, no retry                               |
-| `BUG`         | Any other type: `unknown`, `freighter.unknown`, `sy.internal`                                                                                                                   | Fails loud, no retry                               |
+| Kind          | Types                                                                                                                                                                  | Caller                                             |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
+| `TRANSIENT`   | `freighter.unreachable`, `.timeout`, `.transport`, `.cancelled`, `.stream_closed`, `.eof`, `sy.license.missing`, `.expired`, `sy.auth` token and session               | Waits, then retries                                |
+| `INTERRUPTED` | `freighter.interrupted`: the Core stopped while it handled the call                                                                                                    | Waits, then resends only a call that is safe twice |
+| `REJECTED`    | `freighter.resource_exhausted` (a message over the size limit), other `sy.license` and `sy.auth`, `sy.validation`, `sy.query`, `sy.control`, `sy.not_supported`, `arc` | Reports it, no retry                               |
+| `BUG`         | Any other type: `unknown`, `freighter.unknown`, `sy.internal`                                                                                                          | Fails loud, no retry                               |
 
 ## 4 What this RFC does not cover
 

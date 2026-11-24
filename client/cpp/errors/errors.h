@@ -72,7 +72,6 @@ const std::vector<std::pair<x::errors::Error, Kind>> KINDS = {
     {freighter::UNREACHABLE, Kind::TRANSIENT},
     {freighter::TIMEOUT, Kind::TRANSIENT},
     {freighter::TRANSPORT, Kind::TRANSIENT},
-    {freighter::RESOURCE_EXHAUSTED, Kind::TRANSIENT},
     {freighter::CANCELLED, Kind::TRANSIENT},
     {freighter::STREAM_CLOSED, Kind::TRANSIENT},
     {freighter::ERR_EOF, Kind::TRANSIENT},
@@ -81,6 +80,8 @@ const std::vector<std::pair<x::errors::Error, Kind>> KINDS = {
     {auth::ERR_INVALID_TOKEN, Kind::TRANSIENT},
     {auth::ERR_EXPIRED_TOKEN, Kind::TRANSIENT},
     {auth::ERR_SESSION_ENDED, Kind::TRANSIENT},
+    // gRPC sends it for a message over the size limit, which fails again on a retry.
+    {freighter::RESOURCE_EXHAUSTED, Kind::REJECTED},
     {LICENSE, Kind::REJECTED},
     {auth::ERR, Kind::REJECTED},
     {x::errors::VALIDATION, Kind::REJECTED},
