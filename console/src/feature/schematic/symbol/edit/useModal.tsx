@@ -9,7 +9,7 @@
 
 import "@/feature/schematic/symbol/edit/Edit.css";
 
-import { actions, type group, type schematic, status } from "@synnaxlabs/client";
+import { type group, type schematic, status } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Flex } from "@synnaxlabs/lyra/flex";
@@ -23,7 +23,7 @@ import { Nav } from "@synnaxlabs/lyra/nav";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Schematic } from "@synnaxlabs/pluto";
-import { type bounds, id, type xy } from "@synnaxlabs/x";
+import { type bounds, deep, id, type xy } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 
 import { HandleList } from "@/feature/schematic/symbol/edit/HandleList";
@@ -123,13 +123,10 @@ const Editor = ({
     const uses = stored.data?.uses ?? [];
     if (stored.data != null && uses.length > 0) {
       const spec = form.get(path.data).value;
-      const next = {
-        ...stored.data,
-        data: { ...spec, previewViewport: stored.data.data.previewViewport },
-      };
-      const changed =
-        actions.diffFields(Schematic.Symbol.formSchema, stored.data, next, ["data"])
-          .length > 0;
+      const changed = !deep.equal(
+        { ...stored.data.data, previewViewport: undefined },
+        { ...spec, previewViewport: undefined },
+      );
       if (changed && (await confirmSave({ stored: stored.data, spec, uses })) !== true)
         return;
     }
