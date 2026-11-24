@@ -165,6 +165,19 @@ func (f *Frame) Append(dst []byte, db, generation, offset uint64) []byte {
 	return dst
 }
 
+// FrameSize returns the size of the frame whose header starts b, and true, when b
+// holds a frame magic and a length within MaxFrame. It checks no checksum.
+func FrameSize(b []byte) (int, bool) {
+	if len(b) < FrameHeaderSize || binary.LittleEndian.Uint32(b) != frameMagic {
+		return 0, false
+	}
+	size := uint64(binary.LittleEndian.Uint32(b[8:]))
+	if size > MaxFrame-FrameHeaderSize {
+		return 0, false
+	}
+	return FrameHeaderSize + int(size), true
+}
+
 // DecodeFrame decodes the frame at offset of the log of generation in database db from
 // the start of b. It checks the magic, the bounds, and the checksum. The caller checks
 // the sequence and the link.

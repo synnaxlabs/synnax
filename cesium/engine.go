@@ -118,19 +118,8 @@ func openEngine(o *options) (*engine, error) {
 	if err != nil {
 		return nil, err
 	}
-	e := &engine{
-		ins:      o.Instrumentation,
-		fs:       o.fs,
-		exec:     o.executor,
-		ready:    make(chan struct{}),
-		failed:   make(chan struct{}),
-		unstored: telem.NewAlignmentCounter(telem.LeadingDomain),
-		partSize: o.partSize,
-		loaded:   snapshot != nil,
-	}
-	e.pins.readers, e.pins.dead = make(map[uint64]int), make(map[uint64]state.Dead)
-	e.pins.parts, e.pins.keys = make(map[uint64]int), make(map[ChannelKey]int)
-	if e.budget, err = segment.NewBudget(handleLimit, syncWidth, e.exec); err != nil {
+	e, err := newEngine(o, snapshot != nil)
+	if err != nil {
 		return nil, err
 	}
 	created := snapshot == nil
@@ -194,6 +183,25 @@ func openState(
 		OnHead:             e.onHead,
 		Generation:         generation,
 	}, snapshot)
+}
+
+// newEngine returns an engine with no state, which loaded marks as opened from a head.
+func newEngine(o *options, loaded bool) (*engine, error) {
+	e := &engine{
+		ins:      o.Instrumentation,
+		fs:       o.fs,
+		exec:     o.executor,
+		ready:    make(chan struct{}),
+		failed:   make(chan struct{}),
+		unstored: telem.NewAlignmentCounter(telem.LeadingDomain),
+		partSize: o.partSize,
+		loaded:   loaded,
+	}
+	e.pins.readers, e.pins.dead = make(map[uint64]int), make(map[uint64]state.Dead)
+	e.pins.parts, e.pins.keys = make(map[uint64]int), make(map[ChannelKey]int)
+	var err error
+	e.budget, err = segment.NewBudget(handleLimit, syncWidth, e.exec)
+	return e, err
 }
 
 // create starts a new database in a root with no head that passes: it removes the head
@@ -956,4 +964,26 @@ func (e *engine) segmentConfig(seg state.Segment) segment.Config {
 		Variable: telem.DataTypeCode(seg.DataType).DataType().IsVariable(),
 		Bare:     seg.Version == 0,
 	}
+}
+
+// storedAfter reports whether readers see a sample of key after stamp, in a segment of
+// the state or in a record that a part holds.
+func (e *engine) storedAfter(key ChannelKey, stamp telem.TimeStamp) (bool, error) {
+	if ch := e.state.Channel(key); ch != nil && endsAfter(ch.Segments, stamp) {
+		return true, nil
+	}
+	pre, err := e.records(key, stamp+1, telem.TimeStampMax)
+	return err == nil && endsAfter(pre.Segments, stamp), err
+}
+
+// endsAfter reports whether a pointer of segs ends after stamp.
+func endsAfter(segs []state.Segment, stamp telem.TimeStamp) bool {
+	for _, seg := range segs {
+		for _, p := range seg.Pointers {
+			if p.Last > stamp {
+				return true
+			}
+		}
+	}
+	return false
 }

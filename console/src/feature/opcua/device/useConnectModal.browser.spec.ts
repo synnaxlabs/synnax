@@ -43,28 +43,28 @@ import {
 
 const client = createTestClient();
 
-const DRIVER_CERTIFICATE: OPCUA.Task.CertificateInfo = {
+const DRIVER_CERTIFICATE: OPCUA.Device.CertificateInfo = {
   ...SERVER_CERTIFICATE,
   subject: "CN=Synnax Driver",
   thumbprint: "0123456789ABCDEF0123456789ABCDEF01234567",
   notAfter: "2029-01-15T00:00:00Z",
 };
 
-const REPLACED_SERVER_CERTIFICATE: OPCUA.Task.CertificateInfo = {
+const REPLACED_SERVER_CERTIFICATE: OPCUA.Device.CertificateInfo = {
   ...SERVER_CERTIFICATE,
   subject: "CN=Replaced OPC UA Server",
   thumbprint: "FEDCBA9876543210FEDCBA9876543210FEDCBA98",
 };
 
-const NEXT_DRIVER_CERTIFICATE: OPCUA.Task.CertificateInfo = {
+const NEXT_DRIVER_CERTIFICATE: OPCUA.Device.CertificateInfo = {
   ...DRIVER_CERTIFICATE,
   thumbprint: "89ABCDEF0123456789ABCDEF0123456789ABCDEF",
   notAfter: "2032-01-15T00:00:00Z",
 };
 
-const TEST_CONNECTION = { type: OPCUA.Task.TEST_CONNECTION_COMMAND_TYPE };
+const TEST_CONNECTION = { type: OPCUA.Device.TEST_CONNECTION_COMMAND_TYPE };
 
-const ENDPOINTS: OPCUA.Task.Endpoint[] = [
+const ENDPOINTS: OPCUA.Device.Endpoint[] = [
   {
     url: "opc.tcp://localhost:4840",
     securityMode: "None",
@@ -95,7 +95,7 @@ const ENDPOINTS: OPCUA.Task.Endpoint[] = [
   },
 ];
 
-const GET_ENDPOINTS = { type: OPCUA.Task.GET_ENDPOINTS_COMMAND_TYPE };
+const GET_ENDPOINTS = { type: OPCUA.Device.GET_ENDPOINTS_COMMAND_TYPE };
 
 const createPassword = async () =>
   await client.secrets.set({
@@ -128,7 +128,7 @@ const SECURED_CONNECTION = {
 const createScanTask = async (rck: rack.Rack) =>
   await rck.createTask({
     name: uniqueName("opcua_scan"),
-    type: OPCUA.Task.SCAN_TYPE,
+    type: OPCUA.Device.SCAN_TYPE,
     config: {},
   });
 
@@ -139,10 +139,10 @@ const NEXT_DRIVER_THUMBPRINT =
 
 const answerGetCertificate = async (
   scan: task.Task,
-  certificates: OPCUA.Task.CertificatesResponse = { current: DRIVER_CERTIFICATE },
+  certificates: OPCUA.Device.CertificatesResponse = { current: DRIVER_CERTIFICATE },
 ) =>
   await answerNextCommand(client, scan, {
-    type: OPCUA.Task.GET_CERTIFICATE_COMMAND_TYPE,
+    type: OPCUA.Device.GET_CERTIFICATE_COMMAND_TYPE,
     data: certificates,
   });
 
@@ -467,7 +467,7 @@ describe("OPCUA.Device.useConnectModal", () => {
       cmd = await awaitCommand(
         streamer,
         scan.key,
-        OPCUA.Task.REGENERATE_CERTIFICATE_COMMAND_TYPE,
+        OPCUA.Device.REGENERATE_CERTIFICATE_COMMAND_TYPE,
       );
     } finally {
       streamer.close();

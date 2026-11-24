@@ -12,7 +12,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { z } from "zod";
 
 import { table } from "@/table/aether";
-import { type MountChild, renderAether } from "@/testutil/renderAether";
+import { type MountChild, renderAether } from "@/testutil/internal";
 import type { render } from "@/vis/render";
 import { canvasTest } from "@/vis/render/testutil";
 import { value } from "@/vis/value/aether";

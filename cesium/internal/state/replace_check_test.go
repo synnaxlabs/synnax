@@ -68,8 +68,8 @@ var _ = Describe("Check: a Replace that a head could not hold", func() {
 		func(second, length uint32) {
 			s := MustSucceed(state.Open(config(&appended{}), sample()))
 			Expect(s.Replay(10, records(replace(second, length)))).To(SatisfyAll(
-				MatchError(state.ErrRefused),
 				MatchError(ContainSubstring("replace of segment 3")),
+				MatchError(ContainSubstring("refused by the state")),
 			))
 		},
 		Entry("with a pointer past its length", uint32(6), uint32(8)),

@@ -58,6 +58,7 @@ import {
   createTestClientWithGrants,
   createTestStore,
   findDialogTriggerByText,
+  getBySelector,
   HaulProvider,
   renderHookWithConsole,
   renderLazy,
@@ -167,6 +168,10 @@ export interface CreateTaskStatusOverrides extends Partial<
 > {
   details?: Partial<task.Status["details"]>;
 }
+
+/** Returns the frame of a task controls bar: the area around its status and actions. */
+export const getControlsFrame = (container: HTMLElement): HTMLElement =>
+  getBySelector<HTMLElement>(container, ".console-task-controls");
 
 /** Builds a fully-populated task.Status, merging `overrides` over sane defaults. */
 export const createTaskStatus = (

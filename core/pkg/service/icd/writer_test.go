@@ -43,6 +43,14 @@ func binaryMessage(name string, fields ...icd.BinaryField) icd.Message {
 	}
 }
 
+// jsonMessage returns a JSON message named M that holds fields.
+func jsonMessage(fields ...icd.JSONField) icd.Message {
+	return icd.Message{
+		Name:    "M",
+		Payload: icd.Payload{Variant: icd.JSONPayload{Fields: fields}},
+	}
+}
+
 func textMessage(name string, fields ...icd.TextField) icd.Message {
 	return icd.Message{
 		Name: name,

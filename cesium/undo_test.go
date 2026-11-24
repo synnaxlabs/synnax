@@ -325,7 +325,7 @@ var _ = Describe("Undo of a conversion", func() {
 		}
 		Expect(filesOf(fs, own)).
 			To(ContainElement(MatchRegexp(`^1/[0-9a-f]{16}\.seg$`)))
-		Expect(db.Drop(keys)).To(Succeed())
+		Expect(db.Drop(ctx, keys)).To(Succeed())
 		Expect(closeDB()).To(Succeed())
 		Expect(filesOf(fs, own)).To(BeEmpty())
 		Expect(filesOf(fs, isUndone)).To(Equal(undone))

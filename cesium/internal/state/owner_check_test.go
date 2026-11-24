@@ -10,6 +10,8 @@
 package state_test
 
 import (
+	"context"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/log"
@@ -44,7 +46,10 @@ var _ = Describe("State owner check", func() {
 	It("Should not seal at a switch a segment that no durable Create made", func() {
 		s, a := start(head(1, 1))
 		w := MustSucceed(
-			s.OpenWriter(state.WriterConfig{Keys: keys, Clock: 5, Start: 10}),
+			s.OpenWriter(
+				context.Background(),
+				state.WriterConfig{Keys: keys, Clock: 5, Start: 10},
+			),
 		)
 		id := MustSucceed(w.NewSegment(5))
 		Expect(w.Close()).To(Succeed())
@@ -65,17 +70,17 @@ var _ = Describe("State owner check", func() {
 
 	It("Should seal every open segment of a key after a takeover and a close", func() {
 		s, a := start(head(1, 1))
-		first := MustSucceed(s.OpenWriter(state.WriterConfig{
+		first := MustSucceed(s.OpenWriter(context.Background(), state.WriterConfig{
 			Keys: keys, Clock: 9, Start: 100,
 		}))
-		second := MustSucceed(s.OpenWriter(state.WriterConfig{
+		second := MustSucceed(s.OpenWriter(context.Background(), state.WriterConfig{
 			Keys: keys, Clock: 9, Start: 10, Bounded: true,
 		}))
 		ia, ib := MustSucceed(first.NewSegment(5)), MustSucceed(second.NewSegment(5))
 		Expect(a.durable([]log.Record{create(ia), create(ib)})).To(Succeed())
 		Expect(first.Close()).To(Succeed())
 		Expect(second.Close()).To(Succeed())
-		later := MustSucceed(s.OpenWriter(state.WriterConfig{
+		later := MustSucceed(s.OpenWriter(context.Background(), state.WriterConfig{
 			Keys: keys, Clock: 9, Start: 200,
 		}))
 		Expect(later.Close()).To(Succeed())
@@ -91,13 +96,16 @@ var _ = Describe("State owner check", func() {
 		a := &appended{}
 		s, err := state.Open(config(a), &state.Snapshot{})
 		if err != nil {
-			Expect(err).To(MatchError(state.ErrRefused))
+			Expect(err).To(MatchError(ContainSubstring("refused by the state")))
 			return
 		}
 		a.s = s
 		run(s)
 		w := MustSucceed(
-			s.OpenWriter(state.WriterConfig{Keys: keys, Clock: 5, Start: 10}),
+			s.OpenWriter(
+				context.Background(),
+				state.WriterConfig{Keys: keys, Clock: 5, Start: 10},
+			),
 		)
 		Expect(MustSucceed(w.NewSegment(5))).ToNot(BeZero())
 	})

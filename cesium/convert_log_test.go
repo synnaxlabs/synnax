@@ -27,7 +27,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/checkpoint"
-	"github.com/synnaxlabs/cesium/internal/state"
 	"github.com/synnaxlabs/cesium/testutil/oldlayout"
 	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/errors"
@@ -278,7 +277,7 @@ var _ = Describe("Conversion on the pointer log", func() {
 				Channels: []cesium.ChannelKey{i32},
 			}))
 			Expect(iter.SeekFirst()).To(BeTrue())
-			Expect(db.Drop([]cesium.ChannelKey{i32})).To(Succeed())
+			Expect(db.Drop(ctx, []cesium.ChannelKey{i32})).To(Succeed())
 			dir := strconv.FormatUint(uint64(i32), 10)
 			Expect(disk.List(dir)).To(ContainElement(
 				WithTransform(xfs.FileInfo.Name, HaveSuffix(".domain")),
@@ -349,7 +348,7 @@ var _ = Describe("Conversion on the pointer log", func() {
 		}
 		put("1/index.domain", ptrs)
 		Expect(openSeeded(ctx, fs)).Error().To(SatisfyAll(
-			MatchError(state.ErrRefused),
+			MatchError(ContainSubstring("refused by the state")),
 			MatchError(ContainSubstring("key 1 has pointers that overlap")),
 		))
 		Expect(fs.Exists(checkpoint.Name(1))).To(BeFalse())

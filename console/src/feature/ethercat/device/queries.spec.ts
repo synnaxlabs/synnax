@@ -475,7 +475,7 @@ describe("useSetStandalone", () => {
     const stoppedHere = await createReadTask(r, neighbor.key);
     const scan = await r.createTask({
       name: uniqueName("ecat_scan"),
-      type: EtherCAT.Task.SCAN_TYPE,
+      type: EtherCAT.Device.HARDWARE.scanType,
       config: {},
     });
     for (const tsk of [readHere, writeHere, readElsewhere])
@@ -514,7 +514,7 @@ describe("useSetStandalone", () => {
     const read = await createReadTask(r, slave.key);
     const scan = await r.createTask({
       name: uniqueName("ecat_scan"),
-      type: EtherCAT.Task.SCAN_TYPE,
+      type: EtherCAT.Device.HARDWARE.scanType,
       config: {},
     });
     await reportTaskRunning(client, read);
@@ -541,7 +541,7 @@ describe("useSetStandalone", () => {
     const slave = await createSlaveDevice(r.key, { network: "eth0" });
     const scan = await r.createTask({
       name: uniqueName("ecat_scan"),
-      type: EtherCAT.Task.SCAN_TYPE,
+      type: EtherCAT.Device.HARDWARE.scanType,
       config: {},
     });
     const driver = await answerCommandsUntil(client, [scan], "scan");
@@ -561,7 +561,7 @@ describe("useSetStandalone", () => {
     const read = await createReadTask(r, slave.key);
     const scan = await r.createTask({
       name: uniqueName("ecat_scan"),
-      type: EtherCAT.Task.SCAN_TYPE,
+      type: EtherCAT.Device.HARDWARE.scanType,
       config: {},
     });
     await reportTaskRunning(client, read);
@@ -613,7 +613,7 @@ describe("useSetStandalone", () => {
     const read = await createReadTask(r, slave.key);
     const scan = await r.createTask({
       name: uniqueName("ecat_scan"),
-      type: EtherCAT.Task.SCAN_TYPE,
+      type: EtherCAT.Device.HARDWARE.scanType,
       config: {},
     });
     await reportTaskRunning(client, read);

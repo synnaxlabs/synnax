@@ -114,12 +114,11 @@ func channelRebindTarget[T antlr.ParserRuleContext](
 	if expr == nil {
 		return nil, false
 	}
-	var buf [2]string
-	parts := parser.AppendExpressionNameParts(buf[:0], expr)
-	if len(parts) == 0 {
+	head, tail := parser.ExpressionNameParts(expr)
+	if head == "" {
 		return nil, false
 	}
-	sym, err := ctx.ResolveQualified(parts)
+	sym, err := ctx.ResolveQualified(head, tail)
 	if err != nil {
 		return nil, false
 	}

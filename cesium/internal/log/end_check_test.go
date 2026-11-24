@@ -71,7 +71,11 @@ var _ = Describe("Log end check", func() {
 				Eventually(func() int { return len(walk(fileBytes(fs))) }).
 					Should(Equal(2))
 			} else {
-				Expect(err).To(MatchError(log.ErrFull))
+				Expect(err).To(MatchError(fmt.Sprintf(
+					"an entry of %d bytes does not fit in log %d: log file is full",
+					8+16*n,
+					generation,
+				)))
 			}
 			Expect(l.Close()).To(Succeed())
 			Eventually(ran).Should(Receive(BeNil()))

@@ -534,7 +534,7 @@ var _ = Describe("Check pass on the pointer log", func() {
 			Channels: []cesium.ChannelKey{i32},
 		}))
 		Expect(iter.SeekFirst()).To(BeTrue())
-		Expect(db.Drop([]cesium.ChannelKey{i32})).To(Succeed())
+		Expect(db.Drop(ctx, []cesium.ChannelKey{i32})).To(Succeed())
 		var got []byte
 		for iter.Next(cesium.AutoSpan) {
 			for _, s := range iter.Value().Get(i32).Series {
@@ -579,7 +579,7 @@ var _ = Describe("Check pass on the pointer log", func() {
 				func() { gate.arm(".domain") },
 			)
 			Eventually(gate.waiting).Should(Receive())
-			Expect(db.Drop(keys)).To(Succeed())
+			Expect(db.Drop(ctx, keys)).To(Succeed())
 			close(gate.release)
 			Eventually(
 				messages("dropped the check of a segment that changed during its pass"),

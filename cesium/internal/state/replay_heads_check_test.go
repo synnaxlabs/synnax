@@ -16,6 +16,7 @@ import (
 	"math/rand/v2"
 	"slices"
 	"sync"
+	"sync/atomic"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -272,12 +273,16 @@ var _ = Describe(
 					Expect(log.Prepare(logDisk, 1, size)).To(Succeed())
 					heads := xfs.NewMem()
 					var (
-						mu      sync.Mutex
-						entries []durableEntry
-						failed  error
-						l       *log.Log
-						st      *state.State
-						goExe   = func(f func()) { go f() }
+						mu sync.Mutex
+						// handed counts the entries handed to the log, by the
+						// workload and by the state, and settled the entries that came
+						// back durable or refused.
+						handed, settled atomic.Int64
+						entries         []durableEntry
+						failed          error
+						l               *log.Log
+						st              *state.State
+						goExe           = func(f func()) { go f() }
 						// steps holds the steps of the checkpointer, which the workload
 						// runs at a later event, so events land between a switch and
 						// its Parted.
@@ -321,7 +326,10 @@ var _ = Describe(
 						},
 					}))
 					cfg := config(&appended{})
-					cfg.Append = func(e *log.Entry) { l.Append(e) }
+					cfg.Append = func(e *log.Entry) {
+						handed.Add(1)
+						l.Append(e)
+					}
 					cfg.OnHead = func(g uint64, s *state.Snapshot) { ckpt.Head(g, s) }
 					st = MustSucceed(state.Open(cfg, convertedHead()))
 					l = MustSucceed(log.Start(log.Config{
@@ -337,9 +345,11 @@ var _ = Describe(
 							entries = append(entries, durableEntry{seq: seq, b: b})
 							mu.Unlock()
 							fail(st.Durable(seq, records))
+							settled.Add(1)
 						},
 						OnRefused: func(records []log.Record, err error) {
 							fail(st.Refused(records, err))
+							settled.Add(1)
 						},
 						// No next file, so every entry stays in log 1.
 						Prepare: func(next uint64) {
@@ -361,6 +371,7 @@ var _ = Describe(
 						for _, r := range records {
 							e.Add(r)
 						}
+						handed.Add(1)
 						MustSucceed(l.Append(&e).Wait())
 					}
 					// withPreloads runs op with the preloads of keys, and again while
@@ -395,6 +406,12 @@ var _ = Describe(
 					)
 					point := func(event string) {
 						GinkgoHelper()
+						// The state logs entries of its own, such as the seals of a
+						// switch, so a point first waits for every entry to settle. The
+						// owner then applies each before the requests below.
+						Eventually(func() bool {
+							return settled.Load() == handed.Load()
+						}).Should(BeTrue())
 						dead = append(dead, MustSucceed(st.TakeDead())...)
 						if parting {
 							return
@@ -426,7 +443,7 @@ var _ = Describe(
 							false,
 							func(pre []state.Preload) error {
 								var err error
-								w, err = st.OpenWriter(state.WriterConfig{
+								w, err = st.OpenWriter(ctx, state.WriterConfig{
 									Keys: keys, Clock: 5, Start: start, Bounded: true,
 								}, pre...)
 								return err
@@ -575,7 +592,7 @@ var _ = Describe(
 							false,
 							func(pre []state.Preload) error {
 								var err error
-								w, err = st.OpenWriter(state.WriterConfig{
+								w, err = st.OpenWriter(ctx, state.WriterConfig{
 									Keys:  keys[1:],
 									Clock: 5,
 									Start: start,

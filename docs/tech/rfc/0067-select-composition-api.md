@@ -28,8 +28,8 @@ same move and is the precedent throughout.
   two buttons again.
 - **Fixed options hide in the data array**: "Custom" in the range select
   (`console/src/platform/range/Select.tsx:81`) and "New panel" in the panel picker
-  (`console/src/feature/panel/MovePicker.tsx:50`) are pushed into the key array, and
-  each render function checks for the special key to draw it differently.
+  (`console/src/feature/panel/movePicker/MovePicker.tsx:50`) are pushed into the key
+  array, and each render function checks for the special key to draw it differently.
 
 ## 2 Vocabulary
 

@@ -23,7 +23,7 @@ import (
 // drop raises an error status.
 func (s *Service) dropStorage(ctx context.Context, keys Keys, release func()) {
 	defer release()
-	if err := s.cfg.TS.Drop(keys.Uint32()); err != nil {
+	if err := s.cfg.TS.Drop(ctx, keys.Uint32()); err != nil {
 		s.cfg.L.Error("failed to drop the storage of deleted channels", zap.Error(err))
 		stat := status.Status[any]{
 			Variant:     status.VariantError,

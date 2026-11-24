@@ -20,7 +20,6 @@ html {
     position: fixed;
     top: 0;
     left: 0;
-    z-index: 2147483647;
     width: max-content;
     padding: 3rem;
     pointer-events: none;

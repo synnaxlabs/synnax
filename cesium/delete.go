@@ -93,8 +93,10 @@ func dirNameToKey(name string) (ChannelKey, error) {
 // keys still uses. A failed removal does not stop Drop, which returns the error of each
 // removal that runs in Drop and logs a later one. The next Open removes a directory
 // that a failed removal renamed. A directory that keeps its name loads again at Open.
-func (db *DB) Drop(keys []ChannelKey) error {
-	db.lockRoot()
+func (db *DB) Drop(ctx context.Context, keys []ChannelKey) error {
+	if err := db.lockRoot(ctx); err != nil {
+		return err
+	}
 	defer db.mu.Unlock()
 	if db.closed.Load() {
 		return ErrDBClosed
@@ -337,7 +339,9 @@ func (db *DB) DeleteTimeRange(
 	chs []ChannelKey,
 	tr telem.TimeRange,
 ) error {
-	db.lockRoot()
+	if err := db.lockRoot(ctx); err != nil {
+		return err
+	}
 	defer db.mu.Unlock()
 	if err := ctx.Err(); err != nil {
 		return err

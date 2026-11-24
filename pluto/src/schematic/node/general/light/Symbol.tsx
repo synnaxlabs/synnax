@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import type { schematic } from "@synnaxlabs/client";
-import { Theming } from "@synnaxlabs/lyra/theming";
 import type { ReactElement } from "react";
 
 import { Grid } from "@/schematic/node/common/grid";
@@ -18,7 +17,6 @@ import { Telem } from "@/schematic/node/common/telem";
 import { Light, WIDTH_PER_SCALE } from "@/schematic/node/general/light/Primitive";
 import type { NodeProps } from "@/schematic/node/spec";
 import { Light as BaseLight } from "@/vis/light";
-import { Staleness } from "@/vis/staleness";
 
 export const Symbol = ({
   nodeKey,
@@ -30,14 +28,9 @@ export const Symbol = ({
     threshold,
     orientation = "left",
     stalenessTimeout,
-    stalenessColor,
-    strokeColor,
-    onColor,
     ...rest
   },
 }: NodeProps<schematic.LightNodeConfig>): ReactElement => {
-  const theme = Theming.use();
-  const badged = Staleness.useBadged();
   const source = Telem.booleanSource(channel, threshold);
   const { enabled, stale } = BaseLight.use({
     aetherKey: nodeKey,
@@ -54,16 +47,8 @@ export const Symbol = ({
       onResize={({ width }) => onConfigChange({ scale: width / WIDTH_PER_SCALE })}
     >
       <Label.Label config={label} onChange={onConfigChange} />
-      {stale && badged && <Stale.Indicator />}
-      <Light
-        enabled={enabled}
-        orientation={orientation}
-        strokeColor={
-          stale && !badged ? Staleness.resolveColor(stalenessColor, theme) : strokeColor
-        }
-        onColor={stale && !badged ? undefined : onColor}
-        {...rest}
-      />
+      {stale && <Stale.Indicator />}
+      <Light enabled={enabled} orientation={orientation} {...rest} />
     </Grid.Grid>
   );
 };

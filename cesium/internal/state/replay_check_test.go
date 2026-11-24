@@ -98,7 +98,7 @@ type livePoint struct {
 }
 
 var _ = Describe("Check: the live and the replayed state", func() {
-	It("Should agree in every field after each event", func() {
+	It("Should agree in every field after each event", func(ctx SpecContext) {
 		const size = 4 << 20
 		keys := []state.WriterKey{{Key: 5, DataType: 4}}
 		for runKey := range uint64(64) {
@@ -209,7 +209,7 @@ var _ = Describe("Check: the live and the replayed state", func() {
 			end := telem.TimeStamp(0)
 			for i := range 8 {
 				start := telem.TimeStamp(1000 * (i + 1))
-				w := MustSucceed(st.OpenWriter(state.WriterConfig{
+				w := MustSucceed(st.OpenWriter(ctx, state.WriterConfig{
 					Keys: keys, Clock: 5, Start: start, Bounded: true,
 				}))
 				if _, held := MustSucceed2(w.Held(5)); held {
