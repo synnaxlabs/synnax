@@ -23,6 +23,7 @@ from typing import Any
 _ROUTES = "routes.json"
 _CALLS = "calls.jsonl"
 _FAILURES = "failures.json"
+_INPUTS = "inputs.jsonl"
 
 
 class FakeGH:
@@ -39,6 +40,7 @@ class FakeGH:
         (self.bin_dir / _ROUTES).write_text("{}")
         (self.bin_dir / _FAILURES).write_text("{}")
         (self.bin_dir / _CALLS).touch()
+        (self.bin_dir / _INPUTS).touch()
         gh = self.bin_dir / "gh"
         gh.write_text(
             f'#!/usr/bin/env bash\nexec "{sys.executable}" "{__file__}" '
@@ -68,6 +70,19 @@ class FakeGH:
         """Returns the arguments of each call so far, oldest first."""
         lines = (self.bin_dir / _CALLS).read_text().splitlines()
         return [json.loads(line) for line in lines]
+
+    def inputs(self) -> list[str | None]:
+        """Returns the body each call so far read through `--input`, oldest first, or
+        None for a call without one."""
+        lines = (self.bin_dir / _INPUTS).read_text().splitlines()
+        return [json.loads(line) for line in lines]
+
+
+def _input(args: list[str]) -> str | None:
+    if "--input" not in args:
+        return None
+    path = args[args.index("--input") + 1]
+    return sys.stdin.read() if path == "-" else Path(path).read_text()
 
 
 @dataclass(frozen=True)
@@ -124,6 +139,8 @@ class FakeBlob:
 def _answer(bin_dir: Path, args: list[str]) -> None:
     with (bin_dir / _CALLS).open("a") as calls:
         calls.write(json.dumps(args) + "\n")
+    with (bin_dir / _INPUTS).open("a") as inputs:
+        inputs.write(json.dumps(_input(args)) + "\n")
     call = " ".join(args[:2])
     failures = json.loads((bin_dir / _FAILURES).read_text())
     for pattern, (message, times) in failures.items():
