@@ -97,4 +97,35 @@ var _ = Describe("Primary check", func() {
 			return announced(ctx, out.Name)
 		}, 2*time.Second).Should(BeEmpty())
 	})
+
+	It(
+		"Should not announce a primary that the save sets itself",
+		func(ctx SpecContext) {
+			virtual(ctx, "prc_set_a")
+			virtual(ctx, "prc_set_b")
+			chosen := virtual(ctx, "prc_set_c")
+			out := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
+				Name:       "prc_set_out",
+				Expression: "return prc_set_a + prc_set_b + prc_set_c",
+			}))
+			openGraph(ctx)
+			Expect(creator.Apply(
+				ctx,
+				out.Key(),
+				calculation.NewSetAction(calculation.SetPayload{
+					Path:  []string{"expression"},
+					Value: "return prc_set_b + prc_set_c",
+				}),
+				calculation.NewSetAction(calculation.SetPayload{
+					Path:  []string{"primary"},
+					Value: chosen.Key(),
+				}),
+			)).To(Succeed())
+			Expect(MustSucceed(creator.CalculationOf(ctx, out.Key())).Primary).
+				To(HaveValue(Equal(chosen.Key())))
+			Consistently(func() []calculation.Status {
+				return announced(ctx, out.Name)
+			}, 500*time.Millisecond).Should(BeEmpty())
+		},
+	)
 })
