@@ -12,6 +12,7 @@ import { TimeSpan } from "@synnaxlabs/x";
 import { afterAll, onTestFinished, TestRunner, vi } from "vitest";
 
 import Synnax, { type SynnaxParams } from "@/client";
+import { AccessDeniedError } from "@/errors";
 import { testCoreAddress } from "@/testutil/address";
 import { createSeverableProxy, type SeverableProxy } from "@/testutil/proxy";
 
@@ -49,15 +50,33 @@ afterAll(async () => {
     );
 });
 
+/** Reports whether the error, or any error in its cause chain, is an access denial. */
+const isDenial = (err: unknown): boolean =>
+  AccessDeniedError.matches(err) ||
+  (err instanceof Error && err.cause != null && isDenial(err.cause));
+
+const logAllButDenials = (err: Error): void => {
+  if (!isDenial(err)) console.error(err);
+};
+
+// The Core refuses a restricted subject by design, and the refusal of its change stream
+// logs at any time, even after teardown, so a test client logs every other error only.
+const createClient = ({
+  onInternalError = logAllButDenials,
+  ...params
+}: Partial<SynnaxParams> = {}): Synnax =>
+  new Synnax({ ...testClientParams(), ...params, onInternalError });
+
 /**
  * Creates a client connected to the local test cluster. A client made inside a test or
  * its hooks closes when that test finishes, and any other closes once every test in the
- * spec file has finished, so callers do not need to close it themselves.
+ * spec file has finished, so callers do not need to close it themselves. Unless params
+ * give one, its internal error handler logs every error but an access denial.
  */
 export const createTestClient = (params?: Partial<SynnaxParams>): Synnax => {
   // An open client keeps its change stream, so later tests would pay for its frames.
   if (TestRunner.getCurrentTest() == null) return createFileTestClient(params);
-  const client = new Synnax({ ...testClientParams(), ...params });
+  const client = createClient(params);
   onTestFinished(async () => await client.close());
   return client;
 };
@@ -65,9 +84,10 @@ export const createTestClient = (params?: Partial<SynnaxParams>): Synnax => {
 /**
  * Creates a client connected to the local test cluster that stays open until every test
  * in the current spec file has finished, for a client that a spec reuses across tests.
+ * It handles internal errors as {@link createTestClient} does.
  */
 export const createFileTestClient = (params?: Partial<SynnaxParams>): Synnax => {
-  const client = new Synnax({ ...testClientParams(), ...params });
+  const client = createClient(params);
   openClients.push(client);
   return client;
 };

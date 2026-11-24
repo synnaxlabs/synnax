@@ -13,35 +13,25 @@ import type { policy } from "@/access/policy";
 import type { role } from "@/access/role";
 import type Synnax from "@/client";
 import type { SynnaxParams } from "@/client";
-import { AccessDeniedError, NotFoundError } from "@/errors";
+import { NotFoundError } from "@/errors";
 import { createFileTestClient, createTestClient } from "@/testutil/client";
 import { createTestUser, type TestUser } from "@/testutil/user";
 import { user } from "@/user";
 
-/** Reports whether the error, or any error in its cause chain, is an access denial. */
-const isDenial = (err: unknown): boolean =>
-  AccessDeniedError.matches(err) ||
-  (err instanceof Error && err.cause != null && isDenial(err.cause));
-
-const logAllButDenials = (err: Error): void => {
-  if (!isDenial(err)) console.error(err);
-};
-
 /**
- * Creates a client that logs in as an existing user. Denials are tolerated: the Core
- * refuses restricted subjects by design, and the change-stream refusal logs at any
- * time, even after teardown, which vitest counts as an unhandled error.
+ * Creates a client that logs in as an existing user. It tolerates denials, as
+ * {@link createTestClient} does.
  */
 export const createTestClientAs = (username: string, password: string): Synnax =>
-  createTestClient({ username, password, onInternalError: logAllButDenials });
+  createTestClient({ username, password });
 
 /**
- * Connects as a new user and primes its policy cache. Denials are tolerated by default,
- * as in {@link createTestClientAs}.
+ * Connects as a new user and primes its policy cache. Unless onInternalError is given,
+ * it tolerates denials, as {@link createTestClient} does.
  */
 const connectAs = async (
   { user: { key }, username, password }: TestUser,
-  onInternalError: (err: Error) => void = logAllButDenials,
+  onInternalError?: (err: Error) => void,
   create = createTestClient,
 ) => {
   const client = create({ username, password, onInternalError });
