@@ -674,6 +674,36 @@ var _ = Describe("Writer", func() {
 			Entry("a key the writer does not write", uint32(7)),
 		)
 
+		It("Should bound the claims of a writer to its stamps, so that another writer "+
+			"claims its key after them", func() {
+			d := MustSucceed(w.Split([]uint32{6}))
+			after := state.WriterConfig{
+				Clock: 5,
+				Start: 111,
+				Keys:  []state.WriterKey{{Key: 6, DataType: 4}},
+			}
+			Expect(s.OpenWriter(context.Background(), after)).Error().To(conflict())
+			Expect(d.Bound(100, 110)).To(Succeed())
+			Expect(open(after).Close()).To(Succeed())
+			Expect(s.BeginDelete(5, 100, 111)).Error().To(conflict(),
+				"the bounded pin keeps the stamps of the writer")
+		})
+
+		It(
+			"Should give the keys of a bounded writer the claim of the writer that joins "+
+				"them",
+			func() {
+				d := MustSucceed(w.Split([]uint32{6}))
+				Expect(d.Bound(100, 110)).To(Succeed())
+				Expect(w.Join(d)).To(Succeed())
+				Expect(s.OpenWriter(context.Background(), state.WriterConfig{
+					Clock: 5,
+					Start: 120,
+					Keys:  []state.WriterKey{{Key: 6, DataType: 4}},
+				})).Error().To(conflict())
+			},
+		)
+
 		It("Should join the keys of a split back, with their segments", func() {
 			d := MustSucceed(w.Split([]uint32{6}))
 			Expect(w.Join(d)).To(Succeed())
