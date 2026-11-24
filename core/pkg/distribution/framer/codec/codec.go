@@ -13,6 +13,7 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"math"
 	"slices"
 	"sort"
 	"sync"
@@ -181,6 +182,10 @@ type Codec struct {
 	// encoded.
 	declared channel.Keys
 	all      channel.Keys
+	// named holds the clocks that the requested series of the frame being encoded
+	// name, and ownClocks the raw indices of its unrequested own-clock series.
+	named     []uint32
+	ownClocks []int
 }
 
 // Option configures a Codec.
@@ -578,6 +583,11 @@ func (c *Codec) encodeInternal(ctx context.Context, src framer.Frame) error {
 	if err != nil {
 		return err
 	}
+	for _, msi := range mergedSeries {
+		if err = checkLength(msi.key, msi.series); err != nil {
+			return err
+		}
+	}
 	h := newEncodeHeader(
 		mergedSeries,
 		c.frameKeys(ext, currState.keys, &currState.enc),
@@ -628,13 +638,15 @@ func (c *Codec) encodeInternal(ctx context.Context, src framer.Frame) error {
 }
 
 // sortSeries sorts the series in src that currState requests, and the time series under
-// their own clocks, by key and raw index into c.encodeSorter, and returns what they
-// change in the agreement. It drops the series of other keys.
+// their own clocks that a requested series names as its clock, by key and raw index
+// into c.encodeSorter, and returns what they change in the agreement. It drops the
+// series of other keys.
 func (c *Codec) sortSeries(src framer.Frame, currState *state) frameDiff {
 	var (
 		ag   = &currState.enc
 		diff frameDiff
 	)
+	c.named, c.ownClocks = c.named[:0], c.ownClocks[:0]
 	for rawI, s := range src.RawSeries() {
 		if src.ShouldExcludeRaw(rawI) {
 			continue
@@ -645,13 +657,41 @@ func (c *Codec) sortSeries(src framer.Frame, currState *state) frameDiff {
 			diff.clocks |= s.Clock ^ ag.clocks[position]
 			diff.types = diff.types ||
 				needsTypeOverride(ag.dataTypes[position], s.DataType)
+			if s.Clock != 0 && !slices.Contains(c.named, s.Clock) {
+				c.named = append(c.named, s.Clock)
+			}
 		} else if isOwnClock(key, s) {
+			c.ownClocks = append(c.ownClocks, rawI)
+		}
+	}
+	for _, rawI := range c.ownClocks {
+		key := src.RawKeyAt(rawI)
+		if slices.Contains(c.named, uint32(key)) {
 			c.encodeSorter.insert(key, rawI, -1)
 			diff.declared = true
 		}
 	}
 	c.encodeSorter.sort()
 	return diff
+}
+
+// checkLength returns an error when the length field of s, a sample count or a byte
+// size for a variable type, cannot hold its length.
+func checkLength(key channel.Key, s telem.Series) error {
+	n, unit := uint64(s.Len()), "samples"
+	if s.DataType.IsVariable() {
+		n, unit = uint64(s.Size()), "bytes"
+	}
+	if n <= math.MaxUint32 {
+		return nil
+	}
+	return errors.Wrapf(
+		validate.ErrValidation,
+		"series of channel %d holds %d %s, more than a frame length field holds",
+		key,
+		n,
+		unit,
+	)
 }
 
 // encodeHeader holds the flags, the shared reference values, and the total byte size
