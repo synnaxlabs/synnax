@@ -12,6 +12,7 @@ package channel_test
 import (
 	"bytes"
 	"context"
+	"encoding/binary"
 	"fmt"
 	"os"
 	"path"
@@ -138,10 +139,27 @@ func openEngine(
 	if err = e.openKV(ctx, kv); err != nil {
 		return nil, err
 	}
-	if e.cesium, err = cesium.Open(ctx, "", cesium.WithFS(e.ts)); err != nil {
+	held, err := e.identity()
+	if err != nil {
+		return nil, err
+	}
+	if e.cesium, err = cesium.Open(
+		ctx,
+		"",
+		cesium.WithFS(e.ts),
+		cesium.WithIdentity(held),
+	); err != nil {
 		return nil, err
 	}
 	e.closers = append(e.closers, e.cesium.Close, GoRun(ctx, e.cesium.Run))
+	// The identity of a new database is durable before the engine writes, as the
+	// storage layer makes it.
+	if id := e.cesium.Identity(); id != held {
+		err = e.store.Set(ctx, identityKey, binary.LittleEndian.AppendUint64(nil, id))
+		if err != nil {
+			return nil, err
+		}
+	}
 	if err = e.openServices(ctx, e.store); err != nil {
 		return nil, err
 	}
@@ -154,6 +172,24 @@ func openEngine(
 		err = e.create(ctx, &e.clock)
 	}
 	return e, err
+}
+
+// identityKey is the key of the identity of the Cesium database in the KV of the
+// engine.
+var identityKey = []byte("cesium_identity")
+
+// identity returns the identity of the Cesium database that the KV of e holds, or 0
+// when it holds none.
+func (e *crashEngine) identity() (uint64, error) {
+	b, closer, err := e.store.Get(identityKey)
+	if errors.Is(err, query.ErrNotFound) {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, err
+	}
+	id := binary.LittleEndian.Uint64(b)
+	return id, closer.Close()
 }
 
 // openKV opens Pebble on fs, and Gorp on it.
