@@ -119,6 +119,26 @@ var _ = Describe("Upgrade repair", func() {
 				map[string]any{"parameter": "units", "value": "si"},
 			},
 		),
+		Entry(
+			"an unsorted query in the path",
+			map[string]any{"path": "/cmd?units=si&a=1"},
+			"/cmd",
+			[]any{},
+			[]any{
+				map[string]any{"parameter": "units", "value": "si"},
+				map[string]any{"parameter": "a", "value": "1"},
+			},
+		),
+		Entry(
+			"an encoded query in the path",
+			map[string]any{"path": "/cmd?city=New%20York&tag=a%2Bb"},
+			"/cmd",
+			[]any{},
+			[]any{
+				map[string]any{"parameter": "city", "value": "New York"},
+				map[string]any{"parameter": "tag", "value": "a+b"},
+			},
+		),
 	)
 
 	DescribeTable("Should set aside a row that could never have worked",
@@ -152,10 +172,14 @@ var _ = Describe("Upgrade repair", func() {
 		),
 	)
 
-	It("Should keep a query in the path that the Driver sends in another order",
+	It("Should set aside a query in the path that repeats a name",
 		func(ctx SpecContext) {
-			data := shipped(map[string]any{"path": "/cmd?b=1&a=2"})
-			Expect(endpoint(ctx, data)["path"]).To(Equal("/cmd?b=1&a=2"))
+			data := shipped(map[string]any{"path": "/cmd?a=1&a=2"})
+			Expect(endpoint(ctx, data)["path"]).To(Equal("/cmd?a=1&a=2"))
+			Expect(upgrade(ctx, data)).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("path")),
+			))
 		},
 	)
 })

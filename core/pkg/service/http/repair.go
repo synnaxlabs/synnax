@@ -11,20 +11,17 @@ package http
 
 import (
 	"context"
-	"regexp"
+	"net/url"
 	"slices"
 	"strings"
 
 	"github.com/synnaxlabs/gorp"
 )
 
-// unreserved matches a query name or value that the Driver sends as it is.
-var unreserved = regexp.MustCompile("^[A-Za-z0-9._~-]*$")
-
 // repairRequest drops the header and query parameter rows with no name, which the
-// Driver skipped. It moves a query written into path into params when the Driver then
-// sends the same URL: the query parameters were empty, and each name is unique,
-// sorted, and unreserved, as is each value.
+// Driver skipped. It moves a query written into path into params, decoded, so the
+// Driver sends the same query in its own order and encoding. A query that repeats a
+// name or does not decode stays in path, because params cannot hold it.
 func repairRequest(path *string, headers *[]Header, params *[]QueryParam) {
 	*headers = slices.DeleteFunc(*headers, func(h Header) bool { return h.Name == "" })
 	*params = slices.DeleteFunc(
@@ -32,15 +29,22 @@ func repairRequest(path *string, headers *[]Header, params *[]QueryParam) {
 		func(q QueryParam) bool { return q.Parameter == "" },
 	)
 	base, query, found := strings.Cut(*path, "?")
-	if !found || query == "" || len(*params) > 0 {
+	if !found {
 		return
 	}
-	var moved []QueryParam
+	moved := slices.Clone(*params)
 	for pair := range strings.SplitSeq(query, "&") {
-		name, value, ok := strings.Cut(pair, "=")
-		if !ok || name == "" || !unreserved.MatchString(name) ||
-			!unreserved.MatchString(value) ||
-			(len(moved) > 0 && name <= moved[len(moved)-1].Parameter) {
+		if pair == "" {
+			continue
+		}
+		rawName, rawValue, _ := strings.Cut(pair, "=")
+		name, nameErr := url.QueryUnescape(rawName)
+		value, valueErr := url.QueryUnescape(rawValue)
+		taken := slices.ContainsFunc(
+			moved,
+			func(q QueryParam) bool { return q.Parameter == name },
+		)
+		if nameErr != nil || valueErr != nil || name == "" || taken {
 			return
 		}
 		moved = append(moved, QueryParam{Parameter: name, Value: value})
