@@ -228,12 +228,13 @@ TEST(Text, RejectFloat32Overflow) {
     assert_rejects(dec, "1e39", "field a: 1e+39 overflows float32");
 }
 
-/// @brief it should reject a value that its scale makes infinite.
-TEST(Text, RejectInfiniteScaledValue) {
+/// @brief it should write infinity for a value that its scale makes infinite.
+TEST(Text, DecodeInfiniteScaledValue) {
     auto f = at("a", 0);
     f.scale = 1e10;
     auto dec = ASSERT_NIL_P(Text::create({message("line", {f})}));
-    assert_rejects(dec, "1e300", "field a: Infinity is not finite");
+    ASSERT_NIL_P(dec.decode("1e300"));
+    EXPECT_EQ(value(dec, 0, 0), std::numeric_limits<double>::infinity());
 }
 
 /// @brief it should name the message in a decode error when it holds more than one.
@@ -300,14 +301,18 @@ TEST(Text, RefuseNonFloatChannel) {
     );
 }
 
-/// @brief it should refuse a default that is not finite or overflows its channel.
-TEST(Text, RefuseInvalidDefault) {
-    auto f = at("f", 0);
+/// @brief it should write a NaN default for a line with no value for its field.
+TEST(Text, DecodeNaNDefault) {
+    auto f = at("b", 1);
     f.default_ = std::numeric_limits<double>::quiet_NaN();
-    assert_refuses(
-        {message("a", {f})},
-        "message a: field f: default: NaN is not finite"
-    );
+    auto dec = ASSERT_NIL_P(Text::create({message("line", {f})}));
+    ASSERT_NIL_P(dec.decode("1"));
+    EXPECT_TRUE(std::isnan(value(dec, 0, 0)));
+}
+
+/// @brief it should refuse a default that overflows its channel.
+TEST(Text, RefuseDefaultThatOverflowsChannel) {
+    auto f = at("f", 0);
     f.default_ = 1e300;
     assert_refuses(
         {message("a", {f}, "", x::telem::FLOAT32_T)},

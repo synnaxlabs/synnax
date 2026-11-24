@@ -184,8 +184,8 @@ func (c *checker) checkTextFields(path []string, p TextPayload, untyped set.Set[
 			c.checkTag(pathOf(fieldPath, "tag"), v.Tag, p.Delimiter)
 		}
 		b := f.Base()
-		if d := b.Default; d != nil && !xmath.Finite(*d) {
-			c.addf(pathOf(fieldPath, "default"), "default must be finite")
+		if d := b.Default; d != nil && math.IsInf(float64(*d), 0) {
+			c.addf(pathOf(fieldPath, "default"), "default cannot be infinite")
 		}
 		checkDefaultRange(c, fieldPath, b.BaseField, b.Default)
 	}
@@ -563,8 +563,8 @@ func (c *checker) checkBinaryDefault(path []string, f BinaryField) {
 		}
 		d := float64(*v.Default)
 		switch {
-		case !xmath.Finite(d):
-			c.addf(defaultPath, "default must be finite")
+		case math.IsInf(d, 0):
+			c.addf(defaultPath, "default cannot be infinite")
 		case n == 32 && math.Abs(d) > math.MaxFloat32:
 			c.addf(defaultPath, "default %g does not fit a 32-bit float", d)
 		}

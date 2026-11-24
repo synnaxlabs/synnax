@@ -954,6 +954,40 @@ describe("Kafka read form", () => {
       );
     });
 
+    it("should copy a record after it in its topic, each field on a new channel", async () => {
+      const ch = await client.channels.create({
+        name: uniqueName("temperature"),
+        dataType: DataType.FLOAT64,
+        virtual: true,
+      });
+      const temperature = createField("temperature", "float");
+      const { draft } = await renderRead({
+        fields: [temperature],
+        recordKey: "pump",
+        bound: { [temperature.key]: ch.key },
+      });
+      fireEvent.contextMenu(
+        await screen.findByRole("treeitem", { name: /JSON.*pump/ }),
+      );
+      fireEvent.click(await screen.findByRole("menuitem", { name: "Duplicate" }));
+      const [original, copy] = await waitFor(async () => {
+        const [topic] = await retrieveTopics(draft.key);
+        expect(topic.records).toHaveLength(2);
+        return topic.records;
+      });
+      expect(copy.key).not.toBe(original.key);
+      expect(copy).toEqual({
+        ...original,
+        key: copy.key,
+        messages: [
+          {
+            ...original.messages[0],
+            bindings: [{ field: temperature.key, channel: 0, dataType: "" }],
+          },
+        ],
+      });
+    });
+
     it.each([
       { name: "gone", note: "Message not found", change: removeMessage },
       {
@@ -1661,7 +1695,7 @@ describe("Kafka read form", () => {
       await waitFor(async () =>
         expect(jsonFieldsOf(await client.icds.retrieve(icdKey))).toMatchObject([
           { key: temperature.key },
-          { name: "Field 2", pointer: "" },
+          { name: "Field 2", pointer: "/field_2" },
         ]),
       );
       const [, added] = jsonFieldsOf(await client.icds.retrieve(icdKey));

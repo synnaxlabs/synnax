@@ -49,8 +49,9 @@ A custom symbol is one of two kinds:
 3. Drop an SVG file on the dialog, or click it to select a file. The file name becomes
    the **Symbol name**.
 4. Under **States**, select **Static** or **Actuator**.
-5. Under **Colors**, set the **Stroke color** and **Fill color** of each region. For an
-   actuator, select the **Active** state and set its colors too.
+5. Under **Parts**, select a part, then set its **Fill** and **Stroke** in the
+   inspector. For an actuator, select **Active** in the **Preview** bar and set its
+   colors too.
 6. Optional: under **Handles**, click <Icon.Add /> to add a connection point. Drag it to
    the edge of the drawing.
 7. Click **Create**.
@@ -132,20 +133,23 @@ you create there replaces every missing copy.
 1, and **Active**, shown when it is 1. The state is active when the value is between 0.9
 and 1.1.
 
-### Colors
+### Parts
 
-Synnax finds the regions of the drawing from its colors. Elements with the same stroke
-and fill are one region, named **Region 1**, **Region 2**, and so on. Each region has a
-**Stroke color** and a **Fill color** for each state.
+Synnax finds the parts of the drawing from its colors. Shapes with the same stroke and
+fill are one part, named **Region 1**, **Region 2**, and so on. The first entry, **Whole
+drawing**, sets the colors of all shapes. The colors of a part override it.
+
+Select a part to edit it in the inspector, on the right of the dialog. The inspector
+edits the state that the **Preview** bar at the bottom of the drawing shows.
 
 <Image
   id="console/schematics/symbol-color-regions/b8ba285d15de/colors"
   extension="webp"
-  alt="The color regions of a tank symbol in the create symbol dialog"
+  alt="The parts of a tank symbol in the create symbol dialog"
 />
 
-To move an element to a different region, select the region, then click the element in
-the preview. Click <Icon.Add /> to add a region. Click a region name to rename it.
+To move a shape to a different part, select the part, then click the shape in the
+preview. Click <Icon.Add /> to add a part. Click a part name to rename it.
 
 ### Handles
 
@@ -168,7 +172,7 @@ scroll to zoom, and **Shift**+drag or middle-drag to pan. Press **Ctrl+Enter**
 ### SVG files
 
 Use one SVG file with an `<svg>` root element. Give parts that change color together the
-same stroke and fill colors, so Synnax puts them in one region.
+same stroke and fill colors, so Synnax puts them in one part.
 
 Draw with vector shapes. The Console removes scripts, event handlers, `foreignObject`
 elements, and links to anything outside the file, so embedded and linked images do not

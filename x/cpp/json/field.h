@@ -113,9 +113,9 @@ public:
     [[nodiscard]] bool labeled(std::string_view raw);
 
     /// @brief appends the sample of v to dst, as append does for a JSON number equal to
-    /// v.
-    /// @returns VALIDATION, appending nothing, when v is not finite, the data type is
-    /// not numeric, or v does not convert to it.
+    /// v. A float data type takes any float, NaN and infinity included.
+    /// @returns VALIDATION, appending nothing, when the data type is not numeric or v
+    /// does not convert to it.
     errors::Error append_float(double v, telem::Series &dst) const;
 };
 

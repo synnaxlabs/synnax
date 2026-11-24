@@ -128,6 +128,17 @@ func floatField(name string, key icd.FieldKey, scale, offset float64) icd.JSONFi
 	}}
 }
 
+// nanField returns a float field at /name whose default is NaN.
+func nanField(name string, key icd.FieldKey) icd.JSONField {
+	return icd.JSONField{Variant: icd.FloatJSONField{
+		Key:     key,
+		Name:    name,
+		Scale:   1,
+		Pointer: "/" + name,
+		Default: new(payload.Float(math.NaN())),
+	}}
+}
+
 func message(fields []icd.JSONField, bindings ...codec.Binding) codec.JSONMessage {
 	return codec.JSONMessage{
 		Name:     "command",
@@ -327,6 +338,30 @@ var _ = Describe("JSONEncoder", func() {
 		)))
 		Expect(enc.Encode(nil, [][]byte{nil})).Error().
 			To(MatchError("message command: field temp: no sample and no default"))
+	})
+
+	It("Should refuse a NaN default for a field with no binding", func() {
+		f := nanField("v", uuid.New())
+		Expect(codec.NewJSONEncoder(message([]icd.JSONField{f}))).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError("message command: field v: default: NaN is not a JSON number: "+
+				"validation error"),
+		))
+	})
+
+	It("Should fail only the encode of a nil sample for a bound NaN default", func() {
+		key := uuid.New()
+		enc := MustSucceed(codec.NewJSONEncoder(message(
+			[]icd.JSONField{nanField("v", key)},
+			codec.Binding{Field: key, DataType: telem.Float64T},
+		)))
+		Expect(enc.HasDefault(0)).To(BeTrue())
+		Expect(enc.Encode(nil, [][]byte{float64Sample(2.5)})).To(MatchJSON(`{"v":2.5}`))
+		Expect(enc.Encode(nil, [][]byte{nil})).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError("message command: field v: default: NaN is not a JSON number: "+
+				"validation error"),
+		))
 	})
 
 	DescribeTable("Should write a generated default beside a match rule",
@@ -655,6 +690,10 @@ var _ = Describe("CheckDefault", func() {
 				Scale: 1, Max: new(100.0), Default: new(payload.Float(120)),
 			},
 			"120 is above the max 100: validation error",
+		),
+		Entry("a NaN float, which JSON cannot hold",
+			icd.FloatJSONField{Scale: 1, Default: new(payload.Float(math.NaN()))},
+			"NaN is not a JSON number: validation error",
 		),
 		Entry("a timestamp default with no type",
 			icd.TimestampJSONField{
