@@ -11,6 +11,7 @@ import { DataType, id } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { channel } from "@/channel";
+import { framer } from "@/framer";
 import {
   createTestClient,
   createTestClientWithPolicy,
@@ -126,10 +127,10 @@ describe("Where with a Core", () => {
       dataType: DataType.FLOAT32,
       virtual: true,
     });
-    // A reader that may retrieve every channel but no calculation.
+    // A reader that may retrieve and stream every channel but no calculation.
     const reader = await createTestClientWithPolicy(admin, {
       name: id.create(),
-      objects: [channel.resourceID(0)],
+      objects: [channel.resourceID(0), framer.resourceID("")],
       actions: ["retrieve"],
     });
     await waitForStreamLive(reader.connection);
