@@ -275,6 +275,7 @@ class WriteTask final : public driver::task::Task {
         // The start status waits for the streamer, so a client that waits for it can
         // send commands at once.
         void opened() override {
+            this->p.state.set_background_warning({});
             std::lock_guard lock(this->p.state_mu);
             if (!this->p.opening) return;
             this->p.answer_pending_starts();
@@ -285,6 +286,15 @@ class WriteTask final : public driver::task::Task {
         void missed() override {
             std::lock_guard lock(this->logged_mu);
             this->show_locked(MISSED_COMMANDS);
+        }
+
+        void waiting_for_core(
+            const x::errors::Error &err,
+            const x::telem::TimeSpan &waited
+        ) override {
+            this->p.state.set_background_warning(
+                core_warning(err, waited, this->p.core_warning_delay)
+            );
         }
 
         x::errors::Error write(x::telem::Frame &frame) override {
@@ -321,8 +331,18 @@ class WriteTask final : public driver::task::Task {
         explicit StateSource(WriteTask &p): p(p) {}
 
         void writer_opened() override {
+            this->p.state.set_background_warning({});
             std::lock_guard lock(this->p.state_mu);
             this->writer_open = true;
+        }
+
+        void waiting_for_core(
+            const x::errors::Error &err,
+            const x::telem::TimeSpan &waited
+        ) override {
+            this->p.state.set_background_warning(
+                core_warning(err, waited, this->p.core_warning_delay)
+            );
         }
 
         void stopped_with_err(const x::errors::Error &err) override {
@@ -359,6 +379,8 @@ class WriteTask final : public driver::task::Task {
     std::mutex state_mu;
     /// @brief used to manage and communicate the task's state.
     StatusHandler state;
+    /// @brief how long the task retries a Core error before it shows a warning.
+    x::telem::TimeSpan core_warning_delay;
     /// @brief true from a start until the command streamer opens or fails to open.
     bool opening = false;
     /// @brief true while a sink with no command channels holds its hardware. Such a
@@ -501,6 +523,7 @@ public:
         const std::shared_ptr<driver::pipeline::StreamerFactory> &streamer_factory
     ):
         state(ctx, task),
+        core_warning_delay(ctx->core_warning_delay()),
         sink(std::make_shared<WrappedSink>(*this, std::move(sink))),
         state_source(std::make_shared<StateSource>(*this)),
         cmd_write_pipe(

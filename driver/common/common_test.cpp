@@ -7,7 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <string>
+
 #include "gtest/gtest.h"
+
+#include "client/cpp/errors/errors.h"
+#include "freighter/cpp/freighter.h"
 
 #include "driver/common/common.h"
 
@@ -30,5 +35,30 @@ TEST(UnlimitedRetryConfig, testRetriesWithoutLimit) {
     EXPECT_EQ(cfg.name, "task");
     EXPECT_EQ(cfg.max_retries, x::breaker::RETRY_INFINITELY);
     EXPECT_EQ(cfg.max_interval, 5 * x::telem::SECOND);
+}
+
+/// @brief it should show a license warning at once.
+TEST(CoreWarning, ShowsLicenseAtOnce) {
+    const auto w = core_warning(
+        synnax::errors::LICENSE_MISSING,
+        x::telem::TimeSpan::ZERO(),
+        x::telem::SECOND
+    );
+    ASSERT_EQ(w.message, "Waiting for a license");
+}
+
+/// @brief it should show a Core warning only once the wait reaches the delay.
+TEST(CoreWarning, ShowsOtherErrorsAfterTheDelay) {
+    ASSERT_TRUE(
+        core_warning(freighter::TRANSPORT, x::telem::MILLISECOND, x::telem::SECOND)
+            .empty()
+    );
+    const auto w = core_warning(
+        freighter::TRANSPORT,
+        x::telem::SECOND,
+        x::telem::SECOND
+    );
+    ASSERT_EQ(w.message, "Failed to reach the Core");
+    ASSERT_NE(w.description.find(freighter::TRANSPORT.type), std::string::npos);
 }
 }

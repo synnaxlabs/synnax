@@ -50,6 +50,8 @@ class Base {
 protected:
     /// @brief a breaker for managing the lifecycle of the pipeline thread.
     x::breaker::Breaker breaker;
+    /// @brief when the current wait for the Core began, or zero when not waiting.
+    x::telem::TimeStamp waiting_since = x::telem::TimeStamp(0);
 
     explicit Base(
         const x::breaker::Config &breaker_config,
@@ -66,8 +68,23 @@ protected:
         const auto kind = synnax::errors::classify(err);
         const bool retries = kind == synnax::errors::Kind::TRANSIENT ||
                              (resendable && kind == synnax::errors::Kind::INTERRUPTED);
-        return retries && this->breaker.wait_unlimited(err);
+        if (!retries) return false;
+        const auto now = x::telem::TimeStamp::now();
+        if (this->waiting_since == x::telem::TimeStamp(0)) this->waiting_since = now;
+        this->waiting(err, now - this->waiting_since);
+        return this->breaker.wait_unlimited(err);
     }
+
+    /// @brief records that a request to the Core succeeded, ending any wait.
+    void reached_core() {
+        this->breaker.reset_unlimited();
+        this->waiting_since = x::telem::TimeStamp(0);
+    }
+
+    /// @brief called by wait_for_core before each wait. waited is how long the
+    /// pipeline has waited since it last reached the Core.
+    virtual void
+    waiting(const x::errors::Error &err, const x::telem::TimeSpan &waited) {}
 
     /// @brief unblocks a pipeline thread that waits in a call the breaker cannot wake,
     /// such as a hardware read. Called by a stop() from another thread that stops the

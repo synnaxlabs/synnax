@@ -122,6 +122,8 @@ class ReadTask final : public driver::task::Task {
     driver::transform::Tare tare;
     /// @brief handles communicating the task state back to the cluster.
     StatusHandler state;
+    /// @brief how long the task retries a Core error before it shows a warning.
+    x::telem::TimeSpan core_warning_delay;
 
     /// @brief a wrapped source that gracefully handles shutdown when a hardware
     /// read fails or the pipeline fails to write to Synnax.
@@ -149,7 +151,19 @@ class ReadTask final : public driver::task::Task {
             this->writer_open = false;
         }
 
-        void writer_opened() override { this->writer_open = true; }
+        void writer_opened() override {
+            this->writer_open = true;
+            this->p.state.set_background_warning({});
+        }
+
+        void waiting_for_core(
+            const x::errors::Error &err,
+            const x::telem::TimeSpan &waited
+        ) override {
+            this->p.state.set_background_warning(
+                core_warning(err, waited, this->p.core_warning_delay)
+            );
+        }
 
         void interrupt() override { this->internal->interrupt(); }
 
@@ -228,6 +242,7 @@ public:
     ):
         tare(driver::transform::Tare(source->channels())),
         state(ctx, task),
+        core_warning_delay(ctx->core_warning_delay()),
         source(std::make_shared<InternalSource>(*this, std::move(source))),
         pipe(
             factory,

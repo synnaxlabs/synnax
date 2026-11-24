@@ -42,6 +42,11 @@ public:
     /// before its Core half, as the bypass streamer does after a transient Core error.
     virtual void opened() {}
 
+    /// @brief called on the pipeline thread before each wait for the Core after err.
+    /// waited is how long the pipeline has waited since its streamer last opened.
+    virtual void
+    waiting_for_core(const x::errors::Error &err, const x::telem::TimeSpan &waited) {}
+
     /// @brief called when the Core dropped commands because the pipeline fell behind.
     /// The dropped commands never reach write(). It can run on a thread other than the
     /// pipeline thread, so it must be thread safe.
@@ -192,5 +197,8 @@ public:
     void run() override;
 
     void stopped_with_err(const x::errors::Error &err) override;
+
+    void
+    waiting(const x::errors::Error &err, const x::telem::TimeSpan &waited) override;
 };
 }

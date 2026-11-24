@@ -48,6 +48,17 @@ const std::string CLOCK_TROUBLESHOOTING_URL = "https://docs.synnaxlabs.com/refer
                                               "enterprise/troubleshooting"
                                               "#clock-out-of-sync-with-the-core";
 
+/// @brief returns warning as a health when health is a success, and health otherwise.
+inline Health with_warning(const Health &health, const task::RackWarning &warning) {
+    if (health.variant != ::synnax::status::VARIANT_SUCCESS || warning.empty())
+        return health;
+    return Health{
+        .variant = ::synnax::status::VARIANT_WARNING,
+        .message = warning.message,
+        .description = warning.description,
+    };
+}
+
 /// @brief returns a warning when the clock skew in conn exceeds its threshold, and
 /// health otherwise. A health that is not a success takes precedence.
 inline Health
@@ -116,7 +127,7 @@ public:
         while (breaker.running()) {
             this->loop.wait(breaker);
             const auto health = with_clock_skew(
-                this->health,
+                with_warning(this->health, this->ctx->rack_warning()),
                 this->ctx->client->connectivity->state()
             );
             synnax::rack::Status status{

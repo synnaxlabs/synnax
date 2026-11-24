@@ -14,6 +14,7 @@
 #include "x/cpp/thread/rt/rt.h"
 #include "x/cpp/thread/thread.h"
 
+#include "driver/common/common.h"
 #include "rack.h"
 
 namespace driver::rack {
@@ -23,14 +24,33 @@ bool Rack::should_exit(
     const bool reconnecting
 ) {
     if (!err) return false;
-    if (waits_out(err, reconnecting) &&
-        (reconnecting ? this->breaker.wait_unlimited(err) : this->breaker.wait(err)))
-        return false;
+    if (waits_out(err, reconnecting)) {
+        if (reconnecting) this->warn_while_waiting(err);
+        if (reconnecting ? this->breaker.wait_unlimited(err) : this->breaker.wait(err))
+            return false;
+    }
     // A stop came first, so the error did not stop the rack.
     if (!this->breaker.running()) return true;
     this->run_err = err;
     if (on_shutdown) on_shutdown();
     return true;
+}
+
+void Rack::warn_while_waiting(const x::errors::Error &err) {
+    const auto now = x::telem::TimeStamp::now();
+    if (this->waiting_since == x::telem::TimeStamp(0)) this->waiting_since = now;
+    const auto warning = common::core_warning(
+        err,
+        now - this->waiting_since,
+        this->warning_delay
+    );
+    this->task_manager->set_rack_warning({warning.message, warning.description});
+}
+
+void Rack::reached_core() {
+    this->breaker.reset();
+    this->waiting_since = x::telem::TimeStamp(0);
+    this->task_manager->set_rack_warning({});
 }
 
 Rack::~Rack() {
@@ -73,10 +93,11 @@ void Rack::run(x::args::Parser &args, const std::function<void()> &on_shutdown) 
             cfg.manager
         );
     }
+    this->warning_delay = cfg.manager.core_warning_delay;
     // A run that lost the Core leaves its tasks running for the next run.
     x::defer::defer close([this] { this->task_manager->close(); });
     while (true) {
-        const auto err = this->task_manager->run([this]() { this->breaker.reset(); });
+        const auto err = this->task_manager->run([this]() { this->reached_core(); });
         if (this->should_exit(err, on_shutdown, true) || !this->breaker.running())
             return;
         // The factories hold the Core version and cluster from startup, so a new one

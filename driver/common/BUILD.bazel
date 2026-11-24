@@ -26,6 +26,7 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//client/cpp/device",
+        "//client/cpp/errors",
         "//client/cpp/rack:key",
         "//client/cpp/status",
         "//client/cpp/task",

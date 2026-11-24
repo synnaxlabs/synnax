@@ -71,6 +71,11 @@ public:
     /// @brief called on the pipeline thread each time the writer opens.
     virtual void writer_opened() {}
 
+    /// @brief called on the pipeline thread before each wait for the Core after err.
+    /// waited is how long the pipeline has waited since its writer last opened.
+    virtual void
+    waiting_for_core(const x::errors::Error &err, const x::telem::TimeSpan &waited) {}
+
     /// @brief unblocks a read when the pipeline stops. Called on the stopping thread
     /// after the breaker stops, and before the pipeline joins its thread. It can come
     /// before the read blocks, so a blocking call made after it must also return. The
@@ -186,6 +191,9 @@ class Acquisition final : public Base {
     void run() override;
 
     void stopped_with_err(const x::errors::Error &err) override;
+
+    void
+    waiting(const x::errors::Error &err, const x::telem::TimeSpan &waited) override;
 
     void interrupt() override { this->source->interrupt(); }
 

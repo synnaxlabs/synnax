@@ -356,6 +356,17 @@ class Rack {
     std::unique_ptr<task::Manager> task_manager;
     x::breaker::Breaker breaker;
     x::errors::Error run_err = x::errors::NIL;
+    /// @brief when the current wait for the Core began, or zero when not waiting.
+    x::telem::TimeStamp waiting_since = x::telem::TimeStamp(0);
+    /// @brief how long the rack waits for the Core before its status warns.
+    x::telem::TimeSpan warning_delay = task::DEFAULT_CORE_WARNING_DELAY;
+
+    /// @brief shows the warning of err in the rack status once the wait for the Core
+    /// has lasted the warning delay, or at once for a license error.
+    void warn_while_waiting(const x::errors::Error &err);
+
+    /// @brief ends a wait for the Core and clears its warning.
+    void reached_core();
 
     /// @brief returns true if the error cannot be recovered from and the rack
     /// should stop operations and shut down. Calls on_shutdown unless a stop caused
