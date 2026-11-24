@@ -26,6 +26,7 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
 )
 
 type resolver struct {
@@ -163,6 +164,13 @@ func (a *CalculationAnalyzer) Analyze(
 		return op.Type == OperationTypeDerivative
 	}) {
 		inferredDataType = telem.Float64T
+	}
+	if inferredDataType == telem.UnknownT {
+		return CalculationAnalysisResult{}, errors.Wrapf(
+			validate.ErrValidation,
+			"the expression of calculated channel %q returns no value",
+			ch.Name,
+		)
 	}
 	return CalculationAnalysisResult{
 		ChanDataType:         inferredDataType,

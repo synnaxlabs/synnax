@@ -160,6 +160,14 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}); !ok(err, s.table) {
 		return nil, err
 	}
+	if err = gorp.Migrate(ctx, gorp.MigrateConfig{
+		Instrumentation: cfg.Instrumentation,
+		DB:              cfg.DB,
+		Namespace:       types.Name[Channel](),
+		Migrations:      []gorp.Migration{s.dataTypeRepair()},
+	}); !ok(err, nil) {
+		return nil, err
+	}
 	// Seed the external/non-virtual key set by scanning the table once at startup. This
 	// is the only call site that unavoidably walks the table — there is no index for
 	// (Internal, Virtual) and the cost is bounded by how many channels the Core has

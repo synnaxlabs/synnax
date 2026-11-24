@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -48,6 +49,15 @@ var _ = Describe("Analyze", func() {
 		})
 		Expect(err).To(BeIdenticalTo(context.Canceled))
 		Expect(res.Unresolved).To(BeEmpty())
+	})
+
+	It("Should reject an expression that returns no value", func(ctx SpecContext) {
+		a := channel.NewCalculationAnalyzer(StaticResolver{})
+		Expect(a.Analyze(ctx, channel.Channel{Name: "calc", Expression: "x := 1"})).
+			Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring(`calculated channel "calc" returns no value`)),
+		))
 	})
 
 	Describe("Type Inference", func() {

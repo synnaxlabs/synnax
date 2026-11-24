@@ -2353,5 +2353,58 @@ var _ = Describe("Writer", func() {
 				Expect(retrieved.DataType).To(Equal(telem.Float64T))
 			},
 		)
+		It(
+			"Should return a validation error when changing the data type to none",
+			func(ctx SpecContext) {
+				base := channel.Channel{
+					Name:       UniqueChannelName(),
+					DataType:   telem.Int64T,
+					Virtual:    true,
+					Expression: "return 1",
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &base)
+				})).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).
+						ChangeDataType(ctx, base.Key(), telem.UnknownT)
+				})).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring("data_type")),
+				))
+			},
+		)
+	})
+
+	Describe("Create without a data type", Ordered, func() {
+		var (
+			db  *gorp.DB
+			svc *channel.Service
+		)
+		BeforeAll(func(ctx SpecContext) {
+			ShouldNotLeakGoroutines()
+			dist := testutil.NewNode(ctx)
+			db = dist.DB
+			svc = openService(ctx, dist)
+		})
+		DescribeTable("Should reject the channel",
+			func(ctx SpecContext, ch channel.Channel, msg string) {
+				ch.Name = UniqueChannelName()
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &ch)
+				})).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring(msg)),
+				))
+			},
+			Entry("with a free leaseholder",
+				channel.Channel{Virtual: true, Leaseholder: node.KeyFree},
+				"data_type",
+			),
+			Entry("with an expression that returns no value",
+				channel.Channel{Virtual: true, Expression: "x := 1"},
+				"returns no value",
+			),
+		)
 	})
 })

@@ -238,6 +238,9 @@ func (w Writer) ChangeDataType(
 				)
 			}
 			c.DataType = dataType
+			if err := c.Validate(); err != nil {
+				return Channel{}, err
+			}
 			return c, nil
 		}).
 		Exec(ctx, w.tx); err != nil {
