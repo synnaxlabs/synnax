@@ -53,11 +53,11 @@ var _ = Describe("ClearUnissuedChannelLinks", func() {
 		store storagetestutil.Layer
 		proj  project.Project
 	)
-	// openStore opens the store of the spec, which its Cores open on in turn. ctx must
-	// be the spec's, since the store runs until it ends.
+	// openStore opens the store of the spec, which its Cores open on in turn. The store
+	// and each Core run until the spec's cleanup closes them, after the spec ends.
 	openStore := func(ctx SpecContext) {
 		GinkgoHelper()
-		store = storagetestutil.OpenLayer(ctx)
+		store = storagetestutil.OpenLayer(GinkgoT().Context())
 		DeferCleanup(func() { Expect(store.Close()).To(Succeed()) })
 	}
 	stop := func(c core) {
@@ -71,7 +71,10 @@ var _ = Describe("ClearUnissuedChannelLinks", func() {
 	}
 	start := func(ctx SpecContext) core {
 		GinkgoHelper()
-		n := testutil.OpenNode(ctx, distribution.LayerConfig{Storage: store.Layer})
+		n := testutil.OpenNode(
+			GinkgoT().Context(),
+			distribution.LayerConfig{Storage: store.Layer},
+		)
 		c := core{
 			node:    n,
 			layer:   MustSucceed(svctestutil.OpenLayer(ctx, n)),
