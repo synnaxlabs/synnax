@@ -29,7 +29,7 @@ func checkModuleRules(ctx acontext.Context[parser.IProgramContext]) {
 			if flow := item.FlowStatement(); flow != nil {
 				ctx.Diagnostics.Add(codes.ModuleFlow.Atf(
 					flow, "a module cannot have a top-level flow",
-				))
+				).WithEdits("Remove flow", formatter.RemoveStatement(flow)))
 			}
 		}
 		if item.EXPORT() == nil {

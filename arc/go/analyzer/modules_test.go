@@ -79,6 +79,25 @@ var _ = Describe("Modules", func() {
 			)
 		})
 
+		DescribeTable(
+			"Should give a fix that removes a top-level flow from a module",
+			func(bCtx SpecContext, source, fixed string) {
+				ctx := analyze(bCtx, source, true)
+				var fixes []diagnostics.Fix
+				for _, d := range *ctx.Diagnostics {
+					if d.Code == codes.ModuleFlow.Code {
+						fixes = append(fixes, d.Fixes...)
+					}
+				}
+				Expect(fixes).To(HaveLen(1))
+				Expect(fixes[0].Title).To(Equal("Remove flow"))
+				Expect(testutil.ApplyFix(source, fixes[0])).To(Equal(fixed))
+			},
+			Entry("flow before a function", "in -> out\nfunc f() {}", "func f() {}"),
+			Entry("flow after a function", "func f() {}\nin -> out\n", "func f() {}\n"),
+			Entry("the last line", "in -> out", ""),
+		)
+
 		It(
 			"Should allow an authority block and a top-level flow outside a module",
 			func(bCtx SpecContext) {

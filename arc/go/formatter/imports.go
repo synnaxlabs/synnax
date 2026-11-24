@@ -144,6 +144,15 @@ func Replace(node antlr.ParserRuleContext, text string) protocol.TextEdit {
 	}
 }
 
+// InsertBefore returns the edit that adds text before node.
+func InsertBefore(node antlr.ParserRuleContext, text string) protocol.TextEdit {
+	start := startOf(node.GetStart())
+	return protocol.TextEdit{
+		Range:   protocol.Range{Start: start, End: start},
+		NewText: text,
+	}
+}
+
 // RemoveToken returns the edit that removes t and the white space after it.
 func RemoveToken(t antlr.Token) protocol.TextEdit {
 	end := endOf(t)
