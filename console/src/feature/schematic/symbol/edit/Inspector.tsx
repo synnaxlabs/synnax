@@ -10,6 +10,7 @@
 import "@/feature/schematic/symbol/edit/Edit.css";
 
 import type { schematic } from "@synnaxlabs/client";
+import { Button } from "@synnaxlabs/lyra/button";
 import { context } from "@synnaxlabs/lyra/context";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Flex } from "@synnaxlabs/lyra/flex";
@@ -18,7 +19,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Schematic } from "@synnaxlabs/pluto";
 import type { color } from "@synnaxlabs/x";
-import type { PropsWithChildren, ReactElement } from "react";
+import { type PropsWithChildren, type ReactElement, useState } from "react";
 
 import { Paint } from "@/feature/schematic/symbol/edit/Paint";
 import { useValues, type Values } from "@/feature/schematic/symbol/edit/useValues";
@@ -42,8 +43,8 @@ const [InspectorContext, useInspectorContext] = context.create<InspectorContextV
 interface FieldContextValue {
   field: Spec.Field;
   label: string;
-  /** at is the value that the control edits. */
-  at: number;
+  /** at is the value that the control edits, or undefined for every value. */
+  at?: number;
 }
 
 const [FieldContext, useFieldContext] = context.create<FieldContextValue>({
@@ -52,6 +53,8 @@ const [FieldContext, useFieldContext] = context.create<FieldContextValue>({
 });
 
 interface Scope<F extends Spec.Field> extends InspectorContextValue, FieldContextValue {
+  /** shown is the value whose looks the control shows. */
+  shown: number;
   value: Look[F] | undefined;
   /** inherited is what a look on the whole drawing gives the part. */
   inherited: Look[F] | undefined;
@@ -60,22 +63,35 @@ interface Scope<F extends Spec.Field> extends InspectorContextValue, FieldContex
   onChange: (value: Look[F] | undefined) => void;
 }
 
-// useScope returns the field that a control edits at its value.
+// useScope returns the field that a control edits, at its value or at every value.
 const useScope = <F extends Spec.Field>(name: string): Scope<F> => {
   const inspector = useInspectorContext(name);
   const field = useFieldContext(name);
   const looks = Form.useFieldValue(path.data.looks);
   const { get, set } = Form.useContext();
-  const { part } = inspector;
+  const { part, preview } = inspector;
   const { at } = field;
+  // A control for every value shows what the canvas draws at the preview value.
+  const shown = at ?? preview;
   const f = field.field as F;
   return {
     ...inspector,
     ...field,
-    value: Spec.effective({ looks }, part, f, at),
-    inherited: part == null ? undefined : Spec.effective({ looks }, undefined, f, at),
-    own: Spec.own({ looks }, part, f, at),
-    onChange: (v) => set(path.data, Spec.setOwn(get(path.data).value, part, f, v, at)),
+    shown,
+    value: Spec.effective({ looks }, part, f, shown),
+    inherited:
+      part == null ? undefined : Spec.effective({ looks }, undefined, f, shown),
+    own: Spec.own({ looks }, part, f, shown),
+    onChange: (v) => {
+      const spec = get(path.data).value;
+      // A stored static symbol can hold looks on Base, which an edit at every value
+      // would not reach.
+      const from =
+        spec.variant === "static"
+          ? { ...spec, looks: Spec.staticLooks(spec.looks) }
+          : spec;
+      set(path.data, Spec.setOwn(from, part, f, v, at));
+    },
   };
 };
 
@@ -85,16 +101,76 @@ interface PropertyProps extends PropsWithChildren {
   icon: ReactElement;
 }
 
-// Property shows its control at the value that the canvas draws.
+// Property shows its control once for every value, or once for each value when the
+// field varies by state. A symbol with one value has one control.
 const Property = ({ field, label, icon, children }: PropertyProps): ReactElement => {
-  const { preview } = useInspectorContext("Property");
+  const { part, values } = useInspectorContext("Property");
+  const looks = Form.useFieldValue(path.data.looks);
+  const { get, set } = Form.useContext();
+  const [split, setSplit] = useState(() => Spec.variesByValue({ looks }, part, field));
+  const several = values.list.length > 1;
+  // A static symbol has one value, so it ends By state.
+  if (split && !several) setSplit(false);
+  const varies = several && (split || Spec.variesByValue({ looks }, part, field));
+  const handleVariesChange = (next: boolean) => {
+    set(
+      path.data,
+      Spec.setVariesByValue(
+        get(path.data).value,
+        part,
+        field,
+        values.list.map((v) => v.value),
+        next,
+      ),
+    );
+    setSplit(next);
+  };
+  const name = label.toLowerCase();
   return (
-    <Flex.Box x align="center" justify="between">
-      <Text.Text level="small" gap="small">
-        {icon}
-        {label}
-      </Text.Text>
-      <FieldContext value={{ field, label, at: preview }}>{children}</FieldContext>
+    <Flex.Box y gap="small">
+      <Flex.Box x align="center" justify="between">
+        <Text.Text level="small" gap="small">
+          {icon}
+          {label}
+        </Text.Text>
+        <Flex.Box x align="center" gap="small">
+          {!varies && <FieldContext value={{ field, label }}>{children}</FieldContext>}
+          {several && (
+            <Button.Toggle
+              size="small"
+              value={varies}
+              onChange={handleVariesChange}
+              aria-label={`${label} by state`}
+              tooltip={
+                varies
+                  ? `Use one ${name} in every state`
+                  : `Set the ${name} of each state`
+              }
+            >
+              By state
+            </Button.Toggle>
+          )}
+        </Flex.Box>
+      </Flex.Box>
+      {varies &&
+        values.list.map((v) => (
+          <Flex.Box
+            key={v.key}
+            x
+            align="center"
+            justify="between"
+            className={CSS.BE("schematic-inspector", "value")}
+          >
+            <Text.Text level="small" color={9}>
+              {v.name}
+            </Text.Text>
+            <FieldContext
+              value={{ field, label: `${label} while ${v.name}`, at: v.value }}
+            >
+              {children}
+            </FieldContext>
+          </Flex.Box>
+        ))}
     </Flex.Box>
   );
 };
@@ -104,7 +180,7 @@ interface PaintControlProps {
 }
 
 const PaintControl = ({ drawingColor }: PaintControlProps): ReactElement => {
-  const { value, inherited, own, onChange, label, at, values } = useScope<
+  const { value, inherited, own, onChange, label, shown, values } = useScope<
     "fill" | "stroke"
   >("PaintControl");
   return (
@@ -116,7 +192,7 @@ const PaintControl = ({ drawingColor }: PaintControlProps): ReactElement => {
       onChange={onChange}
       entryState={values.entryState}
       drawingColor={drawingColor}
-      entryColor={values.entryColor(at)}
+      entryColor={values.entryColor(shown)}
     />
   );
 };

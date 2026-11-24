@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/platform/credential/KeyTable.css";
+import "@/platform/credential/apikey/Table.css";
 
 import { type auth, type resource, TimeStamp } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
@@ -19,7 +19,7 @@ import { Access, Credential, User } from "@synnaxlabs/pluto";
 import { createContext, type ReactElement, use, useEffect } from "react";
 
 import { ContextMenu } from "@/platform/context-menu";
-import { useCreateKeyModal } from "@/platform/credential/useCreateKeyModal";
+import { useCreateModal } from "@/platform/credential/apikey/useCreateModal";
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
 import { Settings } from "@/platform/settings";
@@ -85,12 +85,12 @@ const useKeyActions = (subject: resource.ID): KeyActions => {
   const canCreate = Access.useUpdateGranted(subject) || own;
   const canDelete = Access.useDeleteGranted(subject) || own;
   const query = { subject };
-  const refreshKeys = Credential.useRefreshAPIKeys();
-  const refreshSessions = Credential.useRefreshSessions();
-  const invalidateKeys = Credential.useInvalidateAPIKeys();
-  const invalidateSessions = Credential.useInvalidateSessions();
+  const refreshKeys = Credential.APIKey.useRefresh();
+  const refreshSessions = Credential.Session.useRefresh();
+  const invalidateKeys = Credential.APIKey.useInvalidate();
+  const invalidateSessions = Credential.Session.useInvalidate();
   // These reads have no live updates, so a change made here fetches them again.
-  const del = Credential.useDeleteAPIKey({
+  const del = Credential.APIKey.useDelete({
     afterSuccess: () => {
       refreshKeys(query);
       refreshSessions(query);
@@ -142,17 +142,17 @@ const KeysMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement => {
 
 const menu = Component.renderProp(KeysMenu);
 
-export interface KeyTableProps {
+export interface TableProps {
   /** The user or rack whose API keys to manage. */
   subject: resource.ID;
 }
 
 /** The subject's API keys, with live sessions, as a searchable table. */
-export const KeyTable = ({ subject }: KeyTableProps): ReactElement => {
+export const Table = ({ subject }: TableProps): ReactElement => {
   const actions = useKeyActions(subject);
-  const openCreate = useCreateKeyModal();
-  const keys = Credential.useResultAPIKeys({ subject });
-  const sessions = Credential.useResultSessions({ subject });
+  const openCreate = useCreateModal();
+  const keys = Credential.APIKey.useResult({ subject });
+  const sessions = Credential.Session.useResult({ subject });
   const list = List.useStaticData<auth.apiKey.Key, auth.apiKey.APIKey>({
     data: keys.data ?? [],
   });

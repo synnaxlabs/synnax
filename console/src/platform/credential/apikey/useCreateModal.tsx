@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/platform/credential/useCreateKeyModal.css";
+import "@/platform/credential/apikey/useCreateModal.css";
 
 import { type auth, type resource, status } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
@@ -25,26 +25,26 @@ import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";
 
-export interface CreateKeyModalParams {
+export interface CreateModalParams {
   /** The user who owns the new key. */
   subject: resource.ID;
 }
 
 type CloseProps = Pick<
-  Modals.ContentProps<CreateKeyModalParams, auth.apiKey.Key>,
+  Modals.ContentProps<CreateModalParams, auth.apiKey.Key>,
   "close"
 >;
 
 interface NameProps extends CloseProps {
   subject: resource.ID;
-  onCreated: (created: Credential.CreateAPIKeyResult) => void;
+  onCreated: (created: Credential.APIKey.CreateResult) => void;
 }
 
 const Name = ({ subject, close, onCreated }: NameProps): ReactElement => {
   const [name, setName] = useState("");
   const query = { subject };
-  const refreshKeys = Credential.useRefreshAPIKeys();
-  const { update, variant } = Credential.useCreateAPIKey({
+  const refreshKeys = Credential.APIKey.useRefresh();
+  const { update, variant } = Credential.APIKey.useCreate({
     afterSuccess: ({ data }) => {
       refreshKeys(query);
       onCreated(data);
@@ -102,7 +102,7 @@ const Name = ({ subject, close, onCreated }: NameProps): ReactElement => {
 };
 
 interface TokenProps extends CloseProps {
-  created: Credential.CreateAPIKeyResult;
+  created: Credential.APIKey.CreateResult;
 }
 
 const Token = ({ created, close }: TokenProps): ReactElement => (
@@ -128,8 +128,8 @@ const Token = ({ created, close }: TokenProps): ReactElement => (
 const Content = ({
   subject,
   close,
-}: Modals.ContentProps<CreateKeyModalParams, auth.apiKey.Key>): ReactElement => {
-  const [created, setCreated] = useState<Credential.CreateAPIKeyResult | null>(null);
+}: Modals.ContentProps<CreateModalParams, auth.apiKey.Key>): ReactElement => {
+  const [created, setCreated] = useState<Credential.APIKey.CreateResult | null>(null);
   return (
     <Modal.Frame className={CSS.B("create-key")}>
       <Modal.Header icon={<Icon.APIKey />}>Create API key</Modal.Header>
@@ -146,7 +146,6 @@ const Content = ({
  * Opens a modal that names and creates an API key, then shows its token once. Resolves
  * with the key once the user is done, or null when the user cancels.
  */
-export const useCreateKeyModal = Modals.createPrompt<
-  auth.apiKey.Key,
-  CreateKeyModalParams
->(Content);
+export const useCreateModal = Modals.createPrompt<auth.apiKey.Key, CreateModalParams>(
+  Content,
+);

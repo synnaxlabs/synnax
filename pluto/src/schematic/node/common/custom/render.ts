@@ -51,15 +51,21 @@ const iterElements = (
     elements.forEach((el) => fn(el, paint));
   });
 
-// The theme band paints the stroke, as on built-in symbols. The fill stays as stored,
-// as on the tank and the cylinder.
-const setStroke = (el: SVGElement, strokeColor: color.Crude | undefined) => {
-  const rgba = color.rgbaString(strokeColor);
+// Paint colors arrive in the theme band, so the stroke takes the color as it is.
+const setStroke = (el: SVGElement, strokeColor: color.Color | undefined) => {
+  if (strokeColor == null) el.style.removeProperty("stroke");
+  else el.style.setProperty("stroke", color.hex(strokeColor));
+};
+
+// The CSS theme band paints a symbol color over the stroke of the paint.
+const setSymbolStroke = (el: SVGElement, symbolColor: color.Crude | undefined) => {
+  const rgba = color.rgbaString(symbolColor);
   if (rgba == null) {
     el.classList.remove(CSS.symbolColored);
     el.style.removeProperty(Primitive.SYMBOL_COLOR);
     return;
   }
+  el.style.removeProperty("stroke");
   el.classList.add(CSS.symbolColored);
   el.style.setProperty(Primitive.SYMBOL_COLOR, rgba);
 };
@@ -119,8 +125,7 @@ const applySymbolStrokes = (
     const paintStroke = paintStrokes.get(el);
     const shown =
       paintStroke != null ? color.opacity(paintStroke) > 0 : isStoredStrokeShown(el);
-    if (symbolColor != null && shown) setStroke(el, symbolColor);
-    else if (paintStroke == null) setStroke(el, undefined);
+    setSymbolStroke(el, symbolColor != null && shown ? symbolColor : undefined);
   });
 };
 

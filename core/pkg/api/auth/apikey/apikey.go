@@ -22,7 +22,6 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
-	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -68,18 +67,6 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{auth: cfg.Auth, apiKey: cfg.APIKey}, nil
-}
-
-// APIKey is an API key as the API returns it: the stored record without its hash.
-type APIKey struct {
-	// Key is the unique identifier for this API key.
-	Key apikey.Key `json:"key" msgpack:"key"`
-	// Subject is the user or rack the key logs in as.
-	Subject resource.ID `json:"subject" msgpack:"subject"`
-	// Name is a label that tells the subject's keys apart.
-	Name string `json:"name" msgpack:"name"`
-	// Created is when the key was created.
-	Created telem.TimeStamp `json:"created" msgpack:"created"`
 }
 
 func apiKey(k apikey.APIKey) APIKey {

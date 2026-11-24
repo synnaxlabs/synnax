@@ -12,51 +12,37 @@ import { verbs } from "@synnaxlabs/x";
 
 import { Flux } from "@/flux";
 
-export type SubjectQuery = {
+export type RetrieveQuery = {
   subject: resource.ID;
 };
 
-export const {
-  useResult: useResultAPIKeys,
-  useInvalidate: useInvalidateAPIKeys,
-  useRefresh: useRefreshAPIKeys,
-} = Flux.createRetrieve<SubjectQuery, auth.apiKey.APIKey[]>({
+export const { useResult, useInvalidate, useRefresh } = Flux.createRetrieve<
+  RetrieveQuery,
+  auth.apiKey.APIKey[]
+>({
   name: "API keys",
   retrieve: async ({ client, query: { subject } }) =>
     await client.auth.apiKeys.retrieve([subject]),
 });
 
-export const {
-  useResult: useResultSessions,
-  useInvalidate: useInvalidateSessions,
-  useRefresh: useRefreshSessions,
-} = Flux.createRetrieve<SubjectQuery, auth.Session[]>({
-  name: "sessions",
-  retrieve: async ({ client, query: { subject } }) =>
-    await client.auth.sessions.retrieve([subject]),
-});
-
-export interface CreateAPIKeyParams {
+export interface CreateParams {
   subject: resource.ID;
   name: string;
 }
 
-export interface CreateAPIKeyResult {
+export interface CreateResult {
   /** The only copy of the key's secret. */
   token: string;
   key: auth.apiKey.APIKey;
 }
 
-export const { useUpdate: useCreateAPIKey } = Flux.createUpdate<
-  CreateAPIKeyParams,
-  CreateAPIKeyResult
->({
+export const { useUpdate: useCreate } = Flux.createUpdate<CreateParams, CreateResult>({
   name: "API key",
   verbs: verbs.CREATE,
   update: async ({ client, data }) => await client.auth.apiKeys.create(data),
 });
 
-export const { useUpdate: useDeleteAPIKey } = Flux.createUpdate<auth.apiKey.Key>({
+export const { useUpdate: useDelete } = Flux.createUpdate<auth.apiKey.Key>({
   name: "API key",
   verbs: verbs.DELETE,
   update: async ({ client, data }) => {
@@ -64,14 +50,3 @@ export const { useUpdate: useDeleteAPIKey } = Flux.createUpdate<auth.apiKey.Key>
     return data;
   },
 });
-
-export const { useUpdate: useSetPassword } = Flux.createUpdate<auth.password.SetParams>(
-  {
-    name: "password",
-    verbs: verbs.SET,
-    update: async ({ client, data }) => {
-      await client.auth.passwords.set(data);
-      return data;
-    },
-  },
-);
