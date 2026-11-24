@@ -744,11 +744,13 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 			expected := MustSucceed(store.Normalize(ctx, db, 0, legacy))
 			// The store assigns the key on write.
 			delete(expected, "key")
-			// The write moves the staged fields into an ICD and fills in each read.
+			// The write moves the staged fields into an ICD, fills in each read, and
+			// disables an endpoint whose fields are all disabled.
 			if legacyICDs.Contains(env.Type) {
 				delete(expected, "inline")
 				for _, ep := range as[[]any](expected["endpoints"]) {
 					delete(as[map[string]any](ep), "messages")
+					delete(as[map[string]any](ep), "disabled")
 				}
 			}
 			revealed := reveal(ctx, imported)

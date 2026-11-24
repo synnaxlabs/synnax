@@ -3263,7 +3263,7 @@ describe("MQTT read form", () => {
       ).toEqual([]);
     });
 
-    it("should keep the channels stored under a topic when an earlier message fails", async () => {
+    it("should store the channels under a topic for their message when an earlier message fails", async () => {
       const time = await createTimeChannel();
       const createFloat = async (name: string) =>
         await client.channels.create({
@@ -3284,7 +3284,7 @@ describe("MQTT read form", () => {
         match("failing"),
       );
       const valueField = createField("value", "float");
-      await addMessage(entry, "owner", [valueField], match("owner"));
+      const owner = await addMessage(entry, "owner", [valueField], match("owner"));
       entry.messages[2].bindings = [
         { field: valueField.key, channel: value.key, dataType: "" },
       ];
@@ -3304,7 +3304,79 @@ describe("MQTT read form", () => {
           expect.objectContaining({ message: "Failed to start task" }),
         ),
       );
-      expect((await retrieveRead(dev.key))[TOPIC]).toEqual(legacy);
+      const read = await retrieveRead(dev.key);
+      expect(read[`${TOPIC}#${owner.key}`]).toEqual(legacy);
+      expect(read).not.toHaveProperty(TOPIC);
+    });
+
+    it("should give the index stored under a topic to an enabled entry before a disabled one", async () => {
+      const time = await createTimeChannel();
+      const [a, b] = await client.channels.create([
+        { name: uniqueName("a"), dataType: DataType.FLOAT64, index: time.key },
+        { name: uniqueName("b"), dataType: DataType.FLOAT64, index: time.key },
+      ]);
+      const aField = createField("a", "float");
+      const disabled = await createEntry({
+        fields: [aField],
+        bound: { [aField.key]: a.key },
+      });
+      disabled.disabled = true;
+      const bField = createField("b", "float");
+      const enabled = await createEntry({
+        fields: [bField],
+        bound: { [bField.key]: b.key },
+      });
+      const legacy = { index: time.key, channels: { "/a": a.key, "/b": b.key } };
+      const { container, dev, draft } = await renderRead({
+        entries: [disabled, enabled],
+        properties: { read: { [TOPIC]: legacy } },
+      });
+      const created = await deploy(container, draft.key);
+      expect(plainOf(created.config.entries[1]).messages[0].bindings[0].channel).toBe(
+        b.key,
+      );
+      const read = await retrieveRead(dev.key);
+      expect(read).not.toHaveProperty(TOPIC);
+      expect(read[`${TOPIC}#${disabled.messages[0].message}`]).toEqual({
+        index: 0,
+        channels: { "/a": a.key },
+      });
+      expect(read[`${TOPIC}#${enabled.messages[0].message}`]).toEqual(legacy);
+    });
+
+    it("should read a new index field into the index stored under the topic before a disabled entry", async () => {
+      const time = await createTimeChannel();
+      const [a, b] = await client.channels.create([
+        { name: uniqueName("a"), dataType: DataType.FLOAT64, index: time.key },
+        { name: uniqueName("b"), dataType: DataType.FLOAT64, index: time.key },
+      ]);
+      const aField = createField("a", "float");
+      const disabled = await createEntry({
+        fields: [aField],
+        bound: { [aField.key]: a.key },
+      });
+      disabled.disabled = true;
+      const bField = createField("b", "float");
+      const stamp = createTimeField();
+      const enabled = await createEntry({
+        fields: [bField, stamp],
+        bound: { [bField.key]: b.key },
+      });
+      const legacy = { index: time.key, channels: { "/a": a.key, "/b": b.key } };
+      const { draft } = await renderRead({
+        entries: [disabled, enabled],
+        properties: { read: { [TOPIC]: legacy } },
+      });
+      const topics = await screen.findAllByRole("treeitem", {
+        name: new RegExp(TOPIC),
+      });
+      fireEvent.click(topics[topics.length - 1]);
+      fireEvent.click(await screen.findByRole("button", { name: "Payload value" }));
+      await waitFor(async () =>
+        expect(
+          plainOf((await retrieveEntries(draft.key))[1]).messages[0].bindings,
+        ).toContainEqual({ field: stamp.key, channel: time.key, dataType: "" }),
+      );
     });
 
     it("should give a new entry the stored channel that only a disabled entry binds", async () => {
