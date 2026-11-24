@@ -35,10 +35,16 @@ Transport union on type {
         @doc value "connects over plain TCP."
     }
     tls {
-        ca_certificate certificate.Key? {
+        ca_certificate     certificate.Key? {
             @doc value """
                 is the certificate authority that signs the certificates of the brokers.
                 Absent trusts the system roots.
+            """
+        }
+        client_certificate certificate.Key? {
+            @doc value """
+                is the certificate and private key that the Core presents to the
+                brokers. Absent presents no certificate.
             """
         }
 

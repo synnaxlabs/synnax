@@ -80,7 +80,8 @@ var _ = Describe("Cluster", func() {
 			Port: new(uint16(9093)),
 		})
 		c.Transport = v0.Transport{Variant: v0.TlsTransport{
-			CaCertificate: new(uuid.New()),
+			CaCertificate:     new(uuid.New()),
+			ClientCertificate: new(uuid.New()),
 		}}
 		c.Auth = v0.Auth{Variant: v0.ScramSha512Auth{Credentials: credentials()}}
 		r := read()
@@ -195,6 +196,11 @@ var _ = Describe("Cluster", func() {
 		}),
 		Entry("TLS with no CA", func(c *v0.Cluster) {
 			c.Transport = v0.Transport{Variant: v0.TlsTransport{}}
+		}),
+		Entry("TLS with only a client certificate", func(c *v0.Cluster) {
+			c.Transport = v0.Transport{Variant: v0.TlsTransport{
+				ClientCertificate: new(uuid.New()),
+			}}
 		}),
 		Entry("a PLAIN auth", func(c *v0.Cluster) {
 			c.Auth = v0.Auth{Variant: v0.PlainAuth{Credentials: credentials()}}

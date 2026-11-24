@@ -41,10 +41,10 @@ describe("clusterZ", () => {
   it("should parse SCRAM credentials that name their password by secret", () => {
     const cluster = kafka.cluster.clusterZ.parse({
       ...CLUSTER,
-      transport: { type: "tls" },
+      transport: { type: "tls", clientCertificate: SECRET },
       auth: { mechanism: "scram_sha_256", username: "admin", password: SECRET },
     });
-    expect(cluster.transport).toEqual({ type: "tls" });
+    expect(cluster.transport).toEqual({ type: "tls", clientCertificate: SECRET });
     expect(cluster.auth).toEqual({
       mechanism: "scram_sha_256",
       username: "admin",

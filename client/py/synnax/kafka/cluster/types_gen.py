@@ -85,6 +85,7 @@ class TlsTransport(BaseModel):
 
     type: Literal["tls"] = "tls"
     ca_certificate: certificate.Key | None = None
+    client_certificate: certificate.Key | None = None
 
 
 # Is the transport that the Core connects to the brokers of a cluster over.

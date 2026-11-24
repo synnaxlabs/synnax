@@ -75,6 +75,11 @@ export const tlsTransportZ = z.object({
    * brokers. Absent trusts the system roots.
    */
   caCertificate: certificate.keyZ.optional(),
+  /**
+   * clientCertificate is the certificate and private key that the Core presents to the
+   * brokers. Absent presents no certificate.
+   */
+  clientCertificate: certificate.keyZ.optional(),
 });
 export interface TlsTransport extends z.infer<typeof tlsTransportZ> {}
 

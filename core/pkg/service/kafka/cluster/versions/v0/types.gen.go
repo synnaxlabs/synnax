@@ -85,6 +85,9 @@ type TlsTransport struct {
 	// CaCertificate is the certificate authority that signs the certificates of the
 	// brokers. Absent trusts the system roots.
 	CaCertificate *certificate.Key `json:"ca_certificate,omitzero" msgpack:"ca_certificate,omitempty"`
+	// ClientCertificate is the certificate and private key that the Core presents to
+	// the brokers. Absent presents no certificate.
+	ClientCertificate *certificate.Key `json:"client_certificate,omitzero" msgpack:"client_certificate,omitempty"`
 }
 
 func (TlsTransport) isTransportVariant() {}

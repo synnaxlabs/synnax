@@ -296,6 +296,12 @@ func (t Transport) EncodeOrc(w *orc.Writer) error {
 		} else {
 			w.Bool(false)
 		}
+		if v.ClientCertificate != nil {
+			w.Bool(true)
+			w.Write((*v.ClientCertificate)[:])
+		} else {
+			w.Bool(false)
+		}
 	default:
 		return errors.Newf("Transport: nil or unknown variant %T", t.Variant)
 	}
@@ -325,6 +331,19 @@ func (t *Transport) DecodeOrc(r *orc.Reader) error {
 					return err
 				}
 				v.CaCertificate = &hv
+			}
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv certificate.Key
+				if _, err := r.Read(hv[:]); err != nil {
+					return err
+				}
+				v.ClientCertificate = &hv
 			}
 		}
 		t.Variant = v

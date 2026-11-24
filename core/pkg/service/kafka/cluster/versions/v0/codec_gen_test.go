@@ -171,7 +171,8 @@ var _ = Describe("Codec", func() {
 			},
 			Entry("plaintext variant", v0.Transport{Variant: v0.PlaintextTransport{}}),
 			Entry("tls variant", v0.Transport{Variant: v0.TlsTransport{
-				CaCertificate: new(certificate.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"))),
+				CaCertificate:     new(certificate.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"))),
+				ClientCertificate: new(certificate.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567802"))),
 			}}),
 		)
 	})
@@ -580,7 +581,8 @@ func FuzzDecodeTransport(f *testing.F) {
 	}
 	{
 		seed := v0.Transport{Variant: v0.TlsTransport{
-			CaCertificate: new(certificate.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"))),
+			CaCertificate:     new(certificate.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"))),
+			ClientCertificate: new(certificate.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567802"))),
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
