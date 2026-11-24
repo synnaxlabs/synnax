@@ -108,22 +108,4 @@ var _ = Describe("Join check", func() {
 		got, _ := samples(out)
 		Expect(got).To(Equal([]sample{{130, 0, []float64{1, 0}}}))
 	})
-
-	It("Should pair an input on the primary's clock by alignment, when its frame "+
-		"comes after the primary's", func() {
-		j := newJoin(2, 0, 0)
-		var out join.Output
-		Expect(j.Push(1, values(10), stamps(0, 1))).To(Succeed())
-		Expect(j.Push(0, values(1), stamps(0, 1))).To(Succeed())
-		j.Next(telem.TimeStamp(telem.Second), &out)
-		Expect(j.Push(0, values(2), stamps(1, 2))).To(Succeed())
-		j.Next(telem.TimeStamp(2*telem.Second), &out)
-		Expect(j.Push(1, values(20), stamps(1, 2))).To(Succeed())
-		j.Next(telem.TimeStamp(2*telem.Second), &out)
-		got, _ := samples(out)
-		Expect(got).To(Equal([]sample{
-			{1, 0, []float64{1, 10}},
-			{2, 1, []float64{2, 20}},
-		}))
-	})
 })

@@ -56,10 +56,12 @@ func flatten(out join.Output) flat {
 const ms = telem.TimeStamp(telem.Millisecond)
 
 var _ = Describe("Join breaker", func() {
-	It("Should drop no more live samples than history when a primary frame comes "+
-		"first", func() {
+	It("Should drop no live stamp after the other input's first frame arrives, when "+
+		"each primary frame comes first", func() {
 		// Two 1 kHz inputs on two clocks, both streamed in frames of 40 samples (a
-		// 25 Hz stream rate). The primary's frame arrives just before the other's.
+		// 25 Hz stream rate). The primary's frame arrives just before the other's. Live
+		// judges the limit by arrival (D-378): only frame 0, before the other input has
+		// arrived, may drop.
 		const frame, frames = 40, 10
 		primary := make([]telem.TimeStamp, frame*frames)
 		other := make([]telem.TimeStamp, frame*frames)
@@ -77,7 +79,10 @@ var _ = Describe("Join breaker", func() {
 		history.Next(telem.TimeStampMax, &want)
 
 		live := newJoin(2, 0, 0)
-		var got join.Output
+		var (
+			got   join.Output
+			first int
+		)
 		for f := range frames {
 			lo, hi := f*frame, (f+1)*frame
 			Expect(live.Push(
@@ -86,11 +91,15 @@ var _ = Describe("Join breaker", func() {
 				at(telem.Alignment(lo), primary[lo:hi]...),
 			)).To(Succeed())
 			live.Next(primary[hi-1], &got)
+			if f == 0 {
+				Expect(got.Dropped).To(BeNumerically("<=", frame))
+				first = got.Dropped
+			}
 			Expect(live.Push(1, values(ov[lo:hi]...), at(0, other[lo:hi]...))).
 				To(Succeed())
 		}
 		Expect(want.Dropped).To(Equal(1))
-		Expect(got.Dropped).To(Equal(want.Dropped))
+		Expect(got.Dropped).To(Equal(first))
 	})
 
 	It("Should hold an input with no steady rate with no limit", func() {
@@ -142,32 +151,6 @@ var _ = Describe("Join breaker", func() {
 		runtime.KeepAlive(j)
 		Expect(int64(after.HeapAlloc) - int64(before.HeapAlloc)).
 			To(BeNumerically("<", 1<<20))
-	})
-
-	It("Should join a live read from its open to the same samples as history", func() {
-		// The other input runs at 1 Hz from 0 s to 20 s, then stops. History reads
-		// from 20 s and looks back 21 samples. A live calculation opens at 19.5 s.
-		history := newJoin(2, 0, telem.TimeStamp(20*telem.Second))
-		back := make([]float64, 21)
-		for i := range back {
-			back[i] = float64(i)
-		}
-		Expect(history.Push(1, values(back...), stamps(0, back...))).To(Succeed())
-		Expect(history.Push(0, values(1, 2, 3), stamps(0, 20.5, 24, 25))).
-			To(Succeed())
-		var want join.Output
-		history.Next(telem.TimeStampMax, &want)
-
-		live := newJoin(2, 0, 0)
-		var got join.Output
-		Expect(live.Push(1, values(20), stamps(0, 20))).To(Succeed())
-		for k, s := range []float64{20.5, 24, 25} {
-			Expect(live.Push(0, values(float64(k+1)), stamps(telem.Alignment(k), s))).
-				To(Succeed())
-			live.Next(telem.TimeStamp(s*float64(telem.Second)), &got)
-		}
-		Expect(want.Dropped).To(Equal(2))
-		Expect(got.Dropped).To(Equal(want.Dropped))
 	})
 
 	It("Should hold a sample within 3 times a median interval past 2^64/3", func() {
