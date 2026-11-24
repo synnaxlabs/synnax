@@ -378,6 +378,57 @@ var _ = Describe("Control", func() {
 					},
 				)
 				DescribeTable(
+					"Should keep a writer open after another writer commits its samples",
+					func(ctx SpecContext, refused bool) {
+						data := GenerateChannelKey()
+						Expect(db.CreateChannel(ctx, cesium.Channel{
+							Name:     "Data",
+							Key:      data,
+							DataType: telem.Int64T,
+							Index:    idx,
+						})).To(Succeed())
+						keys := []cesium.ChannelKey{idx, data}
+						write := func(w *cesium.Writer, s telem.TimeStamp) bool {
+							GinkgoHelper()
+							return MustSucceed(
+								w.Write(telem.MultiFrame(keys, []telem.Series{
+									telem.NewSeriesSecondsTSV(s),
+									telem.NewSeriesV(int64(s)),
+								})),
+							)
+						}
+						low := open(ctx, "low", 1, keys...)
+						Expect(write(low, 10)).To(BeTrue())
+						high := open(ctx, "high", 2, keys...)
+						if refused {
+							Expect(write(low, 11)).To(BeFalse())
+						}
+						Expect(write(high, 12)).To(BeTrue())
+						Expect(MustCommit(high)).To(Equal(12*telem.SecondTS + 1))
+						Expect(high.Close()).To(Succeed())
+						end, _ := MustSucceed2(low.Commit())
+						Expect(end).To(Equal(10*telem.SecondTS + 1))
+						Expect(write(low, 13)).To(BeTrue())
+						Expect(MustCommit(low)).To(Equal(13*telem.SecondTS + 1))
+						Expect(low.Close()).To(Succeed())
+						f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, keys...))
+						stamps := make([]int64, 0, f.Get(idx).Len())
+						values := make([]int64, 0, f.Get(data).Len())
+						for _, s := range f.Get(idx).Series {
+							for _, t := range s.Unmarshal[telem.TimeStamp]() {
+								stamps = append(stamps, int64(t/telem.SecondTS))
+							}
+						}
+						for _, s := range f.Get(data).Series {
+							values = append(values, s.Unmarshal[int64]()...)
+						}
+						Expect(stamps).To(Equal([]int64{10, 12, 13}))
+						Expect(values).To(Equal(stamps))
+					},
+					Entry("after a refused write", true),
+					Entry("with no refused write", false),
+				)
+				DescribeTable(
 					"Should report a refused write once and keep the end of a commit with control",
 					func(ctx SpecContext, sync bool) {
 						low := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
