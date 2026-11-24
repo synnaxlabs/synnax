@@ -749,7 +749,8 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       const blink = screen.getByLabelText<HTMLInputElement>("Blink");
       expect(blink.checked).toBe(true);
       expect(blink.disabled).toBe(true);
-      expect(findButton("None").getAttribute("aria-disabled")).toBe("true");
+      for (const kind of ["None", "Spin", "Flow"])
+        expect(findButton(kind).getAttribute("aria-disabled")).toBe("true");
       expect(screen.getByLabelText<HTMLInputElement>("Motion rate").disabled).toBe(
         true,
       );
