@@ -10,12 +10,18 @@
 package schematic_test
 
 import (
+	"embed"
+	"encoding/hex"
 	"slices"
+	"strings"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	servicecolor "github.com/synnaxlabs/synnax/pkg/service/color"
 	"github.com/synnaxlabs/synnax/pkg/service/enumeration"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
@@ -25,34 +31,71 @@ import (
 	v4 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v4"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/versions"
 	v13 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v13"
+	"github.com/synnaxlabs/x/color"
+	"github.com/synnaxlabs/x/encoding/orc"
+	"github.com/synnaxlabs/x/set"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 	"github.com/synnaxlabs/x/types"
 )
 
+//go:embed testdata/released/v0.62.0/*.hex
+var released embed.FS
+
+// openShipped returns a store that holds the migrations of core/v0.62.0, whose chains
+// end at these migrations.
+func openShipped(ctx SpecContext) *gorp.DB {
+	GinkgoHelper()
+	db := DeferClose(gorp.Wrap(memkv.New()))
+	StartRun(db.Run)
+	shipped := slices.IndexFunc(versions.Migrations, func(m gorp.Migration) bool {
+		return m.Key() == v13.NameMigration.Key()
+	})
+	Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+		DB:         db,
+		Namespace:  types.Name[schematic.Schematic](),
+		Migrations: versions.Migrations[:shipped+1],
+	})).To(Succeed())
+	chain := symbolversions.NewMigrations(symbolversions.MigrationsConfig{})
+	shipped = slices.IndexFunc(chain, func(m gorp.Migration) bool {
+		return m.Key() == v4.NameMigration.Key()
+	})
+	Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+		DB:         db,
+		Namespace:  types.Name[symbol.Symbol](),
+		Migrations: chain[:shipped+1],
+	})).To(Succeed())
+	return db
+}
+
+// openService opens the schematic service on db, which runs its migrations.
+func openService(ctx SpecContext, db *gorp.DB) {
+	GinkgoHelper()
+	enums := MustOpen(enumeration.OpenService(ctx, enumeration.ServiceConfig{DB: db}))
+	groups := MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db}))
+	MustOpen(schematic.OpenService(ctx, schematic.ServiceConfig{
+		DB:          db,
+		Group:       groups,
+		ImEx:        imex.NewService(),
+		Enumeration: enums,
+	}))
+}
+
+// decodeReleased decodes the record that core/v0.62.0 stored in the named file.
+func decodeReleased[T any](name string) T {
+	GinkgoHelper()
+	raw := MustSucceed(released.ReadFile("testdata/released/v0.62.0/" + name))
+	b := MustSucceed(hex.DecodeString(strings.ReplaceAll(string(raw), "\n", "")))
+	var v T
+	Expect(orc.Codec.Decode(b, &v)).To(Succeed())
+	return v
+}
+
 var _ = Describe("Stored v4 symbols", func() {
 	It("Should give the commands of an actuator to each symbol that a custom_actuator "+
 		"node draws", func(ctx SpecContext) {
-		db := DeferClose(gorp.Wrap(memkv.New()))
-		StartRun(db.Run)
-		// Stores hold the shapes of 0.62.0, whose chains end at these migrations.
-		shipped := slices.IndexFunc(versions.Migrations, func(m gorp.Migration) bool {
-			return m.Key() == v13.NameMigration.Key()
-		})
-		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
-			DB:         db,
-			Namespace:  types.Name[schematic.Schematic](),
-			Migrations: versions.Migrations[:shipped+1],
-		})).To(Succeed())
-		chain := symbolversions.NewMigrations(symbolversions.MigrationsConfig{})
-		shipped = slices.IndexFunc(chain, func(m gorp.Migration) bool {
-			return m.Key() == v4.NameMigration.Key()
-		})
-		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
-			DB:         db,
-			Namespace:  types.Name[symbol.Symbol](),
-			Migrations: chain[:shipped+1],
-		})).To(Succeed())
+		db := openShipped(ctx)
 		spec := v4.Spec{
 			SVG:     `<svg><rect id="b"/></svg>`,
 			Variant: "static",
@@ -79,16 +122,7 @@ var _ = Describe("Stored v4 symbols", func() {
 		Expect(gorp.NewCreate[v13.Key, v13.Schematic]().
 			Entry(&sc).
 			Exec(ctx, db)).To(Succeed())
-		enums := MustOpen(
-			enumeration.OpenService(ctx, enumeration.ServiceConfig{DB: db}),
-		)
-		groups := MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db}))
-		MustOpen(schematic.OpenService(ctx, schematic.ServiceConfig{
-			DB:          db,
-			Group:       groups,
-			ImEx:        imex.NewService(),
-			Enumeration: enums,
-		}))
+		openService(ctx, db)
 		retrieve := func(key symbol.Key) symbol.Symbol {
 			GinkgoHelper()
 			var sym symbol.Symbol
@@ -100,5 +134,70 @@ var _ = Describe("Stored v4 symbols", func() {
 		}
 		Expect(retrieve(drawn.Key).Data.Commands).To(HaveLen(2))
 		Expect(retrieve(static.Key).Data.Commands).To(BeEmpty())
+	})
+})
+
+var _ = Describe("A store from core/v0.62.0", func() {
+	It("Should draw each equipment node as its built-in symbol", func(ctx SpecContext) {
+		db := openShipped(ctx)
+		vent := decodeReleased[v4.Symbol]("symbol_vent_valve.hex")
+		tank := decodeReleased[v4.Symbol]("symbol_tank.hex")
+		Expect(gorp.NewCreate[v4.Key, v4.Symbol]().
+			Entries(&[]v4.Symbol{vent, tank}).
+			Exec(ctx, db)).To(Succeed())
+		stored := decodeReleased[v13.Schematic]("equipment.hex")
+		Expect(gorp.NewCreate[v13.Key, v13.Schematic]().
+			Entry(&stored).
+			Exec(ctx, db)).To(Succeed())
+		openService(ctx, db)
+		var sc schematic.Schematic
+		Expect(gorp.NewRetrieve[schematic.Key, schematic.Schematic]().
+			Where(gorp.MatchKeys[schematic.Key, schematic.Schematic](stored.Key)).
+			Entry(&sc).
+			Exec(ctx, db)).To(Succeed())
+		Expect(sc.Nodes).To(HaveLen(len(stored.Nodes)))
+		names := set.New(lo.Map(
+			symbol.Builtins(),
+			func(b symbol.Builtin, _ int) string { return b.Name },
+		)...)
+		nodes := map[string]schematic.SymbolNodeConfig{}
+		for _, n := range sc.Nodes {
+			cfg, ok := n.Config.Variant.(schematic.SymbolNodeConfig)
+			if !ok {
+				continue
+			}
+			ref, ok := cfg.Spec.Variant.(symbol.BuiltinRef)
+			Expect(ok).To(BeTrue())
+			Expect(names.Contains(ref.Name)).To(BeTrue(), ref.Name)
+			nodes[cfg.Label.Label] = cfg
+		}
+		// The fixture's lights and custom nodes stay as they are.
+		Expect(nodes).To(HaveLen(len(stored.Nodes) - 17))
+		Expect(nodes["Normally open"].Spec.Variant).
+			To(Equal(symbol.BuiltinRef{Name: "normally_open_solenoid_valve"}))
+		Expect(nodes["Red filter"].Scale).To(Equal(1.5))
+		red := color.Color{R: 220, G: 40, B: 40, A: 255}
+		Expect(nodes["Red filter"].Color).To(HaveValue(Equal(servicecolor.Ref{
+			Variant: servicecolor.FixedRef{Value: red},
+		})))
+		source := func(label string) schematic.SourceVariant {
+			GinkgoHelper()
+			Expect(nodes[label].States).To(HaveLen(1))
+			return nodes[label].States[0].Source.Variant
+		}
+		// The capture's channel keys: valve_cmd, then gone_state, which it deleted.
+		command, deleted := channel.Key(1048584), channel.Key(1048586)
+		Expect(source("Deleted channel")).To(Equal(schematic.ChannelSource{
+			Key:     &deleted,
+			Command: &command,
+		}))
+		Expect(source("No channels")).To(Equal(schematic.ChannelSource{}))
+		Expect(nodes["Styled pump"].StalenessTimeout).To(Equal(10 * telem.Second))
+		Expect(nodes["Styled pump"].Control.Authority).To(HaveValue(Equal(uint8(200))))
+		on := nodes["Manual enabled=True clickable=False"]
+		Expect(on.Disabled).To(BeTrue())
+		Expect(source("Manual enabled=True clickable=False")).
+			To(Equal(schematic.LocalSource{Value: 1}))
+		Expect(nodes["Manual enabled=False clickable=True"].Disabled).To(BeFalse())
 	})
 })

@@ -92,10 +92,13 @@ func MigrateToggleConfig(
 	return autoMigrateToggleConfig(ctx, old)
 }
 
-// MigrateNodeConfig lifts a v13 node config to v14. See MigrateSchematic for colors. A
-// custom node keeps its state overrides. The bounds of a gauge or tank become closed
-// bounds; see closed.
+// MigrateNodeConfig lifts a v13 node config to v14. An equipment node becomes a symbol
+// node; see SymbolNode. See MigrateSchematic for colors. A custom node keeps its state
+// overrides. The bounds of a gauge or tank become closed bounds; see closed.
 func MigrateNodeConfig(ctx context.Context, old v13.NodeConfig) (NodeConfig, error) {
+	if n, ok, err := SymbolNode(old); ok || err != nil {
+		return NodeConfig{Variant: n}, err
+	}
 	cfg, err := autoMigrateNodeConfig(ctx, old)
 	if err != nil {
 		return NodeConfig{}, err
