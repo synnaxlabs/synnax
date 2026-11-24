@@ -24,7 +24,8 @@ import (
 // repairRequest drops the header and query parameter rows with no name, which the
 // Driver skipped. It moves a query written into path into params, decoded, so the
 // Driver sends the same query in its own order and encoding. A query that repeats a
-// name or does not decode stays in path, because params cannot hold it.
+// name, has a name with no '=', or does not decode stays in path, because params
+// cannot hold it.
 func repairRequest(path *string, headers *[]Header, params *[]QueryParam) {
 	*headers = slices.DeleteFunc(*headers, func(h Header) bool { return h.Name == "" })
 	*params = slices.DeleteFunc(
@@ -40,14 +41,14 @@ func repairRequest(path *string, headers *[]Header, params *[]QueryParam) {
 		if pair == "" {
 			continue
 		}
-		rawName, rawValue, _ := strings.Cut(pair, "=")
+		rawName, rawValue, assigned := strings.Cut(pair, "=")
 		name, nameErr := url.QueryUnescape(rawName)
 		value, valueErr := url.QueryUnescape(rawValue)
 		taken := slices.ContainsFunc(
 			moved,
 			func(q QueryParam) bool { return q.Parameter == name },
 		)
-		if nameErr != nil || valueErr != nil || name == "" || taken {
+		if !assigned || nameErr != nil || valueErr != nil || name == "" || taken {
 			return
 		}
 		moved = append(moved, QueryParam{Parameter: name, Value: value})

@@ -53,6 +53,11 @@ var _ = Describe("Repair", func() {
 			},
 		),
 		Entry(
+			"a query in the path with a name and no value",
+			v5.ReadEndpoint{Path: "/now?pretty"},
+			v5.ReadEndpoint{Path: "/now?pretty"},
+		),
+		Entry(
 			"a query in the path that repeats a name",
 			v5.ReadEndpoint{Path: "/now?a=1&a=2"},
 			v5.ReadEndpoint{Path: "/now?a=1&a=2"},
