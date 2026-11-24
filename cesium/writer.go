@@ -57,6 +57,16 @@ func (w *Writer) check() error {
 	return nil
 }
 
+// failUnlessCanceled returns err, and breaks the writer with it unless err comes from
+// the end of ctx, which leaves the commits of a wait for stamps visible for a later
+// sync.
+func (w *Writer) failUnlessCanceled(ctx context.Context, err error) error {
+	if err != nil && ctx.Err() != nil && errors.Is(err, ctx.Err()) {
+		return err
+	}
+	return w.fail(err)
+}
+
 // fail breaks the writer with err and returns err.
 func (w *Writer) fail(err error) error {
 	if err != nil && w.err == nil {
@@ -72,7 +82,7 @@ func (w *Writer) Sync(ctx context.Context) error {
 		return err
 	}
 	if w.log != nil {
-		return w.fail(w.log.sync())
+		return w.failUnlessCanceled(ctx, w.log.sync(ctx, true))
 	}
 	return w.fail(w.persist())
 }
@@ -138,7 +148,7 @@ func (w *Writer) Write(
 		return Frame{}, false, err
 	}
 	if w.log != nil {
-		fr, skipped, err := w.log.write(fr, skip)
+		fr, skipped, err := w.log.write(ctx, fr, skip)
 		if err != nil {
 			return Frame{}, false, w.fail(err)
 		}
@@ -165,9 +175,9 @@ func (w *Writer) Commit(
 		return 0, false, err
 	}
 	if w.log != nil {
-		end, skipped, err := w.log.commit(skip)
+		end, skipped, err := w.log.commit(ctx, skip)
 		if err != nil {
-			return 0, false, w.fail(err)
+			return 0, false, w.failUnlessCanceled(ctx, err)
 		}
 		return end, skipped, nil
 	}
@@ -187,7 +197,7 @@ func (w *Writer) EndStretch(ctx context.Context) error {
 		return err
 	}
 	if w.log != nil {
-		return w.fail(w.log.endStretch())
+		return w.failUnlessCanceled(ctx, w.log.endStretch(ctx))
 	}
 	if !w.idx.writingToIdx {
 		_, _, err := w.Commit(ctx, nil)

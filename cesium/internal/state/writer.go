@@ -92,6 +92,11 @@ type Writer struct {
 	claims map[uint32]*claim
 	held   map[uint32]*segState
 	types  map[uint32]uint8
+	// pulled is the error of a take back of the clock that took back the data of the
+	// writer, which each later call returns, and pulledSeals the Seals of that take
+	// back, which TakeBack returns.
+	pulled      error
+	pulledSeals []log.Seal
 }
 
 // call queues r for the owner and waits for its error.
@@ -251,6 +256,10 @@ type segmentRequest struct {
 func (r *segmentRequest) fail(err error) { r.w.done <- err }
 
 func (r *segmentRequest) run(s *State) {
+	if r.w.pulled != nil {
+		r.w.done <- r.w.pulled
+		return
+	}
 	if err := s.checkSegment(r); err != nil {
 		r.w.done <- err
 		return
@@ -444,7 +453,13 @@ type commitRequest struct {
 
 func (r *commitRequest) fail(err error) { r.w.done <- err }
 
-func (r *commitRequest) run(s *State) { r.w.done <- s.commit(r.w, r.cs, r.pre) }
+func (r *commitRequest) run(s *State) {
+	if r.w.pulled != nil {
+		r.w.done <- r.w.pulled
+		return
+	}
+	r.w.done <- s.commit(r.w, r.cs, r.pre)
+}
 
 // Commit checks each commit of cs against the claims and the stored data of its keys,
 // as the commits before it in cs leave them, and makes the samples of all of them
@@ -641,11 +656,28 @@ type takeBackRequest struct {
 func (r *takeBackRequest) fail(err error) { r.w.done <- err }
 
 func (r *takeBackRequest) run(s *State) {
+	if r.w.pulled != nil {
+		r.seals = s.takeBackPulled(r.w)
+		r.w.done <- nil
+		return
+	}
+	var taken []span
+	if seg, ok := r.w.held[r.w.cfg.Clock]; ok {
+		taken = undurable(seg, nil)
+	}
 	r.seals = s.takeBack(r.w)
+	if len(taken) > 0 {
+		s.pullBack(r.w, taken)
+		s.wakeStampWaits()
+	}
 	r.w.done <- nil
 }
 
 func (r *sealRequest) run(s *State) {
+	if r.w.pulled != nil {
+		r.w.done <- r.w.pulled
+		return
+	}
 	seg, ok := r.w.held[r.key]
 	if !ok {
 		r.w.done <- errors.Newf("writer holds no open segment of key %d", r.key)
@@ -681,7 +713,8 @@ func (w *Writer) Seal(key uint32) (log.Seal, error) {
 // every segment that w holds, seals each at its durable length, and returns their
 // Seals, which the caller logs. A segment with no durable Create leaves the state for
 // TakeDead instead. A writer calls it after a failed sync, with no entry of its own in
-// the log queue.
+// the log queue. For a writer of a clock, it also takes back the data that is not
+// durable of each writer of data against the stamps that it takes back.
 func (w *Writer) TakeBack() ([]log.Seal, error) {
 	r := &takeBackRequest{w: w}
 	if err := w.call(r); err != nil {

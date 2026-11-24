@@ -11,6 +11,7 @@ package cesium
 
 import (
 	"cmp"
+	"context"
 	"math"
 	"slices"
 
@@ -46,8 +47,11 @@ type logWriter struct {
 	// unstored is true for a writer that stamps and commits no bytes.
 	unstored bool
 	// stamps places the samples of a writer that does not write its clock, and is nil
-	// for a writer that does.
-	stamps *placer
+	// for a writer that does. need holds the alignment of the last stamp of each run
+	// committed since the last sync, from needFirst to needLast.
+	stamps              *placer
+	need                []telem.Alignment
+	needFirst, needLast telem.TimeStamp
 	// number is the alignment number of the stretch, or zero before its first write,
 	// and next the index of the next sample in it.
 	number, next uint32
@@ -220,7 +224,11 @@ func boolOrder(b bool) int {
 // write writes the series of fr for the keys of w, except the keys for which skip
 // returns true. A skipped clock skips every key, and a key skipped in a write stays
 // skipped until the next commit.
-func (w *logWriter) write(fr Frame, skip func(ChannelKey) bool) (Frame, bool, error) {
+func (w *logWriter) write(
+	ctx context.Context,
+	fr Frame,
+	skip func(ChannelKey) bool,
+) (Frame, bool, error) {
 	w.excluded = w.excluded[:0]
 	w.frames++
 	clock, n, err := w.validate(fr)
@@ -242,7 +250,7 @@ func (w *logWriter) write(fr Frame, skip func(ChannelKey) bool) (Frame, bool, er
 	if err != nil {
 		return fr, false, err
 	}
-	if refused, err := w.stretch(n, skip); err != nil || refused {
+	if refused, err := w.stretch(ctx, n, skip); err != nil || refused {
 		return fr, refused, err
 	}
 	alignment := telem.NewAlignment(w.number, w.next)
@@ -290,9 +298,13 @@ func (w *logWriter) extendRun(
 // stretch makes room for n samples in the stretch of w. It starts a new stretch when w
 // has none, or when n samples would pass the 2^32 - 1 samples of one, after a commit of
 // the uncommitted run with skip. It returns true when skip refuses that commit.
-func (w *logWriter) stretch(n int64, skip func(ChannelKey) bool) (bool, error) {
+func (w *logWriter) stretch(
+	ctx context.Context,
+	n int64,
+	skip func(ChannelKey) bool,
+) (bool, error) {
 	if w.number != 0 && uint64(w.next)+uint64(n) > math.MaxUint32 {
-		if _, refused, err := w.commit(skip); err != nil || refused {
+		if _, refused, err := w.commit(ctx, skip); err != nil || refused {
 			return refused, err
 		}
 		w.number = 0
@@ -442,7 +454,10 @@ func (w *logWriter) putBack() {
 // commit makes the uncommitted runs visible and returns their end. It commits nothing
 // and returns true when skip holds a key with samples to commit, and it commits no run
 // when the state refuses one of them.
-func (w *logWriter) commit(skip func(ChannelKey) bool) (telem.TimeStamp, bool, error) {
+func (w *logWriter) commit(
+	ctx context.Context,
+	skip func(ChannelKey) bool,
+) (telem.TimeStamp, bool, error) {
 	if w.stamps != nil && w.stamps.err != nil {
 		return 0, false, w.stamps.err
 	}
@@ -473,7 +488,7 @@ func (w *logWriter) commit(skip func(ChannelKey) bool) (telem.TimeStamp, bool, e
 	}
 	err := w.sealFull()
 	if err == nil && len(w.entry.Bytes()) > entryLimit {
-		err = w.sync()
+		err = w.sync(ctx, true)
 	}
 	return end, false, err
 }
@@ -527,7 +542,22 @@ func (w *logWriter) commitRuns() error {
 	for _, c := range w.commits {
 		w.entry.Add(c)
 	}
+	if w.stamps != nil {
+		w.addNeed()
+	}
 	return nil
+}
+
+// addNeed adds the alignment of the last stamp of each run to the stamps that the next
+// sync waits for.
+func (w *logWriter) addNeed() {
+	if len(w.need) == 0 {
+		w.needFirst = w.runs[0].first
+	}
+	for _, r := range w.runs {
+		w.need = append(w.need, r.alignment.AddSamples(r.samples-1))
+	}
+	w.needLast = w.runs[len(w.runs)-1].last
 }
 
 // readStamps sets the first and last stamps of each run of a writer that does not write
@@ -615,8 +645,8 @@ func (w *logWriter) seal(lk *logKey) error {
 }
 
 // endStretch commits, then makes the next write start a new stretch.
-func (w *logWriter) endStretch() error {
-	if _, _, err := w.commit(nil); err != nil {
+func (w *logWriter) endStretch(ctx context.Context) error {
+	if _, _, err := w.commit(ctx, nil); err != nil {
 		return err
 	}
 	w.number = 0
@@ -624,10 +654,13 @@ func (w *logWriter) endStretch() error {
 }
 
 // sync syncs every segment with unsynced bytes, then logs the records since the last
-// sync and waits until they are durable. A failed sync takes the samples that no
-// durable record covers out of view, and logs only the Seals of each segment at its
-// durable length.
-func (w *logWriter) sync() error {
+// sync and waits until they are durable. A writer that does not write its clock first
+// waits until the clock holds the stamps of its commits durably, or with wait false
+// only checks that it does. A failed sync takes the samples that no durable record
+// covers out of view, and logs only the Seals of each segment at its durable length.
+// When ctx ends during the wait, sync returns an error that wraps ctx.Err(), and the
+// commits stay visible for a later sync.
+func (w *logWriter) sync(ctx context.Context, wait bool) error {
 	handles := slices.Clone(w.sealed)
 	for _, lk := range w.keys {
 		if lk.dirty && lk.h != nil {
@@ -638,23 +671,57 @@ func (w *logWriter) sync() error {
 	if errors.Is(err, segment.ErrDirSync) {
 		w.e.fail(err)
 	}
+	if err == nil {
+		for _, lk := range w.keys {
+			lk.dirty = false
+		}
+		err = w.awaitStamps(ctx, wait)
+		if err != nil && ctx.Err() != nil && errors.Is(err, ctx.Err()) {
+			return err
+		}
+	}
 	if err != nil {
 		seals, takeErr := w.st.TakeBack()
 		w.entry.Reset()
 		for i := range seals {
 			w.entry.Add(&seals[i])
 		}
+		w.need = w.need[:0]
 		err = errors.Join(err, takeErr)
-	} else {
-		for _, lk := range w.keys {
-			lk.dirty = false
-		}
 	}
 	err = errors.Join(err, w.flush())
 	for _, h := range w.sealed {
 		err = errors.Join(err, h.Close())
 	}
 	w.sealed = w.sealed[:0]
+	return err
+}
+
+// awaitStamps waits until the clock holds the stamps of the commits since the last sync
+// durably, or with wait false checks that it does.
+func (w *logWriter) awaitStamps(ctx context.Context, wait bool) error {
+	if len(w.need) == 0 {
+		return nil
+	}
+	var err error
+	if wait {
+		err = w.st.WaitStamps(ctx, w.need)
+	} else {
+		err = w.st.CheckStamps(w.need)
+	}
+	switch {
+	case err == nil:
+		w.need = w.need[:0]
+		return nil
+	case ctx.Err() != nil || errors.Is(err, state.ErrNotDurable):
+		return errors.Wrapf(
+			err,
+			"clock %d has not made the stamps from %d to %d durable",
+			w.clock,
+			w.needFirst,
+			w.needLast,
+		)
+	}
 	return err
 }
 
@@ -669,9 +736,10 @@ func (w *logWriter) flush() error {
 	return err
 }
 
-// close syncs, releases the claims of w, and closes its segment files.
+// close syncs with no wait for stamps, releases the claims of w, and closes its segment
+// files.
 func (w *logWriter) close() error {
-	err := w.sync()
+	err := w.sync(context.Background(), false)
 	err = errors.Join(err, w.st.Close())
 	for _, lk := range w.keys {
 		if lk.h != nil {

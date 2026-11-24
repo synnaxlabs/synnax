@@ -98,8 +98,10 @@ type State struct {
 	// which a refusal of it restores.
 	refusedBlocks [2]int
 	entry         log.Entry
-	// parked holds the requests that wait for a durable Reserve.
+	// parked holds the requests that wait for a durable Reserve, and waits the stamp
+	// waits that wait for durable stamps.
 	parked []request
+	waits  []*stampWaitRequest
 	// rep is the Replace in flight, or nil.
 	rep *replacing
 }
@@ -339,6 +341,9 @@ func (r *durableRequest) run(s *State) {
 	}
 	if len(s.parked) > 0 {
 		s.unpark()
+	}
+	if len(s.waits) > 0 {
+		s.wakeStampWaits()
 	}
 }
 
