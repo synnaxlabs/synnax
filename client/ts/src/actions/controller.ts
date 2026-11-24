@@ -344,8 +344,8 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
   // and steps on sleep/wake or NTP resync, so it cannot be trusted for this.
   private tick = 0;
   // The Core applies dispatches in arrival order, so each document has at most one send
-  // in flight. A key is present while its send is in flight, and holds the batch
-  // queued behind it.
+  // in flight. A key is present while its send or create is in flight, and holds the
+  // batch queued behind it.
   private readonly queues = new Map<Key, Queue<State, Action>>();
   // Documents with a fetch in flight, each with whether a frame or a write for it came
   // during the fetch.
@@ -983,12 +983,20 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
 
   /**
    * Sends a create for the given keys. The cached docs among them hold their create as
-   * pending, so its echo does not revert edits made before the echo arrives.
+   * pending, so its echo does not revert edits made before the echo arrives. Dispatches
+   * to the keys during the send wait for it, then go out in order.
    * @returns what the send returns.
-   * @throws {Error} if the send fails.
+   * @throws {Error} if the send fails. The waiting dispatches still go out after it.
    */
   async create<T>(keys: Key[], send: (dispatchKey: string) => Promise<T>): Promise<T> {
     const dispatchKey = id.create();
+    const held = [...new Set(keys)]
+      .filter((key) => !this.queues.has(key))
+      .map((key) => {
+        const queue: Queue<State, Action> = { next: null };
+        this.queues.set(key, queue);
+        return { key, queue };
+      });
     const tracked: Key[] = [];
     for (const key of keys) {
       const current = this.docs.get(key);
@@ -1001,9 +1009,14 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
       res = await send(dispatchKey);
     } catch (e) {
       tracked.forEach((key) => this.discard(key, dispatchKey));
+      // A create can fail on a doc that exists, such as an import of a bad file. The
+      // Core decides whether each held dispatch applies, and the drain rolls back what
+      // it refuses.
+      held.forEach(({ key, queue }) => void this.drain(key, queue));
       throw errors.fromUnknown(e);
     }
     tracked.forEach((key) => this.accept(key, dispatchKey, []));
+    held.forEach(({ key, queue }) => void this.drain(key, queue));
     return res;
   }
 
