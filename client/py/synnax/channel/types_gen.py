@@ -11,7 +11,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Any, Literal, TypeAlias, TypedDict, override as _override
+from typing import Any, Literal, TypeAlias, TypedDict, override as _override
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -82,16 +82,6 @@ class Use(BaseModel):
 
     id: resource.ID
     direction: Direction
-
-
-class RetrieveBuiltInsResponse(BaseModel):
-    """Holds the keys of the channels that Core services declare for their work.
-
-    Attributes:
-        keys: Are the keys of the built-in channels.
-    """
-
-    keys: list[Annotated[Key, Field(ge=0, le=4294967295)]] = Field(default_factory=list)
 
 
 class CountLimitedResponse(BaseModel):

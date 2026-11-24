@@ -9,15 +9,17 @@
 
 import { channel, DataType, project, type Synnax } from "@synnaxlabs/client";
 import {
+  builtInsFetches,
   createTestClient,
-  holdRequests,
+  holdResponses,
+  isBuiltInsFetch,
   spyOnSend,
   waitForStreamLive,
 } from "@synnaxlabs/client/testutil";
 import { id, sleep, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import type { FC, PropsWithChildren } from "react";
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { Channel } from "@/channel";
 import { createAsyncSynnaxWrapper, renderHookSuspended } from "@/testutil";
@@ -55,17 +57,17 @@ const scrollToEnd = async (client: Synnax) => {
 describe("useList with the built-in keys", () => {
   it("should scroll to the end once the built-in keys arrived", async () => {
     const client = createTestClient();
-    const builtIns = vi.spyOn(client.channels, "retrieveBuiltIns");
+    const send = spyOnSend(client);
     await client.connect();
     await waitForStreamLive(client.connection);
-    await expect.poll(() => builtIns.mock.results.length).toBeGreaterThan(0);
-    await builtIns.mock.results[0].value;
+    await expect.poll(() => builtInsFetches(send).length).toBeGreaterThan(0);
+    await builtInsFetches(send)[0];
     expect(await scrollToEnd(client)).toEqual({ length: SCROLL_COUNT, complete: true });
   }, 60000);
 
   it("should scroll to the end before the built-in keys arrive", async () => {
     const client = createTestClient();
-    holdRequests(client, "/channel/retrieve-built-ins");
+    holdResponses(client, isBuiltInsFetch);
     await client.connect();
     await waitForStreamLive(client.connection);
     expect(await scrollToEnd(client)).toEqual({ length: SCROLL_COUNT, complete: true });

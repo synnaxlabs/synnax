@@ -17,7 +17,7 @@ import {
   TimeStamp,
 } from "@synnaxlabs/x";
 
-import { forEachPair } from "@/vis/line/aether/bounds";
+import { pair } from "@/vis/line/aether/pair";
 
 export const DEFAULT_OVERLAP_THRESHOLD = TimeSpan.milliseconds(2);
 
@@ -37,7 +37,7 @@ export const buildDrawOperations = (
   overlapThreshold: TimeSpan,
 ): DrawOperation[] => {
   const ops: DrawOperation[] = [];
-  forEachPair(xSeries.series, ySeries.series, overlapThreshold, (x, y, start, end) => {
+  pair.forEach(xSeries.series, ySeries.series, overlapThreshold, (x, y, start, end) => {
     const mult = x.alignmentMultiple;
     ops.push({
       x,

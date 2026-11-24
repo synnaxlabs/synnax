@@ -12,6 +12,7 @@ package symbol
 import (
 	"context"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/api/imex"
@@ -38,11 +39,7 @@ type ServiceConfig struct {
 	Impact *impact.Service
 }
 
-var (
-	_ config.Config[ServiceConfig] = ServiceConfig{}
-	// DefaultServiceConfig is the default configuration for the symbol API service.
-	DefaultServiceConfig = ServiceConfig{}
-)
+var _ config.Config[ServiceConfig] = ServiceConfig{}
 
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
@@ -67,7 +64,7 @@ type Service struct {
 
 // NewService opens a Service from the API layer's configuration.
 func NewService(cfgs ...ServiceConfig) (*Service, error) {
-	cfg, err := config.New(DefaultServiceConfig, cfgs...)
+	cfg, err := config.New(ServiceConfig{}, cfgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -128,7 +125,8 @@ func (r RetrieveRequest) Named() []resource.ID {
 	return bind.Keys(r.Where.Key, symbol.ResourceID)
 }
 
-// Retrieve returns the symbols that req selects and that the subject can retrieve.
+// Retrieve returns the symbols that req selects and that the subject can retrieve,
+// with their uses when the request asks for them.
 func (s *Service) Retrieve(
 	ctx context.Context,
 	snap bind.Snapshot,
@@ -142,7 +140,33 @@ func (s *Service) Retrieve(
 	if err = q.Where(bind.Filter(snap, symbol.Match)).Exec(ctx, snap); err != nil {
 		return RetrieveResponse{}, err
 	}
+	if req.IncludeUses {
+		if err = s.fillUses(ctx, snap, res.Symbols); err != nil {
+			return RetrieveResponse{}, err
+		}
+	}
 	return res, nil
+}
+
+// fillUses sets the uses of each symbol, leaving out the schematics that the subject
+// cannot retrieve. A symbol with no readable uses gets empty uses, so the response
+// tells it apart from a symbol whose uses were not asked for.
+func (s *Service) fillUses(
+	ctx context.Context,
+	snap bind.Snapshot,
+	symbols []symbol.Symbol,
+) error {
+	for i := range symbols {
+		uses, err := s.internal.Uses(ctx, snap, symbols[i].Key)
+		if err != nil {
+			return err
+		}
+		symbols[i].Uses = lo.Filter(
+			uses,
+			func(id resource.ID, _ int) bool { return snap.Allowed(id) },
+		)
+	}
+	return nil
 }
 
 // RetrieveBuiltinsResponse holds the built-in symbols.

@@ -26,6 +26,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/defaults"
+	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/encoding/zip"
 	"github.com/synnaxlabs/x/filter"
 	. "github.com/synnaxlabs/x/testutil"
@@ -265,6 +266,112 @@ var _ = Describe("Retrieve", func() {
 		Expect(retrieve(AuthedCtx(ctx, author), apisymbol.RetrieveRequest{
 			Where: &symbol.Where{Key: &filter.Set[symbol.Key]{Eq: &sym.Key}},
 		})).Error().To(MatchError(access.ErrDenied))
+	})
+})
+
+// holder is a record that draws a symbol, as a schematic does. Its table takes the name
+// of the schematic table, which the suite does not open, so a policy can name it.
+type holder struct {
+	Key    string
+	Symbol symbol.Key
+}
+
+func (h holder) GorpKey() string { return h.Key }
+
+func (h holder) EncodeOrc(w *orc.Writer) error {
+	w.String(h.Key)
+	w.Write(h.Symbol[:])
+	return nil
+}
+
+func (h *holder) DecodeOrc(r *orc.Reader) (err error) {
+	if h.Key, err = r.String(); err != nil {
+		return err
+	}
+	_, err = r.Read(h.Symbol[:])
+	return err
+}
+
+// createHolders creates a holder of the symbol for each key, and deletes them after the
+// spec.
+func createHolders(ctx SpecContext, sym symbol.Key, keys ...string) {
+	GinkgoHelper()
+	holders := MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[string, holder]{
+		DB:   db,
+		Name: string(resource.TypeSchematic),
+		References: []gorp.Reference[string, holder]{gorp.NewKeyReference(
+			gorp.KeyReferenceConfig[string, holder, symbol.Key]{
+				Name:     "symbol",
+				Table:    string(resource.TypeSchematicSymbol),
+				OnDelete: gorp.Restrict,
+				Kind:     gorp.Use,
+				Targets:  func(h *holder) []symbol.Key { return []symbol.Key{h.Symbol} },
+			},
+		)},
+	}))
+	entries := lo.Map(keys, func(k string, _ int) holder {
+		return holder{Key: k, Symbol: sym}
+	})
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return holders.NewCreate().Entries(&entries).Exec(ctx, tx)
+	})).To(Succeed())
+	DeferCleanup(func(ctx SpecContext) {
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return holders.NewDelete().
+				Where(gorp.MatchKeys[string, holder](keys...)).
+				Exec(ctx, tx)
+		})).To(Succeed())
+	})
+}
+
+// holderID returns the resource ID of the holder with the given key.
+func holderID(key string) resource.ID {
+	return resource.ID{Type: resource.TypeSchematic, Key: key}
+}
+
+var _ = Describe("Retrieve uses", func() {
+	var sym symbol.Symbol
+	BeforeEach(func(ctx SpecContext) {
+		sym = createSymbol(ctx, createGroup(ctx, "uses"), "Vessel")
+		createHolders(ctx, sym.Key, "a", "b")
+	})
+
+	// retrieveUses returns the symbol with key as u sees it, with its uses.
+	retrieveUses := func(ctx SpecContext, u user.User, key symbol.Key) symbol.Symbol {
+		GinkgoHelper()
+		res := MustSucceed(retrieve(AuthedCtx(ctx, u), apisymbol.RetrieveRequest{
+			Where:       &symbol.Where{Key: &filter.Set[symbol.Key]{Eq: &key}},
+			IncludeUses: true,
+		}))
+		Expect(res.Symbols).To(HaveLen(1))
+		return res.Symbols[0]
+	}
+
+	It("Should return the uses that the subject can retrieve", func(ctx SpecContext) {
+		u := createUser(ctx)
+		a := holderID("a")
+		grantRetrieveOn(ctx, u.ResourceID(), sym.ResourceID(), a)
+		Expect(retrieveUses(ctx, u, sym.Key).Uses).To(Equal([]resource.ID{a}))
+	})
+
+	It("Should return empty uses for a symbol that nothing uses", func(
+		ctx SpecContext,
+	) {
+		u := createUser(ctx)
+		unused := createSymbol(ctx, createGroup(ctx, "unused"), "Damper")
+		grantRetrieveOn(ctx, u.ResourceID(), unused.ResourceID())
+		Expect(retrieveUses(ctx, u, unused.Key).Uses).To(Equal([]resource.ID{}))
+	})
+
+	It("Should leave out uses that the request does not ask for", func(
+		ctx SpecContext,
+	) {
+		u := createUser(ctx)
+		grantRetrieveOn(ctx, u.ResourceID(), sym.ResourceID(), holderID("a"))
+		res := MustSucceed(retrieve(AuthedCtx(ctx, u), apisymbol.RetrieveRequest{
+			Where: &symbol.Where{Key: &filter.Set[symbol.Key]{Eq: &sym.Key}},
+		}))
+		Expect(res.Symbols).To(HaveExactElements(HaveField("Uses", BeNil())))
 	})
 })
 

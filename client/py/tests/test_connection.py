@@ -235,7 +235,7 @@ class TestClientShutdown:
         script = (
             "import synnax as sy\n"
             f"sy.Synnax(host={host!r}, port={port}, username={username!r}, "
-            f"password={password!r})\n"
+            f"password={password!r}, secure=False)\n"
         )
         proc = subprocess.run(
             [sys.executable, "-c", script], capture_output=True, timeout=15
@@ -247,7 +247,9 @@ class TestClientShutdown:
     ) -> None:
         """Should stop the polling thread when an unclosed client is collected."""
         host, port, username, password = login_info
-        client = sy.Synnax(host=host, port=port, username=username, password=password)
+        client = sy.Synnax(
+            host=host, port=port, username=username, password=password, secure=False
+        )
         thread = client.connectivity._thread
         # Sub-clients refer back to the client, so building one must not pin it.
         assert client.channels is not None
@@ -261,7 +263,9 @@ class TestClientShutdown:
     def test_close_idempotent(self, login_info: tuple[str, int, str, str]) -> None:
         """Should tolerate repeated close calls."""
         host, port, username, password = login_info
-        client = sy.Synnax(host=host, port=port, username=username, password=password)
+        client = sy.Synnax(
+            host=host, port=port, username=username, password=password, secure=False
+        )
         client.close()
         client.close()
         assert not client.connectivity._thread.is_alive()

@@ -273,6 +273,152 @@ func (bf *BinaryField) DecodeOrc(r *orc.Reader) error {
 }
 
 // EncodeOrc writes the value to w in the Orc binary format.
+func (c Checksum) EncodeOrc(w *orc.Writer) error {
+	w.String(string(c.Algorithm))
+	w.String(string(c.ByteOrder))
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (c *Checksum) DecodeOrc(r *orc.Reader) error {
+	{
+		rawV, err := r.String()
+		if err != nil {
+			return err
+		}
+		c.Algorithm = ChecksumAlgorithm(rawV)
+	}
+	{
+		rawV, err := r.String()
+		if err != nil {
+			return err
+		}
+		c.ByteOrder = ByteOrder(rawV)
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (f Framing) EncodeOrc(w *orc.Writer) error {
+	switch v := f.Variant.(type) {
+	case DelimitedFraming:
+		w.String("delimited")
+		w.String(v.Delimiter)
+	case FixedFraming:
+		w.String("fixed")
+		w.Uint32(uint32(v.Length))
+	case SyncFraming:
+		w.String("sync")
+		w.Bool(v.Sync != nil)
+		if v.Sync != nil {
+			w.WriteWithLen(v.Sync)
+		}
+		w.Uint32(uint32(v.LengthOffset))
+		w.String(string(v.LengthSize))
+		w.String(string(v.ByteOrder))
+		w.Int32(int32(v.LengthAdjustment))
+		if v.Checksum != nil {
+			w.Bool(true)
+			if err := v.Checksum.EncodeOrc(w); err != nil {
+				return err
+			}
+		} else {
+			w.Bool(false)
+		}
+		w.Uint32(uint32(v.MaxLength))
+	case CobsFraming:
+		w.String("cobs")
+	case SlipFraming:
+		w.String("slip")
+	default:
+		return errors.Newf("Framing: nil or unknown variant %T", f.Variant)
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (f *Framing) DecodeOrc(r *orc.Reader) error {
+	tag, err := r.StringBytes()
+	if err != nil {
+		return err
+	}
+	switch string(tag) {
+	case "delimited":
+		var v DelimitedFraming
+		if v.Delimiter, err = r.String(); err != nil {
+			return err
+		}
+		f.Variant = v
+	case "fixed":
+		var v FixedFraming
+		if v.Length, err = r.Uint32(); err != nil {
+			return err
+		}
+		f.Variant = v
+	case "sync":
+		var v SyncFraming
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				v.Sync, err = r.ReadWithLen()
+				if err != nil {
+					return err
+				}
+			}
+		}
+		if v.LengthOffset, err = r.Uint32(); err != nil {
+			return err
+		}
+		{
+			rawV, err := r.String()
+			if err != nil {
+				return err
+			}
+			v.LengthSize = LengthSize(rawV)
+		}
+		{
+			rawV, err := r.String()
+			if err != nil {
+				return err
+			}
+			v.ByteOrder = ByteOrder(rawV)
+		}
+		if v.LengthAdjustment, err = r.Int32(); err != nil {
+			return err
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv Checksum
+				if err = hv.DecodeOrc(r); err != nil {
+					return err
+				}
+				v.Checksum = &hv
+			}
+		}
+		if v.MaxLength, err = r.Uint32(); err != nil {
+			return err
+		}
+		f.Variant = v
+	case "cobs":
+		var v CobsFraming
+		f.Variant = v
+	case "slip":
+		var v SlipFraming
+		f.Variant = v
+	default:
+		return errors.Newf("Framing: unknown variant %q", tag)
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
 func (icd ICD) EncodeOrc(w *orc.Writer) error {
 	w.Write(icd.Key[:])
 	w.String(icd.Name)
@@ -284,6 +430,14 @@ func (icd ICD) EncodeOrc(w *orc.Writer) error {
 				return err
 			}
 		}
+	}
+	if icd.Framing != nil {
+		w.Bool(true)
+		if err := icd.Framing.EncodeOrc(w); err != nil {
+			return err
+		}
+	} else {
+		w.Bool(false)
 	}
 	return nil
 }
@@ -313,6 +467,19 @@ func (icd *ICD) DecodeOrc(r *orc.Reader) error {
 					return err
 				}
 			}
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv Framing
+			if err = hv.DecodeOrc(r); err != nil {
+				return err
+			}
+			icd.Framing = &hv
 		}
 	}
 	return nil
