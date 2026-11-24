@@ -2246,6 +2246,35 @@ Node union on variant {
 				},
 			)
 
+			It("Should derive from an exclusion through its kept members", func() {
+				loader.Add("schemas/base", `
+				Base enum {
+					a = "a"
+					b = "b"
+					c = "c"
+				}
+				Kept enum of Base omit {
+					b
+				}
+			`)
+				source := `
+				import "schemas/base"
+
+				Narrower enum of base.Kept {
+					a
+				}
+				Wider enum extends base.Kept {}
+			`
+				table, diag := Analyze(source, "x", loader)
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+				narrower, ok := table.MustGet("x.Narrower").Form.(resolution.EnumForm)
+				Expect(ok).To(BeTrue())
+				Expect(names(narrower)).To(Equal([]string{"a"}))
+				wider, ok := table.MustGet("x.Wider").Form.(resolution.EnumForm)
+				Expect(ok).To(BeTrue())
+				Expect(names(wider)).To(Equal([]string{"a", "c"}))
+			})
+
 			DescribeTable("Should reject a malformed narrowing enum",
 				func(source, message string) {
 					_, diag := Analyze(source, "x", loader)

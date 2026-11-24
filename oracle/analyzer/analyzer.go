@@ -539,7 +539,7 @@ func finalizeEnumExtensions(c *analysisCtx) {
 		if !ok {
 			continue
 		}
-		form.Declared = form.Values
+		form.Declared = append([]resolution.EnumValue{}, form.Values...)
 		form.Values = merged
 		form.IsIntEnum = isInt
 		typ.Form = form
@@ -578,8 +578,13 @@ func narrowedEnumValues(
 	if !ok {
 		return nil, false, false
 	}
-	named := make(map[string]resolution.EnumValue, len(form.Values))
-	for _, v := range form.Values {
+	// A resolved form holds the kept members in Values and its body in Declared.
+	body := form.Values
+	if form.Declared != nil {
+		body = form.Declared
+	}
+	named := make(map[string]resolution.EnumValue, len(body))
+	for _, v := range body {
 		if _, dup := named[v.Name]; dup {
 			addTypeDiagf(c, typ, "enum %s names member %s twice",
 				typ.QualifiedName, v.Name)
@@ -594,31 +599,36 @@ func narrowedEnumValues(
 		}
 		named[v.Name] = v
 	}
-	var picked []resolution.EnumValue
-	if form.Exclusion {
-		picked = lo.Reject(members, func(m resolution.EnumValue, _ int) bool {
-			_, omitted := named[m.Name]
-			return omitted
-		})
-	} else {
-		picked = lo.Map(
-			form.Values,
-			func(v resolution.EnumValue, _ int) resolution.EnumValue {
-				member, _ := lo.Find(members, func(m resolution.EnumValue) bool {
-					return m.Name == v.Name
-				})
-				member.Domains = maps.Clone(member.Domains)
-				maps.Copy(member.Domains, v.Domains)
-				return member
-			},
-		)
-	}
+	picked := pickEnumMembers(form.Exclusion, body, members, named)
 	if len(picked) == 0 {
 		addTypeDiagf(c, typ, "enum %s narrows %s to no members",
 			typ.QualifiedName, superset.QualifiedName)
 		return nil, false, false
 	}
 	return picked, isInt, true
+}
+
+// pickEnumMembers returns the members of a superset that a narrowing enum keeps, given
+// the body that names them, or the members to leave out when exclusion is true.
+func pickEnumMembers(
+	exclusion bool,
+	body, members []resolution.EnumValue,
+	named map[string]resolution.EnumValue,
+) []resolution.EnumValue {
+	if exclusion {
+		return lo.Reject(members, func(m resolution.EnumValue, _ int) bool {
+			_, omitted := named[m.Name]
+			return omitted
+		})
+	}
+	return lo.Map(body, func(v resolution.EnumValue, _ int) resolution.EnumValue {
+		member, _ := lo.Find(members, func(m resolution.EnumValue) bool {
+			return m.Name == v.Name
+		})
+		member.Domains = maps.Clone(member.Domains)
+		maps.Copy(member.Domains, v.Domains)
+		return member
+	})
 }
 
 // addTypeDiagf records an error diagnostic attributed to the file that declares typ.
@@ -1850,6 +1860,54 @@ func pascalIdent(s string) string {
 	return b.String()
 }
 
+// collectEnumSuperset sets the superset and exclusion of form from the `of` clause of
+// def, if def has one. It returns false after reporting a malformed clause.
+func collectEnumSuperset(
+	c *analysisCtx,
+	def parser.IEnumDefContext,
+	name string,
+	form *resolution.EnumForm,
+) bool {
+	keyword := def.IDENT(1)
+	if keyword == nil {
+		return true
+	}
+	fail := func(format string, args ...any) bool {
+		c.report(
+			diagnostics.Errorf(def, "enum %s"+format, append([]any{name}, args...)...),
+		)
+		return false
+	}
+	if keyword.GetText() != "of" {
+		return fail(
+			": expected 'of' before the enum it narrows, got %q",
+			keyword.GetText(),
+		)
+	}
+	tr := def.TypeRef()
+	if !plainTypeRef(tr) {
+		return fail(
+			": the narrowed type must be a plain enum reference, got %q", tr.GetText(),
+		)
+	}
+	if def.EXTENDS() != nil {
+		return fail(" cannot both narrow and extend enums")
+	}
+	form.Superset = collectTypeRef(c, tr, nil, "narrowed type")
+	mode := def.IDENT(2)
+	if mode == nil {
+		return true
+	}
+	if mode.GetText() != "omit" {
+		return fail(
+			": expected 'omit' or a body after the enum it narrows, got %q",
+			mode.GetText(),
+		)
+	}
+	form.Exclusion = true
+	return true
+}
+
 func collectEnum(c *analysisCtx, def parser.IEnumDefContext) {
 	name := def.IDENT(0).GetText()
 	qname := c.namespace + "." + name
@@ -1860,45 +1918,8 @@ func collectEnum(c *analysisCtx, def parser.IEnumDefContext) {
 	}
 
 	form := resolution.EnumForm{}
-	if keyword := def.IDENT(1); keyword != nil {
-		if keyword.GetText() != "of" {
-			c.report(diagnostics.Errorf(
-				def,
-				"enum %s: expected 'of' before the enum it narrows, got %q",
-				name,
-				keyword.GetText(),
-			))
-			return
-		}
-		tr := def.TypeRef()
-		if !plainTypeRef(tr) {
-			c.report(diagnostics.Errorf(
-				def,
-				"enum %s: the narrowed type must be a plain enum reference, got %q",
-				name,
-				tr.GetText(),
-			))
-			return
-		}
-		if def.EXTENDS() != nil {
-			c.report(diagnostics.Errorf(
-				def, "enum %s cannot both narrow and extend enums", name,
-			))
-			return
-		}
-		form.Superset = collectTypeRef(c, tr, nil, "narrowed type")
-		if mode := def.IDENT(2); mode != nil {
-			if mode.GetText() != "omit" {
-				c.report(diagnostics.Errorf(
-					def,
-					"enum %s: expected 'omit' or a body after the enum it narrows, got %q",
-					name,
-					mode.GetText(),
-				))
-				return
-			}
-			form.Exclusion = true
-		}
+	if !collectEnumSuperset(c, def, name, &form) {
+		return
 	}
 	if def.EXTENDS() != nil {
 		if typeRefList := def.TypeRefList(); typeRefList != nil {
