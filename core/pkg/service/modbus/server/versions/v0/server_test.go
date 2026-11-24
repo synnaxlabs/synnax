@@ -412,3 +412,42 @@ var _ = Describe("Location", func() {
 		}),
 	)
 })
+
+var _ = Describe("WriteLocation", func() {
+	DescribeTable("Should round trip through msgpack",
+		func(l v0.WriteLocation) {
+			var decoded v0.WriteLocation
+			Expect(msgpack.Unmarshal(MustSucceed(msgpack.Marshal(l)), &decoded)).
+				To(Succeed())
+			Expect(decoded).To(Equal(l))
+		},
+		Entry("a coil", v0.WriteLocation{Variant: v0.CoilWriteLocation{Address: 3}}),
+		Entry("a whole value", v0.WriteLocation{
+			Variant: v0.HoldingRegisterWriteLocation{
+				Address: 5,
+				Value: v0.WriteValue{Variant: v0.WholeWriteValue{
+					DataType:     v0.DataTypeFloat32,
+					BytesSwapped: new(true),
+				}},
+			},
+		}),
+		Entry("a bit", v0.WriteLocation{Variant: v0.HoldingRegisterWriteLocation{
+			Address: 6,
+			Value:   v0.WriteValue{Variant: v0.BitWriteValue{Bit: 2}},
+		}}),
+		Entry("no variant", v0.WriteLocation{}),
+	)
+
+	DescribeTable("Should reject a location that write tasks cannot write",
+		func(raw map[string]any) {
+			var decoded v0.WriteLocation
+			Expect(msgpack.Unmarshal(MustSucceed(msgpack.Marshal(raw)), &decoded)).
+				To(MatchError(validate.ErrValidation))
+		},
+		Entry("a discrete input", map[string]any{"table": "discrete_input"}),
+		Entry("a string", map[string]any{
+			"table": "holding_register",
+			"value": map[string]any{"type": "string", "length": 4},
+		}),
+	)
+})

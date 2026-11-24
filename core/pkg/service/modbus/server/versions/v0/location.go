@@ -21,6 +21,10 @@ var (
 	_ msgpack.CustomDecoder = (*Value)(nil)
 	_ msgpack.CustomEncoder = Location{}
 	_ msgpack.CustomDecoder = (*Location)(nil)
+	_ msgpack.CustomEncoder = WriteValue{}
+	_ msgpack.CustomDecoder = (*WriteValue)(nil)
+	_ msgpack.CustomEncoder = WriteLocation{}
+	_ msgpack.CustomDecoder = (*WriteLocation)(nil)
 )
 
 // EncodeMsgpack implements msgpack.CustomEncoder. It writes the active variant's fields
@@ -136,6 +140,100 @@ func (loc *Location) DecodeMsgpack(dec *msgpack.Decoder) error {
 		loc.Variant = v
 	default:
 		return errors.Wrapf(validate.ErrValidation, "unknown location table %q", typ)
+	}
+	return err
+}
+
+// EncodeMsgpack implements msgpack.CustomEncoder. It writes the active variant's fields
+// with its type under "type", the same shape as the JSON encoding.
+func (val WriteValue) EncodeMsgpack(enc *msgpack.Encoder) error {
+	switch v := val.Variant.(type) {
+	case nil:
+		return enc.EncodeNil()
+	case WholeWriteValue:
+		return enc.Encode(struct {
+			Type WriteValueType `msgpack:"type"`
+			WholeWriteValue
+		}{Type: WholeWriteValueType, WholeWriteValue: v})
+	case BitWriteValue:
+		return enc.Encode(struct {
+			Type WriteValueType `msgpack:"type"`
+			BitWriteValue
+		}{Type: BitWriteValueType, BitWriteValue: v})
+	default:
+		return errors.Newf("WriteValue: unknown variant %T", v)
+	}
+}
+
+// DecodeMsgpack implements msgpack.CustomDecoder. A nil value clears the variant, and
+// an omitted field takes its default. It returns a validation error for an unknown
+// type.
+func (val *WriteValue) DecodeMsgpack(dec *msgpack.Decoder) error {
+	raw, typ, err := decodeTagged[WriteValueType](dec, "type")
+	if err != nil || raw == nil {
+		val.Variant = nil
+		return err
+	}
+	switch typ {
+	case WholeWriteValueType:
+		var v WholeWriteValue
+		v.SetDefaults()
+		err = msgpack.Unmarshal(raw, &v)
+		val.Variant = v
+	case BitWriteValueType:
+		var v BitWriteValue
+		err = msgpack.Unmarshal(raw, &v)
+		val.Variant = v
+	default:
+		return errors.Wrapf(validate.ErrValidation, "unknown write value type %q", typ)
+	}
+	return err
+}
+
+// EncodeMsgpack implements msgpack.CustomEncoder. It writes the active variant's fields
+// with its table under "table", the same shape as the JSON encoding.
+func (loc WriteLocation) EncodeMsgpack(enc *msgpack.Encoder) error {
+	switch v := loc.Variant.(type) {
+	case nil:
+		return enc.EncodeNil()
+	case CoilWriteLocation:
+		return enc.Encode(struct {
+			Table WriteLocationType `msgpack:"table"`
+			CoilWriteLocation
+		}{Table: CoilWriteLocationType, CoilWriteLocation: v})
+	case HoldingRegisterWriteLocation:
+		return enc.Encode(struct {
+			Table WriteLocationType `msgpack:"table"`
+			HoldingRegisterWriteLocation
+		}{Table: HoldingRegisterWriteLocationType, HoldingRegisterWriteLocation: v})
+	default:
+		return errors.Newf("WriteLocation: unknown variant %T", v)
+	}
+}
+
+// DecodeMsgpack implements msgpack.CustomDecoder. A nil value clears the variant. It
+// returns a validation error for a table that write tasks cannot write.
+func (loc *WriteLocation) DecodeMsgpack(dec *msgpack.Decoder) error {
+	raw, table, err := decodeTagged[WriteLocationType](dec, "table")
+	if err != nil || raw == nil {
+		loc.Variant = nil
+		return err
+	}
+	switch table {
+	case CoilWriteLocationType:
+		var v CoilWriteLocation
+		err = msgpack.Unmarshal(raw, &v)
+		loc.Variant = v
+	case HoldingRegisterWriteLocationType:
+		var v HoldingRegisterWriteLocation
+		err = msgpack.Unmarshal(raw, &v)
+		loc.Variant = v
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"unknown write location table %q",
+			table,
+		)
 	}
 	return err
 }
