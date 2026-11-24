@@ -9,8 +9,15 @@
 
 import copy
 import json
+import os
 import pathlib
+import shutil
+import sys
+import tempfile
+import time
 from typing import Any
+
+from synnax.exceptions import ConfigurationError
 
 
 class File:
@@ -30,25 +37,50 @@ class File:
         self.load()
 
     def load(self) -> None:
-        """Loads the config file from disk. If the file does not exist, it will
-        be created.
+        """Loads the config file from disk. A missing file loads as an empty config.
+
+        :raises ConfigurationError: If the file cannot be read or is not valid JSON.
         """
-        if not self.config_file.exists():
-            self.save()
-        with open(self.config_file, encoding="utf-8") as f:
-            self.config = json.load(f)
+        try:
+            data = self.config_file.read_bytes()
+        except FileNotFoundError:
+            self.config = {}
+            return
+        except OSError as e:
+            raise ConfigurationError(
+                f"Cannot read {self.config_file}: {e.strerror}."
+            ) from e
+        try:
+            self.config = json.loads(data.decode("utf-8"))
+        except (json.JSONDecodeError, UnicodeDecodeError) as e:
+            raise ConfigurationError(
+                f"{self.config_file} is not valid JSON: {e}. Delete it, then log in "
+                "again with `sy login`."
+            ) from e
 
     def save(self) -> None:
         """Saves the config file to disk."""
         self._write(self.config)
 
     def _write(self, config: dict[str, Any]) -> None:
-        self.config_file.parent.mkdir(
-            parents=True,
-            exist_ok=True,
-        )
-        with open(self.config_file, "w", encoding="utf-8") as f:
+        # Resolving first writes through a symlink instead of replacing it.
+        path = self.config_file.resolve()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        # Replacing the file whole keeps a failed write from leaving a partial file.
+        with tempfile.NamedTemporaryFile(
+            "w",
+            encoding="utf-8",
+            dir=path.parent,
+            prefix=f".{path.name}.",
+            delete_on_close=False,
+        ) as f:
             json.dump(config, f)
+            f.flush()
+            os.fsync(f.fileno())
+            f.close()
+            if path.exists():
+                shutil.copymode(path, f.name)
+            _replace(f.name, path)
 
     def get(self, key: str) -> Any:
         """Gets a value from the config file."""
@@ -67,6 +99,23 @@ class File:
         """Deletes a value from the config file."""
         del self.config[key]
         self.save()
+
+
+# Windows refuses to replace a file that another process, such as a virus scanner,
+# holds open for a moment. On other platforms, a PermissionError is final.
+_REPLACE_RETRY_DELAYS: tuple[float, ...] = (
+    (0.01, 0.05, 0.1, 0.5) if sys.platform == "win32" else ()
+)
+
+
+def _replace(src: str, dst: pathlib.Path) -> None:
+    for delay in _REPLACE_RETRY_DELAYS:
+        try:
+            os.replace(src, dst)
+            return
+        except PermissionError:
+            time.sleep(delay)
+    os.replace(src, dst)
 
 
 def _set_nested(d: dict[str, Any], key: str, value: Any) -> None:
