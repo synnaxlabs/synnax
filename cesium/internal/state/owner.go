@@ -36,6 +36,9 @@ type Config struct {
 	// Threshold is the dead share of a sealed segment of Version above which the
 	// segment is a candidate for a rewrite.
 	Threshold float32
+	// Version0Rewritable makes a sealed version 0 segment with its checks a candidate
+	// for a rewrite too, by the same dead share.
+	Version0Rewritable bool
 	// Append queues an entry for the log and returns at once. The state appends a
 	// Reserve with it before it gives out a value above the durable limit.
 	Append func(e *log.Entry)

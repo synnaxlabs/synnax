@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/cesium/internal/log"
 	"github.com/synnaxlabs/cesium/internal/state"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -436,5 +437,82 @@ var _ = Describe("Preload of a killed record", func() {
 				),
 			))
 			Expect(s.Channel(6).Segments).To(BeEmpty())
+		})
+})
+
+var _ = Describe("Rewrite of version 0 segments", func() {
+	// head returns converted with segment 3 of key 6 at half dead, checked as given.
+	head := func(checked bool) *state.Snapshot {
+		h := converted()
+		seg := &h.Channels[1].Segments[0]
+		seg.Length, seg.Checked = 24, checked
+		return h
+	}
+	// open opens the state of h, with version 0 rewritable as given, and runs it.
+	open := func(a *appended, h *state.Snapshot, rewritable bool) *state.State {
+		GinkgoHelper()
+		cfg := config(a)
+		cfg.Version0Rewritable = rewritable
+		s := MustSucceed(state.Open(cfg, h))
+		a.s, a.seq = s, 9
+		run(s)
+		return s
+	}
+
+	DescribeTable("Should make a version 0 segment with dead bytes a candidate only "+
+		"when it has its checks and version 0 is rewritable",
+		func(checked, rewritable bool, want []state.Candidate) {
+			s := open(&appended{}, head(checked), rewritable)
+			Expect(s.Candidates()).To(Equal(want))
+		},
+		Entry("checked and rewritable", true, true,
+			[]state.Candidate{{Key: 6, Segment: 3}}),
+		Entry("checked, not rewritable", true, false, []state.Candidate{}),
+		Entry("unchecked and rewritable", false, true, []state.Candidate{}),
+	)
+
+	It("Should make a version 0 segment a candidate once its Check applies", func() {
+		a := &appended{}
+		s := open(a, head(false), true)
+		Expect(a.durable([]log.Record{&log.Check{Segment: 3, Key: 6}})).To(Succeed())
+		Expect(s.Candidates()).To(Equal([]state.Candidate{{Key: 6, Segment: 3}}))
+	})
+
+	It("Should create the copy of a version 0 segment at the version of new segments",
+		func() {
+			a := &appended{}
+			s := open(a, head(true), true)
+			id := MustSucceed(s.NewID())
+			done := make(chan error, 1)
+			go func() {
+				done <- s.Replace(&log.Replace{
+					Old:    3,
+					New:    id,
+					Length: 12,
+					Pointers: []log.Pointer{{
+						Length:    12,
+						Samples:   3,
+						Alignment: uint64(telem.NewAlignment(1, 0)),
+						First:     10,
+						Last:      30,
+					}},
+				})
+			}()
+			Eventually(func() int {
+				a.mu.Lock()
+				defer a.mu.Unlock()
+				return len(a.entries)
+			}).Should(BeNumerically(">=", 2))
+			a.mu.Lock()
+			var d log.Decoder
+			MustSucceed(d.Reset(a.entries[len(a.entries)-1]))
+			a.mu.Unlock()
+			r, ok := MustSucceed2(d.Next())
+			Expect(ok).To(BeTrue())
+			created, ok := r.(*log.Create)
+			Expect(ok).To(BeTrue())
+			Expect(created.Version).To(Equal(uint16(1)))
+			Expect(s.Close()).To(Succeed())
+			Eventually(done).Should(Receive(MatchError(state.ErrClosed)))
 		})
 })

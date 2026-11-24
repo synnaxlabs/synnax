@@ -10,6 +10,7 @@
 package cesium_test
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path"
@@ -119,6 +120,30 @@ func syncAll(f *fault.FS, dir string) {
 	Expect(f.SyncDir(dir)).To(Succeed())
 }
 
+// openRun opens a database on fs and runs it, since a write and a Sweep of the pointer
+// log wait for Run. closeRun stops the run, then closes the database.
+func openRun(
+	ctx context.Context,
+	fs xfs.FS,
+	opts ...cesium.Option,
+) (db *cesium.DB, closeRun func()) {
+	GinkgoHelper()
+	db = MustSucceed(cesium.Open(ctx, "", append([]cesium.Option{cesium.WithFS(fs)},
+		opts...)...))
+	return db, running(db)
+}
+
+// running runs db, and returns a function that stops the run, then closes db.
+func running(db *cesium.DB) func() {
+	GinkgoHelper()
+	stop := StartRun(db.Run)
+	return func() {
+		GinkgoHelper()
+		stop()
+		Expect(db.Close()).To(Succeed())
+	}
+}
+
 var _ = Describe("Sweep crash check", func() {
 	It("Should open after a crash in a Sweep that drops a channel with no data", func(
 		ctx SpecContext,
@@ -126,7 +151,8 @@ var _ = Describe("Sweep crash check", func() {
 		var failures []string
 		for runKey := range uint64(48) {
 			disk := MustSucceed(fault.New(fault.Config{}))
-			db := MustSucceed(cesium.Open(ctx, "", cesium.WithFS(disk)))
+			db, closeDB := openRun(ctx, disk)
+			id := cesium.WithIdentity(db.Identity())
 			idx, empty := cesium.ChannelKey(1), cesium.ChannelKey(2)
 			Expect(db.CreateChannel(
 				ctx,
@@ -146,7 +172,7 @@ var _ = Describe("Sweep crash check", func() {
 				10*telem.SecondTS,
 				telem.NewSeriesSecondsTSV(10, 11, 12),
 			)).To(Succeed())
-			Expect(db.Close()).To(Succeed())
+			closeDB()
 			syncAll(disk, "")
 			var (
 				images []*fault.FS
@@ -162,14 +188,14 @@ var _ = Describe("Sweep crash check", func() {
 					DataSurvivalRate:  0.5,
 				})))
 			}}
-			db = MustSucceed(cesium.Open(ctx, "", cesium.WithFS(wrapped)))
+			db, closeDB = openRun(ctx, wrapped, id)
 			armed = true
 			Expect(keptOf(db.Sweep(ctx, []cesium.ChannelKey{idx}))).To(BeEmpty())
 			armed = false
-			Expect(db.Close()).To(Succeed())
+			closeDB()
 			Expect(images).ToNot(BeEmpty())
 			for i, image := range images {
-				re, err := cesium.Open(ctx, "", cesium.WithFS(image))
+				re, err := cesium.Open(ctx, "", cesium.WithFS(image), id)
 				if err != nil {
 					var names []string
 					for _, d := range MustSucceed(image.List("")) {
@@ -185,8 +211,9 @@ var _ = Describe("Sweep crash check", func() {
 					))
 					continue
 				}
+				closeRe := running(re)
 				Expect(keptOf(re.Sweep(ctx, []cesium.ChannelKey{idx}))).To(BeEmpty())
-				Expect(re.Close()).To(Succeed())
+				closeRe()
 			}
 		}
 		Expect(failures).To(BeEmpty())
@@ -211,7 +238,8 @@ var _ = Describe("Sweep crash check", func() {
 					DataSurvivalRate: 0.5,
 				})))
 			}}
-			db := MustSucceed(cesium.Open(ctx, "", cesium.WithFS(wrapped)))
+			db, closeDB := openRun(ctx, wrapped)
+			id := cesium.WithIdentity(db.Identity())
 			first := make([]cesium.ChannelKey, 340)
 			for i := range first {
 				first[i] = cesium.ChannelKey(1000 + i)
@@ -221,13 +249,13 @@ var _ = Describe("Sweep crash check", func() {
 			Expect(db.Intend([]cesium.ChannelKey{2000, 2001, 2002, 2003})).
 				To(Succeed())
 			armed = false
-			Expect(db.Close()).To(Succeed())
+			closeDB()
 			for _, image := range images {
-				re := MustSucceed(cesium.Open(ctx, "", cesium.WithFS(image)))
+				re, closeRe := openRun(ctx, image, id)
 				if re.CorruptIntents() != 0 {
 					failures = append(failures, runKey)
 				}
-				Expect(re.Close()).To(Succeed())
+				closeRe()
 			}
 		}
 		Expect(failures).To(BeEmpty())
@@ -242,7 +270,8 @@ var _ = Describe("Sweep crash check", func() {
 		)
 		for runKey := range uint64(48) {
 			disk := MustSucceed(fault.New(fault.Config{}))
-			db := MustSucceed(cesium.Open(ctx, "", cesium.WithFS(disk)))
+			db, closeDB := openRun(ctx, disk)
+			id := cesium.WithIdentity(db.Identity())
 			idx, kept, dropped := cesium.ChannelKey(1), cesium.ChannelKey(2),
 				cesium.ChannelKey(3)
 			Expect(db.CreateChannel(
@@ -266,7 +295,7 @@ var _ = Describe("Sweep crash check", func() {
 				},
 			))).To(Succeed())
 			Expect(db.Intend([]cesium.ChannelKey{dropped})).To(Succeed())
-			Expect(db.Close()).To(Succeed())
+			closeDB()
 			syncAll(disk, "")
 			var (
 				images []*fault.FS
@@ -284,17 +313,19 @@ var _ = Describe("Sweep crash check", func() {
 				})))
 			}}
 			records := []cesium.ChannelKey{idx, kept}
-			db = MustSucceed(cesium.Open(ctx, "", cesium.WithFS(wrapped)))
+			db, closeDB = openRun(ctx, wrapped, id)
 			armed = true
 			Expect(keptOf(db.Sweep(ctx, records))).To(BeEmpty())
 			armed = false
-			Expect(db.Close()).To(Succeed())
+			closeDB()
 			for i, image := range images {
 				if MustSucceed(image.Stat("delete-intents")).Size() == 0 {
 					emptied++
 				}
-				re, err := cesium.Open(ctx, "", cesium.WithFS(image))
+				re, err := cesium.Open(ctx, "", cesium.WithFS(image), id)
+				var closeRe func()
 				if err == nil {
+					closeRe = running(re)
 					var kept2 []cesium.KeptChannel
 					kept2, _, err = re.Sweep(ctx, records)
 					if err == nil && len(kept2) > 0 {
@@ -314,8 +345,8 @@ var _ = Describe("Sweep crash check", func() {
 							fr.Get(kept).Len())
 					}
 				}
-				if re != nil {
-					Expect(re.Close()).To(Succeed())
+				if closeRe != nil {
+					closeRe()
 				}
 				if err != nil {
 					failures = append(failures, fmt.Sprintf(

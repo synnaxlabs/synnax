@@ -219,6 +219,11 @@ func replayEntry(r *state.State, pr *partReader, e durableEntry) error {
 				pre,
 				pr.preload(rec.Key, telem.TimeStampMin, telem.TimeStampMax, true),
 			)
+		case *log.Check:
+			pre = addPreload(
+				pre,
+				pr.preload(rec.Key, telem.TimeStampMin, telem.TimeStampMax, false),
+			)
 		}
 	}
 	slices.SortFunc(
@@ -226,6 +231,25 @@ func replayEntry(r *state.State, pr *partReader, e durableEntry) error {
 		func(a, b state.Preload) int { return cmp.Compare(a.Key, b.Key) },
 	)
 	return r.Replay(e.seq, records, pre...)
+}
+
+// convertedHead is the first head of a converted root: on clock 5, sealed version 0
+// segments 1 and 2 of key 5 and 3 and 4 of key 6, in old files 1 and 2, below every
+// stamp that the workload writes.
+func convertedHead() *state.Snapshot {
+	old := func(id uint64, file uint16, number uint32, first int64) state.Segment {
+		return state.Segment{
+			ID: id, Clock: 5, File: file, DataType: 4, Sealed: true, Length: 24,
+			Pointers: []state.Pointer{pointer(number, 0, first, first+20, 0, 24, 3)},
+		}
+	}
+	return &state.Snapshot{
+		Limits: state.Limits{Segments: 5, Alignments: 3},
+		Channels: []*state.Channel{
+			{Key: 5, Segments: []state.Segment{old(1, 1, 1, 10), old(2, 2, 2, 40)}},
+			{Key: 6, Segments: []state.Segment{old(3, 1, 1, 10), old(4, 2, 2, 40)}},
+		},
+	}
 }
 
 var _ = Describe(
@@ -239,7 +263,9 @@ var _ = Describe(
 				// reached counts what the workload reached over every run key, so the
 				// check
 				// fails when it stops reaching the window it exists for.
-				var reached struct{ tagged, inWindow, replaces, drops, loaded int }
+				var reached struct {
+					tagged, inWindow, replaces, drops, loaded, checks, partChecks int
+				}
 				for runKey := range uint64(64) {
 					rnd := rand.New(rand.NewPCG(runKey, 11))
 					logDisk := MustSucceed(fault.New(fault.Config{}))
@@ -297,7 +323,7 @@ var _ = Describe(
 					cfg := config(&appended{})
 					cfg.Append = func(e *log.Entry) { l.Append(e) }
 					cfg.OnHead = func(g uint64, s *state.Snapshot) { ckpt.Head(g, s) }
-					st = MustSucceed(state.Open(cfg, head(1, 1)))
+					st = MustSucceed(state.Open(cfg, convertedHead()))
 					l = MustSucceed(log.Start(log.Config{
 						FS:       logDisk,
 						Executor: goExe,
@@ -581,6 +607,44 @@ var _ = Describe(
 						reached.replaces++
 						point("a Replace")
 					}
+					// check checks a version 0 segment of key 5 or 6 that has no
+					// checks, as the check pass does: once, with the preload of its
+					// key over all time, since a target that left the state stays
+					// stale.
+					check := func() {
+						GinkgoHelper()
+						key := uint32(5 + rnd.IntN(2))
+						pre := live.preloads(
+							[]uint32{key},
+							telem.TimeStampMin,
+							telem.TimeStampMax,
+							false,
+						)
+						var targets []state.Segment
+						if ch := st.Channel(key); ch != nil {
+							targets = append(targets, ch.Segments...)
+						}
+						for _, p := range pre {
+							targets = append(targets, p.Segments...)
+						}
+						i := slices.IndexFunc(targets, func(s state.Segment) bool {
+							return s.Version == 0 && !s.Checked
+						})
+						if i < 0 {
+							return
+						}
+						t := targets[i]
+						err := st.Check(&log.Check{Segment: t.ID, Key: key}, pre...)
+						if errors.Is(err, state.ErrStale) {
+							return
+						}
+						Expect(err).ToNot(HaveOccurred())
+						reached.checks++
+						if t.Part != 0 {
+							reached.partChecks++
+						}
+						point("a Check")
+					}
 					// part runs the held step of the checkpointer, which writes the
 					// head and
 					// its parts, then hands the Parted to the state.
@@ -602,7 +666,9 @@ var _ = Describe(
 						if parting {
 							reached.inWindow++
 						}
-						switch k := rnd.IntN(16); {
+						switch k := rnd.IntN(18); {
+						case k >= 16:
+							check()
 						case k < 3 && !parting:
 							generation++
 							Expect(st.Switch(generation)).To(Succeed())
@@ -649,7 +715,7 @@ var _ = Describe(
 						g := from[i]
 						rcfg := config(&appended{})
 						rcfg.Generation = g
-						start := head(1, 1)
+						start := convertedHead()
 						rp := &partReader{live: headParts{generation: 1}}
 						if g > 1 {
 							hdr, snap := MustSucceed2(checkpoint.Read(copies[g], g))
@@ -708,6 +774,8 @@ var _ = Describe(
 				Expect(reached.replaces).To(BeNumerically(">", 0))
 				Expect(reached.drops).To(BeNumerically(">", 0))
 				Expect(reached.loaded).To(BeNumerically(">", 0))
+				Expect(reached.checks).To(BeNumerically(">", 0))
+				Expect(reached.partChecks).To(BeNumerically(">", 0))
 			},
 		)
 	},

@@ -126,7 +126,7 @@ func (r *replaceRequest) run(s *State) {
 		Segment:  r.r.New,
 		Key:      old.key,
 		Clock:    old.vis.Clock,
-		Version:  old.vis.Version,
+		Version:  s.cfg.Version,
 		DataType: old.vis.DataType,
 	})
 	e.Add(r.r)

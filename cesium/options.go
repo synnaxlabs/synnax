@@ -45,6 +45,8 @@ type options struct {
 	executor  func(f func())
 	// pointerLog opens the database on the pointer log layout.
 	pointerLog bool
+	// version0Rewritable lets the compactor rewrite checked version 0 segments.
+	version0Rewritable bool
 	// identity is the database identity that the caller holds, which Open checks only
 	// when identified is true.
 	identity   uint64
@@ -131,6 +133,15 @@ func WithExecutor(exec func(f func())) Option {
 // WithPointerLog opens the DB on the pointer log layout, which commits writes through
 // one log and syncs them, in place of the old layout.
 func WithPointerLog() Option { return func(o *options) { o.pointerLog = true } }
+
+// WithVersion0Rewritable lets the compaction of the pointer log layout rewrite a
+// version
+// 0 segment once it has its check file, which removes its old file. Leave it off while
+// a backup can restore metadata that reads the old files, such as the backup before an
+// update from a release that wrote no segments.
+func WithVersion0Rewritable() Option {
+	return func(o *options) { o.version0Rewritable = true }
+}
 
 // WithIdentity sets the database identity that the caller holds from DB.Identity, or 0
 // when it holds none. On the pointer log, Open takes heads of another identity as a

@@ -128,7 +128,11 @@ var _ = Describe("Delete on the pointer log, broken", func() {
 	It("Should refuse a range that starts after it ends, as the old layout does",
 		func(ctx SpecContext) {
 			old := MustSucceed(cesium.Open(ctx, "", cesium.WithFS(xfs.NewMem())))
-			DeferCleanup(func() { Expect(old.Close()).To(Succeed()) })
+			stop := StartRun(old.Run)
+			DeferCleanup(func() {
+				stop()
+				Expect(old.Close()).To(Succeed())
+			})
 			Expect(old.CreateChannel(
 				ctx,
 				cesium.Channel{
