@@ -326,7 +326,8 @@ def load_options(
     :param run_desktop_helper: Runs the key helper of Synnax Desktop.
     :returns: The options, and whether they connect to the Core of Synnax Desktop.
     :raises ValidationError: If the environment variables are not valid, if one source
-        gives both insecure and secure, or if no source gives a host or credentials.
+        gives insecure and secure that disagree, or if no source gives a host or
+        credentials.
     :raises ConfigurationError: If no source gives a host and the home directory is
         unknown, if no OS keychain is available to read the key of the saved login, if
         a saved file exists but cannot be read, if the key helper of Synnax Desktop

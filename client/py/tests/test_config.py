@@ -695,10 +695,19 @@ class TestOptions:
         with pytest.warns(DeprecationWarning, match="stop working in Synnax 0.64"):
             assert not opts.secure
 
+    def test_warning_names_the_caller(self) -> None:
+        """Should attribute the DeprecationWarning to the line that gives secure."""
+        line = sys._getframe().f_lineno + 2
+        with pytest.warns(DeprecationWarning, match="stop working") as record:
+            Options.model_validate({"host": "h", "port": 1, "secure": False})
+        assert (record[0].filename, record[0].lineno) == (__file__, line)
+
     @pytest.mark.parametrize("insecure", [True, False])
     def test_agreeing_insecure_and_secure(self, insecure: bool) -> None:
-        """Should take insecure and the deprecated secure when they agree, and warn."""
-        with pytest.warns(DeprecationWarning, match="stop working in Synnax 0.64"):
+        """Should take insecure and the deprecated secure when they agree, and warn
+        that secure can be dropped.
+        """
+        with pytest.warns(DeprecationWarning, match="drop them once every client"):
             opts = Options.model_validate(
                 {"host": "h", "port": 1, "insecure": insecure, "secure": not insecure}
             )
@@ -1001,6 +1010,21 @@ class TestLoadOptions:
             )
         assert opts.insecure == insecure
 
+    def test_warning_names_the_caller(
+        self, clusters: Clusters, desktop_file: Path
+    ) -> None:
+        """Should attribute the DeprecationWarning to the line that gives secure."""
+        args: dict[str, Any] = {
+            "host": "h",
+            "api_key": "syk_k",
+            "clusters": clusters,
+            "desktop_file": desktop_file,
+        }
+        line = sys._getframe().f_lineno + 2
+        with pytest.warns(DeprecationWarning, match="stop working") as record:
+            load_options(secure=False, **args)
+        assert (record[0].filename, record[0].lineno) == (__file__, line)
+
     @pytest.mark.parametrize(
         ("args", "env", "insecure"),
         [
@@ -1020,9 +1044,9 @@ class TestLoadOptions:
         insecure: bool,
     ) -> None:
         """Should take insecure and the deprecated secure from one source when they
-        agree, and warn.
+        agree, and warn that secure can be dropped.
         """
-        with pytest.warns(DeprecationWarning, match="stop working in Synnax 0.64"):
+        with pytest.warns(DeprecationWarning, match="drop them once every client"):
             opts, _ = load_options(
                 host="h",
                 api_key="syk_k",
