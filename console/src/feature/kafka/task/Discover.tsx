@@ -502,7 +502,7 @@ const Content = ({
               prev,
               topic,
               true,
-              ICD.Write.mostCommon(data.shapes, (shape) => shape),
+              ICD.Write.mostCommon(data.shapes, (shape) => shape.count),
             )
           : prev,
       );
@@ -585,7 +585,7 @@ const Content = ({
     if (data == null && (entry == null || sampleable(entry)))
       data = await loadSample(topic);
     const shape =
-      data == null ? null : ICD.Write.mostCommon(data.shapes, (shape) => shape);
+      data == null ? null : ICD.Write.mostCommon(data.shapes, (shape) => shape.count);
     setWholePicks((prev) => withWhole(prev, topic, true, shape));
   };
 
@@ -682,7 +682,7 @@ const Content = ({
         : activeTopic == null
           ? "Not listed by the cluster"
           : describeTopic(activeTopic, listing.listedAt);
-    const shape = ICD.Write.mostCommon(data.shapes, (shape) => shape);
+    const shape = ICD.Write.mostCommon(data.shapes, (shape) => shape.count);
     pane =
       whole && shape != null ? (
         <WholeValues
