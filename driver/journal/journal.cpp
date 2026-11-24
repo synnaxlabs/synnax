@@ -532,20 +532,26 @@ Lock::~Lock() = default;
 std::pair<std::unique_ptr<Lock>, x::errors::Error>
 Lock::open(const std::filesystem::path &dir, const OnCreate &on_create) {
     const auto path = dir / "LOCK";
-    std::error_code ec;
-    const auto existed = std::filesystem::exists(path, ec);
-    if (ec) return {nullptr, fs_error("failed to stat " + path.string(), ec)};
-    auto [file, err] = File::open(path);
-    if (err) return {nullptr, err};
-    if (!existed)
-        if (err = on_create(path); err) {
-            file.reset();
-            std::filesystem::remove(path, ec);
-            return {nullptr, err};
-        }
-    if (err = file->lock(); err.matches(LOCKED))
-        return {nullptr, x::errors::Error(LOCKED, dir.string() + " is in use")};
-    if (err) return {nullptr, err};
-    return {std::unique_ptr<Lock>(new Lock(std::move(file))), x::errors::NIL};
+    while (true) {
+        std::error_code ec;
+        const auto existed = std::filesystem::exists(path, ec);
+        if (ec) return {nullptr, fs_error("failed to stat " + path.string(), ec)};
+        auto [file, err] = File::open(path);
+        if (err) return {nullptr, err};
+        if (err = file->lock(); err.matches(LOCKED))
+            return {nullptr, x::errors::Error(LOCKED, dir.string() + " is in use")};
+        if (err) return {nullptr, err};
+        auto [removed, removed_err] = file->removed();
+        if (removed_err) return {nullptr, removed_err};
+        // A holder whose create hook failed removed the file.
+        if (removed) continue;
+        // Only the holder of the lock removes the file.
+        if (!existed)
+            if (err = on_create(path); err) {
+                std::filesystem::remove(path, ec);
+                return {nullptr, err};
+            }
+        return {std::unique_ptr<Lock>(new Lock(std::move(file))), x::errors::NIL};
+    }
 }
 }
