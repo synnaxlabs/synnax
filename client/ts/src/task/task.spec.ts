@@ -7,7 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id, sleep, type timer, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
+import {
+  errors,
+  id,
+  sleep,
+  type timer,
+  TimeSpan,
+  TimeStamp,
+  uuid,
+} from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it, onTestFinished, vi } from "vitest";
 import { z } from "zod";
 
@@ -1160,6 +1168,53 @@ describe("Task", async () => {
     });
   });
 
+  const stopHeartbeat = new Map<rack.Key, () => Promise<void>>();
+
+  // The change stream can deliver a status written before the wait began, so each
+  // rack starts with the status of a running Driver. The Core takes a rack with no
+  // status for 5 s as down, so the rack reports each second until its spec ends or
+  // takes it down.
+  const createRunningRack = async (c: Synnax): Promise<rack.Rack> => {
+    const running = {
+      variant: "success",
+      message: "Driver running",
+      details: { running: true },
+    } as const;
+    const r = await c.racks.create({
+      name: `running-${id.create()}`,
+      status: running,
+    });
+    const stopped = Promise.withResolvers<void>();
+    let beating = true;
+    let failure: Error | null = null;
+    const heartbeat = (async () => {
+      while (true) {
+        await Promise.race([sleep.sleep(TimeSpan.seconds(1)), stopped.promise]);
+        if (!beating) return;
+        // A failed beat fails the spec when it ends, and the rack keeps beating.
+        await writer.statuses
+          .set({
+            ...running,
+            owner: rack.resourceID(r.key),
+            name: "Rack Status",
+            time: TimeStamp.now(),
+          })
+          .catch((e: unknown) => {
+            failure ??= errors.fromUnknown(e);
+          });
+      }
+    })();
+    const stop = async () => {
+      beating = false;
+      stopped.resolve();
+      await heartbeat;
+      if (failure != null) throw failure;
+    };
+    stopHeartbeat.set(r.key, stop);
+    onTestFinished(stop);
+    return r;
+  };
+
   // A rack with no Driver goes down within seconds of its creation, and the client
   // reads that state, so tests that need one state or the other must say which.
   const setRackStatus = async (
@@ -1221,46 +1276,6 @@ describe("Task", async () => {
       }
     };
 
-    const stopHeartbeat = new Map<rack.Key, () => Promise<void>>();
-
-    // The change stream can deliver a status written before the wait began, so each
-    // rack starts with the status of a running Driver. The Core takes a rack with no
-    // status for 5 s as down, so the rack reports each second until its spec ends or
-    // takes it down.
-    const createRunningRack = async (c: Synnax): Promise<rack.Rack> => {
-      const running = {
-        variant: "success",
-        message: "Driver running",
-        details: { running: true },
-      } as const;
-      const r = await c.racks.create({
-        name: `running-${id.create()}`,
-        status: running,
-      });
-      const stopped = Promise.withResolvers<void>();
-      let beating = true;
-      const heartbeat = (async () => {
-        while (true) {
-          await Promise.race([sleep.sleep(TimeSpan.seconds(1)), stopped.promise]);
-          if (!beating) return;
-          await writer.statuses.set({
-            ...running,
-            owner: rack.resourceID(r.key),
-            name: "Rack Status",
-            time: TimeStamp.now(),
-          });
-        }
-      })();
-      const stop = async () => {
-        beating = false;
-        stopped.resolve();
-        await heartbeat;
-      };
-      stopHeartbeat.set(r.key, stop);
-      onTestFinished(stop);
-      return r;
-    };
-
     const setDriverNotRunning = async (key: rack.Key) => {
       await stopHeartbeat.get(key)?.();
       await writer.statuses.set({
@@ -1275,7 +1290,7 @@ describe("Task", async () => {
     };
 
     it("should end the wait when the Driver of the task goes down", async () => {
-      const dying = await client.racks.create({ name: `dying-${id.create()}` });
+      const dying = await createRunningRack(client);
       const t = await dying.createTask({
         name: `dying-${id.create()}`,
         config: {},
@@ -1295,7 +1310,7 @@ describe("Task", async () => {
     });
 
     it("should end the wait of a command sent through the client", async () => {
-      const dying = await client.racks.create({ name: `dying-${id.create()}` });
+      const dying = await createRunningRack(client);
       const t = await dying.createTask({
         name: `dying-${id.create()}`,
         config: {},
@@ -1315,7 +1330,7 @@ describe("Task", async () => {
     });
 
     it("should end the wait of a batch that holds a deleted task", async () => {
-      const dying = await client.racks.create({ name: `dying-${id.create()}` });
+      const dying = await createRunningRack(client);
       const live = await dying.createTask({
         name: `live-${id.create()}`,
         config: {},
@@ -1992,7 +2007,7 @@ describe("Task", async () => {
     });
 
     it("gives up on a command no Driver answers", async () => {
-      const alive = await client.racks.create({ name: `alive-${id.create()}` });
+      const alive = await createRunningRack(client);
       const t = await alive.createTask({
         name: `deadline-${id.create()}`,
         config: {},
@@ -2061,7 +2076,7 @@ describe("Task", async () => {
     });
 
     it("hands the loading status of a command to write handlers", async () => {
-      const alive = await client.racks.create({ name: `alive-${id.create()}` });
+      const alive = await createRunningRack(client);
       const t = await alive.createTask({
         name: `loading-${id.create()}`,
         config: {},
@@ -2084,7 +2099,7 @@ describe("Task", async () => {
     });
 
     it("hands the no-response warning to write handlers as the reply", async () => {
-      const alive = await client.racks.create({ name: `alive-${id.create()}` });
+      const alive = await createRunningRack(client);
       const t = await alive.createTask({
         name: `deadline-${id.create()}`,
         config: {},
@@ -2122,7 +2137,7 @@ describe("Task", async () => {
     });
 
     it("keeps a reply stamped by a Driver clock behind this client's", async () => {
-      const alive = await client.racks.create({ name: `alive-${id.create()}` });
+      const alive = await createRunningRack(client);
       const t = await alive.createTask({
         name: `skew-${id.create()}`,
         config: {},
@@ -2178,7 +2193,7 @@ describe("Task", async () => {
     });
 
     it("keeps a status that follows the reply before the deadline", async () => {
-      const alive = await client.racks.create({ name: `alive-${id.create()}` });
+      const alive = await createRunningRack(client);
       const t = await alive.createTask({
         name: `follow-up-${id.create()}`,
         config: {},
