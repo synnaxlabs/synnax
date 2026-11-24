@@ -14,8 +14,9 @@ export const components = mdxOverrides;
 A computer must trust the CA certificate of a Synnax Core that uses a
 [self-signed certificate](/reference/enterprise/tls#use-a-self-signed-certificate).
 Install the CA certificate on each computer that runs the Console, a browser, a
-standalone Driver, or a Python or TypeScript client. A Core with a certificate from a
-public CA, or from a CA that your computers already trust, needs none of this.
+standalone Driver, a Python client, or a TypeScript client in Node.js. A Core with a
+certificate from a public CA, or from a CA that your computers already trust, needs none
+of this.
 
 <Divider.Divider x />
 
@@ -53,10 +54,10 @@ sudo cp synnax-ca.crt /etc/pki/ca-trust/source/anchors/synnax-ca.crt
 sudo update-ca-trust
 ```
 
-The Console, Chrome, a standalone Driver, and the Python and TypeScript clients use this
-store. Firefox on Linux does not: in Firefox, open **Settings**, search for
-"certificates", click **View Certificates**, and import the file on the **Authorities**
-tab.
+The Console, Chrome, a standalone Driver, the Python client, and the TypeScript client
+in Node.js use this store. Firefox on Linux does not: in Firefox, open **Settings**,
+search for "certificates", click **View Certificates**, and import the file on the
+**Authorities** tab.
 
 </Fragment>
 
@@ -69,8 +70,8 @@ Import-Certificate -FilePath synnax-ca.crt `
   -CertStoreLocation Cert:\LocalMachine\Root
 ```
 
-The Console, browsers, a standalone Driver, and the Python and TypeScript clients use
-this store.
+The Console, browsers, a standalone Driver, the Python client, and the TypeScript client
+in Node.js use this store.
 
 </Fragment>
 
@@ -81,9 +82,9 @@ sudo security add-trusted-cert -d -r trustRoot \
   -k /Library/Keychains/System.keychain synnax-ca.crt
 ```
 
-The Console, browsers, and the Python and TypeScript clients use the Keychain. The
-Driver does not. Run `sudo synnax-driver login --ca-cert /path/to/synnax-ca.crt`, then
-restart the service.
+The Console, browsers, the Python client, and the TypeScript client in Node.js use the
+Keychain. The Driver does not. Run
+`sudo synnax-driver login --ca-cert /path/to/synnax-ca.crt`, then restart the service.
 
 </Fragment>
 
@@ -97,11 +98,13 @@ restart the service.
 
 <Divider.Divider x />
 
-## Node.js before 22.15
+## Bun, Deno, and older Node.js
 
-Node.js before 22.15 cannot read the operating system store. Give the TypeScript client
-the CA certificate in [`caCert`](/reference/client/connect#connect-with-tls), or start
-it with the CA certificate in `NODE_EXTRA_CA_CERTS`:
+Bun, Deno, and Node.js before 22.15 or 23.10 do not read the operating system store.
+Give the TypeScript client the CA certificate in
+[`caCert`](/reference/client/connect#connect-with-tls). Deno takes the CA certificate
+with `--cert` instead. In Node.js, you can also start the client with the CA certificate
+in `NODE_EXTRA_CA_CERTS`:
 
 ```bash
 NODE_EXTRA_CA_CERTS=/path/to/synnax-ca.crt node app.js

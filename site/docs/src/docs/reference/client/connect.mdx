@@ -423,9 +423,10 @@ const client = new Synnax({
 });
 ```
 
-The TypeScript client checks the certificate of the Core. A certificate that the
-operating system trusts needs no setup. Otherwise, give the text of the CA certificate
-in `caCert`:
+The TypeScript client checks the certificate of the Core. In Node.js 22.15, 23.10, or
+later, a certificate that the operating system trusts needs no setup. Bun, Deno, and
+older Node.js versions do not read the operating system store. Otherwise, give the text
+of the CA certificate in `caCert`:
 
 ```typescript
 import { readFileSync } from "node:fs";
