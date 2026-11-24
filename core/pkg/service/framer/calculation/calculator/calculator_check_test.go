@@ -112,10 +112,8 @@ var _ = Describe("Calculator check", Ordered, func() {
 		stamps := make([][]telem.TimeStamp, 2)
 		stamps[lo] = []telem.TimeStamp{1 * telem.SecondTS, 2 * telem.SecondTS}
 		stamps[hi] = []telem.TimeStamp{5 * telem.SecondTS, 6 * telem.SecondTS}
-		var (
-			keys   []channel.Key
-			series []telem.Series
-		)
+		keys := make([]channel.Key, 0, 2*len(bases))
+		series := make([]telem.Series, 0, 2*len(bases))
 		for _, i := range []int{hi, lo} {
 			keys = append(keys, indexes[i].Key(), bases[i].Key())
 			series = append(
