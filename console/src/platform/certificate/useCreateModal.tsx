@@ -117,9 +117,15 @@ interface FileFieldsProps {
   rack: rack.Key;
   picked: FileBrowser.Entry | null;
   onPick: (entry: FileBrowser.Entry) => void;
+  privateKeyRequired: boolean;
 }
 
-const FileFields = ({ rack, picked, onPick }: FileFieldsProps): ReactElement => {
+const FileFields = ({
+  rack,
+  picked,
+  onPick,
+  privateKeyRequired,
+}: FileFieldsProps): ReactElement => {
   const browse = FileBrowser.useModal();
   const now = useNow(nextMinute);
   return (
@@ -174,7 +180,7 @@ const FileFields = ({ rack, picked, onPick }: FileFieldsProps): ReactElement => 
             rack={rack}
             value={value}
             onChange={onChange}
-            allowNone
+            allowNone={!privateKeyRequired}
           />
         )}
       </Form.Field>
@@ -273,7 +279,12 @@ const Create = ({
             </Form.Field>
           )}
           {source === "file" ? (
-            <FileFields rack={rack} picked={picked} onPick={setPicked} />
+            <FileFields
+              rack={rack}
+              picked={picked}
+              onPick={setPicked}
+              privateKeyRequired={privateKeyRequired}
+            />
           ) : (
             <StoredFields named={named} />
           )}

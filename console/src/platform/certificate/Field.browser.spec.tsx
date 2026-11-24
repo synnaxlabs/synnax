@@ -537,7 +537,16 @@ describe("Certificate.Field", () => {
 
   it("requires a private key file for a file certificate when the field requires a key", async () => {
     const files = await createFileRack(client);
-    await serveListings(client, files, [createListing({ secretsDir: SECRETS_DIR })]);
+    await serveListings(client, files, [
+      createListing({ secretsDir: SECRETS_DIR }),
+      createListing({
+        path: SECRETS_DIR,
+        secret: true,
+        entries: [
+          { name: "client.key", path: `${SECRETS_DIR}/client.key`, kind: "file" },
+        ],
+      }),
+    ]);
     const { onChange } = await renderField("", {
       rack: files.rack.key,
       privateKeyRequired: true,
@@ -550,6 +559,9 @@ describe("Certificate.Field", () => {
         target: { value: "/etc/ssl/client.crt" },
       },
     );
+    await open("Select a file");
+    await screen.findByRole("option", { name: "client.key" });
+    expect(screen.queryByRole("option", { name: "No file" })).toBeNull();
     fireEvent.click(findButton("Create"));
     await screen.findByText("Private key file is required");
     expect(onChange).not.toHaveBeenCalled();
