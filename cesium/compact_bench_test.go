@@ -132,6 +132,7 @@ func benchmarkCompact(b *testing.B, size int) {
 // percentile of the time of a commit.
 func BenchmarkCompactCommit(b *testing.B) {
 	rewrite := func(b *testing.B, db *cesium.DB, dir string) func() bool {
+		b.Helper()
 		return startRewrite(b, db, dir, 7)
 	}
 	for _, on := range []bool{false, true} {

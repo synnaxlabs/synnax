@@ -96,7 +96,8 @@ func writeFrames(
 		}
 		for i := 0; i < len(stamps); i += per {
 			s := stamps[i:min(i+per, len(stamps))]
-			series := []telem.Series{telem.NewSeries(s)}
+			series := make([]telem.Series, 0, len(keys))
+			series = append(series, telem.NewSeries(s))
 			for range keys[1:] {
 				series = append(series, telem.NewSeries(make([]float32, len(s))))
 			}
@@ -247,6 +248,7 @@ func closeRun(b *testing.B, db *cesium.DB, stop func() error) {
 // segments of 256 MiB at the default rate, 48 s of work, or with none.
 func BenchmarkEncodeCommit(b *testing.B) {
 	encode := func(b *testing.B, db *cesium.DB, dir string) func() bool {
+		b.Helper()
 		return startEncode(b, db, dir, 6)
 	}
 	for _, on := range []bool{false, true} {
