@@ -703,6 +703,40 @@ var _ = Describe("Handoff on the pointer log", func() {
 		Expect(stored(ctx)).To(Equal([]int64{1, 2, 3, 4, 5}))
 	})
 
+	It("Should report the first run that a writer writes after adopted samples from "+
+		"the start of its own stretch", func(ctx SpecContext) {
+		later := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+			Channels: []cesium.ChannelKey{clock, data},
+			Clock:    clock,
+			Start:    20 * telem.SecondTS,
+		}))
+		mustWrite(ctx, later, both(20, 21))
+		MustSucceed2(later.Commit(ctx, nil))
+		Expect(later.Close()).To(Succeed())
+		var changes []cesium.HistoryChange
+		DeferCleanup(
+			db.OnHistoryChange(func(_ context.Context, c cesium.HistoryChange) {
+				changes = append(changes, c)
+			}),
+		)
+		first := MustSucceed(db.OpenWriter(ctx, config(clock, data)))
+		mustWrite(ctx, first, both(10, 11, 12, 13))
+		w, p := MustSucceed2(db.Handoff(ctx, first, config(clock), nil, cesium.NewRun))
+		MustSucceed2(w.Commit(ctx, nil))
+		reopen := config(clock)
+		reopen.Start = 13*telem.SecondTS + 1
+		w, _ = MustSucceed2(db.Handoff(ctx, w, reopen, nil, cesium.NewRun))
+		w, _ = MustSucceed2(db.Handoff(ctx, w, config(clock, data), p, cesium.NewRun))
+		changes = nil
+		mustWrite(ctx, w, both(14))
+		MustSucceed2(w.Commit(ctx, nil))
+		Expect(w.Close()).To(Succeed())
+		Expect(changes).To(ContainElement(cesium.HistoryChange{
+			Key:       clock,
+			TimeRange: (14 * telem.SecondTS).Range(14*telem.SecondTS + 1),
+		}))
+	})
+
 	// seconds returns the stamp of each stored sample of data, in seconds.
 	seconds := func(ctx SpecContext) []int64 {
 		GinkgoHelper()
