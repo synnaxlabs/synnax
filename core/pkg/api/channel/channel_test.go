@@ -813,6 +813,28 @@ var _ = Describe("Service", func() {
 			)
 
 			It(
+				"Should deny a channel named by name that the other lines leave out",
+				func(
+					ctx SpecContext,
+				) {
+					other := createNamedChannel(ctx, prefix+"_int", telem.Int64T)
+					Expect(retrieveChannels(
+						AuthedCtx(ctx, reader),
+						apichannel.RetrieveRequest{Where: &channel.Where{
+							Name: &filter.String{Eq: new(other.Name)},
+							DataType: &filter.Set[telem.DataType]{
+								In: []telem.DataType{telem.Float32T},
+							},
+						}},
+					)).Error().To(MatchError(access.Denied(
+						reader.ResourceID(),
+						access.ActionRetrieve,
+						other.ResourceID(),
+					).Error()))
+				},
+			)
+
+			It(
 				"Should return a channel named by name that the subject can retrieve",
 				func(
 					ctx SpecContext,
