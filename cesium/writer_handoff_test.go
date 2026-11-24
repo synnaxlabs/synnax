@@ -255,6 +255,50 @@ var _ = Describe("Handoff", func() {
 	}
 	carry()
 
+	It("Should keep the stored data of a channel that a handoff drops after a "+
+		"skip and adds back", func(ctx SpecContext) {
+		w := committedFirst(ctx, clock, data)
+		keys := []cesium.ChannelKey{clock, data}
+		MustSucceed2(w.Write(ctx, telem.MultiFrame(keys, []telem.Series{
+			telem.NewSeriesSecondsTSV(14, 15),
+			telem.NewSeriesV[int64](5, 6),
+		}), func(k cesium.ChannelKey) bool { return k == data }))
+		w, p := MustSucceed2(db.Handoff(ctx, w, next(clock), nil, cesium.SameRun))
+		Expect(p).To(BeNil())
+		end, _ := MustSucceed2(w.Commit(ctx, nil))
+		Expect(end).To(Equal(15*telem.SecondTS + 1))
+		other := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+			Channels: []cesium.ChannelKey{data},
+			Clock:    clock,
+			Start:    14 * telem.SecondTS,
+		}))
+		mustWrite(
+			ctx,
+			other,
+			telem.UnaryFrame(data, telem.NewSeriesV[int64](50, 60)),
+		)
+		MustSucceed2(other.Commit(ctx, nil))
+		Expect(other.Close()).To(Succeed())
+		cfg := config(clock, data)
+		cfg.Start = 15*telem.SecondTS + 1
+		w, p = MustSucceed2(db.Handoff(ctx, w, cfg, nil, cesium.SameRun))
+		Expect(p).To(BeNil())
+		mustWrite(ctx, w, telem.MultiFrame(keys, []telem.Series{
+			telem.NewSeriesSecondsTSV(16),
+			telem.NewSeriesV[int64](7),
+		}))
+		end, _ = MustSucceed2(w.Commit(ctx, nil))
+		Expect(end).To(Equal(16*telem.SecondTS + 1))
+		Expect(w.Close()).To(Succeed())
+		got := make([]int64, 0, 7)
+		for _, s := range MustSucceed(
+			db.Read(ctx, telem.TimeRangeMax, data),
+		).Get(data).Series {
+			got = append(got, s.Unmarshal[int64]()...)
+		}
+		Expect(got).To(Equal([]int64{1, 2, 3, 4, 50, 60, 7}))
+	})
+
 	DescribeTable(
 		"Should keep a run that a skipped data channel held back across a handoff "+
 			"that drops the channel",
