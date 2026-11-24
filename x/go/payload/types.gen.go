@@ -88,11 +88,11 @@ type EnumEntry = versions.EnumEntry
 type JSONType = versions.JSONType
 
 const (
-	// JSONTypeNumber writes the value as a JSON number.
+	// JSONTypeNumber is a JSON number.
 	JSONTypeNumber JSONType = versions.JSONTypeNumber
-	// JSONTypeString writes the value as a JSON string.
+	// JSONTypeString is a JSON string.
 	JSONTypeString JSONType = versions.JSONTypeString
-	// JSONTypeBoolean writes the value as a JSON boolean.
+	// JSONTypeBoolean is a JSON boolean.
 	JSONTypeBoolean JSONType = versions.JSONTypeBoolean
 )
 
@@ -100,11 +100,11 @@ const (
 type ScalarType = versions.ScalarType
 
 const (
-	// ScalarTypeNumber writes the value as a JSON number.
+	// ScalarTypeNumber is a JSON number.
 	ScalarTypeNumber ScalarType = versions.ScalarTypeNumber
-	// ScalarTypeString writes the value as a JSON string.
+	// ScalarTypeString is a JSON string.
 	ScalarTypeString ScalarType = versions.ScalarTypeString
-	// ScalarTypeBoolean writes the value as a JSON boolean.
+	// ScalarTypeBoolean is a JSON boolean.
 	ScalarTypeBoolean ScalarType = versions.ScalarTypeBoolean
 	// ScalarTypeNull is JSON null.
 	ScalarTypeNull ScalarType = versions.ScalarTypeNull
