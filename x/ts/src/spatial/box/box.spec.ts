@@ -357,36 +357,49 @@ describe("Box", () => {
       it("should return false if the box completely contains the other box", () => {
         const b = box.construct(0, 0, 20, 20);
         const b2 = box.construct(5, 5, 15, 15);
-        expect(box.contains(b, b2, false)).toBe(false);
+        expect(box.contains(b, b2, { exclusive: true })).toBe(false);
       });
       it("should return true if the box completely contains the other box", () => {
         const b = box.construct(0, 0, 20, 20);
         const b2 = box.construct(5, 5, 14, 14);
-        expect(box.contains(b, b2, false)).toBe(true);
+        expect(box.contains(b, b2, { exclusive: true })).toBe(true);
       });
       it("should return false if the box does not completely contain the other box", () => {
         const b = box.construct(0, 0, 10, 10);
         const b2 = box.construct(5, 5, 15, 15);
-        expect(box.contains(b, b2, false)).toBe(false);
+        expect(box.contains(b, b2, { exclusive: true })).toBe(false);
       });
       it("should return false if the two boxes are equal", () => {
         const b = box.construct(0, 0, 10, 10);
-        expect(box.contains(b, b, false)).toBe(false);
+        expect(box.contains(b, b, { exclusive: true })).toBe(false);
       });
       it("should return false if the box contains the point", () => {
         const b = box.construct(0, 0, 10, 10);
         const p = { x: 5, y: 5 };
-        expect(box.contains(b, p, false)).toBe(true);
+        expect(box.contains(b, p, { exclusive: true })).toBe(true);
       });
       it("should return false if the box does not contain the point", () => {
         const b = box.construct(0, 0, 10, 10);
         const p = { x: 15, y: 15 };
-        expect(box.contains(b, p, false)).toBe(false);
+        expect(box.contains(b, p, { exclusive: true })).toBe(false);
       });
       it("should return false if the point is on the border", () => {
         const b = box.construct(0, 0, 10, 10);
         const p = { x: 10, y: 10 };
-        expect(box.contains(b, p, false)).toBe(false);
+        expect(box.contains(b, p, { exclusive: true })).toBe(false);
+      });
+    });
+    describe("deprecated inclusive argument", () => {
+      // A plain type for the deprecated overload keeps lint from flagging each call.
+      const containsInclusive: (c: box.Box, p: xy.XY, inclusive: boolean) => boolean =
+        box.contains;
+      it("should count the border when inclusive is true", () => {
+        const b = box.construct(0, 0, 10, 10);
+        expect(containsInclusive(b, { x: 10, y: 10 }, true)).toBe(true);
+      });
+      it("should leave out the border when inclusive is false", () => {
+        const b = box.construct(0, 0, 10, 10);
+        expect(containsInclusive(b, { x: 10, y: 10 }, false)).toBe(false);
       });
     });
   });

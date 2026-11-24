@@ -81,7 +81,7 @@ export const setNode = <K extends record.Key = string>({
   throwOnMissing = true,
 }: SetNodeProps<K>): Node<K>[] => {
   additions = array.toArray(additions);
-  const uniqueAdditions = unique.by(additions, (node) => node.key, false);
+  const uniqueAdditions = unique.by(additions, (node) => node.key, { keep: "last" });
   const addedKeys = uniqueAdditions.map((node) => node.key);
   if (destination == null)
     return [

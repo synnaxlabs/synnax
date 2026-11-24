@@ -59,7 +59,7 @@ describe("by", () => {
     ]);
   });
 
-  it("removes duplicates based on a key function and keeps the first instance when keepFirst is true", () => {
+  it("removes duplicates based on a key function and keeps the first instance when keep is first", () => {
     const result = unique.by(
       [
         { id: 1, name: "A" },
@@ -67,7 +67,7 @@ describe("by", () => {
         { id: 1, name: "C" },
       ],
       (value: IDTestCase) => value.id,
-      true,
+      { keep: "first" },
     );
     expect(result).toEqual([
       { id: 1, name: "A" },
@@ -75,7 +75,7 @@ describe("by", () => {
     ]);
   });
 
-  it("removes duplicates based on a key function and keeps the last instance when keepFirst is false", () => {
+  it("removes duplicates based on a key function and keeps the last instance when keep is last", () => {
     const result = unique.by(
       [
         { id: 1, name: "A" },
@@ -83,11 +83,30 @@ describe("by", () => {
         { id: 1, name: "C" },
       ],
       (value: IDTestCase) => value.id,
-      false,
+      { keep: "last" },
     );
     expect(result).toEqual([
       { id: 2, name: "B" },
       { id: 1, name: "C" },
+    ]);
+  });
+
+  it("keeps the first or last instance with the deprecated keepFirst argument", () => {
+    // A plain type for the deprecated overload keeps lint from flagging each call.
+    const byKeepFirst: <V>(
+      values: V[],
+      key: (value: V) => unknown,
+      keepFirst: boolean,
+    ) => V[] = unique.by;
+    const values = [
+      { id: 1, name: "A" },
+      { id: 1, name: "B" },
+    ];
+    expect(byKeepFirst(values, (v: IDTestCase) => v.id, true)).toEqual([
+      { id: 1, name: "A" },
+    ]);
+    expect(byKeepFirst(values, (v: IDTestCase) => v.id, false)).toEqual([
+      { id: 1, name: "B" },
     ]);
   });
 
@@ -117,12 +136,12 @@ describe("by", () => {
     expect(result).toEqual([{ id: 1, name: "A" }]);
   });
 
-  it("works with readonly arrays and keeps the last instance when keepFirst is false", () => {
+  it("works with readonly arrays and keeps the last instance when keep is last", () => {
     const values: readonly { id: number; name: string }[] = [
       { id: 1, name: "A" },
       { id: 1, name: "B" },
     ];
-    const result = unique.by(values, (v: IDTestCase) => v.id, false);
+    const result = unique.by(values, (v: IDTestCase) => v.id, { keep: "last" });
     expect(result).toEqual([{ id: 1, name: "B" }]);
   });
 
@@ -146,7 +165,7 @@ describe("by", () => {
     ]);
   });
 
-  it("works with complex keys and keeps the last instance when keepFirst is false", () => {
+  it("works with complex keys and keeps the last instance when keep is last", () => {
     const result = unique.by(
       [
         { id: 1, nested: { value: "A" } },
@@ -154,7 +173,7 @@ describe("by", () => {
         { id: 1, nested: { value: "A", otherKey: "4" } },
       ],
       (v: ComplexTestCase) => `${v.id}-${v.nested.value}`,
-      false,
+      { keep: "last" },
     );
     expect(result).toEqual([
       { id: 1, nested: { value: "B" } },
