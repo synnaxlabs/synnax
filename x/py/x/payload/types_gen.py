@@ -71,6 +71,17 @@ JSON_TYPE_BOOLEAN: Literal["boolean"] = "boolean"
 
 JSONType = Literal["number", "string", "boolean"]
 
+SCALAR_TYPE_NUMBER: Literal["number"] = "number"
+
+SCALAR_TYPE_STRING: Literal["string"] = "string"
+
+SCALAR_TYPE_BOOLEAN: Literal["boolean"] = "boolean"
+
+SCALAR_TYPE_NULL: Literal["null"] = "null"
+
+
+ScalarType = Literal["number", "string", "boolean", "null"]
+
 GENERATOR_TYPE_UUID: Literal["uuid"] = "uuid"
 
 GENERATOR_TYPE_TIMESTAMP: Literal["timestamp"] = "timestamp"

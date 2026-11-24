@@ -31,21 +31,21 @@ func (u Scalar) EncodeMsgpack(enc *msgpack.Encoder) error {
 		return enc.Encode(struct {
 			Type ScalarType `msgpack:"type"`
 			NumberScalar
-		}{Type: NumberScalarType, NumberScalar: v})
+		}{Type: ScalarTypeNumber, NumberScalar: v})
 	case StringScalar:
 		return enc.Encode(struct {
 			Type ScalarType `msgpack:"type"`
 			StringScalar
-		}{Type: StringScalarType, StringScalar: v})
+		}{Type: ScalarTypeString, StringScalar: v})
 	case BooleanScalar:
 		return enc.Encode(struct {
 			Type ScalarType `msgpack:"type"`
 			BooleanScalar
-		}{Type: BooleanScalarType, BooleanScalar: v})
+		}{Type: ScalarTypeBoolean, BooleanScalar: v})
 	case NullScalar:
 		return enc.Encode(struct {
 			Type ScalarType `msgpack:"type"`
-		}{Type: NullScalarType})
+		}{Type: ScalarTypeNull})
 	default:
 		return errors.Newf("Scalar: unknown variant %T", v)
 	}
@@ -69,19 +69,19 @@ func (u *Scalar) DecodeMsgpack(dec *msgpack.Decoder) error {
 		return err
 	}
 	switch disc.Type {
-	case NumberScalarType:
+	case ScalarTypeNumber:
 		var v NumberScalar
 		err = msgpack.Unmarshal(raw, &v)
 		u.Variant = v
-	case StringScalarType:
+	case ScalarTypeString:
 		var v StringScalar
 		err = msgpack.Unmarshal(raw, &v)
 		u.Variant = v
-	case BooleanScalarType:
+	case ScalarTypeBoolean:
 		var v BooleanScalar
 		err = msgpack.Unmarshal(raw, &v)
 		u.Variant = v
-	case NullScalarType:
+	case ScalarTypeNull:
 		u.Variant = NullScalar{}
 	default:
 		return errors.Wrapf(

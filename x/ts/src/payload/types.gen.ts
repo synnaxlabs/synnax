@@ -41,6 +41,10 @@ export const JSON_TYPES = ["number", "string", "boolean"] as const;
 export const jsonTypeZ = z.enum(JSON_TYPES);
 export type JSONType = z.infer<typeof jsonTypeZ>;
 
+export const SCALAR_TYPES = ["number", "string", "boolean", "null"] as const;
+export const scalarTypeZ = z.enum(SCALAR_TYPES);
+export type ScalarType = z.infer<typeof scalarTypeZ>;
+
 export const GENERATOR_TYPES = ["uuid", "timestamp"] as const;
 export const generatorTypeZ = z.enum(GENERATOR_TYPES);
 export type GeneratorType = z.infer<typeof generatorTypeZ>;
@@ -135,10 +139,6 @@ export const nullScalarZ = z.object({
   type: z.literal("null"),
 });
 export interface NullScalar extends z.infer<typeof nullScalarZ> {}
-
-export const SCALAR_TYPES = ["number", "string", "boolean", "null"] as const;
-export const scalarTypeZ = z.enum(SCALAR_TYPES);
-export type ScalarType = z.infer<typeof scalarTypeZ>;
 
 /** Scalar is a JSON scalar: a number, a string, a boolean, or null. */
 export const scalarZ = z.discriminatedUnion("type", [

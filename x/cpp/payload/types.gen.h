@@ -50,6 +50,11 @@ constexpr const char *JSON_TYPE_NUMBER = "number";
 constexpr const char *JSON_TYPE_STRING = "string";
 constexpr const char *JSON_TYPE_BOOLEAN = "boolean";
 
+constexpr const char *SCALAR_TYPE_NUMBER = "number";
+constexpr const char *SCALAR_TYPE_STRING = "string";
+constexpr const char *SCALAR_TYPE_BOOLEAN = "boolean";
+constexpr const char *SCALAR_TYPE_NULL = "null";
+
 constexpr const char *GENERATOR_TYPE_UUID = "uuid";
 constexpr const char *GENERATOR_TYPE_TIMESTAMP = "timestamp";
 
@@ -103,50 +108,6 @@ struct EnumEntry {
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief NumberScalar is a JSON number.
-struct NumberScalar {
-    std::string type = "number";
-    /// @brief value is the number.
-    double value = 0;
-
-    static NumberScalar parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief StringScalar is a JSON string.
-struct StringScalar {
-    std::string type = "string";
-    /// @brief value is the string.
-    std::string value;
-
-    static StringScalar parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief BooleanScalar is a JSON boolean.
-struct BooleanScalar {
-    std::string type = "boolean";
-    /// @brief value is the boolean.
-    bool value = false;
-
-    static BooleanScalar parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief NullScalar is JSON null.
-struct NullScalar {
-    std::string type = "null";
-
-    static NullScalar parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief Scalar is a JSON scalar: a number, a string, a boolean, or null.
-using Scalar = std::variant<NumberScalar, StringScalar, BooleanScalar, NullScalar>;
-
-Scalar parse_scalar(x::json::Parser parser);
-[[nodiscard]] x::json::json to_json(const Scalar &value);
-
 /// @brief FloatEntry maps a payload label to a float channel value.
 struct FloatEntry {
     /// @brief label is the label in the payload.
@@ -197,4 +158,48 @@ struct UnsignedEntry {
     static std::pair<UnsignedEntry, x::errors::Error>
     from_proto(const ::x::payload::pb::UnsignedEntry &pb);
 };
+
+/// @brief NumberScalar is a JSON number.
+struct NumberScalar {
+    std::string type = SCALAR_TYPE_NUMBER;
+    /// @brief value is the number.
+    double value = 0;
+
+    static NumberScalar parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief StringScalar is a JSON string.
+struct StringScalar {
+    std::string type = SCALAR_TYPE_STRING;
+    /// @brief value is the string.
+    std::string value;
+
+    static StringScalar parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief BooleanScalar is a JSON boolean.
+struct BooleanScalar {
+    std::string type = SCALAR_TYPE_BOOLEAN;
+    /// @brief value is the boolean.
+    bool value = false;
+
+    static BooleanScalar parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief NullScalar is JSON null.
+struct NullScalar {
+    std::string type = SCALAR_TYPE_NULL;
+
+    static NullScalar parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief Scalar is a JSON scalar: a number, a string, a boolean, or null.
+using Scalar = std::variant<NumberScalar, StringScalar, BooleanScalar, NullScalar>;
+
+Scalar parse_scalar(x::json::Parser parser);
+[[nodiscard]] x::json::json to_json(const Scalar &value);
 }

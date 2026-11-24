@@ -115,19 +115,30 @@ const (
 	JSONTypeBoolean JSONType = v0.JSONTypeBoolean
 )
 
-// ScalarType is the "type" value that selects a variant of Scalar.
+// ScalarType is the type of a JSON scalar.
 type ScalarType string
 
 const (
-	// NumberScalarType is a JSON number.
-	NumberScalarType ScalarType = "number"
-	// StringScalarType is a JSON string.
-	StringScalarType ScalarType = "string"
-	// BooleanScalarType is a JSON boolean.
-	BooleanScalarType ScalarType = "boolean"
-	// NullScalarType is JSON null.
-	NullScalarType ScalarType = "null"
+	// ScalarTypeNumber writes the value as a JSON number.
+	ScalarTypeNumber ScalarType = "number"
+	// ScalarTypeString writes the value as a JSON string.
+	ScalarTypeString ScalarType = "string"
+	// ScalarTypeBoolean writes the value as a JSON boolean.
+	ScalarTypeBoolean ScalarType = "boolean"
+	// ScalarTypeNull is JSON null.
+	ScalarTypeNull ScalarType = "null"
 )
+
+// IsValid reports whether s is one of the defined ScalarType
+// values.
+func (s ScalarType) IsValid() bool {
+	switch s {
+	case ScalarTypeNumber, ScalarTypeString, ScalarTypeBoolean, ScalarTypeNull:
+		return true
+	default:
+		return false
+	}
+}
 
 // ScalarVariant is implemented by every Scalar variant.
 type ScalarVariant interface {
@@ -178,22 +189,22 @@ func (u Scalar) MarshalJSONTo(enc *jsontext.Encoder) error {
 		return json.MarshalEncode(enc, struct {
 			Type ScalarType `json:"type"`
 			NumberScalar
-		}{Type: NumberScalarType, NumberScalar: v})
+		}{Type: ScalarTypeNumber, NumberScalar: v})
 	case StringScalar:
 		return json.MarshalEncode(enc, struct {
 			Type ScalarType `json:"type"`
 			StringScalar
-		}{Type: StringScalarType, StringScalar: v})
+		}{Type: ScalarTypeString, StringScalar: v})
 	case BooleanScalar:
 		return json.MarshalEncode(enc, struct {
 			Type ScalarType `json:"type"`
 			BooleanScalar
-		}{Type: BooleanScalarType, BooleanScalar: v})
+		}{Type: ScalarTypeBoolean, BooleanScalar: v})
 	case NullScalar:
 		return json.MarshalEncode(enc, struct {
 			Type ScalarType `json:"type"`
 			NullScalar
-		}{Type: NullScalarType, NullScalar: v})
+		}{Type: ScalarTypeNull, NullScalar: v})
 	default:
 		return errors.Newf("Scalar: unknown variant %T", v)
 	}
@@ -219,7 +230,7 @@ func (u *Scalar) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		return err
 	}
 	switch disc.Type {
-	case NumberScalarType:
+	case ScalarTypeNumber:
 		var v struct {
 			Type ScalarType `json:"type"`
 			NumberScalar
@@ -228,7 +239,7 @@ func (u *Scalar) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			return err
 		}
 		u.Variant = v.NumberScalar
-	case StringScalarType:
+	case ScalarTypeString:
 		var v struct {
 			Type ScalarType `json:"type"`
 			StringScalar
@@ -237,7 +248,7 @@ func (u *Scalar) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			return err
 		}
 		u.Variant = v.StringScalar
-	case BooleanScalarType:
+	case ScalarTypeBoolean:
 		var v struct {
 			Type ScalarType `json:"type"`
 			BooleanScalar
@@ -246,7 +257,7 @@ func (u *Scalar) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			return err
 		}
 		u.Variant = v.BooleanScalar
-	case NullScalarType:
+	case ScalarTypeNull:
 		var v struct {
 			Type ScalarType `json:"type"`
 			NullScalar
@@ -269,13 +280,13 @@ func (u *Scalar) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 func (u Scalar) Type() ScalarType {
 	switch u.Variant.(type) {
 	case NumberScalar:
-		return NumberScalarType
+		return ScalarTypeNumber
 	case StringScalar:
-		return StringScalarType
+		return ScalarTypeString
 	case BooleanScalar:
-		return BooleanScalarType
+		return ScalarTypeBoolean
 	case NullScalar:
-		return NullScalarType
+		return ScalarTypeNull
 	}
 	return ""
 }

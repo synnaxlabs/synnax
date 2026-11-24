@@ -33,7 +33,15 @@ EnumEntry = v0.EnumEntry
 
 JSONType = v0.JSONType
 
-Scalar union on type {
+ScalarType enum extends JSONType {
+    null = "null" {
+        @doc value "is JSON null."
+    }
+
+    @doc value "is the type of a JSON scalar."
+}
+
+Scalar union on type ScalarType {
     number {
         value float64 {
             @doc value "is the number."
