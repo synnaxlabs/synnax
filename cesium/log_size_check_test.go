@@ -81,8 +81,8 @@ var _ = Describe("Check: the next log of a recovery past three quarters of a sma
 		}
 
 		It(
-			"Should keep the Restart in a full log, whose last two blocks only marks and "+
-				"the Restart may take",
+			"Should keep the Restart in a full log, whose last two blocks only marks "+
+				"and the Restart may take",
 			func(ctx SpecContext) {
 				Expect(recovered(ctx, crashed(ctx, 0))).To(BeNil())
 			},
