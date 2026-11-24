@@ -1334,16 +1334,19 @@ func channelPolicies() impact.Policies {
 	retarget, keep := impact.PolicyRetarget, impact.PolicyKeep
 	return impact.Policies{
 		Links: map[gorp.ReferenceID]impact.Policy{
-			{Table: "schematic", Name: "nodes.config.channel"}:         retarget,
-			{Table: "schematic", Name: "nodes.config.command_channel"}: retarget,
-			{Table: "schematic", Name: "nodes.config.state_channel"}:   retarget,
-			{Table: "table", Name: "rows.cells.config.channel"}:        retarget,
-			{Table: "lineplot", Name: "channels"}:                      retarget,
-			{Table: "log", Name: "channels.channel"}:                   retarget,
-			{Table: "channel", Name: "index"}:                          keep,
-			{Table: "channel", Name: "rewires.from"}:                   keep,
-			{Table: "channel_tombstone", Name: "rewires.from"}:         keep,
-			{Table: "status", Name: "owner"}:                           keep,
+			{Table: "schematic", Name: "nodes.config.channel"}:               retarget,
+			{Table: "schematic", Name: "nodes.config.command_channel"}:       retarget,
+			{Table: "schematic", Name: "nodes.config.state_channel"}:         retarget,
+			{Table: "schematic", Name: "nodes.config.commands.channel"}:      retarget,
+			{Table: "schematic", Name: "nodes.config.states.source.command"}: retarget,
+			{Table: "schematic", Name: "nodes.config.states.source.key"}:     retarget,
+			{Table: "table", Name: "rows.cells.config.channel"}:              retarget,
+			{Table: "lineplot", Name: "channels"}:                            retarget,
+			{Table: "log", Name: "channels.channel"}:                         retarget,
+			{Table: "channel", Name: "index"}:                                keep,
+			{Table: "channel", Name: "rewires.from"}:                         keep,
+			{Table: "channel_tombstone", Name: "rewires.from"}:               keep,
+			{Table: "status", Name: "owner"}:                                 keep,
 		},
 		KeptTables: func(table string) bool {
 			_, ok := taskconfig.TaskOf(gorp.Target{Table: table})

@@ -144,10 +144,13 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Channel:  channelSvc,
 		Group:    groupSvc,
 		RecordOf: taskconfig.RecordOf,
+		DB:       db,
+		Policies: suitePolicies(),
 		Delete: func(context.Context, gorp.Tx, []resource.ID) error {
 			return errors.New("[schematic suite] - no record to delete")
 		},
 	}))
+	Expect(channelSvc.Heal(ctx)).To(Succeed())
 	symbolSvc := MustSucceed(apisymbol.NewService(apisymbol.ServiceConfig{
 		Symbol: schematicSvc.Symbol,
 		Impact: impactSvc,
@@ -187,4 +190,21 @@ func newUser(ctx SpecContext) user.User {
 func grantUpdateOn(ctx SpecContext, subject resource.ID, objects ...resource.ID) {
 	GinkgoHelper()
 	grantOn(ctx, subject, access.ActionUpdate, objects...)
+}
+
+// suitePolicies maps the references to channels that the suite opens.
+func suitePolicies() impact.Policies {
+	retarget, keep := impact.PolicyRetarget, impact.PolicyKeep
+	return impact.Policies{Links: map[gorp.ReferenceID]impact.Policy{
+		{Table: "channel", Name: "index"}:                                keep,
+		{Table: "channel", Name: "rewires.from"}:                         keep,
+		{Table: "channel_tombstone", Name: "rewires.from"}:               keep,
+		{Table: "status", Name: "owner"}:                                 keep,
+		{Table: "schematic", Name: "nodes.config.channel"}:               retarget,
+		{Table: "schematic", Name: "nodes.config.command_channel"}:       retarget,
+		{Table: "schematic", Name: "nodes.config.state_channel"}:         retarget,
+		{Table: "schematic", Name: "nodes.config.commands.channel"}:      retarget,
+		{Table: "schematic", Name: "nodes.config.states.source.command"}: retarget,
+		{Table: "schematic", Name: "nodes.config.states.source.key"}:     retarget,
+	}}
 }
