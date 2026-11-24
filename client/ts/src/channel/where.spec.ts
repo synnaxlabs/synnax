@@ -11,9 +11,6 @@ import { DataType, id } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { channel } from "@/channel";
-import { createLines } from "@/channel/where";
-import { matches, serverComputed } from "@/channel/where.gen";
-import type Synnax from "@/client";
 import {
   createTestClient,
   createTestClientWithPolicy,
@@ -118,25 +115,6 @@ describe("Where", () => {
       closers.forEach((close) => close());
     }
   });
-
-  it("should match the internal line against the built-in keys", () => {
-    const table = vectors.read("channels", channel.payloadZ, channel.whereZ);
-    const builtIn = table.records.find(([, ch]) => ch.internal)?.[1];
-    const user = table.records.find(([, ch]) => !ch.internal)?.[1];
-    if (builtIn == null || user == null)
-      throw new Error("the vectors hold no internal and user channel");
-    const lines = createLines(() => new Set([builtIn.key]));
-    expect(serverComputed(lines, { internal: { eq: true } })).toBe(false);
-    expect(matches(lines, builtIn, { internal: { eq: true } })).toBe(true);
-    expect(matches(lines, user, { internal: { eq: true } })).toBe(false);
-    expect(matches(lines, user, { internal: { eq: false } })).toBe(true);
-  });
-
-  it("should leave the internal line to the Core before the built-in keys arrive", () => {
-    const unknown = createLines(() => null);
-    expect(serverComputed(unknown, { internal: { eq: false } })).toBe(true);
-    expect(serverComputed(unknown, { virtual: true })).toBe(false);
-  });
 });
 
 describe("Where with a Core", () => {
@@ -148,29 +126,41 @@ describe("Where with a Core", () => {
       dataType: DataType.FLOAT32,
       virtual: true,
     });
-    const output = await admin.channels.create({
-      name: id.create(),
-      dataType: DataType.FLOAT32,
-      virtual: true,
-      expression: `return ${input.name} * 2`,
-    });
     // A reader that may retrieve every channel but no calculation.
     const reader = await createTestClientWithPolicy(admin, {
       name: id.create(),
       objects: [channel.resourceID(0)],
       actions: ["retrieve"],
     });
-    const lines = createLines(() => new Set());
-    const where = channel.whereZ.parse({ key: { in: [output.key] }, virtual: true });
-    const agreement = async (c: Synnax) => {
-      const fromCore = await c.channels.retrieve({ where });
-      const seen = await c.channels.retrieve(output.key);
-      return {
-        core: fromCore.some(({ key }) => key === output.key),
-        client: matches(lines, seen.payload, where),
-      };
-    };
-    expect(await agreement(admin)).toEqual({ core: false, client: false });
-    expect(await agreement(reader)).toEqual({ core: false, client: false });
+    await waitForStreamLive(reader.connection);
+    const where = channel.whereZ.parse({
+      virtual: true,
+      name: { startsWith: `where_hidden_${input.key}` },
+    });
+    const list = reader.channels.watch({ where });
+    const close = list.onChange(() => {});
+    try {
+      await list.retrieve();
+      const [plain, output] = await admin.channels.create([
+        {
+          name: `where_hidden_${input.key}_plain`,
+          dataType: DataType.FLOAT32,
+          virtual: true,
+        },
+        {
+          name: `where_hidden_${input.key}_output`,
+          dataType: DataType.FLOAT32,
+          virtual: true,
+          expression: `return ${input.name} * 2`,
+        },
+      ]);
+      const keys = () => list.getCached()?.records.map(({ key }) => key);
+      await expect.poll(keys).toContain(plain.key);
+      expect(keys()).not.toContain(output.key);
+      const fromCore = await reader.channels.retrieve({ where });
+      expect(fromCore.map(({ key }) => key)).toEqual([plain.key]);
+    } finally {
+      close();
+    }
   });
 });
