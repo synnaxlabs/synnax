@@ -34,13 +34,8 @@ const create = (stored: Partial<Stored>): Action => ({
 
 describe("channel reduce", () => {
   describe("createOf", () => {
-    it("should mark a created channel with an expression calculated", () => {
+    it("should not mark a created channel calculated by its expression", () => {
       const created = createOf(create({ expression: "return 1" }));
-      expect(created != null && isCalculated(created)).toBe(true);
-    });
-
-    it("should not mark a virtual channel with no expression calculated", () => {
-      const created = createOf(create({}));
       expect(created != null && isCalculated(created)).toBe(false);
     });
   });
@@ -50,24 +45,30 @@ describe("channel reduce", () => {
     if (created == null) throw new Error("expected a created channel");
     const setExpression = (value: string): Action =>
       set({ path: ["expression"], value });
+    const setCalculated = (value: boolean): Action =>
+      set({ path: ["calculated"], value });
 
-    it("should mark a virtual channel calculated when its expression arrives", () => {
-      const { next, targets } = reduceAll(created, [setExpression("return 1")]);
+    it("should mark a channel calculated when the Core sets calculated", () => {
+      const { next, targets } = reduceAll(created, [setCalculated(true)]);
       expect(isCalculated(next)).toBe(true);
       expect(targets).toContain("calculated");
     });
 
+    it("should not mark a channel calculated when only its expression arrives", () => {
+      const { next } = reduceAll(created, [setExpression("return 1")]);
+      expect(next.expression).toBe("return 1");
+      expect(isCalculated(next)).toBe(false);
+    });
+
     it("should keep the calculation fields of a cached channel at its create", () => {
-      const calculated = createOf(create({ expression: "return 1" }));
-      if (calculated == null) throw new Error("expected a created channel");
-      const { next } = reduceAll(calculated, [create({})]);
+      const cached = { ...created, expression: "return 1", calculated: true };
+      const { next } = reduceAll(cached, [create({})]);
       expect(next.expression).toBe("return 1");
       expect(isCalculated(next)).toBe(true);
     });
 
     it("should keep calculated with no expression through operations set", () => {
       const hidden = { ...created, calculated: true };
-      // Only a set of the expression recomputes calculated.
       const operations = set({
         path: ["operations"],
         value: [{ type: "max", reset_channel: 0, duration: "1000000000" }],
@@ -91,10 +92,15 @@ describe("channel reduce", () => {
       expect(isCalculated(next)).toBe(true);
     });
 
-    it("should unmark a channel whose expression is cleared", () => {
-      const calculated = createOf(create({ expression: "return 1" }));
-      if (calculated == null) throw new Error("expected a created channel");
-      const { next } = reduceAll(calculated, [setExpression("")]);
+    it("should keep calculated when only the expression is cleared", () => {
+      const cached = { ...created, expression: "return 1", calculated: true };
+      const { next } = reduceAll(cached, [setExpression("")]);
+      expect(isCalculated(next)).toBe(true);
+    });
+
+    it("should unmark a channel when the Core clears calculated", () => {
+      const cached = { ...created, expression: "return 1", calculated: true };
+      const { next } = reduceAll(cached, [setCalculated(false), setExpression("")]);
       expect(isCalculated(next)).toBe(false);
     });
   });
