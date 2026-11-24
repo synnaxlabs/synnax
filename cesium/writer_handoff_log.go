@@ -186,8 +186,7 @@ func (w *logWriter) split(keys []ChannelKey) (*Pending, error) {
 	if len(p.runs) == 0 {
 		return nil, p.close()
 	}
-	last := p.runs[len(p.runs)-1]
-	if err = st.Bound(p.runs[0].first, last.last); err != nil {
+	if err = st.Bound(p.runs[0].first, p.runs[len(p.runs)-1].last); err != nil {
 		return nil, errors.Join(err, p.close())
 	}
 	p.stamps = p.placed()
