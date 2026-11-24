@@ -62,38 +62,31 @@ func createSymbol(ctx SpecContext, g group.Group) symbol.Symbol {
 	return sym
 }
 
-var _ = Describe("DeleteGroup", func() {
-	It("Should delete the group and every symbol in it", func(ctx SpecContext) {
+var _ = Describe("DeleteSymbolsIn", func() {
+	It("Should delete every symbol in the group and keep the group", func(
+		ctx SpecContext,
+	) {
 		g := createGroup(ctx, nil)
 		sym := createSymbol(ctx, g)
 		tx := DeferClose(db.OpenTx())
-		Expect(svc.DeleteGroup(ctx, tx, g.Key)).To(Succeed())
+		Expect(svc.DeleteSymbolsIn(ctx, tx, g.Key)).To(Succeed())
 		Expect(svc.NewRetrieve().
 			Where(symbol.MatchKeys(sym.Key)).
 			Entry(&symbol.Symbol{}).
 			Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
+		Expect(groupSvc.NewRetrieve().
+			Where(group.MatchKeys(g.Key)).
+			Exists(ctx, tx)).To(BeTrue())
 	})
-	It("Should delete an empty group", func(ctx SpecContext) {
+	It("Should do nothing for an empty group", func(ctx SpecContext) {
 		g := createGroup(ctx, nil)
 		tx := DeferClose(db.OpenTx())
-		Expect(svc.DeleteGroup(ctx, tx, g.Key)).To(Succeed())
+		Expect(svc.DeleteSymbolsIn(ctx, tx, g.Key)).To(Succeed())
 	})
-	It(
-		"Should refuse to delete a group that holds another group",
-		func(ctx SpecContext) {
-			g := createGroup(ctx, nil)
-			createGroup(ctx, &g)
-			tx := DeferClose(db.OpenTx())
-			Expect(svc.DeleteGroup(ctx, tx, g.Key)).To(MatchError(
-				ContainSubstring(
-					"cannot delete group deletable because it is not empty",
-				),
-			))
-		},
-	)
 	It("Should return not found for a missing group", func(ctx SpecContext) {
 		tx := DeferClose(db.OpenTx())
-		Expect(svc.DeleteGroup(ctx, tx, uuid.New())).To(MatchError(query.ErrNotFound))
+		Expect(svc.DeleteSymbolsIn(ctx, tx, uuid.New())).
+			To(MatchError(query.ErrNotFound))
 	})
 })
 

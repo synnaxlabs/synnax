@@ -75,6 +75,24 @@ func rackID(key string) resource.ID {
 	return resource.ID{Type: resource.TypeRack, Key: key}
 }
 
+var _ = Describe("MemberTypes", func() {
+	It("Should list each type that can sit in a group, sorted", func() {
+		Expect(group.MemberTypes()).To(Equal([]resource.Type{
+			resource.TypeChannel,
+			resource.TypeColor,
+			resource.TypeDevice,
+			resource.TypeLineplot,
+			resource.TypeLog,
+			resource.TypePanel,
+			resource.TypeProject,
+			resource.TypeRack,
+			resource.TypeSchematic,
+			resource.TypeSchematicSymbol,
+			resource.TypeTable,
+		}))
+	})
+})
+
 var _ = Describe("Member", func() {
 	var (
 		db  *gorp.DB

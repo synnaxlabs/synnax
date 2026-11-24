@@ -68,9 +68,11 @@ func newIndexes() indexes {
 				return []group.Key{*e.Group}
 			},
 			Detach: func(e *LinePlot, _ group.Key) { e.Group = nil },
-			Retarget: func(e *LinePlot, from, to group.Key) {
-				if e.Group != nil && *e.Group == from {
-					*e.Group = to
+			Retarget: func(e *LinePlot, to map[group.Key]group.Key) {
+				if e.Group != nil {
+					if t, ok := to[*e.Group]; ok {
+						*e.Group = t
+					}
 				}
 			},
 		}),
@@ -85,9 +87,11 @@ func newIndexes() indexes {
 				}
 				return []project.Key{*e.Project}
 			},
-			Retarget: func(e *LinePlot, from, to project.Key) {
-				if e.Project != nil && *e.Project == from {
-					*e.Project = to
+			Retarget: func(e *LinePlot, to map[project.Key]project.Key) {
+				if e.Project != nil {
+					if t, ok := to[*e.Project]; ok {
+						*e.Project = t
+					}
 				}
 			},
 		}),
@@ -144,15 +148,15 @@ func newIndexes() indexes {
 					}
 				}
 			},
-			Retarget: func(e *LinePlot, from, to color.Key) {
+			Retarget: func(e *LinePlot, to map[color.Key]color.Key) {
 				for i13 := range e.Ranges {
 					switch v14 := e.Ranges[i13].Variant.(type) {
 					case ranger.KeyRef:
 						if v14.Color != nil {
 							switch v15 := v14.Color.Variant.(type) {
 							case color.NamedRef:
-								if v15.Key == from {
-									v15.Key = to
+								if t, ok := to[v15.Key]; ok {
+									v15.Key = t
 								}
 								v14.Color.Variant = v15
 							}
@@ -162,8 +166,8 @@ func newIndexes() indexes {
 						if v14.Color != nil {
 							switch v16 := v14.Color.Variant.(type) {
 							case color.NamedRef:
-								if v16.Key == from {
-									v16.Key = to
+								if t, ok := to[v16.Key]; ok {
+									v16.Key = t
 								}
 								v14.Color.Variant = v16
 							}
@@ -235,13 +239,13 @@ func newIndexes() indexes {
 					}
 				}
 			},
-			Retarget: func(e *LinePlot, from, to color.Key) {
+			Retarget: func(e *LinePlot, to map[color.Key]color.Key) {
 				for i7 := range e.Lines {
 					if e.Lines[i7].Color != nil {
 						switch v8 := e.Lines[i7].Color.Variant.(type) {
 						case color.NamedRef:
-							if v8.Key == from {
-								v8.Key = to
+							if t, ok := to[v8.Key]; ok {
+								v8.Key = t
 							}
 							e.Lines[i7].Color.Variant = v8
 						}
@@ -300,13 +304,13 @@ func newIndexes() indexes {
 					}
 				}
 			},
-			Retarget: func(e *LinePlot, from, to color.Key) {
+			Retarget: func(e *LinePlot, to map[color.Key]color.Key) {
 				for i7 := range e.Rules {
 					if e.Rules[i7].Color != nil {
 						switch v8 := e.Rules[i7].Color.Variant.(type) {
 						case color.NamedRef:
-							if v8.Key == from {
-								v8.Key = to
+							if t, ok := to[v8.Key]; ok {
+								v8.Key = t
 							}
 							e.Rules[i7].Color.Variant = v8
 						}

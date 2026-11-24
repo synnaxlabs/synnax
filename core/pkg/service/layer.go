@@ -464,8 +464,10 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.License) {
 		return nil, err
 	}
+	policies := channelPolicies()
 	if l.Channel, err = channel.OpenService(ctx, channel.ServiceConfig{
 		Instrumentation: cfg.Child("channel"),
+		Retargets:       policies.Retargets,
 		Channel:         cfg.Distribution.Channel,
 		TS:              cfg.Storage.TS,
 		DB:              cfg.Distribution.DB,
@@ -1301,9 +1303,103 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.Driver) {
 		return nil, err
 	}
+	uuidKey := func(id resource.ID) (uuid.UUID, error) { return uuid.Parse(id.Key) }
+	channelKey := func(id resource.ID) (channel.Key, error) {
+		return channel.ParseKey(id.Key)
+	}
+	// moves sets the group of the records of each type that sits in a group.
+	moves := map[resource.Type]impact.Move{
+		resource.TypeChannel: moveBy(
+			channelKey,
+			func(
+				ctx context.Context,
+				tx gorp.Tx,
+				to *group.Key,
+				k ...channel.Key,
+			) error {
+				return l.Channel.NewWriter(tx).SetGroup(ctx, to, k...)
+			},
+		),
+		resource.TypeColor: moveBy(uuidKey, applyGroup(
+			func(ctx context.Context, tx gorp.Tx, k uuid.UUID, value any) error {
+				return l.Color.NewWriter(tx).Apply(ctx, k, color.NewSetAction(
+					color.SetPayload{Path: []string{"group"}, Value: value},
+				))
+			},
+		)),
+		resource.TypeDevice: moveBy(
+			func(id resource.ID) (string, error) { return id.Key, nil },
+			func(ctx context.Context, tx gorp.Tx, to *group.Key, k ...string) error {
+				return l.Device.NewWriter(tx).SetGroup(ctx, to, k...)
+			},
+		),
+		resource.TypeLineplot: moveBy(uuidKey, applyGroup(
+			func(ctx context.Context, tx gorp.Tx, k uuid.UUID, value any) error {
+				_, err := l.LinePlot.NewWriter(tx).Apply(ctx, k, lineplot.NewSetAction(
+					lineplot.SetPayload{Path: []string{"group"}, Value: value},
+				))
+				return err
+			},
+		)),
+		resource.TypeLog: moveBy(uuidKey, applyGroup(
+			func(ctx context.Context, tx gorp.Tx, k uuid.UUID, value any) error {
+				_, err := l.Log.NewWriter(tx).Apply(ctx, k, log.NewSetAction(
+					log.SetPayload{Path: []string{"group"}, Value: value},
+				))
+				return err
+			},
+		)),
+		resource.TypePanel: moveBy(uuidKey, applyGroup(
+			func(ctx context.Context, tx gorp.Tx, k uuid.UUID, value any) error {
+				_, err := l.Panel.NewWriter(tx).Apply(ctx, k, panel.NewSetAction(
+					panel.SetPayload{Path: []string{"group"}, Value: value},
+				))
+				return err
+			},
+		)),
+		resource.TypeProject: moveBy(
+			project.KeyFromResourceID,
+			func(ctx context.Context, tx gorp.Tx, to *group.Key, k ...uuid.UUID) error {
+				return l.Project.NewWriter(tx).SetGroup(ctx, to, k...)
+			},
+		),
+		resource.TypeRack: moveBy(
+			rack.KeyFromResourceID,
+			func(ctx context.Context, tx gorp.Tx, to *group.Key, k ...rack.Key) error {
+				return l.Rack.NewWriter(tx).SetGroup(ctx, to, k...)
+			},
+		),
+		resource.TypeSchematic: moveBy(uuidKey, applyGroup(
+			func(ctx context.Context, tx gorp.Tx, k uuid.UUID, value any) error {
+				_, err := l.Schematic.NewWriter(tx).
+					Apply(ctx, k, schematic.NewSetAction(
+						schematic.SetPayload{Path: []string{"group"}, Value: value},
+					))
+				return err
+			},
+		)),
+		resource.TypeSchematicSymbol: moveBy(
+			uuidKey,
+			func(ctx context.Context, tx gorp.Tx, to *group.Key, k ...uuid.UUID) error {
+				return l.Schematic.Symbol.NewWriter(tx).SetGroup(ctx, to, k...)
+			},
+		),
+		resource.TypeTable: moveBy(uuidKey, applyGroup(
+			func(ctx context.Context, tx gorp.Tx, k uuid.UUID, value any) error {
+				_, err := l.Table.NewWriter(tx).Apply(ctx, k, table.NewSetAction(
+					table.SetPayload{Path: []string{"group"}, Value: value},
+				))
+				return err
+			},
+		)),
+	}
 	if l.Impact, err = impact.OpenService(impact.ServiceConfig{
 		Channel:  l.Channel,
+		Group:    l.Group,
 		RecordOf: taskconfig.RecordOf,
+		DB:       cfg.Distribution.DB,
+		Policies: policies,
+		Moves:    moves,
 		Delete: func(ctx context.Context, tx gorp.Tx, records []resource.ID) error {
 			w := l.Task.NewWriter(tx)
 			for _, r := range records {
@@ -1323,7 +1419,78 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); err != nil {
 		return nil, err
 	}
+	if err = l.Channel.Heal(ctx); err != nil {
+		return nil, err
+	}
 	return l, nil
+}
+
+// channelPolicies returns what a heal does with each reference to the channel table:
+// displays move onto the channel that takes the path, and task configs, the index, and
+// path histories keep the dead key.
+func channelPolicies() impact.Policies {
+	retarget, keep := impact.PolicyRetarget, impact.PolicyKeep
+	return impact.Policies{
+		Links: map[gorp.ReferenceID]impact.Policy{
+			{Table: "schematic", Name: "nodes.config.channel"}:         retarget,
+			{Table: "schematic", Name: "nodes.config.command_channel"}: retarget,
+			{Table: "schematic", Name: "nodes.config.state_channel"}:   retarget,
+			{Table: "table", Name: "rows.cells.config.channel"}:        retarget,
+			{Table: "lineplot", Name: "channels"}:                      retarget,
+			{Table: "log", Name: "channels.channel"}:                   retarget,
+			{Table: "channel", Name: "index"}:                          keep,
+			{Table: "channel", Name: "rewires.from"}:                   keep,
+			{Table: "channel_tombstone", Name: "rewires.from"}:         keep,
+			{Table: "status", Name: "owner"}:                           keep,
+		},
+		KeptTables: func(table string) bool {
+			_, ok := taskconfig.TaskOf(gorp.Target{Table: table})
+			return ok
+		},
+	}
+}
+
+// moveBy returns an impact.Move that parses the key of each record with parse and
+// moves the records through set.
+func moveBy[K any](
+	parse func(resource.ID) (K, error),
+	set func(ctx context.Context, tx gorp.Tx, to *group.Key, keys ...K) error,
+) impact.Move {
+	return func(
+		ctx context.Context,
+		tx gorp.Tx,
+		ids []resource.ID,
+		to *group.Key,
+	) error {
+		keys := make([]K, len(ids))
+		for i, id := range ids {
+			var err error
+			if keys[i], err = parse(id); err != nil {
+				return err
+			}
+		}
+		return set(ctx, tx, to, keys...)
+	}
+}
+
+// applyGroup returns a set for moveBy that moves each record through apply, which sets
+// its group to value: the key of the group, or nil for no group.
+func applyGroup[K any](
+	apply func(ctx context.Context, tx gorp.Tx, key K, value any) error,
+) func(ctx context.Context, tx gorp.Tx, to *group.Key, keys ...K) error {
+	return func(ctx context.Context, tx gorp.Tx, to *group.Key, keys ...K) error {
+		// A typed nil would set the zero key, not no group (SY-6716).
+		var value any
+		if to != nil {
+			value = *to
+		}
+		for _, k := range keys {
+			if err := apply(ctx, tx, k, value); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
 }
 
 // openSecretsFolder returns the folder at dir. It returns an error when dir is not a

@@ -51,9 +51,9 @@ func newIndexes() indexes {
 				}
 				return []rack.Key{e.Rack}
 			},
-			Retarget: func(e *Task, from, to rack.Key) {
-				if e.Rack == from {
-					e.Rack = to
+			Retarget: func(e *Task, to map[rack.Key]rack.Key) {
+				if t, ok := to[e.Rack]; ok {
+					e.Rack = t
 				}
 			},
 		}),

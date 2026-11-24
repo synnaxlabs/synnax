@@ -11,6 +11,7 @@ package bind_test
 
 import (
 	"context"
+	"fmt"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -26,6 +27,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/certificate"
 	certtestutil "github.com/synnaxlabs/synnax/pkg/service/certificate/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
@@ -307,6 +309,44 @@ type rule struct {
 }
 
 var _ = Describe("Write", func() {
+	Describe("On the caller's behalf", func() {
+		// deleteOnBehalf deletes t as a write that marks it as made on the caller's
+		// behalf, so the delete of its status is too.
+		deleteOnBehalf := func(t task.Task) apply {
+			return func(ctx context.Context, tx gorp.Tx) error {
+				id := task.ResourceID(t.Key)
+				gorp.MarkOnBehalf(tx, gorp.Target{Table: string(id.Type), Key: id.Key})
+				return svc.Task.NewWriter(tx).Delete(ctx, t.Key, false)
+			}
+		}
+
+		It("Should count the hidden records and name none of them", func(
+			ctx SpecContext,
+		) {
+			u := newUser(ctx)
+			t := createTask(ctx)
+			grant(ctx, u, access.ActionUpdate, t.Rack.ResourceID())
+			err := write(ctx, u, deleteOnBehalf(t))
+			Expect(err).To(MatchError(access.ErrDenied))
+			Expect(err).To(MatchError(fmt.Sprintf(
+				"%s cannot change 2 records that this request changes and that it "+
+					"cannot retrieve: access denied: auth error",
+				u.ResourceID(),
+			)))
+		})
+
+		It("Should name a denied record that the caller can retrieve", func(
+			ctx SpecContext,
+		) {
+			u := newUser(ctx)
+			t := createTask(ctx)
+			grant(ctx, u, access.ActionUpdate, t.Rack.ResourceID())
+			grant(ctx, u, access.ActionRetrieve, task.ResourceID(t.Key))
+			Expect(write(ctx, u, deleteOnBehalf(t))).
+				To(denied(u, access.ActionDelete, task.ResourceID(t.Key)))
+		})
+	})
+
 	DescribeTable(
 		"Should deny a write and name the record without the access a rule requires",
 		func(ctx SpecContext, setup func(ctx context.Context) rule) {
@@ -1125,6 +1165,19 @@ var _ = Describe("Owned records", func() {
 		grant(ctx, owner, access.ActionRetrieve, other.ResourceID())
 		Expect(write(ctx, owner, setOwner(p.Key, &other.Key))).
 			To(denied(owner, access.ActionUpdate, p.ResourceID()))
+	})
+})
+
+var _ = Describe("Mirror records", func() {
+	It("Should refuse a write that changes only mirror records", func(ctx SpecContext) {
+		u := newUser(ctx)
+		Expect(write(ctx, u, func(ctx context.Context, tx gorp.Tx) error {
+			return gorp.NewCreate[channel.Key, channel.Tombstone]().
+				Entry(&channel.Tombstone{Key: 1, Name: "orphan"}).
+				Exec(ctx, tx)
+		})).To(MatchError(
+			"[bind] - a write changed mirror records and no record they mirror",
+		))
 	})
 })
 

@@ -18,6 +18,7 @@ import (
 	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service"
+	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
@@ -292,4 +293,82 @@ var _ = Describe("References across holders", Ordered, func() {
 			}))
 		},
 	)
+
+	// healAt creates a channel at the path of dead, which heals the links that hold it.
+	healAt := func(ctx SpecContext, dead channel.Channel) channel.Channel {
+		GinkgoHelper()
+		ch := channel.Channel{
+			Name:     dead.Name,
+			DataType: telem.Float32T,
+			Virtual:  true,
+		}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return layer.Channel.NewWriter(tx).Create(ctx, &ch)
+		})).To(Succeed())
+		return ch
+	}
+
+	It(
+		"Should heal a schematic that held a deleted channel onto the channel at its "+
+			"path and send the schematic to open Consoles",
+		func(ctx SpecContext) {
+			dead := createChannel(ctx)
+			var value schematic.ValueNodeConfig
+			value.SetDefaults()
+			value.Channel = dead.Key()
+			sch := schematic.Schematic{
+				Name:    "heal",
+				Project: &proj.Key,
+				Nodes: []schematic.Node{{
+					Key:    "value",
+					Config: schematic.NodeConfig{Variant: value},
+				}},
+			}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return layer.Schematic.NewWriter(tx).Create(ctx, &sch)
+			})).To(Succeed())
+			Expect(deleteChannel(ctx, dead.Key())).To(Succeed())
+			rec := &Recorder[schematic.Key, schematic.Action]{}
+			DeferCleanup(layer.Schematic.OnAction(rec.Record))
+			ch := healAt(ctx, dead)
+			var stored schematic.Schematic
+			Expect(layer.Schematic.NewRetrieve().
+				Where(schematic.MatchKeys(sch.Key)).
+				Entry(&stored).
+				Exec(ctx, db)).To(Succeed())
+			healed, ok := stored.Nodes[0].Config.Variant.(schematic.ValueNodeConfig)
+			Expect(ok).To(BeTrue())
+			Expect(healed.Channel).To(Equal(ch.Key()))
+			seen := rec.Snapshot()
+			Expect(seen).To(HaveLen(1))
+			Expect(seen[0].Key).To(Equal(sch.Key))
+			Expect(seen[0].Actions).To(HaveLen(1))
+			Expect(seen[0].Actions[0].Create).ToNot(BeNil())
+		},
+	)
+
+	It("Should heal a table cell that held a deleted channel and keep its place", func(
+		ctx SpecContext,
+	) {
+		dead, kept := createChannel(ctx), createChannel(ctx)
+		t := valueTable(dead.Key(), kept.Key())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return layer.Table.NewWriter(tx).Create(ctx, &t)
+		})).To(Succeed())
+		Expect(deleteChannel(ctx, dead.Key())).To(Succeed())
+		ch := healAt(ctx, dead)
+		var stored table.Table
+		Expect(layer.Table.NewRetrieve().
+			Where(table.MatchKeys(t.Key)).
+			Entry(&stored).
+			Exec(ctx, db)).To(Succeed())
+		cells := stored.Rows[0].Cells
+		Expect(cells).To(HaveLen(2))
+		for i, want := range []channel.Key{ch.Key(), kept.Key()} {
+			v, ok := cells[i].Config.Variant.(table.ValueCellConfig)
+			Expect(ok).To(BeTrue())
+			Expect(cells[i].Key).To(Equal(t.Rows[0].Cells[i].Key))
+			Expect(v.Channel).To(Equal(want))
+		}
+	})
 })

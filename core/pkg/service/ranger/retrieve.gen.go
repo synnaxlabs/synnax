@@ -71,19 +71,22 @@ func newIndexes() indexes {
 					return v == t
 				})
 			},
-			Retarget: func(e *Range, from, to label.Key) {
-				if slices.ContainsFunc(e.Labels, func(k1 label.Key) bool {
-					return k1 == to
-				}) {
-					e.Labels = slices.DeleteFunc(e.Labels, func(k1 label.Key) bool {
-						return k1 == from
-					})
-				} else {
-					for i2 := range e.Labels {
-						if e.Labels[i2] == from {
-							e.Labels[i2] = to
+			Retarget: func(e *Range, to map[label.Key]label.Key) {
+				moved2 := false
+				for i1 := range e.Labels {
+					if t, ok := to[e.Labels[i1]]; ok {
+						e.Labels[i1] = t
+						moved2 = true
+					}
+				}
+				if moved2 {
+					kept3 := e.Labels[:0]
+					for _, k4 := range e.Labels {
+						if !slices.Contains(kept3, k4) {
+							kept3 = append(kept3, k4)
 						}
 					}
+					e.Labels = kept3
 				}
 			},
 		}),
@@ -99,9 +102,11 @@ func newIndexes() indexes {
 				}
 				return []Key{*e.Parent}
 			},
-			Retarget: func(e *Range, from, to Key) {
-				if e.Parent != nil && *e.Parent == from {
-					*e.Parent = to
+			Retarget: func(e *Range, to map[Key]Key) {
+				if e.Parent != nil {
+					if t, ok := to[*e.Parent]; ok {
+						*e.Parent = t
+					}
 				}
 			},
 		}),
@@ -127,12 +132,12 @@ func newIndexes() indexes {
 					}
 				}
 			},
-			Retarget: func(e *Range, from, to color.Key) {
+			Retarget: func(e *Range, to map[color.Key]color.Key) {
 				if e.Color != nil {
 					switch v4 := e.Color.Variant.(type) {
 					case color.NamedRef:
-						if v4.Key == from {
-							v4.Key = to
+						if t, ok := to[v4.Key]; ok {
+							v4.Key = t
 						}
 						e.Color.Variant = v4
 					}

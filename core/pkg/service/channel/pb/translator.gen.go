@@ -88,6 +88,57 @@ func OperationsFromPB(pbs []*Operation) ([]channel.Operation, error) {
 	return result, nil
 }
 
+// RewireToPB converts Rewire to Rewire.
+func RewireToPB(r channel.Rewire) (*Rewire, error) {
+	pb := &Rewire{
+		From: uint32(r.From),
+		At:   int64(r.At),
+	}
+	return pb, nil
+}
+
+// RewireFromPB converts Rewire to Rewire.
+//
+// A message that pb omits keeps its schema default. Proto cannot tell an omitted scalar
+// from a zero one, so a scalar keeps the value that pb holds.
+func RewireFromPB(pb *Rewire) (channel.Rewire, error) {
+	var r channel.Rewire
+	if pb == nil {
+		return r, nil
+	}
+	defaults.Prefill(&r)
+	r.From = channel.Key(pb.From)
+	r.At = telem.TimeStamp(pb.At)
+	defaults.FillGroups(&r)
+	return r, nil
+}
+
+// RewiresToPB converts a slice of Rewire to Rewire.
+func RewiresToPB(rs []channel.Rewire) ([]*Rewire, error) {
+	result := make([]*Rewire, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = RewireToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// RewiresFromPB converts a slice of Rewire to Rewire.
+func RewiresFromPB(pbs []*Rewire) ([]channel.Rewire, error) {
+	result := make([]channel.Rewire, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = RewireFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
 // ChannelToPB converts Channel to Channel.
 func ChannelToPB(r channel.Channel) (*Channel, error) {
 	concurrencyVal, err := controlpb.ConcurrencyToPB(r.Concurrency)
@@ -113,6 +164,13 @@ func ChannelToPB(r channel.Channel) (*Channel, error) {
 	if r.Group != nil {
 		v := r.Group.String()
 		pb.Group = &v
+	}
+	if r.Rewires != nil {
+		vals, err := RewiresToPB(r.Rewires)
+		if err != nil {
+			return nil, err
+		}
+		pb.Rewires = &RewireList{Values: vals}
 	}
 	return pb, nil
 }
@@ -146,6 +204,13 @@ func ChannelFromPB(pb *Channel) (channel.Channel, error) {
 			return channel.Channel{}, err
 		}
 		r.Group = &v
+	}
+	if pb.Rewires != nil {
+		vals, err := RewiresFromPB(pb.Rewires.Values)
+		if err != nil {
+			return channel.Channel{}, err
+		}
+		r.Rewires = xpb.ListValues(vals)
 	}
 	return r, nil
 }

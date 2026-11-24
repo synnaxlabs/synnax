@@ -752,72 +752,72 @@ func (rd *renderer) detachElemBody(
 	return b.String()
 }
 
-// retargetBody returns the code that moves e from the target from to the target to
-// through every leaf under nodes. A @ref array that holds to drops from instead.
+// retargetBody returns the code that replaces each target of e under nodes that is a
+// key of to with its value. A @ref array then drops each target that it holds twice,
+// keeping the first.
 func (rd *renderer) retargetBody(nodes []*stepNode, mode leafMode) string {
 	var b strings.Builder
 	rd.walk(&b, nodes, "e", true, func(b *strings.Builder, expr string) {
+		const t = "t"
 		switch mode {
 		case leafRequired, leafZero:
 			fmt.Fprintf(
 				b,
-				"if %s == from {\n%s\n}\n",
-				rd.operand(expr),
-				rd.assign(expr),
+				"if %s, ok := to[%s]; ok {\n%s\n}\n",
+				t,
+				rd.target(expr),
+				rd.assign(expr, t),
 			)
 		case leafOptional:
-			assign := "*" + expr + " = to"
+			assign := "*" + expr + " = " + t
 			if rd.info.IsID {
-				assign = rd.assign(expr)
+				assign = rd.assign(expr, t)
 			}
 			fmt.Fprintf(
 				b,
-				"if %s != nil && %s == from {\n%s\n}\n",
+				"if %s != nil {\nif %s, ok := to[%s]; ok {\n%s\n}\n}\n",
 				expr,
-				rd.operand("*"+expr),
+				t,
+				rd.target("*"+expr),
 				assign,
 			)
 		case leafSlice:
 			rd.usesSlices = true
-			k, i := rd.nextVar("k"), rd.nextVar("i")
+			i, moved, kept, k := rd.nextVar("i"), rd.nextVar("moved"),
+				rd.nextVar("kept"), rd.nextVar("k")
 			elem := fmt.Sprintf("%s[%s]", expr, i)
 			fmt.Fprintf(
 				b,
-				"if slices.ContainsFunc(%[1]s, func(%[2]s %[3]s) bool {\n"+
-					"return %[4]s == to\n}) {\n"+
-					"%[1]s = slices.DeleteFunc(%[1]s, func(%[2]s %[3]s) bool {\n"+
-					"return %[4]s == from\n})\n"+
-					"} else {\nfor %[5]s := range %[1]s {\n"+
-					"if %[6]s == from {\n%[7]s\n}\n}\n}\n",
-				expr,
-				k,
-				rd.info.ElemGoType,
-				rd.operand(k),
+				"%[1]s := false\n"+
+					"for %[2]s := range %[3]s {\n"+
+					"if %[4]s, ok := to[%[5]s]; ok {\n%[6]s\n%[1]s = true\n}\n}\n"+
+					"if %[1]s {\n%[7]s := %[3]s[:0]\n"+
+					"for _, %[8]s := range %[3]s {\n"+
+					"if !slices.Contains(%[7]s, %[8]s) {\n"+
+					"%[7]s = append(%[7]s, %[8]s)\n}\n}\n"+
+					"%[3]s = %[7]s\n}\n",
+				moved,
 				i,
-				rd.operand(elem),
-				rd.assign(elem),
+				expr,
+				t,
+				rd.target(elem),
+				rd.assign(elem, t),
+				kept,
+				k,
 			)
 		}
 	})
 	return b.String()
 }
 
-// operand returns the target of expr in a form that can sit in an if condition, where a
-// bare composite literal does not parse.
-func (rd *renderer) operand(expr string) string {
+// assign returns the statement that points the field at expr to the target value. A
+// resource ID changes only its key, as every target that a retarget moves shares a
+// table with its new value.
+func (rd *renderer) assign(expr, value string) string {
 	if rd.info.IsID {
-		return "(" + rd.target(expr) + ")"
+		return expr + ".Key = " + value + ".Key"
 	}
-	return rd.target(expr)
-}
-
-// assign returns the statement that points the field at expr to the target to. A
-// resource ID changes only its key, as from and to share a table.
-func (rd *renderer) assign(expr string) string {
-	if rd.info.IsID {
-		return expr + ".Key = to.Key"
-	}
-	return expr + " = to"
+	return expr + " = " + value
 }
 
 // renderRetarget sets the RetargetBody of info, a reference on a top-level field.

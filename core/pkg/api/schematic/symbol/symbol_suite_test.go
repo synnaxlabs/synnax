@@ -22,22 +22,27 @@ import (
 	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	apisymbol "github.com/synnaxlabs/synnax/pkg/api/schematic/symbol"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/enumeration"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
+	"github.com/synnaxlabs/synnax/pkg/service/impact"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/defaults"
-	"github.com/synnaxlabs/x/set"
+	"github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/testutil"
-	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 func TestAPISchematicSymbol(t *testing.T) {
@@ -75,12 +80,17 @@ var (
 		apisymbol.ExportGroupResponse,
 	]
 	author user.User
+	// channelSvc holds the channels and tombstones of channel folders.
+	channelSvc *channel.Service
+	// projectSvc and schematicSvc hold the schematics that hold channels.
+	projectSvc   *project.Service
+	schematicSvc *schematic.Service
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	db = DeferClose(gorp.Wrap(memkv.New()))
-	StartRun(db.Run)
+	node := testutil.NewNode(ctx)
+	db = node.DB
 	groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB: db,
 	}))
@@ -106,22 +116,44 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 			rbacSvc.Builtin.OwnerKey,
 		),
 	)
-	symbolSvc = MustOpen(symbol.OpenService(ctx, symbol.ServiceConfig{
+	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
+		Channel: node.Channel,
+		TS:      node.Storage.TS,
+		DB:      db,
+		HostKey: node.Identity.HostKey,
+		Status:  statusSvc,
+	}))
+	projectSvc = MustOpen(project.OpenService(ctx, project.ServiceConfig{DB: db}))
+	schematicSvc = MustOpen(schematic.OpenService(ctx, schematic.ServiceConfig{
 		DB:    db,
 		Group: groupSvc,
 		ImEx:  imex.NewService(),
 		Enumeration: MustOpen(enumeration.OpenService(ctx, enumeration.ServiceConfig{
 			DB: db,
 		})),
-		Actuators: noActuators,
 	}))
+	symbolSvc = schematicSvc.Symbol
+	impactSvc := MustSucceed(impact.OpenService(impact.ServiceConfig{
+		Channel:  channelSvc,
+		Group:    groupSvc,
+		RecordOf: taskconfig.RecordOf,
+		DB:       db,
+		Policies: suitePolicies(),
+		Delete: func(context.Context, gorp.Tx, []resource.ID) error {
+			return errors.New("[symbol suite] - no record to delete")
+		},
+		Moves: suiteMoves(),
+	}))
+	Expect(channelSvc.Heal(ctx)).To(Succeed())
 	apiSvc = MustSucceed(apisymbol.NewService(apisymbol.ServiceConfig{
 		Symbol: symbolSvc,
+		Impact: impactSvc,
 	}))
 	binder := MustSucceed(bind.NewService(bind.ServiceConfig{
-		DB:   db,
-		RBAC: rbacSvc,
-		Held: apiauth.HeldTables(),
+		DB:      db,
+		RBAC:    rbacSvc,
+		Held:    apiauth.HeldTables(),
+		Mirrors: channel.MirrorTables(),
 	}))
 	create = bind.Write(binder, apiSvc.Create)
 	dispatch = bind.Write(binder, apiSvc.Dispatch)
@@ -227,6 +259,28 @@ func grantDeleteOn(ctx SpecContext, subject resource.ID, objects ...resource.ID)
 	grantOn(ctx, subject, access.ActionDelete, objects...)
 }
 
-func noActuators(context.Context, gorp.Tx) (set.Set[symbol.Key], error) {
-	return nil, nil
+// suitePolicies maps the references to channels that the suite opens.
+func suitePolicies() impact.Policies {
+	retarget, keep := impact.PolicyRetarget, impact.PolicyKeep
+	return impact.Policies{Links: map[gorp.ReferenceID]impact.Policy{
+		{Table: "channel", Name: "index"}:                          keep,
+		{Table: "channel", Name: "rewires.from"}:                   keep,
+		{Table: "channel_tombstone", Name: "rewires.from"}:         keep,
+		{Table: "status", Name: "owner"}:                           keep,
+		{Table: "schematic", Name: "nodes.config.channel"}:         retarget,
+		{Table: "schematic", Name: "nodes.config.command_channel"}: retarget,
+		{Table: "schematic", Name: "nodes.config.state_channel"}:   retarget,
+	}}
+}
+
+// suiteMoves returns moves that refuse every record, one for each type that can sit in
+// a group.
+func suiteMoves() map[resource.Type]impact.Move {
+	moves := make(map[resource.Type]impact.Move)
+	for _, t := range group.MemberTypes() {
+		moves[t] = func(context.Context, gorp.Tx, []resource.ID, *group.Key) error {
+			return errors.New("[symbol suite] - no record to move")
+		}
+	}
+	return moves
 }

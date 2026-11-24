@@ -33,7 +33,10 @@ export interface ClientConfig {
   unaryNoRetry: UnaryClient;
 }
 
-/** Lists every record that a change to channels touches, and carries the change out. */
+/**
+ * Lists every record that a change to channels or groups touches, and carries the
+ * change out.
+ */
 export class Client {
   private readonly unary: UnaryClient;
   private readonly unaryNoRetry: UnaryClient;

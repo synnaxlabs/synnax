@@ -13,6 +13,7 @@ import (
 	"context"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/x/errors"
 )
 
 // Delete is a query that deletes Entries from the DB.
@@ -27,7 +28,18 @@ type Delete[K Key, E Entry[K]] struct {
 	// planned is what PlanDelete returned for the delete, or nil for a delete that
 	// walks the references itself.
 	planned *DeleteEffects
+	// held is called with each deleted entry that a Weak reference holds, or nil.
+	held HeldFunc[K, E]
 }
+
+// HeldFunc is called with an entry that a delete removes and the entries that hold it
+// through a Weak reference, nil when none does.
+type HeldFunc[K Key, E Entry[K]] = func(
+	ctx context.Context,
+	tx Tx,
+	entry E,
+	held []Dependent,
+) error
 
 // NewDelete opens a new Delete query.
 func NewDelete[K Key, E Entry[K]]() Delete[K, E] {
@@ -69,6 +81,14 @@ func (d Delete[K, E]) Planned(effects DeleteEffects) Delete[K, E] {
 	return d
 }
 
+// Held makes the delete call f with each entry that it removes from the table, and with
+// the Weak holders of each, before it changes anything in the transaction. An error
+// from f fails the delete, and so does f on a Delete that no Table built.
+func (d Delete[K, E]) Held(f HeldFunc[K, E]) Delete[K, E] {
+	d.held = f
+	return d
+}
+
 // Exec executes the query against the provided transaction. If the resolved filter is
 // bounded by primary keys and any of those keys do not exist, Delete will assume the
 // missing keys do not need to be deleted and continue with the keys that do exist.
@@ -93,10 +113,13 @@ func (d Delete[K, E]) exec(ctx context.Context, tx Tx) error {
 	if err := d.guards.checkMany(queryCtx, entries); err != nil {
 		return err
 	}
-	keys := lo.Map(entries, func(entry E, _ int) K { return entry.GorpKey() })
 	if d.table != nil {
-		return d.table.delete(ctx, tx, keys, d.planned)
+		return d.table.delete(ctx, tx, entries, d.planned, d.held)
 	}
+	if d.held != nil {
+		return errors.New("[gorp] - Held needs a Delete that a Table built")
+	}
+	keys := lo.Map(entries, func(entry E, _ int) K { return entry.GorpKey() })
 	w := wrapWriter[K, E](tx, "", d.retrieve.keyPrefix, nil)
 	return w.Delete(ctx, keys...)
 }

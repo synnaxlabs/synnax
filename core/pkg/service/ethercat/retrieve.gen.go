@@ -66,17 +66,17 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 					}
 				}
 			},
-			Retarget: func(e *ReadConfig, from, to channel.Key) {
+			Retarget: func(e *ReadConfig, to map[channel.Key]channel.Key) {
 				for i5 := range e.Channels {
 					switch v6 := e.Channels[i5].Variant.(type) {
 					case EntryReadChannel:
-						if v6.Channel == from {
-							v6.Channel = to
+						if t, ok := to[v6.Channel]; ok {
+							v6.Channel = t
 						}
 						e.Channels[i5].Variant = v6
 					case UnresolvedReadChannel:
-						if v6.Channel == from {
-							v6.Channel = to
+						if t, ok := to[v6.Channel]; ok {
+							v6.Channel = t
 						}
 						e.Channels[i5].Variant = v6
 					}
@@ -126,17 +126,17 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 					}
 				}
 			},
-			Retarget: func(e *ReadConfig, from, to device.Key) {
+			Retarget: func(e *ReadConfig, to map[device.Key]device.Key) {
 				for i5 := range e.Channels {
 					switch v6 := e.Channels[i5].Variant.(type) {
 					case EntryReadChannel:
-						if v6.Device == from {
-							v6.Device = to
+						if t, ok := to[v6.Device]; ok {
+							v6.Device = t
 						}
 						e.Channels[i5].Variant = v6
 					case UnresolvedReadChannel:
-						if v6.Device == from {
-							v6.Device = to
+						if t, ok := to[v6.Device]; ok {
+							v6.Device = t
 						}
 						e.Channels[i5].Variant = v6
 					}
@@ -167,10 +167,10 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 					}
 				}
 			},
-			Retarget: func(e *ReadConfig, from, to device.Key) {
+			Retarget: func(e *ReadConfig, to map[device.Key]device.Key) {
 				for i3 := range e.StartupParameters {
-					if e.StartupParameters[i3].Device == from {
-						e.StartupParameters[i3].Device = to
+					if t, ok := to[e.StartupParameters[i3].Device]; ok {
+						e.StartupParameters[i3].Device = t
 					}
 				}
 			},
@@ -225,17 +225,17 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 					}
 				}
 			},
-			Retarget: func(e *WriteConfig, from, to channel.Key) {
+			Retarget: func(e *WriteConfig, to map[channel.Key]channel.Key) {
 				for i5 := range e.Channels {
 					switch v6 := e.Channels[i5].Variant.(type) {
 					case EntryWriteChannel:
-						if v6.CmdChannel == from {
-							v6.CmdChannel = to
+						if t, ok := to[v6.CmdChannel]; ok {
+							v6.CmdChannel = t
 						}
 						e.Channels[i5].Variant = v6
 					case UnresolvedWriteChannel:
-						if v6.CmdChannel == from {
-							v6.CmdChannel = to
+						if t, ok := to[v6.CmdChannel]; ok {
+							v6.CmdChannel = t
 						}
 						e.Channels[i5].Variant = v6
 					}
@@ -286,17 +286,17 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 					}
 				}
 			},
-			Retarget: func(e *WriteConfig, from, to channel.Key) {
+			Retarget: func(e *WriteConfig, to map[channel.Key]channel.Key) {
 				for i5 := range e.Channels {
 					switch v6 := e.Channels[i5].Variant.(type) {
 					case EntryWriteChannel:
-						if v6.StateChannel == from {
-							v6.StateChannel = to
+						if t, ok := to[v6.StateChannel]; ok {
+							v6.StateChannel = t
 						}
 						e.Channels[i5].Variant = v6
 					case UnresolvedWriteChannel:
-						if v6.StateChannel == from {
-							v6.StateChannel = to
+						if t, ok := to[v6.StateChannel]; ok {
+							v6.StateChannel = t
 						}
 						e.Channels[i5].Variant = v6
 					}
@@ -346,17 +346,17 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 					}
 				}
 			},
-			Retarget: func(e *WriteConfig, from, to device.Key) {
+			Retarget: func(e *WriteConfig, to map[device.Key]device.Key) {
 				for i5 := range e.Channels {
 					switch v6 := e.Channels[i5].Variant.(type) {
 					case EntryWriteChannel:
-						if v6.Device == from {
-							v6.Device = to
+						if t, ok := to[v6.Device]; ok {
+							v6.Device = t
 						}
 						e.Channels[i5].Variant = v6
 					case UnresolvedWriteChannel:
-						if v6.Device == from {
-							v6.Device = to
+						if t, ok := to[v6.Device]; ok {
+							v6.Device = t
 						}
 						e.Channels[i5].Variant = v6
 					}

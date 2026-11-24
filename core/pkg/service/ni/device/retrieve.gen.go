@@ -70,9 +70,9 @@ func newIndexes() indexes {
 			Targets: func(e *Device) []rack.Key {
 				return []rack.Key{e.Rack}
 			},
-			Retarget: func(e *Device, from, to rack.Key) {
-				if e.Rack == from {
-					e.Rack = to
+			Retarget: func(e *Device, to map[rack.Key]rack.Key) {
+				if t, ok := to[e.Rack]; ok {
+					e.Rack = t
 				}
 			},
 		}),
@@ -87,9 +87,11 @@ func newIndexes() indexes {
 				}
 				return []chassis.Key{*e.Chassis}
 			},
-			Retarget: func(e *Device, from, to chassis.Key) {
-				if e.Chassis != nil && *e.Chassis == from {
-					*e.Chassis = to
+			Retarget: func(e *Device, to map[chassis.Key]chassis.Key) {
+				if e.Chassis != nil {
+					if t, ok := to[*e.Chassis]; ok {
+						*e.Chassis = t
+					}
 				}
 			},
 		}),

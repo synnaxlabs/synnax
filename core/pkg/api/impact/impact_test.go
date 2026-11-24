@@ -10,6 +10,7 @@
 package impact_test
 
 import (
+	"fmt"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -26,6 +27,7 @@ import (
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/impact"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -197,11 +199,90 @@ var _ = Describe("Routes", Ordered, func() {
 			Hidden: new(impact.ChoiceDelete),
 		})
 		Expect(applied).To(BeZero())
+		// The task's delete takes its status, so the delete changes two records.
 		Expect(err).To(And(
 			MatchError(access.ErrDenied),
-			MatchError(ContainSubstring("a record that it cannot see")),
+			MatchError(fmt.Sprintf(
+				"%s cannot change 2 records that this request changes and that it "+
+					"cannot retrieve: access denied: auth error",
+				u.ResourceID(),
+			)),
 		))
 		Expect(err.Error()).ToNot(ContainSubstring(tsk.Key.String()))
+		Expect(exists(ctx, ch)).To(BeTrue())
+	})
+
+	It("Should count every hidden record that a denied delete changes", func(
+		ctx SpecContext,
+	) {
+		ch := createChannel(ctx)
+		createTask(ctx, ch)
+		createTask(ctx, ch)
+		u := createUser(ctx)
+		grant(
+			ctx,
+			u,
+			[]access.Action{access.ActionRetrieve, access.ActionDelete},
+			channel.ResourceID(ch),
+		)
+		Expect(apply(AuthedCtx(ctx, u), apiimpact.ApplyRequest{
+			Change: deleteOf(ch),
+			Hidden: new(impact.ChoiceDelete),
+		})).Error().To(MatchError(fmt.Sprintf(
+			"%s cannot change 4 records that this request changes and that it cannot "+
+				"retrieve: access denied: auth error",
+			u.ResourceID(),
+		)))
+		Expect(exists(ctx, ch)).To(BeTrue())
+	})
+
+	It("Should count a hidden channel that the hidden pick deletes", func(
+		ctx SpecContext,
+	) {
+		index := channel.Channel{
+			Name:     UniqueChannelName(),
+			DataType: telem.TimestampT,
+			IsIndex:  true,
+		}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return layer.Channel.NewWriter(tx).Create(ctx, &index)
+		})).To(Succeed())
+		data := channel.Channel{
+			Name:       UniqueChannelName(),
+			DataType:   telem.Float32T,
+			LocalIndex: index.LocalKey,
+		}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return layer.Channel.NewWriter(tx).Create(ctx, &data)
+		})).To(Succeed())
+		u := createUser(ctx)
+		grant(
+			ctx,
+			u,
+			[]access.Action{access.ActionRetrieve, access.ActionDelete},
+			channel.ResourceID(index.Key()),
+		)
+		Expect(apply(AuthedCtx(ctx, u), apiimpact.ApplyRequest{
+			Change: deleteOf(index.Key()),
+			Hidden: new(impact.ChoiceDelete),
+		})).Error().To(MatchError(fmt.Sprintf(
+			"%s cannot change 1 record that this request changes and that it cannot "+
+				"retrieve: access denied: auth error",
+			u.ResourceID(),
+		)))
+		Expect(exists(ctx, data.Key())).To(BeTrue())
+	})
+
+	It("Should name the caller's own channel in a denial", func(ctx SpecContext) {
+		ch := createChannel(ctx)
+		u := createUser(ctx)
+		Expect(apply(AuthedCtx(ctx, u), apiimpact.ApplyRequest{
+			Change: deleteOf(ch),
+			Hidden: new(impact.ChoiceDelete),
+		})).Error().To(And(
+			MatchError(access.ErrDenied),
+			MatchError(ContainSubstring("cannot delete %s", channel.ResourceID(ch))),
+		))
 		Expect(exists(ctx, ch)).To(BeTrue())
 	})
 
@@ -233,6 +314,59 @@ var _ = Describe("Routes", Ordered, func() {
 		))
 		Expect(err.Error()).ToNot(ContainSubstring("a record that it cannot see"))
 		Expect(exists(ctx, ch)).To(BeTrue())
+	})
+
+	Describe("Group deletes", func() {
+		createFolder := func(ctx SpecContext) group.Group {
+			GinkgoHelper()
+			g := group.Group{Name: uuid.New().String(), Scope: resource.TypeChannel}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return layer.Group.NewWriter(tx).Create(ctx, &g)
+			})).To(Succeed())
+			return g
+		}
+		deleteGroups := func(keys ...group.Key) impact.Change {
+			return impact.Change{Variant: impact.DeleteGroupsChange{Keys: keys}}
+		}
+
+		It("Should refuse to plan a group that the subject cannot retrieve", func(
+			ctx SpecContext,
+		) {
+			folder := createFolder(ctx)
+			other := createFolder(ctx)
+			u := createUser(ctx)
+			grant(ctx, u, retrieve, other.ResourceID())
+			Expect(plan(
+				AuthedCtx(ctx, u),
+				apiimpact.PlanRequest{Change: deleteGroups(other.Key, folder.Key)},
+			)).Error().To(MatchError(access.ErrDenied))
+		})
+
+		It("Should plan and apply a group delete with its token", func(
+			ctx SpecContext,
+		) {
+			folder := createFolder(ctx)
+			u := createUser(ctx)
+			grant(
+				ctx,
+				u,
+				[]access.Action{access.ActionRetrieve, access.ActionDelete},
+				folder.ResourceID(),
+			)
+			change := deleteGroups(folder.Key)
+			p := MustSucceed(
+				plan(AuthedCtx(ctx, u), apiimpact.PlanRequest{Change: change}),
+			)
+			Expect(p).To(Equal(impact.Plan{Change: change, Token: p.Token}))
+			Expect(p.Token).To(HaveLen(16))
+			Expect(apply(
+				AuthedCtx(ctx, u),
+				apiimpact.ApplyRequest{Change: change, Token: p.Token},
+			)).To(Equal(p))
+			Expect(layer.Group.NewRetrieve().
+				Where(group.MatchKeys(folder.Key)).
+				Exists(ctx, db)).To(BeFalse())
+		})
 	})
 
 	It("Should apply a current token with a pick that the plan does not reach", func(

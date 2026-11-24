@@ -56,11 +56,11 @@ func newIndexes() indexes {
 				}
 				return targets
 			},
-			Retarget: func(e *Label, from, to color.Key) {
+			Retarget: func(e *Label, to map[color.Key]color.Key) {
 				switch v3 := e.Color.Variant.(type) {
 				case color.NamedRef:
-					if v3.Key == from {
-						v3.Key = to
+					if t, ok := to[v3.Key]; ok {
+						v3.Key = t
 					}
 					e.Color.Variant = v3
 				}

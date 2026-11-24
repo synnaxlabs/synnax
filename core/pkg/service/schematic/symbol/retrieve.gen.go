@@ -66,9 +66,11 @@ func newIndexes() indexes {
 				return []group.Key{*e.Group}
 			},
 			Detach: func(e *Symbol, _ group.Key) { e.Group = nil },
-			Retarget: func(e *Symbol, from, to group.Key) {
-				if e.Group != nil && *e.Group == from {
-					*e.Group = to
+			Retarget: func(e *Symbol, to map[group.Key]group.Key) {
+				if e.Group != nil {
+					if t, ok := to[*e.Group]; ok {
+						*e.Group = t
+					}
 				}
 			},
 		}),
@@ -103,12 +105,14 @@ func newIndexes() indexes {
 					}
 				}
 			},
-			Retarget: func(e *Symbol, from, to enumeration.Key) {
+			Retarget: func(e *Symbol, to map[enumeration.Key]enumeration.Key) {
 				for i5 := range e.Data.States {
 					switch v6 := e.Data.States[i5].Variant.(type) {
 					case EnumerationState:
-						if v6.Enumeration != nil && *v6.Enumeration == from {
-							*v6.Enumeration = to
+						if v6.Enumeration != nil {
+							if t, ok := to[*v6.Enumeration]; ok {
+								*v6.Enumeration = t
+							}
 						}
 						e.Data.States[i5].Variant = v6
 					}
@@ -138,15 +142,15 @@ func newIndexes() indexes {
 				}
 				return targets
 			},
-			Retarget: func(e *Symbol, from, to color.Key) {
+			Retarget: func(e *Symbol, to map[color.Key]color.Key) {
 				for i7 := range e.Data.Looks {
 					if e.Data.Looks[i7].Fill != nil {
 						switch v8 := e.Data.Looks[i7].Fill.Variant.(type) {
 						case ColorPaint:
 							switch v9 := v8.Value.Variant.(type) {
 							case color.NamedRef:
-								if v9.Key == from {
-									v9.Key = to
+								if t, ok := to[v9.Key]; ok {
+									v9.Key = t
 								}
 								v8.Value.Variant = v9
 							}
@@ -205,15 +209,15 @@ func newIndexes() indexes {
 				}
 				return targets
 			},
-			Retarget: func(e *Symbol, from, to color.Key) {
+			Retarget: func(e *Symbol, to map[color.Key]color.Key) {
 				for i7 := range e.Data.Looks {
 					if e.Data.Looks[i7].Stroke != nil {
 						switch v8 := e.Data.Looks[i7].Stroke.Variant.(type) {
 						case ColorPaint:
 							switch v9 := v8.Value.Variant.(type) {
 							case color.NamedRef:
-								if v9.Key == from {
-									v9.Key = to
+								if t, ok := to[v9.Key]; ok {
+									v9.Key = t
 								}
 								v8.Value.Variant = v9
 							}

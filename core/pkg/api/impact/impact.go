@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package impact serves the plan and apply routes of changes to channels.
+// Package impact serves the plan and apply routes of changes to channels and groups.
 package impact
 
 import (
@@ -20,10 +20,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/impact"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -34,7 +34,7 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	RBAC *rbac.Service
-	// Impact plans and applies changes to channels.
+	// Impact plans and applies changes to channels and groups.
 	//
 	// [REQUIRED]
 	Impact *impact.Service
@@ -69,14 +69,23 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	return &Service{cfg: cfg}, nil
 }
 
-// Named implements bind.Named: the subject needs retrieve on each channel it names.
+// Named implements bind.Named: the subject needs retrieve on each channel or group it
+// names. A request with no change names nothing, and the plan refuses it.
 func (r PlanRequest) Named() []resource.ID { return named(r.Change) }
 
 func named(c impact.Change) []resource.ID {
-	if d, ok := c.Variant.(impact.DeleteChannelsChange); ok {
-		return channel.ResourceIDsFromKeys(d.Keys)
+	switch v := c.Variant.(type) {
+	case nil:
+		return nil
+	case impact.DeleteChannelsChange:
+		return channel.ResourceIDsFromKeys(v.Keys)
+	case impact.DeleteGroupsChange:
+		return group.ResourceIDs(v.Keys)
+	case impact.UngroupGroupsChange:
+		return group.ResourceIDs(v.Keys)
 	}
-	return nil
+	// A variant that this switch misses would plan with no access check.
+	panic("[api.impact] - named covers no such change")
 }
 
 // Plan returns every record that the change touches with the subject's picks, with an
@@ -94,41 +103,27 @@ func (s *Service) Plan(
 }
 
 // ApplyHandler returns the apply route on binder: it plans and applies the change and
-// checks access on what it wrote, in one transaction. A denial on a record that the
-// subject cannot retrieve names no record.
+// checks access on what it wrote, in one transaction. A denial counts the records that
+// the subject cannot retrieve and names none of them.
 func (s *Service) ApplyHandler(
 	binder *bind.Service,
 ) freighter.UnaryHandler[ApplyRequest, impact.Plan] {
-	return func(ctx context.Context, req ApplyRequest) (impact.Plan, error) {
-		var visible func(resource.ID) bool
-		apply := func(
-			ctx context.Context,
-			tx gorp.Tx,
-			req ApplyRequest,
-		) (impact.Plan, error) {
-			var err error
-			visible, err = s.cfg.RBAC.NewEnforcer(tx).
-				Allowed(ctx, auth.GetSubject(ctx), access.ActionRetrieve)
-			if err != nil {
-				return impact.Plan{}, err
-			}
-			return s.cfg.Impact.Apply(ctx, tx, req.Change, impact.ApplyOptions{
-				Token:   req.Token,
-				Picks:   req.Picks,
-				Hidden:  req.Hidden,
-				Visible: visible,
-			})
+	apply := func(
+		ctx context.Context,
+		tx gorp.Tx,
+		req ApplyRequest,
+	) (impact.Plan, error) {
+		visible, err := s.cfg.RBAC.NewEnforcer(tx).
+			Allowed(ctx, auth.GetSubject(ctx), access.ActionRetrieve)
+		if err != nil {
+			return impact.Plan{}, err
 		}
-		plan, err := bind.Write(binder, apply)(ctx, req)
-		denied, ok := errors.AsType[access.DeniedError](err)
-		if !ok || visible == nil || visible(denied.Object) {
-			return plan, err
-		}
-		return impact.Plan{}, errors.Wrapf(
-			access.ErrDenied,
-			"%s cannot %s a record that it cannot see",
-			denied.Subject,
-			denied.Action,
-		)
+		return s.cfg.Impact.Apply(ctx, tx, req.Change, impact.ApplyOptions{
+			Token:   req.Token,
+			Picks:   req.Picks,
+			Hidden:  req.Hidden,
+			Visible: visible,
+		})
 	}
+	return bind.Write(binder, apply)
 }

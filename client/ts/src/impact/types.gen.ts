@@ -13,6 +13,7 @@ import { caseconv } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { channel } from "@/channel";
+import { group } from "@/group";
 import { resource } from "@/resource";
 
 export const EFFECTS = ["restrict", "cascade", "detach"] as const;
@@ -33,6 +34,11 @@ export const entryZ = z.object({
   choices: choiceZ.array().default(() => []),
   /** default is the pick that applies when the caller makes none. */
   default: choiceZ.optional(),
+  /**
+   * path is set only for the entry of a tombstone: its name under its folders, from the
+   * deleted folder that holds it, with `.` between segments.
+   */
+  path: z.string().optional(),
 });
 export interface Entry extends z.infer<typeof entryZ> {}
 
@@ -58,18 +64,53 @@ export const deleteChannelsChangeZ = z.object({
 });
 export interface DeleteChannelsChange extends z.infer<typeof deleteChannelsChangeZ> {}
 
-export const CHANGE_TYPES = ["delete_channels"] as const;
+/** DeleteGroupsChange deletes groups. */
+export const deleteGroupsChangeZ = z.object({
+  type: z.literal("delete_groups"),
+  /**
+   * keys are the keys of the groups to delete. A group inside one of them must be named
+   * too.
+   */
+  keys: group.keyZ.array().default(() => []),
+});
+export interface DeleteGroupsChange extends z.infer<typeof deleteGroupsChangeZ> {}
+
+/**
+ * UngroupGroupsChange moves the members and tombstones of each group to its parent,
+ * then deletes the group.
+ */
+export const ungroupGroupsChangeZ = z.object({
+  type: z.literal("ungroup_groups"),
+  /**
+   * keys are the keys of the groups to ungroup. The parent of each must not be one of
+   * them.
+   */
+  keys: group.keyZ.array().default(() => []),
+});
+export interface UngroupGroupsChange extends z.infer<typeof ungroupGroupsChangeZ> {}
+
+export const CHANGE_TYPES = [
+  "delete_channels",
+  "delete_groups",
+  "ungroup_groups",
+] as const;
 export const changeTypeZ = z.enum(CHANGE_TYPES);
 export type ChangeType = z.infer<typeof changeTypeZ>;
 
-/** Change is a change to channels that a plan covers. */
-export const changeZ = z.discriminatedUnion("type", [deleteChannelsChangeZ]);
-export type Change = DeleteChannelsChange;
+/** Change is a change to channels or groups that a plan covers. */
+export const changeZ = z.discriminatedUnion("type", [
+  deleteChannelsChangeZ,
+  deleteGroupsChangeZ,
+  ungroupGroupsChangeZ,
+]);
+export type Change = DeleteChannelsChange | DeleteGroupsChange | UngroupGroupsChange;
 
 export const CHANGE_SCHEMAS: {
   [K in ChangeType]: z.ZodType<Extract<Change, { type: K }>>;
 } = {
   delete_channels: deleteChannelsChangeZ,
+  delete_groups: deleteGroupsChangeZ,
+  ungroup_groups: ungroupGroupsChangeZ,
 };
 
 /** Plan is every record that a change touches, with the picks for each. */

@@ -172,7 +172,7 @@ var _ = Describe("Create", Ordered, func() {
 			Expect(tx.Commit(ctx)).To(Succeed())
 			Expect(
 				gorp.NewRetrieve[int32, entry]().Where(gorp.MatchKeys[int32, entry](keys...)).
-					Exists(ctx, tx),
+					Exists(ctx, db),
 			).To(BeTrue())
 		})
 	})

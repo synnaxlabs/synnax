@@ -22,6 +22,48 @@ OperationType = v0.OperationType
 
 Operation = v0.Operation
 
+Rewire struct {
+    from Key = 0 {
+        @doc value """
+            is the channel that held the path, or 0 for a span that no channel held.
+        """
+    }
+    at   telem.TimeStamp {
+        @doc value "is the time at which the holder stopped holding the path."
+    }
+
+    @doc value  "is one past holder of a channel's path."
+    @go marshal
+}
+
 Channel struct extends v1.Channel {
     -internal
+    rewires Rewire[]? {
+        @doc value "are the channels that held the path before this one, oldest first."
+    }
+}
+
+Tombstone struct {
+    key     Key        {
+        @doc value "is the key of the deleted channel."
+        @key
+    }
+    name    Name       {
+        @doc value "is the name of the deleted channel."
+    }
+    group   group.Key? {
+        @doc value "is the group of the deleted channel, if any."
+    }
+    rewires Rewire[]?  {
+        @doc value """
+            are the channels that held the path before, oldest first, ending in the span
+            of the deleted channel.
+        """
+    }
+
+    @doc value  """
+        keeps the path of a deleted channel that a display still holds, so a channel
+        made at the path later can take its place.
+    """
+    @go marshal
 }

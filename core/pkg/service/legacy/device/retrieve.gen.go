@@ -61,9 +61,9 @@ func newIndexes() indexes {
 			Targets: func(e *Device) []rack.Key {
 				return []rack.Key{e.Rack}
 			},
-			Retarget: func(e *Device, from, to rack.Key) {
-				if e.Rack == from {
-					e.Rack = to
+			Retarget: func(e *Device, to map[rack.Key]rack.Key) {
+				if t, ok := to[e.Rack]; ok {
+					e.Rack = t
 				}
 			},
 		}),
@@ -79,9 +79,11 @@ func newIndexes() indexes {
 				return []group.Key{*e.Group}
 			},
 			Detach: func(e *Device, _ group.Key) { e.Group = nil },
-			Retarget: func(e *Device, from, to group.Key) {
-				if e.Group != nil && *e.Group == from {
-					*e.Group = to
+			Retarget: func(e *Device, to map[group.Key]group.Key) {
+				if e.Group != nil {
+					if t, ok := to[*e.Group]; ok {
+						*e.Group = t
+					}
 				}
 			},
 		}),
@@ -97,9 +99,11 @@ func newIndexes() indexes {
 				}
 				return []Key{*e.Parent}
 			},
-			Retarget: func(e *Device, from, to Key) {
-				if e.Parent != nil && *e.Parent == from {
-					*e.Parent = to
+			Retarget: func(e *Device, to map[Key]Key) {
+				if e.Parent != nil {
+					if t, ok := to[*e.Parent]; ok {
+						*e.Parent = t
+					}
 				}
 			},
 		}),

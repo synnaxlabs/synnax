@@ -115,9 +115,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Impact:  svc.Impact,
 	}))
 	binder = MustSucceed(bind.NewService(bind.ServiceConfig{
-		DB:   db,
-		RBAC: rbacSvc,
-		Held: apiauth.HeldTables(),
+		DB:      db,
+		RBAC:    rbacSvc,
+		Held:    apiauth.HeldTables(),
+		Mirrors: channel.MirrorTables(),
 	}))
 	apiSvc = MustSucceed(apiarc.NewService(apiarc.ServiceConfig{
 		DB:              db,

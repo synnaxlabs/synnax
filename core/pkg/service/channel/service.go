@@ -76,6 +76,11 @@ type ServiceConfig struct {
 	//
 	// [OPTIONAL] - Defaults to true.
 	ValidateNames *bool
+	// Retargets reports whether a heal moves a link that holds the dead key of a
+	// tombstone onto the channel that takes its path. An error fails the heal.
+	//
+	// [OPTIONAL] - Defaults to keeping every link on the dead key.
+	Retargets func(gorp.Dependent) (bool, error)
 }
 
 var _ config.Config[ServiceConfig] = ServiceConfig{}
@@ -90,6 +95,7 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("limit", c.Limit)
 	v.NotNil("status", c.Status)
 	v.NotNil("validate_names", c.ValidateNames)
+	v.NotNil("retargets", c.Retargets)
 	return v.Error()
 }
 
@@ -103,6 +109,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Limit = override.Nil(c.Limit, other.Limit)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.ValidateNames = override.Nil(c.ValidateNames, other.ValidateNames)
+	c.Retargets = override.Nil(c.Retargets, other.Retargets)
 	return c
 }
 
@@ -126,7 +133,13 @@ type Service struct {
 	builtIns atomic.Pointer[builtInSet]
 	// builtInFilters holds the filters of MatchInternal.
 	builtInFilters builtInFilters
-	mu             struct {
+	// names keeps channel names unique across the Core.
+	names *gorp.UniqueIndex[Key, Channel, string]
+	// tombstones holds the paths of deleted channels that a display still holds.
+	tombstones *tombstones
+	// healing is true once Heal runs.
+	healing atomic.Bool
+	mu      struct {
 		sync.RWMutex
 		// externalNonVirtualSet holds the keys of the non-virtual channels that are not
 		// built-in, which count toward the channel limit.
@@ -139,6 +152,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	cfg, err := config.New(ServiceConfig{
 		ValidateNames: new(true),
 		Limit:         func(types.Uint20) error { return nil },
+		Retargets:     func(gorp.Dependent) (bool, error) { return false, nil },
 	}, cfgs...)
 	if err != nil {
 		return nil, err
@@ -151,6 +165,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		state:   actions.NewState[Key, Action](cfg.DB),
 		renames: gorp.NewAttachment[rename](),
 	}
+	s.names = newNameIndex()
 	s.builtIns.Store(&builtInSet{})
 	s.builtInFilters = newBuiltInFilters(&s.builtIns)
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
@@ -162,11 +177,14 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			slices.Clone(versions.Migrations),
 			gorp.DanglingMigration("v61_dangling_references"),
 		),
-		Indexes:         s.indexes.all(),
+		Indexes:         append(s.indexes.all(), s.names),
 		References:      append(s.indexes.references(), s.index),
 		Issued:          cfg.Channel.Issued,
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
+		return nil, err
+	}
+	if s.tombstones, err = openTombstones(ctx, cfg.DB); !ok(err, s.tombstones.table) {
 		return nil, err
 	}
 	// The channel limit counts each non-virtual channel. Declare takes the built-ins

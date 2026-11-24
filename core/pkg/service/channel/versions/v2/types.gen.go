@@ -58,6 +58,14 @@ const (
 // by a reset channel.
 type Operation = v1.Operation
 
+// Rewire is one past holder of a channel's path.
+type Rewire struct {
+	// From is the channel that held the path, or 0 for a span that no channel held.
+	From Key `json:"from" msgpack:"from"`
+	// At is the time at which the holder stopped holding the path.
+	At telem.TimeStamp `json:"at" msgpack:"at"`
+}
+
 // Channel is an internal representation of a channel containing all storage and
 // cluster-routing metadata. This type is used internally by the server; clients should
 // use APIChannel instead.
@@ -90,6 +98,8 @@ type Channel struct {
 	Expression string `json:"expression" msgpack:"expression"`
 	// Group is the group the channel sits in, if any.
 	Group *group.Key `json:"group,omitzero" msgpack:"group,omitempty"`
+	// Rewires are the channels that held the path before this one, oldest first.
+	Rewires []Rewire `json:"rewires,omitzero" msgpack:"rewires,omitempty"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -101,5 +111,27 @@ func (c Channel) Validate() error {
 	for i := range c.Operations {
 		v.Exec(func() error { return validate.PathedError(c.Operations[i].Validate(), "operations", strconv.Itoa(i)) })
 	}
+	return v.Error()
+}
+
+// Tombstone keeps the path of a deleted channel that a display still holds, so a
+// channel made at the path later can take its place.
+type Tombstone struct {
+	// Key is the key of the deleted channel.
+	Key Key `json:"key" msgpack:"key"`
+	// Name is the name of the deleted channel.
+	Name Name `json:"name" msgpack:"name"`
+	// Group is the group of the deleted channel, if any.
+	Group *group.Key `json:"group,omitzero" msgpack:"group,omitempty"`
+	// Rewires are the channels that held the path before, oldest first, ending in the
+	// span of the deleted channel.
+	Rewires []Rewire `json:"rewires,omitzero" msgpack:"rewires,omitempty"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (t Tombstone) Validate() error {
+	v := validate.New("Tombstone")
+	v.NotEmptyString("name", t.Name)
 	return v.Error()
 }

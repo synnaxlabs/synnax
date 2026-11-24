@@ -38,6 +38,10 @@ type Change struct {
 	// Derived is true when Gorp made every write to the record by a cascade, a detach,
 	// or a Retarget.
 	Derived bool
+	// OnBehalf is true when the write was made on the caller's behalf: a write to a
+	// record that MarkOnBehalf marked before it, or a cascade or detach of such a
+	// write.
+	OnBehalf bool
 	// Value is a copy of the encoded record at the last set. It is nil for a delete.
 	Value []byte
 	// Added holds the links that the transaction added to the record.
@@ -71,6 +75,73 @@ type changeList struct {
 	// at maps each record the transaction wrote to its position in entries.
 	at      map[Target]int
 	entries []changeEntry
+	// onBehalf holds the first onBehalfLen records made on the caller's behalf, and
+	// moreOnBehalf the rest. Past onBehalfScan of them, onBehalfSet holds them all.
+	onBehalf     [2]Target
+	onBehalfLen  int
+	moreOnBehalf []Target
+	onBehalfSet  set.Set[Target]
+}
+
+// onBehalfScan is the number of marks that isOnBehalf scans before a set holds them.
+const onBehalfScan = 16
+
+// MarkOnBehalf marks the writes of tx to each of targets as made on the caller's
+// behalf, so ChangesOf reports each as OnBehalf, and so do the cascades and detaches of
+// their deletes. Mark a target before its write. Use it for the records that a write
+// changes on its caller's behalf and that the caller did not name. It panics when tx is
+// a DB.
+func MarkOnBehalf(tx Tx, targets ...Target) {
+	state := tx.txIdentity()
+	if state == nil {
+		panic("[gorp] - MarkOnBehalf needs a transaction, not a DB")
+	}
+	state.changes.markOnBehalf(targets...)
+}
+
+// markOnBehalf adds targets to the records made on the caller's behalf.
+func (l *changeList) markOnBehalf(targets ...Target) {
+	for _, t := range targets {
+		l.markOneOnBehalf(t)
+	}
+}
+
+// markOneOnBehalf adds t to the records made on the caller's behalf. The first two
+// take no allocation.
+func (l *changeList) markOneOnBehalf(t Target) {
+	switch {
+	case l.onBehalfSet != nil:
+		l.onBehalfSet.Add(t)
+	case l.onBehalfLen < len(l.onBehalf):
+		l.onBehalf[l.onBehalfLen] = t
+		l.onBehalfLen++
+	default:
+		l.moreOnBehalf = append(l.moreOnBehalf, t)
+		if l.onBehalfLen+len(l.moreOnBehalf) > onBehalfScan {
+			l.onBehalfSet = set.New(l.onBehalf[:l.onBehalfLen]...)
+			l.onBehalfSet.Add(l.moreOnBehalf...)
+			l.moreOnBehalf = nil
+		}
+	}
+}
+
+// isOnBehalf reports whether t was made on the caller's behalf.
+func (l *changeList) isOnBehalf(t Target) bool {
+	if l.onBehalfSet != nil {
+		return l.onBehalfSet.Contains(t)
+	}
+	return slices.Contains(l.onBehalf[:l.onBehalfLen], t) ||
+		slices.Contains(l.moreOnBehalf, t)
+}
+
+// onBehalfOf returns the change list of tx when it holds a mark, and nil otherwise, so
+// a delete in a transaction with no mark does no marking work.
+func onBehalfOf(tx Tx) *changeList {
+	state := tx.txIdentity()
+	if state == nil || state.changes.onBehalfLen == 0 {
+		return nil
+	}
+	return &state.changes
 }
 
 type changeEntry struct {
@@ -199,13 +270,14 @@ func (l *changeList) list() Changes {
 			links = e.before
 		}
 		out = append(out, Change{
-			Record:  e.record,
-			Kind:    kind,
-			Derived: e.derived,
-			Value:   e.value,
-			Added:   subtract(e.after, e.before),
-			Removed: subtract(e.before, e.after),
-			Links:   subtract(links, nil),
+			Record:   e.record,
+			Kind:     kind,
+			Derived:  e.derived,
+			OnBehalf: l.isOnBehalf(e.record),
+			Value:    e.value,
+			Added:    subtract(e.after, e.before),
+			Removed:  subtract(e.before, e.after),
+			Links:    subtract(links, nil),
 		})
 	}
 	return out

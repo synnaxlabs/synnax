@@ -19,9 +19,9 @@ import (
 var _ = ginkgo.Describe("Token", func() {
 	ginkgo.It("Should differ for the same hidden total in other counts", func() {
 		keys := []channel.Key{1}
-		gomega.Expect(tokenSum(keys, Plan{Hidden: Hidden{Restrict: 1}})).
-			ToNot(gomega.Equal(tokenSum(keys, Plan{Hidden: Hidden{Detach: 1}})))
-		gomega.Expect(tokenSum(keys, Plan{Hidden: Hidden{Cascade: 1}})).
-			ToNot(gomega.Equal(tokenSum(keys, Plan{Hidden: Hidden{Detach: 1}})))
+		gomega.Expect(channelsSum(keys, Plan{Hidden: Hidden{Restrict: 1}})).
+			ToNot(gomega.Equal(channelsSum(keys, Plan{Hidden: Hidden{Detach: 1}})))
+		gomega.Expect(channelsSum(keys, Plan{Hidden: Hidden{Cascade: 1}})).
+			ToNot(gomega.Equal(channelsSum(keys, Plan{Hidden: Hidden{Detach: 1}})))
 	})
 })

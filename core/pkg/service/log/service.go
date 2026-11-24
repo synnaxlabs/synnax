@@ -99,7 +99,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		DB:         cfg.DB,
 		Name:       tableName,
 		Indexes:    s.indexes.all(),
-		References: s.indexes.references(),
+		References: append(s.indexes.references(), channelsReference()),
 		Migrations: append(
 			slices.Clone(versions.Migrations),
 			gorp.DanglingMigration("v61_dangling_references"),

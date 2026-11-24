@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/impact"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	"github.com/synnaxlabs/x/config"
@@ -31,6 +32,10 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Symbol *symbol.Service
+	// Impact deletes the groups that hold symbols.
+	//
+	// [REQUIRED]
+	Impact *impact.Service
 }
 
 var (
@@ -42,6 +47,7 @@ var (
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Symbol = override.Nil(c.Symbol, other.Symbol)
+	c.Impact = override.Nil(c.Impact, other.Impact)
 	return c
 }
 
@@ -49,12 +55,14 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("api.schematic.symbol")
 	v.NotNil("symbol", c.Symbol)
+	v.NotNil("impact", c.Impact)
 	return v.Error()
 }
 
 // Service is the API for schematic symbols and the groups that hold them.
 type Service struct {
 	internal *symbol.Service
+	impact   *impact.Service
 }
 
 // NewService opens a Service from the API layer's configuration.
@@ -63,7 +71,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Service{internal: cfg.Symbol}, nil
+	return &Service{internal: cfg.Symbol, impact: cfg.Impact}, nil
 }
 
 type (
@@ -246,5 +254,14 @@ func (s *Service) DeleteGroup(
 	tx gorp.Tx,
 	req DeleteGroupRequest,
 ) (struct{}, error) {
-	return struct{}{}, s.internal.DeleteGroup(ctx, tx, req.Key)
+	if err := s.internal.DeleteSymbolsIn(ctx, tx, req.Key); err != nil {
+		return struct{}{}, err
+	}
+	_, err := s.impact.Apply(
+		ctx,
+		tx,
+		impact.Change{Variant: impact.DeleteGroupsChange{Keys: []group.Key{req.Key}}},
+		impact.ApplyOptions{},
+	)
+	return struct{}{}, err
 }

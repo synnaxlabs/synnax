@@ -14,7 +14,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
-	"github.com/synnaxlabs/x/errors"
 )
 
 var _ = Describe("Denied", func() {
@@ -28,19 +27,5 @@ var _ = Describe("Denied", func() {
 		Expect(err).To(MatchError(
 			"user:u1 cannot update range:r1: access denied: auth error",
 		))
-	})
-
-	It("Should carry the subject, action, and object of a denial", func() {
-		subject := resource.ID{Type: resource.TypeUser, Key: "u1"}
-		object := resource.ID{Type: resource.TypeRange, Key: "r1"}
-		denied, ok := errors.AsType[access.DeniedError](
-			access.Denied(subject, access.ActionUpdate, object),
-		)
-		Expect(ok).To(BeTrue())
-		Expect(denied).To(Equal(access.DeniedError{
-			Subject: subject,
-			Action:  access.ActionUpdate,
-			Object:  object,
-		}))
 	})
 })

@@ -50,9 +50,9 @@ func newIndexes() indexes {
 			Targets: func(e *User) []role.Key {
 				return []role.Key{e.Role}
 			},
-			Retarget: func(e *User, from, to role.Key) {
-				if e.Role == from {
-					e.Role = to
+			Retarget: func(e *User, to map[role.Key]role.Key) {
+				if t, ok := to[e.Role]; ok {
+					e.Role = t
 				}
 			},
 		}),

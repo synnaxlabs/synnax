@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
@@ -57,9 +58,13 @@ type Returns interface {
 //     transaction did not change.
 //
 // A link or an owner needs nothing when the write creates or deletes it. A record with
-// no resource type must be placed in exactly one record. Policies are read from
-// committed state, so a policy or role that apply stages grants nothing. A denial wraps
-// access.ErrDenied and names the record.
+// no resource type must be placed in exactly one record, unless it is a mirror
+// (ServiceConfig.Mirrors), whose changes need nothing; a write that changes only
+// mirrors fails. Policies are read from committed state, so a policy or role that apply
+// stages grants nothing. A denial wraps access.ErrDenied and names the record. For a
+// change made on behalf of the request (gorp.Change.OnBehalf), which the request did
+// not name, it names the record only when the subject can retrieve it, and counts the
+// hidden records otherwise.
 func Write[RQ, RS freighter.Payload](
 	s *Service,
 	apply func(context.Context, gorp.Tx, RQ) (RS, error),
@@ -147,6 +152,7 @@ func unchanged[RS any](tx gorp.Tx, res RS) []resource.ID {
 func (s *Service) check(ctx context.Context, tx gorp.Tx, sources []resource.ID) error {
 	needs := make(accessNeeds, len(access.AllActions))
 	needs[access.ActionRetrieve] = slices.Clone(sources)
+	derived := make(accessNeeds, len(access.AllActions))
 	subject := auth.GetSubject(ctx)
 	changes := gorp.ChangesOf(tx)
 	createdOrDeleted := make(set.Set[gorp.Target], len(changes))
@@ -155,12 +161,27 @@ func (s *Service) check(ctx context.Context, tx gorp.Tx, sources []resource.ID) 
 			createdOrDeleted.Add(c.Record)
 		}
 	}
+	mirrored, checked := false, false
 	for _, c := range changes {
+		if slices.Contains(s.cfg.Mirrors, c.Record.Table) {
+			mirrored = true
+			continue
+		}
+		checked = true
+		recordTo := needs
+		if c.OnBehalf {
+			recordTo = derived
+		}
 		if err := s.changeNeeds(
-			ctx, tx, subject, c, createdOrDeleted, needs,
+			ctx, tx, subject, c, createdOrDeleted, needs, recordTo,
 		); err != nil {
 			return err
 		}
+	}
+	if mirrored && !checked {
+		return errors.New(
+			"[bind] - a write changed mirror records and no record they mirror",
+		)
 	}
 	// The write lock holds commits off, and committed policies decide, so a write
 	// cannot grant itself access.
@@ -178,7 +199,74 @@ func (s *Service) check(ctx context.Context, tx gorp.Tx, sources []resource.ID) 
 			return err
 		}
 	}
-	return nil
+	return checkDerived(ctx, enforcer, subject, derived)
+}
+
+// checkDerived returns an error wrapping access.ErrDenied when subject cannot make the
+// changes made on behalf of the request, which needs holds. It checks every one of them
+// first. The error names the first denied record that subject can retrieve, or else
+// counts the denied records through hiddenDenial.
+func checkDerived(
+	ctx context.Context,
+	enforcer *rbac.Enforcer,
+	subject resource.ID,
+	needs accessNeeds,
+) error {
+	var (
+		denied  set.Set[resource.ID]
+		visible func(resource.ID) bool
+	)
+	for _, action := range access.AllActions {
+		objects := lo.Uniq(needs[action])
+		if len(objects) == 0 {
+			continue
+		}
+		allowed, err := enforcer.Allowed(ctx, subject, action)
+		if err != nil {
+			return err
+		}
+		for _, id := range objects {
+			if allowed(id) {
+				continue
+			}
+			if visible == nil {
+				if visible, err = enforcer.Allowed(
+					ctx,
+					subject,
+					access.ActionRetrieve,
+				); err != nil {
+					return err
+				}
+			}
+			if visible(id) {
+				return access.Denied(subject, action, id)
+			}
+			if denied == nil {
+				denied = make(set.Set[resource.ID])
+			}
+			denied.Add(id)
+		}
+	}
+	if len(denied) == 0 {
+		return nil
+	}
+	return hiddenDenial(subject, len(denied))
+}
+
+// hiddenDenial returns an error wrapping access.ErrDenied for n records that a request
+// changes and that subject may neither change nor retrieve. It names none of them.
+func hiddenDenial(subject resource.ID, n int) error {
+	records := "records"
+	if n == 1 {
+		records = "record"
+	}
+	return errors.Wrapf(
+		access.ErrDenied,
+		"%s cannot change %d %s that this request changes and that it cannot retrieve",
+		subject,
+		n,
+		records,
+	)
 }
 
 // accessNeeds maps each action to the resources that a write needs it on.
@@ -195,17 +283,18 @@ func (n accessNeeds) add(action access.Action, target gorp.Target) error {
 	return nil
 }
 
-// changeNeeds adds the access that subject needs to make c to needs.
+// changeNeeds adds the access that subject needs on the record of c to recordTo, and
+// the rest of the access that it needs to make c to needs.
 func (s *Service) changeNeeds(
 	ctx context.Context,
 	tx gorp.Tx,
 	subject resource.ID,
 	c gorp.Change,
 	createdOrDeleted set.Set[gorp.Target],
-	needs accessNeeds,
+	needs, recordTo accessNeeds,
 ) error {
 	owned := s.owned(c, subject)
-	owner, err := s.recordNeeds(c, owned, subject, createdOrDeleted, needs)
+	owner, err := s.recordNeeds(c, owned, subject, createdOrDeleted, recordTo)
 	if err != nil {
 		return err
 	}

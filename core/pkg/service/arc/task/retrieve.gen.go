@@ -39,9 +39,9 @@ func newIndexes() indexes {
 			Targets: func(e *Config) []arc.Key {
 				return []arc.Key{e.ArcKey}
 			},
-			Retarget: func(e *Config, from, to arc.Key) {
-				if e.ArcKey == from {
-					e.ArcKey = to
+			Retarget: func(e *Config, to map[arc.Key]arc.Key) {
+				if t, ok := to[e.ArcKey]; ok {
+					e.ArcKey = t
 				}
 			},
 		}),

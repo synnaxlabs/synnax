@@ -7,17 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package impact plans each change to channels: every record that the change touches,
-// the picks for each, and the default. It applies a change with the caller's picks.
+// Package impact plans each change to channels and groups: every record that the change
+// touches, the picks for each, and the default. It applies a change with the caller's
+// picks.
 package impact
 
 import (
 	"context"
 	"fmt"
 	"slices"
+	"strings"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
@@ -32,6 +35,10 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Channel *channel.Service
+	// Group is the service of the groups that a change touches.
+	//
+	// [REQUIRED]
+	Group *group.Service
 	// RecordOf returns the record that the holder of a reference stands for.
 	//
 	// [REQUIRED]
@@ -41,15 +48,42 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Delete func(ctx context.Context, tx gorp.Tx, records []resource.ID) error
+	// Moves holds the Move of each type of record that can sit in a group. An ungroup
+	// moves the members of each group through it.
+	//
+	// [REQUIRED]
+	Moves map[resource.Type]Move
+	// DB is the database whose references to channels Policies maps.
+	//
+	// [REQUIRED]
+	DB *gorp.DB
+	// Policies maps each reference to the channel table to what a heal does with it.
+	// OpenService fails unless it maps every such reference of DB exactly, so open the
+	// Service after the last table.
+	//
+	// [REQUIRED]
+	Policies Policies
 }
+
+// Move moves, in tx, the records with ids, all of one type, into the group to, or out
+// of their groups for nil.
+type Move func(ctx context.Context, tx gorp.Tx, ids []resource.ID, to *group.Key) error
 
 var _ config.Config[ServiceConfig] = ServiceConfig{}
 
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Channel = override.Nil(c.Channel, other.Channel)
+	c.Group = override.Nil(c.Group, other.Group)
 	c.RecordOf = override.Nil(c.RecordOf, other.RecordOf)
 	c.Delete = override.Nil(c.Delete, other.Delete)
+	c.Moves = override.Nil(c.Moves, other.Moves)
+	c.DB = override.Nil(c.DB, other.DB)
+	c.Policies.Links = override.Nil(c.Policies.Links, other.Policies.Links)
+	c.Policies.KeptTables = override.Nil(
+		c.Policies.KeptTables,
+		other.Policies.KeptTables,
+	)
 	return c
 }
 
@@ -57,18 +91,30 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("impact")
 	v.NotNil("channel", c.Channel)
+	v.NotNil("group", c.Group)
 	v.NotNil("record_of", c.RecordOf)
 	v.NotNil("delete", c.Delete)
+	if !v.NotNil("moves", c.Moves) {
+		for _, t := range group.MemberTypes() {
+			_, ok := c.Moves[t]
+			v.Ternaryf("moves", !ok, "has no move for a %s", t)
+		}
+	}
+	v.NotNil("db", c.DB)
+	v.NotNil("policies.links", c.Policies.Links)
 	return v.Error()
 }
 
-// Service applies changes to channels.
+// Service applies changes to channels and groups.
 type Service struct{ cfg ServiceConfig }
 
 // OpenService opens a Service from cfgs.
 func OpenService(cfgs ...ServiceConfig) (*Service, error) {
 	cfg, err := config.New(ServiceConfig{}, cfgs...)
 	if err != nil {
+		return nil, err
+	}
+	if err = cfg.Policies.check(cfg.DB.References(channelTable)); err != nil {
 		return nil, err
 	}
 	return &Service{cfg: cfg}, nil
@@ -101,29 +147,45 @@ type PlanOptions struct {
 
 // Plan returns every record that c touches with the picks of opts, as seen by snap, and
 // the token that Apply checks. A delete pick on a channel adds its holders, as Apply
-// does. A pick for a record that the plan does not reach has no effect, and the token
-// does not hold it. Plan writes nothing. A pick that is not a choice, or that its entry
-// does not allow, fails with a validation error.
+// does. A delete of groups lists each tombstone in the groups as a cascade entry with
+// its path. An ungroup of groups lists each tombstone that drops because its new path
+// is taken, the same way. A pick for a record that the plan does not reach has no
+// effect, and the token does not hold it. Plan writes nothing. A pick that is not a
+// choice, or that its entry does not allow, fails with a validation error.
 func (s *Service) Plan(
 	ctx context.Context,
 	snap gorp.Snapshot,
 	c Change,
 	opts PlanOptions,
 ) (Plan, error) {
-	keys, err := deletedKeys(c)
-	if err != nil {
-		return Plan{}, err
+	switch v := c.Variant.(type) {
+	case DeleteChannelsChange:
+		chosen, err := newPicks(opts)
+		if err != nil {
+			return Plan{}, err
+		}
+		r, err := s.resolve(ctx, snap, v.Keys, chosen)
+		if err != nil {
+			return Plan{}, err
+		}
+		r.plan.Token = token(channelsSum(v.Keys, r.plan))
+		return r.plan, nil
+	case DeleteGroupsChange:
+		p, err := s.planGroups(ctx, snap, c, v.Keys, opts)
+		if err != nil {
+			return Plan{}, err
+		}
+		p.Token = token(groupsSum(DeleteGroupsChangeType, v.Keys, p))
+		return p, nil
+	case UngroupGroupsChange:
+		u, err := s.planUngroup(ctx, snap, c, v.Keys, opts)
+		if err != nil {
+			return Plan{}, err
+		}
+		u.plan.Token = token(groupsSum(UngroupGroupsChangeType, v.Keys, u.plan))
+		return u.plan, nil
 	}
-	chosen, err := newPicks(opts)
-	if err != nil {
-		return Plan{}, err
-	}
-	r, err := s.resolve(ctx, snap, keys, chosen)
-	if err != nil {
-		return Plan{}, err
-	}
-	r.plan.Token = token(keys, r.plan)
-	return r.plan, nil
+	return Plan{}, errUnknownChange
 }
 
 // ApplyOptions are the inputs of the caller to Apply.
@@ -145,8 +207,9 @@ type picks struct {
 	visible func(resource.ID) bool
 }
 
-// newPicks parses the picks of opts. A pick that is not a choice, or that names no
-// record, fails with a validation error.
+// newPicks parses the picks of opts. A pick that is not a choice, or then a pick that
+// names no record, fails with a validation error that names the one with the smallest
+// key.
 func newPicks(opts PlanOptions) (picks, error) {
 	if opts.Hidden != nil && !opts.Hidden.IsValid() {
 		return picks{}, errors.Wrapf(
@@ -160,23 +223,32 @@ func newPicks(opts PlanOptions) (picks, error) {
 		hidden:  opts.Hidden,
 		visible: opts.Visible,
 	}
+	var invalid, unparsed []string
 	for text, pick := range opts.Picks {
 		if !pick.IsValid() {
-			return picks{}, errors.Wrapf(
-				validate.ErrValidation,
-				"%s is not a choice",
-				pick,
-			)
+			invalid = append(invalid, text)
+			continue
 		}
 		id, err := resource.ParseID(text)
 		if err != nil {
-			return picks{}, errors.Wrapf(
-				validate.ErrValidation,
-				"%s is not a record",
-				text,
-			)
+			unparsed = append(unparsed, text)
+			continue
 		}
 		p.named[id] = pick
+	}
+	if len(invalid) > 0 {
+		return picks{}, errors.Wrapf(
+			validate.ErrValidation,
+			"%s is not a choice",
+			opts.Picks[slices.Min(invalid)],
+		)
+	}
+	if len(unparsed) > 0 {
+		return picks{}, errors.Wrapf(
+			validate.ErrValidation,
+			"%s is not a record",
+			slices.Min(unparsed),
+		)
 	}
 	return p, nil
 }
@@ -217,15 +289,20 @@ func (p picks) pickOf(e Entry) (Choice, error) {
 }
 
 // Apply carries out c in tx with the picks of opts. With no picks, no hidden pick, and
-// no token, it deletes as channel.Writer.DeleteMany does with allowInternal false,
-// which applies the default of every record, and returns a plan of c with no entries.
-// Otherwise it plans c with the picks in tx, as Plan does, and fails with a
-// PlanChangedError before any write when opts.Token names another plan. It returns the
-// entries that it applied, as opts.Visible lets the caller see them. A restrict entry
-// that takes cancel fails Apply with the gorp.RestrictError of its record. A delete
-// pick on a record other than a channel deletes it through ServiceConfig.Delete before
-// the channels go. Picks fail as they fail Plan. Given a gorp.DB, Apply runs in a
-// transaction of its own.
+// no token, a delete of channels deletes as channel.Writer.DeleteMany does with
+// allowInternal false, which applies the default of every record, and returns a plan of
+// c with no entries. Otherwise it plans c with the picks in tx, as Plan does, and fails
+// with a PlanChangedError before any write when opts.Token names another plan. It
+// returns the entries that it applied, as opts.Visible lets the caller see them. A
+// restrict entry that takes cancel fails Apply with the gorp.RestrictError of its
+// record. A delete pick on a record other than a channel deletes it through
+// ServiceConfig.Delete before the channels go. A delete of groups deletes the
+// tombstones in them after the token check, then the groups as group.Writer.Delete
+// does, and returns a plan of c that lists each tombstone as a cascade entry with its
+// path. An ungroup of groups moves the child groups of each group to its parent, its
+// other members through ServiceConfig.Moves, and its tombstones, then deletes the
+// groups, after the token check. It returns its plan. Picks fail as they fail Plan.
+// Given a gorp.DB, Apply runs in a transaction of its own.
 func (s *Service) Apply(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -239,13 +316,125 @@ func (s *Service) Apply(
 		})
 		return applied, err
 	}
-	keys, err := deletedKeys(c)
+	switch v := c.Variant.(type) {
+	case DeleteChannelsChange:
+		return s.deleteChannels(ctx, tx, c, v.Keys, opts)
+	case DeleteGroupsChange:
+		return s.deleteGroups(ctx, tx, c, v.Keys, opts)
+	case UngroupGroupsChange:
+		return s.ungroupGroups(ctx, tx, c, v.Keys, opts)
+	}
+	return Plan{}, errUnknownChange
+}
+
+// errUnknownChange is the error of a change of no known variant, such as a request with
+// no change. Formatting the variant would make every change escape to the heap.
+var errUnknownChange = errors.Wrap(validate.ErrValidation, "unknown change")
+
+// deleteGroups deletes the groups with keys, the groups of c, and first the tombstones
+// in them, as Apply describes.
+func (s *Service) deleteGroups(
+	ctx context.Context,
+	tx gorp.Tx,
+	c Change,
+	keys []group.Key,
+	opts ApplyOptions,
+) (Plan, error) {
+	p, err := s.planGroups(ctx, tx, c, keys, PlanOptions{
+		Picks:   opts.Picks,
+		Hidden:  opts.Hidden,
+		Visible: opts.Visible,
+	})
 	if err != nil {
 		return Plan{}, err
 	}
+	if opts.Token != "" {
+		// A change of its own keeps c off the heap when no token comes.
+		now := p
+		now.Change = Change{Variant: DeleteGroupsChange{Keys: keys}}
+		sum := groupsSum(DeleteGroupsChangeType, keys, now)
+		if err = checkToken(opts.Token, sum, now); err != nil {
+			return Plan{}, err
+		}
+		p.Token = opts.Token
+	}
+	if len(p.Entries) > 0 || p.Hidden != (Hidden{}) {
+		w := s.cfg.Channel.NewWriter(tx)
+		if _, err = w.DeleteTombstones(ctx, keys...); err != nil {
+			return Plan{}, err
+		}
+	}
+	if err = s.cfg.Group.NewWriter(tx).Delete(ctx, keys...); err != nil {
+		return Plan{}, err
+	}
+	return p, nil
+}
+
+// tombstonePaths returns the path of each of dead from the deleted group that holds it.
+// A group inside a deleted one is deleted too, so each walk ends at a deleted group.
+func (s *Service) tombstonePaths(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	keys []group.Key,
+	dead []channel.Tombstone,
+) ([]string, error) {
+	groups := make([]group.Group, 0, len(keys))
+	if err := s.cfg.Group.NewRetrieve().
+		Where(group.MatchKeys(keys...)).
+		Entries(&groups).
+		Exec(ctx, snap); err != nil {
+		return nil, err
+	}
+	deleted := make(map[group.Key]group.Group, len(groups))
+	for _, g := range groups {
+		deleted[g.Key] = g
+	}
+	paths := make([]string, len(dead))
+	var segments []string
+	for i, t := range dead {
+		segments = append(segments[:0], t.Name)
+		g, ok := deleted[*t.Group]
+		for ok {
+			segments = append(segments, g.Name)
+			if g.Parent == nil || g.Parent.Type != resource.TypeGroup {
+				break
+			}
+			parent, err := group.KeyFromResourceID(*g.Parent)
+			if err != nil {
+				return nil, err
+			}
+			g, ok = deleted[parent]
+		}
+		slices.Reverse(segments)
+		paths[i] = entryPath(segments...)
+	}
+	return paths, nil
+}
+
+// entryPath joins the segments of the path of a tombstone entry.
+func entryPath(segments ...string) string { return strings.Join(segments, ".") }
+
+// checkToken returns nil when t is the token of a plan whose sum is sum. Otherwise it
+// returns a PlanChangedError that carries now, the plan as it is now, with its token.
+func checkToken(t string, sum uint64, now Plan) error {
+	if matches(t, sum) {
+		return nil
+	}
+	now.Token = token(sum)
+	return PlanChangedError{Plan: now}
+}
+
+// deleteChannels deletes the channels with keys, as Apply describes.
+func (s *Service) deleteChannels(
+	ctx context.Context,
+	tx gorp.Tx,
+	c Change,
+	keys []channel.Key,
+	opts ApplyOptions,
+) (Plan, error) {
 	w := s.cfg.Channel.NewWriter(tx)
 	if len(opts.Picks) == 0 && opts.Hidden == nil && opts.Token == "" {
-		if err = w.DeleteMany(ctx, keys, false); err != nil {
+		if err := w.DeleteMany(ctx, keys, false); err != nil {
 			return Plan{}, err
 		}
 		return Plan{Change: c}, nil
@@ -263,15 +452,15 @@ func (s *Service) Apply(
 		return Plan{}, err
 	}
 	if opts.Token != "" {
-		if !matches(opts.Token, keys, r.plan) {
-			r.plan.Token = token(keys, r.plan)
-			return Plan{}, PlanChangedError{Plan: r.plan}
+		if err = checkToken(opts.Token, channelsSum(keys, r.plan), r.plan); err != nil {
+			return Plan{}, err
 		}
 		r.plan.Token = opts.Token
 	}
 	if r.cancel != nil {
 		return Plan{}, *r.cancel
 	}
+	r.markOnBehalf(tx)
 	if len(r.records) > 0 {
 		if err = s.cfg.Delete(ctx, tx, r.records); err != nil {
 			return Plan{}, err
@@ -287,6 +476,12 @@ func (s *Service) Apply(
 // records visible hides counted in Hidden by effect instead.
 func seen(p Plan, keys []channel.Key, visible func(resource.ID) bool) Plan {
 	p.Change = Change{Variant: DeleteChannelsChange{Keys: keys}}
+	return withHidden(p, visible)
+}
+
+// withHidden returns p with each entry whose record visible hides counted in Hidden
+// instead. A nil visible hides nothing.
+func withHidden(p Plan, visible func(resource.ID) bool) Plan {
 	if visible == nil {
 		return p
 	}
@@ -318,8 +513,32 @@ type resolution struct {
 	last planned
 	// records are the records other than channels that picks delete.
 	records []resource.ID
+	// own holds the channels that the caller's own delete removes: the channels of the
+	// first plan, before any pick adds one.
+	own channel.Keys
 	// cancel is the error of the first entry that takes cancel, or nil.
 	cancel *gorp.RestrictError
+}
+
+// markOnBehalf marks in tx the targets that the delete of r changes on its caller's
+// behalf: the records and the channels that picks add, and not the caller's own
+// channels. Each mark is its own call, so no slice of targets is built.
+func (r resolution) markOnBehalf(tx gorp.Tx) {
+	for _, id := range r.records {
+		gorp.MarkOnBehalf(tx, gorp.Target{Table: string(id.Type), Key: id.Key})
+	}
+	// A pick only adds to the delete, so the last plan holds every channel of the
+	// first.
+	if len(r.last.keys) == len(r.own) {
+		return
+	}
+	own := set.New(r.own...)
+	for _, k := range r.last.keys {
+		if !own.Contains(k) {
+			id := channel.ResourceID(k)
+			gorp.MarkOnBehalf(tx, gorp.Target{Table: string(id.Type), Key: id.Key})
+		}
+	}
 }
 
 // resolve plans the delete of the channels with keys in snap with chosen, then plans
@@ -342,6 +561,9 @@ func (s *Service) resolve(
 		p, err := s.planDelete(ctx, snap, all)
 		if err != nil {
 			return resolution{}, err
+		}
+		if r.own == nil {
+			r.own = p.keys
 		}
 		more, picked, cancel, err := choose(p, chosen)
 		if err != nil {
@@ -423,15 +645,6 @@ func choose(
 		}
 	}
 	return channels, records, cancel, nil
-}
-
-// deletedKeys returns the keys of the channels that c deletes.
-func deletedKeys(c Change) ([]channel.Key, error) {
-	d, ok := c.Variant.(DeleteChannelsChange)
-	if !ok {
-		return nil, errors.Wrap(validate.ErrValidation, "unknown change")
-	}
-	return d.Keys, nil
 }
 
 // count counts one hidden entry with effect e.

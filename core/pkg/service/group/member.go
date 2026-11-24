@@ -11,6 +11,7 @@ package group
 
 import (
 	"context"
+	"maps"
 	"slices"
 
 	"github.com/synnaxlabs/gorp"
@@ -20,6 +21,9 @@ import (
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 )
+
+// MemberTypes returns each type of record that can sit in a group, sorted.
+func MemberTypes() []resource.Type { return slices.Sorted(maps.Keys(memberRules)) }
 
 // CheckMember returns a validation error when a record of type t cannot sit in the
 // group with key, as seen by tx. The group's scope must hold t. holder is the record

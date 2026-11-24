@@ -122,9 +122,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	MustOpen(log.OpenService(ctx, log.ServiceConfig{DB: db, ImEx: imexSvc}))
 	apiSvc := MustSucceed(apiimex.NewService(apiimex.ServiceConfig{ImEx: imexSvc}))
 	binder := MustSucceed(bind.NewService(bind.ServiceConfig{
-		DB:   db,
-		RBAC: rbacSvc,
-		Held: apiauth.HeldTables(),
+		DB:      db,
+		RBAC:    rbacSvc,
+		Held:    apiauth.HeldTables(),
+		Mirrors: channel.MirrorTables(),
 	}))
 	importEnvelope = bind.Write(binder, apiSvc.Import)
 	export = bind.Read(binder, apiSvc.Export)

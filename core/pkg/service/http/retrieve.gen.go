@@ -40,9 +40,9 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 					e.Device = ""
 				}
 			},
-			Retarget: func(e *ReadConfig, from, to device.Key) {
-				if e.Device == from {
-					e.Device = to
+			Retarget: func(e *ReadConfig, to map[device.Key]device.Key) {
+				if t, ok := to[e.Device]; ok {
+					e.Device = t
 				}
 			},
 		}),
@@ -70,10 +70,12 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 					}
 				}
 			},
-			Retarget: func(e *ReadConfig, from, to icd.Key) {
+			Retarget: func(e *ReadConfig, to map[icd.Key]icd.Key) {
 				for i3 := range e.Endpoints {
-					if e.Endpoints[i3].ICD != nil && *e.Endpoints[i3].ICD == from {
-						*e.Endpoints[i3].ICD = to
+					if e.Endpoints[i3].ICD != nil {
+						if t, ok := to[*e.Endpoints[i3].ICD]; ok {
+							*e.Endpoints[i3].ICD = t
+						}
 					}
 				}
 			},
@@ -111,12 +113,12 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 					}
 				}
 			},
-			Retarget: func(e *ReadConfig, from, to channel.Key) {
+			Retarget: func(e *ReadConfig, to map[channel.Key]channel.Key) {
 				for i7 := range e.Endpoints {
 					for i8 := range e.Endpoints[i7].Messages {
 						for i9 := range e.Endpoints[i7].Messages[i8].Bindings {
-							if e.Endpoints[i7].Messages[i8].Bindings[i9].Channel == from {
-								e.Endpoints[i7].Messages[i8].Bindings[i9].Channel = to
+							if t, ok := to[e.Endpoints[i7].Messages[i8].Bindings[i9].Channel]; ok {
+								e.Endpoints[i7].Messages[i8].Bindings[i9].Channel = t
 							}
 						}
 					}
@@ -152,11 +154,11 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 					}
 				}
 			},
-			Retarget: func(e *ReadConfig, from, to channel.Key) {
+			Retarget: func(e *ReadConfig, to map[channel.Key]channel.Key) {
 				for i5 := range e.Endpoints {
 					for i6 := range e.Endpoints[i5].Fields {
-						if e.Endpoints[i5].Fields[i6].Channel == from {
-							e.Endpoints[i5].Fields[i6].Channel = to
+						if t, ok := to[e.Endpoints[i5].Fields[i6].Channel]; ok {
+							e.Endpoints[i5].Fields[i6].Channel = t
 						}
 					}
 				}
@@ -192,12 +194,12 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 					}
 				}
 			},
-			Retarget: func(e *ReadConfig, from, to channel.Key) {
+			Retarget: func(e *ReadConfig, to map[channel.Key]channel.Key) {
 				if e.Inline != nil {
 					for i5 := range e.Inline.Endpoints {
 						for i6 := range e.Inline.Endpoints[i5].Fields {
-							if e.Inline.Endpoints[i5].Fields[i6].Channel == from {
-								e.Inline.Endpoints[i5].Fields[i6].Channel = to
+							if t, ok := to[e.Inline.Endpoints[i5].Fields[i6].Channel]; ok {
+								e.Inline.Endpoints[i5].Fields[i6].Channel = t
 							}
 						}
 					}
@@ -227,9 +229,9 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 					e.Device = ""
 				}
 			},
-			Retarget: func(e *WriteConfig, from, to device.Key) {
-				if e.Device == from {
-					e.Device = to
+			Retarget: func(e *WriteConfig, to map[device.Key]device.Key) {
+				if t, ok := to[e.Device]; ok {
+					e.Device = t
 				}
 			},
 		}),
@@ -258,10 +260,10 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 					}
 				}
 			},
-			Retarget: func(e *WriteConfig, from, to channel.Key) {
+			Retarget: func(e *WriteConfig, to map[channel.Key]channel.Key) {
 				for i3 := range e.Endpoints {
-					if e.Endpoints[i3].Channel.Channel == from {
-						e.Endpoints[i3].Channel.Channel = to
+					if t, ok := to[e.Endpoints[i3].Channel.Channel]; ok {
+						e.Endpoints[i3].Channel.Channel = t
 					}
 				}
 			},

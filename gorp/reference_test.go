@@ -13,6 +13,7 @@ import (
 	"context"
 	"slices"
 	"strconv"
+	"testing"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -149,7 +150,11 @@ func newDeviceRefs() deviceRefs {
 					}
 					return []string{d.Parent}
 				},
-				Retarget: func(d *refDevice, _, to string) { d.Parent = to },
+				Retarget: func(d *refDevice, to map[string]string) {
+					if t, ok := to[d.Parent]; ok {
+						d.Parent = t
+					}
+				},
 			},
 		),
 		labels: gorp.NewKeyReference(
@@ -178,17 +183,17 @@ func newDeviceRefs() deviceRefs {
 						},
 					)
 				},
-				Retarget: func(d *refDevice, from, to string) {
-					held := slices.Contains(d.Labels, to)
-					d.Labels = slices.DeleteFunc(
-						slices.Clone(d.Labels),
-						func(v string) bool { return held && v == from },
-					)
-					for i, v := range d.Labels {
-						if v == from {
-							d.Labels[i] = to
+				Retarget: func(d *refDevice, to map[string]string) {
+					moved := make([]string, 0, len(d.Labels))
+					for _, v := range d.Labels {
+						if t, ok := to[v]; ok {
+							v = t
+						}
+						if !slices.Contains(moved, v) {
+							moved = append(moved, v)
 						}
 					}
+					d.Labels = moved
 				},
 			},
 		),
@@ -212,8 +217,14 @@ func newOwnerRef() *gorp.TargetReference[string, refStatus] {
 			}
 			return []gorp.Target{{Table: s.Owner.Table, Key: s.Owner.Key}}
 		},
-		Retarget: func(s *refStatus, _, to gorp.Target) {
-			s.Owner = &refOwner{Table: to.Table, Key: to.Key}
+		Retarget: func(s *refStatus, to map[gorp.Target]gorp.Target) {
+			if s.Owner == nil {
+				return
+			}
+			held := gorp.Target{Table: s.Owner.Table, Key: s.Owner.Key}
+			if t, ok := to[held]; ok {
+				s.Owner = &refOwner{Table: t.Table, Key: t.Key}
+			}
 		},
 	})
 }
@@ -1319,6 +1330,163 @@ var _ = Describe("Reference", func() {
 		})
 	})
 
+	Describe("OnBehalf", func() {
+		BeforeEach(func(ctx SpecContext) { open(ctx) })
+		device := func(k string) gorp.Target { return gorp.NewTarget("device", k) }
+		label := func(k string) gorp.Target { return gorp.NewTarget("label", k) }
+		status := func(k string) gorp.Target { return gorp.NewTarget("status", k) }
+		// onBehalf returns the records of tx's changes that are OnBehalf.
+		onBehalf := func(tx gorp.Tx) set.Set[gorp.Target] {
+			out := set.New[gorp.Target]()
+			for _, c := range gorp.ChangesOf(tx) {
+				if c.OnBehalf {
+					out.Add(c.Record)
+				}
+			}
+			return out
+		}
+		// createChain creates d1, d2 and d3 on rack 1, each the parent of the next, and
+		// the status s3 of d3, so a delete of d1 cascades three steps.
+		createChain := func(ctx SpecContext) {
+			GinkgoHelper()
+			createRack(ctx, 1)
+			Expect(createDevice(ctx, refDevice{Key: "d1", Rack: 1})).To(Succeed())
+			Expect(createDevice(ctx, refDevice{Key: "d2", Rack: 1, Parent: "d1"})).
+				To(Succeed())
+			Expect(createDevice(ctx, refDevice{Key: "d3", Rack: 1, Parent: "d2"})).
+				To(Succeed())
+			Expect(statuses.NewCreate().Entry(&refStatus{
+				Key:   "s3",
+				Owner: &refOwner{Table: "device", Key: "d3"},
+			}).Exec(ctx, db)).To(Succeed())
+		}
+		deleteDevice := func(ctx SpecContext, tx gorp.Tx, key string) {
+			GinkgoHelper()
+			Expect(devices.NewDelete().
+				Where(gorp.MatchKeys[string, refDevice](key)).
+				Exec(ctx, tx)).To(Succeed())
+		}
+
+		It("Should carry a mark through each step of a cascade chain", func(
+			ctx SpecContext,
+		) {
+			createChain(ctx)
+			tx := DeferClose(db.OpenTx())
+			gorp.MarkOnBehalf(tx, device("d1"))
+			deleteDevice(ctx, tx, "d1")
+			Expect(onBehalf(tx)).To(Equal(set.New(
+				device("d1"),
+				device("d2"),
+				device("d3"),
+				status("s3"),
+			)))
+		})
+
+		It("Should leave the cascades of an unmarked delete off behalf", func(
+			ctx SpecContext,
+		) {
+			createChain(ctx)
+			tx := DeferClose(db.OpenTx())
+			deleteDevice(ctx, tx, "d1")
+			Expect(gorp.ChangesOf(tx)).To(HaveLen(4))
+			Expect(onBehalf(tx)).To(BeEmpty())
+		})
+
+		It("Should carry a mark only to the detaches of a marked delete", func(
+			ctx SpecContext,
+		) {
+			createRack(ctx, 1)
+			createLabels(ctx, "l1", "l2")
+			for _, d := range []refDevice{
+				{Key: "d1", Rack: 1, Labels: []string{"l1"}},
+				{Key: "d2", Rack: 1, Labels: []string{"l2"}},
+			} {
+				Expect(createDevice(ctx, d)).To(Succeed())
+			}
+			tx := DeferClose(db.OpenTx())
+			gorp.MarkOnBehalf(tx, label("l1"))
+			Expect(labels.NewDelete().
+				Where(gorp.MatchKeys[string, refLabel]("l1", "l2")).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(gorp.ChangesOf(tx)).To(HaveLen(4))
+			Expect(onBehalf(tx)).To(Equal(set.New(label("l1"), device("d1"))))
+		})
+
+		It("Should leave a plain Retarget off behalf", func(ctx SpecContext) {
+			createRack(ctx, 1)
+			Expect(createDevice(ctx, refDevice{Key: "d0", Rack: 1})).To(Succeed())
+			Expect(createDevice(ctx, refDevice{Key: "d1", Rack: 1})).To(Succeed())
+			Expect(createDevice(ctx, refDevice{Key: "d2", Rack: 1, Parent: "d1"})).
+				To(Succeed())
+			tx := DeferClose(db.OpenTx())
+			Expect(devices.Retarget(ctx, tx, "d1", "d0")).To(Succeed())
+			changes := gorp.ChangesOf(tx)
+			Expect(changes).To(HaveLen(1))
+			Expect(changes[0].Record).To(Equal(device("d2")))
+			Expect(changes[0].Derived).To(BeTrue())
+			Expect(changes[0].OnBehalf).To(BeFalse())
+		})
+
+		It("Should keep a mark set before the write of RetargetHolders", func(
+			ctx SpecContext,
+		) {
+			createRack(ctx, 1)
+			Expect(createDevice(ctx, refDevice{Key: "d0", Rack: 1})).To(Succeed())
+			Expect(createDevice(ctx, refDevice{Key: "d1", Rack: 1})).To(Succeed())
+			Expect(createDevice(ctx, refDevice{Key: "d2", Rack: 1, Parent: "d1"})).
+				To(Succeed())
+			tx := DeferClose(db.OpenTx())
+			holders := MustSucceed(devices.Dependents(ctx, tx, "d1"))
+			gorp.MarkOnBehalf(tx, device("d2"))
+			Expect(devices.RetargetHolders(
+				ctx,
+				tx,
+				map[string]string{"d1": "d0"},
+				holders...,
+			)).To(Succeed())
+			Expect(onBehalf(tx)).To(Equal(set.New(device("d2"))))
+		})
+
+		It("Should keep every mark past the first few", func(ctx SpecContext) {
+			keys := make([]string, 0, 20)
+			for i := range 20 {
+				keys = append(keys, "l"+strconv.Itoa(i))
+			}
+			createLabels(ctx, append(keys, "kept")...)
+			tx := DeferClose(db.OpenTx())
+			for _, k := range keys {
+				gorp.MarkOnBehalf(tx, label(k))
+			}
+			Expect(labels.NewDelete().
+				Where(gorp.MatchKeys[string, refLabel](append(keys, "kept")...)).
+				Exec(ctx, tx)).To(Succeed())
+			want := set.New[gorp.Target]()
+			for _, k := range keys {
+				want.Add(label(k))
+			}
+			Expect(gorp.ChangesOf(tx)).To(HaveLen(21))
+			Expect(onBehalf(tx)).To(Equal(want))
+		})
+
+		It("Should mark two targets with no allocation", func() {
+			base := testing.AllocsPerRun(100, func() {
+				Expect(db.OpenTx().Close()).To(Succeed())
+			})
+			Expect(testing.AllocsPerRun(100, func() {
+				tx := db.OpenTx()
+				gorp.MarkOnBehalf(tx, device("d1"))
+				gorp.MarkOnBehalf(tx, device("d2"))
+				Expect(tx.Close()).To(Succeed())
+			})).To(Equal(base))
+		})
+
+		It("Should panic on a DB", func() {
+			Expect(func() { gorp.MarkOnBehalf(db, device("d1")) }).To(
+				PanicWith("[gorp] - MarkOnBehalf needs a transaction, not a DB"),
+			)
+		})
+	})
+
 	Describe("OnTargetSet", func() {
 		var set []string
 		BeforeEach(func() {
@@ -1664,7 +1832,11 @@ var _ = Describe("Reference", func() {
 							Targets: func(p *refPair) []uint32 {
 								return []uint32{p.Rack}
 							},
-							Retarget: func(p *refPair, _, to uint32) { p.Rack = to },
+							Retarget: func(p *refPair, to map[uint32]uint32) {
+								if t, ok := to[p.Rack]; ok {
+									p.Rack = t
+								}
+							},
 						},
 					),
 				},
@@ -1698,7 +1870,11 @@ var _ = Describe("Reference", func() {
 							Targets: func(b *refBadge) []string {
 								return []string{b.Front}
 							},
-							Retarget: func(b *refBadge, _, to string) { b.Front = to },
+							Retarget: func(b *refBadge, to map[string]string) {
+								if t, ok := to[b.Front]; ok {
+									b.Front = t
+								}
+							},
 						},
 					),
 					gorp.NewKeyReference(
@@ -1710,7 +1886,11 @@ var _ = Describe("Reference", func() {
 							Targets: func(b *refBadge) []string {
 								return []string{b.Back}
 							},
-							Retarget: func(b *refBadge, _, to string) { b.Back = to },
+							Retarget: func(b *refBadge, to map[string]string) {
+								if t, ok := to[b.Back]; ok {
+									b.Back = t
+								}
+							},
 						},
 					),
 				},

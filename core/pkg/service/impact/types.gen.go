@@ -17,6 +17,7 @@ import (
 	"strconv"
 
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
@@ -25,8 +26,15 @@ import (
 // ChangeType is the "type" value that selects a variant of Change.
 type ChangeType string
 
-// DeleteChannelsChangeType deletes channels.
-const DeleteChannelsChangeType ChangeType = "delete_channels"
+const (
+	// DeleteChannelsChangeType deletes channels.
+	DeleteChannelsChangeType ChangeType = "delete_channels"
+	// DeleteGroupsChangeType deletes groups.
+	DeleteGroupsChangeType ChangeType = "delete_groups"
+	// UngroupGroupsChangeType moves the members and tombstones of each group to its
+	// parent, then deletes the group.
+	UngroupGroupsChangeType ChangeType = "ungroup_groups"
+)
 
 // ChangeVariant is implemented by every Change variant.
 type ChangeVariant interface {
@@ -41,7 +49,26 @@ type DeleteChannelsChange struct {
 
 func (DeleteChannelsChange) isChangeVariant() {}
 
-// Change is a change to channels that a plan covers.
+// DeleteGroupsChange deletes groups.
+type DeleteGroupsChange struct {
+	// Keys are the keys of the groups to delete. A group inside one of them must be
+	// named too.
+	Keys []group.Key `json:"keys" msgpack:"keys"`
+}
+
+func (DeleteGroupsChange) isChangeVariant() {}
+
+// UngroupGroupsChange moves the members and tombstones of each group to its parent,
+// then deletes the group.
+type UngroupGroupsChange struct {
+	// Keys are the keys of the groups to ungroup. The parent of each must not be one of
+	// them.
+	Keys []group.Key `json:"keys" msgpack:"keys"`
+}
+
+func (UngroupGroupsChange) isChangeVariant() {}
+
+// Change is a change to channels or groups that a plan covers.
 type Change struct {
 	Variant ChangeVariant
 }
@@ -56,6 +83,16 @@ func (u Change) MarshalJSONTo(enc *jsontext.Encoder) error {
 			Type ChangeType `json:"type"`
 			DeleteChannelsChange
 		}{Type: DeleteChannelsChangeType, DeleteChannelsChange: v})
+	case DeleteGroupsChange:
+		return json.MarshalEncode(enc, struct {
+			Type ChangeType `json:"type"`
+			DeleteGroupsChange
+		}{Type: DeleteGroupsChangeType, DeleteGroupsChange: v})
+	case UngroupGroupsChange:
+		return json.MarshalEncode(enc, struct {
+			Type ChangeType `json:"type"`
+			UngroupGroupsChange
+		}{Type: UngroupGroupsChangeType, UngroupGroupsChange: v})
 	default:
 		return errors.Newf("Change: unknown variant %T", v)
 	}
@@ -90,6 +127,24 @@ func (u *Change) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			return err
 		}
 		u.Variant = v.DeleteChannelsChange
+	case DeleteGroupsChangeType:
+		var v struct {
+			Type ChangeType `json:"type"`
+			DeleteGroupsChange
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.DeleteGroupsChange
+	case UngroupGroupsChangeType:
+		var v struct {
+			Type ChangeType `json:"type"`
+			UngroupGroupsChange
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.UngroupGroupsChange
 	default:
 		return errors.Wrapf(
 			validate.ErrValidation,
@@ -105,6 +160,10 @@ func (u Change) Type() ChangeType {
 	switch u.Variant.(type) {
 	case DeleteChannelsChange:
 		return DeleteChannelsChangeType
+	case DeleteGroupsChange:
+		return DeleteGroupsChangeType
+	case UngroupGroupsChange:
+		return UngroupGroupsChangeType
 	}
 	return ""
 }
@@ -169,6 +228,9 @@ type Entry struct {
 	Choices []Choice `json:"choices" msgpack:"choices"`
 	// Default is the pick that applies when the caller makes none.
 	Default *Choice `json:"default,omitzero" msgpack:"default,omitempty"`
+	// Path is set only for the entry of a tombstone: its name under its folders, from
+	// the deleted folder that holds it, with `.` between segments.
+	Path *string `json:"path,omitzero" msgpack:"path,omitempty"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
