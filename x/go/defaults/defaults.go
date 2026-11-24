@@ -25,8 +25,9 @@ type grouped interface {
 
 // Fill returns v with every zero field replaced by its schema default. Each value whose
 // type has a SetDefaults method, at any depth, starts from its defaults, and every
-// non-zero field of v replaces the default. A default group takes its defaults only
-// when all of its members are zero in v.
+// non-zero field of v replaces the default. A non-zero struct of only numbers, with no
+// defaults of its own, replaces its default whole, zero members included. A default
+// group takes its defaults only when all of its members are zero in v.
 func Fill[T any](v T) T {
 	out := reflect.New(reflect.TypeFor[T]()).Elem()
 	fillFresh(out, reflect.ValueOf(&v).Elem())

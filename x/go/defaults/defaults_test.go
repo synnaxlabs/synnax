@@ -71,6 +71,18 @@ type corner struct {
 	Y string
 }
 
+// scale holds only numbers and sets defaults of its own.
+type scale struct {
+	Slope  float64
+	Offset float64
+}
+
+func (s *scale) SetDefaults() { s.Slope = 1 }
+
+type scaled struct{ Scale scale }
+
+func (s *scaled) SetDefaults() { s.Scale.SetDefaults() }
+
 type ranged struct {
 	Range  span
 	Corner corner
@@ -140,6 +152,13 @@ var _ = Describe("Fill", func() {
 		Expect(got.Range).To(Equal(span{Lower: -10}))
 		Expect(defaults.Fill(ranged{}).Range).To(Equal(span{Upper: 1}))
 	})
+
+	It("Should fill the zero members of a struct of numbers with its own defaults",
+		func() {
+			got := defaults.Fill(scaled{Scale: scale{Offset: 2}})
+			Expect(got.Scale).To(Equal(scale{Slope: 1, Offset: 2}))
+		},
+	)
 
 	It("Should fill the zero members of a struct that is not all numbers", func() {
 		got := defaults.Fill(ranged{Corner: corner{X: "right"}})
