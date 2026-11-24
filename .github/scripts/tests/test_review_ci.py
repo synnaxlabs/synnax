@@ -256,15 +256,14 @@ class TestResults:
         gh.runs = [run(1, event)]
         assert "| py / Test (3.15) | 10 |" in results(REPO, SHA, gh, FakeLog())
 
-    def test_should_mark_the_latest_completed_run_of_a_workflow(self) -> None:
+    def test_should_mark_the_newest_run_that_was_not_cancelled(self) -> None:
         gh = FakeGH()
         gh.runs = [
-            run(3, conclusion=None),
-            run(4, conclusion="cancelled"),
+            run(3, conclusion="cancelled"),
             run(2, attempt=2),
             run(1, conclusion="failure"),
         ]
-        gh.jobs = {i: [job(10 * i, "py / Test")] for i in range(1, 5)}
+        gh.jobs = {i: [job(10 * i, "py / Test")] for i in range(1, 4)}
         log = FakeLog()
         out = results(REPO, SHA, gh, log)
         rows = [line for line in out.splitlines() if "| py / Test |" in line]
@@ -272,11 +271,36 @@ class TestResults:
             ["1", "no"],
             ["2", "yes"],
             ["3", "no"],
-            ["4", "no"],
         ]
         assert "| 2 | 2 | 2026-11-24T02:00:00Z | yes |" in out
+        assert "## Runs used\n\n- CI: run 2, attempt 2, created" in out
+        assert ", completed." in out
         assert log.read == [20]
         assert "use only the run marked latest" in out
+
+    def test_should_read_the_finished_jobs_of_a_run_that_still_runs(self) -> None:
+        gh = FakeGH()
+        gh.runs = [run(1), run(2, conclusion=None)]
+        gh.jobs = {
+            1: [job(10, "py / Test")],
+            2: [
+                job(20, "py / Test", "failure"),
+                job(21, "go / Test", None),
+                job(22, "lint", None),
+            ],
+        }
+        log = FakeLog(**{"20": "FAILED tests/test_a.py::test_b - boom\n"})
+        out = results(REPO, SHA, gh, log)
+        assert log.read == [20]
+        assert (
+            "- CI: run 2, attempt 1, created 2026-11-24T02:00:00Z, still running."
+            in out
+        )
+        assert (
+            "| 2 | 1 | 2026-11-24T02:00:00Z | yes, still running | go / Test |" in out
+        )
+        assert "```text\n20 tests/test_a.py::test_b: failed\n21 pending\n```" in out
+        assert "its pending jobs settle nothing" in out
 
     def test_should_list_the_check_runs_of_other_apps(self) -> None:
         out = results(REPO, SHA, FakeGH(), FakeLog())
@@ -288,7 +312,7 @@ class TestResults:
         log = FakeLog(**{"10": "tests/test_a.py .. [100%]\n"})
         out = results(REPO, SHA, gh, log)
         assert log.read == [10]
-        assert "```text\n10 tests/test_a.py: .. (2 passed)\n```" in out
+        assert "```text\n10 tests/test_a.py: .. (2 passed)\n13 pending\n```" in out
 
     def test_should_read_the_logs_of_failed_jobs_first(self) -> None:
         gh = FakeGH()
