@@ -96,6 +96,38 @@ const (
 	JSONTypeBoolean JSONType = versions.JSONTypeBoolean
 )
 
+// Scalar is a JSON scalar: a number, a string, a boolean, or null.
+type Scalar = versions.Scalar
+
+// ScalarVariant is implemented by every Scalar variant.
+type ScalarVariant = versions.ScalarVariant
+
+// ScalarType is the "type" value that selects a variant of Scalar.
+type ScalarType = versions.ScalarType
+
+const (
+	// NumberScalarType is a JSON number.
+	NumberScalarType ScalarType = versions.NumberScalarType
+	// StringScalarType is a JSON string.
+	StringScalarType ScalarType = versions.StringScalarType
+	// BooleanScalarType is a JSON boolean.
+	BooleanScalarType ScalarType = versions.BooleanScalarType
+	// NullScalarType is JSON null.
+	NullScalarType ScalarType = versions.NullScalarType
+)
+
+// NumberScalar is a JSON number.
+type NumberScalar = versions.NumberScalar
+
+// StringScalar is a JSON string.
+type StringScalar = versions.StringScalar
+
+// BooleanScalar is a JSON boolean.
+type BooleanScalar = versions.BooleanScalar
+
+// NullScalar is JSON null.
+type NullScalar = versions.NullScalar
+
 // GeneratorType is the kind of value produced for a generated write field.
 type GeneratorType = versions.GeneratorType
 

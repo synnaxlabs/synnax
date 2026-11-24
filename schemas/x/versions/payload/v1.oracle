@@ -33,4 +33,34 @@ EnumEntry = v0.EnumEntry
 
 JSONType = v0.JSONType
 
+Scalar union on type {
+    number {
+        value float64 {
+            @doc value "is the number."
+        }
+
+        @doc value "is a JSON number."
+    }
+    string {
+        value string {
+            @doc value "is the string."
+        }
+
+        @doc value "is a JSON string."
+    }
+    boolean {
+        value bool {
+            @doc value "is the boolean."
+        }
+
+        @doc value "is a JSON boolean."
+    }
+    null {
+        @doc value "is JSON null."
+    }
+
+    @doc value  "is a JSON scalar: a number, a string, a boolean, or null."
+    @go marshal
+}
+
 GeneratorType = v0.GeneratorType

@@ -13,6 +13,7 @@
 
 #include <string>
 #include <utility>
+#include <variant>
 
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
@@ -101,6 +102,50 @@ struct EnumEntry {
     static EnumEntry parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
+
+/// @brief NumberScalar is a JSON number.
+struct NumberScalar {
+    std::string type = "number";
+    /// @brief value is the number.
+    double value = 0;
+
+    static NumberScalar parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief StringScalar is a JSON string.
+struct StringScalar {
+    std::string type = "string";
+    /// @brief value is the string.
+    std::string value;
+
+    static StringScalar parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief BooleanScalar is a JSON boolean.
+struct BooleanScalar {
+    std::string type = "boolean";
+    /// @brief value is the boolean.
+    bool value = false;
+
+    static BooleanScalar parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief NullScalar is JSON null.
+struct NullScalar {
+    std::string type = "null";
+
+    static NullScalar parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief Scalar is a JSON scalar: a number, a string, a boolean, or null.
+using Scalar = std::variant<NumberScalar, StringScalar, BooleanScalar, NullScalar>;
+
+Scalar parse_scalar(x::json::Parser parser);
+[[nodiscard]] x::json::json to_json(const Scalar &value);
 
 /// @brief FloatEntry maps a payload label to a float channel value.
 struct FloatEntry {

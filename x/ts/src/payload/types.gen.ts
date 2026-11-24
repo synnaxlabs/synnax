@@ -105,3 +105,55 @@ export const enumEntryZ = z.object({
   value: z.number().default(0),
 });
 export interface EnumEntry extends z.infer<typeof enumEntryZ> {}
+
+/** NumberScalar is a JSON number. */
+export const numberScalarZ = z.object({
+  type: z.literal("number"),
+  /** value is the number. */
+  value: z.number(),
+});
+export interface NumberScalar extends z.infer<typeof numberScalarZ> {}
+
+/** StringScalar is a JSON string. */
+export const stringScalarZ = z.object({
+  type: z.literal("string"),
+  /** value is the string. */
+  value: z.string(),
+});
+export interface StringScalar extends z.infer<typeof stringScalarZ> {}
+
+/** BooleanScalar is a JSON boolean. */
+export const booleanScalarZ = z.object({
+  type: z.literal("boolean"),
+  /** value is the boolean. */
+  value: z.boolean(),
+});
+export interface BooleanScalar extends z.infer<typeof booleanScalarZ> {}
+
+/** NullScalar is JSON null. */
+export const nullScalarZ = z.object({
+  type: z.literal("null"),
+});
+export interface NullScalar extends z.infer<typeof nullScalarZ> {}
+
+export const SCALAR_TYPES = ["number", "string", "boolean", "null"] as const;
+export const scalarTypeZ = z.enum(SCALAR_TYPES);
+export type ScalarType = z.infer<typeof scalarTypeZ>;
+
+/** Scalar is a JSON scalar: a number, a string, a boolean, or null. */
+export const scalarZ = z.discriminatedUnion("type", [
+  numberScalarZ,
+  stringScalarZ,
+  booleanScalarZ,
+  nullScalarZ,
+]);
+export type Scalar = NumberScalar | StringScalar | BooleanScalar | NullScalar;
+
+export const SCALAR_SCHEMAS: {
+  [K in ScalarType]: z.ZodType<Extract<Scalar, { type: K }>>;
+} = {
+  number: numberScalarZ,
+  string: stringScalarZ,
+  boolean: booleanScalarZ,
+  null: nullScalarZ,
+};

@@ -12,6 +12,7 @@
 #pragma once
 
 #include <string>
+#include <variant>
 
 #include "x/cpp/json/json.h"
 #include "x/cpp/payload/types.gen.h"
@@ -100,6 +101,74 @@ inline x::json::json EnumEntry::to_json() const {
     j["label"] = this->label;
     j["value"] = this->value;
     return j;
+}
+
+inline NumberScalar NumberScalar::parse(x::json::Parser parser) {
+    NumberScalar result;
+    result.value = parser.field<double>("value");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json NumberScalar::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["value"] = this->value;
+    j["type"] = this->type;
+    return j;
+}
+
+inline StringScalar StringScalar::parse(x::json::Parser parser) {
+    StringScalar result;
+    result.value = parser.field<std::string>("value");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json StringScalar::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["value"] = this->value;
+    j["type"] = this->type;
+    return j;
+}
+
+inline BooleanScalar BooleanScalar::parse(x::json::Parser parser) {
+    BooleanScalar result;
+    result.value = parser.field<bool>("value");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json BooleanScalar::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["value"] = this->value;
+    j["type"] = this->type;
+    return j;
+}
+
+inline NullScalar NullScalar::parse(x::json::Parser parser) {
+    NullScalar result;
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json NullScalar::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["type"] = this->type;
+    return j;
+}
+
+inline Scalar parse_scalar(x::json::Parser parser) {
+    const auto discriminator = parser.field<std::string>("type");
+    if (discriminator == "number") return NumberScalar::parse(parser);
+    if (discriminator == "string") return StringScalar::parse(parser);
+    if (discriminator == "boolean") return BooleanScalar::parse(parser);
+    if (discriminator == "null") return NullScalar::parse(parser);
+    parser.field_err("type", "unknown Scalar type: " + discriminator);
+    return {};
+}
+
+inline x::json::json to_json(const Scalar &value) {
+    return std::visit([](const auto &v) { return v.to_json(); }, value);
 }
 
 }

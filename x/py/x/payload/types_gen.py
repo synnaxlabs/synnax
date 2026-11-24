@@ -11,7 +11,7 @@
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field
 
@@ -159,3 +159,37 @@ class EnumEntry(BaseModel):
 
     label: str = ""
     value: float = 0
+
+
+class NumberScalar(BaseModel):
+    """Is a JSON number."""
+
+    type: Literal["number"] = "number"
+    value: float
+
+
+class StringScalar(BaseModel):
+    """Is a JSON string."""
+
+    type: Literal["string"] = "string"
+    value: str
+
+
+class BooleanScalar(BaseModel):
+    """Is a JSON boolean."""
+
+    type: Literal["boolean"] = "boolean"
+    value: bool
+
+
+class NullScalar(BaseModel):
+    """Is JSON null."""
+
+    type: Literal["null"] = "null"
+
+
+# Is a JSON scalar: a number, a string, a boolean, or null.
+Scalar = Annotated[
+    NumberScalar | StringScalar | BooleanScalar | NullScalar,
+    Field(discriminator="type"),
+]
