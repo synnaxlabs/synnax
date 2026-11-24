@@ -101,6 +101,21 @@ var _ = Describe("Service", func() {
 		})
 	})
 
+	Describe("ResourceID", func() {
+		It("Should name a device by its key under the LabJack device type", func() {
+			key := uuid.New()
+			Expect(device.ResourceID(key)).To(Equal(resource.ID{
+				Type: resource.TypeLabjackDevice,
+				Key:  key.String(),
+			}))
+		})
+
+		It("Should match the ID of a stored device", func(ctx SpecContext) {
+			d := create(ctx)
+			Expect(device.ResourceID(d.Key)).To(Equal(d.ResourceID()))
+		})
+	})
+
 	Describe("Resources", func() {
 		It("Should name each device by its name", func(ctx SpecContext) {
 			d := create(ctx)
