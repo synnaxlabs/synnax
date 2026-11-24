@@ -31,6 +31,7 @@ import { Device } from "@/feature/mqtt/device";
 import { DEFAULT_WRITE_NAME } from "@/feature/mqtt/task/create";
 import type { Format, Kind } from "@/feature/mqtt/task/discover/Discover";
 import { createDiscoverModal } from "@/feature/mqtt/task/discover/modal";
+import type { TopicPick } from "@/feature/mqtt/task/discover/Topics";
 import { namePrefix } from "@/feature/mqtt/task/entries";
 import { EntryLabel } from "@/feature/mqtt/task/EntryLabel";
 import type { Leaf } from "@/feature/mqtt/task/leaves";
@@ -262,6 +263,16 @@ const createDraft = (topic: string, leaves: Leaf[], format: Format | null): Draf
   format,
 });
 
+/** @returns the picked leaves of the shape that the most messages of a topic had. */
+const formatLeaves = (pick: TopicPick): Leaf[] => {
+  const most = ICD.Write.mostCommon(
+    [...pick.values()],
+    ({ shape }) => shape.count ?? 0,
+  );
+  if (most == null) return [];
+  return most.shape.leaves.filter(({ pointer }) => most.pointers.has(pointer));
+};
+
 const DISCOVER_KIND: Kind<Addition> = {
   title: "Add targets",
   hint: "Select the topics to write. Each one becomes a target.",
@@ -270,7 +281,9 @@ const DISCOVER_KIND: Kind<Addition> = {
   whole: true,
   formatPickable: true,
   create: ({ topics, tags, format }) => [
-    ...[...topics].map(([topic, { leaves }]) => createDraft(topic, leaves, format)),
+    ...[...topics].map(([topic, pick]) =>
+      createDraft(topic, formatLeaves(pick), format),
+    ),
     ...[...tags.values()].map((t) => createSparkplugTarget(t)),
   ],
   createTopic: (topic, { format }) => createDraft(topic, [], format),
@@ -282,7 +295,9 @@ const icdName = (name: string): string =>
   name.trim() === "" ? DEFAULT_WRITE_NAME : name;
 
 const heldEntry = (target: WriteTarget): HeldEntry =>
-  target.type === "plain" ? { type: "plain", topic: target.topic, fields: [] } : target;
+  target.type === "plain"
+    ? { type: "plain", topic: target.topic, messages: [] }
+    : target;
 
 const useDiscoverModal = createDiscoverModal(DISCOVER_KIND);
 

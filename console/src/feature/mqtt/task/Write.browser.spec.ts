@@ -950,6 +950,44 @@ describe("MQTT Write form", () => {
       );
     });
 
+    it("should infer the format of a topic from the shape that the most messages had", async () => {
+      const topic = {
+        topic: "plant/pump/set",
+        payload: '{"rpm": 5, "mode": "auto"}',
+        shapes: [
+          {
+            fields: [
+              { pointer: "/setpoint", type: "number", kind: "float", sample: "1" },
+            ],
+            present: "/setpoint",
+            count: 1,
+          },
+          {
+            fields: [
+              { pointer: "/rpm", type: "number", kind: "float", sample: "5" },
+              { pointer: "/mode", type: "string", kind: "string", sample: '"auto"' },
+            ],
+            present: "/rpm",
+            count: 3,
+          },
+        ],
+        retained: true,
+      };
+      const { dev, draft } = await renderWrite();
+      const scanner = await openScanner(client, dev.rack);
+      const dialog = await openAddTargets();
+      await scanner.answer({ data: { topics: [topic], truncated: false } });
+      scanner.close();
+      fireEvent.click(await dialog.findByRole("checkbox", { name: "Record setpoint" }));
+      fireEvent.click(dialog.getByRole("button", { name: "Add 1 target" }));
+      const target = await retrievePlainTarget(draft.key, topic.topic);
+      const [ic] = await client.icds.retrieve([target.icd]);
+      expect(ICD.jsonFields(ic.messages[0])).toMatchObject([
+        { name: "rpm", pointer: "/rpm", type: "float" },
+        { name: "mode", pointer: "/mode", type: "string" },
+      ]);
+    });
+
     it("should send the picked message format over the one it would infer", async () => {
       const setpoint = createField("setpoint", "float");
       const { ic, message } = await createFormat([setpoint]);
