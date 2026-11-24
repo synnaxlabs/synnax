@@ -25,8 +25,7 @@ import (
 	"github.com/synnaxlabs/x/query"
 )
 
-// overrides moves the state overrides of custom nodes to new records in one upgrade or
-// import.
+// overrides moves the state overrides of custom nodes to new records in one run.
 type overrides struct {
 	intern symbol.Intern
 	// redraw returns how states redraw the stored symbol with key, or false when the
