@@ -35,12 +35,7 @@ type ServiceConfig struct {
 	Certificate *certificate.Service
 }
 
-var (
-	_ config.Config[ServiceConfig] = ServiceConfig{}
-	// DefaultServiceConfig is the default configuration for the certificate API
-	// service.
-	DefaultServiceConfig = ServiceConfig{}
-)
+var _ config.Config[ServiceConfig] = ServiceConfig{}
 
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
@@ -62,7 +57,7 @@ type Service struct {
 
 // NewService opens a Service with the given configuration.
 func NewService(cfgs ...ServiceConfig) (*Service, error) {
-	cfg, err := config.New(DefaultServiceConfig, cfgs...)
+	cfg, err := config.New(ServiceConfig{}, cfgs...)
 	if err != nil {
 		return nil, err
 	}

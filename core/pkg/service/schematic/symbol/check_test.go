@@ -49,6 +49,13 @@ func next(keys ...string) symbol.Interaction {
 	}}
 }
 
+func fire(key string, part *string, command string) symbol.Interaction {
+	return symbol.Interaction{Variant: symbol.FireInteraction{
+		BaseInteraction: symbol.BaseInteraction{Key: key, Part: part},
+		Command:         command,
+	}}
+}
+
 // valveSpec returns a spec that keeps every rule of the symbol model.
 func valveSpec() symbol.Spec {
 	return symbol.Spec{
@@ -122,6 +129,23 @@ var _ = Describe("Checks", func() {
 
 	It("Should accept a symbol that keeps every rule", func(ctx SpecContext) {
 		Expect(create(ctx, valveSpec())).To(Succeed())
+	})
+
+	It("Should accept one click on the whole drawing and one on each part", func(
+		ctx SpecContext,
+	) {
+		data := valveSpec()
+		data.Parts = append(data.Parts, symbol.Part{
+			Key:       "lamp",
+			Name:      "Lamp",
+			Selectors: []string{"#lamp"},
+		})
+		data.Interactions = append(
+			data.Interactions,
+			fire("vent", nil, "on"),
+			fire("test", new("lamp"), "off"),
+		)
+		Expect(create(ctx, data)).To(Succeed())
 	})
 
 	It("Should keep a negative spin and flow rate", func(ctx SpecContext) {
@@ -237,17 +261,20 @@ var _ = Describe("Checks", func() {
 			s.Looks[1].Motion = motion(symbol.FlowMotion{Rate: math.Inf(-1)})
 		}, "data.looks.1.motion.rate: must be finite"),
 		Entry("an interaction on no part", func(s *symbol.Spec) {
-			s.Interactions[0] = symbol.Interaction{Variant: symbol.FireInteraction{
-				BaseInteraction: symbol.BaseInteraction{Key: "click", Part: new("lid")},
-				Command:         "on",
-			}}
+			s.Interactions[0] = fire("click", new("lid"), "on")
 		}, `data.interactions.0.part: "lid" names no part`),
 		Entry("a fire of no command", func(s *symbol.Spec) {
-			s.Interactions[0] = symbol.Interaction{Variant: symbol.FireInteraction{
-				BaseInteraction: symbol.BaseInteraction{Key: "click"},
-				Command:         "vent",
-			}}
+			s.Interactions[0] = fire("click", nil, "vent")
 		}, `data.interactions.0.command: "vent" names no command`),
+		Entry("a second interaction on one part", func(s *symbol.Spec) {
+			s.Interactions = append(s.Interactions, fire("vent", new("body"), "on"))
+		}, `data.interactions.1.part: another interaction is on part "body"`),
+		Entry("a second interaction on the whole drawing", func(s *symbol.Spec) {
+			s.Interactions = []symbol.Interaction{
+				fire("open", nil, "on"),
+				fire("close", nil, "off"),
+			}
+		}, "data.interactions.1.part: another interaction is on the whole drawing"),
 		Entry("a next with one command", func(s *symbol.Spec) {
 			s.Interactions[0] = next("on")
 		}, "data.interactions.0.commands: next needs two commands, got 1"),

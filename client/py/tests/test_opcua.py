@@ -7,8 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any
-from uuid import uuid4
+from typing import Any, ClassVar
+from uuid import UUID, uuid4
 
 import pytest
 from pydantic import ValidationError
@@ -462,3 +462,65 @@ class TestOPCWriteTask:
             assert retr_ch.node_id == orig_ch.node_id
             assert retr_ch.cmd_channel == orig_ch.cmd_channel
             assert retr_ch.disabled == orig_ch.disabled
+
+
+@pytest.mark.opcua
+class TestOPCServerResource:
+    """Tests for the typed OPC UA server resource."""
+
+    KEY = UUID("11111111-1111-4111-8111-111111111111")
+    SERVER: ClassVar[dict[str, Any]] = {
+        "rack": 1,
+        "name": "PLC",
+        "connection": {"endpoint": "opc.tcp://plc:4840"},
+    }
+    SIGNED: ClassVar[dict[str, Any]] = {"mode": "sign", "policy": "Basic256Sha256"}
+
+    def test_applies_the_defaults(self) -> None:
+        """Should parse a server and fill in its connection defaults."""
+        server = sy.opcua.server.Server.model_validate(self.SERVER)
+        assert isinstance(server.connection.auth, sy.opcua.server.AnonymousAuth)
+        assert isinstance(server.connection.security, sy.opcua.server.NoneSecurity)
+        assert server.connection.client_timeout == 5 * sy.TimeSpan.SECOND
+        assert server.reads == []
+        assert server.writes == []
+
+    def test_defaults_a_secured_connection_to_first_use(self) -> None:
+        """Should trust the first server certificate by default."""
+        server = sy.opcua.server.Server.model_validate(
+            {
+                **self.SERVER,
+                "connection": {**self.SERVER["connection"], "security": self.SIGNED},
+            }
+        )
+        security = server.connection.security
+        assert isinstance(security, sy.opcua.server.SignSecurity)
+        assert isinstance(security.server_trust, sy.opcua.server.FirstUseServerTrust)
+
+    @pytest.mark.parametrize(
+        "change",
+        [
+            {"security": {"mode": "sign", "policy": "None"}},
+            {"auth": {"type": "username", "username": ""}},
+            {"client_timeout": 99 * sy.TimeSpan.MILLISECOND},
+            {"session_timeout": 999 * sy.TimeSpan.MILLISECOND},
+        ],
+    )
+    def test_rejects_an_invalid_connection(self, change: dict[str, Any]) -> None:
+        """Should reject a bad policy, an empty user name, and short timeouts."""
+        with pytest.raises(ValidationError):
+            sy.opcua.server.Server.model_validate(
+                {**self.SERVER, "connection": {**self.SERVER["connection"], **change}}
+            )
+
+    def test_rejects_a_read_without_an_index(self) -> None:
+        """Should require the index channel of a read."""
+        with pytest.raises(ValidationError):
+            sy.opcua.server.Server.model_validate(
+                {**self.SERVER, "reads": [{"node": "i=85", "channel": 2}]}
+            )
+
+    def test_resource_id(self) -> None:
+        """Should name the server by its key under the opcua_server type."""
+        assert sy.opcua.server.resource_id(self.KEY).type == "opcua_server"
+        assert sy.opcua.server.resource_id(self.KEY).key == str(self.KEY)
