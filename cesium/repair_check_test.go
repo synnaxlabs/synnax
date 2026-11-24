@@ -464,6 +464,10 @@ var _ = Describe("Check: repair of log damage", func() {
 		))
 		Expect(rep.Unplaced).To(BeEmpty())
 		Expect(rep.Tails).To(BeEmpty())
+		Expect(rep.Removed).To(ConsistOf(
+			cesium.Segment{Key: t.idx, Segment: t.cut[0]},
+			cesium.Segment{Key: t.data, Segment: t.cut[1]},
+		))
 	})
 
 	It("Should report a root whose later Replace removed the file of an open segment "+
@@ -564,6 +568,50 @@ var _ = Describe("Check: repair of log damage", func() {
 		Expect(slices.ContainsFunc(rep.Unplaced, names)).To(BeFalse())
 		Expect(slices.ContainsFunc(rep.Tails, names)).To(BeFalse())
 		Expect(rep.Unrecovered).To(BeEmpty())
+		Expect(rep.Removed).To(Equal([]cesium.Segment{{Key: idx, Segment: old}}))
+	})
+
+	It("Should time the first segment of a key that the second bad frame made by the "+
+		"stamps of that frame", func(ctx SpecContext) {
+		r := newRepairRoot(ctx)
+		idx, data := GenerateChannelKey(), GenerateChannelKey()
+		keys := []cesium.ChannelKey{idx, data}
+		r.create(ctx, idx, data)
+		w := MustSucceed(r.db.OpenWriter(
+			ctx,
+			cesium.WriterConfig{Channels: keys, Start: repairStamp(0)},
+		))
+		// The skip keeps data out of the frames up to the second bad one, which makes
+		// its first segment. Both bad frames hold as many samples of the clock.
+		skip := func(k cesium.ChannelKey) bool { return k == data }
+		var bad []int64
+		for c := range 5 {
+			s := skip
+			if c > 2 {
+				s = nil
+			}
+			put(ctx, w, keys, c*commits, commits, s)
+			if off := r.synced(ctx, w, c*commits); c%2 == 1 {
+				bad = append(bad, off)
+			}
+		}
+		Expect(w.Close()).To(Succeed())
+		id := r.spoil(bad[1])
+		flipLog(r.fs, bad[0]+log.FrameHeaderSize+16)
+		rep := repairOf(ctx, r.fs, id)
+		Expect(rep.Damage).To(HaveLen(2))
+		var listed int64
+		for _, rg := range append(slices.Clone(rep.Rebuilt), rep.Unplaced...) {
+			if rg.Key == data {
+				listed += rg.Samples
+			}
+		}
+		Expect(listed).To(Equal(int64(commits)), "%+v", rep)
+		for _, rg := range rep.Rebuilt {
+			if rg.Key == data {
+				Expect(rg.TimeRange.Start).To(Equal(repairStamp(3*commits)), "%+v", rep)
+			}
+		}
 	})
 
 	It("Should list the lost commits of both bad frames of a log",
