@@ -228,7 +228,12 @@ func (c *Credentials) DecodeOrc(r *orc.Reader) error {
 // EncodeOrc writes the value to w in the Orc binary format.
 func (rv Read) EncodeOrc(w *orc.Writer) error {
 	w.String(rv.Topic)
-	w.String(rv.RecordKey)
+	if rv.RecordKey != nil {
+		w.Bool(true)
+		w.String(*rv.RecordKey)
+	} else {
+		w.Bool(false)
+	}
 	w.Write(rv.Message[:])
 	w.String(rv.Pointer)
 	w.Uint32(uint32(rv.Index))
@@ -242,8 +247,18 @@ func (rv *Read) DecodeOrc(r *orc.Reader) error {
 	if rv.Topic, err = r.String(); err != nil {
 		return err
 	}
-	if rv.RecordKey, err = r.String(); err != nil {
-		return err
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv string
+			if hv, err = r.String(); err != nil {
+				return err
+			}
+			rv.RecordKey = &hv
+		}
 	}
 	if _, err := r.Read(rv.Message[:]); err != nil {
 		return err

@@ -96,11 +96,13 @@ Read struct {
         @go validate       pattern "^([a-zA-Z0-9_-][a-zA-Z0-9._-]{0,248}|[.][a-zA-Z0-9_-][a-zA-Z0-9._-]{0,247}|[.][.][a-zA-Z0-9._-]{1,247})$" "Topic must be 1 to 249 letters, digits, '.', '_', or '-', and not '.' or '..'"
         @validate required
     }
-    record_key string = "" {
-        @doc value """
-            is the Kafka key of the records read here. Empty reads every record of the
-            topic that no other read of the topic claims, keyless ones included.
+    record_key string?        {
+        @doc value           """
+            is the Kafka key of the records read here, never empty. Absent reads the
+            records with no key or an empty key, and every record of the topic that no
+            other read claims.
         """
+        @validate min_length 1
     }
     message    icd.MessageKey {
         @doc value         "is the ICD message that the values of the records hold."

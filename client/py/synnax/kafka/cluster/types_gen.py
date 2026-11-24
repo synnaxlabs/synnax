@@ -58,8 +58,9 @@ class Read(BaseModel):
 
     Attributes:
         topic: Is the topic to consume.
-        record_key: Is the Kafka key of the records read here. Empty reads every record
-            of the topic that no other read of the topic claims, keyless ones included.
+        record_key: Is the Kafka key of the records read here, never empty. Absent reads
+            the records with no key or an empty key, and every record of the topic that
+            no other read claims.
         message: Is the ICD message that the values of the records hold.
         pointer: Is the JSON Pointer to the value in the message.
         index: Is the index channel of the channel.
@@ -67,7 +68,7 @@ class Read(BaseModel):
     """
 
     topic: str = Field(min_length=1)
-    record_key: str = ""
+    record_key: str | None = Field(default=None, min_length=1)
     message: icd.MessageKey
     pointer: str = ""
     index: channel_.Key = Field(gt=0, le=4294967295)

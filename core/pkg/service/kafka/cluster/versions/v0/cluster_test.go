@@ -84,7 +84,7 @@ var _ = Describe("Cluster", func() {
 		}}
 		c.Auth = v0.Auth{Variant: v0.ScramSha512Auth{Credentials: credentials()}}
 		r := read()
-		r.RecordKey = "pump"
+		r.RecordKey = new("pump")
 		r.Pointer = "/temp"
 		c.Reads = []v0.Read{read(), r}
 		Expect(c.Validate()).To(Succeed())
@@ -154,6 +154,11 @@ var _ = Describe("Cluster", func() {
 			r.Topic = strings.Repeat("a", 250)
 			c.Reads = []v0.Read{r}
 		}, "topic"),
+		Entry("a read with an empty record key", func(c *v0.Cluster) {
+			r := read()
+			r.RecordKey = new("")
+			c.Reads = []v0.Read{r}
+		}, "record_key"),
 		Entry("a read with no message", func(c *v0.Cluster) {
 			r := read()
 			r.Message = uuid.Nil()
@@ -207,6 +212,11 @@ var _ = Describe("Cluster", func() {
 		Entry("a read topic that starts with a dot", func(c *v0.Cluster) {
 			r := read()
 			r.Topic = ".plant_temp-1"
+			c.Reads = []v0.Read{r}
+		}),
+		Entry("a read of one record key", func(c *v0.Cluster) {
+			r := read()
+			r.RecordKey = new("pump")
 			c.Reads = []v0.Read{r}
 		}),
 		Entry("a read of every unclaimed record", func(c *v0.Cluster) {

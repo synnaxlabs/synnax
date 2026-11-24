@@ -34,7 +34,8 @@ describe("clusterZ", () => {
       ...CLUSTER,
       reads: [{ topic: "plant", message: SECRET, index: 1, channel: 2 }],
     });
-    expect(cluster.reads[0]).toMatchObject({ recordKey: "", pointer: "" });
+    expect(cluster.reads[0].recordKey).toBeUndefined();
+    expect(cluster.reads[0].pointer).toEqual("");
   });
 
   it("should parse SCRAM credentials that name their password by secret", () => {
@@ -51,6 +52,16 @@ describe("clusterZ", () => {
     });
   });
 
+  it("should parse a read of one record key", () => {
+    const cluster = kafka.cluster.clusterZ.parse({
+      ...CLUSTER,
+      reads: [
+        { topic: "plant", recordKey: "pump", message: SECRET, index: 1, channel: 2 },
+      ],
+    });
+    expect(cluster.reads[0].recordKey).toEqual("pump");
+  });
+
   const INVALID: [string, Record<string, unknown>][] = [
     ["an empty name", { name: "" }],
     ["an empty host", { brokers: [{ host: "" }] }],
@@ -63,6 +74,12 @@ describe("clusterZ", () => {
     [
       "credentials with no user name",
       { auth: { mechanism: "plain", password: SECRET } },
+    ],
+    [
+      "a read with an empty record key",
+      {
+        reads: [{ topic: "a", recordKey: "", message: SECRET, index: 1, channel: 2 }],
+      },
     ],
     [
       "a read with no index",

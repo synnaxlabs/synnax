@@ -86,7 +86,7 @@ var _ = Describe("Codec", func() {
 				Reads: []v0.Read{
 					{
 						Topic:     "test_10",
-						RecordKey: "test_11",
+						RecordKey: new(string("test_11")),
 						Message:   uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780c"),
 						Pointer:   "test_13",
 						Index:     channel.Key(15),
@@ -142,7 +142,7 @@ var _ = Describe("Codec", func() {
 			},
 			Entry("fully populated", v0.Read{
 				Topic:     "test_1",
-				RecordKey: "test_2",
+				RecordKey: new(string("test_2")),
 				Message:   uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567803"),
 				Pointer:   "test_4",
 				Index:     channel.Key(6),
@@ -150,7 +150,7 @@ var _ = Describe("Codec", func() {
 			}),
 			Entry("zero values", v0.Read{
 				Topic:     "",
-				RecordKey: "",
+				RecordKey: nil,
 				Message:   uuid.Nil(),
 				Pointer:   "",
 				Index:     channel.Key(0),
@@ -222,7 +222,7 @@ func BenchmarkEncodeDecodeCluster(b *testing.B) {
 		Reads: []v0.Read{
 			{
 				Topic:     "test_10",
-				RecordKey: "test_11",
+				RecordKey: new(string("test_11")),
 				Message:   uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780c"),
 				Pointer:   "test_13",
 				Index:     channel.Key(15),
@@ -265,7 +265,7 @@ func BenchmarkEncodeDecodeCredentials(b *testing.B) {
 func BenchmarkEncodeDecodeRead(b *testing.B) {
 	seed := v0.Read{
 		Topic:     "test_1",
-		RecordKey: "test_2",
+		RecordKey: new(string("test_2")),
 		Message:   uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567803"),
 		Pointer:   "test_4",
 		Index:     channel.Key(6),
@@ -409,7 +409,7 @@ func FuzzDecodeCluster(f *testing.F) {
 			Reads: []v0.Read{
 				{
 					Topic:     "test_10",
-					RecordKey: "test_11",
+					RecordKey: new(string("test_11")),
 					Message:   uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780c"),
 					Pointer:   "test_13",
 					Index:     channel.Key(15),
@@ -520,7 +520,7 @@ func FuzzDecodeRead(f *testing.F) {
 	{
 		seed := v0.Read{
 			Topic:     "test_1",
-			RecordKey: "test_2",
+			RecordKey: new(string("test_2")),
 			Message:   uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567803"),
 			Pointer:   "test_4",
 			Index:     channel.Key(6),
@@ -535,7 +535,7 @@ func FuzzDecodeRead(f *testing.F) {
 	{
 		seed := v0.Read{
 			Topic:     "",
-			RecordKey: "",
+			RecordKey: nil,
 			Message:   uuid.Nil(),
 			Pointer:   "",
 			Index:     channel.Key(0),

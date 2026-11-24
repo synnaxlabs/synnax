@@ -405,9 +405,10 @@ func (u Auth) Validate() error {
 type Read struct {
 	// Topic is the topic to consume.
 	Topic string `json:"topic" msgpack:"topic"`
-	// RecordKey is the Kafka key of the records read here. Empty reads every record of
-	// the topic that no other read of the topic claims, keyless ones included.
-	RecordKey string `json:"record_key" msgpack:"record_key"`
+	// RecordKey is the Kafka key of the records read here, never empty. Absent reads
+	// the records with no key or an empty key, and every record of the topic that no
+	// other read claims.
+	RecordKey *string `json:"record_key,omitzero" msgpack:"record_key,omitempty"`
 	// Message is the ICD message that the values of the records hold.
 	Message icd.MessageKey `json:"message" msgpack:"message"`
 	// Pointer is the JSON Pointer to the value in the message.
@@ -424,6 +425,9 @@ func (r Read) Validate() error {
 	v := validate.New("Read")
 	v.NotEmptyString("topic", r.Topic)
 	v.Ternary("topic", !validatePattern1.MatchString(string(r.Topic)), "Topic must be 1 to 249 letters, digits, '.', '_', or '-', and not '.' or '..'")
+	if r.RecordKey != nil {
+		v.NotEmptyString("record_key", *r.RecordKey)
+	}
 	v.NonZero("message", r.Message)
 	v.Ternary("pointer", !validatePattern2.MatchString(string(r.Pointer)), "Pointer must be empty or a JSON Pointer that starts with / and escapes ~ as ~0 and / as ~1")
 	v.NonZero("index", r.Index)

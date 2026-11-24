@@ -85,10 +85,11 @@ Read struct {
     topic      string         {
         @doc value "is the topic to consume."
     }
-    record_key string = "" {
+    record_key string?        {
         @doc value """
-            is the Kafka key of the records read here. Empty reads every record of the
-            topic that no other read of the topic claims, keyless ones included.
+            is the Kafka key of the records read here, never empty. Absent reads the
+            records with no key or an empty key, and every record of the topic that no
+            other read claims.
         """
     }
     message    icd.MessageKey {

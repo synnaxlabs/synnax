@@ -286,7 +286,7 @@ class TestKafkaClusterResource:
         assert cluster.transport.ca_certificate is None
         assert isinstance(cluster.auth, sy.kafka.cluster.ScramSha512Auth)
         assert cluster.auth.password == password
-        assert cluster.reads[0].record_key == ""
+        assert cluster.reads[0].record_key is None
         assert cluster.reads[0].pointer == ""
 
     @pytest.mark.parametrize(
@@ -299,13 +299,43 @@ class TestKafkaClusterResource:
             {"auth": {"mechanism": "plain", "username": "a", "password": "plain"}},
             {"auth": {"mechanism": "scram_sha_256", "username": "a"}},
             {"reads": [{"topic": "plant", "index": 1, "channel": 2}]},
+            {
+                "reads": [
+                    {
+                        "topic": "plant",
+                        "record_key": "",
+                        "message": uuid4(),
+                        "index": 1,
+                        "channel": 2,
+                    }
+                ]
+            },
         ],
     )
     def test_rejects_an_invalid_cluster(self, change: dict[str, Any]) -> None:
         """Should reject an empty name or host, a zero port, an unknown transport, a
-        plaintext or absent password, and a read with no message."""
+        plaintext or absent password, a read with no message, and an empty record
+        key."""
         with pytest.raises(ValidationError):
             sy.kafka.cluster.Cluster.model_validate({**self.CLUSTER, **change})
+
+    def test_parses_a_record_key(self) -> None:
+        """Should keep the record key of a read that names one."""
+        cluster = sy.kafka.cluster.Cluster.model_validate(
+            {
+                **self.CLUSTER,
+                "reads": [
+                    {
+                        "topic": "plant",
+                        "record_key": "pump",
+                        "message": uuid4(),
+                        "index": 1,
+                        "channel": 2,
+                    }
+                ],
+            }
+        )
+        assert cluster.reads[0].record_key == "pump"
 
     def test_resource_id(self) -> None:
         """Should name the cluster by its key under the kafka_cluster type."""
