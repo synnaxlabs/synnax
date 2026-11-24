@@ -839,10 +839,21 @@ var _ = Describe("Writer Behavior", func() {
 									},
 								))
 
-								Expect(
-									fF.Get(data).Series[0].Alignment,
-								).To(BeNumerically(">", first),
-									"a co-write after a virgin index-less session must stream above it")
+								later := fF.Get(data).Series[0].Alignment
+								if pointerLog {
+									Expect(first.DomainIndex()).To(
+										BeNumerically(">=", telem.LeadingDomain),
+										"data with no stored stamp takes a number of data "+
+											"that is not stored",
+									)
+									Expect(later.DomainIndex()).To(
+										BeNumerically("<", telem.LeadingDomain),
+										"the co-write takes a stored number",
+									)
+								} else {
+									Expect(later).To(BeNumerically(">", first),
+										"a co-write after a virgin index-less session must stream above it")
+								}
 								Expect(wF.Close()).To(Succeed())
 							},
 						)

@@ -124,12 +124,12 @@ type placer struct {
 	placed  int64
 	started bool
 	// err is the error of the first sample that had no stored stamp. No later sample
-	// gets a stamp. unstamped counts the samples with no stamp, which stream with
-	// alignment number zero, which no stretch takes.
-	err       error
-	unstamped uint32
-	runs      []stampRun
-	pieces    []piece
+	// gets a stamp. The samples with no stamp stream with alignment number unstored,
+	// from the numbers of data that is not stored, and unstamped counts them.
+	err                 error
+	unstored, unstamped uint32
+	runs                []stampRun
+	pieces              []piece
 }
 
 // piece is the samples of a write that lie on one run of stored stamps.
@@ -248,38 +248,18 @@ func (e *engine) stampEnds(
 // write its clock, on the stored stamps of the clock, except the keys for which skip
 // returns true. Each piece of a series that lies on one run of stamps streams as its
 // own series with the alignment of its first stamp. The samples with no stored stamp
-// stream with alignment number zero, and are never stored.
+// stream with one alignment number of data that is not stored, and are never stored.
 func (w *logWriter) writeData(
 	fr Frame,
 	n uint32,
 	skip func(ChannelKey) bool,
 ) (Frame, bool, error) {
-	placedBefore := w.stamps.placed
 	pieces, err := w.stamps.place(n)
 	if err != nil {
 		return fr, false, err
 	}
-	keys := fr.RawKeys()
+	keys, whole := fr.RawKeys(), w.cut(fr, skip)
 	count := len(keys)
-	w.cuts = slices.Grow(w.cuts[:0], count)[:count]
-	for i, k := range keys {
-		w.cuts[i] = -1
-		lk, ok := w.byKey[k]
-		if !ok || fr.ShouldExcludeRaw(i) {
-			continue
-		}
-		if lk.skipped || (skip != nil && skip(k)) {
-			lk.skipped = true
-			w.excluded = append(w.excluded, k)
-			continue
-		}
-		w.cuts[i] = 0
-	}
-	whole := w.whole[:0]
-	for i := range count {
-		whole = append(whole, fr.RawSeriesAt(i))
-	}
-	w.whole = whole
 	split := func(j, i, to int, a telem.Alignment) {
 		s := whole[i]
 		s.Data, s.Alignment = s.Data[w.cuts[i]:to], a
@@ -290,8 +270,10 @@ func (w *logWriter) writeData(
 		}
 		w.cuts[i] = to
 	}
+	left := n
 	for j, p := range pieces {
 		w.extendRuns(p)
+		left -= p.samples
 		for i := range count {
 			if w.cuts[i] < 0 {
 				continue
@@ -307,9 +289,11 @@ func (w *logWriter) writeData(
 			split(j, i, to, p.alignment)
 		}
 	}
-	if w.stamps.err != nil {
-		a := telem.NewAlignment(0, w.stamps.unstamped)
-		w.stamps.unstamped += n - uint32(w.stamps.placed-placedBefore)
+	if left > 0 {
+		a, err := w.stamps.unstoredAt(left)
+		if err != nil {
+			return fr, false, err
+		}
 		for i := range count {
 			if w.cuts[i] >= 0 {
 				split(len(pieces), i, len(whole[i].Data), a)
@@ -317,6 +301,43 @@ func (w *logWriter) writeData(
 		}
 	}
 	return fr.ExcludeKeys(w.excluded), len(w.excluded) > 0, nil
+}
+
+// cut sets cuts to 0 for each series of fr that the writer writes, and to -1 for the
+// others and for the keys for which skip returns true, which it excludes. It returns
+// the series of fr.
+func (w *logWriter) cut(fr Frame, skip func(ChannelKey) bool) []telem.Series {
+	w.cuts, w.whole = w.cuts[:0], w.whole[:0]
+	for i, k := range fr.RawKeys() {
+		w.whole = append(w.whole, fr.RawSeriesAt(i))
+		lk, ok := w.byKey[k]
+		switch {
+		case !ok || fr.ShouldExcludeRaw(i):
+			w.cuts = append(w.cuts, -1)
+		case lk.skipped || (skip != nil && skip(k)):
+			lk.skipped = true
+			w.excluded = append(w.excluded, k)
+			w.cuts = append(w.cuts, -1)
+		default:
+			w.cuts = append(w.cuts, 0)
+		}
+	}
+	return w.whole
+}
+
+// unstoredAt returns the alignment of the next k samples with no stored stamp, in one
+// number of data that is not stored for the writer.
+func (p *placer) unstoredAt(k uint32) (telem.Alignment, error) {
+	if p.unstored == 0 {
+		a, err := p.e.unstored.Next()
+		if err != nil {
+			return 0, err
+		}
+		p.unstored = a.DomainIndex()
+	}
+	a := telem.NewAlignment(p.unstored, p.unstamped)
+	p.unstamped += k
+	return a, nil
 }
 
 // extendRuns adds the samples of p to the open run when their alignments touch, and

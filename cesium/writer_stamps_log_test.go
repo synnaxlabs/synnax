@@ -160,7 +160,9 @@ var _ = Describe("Data against stored stamps on the pointer log", func() {
 		writeClock(ctx, 10, 11)
 		w := openData(ctx, 10*telem.SecondTS+telem.SecondTS/2)
 		written, _ := MustSucceed2(w.Write(ctx, values(1), nil))
-		Expect(written.Get(data).Series[0].Alignment).To(BeZero())
+		unstored := written.Get(data).Series[0].Alignment
+		Expect(unstored.DomainIndex()).To(BeNumerically(">=", telem.LeadingDomain))
+		Expect(unstored.SampleIndex()).To(BeZero())
 		missing := SatisfyAll(
 			MatchError(index.ErrDiscontinuous),
 			MatchError(ContainSubstring("does not exist in the index")),
@@ -182,7 +184,8 @@ var _ = Describe("Data against stored stamps on the pointer log", func() {
 		Expect(streamed).To(HaveLen(2))
 		Expect(streamed[0]).To(telem.MatchSeriesDataV[int64](1, 2))
 		Expect(streamed[1]).To(telem.MatchSeriesDataV[int64](3))
-		Expect(streamed[1].Alignment).To(Equal(telem.NewAlignment(0, 0)))
+		Expect(streamed[1].Alignment.DomainIndex()).
+			To(BeNumerically(">=", telem.LeadingDomain))
 		writeClock(ctx, 12)
 		past := SatisfyAll(
 			MatchError(index.ErrDiscontinuous),

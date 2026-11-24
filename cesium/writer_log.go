@@ -264,14 +264,24 @@ func (w *logWriter) write(fr Frame, skip func(ChannelKey) bool) (Frame, bool, er
 		s.Alignment, s.TimeRange = alignment, tr
 		fr.SetRawSeriesAt(i, s)
 	}
+	w.extendRun(alignment, first, last, uint32(n))
+	return fr.ExcludeKeys(w.excluded), len(w.excluded) > 0, nil
+}
+
+// extendRun adds n samples from alignment, with stamps from first to last, to the open
+// run of the stretch of w.
+func (w *logWriter) extendRun(
+	alignment telem.Alignment,
+	first, last telem.TimeStamp,
+	n uint32,
+) {
 	if len(w.runs) == 0 {
 		w.runs = append(w.runs, run{alignment: alignment, first: first})
 	}
 	r := &w.runs[len(w.runs)-1]
-	r.last, r.samples = last, r.samples+uint32(n)
+	r.last, r.samples = last, r.samples+n
 	w.last = last
-	w.next += uint32(n)
-	return fr.ExcludeKeys(w.excluded), len(w.excluded) > 0, nil
+	w.next += n
 }
 
 // stretch makes room for n samples in the stretch of w. It starts a new stretch when w
