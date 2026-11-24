@@ -522,10 +522,10 @@ describe("reduce.Reducer", () => {
             alignment: 0n,
           }),
         );
-        const parts = new Reducer().reduce([u8, b], aggregation, 8);
+        const parts = new reduce.Reducer().reduce([u8, b], aggregation, 8);
         const runs = [
-          ...new Reducer().reduce([u8], aggregation, 8),
-          ...new Reducer().reduce([b], aggregation, 8),
+          ...new reduce.Reducer().reduce([u8], aggregation, 8),
+          ...new reduce.Reducer().reduce([b], aggregation, 8),
         ];
         expect(values(parts, "y")).toEqual(values(runs, "y"));
         expect(values(parts, "x")).toEqual(values(runs, "x"));
