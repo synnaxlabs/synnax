@@ -17,6 +17,7 @@
 #include <span>
 #include <string>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "client/cpp/channel/types.gen.h"
@@ -25,6 +26,7 @@
 #include "x/cpp/telem/frame.h"
 #include "x/cpp/telem/series.h"
 
+#include "driver/codec/json.h"
 #include "driver/codec/text.h"
 
 namespace driver::icd {
@@ -36,7 +38,7 @@ namespace driver::icd {
 /// good command. It is not safe for concurrent use.
 class Writer {
     std::string name;
-    codec::TextEncoder encoder;
+    std::variant<codec::TextEncoder, codec::JSONEncoder> encoder;
     /// @brief channels holds the command channel of each binding.
     std::vector<synnax::channel::Key> channels;
     /// @brief last holds the last good command of each binding, or no sample before its
@@ -48,11 +50,17 @@ class Writer {
     /// @brief payload is scratch space for the payload to send.
     std::vector<std::uint8_t> payload;
 
+    /// @brief Command is the sample at index of series.
+    struct Command {
+        const x::telem::Series *series;
+        std::size_t index;
+    };
+
     /// @brief returns true when each field with no default has a command.
     [[nodiscard]] bool ready() const;
     /// @brief returns command i of binding in the frame of the current write, or
     /// nothing when binding has fewer.
-    [[nodiscard]] std::optional<x::telem::SampleValue>
+    [[nodiscard]] std::optional<Command>
     command(std::size_t binding, std::size_t i) const;
 
 public:
@@ -73,10 +81,10 @@ public:
     /// sends its value as its field's default.
     /// @param channels the channels of the channel bindings of wm.
     /// @returns CONFIGURATION_ERROR when ic has no message that wm names, the message
-    /// is not text, wm binds no channels, channels has no channel that a binding names,
-    /// a value binding names no field, a field has two bindings, a value is not of its
-    /// field's kind or decodes outside the min and max of its field, or the encoder
-    /// refuses the message.
+    /// is neither text nor JSON, wm binds no channels, channels has no channel that a
+    /// binding names, a value binding names no field, a field has two bindings, a value
+    /// is not of its field's kind, a value of a text field decodes outside the min and
+    /// max of its field, or the encoder refuses the message.
     static std::pair<Writer, x::errors::Error> create(
         const synnax::icd::WriteMessage &wm,
         const synnax::icd::ICD &ic,
@@ -85,10 +93,10 @@ public:
 
     /// @brief encodes a payload for each row of commands in fr, and passes it to send.
     /// The commands of a channel are the samples of its series in fr, in frame order,
-    /// and row i holds command i of each bound channel that has one. A command outside
-    /// the min and max of its field, or one that its field cannot hold, is dropped. A
-    /// row with no good command sends nothing. After an error, the write sends nothing
-    /// more, but each field still keeps its last good command in fr.
+    /// and row i holds command i of each bound channel that has one. A command that its
+    /// field cannot hold, or a command of a text field outside its min and max, is
+    /// dropped. A row with no good command sends nothing. After an error, the write
+    /// sends nothing more, but each field still keeps its last good command in fr.
     [[nodiscard]] Result write(const x::telem::Frame &fr, const Send &send);
 };
 }

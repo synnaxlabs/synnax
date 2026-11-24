@@ -174,6 +174,7 @@ class TextEncoder {
         int field = -1;
     };
 
+    std::string name;
     std::string delimiter;
     std::vector<Field> fields;
     std::vector<Item> items;
@@ -211,11 +212,12 @@ public:
         std::vector<std::uint8_t> &payload
     );
 
-    /// @brief returns the error that encode returns when binding holds v, or VALIDATION
-    /// when v is outside the min and max of the field of binding. A float32 sample that
-    /// equals a limit at float32 precision is at that limit.
+    /// @brief returns the error that encode returns when binding holds sample i of s,
+    /// or VALIDATION when the sample is outside the min and max of the field of
+    /// binding. A float32 sample that equals a limit at float32 precision is at that
+    /// limit.
     [[nodiscard]] x::errors::Error
-    check(std::size_t binding, const x::telem::SampleValue &v);
+    check(std::size_t binding, const x::telem::Series &s, std::size_t i);
 
     /// @brief returns true when the field of binding has a default, which encode writes
     /// for an empty series.
