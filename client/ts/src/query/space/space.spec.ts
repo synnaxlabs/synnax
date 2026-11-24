@@ -1201,6 +1201,102 @@ describe("Answers", () => {
       await expect(answers.retrieve(qA)).rejects.toThrow(NotFoundError);
     });
 
+    it("deletes a keyed one-record answer when a refetch finds nothing", async () => {
+      const table = newTable();
+      const foreign = newTable();
+      let found = true;
+      const fetch = vi.fn(async () => {
+        if (!found) throw new NotFoundError("thing not found");
+        table.ingest("a", rec("a", 6));
+        return ["a"];
+      });
+      const answers = new space.Space<Q, number, string, Rec>({
+        name: "thing",
+        table,
+        fetch,
+        compose: (records) => records[0].value,
+        keyOf: (q) => q.k,
+        single: true,
+        triggers: [query.trigger(foreign, () => "refetch")],
+      });
+      const handler = vi.fn();
+      answers.onChange(qA, handler);
+      await answers.retrieve(qA);
+      found = false;
+      foreign.set("f", rec("f", 1));
+      await expect.poll(() => table.status("a")).toEqual("tombstoned");
+      expect(expectDeleted(answers.getCached(qA)).corpse).toEqual(6);
+      expect(expectDeleted(handler.mock.lastCall?.[0]).corpse).toEqual(6);
+    });
+
+    it("keeps a deleted one-record answer when a refetch finds nothing", async () => {
+      const table = newTable();
+      const foreign = newTable();
+      let found = true;
+      const fetch = vi.fn(async () => {
+        if (!found) throw new NotFoundError("thing not found");
+        table.set("a", rec("a", 6));
+        return ["a"];
+      });
+      const answers = new space.Space<Q, number, string, Rec>({
+        name: "thing",
+        table,
+        fetch,
+        compose: (records) => records[0].value,
+        matches: (r) => r.value < 100,
+        single: true,
+        triggers: [query.trigger(foreign, () => "refetch")],
+      });
+      const handler = vi.fn();
+      answers.onChange(qA, handler);
+      await answers.retrieve(qA);
+      table.delete("a");
+      expect(expectDeleted(handler.mock.lastCall?.[0]).corpse).toEqual(6);
+      const notified = handler.mock.calls.length;
+      found = false;
+      foreign.set("f", rec("f", 1));
+      await expect.poll(() => fetch.mock.calls.length).toBe(2);
+      await expect(fetch.mock.results[1].value).rejects.toThrow(NotFoundError);
+      await sleep.sleep(TimeSpan.milliseconds(10));
+      expect(handler).toHaveBeenCalledTimes(notified);
+      expect(expectDeleted(answers.getCached(qA)).corpse).toEqual(6);
+    });
+
+    it("refetches when a change races a refetch that finds nothing", async () => {
+      const table = newTable();
+      const foreign = newTable();
+      const { promise: gate, resolve } = Promise.withResolvers<void>();
+      const fetch = vi.fn(async () => {
+        table.ingest("a", rec("a", 7));
+        return ["a"];
+      });
+      fetch.mockImplementationOnce(async () => {
+        table.ingest("a", rec("a", 6));
+        return ["a"];
+      });
+      fetch.mockImplementationOnce(async () => {
+        await gate;
+        throw new NotFoundError("thing not found");
+      });
+      const answers = new space.Space<Q, number, string, Rec>({
+        name: "thing",
+        table,
+        fetch,
+        compose: (records) => records[0].value,
+        matches: (r) => r.value < 100,
+        single: true,
+        triggers: [query.trigger(foreign, () => "refetch")],
+      });
+      answers.onChange(qA, vi.fn());
+      await answers.retrieve(qA);
+      foreign.set("f", rec("f", 1));
+      await expect.poll(() => fetch.mock.calls.length).toBe(2);
+      table.set("a", rec("a", 7));
+      resolve();
+      await expect.poll(() => fetch.mock.calls.length).toBe(3);
+      await expect.poll(() => answers.getCached(qA)).toEqual(7);
+    });
+
     it("revives a deleted answer when a new record matches", async () => {
       const table = newTable();
       const fetch = vi.fn(async () => {
