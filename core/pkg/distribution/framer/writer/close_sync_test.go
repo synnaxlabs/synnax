@@ -94,9 +94,10 @@ var _ = DescribeTableSubtree("Close sync", func(pointerLog bool) {
 	}
 	stored := func(ctx SpecContext) []int64 {
 		GinkgoHelper()
-		var out []int64
-		fr := MustSucceed(db.Read(ctx, telem.TimeRangeMax, uint32(data)))
-		for _, s := range fr.Get(uint32(data)).Series {
+		series := MustSucceed(db.Read(ctx, telem.TimeRangeMax, uint32(data))).
+			Get(uint32(data))
+		out := make([]int64, 0, series.Len())
+		for _, s := range series.Series {
 			out = append(out, s.Unmarshal[int64]()...)
 		}
 		return out

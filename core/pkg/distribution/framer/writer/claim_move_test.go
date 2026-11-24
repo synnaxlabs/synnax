@@ -91,16 +91,18 @@ var _ = DescribeTableSubtree("Claim move", func(pointerLog bool) {
 	}
 	values := func(ctx SpecContext, tr telem.TimeRange) []int64 {
 		GinkgoHelper()
-		var out []int64
-		for _, s := range read(ctx, data, tr).Series {
+		series := read(ctx, data, tr)
+		out := make([]int64, 0, series.Len())
+		for _, s := range series.Series {
 			out = append(out, s.Unmarshal[int64]()...)
 		}
 		return out
 	}
 	stamps := func(ctx SpecContext) []telem.TimeStamp {
 		GinkgoHelper()
-		var out []telem.TimeStamp
-		for _, s := range read(ctx, idx, telem.TimeRangeMax).Series {
+		series := read(ctx, idx, telem.TimeRangeMax)
+		out := make([]telem.TimeStamp, 0, series.Len())
+		for _, s := range series.Series {
 			out = append(out, s.Unmarshal[telem.TimeStamp]()...)
 		}
 		return out
