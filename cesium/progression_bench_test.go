@@ -89,6 +89,7 @@ func writeFrames(
 	write := func(stamps []telem.TimeStamp) {
 		w, err := db.OpenWriter(b.Context(), cesium.WriterConfig{
 			Channels: keys,
+			Clock:    keys[0],
 			Start:    stamps[0],
 		})
 		if err != nil {

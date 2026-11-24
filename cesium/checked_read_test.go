@@ -53,6 +53,7 @@ var _ = Describe("Checked reads on the pointer log", func() {
 			)).To(Succeed())
 			w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 				Channels: keys,
+				Clock:    idx,
 				Start:    10 * telem.SecondTS,
 			}))
 			MustSucceed2(w.Write(ctx, telem.MultiFrame(keys, []telem.Series{

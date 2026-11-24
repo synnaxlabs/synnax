@@ -101,7 +101,7 @@ var _ = Describe("Progressions on the pointer log", func() {
 		keys := []cesium.ChannelKey{idx, data}
 		w := MustSucceed(db.OpenWriter(
 			ctx,
-			cesium.WriterConfig{Channels: keys, Start: stamps[0]},
+			cesium.WriterConfig{Channels: keys, Clock: idx, Start: stamps[0]},
 		))
 		for i := 0; i < len(stamps); i += per {
 			s := stamps[i:min(i+per, len(stamps))]
@@ -118,7 +118,10 @@ var _ = Describe("Progressions on the pointer log", func() {
 		Expect(w.Close()).To(Succeed())
 		last := stamps[len(stamps)-1] + telem.HourTS
 		w = MustSucceed(
-			db.OpenWriter(ctx, cesium.WriterConfig{Channels: keys, Start: last}),
+			db.OpenWriter(
+				ctx,
+				cesium.WriterConfig{Channels: keys, Clock: idx, Start: last},
+			),
 		)
 		MustSucceed2(w.Write(ctx, telem.MultiFrame(
 			keys,
