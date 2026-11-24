@@ -897,7 +897,7 @@ var _ = Describe("Channel", func() {
 				Expect(emitted).To(BeTrue())
 				Expect(errs).To(BeEmpty())
 				Expect(*progState.Node("source").Output(0)).
-					To(telem.MatchSeries(telem.NewSeriesV[float32](-1, 300)))
+					To(MatchSeries(telem.NewSeriesV[float32](-1, 300)))
 			})
 
 			// D-116: a sample out of the output's range, or a NaN to an integer, fails
@@ -975,7 +975,7 @@ var _ = Describe("Channel", func() {
 					Expect(emitted).To(BeTrue())
 					Expect(errs).To(BeEmpty())
 					Expect(*progState.Node("source").Output(0)).
-						To(telem.MatchSeries(telem.NewSeriesV[int32](2, -2)))
+						To(MatchSeries(telem.NewSeriesV[int32](2, -2)))
 				},
 			)
 
@@ -993,7 +993,7 @@ var _ = Describe("Channel", func() {
 				channelState.Ingest(fr)
 				emitted, _ := next(ctx, source)
 				Expect(emitted).To(BeTrue())
-				Expect(*progState.Node("source").Output(0)).To(telem.MatchSeries(json))
+				Expect(*progState.Node("source").Output(0)).To(MatchSeries(json))
 			})
 
 			It("Should report text against a number output and keep running", func(
@@ -1019,7 +1019,7 @@ var _ = Describe("Channel", func() {
 				Expect(emitted).To(BeTrue())
 				Expect(errs).To(BeEmpty())
 				Expect(*progState.Node("source").Output(0)).
-					To(telem.MatchSeries(aligned(telem.NewSeriesV[float32](2), 1)))
+					To(MatchSeries(aligned(telem.NewSeriesV[float32](2), 1)))
 			})
 		})
 

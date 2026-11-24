@@ -771,14 +771,14 @@ var _ = Describe("Calculator", Ordered, func() {
 				frame.Frame{},
 			))
 			Expect(changed).To(BeTrue())
-			Expect(of.Get(out).Series[0]).To(telem.MatchSeriesDataV[float32](3))
+			Expect(of.Get(out).Series[0]).To(MatchSeriesDataV[float32](3))
 			of, changed = MustSucceed2(c.Next(
 				ctx,
 				frame.NewUnary(in.Key(), at(telem.NewSeriesV[int16](4), 1)),
 				frame.Frame{},
 			))
 			Expect(changed).To(BeTrue())
-			Expect(of.Get(out).Series[0]).To(telem.MatchSeriesDataV[float32](8))
+			Expect(of.Get(out).Series[0]).To(MatchSeriesDataV[float32](8))
 		})
 
 		It("Should fail a step whose number input holds text, then keep calculating",
@@ -799,7 +799,7 @@ var _ = Describe("Calculator", Ordered, func() {
 					frame.Frame{},
 				))
 				Expect(changed).To(BeTrue())
-				Expect(of.Get(out).Series[0]).To(telem.MatchSeriesDataV[float32](4))
+				Expect(of.Get(out).Series[0]).To(MatchSeriesDataV[float32](4))
 			},
 		)
 	})

@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -29,7 +30,7 @@ var _ = Describe("Convert", func() {
 
 	DescribeTable("Should convert the samples of a series to a data type",
 		func(s telem.Series, dt telem.DataType, expected telem.Series) {
-			Expect(MustSucceed(telem.Convert(s, dt))).To(telem.MatchSeries(expected))
+			Expect(MustSucceed(telem.Convert(s, dt))).To(MatchSeries(expected))
 		},
 		Entry("int16 to float64",
 			telem.NewSeriesV[int16](-1, 300),
@@ -76,7 +77,7 @@ var _ = Describe("Convert", func() {
 		expected.Alignment, expected.AlignmentMultiple, expected.Clock = 10, 2, 7
 		expected.TimeRange = s.TimeRange
 		Expect(MustSucceed(telem.Convert(s, telem.Float32T))).
-			To(telem.MatchSeries(expected))
+			To(MatchSeries(expected))
 	})
 
 	It("Should return a series of the data type unchanged", func() {
@@ -108,7 +109,7 @@ var _ = Describe("Convert", func() {
 
 	DescribeTable("Should hold both ends of each integer range",
 		func(s telem.Series, dt telem.DataType, expected telem.Series) {
-			Expect(MustSucceed(telem.Convert(s, dt))).To(telem.MatchSeries(expected))
+			Expect(MustSucceed(telem.Convert(s, dt))).To(MatchSeries(expected))
 		},
 		Entry("uint8", telem.NewSeriesV[int16](0, 255), telem.Uint8T,
 			telem.NewSeriesV[uint8](0, 255)),
