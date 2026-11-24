@@ -98,12 +98,12 @@ export const requestPolicyZ = z.object({
 });
 export interface RequestPolicy extends z.infer<typeof requestPolicyZ> {}
 
-/** BaseRegister carries the address that every register has. */
-export const baseRegisterZ = z.object({
-  /** address is the address of the first register or bit. */
+/** BaseLocation carries the address that every location has. */
+export const baseLocationZ = z.object({
+  /** address is the address of the coil, discrete input, or first register. */
   address: zod.uint16.default(0),
 });
-export interface BaseRegister extends z.infer<typeof baseRegisterZ> {}
+export interface BaseLocation extends z.infer<typeof baseLocationZ> {}
 
 /** Stats holds the request counters of a server. */
 export const statsZ = z.object({
@@ -234,67 +234,67 @@ export const statusDetailsZ = z.object({
 });
 export interface StatusDetails extends z.infer<typeof statusDetailsZ> {}
 
-/** CoilRegister is a coil, which tasks can read and write. */
-export const coilRegisterZ = baseRegisterZ.extend({
-  type: z.literal("coil"),
+/** CoilLocation is a coil, which tasks can read and write. */
+export const coilLocationZ = baseLocationZ.extend({
+  table: z.literal("coil"),
 });
-export interface CoilRegister extends z.infer<typeof coilRegisterZ> {}
+export interface CoilLocation extends z.infer<typeof coilLocationZ> {}
 
-/** DiscreteInputRegister is a discrete input, which tasks can only read. */
-export const discreteInputRegisterZ = baseRegisterZ.extend({
-  type: z.literal("discrete_input"),
+/** DiscreteInputLocation is a discrete input, which tasks can only read. */
+export const discreteInputLocationZ = baseLocationZ.extend({
+  table: z.literal("discrete_input"),
 });
-export interface DiscreteInputRegister extends z.infer<typeof discreteInputRegisterZ> {}
+export interface DiscreteInputLocation extends z.infer<typeof discreteInputLocationZ> {}
 
 /**
- * HoldingRegisterRegister is a holding register value, which tasks can read and write.
+ * HoldingRegisterLocation is a holding register value, which tasks can read and write.
  */
-export const holdingRegisterRegisterZ = baseRegisterZ.extend({
-  type: z.literal("holding_register"),
+export const holdingRegisterLocationZ = baseLocationZ.extend({
+  table: z.literal("holding_register"),
   /** value is how the registers hold the value. */
   value: valueZ,
 });
-export interface HoldingRegisterRegister extends z.infer<
-  typeof holdingRegisterRegisterZ
+export interface HoldingRegisterLocation extends z.infer<
+  typeof holdingRegisterLocationZ
 > {}
 
-/** InputRegisterRegister is an input register value, which tasks can only read. */
-export const inputRegisterRegisterZ = baseRegisterZ.extend({
-  type: z.literal("input_register"),
+/** InputRegisterLocation is an input register value, which tasks can only read. */
+export const inputRegisterLocationZ = baseLocationZ.extend({
+  table: z.literal("input_register"),
   /** value is how the registers hold the value. */
   value: valueZ,
 });
-export interface InputRegisterRegister extends z.infer<typeof inputRegisterRegisterZ> {}
+export interface InputRegisterLocation extends z.infer<typeof inputRegisterLocationZ> {}
 
-export const REGISTER_TYPES = [
+export const LOCATION_TYPES = [
   "coil",
   "discrete_input",
   "holding_register",
   "input_register",
 ] as const;
-export const registerTypeZ = z.enum(REGISTER_TYPES);
-export type RegisterType = z.infer<typeof registerTypeZ>;
+export const locationTypeZ = z.enum(LOCATION_TYPES);
+export type LocationType = z.infer<typeof locationTypeZ>;
 
-/** Register identifies a value at one Modbus address. */
-export const registerZ = z.discriminatedUnion("type", [
-  coilRegisterZ,
-  discreteInputRegisterZ,
-  holdingRegisterRegisterZ,
-  inputRegisterRegisterZ,
+/** Location identifies a value by its Modbus table and address. */
+export const locationZ = z.discriminatedUnion("table", [
+  coilLocationZ,
+  discreteInputLocationZ,
+  holdingRegisterLocationZ,
+  inputRegisterLocationZ,
 ]);
-export type Register =
-  | CoilRegister
-  | DiscreteInputRegister
-  | HoldingRegisterRegister
-  | InputRegisterRegister;
+export type Location =
+  | CoilLocation
+  | DiscreteInputLocation
+  | HoldingRegisterLocation
+  | InputRegisterLocation;
 
-export const REGISTER_SCHEMAS: {
-  [K in RegisterType]: z.ZodType<Extract<Register, { type: K }>>;
+export const LOCATION_SCHEMAS: {
+  [K in LocationType]: z.ZodType<Extract<Location, { table: K }>>;
 } = {
-  coil: coilRegisterZ,
-  discrete_input: discreteInputRegisterZ,
-  holding_register: holdingRegisterRegisterZ,
-  input_register: inputRegisterRegisterZ,
+  coil: coilLocationZ,
+  discrete_input: discreteInputLocationZ,
+  holding_register: holdingRegisterLocationZ,
+  input_register: inputRegisterLocationZ,
 };
 
 export const statusZ = status.statusZ({ details: statusDetailsZ });
@@ -302,8 +302,8 @@ export type Status = z.infer<typeof statusZ>;
 
 /** Read binds a value that read tasks read to its channel. */
 export const readZ = z.object({
-  /** register is the value that the channel holds. */
-  register: registerZ,
+  /** location is the value that the channel holds. */
+  location: locationZ,
   /** index is the index channel of the channel. */
   index: channel.keyZ.refine((v) => v !== 0, "index is required"),
   /** channel is the channel that holds the samples of the value. */
@@ -313,8 +313,8 @@ export interface Read extends z.infer<typeof readZ> {}
 
 /** Write binds a value that write tasks write to its command channel. */
 export const writeZ = z.object({
-  /** register is the value that the channel commands. */
-  register: registerZ,
+  /** location is the value that the channel commands. */
+  location: locationZ,
   /** channel is the channel whose commands write tasks send to the value. */
   channel: channel.keyZ.refine((v) => v !== 0, "channel is required"),
 });

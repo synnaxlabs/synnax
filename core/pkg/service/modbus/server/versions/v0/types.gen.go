@@ -673,117 +673,117 @@ func (u Value) Validate() error {
 	return v.Error()
 }
 
-// BaseRegister carries the address that every register has.
-type BaseRegister struct {
-	// Address is the address of the first register or bit.
+// BaseLocation carries the address that every location has.
+type BaseLocation struct {
+	// Address is the address of the coil, discrete input, or first register.
 	Address uint16 `json:"address" msgpack:"address"`
 }
 
-// RegisterType is the "type" value that selects a variant of Register.
-type RegisterType string
+// LocationType is the "table" value that selects a variant of Location.
+type LocationType string
 
 const (
-	// CoilRegisterType is a coil, which tasks can read and write.
-	CoilRegisterType RegisterType = "coil"
-	// DiscreteInputRegisterType is a discrete input, which tasks can only read.
-	DiscreteInputRegisterType RegisterType = "discrete_input"
-	// HoldingRegisterRegisterType is a holding register value, which tasks can read and
+	// CoilLocationType is a coil, which tasks can read and write.
+	CoilLocationType LocationType = "coil"
+	// DiscreteInputLocationType is a discrete input, which tasks can only read.
+	DiscreteInputLocationType LocationType = "discrete_input"
+	// HoldingRegisterLocationType is a holding register value, which tasks can read and
 	// write.
-	HoldingRegisterRegisterType RegisterType = "holding_register"
-	// InputRegisterRegisterType is an input register value, which tasks can only read.
-	InputRegisterRegisterType RegisterType = "input_register"
+	HoldingRegisterLocationType LocationType = "holding_register"
+	// InputRegisterLocationType is an input register value, which tasks can only read.
+	InputRegisterLocationType LocationType = "input_register"
 )
 
-// RegisterVariant is implemented by every Register variant.
-type RegisterVariant interface {
-	isRegisterVariant()
+// LocationVariant is implemented by every Location variant.
+type LocationVariant interface {
+	isLocationVariant()
 }
 
-// CoilRegister is a coil, which tasks can read and write.
-type CoilRegister struct {
-	BaseRegister
+// CoilLocation is a coil, which tasks can read and write.
+type CoilLocation struct {
+	BaseLocation
 }
 
-func (CoilRegister) isRegisterVariant() {}
+func (CoilLocation) isLocationVariant() {}
 
-// DiscreteInputRegister is a discrete input, which tasks can only read.
-type DiscreteInputRegister struct {
-	BaseRegister
+// DiscreteInputLocation is a discrete input, which tasks can only read.
+type DiscreteInputLocation struct {
+	BaseLocation
 }
 
-func (DiscreteInputRegister) isRegisterVariant() {}
+func (DiscreteInputLocation) isLocationVariant() {}
 
-// HoldingRegisterRegister is a holding register value, which tasks can read and write.
-type HoldingRegisterRegister struct {
-	BaseRegister
+// HoldingRegisterLocation is a holding register value, which tasks can read and write.
+type HoldingRegisterLocation struct {
+	BaseLocation
 	// Value is how the registers hold the value.
 	Value Value `json:"value" msgpack:"value"`
 }
 
-func (HoldingRegisterRegister) isRegisterVariant() {}
+func (HoldingRegisterLocation) isLocationVariant() {}
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
-func (h HoldingRegisterRegister) Validate() error {
-	v := validate.New("HoldingRegisterRegister")
+func (h HoldingRegisterLocation) Validate() error {
+	v := validate.New("HoldingRegisterLocation")
 	v.Exec(func() error { return validate.PathedError(h.Value.Validate(), "value") })
 	return v.Error()
 }
 
-// InputRegisterRegister is an input register value, which tasks can only read.
-type InputRegisterRegister struct {
-	BaseRegister
+// InputRegisterLocation is an input register value, which tasks can only read.
+type InputRegisterLocation struct {
+	BaseLocation
 	// Value is how the registers hold the value.
 	Value Value `json:"value" msgpack:"value"`
 }
 
-func (InputRegisterRegister) isRegisterVariant() {}
+func (InputRegisterLocation) isLocationVariant() {}
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
-func (i InputRegisterRegister) Validate() error {
-	v := validate.New("InputRegisterRegister")
+func (i InputRegisterLocation) Validate() error {
+	v := validate.New("InputRegisterLocation")
 	v.Exec(func() error { return validate.PathedError(i.Value.Validate(), "value") })
 	return v.Error()
 }
 
-// Register identifies a value at one Modbus address.
-type Register struct {
-	Variant RegisterVariant
+// Location identifies a value by its Modbus table and address.
+type Location struct {
+	Variant LocationVariant
 }
 
-// MarshalJSONTo encodes the active variant with its "type" tag injected.
-func (u Register) MarshalJSONTo(enc *jsontext.Encoder) error {
+// MarshalJSONTo encodes the active variant with its "table" tag injected.
+func (u Location) MarshalJSONTo(enc *jsontext.Encoder) error {
 	switch v := u.Variant.(type) {
 	case nil:
 		return enc.WriteToken(jsontext.Null)
-	case CoilRegister:
+	case CoilLocation:
 		return json.MarshalEncode(enc, struct {
-			Type RegisterType `json:"type"`
-			CoilRegister
-		}{Type: CoilRegisterType, CoilRegister: v})
-	case DiscreteInputRegister:
+			Type LocationType `json:"table"`
+			CoilLocation
+		}{Type: CoilLocationType, CoilLocation: v})
+	case DiscreteInputLocation:
 		return json.MarshalEncode(enc, struct {
-			Type RegisterType `json:"type"`
-			DiscreteInputRegister
-		}{Type: DiscreteInputRegisterType, DiscreteInputRegister: v})
-	case HoldingRegisterRegister:
+			Type LocationType `json:"table"`
+			DiscreteInputLocation
+		}{Type: DiscreteInputLocationType, DiscreteInputLocation: v})
+	case HoldingRegisterLocation:
 		return json.MarshalEncode(enc, struct {
-			Type RegisterType `json:"type"`
-			HoldingRegisterRegister
-		}{Type: HoldingRegisterRegisterType, HoldingRegisterRegister: v})
-	case InputRegisterRegister:
+			Type LocationType `json:"table"`
+			HoldingRegisterLocation
+		}{Type: HoldingRegisterLocationType, HoldingRegisterLocation: v})
+	case InputRegisterLocation:
 		return json.MarshalEncode(enc, struct {
-			Type RegisterType `json:"type"`
-			InputRegisterRegister
-		}{Type: InputRegisterRegisterType, InputRegisterRegister: v})
+			Type LocationType `json:"table"`
+			InputRegisterLocation
+		}{Type: InputRegisterLocationType, InputRegisterLocation: v})
 	default:
-		return errors.Newf("Register: unknown variant %T", v)
+		return errors.Newf("Location: unknown variant %T", v)
 	}
 }
 
-// UnmarshalJSONFrom decodes the variant selected by the "type" field.
-func (u *Register) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+// UnmarshalJSONFrom decodes the variant selected by the "table" field.
+func (u *Location) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	data, err := dec.ReadValue()
 	if err != nil {
 		return err
@@ -794,7 +794,7 @@ func (u *Register) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	}
 	opts := dec.Options()
 	var disc struct {
-		Type RegisterType `json:"type"`
+		Type LocationType `json:"table"`
 	}
 	if err := json.Unmarshal(
 		data, &disc, opts, json.RejectUnknownMembers(false),
@@ -802,120 +802,120 @@ func (u *Register) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		return err
 	}
 	switch disc.Type {
-	case CoilRegisterType:
+	case CoilLocationType:
 		var v struct {
-			Type RegisterType `json:"type"`
-			CoilRegister
+			Type LocationType `json:"table"`
+			CoilLocation
 		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v.CoilRegister
-	case DiscreteInputRegisterType:
+		u.Variant = v.CoilLocation
+	case DiscreteInputLocationType:
 		var v struct {
-			Type RegisterType `json:"type"`
-			DiscreteInputRegister
+			Type LocationType `json:"table"`
+			DiscreteInputLocation
 		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v.DiscreteInputRegister
-	case HoldingRegisterRegisterType:
+		u.Variant = v.DiscreteInputLocation
+	case HoldingRegisterLocationType:
 		var v struct {
-			Type RegisterType `json:"type"`
-			HoldingRegisterRegister
+			Type LocationType `json:"table"`
+			HoldingRegisterLocation
 		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v.HoldingRegisterRegister
-	case InputRegisterRegisterType:
+		u.Variant = v.HoldingRegisterLocation
+	case InputRegisterLocationType:
 		var v struct {
-			Type RegisterType `json:"type"`
-			InputRegisterRegister
+			Type LocationType `json:"table"`
+			InputRegisterLocation
 		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v.InputRegisterRegister
+		u.Variant = v.InputRegisterLocation
 	default:
 		return errors.Wrapf(
 			validate.ErrValidation,
-			"Register: unknown type %q",
+			"Location: unknown table %q",
 			disc.Type,
 		)
 	}
 	return nil
 }
 
-// Type returns the type of the active variant, or an empty type when there is none.
-func (u Register) Type() RegisterType {
+// Table returns the table of the active variant, or an empty table when there is none.
+func (u Location) Table() LocationType {
 	switch u.Variant.(type) {
-	case CoilRegister:
-		return CoilRegisterType
-	case DiscreteInputRegister:
-		return DiscreteInputRegisterType
-	case HoldingRegisterRegister:
-		return HoldingRegisterRegisterType
-	case InputRegisterRegister:
-		return InputRegisterRegisterType
+	case CoilLocation:
+		return CoilLocationType
+	case DiscreteInputLocation:
+		return DiscreteInputLocationType
+	case HoldingRegisterLocation:
+		return HoldingRegisterLocationType
+	case InputRegisterLocation:
+		return InputRegisterLocationType
 	}
 	return ""
 }
 
 // Validate returns an error wrapping validate.ErrValidation if no variant is active or
 // the active variant violates its schema constraints.
-func (u Register) Validate() error {
-	v := validate.New("Register")
-	v.Ternary("type", u.Variant == nil, "required")
+func (u Location) Validate() error {
+	v := validate.New("Location")
+	v.Ternary("table", u.Variant == nil, "required")
 	switch variant := u.Variant.(type) {
-	case HoldingRegisterRegister:
+	case HoldingRegisterLocation:
 		v.Exec(variant.Validate)
-	case InputRegisterRegister:
+	case InputRegisterLocation:
 		v.Exec(variant.Validate)
 	}
 	return v.Error()
 }
 
 // Base returns the fields every variant shares, or the zero value if Variant is nil.
-func (u Register) Base() BaseRegister {
+func (u Location) Base() BaseLocation {
 	switch variant := u.Variant.(type) {
-	case CoilRegister:
-		return variant.BaseRegister
-	case DiscreteInputRegister:
-		return variant.BaseRegister
-	case HoldingRegisterRegister:
-		return variant.BaseRegister
-	case InputRegisterRegister:
-		return variant.BaseRegister
+	case CoilLocation:
+		return variant.BaseLocation
+	case DiscreteInputLocation:
+		return variant.BaseLocation
+	case HoldingRegisterLocation:
+		return variant.BaseLocation
+	case InputRegisterLocation:
+		return variant.BaseLocation
 	}
-	return BaseRegister{}
+	return BaseLocation{}
 }
 
 // SetBase replaces the fields every variant shares. It panics if Variant is nil.
-func (u *Register) SetBase(base BaseRegister) {
+func (u *Location) SetBase(base BaseLocation) {
 	switch variant := u.Variant.(type) {
-	case CoilRegister:
-		variant.BaseRegister = base
+	case CoilLocation:
+		variant.BaseLocation = base
 		u.Variant = variant
-	case DiscreteInputRegister:
-		variant.BaseRegister = base
+	case DiscreteInputLocation:
+		variant.BaseLocation = base
 		u.Variant = variant
-	case HoldingRegisterRegister:
-		variant.BaseRegister = base
+	case HoldingRegisterLocation:
+		variant.BaseLocation = base
 		u.Variant = variant
-	case InputRegisterRegister:
-		variant.BaseRegister = base
+	case InputRegisterLocation:
+		variant.BaseLocation = base
 		u.Variant = variant
 	default:
-		panic(errors.Newf("Register: cannot set the base of variant %T", variant))
+		panic(errors.Newf("Location: cannot set the base of variant %T", variant))
 	}
 }
 
 // Read binds a value that read tasks read to its channel.
 type Read struct {
-	// Register is the value that the channel holds.
-	Register Register `json:"register" msgpack:"register"`
+	// Location is the value that the channel holds.
+	Location Location `json:"location" msgpack:"location"`
 	// Index is the index channel of the channel.
 	Index channel.Key `json:"index" msgpack:"index"`
 	// Channel is the channel that holds the samples of the value.
@@ -928,14 +928,14 @@ func (r Read) Validate() error {
 	v := validate.New("Read")
 	v.NonZero("index", r.Index)
 	v.NonZero("channel", r.Channel)
-	v.Exec(func() error { return validate.PathedError(r.Register.Validate(), "register") })
+	v.Exec(func() error { return validate.PathedError(r.Location.Validate(), "location") })
 	return v.Error()
 }
 
 // Write binds a value that write tasks write to its command channel.
 type Write struct {
-	// Register is the value that the channel commands.
-	Register Register `json:"register" msgpack:"register"`
+	// Location is the value that the channel commands.
+	Location Location `json:"location" msgpack:"location"`
 	// Channel is the channel whose commands write tasks send to the value.
 	Channel channel.Key `json:"channel" msgpack:"channel"`
 }
@@ -945,7 +945,7 @@ type Write struct {
 func (w Write) Validate() error {
 	v := validate.New("Write")
 	v.NonZero("channel", w.Channel)
-	v.Exec(func() error { return validate.PathedError(w.Register.Validate(), "register") })
+	v.Exec(func() error { return validate.PathedError(w.Location.Validate(), "location") })
 	return v.Error()
 }
 

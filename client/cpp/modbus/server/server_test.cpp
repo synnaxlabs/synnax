@@ -60,19 +60,19 @@ TEST(Server, RoundTrips) {
     x::json::Parser parser(valid_server());
     auto server = Server::parse(parser);
     ASSERT_NIL(parser.error());
-    HoldingRegisterRegister holding;
+    HoldingRegisterLocation holding;
     holding.address = 5;
     holding.value = WholeValue{.data_type = DATA_TYPE_FLOAT_32, .words_swapped = true};
-    server.reads.push_back(Read{.register_ = holding, .index = 3, .channel = 4});
-    HoldingRegisterRegister bit;
+    server.reads.push_back(Read{.location = holding, .index = 3, .channel = 4});
+    HoldingRegisterLocation bit;
     bit.address = 1;
     bit.value = BitValue{.bit = 3};
-    server.writes.push_back(Write{.register_ = bit, .channel = 5});
+    server.writes.push_back(Write{.location = bit, .channel = 5});
     x::json::Parser round(server.to_json());
     const auto parsed = Server::parse(round);
     ASSERT_NIL(round.error());
     ASSERT_EQ(std::get<TcpConnection>(parsed.connection).host, "plc");
-    const auto &read = std::get<HoldingRegisterRegister>(parsed.reads.at(0).register_);
+    const auto &read = std::get<HoldingRegisterLocation>(parsed.reads.at(0).location);
     ASSERT_EQ(read.address, 5);
     const auto &whole = std::get<WholeValue>(read.value);
     ASSERT_EQ(whole.data_type, DATA_TYPE_FLOAT_32);
@@ -80,9 +80,7 @@ TEST(Server, RoundTrips) {
     ASSERT_FALSE(whole.bytes_swapped.has_value());
     ASSERT_EQ(parsed.reads.at(0).index, 3);
     ASSERT_EQ(parsed.reads.at(0).channel, 4);
-    const auto &write = std::get<HoldingRegisterRegister>(
-        parsed.writes.at(0).register_
-    );
+    const auto &write = std::get<HoldingRegisterLocation>(parsed.writes.at(0).location);
     ASSERT_EQ(std::get<BitValue>(write.value).bit, 3);
     ASSERT_EQ(parsed.writes.at(0).channel, 5);
 }

@@ -1106,15 +1106,15 @@ class TestModbusServerResource:
         assert server.reads == []
         assert server.writes == []
 
-    def test_parses_register_bindings(self) -> None:
-        """Should parse reads and writes that bind registers to channels."""
+    def test_parses_bindings(self) -> None:
+        """Should parse reads and writes that bind locations to channels."""
         server = sy.modbus.server.Server.model_validate(
             {
                 **self.SERVER,
                 "reads": [
                     {
-                        "register": {
-                            "type": "holding_register",
+                        "location": {
+                            "table": "holding_register",
                             "address": 5,
                             "value": {"type": "whole", "data_type": "float32"},
                         },
@@ -1122,8 +1122,8 @@ class TestModbusServerResource:
                         "channel": 4,
                     },
                     {
-                        "register": {
-                            "type": "input_register",
+                        "location": {
+                            "table": "input_register",
                             "address": 6,
                             "value": {"type": "string", "length": 8},
                         },
@@ -1131,20 +1131,19 @@ class TestModbusServerResource:
                         "channel": 5,
                     },
                 ],
-                "writes": [{"register": {"type": "coil", "address": 1}, "channel": 6}],
+                "writes": [{"location": {"table": "coil", "address": 1}, "channel": 6}],
             }
         )
-        register = server.reads[0].register_
-        assert isinstance(register, sy.modbus.server.HoldingRegisterRegister)
-        assert isinstance(register.value, sy.modbus.server.WholeValue)
-        assert register.value.data_type == "float32"
-        assert register.value.words_swapped is None
-        string = server.reads[1].register_
-        assert isinstance(string, sy.modbus.server.InputRegisterRegister)
+        location = server.reads[0].location
+        assert isinstance(location, sy.modbus.server.HoldingRegisterLocation)
+        assert isinstance(location.value, sy.modbus.server.WholeValue)
+        assert location.value.data_type == "float32"
+        assert location.value.words_swapped is None
+        string = server.reads[1].location
+        assert isinstance(string, sy.modbus.server.InputRegisterLocation)
         assert isinstance(string.value, sy.modbus.server.StringValue)
         assert string.value.length == 8
-        assert server.writes[0].register_.type == "coil"
-        assert server.writes[0].model_dump(by_alias=True)["register"]["type"] == "coil"
+        assert server.writes[0].location.table == "coil"
 
     def test_applies_the_rtu_defaults(self) -> None:
         """Should parse an RTU server and fill in its line defaults."""

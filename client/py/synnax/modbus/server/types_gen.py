@@ -15,7 +15,7 @@ from enum import IntEnum
 from typing import Annotated, Literal, TypeAlias, override as _override
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, Field
 
 from synnax import channel as channel_, rack as rack_, status as status_
 from synnax.resource import ID
@@ -135,11 +135,11 @@ class RequestPolicy(BaseModel):
     delay: telem.TimeSpan = Field(default=telem.TimeSpan(0), ge=0, le=5000000000)
 
 
-class BaseRegister(BaseModel):
-    """Carries the address that every register has.
+class BaseLocation(BaseModel):
+    """Carries the address that every location has.
 
     Attributes:
-        address: Is the address of the first register or bit.
+        address: Is the address of the coil, discrete input, or first register.
     """
 
     address: int = Field(default=0, ge=0, le=65535)
@@ -243,39 +243,39 @@ class StatusDetails(BaseModel):
     stats: Stats | None = None
 
 
-class CoilRegister(BaseRegister):
+class CoilLocation(BaseLocation):
     """Is a coil, which tasks can read and write."""
 
-    type: Literal["coil"] = "coil"
+    table: Literal["coil"] = "coil"
 
 
-class DiscreteInputRegister(BaseRegister):
+class DiscreteInputLocation(BaseLocation):
     """Is a discrete input, which tasks can only read."""
 
-    type: Literal["discrete_input"] = "discrete_input"
+    table: Literal["discrete_input"] = "discrete_input"
 
 
-class HoldingRegisterRegister(BaseRegister):
+class HoldingRegisterLocation(BaseLocation):
     """Is a holding register value, which tasks can read and write."""
 
-    type: Literal["holding_register"] = "holding_register"
+    table: Literal["holding_register"] = "holding_register"
     value: Value
 
 
-class InputRegisterRegister(BaseRegister):
+class InputRegisterLocation(BaseLocation):
     """Is an input register value, which tasks can only read."""
 
-    type: Literal["input_register"] = "input_register"
+    table: Literal["input_register"] = "input_register"
     value: Value
 
 
-# Identifies a value at one Modbus address.
-Register = Annotated[
-    CoilRegister
-    | DiscreteInputRegister
-    | HoldingRegisterRegister
-    | InputRegisterRegister,
-    Field(discriminator="type"),
+# Identifies a value by its Modbus table and address.
+Location = Annotated[
+    CoilLocation
+    | DiscreteInputLocation
+    | HoldingRegisterLocation
+    | InputRegisterLocation,
+    Field(discriminator="table"),
 ]
 
 Status: TypeAlias = status_.Status[StatusDetails]
@@ -285,14 +285,12 @@ class Read(BaseModel):
     """Binds a value that read tasks read to its channel.
 
     Attributes:
-        register_: Is the value that the channel holds.
+        location: Is the value that the channel holds.
         index: Is the index channel of the channel.
         channel: Is the channel that holds the samples of the value.
     """
 
-    model_config = ConfigDict(populate_by_name=True)
-
-    register_: Register = Field(alias="register")
+    location: Location
     index: channel_.Key = Field(gt=0, le=4294967295)
     channel: channel_.Key = Field(gt=0, le=4294967295)
 
@@ -301,13 +299,11 @@ class Write(BaseModel):
     """Binds a value that write tasks write to its command channel.
 
     Attributes:
-        register_: Is the value that the channel commands.
+        location: Is the value that the channel commands.
         channel: Is the channel whose commands write tasks send to the value.
     """
 
-    model_config = ConfigDict(populate_by_name=True)
-
-    register_: Register = Field(alias="register")
+    location: Location
     channel: channel_.Key = Field(gt=0, le=4294967295)
 
 

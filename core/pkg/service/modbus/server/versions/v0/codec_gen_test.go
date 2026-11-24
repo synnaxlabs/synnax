@@ -32,7 +32,7 @@ var (
 		Timeout:      telem.TimeSpan(4),
 		Retries:      5,
 	}
-	fullyPopulatedBaseRegister = v0.BaseRegister{Address: 2}
+	fullyPopulatedBaseLocation = v0.BaseLocation{Address: 2}
 )
 
 var _ = Describe("Codec", func() {
@@ -56,19 +56,19 @@ var _ = Describe("Codec", func() {
 			}),
 		)
 	})
-	Describe("BaseRegister", func() {
+	Describe("BaseLocation", func() {
 		DescribeTable("should round-trip encode and decode",
-			func(original v0.BaseRegister) {
+			func(original v0.BaseLocation) {
 				w := orc.NewWriter(0)
 				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded v0.BaseRegister
+				var decoded v0.BaseLocation
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", fullyPopulatedBaseRegister),
-			Entry("zero values", v0.BaseRegister{Address: 0}),
+			Entry("fully populated", fullyPopulatedBaseLocation),
+			Entry("zero values", v0.BaseLocation{Address: 0}),
 		)
 	})
 	Describe("Connection", func() {
@@ -98,6 +98,37 @@ var _ = Describe("Codec", func() {
 			}}),
 		)
 	})
+	Describe("Location", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v0.Location) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v0.Location
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("coil variant", v0.Location{Variant: v0.CoilLocation{BaseLocation: fullyPopulatedBaseLocation}}),
+			Entry("discrete_input variant", v0.Location{Variant: v0.DiscreteInputLocation{BaseLocation: fullyPopulatedBaseLocation}}),
+			Entry("holding_register variant", v0.Location{Variant: v0.HoldingRegisterLocation{
+				BaseLocation: fullyPopulatedBaseLocation,
+				Value: v0.Value{Variant: v0.WholeValue{
+					DataType:     v0.DataType("int8"),
+					BytesSwapped: new(bool(true)),
+					WordsSwapped: new(bool(false)),
+				}},
+			}}),
+			Entry("input_register variant", v0.Location{Variant: v0.InputRegisterLocation{
+				BaseLocation: fullyPopulatedBaseLocation,
+				Value: v0.Value{Variant: v0.WholeValue{
+					DataType:     v0.DataType("int8"),
+					BytesSwapped: new(bool(true)),
+					WordsSwapped: new(bool(false)),
+				}},
+			}}),
+		)
+	})
 	Describe("Read", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original v0.Read) {
@@ -110,46 +141,15 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", v0.Read{
-				Register: v0.Register{Variant: v0.CoilRegister{BaseRegister: fullyPopulatedBaseRegister}},
+				Location: v0.Location{Variant: v0.CoilLocation{BaseLocation: fullyPopulatedBaseLocation}},
 				Index:    channel.Key(3),
 				Channel:  channel.Key(4),
 			}),
 			Entry("zero values", v0.Read{
-				Register: v0.Register{Variant: v0.CoilRegister{BaseRegister: v0.BaseRegister{Address: 0}}},
+				Location: v0.Location{Variant: v0.CoilLocation{BaseLocation: v0.BaseLocation{Address: 0}}},
 				Index:    channel.Key(0),
 				Channel:  channel.Key(0),
 			}),
-		)
-	})
-	Describe("Register", func() {
-		DescribeTable("should round-trip encode and decode",
-			func(original v0.Register) {
-				w := orc.NewWriter(0)
-				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded v0.Register
-				r := orc.NewReader(nil)
-				r.ResetBytes(w.Bytes())
-				Expect(decoded.DecodeOrc(r)).To(Succeed())
-				Expect(decoded).To(Equal(original))
-			},
-			Entry("coil variant", v0.Register{Variant: v0.CoilRegister{BaseRegister: fullyPopulatedBaseRegister}}),
-			Entry("discrete_input variant", v0.Register{Variant: v0.DiscreteInputRegister{BaseRegister: fullyPopulatedBaseRegister}}),
-			Entry("holding_register variant", v0.Register{Variant: v0.HoldingRegisterRegister{
-				BaseRegister: fullyPopulatedBaseRegister,
-				Value: v0.Value{Variant: v0.WholeValue{
-					DataType:     v0.DataType("int8"),
-					BytesSwapped: new(bool(true)),
-					WordsSwapped: new(bool(false)),
-				}},
-			}}),
-			Entry("input_register variant", v0.Register{Variant: v0.InputRegisterRegister{
-				BaseRegister: fullyPopulatedBaseRegister,
-				Value: v0.Value{Variant: v0.WholeValue{
-					DataType:     v0.DataType("int8"),
-					BytesSwapped: new(bool(true)),
-					WordsSwapped: new(bool(false)),
-				}},
-			}}),
 		)
 	})
 	Describe("RequestPolicy", func() {
@@ -218,14 +218,14 @@ var _ = Describe("Codec", func() {
 				},
 				Reads: []v0.Read{
 					{
-						Register: v0.Register{Variant: v0.CoilRegister{BaseRegister: fullyPopulatedBaseRegister}},
+						Location: v0.Location{Variant: v0.CoilLocation{BaseLocation: fullyPopulatedBaseLocation}},
 						Index:    channel.Key(20),
 						Channel:  channel.Key(21),
 					},
 				},
 				Writes: []v0.Write{
 					{
-						Register: v0.Register{Variant: v0.CoilRegister{BaseRegister: fullyPopulatedBaseRegister}},
+						Location: v0.Location{Variant: v0.CoilLocation{BaseLocation: fullyPopulatedBaseLocation}},
 						Channel:  channel.Key(24),
 					},
 				},
@@ -320,11 +320,11 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", v0.Write{
-				Register: v0.Register{Variant: v0.CoilRegister{BaseRegister: fullyPopulatedBaseRegister}},
+				Location: v0.Location{Variant: v0.CoilLocation{BaseLocation: fullyPopulatedBaseLocation}},
 				Channel:  channel.Key(3),
 			}),
 			Entry("zero values", v0.Write{
-				Register: v0.Register{Variant: v0.CoilRegister{BaseRegister: v0.BaseRegister{Address: 0}}},
+				Location: v0.Location{Variant: v0.CoilLocation{BaseLocation: v0.BaseLocation{Address: 0}}},
 				Channel:  channel.Key(0),
 			}),
 		)
@@ -348,8 +348,8 @@ func BenchmarkEncodeDecodeBaseConnection(b *testing.B) {
 	}
 }
 
-func BenchmarkEncodeDecodeBaseRegister(b *testing.B) {
-	seed := fullyPopulatedBaseRegister
+func BenchmarkEncodeDecodeBaseLocation(b *testing.B) {
+	seed := fullyPopulatedBaseLocation
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for b.Loop() {
@@ -357,7 +357,7 @@ func BenchmarkEncodeDecodeBaseRegister(b *testing.B) {
 		if err := seed.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
-		var decoded v0.BaseRegister
+		var decoded v0.BaseLocation
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -387,9 +387,26 @@ func BenchmarkEncodeDecodeConnection(b *testing.B) {
 	}
 }
 
+func BenchmarkEncodeDecodeLocation(b *testing.B) {
+	seed := v0.Location{Variant: v0.CoilLocation{BaseLocation: fullyPopulatedBaseLocation}}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v0.Location
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func BenchmarkEncodeDecodeRead(b *testing.B) {
 	seed := v0.Read{
-		Register: v0.Register{Variant: v0.CoilRegister{BaseRegister: fullyPopulatedBaseRegister}},
+		Location: v0.Location{Variant: v0.CoilLocation{BaseLocation: fullyPopulatedBaseLocation}},
 		Index:    channel.Key(3),
 		Channel:  channel.Key(4),
 	}
@@ -401,23 +418,6 @@ func BenchmarkEncodeDecodeRead(b *testing.B) {
 			b.Fatal(err)
 		}
 		var decoded v0.Read
-		r.ResetBytes(w.Bytes())
-		if err := decoded.DecodeOrc(r); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
-func BenchmarkEncodeDecodeRegister(b *testing.B) {
-	seed := v0.Register{Variant: v0.CoilRegister{BaseRegister: fullyPopulatedBaseRegister}}
-	w := orc.NewWriter(0)
-	r := orc.NewReader(nil)
-	for b.Loop() {
-		w.Reset()
-		if err := seed.EncodeOrc(w); err != nil {
-			b.Fatal(err)
-		}
-		var decoded v0.Register
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -474,14 +474,14 @@ func BenchmarkEncodeDecodeServer(b *testing.B) {
 		},
 		Reads: []v0.Read{
 			{
-				Register: v0.Register{Variant: v0.CoilRegister{BaseRegister: fullyPopulatedBaseRegister}},
+				Location: v0.Location{Variant: v0.CoilLocation{BaseLocation: fullyPopulatedBaseLocation}},
 				Index:    channel.Key(20),
 				Channel:  channel.Key(21),
 			},
 		},
 		Writes: []v0.Write{
 			{
-				Register: v0.Register{Variant: v0.CoilRegister{BaseRegister: fullyPopulatedBaseRegister}},
+				Location: v0.Location{Variant: v0.CoilLocation{BaseLocation: fullyPopulatedBaseLocation}},
 				Channel:  channel.Key(24),
 			},
 		},
@@ -524,7 +524,7 @@ func BenchmarkEncodeDecodeValue(b *testing.B) {
 
 func BenchmarkEncodeDecodeWrite(b *testing.B) {
 	seed := v0.Write{
-		Register: v0.Register{Variant: v0.CoilRegister{BaseRegister: fullyPopulatedBaseRegister}},
+		Location: v0.Location{Variant: v0.CoilLocation{BaseLocation: fullyPopulatedBaseLocation}},
 		Channel:  channel.Key(3),
 	}
 	w := orc.NewWriter(0)
@@ -586,9 +586,9 @@ func FuzzDecodeBaseConnection(f *testing.F) {
 	})
 }
 
-func FuzzDecodeBaseRegister(f *testing.F) {
+func FuzzDecodeBaseLocation(f *testing.F) {
 	{
-		seed := fullyPopulatedBaseRegister
+		seed := fullyPopulatedBaseLocation
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -596,7 +596,7 @@ func FuzzDecodeBaseRegister(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v0.BaseRegister{Address: 0}
+		seed := v0.BaseLocation{Address: 0}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -604,7 +604,7 @@ func FuzzDecodeBaseRegister(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded v0.BaseRegister
+		var decoded v0.BaseLocation
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
 		if err := decoded.DecodeOrc(r); err != nil {
@@ -614,7 +614,7 @@ func FuzzDecodeBaseRegister(f *testing.F) {
 		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
-		var redecoded v0.BaseRegister
+		var redecoded v0.BaseLocation
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
@@ -676,10 +676,79 @@ func FuzzDecodeConnection(f *testing.F) {
 	})
 }
 
+func FuzzDecodeLocation(f *testing.F) {
+	{
+		seed := v0.Location{Variant: v0.CoilLocation{BaseLocation: fullyPopulatedBaseLocation}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v0.Location{Variant: v0.DiscreteInputLocation{BaseLocation: fullyPopulatedBaseLocation}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v0.Location{Variant: v0.HoldingRegisterLocation{
+			BaseLocation: fullyPopulatedBaseLocation,
+			Value: v0.Value{Variant: v0.WholeValue{
+				DataType:     v0.DataType("int8"),
+				BytesSwapped: new(bool(true)),
+				WordsSwapped: new(bool(false)),
+			}},
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v0.Location{Variant: v0.InputRegisterLocation{
+			BaseLocation: fullyPopulatedBaseLocation,
+			Value: v0.Value{Variant: v0.WholeValue{
+				DataType:     v0.DataType("int8"),
+				BytesSwapped: new(bool(true)),
+				WordsSwapped: new(bool(false)),
+			}},
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v0.Location
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v0.Location
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
 func FuzzDecodeRead(f *testing.F) {
 	{
 		seed := v0.Read{
-			Register: v0.Register{Variant: v0.CoilRegister{BaseRegister: fullyPopulatedBaseRegister}},
+			Location: v0.Location{Variant: v0.CoilLocation{BaseLocation: fullyPopulatedBaseLocation}},
 			Index:    channel.Key(3),
 			Channel:  channel.Key(4),
 		}
@@ -691,7 +760,7 @@ func FuzzDecodeRead(f *testing.F) {
 	}
 	{
 		seed := v0.Read{
-			Register: v0.Register{Variant: v0.CoilRegister{BaseRegister: v0.BaseRegister{Address: 0}}},
+			Location: v0.Location{Variant: v0.CoilLocation{BaseLocation: v0.BaseLocation{Address: 0}}},
 			Index:    channel.Key(0),
 			Channel:  channel.Key(0),
 		}
@@ -713,75 +782,6 @@ func FuzzDecodeRead(f *testing.F) {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded v0.Read
-		r.ResetBytes(w1.Bytes())
-		if err := redecoded.DecodeOrc(r); err != nil {
-			t.Fatalf("re-decode failed: %v", err)
-		}
-		if !testutil.DeepEqual(decoded, redecoded) {
-			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
-		}
-	})
-}
-
-func FuzzDecodeRegister(f *testing.F) {
-	{
-		seed := v0.Register{Variant: v0.CoilRegister{BaseRegister: fullyPopulatedBaseRegister}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v0.Register{Variant: v0.DiscreteInputRegister{BaseRegister: fullyPopulatedBaseRegister}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v0.Register{Variant: v0.HoldingRegisterRegister{
-			BaseRegister: fullyPopulatedBaseRegister,
-			Value: v0.Value{Variant: v0.WholeValue{
-				DataType:     v0.DataType("int8"),
-				BytesSwapped: new(bool(true)),
-				WordsSwapped: new(bool(false)),
-			}},
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v0.Register{Variant: v0.InputRegisterRegister{
-			BaseRegister: fullyPopulatedBaseRegister,
-			Value: v0.Value{Variant: v0.WholeValue{
-				DataType:     v0.DataType("int8"),
-				BytesSwapped: new(bool(true)),
-				WordsSwapped: new(bool(false)),
-			}},
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded v0.Register
-		r := orc.NewReader(nil)
-		r.ResetBytes(data)
-		if err := decoded.DecodeOrc(r); err != nil {
-			return
-		}
-		w1 := orc.NewWriter(len(data))
-		if err := decoded.EncodeOrc(w1); err != nil {
-			t.Fatalf("encode after successful decode failed: %v", err)
-		}
-		var redecoded v0.Register
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
@@ -873,14 +873,14 @@ func FuzzDecodeServer(f *testing.F) {
 			},
 			Reads: []v0.Read{
 				{
-					Register: v0.Register{Variant: v0.CoilRegister{BaseRegister: fullyPopulatedBaseRegister}},
+					Location: v0.Location{Variant: v0.CoilLocation{BaseLocation: fullyPopulatedBaseLocation}},
 					Index:    channel.Key(20),
 					Channel:  channel.Key(21),
 				},
 			},
 			Writes: []v0.Write{
 				{
-					Register: v0.Register{Variant: v0.CoilRegister{BaseRegister: fullyPopulatedBaseRegister}},
+					Location: v0.Location{Variant: v0.CoilLocation{BaseLocation: fullyPopulatedBaseLocation}},
 					Channel:  channel.Key(24),
 				},
 			},
@@ -1037,7 +1037,7 @@ func FuzzDecodeValue(f *testing.F) {
 func FuzzDecodeWrite(f *testing.F) {
 	{
 		seed := v0.Write{
-			Register: v0.Register{Variant: v0.CoilRegister{BaseRegister: fullyPopulatedBaseRegister}},
+			Location: v0.Location{Variant: v0.CoilLocation{BaseLocation: fullyPopulatedBaseLocation}},
 			Channel:  channel.Key(3),
 		}
 		w := orc.NewWriter(0)
@@ -1048,7 +1048,7 @@ func FuzzDecodeWrite(f *testing.F) {
 	}
 	{
 		seed := v0.Write{
-			Register: v0.Register{Variant: v0.CoilRegister{BaseRegister: v0.BaseRegister{Address: 0}}},
+			Location: v0.Location{Variant: v0.CoilLocation{BaseLocation: v0.BaseLocation{Address: 0}}},
 			Channel:  channel.Key(0),
 		}
 		w := orc.NewWriter(0)

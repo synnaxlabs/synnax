@@ -28,7 +28,7 @@
 namespace synnax::modbus::server {
 
 struct BaseConnection;
-struct BaseRegister;
+struct BaseLocation;
 struct Stats;
 struct StatusDetails;
 struct RequestPolicy;
@@ -89,12 +89,12 @@ struct BaseConnection {
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief BaseRegister carries the address that every register has.
-struct BaseRegister {
-    /// @brief address is the address of the first register or bit.
+/// @brief BaseLocation carries the address that every location has.
+struct BaseLocation {
+    /// @brief address is the address of the coil, discrete input, or first register.
     std::uint16_t address = 0;
 
-    static BaseRegister parse(x::json::Parser parser);
+    static BaseLocation parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
@@ -250,62 +250,62 @@ Value parse_value(x::json::Parser parser);
 
 using Status = ::synnax::status::Status<StatusDetails>;
 
-/// @brief CoilRegister is a coil, which tasks can read and write.
-struct CoilRegister : public BaseRegister {
-    std::string type = "coil";
+/// @brief CoilLocation is a coil, which tasks can read and write.
+struct CoilLocation : public BaseLocation {
+    std::string table = "coil";
 
-    static CoilRegister parse(x::json::Parser parser);
+    static CoilLocation parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief DiscreteInputRegister is a discrete input, which tasks can only read.
-struct DiscreteInputRegister : public BaseRegister {
-    std::string type = "discrete_input";
+/// @brief DiscreteInputLocation is a discrete input, which tasks can only read.
+struct DiscreteInputLocation : public BaseLocation {
+    std::string table = "discrete_input";
 
-    static DiscreteInputRegister parse(x::json::Parser parser);
+    static DiscreteInputLocation parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief HoldingRegisterRegister is a holding register value, which tasks can read and
+/// @brief HoldingRegisterLocation is a holding register value, which tasks can read and
 /// write.
-struct HoldingRegisterRegister : public BaseRegister {
-    std::string type = "holding_register";
+struct HoldingRegisterLocation : public BaseLocation {
+    std::string table = "holding_register";
     /// @brief value is how the registers hold the value.
     Value value;
 
-    static HoldingRegisterRegister parse(x::json::Parser parser);
+    static HoldingRegisterLocation parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief InputRegisterRegister is an input register value, which tasks can only read.
-struct InputRegisterRegister : public BaseRegister {
-    std::string type = "input_register";
+/// @brief InputRegisterLocation is an input register value, which tasks can only read.
+struct InputRegisterLocation : public BaseLocation {
+    std::string table = "input_register";
     /// @brief value is how the registers hold the value.
     Value value;
 
-    static InputRegisterRegister parse(x::json::Parser parser);
+    static InputRegisterLocation parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief Register identifies a value at one Modbus address.
-using Register = std::variant<
-    CoilRegister,
-    DiscreteInputRegister,
-    HoldingRegisterRegister,
-    InputRegisterRegister>;
+/// @brief Location identifies a value by its Modbus table and address.
+using Location = std::variant<
+    CoilLocation,
+    DiscreteInputLocation,
+    HoldingRegisterLocation,
+    InputRegisterLocation>;
 
-Register parse_register(x::json::Parser parser);
-[[nodiscard]] x::json::json to_json(const Register &value);
+Location parse_location(x::json::Parser parser);
+[[nodiscard]] x::json::json to_json(const Location &value);
 
 /// @brief returns the fields every variant of the union shares.
-[[nodiscard]] inline const BaseRegister &base(const Register &value) {
-    return std::visit([](const auto &v) -> const BaseRegister & { return v; }, value);
+[[nodiscard]] inline const BaseLocation &base(const Location &value) {
+    return std::visit([](const auto &v) -> const BaseLocation & { return v; }, value);
 }
 
 /// @brief Read binds a value that read tasks read to its channel.
 struct Read {
-    /// @brief register_ is the value that the channel holds.
-    Register register_;
+    /// @brief location is the value that the channel holds.
+    Location location;
     /// @brief index is the index channel of the channel.
     ::synnax::channel::Key index = 0;
     /// @brief channel is the channel that holds the samples of the value.
@@ -317,8 +317,8 @@ struct Read {
 
 /// @brief Write binds a value that write tasks write to its command channel.
 struct Write {
-    /// @brief register_ is the value that the channel commands.
-    Register register_;
+    /// @brief location is the value that the channel commands.
+    Location location;
     /// @brief channel is the channel whose commands write tasks send to the value.
     ::synnax::channel::Key channel = 0;
 

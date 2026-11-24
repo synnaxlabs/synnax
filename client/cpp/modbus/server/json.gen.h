@@ -72,13 +72,13 @@ inline x::json::json RequestPolicy::to_json() const {
     return j;
 }
 
-inline BaseRegister BaseRegister::parse(x::json::Parser parser) {
-    return BaseRegister{
+inline BaseLocation BaseLocation::parse(x::json::Parser parser) {
+    return BaseLocation{
         .address = parser.field<std::uint16_t>("address", 0),
     };
 }
 
-inline x::json::json BaseRegister::to_json() const {
+inline x::json::json BaseLocation::to_json() const {
     x::json::json j = x::json::json::object();
     j["address"] = this->address;
     return j;
@@ -86,7 +86,7 @@ inline x::json::json BaseRegister::to_json() const {
 
 inline Read Read::parse(x::json::Parser parser) {
     return Read{
-        .register_ = parse_register(parser.child("register")),
+        .location = parse_location(parser.child("location")),
         .index = parser.required_field<::synnax::channel::Key>("index"),
         .channel = parser.required_field<::synnax::channel::Key>("channel"),
     };
@@ -94,7 +94,7 @@ inline Read Read::parse(x::json::Parser parser) {
 
 inline x::json::json Read::to_json() const {
     x::json::json j = x::json::json::object();
-    j["register"] = ::synnax::modbus::server::to_json(this->register_);
+    j["location"] = ::synnax::modbus::server::to_json(this->location);
     j["index"] = this->index;
     j["channel"] = this->channel;
     return j;
@@ -102,14 +102,14 @@ inline x::json::json Read::to_json() const {
 
 inline Write Write::parse(x::json::Parser parser) {
     return Write{
-        .register_ = parse_register(parser.child("register")),
+        .location = parse_location(parser.child("location")),
         .channel = parser.required_field<::synnax::channel::Key>("channel"),
     };
 }
 
 inline x::json::json Write::to_json() const {
     x::json::json j = x::json::json::object();
-    j["register"] = ::synnax::modbus::server::to_json(this->register_);
+    j["location"] = ::synnax::modbus::server::to_json(this->location);
     j["channel"] = this->channel;
     return j;
 }
@@ -281,67 +281,67 @@ inline x::json::json StringValue::to_json() const {
     return j;
 }
 
-inline CoilRegister CoilRegister::parse(x::json::Parser parser) {
-    CoilRegister result;
-    static_cast<BaseRegister &>(result) = BaseRegister::parse(parser);
-    result.type = parser.field<std::string>("type");
+inline CoilLocation CoilLocation::parse(x::json::Parser parser) {
+    CoilLocation result;
+    static_cast<BaseLocation &>(result) = BaseLocation::parse(parser);
+    result.table = parser.field<std::string>("table");
     return result;
 }
 
-inline x::json::json CoilRegister::to_json() const {
+inline x::json::json CoilLocation::to_json() const {
     x::json::json j = x::json::json::object();
-    if (const auto parent = BaseRegister::to_json(); parent.is_object())
+    if (const auto parent = BaseLocation::to_json(); parent.is_object())
         j.update(parent);
-    j["type"] = this->type;
+    j["table"] = this->table;
     return j;
 }
 
-inline DiscreteInputRegister DiscreteInputRegister::parse(x::json::Parser parser) {
-    DiscreteInputRegister result;
-    static_cast<BaseRegister &>(result) = BaseRegister::parse(parser);
-    result.type = parser.field<std::string>("type");
+inline DiscreteInputLocation DiscreteInputLocation::parse(x::json::Parser parser) {
+    DiscreteInputLocation result;
+    static_cast<BaseLocation &>(result) = BaseLocation::parse(parser);
+    result.table = parser.field<std::string>("table");
     return result;
 }
 
-inline x::json::json DiscreteInputRegister::to_json() const {
+inline x::json::json DiscreteInputLocation::to_json() const {
     x::json::json j = x::json::json::object();
-    if (const auto parent = BaseRegister::to_json(); parent.is_object())
+    if (const auto parent = BaseLocation::to_json(); parent.is_object())
         j.update(parent);
-    j["type"] = this->type;
+    j["table"] = this->table;
     return j;
 }
 
-inline HoldingRegisterRegister HoldingRegisterRegister::parse(x::json::Parser parser) {
-    HoldingRegisterRegister result;
-    static_cast<BaseRegister &>(result) = BaseRegister::parse(parser);
+inline HoldingRegisterLocation HoldingRegisterLocation::parse(x::json::Parser parser) {
+    HoldingRegisterLocation result;
+    static_cast<BaseLocation &>(result) = BaseLocation::parse(parser);
     result.value = parse_value(parser.child("value"));
-    result.type = parser.field<std::string>("type");
+    result.table = parser.field<std::string>("table");
     return result;
 }
 
-inline x::json::json HoldingRegisterRegister::to_json() const {
+inline x::json::json HoldingRegisterLocation::to_json() const {
     x::json::json j = x::json::json::object();
-    if (const auto parent = BaseRegister::to_json(); parent.is_object())
+    if (const auto parent = BaseLocation::to_json(); parent.is_object())
         j.update(parent);
     j["value"] = ::synnax::modbus::server::to_json(this->value);
-    j["type"] = this->type;
+    j["table"] = this->table;
     return j;
 }
 
-inline InputRegisterRegister InputRegisterRegister::parse(x::json::Parser parser) {
-    InputRegisterRegister result;
-    static_cast<BaseRegister &>(result) = BaseRegister::parse(parser);
+inline InputRegisterLocation InputRegisterLocation::parse(x::json::Parser parser) {
+    InputRegisterLocation result;
+    static_cast<BaseLocation &>(result) = BaseLocation::parse(parser);
     result.value = parse_value(parser.child("value"));
-    result.type = parser.field<std::string>("type");
+    result.table = parser.field<std::string>("table");
     return result;
 }
 
-inline x::json::json InputRegisterRegister::to_json() const {
+inline x::json::json InputRegisterLocation::to_json() const {
     x::json::json j = x::json::json::object();
-    if (const auto parent = BaseRegister::to_json(); parent.is_object())
+    if (const auto parent = BaseLocation::to_json(); parent.is_object())
         j.update(parent);
     j["value"] = ::synnax::modbus::server::to_json(this->value);
-    j["type"] = this->type;
+    j["table"] = this->table;
     return j;
 }
 
@@ -370,18 +370,18 @@ inline x::json::json to_json(const Value &value) {
     return std::visit([](const auto &v) { return v.to_json(); }, value);
 }
 
-inline Register parse_register(x::json::Parser parser) {
-    const auto discriminator = parser.field<std::string>("type");
-    if (discriminator == "coil") return CoilRegister::parse(parser);
-    if (discriminator == "discrete_input") return DiscreteInputRegister::parse(parser);
+inline Location parse_location(x::json::Parser parser) {
+    const auto discriminator = parser.field<std::string>("table");
+    if (discriminator == "coil") return CoilLocation::parse(parser);
+    if (discriminator == "discrete_input") return DiscreteInputLocation::parse(parser);
     if (discriminator == "holding_register")
-        return HoldingRegisterRegister::parse(parser);
-    if (discriminator == "input_register") return InputRegisterRegister::parse(parser);
-    parser.field_err("type", "unknown Register type: " + discriminator);
+        return HoldingRegisterLocation::parse(parser);
+    if (discriminator == "input_register") return InputRegisterLocation::parse(parser);
+    parser.field_err("table", "unknown Location table: " + discriminator);
     return {};
 }
 
-inline x::json::json to_json(const Register &value) {
+inline x::json::json to_json(const Location &value) {
     return std::visit([](const auto &v) { return v.to_json(); }, value);
 }
 

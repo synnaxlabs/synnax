@@ -44,14 +44,14 @@ var _ = Describe("Server", func() {
 			UnitID:     1,
 		}
 	}
-	coil := func(address uint16) v0.Register {
-		return v0.Register{Variant: v0.CoilRegister{
-			BaseRegister: v0.BaseRegister{Address: address},
+	coil := func(address uint16) v0.Location {
+		return v0.Location{Variant: v0.CoilLocation{
+			BaseLocation: v0.BaseLocation{Address: address},
 		}}
 	}
-	holding := func(address uint16, value v0.ValueVariant) v0.Register {
-		return v0.Register{Variant: v0.HoldingRegisterRegister{
-			BaseRegister: v0.BaseRegister{Address: address},
+	holding := func(address uint16, value v0.ValueVariant) v0.Location {
+		return v0.Location{Variant: v0.HoldingRegisterLocation{
+			BaseLocation: v0.BaseLocation{Address: address},
 			Value:        v0.Value{Variant: value},
 		}}
 	}
@@ -110,25 +110,25 @@ var _ = Describe("Server", func() {
 		s := server()
 		s.Connection = v0.Connection{Variant: rtu()}
 		s.Reads = []v0.Read{{
-			Register: holding(5, v0.WholeValue{
+			Location: holding(5, v0.WholeValue{
 				DataType:     v0.DataTypeFloat32,
 				WordsSwapped: new(true),
 			}),
 			Index:   3,
 			Channel: 4,
 		}, {
-			Register: v0.Register{Variant: v0.InputRegisterRegister{
-				BaseRegister: v0.BaseRegister{Address: 6},
+			Location: v0.Location{Variant: v0.InputRegisterLocation{
+				BaseLocation: v0.BaseLocation{Address: 6},
 				Value:        v0.Value{Variant: v0.BitValue{Bit: 3}},
 			}},
 			Index:   3,
 			Channel: 5,
 		}, {
-			Register: holding(7, v0.StringValue{Length: 8}),
+			Location: holding(7, v0.StringValue{Length: 8}),
 			Index:    3,
 			Channel:  6,
 		}}
-		s.Writes = []v0.Write{{Register: coil(1), Channel: 7}}
+		s.Writes = []v0.Write{{Location: coil(1), Channel: 7}}
 		var decoded v0.Server
 		Expect(json.Unmarshal(MustSucceed(json.Marshal(s)), &decoded)).To(Succeed())
 		Expect(decoded).To(Equal(s))
@@ -233,54 +233,54 @@ var _ = Describe("Server", func() {
 		}, "delay"),
 		Entry("a read with no index", func(s *v0.Server) {
 			s.Reads = []v0.Read{{
-				Register: coil(0),
+				Location: coil(0),
 				Channel:  1,
 			}}
 		}, "reads.0.index"),
 		Entry("a read with no channel", func(s *v0.Server) {
 			s.Reads = []v0.Read{
-				{Register: coil(0), Index: 1},
+				{Location: coil(0), Index: 1},
 			}
 		}, "reads.0.channel"),
-		Entry("a read with no register type", func(s *v0.Server) {
+		Entry("a read with no table", func(s *v0.Server) {
 			s.Reads = []v0.Read{{Index: 1, Channel: 2}}
-		}, "reads.0.register.type"),
+		}, "reads.0.location.table"),
 		Entry("a read with no value type", func(s *v0.Server) {
 			s.Reads = []v0.Read{{
-				Register: holding(0, nil),
+				Location: holding(0, nil),
 				Index:    1,
 				Channel:  2,
 			}}
-		}, "reads.0.register.value.type"),
+		}, "reads.0.location.value.type"),
 		Entry("a read of bit 16", func(s *v0.Server) {
 			s.Reads = []v0.Read{{
-				Register: holding(0, v0.BitValue{Bit: 16}),
+				Location: holding(0, v0.BitValue{Bit: 16}),
 				Index:    1,
 				Channel:  2,
 			}}
-		}, "reads.0.register.value.bit"),
+		}, "reads.0.location.value.bit"),
 		Entry("a read of an empty string", func(s *v0.Server) {
 			s.Reads = []v0.Read{{
-				Register: holding(0, v0.StringValue{}),
+				Location: holding(0, v0.StringValue{}),
 				Index:    1,
 				Channel:  2,
 			}}
-		}, "reads.0.register.value.length"),
+		}, "reads.0.location.value.length"),
 		Entry("a read of a string of 251 characters", func(s *v0.Server) {
 			s.Reads = []v0.Read{{
-				Register: holding(0, v0.StringValue{Length: 251}),
+				Location: holding(0, v0.StringValue{Length: 251}),
 				Index:    1,
 				Channel:  2,
 			}}
-		}, "reads.0.register.value.length"),
+		}, "reads.0.location.value.length"),
 		Entry("a write of an unknown data type", func(s *v0.Server) {
 			s.Writes = []v0.Write{{
-				Register: holding(0, v0.WholeValue{DataType: "bfloat16"}),
+				Location: holding(0, v0.WholeValue{DataType: "bfloat16"}),
 				Channel:  1,
 			}}
-		}, "writes.0.register.value.data_type"),
+		}, "writes.0.location.value.data_type"),
 		Entry("a write with no channel", func(s *v0.Server) {
-			s.Writes = []v0.Write{{Register: coil(0)}}
+			s.Writes = []v0.Write{{Location: coil(0)}}
 		}, "writes.0.channel"),
 	)
 })

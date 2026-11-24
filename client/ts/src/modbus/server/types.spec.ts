@@ -58,13 +58,13 @@ describe("serverZ", () => {
     });
   });
 
-  it("should parse the register bindings", () => {
+  it("should parse the bindings", () => {
     const server = modbus.server.serverZ.parse({
       ...SERVER,
       reads: [
         {
-          register: {
-            type: "holding_register",
+          location: {
+            table: "holding_register",
             address: 5,
             value: { type: "whole", dataType: "float32", wordsSwapped: true },
           },
@@ -72,8 +72,8 @@ describe("serverZ", () => {
           channel: 4,
         },
         {
-          register: {
-            type: "input_register",
+          location: {
+            table: "input_register",
             address: 6,
             value: { type: "bit", bit: 3 },
           },
@@ -81,8 +81,8 @@ describe("serverZ", () => {
           channel: 5,
         },
         {
-          register: {
-            type: "holding_register",
+          location: {
+            table: "holding_register",
             address: 7,
             value: { type: "string", length: 8 },
           },
@@ -90,18 +90,18 @@ describe("serverZ", () => {
           channel: 6,
         },
       ],
-      writes: [{ register: { type: "coil", address: 1 }, channel: 7 }],
+      writes: [{ location: { table: "coil", address: 1 }, channel: 7 }],
     });
-    expect(server.reads.map(({ register }) => register)).toEqual([
+    expect(server.reads.map(({ location }) => location)).toEqual([
       {
-        type: "holding_register",
+        table: "holding_register",
         address: 5,
         value: { type: "whole", dataType: "float32", wordsSwapped: true },
       },
-      { type: "input_register", address: 6, value: { type: "bit", bit: 3 } },
-      { type: "holding_register", address: 7, value: { type: "string", length: 8 } },
+      { table: "input_register", address: 6, value: { type: "bit", bit: 3 } },
+      { table: "holding_register", address: 7, value: { type: "string", length: 8 } },
     ]);
-    expect(server.writes[0].register).toEqual({ type: "coil", address: 1 });
+    expect(server.writes[0].location).toEqual({ table: "coil", address: 1 });
   });
 
   it("should parse the request counters of a status as numbers", () => {
@@ -135,13 +135,13 @@ describe("serverZ", () => {
     ],
     [
       "a read with no index",
-      { reads: [{ register: { type: "coil", address: 0 }, channel: 1 }] },
+      { reads: [{ location: { table: "coil", address: 0 }, channel: 1 }] },
     ],
     [
-      "a read of an unknown register type",
+      "a read of an unknown table",
       {
         reads: [
-          { register: { type: "file_record", address: 0 }, index: 1, channel: 2 },
+          { location: { table: "file_record", address: 0 }, index: 1, channel: 2 },
         ],
       },
     ],
@@ -150,8 +150,8 @@ describe("serverZ", () => {
       {
         writes: [
           {
-            register: {
-              type: "holding_register",
+            location: {
+              table: "holding_register",
               address: 0,
               value: { type: "bit", bit: 16 },
             },
@@ -165,8 +165,8 @@ describe("serverZ", () => {
       {
         reads: [
           {
-            register: {
-              type: "input_register",
+            location: {
+              table: "input_register",
               address: 0,
               value: { type: "string", length: 0 },
             },
@@ -179,7 +179,7 @@ describe("serverZ", () => {
     [
       "a holding register with no value",
       {
-        writes: [{ register: { type: "holding_register", address: 0 }, channel: 1 }],
+        writes: [{ location: { table: "holding_register", address: 0 }, channel: 1 }],
       },
     ],
     [

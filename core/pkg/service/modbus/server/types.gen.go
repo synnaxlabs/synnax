@@ -153,41 +153,41 @@ type BitValue = versions.BitValue
 // StringValue is a fixed-length string that read tasks read.
 type StringValue = versions.StringValue
 
-// BaseRegister carries the address that every register has.
-type BaseRegister = versions.BaseRegister
+// BaseLocation carries the address that every location has.
+type BaseLocation = versions.BaseLocation
 
-// Register identifies a value at one Modbus address.
-type Register = versions.Register
+// Location identifies a value by its Modbus table and address.
+type Location = versions.Location
 
-// RegisterVariant is implemented by every Register variant.
-type RegisterVariant = versions.RegisterVariant
+// LocationVariant is implemented by every Location variant.
+type LocationVariant = versions.LocationVariant
 
-// RegisterType is the "type" value that selects a variant of Register.
-type RegisterType = versions.RegisterType
+// LocationType is the "table" value that selects a variant of Location.
+type LocationType = versions.LocationType
 
 const (
-	// CoilRegisterType is a coil, which tasks can read and write.
-	CoilRegisterType RegisterType = versions.CoilRegisterType
-	// DiscreteInputRegisterType is a discrete input, which tasks can only read.
-	DiscreteInputRegisterType RegisterType = versions.DiscreteInputRegisterType
-	// HoldingRegisterRegisterType is a holding register value, which tasks can read and
+	// CoilLocationType is a coil, which tasks can read and write.
+	CoilLocationType LocationType = versions.CoilLocationType
+	// DiscreteInputLocationType is a discrete input, which tasks can only read.
+	DiscreteInputLocationType LocationType = versions.DiscreteInputLocationType
+	// HoldingRegisterLocationType is a holding register value, which tasks can read and
 	// write.
-	HoldingRegisterRegisterType RegisterType = versions.HoldingRegisterRegisterType
-	// InputRegisterRegisterType is an input register value, which tasks can only read.
-	InputRegisterRegisterType RegisterType = versions.InputRegisterRegisterType
+	HoldingRegisterLocationType LocationType = versions.HoldingRegisterLocationType
+	// InputRegisterLocationType is an input register value, which tasks can only read.
+	InputRegisterLocationType LocationType = versions.InputRegisterLocationType
 )
 
-// CoilRegister is a coil, which tasks can read and write.
-type CoilRegister = versions.CoilRegister
+// CoilLocation is a coil, which tasks can read and write.
+type CoilLocation = versions.CoilLocation
 
-// DiscreteInputRegister is a discrete input, which tasks can only read.
-type DiscreteInputRegister = versions.DiscreteInputRegister
+// DiscreteInputLocation is a discrete input, which tasks can only read.
+type DiscreteInputLocation = versions.DiscreteInputLocation
 
-// HoldingRegisterRegister is a holding register value, which tasks can read and write.
-type HoldingRegisterRegister = versions.HoldingRegisterRegister
+// HoldingRegisterLocation is a holding register value, which tasks can read and write.
+type HoldingRegisterLocation = versions.HoldingRegisterLocation
 
-// InputRegisterRegister is an input register value, which tasks can only read.
-type InputRegisterRegister = versions.InputRegisterRegister
+// InputRegisterLocation is an input register value, which tasks can only read.
+type InputRegisterLocation = versions.InputRegisterLocation
 
 // Read binds a value that read tasks read to its channel.
 type Read = versions.Read

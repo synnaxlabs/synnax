@@ -126,7 +126,7 @@ BaseConnection struct {
     words_swapped bool = false {
         @doc value "is true when the low word of a multi-register value comes last."
     }
-    timeout       telem.TimeSpan = 1000000000 {
+    timeout       telem.TimeSpan = 1s {
         @doc value "is the connect and response timeout."
     }
     retries       uint8 = 1 {
@@ -246,16 +246,16 @@ Value union on type {
     @go marshal
 }
 
-BaseRegister struct {
+BaseLocation struct {
     address uint16 = 0 {
-        @doc value "is the address of the first register or bit."
+        @doc value "is the address of the coil, discrete input, or first register."
     }
 
-    @doc value  "carries the address that every register has."
+    @doc value  "carries the address that every location has."
     @go marshal
 }
 
-Register union on type extends BaseRegister {
+Location union on table extends BaseLocation {
     coil {
         @doc value "is a coil, which tasks can read and write."
     }
@@ -277,12 +277,12 @@ Register union on type extends BaseRegister {
         @doc value "is an input register value, which tasks can only read."
     }
 
-    @doc value  "identifies a value at one Modbus address."
+    @doc value  "identifies a value by its Modbus table and address."
     @go marshal
 }
 
 Read struct {
-    register Register    {
+    location Location    {
         @doc value "is the value that the channel holds."
     }
     index    channel.Key {
@@ -297,7 +297,7 @@ Read struct {
 }
 
 Write struct {
-    register Register    {
+    location Location    {
         @doc value "is the value that the channel commands."
     }
     channel  channel.Key {

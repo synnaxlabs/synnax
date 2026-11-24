@@ -224,9 +224,9 @@ Field groups per make:
   nested `server_trust` unions); configuration `reads` and `writes`. Node IDs name their
   namespace by URI.
 - **Modbus server**: `connection` and `request_policy` from the connect form; `reads`
-  (register and index, unique) and `writes` (register, unique) from the task forms. A
-  holding or input register holds a whole, bit, or string value. Durations are
-  `TimeSpan`; `baud_rate` and `stop_bits` are enums.
+  (location and index, unique) and `writes` (location, unique) from the task forms. A
+  location is a table and an address; a holding or input register holds a whole, bit, or
+  string value. Durations are `TimeSpan`; `baud_rate` and `stop_bits` are enums.
 - **HTTP server**: `host`, `secure`, `verify_ssl`, `timeout`, `auth` (the existing
   union), `max_concurrent_requests`, `health_check`, per-path read and write channel
   maps (`console/src/feature/http/device/types.ts:224-239`). The `base_url` the Driver
@@ -393,7 +393,7 @@ Release 0.59 shipped the single table. One ordered startup migration cuts over:
      types to `LJM_ctETHERNET`; anything else to `LJM_ctUSB`.
    - LabJack T7s mapping `AIN48`-`AIN127` get `mux80_attached`; bad identifiers clear.
 
-   Modbus rows change as follows:
+   Modbus rows change as follows: <<<<<<< HEAD
    - No `transport` is TCP; `*_ms` become spans; `swap_*` become `*_swapped`. <<<<<<<
      HEAD
    - `max_registers` becomes `max_read_registers` and `write_codes` becomes
@@ -410,9 +410,23 @@ Release 0.59 shipped the single table. One ordered startup migration cuts over:
      one register, the key with a data type wins. A key that does not parse drops with a
      warning. =======
    - A channel key parses (type prefix, address, data type or bit) to a register; reads
-     take `read.index`. A whole-value register key with no data type takes its
-     channel's. When two keys give one register, the key with a data type wins. A key
-     that does not parse drops with a warning.
+     ||||||| parent of 1bc0e749e81 (Name Modbus addresses a location, and record the
+     upgrade's field mappings)
+   - No `transport` is TCP; `*_ms` become spans; `swap_*` become `*_swapped`.
+   - A channel key parses (type prefix, address, data type or bit) to a register; reads
+     =======
+   - No `transport` is TCP; `*_ms` become spans; `swap_*` become `*_swapped`.
+   - `max_registers` becomes `max_read_registers` and `write_codes` becomes
+     `write_function`. A `max_gap` above `max_read_registers` clamps to it.
+   - A channel key parses (type prefix, address, data type or bit) to a location; reads
+
+> > > > > > > 1bc0e749e81 (Name Modbus addresses a location, and record the upgrade's
+> > > > > > > field mappings) take `read.index`. A whole-value register key with no data
+> > > > > > > type takes its channel's. When two keys give one location, the key with a
+> > > > > > > data type wins. A key that does not parse drops with a warning.
+
+- A value takes its task channel's swap overrides, and a string its `length`. A string
+  with no task channel drops with a warning.
 
 > > > > > > > ae27218911a (Limit the Modbus data type fallback to whole-value register
 > > > > > > > keys)
