@@ -7,10 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { icd } from "@synnaxlabs/client";
+import type { channel, icd } from "@synnaxlabs/client";
 import { DataType, payload } from "@synnaxlabs/x";
 
-const DEFAULT_DATA_TYPES: Record<payload.Kind, string> = {
+/** The data type of the channel that a field of each kind takes by default. */
+export const DEFAULT_DATA_TYPES: Record<payload.Kind, string> = {
   float: DataType.FLOAT64.toString(),
   integer: DataType.INT64.toString(),
   unsigned: DataType.UINT64.toString(),
@@ -72,6 +73,25 @@ export const encodes = (
   if (isScaled(field)) return from === "float";
   if (from === field.type) return true;
   return from != null && NUMERIC.has(from) && NUMERIC.has(field.type);
+};
+
+/**
+ * @returns bindings, with each channel that takes refuses for its field unbound. A
+ * binding with no channel, or whose field or channel is not found, stays.
+ */
+export const unbind = <B extends { field: icd.FieldKey; channel?: channel.Key }>(
+  bindings: B[],
+  fields: icd.JSONField[],
+  channels: channel.Channel[],
+  takes: (field: icd.JSONField, dataType: string) => boolean,
+): B[] => {
+  const dataTypes = new Map(channels.map((c) => [c.key, c.dataType.toString()]));
+  return bindings.map((b) => {
+    const field = fields.find(({ key }) => key === b.field);
+    const dataType = b.channel == null ? undefined : dataTypes.get(b.channel);
+    if (field == null || dataType == null || takes(field, dataType)) return b;
+    return { ...b, channel: 0 };
+  });
 };
 
 /**

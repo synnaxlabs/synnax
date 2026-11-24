@@ -398,6 +398,7 @@ func (p *Plugin) processEnum(e resolution.Type) enumData {
 		Name:      e.Name,
 		Values:    values,
 		IsIntEnum: form.IsIntEnum,
+		Base:      "std::" + form.IntBase() + "_t",
 	}
 }
 
@@ -1420,6 +1421,8 @@ type enumData struct {
 	Name      string
 	Values    []enumValueData
 	IsIntEnum bool
+	// Base is the underlying type of an integer enum class.
+	Base string
 }
 
 type enumValueData struct {
@@ -1556,7 +1559,7 @@ struct {{.}};
 {{if $i}}
 {{end}}
 {{if $enum.IsIntEnum}}
-enum class {{$enum.Name}} : std::uint8_t {
+enum class {{$enum.Name}} : {{$enum.Base}} {
 {{- range $j, $v := $enum.Values}}
     {{$v.Name}} = {{$v.IntValue}},
 {{- end}}
