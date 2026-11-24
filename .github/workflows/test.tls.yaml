@@ -1,0 +1,176 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+name: Test - TLS
+
+on:
+  workflow_call:
+    secrets:
+      SYNNAX_LICENSE_TOKEN:
+        required: false
+      TURBO_TOKEN:
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test (${{ matrix.os }})
+    # A fork's run gets no license for the Core, so the merge queue runs this job.
+    if:
+      github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name == github.repository
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    env:
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+      TURBO_TEAM: ${{ vars.TURBO_TEAM }}
+      # The uv-managed Python is a standalone build, which can lack the system roots.
+      UV_PYTHON_PREFERENCE: only-managed
+      UV_LOCKED: 1
+      # Connects to the Core and opens a stream. SECURE and CA_CERT set the arguments.
+      CONNECT_PY: |
+        import os
+        import synnax as sy
+        secure = os.environ.get("SECURE")
+        client = sy.Synnax(
+            host="localhost",
+            port=9090,
+            username="synnax",
+            password="seldon",
+            secure=None if secure is None else secure == "true",
+            ca_cert=os.environ.get("CA_CERT"),
+        )
+        channel = client.channels.retrieve(limit=1)[0]
+        client.open_streamer(channel.key).close()
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Name the paths
+        run: |
+          exe=""
+          if [ "$RUNNER_OS" = Windows ]; then exe=.exe; fi
+          {
+            echo "CORE=$RUNNER_TEMP/synnax$exe"
+            echo "CERTS=$RUNNER_TEMP/certs"
+            echo "CA=$RUNNER_TEMP/certs/ca.crt"
+          } >> "$GITHUB_ENV"
+
+      - name: Set up Go
+        uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
+        with:
+          go-version-file: core/go.mod
+          cache-dependency-path: core/go.sum
+
+      - name: Build Core
+        working-directory: core
+        run: go build -o "$CORE" .
+
+      # The Core makes a throwaway CA and signs its certificate for localhost with it.
+      - name: Start Core
+        if: runner.os != 'Windows'
+        env:
+          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+        run: |
+          nohup "$CORE" start --mem --no-driver --auto-cert --certs-dir "$CERTS" \
+            --listen localhost:9090 > "$RUNNER_TEMP/core.log" 2>&1 &
+
+      # A process that Git Bash starts can end with its step on Windows.
+      - name: Start Core on Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+        run: |
+          $core = $env:CORE -replace '/', '\'
+          $certs = $env:CERTS -replace '/', '\'
+          $log = "$env:RUNNER_TEMP\core.log"
+          $start = "`"$core`" start --mem --no-driver --auto-cert " +
+            "--certs-dir `"$certs`" --listen localhost:9090"
+          Start-Process -FilePath cmd.exe -WindowStyle Hidden `
+            -ArgumentList "/c `"$start > `"$log`" 2>&1`""
+
+      - name: Wait for Core
+        timeout-minutes: 5
+        run: |
+          # The clients check the certificate. Windows curl cannot check the
+          # revocation of a CA with no revocation list, so the probe skips the check.
+          check=(curl --fail --insecure --request POST --data '{}'
+            --header "Content-Type: application/json"
+            https://localhost:9090/api/v1/connectivity/check)
+          for _ in $(seq 120); do
+            if [ -f "$CA" ] && "${check[@]}" --silent > /dev/null; then exit 0; fi
+            sleep 1
+          done
+          "${check[@]}" --verbose || true
+          cat "$RUNNER_TEMP/core.log" >&2
+          echo "::error::The Core did not start."
+          exit 1
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: latest-known
+
+      - name: Set up pnpm
+        uses: ./.github/actions/setup-pnpm
+
+      - name: Build the TypeScript client
+        run: pnpm build:client
+
+      - name: Test the Python client with ca_cert
+        working-directory: client/py
+        run: SECURE=true CA_CERT="$CA" uv run python -c "$CONNECT_PY"
+
+      - name: Test the Python client with SYNNAX_CA_CERT
+        working-directory: client/py
+        run: SYNNAX_CA_CERT="$CA" uv run python -c "$CONNECT_PY"
+
+      - name: Test the TypeScript client with caCert
+        working-directory: client/ts
+        env:
+          SYNNAX_TEST_SECURE: true
+        run: SYNNAX_TEST_CA_CERT="$(cat "$CA")" node smoke/smoke.mjs
+
+      - name: Test that the clients reject the CA without ca_cert
+        env:
+          SECURE: true
+          SYNNAX_TEST_SECURE: true
+        run: |
+          # Fails unless the command fails on the certificate.
+          rejects() {
+            local client=$1 dir=$2 out
+            shift 2
+            if out=$(cd "$dir" && "$@" 2>&1); then
+              echo "::error::The $client client trusted a CA that it was not given."
+              exit 1
+            fi
+            if ! grep -qi "certificate" <<< "$out"; then
+              echo "$out"
+              echo "::error::The $client client failed, but not on the certificate."
+              exit 1
+            fi
+          }
+          rejects Python client/py uv run python -c "$CONNECT_PY"
+          rejects TypeScript client/ts node smoke/smoke.mjs
+
+      - name: Show the Core log
+        if: failure()
+        run: cat "$RUNNER_TEMP/core.log"

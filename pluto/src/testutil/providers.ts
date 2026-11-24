@@ -44,7 +44,7 @@ const RENDER_KEY = "render";
  * component that reads context from a provider it disabled will not find it.
  */
 export interface ProviderOptions {
-  /** Alamos instrumentation provider. Defaults on. */
+  /** Alamos instrumentation provider. Defaults on at the `warn` level. */
   alamos?: false | z.input<typeof alamos.providerStateZ>;
   /** Status aggregator. Defaults on with no statuses. */
   status?: false | z.input<typeof status.aggregatorStateZ>;
@@ -165,7 +165,7 @@ export const buildStack = (options: ProviderOptions = {}): BuiltStack => {
     driver.update(
       path,
       alamos.Provider.TYPE,
-      alamos.providerStateZ.parse(stateOf(options.alamos, {})),
+      alamos.providerStateZ.parse(stateOf(options.alamos, { level: "warn" })),
     );
     providers.alamos = driver.find<alamos.Provider>([...path]);
   }

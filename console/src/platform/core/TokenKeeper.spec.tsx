@@ -11,7 +11,11 @@ import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 
 import { connection, Synnax as Client } from "@synnaxlabs/client";
-import { createEmptyRole, createTestClient } from "@synnaxlabs/client/testutil";
+import {
+  createEmptyRole,
+  createTestClient,
+  createTestUser,
+} from "@synnaxlabs/client/testutil";
 import { Synnax } from "@synnaxlabs/pluto";
 import { id } from "@synnaxlabs/x";
 import { clearMocks, mockIPC } from "@tauri-apps/api/mocks";
@@ -141,7 +145,7 @@ describe("Core.TokenKeeper", () => {
     const username = `keeper-${id.create()}`;
     const admin = createTestClient();
     const { key: role } = await createEmptyRole(admin);
-    await admin.users.create({ username, password: "old", name: "Keeper", role });
+    await createTestUser(admin, { role, username, password: "old", name: "Keeper" });
     const core = createCore("Local", { username, password: "old" });
     const grabbed: { client?: Client | null } = {};
     const Grab = (): null => {
@@ -161,7 +165,7 @@ describe("Core.TokenKeeper", () => {
     );
     await waitFor(() => expect(calls).toHaveLength(1));
     await act(async () => {
-      await grabbed.client?.auth.setPassword({
+      await grabbed.client?.auth.passwords.set({
         password: "new",
         currentPassword: "old",
       });
@@ -256,7 +260,7 @@ describe("Core.TokenKeeper", () => {
       sessionCookie: token === "",
     });
     onTestFinished(async () => await client.close());
-    await client.auth.retrieveSessions();
+    await client.auth.sessions.retrieve();
     const core = createCore("Local", {
       host: "127.0.0.1",
       port,
