@@ -50,9 +50,10 @@ const useSpec = (ref: schematic.symbol.Ref): Resolved => {
 
 interface DrawnProps extends Pick<
   Config,
-  "spec" | "color" | "states" | "orientation" | "scale"
+  "spec" | "color" | "states" | "orientation" | "scale" | "motionDisabled"
 > {
   value: Custom.StateValues;
+  readings?: Record<string, Custom.Reading>;
 }
 
 const Drawn = ({
@@ -61,7 +62,9 @@ const Drawn = ({
   states,
   orientation,
   scale,
+  motionDisabled,
   value,
+  readings,
 }: DrawnProps): ReactElement => {
   const { spec, builtIn, missing } = useSpec(ref);
   const bound = spec == null ? undefined : bind.spec(spec, states);
@@ -78,7 +81,10 @@ const Drawn = ({
       </Note.Note>
     );
   return (
-    <Primitive.Div orientation={orientation} className={CSS.B("symbol")}>
+    <Primitive.Div
+      orientation={orientation}
+      className={CSS.cls(CSS.B("symbol"), !builtIn && CSS.BM("symbol", "custom"))}
+    >
       {bound != null && (
         <Custom.Drawing
           spec={bound}
@@ -86,6 +92,8 @@ const Drawn = ({
           orientation={orientation}
           scale={scale}
           paints={paints}
+          readings={readings}
+          motionDisabled={motionDisabled}
         />
       )}
     </Primitive.Div>
@@ -98,7 +106,16 @@ export const Node = ({
   selected,
   onConfigChange,
 }: NodeProps<Config>): ReactElement => {
-  const { label, orientation, scale, spec, color, states, stalenessTimeout } = config;
+  const {
+    label,
+    orientation,
+    scale,
+    spec,
+    color,
+    states,
+    stalenessTimeout,
+    motionDisabled,
+  } = config;
   const { readings } = SymbolNode.use({
     aetherKey: nodeKey,
     sources: bind.sources(bind.stateChannels(states)),
@@ -122,7 +139,9 @@ export const Node = ({
         states={states}
         orientation={orientation}
         scale={scale}
+        motionDisabled={motionDisabled}
         value={bind.values(states, readings)}
+        readings={bind.stateReadings(states, readings)}
       />
     </Grid.Grid>
   );
@@ -136,6 +155,7 @@ export const Preview = ({
   states,
   orientation,
   scale,
+  motionDisabled,
 }: PreviewProps<Config>): ReactElement => (
   <Drawn
     spec={spec}
@@ -143,6 +163,7 @@ export const Preview = ({
     states={states}
     orientation={orientation}
     scale={scale}
+    motionDisabled={motionDisabled}
     value={NO_VALUES}
   />
 );

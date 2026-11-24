@@ -161,7 +161,17 @@ describe("Symbol node", () => {
         '<rect class="body" width="10" height="10" /></svg>',
     );
     const { container } = renderNode({ spec: { type: "custom", key } }, Wrapper);
-    await vi.waitFor(() => expect(container.querySelector("rect.body")).not.toBeNull());
+    await vi.waitFor(() =>
+      expect(container.querySelector(".pluto-symbol--custom rect.body")).not.toBeNull(),
+    );
+  });
+
+  it("should not mark a built-in symbol as custom", async () => {
+    const { container } = renderNode({ spec: { type: "builtin", name: "valve" } });
+    await vi.waitFor(() =>
+      expect(container.querySelector(".pluto-symbol svg")).not.toBeNull(),
+    );
+    expect(container.querySelector(".pluto-symbol--custom")).toBeNull();
   });
 
   it("should warn for a custom symbol whose markup does not parse", async () => {
