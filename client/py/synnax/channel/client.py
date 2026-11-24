@@ -30,7 +30,6 @@ from synnax.channel.types_gen import (
     Operation,
     Order,
     Payload,
-    RetrieveBuiltInsResponse,
     RetrieveRequest,
     Status,
     Use,
@@ -269,19 +268,6 @@ class Client:
         split = split_lookups(to_lookups(channels))
         keys = split.keys + [ch.key for ch in resolve(self._retriever, split.paths)]
         self._creator.delete(keys=keys, names=split.names)
-
-    def retrieve_built_ins(self) -> list[Key]:
-        """Retrieves the keys of the built-in channels, which Core services declare
-        for their own work. Any caller may retrieve them.
-
-        :returns: The keys of the built-in channels.
-        """
-        return send_required(
-            self._client,
-            "/channel/retrieve-built-ins",
-            Empty(),
-            RetrieveBuiltInsResponse,
-        ).keys
 
     def count_limited(self) -> int:
         """Retrieves how many channels count against the license channel limit (not

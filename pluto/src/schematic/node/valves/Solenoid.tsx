@@ -31,16 +31,25 @@ const HANDLES: schematic.symbol.Handle[] = [
 ];
 
 export const SYMBOL: schematic.symbol.Spec = Custom.createBuiltIn({
-  variant: "actuator",
+  family: "valve",
   svg,
   handles: HANDLES,
 });
 
 /** NORMALLY_OPEN_SYMBOL is the solenoid valve that is open at rest. */
 export const NORMALLY_OPEN_SYMBOL: schematic.symbol.Spec = Custom.createBuiltIn({
-  variant: "actuator",
+  family: "normallyOpenValve",
   svg,
   handles: HANDLES,
+  parts: [
+    { key: "body", name: "Body", selectors: [".pluto-body"] },
+    { key: "coil", name: "Coil", selectors: [".pluto-solenoid-valve__coil"] },
+  ],
+  looks: [
+    Custom.STROKE_LOOK,
+    Custom.createFillLook(0, "body"),
+    Custom.createFillLook(1, "coil"),
+  ],
 });
 
 export const Solenoid = ({

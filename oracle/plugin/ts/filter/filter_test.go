@@ -491,6 +491,53 @@ var _ = Describe("TS Filter Plugin", func() {
 				)
 		})
 
+		Describe("@ts type", func() {
+			const counter = `
+				import "schemas/x/filter"
+
+				@ts output "client/ts/src/counter"
+
+				Counter struct {
+					key    uuid   { @key }
+					serial uint64 { @ts type "number" }
+					label  uint32 { @ts type "string" }
+					count  int64
+				}
+			`
+
+			It("Should check a bare line with the @ts type of its field", func() {
+				resp := MustGenerate(counter+`
+					Where filter Counter {
+						serial
+						label
+						count
+					}
+				`, "counter", loader, p)
+				ExpectContent(resp, "where.gen.ts").ToContain(
+					"serial: filter.orderedInputZ(z.number()).exactOptional(),",
+					"label: filter.orderedInputZ(z.string()).exactOptional(),",
+					"count: filter.orderedInputZ(z.int64()).exactOptional(),",
+				)
+			})
+
+			It("Should reject a @ts type that names no type", func() {
+				req := MustGenerateRequest(strings.Replace(
+					counter,
+					`@ts type "number"`,
+					`@ts type "nothing"`,
+					1,
+				)+`
+					Where filter Counter {
+						serial
+					}
+				`, "counter", loader)
+				Expect(p.Generate(req)).Error().To(MatchError(
+					"filter counter.Where: line serial reads a field whose @ts type " +
+						"nothing is not a type",
+				))
+			})
+		})
+
 		It("Should reject a bare line the response type does not hold", func() {
 			req := MustGenerateRequest(`
 				import "schemas/x/filter"

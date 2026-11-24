@@ -67,6 +67,31 @@ var _ = Describe("TS Types Plugin", func() {
 			)
 		})
 
+		It("Should type a bare filter line with the @ts type of its field", func() {
+			AddFilterSchema(loader)
+			resp := MustGenerate(`
+				import "schemas/x/filter"
+
+				@ts output "client/ts/src/thing"
+
+				Thing struct {
+					key    uuid   { @key }
+					serial uint64 { @ts type "number" }
+					count  int64
+				}
+				Where filter Thing {
+					serial
+					count
+				}
+			`, "thing", loader, typesPlugin)
+			ExpectContent(resp, "thing/types.gen.ts").ToContain(
+				"serial?: filter.Ordered<z.ZodNumber>;",
+				"serial: filter.orderedZ(z.number()).optional(),",
+				"count?: filter.Ordered<z.ZodBigInt>;",
+				"count: filter.orderedZ(z.int64()).optional(),",
+			)
+		})
+
 		It("Should reject unknown keys only in a filter request", func() {
 			AddFilterSchema(loader)
 			resp := MustGenerate(ThingFilter, "thing", loader, typesPlugin)
@@ -564,6 +589,30 @@ var _ = Describe("TS Types Plugin", func() {
 			).To(ContainSubstring(`export const taskStateZ = z.enum(TaskState)`))
 			Expect(content).To(ContainSubstring(`state: taskStateZ`))
 		})
+
+		It(
+			"Should keep wide integer enum values and a non-first default as numbers",
+			func() {
+				source := `
+				@ts output "out"
+
+				BaudRate enum {
+					baud_1200 = 1200
+					baud_19200 = 19200
+					baud_230400 = 230400
+				}
+
+				Connection struct {
+					baud_rate BaudRate = baud_19200
+				}
+			`
+				resp := MustGenerate(source, "serial", loader, typesPlugin)
+				ExpectContent(resp, "types.gen.ts").
+					ToContain("baud_230400 = 230400,").
+					ToContain("export const baudRateZ = z.enum(BaudRate)").
+					ToContain("baudRate: baudRateZ.default(BaudRate.baud_19200)")
+			},
+		)
 
 		It("Should generate string enums", func() {
 			source := `

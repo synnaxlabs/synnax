@@ -219,7 +219,7 @@ var singleRefExpressions = set.New("on_delete", "kind", "direction")
 var flagRefExpressions = set.New("unique", "acyclic")
 
 // extractRef returns the reference that field of typ holds. inArray is true when a
-// detach can drop the array element that holds field.
+// detach can drop the array element or map entry that holds field.
 func extractRef(
 	typ resolution.Type,
 	field resolution.Field,
