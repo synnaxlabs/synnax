@@ -1329,6 +1329,130 @@ var _ = Describe("Reference", func() {
 		})
 	})
 
+	Describe("OnBehalf", func() {
+		BeforeEach(func(ctx SpecContext) { open(ctx) })
+		device := func(k string) gorp.Target { return gorp.NewTarget("device", k) }
+		label := func(k string) gorp.Target { return gorp.NewTarget("label", k) }
+		status := func(k string) gorp.Target { return gorp.NewTarget("status", k) }
+		// onBehalf returns the records of tx's changes that are OnBehalf.
+		onBehalf := func(tx gorp.Tx) set.Set[gorp.Target] {
+			out := set.New[gorp.Target]()
+			for _, c := range gorp.ChangesOf(tx) {
+				if c.OnBehalf {
+					out.Add(c.Record)
+				}
+			}
+			return out
+		}
+		// createChain creates d1, d2 and d3 on rack 1, each the parent of the next, and
+		// the status s3 of d3, so a delete of d1 cascades three steps.
+		createChain := func(ctx SpecContext) {
+			GinkgoHelper()
+			createRack(ctx, 1)
+			Expect(createDevice(ctx, refDevice{Key: "d1", Rack: 1})).To(Succeed())
+			Expect(createDevice(ctx, refDevice{Key: "d2", Rack: 1, Parent: "d1"})).
+				To(Succeed())
+			Expect(createDevice(ctx, refDevice{Key: "d3", Rack: 1, Parent: "d2"})).
+				To(Succeed())
+			Expect(statuses.NewCreate().Entry(&refStatus{
+				Key:   "s3",
+				Owner: &refOwner{Table: "device", Key: "d3"},
+			}).Exec(ctx, db)).To(Succeed())
+		}
+		deleteDevice := func(ctx SpecContext, tx gorp.Tx, key string) {
+			GinkgoHelper()
+			Expect(devices.NewDelete().
+				Where(gorp.MatchKeys[string, refDevice](key)).
+				Exec(ctx, tx)).To(Succeed())
+		}
+
+		It("Should carry a mark through each step of a cascade chain", func(
+			ctx SpecContext,
+		) {
+			createChain(ctx)
+			tx := DeferClose(db.OpenTx())
+			gorp.MarkOnBehalf(tx, device("d1"))
+			deleteDevice(ctx, tx, "d1")
+			Expect(onBehalf(tx)).To(Equal(set.New(
+				device("d1"),
+				device("d2"),
+				device("d3"),
+				status("s3"),
+			)))
+		})
+
+		It("Should leave the cascades of an unmarked delete off behalf", func(
+			ctx SpecContext,
+		) {
+			createChain(ctx)
+			tx := DeferClose(db.OpenTx())
+			deleteDevice(ctx, tx, "d1")
+			Expect(gorp.ChangesOf(tx)).To(HaveLen(4))
+			Expect(onBehalf(tx)).To(BeEmpty())
+		})
+
+		It("Should carry a mark only to the detaches of a marked delete", func(
+			ctx SpecContext,
+		) {
+			createRack(ctx, 1)
+			createLabels(ctx, "l1", "l2")
+			for _, d := range []refDevice{
+				{Key: "d1", Rack: 1, Labels: []string{"l1"}},
+				{Key: "d2", Rack: 1, Labels: []string{"l2"}},
+			} {
+				Expect(createDevice(ctx, d)).To(Succeed())
+			}
+			tx := DeferClose(db.OpenTx())
+			gorp.MarkOnBehalf(tx, label("l1"))
+			Expect(labels.NewDelete().
+				Where(gorp.MatchKeys[string, refLabel]("l1", "l2")).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(gorp.ChangesOf(tx)).To(HaveLen(4))
+			Expect(onBehalf(tx)).To(Equal(set.New(label("l1"), device("d1"))))
+		})
+
+		It("Should leave a plain Retarget off behalf", func(ctx SpecContext) {
+			createRack(ctx, 1)
+			Expect(createDevice(ctx, refDevice{Key: "d0", Rack: 1})).To(Succeed())
+			Expect(createDevice(ctx, refDevice{Key: "d1", Rack: 1})).To(Succeed())
+			Expect(createDevice(ctx, refDevice{Key: "d2", Rack: 1, Parent: "d1"})).
+				To(Succeed())
+			tx := DeferClose(db.OpenTx())
+			Expect(devices.Retarget(ctx, tx, "d1", "d0")).To(Succeed())
+			changes := gorp.ChangesOf(tx)
+			Expect(changes).To(HaveLen(1))
+			Expect(changes[0].Record).To(Equal(device("d2")))
+			Expect(changes[0].Derived).To(BeTrue())
+			Expect(changes[0].OnBehalf).To(BeFalse())
+		})
+
+		It("Should keep a mark set before the write of RetargetHolders", func(
+			ctx SpecContext,
+		) {
+			createRack(ctx, 1)
+			Expect(createDevice(ctx, refDevice{Key: "d0", Rack: 1})).To(Succeed())
+			Expect(createDevice(ctx, refDevice{Key: "d1", Rack: 1})).To(Succeed())
+			Expect(createDevice(ctx, refDevice{Key: "d2", Rack: 1, Parent: "d1"})).
+				To(Succeed())
+			tx := DeferClose(db.OpenTx())
+			holders := MustSucceed(devices.Dependents(ctx, tx, "d1"))
+			gorp.MarkOnBehalf(tx, device("d2"))
+			Expect(devices.RetargetHolders(
+				ctx,
+				tx,
+				map[string]string{"d1": "d0"},
+				holders...,
+			)).To(Succeed())
+			Expect(onBehalf(tx)).To(Equal(set.New(device("d2"))))
+		})
+
+		It("Should panic on a DB", func() {
+			Expect(func() { gorp.MarkOnBehalf(db, device("d1")) }).To(
+				PanicWith("[gorp] - MarkOnBehalf needs a transaction, not a DB"),
+			)
+		})
+	})
+
 	Describe("OnTargetSet", func() {
 		var set []string
 		BeforeEach(func() {
