@@ -91,6 +91,7 @@ func writeParted(
 		values = append(values, vals...)
 		writer := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 			Channels: []cesium.ChannelKey{idx, data},
+			Clock:    idx,
 			Start:    stamps[0],
 		}))
 		MustSucceed2(writer.Write(ctx, telem.MultiFrame(
@@ -159,6 +160,7 @@ var _ = Describe("Reads through parts", func() {
 		// parts that the open loaded first.
 		w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 			Channels: []cesium.ChannelKey{idx, data},
+			Clock:    idx,
 			Start:    telem.TimeStamp(1_000_000) * telem.SecondTS,
 		}))
 		Expect(w.Close()).To(Succeed())
