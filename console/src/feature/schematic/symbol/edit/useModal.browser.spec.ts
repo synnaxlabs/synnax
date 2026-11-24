@@ -291,12 +291,13 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       return { symbol, handle };
     };
 
-    const retrieveStoredCommands = async (key: schematic.Key) => {
-      const { config } = (await createTestClient().schematics.retrieve(key)).nodes[0];
-      return config.variant === "symbol" ? config.commands : undefined;
-    };
+    const retrieveStoredCommands = async (key: schematic.Key) =>
+      (await createTestClient().schematics.retrieve(key)).nodes.map(({ config }) =>
+        config.variant === "symbol" ? config.commands : undefined,
+      );
 
-    // openUsedSymbol opens the editor on a symbol whose Vent command a schematic binds.
+    // openUsedSymbol opens the editor on a symbol that two schematics use. The nodes of
+    // used bind the Vent command, and the node of unbound binds nothing.
     const openUsedSymbol = async () => {
       const grp = await createParentGroup();
       const payload = createSymbolPayload(uniqueName("vessel"));
@@ -313,22 +314,29 @@ describe("Schematic.Symbol.Edit.useModal", () => {
         virtual: true,
       });
       const project = await client.projects.create({ name: uniqueName("project") });
+      const createNode = (key: string, label: string, bound: boolean) => ({
+        key,
+        position: { x: 0, y: 0 },
+        zIndex: 0,
+        config: schematic.nodeConfigZ.parse({
+          variant: "symbol",
+          spec: { type: "custom", key: symbol.key },
+          label: { label },
+          commands: bound ? [{ key: "vent", channel: ch.key }] : [],
+        }),
+      });
       const used = await client.schematics.create({
         project: project.key,
         name: uniqueName("plant"),
         nodes: [
-          {
-            key: "vessel",
-            position: { x: 0, y: 0 },
-            zIndex: 0,
-            config: schematic.nodeConfigZ.parse({
-              variant: "symbol",
-              spec: { type: "custom", key: symbol.key },
-              label: { label: "Vessel 1" },
-              commands: [{ key: "vent", channel: ch.key }],
-            }),
-          },
+          createNode("vessel", "Vessel 1", true),
+          createNode("unlabeled", "", true),
         ],
+      });
+      const unbound = await client.schematics.create({
+        project: project.key,
+        name: uniqueName("spare"),
+        nodes: [createNode("spare", "Spare vessel", false)],
       });
       await renderModalOpener(
         Schematic.Symbol.Edit.useModal,
@@ -340,7 +348,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       });
       // Save waits for the uses of the symbol to load.
       await waitFor(() => expect(findButton("Save").disabled).toBe(false));
-      return { symbol, used };
+      return { symbol, used, unbound };
     };
 
     it("saves a new region and its color on a symbol with no state", async () => {
@@ -388,14 +396,17 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     });
 
     it("asks before a save removes bindings from a schematic that uses the symbol", async () => {
-      const { used } = await openUsedSymbol();
+      const { used, unbound } = await openUsedSymbol();
       fireEvent.click(screen.getByText("Actuator"));
       fireEvent.click(findButton("Save"));
       await screen.findByText(used.name);
       await screen.findByText("Vessel 1 loses the Vent binding.");
+      await screen.findByText("A node with no label loses the Vent binding.");
+      await screen.findByText(unbound.name);
+      await screen.findByText("Each node keeps its bindings.");
       fireEvent.click(findLastButton("Save"));
       await waitFor(async () =>
-        expect(await retrieveStoredCommands(used.key)).toEqual([]),
+        expect(await retrieveStoredCommands(used.key)).toEqual([[], []]),
       );
     });
 
@@ -410,7 +421,8 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       );
       expect(findNameInput().value).toBe(symbol.name);
       expect((await retrieveStored(symbol.key)).data.variant).toBe("static");
-      expect(await retrieveStoredCommands(used.key)).toHaveLength(1);
+      const commands = await retrieveStoredCommands(used.key);
+      expect(commands.map((c) => c?.length)).toEqual([1, 1]);
     });
 
     it("saves a rename of a symbol in use without asking", async () => {
