@@ -389,7 +389,7 @@ class TestAccessAuthClient:
             port=port,
             username=username,
             password="pwd2",
-            secure=False,
+            insecure=True,
         )
 
         with pytest.raises(sy.AccessDenied):

@@ -33,7 +33,7 @@ import synnax as sy
 
 host, port, username, password = sys.argv[1:]
 client = sy.Synnax(
-    host=host, port=int(port), username=username, password=password, secure=False
+    host=host, port=int(port), username=username, password=password, insecure=True
 )
 client.close()
 print(sy.__version__)

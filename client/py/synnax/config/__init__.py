@@ -26,7 +26,7 @@ from synnax.config.clusters import (
 )
 from synnax.config.file import File, read_latest
 from synnax.exceptions import ConfigurationError, ValidationError
-from synnax.options import Options
+from synnax.options import Options, from_stored, without_secure
 
 __all__ = [
     "KEYCHAIN_UNAVAILABLE_MSG",
@@ -196,7 +196,7 @@ def load_desktop_options(
         raise ConfigurationError(NO_KEY_HELPER_MSG)
     target = f"{raw.get('host')}:{raw.get('port')}"
     api_key = _read_key(Path(helper), run, target)
-    return Options.model_validate({**raw, "api_key": api_key})
+    return Options.model_validate({**from_stored(raw), "api_key": api_key})
 
 
 _TRUE = ("1", "true", "yes")
@@ -213,7 +213,9 @@ class PartialOptions(TypedDict, total=False):
     username: str
     password: str
     api_key: str
+    insecure: bool
     secure: bool
+    """Deprecated: the inverse of insecure."""
     ca_cert: str
 
 
@@ -223,14 +225,23 @@ def _env(env: Mapping[str, str], name: str) -> str:
     return env.get(name, "").strip()
 
 
+def _env_bool(env: Mapping[str, str], name: str) -> bool | None:
+    if not (raw := _env(env, name)):
+        return None
+    if raw.lower() not in _TRUE + _FALSE:
+        raise ValidationError(f"{name} must be true or false, not {raw!r}")
+    return raw.lower() in _TRUE
+
+
 def load_env_options(env: Mapping[str, str]) -> PartialOptions:
-    """Loads the options in the SYNNAX_HOST, SYNNAX_PORT, SYNNAX_API_KEY, SYNNAX_SECURE,
-    and SYNNAX_CA_CERT environment variables. Values are stripped, and an empty value
-    counts as unset.
+    """Loads the options in the SYNNAX_HOST, SYNNAX_PORT, SYNNAX_API_KEY,
+    SYNNAX_INSECURE, and SYNNAX_CA_CERT environment variables, and in the deprecated
+    SYNNAX_SECURE. Values are stripped, and an empty value counts as unset.
 
     :param env: The environment variables, such as os.environ.
     :returns: The options that the variables set.
-    :raises ValidationError: If SYNNAX_PORT or SYNNAX_SECURE is not valid.
+    :raises ValidationError: If SYNNAX_PORT, SYNNAX_INSECURE, or SYNNAX_SECURE is not
+        valid.
     """
     opts = PartialOptions()
     if host := _env(env, "SYNNAX_HOST"):
@@ -247,12 +258,10 @@ def load_env_options(env: Mapping[str, str]) -> PartialOptions:
                 f"SYNNAX_PORT must be a port from 1 to 65535, not {raw_port!r}"
             )
         opts["port"] = port
-    if raw_secure := _env(env, "SYNNAX_SECURE"):
-        if raw_secure.lower() not in _TRUE + _FALSE:
-            raise ValidationError(
-                f"SYNNAX_SECURE must be true or false, not {raw_secure!r}"
-            )
-        opts["secure"] = raw_secure.lower() in _TRUE
+    if (insecure := _env_bool(env, "SYNNAX_INSECURE")) is not None:
+        opts["insecure"] = insecure
+    if (secure := _env_bool(env, "SYNNAX_SECURE")) is not None:
+        opts["secure"] = secure
     if ca_cert := _env(env, "SYNNAX_CA_CERT"):
         opts["ca_cert"] = os.path.expanduser(ca_cert)
     return opts
@@ -293,6 +302,7 @@ def load_options(
     port: int = 0,
     username: str = "",
     password: str = "",
+    insecure: bool | None = None,
     secure: bool | None = None,
     ca_cert: str | None = None,
     api_key: str = "",
@@ -305,17 +315,18 @@ def load_options(
     SYNNAX_* environment variable, then the default. When no argument or variable gives
     a host, the Core that `sy login` saved, or else the Core that Synnax Desktop saved,
     comes before the default. The credentials (api_key, username, password) and the TLS
-    options (secure, ca_cert) each come whole from the first source that sets one of
-    them. When no source sets secure, the client uses TLS.
+    options (insecure, ca_cert) each come whole from the first source that sets one of
+    them. When no source sets insecure, the client uses TLS.
 
+    :param secure: Deprecated: the inverse of insecure. SYNNAX_SECURE is the same.
     :param env: The environment variables, such as os.environ. Defaults to none.
     :param clusters: The saved logins. Defaults to those of the current user.
     :param desktop_file: The file where Synnax Desktop saves its options. Defaults to
         the newer desktop.json in config_dirs(local=True).
     :param run_desktop_helper: Runs the key helper of Synnax Desktop.
     :returns: The options, and whether they connect to the Core of Synnax Desktop.
-    :raises ValidationError: If the environment variables are not valid, or if no source
-        gives a host or credentials.
+    :raises ValidationError: If the environment variables are not valid, if one source
+        gives both insecure and secure, or if no source gives a host or credentials.
     :raises ConfigurationError: If no source gives a host and the home directory is
         unknown, if no OS keychain is available to read the key of the saved login, if
         a saved file exists but cannot be read, if the key helper of Synnax Desktop
@@ -333,6 +344,8 @@ def load_options(
         given["password"] = password
     if api_key:
         given["api_key"] = api_key
+    if insecure is not None:
+        given["insecure"] = insecure
     if secure is not None:
         given["secure"] = secure
     if ca_cert:
@@ -351,9 +364,7 @@ def load_options(
         if saved is None:
             raise ValidationError(NO_OPTIONS_MSG)
         sources.append(saved.model_dump())
-    opts = Options.model_validate(
-        {"port": DEFAULT_PORT, "secure": True, **_merge(sources)}
-    )
+    opts = Options.model_validate({"port": DEFAULT_PORT, **_merge(sources)})
     if not opts.api_key and not opts.username:
         raise ValidationError(NO_CREDENTIALS_MSG)
     return opts, _saved_by_desktop(opts, desktop_file)
@@ -361,10 +372,11 @@ def load_options(
 
 # Each group comes whole from one source, so a password never pairs with another
 # source's key, and a CA certificate never outlives the TLS choice of its source.
-_GROUPS = (("api_key", "username", "password"), ("secure", "ca_cert"))
+_GROUPS = (("api_key", "username", "password"), ("insecure", "ca_cert"))
 
 
 def _merge(sources: list[Mapping[str, Any]]) -> dict[str, Any]:
+    sources = [without_secure(s) for s in sources]
     merged: dict[str, Any] = {}
     for source in reversed(sources):
         merged.update(source)

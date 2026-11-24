@@ -391,14 +391,14 @@ class TestStreamer:
             port=9090,
             username="synnax",
             password="seldon",
-            secure=False,
+            insecure=True,
         )
         node_2_client = sy.Synnax(
             host="localhost",
             port=9091,
             username="synnax",
             password="seldon",
-            secure=False,
+            insecure=True,
         )
         idx = node_2_client.channels.create(
             name="idx", data_type=sy.DataType.TIMESTAMP, is_index=True, leaseholder=2

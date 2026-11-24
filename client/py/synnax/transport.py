@@ -67,7 +67,7 @@ class Transport:
         :raises ValueError: If ca_cert is set and secure is False.
         """
         if ca_cert is not None and not secure:
-            raise ValueError("ca_cert requires secure=True")
+            raise ValueError("ca_cert requires TLS, so insecure must be False")
         open_timeout = TimeSpan.from_seconds(open_timeout)
         read_timeout = TimeSpan.from_seconds(read_timeout)
         keep_alive = TimeSpan.from_seconds(keep_alive)

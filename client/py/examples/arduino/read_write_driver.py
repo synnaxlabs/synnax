@@ -21,7 +21,7 @@ client = sy.Synnax(
     port=9090,
     username="synnax",
     password="seldon",
-    secure=False,
+    insecure=True,
 )
 
 arduino_command = client.channels.create(

@@ -490,7 +490,7 @@ class TestLoadDesktopOptions:
         write_desktop_file(desktop_file, port=4321)
         helper = FakeHelper()
         assert load_desktop_options(desktop_file, helper) == Options(
-            host="127.0.0.1", port=4321, secure=False, api_key="syk_k_s"
+            host="127.0.0.1", port=4321, insecure=True, api_key="syk_k_s"
         )
         assert helper.paths == [HELPER]
 
@@ -619,14 +619,16 @@ class TestLoadEnvOptions:
             {
                 **ENV,
                 "SYNNAX_PORT": "9091",
-                "SYNNAX_SECURE": "TRUE",
+                "SYNNAX_INSECURE": "TRUE",
+                "SYNNAX_SECURE": "false",
                 "SYNNAX_CA_CERT": "~/ca.crt",
             }
         ) == {
             "host": "core.lab",
             "api_key": "syk_env",
             "port": 9091,
-            "secure": True,
+            "insecure": True,
+            "secure": False,
             "ca_cert": os.path.expanduser("~/ca.crt"),
         }
 
@@ -637,24 +639,30 @@ class TestLoadEnvOptions:
     def test_strips_values(self) -> None:
         """Should strip whitespace, such as the newline that ends a secret file."""
         assert load_env_options(
-            {"SYNNAX_HOST": " core.lab\n", "SYNNAX_SECURE": "true "}
-        ) == {"host": "core.lab", "secure": True}
+            {"SYNNAX_HOST": " core.lab\n", "SYNNAX_INSECURE": "true "}
+        ) == {"host": "core.lab", "insecure": True}
 
     @pytest.mark.parametrize(
         "name",
-        ["SYNNAX_HOST", "SYNNAX_PORT", "SYNNAX_API_KEY", "SYNNAX_SECURE"],
+        [
+            "SYNNAX_HOST",
+            "SYNNAX_PORT",
+            "SYNNAX_API_KEY",
+            "SYNNAX_INSECURE",
+            "SYNNAX_SECURE",
+        ],
     )
     def test_blank_is_unset(self, name: str) -> None:
         """Should treat a value of only whitespace as unset."""
         assert load_env_options({name: "  "}) == {}
 
     @pytest.mark.parametrize(
-        ("value", "secure"),
+        ("value", "insecure"),
         [("1", True), ("yes", True), ("0", False), ("false", False), ("no", False)],
     )
-    def test_secure_values(self, value: str, secure: bool) -> None:
-        """Should read the true and false spellings of SYNNAX_SECURE."""
-        assert load_env_options({"SYNNAX_SECURE": value}) == {"secure": secure}
+    def test_insecure_values(self, value: str, insecure: bool) -> None:
+        """Should read the true and false spellings of SYNNAX_INSECURE."""
+        assert load_env_options({"SYNNAX_INSECURE": value}) == {"insecure": insecure}
 
     @pytest.mark.parametrize(
         ("env", "message"),
@@ -662,9 +670,10 @@ class TestLoadEnvOptions:
             ({"SYNNAX_PORT": "abc"}, "SYNNAX_PORT must be a port"),
             ({"SYNNAX_PORT": "0"}, "SYNNAX_PORT must be a port"),
             ({"SYNNAX_PORT": "65536"}, "SYNNAX_PORT must be a port"),
+            ({"SYNNAX_INSECURE": "maybe"}, "SYNNAX_INSECURE must be true or false"),
             ({"SYNNAX_SECURE": "maybe"}, "SYNNAX_SECURE must be true or false"),
         ],
-        ids=["port-text", "port-zero", "port-high", "secure"],
+        ids=["port-text", "port-zero", "port-high", "insecure", "secure"],
     )
     def test_invalid(self, env: dict[str, str], message: str) -> None:
         """Should name the variable that is wrong."""
@@ -676,7 +685,6 @@ SAVED = Options(
     host="saved.lab",
     port=1,
     api_key="syk_saved",
-    secure=True,
     ca_cert="/saved/ca.crt",
 )
 
@@ -692,10 +700,10 @@ class TestLoadOptions:
             ("port", None, {}, 9090),
             ("api_key", "syk_arg", {"SYNNAX_API_KEY": "syk_env"}, "syk_arg"),
             ("api_key", None, {"SYNNAX_API_KEY": "syk_env"}, "syk_env"),
-            ("secure", False, {"SYNNAX_SECURE": "true"}, False),
-            ("secure", None, {"SYNNAX_SECURE": "true"}, True),
-            ("secure", None, {"SYNNAX_SECURE": "false"}, False),
-            ("secure", None, {}, True),
+            ("insecure", True, {"SYNNAX_INSECURE": "false"}, True),
+            ("insecure", None, {"SYNNAX_INSECURE": "true"}, True),
+            ("insecure", None, {"SYNNAX_INSECURE": "false"}, False),
+            ("insecure", None, {}, False),
             ("ca_cert", "/arg.crt", {"SYNNAX_CA_CERT": "/env.crt"}, "/arg.crt"),
             ("ca_cert", None, {"SYNNAX_CA_CERT": "/env.crt"}, "/env.crt"),
             ("ca_cert", "", {"SYNNAX_CA_CERT": "/env.crt"}, "/env.crt"),
@@ -734,7 +742,7 @@ class TestLoadOptions:
             clusters=clusters,
             desktop_file=desktop_file,
         )
-        assert opts == Options(host="rig", port=9090, api_key="syk_env", secure=True)
+        assert opts == Options(host="rig", port=9090, api_key="syk_env")
         assert not embedded
 
     def test_password_replaces_env_key(
@@ -757,18 +765,18 @@ class TestLoadOptions:
             ({"port": 2}, {}, SAVED.model_copy(update={"port": 2})),
             ({}, {"SYNNAX_PORT": "3"}, SAVED.model_copy(update={"port": 3})),
             (
-                {"secure": False},
+                {"insecure": True},
                 {},
-                SAVED.model_copy(update={"secure": False, "ca_cert": None}),
+                SAVED.model_copy(update={"insecure": True, "ca_cert": None}),
             ),
             (
                 {},
-                {"SYNNAX_SECURE": "false"},
-                SAVED.model_copy(update={"secure": False, "ca_cert": None}),
+                {"SYNNAX_INSECURE": "true"},
+                SAVED.model_copy(update={"insecure": True, "ca_cert": None}),
             ),
             (
                 {},
-                {"SYNNAX_SECURE": "true", "SYNNAX_CA_CERT": "/env.crt"},
+                {"SYNNAX_INSECURE": "false", "SYNNAX_CA_CERT": "/env.crt"},
                 SAVED.model_copy(update={"ca_cert": "/env.crt"}),
             ),
             (
@@ -803,8 +811,8 @@ class TestLoadOptions:
             "saved",
             "port-arg",
             "port-env",
-            "secure-arg",
-            "secure-env",
+            "insecure-arg",
+            "insecure-env",
             "tls-env",
             "ca-cert-env",
             "ca-cert-arg",
@@ -843,11 +851,29 @@ class TestLoadOptions:
         assert (opts.username, opts.password, opts.api_key) == ("", "", "syk_env")
 
     @pytest.mark.parametrize("source", ["key", "password", "desktop"])
-    def test_saved_without_secure(
-        self, clusters: Clusters, desktop_file: Path, source: str
+    @pytest.mark.parametrize(
+        ("stored", "insecure"),
+        [
+            ({}, True),
+            ({"secure": True}, False),
+            ({"secure": False}, True),
+            ({"insecure": False}, False),
+            ({"insecure": True}, True),
+        ],
+        ids=["neither", "secure", "not-secure", "not-insecure", "insecure"],
+    )
+    def test_stored_tls_field(
+        self,
+        clusters: Clusters,
+        desktop_file: Path,
+        source: str,
+        stored: dict[str, bool],
+        insecure: bool,
     ) -> None:
-        """Should connect without TLS to a Core saved with no secure field."""
-        address = {"host": "h", "port": 1}
+        """Should read insecure, or the secure field of Synnax 0.62, from a saved Core.
+        A Core saved with neither field connects without TLS.
+        """
+        address = {"host": "h", "port": 1, **stored}
         if source == "desktop":
             desktop_file.write_text(
                 json.dumps({**address, "api_key_helper": str(HELPER)}),
@@ -865,16 +891,16 @@ class TestLoadOptions:
             desktop_file=desktop_file,
             run_desktop_helper=FakeHelper(),
         )
-        assert not opts.secure
+        assert opts.insecure == insecure
 
     @pytest.mark.parametrize(
         ("args", "expected"),
         [
-            ({"secure": True}, (True, None)),
-            ({"secure": False}, (False, None)),
-            ({"secure": True, "ca_cert": "/arg.crt"}, (True, "/arg.crt")),
-            ({"ca_cert": "/arg.crt"}, (True, "/arg.crt")),
-            ({}, (True, "/env.crt")),
+            ({"insecure": False}, (False, None)),
+            ({"insecure": True}, (True, None)),
+            ({"insecure": False, "ca_cert": "/arg.crt"}, (False, "/arg.crt")),
+            ({"ca_cert": "/arg.crt"}, (False, "/arg.crt")),
+            ({}, (False, "/env.crt")),
         ],
         ids=["system-roots", "no-tls", "arg-cert", "arg-cert-alone", "env"],
     )
@@ -885,18 +911,74 @@ class TestLoadOptions:
         args: dict[str, Any],
         expected: tuple[bool, str | None],
     ) -> None:
-        """Should take secure and ca_cert together from the first source that sets
+        """Should take insecure and ca_cert together from the first source that sets
         one of them.
         """
         opts, _ = load_options(
             host="h",
             api_key="syk_k",
             **args,
-            env={"SYNNAX_SECURE": "true", "SYNNAX_CA_CERT": "/env.crt"},
+            env={"SYNNAX_INSECURE": "false", "SYNNAX_CA_CERT": "/env.crt"},
             clusters=clusters,
             desktop_file=desktop_file,
         )
-        assert (opts.secure, opts.ca_cert) == expected
+        assert (opts.insecure, opts.ca_cert) == expected
+
+    @pytest.mark.parametrize(
+        ("args", "env", "insecure"),
+        [
+            ({"secure": False}, {}, True),
+            ({"secure": True}, {}, False),
+            ({}, {"SYNNAX_SECURE": "false"}, True),
+            ({}, {"SYNNAX_SECURE": "true"}, False),
+        ],
+        ids=["arg-cleartext", "arg-tls", "env-cleartext", "env-tls"],
+    )
+    def test_deprecated_secure(
+        self,
+        clusters: Clusters,
+        desktop_file: Path,
+        args: dict[str, Any],
+        env: dict[str, str],
+        insecure: bool,
+    ) -> None:
+        """Should read secure and SYNNAX_SECURE as the inverse of insecure, and warn."""
+        with pytest.warns(DeprecationWarning, match="stop working in Synnax 0.64"):
+            opts, _ = load_options(
+                host="h",
+                api_key="syk_k",
+                **args,
+                env=env,
+                clusters=clusters,
+                desktop_file=desktop_file,
+            )
+        assert opts.insecure == insecure
+
+    @pytest.mark.parametrize(
+        ("args", "env"),
+        [
+            ({"insecure": True, "secure": True}, {}),
+            ({}, {"SYNNAX_INSECURE": "true", "SYNNAX_SECURE": "true"}),
+        ],
+        ids=["args", "env"],
+    )
+    def test_insecure_and_secure(
+        self,
+        clusters: Clusters,
+        desktop_file: Path,
+        args: dict[str, Any],
+        env: dict[str, str],
+    ) -> None:
+        """Should reject insecure and the deprecated secure from one source."""
+        with pytest.raises(ValidationError, match="not the deprecated secure"):
+            load_options(
+                host="h",
+                api_key="syk_k",
+                **args,
+                env=env,
+                clusters=clusters,
+                desktop_file=desktop_file,
+            )
 
     @pytest.mark.parametrize(
         ("args", "env"),
@@ -1023,9 +1105,7 @@ class TestLoadOptions:
             clusters=clusters,
             desktop_file=desktop_file,
         )
-        assert opts == Options(
-            host="core.lab", port=9090, api_key="syk_env", secure=True
-        )
+        assert opts == Options(host="core.lab", port=9090, api_key="syk_env")
         assert not embedded
 
     def test_saved_login_without_a_keychain(
@@ -1062,7 +1142,7 @@ class TestLoadOptions:
         ("args", "env"),
         [
             ({}, {}),
-            ({"port": 1, "api_key": "syk_k", "secure": True}, {}),
+            ({"port": 1, "api_key": "syk_k", "insecure": False}, {}),
             ({}, {"SYNNAX_PORT": "1", "SYNNAX_API_KEY": "syk_k"}),
         ],
         ids=["nothing", "args-without-host", "env-without-host"],
@@ -1125,7 +1205,7 @@ class TestHome:
         monkeypatch.setattr("pwd.getpwuid", _no_passwd_entry)
         monkeypatch.chdir(tmp_path)
         opts, embedded = load_options(host="core.lab", api_key="syk_k")
-        assert opts == Options(host="core.lab", port=9090, api_key="syk_k", secure=True)
+        assert opts == Options(host="core.lab", port=9090, api_key="syk_k")
         assert not embedded
 
 

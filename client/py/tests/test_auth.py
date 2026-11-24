@@ -39,7 +39,7 @@ class TestClusterAuth:
                 port=port,
                 username=username,
                 password="wrong",
-                secure=False,
+                insecure=True,
             )
 
     def test_no_password_provided(self, login_info: tuple[str, int, str, str]) -> None:
@@ -52,7 +52,7 @@ class TestClusterAuth:
                 host=host,
                 port=port,
                 username=username,
-                secure=False,
+                insecure=True,
             )
 
 
@@ -250,7 +250,7 @@ class TestMethods:
         """Should list the login methods the Core accepts."""
         host, port, username, password = login_info
         client = sy.Synnax(
-            host=host, port=port, username=username, password=password, secure=False
+            host=host, port=port, username=username, password=password, insecure=True
         )
         assert sorted(client.auth.retrieve_methods()) == ["api_key", "password"]
         client.close()
@@ -261,7 +261,7 @@ class TestMethods:
         """Should list the methods after logout without logging in again."""
         host, port, username, password = login_info
         client = sy.Synnax(
-            host=host, port=port, username=username, password=password, secure=False
+            host=host, port=port, username=username, password=password, insecure=True
         )
         client.auth.logout()
         assert sorted(client.auth.retrieve_methods()) == ["api_key", "password"]
@@ -275,7 +275,7 @@ class TestSessions:
         """Should open a session on login, renew it, list it, and end it on logout."""
         host, port, username, password = login_info
         client = sy.Synnax(
-            host=host, port=port, username=username, password=password, secure=False
+            host=host, port=port, username=username, password=password, insecure=True
         )
         session = client.auth.session
         assert session is not None
@@ -301,15 +301,15 @@ class TestSessions:
         """
         host, port, username, password = login_info
         admin = sy.Synnax(
-            host=host, port=port, username=username, password=password, secure=False
+            host=host, port=port, username=username, password=password, insecure=True
         )
         user_name = str(uuid4())
         create_user(admin, user_name, "seldon", empty_role.key)
         ending = sy.Synnax(
-            host=host, port=port, username=user_name, password="seldon", secure=False
+            host=host, port=port, username=user_name, password="seldon", insecure=True
         )
         other = sy.Synnax(
-            host=host, port=port, username=user_name, password="seldon", secure=False
+            host=host, port=port, username=user_name, password="seldon", insecure=True
         )
         assert ending.auth.session is not None
         assert other.auth.session is not None
@@ -330,15 +330,15 @@ class TestSessions:
         """
         host, port, username, password = login_info
         admin = sy.Synnax(
-            host=host, port=port, username=username, password=password, secure=False
+            host=host, port=port, username=username, password=password, insecure=True
         )
         user_name = str(uuid4())
         create_user(admin, user_name, "seldon", empty_role.key)
         closing = sy.Synnax(
-            host=host, port=port, username=user_name, password="seldon", secure=False
+            host=host, port=port, username=user_name, password="seldon", insecure=True
         )
         other = sy.Synnax(
-            host=host, port=port, username=user_name, password="seldon", secure=False
+            host=host, port=port, username=user_name, password="seldon", insecure=True
         )
         assert other.auth.session is not None
         assert len(other.auth.sessions.retrieve()) == 2
@@ -370,7 +370,7 @@ class TestSessions:
             username=username,
             password=password,
             read_timeout=0.5,
-            secure=False,
+            insecure=True,
         )
         assert proxy.blackhole() > 0
         client.close()
@@ -388,7 +388,7 @@ class TestAPIKeys:
                 username=username,
                 password=password,
                 api_key="syk_key",
-                secure=False,
+                insecure=True,
             )
 
     def test_lifecycle(
@@ -397,18 +397,22 @@ class TestAPIKeys:
         """Should create a key, log in with it, list it, and delete it."""
         host, port, username, password = login_info
         admin = sy.Synnax(
-            host=host, port=port, username=username, password=password, secure=False
+            host=host, port=port, username=username, password=password, insecure=True
         )
         new_username = str(uuid4())
         create_user(admin, new_username, "seldon", empty_role.key)
         owner = sy.Synnax(
-            host=host, port=port, username=new_username, password="seldon", secure=False
+            host=host,
+            port=port,
+            username=new_username,
+            password="seldon",
+            insecure=True,
         )
         token, key = owner.auth.api_keys.create("script")
         assert token.startswith("syk_")
         assert key.name == "script"
         assert key.subject == owner.auth.subject
-        keyed = sy.Synnax(host=host, port=port, api_key=token, secure=False)
+        keyed = sy.Synnax(host=host, port=port, api_key=token, insecure=True)
         assert keyed.auth.subject == owner.auth.subject
         assert keyed.auth.session is not None
         assert keyed.auth.session.credential == key.key
@@ -423,10 +427,10 @@ class TestAPIKeys:
         """Should fail the next request of a client whose key was deleted."""
         host, port, username, password = login_info
         admin = sy.Synnax(
-            host=host, port=port, username=username, password=password, secure=False
+            host=host, port=port, username=username, password=password, insecure=True
         )
         token, key = admin.auth.api_keys.create("deleted")
-        keyed = sy.Synnax(host=host, port=port, api_key=token, secure=False)
+        keyed = sy.Synnax(host=host, port=port, api_key=token, insecure=True)
         admin.auth.api_keys.delete(key.key)
         with pytest.raises(sy.AuthError):
             keyed.auth.sessions.retrieve()
@@ -438,7 +442,7 @@ class TestAPIKeys:
         host, port, _, _ = login_info
         with pytest.raises(sy.AuthError):
             sy.Synnax(
-                host=host, port=port, api_key=f"syk_{uuid4()}secret", secure=False
+                host=host, port=port, api_key=f"syk_{uuid4()}secret", insecure=True
             )
 
 
@@ -448,7 +452,7 @@ class TestPasswords:
         """Should refuse a first password for a user that already has one."""
         host, port, username, password = login_info
         admin = sy.Synnax(
-            host=host, port=port, username=username, password=password, secure=False
+            host=host, port=port, username=username, password=password, insecure=True
         )
         with pytest.raises(sy.ValidationError):
             admin.auth.passwords.create(str(uuid4()), "p")
@@ -462,7 +466,7 @@ class TestPasswords:
         """
         host, port, username, password = login_info
         admin = sy.Synnax(
-            host=host, port=port, username=username, password=password, secure=False
+            host=host, port=port, username=username, password=password, insecure=True
         )
         user = admin.users.create(name="First Password", role=empty_role.key)
         new_username = str(uuid4())
@@ -470,7 +474,7 @@ class TestPasswords:
             new_username, "first", subject=sy.user.resource_id(user.key)
         )
         client = sy.Synnax(
-            host=host, port=port, username=new_username, password="first", secure=False
+            host=host, port=port, username=new_username, password="first", insecure=True
         )
         assert client.auth.subject == sy.user.resource_id(user.key)
         client.close()
@@ -482,7 +486,7 @@ class TestPasswords:
         """Should refuse a username another user holds."""
         host, port, username, password = login_info
         admin = sy.Synnax(
-            host=host, port=port, username=username, password=password, secure=False
+            host=host, port=port, username=username, password=password, insecure=True
         )
         user = admin.users.create(name="Repeated Username", role=empty_role.key)
         with pytest.raises(sy.AuthError):
@@ -497,12 +501,12 @@ class TestPasswords:
         """Should retrieve the caller's own password by default."""
         host, port, username, password = login_info
         admin = sy.Synnax(
-            host=host, port=port, username=username, password=password, secure=False
+            host=host, port=port, username=username, password=password, insecure=True
         )
         new_username = str(uuid4())
         user = create_user(admin, new_username, "test", empty_role.key)
         client = sy.Synnax(
-            host=host, port=port, username=new_username, password="test", secure=False
+            host=host, port=port, username=new_username, password="test", insecure=True
         )
         [p] = client.auth.passwords.retrieve()
         assert (p.subject, p.username) == (sy.user.resource_id(user.key), new_username)
@@ -515,7 +519,7 @@ class TestPasswords:
         """Should retrieve a password by its username and ignore unknown ones."""
         host, port, username, password = login_info
         admin = sy.Synnax(
-            host=host, port=port, username=username, password=password, secure=False
+            host=host, port=port, username=username, password=password, insecure=True
         )
         new_username = str(uuid4())
         user = create_user(admin, new_username, "test", empty_role.key)
@@ -531,7 +535,7 @@ class TestPasswords:
         """Should retrieve a password by its subject."""
         host, port, username, password = login_info
         admin = sy.Synnax(
-            host=host, port=port, username=username, password=password, secure=False
+            host=host, port=port, username=username, password=password, insecure=True
         )
         new_username = str(uuid4())
         user = create_user(admin, new_username, "test", empty_role.key)

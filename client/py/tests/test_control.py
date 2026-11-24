@@ -510,7 +510,7 @@ class TestController:
         )
         host, port, username, password = login_info
         subject = sy.Synnax(
-            host=host, port=port, username=username, password=password, secure=False
+            host=host, port=port, username=username, password=password, insecure=True
         )
 
         async def delete_before_open(

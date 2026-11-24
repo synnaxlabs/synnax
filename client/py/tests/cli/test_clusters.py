@@ -194,9 +194,22 @@ class TestClustersConfig:
         assert got is not None
         assert got.options == opts
 
+    @pytest.mark.parametrize("insecure", [True, False])
+    def test_set_saves_both_tls_fields(
+        self, clusters: Clusters, insecure: bool
+    ) -> None:
+        """Should save insecure, and secure for Synnax 0.62, which reads only secure."""
+        opts = Options(host="h", port=1, insecure=insecure, api_key="k")
+        clusters.set(Cluster(options=opts))
+        saved = clusters.internal.get("clusters.default.options")
+        assert (saved["insecure"], saved["secure"]) == (insecure, not insecure)
+        got = clusters.get()
+        assert got is not None
+        assert got.options == opts
+
     def test_get_keeps_ca_cert(self, clusters: Clusters) -> None:
         """Should keep the CA certificate saved with an API key."""
-        opts = Options(host="h", port=1, secure=True, ca_cert="/ca.pem", api_key="k")
+        opts = Options(host="h", port=1, ca_cert="/ca.pem", api_key="k")
         clusters.set(Cluster(options=opts))
         got = clusters.get()
         assert got is not None

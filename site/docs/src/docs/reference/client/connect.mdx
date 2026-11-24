@@ -299,24 +299,26 @@ supported, `sy login` and Synnax Desktop also write their files to `~/.synnax`.
 The clients read these environment variables. They take an API key, not a username and
 password.
 
-| Variable         | Value                                                       |
-| ---------------- | ----------------------------------------------------------- |
-| `SYNNAX_HOST`    | The host of the Core.                                       |
-| `SYNNAX_API_KEY` | An API key.                                                 |
-| `SYNNAX_PORT`    | The port of the Core. The default is `9090`.                |
-| `SYNNAX_SECURE`  | `true` or `1` to use TLS, `false` or `0` to not use TLS.    |
-| `SYNNAX_CA_CERT` | The path to the PEM file of the CA certificate of the Core. |
+| Variable          | Value                                                                          |
+| ----------------- | ------------------------------------------------------------------------------ |
+| `SYNNAX_HOST`     | The host of the Core.                                                          |
+| `SYNNAX_API_KEY`  | An API key.                                                                    |
+| `SYNNAX_PORT`     | The port of the Core. The default is `9090`.                                   |
+| `SYNNAX_INSECURE` | Python: `true` or `1` to not use TLS, `false` or `0` to use TLS.               |
+| `SYNNAX_SECURE`   | `true` or `1` to use TLS, `false` or `0` to not use TLS. Deprecated in Python. |
+| `SYNNAX_CA_CERT`  | The path to the PEM file of the CA certificate of the Core.                    |
 
 Each client takes each option from the first source that sets it: the argument, then its
 variable, then its default.
 
-| Python    | TypeScript | Variable         | Default |
-| --------- | ---------- | ---------------- | ------- |
-| `host`    | `host`     | `SYNNAX_HOST`    | None    |
-| `port`    | `port`     | `SYNNAX_PORT`    | `9090`  |
-| `api_key` | `apiKey`   | `SYNNAX_API_KEY` | None    |
-| `secure`  | `secure`   | `SYNNAX_SECURE`  | True    |
-| `ca_cert` | `caCert`   | `SYNNAX_CA_CERT` | None    |
+| Python     | TypeScript | Variable          | Default |
+| ---------- | ---------- | ----------------- | ------- |
+| `host`     | `host`     | `SYNNAX_HOST`     | None    |
+| `port`     | `port`     | `SYNNAX_PORT`     | `9090`  |
+| `api_key`  | `apiKey`   | `SYNNAX_API_KEY`  | None    |
+| `insecure` |            | `SYNNAX_INSECURE` | False   |
+|            | `secure`   | `SYNNAX_SECURE`   | True    |
+| `ca_cert`  | `caCert`   | `SYNNAX_CA_CERT`  | None    |
 
 <Client.Tabs exclude={["console"]}>
 
@@ -329,9 +331,12 @@ Two groups come whole from the first source that sets one of their options:
 
 - The credentials: `api_key`, `username`, and `password`. A `username` and `password`
   replace the API key of a variable or of the saved Core.
-- TLS: `secure` and `ca_cert`. `secure=True` with no `ca_cert` uses the certificate
-  store of the operating system, even when `SYNNAX_CA_CERT` is set. A `ca_cert` with no
-  `secure` turns TLS on.
+- TLS: `insecure` and `ca_cert`. `insecure=False` with no `ca_cert` uses the certificate
+  store of the operating system, even when `SYNNAX_CA_CERT` is set.
+
+`secure` and `SYNNAX_SECURE` still work in 0.63 as the inverse of `insecure` and
+`SYNNAX_INSECURE`, and they stop working in 0.64. The client warns when it reads one,
+and raises `sy.ValidationError` when one source gives both names.
 
 To keep the API key out of your code, give the host and set only `SYNNAX_API_KEY`:
 
@@ -344,8 +349,8 @@ export SYNNAX_API_KEY=syk_...
 python my_script.py
 ```
 
-When no source gives a host or credentials, or when `SYNNAX_PORT` or `SYNNAX_SECURE` has
-a value that is not valid, the client raises `sy.ValidationError`.
+When no source gives a host or credentials, or when `SYNNAX_PORT` or `SYNNAX_INSECURE`
+has a value that is not valid, the client raises `sy.ValidationError`.
 
   </Fragment>
 
@@ -409,7 +414,8 @@ cannot show. If a script stops at `sy.Synnax()` over SSH, set the environment va
 
 Both clients connect with TLS by default. For how to give the Core a certificate, see
 [Set up TLS](/reference/enterprise/tls). A Core that runs with `--insecure` does not
-serve TLS. To connect to it, set `secure` to false.
+serve TLS. To connect to it, set `insecure` to `True` in Python or `secure` to `false` in
+TypeScript.
 
 <Client.Tabs exclude={["console"]}>
 
@@ -421,7 +427,6 @@ client = sy.Synnax(
     port=9090,
     username="operator",
     password="secret",
-    secure=True,
 )
 ```
 
@@ -437,7 +442,6 @@ client = sy.Synnax(
     port=9090,
     username="operator",
     password="secret",
-    secure=True,
     ca_cert="/path/to/ca.crt",
 )
 ```
@@ -455,7 +459,7 @@ client = sy.Synnax(
     port=9090,
     username="synnax",
     password="seldon",
-    secure=False,
+    insecure=True,
 )
 ```
 
@@ -685,16 +689,16 @@ A Node.js script does not exit until you close the client.
   The password to log in with.
 </Field.Item>
 
-<Field.Item name="secure" id="python-secure" type="bool" default="True">
-  Connect with TLS. Set it to `False` for a Core that runs with `--insecure`. A Core
-  that `sy login` or Synnax Desktop saved keeps its saved value.
+<Field.Item name="insecure" id="python-insecure" type="bool" default="False">
+  Connect without TLS. Set it to `True` for a Core that runs with `--insecure`. A Core
+  that `sy login` or Synnax Desktop saved keeps its saved value. `secure` is a
+  deprecated alias with the inverse meaning, and it stops working in 0.64.
 </Field.Item>
 
 <Field.Item name="ca_cert" id="python-ca-cert" type="str">
-  The path to the CA certificate that signs the certificate of the Core. With `ca_cert`
-  and no `secure`, the client uses TLS. With `secure=False`, the client raises
-  `ValueError`. With no path, the client trusts the certificate store of the operating
-  system.
+  The path to the CA certificate that signs the certificate of the Core. With
+  `insecure=True`, the client raises `ValueError`. With no path, the client trusts the
+  certificate store of the operating system.
 </Field.Item>
 
 <Field.Item

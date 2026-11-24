@@ -23,7 +23,7 @@ from freighter.exceptions import Unreachable
 def fresh_client(login_info: tuple[str, int, str, str]) -> Iterator[sy.Synnax]:
     host, port, username, password = login_info
     client = sy.Synnax(
-        host=host, port=port, username=username, password=password, secure=False
+        host=host, port=port, username=username, password=password, insecure=True
     )
     yield client
     client.close()
@@ -64,7 +64,7 @@ class TestSubClients:
         script = (
             "import sys, synnax as sy\n"
             f"c = sy.Synnax(host={host!r}, port={port}, username={username!r}, "
-            f"password={password!r}, secure=False)\n"
+            f"password={password!r}, insecure=True)\n"
             "loaded = [m for m in ('synnax.schematic', 'synnax.ni') "
             "if m in sys.modules]\n"
             "c.close()\n"
@@ -98,5 +98,5 @@ class TestTLS:
             )
         assert str(e.value) == (
             f"The Core at {host}:{port} does not use TLS. If it runs with "
-            "--insecure, set secure=False or SYNNAX_SECURE=false."
+            "--insecure, set insecure=True or SYNNAX_INSECURE=true."
         )

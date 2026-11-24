@@ -30,7 +30,7 @@ def fresh_client(login_info: tuple[str, int, str, str]) -> Iterator[sy.Synnax]:
     """A client with its own signals registry, so handlers stay in one test."""
     host, port, username, password = login_info
     c = sy.Synnax(
-        host=host, port=port, username=username, password=password, secure=False
+        host=host, port=port, username=username, password=password, insecure=True
     )
     yield c
     c.close()
