@@ -33,8 +33,8 @@ interface MessageRead {
   /** The position of the message in the reads of the record. */
   read: number;
   match?: icd.JSONMatch;
-  /** The pointers of the fields that the record reads in the message. */
-  pointers: Set<string>;
+  /** The fields that the record reads in the message, by pointer. */
+  fields: Map<string, icd.JSONField>;
 }
 
 /** What the records of the task read, by Kafka key. */
@@ -43,11 +43,6 @@ export interface Reads {
   messages: Map<string, MessageRead[]>;
   /** The keys with a record that reads no JSON message. */
   jsonless: Set<string>;
-  /**
-   * The fields that the record of the empty key reads, by pointer. The Core sends that
-   * record each record whose key has no record of its own.
-   */
-  anyKey: Map<string, icd.JSONField>;
 }
 
 /** @returns what a record reads in each of its JSON messages. */
@@ -56,10 +51,14 @@ const messageReads = (record: ReadRecord, held: icd.Message[]): MessageRead[] =>
     const { payload } = held.find(({ key }) => key === message) ?? {};
     if (payload?.format !== "json") return [];
     const bound = new Set(bindings.map(({ field }) => field));
-    const pointers = payload.fields
-      .filter(({ key }) => bound.has(key))
-      .map(({ pointer }) => pointer);
-    return [{ read, match: payload.match, pointers: new Set(pointers) }];
+    const fields = payload.fields.filter(({ key }) => bound.has(key));
+    return [
+      {
+        read,
+        match: payload.match,
+        fields: new Map(fields.map((f) => [f.pointer, f])),
+      },
+    ];
   });
 
 /**
@@ -79,35 +78,30 @@ const route = (shape: json.Shape, reads: MessageRead[]): MessageRead | undefined
 
 /** @returns what the records of each Kafka key read. */
 export const readsOf = (records: ReadRecord[], messagesOf: MessagesOf): Reads => {
-  const reads: Reads = { messages: new Map(), jsonless: new Set(), anyKey: new Map() };
+  const reads: Reads = { messages: new Map(), jsonless: new Set() };
   for (const record of records) {
-    const { recordKey } = record;
-    const held = messagesOf(record.icd);
-    const own = messageReads(record, held);
-    if (own.length === 0) reads.jsonless.add(recordKey);
-    map.getOrInsert(reads.messages, recordKey, () => []).push(...own);
-    if (recordKey !== "") continue;
-    for (const { message, bindings } of record.messages)
-      for (const field of ICD.jsonFields(held.find(({ key }) => key === message)))
-        if (bindings.some((b) => b.field === field.key))
-          reads.anyKey.set(field.pointer, field);
+    const own = messageReads(record, messagesOf(record.icd));
+    if (own.length === 0) reads.jsonless.add(record.recordKey);
+    map.getOrInsert(reads.messages, record.recordKey, () => []).push(...own);
   }
   return reads;
 };
 
 /**
  * @returns the fields of a shape that the record of the empty key reads for the keys of
- * the shape with no record of their own, by pointer. A new record of those keys reads
- * them too, so the keys keep their fields when they leave that record.
+ * the shape with no record of their own, by pointer. That is in the message that the
+ * Core gives the documents of the shape. A new record of those keys reads them too, so
+ * the keys keep their fields when they leave that record.
  */
 export const carriedFields = (
   shape: json.Shape,
-  { messages, anyKey }: Reads,
+  { messages }: Reads,
 ): Map<string, icd.JSONField> => {
   const carried = new Map<string, icd.JSONField>();
   if (shape.sources.every((key) => messages.has(key))) return carried;
+  const routed = route(shape, messages.get("") ?? [])?.fields;
   shape.fields.forEach(({ pointer }, i) => {
-    const field = anyKey.get(pointer);
+    const field = routed?.get(pointer);
     if (i !== shape.index && field != null) carried.set(pointer, field);
   });
   return carried;
@@ -125,8 +119,7 @@ export const isExtendable = (shape: json.Shape, { jsonless }: Reads): boolean =>
 export const takenPointers = (shape: json.Shape, { messages }: Reads): Set<string> => {
   const [first, ...rest] = shape.sources.map(
     (key) =>
-      route(shape, messages.get(key) ?? messages.get("") ?? [])?.pointers ??
-      new Set<string>(),
+      new Set(route(shape, messages.get(key) ?? messages.get("") ?? [])?.fields.keys()),
   );
   return new Set([...(first ?? [])].filter((p) => rest.every((r) => r.has(p))));
 };
@@ -299,7 +292,7 @@ export const createExtensions = (
         throw new Error(`Record ${record.key} reads no JSON message`);
       const routed = route(shape, own);
       const picked = shape.fields.filter(
-        (f) => pointers.has(f.pointer) && routed?.pointers.has(f.pointer) !== true,
+        (f) => pointers.has(f.pointer) && routed?.fields.has(f.pointer) !== true,
       );
       if (picked.length === 0) continue;
       if (routed == null) {

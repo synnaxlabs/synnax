@@ -1182,6 +1182,31 @@ describe("Kafka read form", () => {
       ]);
     });
 
+    it("should carry only the fields that the empty key reads for the kind of a key", async () => {
+      const time = createTimeField();
+      const rec = await createRecord({
+        fields: [time, createField("rpm", "float"), createField("status", "string")],
+        index: time.key,
+        match: { type: "present", pointer: "/rpm" },
+      });
+      const { draft, dev } = await renderRead({ records: [rec] });
+      const fault = { ...createKind("/fault", "/status"), present: -1 };
+      const dialog = await openAddData(dev, { data: sampleOf(fault) });
+      fireEvent.click(await dialog.findByRole("button", { name: "Select all" }));
+      fireEvent.click(dialog.getByRole("button", { name: "Add 2 fields" }));
+      const pump = await waitFor(async () => {
+        const records = await retrieveRecords(draft.key);
+        const found = records.find(({ recordKey }) => recordKey === "pump");
+        if (found == null) throw new Error("Add data made no record of pump");
+        return found;
+      });
+      const { messages } = await client.icds.retrieve(pump.icd);
+      const message = messages.find(({ key }) => key === pump.messages[0].message);
+      expect(
+        ICD.jsonFields(message).find(({ pointer }) => pointer === "/status"),
+      ).toMatchObject({ type: payload.kindOf("float64") });
+    });
+
     it("should show the hint with the fields and count the picks", async () => {
       const { dev } = await renderRead();
       const dialog = await openAddData(dev, { data: sampleOf(OVEN_SHAPE) });
