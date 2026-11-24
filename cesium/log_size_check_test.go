@@ -27,9 +27,9 @@ import (
 var _ = Describe("Check: the next log of a recovery past three quarters of a small log",
 	func() {
 		const size = log.MinFileSize
-		// recovered opens fs, which recovers it, and returns the bytes of log 2 before
-		// the DB runs, or nil when there is no log 2.
-		recovered := func(ctx context.Context, fs xfs.FS) []byte {
+		// recovered opens fs, the root of the DB of identity id, which recovers it, and
+		// returns the bytes of log 2 before the DB runs, or nil when there is no log 2.
+		recovered := func(ctx context.Context, fs xfs.FS, id uint64) []byte {
 			GinkgoHelper()
 			db := MustSucceed(cesium.Open(
 				ctx,
@@ -38,6 +38,7 @@ var _ = Describe("Check: the next log of a recovery past three quarters of a sma
 				cesium.WithPointerLog(),
 				cesium.WithRandom(rand.NewPCG(1, 2)),
 				cesium.WithLogFileSize(telem.Size(size)),
+				cesium.WithIdentity(id),
 			))
 			var b []byte
 			if MustSucceed(fs.Exists(log.Name(2))) {
@@ -47,9 +48,10 @@ var _ = Describe("Check: the next log of a recovery past three quarters of a sma
 			return b
 		}
 		// crashed returns an image, taken while the DB runs, of a root whose log 1
-		// holds n Intends, or as many as it takes when n is 0. The disk has no room for
-		// log 2, so the DB never switches, and the image has room.
-		crashed := func(ctx SpecContext, n int) *fault.FS {
+		// holds n Intends, or as many as it takes when n is 0, and the identity of the
+		// DB. The disk has no room for log 2, so the DB never switches, and the image
+		// has room.
+		crashed := func(ctx SpecContext, n int) (*fault.FS, uint64) {
 			GinkgoHelper()
 			disk := MustSucceed(fault.New(fault.Config{Capacity: size + 1<<20}))
 			db := MustSucceed(cesium.Open(
@@ -77,22 +79,23 @@ var _ = Describe("Check: the next log of a recovery past three quarters of a sma
 			if MustSucceed(image.Exists(log.Name(2))) {
 				Expect(image.Remove(log.Name(2))).To(Succeed())
 			}
-			return image
+			return image, db.Identity()
 		}
 
 		It(
 			"Should keep the Restart in a full log, whose last two blocks only marks "+
 				"and the Restart may take",
 			func(ctx SpecContext) {
-				Expect(recovered(ctx, crashed(ctx, 0))).To(BeNil())
+				image, id := crashed(ctx, 0)
+				Expect(recovered(ctx, image, id)).To(BeNil())
 			},
 		)
 
 		It("Should switch to a whole new log of the log file size",
 			func(ctx SpecContext) {
-				image := crashed(ctx, size/log.BlockSize*3/4+32)
+				image, id := crashed(ctx, size/log.BlockSize*3/4+32)
 				Expect(log.Prepare(image, 2, size)).To(Succeed())
-				b := recovered(ctx, image)
+				b := recovered(ctx, image, id)
 				Expect(b).To(HaveLen(int(size)))
 				// The switch writes the header of log 2.
 				Expect(b[:log.HeaderSize]).ToNot(Equal(make([]byte, log.HeaderSize)))

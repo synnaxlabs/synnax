@@ -64,6 +64,7 @@ var _ = Describe("Check: the files of an undo through the next Sweep", func() {
 		Expect(db.CreateChannel(ctx, channels...)).To(Succeed())
 		w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 			Channels: keys,
+			Clock:    idx,
 			Start:    telem.SecondTS,
 		}))
 		MustSucceed2(w.Write(ctx, telem.MultiFrame(keys, []telem.Series{
