@@ -88,13 +88,7 @@ x::errors::Error remove_temps(const std::filesystem::path &path) {
             "failed to list " + dir.string() + ": " + ec.message()
         );
     for (const auto &temp: temps)
-        // The create that owns a temp can remove it first.
-        if (std::filesystem::remove(temp, ec);
-            ec && ec != std::errc::no_such_file_or_directory)
-            return x::errors::Error(
-                BASE_ERROR,
-                "failed to remove " + temp.string() + ": " + ec.message()
-            );
+        std::filesystem::remove(temp, ec);
     return x::errors::NIL;
 }
 }

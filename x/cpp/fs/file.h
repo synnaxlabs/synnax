@@ -123,6 +123,8 @@ x::errors::Error create_new(
 );
 
 /// @brief removes the temp files that a crash during create(path) or create_new(path)
-/// left. Call it only while no create(path) runs.
+/// left. Call it only while no create(path) runs. A temp that fails to remove, such as
+/// one that a concurrent create_new(path) holds on Windows, stays for a later call.
+/// @returns an error when the directory fails to list.
 x::errors::Error remove_temps(const std::filesystem::path &path);
 }
