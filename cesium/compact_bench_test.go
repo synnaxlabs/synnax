@@ -172,8 +172,7 @@ func benchmarkCompactCommit(
 	const samples, commits = 125, 20_000
 	data := telem.NewSeries(make([]float32, samples))
 	stamps := make([]telem.TimeStamp, samples)
-	start := telem.SecondTS
-	took := make([]time.Duration, 0, commits)
+	start, took := telem.SecondTS, make([]time.Duration, 0, commits)
 	b.ReportAllocs()
 	for b.Loop() {
 		for range commits {
