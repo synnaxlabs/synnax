@@ -7,7 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, icd, kafka, type Synnax, type task } from "@synnaxlabs/client";
+import {
+  channel,
+  type device,
+  icd,
+  kafka,
+  type Synnax,
+  type task,
+} from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import type { Status } from "@synnaxlabs/lyra/status";
 import { uniqueName } from "@synnaxlabs/x/testutil";
@@ -20,6 +27,7 @@ import { ICD } from "@/platform/icd";
 import {
   clickDeploy,
   countFailedSaves,
+  deployAndAwaitTask,
   preloadForms,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
@@ -72,12 +80,17 @@ const createTarget = async (
   return { ic, message, target };
 };
 
+interface RenderWriteOptions extends RenderTaskFormTabOptions {
+  /** The cluster of the task. Absent creates one. */
+  dev?: device.Device;
+}
+
 // The form body renders against a configured cluster only.
 const renderWrite = async (
   targets: Kafka.Task.WriteTarget[] = [],
-  options: RenderTaskFormTabOptions = {},
+  { dev: given, ...options }: RenderWriteOptions = {},
 ) => {
-  const dev = await createKafkaDevice(client);
+  const dev = given ?? (await createKafkaDevice(client));
   const draft = await createDraft(client, {
     ...Kafka.Task.WRITE_SCHEMAS.config.parse({}),
     device: dev.key,
@@ -90,6 +103,18 @@ const renderWrite = async (
   });
   return { ...result, dev, draft };
 };
+
+const deployWrite = async (container: HTMLElement, key: task.Key) =>
+  (await deployAndAwaitTask(client, container, key, Kafka.Task.WRITE_SCHEMAS)).config
+    .targets;
+
+/** @returns the channel of each channel binding of the target. */
+const boundChannels = ({ message }: Kafka.Task.WriteTarget): channel.Key[] =>
+  message.bindings.flatMap((b) => (b.type === "channel" ? [b.channel] : []));
+
+const retrieveWriteRecord = async (key: device.Key) =>
+  (await client.devices.retrieve({ key, schemas: Kafka.Device.SCHEMAS })).properties
+    .write;
 
 // The add button renders once the form leaves its loading preview.
 const addTarget = async () =>
@@ -205,5 +230,65 @@ describe("Kafka Write form", () => {
     await screen.findByRole("option", { name: /New topic/ });
     await clickDeploy(container);
     await screen.findByText("Topic is required");
+  });
+  describe("deploying against a live Core", () => {
+    it("should create a command channel for each channel binding and keep it in the cluster", async () => {
+      const speed = createField("speed", "float");
+      const open = createField("open", "boolean");
+      const { target } = await createTarget([speed, open], { recordKey: "Pump_1" });
+      const { container, dev, draft } = await renderWrite([target]);
+      const [deployed] = await deployWrite(container, draft.key);
+      const keys = boundChannels(deployed);
+      const channels = await client.channels.retrieve(keys);
+      const prefix = `${channel.escapeInvalidName(dev.name)}_plant_pumps_Pump_1`;
+      expect(channels.map(({ name }) => name)).toEqual([
+        `${prefix}_speed_cmd`,
+        `${prefix}_open_cmd`,
+      ]);
+      expect(channels.map((ch) => ch.dataType.toString())).toEqual([
+        "float64",
+        "uint8",
+      ]);
+      expect(await retrieveWriteRecord(dev.key)).toEqual({
+        [`plant.pumps#Pump_1#${speed.key}`]: keys[0],
+        [`plant.pumps#Pump_1#${open.key}`]: keys[1],
+      });
+    });
+
+    it("should give two record keys of one topic their own command channels", async () => {
+      const speed = createField("speed", "float");
+      const { target } = await createTarget([speed], { recordKey: "pump1" });
+      const second = { ...target, key: "t2", recordKey: "pump2" };
+      const { container, dev, draft } = await renderWrite([target, second]);
+      const [first, other] = (await deployWrite(container, draft.key)).map(
+        boundChannels,
+      );
+      expect(first[0]).not.toEqual(other[0]);
+      expect(await retrieveWriteRecord(dev.key)).toEqual({
+        [`plant.pumps#pump1#${speed.key}`]: first[0],
+        [`plant.pumps#pump2#${speed.key}`]: other[0],
+      });
+    });
+
+    it("should bind a field to the command channel that the cluster keeps for it", async () => {
+      const speed = createField("speed", "float");
+      const { target } = await createTarget([speed]);
+      const index = await client.channels.create({
+        name: uniqueName("kafka_cmd_time"),
+        dataType: "timestamp",
+        isIndex: true,
+      });
+      const kept = await client.channels.create({
+        name: uniqueName("kafka_cmd"),
+        dataType: "float64",
+        index: index.key,
+      });
+      const dev = await createKafkaDevice(client, {
+        properties: { write: { [`plant.pumps##${speed.key}`]: kept.key } },
+      });
+      const { container, draft } = await renderWrite([target], { dev });
+      const [deployed] = await deployWrite(container, draft.key);
+      expect(boundChannels(deployed)).toEqual([kept.key]);
+    });
   });
 });

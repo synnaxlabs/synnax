@@ -7,13 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { icd, Synnax } from "@synnaxlabs/client";
+import type { channel, icd, Synnax } from "@synnaxlabs/client";
 import { ICD as PICD } from "@synnaxlabs/pluto";
 
-import { encodes } from "@/platform/icd/dataType";
+import { bindingDataType, encodes } from "@/platform/icd/dataType";
 import { formatOf, type Formats } from "@/platform/icd/Formats";
 import { createMessage } from "@/platform/icd/inferred";
-import { jsonFields, mostRead } from "@/platform/icd/read";
+import { jsonFields, mostRead, retrieveMessages } from "@/platform/icd/read";
+import { Task } from "@/platform/task";
 
 const channelBinding = (field: icd.FieldKey): icd.ChannelWriteBinding => ({
   type: "channel",
@@ -126,4 +127,47 @@ export const addMessages = async ({
     }
   });
   return { icd: home, messages: created };
+};
+
+/** Keys and names the command channel of each field of a write. */
+export interface ChannelNaming {
+  /** @returns the key of the field's channel in the write record of the device. */
+  key: (field: icd.JSONField) => string;
+  /** @returns the name of a new command channel for the field. */
+  name: (field: icd.JSONField) => string;
+}
+
+/**
+ * Gives each channel binding of write a command channel that suits its field: the one
+ * it has, the one that record holds at its key, or a new one. Changes the bindings of
+ * write and the channels of record in place.
+ */
+export const configureChannels = async (
+  client: Synnax,
+  record: Record<string, channel.Key>,
+  write: { icd: icd.Key; message: icd.WriteMessage },
+  naming: ChannelNaming,
+): Promise<void> => {
+  const bindings = write.message.bindings.filter(
+    (b): b is icd.ChannelWriteBinding => b.type === "channel",
+  );
+  if (bindings.length === 0) return;
+  const messages = await retrieveMessages(client, [write.icd]);
+  const fields = jsonFields(
+    messages.get(write.icd)?.find(({ key }) => key === write.message.message),
+  );
+  for (const binding of bindings) {
+    const field = fields.find(({ key }) => key === binding.field);
+    // The Core rejects a binding to a field that the message lacks.
+    if (field == null) continue;
+    const { dataType = "" } = binding;
+    const suited = dataType !== "" && encodes(field, dataType);
+    binding.channel = await Task.configureCommandChannel(client, record, {
+      propertiesKey: naming.key(field),
+      channel: binding.channel,
+      name: naming.name(field),
+      dataType: bindingDataType(suited ? binding : {}, field),
+      suits: (ch) => encodes(field, ch.dataType.toString()),
+    });
+  }
 };

@@ -255,11 +255,33 @@ const Form: FC = () => (
   />
 );
 
+/** The prefix of the names of the command channels that deploying gives a target. */
+const commandPrefix = (
+  deviceName: string,
+  { topic, recordKey }: Pick<WriteTarget, "topic" | "recordKey">,
+): string => {
+  const prefix = `${channel.escapeInvalidName(deviceName)}_${channel.escapeInvalidName(topic)}`;
+  return recordKey === ""
+    ? prefix
+    : `${prefix}_${channel.escapeInvalidName(recordKey)}`;
+};
+
+/** The name deploying gives the command channel of a field of a target. */
+const commandName = (prefix: string, field: icd.JSONField): string =>
+  `${prefix}_${channel.escapeInvalidName(field.name)}_cmd`;
+
+/** The key of the command channel of a target's field in the device's write record. */
+const writeKey = (
+  { topic, recordKey }: Pick<WriteTarget, "topic" | "recordKey">,
+  field: icd.JSONField,
+): string => `${topic}#${recordKey}#${field.key}`;
+
 /**
  * A cleared pointer is omitted from the record instead of placed at "". A string,
  * JSON, or UUID channel goes out as a string, and a timestamp channel by its time
  * format, whatever JSON type the form holds. Disabled rows are left alone, so a
- * deleted channel on one cannot block the deploy.
+ * deleted channel on one cannot block the deploy. Each channel binding of an enabled
+ * target gets a command channel, which the device keeps for the next deploy.
  */
 const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
   client,
@@ -288,6 +310,19 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
   });
   if (config.record.channelPointer === "") delete config.record.channelPointer;
   if (config.record.timestampPointer === "") delete config.record.timestampPointer;
+  const before = deep.copy(dev.properties);
+  try {
+    for (const target of config.targets) {
+      if (target.disabled) continue;
+      const prefix = commandPrefix(dev.name, target);
+      await ICD.Write.configureChannels(client, dev.properties.write, target, {
+        key: (field) => writeKey(target, field),
+        name: (field) => commandName(prefix, field),
+      });
+    }
+  } finally {
+    await PlatformDevice.setProperties(client, dev, before, Device.SCHEMAS);
+  }
   return [config, dev.rack];
 };
 
@@ -296,21 +331,6 @@ const ICDProperties = () => <Device.Select />;
 const TOPIC_KIND_COLOR = "var(--pluto-primary-z)";
 
 const RECORD_KEY_INPUT_PROPS = { placeholder: "No key" } as const;
-
-/** The prefix of the names of the command channels that deploying gives a target. */
-const commandPrefix = (
-  deviceName: string,
-  { topic, recordKey }: Pick<WriteTarget, "topic" | "recordKey">,
-): string => {
-  const prefix = `${channel.escapeInvalidName(deviceName)}_${channel.escapeInvalidName(topic)}`;
-  return recordKey === ""
-    ? prefix
-    : `${prefix}_${channel.escapeInvalidName(recordKey)}`;
-};
-
-/** The name deploying gives the command channel of a field of a target. */
-const commandName = (prefix: string, field: icd.JSONField): string =>
-  `${prefix}_${channel.escapeInvalidName(field.name)}_cmd`;
 
 /** Names a target by its topic, then its record key when it has one. */
 const TargetLabel = ({ path }: { path: deep.Path<WriteTarget> }) => {
