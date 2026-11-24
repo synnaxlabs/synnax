@@ -241,7 +241,7 @@ const Editor = ({
       const [part] = Spec.levelIssues(spec).keys();
       if (part != null) return setSelectedPart(part);
     }
-    // Placement reads the variant, which the lists set by whether a click exists.
+    // Placement reads the variant, so a symbol with a click saves as an actuator.
     if (FLAGS.symbolNodes)
       form.set(path.data.variant, spec.interactions.length > 0 ? "actuator" : "static");
     save();

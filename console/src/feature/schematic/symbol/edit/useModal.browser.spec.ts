@@ -40,6 +40,7 @@ import {
   getOverlayHandles,
   getPartListItem,
   getPreviewTransformWrapper,
+  getValueBar,
   SYMBOL_FILE_DROP_PROMPT,
   symbolNames,
 } from "@/feature/schematic/testutil";
@@ -104,13 +105,6 @@ const loadSVG = async (
 
 const findNameInput = (): HTMLInputElement =>
   screen.getByPlaceholderText<HTMLInputElement>("Symbol name");
-
-// valueBar returns the preview bar. The state list repeats the names of its states.
-const valueBar = () => {
-  const bar = document.querySelector<HTMLElement>(".console-schematic__value-bar");
-  assertDefined(bar, "no preview bar");
-  return within(bar);
-};
 
 describe("Schematic.Symbol.Edit.useModal", () => {
   describe("create mode", () => {
@@ -690,7 +684,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
         variant: "actuator",
         states: [createState(enumeration.key)],
       });
-      fireEvent.click(await valueBar().findByText("Active"));
+      fireEvent.click(await within(getValueBar()).findByText("Active"));
       const fill = screen.getByLabelText("Fill");
       fireEvent.click(fill);
       fireEvent.click(await screen.findByText("State color"));
@@ -870,7 +864,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
         variant: "actuator",
         states: [createState(), fault],
       });
-      fireEvent.click(valueBar().getByText("Fault"));
+      fireEvent.click(within(getValueBar()).getByText("Fault"));
       byState("Visible");
       fireEvent.click(await screen.findByLabelText("Visible while Active"));
       fireEvent.click(findButton("Save"));
@@ -908,7 +902,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
           },
         ],
       });
-      fireEvent.click(valueBar().getByText("Fault"));
+      fireEvent.click(within(getValueBar()).getByText("Fault"));
       expect(await screen.findByLabelText("Visible while Trip")).toBeDefined();
       expect(screen.getByLabelText("Visible while Warn")).toBeDefined();
       expect(screen.getByLabelText<HTMLInputElement>("Visible while 5").checked).toBe(
@@ -919,11 +913,11 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     it("adds a state that the preview bar can pick", async () => {
       await openPainted({ variant: "actuator", states: [createState()] });
       fireEvent.click(getEditSectionHeaderButton("States"));
-      // The state list and the preview bar both name the new state.
-      await waitFor(() => expect(screen.getAllByText("State 2")).toHaveLength(2));
+      expect(await within(getValueBar()).findByText("State 2")).toBeDefined();
     });
 
-    // openFaulted opens a symbol with a Fault state, which one look hides Body on.
+    // openFaulted opens a symbol with a Fault state, which one look hides Body on, one
+    // command sets, and one click on Body sends that command.
     const openFaulted = async () =>
       await openPainted({
         variant: "actuator",
@@ -936,18 +930,31 @@ describe("Schematic.Symbol.Edit.useModal", () => {
             hidden: true,
           },
         ],
+        commands: [
+          {
+            key: "trip",
+            name: "Trip",
+            state: "fault",
+            value: { type: "fixed", value: 1 },
+          },
+        ],
+        interactions: [{ type: "fire", key: "c", part: "body", command: "trip" }],
       });
 
     it("removes a state and its looks after a confirm", async () => {
       const symbol = await openFaulted();
       fireEvent.click(screen.getByLabelText("Remove Fault"));
-      expect(await screen.findByText("Its uses go with it: 1 look.")).toBeDefined();
+      expect(
+        await screen.findByText("Its uses go with it: 1 look, 1 command, and 1 click."),
+      ).toBeDefined();
       fireEvent.click(findButton("Remove"));
       fireEvent.click(findButton("Save"));
       await waitFor(async () => {
-        const saved = await client.schematics.symbols.retrieve(symbol.key);
+        const saved = await retrieveStored(symbol.key);
         expect(saved.data.states.map((st) => st.key)).toEqual(["active"]);
         expect(saved.data.looks).toEqual([]);
+        expect(saved.data.commands).toEqual([]);
+        expect(saved.data.interactions).toEqual([]);
       });
     });
 
@@ -968,7 +975,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       commitTextEdit(await awaitTextEditing("symbol-state-state-2"), "Mode");
       fireEvent.click(findButton("Save"));
       await waitFor(async () => {
-        const saved = await client.schematics.symbols.retrieve(symbol.key);
+        const saved = await retrieveStored(symbol.key);
         expect(saved.data.states[1]).toMatchObject({ key: "state-2", name: "Mode" });
       });
     });
@@ -979,9 +986,10 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       fireEvent.click(await screen.findByText("Cancel"));
       fireEvent.click(findButton("Save"));
       await waitFor(async () => {
-        const saved = await client.schematics.symbols.retrieve(symbol.key);
+        const saved = await retrieveStored(symbol.key);
         expect(saved.data.states.map((st) => st.key)).toEqual(["active", "fault"]);
         expect(saved.data.looks).toHaveLength(1);
+        expect(saved.data.interactions).toHaveLength(1);
       });
     });
 
@@ -1004,7 +1012,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       });
       fireEvent.click(findButton("Save"));
       await waitFor(async () => {
-        const saved = await client.schematics.symbols.retrieve(symbol.key);
+        const saved = await retrieveStored(symbol.key);
         expect(saved.data.variant).toBe("actuator");
       });
     });
@@ -1016,7 +1024,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       });
       fireEvent.click(findButton("Save"));
       await waitFor(async () => {
-        const saved = await client.schematics.symbols.retrieve(symbol.key);
+        const saved = await retrieveStored(symbol.key);
         expect(saved.data.variant).toBe("static");
       });
     });

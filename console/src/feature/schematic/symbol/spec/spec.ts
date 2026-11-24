@@ -292,8 +292,8 @@ const createKey = (name: string, taken: string[]): string => {
 };
 
 /**
- * @returns spec with a new enumeration state, State N with the lowest free N, and the
- * key of the state.
+ * @returns spec with a new enumeration state, State N with the lowest free N from 2,
+ * and the key of the state.
  */
 export const addState = (spec: Spec): [Spec, string] => {
   const taken = new Set(spec.states.map((s) => s.name));
