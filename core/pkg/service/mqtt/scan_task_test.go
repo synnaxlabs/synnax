@@ -906,7 +906,7 @@ var _ = Describe("Scan task", func() {
 							field("/code", "number", "3", payload.KindInteger),
 						}),
 						HaveKeyWithValue("index", "/time"),
-						HaveKeyWithValue("present", "/time"),
+						HaveKeyWithValue("present", "/code"),
 						HaveKeyWithValue("count", BeNumerically(">", 1)),
 					),
 				)))
