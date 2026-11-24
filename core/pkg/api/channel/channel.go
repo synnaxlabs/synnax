@@ -394,8 +394,7 @@ func (s *Service) RetrieveBuiltIns(
 }
 
 // Heal names, in the denial of a create or a dispatch, the records that its heal
-// changes
-// and that the subject cannot retrieve.
+// changes and that the subject cannot retrieve.
 const Heal = "a heal"
 
 // CountLimitedRequest is a request for the count of the channels that count against the
