@@ -21,7 +21,7 @@ import {
   resourceZ,
 } from "@/resource/payload";
 import { type Type, typeZ } from "@/resource/types.gen";
-import { checkForMultipleOrNoResults } from "@/util/retrieve";
+import { util } from "@/util";
 
 const searchReqZ = z.object({
   /** The text that a resource must match. An empty term lists resources by type. */
@@ -142,7 +142,7 @@ export class Client {
       table: this.table,
       fetch: async (key) => {
         const resources = await this.table.retrieve([key]);
-        checkForMultipleOrNoResults(
+        util.checkForMultipleOrNoResults(
           "resource",
           { where: { id: { eq: key } } },
           resources,

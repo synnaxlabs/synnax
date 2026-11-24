@@ -1035,16 +1035,14 @@ type Hardware struct {
 	// AoMaxRate is the highest analog output sample rate, in Hz. 0 means that the
 	// device does not support the attribute.
 	AoMaxRate telem.Rate `json:"ao_max_rate" msgpack:"ao_max_rate"`
-	// AiVoltageRanges are the analog input voltage ranges of the device, ends included.
-	AiVoltageRanges []spatial.Bounds `json:"ai_voltage_ranges" msgpack:"ai_voltage_ranges"`
-	// AiCurrentRanges are the analog input current ranges of the device, ends included.
-	AiCurrentRanges []spatial.Bounds `json:"ai_current_ranges" msgpack:"ai_current_ranges"`
-	// AoVoltageRanges are the analog output voltage ranges of the device, ends
-	// included.
-	AoVoltageRanges []spatial.Bounds `json:"ao_voltage_ranges" msgpack:"ao_voltage_ranges"`
-	// AoCurrentRanges are the analog output current ranges of the device, ends
-	// included.
-	AoCurrentRanges []spatial.Bounds `json:"ao_current_ranges" msgpack:"ao_current_ranges"`
+	// AiVoltageRanges are the analog input voltage ranges of the device.
+	AiVoltageRanges []spatial.ClosedBounds `json:"ai_voltage_ranges" msgpack:"ai_voltage_ranges"`
+	// AiCurrentRanges are the analog input current ranges of the device.
+	AiCurrentRanges []spatial.ClosedBounds `json:"ai_current_ranges" msgpack:"ai_current_ranges"`
+	// AoVoltageRanges are the analog output voltage ranges of the device.
+	AoVoltageRanges []spatial.ClosedBounds `json:"ao_voltage_ranges" msgpack:"ao_voltage_ranges"`
+	// AoCurrentRanges are the analog output current ranges of the device.
+	AoCurrentRanges []spatial.ClosedBounds `json:"ao_current_ranges" msgpack:"ao_current_ranges"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -1063,6 +1061,26 @@ func (h Hardware) Validate() error {
 	for i := range h.DigitalPorts {
 		v.Exec(func() error {
 			return validate.PathedError(h.DigitalPorts[i].Validate(), "digital_ports", strconv.Itoa(i))
+		})
+	}
+	for i := range h.AiVoltageRanges {
+		v.Exec(func() error {
+			return validate.PathedError(h.AiVoltageRanges[i].Validate(), "ai_voltage_ranges", strconv.Itoa(i))
+		})
+	}
+	for i := range h.AiCurrentRanges {
+		v.Exec(func() error {
+			return validate.PathedError(h.AiCurrentRanges[i].Validate(), "ai_current_ranges", strconv.Itoa(i))
+		})
+	}
+	for i := range h.AoVoltageRanges {
+		v.Exec(func() error {
+			return validate.PathedError(h.AoVoltageRanges[i].Validate(), "ao_voltage_ranges", strconv.Itoa(i))
+		})
+	}
+	for i := range h.AoCurrentRanges {
+		v.Exec(func() error {
+			return validate.PathedError(h.AoCurrentRanges[i].Validate(), "ao_current_ranges", strconv.Itoa(i))
 		})
 	}
 	return v.Error()

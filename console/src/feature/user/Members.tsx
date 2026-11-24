@@ -141,7 +141,7 @@ export const Members = (): ReactElement => {
     pageSize: 100,
   });
   const openRegister = PlatformUser.useRegisterModal();
-  const canCreate = Access.useCreateGranted(user.TYPE_RESOURCE_ID);
+  const canCreate = PlatformUser.useRegisterGranted();
   return (
     <PlatformSettings.Table<user.Key, user.User>
       list={list}
