@@ -89,7 +89,7 @@ var _ = Describe("Check: a removal that fails at the last unpin of a dropped key
 						DataType: telem.Int64T,
 					},
 				)).To(Succeed())
-				Expect(db.Write(ctx, telem.SecondTS, telem.MultiFrame(
+				Expect(write(ctx, db, telem.SecondTS, telem.MultiFrame(
 					[]cesium.ChannelKey{idx, data},
 					[]telem.Series{
 						telem.NewSeriesSecondsTSV(1, 2, 3),
