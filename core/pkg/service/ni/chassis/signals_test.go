@@ -69,6 +69,7 @@ var _ = Describe("Signals", Ordered, func() {
 		calcSvc := MustOpen(calculation.OpenService(ctx, calculation.ServiceConfig{
 			DB:      node.DB,
 			Channel: channelSvc,
+			Framer:  node.Framer,
 		}))
 		graph := MustOpen(calcgraph.Open(ctx, calcgraph.Config{
 			DB:          node.DB,

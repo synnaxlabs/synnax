@@ -14,6 +14,7 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -36,6 +37,11 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Channel *channel.Service
+	// Framer reads the newest stored samples of the channels that a calculation reads,
+	// to pick its primary.
+	//
+	// [REQUIRED]
+	Framer *framer.Service
 	// Instrumentation for logging, tracing, and metrics.
 	//
 	// [OPTIONAL]
@@ -49,6 +55,7 @@ func (c ServiceConfig) Validate() error {
 	v := validate.New("calculation")
 	v.NotNil("db", c.DB)
 	v.NotNil("channel", c.Channel)
+	v.NotNil("framer", c.Framer)
 	return v.Error()
 }
 
@@ -57,6 +64,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Channel = override.Nil(c.Channel, other.Channel)
+	c.Framer = override.Nil(c.Framer, other.Framer)
 	return c
 }
 
@@ -67,6 +75,7 @@ type Service struct {
 	indexes  indexes
 	state    *actions.State[Key, Action]
 	channels *channel.Service
+	framer   *framer.Service
 	// checks holds the check of each action batch that a transaction attaches.
 	checks *gorp.Attachment[batchCheck[Key]]
 	// outputChecks holds the check of each channel action batch that announces the
@@ -108,6 +117,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		indexes:      newIndexes(),
 		state:        actions.NewState[Key, Action](cfg.DB),
 		channels:     cfg.Channel,
+		framer:       cfg.Framer,
 		checks:       gorp.NewAttachment[batchCheck[Key]](),
 		outputChecks: gorp.NewAttachment[batchCheck[channel.Key]](),
 	}

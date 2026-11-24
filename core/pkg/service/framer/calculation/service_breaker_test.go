@@ -57,6 +57,7 @@ var _ = Describe("Calculation breaker", Ordered, func() {
 		calcSvc = MustOpen(calcsvc.OpenService(ctx, calcsvc.ServiceConfig{
 			DB:      dist.DB,
 			Channel: channelSvc,
+			Framer:  dist.Framer,
 		}))
 		writerSvc := MustSucceed(writer.NewService(writer.ServiceConfig{
 			DB:      dist.DB,

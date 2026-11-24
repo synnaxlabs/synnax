@@ -73,6 +73,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Calculation: MustOpen(calculation.OpenService(ctx, calculation.ServiceConfig{
 			DB:      db,
 			Channel: channelSvc,
+			Framer:  node.Framer,
 		})),
 	}
 })

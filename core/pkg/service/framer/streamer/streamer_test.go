@@ -61,6 +61,7 @@ var _ = Describe("Streamer", Ordered, func() {
 		calcSvc := MustOpen(calcsvc.OpenService(ctx, calcsvc.ServiceConfig{
 			DB:      node.DB,
 			Channel: channelSvc,
+			Framer:  node.Framer,
 		}))
 		creator = calctestutil.Creator{
 			DB:          node.DB,

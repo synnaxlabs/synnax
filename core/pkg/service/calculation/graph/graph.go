@@ -346,6 +346,40 @@ func (g *Graph) deleteStatus(ctx context.Context, tx gorp.Tx, key channel.Key) e
 	return g.status.NewWriter(tx).DeleteOwned(ctx, calculation.ResourceID(c.Key))
 }
 
+// announcePrimary sets a status when the primary of c moved because its expression no
+// longer reads held's primary.
+func (g *Graph) announcePrimary(
+	ctx context.Context,
+	tx gorp.Tx,
+	name string,
+	held, c calculation.Calculation,
+) {
+	if held.Primary == nil || c.Primary == nil || *held.Primary == *c.Primary ||
+		slices.Contains(c.Reads, *held.Primary) {
+		return
+	}
+	// A deleted channel has no name, so the status names it by key.
+	nameOf := func(key channel.Key) string {
+		ch, found, err := g.fetchChannel(ctx, tx, key)
+		if err != nil {
+			g.L.Warn(
+				"failed to retrieve primary",
+				zap.Stringer("channel", key),
+				zap.Error(err),
+			)
+		}
+		if !found {
+			return key.String()
+		}
+		return ch.Name
+	}
+	g.setNodeStatus(ctx, tx, calculation.PrimaryChangedStatus(
+		name,
+		nameOf(*held.Primary),
+		nameOf(*c.Primary),
+	))
+}
+
 // calculationOf returns the calculation that writes the channel with key, as snap sees
 // it, and false when none does.
 func (g *Graph) calculationOf(
@@ -671,6 +705,9 @@ func (g *Graph) handleChanges(
 				}
 				if (tracked && prev.invalid) || g.stale(chg.Key, heldExpression, c) {
 					g.clearNodeStatus(ctx, tx, c)
+				}
+				if tracked {
+					g.announcePrimary(ctx, tx, ch.Name, prev.calculation, c)
 				}
 			}
 			if !nd.invalid && nd.DataType != ch.DataType {

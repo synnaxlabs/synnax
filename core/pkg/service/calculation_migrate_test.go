@@ -296,6 +296,19 @@ var _ = Describe("Calculation records upgrade", func() {
 			Exists(ctx, n.DB)).To(BeFalse())
 	})
 
+	It("Should pick the primary of each record at the first start", func(
+		ctx SpecContext,
+	) {
+		var plain, doubled, windowed channelv1.Channel
+		n := openUpgraded(ctx, func(n testutil.Node) {
+			createV062Store(ctx, n, &plain, &doubled, &windowed)
+		})
+		l := MustOpen(svctestutil.OpenLayer(ctx, n))
+		Expect(calculationOf(ctx, n, l.Calculation, doubled.Key()).Primary).
+			To(HaveValue(Equal(plain.Key())))
+		Expect(calculationOf(ctx, n, l.Calculation, windowed.Key()).Primary).To(BeNil())
+	})
+
 	It("Should give a calculated channel the same calculation key on each store", func(
 		ctx SpecContext,
 	) {

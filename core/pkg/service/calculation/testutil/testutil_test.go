@@ -46,7 +46,11 @@ var _ = Describe("Creator", Ordered, func() {
 			Channel: svc,
 			Calculation: MustOpen(calculation.OpenService(
 				ctx,
-				calculation.ServiceConfig{DB: dist.DB, Channel: svc},
+				calculation.ServiceConfig{
+					DB:      dist.DB,
+					Channel: svc,
+					Framer:  dist.Framer,
+				},
 			)),
 		}
 		keys := MustSucceed(channeltestutil.CreateVirtual(ctx, dist.DB, svc, 1))

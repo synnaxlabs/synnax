@@ -145,6 +145,7 @@ var _ = Describe("Calculation", Ordered, func() {
 		calcSvc = MustOpen(calcsvc.OpenService(ctx, calcsvc.ServiceConfig{
 			DB:      dist.DB,
 			Channel: channelSvc,
+			Framer:  dist.Framer,
 		}))
 		creator = calctestutil.Creator{
 			DB:          dist.DB,

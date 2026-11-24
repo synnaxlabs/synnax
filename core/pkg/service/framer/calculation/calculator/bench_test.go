@@ -65,7 +65,11 @@ func newBenchEnv(b *testing.B) *benchEnv {
 	}))
 	calcSvc := MustSucceed(calculation.OpenService(
 		b.Context(),
-		calculation.ServiceConfig{DB: node.DB, Channel: channelSvc},
+		calculation.ServiceConfig{
+			DB:      node.DB,
+			Channel: channelSvc,
+			Framer:  node.Framer,
+		},
 	))
 	return &benchEnv{
 		ctx:        b.Context(),

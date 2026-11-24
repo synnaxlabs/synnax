@@ -67,7 +67,11 @@ var _ = Describe("Calculator", Ordered, func() {
 			Channel: channelSvc,
 			Calculation: MustOpen(calculation.OpenService(
 				ctx,
-				calculation.ServiceConfig{DB: db, Channel: channelSvc},
+				calculation.ServiceConfig{
+					DB:      db,
+					Channel: channelSvc,
+					Framer:  node.Framer,
+				},
 			)),
 		}
 	})

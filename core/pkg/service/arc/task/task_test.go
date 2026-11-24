@@ -137,6 +137,7 @@ var _ = Describe("Task", Ordered, func() {
 		calcSvc := MustOpen(calculation.OpenService(ctx, calculation.ServiceConfig{
 			DB:      node.DB,
 			Channel: channelSvc,
+			Framer:  node.Framer,
 		}))
 		channelGraph := MustOpen(calcgraph.Open(ctx, calcgraph.Config{
 			DB:          node.DB,

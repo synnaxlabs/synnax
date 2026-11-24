@@ -47,6 +47,7 @@ var _ = Describe("SetReads checks", func() {
 		svc := MustSucceed(calculation.OpenService(ctx, calculation.ServiceConfig{
 			DB:      node.DB,
 			Channel: channels,
+			Framer:  node.Framer,
 		}))
 		DeferCleanup(func() { Expect(svc.Close()).To(Succeed()) })
 		virtual := func(name string) channel.Channel {

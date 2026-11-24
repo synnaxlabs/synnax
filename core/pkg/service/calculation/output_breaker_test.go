@@ -46,6 +46,7 @@ var _ = Describe("CreateOutput breaker", func() {
 		svc = MustSucceed(calculation.OpenService(ctx, calculation.ServiceConfig{
 			DB:      node.DB,
 			Channel: channels,
+			Framer:  node.Framer,
 		}))
 		DeferCleanup(func() { Expect(svc.Close()).To(Succeed()) })
 	})

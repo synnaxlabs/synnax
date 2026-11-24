@@ -61,6 +61,7 @@ func openServices(
 	calcSvc := MustOpen(calculation.OpenService(ctx, calculation.ServiceConfig{
 		DB:      node.DB,
 		Channel: channelSvc,
+		Framer:  node.Framer,
 	}))
 	iteratorSvc := MustSucceed(iterator.NewService(iterator.ServiceConfig{
 		DB:          node.DB,

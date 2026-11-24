@@ -10,6 +10,8 @@
 package calculation
 
 import (
+	"fmt"
+
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -24,5 +26,23 @@ func StatusFromError(key Key, name string, err error) *Status {
 		Message:     "Failed to compile calculation",
 		Description: err.Error(),
 		Time:        telem.Now(),
+	}
+}
+
+// PrimaryChangedStatus builds the status that the primary of the calculation whose
+// output is named name moved from the channel named from, which its expression no
+// longer reads, to the channel named to. It has no owner, so the status of the
+// calculation stays.
+func PrimaryChangedStatus(name, from, to string) *Status {
+	return &Status{
+		Name:    name,
+		Variant: status.VariantInfo,
+		Message: "Changed the primary input",
+		Description: fmt.Sprintf(
+			"%s is no longer read, so %s times the outputs now.",
+			from,
+			to,
+		),
+		Time: telem.Now(),
 	}
 }

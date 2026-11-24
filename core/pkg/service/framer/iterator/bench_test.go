@@ -78,6 +78,7 @@ func newBenchIterEnv(b *testing.B) *benchIterEnv {
 	calcSvc, err := calculation.OpenService(b.Context(), calculation.ServiceConfig{
 		DB:      node.DB,
 		Channel: channelSvc,
+		Framer:  node.Framer,
 	})
 	if err != nil {
 		b.Fatalf("failed to open calculation service: %v", err)

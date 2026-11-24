@@ -61,6 +61,7 @@ func newFramerConfig(ctx context.Context, n testutil.Node) framer.ServiceConfig 
 	calcSvc := MustOpen(calculation.OpenService(ctx, calculation.ServiceConfig{
 		DB:      n.DB,
 		Channel: channelSvc,
+		Framer:  n.Framer,
 	}))
 	graph := MustOpen(calcgraph.Open(ctx, calcgraph.Config{
 		DB:          n.DB,

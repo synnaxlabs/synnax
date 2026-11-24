@@ -57,6 +57,7 @@ var _ = Describe("Service", func() {
 		svc = MustOpen(calculation.OpenService(ctx, calculation.ServiceConfig{
 			DB:      db,
 			Channel: channels,
+			Framer:  node.Framer,
 		}))
 	})
 	// createChannel creates ch, and the calculation of expression and ops that writes
@@ -244,7 +245,11 @@ var _ = Describe("Service", func() {
 			limited.Store(true)
 			limitCalcs := MustOpen(calculation.OpenService(
 				ctx,
-				calculation.ServiceConfig{DB: node.DB, Channel: limitSvc},
+				calculation.ServiceConfig{
+					DB:      node.DB,
+					Channel: limitSvc,
+					Framer:  node.Framer,
+				},
 			))
 			Expect(limitCalcs.Inputs(
 				ctx,

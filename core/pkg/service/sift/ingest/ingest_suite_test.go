@@ -58,6 +58,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	calcSvc := MustOpen(calculation.OpenService(ctx, calculation.ServiceConfig{
 		DB:      db,
 		Channel: channelSvc,
+		Framer:  node.Framer,
 	}))
 	creator = calctestutil.Creator{DB: db, Channel: channelSvc, Calculation: calcSvc}
 	channelGraph := MustOpen(calcgraph.Open(ctx, calcgraph.Config{

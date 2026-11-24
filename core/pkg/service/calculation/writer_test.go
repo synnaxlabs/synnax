@@ -11,11 +11,14 @@ package calculation_test
 
 import (
 	"context"
+	"fmt"
 	"slices"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	dnode "github.com/synnaxlabs/synnax/pkg/distribution/node"
 	disttestutil "github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	acttestutil "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
@@ -73,6 +76,7 @@ var _ = Describe("Writer", func() {
 		svc = MustSucceed(calculation.OpenService(ctx, calculation.ServiceConfig{
 			DB:      node.DB,
 			Channel: channels,
+			Framer:  node.Framer,
 		}))
 		DeferCleanup(func() { Expect(svc.Close()).To(Succeed()) })
 	})
@@ -688,6 +692,198 @@ var _ = Describe("Writer", func() {
 			Expect(svc.NewRetrieve().
 				Where(calculation.MatchKeys(c.Key)).
 				Exists(ctx, node.DB)).To(BeFalse())
+		})
+	})
+	Describe("Primary", func() {
+		// stored creates a channel on its own index, and stores each stretch of stamps
+		// on it through its own writer.
+		stored := func(
+			ctx SpecContext,
+			name string,
+			stretches ...[]telem.TimeStamp,
+		) channel.Channel {
+			GinkgoHelper()
+			index := createChannel(ctx, channel.Channel{
+				Name:     name + "_time",
+				DataType: telem.TimestampT,
+				IsIndex:  true,
+			})
+			data := createChannel(ctx, channel.Channel{
+				Name:       name,
+				DataType:   telem.Float32T,
+				LocalIndex: index.LocalKey,
+			})
+			keys := channel.Keys{index.Key(), data.Key()}
+			for _, stamps := range stretches {
+				w := MustSucceed(node.Framer.OpenWriter(ctx, framer.WriterConfig{
+					Start: stamps[0],
+					Keys:  keys,
+				}))
+				Expect(MustSucceed(w.Write(frame.NewMulti(keys, []telem.Series{
+					telem.NewSeries(stamps),
+					telem.NewSeries(make([]float32, len(stamps))),
+				})))).To(BeTrue())
+				_, authorized := MustSucceed2(w.Commit())
+				Expect(authorized).To(BeTrue())
+				Expect(w.Close()).To(Succeed())
+			}
+			return data
+		}
+		every := func(
+			start telem.TimeStamp,
+			interval telem.TimeSpan,
+			n int,
+		) []telem.TimeStamp {
+			stamps := make([]telem.TimeStamp, n)
+			for i := range stamps {
+				stamps[i] = start.Add(telem.TimeSpan(i) * interval)
+			}
+			return stamps
+		}
+		createCalc := func(
+			ctx SpecContext,
+			c calculation.Calculation,
+		) calculation.Calculation {
+			GinkgoHelper()
+			c.Output = createVirtual(ctx, "out").Key()
+			Expect(create(ctx, &c)).To(Succeed())
+			return retrieve(ctx, c.Output)[0]
+		}
+		apply := func(
+			ctx SpecContext,
+			c calculation.Calculation,
+			expression string,
+		) (calculation.Calculation, []calculation.Action) {
+			GinkgoHelper()
+			var computed []calculation.Action
+			Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) (err error) {
+				computed, err = svc.NewWriter(tx).Apply(
+					ctx,
+					c.Key,
+					calculation.NewSetAction(calculation.SetPayload{
+						Path:  []string{"expression"},
+						Value: expression,
+					}),
+				)
+				return err
+			})).To(Succeed())
+			return retrieve(ctx, c.Output)[0], computed
+		}
+
+		It("Should pick the read with the shortest interval", func(ctx SpecContext) {
+			stored(ctx, "slow", every(telem.SecondTS, 100*telem.Millisecond, 17))
+			fast := stored(ctx, "fast", every(telem.SecondTS, 10*telem.Millisecond, 17))
+			c := createCalc(
+				ctx,
+				calculation.Calculation{Expression: "return slow + fast"},
+			)
+			Expect(c.Primary).To(HaveValue(Equal(fast.Key())))
+		})
+
+		It("Should pick the earlier read on a tie", func(ctx SpecContext) {
+			a := stored(ctx, "a", every(telem.SecondTS, telem.Second, 3))
+			stored(ctx, "b", every(telem.SecondTS, telem.Second, 3))
+			c := createCalc(ctx, calculation.Calculation{Expression: "return b + a"})
+			Expect(c.Primary).To(HaveValue(Equal(a.Key())))
+		})
+
+		It("Should pick no virtual read or read with fewer than 2 samples", func(
+			ctx SpecContext,
+		) {
+			createVirtual(ctx, "v")
+			stored(ctx, "single", every(telem.SecondTS, telem.Millisecond, 1))
+			slow := stored(ctx, "slow", every(telem.SecondTS, telem.Second, 2))
+			c := createCalc(ctx, calculation.Calculation{
+				Expression: "return v + single + slow",
+			})
+			Expect(c.Primary).To(HaveValue(Equal(slow.Key())))
+		})
+
+		It("Should pick the first read when no read is a candidate", func(
+			ctx SpecContext,
+		) {
+			first := createVirtual(ctx, "first")
+			createVirtual(ctx, "second")
+			c := createCalc(ctx, calculation.Calculation{
+				Expression: "return second + first",
+			})
+			Expect(c.Primary).To(HaveValue(Equal(first.Key())))
+		})
+
+		It("Should pick no primary for an expression that reads no channel", func(
+			ctx SpecContext,
+		) {
+			c := createCalc(ctx, calculation.Calculation{Expression: "return 2"})
+			Expect(c.Primary).To(BeNil())
+		})
+
+		It("Should time a read by its newest stretch alone", func(ctx SpecContext) {
+			stored(
+				ctx,
+				"restarted",
+				every(telem.SecondTS, telem.Millisecond, 17),
+				every(2*telem.SecondTS, telem.Second, 2),
+			)
+			steady := stored(
+				ctx,
+				"steady",
+				every(telem.SecondTS, 100*telem.Millisecond, 17),
+			)
+			c := createCalc(ctx, calculation.Calculation{
+				Expression: "return restarted + steady",
+			})
+			Expect(c.Primary).To(HaveValue(Equal(steady.Key())))
+		})
+
+		It("Should keep a primary that the expression still reads", func(
+			ctx SpecContext,
+		) {
+			stored(ctx, "fast", every(telem.SecondTS, telem.Millisecond, 17))
+			slow := stored(ctx, "slow", every(telem.SecondTS, telem.Second, 17))
+			c := createCalc(ctx, calculation.Calculation{
+				Expression: "return fast + slow",
+				Primary:    new(slow.Key()),
+			})
+			next, computed := apply(ctx, c, "return fast + slow + 1")
+			Expect(next.Primary).To(HaveValue(Equal(slow.Key())))
+			Expect(computed).To(BeEmpty())
+		})
+
+		It("Should pick again when the expression drops the primary", func(
+			ctx SpecContext,
+		) {
+			fast := stored(ctx, "fast", every(telem.SecondTS, telem.Millisecond, 17))
+			stored(ctx, "slow", every(telem.SecondTS, telem.Second, 17))
+			mid := stored(ctx, "mid", every(telem.SecondTS, 10*telem.Millisecond, 17))
+			c := createCalc(
+				ctx,
+				calculation.Calculation{Expression: "return fast + slow"},
+			)
+			Expect(c.Primary).To(HaveValue(Equal(fast.Key())))
+			next, computed := apply(ctx, c, "return slow + mid")
+			Expect(next.Primary).To(HaveValue(Equal(mid.Key())))
+			Expect(computed).To(ContainElement(calculation.NewSetAction(
+				calculation.SetPayload{Path: []string{"primary"}, Value: mid.Key()},
+			)))
+		})
+
+		It("Should fail on a primary that the expression does not read", func(
+			ctx SpecContext,
+		) {
+			other := createVirtual(ctx, "other")
+			createVirtual(ctx, "read")
+			c := calculation.Calculation{
+				Output:     createVirtual(ctx, "out").Key(),
+				Expression: "return read",
+				Primary:    new(other.Key()),
+			}
+			Expect(create(ctx, &c)).To(And(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring(fmt.Sprintf(
+					"channel %s is not a channel that the expression reads",
+					other.Key(),
+				))),
+			))
 		})
 	})
 })

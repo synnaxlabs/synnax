@@ -54,6 +54,7 @@ func openBenchEnv(b *testing.B) benchEnv {
 	calcs := lo.Must(calculation.OpenService(ctx, calculation.ServiceConfig{
 		DB:      node.DB,
 		Channel: channels,
+		Framer:  node.Framer,
 	}))
 	b.Cleanup(func() {
 		lo.Must0(calcs.Close())

@@ -76,6 +76,7 @@ func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 	calcSvc, err := calcsvc.OpenService(ctx, calcsvc.ServiceConfig{
 		DB:      node.DB,
 		Channel: channelSvc,
+		Framer:  node.Framer,
 	})
 	calcSvc = mustOpen(b, "calculation record service", calcSvc, err)
 	writerSvc, err := writer.NewService(writer.ServiceConfig{

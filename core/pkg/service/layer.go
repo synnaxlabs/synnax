@@ -494,6 +494,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Instrumentation: cfg.Child("calculation"),
 		DB:              cfg.Distribution.DB,
 		Channel:         l.Channel,
+		Framer:          cfg.Distribution.Framer,
 	}); !ok(err, l.Calculation) {
 		return nil, err
 	}

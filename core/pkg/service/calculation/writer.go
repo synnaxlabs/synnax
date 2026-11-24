@@ -84,6 +84,11 @@ func (w Writer) create(ctx context.Context, c *Calculation) error {
 	if err = w.compile(ctx, output, c); err != nil {
 		return err
 	}
+	if c.Primary == nil {
+		if c.Primary, err = w.pickPrimary(ctx, c.Reads); err != nil {
+			return err
+		}
+	}
 	if err := w.table.NewCreate().Exclusive().Entry(c).Exec(ctx, w.tx); err != nil {
 		return err
 	}
@@ -239,8 +244,23 @@ func (w Writer) ApplyTo(
 		Exec(ctx, w.tx); err != nil {
 		return Calculation{}, nil, err
 	}
+	// A primary that the actions keep is picked again when the new expression drops it,
+	// while one that the actions set must be read.
+	var kept *channel.Key
+	if next.Primary != nil && c.Primary != nil && *next.Primary == *c.Primary {
+		kept, next.Primary = next.Primary, nil
+	}
 	if err = w.compile(ctx, output, &next); err != nil {
 		return Calculation{}, nil, err
+	}
+	if kept != nil && slices.Contains(next.Reads, *kept) {
+		next.Primary = kept
+	}
+	picked := next.Primary == nil
+	if picked {
+		if next.Primary, err = w.pickPrimary(ctx, next.Reads); err != nil {
+			return Calculation{}, nil, err
+		}
 	}
 	if err = w.table.NewUpdate().
 		Where(gorp.MatchKeys[Key, Calculation](c.Key)).
@@ -254,6 +274,9 @@ func (w Writer) ApplyTo(
 			Path:  []string{"reads"},
 			Value: next.Reads,
 		}))
+	}
+	if picked && !samePrimary(next.Primary, c.Primary) {
+		computed = append(computed, primaryAction(next.Primary))
 	}
 	w.attach(next, slices.Concat(acts, computed)...)
 	return next, computed, nil
@@ -384,31 +407,65 @@ func (w Writer) cycleError(ctx context.Context, path channel.Keys) error {
 
 func (w Writer) newAnalyzer() *compiler.Analyzer { return w.svc.newAnalyzer(w.tx) }
 
-// SetReads stores reads, in order and each once, as the reads of c, and broadcasts a
-// set
-// of them. It writes nothing when c already holds the same channels.
+// SetReads stores reads, in order and each once, as the reads of c, and picks the
+// primary of c from them when it has none. It broadcasts a set of each field it
+// changes, and writes nothing when it changes no field.
 func (w Writer) SetReads(
 	ctx context.Context,
 	c Calculation,
 	reads []channel.Key,
 ) error {
-	if sameKeys(reads, c.Reads) {
+	reads = slices.Sorted(slices.Values(lo.Uniq(reads)))
+	primary := c.Primary
+	if primary == nil {
+		var err error
+		if primary, err = w.pickPrimary(ctx, reads); err != nil {
+			return err
+		}
+	}
+	sameReads := sameKeys(reads, c.Reads)
+	if sameReads && samePrimary(primary, c.Primary) {
 		return nil
 	}
-	reads = slices.Sorted(slices.Values(lo.Uniq(reads)))
 	var next Calculation
 	if err := w.table.NewUpdate().
 		Where(gorp.MatchKeys[Key, Calculation](c.Key)).
 		Change(func(_ gorp.Context, stored Calculation) Calculation {
-			stored.Reads = reads
+			stored.Reads, stored.Primary = reads, primary
 			next = stored
 			return stored
 		}).
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	w.attach(next, NewSetAction(SetPayload{Path: []string{"reads"}, Value: reads}))
+	var acts []Action
+	if !sameReads {
+		acts = append(
+			acts,
+			NewSetAction(SetPayload{Path: []string{"reads"}, Value: reads}),
+		)
+	}
+	if !samePrimary(primary, c.Primary) {
+		acts = append(acts, primaryAction(primary))
+	}
+	if len(acts) > 0 {
+		w.attach(next, acts...)
+	}
 	return nil
+}
+
+// primaryAction returns the action that sets the primary of a calculation to primary,
+// or clears it when primary is nil.
+func primaryAction(primary *channel.Key) Action {
+	var value any
+	if primary != nil {
+		value = *primary
+	}
+	return NewSetAction(SetPayload{Path: []string{"primary"}, Value: value})
+}
+
+func samePrimary(a, b *channel.Key) bool {
+	return a == b || (a != nil && b != nil && *a == *b)
 }
 
 // Delete deletes the calculations with the given keys. A key with no calculation is not
