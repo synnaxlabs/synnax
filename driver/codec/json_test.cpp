@@ -514,18 +514,28 @@ TEST(JSONEncoder, EncodesWithoutAllocating) {
     );
 }
 
-/// @brief it should write a now default without allocating, once a first encode is
-/// done.
+/// @brief it should write a now default without allocating, once an encode has written
+/// a longer document.
 TEST(JSONEncoder, WritesNowDefaultWithoutAllocating) {
+    auto pad = field<icd::StringJSONField>("pad");
+    pad.default_ = "";
     auto v = field<icd::TimestampJSONField>("v");
     v.time_format = "iso8601";
     v.default_ = icd::NowTimestampDefault{};
-    auto enc = ASSERT_NIL_P(JSONEncoder::create(command({v})));
+    auto enc = ASSERT_NIL_P(
+        JSONEncoder::create(command({pad, v}, {x::telem::STRING_T}))
+    );
     std::vector<std::uint8_t> payload;
-    ASSERT_NIL(enc.encode({}, payload));
+    // A now text drops the trailing zeros of its fraction, so a later one can be up to
+    // 10 characters longer. The first pad is longer than that.
+    ASSERT_NIL(enc.encode(
+        series_of(x::telem::Series(std::vector<std::string>{std::string(16, 'p')})),
+        payload
+    ));
+    const auto samples = series_of(x::telem::Series(x::telem::STRING_T, 0));
     const auto before = x::bench::alloc_count.load(std::memory_order_relaxed);
     for (int i = 0; i < 100; i++)
-        ASSERT_NIL(enc.encode({}, payload));
+        ASSERT_NIL(enc.encode(samples, payload));
     EXPECT_EQ(x::bench::alloc_count.load(std::memory_order_relaxed) - before, 0);
 }
 
