@@ -100,6 +100,21 @@ func (c Config) ReadAt(r io.ReaderAt, p []byte, off int64) error {
 	return nil
 }
 
+// TailCRC returns the running checksum of the unfinished last block of the version 1
+// segment in r at stream length length, which a commit at length holds.
+func (c Config) TailCRC(r io.ReaderAt, length int64) (uint32, error) {
+	start := length / BlockSize * BlockSize
+	crc := c.place(c.FileOffset(start)).Start()
+	if length == start {
+		return crc, nil
+	}
+	b := make([]byte, length-start)
+	if _, err := r.ReadAt(b, c.FileOffset(start)); err != nil {
+		return 0, errors.Wrapf(err, "read of the tail block at stream offset %d", start)
+	}
+	return place.Update(crc, b), nil
+}
+
 // ReadChecked reads the blocks from block b of the segment in r, of committed length
 // and tail checksum tailCRC, as many whole blocks as buf holds with their trailers. It
 // checks the checksums of each block, then moves its stream bytes to the start of buf,

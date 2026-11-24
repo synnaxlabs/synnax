@@ -547,6 +547,27 @@ var _ = Describe("Segment", func() {
 			int64(131_073), int64(131_073)),
 	)
 
+	DescribeTable("Should give the running checksum that a commit holds at a length",
+		func(c segment.Config, stream []byte) {
+			fs := xfs.NewMem()
+			budget := MustSucceed(segment.NewBudget(4, 4, segment.GoExecutor))
+			h := MustSucceed(budget.Create(fs, "3.seg"))
+			w := segment.NewWriter(h, c)
+			Expect(w.Write(stream)).To(Succeed())
+			length, tail := w.Commit()
+			Expect(h.Close()).To(Succeed())
+			f := MustSucceed(fs.Open("3.seg", os.O_RDONLY))
+			defer func() { Expect(f.Close()).To(Succeed()) }()
+			Expect(c.TailCRC(f, int64(length))).To(Equal(tail))
+		},
+		Entry("of fixed density inside a block", cfg, pattern(segment.BlockSize+100)),
+		Entry("of fixed density at a block end", cfg, pattern(2*segment.BlockSize)),
+		Entry("of variable density", varCfg, func() []byte {
+			stream, _ := samples(70_000, 10)
+			return stream
+		}()),
+	)
+
 	DescribeTable(
 		"Should give the stream length of a file",
 		func(c segment.Config, size, length int64) {
