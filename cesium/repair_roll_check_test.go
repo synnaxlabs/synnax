@@ -78,7 +78,7 @@ var _ = Describe("Check: repair of a roll in the gap", func() {
 		r, keys := rollRoot(ctx, telem.UUIDT)
 		w := MustSucceed(r.db.OpenWriter(
 			ctx,
-			cesium.WriterConfig{Channels: keys, Start: repairStamp(0)},
+			cesium.WriterConfig{Channels: keys, Clock: keys[0], Start: repairStamp(0)},
 		))
 		fill(ctx, w, keys, telem.UUIDT, 0, rolled)
 		r.synced(ctx, w, 0)
@@ -90,7 +90,11 @@ var _ = Describe("Check: repair of a roll in the gap", func() {
 		// names the new segment.
 		w = MustSucceed(r.db.OpenWriter(
 			ctx,
-			cesium.WriterConfig{Channels: keys, Start: repairStamp(rolled + lost)},
+			cesium.WriterConfig{
+				Channels: keys,
+				Clock:    keys[0],
+				Start:    repairStamp(rolled + lost),
+			},
 		))
 		fill(ctx, w, keys, telem.UUIDT, rolled+lost, 16)
 		r.synced(ctx, w, rolled+lost)
@@ -132,7 +136,7 @@ var _ = Describe("Check: repair of a roll in the gap", func() {
 		r, keys := rollRoot(ctx, telem.Uint8T)
 		w := MustSucceed(r.db.OpenWriter(
 			ctx,
-			cesium.WriterConfig{Channels: keys, Start: repairStamp(0)},
+			cesium.WriterConfig{Channels: keys, Clock: keys[0], Start: repairStamp(0)},
 		))
 		fill(ctx, w, keys, telem.Uint8T, 0, 16)
 		r.synced(ctx, w, 0)
