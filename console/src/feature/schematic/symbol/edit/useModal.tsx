@@ -26,6 +26,7 @@ import { Schematic } from "@synnaxlabs/pluto";
 import { type bounds, id, type xy } from "@synnaxlabs/x";
 import { type ReactElement, useRef, useState } from "react";
 
+import { CommandInspector } from "@/feature/schematic/symbol/edit/CommandInspector";
 import { HandleList } from "@/feature/schematic/symbol/edit/HandleList";
 import { Inspector } from "@/feature/schematic/symbol/edit/Inspector";
 import { ItemList } from "@/feature/schematic/symbol/edit/ItemList";
@@ -164,6 +165,16 @@ const Editor = ({
   const [selectedPart, setSelectedPart, selectedPartRef] =
     useCombinedStateAndRef<Spec.Target>(undefined);
   const [selectedHandle, setSelectedHandle] = useState<string | undefined>(undefined);
+  const [selectedCommand, setSelectedCommand] = useState<string | undefined>(undefined);
+  // A part and a command share the inspector, so picking one drops the other.
+  const selectPart = (key: Spec.Target) => {
+    setSelectedPart(key);
+    setSelectedCommand(undefined);
+  };
+  const selectCommand = (key: string | undefined) => {
+    setSelectedCommand(key);
+    setSelectedPart(undefined);
+  };
 
   // addPart adds a part, with the shape of selector when one is given, and selects it.
   const addPart = (selector?: string) => {
@@ -181,7 +192,7 @@ const Editor = ({
         ? next
         : Spec.toggleSelector({ drawing, parts: next }, part.key, selector),
     );
-    setSelectedPart(part.key);
+    selectPart(part.key);
   };
 
   const addNewHandle = () => {
@@ -228,10 +239,13 @@ const Editor = ({
       return form.set(path.data.parts, Spec.toggleSelector(spec, part, selector));
     const owner = part == null ? Spec.owner(spec, selector) : holder;
     if (owner == null) return addPart(selector);
-    setSelectedPart(owner.key);
+    selectPart(owner.key);
   };
   const states = Form.useFieldValue(path.data.states, { ctx: form });
   const commands = Form.useFieldValue(path.data.commands, { ctx: form });
+  const shownCommand = commands.some((c) => c.key === selectedCommand)
+    ? selectedCommand
+    : undefined;
   const hasSVG =
     Form.useFieldValue(path.data.drawing.markup, {
       ctx: form,
@@ -243,7 +257,7 @@ const Editor = ({
     const spec = form.get(path.data).value;
     if (FLAGS.symbolMotion) {
       const [part] = Spec.levelIssues(spec).keys();
-      if (part != null) return setSelectedPart(part);
+      if (part != null) return selectPart(part);
     }
     // Placement reads the variant, which the lists set by whether a click exists.
     if (FLAGS.symbolNodes)
@@ -292,6 +306,15 @@ const Editor = ({
                       detail={(s) => STATE_TYPES[s.type]}
                       add={Spec.addState}
                       remove={Spec.removeState}
+                      value={preview.state}
+                      onChange={(key) => {
+                        const state = states.find((s) => s.key === key);
+                        if (state == null) return;
+                        setPreview({
+                          state: state.key,
+                          value: state.type === "enumeration" ? state.default : 0,
+                        });
+                      }}
                       onRemove={() => {
                         // The preview moves to the first state left when its own goes.
                         const left = form
@@ -317,6 +340,8 @@ const Editor = ({
                       detail={describeCommand}
                       add={Spec.addCommand}
                       remove={Spec.removeCommand}
+                      value={selectedCommand}
+                      onChange={selectCommand}
                     />
                   </>
                 ) : (
@@ -339,7 +364,7 @@ const Editor = ({
                 <PartList
                   value={selectedPart}
                   onChange={(value) => {
-                    setSelectedPart(value);
+                    selectPart(value);
                     setSelectedHandle(undefined);
                   }}
                   onAdd={() => addPart()}
@@ -410,11 +435,15 @@ const Editor = ({
                 bordered
                 borderColor={6}
               >
-                <Inspector
-                  key={`${selectedPart ?? ""}/${preview.state}`}
-                  part={selectedPart}
-                  preview={preview}
-                />
+                {shownCommand == null ? (
+                  <Inspector
+                    key={`${selectedPart ?? ""}/${preview.state}`}
+                    part={selectedPart}
+                    preview={preview}
+                  />
+                ) : (
+                  <CommandInspector key={shownCommand} command={shownCommand} />
+                )}
               </Flex.Box>
             )}
           </Flex.Box>

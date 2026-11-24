@@ -1034,6 +1034,67 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       });
     });
 
+    const GO: schematic.symbol.Command = {
+      key: "go",
+      name: "Go",
+      value: { type: "fixed", value: 0 },
+    };
+
+    // openFault opens a symbol with a Fault state on OK and Trip, and the command Go.
+    const openFault = async (go: schematic.symbol.Command = GO) => {
+      const enumeration = await client.enumerations.create({
+        name: uniqueName("fault"),
+        entries: [
+          { key: "ok", value: 0, name: "OK" },
+          { key: "trip", value: 2, name: "Trip" },
+        ],
+      });
+      const fault = { ...createState(enumeration.key), key: "fault", name: "Fault" };
+      return await openPainted({ states: [createState(), fault], commands: [go] });
+    };
+
+    it("edits the state and the entry that a selected command sends", async () => {
+      const symbol = await openFault();
+      fireEvent.click(screen.getByText("Go"));
+      await screen.findByRole("heading", { name: "Go" });
+      fireEvent.click(within(getInspector()).getByText("Fault"));
+      fireEvent.click(await within(getInspector()).findByText("Trip"));
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () => {
+        const saved = await client.schematics.symbols.retrieve(symbol.key);
+        expect(saved.data.commands).toEqual([
+          { ...GO, state: "fault", value: { type: "fixed", value: 2 } },
+        ]);
+      });
+    });
+
+    it("sends 0 when the state of an ask command goes", async () => {
+      const symbol = await openFault({ ...GO, state: "fault", value: { type: "ask" } });
+      fireEvent.click(screen.getByText("Go"));
+      fireEvent.click(await within(getInspector()).findByText("None"));
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () => {
+        const saved = await client.schematics.symbols.retrieve(symbol.key);
+        expect(saved.data.commands).toEqual([GO]);
+      });
+    });
+
+    it("shows the part again on a click of the part after a command", async () => {
+      await openFault();
+      fireEvent.click(screen.getByText("Go"));
+      await screen.findByRole("heading", { name: "Go" });
+      fireEvent.click(getPartListItem("Body"));
+      expect(await screen.findByRole("heading", { name: "Body" })).toBeDefined();
+    });
+
+    it("previews a state that the state list picks", async () => {
+      await openFault();
+      // The state list comes before the preview bar, which also names Fault.
+      fireEvent.click(screen.getAllByText("Fault")[0]);
+      byState("Fill");
+      expect(await screen.findByLabelText("Fill while Trip")).toBeDefined();
+    });
+
     it("saves a symbol with no click as static", async () => {
       const symbol = await openPainted({
         variant: "actuator",

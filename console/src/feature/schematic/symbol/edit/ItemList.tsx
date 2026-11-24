@@ -13,6 +13,9 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Header } from "@synnaxlabs/lyra/header";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import type { Input } from "@synnaxlabs/lyra/input";
+import { List } from "@synnaxlabs/lyra/list";
+import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Schematic } from "@synnaxlabs/pluto";
 import { type deep, strings } from "@synnaxlabs/x";
@@ -42,7 +45,9 @@ interface Item {
   name: string;
 }
 
-export interface ItemListProps<T extends Item> {
+export interface ItemListProps<T extends Item> extends Input.Control<
+  string | undefined
+> {
   /** title names the items, such as States. */
   title: string;
   /** noun names one item in its tooltips, such as state. */
@@ -64,8 +69,8 @@ export interface ItemListProps<T extends Item> {
 }
 
 /**
- * ItemList lists items of the symbol, and adds, renames, and removes them. A remove
- * that takes other items with it asks the user first.
+ * ItemList lists items of the symbol, picks one, and adds, renames, and removes them. A
+ * remove that takes other items with it asks the user first.
  */
 export const ItemList = <T extends Item>({
   title,
@@ -76,6 +81,8 @@ export const ItemList = <T extends Item>({
   add,
   remove,
   onRemove,
+  value,
+  onChange,
 }: ItemListProps<T>): ReactElement => {
   const { get, set } = Form.useContext();
   const confirm = Modals.useConfirm();
@@ -100,6 +107,7 @@ export const ItemList = <T extends Item>({
     set(path.data, next);
     Text.edit(nameID(key));
   };
+  const keys = items.map((item) => item.key);
   return (
     <Flex.Box y gap={1}>
       <Header.Header level="p" bordered={false}>
@@ -117,35 +125,57 @@ export const ItemList = <T extends Item>({
           </Button.Button>
         </Header.Actions>
       </Header.Header>
-      {items.map((item) => (
-        <Flex.Box key={item.key} x justify="between" align="center">
-          <Flex.Box y gap={0}>
-            <Form.Field path={name(item.key)} showLabel={false} padHelpText={false}>
-              {({ onChange, value }) => (
-                <Text.MaybeEditable
-                  id={nameID(item.key)}
-                  level="small"
-                  value={value}
-                  onChange={onChange}
-                />
-              )}
-            </Form.Field>
-            <Text.Text level="small" color={9}>
-              {detail(item)}
-            </Text.Text>
-          </Flex.Box>
-          <Button.Button
-            onClick={() => void handleRemove(item)}
-            size="small"
-            variant="text"
-            tooltip={`Remove ${item.name}`}
-            aria-label={`Remove ${item.name}`}
-            reveal
-          >
-            <Icon.Close />
-          </Button.Button>
-        </Flex.Box>
-      ))}
+      <Select.Frame
+        value={value}
+        onChange={onChange}
+        data={keys}
+        closeDialogOnSelect={false}
+      >
+        <List.Scroll y gap={1}>
+          <List.Items<string>>
+            {({ key, itemKey, ...rest }) => {
+              const item = items.find((i) => i.key === itemKey);
+              if (item == null) return null;
+              return (
+                <Select.Item key={key} itemKey={itemKey} {...rest} justify="between">
+                  <Flex.Box y gap={0}>
+                    <Form.Field
+                      path={name(item.key)}
+                      showLabel={false}
+                      padHelpText={false}
+                    >
+                      {({ onChange: onRename, value: itemName }) => (
+                        <Text.MaybeEditable
+                          id={nameID(item.key)}
+                          level="small"
+                          value={itemName}
+                          onChange={onRename}
+                        />
+                      )}
+                    </Form.Field>
+                    <Text.Text level="small" color={9}>
+                      {detail(item)}
+                    </Text.Text>
+                  </Flex.Box>
+                  <Button.Button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      void handleRemove(item);
+                    }}
+                    size="small"
+                    variant="text"
+                    tooltip={`Remove ${item.name}`}
+                    aria-label={`Remove ${item.name}`}
+                    reveal
+                  >
+                    <Icon.Close />
+                  </Button.Button>
+                </Select.Item>
+              );
+            }}
+          </List.Items>
+        </List.Scroll>
+      </Select.Frame>
     </Flex.Box>
   );
 };
