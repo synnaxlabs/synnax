@@ -141,7 +141,7 @@ func newModuleRuntimeHarness(
 	statefulMod := MustSucceed(stateful.NewHost(ctx, wasmRT, seriesState, stringsState))
 	MustSucceed(series.NewHost(ctx, wasmRT, seriesState))
 	stringsMod := MustSucceed(stlstrings.NewHost(ctx, wasmRT, stringsState, nil))
-	mathMod := MustSucceed(stlmath.NewHost(ctx, wasmRT))
+	mathMod := MustSucceed(stlmath.NewHost(ctx, wasmRT, stlmath.WindowFromFirst))
 	errorsMod := MustSucceed(stlerrors.NewHost(ctx, wasmRT, nil))
 
 	factory := node.CompoundFactory{

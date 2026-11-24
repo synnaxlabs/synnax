@@ -183,7 +183,9 @@ var _ = Describe("Calculator", Ordered, func() {
 			Expect(od.Alignment).To(Equal(telem.NewAlignment(100, 50)))
 		})
 
-		Specify("Multiple alignments accumulation", func(ctx SpecContext) {
+		Specify("Should take the alignment of the input it takes stamps from", func(
+			ctx SpecContext,
+		) {
 			bases := []channel.Channel{
 				{
 					Name:     UniqueChannelName(),
@@ -213,7 +215,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			Expect(changed).To(BeTrue())
 			od := of.Get(calc.Key()).Series[0]
 			Expect(od).To(telem.MatchSeriesDataV[int64](4, 6))
-			Expect(od.Alignment).To(Equal(telem.NewAlignment(30, 8)))
+			Expect(od.Alignment).To(Equal(telem.NewAlignment(10, 5)))
 		})
 
 		Specify("Alignment persistence across calls", func(ctx SpecContext) {
@@ -245,7 +247,9 @@ var _ = Describe("Calculator", Ordered, func() {
 			Expect(od.Alignment).To(Equal(telem.NewAlignment(25, 7)))
 		})
 
-		Specify("Mixed alignment sources", func(ctx SpecContext) {
+		Specify("Should take the first equal-length input's alignment", func(
+			ctx SpecContext,
+		) {
 			bases := []channel.Channel{
 				{
 					Name:     UniqueChannelName(),
@@ -286,7 +290,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			Expect(changed).To(BeTrue())
 			od := of.Get(calc.Key()).Series[0]
 			Expect(od).To(telem.MatchSeriesDataV[int64](6))
-			Expect(od.Alignment).To(Equal(telem.NewAlignment(15, 4)))
+			Expect(od.Alignment).To(Equal(telem.NewAlignment(10, 3)))
 		})
 	})
 
@@ -490,10 +494,10 @@ var _ = Describe("Calculator", Ordered, func() {
 			Expect(of.Get(calc.Index()).Series[0]).To(telem.MatchSeriesDataV(
 				10*telem.SecondTS, 20*telem.SecondTS, 30*telem.SecondTS,
 			))
-			// Alignment is summed: (5,2) + (5,2) = (10,4)
+			// The output takes the alignment of the input it takes stamps from.
 			Expect(
 				of.Get(calc.Index()).Series[0].Alignment,
-			).To(Equal(telem.NewAlignment(10, 4)))
+			).To(Equal(telem.NewAlignment(5, 2)))
 		})
 
 		Specify("Omitted channel holds its last sample", func(ctx SpecContext) {
@@ -668,7 +672,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			).To(telem.MatchSeriesDataV[float32](6.0, 20.0))
 			Expect(
 				of.Get(calc.Index()).Series[0].Alignment,
-			).To(Equal(telem.NewAlignment(10, 4)))
+			).To(Equal(telem.NewAlignment(3, 1)))
 		})
 
 		Specify("Mixed virtual and persisted", func(ctx SpecContext) {
@@ -710,7 +714,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			).To(telem.MatchSeriesDataV[int64](70, 150))
 			Expect(
 				of.Get(calc.Index()).Series[0].Alignment,
-			).To(Equal(telem.NewAlignment(20, 6)))
+			).To(Equal(telem.NewAlignment(8, 4)))
 		})
 	})
 
@@ -865,10 +869,10 @@ var _ = Describe("Calculator", Ordered, func() {
 			Expect(of.Get(calc.Index()).Series[0]).To(telem.MatchSeriesDataV(
 				1*telem.SecondTS, 2*telem.SecondTS, 3*telem.SecondTS,
 			))
-			// Alignment is summed: (5,1) + (5,1) = (10,2)
+			// The output takes the alignment of the input it takes stamps from.
 			Expect(
 				of.Get(calc.Index()).Series[0].Alignment,
-			).To(Equal(telem.NewAlignment(10, 2)))
+			).To(Equal(telem.NewAlignment(5, 1)))
 		})
 
 		Specify("Different indexes from different writers", func(ctx SpecContext) {
@@ -975,11 +979,13 @@ var _ = Describe("Calculator", Ordered, func() {
 		)
 		o, changed = MustSucceed2(c.Next(ctx, fr, frame.Frame{}))
 		Expect(changed).To(BeTrue())
-		Expect(o.Len()).To(BeEquivalentTo(1))
+		// A calculation's 6 s windows start at multiples of 6 s from the epoch, so the
+		// frame splits at 6 s and closes the first window at 5 s.
+		Expect(o.Len()).To(BeEquivalentTo(2))
 		Expect(
 			o.Get(calc.Index()).Series[0],
-		).To(telem.MatchSeriesData(telem.NewSeriesSecondsTSV(6)))
-		Expect(o.Get(calc.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](35))
+		).To(telem.MatchSeriesData(telem.NewSeriesSecondsTSV(5, 6)))
+		Expect(o.Get(calc.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](30, 60))
 	})
 
 	Describe("Reset channel", func() {

@@ -140,7 +140,7 @@ func newBenchModule(ctx context.Context, b *testing.B, guestWASM []byte) *wasm.M
 	if err != nil {
 		b.Fatalf("Failed to create strings module: %v", err)
 	}
-	if _, err := stlmath.NewHost(ctx, wasmRT); err != nil {
+	if _, err := stlmath.NewHost(ctx, wasmRT, stlmath.WindowFromFirst); err != nil {
 		b.Fatal(err)
 	}
 	errorsMod, err := stlerrors.NewHost(ctx, wasmRT, nil)

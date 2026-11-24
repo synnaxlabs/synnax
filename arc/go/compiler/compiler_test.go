@@ -138,7 +138,7 @@ func bindDefaultModules(
 	MustSucceed(stateful.NewHost(ctx, r, seriesState, stringsState))
 	MustSucceed(series.NewHost(ctx, r, seriesState))
 	stringsMod := MustSucceed(stlstrings.NewHost(ctx, r, stringsState, nil))
-	MustSucceed(stlmath.NewHost(ctx, r))
+	MustSucceed(stlmath.NewHost(ctx, r, stlmath.WindowFromFirst))
 	MustSucceed(stlerrors.NewHost(ctx, r, nil))
 	MustSucceed(stltime.NewHost(ctx, r, stringsState, discardReport)).SetNow(cycleNow)
 	MustSucceed(stlchannels.NewHost(ctx, r, channelState, stringsState))

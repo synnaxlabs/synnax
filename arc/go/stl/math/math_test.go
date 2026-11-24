@@ -108,12 +108,24 @@ func openMath(
 	inputs types.Params,
 ) mathSetup {
 	GinkgoHelper()
+	return openMathWindowing(ctx, stlmath.WindowFromFirst, nodeType, dt, inputs)
+}
+
+// openMathWindowing opens nodeType from a host whose windows start as windowing says.
+func openMathWindowing(
+	ctx SpecContext,
+	windowing stlmath.Windowing,
+	nodeType string,
+	dt types.Type,
+	inputs types.Params,
+) mathSetup {
+	GinkgoHelper()
 	g := makeMathGraph(nodeType, dt, inputs)
 	analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 	Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 	s := node.New(analyzed)
 	inputNode := s.Node("input")
-	m := MustSucceed(stlmath.NewHost(ctx, nil))
+	m := MustSucceed(stlmath.NewHost(ctx, nil, windowing))
 	n := MustSucceed(m.Create(node.Config{
 		Node:    ir.Node{Key: "math", Type: nodeType, Inputs: inputs},
 		State:   s.Node("math"),
@@ -124,12 +136,24 @@ func openMath(
 
 func openMathWithReset(ctx SpecContext, nodeType string, dt types.Type) mathSetup {
 	GinkgoHelper()
+	return openMathWithResetWindowing(ctx, stlmath.WindowFromFirst, nodeType, dt)
+}
+
+// openMathWithResetWindowing opens nodeType with a reset input from a host whose
+// windows start as windowing says.
+func openMathWithResetWindowing(
+	ctx SpecContext,
+	windowing stlmath.Windowing,
+	nodeType string,
+	dt types.Type,
+) mathSetup {
+	GinkgoHelper()
 	g := makeMathGraphWithReset(nodeType, dt, types.Bool())
 	analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 	Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 	s := node.New(analyzed)
 	inputNode := s.Node("input")
-	m := MustSucceed(stlmath.NewHost(ctx, nil))
+	m := MustSucceed(stlmath.NewHost(ctx, nil, windowing))
 	n := MustSucceed(m.Create(node.Config{
 		Node:    ir.Node{Key: "math", Type: nodeType},
 		State:   s.Node("math"),
@@ -167,7 +191,7 @@ func openMathWithVar(
 		}
 	}
 	s := node.New(analyzed)
-	host := MustSucceed(stlmath.NewHost(ctx, nil))
+	host := MustSucceed(stlmath.NewHost(ctx, nil, stlmath.WindowFromFirst))
 	n := MustSucceed(host.Create(node.Config{
 		Node:    mathNode,
 		State:   s.Node("math"),
@@ -208,7 +232,7 @@ var _ = Describe("Math", func() {
 
 		BeforeEach(func(ctx SpecContext) {
 			rt = testutil.NewRuntime(ctx)
-			MustSucceed(stlmath.NewHost(ctx, rt.Underlying()))
+			MustSucceed(stlmath.NewHost(ctx, rt.Underlying(), stlmath.WindowFromFirst))
 			rt.Passthrough(ctx, "math")
 		})
 
@@ -328,7 +352,7 @@ var _ = Describe("Math", func() {
 
 		BeforeEach(func(ctx SpecContext) {
 			rt = testutil.NewRuntime(ctx)
-			MustSucceed(stlmath.NewHost(ctx, rt.Underlying()))
+			MustSucceed(stlmath.NewHost(ctx, rt.Underlying(), stlmath.WindowFromFirst))
 			rt.Passthrough(ctx, "math")
 		})
 
@@ -404,7 +428,7 @@ var _ = Describe("Math", func() {
 				analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 				Expect(diagnostics.Ok()).To(BeTrue())
 				s := node.New(analyzed)
-				m := MustSucceed(stlmath.NewHost(ctx, nil))
+				m := MustSucceed(stlmath.NewHost(ctx, nil, stlmath.WindowFromFirst))
 				compound := node.CompoundFactory{m}
 				cfg := node.Config{
 					Node:    ir.Node{Key: "math", Type: "math.avg"},
@@ -422,7 +446,7 @@ var _ = Describe("Math", func() {
 				analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 				Expect(diagnostics.Ok()).To(BeTrue())
 				s := node.New(analyzed)
-				m := MustSucceed(stlmath.NewHost(ctx, nil))
+				m := MustSucceed(stlmath.NewHost(ctx, nil, stlmath.WindowFromFirst))
 				compound := node.CompoundFactory{m}
 				cfg := node.Config{
 					Node:  ir.Node{Key: "math", Type: "math.derivative"},
@@ -520,9 +544,7 @@ var _ = Describe("Avg", func() {
 		expectOutputTime(s.state, 7*telem.SecondTS)
 	})
 
-	It("Should start each window at a multiple of the duration from the epoch", func(
-		ctx SpecContext,
-	) {
+	It("Should start a flow's window at its first stamp", func(ctx SpecContext) {
 		s := openMath(ctx, "avg", types.F64(), types.Params{
 			{Name: "duration", Type: types.TimeSpan(), Value: 5 * telem.Second},
 		})
@@ -530,8 +552,30 @@ var _ = Describe("Avg", func() {
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(4)
 		s.inputNode.MarkFresh(0)
 		nextChanged(ctx, s.n)
-		expectOutput(s.state, 10.0)
+		*s.inputNode.Output(0) = telem.NewSeriesV(30.0)
+		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(6)
+		s.inputNode.MarkFresh(0)
+		nextChanged(ctx, s.n)
+		expectOutput(s.state, 20.0)
+	})
 
+	It("Should start a calculation's window at a multiple of its duration", func(
+		ctx SpecContext,
+	) {
+		s := openMathWindowing(
+			ctx,
+			stlmath.WindowFromEpoch,
+			"avg",
+			types.F64(),
+			types.Params{
+				{Name: "duration", Type: types.TimeSpan(), Value: 5 * telem.Second},
+			},
+		)
+		*s.inputNode.Output(0) = telem.NewSeriesV(10.0)
+		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(4)
+		s.inputNode.MarkFresh(0)
+		nextChanged(ctx, s.n)
+		expectOutput(s.state, 10.0)
 		*s.inputNode.Output(0) = telem.NewSeriesV(30.0)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(6)
 		s.inputNode.MarkFresh(0)
@@ -540,10 +584,18 @@ var _ = Describe("Avg", func() {
 		expectOutputTime(s.state, 6*telem.SecondTS)
 	})
 
-	It("Should split a frame that crosses a window boundary", func(ctx SpecContext) {
-		s := openMath(ctx, "avg", types.F64(), types.Params{
-			{Name: "duration", Type: types.TimeSpan(), Value: 5 * telem.Second},
-		})
+	It("Should split a calculation's frame at each window boundary", func(
+		ctx SpecContext,
+	) {
+		s := openMathWindowing(
+			ctx,
+			stlmath.WindowFromEpoch,
+			"avg",
+			types.F64(),
+			types.Params{
+				{Name: "duration", Type: types.TimeSpan(), Value: 5 * telem.Second},
+			},
+		)
 		*s.inputNode.Output(0) = telem.NewSeriesV(10.0, 20.0, 100.0, 200.0, 7.0)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(3, 4, 6, 7, 11)
 		s.inputNode.MarkFresh(0)
@@ -996,42 +1048,77 @@ var _ = Describe("Alignment", func() {
 		Expect(resultTime.Alignment).To(Equal(telem.Alignment(250)))
 	})
 
-	It(
-		"Should take the alignment of the input whose stamps it takes, not the reset's",
-		func(ctx SpecContext) {
-			s := openMathWithReset(ctx, "avg", types.I64())
-			resetNode := s.state.Node("reset_signal")
+	It("Should sum alignments when reset signal is connected", func(ctx SpecContext) {
+		s := openMathWithReset(ctx, "avg", types.I64())
+		resetNode := s.state.Node("reset_signal")
 
-			inputSeries := telem.NewSeriesV[int64](10, 20, 30)
-			inputSeries.Alignment = 100
-			inputSeries.TimeRange = telem.TimeRange{
-				Start: 50 * telem.SecondTS,
-				End:   150 * telem.SecondTS,
-			}
-			*s.inputNode.Output(0) = inputSeries
-			*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(50, 100, 150)
-			s.inputNode.MarkFresh(0)
+		inputSeries := telem.NewSeriesV[int64](10, 20, 30)
+		inputSeries.Alignment = 100
+		inputSeries.TimeRange = telem.TimeRange{
+			Start: 50 * telem.SecondTS,
+			End:   150 * telem.SecondTS,
+		}
+		*s.inputNode.Output(0) = inputSeries
+		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(50, 100, 150)
+		s.inputNode.MarkFresh(0)
 
-			resetSeries := telem.NewSeriesV(false)
-			resetSeries.Alignment = 75
-			resetSeries.TimeRange = telem.TimeRange{
-				Start: 25 * telem.SecondTS,
-				End:   175 * telem.SecondTS,
-			}
-			*resetNode.Output(0) = resetSeries
-			*resetNode.OutputTime(0) = telem.NewSeriesSecondsTSV(25)
-			resetNode.MarkFresh(0)
-			nextChanged(ctx, s.n)
+		resetSeries := telem.NewSeriesV(false)
+		resetSeries.Alignment = 75
+		resetSeries.TimeRange = telem.TimeRange{
+			Start: 25 * telem.SecondTS,
+			End:   175 * telem.SecondTS,
+		}
+		*resetNode.Output(0) = resetSeries
+		*resetNode.OutputTime(0) = telem.NewSeriesSecondsTSV(25)
+		resetNode.MarkFresh(0)
+		nextChanged(ctx, s.n)
 
-			result := *s.state.Node("math").Output(0)
-			Expect(result.Alignment).To(Equal(telem.Alignment(100)))
-			Expect(result.TimeRange.Start).To(Equal(50 * telem.SecondTS))
-			Expect(result.TimeRange.End).To(Equal(150 * telem.SecondTS))
+		result := *s.state.Node("math").Output(0)
+		Expect(result.Alignment).To(Equal(telem.Alignment(175)))
+		Expect(result.TimeRange.Start).To(Equal(25 * telem.SecondTS))
+		Expect(result.TimeRange.End).To(Equal(175 * telem.SecondTS))
 
-			resultTime := *s.state.Node("math").OutputTime(0)
-			Expect(resultTime.Alignment).To(Equal(telem.Alignment(100)))
-		},
-	)
+		resultTime := *s.state.Node("math").OutputTime(0)
+		Expect(resultTime.Alignment).To(Equal(telem.Alignment(175)))
+	})
+
+	It("Should give a calculation's output the bounds of its input alone", func(
+		ctx SpecContext,
+	) {
+		s := openMathWithResetWindowing(
+			ctx,
+			stlmath.WindowFromEpoch,
+			"avg",
+			types.I64(),
+		)
+		resetNode := s.state.Node("reset_signal")
+		inputSeries := telem.NewSeriesV[int64](10, 20, 30)
+		inputSeries.Alignment = 100
+		inputSeries.TimeRange = telem.TimeRange{
+			Start: 50 * telem.SecondTS,
+			End:   150 * telem.SecondTS,
+		}
+		*s.inputNode.Output(0) = inputSeries
+		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(50, 100, 150)
+		s.inputNode.MarkFresh(0)
+		resetSeries := telem.NewSeriesV(false)
+		resetSeries.Alignment = 75
+		resetSeries.TimeRange = telem.TimeRange{
+			Start: 25 * telem.SecondTS,
+			End:   175 * telem.SecondTS,
+		}
+		*resetNode.Output(0) = resetSeries
+		*resetNode.OutputTime(0) = telem.NewSeriesSecondsTSV(25)
+		resetNode.MarkFresh(0)
+		nextChanged(ctx, s.n)
+		for _, out := range []telem.Series{
+			*s.state.Node("math").Output(0),
+			*s.state.Node("math").OutputTime(0),
+		} {
+			Expect(out.Alignment).To(Equal(telem.Alignment(100)))
+			Expect(out.TimeRange).To(Equal(inputSeries.TimeRange))
+		}
+	})
 })
 
 var _ = Describe("Derivative", func() {
@@ -1063,7 +1150,7 @@ var _ = Describe("Derivative", func() {
 		Expect(diagnostics.Ok()).To(BeTrue())
 		s := node.New(analyzed)
 		inputNode := s.Node("input")
-		m := MustSucceed(stlmath.NewHost(ctx, nil))
+		m := MustSucceed(stlmath.NewHost(ctx, nil, stlmath.WindowFromFirst))
 		n := MustSucceed(m.Create(node.Config{
 			Node:  ir.Node{Type: "derivative"},
 			State: s.Node("deriv"),
@@ -1190,7 +1277,7 @@ var _ = Describe("Literal inputs", func() {
 				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.F64()}},
 			}}}
 			s := node.New(prog)
-			m := MustSucceed(stlmath.NewHost(ctx, nil))
+			m := MustSucceed(stlmath.NewHost(ctx, nil, stlmath.WindowFromFirst))
 			n := MustSucceed(m.Create(node.Config{
 				Node:  prog.Nodes[0],
 				State: s.Node("n"),
@@ -1219,7 +1306,7 @@ var _ = Describe("Construction validation", func() {
 				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.F32()}},
 			}}}
 			s := node.New(prog)
-			m := MustSucceed(stlmath.NewHost(ctx, nil))
+			m := MustSucceed(stlmath.NewHost(ctx, nil, stlmath.WindowFromFirst))
 			cfg := node.Config{
 				Node:    prog.Nodes[0],
 				State:   s.Node("math"),
@@ -1245,7 +1332,7 @@ var _ = Describe("Construction validation", func() {
 				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.F64()}},
 			}}}
 			s := node.New(prog)
-			m := MustSucceed(stlmath.NewHost(ctx, nil))
+			m := MustSucceed(stlmath.NewHost(ctx, nil, stlmath.WindowFromFirst))
 			cfg := node.Config{
 				Node:    prog.Nodes[0],
 				State:   s.Node("math"),

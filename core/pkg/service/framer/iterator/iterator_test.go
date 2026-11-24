@@ -518,11 +518,11 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						Expect(
 							v.Series[1],
 						).To(telem.MatchSeriesDataV[float32](46, 52, 58, 64, 70))
-						// Note: Diamond pattern causes alignment increment, this is
-						// expected behavior
+						// A calculation takes its stamp input's alignment, so the
+						// diamond keeps the sensor's.
 						Expect(
 							v.Series[1].Alignment,
-						).To(Equal(telem.NewAlignment(2, 0)))
+						).To(Equal(telem.NewAlignment(1, 0)))
 
 						// Verify the index is correct
 						v = iter.Value().Get(calcE.Index())
@@ -532,11 +532,11 @@ var _ = Describe("StreamIterator", Ordered, func() {
 							v.Series[0].Alignment,
 						).To(Equal(telem.NewAlignment(0, 0)))
 						Expect(v.Series[1]).To(telem.MatchSeriesData(idxData.Series[1]))
-						// Note: Diamond pattern causes alignment increment, this is
-						// expected behavior
+						// A calculation takes its stamp input's alignment, so the
+						// diamond keeps the sensor's.
 						Expect(
 							v.Series[1].Alignment,
-						).To(Equal(telem.NewAlignment(2, 0)))
+						).To(Equal(telem.NewAlignment(1, 0)))
 
 						Expect(iter.Next(iterator.AutoSpan)).To(BeFalse())
 						Expect(iter.Close()).To(Succeed())
