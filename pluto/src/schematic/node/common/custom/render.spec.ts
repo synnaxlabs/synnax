@@ -403,6 +403,78 @@ describe("Custom.useRender", () => {
       rerender({ paints: [], spec });
       expect(rect.style.display).toBe("");
     });
+
+    describe("group", () => {
+      const spec = createMockSpec({
+        svg:
+          '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">' +
+          '<defs><rect id="tile" width="5" height="5"/></defs><g id="g">' +
+          '<rect class="shape" width="5" height="5" stroke="black" fill="white"/>' +
+          '<use class="use" href="#tile"/><image class="image" width="5" height="5"/>' +
+          "</g></svg>",
+      });
+      const inside = (container: HTMLElement) =>
+        [".shape", ".use", ".image"].map(
+          (s) => container.querySelector(s) as SVGElement,
+        );
+
+      it("should draw a paint on each element inside the group", () => {
+        const container = document.createElement("div");
+        renderAttached(
+          { paints: [createPaint(["#g"], "#ff0000", "#00ff00")], spec },
+          container,
+        );
+        inside(container).forEach((el) => {
+          expect(strokeColor(el)).toBe(rgba("#ff0000"));
+          expect(el.getAttribute("fill")).toBe("#00ff00");
+        });
+        expect(strokeColor(container.querySelector("#g") as SVGElement)).toBe("");
+      });
+
+      it("should restore the own fill of each element when the paint goes", () => {
+        const container = document.createElement("div");
+        const { rerender } = renderAttached(
+          { paints: [createPaint(["#g"], undefined, "#00ff00")], spec },
+          container,
+        );
+        rerender({ paints: [], spec });
+        const [shape, use] = inside(container);
+        expect(shape.getAttribute("fill")).toBe("white");
+        expect(use.hasAttribute("fill")).toBe(false);
+      });
+
+      it("should hide each element inside a hidden group and show them again", () => {
+        const container = document.createElement("div");
+        const hidden = [{ selectors: ["#g"], hidden: true }];
+        const { rerender } = renderAttached({ paints: hidden, spec }, container);
+        inside(container).forEach((el) => expect(el.style.display).toBe("none"));
+        rerender({ paints: [], spec });
+        inside(container).forEach((el) => expect(el.style.display).toBe(""));
+      });
+
+      it("should hide each element that draws when the whole drawing hides", () => {
+        const container = document.createElement("div");
+        renderAttached({ paints: [{ hidden: true }], spec }, container);
+        inside(container).forEach((el) => expect(el.style.display).toBe("none"));
+        const tile = container.querySelector("#tile") as SVGElement;
+        expect(tile.style.display).toBe("");
+      });
+
+      it("should draw the symbol stroke on each element of a stroked group", () => {
+        const container = document.createElement("div");
+        renderAttached(
+          {
+            paints: [createPaint(["#g"], "#ff0000")],
+            spec,
+            strokeColor: color.construct("#123456"),
+          },
+          container,
+        );
+        inside(container).forEach((el) =>
+          expect(strokeColor(el)).toBe(rgba("#123456")),
+        );
+      });
+    });
   });
 
   describe("stroke scaling", () => {

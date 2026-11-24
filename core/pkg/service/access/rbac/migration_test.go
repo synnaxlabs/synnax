@@ -28,7 +28,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	roleversions "github.com/synnaxlabs/synnax/pkg/service/access/rbac/role/versions"
 	rolev0 "github.com/synnaxlabs/synnax/pkg/service/access/rbac/role/versions/v0"
-	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	ontologyv0 "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	rackversions "github.com/synnaxlabs/synnax/pkg/service/rack/versions"
@@ -133,10 +132,8 @@ var _ = Describe("Migration chain", func() {
 		)
 
 		roles := MustOpen(rbac.OpenRoles(ctx, rbac.RolesConfig{DB: db}))
-		passwords := MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
 		users := MustOpen(user.OpenService(ctx, user.ServiceConfig{
-			DB:       db,
-			Password: passwords,
+			DB: db,
 		}))
 		statuses := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 			DB: db,
