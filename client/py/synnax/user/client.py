@@ -18,12 +18,12 @@ from synnax.auth import password
 from synnax.exceptions import NotFoundError
 from synnax.transport import send_batch
 from synnax.user import actions_gen
-from synnax.user.payload import New, User
 from synnax.user.types_gen import (
     Cursor,
     Key,
     Order,
     RetrieveRequest,
+    User,
     Where,
     WhereInput,
     resource_id,
@@ -35,7 +35,7 @@ from x.params import require_named_params
 
 
 class _CreateRequest(BaseModel):
-    users: list[New]
+    users: list[User]
 
 
 class _CreateResponse(BaseModel):
@@ -67,20 +67,20 @@ class Client:
     def create(self, *, name: str, role: role_.Key, key: Key | None = None) -> User: ...
 
     @overload
-    def create(self, *, user: New) -> User: ...
+    def create(self, *, user: User) -> User: ...
 
     @overload
-    def create(self, *, users: list[New]) -> list[User]: ...
+    def create(self, *, users: list[User]) -> list[User]: ...
 
-    @require_named_params(example_params=("user", "New(name='Hari Seldon')"))
+    @require_named_params(example_params=("user", "User(name='Hari Seldon')"))
     def create(
         self,
         *,
         name: str | None = None,
         role: role_.Key | None = None,
         key: Key | None = None,
-        user: New | None = None,
-        users: list[New] | None = None,
+        user: User | None = None,
+        users: list[User] | None = None,
     ) -> User | list[User]:
         """Creates users with no password. Give a user its first password with
         client.auth.passwords.create.
@@ -88,7 +88,11 @@ class Client:
         if name is not None:
             if role is None:
                 raise ValueError("role is required when name is provided")
-            user = New(name=name, key=key, role=role)
+            user = (
+                User(name=name, role=role)
+                if key is None
+                else User(name=name, key=key, role=role)
+            )
         single = user is not None
         if user is not None:
             users = [user]
