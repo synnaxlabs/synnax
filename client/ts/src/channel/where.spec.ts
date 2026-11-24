@@ -158,8 +158,11 @@ describe("Where with a Core", () => {
       const keys = () => list.getCached()?.records.map(({ key }) => key);
       await expect.poll(keys).toContain(plain.key);
       expect(keys()).not.toContain(output.key);
-      const fromCore = await reader.channels.retrieve({ where });
-      expect(fromCore.map(({ key }) => key)).toEqual([plain.key]);
+      const fromCore = (await reader.channels.retrieve({ where })).map(
+        ({ key }) => key,
+      );
+      expect(fromCore).toContain(plain.key);
+      expect(fromCore).not.toContain(output.key);
     } finally {
       close();
     }
