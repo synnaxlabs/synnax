@@ -3069,7 +3069,7 @@ func newIndexes() indexes {
 					}
 				}
 			},
-			Retarget: func(e *Schematic, from, to channel.Key) {
+			Retarget: func(e *Schematic, to map[channel.Key]channel.Key) {
 				for i9 := range e.Nodes {
 					switch v10 := e.Nodes[i9].Config.Variant.(type) {
 					case SymbolNodeConfig:
@@ -3077,8 +3077,10 @@ func newIndexes() indexes {
 							if v10.States[i11].Source != nil {
 								switch v12 := v10.States[i11].Source.Variant.(type) {
 								case ChannelSource:
-									if v12.Key != nil && *v12.Key == from {
-										*v12.Key = to
+									if v12.Key != nil {
+										if t, ok := to[*v12.Key]; ok {
+											*v12.Key = t
+										}
 									}
 									v10.States[i11].Source.Variant = v12
 								}
@@ -3136,7 +3138,7 @@ func newIndexes() indexes {
 					}
 				}
 			},
-			Retarget: func(e *Schematic, from, to channel.Key) {
+			Retarget: func(e *Schematic, to map[channel.Key]channel.Key) {
 				for i9 := range e.Nodes {
 					switch v10 := e.Nodes[i9].Config.Variant.(type) {
 					case SymbolNodeConfig:
@@ -3144,8 +3146,10 @@ func newIndexes() indexes {
 							if v10.States[i11].Source != nil {
 								switch v12 := v10.States[i11].Source.Variant.(type) {
 								case ChannelSource:
-									if v12.Command != nil && *v12.Command == from {
-										*v12.Command = to
+									if v12.Command != nil {
+										if t, ok := to[*v12.Command]; ok {
+											*v12.Command = t
+										}
 									}
 									v10.States[i11].Source.Variant = v12
 								}
@@ -3242,13 +3246,13 @@ func newIndexes() indexes {
 					}
 				}
 			},
-			Retarget: func(e *Schematic, from, to channel.Key) {
+			Retarget: func(e *Schematic, to map[channel.Key]channel.Key) {
 				for i7 := range e.Nodes {
 					switch v8 := e.Nodes[i7].Config.Variant.(type) {
 					case SymbolNodeConfig:
 						for i9 := range v8.Commands {
-							if v8.Commands[i9].Channel == from {
-								v8.Commands[i9].Channel = to
+							if t, ok := to[v8.Commands[i9].Channel]; ok {
+								v8.Commands[i9].Channel = t
 							}
 						}
 						e.Nodes[i7].Config.Variant = v8

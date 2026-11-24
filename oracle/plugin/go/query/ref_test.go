@@ -1264,9 +1264,10 @@ var _ = Describe("@ref", func() {
 					"for k2, v3 := range e.Ports.Channels {",
 					"if v3 == t {",
 					"delete(e.Ports.Channels, k2)",
+					"Retarget: func(e *ReadConfig, to map[channel.Key]channel.Key) {",
 					"for k4, v5 := range e.Ports.Channels {",
-					"if v5 == from {",
-					"v5 = to",
+					"if t, ok := to[v5]; ok {",
+					"v5 = t",
 					"e.Ports.Channels[k4] = v5",
 				)
 		})
@@ -1288,8 +1289,8 @@ var _ = Describe("@ref", func() {
 					"v2.Command = 0",
 					"e.Lines[k3] = v2",
 					"for k5, v4 := range e.Lines {",
-					"if v4.Command == from {",
-					"v4.Command = to",
+					"if t, ok := to[v4.Command]; ok {",
+					"v4.Command = t",
 					"e.Lines[k5] = v4",
 				)
 		})
