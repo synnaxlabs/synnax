@@ -334,12 +334,8 @@ func (j *Join) holdsAll(stamp, frame telem.TimeStamp) bool {
 		at := stamp
 		if j.live && in.first == len(in.stamps) {
 			if in.framed {
-				if telem.TimeSpan(
-					j.arrived-in.arrived,
-				) > max(
-					limit,
-					in.frames.within(),
-				) {
+				window := max(limit, in.frames.within())
+				if telem.TimeSpan(j.arrived-in.arrived) > window {
 					return false
 				}
 				continue
