@@ -45,7 +45,7 @@ export interface Resolved {
    * did), as opposed to one still loading.
    */
   missing: boolean;
-  /** failed reports whether the load ended in any other error, such as a denied read. */
+  /** failed reports whether the load ended in another error, such as a denied read. */
   failed: boolean;
 }
 
