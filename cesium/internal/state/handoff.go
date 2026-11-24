@@ -108,10 +108,12 @@ func (r *joinRequest) run(s *State) {
 			return
 		}
 	}
+	clock := w.claims[w.cfg.Clock]
 	for key, t := range d.types {
 		w.types[key] = t
 		c := d.claims[key]
-		c.w, w.claims[key] = w, c
+		c.w, c.end, c.bounded = w, clock.end, clock.bounded
+		w.claims[key] = c
 		if seg, ok := d.held[key]; ok {
 			seg.holder, w.held[key] = w, seg
 		}
@@ -125,10 +127,34 @@ func (r *joinRequest) run(s *State) {
 	w.done <- nil
 }
 
-// Join moves every key of d, a writer that Split made from a writer of the same clock,
-// with its claims and open segments, into w, and drops the pin of d on the clock. d
-// takes no later call.
+// Join moves every key of d, a writer of data against the stamps of the clock of w,
+// with its claims and open segments, into w, and drops the pin of d on the clock. Each
+// claim ends where the claim of w on the clock ends. d takes no later call.
 func (w *Writer) Join(d *Writer) error { return w.call(&joinRequest{w: w, d: d}) }
+
+type boundRequest struct {
+	w           *Writer
+	first, last telem.TimeStamp
+}
+
+func (r *boundRequest) fail(err error) { r.w.done <- err }
+
+func (r *boundRequest) run(*State) {
+	if r.w.pulled != nil {
+		r.w.done <- r.w.pulled
+		return
+	}
+	for _, c := range r.w.claims {
+		c.start, c.end, c.bounded = r.first, r.last, true
+	}
+	r.w.done <- nil
+}
+
+// Bound limits each claim of w, and its pin on the clock, to the stamps from first to
+// last, so that other writers may claim the keys of w outside them.
+func (w *Writer) Bound(first, last telem.TimeStamp) error {
+	return w.call(&boundRequest{w: w, first: first, last: last})
+}
 
 type addRequest struct {
 	w     *Writer
