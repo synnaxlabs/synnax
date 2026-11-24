@@ -221,7 +221,8 @@ func (e *engine) clockUsers(
 	for _, p := range h.parts {
 		timed, err := e.cache.Timed(p, clock)
 		if err != nil {
-			return nil, errors.Join(err, e.unpin(h))
+			e.unpin(h)
+			return nil, err
 		}
 		for _, t := range timed {
 			kp, ok := e.keyParts(t.Key)
@@ -238,7 +239,8 @@ func (e *engine) clockUsers(
 			users = append(users, state.User{Key: t.Key, Segment: seg})
 		}
 	}
-	return users, e.unpin(h)
+	e.unpin(h)
+	return users, nil
 }
 
 // pinReaching returns the parts of key and pins those of their range whose stamps
