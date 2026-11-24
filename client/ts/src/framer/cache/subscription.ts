@@ -12,8 +12,8 @@ import { deep, type destructor, type TimeStamp } from "@synnaxlabs/x";
 
 import type { channel } from "@/channel";
 import { UnexpectedError, ValidationError } from "@/errors";
-import { Latest, type LatestProps } from "@/framer/cache/latest";
-import { Points, type PointsProps } from "@/framer/cache/points";
+import { latest } from "@/framer/cache/latest";
+import { points } from "@/framer/cache/points";
 import type {
   PointsRequest,
   Snapshot,
@@ -21,7 +21,7 @@ import type {
   Subscription,
 } from "@/framer/subscription";
 
-export interface HandleProps extends PointsProps, LatestProps {
+export interface HandleProps extends points.Props, latest.Props {
   /** Called once when the subscription closes. */
   onClose: () => void;
   /** Logs the errors that change handlers throw. */
@@ -37,7 +37,7 @@ const isPoints = (request: SubscribeRequest): request is PointsRequest =>
  */
 export class Handle implements Subscription {
   private request: SubscribeRequest | null = null;
-  private readonly consumers = new Map<channel.Key, Points | Latest>();
+  private readonly consumers = new Map<channel.Key, points.Points | latest.Latest>();
   private readonly handlers = new Set<() => void>();
   private notifying = false;
   private closed = false;
@@ -55,7 +55,7 @@ export class Handle implements Subscription {
 
   timeAt(key: channel.Key, alignment: bigint): TimeStamp | null {
     const consumer = this.consumer(key);
-    return consumer instanceof Latest ? consumer.timeAt(alignment) : null;
+    return consumer instanceof latest.Latest ? consumer.timeAt(alignment) : null;
   }
 
   update(request: SubscribeRequest): void {
@@ -80,17 +80,24 @@ export class Handle implements Subscription {
       const c = this.consumers.get(key);
       if (isPoints(request)) {
         const { window, limit } = request;
-        if (c instanceof Points) c.update(window, limit);
+        if (c instanceof points.Points) c.update(window, limit);
         else
           this.consumers.set(
             key,
-            new Points(this.props, key, window, limit, this.notify),
+            new points.Points(this.props, key, window, limit, this.notify),
           );
-      } else if (c instanceof Latest) c.update(request.window, request.limit.count);
+      } else if (c instanceof latest.Latest)
+        c.update(request.window, request.limit.count);
       else
         this.consumers.set(
           key,
-          new Latest(this.props, key, request.window, request.limit.count, this.notify),
+          new latest.Latest(
+            this.props,
+            key,
+            request.window,
+            request.limit.count,
+            this.notify,
+          ),
         );
     });
   }
@@ -109,7 +116,7 @@ export class Handle implements Subscription {
     this.handlers.clear();
   }
 
-  private consumer(key: channel.Key): Points | Latest {
+  private consumer(key: channel.Key): points.Points | latest.Latest {
     const consumer = this.consumers.get(key);
     if (consumer == null)
       throw new UnexpectedError(`channel ${key} is not in the subscription`);

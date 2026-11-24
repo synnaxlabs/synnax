@@ -9,6 +9,8 @@
 
 """Test user registration and management via Console UI."""
 
+from uuid import UUID
+
 from console.case import ConsoleCase
 from x import random_name
 
@@ -88,8 +90,8 @@ class UserRegister(ConsoleCase):
         new_username = f"logintest_{random_name()}"
         self.log(f"Changing username: {self.username} -> {new_username}")
 
-        user = self.client.users.retrieve(username=self.username)
-        self.client.users.change_username(user.key, new_username)
+        [password] = self.client.auth.passwords.retrieve(usernames=[self.username])
+        self.client.users.change_username(UUID(password.subject.key), new_username)
         self.username = new_username
 
         self.log("Logging out and logging in with new username")

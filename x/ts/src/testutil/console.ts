@@ -11,6 +11,14 @@ import { beforeEach, onTestFinished } from "vitest";
 
 const METHODS = ["error", "warn"] as const;
 
+// An error prints with each error in its cause chain.
+const format = (arg: unknown): string => {
+  let out = String(arg);
+  for (let e = arg; e instanceof Error && e.cause instanceof Error; e = e.cause)
+    out += `\n  caused by: ${e.cause.toString()}`;
+  return out;
+};
+
 /**
  * Fails every test that writes to console.error or console.warn. A test that expects
  * output mocks the method with vi.spyOn, which replaces the recorder for that test.
@@ -27,7 +35,7 @@ export const failOnConsoleOutput = ({
     const messages: string[] = [];
     for (const method of METHODS)
       console[method] = (...args: unknown[]) => {
-        const message = args.map(String).join(" ");
+        const message = args.map(format).join(" ");
         if (!ignore.some((pattern) => pattern.test(message)))
           messages.push(`console.${method}: ${message}`);
         originals[method](...args);

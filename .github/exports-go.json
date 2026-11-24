@@ -34,20 +34,6 @@
       "receiver": "Table",
       "name": "PlanDelete",
       "caller": "sy-6522-plan-the-records-that-a-channel-delete-touches"
-    },
-    {
-      "module": "x/go",
-      "package": "github.com/synnaxlabs/x/validate",
-      "receiver": "Validator",
-      "name": "MaxBytes",
-      "caller": "https://github.com/synnaxlabs/synnax/pull/7346"
-    },
-    {
-      "module": "x/go",
-      "package": "github.com/synnaxlabs/x/validate",
-      "receiver": "Validator",
-      "name": "MinBytes",
-      "caller": "https://github.com/synnaxlabs/synnax/pull/7346"
     }
   ]
 }

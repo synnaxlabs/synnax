@@ -21,7 +21,7 @@ import {
   resourceZ,
 } from "@/resource/payload";
 import { type Type, typeZ } from "@/resource/types.gen";
-import { checkForMultipleOrNoResults } from "@/util/retrieve";
+import { util } from "@/util";
 
 const searchReqZ = z.object({
   /** The text that a resource must match. An empty term lists resources by type. */
@@ -41,7 +41,7 @@ type Search = {
   limit: number;
 };
 
-type ListQuery = query.ListQuery<never, string> & {
+type ListQuery = query.list.Query<never, string> & {
   readonly types?: Type[];
   readonly [key: string]: query.Params;
 };
@@ -92,10 +92,10 @@ export interface ClientConfig {
 export class Client {
   private readonly client: UnaryClient;
   private readonly table: query.Table<string, Resource>;
-  private readonly searches: query.Space<Search, Resource[], string, Resource>;
-  private readonly byKey: query.Space<string, Resource, string, Resource>;
-  private readonly byKeys: query.Space<string[], Resource[], string, Resource>;
-  private readonly lists: query.Lists<
+  private readonly searches: query.space.Space<Search, Resource[], string, Resource>;
+  private readonly byKey: query.space.Space<string, Resource, string, Resource>;
+  private readonly byKeys: query.space.Space<string[], Resource[], string, Resource>;
+  private readonly lists: query.list.Lists<
     ListQuery,
     Resource,
     string,
@@ -142,7 +142,7 @@ export class Client {
       table: this.table,
       fetch: async (key) => {
         const resources = await this.table.retrieve([key]);
-        checkForMultipleOrNoResults(
+        util.checkForMultipleOrNoResults(
           "resource",
           { where: { id: { eq: key } } },
           resources,
@@ -185,10 +185,10 @@ export class Client {
    */
   watch(id: ID): query.Live<Resource>;
   watch(ids: ID[]): query.Live<Resource[]>;
-  watch(params: SearchParams): query.List<Resource, string>;
+  watch(params: SearchParams): query.list.List<Resource, string>;
   watch(
     target: ID | ID[] | SearchParams,
-  ): query.Live<Resource> | query.Live<Resource[]> | query.List<Resource, string> {
+  ): query.Live<Resource> | query.Live<Resource[]> | query.list.List<Resource, string> {
     if (Array.isArray(target)) return this.byKeys.watch(idToString(target));
     if (isID(target)) return this.byKey.watch(idToString(target));
     const { searchTerm, types, limit } = target;

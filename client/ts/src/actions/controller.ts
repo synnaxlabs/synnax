@@ -15,6 +15,7 @@ import {
   errors,
   id,
   map,
+  narrow,
   type record,
   TimeSpan,
   TimeStamp,
@@ -30,8 +31,7 @@ import {
   NotCachedError,
   NotFoundError,
 } from "@/errors";
-import type { query } from "@/query";
-import { keyedZ, Table } from "@/query/table";
+import { query } from "@/query";
 
 const DEFAULT_COALESCE_WINDOW = TimeSpan.milliseconds(500);
 const DEFAULT_STACK_CAP = 200;
@@ -192,7 +192,7 @@ export interface ControllerParams<
   Action,
 > {
   /** The table holding the documents this controller dispatches over. */
-  store: Table<Key, State>;
+  store: query.Table<Key, State>;
   /** Reports listener errors that have no caller to throw to. */
   onError: (error: Error) => void;
   /**
@@ -315,8 +315,8 @@ interface Prepared<Action> {
  * session-local and dropped when a document is deleted.
  */
 export class Controller<Key extends record.Key, State extends query.Data, Action> {
-  private readonly docs: Table<Key, State>;
-  private readonly undos: Table<Key, UndoState<Action>>;
+  private readonly docs: query.Table<Key, State>;
+  private readonly undos: query.Table<Key, UndoState<Action>>;
   private readonly params: Required<
     Omit<
       ControllerParams<Key, State, Action>,
@@ -345,8 +345,8 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
   // and steps on sleep/wake or NTP resync, so it cannot be trusted for this.
   private tick = 0;
   // The Core applies dispatches in arrival order, so each document has at most one send
-  // in flight. A key is present while its send is in flight, and holds the batch
-  // queued behind it.
+  // in flight. A key is present while its send or create is in flight, and holds the
+  // batch queued behind it.
   private readonly queues = new Map<Key, Queue<State, Action>>();
   // Documents with a fetch in flight, each with whether a frame or a write for it came
   // during the fetch.
@@ -369,7 +369,7 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     this.docs = opts.store;
     // Undo states are rebuilt objects on every update; comparing them would
     // be pure waste, so equality is disabled.
-    this.undos = new Table<Key, UndoState<Action>>({
+    this.undos = new query.Table<Key, UndoState<Action>>({
       onError: this.params.onError,
       equal: () => false,
     });
@@ -588,19 +588,27 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     const r = this.rebases.get(key);
     if (r == null || this.writing) return doc;
     r.base = doc;
-    return this.rebuild(r);
+    return this.rebuild(key, r);
   }
 
-  /** Returns the base with the pending entries applied. */
-  private rebuild(r: Rebase<State, Action>): State {
-    return r.pending.reduce(
+  /**
+   * Returns the base with the pending entries applied. In a plain-object doc, each part
+   * equal to the part of the cached doc keeps the identity of that part, so selectors
+   * over it stay stable.
+   */
+  private rebuild(key: Key, r: Rebase<State, Action>): State {
+    const next = r.pending.reduce(
       (state, { actions }) => this.params.reduce(state, actions).next,
       r.base,
     );
+    // A class doc, such as a channel, can refer back to the client, which deep.reuse
+    // cannot walk.
+    if (!narrow.isPlainObject(next)) return next;
+    return deep.reuse(this.docs.get(key), next);
   }
 
   private write(key: Key, r: Rebase<State, Action>): void {
-    this.set(key, this.rebuild(r));
+    this.set(key, this.rebuild(key, r));
   }
 
   private set(key: Key, doc: State): void {
@@ -984,12 +992,20 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
 
   /**
    * Sends a create for the given keys. The cached docs among them hold their create as
-   * pending, so its echo does not revert edits made before the echo arrives.
+   * pending, so its echo does not revert edits made before the echo arrives. Dispatches
+   * to the keys during the send wait for it, then go out in order.
    * @returns what the send returns.
-   * @throws {Error} if the send fails.
+   * @throws {Error} if the send fails. The waiting dispatches still go out after it.
    */
   async create<T>(keys: Key[], send: (dispatchKey: string) => Promise<T>): Promise<T> {
     const dispatchKey = id.create();
+    const held = [...new Set(keys)]
+      .filter((key) => !this.queues.has(key))
+      .map((key) => {
+        const queue: Queue<State, Action> = { next: null };
+        this.queues.set(key, queue);
+        return { key, queue };
+      });
     const tracked: Key[] = [];
     for (const key of keys) {
       const current = this.docs.get(key);
@@ -1002,9 +1018,14 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
       res = await send(dispatchKey);
     } catch (e) {
       tracked.forEach((key) => this.discard(key, dispatchKey));
+      // A create can fail on a doc that exists, such as an import of a bad file. The
+      // Core decides whether each held dispatch applies, and the drain rolls back what
+      // it refuses.
+      held.forEach(({ key, queue }) => void this.drain(key, queue));
       throw errors.fromUnknown(e);
     }
     tracked.forEach((key) => this.accept(key, dispatchKey, []));
+    held.forEach(({ key, queue }) => void this.drain(key, queue));
     return res;
   }
 
@@ -1273,7 +1294,7 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
         );
       },
       onInvalid: (raw) => {
-        const keyed = keyedZ.safeParse(raw);
+        const keyed = query.keyedZ.safeParse(raw);
         if (keyed.success) this.refetch(keyed.data.key as Key);
       },
     };
