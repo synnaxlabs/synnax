@@ -189,12 +189,16 @@ var _ = Describe("Data against stamps that are not durable yet", func() {
 		ctx SpecContext,
 	) {
 		failing.Store(true)
-		c := stamps(ctx, 10, 11)
+		c := stamps(ctx, 10, 11, 12)
 		w := values(ctx, 10, 1, 2)
 		Expect(c.Sync(ctx)).To(MatchError(syscall.EIO))
 		Expect(read(ctx, data)).To(BeEmpty(), "the data leaves view in the same step")
 		failing.Store(false)
-		Expect(w.Sync(ctx)).To(MatchError(ContainSubstring("took back the stamps")))
+		MustSucceed2(
+			w.Write(ctx, telem.UnaryFrame(data, telem.NewSeriesV[int64](3)), nil),
+		)
+		Expect(w.Commit(ctx, nil)).Error().
+			To(MatchError(ContainSubstring("took back the stamps")))
 		Expect(w.Close()).To(MatchError(ContainSubstring("took back the stamps")))
 		Expect(c.Close()).To(MatchError(syscall.EIO))
 	})
