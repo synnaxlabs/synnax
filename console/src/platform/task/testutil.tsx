@@ -59,6 +59,7 @@ import {
   createTestStore,
   findDialogTriggerByText,
   getBySelector,
+  getSwitchInput,
   HaulProvider,
   renderHookWithConsole,
   renderLazy,
@@ -615,6 +616,26 @@ export const clickFailedDeploy = async (container: HTMLElement): Promise<void> =
 export const START_FAILURE = expect.objectContaining({
   message: "Failed to start task",
 });
+
+/** @returns how many saves of the task the form reported as failed. */
+export const countFailedSaves = (statuses: Status.NotificationSpec[]): number =>
+  statuses
+    .filter(({ message }) => message === "Failed to save task")
+    .reduce((n, { count }) => n + count, 0);
+
+/**
+ * Toggles the switch labeled label, then waits for the Core to refuse the save, the
+ * form to undo it, and the failure to show. The form sends its edits in order, so each
+ * earlier edit has saved or failed by then.
+ */
+export const toggleRefused = async (label: string): Promise<void> => {
+  const before = getSwitchInput(label).checked;
+  fireEvent.click(getSwitchInput(label));
+  expect(getSwitchInput(label).checked).toBe(!before);
+  await waitFor(() => expect(getSwitchInput(label).checked).toBe(before));
+  // The form undoes the edit before it reports the failure.
+  await act(async () => {});
+};
 
 /**
  * Finds the channel list row showing the text, such as a port or a channel name. The

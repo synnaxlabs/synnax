@@ -2171,7 +2171,7 @@ var _ = Describe("Range compare", func() {
 				setBounds := lineplot.NewSetAxisBoundsAction(
 					lineplot.SetAxisBoundsPayload{
 						Key:          lineplot.AxisKeyX1,
-						Bounds:       spatial.Bounds{Lower: 10, Upper: 20},
+						Bounds:       &spatial.ClosedBounds{Lower: 10, Upper: 20},
 						ManualBounds: manual,
 					},
 				)
@@ -2191,7 +2191,7 @@ var _ = Describe("Range compare", func() {
 					setMode(&relative),
 				})).To(Succeed())
 				x1 := retrieve(ctx, p.Key).Axes.X1
-				Expect(x1.Bounds).To(Equal(spatial.Bounds{}))
+				Expect(x1.Bounds).To(BeNil())
 				Expect(x1.ManualBounds).To(Equal(lineplot.ManualBounds{}))
 			},
 		)
@@ -2217,7 +2217,7 @@ var _ = Describe("Range compare", func() {
 					}),
 					lineplot.NewSetAxisBoundsAction(lineplot.SetAxisBoundsPayload{
 						Key:          lineplot.AxisKeyX1,
-						Bounds:       spatial.Bounds{Upper: 60},
+						Bounds:       &spatial.ClosedBounds{Upper: 60},
 						ManualBounds: lineplot.ManualBounds{Lower: true, Upper: true},
 					}),
 				})).To(Succeed())
@@ -2286,6 +2286,29 @@ var _ = Describe("Range compare", func() {
 				Entry("a RemoveRange of a range the plot does not show", removeRange),
 				Entry("a SetRanges of the ranges the plot shows", setRolling),
 			)
+		})
+
+		It("Should refuse a manual edge with no bounds", func(ctx SpecContext) {
+			p := create(ctx, lineplot.LinePlot{})
+			Expect(dispatch(ctx, p.Key, "d1", []lineplot.Action{
+				lineplot.NewSetAxisBoundsAction(lineplot.SetAxisBoundsPayload{
+					Key:          lineplot.AxisKeyY1,
+					ManualBounds: lineplot.ManualBounds{Lower: true},
+				}),
+			})).To(MatchError(ContainSubstring("a manual edge needs bounds")))
+		})
+
+		It("Should refuse bounds whose lower is not below the upper", func(
+			ctx SpecContext,
+		) {
+			p := create(ctx, lineplot.LinePlot{})
+			Expect(dispatch(ctx, p.Key, "d1", []lineplot.Action{
+				lineplot.NewSetAxisBoundsAction(lineplot.SetAxisBoundsPayload{
+					Key:          lineplot.AxisKeyY1,
+					Bounds:       &spatial.ClosedBounds{Lower: 5, Upper: 5},
+					ManualBounds: lineplot.ManualBounds{Lower: true, Upper: true},
+				}),
+			})).To(MatchError(ContainSubstring("must be less than upper")))
 		})
 
 		It("Should reject a time mode for an unknown x axis", func(ctx SpecContext) {

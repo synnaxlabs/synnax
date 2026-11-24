@@ -47,8 +47,6 @@ class MQTTTask(TaskPage):
     what the broker publishes."""
 
     add_label: str
-    # The add dialog of a page that adds only Sparkplug B tags shows no mode buttons.
-    tags_only: bool = False
 
     def _rows(self) -> Locator:
         raise NotImplementedError
@@ -125,8 +123,7 @@ class MQTTTask(TaskPage):
             them.
         """
         dialog = self._open_dialog()
-        if not self.tags_only:
-            dialog.get_by_role("button", name="Sparkplug B", exact=True).click()
+        dialog.get_by_role("button", name="Sparkplug B", exact=True).click()
         node = dialog.get_by_role("treeitem").get_by_text(edge_node, exact=True)
         node.wait_for(state="visible", timeout=_LISTEN_TIMEOUT)
         node.click()
@@ -227,12 +224,11 @@ class MQTTRead(MQTTTask):
 
 
 class MQTTWrite(MQTTTask):
-    """MQTT write task page. Its add dialog adds only Sparkplug B targets."""
+    """MQTT write task page."""
 
     page_type: PageType = "mqtt_write"
     pluto_label: str = ".console-task-configure--mqtt_write"
     add_label = "Add targets"
-    tags_only = True
 
     def _rows(self) -> Locator:
         return self._channel_list().get_by_role("option")

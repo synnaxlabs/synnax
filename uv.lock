@@ -2541,6 +2541,7 @@ dependencies = [
     { name = "pydantic" },
     { name = "synnax-freighter" },
     { name = "synnax-x" },
+    { name = "truststore" },
     { name = "urllib3" },
 ]
 
@@ -2560,6 +2561,7 @@ dev = [
     { name = "ruff" },
     { name = "scipy" },
     { name = "scipy-stubs" },
+    { name = "trustme" },
     { name = "types-protobuf" },
     { name = "types-pyserial" },
 ]
@@ -2573,6 +2575,7 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.14.4,<3" },
     { name = "synnax-freighter", editable = "freighter/py" },
     { name = "synnax-x", editable = "x/py" },
+    { name = "truststore", specifier = ">=0.10.5,<1" },
     { name = "urllib3", specifier = ">=2.8.0,<3" },
 ]
 
@@ -2592,6 +2595,7 @@ dev = [
     { name = "ruff", specifier = ">=0.17.6,<1" },
     { name = "scipy", specifier = ">=1.18.1,<2" },
     { name = "scipy-stubs", specifier = ">=1.18.1.1,<2" },
+    { name = "trustme", specifier = ">=1.2.1,<2" },
     { name = "types-protobuf", specifier = ">=7.35.1.20260906,<8" },
     { name = "types-pyserial", specifier = ">=3.5.0.20261104,<4" },
 ]

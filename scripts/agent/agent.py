@@ -38,13 +38,16 @@ Unix seconds, as the `login-broken` step output and exits with REJECTED.
 
 Environment: AGENT_DEFAULT picks the agent when --agent is absent. GH_TOKEN is the
 GitHub App installation token for `gh` and for Git pushes. AGENT_GIT_NAME and
-AGENT_GIT_EMAIL are the bot identity for commits. A Claude Code or Codex login
-authenticates the CLI. pr and comment need a clean checkout.
+AGENT_GIT_EMAIL are the bot identity for commits. BLOB_READ_WRITE_TOKEN stores
+screenshots in Vercel Blob, at VERCEL_BLOB_API_URL when set. A Claude Code or Codex
+login authenticates the CLI. pr and comment need a clean checkout.
 """
 
 import argparse
 import base64
+import hashlib
 import json
+import mimetypes
 import os
 import re
 import secrets
@@ -54,7 +57,9 @@ import subprocess
 import sys
 import tempfile
 import time
+import urllib.error
 import urllib.parse
+import urllib.request
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -63,7 +68,8 @@ from typing import Any
 AGENTS = ("claude", "codex")
 OUTPUTS = ("pr", "comment", "report")
 BASE = "main"
-ASSETS_BRANCH = "agent-assets"
+BLOB_API = "https://vercel.com/api/blob"
+BLOB_API_VERSION = "13"
 IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".gif", ".webp"}
 TEMPLATE = Path(".github/pull_request_template.md")
 LINEAR_URL = "https://linear.app/synnax/issue/"
@@ -236,13 +242,9 @@ def render_body(
     return re.sub(r"\n{3,}", "\n\n", body).strip() + "\n"
 
 
-def stored_names(paths: list[Path]) -> list[str]:
-    """Names images uniquely, since two paths can share a base name."""
-    return [f"{i + 1}-{re.sub(r'[^\w.-]', '_', p.name)}" for i, p in enumerate(paths)]
-
-
-def image_markdown(urls: dict[str, str]) -> str:
-    return "\n\n".join(f"![{name}]({url})" for name, url in urls.items())
+def image_markdown(paths: list[Path], urls: list[str]) -> str:
+    pairs = zip(paths, urls, strict=True)
+    return "\n\n".join(f"![{path.name}]({url})" for path, url in pairs)
 
 
 def read(path: Path) -> str:
@@ -264,9 +266,6 @@ class Runner:
             cmd, check=True, text=True, stdout=subprocess.PIPE, env=self.env
         )
         return done.stdout.strip()
-
-    def ok(self, cmd: list[str]) -> bool:
-        return subprocess.run(cmd, env=self.env, capture_output=True).returncode == 0
 
 
 def run_agent(
@@ -367,9 +366,10 @@ def run_cli(
 
 
 def private_env(env: dict[str, str], *, out: Path) -> dict[str, str]:
-    """Returns env with no GitHub token or step output files, and with the CLI state
-    of the agent in out, so no later job on the runner can read the session. Both CLIs
-    use the seat's login in place, so a refresh by any job on the seat reaches all."""
+    """Returns env with no GitHub or Blob token or step output files, and with the CLI
+    state of the agent in out, so no later job on the runner can read the session. Both
+    CLIs use the seat's login in place, so a refresh by any job on the seat reaches
+    all."""
     claude, codex = out / "claude", out / "codex"
     claude.mkdir()
     codex.mkdir()
@@ -384,7 +384,13 @@ def private_env(env: dict[str, str], *, out: Path) -> dict[str, str]:
     seat_claude = (
         env.get(store, env.get("CLAUDE_CONFIG_DIR")) or Path.home() / ".claude"
     )
-    hidden = {"GH_TOKEN", "GITHUB_TOKEN", "GITHUB_OUTPUT", "GITHUB_STEP_SUMMARY"}
+    hidden = {
+        "GH_TOKEN",
+        "GITHUB_TOKEN",
+        "BLOB_READ_WRITE_TOKEN",
+        "GITHUB_OUTPUT",
+        "GITHUB_STEP_SUMMARY",
+    }
     kept = {k: v for k, v in env.items() if k not in hidden}
     return {
         **kept,
@@ -405,37 +411,54 @@ def encrypt(text: str, *, recipient: Path) -> str:
     return done.stdout
 
 
-def upload_images(
-    r: Runner, *, repo: str, prefix: str, paths: list[Path]
-) -> dict[str, str]:
-    """Commits images to the orphan assets branch and returns raw URLs by stored name.
+def upload(
+    paths: list[Path], *, prefix: str, token: str, api: str, backoff: float = 1
+) -> list[str]:
+    """Stores paths as public Vercel Blob objects under prefix and returns their URLs.
 
-    Uses a private index, so the working tree and the current branch stay untouched.
+    Names each object by the SHA-256 of its content, so a rerun rewrites the same bytes.
+    Retries a 5xx reply or a network error three times, after backoff seconds and then
+    double that each time. Raises HTTPError when the Blob API rejects an upload, and
+    URLError or TimeoutError when it stays unreachable.
     """
-    if not paths:
-        return {}
-    for _ in range(3):
-        index = Path(tempfile.mkdtemp()) / "index"
-        env = {**r.env, "GIT_INDEX_FILE": str(index)}
-        g = Runner(dry_run=r.dry_run, env=env)
-        ref = f"refs/heads/{ASSETS_BRANCH}"
-        parent: list[str] = []
-        if g.ok(["git", "ls-remote", "--exit-code", "origin", ref]):
-            g.run(["git", "fetch", "--quiet", "origin", ref])
-            g.run(["git", "read-tree", "FETCH_HEAD"])
-            parent = ["-p", "FETCH_HEAD"]
-        names = stored_names(paths)
-        for path, name in zip(paths, names, strict=True):
-            blob = g.run(["git", "hash-object", "-w", str(path)])
-            info = f"100644,{blob},{prefix}/{name}"
-            g.run(["git", "update-index", "--add", "--cacheinfo", info])
-        tree = g.run(["git", "write-tree"])
-        msg = f"Add images for {prefix}"
-        commit = g.run(["git", "commit-tree", tree, *parent, "-m", msg])
-        if r.dry_run or g.ok(["git", "push", "origin", f"{commit}:{ref}"]):
-            base = f"https://raw.githubusercontent.com/{repo}/{commit}/{prefix}"
-            return {n: f"{base}/{urllib.parse.quote(n)}" for n in names}
-    raise RuntimeError(f"failed to push images to {ASSETS_BRANCH} three times")
+    urls = []
+    for path in paths:
+        data = path.read_bytes()
+        name = f"{prefix}/{hashlib.sha256(data).hexdigest()}{path.suffix.lower()}"
+        kind = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+        req = urllib.request.Request(
+            f"{api}/?{urllib.parse.urlencode({'pathname': name})}",
+            data=data,
+            method="PUT",
+            headers={
+                "authorization": f"Bearer {token}",
+                "x-api-version": BLOB_API_VERSION,
+                "x-vercel-blob-access": "public",
+                "x-content-type": kind,
+                "x-add-random-suffix": "0",
+                "x-allow-overwrite": "1",
+            },
+        )
+        urls.append(_put(req, backoff=backoff))
+    return urls
+
+
+def _put(req: urllib.request.Request, *, backoff: float, attempts: int = 4) -> str:
+    for attempt in range(attempts - 1):
+        try:
+            return _send(req)
+        except urllib.error.HTTPError as e:
+            if e.code < 500:
+                raise
+        except (urllib.error.URLError, TimeoutError):
+            pass
+        time.sleep(backoff * 2**attempt)
+    return _send(req)
+
+
+def _send(req: urllib.request.Request) -> str:
+    with urllib.request.urlopen(req, timeout=60) as res:
+        return str(json.load(res)["url"])
 
 
 def find_images(opts: Options, *, out: Path) -> list[Path]:
@@ -508,6 +531,8 @@ def deliver(argv: Sequence[str]) -> int:
             sys.exit("AGENT_GIT_NAME and AGENT_GIT_EMAIL must name the bot identity")
         if not env.get("GH_TOKEN"):
             sys.exit("GH_TOKEN must hold the GitHub App installation token")
+        if not env.get("BLOB_READ_WRITE_TOKEN"):
+            sys.exit("BLOB_READ_WRITE_TOKEN must hold the Vercel Blob read-write token")
     root = Path(
         subprocess.check_output(
             ["git", "rev-parse", "--show-toplevel"], text=True
@@ -577,9 +602,6 @@ def deliver(argv: Sequence[str]) -> int:
         print(message)
         return 0
 
-    prefix = head.replace("/", "-") if head else f"run-{secrets.token_hex(4)}"
-    urls = upload_images(r, repo=repo, prefix=prefix, paths=images)
-    pictures = image_markdown(urls)
     footer = f"Agent: {opts.agent}. [Run]({run_url(env)})." if run_url(env) else ""
 
     if opts.output != "report":
@@ -593,6 +615,14 @@ def deliver(argv: Sequence[str]) -> int:
             return 0
         if changed:
             r.run(["git", "push", "origin", f"HEAD:refs/heads/{head}"], writes=True)
+
+    if opts.dry_run:
+        urls = [path.as_uri() for path in images]
+    else:
+        api = env.get("VERCEL_BLOB_API_URL", BLOB_API)
+        token = env["BLOB_READ_WRITE_TOKEN"]
+        urls = upload(images, prefix="agent", token=token, api=api)
+    pictures = image_markdown(images, urls)
 
     if opts.pr is not None:
         body = "\n\n".join(p for p in (message, pictures, footer) if p)

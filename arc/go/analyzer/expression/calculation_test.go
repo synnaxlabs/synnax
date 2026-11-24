@@ -35,6 +35,7 @@ var (
 	unitPa  = &types.Unit{Dimensions: types.DimPressure, Scale: 1, Name: "Pa"}
 	unitPsi = &types.Unit{Dimensions: types.DimPressure, Scale: 6894.76, Name: "psi"}
 	unitNS  = &types.Unit{Dimensions: types.DimTime, Scale: 1, Name: "ns"}
+	unitHz  = &types.Unit{Dimensions: types.DimFrequency, Scale: 1, Name: "hz"}
 )
 
 var _ = Describe("CheckUnits", func() {
@@ -80,6 +81,48 @@ var _ = Describe("CheckUnits", func() {
 		Entry("a target that is not a number", "x", types.String(), false, 0),
 	)
 
+	DescribeTable("rates that a time span takes",
+		func(bCtx SpecContext, source string, to types.Type, converts bool) {
+			diag, got, ok := check(bCtx, source, expression.Write{
+				Source: i64(unitHz),
+				Target: to,
+			})
+			Expect(ok).To(BeTrue())
+			Expect(got).To(Equal(converts))
+			Expect(*diag).To(BeEmpty())
+		},
+		Entry("a variable", "x", i64(unitNS), true),
+		Entry("a variable with a period that is not whole", "x", i64(unitMin), true),
+		Entry("a float", "x", types.WithUnit(types.F64(), unitS), true),
+		Entry("a literal", "10hz", i64(unitNS), false),
+		Entry("a literal with a period that rounds", "60hz", i64(unitMS), false),
+		Entry("a literal of zero", "0hz", i64(unitS), false),
+		Entry("a literal for a float",
+			"10hz", types.WithUnit(types.F64(), unitS), false),
+	)
+
+	DescribeTable("rates with a period that rounds to 0",
+		func(bCtx SpecContext, source string, to types.Type, message string) {
+			diag, converts, ok := check(bCtx, source, expression.Write{
+				Source: i64(unitHz),
+				Target: to,
+			})
+			Expect(ok).To(BeTrue())
+			Expect(converts).To(BeFalse())
+			Expect(diag.Errors()).To(BeEmpty())
+			found := testutil.Warnings(diag)
+			Expect(found).To(HaveLen(1), diag.String())
+			Expect(found[0].Code).To(Equal(codes.UnitPrecisionLoss.Code))
+			Expect(found[0].Message).To(Equal(message))
+		},
+		Entry("a literal for a larger time span", "10hz", i64(unitS),
+			"unit precision loss: the period of a rate in hz rounds to 0 s"),
+		Entry("a literal with a period of half of the unit", "2hz", i64(unitS),
+			"unit precision loss: the period of a rate in hz rounds to 0 s"),
+		Entry("a negative literal", "-10hz", i64(unitS),
+			"unit precision loss: the period of a rate in hz rounds to 0 s"),
+	)
+
 	DescribeTable("values that the target rejects",
 		func(bCtx SpecContext, from, to types.Type, message string) {
 			diag, converts, ok := check(bCtx, "x", expression.Write{
@@ -98,7 +141,43 @@ var _ = Describe("CheckUnits", func() {
 		Entry("a series in another unit",
 			types.Series(i64(unitS)), types.Series(i64(unitMS)),
 			"type mismatch: 'd' is a series in ms and cannot take a series in s"),
+		Entry("a time span for a rate", i64(unitS), i64(unitHz),
+			"incompatible dimensions: cannot write s to 'd' (hz)"),
+		Entry("a rate for a pressure", i64(unitHz), i64(unitPa),
+			"incompatible dimensions: cannot write hz to 'd' (Pa)"),
+		Entry("a series of rates for a series of time spans",
+			types.Series(i64(unitHz)), types.Series(i64(unitNS)),
+			"type mismatch: 'd' is a series in ns and cannot take a series in hz"),
 	)
+
+	It("Should reject a rate for a target of its own dimension only", func(
+		bCtx SpecContext,
+	) {
+		diag, converts, ok := check(bCtx, "x", expression.Write{
+			Source:        i64(unitHz),
+			Target:        i64(unitNS),
+			SameDimension: true,
+		})
+		Expect(ok).To(BeFalse())
+		Expect(converts).To(BeFalse())
+		Expect(diag.Errors()).To(HaveLen(1), diag.String())
+		Expect(diag.Errors()[0].Message).To(Equal(
+			"incompatible dimensions: cannot write hz to 'd' (ns)",
+		))
+	})
+
+	It("Should convert a time span for a target of its own dimension only", func(
+		bCtx SpecContext,
+	) {
+		diag, converts, ok := check(bCtx, "x", expression.Write{
+			Source:        i64(unitS),
+			Target:        i64(unitMS),
+			SameDimension: true,
+		})
+		Expect(ok).To(BeTrue())
+		Expect(converts).To(BeTrue())
+		Expect(*diag).To(BeEmpty())
+	})
 
 	It("Should leave the truncation warning to the lowering", func(bCtx SpecContext) {
 		diag, converts, ok := check(bCtx, "x", expression.Write{
@@ -172,6 +251,8 @@ var _ = Describe("Unit fixes", func() {
 			"func f(x i64 Pa) {\nd i64 psi := 5psi\nd = x\n}",
 			fix("d f64 psi := 5psi", "f64 Pa(x)")),
 		Entry("a declaration from a variable", "func f(x i64 s) {\nd i64 min := x\n}"),
+		Entry("a rate with a period that rounds to 0",
+			"func f() {\nd i64 s := 10hz\n}", fix("d f64 s := 10hz")),
 	)
 
 	DescribeTable("a cast that removes a unit",
@@ -186,6 +267,8 @@ var _ = Describe("Unit fixes", func() {
 			"func f() {\nd f64 ms := f64(1.5s)\n}", fix("1.5s"), fix("1.5ms")),
 		Entry("a variable", "func f(x i64 s) {\nd i64 ms := 0ms\nd = i64(x)\n}",
 			fix("i64 ms(x)")),
+		Entry("a rate for a time span",
+			"func f(x i64 hz) {\nd i64 ms := 0ms\nd = i64(x)\n}", fix("i64 ms(x)")),
 	)
 
 	DescribeTable("a value with a unit for a name with no unit",
@@ -307,6 +390,11 @@ var _ = Describe("TakeUnit", func() {
 		),
 		Entry("a node in another dimension keeps its unit",
 			symbol.KindFunction, seconds, unitPa, unitS, unitS),
+		Entry("a rate takes the unit of a time span",
+			symbol.KindFunction, types.WithUnit(types.I64(), unitHz),
+			unitNS, unitHz, unitNS),
+		Entry("a time span keeps its unit for a rate",
+			symbol.KindFunction, seconds, unitHz, unitS, unitS),
 	)
 
 	It("Should do nothing for an expression with no node", func(bCtx SpecContext) {

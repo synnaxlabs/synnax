@@ -76,6 +76,8 @@ on:
         required: false
       SYNNAX_LICENSE_TOKEN:
         required: false
+      BLOB_READ_WRITE_TOKEN:
+        required: false
 
 permissions:
   contents: read
@@ -175,6 +177,7 @@ jobs:
         id: agent
         env:
           GH_TOKEN: ${{ steps.app.outputs.token }}
+          BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
           SYNNAX_LICENSE_KEY:
             ${{ inputs.licensed && secrets.SYNNAX_LICENSE_TOKEN || '' }}
           AGENT_GIT_NAME: ${{ steps.bot.outputs.name }}

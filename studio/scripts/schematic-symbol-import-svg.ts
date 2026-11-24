@@ -17,9 +17,9 @@ import { setup } from "./common/symbol-group";
 const SVG = path.join(import.meta.dirname, "files", "tank.svg");
 
 /**
- * Docs `console/schematics/symbol-import-svg`: with a custom group selected, open
- * the create symbol dialog, import an SVG, make it an actuator, recolor one region
- * in its Active state, and create it; the symbol joins the group.
+ * Docs `console/schematics/symbol-import-svg`: with a custom group selected, open the
+ * create symbol dialog, import an SVG, make it an actuator, recolor one part in its
+ * Active state, and create it; the symbol joins the group.
  */
 export default async (session: capture.CaptureSession): Promise<void> => {
   const { page } = session;
@@ -39,8 +39,9 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   const chooser = page.waitForEvent("filechooser");
   await session.click(drop, { zoom: false });
   await (await chooser).setFiles(SVG);
-  const region = page.locator(".console-schematic-region-list-item").first();
-  await session.waitFor(region);
+  // The first item is the whole drawing, so the second is the first part.
+  const part = page.locator(".console-schematic-part-list-item").nth(1);
+  await session.waitFor(part);
   // The dialog nearly fills the window, so a zoom on it renders at 1x. The sidebar
   // shows only after the import: zoom on its edge, and let the camera pan to Create.
   const sidebar = await modal
@@ -59,20 +60,31 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     { text: true, zoom: false },
   );
   const active = modal
-    .locator(".console-schematic-state-list-item")
+    .locator(".console-schematic__value-bar .lyra-select-btn")
     .filter({ hasText: "Active" })
     .first();
   await session.waitFor(active);
   await session.hold(700);
   await session.click(active, { text: true, zoom: false });
   await session.hold(700);
+  await session.click(part, { text: true, zoom: false });
+  await session.hold(700);
 
-  // The second swatch of a region is its fill. The 300px sidebar clips it, so scroll
-  // the sidebar to it first: the rig clicks at screen coordinates.
-  const fill = region.locator(".lyra-color-swatch--chip").nth(1);
+  // The first "By state" belongs to the fill. It gives the fill one control per state.
+  await session.click(modal.getByText("By state", { exact: true }).first(), {
+    text: true,
+    zoom: false,
+  });
+  const fill = modal.getByLabel("Fill while Active", { exact: true });
   await fill.scrollIntoViewIfNeeded();
   await session.settle(300);
   await session.click(fill, { zoom: false });
+  const kinds = page.locator(".console-schematic-paint-dialog").first();
+  await session.waitFor(kinds);
+  await session.click(kinds.getByText("Color", { exact: true }), {
+    text: true,
+    zoom: false,
+  });
   const picker = page.locator(".lyra-color-picker").first();
   await session.waitFor(picker);
   await session.hold(600);
@@ -83,7 +95,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   );
   await session.hold(500);
   // A click outside the floating picker closes it.
-  await session.click(modal.getByText("Colors", { exact: true }).first(), {
+  await session.click(modal.getByText("Parts", { exact: true }).first(), {
     text: true,
     zoom: false,
   });

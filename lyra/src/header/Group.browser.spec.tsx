@@ -11,12 +11,16 @@ import { describe, expect, it, vi } from "vitest";
 import { userEvent } from "vitest/browser";
 
 import { Button } from "@/button";
+import { Flex } from "@/flex";
 import { Header } from "@/header";
 import { Icon } from "@/icon";
 import { computed, renderThemed, resolve, withMotion } from "@/styletest";
 
-const renderGroup = async (onOpenChange: (open: boolean) => void = () => {}) => {
-  const r = await renderThemed(
+const renderGroup = async (
+  onOpenChange: (open: boolean) => void = () => {},
+  packed = false,
+) => {
+  const group = (
     <Header.Group
       open
       onOpenChange={onOpenChange}
@@ -27,8 +31,9 @@ const renderGroup = async (onOpenChange: (open: boolean) => void = () => {}) => 
       }
     >
       Plant
-    </Header.Group>,
+    </Header.Group>
   );
+  const r = await renderThemed(packed ? <Flex.Box pack>{group}</Flex.Box> : group);
   const toggle = r.getByRole("button", { name: "Plant" }).element();
   const bar = toggle.parentElement as HTMLElement;
   const caret = bar.lastElementChild as Element;
@@ -68,6 +73,13 @@ describe("Header.Group", () => {
 
   it("should keep its rest fill while an action is hovered", async () => {
     const { bar, action } = await renderGroup();
+    await userEvent.hover(action);
+    expect(background(bar)).toBe(resolve("var(--pluto-gray-l2)"));
+  });
+
+  it("should move the hover from the bar to an action inside a pack", async () => {
+    const { bar, toggle, action } = await renderGroup(undefined, true);
+    await userEvent.hover(toggle);
     await userEvent.hover(action);
     expect(background(bar)).toBe(resolve("var(--pluto-gray-l2)"));
   });
