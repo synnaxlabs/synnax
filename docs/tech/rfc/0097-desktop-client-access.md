@@ -8,10 +8,10 @@
 ## 0 Summary
 
 Scripts on the same computer connect to the Core of Synnax Desktop. Desktop saves the
-address in `~/.synnax/desktop.json` and an API key of the root user in the OS keychain.
-With no arguments, `sy.Synnax()` reads the address and runs the key helper that the file
-names. A "Connect from code" dialog gives the install command and code for each client,
-and a button that replaces the key.
+address in `desktop.json` in the OS config folder and an API key of the root user in the
+OS keychain. With no arguments, `sy.Synnax()` reads the address and runs the key helper
+that the file names. A "Connect from code" dialog gives the install command and code for
+each client, and a button that replaces the key.
 
 ## 1 Motivation
 
@@ -37,9 +37,12 @@ and a button that replaces the key.
 
 ### 3.0 The discovery file
 
-The shell writes `~/.synnax/desktop.json` on every operating system: `host`, `port`, and
-`secure`, the field names of the Python `Options`, and `api_key_helper`. The write goes
-to a partial file, then renames it. The API key goes to the OS keychain under service
+The shell writes `desktop.json` to the config folder of the OS
+(`$XDG_CONFIG_HOME/synnax` on Linux, `~/Library/Application Support/Synnax` on macOS,
+`%APPDATA%\Synnax` on Windows) and to `~/.synnax`, the only path that 0.62 clients read.
+Clients read the config folder first. The file holds `host`, `port`, and `secure`, the
+field names of the Python `Options`, and `api_key_helper`. The write goes to a partial
+file, then renames it. The API key goes to the OS keychain under service
 `com.synnaxlabs.desktop` and account `api_key`. "Erase all data" deletes the file and
 the key. Desktop 1.1 wrote `api_key` in the file. That key never moves to the keychain:
 the window revokes it in the Core, removes it from the file only after the revoke, and

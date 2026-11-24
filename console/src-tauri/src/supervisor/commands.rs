@@ -267,12 +267,7 @@ pub async fn supervisor_reset<R: Runtime>(
     supervisor.reset().await.map_err(|err| err.to_string())?;
     // The erased Core took the saved API key with it.
     let paths = [discovery.path.clone(), discovery.legacy_path.clone()];
-    blocking(move || {
-        paths
-            .iter()
-            .try_for_each(|path| discovery::remove_file(path))
-    })
-    .await?;
+    blocking(move || discovery::remove_files(&paths)).await?;
     // The data is gone, so a keychain that fails must not stop the restart. Without a
     // keychain there is no key to delete.
     if let Err(err) =

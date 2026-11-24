@@ -178,12 +178,14 @@ fn write(path: &Path, file: &impl Serialize) -> io::Result<()> {
     std::fs::rename(partial, path)
 }
 
-/// Removes the discovery file at `path`, if it exists.
-pub fn remove_file(path: &Path) -> io::Result<()> {
-    match std::fs::remove_file(path) {
-        Err(err) if err.kind() != io::ErrorKind::NotFound => Err(err),
-        _ => Ok(()),
-    }
+/// Removes each discovery file in `paths` that exists.
+pub fn remove_files(paths: &[PathBuf]) -> io::Result<()> {
+    paths
+        .iter()
+        .try_for_each(|path| match std::fs::remove_file(path) {
+            Err(err) if err.kind() != io::ErrorKind::NotFound => Err(err),
+            _ => Ok(()),
+        })
 }
 
 /// Deletes the API key from the keychain, if it exists.
@@ -382,25 +384,16 @@ mod tests {
     }
 
     #[test]
-    fn removes_the_file_and_the_key_and_accepts_missing_ones() {
+    fn removes_the_files_and_the_key_and_accepts_missing_ones() {
         let dir = tempfile::tempdir().unwrap();
-        let path = path(dir.path());
+        let paths = [path(dir.path()), legacy_path(dir.path())];
         let key = key();
-        assert!(
-            swap(
-                std::slice::from_ref(&path),
-                &key,
-                &file(),
-                "syk_secret",
-                None
-            )
-            .unwrap()
-        );
-        remove_file(&path).unwrap();
+        assert!(swap(&paths, &key, &file(), "syk_secret", None).unwrap());
+        remove_files(&paths).unwrap();
         remove_key(&key).unwrap();
-        assert!(!path.exists());
+        assert!(paths.iter().all(|path| !path.exists()));
         assert!(matches!(key.get_password(), Err(Error::NoEntry)));
-        remove_file(&path).unwrap();
+        remove_files(&paths).unwrap();
         remove_key(&key).unwrap();
     }
 }
