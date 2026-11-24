@@ -575,6 +575,59 @@ var _ = Describe("Imported v13 state overrides", func() {
 		return l
 	}
 
+	// panel returns a schematic with one custom node that draws the symbol with key
+	// and has overrides.
+	panel := func(key symbol.Key, overrides []v4.State) v13.Schematic {
+		var cfg v13.CustomActuatorNodeConfig
+		cfg.SetDefaults()
+		cfg.SpecKey, cfg.Label.Label = key.String(), "Vent"
+		cfg.StateOverrides = overrides
+		return v13.Schematic{
+			Key:   uuid.New(),
+			Name:  "Panel",
+			Nodes: []v13.Node{{Key: "a", Config: v13.NodeConfig{Variant: cfg}}},
+		}
+	}
+	// importFile imports old as a file through svc into a new project, and returns the
+	// key of the schematic it makes.
+	importFile := func(
+		ctx SpecContext,
+		db *gorp.DB,
+		svc *schematic.Service,
+		old v13.Schematic,
+	) schematic.Key {
+		GinkgoHelper()
+		projects := MustOpen(project.OpenService(ctx, project.ServiceConfig{DB: db}))
+		proj := project.Project{Name: "Plant"}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return projects.NewWriter(tx).Create(ctx, &proj)
+		})).To(Succeed())
+		env := imex.Envelope{Version: v13.Version, Type: "schematic", Name: old.Name}
+		Expect(env.Encode(old)).To(Succeed())
+		write := MustSucceed(svc.Decode(ctx, WireRoundTrip(env)))
+		var id resource.ID
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
+			id, err = write(ctx, tx, imex.ImportOptions{Parent: proj.ResourceID()})
+			return err
+		})).To(Succeed())
+		return MustSucceed(uuid.Parse(id.Key))
+	}
+
+	It("Should import a node whose symbol the Core lacks with a missing symbol",
+		func(ctx SpecContext) {
+			db := openShipped(ctx)
+			svc := openService(ctx, db)
+			key := importFile(ctx, db, svc, panel(uuid.New(), plain.States))
+			var sc schematic.Schematic
+			Expect(svc.NewRetrieve().
+				Where(schematic.MatchKeys(key)).
+				Entry(&sc).
+				Exec(ctx, db)).To(Succeed())
+			n, ok := sc.Nodes[0].Config.Variant.(schematic.SymbolNodeConfig)
+			Expect(ok).To(BeTrue())
+			Expect(n.Spec.Variant).To(BeAssignableToTypeOf(symbol.MissingRef{}))
+		})
+
 	DescribeTable(
 		"Should import an old file with the look that the upgrade gives it",
 		func(ctx SpecContext, src v4.Spec, overrides []v4.State, want string) {
@@ -582,38 +635,12 @@ var _ = Describe("Imported v13 state overrides", func() {
 			sym := v4.Symbol{Key: uuid.New(), Name: "Valve", Data: src}
 			Expect(gorp.NewCreate[v4.Key, v4.Symbol]().Entry(&sym).Exec(ctx, db)).
 				To(Succeed())
-			var cfg v13.CustomActuatorNodeConfig
-			cfg.SetDefaults()
-			cfg.SpecKey, cfg.Label.Label = sym.Key.String(), "Vent"
-			cfg.StateOverrides = overrides
-			old := v13.Schematic{
-				Key:   uuid.New(),
-				Name:  "Panel",
-				Nodes: []v13.Node{{Key: "a", Config: v13.NodeConfig{Variant: cfg}}},
-			}
+			old := panel(sym.Key, overrides)
 			Expect(gorp.NewCreate[v13.Key, v13.Schematic]().Entry(&old).Exec(ctx, db)).
 				To(Succeed())
 			svc := openService(ctx, db)
-			projects := MustOpen(
-				project.OpenService(ctx, project.ServiceConfig{DB: db}),
-			)
-			var proj project.Project
-			proj.Name = "Plant"
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return projects.NewWriter(tx).Create(ctx, &proj)
-			})).To(Succeed())
-			env := imex.Envelope{Version: v13.Version, Type: "schematic", Name: "Panel"}
-			Expect(env.Encode(old)).To(Succeed())
-			write := MustSucceed(svc.Decode(ctx, WireRoundTrip(env)))
-			var id resource.ID
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
-				id, err = write(ctx, tx, imex.ImportOptions{
-					Parent: proj.ResourceID(),
-				})
-				return err
-			})).To(Succeed())
 			upgraded := lookOf(ctx, db, old.Key)
-			imported := lookOf(ctx, db, MustSucceed(uuid.Parse(id.Key)))
+			imported := lookOf(ctx, db, importFile(ctx, db, svc, old))
 			outcome := func(l look) string {
 				switch {
 				case l.symbol.Key != sym.Key:
