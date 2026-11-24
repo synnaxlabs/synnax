@@ -493,14 +493,14 @@ const createUsers = async (client: Synnax): Promise<void> => {
     return role.key;
   };
   const usernames = USERS.map((u) => u.username);
-  const found = await client.auth.retrievePasswords({ usernames });
+  const found = await client.auth.passwords.retrieve({ usernames });
   if (found.length > 0) await client.users.delete(found.map((p) => p.subject.key));
   const created = await client.users.create(
     USERS.map(({ name, role }) => ({ name, role: roleKey(role) })),
   );
   await Promise.all(
     created.map((u, i) =>
-      client.auth.createPassword({
+      client.auth.passwords.create({
         subject: user.resourceID(u.key),
         username: USERS[i].username,
         password: PASSWORD,
