@@ -46,6 +46,10 @@ type core struct {
 	dead    []Dead
 	hasDead atomic.Bool
 	keys    set.Set[uint32]
+	// drops counts the Drop records applied, and dropped holds the count at the Drop of
+	// each key.
+	drops   atomic.Uint64
+	dropped map[uint32]uint64
 }
 
 func newCore(versions set.Set[uint16]) *core {
@@ -55,6 +59,7 @@ func newCore(versions set.Set[uint16]) *core {
 		segments: map[uint64]*segState{},
 		intents:  set.Set[uint32]{},
 		keys:     set.Set[uint32]{},
+		dropped:  map[uint32]uint64{},
 	}
 }
 
@@ -275,6 +280,7 @@ func (c *core) drop(key uint32) error {
 				s.vis.ID, s.key)
 		}
 	}
+	c.dropped[key] = c.drops.Add(1)
 	if ch, ok := c.channels[key]; ok {
 		for _, s := range ch.segs {
 			delete(c.segments, s.vis.ID)
