@@ -681,6 +681,28 @@ class TestLoadEnvOptions:
             load_env_options(env)
 
 
+class TestOptions:
+    @pytest.mark.parametrize(("secure", "insecure"), [(False, True), (True, False)])
+    def test_deprecated_secure(self, secure: bool, insecure: bool) -> None:
+        """Should take secure as the inverse of insecure, and warn."""
+        with pytest.warns(DeprecationWarning, match="stop working in Synnax 0.64"):
+            opts = Options.model_validate({"host": "h", "port": 1, "secure": secure})
+        assert opts.insecure == insecure
+
+    def test_read_secure(self) -> None:
+        """Should read secure as the inverse of insecure, and warn."""
+        opts = Options(host="h", port=1, insecure=True)
+        with pytest.warns(DeprecationWarning, match="stop working in Synnax 0.64"):
+            assert not opts.secure
+
+    def test_insecure_and_secure(self) -> None:
+        """Should reject insecure and the deprecated secure together."""
+        with pytest.raises(ValidationError, match="not the deprecated secure"):
+            Options.model_validate(
+                {"host": "h", "port": 1, "insecure": True, "secure": True}
+            )
+
+
 SAVED = Options(
     host="saved.lab",
     port=1,

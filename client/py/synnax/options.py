@@ -12,14 +12,17 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel
+import pydantic
+from pydantic import BaseModel, model_validator
 
 from synnax.exceptions import ValidationError
 from x import params
 
 
 class Options(BaseModel):
-    """Options class for the Synnax py."""
+    """Options class for the Synnax py. Takes the deprecated secure as the inverse of
+    insecure, and raises ValidationError when given both.
+    """
 
     host: str
     port: int
@@ -28,6 +31,17 @@ class Options(BaseModel):
     api_key: str = ""
     insecure: bool = False
     ca_cert: str | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _secure_alias(cls, data: Any) -> Any:
+        return without_secure(data) if isinstance(data, Mapping) else data
+
+    @property
+    def secure(self) -> bool:
+        """Deprecated: the inverse of insecure. It stops working in Synnax 0.64."""
+        _warn_secure()
+        return not self.insecure
 
 
 def from_stored(raw: Mapping[str, Any]) -> dict[str, Any]:
@@ -40,17 +54,25 @@ def from_stored(raw: Mapping[str, Any]) -> dict[str, Any]:
     return stored
 
 
-BOTH_TLS_FLAGS_MSG = (
+_BOTH_TLS_FLAGS_MSG = (
     "Give insecure or SYNNAX_INSECURE, not the deprecated secure or SYNNAX_SECURE too."
 )
 
-SECURE_DEPRECATED_MSG = (
+_SECURE_DEPRECATED_MSG = (
     "secure and SYNNAX_SECURE are deprecated and stop working in Synnax 0.64. Use "
     "insecure and SYNNAX_INSECURE, which mean the inverse."
 )
 
 # The warning names the first frame of the caller's code.
-_LIBRARY_DIRS = (str(Path(__file__).parent), str(Path(params.__file__).parent))
+_LIBRARY_DIRS = tuple(
+    str(Path(f).parent) for f in (__file__, pydantic.__file__, params.__file__) if f
+)
+
+
+def _warn_secure() -> None:
+    warnings.warn(
+        _SECURE_DEPRECATED_MSG, DeprecationWarning, skip_file_prefixes=_LIBRARY_DIRS
+    )
 
 
 def without_secure(source: Mapping[str, Any]) -> Mapping[str, Any]:
@@ -62,9 +84,7 @@ def without_secure(source: Mapping[str, Any]) -> Mapping[str, Any]:
     if "secure" not in source:
         return source
     if "insecure" in source:
-        raise ValidationError(BOTH_TLS_FLAGS_MSG)
-    warnings.warn(
-        SECURE_DEPRECATED_MSG, DeprecationWarning, skip_file_prefixes=_LIBRARY_DIRS
-    )
+        raise ValidationError(_BOTH_TLS_FLAGS_MSG)
+    _warn_secure()
     rest = {k: v for k, v in source.items() if k != "secure"}
     return {**rest, "insecure": not source["secure"]}
