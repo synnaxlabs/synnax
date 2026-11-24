@@ -42,36 +42,10 @@ func (e *engine) intend(keys []ChannelKey, cleared bool) error {
 // keeps a clock that a key outside keys uses, and logs the Drop of each clock after the
 // Drops of the keys it times. The caller holds db.mu.
 func (db *DB) dropLog(ctx context.Context, keys []ChannelKey) error {
-	keys = lo.Uniq(keys)
-	dropping := set.New(keys...)
-	snapshot, err := db.engine.state.Snapshot()
+	dropped, err := db.dropOrder(lo.Uniq(keys))
 	if err != nil {
 		return err
 	}
-	var dropped, clocks []ChannelKey
-	for _, k := range keys {
-		ch, live := db.mu.channels[k]
-		if !live {
-			ch, live = db.mu.hiddenChannels[k]
-		}
-		stored := db.engine.state.Channel(k)
-		if !live && stored == nil {
-			continue
-		}
-		own, err := db.engine.preload(k, telem.TimeStampMin, telem.TimeStampMax, true)
-		if err != nil {
-			return err
-		}
-		if !ch.IsIndex && !timesItself(stored, own.Segments, k) {
-			dropped = append(dropped, k)
-			continue
-		}
-		if !db.indexUsedOutside(k, dropping) &&
-			!clockStoredOutside(snapshot, own.Users, k, dropping) {
-			clocks = append(clocks, k)
-		}
-	}
-	dropped = append(dropped, clocks...)
 	if len(dropped) == 0 {
 		return nil
 	}
@@ -108,6 +82,41 @@ func (db *DB) dropLog(ctx context.Context, keys []ChannelKey) error {
 		err = errors.Join(err, db.removeLogDir(k))
 	}
 	return err
+}
+
+// dropOrder returns the keys of keys that the DB holds, in the order that their Drops
+// log: each key that is no clock, then each clock that no key outside keys uses. The
+// caller holds db.mu.
+func (db *DB) dropOrder(keys []ChannelKey) ([]ChannelKey, error) {
+	dropping := set.New(keys...)
+	snapshot, err := db.engine.state.Snapshot()
+	if err != nil {
+		return nil, err
+	}
+	var dropped, clocks []ChannelKey
+	for _, k := range keys {
+		ch, live := db.mu.channels[k]
+		if !live {
+			ch, live = db.mu.hiddenChannels[k]
+		}
+		stored := db.engine.state.Channel(k)
+		if !live && stored == nil {
+			continue
+		}
+		own, err := db.engine.preload(k, telem.TimeStampMin, telem.TimeStampMax, true)
+		if err != nil {
+			return nil, err
+		}
+		if !ch.IsIndex && !timesItself(stored, own.Segments, k) {
+			dropped = append(dropped, k)
+			continue
+		}
+		if !db.indexUsedOutside(k, dropping) &&
+			!clockStoredOutside(snapshot, own.Users, k, dropping) {
+			clocks = append(clocks, k)
+		}
+	}
+	return append(dropped, clocks...), nil
 }
 
 // removeLogDir removes the files in the directory of a dropped key that no reader pins,
