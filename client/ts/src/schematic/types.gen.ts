@@ -1033,6 +1033,7 @@ export interface StringDisplayNodeConfig extends z.infer<
   typeof stringDisplayNodeConfigZ
 > {}
 
+/** SwitchNodeConfig is the configuration for switch symbols. */
 export const switchNodeConfigZ = toggleSymbolConfigZ.extend({
   variant: z.literal("switch"),
 });
@@ -1094,11 +1095,13 @@ export const valueNodeConfigZ = labeledConfigZ
   });
 export interface ValueNodeConfig extends z.infer<typeof valueNodeConfigZ> {}
 
+/** AgitatorNodeConfig is the configuration for agitator symbols. */
 export const agitatorNodeConfigZ = toggleSymbolConfigZ.extend({
   variant: z.literal("agitator"),
 });
 export interface AgitatorNodeConfig extends z.infer<typeof agitatorNodeConfigZ> {}
 
+/** CrossBeamAgitatorNodeConfig is the configuration for cross beam agitator symbols. */
 export const crossBeamAgitatorNodeConfigZ = toggleSymbolConfigZ.extend({
   variant: z.literal("cross_beam_agitator"),
 });
@@ -1106,6 +1109,7 @@ export interface CrossBeamAgitatorNodeConfig extends z.infer<
   typeof crossBeamAgitatorNodeConfigZ
 > {}
 
+/** FlatBladeAgitatorNodeConfig is the configuration for flat blade agitator symbols. */
 export const flatBladeAgitatorNodeConfigZ = toggleSymbolConfigZ.extend({
   variant: z.literal("flat_blade_agitator"),
 });
@@ -1113,6 +1117,10 @@ export interface FlatBladeAgitatorNodeConfig extends z.infer<
   typeof flatBladeAgitatorNodeConfigZ
 > {}
 
+/**
+ * HeatExchangerGeneralNodeConfig is the configuration for general heat exchanger
+ * symbols.
+ */
 export const heatExchangerGeneralNodeConfigZ = staticSymbolConfigZ.extend({
   variant: z.literal("heat_exchanger_general"),
 });
@@ -1120,6 +1128,7 @@ export interface HeatExchangerGeneralNodeConfig extends z.infer<
   typeof heatExchangerGeneralNodeConfigZ
 > {}
 
+/** HeatExchangerMNodeConfig is the configuration for M-type heat exchanger symbols. */
 export const heatExchangerMNodeConfigZ = staticSymbolConfigZ.extend({
   variant: z.literal("heat_exchanger_m"),
 });
@@ -1127,6 +1136,10 @@ export interface HeatExchangerMNodeConfig extends z.infer<
   typeof heatExchangerMNodeConfigZ
 > {}
 
+/**
+ * HeatExchangerStraightTubeNodeConfig is the configuration for straight tube heat
+ * exchanger symbols.
+ */
 export const heatExchangerStraightTubeNodeConfigZ = staticSymbolConfigZ.extend({
   variant: z.literal("heat_exchanger_straight_tube"),
 });
@@ -1134,6 +1147,7 @@ export interface HeatExchangerStraightTubeNodeConfig extends z.infer<
   typeof heatExchangerStraightTubeNodeConfigZ
 > {}
 
+/** HelicalAgitatorNodeConfig is the configuration for helical agitator symbols. */
 export const helicalAgitatorNodeConfigZ = toggleSymbolConfigZ.extend({
   variant: z.literal("helical_agitator"),
 });
@@ -1141,6 +1155,7 @@ export interface HelicalAgitatorNodeConfig extends z.infer<
   typeof helicalAgitatorNodeConfigZ
 > {}
 
+/** PaddleAgitatorNodeConfig is the configuration for paddle agitator symbols. */
 export const paddleAgitatorNodeConfigZ = toggleSymbolConfigZ.extend({
   variant: z.literal("paddle_agitator"),
 });
@@ -1148,6 +1163,7 @@ export interface PaddleAgitatorNodeConfig extends z.infer<
   typeof paddleAgitatorNodeConfigZ
 > {}
 
+/** PropellerAgitatorNodeConfig is the configuration for propeller agitator symbols. */
 export const propellerAgitatorNodeConfigZ = toggleSymbolConfigZ.extend({
   variant: z.literal("propeller_agitator"),
 });
@@ -1155,21 +1171,28 @@ export interface PropellerAgitatorNodeConfig extends z.infer<
   typeof propellerAgitatorNodeConfigZ
 > {}
 
+/** RotaryMixerNodeConfig is the configuration for rotary mixer symbols. */
 export const rotaryMixerNodeConfigZ = toggleSymbolConfigZ.extend({
   variant: z.literal("rotary_mixer"),
 });
 export interface RotaryMixerNodeConfig extends z.infer<typeof rotaryMixerNodeConfigZ> {}
 
+/** StaticMixerNodeConfig is the configuration for static mixer symbols. */
 export const staticMixerNodeConfigZ = staticSymbolConfigZ.extend({
   variant: z.literal("static_mixer"),
 });
 export interface StaticMixerNodeConfig extends z.infer<typeof staticMixerNodeConfigZ> {}
 
+/** CavityPumpNodeConfig is the configuration for cavity pump symbols. */
 export const cavityPumpNodeConfigZ = toggleSymbolConfigZ.extend({
   variant: z.literal("cavity_pump"),
 });
 export interface CavityPumpNodeConfig extends z.infer<typeof cavityPumpNodeConfigZ> {}
 
+/**
+ * CentrifugalCompressorNodeConfig is the configuration for centrifugal compressor
+ * symbols.
+ */
 export const centrifugalCompressorNodeConfigZ = toggleSymbolConfigZ.extend({
   variant: z.literal("centrifugal_compressor"),
 });
@@ -1177,11 +1200,13 @@ export interface CentrifugalCompressorNodeConfig extends z.infer<
   typeof centrifugalCompressorNodeConfigZ
 > {}
 
+/** CompressorNodeConfig is the configuration for compressor symbols. */
 export const compressorNodeConfigZ = toggleSymbolConfigZ.extend({
   variant: z.literal("compressor"),
 });
 export interface CompressorNodeConfig extends z.infer<typeof compressorNodeConfigZ> {}
 
+/** DiaphragmPumpNodeConfig is the configuration for diaphragm pump symbols. */
 export const diaphragmPumpNodeConfigZ = toggleSymbolConfigZ.extend({
   variant: z.literal("diaphragm_pump"),
 });
@@ -1189,6 +1214,7 @@ export interface DiaphragmPumpNodeConfig extends z.infer<
   typeof diaphragmPumpNodeConfigZ
 > {}
 
+/** EjectionPumpNodeConfig is the configuration for ejection pump symbols. */
 export const ejectionPumpNodeConfigZ = toggleSymbolConfigZ.extend({
   variant: z.literal("ejection_pump"),
 });
@@ -1196,6 +1222,7 @@ export interface EjectionPumpNodeConfig extends z.infer<
   typeof ejectionPumpNodeConfigZ
 > {}
 
+/** EjectorCompressorNodeConfig is the configuration for ejector compressor symbols. */
 export const ejectorCompressorNodeConfigZ = toggleSymbolConfigZ.extend({
   variant: z.literal("ejector_compressor"),
 });
@@ -1203,6 +1230,10 @@ export interface EjectorCompressorNodeConfig extends z.infer<
   typeof ejectorCompressorNodeConfigZ
 > {}
 
+/**
+ * LiquidRingCompressorNodeConfig is the configuration for liquid ring compressor
+ * symbols.
+ */
 export const liquidRingCompressorNodeConfigZ = toggleSymbolConfigZ.extend({
   variant: z.literal("liquid_ring_compressor"),
 });
@@ -1210,16 +1241,22 @@ export interface LiquidRingCompressorNodeConfig extends z.infer<
   typeof liquidRingCompressorNodeConfigZ
 > {}
 
+/** PistonPumpNodeConfig is the configuration for piston pump symbols. */
 export const pistonPumpNodeConfigZ = toggleSymbolConfigZ.extend({
   variant: z.literal("piston_pump"),
 });
 export interface PistonPumpNodeConfig extends z.infer<typeof pistonPumpNodeConfigZ> {}
 
+/** PumpNodeConfig is the configuration for pump symbols. */
 export const pumpNodeConfigZ = toggleSymbolConfigZ.extend({
   variant: z.literal("pump"),
 });
 export interface PumpNodeConfig extends z.infer<typeof pumpNodeConfigZ> {}
 
+/**
+ * RollerVaneCompressorNodeConfig is the configuration for roller vane compressor
+ * symbols.
+ */
 export const rollerVaneCompressorNodeConfigZ = toggleSymbolConfigZ.extend({
   variant: z.literal("roller_vane_compressor"),
 });
@@ -1227,11 +1264,13 @@ export interface RollerVaneCompressorNodeConfig extends z.infer<
   typeof rollerVaneCompressorNodeConfigZ
 > {}
 
+/** ScrewPumpNodeConfig is the configuration for screw pump symbols. */
 export const screwPumpNodeConfigZ = toggleSymbolConfigZ.extend({
   variant: z.literal("screw_pump"),
 });
 export interface ScrewPumpNodeConfig extends z.infer<typeof screwPumpNodeConfigZ> {}
 
+/** TurboCompressorNodeConfig is the configuration for turbo compressor symbols. */
 export const turboCompressorNodeConfigZ = toggleSymbolConfigZ.extend({
   variant: z.literal("turbo_compressor"),
 });
@@ -1239,6 +1278,7 @@ export interface TurboCompressorNodeConfig extends z.infer<
   typeof turboCompressorNodeConfigZ
 > {}
 
+/** VacuumPumpNodeConfig is the configuration for vacuum pump symbols. */
 export const vacuumPumpNodeConfigZ = toggleSymbolConfigZ.extend({
   variant: z.literal("vacuum_pump"),
 });
