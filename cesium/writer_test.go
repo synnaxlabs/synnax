@@ -479,6 +479,90 @@ var _ = Describe("Writer Behavior", func() {
 						BeforeEach(
 							func(ctx SpecContext) { db = layoutDB(ctx, pointerLog) },
 						)
+						// alignments returns the alignment and length of each series.
+						alignments := func(series []telem.Series) [][2]uint64 {
+							out := make([][2]uint64, len(series))
+							for i, s := range series {
+								out[i] = [2]uint64{uint64(s.Alignment), uint64(s.Len())}
+							}
+							return out
+						}
+						// The old layout streams a write without its index in a leading
+						// domain, so only the pointer log streams the alignment of a
+						// read.
+						if pointerLog {
+							DescribeTable(
+								"Should stream each series of a data-only write with the "+
+									"alignment that a read returns",
+								func(ctx SpecContext, crossing bool) {
+									idx, data := GenerateChannelKey(), GenerateChannelKey()
+									Expect(db.CreateChannel(
+										ctx,
+										cesium.Channel{
+											Key:      idx,
+											Name:     "Lispector",
+											IsIndex:  true,
+											DataType: telem.TimestampT,
+										},
+										cesium.Channel{
+											Key:      data,
+											Name:     "Bolano",
+											Index:    idx,
+											DataType: telem.Int64T,
+										},
+									)).To(Succeed())
+									stamps := func(seconds ...telem.TimeStamp) {
+										GinkgoHelper()
+										w := MustSucceed(
+											db.OpenWriter(ctx, cesium.WriterConfig{
+												Channels: []cesium.ChannelKey{idx},
+												Clock:    idx,
+												Start:    seconds[0] * telem.SecondTS,
+											}),
+										)
+										mustWrite(ctx, w, telem.UnaryFrame(
+											idx,
+											telem.NewSeriesSecondsTSV(seconds...),
+										))
+										mustCommit(ctx, w)
+										Expect(w.Close()).To(Succeed())
+									}
+									if crossing {
+										stamps(10, 11)
+										stamps(12, 13)
+									} else {
+										stamps(10, 11, 12, 13)
+									}
+									w := MustSucceed(
+										db.OpenWriter(ctx, cesium.WriterConfig{
+											Channels: []cesium.ChannelKey{data},
+											Clock:    idx,
+											Start:    10 * telem.SecondTS,
+										}),
+									)
+									streamed := mustWrite(ctx, w, telem.UnaryFrame(
+										data,
+										telem.NewSeriesV[int64](1, 2, 3, 4),
+									)).Get(data).Series
+									mustCommit(ctx, w)
+									Expect(w.Close()).To(Succeed())
+									read := MustSucceed(
+										db.Read(ctx, telem.TimeRangeMax, data),
+									).Get(data).Series
+									Expect(
+										alignments(streamed),
+									).To(Equal(alignments(read)))
+									if crossing {
+										Expect(
+											streamed,
+										).To(HaveLen(2), "one series per run")
+									}
+								},
+								Entry("within one run", false),
+								Entry("across the end of a run", true),
+							)
+						}
+
 						It(
 							"Should keep streamed alignment monotonic when a data channel is written without its index",
 							func(ctx SpecContext) {
