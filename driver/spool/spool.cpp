@@ -250,17 +250,13 @@ decode_frame(const std::string &payload, const Types &types) {
     return {std::move(frame), x::errors::NIL};
 }
 
-std::pair<std::unique_ptr<journal::Reader>, x::errors::Error> open_segment(
-    const std::filesystem::path &path,
-    const std::uint64_t sync_bytes,
-    const std::uint64_t pos = 0
-) {
+std::pair<std::unique_ptr<journal::Reader>, x::errors::Error>
+open_segment(const std::filesystem::path &path, const std::uint64_t pos = 0) {
     return journal::Reader::open(
         {.path = path,
          .magic = SEGMENT_MAGIC,
          .types = {HEADER_TYPE, FRAME_TYPE},
-         .pos = pos,
-         .sync_bytes = sync_bytes}
+         .pos = pos}
     );
 }
 
@@ -339,11 +335,11 @@ x::errors::Error Writer::write(const x::telem::Frame &frame) {
     }
     auto [payload, err] = encode_frame(frame, this->types);
     if (err) return err;
-    if (payload.size() > journal::MAX_PAYLOAD) {
+    if (payload.size() > this->spool.cfg.max_payload) {
         this->failed = x::errors::Error(
             BASE_ERROR,
             "frame of " + std::to_string(payload.size()) +
-                " bytes is larger than the record limit"
+                " bytes is larger than max_payload"
         );
         ++this->spool.refused_count;
         return this->failed;
@@ -363,6 +359,8 @@ x::errors::Error Writer::write(const x::telem::Frame &frame) {
             .magic = SEGMENT_MAGIC,
             .sync_interval = this->spool.cfg.sync_interval,
             .sync_bytes = this->spool.cfg.sync_bytes,
+            .max_payload = this->spool.cfg.max_payload,
+            .on_create = this->spool.cfg.on_create,
             .on_sync = this->spool.cfg.on_sync,
         });
         if (o_err) return this->fail(o_err, bytes);
@@ -447,7 +445,8 @@ x::errors::Error Reader::commit() {
     return journal::commit_offset(
         this->spool.offset_path(this->key),
         OFFSET_MAGIC,
-        {.segment = this->key, .pos = this->pos}
+        {.segment = this->key, .pos = this->pos},
+        this->spool.cfg.on_create
     );
 }
 
@@ -458,7 +457,7 @@ std::pair<std::unique_ptr<Spool>, x::errors::Error> Spool::open(Config cfg) {
     std::error_code ec;
     std::filesystem::create_directories(cfg.dir, ec);
     if (ec) return {nullptr, fs_error("failed to create spool directory", ec)};
-    auto [lock, l_err] = journal::Lock::open(cfg.dir);
+    auto [lock, l_err] = journal::Lock::open(cfg.dir, cfg.on_create);
     if (l_err) return {nullptr, l_err};
     auto spool = std::unique_ptr<Spool>(new Spool(std::move(cfg), std::move(lock)));
     if (const auto err = spool->remove_temp_files()) return {nullptr, err};
@@ -483,7 +482,7 @@ std::pair<std::unique_ptr<Spool>, x::errors::Error> Spool::open(Config cfg) {
     }
     for (const auto key: keys) {
         const auto path = spool->segment_path(key);
-        auto [file, err] = open_segment(path, spool->cfg.sync_bytes);
+        auto [file, err] = open_segment(path);
         std::optional<Header> header;
         if (!err) std::tie(header, err) = read_header(*file);
         if (is_bad(err)) {
@@ -626,7 +625,7 @@ Spool::open_reader(const std::uint64_t key) {
             )
         };
     const auto path = this->segment_path(key);
-    auto [file, err] = open_segment(path, this->cfg.sync_bytes);
+    auto [file, err] = open_segment(path);
     if (err) return {nullptr, err};
     auto [header, h_err] = read_header(*file);
     if (h_err) return {nullptr, h_err};
@@ -648,7 +647,7 @@ Spool::open_reader(const std::uint64_t key) {
             };
         if (offset->pos < reader->pos)
             return {nullptr, x::errors::Error(CORRUPT, "read offset is in the header")};
-        std::tie(file, err) = open_segment(path, this->cfg.sync_bytes, offset->pos);
+        std::tie(file, err) = open_segment(path, offset->pos);
         if (err) return {nullptr, err};
         reader->pos = offset->pos;
     }

@@ -76,10 +76,14 @@ struct Config {
     std::uint64_t space_check_bytes = DEFAULT_SPACE_CHECK_BYTES;
     /// @brief the maximum time between a write and the sync that follows it.
     x::telem::TimeSpan sync_interval = x::telem::SECOND;
-    /// @brief the written bytes that start a sync of a segment. Readers treat damage
-    /// in the last sync_bytes of a segment as crash damage, so a lower value can make
-    /// older segments read as CORRUPT.
+    /// @brief the written bytes that start a sync of a segment.
     std::uint64_t sync_bytes = DEFAULT_SYNC_BYTES;
+    /// @brief the largest encoded frame, at most journal::MAX_PAYLOAD. A crash can
+    /// damage the last sync_bytes plus one frame of this size of a segment, so a lower
+    /// value lets a reader find more damage.
+    std::uint32_t max_payload = journal::MAX_PAYLOAD;
+    /// @brief called with each file that the spool creates, before the spool uses it.
+    journal::OnCreate on_create = journal::no_create_hook;
     /// @brief gets the result of each sync of a segment and returns the result the
     /// spool uses. Writers call it from their own threads, so it must be safe for
     /// concurrent use.
@@ -147,8 +151,8 @@ public:
     /// @param frame the frame to append. Each of its channels must be in the header,
     /// with the data type of the header.
     /// @returns FULL when the spool has no room for the frame. BASE_ERROR when the
-    /// frame does not match the header, the writer is closed, or the frame is larger
-    /// than journal::MAX_PAYLOAD. After a write fails to store a valid frame, the
+    /// frame does not match the header, the writer is closed, or the encoded frame is
+    /// larger than Config::max_payload. After a write fails to store a valid frame, the
     /// writer returns the same error for every later frame. Spool::refused counts each
     /// of these frames. When only the sync after the frame fails, the frame stays in
     /// the segment, and readers can read it.

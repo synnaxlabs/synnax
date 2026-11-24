@@ -65,8 +65,9 @@ void set_version(const std::filesystem::path &path, const std::uint16_t version)
     auto data = read_file(path);
     data[8] = static_cast<char>(version);
     data[9] = static_cast<char>(version >> 8);
-    auto crc = static_cast<std::uint32_t>(absl::ComputeCrc32c(data.substr(0, 16)));
-    for (std::size_t i = 16; i < 20; i++, crc >>= 8)
+    const auto end = journal::HEADER_SIZE - 4;
+    auto crc = static_cast<std::uint32_t>(absl::ComputeCrc32c(data.substr(0, end)));
+    for (auto i = end; i < journal::HEADER_SIZE; i++, crc >>= 8)
         data[i] = static_cast<char>(crc);
     std::ofstream(path, std::ios::binary | std::ios::trunc)
         .write(data.data(), static_cast<std::streamsize>(data.size()));
@@ -520,6 +521,47 @@ TEST_F(SpoolTest, RefusesFrameLargerThanRecordLimit) {
     ASSERT_MATCHES(writer->write(frame_of(1)), BASE_ERROR);
     ASSERT_EQ(spool->refused(), 2);
     ASSERT_FALSE(std::filesystem::exists(this->dir / "0.seg"));
+}
+
+/// @brief it should refuse and count a frame larger than the max_payload of the config,
+/// and every frame after it.
+TEST_F(SpoolTest, RefusesFrameLargerThanMaxPayload) {
+    const auto spool = ASSERT_NIL_P(
+        Spool::open(Config{.dir = this->dir, .max_payload = 1024})
+    );
+    const auto writer = spool->open_writer(header_of(1));
+    const x::telem::Frame large(1, x::telem::Series(std::vector<float>(256)));
+    ASSERT_MATCHES(writer->write(large), BASE_ERROR);
+    ASSERT_MATCHES(writer->write(frame_of(1)), BASE_ERROR);
+    ASSERT_EQ(spool->refused(), 2);
+    ASSERT_FALSE(std::filesystem::exists(this->dir / "0.seg"));
+    ASSERT_NIL(spool->open_writer(header_of(1))->write(frame_of(1)));
+}
+
+/// @brief it should call on_create with each file it creates.
+TEST_F(SpoolTest, CallsOnCreate) {
+    auto created = std::make_shared<std::vector<std::string>>();
+    {
+        const auto spool = ASSERT_NIL_P(
+            Spool::open(
+                Config{
+                    .dir = this->dir,
+                    .on_create = [created](const std::filesystem::path &path) {
+                        created->push_back(path.filename().string());
+                        return x::errors::NIL;
+                    },
+                }
+            )
+        );
+        this->write_frames(*spool, header_of(1), 1);
+        const auto reader = ASSERT_NIL_P(spool->open_reader(0));
+        ASSERT_TRUE(ASSERT_NIL_P(reader->read()).has_value());
+        ASSERT_NIL(reader->commit());
+    }
+    ASSERT_EQ(created->size(), 3);
+    EXPECT_EQ(created->at(0), "LOCK");
+    EXPECT_TRUE(created->at(1).starts_with("0.seg"));
+    EXPECT_TRUE(created->at(2).starts_with("0.offset"));
 }
 
 /// @brief it should reject a header that lists a channel twice.
