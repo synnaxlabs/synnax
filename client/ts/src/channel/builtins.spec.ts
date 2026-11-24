@@ -10,8 +10,7 @@
 import { id } from "@synnaxlabs/x";
 import { describe, expect, it, onTestFinished } from "vitest";
 
-import type Synnax from "@/client";
-import { DisconnectedError } from "@/errors";
+import { DisconnectedError, type Synnax } from "@/index";
 import {
   builtInsFetches,
   createProxiedTestClient,
