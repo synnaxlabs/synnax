@@ -701,6 +701,126 @@ describe("symbol editor spec", () => {
     });
   });
 
+  describe("createKey", () => {
+    it("should make a key from the name", () => {
+      expect(Spec.createKey("Valve Mode", [])).toBe("valve-mode");
+    });
+
+    it("should add the lowest free number to a taken key", () => {
+      expect(Spec.createKey("Mode", ["mode", "mode-2"])).toBe("mode-3");
+    });
+  });
+
+  describe("addState", () => {
+    it("should add an enumeration state with a key from its name", () => {
+      expect(Spec.addState(createSpec()).states[1]).toEqual({
+        ...Spec.createState(),
+        key: "state-2",
+        name: "State 2",
+      });
+    });
+
+    it("should skip a name that a state has", () => {
+      const spec = createSpec({
+        states: [Spec.createState(), { ...FAULT, name: "State 2" }],
+      });
+      expect(Spec.addState(spec).states[2]).toMatchObject({
+        key: "state-3",
+        name: "State 3",
+      });
+    });
+  });
+
+  describe("removeState", () => {
+    const onEntry: schematic.symbol.Paint = { type: "entry", state: FAULT.key };
+
+    it("should remove the looks on the state and each paint that reads it", () => {
+      const kept: schematic.symbol.Look = {
+        key: "d",
+        part: "seat",
+        when: equals(1),
+        fill: fixed(GREEN),
+      };
+      const spec = createSpec({
+        states: [Spec.createState(), FAULT],
+        looks: [
+          { key: "a", part: "body", when: onFault(1), fill: fixed(RED) },
+          { key: "b", part: "body", fill: onEntry, stroke: fixed(BLUE) },
+          { key: "c", part: "seat", fill: onEntry },
+          kept,
+        ],
+      });
+      const [next, removed] = Spec.removeState(spec, FAULT.key);
+      expect(next.states).toEqual([Spec.createState()]);
+      expect(next.looks).toEqual([
+        { key: "b", part: "body", stroke: fixed(BLUE) },
+        kept,
+      ]);
+      expect(removed.looks).toEqual(["a", "b", "c"]);
+    });
+
+    it("should remove a motion that reads the state", () => {
+      const level: schematic.symbol.State = {
+        type: "number",
+        key: "level",
+        name: "Level",
+        bounds: { lower: 0, upper: 100 },
+      };
+      const spec = createSpec({
+        states: [Spec.createState(), level],
+        looks: [
+          {
+            key: "a",
+            part: "body",
+            motion: { type: "level", state: "level", side: "bottom" },
+          },
+        ],
+      });
+      const [next, removed] = Spec.removeState(spec, "level");
+      expect(next.looks).toEqual([]);
+      expect(removed.looks).toEqual(["a"]);
+    });
+
+    it("should remove the commands on the state and their clicks", () => {
+      const reset: schematic.symbol.Command = {
+        key: "reset",
+        name: "Reset",
+        value: { type: "fixed", value: 0 },
+      };
+      const resets: schematic.symbol.Interaction = {
+        type: "fire",
+        key: "c",
+        part: "seat",
+        command: "reset",
+      };
+      const spec = createSpec({
+        states: [Spec.createState(), FAULT],
+        commands: [
+          {
+            key: "trip",
+            name: "Trip",
+            state: FAULT.key,
+            value: { type: "fixed", value: 1 },
+          },
+          reset,
+        ],
+        interactions: [
+          { type: "fire", key: "a", part: "body", command: "trip" },
+          { type: "next", key: "b", commands: ["reset", "trip"] },
+          resets,
+        ],
+      });
+      const [next, removed] = Spec.removeState(spec, FAULT.key);
+      expect(next.commands).toEqual([reset]);
+      expect(next.interactions).toEqual([resets]);
+      expect(removed).toEqual({
+        looks: [],
+        commands: ["trip"],
+        interactions: ["a", "b"],
+      });
+    });
+  });
+
   describe("owner", () => {
     const spec = createSpec({
       drawing: {

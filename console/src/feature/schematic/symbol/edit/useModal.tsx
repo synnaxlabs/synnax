@@ -30,6 +30,7 @@ import { HandleList } from "@/feature/schematic/symbol/edit/HandleList";
 import { Inspector } from "@/feature/schematic/symbol/edit/Inspector";
 import { PartList } from "@/feature/schematic/symbol/edit/PartList";
 import { Preview } from "@/feature/schematic/symbol/edit/Preview";
+import { StateList } from "@/feature/schematic/symbol/edit/StateList";
 import { useValues } from "@/feature/schematic/symbol/edit/useValues";
 import { SelectVariantField } from "@/feature/schematic/symbol/SelectVariant";
 import { Spec } from "@/feature/schematic/symbol/spec";
@@ -229,10 +230,14 @@ const Editor = ({
   // A fill motion that cannot draw stops the save and selects its part, whose inspector
   // shows why. The inspector shows the issues only with the flag on.
   const handleSave = () => {
+    const spec = form.get(path.data).value;
     if (FLAGS.symbolMotion) {
-      const [part] = Spec.levelIssues(form.get(path.data).value).keys();
+      const [part] = Spec.levelIssues(spec).keys();
       if (part != null) return setSelectedPart(part);
     }
+    // Placement reads the variant, which the lists set by whether a click exists.
+    if (FLAGS.symbolNodes)
+      form.set(path.data.variant, spec.interactions.length > 0 ? "actuator" : "static");
     save();
   };
 
@@ -267,20 +272,29 @@ const Editor = ({
                   />
                 </Flex.Box>
                 <Divider.Divider x />
-                <Flex.Box y>
-                  <Header.Header level="p" bordered={false}>
-                    <Header.Title level="p" weight={500}>
-                      States
-                    </Header.Title>
-                  </Header.Header>
-                  <Flex.Box className={CSS.BE("schematic", "states")}>
-                    <SelectVariantField
-                      onSelectValue={(value) =>
-                        setPreview({ state: Spec.STATE, value })
-                      }
-                    />
+                {FLAGS.symbolNodes ? (
+                  <StateList
+                    onRemove={(key) => {
+                      if (key === preview.state)
+                        setPreview({ state: Spec.STATE, value: 0 });
+                    }}
+                  />
+                ) : (
+                  <Flex.Box y>
+                    <Header.Header level="p" bordered={false}>
+                      <Header.Title level="p" weight={500}>
+                        States
+                      </Header.Title>
+                    </Header.Header>
+                    <Flex.Box className={CSS.BE("schematic", "states")}>
+                      <SelectVariantField
+                        onSelectValue={(value) =>
+                          setPreview({ state: Spec.STATE, value })
+                        }
+                      />
+                    </Flex.Box>
                   </Flex.Box>
-                </Flex.Box>
+                )}
                 <Divider.Divider x />
                 <PartList
                   value={selectedPart}
