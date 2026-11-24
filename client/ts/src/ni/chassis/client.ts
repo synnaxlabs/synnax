@@ -34,7 +34,7 @@ import {
 } from "@/ni/chassis/where.gen";
 import { query } from "@/query";
 import type { status } from "@/status";
-import { checkForMultipleOrNoResults } from "@/util/retrieve";
+import { util } from "@/util";
 
 export const SET_CHANNEL_NAME = "sy_ni_chassis_set";
 export const DELETE_CHANNEL_NAME = "sy_ni_chassis_delete";
@@ -294,7 +294,7 @@ export class Client extends query.Retriever<
     const chassis = await this.store.retrieve([q.key], {
       refresh: q.includeStatus === true,
     });
-    checkForMultipleOrNoResults(
+    util.checkForMultipleOrNoResults(
       "NI chassis",
       { where: { key: { eq: q.key } } },
       chassis,

@@ -19,11 +19,6 @@ import { group } from "@/group";
 const keyOf = (leaseholder: number, localKey: number): Key =>
   ((leaseholder << 20) | localKey) >>> 0;
 
-const calculatedOf = ({
-  virtual,
-  expression,
-}: Pick<Payload, "virtual" | "expression">) => virtual && expression !== "";
-
 const fromStored = ({ localKey, localIndex, ...rest }: Stored): Payload =>
   zod.parse(
     payloadZ,
@@ -31,14 +26,9 @@ const fromStored = ({ localKey, localIndex, ...rest }: Stored): Payload =>
       ...rest,
       key: keyOf(rest.leaseholder, localKey),
       index: localIndex === 0 ? 0 : keyOf(rest.leaseholder, localIndex),
-      calculated: calculatedOf(rest),
     },
     { label: "created channel" },
   );
-
-// calculatedOf reads only the expression, which only a subject who reads the
-// calculation receives. Another subject holds calculated with no expression.
-const EXPRESSION = ["expression"] as const;
 
 /** @returns the channel that a create action carries, or undefined otherwise. */
 export const createOf = (action: Action): Payload | undefined =>
@@ -49,6 +39,7 @@ const documentZ = z.object({
   dataType: payloadZ.shape.dataType,
   expression: z.string(),
   operations: operationZ.array(),
+  calculated: z.boolean(),
   group: zod.nullToUndefined(group.keyZ),
   description: z.string(),
 });
@@ -58,7 +49,7 @@ const applyPath = (state: Draft<Payload>, action: patch.Action) =>
 
 /**
  * Applies actions to a channel in order. Path actions edit only the channel's data
- * type, expression, operations, group, and description.
+ * type, expression, operations, calculated flag, group, and description.
  * @throws {Error} if the channel cannot hold an action, such as a set of its key.
  */
 export const reduceAll = actions.createReduceAll<Payload, Action>((state, action) => {
@@ -76,13 +67,7 @@ export const reduceAll = actions.createReduceAll<Payload, Action>((state, action
       state.name = action.rename.name;
       return { inverse: [rename({ name: prev })], targets: ["name"] };
     }
-    default: {
-      const result = applyPath(state, action);
-      if (!actions.changesField(action, EXPRESSION)) return result;
-      const calculated = calculatedOf(state);
-      if (calculated === state.calculated) return result;
-      state.calculated = calculated;
-      return { ...result, targets: [...result.targets, "calculated"] };
-    }
+    default:
+      return applyPath(state, action);
   }
 });

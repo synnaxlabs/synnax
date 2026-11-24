@@ -9,7 +9,10 @@
  * included in the file licenses/APL.txt.
  */
 
+/* The empty line while the counts load keeps the height of the text. */
 .console-ethercat-channel-usage__text {
+    box-sizing: content-box;
+    min-height: 1lh;
     padding: 1rem 3rem;
     border-top: var(--pluto-border);
 }

@@ -71,18 +71,6 @@ export const useZ = z.object({
 export interface Use extends z.infer<typeof useZ> {}
 
 /**
- * RetrieveBuiltInsResponse holds the keys of the channels that Core services declare
- * for their work.
- */
-export const retrieveBuiltInsResponseZ = z.object({
-  /** keys are the keys of the built-in channels. */
-  keys: keyZ.array().default(() => []),
-});
-export interface RetrieveBuiltInsResponse extends z.infer<
-  typeof retrieveBuiltInsResponseZ
-> {}
-
-/**
  * CountLimitedResponse holds the count of the channels that count against the license
  * channel limit (not internal, not virtual).
  */

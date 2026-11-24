@@ -16,7 +16,12 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from synnax import color as color_, enumeration as enumeration_, group as group_
+from synnax import (
+    color as color_,
+    enumeration as enumeration_,
+    group as group_,
+    resource,
+)
 from synnax.resource import ID
 from x import color, filter, spatial, telem
 from x.filter import shorthand
@@ -415,8 +420,8 @@ class NumberState(BaseState):
     """Is a state that shows a number."""
 
     type: Literal["number"] = "number"
-    bounds: spatial.Bounds = Field(
-        default_factory=lambda: spatial.Bounds(lower=0, upper=100)
+    bounds: spatial.ClosedBounds = Field(
+        default_factory=lambda: spatial.ClosedBounds(lower=0, upper=100)
     )
 
 
@@ -477,6 +482,7 @@ class RetrieveRequest(BaseModel):
         order: Sorts the symbols. An absent order sorts them by key.
         after: Starts the symbols strictly past this position in their order.
         limit: Is the most symbols to return.
+        include_uses: Includes the uses of each record.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -486,6 +492,7 @@ class RetrieveRequest(BaseModel):
     order: Order | None = None
     after: Cursor | None = None
     limit: int | None = Field(default=None, ge=0, le=4294967295)
+    include_uses: bool = False
 
 
 class Spec(BaseModel):
@@ -528,12 +535,15 @@ class Symbol(BaseModel):
         name: Is a human-readable name for the symbol.
         data: Is the complete symbol specification.
         group: Is the group the symbol sits in, if any.
+        uses: Are the schematics that use the symbol and that the caller can read,
+            filled only when a retrieve request asks for them.
     """
 
     key: Key = Field(default_factory=uuid4)
     name: str = Field(min_length=1)
     data: Spec
     group: group_.Key | None = None
+    uses: list[resource.ID] | None = None
 
     @_override
     def __hash__(self) -> int:
