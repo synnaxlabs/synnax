@@ -30,7 +30,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 
 import { Sift } from "@/feature/sift";
 import { createSiftDevice } from "@/feature/sift/testutil";
-import { createRunningRack, startRackHeartbeat } from "@/platform/device/testutil";
+import { createRunningRack } from "@/platform/device/testutil";
 import { renderModalOpener } from "@/platform/modals/testutil";
 import { createTestRange } from "@/platform/range/testutil";
 import { answerNextCommand, type CommandAnswer } from "@/platform/task/testutil";
@@ -53,10 +53,8 @@ const selectDevice = async (name: string) => {
 const clickUpload = () =>
   fireEvent.click(screen.getByRole("button", { name: /Upload/ }));
 
-// The Core marks a silent rack down after 5 s and fails the commands it waits on.
 const createScanTask = async () => {
   const rack = await createRunningRack(client, "sift");
-  await startRackHeartbeat(client, rack);
   const scan = await rack.createTask({
     name: uniqueName("sift_scan"),
     type: Sift.Device.SCAN_TYPE,

@@ -52,7 +52,7 @@ func Check(ic ICD) []validate.PathError {
 			c.addf(pathOf(path, "name"), "duplicate message name %q", m.Name)
 		}
 		names.Add(m.Name)
-		c.checkMessage(path, m)
+		c.checkMessage(path, m, ic.Framing)
 	}
 	return c.problems
 }
@@ -104,7 +104,7 @@ func pathOf(parent []string, segments ...string) []string {
 	)
 }
 
-func (c *checker) checkMessage(path []string, m Message) {
+func (c *checker) checkMessage(path []string, m Message, framing *Framing) {
 	if m.CycleTime != nil && *m.CycleTime <= 0 {
 		c.addf(pathOf(path, "cycle_time"), "cycle time must be positive")
 	}
@@ -119,6 +119,9 @@ func (c *checker) checkMessage(path []string, m Message) {
 	switch p := m.Payload.Variant.(type) {
 	case BinaryPayload:
 		c.checkBinaryPayload(path, p, untyped)
+		if framing != nil && p.Length != nil {
+			c.checkFrameLength(pathOf(path, "length"), *p.Length, *framing)
+		}
 	case TextPayload:
 		c.checkTextFields(path, p, untyped)
 	case JSONPayload:
@@ -152,6 +155,22 @@ func (c *checker) checkBinaryPayload(
 	}
 	c.checkOverlaps(pathOf(path, "fields"), p.Fields)
 	c.checkIdentifier(path, p, binary)
+}
+
+// checkFrameLength checks a binary payload length against the frame that holds it.
+func (c *checker) checkFrameLength(path []string, length uint16, framing Framing) {
+	switch f := framing.Variant.(type) {
+	case FixedFraming:
+		if uint32(length) != f.Length {
+			c.addf(path, "length %d must equal the frame length %d", length, f.Length)
+		}
+	case SyncFraming:
+		if uint32(length) > f.MaxLength {
+			c.addf(
+				path, "length %d exceeds the max frame length %d", length, f.MaxLength,
+			)
+		}
+	}
 }
 
 // checkTextFields adds the indices of fields with no type to untyped.
