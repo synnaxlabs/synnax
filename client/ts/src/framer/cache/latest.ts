@@ -25,12 +25,12 @@ import {
 
 import type { channel } from "@/channel";
 import { NotFoundError, UnsupportedError } from "@/errors";
-import type { ChannelRetriever } from "@/framer/adapter";
+import type { CalculationOutputs, ChannelRetriever } from "@/framer/adapter";
 import { domainOf } from "@/framer/cache/block";
 import { dynamic } from "@/framer/cache/dynamic";
 import { stamps as cacheStamps } from "@/framer/cache/stamps";
 import { LOADING, NO_HISTORY, READ_FAILED, SUCCESS } from "@/framer/cache/status";
-import { calculated, type CalculationOutputs, type Store } from "@/framer/cache/store";
+import { calculated, type Store } from "@/framer/cache/store";
 import type { Demand, MultiplexedStreamer } from "@/framer/cache/streamer";
 import type { Frame } from "@/framer/frame";
 import { createBreaker, isDefinitive } from "@/framer/retry";
@@ -116,8 +116,8 @@ export class Latest {
   private readonly demand: Demand;
   private readonly stopInvalidations: () => void;
   private readonly stopOutputs: () => void;
-  // output is whether a calculation writes the channel, as of the last load, and
-  // undefined until a load answers.
+  // output is whether a calculation writes the channel, as the running load read it,
+  // and undefined until it reads.
   private output: boolean | undefined;
   // timeSource is null until the channel is found.
   private timeSource: { index: channel.Key } | "self" | "stamps" | null = null;
@@ -188,8 +188,8 @@ export class Latest {
       if (!missed && (ch == null || ch === key)) this.changed(tr);
     });
     // A calculation that starts or stops writing the channel changes how it dedupes.
-    this.stopOutputs = props.outputs.onChange(key, (written) => {
-      if (this.output == null || written === this.output) return;
+    this.stopOutputs = props.outputs.onChange(key, (output) => {
+      if (output === this.output) return;
       this.taken = false;
       this.clear();
       this.restart(0);
@@ -494,19 +494,19 @@ export class Latest {
     const { signal } = run.abort;
     const { retrieveChannels, outputs, streamer, now } = this.props;
     const brk = createBreaker(this.notifier, this.props.breaker);
+    this.output = undefined;
     while (this.running === run)
       try {
         const [[payload], written] = await Promise.all([
           retrieveChannels([this.key]),
-          outputs.retrieve([this.key]),
+          outputs.retrieve([this.key]).then((read) => {
+            if (this.running === run) this.output = read.has(this.key);
+            return read;
+          }),
         ]);
         if (payload == null) throw new NotFoundError(`channel ${this.key} not found`);
-        const output = written.has(this.key);
-        this.props.store.setChannel(payload, output);
-        if (this.running === run) {
-          this.findTimeSource(payload);
-          this.output = output;
-        }
+        this.props.store.setChannel(payload, written);
+        if (this.running === run) this.findTimeSource(payload);
         let read: Series[] = [];
         let seed: Series | null = null;
         let times: Series[] = [];

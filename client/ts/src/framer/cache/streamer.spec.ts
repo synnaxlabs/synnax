@@ -978,7 +978,7 @@ describe("MultiplexedStreamer", () => {
           dataType: DataType.TIMESTAMP,
           isIndex: true,
         }).payload,
-        false,
+        new Set(),
       );
       const hooks: StreamHooks[] = [];
       const streamer = new MultiplexedStreamer({
@@ -1021,7 +1021,7 @@ describe("MultiplexedStreamer", () => {
           dataType: DataType.TIMESTAMP,
           isIndex: true,
         }).payload,
-        false,
+        new Set(),
       );
       const hooks: StreamHooks[] = [];
       const streamer = new MultiplexedStreamer({

@@ -267,6 +267,20 @@ describe("Channel select", () => {
       expect(lookups()).toBe(1);
     });
 
+    it("should clear a failed lookup once another reader's lookup answers", async () => {
+      const failing = await createPlain();
+      const other = await createPlain();
+      const { restore } = failLookups();
+      const c = await render(<Picker keys={[failing.key]} />, { wrapper: Wrapper });
+      await toggle(c);
+      await shown(FAILED);
+      restore();
+      // The outputs table looks the failed channel up again once this lookup answers.
+      await client.calculations.outputs.retrieve([other.key]);
+      await shown(failing.name);
+      expect(absent(FAILED)).toBe(true);
+    });
+
     it("should keep showing a failed lookup when a channel joins the selection", async () => {
       const failing = await createPlain();
       const picked = await createPlain();

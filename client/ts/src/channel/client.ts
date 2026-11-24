@@ -418,9 +418,10 @@ export class Client extends query.Retriever<
         triggers: [
           uses.trigger,
           // Only the Core checks a virtual or calculated line, and a channel crosses it
-          // when a calculation starts or stops writing it.
-          query.trigger(cfg.outputs, (event, query: RetrieveRequest) =>
-            readsOutputs(query.where) ? [event.key] : null,
+          // when a calculation starts or stops writing it. A lookup that finds an entry
+          // changes nothing on the Core.
+          query.trigger(cfg.outputs, (event, req: RetrieveRequest) =>
+            readsOutputs(req.where) && query.isChange(event) ? [event.key] : null,
           ),
         ],
       },

@@ -26,19 +26,14 @@ import {
 
 import type { channel } from "@/channel";
 import { NotFoundError, UnsupportedError, ValidationError } from "@/errors";
-import type { ChannelRetriever } from "@/framer/adapter";
+import type { CalculationOutputs, ChannelRetriever } from "@/framer/adapter";
 import { type Block, RAW_LEVEL, type RawBlock, rawTile } from "@/framer/cache/block";
 import { grid } from "@/framer/cache/grid";
 import type { Joins } from "@/framer/cache/join";
 import type { Joiner } from "@/framer/cache/joiner";
 import { COMMIT_MARGIN, type Reader } from "@/framer/cache/reader";
 import { LOADING, READ_FAILED, SUCCESS } from "@/framer/cache/status";
-import {
-  calculated,
-  type CalculationOutputs,
-  type Floor,
-  type Store,
-} from "@/framer/cache/store";
+import type { Floor, Store } from "@/framer/cache/store";
 import type { Demand, MultiplexedStreamer } from "@/framer/cache/streamer";
 import {
   isCut,
@@ -108,7 +103,7 @@ const slideKey = ({ view, bound, ...rest }: PointsLimit): Partial<PointsLimit> =
  */
 export class Points {
   private index: channel.Key | null = null;
-  // parked holds the failure that stops the channel for good.
+  // parked holds the failure that stops the channel until its outputs entry changes.
   private parked: status.Status | null = null;
   private readFailure: status.Status | null = null;
   // rejection holds the failure of the last tile a definitive failure stopped.
@@ -122,8 +117,8 @@ export class Points {
   private readonly rejected = new Set<string>();
   private readonly stopInvalidations: destructor.Destructor;
   private readonly stopOutputs: destructor.Destructor;
-  // output is whether a calculation writes the channel, as of the last resolve, and
-  // undefined until a resolve answers.
+  // output is whether a calculation writes the channel, as the running resolve read it,
+  // and undefined until it reads.
   private output: boolean | undefined;
   // boundary is where tiles end and raw samples begin. It trails rawFrom until the
   // tiles that replace the samples before it land, so no span goes blank.
@@ -184,11 +179,12 @@ export class Points {
       this.changed();
     });
     // A calculation that starts or stops writing the channel decides whether it draws.
-    this.stopOutputs = props.outputs.onChange(key, (written) => {
-      if (this.output == null || written === this.output) return;
+    this.stopOutputs = props.outputs.onChange(key, (output) => {
+      if (output === this.output) return;
       this.parked = null;
       this.readFailure = null;
       this.breaker.reset();
+      this.leaveLive();
       this.restart();
       void this.resolve();
     });
@@ -364,9 +360,7 @@ export class Points {
     this.pins.clear();
     this.held.clear();
     this.raw = [];
-    this.live?.demand.close();
-    this.live?.leave();
-    this.live = null;
+    this.leaveLive();
   }
 
   private home(): TimeRange {
@@ -400,27 +394,30 @@ export class Points {
   }
 
   // Resolves the channel's index, then streams and joins the window's edge. A failure
-  // that is definitive or outlasts the breaker stops the channel for good.
+  // that is definitive or outlasts the breaker stops the channel until its outputs
+  // entry changes.
   private async resolve(): Promise<void> {
     const generation = this.generation;
+    this.output = undefined;
     while (generation === this.generation)
       try {
         const [[payload], written] = await Promise.all([
           this.props.retrieveChannels([this.key]),
-          this.props.outputs.retrieve([this.key]),
+          this.props.outputs.retrieve([this.key]).then((outputs) => {
+            if (generation === this.generation) this.output = outputs.has(this.key);
+            return outputs;
+          }),
         ]);
         if (generation !== this.generation) return;
         if (payload == null) throw new NotFoundError(`channel ${this.key} not found`);
-        this.output = written.has(this.key);
-        const derived = calculated(payload, written);
-        if (payload.virtual && !derived)
+        this.props.store.setChannel(payload, written);
+        if (payload.virtual && !this.props.store.isCalculated(payload.key))
           throw new ValidationError(
             `virtual channel ${payload.name} has no samples to draw`,
           );
         const index = payload.isIndex ? payload.key : payload.index;
         if (index === 0)
           throw new ValidationError(`channel ${payload.name} has no index to draw on`);
-        this.props.store.setChannel(payload, derived);
         this.index = index;
         this.moveBoundary();
         this.stream(index);
@@ -442,7 +439,7 @@ export class Points {
   // Reads the end of the newest stored sample's span, of any time for a dynamic window
   // and in the window for a static one. The read stops once a newer one starts or the
   // window stops streaming. A failure that is definitive or outlasts the breaker stops
-  // the channel for good.
+  // the channel until its outputs entry changes.
   private async readStored(): Promise<void> {
     const read = ++this.storedRead;
     const current = (): boolean => read === this.storedRead && this.streaming;
@@ -475,14 +472,19 @@ export class Points {
       }
   }
 
+  // Closes the stream and the join of the window's edge.
+  private leaveLive(): void {
+    this.live?.demand.close();
+    this.live?.leave();
+    this.live = null;
+  }
+
   // Streams and joins the channel while the window streams, and releases both once it
   // does not.
   private stream(index: channel.Key): void {
     if (this.streaming === (this.live != null)) return;
     if (this.live != null) {
-      this.live.demand.close();
-      this.live.leave();
-      this.live = null;
+      this.leaveLive();
       this.abort.abort();
       this.abort = new AbortController();
       return;

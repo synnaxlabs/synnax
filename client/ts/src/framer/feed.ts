@@ -18,6 +18,7 @@ import {
 
 import type { channel } from "@/channel";
 import { isConnectionError, UnexpectedError } from "@/errors";
+import type { CalculationOutputs } from "@/framer/adapter";
 import { Joins } from "@/framer/cache/join";
 import { Joiner } from "@/framer/cache/joiner";
 import {
@@ -59,8 +60,10 @@ type LatestEntry = scheduler.BatcherEntry<LatestQuery, Frame>;
 export interface FeedProps
   extends
     Pick<StoreProps, "instrumentation">,
-    Omit<ReaderProps, "store">,
+    Omit<ReaderProps, "store" | "outputs">,
     Omit<MultiplexedStreamerProps, "store" | "joins" | "onWait" | "openStreamer"> {
+  /** Answers which channels a calculation writes, and when the answer changes. */
+  outputs: CalculationOutputs;
   openStreamer: StreamOpener;
   readLatest: RemoteLatestReader;
   /** Reads the first stored sample of each channel. */

@@ -118,20 +118,6 @@ export type InvalidateHandler = (
   missed: boolean,
 ) => void;
 
-/** Answers which channels a calculation writes, whether the reader sees it or not. */
-export interface CalculationOutputs {
-  /** @returns the keys among keys that a calculation writes. */
-  retrieve: (keys: channel.Key[]) => Promise<Set<channel.Key>>;
-  /**
-   * Calls handler with whether a calculation writes the channel, each time the answer
-   * may have changed.
-   */
-  onChange: (
-    key: channel.Key,
-    handler: (written: boolean) => void,
-  ) => destructor.Destructor;
-}
-
 /**
  * @returns true when a calculation writes the channel's samples: an output named in
  * outputs, or the virtual index of a calculation.
@@ -334,16 +320,16 @@ export class Store {
 
   /**
    * Records the channel, which decides whether history signals name it, and which
-   * index's floor its raw samples follow. calculated is true when a calculation writes
-   * its samples.
+   * index's floor its raw samples follow. outputs holds the channels that a calculation
+   * writes, and must hold the channel's key if one writes it.
    */
-  setChannel(p: channel.Payload, calculated: boolean): void {
+  setChannel(p: channel.Payload, outputs: Set<channel.Key>): void {
     const index = p.isIndex ? p.key : p.index;
     if (index !== 0) {
       this.indexOf.set(p.key, index);
       this.indexOf.set(index, index);
     }
-    if (calculated) this.calculated.add(p.key);
+    if (calculated(p, outputs)) this.calculated.add(p.key);
     else this.calculated.delete(p.key);
     if (p.virtual) this.leaseholders.delete(p.key);
     else this.leaseholders.set(p.key, p.leaseholder);
