@@ -404,6 +404,28 @@ describe("Kafka Write form", () => {
     expect(screen.getByDisplayValue("pump-1")).toBeTruthy();
   });
 
+  it("should start every topic on one edge and truncate the record key first", async () => {
+    const fields = [createField("speed", "float")];
+    const { target: short } = await createTarget(fields);
+    const { target: long } = await createTarget(fields, {
+      key: "t2",
+      topic: "plant.commands",
+      recordKey: "pump_speed_setpoint_of_the_north_pump_house",
+    });
+    await renderWrite([short, long]);
+    const item = async (topic: RegExp) =>
+      within(await screen.findByRole("option", { name: topic }));
+    const pumps = (await item(/plant\.pumps/)).getByText("plant.pumps");
+    const keyed = await item(/plant\.commands/);
+    const commands = keyed.getByText("plant.commands");
+    const key = keyed.getByText("pump_speed_setpoint_of_the_north_pump_house");
+    expect(commands.getBoundingClientRect().left).toBe(
+      pumps.getBoundingClientRect().left,
+    );
+    expect(key.scrollWidth).toBeGreaterThan(key.clientWidth);
+    expect(commands.scrollWidth).toBe(commands.clientWidth);
+  });
+
   it("should name a new command channel after the device, topic, record key, and field", async () => {
     const { target } = await createTarget([createField("speed", "float")], {
       recordKey: "pump-1",
