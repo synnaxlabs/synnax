@@ -20,7 +20,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 
-import type { RenderProp } from "@/component/renderProp";
+import type { Component } from "@/component";
 import { CSS } from "@/css";
 import { Dialog } from "@/dialog";
 import { Flex } from "@/flex";
@@ -300,7 +300,7 @@ export interface ContextMenuMenuProps extends ContextMenuState {
 
 export interface ContextMenuProps
   extends Omit<UseContextMenuReturn, "className">, Omit<Flex.BoxProps, "ref"> {
-  menu?: RenderProp<ContextMenuMenuProps>;
+  menu?: Component.RenderProp<ContextMenuMenuProps>;
 }
 
 // The surface of an open menu, in the top layer. It mounts only while the menu is open.

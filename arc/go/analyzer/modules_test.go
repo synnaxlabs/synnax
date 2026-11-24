@@ -13,11 +13,14 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/analyzer"
+	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/analyzer/context"
+	"github.com/synnaxlabs/arc/analyzer/testutil"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/diagnostics"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -46,6 +49,29 @@ var _ = Describe("Modules", func() {
 			)
 		})
 
+		DescribeTable(
+			"Should give a fix that removes an authority block from a module",
+			func(bCtx SpecContext, source, fixed string) {
+				ctx := analyze(bCtx, source, true)
+				var fixes []diagnostics.Fix
+				for _, d := range *ctx.Diagnostics {
+					if d.Code == codes.ModuleAuthority.Code {
+						fixes = append(fixes, d.Fixes...)
+					}
+				}
+				Expect(fixes).To(HaveLen(1))
+				Expect(fixes[0].Title).To(Equal("Remove authority block"))
+				Expect(testutil.ApplyFix(source, fixes[0])).To(Equal(fixed))
+			},
+			Entry("one value", "authority 255\nfunc f() {}", "func f() {}"),
+			Entry(
+				"a block of entries",
+				"authority (\n    200\n    out 255\n)\n\nfunc f() {}",
+				"\nfunc f() {}",
+			),
+			Entry("the last line", "authority 255", ""),
+		)
+
 		It("Should reject a top-level flow in a module", func(bCtx SpecContext) {
 			ctx := analyze(bCtx, "in -> out", true)
 			Expect(ctx.Diagnostics.String()).To(
@@ -66,6 +92,43 @@ var _ = Describe("Modules", func() {
 			Expect(ctx.Diagnostics.String()).To(
 				ContainSubstring("export is only valid in a module"),
 			)
+		})
+
+		DescribeTable(
+			"Should give a fix that removes export outside a module",
+			func(bCtx SpecContext, source, fixed string) {
+				ctx := analyze(bCtx, source, false)
+				Expect(*ctx.Diagnostics).To(HaveLen(1))
+				fixes := (*ctx.Diagnostics)[0].Fixes
+				Expect(fixes).To(HaveLen(1))
+				Expect(fixes[0].Title).To(Equal("Remove export"))
+				Expect(testutil.ApplyFix(source, fixes[0])).To(Equal(fixed))
+			},
+			Entry("function", "export func f() {}", "func f() {}"),
+			Entry(
+				"sequence",
+				"export sequence s { stage a {} }",
+				"sequence s { stage a {} }",
+			),
+			Entry("stage", "export stage s {}", "stage s {}"),
+			Entry("variable", "export x := 1", "x := 1"),
+			Entry(
+				"declaration after another",
+				"func g() {}\nexport func f() {}",
+				"func g() {}\nfunc f() {}",
+			),
+			Entry("declaration on the next line", "export\nfunc f() {}", "func f() {}"),
+			Entry(
+				"comment after export",
+				"export // why\nfunc f() {}",
+				"// why\nfunc f() {}",
+			),
+		)
+
+		It("Should give no fix for an export in a module", func(bCtx SpecContext) {
+			ctx := analyze(bCtx, "export sequence { stage s {} }", true)
+			Expect(*ctx.Diagnostics).To(HaveLen(1))
+			Expect((*ctx.Diagnostics)[0].Fixes).To(BeEmpty())
 		})
 
 		It("Should reject an unnamed exported declaration", func(bCtx SpecContext) {

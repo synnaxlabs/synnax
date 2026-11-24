@@ -27,8 +27,6 @@ const (
 	ActionTypeInsert = "insert"
 	// ActionTypeMove is the Type of an Action that carries MovePayload.
 	ActionTypeMove = "move"
-	// ActionTypeSetUsername is the Type of an Action that carries SetUsernamePayload.
-	ActionTypeSetUsername = "set_username"
 )
 
 // CreatePayload replaces the user with the given created state. Emitted by the Core
@@ -51,22 +49,15 @@ type InsertPayload patch.Insert
 // MovePayload moves an entry in a list. It does nothing when the entry is missing.
 type MovePayload patch.Move
 
-// SetUsernamePayload changes the username of the user's password. The Core refuses a
-// username that another user holds.
-type SetUsernamePayload struct {
-	Username string `json:"username" msgpack:"username"`
-}
-
 // Action is a discriminated union for all User mutations. Type names
 // the variant; the matching pointer field carries the payload and others are nil.
 type Action struct {
-	Type        string              `json:"type" msgpack:"type"`
-	Create      *CreatePayload      `json:"create,omitzero" msgpack:"create,omitempty"`
-	Set         *SetPayload         `json:"set,omitzero" msgpack:"set,omitempty"`
-	Remove      *RemovePayload      `json:"remove,omitzero" msgpack:"remove,omitempty"`
-	Insert      *InsertPayload      `json:"insert,omitzero" msgpack:"insert,omitempty"`
-	Move        *MovePayload        `json:"move,omitzero" msgpack:"move,omitempty"`
-	SetUsername *SetUsernamePayload `json:"set_username,omitzero" msgpack:"set_username,omitempty"`
+	Type   string         `json:"type" msgpack:"type"`
+	Create *CreatePayload `json:"create,omitzero" msgpack:"create,omitempty"`
+	Set    *SetPayload    `json:"set,omitzero" msgpack:"set,omitempty"`
+	Remove *RemovePayload `json:"remove,omitzero" msgpack:"remove,omitempty"`
+	Insert *InsertPayload `json:"insert,omitzero" msgpack:"insert,omitempty"`
+	Move   *MovePayload   `json:"move,omitzero" msgpack:"move,omitempty"`
 }
 
 // Reduce applies the given actions sequentially to state by dispatching on each
@@ -102,11 +93,6 @@ func Reduce(state User, actions ...Action) (User, error) {
 				return User{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.Move.Handle(state)
-		case ActionTypeSetUsername:
-			if a.SetUsername == nil {
-				return User{}, union.MissingPayload(a.Type)
-			}
-			state, err = a.SetUsername.Handle(state)
 		default:
 			return User{}, union.UnknownVariant(a.Type)
 		}
@@ -140,9 +126,4 @@ func NewInsertAction(p InsertPayload) Action {
 // NewMoveAction wraps a MovePayload in an Action envelope.
 func NewMoveAction(p MovePayload) Action {
 	return Action{Type: ActionTypeMove, Move: &p}
-}
-
-// NewSetUsernameAction wraps a SetUsernamePayload in an Action envelope.
-func NewSetUsernameAction(p SetUsernamePayload) Action {
-	return Action{Type: ActionTypeSetUsername, SetUsername: &p}
 }

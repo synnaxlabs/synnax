@@ -12,14 +12,17 @@ package v7
 import (
 	"context"
 	"fmt"
+	"math"
 
 	"github.com/synnaxlabs/gorp/migrate"
 	color "github.com/synnaxlabs/synnax/pkg/service/color/versions/v0"
 	v6 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v6"
 	xcolor "github.com/synnaxlabs/x/color/versions/v2"
+	telem "github.com/synnaxlabs/x/telem/versions/v0"
 )
 
-// MigrateTable lifts a v6 table to v7, which stores each cell color as a reference.
+// MigrateTable lifts a v6 table to v7, which stores each cell color as a reference and
+// each staleness timeout as a span.
 func MigrateTable(ctx context.Context, old v6.Table) (Table, error) {
 	return autoMigrateTable(ctx, old)
 }
@@ -38,7 +41,8 @@ func MigrateCell(ctx context.Context, old v6.Cell) (Cell, error) {
 }
 
 // MigrateCellConfig lifts a v6 cell config to v7. Each color becomes a fixed color, and
-// an absent color stays absent.
+// an absent color stays absent. A staleness timeout in seconds becomes a span of at
+// least 1 second, and one that is not a positive number becomes 5 seconds.
 func MigrateCellConfig(ctx context.Context, old v6.CellConfig) (CellConfig, error) {
 	c, err := autoMigrateCellConfig(ctx, old)
 	if err != nil {
@@ -55,6 +59,7 @@ func MigrateCellConfig(ctx context.Context, old v6.CellConfig) (CellConfig, erro
 		v.FillColor = fixed(o.FillColor)
 		v.TextColor = fixed(o.TextColor)
 		v.StalenessColor = fixed(o.StalenessColor)
+		v.StalenessTimeout = migrateStalenessTimeout(o.StalenessTimeout)
 		c.Variant = v
 	}
 	return c, nil
@@ -75,4 +80,15 @@ func fixed(c *xcolor.Color) *color.Ref {
 		return nil
 	}
 	return &color.Ref{Variant: color.FixedRef{Value: *c}}
+}
+
+// maxStalenessTimeout is the largest span a JavaScript number holds exactly.
+const maxStalenessTimeout telem.TimeSpan = 1<<53 - 1
+
+func migrateStalenessTimeout(seconds float64) telem.TimeSpan {
+	if math.IsNaN(seconds) || seconds <= 0 {
+		return 5 * telem.Second
+	}
+	ns := math.Round(max(seconds, 1) * float64(telem.Second))
+	return telem.TimeSpan(min(ns, float64(maxStalenessTimeout)))
 }

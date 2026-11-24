@@ -8,18 +8,24 @@
 #  included in the file licenses/APL.txt.
 
 import asyncio
+import ssl
+import sys
 import threading
 from collections.abc import Iterator
 from datetime import timedelta
+from http.server import BaseHTTPRequestHandler, HTTPServer
+from pathlib import Path
 from typing import override
 
 import pytest
+import trustme
+from websockets.asyncio import server as async_server
 from websockets.frames import Frame, Opcode
 from websockets.protocol import Event
 from websockets.sync.server import ServerConnection, serve
 
 from alamos import NOOP
-from freighter import URL, Empty
+from freighter import URL, Empty, Unreachable
 from freighter.websocket import Message
 from synnax.exceptions import create_registry
 from synnax.telem import CrudeTimeSpan, TimeSpan
@@ -51,6 +57,93 @@ def pinged_endpoint() -> Iterator[tuple[URL, threading.Event]]:
         yield URL(host="localhost", port=server.socket.getsockname()[1]), pinged
         server.shutdown()
         thread.join()
+
+
+# A server on localhost listens on a port per address family, so a client can reach
+# another server on the same port number.
+_HOST = "127.0.0.1"
+
+
+class _EchoHandler(BaseHTTPRequestHandler):
+    def do_POST(self) -> None:
+        body = self.rfile.read(int(self.headers["Content-Length"]))
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+
+async def _open_ack(ws: async_server.ServerConnection) -> None:
+    await ws.send(JSONCodec().encode(Message[Empty](type="open", payload=Empty())))
+    await ws.recv()
+
+
+@pytest.fixture(scope="module")
+def ca() -> trustme.CA:
+    return trustme.CA()
+
+
+@pytest.fixture
+def ca_cert(tmp_path: Path, ca: trustme.CA) -> str:
+    path = tmp_path / "ca.crt"
+    ca.cert_pem.write_to_path(str(path))
+    return str(path)
+
+
+@pytest.fixture
+def server_ctx(ca: trustme.CA) -> ssl.SSLContext:
+    ctx = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+    ca.issue_cert(_HOST).configure_cert(ctx)
+    return ctx
+
+
+@pytest.fixture
+def tls_endpoints(server_ctx: ssl.SSLContext) -> Iterator[tuple[URL, URL]]:
+    """Serves HTTP and WebSocket endpoints with a certificate that the ca fixture
+    signs. Yields the HTTP URL, then the WebSocket URL."""
+    http = HTTPServer((_HOST, 0), _EchoHandler)
+    http.socket = server_ctx.wrap_socket(http.socket, server_side=True)
+    threading.Thread(target=http.serve_forever, args=(0.01,), daemon=True).start()
+    # The sync websockets server drops some TLS 1.3 handshakes.
+    loop = asyncio.new_event_loop()
+    threading.Thread(target=loop.run_forever, daemon=True).start()
+
+    async def start() -> async_server.Server:
+        return await async_server.serve(_open_ack, _HOST, 0, ssl=server_ctx)
+
+    ws = asyncio.run_coroutine_threadsafe(start(), loop).result()
+    yield (
+        URL(host=_HOST, port=http.server_address[1]),
+        URL(host=_HOST, port=next(iter(ws.sockets)).getsockname()[1]),
+    )
+
+    async def stop() -> None:
+        ws.close()
+        await ws.wait_closed()
+
+    asyncio.run_coroutine_threadsafe(stop(), loop).result()
+    loop.call_soon_threadsafe(loop.stop)
+    http.shutdown()
+    http.server_close()
+
+
+def _transport(url: URL, ca_cert: str | None = None) -> Transport:
+    return Transport(
+        url=url,
+        instrumentation=NOOP,
+        registry=create_registry(),
+        secure=True,
+        ca_cert=ca_cert,
+    )
+
+
+async def _connect(endpoints: tuple[URL, URL], ca_cert: str | None = None) -> None:
+    http_url, ws_url = endpoints
+    _transport(http_url, ca_cert).unary.send("/", Empty(), Empty)
+    _transport(ws_url, ca_cert).stream.stream("/", Empty, Empty).close_send()
+    stream = await _transport(ws_url, ca_cert).stream_async.stream("/", Empty, Empty)
+    await stream.close_send()
 
 
 class TestTransport:
@@ -101,3 +194,47 @@ class TestKeepAlive:
         stream = await transport.stream_async.stream("/", Empty, Empty)
         assert await asyncio.to_thread(pinged.wait, 2)
         await stream.close_send()
+
+
+@pytest.mark.asyncio
+class TestTLS:
+    async def test_ca_cert(self, tls_endpoints: tuple[URL, URL], ca_cert: str) -> None:
+        """Should trust a Core certificate that ca_cert signs."""
+        await _connect(tls_endpoints, ca_cert)
+
+    async def test_untrusted(self, tls_endpoints: tuple[URL, URL]) -> None:
+        """Should reject a Core certificate that the system store does not trust."""
+        http_url, ws_url = tls_endpoints
+        with pytest.raises(Unreachable):
+            _transport(http_url).unary.send("/", Empty(), Empty)
+        with pytest.raises(ssl.SSLCertVerificationError):
+            _transport(ws_url).stream.stream("/", Empty, Empty)
+        with pytest.raises(ssl.SSLCertVerificationError):
+            await _transport(ws_url).stream_async.stream("/", Empty, Empty)
+
+    @pytest.mark.skipif(
+        sys.platform != "linux", reason="The system store is OpenSSL only on Linux"
+    )
+    async def test_system_store(
+        self,
+        tls_endpoints: tuple[URL, URL],
+        ca_cert: str,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Should trust a Core certificate that the system store trusts."""
+        monkeypatch.setenv("SSL_CERT_FILE", ca_cert)
+        await _connect(tls_endpoints)
+
+    @pytest.mark.skipif(
+        sys.platform == "linux", reason="The system store is OpenSSL on Linux"
+    )
+    async def test_openssl_file(
+        self,
+        tls_endpoints: tuple[URL, URL],
+        ca_cert: str,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Should ignore the certificate file of Python's OpenSSL outside Linux."""
+        monkeypatch.setenv("SSL_CERT_FILE", ca_cert)
+        with pytest.raises(Unreachable):
+            _transport(tls_endpoints[0]).unary.send("/", Empty(), Empty)

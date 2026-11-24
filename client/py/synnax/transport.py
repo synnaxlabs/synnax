@@ -10,6 +10,7 @@
 import ssl
 from collections.abc import Sequence
 
+import truststore
 from pydantic import BaseModel, SerializeAsAny
 from urllib3 import Retry, Timeout
 
@@ -55,7 +56,8 @@ class Transport:
         """
         :param registry: Decodes the errors that the Core returns.
         :param secure: Whether to use TLS. The client then verifies the Core's
-            certificate against ca_cert, or the system trust roots when ca_cert is None.
+            certificate against only ca_cert, or against the operating system
+            certificate store when ca_cert is None.
         :param open_timeout: The time to wait for a connection. A bare number is
             seconds.
         :param read_timeout: The time to wait for a response. A bare number is seconds.
@@ -69,7 +71,11 @@ class Transport:
         open_timeout = TimeSpan.from_seconds(open_timeout)
         read_timeout = TimeSpan.from_seconds(read_timeout)
         keep_alive = TimeSpan.from_seconds(keep_alive)
-        ssl_context = ssl.create_default_context(cafile=ca_cert) if secure else None
+        ssl_context: ssl.SSLContext | None = None
+        if ca_cert is not None:
+            ssl_context = ssl.create_default_context(cafile=ca_cert)
+        elif secure:
+            ssl_context = truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
         self.url = url.child("/api/v1/")
         codec = JSONCodec()
         max_message_size = int(Size.MB * 5)
