@@ -38,8 +38,9 @@ import (
 // through snap with channels. A field binds no channel when it is disabled, when its
 // channel does not exist, or when an earlier field writes that channel. The index of a
 // read is the field that writes an index channel, and it takes no fill value. Any other
-// fill value becomes the default of its field. note receives the path and each change.
-// ResolveReadConfig returns an error when a staged endpoint is not an endpoint of cfg.
+// fill value becomes the default of its field. An endpoint whose fields are all
+// disabled becomes disabled. note receives the path and each change. ResolveReadConfig
+// returns an error when a staged endpoint is not an endpoint of cfg.
 func ResolveReadConfig(
 	ctx context.Context,
 	snap gorp.Snapshot,
@@ -93,6 +94,11 @@ func ResolveReadConfig(
 		lifted.Messages[i] = msg
 		ep.ICD = new(lifted.Key)
 		ep.Messages = []icdv0.ReadMessage{read}
+		if !ep.Disabled && len(e.Fields) > 0 &&
+			lo.EveryBy(e.Fields, func(f ReadField) bool { return f.Disabled }) {
+			ep.Disabled = true
+			note(paths[i], "was disabled, because each of its fields is disabled")
+		}
 	}
 	ic, err := icdv1.MigrateICD(ctx, lifted)
 	if err != nil {
@@ -106,7 +112,8 @@ func ResolveReadConfig(
 // readFields returns the fields of e to lift and the key of its index field: the field
 // that writes an index channel in found, preferring the field that e names. A field
 // binds no channel when claimed holds an earlier field that writes it. readFields adds
-// each field it binds to claimed, and note receives each change at path.
+// each field it binds to claimed, and note receives each change at path and each other
+// field that writes an index channel.
 func readFields(
 	e InlineEndpoint,
 	found map[channel.Key]icdv0.Channel,
@@ -116,6 +123,7 @@ func readFields(
 ) ([]icdv0.InlineField, string) {
 	fields := lo.Map(e.Fields, toInline)
 	index := ""
+	var indexFields []int
 	for j := range fields {
 		f := &fields[j]
 		ch, exists := found[f.Channel]
@@ -130,8 +138,19 @@ func readFields(
 			continue
 		}
 		claimed[f.Channel] = at
-		if ch.Index && (index == "" || f.Key == e.Index) {
+		if !ch.Index {
+			continue
+		}
+		indexFields = append(indexFields, j)
+		if index == "" || f.Key == e.Index {
 			index = f.Key
+		}
+	}
+	for _, j := range indexFields {
+		if key := fields[j].Key; key != index {
+			note(path+".fields."+strconv.Itoa(j), "field "+key+" and index field "+
+				index+" both write index channels. Split the endpoint into two, each "+
+				"with one index field")
 		}
 	}
 	switch index {

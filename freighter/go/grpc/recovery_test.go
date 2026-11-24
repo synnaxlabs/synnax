@@ -24,18 +24,22 @@ import (
 )
 
 var _ = Describe("Recovery Interceptors", func() {
+	panicMessage := "sy.internal---" + recovery.ErrPanic.Error()
 	Describe("Unary", func() {
-		It("should recover a panic and return a codes.Internal status", func() {
-			interceptor := fgrpc.RecoveryUnaryServerInterceptor(
-				alamos.Instrumentation{},
-			)
-			info := &grpc.UnaryServerInfo{FullMethod: "/test.Service/Method"}
-			_, err := interceptor(context.Background(), nil, info,
-				func(context.Context, any) (any, error) { panic("boom") },
-			)
-			Expect(status.Code(err)).To(Equal(codes.Internal))
-			Expect(err).To(MatchError(ContainSubstring(recovery.ErrPanic.Error())))
-		})
+		It(
+			"should recover a panic and return ErrPanic in a codes.Internal status",
+			func() {
+				interceptor := fgrpc.RecoveryUnaryServerInterceptor(
+					alamos.Instrumentation{},
+				)
+				info := &grpc.UnaryServerInfo{FullMethod: "/test.Service/Method"}
+				_, err := interceptor(context.Background(), nil, info,
+					func(context.Context, any) (any, error) { panic("boom") },
+				)
+				Expect(status.Code(err)).To(Equal(codes.Internal))
+				Expect(status.Convert(err).Message()).To(Equal(panicMessage))
+			},
+		)
 
 		It("should pass through a non-panicking handler", func() {
 			interceptor := fgrpc.RecoveryUnaryServerInterceptor(
@@ -50,16 +54,19 @@ var _ = Describe("Recovery Interceptors", func() {
 	})
 
 	Describe("Stream", func() {
-		It("should recover a panic and return a codes.Internal status", func() {
-			interceptor := fgrpc.RecoveryStreamServerInterceptor(
-				alamos.Instrumentation{},
-			)
-			info := &grpc.StreamServerInfo{FullMethod: "/test.Service/Stream"}
-			err := interceptor(nil, nil, info,
-				func(any, grpc.ServerStream) error { panic("boom") },
-			)
-			Expect(status.Code(err)).To(Equal(codes.Internal))
-			Expect(err).To(MatchError(ContainSubstring(recovery.ErrPanic.Error())))
-		})
+		It(
+			"should recover a panic and return ErrPanic in a codes.Internal status",
+			func() {
+				interceptor := fgrpc.RecoveryStreamServerInterceptor(
+					alamos.Instrumentation{},
+				)
+				info := &grpc.StreamServerInfo{FullMethod: "/test.Service/Stream"}
+				err := interceptor(nil, nil, info,
+					func(any, grpc.ServerStream) error { panic("boom") },
+				)
+				Expect(status.Code(err)).To(Equal(codes.Internal))
+				Expect(status.Convert(err).Message()).To(Equal(panicMessage))
+			},
+		)
 	})
 })

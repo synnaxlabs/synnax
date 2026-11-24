@@ -16,6 +16,7 @@ import "schemas/synnax/versions/ranger/v1"
 import "schemas/synnax/versions/symbol/v5"
 import "schemas/x/versions/border/v0"
 import "schemas/x/versions/color/v2"
+import "schemas/x/versions/notation/v0"
 import "schemas/x/versions/spatial/v0"
 import "schemas/x/versions/telem/v0"
 import "schemas/x/versions/text/v0"
@@ -50,33 +51,38 @@ LabeledConfig = v13.LabeledConfig
 
 ScaledConfig = v9.ScaledConfig
 
-StalenessConfig = v13.StalenessConfig
+StalenessConfig struct extends v13.StalenessConfig {
+    -staleness_color
+}
 
 NumericTelemConfig = v13.NumericTelemConfig
 
 ControlStateConfig = v9.ControlStateConfig
 
-ToggleConfig = v13.ToggleConfig
+ToggleConfig struct extends v13.ToggleConfig {}
 
 StaticSymbolConfig = v13.StaticSymbolConfig
 
-ToggleSymbolConfig = v13.ToggleSymbolConfig
+ToggleSymbolConfig struct extends v13.ToggleSymbolConfig {}
 
 DummyToggleSymbolConfig = v13.DummyToggleSymbolConfig
 
 ScaleIndicatorConfig struct extends v13.ScaleIndicatorConfig {
-    level_color color.Ref? {
+    bounds      spatial.ClosedBounds = { lower = 0, upper = 100 } {
+        @doc value "is the numeric range the indicator maps onto its extent."
+    }
+    level_color color.Ref?           {
         @doc value """
             is the color of the filled portion, the caret, and the value readout border,
             a named color or a fixed color.
         """
     }
-    axis_color  color.Ref? {
+    axis_color  color.Ref?           {
         @doc value """
             is the color of the axis and its ticks, a named color or a fixed color.
         """
     }
-    text_color  color.Ref? {
+    text_color  color.Ref?           {
         @doc value "is the color of the tick labels, a named color or a fixed color."
     }
 }
@@ -87,7 +93,114 @@ PageType = v9.PageType
 
 Page = v9.Page
 
+FormatConfig struct {
+    units     string?            {
+        @doc value "is the unit suffix shown after the value. Absent shows none."
+    }
+    precision uint8?             {
+        @doc value    """
+            is the number of decimal places shown, from 0 to 17. Absent shows 2.
+        """
+        @validate max 17
+    }
+    notation  notation.Notation? {
+        @doc value "is the notation of the value. Absent shows standard notation."
+    }
+
+    @doc value  "is how a node shows a number."
+    @go marshal
+}
+
+StateBinding struct extends FormatConfig {
+    key         string                {
+        @doc value "is the key of the state of the symbol that the binding sets."
+    }
+    source      Source?               {
+        @doc value "is where the state reads its value, or nowhere."
+    }
+    enumeration enumeration.Key?      {
+        @doc value "replaces the enumeration of the state."
+    }
+    match       symbol.Matcher?       {
+        @doc value "replaces the match of the state."
+    }
+    bounds      spatial.ClosedBounds? {
+        @doc value "replaces the bounds of a number state."
+    }
+    default     float64?              {
+        @doc value "replaces the default of the state."
+    }
+
+    @doc value  "is how one node reads one state of its symbol."
+    @go marshal
+}
+
+Source union on type {
+    channel {
+        key     channel.Key? {
+            @doc value "is the channel that the state reads."
+        }
+        command channel.Key? {
+            @doc value "is the channel that the commands of the state write to."
+        }
+
+        @doc value "reads a channel."
+    }
+    local {
+        value float64 {
+            @doc value "is the value that the state reads and its commands write."
+        }
+
+        @doc value "holds a value in the node."
+    }
+
+    @doc value  "is where a state reads its value."
+    @go marshal
+}
+
+CommandBinding struct {
+    key     string      {
+        @doc value "is the key of the command of the symbol."
+    }
+    channel channel.Key {
+        @doc value "is the channel that the command writes to."
+    }
+
+    @doc value  "is the channel of a command that has no state."
+    @go marshal
+}
+
 NodeConfig union on variant extends v13.NodeConfig {
+    symbol extends LabeledConfig, ScaledConfig, StalenessConfig {
+        spec            symbol.Ref          {
+            @doc value "is the symbol that the node draws."
+        }
+        color           color.Ref?          {
+            @doc value "is the color that node paint reads."
+        }
+        disabled        bool = false {
+            @doc value "is true when the node takes no clicks."
+        }
+        motion_disabled bool = false {
+            @doc value "is true when the node draws no motion."
+        }
+        on_click_delay  telem.TimeSpan = 0 {
+            @doc value    "is the debounce delay applied to clicks."
+            @validate max 2147483647000000
+            @validate min 0
+        }
+        states          StateBinding[] = [] {
+            @doc value "are how the node reads the states of its symbol."
+        }
+        commands        CommandBinding[] = [] {
+            @doc value "are the channels of the commands that have no state."
+        }
+        control         ControlStateConfig? {
+            @doc value "is the control state display configuration."
+        }
+
+        @doc value "is the configuration for a node that draws a symbol."
+    }
     box {
         stroke_color color.Ref? {
             @doc value "is the border color of the box, a named color or a fixed color."
@@ -117,8 +230,11 @@ NodeConfig union on variant extends v13.NodeConfig {
         }
     }
     gauge {
-        stroke_color color.Ref? {
+        stroke_color color.Ref?           {
             @doc value "is the color of the gauge arc, a named color or a fixed color."
+        }
+        bounds       spatial.ClosedBounds = { lower = 0, upper = 100 } {
+            @doc value "is the numeric range displayed by the gauge."
         }
     }
     line {

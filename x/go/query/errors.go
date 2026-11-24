@@ -36,21 +36,47 @@ const (
 	unsupported       = typePrefix + ".unsupported"
 )
 
+// wrap decodes data into ref. The sentinel text that data ends with is not repeated.
+func wrap(ref error, data string) error {
+	if data == ref.Error() {
+		return ref
+	}
+	if detail, ok := strings.CutSuffix(data, ": "+ref.Error()); ok {
+		return errors.Wrap(ref, detail)
+	}
+	return errors.Wrap(ref, data)
+}
+
 func encode(_ *errors.Codec, err error) (errors.Payload, bool) {
 	if errors.CheapIs(err, ErrNotFound) {
-		return errors.Payload{Type: notFound, Data: err.Error()}, true
+		return errors.Payload{
+			Type: notFound,
+			Data: err.Error(),
+		}, true
 	}
 	if errors.CheapIs(err, ErrUniqueViolation) {
-		return errors.Payload{Type: uniqueViolation, Data: err.Error()}, true
+		return errors.Payload{
+			Type: uniqueViolation,
+			Data: err.Error(),
+		}, true
 	}
 	if errors.CheapIs(err, ErrInvalidParameters) {
-		return errors.Payload{Type: invalidParameters, Data: err.Error()}, true
+		return errors.Payload{
+			Type: invalidParameters,
+			Data: err.Error(),
+		}, true
 	}
 	if errors.CheapIs(err, ErrUnsupported) {
-		return errors.Payload{Type: unsupported, Data: err.Error()}, true
+		return errors.Payload{
+			Type: unsupported,
+			Data: err.Error(),
+		}, true
 	}
 	if errors.CheapIs(err, ErrQuery) {
-		return errors.Payload{Type: typePrefix, Data: err.Error()}, true
+		return errors.Payload{
+			Type: typePrefix,
+			Data: err.Error(),
+		}, true
 	}
 	return errors.Payload{}, false
 }
@@ -58,16 +84,16 @@ func encode(_ *errors.Codec, err error) (errors.Payload, bool) {
 func decode(_ *errors.Codec, pld errors.Payload) (error, bool) {
 	switch pld.Type {
 	case notFound:
-		return errors.Wrap(ErrNotFound, pld.Data), true
+		return wrap(ErrNotFound, pld.Data), true
 	case uniqueViolation:
-		return errors.Wrap(ErrUniqueViolation, pld.Data), true
+		return wrap(ErrUniqueViolation, pld.Data), true
 	case invalidParameters:
-		return errors.Wrap(ErrInvalidParameters, pld.Data), true
+		return wrap(ErrInvalidParameters, pld.Data), true
 	case unsupported:
-		return errors.Wrap(ErrUnsupported, pld.Data), true
+		return wrap(ErrUnsupported, pld.Data), true
 	}
 	if strings.HasPrefix(pld.Type, typePrefix) {
-		return errors.Wrap(ErrQuery, pld.Data), true
+		return wrap(ErrQuery, pld.Data), true
 	}
 	return nil, false
 }

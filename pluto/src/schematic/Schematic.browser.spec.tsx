@@ -202,6 +202,21 @@ describe("Schematic", () => {
     });
   });
 
+  it("should draw the label of a symbol node", async () => {
+    const { utils } = await renderSchematic([
+      {
+        key: "n1",
+        position: { x: 0, y: 0 },
+        config: {
+          variant: "symbol",
+          label: { label: "Heater" },
+          spec: { type: "builtin", name: "valve" },
+        },
+      },
+    ]);
+    expect(await utils.findByText("Heater")).toBeDefined();
+  });
+
   it("should keep the tooltip over the stale badge and close it over the chip", async () => {
     const command = await client.channels.create({
       name: id.create(),

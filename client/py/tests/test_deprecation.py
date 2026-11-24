@@ -162,9 +162,7 @@ class TestPositionalArguments:
         policy = client.access.policies.create(
             sy.Policy(name="deprecation", actions=["retrieve"], role=role.key)
         )
-        user = client.users.create(
-            username=str(uuid4()), password="test", role=role.key
-        )
+        user = client.users.create(name=str(uuid4()), role=role.key)
         retrieve: Callable[..., list[sy.Policy]] = client.access.policies.retrieve
         with deprecated():
             matched = retrieve([policy.key])

@@ -20,6 +20,7 @@ import (
 	color "github.com/synnaxlabs/synnax/pkg/service/color/versions/v0"
 	enumeration "github.com/synnaxlabs/synnax/pkg/service/enumeration/versions/v0"
 	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
+	resource "github.com/synnaxlabs/synnax/pkg/service/resource/versions/v0"
 	v4 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v4"
 	"github.com/synnaxlabs/x/errors"
 	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
@@ -221,7 +222,7 @@ func (e EnumerationState) Validate() error {
 type NumberState struct {
 	BaseState
 	// Bounds is the range of values that motion reads as 0 to 1.
-	Bounds spatial.Bounds `json:"bounds" msgpack:"bounds"`
+	Bounds spatial.ClosedBounds `json:"bounds" msgpack:"bounds"`
 }
 
 func (NumberState) isStateVariant() {}
@@ -229,6 +230,14 @@ func (NumberState) isStateVariant() {}
 // SetDefaults sets every field that has a schema default to that default.
 func (n *NumberState) SetDefaults() {
 	n.Bounds.Upper = 100
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (n NumberState) Validate() error {
+	v := validate.New("NumberState")
+	v.Exec(func() error { return validate.PathedError(n.Bounds.Validate(), "bounds") })
+	return v.Error()
 }
 
 // State is what a symbol shows.
@@ -324,6 +333,8 @@ func (u State) Validate() error {
 	v.Ternary("type", u.Variant == nil, "required")
 	switch variant := u.Variant.(type) {
 	case EnumerationState:
+		v.Exec(variant.Validate)
+	case NumberState:
 		v.Exec(variant.Validate)
 	}
 	return v.Error()
@@ -619,7 +630,7 @@ func (u CommandValue) Validate() error {
 }
 
 // Look is paint, visibility, or motion on a part. A later look wins on each field that
-// it sets.
+// it sets. On motion, it replaces only an earlier motion of the same kind.
 type Look struct {
 	// Key is the look identifier.
 	Key string `json:"key" msgpack:"key"`
@@ -994,8 +1005,9 @@ type MotionVariant interface {
 
 // SpinMotion turns a part around its pivot.
 type SpinMotion struct {
-	// Rate is the turns each second at the upper bound of the state.
-	Rate telem.Rate `json:"rate" msgpack:"rate"`
+	// Rate is the turns each second at the upper bound of the state. A negative rate
+	// turns the part the other way.
+	Rate float64 `json:"rate" msgpack:"rate"`
 	// State is the key of the number state that sets the speed.
 	State *string `json:"state,omitzero" msgpack:"state,omitempty"`
 }
@@ -1011,14 +1023,15 @@ func (s *SpinMotion) SetDefaults() {
 // schema constraints.
 func (s SpinMotion) Validate() error {
 	v := validate.New("SpinMotion")
-	v.GreaterThanEq("rate", s.Rate, 0)
+	v.Finite("rate", s.Rate)
 	return v.Error()
 }
 
 // FlowMotion moves the dashes of a stroke along it.
 type FlowMotion struct {
-	// Rate is the cycles each second at the upper bound of the state.
-	Rate telem.Rate `json:"rate" msgpack:"rate"`
+	// Rate is the cycles each second at the upper bound of the state. A negative rate
+	// moves the dashes the other way.
+	Rate float64 `json:"rate" msgpack:"rate"`
 	// State is the key of the number state that sets the speed.
 	State *string `json:"state,omitzero" msgpack:"state,omitempty"`
 }
@@ -1034,7 +1047,7 @@ func (f *FlowMotion) SetDefaults() {
 // schema constraints.
 func (f FlowMotion) Validate() error {
 	v := validate.New("FlowMotion")
-	v.GreaterThanEq("rate", f.Rate, 0)
+	v.Finite("rate", f.Rate)
 	return v.Error()
 }
 
@@ -1474,6 +1487,155 @@ func (s Spec) Validate() error {
 	return v.Error()
 }
 
+// RefType is the "type" value that selects a variant of Ref.
+type RefType string
+
+const (
+	// BuiltinRefType is a symbol that the Core ships.
+	BuiltinRefType RefType = "builtin"
+	// CustomRefType is a symbol that a user made.
+	CustomRefType RefType = "custom"
+	// MissingRefType is a custom symbol that the Core does not have.
+	MissingRefType RefType = "missing"
+)
+
+// RefVariant is implemented by every Ref variant.
+type RefVariant interface {
+	isRefVariant()
+}
+
+// BuiltinRef is a symbol that the Core ships.
+type BuiltinRef struct {
+	// Name is the shipped name of the built-in.
+	Name string `json:"name" msgpack:"name"`
+}
+
+func (BuiltinRef) isRefVariant() {}
+
+// CustomRef is a symbol that a user made.
+type CustomRef struct {
+	// Key is the key of the symbol.
+	Key Key `json:"key" msgpack:"key"`
+}
+
+func (CustomRef) isRefVariant() {}
+
+// MissingRef is a custom symbol that the Core does not have.
+type MissingRef struct {
+	// Key is the key of the custom symbol that the Core does not have.
+	Key string `json:"key" msgpack:"key"`
+}
+
+func (MissingRef) isRefVariant() {}
+
+// Ref is the symbol that a node draws.
+type Ref struct {
+	Variant RefVariant
+}
+
+// MarshalJSONTo encodes the active variant with its "type" tag injected.
+func (u Ref) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
+	case BuiltinRef:
+		return json.MarshalEncode(enc, struct {
+			Type RefType `json:"type"`
+			BuiltinRef
+		}{Type: BuiltinRefType, BuiltinRef: v})
+	case CustomRef:
+		return json.MarshalEncode(enc, struct {
+			Type RefType `json:"type"`
+			CustomRef
+		}{Type: CustomRefType, CustomRef: v})
+	case MissingRef:
+		return json.MarshalEncode(enc, struct {
+			Type RefType `json:"type"`
+			MissingRef
+		}{Type: MissingRefType, MissingRef: v})
+	default:
+		return errors.Newf("Ref: unknown variant %T", v)
+	}
+}
+
+// UnmarshalJSONFrom decodes the variant selected by the "type" field.
+func (u *Ref) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
+		u.Variant = nil
+		return nil
+	}
+	opts := dec.Options()
+	var disc struct {
+		Type RefType `json:"type"`
+	}
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case BuiltinRefType:
+		var v struct {
+			Type RefType `json:"type"`
+			BuiltinRef
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.BuiltinRef
+	case CustomRefType:
+		var v struct {
+			Type RefType `json:"type"`
+			CustomRef
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.CustomRef
+	case MissingRefType:
+		var v struct {
+			Type RefType `json:"type"`
+			MissingRef
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.MissingRef
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"Ref: unknown type %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u Ref) Type() RefType {
+	switch u.Variant.(type) {
+	case BuiltinRef:
+		return BuiltinRefType
+	case CustomRef:
+		return CustomRefType
+	case MissingRef:
+		return MissingRefType
+	}
+	return ""
+}
+
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
+func (u Ref) Validate() error {
+	v := validate.New("Ref")
+	v.Ternary("type", u.Variant == nil, "required")
+	return v.Error()
+}
+
 // Symbol is a persisted schematic symbol defining reusable visual components for
 // diagrams.
 type Symbol struct {
@@ -1485,6 +1647,9 @@ type Symbol struct {
 	Data Spec `json:"data" msgpack:"data"`
 	// Group is the group the symbol sits in, if any.
 	Group *group.Key `json:"group,omitzero" msgpack:"group,omitempty"`
+	// Uses are the schematics that use the symbol and that the caller can read, filled
+	// only when a retrieve request asks for them.
+	Uses []resource.ID `json:"uses,omitzero" msgpack:"uses,omitempty"`
 }
 
 // SetDefaults sets every field that has a schema default to that default.

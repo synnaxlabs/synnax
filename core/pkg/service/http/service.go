@@ -17,9 +17,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/http/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/http/versions/legacy"
-	v5 "github.com/synnaxlabs/synnax/pkg/service/http/versions/v5"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
-	icdv0 "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/icd/read"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	xconfig "github.com/synnaxlabs/x/config"
 	xio "github.com/synnaxlabs/x/io"
@@ -70,9 +69,7 @@ type Service struct {
 	Write *config.Service[WriteConfig]
 	// Scan stores http_scan task configuration records.
 	Scan     *config.Service[ScanConfig]
-	icds     *icd.Service
-	channels icdv0.Channels
-	ins      alamos.Instrumentation
+	resolver readResolver
 	closer   xio.MultiCloser
 }
 
@@ -84,11 +81,13 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{
+	channels := icd.ReadChannels(cfg.Channel)
+	s = &Service{resolver: readResolver{
 		icds:     cfg.ICD,
-		channels: icd.ReadChannels(cfg.Channel),
+		channels: channels,
+		reads:    read.NewResolver(cfg.ICD, channels),
 		ins:      cfg.Instrumentation,
-	}
+	}}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.Read, err = config.OpenService(
@@ -104,7 +103,9 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			SetEntryKey:     (*ReadConfig).SetKey,
 			PatchEntry:      (*ReadConfig).Patch,
 			HashEntry:       (*ReadConfig).HashContent,
-			ResolveEntry:    s.resolveRead,
+			HashReferences:  s.resolver.hash,
+			HashedTables:    []string{"icd"},
+			ResolveEntry:    s.resolver.resolve,
 			ValidateEntry:   (*ReadConfig).Validate,
 		},
 	); !ok(err, s.Read) {
@@ -149,25 +150,6 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 // Close closes the service and releases the resources it holds. Close is not safe
 // to call concurrently with any other service methods.
 func (s *Service) Close() error { return s.closer.Close() }
-
-// resolveRead returns the write that creates the ICD of the inline fields of cfg, or
-// nil when cfg holds none.
-func (s *Service) resolveRead(
-	ctx context.Context,
-	snap gorp.Snapshot,
-	name string,
-	cfg *ReadConfig,
-) (func(context.Context, gorp.Tx) error, error) {
-	ic, ok, err := v5.ResolveReadConfig(
-		ctx, snap, s.channels, name, cfg, v5.NoteLift(s.ins, cfg.Key),
-	)
-	if err != nil || !ok {
-		return nil, err
-	}
-	return func(ctx context.Context, tx gorp.Tx) error {
-		return s.icds.NewWriter(tx).Create(ctx, &ic)
-	}, nil
-}
 
 // Stores returns the config stores the service owns, for registry assembly.
 func (s *Service) Stores() []config.Store {

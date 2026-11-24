@@ -20,7 +20,9 @@
 #include "x/cpp/defer/defer.h"
 #include "x/cpp/payload/types.gen.h"
 #include "x/cpp/testutil/testutil.h"
+#include "x/cpp/uuid/uuid.h"
 
+#include "driver/errors/errors.h"
 #include "driver/http/device/device.h"
 #include "driver/http/errors/errors.h"
 #include "driver/http/read_task.h"
@@ -31,6 +33,8 @@ using ::synnax::http::ReadEndpoint;
 using ::synnax::http::ReadField;
 
 namespace {
+using x::testutil::bytes;
+
 /// @brief helper to build a ReadTaskSource from config and a mock server URL.
 /// Each call creates its own Processor so tests have independent lifecycles.
 std::pair<std::unique_ptr<ReadTaskSource>, std::shared_ptr<Processor>> make_source(
@@ -4214,5 +4218,173 @@ TEST(HTTPReadTask, InvalidIntegerSkipsGroupWhenFilled) {
     ASSERT_NIL(res.error);
     EXPECT_TRUE(res.warning.description.starts_with("Failed to convert /p2"));
     EXPECT_EQ(fr.size(), 0);
+}
+
+namespace {
+/// @brief creates an ICD whose message Status holds a float field v at /v.
+/// @returns a GET endpoint at path that reads v into ch.
+::synnax::http::ReadEndpoint create_icd_endpoint(
+    const synnax::Synnax &client,
+    const std::string &path,
+    const synnax::channel::Channel &ch
+) {
+    synnax::icd::FloatJSONField v;
+    v.key = x::uuid::create();
+    v.name = "v";
+    v.pointer = "/v";
+    synnax::icd::Message m;
+    m.key = x::uuid::create();
+    m.name = "Status";
+    m.payload = synnax::icd::JSONPayload{.fields = {v}};
+    synnax::icd::ICD ic;
+    ic.key = x::uuid::create();
+    ic.name = "Plant";
+    ic.messages = {m};
+    EXPECT_NIL(client.icds.create(ic));
+    ::synnax::http::ReadEndpoint ep;
+    ep.key = path;
+    ep.path = path;
+    ep.icd = ic.key;
+    ep.messages = {{
+        .message = m.key,
+        .bindings = {{.field = v.key, .channel = ch.key}},
+    }};
+    return ep;
+}
+}
+
+/// @brief it should build the reader of each endpoint from the messages of its ICD.
+TEST(HTTPReadTask, BuildReadersReadsEachEndpoint) {
+    const auto first = create_field_channels(x::telem::FLOAT64_T);
+    const auto second = create_field_channels(x::telem::FLOAT64_T);
+    const auto &client = *first.client;
+    auto readers = ASSERT_NIL_P(build_readers(
+        client,
+        {create_icd_endpoint(client, "/a", first.data),
+         create_icd_endpoint(client, "/b", second.data)}
+    ));
+    ASSERT_EQ(readers.size(), 2);
+    const x::telem::TimeStamp received(1000);
+    x::telem::Frame fr;
+    ASSERT_EQ(ASSERT_NIL_P(readers[1].read(bytes(R"({"v": 2.5})"), received, fr)), 0U);
+    EXPECT_EQ(fr.at<double>(second.data.key, 0), 2.5);
+    EXPECT_EQ(fr.at<std::int64_t>(second.index.key, 0), received.nanoseconds());
+    EXPECT_FALSE(fr.contains(first.data.key));
+}
+
+/// @brief it should build no reader for a disabled endpoint and skip its checks.
+TEST(HTTPReadTask, BuildReadersSkipsDisabledEndpoint) {
+    const auto ch = create_field_channels(x::telem::FLOAT64_T);
+    const auto &client = *ch.client;
+    auto disabled = create_icd_endpoint(client, "/b", ch.data);
+    disabled.disabled = true;
+    disabled.icd = x::uuid::create();
+    auto readers = ASSERT_NIL_P(
+        build_readers(client, {create_icd_endpoint(client, "/a", ch.data), disabled})
+    );
+    ASSERT_EQ(readers.size(), 1);
+    x::telem::Frame fr;
+    ASSERT_EQ(
+        ASSERT_NIL_P(
+            readers[0].read(bytes(R"({"v": 2.5})"), x::telem::TimeStamp(1000), fr)
+        ),
+        0U
+    );
+    EXPECT_EQ(fr.at<double>(ch.data.key, 0), 2.5);
+}
+
+/// @brief it should reject an endpoint with no ICD or no messages, and name it.
+TEST(HTTPReadTask, BuildReadersRejectsEndpointWithNoMessages) {
+    const auto ch = create_field_channels(x::telem::FLOAT64_T);
+    ::synnax::http::ReadEndpoint no_icd;
+    no_icd.path = "/a";
+    auto no_messages = create_icd_endpoint(*ch.client, "/a", ch.data);
+    no_messages.messages.clear();
+    for (const auto &ep: {no_icd, no_messages}) {
+        const auto err = build_readers(*ch.client, {ep}).second;
+        ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
+        EXPECT_EQ(
+            err.data,
+            "endpoint GET /a reads no messages. Open the task and pick a message "
+            "for it."
+        );
+    }
+}
+
+/// @brief it should reject two endpoints that write to one channel, and name both.
+TEST(HTTPReadTask, BuildReadersRejectsChannelOfTwoEndpoints) {
+    const auto ch = create_field_channels(x::telem::FLOAT64_T);
+    const auto &client = *ch.client;
+    const std::vector endpoints{
+        create_icd_endpoint(client, "/a", ch.data),
+        create_icd_endpoint(client, "/b", ch.data)
+    };
+    const auto err = build_readers(client, endpoints).second;
+    ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
+    EXPECT_EQ(
+        err.data,
+        "endpoint GET /a and endpoint GET /b write to the same channel " +
+            std::to_string(ch.data.key)
+    );
+}
+
+/// @brief it should reject two endpoints whose channels share one index channel, since
+/// each would write it with its own arrival time.
+TEST(HTTPReadTask, BuildReadersRejectsIndexOfTwoEndpoints) {
+    const auto first = create_field_channels(x::telem::FLOAT64_T);
+    const auto &client = *first.client;
+    const auto second = ASSERT_NIL_P(client.channels.create(
+        make_unique_channel_name("value"),
+        x::telem::FLOAT64_T,
+        first.index.key,
+        false
+    ));
+    const std::vector endpoints{
+        create_icd_endpoint(client, "/a", first.data),
+        create_icd_endpoint(client, "/b", second)
+    };
+    const auto err = build_readers(client, endpoints).second;
+    ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
+    EXPECT_EQ(
+        err.data,
+        "endpoint GET /a and endpoint GET /b write to the same channel " +
+            std::to_string(first.index.key)
+    );
+}
+
+/// @brief it should reject an endpoint whose ICD does not exist.
+TEST(HTTPReadTask, BuildReadersRejectsMissingICD) {
+    const auto client = new_test_client();
+    ::synnax::http::ReadEndpoint ep;
+    ep.path = "/a";
+    ep.icd = x::uuid::create();
+    ep.messages = {{.message = x::uuid::create()}};
+    const auto err = build_readers(client, {ep}).second;
+    ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
+    EXPECT_EQ(
+        err.data,
+        "endpoint GET /a: ICD " + ep.icd->to_string() + " does not exist"
+    );
+}
+
+/// @brief it should name the endpoint in an error that the reader of its messages
+/// returns.
+TEST(HTTPReadTask, BuildReadersNamesEndpointOfMessageError) {
+    const auto client = new_test_client();
+    const auto ep = create_icd_endpoint(client, "/a", synnax::channel::Channel{});
+    const auto err = build_readers(client, {ep}).second;
+    ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
+    EXPECT_EQ(err.data, "endpoint GET /a: message Status: channel 0 does not exist");
+}
+
+/// @brief it should reject an endpoint that binds a channel that does not exist.
+TEST(HTTPReadTask, BuildReadersRejectsMissingChannel) {
+    const auto client = new_test_client();
+    synnax::channel::Channel missing;
+    missing.key = 1;
+    const auto err = build_readers(client, {create_icd_endpoint(client, "/a", missing)})
+                         .second;
+    ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
+    EXPECT_EQ(err.data, "endpoint GET /a: message Status: channel 1 does not exist");
 }
 }

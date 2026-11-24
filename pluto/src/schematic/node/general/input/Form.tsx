@@ -40,7 +40,7 @@ const InputTelemForm = (): ReactElement => {
 
   return (
     <Base.Sections x>
-      <Form.StateSection filter={(ch) => ch.dataType.isVariable} />
+      <Form.StateSection query={Form.VARIABLE_CHANNELS} />
       <Base.Section title="Command">
         <Input.Item label="Channel" padHelpText={false}>
           <Channel.SelectSingle

@@ -13,7 +13,7 @@ import { render } from "@testing-library/react";
 import { ReactFlowProvider } from "@xyflow/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { Symbol } from "@/schematic/node/general/polygon/Symbol";
+import { Polygon } from "@/schematic/node/general/polygon";
 
 // React Flow resizes a node by pointer drags that jsdom cannot run, so the spec calls
 // the resize callback that the control receives.
@@ -36,7 +36,7 @@ vi.mock("@xyflow/react", async (importOriginal) => {
   };
 });
 
-describe("Polygon.Symbol", () => {
+describe("Polygon.spec.Node", () => {
   beforeEach(() => {
     mocks.onResize = [];
   });
@@ -47,7 +47,7 @@ describe("Polygon.Symbol", () => {
       <ReactFlowProvider>
         <Haul.Provider>
           <div data-id="p1">
-            <Symbol
+            <Polygon.spec.Node
               nodeKey="p1"
               selected
               onConfigChange={onConfigChange}

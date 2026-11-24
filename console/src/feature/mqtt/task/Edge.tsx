@@ -57,7 +57,10 @@ const Properties = () => (
   </>
 );
 
-const AUTHORITY_INPUT_PROPS = { bounds: { lower: 0, upper: 255 } } as const;
+const AUTHORITY_INPUT_PROPS = {
+  bounds: { lower: 0, upper: 255 },
+  integer: true,
+} as const;
 
 const SelectChannel = (p: PChannel.SelectSingleProps) => (
   <PChannel.SelectSingle {...p} location="bottom" />

@@ -67,6 +67,10 @@ describe("parse error input rendering", () => {
       );
     });
 
+    it("should render an invalid Date as Invalid Date", () => {
+      expect(renderedInput(new Date("garbage"))).toBe("Invalid Date");
+    });
+
     it("should render an Error by its message", () => {
       expect(renderedInput(new Error("boom"))).toBe("[Error: boom]");
     });
