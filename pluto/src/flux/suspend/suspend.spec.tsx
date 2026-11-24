@@ -71,6 +71,25 @@ describe("Suspend.ensureFetch", () => {
     await settle(local, "q", 1);
     expect(listener).not.toHaveBeenCalled();
   });
+
+  it("fetches again when a reconnect lands before the fetch fails", async () => {
+    const local = newLocal();
+    const { promise: first, reject } = Promise.withResolvers<number>();
+    const retrieve = vi.fn(async () => 7);
+    retrieve.mockImplementationOnce(async () => await first);
+    const listener = vi.fn();
+    Suspend.subscribeReader(local, hashOf("q"), listener);
+    const fetched = Suspend.ensureFetch(
+      { client, query: { key: "q" } },
+      { name: "Number", retrieve, local },
+    );
+    local.epoch = 1;
+    reject(new Error("connection lost"));
+    await expect(fetched).resolves.toEqual(7);
+    expect(retrieve).toHaveBeenCalledTimes(2);
+    expect(local.settled.get(hashOf("q"))).toEqual({ data: 7 });
+    expect(listener).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("Suspend.subscribeReader", () => {
