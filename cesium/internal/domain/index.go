@@ -439,8 +439,10 @@ func (idx *index) unprotectedSearch(tr telem.TimeRange) (int, bool) {
 
 // next returns the first domain that ends after tr.End and starts after tr.Start,
 // where tr is a domain the caller has seen, and its position. That skips what remains
-// of tr after a delete, and tr if it has grown. It finds both under one lock, so a
-// concurrent insert cannot shift one off the other.
+// of tr after a delete, and tr if it has grown. It also skips a domain written inside
+// tr after a delete freed that part: time bounds cannot tell it from what remains of
+// tr. It finds both under one lock, so a concurrent insert cannot shift one off the
+// other.
 func (idx *index) next(
 	tr telem.TimeRange,
 ) (i int, ptr pointer, rewrites uint64, ok bool) {
@@ -465,7 +467,8 @@ func (idx *index) next(
 
 // prev returns the last domain that starts before tr.Start and ends before tr.End,
 // where tr is a domain the caller has seen, and its position. That skips a domain that
-// replaced tr and holds all of it.
+// replaced tr and holds all of it, and a domain written inside tr after a delete freed
+// that part.
 func (idx *index) prev(
 	tr telem.TimeRange,
 ) (i int, ptr pointer, rewrites uint64, ok bool) {
