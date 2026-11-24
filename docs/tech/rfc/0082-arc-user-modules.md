@@ -45,7 +45,7 @@ Binding a rack to a module is a validation error, and so is importing an automat
 - **Directories**: A group below "Arcs" is a directory. A module may sit directly under
   "Arcs" or in a group at any depth (§5.0, §5.1).
 - **Names**: Group and module names are validated like channel names. _(Amended by RFC
-  0116 §4.1: channel names are now free text. Directory and module names stay Arc
+  0119 §4.1: channel names are now free text. Directory and module names stay Arc
   identifiers.)_
 - **Resolution**: A path walks `parent_of` down from "Arcs", one segment per level, and
   matches the last segment against a module's name. An import binds the last segment:

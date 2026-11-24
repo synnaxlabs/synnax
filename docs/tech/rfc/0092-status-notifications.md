@@ -322,7 +322,7 @@ Phases 8 to 12 change the status shape, the toast model, and the UI.
     so each failure of a flapping calculation would toast. The channel tree shows only
     warnings and errors (`console/src/feature/channel/tree.tsx:216`). The trade is real:
     each calculated channel that has failed keeps one stored status. _(Amended by RFC
-    0116 §4.4: the status belongs to the calculation record.)_
+    0119 §4.4: the status belongs to the calculation record.)_
 11. **Delay changes, not drop only repeats**: PR #2045 added the filter because a task
     sent a warning on every read, about 68 times a second. A filter that drops only
     repeats would bring those writes back for a task that changes state on each read.
