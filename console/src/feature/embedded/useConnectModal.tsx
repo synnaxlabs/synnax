@@ -90,7 +90,12 @@ const NODE_CODE: Code.Lines = [
   ],
 ];
 
-const browserCode = (host: string, port: number, apiKey: string): Code.Lines => [
+const browserCode = (
+  host: string,
+  port: number,
+  secure: boolean,
+  apiKey: string,
+): Code.Lines => [
   TYPESCRIPT_IMPORT,
   [],
   [
@@ -103,6 +108,7 @@ const browserCode = (host: string, port: number, apiKey: string): Code.Lines => 
   ],
   ["  host: ", Code.quoted(host), ","],
   [`  port: ${port},`],
+  [`  secure: ${secure},`],
   ["  apiKey: ", Code.quoted(apiKey), ","],
   ["});"],
 ];
@@ -139,6 +145,7 @@ const PythonTab = ({ release }: TabProps): ReactElement => (
 interface TypeScriptTabProps extends TabProps {
   host: string;
   port: number;
+  secure: boolean;
   apiKey: string;
 }
 
@@ -148,6 +155,7 @@ const TypeScriptTab = ({
   release,
   host,
   port,
+  secure,
   apiKey,
 }: TypeScriptTabProps): ReactElement => {
   const [runtime, setRuntime] = useState<Runtime>("node");
@@ -176,8 +184,8 @@ const TypeScriptTab = ({
           <>
             <Code.Snippet
               label="TypeScript browser code"
-              code={browserCode(host, port, `${apiKey.slice(0, 4)}${MASK}`)}
-              copy={browserCode(host, port, apiKey)}
+              code={browserCode(host, port, secure, `${apiKey.slice(0, 4)}${MASK}`)}
+              copy={browserCode(host, port, secure, apiKey)}
             />
             <Text.Text level="small" color={9}>
               The code holds the API key, so keep it private.
@@ -250,7 +258,7 @@ const ConnectModal = (): ReactElement => {
   const connection = status.state === "running" ? status.connection : null;
   const release = matchingRelease(connectionStatus.details.nodeVersion);
   let body: ReactElement;
-  if (connection == null || apiKey == null)
+  if (connection == null || apiKey == null || client == null)
     body = (
       <Status.Summary
         variant="loading"
@@ -275,7 +283,13 @@ const ConnectModal = (): ReactElement => {
           <PythonTab release={release} />
         </Tabs.Content>
         <Tabs.Content itemKey="typescript">
-          <TypeScriptTab release={release} host={host} port={port} apiKey={apiKey} />
+          <TypeScriptTab
+            release={release}
+            host={host}
+            port={port}
+            secure={client.params.secure}
+            apiKey={apiKey}
+          />
         </Tabs.Content>
       </Tabs.Frame>
     );

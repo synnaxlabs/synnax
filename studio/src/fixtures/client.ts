@@ -19,10 +19,14 @@ export interface ConnectionOptions {
 /** defaultPort resolves the port of the capture's core, set by the pipeline. */
 export const defaultPort = (): number => Number(process.env.SYNNAX_STUDIO_PORT ?? 9090);
 
-/** connect opens a client against the capture's core, using its default credentials. */
+/**
+ * connect opens a client against the capture's core, using its default credentials.
+ * The core runs with --insecure.
+ */
 export const connect = ({
   host = "localhost",
   port = defaultPort(),
   username = "synnax",
   password = "seldon",
-}: ConnectionOptions = {}): Synnax => new Synnax({ host, port, username, password });
+}: ConnectionOptions = {}): Synnax =>
+  new Synnax({ host, port, username, password, secure: false });
