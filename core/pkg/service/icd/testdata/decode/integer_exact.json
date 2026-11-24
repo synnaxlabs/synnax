@@ -66,6 +66,10 @@
       "error": "field total: -1 is out of range for uint64: validation error"
     },
     {
+      "document": { "count": -9223372036854775809, "total": 7, "half": 3 },
+      "error": "field count: -9223372036854775809 is out of range for int64: validation error"
+    },
+    {
       "document": { "count": 1, "total": 1, "half": 1.5 },
       "error": "field half: 1.5 is not an integer: validation error"
     }

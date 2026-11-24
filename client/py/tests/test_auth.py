@@ -7,6 +7,9 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import asyncio
+import threading
+import time
 from uuid import uuid4
 
 import pytest
@@ -18,6 +21,7 @@ from freighter import Context, Empty, Next
 from freighter.mock import MockUnaryClient
 from synnax.auth.client import _SessionCreateResponse
 from synnax.exceptions import create_registry
+from tests.loop import ticks_while
 from tests.proxy import Proxy
 
 
@@ -152,6 +156,89 @@ class TestAuthRetry:
         assert mock_client.send("", Empty(), Empty) == Empty()
         assert auth.token == "def"
         assert len(login.requests) == 2
+
+
+def _slow_login(count: int) -> tuple[sy.auth.Client, MockUnaryClient]:
+    """Returns an auth client whose logins each block for half a second, and the
+    transport they go through.
+    """
+    session = sy.auth.Session(
+        key=uuid4(),
+        subject=sy.resource.ID(key=str(uuid4()), type="user"),
+        credential=uuid4(),
+        last_active=sy.TimeStamp(0),
+    )
+    login = MockUnaryClient(
+        responses=[_SessionCreateResponse(token="abc", session=session)] * count
+    )
+
+    def slow(ctx: Context, _next: Next) -> Context:
+        time.sleep(0.5)
+        return _next(ctx)
+
+    login.use(slow)
+    auth = sy.auth.Client(
+        transport=login,
+        proof=sy.auth.PasswordProof(username="synnax", password="seldon"),
+    )
+    return auth, login
+
+
+@pytest.mark.auth
+class TestAuthRenewal:
+    @pytest.mark.asyncio
+    async def test_async_login_keeps_loop_running(self) -> None:
+        """Should keep the event loop running while the async middleware logs in."""
+        auth, _ = _slow_login(1)
+
+        async def finish(ctx: Context) -> Context:
+            return ctx
+
+        ctx = Context(protocol="mock", target="/frame/stream", role="client")
+        _, ticks = await ticks_while(auth.async_middleware()(ctx, finish))
+        assert ticks > 10
+        assert ctx.params["Authorization"] == "Bearer abc"
+
+    @pytest.mark.asyncio
+    async def test_async_failure_during_login_keeps_loop_running(self) -> None:
+        """Should keep the event loop running when an async request fails while
+        another thread logs in.
+        """
+        auth, login = _slow_login(1)
+        auth.token = "old"
+        auth.authenticated = True
+        thread = threading.Thread(target=auth._login)
+
+        async def expire_once(ctx: Context) -> Context:
+            if thread.is_alive() or login.requests:
+                return ctx
+            auth.authenticated = False
+            thread.start()
+            while not auth._login_lock.locked():
+                await asyncio.sleep(0)
+            raise sy.ExpiredToken("expired")
+
+        ctx = Context(protocol="mock", target="/frame/stream", role="client")
+        _, ticks = await ticks_while(auth.async_middleware()(ctx, expire_once))
+        thread.join()
+        assert ticks > 10
+        assert len(login.requests) == 1
+        assert ctx.params["Authorization"] == "Bearer abc"
+
+    def test_concurrent_renewals_open_one_session(self) -> None:
+        """Should log in once when several threads renew the token together."""
+        auth, login = _slow_login(8)
+        client = MockUnaryClient(responses=[Empty()] * 8)
+        client.use(auth.middleware())
+        threads = [
+            threading.Thread(target=client.send, args=("", Empty(), Empty))
+            for _ in range(8)
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+        assert len(login.requests) == 1
 
 
 @pytest.mark.auth
