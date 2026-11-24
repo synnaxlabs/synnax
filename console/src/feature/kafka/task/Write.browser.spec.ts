@@ -172,7 +172,8 @@ const addSampledTarget = async (
   });
   const dialog = await clickAddTargets();
   await answered;
-  fireEvent.click(await dialog.findByRole("button", { name: "Select all" }));
+  await dialog.findByText(/ · \d+ records?$/);
+  fireEvent.click(dialog.getByRole("checkbox", { name: `Pick ${TOPIC}` }));
   fireEvent.click(dialog.getByRole("button", { name: "Add 1 target" }));
   return await waitFor(async () => {
     const targets = await retrieveTargets(draft);
@@ -256,6 +257,7 @@ describe("Kafka Write form", () => {
     await answered;
     await dialog.findByText("/speed");
     expect(dialog.queryByRole("checkbox", { name: "Record /speed" })).toBeNull();
+    expect(dialog.queryByRole("button", { name: "Select all" })).toBeNull();
     fireEvent.click(dialog.getByRole("checkbox", { name: `Pick ${TOPIC}` }));
     fireEvent.click(dialog.getByRole("button", { name: "Add 1 target" }));
     await waitFor(async () =>
@@ -380,7 +382,8 @@ describe("Kafka Write form", () => {
     });
     const dialog = await clickAddTargets();
     await answered;
-    fireEvent.click(await dialog.findByRole("button", { name: "Select all" }));
+    await dialog.findByText("/mode");
+    fireEvent.click(dialog.getByRole("checkbox", { name: `Pick ${TOPIC}` }));
     await pickMessageFormat("Select message format", message.name, ic.name);
     await dialog.findByText(`Each picked topic sends “${message.name}”.`);
     fireEvent.click(dialog.getByRole("button", { name: "Add 1 target" }));
