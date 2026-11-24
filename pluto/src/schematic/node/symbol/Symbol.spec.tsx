@@ -57,6 +57,21 @@ const renderNode = (
     </Wrapper>,
   );
 
+const createCustomSymbol = async (
+  markup: string,
+): Promise<{ key: string; Wrapper: FC<PropsWithChildren> }> => {
+  const client = createTestClient();
+  const { key } = await client.schematics.symbols.create({
+    name: "Custom",
+    data: { drawing: { type: "svg", markup }, variant: "static" },
+  });
+  const Wrapper = await createAsyncSynnaxWrapper({
+    client,
+    additionalRegistry: symbolNode.REGISTRY,
+  });
+  return { key, Wrapper };
+};
+
 describe("Symbol node", () => {
   afterEach(() => vi.useRealTimers());
 
@@ -141,28 +156,36 @@ describe("Symbol node", () => {
   });
 
   it("should draw a custom symbol that the Core holds", async () => {
-    const client = createTestClient();
-    const symbol = await client.schematics.symbols.create({
-      name: "Custom",
-      data: {
-        drawing: {
-          type: "svg",
-          markup:
-            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">' +
-            '<rect class="body" width="10" height="10" /></svg>',
-        },
-        variant: "static",
-      },
-    });
-    const Wrapper = await createAsyncSynnaxWrapper({
-      client,
-      additionalRegistry: symbolNode.REGISTRY,
-    });
-    const { container } = renderNode(
-      { spec: { type: "custom", key: symbol.key } },
-      Wrapper,
+    const { key, Wrapper } = await createCustomSymbol(
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">' +
+        '<rect class="body" width="10" height="10" /></svg>',
     );
+    const { container } = renderNode({ spec: { type: "custom", key } }, Wrapper);
     await vi.waitFor(() => expect(container.querySelector("rect.body")).not.toBeNull());
+  });
+
+  it("should warn for a custom symbol whose markup does not parse", async () => {
+    const { key, Wrapper } = await createCustomSymbol("<svg><rect></svg>");
+    const { findByText } = renderNode({ spec: { type: "custom", key } }, Wrapper);
+    await findByText("Invalid symbol");
+  });
+
+  it("should draw its preview at the defaults of its states", async () => {
+    const { container } = render(
+      <LocalWrapper>
+        <Node.REGISTRY.symbol.Preview
+          {...schematic.symbolNodeConfigZ.parse({
+            variant: "symbol",
+            spec: { type: "builtin", name: "valve" },
+            color: COLOR,
+            states: [
+              { key: "active", default: 1, source: { type: "local", value: 0 } },
+            ],
+          })}
+        />
+      </LocalWrapper>,
+    );
+    await vi.waitFor(() => expect(container.querySelector(FILLED)).not.toBeNull());
   });
 
   it.each([
