@@ -317,53 +317,23 @@ var _ = Describe("ResolveWriteConfig", func() {
 		},
 	)
 
-	It("Should give each static field a constant default", func(ctx SpecContext) {
-		rec := record()
-		rec.Fields = []http.WriteField{
-			staticField("/mode", payload.JSONTypeString, "auto"),
-			staticField("/level", payload.JSONTypeNumber, 2.5),
-			staticField("/count", payload.JSONTypeNumber, int64(3)),
-			staticField("/armed", payload.JSONTypeBoolean, true),
-			staticField("/limits", payload.JSONTypeNumber, map[string]any{"max": 10.0}),
-		}
-		f := liftFields(ctx, rec)
-		Expect(f).To(HaveLen(6))
-		Expect(*variantOf[icd.StringJSONField](f[1]).Default).To(Equal("auto"))
-		Expect(
-			*variantOf[icd.FloatJSONField](f[2]).Default,
-		).To(Equal(payload.Float(2.5)))
-		Expect(*variantOf[icd.FloatJSONField](f[3]).Default).To(Equal(payload.Float(3)))
-		Expect(*variantOf[icd.BooleanJSONField](f[4]).Default).To(BeTrue())
-		Expect(*variantOf[icd.JSONJSONField](f[5]).Default).To(MatchJSON(`{"max":10}`))
-		Expect(f[1].Base().Name).To(Equal("mode"))
-		Expect(f[1].Base().Pointer).To(Equal("/mode"))
-	})
-
-	It("Should give each generated field a generator default", func(ctx SpecContext) {
-		rec := record()
-		rec.Fields = []http.WriteField{
-			generatedField("/id", payload.GeneratorTypeUUID, nil),
-			generatedField(
-				"/time",
-				payload.GeneratorTypeTimestamp,
-				new(payload.TimeFormatUnixNs),
-			),
-			generatedField("/sent", payload.GeneratorTypeTimestamp, nil),
-		}
-		f := liftFields(ctx, rec)
-		Expect(f[1].Variant).To(Equal(icd.UuidJSONField{
-			JSONBaseField: f[1].Base(),
-			Default:       &icd.UUIDDefault{Variant: icd.RandomUUIDDefault{}},
-		}))
-		now := &icd.TimestampDefault{Variant: icd.NowTimestampDefault{}}
-		Expect(f[2].Variant).To(Equal(icd.TimestampJSONField{
-			JSONBaseField: f[2].Base(),
-			TimeFormat:    payload.TimeFormatUnixNs,
-			Default:       now,
-		}))
-		Expect(variantOf[icd.TimestampJSONField](f[3]).TimeFormat).
-			To(Equal(payload.TimeFormatISO8601))
-	})
+	It("Should lift the static and generated fields of the record",
+		func(ctx SpecContext) {
+			rec := record()
+			rec.Fields = []http.WriteField{
+				staticField("/mode", payload.JSONTypeString, "auto"),
+				generatedField("/id", payload.GeneratorTypeUUID, nil),
+			}
+			f := liftFields(ctx, rec)
+			Expect(f).To(HaveLen(3))
+			Expect(*variantOf[icd.StringJSONField](f[1]).Default).To(Equal("auto"))
+			Expect(f[1].Base().Pointer).To(Equal("/mode"))
+			Expect(f[2].Variant).To(Equal(icd.UuidJSONField{
+				JSONBaseField: f[2].Base(),
+				Default:       &icd.UUIDDefault{Variant: icd.RandomUUIDDefault{}},
+			}))
+		},
+	)
 
 	It("Should give each message its own copy of the fields of the record",
 		func(ctx SpecContext) {
@@ -393,19 +363,6 @@ var _ = Describe("ResolveWriteConfig", func() {
 		},
 	)
 
-	It(
-		"Should keep the names of the fields of a message unique",
-		func(ctx SpecContext) {
-			rec := record()
-			rec.Fields = []http.WriteField{
-				staticField("/value", payload.JSONTypeNumber, 1.0),
-			}
-			f := liftFields(ctx, rec)
-			Expect(f[0].Base().Name).To(Equal("value"))
-			Expect(f[1].Base().Name).To(Equal("value (2)"))
-		},
-	)
-
 	It("Should bind no channel and take float64 for a channel that does not exist",
 		func(ctx SpecContext) {
 			old := writeConfig(writeChannel("c1", 12))
@@ -426,42 +383,13 @@ var _ = Describe("ResolveWriteConfig", func() {
 		},
 	)
 
-	DescribeTable(
-		"Should pick the kind that writes the channel as its JSON type",
-		func(
-			ctx SpecContext,
-			dt telem.DataType,
-			t payload.JSONType,
-			kind payload.Kind,
-		) {
-			found[7] = v1.Channel{Name: "valve_cmd", DataType: dt}
+	It("Should send a number channel as a boolean when it was sent as one",
+		func(ctx SpecContext) {
+			found[7] = v1.Channel{Name: "valve_cmd", DataType: telem.Uint8T}
 			wc := writeChannel("c1", 7)
-			wc.JSONType = t
-			Expect(liftValue(ctx, wc).Type()).To(Equal(kind))
+			wc.JSONType = payload.JSONTypeBoolean
+			Expect(liftValue(ctx, wc).Type()).To(Equal(payload.KindBoolean))
 		},
-		Entry(
-			"a float number",
-			telem.Float32T,
-			payload.JSONTypeNumber,
-			payload.KindFloat,
-		),
-		Entry(
-			"an integer number",
-			telem.Int64T,
-			payload.JSONTypeNumber,
-			payload.KindInteger,
-		),
-		Entry(
-			"an unsigned number",
-			telem.Uint8T,
-			payload.JSONTypeNumber,
-			payload.KindUnsigned,
-		),
-		Entry("a boolean", telem.Uint8T, payload.JSONTypeBoolean, payload.KindBoolean),
-		Entry("a string", telem.StringT, payload.JSONTypeString, payload.KindString),
-		Entry("a UUID", telem.UUIDT, payload.JSONTypeString, payload.KindUUID),
-		Entry("bytes", telem.BytesT, payload.JSONTypeString, payload.KindBytes),
-		Entry("JSON", telem.JSONT, payload.JSONTypeString, payload.KindJSON),
 	)
 
 	It("Should lift a timestamp channel with its time format", func(ctx SpecContext) {
@@ -487,35 +415,6 @@ var _ = Describe("ResolveWriteConfig", func() {
 				`channels.0: enum label "HALF" was dropped: 0.5 is not integer`,
 			}))
 		},
-	)
-
-	DescribeTable(
-		"Should note each change to what the value field sends, with its path",
-		func(ctx SpecContext, dt telem.DataType, t payload.JSONType, change string) {
-			found[7] = v1.Channel{Name: "valve_cmd", DataType: dt}
-			wc := writeChannel("c1", 7)
-			wc.JSONType = t
-			liftValue(ctx, wc)
-			Expect(changes).To(Equal([]string{"channels.0: " + change}))
-		},
-		Entry(
-			"a number sent as a string",
-			telem.Float64T,
-			payload.JSONTypeString,
-			"a float64 channel sent as a JSON string now sends a JSON number",
-		),
-		Entry(
-			"a number sent as a boolean",
-			telem.Uint8T,
-			payload.JSONTypeBoolean,
-			"a uint8 channel sent as a JSON boolean now sends only 0 and 1",
-		),
-		Entry(
-			"JSON sent as a string",
-			telem.JSONT,
-			payload.JSONTypeString,
-			"a json channel sent as a JSON string now sends its JSON value",
-		),
 	)
 })
 

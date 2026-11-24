@@ -13,6 +13,7 @@ import (
 	"context"
 	"slices"
 	"strconv"
+	"strings"
 	"uuid"
 
 	"github.com/samber/lo"
@@ -151,9 +152,12 @@ func liftRecord(
 	}, read
 }
 
-// fieldName returns the name of old, or else the name of its pointer.
+// fieldName returns the name of old, or else its pointer.
 func fieldName(old ReadField) string {
-	return lo.CoalesceOrEmpty(old.Name, pointerName(old.Pointer))
+	if old.Name != "" {
+		return old.Name
+	}
+	return lo.CoalesceOrEmpty(strings.TrimPrefix(old.Pointer, "/"), "value")
 }
 
 // uniqueName returns name, or name with the lowest suffix " (n)" that taken lacks, and
