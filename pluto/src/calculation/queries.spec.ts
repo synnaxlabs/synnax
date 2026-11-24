@@ -11,6 +11,7 @@ import { calculation, channel, DataType } from "@synnaxlabs/client";
 import {
   createTestClient,
   createTestClientWithPolicy,
+  rejectRequests,
 } from "@synnaxlabs/client/testutil";
 import { id, TimeStamp } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
@@ -181,6 +182,27 @@ describe("queries", () => {
       );
       await act(async () => await setStatus(calc, "late status"));
       await waitFor(() => expect(result.current.data?.message).toEqual("late status"));
+    });
+
+    it("should drop a failed lookup's error once a later lookup answers", async () => {
+      const failed = await createPlain();
+      const later = await createPlain();
+      const viewer = createTestClient();
+      const viewerWrapper = await createAsyncSynnaxWrapper({ client: viewer });
+      const refusal = rejectRequests(
+        viewer,
+        (target) => target === "/calculation/retrieve",
+        new Error("the Core refused the lookup"),
+      );
+      const { result } = renderHook(
+        () => Calculation.useResultStatus({ channel: failed.key }),
+        { wrapper: viewerWrapper },
+      );
+      await waitFor(() => expect(result.current.variant).toEqual("error"));
+      refusal.mockRestore();
+      await act(async () => await viewer.calculations.outputs.retrieve([later.key]));
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      expect(result.current.data).toBeNull();
     });
 
     it("should show a status set before its calculation reaches the outputs", async () => {
