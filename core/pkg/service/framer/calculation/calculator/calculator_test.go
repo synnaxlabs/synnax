@@ -1425,6 +1425,126 @@ var _ = Describe("Calculator", Ordered, func() {
 			)
 		})
 
+		Describe("Joined live calculations", func() {
+			// openJoined opens a live calculation of the sum of a stored channel and a
+			// second channel, which is stored unless virtual is set.
+			openJoined := func(
+				ctx SpecContext,
+				virtual bool,
+			) (*calculator.Calculator, []channel.Channel, []channel.Channel) {
+				GinkgoHelper()
+				indexes := []channel.Channel{
+					{
+						Name:     UniqueChannelName(),
+						DataType: telem.TimestampT,
+						IsIndex:  true,
+					},
+					{
+						Name:     UniqueChannelName(),
+						DataType: telem.TimestampT,
+						IsIndex:  true,
+					},
+				}
+				bases := []channel.Channel{
+					{Name: UniqueChannelName(), DataType: telem.Float64T},
+					{
+						Name:     UniqueChannelName(),
+						DataType: telem.Float64T,
+						Virtual:  virtual,
+					},
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					w := channelSvc.NewWriter(tx)
+					if err := w.CreateMany(ctx, &indexes); err != nil {
+						return err
+					}
+					for i := range bases {
+						if !bases[i].Virtual {
+							bases[i].LocalIndex = indexes[i].LocalKey
+						}
+					}
+					return w.CreateMany(ctx, &bases)
+				})).To(Succeed())
+				out := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
+					Name:     UniqueChannelName(),
+					DataType: telem.Float64T,
+					Expression: fmt.Sprintf(
+						"return %s + %s",
+						bases[0].Name,
+						bases[1].Name,
+					),
+				}))
+				mod := MustSucceed(compiler.Compile(ctx, db, compiler.Config{
+					ChannelService: channelSvc,
+					Channel:        out,
+					Calculation:    MustSucceed(creator.CalculationOf(ctx, out.Key())),
+					Live:           true,
+				}))
+				Expect(mod.Joined).To(BeTrue())
+				c := MustOpen(calculator.Open(ctx, calculator.Config{Module: mod}))
+				DeferCleanup(c.Close)
+				return c, indexes, bases
+			}
+
+			It(
+				"Should give the outputs the primary's alignment",
+				func(ctx SpecContext) {
+					c, indexes, bases := openJoined(ctx, false)
+					bIdx := telem.NewSeriesSecondsTSV(1)
+					b := telem.NewSeriesV[float64](10)
+					bIdx.Alignment, b.Alignment = telem.NewAlignment(
+						0,
+						9,
+					), telem.NewAlignment(
+						0,
+						9,
+					)
+					MustSucceed2(c.Next(ctx, frame.NewMulti(
+						[]channel.Key{indexes[1].Key(), bases[1].Key()},
+						[]telem.Series{bIdx, b},
+					), frame.Frame{}))
+					aIdx := telem.NewSeriesSecondsTSV(1, 2)
+					a := telem.NewSeriesV[float64](1, 2)
+					aIdx.Alignment, a.Alignment = telem.NewAlignment(
+						0,
+						5,
+					), telem.NewAlignment(
+						0,
+						5,
+					)
+					of, changed := MustSucceed2(c.Next(ctx, frame.NewMulti(
+						[]channel.Key{indexes[0].Key(), bases[0].Key()},
+						[]telem.Series{aIdx, a},
+					), frame.Frame{}))
+					Expect(changed).To(BeTrue())
+					od := of.Get(c.Channel().Key()).Series[0]
+					Expect(od).To(MatchSeriesDataV[float64](11, 12))
+					Expect(od.Alignment).To(Equal(telem.NewAlignment(0, 5)))
+				},
+			)
+
+			It("Should pair a virtual read beside a stored one by arrival", func(
+				ctx SpecContext,
+			) {
+				c, indexes, bases := openJoined(ctx, true)
+				MustSucceed2(c.Next(
+					ctx,
+					frame.NewUnary(bases[1].Key(), telem.NewSeriesV[float64](10)),
+					frame.Frame{},
+				))
+				of, changed := MustSucceed2(c.Next(ctx, frame.NewMulti(
+					[]channel.Key{indexes[0].Key(), bases[0].Key()},
+					[]telem.Series{
+						telem.NewSeriesSecondsTSV(1, 2),
+						telem.NewSeriesV[float64](1, 2),
+					},
+				), frame.Frame{}))
+				Expect(changed).To(BeTrue())
+				Expect(of.Get(c.Channel().Key()).Series[0]).
+					To(MatchSeriesDataV[float64](11, 12))
+			})
+		})
+
 		It("Should close all calculators", func(ctx SpecContext) {
 			idx := []channel.Channel{
 				{Name: UniqueChannelName(), DataType: telem.TimestampT, IsIndex: true},
