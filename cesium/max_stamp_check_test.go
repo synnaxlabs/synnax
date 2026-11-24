@@ -68,7 +68,14 @@ var _ = Describe("Check: a sample at the largest stamp", func() {
 				telem.TimeStampMax, end, read,
 			))
 		}
-		Expect(err).To(MatchError(validate.ErrValidation))
+		Expect(werr).To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring(fmt.Sprintf(
+				"stamp %v must be before %v",
+				telem.TimeStampMax,
+				telem.TimeStampMax,
+			))),
+		))
 		Expect(w.Close()).To(MatchError(validate.ErrValidation))
 		stop()
 		Expect(db.Close()).To(Succeed())
