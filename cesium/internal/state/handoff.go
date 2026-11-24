@@ -165,9 +165,9 @@ func (r *addRequest) run(s *State) {
 	w.done <- nil
 }
 
-// Add makes w write keys too, with claims from start, after the checks that
-// OpenWriter makes at start. pre holds the preload of each key of keys at start, in
-// rising order of key. It returns the errors of OpenWriter.
+// Add makes w write keys too, with claims from start, after the checks that OpenWriter
+// makes at start. pre holds the preload of each key of keys at start, in rising order
+// of key. It returns the errors of OpenWriter.
 func (w *Writer) Add(keys []WriterKey, start telem.TimeStamp, pre ...Preload) error {
 	return w.call(&addRequest{w: w, keys: keys, start: start, pre: pre})
 }

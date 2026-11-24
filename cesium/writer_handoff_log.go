@@ -91,8 +91,8 @@ func (w *logWriter) keysOutside(keys []ChannelKey) []ChannelKey {
 	return out
 }
 
-// split moves keys out of w into a writer of data against the stamps of the runs of
-// w, and returns it as a Pending, or nil when keys hold no uncommitted sample.
+// split moves keys out of w into a writer of data against the stamps of the runs of w,
+// and returns it as a Pending, or nil when keys hold no uncommitted sample.
 func (w *logWriter) split(keys []ChannelKey) (*Pending, error) {
 	st, err := w.st.Split(keys)
 	if err != nil {
@@ -310,7 +310,8 @@ func (p *Pending) commitLog(ctx context.Context) (telem.TimeStamp, bool, error) 
 						r.samples,
 						r.first,
 						r.last,
-						pre...)
+						pre...,
+					)
 					return err
 				},
 			); err != nil || !held {
