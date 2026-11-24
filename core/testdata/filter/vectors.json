@@ -2750,6 +2750,13 @@
         "expected": ["c"],
         "server_computed": true
       },
+      { "name": "serial eq", "where": { "serial": { "eq": 1001 } }, "expected": ["a"] },
+      {
+        "name": "serial eq zero",
+        "where": { "serial": { "eq": 0 } },
+        "expected": ["b"]
+      },
+      { "name": "serial gt", "where": { "serial": { "gt": 1001 } }, "expected": ["c"] },
       {
         "name": "vendor_id eq",
         "where": {

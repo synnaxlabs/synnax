@@ -214,6 +214,9 @@ inline Where Where::parse(x::json::Parser parser) {
         .not_ = parser.field<x::mem::indirect<Where>>("not"),
         .key = parser.field<std::optional<::x::filter::Set<Key>>>("key"),
         .name = parser.field<std::optional<::x::filter::String>>("name"),
+        .serial = parser.field<std::optional<::x::filter::Ordered<std::uint64_t>>>(
+            "serial"
+        ),
         .vendor_id = parser.field<std::optional<::x::filter::Ordered<std::uint32_t>>>(
             "vendor_id"
         ),
@@ -236,6 +239,7 @@ inline x::json::json Where::to_json() const {
     if (this->not_.has_value()) j["not"] = this->not_->to_json();
     if (this->key.has_value()) j["key"] = this->key->to_json();
     if (this->name.has_value()) j["name"] = this->name->to_json();
+    if (this->serial.has_value()) j["serial"] = this->serial->to_json();
     if (this->vendor_id.has_value()) j["vendor_id"] = this->vendor_id->to_json();
     if (this->product_code.has_value())
         j["product_code"] = this->product_code->to_json();

@@ -302,6 +302,7 @@ Slave struct {
 Where filter Slave {
     key
     name
+    serial
     vendor_id
     product_code
     master
