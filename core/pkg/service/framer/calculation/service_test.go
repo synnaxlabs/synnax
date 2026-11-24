@@ -38,6 +38,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -1975,6 +1976,70 @@ var _ = Describe("Calculation", Ordered, func() {
 			Expect(changed).To(Receive())
 			Expect(deleteErr).ToNot(HaveOccurred())
 			// The retry finds no channel, so it compiles nothing.
+			Consistently(changed, 3*retryDelay.Duration()).ShouldNot(Receive())
+			Expect(rm.Close(ctx)).To(Succeed())
+		})
+
+		Specify("Pending Request For A Channel Deleted While A Change Waits", func(
+			ctx SpecContext,
+		) {
+			const retryDelay = 500 * telem.Millisecond
+			var (
+				target  atomic.Uint32
+				changes atomic.Int32
+				changed = make(chan struct{}, 10)
+			)
+			// The first compile holds the service's lock. It renames the channel, so a
+			// change reads the calculation and waits on the lock, and then deletes it.
+			var (
+				calc    channel.Channel
+				hookErr error
+				hook    sync.Once
+			)
+			changing := openChanging(
+				ctx,
+				retryDelay,
+				&target,
+				&changes,
+				changed,
+				func() {
+					hook.Do(func() {
+						hookErr = dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+							return channelSvc.NewWriter(tx).
+								Rename(ctx, calc.Key(), UniqueChannelName(), false)
+						})
+						time.Sleep(200 * time.Millisecond)
+						hookErr = errors.Join(hookErr, dist.DB.WithTx(
+							ctx,
+							func(tx gorp.Tx) error {
+								return channelSvc.NewWriter(tx).
+									Delete(ctx, calc.Key(), false)
+							},
+						))
+					})
+				},
+			)
+			bases := []channel.Channel{{
+				Name:     UniqueChannelName(),
+				DataType: telem.Int64T,
+				Virtual:  true,
+			}}
+			Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).CreateMany(ctx, &bases)
+			})).To(Succeed())
+			calc = MustSucceed(creator.Create(ctx, calctestutil.Calculation{
+				Name:       UniqueChannelName(),
+				DataType:   telem.Int64T,
+				Expression: fmt.Sprintf("return %s * 2", bases[0].Name),
+			}))
+			target.Store(uint32(calc.Key()))
+			changes.Store(10)
+			rm := changing.OpenRequestManager()
+			Expect(rm.Set(ctx, channel.Keys{calc.Key()})).To(Succeed())
+			Expect(changed).To(Receive())
+			Expect(hookErr).To(Succeed())
+			// The change reads the calculations once it holds the lock, after the
+			// delete, so it requests nothing.
 			Consistently(changed, 3*retryDelay.Duration()).ShouldNot(Receive())
 			Expect(rm.Close(ctx)).To(Succeed())
 		})
