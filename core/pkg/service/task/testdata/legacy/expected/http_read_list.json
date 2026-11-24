@@ -87,7 +87,7 @@
     },
     {
       "body": "{\"deviceId\": \"fixture-43\"}",
-      "disabled": false,
+      "disabled": true,
       "fields": [
         {
           "channel": 10140,

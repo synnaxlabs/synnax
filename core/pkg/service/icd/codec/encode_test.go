@@ -144,14 +144,14 @@ var _ = Describe("JSONEncoder", func() {
 						doc = []byte(*c.Text)
 					}
 					decoded := newSamples(messages)
-					MustSucceed2(dec.Decode(doc, decoded))
+					decode(dec, doc, decoded)
 					samples := make([][]byte, len(m.Bindings))
 					for b, binding := range m.Bindings {
 						samples[b] = unprefixed(binding.DataType, decoded[i][b])
 					}
 					encoded := MustSucceed(enc.Encode(nil, samples))
 					again := newSamples(messages)
-					routed, ok := MustSucceed2(dec.Decode(encoded, again))
+					routed, ok := decode(dec, encoded, again)
 					Expect(ok).To(BeTrue(), string(encoded))
 					Expect(routed).To(Equal(i), string(encoded))
 					Expect(again[i]).To(Equal(decoded[i]), string(encoded))
@@ -371,20 +371,35 @@ var _ = Describe("JSONEncoder", func() {
 		))
 	})
 
-	It("Should write the sample of a JSON field as it is", func() {
-		key := uuid.New()
-		enc := MustSucceed(codec.NewJSONEncoder(message(
-			[]icd.JSONField{{Variant: icd.JSONJSONField{
-				Key: key, Name: "config", Scale: 1, Pointer: "/config",
-			}}},
-			codec.Binding{Field: key, DataType: telem.JSONT},
-		)))
-		Expect(enc.Encode(nil, [][]byte{[]byte(`{"rate":10}`)})).
-			To(MatchJSON(`{"config":{"rate":10}}`))
-		Expect(enc.Encode(nil, [][]byte{[]byte(`{"rate"`)})).Error().To(SatisfyAll(
-			MatchError(validate.ErrValidation),
-			MatchError("message command: field config: invalid JSON: validation error"),
-		))
+	Describe("JSON samples", func() {
+		var enc *codec.JSONEncoder
+		BeforeEach(func() {
+			key := uuid.New()
+			enc = MustSucceed(codec.NewJSONEncoder(message(
+				[]icd.JSONField{{Variant: icd.JSONJSONField{
+					Key: key, Name: "config", Scale: 1, Pointer: "/config",
+				}}},
+				codec.Binding{Field: key, DataType: telem.JSONT},
+			)))
+		})
+
+		It("Should write a JSON sample as it is", func() {
+			Expect(enc.Encode(nil, [][]byte{[]byte(`{"rate":10}`)})).
+				To(MatchJSON(`{"config":{"rate":10}}`))
+		})
+
+		DescribeTable("Should refuse a JSON sample that is not valid",
+			func(sample string) {
+				Expect(enc.Encode(nil, [][]byte{[]byte(sample)})).Error().To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(
+						"message command: field config: invalid JSON: validation error",
+					),
+				))
+			},
+			Entry("truncated text", `{"rate"`),
+			Entry("a repeated name", `{"rate":1,"rate":2}`),
+		)
 	})
 
 	DescribeTable("Should reject a message whose rule or default has no type",

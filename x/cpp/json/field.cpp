@@ -17,6 +17,8 @@
 #include <variant>
 #include <vector>
 
+#include "nlohmann/json.hpp"
+
 #include "x/cpp/base64/base64.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/field.h"
@@ -154,6 +156,14 @@ errors::Error compact(
 }
 }
 
+bool valid(const std::string_view text) {
+    if (!nlohmann::json::accept(text.begin(), text.end())) return false;
+    std::string dst;
+    std::vector<std::size_t> open;
+    std::vector<std::unordered_set<std::string>> names;
+    return !compact(text, dst, open, names);
+}
+
 std::pair<Decoder, errors::Error> Decoder::create(Field field) {
     const auto &dt = field.data_type;
     if (!convertible(dt))
@@ -195,7 +205,7 @@ errors::Error Decoder::append_float(const double v, telem::Series &dst) const {
 }
 
 errors::Error Decoder::append_string(const std::string_view raw, telem::Series &dst) {
-    if (kind_of(raw) != '"') return invalid("expected a string, got " + kind_name(raw));
+    if (kind_of(raw) != '"') return this->append_json(raw, dst);
     if (const auto err = unquote(raw, this->text)) return err;
     if (const auto *l = this->find_label(this->text); l != nullptr) {
         dst.write(l->text);

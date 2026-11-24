@@ -20,15 +20,15 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
-import { Theming } from "@synnaxlabs/lyra/theming";
-import { Enumeration, Schematic } from "@synnaxlabs/pluto";
-import { type bounds, color, id, type xy } from "@synnaxlabs/x";
+import { Schematic } from "@synnaxlabs/pluto";
+import { type bounds, id, type xy } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 
 import { HandleList } from "@/feature/schematic/symbol/edit/HandleList";
+import { PartList } from "@/feature/schematic/symbol/edit/PartList";
 import { Preview } from "@/feature/schematic/symbol/edit/Preview";
-import { RegionList } from "@/feature/schematic/symbol/edit/RegionList";
 import { StateList } from "@/feature/schematic/symbol/edit/StateList";
+import { useValues } from "@/feature/schematic/symbol/edit/useValues";
 import { SelectVariantField } from "@/feature/schematic/symbol/SelectVariant";
 import { Spec } from "@/feature/schematic/symbol/spec";
 import { CSS } from "@/platform/css";
@@ -52,28 +52,15 @@ export interface ModalParams {
 
 const SCALE_BOUNDS: bounds.Bounds = { lower: 5, upper: 1000 };
 
-const DEFAULT_REGION_KEY = "default";
-
 interface StatesProps {
   value: number;
   onChange: (value: number) => void;
 }
 
 // States lists the values of the state, named by the entries of its enumeration.
-const States = ({ value, onChange }: StatesProps): ReactElement | null => {
-  const states = Form.useFieldValue(path.data.states);
-  const variant = Form.useFieldValue(path.data.variant);
-  const key = Spec.enumerationKey({ states });
-  const res = Enumeration.useResult(key == null ? null : { key });
-  const entries = res.variant === "success" ? res.data.entries : undefined;
-  return (
-    <StateList
-      value={value}
-      onChange={onChange}
-      tabs={Schematic.Node.Custom.listValues({ variant }, entries)}
-    />
-  );
-};
+const States = ({ value, onChange }: StatesProps): ReactElement | null => (
+  <StateList value={value} onChange={onChange} tabs={useValues().list} />
+);
 
 const Editor = ({
   symbolKey,
@@ -82,7 +69,6 @@ const Editor = ({
   close,
 }: Modals.ContentProps<ModalParams, void>): ReactElement => {
   const isCreate = symbolKey == null;
-  const theme = Theming.use();
   const { form, save, variant } = Schematic.Symbol.useForm({
     query: symbolKey == null ? null : { key: symbolKey },
     initialValues: {
@@ -106,28 +92,20 @@ const Editor = ({
     afterSave: () => close(),
   });
   Modals.useBusy(variant === "loading");
-  const [selectedValue, setSelectedValue, selectedValueRef] =
-    useCombinedStateAndRef<number>(0);
-  const [selectedRegion, setSelectedRegion, selectedRegionRef] =
-    useCombinedStateAndRef<string>(DEFAULT_REGION_KEY);
+  const [selectedValue, setSelectedValue] = useState(0);
+  const [selectedPart, setSelectedPart, selectedPartRef] =
+    useCombinedStateAndRef<Spec.Target>(undefined);
   const [selectedHandle, setSelectedHandle] = useState<string | undefined>(undefined);
 
-  const addNewRegion = () => {
-    const spec = form.get(path.data).value;
+  const addPart = () => {
+    const parts = form.get(path.data.parts).value;
     const part: schematic.symbol.Part = {
-      key: `reg-${id.create()}`,
-      name: `Region ${spec.parts.length + 1}`,
+      key: `part-${id.create()}`,
+      name: Spec.nextPartName(parts),
       selectors: [],
     };
-    const value = selectedValueRef.current;
-    const stroke = theme.colors.gray.l10;
-    const withPart = { ...spec, parts: [...spec.parts, part] };
-    const stroked = Spec.setColor(withPart, part.key, value, "stroke", stroke);
-    form.set(
-      path.data,
-      Spec.setColor(stroked, part.key, value, "fill", color.setOpacity(stroke, 0)),
-    );
-    setSelectedRegion(part.key);
+    form.set(path.data.parts, [...parts, part]);
+    setSelectedPart(part.key);
   };
 
   const addNewHandle = () => {
@@ -152,15 +130,14 @@ const Editor = ({
     }
   };
 
-  const handleElementClick = (selector: string) =>
+  const handleElementClick = (selector: string) => {
+    const part = selectedPartRef.current;
+    if (part == null) return;
     form.set(
       path.data.parts,
-      Spec.toggleSelector(
-        form.get(path.data.parts).value,
-        selectedRegionRef.current,
-        selector,
-      ),
+      Spec.toggleSelector(form.get(path.data.parts).value, part, selector),
     );
+  };
   const hasSVG =
     Form.useFieldValue(path.data.drawing.markup, {
       ctx: form,
@@ -210,14 +187,14 @@ const Editor = ({
                   </Flex.Box>
                 </Flex.Box>
                 <Divider.Divider x />
-                <RegionList
-                  value={selectedRegion}
+                <PartList
+                  value={selectedPart}
                   onChange={(value) => {
-                    setSelectedRegion(value);
+                    setSelectedPart(value);
                     setSelectedHandle(undefined);
                   }}
+                  onAdd={addPart}
                   selectedValue={selectedValue}
-                  onAddRegion={addNewRegion}
                 />
                 <Divider.Divider x />
                 <HandleList

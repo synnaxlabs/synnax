@@ -100,9 +100,10 @@ or generator logic and schemas disagree.
   check fills in each generic type with its type arguments (defaults included) through
   aliases, distinct types, and bases, then compares the filled-in shapes across pins:
   stored field names and order, field types, optionality, `@key`, defaults, and enum and
-  union members. A type may move to another file or chain or become an alias with the
-  same filled-in shape, and an enum or union may gain members. Docs, rules, codec
-  markers, and omit-transient types may change.
+  union members. A `create` or `now` boundary default does not count, unless it names an
+  enum member or union variant of the field's type. A type may move to another file or
+  chain or become an alias with the same filled-in shape, and an enum or union may gain
+  members. Docs, rules, codec markers, and omit-transient types may change.
 - Frozen `versions/vN` Go packages are regenerated, checked outputs of the version
   files. In current and frozen packages alike, a stored reference resolves to the
   dependency version that the declaring version file imports, so a freeze never moves a
@@ -182,7 +183,8 @@ An `@ref` scalar with a zero default (`= 0`, `= ""`) holds no target while it is
 This is the "not applicable" default above, so use it only where no valid key is zero. A
 `detach` reference needs `X?`, an array, or a zero default. A required field in an array
 element also detaches: the detach drops the element. The same rules hold for top-level
-and nested fields.
+and nested fields. A nested `map<K, Key>` holds one target per value, and its detach
+drops the entry. A walk also reaches through the values of a map of structs.
 
 `?` and `= value` are mutually exclusive; the analyzer rejects a field carrying both.
 
@@ -196,6 +198,14 @@ A body of domains only, `action Set = patch.Set { @doc value "..." }`, gives the
 its own doc in place of the struct's. Generators keep the `SetPayload` name as an alias
 (in Go, a defined type that can carry `Handle`). The target must be a struct with no
 type parameters, and no two actions of a type may share one.
+
+## Duration defaults
+
+A field's own `telem.TimeSpan` default takes Go-style units: `ns`, `us`, `ms`, `s`, `m`,
+`h`, and compounds such as `1m30s`. Write `staleness_timeout telem.TimeSpan = 5s`, never
+`= 5000000000`. Struct and array literals take no units. The analyzer stores
+nanoseconds, so generated code does not change. It rejects a unit on any other type and
+a value that is not whole nanoseconds.
 
 ## Union discriminators
 
@@ -242,8 +252,8 @@ and never overwrite a value the caller sent.
 `@go validate lt <field> ["message"]` on a number field requires it to be less than
 another required number field of the same type in its struct, such as a `min_val` below
 a `max_val`. Only Go checks it, in the struct's `Validate`: clients must still read a
-stored value that breaks it. The analyzer rejects it on a type, in a generic struct, and
-on fields it cannot compare.
+stored value that breaks it. The analyzer rejects it on a type, in a struct with a type
+parameter that has no default, and on fields it cannot compare.
 
 `@go validate pattern "<regex>" ["message"]` on a required string field requires it to
 match a Go regular expression. It is Go only for the same reason. The analyzer rejects

@@ -58,16 +58,21 @@ var (
 		apiauth.PasswordSetRequest,
 		apiauth.PasswordSetResponse,
 	]
-	createPassword freighter.UnaryHandler[apiauth.PasswordCreateRequest, struct{}]
-	createKey      freighter.UnaryHandler[
-		apiauth.KeyCreateRequest,
-		apiauth.KeyCreateResponse,
+	createPassword    freighter.UnaryHandler[apiauth.PasswordCreateRequest, struct{}]
+	dispatchPassword  freighter.UnaryHandler[apiauth.PasswordDispatchRequest, struct{}]
+	retrievePasswords freighter.UnaryHandler[
+		apiauth.PasswordRetrieveRequest,
+		apiauth.PasswordRetrieveResponse,
 	]
-	deleteKeys     freighter.UnaryHandler[apiauth.KeyDeleteRequest, struct{}]
+	createKey freighter.UnaryHandler[
+		apiauth.APIKeyCreateRequest,
+		apiauth.APIKeyCreateResponse,
+	]
+	deleteKeys     freighter.UnaryHandler[apiauth.APIKeyDeleteRequest, struct{}]
 	deleteSessions freighter.UnaryHandler[apiauth.SessionDeleteRequest, struct{}]
 	retrieveKeys   freighter.UnaryHandler[
-		apiauth.KeyRetrieveRequest,
-		apiauth.KeyRetrieveResponse,
+		apiauth.APIKeyRetrieveRequest,
+		apiauth.APIKeyRetrieveResponse,
 	]
 	retrieveSessions freighter.UnaryHandler[
 		apiauth.SessionRetrieveRequest,
@@ -92,7 +97,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	db = node.DB
 	passwordSvc = MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
 	userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
-		DB: db, Password: passwordSvc,
+		DB: db,
 	}))
 	apiKeySvc = MustOpen(apikey.OpenService(ctx, apikey.ServiceConfig{DB: db}))
 	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
@@ -161,13 +166,21 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		apiSvc.PrepareCreatePassword,
 		apiSvc.CreatePassword,
 	)
-	createKey = bind.Write(binder, apiSvc.CreateKey)
+	dispatchPassword = bind.Write(binder, apiSvc.DispatchPassword)
+	retrievePasswords = bind.Read(binder, func(
+		ctx context.Context,
+		snap bind.Snapshot,
+		req apiauth.PasswordRetrieveRequest,
+	) (apiauth.PasswordRetrieveResponse, error) {
+		return apiSvc.RetrievePasswords(ctx, snap, snap.Allowed, req)
+	})
+	createKey = bind.Write(binder, apiSvc.CreateAPIKey)
 	retrieveKeys = bind.Read(binder, func(
 		ctx context.Context,
 		snap bind.Snapshot,
-		req apiauth.KeyRetrieveRequest,
-	) (apiauth.KeyRetrieveResponse, error) {
-		return apiSvc.RetrieveKeys(ctx, snap, req)
+		req apiauth.APIKeyRetrieveRequest,
+	) (apiauth.APIKeyRetrieveResponse, error) {
+		return apiSvc.RetrieveAPIKeys(ctx, snap, req)
 	})
 	retrieveSessions = bind.Read(binder, func(
 		ctx context.Context,
@@ -176,7 +189,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	) (apiauth.SessionRetrieveResponse, error) {
 		return apiSvc.RetrieveSessions(ctx, snap, req)
 	})
-	deleteKeys = bind.Write(binder, apiSvc.DeleteKeys)
+	deleteKeys = bind.Write(binder, apiSvc.DeleteAPIKeys)
 	deleteSessions = bind.Write(binder, apiSvc.DeleteSessions)
 	linkOIDC = bind.WritePrepared(binder, apiSvc.PrepareLinkOIDC, apiSvc.LinkOIDC)
 	retrieveOIDCLinks = bind.Read(binder, func(

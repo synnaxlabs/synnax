@@ -107,7 +107,7 @@ next to it. Deleting a key ends its sessions.
 
 ## Manage users from code
 
-Create a user with a role:
+Create a user with a role, then give it a password:
 
 <Client.Tabs exclude={["console"]}>
 
@@ -115,9 +115,8 @@ Create a user with a role:
 
 ```python
 engineer = next(r for r in client.access.roles.retrieve() if r.name == "Engineer")
-user = client.users.create(
-    username="jdoe", password="secret", name="Jane Doe", role=engineer.key
-)
+user = client.users.create(name="Jane Doe", role=engineer.key)
+client.auth.create_password("jdoe", "secret", subject=user.resource_id)
 ```
 
   </Fragment>
@@ -128,11 +127,11 @@ user = client.users.create(
 const roles = await client.access.roles.retrieve({});
 const engineer = roles.find((r) => r.name === "Engineer");
 if (engineer == null) throw new Error("the Core has no Engineer role");
-const user = await client.users.create({
+const jane = await client.users.create({ name: "Jane Doe", role: engineer.key });
+await client.auth.createPassword({
+  subject: user.resourceID(jane.key),
   username: "jdoe",
   password: "secret",
-  name: "Jane Doe",
-  role: engineer.key,
 });
 ```
 
@@ -140,7 +139,8 @@ const user = await client.users.create({
 
 </Client.Tabs>
 
-To give users a different role, call `client.users.set_role(keys, role)` in Python or
+A user cannot log in until it has a password, an API key, or a provider link. To give
+users a different role, call `client.users.set_role(keys, role)` in Python or
 `client.users.setRole(keys, role)` in TypeScript. The new role replaces the role of each
 user. To change a username, call `client.users.change_username(key, username)` in Python
 or `client.users.changeUsername(key, username)` in TypeScript. To delete users, call
@@ -148,8 +148,8 @@ or `client.users.changeUsername(key, username)` in TypeScript. To delete users, 
 
 To set a password in TypeScript, call `client.auth.setPassword({ subject, password })`.
 Leave out `subject` and add `currentPassword` to set your own. To create an API key,
-call `client.auth.create_key(name, subject)` in Python or
-`client.auth.createKey({ name, subject })` in TypeScript.
+call `client.auth.create_api_key(name, subject)` in Python or
+`client.auth.createAPIKey({ name, subject })` in TypeScript.
 
 You cannot delete a role that a user holds. First give its users a different role.
 

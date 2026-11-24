@@ -20,8 +20,8 @@ export const viewport = { width: 1280, height: 800 };
 export default async (session: capture.CaptureSession): Promise<void> => {
   const client = fixtures.connect();
   try {
-    await client.auth.createKey({ name: "Sequence runner" });
-    await client.auth.createKey({ name: "Nightly report" });
+    await client.auth.createAPIKey({ name: "Sequence runner" });
+    await client.auth.createAPIKey({ name: "Nightly report" });
     const { page } = session;
     await capture.login(session);
     await capture.clearPanel(session);

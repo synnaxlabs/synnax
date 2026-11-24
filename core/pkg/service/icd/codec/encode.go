@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	xjson "github.com/synnaxlabs/x/json"
 	"github.com/synnaxlabs/x/payload"
+	xstrconv "github.com/synnaxlabs/x/strconv"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -127,26 +128,9 @@ func NewJSONEncoder(m JSONMessage) (*JSONEncoder, error) {
 }
 
 func newJSONEncoder(m JSONMessage) (*JSONEncoder, error) {
-	byKey := make(map[icd.FieldKey]icd.JSONField, len(m.Payload.Fields))
-	for _, f := range m.Payload.Fields {
-		byKey[f.Base().Key] = f
-	}
-	bound := make(map[icd.FieldKey]int, len(m.Bindings))
-	for i, b := range m.Bindings {
-		f, ok := byKey[b.Field]
-		if !ok {
-			return nil, errors.Wrapf(
-				validate.ErrValidation, "field %s does not exist", b.Field,
-			)
-		}
-		if _, ok = bound[b.Field]; ok {
-			return nil, errors.Wrapf(
-				validate.ErrValidation,
-				"field %s has more than one binding",
-				f.Base().Name,
-			)
-		}
-		bound[b.Field] = i
+	bound, err := bindingIndexes(m)
+	if err != nil {
+		return nil, err
 	}
 	e := &JSONEncoder{
 		name:  m.Name,
@@ -183,11 +167,37 @@ func newJSONEncoder(m JSONMessage) (*JSONEncoder, error) {
 			return nil, errors.Wrap(err, "match")
 		}
 	}
-	var err error
 	if e.template, err = xjson.NewTemplate(fields); err != nil {
 		return nil, err
 	}
 	return e, nil
+}
+
+// bindingIndexes returns the index of the binding of each bound field in m. It fails
+// when a binding names a field that m does not have, or a field has two bindings.
+func bindingIndexes(m JSONMessage) (map[icd.FieldKey]int, error) {
+	byKey := make(map[icd.FieldKey]icd.JSONField, len(m.Payload.Fields))
+	for _, f := range m.Payload.Fields {
+		byKey[f.Base().Key] = f
+	}
+	bound := make(map[icd.FieldKey]int, len(m.Bindings))
+	for i, b := range m.Bindings {
+		f, ok := byKey[b.Field]
+		if !ok {
+			return nil, errors.Wrapf(
+				validate.ErrValidation, "field %s does not exist", b.Field,
+			)
+		}
+		if _, ok = bound[b.Field]; ok {
+			return nil, errors.Wrapf(
+				validate.ErrValidation,
+				"field %s has more than one binding",
+				f.Base().Name,
+			)
+		}
+		bound[b.Field] = i
+	}
+	return bound, nil
 }
 
 // templateField returns the template field of f and its binding in m, or -1 when f
@@ -629,7 +639,9 @@ func appendBoolean(dst []byte, v float64) ([]byte, error) {
 	case 1:
 		return strconv.AppendBool(dst, true), nil
 	}
-	return nil, errors.Wrapf(validate.ErrValidation, "%v is not 0 or 1", v)
+	return nil, errors.Wrapf(
+		validate.ErrValidation, "%s is not 0 or 1", xstrconv.FormatFloat(v, 64),
+	)
 }
 
 // appendInteger appends n, unscaled and rounded to the nearest integer, to dst.
@@ -654,6 +666,9 @@ func (f *encodeField) appendInteger(dst []byte, n xjson.ParsedNumber) ([]byte, e
 		return strconv.AppendUint(dst, uint64(r), 10), nil
 	}
 	return nil, errors.Wrapf(
-		validate.ErrValidation, "%v is out of range for %s values", v, f.kind,
+		validate.ErrValidation,
+		"%s is out of range for %s values",
+		xstrconv.FormatFloat(v, 64),
+		f.kind,
 	)
 }

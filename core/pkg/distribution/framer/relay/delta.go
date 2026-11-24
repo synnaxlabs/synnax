@@ -36,6 +36,9 @@ type subscriber struct {
 	addr            address.Address
 	// dropping is true from the first dropped response until the buffer empties.
 	dropping bool
+	// dropped is true once disconnectAll closes responses. Only the delta goroutine
+	// reads or writes it, and a delta restarted after a panic runs on the same one.
+	dropped bool
 	// mu guards missedRanges and orders the signal of a drop after its ranges.
 	mu sync.Mutex
 	// missedRanges holds the time range of each channel's dropped samples since the
@@ -156,6 +159,9 @@ func (d *delta) send(res Response) {
 func (d *delta) disconnect(s *subscriber) {
 	i := slices.Index(d.subscribers, s)
 	if i == -1 {
+		if s.dropped {
+			return
+		}
 		d.ins.L.DPanic(fmt.Sprintf(
 			"relay: disconnected streamer %s that was never connected",
 			s.addr,
@@ -168,6 +174,7 @@ func (d *delta) disconnect(s *subscriber) {
 
 func (d *delta) disconnectAll() {
 	for _, s := range d.subscribers {
+		s.dropped = true
 		close(s.responses)
 	}
 	d.subscribers = nil

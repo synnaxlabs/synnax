@@ -250,6 +250,57 @@ describe("Input", () => {
     );
   });
 
+  describe("joined buttons", () => {
+    const renderJoined = async (props: Partial<Input.TextProps> = {}) => {
+      const { getByRole } = await renderThemed(
+        <Input.Text value="" onChange={() => {}} placeholder="Key" full="x" {...props}>
+          <Button.Button variant="outlined" aria-label="Load">
+            <Icon.Add />
+          </Button.Button>
+          <Button.Button variant="outlined" disabled>
+            Activate
+          </Button.Button>
+        </Input.Text>,
+      );
+      const input = getByRole("textbox").element();
+      return {
+        box: input.closest(`.${CSS.B("input")}`)!,
+        load: getByRole("button", { name: "Load" }).element(),
+        activate: getByRole("button", { name: "Activate" }).element(),
+      };
+    };
+
+    it("should draw one border at each join", async () => {
+      const { box, load, activate } = await renderJoined();
+      expect(computed(load, "border-left-width")).toBe("0px");
+      expect(computed(activate, "border-left-width")).toBe("0px");
+      expect(load.getBoundingClientRect().left).toBeCloseTo(
+        box.getBoundingClientRect().right,
+        1,
+      );
+    });
+
+    it("should keep the field's border on a disabled button", async () => {
+      const { box, activate } = await renderJoined();
+      expect(computed(activate, "border-top-color")).toBe(
+        computed(box, "border-top-color"),
+      );
+    });
+
+    it("should match a disabled field's own border on its buttons", async () => {
+      const { box, activate } = await renderJoined({ disabled: true });
+      expect(computed(box, "border-top-color")).toBe(resolve("var(--pluto-gray-l4)"));
+      expect(computed(activate, "border-top-color")).toBe(
+        computed(box, "border-top-color"),
+      );
+    });
+
+    it("should keep the left border of a button beside a shadow input", async () => {
+      const { load } = await renderJoined({ variant: "shadow" });
+      expect(computed(load, "border-left-width")).toBe("1px");
+    });
+  });
+
   describe("time editor", () => {
     it("should close on Enter and give the focus to the trigger", async () => {
       await renderThemed(

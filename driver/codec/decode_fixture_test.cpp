@@ -86,7 +86,11 @@ void check_case(
     const auto document = raw_at(doc, c + "/text").has_value()
                             ? string_at(doc, c + "/text")
                             : required_at(doc, c + "/document");
-    const auto [message, err] = dec.decode(document);
+    const auto [message, decode_err] = dec.decode(document);
+    // The Core fails a document on the first field that does not decode.
+    auto err = decode_err;
+    if (!err && message.has_value() && !dec.failures(*message).empty())
+        err = dec.failures(*message).front().error;
     if (const auto expected = string_at(doc, c + "/error"); !expected.empty()) {
         ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
         if (!expected.starts_with(SYNTAX_PREFIX)) {

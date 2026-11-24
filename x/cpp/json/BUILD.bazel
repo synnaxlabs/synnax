@@ -41,6 +41,7 @@ cc_library(
         "//x/cpp/base64",
         "//x/cpp/date",
         "//x/cpp/errors",
+        "//x/cpp/strings",
         "//x/cpp/telem",
         "//x/cpp/uuid",
         "@nlohmann_json//:json",
@@ -75,8 +76,10 @@ cc_library(
         "//x/cpp/base64",
         "//x/cpp/date",
         "//x/cpp/errors",
+        "//x/cpp/strings",
         "//x/cpp/telem",
         "//x/cpp/uuid",
+        "@nlohmann_json//:json",
     ],
 )
 

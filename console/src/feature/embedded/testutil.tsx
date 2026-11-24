@@ -11,6 +11,7 @@ import { Synnax as Client } from "@synnaxlabs/client";
 import {
   createTestClient,
   createTestClientWithRole,
+  TEST_USER_PASSWORD,
   testClientParams,
 } from "@synnaxlabs/client/testutil";
 import { Synnax } from "@synnaxlabs/pluto";
@@ -61,31 +62,31 @@ export interface DesktopUser {
  */
 export const createDesktopUser = async (): Promise<DesktopUser> => {
   const client = await createTestClientWithRole(createTestClient(), "Owner");
-  const { username = "", password = "" } = client.params;
+  const { username = "" } = client.params;
   const { host, port } = testClientParams();
   return {
     client,
     live: {
       state: "running",
-      connection: { host, port: Number(port), username, password },
+      connection: { host, port: Number(port), username, password: TEST_USER_PASSWORD },
     },
   };
 };
 
 /** Deletes the API keys of the client's user that the test creates, once it ends. */
 export const deleteKeysCreatedByTest = async (client: Client): Promise<void> => {
-  const before = new Set((await client.auth.retrieveKeys()).map((k) => k.key));
+  const before = new Set((await client.auth.retrieveAPIKeys()).map((k) => k.key));
   onTestFinished(async () => {
-    const created = (await client.auth.retrieveKeys()).filter(
+    const created = (await client.auth.retrieveAPIKeys()).filter(
       (k) => !before.has(k.key),
     );
-    await client.auth.deleteKeys(...created.map((k) => k.key));
+    await client.auth.deleteAPIKeys(...created.map((k) => k.key));
   });
 };
 
 /** @returns The keys of the API keys of the client's user, sorted. */
 export const retrieveKeyIDs = async (client: Client): Promise<string[]> =>
-  (await client.auth.retrieveKeys()).map((k) => k.key).sort();
+  (await client.auth.retrieveAPIKeys()).map((k) => k.key).sort();
 
 /** Creates a client of the test Core that logs in with an API key, as a script does. */
 export const createScriptClient = (apiKey: string): Client => {

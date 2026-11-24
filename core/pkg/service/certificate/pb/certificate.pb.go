@@ -539,7 +539,9 @@ type Where struct {
 	// source selects by source.
 	Source *SecretSourceSet `protobuf:"bytes,6,opt,name=source,proto3,oneof" json:"source,omitempty"`
 	// racks matches the file certificates on any of the given racks.
-	Racks         *RackKeyList `protobuf:"bytes,7,opt,name=racks,proto3" json:"racks,omitempty"`
+	Racks *RackKeyList `protobuf:"bytes,7,opt,name=racks,proto3" json:"racks,omitempty"`
+	// keyed matches the certificates with a private key, or without one when false.
+	Keyed         *bool `protobuf:"varint,8,opt,name=keyed,proto3,oneof" json:"keyed,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -621,6 +623,13 @@ func (x *Where) GetRacks() *RackKeyList {
 		return x.Racks
 	}
 	return nil
+}
+
+func (x *Where) GetKeyed() bool {
+	if x != nil && x.Keyed != nil {
+		return *x.Keyed
+	}
+	return false
 }
 
 type CertificateStoredPayload struct {
@@ -885,7 +894,7 @@ const file_core_pkg_service_certificate_pb_certificate_proto_rawDesc = "" +
 	"\x02in\x18\x02 \x01(\v2(.service.certificate.pb.SecretSourceListR\x02inB\x05\n" +
 	"\x03_eq\"%\n" +
 	"\vRackKeyList\x12\x16\n" +
-	"\x06values\x18\x01 \x03(\rR\x06values\"\xb0\x03\n" +
+	"\x06values\x18\x01 \x03(\rR\x06values\"\xd5\x03\n" +
 	"\x05Where\x123\n" +
 	"\x03and\x18\x01 \x01(\v2!.service.certificate.pb.WhereListR\x03and\x121\n" +
 	"\x02or\x18\x02 \x01(\v2!.service.certificate.pb.WhereListR\x02or\x124\n" +
@@ -893,11 +902,13 @@ const file_core_pkg_service_certificate_pb_certificate_proto_rawDesc = "" +
 	"\x03key\x18\x04 \x01(\v2\x1f.service.certificate.pb.UuidSetH\x01R\x03key\x88\x01\x01\x12,\n" +
 	"\x04name\x18\x05 \x01(\v2\x13.x.filter.pb.StringH\x02R\x04name\x88\x01\x01\x12D\n" +
 	"\x06source\x18\x06 \x01(\v2'.service.certificate.pb.SecretSourceSetH\x03R\x06source\x88\x01\x01\x129\n" +
-	"\x05racks\x18\a \x01(\v2#.service.certificate.pb.RackKeyListR\x05racksB\x06\n" +
+	"\x05racks\x18\a \x01(\v2#.service.certificate.pb.RackKeyListR\x05racks\x12\x19\n" +
+	"\x05keyed\x18\b \x01(\bH\x04R\x05keyed\x88\x01\x01B\x06\n" +
 	"\x04_notB\x06\n" +
 	"\x04_keyB\a\n" +
 	"\x05_nameB\t\n" +
-	"\a_source\"\x9d\x01\n" +
+	"\a_sourceB\b\n" +
+	"\x06_keyed\"\x9d\x01\n" +
 	"\x18CertificateStoredPayload\x12\x10\n" +
 	"\x03pem\x18\x01 \x01(\tR\x03pem\x12$\n" +
 	"\vprivate_key\x18\x02 \x01(\tH\x00R\n" +

@@ -98,8 +98,8 @@ public:
     /// data type of the field and has room for one more sample.
     /// - A timestamp takes a string in ISO 8601 format, and a number or a string
     ///   holding one in a Unix format.
-    /// - A string takes a string, or the label of an enum. JSON takes any value,
-    ///   compacted but spelled as raw.
+    /// - A string takes a string, or the label of an enum. Any other value writes its
+    ///   JSON text, as for JSON. JSON takes any value, compacted but spelled as raw.
     /// - A UUID takes its string form.
     /// - Bytes take a string of standard, padded base64.
     /// - A numeric or boolean sample takes a number that it can hold exactly, a
@@ -153,4 +153,8 @@ public:
     [[nodiscard]] errors::Error
     append(const telem::Series &s, std::size_t i, std::string &out) const;
 };
+
+/// @brief reports whether text is one JSON value in which no object repeats a member
+/// name, as RFC 7493 requires.
+[[nodiscard]] bool valid(std::string_view text);
 }
