@@ -622,19 +622,28 @@ const createSelector = <
     const memoQuery = Suspend.useMemoQuery<ExtendedQuery>(q, normalizeQuery);
     const client = Synnax.use();
     const held = useRef<Held<Query, Data> | null>(null);
+    /** missing is the Core's error from a push that says nothing matches. */
+    const missing = useRef<Held<Query, Error> | null>(null);
     const computed = useRef<(Held<Query, Data> & { out: Selected }) | null>(null);
     const subscribe = (notify: () => void) => {
       if (onChange == null || client == null) return NOOP_SUBSCRIBE();
-      return onChange({ client, query: memoQuery }, () => notify());
+      return onChange({ client, query: memoQuery }, (_, error) => {
+        missing.current =
+          error == null ? null : { query: memoQuery, client, value: error };
+        notify();
+      });
     };
     const getSnapshot = (): query.Cached<Data> | undefined => {
       if (client == null) return undefined;
       const next = getCached({ client, query: memoQuery });
       const prev = held.current;
       // An invalidated entry repairs under its own subscription; serve the held
-      // answer across the gap.
+      // answer across the gap. A push that says nothing matches ends the gap.
       if (next === undefined)
-        return isHeld(prev, memoQuery, client) ? prev.value : undefined;
+        return isHeld(prev, memoQuery, client) &&
+          !isHeld(missing.current, memoQuery, client)
+          ? prev.value
+          : undefined;
       if (!isLive<Data>(next)) return next;
       if (isHeld(prev, memoQuery, client) && equal(prev.value, next)) return prev.value;
       held.current = { query: memoQuery, client, value: next };
@@ -643,10 +652,13 @@ const createSelector = <
     const selector = (raw: query.Cached<Data> | undefined): Selected => {
       if (client == null)
         throw new DisconnectedError(`Cannot select ${name}: no Core connected.`);
-      if (raw === undefined)
+      if (raw === undefined) {
+        const gone = missing.current;
+        if (isHeld(gone, memoQuery, client)) throw gone.value;
         throw new NotFoundError(
           `Cannot select ${name}: nothing cached. A parent must retrieve it first.`,
         );
+      }
       if (Deleted.matches<Data>(raw))
         throw new DeletedError(`${strings.capitalize(name)} was deleted`, raw.corpse);
       const cached = computed.current;

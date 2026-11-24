@@ -657,9 +657,11 @@ export class Space<
     query.composed = undefined;
     if (query.handlers.size === 0) return;
     const result = this.cachedOf(query);
+    const { state } = query;
     query.handlers.forEach((handler) => {
       try {
-        handler(result);
+        if (state.variant === "error") handler(result, state.error);
+        else handler(result);
       } catch (exc) {
         this.report(exc, `failed to notify ${this.config.name} answer subscriber`);
       }

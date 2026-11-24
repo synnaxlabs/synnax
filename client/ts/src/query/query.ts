@@ -68,11 +68,12 @@ export const requireCorpse = <D extends Data>(value: Cached<D> | undefined): D =
 };
 
 /**
- * Receives the new cached answer for a query. `undefined` means the answer was
- * invalidated; the next read refetches.
+ * Receives the new cached answer for a query. `undefined` with no error means the
+ * answer was invalidated, and the next read refetches. `undefined` with an error is the
+ * Core's answer, such as a NotFoundError when nothing matches the query.
  */
 export interface ChangeHandler<D extends Data> {
-  (result: Cached<D> | undefined): void;
+  (result: Cached<D> | undefined, error?: Error): void;
 }
 
 /** The answer of one query, kept current while a handler is subscribed. */
