@@ -19,7 +19,7 @@ from urllib.parse import urlsplit
 
 import pytest
 
-from freighter import URL, AsyncWebsocketClient, HTTPClient, WebsocketClient
+from freighter import EOF, URL, AsyncWebsocketClient, HTTPClient, WebsocketClient
 from x.codec import JSONCodec
 
 from .interface import Message, create_registry
@@ -154,7 +154,11 @@ async def _stream_async(url: URL, ctx: ssl.SSLContext | None) -> None:
     client = AsyncWebsocketClient(
         encoder=JSONCodec(), registry=create_registry(), base_url=url, ssl_context=ctx
     )
-    await (await client.stream("/stream", Message, Message)).close_send()
+    stream = await client.stream("/stream", Message, Message)
+    await stream.close_send()
+    # Reads to EOF so the client answers the server's close before its loop stops.
+    with pytest.raises(EOF):
+        await stream.receive()
 
 
 def _target(url: URL) -> str:
