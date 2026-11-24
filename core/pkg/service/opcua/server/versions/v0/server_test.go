@@ -53,7 +53,7 @@ var _ = Describe("Server", func() {
 		s := server()
 		Expect(s.GorpKey()).To(Equal(s.Key))
 		Expect(s.ResourceID()).To(Equal(resource.ID{
-			Type: resource.TypeOpcuaServer,
+			Type: resource.TypeOPCUAServer,
 			Key:  s.Key.String(),
 		}))
 	})

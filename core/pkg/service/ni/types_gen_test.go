@@ -44,18 +44,18 @@ var _ = Describe("Hardware", func() {
 			)))
 		},
 		Entry("an analog input voltage range",
-			ni.Hardware{AiVoltageRanges: reversed}, "ai_voltage_ranges"),
+			ni.Hardware{AIVoltageRanges: reversed}, "ai_voltage_ranges"),
 		Entry("an analog input current range",
-			ni.Hardware{AiCurrentRanges: reversed}, "ai_current_ranges"),
+			ni.Hardware{AICurrentRanges: reversed}, "ai_current_ranges"),
 		Entry("an analog output voltage range",
-			ni.Hardware{AoVoltageRanges: reversed}, "ao_voltage_ranges"),
+			ni.Hardware{AOVoltageRanges: reversed}, "ao_voltage_ranges"),
 		Entry("an analog output current range",
-			ni.Hardware{AoCurrentRanges: reversed}, "ao_current_ranges"),
+			ni.Hardware{AOCurrentRanges: reversed}, "ao_current_ranges"),
 	)
 
 	It("Should accept a range whose lower is below its upper", func() {
 		Expect(ni.Hardware{
-			AiVoltageRanges: []spatial.ClosedBounds{{Lower: -10, Upper: 10}},
+			AIVoltageRanges: []spatial.ClosedBounds{{Lower: -10, Upper: 10}},
 		}.Validate()).To(Succeed())
 	})
 })
