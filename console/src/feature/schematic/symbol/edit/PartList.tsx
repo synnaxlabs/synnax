@@ -22,8 +22,6 @@ import { Schematic } from "@synnaxlabs/pluto";
 import pluralize from "pluralize";
 import type { ReactElement } from "react";
 
-import { Paint } from "@/feature/schematic/symbol/edit/Paint";
-import { useValues, type Values } from "@/feature/schematic/symbol/edit/useValues";
 import { Spec } from "@/feature/schematic/symbol/spec";
 import { CSS } from "@/platform/css";
 
@@ -34,60 +32,25 @@ const WHOLE_DRAWING = "";
 
 export interface PartListProps extends Input.Control<Spec.Target> {
   onAdd: () => void;
-  /** selectedValue is the value of the state whose looks the list edits. */
-  selectedValue: number;
 }
 
 interface PartListItemProps extends List.ItemRenderProps<string> {
   onDelete: (key: string) => void;
-  selectedValue: number;
-  values: Values;
 }
 
 const PartListItem = ({
   onDelete,
-  selectedValue,
-  values,
   ...props
 }: PartListItemProps): ReactElement | null => {
   const { itemKey } = props;
   const part = Form.useFieldValue(path.data.parts[itemKey], { optional: true });
   const looks = Form.useFieldValue(path.data.looks);
-  const markup = Form.useFieldValue(path.data.drawing.markup);
-  const { get, set } = Form.useContext();
   const whole = itemKey === WHOLE_DRAWING;
   if (!whole && part == null) return null;
   const target = whole ? undefined : itemKey;
   const count = looks.filter((l) => l.part === target).length;
   const shapes =
     part == null ? "Every shape" : pluralize("shape", part.selectors.length, true);
-  const drawn =
-    part == null ? undefined : Schematic.Node.Region.paint(markup, part.selectors);
-  const paint = (field: "stroke" | "fill", label: string) => {
-    const value = Spec.effective({ looks }, target, field, selectedValue);
-    const inherited =
-      target == null
-        ? undefined
-        : Spec.effective({ looks }, undefined, field, selectedValue);
-    const own = Spec.own({ looks }, target, field, selectedValue);
-    return (
-      <Paint
-        aria-label={label}
-        value={value}
-        inherited={inherited}
-        own={own}
-        onChange={(v) =>
-          set(
-            path.data,
-            Spec.setOwn(get(path.data).value, target, field, v, selectedValue),
-          )
-        }
-        entryState={values.entryState}
-        drawingColor={drawn?.[field]}
-        entryColor={values.entryColor(selectedValue)}
-      />
-    );
-  };
   return (
     <Select.Item
       {...props}
@@ -112,37 +75,27 @@ const PartListItem = ({
           {count === 0 ? shapes : `${shapes} · ${pluralize("look", count, true)}`}
         </Text.Text>
       </Flex.Box>
-      <Flex.Box x align="center" gap={1}>
-        {paint("stroke", "Stroke")}
-        {paint("fill", "Fill")}
-        {part != null && (
-          <Button.Button
-            onClick={(e) => {
-              e.stopPropagation();
-              onDelete(itemKey);
-            }}
-            size="small"
-            variant="text"
-            tooltip="Remove part"
-            reveal
-          >
-            <Icon.Close />
-          </Button.Button>
-        )}
-      </Flex.Box>
+      {part != null && (
+        <Button.Button
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete(itemKey);
+          }}
+          size="small"
+          variant="text"
+          tooltip="Remove part"
+          reveal
+        >
+          <Icon.Close />
+        </Button.Button>
+      )}
     </Select.Item>
   );
 };
 
 /** PartList lists the whole drawing and the parts of the symbol, and picks one. */
-export const PartList = ({
-  value,
-  onChange,
-  onAdd,
-  selectedValue,
-}: PartListProps): ReactElement => {
+export const PartList = ({ value, onChange, onAdd }: PartListProps): ReactElement => {
   const parts = Form.useFieldValue(path.data.parts);
-  const values = useValues();
   const { get, set } = Form.useContext();
   const handleDelete = (key: string) => {
     set(path.data, Spec.removePart(get(path.data).value, key));
@@ -169,13 +122,7 @@ export const PartList = ({
         <List.Scroll y gap={1}>
           <List.Items<string>>
             {({ key, ...rest }) => (
-              <PartListItem
-                key={key}
-                {...rest}
-                onDelete={handleDelete}
-                selectedValue={selectedValue}
-                values={values}
-              />
+              <PartListItem key={key} {...rest} onDelete={handleDelete} />
             )}
           </List.Items>
         </List.Scroll>

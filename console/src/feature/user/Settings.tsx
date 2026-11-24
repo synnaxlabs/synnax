@@ -26,7 +26,7 @@ const Password = ({ userKey }: { userKey: user.Key }): ReactElement => {
   return (
     <PlatformSettings.Card title="Password">
       <PlatformSettings.Body>
-        <Credential.Password
+        <Credential.Password.Form
           subject={user.resourceID(userKey)}
           onChanged={setChanged}
         />
@@ -89,5 +89,5 @@ export const ProfileSettings = (): ReactElement | null => {
 export const KeySettings = (): ReactElement | null => {
   const { data: key } = User.useResultKey({});
   if (key == null) return null;
-  return <Credential.KeyTable subject={user.resourceID(key)} />;
+  return <Credential.APIKey.Table subject={user.resourceID(key)} />;
 };
