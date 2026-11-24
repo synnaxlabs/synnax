@@ -12,7 +12,6 @@
 package write
 
 import (
-	"encoding/json/v2"
 	"slices"
 	"strconv"
 
@@ -20,7 +19,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/icd/codec"
-	"github.com/synnaxlabs/x/content"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/telem"
@@ -41,15 +39,15 @@ var defaultDataTypes = map[payload.Kind]telem.DataType{
 	payload.KindBytes:     telem.BytesT,
 }
 
-// Encoder returns the encoder of the documents that wm sends of its message in ic. The
-// encoder takes one sample for each channel binding of wm, in binding order. A value
-// binding sends its value as its field. dataTypes holds the data type of each channel
-// that exists. A binding to another channel takes its own data type, or else float64
-// for a scaled field and the default of its field's kind for any other. Encoder returns
-// a validation error when wm is not valid, ic lacks the message, the message is not
-// JSON, wm binds no channels, a value does not suit its field, or the encoder refuses
-// the bindings.
-func Encoder(
+// newEncoder returns the encoder of the documents that wm sends of its message in ic.
+// The encoder takes one sample for each channel binding of wm, in binding order. A
+// value binding sends its value as its field. dataTypes holds the data type of each
+// channel that exists. A binding to another channel takes its own data type, or else
+// float64 for a scaled field and the default of its field's kind for any other.
+// newEncoder returns a validation error when wm is not valid, ic lacks the message, the
+// message is not JSON, wm binds no channels, a value does not suit its field, or the
+// encoder refuses the bindings.
+func newEncoder(
 	wm icd.WriteMessage,
 	ic icd.ICD,
 	dataTypes map[channel.Key]telem.DataType,
@@ -194,23 +192,4 @@ func withDefault[F icd.JSONFieldVariant](
 		f.Variant = fv
 	}
 	return f, ok
-}
-
-// Hash writes to h the payload of the message of ic that wm sends, so an edit to the
-// format of the message changes the hash. When ic lacks the message, Hash writes only
-// that it is absent.
-func Hash(h *content.Hash, ic icd.ICD, wm icd.WriteMessage) error {
-	m, ok := lo.Find(ic.Messages, func(m icd.Message) bool {
-		return m.Key == wm.Message
-	})
-	h.Bool(ok)
-	if !ok {
-		return nil
-	}
-	b, err := json.Marshal(m.Payload, json.Deterministic(true))
-	if err != nil {
-		return err
-	}
-	h.Bytes(b)
-	return nil
 }

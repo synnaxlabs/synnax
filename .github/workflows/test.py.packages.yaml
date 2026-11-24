@@ -37,6 +37,11 @@ jobs:
         with:
           version: latest-known
 
+      # A version other than 0.0.0 shows that the build writes it into
+      # synnax/version.py.
+      - name: Stamp a test version
+        run: .github/scripts/stamp_versions.sh py 1.2.3
+
       # The oldest Python is the lower bound of requires-python, and the newest is the
       # one the workspace runs.
       - name: Check the wheels in a clean environment

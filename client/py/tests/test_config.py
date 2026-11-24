@@ -26,6 +26,7 @@ from synnax.config import (
     DESKTOP_NOT_RUNNING_MSG,
     KEYCHAIN_UNAVAILABLE_MSG,
     NO_CREDENTIALS_MSG,
+    NO_HOME_MSG,
     NO_KEY_HELPER_MSG,
     OLD_DESKTOP_MSG,
     Cluster,
@@ -98,6 +99,72 @@ def desktop_file(tmp_path: Path) -> Path:
     return tmp_path / "desktop.json"
 
 
+class TestFile:
+    def test_missing_file(self, tmp_path: Path) -> None:
+        """Should load an empty config, and write nothing, when no file exists."""
+        assert File(config_dir=tmp_path / ".synnax").config == {}
+        assert list(tmp_path.iterdir()) == []
+
+    def test_unreadable_file(self, tmp_path: Path) -> None:
+        """Should name the file and the reason when the file cannot be read."""
+        # A directory at the path cannot be read as a file, on any platform or user.
+        (tmp_path / "config.json").mkdir()
+        with pytest.raises(ConfigurationError, match="Cannot read") as e:
+            File(config_dir=tmp_path)
+        assert str(tmp_path / "config.json") in str(e.value)
+        assert isinstance(e.value.__cause__, OSError)
+
+    @pytest.mark.parametrize("content", [b"{", b"\xff"])
+    def test_corrupt_file(self, content: bytes, tmp_path: Path) -> None:
+        """Should name the file when it is not valid JSON."""
+        (tmp_path / "config.json").write_bytes(content)
+        with pytest.raises(ConfigurationError, match="not valid JSON") as e:
+            File(config_dir=tmp_path)
+        assert str(tmp_path / "config.json") in str(e.value)
+
+    def test_failed_write_keeps_the_file(self, tmp_path: Path) -> None:
+        """Should leave the saved config whole, and no other file, when a write
+        fails.
+        """
+        File(config_dir=tmp_path).set("a", 1)
+        config = File(config_dir=tmp_path)
+        with pytest.raises(TypeError):
+            config.set("b", {"c": 2, "d": object()})
+        assert File(config_dir=tmp_path).config == {"a": 1}
+        assert [p.name for p in tmp_path.iterdir()] == ["config.json"]
+
+    @pytest.mark.skipif(sys.platform != "win32", reason="Windows share modes")
+    def test_write_while_another_handle_is_open(self, tmp_path: Path) -> None:
+        """Should save once another process closes its brief handle on the file."""
+        config = File(config_dir=tmp_path)
+        config.set("a", 1)
+        # Python opens files without FILE_SHARE_DELETE, as a virus scanner does.
+        handle = open(tmp_path / "config.json", encoding="utf-8")
+        threading.Timer(0.05, handle.close).start()
+        config.set("a", 2)
+        assert File(config_dir=tmp_path).config == {"a": 2}
+
+    @pytest.mark.skipif(sys.platform == "win32", reason="POSIX file modes")
+    def test_write_keeps_the_mode(self, tmp_path: Path) -> None:
+        """Should keep the mode of the saved file."""
+        config = File(config_dir=tmp_path)
+        config.set("a", 1)
+        (tmp_path / "config.json").chmod(0o644)
+        config.set("a", 2)
+        assert (tmp_path / "config.json").stat().st_mode & 0o777 == 0o644
+
+    @pytest.mark.skipif(sys.platform == "win32", reason="symlinks need a privilege")
+    def test_write_through_a_symlink(self, tmp_path: Path) -> None:
+        """Should write to the target of a symlinked file and keep the link."""
+        target = tmp_path / "dotfiles" / "config.json"
+        target.parent.mkdir()
+        target.write_text("{}", encoding="utf-8")
+        (tmp_path / "config.json").symlink_to(target)
+        File(config_dir=tmp_path).set("a", 1)
+        assert (tmp_path / "config.json").is_symlink()
+        assert json.loads(target.read_text(encoding="utf-8")) == {"a": 1}
+
+
 class TestLoadDesktopOptions:
     def test_reads_the_file_and_the_helper(self, desktop_file: Path) -> None:
         """Should read the address from the file and the API key from the helper that
@@ -151,6 +218,14 @@ class TestLoadDesktopOptions:
             load_desktop_options(desktop_file, FakeHelper())
         assert str(desktop_file) in str(e.value)
         assert isinstance(e.value.__cause__, OSError)
+
+    @pytest.mark.parametrize("content", [b"{", b"\xff"])
+    def test_corrupt_file(self, content: bytes, desktop_file: Path) -> None:
+        """Should name the file when it is not valid JSON."""
+        desktop_file.write_bytes(content)
+        with pytest.raises(ConfigurationError, match="not valid JSON") as e:
+            load_desktop_options(desktop_file, FakeHelper())
+        assert str(desktop_file) in str(e.value)
 
     def test_older_file_with_a_key(self, desktop_file: Path) -> None:
         """Should ask for a newer Synnax Desktop, and not read a key from the file."""
@@ -546,8 +621,12 @@ class TestLoadOptions:
     @pytest.mark.parametrize(
         "break_file",
         # A directory at the path cannot be read as a file, on any platform or user.
-        [lambda path: path.write_text("not json"), Path.mkdir],
-        ids=["malformed", "unreadable"],
+        [
+            lambda path: path.write_text("not json"),
+            lambda path: path.write_bytes(b"\xff"),
+            Path.mkdir,
+        ],
+        ids=["malformed", "not_utf8", "unreadable"],
     )
     def test_given_options_with_a_broken_desktop_file(
         self,
@@ -658,6 +737,51 @@ class TestLoadOptions:
             "No host was given and no Core is saved. Give a host, set SYNNAX_HOST, or "
             "log in with `sy login`."
         )
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX home directories")
+class TestHome:
+    def test_read_only_home(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Should ask for a host, and write nothing, when the home is read-only."""
+        if os.geteuid() == 0:
+            pytest.skip("root writes to a read-only directory")
+        monkeypatch.setenv("HOME", str(tmp_path))
+        tmp_path.chmod(0o500)
+        try:
+            with pytest.raises(ValidationError, match="SYNNAX_HOST"):
+                load_options()
+            assert list(tmp_path.iterdir()) == []
+        finally:
+            tmp_path.chmod(0o700)
+
+    def test_unknown_home(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Should ask for SYNNAX_HOST, and write nothing, when the home is unknown."""
+        monkeypatch.delenv("HOME", raising=False)
+        monkeypatch.setattr("pwd.getpwuid", _no_passwd_entry)
+        monkeypatch.chdir(tmp_path)
+        with pytest.raises(ConfigurationError) as e:
+            load_options()
+        assert str(e.value) == NO_HOME_MSG
+        assert list(tmp_path.iterdir()) == []
+
+    def test_unknown_home_with_a_host(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Should connect to a given host when the home is unknown."""
+        monkeypatch.delenv("HOME", raising=False)
+        monkeypatch.setattr("pwd.getpwuid", _no_passwd_entry)
+        monkeypatch.chdir(tmp_path)
+        opts, embedded = load_options(host="core.lab", api_key="syk_k")
+        assert opts == Options(host="core.lab", port=9090, api_key="syk_k")
+        assert not embedded
+
+
+def _no_passwd_entry(uid: int) -> None:
+    raise KeyError(uid)
 
 
 class TestDesktopConnection:

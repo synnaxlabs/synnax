@@ -30,6 +30,27 @@ import (
 // logs and never sent over the wire, to avoid leaking internal detail to clients.
 var ErrPanic = errors.New("the server encountered an unexpected internal error")
 
+const errorType = "sy.internal"
+
+func encodeErr(_ *errors.Codec, err error) (errors.Payload, bool) {
+	if errors.CheapIs(err, ErrPanic) {
+		return errors.Payload{Type: errorType, Data: err.Error()}, true
+	}
+	return errors.Payload{}, false
+}
+
+func decodeErr(_ *errors.Codec, pld errors.Payload) (error, bool) {
+	if pld.Type == errorType {
+		return ErrPanic, true
+	}
+	return nil, false
+}
+
+// ErrorProvider encodes and decodes ErrPanic for an errors.Codec.
+func ErrorProvider() errors.Provider {
+	return errors.Provider{Encode: encodeErr, Decode: decodeErr}
+}
+
 // Middleware returns a freighter.Middleware that recovers from panics in any
 // downstream middleware or in the handler itself, converting them into ErrPanic so the
 // transport can encode and return the error to the caller. Install it as the first

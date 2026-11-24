@@ -27,6 +27,7 @@ import {
   status,
   Synnax,
   table,
+  user,
 } from "@synnaxlabs/client";
 import { dynamicWindow, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 
@@ -492,15 +493,19 @@ const createUsers = async (client: Synnax): Promise<void> => {
     return role.key;
   };
   const usernames = USERS.map((u) => u.username);
-  const found = await client.users.retrieve({ usernames });
-  if (found.length > 0) await client.users.delete(found.map((u) => u.key));
-  await client.users.create(
-    USERS.map(({ username, name, role }) => ({
-      username,
-      name,
-      password: PASSWORD,
-      role: roleKey(role),
-    })),
+  const found = await client.auth.retrievePasswords({ usernames });
+  if (found.length > 0) await client.users.delete(found.map((p) => p.subject.key));
+  const created = await client.users.create(
+    USERS.map(({ name, role }) => ({ name, role: roleKey(role) })),
+  );
+  await Promise.all(
+    created.map((u, i) =>
+      client.auth.createPassword({
+        subject: user.resourceID(u.key),
+        username: USERS[i].username,
+        password: PASSWORD,
+      }),
+    ),
   );
 };
 
