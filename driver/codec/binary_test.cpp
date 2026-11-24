@@ -14,6 +14,7 @@
 #include <limits>
 #include <optional>
 #include <string>
+#include <utility>
 #include <variant>
 #include <vector>
 
@@ -703,5 +704,429 @@ TEST(Binary, RefuseInvalidIdentifierField) {
         {m},
         "message a: identifier: field " + key.to_string() + " does not exist"
     );
+}
+
+namespace {
+using Bytes = std::vector<std::uint8_t>;
+
+/// @brief returns a vector that holds each series of s.
+template<typename... S>
+std::vector<x::telem::Series> series_of(S &&...s) {
+    std::vector<x::telem::Series> out;
+    out.reserve(sizeof...(s));
+    (out.push_back(std::forward<S>(s)), ...);
+    return out;
+}
+
+/// @brief returns the payload that an encoder of m encodes from samples.
+Bytes encode(const BinaryMessage &m, const std::vector<x::telem::Series> &samples) {
+    auto enc = ASSERT_NIL_P(BinaryEncoder::create(m));
+    Bytes payload;
+    EXPECT_NIL(enc.encode(samples, payload));
+    return payload;
+}
+
+/// @brief asserts that encoding samples for m fails with text.
+void assert_rejects_samples(
+    const BinaryMessage &m,
+    const std::vector<x::telem::Series> &samples,
+    const std::string &text
+) {
+    auto enc = ASSERT_NIL_P(BinaryEncoder::create(m));
+    Bytes payload;
+    const auto err = enc.encode(samples, payload);
+    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+    EXPECT_EQ(err.data, text);
+}
+
+/// @brief asserts that creating an encoder for m fails with text.
+void assert_encoder_refuses(const BinaryMessage &m, const std::string &text) {
+    const auto err = BinaryEncoder::create(m).second;
+    ASSERT_OCCURRED_AS(err, CONFIG_ERROR);
+    EXPECT_EQ(err.data, text);
+}
+
+/// @brief returns the sample that a decoder reads back from the payload that an encoder
+/// encodes from v, for one field f bound to a channel of dt.
+template<typename T>
+T round_trip(const icd::BinaryField &f, const x::telem::DataType &dt, const T v) {
+    const auto m = frame(f, dt);
+    const auto payload = encode(m, series_of(x::telem::Series(v, dt)));
+    auto dec = ASSERT_NIL_P(Binary::create({m}));
+    EXPECT_EQ(ASSERT_NIL_P(dec.decode(payload)), 0U);
+    return dec.samples(0)[0].at<T>(0);
+}
+
+/// @brief returns an empty series of dt, which takes the default of its field.
+x::telem::Series none(const x::telem::DataType &dt = x::telem::UINT8_T) {
+    return x::telem::Series(dt, 0);
+}
+
+/// @brief returns a uint8 field named name in the byte at offset that the field mux
+/// selects with values.
+icd::UnsignedBinaryField selected_by(
+    const std::string &name,
+    const std::uint16_t offset,
+    const icd::FieldKey &mux,
+    const std::vector<std::int32_t> &values
+) {
+    auto f = field<icd::UnsignedBinaryField>(name, offset * 8, 8);
+    f.multiplexor = mux;
+    f.multiplex_values = values;
+    return f;
+}
+}
+
+/// @brief it should write a sample into the bits of its field.
+TEST(BinaryEncoder, EncodeUnsigned) {
+    const auto m = frame(field<icd::UnsignedBinaryField>("v", 8, 8), x::telem::UINT8_T);
+    EXPECT_EQ(encode(m, series_of(x::telem::Series(std::uint8_t{42}))), (Bytes{0, 42}));
+}
+
+/// @brief it should encode samples that a decoder of the same message reads back.
+TEST(BinaryEncoder, RoundTrip) {
+    auto big = field<icd::IntegerBinaryField>("v", 7, 16);
+    big.byte_order = icd::BYTE_ORDER_BIG_ENDIAN;
+    EXPECT_EQ(round_trip(big, x::telem::INT16_T, std::int16_t{-1234}), -1234);
+    EXPECT_EQ(
+        round_trip(
+            field<icd::IntegerBinaryField>("v", 3, 5),
+            x::telem::INT8_T,
+            std::int8_t{-16}
+        ),
+        -16
+    );
+    EXPECT_EQ(
+        round_trip(field<icd::FloatBinaryField>("v", 0, 32), x::telem::FLOAT32_T, 1.5F),
+        1.5F
+    );
+    EXPECT_EQ(
+        round_trip(
+            field<icd::FloatBinaryField>("v", 0, 64),
+            x::telem::FLOAT64_T,
+            -2.25
+        ),
+        -2.25
+    );
+    constexpr auto max = std::numeric_limits<std::uint64_t>::max();
+    EXPECT_EQ(
+        round_trip(
+            field<icd::UnsignedBinaryField>("v", 0, 64),
+            x::telem::UINT64_T,
+            max
+        ),
+        max
+    );
+    auto scaled = field<icd::IntegerBinaryField>("v", 0, 16);
+    scaled.scale = 0.1;
+    scaled.offset = -40;
+    EXPECT_NEAR(round_trip(scaled, x::telem::FLOAT64_T, 21.5), 21.5, 1e-9);
+}
+
+/// @brief it should write the default of a field with no binding or no sample, and zero
+/// the bits that no field holds.
+TEST(BinaryEncoder, EncodeDefaults) {
+    auto v = field<icd::UnsignedBinaryField>("v", 0, 8);
+    v.default_ = 7;
+    auto w = field<icd::UnsignedBinaryField>("w", 16, 8);
+    w.default_ = 9;
+    const BinaryMessage m{
+        .name = "frame",
+        .payload = {.fields = {v, w}},
+        .bindings = {{.field = v.key, .data_type = x::telem::UINT8_T}},
+    };
+    EXPECT_EQ(encode(m, series_of(none())), (Bytes{7, 0, 9}));
+    EXPECT_EQ(
+        encode(m, series_of(x::telem::Series(std::uint8_t{3}))),
+        (Bytes{3, 0, 9})
+    );
+}
+
+/// @brief it should fill a payload to the length of its message.
+TEST(BinaryEncoder, EncodeLength) {
+    auto m = frame(field<icd::UnsignedBinaryField>("v", 0, 8), x::telem::UINT8_T);
+    m.payload.length = 4;
+    EXPECT_EQ(
+        encode(m, series_of(x::telem::Series(std::uint8_t{5}))),
+        (Bytes{5, 0, 0, 0})
+    );
+}
+
+/// @brief it should remove the scale and offset from a sample, and round it to the
+/// nearest integer.
+TEST(BinaryEncoder, EncodeScaledAndRounded) {
+    auto scaled = field<icd::UnsignedBinaryField>("v", 0, 8);
+    scaled.scale = 0.5;
+    scaled.offset = 10;
+    EXPECT_EQ(
+        encode(frame(scaled, x::telem::FLOAT64_T), series_of(x::telem::Series(20.0))),
+        Bytes{20}
+    );
+    const auto u = frame(
+        field<icd::UnsignedBinaryField>("v", 0, 8),
+        x::telem::FLOAT64_T
+    );
+    EXPECT_EQ(encode(u, series_of(x::telem::Series(2.5))), Bytes{3});
+    const auto i = frame(
+        field<icd::IntegerBinaryField>("v", 0, 8),
+        x::telem::FLOAT32_T
+    );
+    EXPECT_EQ(encode(i, series_of(x::telem::Series(-2.5F))), Bytes{0xFD});
+}
+
+/// @brief it should reject a field with no sample and no default.
+TEST(BinaryEncoder, RejectMissingValue) {
+    const auto m = frame(field<icd::UnsignedBinaryField>("v", 0, 8), x::telem::UINT8_T);
+    assert_rejects_samples(m, series_of(none()), "field v: no value and no default");
+}
+
+/// @brief it should reject a sample that does not fit its field.
+TEST(BinaryEncoder, RejectOutOfRange) {
+    const auto u8 = field<icd::UnsignedBinaryField>("v", 0, 8);
+    const auto i8 = field<icd::IntegerBinaryField>("v", 0, 8);
+    assert_rejects_samples(
+        frame(u8, x::telem::INT16_T),
+        series_of(x::telem::Series(std::int16_t{256})),
+        "field v: 256 is out of range for 8 bits"
+    );
+    assert_rejects_samples(
+        frame(u8, x::telem::INT16_T),
+        series_of(x::telem::Series(std::int16_t{-1})),
+        "field v: -1 is out of range for 8 bits"
+    );
+    assert_rejects_samples(
+        frame(i8, x::telem::UINT8_T),
+        series_of(x::telem::Series(std::uint8_t{128})),
+        "field v: 128 is out of range for 8 bits"
+    );
+    assert_rejects_samples(
+        frame(i8, x::telem::INT16_T),
+        series_of(x::telem::Series(std::int16_t{-129})),
+        "field v: -129 is out of range for 8 bits"
+    );
+    assert_rejects_samples(
+        frame(u8, x::telem::FLOAT64_T),
+        series_of(x::telem::Series(255.5)),
+        "field v: 255.5 is out of range for 8 bits"
+    );
+    assert_rejects_samples(
+        frame(u8, x::telem::FLOAT64_T),
+        series_of(x::telem::Series(std::numeric_limits<double>::quiet_NaN())),
+        "field v: NaN is out of range for 8 bits"
+    );
+    assert_rejects_samples(
+        frame(field<icd::IntegerBinaryField>("v", 0, 64), x::telem::UINT64_T),
+        series_of(x::telem::Series(std::uint64_t{1} << 63)),
+        "field v: 9223372036854775808 is out of range for 64 bits"
+    );
+    assert_rejects_samples(
+        frame(field<icd::FloatBinaryField>("v", 0, 32), x::telem::FLOAT64_T),
+        series_of(x::telem::Series(1e300)),
+        "field v: 1e+300 overflows float32"
+    );
+}
+
+/// @brief it should write the value of the identifier into the identifier field.
+TEST(BinaryEncoder, EncodeIdentifier) {
+    EXPECT_EQ(
+        encode(tagged("status", 5), series_of(x::telem::Series(std::uint8_t{42}))),
+        (Bytes{5, 42})
+    );
+    const auto negative = tagged(
+        "status",
+        -2,
+        field<icd::IntegerBinaryField>("kind", 0, 8)
+    );
+    EXPECT_EQ(
+        encode(negative, series_of(x::telem::Series(std::uint8_t{42}))),
+        (Bytes{0xFE, 42})
+    );
+}
+
+/// @brief it should refuse a binding on the identifier field.
+TEST(BinaryEncoder, RefuseBoundIdentifier) {
+    auto m = tagged("status", 5);
+    m.bindings.push_back(
+        {.field = icd::base(m.payload.fields[1]).key, .data_type = x::telem::UINT8_T}
+    );
+    assert_encoder_refuses(
+        m,
+        "message status: field kind holds the identifier, so it cannot take a channel"
+    );
+}
+
+/// @brief it should refuse a field with no binding and no default.
+TEST(BinaryEncoder, RefuseUnboundFieldWithoutDefault) {
+    auto m = frame(field<icd::UnsignedBinaryField>("v", 0, 8), x::telem::UINT8_T);
+    m.payload.fields.emplace_back(field<icd::UnsignedBinaryField>("w", 8, 8));
+    assert_encoder_refuses(m, "message frame: field w: needs a channel or a default");
+}
+
+/// @brief it should refuse a binding to a field that does not exist, and two bindings
+/// of one field.
+TEST(BinaryEncoder, RefuseInvalidBindings) {
+    const auto v = field<icd::UnsignedBinaryField>("v", 0, 8);
+    auto unknown = frame(v, x::telem::UINT8_T);
+    const auto key = x::uuid::create();
+    unknown.bindings[0].field = key;
+    assert_encoder_refuses(
+        unknown,
+        "message frame: field " + key.to_string() + " does not exist"
+    );
+    auto twice = frame(v, x::telem::UINT8_T);
+    twice.bindings.push_back(twice.bindings[0]);
+    assert_encoder_refuses(twice, "message frame: field v has more than one binding");
+}
+
+/// @brief it should refuse a channel that does not hold numbers, a scaled field whose
+/// channel does not hold floats, and a scale that cannot be undone.
+TEST(BinaryEncoder, RefuseChannelDataType) {
+    assert_encoder_refuses(
+        frame(field<icd::UnsignedBinaryField>("v", 0, 8), x::telem::STRING_T),
+        "message frame: field v: cannot write string channels to unsigned fields"
+    );
+    auto scaled = field<icd::IntegerBinaryField>("v", 0, 16);
+    scaled.scale = 2;
+    assert_encoder_refuses(
+        frame(scaled, x::telem::INT32_T),
+        "message frame: field v: a scaled field requires a float channel, not int32"
+    );
+    auto zero = field<icd::IntegerBinaryField>("v", 0, 16);
+    zero.scale = 0;
+    assert_encoder_refuses(
+        frame(zero, x::telem::FLOAT64_T),
+        "message frame: field v: cannot write with a scale of 0"
+    );
+}
+
+/// @brief it should write only the fields that the multiplexor values select.
+TEST(BinaryEncoder, EncodeMultiplexed) {
+    const auto mode = field<icd::UnsignedBinaryField>("mode", 0, 8);
+    const auto a = selected_by("a", 1, mode.key, {1});
+    const auto b = selected_by("b", 2, mode.key, {2, 3});
+    const auto m = multiplexed({mode, a, b}, {mode.key, a.key, b.key});
+    auto enc = ASSERT_NIL_P(BinaryEncoder::create(m));
+    const auto samples = [](const std::uint8_t v) {
+        return series_of(
+            x::telem::Series(v),
+            x::telem::Series(std::uint8_t{16}),
+            x::telem::Series(std::uint8_t{32})
+        );
+    };
+    Bytes payload;
+    ASSERT_NIL(enc.encode(samples(3), payload));
+    EXPECT_EQ(payload, (Bytes{3, 0, 32}));
+    ASSERT_NIL(enc.encode(samples(1), payload));
+    EXPECT_EQ(payload, (Bytes{1, 16, 0}));
+    auto dec = ASSERT_NIL_P(Binary::create({m}));
+    ASSERT_EQ(ASSERT_NIL_P(dec.decode(payload)), 0U);
+    EXPECT_EQ(dec.samples(0)[1].at<std::uint8_t>(0), 16);
+    EXPECT_EQ(dec.samples(0)[2].size(), 0);
+}
+
+/// @brief it should need no value for a field that the multiplexors do not select.
+TEST(BinaryEncoder, EncodeUnselectedFieldWithoutValue) {
+    const auto mode = field<icd::UnsignedBinaryField>("mode", 0, 8);
+    const auto a = selected_by("a", 1, mode.key, {1});
+    const auto m = multiplexed({mode, a}, {mode.key, a.key});
+    EXPECT_EQ(
+        encode(m, series_of(x::telem::Series(std::uint8_t{2}), none())),
+        (Bytes{2, 0})
+    );
+}
+
+/// @brief it should select a field only when each multiplexor in its chain holds one of
+/// its values.
+TEST(BinaryEncoder, EncodeCascadedMultiplexors) {
+    const auto outer = field<icd::UnsignedBinaryField>("outer", 0, 8);
+    const auto inner = selected_by("inner", 1, outer.key, {1});
+    const auto v = selected_by("v", 2, inner.key, {2});
+    const auto m = multiplexed({outer, inner, v}, {outer.key, inner.key, v.key});
+    const auto samples = [](const std::uint8_t o, const std::uint8_t i) {
+        return series_of(
+            x::telem::Series(o),
+            x::telem::Series(i),
+            x::telem::Series(std::uint8_t{9})
+        );
+    };
+    EXPECT_EQ(encode(m, samples(1, 2)), (Bytes{1, 2, 9}));
+    EXPECT_EQ(encode(m, samples(1, 3)), (Bytes{1, 3, 0}));
+    EXPECT_EQ(encode(m, samples(0, 2)), (Bytes{0, 0, 0}));
+}
+
+/// @brief it should need nothing for a field that a fixed multiplexor value never
+/// selects, and leave it out.
+TEST(BinaryEncoder, EncodeFixedMultiplexor) {
+    auto mode = field<icd::UnsignedBinaryField>("mode", 0, 8);
+    mode.default_ = 1;
+    const auto a = selected_by("a", 1, mode.key, {1});
+    const auto b = selected_by("b", 2, mode.key, {2});
+    const auto m = multiplexed({mode, a, b}, {a.key});
+    EXPECT_EQ(
+        encode(m, series_of(x::telem::Series(std::uint8_t{16}))),
+        (Bytes{1, 16, 0})
+    );
+}
+
+/// @brief it should refuse a binding on a field that a fixed multiplexor value never
+/// selects.
+TEST(BinaryEncoder, RefuseFieldThatFixedMultiplexorNeverSelects) {
+    auto mode = field<icd::UnsignedBinaryField>("mode", 0, 8);
+    mode.default_ = 1;
+    const auto b = selected_by("b", 1, mode.key, {2});
+    assert_encoder_refuses(
+        multiplexed({mode, b}, {b.key}),
+        "message frame: field b takes a channel, but multiplexor mode never selects it"
+    );
+}
+
+/// @brief it should refuse a field with no binding and no default that a multiplexor
+/// bound to a channel can select.
+TEST(BinaryEncoder, RefuseUnboundFieldUnderBoundMultiplexor) {
+    const auto mode = field<icd::UnsignedBinaryField>("mode", 0, 8);
+    const auto b = selected_by("b", 1, mode.key, {2});
+    assert_encoder_refuses(
+        multiplexed({mode, b}, {mode.key}),
+        "message frame: field b: needs a channel or a default"
+    );
+}
+
+/// @brief it should encode without allocating once its payload has room.
+TEST(BinaryEncoder, EncodeWithoutAllocating) {
+    auto f = field<icd::IntegerBinaryField>("temp", 0, 16);
+    f.scale = 0.1;
+    auto enc = ASSERT_NIL_P(BinaryEncoder::create(frame(f, x::telem::FLOAT64_T)));
+    const auto samples = series_of(x::telem::Series(0.1 + 0.2));
+    Bytes payload;
+    ASSERT_NIL(enc.encode(samples, payload));
+    const auto before = x::bench::alloc_count.load(std::memory_order_relaxed);
+    for (int i = 0; i < 100; i++)
+        ASSERT_NIL(enc.encode(samples, payload));
+    EXPECT_EQ(x::bench::alloc_count.load(std::memory_order_relaxed) - before, 0);
+    EXPECT_EQ(payload, (Bytes{0x03, 0x00}));
+}
+
+/// @brief it should check a sample of a binding as encode does, and report which fields
+/// have a default.
+TEST(BinaryEncoder, CheckSample) {
+    const auto v = field<icd::UnsignedBinaryField>("v", 0, 8);
+    auto w = field<icd::UnsignedBinaryField>("w", 8, 4);
+    w.default_ = 1;
+    const BinaryMessage m{
+        .name = "frame",
+        .payload = {.fields = {v, w}},
+        .bindings = {
+            {.field = w.key, .data_type = x::telem::UINT8_T},
+            {.field = v.key, .data_type = x::telem::UINT8_T},
+        },
+    };
+    const auto enc = ASSERT_NIL_P(BinaryEncoder::create(m));
+    ASSERT_NIL(enc.check(0, x::telem::SampleValue(std::uint8_t{15})));
+    ASSERT_NIL(enc.check(1, x::telem::SampleValue(std::uint8_t{16})));
+    const auto err = enc.check(0, x::telem::SampleValue(std::uint8_t{16}));
+    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+    EXPECT_EQ(err.data, "field w: 16 is out of range for 4 bits");
+    EXPECT_TRUE(enc.has_default(0));
+    EXPECT_FALSE(enc.has_default(1));
 }
 }
