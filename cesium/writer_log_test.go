@@ -682,6 +682,7 @@ var _ = Describe("Drop on the pointer log", func() {
 		})).To(Succeed())
 		w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 			Channels: []cesium.ChannelKey{clock},
+			Clock:    clock,
 			Start:    10 * telem.SecondTS,
 		}))
 		mustWrite(ctx, w, telem.UnaryFrame(clock, telem.NewSeriesSecondsTSV(10)))
