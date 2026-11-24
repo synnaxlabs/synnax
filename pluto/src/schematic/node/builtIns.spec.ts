@@ -74,6 +74,8 @@ describe("Schematic.Node.BUILT_INS", () => {
     const client = createTestClient();
     const RED = color.construct("#ff0000");
     const GREEN = color.construct("#00ff00");
+    // The light theme shows GREEN darker, so it reads on the background.
+    const BANDED_GREEN = color.construct("#00e800");
     let wrapper: FC<PropsWithChildren>;
     let colored: enumeration.Key;
 
@@ -92,7 +94,7 @@ describe("Schematic.Node.BUILT_INS", () => {
 
     it.each<[string, number, Custom.Paint[]]>([
       ["valve", 0, [{ stroke: RED }]],
-      ["valve", 1, [{ stroke: GREEN }, { fill: GREEN }]],
+      ["valve", 1, [{ stroke: BANDED_GREEN }, { fill: BANDED_GREEN }]],
       [
         "normally_open_solenoid_valve",
         0,
@@ -102,20 +104,20 @@ describe("Schematic.Node.BUILT_INS", () => {
         "normally_open_solenoid_valve",
         1,
         [
-          { stroke: GREEN },
-          { selectors: [".pluto-solenoid-valve__coil"], fill: GREEN },
+          { stroke: BANDED_GREEN },
+          { selectors: [".pluto-solenoid-valve__coil"], fill: BANDED_GREEN },
         ],
       ],
       [
         "pump",
         1,
         [
-          { stroke: GREEN },
-          { fill: GREEN },
+          { stroke: BANDED_GREEN },
+          { fill: BANDED_GREEN },
           { selectors: [".pluto--detail"], stroke: color.construct("#000000e6") },
         ],
       ],
-      ["light", 1, [{ fill: GREEN }]],
+      ["light", 1, [{ fill: BANDED_GREEN }]],
       ["switch", 1, []],
       ["thruster", 1, []],
     ])(
@@ -127,7 +129,7 @@ describe("Schematic.Node.BUILT_INS", () => {
           s.type === "enumeration" ? { ...s, enumeration: colored } : s,
         );
         const { result } = renderHook(
-          () => Custom.usePaints({ ...spec, states }, value),
+          () => Custom.usePaints({ ...spec, states }, value, { builtIn: true }),
           { wrapper },
         );
         await waitFor(() => expect(result.current).toEqual(paints));

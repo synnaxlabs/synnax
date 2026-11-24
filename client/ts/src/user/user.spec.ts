@@ -7,8 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type Middleware, Unreachable } from "@synnaxlabs/freighter";
 import { id, uuid } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, test, vi } from "vitest";
+import { z } from "zod";
 
 import { role } from "@/access/role";
 import { AccessDeniedError, AuthError, NotFoundError, ValidationError } from "@/index";
@@ -21,7 +23,9 @@ import {
   createTestUser,
   expectDeleted,
   expectLive,
+  FAST_RETRY,
   holdResponses,
+  spyOnSend,
   TEST_CREDENTIALS,
   waitForStreamLive,
 } from "@/testutil";
@@ -32,7 +36,7 @@ const client = createTestClient();
 const empty = await createEmptyRole(client);
 
 const retrieveRoot = async (): Promise<user.User> => {
-  const [p] = await client.auth.retrievePasswords({
+  const [p] = await client.auth.passwords.retrieve({
     usernames: [TEST_CREDENTIALS.username],
   });
   return await client.users.retrieve(p.subject.key);
@@ -103,6 +107,34 @@ describe("User", () => {
         await expect(
           client.users.create({ key: userOne.key, name: "test", role: empty.key }),
         ).rejects.toThrow(ValidationError));
+    });
+    test("should not create a second user when it retries a create", async () => {
+      let attempts = 0;
+      // Fails the first create after the Core runs it, as a connection that drops
+      // before the response headers arrive.
+      const loseFirstResponse: Middleware = async (ctx, next) => {
+        if (!ctx.target.endsWith("/user/create")) return await next(ctx);
+        attempts += 1;
+        const out = await next(ctx);
+        if (attempts === 1) throw new Unreachable({ message: "response lost" });
+        return out;
+      };
+      const local = createTestClient({
+        retry: FAST_RETRY,
+        onRetry: () => {},
+        middleware: [loseFirstResponse],
+      });
+      const send = spyOnSend(local);
+      const name = id.create();
+      await expect(local.users.create({ name, role: empty.key })).rejects.toThrow(
+        ValidationError,
+      );
+      expect(attempts).toEqual(2);
+      const [, req] =
+        send.mock.calls.find(([target]) => target === "/user/create") ?? [];
+      const { users } = z.object({ users: user.userZ.array() }).parse(req);
+      const named = (await client.users.retrieve({})).filter((u) => u.name === name);
+      expect(named.map((u) => u.key)).toEqual([users[0].key]);
     });
   });
   describe("Retrieve", () => {
@@ -206,7 +238,7 @@ describe("User", () => {
       const username = id.create();
       await client.users.changeUsername(u.key, username);
       const renamed = createTestClientAs(username, password);
-      const [p] = await renamed.auth.retrievePasswords();
+      const [p] = await renamed.auth.passwords.retrieve();
       expect(p.subject).toEqual(user.resourceID(u.key));
     });
     test("should keep logging in after a user changes its own username", async () => {
@@ -226,14 +258,14 @@ describe("User", () => {
       const self = createTestClientAs(old, password);
       const username = id.create();
       await self.users.changeUsername(u.key, username);
-      const [p] = await client.auth.retrievePasswords({
+      const [p] = await client.auth.passwords.retrieve({
         subjects: [user.resourceID(u.key)],
       });
       expect(p.username).toEqual(username);
       const key = self.auth.session?.key;
       if (key == null) throw new Error("no session");
-      await self.auth.deleteSessions(key);
-      await self.auth.retrieveSessions();
+      await self.auth.sessions.delete(key);
+      await self.auth.sessions.retrieve();
       expect(self.auth.session?.key).not.toEqual(key);
     });
     test("should refuse a username another user holds", async () => {

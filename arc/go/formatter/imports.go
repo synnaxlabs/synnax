@@ -49,7 +49,7 @@ func AddImport(root *symbol.Symbol, module string) []protocol.TextEdit {
 		NewText: block.String(),
 	}}
 	for _, stmt := range stmts[1:] {
-		edits = append(edits, removeStatement(stmt))
+		edits = append(edits, RemoveStatement(stmt))
 	}
 	return edits
 }
@@ -101,7 +101,7 @@ func RemoveImport(item parser.IImportItemContext) protocol.TextEdit {
 	stmt := statementOf(item)
 	items := stmt.AllImportItem()
 	if len(items) == 1 {
-		return removeStatement(stmt)
+		return RemoveStatement(stmt)
 	}
 	i := slices.Index(items, item)
 	r := protocol.Range{Start: startOf(item.GetStart()), End: endOf(item.GetStop())}
@@ -113,15 +113,57 @@ func RemoveImport(item parser.IImportItemContext) protocol.TextEdit {
 	return protocol.TextEdit{Range: r}
 }
 
-// removeStatement returns the edit that removes stmt and the newline after it.
-func removeStatement(stmt antlr.ParserRuleContext) protocol.TextEdit {
-	stop := stmt.GetStop()
-	end := endOf(stop)
-	if stop.GetInputStream().GetText(stop.GetStop()+1, stop.GetStop()+1) == "\n" {
-		end = protocol.Position{Line: end.Line + 1}
+// RemoveStatement returns the edit that removes stmt and the newline after it. It
+// removes the indent too when stmt is alone on its line.
+func RemoveStatement(stmt antlr.ParserRuleContext) protocol.TextEdit {
+	var (
+		first, last = stmt.GetStart(), stmt.GetStop()
+		input       = first.GetInputStream()
+		r           = protocol.Range{Start: startOf(first), End: endOf(last)}
+	)
+	next := input.GetText(last.GetStop()+1, last.GetStop()+2)
+	if next != "\r\n" && !strings.HasPrefix(next, "\n") {
+		return protocol.TextEdit{Range: r}
 	}
+	r.End = protocol.Position{Line: r.End.Line + 1}
+	indent := input.GetText(first.GetStart()-first.GetColumn(), first.GetStart()-1)
+	if strings.TrimSpace(indent) == "" {
+		r.Start.Character = 0
+	}
+	return protocol.TextEdit{Range: r}
+}
+
+// Replace returns the edit that changes the code at node to text.
+func Replace(node antlr.ParserRuleContext, text string) protocol.TextEdit {
 	return protocol.TextEdit{
-		Range: protocol.Range{Start: startOf(stmt.GetStart()), End: end},
+		Range: protocol.Range{
+			Start: startOf(node.GetStart()),
+			End:   endOf(node.GetStop()),
+		},
+		NewText: text,
+	}
+}
+
+// RemoveToken returns the edit that removes t and the white space after it.
+func RemoveToken(t antlr.Token) protocol.TextEdit {
+	end := endOf(t)
+	for i := t.GetStop() + 1; ; i++ {
+		switch t.GetInputStream().GetText(i, i) {
+		case " ", "\t", "\r":
+			end.Character++
+		case "\n":
+			end = protocol.Position{Line: end.Line + 1}
+		default:
+			return protocol.TextEdit{Range: protocol.Range{Start: startOf(t), End: end}}
+		}
+	}
+}
+
+// ReplaceToken returns the edit that changes t to text.
+func ReplaceToken(t antlr.Token, text string) protocol.TextEdit {
+	return protocol.TextEdit{
+		Range:   protocol.Range{Start: startOf(t), End: endOf(t)},
+		NewText: text,
 	}
 }
 
