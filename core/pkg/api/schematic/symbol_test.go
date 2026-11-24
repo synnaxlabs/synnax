@@ -17,10 +17,12 @@ import (
 	apisymbol "github.com/synnaxlabs/synnax/pkg/api/schematic/symbol"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/defaults"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -49,6 +51,15 @@ var _ = Describe("Symbol save", func() {
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return schematicSvc.Symbol.NewWriter(tx).Create(ctx, &sym)
 		})).To(Succeed())
+		// The command binding links the schematic to a channel that must exist.
+		vent := channel.Channel{
+			Name:     "vent_" + sym.Key.String()[:8],
+			DataType: telem.Float32T,
+			Virtual:  true,
+		}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return channelSvc.NewWriter(tx).Create(ctx, &vent)
+		})).To(Succeed())
 		sc = schematic.Schematic{
 			Project: &proj.Key,
 			Name:    "Plant",
@@ -58,7 +69,7 @@ var _ = Describe("Symbol save", func() {
 					Variant: schematic.SymbolNodeConfig{
 						Spec: symbol.Ref{Variant: symbol.CustomRef{Key: sym.Key}},
 						Commands: []schematic.CommandBinding{
-							{Key: "vent", Channel: 1},
+							{Key: "vent", Channel: vent.Key()},
 						},
 					},
 				}),

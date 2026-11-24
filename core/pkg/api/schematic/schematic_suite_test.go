@@ -21,11 +21,13 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	apischematic "github.com/synnaxlabs/synnax/pkg/api/schematic"
 	apisymbol "github.com/synnaxlabs/synnax/pkg/api/schematic/symbol"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/enumeration"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
@@ -35,7 +37,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	. "github.com/synnaxlabs/x/testutil"
-	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 func TestAPISchematic(t *testing.T) {
@@ -47,6 +48,7 @@ var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
 	db           *gorp.DB
+	channelSvc   *channel.Service
 	groupSvc     *group.Service
 	rbacSvc      *rbac.Service
 	schematicSvc *schematic.Service
@@ -76,8 +78,8 @@ var (
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	db = DeferClose(gorp.Wrap(memkv.New()))
-	StartRun(db.Run)
+	node := testutil.NewNode(ctx)
+	db = node.DB
 	groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB: db,
 	}))
@@ -90,6 +92,13 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	}))
 	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 		DB: db,
+	}))
+	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
+		Channel: node.Channel,
+		TS:      node.Storage.TS,
+		DB:      db,
+		HostKey: node.Identity.HostKey,
+		Status:  statusSvc,
 	}))
 	rbacSvc = MustOpen(rbactestutil.Open(ctx, rbactestutil.Config{
 		DB:     db,
