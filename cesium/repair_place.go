@@ -34,6 +34,8 @@ type later struct {
 	// named maps each other segment that a record names to the first Commit that names
 	// it, or to nil when none does.
 	named map[uint64]*log.Commit
+	// sealed maps each segment that a Seal seals to the first Seal of it.
+	sealed map[uint64]*log.Seal
 	// dropped holds the keys that a Drop drops.
 	dropped set.Set[ChannelKey]
 }
@@ -42,6 +44,7 @@ func newLater() *later {
 	return &later{
 		created: make(map[uint64]uint32),
 		named:   make(map[uint64]*log.Commit),
+		sealed:  make(map[uint64]*log.Seal),
 		dropped: set.New[ChannelKey](),
 	}
 }
@@ -60,6 +63,9 @@ func (l *later) add(_ uint64, records []log.Record) error {
 			}
 		case *log.Seal:
 			l.name(rec.Segment)
+			if l.sealed[rec.Segment] == nil {
+				l.sealed[rec.Segment] = rec
+			}
 		case *log.Tombstone:
 			for _, c := range []*log.Cut{rec.Left, rec.Right} {
 				if c != nil {
@@ -146,7 +152,7 @@ func (e *engine) unheld(r *recovery, l *later) ([]orphan, []File, error) {
 	for _, d := range e.state.Dead() {
 		dead.Add(d.Segment)
 	}
-	dirs, err := e.fs.List("")
+	keys, err := e.keyDirs()
 	if err != nil {
 		return nil, nil, err
 	}
@@ -154,16 +160,12 @@ func (e *engine) unheld(r *recovery, l *later) ([]orphan, []File, error) {
 		named       []orphan
 		unrecovered []File
 	)
-	for _, dir := range dirs {
-		key, err := strconv.ParseUint(dir.Name(), 10, 32)
-		if !dir.IsDir() || err != nil {
-			continue
-		}
-		infos, err := e.fs.List(dir.Name())
+	for _, key := range keys {
+		infos, err := e.fs.List(strconv.FormatUint(uint64(key), 10))
 		if err != nil {
 			return nil, nil, err
 		}
-		live := r.parts.Live(uint32(key))
+		live := r.parts.Live(key)
 		for _, info := range infos {
 			hex, ok := strings.CutSuffix(info.Name(), ".seg")
 			id, err := strconv.ParseUint(hex, 16, 64)
@@ -176,7 +178,7 @@ func (e *engine) unheld(r *recovery, l *later) ([]orphan, []File, error) {
 			if held || parted || created || dead.Contains(id) {
 				continue
 			}
-			o := orphan{key: ChannelKey(key), id: id, size: info.Size()}
+			o := orphan{key: key, id: id, size: info.Size()}
 			if _, ok := l.named[id]; ok {
 				named = append(named, o)
 			} else if !l.dropped.Contains(o.key) {

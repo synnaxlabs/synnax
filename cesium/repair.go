@@ -27,6 +27,15 @@ import (
 type Report struct {
 	// Damage holds each bad frame, in log order. A root with none opens.
 	Damage []Damage
+	// Rebuilt holds each range of the bad frames that the repair places, by key and
+	// segment. The ranges of one clock write share a fresh alignment.
+	Rebuilt []Range
+	// Unplaced holds each range in a segment file that the repair does not place, with
+	// why, by key and segment.
+	Unplaced []Range
+	// Tails holds the last block of each segment whose last commit was in a bad frame,
+	// which nothing checks, by key and segment.
+	Tails []Range
 	// Unrecovered holds each segment file that the repair cannot place, which it
 	// renames <S>.seg.unrecovered, by key and segment.
 	Unrecovered []File
@@ -48,6 +57,23 @@ type Damage struct {
 	// FirstSequence and LastSequence are the sequences of the entries that the frame
 	// held: those between its neighbors.
 	FirstSequence, LastSequence uint64
+}
+
+// Range is a range of samples of a segment that a repair lists.
+type Range struct {
+	Key     ChannelKey
+	Segment uint64
+	// Bytes and Samples are the size of the range, in stream bytes and in samples.
+	Bytes   telem.Size
+	Samples int64
+	// TimeRange is the time range of the samples, or the zero range when the repair
+	// places none.
+	TimeRange telem.TimeRange
+	// Open is true for a range that no later record ends, which can hold samples that
+	// a writer wrote and never committed.
+	Open bool
+	// Reason says why the repair does not place the range, or is empty.
+	Reason string
 }
 
 // File is a segment file that a repair lists.
@@ -87,7 +113,8 @@ type Record struct {
 const damagedReason = "from a damaged frame, so it may be wrong"
 
 // Repair finds the damage of the log of the root dirname on the pointer log layout,
-// and the segment files that it cannot place, and reports them. opts are those of
+// the ranges of the bad frames that it rebuilds, and the bytes that it cannot place,
+// and reports them. opts are those of
 // Open: a root with a database needs WithIdentity. Repair refuses a root of the old
 // layout, which Open converts, with an error that wraps errors.ErrUnsupported, and
 // another identity than the root's with no undo. It writes nothing.
@@ -140,7 +167,12 @@ func Repair(
 	if len(rep.Damage) == 0 && len(rep.Buried) == 0 {
 		return rep, nil
 	}
-	if _, rep.Unrecovered, err = e.place(r, l); err != nil {
+	placed, unrecovered, err := e.place(r, l)
+	if err != nil {
+		return Report{}, err
+	}
+	rep.Unrecovered = unrecovered
+	if _, rep.Rebuilt, rep.Unplaced, rep.Tails, err = e.rebuild(l, placed); err != nil {
 		return Report{}, err
 	}
 	return rep, nil

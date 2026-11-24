@@ -547,6 +547,25 @@ var _ = Describe("Segment", func() {
 			int64(131_073), int64(131_073)),
 	)
 
+	DescribeTable(
+		"Should give the stream length of a file",
+		func(c segment.Config, size, length int64) {
+			Expect(c.StreamLength(size)).To(Equal(length))
+		},
+		Entry("of no bytes", cfg, int64(0), int64(0)),
+		Entry("inside the first block", cfg, int64(100), int64(100)),
+		Entry("of a full block and its trailer", cfg, int64(65_540), int64(65_536)),
+		Entry("cut inside a trailer", cfg, int64(65_538), int64(65_536)),
+		Entry(
+			"of a variable segment past a block",
+			varCfg,
+			int64(65_559),
+			int64(65_543),
+		),
+		Entry("of a bare segment", segment.Config{Bare: true}, int64(70_000),
+			int64(70_000)),
+	)
+
 	It("Should read a bare segment, which holds no trailers, across blocks", func() {
 		data := pattern(2*segment.BlockSize + 9)
 		got := make([]byte, segment.BlockSize+7)

@@ -11,6 +11,8 @@ package cesium_test
 
 import (
 	"context"
+	"encoding/binary"
+	"fmt"
 	"math/rand/v2"
 	"path"
 	"slices"
@@ -129,6 +131,19 @@ func plainFrame(frames []logFrame, from int) int {
 	}
 	Fail("no frame holds entries and no Create")
 	return 0
+}
+
+// segmentIDs returns the segments of the directory of key in fs, in rising order.
+func segmentIDs(fs xfs.FS, key cesium.ChannelKey) []uint64 {
+	GinkgoHelper()
+	sizes := segmentSizes(fs, key)
+	out := make([]uint64, 0, len(sizes))
+	for name := range sizes {
+		hex := strings.TrimSuffix(name, ".seg")
+		out = append(out, MustSucceed(strconv.ParseUint(hex, 16, 64)))
+	}
+	slices.Sort(out)
+	return out
 }
 
 // segmentSizes returns the size of each segment file of the directory of key in fs.
@@ -289,58 +304,58 @@ var _ = Describe("Repair", func() {
 			Expect(rep.Lost[0].Kind).To(BeEmpty())
 		})
 
-	Describe("Place", func() {
-		const (
-			newIdx  cesium.ChannelKey = 3
-			newData cesium.ChannelKey = 4
-		)
-		// writeNew creates newIdx and newData, writes and syncs commits of n samples to
-		// both, and returns the segment files of each.
-		writeNew := func(ctx context.Context, n, commits int) [2]map[string]int64 {
-			GinkgoHelper()
-			db := MustSucceed(open(ctx))
-			stop := GoRun(ctx, db.Run)
-			Expect(db.CreateChannel(
-				ctx,
-				cesium.Channel{
-					Key:      newIdx,
-					Name:     "new_time",
-					IsIndex:  true,
-					DataType: telem.TimestampT,
-				},
-				cesium.Channel{
-					Key:      newData,
-					Name:     "new_data",
-					Index:    newIdx,
-					DataType: telem.Int64T,
-				},
-			)).To(Succeed())
-			keys := []cesium.ChannelKey{newIdx, newData}
-			w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
-				Channels: keys,
-				Start:    telem.SecondTS,
-			}))
-			for c := range commits {
-				stamps := make([]telem.TimeStamp, n)
-				values := make([]int64, n)
-				for i := range stamps {
-					stamps[i] = telem.TimeStamp(c*n+i+1) * telem.SecondTS
-					values[i] = int64(c*n + i)
-				}
-				MustSucceed2(w.Write(ctx, telem.MultiFrame(keys, []telem.Series{
-					telem.NewSeries(stamps),
-					telem.NewSeries(values),
-				}), nil))
-				MustSucceed2(w.Commit(ctx, nil))
-				Expect(w.Sync()).To(Succeed())
+	const (
+		newIdx  cesium.ChannelKey = 3
+		newData cesium.ChannelKey = 4
+	)
+	// writeNew creates newIdx and newData, writes and syncs commits of n samples to
+	// both, and returns the segment files of each.
+	writeNew := func(ctx context.Context, n, commits int) [2]map[string]int64 {
+		GinkgoHelper()
+		db := MustSucceed(open(ctx))
+		stop := GoRun(ctx, db.Run)
+		Expect(db.CreateChannel(
+			ctx,
+			cesium.Channel{
+				Key:      newIdx,
+				Name:     "new_time",
+				IsIndex:  true,
+				DataType: telem.TimestampT,
+			},
+			cesium.Channel{
+				Key:      newData,
+				Name:     "new_data",
+				Index:    newIdx,
+				DataType: telem.Int64T,
+			},
+		)).To(Succeed())
+		keys := []cesium.ChannelKey{newIdx, newData}
+		w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+			Channels: keys,
+			Start:    telem.SecondTS,
+		}))
+		for c := range commits {
+			stamps := make([]telem.TimeStamp, n)
+			values := make([]int64, n)
+			for i := range stamps {
+				stamps[i] = telem.TimeStamp(c*n+i+1) * telem.SecondTS
+				values[i] = int64(c*n + i)
 			}
-			Expect(w.Close()).To(Succeed())
-			Expect(errors.Join(stop(), db.Close())).To(Succeed())
-			return [2]map[string]int64{
-				segmentSizes(fs, newIdx),
-				segmentSizes(fs, newData),
-			}
+			MustSucceed2(w.Write(ctx, telem.MultiFrame(keys, []telem.Series{
+				telem.NewSeries(stamps),
+				telem.NewSeries(values),
+			}), nil))
+			MustSucceed2(w.Commit(ctx, nil))
+			Expect(w.Sync()).To(Succeed())
 		}
+		Expect(w.Close()).To(Succeed())
+		Expect(errors.Join(stop(), db.Close())).To(Succeed())
+		return [2]map[string]int64{
+			segmentSizes(fs, newIdx),
+			segmentSizes(fs, newData),
+		}
+	}
+	Describe("Place", func() {
 		// spoilCreates changes the check of the frame that holds the Create of the
 		// segments of newIdx.
 		spoilCreates := func() {
@@ -384,6 +399,26 @@ var _ = Describe("Repair", func() {
 				Expect(rep.Unrecovered).To(BeEmpty())
 				Expect(rep.Buried).To(BeEmpty())
 				Expect(rootFiles(fs)).To(Equal(before))
+				written := telem.TimeRange{
+					Start: telem.SecondTS,
+					End:   10_000*telem.SecondTS + 1,
+				}
+				Expect(rep.Rebuilt).To(Equal([]cesium.Range{
+					{
+						Key:       newIdx,
+						Segment:   segmentIDs(fs, newIdx)[0],
+						Bytes:     80_000,
+						Samples:   10_000,
+						TimeRange: written,
+					},
+					{
+						Key:       newData,
+						Segment:   segmentIDs(fs, newData)[0],
+						Bytes:     80_000,
+						Samples:   10_000,
+						TimeRange: written,
+					},
+				}))
 			})
 
 		It("Should list as unrecovered each segment under 64 KiB that a later Commit "+
@@ -462,6 +497,203 @@ var _ = Describe("Repair", func() {
 			Expect(rep.Damage).To(HaveLen(1))
 			Expect(rep.Unrecovered).To(BeEmpty())
 		})
+	})
+
+	Describe("Rebuild", func() {
+		// commitFrame returns the index of the frame of log 1 that holds the Commit
+		// whose first stamp is first.
+		commitFrame := func(first telem.TimeStamp) int {
+			GinkgoHelper()
+			return frameWith(framesOf(fs, id), func(rec log.Record) bool {
+				c, ok := rec.(*log.Commit)
+				return ok && telem.TimeStamp(c.First) == first
+			})
+		}
+		// pair returns the ranges of the first segments of idx and data, of samples
+		// samples of 8 bytes a second apart from first.
+		pair := func(samples int64, first telem.TimeStamp) []cesium.Range {
+			GinkgoHelper()
+			tr := telem.TimeRange{
+				Start: first,
+				End:   first + telem.TimeStamp(samples-1)*telem.SecondTS + 1,
+			}
+			out := make([]cesium.Range, 0, 2)
+			for _, key := range []cesium.ChannelKey{idx, data} {
+				out = append(out, cesium.Range{
+					Key:       key,
+					Segment:   segmentIDs(fs, key)[0],
+					Bytes:     telem.Size(samples * 8),
+					Samples:   samples,
+					TimeRange: tr,
+				})
+			}
+			return out
+		}
+		tail := "the last block of a lost commit, whose checksum was in the bad frame"
+		lateRange := telem.TimeRange{
+			Start: 10_001 * telem.SecondTS,
+			End:   16_384*telem.SecondTS + 1,
+		}
+
+		It("Should rebuild a lost commit up to the start of the later Commit",
+			func(ctx SpecContext) {
+				spoil(commitFrame(6*telem.SecondTS), 4)
+				rep := MustSucceed(repair(ctx, new(int)))
+				Expect(rep.Damage).To(HaveLen(1))
+				Expect(rep.Rebuilt).To(Equal(pair(5, 6*telem.SecondTS)))
+				Expect(rep.Unplaced).To(BeEmpty())
+				Expect(rep.Tails).To(BeEmpty())
+			})
+
+		It(
+			"Should end a lost commit at the length of a later Seal",
+			func(ctx SpecContext) {
+				db := MustSucceed(open(ctx))
+				stop := GoRun(ctx, db.Run)
+				write(ctx, db, 100*telem.SecondTS)
+				Expect(errors.Join(stop(), db.Close())).To(Succeed())
+				spoil(commitFrame(16*telem.SecondTS), 4)
+				rep := MustSucceed(repair(ctx, new(int)))
+				Expect(rep.Rebuilt).To(Equal(pair(5, 16*telem.SecondTS)))
+				Expect(rep.Unplaced).To(BeEmpty())
+			},
+		)
+
+		It("Should list as a tail the unchecked last block of a lost last commit",
+			func(ctx SpecContext) {
+				spoil(commitFrame(16*telem.SecondTS), 4)
+				rep := MustSucceed(repair(ctx, new(int)))
+				Expect(rep.Rebuilt).To(BeEmpty())
+				Expect(rep.Unplaced).To(BeEmpty())
+				tails := pair(5, 16*telem.SecondTS)
+				for i := range tails {
+					tails[i].Samples, tails[i].TimeRange = 0, telem.TimeRange{}
+					tails[i].Open, tails[i].Reason = true, tail
+				}
+				Expect(rep.Tails).To(Equal(tails))
+			})
+
+		It("Should place the clock range of a lost last commit up to its last checked "+
+			"block, and not its data", func(ctx SpecContext) {
+			writeNew(ctx, 10_000, 2)
+			spoil(commitFrame(10_001*telem.SecondTS), 4)
+			rep := MustSucceed(repair(ctx, new(int)))
+			segs := [2]uint64{segmentIDs(fs, newIdx)[0], segmentIDs(fs, newData)[0]}
+			Expect(rep.Rebuilt).To(Equal([]cesium.Range{{
+				Key:       newIdx,
+				Segment:   segs[0],
+				Bytes:     51_072,
+				Samples:   6_384,
+				TimeRange: lateRange,
+				Open:      true,
+			}}))
+			Expect(rep.Unplaced).To(Equal([]cesium.Range{{
+				Key:     newData,
+				Segment: segs[1],
+				Bytes:   51_072,
+				Samples: 6_384,
+				Open:    true,
+				Reason:  "no later record ends it, so its count is not known",
+			}}))
+			Expect(rep.Tails).To(Equal([]cesium.Range{
+				{
+					Key:     newIdx,
+					Segment: segs[0],
+					Bytes:   28_928,
+					Open:    true,
+					Reason:  tail,
+				},
+				{
+					Key:     newData,
+					Segment: segs[1],
+					Bytes:   28_928,
+					Open:    true,
+					Reason:  tail,
+				},
+			}))
+		})
+
+		It("Should place no range of a clock write whose clock stamps do not rise",
+			func(ctx SpecContext) {
+				writeNew(ctx, 10_000, 3)
+				spoil(commitFrame(10_001*telem.SecondTS), 4)
+				segs := [2]uint64{segmentIDs(fs, newIdx)[0], segmentIDs(fs, newData)[0]}
+				name := fmt.Sprintf("%d/%016x.seg", newIdx, segs[0])
+				b := MustSucceed(xfs.ReadFile(fs, name))
+				// The stamp at stream offset 90,000 goes to 0, and block 1 gets the
+				// checksum of its new bytes.
+				const slot = 65_536 + 4
+				binary.LittleEndian.PutUint64(b[slot+90_000-65_536:], 0)
+				sum := place.Segment(id, segs[0], slot, 1,
+					uint8(telem.DataTypeCodeTimestamp), newIdx).
+					Sum(b[slot : slot+65_536])
+				binary.LittleEndian.PutUint32(b[slot+65_536:], sum)
+				Expect(xfs.WriteFile(fs, name, b)).To(Succeed())
+				rep := MustSucceed(repair(ctx, new(int)))
+				Expect(rep.Rebuilt).To(BeEmpty())
+				rise := "the stamps of its clock do not rise inside the pointers around them"
+				Expect(rep.Unplaced).To(Equal([]cesium.Range{
+					{
+						Key:     newIdx,
+						Segment: segs[0],
+						Bytes:   80_000,
+						Samples: 10_000,
+						Reason:  rise,
+					},
+					{
+						Key:     newData,
+						Segment: segs[1],
+						Bytes:   80_000,
+						Samples: 10_000,
+						Reason:  rise,
+					},
+				}))
+			})
+
+		It("Should end a clock write at the shortest range of it in checked blocks",
+			func(ctx SpecContext) {
+				writeNew(ctx, 10_000, 3)
+				spoil(commitFrame(10_001*telem.SecondTS), 4)
+				segs := [2]uint64{segmentIDs(fs, newIdx)[0], segmentIDs(fs, newData)[0]}
+				name := fmt.Sprintf("%d/%016x.seg", newData, segs[1])
+				b := MustSucceed(xfs.ReadFile(fs, name))
+				b[2*(65_536+4)+100] ^= 0xFF
+				Expect(xfs.WriteFile(fs, name, b)).To(Succeed())
+				rep := MustSucceed(repair(ctx, new(int)))
+				Expect(rep.Rebuilt).To(Equal([]cesium.Range{
+					{
+						Key:       newIdx,
+						Segment:   segs[0],
+						Bytes:     51_072,
+						Samples:   6_384,
+						TimeRange: lateRange,
+					},
+					{
+						Key:       newData,
+						Segment:   segs[1],
+						Bytes:     51_072,
+						Samples:   6_384,
+						TimeRange: lateRange,
+					},
+				}))
+				Expect(rep.Unplaced).To(Equal([]cesium.Range{
+					{
+						Key:     newIdx,
+						Segment: segs[0],
+						Bytes:   28_928,
+						Samples: 3_616,
+						Reason: "past the end of the samples that every range of its " +
+							"clock write holds in checked blocks",
+					},
+					{
+						Key:     newData,
+						Segment: segs[1],
+						Bytes:   28_928,
+						Samples: 3_616,
+						Reason:  "from a block that fails its check",
+					},
+				}))
+			})
 	})
 
 	It(

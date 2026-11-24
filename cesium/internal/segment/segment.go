@@ -75,6 +75,13 @@ func (c Config) trailer() int64 {
 // FileOffset returns the file offset of stream offset x of the segment.
 func (c Config) FileOffset(x int64) int64 { return x + c.trailer()*(x/BlockSize) }
 
+// StreamLength returns the stream length of a file of the segment of size bytes, with
+// no bytes of a cut-short trailer.
+func (c Config) StreamLength(size int64) int64 {
+	slot := BlockSize + c.trailer()
+	return size/slot*BlockSize + min(size%slot, BlockSize)
+}
+
 // ReadAt reads len(p) stream bytes from stream offset off of the segment in r, and
 // leaves out the trailers. It checks only a version 0 segment with Checks: it returns
 // an
