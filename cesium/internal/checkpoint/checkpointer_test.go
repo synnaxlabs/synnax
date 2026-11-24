@@ -257,7 +257,7 @@ var _ = Describe("Checkpointer", func() {
 					wg.Wait()
 				})
 
-				w := MustSucceed(st.OpenWriter(state.WriterConfig{
+				w := MustSucceed(st.OpenWriter(context.Background(), state.WriterConfig{
 					Keys:  []state.WriterKey{{Key: 5, DataType: 4}},
 					Clock: 5,
 					Start: 10,
