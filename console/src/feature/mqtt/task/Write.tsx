@@ -178,7 +178,7 @@ const PlainTargetPane = ({
   // The Suit of the target binds the new field.
   const handleAddField = () => {
     const fields = ICD.jsonFields(message);
-    const field = ICD.createJSONField(fields.map(({ name }) => name));
+    const field = ICD.createJSONField(fields);
     ICD.formatOf(formats, target.icd).insert(
       ICD.fieldsPath(target.message.message),
       field,

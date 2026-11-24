@@ -862,10 +862,7 @@ describe("MQTT Write form", () => {
       fireEvent.click(screen.getByRole("button", { name: "Add field" }));
       const group = await fieldGroup("Field 2");
       group.getByDisplayValue("Field 2");
-      // A new field reads the whole document, which the value of setpoint takes.
-      await group.findByText('Pointer "" holds the value of field "setpoint"', {
-        exact: false,
-      });
+      group.getByDisplayValue("/field_2");
       fireEvent.change(group.getByPlaceholderText("/temperature"), {
         target: { value: "/limit" },
       });
