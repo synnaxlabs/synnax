@@ -151,7 +151,13 @@ func openEngine(
 	); err != nil {
 		return nil, err
 	}
-	e.closers = append(e.closers, e.cesium.Close, GoRun(ctx, e.cesium.Run))
+	// Run owns the state of Cesium until Close, so it outlives the open's context,
+	// such as that of a BeforeEach.
+	e.closers = append(
+		e.closers,
+		e.cesium.Close,
+		GoRun(context.WithoutCancel(ctx), e.cesium.Run),
+	)
 	// The identity of a new database is durable before the engine writes, as the
 	// storage layer makes it.
 	if id := e.cesium.Identity(); id != held {
