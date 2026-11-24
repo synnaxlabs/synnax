@@ -79,7 +79,7 @@ type Join struct {
 	live    bool
 	now     func() telem.TimeStamp
 	// arrived is the arrival of the last push of the primary, and frames holds the
-	// gaps between the arrivals of its pushes from From on.
+	// gaps between the arrivals of its pushes.
 	arrived telem.TimeStamp
 	frames  intervals
 	framed  bool
@@ -192,10 +192,10 @@ func (j *Join) Push(i int, data, t telem.Series) error {
 		at := j.now()
 		switch {
 		case i == j.primary:
-			if j.framed && last >= j.from {
+			if j.framed {
 				j.frames.add(telem.TimeSpan(at - j.arrived))
 			}
-			j.arrived, j.framed = at, last >= j.from
+			j.arrived, j.framed = at, true
 		case last >= j.from:
 			if in.framed {
 				in.frames.add(telem.TimeSpan(at - in.arrived))
