@@ -78,17 +78,28 @@ bool Control::run_once() {
         config = this->config;
     }
     auto [s, open_err] = this->factory->open_streamer(config);
+    x::errors::Error set_err;
     {
         std::lock_guard lock{this->streamer_mu};
         this->streamer = std::move(s);
-        // A set_channels that ran during the open missed this streamer. A streamer
-        // that rejects the channels fails its next read, which ends this run.
+        // A set_channels that ran during the open missed this streamer.
         if (this->streamer != nullptr && this->config.channels != config.channels)
-            static_cast<void>(this->streamer->set_channels(this->config.channels));
+            set_err = this->streamer->set_channels(this->config.channels);
     }
     if (open_err) {
         if (this->wait_for_core(open_err)) return true;
         this->sink->stopped_with_err(open_err);
+        return false;
+    }
+    if (set_err) {
+        x::errors::Error close_err;
+        {
+            std::lock_guard lock{this->streamer_mu};
+            close_err = this->streamer->close();
+        }
+        const auto err = close_err ? close_err : set_err;
+        if (this->wait_for_core(err)) return true;
+        this->sink->stopped_with_err(err);
         return false;
     }
     this->breaker.reset_unlimited();
