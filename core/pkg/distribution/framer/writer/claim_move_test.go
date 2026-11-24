@@ -72,12 +72,16 @@ var _ = DescribeTableSubtree("Claim move", func(pointerLog bool) {
 		return frame.NewUnary(data, telem.NewSeries(values))
 	}
 	seconds := func(s ...telem.TimeStamp) []telem.TimeStamp { return s }
-	// read returns the stored series of key.
-	read := func(ctx SpecContext, key channel.Key) telem.MultiSeries {
+	// read returns the stored series of key in tr.
+	read := func(
+		ctx SpecContext,
+		key channel.Key,
+		tr telem.TimeRange,
+	) telem.MultiSeries {
 		GinkgoHelper()
 		iter := MustSucceed(host.Framer.OpenIterator(ctx, iterator.Config{
 			Keys:   channel.Keys{key},
-			Bounds: telem.TimeRangeMax,
+			Bounds: tr,
 		}))
 		Expect(iter.SeekFirst()).To(BeTrue())
 		Expect(iter.Next(telem.TimeSpanMax)).To(BeTrue())
@@ -85,10 +89,10 @@ var _ = DescribeTableSubtree("Claim move", func(pointerLog bool) {
 		Expect(iter.Close()).To(Succeed())
 		return series
 	}
-	values := func(ctx SpecContext) []int64 {
+	values := func(ctx SpecContext, tr telem.TimeRange) []int64 {
 		GinkgoHelper()
 		var out []int64
-		for _, s := range read(ctx, data).Series {
+		for _, s := range read(ctx, data, tr).Series {
 			out = append(out, s.Unmarshal[int64]()...)
 		}
 		return out
@@ -96,7 +100,7 @@ var _ = DescribeTableSubtree("Claim move", func(pointerLog bool) {
 	stamps := func(ctx SpecContext) []telem.TimeStamp {
 		GinkgoHelper()
 		var out []telem.TimeStamp
-		for _, s := range read(ctx, idx).Series {
+		for _, s := range read(ctx, idx, telem.TimeRangeMax).Series {
 			out = append(out, s.Unmarshal[telem.TimeStamp]()...)
 		}
 		return out
@@ -122,34 +126,31 @@ var _ = DescribeTableSubtree("Claim move", func(pointerLog bool) {
 				12 * telem.SecondTS,
 				13 * telem.SecondTS,
 			}))
-			Expect(values(ctx)).To(Equal([]int64{1, 2, 30, 40}))
+			Expect(values(ctx, telem.TimeRangeMax)).To(Equal([]int64{1, 2, 30, 40}))
 		},
 	)
 
 	It(
 		"Should give a data channel back to its old session with the samples that the "+
-			"move kept for it",
+			"move kept for it when the new holder closes",
 		func(ctx SpecContext) {
 			clock := open(ctx, "clock", keys, 10*telem.SecondTS, 100)
 			Expect(clock.Write(both(seconds(10, 11), 1, 2))).To(BeTrue())
 			moved := open(ctx, "moved", channel.Keys{data}, 12*telem.SecondTS, 200)
 			Expect(clock.Write(both(seconds(12, 13), 3, 4))).To(BeFalse())
 			Expect(moved.Write(only(30, 40))).To(BeTrue())
-			Expect(moved.SetAuthority(writer.Config{
-				Keys:        channel.Keys{data},
-				Authorities: []control.Authority{50},
-			})).To(Succeed())
+			Expect(moved.Close()).To(Succeed())
 			Expect(clock.Write(both(seconds(14), 5))).To(BeTrue())
 			end, authorized := MustSucceed2(clock.Commit())
 			Expect(end).To(Equal(14*telem.SecondTS + 1))
 			Expect(
 				authorized,
 			).To(BeFalse(), "a write since the last commit was refused")
-			_, authorized = MustSucceed2(moved.Commit())
-			Expect(authorized).To(BeFalse(), "the session gave the data channel back")
-			Expect(moved.Close()).To(Succeed())
 			Expect(clock.Close()).To(Succeed())
-			Expect(values(ctx)).To(Equal([]int64{1, 2, 30, 40, 5}))
+			Expect(stamps(ctx)).To(HaveLen(5))
+			Expect(values(ctx, telem.TimeRangeMax)).To(Equal([]int64{1, 2, 5}))
+			Expect(values(ctx, (14 * telem.SecondTS).SpanRange(telem.Second))).
+				To(Equal([]int64{5}))
 		},
 	)
 
@@ -168,7 +169,7 @@ var _ = DescribeTableSubtree("Claim move", func(pointerLog bool) {
 			Expect(authorized).To(BeFalse(), "the session lost the data channel")
 			Expect(moved.Close()).To(Succeed())
 			Expect(clock.Close()).To(Succeed())
-			series := read(ctx, idx).Series
+			series := read(ctx, idx, telem.TimeRangeMax).Series
 			Expect(series).ToNot(BeEmpty())
 			for i := 1; i < len(series); i++ {
 				Expect(series[i].Alignment).
