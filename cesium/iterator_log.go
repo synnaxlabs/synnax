@@ -46,7 +46,8 @@ type logView struct {
 	frozen bool
 	// readers counts the data cursors of the view. The Close of the last unpins it.
 	readers int
-	// parts holds the parts of the range of each Channel of chs, and nextParts the array
+	// parts holds the parts of the range of each Channel of chs, and nextParts the
+	// array
 	// that the next load fills.
 	parts, nextParts [][]checkpoint.Part
 	// pinned holds the segments and parts of the last load, which the view pins until
@@ -246,6 +247,9 @@ func (c *logCursor) load() {
 	ch, parts := c.view.channel(c.slot)
 	if !c.clock {
 		next := held{segments: c.spare[:0], parts: parts}
+		if len(parts) > 0 {
+			next.keys = []ChannelKey{c.key}
+		}
 		if ch != nil {
 			for _, seg := range ch.Segments {
 				next.segments = append(next.segments, seg.ID)

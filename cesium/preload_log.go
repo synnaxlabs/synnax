@@ -260,7 +260,10 @@ func (e *engine) pinReaching(
 	if err != nil {
 		return kp, held{}, err
 	}
-	h := held{key: key, parts: reaching(parts, first, last, buf)}
+	h := held{parts: reaching(parts, first, last, buf)}
+	if len(h.parts) > 0 {
+		h.keys = []ChannelKey{key}
+	}
 	e.pins.pin(h)
 	return kp, h, nil
 }
