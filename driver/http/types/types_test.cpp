@@ -9,6 +9,8 @@
 
 #include "gtest/gtest.h"
 
+#include "x/cpp/testutil/testutil.h"
+
 #include "driver/http/types/types.h"
 
 using namespace driver::http;
@@ -55,18 +57,17 @@ TEST(ParseMethodTest, ParsesOPTIONS) {
     EXPECT_TRUE(p.ok());
 }
 
+/// @brief it should parse QUERY.
 TEST(ParseMethodTest, ParsesQUERY) {
     x::json::Parser p(x::json::json{{"method", "QUERY"}});
     EXPECT_EQ(parse_method(p, "method"), Method::QUERY_METHOD);
     EXPECT_TRUE(p.ok());
 }
 
+/// @brief it should refuse TRACE and CONNECT as validation errors.
 TEST(ParseMethodTest, RejectsTRACEAndCONNECT) {
-    for (const auto *method: {"TRACE", "CONNECT"}) {
-        x::json::Parser p(x::json::json{{"method", method}});
-        parse_method(p, "method");
-        EXPECT_FALSE(p.ok());
-    }
+    ASSERT_OCCURRED_AS_P(parse_method("TRACE"), x::errors::VALIDATION);
+    ASSERT_OCCURRED_AS_P(parse_method("CONNECT"), x::errors::VALIDATION);
 }
 
 TEST(ParseMethodTest, UnknownMethodErrors) {
@@ -111,6 +112,7 @@ TEST(ToStringTest, OPTIONS) {
     EXPECT_STREQ(to_string(Method::OPTIONS), "OPTIONS");
 }
 
+/// @brief it should return QUERY for QUERY_METHOD.
 TEST(ToStringTest, QUERY) {
     EXPECT_STREQ(to_string(Method::QUERY_METHOD), "QUERY");
 }
@@ -147,6 +149,7 @@ TEST(HasRequestBodyTest, DEL) {
     EXPECT_FALSE(has_request_body(Method::DEL));
 }
 
+/// @brief it should send a body with QUERY.
 TEST(HasRequestBodyTest, QUERY) {
     EXPECT_TRUE(has_request_body(Method::QUERY_METHOD));
 }
@@ -175,6 +178,7 @@ TEST(HasResponseBodyTest, OPTIONS) {
     EXPECT_TRUE(has_response_body(Method::OPTIONS));
 }
 
+/// @brief it should read a response body for QUERY.
 TEST(HasResponseBodyTest, QUERY) {
     EXPECT_TRUE(has_response_body(Method::QUERY_METHOD));
 }

@@ -179,10 +179,11 @@ func StagedWriteFieldsKVKey(key uuid.UUID) []byte {
 }
 
 // WriteMigration lifts each stored v4 write config to v5. The v5 shape does not store
-// Inline, so WriteMigration stages it under StagedWriteFieldsKVPrefix.
+// Inline, so WriteMigration stages it under StagedWriteFieldsKVPrefix. It logs a
+// warning for each endpoint that uses TRACE or CONNECT.
 var WriteMigration = migrate.New(
 	"v63_http_write_stage",
-	func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
+	func(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation) error {
 		var olds []v4.WriteConfig
 		if err := gorp.NewRetrieve[uuid.UUID, v4.WriteConfig]().
 			Entries(&olds).
@@ -191,6 +192,9 @@ var WriteMigration = migrate.New(
 		}
 		news := make([]WriteConfig, len(olds))
 		for i, old := range olds {
+			for _, ep := range old.Endpoints {
+				warnRemovedMethod(ins, old.Key, ep.Key, string(ep.Method))
+			}
 			cfg, err := MigrateWriteConfig(ctx, old)
 			if err != nil {
 				return errors.Wrapf(err, "config %s", old.Key)

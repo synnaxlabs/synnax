@@ -397,6 +397,7 @@ TEST(MockServerTest, HEADRouteRegistrationErrors) {
     EXPECT_THROW(testutil::Server server(cfg), std::runtime_error);
 }
 
+/// @brief it should refuse a QUERY route, which httplib cannot serve.
 TEST(MockServerTest, QUERYRouteRegistrationErrors) {
     testutil::ServerConfig cfg;
     cfg.routes = {{.method = Method::QUERY_METHOD, .path = "/x", .response_body = "x"}};
