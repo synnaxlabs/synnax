@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import type { UnaryClient } from "@synnaxlabs/freighter";
-import { Series, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { Series, sleep, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it, onTestFinished } from "vitest";
 import type { z } from "zod";
 
@@ -23,6 +23,7 @@ const B = "1b8e4d3f-7a2c-4d6e-8f9a-2b3c4d5e6f70";
 const C = "2c9f5e4a-8b3d-4e7f-9a0b-3c4d5e6f7a81";
 const X = 1048577;
 const Y = 1048578;
+const Z = 1048579;
 
 type Where = { key?: { eq?: string; in?: string[] }; output?: { in?: number[] } };
 
@@ -44,6 +45,7 @@ const createFakeCore = () => {
     holdOutputs: false,
     holdDelete: false,
     refuseOutputs: false,
+    lookups: [] as number[][],
   };
   const select = (where: Where | undefined): calculation.Calculation[] =>
     [...calcs.values()].filter((c) => {
@@ -63,6 +65,7 @@ const createFakeCore = () => {
     switch (target) {
       case "/calculation/retrieve": {
         const answer = () => res.parse({ calculations: select(req.where) });
+        if (req.where?.output?.in != null) core.lookups.push(req.where.output.in);
         if (core.refuseOutputs && req.where?.output != null)
           throw new Error("the Core refused the lookup");
         if (!core.holdOutputs || req.where?.output == null) return answer();
@@ -161,6 +164,19 @@ describe("calculation.Client breaker", () => {
       core.refuseOutputs = false;
       await calcs.outputs.retrieve([Y]);
       await expect.poll(() => calcs.outputs.get(X)?.calculation).toBe(A);
+    });
+
+    it("should not look a channel up again once a lookup answered it", async () => {
+      const { core, calcs } = createDetached();
+      core.refuseOutputs = true;
+      await expect(calcs.outputs.retrieve([X])).rejects.toThrow();
+      core.refuseOutputs = false;
+      await calcs.outputs.retrieve([Y]);
+      await expect.poll(() => calcs.outputs.get(X)).toBeDefined();
+      core.lookups.length = 0;
+      await calcs.outputs.retrieve([Z]);
+      await sleep.sleep(TimeSpan.milliseconds(100));
+      expect(core.lookups).toEqual([[Z]]);
     });
 
     it("should not restore a calculation deleted while a lookup by output is in flight", async () => {

@@ -168,10 +168,12 @@ export class Client extends query.Retriever<
         } finally {
           if (answered == null) channels.forEach((key) => failed.add(key));
         }
-        const asked = new Set(channels);
-        const retry = [...failed].filter((key) => !asked.has(key));
-        failed.clear();
-        outputs.refetch(retry);
+        if (failed.size > 0) {
+          const asked = new Set(channels);
+          const retry = [...failed].filter((key) => !asked.has(key));
+          failed.clear();
+          outputs.refetch(retry);
+        }
         return answered;
       },
     });
