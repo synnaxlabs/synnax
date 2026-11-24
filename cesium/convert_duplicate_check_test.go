@@ -10,7 +10,6 @@
 package cesium_test
 
 import (
-	"context"
 	"encoding/binary"
 	"math/rand/v2"
 	"strconv"
@@ -19,6 +18,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
+	"github.com/synnaxlabs/cesium/internal/channel"
+	"github.com/synnaxlabs/cesium/testutil/oldlayout"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -38,49 +39,63 @@ func oldDataFiles(fs xfs.FS, key cesium.ChannelKey) int {
 	return n
 }
 
-// sharedStampRoot returns a root of the old layout in memory whose writer commits
-// stamps 1 to 3 s, rolls to a new file, then commits 3 and 4 s, which the old layout
-// takes (SY-6883). The index gives the new file the domain from 3 s + 1 ns.
-func sharedStampRoot(ctx context.Context) xfs.FS {
+// sharedStampRoot returns, in memory, the root that the writer of the old layout leaves
+// when it commits stamps 1 to 3 s, rolls to a new file, then commits 3 and 4 s, which
+// the old layout takes (SY-6883). The index gives the new file the domain from 3 s +
+// 1 ns.
+func sharedStampRoot() xfs.FS {
 	GinkgoHelper()
-	const idx, data = cesium.ChannelKey(1), cesium.ChannelKey(2)
-	keys := []cesium.ChannelKey{idx, data}
-	fs := xfs.NewMem()
-	db := MustSucceed(cesium.Open(
-		ctx,
-		"",
-		cesium.WithFS(fs),
-		cesium.WithFileSizeCap(telem.Byte),
-	))
-	Expect(db.CreateChannel(
-		ctx,
-		cesium.Channel{
-			Key:      idx,
-			Name:     "time",
-			IsIndex:  true,
-			DataType: telem.TimestampT,
+	pointers := []oldlayout.Pointer{
+		{
+			TimeRange: telem.TimeRange{
+				Start: telem.SecondTS,
+				End:   3*telem.SecondTS + 1,
+			},
+			File: 1,
+			Size: 24,
 		},
-		cesium.Channel{Key: data, Name: "data", Index: idx, DataType: telem.Int64T},
+		{
+			TimeRange: telem.TimeRange{
+				Start: 3*telem.SecondTS + 1,
+				End:   4*telem.SecondTS + 1,
+			},
+			File: 2,
+			Size: 16,
+		},
+	}
+	fs := xfs.NewMem()
+	Expect(oldlayout.Write(
+		fs,
+		oldlayout.Key{
+			Channel: channel.Channel{
+				Key:      1,
+				Name:     "time",
+				IsIndex:  true,
+				DataType: telem.TimestampT,
+			},
+			Counter:  2,
+			Pointers: pointers,
+			Files: map[uint16][]byte{
+				1: telem.NewSeriesSecondsTSV(1, 2, 3).Data,
+				2: telem.NewSeriesSecondsTSV(3, 4).Data,
+			},
+		},
+		oldlayout.Key{
+			Channel: channel.Channel{
+				Key:      2,
+				Name:     "data",
+				Index:    1,
+				DataType: telem.Int64T,
+			},
+			Counter:  2,
+			Pointers: pointers,
+			Files: map[uint16][]byte{
+				1: telem.NewSeriesV[int64](1, 2, 3).Data,
+				2: telem.NewSeriesV[int64](4, 5).Data,
+			},
+		},
 	)).To(Succeed())
-	w := MustSucceed(db.OpenWriter(
-		ctx,
-		cesium.WriterConfig{Channels: keys, Start: telem.SecondTS},
-	))
-	MustSucceed2(w.Write(ctx, telem.MultiFrame(keys, []telem.Series{
-		telem.NewSeriesSecondsTSV(1, 2, 3),
-		telem.NewSeriesV[int64](1, 2, 3),
-	}), nil))
-	MustSucceed2(w.Commit(ctx, nil))
-	// The first file is over the cap, so the next commit goes to a new file, and
-	// the old layout takes the stamp of the last commit again (SY-6883).
-	MustSucceed2(w.Write(ctx, telem.MultiFrame(keys, []telem.Series{
-		telem.NewSeriesSecondsTSV(3, 4),
-		telem.NewSeriesV[int64](4, 5),
-	}), nil))
-	MustSucceed2(w.Commit(ctx, nil))
-	Expect(w.Close()).To(Succeed())
-	Expect(db.Close()).To(Succeed())
-	Expect(oldDataFiles(fs, idx)).To(Equal(2))
+	Expect(oldDataFiles(fs, 1)).To(Equal(2))
 	return fs
 }
 
@@ -89,7 +104,7 @@ var _ = Describe("Check: conversion of a stamp that two old files share", func()
 		"new file", func(ctx SpecContext) {
 		const idx, data = cesium.ChannelKey(1), cesium.ChannelKey(2)
 		keys := []cesium.ChannelKey{idx, data}
-		fs := sharedStampRoot(ctx)
+		fs := sharedStampRoot()
 		db := MustSucceed(cesium.Open(
 			ctx,
 			"",
@@ -127,7 +142,7 @@ var _ = Describe("Check: conversion of a stamp that two old files share", func()
 
 	It("Should refuse to convert a file whose domain overlaps the one before it, and "+
 		"name a file of the domain", func(ctx SpecContext) {
-		fs := sharedStampRoot(ctx)
+		fs := sharedStampRoot()
 		// The index of the clock gives file 2 a domain from 3 s, inside the domain of
 		// file 1, which no cut can place.
 		b := MustSucceed(xfs.ReadFile(fs, "1/index.domain"))

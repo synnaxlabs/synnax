@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"strconv"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -265,8 +266,9 @@ var _ = Describe("Sweep crash check", func() {
 		"data channel", func(ctx SpecContext) {
 		var (
 			failures []string
-			// emptied counts the images that hold the truncate of the intents file.
-			emptied int
+			// removed counts the images that hold the removal of the directory of the
+			// dropped channel, which follows its durable Drop.
+			removed int
 		)
 		for runKey := range uint64(48) {
 			disk := MustSucceed(fault.New(fault.Config{}))
@@ -319,8 +321,9 @@ var _ = Describe("Sweep crash check", func() {
 			armed = false
 			closeDB()
 			for i, image := range images {
-				if MustSucceed(image.Stat("delete-intents")).Size() == 0 {
-					emptied++
+				dir := strconv.FormatUint(uint64(dropped), 10)
+				if !MustSucceed(image.Exists(dir)) {
+					removed++
 				}
 				re, err := cesium.Open(ctx, "", cesium.WithFS(image), id)
 				var closeRe func()
@@ -356,7 +359,7 @@ var _ = Describe("Sweep crash check", func() {
 			}
 		}
 		Expect(failures).To(BeEmpty())
-		Expect(emptied).To(BeNumerically(">", 0))
+		Expect(removed).To(BeNumerically(">", 0))
 	})
 })
 
