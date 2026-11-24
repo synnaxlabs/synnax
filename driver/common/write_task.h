@@ -276,6 +276,10 @@ class WriteTask final : public driver::task::Task {
         // send commands at once.
         void opened() override {
             this->p.wait_opened(this->p.cmd_wait);
+            // Only the state loop clears a wait after the delay, so without one the
+            // open clears it.
+            if (this->internal->writer_config().channels.empty())
+                this->p.clear_wait(this->p.cmd_wait_warning);
             std::lock_guard lock(this->p.state_mu);
             if (!this->p.opening) return;
             this->p.answer_pending_starts();
@@ -402,6 +406,13 @@ class WriteTask final : public driver::task::Task {
     void wait_opened(CoreWait &wait) {
         std::lock_guard lock(this->wait_mu);
         wait.opened(x::telem::TimeStamp::now());
+    }
+
+    /// @brief clears the warning of one pipeline's wait.
+    void clear_wait(Warning &slot) {
+        std::lock_guard lock(this->wait_mu);
+        slot = {};
+        this->show_wait_locked();
     }
 
     /// @brief forgets both waits and their warning before the pipelines start.
