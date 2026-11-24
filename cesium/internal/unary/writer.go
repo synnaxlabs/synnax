@@ -492,6 +492,10 @@ func (w *Writer) commitWithEnd(
 			}
 			// Add 1 to the end timestamp because the end timestamp is exclusive.
 			end = approx.Lower + 1
+		} else if dw.Covers(end) {
+			// Another writer of the channel committed past end, which holds every
+			// sample of this commit.
+			return nil
 		}
 		if *w.cfg.Bounded {
 			if err := w.control.Reach(end); err != nil {

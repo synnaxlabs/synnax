@@ -257,6 +257,33 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					Expect(w.Close()).To(Succeed())
 				})
 			})
+			Describe("Covers", func() {
+				It("Should cover only an end before the last commit", func(
+					ctx SpecContext,
+				) {
+					w := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{
+						Start: 10 * telem.SecondTS,
+					}))
+					Expect(w.Covers(11 * telem.SecondTS)).To(BeFalse())
+					MustSucceed(w.Write([]byte{1, 2, 3}))
+					Expect(w.Commit(ctx, 13*telem.SecondTS, nil)).To(Succeed())
+					Expect(w.Covers(12 * telem.SecondTS)).To(BeTrue())
+					Expect(w.Covers(13 * telem.SecondTS)).To(BeFalse())
+					Expect(w.Close()).To(Succeed())
+				})
+				It("Should cover nothing for a writer with a preset end", func(
+					ctx SpecContext,
+				) {
+					w := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{
+						Start: 10 * telem.SecondTS,
+						End:   100 * telem.SecondTS,
+					}))
+					MustSucceed(w.Write([]byte{1, 2, 3}))
+					Expect(w.Commit(ctx, 13*telem.SecondTS, nil)).To(Succeed())
+					Expect(w.Covers(12 * telem.SecondTS)).To(BeFalse())
+					Expect(w.Close()).To(Succeed())
+				})
+			})
 			Describe("Finish", func() {
 				domains := func(ctx SpecContext) []telem.TimeRange {
 					GinkgoHelper()
