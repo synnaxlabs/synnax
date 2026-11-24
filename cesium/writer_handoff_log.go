@@ -197,9 +197,9 @@ func (w *logWriter) dropEmptyRuns() {
 	}
 }
 
-// join moves the keys of a, a writer of a Pending, into w. The runs of a that w still
-// carries take the samples of a, and the others, on stamps that the clock committed,
-// come first as runs of data alone.
+// join moves the keys of a, a writer of a Pending, into w, with the commits of a that
+// it has not logged. The runs of a that w still carries take the samples of a, and the
+// others, on stamps that the clock committed, come first as runs of data alone.
 func (w *logWriter) join(a *logWriter) error {
 	if err := w.st.Join(a.st); err != nil {
 		return err
@@ -243,11 +243,17 @@ func (w *logWriter) join(a *logWriter) error {
 		w.runs[i].ends = slices.Concat(w.runs[i].ends, at)
 	}
 	for _, lk := range a.keys {
+		// No write of w has frame zero.
+		lk.frame = 0
 		w.keys = append(w.keys, lk)
 		w.byKey[lk.ch.Key] = lk
 	}
+	// The next sync of w, which writes the clock, logs the commits of a with or after
+	// the stamps that they need.
+	w.entry.Take(&a.entry)
+	w.sealed = append(w.sealed, a.sealed...)
 	w.runs = append(data, w.runs...)
-	a.keys, a.runs = nil, nil
+	a.keys, a.runs, a.sealed = nil, nil, nil
 	return nil
 }
 

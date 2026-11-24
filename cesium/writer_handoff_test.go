@@ -10,6 +10,7 @@
 package cesium_test
 
 import (
+	"context"
 	"math/rand/v2"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -366,11 +367,19 @@ var _ = DescribeTableSubtree("Handoff", func(pointerLog bool) {
 
 var _ = Describe("Handoff on the pointer log", func() {
 	var (
+		fsys        fs.FS
 		db          *cesium.DB
+		stop        func()
 		clock, data cesium.ChannelKey
 	)
+	open := func(ctx context.Context) {
+		GinkgoHelper()
+		db = DeferClose(openDBOnFS(ctx, fsys, cesium.WithPointerLog()))
+		stop = StartRun(db.Run)
+	}
 	BeforeEach(func(ctx SpecContext) {
-		db = mustOpenDBOnFS(ctx, fs.NewMem(), cesium.WithPointerLog())
+		fsys = fs.NewMem()
+		open(ctx)
 		clock, data = GenerateChannelKey(), GenerateChannelKey()
 		Expect(db.CreateChannel(
 			ctx,
@@ -475,6 +484,39 @@ var _ = Describe("Handoff on the pointer log", func() {
 		Expect(back.Write(ctx, both(12), nil)).Error().
 			To(MatchError(ContainSubstring("stamp 1970-01-01T00:00:12Z must be after")))
 		Expect(back.Close()).To(MatchError(ContainSubstring("must be after")))
+	})
+
+	It("Should log the commits of pending samples that wait for durable stamps "+
+		"through the writer that adopts them", func(ctx SpecContext) {
+		first := MustSucceed(db.OpenWriter(ctx, config(clock, data)))
+		mustWrite(ctx, first, both(10, 11, 12, 13))
+		w, p := MustSucceed2(db.Handoff(ctx, first, config(clock), nil))
+		MustSucceed2(w.Commit(ctx, nil))
+		_, held := MustSucceed2(p.Commit(ctx))
+		Expect(held).To(BeFalse(), "the stamps are not durable")
+		back, _ := MustSucceed2(db.Handoff(ctx, w, config(clock, data), p))
+		Expect(back.Close()).To(Succeed())
+		stop()
+		Expect(db.Close()).To(Succeed())
+		open(ctx)
+		Expect(stored(ctx)).To(Equal([]int64{1, 2, 3, 4}))
+	})
+
+	It("Should write the keys of pending samples that a reopened writer adopts", func(
+		ctx SpecContext,
+	) {
+		first := MustSucceed(db.OpenWriter(ctx, config(clock, data)))
+		mustWrite(ctx, first, both(10, 11, 12, 13))
+		w, p := MustSucceed2(db.Handoff(ctx, first, config(clock), nil))
+		MustSucceed2(w.Commit(ctx, nil))
+		reopen := config(clock)
+		reopen.Start = 13*telem.SecondTS + 1
+		w, _ = MustSucceed2(db.Handoff(ctx, w, reopen, nil))
+		w, _ = MustSucceed2(db.Handoff(ctx, w, config(clock, data), p))
+		mustWrite(ctx, w, both(14))
+		Expect(MustSucceed2(w.Commit(ctx, nil))).To(Equal(14*telem.SecondTS + 1))
+		Expect(w.Close()).To(Succeed())
+		Expect(stored(ctx)).To(Equal([]int64{1, 2, 3, 4, 5}))
 	})
 
 	It("Should go on in the stretch of a writer that stores no samples, with no "+

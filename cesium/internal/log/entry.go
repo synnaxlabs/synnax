@@ -39,6 +39,14 @@ func (e *Entry) Add(r Record) {
 	}
 }
 
+// Take adds the records of o to e, after its own, and empties o.
+func (e *Entry) Take(o *Entry) {
+	for _, r := range o.records {
+		e.Add(r)
+	}
+	o.Reset()
+}
+
 // Len returns the number of records in the entry.
 func (e *Entry) Len() int { return len(e.records) }
 
