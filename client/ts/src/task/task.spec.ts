@@ -1221,7 +1221,48 @@ describe("Task", async () => {
       }
     };
 
-    const setDriverNotRunning = async (key: rack.Key) =>
+    const stopHeartbeat = new Map<rack.Key, () => Promise<void>>();
+
+    // The change stream can deliver a status written before the wait began, so each
+    // rack starts with the status of a running Driver. The Core takes a rack with no
+    // status for 5 s as down, so the rack reports each second until its spec ends or
+    // takes it down.
+    const createRunningRack = async (c: Synnax): Promise<rack.Rack> => {
+      const running = {
+        variant: "success",
+        message: "Driver running",
+        details: { running: true },
+      } as const;
+      const r = await c.racks.create({
+        name: `running-${id.create()}`,
+        status: running,
+      });
+      const stopped = Promise.withResolvers<void>();
+      let beating = true;
+      const heartbeat = (async () => {
+        while (true) {
+          await Promise.race([sleep.sleep(TimeSpan.seconds(1)), stopped.promise]);
+          if (!beating) return;
+          await writer.statuses.set({
+            ...running,
+            owner: rack.resourceID(r.key),
+            name: "Rack Status",
+            time: TimeStamp.now(),
+          });
+        }
+      })();
+      const stop = async () => {
+        beating = false;
+        stopped.resolve();
+        await heartbeat;
+      };
+      stopHeartbeat.set(r.key, stop);
+      onTestFinished(stop);
+      return r;
+    };
+
+    const setDriverNotRunning = async (key: rack.Key) => {
+      await stopHeartbeat.get(key)?.();
       await writer.statuses.set({
         owner: rack.resourceID(key),
         name: "Rack Status",
@@ -1231,6 +1272,7 @@ describe("Task", async () => {
         time: TimeStamp.now(),
         details: { running: false },
       });
+    };
 
     it("should end the wait when the Driver of the task goes down", async () => {
       const dying = await client.racks.create({ name: `dying-${id.create()}` });
@@ -1304,7 +1346,7 @@ describe("Task", async () => {
     it.each(["success", "warning"] as const)(
       "should keep waiting through a %s status from a running Driver",
       async (variant) => {
-        const alive = await client.racks.create({ name: `alive-${id.create()}` });
+        const alive = await createRunningRack(client);
         const t = await alive.createTask({
           name: `alive-${id.create()}`,
           config: {},
@@ -1344,18 +1386,6 @@ describe("Task", async () => {
         expect(await wait).toMatchObject({ message: "Scan complete" });
       },
     );
-
-    // The change stream can deliver a status written before the wait began, so each
-    // rack starts with the status of a running Driver.
-    const createRunningRack = async (c: Synnax): Promise<rack.Rack> =>
-      await c.racks.create({
-        name: `running-${id.create()}`,
-        status: {
-          variant: "success",
-          message: "Driver running",
-          details: { running: true },
-        },
-      });
 
     const setReply = async (
       t: task.Task,
