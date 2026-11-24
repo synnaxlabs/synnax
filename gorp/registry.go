@@ -365,9 +365,6 @@ type deletePlan struct {
 	// detaches holds the targets to remove or inline in each entry the delete keeps. An
 	// entry leaves detaches when the plan adds it to cascades.
 	detaches map[Target][]detachOp
-	// cascaded holds each entry of cascades in the order the walk added it, with the
-	// deleted entry whose reference brought it.
-	cascaded []cascadeOp
 	// size is the number of entries the plan deletes.
 	size int
 }
@@ -394,15 +391,10 @@ func (p *deletePlan) request(k string) bool {
 	return true
 }
 
-// cascadeOp is an entry that a cascade deletes, and the deleted entry that caused it.
-type cascadeOp struct {
-	entry Target
-	cause Target
-}
-
 // cascade adds t, which the delete of cause brings, to the entries that a cascade
-// deletes. It reports false when the plan already deletes t.
-func (p *deletePlan) cascade(t, cause Target) bool {
+// deletes, and marks t on behalf in marks when marks holds cause. marks is nil when the
+// transaction holds no mark. It reports false when the plan already deletes t.
+func (p *deletePlan) cascade(t, cause Target, marks *changeList) bool {
 	if p.contains(t) {
 		return false
 	}
@@ -412,29 +404,24 @@ func (p *deletePlan) cascade(t, cause Target) bool {
 		p.cascades[t.Table] = keys
 	}
 	keys.Add(t.Key)
-	p.cascaded = append(p.cascaded, cascadeOp{entry: t, cause: cause})
+	if marks != nil && marks.isOnBehalf(cause) {
+		marks.markOneOnBehalf(t)
+	}
 	p.size++
 	delete(p.detaches, t)
 	return true
 }
 
-// markOnBehalf marks each entry that p cascades or detaches because of a delete made on
-// the caller's behalf, so a chain of cascades carries the mark at each step.
-func (p *deletePlan) markOnBehalf(tx Tx) {
-	state := tx.txIdentity()
-	if state == nil || !state.changes.anyOnBehalf() {
+// markDetaches marks on behalf in marks each entry that p detaches from a target that
+// marks holds. marks is nil when the transaction holds no mark.
+func (p *deletePlan) markDetaches(marks *changeList) {
+	if marks == nil {
 		return
-	}
-	changes := &state.changes
-	for _, op := range p.cascaded {
-		if changes.isOnBehalf(op.cause) {
-			changes.markOneOnBehalf(op.entry)
-		}
 	}
 	for dep, ops := range p.detaches {
 		for _, op := range ops {
-			if changes.isOnBehalf(op.target) {
-				changes.markOneOnBehalf(dep)
+			if marks.isOnBehalf(op.target) {
+				marks.markOneOnBehalf(dep)
 				break
 			}
 		}
@@ -455,6 +442,7 @@ func (r *registry) plan(
 	limit int,
 ) (*deletePlan, error) {
 	w := newPlanWalk(table, keys, limit)
+	w.marks = onBehalfOf(tx)
 	if w.plan.changes() > limit {
 		return nil, w.tooLarge()
 	}
@@ -497,7 +485,9 @@ func (rs restriction) err() error {
 
 // planWalk is the state of a breadth-first walk that builds a deletePlan.
 type planWalk struct {
-	plan         *deletePlan
+	plan *deletePlan
+	// marks holds the marks of the transaction, or is nil when it has none.
+	marks        *changeList
 	keys         []string
 	limit        int
 	queue        []Target
@@ -543,7 +533,7 @@ func (w *planWalk) tooLarge() error {
 func (w *planWalk) visit(ref registeredReference, dep, target Target) error {
 	switch ref.onDeletePolicy() {
 	case Cascade:
-		if !w.plan.cascade(dep, target) {
+		if !w.plan.cascade(dep, target, w.marks) {
 			return nil
 		}
 		w.queue = append(w.queue, dep)
@@ -595,7 +585,7 @@ func (w *planWalk) checkRestrictions() error {
 // first, then cascades, so each Inline reads a target that still exists. It leaves the
 // entries the caller asked to delete in place.
 func (r *registry) apply(ctx context.Context, tx Tx, p *deletePlan) error {
-	p.markOnBehalf(tx)
+	p.markDetaches(onBehalfOf(tx))
 	for dep, ops := range p.detaches {
 		t, err := r.table(dep.Table)
 		if err != nil {
