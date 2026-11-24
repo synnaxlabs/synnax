@@ -14,7 +14,9 @@ import (
 	"math/rand/v2"
 	"os"
 	"path"
+	"runtime/debug"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -30,15 +32,26 @@ import (
 
 // passGate gates the check files that the check pass creates in dir. While refusing,
 // it lets the pass create one and refuses the rest. While holding, it holds the pass
-// at the sync of dir after its next check file, until release closes.
+// at the sync of dir after its next check file, until release closes. While
+// holdingLog, it holds the first open or sub of dir that a check log makes.
 type passGate struct {
-	dir      string
-	refusing atomic.Bool
-	created  atomic.Int32
-	holding  atomic.Bool
-	wrote    atomic.Bool
-	held     chan struct{}
-	release  chan struct{}
+	dir        string
+	refusing   atomic.Bool
+	created    atomic.Int32
+	holding    atomic.Bool
+	holdingLog atomic.Bool
+	wrote      atomic.Bool
+	held       chan struct{}
+	release    chan struct{}
+}
+
+func (g *passGate) holdLog(name string) {
+	if (name == g.dir || path.Dir(name) == g.dir) && g.holdingLog.Load() &&
+		strings.Contains(string(debug.Stack()), "cesium.(*checker).logCheck") &&
+		g.holdingLog.CompareAndSwap(true, false) {
+		close(g.held)
+		<-g.release
+	}
 }
 
 type passGateFS struct {
@@ -47,6 +60,7 @@ type passGateFS struct {
 }
 
 func (f passGateFS) Sub(name string) (xfs.FS, error) {
+	f.g.holdLog(name)
 	sub, err := f.FS.Sub(name)
 	if err != nil {
 		return nil, err
@@ -55,6 +69,7 @@ func (f passGateFS) Sub(name string) (xfs.FS, error) {
 }
 
 func (f passGateFS) Open(name string, flag int) (xfs.File, error) {
+	f.g.holdLog(name)
 	if flag&os.O_CREATE != 0 && path.Dir(name) == f.g.dir &&
 		strings.HasSuffix(name, ".chk") {
 		if f.g.refusing.Load() && f.g.created.Add(1) > 1 {
@@ -174,5 +189,55 @@ var _ = Describe("Drop during the check pass", func() {
 		Expect(db.Drop(ctx, []cesium.ChannelKey{i32})).To(Succeed())
 		Expect(iter.Close()).To(Succeed())
 		Expect(disk.List(g.dir)).To(BeEmpty())
+	})
+
+	It("Should not make the directory of a dropped key again when the check pass "+
+		"logs a check of it after the Drop", func(ctx SpecContext) {
+		disk := MustSucceed(fault.New(fault.Config{}))
+		writeOld(ctx, disk)
+		g := &passGate{
+			dir:     "2",
+			held:    make(chan struct{}),
+			release: make(chan struct{}),
+		}
+		parted := func() (*cesium.DB, func() error) {
+			GinkgoHelper()
+			db := MustSucceed(cesium.Open(
+				ctx,
+				"",
+				cesium.WithFS(passGateFS{FS: disk, g: g}),
+				cesium.WithPointerLog(),
+				cesium.WithPartSize(1),
+				cesium.WithRandom(rand.NewPCG(1, 2)),
+				cesium.WithIdentity(rand.NewPCG(1, 2).Uint64()),
+			))
+			stop := GoRun(ctx, db.Run)
+			return db, func() error { return errors.Join(stop(), db.Close()) }
+		}
+		g.refusing.Store(true)
+		_, closeDB := parted()
+		Expect(closeDB()).To(Succeed())
+		g.refusing.Store(false)
+		g.holdingLog.Store(true)
+		db, closeDB := parted()
+		release := sync.OnceFunc(func() { close(g.release) })
+		closeOnce := sync.OnceValue(closeDB)
+		DeferCleanup(func() {
+			release()
+			Expect(closeOnce()).To(Succeed())
+		})
+		Eventually(g.held).WithTimeout(10*time.Second).Should(
+			BeClosed(),
+			"the check pass begins the check log of a segment of i32",
+		)
+		dropped := make(chan error, 1)
+		go func() { dropped <- db.Drop(ctx, []cesium.ChannelKey{i32}) }()
+		Eventually(dropped).WithTimeout(10*time.Second).Should(
+			Receive(Succeed()),
+			"the Drop returns while the check pass is held",
+		)
+		release()
+		Expect(closeOnce()).To(Succeed())
+		Expect(disk.Exists(g.dir)).To(BeFalse())
 	})
 })
