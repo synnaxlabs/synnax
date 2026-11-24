@@ -141,6 +141,7 @@ func Open(ctx context.Context, configs ...Config) (*DB, error) {
 		controller:       c,
 		wrapError:        wrapError,
 		closed:           &atomic.Bool{},
+		opening:          &atomic.Int32{},
 		leadingAlignment: alignment.NewCounter(alignment.ZeroLeading),
 		resolver:         newOffsetResolver(cfg.Channel.DataType, cfg.Instrumentation),
 	}
