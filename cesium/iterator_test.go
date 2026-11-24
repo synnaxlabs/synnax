@@ -2127,9 +2127,12 @@ var _ = Describe("Iterator Behavior", func() {
 })
 
 var _ = Describe("Iterator index lookups", func() {
-	It("Should read the index once for every channel on it", func(ctx SpecContext) {
+	DescribeTable("Should read the index once for every channel on it", func(
+		ctx SpecContext,
+		opts ...cesium.Option,
+	) {
 		rec := NewRecorder(fs.NewMem())
-		db := mustOpenDBOnFS(ctx, rec)
+		db := mustOpenDBOnFS(ctx, rec, opts...)
 		idxKey := GenerateChannelKey()
 		Expect(db.CreateChannel(ctx, cesium.Channel{
 			Key:      idxKey,
@@ -2164,10 +2167,13 @@ var _ = Describe("Iterator index lookups", func() {
 			Expect(fr.Count()).To(Equal(len(keys)))
 			return rec.Count(MatchOp(OpReadAt), MatchLength(8))
 		}
-		one := indexReads(keys[1])
-		Expect(one).To(BeNumerically(">", 0))
-		Expect(indexReads(keys[1:]...)).To(Equal(one))
-	})
+		// 48 is main's count for one channel.
+		Expect(indexReads(keys[1])).To(Equal(48))
+		Expect(indexReads(keys[1:]...)).To(Equal(48))
+	},
+		Entry("on the old layout"),
+		Entry("on the pointer log", cesium.WithPointerLog()),
+	)
 
 	It("Should see an index rewritten between commands", func(ctx SpecContext) {
 		db := mustOpenDBOnFS(ctx, fs.NewMem())
