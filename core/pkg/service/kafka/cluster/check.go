@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -90,7 +91,13 @@ func (w Writer) checkRack(ctx context.Context, c Cluster) error {
 	if err := w.racks.NewRetrieve().
 		Where(rack.MatchKeys(c.Rack)).
 		Entry(&r).
-		Exec(ctx, w.tx); err != nil {
+		Exec(ctx, w.tx); errors.Is(err, query.ErrNotFound) {
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"rack: rack %d does not exist",
+			c.Rack,
+		)
+	} else if err != nil {
 		return err
 	}
 	if !slices.Contains(r.Integrations, Integration) {
@@ -114,7 +121,13 @@ func (w Writer) checkClientCertificate(ctx context.Context, c Cluster) error {
 	if err := w.certs.NewRetrieve().
 		Where(certificate.MatchKeys(*t.ClientCertificate)).
 		Entry(&cert).
-		Exec(ctx, w.tx); err != nil {
+		Exec(ctx, w.tx); errors.Is(err, query.ErrNotFound) {
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"transport.client_certificate: certificate %s does not exist",
+			*t.ClientCertificate,
+		)
+	} else if err != nil {
 		return err
 	}
 	var hasKey bool

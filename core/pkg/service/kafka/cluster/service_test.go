@@ -355,8 +355,23 @@ var _ = Describe("Service", func() {
 		It("Should reject a missing rack", func(ctx SpecContext) {
 			c := newCluster()
 			c.Rack = 999
-			Expect(svc.NewWriter(tx).Create(ctx, &c)).
-				To(MatchError(query.ErrNotFound))
+			Expect(svc.NewWriter(tx).Create(ctx, &c)).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("rack 999 does not exist")),
+				Not(MatchError(query.ErrNotFound)),
+			))
+		})
+
+		It("Should reject a move to a missing rack as invalid", func(ctx SpecContext) {
+			c := create(ctx)
+			update := identity(c)
+			update.Rack = 999
+			Expect(svc.NewWriter(tx).Apply(ctx, c.Key, cluster.Update{
+				Variant: cluster.IdentityUpdate{Identity: update},
+			})).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				Not(MatchError(query.ErrNotFound)),
+			))
 		})
 	})
 
@@ -385,6 +400,16 @@ var _ = Describe("Service", func() {
 			c.Transport = tls(&ca, &client)
 			Expect(svc.NewWriter(tx).Create(ctx, &c)).To(Succeed())
 			Expect(retrieve(ctx, c.Key).Transport).To(Equal(c.Transport))
+		})
+
+		It("Should reject a missing client certificate", func(ctx SpecContext) {
+			c := newCluster()
+			c.Transport = tls(nil, new(uuid.New()))
+			Expect(svc.NewWriter(tx).Create(ctx, &c)).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("transport.client_certificate")),
+				Not(MatchError(query.ErrNotFound)),
+			))
 		})
 
 		It("Should reject a client certificate with no private key", func(
