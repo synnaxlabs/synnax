@@ -1035,9 +1035,11 @@ segments. Its undo leaves the live state, and `Sweep` handles the keys that the 
 channel table does not hold. No background work rewrites or unlinks a version 0 file
 while a backup from a release older than the first that writes segments exists (§5.1),
 so an undo finds every old file that the user did not delete. A user delete may unlink
-one. The old binary then fails a read over that range, and the next conversion drops
-each pointer whose file is gone, with a warning that names it. Nothing removes `.undone`
-files: a person deletes them by hand once their telemetry is not needed.
+one. The old binary then fails a read over that range, and the next conversion drops the
+samples of each pointer whose file is gone, with a warning that names it. An index
+pointer stays as a mark with no stamps, so the data of another key in its range is cut
+too, and no sample takes the stamps of a later pointer. Nothing removes `.undone` files:
+a person deletes them by hand once their telemetry is not needed.
 
 ### 9.1 What is owed
 
