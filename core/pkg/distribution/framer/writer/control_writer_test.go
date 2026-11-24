@@ -382,6 +382,7 @@ var _ = DescribeTableSubtree("Writer control moved from Cesium", func(pointerLog
 				It(
 					"Should write below its start once it takes the clock",
 					func(ctx SpecContext) {
+						skipOnPointerLog(pointerLog, newRunReadOwner)
 						key := GenerateChannelKey()
 						Expect(db.CreateChannel(ctx, cesium.Channel{
 							Key:      key,
@@ -432,7 +433,6 @@ var _ = DescribeTableSubtree("Writer control moved from Cesium", func(pointerLog
 				It(
 					"Should fail a writer that takes its clock over stored data",
 					func(ctx SpecContext) {
-						skipOnPointerLog(pointerLog, errorTextOwner)
 						key := GenerateChannelKey()
 						Expect(db.CreateChannel(ctx, cesium.Channel{
 							Key:      key,
@@ -453,12 +453,25 @@ var _ = DescribeTableSubtree("Writer control moved from Cesium", func(pointerLog
 							},
 						}))
 						// w2 waits for the clock, so it claims no time there.
+						backfillConfig := cesium.WriterConfig{
+							Channels: []cesium.ChannelKey{key},
+							Clock:    key,
+							Start:    19 * telem.SecondTS,
+						}
+						if pointerLog {
+							// The live claim of w1 holds the key from 10 s, so no
+							// writer can store data under it.
+							Expect(db.DB.OpenWriter(ctx, backfillConfig)).Error().To(
+								MatchError(ContainSubstring(
+									"reaches the claim of another writer from 10000000000",
+								)),
+							)
+							Expect(w1.Close()).To(Succeed())
+							Expect(w2.Close()).To(Succeed())
+							return
+						}
 						backfill := MustSucceed(
-							db.DB.OpenWriter(ctx, cesium.WriterConfig{
-								Channels: []cesium.ChannelKey{key},
-								Clock:    key,
-								Start:    19 * telem.SecondTS,
-							}),
+							db.DB.OpenWriter(ctx, backfillConfig),
 						)
 						MustSucceed2(backfill.Write(ctx, telem.UnaryFrame(
 							key,

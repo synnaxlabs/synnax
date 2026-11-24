@@ -399,7 +399,7 @@ var _ = DescribeTableSubtree("Writer", func(pointerLog bool) {
 		It(
 			"Should end the domain of an index",
 			func(ctx SpecContext) {
-				skipOnPointerLog(pointerLog, errorTextOwner)
+				skipOnPointerLog(pointerLog, endDomainFillOwner)
 				host := newNode(ctx, pointerLog)
 				idx := MustSucceed(host.CreateChannels(ctx, []channel.Channel{{
 					Name:     "local_time",
@@ -481,7 +481,6 @@ var _ = DescribeTableSubtree("Writer", func(pointerLog bool) {
 			},
 		)
 		It("Should return no end from a commit that fails", func(ctx SpecContext) {
-			skipOnPointerLog(pointerLog, errorTextOwner)
 			gw := newNode(ctx, pointerLog)
 			// Commits walk a map of indexes, so most commit before the one that fails.
 			channels := make([]channel.Channel, 8)
@@ -560,7 +559,6 @@ var _ = DescribeTableSubtree("Writer", func(pointerLog bool) {
 			},
 		)
 		It("Should report a commit that fails", func(ctx SpecContext) {
-			skipOnPointerLog(pointerLog, errorTextOwner)
 			host := newNode(ctx, pointerLog)
 			idx := MustSucceed(host.CreateChannels(ctx, []channel.Channel{{
 				Name:        "time",
@@ -1049,7 +1047,6 @@ var _ = DescribeTableSubtree("Writer", func(pointerLog bool) {
 				"Should keep the samples of a writer while a stream-only writer holds "+
 					"its clock",
 				func(ctx SpecContext) {
-					skipOnPointerLog(pointerLog, unstoredClaimOwner)
 					w1 := openFirst(ctx)
 					streamer := MustSucceed(host.Framer.OpenWriter(ctx, writer.Config{
 						ControlSubject: control.Subject{Key: "streamer"},
@@ -1124,7 +1121,6 @@ var _ = DescribeTableSubtree("Writer", func(pointerLog bool) {
 		It(
 			"Should return a storage write error from a writer that is not sync",
 			func(ctx SpecContext) {
-				skipOnPointerLog(pointerLog, errorTextOwner)
 				host := newNode(ctx, pointerLog)
 				idx := MustSucceed(host.CreateChannels(ctx, []channel.Channel{{
 					Name:        "persist_only_error_time",
@@ -1889,7 +1885,10 @@ func newNode(ctx context.Context, pointerLog bool) testutil.Node {
 const (
 	unstoredClaimOwner = "cesium-0c, D-375 (Unstored takes no claim)"
 	errorTextOwner     = "cesium-0c, main's error text (coordinator, 2026-11-24)"
-	recoveryOwner      = "cesium-0c, recovery reads a live MemFS size twice"
+	newRunReadOwner    = "clients-c9, a NewRun handoff reads as two series"
+	overlapTextOwner   = "cesium-53, a commit over stored data names no holder"
+	endDomainFillOwner = "cesium-53, a fill after EndDomain is refused (coordinator)"
+	durableProbeOwner  = "storage-checker-ea, a probe DB on live files reads nothing"
 )
 
 // skipOnPointerLog skips the spec on the pointer log until owner fixes it there.

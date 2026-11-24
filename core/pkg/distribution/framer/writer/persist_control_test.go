@@ -38,7 +38,7 @@ var _ = DescribeTableSubtree("Persist with partial control", func(pointerLog boo
 		dataB = channel.NewKey(1, 4)
 	)
 	BeforeEach(func(ctx SpecContext) {
-		skipOnPointerLog(pointerLog, recoveryOwner)
+		skipOnPointerLog(pointerLog, durableProbeOwner)
 		fs = xfs.NewMem()
 		db = MustOpen(
 			cesium.Open(ctx, "db", append(layout(pointerLog), cesium.WithFS(fs))...),

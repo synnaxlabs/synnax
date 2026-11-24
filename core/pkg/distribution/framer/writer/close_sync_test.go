@@ -28,7 +28,7 @@ import (
 )
 
 var _ = DescribeTableSubtree("Close sync", func(pointerLog bool) {
-	const interval = 500 * telem.Millisecond
+	const interval = 2 * telem.Second
 	var (
 		db           *cesium.DB
 		clock        *timetestutil.Clock

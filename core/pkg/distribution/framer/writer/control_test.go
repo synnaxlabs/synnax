@@ -139,7 +139,6 @@ var _ = DescribeTableSubtree("Control moved from Cesium", func(pointerLog bool) 
 				It(
 					"Should not take control from a live writer at any authority",
 					func(ctx SpecContext) {
-						skipOnPointerLog(pointerLog, errorTextOwner)
 						live := openLive(ctx, 1)
 						Expect(db.OpenWriter(ctx, persistConfig(15*telem.SecondTS))).
 							Error().To(And(
@@ -156,7 +155,6 @@ var _ = DescribeTableSubtree("Control moved from Cesium", func(pointerLog bool) 
 				It(
 					"Should stop at a commit that reaches a live writer, and keep it writing",
 					func(ctx SpecContext) {
-						skipOnPointerLog(pointerLog, errorTextOwner)
 						live := openLive(ctx, 1)
 						w := MustSucceed(
 							db.OpenWriter(ctx, persistConfig(1*telem.SecondTS)),
@@ -208,7 +206,7 @@ var _ = DescribeTableSubtree("Control moved from Cesium", func(pointerLog bool) 
 				It(
 					"Should let a streaming writer take over next to an open persist writer",
 					func(ctx SpecContext) {
-						skipOnPointerLog(pointerLog, errorTextOwner)
+						skipOnPointerLog(pointerLog, overlapTextOwner)
 						live := openLive(ctx, 1)
 						w := MustSucceed(
 							db.OpenWriter(ctx, persistConfig(1*telem.SecondTS)),
