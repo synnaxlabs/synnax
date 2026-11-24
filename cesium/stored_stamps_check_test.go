@@ -47,6 +47,9 @@ func (f clockSyncFS) Open(name string, flag int) (xfs.File, error) {
 }
 
 func (f clockSyncFS) Sub(name string) (xfs.FS, error) {
+	if name == "" {
+		return f, nil
+	}
 	sub, err := f.FS.Sub(name)
 	if err != nil || name != f.dir {
 		return sub, err
@@ -309,10 +312,23 @@ var _ = Describe("Check: data written against stored stamps", func() {
 			w := writer(ctx, 40)
 			MustSucceed2(w.Write(ctx, frame(1, 2), nil))
 			MustSucceed2(w.Commit(ctx, nil))
+			// No sync makes the stamps durable, so the sync ends with its context,
+			// and the writer stays usable.
+			deadline, cancel := context.WithTimeout(ctx, 200*time.Millisecond)
+			defer cancel()
 			synced := make(chan error, 1)
-			go func() { synced <- w.Sync(ctx) }()
-			Eventually(synced, 30*time.Second).Should(Receive(Succeed()))
+			go func() { synced <- w.Sync(deadline) }()
+			Eventually(synced, 5*time.Second).Should(Receive(SatisfyAll(
+				MatchError(context.DeadlineExceeded),
+				MatchError(ContainSubstring(fmt.Sprintf(
+					"clock %d has not made the stamps from %d to %d durable",
+					idx,
+					40*telem.SecondTS,
+					41*telem.SecondTS,
+				))),
+			)))
 			Expect(c.Sync(ctx)).To(Succeed())
+			Expect(w.Sync(ctx)).To(Succeed())
 			Expect(c.Close()).To(Succeed())
 			Expect(w.Close()).To(Succeed())
 			stop()
