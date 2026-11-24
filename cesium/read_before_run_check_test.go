@@ -29,6 +29,7 @@ var _ = Describe("Check: a read before Run", func() {
 		keys := []cesium.ChannelKey{clock, data}
 		fs := xfs.NewMem()
 		db, closeDB := MustSucceed2(openLog(ctx, fs))
+		id := db.Identity()
 		Expect(db.CreateChannel(
 			ctx,
 			cesium.Channel{
@@ -55,6 +56,7 @@ var _ = Describe("Check: a read before Run", func() {
 			cesium.WithFS(fs),
 			cesium.WithPointerLog(),
 			cesium.WithRandom(rand.NewPCG(1, 2)),
+			cesium.WithIdentity(id),
 		))
 		early, cancel := context.WithTimeout(ctx, 100*time.Millisecond)
 		fr, err := db.Read(early, telem.TimeRangeMax, data)
