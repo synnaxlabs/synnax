@@ -7,220 +7,203 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { kafka, type Synnax, type task } from "@synnaxlabs/client";
+import { channel, icd, kafka, type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import type { Status } from "@synnaxlabs/lyra/status";
 import { uniqueName } from "@synnaxlabs/x/testutil";
-import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Kafka } from "@/feature/kafka";
 import { createKafkaDevice } from "@/feature/kafka/testutil";
+import { ICD } from "@/platform/icd";
 import {
-  awaitEditableForm,
-  deployAndAwaitTask,
-  findChannelListItem,
+  clickDeploy,
+  countFailedSaves,
   preloadForms,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
-  selectFromDropdown,
 } from "@/platform/task/testutil";
-import { getIconButton } from "@/testutil";
 
 const client = createTestClient();
 
 preloadForms(Kafka.Task.FORMS);
 
-const renderWrite = async (options: RenderTaskFormTabOptions) => {
-  const rendered = await renderTaskFormTab(
-    Kafka.Task.FORMS[Kafka.Task.WRITE_TYPE],
-    options,
-  );
-  await awaitEditableForm();
-  return rendered;
-};
-
+// Drafts carry no key; the created task mints its own.
 const ZERO_DRAFT: task.New<Kafka.Task.WriteSchemas> = {
-  name: "Kafka write task",
+  name: Kafka.Task.DEFAULT_WRITE_NAME,
   type: Kafka.Task.WRITE_TYPE,
   config: Kafka.Task.WRITE_SCHEMAS.config.parse({}),
 };
 
-const createDraft = async (
-  client: Synnax,
-  config: task.Payload<Kafka.Task.WriteSchemas>["config"],
-) => await client.tasks.create({ ...ZERO_DRAFT, config }, Kafka.Task.WRITE_SCHEMAS);
+const createDraft = async (client: Synnax, config: kafka.WriteConfig) =>
+  await client.tasks.create({ ...ZERO_DRAFT, config }, Kafka.Task.WRITE_SCHEMAS);
 
-describe("Write", () => {
-  it("should add a channel and reveal the enum mapping for a string JSON type", async () => {
-    const dev = await createKafkaDevice(client);
-    const draft = await createDraft(client, {
-      ...Kafka.Task.WRITE_SCHEMAS.config.parse({}),
-      device: dev.key,
+const retrieveTargets = async (key: task.Key) =>
+  (await client.tasks.retrieve({ key, schemas: Kafka.Task.WRITE_SCHEMAS })).config
+    .targets;
+
+const createField = (name: string, type: icd.JSONField["type"]): icd.JSONField =>
+  icd.jsonFieldZ.parse({ name, pointer: `/${name}`, type });
+
+/**
+ * Creates an ICD that holds one JSON message of the fields, and a target that sends it,
+ * with no channels.
+ */
+const createTarget = async (
+  fields: icd.JSONField[],
+  overrides: Partial<Kafka.Task.WriteTarget> = {},
+) => {
+  const message = icd.messageZ.parse({
+    name: uniqueName("command"),
+    payload: { format: "json", fields },
+  });
+  const ic = await client.icds.create({
+    name: uniqueName("pump"),
+    messages: [message],
+  });
+  const target = kafka.writeTargetZ.parse({
+    key: "t1",
+    topic: "plant.pumps",
+    icd: ic.key,
+    message: { message: message.key, bindings: ICD.Write.suit([], fields) },
+    ...overrides,
+  });
+  return { ic, message, target };
+};
+
+// The form body renders against a configured cluster only.
+const renderWrite = async (
+  targets: Kafka.Task.WriteTarget[] = [],
+  options: RenderTaskFormTabOptions = {},
+) => {
+  const dev = await createKafkaDevice(client);
+  const draft = await createDraft(client, {
+    ...Kafka.Task.WRITE_SCHEMAS.config.parse({}),
+    device: dev.key,
+    targets,
+  });
+  const result = await renderTaskFormTab(Kafka.Task.FORMS[Kafka.Task.WRITE_TYPE], {
+    client,
+    taskKey: draft.key,
+    ...options,
+  });
+  return { ...result, dev, draft };
+};
+
+// The add button renders once the form leaves its loading preview.
+const addTarget = async () =>
+  fireEvent.click(await screen.findByRole("button", { name: "Add target" }));
+
+describe("Kafka Write form", () => {
+  // This first test pays the one-time load of the lazy form, which takes over 10 s on
+  // a loaded CI runner.
+  it("should show the empty state and add + select a target", async () => {
+    await renderWrite();
+    await screen.findByText("Select a target to configure");
+    await addTarget();
+    await screen.findByText("Produce");
+    expect(screen.getByText("Message has no fields")).toBeTruthy();
+  }, 30_000);
+
+  it("should save a new target with an empty message in an ICD named after the task", async () => {
+    let statuses: Status.NotificationSpec[] = [];
+    const { draft } = await renderWrite([], { onStatuses: (s) => (statuses = s) });
+    await addTarget();
+    const target = await waitFor(async () => {
+      const [t] = await retrieveTargets(draft.key);
+      expect(t).toBeDefined();
+      return t;
     });
-    const { container } = await renderWrite({ client, taskKey: draft.key });
-    await screen.findByText(dev.name);
-    fireEvent.click(getIconButton(container, "add"));
-    await screen.findByText("JSON type");
-    expect(screen.queryByText("Enum mapping")).toBeNull();
-    await selectFromDropdown("Number", "String");
-    await screen.findByText("Enum mapping");
+    expect(target.message.bindings).toEqual([]);
+    const [ic] = await client.icds.retrieve([target.icd]);
+    expect(ic.name).toBe(Kafka.Task.DEFAULT_WRITE_NAME);
+    expect(ic.messages).toMatchObject([
+      {
+        key: target.message.message,
+        name: "Untitled",
+        payload: { format: "json", fields: [] },
+      },
+    ]);
+    expect(countFailedSaves(statuses)).toBe(0);
   });
 
-  it("should show the channel name in the list once a channel is selected", async () => {
-    const dev = await createKafkaDevice(client);
-    const ch = await client.channels.create({
-      name: uniqueName("kafka_out"),
+  it("should add the message of a new target to the ICD of the most targets", async () => {
+    const { ic, target } = await createTarget([createField("speed", "float")]);
+    const { draft } = await renderWrite([target]);
+    await screen.findByRole("option", { name: /plant\.pumps/ });
+    await addTarget();
+    const added = await waitFor(async () => {
+      const targets = await retrieveTargets(draft.key);
+      expect(targets).toHaveLength(2);
+      return targets[1];
+    });
+    expect(added.icd).toBe(ic.key);
+    await waitFor(async () => {
+      const [saved] = await client.icds.retrieve([ic.key]);
+      expect(saved.messages.at(-1)).toMatchObject({
+        key: added.message.message,
+        name: "Untitled",
+      });
+    });
+  });
+
+  it("should show the topic and record key of a target", async () => {
+    const { target } = await createTarget([createField("speed", "float")], {
+      recordKey: "pump-1",
+    });
+    await renderWrite([target]);
+    fireEvent.click(await screen.findByRole("option", { name: /plant\.pumps/ }));
+    await screen.findByText("Produce");
+    expect(screen.getByDisplayValue("plant.pumps")).toBeTruthy();
+    expect(screen.getByDisplayValue("pump-1")).toBeTruthy();
+  });
+
+  it("should name a new command channel after the device, topic, record key, and field", async () => {
+    const { target } = await createTarget([createField("speed", "float")], {
+      recordKey: "pump-1",
+    });
+    const { dev } = await renderWrite([target]);
+    fireEvent.click(await screen.findByRole("option", { name: /plant\.pumps/ }));
+    const name = `${channel.escapeInvalidName(dev.name)}_plant_pumps_pump_1_speed_cmd`;
+    expect(await screen.findByDisplayValue(name)).toBeTruthy();
+  });
+
+  it("should duplicate a target with its message and bindings, but no command channels", async () => {
+    const { target } = await createTarget([createField("speed", "float")]);
+    const cmd = await client.channels.create({
+      name: uniqueName("kafka_cmd"),
       dataType: "float64",
       virtual: true,
     });
-    const draft = await createDraft(client, {
-      ...Kafka.Task.WRITE_SCHEMAS.config.parse({}),
-      device: dev.key,
-      channels: [{ ...kafka.writeChannelZ.parse({}), key: "c1", channel: ch.key }],
+    const [{ field }] = target.message.bindings;
+    const bound: Kafka.Task.WriteTarget = {
+      ...target,
+      message: {
+        ...target.message,
+        bindings: [{ type: "channel", field, channel: cmd.key }],
+      },
+    };
+    const { draft } = await renderWrite([bound]);
+    fireEvent.contextMenu(await screen.findByRole("option", { name: /plant\.pumps/ }));
+    fireEvent.click(await screen.findByText("Duplicate"));
+    await waitFor(async () => {
+      const targets = await retrieveTargets(draft.key);
+      expect(targets).toMatchObject([
+        { key: "t1", message: bound.message },
+        { topic: target.topic, icd: target.icd, message: target.message },
+      ]);
+      expect(targets[1].key).not.toBe("t1");
     });
-    await renderWrite({ client, taskKey: draft.key });
-    await screen.findByText(dev.name);
-    await waitFor(() => expect(screen.getAllByText(ch.name).length).toBeGreaterThan(0));
   });
 
-  it("should omit cleared pointers from the record on deploy", async () => {
-    const dev = await createKafkaDevice(client);
-    const ch = await client.channels.create({
-      name: uniqueName("kafka_out"),
-      dataType: "float64",
-      virtual: true,
+  it("should refuse to deploy an enabled target with no topic", async () => {
+    const { target } = await createTarget([createField("speed", "float")], {
+      topic: "",
     });
-    const draft = await createDraft(client, {
-      ...Kafka.Task.WRITE_SCHEMAS.config.parse({}),
-      device: dev.key,
-      topic: "samples",
-      record: { ...kafka.recordZ.parse({}), channelPointer: "", timestampPointer: "" },
-      channels: [{ ...kafka.writeChannelZ.parse({}), key: "c1", channel: ch.key }],
-    });
-    const { container } = await renderWrite({ client, taskKey: draft.key });
-    await screen.findByText(dev.name);
-    const created = await deployAndAwaitTask(
-      client,
-      container,
-      draft.key,
-      Kafka.Task.WRITE_SCHEMAS,
-    );
-    expect(created.rack).toBe(dev.rack);
-    expect(created.config.record.channelPointer).toBeUndefined();
-    expect(created.config.record.timestampPointer).toBeUndefined();
-    expect(created.config.record.valuePointer).toBe("/value");
-    expect(created.config.channels[0].channel).toBe(ch.key);
-  });
-
-  it("should show no channel, never a new one, before a channel is picked", async () => {
-    const dev = await createKafkaDevice(client);
-    const draft = await createDraft(client, {
-      ...Kafka.Task.WRITE_SCHEMAS.config.parse({}),
-      device: dev.key,
-      channels: [{ ...kafka.writeChannelZ.parse({}), key: "c1" }],
-    });
-    await renderWrite({ client, taskKey: draft.key });
-    const item = await findChannelListItem("No channel");
-    expect(within(item).queryByRole("img", { name: "New channel" })).toBeNull();
-  });
-
-  // A Core clears the channel of a row whose channel it no longer holds.
-  it("should deploy when a disabled row has no channel", async () => {
-    const dev = await createKafkaDevice(client);
-    const ch = await client.channels.create({
-      name: uniqueName("kafka_out"),
-      dataType: "float64",
-      virtual: true,
-    });
-    const draft = await createDraft(client, {
-      ...Kafka.Task.WRITE_SCHEMAS.config.parse({}),
-      device: dev.key,
-      topic: "samples",
-      channels: [
-        { ...kafka.writeChannelZ.parse({}), key: "c1", channel: ch.key },
-        {
-          ...kafka.writeChannelZ.parse({}),
-          key: "c2",
-          channel: 0,
-          disabled: true,
-        },
-      ],
-    });
-    const { container } = await renderWrite({ client, taskKey: draft.key });
-    await screen.findByText(dev.name);
-    const created = await deployAndAwaitTask(
-      client,
-      container,
-      draft.key,
-      Kafka.Task.WRITE_SCHEMAS,
-    );
-    expect(created.config.channels.map((c) => c.channel)).toEqual([ch.key, 0]);
-  });
-
-  it("should send a string channel as a string on deploy", async () => {
-    const dev = await createKafkaDevice(client);
-    const ch = await client.channels.create({
-      name: uniqueName("kafka_out"),
-      dataType: "string",
-      virtual: true,
-    });
-    const draft = await createDraft(client, {
-      ...Kafka.Task.WRITE_SCHEMAS.config.parse({}),
-      device: dev.key,
-      topic: "samples",
-      channels: [{ ...kafka.writeChannelZ.parse({}), key: "c1", channel: ch.key }],
-    });
-    const { container } = await renderWrite({ client, taskKey: draft.key });
-    await screen.findByText(dev.name);
-    fireEvent.click((await screen.findAllByText(ch.name))[0]);
-    // The section title and the field label, once the details render.
-    await waitFor(() => expect(screen.getAllByText("Channel")).toHaveLength(2));
-    await waitFor(() => expect(screen.queryByText("JSON type")).toBeNull());
-    const created = await deployAndAwaitTask(
-      client,
-      container,
-      draft.key,
-      Kafka.Task.WRITE_SCHEMAS,
-    );
-    expect(created.config.channels[0].jsonType).toBe("string");
-  });
-
-  it("should encode a timestamp channel by its time format on deploy", async () => {
-    const dev = await createKafkaDevice(client);
-    const ch = await client.channels.create({
-      name: uniqueName("kafka_time"),
-      dataType: "timestamp",
-      isIndex: true,
-    });
-    const draft = await createDraft(client, {
-      ...Kafka.Task.WRITE_SCHEMAS.config.parse({}),
-      device: dev.key,
-      topic: "samples",
-      channels: [
-        {
-          ...kafka.writeChannelZ.parse({}),
-          key: "c1",
-          channel: ch.key,
-          jsonType: "string",
-          timeFormat: "unix_ns",
-          enumValues: [{ label: "ON", value: 1 }],
-        },
-      ],
-    });
-    const { container } = await renderWrite({ client, taskKey: draft.key });
-    await screen.findByText(dev.name);
-    fireEvent.click((await screen.findAllByText(ch.name))[0]);
-    // The record's time format and the channel's, once the details render.
-    await waitFor(() => expect(screen.getAllByText("Time format")).toHaveLength(2));
-    expect(screen.queryByText("JSON type")).toBeNull();
-    expect(screen.queryByText("Enum mapping")).toBeNull();
-    const created = await deployAndAwaitTask(
-      client,
-      container,
-      draft.key,
-      Kafka.Task.WRITE_SCHEMAS,
-    );
-    expect(created.config.channels[0].jsonType).toBe("number");
-    expect(created.config.channels[0].enumValues).toEqual([]);
+    const { container } = await renderWrite([target]);
+    await screen.findByRole("option", { name: /New topic/ });
+    await clickDeploy(container);
+    await screen.findByText("Topic is required");
   });
 });

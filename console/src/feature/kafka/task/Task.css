@@ -65,3 +65,21 @@
     flex-grow: 1;
     min-width: 0;
 }
+
+.console-task-configure--kafka_write {
+    .console-panes {
+        --console-list-width: 300px;
+    }
+
+    .console--off .console-kafka-target-label > :not(:first-child) {
+        color: var(--pluto-gray-l8);
+        text-decoration: line-through;
+        text-decoration-color: var(--pluto-gray-l6);
+    }
+}
+
+.console-kafka-target-label {
+    flex-grow: 1;
+    gap: 1rem;
+    min-width: 0;
+}
