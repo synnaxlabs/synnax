@@ -750,6 +750,78 @@ var _ = Describe("Relay", func() {
 			},
 		)
 
+		It(
+			"Should never send a missed marker before a frame buffered before its drop",
+			func(ctx SpecContext) {
+				store := storagetestutil.OpenLayer(ctx)
+				DeferCleanup(store.Close)
+				freeWrites := confluence.NewStream[relay.Response](1000)
+				r := MustSucceed(relay.Open(relay.Config{
+					TS:                 store.TS,
+					FreeWrites:         freeWrites,
+					StreamerBufferSize: 1,
+				}))
+				StartRun(r.Run)
+				key := channel.NewKey(node.KeyFree, 1)
+				reader := MustSucceed(r.NewStreamer(relay.StreamerConfig{
+					Keys:            channel.Keys{key},
+					SendOpenAck:     new(true),
+					MissedRequested: new(true),
+				}))
+				sCtx, cancel := signal.Isolated()
+				const count = 200000
+				// A streamer that never waits on its outlet often empties its buffer
+				// while the relay drops frames for it.
+				req, res := confluence.Attach(reader, count+1)
+				reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+				DeferCleanup(func() {
+					req.Close()
+					cancel()
+					confluence.Drain(res)
+				})
+				Eventually(res.Outlet()).Should(Receive())
+				wCtx, wCancel := context.WithCancel(ctx)
+				DeferCleanup(wCancel)
+				go func() {
+					for v := range int64(count) {
+						s := telem.NewSeriesV(v)
+						s.TimeRange = telem.TimeStamp(v).SpanRange(1)
+						if signal.SendUnderContext(
+							wCtx,
+							freeWrites.Inlet(),
+							relay.Response{Frame: frame.NewUnary(key, s)},
+						) != nil {
+							return
+						}
+					}
+				}()
+				// The frames have increasing times, so a frame after a marker must be
+				// later than every sample the marker reports.
+				var (
+					missedEnd telem.TimeStamp
+					markers   int
+				)
+				for {
+					var got relay.Response
+					Eventually(res.Outlet()).Should(Receive(&got))
+					if got.Missed {
+						markers++
+						missedEnd = max(missedEnd, got.MissedRanges[key].End)
+						if missedEnd == count {
+							break
+						}
+						continue
+					}
+					start := got.Frame.SeriesAt(0).TimeRange.Start
+					Expect(start).To(BeNumerically(">=", missedEnd))
+					if start == count-1 {
+						break
+					}
+				}
+				Expect(markers).To(BeNumerically(">", 0))
+			},
+		)
+
 		It("Should send a pending missed marker before it fails when Run returns", func(
 			ctx SpecContext,
 		) {

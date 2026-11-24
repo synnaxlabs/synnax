@@ -76,17 +76,22 @@ func (s *subscriber) recordDrop(res Response) {
 }
 
 // takeMissed returns the missed ranges of every drop signaled so far and clears them.
-// It takes a signal still pending on missed, since the returned ranges cover it.
-func (s *subscriber) takeMissed() map[channel.Key]telem.TimeRange {
+// It takes a signal still pending on missed, since the returned ranges cover it. It
+// takes nothing and returns false while responses holds frames, since they can come
+// before a recorded drop. Only the receiver of responses may call it.
+func (s *subscriber) takeMissed() (map[channel.Key]telem.TimeRange, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if len(s.responses) > 0 {
+		return nil, false
+	}
 	select {
 	case <-s.missed:
 	default:
 	}
 	ranges := s.missedRanges
 	s.missedRanges = nil
-	return ranges
+	return ranges, true
 }
 
 // delta copies each relay response into the buffer of every subscriber that accepts

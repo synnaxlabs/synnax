@@ -178,14 +178,18 @@ func (s *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 }
 
 // sendMissed sends a missed marker that covers every drop signaled so far, with the
-// missed ranges of the streamer's channels.
-func (s *streamer) sendMissed(ctx context.Context, sub *subscriber) error {
-	ranges := sub.takeMissed()
+// missed ranges of the streamer's channels. It sends nothing and returns false while
+// sub holds frames to forward first.
+func (s *streamer) sendMissed(ctx context.Context, sub *subscriber) (bool, error) {
+	ranges, ok := sub.takeMissed()
+	if !ok {
+		return false, nil
+	}
 	keys := *s.keys.Load()
 	maps.DeleteFunc(ranges, func(k channel.Key, _ telem.TimeRange) bool {
 		return !keys.Contains(k)
 	})
-	return signal.SendUnderContext(
+	return true, signal.SendUnderContext(
 		ctx,
 		s.Out.Inlet(),
 		Response{Missed: true, MissedRanges: ranges},
@@ -223,15 +227,14 @@ func (s *streamer) forward(
 	// Waiting here instead of blocking on the send keeps frames for live keys flowing
 	// while an update propagates.
 	var pendingAcks []chan struct{}
-	// The relay drops a frame only when responses is full, so once responses empties,
-	// every frame buffered before the drop has been sent.
 	lost := false
 	for {
-		if lost && len(responses) == 0 {
-			lost = false
-			if err := s.sendMissed(ctx, sub); err != nil {
+		if lost {
+			sent, err := s.sendMissed(ctx, sub)
+			if err != nil {
 				return err
 			}
+			lost = !sent
 		}
 		var nextAck chan struct{}
 		if len(pendingAcks) > 0 {
@@ -271,7 +274,7 @@ func (s *streamer) forward(
 			if !ok {
 				// The select can take the closed responses before a pending signal.
 				if len(missed) > 0 {
-					if err := s.sendMissed(ctx, sub); err != nil {
+					if _, err := s.sendMissed(ctx, sub); err != nil {
 						return err
 					}
 				}
