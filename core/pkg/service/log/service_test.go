@@ -126,7 +126,7 @@ var _ = Describe("OpenService", func() {
 			Expect(channelSvc.NewRetrieve().Where(channel.MatchNames(name)).
 				Entry(&ch).Exec(ctx, node.DB)).To(Succeed())
 			Expect(ch.Virtual).To(BeTrue())
-			Expect(channeltestutil.RetrieveBuiltIns(ctx, db, channelSvc)).
+			Expect(channeltestutil.RetrieveBuiltIns(ctx, node.DB, channelSvc)).
 				To(ContainElement(ch.Key()))
 		}
 	})
