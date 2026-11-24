@@ -65,9 +65,8 @@ func (p *Pending) Close() error {
 // drops their uncommitted samples, and its error names the clock and their time range.
 // On the pointer log layout, the new writer is the writer of w with the keys of cfg. On
 // the old layout, Handoff refuses a start of cfg before the end of the last commit of
-// w,
-// and a handoff that adopts a Pending when w holds no uncommitted sample starts a new
-// run.
+// w, and a handoff that adopts a Pending when w holds no uncommitted sample starts a
+// new run.
 func (db *DB) Handoff(
 	ctx context.Context,
 	w *Writer,

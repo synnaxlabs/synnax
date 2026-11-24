@@ -454,7 +454,8 @@ var _ = Describe("Handoff on the pointer log", func() {
 		first := MustSucceed(db.OpenWriter(ctx, config(clock, data)))
 		mustWrite(ctx, first, both(10, 11, 12, 13))
 		w, p := MustSucceed2(db.Handoff(ctx, first, config(clock), nil))
-		MustSucceed2(w.Commit(ctx, nil))
+		// The next run starts a new stretch, so the two runs do not touch.
+		Expect(w.EndStretch(ctx)).To(Succeed())
 		w, _ = MustSucceed2(db.Handoff(ctx, w, config(clock, data), p))
 		mustWrite(ctx, w, both(14))
 		w, p = MustSucceed2(db.Handoff(ctx, w, config(clock), nil))
@@ -474,6 +475,49 @@ var _ = Describe("Handoff on the pointer log", func() {
 		Expect(back.Write(ctx, both(12), nil)).Error().
 			To(MatchError(ContainSubstring("stamp 1970-01-01T00:00:12Z must be after")))
 		Expect(back.Close()).To(MatchError(ContainSubstring("must be after")))
+	})
+
+	It("Should go on in the stretch of a writer that stores no samples, with no "+
+		"pending samples", func(ctx SpecContext) {
+		cfg := config(clock, data)
+		cfg.Unstored = true
+		w := MustSucceed(db.OpenWriter(ctx, cfg))
+		before := mustWrite(ctx, w, both(10, 11)).Get(clock).Series[0].Alignment
+		cfg = config(clock)
+		cfg.Unstored = true
+		next, p := MustSucceed2(db.Handoff(ctx, w, cfg, nil))
+		Expect(p).To(BeNil())
+		after := mustWrite(ctx, next, telem.UnaryFrame(
+			clock,
+			telem.NewSeriesSecondsTSV(12),
+		)).Get(clock).Series[0].Alignment
+		Expect(after).To(Equal(before.AddSamples(2)))
+		Expect(MustSucceed2(next.Commit(ctx, nil))).To(Equal(12*telem.SecondTS + 1))
+		Expect(next.Close()).To(Succeed())
+		Expect(stored(ctx)).To(BeEmpty())
+	})
+
+	It("Should refuse a writer that stores no samples to adopt pending samples", func(
+		ctx SpecContext,
+	) {
+		first := MustSucceed(db.OpenWriter(ctx, config(clock, data)))
+		mustWrite(ctx, first, both(10, 11))
+		w, p := MustSucceed2(db.Handoff(ctx, first, config(clock), nil))
+		cfg := config(clock)
+		cfg.Unstored = true
+		stream := MustSucceed(db.OpenWriter(ctx, cfg))
+		mustWrite(ctx, stream, telem.UnaryFrame(clock, telem.NewSeriesSecondsTSV(20)))
+		cfg = config(clock, data)
+		cfg.Unstored = true
+		Expect(db.Handoff(ctx, stream, cfg, p)).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring("adopts no pending samples")),
+		))
+		Expect(MustSucceed2(w.Commit(ctx, nil))).To(Equal(11*telem.SecondTS + 1))
+		Expect(w.Close()).To(Succeed())
+		fr := MustSucceed(db.Read(ctx, telem.TimeRangeMax, clock, data))
+		Expect(fr.Get(clock).Len()).To(Equal(int64(2)))
+		Expect(fr.Get(data).Len()).To(BeZero(), "the refused handoff drops the pending")
 	})
 
 	It("Should return no pending samples for a key that the writer added with no "+

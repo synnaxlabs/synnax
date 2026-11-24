@@ -26,7 +26,8 @@ import (
 // and its stretch goes on after their last stamp. The keys of w that cfg lacks leave in
 // a Pending, the keys of adopt join with their samples, and the other keys of cfg open
 // from the start of the first run. With no run and no adopt, it closes w and opens a
-// writer of cfg.
+// writer of cfg that goes on in the stretch of w. A writer that stores no samples
+// commits its runs first, and adopts no Pending.
 func (db *DB) handoffLog(
 	ctx context.Context,
 	w *Writer,
