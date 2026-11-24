@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type access, user } from "@synnaxlabs/client";
-import { array, deep, errors, uuid, verbs } from "@synnaxlabs/x";
+import { array, deep, errors, verbs } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Flux } from "@/flux";
@@ -59,7 +59,7 @@ export const { useUpdate: useSetRole } = Flux.createUpdate<SetRoleParams>({
   },
 });
 
-export const formSchema = user.newZ.extend({
+export const formSchema = user.userZ.pick({ role: true }).extend({
   username: z.string().min(1, "username is required"),
   password: z.string().min(1, "Password is required"),
   name: z.string().min(1, "Name is required"),
@@ -84,9 +84,9 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
   initialValues: ZERO_FORM_VALUES,
   update: async ({ client, value }) => {
     const { username, password, ...u } = value();
-    const created = await client.users.create({ key: uuid.create(), ...u });
+    const created = await client.users.create(u);
     try {
-      await client.auth.createPassword({
+      await client.auth.passwords.create({
         subject: user.resourceID(created.key),
         username,
         password,

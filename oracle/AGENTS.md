@@ -183,7 +183,8 @@ An `@ref` scalar with a zero default (`= 0`, `= ""`) holds no target while it is
 This is the "not applicable" default above, so use it only where no valid key is zero. A
 `detach` reference needs `X?`, an array, or a zero default. A required field in an array
 element also detaches: the detach drops the element. The same rules hold for top-level
-and nested fields.
+and nested fields. A nested `map<K, Key>` holds one target per value, and its detach
+drops the entry. A walk also reaches through the values of a map of structs.
 
 `?` and `= value` are mutually exclusive; the analyzer rejects a field carrying both.
 
@@ -197,6 +198,14 @@ A body of domains only, `action Set = patch.Set { @doc value "..." }`, gives the
 its own doc in place of the struct's. Generators keep the `SetPayload` name as an alias
 (in Go, a defined type that can carry `Handle`). The target must be a struct with no
 type parameters, and no two actions of a type may share one.
+
+## Duration defaults
+
+A field's own `telem.TimeSpan` default takes Go-style units: `ns`, `us`, `ms`, `s`, `m`,
+`h`, and compounds such as `1m30s`. Write `staleness_timeout telem.TimeSpan = 5s`, never
+`= 5000000000`. Struct and array literals take no units. The analyzer stores
+nanoseconds, so generated code does not change. It rejects a unit on any other type and
+a value that is not whole nanoseconds.
 
 ## Union discriminators
 

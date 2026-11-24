@@ -248,7 +248,7 @@ Look struct {
 }
 
 Blink struct {
-    period telem.TimeSpan = 1000000000 {
+    period telem.TimeSpan = 1s {
         @doc value "is the time of one flash."
         @ts type   telem.NumericTimeSpan
     }

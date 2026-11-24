@@ -13,13 +13,16 @@ from synnax.auth.password.actions_gen import (
     SetUsernamePayload,
     set_username,
 )
+from synnax.auth.password.client import Client, UsernameHandler
 from synnax.auth.password.types_gen import Key, Password
 
 __all__ = [
     "Action",
+    "Client",
     "Key",
     "Password",
     "SetUsernameAction",
     "SetUsernamePayload",
+    "UsernameHandler",
     "set_username",
 ]

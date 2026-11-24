@@ -1570,6 +1570,28 @@ var _ = Describe("WritePrepared", func() {
 	})
 })
 
+var _ = Describe("WriteRetrievable", func() {
+	It("Should pass apply what the subject can retrieve", func(ctx SpecContext) {
+		u := newUser(ctx)
+		seen, hidden := createLabel(ctx), createLabel(ctx)
+		grant(ctx, u, access.ActionRetrieve, seen.ResourceID())
+		Expect(bind.WriteRetrievable(
+			binder,
+			func(
+				_ context.Context,
+				_ gorp.Tx,
+				retrievable bind.Retrievable,
+				_ string,
+			) ([]bool, error) {
+				return []bool{
+					retrievable(seen.ResourceID()),
+					retrievable(hidden.ResourceID()),
+				}, nil
+			},
+		)(AuthedCtx(ctx, u), "request")).To(Equal([]bool{true, false}))
+	})
+})
+
 var _ = Describe("WriteUnchecked", func() {
 	It("Should commit the writes of apply", func(ctx SpecContext) {
 		l := MustSucceed(bind.WriteUnchecked(
