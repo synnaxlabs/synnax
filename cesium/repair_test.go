@@ -813,6 +813,39 @@ var _ = Describe("Repair", func() {
 			Entry("a first stamp before the pointer before it", 80_000),
 		)
 
+		It("Should move each segment to the end of its gap, where a later Seal ends it",
+			func(ctx SpecContext) {
+				writeNew(ctx, 10_000, 2)
+				db := MustSucceed(open(ctx))
+				stop := GoRun(ctx, db.Run)
+				keys := []cesium.ChannelKey{newIdx, newData}
+				w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+					Channels: keys,
+					Start:    30_000 * telem.SecondTS,
+				}))
+				MustSucceed2(w.Write(ctx, telem.MultiFrame(keys, []telem.Series{
+					telem.NewSeries([]telem.TimeStamp{30_000 * telem.SecondTS}),
+					telem.NewSeriesV[int64](1),
+				}), nil))
+				MustSucceed2(w.Commit(ctx, nil))
+				Expect(w.Close()).To(Succeed())
+				Expect(errors.Join(stop(), db.Close())).To(Succeed())
+				spoil(newFrame(10_001*telem.SecondTS), 4)
+				seg := segmentIDs(fs, newData)[0]
+				name := fmt.Sprintf("%d/%016x.seg", newData, seg)
+				b := MustSucceed(xfs.ReadFile(fs, name))
+				b[2*(65_536+4)+100] ^= 0xFF
+				Expect(xfs.WriteFile(fs, name, b)).To(Succeed())
+				rep := MustSucceed(repair(ctx, new(int)))
+				// The data segment ends at the Seal's length with the checksum of its
+				// changed bytes, so only its Seal breaks a rule.
+				Expect(rep.Skipped).To(HaveLen(1))
+				Expect(rep.Skipped[0]).To(MatchFields(IgnoreExtras, Fields{
+					"Kind":   Equal("Seal"),
+					"Reason": ContainSubstring("not its committed 160000"),
+				}))
+			})
+
 		It("Should end a clock write at the shortest range of it in checked blocks",
 			func(ctx SpecContext) {
 				writeNew(ctx, 10_000, 3)
