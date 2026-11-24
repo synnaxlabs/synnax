@@ -534,6 +534,27 @@ var _ = Describe("Join", func() {
 			},
 		)
 
+		It("Should count no seed before From as a frame of a live input", func() {
+			// A seed at 1 Hz up to 16 s, then live frames at 100 s and 101 s: the frame
+			// gap is 1 s, so a primary stamp 9 s after the last frame drops.
+			j := MustSucceed(join.New(join.Config{
+				DataTypes: []telem.DataType{telem.Float64T, telem.Float64T},
+				From:      telem.TimeStamp(100 * telem.Second),
+				Live:      true,
+			}))
+			seed := make([]float64, 17)
+			for i := range seed {
+				seed[i] = float64(i)
+			}
+			Expect(j.Push(1, values(seed...), stamps(0, seed...))).To(Succeed())
+			Expect(j.Push(1, values(100), stamps(0, 100))).To(Succeed())
+			Expect(j.Push(1, values(101), stamps(0, 101))).To(Succeed())
+			Expect(j.Push(0, values(1), stamps(0, 110))).To(Succeed())
+			var out join.Output
+			j.Next(telem.TimeStamp(110*telem.Second), &out)
+			Expect(out.Dropped).To(Equal(1))
+		})
+
 		It("Should drop a frame that starts past the hold limit of a late input",
 			func() {
 				out := joinFrame(true, 14, 15)
