@@ -691,6 +691,20 @@ var _ = Describe("Join", func() {
 				},
 			)
 
+			It("Should compute the window again at each primary frame", func() {
+				// The primary's gap of 20 s holds the input at 40 s. Its later gaps of
+				// 1 s shrink the window below the 41 s since the input's push.
+				j := newArrival()
+				now = 0
+				Expect(j.Push(1, values(9), telem.Series{})).To(Succeed())
+				var out join.Output
+				drops := make([]int, 0, 6)
+				for _, stamp := range []float64{20, 40, 41, 42, 43, 44} {
+					drops = append(drops, primaryAt(j, stamp, &out))
+				}
+				Expect(drops).To(Equal([]int{0, 0, 1, 1, 1, 1}))
+			})
+
 			It(
 				"Should take the primary's frame gaps until its pushes have a gap",
 				func() {
