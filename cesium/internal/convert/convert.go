@@ -208,7 +208,7 @@ func (r *reader) readDir(d *dir) (err error) {
 	case !d.ch.DataType.IsVariable():
 		density = d.ch.DataType.Density()
 	}
-	d.ptrs, err = r.pointers(d.key, density)
+	d.ptrs, err = r.pointers(d.key, density, d.ch.IsIndex)
 	return err
 }
 
@@ -274,10 +274,15 @@ func (p pointer) name(key uint32) string {
 }
 
 // pointers reads the pointers of key, in rising order of start. A pointer that ends
-// past its file keeps the whole samples inside the file, and goes when it keeps none.
-// A density of zero is a variable type. It returns an error when a pointer holds no
-// whole number of samples of density.
-func (r *reader) pointers(key uint32, density telem.Density) (_ []pointer, err error) {
+// past its file keeps the whole samples inside the file. One that keeps none goes, or
+// for an index stays as a mark with no stamps over its time range. A density of zero is
+// a variable type. It returns an error when a pointer holds no whole number of samples
+// of density.
+func (r *reader) pointers(
+	key uint32,
+	density telem.Density,
+	index bool,
+) (_ []pointer, err error) {
 	name := fmt.Sprintf("%d/index.domain", key)
 	b, err := r.readFile(name)
 	if errors.Is(err, os.ErrNotExist) {
@@ -291,13 +296,7 @@ func (r *reader) pointers(key uint32, density telem.Density) (_ []pointer, err e
 	ptrs := make([]pointer, 0, len(b)/pointerSize)
 	files := make(map[uint16]oldFile)
 	for i := 0; i+pointerSize <= len(b); i += pointerSize {
-		p := pointer{
-			start:  telem.TimeStamp(binary.LittleEndian.Uint64(b[i:])),
-			end:    telem.TimeStamp(binary.LittleEndian.Uint64(b[i+8:])),
-			file:   binary.LittleEndian.Uint16(b[i+16:]),
-			offset: binary.LittleEndian.Uint32(b[i+18:]),
-			size:   binary.LittleEndian.Uint32(b[i+22:]),
-		}
+		p := decodePointer(b[i:])
 		if p.size == 0 {
 			continue
 		}
@@ -326,7 +325,7 @@ func (r *reader) pointers(key uint32, density telem.Density) (_ []pointer, err e
 			if p, err = h.cutPastFile(key, p, size, density); err != nil {
 				return nil, err
 			}
-			if p.size == 0 {
+			if p.size == 0 && !index {
 				continue
 			}
 		}
@@ -337,6 +336,17 @@ func (r *reader) pointers(key uint32, density telem.Density) (_ []pointer, err e
 		func(a, b pointer) int { return cmp.Compare(a.start, b.start) },
 	)
 	return ptrs, nil
+}
+
+// decodePointer decodes the pointer at the start of b, an index.domain record.
+func decodePointer(b []byte) pointer {
+	return pointer{
+		start:  telem.TimeStamp(binary.LittleEndian.Uint64(b)),
+		end:    telem.TimeStamp(binary.LittleEndian.Uint64(b[8:])),
+		file:   binary.LittleEndian.Uint16(b[16:]),
+		offset: binary.LittleEndian.Uint32(b[18:]),
+		size:   binary.LittleEndian.Uint32(b[22:]),
+	}
 }
 
 // oldFile is an old data file that pointers name.

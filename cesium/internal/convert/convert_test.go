@@ -692,6 +692,26 @@ var _ = Describe("Read", func() {
 			)))
 		})
 
+		It("Should keep an index pointer whose file is missing as a mark, and cut the "+
+			"data that starts in its range", func() {
+			root.channel(idx(1))
+			root.file(1, 2, stamps(4, 5, 6))
+			root.pointers(1, old{1, 4, 1, 0, 24}, old{4, 7, 2, 0, 24})
+			root.channel(data(telem.Int64T))
+			root.file(2, 1, telem.NewSeriesV[int64](2, 3, 4, 5, 6).Data)
+			root.pointers(2, old{2, 7, 1, 0, 40})
+			s, chs := read()
+			Expect(chs).To(HaveLen(2))
+			Expect(s.Channels).To(HaveLen(1))
+			Expect(s.Channels[0].Segments[0].Pointers).To(Equal(
+				[]state.Pointer{ptr(4, 6, 1, 0, 0, 24, 3)},
+			))
+			Expect(warned(noStamps)).To(ConsistOf(SatisfyAll(
+				HaveKeyWithValue("offset", uint32(0)),
+				HaveKeyWithValue("bytes", uint32(40)),
+			)))
+		})
+
 		It("Should not give the samples after a piece that a bad stamp ended the "+
 			"stamps of a later pointer", func() {
 			root.channel(idx(1))
