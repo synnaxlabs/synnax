@@ -17,6 +17,11 @@ namespace driver::rack::state {
 /// @brief the state directory of the computer, which the Driver service reads.
 std::filesystem::path machine_dir();
 
+/// @brief returns the directory of the files the Driver writes as it runs, such as the
+/// outbox. On Linux, root keeps them apart from the service user in the state directory
+/// of the computer, so each owns all of its own files.
+std::filesystem::path data_dir(const std::filesystem::path &state_dir);
+
 /// @brief the state directory of the user, or of the user that ran sudo. Empty on
 /// Linux, where every process uses the directory of the computer.
 std::filesystem::path user_dir();

@@ -32,6 +32,10 @@ fs::path machine_dir() {
     return "C:\\ProgramData\\synnax-driver";
 }
 
+fs::path data_dir(const fs::path &state_dir) {
+    return state_dir / DATA_DIR;
+}
+
 fs::path user_dir() {
     if (const char *appdata = std::getenv("LOCALAPPDATA"))
         return fs::path(appdata) / "synnax-driver";

@@ -16,6 +16,7 @@
 
 #include "driver/journal/journal.h"
 #include "driver/outbox/outbox.h"
+#include "driver/rack/state.h"
 #include "rack.h"
 
 namespace driver::rack {
@@ -107,7 +108,7 @@ void Rack::run(x::args::Parser &args, const std::function<void()> &on_shutdown) 
     const auto rt_manager = std::make_shared<x::thread::rt::Manager>();
     const auto client = cfg.new_client();
     auto outbox_cfg = cfg.outbox;
-    outbox_cfg.dir = cfg.state_dir / DATA_DIR / OUTBOX_DIR;
+    outbox_cfg.dir = state::data_dir(cfg.state_dir) / OUTBOX_DIR;
     outbox_cfg.statuses = client->statuses;
     outbox_cfg.on_stuck =
         [alert = cfg.outbox_alert,

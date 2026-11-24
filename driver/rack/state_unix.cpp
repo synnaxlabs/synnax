@@ -121,6 +121,14 @@ fs::path machine_dir() {
 #endif
 }
 
+fs::path data_dir(const fs::path &state_dir) {
+#ifdef __linux__
+    if (geteuid() == 0 && state_dir == machine_dir() && getpwnam("synnax") != nullptr)
+        return state_dir / ROOT_DATA_DIR;
+#endif
+    return state_dir / DATA_DIR;
+}
+
 fs::path user_dir() {
 #ifdef __APPLE__
     const char *home = std::getenv("HOME");

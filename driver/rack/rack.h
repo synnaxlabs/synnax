@@ -61,6 +61,10 @@ const std::string OPCUA_STATE_DIR = "opcua";
 /// as it runs. The Linux service user owns it.
 const std::string DATA_DIR = "data";
 
+/// @brief the directory in the state directory of the computer that holds the files a
+/// Driver run by root writes on Linux, so the service user never meets a file of root.
+const std::string ROOT_DATA_DIR = "root-data";
+
 /// @brief the directory in the data directory that holds the outbox.
 const std::string OUTBOX_DIR = "outbox";
 

@@ -52,7 +52,8 @@ The `--state-file` flag of `start --standalone`, `login`, and `clear` sets a dif
 path. The service always uses the default path.
 
 The Driver keeps the Arc status sets that the Core has not received in the `data` folder
-next to the state file. On Linux, the `synnax` user owns that folder.
+next to the state file. On Linux, the `synnax` user owns that folder, and a Driver that
+root runs uses the `root-data` folder instead.
 
 On Linux and macOS, the Driver creates a missing state directory with mode `0700` and a
 missing state file with mode `0600`. From Driver 0.61.5, `start` and `clear` do not
@@ -286,8 +287,8 @@ a key is saved, the Driver ignores a username and password and logs a warning.
 </Field.Item>
 
 <Field.Item name="outbox_stuck_after" default="300">
-  The number of seconds that the Core can refuse the first waiting status set before
-  the rack status shows "Outbox stuck". In the configuration file, it goes in `outage`.
+  The number of seconds that the Core can refuse the first waiting status set before the
+  rack status shows "Outbox stuck". In the configuration file, it goes in `outage`.
 </Field.Item>
 
 <Field.Item name="op_timeout" default="60">

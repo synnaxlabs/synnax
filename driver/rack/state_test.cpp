@@ -25,6 +25,7 @@
 #include "x/cpp/testutil/testutil.h"
 
 #include "driver/rack/rack.h"
+#include "driver/rack/state.h"
 
 namespace driver::rack {
 /// @brief it should keep the state of a user in the folder of that user while the
@@ -294,5 +295,18 @@ TEST(StateTest, RefuseReadableRelativeStateFile) {
     );
     Config cfg;
     ASSERT_OCCURRED_AS(cfg.load_persisted_state(args), STATE_ERROR);
+}
+
+/// @brief it should keep the files the Driver writes in the data directory of its state
+/// directory when it is not root.
+TEST(StateTest, DataDirOfANonRootDriver) {
+#ifndef _WIN32
+    if (geteuid() == 0) GTEST_SKIP() << "root on Linux uses its own data directory";
+#endif
+    EXPECT_EQ(
+        state::data_dir("/tmp/state"),
+        std::filesystem::path("/tmp/state") / DATA_DIR
+    );
+    EXPECT_EQ(state::data_dir(state::machine_dir()), state::machine_dir() / DATA_DIR);
 }
 }
