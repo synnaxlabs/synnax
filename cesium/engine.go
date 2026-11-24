@@ -97,25 +97,9 @@ type engine struct {
 // root. It refuses a root that holds the old layout with errors.ErrUnsupported.
 func openEngine(o *options) (*engine, error) {
 	r := &recovery{fs: o.fs, logSize: o.logFileSize}
-	old, err := r.list()
+	snapshot, err := r.loadHead()
 	if err != nil {
 		return nil, err
-	}
-	if old && len(r.heads) == 0 {
-		return nil, errors.Wrap(
-			errors.ErrUnsupported,
-			"the pointer log cannot open a root of the old layout",
-		)
-	}
-	snapshot, err := r.pickHead()
-	if err != nil {
-		return nil, err
-	}
-	if snapshot != nil {
-		if r.parts, err = checkpoint.LoadParts(o.fs, r.db, r.head); err != nil {
-			return nil, err
-		}
-		r.parts.Merge(snapshot)
 	}
 	e := &engine{
 		ins:      o.Instrumentation,

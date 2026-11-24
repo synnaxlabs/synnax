@@ -102,6 +102,31 @@ func generationOf(name, suffix string) (uint64, bool) {
 	return g, err == nil
 }
 
+// loadHead lists the root and returns the snapshot of the head in use, with the parts
+// that the head names merged in. It returns nil in a root with no head, and refuses a
+// root that holds the old layout with errors.ErrUnsupported.
+func (r *recovery) loadHead() (*state.Snapshot, error) {
+	old, err := r.list()
+	if err != nil {
+		return nil, err
+	}
+	if old && len(r.heads) == 0 {
+		return nil, errors.Wrap(
+			errors.ErrUnsupported,
+			"the pointer log cannot open a root of the old layout",
+		)
+	}
+	snapshot, err := r.pickHead()
+	if err != nil || snapshot == nil {
+		return snapshot, err
+	}
+	if r.parts, err = checkpoint.LoadParts(r.fs, r.db, r.head); err != nil {
+		return nil, err
+	}
+	r.parts.Merge(snapshot)
+	return snapshot, nil
+}
+
 // pickHead takes the newest head that passes, and removes each newer head that is not
 // complete. It returns nil when the root holds no head that passes and may start as a
 // new database: no head at all, or only an incomplete head 1 whose log holds no frame.
