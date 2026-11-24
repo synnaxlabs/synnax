@@ -15,6 +15,7 @@ import (
 	"maps"
 	"slices"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
@@ -29,7 +30,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel/resolver"
 	"github.com/synnaxlabs/x/config"
 	xmsgpack "github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -174,6 +177,8 @@ type Module struct {
 	Channel channel.Channel
 	// Calculation is the calculation this module was compiled from.
 	Calculation calculation.Calculation
+	// Joined is set when the program pairs its reads through a join.
+	Joined bool
 }
 
 // Compile builds a full execution Module for the given calculated channel. The module
@@ -279,16 +284,16 @@ func addOperations(g *arc.Graph, ops []calculation.Operation) {
 	}
 }
 
-// joinsReads reports whether the live program of cfg pairs reads through a join: when
-// one of them has an index.
-func joinsReads(
+// virtualReads returns which of reads are virtual channels, and whether the live
+// program of cfg pairs reads through a join: when one of them is a stored channel.
+func virtualReads(
 	ctx context.Context,
 	snap gorp.Snapshot,
 	cfg Config,
 	reads map[uint32]string,
-) (bool, error) {
+) (set.Set[uint32], bool, error) {
 	if !cfg.Live || len(reads) == 0 {
-		return false, nil
+		return nil, false, nil
 	}
 	keys := make(channel.Keys, 0, len(reads))
 	for k := range reads {
@@ -299,28 +304,35 @@ func joinsReads(
 		Where(channel.MatchKeys(keys...)).
 		Entries(&channels).
 		Exec(ctx, snap); err != nil {
-		return false, err
+		return nil, false, err
 	}
-	return slices.ContainsFunc(channels, func(ch channel.Channel) bool {
-		return ch.Index() != 0
-	}), nil
+	virtual := make(set.Set[uint32], len(channels))
+	for _, ch := range channels {
+		if ch.Virtual {
+			virtual.Add(uint32(ch.Key()))
+		}
+	}
+	return virtual, len(virtual) < len(channels), nil
 }
 
 // addReads adds an input to the calculation function of g for each channel in reads,
 // fed by a node that reads the channel. When joined, the reads pass through one join
-// that pairs them by sample time on the stamps of primary, and addReads returns the
-// symbol of the join. Otherwise it returns nil.
+// that pairs them by sample time on the stamps of primary, which must be a stored read,
+// and the virtual reads pair by arrival. addReads then returns the symbol of the join,
+// and otherwise nil.
 func addReads(
 	ctx context.Context,
 	g *arc.Graph,
 	symbols arc.SymbolResolver,
 	reads map[uint32]string,
 	primary *channel.Key,
+	virtual set.Set[uint32],
 	joined bool,
 ) (*symbol.Symbol, error) {
 	var (
 		props      types.FunctionProperties
-		primaryIdx int
+		arrivals   types.Params
+		primaryIdx = -1
 	)
 	// The inputs take the order of their keys, so a tie between inputs breaks the same
 	// way on every compile.
@@ -356,13 +368,27 @@ func addReads(
 			ir.Handle{Node: joinKey, Param: out},
 			ir.Handle{Node: calculationKey, Param: sym.Name},
 		)
-		if primary != nil && channel.Key(k) == *primary {
+		switch {
+		case virtual.Contains(k):
+			arrivals = append(arrivals, types.Param{
+				Name:  join.ArrivalParam(i),
+				Type:  types.U8(),
+				Value: uint8(1),
+			})
+		case primary != nil && channel.Key(k) == *primary:
 			primaryIdx = i
 		}
 	}
 	if !joined {
 		return nil, nil
 	}
+	if primaryIdx < 0 {
+		return nil, errors.Newf(
+			"primary %s of a joined calculation is not a stored read",
+			lo.FromPtr(primary),
+		)
+	}
+	props.Inputs = append(props.Inputs, arrivals...)
 	props.Inputs = append(props.Inputs, types.Param{
 		Name:  join.PrimaryParam,
 		Type:  types.I64(),
@@ -420,7 +446,7 @@ func compileAnalyzed(
 	addNode(&g, calculationKey, calculationKey, nil)
 	addNode(&g, writeKey, writeKey, xmsgpack.EncodedJSON{"channel": cfg.Channel.Key()})
 	addOperations(&g, cfg.Calculation.Operations)
-	joined, err := joinsReads(ctx, snap, cfg, result.Reads)
+	virtual, joined, err := virtualReads(ctx, snap, cfg, result.Reads)
 	if err != nil {
 		return Module{}, err
 	}
@@ -430,6 +456,7 @@ func compileAnalyzed(
 		symbols,
 		result.Reads,
 		cfg.Calculation.Primary,
+		virtual,
 		joined,
 	)
 	if err != nil {
@@ -453,5 +480,6 @@ func compileAnalyzed(
 		Calculation:  cfg.Calculation,
 		Dependencies: deps,
 		Program:      program,
+		Joined:       joined,
 	}, nil
 }

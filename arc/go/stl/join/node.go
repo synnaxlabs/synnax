@@ -10,7 +10,9 @@
 package join
 
 import (
+	"slices"
 	"strconv"
+	"strings"
 
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/types"
@@ -28,6 +30,12 @@ func InputParam(i int) string { return "in_" + strconv.Itoa(i) }
 // OutputParam returns the name of the param of a join node that gives the joined
 // samples of input i.
 func OutputParam(i int) string { return "out_" + strconv.Itoa(i) }
+
+const arrivalPrefix = "arrival_"
+
+// ArrivalParam returns the name of the constant param of a join node whose presence
+// makes input i pair by arrival.
+func ArrivalParam(i int) string { return arrivalPrefix + strconv.Itoa(i) }
 
 // Host creates the live join nodes of one node type.
 type Host struct {
@@ -52,20 +60,29 @@ func (h *Host) Create(cfg node.Config) (node.Node, error) {
 		primary   int
 	)
 	for _, p := range cfg.Node.Inputs {
-		if p.Name == PrimaryParam {
+		switch {
+		case p.Name == PrimaryParam:
 			primary = int(types.DecodeValue(p.Value, p.Type).(int64))
-			continue
+		case strings.HasPrefix(p.Name, arrivalPrefix):
+		default:
+			idx, err := cfg.State.ResolveInput(p.Name)
+			if err != nil {
+				return nil, err
+			}
+			n.inputs = append(n.inputs, idx)
+			dataTypes = append(dataTypes, p.Type.ToTelem())
 		}
-		idx, err := cfg.State.ResolveInput(p.Name)
-		if err != nil {
-			return nil, err
-		}
-		n.inputs = append(n.inputs, idx)
-		dataTypes = append(dataTypes, p.Type.ToTelem())
+	}
+	arrival := make([]bool, len(n.inputs))
+	for i := range arrival {
+		arrival[i] = slices.ContainsFunc(cfg.Node.Inputs, func(p types.Param) bool {
+			return p.Name == ArrivalParam(i)
+		})
 	}
 	j, err := New(Config{
 		DataTypes: dataTypes,
 		Primary:   primary,
+		Arrival:   arrival,
 		Live:      true,
 		Now:       h.now,
 	})

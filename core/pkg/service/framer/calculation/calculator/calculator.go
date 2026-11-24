@@ -138,6 +138,8 @@ func Open(ctx context.Context, cfgs ...Config) (_ *Calculator, err error) {
 		); err != nil {
 			return nil, err
 		}
+		// The join gives every input the bounds of the primary.
+		mod.StampBounded = cfg.Module.Joined
 		f = append(f, mod)
 	}
 	cs.nodes = node.New(cfg.Module.IR)
