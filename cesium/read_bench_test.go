@@ -108,10 +108,15 @@ func readAll(b *testing.B, db *cesium.DB, keys []cesium.ChannelKey) int {
 	return read
 }
 
-// layout returns the options of the old layout, or of the pointer log.
+// layout returns the options of the old layout, or of the pointer log. On the pointer
+// log, a rate of 1 byte a second holds each background rewrite at its first job, so no
+// compaction or encoding runs during the reads.
 func layout(pointerLog bool) []cesium.Option {
 	if pointerLog {
-		return []cesium.Option{cesium.WithPointerLog()}
+		return []cesium.Option{
+			cesium.WithPointerLog(),
+			cesium.WithGCConfig(cesium.GCConfig{Rate: 1}),
+		}
 	}
 	return nil
 }

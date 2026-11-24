@@ -182,42 +182,72 @@ func BenchmarkReadProgressions(b *testing.B) {
 
 // BenchmarkProgressionBacklog writes 1,000 clocks of 16,400 stamps 1 ms apart, a sealed
 // segment of 2 blocks each, while a rate of 1 byte a second holds off their encoding.
-// Then it opens the database again, as a restart does, at the default rate. It reports
-// the time of the open, the bytes of the newest head, and the time until the compactor
-// stores every clock as progressions.
+// Then it opens the database again, as a restart does. It reports the time of that open
+// and the time until the compactor stores every clock as progressions at the default
+// rate, the time per clock of the same backlog at no rate limit (the sync of the new
+// file and the durable entry of its Replace), the time of an open of the cleared root,
+// and the bytes of the newest head.
 func BenchmarkProgressionBacklog(b *testing.B) {
 	const clocks = 1_000
-	dir := b.TempDir()
-	db, err := cesium.Open(b.Context(), dir, cesium.WithPointerLog(),
-		cesium.WithGCConfig(cesium.GCConfig{Rate: 1}))
-	if err != nil {
-		b.Fatal(err)
+	// backlog writes the clocks to a new root, opens it again at rate, and waits until
+	// every clock is encoded. It returns the root, the time of the open, and the time
+	// until the encodings end, with the database closed.
+	backlog := func(rate telem.Size) (string, time.Duration, time.Duration) {
+		dir := b.TempDir()
+		db, stop := openRun(b, dir, 1)
+		keys := createIndexedChannels(b, db, clocks, 0)
+		for _, key := range keys {
+			writeFrames(b, db, []cesium.ChannelKey{key}, 1, 16_400, telem.MillisecondTS)
+		}
+		closeRun(b, db, stop)
+		began := time.Now()
+		db, stop = openRun(b, dir, rate)
+		opened := time.Since(began)
+		awaitEncoded(b, dir, encodedBytes, keys...)
+		cleared := time.Since(began)
+		closeRun(b, db, stop)
+		return dir, opened, cleared
 	}
-	stop := testutil.GoRun(b.Context(), db.Run)
-	keys := createIndexedChannels(b, db, clocks, 0)
-	for _, key := range keys {
-		writeFrames(b, db, []cesium.ChannelKey{key}, 1, 16_400, telem.MillisecondTS)
-	}
-	if err = errors.Join(stop(), db.Close()); err != nil {
-		b.Fatal(err)
-	}
+	dir, opened, cleared := backlog(0)
+	_, _, unlimited := backlog(1 << 50)
 	began := time.Now()
-	runCompactDB(b, dir)
-	opened := time.Since(began)
-	awaitEncoded(b, dir, encodedBytes, keys...)
-	cleared := time.Since(began)
+	db, stop := openRun(b, dir, 0)
+	openedClear := time.Since(began)
+	closeRun(b, db, stop)
 	for b.Loop() {
 	}
 	b.ReportMetric(float64(opened.Nanoseconds()), "open-ns")
 	b.ReportMetric(float64(cleared.Nanoseconds()), "backlog-ns")
+	b.ReportMetric(float64(unlimited.Nanoseconds())/clocks, "replace-wait-ns")
+	b.ReportMetric(float64(openedClear.Nanoseconds()), "open-clear-ns")
 	b.ReportMetric(float64(newestHead(b, dir)), "head-bytes")
 }
 
-// BenchmarkEncodeCommit is BenchmarkCompactCommit with the compactor encoding four
-// clock segments of 64 MiB at the default rate, or with none.
+// openRun opens the pointer log database in dir with the background read rate rate, or
+// the default rate when rate is zero, and runs it. It returns the stop of the run.
+func openRun(b *testing.B, dir string, rate telem.Size) (*cesium.DB, func() error) {
+	b.Helper()
+	db, err := cesium.Open(b.Context(), dir, cesium.WithPointerLog(),
+		cesium.WithGCConfig(cesium.GCConfig{Rate: rate}))
+	if err != nil {
+		b.Fatal(err)
+	}
+	return db, testutil.GoRun(b.Context(), db.Run)
+}
+
+// closeRun stops the run of db and closes it.
+func closeRun(b *testing.B, db *cesium.DB, stop func() error) {
+	b.Helper()
+	if err := errors.Join(stop(), db.Close()); err != nil {
+		b.Fatal(err)
+	}
+}
+
+// BenchmarkEncodeCommit is BenchmarkCompactCommit with the compactor encoding six clock
+// segments of 256 MiB at the default rate, 48 s of work, or with none.
 func BenchmarkEncodeCommit(b *testing.B) {
 	encode := func(b *testing.B, db *cesium.DB, dir string) func() bool {
-		return startEncode(b, db, dir, 4)
+		return startEncode(b, db, dir, 6)
 	}
 	for _, on := range []bool{false, true} {
 		b.Run(fmt.Sprintf("encode=%t", on), func(b *testing.B) {
@@ -254,9 +284,9 @@ func newestHead(b *testing.B, dir string) int64 {
 	return info.Size()
 }
 
-// startEncode writes segments sealed clock segments of 8M stamps 1 ms apart, 64 MiB
+// startEncode writes segments sealed clock segments of 32M stamps 1 ms apart, 256 MiB
 // each, and returns a function that reports whether one of them is still at version 1.
-// At the default rate of 64 MiB a second, the two passes of each take 2 s.
+// At the default rate of 64 MiB a second, the two passes of each take 8 s.
 func startEncode(b *testing.B, db *cesium.DB, dir string, segments int) func() bool {
 	b.Helper()
 	keys := make([]cesium.ChannelKey, segments)
@@ -270,7 +300,7 @@ func startEncode(b *testing.B, db *cesium.DB, dir string, segments int) func() b
 		}); err != nil {
 			b.Fatal(err)
 		}
-		writeFrames(b, db, []cesium.ChannelKey{key}, 64, 1<<17, telem.MillisecondTS)
+		writeFrames(b, db, []cesium.ChannelKey{key}, 64, 1<<19, telem.MillisecondTS)
 	}
 	return func() bool {
 		for _, key := range keys {
