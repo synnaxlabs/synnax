@@ -428,7 +428,8 @@ func getPath(t resolution.Type, lang string) string {
 }
 
 // validateLengthRules errors on a min_length or max_length rule on a field whose type
-// is not a string or bytes, such as a uuid, a number, or an array.
+// is not a string or bytes, such as a uuid, a number, or an array. It also errors on a
+// max_length rule on bytes in a type that generates Go, which has no check for it.
 func validateLengthRules(table *resolution.Table, diag *diagnostics.Files) {
 	for _, t := range table.Types {
 		form, ok := t.Form.(resolution.StructForm)
@@ -449,10 +450,15 @@ func validateLengthRules(table *resolution.Table, diag *diagnostics.Files) {
 					typeRef = inherited.Type
 				}
 			}
-			if base := resolution.PrimitiveBase(typeRef, table); base != "string" &&
-				base != "bytes" {
+			switch base := resolution.PrimitiveBase(typeRef, table); {
+			case base != "string" && base != "bytes":
 				diag.Report(t.Namespace+".oracle", diagnostics.Errorf(nil,
 					"%s.%s has a length rule, but its type is not a string or bytes",
+					t.QualifiedName, f.Name,
+				))
+			case base == "bytes" && rules.MaxLength != nil && generatesIn(t, "go"):
+				diag.Report(t.Namespace+".oracle", diagnostics.Errorf(nil,
+					"%s.%s has a max_length rule on bytes, which Go does not check",
 					t.QualifiedName, f.Name,
 				))
 			}
