@@ -14,7 +14,6 @@ import (
 	"fmt"
 
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/gorp/migrate"
 	servicecolor "github.com/synnaxlabs/synnax/pkg/service/color/versions/v0"
 	symbolv4 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v4"
 	symbol "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v5"
@@ -30,9 +29,6 @@ import (
 func MigrateSchematic(ctx context.Context, old v13.Schematic) (Schematic, error) {
 	return autoMigrateSchematic(ctx, old)
 }
-
-// Migration lifts stored schematics from v13 to v14.
-var Migration = migrate.NewEntry("v63_color_ref", MigrateSchematic)
 
 // MigrateNode lifts a v13 node to v14.
 func MigrateNode(ctx context.Context, old v13.Node) (Node, error) {

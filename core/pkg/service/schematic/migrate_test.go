@@ -49,13 +49,14 @@ func openShipped(ctx SpecContext) *gorp.DB {
 	GinkgoHelper()
 	db := DeferClose(gorp.Wrap(memkv.New()))
 	StartRun(db.Run)
-	shipped := slices.IndexFunc(versions.Migrations, func(m gorp.Migration) bool {
+	schematics := versions.NewMigrations(versions.MigrationsConfig{})
+	shipped := slices.IndexFunc(schematics, func(m gorp.Migration) bool {
 		return m.Key() == v13.NameMigration.Key()
 	})
 	Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 		DB:         db,
 		Namespace:  types.Name[schematic.Schematic](),
-		Migrations: versions.Migrations[:shipped+1],
+		Migrations: schematics[:shipped+1],
 	})).To(Succeed())
 	chain := symbolversions.NewMigrations(symbolversions.MigrationsConfig{})
 	shipped = slices.IndexFunc(chain, func(m gorp.Migration) bool {
@@ -199,5 +200,61 @@ var _ = Describe("A store from core/v0.62.0", func() {
 		Expect(source("Manual enabled=True clickable=False")).
 			To(Equal(schematic.LocalSource{Value: 1}))
 		Expect(nodes["Manual enabled=False clickable=True"].Disabled).To(BeFalse())
+	})
+})
+
+var _ = Describe("Stored v13 selects", func() {
+	It("Should give each select an enumeration for its options when the service "+
+		"opens", func(ctx SpecContext) {
+		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
+		schematics := versions.NewMigrations(versions.MigrationsConfig{})
+		shipped := slices.IndexFunc(schematics, func(m gorp.Migration) bool {
+			return m.Key() == v13.NameMigration.Key()
+		})
+		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+			DB:         db,
+			Namespace:  types.Name[schematic.Schematic](),
+			Migrations: schematics[:shipped+1],
+		})).To(Succeed())
+		sc := v13.Schematic{
+			Key:  uuid.New(),
+			Name: "Panel",
+			Nodes: []v13.Node{{Key: "a", Config: v13.NodeConfig{
+				Variant: v13.SelectNodeConfig{Options: []v13.StateMapping{
+					{Key: "on", Name: "On", Value: 1},
+				}},
+			}}},
+		}
+		Expect(gorp.NewCreate[v13.Key, v13.Schematic]().
+			Entry(&sc).
+			Exec(ctx, db)).To(Succeed())
+		enums := MustOpen(
+			enumeration.OpenService(ctx, enumeration.ServiceConfig{DB: db}),
+		)
+		groups := MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db}))
+		svc := MustOpen(schematic.OpenService(ctx, schematic.ServiceConfig{
+			DB:          db,
+			Group:       groups,
+			ImEx:        imex.NewService(),
+			Enumeration: enums,
+		}))
+		var got schematic.Schematic
+		Expect(svc.NewRetrieve().
+			Where(schematic.MatchKeys(sc.Key)).
+			Entry(&got).
+			Exec(ctx, db)).To(Succeed())
+		sel, ok := got.Nodes[0].Config.Variant.(schematic.SelectNodeConfig)
+		Expect(ok).To(BeTrue())
+		Expect(sel.Enumeration).ToNot(BeNil())
+		var states enumeration.Enumeration
+		Expect(enums.NewRetrieve().
+			Where(enumeration.MatchKeys(*sel.Enumeration)).
+			Entry(&states).
+			Exec(ctx, db)).To(Succeed())
+		Expect(states.Name).To(Equal("Select: Panel"))
+		Expect(states.Entries).To(Equal([]enumeration.Entry{
+			{Key: "on", Name: "On", Value: 1},
+		}))
 	})
 })
