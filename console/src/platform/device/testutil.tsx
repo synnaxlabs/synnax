@@ -63,17 +63,33 @@ const reportRackRunning = async (client: Synnax, r: rack.Rack): Promise<void> =>
 
 const HEARTBEAT_PERIOD = TimeSpan.seconds(1);
 
-/** Reports the rack as running at the rate of a Driver until the test ends. */
+/**
+ * Reports the rack as running at the rate of a Driver until the test ends. A report
+ * that fails fails the test, with the error of the first failed report.
+ */
 export const startRackHeartbeat = async (
   client: Synnax,
   r: rack.Rack,
 ): Promise<void> => {
   await reportRackRunning(client, r);
-  const interval = setInterval(
-    () => void reportRackRunning(client, r),
-    HEARTBEAT_PERIOD.milliseconds,
-  );
-  onTestFinished(() => clearInterval(interval));
+  let tick: Promise<void> | null = null;
+  let failure: Error | null = null;
+  const interval = setInterval(() => {
+    if (tick != null) return;
+    tick = reportRackRunning(client, r)
+      .catch((error: unknown) => {
+        failure ??=
+          error instanceof Error ? error : new Error(String(error), { cause: error });
+      })
+      .finally(() => {
+        tick = null;
+      });
+  }, HEARTBEAT_PERIOD.milliseconds);
+  onTestFinished(async () => {
+    clearInterval(interval);
+    await tick;
+    if (failure != null) throw failure;
+  });
 };
 
 /**
