@@ -307,8 +307,7 @@ var _ = Describe("Undo of a conversion", func() {
 		Expect(filesOf(fs, isUndone)).To(Equal(undone))
 		// Only a person removes the undone files: no open and no Sweep does.
 		db, closeDB = MustSucceed2(open(ctx, fs, next, 3))
-		_, _, err := db.Sweep(ctx, nil)
-		Expect(err).ToNot(HaveOccurred())
+		MustSucceed2(db.Sweep(ctx, nil))
 		Expect(closeDB()).To(Succeed())
 		Expect(filesOf(fs, isUndone)).To(Equal(undone))
 		Expect(fs.Exists("1")).To(BeTrue())
