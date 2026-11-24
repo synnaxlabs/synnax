@@ -404,7 +404,8 @@ type ImportOptions struct {
 	// ignores any group the envelope carries.
 	Group *group.Key
 	// Retrievable reports whether the importer can retrieve a stored record. An import
-	// reuses only such records. Nil means none.
+	// reuses only such records. Nil means none: a bundle import leaves it nil, so its
+	// members reuse no stored record.
 	Retrievable func(resource.ID) bool
 }
 
