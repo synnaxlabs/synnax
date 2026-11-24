@@ -473,6 +473,22 @@ var _ = Describe("Writer", func() {
 			id = MustSucceed(data.NewSegment(6))
 		})
 
+		It("Should refuse a Commit whose later commit does not grow a segment past an "+
+			"earlier one, and apply none", func() {
+			c := open(clockWriter(200, false, 7))
+			id := MustSucceed(c.NewSegment(7))
+			m := MustSucceed(c.NewAlignment())
+			first := commit(2, m, 0, 200, 210, slot(id, 16))
+			back := commit(1, m, 2, 220, 220, slot(id, 16))
+			Expect(c.Commit([]*log.Commit{first, back})).To(MatchError(
+				ContainSubstring("commit gives segment"),
+			))
+			Expect(
+				c.Commit([]*log.Commit{first}),
+			).To(Succeed(), "the refused call applied "+
+				"none of its commits")
+		})
+
 		It("Should commit a sample on an inner stamp of the clock", func() {
 			Expect(
 				data.Commit([]*log.Commit{commit(1, n, 1, 110, 110, slot(id, 8))}),

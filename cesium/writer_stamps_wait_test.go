@@ -207,6 +207,24 @@ var _ = Describe("Data against stamps that are not durable yet", func() {
 		Expect(later.Close()).To(Succeed())
 	})
 
+	It("Should keep the data of a pinning writer on a durable stretch when the clock "+
+		"takes back another stretch", func(ctx SpecContext) {
+		c := stamps(ctx, 10, 11)
+		Expect(c.Sync(ctx)).To(Succeed())
+		Expect(c.Close()).To(Succeed())
+		w := values(ctx, 10, 1, 2)
+		failing.Store(true)
+		later := stamps(ctx, 20, 21)
+		Expect(later.Sync(ctx)).To(MatchError(syscall.EIO))
+		failing.Store(false)
+		Expect(w.Sync(ctx)).To(Succeed())
+		Expect(w.Close()).To(Succeed())
+		Expect(later.Close()).To(MatchError(syscall.EIO))
+		stored := read(ctx, data)
+		Expect(stored).To(HaveLen(1))
+		Expect(stored[0]).To(telem.MatchSeriesDataV[int64](1, 2))
+	})
+
 	It("Should not wait at Close, and take back the data whose stamps are not durable",
 		func(ctx SpecContext) {
 			c := stamps(ctx, 10, 11)
