@@ -25,8 +25,10 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/icd/codec"
+	xjson "github.com/synnaxlabs/x/json"
 	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -377,7 +379,7 @@ var _ = Describe("JSON", func() {
 		Expect(decodeError(dec, []byte(`{"v": "x"}`), samples)).
 			To(MatchError(validate.ErrValidation))
 		Expect(telem.Series{DataType: telem.Float64T, Data: samples[0][0]}).
-			To(telem.MatchSeriesDataV[float64](1, 2))
+			To(MatchSeriesDataV[float64](1, 2))
 	})
 
 	Describe("Failures", func() {
@@ -423,7 +425,7 @@ var _ = Describe("JSON", func() {
 				))
 				Expect(failures[1].Binding).To(Equal(2))
 				Expect(samples[0][0]).To(BeEmpty())
-				Expect(series(samples[0][1])).To(telem.MatchSeriesDataV[float64](2))
+				Expect(series(samples[0][1])).To(MatchSeriesDataV[float64](2))
 				Expect(samples[0][2]).To(BeEmpty())
 			},
 		)
@@ -483,6 +485,52 @@ var _ = Describe("JSON", func() {
 			))
 		})
 	})
+
+	DescribeTable("Should accept the present rules that Infer gives the kinds of a key",
+		func(kinds ...string) {
+			docs := make([]xjson.Document, len(kinds))
+			for i, k := range kinds {
+				docs[i] = xjson.Document{Source: "pump", Data: []byte(k)}
+			}
+			shapes := xjson.Infer(docs)
+			messages := make([]codec.JSONMessage, len(shapes))
+			for i, shape := range shapes {
+				key, field := uuid.New(), shape.Fields[0]
+				var match *icd.JSONMatch
+				if shape.Present >= 0 {
+					field = shape.Fields[shape.Present]
+					match = &icd.JSONMatch{Variant: icd.PresentJSONMatch{
+						JSONBaseMatch: icd.JSONBaseMatch{
+							Pointer: field.Pointer.String(),
+						},
+					}}
+				}
+				messages[i] = codec.JSONMessage{
+					Name: "kind " + strconv.Itoa(i),
+					Payload: icd.JSONPayload{
+						Match: match,
+						Fields: []icd.JSONField{{Variant: icd.StringJSONField{
+							Key:     key,
+							Name:    "v",
+							Scale:   1,
+							Pointer: field.Pointer.String(),
+						}}},
+					},
+					Bindings: []codec.Binding{{Field: key, DataType: telem.StringT}},
+				}
+			}
+			Expect(codec.NewJSON(messages)).Error().ToNot(HaveOccurred())
+		},
+		Entry("an object and a string at one pointer",
+			`{"status":{"code":1}}`, `{"status":"ok"}`,
+		),
+		Entry("a string and an object at one pointer, with a shared field",
+			`{"t":1,"status":"ok"}`, `{"t":1,"status":{"code":3}}`,
+		),
+		Entry("an object and a string at one pointer, with fields that differ",
+			`{"status":{"code":1},"fault":2}`, `{"status":"ok","rpm":3}`,
+		),
+	)
 
 	DescribeTable("Should decode a document without allocating",
 		func(first, second icd.JSONMatch, doc []byte) {

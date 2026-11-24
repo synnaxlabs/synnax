@@ -10,6 +10,7 @@
 #pragma once
 
 #include "client/cpp/arc/arc.h"
+#include "client/cpp/auth/apikey/apikey.h"
 #include "client/cpp/auth/auth.h"
 #include "client/cpp/certificate/certificate.h"
 #include "client/cpp/channel/channel.h"
@@ -40,9 +41,9 @@ struct Transport {
     std::unique_ptr<auth::SessionRenewClient> auth_session_renew;
     std::unique_ptr<auth::SessionRetrieveClient> auth_session_retrieve;
     std::unique_ptr<auth::SessionDeleteClient> auth_session_delete;
-    std::unique_ptr<auth::KeyCreateClient> auth_key_create;
-    std::unique_ptr<auth::KeyRetrieveClient> auth_key_retrieve;
-    std::unique_ptr<auth::KeyDeleteClient> auth_key_delete;
+    std::unique_ptr<auth::apikey::CreateClient> auth_api_key_create;
+    std::unique_ptr<auth::apikey::RetrieveClient> auth_api_key_retrieve;
+    std::unique_ptr<auth::apikey::DeleteClient> auth_api_key_delete;
     std::unique_ptr<framer::StreamerClient> frame_stream;
     std::unique_ptr<framer::WriterClient> frame_write;
     std::shared_ptr<channel::CreateClient> chan_create;
@@ -82,6 +83,7 @@ struct Transport {
     std::shared_ptr<certificate::RetrieveClient> certificate_retrieve;
     std::shared_ptr<certificate::SetClient> certificate_set;
     std::shared_ptr<certificate::RefreshClient> certificate_refresh;
+    std::shared_ptr<certificate::DeleteClient> certificate_delete;
     std::shared_ptr<arc::CreateClient> arc_create;
     std::shared_ptr<arc::RetrieveClient> arc_retrieve;
     std::shared_ptr<arc::DeleteClient> arc_delete;

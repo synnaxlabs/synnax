@@ -15,6 +15,3 @@ var _ gorp.Entry[LinkKey] = Link{}
 
 // GorpKey implements gorp.Entry.
 func (l Link) GorpKey() LinkKey { return l.Key }
-
-// SetOptions implements gorp.Entry.
-func (Link) SetOptions() []any { return nil }

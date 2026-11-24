@@ -41,7 +41,7 @@ func heater() symbol.Symbol {
 				}},
 				{Variant: symbol.NumberState{
 					BaseState: symbol.BaseState{Key: "level", Name: "Level"},
-					Bounds:    spatial.Bounds{Lower: 0, Upper: 100},
+					Bounds:    spatial.ClosedBounds{Lower: 0, Upper: 100},
 				}},
 			},
 			Commands: []symbol.Command{

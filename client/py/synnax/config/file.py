@@ -37,21 +37,26 @@ class File:
         self.load()
 
     def load(self) -> None:
-        """Loads the config file from disk. If the file does not exist, it will
-        be created.
+        """Loads the config file from disk. A missing file loads as an empty config.
 
-        :raises ConfigurationError: If the file is not valid JSON.
+        :raises ConfigurationError: If the file cannot be read or is not valid JSON.
         """
-        if not self.config_file.exists():
-            self.save()
-        with open(self.config_file, encoding="utf-8") as f:
-            try:
-                self.config = json.load(f)
-            except (json.JSONDecodeError, UnicodeDecodeError) as e:
-                raise ConfigurationError(
-                    f"{self.config_file} is not valid JSON: {e}. Delete it, then log "
-                    "in again with `sy login`."
-                ) from e
+        try:
+            data = self.config_file.read_bytes()
+        except FileNotFoundError:
+            self.config = {}
+            return
+        except OSError as e:
+            raise ConfigurationError(
+                f"Cannot read {self.config_file}: {e.strerror}."
+            ) from e
+        try:
+            self.config = json.loads(data.decode("utf-8"))
+        except (json.JSONDecodeError, UnicodeDecodeError) as e:
+            raise ConfigurationError(
+                f"{self.config_file} is not valid JSON: {e}. Delete it, then log in "
+                "again with `sy login`."
+            ) from e
 
     def save(self) -> None:
         """Saves the config file to disk."""

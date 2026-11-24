@@ -1231,7 +1231,7 @@ CIChannel union on type extends BaseCIChannel {
         meas_method CIMeasMethod = dynamic_avg {
             @doc value "selects the measurement method."
         }
-        meas_time   telem.TimeSpan = 6000 {
+        meas_time   telem.TimeSpan = 6us {
             @doc value    "is the averaging window for high-frequency measurement."
             @ts type      telem.NumericTimeSpan
             @validate max 9007199254740991
@@ -1281,7 +1281,7 @@ CIChannel union on type extends BaseCIChannel {
         meas_method   CIMeasMethod = dynamic_avg {
             @doc value "selects the measurement method."
         }
-        meas_time     telem.TimeSpan = 1000000 {
+        meas_time     telem.TimeSpan = 1ms {
             @doc value    "is the averaging window for high-frequency measurement."
             @ts type      telem.NumericTimeSpan
             @validate max 9007199254740991
@@ -1851,17 +1851,17 @@ Hardware struct {
         """
         @ts type   "number"
     }
-    ai_voltage_ranges          spatial.Bounds[] = [] {
-        @doc value "are the analog input voltage ranges of the device, ends included."
+    ai_voltage_ranges          spatial.ClosedBounds[] = [] {
+        @doc value "are the analog input voltage ranges of the device."
     }
-    ai_current_ranges          spatial.Bounds[] = [] {
-        @doc value "are the analog input current ranges of the device, ends included."
+    ai_current_ranges          spatial.ClosedBounds[] = [] {
+        @doc value "are the analog input current ranges of the device."
     }
-    ao_voltage_ranges          spatial.Bounds[] = [] {
-        @doc value "are the analog output voltage ranges of the device, ends included."
+    ao_voltage_ranges          spatial.ClosedBounds[] = [] {
+        @doc value "are the analog output voltage ranges of the device."
     }
-    ao_current_ranges          spatial.Bounds[] = [] {
-        @doc value "are the analog output current ranges of the device, ends included."
+    ao_current_ranges          spatial.ClosedBounds[] = [] {
+        @doc value "are the analog output current ranges of the device."
     }
 
     @doc value """

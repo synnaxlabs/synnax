@@ -71,9 +71,18 @@ x::errors::Error make_private_dir(const std::filesystem::path &path) {
 
 Store::Store(StoreConfig cfg): cfg(std::move(cfg)) {}
 
+std::filesystem::path Store::certs_dir() const {
+    return this->cfg.dir / "own" / "certs";
+}
+
+bool Store::is_cert_file(const std::filesystem::path &path) {
+    const auto name = path.filename().string();
+    return name.starts_with(FILE_NAME + " [") && name.ends_with("].der");
+}
+
 std::filesystem::path Store::cert_path(const Identity &id) const {
     const auto name = FILE_NAME + " [" + id.certificate.thumbprint() + "].der";
-    return this->cfg.dir / "own" / "certs" / name;
+    return this->certs_dir() / name;
 }
 
 std::filesystem::path Store::key_path(const Identity &id) const {
@@ -83,7 +92,7 @@ std::filesystem::path Store::key_path(const Identity &id) const {
 
 x::errors::Error Store::load() {
     if (this->loaded) return x::errors::NIL;
-    const auto certs = this->cfg.dir / "own" / "certs";
+    const auto certs = this->certs_dir();
     std::error_code ec;
     if (!std::filesystem::exists(certs, ec)) {
         this->loaded = true;
@@ -124,8 +133,7 @@ x::errors::Error Store::issue(const std::string &application_uri) {
     if (err) return err;
     if (const auto dir_err = make_private_dir(this->cfg.dir)) return dir_err;
     if (const auto dir_err = make_private_dir(this->cfg.dir / "own")) return dir_err;
-    if (const auto dir_err = make_private_dir(this->cfg.dir / "own" / "certs"))
-        return dir_err;
+    if (const auto dir_err = make_private_dir(this->certs_dir())) return dir_err;
     if (const auto dir_err = make_private_dir(this->cfg.dir / "own" / "private"))
         return dir_err;
     // The key goes first: load() treats a certificate without a key as corrupt.
@@ -195,6 +203,12 @@ std::pair<std::optional<Identity>, x::errors::Error> Store::next() {
     if (const auto err = this->load()) return {std::nullopt, err};
     if (this->identities.size() < 2) return {std::nullopt, x::errors::NIL};
     return {this->identities[1], x::errors::NIL};
+}
+
+std::pair<std::vector<Identity>, x::errors::Error> Store::list() {
+    std::lock_guard lock(this->mu);
+    if (const auto err = this->load()) return {{}, err};
+    return {this->identities, x::errors::NIL};
 }
 
 x::errors::Error Store::renew() {

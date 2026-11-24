@@ -424,7 +424,7 @@ var _ = Describe("Codec", func() {
 			}}),
 			Entry("number variant", v5.State{Variant: v5.NumberState{
 				BaseState: fullyPopulatedBaseState,
-				Bounds:    spatial.Bounds{Lower: 2.5, Upper: 3.5},
+				Bounds:    spatial.ClosedBounds{Lower: 2.5, Upper: 3.5},
 			}}),
 		)
 	})
@@ -1846,7 +1846,7 @@ func FuzzDecodeState(f *testing.F) {
 	{
 		seed := v5.State{Variant: v5.NumberState{
 			BaseState: fullyPopulatedBaseState,
-			Bounds:    spatial.Bounds{Lower: 2.5, Upper: 3.5},
+			Bounds:    spatial.ClosedBounds{Lower: 2.5, Upper: 3.5},
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
