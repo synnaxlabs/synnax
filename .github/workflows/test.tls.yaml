@@ -172,6 +172,63 @@ jobs:
           rejects Python client/py uv run python -c "$CONNECT_PY"
           rejects TypeScript client/ts node smoke/smoke.mjs
 
+      - name: Install the CA in the Linux store
+        if: runner.os == 'Linux'
+        run: |
+          sudo cp "$CA" /usr/local/share/ca-certificates/synnax-test-ca.crt
+          sudo update-ca-certificates
+
+      # The runner has no user to approve a change to the trust settings.
+      - name: Install the CA in the macOS Keychain
+        if: runner.os == 'macOS'
+        run: |
+          sudo security authorizationdb write com.apple.trust-settings.admin allow
+          sudo security add-trusted-cert -d -r trustRoot \
+            -k /Library/Keychains/System.keychain "$CA"
+
+      - name: Install the CA in the Windows store
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Import-Certificate -FilePath $env:CA `
+            -CertStoreLocation Cert:\LocalMachine\Root | Out-Null
+
+      - name: Test the clients with the OS store
+        env:
+          SECURE: true
+          SYNNAX_TEST_SECURE: true
+        run: |
+          (cd client/py && uv run python -c "$CONNECT_PY")
+          (cd client/ts && node smoke/smoke.mjs)
+
+      # The python.org installer adds no CA certificates to Python's OpenSSL until
+      # "Install Certificates" runs.
+      - name: Install the python.org Python
+        if: runner.os == 'macOS'
+        run: |
+          versions=$(curl -fsS https://www.python.org/ftp/python/ |
+            grep -oE 'href="3\.14\.[0-9]+/"' | grep -oE '3\.14\.[0-9]+' |
+            sort -t . -k 3 -n -r)
+          for v in $versions; do
+            if curl --fail --silent --location --output "$RUNNER_TEMP/python.pkg" \
+              "https://www.python.org/ftp/python/$v/python-$v-macos11.pkg"; then
+              break
+            fi
+          done
+          sudo installer -pkg "$RUNNER_TEMP/python.pkg" -target /
+          python=/Library/Frameworks/Python.framework/Versions/3.14/bin/python3.14
+          "$python" -c 'import ssl; assert not ssl.get_default_verify_paths().cafile'
+          echo "PYTHON_ORG=$python" >> "$GITHUB_ENV"
+
+      - name: Test the python.org Python with the OS store
+        if: runner.os == 'macOS'
+        working-directory: client/py
+        env:
+          SECURE: true
+          UV_PYTHON_PREFERENCE: only-system
+          UV_PROJECT_ENVIRONMENT: ${{ runner.temp }}/python-org
+        run: UV_PYTHON="$PYTHON_ORG" uv run python -c "$CONNECT_PY"
+
       - name: Show the Core log
         if: failure()
         run: cat "$RUNNER_TEMP/core.log"
