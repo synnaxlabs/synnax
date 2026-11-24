@@ -9,7 +9,13 @@
 
 import "@/feature/mqtt/task/Form.css";
 
-import { channel, DisconnectedError, icd, mqtt, type Synnax } from "@synnaxlabs/client";
+import {
+  type channel,
+  DisconnectedError,
+  icd,
+  mqtt,
+  type Synnax,
+} from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
@@ -49,6 +55,8 @@ import {
 import { SparkplugTagFields } from "@/feature/mqtt/task/SparkplugTagFields";
 import {
   deployReadConfigZ,
+  type HeldEntry,
+  type HeldMessage,
   type PlainReadEntry,
   READ_SCHEMAS,
   type ReadEntry,
@@ -101,6 +109,11 @@ interface Draft {
    * message reads every document of the topic.
    */
   present?: string;
+  /**
+   * The position, in the reads of the entry of a held topic, of the message that the
+   * draft extends. Absent for a new message.
+   */
+  read?: number;
 }
 
 /** What the discovery dialog adds: topics to read and Sparkplug B tags. */
@@ -130,17 +143,30 @@ const pickedLeaves = ({ shape, pointers, index }: ShapePick): Leaf[] =>
   shape.leaves.filter((l) => pointers.has(l.pointer) || l.pointer === index);
 
 /**
- * @returns the drafts of the picks of a topic. A topic that the task reads gets one,
- * with the picks of every shape. A new topic gets one for each picked shape.
+ * @returns the drafts of the picks of a topic. The picks of the shapes whose documents
+ * the Core gives one held message make one draft that extends it. Each other picked
+ * shape gets a new message.
+ * @param held - The messages that the task reads from the topic.
  */
-const draftsOf = (topic: string, pick: TopicPick, held: boolean): Draft[] => {
-  const picks = [...pick.values()];
-  if (!held)
-    return picks.map((p) =>
-      createDraft(topic, pickedLeaves(p), p.index, p.shape.present),
-    );
-  const leaves = unique.by(picks.flatMap(pickedLeaves), ({ pointer }) => pointer);
-  return [createDraft(topic, leaves, picks.find((p) => p.index != null)?.index)];
+const draftsOf = (
+  topic: string,
+  pick: TopicPick,
+  held: HeldMessage[] = [],
+): Draft[] => {
+  const drafts: Draft[] = [];
+  const extended = new Map<number, ShapePick[]>();
+  for (const p of pick.values()) {
+    const routed = ICD.route(p.shape.leaves, held);
+    if (routed == null)
+      drafts.push(createDraft(topic, pickedLeaves(p), p.index, p.shape.present));
+    else map.getOrInsert(extended, held.indexOf(routed), () => []).push(p);
+  }
+  for (const [read, picks] of extended) {
+    const leaves = unique.by(picks.flatMap(pickedLeaves), ({ pointer }) => pointer);
+    const index = picks.find((p) => p.index != null)?.index;
+    drafts.push({ ...createDraft(topic, leaves, index), read });
+  }
+  return drafts;
 };
 
 const DISCOVER_KIND: Kind<Addition> = {
@@ -155,12 +181,15 @@ const DISCOVER_KIND: Kind<Addition> = {
       draftsOf(
         topic,
         pick,
-        entries.some((e) => e.type === "plain" && e.topic === topic),
+        entries.flatMap((e) =>
+          e.type === "plain" && e.topic === topic ? e.messages : [],
+        ),
       ),
     ),
     ...[...tags.values()].map((t) => createSparkplugEntry(t)),
   ],
-  createTopic: (topic) => createDraft(topic),
+  // A topic that the task reads keeps its first message.
+  createTopic: (topic) => ({ ...createDraft(topic), read: 0 }),
   createTag: () => createSparkplugEntry(),
 };
 
@@ -212,20 +241,6 @@ const splitStored = (
       .map((entry) => ({ ...storedSource(entry), disabled: entry.disabled })),
   );
 
-/**
- * The prefix of the names of the channels that deploying creates for a message. A
- * message after the first adds its name to the prefix of the topic.
- */
-const messagePrefix = (
-  deviceName: string,
-  topic: string,
-  read: number,
-  name: string,
-): string => {
-  const prefix = namePrefix(deviceName, topic);
-  return read === 0 ? prefix : `${prefix}_${channel.escapeInvalidName(name)}`;
-};
-
 /** Inserts entries into the lists of one ICD. */
 type Inserter = Pick<ICD.FormatForm, "insert">;
 
@@ -254,12 +269,12 @@ const appendFields = (
   return appended;
 };
 
-/** @returns a message for the fields of a draft, named after its topic. */
+/** @returns a message for the fields of a draft, named after its topic and kind. */
 const createMessage = (
   { topic, fields, present }: Draft,
   taken: icd.Message[],
 ): icd.Message => {
-  const message = ICD.createMessage(topic, fields, taken);
+  const message = ICD.createMessage(ICD.kindName(topic, present), fields, taken);
   if (present == null) return message;
   const match: icd.JSONMatch = { type: "present", pointer: present };
   return { ...message, payload: { format: "json", fields, match } };
@@ -284,11 +299,13 @@ interface AddTopicsResult {
   /** The entries of the topics that the task does not read yet. */
   added: PlainReadEntry[];
   /**
-   * The bindings that each held entry gains, by entry key. An entry whose message is
-   * gone reads the new one. An entry whose message had no fields gains the index.
+   * The bindings that each held entry gains, by entry key. A read with no position is a
+   * new message that the entry reads after its others. An entry whose message is gone
+   * reads the new one. An entry whose message had no fields gains the index.
    */
   held: {
     key: string;
+    read?: number;
     message?: icd.MessageKey;
     index?: icd.FieldKey;
     bindings: icd.ReadBinding[];
@@ -368,11 +385,16 @@ const addTopics = async ({
     for (const draft of drafts) {
       const entry = entries.find((e) => e.topic === draft.topic);
       const key = entry?.icd ?? format.key;
-      const message = entry == null ? undefined : ICD.messageOf(messages, entry, 0);
+      const { read } = draft;
+      const message =
+        entry == null || read == null
+          ? undefined
+          : ICD.messageOf(messages, entry, read);
       if (entry != null && message != null) {
         const appended = appendFields(inserterOf(key), message, draft.fields);
         result.held.push({
           key: entry.key,
+          read,
           index: draft.index,
           bindings: bind(draft, appended, message.key),
         });
@@ -391,6 +413,7 @@ const addTopics = async ({
       else
         result.held.push({
           key: entry.key,
+          read,
           message: created.key,
           index: draft.index,
           bindings,
@@ -400,23 +423,6 @@ const addTopics = async ({
   result.added = entriesOf(format.key, reads);
   for (const [key, pending] of actions) await client.icds.dispatch(key, pending);
   return result;
-};
-
-/** @returns the prefix of the channel names of a message, current with its name. */
-const usePrefix = (
-  deviceName: string,
-  path: deep.Path<PlainReadEntry>,
-  read: number,
-): string => {
-  const formats = ICD.useFormats();
-  const topic = PForm.useFieldValue(path.topic);
-  const icdKey = PForm.useFieldValue(path.icd);
-  const message = PForm.useFieldValue(path.messages[read].message);
-  const name = PForm.useFieldValue(PICD.formPath.messages[message].name, {
-    optional: true,
-    ctx: formats.get(icdKey),
-  });
-  return messagePrefix(deviceName, topic, read, name ?? "");
 };
 
 const EntryItem = (props: Tree.ItemRenderProps<string>) => {
@@ -449,7 +455,7 @@ const useMessageProps = (
   const topic = PForm.useFieldValue(path.topic);
   const messages = PForm.useFieldValue(path.messages);
   const entries = PForm.useFieldValue(root.config.entries);
-  const prefix = usePrefix(device.name, path, read);
+  const prefix = namePrefix(device.name, topic);
   return {
     path,
     read,
@@ -512,7 +518,8 @@ interface FieldDetailsProps extends MessagePanelProps {
 }
 
 const FieldDetails = ({ device, ...rest }: FieldDetailsProps) => {
-  const prefix = usePrefix(device.name, rest.path, rest.read);
+  const topic = PForm.useFieldValue(rest.path.topic);
+  const prefix = namePrefix(device.name, topic);
   return <ICD.FieldDetails {...rest} prefix={prefix} />;
 };
 
@@ -735,14 +742,19 @@ const Entries: FC<EntriesProps> = ({
     if (client == null) throw new DisconnectedError();
     const plain = entries.filter(isPlain);
     const messages = ICD.messagesOf(formats);
-    const held = entries.map((e): Addition =>
-      isPlain(e)
-        ? {
-            ...createDraft(e.topic),
-            fields: ICD.jsonFields(ICD.messageOf(messages, e, 0)),
-          }
-        : e,
-    );
+    const held = entries.map((e): HeldEntry => {
+      if (!isPlain(e)) return e;
+      return {
+        type: "plain",
+        topic: e.topic,
+        messages: e.messages.map((_, r): HeldMessage => {
+          const message = ICD.messageOf(messages, e, r);
+          const match =
+            message?.payload.format === "json" ? message.payload.match : undefined;
+          return { match, fields: ICD.jsonFields(message) };
+        }),
+      };
+    });
     const additions = await discover({ device, entries: held });
     if (additions == null || additions.length === 0) return;
     const drafts = additions.filter(isDraft);
@@ -774,8 +786,13 @@ const Entries: FC<EntriesProps> = ({
     for (const { messages } of added)
       for (const { message } of messages) made.current.add(message);
     for (const { message } of grown) if (message != null) made.current.add(message);
-    grown.forEach(({ key, message, index, bindings }) => {
-      const read = plainPath(key).messages[0];
+    grown.forEach(({ key, read: position, message, index, bindings }) => {
+      const reads = plainPath(key).messages;
+      if (position == null) {
+        const added = icd.readMessageZ.parse({ message, index, bindings });
+        return ctx.set(reads, [...ctx.get(reads).value, added]);
+      }
+      const read = reads[position];
       // The index and bindings of a deleted message name fields it no longer has.
       if (message != null)
         ctx.set(read, icd.readMessageZ.parse({ message, index, bindings }));
@@ -943,7 +960,7 @@ const Plans = ({ device, children }: PlansProps): ReactElement => {
       topic: b.source.topic,
       read: b.source.messages[b.read],
       message: b.message,
-      prefix: messagePrefix(device.name, b.source.topic, b.read, b.message.name),
+      prefix: namePrefix(device.name, b.source.topic),
       props: ICD.Stored.of(stored, storedSource(b.source), b.read),
     })),
     ...tags.map((entry) => ({
@@ -1062,12 +1079,12 @@ const planRead = async (
   const messages: ICD.MessagePlan[] = [];
   for (const b of bound) {
     signal?.throwIfAborted();
-    const { source: entry, read: r, message } = b;
+    const { source: entry, read: r } = b;
     const plan = await ICD.planMessage(
       client,
       namer,
       b,
-      messagePrefix(dev.name, entry.topic, r, message.name),
+      namePrefix(dev.name, entry.topic),
       ICD.Stored.of(stored, storedSource(entry), r),
       kept,
     );

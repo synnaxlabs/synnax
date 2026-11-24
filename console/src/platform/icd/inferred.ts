@@ -27,6 +27,13 @@ export const createFields = (inferred: Inferred[]): icd.JSONField[] => {
 };
 
 /**
+ * @returns the name of the message for one kind of the documents of a source named
+ * name: the name, then the name of present, the field that only that kind holds.
+ */
+export const kindName = (name: string, present?: string): string =>
+  present == null ? name : `${name} ${fieldNames([present])[0]}`;
+
+/**
  * @returns a JSON message of fields named name, or `Untitled` when name is empty. A
  * name that a message in taken holds gets a number, such as `plant/oven 2`.
  */

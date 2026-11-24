@@ -135,29 +135,34 @@ export type TopicPicks = Map<string, TopicPick>;
 export const countOf = (pick: TopicPick): number =>
   math.sum([...pick.values()].map(({ pointers }) => pointers.size));
 
-/** The pointers that each topic of the task takes. */
-type Taken = Map<string, Set<string>>;
+/** The pointers of each shape of a topic that the task takes, by shape key. */
+type TopicTaken = Map<string, Set<string>>;
 
+/** What the task takes of each topic that it holds. */
+type Taken = Map<string, TopicTaken>;
+
+/**
+ * @returns what the task takes of each topic: of each shape, the fields of the message
+ * that the Core gives its documents.
+ */
 const takenBy = (
   entries: HeldEntry[],
   topics: ListedTopic[],
   whole: boolean,
 ): Taken => {
-  const plain = entries.flatMap((e) => (e.type === "plain" ? [e] : []));
-  if (!whole)
-    return new Map(
-      plain.map((e) => [e.topic, new Set(e.fields.map((f) => f.pointer))]),
+  const taken: Taken = new Map();
+  for (const { topic, shapes } of topics) {
+    const entry = entries.find((e) => e.type === "plain" && e.topic === topic);
+    if (entry?.type !== "plain") continue;
+    const takenOf = (shape: Shape): { pointer: string }[] =>
+      // A target holds a whole topic, so one in the task takes all its values.
+      whole ? shape.leaves : (ICD.route(shape.leaves, entry.messages)?.fields ?? []);
+    taken.set(
+      topic,
+      new Map(shapes.map((s) => [s.key, new Set(takenOf(s).map((f) => f.pointer))])),
     );
-  // A target holds a whole topic, so one in the task takes all its values.
-  const held = new Set(plain.map((e) => e.topic));
-  return new Map(
-    topics
-      .filter((t) => held.has(t.topic))
-      .map((t) => [
-        t.topic,
-        new Set(t.shapes.flatMap((s) => s.leaves.map((l) => l.pointer))),
-      ]),
-  );
+  }
+  return taken;
 };
 
 /**
@@ -189,18 +194,19 @@ const freeLeaves = (
 
 /**
  * @returns a pick of each free leaf of each shape of the topic.
- * @param taken - The pointers of the topic that the task reads.
+ * @param taken - What the task takes of the topic.
  */
 const defaultPick = (
   { shapes }: ListedTopic,
-  taken: Set<string> | undefined,
+  taken: TopicTaken | undefined,
   indexed: boolean,
 ): TopicPick => {
   const pick: TopicPick = new Map();
   for (const shape of shapes) {
-    const pointers = new Set(freeLeaves(shape, taken, indexed).map((l) => l.pointer));
+    const own = taken?.get(shape.key);
+    const pointers = new Set(freeLeaves(shape, own, indexed).map((l) => l.pointer));
     if (pointers.size > 0)
-      pick.set(shape.key, { shape, pointers, index: indexOf(shape, taken, indexed) });
+      pick.set(shape.key, { shape, pointers, index: indexOf(shape, own, indexed) });
   }
   return pick;
 };
@@ -258,8 +264,8 @@ const titleOf = ({ count = 0, present }: Shape): string =>
 interface TopicValuesProps {
   topic: ListedTopic;
   value: TopicPick;
-  /** The pointers of the topic that the task reads. */
-  taken: Set<string> | undefined;
+  /** What the task takes of the topic. */
+  taken: TopicTaken | undefined;
   indexed: boolean;
   whole: boolean;
   onChange: (value: TopicPick) => void;
@@ -278,13 +284,14 @@ const TopicValues = ({
   // Shapes can share a pointer, so the key of a value holds the position of its shape.
   const keyOf = (shape: number, pointer: string) => `${shape}${pointer}`;
   const groups = shapes.map((shape, i): ICD.Picker.ValueGroup => {
-    const locked = lockedIndex(shape.leaves, indexOf(shape, taken, indexed));
+    const own = taken?.get(shape.key);
+    const locked = lockedIndex(shape.leaves, indexOf(shape, own, indexed));
     return {
       title: shapes.length > 1 ? titleOf(shape) : undefined,
       values: shape.leaves.map((l): ICD.Picker.Value => {
         let lock: ICD.Picker.Lock | undefined;
         if (l.pointer === locked) lock = ICD.Picker.INDEX;
-        else if (taken?.has(l.pointer) === true) lock = ICD.Picker.TAKEN;
+        else if (own?.has(l.pointer) === true) lock = ICD.Picker.TAKEN;
         return {
           key: keyOf(i, l.pointer),
           name: pointerLabel(l.pointer),
@@ -308,8 +315,8 @@ const TopicValues = ({
       const pointers = new Set(
         shape.leaves.map((l) => l.pointer).filter((p) => keyed.has(keyOf(i, p))),
       );
-      if (pointers.size > 0)
-        next.set(shape.key, { shape, pointers, index: indexOf(shape, taken, indexed) });
+      const index = indexOf(shape, taken?.get(shape.key), indexed);
+      if (pointers.size > 0) next.set(shape.key, { shape, pointers, index });
     });
     onChange(next);
   };

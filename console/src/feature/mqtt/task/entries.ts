@@ -62,10 +62,7 @@ export const shapesOf = ({ payload, shapes }: Device.BrowsedTopic): Shape[] => {
       ? []
       : [{ key: "", leaves: [createRawLeaf()], samples: new Map([["", payload]]) }];
   return shapes.map(({ fields, index, present, count }) => ({
-    key: fields
-      .map(({ pointer }) => pointer)
-      .sort()
-      .join("\n"),
+    key: json.shapeKey({ fields }),
     leaves: createLeaves(fields),
     samples: new Map(fields.map(({ pointer, sample }) => [pointer, sample])),
     index,
