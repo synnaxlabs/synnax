@@ -123,4 +123,37 @@ var _ = Describe("Checks", func() {
 		Expect(c.ReadAt(bytes.NewReader(b), make([]byte, 4), 0)).
 			To(MatchError(place.ErrCorrupt))
 	})
+
+	It("Should read the checked blocks of a version 0 segment in whole blocks", func() {
+		b, checks := old(2*segment.BlockSize + 100)
+		checked := cfg
+		checked.Checks = checks
+		buf := make([]byte, 3*segment.BlockSize)
+		n := MustSucceed(
+			checked.ReadChecked(bytes.NewReader(b), buf, 1, int64(len(b)), 0),
+		)
+		Expect(buf[:n]).To(Equal(b[segment.BlockSize:]))
+	})
+
+	DescribeTable("Should refuse a version 0 block that fails its check", func(
+		at int64,
+		checked bool,
+		msg string,
+	) {
+		b, sums := old(2*segment.BlockSize + 100)
+		c := cfg
+		if checked {
+			c.Checks = sums
+		}
+		r := &flipOnce{r: bytes.NewReader(b), at: at}
+		buf := make([]byte, 3*segment.BlockSize)
+		Expect(c.ReadChecked(r, buf, 0, int64(len(b)), 0)).Error().To(SatisfyAll(
+			MatchError(place.ErrCorrupt),
+			MatchError(ContainSubstring(msg)),
+		))
+	},
+		Entry("a flipped byte", int64(segment.BlockSize+7), true,
+			"block 1 of segment 3 fails its check"),
+		Entry("no checks", int64(-1), false, "block 0 of segment 3 fails its check"),
+	)
 })

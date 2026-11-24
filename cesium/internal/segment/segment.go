@@ -96,8 +96,9 @@ func (c Config) ReadAt(r io.ReaderAt, p []byte, off int64) error {
 // ReadChecked reads the blocks from block b of the segment in r, of committed length
 // and tail checksum tailCRC, as many whole blocks as buf holds with their trailers. It
 // checks the checksums of each block, then moves its stream bytes to the start of buf,
-// and returns their number. It returns an error that wraps place.ErrCorrupt for a
-// checksum that fails.
+// and returns their number. A version 0 segment checks each block against Checks, and
+// has no trailers and no tail checksum. It returns an error that wraps place.ErrCorrupt
+// for a checksum that fails.
 func (c Config) ReadChecked(
 	r io.ReaderAt,
 	buf []byte,
@@ -123,6 +124,19 @@ func (c Config) ReadChecked(
 	for k := b; k < end; k++ {
 		block := buf[(k-b)*int64(slot):]
 		n := min(BlockSize, int(length-k*BlockSize))
+		if c.Bare {
+			if c.Checks == nil || c.BlockSum(k, block[:n]) != c.Checks.Sums[k] {
+				return 0, errors.Wrapf(
+					place.ErrCorrupt,
+					"block %d of segment %d fails "+
+						"its check",
+					k,
+					c.ID,
+				)
+			}
+			out += copy(buf[out:], block[:n])
+			continue
+		}
 		sum := place.Update(c.place(c.FileOffset(k*BlockSize)).Start(), block[:n])
 		want := tailCRC
 		if n == BlockSize {

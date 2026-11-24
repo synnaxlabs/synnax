@@ -495,6 +495,36 @@ var _ = Describe("Check pass on the pointer log", func() {
 		Expect(c.failures).To(BeEmpty())
 	})
 
+	DescribeTable("Should rewrite a checked old file that a delete leaves mostly dead "+
+		"only when version 0 is rewritable",
+		func(ctx SpecContext, extra []cesium.Option, rewritten bool) {
+			db, closeDB := startConverted(ctx, disk, ins, func() {}, extra...)
+			allChecked(checked(db))
+			// The first old file of i32 holds samples 1 to 15.
+			oldFile := oldName(i32, oldPointers(disk, i32)[0])
+			Expect(oldFile).To(Equal("2/1.domain"))
+			Expect(db.DeleteTimeRange(ctx, []cesium.ChannelKey{i32}, telem.TimeRange{
+				Start: old.stamps[0],
+				End:   old.stamps[12],
+			})).To(Succeed())
+			exists := func() bool { return MustSucceed(disk.Exists(oldFile)) }
+			if rewritten {
+				Eventually(exists).Should(BeFalse())
+				Eventually(func() (map[cesium.ChannelKey]int, error) {
+					return checkFiles(disk, i32)
+				}).Should(Equal(map[cesium.ChannelKey]int{i32: segmentsOf()[i32]}))
+			} else {
+				Consistently(exists).Should(BeTrue())
+			}
+			want := old.bytes(nil)
+			want[i32] = telem.NewSeries(old.ints[12:]).Data
+			Expect(dataOf(ctx, db, keys)).To(Equal(want))
+			Expect(closeDB()).To(Succeed())
+		},
+		Entry("rewritable", []cesium.Option{cesium.WithVersion0Rewritable()}, true),
+		Entry("not rewritable", nil, false),
+	)
+
 	It("Should keep the check file of a segment that a reader pins across a Drop of "+
 		"its key", func(ctx SpecContext) {
 		db, closeDB := openConverted(ctx, disk, ins)

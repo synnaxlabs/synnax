@@ -274,7 +274,11 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		return nil, err
 	}
 	l = &Layer{}
-	var update *Update
+	var (
+		update *Update
+		// A root in memory holds no old file that a backup could need.
+		rewritable = true
+	)
 	cleanup, ok := service.NewOpener(ctx, &l.closer)
 	defer func() {
 		if err = cleanup(err); err != nil && update != nil {
@@ -308,7 +312,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}
 
 	if !*cfg.InMemory {
-		if update, err = checkData(cfg, kvFS, tsFS); !ok(err, nil) {
+		if update, rewritable, err = checkData(cfg, kvFS, tsFS); !ok(err, nil) {
 			return nil, err
 		}
 	}
@@ -328,7 +332,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	)
 
 	// Open the time-series engine.
-	if l.TS, err = openTS(ctx, cfg, tsFS, l.KV); !ok(err, l.TS) {
+	if l.TS, err = openTS(ctx, cfg, tsFS, l.KV, rewritable); !ok(err, l.TS) {
 		return nil, err
 	}
 	l.Update = update
@@ -437,8 +441,10 @@ Is there another Synnax node using the same directory?
 
 // checkData refuses data that a Restore did not finish, that a newer Core opened, or
 // that cfg.Version failed to update. It undoes an update that did not commit, and
-// starts an update of data that an older Core opened.
-func checkData(cfg LayerConfig, lockFS vfs.FS, fs xfs.FS) (*Update, error) {
+// starts an update of data that an older Core opened. It also reports whether the
+// compaction may rewrite the version 0 segments of Cesium, after the backup of the
+// update.
+func checkData(cfg LayerConfig, lockFS vfs.FS, fs xfs.FS) (*Update, bool, error) {
 	backups, err := NewBackups(BackupsConfig{
 		Instrumentation: cfg.Child("backups"),
 		Dirname:         cfg.Dirname,
@@ -446,15 +452,20 @@ func checkData(cfg LayerConfig, lockFS vfs.FS, fs xfs.FS) (*Update, error) {
 		LockFS:          lockFS,
 	})
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	if err = backups.checkRestore(); err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	if err = backups.checkUpdate(cfg.Version); err != nil {
-		return nil, err
+		return nil, false, err
 	}
-	return backups.checkVersion(cfg.Version, *cfg.UpdateBackupDisabled)
+	update, err := backups.checkVersion(cfg.Version, *cfg.UpdateBackupDisabled)
+	if err != nil {
+		return nil, false, err
+	}
+	rewritable, err := backups.version0Rewritable()
+	return update, rewritable, err
 }
 
 // ErrLocked is returned when another process holds the data directory. An open after
@@ -587,6 +598,7 @@ func openTS(
 	cfg LayerConfig,
 	fs xfs.FS,
 	meta kv.DB,
+	rewritable bool,
 ) (*cesium.DB, error) {
 	if cfg.TSEngine != TSEngineCesium {
 		return nil, errors.Newf(
@@ -619,6 +631,9 @@ func openTS(
 		return nil, err
 	}
 	opts = append(opts, cesium.WithPointerLog(), cesium.WithIdentity(held))
+	if rewritable {
+		opts = append(opts, cesium.WithVersion0Rewritable())
+	}
 	db, err := cesium.Open(ctx, dir, opts...)
 	if err != nil || db.Identity() == held {
 		return db, err

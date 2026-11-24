@@ -33,6 +33,8 @@ type core struct {
 	// test.
 	version   uint16
 	threshold float32
+	// rewritable0 makes a checked version 0 segment a candidate too.
+	rewritable0 bool
 	// candidates holds the segments that pass the candidate test.
 	candidates set.Set[uint64]
 	// checking is the segment of the Check in flight, which a switch keeps, or 0.
@@ -82,6 +84,7 @@ func newCore(cfg Config) *core {
 		versions:    cfg.Versions,
 		version:     cfg.Version,
 		threshold:   cfg.Threshold,
+		rewritable0: cfg.Version0Rewritable,
 		candidates:  set.Set[uint64]{},
 		count:       &pubCount{},
 		channels:    map[uint32]*chanState{},
@@ -179,6 +182,7 @@ func (c *core) check(r *log.Check, pre []Preload) error {
 		Generation: c.generation,
 	})
 	ch.repart()
+	c.test(s)
 	ch.publish()
 	return nil
 }
@@ -354,16 +358,19 @@ func (c *core) seal(r *log.Seal) error {
 }
 
 // test adds s to the candidates when it is sealed in the durable view, untagged, of the
-// format version of new segments, and its dead share is above the threshold, and takes
-// it out when not. A segment that a part holds gets no test until a Tombstone puts its
-// record back in the head.
+// format version of new segments or a checked version 0 segment that may be rewritten,
+// and its dead share is above the threshold, and takes it out when not. A segment that
+// a part holds gets no test until a Tombstone or a Check puts its record back in the
+// head.
 func (c *core) test(s *segState) {
 	var live uint64
 	for _, p := range s.dur.pointers {
 		live += uint64(p.Length)
 	}
 	length := uint64(s.dur.length)
-	if s.dur.sealed && s.vis.Part == 0 && s.vis.Version == c.version &&
+	rewritable := s.vis.Version == c.version ||
+		c.rewritable0 && s.vis.Version == 0 && s.vis.Checked
+	if s.dur.sealed && s.vis.Part == 0 && rewritable &&
 		float64(length-live) > float64(c.threshold)*float64(length) {
 		c.candidates.Add(s.vis.ID)
 		return

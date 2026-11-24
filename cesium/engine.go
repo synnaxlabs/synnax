@@ -185,13 +185,14 @@ func openState(
 	snapshot *state.Snapshot,
 ) (*state.State, error) {
 	return state.Open(state.Config{
-		Versions:   set.New[uint16](0, segmentVersion),
-		Version:    segmentVersion,
-		Threshold:  o.gcCfg.Threshold,
-		Append:     e.append,
-		Executor:   e.exec,
-		OnHead:     e.onHead,
-		Generation: generation,
+		Versions:           set.New[uint16](0, segmentVersion),
+		Version:            segmentVersion,
+		Threshold:          o.gcCfg.Threshold,
+		Append:             e.append,
+		Version0Rewritable: o.version0Rewritable,
+		Executor:           e.exec,
+		OnHead:             e.onHead,
+		Generation:         generation,
 	}, snapshot)
 }
 
@@ -378,7 +379,7 @@ func (e *engine) durable(sequence uint64, records []log.Record) {
 	}
 	for _, r := range records {
 		switch r.(type) {
-		case *log.Tombstone, *log.Seal, *log.Restart:
+		case *log.Tombstone, *log.Seal, *log.Restart, *log.Check:
 			e.compact.signal()
 			return
 		}

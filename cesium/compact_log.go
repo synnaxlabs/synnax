@@ -207,14 +207,18 @@ func (c *compactor) copyLive(
 	old state.Segment,
 	id uint64,
 ) (*log.Replace, error) {
+	cfg, err := c.e.readConfig(key, old)
+	if err != nil {
+		return nil, err
+	}
 	src := c.e.openSegment(key, old)
 	dst, err := c.e.budget.Create(c.e.fs, segmentName(key, id, 0))
 	if err != nil {
 		return nil, errors.Join(err, src.Close())
 	}
-	cfg := c.e.segmentConfig(old)
+	// The copy of a version 0 segment is a version 1 segment.
 	newCfg := cfg
-	newCfg.ID = id
+	newCfg.ID, newCfg.Bare, newCfg.Checks = id, false, nil
 	ptrs := make([]log.Pointer, len(old.Pointers))
 	for i, p := range old.Pointers {
 		ptrs[i] = log.Pointer{

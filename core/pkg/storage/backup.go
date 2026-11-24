@@ -147,6 +147,28 @@ func (b *Backups) List() ([]Backup, error) {
 	return backups, nil
 }
 
+// firstSegmentRelease is the first release of the Core that writes the segments of the
+// pointer log layout. An undo to a backup of an older release reads the old files that
+// a version 0 segment keeps.
+const firstSegmentRelease = "0.63.0"
+
+// version0Rewritable reports whether no backup is older than firstSegmentRelease, so
+// the compaction may rewrite a version 0 segment and remove its old file. A backup with
+// no version counts as older.
+func (b *Backups) version0Rewritable() (bool, error) {
+	backups, err := b.List()
+	if err != nil {
+		return false, err
+	}
+	for _, bk := range backups {
+		if bk.Version == UnknownVersion ||
+			version.Compare(bk.Version, firstSegmentRelease) < 0 {
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
 // listedVersion returns the version that a backup's name holds. A name without a
 // valid version, such as the "unknown" that 0.61 Cores wrote, holds UnknownVersion.
 func listedVersion(v string) string {
