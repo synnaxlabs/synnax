@@ -369,8 +369,9 @@ class _TLSSocket(socket.socket):
         super().close()
 
     def _run[T](self, call: Callable[..., T], *args: Any) -> T:
-        with selectors.DefaultSelector() as selector:
-            selector.register(self._wake_read, selectors.EVENT_READ)
+        # Most calls succeed at once, so the selector is built only on a wait.
+        selector: selectors.BaseSelector | None = None
+        try:
             while True:
                 with self._lock:
                     try:
@@ -379,6 +380,9 @@ class _TLSSocket(socket.socket):
                         event = selectors.EVENT_READ
                     except ssl.SSLWantWriteError:
                         event = selectors.EVENT_WRITE
+                if selector is None:
+                    selector = selectors.DefaultSelector()
+                    selector.register(self._wake_read, selectors.EVENT_READ)
                 selector.register(self._tls, event)
                 ready = selector.select(self._timeout)
                 selector.unregister(self._tls)
@@ -386,6 +390,9 @@ class _TLSSocket(socket.socket):
                     raise TimeoutError("timed out waiting for the socket")
                 if any(key.fileobj is self._wake_read for key, _ in ready):
                     raise OSError("socket closed")
+        finally:
+            if selector is not None:
+                selector.close()
 
 
 class _SyncConnection(SyncClientProtocol):
