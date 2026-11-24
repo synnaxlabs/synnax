@@ -91,14 +91,16 @@ jobs:
         run: |
           nohup "$CORE" start --mem --no-driver --auto-cert --certs-dir "$CERTS" \
             --listen localhost:9090 > "$RUNNER_TEMP/core.log" 2>&1 &
+          # The clients check the certificate. Windows curl cannot check the
+          # revocation of a CA with no revocation list, so the probe skips the check.
+          check=(curl --fail --insecure --request POST --data '{}'
+            --header "Content-Type: application/json"
+            https://localhost:9090/api/v1/connectivity/check)
           for _ in $(seq 120); do
-            if [ -f "$CA" ] && curl --silent --fail --cacert "$CA" --request POST \
-              --header "Content-Type: application/json" --data '{}' \
-              https://localhost:9090/api/v1/connectivity/check > /dev/null; then
-              exit 0
-            fi
+            if [ -f "$CA" ] && "${check[@]}" --silent > /dev/null; then exit 0; fi
             sleep 1
           done
+          "${check[@]}" --verbose || true
           cat "$RUNNER_TEMP/core.log" >&2
           echo "::error::The Core did not start."
           exit 1
