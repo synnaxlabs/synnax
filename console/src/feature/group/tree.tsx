@@ -7,11 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DisconnectedError, group, type impact, resource } from "@synnaxlabs/client";
+import { group, resource } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
-import { Status } from "@synnaxlabs/lyra/status";
-import { Access, Group, Synnax } from "@synnaxlabs/pluto";
+import { Access, Group } from "@synnaxlabs/pluto";
 
 import { ContextMenu } from "@/platform/context-menu";
 import { Core } from "@/platform/core";
@@ -25,40 +24,6 @@ const useRename = Tree.createUseRename({
   resourceID: group.resourceID,
   convertKey: String,
 });
-
-type GroupChange = "delete_groups" | "ungroup_groups";
-
-const touchesNothing = ({ entries, kept, hidden }: impact.Plan): boolean =>
-  entries.length === 0 &&
-  kept === 0 &&
-  hidden.restrict + hidden.cascade + hidden.detach === 0;
-
-/**
- * Returns a function that plans a change of the selected groups. A plan that touches
- * nothing else applies at once, and any other plan opens the impact dialog.
- */
-const useChange = (): ((
-  props: Tree.ContextMenuProps,
-  type: GroupChange,
-) => Promise<void>) => {
-  const client = Synnax.use();
-  const open = Impact.useDialog();
-  return async ({ selection: { ids }, state: { getResource } }, type) => {
-    if (client == null) throw new DisconnectedError();
-    const change: impact.Change = { type, keys: ids.map(({ key }) => key) };
-    const plan = await client.impact.plan(change);
-    if (touchesNothing(plan)) {
-      await client.impact.apply(change, { token: plan.token });
-      return;
-    }
-    await open({ change, names: getResource(ids).map(({ name }) => name) });
-  };
-};
-
-const failureOf = (type: GroupChange, count: number): string => {
-  const verb = type === "delete_groups" ? "delete" : "ungroup";
-  return `Failed to ${verb} ${count === 1 ? "group" : "groups"}`;
-};
 
 const retrieve: Tree.Retrieve = async (c, key) => await c.groups.retrieve({ key });
 
@@ -87,8 +52,7 @@ export const createTreeItems = (
     const { getResource, getChildren, shape } = state;
     const hasUpdatePermission = Access.useUpdateGranted(ids);
     const hasDeletePermission = Access.useDeleteGranted(ids);
-    const handleError = Status.useAsyncErrorHandler();
-    const change = useChange();
+    const open = Impact.useDialog();
     const createEmptyGroup = PlatformGroup.useCreateEmpty({
       parent: ids[0],
       state,
@@ -104,12 +68,15 @@ export const createTreeItems = (
       (id) => getChildren(resource.idToString(id))?.length === 0,
     );
     const ungroupIcon = isDelete ? <Icon.Delete /> : <Icon.Group />;
-    const type: GroupChange = isDelete ? "delete_groups" : "ungroup_groups";
+    // The dialog plans the change, and a plan that touches nothing applies unseen.
     const handleChange = () =>
-      void handleError(
-        async () => await change(props, type),
-        failureOf(type, ids.length),
-      );
+      void open({
+        change: {
+          type: isDelete ? "delete_groups" : "ungroup_groups",
+          keys: ids.map(({ key }) => key),
+        },
+        names: ids.map((id) => getResource(id).name),
+      });
     return (
       <ContextMenu.Menu>
         {isSingle && hasUpdatePermission && <ContextMenu.RenameItem onClick={rename} />}

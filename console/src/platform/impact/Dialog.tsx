@@ -88,10 +88,19 @@ interface ChangeText {
   groups: (plural: boolean) => GroupSpec[];
   /** outcome says where the user sees what an unanswered apply did. */
   outcome: string;
+  /** emptyApplied is true when a first plan that touches nothing applies unseen. */
+  emptyApplied: boolean;
 }
 
 const CHANNEL_ICON = <Icon.Channel />;
 const GROUP_ICON = <Icon.Group />;
+/** Marks a deleted channel that a view still shows. */
+const DELETED_CHANNEL_ICON = <Icon.Channel color={9} />;
+
+/** What a view that shows a deleted channel loses with its name. */
+const RECONNECT =
+  "Views that show the deleted channels below cannot reconnect to a new channel " +
+  "with the same name.";
 
 const TEXTS: Record<impact.ChangeType, ChangeText> = {
   delete_channels: {
@@ -119,6 +128,7 @@ const TEXTS: Record<impact.ChangeType, ChangeText> = {
       { effect: "detach", title: plural ? "Loses a channel" : "Loses the channel" },
     ],
     outcome: "The Channels list shows the outcome.",
+    emptyApplied: false,
   },
   delete_groups: {
     icon: GROUP_ICON,
@@ -128,17 +138,14 @@ const TEXTS: Record<impact.ChangeType, ChangeText> = {
     message: (names) =>
       names.length === 1 ? `Delete group ${names[0]}` : `Delete ${names.length} groups`,
     description: (names, empty) => {
-      const one = names.length === 1;
-      if (empty)
-        return `${one ? "Deletes the group." : "Deletes the groups."} ${PERMANENT}`;
-      return one
-        ? `Deletes the group, with the paths of deleted channels in it. ${PERMANENT}`
-        : `Deletes the groups, with the paths of deleted channels in them. ${PERMANENT}`;
+      const text = names.length === 1 ? "Deletes the group." : "Deletes the groups.";
+      return empty ? `${text} ${PERMANENT}` : `${text} ${RECONNECT} ${PERMANENT}`;
     },
     failure: (names) =>
       names.length === 1 ? "Failed to delete group" : "Failed to delete groups",
-    groups: () => [{ effect: "cascade", title: "Paths of deleted channels" }],
+    groups: () => [{ effect: "cascade", title: "Cannot reconnect" }],
     outcome: "The tree shows the outcome.",
+    emptyApplied: true,
   },
   ungroup_groups: {
     icon: GROUP_ICON,
@@ -147,14 +154,22 @@ const TEXTS: Record<impact.ChangeType, ChangeText> = {
     verb: "Ungroup",
     message: (names) =>
       names.length === 1 ? `Ungroup ${names[0]}` : `Ungroup ${names.length} groups`,
-    description: (names) =>
-      names.length === 1
-        ? "Moves what the group holds to its parent, then deletes the group."
-        : "Moves what the groups hold to their parent, then deletes the groups.",
+    description: (names, empty) => {
+      const text =
+        names.length === 1
+          ? "Moves what the group holds to its parent, then deletes the group."
+          : "Moves what the groups hold to their parent, then deletes the groups.";
+      if (empty) return text;
+      return (
+        `${text} The parent already has a channel with each name below. ` +
+        `${RECONNECT} ${PERMANENT}`
+      );
+    },
     failure: (names) =>
       names.length === 1 ? "Failed to ungroup group" : "Failed to ungroup groups",
-    groups: () => [{ effect: "cascade", title: "Paths that drop" }],
+    groups: () => [{ effect: "cascade", title: "Cannot reconnect" }],
     outcome: "The tree shows the outcome.",
+    emptyApplied: true,
   },
 };
 
@@ -196,6 +211,12 @@ const reasonOf = (err: unknown, step: Step, text: ChangeText): string => {
     return `${unansweredOf(text)} ${description}`;
   return `${unreachableOf(step, text)} ${description}`;
 };
+
+/** Reports whether plan lists no record, hides none, and keeps none. */
+const touchesNothing = ({ entries, kept, hidden }: impact.Plan): boolean =>
+  entries.length === 0 &&
+  kept === 0 &&
+  hidden.restrict + hidden.cascade + hidden.detach === 0;
 
 /** A plan with the records it names, as the dialog shows it. */
 interface View {
@@ -241,7 +262,25 @@ interface Row {
   entry: impact.Entry;
   resource?: resource.Resource;
   fresh: boolean;
+  /** folder is the changed group that holds a tombstone, when there are several. */
+  folder?: string;
+  /** path is a tombstone's path below its changed group. */
+  path?: string;
 }
+
+/**
+ * Splits path at the longest of folders that it starts with, since a folder's name may
+ * hold the separator.
+ */
+const splitPath = (path: string, folders: string[]): [string | undefined, string] => {
+  const folder = folders
+    .filter((f) => path.startsWith(`${f}.`))
+    .reduce<string | undefined>(
+      (a, f) => (a == null || f.length > a.length ? f : a),
+      undefined,
+    );
+  return folder == null ? [undefined, path] : [folder, path.slice(folder.length + 1)];
+};
 
 /** Icons for the record types that no tree item shows, such as a channel's status. */
 const TYPE_ICONS: Partial<Record<resource.Type, Icon.FC>> = { status: Icon.Status };
@@ -355,7 +394,7 @@ interface EntryProps {
 }
 
 const Entry = ({
-  row: { key, entry, resource: res, fresh },
+  row: { key, entry, resource: res, fresh, folder, path },
   index,
   translate,
   picked,
@@ -366,12 +405,10 @@ const Entry = ({
   const id = useId();
   const Item = Tree.useItems()[entry.record.type] ?? Tree.DefaultItem;
   const TypeIcon = TYPE_ICONS[entry.record.type];
-  const { path } = entry;
-  const name = path ?? res?.name ?? entry.record.key;
   const treeIcon = res == null ? undefined : Item.icon(res);
   const icon =
     path != null
-      ? CHANNEL_ICON
+      ? DELETED_CHANNEL_ICON
       : (treeIcon ?? (TypeIcon == null ? null : <TypeIcon />));
   return (
     <List.Item<string>
@@ -387,9 +424,12 @@ const Entry = ({
         id={`${id}-name`}
         overflow="fade"
         grow
+        // The group and the path below it read as one path.
+        gap={0}
         color={path == null ? undefined : 9}
       >
-        {name}
+        {folder != null && <Text.Text el="span" color={7}>{`${folder}.`}</Text.Text>}
+        {path ?? res?.name ?? entry.record.key}
       </Text.Text>
       {fresh && <Badge.Badge status="warning">New</Badge.Badge>}
       {entry.effect === "restrict" && (
@@ -602,9 +642,11 @@ interface EntriesProps extends Pick<
 > {
   view: View;
   groups: GroupSpec[];
+  /** folders are the names of the groups that the change names. */
+  folders: string[];
 }
 
-const Entries = ({ view, groups, ...rest }: EntriesProps): ReactElement => {
+const Entries = ({ view, groups, folders, ...rest }: EntriesProps): ReactElement => {
   const many = view.plan.entries.length > MANY_ENTRIES;
   const first = groups.find(
     ({ effect }) =>
@@ -616,12 +658,18 @@ const Entries = ({ view, groups, ...rest }: EntriesProps): ReactElement => {
       {groups.map(({ effect, title }) => {
         const rows = view.plan.entries
           .filter((e) => e.effect === effect)
-          .map((entry) => ({
-            key: recordKey(entry),
-            entry,
-            resource: view.resources.get(recordKey(entry)),
-            fresh: view.fresh.has(recordKey(entry)),
-          }))
+          .map((entry): Row => {
+            const row: Row = {
+              key: recordKey(entry),
+              entry,
+              resource: view.resources.get(recordKey(entry)),
+              fresh: view.fresh.has(recordKey(entry)),
+            };
+            if (entry.path == null) return row;
+            const [folder, path] = splitPath(entry.path, folders);
+            // One changed group names itself in the title, so its rows leave it out.
+            return { ...row, path, folder: folders.length > 1 ? folder : undefined };
+          })
           .toSorted(ROW_ORDER);
         const hidden = view.plan.hidden[effect];
         if (rows.length === 0 && hidden === 0) return null;
@@ -744,12 +792,17 @@ const Dialog = ({
     refocus.current = null;
   }, [applying]);
   Modals.useBusy(applying);
+  // unseen is true while a first plan that touches nothing applies before the dialog
+  // shows. The dialog shows only when that apply is slow or fails.
+  const [unseen, setUnseen] = useState(false);
+  const firstPlan = useRef(true);
+  const unseenSlow = useSpinner(unseen);
   const listing = useSpinner(view == null && planError == null);
   // The dialog stays unseen until its first plan arrives or the spinner shows, so a
   // plan inside the spinner delay opens the dialog at its final size. Lyra places a
   // modal by its size, so it shows two frames later, once that place settles. Once
   // shown, it stays shown, also while a retry plans again.
-  const ready = view != null || planError != null || listing;
+  const ready = (view != null && !unseen) || planError != null || listing || unseenSlow;
   const [painted, setPainted] = useState(false);
   useEffect(() => {
     if (!ready || painted) return;
@@ -765,6 +818,64 @@ const Dialog = ({
   const updating = useSpinner(planning && view != null);
   const plural = names.length > 1;
   const text = TEXTS[change.type];
+
+  const apply = async (v: View) => {
+    if (client == null) return;
+    const blockers = v.plan.entries
+      .filter((e) => e.effect === "restrict" && picks[recordKey(e)] !== "delete")
+      .map(recordKey);
+    const hiddenBlockers = hiddenPicked ? 0 : v.plan.hidden.restrict;
+    const blocking = blockers.length + hiddenBlockers;
+    if (blocking > 0) {
+      setUnpicked(new Set(blockers));
+      setHiddenUnpicked(hiddenBlockers > 0);
+      setFooter({
+        variant: "error",
+        message: blockedOf(blocking, text),
+        description:
+          blocking === 1
+            ? `Check "${PICK_LABEL}", or cancel.`
+            : `Check "${PICK_LABEL}" on each one, or cancel.`,
+      });
+      return;
+    }
+    refocus.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setApplying(true);
+    setFooter(null);
+    let applied: impact.Plan | null = null;
+    let failure: unknown = null;
+    try {
+      applied = await client.impact.apply(change, {
+        token: v.plan.token,
+        picks,
+        hidden: requestOf(picks, hiddenPicked).hiddenPick,
+      });
+    } catch (e) {
+      failure = e;
+    }
+    setApplying(false);
+    setUnseen(false);
+    if (applied != null) {
+      close(applied);
+      return;
+    }
+    if (!(failure instanceof PlanChangedError)) {
+      setFooter({
+        variant: "error",
+        message: unanswered(failure) ? "No answer from the Core" : text.failure(names),
+        description: reasonOf(failure, "apply", text),
+      });
+      return;
+    }
+    // The Core refused a stale token. The plan effect loads the current plan once, with
+    // its own failure text and Try again, and marks what is new against this plan.
+    shownPlan.current = v.plan;
+    setChanged(true);
+    setPlanning(true);
+    dispatch({ type: "keep", plan: impact.planOf(failure) });
+    dispatch({ type: "request" });
+  };
 
   useAsyncEffect(
     async (signal) => {
@@ -796,6 +907,12 @@ const Dialog = ({
         if (prev == null || shown != null) return planned;
         return { ...planned, fresh: prev.fresh, freshHidden: prev.freshHidden };
       });
+      const first = firstPlan.current;
+      firstPlan.current = false;
+      if (first && text.emptyApplied && touchesNothing(planned.plan)) {
+        setUnseen(true);
+        await apply(planned);
+      }
     },
     [client, change, request],
   );
@@ -828,63 +945,6 @@ const Dialog = ({
     dispatch({ type: "pickHidden", picked });
   };
 
-  const handleApply = async () => {
-    if (client == null || view == null) return;
-    const blockers = view.plan.entries
-      .filter((e) => e.effect === "restrict" && picks[recordKey(e)] !== "delete")
-      .map(recordKey);
-    const hiddenBlockers = hiddenPicked ? 0 : view.plan.hidden.restrict;
-    const blocking = blockers.length + hiddenBlockers;
-    if (blocking > 0) {
-      setUnpicked(new Set(blockers));
-      setHiddenUnpicked(hiddenBlockers > 0);
-      setFooter({
-        variant: "error",
-        message: blockedOf(blocking, text),
-        description:
-          blocking === 1
-            ? `Check "${PICK_LABEL}", or cancel.`
-            : `Check "${PICK_LABEL}" on each one, or cancel.`,
-      });
-      return;
-    }
-    refocus.current =
-      document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    setApplying(true);
-    setFooter(null);
-    let applied: impact.Plan | null = null;
-    let failure: unknown = null;
-    try {
-      applied = await client.impact.apply(change, {
-        token: view.plan.token,
-        picks,
-        hidden: requestOf(picks, hiddenPicked).hiddenPick,
-      });
-    } catch (e) {
-      failure = e;
-    }
-    setApplying(false);
-    if (applied != null) {
-      close(applied);
-      return;
-    }
-    if (!(failure instanceof PlanChangedError)) {
-      setFooter({
-        variant: "error",
-        message: unanswered(failure) ? "No answer from the Core" : text.failure(names),
-        description: reasonOf(failure, "apply", text),
-      });
-      return;
-    }
-    // The Core refused a stale token. The plan effect loads the current plan once, with
-    // its own failure text and Try again, and marks what is new against this plan.
-    shownPlan.current = view.plan;
-    setChanged(true);
-    setPlanning(true);
-    dispatch({ type: "keep", plan: impact.planOf(failure) });
-    dispatch({ type: "request" });
-  };
-
   // A held spinner hides a failure until it ends, so the two never show together. A
   // failure shows where its spinner showed: the first plan's in the body, in place of
   // the list, and a later plan's in the footer, under the list it would update.
@@ -893,11 +953,7 @@ const Dialog = ({
   const shown = listing || listFailed ? null : view;
   const plan = shown?.plan;
   const status = updating ? UPDATING : footer;
-  const empty =
-    plan != null &&
-    plan.entries.length === 0 &&
-    plan.kept === 0 &&
-    plan.hidden.restrict + plan.hidden.cascade + plan.hidden.detach === 0;
+  const empty = plan != null && touchesNothing(plan);
 
   return (
     <Modal.Frame
@@ -949,6 +1005,7 @@ const Dialog = ({
           <Entries
             view={shown}
             groups={text.groups(plural)}
+            folders={names}
             picks={picks}
             unpicked={unpicked}
             onPick={handlePick}
@@ -1009,7 +1066,9 @@ const Dialog = ({
             disabled={shown == null || failure != null || planning || updating}
             trigger={Triggers.SAVE}
             triggerIndicator
-            onClick={() => void handleApply()}
+            onClick={() => {
+              if (view != null) void apply(view);
+            }}
           >
             {text.verb}
           </Button.Button>
