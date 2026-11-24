@@ -15,6 +15,7 @@ import {
   errors,
   id,
   map,
+  narrow,
   type record,
   TimeSpan,
   TimeStamp,
@@ -591,14 +592,18 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
   }
 
   /**
-   * Returns the base with the pending entries applied. Each part equal to the part of
-   * the cached doc keeps the identity of that part, so selectors over it stay stable.
+   * Returns the base with the pending entries applied. In a plain-object doc, each part
+   * equal to the part of the cached doc keeps the identity of that part, so selectors
+   * over it stay stable.
    */
   private rebuild(key: Key, r: Rebase<State, Action>): State {
     const next = r.pending.reduce(
       (state, { actions }) => this.params.reduce(state, actions).next,
       r.base,
     );
+    // A class doc, such as a channel, can refer back to the client, which deep.reuse
+    // cannot walk.
+    if (!narrow.isPlainObject(next)) return next;
     return deep.reuse(this.docs.get(key), next);
   }
 
