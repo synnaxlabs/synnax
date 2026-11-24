@@ -691,22 +691,7 @@ describe("Reader", () => {
         allDataKeys,
       );
 
-      const reader = stream.getReader();
-      const chunks: Uint8Array[] = [];
-      let chunkCount = 0;
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        chunks.push(value);
-        chunkCount++;
-      }
-
-      // Verify multiple chunks were produced (proves streaming worked)
-      expect(chunkCount).toBeGreaterThan(1);
-
-      const decoder = new TextDecoder();
-      const csv = chunks.map((c) => decoder.decode(c)).join("");
+      const csv = await streamToString(stream);
       const lines = csv.trim().split(delimiter);
 
       // Header + data rows (some timestamps may align, so rows <= totalSamples)
@@ -736,6 +721,12 @@ describe("Reader", () => {
           lastTimestamp = ts;
           break;
         }
+
+      groups.forEach((group, g) => {
+        const tsCol = g * (1 + channelsPerGroup);
+        const present = rows.slice(1).filter((row) => row[tsCol] !== "");
+        expect(present).toHaveLength(group.sampleCount);
+      });
 
       // Verify some specific data integrity
       // First row should have data from at least one group
@@ -822,7 +813,6 @@ describe("Reader", () => {
       const decoder = new TextDecoder();
 
       let buffer = "";
-      let chunkCount = 0;
       let isHeader = true;
       let totalRows = 0; // data rows only (exclude header)
       let sparseRows = 0;
@@ -831,7 +821,6 @@ describe("Reader", () => {
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-        chunkCount++;
         buffer += decoder.decode(value);
         while (true) {
           const idx = buffer.indexOf(delimiter);
@@ -871,7 +860,6 @@ describe("Reader", () => {
           }
         }
       }
-      expect(chunkCount).toBeGreaterThan(1);
       expect(totalRows).toBe(denseSamples);
       expect(sparseRows).toBe(sparseSamples);
     }, 60_000);

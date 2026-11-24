@@ -179,11 +179,12 @@ fieldDef
     : IDENT (typeRef | typeModifiers)? (EQUALS fieldDefault)? (inlineDomain | domainOmit)* fieldBody?
     ;
 
-// A field default is a scalar/ident literal, an array literal, or a struct
-// literal.
-// Examples: = 0, = "v", = volts, = [], = [1, 2, 3], = { x = 0, y = 1 }
+// A field default is a scalar/ident literal, a duration, an array literal, or a
+// struct literal.
+// Examples: = 0, = "v", = volts, = 5s, = [], = [1, 2, 3], = { x = 0, y = 1 }
 fieldDefault
     : expressionValue
+    | DURATION_LIT
     | arrayDefault
     | structDefault
     ;

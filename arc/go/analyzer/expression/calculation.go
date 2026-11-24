@@ -41,6 +41,8 @@ type Write struct {
 	Declaration antlr.ParserRuleContext
 	// Lowered is set when lowering gives the truncation warning.
 	Lowered bool
+	// SameDimension is set when the target takes no value in the reciprocal unit.
+	SameDimension bool
 }
 
 // CheckUnits applies the unit rules to w. ok is false when it reports an error, and
@@ -50,7 +52,8 @@ func CheckUnits[T antlr.ParserRuleContext](
 	w Write,
 ) (converts, ok bool) {
 	from, to := w.Source.Unwrap().Unit, w.Target.Unwrap().Unit
-	if types.UnitsIncompatible(from, to) {
+	if types.UnitsIncompatible(from, to) &&
+		(w.SameDimension || !types.UnitsReciprocal(from, to)) {
 		ctx.Diagnostics.Add(codes.DimensionMismatch.Atf(
 			w.AST,
 			"cannot write %s to %s (%s)",
@@ -82,7 +85,7 @@ func CheckUnits[T antlr.ParserRuleContext](
 	if from == nil && to != nil && w.Expr != nil {
 		warnDroppedUnit(ctx, w, to)
 	}
-	if !types.UnitsConvertible(from, to) {
+	if !types.WriteConverts(from, to) {
 		return false, true
 	}
 	isLiteral := w.Expr != nil && parser.IsLiteral(w.Expr)
@@ -135,6 +138,10 @@ func truncationOf[T antlr.ParserRuleContext](
 				"(" + sourceText(value) + ")",
 		})
 	}
+	// A time span has no unit that holds a rate as written.
+	if types.UnitsReciprocal(from, to) {
+		return d
+	}
 	init, ok := converted(decl.Expression(), t, to, from)
 	if !ok {
 		return d
@@ -167,7 +174,7 @@ func warnDroppedUnit[T antlr.ParserRuleContext](
 	from := ctx.Constraints.ApplySubstitutions(
 		atypes.InferFromExpression(ctx.Child(value)),
 	).Unwrap().Unit
-	if !types.UnitsConvertible(from, to) {
+	if !types.WriteConverts(from, to) {
 		return
 	}
 	d := codes.UnitDropped.Atf(
@@ -279,12 +286,21 @@ func truncates[T antlr.ParserRuleContext](
 	w Write,
 	isLiteral bool,
 ) bool {
+	from, to := w.Source.Unwrap().Unit, w.Target.Unwrap().Unit
+	// The period of a rate rounds, so only a literal that rounds to 0 loses its value.
+	if types.UnitsReciprocal(from, to) {
+		return isLiteral && literalTruncates(ctx, w)
+	}
 	if !integersTruncate(ctx, w.Source, w.Target) {
 		return false
 	}
-	if !isLiteral || seriesToSeries(w) {
-		return true
-	}
+	return !isLiteral || seriesToSeries(w) || literalTruncates(ctx, w)
+}
+
+func literalTruncates[T antlr.ParserRuleContext](
+	ctx acontext.Context[T],
+	w Write,
+) bool {
 	parsed, err := literal.ParseConst(
 		w.Expr,
 		ctx.Constraints.ApplySubstitutions(w.Target),
@@ -317,6 +333,11 @@ func truncation(
 	ast antlr.ParserRuleContext,
 	from, to *types.Unit,
 ) diagnostics.Diagnostic {
+	if types.UnitsReciprocal(from, to) {
+		return codes.UnitPrecisionLoss.Atf(
+			ast, "the period of a rate in %s rounds to 0 %s", from.Name, to.Name,
+		)
+	}
 	return codes.UnitPrecisionLoss.Atf(
 		ast,
 		"unit conversion from %s to %s truncates an integer toward zero",

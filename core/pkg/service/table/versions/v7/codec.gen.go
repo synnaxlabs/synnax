@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/errors"
 	notation "github.com/synnaxlabs/x/notation/versions/v0"
+	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	text "github.com/synnaxlabs/x/text/versions/v0"
 )
 
@@ -100,7 +101,7 @@ func (cc CellConfig) EncodeOrc(w *orc.Writer) error {
 			w.Bool(false)
 		}
 		w.String(v.Units)
-		w.Float64(float64(v.StalenessTimeout))
+		w.Int64(int64(v.StalenessTimeout))
 		if v.StalenessColor != nil {
 			w.Bool(true)
 			if err := v.StalenessColor.EncodeOrc(w); err != nil {
@@ -242,8 +243,12 @@ func (cc *CellConfig) DecodeOrc(r *orc.Reader) error {
 		if v.Units, err = r.String(); err != nil {
 			return err
 		}
-		if v.StalenessTimeout, err = r.Float64(); err != nil {
-			return err
+		{
+			rawV, err := r.Int64()
+			if err != nil {
+				return err
+			}
+			v.StalenessTimeout = telem.TimeSpan(rawV)
 		}
 		{
 			present, err := r.Bool()

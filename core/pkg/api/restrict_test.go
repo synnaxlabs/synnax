@@ -16,7 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	apirole "github.com/synnaxlabs/synnax/pkg/api/access/role"
-	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
+	"github.com/synnaxlabs/synnax/pkg/api/auth/session"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
@@ -107,7 +107,7 @@ var _ = Describe("Restrict", func() {
 			[]access.Action{access.ActionRetrieve, access.ActionDelete},
 			r.ResourceID(),
 		))
-		var login apiauth.LoginResponse
+		var login session.LoginResponse
 		Expect(post("", "/api/v1/auth/login", creds, &login)).To(Succeed())
 		Expect(post(
 			login.Token,

@@ -518,6 +518,24 @@ describe("ICD editor", () => {
     );
   });
 
+  it("should add a JSON field at a numbered pointer that no field reads", async () => {
+    const ic = await createICD([
+      createJSONMessage([
+        createJSONField("Temp", "/field_3"),
+        createJSONField("Raw", "/field_4/raw"),
+      ]),
+    ]);
+    await renderEditor(ic);
+    fireEvent.click(await screen.findByRole("button", { name: "Add field" }));
+    await waitFor(async () =>
+      expect((await retrieveMessage(ic.key)).payload.fields).toMatchObject([
+        { name: "Temp" },
+        { name: "Raw" },
+        { name: "Field 5", pointer: "/field_5" },
+      ]),
+    );
+  });
+
   it("should store the type of a binary field", async () => {
     const ic = await createICD([createMessage([createBinaryField("Temp", 0)])]);
     await renderEditor(ic);
