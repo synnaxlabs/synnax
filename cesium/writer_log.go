@@ -68,9 +68,8 @@ type logWriter struct {
 	// each has written, or -1 for a series that it skips.
 	whole []telem.Series
 	cuts  []int
-	// committed holds the keys of the run in progress in commit, and commits and
-	// preKeys
-	// the Commits of every run and the keys of their preloads, which pre holds.
+	// committed holds the keys of the run in progress, and commits and preKeys the
+	// Commits of every run and the keys of their preloads, which pre holds.
 	committed []ChannelKey
 	commits   []*log.Commit
 	preKeys   []ChannelKey
