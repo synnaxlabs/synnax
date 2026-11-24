@@ -27,6 +27,10 @@ type registeredTable interface {
 	canonical(k string) bool
 	// exists reports whether the entry with the text key k exists in snap.
 	exists(ctx context.Context, snap Snapshot, k string) (bool, error)
+	// issues reports whether the table has a TableConfig.Issued.
+	issues() bool
+	// issued reports whether the table issued the text key k.
+	issued(k string) (bool, error)
 	// deleteKeys deletes the entries with the text keys keys as a cascade.
 	deleteKeys(ctx context.Context, tx Tx, keys []string) error
 	// detach removes or inlines the targets of ops in the entry with the text key k and
@@ -53,9 +57,20 @@ type registeredReference interface {
 	onDeletePolicy() OnDelete
 	canRetarget() bool
 	linkKind() LinkKind
+	referenceTag() uint8
 	targetTables() []string
-	// dependents returns the text keys of the entries that hold target.
-	dependents(ctx context.Context, snap Snapshot, target Target) ([]string, error)
+	// dependents returns, at each position of targets, the text keys of the entries
+	// that hold that target, or nil when no entry holds any of targets. keys is nil or
+	// a slice of the keys of targets, which a reference whose values have that type
+	// reads instead of parsing targets.
+	dependents(
+		ctx context.Context,
+		snap Snapshot,
+		targets []Target,
+		keys any,
+	) ([][]string, error)
+	// dependentsOf returns the text keys of the entries that hold target.
+	dependentsOf(ctx context.Context, snap Snapshot, target Target) ([]string, error)
 }
 
 // detachOp removes or inlines target in the reference at index ref of an entry.
@@ -118,7 +133,8 @@ func (r *registry) indexedTables(prefix []byte) []any {
 }
 
 // register adds table, named name, which stores under prefix. Two registered tables
-// cannot share a name or a prefix.
+// cannot share a name or a prefix, and a table that a Weak reference points at must
+// have a TableConfig.Issued.
 func (r *registry) register(name string, prefix []byte, table registeredTable) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -131,6 +147,11 @@ func (r *registry) register(name string, prefix []byte, table registeredTable) e
 			name,
 			other,
 		)
+	}
+	for _, ref := range r.referencing[name] {
+		if err := checkIssues(ref, name, table); err != nil {
+			return err
+		}
 	}
 	r.tables[name] = table
 	r.names[string(prefix)] = name
@@ -146,15 +167,40 @@ func (r *registry) tableName(prefix []byte) (string, bool) {
 }
 
 // addReferences adds refs to the references that deletes of their target tables
-// follow.
-func (r *registry) addReferences(refs []registeredReference) {
+// follow. It fails, adding none, when a Weak reference points at an open table with no
+// TableConfig.Issued.
+func (r *registry) addReferences(refs []registeredReference) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	for _, ref := range refs {
+		for _, target := range ref.targetTables() {
+			if t, ok := r.tables[target]; ok {
+				if err := checkIssues(ref, target, t); err != nil {
+					return err
+				}
+			}
+		}
+	}
 	for _, ref := range refs {
 		for _, target := range ref.targetTables() {
 			r.referencing[target] = append(r.referencing[target], ref)
 		}
 	}
+	return nil
+}
+
+// checkIssues fails when ref is Weak and its target table, named name, has no
+// TableConfig.Issued.
+func checkIssues(ref registeredReference, name string, table registeredTable) error {
+	if ref.onDeletePolicy() != Weak || table.issues() {
+		return nil
+	}
+	return errors.Newf(
+		"[gorp] - weak reference %s of table %q points at table %q, which has no Issued",
+		ref.referenceName(),
+		ref.ownerTable(),
+		name,
+	)
 }
 
 func (r *registry) unregister(name string, prefix []byte) {
@@ -194,25 +240,53 @@ func (r *registry) referencesTo(table string) []registeredReference {
 	return slices.Clone(r.referencing[table])
 }
 
-// dependents returns the entries that hold target through a registered reference that
-// keep accepts.
+// dependents returns, at each position of targets, the entries that hold that target
+// through any registered reference. Every target is an entry of the table named table,
+// and keys is a slice of their keys, in order.
 func (r *registry) dependents(
 	ctx context.Context,
 	snap Snapshot,
-	target Target,
-	keep func(registeredReference) bool,
-) ([]Target, error) {
-	var out []Target
-	for _, ref := range r.referencesTo(target.Table) {
-		if !keep(ref) {
-			continue
-		}
-		keys, err := ref.dependents(ctx, snap, target)
+	table string,
+	targets []Target,
+	keys any,
+) ([][]Dependent, error) {
+	type found struct {
+		ref     registeredReference
+		holders [][]string
+	}
+	var (
+		all    []found
+		counts = make([]int, len(targets))
+	)
+	for _, ref := range r.referencesTo(table) {
+		holders, err := ref.dependents(ctx, snap, targets, keys)
 		if err != nil {
 			return nil, err
 		}
-		for _, k := range keys {
-			out = append(out, Target{Table: ref.ownerTable(), Key: k})
+		if holders == nil {
+			continue
+		}
+		all = append(all, found{ref: ref, holders: holders})
+		for i, held := range holders {
+			counts[i] += len(held)
+		}
+	}
+	out := make([][]Dependent, len(targets))
+	for i, n := range counts {
+		if n > 0 {
+			out[i] = make([]Dependent, 0, n)
+		}
+	}
+	for _, f := range all {
+		for i, held := range f.holders {
+			for _, k := range held {
+				out[i] = append(out[i], Dependent{
+					Holder:    Target{Table: f.ref.ownerTable(), Key: k},
+					Reference: f.ref.referenceName(),
+					Kind:      f.ref.linkKind(),
+					Tag:       f.ref.referenceTag(),
+				})
+			}
 		}
 	}
 	return out, nil
@@ -248,7 +322,7 @@ func (r *registry) targetSet(
 		if err != nil {
 			return err
 		}
-		keys, err := ref.dependents(ctx, tx, target)
+		keys, err := ref.dependentsOf(ctx, tx, target)
 		if err != nil {
 			return err
 		}
@@ -336,7 +410,7 @@ func (r *registry) plan(
 		target := w.queue[0]
 		w.queue = w.queue[1:]
 		for _, ref := range r.referencesTo(target.Table) {
-			deps, err := ref.dependents(ctx, tx, target)
+			deps, err := ref.dependentsOf(ctx, tx, target)
 			if err != nil {
 				return nil, err
 			}
@@ -437,6 +511,8 @@ func (w *planWalk) visit(ref registeredReference, dep, target Target) error {
 				return err
 			}
 		}
+	case Weak:
+		return nil
 	case Detach, Inline:
 		if w.plan.contains(dep) {
 			return nil

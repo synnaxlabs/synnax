@@ -13,6 +13,7 @@ import (
 	"context"
 	"slices"
 	"sync"
+	"sync/atomic"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/arc"
@@ -120,10 +121,15 @@ type Service struct {
 	// renames holds the renames of each transaction. The hook of the last one sends all
 	// of them to storage in one call.
 	renames *gorp.Attachment[rename]
-	mu      struct {
+	// builtIns holds the keys that Writer.Declare declared. A commit replaces the set
+	// under mu, so a read takes no lock.
+	builtIns atomic.Pointer[builtInSet]
+	// builtInFilters holds the filters of MatchInternal.
+	builtInFilters builtInFilters
+	mu             struct {
 		sync.RWMutex
-		// externalNonVirtualSet holds the keys of external (non-internal, non-virtual)
-		// channels, which count toward the channel limit.
+		// externalNonVirtualSet holds the keys of the non-virtual channels that are not
+		// built-in, which count toward the channel limit.
 		externalNonVirtualSet set.Integer[Key]
 	}
 }
@@ -145,6 +151,8 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		state:   actions.NewState[Key, Action](cfg.DB),
 		renames: gorp.NewAttachment[rename](),
 	}
+	s.builtIns.Store(&builtInSet{})
+	s.builtInFilters = newBuiltInFilters(&s.builtIns)
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Channel]{
@@ -156,18 +164,17 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		),
 		Indexes:         s.indexes.all(),
 		References:      append(s.indexes.references(), s.index),
+		Issued:          cfg.Channel.Issued,
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err
 	}
-	// Seed the external/non-virtual key set by scanning the table once at startup. This
-	// is the only call site that unavoidably walks the table — there is no index for
-	// (Internal, Virtual) and the cost is bounded by how many channels the Core has
-	// accumulated.
+	// The channel limit counts each non-virtual channel. Declare takes the built-ins
+	// out after the scan. This is the only walk of the table: no index holds Virtual.
 	var externalNonVirtualChannels []Channel
 	if err = s.table.NewRetrieve().
 		Where(gorp.Match(func(_ gorp.Context, c *Channel) (bool, error) {
-			return !c.Internal && !c.Virtual, nil
+			return !c.Virtual, nil
 		})).
 		Entries(&externalNonVirtualChannels).
 		Exec(ctx, cfg.DB); !ok(err, nil) {
@@ -184,6 +191,7 @@ func (s *Service) newRetrieve() Retrieve {
 	return Retrieve{
 		gorp:    s.table.NewRetrieve(),
 		indexes: s.indexes,
+		builtIn: &s.builtInFilters,
 	}
 }
 
@@ -206,7 +214,7 @@ func (s *Service) NewRetrieve() Retrieve {
 }
 
 // CountLimited returns how many channels count against the license channel limit (not
-// internal, not virtual).
+// built-in, not virtual).
 func (s *Service) CountLimited() uint32 {
 	s.mu.RLock()
 	defer s.mu.RUnlock()

@@ -22,6 +22,7 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/domain/doc"
+	refdomain "github.com/synnaxlabs/oracle/domain/ref"
 	"github.com/synnaxlabs/oracle/paths"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/domain"
@@ -136,7 +137,7 @@ func listFields(fields, lines []resolution.Field) []string {
 	return lo.FilterMap(fields, func(f resolution.Field, _ int) (string, bool) {
 		read := domain.HasDomainFromField(f, "filter") ||
 			domain.HasDomainFromField(f, "search") ||
-			domain.HasDomainFromField(f, "ref") ||
+			refdomain.Declares(f) ||
 			domain.HasExprFromField(f, "index", "sorted") ||
 			lo.ContainsBy(lines, func(l resolution.Field) bool {
 				return !l.HasType() && l.Name == f.Name
@@ -306,6 +307,9 @@ func (b lineBuilder) addLines(
 		ld := lineData{Name: tstypes.FieldName(line.Name), Doc: doc.Get(field.Domains)}
 		if line.HasType() {
 			ld.Input = b.zodOf(field.Type)
+			if resolution.IsOperator(field.Type) {
+				ld.Input = b.operatorInput(field.Type)
+			}
 			if field.Type.Name == "Array" && field.Type.ArraySize == nil {
 				ld.Input = "filter.listInputZ(" + b.zodOf(field.Type.TypeArgs[0]) + ")"
 			}
@@ -383,11 +387,18 @@ func (b lineBuilder) bareLine(
 	}
 	ld.Field = tstypes.FieldName(recordField.Name)
 	ld.Regex = lo.Contains(ms, "regex")
-	ld.Input = "filter." + inputs[op.QualifiedName]
-	if len(opRef.TypeArgs) == 1 {
-		ld.Input += "(" + b.zodOf(opRef.TypeArgs[0]) + ")"
-	}
+	ld.Input = b.operatorInput(opRef)
 	return op, nil
+}
+
+// operatorInput returns the Zod schema that reads the operator op from a partial
+// record, which takes a plain value or a list in its place.
+func (b lineBuilder) operatorInput(op resolution.TypeRef) string {
+	input := "filter." + inputs[op.Name]
+	if len(op.TypeArgs) == 1 {
+		input += "(" + b.zodOf(op.TypeArgs[0]) + ")"
+	}
+	return input
 }
 
 // addCursor sets up data to order records by the fields of cursor, the Cursor that the

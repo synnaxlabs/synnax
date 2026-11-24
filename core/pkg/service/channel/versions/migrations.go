@@ -13,6 +13,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v1"
+	v2 "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v2"
 )
 
 // Migrations is the ordered migration chain for stored channels.
@@ -23,4 +24,5 @@ var Migrations = []gorp.Migration{
 	v1.MembersMigration,
 	v1.IndexGroupMigration,
 	v1.NameMigration,
+	v2.Migration,
 }

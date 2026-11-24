@@ -16,6 +16,7 @@ import { Theming } from "@synnaxlabs/lyra/theming";
 import { type border, box, color } from "@synnaxlabs/x";
 import type { ReactElement } from "react";
 
+import { Channel } from "@/channel";
 import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Cell as Base } from "@/table/cells/Cell";
@@ -117,19 +118,21 @@ export const Value = ({
   const theme = Theming.use();
   const t = BaseValue.stringSource({ channel, rollingAverage, precision, notation });
   const backgroundTelem = BaseValue.backgroundTelem(t, redline, resolve(fillColor));
-  BaseValue.use({
+  const staleColor = Staleness.resolveColor(resolve(stalenessColor), theme);
+  const { stale } = BaseValue.use({
     aetherKey: cellKey,
     box: b,
     telem: t,
     level,
     color: resolve(textColor),
     stalenessTimeout,
-    stalenessColor: Staleness.resolveColor(resolve(stalenessColor), theme),
+    stalenessColor: staleColor,
     backgroundTelem,
     location: { x: "center", y: "center" },
     clip: true,
     borderRadius,
   });
+  const deleted = Channel.useDeleted(channel);
   const handleSelect = (e: React.MouseEvent) => onSelect(cellKey, e);
   // Use the column-driven box width, not BaseValue's natural text width: when
   // row indicators are hidden, the first data row determines column widths via
@@ -150,6 +153,8 @@ export const Value = ({
         selected && Menu.CONTEXT_SELECTED,
         CSS.BEM("table", "cell", "value"),
       )}
-    />
+    >
+      {deleted && <Channel.Deleted color={stale ? staleColor : undefined} />}
+    </Base>
   );
 };

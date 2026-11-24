@@ -25,7 +25,6 @@ export const storedZ = z.object({
   localIndex: localKeyZ,
   virtual: z.boolean(),
   concurrency: control.concurrencyZ,
-  internal: z.boolean(),
   operations: zod.nullToUndefined(operationZ.array()),
   expression: z.string(),
   group: zod.nullToUndefined(group.keyZ),

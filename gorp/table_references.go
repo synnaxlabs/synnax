@@ -41,13 +41,13 @@ func (t *Table[K, E]) register(named bool) error {
 // registerReferences adds the table's references to its indexes and to its DB's
 // registry. Call it after the table's migrations: a delete that follows a reference
 // waits for its index to populate, which starts only after them.
-func (t *Table[K, E]) registerReferences() {
+func (t *Table[K, E]) registerReferences() error {
 	refs := make([]registeredReference, len(t.references))
 	for i, r := range t.references {
 		refs[i] = r
 		t.indexes = append(t.indexes, r)
 	}
-	t.db.registry.addReferences(refs)
+	return t.db.registry.addReferences(refs)
 }
 
 // unregister removes the table and its references from its DB's registry.
@@ -139,6 +139,18 @@ func (t *Table[K, E]) deleteKeys(ctx context.Context, tx Tx, keys []string) erro
 	return w.Delete(ctx, pks...)
 }
 
+// issues implements registeredTable.
+func (t *Table[K, E]) issues() bool { return t.issuedKey != nil }
+
+// issued implements registeredTable.
+func (t *Table[K, E]) issued(k string) (bool, error) {
+	pk, err := key.Parse[K](k)
+	if err != nil {
+		return false, err
+	}
+	return t.issuedKey(pk), nil
+}
+
 // detach implements registeredTable.
 func (t *Table[K, E]) detach(
 	ctx context.Context,
@@ -222,31 +234,48 @@ func (t *Table[K, E]) targetSet(
 	return t.onTargetSet[table](ctx, tx, e)
 }
 
+// Dependent is an entry that holds a reference to another entry.
+type Dependent struct {
+	// Holder is the entry that holds the reference.
+	Holder Target
+	// Reference is the name of the reference.
+	Reference string
+	// Kind is the kind of the link.
+	Kind LinkKind
+	// Tag is the Tag of the reference's config.
+	Tag uint8
+}
+
 // Dependents returns the entries of every open table that hold a reference to the entry
-// with key k, as seen by snap. It waits for each reference's index to populate, or for
+// with key k, as seen by snap, once for each reference that holds it. A Weak reference
+// holds k after k is deleted. It waits for each reference's index to populate, or for
 // ctx to end, and returns ErrIndexInvalid if one failed to populate.
 func (t *Table[K, E]) Dependents(
 	ctx context.Context,
 	snap Snapshot,
 	k K,
-) ([]Target, error) {
-	return t.db.registry.dependents(
-		ctx,
-		snap,
-		Target{Table: t.name, Key: FormatKey(k)},
-		func(registeredReference) bool { return true },
-	)
+) ([]Dependent, error) {
+	deps, err := t.DependentsEach(ctx, snap, []K{k})
+	if err != nil {
+		return nil, err
+	}
+	return deps[0], nil
 }
 
 // Uses returns the entries of every open table that hold a Use reference to the entry
 // with key k, as seen by snap. It waits and fails as Dependents does.
 func (t *Table[K, E]) Uses(ctx context.Context, snap Snapshot, k K) ([]Target, error) {
-	return t.db.registry.dependents(
-		ctx,
-		snap,
-		Target{Table: t.name, Key: FormatKey(k)},
-		func(ref registeredReference) bool { return ref.linkKind() == Use },
-	)
+	deps, err := t.Dependents(ctx, snap, k)
+	if err != nil {
+		return nil, err
+	}
+	var out []Target
+	for _, d := range deps {
+		if d.Kind == Use {
+			out = append(out, d.Holder)
+		}
+	}
+	return out, nil
 }
 
 // PlacedIn returns the records that hold a Place link to target, as seen by tx. It
@@ -257,7 +286,7 @@ func PlacedIn(ctx context.Context, tx Tx, target Target) ([]Target, error) {
 		if ref.linkKind() != Place {
 			continue
 		}
-		keys, err := ref.dependents(ctx, tx, target)
+		keys, err := ref.dependentsOf(ctx, tx, target)
 		if err != nil {
 			return nil, err
 		}
@@ -292,7 +321,7 @@ func (t *Table[K, E]) RestrictChange(
 		if ref.onDeletePolicy() != Restrict {
 			continue
 		}
-		keys, err := ref.dependents(ctx, snap, target)
+		keys, err := ref.dependentsOf(ctx, snap, target)
 		if err != nil {
 			return err
 		}
@@ -306,6 +335,20 @@ func (t *Table[K, E]) RestrictChange(
 		}
 	}
 	return nil
+}
+
+// DependentsEach returns, at each position of keys, the dependents of the entry with
+// that key, as Dependents does. It probes each reference once for all of keys.
+func (t *Table[K, E]) DependentsEach(
+	ctx context.Context,
+	snap Snapshot,
+	keys []K,
+) ([][]Dependent, error) {
+	targets := make([]Target, len(keys))
+	for i, k := range keys {
+		targets[i] = Target{Table: t.name, Key: FormatKey(k)}
+	}
+	return t.db.registry.dependents(ctx, snap, t.name, targets, keys)
 }
 
 // check validates the references e holds against tx. It reports whether every index

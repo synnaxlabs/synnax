@@ -14,6 +14,7 @@ import (
 	"slices"
 	"strings"
 
+	refdomain "github.com/synnaxlabs/oracle/domain/ref"
 	"github.com/synnaxlabs/oracle/internal/casing"
 	plugindomain "github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
@@ -90,6 +91,8 @@ type refSite struct {
 	steps []refStep
 	field resolution.Field
 	mode  leafMode
+	// direction is the direction that a field above the @ref field sets, or None.
+	direction refdomain.Direction
 }
 
 // inArray reports whether the site reaches its field through an array.
@@ -118,11 +121,17 @@ func (r *walkedRef) tree() []*stepNode {
 // optional structs, and unions.
 type refWalker struct {
 	table *resolution.Table
-	refs  []*walkedRef
+	// root is the qualified name of the type the walk starts from.
+	root string
+	refs []*walkedRef
 	// declared holds each struct field the walk found a @ref on.
 	declared set.Set[fieldDecl]
 	// onPath holds the types on the current path, which catches a recursive type.
 	onPath set.Set[string]
+	// direction is the direction that a field on the current path sets, and
+	// directionAt is the path to that field.
+	direction   refdomain.Direction
+	directionAt string
 }
 
 func newRefWalker(table *resolution.Table) *refWalker {
@@ -136,6 +145,7 @@ func newRefWalker(table *resolution.Table) *refWalker {
 // walk returns the references that typ holds, in the order its fields declare them.
 // For a union, these are the references in the fields of its variants.
 func (w *refWalker) walk(typ resolution.Type) ([]*walkedRef, error) {
+	w.root = typ.QualifiedName
 	var err error
 	switch form := typ.Form.(type) {
 	case resolution.StructForm:
@@ -186,17 +196,31 @@ func (w *refWalker) walkField(
 	path []string,
 ) error {
 	path = append(slices.Clone(path), f.Name)
+	at := strings.Join(path, ".")
 	isSlice := f.Type.Name == "Array" && len(f.Type.TypeArgs) == 1
+	dir, err := refdomain.DirectionOf(f)
+	if err != nil {
+		return errors.Wrap(err, owner.QualifiedName)
+	}
+	if dir != refdomain.None && w.direction != refdomain.None {
+		return errors.Newf(
+			"%s: @ref fields %s and %s both set a direction on one path",
+			w.root,
+			w.directionAt,
+			at,
+		)
+	}
 	isMap := isMapType(f.Type)
-	if plugindomain.HasDomainFromField(f, "ref") {
+	if refdomain.Declares(f) {
 		w.declared.Add(fieldDecl{typ: declarer(owner, f.Name, w.table), field: f.Name})
 		site := refSite{
 			steps: append(slices.Clone(steps), refStep{
 				kind:  stepLeaf,
 				field: naming.GetFieldName(f),
 			}),
-			field: f,
-			mode:  leafModeOf(f, isSlice),
+			field:     f,
+			mode:      leafModeOf(f, isSlice),
+			direction: w.direction,
 		}
 		if isMap {
 			if value := f.Type.TypeArgs[1]; value.Name == "Array" || isMapType(value) {
@@ -211,9 +235,37 @@ func (w *refWalker) walkField(
 			site.field.Default = nil
 			site.mode = leafMap
 		}
-		w.add(strings.Join(path, "."), site)
+		w.add(at, site)
 		return nil
 	}
+	if dir == refdomain.None {
+		return w.walkBelow(f, steps, path, isSlice)
+	}
+	w.declared.Add(fieldDecl{typ: declarer(owner, f.Name, w.table), field: f.Name})
+	w.direction, w.directionAt = dir, at
+	defer func() { w.direction, w.directionAt = refdomain.None, "" }()
+	before := w.siteCount()
+	if err := w.walkBelow(f, steps, path, isSlice); err != nil {
+		return err
+	}
+	if w.siteCount() == before {
+		return errors.Newf(
+			"%s: @ref field %s sets a direction but holds no @ref field",
+			w.root,
+			at,
+		)
+	}
+	return nil
+}
+
+// walkBelow walks the fields of the struct or union that f holds.
+func (w *refWalker) walkBelow(
+	f resolution.Field,
+	steps []refStep,
+	path []string,
+	isSlice bool,
+) error {
+	isMap := isMapType(f.Type)
 	elem := f.Type
 	switch {
 	case isSlice:
@@ -300,7 +352,7 @@ func (w *refWalker) holdsRef(typ resolution.Type, seen set.Set[string]) bool {
 		}
 	}
 	for _, f := range fields {
-		if plugindomain.HasDomainFromField(f, "ref") {
+		if refdomain.Declares(f) {
 			return true
 		}
 		elem := f.Type
@@ -314,6 +366,15 @@ func (w *refWalker) holdsRef(typ resolution.Type, seen set.Set[string]) bool {
 		}
 	}
 	return false
+}
+
+// siteCount returns the number of sites the walk has found.
+func (w *refWalker) siteCount() int {
+	n := 0
+	for _, r := range w.refs {
+		n += len(r.sites)
+	}
+	return n
 }
 
 func (w *refWalker) add(path string, site refSite) {
@@ -532,39 +593,77 @@ func (rd *renderer) walk(
 func (rd *renderer) targetsBody(ref *walkedRef) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "var targets []%s\n", rd.info.TargetType())
+	// A walk that finds a target sizes targets for one per element of the shared array.
+	grow := ""
+	if arr, ok := sharedArray(ref.sites); ok {
+		grow = fmt.Sprintf(
+			"if targets == nil {\ntargets = make([]%s, 0, len(%s))\n}\n",
+			rd.info.TargetType(),
+			arr,
+		)
+	}
 	mode := ref.sites[0].mode
 	rd.walk(&b, ref.tree(), "e", false, func(b *strings.Builder, expr string) {
 		switch mode {
 		case leafRequired:
-			fmt.Fprintf(b, "targets = append(targets, %s)\n", rd.target(expr))
+			fmt.Fprintf(b, "%stargets = append(targets, %s)\n", grow, rd.target(expr))
 		case leafZero:
 			fmt.Fprintf(
 				b,
-				"if %s != %s {\ntargets = append(targets, %s)\n}\n",
+				"if %s != %s {\n%stargets = append(targets, %s)\n}\n",
 				expr,
 				rd.info.ZeroOperand(),
+				grow,
 				rd.target(expr),
 			)
 		case leafOptional:
 			fmt.Fprintf(
 				b,
-				"if %s != nil {\ntargets = append(targets, %s)\n}\n",
+				"if %s != nil {\n%stargets = append(targets, %s)\n}\n",
 				expr,
+				grow,
 				rd.target("*"+expr),
 			)
 		case leafSlice, leafMap:
 			k := rd.nextVar("k")
 			fmt.Fprintf(
 				b,
-				"for _, %s := range %s {\ntargets = append(targets, %s)\n}\n",
+				"for _, %s := range %s {\n%stargets = append(targets, %s)\n}\n",
 				k,
 				expr,
+				grow,
 				rd.target(k),
 			)
 		}
 	})
 	b.WriteString("return targets")
 	return b.String()
+}
+
+// sharedArray returns the expression of the array that every site of a reference
+// ranges over first, through fields that are not optional, so that the targets can hold
+// one element of it each without growing.
+func sharedArray(sites []refSite) (string, bool) {
+	shared := ""
+	for _, site := range sites {
+		fields, found := []string{"e"}, false
+		for _, st := range site.steps {
+			if st.kind == stepArray {
+				found = true
+				break
+			}
+			if st.kind != stepField || st.optional {
+				break
+			}
+			fields = append(fields, st.field)
+		}
+		expr := strings.Join(fields, ".")
+		if !found || (shared != "" && expr != shared) {
+			return "", false
+		}
+		shared = expr
+	}
+	return shared, shared != ""
 }
 
 // detachBody returns the code that removes the target t from e, or nothing when the
@@ -920,6 +1019,7 @@ func (rd *renderer) inlineDetachBody(ref *walkedRef) (string, error) {
 func sameReference(a, b refInfo) bool {
 	return a.OnDelete == b.OnDelete &&
 		a.Kind == b.Kind &&
+		a.Direction == b.Direction &&
 		a.Unique == b.Unique &&
 		a.Acyclic == b.Acyclic &&
 		a.IsID == b.IsID &&
@@ -958,12 +1058,13 @@ func renderNestedRefs(
 			EntryType:   entryType,
 			TargetsBody: rd.targetsBody(ref),
 		}
-		if info.OnDelete == "Inline" {
+		switch info.OnDelete {
+		case "Inline":
 			nr.InlineBody, err = rd.inlineBody(ref)
 			if err == nil {
 				nr.DetachBody, err = rd.inlineDetachBody(ref)
 			}
-		} else {
+		default:
 			nr.DetachBody, err = rd.detachBody(ref)
 		}
 		if err != nil {
@@ -997,20 +1098,25 @@ func walkedRefInfo(
 			)
 		}
 	}
-	named := ref.sites[0].field
-	named.Name = ref.path
 	inArray := mode == leafMap || mode == leafRequired && !slices.ContainsFunc(
 		ref.sites,
 		func(s refSite) bool { return !s.inArray() },
 	)
-	info, err := extractRef(typ, named, ownTable, inArray, rt, table, r, ctx)
+	extract := func(s refSite) (refInfo, error) {
+		named := s.field
+		named.Name = ref.path
+		info, err := extractRef(typ, named, ownTable, inArray, rt, table, r, ctx)
+		if s.direction != refdomain.None {
+			info.Direction = s.direction
+		}
+		return info, err
+	}
+	info, err := extract(ref.sites[0])
 	if err != nil {
 		return refInfo{}, err
 	}
 	for _, s := range ref.sites[1:] {
-		other := s.field
-		other.Name = ref.path
-		o, err := extractRef(typ, other, ownTable, inArray, rt, table, r, ctx)
+		o, err := extract(s)
 		if err != nil {
 			return refInfo{}, err
 		}

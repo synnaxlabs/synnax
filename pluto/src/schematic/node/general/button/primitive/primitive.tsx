@@ -37,6 +37,7 @@ interface ButtonProps extends Partial<
   label?: schematic.ButtonNodeConfig["label"];
   fillColor?: color.Crude;
   className?: string;
+  disabled?: boolean;
   onClick?: MouseEventHandler<HTMLButtonElement>;
   onMouseDown?: MouseEventHandler<HTMLButtonElement>;
   onMouseUp?: MouseEventHandler<HTMLButtonElement>;
@@ -52,6 +53,7 @@ export const Button = ({
   size = "medium",
   mode = "fire",
   onClickDelay: delay,
+  disabled,
 }: ButtonProps): ReactElement => {
   const symbolColor = color.rgbaString(fillColor);
   const style: CSSProperties = {
@@ -65,7 +67,9 @@ export const Button = ({
   // the hold is the actuation, so a hold delay has no meaning there.
   const delayed = (delay ?? 0) > 0;
   let handlers: Pick<ButtonProps, "onClick" | "onMouseDown" | "onMouseUp">;
-  if (mode === "momentary")
+  // A disabled Lyra button still passes a press and a release to their handlers.
+  if (disabled) handlers = {};
+  else if (mode === "momentary")
     handlers = {
       onMouseDown: primaryOnly(onMouseDown),
       onMouseUp: primaryOnly(onMouseUp),
@@ -82,6 +86,7 @@ export const Button = ({
         className={CSS.cls(CSS.symbolColored, CSS.B("symbol-button"))}
         style={style}
         {...handlers}
+        disabled={disabled}
         size={size}
         level={nodeSize.LEVELS[size]}
         direction={label?.direction}

@@ -26,6 +26,11 @@ export interface State {
   config: StateConfig;
   channel: channel.Key;
   onChange?: (next: { control: StateConfig }) => void;
+  /**
+   * True when the Core deleted a channel of the symbol. The chip and the indicator
+   * hide.
+   */
+  deleted?: boolean;
   /** Shown after the chip and the indicator, even with no channel. */
   children?: ReactNode;
 }
@@ -33,15 +38,17 @@ export interface State {
 interface InternalProps extends Flex.BoxProps {
   config: StateConfig;
   channel: channel.Key;
+  deleted: boolean;
 }
 
 const Internal = ({
   config: { hidden, chipHidden, indicatorHidden, authority, orientation },
   channel,
+  deleted,
   children,
   ...rest
 }: InternalProps) => {
-  const controlShown = !hidden && primitive.isNonZero(channel);
+  const controlShown = !hidden && !deleted && primitive.isNonZero(channel);
   const chip = {
     source: control.authoritySource({ channel }),
     sink: control.acquireChannelControl({
@@ -66,10 +73,10 @@ const Internal = ({
 };
 
 export const State = Grid.createItem<State>(
-  ({ config, channel, onChange, children }) => {
+  ({ config, channel, onChange, deleted = false, children }) => {
     // The chip and the indicator report control of the channel, so with no channel
     // only the children show.
-    if (!primitive.isNonZero(channel) && children == null) return null;
+    if ((!primitive.isNonZero(channel) || deleted) && children == null) return null;
     return (
       <Grid.Item
         itemKey="control"
@@ -78,7 +85,7 @@ export const State = Grid.createItem<State>(
           onChange?.({ control: { ...config, orientation: loc } })
         }
       >
-        <Internal config={config} channel={channel}>
+        <Internal config={config} channel={channel} deleted={deleted}>
           {children}
         </Internal>
       </Grid.Item>

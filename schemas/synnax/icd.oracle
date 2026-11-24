@@ -673,6 +673,7 @@ ReadBinding struct {
     }
     channel   channel.Key = 0 {
         @doc value     "is the channel the value of the field is written to."
+        @ref direction write
         @ref kind      use
         @ref on_delete restrict
     }

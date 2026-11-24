@@ -54,9 +54,14 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 }
 
 type createOptions struct {
-	retrieveIfNameExists                        bool
-	overwriteIfNameExistsAndDifferentProperties bool
+	retrieveIfNameExists bool
+	// builtIn is true when Declare creates the channels, which the channel limit does
+	// not count.
+	builtIn bool
 }
+
+// limited reports whether the channel limit counts ch.
+func (o createOptions) limited(ch Channel) bool { return !o.builtIn && !ch.Virtual }
 
 // CreateOption configures the behavior of a Create or CreateMany call.
 type CreateOption func(*createOptions)
@@ -66,15 +71,6 @@ type CreateOption func(*createOptions)
 // instead of returning an error.
 func RetrieveIfNameExists() CreateOption {
 	return func(o *createOptions) { o.retrieveIfNameExists = true }
-}
-
-// OverwriteIfNameExistsAndDifferentProperties returns a CreateOption that overwrites an
-// existing channel of the same name when its properties differ from the channel being
-// created.
-func OverwriteIfNameExistsAndDifferentProperties() CreateOption {
-	return func(o *createOptions) {
-		o.overwriteIfNameExistsAndDifferentProperties = true
-	}
 }
 
 // SetGroup applies a set of the group to each channel with keys, moving it into g, or
@@ -109,13 +105,7 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, e
 	if err = next.Validate(); err != nil {
 		return nil, err
 	}
-	if err = group.CheckMember(
-		ctx,
-		w.tx,
-		next.Group,
-		resource.TypeChannel,
-		nil,
-	); err != nil {
+	if err = w.checkGroup(ctx, prev, next); err != nil {
 		return nil, err
 	}
 	if next.Expression != prev.Expression ||
@@ -154,6 +144,19 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, e
 	}
 	w.dispatcher.Attach(w.tx, key, slices.Concat(acts, computed)...)
 	return computed, nil
+}
+
+// checkGroup checks that next, an edit of prev, sits in a group that holds channels,
+// and that a built-in channel stays in its group.
+func (w Writer) checkGroup(ctx context.Context, prev, next Channel) error {
+	if !sameGroup(prev.Group, next.Group) && w.svc.IsBuiltIn(prev.Key()) {
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"can't move built-in channel %q",
+			prev.Name,
+		)
+	}
+	return group.CheckMember(ctx, w.tx, next.Group, resource.TypeChannel, nil)
 }
 
 // regroupIndex moves the index of ch, the calculated channel with key, to the group of
@@ -386,9 +389,7 @@ func (w Writer) create(
 		}
 	}
 	// Auto-create index channels for calculated channels that do not yet have one (both
-	// brand-new calculated channels and existing ones missing an index). Synthesis
-	// runs before the overwrite step so the auto-created index names flow through the
-	// same name-collision machinery as caller-provided channels.
+	// brand-new calculated channels and existing ones missing an index).
 	indexChannels, calcNeedingIndex, err := synthesizeIndexes(channels)
 	if err != nil {
 		return err
@@ -398,12 +399,7 @@ func (w Writer) create(
 		return err
 	}
 	channels = append(channels, indexChannels...)
-	if opts.overwriteIfNameExistsAndDifferentProperties {
-		if err = w.overwriteDiffering(ctx, channels); err != nil {
-			return err
-		}
-	}
-	written, err := w.allocateNew(ctx, channels)
+	written, err := w.allocateNew(ctx, channels, opts)
 	if err != nil {
 		return err
 	}
@@ -447,13 +443,11 @@ func (w Writer) validateCreate(
 	if !*w.svc.cfg.ValidateNames {
 		return nil
 	}
-	skipExisting := opts.retrieveIfNameExists ||
-		opts.overwriteIfNameExistsAndDifferentProperties
 	return w.validateChannelNames(
 		ctx,
 		KeysFromChannels(channels),
 		Names(channels),
-		skipExisting,
+		opts.retrieveIfNameExists,
 	)
 }
 
@@ -572,7 +566,6 @@ func synthesizeIndexes(channels []Channel) ([]Channel, []int, error) {
 			IsIndex:     true,
 			Virtual:     true,
 			Leaseholder: node.KeyFree,
-			Internal:    ch.Internal,
 			Group:       ch.Group,
 		})
 		calcNeedingIndex = append(calcNeedingIndex, i)
@@ -589,9 +582,8 @@ func isFreeIndex(ch Channel) bool {
 // adoptIndexes resolves the names of indexChannels against existing channels. A
 // compatible index, such as one left behind by a deleted calculated channel, replaces
 // its entry in indexChannels instead of a duplicate name. An incompatible channel is a
-// validation error, unless the create overwrites it. adoptIndexes returns the position
-// in indexChannels of each adopted index to move to the group of its new calculated
-// channel.
+// validation error. adoptIndexes returns the position in indexChannels of each adopted
+// index to move to the group of its new calculated channel.
 func (w Writer) adoptIndexes(
 	ctx context.Context,
 	indexChannels []Channel,
@@ -619,9 +611,6 @@ func (w Writer) adoptIndexes(
 			indexChannels[idx] = ex
 			continue
 		}
-		if opts.overwriteIfNameExistsAndDifferentProperties {
-			continue
-		}
 		return nil, errors.Wrapf(
 			validate.ErrValidation,
 			"channel %q already exists and cannot serve as the index for a calculated channel",
@@ -646,45 +635,13 @@ func (w Writer) adoptIndexes(
 	return regroup, nil
 }
 
-// overwriteDiffering deletes existing channels of the same name whose properties
-// differ from the ones being created, so the create can replace them. Channels that
-// match an existing record (ignoring allocated keys) are reset to that record instead.
-func (w Writer) overwriteDiffering(ctx context.Context, channels []Channel) error {
-	names := Names(channels)
-	if len(names) == 0 {
-		return nil
-	}
-	var existing []Channel
-	if err := w.svc.newRetrieve().
-		Where(MatchNames(names...)).
-		Entries(&existing).
-		Exec(ctx, w.tx); err != nil {
-		return errors.Skip(err, query.ErrNotFound)
-	}
-	keysToDelete := make(Keys, 0, len(existing))
-	namePositions := positions(names)
-	for _, ex := range existing {
-		i, found := lo.Find(namePositions[ex.Name], func(i int) bool {
-			return channels[i].Key() != ex.Key()
-		})
-		if !found {
-			continue
-		}
-		if channels[i].Equals(ex, "LocalKey", "LocalIndex", "Leaseholder") {
-			channels[i] = ex
-			continue
-		}
-		keysToDelete = append(keysToDelete, ex.Key())
-	}
-	if len(keysToDelete) == 0 {
-		return nil
-	}
-	return w.delete(ctx, keysToDelete, true)
-}
-
 // allocateNew allocates local keys for the channels without one through the
 // distribution allocator, writes them, and returns their keys.
-func (w Writer) allocateNew(ctx context.Context, channels []Channel) (Keys, error) {
+func (w Writer) allocateNew(
+	ctx context.Context,
+	channels []Channel,
+	opts createOptions,
+) (Keys, error) {
 	newIndices := make([]int, 0, len(channels))
 	minimal := make([]channel.Channel, 0, len(channels))
 	for i, ch := range channels {
@@ -693,7 +650,7 @@ func (w Writer) allocateNew(ctx context.Context, channels []Channel) (Keys, erro
 			minimal = append(minimal, ch.Distribution())
 		}
 	}
-	if err := w.allocateAndWrite(ctx, channels, newIndices, minimal); err != nil {
+	if err := w.allocateAndWrite(ctx, channels, newIndices, minimal, opts); err != nil {
 		return nil, err
 	}
 	written := make(Keys, 0, len(newIndices))
@@ -798,8 +755,9 @@ func (w Writer) allocateAndWrite(
 	channels []Channel,
 	newIndices []int,
 	minimal []channel.Channel,
+	opts createOptions,
 ) error {
-	if err := w.checkLimit(channels, newIndices); err != nil {
+	if err := w.checkLimit(channels, newIndices, opts); err != nil {
 		return err
 	}
 	toCreate := make([]Channel, 0, len(newIndices))
@@ -820,7 +778,7 @@ func (w Writer) allocateAndWrite(
 
 	externalCreatedKeys := make(Keys, 0, len(toCreate))
 	for _, ch := range toCreate {
-		if !ch.Internal && !ch.Virtual {
+		if opts.limited(ch) {
 			externalCreatedKeys = append(externalCreatedKeys, ch.Key())
 		}
 	}
@@ -845,12 +803,16 @@ func (w Writer) allocateAndWrite(
 	return nil
 }
 
-// checkLimit checks that the external, non-virtual channels at newIndices in channels
+// checkLimit checks that the channels at newIndices in channels that the limit counts
 // fit the channel limit.
-func (w Writer) checkLimit(channels []Channel, newIndices []int) error {
+func (w Writer) checkLimit(
+	channels []Channel,
+	newIndices []int,
+	opts createOptions,
+) error {
 	externalNewCount := 0
 	for _, i := range newIndices {
-		if !channels[i].Internal && !channels[i].Virtual {
+		if opts.limited(channels[i]) {
 			externalNewCount++
 		}
 	}
@@ -977,10 +939,10 @@ func (w Writer) delete(ctx context.Context, keys Keys, allowInternal bool) error
 	if err := w.svc.table.NewDelete().
 		Where(gorp.MatchKeys[Key, Channel](keys...)).
 		Guard(func(_ gorp.Context, c Channel) error {
-			if c.Internal && !allowInternal {
+			if !allowInternal && w.svc.IsBuiltIn(c.Key()) {
 				return errors.Wrapf(
 					validate.ErrValidation,
-					"can't delete internal channel %q",
+					"can't delete built-in channel %q",
 					c.Name,
 				)
 			}
@@ -1025,13 +987,12 @@ func (w Writer) rename(
 	if err := w.svc.table.NewUpdate().
 		Where(gorp.MatchKeys[Key, Channel](keys...)).
 		ChangeErr(func(_ gorp.Context, c Channel) (Channel, error) {
-			if c.Internal && !allowInternal {
-				return Channel{},
-					errors.Wrapf(
-						validate.ErrValidation,
-						"cannot rename internal channel %v",
-						c,
-					)
+			if !allowInternal && w.svc.IsBuiltIn(c.Key()) {
+				return Channel{}, errors.Wrapf(
+					validate.ErrValidation,
+					"can't rename built-in channel %q",
+					c.Name,
+				)
 			}
 			c.Name = renameMap[c.Key()]
 			if err := c.Validate(); err != nil {

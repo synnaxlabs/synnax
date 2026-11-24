@@ -24,3 +24,14 @@
         }
     }
 }
+
+.pluto-table__cell--value > .pluto-table__cell--content {
+    display: flex;
+    padding: 0 1rem;
+    align-items: center;
+    justify-content: center;
+
+    & > .lyra-text {
+        min-width: 0;
+    }
+}

@@ -15,7 +15,7 @@ from typing import Any, Literal, TypeAlias, TypedDict, override as _override
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from synnax import group as group_, node, status as status_
+from synnax import group as group_, node, resource, status as status_
 from synnax.resource import ID
 from x import control, filter, telem
 from x.filter import shorthand
@@ -34,6 +34,13 @@ OPERATION_TYPE_DERIVATIVE: Literal["derivative"] = "derivative"
 
 
 OperationType = Literal["min", "max", "avg", "none", "derivative"]
+
+DIRECTION_READ: Literal["read"] = "read"
+
+DIRECTION_WRITE: Literal["write"] = "write"
+
+
+Direction = Literal["read", "write"]
 
 ORDER_FIELD_NAME: Literal["name"] = "name"
 
@@ -65,6 +72,18 @@ class Operation(BaseModel):
     )
 
 
+class Use(BaseModel):
+    """Is a record that reads or writes a channel.
+
+    Attributes:
+        id: Is the record that uses the channel.
+        direction: Is how the record uses the channel.
+    """
+
+    id: resource.ID
+    direction: Direction
+
+
 class CountLimitedResponse(BaseModel):
     """Holds the count of the channels that count against the license channel limit (not
     internal, not virtual).
@@ -88,7 +107,7 @@ class Where(BaseModel):
         leaseholder: Selects by leaseholder.
         data_type: Selects by data_type.
         is_index: Selects by is_index.
-        internal: Selects by internal.
+        internal: Matches the built-in channels, or every other channel when false.
         virtual: Matches virtual channels that are not calculated, or every other
             channel when false.
         groups: Matches the channels in any of the given groups.
@@ -191,6 +210,9 @@ class Payload(BaseModel):
             virtual channels can have a policy of shared concurrency.
         status: Is the current operational status of the channel.
         group: Is the group the channel sits in, if any.
+        uses: Are the records that read or write the channel and that the caller can
+            retrieve, filled only when a retrieve request asks for them. A task config
+            shows as its task.
     """
 
     key: Key = Field(default=Key(0), ge=0, le=4294967295)
@@ -206,6 +228,7 @@ class Payload(BaseModel):
     concurrency: control.Concurrency = control.Concurrency.exclusive
     status: Status | None = None
     group: group_.Key | None = None
+    uses: list[Use] | None = None
 
     @_override
     def __hash__(self) -> int:
@@ -222,6 +245,7 @@ class RetrieveRequest(BaseModel):
         after: Starts the channels strictly past this position in their order.
         limit: Is the most channels to return.
         include_status: Includes the status of each record.
+        include_uses: Includes the uses of each record.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -232,6 +256,7 @@ class RetrieveRequest(BaseModel):
     after: Cursor | None = None
     limit: int | None = Field(default=None, ge=0, le=4294967295)
     include_status: bool = False
+    include_uses: bool = False
 
 
 class RetrieveResponse(BaseModel):

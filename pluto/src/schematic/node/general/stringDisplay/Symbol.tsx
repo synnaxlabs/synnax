@@ -10,7 +10,9 @@
 import type { schematic } from "@synnaxlabs/client";
 import type { ReactElement } from "react";
 
+import { Channel } from "@/channel";
 import { Color } from "@/color";
+import { Deleted } from "@/schematic/node/common/deleted";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
 import { Primitive as BasePrimitive } from "@/schematic/node/common/primitive";
@@ -46,6 +48,7 @@ export const Symbol = ({
     color: resolve(textColor),
     stalenessTimeout,
   });
+  const deleted = Channel.useDeleted(channel);
   const resize = Grid.useInlineResize(inlineSize, (inlineSize) =>
     onConfigChange({ inlineSize }),
   );
@@ -53,6 +56,7 @@ export const Symbol = ({
     <Grid.Grid editable={selected} nodeKey={nodeKey} allowRotate={false} {...resize}>
       <Label.Label config={label} onChange={onConfigChange} />
       {stale && <Stale.Indicator />}
+      {deleted && <Deleted.Item />}
       <Primitive.StringDisplay
         strokeColor={resolve(strokeColor)}
         level={level}

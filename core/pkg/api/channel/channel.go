@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
@@ -168,9 +169,6 @@ func (s *Service) Create(
 	req CreateRequest,
 ) (CreateResponse, error) {
 	translated := translateChannelsBackward(req.Channels)
-	for i := range translated {
-		translated[i].Internal = false
-	}
 	inputs, err := s.internal.CalculationInputs(ctx, tx, translated)
 	if err != nil {
 		return CreateResponse{}, err
@@ -190,7 +188,9 @@ func (s *Service) Create(
 		CreateMany(ctx, &translated, opts...); err != nil {
 		return CreateResponse{}, err
 	}
-	return CreateResponse{Channels: translateChannelsForward(translated)}, nil
+	return CreateResponse{
+		Channels: translateChannelsForward(translated, s.internal.IsBuiltIn),
+	}, nil
 }
 
 var _ bind.Named = RetrieveRequest{}
@@ -216,7 +216,9 @@ func (s *Service) Retrieve(
 	if err != nil {
 		return RetrieveResponse{}, err
 	}
-	res := RetrieveResponse{Channels: translateChannelsForward(resChannels)}
+	res := RetrieveResponse{
+		Channels: translateChannelsForward(resChannels, s.internal.IsBuiltIn),
+	}
 	if req.IncludeStatus {
 		statuses, err := s.status.Join[struct{}](
 			ctx,
@@ -230,7 +232,54 @@ func (s *Service) Retrieve(
 			res.Channels[i].Status = st
 		}
 	}
+	if req.IncludeUses {
+		if err = s.fillUses(ctx, snap, res.Channels); err != nil {
+			return RetrieveResponse{}, err
+		}
+	}
 	return res, nil
+}
+
+// fillUses sets the uses of each channel, leaving out the records the subject cannot
+// retrieve. A channel with no readable uses gets empty uses, so the response tells it
+// apart from a channel whose uses were not asked for.
+func (s *Service) fillUses(
+	ctx context.Context,
+	snap bind.Snapshot,
+	channels []Channel,
+) error {
+	keys := lo.Map(channels, func(ch Channel, _ int) channel.Key { return ch.Key })
+	uses, err := s.internal.Uses(ctx, snap, keys)
+	if err != nil {
+		return err
+	}
+	type holder struct {
+		id      resource.ID
+		allowed bool
+	}
+	holders := make(map[gorp.Target]holder)
+	total := 0
+	for _, u := range uses {
+		total += len(u)
+	}
+	// One array backs the uses of every channel.
+	backing := make([]Use, 0, total)
+	for i := range channels {
+		start := len(backing)
+		for _, u := range uses[i] {
+			h, ok := holders[u.Holder]
+			if !ok {
+				h.id = taskconfig.RecordOf(u.Holder)
+				h.allowed = snap.Allowed(h.id)
+				holders[u.Holder] = h
+			}
+			if h.allowed {
+				backing = append(backing, Use{ID: h.id, Direction: u.Direction})
+			}
+		}
+		channels[i].Uses = backing[start:len(backing):len(backing)]
+	}
+	return nil
 }
 
 func (s *Service) retrieve(
@@ -265,7 +314,10 @@ func namesByName(where *channel.Where) bool {
 		(where.Name.Eq != nil || len(where.Name.In) > 0)
 }
 
-func translateChannelsForward(channels []channel.Channel) []Channel {
+func translateChannelsForward(
+	channels []channel.Channel,
+	builtIn func(channel.Key) bool,
+) []Channel {
 	translated := make([]Channel, len(channels))
 	for i, ch := range channels {
 		translated[i] = Channel{
@@ -277,7 +329,7 @@ func translateChannelsForward(channels []channel.Channel) []Channel {
 			Index:       ch.Index(),
 			Virtual:     ch.Virtual,
 			Concurrency: ch.Concurrency,
-			Internal:    ch.Internal,
+			Internal:    builtIn(ch.Key()),
 			Expression:  ch.Expression,
 			Operations:  ch.Operations,
 			Group:       ch.Group,
@@ -300,7 +352,6 @@ func translateChannelsBackward(channels []Channel) []channel.Channel {
 			LocalKey:    ch.Key.LocalKey(),
 			Virtual:     ch.Virtual,
 			Concurrency: ch.Concurrency,
-			Internal:    ch.Internal,
 			Expression:  ch.Expression,
 			Operations:  ch.Operations,
 			Group:       ch.Group,

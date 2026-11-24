@@ -13,7 +13,6 @@ import (
 	"maps"
 	"slices"
 
-	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
@@ -321,7 +320,7 @@ func frozenFile(
 	}
 	for _, name := range f.Order {
 		t, ok := table.Get(ns + "." + name)
-		if ok && !t.Synthetic && !omit.IsSkipped(t, "go") {
+		if ok && !t.Synthetic && pred.declares(t) {
 			out.addDecl(t)
 		}
 	}

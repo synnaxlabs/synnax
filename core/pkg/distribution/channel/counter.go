@@ -11,17 +11,26 @@ package channel
 
 import (
 	"context"
+	"encoding/binary"
+	"slices"
 	"sync"
 
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/math"
+	"github.com/synnaxlabs/x/query"
 )
+
+// firstOpenSuffix names the record of the value that storage held at the first open of
+// a counter.
+const firstOpenSuffix = ".firstOpen"
 
 type counter struct {
 	// mu makes the key cap check and the add one step.
 	mu  sync.Mutex
 	ctr *kv.AtomicInt64Counter
+	// atFirstOpen is the value that storage held at the first open of the counter.
+	atFirstOpen int64
 }
 
 func newCounter(ctx context.Context, db kv.ReadWriter, key []byte) (*counter, error) {
@@ -29,7 +38,45 @@ func newCounter(ctx context.Context, db kv.ReadWriter, key []byte) (*counter, er
 	if err != nil {
 		return nil, err
 	}
-	return &counter{ctr: ctr}, nil
+	c := &counter{ctr: ctr}
+	if c.atFirstOpen, err = firstOpenValue(ctx, db, key, ctr.Value()); err != nil {
+		return nil, err
+	}
+	return c, nil
+}
+
+// firstOpenValue returns the value that storage held at the first open of the counter
+// at key. On the first open, it records value as that value.
+func firstOpenValue(
+	ctx context.Context,
+	db kv.ReadWriter,
+	key []byte,
+	value int64,
+) (int64, error) {
+	record := append(slices.Clone(key), firstOpenSuffix...)
+	b, closer, err := db.Get(record)
+	if err == nil {
+		first := int64(binary.LittleEndian.Uint64(b))
+		return first, closer.Close()
+	}
+	if !errors.Is(err, query.ErrNotFound) {
+		return 0, err
+	}
+	var buf [8]byte
+	binary.LittleEndian.PutUint64(buf[:], uint64(value))
+	return value, db.Set(ctx, record, buf[:])
+}
+
+// issuedAtFirstOpen reports whether storage held a value of the counter at or past
+// local at the first open of the counter.
+func (c *counter) issuedAtFirstOpen(local LocalKey) bool {
+	return local != 0 && int64(local) <= c.atFirstOpen
+}
+
+// issued reports whether storage holds a value of the counter at or past local, so no
+// later add returns local.
+func (c *counter) issued(local LocalKey) bool {
+	return local != 0 && int64(local) <= c.ctr.Value()
 }
 
 func (c *counter) add(ctx context.Context, delta LocalKey) (LocalKey, error) {
