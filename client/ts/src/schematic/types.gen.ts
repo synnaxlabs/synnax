@@ -265,7 +265,7 @@ export interface LabeledConfig extends z.infer<typeof labeledConfigZ> {}
 export const scaleIndicatorConfigZ = numericTelemConfigZ
   .extend(stalenessConfigZ.shape)
   .extend({
-    bounds: spatial.boundsZ().prefault({ lower: 0, upper: 100 }),
+    bounds: spatial.closedBoundsZ().prefault({ lower: 0, upper: 100 }),
     levelColor: zod.nullToUndefined(color.refZ),
     axisColor: zod.nullToUndefined(color.refZ),
     textColor: zod.nullToUndefined(color.refZ),
@@ -329,7 +329,7 @@ export const stateBindingZ = formatConfigZ.extend({
   source: zod.nullToUndefined(sourceZ),
   enumeration: enumeration.keyZ.optional(),
   match: zod.nullToUndefined(symbol.matcherZ),
-  bounds: spatial.boundsZ().optional(),
+  bounds: spatial.closedBoundsZ().optional(),
   default: z.number().optional(),
 });
 export interface StateBinding extends z.infer<typeof stateBindingZ> {}
@@ -701,7 +701,7 @@ export const gaugeNodeConfigZ = labeledConfigZ
     /** strokeColor is the color of the gauge arc, a named color or a fixed color. */
     strokeColor: zod.nullToUndefined(color.refZ),
     /** bounds is the numeric range displayed by the gauge. */
-    bounds: spatial.boundsZ().prefault({ lower: 0, upper: 100 }),
+    bounds: spatial.closedBoundsZ().prefault({ lower: 0, upper: 100 }),
     /** barWidth is the thickness of the gauge arc in pixels. */
     barWidth: zod.uint16.min(1).default(10),
     /** location is the anchor of the value within the gauge. */
