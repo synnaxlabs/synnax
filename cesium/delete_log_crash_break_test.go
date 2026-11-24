@@ -117,7 +117,9 @@ var _ = Describe("Delete on the pointer log, broken by a crash", func() {
 				[]cesium.ChannelKey{breakData},
 				(0 * telem.SecondTS).Range(15*telem.SecondTS),
 			)).To(Succeed())
-			Expect(breakSegments(disk, breakData)).To(HaveLen(1))
+			// The unlink waits for the log to cover the Tombstone, after its ack.
+			Eventually(func() []string { return breakSegments(disk, breakData) }).
+				Should(HaveLen(1))
 			image := MustSucceed(disk.Crash(fault.CrashConfig{
 				RunKey:            runKey,
 				EntrySurvivalRate: 0.5,
