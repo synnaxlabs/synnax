@@ -113,15 +113,33 @@ func RemoveImport(item parser.IImportItemContext) protocol.TextEdit {
 	return protocol.TextEdit{Range: r}
 }
 
-// RemoveStatement returns the edit that removes stmt and the newline after it.
+// RemoveStatement returns the edit that removes stmt and the newline after it. It
+// removes the indent too when stmt is alone on its line.
 func RemoveStatement(stmt antlr.ParserRuleContext) protocol.TextEdit {
-	stop := stmt.GetStop()
-	end := endOf(stop)
-	if stop.GetInputStream().GetText(stop.GetStop()+1, stop.GetStop()+1) == "\n" {
-		end = protocol.Position{Line: end.Line + 1}
+	var (
+		first, last = stmt.GetStart(), stmt.GetStop()
+		input       = first.GetInputStream()
+		r           = protocol.Range{Start: startOf(first), End: endOf(last)}
+	)
+	if input.GetText(last.GetStop()+1, last.GetStop()+1) != "\n" {
+		return protocol.TextEdit{Range: r}
 	}
+	r.End = protocol.Position{Line: r.End.Line + 1}
+	indent := input.GetText(first.GetStart()-first.GetColumn(), first.GetStart()-1)
+	if strings.TrimSpace(indent) == "" {
+		r.Start.Character = 0
+	}
+	return protocol.TextEdit{Range: r}
+}
+
+// Replace returns the edit that changes the code at node to text.
+func Replace(node antlr.ParserRuleContext, text string) protocol.TextEdit {
 	return protocol.TextEdit{
-		Range: protocol.Range{Start: startOf(stmt.GetStart()), End: end},
+		Range: protocol.Range{
+			Start: startOf(node.GetStart()),
+			End:   endOf(node.GetStop()),
+		},
+		NewText: text,
 	}
 }
 

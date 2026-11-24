@@ -750,12 +750,15 @@ func analyzeForSingleIdent(
 		return
 	}
 
-	ctx.Diagnostics.Add(codes.InvalidOperand.Atf(
-		ctx.AST,
-		"cannot iterate over %s; did you mean range(%s)?",
-		exprType,
-		parser.GetExpressionText(expr),
-	))
+	text := parser.GetExpressionText(expr)
+	d := codes.InvalidOperand.Atf(
+		ctx.AST, "cannot iterate over %s; did you mean range(%s)?", exprType, text,
+	)
+	if exprType.IsInteger() || isIntegerLiteral(exprType) {
+		call := "range(" + text + ")"
+		d = d.WithEdits("Change to `"+call+"`", formatter.Replace(expr, call))
+	}
+	ctx.Diagnostics.Add(d)
 }
 
 func analyzeForTwoIdent(
@@ -940,7 +943,7 @@ func analyzeBreakStatement(ctx context.Context[parser.IBreakStatementContext]) {
 		ctx.Diagnostics.Add(codes.BreakOutsideLoop.Atf(
 			ctx.AST,
 			"break can only be used inside a for loop",
-		))
+		).WithEdits("Remove break", formatter.RemoveStatement(ctx.AST)))
 	}
 }
 
@@ -950,7 +953,7 @@ func analyzeContinueStatement(ctx context.Context[parser.IContinueStatementConte
 		ctx.Diagnostics.Add(codes.BreakOutsideLoop.Atf(
 			ctx.AST,
 			"continue can only be used inside a for loop",
-		))
+		).WithEdits("Remove continue", formatter.RemoveStatement(ctx.AST)))
 	}
 }
 

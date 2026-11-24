@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/diagnostics"
 	. "github.com/synnaxlabs/x/testutil"
 	"go.lsp.dev/protocol"
 )
@@ -3838,6 +3839,35 @@ var _ = Describe("Routing entry strictness", func() {
 			        }
 			    }
 			}`),
+	)
+
+	DescribeTable("Should give a fix that adds '()' to a function name",
+		func(bCtx SpecContext, source, fixed string) {
+			ast := MustSucceed(parser.Parse(source))
+			ctx := context.NewRoot(bCtx, ast, NewRoot(routingResolver))
+			analyzer.AnalyzeProgram(ctx)
+			var fixes []diagnostics.Fix
+			for _, d := range *ctx.Diagnostics {
+				if d.Code == codes.ChannelExpected.Code {
+					fixes = append(fixes, d.Fixes...)
+				}
+			}
+			Expect(fixes).To(HaveLen(1))
+			Expect(fixes[0].Title).To(Equal("Change to `shout()`"))
+			Expect(testutil.ApplyFix(source, fixes[0])).To(Equal(fixed))
+		},
+		Entry(
+			"between two channels",
+			"func shout() {value str} str {\n    return value\n}\n"+
+				"log_str -> shout -> log_str",
+			"func shout() {value str} str {\n    return value\n}\n"+
+				"log_str -> shout() -> log_str",
+		),
+		Entry(
+			"at the end of a flow",
+			"func shout() {value str} {}\nlog_str -> shout",
+			"func shout() {value str} {}\nlog_str -> shout()",
+		),
 	)
 
 	DescribeTable("Should give a fix that changes '=>' to '->'",

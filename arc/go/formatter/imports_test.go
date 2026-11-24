@@ -171,4 +171,45 @@ var _ = Describe("RemoveStatement", func() {
 			"x := 1\n",
 		),
 	)
+
+	DescribeTable(
+		"Should remove a statement in a block",
+		func(source, expected string) {
+			stmt := MustSucceed(parser.Parse(source)).
+				TopLevelItem(0).
+				FunctionDeclaration().
+				Block().
+				Statement(0)
+			Expect(applied(source, formatter.RemoveStatement(stmt))).To(Equal(expected))
+		},
+		Entry(
+			"with its indent when it is alone on its line",
+			"func f() {\n    break\n    x := 1\n}",
+			"func f() {\n    x := 1\n}",
+		),
+		Entry(
+			"with no other code of its line",
+			"func f() { break\n    x := 1\n}",
+			"func f() {     x := 1\n}",
+		),
+		Entry(
+			"with nothing more when code follows it",
+			"func f() { break }",
+			"func f() {  }",
+		),
+	)
+})
+
+var _ = Describe("Replace", func() {
+	It("Should change the code at the node to the text", func() {
+		source := "x := 1 + 2\ny := 3"
+		expr := MustSucceed(parser.Parse(source)).
+			TopLevelItem(0).
+			VariableDeclaration().
+			LocalVariable().
+			Expression()
+		Expect(
+			applied(source, formatter.Replace(expr, "f(1 + 2)")),
+		).To(Equal("x := f(1 + 2)\ny := 3"))
+	})
 })

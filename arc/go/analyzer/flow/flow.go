@@ -425,7 +425,9 @@ func analyzeIdentifier(
 	if !isFlowNode {
 		d := codes.ChannelExpected.Atf(ctx.AST, "%s is not a channel", name)
 		if sym.Kind == symbol.KindFunction {
-			d = d.WithNote("use " + name + "() to instantiate the function")
+			call := ctx.AST.GetText() + "()"
+			d = d.WithNote("use "+name+"() to instantiate the function").
+				WithEdits("Change to `"+call+"`", formatter.Replace(ctx.AST, call))
 		}
 		ctx.Diagnostics.Add(d)
 		return
