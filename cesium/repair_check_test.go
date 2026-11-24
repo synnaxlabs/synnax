@@ -73,6 +73,16 @@ func frames(fs xfs.FS, id uint64) []int64 {
 // stamp is first.
 func commitAt(fs xfs.FS, id uint64, first telem.TimeStamp) int64 {
 	GinkgoHelper()
+	return frameOf(fs, id, func(rec log.Record) bool {
+		c, ok := rec.(*log.Commit)
+		return ok && c.First == int64(first)
+	})
+}
+
+// frameOf returns the offset of the first frame of log 1 that holds a record that
+// match matches.
+func frameOf(fs xfs.FS, id uint64, match func(log.Record) bool) int64 {
+	GinkgoHelper()
 	b := MustSucceed(xfs.ReadFile(fs, log.Name(1)))
 	for _, off := range frames(fs, id) {
 		fr := MustSucceed(log.DecodeFrame(b[off:], id, 1, uint64(off)))
@@ -85,14 +95,14 @@ func commitAt(fs xfs.FS, id uint64, first telem.TimeStamp) int64 {
 				if !ok {
 					break
 				}
-				if c, is := rec.(*log.Commit); is && c.First == int64(first) {
+				if match(rec) {
 					return off
 				}
 			}
 			entries = entries[n:]
 		}
 	}
-	Fail(fmt.Sprintf("no frame holds a Commit from %d", first))
+	Fail("no frame holds the record")
 	return 0
 }
 
@@ -508,6 +518,92 @@ var _ = Describe("Check: repair of log damage", func() {
 		Expect(rep.Tails).To(BeEmpty())
 		Expect(rep.Unrecovered).To(BeEmpty())
 	})
+
+	It("Should keep the live samples of a segment whose rewrite was in the bad frame",
+		func(ctx SpecContext) {
+			r := newRepairRoot(ctx)
+			idx, data := GenerateChannelKey(), GenerateChannelKey()
+			keys := []cesium.ChannelKey{idx, data}
+			r.create(ctx, idx, data)
+			open := func(p int) *cesium.Writer {
+				GinkgoHelper()
+				return MustSucceed(r.db.OpenWriter(
+					ctx,
+					cesium.WriterConfig{Channels: keys, Start: repairStamp(p)},
+				))
+			}
+			w := open(0)
+			put(ctx, w, keys, 0, commits, nil)
+			r.synced(ctx, w, 0)
+			Expect(w.Close()).To(Succeed())
+			Expect(r.db.DeleteTimeRange(ctx, keys, telem.TimeRange{
+				Start: repairStamp(commits / 2),
+				End:   repairStamp(commits),
+			})).To(Succeed())
+			old := onlySegment(r.fs, idx)
+			// The takeover Seal starts the rewrite of each cut segment, and a durable
+			// Replace removes its old file.
+			w = open(commits)
+			put(ctx, w, keys, commits, commits, nil)
+			r.synced(ctx, w, commits)
+			Eventually(func() []uint64 {
+				return segmentsOf(r.fs, idx)
+			}).WithTimeout(time.Minute).ShouldNot(ContainElement(old))
+			put(ctx, w, keys, 2*commits, commits, nil)
+			r.synced(ctx, w, 2*commits)
+			Expect(w.Close()).To(Succeed())
+			bad := frameOf(r.fs, r.db.Identity(), func(rec log.Record) bool {
+				rp, ok := rec.(*log.Replace)
+				return ok && rp.Old == old
+			})
+			id := r.spoil(bad)
+			rep := repairOf(ctx, r.fs, id)
+			// The repair keeps the samples when the old file holds them, or when it
+			// rebuilds them from the copy.
+			kept := slices.Contains(segmentsOf(r.fs, idx), old) ||
+				slices.ContainsFunc(rep.Rebuilt, func(rg cesium.Range) bool {
+					return rg.Key == idx && rg.Samples == commits/2 &&
+						rg.TimeRange == telem.TimeRange{
+							Start: repairStamp(0),
+							End:   repairStamp(commits/2-1) + 1,
+						}
+				})
+			Expect(kept).To(BeTrue(), "the live samples of segment %d of key %d are "+
+				"in no file that the repair keeps: %+v", old, idx, rep)
+		})
+
+	It("Should list the lost commits of both bad frames of a log",
+		func(ctx SpecContext) {
+			r := newRepairRoot(ctx)
+			idx, data := GenerateChannelKey(), GenerateChannelKey()
+			keys := []cesium.ChannelKey{idx, data}
+			r.create(ctx, idx, data)
+			w := MustSucceed(r.db.OpenWriter(
+				ctx,
+				cesium.WriterConfig{Channels: keys, Start: repairStamp(0)},
+			))
+			var bad []int64
+			for c := range 5 {
+				put(ctx, w, keys, 10*c, 10, nil)
+				if off := r.synced(ctx, w, 10*c); c%2 == 1 {
+					bad = append(bad, off)
+				}
+			}
+			Expect(w.Close()).To(Succeed())
+			id := r.spoil(bad[1])
+			flipLog(r.fs, bad[0]+log.FrameHeaderSize+16)
+			rep := repairOf(ctx, r.fs, id)
+			Expect(rep.Damage).To(HaveLen(2))
+			for _, key := range keys {
+				var listed int64
+				for _, rg := range append(slices.Clone(rep.Rebuilt), rep.Unplaced...) {
+					if rg.Key == key {
+						listed += rg.Samples
+					}
+				}
+				Expect(listed).To(Equal(int64(20)), "key %d: %+v", key, rep)
+			}
+		})
 
 	It("Should fail a repair of a root that lost the file of an open segment that no "+
 		"record retires", func(ctx SpecContext) {
