@@ -393,6 +393,11 @@
         padding: 0.5rem;
         white-space: nowrap !important;
     }
+
+    /* Quick Fix goes first so its menu has room to open. */
+    & > div:last-child:not(:first-child) {
+        order: -1;
+    }
 }
 
 /* Action buttons */
@@ -433,6 +438,11 @@
 
 .pluto-editor__context-menu {
     min-width: 25rem;
+}
+
+/* Monaco sets the width of this menu as the width of its content. */
+.action-widget {
+    box-sizing: content-box !important;
 }
 
 /* Rename Widget */

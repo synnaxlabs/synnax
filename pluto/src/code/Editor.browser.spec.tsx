@@ -16,7 +16,15 @@ import {
   resolve,
   selectedByTripleClick,
 } from "@synnaxlabs/lyra/styletest";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  onTestFinished,
+  vi,
+} from "vitest";
 import { type Locator, page, userEvent } from "vitest/browser";
 
 import { Code } from "@/code";
@@ -143,6 +151,34 @@ const viewProblem = async (): Promise<Element> => {
   return message() as Element;
 };
 
+/** @returns the title of the fix that the quick fix menu of a real editor shows. */
+const quickFixTitle = async (title: string): Promise<Element> => {
+  const editor = await renderWarning();
+  const monaco = await import("@codingame/monaco-vscode-editor-api");
+  const registration = monaco.languages.registerCodeActionProvider("plaintext", {
+    provideCodeActions: (_, __, { markers }) => ({
+      actions: [{ title, kind: "quickfix", diagnostics: markers, edit: { edits: [] } }],
+      dispose: () => {},
+    }),
+  });
+  onTestFinished(() => registration.dispose());
+  // Monaco measures the row with its icon, so the icon font must load first.
+  await document.fonts.load("12px codicon");
+  editor.focus();
+  const shown = () =>
+    document.querySelector(".action-widget .monaco-list-row.action .title");
+  await expect
+    .poll(
+      () => {
+        if (shown() == null) editor.trigger("spec", "editor.action.quickFix", null);
+        return shown();
+      },
+      { timeout: 10_000, interval: 1000 },
+    )
+    .not.toBeNull();
+  return shown() as Element;
+};
+
 const expectColors = (row: Element, token: string): void => {
   expect(computed(row, "background-color")).toEqual(
     resolve(`var(--pluto-${token}-z-10)`, "background-color"),
@@ -250,6 +286,21 @@ describe("Editor", () => {
         await expect
           .poll(() => openLink)
           .toHaveBeenCalledExactlyOnceWith("https://example.com/w2000");
+      },
+      MONACO_TIMEOUT,
+    );
+  });
+
+  describe("quick fix menu", () => {
+    it(
+      "should show a long title in full",
+      async () => {
+        const title = await quickFixTitle('Change to `"pressure is high" -> log`');
+        const text = document.createRange();
+        text.selectNodeContents(title);
+        expect(title.getBoundingClientRect().width).toBeGreaterThanOrEqual(
+          text.getBoundingClientRect().width,
+        );
       },
       MONACO_TIMEOUT,
     );
