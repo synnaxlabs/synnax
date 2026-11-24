@@ -28,6 +28,7 @@ import (
 	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -308,13 +309,13 @@ var _ = Describe("Delete", func() {
 										dependee,
 									))
 									Expect(fr.Get(dependent).Series[0]).To(
-										telem.MatchSeriesData(
+										MatchSeriesData(
 											telem.NewSeriesSecondsTSV(10, 11, 12),
 										),
 									)
 									Expect(
 										fr.Get(dependee).Series[0],
-									).To(telem.MatchSeriesDataV[int64](1, 2, 3))
+									).To(MatchSeriesDataV[int64](1, 2, 3))
 									w := MustSucceed(
 										db.OpenWriter(ctx, cesium.WriterConfig{
 											Channels: []cesium.ChannelKey{dependent},
@@ -580,7 +581,7 @@ var _ = Describe("Delete", func() {
 							Expect(i.Next(1 * telem.Second)).To(BeTrue())
 							Expect(
 								i.Value().Get(data).Series[0],
-							).To(telem.MatchSeriesDataV[int64](2))
+							).To(MatchSeriesDataV[int64](2))
 							Expect(i.Close()).To(Succeed())
 							expectRemoved(fs, data)
 							expectRemoved(fs, key)
@@ -814,12 +815,12 @@ var _ = Describe("Delete", func() {
 							fr := MustSucceed(
 								db.Read(ctx, telem.TimeRangeMax, index2, data3),
 							)
-							Expect(fr.Get(index2).Series[0]).To(telem.MatchSeriesData(
+							Expect(fr.Get(index2).Series[0]).To(MatchSeriesData(
 								telem.NewSeriesSecondsTSV(10, 11, 12),
 							))
 							Expect(
 								fr.Get(data3).Series[0],
-							).To(telem.MatchSeriesDataV[int64](4, 5, 6))
+							).To(MatchSeriesDataV[int64](4, 5, 6))
 							w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 								Start:    20 * telem.SecondTS,
 								Channels: []cesium.ChannelKey{index2},
@@ -1600,10 +1601,10 @@ var _ = Describe("Delete", func() {
 							f := MustSucceed(
 								db.Read(ctx, telem.TimeRangeMax, data, data2),
 							)
-							Expect(f.Get(data).Series[0]).To(telem.MatchSeriesData(
+							Expect(f.Get(data).Series[0]).To(MatchSeriesData(
 								telem.NewSeriesV[int64](100, 101, 102, 103, 104),
 							))
-							Expect(f.Get(data2).Series[0]).To(telem.MatchSeriesData(
+							Expect(f.Get(data2).Series[0]).To(MatchSeriesData(
 								telem.NewSeriesV[int64](100, 101, 102, 103, 104),
 							))
 						},
@@ -1638,7 +1639,7 @@ var _ = Describe("Delete", func() {
 							)).To(MatchError(ContainSubstring("cannot access time range")))
 							Expect(w.Close()).To(Succeed())
 							f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, data))
-							Expect(f.Get(data).Series[0]).To(telem.MatchSeriesData(
+							Expect(f.Get(data).Series[0]).To(MatchSeriesData(
 								telem.NewSeriesV[int64](100, 101, 102, 103, 104),
 							))
 						},
@@ -1695,13 +1696,13 @@ var _ = Describe("Delete", func() {
 							f := MustSucceed(
 								db.Read(ctx, telem.TimeRangeMax, index, data, data2),
 							)
-							Expect(f.Get(index).Series[0]).To(telem.MatchSeriesData(
+							Expect(f.Get(index).Series[0]).To(MatchSeriesData(
 								telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14),
 							))
-							Expect(f.Get(data).Series[0]).To(telem.MatchSeriesData(
+							Expect(f.Get(data).Series[0]).To(MatchSeriesData(
 								telem.NewSeriesV[int64](100, 101, 102, 103, 104),
 							))
-							Expect(f.Get(data2).Series[0]).To(telem.MatchSeriesData(
+							Expect(f.Get(data2).Series[0]).To(MatchSeriesData(
 								telem.NewSeriesV[int64](200, 201, 202, 203, 204),
 							))
 						},

@@ -9,7 +9,9 @@
 
 # Gates every merge. The ruleset requires only the OK context, so every check a pull
 # request or a merge group must pass runs from here. Nightly and Release call it with
-# full, which runs every job whatever changed, on every OS the job supports.
+# full, which runs every job whatever changed, on every OS the job supports. A pull
+# request skips the macOS C++ tests, because the two macOS bots cannot keep up with
+# every push. The merge group runs them.
 
 name: CI
 
@@ -156,6 +158,7 @@ jobs:
       scripts: ${{ steps.filter.outputs.scripts }}
       suppressions_py: ${{ steps.filter.outputs.suppressions_py }}
       runners: ${{ steps.filter.outputs.runners }}
+      tls: ${{ steps.filter.outputs.tls }}
       site_common: ${{ steps.filter.outputs.site_common }}
       soem: ${{ steps.filter.outputs.soem }}
       studio: ${{ steps.filter.outputs.studio }}
@@ -296,7 +299,9 @@ jobs:
       core_image: ${{ needs.core-image.outputs.image }}
       coverage_flag: arc-cpp
       directories: arc/cpp
-      macos: ${{ inputs.full || needs.changes.outputs.arc_cpp == 'true' }}
+      macos:
+        ${{ github.event_name != 'pull_request' && (inputs.full ||
+        needs.changes.outputs.arc_cpp == 'true') }}
       targets: //arc/cpp/...
       test_flags: --spawn_strategy=local --jobs=1
       windows: ${{ inputs.full || needs.changes.outputs.arc_cpp == 'true' }}
@@ -383,7 +388,9 @@ jobs:
       core_image: ${{ needs.core-image.outputs.image }}
       coverage_flag: client-cpp
       directories: client/cpp client/clib
-      macos: ${{ inputs.full || needs.changes.outputs.client_cpp == 'true' }}
+      macos:
+        ${{ github.event_name != 'pull_request' && (inputs.full ||
+        needs.changes.outputs.client_cpp == 'true') }}
       targets: //client/cpp/... //client/clib/...
       test_flags: --nocache_test_results
       windows: ${{ inputs.full || needs.changes.outputs.client_cpp == 'true' }}
@@ -437,6 +444,7 @@ jobs:
       contains(fromJSON(needs.changes.outputs.ci), 'client-ts')
     uses: ./.github/workflows/test.ts.yaml
     with:
+      browsers: true
       core_image: ${{ needs.core-image.outputs.image }}
       coverage_flag: client-ts
       directory: client/ts
@@ -607,7 +615,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Install cargo-audit
-        uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
+        uses: taiki-e/install-action@75a7c0f87bd666af3cdb75c5b9e9d03ab6044e6f # v2.90.6
         with:
           tool: cargo-audit@0.22.2
 
@@ -674,7 +682,9 @@ jobs:
       core_image: ${{ needs.core-image.outputs.image }}
       coverage_flag: driver
       directories: driver
-      macos: ${{ inputs.full || needs.changes.outputs.driver == 'true' }}
+      macos:
+        ${{ github.event_name != 'pull_request' && (inputs.full ||
+        needs.changes.outputs.driver == 'true') }}
       targets: //driver/... //vendor/open62541:patch_test
       test_flags: --spawn_strategy=local --local_test_jobs=1
       test_tags: -hardware
@@ -900,7 +910,7 @@ jobs:
       clang_tidy: true
       coverage_flag: freighter-cpp
       directories: freighter/cpp
-      macos: true
+      macos: ${{ github.event_name != 'pull_request' }}
       targets: //freighter/cpp/...
       windows: true
     secrets:
@@ -1257,9 +1267,10 @@ jobs:
 
   soem:
     needs: changes
+    # SOEM tests run only on macOS, so pull requests skip the job, not empty its matrix.
     if:
-      inputs.full || needs.changes.outputs.soem == 'true' ||
-      contains(fromJSON(needs.changes.outputs.ci), 'soem')
+      github.event_name != 'pull_request' && (inputs.full || needs.changes.outputs.soem
+      == 'true' || contains(fromJSON(needs.changes.outputs.ci), 'soem'))
     uses: ./.github/workflows/test.cpp.yaml
     with:
       macos: true
@@ -1320,6 +1331,16 @@ jobs:
       SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
 
+  tls:
+    needs: changes
+    if:
+      inputs.full || needs.changes.outputs.tls == 'true' || needs.changes.outputs.core
+      == 'true' || contains(fromJSON(needs.changes.outputs.ci), 'tls')
+    uses: ./.github/workflows/test.tls.yaml
+    secrets:
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+
   vite-plugin:
     needs: changes
     if:
@@ -1377,7 +1398,7 @@ jobs:
       clang_tidy: true
       coverage_flag: x-cpp
       directories: x/cpp
-      macos: true
+      macos: ${{ github.event_name != 'pull_request' }}
       targets: //x/cpp/...
       windows: true
     secrets:
@@ -1580,6 +1601,7 @@ jobs:
       - stylelint
       - stylelint-config
       - suppressions-py
+      - tls
       - vite-plugin
       - www
       - www-site

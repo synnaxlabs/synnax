@@ -85,8 +85,8 @@ func (c *claim) owner() string {
 }
 
 // refusal returns the refusal of the stamps from first to last of key, which reach c,
-// as an open when open is true or else as a commit. The claim of a delete holds no time
-// range for a writer, so its refusal is a write conflict.
+// as an open when open is true or else as a commit. The claim of a delete refuses as a
+// write conflict.
 func (c *claim) refusal(key uint32, first, last telem.TimeStamp, open bool) error {
 	if c.w == nil {
 		return errConflict
@@ -602,14 +602,8 @@ func (s *State) checkVisible(
 			return err
 		}
 		ch := s.core.channels[seg.key]
-		records, err := s.core.preloadOf(ch, pre)
-		if err != nil {
-			return err
-		}
-		if p, ok := ch.stored(first, last, records); ok {
-			return errors.Wrapf(errConflict, "commit of key %d from %d to %d overlaps "+
-				"its stored data from %d to %d", seg.key, first, last, p.First, p.Last)
-		}
+		// The claim of an open writer names its holder, so it comes before the stored
+		// data that the writer committed.
 		for _, o := range ch.claims {
 			if o.w != w && !o.pinned && o.reaches(first, last) {
 				return errors.Wrapf(
@@ -622,6 +616,14 @@ func (s *State) checkVisible(
 					o.start,
 				)
 			}
+		}
+		records, err := s.core.preloadOf(ch, pre)
+		if err != nil {
+			return err
+		}
+		if p, ok := ch.stored(first, last, records); ok {
+			return errors.Wrapf(errConflict, "commit of key %d from %d to %d overlaps "+
+				"its stored data from %d to %d", seg.key, first, last, p.First, p.Last)
 		}
 	}
 	if _, written := w.types[w.cfg.Clock]; written {
@@ -860,7 +862,7 @@ func (s *State) drop(seg *segState) {
 	ch := s.core.channels[seg.key]
 	ch.remove(seg.vis.ID)
 	delete(s.core.segments, seg.vis.ID)
-	s.core.dead = append(s.core.dead, Dead{Segment: seg.vis.ID, Key: seg.key})
+	s.core.addDead(Dead{Segment: seg.vis.ID, Key: seg.key})
 	ch.publish()
 }
 

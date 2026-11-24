@@ -23,7 +23,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
-	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
@@ -71,9 +70,8 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	db = DeferClose(gorp.Wrap(memkv.New()))
 	StartRun(db.Run)
-	passwordSvc := MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
 	userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
-		DB: db, Password: passwordSvc,
+		DB: db,
 	}))
 	labelSvc = MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB: db,

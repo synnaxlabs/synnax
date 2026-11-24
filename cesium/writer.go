@@ -126,19 +126,20 @@ func (w *Writer) Close() error {
 }
 
 // Write writes fr except the channels for which skip returns true, and returns it
-// without them, with the alignment and time range of each written series set. It sets
-// them in fr too, so the caller must not use fr again. Pass a ShallowCopy to keep using
-// it. A skipped index also skips the data channels it indexes in the writer. The
-// returned bool is true when Write skipped a series of fr, and the next commit of that
-// index then commits nothing. Write validates every series of fr. When skip returns
-// true with no lock held, Write skips at once. If not, it calls skip again under the
-// lock of each channel's claim. A nil skip skips nothing.
+// without them. Each written series has its alignment set, and its time range when fr
+// carries the series' index. Write sets them in fr too, so the caller must not use fr
+// again. Pass a ShallowCopy to keep using it. A skipped index also skips the data
+// channels it indexes in the writer. The returned bool is true when Write skipped a
+// series of fr, and the next commit of that index then commits nothing. Write validates
+// every series of fr. When skip returns true with no lock held, Write skips at once. If
+// not, it calls skip again under the lock of each channel's claim. A nil skip skips
+// nothing.
 //
 // On the pointer log layout, a writer that does not write its clock puts each sample on
-// the next stored stamp of the clock, and leaves the time range unset. A series that
-// reaches the end of a run of stamps comes back as one series for each run, with the
-// alignment of the run's stamps. A sample with no stored stamp comes back with an
-// alignment of data that is not stored, and the next Commit fails.
+// the next stored stamp of the clock. A series that reaches the end of a run of stamps
+// comes back as one series for each run, with the alignment of the run's stamps. A
+// sample with no stored stamp comes back with an alignment of data that is not stored,
+// and the next Commit fails.
 func (w *Writer) Write(
 	ctx context.Context,
 	fr Frame,

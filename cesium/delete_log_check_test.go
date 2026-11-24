@@ -65,7 +65,7 @@ var _ = Describe("Pointer log delete check", func() {
 		}
 		w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 			Channels: keys,
-			Clock:    keys[0],
+			Clock:    idx,
 			Start:    seconds[0] * telem.SecondTS,
 		}))
 		MustSucceed2(w.Write(ctx, telem.MultiFrame(keys, []telem.Series{
@@ -106,10 +106,12 @@ var _ = Describe("Pointer log delete check", func() {
 			}
 			return fs.Exists("0000000000000002.head")
 		}).WithTimeout(10 * time.Second).Should(BeTrue())
-		// The close of a writer unlinks the segments that left the state.
+		// The close of a writer takes the segments that left the state, and each is
+		// unlinked once the log covers the record that took it out.
 		write(ctx, 20, 21)
 		for _, k := range keys {
-			Expect(segments(k)).To(Equal(1), "segment files of key %d", k)
+			Eventually(func() int { return segments(k) }).
+				Should(Equal(1), "segment files of key %d", k)
 		}
 		stop()
 		Expect(db.Close()).To(Succeed())

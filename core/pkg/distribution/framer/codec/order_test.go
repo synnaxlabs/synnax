@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -52,8 +53,8 @@ var _ = Describe("Series order", func() {
 			frame.NewMulti(channel.Keys{1, 1}, []telem.Series{backfill, earlier}),
 		)
 		Expect(decoded.Get(1).Series).To(HaveExactElements(
-			telem.MatchSeries(backfill),
-			telem.MatchSeries(earlier),
+			MatchSeries(backfill),
+			MatchSeries(earlier),
 		))
 	})
 
@@ -133,7 +134,7 @@ var _ = Describe("Series order", func() {
 			Expect(encoded).To(HaveLen(1 + 4 + 4 + 2*(4+4)))
 			decoded := MustSucceed(c.Decode(encoded))
 			Expect(decoded.Get(3).Series[0]).To(
-				telem.MatchSeries(telem.NewSeriesV[float32](2)),
+				MatchSeries(telem.NewSeriesV[float32](2)),
 			)
 		})
 	})

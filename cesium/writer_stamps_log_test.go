@@ -19,6 +19,7 @@ import (
 	. "github.com/synnaxlabs/cesium/internal/testutil"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -130,7 +131,7 @@ var _ = Describe("Data against stored stamps on the pointer log", func() {
 		Expect(w.Close()).To(Succeed())
 		stored := read(ctx, data)
 		Expect(stored).To(HaveLen(1))
-		Expect(stored[0]).To(telem.MatchSeriesDataV[int64](1, 2))
+		Expect(stored[0]).To(MatchSeriesDataV[int64](1, 2))
 		Expect(stored[0].Alignment).To(Equal(streamed.Alignment))
 		Expect(stored[0].TimeRange).
 			To(Equal((11 * telem.SecondTS).Range(12*telem.SecondTS + 1)))
@@ -153,8 +154,8 @@ var _ = Describe("Data against stored stamps on the pointer log", func() {
 		Expect(w.Close()).To(Succeed())
 		stored := read(ctx, data)
 		Expect(stored).To(HaveLen(2))
-		Expect(stored[0]).To(telem.MatchSeriesDataV[int64](1))
-		Expect(stored[1]).To(telem.MatchSeriesDataV[int64](2, 3))
+		Expect(stored[0]).To(MatchSeriesDataV[int64](1))
+		Expect(stored[1]).To(MatchSeriesDataV[int64](2, 3))
 		Expect(stored[0].Alignment).To(Equal(runs[0].Alignment))
 		Expect(stored[1].Alignment).To(Equal(runs[1].Alignment))
 	})
@@ -210,7 +211,7 @@ var _ = Describe("Data against stored stamps on the pointer log", func() {
 		Expect(w.Close()).To(Succeed())
 		stored := read(ctx, data)
 		Expect(stored).To(HaveLen(1))
-		Expect(stored[0]).To(telem.MatchSeriesDataV[int64](1, 2, 3, 4))
+		Expect(stored[0]).To(MatchSeriesDataV[int64](1, 2, 3, 4))
 	})
 
 	It("Should fail the first Commit, every later Commit, and Close when the start is "+
@@ -243,8 +244,8 @@ var _ = Describe("Data against stored stamps on the pointer log", func() {
 		written, _ := MustSucceed2(w.Write(ctx, values(1, 2, 3), nil))
 		streamed := written.Get(data).Series
 		Expect(streamed).To(HaveLen(2))
-		Expect(streamed[0]).To(telem.MatchSeriesDataV[int64](1, 2))
-		Expect(streamed[1]).To(telem.MatchSeriesDataV[int64](3))
+		Expect(streamed[0]).To(MatchSeriesDataV[int64](1, 2))
+		Expect(streamed[1]).To(MatchSeriesDataV[int64](3))
 		Expect(streamed[1].Alignment.DomainIndex()).
 			To(BeNumerically(">=", telem.LeadingDomain))
 		writeClock(ctx, 12)
@@ -312,7 +313,7 @@ var _ = Describe("Data against stored stamps on the pointer log", func() {
 		open(ctx)
 		stored := read(ctx, data)
 		Expect(stored).To(HaveLen(1))
-		Expect(stored[0]).To(telem.MatchSeriesDataV[int64](1, 2))
+		Expect(stored[0]).To(MatchSeriesDataV[int64](1, 2))
 		Expect(stored[0].Alignment).To(Equal(streamed.Alignment))
 	})
 })
@@ -363,8 +364,8 @@ var _ = Describe("Data against stamps that parts hold", func() {
 		StartRun(db.Run)
 		stored := MustSucceed(db.Read(ctx, telem.TimeRangeMax, data)).Get(data).Series
 		Expect(stored).To(HaveLen(2))
-		Expect(stored[0]).To(telem.MatchSeriesDataV[int64](1, 2, 3))
-		Expect(stored[1]).To(telem.MatchSeriesDataV[int64](4, 5, 6))
+		Expect(stored[0]).To(MatchSeriesDataV[int64](1, 2, 3))
+		Expect(stored[1]).To(MatchSeriesDataV[int64](4, 5, 6))
 		Expect(stored[0].Alignment).To(Equal(runs[0].Alignment))
 		Expect(stored[1].Alignment).To(Equal(runs[1].Alignment))
 		Expect(stored[1].TimeRange).

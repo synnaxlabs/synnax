@@ -52,13 +52,13 @@ var _ = Describe("Check: switch", func() {
 			limit = logSize - 2*log.BlockSize
 			x     = 200_000
 		)
-		// A ends past three quarters, so that X ends 1,000 bytes before the limit of
-		// an entry with no Commit.
+		// A ends past three quarters, so that X ends 1,000 bytes before the limit of a
+		// delete entry. Both are delete entries, which may use the delete reserve.
 		a := limit - 1_000 - (32 + x) - (log.FramesStart + 32)
 		release := fs.Hold()
-		first := l.Append(bigEntry(a))
+		first := l.Append(deleteEntry(a))
 		Eventually(fs.held).Should(Receive())
-		second := l.Append(bigEntry(x))
+		second := l.Append(deleteEntry(x))
 		del := l.Append(of(&log.Drop{Key: 1}))
 		fs.Unhold()
 		release <- struct{}{}

@@ -83,7 +83,7 @@ var _ = Describe("Delete on the pointer log, broken by a head", func() {
 		keys := []cesium.ChannelKey{breakIdx, breakData}
 		w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 			Channels: keys,
-			Clock:    keys[0],
+			Clock:    breakIdx,
 			Start:    30 * telem.SecondTS,
 		}))
 		MustSucceed2(w.Write(ctx, telem.MultiFrame(keys, []telem.Series{

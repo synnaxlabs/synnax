@@ -48,7 +48,7 @@ describe("Core.useLogout", () => {
     await waitFor(() => expect(client.auth.authenticated).toBe(false));
     await waitFor(() => expect(deleted).toEqual([{ account: keychainAccount(core) }]));
     const other = createTestClient();
-    const keys = (await other.auth.retrieveSessions()).map(({ key }) => key);
+    const keys = (await other.auth.sessions.retrieve()).map(({ key }) => key);
     expect(keys).not.toContain(session.key);
   });
 

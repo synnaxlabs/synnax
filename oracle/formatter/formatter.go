@@ -913,6 +913,9 @@ func (f *formatter) formatFieldDefaultPretty(
 	if ev := ctx.ExpressionValue(); ev != nil {
 		return f.formatExpressionValueToString(ev)
 	}
+	if d := ctx.DURATION_LIT(); d != nil {
+		return d.GetText()
+	}
 	if arr := ctx.ArrayDefault(); arr != nil {
 		return f.formatArrayDefaultPretty(arr, col, indentLevel)
 	}
