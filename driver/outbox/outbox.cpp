@@ -281,14 +281,26 @@ bool Outbox::reclaimable() const {
     // the tail, and the spare.
     const auto kept = this->queued_bytes - this->replaced_bytes +
                       3 * journal::HEADER_SIZE;
-    if (this->bytes <= kept) return false;
-    const auto freed = static_cast<double>(this->bytes - kept);
-    const auto free = this->cfg.max_bytes > kept ? this->cfg.max_bytes - kept : 0;
-    return freed >=
-           std::min(
-               this->cfg.compact_share * static_cast<double>(this->cfg.max_bytes),
-               static_cast<double>(free) / 2
+    const auto worth = [this](const double freed, const double kept, const double max) {
+        return freed > 0 &&
+               freed >= std::min(this->cfg.compact_share * max, (max - kept) / 2);
+    };
+    const auto kept_calls = this->calls.size() - this->replaced;
+    return (this->bytes > kept && worth(
+                                      static_cast<double>(this->bytes - kept),
+                                      static_cast<double>(kept),
+                                      static_cast<double>(this->cfg.max_bytes)
+                                  )) ||
+           worth(
+               static_cast<double>(this->replaced),
+               static_cast<double>(kept_calls),
+               static_cast<double>(this->cfg.max_calls)
            );
+}
+
+bool Outbox::near_full() const {
+    return this->bytes >= this->cfg.max_bytes / 4 * 3 ||
+           this->calls.size() >= this->cfg.max_calls / 4 * 3;
 }
 
 void Outbox::unreplace(const Call &call) {
@@ -346,7 +358,8 @@ x::errors::Error Outbox::push(pb::Call request, SetStatusDone done) {
         std::unique_lock lock(this->mu);
         if (this->tail.writer == nullptr || this->tail_calls >= this->cfg.segment_calls)
             if (const auto err = this->next_tail(lock)) return err;
-        if (this->bytes + size > this->cfg.max_bytes) {
+        if (this->bytes + size > this->cfg.max_bytes ||
+            this->calls.size() >= this->cfg.max_calls) {
             ++this->refused_count;
             if (this->reclaimable()) {
                 this->compact_wanted = true;
@@ -354,9 +367,9 @@ x::errors::Error Outbox::push(pb::Call request, SetStatusDone done) {
             }
             return x::errors::Error(
                 FULL,
-                "The Driver holds " + std::to_string(this->cfg.max_bytes) +
-                    " bytes of calls that the Core has not taken. Check the "
-                    "connection to the Core."
+                "The Driver holds " + std::to_string(this->calls.size()) +
+                    " calls that the Core has not taken, the most it can hold. "
+                    "Check the connection to the Core."
             );
         }
         if (const auto err = this->tail.writer->write(
@@ -381,7 +394,7 @@ x::errors::Error Outbox::push(pb::Call request, SetStatusDone done) {
         });
         ++this->tail_calls;
         // Compacting before the files are full keeps the newest sets from refusal.
-        if (this->bytes >= this->cfg.max_bytes / 4 * 3 && this->reclaimable()) {
+        if (this->near_full() && this->reclaimable()) {
             this->compact_wanted = true;
             this->sync_cv.notify_one();
         }

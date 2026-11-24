@@ -63,11 +63,14 @@ struct Config {
     /// @brief the most bytes the files of the outbox can hold. A full outbox keeps only
     /// the last status set of each status, and then refuses calls.
     std::uint64_t max_bytes = std::uint64_t{64} * 1024 * 1024;
+    /// @brief the most calls the outbox holds. Each queued call also takes a few
+    /// hundred bytes of memory, so this bounds the memory of the outbox.
+    std::size_t max_calls = 200000;
     /// @brief the largest encoded call, at most journal::MAX_PAYLOAD. The outbox
     /// refuses a larger call.
     std::uint32_t max_payload = 64 * 1024;
-    /// @brief the share of max_bytes that a compaction must free before it runs, or
-    /// half of the free bytes when the files are close to max_bytes.
+    /// @brief the share of max_bytes or max_calls that a compaction must free before it
+    /// runs, or half of the free room when the outbox is close to either limit.
     double compact_share = 0.25;
     /// @brief the number of calls in a segment file, after which the next starts.
     std::size_t segment_calls = 1000;
@@ -222,6 +225,8 @@ class Outbox {
     void fail_open(std::uint64_t key);
     /// @returns whether a compaction frees enough of the files to run. Requires mu.
     [[nodiscard]] bool reclaimable() const;
+    /// @returns whether the outbox holds 3/4 of max_bytes or max_calls. Requires mu.
+    [[nodiscard]] bool near_full() const;
     /// @brief takes a replaced set off the byte counts. Requires mu.
     void unreplace(const Call &call);
     /// @returns whether a newer set of the same status replaced call. Requires mu.
@@ -279,9 +284,10 @@ public:
     /// @brief queues a status set and returns without waiting for the Core or the disk.
     /// @param req the set, with its time stamped by the caller.
     /// @param done called once the Core answers the set.
-    /// @returns FULL when the outbox has no room, and counts the set in refused().
-    /// journal::TOO_LARGE when the encoded set is larger than max_payload. The error of
-    /// a failed write, and then the outbox does not hold the set.
+    /// @returns FULL when the outbox holds max_bytes or max_calls, and counts the set
+    /// in refused(). journal::TOO_LARGE when the encoded set is larger than
+    /// max_payload. The error of a failed write, and then the outbox does not hold the
+    /// set.
     x::errors::Error
     set_status(const ::grpc::status::SetByKeyOrNameRequest &req, SetStatusDone done);
 

@@ -1015,4 +1015,40 @@ TEST_F(OutboxTest, WaitsForSpareOncePerTail) {
         cv.notify_all();
     }
 }
+
+/// @brief it should refuse a call over max_calls, and compact replaced sets to make
+/// room for newer ones.
+TEST_F(OutboxTest, BoundsCallCount) {
+    const auto open = [&](const std::filesystem::path &dir, const std::size_t max) {
+        Config cfg{
+            .dir = dir,
+            .statuses = synnax::status::Client(
+                nullptr,
+                nullptr,
+                nullptr,
+                transport_of({freighter::UNREACHABLE})
+            ),
+            .max_calls = max,
+        };
+        cfg.retry.base_interval = x::telem::HOUR;
+        cfg.retry.max_interval = x::telem::HOUR;
+        return ASSERT_NIL_P(Outbox::open(cfg));
+    };
+    {
+        const auto outbox = open(this->dir / "unique", 2);
+        for (const auto *key: {"a", "b"})
+            ASSERT_NIL(outbox->set_status(set_of(key), nullptr));
+        ASSERT_OCCURRED_AS(outbox->set_status(set_of("c"), nullptr), FULL);
+    }
+    const auto outbox = open(this->dir / "repeated", 8);
+    for (const auto *key: {"a", "b"})
+        ASSERT_NIL(outbox->set_status(set_of(key), nullptr));
+    for (int i = 0; i < 50; i++)
+        ASSERT_EVENTUALLY_NIL_WITH_TIMEOUT(
+            outbox->set_status(set_of(std::to_string(i), "d"), nullptr),
+            std::chrono::seconds(10),
+            std::chrono::milliseconds(5)
+        );
+    ASSERT_LE(outbox->size(), 8);
+}
 }
