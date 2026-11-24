@@ -44,7 +44,7 @@ export const createTestUser = async (
   }: CreateTestUserParams,
 ): Promise<TestUser> => {
   const u = await client.users.create({ name, role });
-  await client.auth.createPassword({
+  await client.auth.passwords.create({
     subject: user.resourceID(u.key),
     username,
     password,

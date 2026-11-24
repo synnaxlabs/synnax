@@ -71,7 +71,7 @@ LabeledConfig struct extends v9.LabeledConfig {}
 ScaledConfig = v9.ScaledConfig
 
 StalenessConfig struct extends v9.StalenessConfig {
-    staleness_timeout telem.TimeSpan = 5000000000 {
+    staleness_timeout telem.TimeSpan = 5s {
         @doc value    "is the span after which the value is considered stale."
         @validate max 9007199254740991
         @validate min 1000000000

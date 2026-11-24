@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { group, schematic } from "@synnaxlabs/client";
+import { DataType, type group, schematic } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { theming } from "@synnaxlabs/pluto/ether";
 import { color, uuid } from "@synnaxlabs/x";
 import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({ symbolNodes: true }));
 
@@ -45,6 +45,7 @@ import {
 import type { FLAGS } from "@/flags";
 import {
   findButton,
+  findLastButton,
   pressSaveTrigger,
   renderModalOpener,
 } from "@/platform/modals/testutil";
@@ -451,6 +452,66 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       return { symbol, handle };
     };
 
+    const retrieveStoredCommands = async (key: schematic.Key) =>
+      (await createTestClient().schematics.retrieve(key)).nodes.map(({ config }) =>
+        config.variant === "symbol" ? config.commands : undefined,
+      );
+
+    // openUsedSymbol opens the editor on a symbol that two schematics use. The nodes of
+    // used bind the Vent command, and the node of unbound binds nothing.
+    const openUsedSymbol = async () => {
+      const grp = await createParentGroup();
+      const payload = createSymbolPayload(uniqueName("vessel"));
+      payload.data.commands = [
+        { key: "vent", name: "Vent", value: { type: "fixed", value: 1 } },
+      ];
+      const symbol = await client.schematics.symbols.create({
+        ...payload,
+        group: grp.key,
+      });
+      const ch = await client.channels.create({
+        name: uniqueName("vent_cmd"),
+        dataType: DataType.FLOAT32,
+        virtual: true,
+      });
+      const project = await client.projects.create({ name: uniqueName("project") });
+      const createNode = (key: string, label: string, bound: boolean) => ({
+        key,
+        position: { x: 0, y: 0 },
+        zIndex: 0,
+        config: schematic.nodeConfigZ.parse({
+          variant: "symbol",
+          spec: { type: "custom", key: symbol.key },
+          label: { label },
+          commands: bound ? [{ key: "vent", channel: ch.key }] : [],
+        }),
+      });
+      const used = await client.schematics.create({
+        project: project.key,
+        name: uniqueName("plant"),
+        nodes: [
+          createNode("vessel", "Vessel 1", true),
+          createNode("unlabeled", "", true),
+        ],
+      });
+      const unbound = await client.schematics.create({
+        project: project.key,
+        name: uniqueName("spare"),
+        nodes: [createNode("spare", "Spare vessel", false)],
+      });
+      await renderModalOpener(
+        Schematic.Symbol.Edit.useModal,
+        [{ symbolKey: symbol.key, group: grp.key }],
+        { client, additionalRegistry: theming.REGISTRY },
+      );
+      await waitFor(() => expect(findNameInput().value).toBe(symbol.name), {
+        timeout: 5000,
+      });
+      // Save waits for the uses of the symbol to load.
+      await waitFor(() => expect(findButton("Save").disabled).toBe(false));
+      return { symbol, used, unbound };
+    };
+
     it("saves a new part and its stroke on a symbol with no state", async () => {
       const { symbol } = await openEditModal();
       fireEvent.click(screen.getByLabelText("Stroke"));
@@ -469,6 +530,53 @@ describe("Schematic.Symbol.Edit.useModal", () => {
           value: { type: "fixed", value: color.construct("#ff0000") },
         });
       });
+    });
+
+    it("bands a stroke in the theme of the preview", async () => {
+      // The preview's theme leaf loads fonts on this thread, which has no self.fonts.
+      vi.stubGlobal("fonts", document.fonts);
+      onTestFinished(() => {
+        vi.unstubAllGlobals();
+      });
+      const grp = await createParentGroup();
+      const payload = createSymbolPayload(uniqueName("banded"));
+      const symbol = await client.schematics.symbols.create({
+        ...payload,
+        group: grp.key,
+        data: {
+          ...payload.data,
+          drawing: {
+            type: "svg",
+            markup:
+              '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">' +
+              '<rect class="main" width="10" height="10"/></svg>',
+          },
+          parts: [{ key: "main", name: "Main", selectors: [".main"] }],
+          looks: [
+            {
+              key: "stroke",
+              part: "main",
+              stroke: {
+                type: "color",
+                value: { type: "fixed", value: color.construct("#ffffff") },
+              },
+            },
+          ],
+        },
+      });
+      const handle = await renderModalOpener(
+        Schematic.Symbol.Edit.useModal,
+        [{ symbolKey: symbol.key, group: grp.key }],
+        { client, additionalRegistry: theming.REGISTRY },
+      );
+      const stroke = () =>
+        getPreviewTransformWrapper(handle.baseElement).querySelector<SVGElement>(
+          "rect.main",
+        )?.style.stroke;
+      // The light theme shows white as black.
+      await waitFor(() => expect(stroke()).toBe("rgb(0, 0, 0)"), { timeout: 5000 });
+      fireEvent.click(getIconButton(handle.baseElement, "light-mode"));
+      await waitFor(() => expect(stroke()).toBe("rgb(255, 255, 255)"));
     });
 
     it("names an unnamed shape in the drawing when a click adds it to a part", async () => {
@@ -492,6 +600,51 @@ describe("Schematic.Symbol.Edit.useModal", () => {
           '<circle cx="5" cy="5" r="2" fill="#000000" data-region-id="region-2"/>',
         );
       });
+    });
+
+    it("asks before a save removes bindings from a schematic that uses the symbol", async () => {
+      const { used, unbound } = await openUsedSymbol();
+      fireEvent.click(screen.getByText("Actuator"));
+      fireEvent.click(findButton("Save"));
+      await screen.findByText(used.name);
+      await screen.findByText("Vessel 1 loses the Vent binding.");
+      await screen.findByText("A node with no label loses the Vent binding.");
+      await screen.findByText(unbound.name);
+      await screen.findByText("Each node keeps its bindings.");
+      fireEvent.click(findLastButton("Save"));
+      await waitFor(async () =>
+        expect(await retrieveStoredCommands(used.key)).toEqual([[], []]),
+      );
+    });
+
+    it("keeps the symbol and its bindings when the save confirm is canceled", async () => {
+      const { symbol, used } = await openUsedSymbol();
+      fireEvent.click(screen.getByText("Actuator"));
+      fireEvent.click(findButton("Save"));
+      await screen.findByText("Vessel 1 loses the Vent binding.");
+      fireEvent.click(findButton("Cancel"));
+      await waitFor(() =>
+        expect(screen.queryByText("Vessel 1 loses the Vent binding.")).toBeNull(),
+      );
+      expect(findNameInput().value).toBe(symbol.name);
+      expect((await retrieveStored(symbol.key)).data.variant).toBe("static");
+      const commands = await retrieveStoredCommands(used.key);
+      expect(commands.map((c) => c?.length)).toEqual([1, 1]);
+    });
+
+    it("saves a zoom and a rename of a symbol in use without asking", async () => {
+      const { symbol } = await openUsedSymbol();
+      await screen.findByText("100%");
+      pressKey("Equal");
+      await screen.findByText("120%");
+      const renamed = uniqueName("renamed_vessel");
+      fireEvent.change(findNameInput(), { target: { value: renamed } });
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () =>
+        expect((await retrieveStored(symbol.key)).name).toBe(renamed),
+      );
+      const stored = await retrieveStored(symbol.key);
+      expect(stored.data.previewViewport?.zoom).toBeCloseTo(1.2);
     });
 
     it("loads the existing symbol and renames it on save", async () => {

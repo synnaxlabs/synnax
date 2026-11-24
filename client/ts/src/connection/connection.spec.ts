@@ -1513,6 +1513,77 @@ describe("connection", () => {
       await client.close();
     });
 
+    it("should not spend a finite budget on checks that succeed", async () => {
+      const unary = mockUnary(() => TimeStamp.now());
+      const client = createClient(
+        unary,
+        {
+          requiresStream: true,
+          stream: { reset: async () => {}, ensure: async () => {} },
+        },
+        { baseInterval: TimeSpan.milliseconds(5), scale: 1, maxRetries: 2 },
+      );
+      const send = unary.send as ReturnType<typeof vi.fn>;
+      await expect.poll(() => send.mock.calls.length, POLL).toBeGreaterThanOrEqual(6);
+      expect(client.status.variant).toEqual("loading");
+      client.notify({ type: "stream.live" });
+      expect(client.status.variant).toEqual("success");
+      await client.close();
+    });
+
+    it("should not exhaust a zero budget on checks that succeed", async () => {
+      const unary = mockUnary(() => TimeStamp.now());
+      const client = createClient(
+        unary,
+        {
+          requiresStream: true,
+          stream: { reset: async () => {}, ensure: async () => {} },
+        },
+        { baseInterval: TimeSpan.milliseconds(5), scale: 1, maxRetries: 0 },
+      );
+      const send = unary.send as ReturnType<typeof vi.fn>;
+      await expect.poll(() => send.mock.calls.length, POLL).toBeGreaterThanOrEqual(3);
+      expect(client.status.variant).toEqual("loading");
+      await client.close();
+    });
+
+    it("should back off to maxInterval while the stream stays dark", async () => {
+      const unary = mockUnary(() => TimeStamp.now());
+      const client = createClient(
+        unary,
+        {
+          requiresStream: true,
+          stream: { reset: async () => {}, ensure: async () => {} },
+        },
+        {
+          baseInterval: TimeSpan.milliseconds(5),
+          maxInterval: TimeSpan.milliseconds(40),
+          scale: 2,
+          jitter: 0,
+        },
+      );
+      const intervals: number[] = [];
+      client.onChange(({ time, details: { retry } }) => {
+        if (retry != null) intervals.push(retry.nextAt.span(time).milliseconds);
+      });
+      await expect.poll(() => Math.max(0, ...intervals), POLL).toBeGreaterThan(35);
+      expect(client.status.variant).toEqual("loading");
+      await client.close();
+    });
+
+    it("should back off and park an unlicensed Core on a finite budget", async () => {
+      const unary = createScriptedUnary({ license: "missing" });
+      const client = createClient(unary, {}, { ...FAST_RETRY, maxRetries: 3 });
+      const send = unary.send as ReturnType<typeof vi.fn>;
+      await expect.poll(() => send.mock.calls.length, POLL).toBeGreaterThanOrEqual(4);
+      await sleep.sleep(TimeSpan.milliseconds(30));
+      const calls = send.mock.calls.length;
+      await sleep.sleep(TimeSpan.milliseconds(30));
+      expect(send.mock.calls.length).toBe(calls);
+      expect(reasonOf(client.status)).toEqual("unlicensed");
+      await client.close();
+    });
+
     it("should not demand the stream until the Core is licensed", async () => {
       const ensured = vi.fn(async () => {});
       const unary = createScriptedUnary({ license: "missing" });

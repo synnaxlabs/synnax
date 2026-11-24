@@ -12,7 +12,7 @@
 from __future__ import annotations
 
 from typing import Any, Literal, TypeAlias, TypedDict, override as _override
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -53,7 +53,7 @@ class User(BaseModel):
         role: Is the role that grants the user its permissions.
     """
 
-    key: Key
+    key: Key = Field(default_factory=uuid4)
     name: str = Field(min_length=1)
     root_user: bool = False
     role: role_.Key

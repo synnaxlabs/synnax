@@ -20,6 +20,7 @@ import { CSS } from "@/css";
 import { Custom } from "@/schematic/node/common/custom";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { Toggle } from "@/schematic/node/common/toggle";
+import { createSynnaxWrapper } from "@/testutil";
 
 const STROKE = color.construct("#cfd1d4");
 const FILL = color.construct("#ffffff");
@@ -38,11 +39,26 @@ const createSpec = (svg: string): schematic.symbol.Spec => ({
   previewViewport: { zoom: 1, position: { x: 0, y: 0 } },
 });
 
-const SPEC = createSpec(
-  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect class="main" width="10" height="10" stroke="red" fill="blue"/></svg>',
+const SPEC: schematic.symbol.Spec = {
+  ...createSpec(
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect class="main" width="10" height="10" stroke="red" fill="blue"/></svg>',
+  ),
+  parts: [{ key: "main", name: "Main", selectors: [".main"] }],
+  looks: [
+    {
+      key: "main",
+      part: "main",
+      stroke: { type: "color", value: { type: "fixed", value: STROKE } },
+      fill: { type: "color", value: { type: "fixed", value: FILL } },
+    },
+  ],
+};
+
+const Painted = (): ReactElement => (
+  <Custom.Drawing spec={SPEC} paints={Custom.usePaints(SPEC, 0)} />
 );
 
-const PAINTS: Custom.Paint[] = [{ selectors: [".main"], stroke: STROKE, fill: FILL }];
+const Wrapper = createSynnaxWrapper({ client: null });
 
 interface Paint {
   stroke: string;
@@ -51,11 +67,13 @@ interface Paint {
 
 const renderCustom = async (theme: Theming.ThemeSpec): Promise<Paint> => {
   const { container } = await render(
-    <Theming.Provider theme={theme}>
-      <Primitive.Div>
-        <Custom.Drawing spec={SPEC} paints={PAINTS} />
-      </Primitive.Div>
-    </Theming.Provider>,
+    <Wrapper>
+      <Theming.Provider theme={theme}>
+        <Primitive.Div>
+          <Painted />
+        </Primitive.Div>
+      </Theming.Provider>
+    </Wrapper>,
   );
   const rect = container.querySelector("rect");
   if (rect == null) throw new Error("custom symbol not mounted");
@@ -75,22 +93,85 @@ const renderBuiltIn = async (theme: Theming.ThemeSpec): Promise<Element> => {
   return rect;
 };
 
-describe("Custom.Drawing theme band", () => {
+// srgb returns a CSS color as the 8-bit sRGB channels that a canvas draws, so that an
+// oklch() and an rgb() value compare.
+const srgb = (css: string): number[] => {
+  const ctx = new OffscreenCanvas(1, 1).getContext("2d");
+  if (ctx == null) throw new Error("no 2D canvas context");
+  ctx.fillStyle = css;
+  ctx.fillRect(0, 0, 1, 1);
+  return [...ctx.getImageData(0, 0, 1, 1).data];
+};
+
+describe("Custom theme band", () => {
   describe.each([
     ["light", Theming.SYNNAX_LIGHT],
     ["dark", Theming.SYNNAX_DARK],
   ])("%s theme", (_, theme) => {
-    it("should paint a region stroke the same as a built-in symbol stroke", async () => {
+    it("should draw a color stroke the same as a built-in symbol stroke", async () => {
       const builtIn = computed(await renderBuiltIn(theme), "stroke");
       const { stroke: custom } = await renderCustom(theme);
       expect(custom).not.toBe(resolve(color.hex(STROKE), "stroke"));
-      expect(custom).toBe(builtIn);
+      const want = srgb(builtIn);
+      // Pluto rounds the band to 8 bits. Chromium drops the hue of a near gray in the
+      // CSS band, which moves it up to 4 steps.
+      srgb(custom).forEach((c, i) =>
+        expect(Math.abs(c - want[i])).toBeLessThanOrEqual(4),
+      );
     });
 
-    it("should paint a region fill as stored", async () => {
+    it("should draw a color fill as stored", async () => {
       const { fill } = await renderCustom(theme);
       expect(fill).toBe(resolve(color.hex(FILL), "fill"));
     });
+  });
+});
+
+const ACTIVE_SPEC: schematic.symbol.Spec = {
+  ...createSpec(
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><path class="body" d="M0 0H10V10H0Z"/></svg>',
+  ),
+  states: [
+    {
+      type: "enumeration",
+      key: "active",
+      name: "Active",
+      match: { type: "exact" },
+      default: 0,
+    },
+  ],
+  looks: [
+    {
+      key: "fill",
+      when: { type: "equals", state: "active", values: [1] },
+      fill: { type: "color", value: { type: "fixed", value: FILL } },
+    },
+  ],
+};
+
+interface ActiveProps {
+  value: number;
+}
+
+const ActiveDrawing = ({ value }: ActiveProps): ReactElement => (
+  <Custom.Drawing spec={ACTIVE_SPEC} paints={Custom.usePaints(ACTIVE_SPEC, value)} />
+);
+
+const Active = (props: ActiveProps): ReactElement => (
+  <Wrapper>
+    <Primitive.Div>
+      <ActiveDrawing {...props} />
+    </Primitive.Div>
+  </Wrapper>
+);
+
+describe("Custom.Drawing state change", () => {
+  it("should clear the fill of an active look from a shape with no fill", async () => {
+    const { container, rerender } = await render(<Active value={1} />);
+    const body = container.querySelector(".body");
+    await expect.poll(() => body?.getAttribute("fill")).toBe(color.hex(FILL));
+    await rerender(<Active value={0} />);
+    await expect.poll(() => body?.hasAttribute("fill")).toBe(false);
   });
 });
 
@@ -366,7 +447,7 @@ describe("Custom.Drawing hold fill", () => {
 });
 
 const BUILT_IN_TOGGLE_SPEC = Custom.createBuiltIn({
-  variant: "actuator",
+  family: "valve",
   svg:
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">' +
     '<rect class="shape" width="10" height="10"/></svg>',

@@ -55,7 +55,8 @@ Rack struct {
         @doc value "are the Driver integrations the rack supports."
     }
 
-    @doc value  "is a manager for a collection of tasks deployed on a node."
+    @doc value     "is a manager for a collection of tasks deployed on a node."
     @go marshal
     @go migrate
+    @resource type "rack"
 }
