@@ -337,16 +337,14 @@ func (r *logReader) Search(stamp telem.TimeStamp) (domain.Approximation[int64], 
 	if r.seg.Version != segment.ProgressionVersion {
 		return domain.SearchStamps(r, telem.Size(r.size), stamp)
 	}
-	pos, exact, err := r.rd.Search(r.h, r.seg, int64(stamp))
-	if err != nil {
-		return domain.Approximation[int64]{}, err
-	}
-	first, n := r.offset/stampSize, r.size/stampSize
-	at := min(max(pos-first, 0), n)
-	if exact && at == pos-first && at < n {
-		return domain.Exactly(at), nil
-	}
-	return domain.Between(at-1, at), nil
+	lower, upper, err := r.rd.Search(
+		r.h,
+		r.seg,
+		int64(stamp),
+		r.offset/stampSize,
+		r.size/stampSize,
+	)
+	return domain.Between(lower, upper), err
 }
 
 // Size implements domain.RangeReader.

@@ -10,6 +10,7 @@
 package segment_test
 
 import (
+	"bytes"
 	"encoding/binary"
 	"io"
 	"math"
@@ -17,10 +18,12 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/place"
 	"github.com/synnaxlabs/cesium/internal/segment"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	fstestutil "github.com/synnaxlabs/x/io/fs/testutil"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -164,20 +167,26 @@ var _ = Describe("Progressions", func() {
 						Expect(rd.Stamps(h, s, got, int64(at[0]))).To(Succeed())
 						Expect(got).To(Equal(stampBytes(stamps[at[0] : at[0]+at[1]])))
 					}
+					search := func(x int64) (int64, bool) {
+						lower, upper := MustSucceed2(
+							rd.Search(h, s, x, 0, int64(len(stamps))),
+						)
+						return upper, lower == upper
+					}
 					for i, x := range stamps {
-						pos, exact := MustSucceed2(rd.Search(h, s, x))
+						pos, exact := search(x)
 						Expect(pos).To(BeEquivalentTo(i))
 						Expect(exact).To(BeTrue())
 						if i > 0 && stamps[i-1] < x-1 {
-							pos, exact = MustSucceed2(rd.Search(h, s, x-1))
+							pos, exact = search(x - 1)
 							Expect(pos).To(BeEquivalentTo(i))
 							Expect(exact).To(BeFalse())
 						}
 					}
-					pos, exact := MustSucceed2(rd.Search(h, s, stamps[0]-1))
+					pos, exact := search(stamps[0] - 1)
 					Expect(pos).To(BeZero())
 					Expect(exact).To(BeFalse())
-					pos, exact = MustSucceed2(rd.Search(h, s, stamps[len(stamps)-1]+1))
+					pos, exact = search(stamps[len(stamps)-1] + 1)
 					Expect(pos).To(BeEquivalentTo(len(stamps)))
 					Expect(exact).To(BeFalse())
 				},
@@ -195,14 +204,51 @@ var _ = Describe("Progressions", func() {
 					h, s := mustEncode(stamps)
 					r := &countingReader{ReaderAt: h}
 					cold := segment.NewReader(nil)
-					pos, exact := MustSucceed2(cold.Search(r, s, stamps[20_000]))
-					Expect(pos).To(BeEquivalentTo(20_000))
-					Expect(exact).To(BeTrue())
+					lower, upper := MustSucceed2(
+						cold.Search(r, s, stamps[20_000], 0, 45_000),
+					)
+					Expect(lower).To(BeEquivalentTo(20_000))
+					Expect(upper).To(BeEquivalentTo(20_000))
 					Expect(r.reads.Load()).To(BeEquivalentTo(2),
 						"the last block, with the footer and the fences, and one table block")
-					MustSucceed2(cold.Search(r, s, stamps[24_000]))
+					MustSucceed2(cold.Search(r, s, stamps[24_000], 0, 45_000))
 					Expect(r.reads.Load()).To(BeEquivalentTo(3))
 				})
+
+			DescribeTable(
+				"Should search a range of the stamps as a search of those stamps alone does",
+				func(first, n int) {
+					stamps := driver(400, 125, 40_000)
+					h, s := mustEncode(stamps)
+					part := stamps[first : first+n]
+					raw := bytes.NewReader(stampBytes(part))
+					probes := []int64{
+						stamps[0] - 1, part[0] - 1, part[0], part[n/2], part[n/2] + 1,
+						part[n-1], part[n-1] + 1, stamps[len(stamps)-1] + 1,
+					}
+					if first > 0 {
+						probes = append(probes, stamps[first-1])
+					}
+					if first+n < len(stamps) {
+						probes = append(probes, stamps[first+n])
+					}
+					for _, x := range probes {
+						want := MustSucceed(domain.SearchStamps(
+							raw,
+							telem.Size(8*n),
+							telem.TimeStamp(x),
+						))
+						lower, upper := MustSucceed2(
+							rd.Search(h, s, x, int64(first), int64(n)),
+						)
+						Expect([2]int64{lower, upper}).
+							To(Equal([2]int64{want.Lower, want.Upper}), "stamp %d", x)
+					}
+				},
+				Entry("at the start", 0, 1_000),
+				Entry("inside", 10_000, 5_000),
+				Entry("at the end", 49_000, 1_000),
+			)
 
 			It("Should store a Driver clock in 16 bytes per write", func() {
 				h, s := mustEncode(driver(10_000, 125, 40_000))
@@ -293,7 +339,7 @@ var _ = Describe("Progressions", func() {
 					got := make([]byte, 8*40)
 					Expect(rd.Stamps(f, s, got, 0)).
 						To(MatchError(place.ErrCorrupt))
-					Expect(rd.Search(f, s, 1_000_000)).Error().
+					Expect(rd.Search(f, s, 1_000_000, 0, 40)).Error().
 						To(MatchError(place.ErrCorrupt))
 				},
 				Entry("a raw stamp", func(segment.Committed) int64 { return 0 }),
@@ -322,7 +368,7 @@ var _ = Describe("Progressions", func() {
 					Length:  int64(length),
 					TailCRC: tail,
 				}
-				_, _, err := rd.Search(h, s, 5)
+				_, _, err := rd.Search(h, s, 5, 0, 1)
 				Expect(err).To(MatchError(place.ErrCorrupt))
 				Expect(err).To(MatchError(ContainSubstring(
 					"footer of 1073741824 entries",

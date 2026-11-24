@@ -78,13 +78,13 @@ func FuzzProgressions(f *testing.F) {
 			stamps[len(stamps)/2] + 1, stamps[len(stamps)-1], stamps[len(stamps)-1] + 1,
 		} {
 			want := sort.Search(len(stamps), func(i int) bool { return stamps[i] >= x })
-			pos, exact, err := rd.Search(h, s, x)
+			lower, upper, err := rd.Search(h, s, x, 0, int64(len(stamps)))
 			if err != nil {
 				t.Fatal(err)
 			}
-			if pos != int64(want) ||
-				exact != (want < len(stamps) && stamps[want] == x) {
-				t.Fatalf("search of %d gives %d, %v, not %d", x, pos, exact, want)
+			exact := want < len(stamps) && stamps[want] == x
+			if upper != int64(want) || (lower == upper) != exact {
+				t.Fatalf("search of %d gives %d to %d, not %d", x, lower, upper, want)
 			}
 		}
 	})
@@ -133,7 +133,7 @@ func FuzzTable(f *testing.F) {
 		s := segment.Committed{Config: clockCfg, Length: int64(length), TailCRC: tail}
 		rd := segment.NewReader(nil)
 		samples := int64(binary.LittleEndian.Uint32(stream[segment.BlockSize-8:]))
-		pos, _, err := rd.Search(h, s, int64(ts))
+		_, pos, err := rd.Search(h, s, int64(ts), 0, samples)
 		if err != nil {
 			if !errors.Is(err, place.ErrCorrupt) {
 				t.Fatalf("search fails with %v", err)

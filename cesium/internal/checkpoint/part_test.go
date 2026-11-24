@@ -185,6 +185,18 @@ var _ = Describe("Parts", func() {
 		Expect(got).To(Equal(whole.Channels[0].Segments))
 	})
 
+	It("Should keep the Kept mark of a segment record in a part", func() {
+		whole := withSealed(sealed(1, 10), sealed(2, 20), sealed(3, 30))
+		whole.Channels[0].Segments[0].Kept = true
+		whole.Channels[0].Segments[2].Kept = true
+		h := switchTo(2, whole)
+		kept := make(map[uint64]bool)
+		for _, seg := range parted(h) {
+			kept[seg.ID] = seg.Kept
+		}
+		Expect(kept).To(Equal(map[uint64]bool{1: true, 2: false, 3: true}))
+	})
+
 	It("Should set the bit of a killed part segment", func() {
 		switchTo(2, withSealed(sealed(1, 10), sealed(2, 20), sealed(3, 30)))
 		h := switchTo(3, killed(withSealed(sealed(1, 10), sealed(2, 20)), 2, 3))

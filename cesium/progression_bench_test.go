@@ -42,6 +42,10 @@ func clockBytes(b *testing.B, dir string, key cesium.ChannelKey) int64 {
 			continue
 		}
 		info, err := e.Info()
+		if errors.Is(err, os.ErrNotExist) {
+			// A rewrite unlinked the file after the listing.
+			continue
+		}
 		if err != nil {
 			b.Fatal(err)
 		}

@@ -236,12 +236,32 @@ func (rd *Reader) Stamps(r io.ReaderAt, s Committed, dst []byte, pos int64) erro
 	return err
 }
 
-// Search returns the position of the first stamp of the version 2 segment s in r that
+// Search returns where ts falls among the n stamps from position first of the version 2
+// segment s in r, as a search of those stamps alone does: the position, from first, of
+// the stamp that is ts as lower and upper, or the positions before and after ts. It
+// reads and checks the footer and the fences of s first when rd does not hold them,
+// then one block of the table, and for a raw entry the block of its stamps that holds
+// ts.
+func (rd *Reader) Search(
+	r io.ReaderAt,
+	s Committed,
+	ts, first, n int64,
+) (lower, upper int64, err error) {
+	pos, exact, err := rd.position(r, s, ts)
+	if err != nil {
+		return 0, 0, err
+	}
+	at := min(max(pos-first, 0), n)
+	if exact && at == pos-first && at < n {
+		return at, at, nil
+	}
+	return at - 1, at, nil
+}
+
+// position returns the position of the first stamp of the version 2 segment s in r that
 // is at or after ts, or the sample count of s when none is, and whether that stamp is
-// ts. It reads and checks the footer and the fences of s first when rd does not hold
-// them, then one block of the table, and for a raw entry the block of its stamps that
-// holds ts.
-func (rd *Reader) Search(r io.ReaderAt, s Committed, ts int64) (int64, bool, error) {
+// ts.
+func (rd *Reader) position(r io.ReaderAt, s Committed, ts int64) (int64, bool, error) {
 	if err := rd.loadTable(r, s); err != nil {
 		return 0, false, err
 	}
