@@ -86,13 +86,32 @@ type logKey struct {
 }
 
 // openLogWriter opens a writer of cfg on the pointer log layout. The writer writes one
-// clock and the channels it times, the clock included. The caller holds db.mu.
+// clock and the channels it times, the clock included. It holds db.mu only while it
+// reads the channels of cfg, since the open of the state writer can wait.
 func (db *DB) openLogWriter(ctx context.Context, cfg WriterConfig) (*logWriter, error) {
 	w := &logWriter{
 		e:        db.engine,
 		history:  db.historyChanges.Notify,
 		byKey:    make(map[ChannelKey]*logKey, len(cfg.Channels)),
 		unstored: cfg.Mode == WriterModeStreamOnly,
+	}
+	keys, err := db.logWriterKeys(w, cfg)
+	if err != nil {
+		return nil, err
+	}
+	if err = w.openState(ctx, db, cfg, keys); err != nil {
+		return nil, err
+	}
+	return w, nil
+}
+
+// logWriterKeys reads the channel of each key of cfg into w under db.mu, and returns
+// the keys of its state writer. It returns ErrDBClosed when db is closed.
+func (db *DB) logWriterKeys(w *logWriter, cfg WriterConfig) ([]state.WriterKey, error) {
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+	if db.closed.Load() {
+		return nil, ErrDBClosed
 	}
 	keys := make([]state.WriterKey, 0, len(cfg.Channels))
 	for i, key := range cfg.Channels {
@@ -126,10 +145,7 @@ func (db *DB) openLogWriter(ctx context.Context, cfg WriterConfig) (*logWriter, 
 	slices.SortStableFunc(w.keys, func(a, b *logKey) int {
 		return boolOrder(b.ch.Key == w.clock) - boolOrder(a.ch.Key == w.clock)
 	})
-	if err := w.openState(ctx, db, cfg, keys); err != nil {
-		return nil, err
-	}
-	return w, nil
+	return keys, nil
 }
 
 // openState opens the state writer of w, and seals each open segment of its keys that
