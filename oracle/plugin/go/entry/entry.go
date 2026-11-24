@@ -321,7 +321,17 @@ func resolveKey(
 		}
 	} else {
 		t, ok := ref.Resolve(table)
-		if !ok || t.Namespace != ns {
+		if ok && t.Namespace != ns {
+			// A base the version aliases to an earlier version types its key there;
+			// the version's own alias of that key names the same Go type.
+			local, found := table.Get(ns + "." + t.Name)
+			want := canonical(ref, table)
+			ok = found && want != "" && canonical(
+				resolution.TypeRef{Name: local.QualifiedName}, table,
+			) == want
+			t = local
+		}
+		if !ok {
 			return keyInfo{}, errors.Newf(
 				"key type %s must be declared in the same version",
 				ref.Name,
@@ -349,6 +359,23 @@ func resolveKey(
 		return keyInfo{}, errors.Newf("unsupported key type %s", k.primitive)
 	}
 	return k, nil
+}
+
+// canonical follows the aliases of ref and returns the qualified name of the type they
+// stand for, or the primitive's name.
+func canonical(ref resolution.TypeRef, table *resolution.Table) string {
+	for !resolution.IsPrimitive(ref.Name) {
+		t, ok := ref.Resolve(table)
+		if !ok {
+			return ""
+		}
+		alias, ok := t.Form.(resolution.AliasForm)
+		if !ok {
+			return t.QualifiedName
+		}
+		ref = alias.Target
+	}
+	return ref.Name
 }
 
 // toString returns the expression that converts the key at access to the decimal or

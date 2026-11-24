@@ -336,6 +336,51 @@ ReadConfig struct extends Keyed {
 			))
 	})
 
+	It("Should read a key typed in an earlier version through an aliased base", func() {
+		resp := MustSucceed(generate("view", `
+@go output "core/pkg/service/view"
+
+Key = uuid
+
+Base struct {
+	key Key @key
+}
+
+View union on type extends Base {
+	first { size int32 }
+	second { name string }
+}
+`, map[string]string{
+			"view/v0.oracle": `
+Key = uuid
+
+Base struct {
+	key Key @key
+}
+
+View union on type extends Base {
+	first { size int32 }
+
+	@go entry
+}
+`,
+			"view/v1.oracle": `
+Key = v0.Key
+
+Base = v0.Base
+
+View union on type extends Base {
+	first { size int32 }
+	second { name string }
+
+	@go entry
+}
+`,
+		}))
+		Expect(fileAt(resp, "core/pkg/service/view/versions/v1/entry.gen.go")).
+			To(ContainSubstring("func (v View) GorpKey() Key { return v.Base().Key }"))
+	})
+
 	DescribeTable("Should convert the key to the string a resource ID holds",
 		func(decls, expected string) {
 			source := decls + `
