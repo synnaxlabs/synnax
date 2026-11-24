@@ -36,7 +36,7 @@ var _ = Describe("Load", func() {
 		run(s)
 		// The Parted below publishes no Channel, so only its swap changes the count.
 		MustSucceed(s.Snapshot())
-		_, _, count := s.Pair(6, 5)
+		count := s.Load([]uint32{6, 5}, make([]*state.Channel, 2))
 		Expect(s.Parted(2, nil, nil, func() {})).To(Succeed())
 		Eventually(func() bool { return s.Unchanged(count) }).Should(BeFalse())
 	})
