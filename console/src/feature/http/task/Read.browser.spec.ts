@@ -567,9 +567,7 @@ describe("Read", () => {
       (await retrieveEndpoints(draft.key))[0].messages[0].bindings;
     await readAgain("temperature", bindings);
     await waitFor(async () =>
-      expect(await bindings()).toEqual([
-        { field: temperature.key, channel: ch.key, dataType: "" },
-      ]),
+      expect(await bindings()).toEqual([{ field: temperature.key, channel: ch.key }]),
     );
   });
 
@@ -655,7 +653,7 @@ describe("Read", () => {
       expect((await retrieveEndpoints(draft.key))[0].messages).toEqual([
         {
           message: message.key,
-          bindings: [{ field: next.key, channel: ch.key, dataType: "" }],
+          bindings: [{ field: next.key, channel: ch.key }],
         },
       ]),
     );
@@ -680,9 +678,7 @@ describe("Read", () => {
       (await retrieveEndpoints(draft.key))[0].messages[0].bindings;
     await readAgain("temperature", bindings);
     await waitFor(async () =>
-      expect(await bindings()).toEqual([
-        { field: temperature.key, channel: ch.key, dataType: "" },
-      ]),
+      expect(await bindings()).toEqual([{ field: temperature.key, channel: ch.key }]),
     );
   });
 
@@ -712,7 +708,7 @@ describe("Read", () => {
     await readAgain("pressure", bindings);
     await waitFor(async () =>
       expect(await bindings()).toEqual([
-        { field: pressureField.key, channel: pressure.key, dataType: "" },
+        { field: pressureField.key, channel: pressure.key },
       ]),
     );
   });
@@ -743,9 +739,7 @@ describe("Read", () => {
       (await retrieveEndpoints(draft.key))[0].messages[0].bindings;
     await readAgain("temperature", bindings);
     await waitFor(async () =>
-      expect(await bindings()).toEqual([
-        { field: temperature.key, channel: 0, dataType: "" },
-      ]),
+      expect(await bindings()).toEqual([{ field: temperature.key, channel: 0 }]),
     );
   });
 
@@ -784,9 +778,7 @@ describe("Read", () => {
       (await retrieveEndpoints(draft.key))[1].messages[0].bindings;
     await readAgain("temperature", bindings);
     await waitFor(async () =>
-      expect(await bindings()).toEqual([
-        { field: temperature.key, channel: 0, dataType: "" },
-      ]),
+      expect(await bindings()).toEqual([{ field: temperature.key, channel: 0 }]),
     );
   });
 
@@ -824,9 +816,7 @@ describe("Read", () => {
       (await retrieveEndpoints(draft.key))[1].messages[0].bindings;
     await readAgain("temperature", bindings);
     await waitFor(async () =>
-      expect(await bindings()).toEqual([
-        { field: temperature.key, channel: 0, dataType: "" },
-      ]),
+      expect(await bindings()).toEqual([{ field: temperature.key, channel: 0 }]),
     );
   });
 
@@ -892,7 +882,7 @@ describe("Read", () => {
       (await retrieveEndpoints(draft.key))[0].messages[0].bindings;
     await readAgain("mode", bindings);
     await waitFor(async () =>
-      expect(await bindings()).toEqual([{ field: mode.key, channel: 0, dataType: "" }]),
+      expect(await bindings()).toEqual([{ field: mode.key, channel: 0 }]),
     );
   });
 
@@ -917,9 +907,7 @@ describe("Read", () => {
       (await retrieveEndpoints(draft.key))[0].messages[0].bindings;
     await readAgain("temperature", bindings);
     await waitFor(async () =>
-      expect(await bindings()).toEqual([
-        { field: temperature.key, channel: 0, dataType: "" },
-      ]),
+      expect(await bindings()).toEqual([{ field: temperature.key, channel: 0 }]),
     );
   });
 

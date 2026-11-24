@@ -154,6 +154,7 @@ func readServiceConfig(cfg ServiceConfig) config.ServiceConfig[ReadConfig] {
 		Ladder:          versions.ReadConfigLadder,
 		Migrations: []gorp.Migration{
 			v2.NewReadMigration(resolver.channels, createICD(cfg.ICD)),
+			v3.ReadMigration,
 		},
 		SetEntryKey:    (*ReadConfig).SetKey,
 		PatchEntry:     (*ReadConfig).Patch,
