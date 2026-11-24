@@ -277,7 +277,7 @@ export interface MessageWarningProps {
   missingDescription: string;
 }
 
-export interface MessageStatusProps extends MessageWarningProps {
+interface MessageStatusProps extends MessageWarningProps {
   /** Actions beside the note on a message that is not JSON. */
   actions?: ReactNode;
 }
@@ -321,7 +321,7 @@ export const MessageWarning = (props: MessageWarningProps): ReactElement | null 
   warningOf(props);
 
 /** Shows the warning of {@link MessageWarning} in a section of its own. */
-export const MessageStatus = ({
+const MessageStatus = ({
   actions,
   ...rest
 }: MessageStatusProps): ReactElement | null => {
