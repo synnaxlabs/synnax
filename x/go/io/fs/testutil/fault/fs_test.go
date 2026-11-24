@@ -73,6 +73,16 @@ var _ = Describe("FS", func() {
 		Entry("rename to", func() error { return fs.Rename("a", "") }),
 	)
 
+	DescribeTable("Should refuse to remove or rename a name that ends in .",
+		func(change func() error) {
+			MustSucceed(fs.Sub("a"))
+			Expect(change()).To(MatchError(syscall.EINVAL))
+			Expect(fs.Exists("a")).To(BeTrue())
+		},
+		Entry("remove", func() error { return fs.Remove("a/.") }),
+		Entry("rename", func() error { return fs.Rename("a/.", "b") }),
+	)
+
 	It("Should replace the target of a rename", func() {
 		write(fs, "a.txt", "new")
 		write(fs, "b.txt", "old")
