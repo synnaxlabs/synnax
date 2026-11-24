@@ -68,16 +68,14 @@ var _ = Describe("Repair", func() {
 		db := DeferClose(gorp.Wrap(memkv.New()))
 		key := task.KeyedConfig{Key: uuid.New()}
 		read := v5.ReadConfig{
-			PersistConfig: task.PersistConfig{
-				StartConfig: task.StartConfig{KeyedConfig: key},
-			},
+			KeyedConfig: key,
 			Endpoints: []v5.ReadEndpoint{{
 				Path:    "/now?units=si",
 				Headers: []v5.Header{{Value: "x"}},
 			}},
 		}
 		write := v5.WriteConfig{
-			StartConfig: task.StartConfig{KeyedConfig: key},
+			KeyedConfig: key,
 			Endpoints: []v5.WriteEndpoint{{
 				Path:        "/cmd?id=7",
 				QueryParams: []v5.QueryParam{{Value: "1"}},

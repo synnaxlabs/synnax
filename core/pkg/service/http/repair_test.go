@@ -10,6 +10,7 @@
 package http_test
 
 import (
+	"maps"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -53,9 +54,7 @@ var _ = Describe("Upgrade repair", func() {
 			"channel":      map[string]any{"pointer": "/value", "json_type": "number"},
 			"fields":       []any{},
 		}
-		for k, v := range endpoint {
-			ep[k] = v
-		}
+		maps.Copy(ep, endpoint)
 		return msgpack.EncodedJSON{"device": dev, "endpoints": []any{ep}}
 	}
 	// upgrade runs a shipped config through the import repair and the save checks, as
@@ -68,11 +67,17 @@ var _ = Describe("Upgrade repair", func() {
 		_, err = svc.Write.Prepare(ctx, db, uuid.New(), "Valve", normalized)
 		return err
 	}
+	first := func(normalized msgpack.EncodedJSON) map[string]any {
+		GinkgoHelper()
+		eps, ok := normalized["endpoints"].([]any)
+		Expect(ok).To(BeTrue())
+		ep, ok := eps[0].(map[string]any)
+		Expect(ok).To(BeTrue())
+		return ep
+	}
 	endpoint := func(ctx SpecContext, data msgpack.EncodedJSON) map[string]any {
 		GinkgoHelper()
-		normalized := MustSucceed(svc.Write.Normalize(ctx, db, 2, data))
-		eps := normalized["endpoints"].([]any)
-		return eps[0].(map[string]any)
+		return first(MustSucceed(svc.Write.Normalize(ctx, db, 2, data)))
 	}
 
 	DescribeTable("Should repair a row that the Driver skipped or sent as is",
@@ -185,8 +190,7 @@ var _ = Describe("Upgrade repair", func() {
 				"fields":       []any{},
 			}},
 		}
-		normalized := MustSucceed(svc.Read.Normalize(ctx, db, 2, data))
-		ep := normalized["endpoints"].([]any)[0].(map[string]any)
+		ep := first(MustSucceed(svc.Read.Normalize(ctx, db, 2, data)))
 		Expect(ep["path"]).To(Equal("/now"))
 		Expect(ep["headers"]).To(Equal([]any{}))
 		Expect(ep["query_params"]).To(Equal([]any{
