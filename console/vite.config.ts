@@ -12,6 +12,7 @@
 import { layers, plutoLayers, reactCompiler } from "@synnaxlabs/vite-plugin";
 import react from "@vitejs/plugin-react";
 import { playwright } from "@vitest/browser-playwright";
+import { appendFileSync, createWriteStream, mkdirSync } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as path from "path";
 import { defineConfig, normalizePath, type Plugin } from "vite";
@@ -137,10 +138,28 @@ const requestLog = (): Plugin => ({
   configureServer: (server) => {
     const file = process.env.SYNNAX_TEST_REQUEST_LOG;
     if (file == null) return;
+    if (file.trim() === "") throw new Error("SYNNAX_TEST_REQUEST_LOG is blank");
+    // Throws at start when the file cannot be written.
+    mkdirSync(path.dirname(file), { recursive: true });
+    appendFileSync(
+      file,
+      `${new Date().toISOString()} server started (pid ${process.pid})\n`,
+    );
+    // One stream keeps the lines in order with one open file.
+    const stream = createWriteStream(file, { flags: "a" });
+    let open = true;
+    stream.on("error", (error) => {
+      open = false;
+      console.error(`Stopped writing ${file}: ${error.message}`);
+    });
+    server.httpServer?.once("close", () => {
+      open = false;
+      stream.end();
+    });
     const start = Date.now();
-    const log = (line: string): void =>
-      void fs.appendFile(file, `${new Date().toISOString()} ${line}\n`);
-    log(`server started (pid ${process.pid})`);
+    const log = (line: string): void => {
+      if (open) stream.write(`${new Date().toISOString()} ${line}\n`);
+    };
     server.middlewares.use((req, res, next) => {
       const begin = Date.now();
       res.on("close", () => {
