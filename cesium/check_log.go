@@ -56,6 +56,7 @@ type checker struct {
 	// keys holds the keys that the next round reads for targets.
 	keys set.Set[ChannelKey]
 	// drops holds the keys that a Drop took. A check of one stops at its next block.
+	// The lock also covers the write of a check file.
 	drops struct {
 		mu   sync.Mutex
 		keys set.Set[ChannelKey]
@@ -537,15 +538,10 @@ func (e *engine) cutBefore(
 // segment in progress, makes it durable, and turns the checks of seg on. It removes
 // the file when the state refuses the Check as stale. After any other error, the log
 // can hold the Check, so the file stays for the orphan pass of the next open. It
-// returns an error that wraps state.ErrStale when a Drop took key with its directory.
+// returns an error that wraps state.ErrStale when a Drop took key.
 func (c *checker) logCheck(key ChannelKey, seg state.Segment) error {
 	name := checkName(key, seg.ID)
-	err := c.e.writeChecks(key, name, c.sg.cfg.EncodeChecks(c.sg.sums))
-	if errors.Is(err, os.ErrNotExist) && c.dropped(key) {
-		return errors.Wrapf(state.ErrStale, "a Drop took key %d before the check of "+
-			"segment %d: %v", key, seg.ID, err)
-	}
-	if err != nil {
+	if err := c.writeChecks(key, name, c.sg.cfg.EncodeChecks(c.sg.sums)); err != nil {
 		return err
 	}
 	first, last := bounds(seg)
@@ -576,9 +572,31 @@ func bounds(seg state.Segment) (first, last telem.TimeStamp) {
 }
 
 // writeChecks writes b to the check file name of key, then syncs the file and the
-// directory of key. It never makes the directory of key.
-func (e *engine) writeChecks(key ChannelKey, name string, b []byte) error {
-	f, err := e.fs.Open(name, os.O_CREATE|os.O_WRONLY|os.O_TRUNC)
+// directory of key. It never makes the directory of key. It returns an error that wraps
+// state.ErrStale when a Drop took key.
+func (c *checker) writeChecks(key ChannelKey, name string, b []byte) error {
+	if err := c.createChecks(key, name, b); err != nil {
+		return err
+	}
+	err := c.e.fs.SyncDir(keyToDirName(key))
+	if errors.Is(err, os.ErrNotExist) && c.dropped(key) {
+		return errors.Wrapf(state.ErrStale, "a Drop took key %d during the sync of "+
+			"%s: %v", key, name, err)
+	}
+	return err
+}
+
+// createChecks writes b to the check file name of key, and syncs and closes it, under
+// the lock that a Drop takes to mark key. A Drop then never removes the directory of
+// key while the file is open or not yet made. It writes nothing once a Drop took key.
+func (c *checker) createChecks(key ChannelKey, name string, b []byte) error {
+	c.drops.mu.Lock()
+	defer c.drops.mu.Unlock()
+	if c.drops.keys.Contains(key) {
+		return errors.Wrapf(state.ErrStale, "a Drop took key %d before the write of %s",
+			key, name)
+	}
+	f, err := c.e.fs.Open(name, os.O_CREATE|os.O_WRONLY|os.O_TRUNC)
 	if err != nil {
 		return err
 	}
@@ -586,10 +604,7 @@ func (e *engine) writeChecks(key ChannelKey, name string, b []byte) error {
 	if err == nil {
 		err = f.Sync()
 	}
-	if err = errors.Join(err, f.Close()); err != nil {
-		return err
-	}
-	return e.fs.SyncDir(keyToDirName(key))
+	return errors.Join(err, f.Close())
 }
 
 // badStamp is the first stamp i of pointer p of a clock that lies outside the range of
