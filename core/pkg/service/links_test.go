@@ -53,11 +53,11 @@ var _ = Describe("ClearUnissuedChannelLinks", func() {
 		store storagetestutil.Layer
 		proj  project.Project
 	)
-	// openStore opens the store of the spec, which its Cores open on in turn. ctx must
-	// be the spec's, since the store runs until it ends.
-	openStore := func(ctx SpecContext) {
+	// openStore opens the store of the spec, which its Cores open on in turn. The store
+	// and each Core run until the spec's cleanup closes them, after the spec ends.
+	openStore := func() {
 		GinkgoHelper()
-		store = storagetestutil.OpenLayer(ctx)
+		store = storagetestutil.OpenLayer(GinkgoT().Context())
 		DeferCleanup(func() { Expect(store.Close()).To(Succeed()) })
 	}
 	stop := func(c core) {
@@ -71,7 +71,10 @@ var _ = Describe("ClearUnissuedChannelLinks", func() {
 	}
 	start := func(ctx SpecContext) core {
 		GinkgoHelper()
-		n := testutil.OpenNode(ctx, distribution.LayerConfig{Storage: store.Layer})
+		n := testutil.OpenNode(
+			GinkgoT().Context(),
+			distribution.LayerConfig{Storage: store.Layer},
+		)
 		c := core{
 			node:    n,
 			layer:   MustSucceed(svctestutil.OpenLayer(ctx, n)),
@@ -92,7 +95,7 @@ var _ = Describe("ClearUnissuedChannelLinks", func() {
 	// openOld starts the Core that writes the 0.62 records, with a project for them.
 	openOld := func(ctx SpecContext) core {
 		GinkgoHelper()
-		openStore(ctx)
+		openStore()
 		c := start(ctx)
 		proj = project.Project{Name: "Upgraded"}
 		Expect(c.db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -220,7 +223,7 @@ var _ = Describe("ClearUnissuedChannelLinks", func() {
 	It(
 		"Should keep its key, which the applied set holds forever",
 		func(ctx SpecContext) {
-			openStore(ctx)
+			openStore()
 			start(ctx)
 			Expect(applied()).To(ContainElement(step))
 		},
