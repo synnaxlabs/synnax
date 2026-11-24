@@ -737,7 +737,17 @@ describe("Lists", () => {
           },
           cursor,
           compare: compareCursors,
-          triggers: [query.trigger(statuses, ({ key }) => [key], { contentOnly })],
+          // A status of variant "refetch" invalidates every window.
+          triggers: [
+            query.trigger(
+              statuses,
+              (event) =>
+                event.variant === "set" && event.value.variant === "refetch"
+                  ? "refetch"
+                  : [event.key],
+              { contentOnly },
+            ),
+          ],
         },
         { teardownGrace: TimeSpan.ZERO },
       );
@@ -851,6 +861,52 @@ describe("Lists", () => {
       expect(fetch).toHaveBeenCalledTimes(2);
     });
 
+    it("should fetch a search again after a watched change during its first fetch", async () => {
+      const { statuses, core, fetch, lists } = setupWatched([rec("1", "ab")]);
+      const list = lists.list({ searchTerm: "a" });
+      const release = list.onChange(vi.fn());
+      fetch.mockImplementationOnce(async () => {
+        const page = [rec("1", "ab")];
+        core.records.push(rec("2", "ac"));
+        statuses.set("2", { key: "2", variant: "error" });
+        return page;
+      });
+      await list.retrieve();
+      expect(names(await list.retrieve())).toEqual(["ab", "ac"]);
+      release();
+    });
+
+    it("should fetch a window again after a watched refetch during its first fetch", async () => {
+      const { statuses, core, fetch, lists } = setupWatched([rec("1", "a")]);
+      const list = lists.list({ order: byName });
+      const release = list.onChange(vi.fn());
+      fetch.mockImplementationOnce(async () => {
+        const page = [rec("1", "a")];
+        core.records.push(rec("2", "b"));
+        statuses.set("9", { key: "9", variant: "refetch" });
+        return page;
+      });
+      await list.retrieve();
+      expect(names(await list.retrieve())).toEqual(["a", "b"]);
+      release();
+    });
+
+    it("should admit a key that a watched change matches during the first fetch", async () => {
+      const { statuses, table, fetch, lists } = setupWatched([rec("1", "a")]);
+      table.set("2", rec("2", "b"));
+      statuses.set("2", { key: "2", variant: "hidden" });
+      const list = lists.list({ order: byName });
+      const release = list.onChange(vi.fn());
+      fetch.mockImplementationOnce(async () => {
+        const page = [rec("1", "a")];
+        statuses.set("2", { key: "2", variant: "error" });
+        return page;
+      });
+      expect(names(await list.retrieve())).toEqual(["a", "b"]);
+      expect(fetch).toHaveBeenCalledTimes(1);
+      release();
+    });
+
     it("should compose a search again without a fetch on a content-only change", async () => {
       const { statuses, fetch, lists } = setupWatched([rec("1", "ab")], true);
       const list = lists.list({ searchTerm: "a" });
@@ -952,6 +1008,38 @@ describe("Lists", () => {
       list.onChange(vi.fn());
       await expect.poll(() => names(list.getCached())).toEqual(["ab", "ac"]);
       expect(fetch).toHaveBeenCalledTimes(2);
+      lists.close();
+    });
+
+    it("should fetch a search again after its refetch fails", async () => {
+      const { lists, table, fetch, core } = setup([rec("1", "ab")]);
+      const list = lists.list({ searchTerm: "a" });
+      const release = list.onChange(vi.fn());
+      await list.retrieve();
+      core.records.push(rec("2", "ac"));
+      fetch.mockRejectedValueOnce(new Error("unreachable"));
+      table.set("1", rec("1", "ab", 2));
+      await expect.poll(() => fetch.mock.calls.length).toBe(2);
+      expect(names(await list.retrieve())).toEqual(["ab", "ac"]);
+      release();
+    });
+
+    it("should fetch a search again after a change during a fetch in its grace window", async () => {
+      const { lists, fetch, core } = setup([rec("1", "ab")], {
+        teardownGrace: TimeSpan.minutes(1),
+      });
+      const list = lists.list({ searchTerm: "a" });
+      list.onChange(vi.fn())();
+      await list.retrieve();
+      lists.refetchMatching(() => true);
+      fetch.mockImplementationOnce(async () => {
+        const page = [rec("1", "ab")];
+        core.records.push(rec("2", "ac"));
+        lists.refetchMatching(() => true);
+        return page;
+      });
+      await list.retrieve();
+      expect(names(await list.retrieve())).toEqual(["ab", "ac"]);
       lists.close();
     });
 

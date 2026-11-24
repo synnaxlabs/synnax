@@ -147,6 +147,38 @@ std::pair<BitRange, x::errors::Error> identifier_bits(
     return {bits, x::errors::NIL};
 }
 
+/// @brief returns the raw bits of v, a sample of an integer channel, for a field of
+/// encoding e that is n bits wide.
+/// @returns VALIDATION when v does not fit the field.
+template<typename T>
+std::pair<std::uint64_t, x::errors::Error>
+integer_raw(const Encoding e, const unsigned n, const T v) {
+    if (e == Encoding::FLOAT32)
+        return {std::bit_cast<std::uint32_t>(static_cast<float>(v)), x::errors::NIL};
+    if (e == Encoding::FLOAT64)
+        return {std::bit_cast<std::uint64_t>(static_cast<double>(v)), x::errors::NIL};
+    bool fits = false;
+    if (e == Encoding::SIGNED) {
+        const std::int64_t hi = n >= 64 ? std::numeric_limits<std::int64_t>::max()
+                                        : (std::int64_t{1} << (n - 1)) - 1;
+        fits = !std::cmp_less(v, -hi - 1) && !std::cmp_greater(v, hi);
+    } else {
+        const std::uint64_t hi = n >= 64 ? std::numeric_limits<std::uint64_t>::max()
+                                         : (std::uint64_t{1} << n) - 1;
+        fits = !std::cmp_less(v, 0) && !std::cmp_greater(v, hi);
+    }
+    if (!fits)
+        return {
+            0,
+            x::errors::Error(
+                x::errors::VALIDATION,
+                std::to_string(v) + " is out of range for " + std::to_string(n) +
+                    " bits"
+            ),
+        };
+    return {static_cast<std::uint64_t>(v), x::errors::NIL};
+}
+
 constexpr std::uint32_t MAX_STANDARD_CAN_ID = 0x7FF;
 constexpr std::uint32_t MAX_EXTENDED_CAN_ID = 0x1FFFFFFF;
 /// @brief EXTENDED_BIT marks an extended identifier in the keys of Binary::exact.
@@ -513,5 +545,252 @@ std::pair<std::optional<std::size_t>, x::errors::Error> Binary::decode(
             }
     if (!found.has_value()) found = this->fallback;
     return this->decode_as(found, payload);
+}
+
+std::pair<BinaryEncoder::Field, x::errors::Error> BinaryEncoder::Field::create(
+    const icd::BinaryField &f,
+    const std::optional<x::telem::DataType> &dt
+) {
+    const auto &b = icd::base(f);
+    auto [bits, bits_err] = BitRange::create(b);
+    if (bits_err) return {Field{}, bits_err};
+    auto [encoding, encoding_err] = encoding_of(f);
+    if (encoding_err) return {Field{}, encoding_err};
+    auto [fallback, default_err] = default_raw(f);
+    if (default_err) return {Field{}, as_config(default_err, "default")};
+    Field field{
+        .name = b.name,
+        .bits = bits,
+        .encoding = encoding,
+        .scaled = b.scale != 1 || b.offset != 0,
+        .scale = b.scale,
+        .offset = b.offset,
+        .fallback = fallback,
+    };
+    if (!dt.has_value()) return {std::move(field), x::errors::NIL};
+    if (b.scale == 0 || !std::isfinite(b.scale))
+        return {
+            Field{},
+            x::errors::Error(
+                CONFIG_ERROR,
+                "cannot write with a scale of " + x::json::Number(b.scale).to_string()
+            ),
+        };
+    const auto kind = kind_of(*dt);
+    if (kind == payload::KIND_FLOAT)
+        field.number = Number::FLOAT;
+    else if (kind == payload::KIND_INTEGER)
+        field.number = Number::SIGNED;
+    else if (kind != payload::KIND_UNSIGNED && kind != payload::KIND_BOOLEAN)
+        return {
+            Field{},
+            x::errors::Error(
+                CONFIG_ERROR,
+                "cannot write " + dt->name() + " channels to " +
+                    std::string(field_kind(encoding)) + " fields"
+            ),
+        };
+    if (field.scaled && field.number != Number::FLOAT)
+        return {
+            Field{},
+            x::errors::Error(
+                CONFIG_ERROR,
+                "a scaled field requires a float channel, not " + dt->name()
+            ),
+        };
+    return {std::move(field), x::errors::NIL};
+}
+
+std::pair<std::uint64_t, x::errors::Error>
+BinaryEncoder::Field::raw(const std::span<const x::telem::Series> samples) const {
+    if (this->binding.has_value()) {
+        const auto &s = samples[*this->binding];
+        if (!s.empty()) return this->raw(s.at(0));
+    }
+    if (this->fallback.has_value()) return {*this->fallback, x::errors::NIL};
+    return {0, x::errors::Error(x::errors::VALIDATION, "no value and no default")};
+}
+
+std::pair<std::uint64_t, x::errors::Error>
+BinaryEncoder::Field::raw(const x::telem::SampleValue &v) const {
+    const auto n = this->bits.width();
+    if (this->number == Number::SIGNED)
+        return integer_raw(this->encoding, n, x::telem::cast<std::int64_t>(v));
+    if (this->number == Number::UNSIGNED)
+        return integer_raw(this->encoding, n, x::telem::cast<std::uint64_t>(v));
+    return this->raw_float(x::telem::cast<double>(v));
+}
+
+std::pair<std::uint64_t, x::errors::Error>
+BinaryEncoder::Field::raw_float(const double v) const {
+    const double unscaled = this->scaled ? (v - this->offset) / this->scale : v;
+    if (this->encoding == Encoding::FLOAT64)
+        return {std::bit_cast<std::uint64_t>(unscaled), x::errors::NIL};
+    if (this->encoding == Encoding::FLOAT32) {
+        if (std::isfinite(unscaled) &&
+            std::abs(unscaled) > std::numeric_limits<float>::max())
+            return {
+                0,
+                x::errors::Error(
+                    x::errors::VALIDATION,
+                    x::json::Number(v).to_string() + " overflows float32"
+                ),
+            };
+        return {
+            std::bit_cast<std::uint32_t>(static_cast<float>(unscaled)),
+            x::errors::NIL
+        };
+    }
+    const auto n = this->bits.width();
+    const double r = std::round(unscaled);
+    const bool is_signed = this->encoding == Encoding::SIGNED;
+    const double lo = is_signed ? -std::ldexp(1.0, n - 1) : 0;
+    const double hi = std::ldexp(1.0, is_signed ? n - 1 : n);
+    if (std::isnan(r) || r < lo || r >= hi)
+        return {
+            0,
+            x::errors::Error(
+                x::errors::VALIDATION,
+                x::json::Number(v).to_string() + " is out of range for " +
+                    std::to_string(n) + " bits"
+            ),
+        };
+    if (is_signed)
+        return {
+            static_cast<std::uint64_t>(static_cast<std::int64_t>(r)),
+            x::errors::NIL,
+        };
+    return {static_cast<std::uint64_t>(r), x::errors::NIL};
+}
+
+std::pair<BinaryEncoder, x::errors::Error>
+BinaryEncoder::create(const BinaryMessage &m) {
+    const auto refuse = [&m](const std::string &text) {
+        return std::pair{
+            BinaryEncoder{},
+            x::errors::Error(CONFIG_ERROR, "message " + m.name + ": " + text),
+        };
+    };
+    Multiplexors::Layout by_key;
+    for (const auto &f: m.payload.fields)
+        by_key[icd::base(f).key] = &f;
+    std::map<icd::FieldKey, std::size_t> bound;
+    for (std::size_t i = 0; i < m.bindings.size(); i++) {
+        const auto &key = m.bindings[i].field;
+        const auto found = by_key.find(key);
+        if (found == by_key.end())
+            return refuse("field " + key.to_string() + " does not exist");
+        if (!bound.try_emplace(key, i).second)
+            return refuse(
+                "field " + icd::base(*found->second).name + " has more than one binding"
+            );
+    }
+    const icd::FieldIdentifier *id = nullptr;
+    if (m.payload.identifier.has_value())
+        id = std::get_if<icd::FieldIdentifier>(&*m.payload.identifier);
+    if (id != nullptr) {
+        const auto context = "message " + m.name + ": identifier";
+        if (auto err = identifier_bits(*id, m.payload, by_key, context).second)
+            return {BinaryEncoder{}, err};
+        if (bound.contains(id->field))
+            return refuse(
+                "field " + icd::base(*by_key.at(id->field)).name +
+                " holds the identifier, so it cannot take a channel"
+            );
+    }
+    BinaryEncoder enc;
+    enc.bound.resize(m.bindings.size());
+    std::map<icd::FieldKey, std::size_t> index;
+    for (const auto &f: m.payload.fields) {
+        const auto &b = icd::base(f);
+        const auto context = "message " + m.name + ": field " + b.name;
+        const auto found = bound.find(b.key);
+        std::optional<x::telem::DataType> dt;
+        if (found != bound.end()) dt = m.bindings[found->second].data_type;
+        auto [field, err] = Field::create(f, dt);
+        if (err) return {BinaryEncoder{}, as_config(err, context)};
+        if (const auto length = m.payload.length;
+            length.has_value() && field.bits.end() > *length)
+            return refuse(
+                "field " + b.name + ": the field ends past the " +
+                std::to_string(*length) + "-byte payload"
+            );
+        if (found != bound.end()) {
+            field.binding = found->second;
+            enc.bound[found->second] = enc.fields.size();
+        }
+        if (id != nullptr && id->field == b.key)
+            field.fallback = static_cast<std::uint64_t>(
+                static_cast<std::int64_t>(id->value)
+            );
+        else {
+            auto [condition, mux_err] = enc.muxes.resolve(b, by_key);
+            if (mux_err) return {BinaryEncoder{}, as_config(mux_err, context)};
+            field.condition = std::move(condition);
+        }
+        enc.length = std::max(enc.length, field.bits.end());
+        index[b.key] = enc.fields.size();
+        enc.fields.push_back(std::move(field));
+    }
+    if (m.payload.length.has_value()) enc.length = *m.payload.length;
+    const auto &muxes = enc.muxes.all();
+    std::vector<std::optional<std::int64_t>> fixed;
+    for (const auto &mux: muxes) {
+        const auto i = index.at(mux.key);
+        enc.mux_fields.push_back(i);
+        const auto &f = enc.fields[i];
+        fixed.push_back(
+            !f.binding.has_value() && f.fallback.has_value()
+                ? std::optional(static_cast<std::int64_t>(*f.fallback))
+                : std::nullopt
+        );
+    }
+    enc.raw.resize(muxes.size());
+    for (const auto &f: enc.fields) {
+        const Multiplexors::Entry *never = nullptr;
+        for (const auto *at = &f.condition; at->mux >= 0 && never == nullptr;
+             at = &muxes[at->mux].condition)
+            if (const auto v = fixed[at->mux];
+                v.has_value() && std::ranges::find(at->values, *v) == at->values.end())
+                never = &muxes[at->mux];
+        if (never != nullptr && f.binding.has_value())
+            return refuse(
+                "field " + f.name + " takes a channel, but multiplexor " + never->name +
+                " never selects it"
+            );
+        if (never == nullptr && !f.binding.has_value() && !f.fallback.has_value())
+            return refuse("field " + f.name + ": needs a channel or a default");
+    }
+    return {std::move(enc), x::errors::NIL};
+}
+
+x::errors::Error BinaryEncoder::encode(
+    const std::span<const x::telem::Series> samples,
+    std::vector<std::uint8_t> &payload
+) {
+    payload.assign(this->length, 0);
+    const auto &muxes = this->muxes.all();
+    for (std::size_t i = 0; i < muxes.size(); i++) {
+        this->raw[i] = 0;
+        if (!this->muxes.selected(muxes[i].condition, this->raw)) continue;
+        const auto &f = this->fields[this->mux_fields[i]];
+        const auto [r, err] = f.raw(samples);
+        if (err) return wrap(err, "field " + f.name);
+        this->raw[i] = static_cast<std::int64_t>(r);
+    }
+    for (const auto &f: this->fields) {
+        if (!this->muxes.selected(f.condition, this->raw)) continue;
+        const auto [r, err] = f.raw(samples);
+        if (err) return wrap(err, "field " + f.name);
+        f.bits.write(payload.data(), r);
+    }
+    return x::errors::NIL;
+}
+
+x::errors::Error
+BinaryEncoder::check(const std::size_t binding, const x::telem::SampleValue &v) const {
+    const auto &f = this->fields[this->bound[binding]];
+    if (const auto err = f.raw(v).second) return wrap(err, "field " + f.name);
+    return x::errors::NIL;
 }
 }

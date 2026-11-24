@@ -473,6 +473,63 @@ var _ = Describe("ResolveReadConfig", func() {
 			Expect(notes).To(ContainElement("endpoints.0.fields.0"))
 		})
 
+		It("Should disable an endpoint whose fields are all disabled",
+			func(ctx SpecContext) {
+				p := pressure("p")
+				p.Disabled = true
+				_, cfg, notes := lift(ctx, v4.ReadEndpoint{
+					Key:    "ep",
+					Fields: []v4.ReadField{p},
+				})
+				Expect(cfg.Endpoints[0].Disabled).To(BeTrue())
+				Expect(cfg.Endpoints[0].Messages).To(HaveLen(1))
+				Expect(cfg.Endpoints[0].Messages[0].Bindings).To(BeEmpty())
+				Expect(notes).To(Equal([]string{"endpoints.0"}))
+			},
+		)
+
+		It("Should keep an endpoint enabled when its only field has no channel",
+			func(ctx SpecContext) {
+				p := pressure("p")
+				p.Channel = 99
+				_, cfg, _ := resolve(ctx, staged(ctx, v4.ReadEndpoint{
+					Key:    "ep",
+					Fields: []v4.ReadField{p},
+				}), found)
+				Expect(cfg.Endpoints[0].Disabled).To(BeFalse())
+				Expect(cfg.Endpoints[0].Messages[0].Bindings).
+					To(HaveExactElements(HaveField("Channel", channel.Key(0))))
+			},
+		)
+
+		It(
+			"Should keep an endpoint enabled when an earlier field writes its only channel",
+			func(ctx SpecContext) {
+				_, cfg, _ := lift(
+					ctx,
+					v4.ReadEndpoint{Key: "a", Fields: []v4.ReadField{pressure("p")}},
+					v4.ReadEndpoint{Key: "b", Fields: []v4.ReadField{pressure("p")}},
+				)
+				Expect(cfg.Endpoints[1].Disabled).To(BeFalse())
+				Expect(cfg.Endpoints[1].Messages[0].Bindings).To(BeEmpty())
+			},
+		)
+
+		It("Should not note an endpoint that is already disabled",
+			func(ctx SpecContext) {
+				p := pressure("p")
+				p.Disabled = true
+				cfg := staged(
+					ctx,
+					v4.ReadEndpoint{Key: "ep", Fields: []v4.ReadField{p}},
+				)
+				cfg.Endpoints[0].Disabled = true
+				_, cfg, notes := resolve(ctx, cfg, found)
+				Expect(cfg.Endpoints[0].Disabled).To(BeTrue())
+				Expect(notes).To(BeEmpty())
+			},
+		)
+
 		It("Should bind a channel only from the first field that writes it",
 			func(ctx SpecContext) {
 				_, cfg, notes := lift(

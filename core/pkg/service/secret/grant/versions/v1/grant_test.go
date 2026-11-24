@@ -22,7 +22,4 @@ var _ = Describe("Grant", func() {
 		key := uuid.New()
 		Expect(v1.Grant{Key: key}.GorpKey()).To(Equal(key))
 	})
-	It("Should return no options", func() {
-		Expect(v1.Grant{}.SetOptions()).To(BeNil())
-	})
 })

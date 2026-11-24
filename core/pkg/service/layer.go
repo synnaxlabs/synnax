@@ -681,7 +681,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.User, err = user.OpenService(ctx, user.ServiceConfig{
 		Instrumentation: cfg.Child("user"),
 		DB:              cfg.Distribution.DB,
-		Password:        l.Password,
 		Signals:         l.Signals,
 	}); !ok(err, l.User) {
 		return nil, err

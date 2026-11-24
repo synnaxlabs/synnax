@@ -59,6 +59,7 @@ func AnalyzeSingleFunction(ctx context.Context[parser.IFunctionContext]) {
 		funcType.AnalyzeArguments,
 		ctx.AST,
 		funcType.Trigger.Target,
+		funcType.ReciprocalInput,
 	)
 }
 
@@ -184,6 +185,7 @@ func parseFunction(
 		funcType.AnalyzeArguments,
 		ctx.AST,
 		funcType.Trigger.Target,
+		funcType.ReciprocalInput,
 		externallySatisfied...,
 	)
 
@@ -1024,6 +1026,7 @@ func analyzeRoutingTargetWithParam(
 			fnType.AnalyzeArguments,
 			fn,
 			fnType.Trigger.Target,
+			fnType.ReciprocalInput,
 			externallySatisfied...,
 		)
 

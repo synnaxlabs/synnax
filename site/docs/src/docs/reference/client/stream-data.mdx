@@ -143,6 +143,13 @@ Both Python streamers detect a lost connection through keep-alive messages. With
 default `keep_alive` of 5 seconds, a read fails after 15 seconds without a message. The
 TypeScript streamer is always async.
 
+Other client calls, such as `client.channels.retrieve`, block until the Core answers. In
+`asyncio` code, run them in a thread so that they do not stop the event loop:
+
+```python
+channels = await asyncio.to_thread(client.channels.retrieve, ["temperature"])
+```
+
 <Divider.Divider x />
 
 ## Change the channels

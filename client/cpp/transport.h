@@ -82,6 +82,7 @@ struct Transport {
     std::shared_ptr<certificate::RetrieveClient> certificate_retrieve;
     std::shared_ptr<certificate::SetClient> certificate_set;
     std::shared_ptr<certificate::RefreshClient> certificate_refresh;
+    std::shared_ptr<certificate::DeleteClient> certificate_delete;
     std::shared_ptr<arc::CreateClient> arc_create;
     std::shared_ptr<arc::RetrieveClient> arc_retrieve;
     std::shared_ptr<arc::DeleteClient> arc_delete;
