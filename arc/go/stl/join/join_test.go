@@ -481,8 +481,7 @@ var _ = Describe("Join", func() {
 		// frames pushes n frames of 40 ms: a primary frame of 40 samples at 1 kHz from
 		// 10 s, joined at once, and then, for the first stop frames, an input frame of
 		// 20 samples at 500 Hz whose stamps lag the primary's by lag seconds. Each
-		// frame
-		// arrives at its end. It returns the drops of each frame.
+		// frame arrives at its end. It returns the drops of each frame.
 		frames := func(n, stop int, lag float64) []int {
 			GinkgoHelper()
 			j := newLive(0)
@@ -513,13 +512,13 @@ var _ = Describe("Join", func() {
 			return drops
 		}
 
-		// Frame 0 has no input, and at frame 1 the input has no frame gap yet, so its
-		// window is only its hold limit of 6 ms.
+		// Frame 0 has no input. At frame 1 the input has no frame gap yet, so it takes
+		// the primary's.
 		DescribeTable(
 			"Should hold an input whose stamps lag the primary's while its frames arrive",
 			func(lag float64) {
 				Expect(frames(10, 10, lag)).
-					To(Equal([]int{40, 40, 0, 0, 0, 0, 0, 0, 0, 0}))
+					To(Equal([]int{40, 0, 0, 0, 0, 0, 0, 0, 0, 0}))
 			},
 			Entry("200 ms of latency", 0.2),
 			Entry("a clock 1 s behind", 1.0),
@@ -531,14 +530,13 @@ var _ = Describe("Join", func() {
 			func() {
 				Expect(
 					frames(10, 5, 0),
-				).To(Equal([]int{40, 40, 0, 0, 0, 0, 0, 0, 40, 40}))
+				).To(Equal([]int{40, 0, 0, 0, 0, 0, 0, 0, 40, 40}))
 			},
 		)
 
 		It("Should count no seed before From as a frame", func() {
 			// A seed at 1 Hz up to 16 s, then frames that arrive at 100 s and 101 s:
-			// the
-			// frame gap is 1 s, so a primary frame that arrives 9 s later drops.
+			// the frame gap is 1 s, so a primary frame that arrives 9 s later drops.
 			j := newLive(seconds(100))
 			seed := make([]float64, 17)
 			for i := range seed {

@@ -85,8 +85,8 @@ func thrice(span telem.TimeSpan) telem.TimeSpan {
 }
 
 // holdLimit returns 3 times the median of sorted, or 0 for no limit: when sorted is
-// empty, or when the input has no steady rate, as fewer than 3 in 4 of sorted lie
-// within a factor of 2 of their median.
+// empty, when its median is 0, or when the input has no steady rate, as fewer than 3 in
+// 4 of sorted lie within a factor of 2 of their median.
 func holdLimit(sorted []telem.TimeSpan) telem.TimeSpan {
 	n := len(sorted)
 	if n == 0 {

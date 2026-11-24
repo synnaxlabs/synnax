@@ -31,11 +31,12 @@ type Config struct {
 	// Live makes the join judge an input with no sample past a primary stamp by
 	// arrival, as a live read cannot wait for it. The input holds its value while its
 	// last frame arrived within the larger of its hold limit and 3 times the median gap
-	// of the arrivals of its last 16 frames, before the primary frame. A push before
-	// From seeds the input as no frame, so its newest sample holds within one hold
-	// limit of a primary frame's first stamp. A live join drops the oldest samples of
-	// an input past 65,536, so a primary that stays silent leaves memory bounded. A
-	// history join never drops a sample, and Push refuses one past 65,536.
+	// of the arrivals of its last 16 frames, before the primary frame. Until it has a
+	// frame gap, it takes the primary's. A push before From seeds the input as no
+	// frame, so its newest sample holds within one hold limit of a primary frame's
+	// first stamp. A live join drops the oldest samples of an input past 65,536, so a
+	// primary that stays silent leaves memory bounded. A history join never drops a
+	// sample, and Push refuses one past 65,536.
 	Live bool
 	// Now returns the time of a push, which a live join takes as its arrival.
 	//
@@ -77,8 +78,11 @@ type Join struct {
 	from    telem.TimeStamp
 	live    bool
 	now     func() telem.TimeStamp
-	// arrived is the arrival of the last push of the primary.
+	// arrived is the arrival of the last push of the primary, and frames holds the
+	// gaps between the arrivals of its pushes from From on.
 	arrived telem.TimeStamp
+	frames  intervals
+	framed  bool
 	// last is the alignment of the last primary sample that got an output, and joined
 	// is false when no sample did or a dropped stamp came after it.
 	last   telem.Alignment
@@ -188,7 +192,10 @@ func (j *Join) Push(i int, data, t telem.Series) error {
 		at := j.now()
 		switch {
 		case i == j.primary:
-			j.arrived = at
+			if j.framed && last >= j.from {
+				j.frames.add(telem.TimeSpan(at - j.arrived))
+			}
+			j.arrived, j.framed = at, last >= j.from
 		case last >= j.from:
 			if in.framed {
 				in.frames.add(telem.TimeSpan(at - in.arrived))
@@ -331,22 +338,32 @@ func (j *Join) holdsAll(stamp, frame telem.TimeStamp) bool {
 		if limit == 0 {
 			continue
 		}
-		at := stamp
-		if j.live && in.first == len(in.stamps) {
-			if in.framed {
-				window := max(limit, in.frames.within())
-				if telem.TimeSpan(j.arrived-in.arrived) > window {
-					return false
-				}
-				continue
+		late := j.live && in.first == len(in.stamps)
+		switch {
+		case late && in.framed:
+			if !j.arrivedWithin(in, limit) {
+				return false
 			}
-			at = max(at, frame)
-		}
-		if telem.TimeSpan(at-in.heldStamp) > limit {
+		case late:
+			if telem.TimeSpan(max(stamp, frame)-in.heldStamp) > limit {
+				return false
+			}
+		case telem.TimeSpan(stamp-in.heldStamp) > limit:
 			return false
 		}
 	}
 	return true
+}
+
+// arrivedWithin reports whether the last frame of in arrived within the larger of
+// limit and 3 times the median gap of its frames, before the last push of the primary.
+// An input with no frame gap yet takes the primary's.
+func (j *Join) arrivedWithin(in *input, limit telem.TimeSpan) bool {
+	gaps := &in.frames
+	if gaps.n == 0 {
+		gaps = &j.frames
+	}
+	return telem.TimeSpan(j.arrived-in.arrived) <= max(limit, gaps.within())
 }
 
 // emit appends the held samples of the inputs at the primary sample k to out, in a new
