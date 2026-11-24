@@ -61,18 +61,17 @@ var _ = Describe("Check: the rewrite of a checked version 0 segment", func() {
 			// index.domain holds its records in time order.
 			pointers := []oldlayout.Pointer{
 				{
-					TimeRange: telem.TimeRange{
-						Start: earlyAt,
-						End:   stamps[late+early-1] + 1,
-					},
+					Start:  earlyAt,
+					End:    stamps[late+early-1] + 1,
 					File:   1,
 					Offset: 8 * late,
 					Size:   8 * early,
 				},
 				{
-					TimeRange: telem.TimeRange{Start: lateAt, End: stamps[late-1] + 1},
-					File:      1,
-					Size:      8 * late,
+					Start: lateAt,
+					End:   stamps[late-1] + 1,
+					File:  1,
+					Size:  8 * late,
 				},
 			}
 			disk := xfs.NewMem()
