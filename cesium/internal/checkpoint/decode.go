@@ -24,9 +24,9 @@ var (
 	// ErrIncomplete is the error of a head whose header sector is zero: its switch
 	// never reached its commit point.
 	ErrIncomplete = errors.New("head is not complete")
-	// ErrUnknown is the error of a head format that this binary does not know. A newer
+	// errUnknown is the error of a head format that this binary does not know. A newer
 	// binary wrote it.
-	ErrUnknown = errors.New("unknown head format")
+	errUnknown = errors.New("unknown head format")
 )
 
 // Header is the header sector of a head or a part.
@@ -85,13 +85,13 @@ func (f *format) decodeSectorOf(b []byte, size uint64) (Header, error) {
 		return h, f.corrupt("header sector fails its check")
 	}
 	if v := binary.LittleEndian.Uint16(s[8:]); v != formatVersion {
-		return h, errors.Wrapf(ErrUnknown, "head format version %d", v)
+		return h, errors.Wrapf(errUnknown, "head format version %d", v)
 	}
 	if s[10] != f.kind {
 		return h, f.corrupt("header sector has kind %d, not a %s", s[10], f.name)
 	}
 	if n := binary.LittleEndian.Uint32(s[80:]); n != uint32(len(f.sections)) {
-		return h, errors.Wrapf(ErrUnknown, "%s with %d sections", f.name, n)
+		return h, errors.Wrapf(errUnknown, "%s with %d sections", f.name, n)
 	}
 	if !allZero(s[11:16]) || !allZero(s[84:88]) || !allZero(s[100:sectorCRC]) {
 		return h, f.corrupt("header sector has a set reserved byte")
@@ -160,7 +160,7 @@ func (f *format) sectionsOf(table []byte, h Header) ([sectionCount + 1]section, 
 		}
 		if v := binary.LittleEndian.Uint16(e[2:]); v != recordVersion {
 			return out, errors.Wrapf(
-				ErrUnknown,
+				errUnknown,
 				"%s section %d version %d",
 				f.name,
 				kind,
@@ -196,7 +196,7 @@ func (f *format) sectionsOf(table []byte, h Header) ([sectionCount + 1]section, 
 			h.table)
 	}
 	if out[sectionKills].count != 0 {
-		return out, errors.Wrapf(ErrUnknown, "head with kills (section %d)",
+		return out, errors.Wrapf(errUnknown, "head with kills (section %d)",
 			sectionKills)
 	}
 	return out, nil
@@ -319,52 +319,13 @@ func (f *format) parseChannels(
 		ptrs:     make([]state.Pointer, secs[sectionPtrs].count),
 	}
 	var nextSeg, nextPtr uint64
-	size := uint64(f.sizes[sectionChans])
 	for i := range channels {
-		r := b[cs.off+uint64(i)*size:]
-		c := &sl.channels[i]
-		c.Key = binary.LittleEndian.Uint32(r)
-		first := uint64(binary.LittleEndian.Uint32(r[4:]))
-		end := ss.count
-		if uint64(i)+1 < cs.count {
-			end = uint64(binary.LittleEndian.Uint32(b[cs.off+uint64(i+1)*size+4:]))
-		}
-		switch {
-		case i > 0 && c.Key <= channels[i-1].Key:
-			return nil, f.corrupt(
-				"key %d is not above key %d",
-				c.Key,
-				channels[i-1].Key,
-			)
-		case first != nextSeg || end < first || end > ss.count:
-			return nil, f.corrupt(
-				"key %d has segment records %d to %d",
-				c.Key,
-				first,
-				end,
-			)
-		}
-		if f.kind == kindHead {
-			oldest, newest, err := f.partRange(c.Key, r, parts)
-			if err != nil {
-				return nil, err
-			}
-			if oldest != 0 {
-				if len(sl.parts) == 0 {
-					sl.parts = make([]state.Parts, cs.count-uint64(i))
-				}
-				c.Parts, sl.parts = &sl.parts[0], sl.parts[1:]
-				c.Parts.Oldest, c.Parts.Newest = oldest, newest
-			}
-		}
-		if end == first && c.Parts == nil {
-			return nil, f.corrupt("key %d has no segment record and no part", c.Key)
-		}
-		if err := f.parseSegments(b, secs, &sl, c, first, end, &nextPtr); err != nil {
+		end, err := f.parseChannel(b, secs, parts, &sl, i, nextSeg, &nextPtr)
+		if err != nil {
 			return nil, err
 		}
 		nextSeg = end
-		channels[i] = c
+		channels[i] = &sl.channels[i]
 	}
 	if nextSeg != ss.count || nextPtr != secs[sectionPtrs].count {
 		return nil, f.corrupt(
@@ -376,6 +337,61 @@ func (f *format) parseChannels(
 		)
 	}
 	return channels, nil
+}
+
+// parseChannel parses channel record i into sl.channels[i]. Its segment records must
+// start at nextSeg, and it returns their end.
+func (f *format) parseChannel(
+	b []byte,
+	secs [sectionCount + 1]section,
+	parts []Part,
+	sl *slabs,
+	i int,
+	nextSeg uint64,
+	nextPtr *uint64,
+) (end uint64, err error) {
+	cs, ss := secs[sectionChans], secs[sectionSegs]
+	size := uint64(f.sizes[sectionChans])
+	r := b[cs.off+uint64(i)*size:]
+	c := &sl.channels[i]
+	c.Key = binary.LittleEndian.Uint32(r)
+	first := uint64(binary.LittleEndian.Uint32(r[4:]))
+	end = ss.count
+	if uint64(i)+1 < cs.count {
+		end = uint64(binary.LittleEndian.Uint32(b[cs.off+uint64(i+1)*size+4:]))
+	}
+	switch {
+	case i > 0 && c.Key <= sl.channels[i-1].Key:
+		return 0, f.corrupt(
+			"key %d is not above key %d",
+			c.Key,
+			sl.channels[i-1].Key,
+		)
+	case first != nextSeg || end < first || end > ss.count:
+		return 0, f.corrupt(
+			"key %d has segment records %d to %d",
+			c.Key,
+			first,
+			end,
+		)
+	}
+	if f.kind == kindHead {
+		oldest, newest, err := f.partRange(c.Key, r, parts)
+		if err != nil {
+			return 0, err
+		}
+		if oldest != 0 {
+			if len(sl.parts) == 0 {
+				sl.parts = make([]state.Parts, cs.count-uint64(i))
+			}
+			c.Parts, sl.parts = &sl.parts[0], sl.parts[1:]
+			c.Parts.Oldest, c.Parts.Newest = oldest, newest
+		}
+	}
+	if end == first && c.Parts == nil {
+		return 0, f.corrupt("key %d has no segment record and no part", c.Key)
+	}
+	return end, f.parseSegments(b, secs, sl, c, first, end, nextPtr)
 }
 
 // partRange returns the identities of the oldest and newest part that the head channel

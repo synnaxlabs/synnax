@@ -12,6 +12,7 @@ package cesium_test
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"slices"
 	"strconv"
@@ -225,6 +226,91 @@ var _ = Describe("Reads through parts", func() {
 		Expect(got).To(Equal(values))
 	})
 
+	Describe("A commit before data that only parts hold", func() {
+		var (
+			fs        xfs.FS
+			db        *cesium.DB
+			idx, data cesium.ChannelKey
+		)
+		BeforeEach(func(ctx SpecContext) {
+			fs = xfs.NewMem()
+			db = partedDB(ctx, fs)
+			stop := StartRun(db.Run)
+			idx, data = GenerateChannelKey(), GenerateChannelKey()
+			Expect(db.CreateChannel(
+				ctx,
+				cesium.Channel{
+					Key:      idx,
+					Name:     "time",
+					IsIndex:  true,
+					DataType: telem.TimestampT,
+				},
+				cesium.Channel{
+					Key:      data,
+					Name:     "data",
+					Index:    idx,
+					DataType: telem.Int64T,
+				},
+			)).To(Succeed())
+			writeParted(ctx, db, fs, idx, data, 3, 10)
+			stop()
+			Expect(db.Close()).To(Succeed())
+			// The open seals the last segments, and switch 3 writes them to a part too.
+			db = partedDB(ctx, fs)
+			stop = StartRun(db.Run)
+			Expect(switchLog(db, fs, 3)).To(Succeed())
+			waitHead(fs, 3)
+			stop()
+			Expect(db.Close()).To(Succeed())
+			db = partedDB(ctx, fs)
+			DeferCleanup(func() { Expect(db.Close()).To(Succeed()) })
+			DeferCleanup(StartRun(db.Run))
+		})
+		start := 100 * telem.MillisecondTS
+		// backfill commits one sample at start, before every stored sample.
+		backfill := func(ctx context.Context) error {
+			GinkgoHelper()
+			w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+				Channels: []cesium.ChannelKey{idx, data},
+				Start:    start,
+			}))
+			MustSucceed2(w.Write(ctx, telem.MultiFrame(
+				[]cesium.ChannelKey{idx, data},
+				[]telem.Series{
+					telem.NewSeries([]telem.TimeStamp{start}),
+					telem.NewSeries([]int64{-1}),
+				},
+			), nil))
+			_, _, err := w.Commit(ctx, nil)
+			return errors.Join(err, w.Close())
+		}
+
+		It("Should report the commit to history", func(ctx SpecContext) {
+			var changes []cesium.HistoryChange
+			DeferCleanup(db.OnHistoryChange(
+				func(_ context.Context, c cesium.HistoryChange) {
+					changes = append(changes, c)
+				},
+			))
+			Expect(backfill(ctx)).To(Succeed())
+			tr := start.Range(start + 1)
+			Expect(changes).To(ConsistOf(
+				cesium.HistoryChange{Key: idx, TimeRange: tr},
+				cesium.HistoryChange{Key: data, TimeRange: tr},
+			))
+		})
+
+		It("Should fail the commit when a part that holds the data fails its check",
+			func(ctx SpecContext) {
+				for _, info := range MustSucceed(fs.List("")) {
+					if strings.HasSuffix(info.Name(), ".part") {
+						flipByte(fs, info.Name(), checkpoint.BodyStart+40)
+					}
+				}
+				Expect(backfill(ctx)).To(MatchError(place.ErrCorrupt))
+			})
+	})
+
 	It("Should read what a delete over parted segments leaves, before and after the "+
 		"switch that folds its kills, and after a reopen", func(ctx SpecContext) {
 		fs := xfs.NewMem()
@@ -421,23 +507,25 @@ var _ = Describe("Drop of parted records", func() {
 		dropDuringLoad := func(
 			ctx SpecContext,
 			gate *gateFS,
-		) (idx, data cesium.ChannelKey, iter *cesium.Iterator) {
+		) (idx, data cesium.ChannelKey, iter io.Closer) {
 			GinkgoHelper()
 			db, idx, data := parted(ctx, gate)
 			DeferCleanup(StartRun(db.Run))
-			iter = MustSucceed(db.OpenIterator(cesium.IteratorConfig{
+			it := MustSucceed(db.OpenIterator(cesium.IteratorConfig{
 				Bounds:   telem.TimeRangeMax,
 				Channels: []cesium.ChannelKey{data},
 			}))
 			gate.arm()
 			sought := make(chan bool, 1)
-			go func() { sought <- iter.SeekFirst() }()
+			go func() { sought <- it.SeekFirst() }()
 			Eventually(gate.waiting).WithTimeout(10 * time.Second).Should(Receive())
-			Expect(db.Drop([]cesium.ChannelKey{data})).To(Succeed())
+			Expect(
+				db.Drop(context.Background(), []cesium.ChannelKey{data}),
+			).To(Succeed())
 			Expect(segments(gate, data)).To(Equal(3))
 			close(gate.release)
 			Eventually(sought).WithTimeout(10 * time.Second).Should(Receive())
-			return idx, data, iter
+			return idx, data, it
 		}
 
 		It("Should remove every segment file of the key once the load ends", func(

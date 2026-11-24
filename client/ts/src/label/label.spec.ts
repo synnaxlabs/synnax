@@ -15,7 +15,7 @@ import {
   NotCachedError,
   NotFoundError,
   ValidationError,
-} from "@/errors";
+} from "@/index";
 import { label } from "@/label";
 import { query } from "@/query";
 import { status } from "@/status";

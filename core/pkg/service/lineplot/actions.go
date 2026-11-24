@@ -10,6 +10,7 @@
 package lineplot
 
 import (
+	"reflect"
 	"slices"
 
 	"github.com/samber/lo"
@@ -194,19 +195,25 @@ func (p AddRangePayload) Handle(state LinePlot) (LinePlot, error) {
 }
 
 // Handle removes the reference to the same range or window as Range from the plot's
-// ranges. No-op when there is none.
+// ranges. No-op when there is none. Relative x axes return to absolute time when no
+// range left has a zero.
 func (p RemoveRangePayload) Handle(state LinePlot) (LinePlot, error) {
-	state.Ranges = slices.DeleteFunc(
+	next := slices.DeleteFunc(
 		slices.Clone(state.Ranges),
 		func(r ranger.Ref) bool { return v11.SameRange(r, p.Range) },
 	)
-	return state, nil
+	if len(next) == len(state.Ranges) {
+		return state, nil
+	}
+	state.Ranges = next
+	return absoluteWithoutZero(state), nil
 }
 
 // Handle replaces the plot's range references, dropping each reference to a range or
 // window that an earlier one names. A reference to a range or window the plot already
 // shows keeps its T0 and color unless the new reference sets them. Lines style
-// channels, so they are unaffected.
+// channels, so they are unaffected. No-op when no reference is added, removed, or
+// changed. Relative x axes return to absolute time when no range left has a zero.
 func (p SetRangesPayload) Handle(state LinePlot) (LinePlot, error) {
 	next := v11.UniqueRanges(p.Ranges)
 	for i, r := range next {
@@ -217,8 +224,58 @@ func (p SetRangesPayload) Handle(state LinePlot) (LinePlot, error) {
 			next[i] = keepSettings(state.Ranges[idx], r)
 		}
 	}
+	if containsEach(state.Ranges, next) && containsEach(next, state.Ranges) {
+		return state, nil
+	}
 	state.Ranges = next
-	return state, nil
+	return absoluteWithoutZero(state), nil
+}
+
+// containsEach returns true if refs has a reference to each range or window of want,
+// with the same T0 and color.
+func containsEach(refs, want []ranger.Ref) bool {
+	for _, w := range want {
+		if !slices.ContainsFunc(refs, func(r ranger.Ref) bool {
+			return v11.SameRange(r, w) && sameSettings(r, w)
+		}) {
+			return false
+		}
+	}
+	return true
+}
+
+// sameSettings returns true if a and b have the same T0 and color.
+func sameSettings(a, b ranger.Ref) bool {
+	aT0, aColor := settings(a)
+	bT0, bColor := settings(b)
+	return reflect.DeepEqual(aT0, bT0) && reflect.DeepEqual(aColor, bColor)
+}
+
+// hasZero returns true if a relative x axis draws r: a saved range and a fixed window
+// have a zero, and a rolling window has none.
+func hasZero(r ranger.Ref) bool {
+	switch v := r.Variant.(type) {
+	case ranger.KeyRef:
+		return true
+	case ranger.WindowRef:
+		_, static := v.Window.Variant.(telem.StaticWindow)
+		return static
+	}
+	return false
+}
+
+// absoluteWithoutZero sets each relative x axis of state to absolute time when no range
+// of the plot has a zero, as a relative axis would draw nothing.
+func absoluteWithoutZero(state LinePlot) LinePlot {
+	if slices.ContainsFunc(state.Ranges, hasZero) {
+		return state
+	}
+	for _, axis := range []*Axis{&state.Axes.X1, &state.Axes.X2} {
+		if isRelative(axis.TimeMode) {
+			setTimeMode(axis, nil)
+		}
+	}
+	return state
 }
 
 // keepSettings returns next with the T0 and color of prev in each field next leaves
@@ -357,15 +414,21 @@ func (p SetAxisTimeModePayload) Handle(state LinePlot) (LinePlot, error) {
 			p.Key,
 		)
 	}
-	if isRelative(axis.TimeMode) != isRelative(p.TimeMode) {
-		axis.Bounds = spatial.Bounds{}
-		axis.ManualBounds = ManualBounds{}
-	}
-	axis.TimeMode = p.TimeMode
+	setTimeMode(axis, p.TimeMode)
 	return state, nil
 }
 
 func isRelative(m *TimeMode) bool { return m != nil && *m == TimeModeRelative }
+
+// setTimeMode sets the time mode of axis. A change of mode resets its bounds to auto,
+// as they mean nothing in another mode.
+func setTimeMode(axis *Axis, mode *TimeMode) {
+	if isRelative(axis.TimeMode) != isRelative(mode) {
+		axis.Bounds = spatial.Bounds{}
+		axis.ManualBounds = ManualBounds{}
+	}
+	axis.TimeMode = mode
+}
 
 func unknownAxisKey(k AxisKey) error {
 	return errors.Wrapf(validate.ErrValidation, "unknown axis_key %q", k)

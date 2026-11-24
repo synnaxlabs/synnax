@@ -36,13 +36,6 @@ type (
 	ChannelError = channel.Error
 )
 
-const (
-	// ConcurrencyExclusive lets one writer write a channel at a time.
-	ConcurrencyExclusive = channel.ConcurrencyExclusive
-	// ConcurrencyShared lets many writers write a channel at once.
-	ConcurrencyShared = channel.ConcurrencyShared
-)
-
 // ClaimError is the refusal of a writer, a commit, or a delete that reaches the time
 // range another writer claims. It names the time range, never the writer.
 type ClaimError = claim.Error
@@ -50,8 +43,6 @@ type ClaimError = claim.Error
 var (
 	ErrDBClosed        = resource.NewClosedError("cesium.db")
 	ErrChannelNotFound = channel.ErrNotFound
-	// ErrClaimed is wrapped by a ClaimError that refuses an open or a delete.
-	ErrClaimed = claim.ErrClaimed
 )
 
 // Metrics contains statistics about the cesium database.
@@ -107,12 +98,17 @@ type DB struct {
 
 // lockRoot takes db.mu for a call that removes files or directories of the root. On the
 // pointer log, it first waits for the orphan pass of Run, which lists and removes files
-// with no lock.
-func (db *DB) lockRoot() {
+// with no lock. It returns the error of ctx, and takes no lock, when ctx ends first.
+func (db *DB) lockRoot(ctx context.Context) error {
 	if db.engine != nil {
-		<-db.engine.ready
+		select {
+		case <-db.engine.ready:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
 	}
 	db.mu.Lock()
+	return nil
 }
 
 // Write writes the frame to database at the specified start time.

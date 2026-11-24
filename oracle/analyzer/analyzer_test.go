@@ -1197,6 +1197,181 @@ Node union on variant {
 		)
 
 		DescribeTable(
+			"Should reject an lt rule",
+			func(source, want string) {
+				_, diag := Analyze(source, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.String()).To(ContainSubstring(want))
+			},
+			Entry("on a type", `
+				Count int32 { @go validate lt max }
+			`, "test.Count has a @go validate rule, but only a struct field can have one"),
+			Entry("on a struct", `
+				Range struct {
+					min float64
+					max float64
+
+					@go validate lt max
+				}
+			`, "test.Range has a @go validate rule, but only a struct field can have one"),
+			Entry("naming a field the struct does not have", `
+				Range struct {
+					min float64 { @go validate lt max }
+				}
+			`, "test.Range.min is less than max, but test.Range has no field max"),
+			Entry("on a string", `
+				Range struct {
+					min string { @go validate lt max }
+					max string
+				}
+			`, "test.Range.min is less than max, but both must be required numbers"),
+			Entry("naming an optional field", `
+				Range struct {
+					min float64 { @go validate lt max }
+					max float64?
+				}
+			`, "test.Range.min is less than max, but both must be required numbers"),
+			Entry("in a generic struct", `
+				Range struct<T> {
+					min float64 { @go validate lt max }
+					max float64
+					value T
+				}
+			`, "test.Range.min has an lt rule, but test.Range is generic"),
+			Entry("inherited by a generic struct", `
+				Range struct {
+					min float64 { @go validate lt max }
+					max float64
+				}
+				Holder struct<T> extends Range {
+					value T
+				}
+			`, "test.Holder.min has an lt rule, but test.Holder is generic"),
+			Entry("comparing two number types", `
+				Range struct {
+					min int32 { @go validate lt max }
+					max float64
+				}
+			`, "test.Range.min is less than max, but the two have different types"),
+			Entry("comparing a distinct type with its base", `
+				Key uint32
+				Range struct {
+					min Key { @go validate lt max }
+					max uint32
+				}
+			`, "test.Range.min is less than max, but the two have different types"),
+			Entry("comparing a field with itself", `
+				Range struct {
+					min float64 { @go validate lt min }
+				}
+			`, "test.Range.min is less than min, but a field cannot be less than itself"),
+			Entry("in a child that omits the compared field", `
+				Range struct {
+					min float64 { @go validate lt max }
+					max float64
+				}
+				Holder struct extends Range {
+					-max
+				}
+			`, "test.Holder.min is less than max, but test.Holder has no field max"),
+			Entry("in a child that retypes the compared field", `
+				Range struct {
+					min float64 { @go validate lt max }
+					max float64
+				}
+				Holder struct extends Range {
+					max int32
+				}
+			`, "test.Holder.min is less than max, but the two have different types"),
+			Entry("in a variant that omits the compared field", `
+				Range struct {
+					min float64 { @go validate lt max }
+					max float64
+				}
+				Shape union on kind {
+					ranged extends Range {
+						-max
+					}
+				}
+			`, "min is less than max, but"),
+			Entry("that is not lt", `
+				Range struct {
+					min float64 { @go validate max 3 }
+				}
+			`, "test.Range.min has a @go validate rule, but only lt <field> and"),
+			Entry("with a pattern on a number", `
+				Range struct {
+					min float64 { @go validate pattern "^a$" }
+				}
+			`, "test.Range.min has a pattern rule, but only a required string can"),
+			Entry("with a pattern on an optional string", `
+				Device struct {
+					name string? { @go validate pattern "^a$" }
+				}
+			`, "test.Device.name has a pattern rule, but only a required string can"),
+			Entry("with a pattern that is not a regex", `
+				Device struct {
+					name string { @go validate pattern "^(a$" }
+				}
+			`, "test.Device.name has a pattern rule that is not valid"),
+			Entry("with a pattern that is not a string", `
+				Device struct {
+					name string { @go validate pattern foo }
+				}
+			`, "test.Device.name has a pattern rule, but it takes a"),
+			Entry("with an empty pattern", `
+				Device struct {
+					name string { @go validate pattern "" }
+				}
+			`, "test.Device.name has a pattern rule, but it takes a"),
+			Entry("with a message that is not a string", `
+				Device struct {
+					name string { @go validate pattern "^a$" 5 }
+				}
+			`, "test.Device.name has a pattern rule, but it takes a"),
+			Entry("with a pattern in a generic struct", `
+				Device struct<T> {
+					name string { @go validate pattern "^a$" }
+					value T
+				}
+			`, "test.Device.name has a pattern rule, but test.Device is generic"),
+		)
+
+		DescribeTable(
+			"Should accept an lt rule",
+			func(source string) {
+				_, diag := Analyze(source, "test", loader)
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+			},
+			Entry("naming a field of the struct", `
+				Range struct {
+					min float64 { @go validate lt max "min must be below max" }
+					max float64
+				}
+			`),
+			Entry("with a pattern on a string", `
+				Device struct {
+					name string { @go validate pattern "^$|^[a-z]+$" "lowercase only" }
+				}
+			`),
+			Entry("naming an inherited field", `
+				Upper struct {
+					max int32
+				}
+				Range struct extends Upper {
+					min int32 { @go validate lt max }
+				}
+			`),
+			Entry("comparing aliases of one type", `
+				Bound = float64
+				Range struct {
+					min Bound { @go validate lt max }
+					max float64
+				}
+			`),
+		)
+
+		DescribeTable(
 			"Should accept a finite rule on a float",
 			func(source string) {
 				_, diag := Analyze(source, "test", loader)
@@ -1324,12 +1499,13 @@ Node union on variant {
 
 	Describe("Length rules", func() {
 		DescribeTable(
-			"Should reject a length rule on a field that is not a string",
+			"Should reject a length rule on a field that is not a string or bytes",
 			func(source string) {
 				_, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(diag.String()).To(ContainSubstring(
-					"test.Entry.value has a length rule, but its type is not a string",
+					"test.Entry.value has a length rule, " +
+						"but its type is not a string or bytes",
 				))
 			},
 			Entry("a uuid with max_length", `
@@ -1352,6 +1528,11 @@ Node union on variant {
 					value string[] { @validate max_length 64 }
 				}
 			`),
+			Entry("an array of bytes", `
+				Entry struct {
+					value bytes[] { @validate min_length 1 }
+				}
+			`),
 			Entry("an alias of uuid", `
 				Key = uuid
 				Entry struct {
@@ -1369,7 +1550,7 @@ Node union on variant {
 		)
 
 		DescribeTable(
-			"Should accept a length rule on a string field",
+			"Should accept a length rule on a string or bytes field",
 			func(source string) {
 				_, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue(), diag.String())
@@ -1388,6 +1569,22 @@ Node union on variant {
 				Name = string
 				Entry struct {
 					value Name { @validate max_length 64 }
+				}
+			`),
+			Entry("bytes", `
+				Entry struct {
+					value bytes {
+						@validate {
+							min_length 1
+							max_length 64
+						}
+					}
+				}
+			`),
+			Entry("an alias of bytes", `
+				Data = bytes
+				Entry struct {
+					value Data { @validate min_length 1 }
 				}
 			`),
 			Entry("an override of an inherited string field", `
@@ -5990,6 +6187,33 @@ var _ = Describe("Analyze", func() {
 			files = append(files, file)
 		})
 		Expect(files).To(ContainElement("broken.oracle"))
+	})
+})
+
+var _ = Describe("Integer enum values", func() {
+	var loader *MockFileLoader
+	BeforeEach(func() { loader = NewMockFileLoader() })
+	DescribeTable(
+		"Should refuse a value that some generator cannot write",
+		func(members, wantErr string) {
+			_, diag := Analyze("Size enum {\n"+members+"\n}", "test", loader)
+			Expect(diag.Error()).To(ContainSubstring(wantErr))
+		},
+		Entry("a negative value", "low = -1",
+			"enum Size member low has value -1, which is not from 0 to 255"),
+		Entry("a value over 255", "low = 0\nhigh = 256",
+			"enum Size member high has value 256, which is not from 0 to 255"),
+		Entry("two members with one value", "one = 1\nuno = 1",
+			"enum Size members one and uno have the same value 1"),
+	)
+
+	It("Should accept the values 0 and 255 with gaps between members", func() {
+		_, diag := Analyze(
+			"Size enum {\nlow = 0\nmid = 4\nhigh = 255\n}",
+			"test",
+			loader,
+		)
+		Expect(diag.Ok()).To(BeTrue())
 	})
 })
 

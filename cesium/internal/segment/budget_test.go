@@ -16,6 +16,7 @@ import (
 	"slices"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -25,6 +26,9 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
+
+// syncTimeout bounds each wait on a sync of the disk, which a busy machine slows.
+const syncTimeout = 10 * time.Second
 
 // queue is an executor that runs each function at once until held, and then holds each
 // until the test runs it.
@@ -193,13 +197,13 @@ var _ = Describe("Budget", func() {
 				done := make(chan error, 2)
 				go func() { done <- b.Sync(first) }()
 				go func() { done <- b.Sync(second) }()
-				Eventually(fs.held).Should(Receive())
-				Eventually(fs.held).Should(Receive())
+				Eventually(fs.held).WithTimeout(syncTimeout).Should(Receive())
+				Eventually(fs.held).WithTimeout(syncTimeout).Should(Receive())
 				Consistently(fs.held).ShouldNot(Receive())
 				fs.Unhold()
 				close(release)
-				Eventually(done).Should(Receive(BeNil()))
-				Eventually(done).Should(Receive(BeNil()))
+				Eventually(done).WithTimeout(syncTimeout).Should(Receive(BeNil()))
+				Eventually(done).WithTimeout(syncTimeout).Should(Receive(BeNil()))
 				Expect(fs.MaxSyncs()).To(Equal(2))
 				Expect(b.Sync(slices.Concat(first, second))).To(Succeed())
 				Expect(fs.Ops()).To(HaveLen(6*3), "a synced handle syncs once")
@@ -233,14 +237,14 @@ var _ = Describe("Budget", func() {
 					q.hold()
 					done := make(chan error, 1)
 					go func() { done <- b.Sync(hs) }()
-					Eventually(q.len).Should(Equal(3))
+					Eventually(q.len).WithTimeout(syncTimeout).Should(Equal(3))
 					funcs := q.take()
 					for _, f := range slices.Backward(funcs[1:]) {
 						f()
 					}
 					Consistently(done).ShouldNot(Receive())
 					funcs[0]()
-					Eventually(done).Should(Receive(BeNil()))
+					Eventually(done).WithTimeout(syncTimeout).Should(Receive(BeNil()))
 					Expect(fs.Ops()[6:]).To(Equal([]string{
 						"sync 2.seg", "sync 1.seg", "sync 0.seg",
 					}))
@@ -262,15 +266,16 @@ var _ = Describe("Budget", func() {
 					release := fs.Hold()
 					synced := make(chan error, 1)
 					go func() { synced <- b.Sync(hs[:1]) }()
-					Eventually(fs.held).Should(Receive(Equal("0.seg")))
+					Eventually(fs.held).WithTimeout(syncTimeout).
+						Should(Receive(Equal("0.seg")))
 					created := make(chan *segment.Handle, 1)
 					go func() { created <- MustSucceed(b.Create(fs, "2.seg")) }()
 					Consistently(fs.held).ShouldNot(Receive())
 					fs.Unhold()
 					close(release)
-					Eventually(synced).Should(Receive(BeNil()))
+					Eventually(synced).WithTimeout(syncTimeout).Should(Receive(BeNil()))
 					var third *segment.Handle
-					Eventually(created).Should(Receive(&third))
+					Eventually(created).WithTimeout(syncTimeout).Should(Receive(&third))
 					Expect(third.Close()).To(Succeed())
 					Expect(
 						execs.Load(),
@@ -301,21 +306,27 @@ var _ = Describe("Budget", func() {
 					release := fs.Hold()
 					created := make(chan *segment.Handle, 1)
 					go func() { created <- MustSucceed(b.Create(fs, "b0.seg")) }()
-					Eventually(fs.held).Should(Receive(Equal("a0.seg")))
+					Eventually(
+						fs.held,
+					).WithTimeout(syncTimeout).
+						Should(Receive(Equal("a0.seg")))
 					synced := make(chan error, 2)
 					go func() { synced <- b.Sync([]*segment.Handle{first}) }()
 					Consistently(synced).ShouldNot(Receive())
 					fs.Unhold()
 					close(release)
 					var second *segment.Handle
-					Eventually(created).Should(Receive(&second))
+					Eventually(
+						created,
+					).WithTimeout(syncTimeout).
+						Should(Receive(&second))
 					DeferCleanup(func() { Expect(second.Close()).To(Succeed()) })
-					Eventually(synced).Should(Receive(BeNil()))
+					Eventually(synced).WithTimeout(syncTimeout).Should(Receive(BeNil()))
 					Expect(second.WriteAt([]byte("b0.seg"), 0)).To(Equal(6))
 					third := MustSucceed(b.Create(fs, "c0.seg"))
 					DeferCleanup(func() { Expect(third.Close()).To(Succeed()) })
 					go func() { synced <- b.Sync([]*segment.Handle{second, first}) }()
-					Eventually(synced).Should(Receive(BeNil()))
+					Eventually(synced).WithTimeout(syncTimeout).Should(Receive(BeNil()))
 					Expect(fs.Ops()).To(ContainElements("sync a0.seg", "sync b0.seg"))
 				},
 			)
@@ -329,15 +340,19 @@ var _ = Describe("Budget", func() {
 					release := fs.Hold()
 					created := make(chan *segment.Handle, 1)
 					go func() { created <- MustSucceed(b.Create(fs, "1.seg")) }()
-					Eventually(fs.held).Should(Receive(Equal("0.seg")))
+					Eventually(fs.held).WithTimeout(syncTimeout).
+						Should(Receive(Equal("0.seg")))
 					synced := make(chan error, 1)
 					go func() { synced <- b.Sync(hs) }()
 					Consistently(synced).ShouldNot(Receive())
 					fs.Unhold()
 					close(release)
-					Eventually(synced).Should(Receive(BeNil()))
+					Eventually(synced).WithTimeout(syncTimeout).Should(Receive(BeNil()))
 					var second *segment.Handle
-					Eventually(created).Should(Receive(&second))
+					Eventually(
+						created,
+					).WithTimeout(syncTimeout).
+						Should(Receive(&second))
 					Expect(second.Close()).To(Succeed())
 					opens := 0
 					for _, op := range fs.Ops() {

@@ -44,7 +44,9 @@ func (db *DB) Sweep(
 	ctx context.Context,
 	records []ChannelKey,
 ) ([]KeptChannel, ChannelKey, error) {
-	db.lockRoot()
+	if err := db.lockRoot(ctx); err != nil {
+		return nil, 0, err
+	}
 	defer db.mu.Unlock()
 	if db.closed.Load() {
 		return nil, 0, ErrDBClosed

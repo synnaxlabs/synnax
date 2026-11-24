@@ -116,40 +116,51 @@ type DataTypeCode uint8
 
 const (
 	// DataTypeCodeUnknown is never valid on the wire.
-	DataTypeCodeUnknown DataTypeCode = iota
+	DataTypeCodeUnknown DataTypeCode = 0
 	// DataTypeCodeUint8 is the code of uint8.
-	DataTypeCodeUint8
+	DataTypeCodeUint8 DataTypeCode = 1
 	// DataTypeCodeUint16 is the code of uint16.
-	DataTypeCodeUint16
+	DataTypeCodeUint16 DataTypeCode = 2
 	// DataTypeCodeUint32 is the code of uint32.
-	DataTypeCodeUint32
+	DataTypeCodeUint32 DataTypeCode = 3
 	// DataTypeCodeUint64 is the code of uint64.
-	DataTypeCodeUint64
+	DataTypeCodeUint64 DataTypeCode = 4
 	// DataTypeCodeInt8 is the code of int8.
-	DataTypeCodeInt8
+	DataTypeCodeInt8 DataTypeCode = 5
 	// DataTypeCodeInt16 is the code of int16.
-	DataTypeCodeInt16
+	DataTypeCodeInt16 DataTypeCode = 6
 	// DataTypeCodeInt32 is the code of int32.
-	DataTypeCodeInt32
+	DataTypeCodeInt32 DataTypeCode = 7
 	// DataTypeCodeInt64 is the code of int64.
-	DataTypeCodeInt64
+	DataTypeCodeInt64 DataTypeCode = 8
 	// DataTypeCodeFloat32 is the code of float32.
-	DataTypeCodeFloat32
+	DataTypeCodeFloat32 DataTypeCode = 9
 	// DataTypeCodeFloat64 is the code of float64.
-	DataTypeCodeFloat64
+	DataTypeCodeFloat64 DataTypeCode = 10
 	// DataTypeCodeTimestamp is the code of timestamp.
-	DataTypeCodeTimestamp
+	DataTypeCodeTimestamp DataTypeCode = 11
 	// DataTypeCodeUUID is the code of uuid.
-	DataTypeCodeUUID
+	DataTypeCodeUUID DataTypeCode = 12
 	// DataTypeCodeString is the code of string.
-	DataTypeCodeString
+	DataTypeCodeString DataTypeCode = 13
 	// DataTypeCodeBytes is the code of bytes.
-	DataTypeCodeBytes
+	DataTypeCodeBytes DataTypeCode = 14
 	// DataTypeCodeJSON is the code of json.
-	DataTypeCodeJSON
+	DataTypeCodeJSON DataTypeCode = 15
 	// DataTypeCodeBoolean is the code of boolean.
-	DataTypeCodeBoolean
+	DataTypeCodeBoolean DataTypeCode = 16
 )
+
+// IsValid reports whether d is one of the defined DataTypeCode
+// values.
+func (d DataTypeCode) IsValid() bool {
+	switch d {
+	case DataTypeCodeUnknown, DataTypeCodeUint8, DataTypeCodeUint16, DataTypeCodeUint32, DataTypeCodeUint64, DataTypeCodeInt8, DataTypeCodeInt16, DataTypeCodeInt32, DataTypeCodeInt64, DataTypeCodeFloat32, DataTypeCodeFloat64, DataTypeCodeTimestamp, DataTypeCodeUUID, DataTypeCodeString, DataTypeCodeBytes, DataTypeCodeJSON, DataTypeCodeBoolean:
+		return true
+	default:
+		return false
+	}
+}
 
 // Aggregation selects how a limited read collapses each group of samples into points.
 // min_max keeps the lowest and highest sample of each group in the order they occurred,

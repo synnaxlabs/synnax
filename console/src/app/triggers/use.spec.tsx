@@ -24,6 +24,8 @@ import {
 import type { PropsWithChildren, ReactElement, ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { Vis } from "@/app/vis";
+
 const mocks = vi.hoisted((): { engine: "web" | "tauri" } => ({ engine: "web" }));
 
 vi.mock("@/session/runtime", async (importOriginal) => {
@@ -32,7 +34,6 @@ vi.mock("@/session/runtime", async (importOriginal) => {
 });
 
 import { Triggers } from "@/app/triggers";
-import { useSelectorVisible } from "@/app/vis/useSelectorVisible";
 import { Panel as PlatformPanel } from "@/platform/panel";
 import {
   createPanelWrapper,
@@ -114,10 +115,15 @@ const renderTriggers = async (ui?: ReactNode) => {
 
 // The Core-writing shortcuts need a panel that exists on the Core. The triggers mount
 // above every panel scope, the way the app shell mounts them.
-const renderLiveTriggers = async (panelKey: panel.Key, as: Client = client) => {
+const renderLiveTriggers = async (
+  panelKey: panel.Key,
+  as: Client = client,
+  skipPermissionLoad?: boolean,
+) => {
   const { wrapper: Panels, store } = await createPanelWrapper({
     client: as,
     project: await createPanelProject(client),
+    skipPermissionLoad,
   });
   await primePanel(Panels, panelKey);
   const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
@@ -130,7 +136,7 @@ const renderLiveTriggers = async (panelKey: panel.Key, as: Client = client) => {
     () => {
       Triggers.use();
       return {
-        canCreateTab: useSelectorVisible(),
+        canCreateTab: Vis.useSelectorVisible(),
         canEditPanel: PlatformPanel.useCanEditActive(),
       };
     },
@@ -294,7 +300,7 @@ describe("app/triggers", () => {
         client,
         { retrieve: [panel.TYPE_RESOURCE_ID], update: [panel.TYPE_RESOURCE_ID] },
       );
-      const { store, canEditPanel } = await renderLiveTriggers(pan.key, editor);
+      const { store, canEditPanel } = await renderLiveTriggers(pan.key, editor, true);
       focusTab(store, pan.key, closed.key);
       expect(canEditPanel()).toBeUndefined();
       vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
@@ -319,7 +325,7 @@ describe("app/triggers", () => {
         retrieve: [panel.TYPE_RESOURCE_ID],
         update: [panel.TYPE_RESOURCE_ID],
       });
-      const { store, canEditPanel } = await renderLiveTriggers(pan.key, editor);
+      const { store, canEditPanel } = await renderLiveTriggers(pan.key, editor, true);
       expect(canEditPanel()).toBeUndefined();
       vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
       act(() => hold(CONTROL, "KeyW"));

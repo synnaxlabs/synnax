@@ -64,8 +64,15 @@ func segmentFiles(fs xfs.FS, key cesium.ChannelKey) int {
 	return n
 }
 
+// framer is the part of an iterator that iterated reads.
+type framer interface {
+	Next(span telem.TimeSpan) bool
+	Value() cesium.Frame
+	Error() error
+}
+
 // iterated returns the values of key that iter reads from its position on.
-func iterated(iter *cesium.Iterator, key cesium.ChannelKey) []int64 {
+func iterated(iter framer, key cesium.ChannelKey) []int64 {
 	GinkgoHelper()
 	var out []int64
 	for iter.Next(cesium.AutoSpan) {
