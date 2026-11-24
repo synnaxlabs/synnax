@@ -119,6 +119,8 @@ func openEngine(o *options) (*engine, error) {
 	if err = e.recover(r); err != nil {
 		return nil, err
 	}
+	// Readers see the recovered state before Run.
+	e.state.EndReplay()
 	if e.budget, err = segment.NewBudget(handleLimit, syncWidth, e.exec); err != nil {
 		return nil, err
 	}
