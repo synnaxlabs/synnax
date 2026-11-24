@@ -188,7 +188,7 @@ describe("store", () => {
 
   it("caches the project of a group move as soon as the batch resolves", async () => {
     // A client with no change stream gets no echo of the move.
-    const unstreamed = createTestClient({ cache: false });
+    const unstreamed = createTestClient({ uncached: true });
     const proj = await unstreamed.projects.create({ name: "Line Plot" });
     const dest = await unstreamed.projects.create({ name: "Line Plot" });
     const g = await unstreamed.groups.create({

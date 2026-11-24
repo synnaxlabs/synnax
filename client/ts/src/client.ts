@@ -101,7 +101,13 @@ export const synnaxParamsZ = z.object({
     .optional(),
   name: z.string().optional(),
   retry: breaker.configZ.optional(),
-  cache: z.boolean().default(true),
+  /**
+   * Whether the client keeps no cache: retrieves go to the Core, and nothing stays
+   * current. Defaults to false.
+   */
+  uncached: z.boolean().optional(),
+  // SynnaxParams marks it deprecated, since a tag here flags the schema's own reads.
+  cache: z.boolean().optional(),
   /**
    * Receives cache errors that have no caller to throw to (listener fan-out, streamer
    * frame handling, background reconciliation). Defaults to console logging.
@@ -148,9 +154,23 @@ const constructorParamsZ = synnaxParamsZ
   .refine((p) => p.caCert == null || p.secure, {
     message: "caCert requires secure; leave secure out or set it to true",
     path: ["secure"],
+  })
+  .refine((p) => p.cache == null || p.uncached == null, {
+    message: "Give uncached or the deprecated cache, not both",
+    path: ["cache"],
+  })
+  // uncached has no schema default, so a caller that parses synnaxParamsZ first and
+  // passes cache does not give both.
+  .transform(({ cache, uncached, ...p }) => {
+    if (cache == null) return { ...p, uncached: uncached ?? false };
+    console.warn("cache is deprecated. Use uncached, its inverse.");
+    return { ...p, uncached: !cache };
   });
 
-export interface SynnaxParams extends z.input<typeof synnaxParamsZ> {}
+export interface SynnaxParams extends Omit<z.input<typeof synnaxParamsZ>, "cache"> {
+  /** @deprecated Use uncached, its inverse. Removed in 0.64. */
+  cache?: boolean;
+}
 export interface ParsedSynnaxParams extends z.infer<typeof synnaxParamsZ> {}
 
 /**
@@ -386,7 +406,7 @@ export default class Synnax extends framer.Client {
       node: () => this.conn.status.details.nodeKey,
     });
     const cache = new query.Cache({
-      openStreamer: parsedParams.cache
+      openStreamer: !parsedParams.uncached
         ? async (config) => await this.openStreamer(config)
         : null,
       breaker: retry,
@@ -404,7 +424,7 @@ export default class Synnax extends framer.Client {
       address: `${host}:${Number(port)}`,
       name: parsedParams.name,
       clockSkewThreshold: new TimeSpan(clockSkewThreshold).abs(),
-      requiresStream: parsedParams.cache,
+      requiresStream: !parsedParams.uncached,
       retry,
       heartbeatInterval: connectivityPollFrequency,
       stream: {

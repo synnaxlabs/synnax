@@ -12,7 +12,7 @@ import { describe, expect, it, onTestFinished, vi } from "vitest";
 import z from "zod";
 
 import { channel } from "@/channel";
-import { DataType, NotFoundError } from "@/index";
+import { DataType, NotFoundError, ValidationError } from "@/index";
 import type { query } from "@/query";
 import { status } from "@/status";
 import {
@@ -1348,5 +1348,28 @@ describe("toString", () => {
     expect(status.toString(s)).toBe(
       "ERROR: failed to start\n\nDescription: channel is not writable",
     );
+  });
+
+  describe("name", () => {
+    const s = status.create({ variant: "error", name: "Task", message: "failed" });
+
+    it("should leave the name out when nameHidden is true", () => {
+      expect(status.toString(s, { nameHidden: true })).toBe("ERROR: failed");
+    });
+
+    it("should map the deprecated includeName to its inverse with a warning", () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      onTestFinished(() => warn.mockRestore());
+      expect(status.toString(s, { includeName: false })).toBe("ERROR: failed");
+      expect(status.toString(s, { includeName: true })).toBe("ERROR [Task]: failed");
+      expect(warn).toHaveBeenCalledTimes(2);
+      expect(warn.mock.calls[0][0]).toContain("includeName is deprecated");
+    });
+
+    it("should throw when both nameHidden and includeName are given", () => {
+      expect(() => status.toString(s, { nameHidden: true, includeName: true })).toThrow(
+        ValidationError,
+      );
+    });
   });
 });

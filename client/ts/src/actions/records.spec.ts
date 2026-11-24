@@ -264,7 +264,7 @@ describe("record dispatch", () => {
     });
 
     it("should read a later remote edit with no change stream", async () => {
-      const unstreamed = createTestClient({ cache: false });
+      const unstreamed = createTestClient({ uncached: true });
       const rec = await create(unstreamed);
       await rec.rename(unstreamed, uniqueName("dispatch"));
       const name = uniqueName("dispatch");

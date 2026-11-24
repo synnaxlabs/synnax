@@ -23,7 +23,7 @@ type Data = {
   name: string;
 };
 
-const CLIENT = new Synnax({ ...testClientParams(), cache: false });
+const CLIENT = new Synnax({ ...testClientParams(), uncached: true });
 
 type RetrieveMock = ReturnType<
   typeof vi.fn<(params: flux.RetrieveParams<Query>) => Promise<Data>>
