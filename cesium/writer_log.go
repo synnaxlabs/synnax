@@ -11,6 +11,7 @@ package cesium
 
 import (
 	"cmp"
+	"context"
 	"math"
 	"slices"
 
@@ -79,7 +80,7 @@ type logKey struct {
 
 // openLogWriter opens a writer of cfg on the pointer log layout. The writer writes one
 // clock and the channels it times, the clock included. The caller holds db.mu.
-func (db *DB) openLogWriter(cfg WriterConfig) (*logWriter, error) {
+func (db *DB) openLogWriter(ctx context.Context, cfg WriterConfig) (*logWriter, error) {
 	w := &logWriter{
 		e:        db.engine,
 		byKey:    make(map[ChannelKey]*logKey, len(cfg.Channels)),
@@ -117,7 +118,7 @@ func (db *DB) openLogWriter(cfg WriterConfig) (*logWriter, error) {
 	slices.SortStableFunc(w.keys, func(a, b *logKey) int {
 		return boolOrder(b.ch.Key == w.clock) - boolOrder(a.ch.Key == w.clock)
 	})
-	if err := w.openState(db, cfg, keys); err != nil {
+	if err := w.openState(ctx, db, cfg, keys); err != nil {
 		return nil, err
 	}
 	return w, nil
@@ -125,12 +126,17 @@ func (db *DB) openLogWriter(cfg WriterConfig) (*logWriter, error) {
 
 // openState opens the state writer of w, and seals each open segment of its keys that
 // the state hands over, since a writer starts a new segment for each key.
-func (w *logWriter) openState(db *DB, cfg WriterConfig, keys []state.WriterKey) error {
+func (w *logWriter) openState(
+	ctx context.Context,
+	db *DB,
+	cfg WriterConfig,
+	keys []state.WriterKey,
+) error {
 	start := cfg.Start
 	if start.IsZero() {
 		start = telem.NewTimeStamp(db.clock.Now())
 	}
-	st, err := db.engine.state.OpenWriter(state.WriterConfig{
+	st, err := db.engine.state.OpenWriter(ctx, state.WriterConfig{
 		Keys:    keys,
 		Clock:   w.clock,
 		Start:   start,
