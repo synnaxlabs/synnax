@@ -222,7 +222,7 @@ to match, and the statuses page in the docs
   not clear it. The Core now writes the error when it starts or changes, and a good
   status on the first good frame after it. The calculation graph writes a good status
   where it now deletes one (`core/pkg/service/channel/calculation/graph/graph.go:180`,
-  :410), so the clear window covers calculations. _(Amended by RFC 0116 §4.4: the
+  :410), so the clear window covers calculations. _(Amended by RFC 0119 §4.4: the
   calculation record owns this status, not the channel, and the graph moves to
   `core/pkg/service/calculation`.)_
 - **No repeat writes**: `AlertEveryNChecks` is deleted. The rack's description no longer

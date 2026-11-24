@@ -1,4 +1,4 @@
-# 116 Channel names, references, and records
+# 119 Channel names, references, and records
 
 - **Author**: Emiliano Bonilla
 - **Date**: 2026-11-19
@@ -21,8 +21,8 @@ one up again at each compile, and follow renames. Every action that changes a li
 one impact plan. A deleted channel leaves a tombstone at its path, so a channel made
 again there heals the display links, and a path keeps its history when another channel
 takes it. A calculation becomes its own record. The channel record shrinks to six
-fields, and Gorp is the only proof that a channel exists. RFC 0117 owns clocks, the
-wire, and the key counter. RFC 0118 owns the Cesium formats and the storage half of a
+fields, and Gorp is the only proof that a channel exists. RFC 0120 owns clocks, the
+wire, and the key counter. RFC 0121 owns the Cesium formats and the storage half of a
 delete.
 
 ## 1 Motivation
@@ -73,7 +73,7 @@ delete.
 
 Channel v1 shipped in `core/v0.61.0` and is still the version of `core/v0.62.0`. Phases
 1, 3, 10, and 17 share v2: a phase edits v2 in place while no stable release holds it,
-and mints the next version with the same lines if one does. RFC 0117 Phase 9 builds v3,
+and mints the next version with the same lines if one does. RFC 0120 Phase 9 builds v3,
 after index channels stop being channels.
 
 | Field         | Bytes         | v1  | v2, Phase 1 | v2, Phase 3 | v2, Phase 10 | v2, Phase 17 | v3  |
@@ -157,7 +157,7 @@ Rewire struct {
   `leaseholder << 20 | local_key`. No key is reused: the counter write is its own synced
   commit before the record commits (`x/go/kv/counter.go:56-64`,
   `x/go/kv/pebblekv/pebblekv.go:92-94`, `:114-126`). From Phase 3, no code routes on key
-  bits (`core/pkg/distribution/channel/channel.go:52`). RFC 0117 owns the counter and
+  bits (`core/pkg/distribution/channel/channel.go:52`). RFC 0120 owns the counter and
   its cap, and its Phase 4 makes the TS cache stop trusting blocks by `leaseholder`.
 - **`rewires`**: The channels that held the path before this one, oldest first (§4.13).
   It is absent on a channel that no rewire or heal has touched.
@@ -300,7 +300,7 @@ Rewire struct {
 | Calculation                  | `output`                                                        | `place`, `unique` | `cascade`                                                | `write`                          | Never                                     |
 | Calculation                  | `reads`, `operations[].reset`, `primary`                        | `use`             | `weak`                                                   | `read`                           | Text pass; `reset`, `primary` `retarget`  |
 | Channel                      | `group`                                                         | `place`           | `detach`                                                 | none                             | Never                                     |
-| Channel                      | `index` (until RFC 0117 Phase 9)                                | `use`             | `restrict`                                               | `read`                           | Never                                     |
+| Channel                      | `index` (until RFC 0120 Phase 9)                                | `use`             | `restrict`                                               | `read`                           | Never                                     |
 | Channel                      | `rewires[].from`                                                | `use`             | `weak`: the span reads empty                             | `read`                           | Never                                     |
 | Tombstone                    | `rewires[].from`                                                | `use`             | `weak`                                                   | `read`                           | Never                                     |
 | Tombstone                    | `group`                                                         | `place`           | `cascade`                                                | none                             | Never                                     |
@@ -384,9 +384,9 @@ The example value is 86 B. The Pebble key is `gorp.Calculation` and the 16 key b
   window. `reset` and `primary` are keys, because a picker sets them (principle 3). A
   plan that retargets `reset` or `primary` compiles the calculation in the same action,
   so `reads` changes with them; if that compile fails, the calculation stays as it was
-  and the plan notes it. `primary` is one of the channels in `reads`, read by RFC 0117
+  and the plan notes it. `primary` is one of the channels in `reads`, read by RFC 0120
   §4.7. A save whose text stops reading that channel picks a primary again by the rule
-  of RFC 0117 §4.7 and announces it with a computed `Set`.
+  of RFC 0120 §4.7 and announces it with a computed `Set`.
 - **Status**: `calculation` joins and `channel` leaves the owner types
   (`schemas/synnax/status.oracle:98-106`). The calculation graph stays the one writer. A
   rename of the output renames the status (`core/pkg/service/status/writer.go:90`).
@@ -489,7 +489,7 @@ TDMS) reads measured.
 | `core/pkg/service/impact` (NEW)                         | Plans, choices, defaults, apply, the policy map                                                   | `service/channel`, `service/group`, `service/resource`, `gorp`                                                 | `service/arc`, `service/calculation`, `api` |
 | `core/pkg/api/channel`, `api/calculation`, `api/impact` | `path`, `uses`, and the plan and apply routes                                                     | Services                                                                                                       | -                                           |
 
-The table is the state after Phase 3. RFC 0117 Phase 2 moves `channel/calculation`, its
+The table is the state after Phase 3. RFC 0120 Phase 2 moves `channel/calculation`, its
 `compiler`, and its `graph` to `core/pkg/service/calculation` as a pure move. The
 analyzer and `CalculationInputs` stay in `service/channel`, which imports `arc`, until
 Phase 3 moves them, and `resolver.go` and `lookups.go` go to `channel/resolver`.
@@ -739,7 +739,7 @@ Tombstone struct {
   export set it too. A read by key stays raw. For each measured key, the service
   iterator walks its pieces in time order and advances one view across them, as one key.
   A piece is a stored channel or a calculation, read by the same paths as a plain read,
-  so Cesium does not change (RFC 0118 §4.2). A piece's key can be read raw beside its
+  so Cesium does not change (RFC 0121 §4.2). A piece's key can be read raw beside its
   holder in one request. The API finds the pieces of each measured key, checks retrieve
   on each, leaves out a piece that the subject cannot retrieve, and gives the rest to
   the iterator. A point-limited read splits its budget by duration, so a short span
@@ -749,8 +749,8 @@ Tombstone struct {
   list names it, through the reverse index of `rewires[].from`, and it observes the
   channel commits that move a list. So a rewire, a heal, a backfill, and a data delete
   of a piece each make the TypeScript cache read the holder again.
-- **Gate**: Rewires and measured reads land after RFC 0117 Phase 6, which pairs series
-  by clock, and RFC 0118's one alignment counter per database. Until then a rename onto
+- **Gate**: Rewires and measured reads land after RFC 0120 Phase 6, which pairs series
+  by clock, and RFC 0121's one alignment counter per database. Until then a rename onto
   a taken path fails, as today.
 - **Cost**: A measured read with no rewire in range costs one compare per key, and each
   rewire in range opens one sub-read of about 20 µs. A year of daily moves costs about 7
@@ -773,17 +773,17 @@ Each phase is one PR. Phases 1 and 3 are about 2,000 hand-written lines, and the
   reads looks unused. Phase 27 turns it on.
 - **Outside names**: An output that sends a channel's name, such as the Kafka key mode
   `channel_name`, sends the local name, as today. Sift channels take the local name, and
-  a Sift flow takes the name stored in its config (RFC 0117 §4.9). Status details that
+  a Sift flow takes the name stored in its config (RFC 0120 §4.9). Status details that
   hold channel keys stay untracked links.
 - **Phase 3: The whole calculation shape.** Each compile of a calculation fills its
   `reads` from Phase 3: a save and the graph's start compile, never the migration, which
-  parses no Arc. Phase 26 adds the Arc's lists. Nothing reads `primary` until RFC 0117
+  parses no Arc. Phase 26 adds the Arc's lists. Nothing reads `primary` until RFC 0120
   Phase 5. The `weak` and `direction` tags on its links are live-only and arrive with
   Phase 1.
-- **Across RFCs**: Phases 3 and 25 land after RFC 0117 Phase 2. Phases 34 to 38 land
-  after RFC 0117 Phase 6 and RFC 0118's alignment counter. Phase 39 lands after RFC 0117
-  Phases 5, 6, and 7. RFC 0117 Phase 6 lifts the key cap, and its Phase 9 builds channel
-  v3. RFC 0118 moves the storage half of create, rename, and delete out of the commit
+- **Across RFCs**: Phases 3 and 25 land after RFC 0120 Phase 2. Phases 34 to 38 land
+  after RFC 0120 Phase 6 and RFC 0121's alignment counter. Phase 39 lands after RFC 0120
+  Phases 5, 6, and 7. RFC 0120 Phase 6 lifts the key cap, and its Phase 9 builds channel
+  v3. RFC 0121 moves the storage half of create, rename, and delete out of the commit
   hook.
 
 | Phase | Scope                                                    | Touches                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | Depends on    |
@@ -848,7 +848,7 @@ prove a delete: a restored backup, lost metadata, or a Core pointed at the wrong
 metadata gives the same state. So a delete logs an intent in Cesium before the record
 commits, and the sweep at start drops only a key with an intent and no record, or a key
 with no samples. A key with samples, no record, and no intent stays hidden, with a
-warning status and an explicit purge (RFC 0118 §4.1). Rejected: a table of keys to purge
+warning status and an explicit purge (RFC 0121 §4.1). Rejected: a table of keys to purge
 in Gorp, which the same metadata loss would lose too, and a sweep on absence alone,
 which turns lost metadata into lost telemetry.
 
@@ -924,5 +924,5 @@ another purpose heals by default, and only the dialog shows it.
 
 - Units, limits, the channel's enumeration link, templates (RFC 0088), federation roots,
   state and command pairs, and search by path text (RFC 0099 decision 3).
-- Clocks, device paths, the wire, type changes, and the key counter (RFC 0117).
-- Segments, the storage delete, its sweep, and the writer guard (RFC 0118).
+- Clocks, device paths, the wire, type changes, and the key counter (RFC 0120).
+- Segments, the storage delete, its sweep, and the writer guard (RFC 0121).

@@ -178,7 +178,7 @@ config snapshot, which duplicates Driver-held state. A hash is one string, kept 
 **5.6 A rename breaks its importers.** An import names a path, so a renamed or moved
 module fails the compile of each importer. Rewriting importers on a rename needs a
 rename engine in the Core and a merge into open editors
-([SY-5173](https://linear.app/synnax/issue/SY-5173)). _(Amended by RFC 0116 §4.5: an Arc
+([SY-5173](https://linear.app/synnax/issue/SY-5173)). _(Amended by RFC 0119 §4.5: an Arc
 now follows a rename or move of a channel, and of a folder above a channel. The Arc
 service observes the change and rewrites the names in its own text after the rename
 commits. This decision stands for module renames.)_
@@ -193,4 +193,4 @@ renames the module.
 Parameterized sequences and stages, `=> name` inside imported code, modules in graph
 mode, Arc programs following renames, bundle import and export of modules (RFC 0052),
 access control on modules, and the Console beyond Phase 1's explorer work. _(Amended by
-RFC 0116 §4.5: Arc programs follow channel renames. Module renames stay out.)_
+RFC 0119 §4.5: Arc programs follow channel renames. Module renames stay out.)_
