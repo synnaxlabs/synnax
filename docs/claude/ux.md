@@ -127,7 +127,7 @@ a color picker has no "+".
   other weight, and do not change font smoothing.
 - Numbers that change, or that people compare, use `font-variant-numeric: tabular-nums`.
 - Canvas data (axis ticks, values, tooltip and measure values) draws in Inter with
-  tabular digits, through `numeric` in `theme.fontString`.
+  tabular digits, through `variant: "numeric"` in `theme.fontString`.
 
 ### Focus and motion
 
