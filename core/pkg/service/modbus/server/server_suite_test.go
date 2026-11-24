@@ -94,3 +94,14 @@ func write(address uint16, ch channel.Key) server.Write {
 		Channel:  ch,
 	}
 }
+
+// holdingWrite binds the value of the holding register at address to channel.
+func holdingWrite(address uint16, value server.ValueVariant, ch channel.Key) server.Write {
+	return server.Write{
+		Register: server.Register{Variant: server.HoldingRegisterRegister{
+			Address: address,
+			Value:   server.Value{Variant: value},
+		}},
+		Channel: ch,
+	}
+}

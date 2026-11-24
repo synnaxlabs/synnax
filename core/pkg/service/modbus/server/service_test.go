@@ -211,6 +211,39 @@ var _ = Describe("Service", func() {
 			}),
 		)
 
+		DescribeTable("Should reject writes that set one register twice",
+			func(ctx SpecContext, a, b server.ValueVariant, offset uint16) {
+				s := newServer()
+				s.Writes = []server.Write{
+					holdingWrite(5, a, 2),
+					holdingWrite(5+offset, b, 3),
+				}
+				Expect(svc.NewWriter(tx).Create(ctx, &s)).
+					To(MatchError(ContainSubstring("another write sets")))
+			},
+			Entry("two data types at one address",
+				server.WholeValue{DataType: server.DataTypeFloat32},
+				server.WholeValue{DataType: server.DataTypeUint16}, uint16(0)),
+			Entry("a float32 and the next register",
+				server.WholeValue{DataType: server.DataTypeFloat32},
+				server.WholeValue{DataType: server.DataTypeUint16}, uint16(1)),
+			Entry("a whole value and one of its bits",
+				server.WholeValue{DataType: server.DataTypeUint16},
+				server.BitValue{Bit: 3}, uint16(0)),
+			Entry("one bit twice",
+				server.BitValue{Bit: 3}, server.BitValue{Bit: 3}, uint16(0)),
+		)
+
+		It("Should accept writes of two bits of one register", func(ctx SpecContext) {
+			s := newServer()
+			s.Writes = []server.Write{
+				holdingWrite(5, server.BitValue{Bit: 1}, 2),
+				holdingWrite(5, server.BitValue{Bit: 2}, 3),
+				holdingWrite(6, server.WholeValue{DataType: server.DataTypeInt16}, 4),
+			}
+			Expect(svc.NewWriter(tx).Create(ctx, &s)).To(Succeed())
+		})
+
 		DescribeTable("Should accept a host",
 			func(ctx SpecContext, host string) {
 				s := newServer()

@@ -128,7 +128,7 @@ func validateServer(s Server) error {
 		)
 		reads.Add(k)
 	}
-	writes := set.New[registerKey]()
+	var written writeSet
 	for i, w := range s.Writes {
 		path := "writes." + strconv.Itoa(i)
 		v.Ternary(
@@ -136,11 +136,77 @@ func validateServer(s Server) error {
 			!isWritable(w.Register),
 			"must be a coil, or a whole value or bit of a holding register",
 		)
-		k := keyOf(w.Register)
-		v.Ternary(path, writes.Contains(k), "repeats the register of another write")
-		writes.Add(k)
+		v.Ternary(path, !written.add(w.Register), "sets a register that another write sets")
 	}
 	return v.Error()
+}
+
+// address is one address in one Modbus address space.
+type address struct {
+	typ     RegisterType
+	address int
+}
+
+// writeSet holds the coils, registers, and register bits that writes set.
+type writeSet struct {
+	whole set.Set[address]
+	bits  map[address]set.Set[uint8]
+}
+
+// add records the addresses that a write of r sets. It returns false if another write
+// already sets one of them: a coil, a register of a whole value, or the same bit or the
+// whole of a register that a bit write sets.
+func (ws *writeSet) add(r Register) bool {
+	if ws.whole == nil {
+		ws.whole, ws.bits = set.New[address](), map[address]set.Set[uint8]{}
+	}
+	var (
+		start   address
+		count   = 1
+		bit     uint8
+		isBit   bool
+		holding HoldingRegisterRegister
+	)
+	switch v := r.Variant.(type) {
+	case CoilRegister:
+		start = address{typ: CoilRegisterType, address: int(v.Address)}
+	case HoldingRegisterRegister:
+		holding = v
+		start = address{typ: HoldingRegisterRegisterType, address: int(v.Address)}
+	default:
+		return true
+	}
+	switch v := holding.Value.Variant.(type) {
+	case WholeValue:
+		count = registerCount(v.DataType)
+	case BitValue:
+		bit, isBit = v.Bit, true
+	}
+	if isBit {
+		bits := ws.bits[start]
+		if ws.whole.Contains(start) || (bits != nil && bits.Contains(bit)) {
+			return false
+		}
+		if bits == nil {
+			bits = set.New[uint8]()
+			ws.bits[start] = bits
+		}
+		bits.Add(bit)
+		return true
+	}
+	free := true
+	for i := range count {
+		a := address{typ: start.typ, address: start.address + i}
+		_, hasBits := ws.bits[a]
+		free = free && !ws.whole.Contains(a) && !hasBits
+		ws.whole.Add(a)
+	}
+	return free
+}
+
+// registerCount returns the number of 16-bit registers that a value of dt fills.
+func registerCount(dt DataType) int {
+	return max(1, int(telem.DataType(dt).Density())/2)
 }
 
 // Writer creates, updates, and deletes Modbus servers in the transaction given to
