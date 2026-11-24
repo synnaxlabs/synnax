@@ -14,6 +14,7 @@ import (
 	"math/rand/v2"
 	"strconv"
 	"strings"
+	"sync/atomic"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -454,3 +455,78 @@ var _ = Describe("Writer on the pointer log", func() {
 		})).Error().To(MatchError(xerrors.ErrUnsupported))
 	})
 })
+
+var _ = Describe("Writer handles on the pointer log", func() {
+	It("Should keep each written segment open past the handle limit, with no sync "+
+		"before a commit", func(ctx SpecContext) {
+		var syncs atomic.Int64
+		db := mustOpenDBOnFS(
+			ctx,
+			segmentSyncFS{FS: xfs.NewMem(), syncs: &syncs},
+			cesium.WithPointerLog(),
+		)
+		const count = 1100
+		clock := GenerateChannelKey()
+		channels := append(make([]cesium.Channel, 0, count+1), cesium.Channel{
+			Key: clock, Name: "time", IsIndex: true, DataType: telem.TimestampT,
+		})
+		keys := append(make([]cesium.ChannelKey, 0, count+1), clock)
+		series := append(
+			make([]telem.Series, 0, count+1),
+			telem.NewSeriesSecondsTSV(10),
+		)
+		for i := range count {
+			key := GenerateChannelKey()
+			channels = append(channels, cesium.Channel{
+				Key:      key,
+				Name:     "data_" + strconv.Itoa(i),
+				Index:    clock,
+				DataType: telem.Int64T,
+			})
+			keys = append(keys, key)
+			series = append(series, telem.NewSeriesV[int64](1))
+		}
+		Expect(db.CreateChannel(ctx, channels...)).To(Succeed())
+		w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+			Channels: keys,
+			Start:    10 * telem.SecondTS,
+		}))
+		mustWrite(ctx, w, telem.MultiFrame(keys, series))
+		Expect(syncs.Load()).To(BeZero())
+		MustSucceed2(w.Commit(ctx, nil))
+		Expect(w.Close()).To(Succeed())
+		Expect(syncs.Load()).To(BeNumerically(">=", len(keys)))
+	})
+})
+
+// segmentSyncFS counts the syncs of segment files.
+type segmentSyncFS struct {
+	xfs.FS
+	syncs *atomic.Int64
+}
+
+func (f segmentSyncFS) Sub(name string) (xfs.FS, error) {
+	sub, err := f.FS.Sub(name)
+	if err != nil {
+		return nil, err
+	}
+	return segmentSyncFS{FS: sub, syncs: f.syncs}, nil
+}
+
+func (f segmentSyncFS) Open(name string, flag int) (xfs.File, error) {
+	file, err := f.FS.Open(name, flag)
+	if err != nil || !strings.HasSuffix(name, ".seg") {
+		return file, err
+	}
+	return segmentSyncFile{File: file, syncs: f.syncs}, nil
+}
+
+type segmentSyncFile struct {
+	xfs.File
+	syncs *atomic.Int64
+}
+
+func (f segmentSyncFile) Sync() error {
+	f.syncs.Add(1)
+	return f.File.Sync()
+}
