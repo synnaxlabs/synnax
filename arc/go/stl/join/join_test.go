@@ -465,49 +465,113 @@ var _ = Describe("Join", func() {
 	)
 
 	Describe("Live", func() {
-		// joinFrame pushes an input at 1 Hz from 0 s to 10 s, which holds for 3 s, and
-		// then one primary frame at seconds, and joins it.
-		joinFrame := func(live bool, seconds ...float64) join.Output {
-			GinkgoHelper()
-			j := MustSucceed(join.New(join.Config{
+		var now telem.TimeStamp
+		BeforeEach(func() { now = 0 })
+		newLive := func(from telem.TimeStamp) *join.Join {
+			return MustSucceed(join.New(join.Config{
 				DataTypes: []telem.DataType{telem.Float64T, telem.Float64T},
-				Live:      live,
+				From:      from,
+				Live:      true,
+				Now:       func() telem.TimeStamp { return now },
 			}))
-			back := make([]float64, 11)
-			for i := range back {
-				back[i] = float64(i)
-			}
-			Expect(j.Push(1, values(back...), stamps(0, back...))).To(Succeed())
-			Expect(j.Push(0, values(seconds...), stamps(0, seconds...))).To(Succeed())
+		}
+		seconds := func(s float64) telem.TimeStamp {
+			return telem.TimeStamp(s * float64(telem.Second))
+		}
+		// frames pushes n frames of 40 ms: a primary frame of 40 samples at 1 kHz from
+		// 10 s, joined at once, and then, for the first stop frames, an input frame of
+		// 20 samples at 500 Hz whose stamps lag the primary's by lag seconds. Each
+		// frame arrives at its end. It returns the drops of each frame.
+		frames := func(n, stop int, lag float64) []int {
+			GinkgoHelper()
+			j := newLive(0)
+			drops := make([]int, n)
 			var out join.Output
-			j.Next(telem.TimeStampMax, &out)
-			return out
+			for f := range n {
+				now = seconds(0.04 * float64(f+1))
+				primary, input := make([]float64, 40), make([]float64, 20)
+				for k := range primary {
+					primary[k] = 10 + 0.001*float64(40*f+k)
+				}
+				for k := range input {
+					input[k] = 10 - lag + 0.002*float64(20*f+k)
+				}
+				Expect(j.Push(
+					0,
+					values(primary...),
+					stamps(telem.Alignment(40*f), primary...),
+				)).To(Succeed())
+				before := out.Dropped
+				j.Next(seconds(primary[39]), &out)
+				drops[f] = out.Dropped - before
+				if f < stop {
+					Expect(j.Push(1, values(input...), stamps(0, input...))).
+						To(Succeed())
+				}
+			}
+			return drops
 		}
 
-		It("Should hold a late input for a whole frame that starts within its hold "+
-			"limit after the input's newest stamp", func() {
-			out := joinFrame(true, 11, 12, 13, 14, 15)
-			got, _ := samples(out)
-			Expect(got).To(HaveLen(5))
-			Expect(got[4]).To(Equal(sample{15, 4, []float64{15, 10}}))
-			Expect(out.Dropped).To(BeZero())
-			Expect(joinFrame(false, 11, 12, 13, 14, 15).Dropped).
-				To(Equal(2), "history judges each stamp")
+		// Frame 0 has no input. At frame 1 the input has no frame gap yet, so it takes
+		// the primary's.
+		DescribeTable(
+			"Should hold an input whose stamps lag the primary's while its frames arrive",
+			func(lag float64) {
+				Expect(frames(10, 10, lag)).
+					To(Equal([]int{40, 0, 0, 0, 0, 0, 0, 0, 0, 0}))
+			},
+			Entry("200 ms of latency", 0.2),
+			Entry("a clock 1 s behind", 1.0),
+		)
+
+		It(
+			"Should drop each primary frame that arrives past 3 times the input's frame "+
+				"gap after its last frame",
+			func() {
+				Expect(
+					frames(10, 5, 0),
+				).To(Equal([]int{40, 0, 0, 0, 0, 0, 0, 0, 40, 40}))
+			},
+		)
+
+		It("Should count no seed before From as a frame", func() {
+			// A seed at 1 Hz up to 16 s, then frames that arrive at 100 s and 101 s:
+			// the frame gap is 1 s, so a primary frame that arrives 9 s later drops.
+			j := newLive(seconds(100))
+			seed := make([]float64, 17)
+			for i := range seed {
+				seed[i] = float64(i)
+			}
+			Expect(j.Push(1, values(seed...), stamps(0, seed...))).To(Succeed())
+			now = seconds(100)
+			Expect(j.Push(1, values(100), stamps(0, 100))).To(Succeed())
+			now = seconds(101)
+			Expect(j.Push(1, values(101), stamps(0, 101))).To(Succeed())
+			now = seconds(110)
+			Expect(j.Push(0, values(1), stamps(0, 110))).To(Succeed())
+			var out join.Output
+			j.Next(seconds(110), &out)
+			Expect(out.Dropped).To(Equal(1))
 		})
 
-		It("Should drop a frame that starts past the hold limit of a late input",
-			func() {
-				out := joinFrame(true, 14, 15)
-				Expect(out.Runs).To(BeEmpty())
-				Expect(out.Dropped).To(Equal(2))
-			})
-
-		It("Should judge by stamps an input whose newest stamp lies in the frame",
-			func() {
-				out := joinFrame(true, 9.5, 10.5, 14)
-				got, _ := samples(out)
-				Expect(got).To(HaveLen(2))
-				Expect(out.Dropped).To(Equal(1))
-			})
+		DescribeTable(
+			"Should hold a seed only within its hold limit of a primary frame's first "+
+				"stamp",
+			func(from float64, dropped int) {
+				// A seed at 1 Hz up to 16 s holds for 3 s.
+				j := newLive(seconds(from))
+				seed := make([]float64, 17)
+				for i := range seed {
+					seed[i] = float64(i)
+				}
+				Expect(j.Push(1, values(seed...), stamps(0, seed...))).To(Succeed())
+				Expect(j.Push(0, values(1), stamps(0, from))).To(Succeed())
+				var out join.Output
+				j.Next(seconds(from), &out)
+				Expect(out.Dropped).To(Equal(dropped))
+			},
+			Entry("1 s after the seed", 17.0, 0),
+			Entry("4 s after the seed", 20.0, 1),
+		)
 	})
 })

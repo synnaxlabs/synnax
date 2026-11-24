@@ -102,14 +102,19 @@ var _ = Describe("Join check", func() {
 		got, _ := samples(out)
 		Expect(got).To(Equal([]sample{{130, 0, []float64{1, 0}}}))
 	})
-	It("Should hold a live input that stops through the next primary frame, and drop "+
-		"each stamp of the frames after it", func() {
-		// Two 1 kHz inputs in frames of 40 samples, the other's frame after the
-		// primary's. The other input stops after frame 3.
-		const frame, frames, stop = 40, 7, 4
+	It("Should hold a live input that stops for 3 of its frame gaps, and drop each "+
+		"stamp of the frames after that", func() {
+		// Two 1 kHz inputs in frames of 40 samples. Each primary frame arrives at the
+		// end of its 40 ms, and the other's frame 20 ms after it. The other input's
+		// last frame arrives at 180 ms, and its frames come 40 ms apart, so it holds
+		// for up to 120 ms after that: the primary frames that arrive at 200 ms to 280
+		// ms hold, and those at 320 ms and 360 ms drop. Frame 0 has no other input.
+		const frame, frames, stop = 40, 9, 4
+		var now telem.TimeStamp
 		j := MustSucceed(join.New(join.Config{
 			DataTypes: []telem.DataType{telem.Float64T, telem.Float64T},
 			Live:      true,
+			Now:       func() telem.TimeStamp { return now },
 		}))
 		var out join.Output
 		dropped := make([]int, 0, frames)
@@ -119,12 +124,14 @@ var _ = Describe("Join check", func() {
 				ps[k] = float64(f*frame+k) / 1000
 				vs[k] = float64(f*frame + k)
 			}
+			now = telem.TimeStamp(40*(f+1)) * telem.MillisecondTS
 			Expect(j.Push(0, values(vs...), stamps(telem.Alignment(f*frame), ps...))).
 				To(Succeed())
 			before := out.Dropped
 			j.Next(telem.TimeStamp(ps[frame-1]*float64(telem.Second)), &out)
 			dropped = append(dropped, out.Dropped-before)
 			if f < stop {
+				now += 20 * telem.MillisecondTS
 				others := make([]float64, frame)
 				for k := range frame {
 					others[k] = ps[k] + 0.0005
@@ -132,7 +139,7 @@ var _ = Describe("Join check", func() {
 				Expect(j.Push(1, values(vs...), stamps(0, others...))).To(Succeed())
 			}
 		}
-		Expect(dropped).To(Equal([]int{frame, 0, 0, 0, 0, frame, frame}))
+		Expect(dropped).To(Equal([]int{frame, 0, 0, 0, 0, 0, 0, frame, frame}))
 	})
 
 	It("Should fail a history push that puts an input past 65,536 samples after its "+
@@ -181,7 +188,8 @@ var _ = Describe("Join check", func() {
 	)
 
 	It(
-		"Should drop stamps long after an input stops that had one gap before it stopped",
+		"Should drop stamps long after an input stops that had one gap before it "+
+			"stopped",
 		func() {
 			// A 1 Hz input with one 3 s gap among its last 16 intervals stops at 18 s.
 			ss := []float64{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 12, 13, 14, 15, 16, 17, 18}
