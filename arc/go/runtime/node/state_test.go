@@ -2894,6 +2894,40 @@ var _ = Describe("ProgramState", func() {
 				*s.Node("v").Output(0) = telem.NewSeriesV[int64](3)
 				Expect(s.Node("c").NumericInput[int64]("span")).To(Equal(int64(3000)))
 			})
+
+			DescribeTable("Should give a time span input the period of a rate",
+				func(scale float64, to *types.Unit, rate, want int64) {
+					hz := &types.Unit{Dimensions: types.DimFrequency, Scale: scale}
+					s := build(types.I64(), hz, to, int64(0))
+					*s.Node("v").Output(0) = telem.NewSeriesV(rate)
+					Expect(s.Node("c").NumericInput[int64]("span")).To(Equal(want))
+				},
+				Entry("hertz", 1.0, unit("ns", 1), int64(10), int64(100_000_000)),
+				Entry("kilohertz", 1e3, unit("ns", 1), int64(2), int64(500_000)),
+				Entry("a larger time span",
+					1.0, unit("ms", 1e6), int64(10), int64(100)),
+				Entry("a period that rounds up",
+					1.0, unit("ns", 1), int64(60), int64(16_666_667)),
+				Entry("a period that rounds down",
+					1.0, unit("ns", 1), int64(3), int64(333_333_333)),
+				Entry("a rate of zero", 1.0, unit("ns", 1), int64(0), int64(0)),
+				Entry("a negative rate",
+					1.0, unit("ns", 1), int64(-4), int64(-250_000_000)),
+			)
+
+			It("Should give a float time span input the period of a rate", func() {
+				hz := &types.Unit{Dimensions: types.DimFrequency, Scale: 1, Name: "hz"}
+				s := build(types.F64(), hz, unit("s", 1e9), 0.0)
+				*s.Node("v").Output(0) = telem.NewSeriesV(4.0)
+				Expect(s.Node("c").NumericInput[float64]("span")).To(Equal(0.25))
+			})
+
+			It("Should read the declared initial of a rate as its period", func() {
+				hz := &types.Unit{Dimensions: types.DimFrequency, Scale: 1, Name: "hz"}
+				s := build(types.I64(), hz, unit("ns", 1), int64(100_000_000))
+				Expect(s.Node("c").NumericInput[int64]("span")).
+					To(Equal(int64(100_000_000)))
+			})
 		})
 
 		It("Should return zero for an unknown input", func() {

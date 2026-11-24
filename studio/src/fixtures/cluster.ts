@@ -13,7 +13,9 @@ import {
   TimeRange,
   TimeSpan,
   TimeStamp,
+  user,
 } from "@synnaxlabs/client";
+import { errors } from "@synnaxlabs/x";
 
 import { connect, type ConnectionOptions } from "@/fixtures/client";
 
@@ -217,7 +219,7 @@ export const removeChannels = async (
 export interface UserSpec {
   username: string;
   password?: string;
-  /** Display name. */
+  /** Display name. Defaults to the username. */
   name?: string;
   /** Name of the built-in role the user holds. */
   role: string;
@@ -236,13 +238,27 @@ export const createUsers = async (
       if (match == null) throw new Error(`role ${name} not found`);
       return match.key;
     };
-    await client.users.create(
-      specs.map(({ role, ...s }) => ({
-        password: "seldon-demo",
-        ...s,
+    const users = await client.users.create(
+      specs.map(({ username, name = username, role }) => ({
+        name,
         role: roleKey(role),
       })),
     );
+    const passwords = await Promise.allSettled(
+      specs.map(
+        async ({ username, password = "seldon-demo" }, i) =>
+          await client.auth.createPassword({
+            subject: user.resourceID(users[i].key),
+            username,
+            password,
+          }),
+      ),
+    );
+    const failed = passwords.find((r) => r.status === "rejected");
+    if (failed != null) {
+      await client.users.delete(users.map((u) => u.key));
+      throw errors.fromUnknown(failed.reason);
+    }
   } finally {
     await client.close();
   }

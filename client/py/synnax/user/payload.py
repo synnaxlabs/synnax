@@ -16,9 +16,7 @@ from synnax.user.types_gen import Key
 
 
 class New(BaseModel):
-    username: str
-    password: str
-    name: str = ""
+    name: str
     key: Key | None = None
     role: role_.Key
 

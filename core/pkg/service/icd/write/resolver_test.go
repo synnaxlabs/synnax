@@ -185,6 +185,28 @@ var _ = Describe("Resolver", func() {
 			Expect(check(ctx, writeAt(0, uuid.New(), writeOf(tagged)))).To(Succeed())
 		})
 
+		It("Should skip a write with no bindings of a message with no fields", func(
+			ctx SpecContext,
+		) {
+			Expect(check(ctx, writeAt(0, given.Key, writeOf(empty)))).To(Succeed())
+		})
+
+		It("Should refuse a write with no bindings of a message with fields", func(
+			ctx SpecContext,
+		) {
+			Expect(check(ctx, writeAt(0, given.Key, writeOf(tagged)))).
+				To(MatchError("targets.0.message: message Tagged binds no channels"))
+		})
+
+		It("Should refuse a write that binds a field of a message with no fields", func(
+			ctx SpecContext,
+		) {
+			key := temp.Base().Key.String()
+			Expect(check(ctx, writeAt(0, given.Key, writeOf(empty, bind(temp))))).
+				To(MatchError("targets.0.message: message Empty: field " + key +
+					" does not exist: validation error"))
+		})
+
 		It("Should look up each channel that a binding names once", func(
 			ctx SpecContext,
 		) {
