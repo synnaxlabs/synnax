@@ -73,7 +73,13 @@ type Graph struct {
 	// changed reconciles the latest change to each channel that commits change, since a
 	// reader of a commit must not commit.
 	changed *coalesce.Worker[channel.Key, channelChange]
-	mu      struct {
+	// held holds the changes that come before Release when Config.Held is set.
+	held struct {
+		sync.Mutex
+		on      bool
+		pending []channelChange
+	}
+	mu struct {
 		nodes            map[channel.Key]node
 		dependents       map[channel.Key]set.Set[channel.Key]
 		unresolvedByName map[string]set.Set[channel.Key]
@@ -110,6 +116,12 @@ type Config struct {
 	//
 	// [REQUIRED]
 	Status *status.Service
+	// Held holds the handling of channel and calculation changes from Open until
+	// Release, so a change that commits before then is handled against the text that
+	// holds after it.
+	//
+	// [OPTIONAL] - Defaults to false.
+	Held bool
 	// Instrumentation is used for logging, tracing, and metrics.
 	//
 	// [OPTIONAL] - Defaults to noop instrumentation.
@@ -132,6 +144,7 @@ func (c Config) Override(other Config) Config {
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Calculation = override.Nil(c.Calculation, other.Calculation)
 	c.Status = override.Nil(c.Status, other.Status)
+	c.Held = override.If(c.Held, other.Held, other.Held)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	return c
 }
@@ -157,6 +170,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Graph, error) {
 	g.mu.rejected = make(set.Set[channel.Key])
 	g.mu.reported = make(map[channel.Key]string)
 	g.outputs.keys = make(map[calculation.Key]channel.Key)
+	g.held.on = cfg.Held
 	if err := g.db.WithTx(ctx, func(tx gorp.Tx) error {
 		return g.hydrate(ctx, tx)
 	}); err != nil {
@@ -174,11 +188,34 @@ func Open(ctx context.Context, cfgs ...Config) (*Graph, error) {
 	}
 	g.disconnect = cfg.Channel.Observe().OnChange(func(_ context.Context, r Changes) {
 		for ch := range r {
-			g.changed.Add(ch.Key, ch)
+			g.add(ch)
 		}
 	})
 	g.disconnectCalculations = cfg.Calculation.Observe().OnChange(g.observeCalculations)
 	return g, nil
+}
+
+// add queues ch for reconciliation, or holds it until Release.
+func (g *Graph) add(ch channelChange) {
+	g.held.Lock()
+	defer g.held.Unlock()
+	if g.held.on {
+		g.held.pending = append(g.held.pending, ch)
+		return
+	}
+	g.changed.Add(ch.Key, ch)
+}
+
+// Release starts the handling of the changes that a Graph opened with Config.Held
+// holds, in the order they came, and of each later change as it comes.
+func (g *Graph) Release() {
+	g.held.Lock()
+	defer g.held.Unlock()
+	g.held.on = false
+	for _, ch := range g.held.pending {
+		g.changed.Add(ch.Key, ch)
+	}
+	g.held.pending = nil
 }
 
 // Observe returns an observable that fires with a channel change batch after the Graph
@@ -441,7 +478,7 @@ func (g *Graph) observeCalculations(
 			g.outputs.keys[c.Key] = output
 		}
 		if ok {
-			g.changed.Add(output, channelChange{Key: output, Kind: gorp.ChangeUpdate})
+			g.add(channelChange{Key: output, Kind: gorp.ChangeUpdate})
 		}
 	}
 }
