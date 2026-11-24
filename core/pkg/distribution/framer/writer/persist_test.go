@@ -39,7 +39,9 @@ var _ = DescribeTableSubtree("Persist", func(pointerLog bool) {
 	BeforeEach(func(ctx SpecContext) {
 		skipOnPointerLog(pointerLog, recoveryOwner)
 		fs = xfs.NewMem()
-		db = MustOpen(cesium.Open(ctx, "db", layoutOptions(fs, pointerLog)...))
+		db = MustOpen(
+			cesium.Open(ctx, "db", append(layout(pointerLog), cesium.WithFS(fs))...),
+		)
 		StartRun(db.Run)
 		Expect(db.CreateChannel(
 			ctx,
@@ -94,7 +96,9 @@ var _ = DescribeTableSubtree("Persist", func(pointerLog bool) {
 	// same files sees, as a restart after a crash would.
 	durable := func(ctx SpecContext) int64 {
 		GinkgoHelper()
-		probe := MustSucceed(cesium.Open(ctx, "db", layoutOptions(fs, pointerLog)...))
+		probe := MustSucceed(
+			cesium.Open(ctx, "db", append(layout(pointerLog), cesium.WithFS(fs))...),
+		)
 		defer func() { Expect(probe.Close()).To(Succeed()) }()
 		return MustSucceed(probe.Read(ctx, telem.TimeRangeMax, uint32(data))).
 			Get(uint32(data)).Len()

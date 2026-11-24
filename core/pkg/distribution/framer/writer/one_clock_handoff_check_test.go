@@ -30,7 +30,7 @@ var _ = DescribeTableSubtree("One clock handoff check", func(pointerLog bool) {
 		keys      []cesium.ChannelKey
 	)
 	BeforeEach(func(ctx SpecContext) {
-		db = mustOpenDBOnFS(ctx, FileSystems["memFS"](), pointerLog)
+		db = mustOpenDBOnFS(ctx, FileSystems["memFS"](), layout(pointerLog)...)
 		idx, data = GenerateChannelKey(), GenerateChannelKey()
 		Expect(db.CreateChannel(
 			ctx,

@@ -25,7 +25,7 @@ import (
 var _ = DescribeTableSubtree("Persist only delete hold", func(pointerLog bool) {
 	It("Should release the delete hold of a persist only writer on a virtual channel",
 		func(ctx SpecContext) {
-			db := mustOpenDBOnFS(ctx, fs.NewMem(), pointerLog)
+			db := mustOpenDBOnFS(ctx, fs.NewMem(), layout(pointerLog)...)
 			key := GenerateChannelKey()
 			Expect(db.CreateChannel(ctx, virtualChannel(key, "cmd"))).To(Succeed())
 			keys := channel.Keys{channel.Key(key)}

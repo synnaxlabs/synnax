@@ -654,6 +654,17 @@ var _ = Describe("Writer", func() {
 			Expect(d.Commit([]*log.Commit{data})).To(Succeed())
 		})
 
+		It("Should pin the clock for the split writer", func() {
+			d := MustSucceed(w.Split([]uint32{6}))
+			Expect(w.Commit([]*log.Commit{stamps})).To(Succeed())
+			Expect(w.Close()).To(Succeed())
+			Expect(s.BeginDelete(5, 100, 111)).Error().To(SatisfyAll(
+				conflict(),
+				MatchError(ContainSubstring("reaches the claim of another writer")),
+			), "the split writer pins the stamps it writes against")
+			Expect(d.Close()).To(Succeed())
+		})
+
 		DescribeTable("Should refuse to split off a key the writer cannot give",
 			func(key uint32) {
 				Expect(w.Split([]uint32{key})).Error().

@@ -10,6 +10,7 @@
 package cesium
 
 import (
+	"cmp"
 	"context"
 	"slices"
 
@@ -25,7 +26,8 @@ import (
 // and its stretch goes on after their last stamp. The keys of w that cfg lacks leave in
 // a Pending, the keys of adopt join with their samples, and the other keys of cfg open
 // from the start of the first run. With no run and no adopt, it closes w and opens a
-// writer of cfg.
+// writer of cfg that goes on in the stretch of w. A writer that stores no samples
+// commits its runs first, and adopts no Pending.
 func (db *DB) handoffLog(
 	ctx context.Context,
 	w *Writer,
@@ -40,12 +42,30 @@ func (db *DB) handoffLog(
 				"old layout",
 		)
 	}
+	if l.unstored {
+		if adopt != nil {
+			return nil, nil, errors.Wrap(
+				validate.ErrValidation,
+				"a writer that stores no samples adopts no pending samples",
+			)
+		}
+		// The commit of a writer that stores nothing only ends its runs.
+		if _, _, err = l.commit(ctx, nil); err != nil {
+			return nil, nil, err
+		}
+	}
 	if len(l.runs) == 0 && adopt == nil {
+		run := *l
 		if err = w.Close(); err != nil {
 			return nil, nil, err
 		}
 		next, err := db.OpenWriter(ctx, cfg)
-		return next, nil, err
+		if err != nil {
+			return nil, nil, err
+		}
+		next.log.number, next.log.next = run.number, run.next
+		next.log.last, next.log.lastCommit = run.last, run.lastCommit
+		return next, nil, nil
 	}
 	if adopt != nil {
 		for _, lk := range adopt.log.keys {
@@ -264,7 +284,7 @@ func (db *DB) addKeys(ctx context.Context, l *logWriter, keys []ChannelKey) erro
 	}
 	slices.SortFunc(
 		wks,
-		func(a, b state.WriterKey) int { return int(a.Key) - int(b.Key) },
+		func(a, b state.WriterKey) int { return cmp.Compare(a.Key, b.Key) },
 	)
 	keyed := make([]ChannelKey, len(wks))
 	for i, k := range wks {

@@ -58,7 +58,7 @@ var _ = DescribeTableSubtree("Control moved from Cesium", func(pointerLog bool) 
 				)
 				BeforeAll(func(ctx SpecContext) {
 					ShouldNotLeakGoroutines()
-					db = mustOpenDBOnFS(ctx, fs, pointerLog)
+					db = mustOpenDBOnFS(ctx, fs, layout(pointerLog)...)
 				})
 				BeforeEach(func(ctx SpecContext) {
 					idxCh, dataCh = GenerateChannelKey(), GenerateChannelKey()
@@ -331,7 +331,7 @@ var _ = DescribeTableSubtree("Control moved from Cesium", func(pointerLog bool) 
 				}
 				BeforeAll(func(ctx SpecContext) {
 					ShouldNotLeakGoroutines()
-					db = mustOpenDBOnFS(ctx, fs, pointerLog)
+					db = mustOpenDBOnFS(ctx, fs, layout(pointerLog)...)
 				})
 				BeforeEach(func(ctx SpecContext) { idx = createIndex(ctx) })
 
@@ -485,7 +485,7 @@ var _ = DescribeTableSubtree("Control moved from Cesium", func(pointerLog bool) 
 				var db *testDB
 				BeforeAll(func(ctx SpecContext) {
 					ShouldNotLeakGoroutines()
-					db = mustOpenDBOnFS(ctx, fs, pointerLog)
+					db = mustOpenDBOnFS(ctx, fs, layout(pointerLog)...)
 				})
 
 				Describe("Single Channel, Two Writer Contention", func() {

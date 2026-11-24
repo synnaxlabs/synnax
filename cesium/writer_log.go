@@ -170,6 +170,9 @@ func (db *DB) openLogWriter(ctx context.Context, cfg WriterConfig) (*logWriter, 
 	slices.SortStableFunc(w.keys, func(a, b *logKey) int {
 		return boolOrder(b.ch.Key == w.clock) - boolOrder(a.ch.Key == w.clock)
 	})
+	if w.unstored {
+		return w, nil
+	}
 	if err := w.openState(ctx, db, cfg, keys); err != nil {
 		return nil, err
 	}
@@ -299,11 +302,8 @@ func (w *logWriter) extendRun(
 	first, last telem.TimeStamp,
 	n uint32,
 ) {
-	if k := len(
-		w.runs,
-	); k == 0 ||
-		w.runs[k-1].alignment.AddSamples(w.runs[k-1].samples) !=
-			alignment {
+	if k := len(w.runs); k == 0 || w.runs[k-1].ends != nil ||
+		w.runs[k-1].alignment.AddSamples(w.runs[k-1].samples) != alignment {
 		w.runs = append(w.runs, run{alignment: alignment, first: first})
 	}
 	r := &w.runs[len(w.runs)-1]
@@ -805,8 +805,11 @@ func (w *logWriter) flush() error {
 }
 
 // close syncs with no wait for stamps, releases the claims of w, and closes its segment
-// files.
+// files. An unstored writer holds none of them.
 func (w *logWriter) close() error {
+	if w.unstored {
+		return nil
+	}
 	err := w.sync(context.Background(), false)
 	err = errors.Join(err, w.st.Close())
 	for _, lk := range w.keys {

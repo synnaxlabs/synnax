@@ -25,7 +25,7 @@ var _ = DescribeTableSubtree("Writer control moved from Cesium", func(pointerLog
 		Context("FS: "+fsName, func() {
 			var db *testDB
 			BeforeEach(func(ctx SpecContext) {
-				db = mustOpenDBOnFS(ctx, openFS(), pointerLog)
+				db = mustOpenDBOnFS(ctx, openFS(), layout(pointerLog)...)
 			})
 
 			It(
