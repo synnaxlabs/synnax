@@ -215,6 +215,10 @@ x::errors::Error Outbox::load(const std::uint64_t key, const std::uint64_t pos) 
         this->segments[key] = writer->pos();
         if (err = writer->close(); err) return err;
     }
+    // The file bytes before this segment, which push compared to max_bytes too.
+    std::uint64_t before = 0;
+    for (const auto &[k, size]: this->segments)
+        if (k < key) before += size;
     auto [reader, err] = journal::Reader::open({
         .path = path,
         .magic = SEGMENT_MAGIC,
@@ -232,7 +236,7 @@ x::errors::Error Outbox::load(const std::uint64_t key, const std::uint64_t pos) 
         if (decode_err) return decode_err;
         const auto size = journal::RECORD_PREFIX_SIZE + record->payload.size();
         const bool over_cap = request.has_end_range() &&
-                              this->queued_bytes + size > this->cfg.max_bytes;
+                              before + reader->pos() > this->cfg.max_bytes;
         this->enqueue({
             .request = std::make_shared<const pb::Call>(std::move(request)),
             .segment = key,
