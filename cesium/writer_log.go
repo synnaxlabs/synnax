@@ -68,8 +68,12 @@ type logWriter struct {
 	// each has written, or -1 for a series that it skips.
 	whole []telem.Series
 	cuts  []int
-	// committed holds the keys of the commit in progress, and pre their preloads.
+	// committed holds the keys of the run in progress in commit, and commits and
+	// preKeys
+	// the Commits of every run and the keys of their preloads, which pre holds.
 	committed []ChannelKey
+	commits   []*log.Commit
+	preKeys   []ChannelKey
 	pre       []state.Preload
 }
 
@@ -436,8 +440,9 @@ func (w *logWriter) putBack() {
 	w.runs, w.number = w.runs[:0], 0
 }
 
-// commit makes the uncommitted run visible and returns its end. It commits nothing and
-// returns true when skip holds a key with samples to commit.
+// commit makes the uncommitted runs visible and returns their end. It commits nothing
+// and returns true when skip holds a key with samples to commit, and it commits no run
+// when the state refuses one of them.
 func (w *logWriter) commit(skip func(ChannelKey) bool) (telem.TimeStamp, bool, error) {
 	if w.stamps != nil && w.stamps.err != nil {
 		return 0, false, w.stamps.err
@@ -452,12 +457,9 @@ func (w *logWriter) commit(skip func(ChannelKey) bool) (telem.TimeStamp, bool, e
 			}
 		}
 	}
-	w.from = w.ends(w.from, false)
-	for i := range w.runs {
-		if err := w.commitRun(i); err != nil {
-			w.putBack()
-			return 0, false, err
-		}
+	if err := w.commitRuns(); err != nil {
+		w.putBack()
+		return 0, false, err
 	}
 	for _, lk := range w.keys {
 		if lk.w != nil && lk.w.Len() != lk.committed {
@@ -477,53 +479,74 @@ func (w *logWriter) commit(skip func(ChannelKey) bool) (telem.TimeStamp, bool, e
 	return end, false, err
 }
 
-// commitRun logs the Commit of run i once the state accepts it. A run of a writer that
-// does not write its clock first reads its first and last stamps.
-func (w *logWriter) commitRun(i int) error {
-	r := &w.runs[i]
+// commitRuns logs one Commit for each run once the state accepts all of them. A writer
+// that does not write its clock first reads the first and last stamps of each run.
+func (w *logWriter) commitRuns() error {
 	if w.stamps != nil {
-		var err error
-		// A later run starts on a later pointer, and the placer's pointer holds the
-		// stamp of the last sample placed.
-		to := w.stamps.cur.Last
-		if i < len(w.runs)-1 {
-			to = w.runs[i+1].from
-		}
-		if r.first, r.last, err = w.e.stampEnds(w.clock, *r, to); err != nil {
+		if err := w.readStamps(); err != nil {
 			return err
 		}
 	}
 	if w.unstored {
 		return nil
 	}
-	to := r.ends
-	if i == len(w.runs)-1 {
-		w.to = w.ends(w.to, true)
-		to = w.to
-	}
-	w.collectSlots(w.from, to)
-	w.from = append(w.from[:0], to...)
-	c := &log.Commit{
-		Samples:   r.samples,
-		Alignment: uint64(r.alignment),
-		First:     int64(r.first),
-		Last:      int64(r.last),
-		Slots:     slices.Clone(w.keySegments),
+	w.commits, w.preKeys = w.commits[:0], w.preKeys[:0]
+	w.from = w.ends(w.from, false)
+	for i := range w.runs {
+		r := &w.runs[i]
+		to := r.ends
+		if i == len(w.runs)-1 {
+			w.to = w.ends(w.to, true)
+			to = w.to
+		}
+		w.collectSlots(w.from, to)
+		w.from = append(w.from[:0], to...)
+		w.commits = append(w.commits, &log.Commit{
+			Samples:   r.samples,
+			Alignment: uint64(r.alignment),
+			First:     int64(r.first),
+			Last:      int64(r.last),
+			Slots:     slices.Clone(w.keySegments),
+		})
+		w.preKeys = append(w.preKeys, w.committed...)
 	}
 	if w.stamps != nil {
-		w.committed = append(w.committed, w.clock)
-		slices.Sort(w.committed)
+		w.preKeys = append(w.preKeys, w.clock)
 	}
+	slices.Sort(w.preKeys)
+	w.preKeys = slices.Compact(w.preKeys)
+	first, last := w.runs[0].first, w.runs[len(w.runs)-1].last
 	var err error
-	w.pre, err = w.e.withPreloads(w.pre, w.committed, r.first, r.last, false, func(
+	w.pre, err = w.e.withPreloads(w.pre, w.preKeys, first, last, false, func(
 		pre []state.Preload,
 	) error {
-		return w.st.Commit(c, pre...)
+		return w.st.Commit(w.commits, pre...)
 	})
 	if err != nil {
 		return err
 	}
-	w.entry.Add(c)
+	for _, c := range w.commits {
+		w.entry.Add(c)
+	}
+	return nil
+}
+
+// readStamps sets the first and last stamps of each run of a writer that does not write
+// its clock.
+func (w *logWriter) readStamps() error {
+	for i := range w.runs {
+		// A later run starts on a later pointer, and the placer's pointer holds the
+		// stamp of the last sample placed.
+		to := w.stamps.cur.Last
+		if i < len(w.runs)-1 {
+			to = w.runs[i+1].from
+		}
+		r := &w.runs[i]
+		var err error
+		if r.first, r.last, err = w.e.stampEnds(w.clock, *r, to); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

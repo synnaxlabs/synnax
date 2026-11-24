@@ -224,7 +224,7 @@ var _ = Describe("Tombstone", func() {
 			held, ok := MustSucceed2(w.Held(6))
 			Expect(ok).To(BeTrue(), "the writer takes over open segment 3")
 			backfill := commit(1, 2, 0, 40, 40, slot(held.ID, held.Length+4))
-			Expect(w.Commit(backfill)).To(SatisfyAll(
+			Expect(w.Commit([]*log.Commit{backfill})).To(SatisfyAll(
 				conflict(),
 				MatchError(ContainSubstring("reaches the claim of a delete from 35")),
 			))
@@ -238,7 +238,7 @@ var _ = Describe("Tombstone", func() {
 				MatchError(ContainSubstring("reaches the claim of a delete from 35")),
 			))
 			Expect(d.Release()).To(Succeed())
-			Expect(w.Commit(backfill)).To(Succeed())
+			Expect(w.Commit([]*log.Commit{backfill})).To(Succeed())
 		},
 	)
 

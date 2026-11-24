@@ -123,6 +123,28 @@ var _ = Describe("Data against stored stamps on the pointer log", func() {
 		Expect(stored[1].Alignment).To(Equal(runs[1].Alignment))
 	})
 
+	It("Should commit no run of a Commit whose later run the state refuses", func(
+		ctx SpecContext,
+	) {
+		writeClock(ctx, 10, 11)
+		writeClock(ctx, 20, 21)
+		bounded := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+			Clock:    idx,
+			Channels: []cesium.ChannelKey{data},
+			Start:    20 * telem.SecondTS,
+			Bounded:  true,
+		}))
+		w := openData(ctx, 10*telem.SecondTS)
+		MustSucceed2(w.Write(ctx, values(1, 2, 3, 4), nil))
+		Expect(w.Commit(ctx, nil)).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring("reaches the claim of another writer")),
+		))
+		Expect(read(ctx, data)).To(BeEmpty(), "the first run stays uncommitted")
+		Expect(w.Close()).To(MatchError(ContainSubstring("reaches the claim")))
+		Expect(bounded.Close()).To(Succeed())
+	})
+
 	It("Should go on in the run of stamps that the clock's writer extends", func(
 		ctx SpecContext,
 	) {

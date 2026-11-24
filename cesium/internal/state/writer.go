@@ -438,27 +438,72 @@ func (w *Writer) NewAlignment() (uint32, error) {
 
 type commitRequest struct {
 	w   *Writer
-	c   *log.Commit
+	cs  []*log.Commit
 	pre []Preload
 }
 
 func (r *commitRequest) fail(err error) { r.w.done <- err }
 
-func (r *commitRequest) run(s *State) { r.w.done <- s.commit(r.w, r.c, r.pre) }
+func (r *commitRequest) run(s *State) { r.w.done <- s.commit(r.w, r.cs, r.pre) }
 
-// Commit checks c against the claims and the stored data of its keys, and makes its
-// samples visible. pre holds the preload of each key of c from First to Last, in rising
-// order of key, and of the clock for a writer that does not write it. The caller logs c
-// at its next sync. It returns an error that wraps validate.ErrValidation when c
-// overlaps stored data of a key or reaches another writer's claim, or, for a writer
-// that does not write its clock, when the clock holds no visible stamp for a sample of
-// c. It returns ErrStale when a preload is stale, and another error when c breaks a
-// value rule.
-func (w *Writer) Commit(c *log.Commit, pre ...Preload) error {
-	return w.call(&commitRequest{w: w, c: c, pre: pre})
+// Commit checks each commit of cs against the claims and the stored data of its keys,
+// as the commits before it in cs leave them, and makes the samples of all of them
+// visible, or of none when one is refused. pre holds the preload of each key of cs over
+// the time range of all of them, in rising order of key, and of the clock for a writer
+// that does not write it. The caller logs cs at its next sync. It returns an error that
+// wraps validate.ErrValidation when a commit overlaps stored data of a key or reaches
+// another writer's claim, or, for a writer that does not write its clock, when the
+// clock holds no visible stamp for one of its samples. It returns ErrStale when a
+// preload is stale, and another error when a commit breaks a value rule.
+func (w *Writer) Commit(cs []*log.Commit, pre ...Preload) error {
+	return w.call(&commitRequest{w: w, cs: cs, pre: pre})
 }
 
-func (s *State) checkVisible(w *Writer, c *log.Commit, pre []Preload) error {
+// staged is the visible length and pointers of a segment after the commits of a call
+// to Commit that the owner has checked and not yet applied.
+type staged struct {
+	length   uint32
+	pointers []Pointer
+}
+
+// visibleOf returns the visible length and pointers of seg, as after stages them.
+func visibleOf(seg *segState, after map[uint64]staged) (uint32, []Pointer) {
+	if st, ok := after[seg.vis.ID]; ok {
+		return st.length, st.pointers
+	}
+	return seg.vis.Length, seg.vis.Pointers
+}
+
+// stage returns after with the length and pointers that c leaves each of its segments.
+func (s *State) stage(c *log.Commit, after map[uint64]staged) map[uint64]staged {
+	if after == nil {
+		after = make(map[uint64]staged, len(c.Slots))
+	}
+	for _, slot := range c.Slots {
+		length, ptrs := visibleOf(s.core.segments[slot.Segment], after)
+		p, extended := grow(
+			ptrs,
+			telem.Alignment(c.Alignment),
+			telem.TimeStamp(c.First),
+			telem.TimeStamp(c.Last),
+			length,
+			slot.Length,
+			c.Samples,
+		)
+		after[slot.Segment] = staged{
+			length:   slot.Length,
+			pointers: extend(ptrs, p, extended, false),
+		}
+	}
+	return after
+}
+
+func (s *State) checkVisible(
+	w *Writer,
+	c *log.Commit,
+	pre []Preload,
+	after map[uint64]staged,
+) error {
 	if err := s.core.checkCommit(c); err != nil {
 		return err
 	}
@@ -472,12 +517,13 @@ func (s *State) checkVisible(w *Writer, c *log.Commit, pre []Preload) error {
 		case seg == nil || seg.holder != w || w.held[seg.key] != seg:
 			return refuse("commit names segment %d, which the writer does not hold",
 				slot.Segment)
-		case slot.Length <= seg.vis.Length:
-			return refuse("commit gives segment %d length %d, not above %d",
-				slot.Segment, slot.Length, seg.vis.Length)
 		}
-		err := checkGrow(slot.Segment, seg.key, seg.vis.Pointers, c, seg.vis.Length,
-			slot.Length)
+		length, ptrs := visibleOf(seg, after)
+		if slot.Length <= length {
+			return refuse("commit gives segment %d length %d, not above %d",
+				slot.Segment, slot.Length, length)
+		}
+		err := checkGrow(slot.Segment, seg.key, ptrs, c, length, slot.Length)
 		if err != nil {
 			return err
 		}
@@ -537,10 +583,24 @@ func (s *State) checkStamps(clock uint32, c *log.Commit, pre []Preload) error {
 	)
 }
 
-func (s *State) commit(w *Writer, c *log.Commit, pre []Preload) error {
-	if err := s.checkVisible(w, c, pre); err != nil {
-		return err
+func (s *State) commit(w *Writer, cs []*log.Commit, pre []Preload) error {
+	var after map[uint64]staged
+	for i, c := range cs {
+		if err := s.checkVisible(w, c, pre, after); err != nil {
+			return err
+		}
+		if i < len(cs)-1 {
+			after = s.stage(c, after)
+		}
 	}
+	for _, c := range cs {
+		s.apply(w, c, pre)
+	}
+	return nil
+}
+
+// apply makes the samples of c, which checkVisible accepted, visible.
+func (s *State) apply(w *Writer, c *log.Commit, pre []Preload) {
 	first, last := telem.TimeStamp(c.First), telem.TimeStamp(c.Last)
 	for _, cl := range w.claims {
 		cl.start = min(cl.start, first)
@@ -563,7 +623,6 @@ func (s *State) commit(w *Writer, c *log.Commit, pre []Preload) error {
 		s.core.channels[seg.key].checkViews()
 		s.core.channels[seg.key].publish()
 	}
-	return nil
 }
 
 type sealRequest struct {
