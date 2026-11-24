@@ -213,7 +213,15 @@ jobs:
           done
           sudo installer -pkg "$RUNNER_TEMP/python.pkg" -target /
           python=/Library/Frameworks/Python.framework/Versions/3.14/bin/python3.14
-          "$python" -c 'import ssl; assert not ssl.get_default_verify_paths().cafile'
+          # The runner image ran "Install Certificates" before, so the upgrade keeps the
+          # CA file and folder it made. Remove them to test a Python with no roots.
+          unset SSL_CERT_FILE SSL_CERT_DIR
+          paths=$("$python" -c 'import ssl; p = ssl.get_default_verify_paths()
+          print(p.openssl_cafile, p.openssl_capath)')
+          read -r cafile capath <<< "$paths"
+          sudo rm -rf "$cafile" "$capath"
+          "$python" -c 'import ssl; p = ssl.get_default_verify_paths()
+          assert not p.cafile and not p.capath, p'
           echo "PYTHON_ORG=$python" >> "$GITHUB_ENV"
 
       - name: Test the python.org Python with the OS store
@@ -223,7 +231,9 @@ jobs:
           SECURE: true
           UV_PYTHON_PREFERENCE: only-system
           UV_PROJECT_ENVIRONMENT: ${{ runner.temp }}/python-org
-        run: UV_PYTHON="$PYTHON_ORG" uv run python -c "$CONNECT_PY"
+        run: |
+          unset SSL_CERT_FILE SSL_CERT_DIR
+          UV_PYTHON="$PYTHON_ORG" uv run python -c "$CONNECT_PY"
 
       - name: Test the TypeScript client with the OS store
         working-directory: client/ts
