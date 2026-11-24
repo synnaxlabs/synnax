@@ -376,17 +376,30 @@ export class Client implements Handle {
       prev.details.clusterKey !== "" &&
       next.details.clusterKey !== prev.details.clusterKey
     )
-      this.resetStream().catch((err: unknown) =>
-        this.onInternalError(new InternalError("previousCore", { cause: err })),
-      );
+      void this.resetStream();
     this.setMode(modeFor(next));
   }
 
-  /** Drops everything cached from the replaced cluster, then brings the stream up. */
+  /**
+   * Drops everything cached from the replaced cluster, then brings the stream up. Never
+   * rejects: it reports each failure as an internal error.
+   */
   private async resetStream(): Promise<void> {
-    await this.stream?.reset();
+    try {
+      await this.stream?.reset();
+    } catch (err) {
+      this.onInternalError(new InternalError("previousCore", { cause: err }));
+      return;
+    }
     // an unlicensed Core refuses the stream; the check after activation brings it up
-    if (this.current.details.license === "ok") await this.stream?.ensure();
+    if (this.current.details.license !== "ok") return;
+    try {
+      await this.stream?.ensure();
+    } catch (err) {
+      // the auth observer or the transition into denied already reported it
+      if (AuthError.matches(err)) return;
+      this.onInternalError(new InternalError("liveUpdates", { cause: err }));
+    }
   }
 
   /** Discards in-flight checks and wakes the loop for an immediate check. */
