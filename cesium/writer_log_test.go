@@ -128,6 +128,35 @@ var _ = Describe("Writer on the pointer log", func() {
 		)
 	})
 
+	It("Should let a persist-only writer fill the time between the stretches of a "+
+		"live writer", func(ctx SpecContext) {
+		w := openWriter(ctx, 10*telem.SecondTS)
+		MustSucceed2(w.Write(ctx, frame(10, 11), nil))
+		MustSucceed2(w.Commit(ctx, nil))
+		Expect(w.EndStretch(ctx)).To(Succeed())
+		MustSucceed2(w.Write(ctx, frame(20, 21), nil))
+		MustSucceed2(w.Commit(ctx, nil))
+		fill := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+			Clock:    idx,
+			Channels: keys,
+			Start:    12 * telem.SecondTS,
+			Bounded:  true,
+		}))
+		MustSucceed2(fill.Write(ctx, frame(12, 13), nil))
+		MustSucceed2(fill.Commit(ctx, nil))
+		Expect(fill.Close()).To(Succeed())
+		Expect(w.Close()).To(Succeed())
+		stored := MustSucceed(db.Read(ctx, telem.TimeRangeMax, idx)).Get(idx)
+		got := make([]telem.TimeStamp, 0, 6)
+		for _, s := range stored.Series {
+			got = append(got, s.Unmarshal[telem.TimeStamp]()...)
+		}
+		Expect(got).To(Equal([]telem.TimeStamp{
+			10 * telem.SecondTS, 11 * telem.SecondTS, 12 * telem.SecondTS,
+			13 * telem.SecondTS, 20 * telem.SecondTS, 21 * telem.SecondTS,
+		}))
+	})
+
 	It("Should keep the channel list and the commits of a synced writer across a "+
 		"reopen", func(ctx SpecContext) {
 		w := openWriter(ctx, 10*telem.SecondTS)
