@@ -1191,11 +1191,11 @@ describe("auth", () => {
 
     it("should log in with a key it loads", async () => {
       const owner = makeClient({ credentials: TEST_CREDENTIALS });
-      const { token, key } = await owner.createKey({ name: "loaded" });
+      const { token, key } = await owner.createAPIKey({ name: "loaded" });
       const keyed = makeClient({ loadAPIKey: async () => token });
       await keyed.retrieveSessions();
       expect(keyed.session?.credential).toEqual(key.key);
-      await owner.deleteKeys(key.key);
+      await owner.deleteAPIKeys(key.key);
     });
 
     it("should load the key again after a load fails", async () => {
