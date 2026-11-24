@@ -771,7 +771,10 @@ export class Space<
     });
   }
 
-  /** Never rejects: a failed refetch leaves the previous answer in place. */
+  /**
+   * Never rejects. A NotFound answers that nothing matches; any other failure keeps the
+   * previous answer, stale.
+   */
   private async refetch(query: Query<P, K, D, V>): Promise<void> {
     if (query.refetchTimer != null) {
       clearTimeout(query.refetchTimer);
@@ -786,15 +789,28 @@ export class Space<
     const generation = ++query.generation;
     const rechecks = new Set<K>();
     query.refetchRechecks = rechecks;
+    const { table } = this.config;
+    let since = 0;
     let keys: K[];
     try {
-      keys = await this.config.fetch(query.params);
+      keys = await table.track(async (stamp) => {
+        since = stamp;
+        return await this.config.fetch(query.params);
+      });
     } catch (reason) {
       if (query.refetchRechecks === rechecks) query.refetchRechecks = undefined;
       if (query.generation !== generation) return;
       const error = errors.fromUnknown(reason);
       // A NotFound is the Core's answer that nothing matches, not a failure.
       if (NotFoundError.matches(error)) {
+        if (query.state.variant === "deleted") return;
+        // A keyed answer reads its table entry, so the entry's deletion answers it.
+        const key = this.config.keyOf?.(query.params);
+        if (key != null && table.status(key) === "present")
+          return table.ingestDeletes([key], since);
+        // A change that raced the refetch may make a match that the Core had not seen.
+        if (rechecks.size > 0 || !array.equal(basis.versions, this.basis().versions))
+          return this.scheduleRefetch(query);
         query.state = { variant: "error", error };
         return this.touch(query);
       }
