@@ -16,6 +16,8 @@ import (
 	"math"
 	"slices"
 
+	"github.com/synnaxlabs/cesium/internal/channel"
+	claimed "github.com/synnaxlabs/cesium/internal/claim"
 	"github.com/synnaxlabs/cesium/internal/log"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
@@ -80,6 +82,21 @@ func (c *claim) owner() string {
 		return "a delete"
 	}
 	return "another writer"
+}
+
+// refusal returns the refusal of the stamps from first to last of key, which reach c,
+// as an open when open is true or else as a commit. The claim of a delete holds no time
+// range for a writer, so its refusal is a write conflict.
+func (c *claim) refusal(key uint32, first, last telem.TimeStamp, open bool) error {
+	if c.w == nil {
+		return errConflict
+	}
+	end := min(last, c.end)
+	if end < telem.TimeStampMax {
+		end++
+	}
+	reached := telem.TimeRange{Start: max(first, c.start), End: end}
+	return channel.Wrap(key, claimed.Error{TimeRange: reached, Open: open})
 }
 
 // Writer is the state of one Cesium writer: its claims and the open segment that it
@@ -185,8 +202,9 @@ func (s *State) checkOpen(
 	if p, ok := ch.stored(start, start, records); ok {
 		return errors.Wrapf(
 			errConflict,
-			"writer of key %d starts at %d, inside its "+
-				"stored data from %d to %d",
+			"cannot open writer because there is already data in the writer's "+
+				"time range: writer of key %d starts at %d, inside its stored data "+
+				"from %d to %d",
 			key,
 			start,
 			p.First,
@@ -213,8 +231,18 @@ func (s *State) checkClaims(w, from *Writer, key uint32, start telem.TimeStamp) 
 			refused = !o.bounded
 		}
 		if refused {
-			return errors.Wrapf(errConflict, "writer of key %d starting at %d "+
-				"reaches the claim of %s from %d", key, start, o.owner(), o.start)
+			last := telem.TimeStampMax
+			if w.cfg.Bounded {
+				last = start
+			}
+			return errors.Wrapf(
+				o.refusal(key, start, last, true),
+				"writer of key %d starting at %d reaches the claim of %s from %d",
+				key,
+				start,
+				o.owner(),
+				o.start,
+			)
 		}
 	}
 	return nil
@@ -582,7 +610,7 @@ func (s *State) checkVisible(
 		for _, o := range ch.claims {
 			if o.w != w && !o.pinned && o.reaches(first, last) {
 				return errors.Wrapf(
-					errConflict,
+					o.refusal(seg.key, first, last, false),
 					"commit of key %d from %d to %d reaches the claim of %s from %d",
 					seg.key,
 					first,

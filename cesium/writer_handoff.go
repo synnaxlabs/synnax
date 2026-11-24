@@ -13,6 +13,7 @@ import (
 	"context"
 	"slices"
 
+	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
@@ -86,25 +87,39 @@ func (p *Pending) Close() error {
 	return errors.Join(p.idx.persist(), p.idx.Close())
 }
 
-// Handoff closes w and opens a writer of cfg on the clock of w in its place. The new
-// writer goes on in the run of w: its samples take the next alignments of the run, and
-// its first stamp must come after the last stamp of w. Each key of cfg keeps the
-// uncommitted samples that w or adopt holds for it, so the next commit of the new
-// writer commits them. Handoff returns the uncommitted samples of the keys of w that
-// cfg lacks as a Pending, or nil when they have none. adopt is a Pending of an earlier
-// Handoff for the keys of cfg, or nil. On an error, Handoff closes w and adopt, which
-// drops their uncommitted samples, and its error names the clock and their time range.
-// On the pointer log layout, the new writer is the writer of w with the keys of cfg. On
-// the old layout, Handoff refuses a start of cfg before the end of the last commit of
-// w, and a handoff that adopts a Pending when w holds no uncommitted sample starts a
-// new run. When w does not write its clock and cfg holds no channel, Handoff closes w,
-// opens no writer, and refuses a non-nil adopt. It returns the uncommitted samples of w
-// as a Pending, or nil when w has none or stores no samples.
+// HandoffRun is the run of the writer that Handoff opens.
+type HandoffRun uint8
+
+const (
+	// NewRun starts a new run, for a handoff that moves the clock to another session.
+	NewRun HandoffRun = iota
+	// SameRun goes on in the run of the writer that Handoff replaces, for a handoff
+	// that keeps the clock with the same session: the samples take the next alignments
+	// of the run, and the first stamp must come after the last stamp of the run.
+	SameRun
+)
+
+// Handoff closes w and opens a writer of cfg on the clock of w in its place, in the run
+// that run names. Each key of cfg keeps the uncommitted samples that w or adopt holds
+// for it, so the next commit of the new writer commits them, and the new writer keeps
+// the last clock stamp of the writer that wrote them. Handoff returns the uncommitted
+// samples of the keys of w that cfg lacks as a Pending, or nil when they have none.
+// adopt is a Pending of an earlier Handoff for the keys of cfg, or nil. On an error,
+// Handoff closes w and adopt, which drops their uncommitted samples, and its error
+// names the clock and their time range. A handoff refuses a start of cfg in stored
+// data, as an open does. On the old layout, a handoff that adopts a Pending when w
+// holds no uncommitted sample starts a new run. On the pointer log layout, the new
+// writer is the writer of w with the keys of cfg, and a NewRun handoff starts a new
+// stretch after the uncommitted runs of w. When w does not write its clock and cfg
+// holds no channel, Handoff closes w, opens no writer, and refuses a non-nil adopt. It
+// returns the uncommitted samples of w as a Pending, or nil when w has none or stores
+// no samples.
 func (db *DB) Handoff(
 	ctx context.Context,
 	w *Writer,
 	cfg WriterConfig,
 	adopt *Pending,
+	run HandoffRun,
 ) (_ *Writer, _ *Pending, err error) {
 	dropped, uncommitted := w.uncommitted()
 	defer func() {
@@ -134,11 +149,14 @@ func (db *DB) Handoff(
 		pending, err = w.pend(adopt)
 		return nil, pending, err
 	}
-	if cfg, err = w.handoffConfig(cfg); err != nil {
+	if cfg, err = config.New(WriterConfig{}, cfg); err != nil {
+		return nil, nil, err
+	}
+	if err = checkHandoff(w, cfg, run); err != nil {
 		return nil, nil, err
 	}
 	if w.log != nil {
-		return db.handoffLog(ctx, w, cfg, adopt)
+		return db.handoffLog(ctx, w, cfg, adopt, run)
 	}
 	if adopt != nil && adopt.idx.hasUncommittedData {
 		// The old layout matches data to its index by position, so the samples of a
@@ -153,7 +171,7 @@ func (db *DB) Handoff(
 	}
 	db.mu.RLock()
 	defer db.mu.RUnlock()
-	next, pending, err := db.handoffIdx(ctx, w.idx, cfg, adopt)
+	next, pending, err := db.handoffIdx(ctx, w.idx, cfg, adopt, run)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -161,28 +179,27 @@ func (db *DB) Handoff(
 	return &Writer{WriterConfig: cfg, idx: next}, pending, nil
 }
 
-// handoffConfig returns cfg with its defaults. It refuses a cfg that does not write the
-// clock of w, or that changes whether the writer stores samples.
-func (w *Writer) handoffConfig(cfg WriterConfig) (WriterConfig, error) {
-	cfg, err := config.New(WriterConfig{}, cfg)
-	if err != nil {
-		return cfg, err
-	}
+// checkHandoff refuses a handoff of w to cfg in run that changes the clock or whether
+// the writer stores samples, or that names an unknown run.
+func checkHandoff(w *Writer, cfg WriterConfig, run HandoffRun) error {
 	if cfg.Clock != w.Clock || !slices.Contains(cfg.Channels, cfg.Clock) {
-		return cfg, errors.Wrapf(
+		return errors.Wrapf(
 			validate.ErrValidation,
 			"a handoff of the writer of clock %d writes that clock",
 			w.Clock,
 		)
 	}
+	if run != NewRun && run != SameRun {
+		return errors.Wrapf(validate.ErrValidation, "unknown handoff run %d", run)
+	}
 	if cfg.Unstored != w.Unstored {
-		return cfg, errors.Wrapf(
+		return errors.Wrapf(
 			validate.ErrValidation,
 			"a handoff of the writer of clock %d keeps whether it stores samples",
 			w.Clock,
 		)
 	}
-	return cfg, nil
+	return nil
 }
 
 // pend closes w, a writer of data alone, and returns its uncommitted samples as a
@@ -231,7 +248,7 @@ func (w *Writer) uncommitted() (telem.TimeRange, bool) {
 		}, true
 	}
 	tr := telem.TimeRange{Start: w.idx.lastCommitEnd, End: w.idx.idx.highWaterMark + 1}
-	return tr, w.idx.hasUncommittedData || w.idx.dataPending
+	return tr, w.idx.holdsUncommitted()
 }
 
 // handoffIdx moves the unary writers of the keys of cfg out of old and adopt into a new
@@ -244,24 +261,12 @@ func (db *DB) handoffIdx(
 	old *idxWriter,
 	cfg WriterConfig,
 	adopt *Pending,
+	run HandoffRun,
 ) (*idxWriter, *Pending, error) {
-	if !old.hasUncommittedData && !old.dataPending {
-		if adopt == nil && cfg.Start < old.lastCommitEnd {
-			return nil, nil, errors.Wrapf(
-				validate.ErrValidation,
-				"cannot open writer because there is already data in the writer's "+
-					"time range: start %v is before the end %v of the last commit",
-				cfg.Start,
-				old.lastCommitEnd,
-			)
-		}
-		// The pending samples lie on stamps that old committed, so their run is not the
-		// clock run of old.
-		if adopt != nil {
-			if err := errors.Join(old.persist(), old.Close()); err != nil {
-				return nil, nil, err
-			}
-			clear(old.internal)
+	if !old.holdsUncommitted() {
+		next, done, err := db.handoffIdle(ctx, old, cfg, adopt, run)
+		if done || err != nil {
+			return next, nil, err
 		}
 	}
 	base := old
@@ -293,16 +298,81 @@ func (db *DB) handoffIdx(
 			next.Close(),
 		)
 	}
+	// A run that skipped data channels held back is the new writer's to commit once the
+	// handoff drops every one of them.
+	for _, key := range old.held {
+		if slices.Contains(cfg.Channels, key) {
+			next.held = append(next.held, key)
+		}
+	}
+	if len(old.held) > 0 && len(next.held) == 0 {
+		next.hasUncommittedData = true
+	}
 	if len(old.internal) == 0 {
 		return next, nil, nil
 	}
 	p := old.runState(old.internal)
-	p.dataPending, p.hasUncommittedData = old.hasUncommittedData ||
-		old.dataPending, false
+	p.dataPending, p.hasUncommittedData = old.holdsUncommitted(), false
 	if !p.dataPending {
 		return next, nil, p.Close()
 	}
 	return next, &Pending{idx: p}, nil
+}
+
+// handoffIdle hands off old, which holds no uncommitted sample. In a new run, or when
+// it adopts samples, it closes old, and with nothing to adopt it returns done with a
+// new writer of cfg. In the same run, it keeps old open after the check of
+// refuseStored.
+func (db *DB) handoffIdle(
+	ctx context.Context,
+	old *idxWriter,
+	cfg WriterConfig,
+	adopt *Pending,
+	run HandoffRun,
+) (*idxWriter, bool, error) {
+	// The pending samples of an adopting handoff lie on stamps that old committed, so
+	// their run is not the clock run of old.
+	if run == SameRun && adopt == nil {
+		return nil, false, db.refuseStored(ctx, old, cfg)
+	}
+	if err := errors.Join(old.persist(), old.Close()); err != nil {
+		return nil, false, err
+	}
+	clear(old.internal)
+	if adopt != nil {
+		return nil, false, nil
+	}
+	next, err := db.openClockWriter(ctx, cfg)
+	return next, true, err
+}
+
+// refuseStored refuses a handoff from old to cfg in the same run when the start of cfg
+// lies in stored data of a key that old holds, as an open of cfg would.
+func (db *DB) refuseStored(
+	ctx context.Context,
+	old *idxWriter,
+	cfg WriterConfig,
+) error {
+	tr := cfg.Start.SpanRange(telem.Nanosecond)
+	for _, key := range cfg.Channels {
+		if _, held := old.internal[key]; !held {
+			continue
+		}
+		u := db.mu.dbs.unary[key]
+		stored, err := u.HasStoredDataFor(ctx, tr)
+		if err != nil {
+			return err
+		}
+		if stored {
+			return channel.Wrap(key, errors.Wrapf(
+				validate.ErrValidation,
+				"cannot open writer because there is already data in the writer's "+
+					"time range at %v",
+				cfg.Start,
+			))
+		}
+	}
+	return nil
 }
 
 // runState returns an index writer of internal with the clock and run state of w.
