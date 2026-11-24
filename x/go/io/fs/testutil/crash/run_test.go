@@ -324,6 +324,23 @@ var _ = Describe("Run", func() {
 			Expect(crash.Writeback(MustSucceed(fault.New(fault.Config{})))).
 				To(MatchError("crash: writeback needs the FS of the workload"))
 		})
+
+		DescribeTable("Should fail under a profile that places durable bytes by Sync",
+			func(ctx SpecContext, profile crash.Profile) {
+				Expect(violation(ctx, crash.Config{
+					Open:    openPlainLog(plainOpts{writeback: true}),
+					Commits: 20,
+					Stride:  1,
+					Profile: profile,
+				})).To(MatchError(ContainSubstring(
+					"crash: writeback under OldCorruption, NewCorruption, or " +
+						"RepeatedReadFaults",
+				)))
+			},
+			Entry("OldCorruption", crash.OldCorruption),
+			Entry("NewCorruption", crash.NewCorruption),
+			Entry("RepeatedReadFaults", crash.RepeatedReadFaults),
+		)
 	})
 
 	It("Should catch a skipped checksum on a disk of one block", func(ctx SpecContext) {

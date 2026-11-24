@@ -252,6 +252,11 @@ func (e *crashEngine) Recovered(context.Context) (records []crash.Record, err er
 	if err = e.halt.cause(); err != nil {
 		return nil, err
 	}
+	defer func() {
+		if err != nil {
+			records = nil
+		}
+	}()
 	defer stopOnDiskPanic(e.halt, &err)
 	iter, err := e.kv.OpenIterator(kv.IteratorOptions{})
 	if err != nil {
