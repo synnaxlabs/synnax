@@ -53,7 +53,8 @@ type WriterConfig struct {
 	Bounded bool
 	// Unstored makes the writer check, claim, stamp, and commit its frames as any
 	// writer does, and write no sample to disk. It does not check the order of the
-	// clock's stamps.
+	// clock's stamps. On the pointer log layout it takes no claim, so it opens beside a
+	// writer of the same channels and at any start.
 	//
 	// [OPTIONAL] - Defaults to false.
 	Unstored bool
