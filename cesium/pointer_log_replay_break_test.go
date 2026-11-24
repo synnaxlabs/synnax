@@ -141,7 +141,7 @@ var _ = Describe("Pointer log replay breaker", func() {
 				}), nil))
 				MustSucceed2(w.Commit(ctx, nil))
 				if i%3 == 0 {
-					Expect(w.Sync()).To(Succeed())
+					Expect(w.Sync(ctx)).To(Succeed())
 				}
 				if i%17 == 0 {
 					Expect(w.EndStretch(ctx)).To(Succeed())

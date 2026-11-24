@@ -128,7 +128,7 @@ var _ = Describe("Pointer log determinism check", func() {
 					},
 				), nil))
 				MustSucceed2(w.Commit(ctx, nil))
-				Expect(w.Sync()).To(Succeed())
+				Expect(w.Sync(ctx)).To(Succeed())
 			}
 			Expect(w.Close()).To(Succeed())
 		}
