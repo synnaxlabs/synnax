@@ -18,7 +18,7 @@ import type { TestProjectInlineConfiguration } from "vitest/config";
 
 import packageJSON from "./package.json" with { type: "json" };
 
-// Specs that read the test Core as a browser project provides it.
+// Specs that check that the test Core comes from the provided `synnaxTestCore`.
 const PROVIDED_CORE_SPECS = "src/**/*.provided.spec.ts";
 
 // Spec files that need a Node API, so only the Node project runs them.
