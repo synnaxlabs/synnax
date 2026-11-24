@@ -135,4 +135,10 @@ class HTTPWriteTaskCase(SimulatorCase, WriteTaskCase[sy.http.WriteTask]):
 
     def _channel_keys(self, task: sy.http.WriteTask) -> list[int]:
         """Extract command channel keys from HTTP write task config."""
-        return [ep.channel.channel for ep in task.config.endpoints]
+        return [
+            b.channel
+            for ep in task.config.endpoints
+            if ep.message is not None
+            for b in ep.message.bindings
+            if isinstance(b, sy.icd.ChannelWriteBinding)
+        ]

@@ -8,17 +8,19 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
+#include <cstddef>
+#include <cstdint>
+#include <deque>
 #include <map>
 #include <set>
-#include <tuple>
+#include <span>
+#include <string>
 #include <utility>
 #include <variant>
 #include <vector>
 
 #include "client/cpp/http/json.gen.h"
-#include "x/cpp/payload/types.gen.h"
 #include "x/cpp/strings/strings.h"
-#include "x/cpp/uuid/uuid.h"
 
 #include "driver/errors/errors.h"
 #include "driver/http/device/device.h"
@@ -28,332 +30,97 @@
 
 namespace driver::http {
 namespace {
-/// @returns true if a and b are the same pointer, or one holds the other.
-bool nested(const std::string &a, const std::string &b) {
-    if (a.empty() || b.empty()) return false;
-    const auto &[outer, inner] = a.size() <= b.size() ? std::tie(a, b) : std::tie(b, a);
-    return inner == outer || (inner.starts_with(outer) && inner[outer.size()] == '/');
+/// @returns the command channels of the enabled endpoints.
+std::set<synnax::channel::Key>
+command_keys(const std::vector<::synnax::http::WriteEndpoint> &endpoints) {
+    std::set<synnax::channel::Key> keys;
+    for (const auto &ep: endpoints) {
+        if (ep.disabled || !ep.message.has_value()) continue;
+        for (const auto &b: ep.message->bindings)
+            if (const auto *cb = std::get_if<synnax::icd::ChannelWriteBinding>(&b))
+                keys.insert(cb->channel);
+    }
+    return keys;
 }
 
-/// @brief parses an x::json::Type from its string form.
-/// @param str the type string ("number", "string", "boolean").
-/// @returns the parsed type paired with an error when the string is unknown.
-std::pair<x::json::Type, x::errors::Error> parse_json_type(const std::string &str) {
-    if (str == ::x::payload::JSON_TYPE_NUMBER)
-        return {x::json::Type::Number, x::errors::NIL};
-    if (str == ::x::payload::JSON_TYPE_STRING)
-        return {x::json::Type::String, x::errors::NIL};
-    if (str == ::x::payload::JSON_TYPE_BOOLEAN)
-        return {x::json::Type::Boolean, x::errors::NIL};
-    return {
-        x::json::Type::Number,
-        x::errors::Error(x::errors::VALIDATION, "unknown JSON type '" + str + "'"),
-    };
-}
-
-/// @brief parses a GeneratorType from its string form.
-/// @param str the generator string ("uuid", "timestamp").
-/// @returns the parsed generator paired with an error when the string is unknown.
-std::pair<GeneratorType, x::errors::Error> parse_generator(const std::string &str) {
-    if (str == ::x::payload::GENERATOR_TYPE_UUID)
-        return {GeneratorType::UUID, x::errors::NIL};
-    if (str == ::x::payload::GENERATOR_TYPE_TIMESTAMP)
-        return {GeneratorType::Timestamp, x::errors::NIL};
-    return {
-        GeneratorType::UUID,
-        x::errors::Error(x::errors::VALIDATION, "unknown generator type '" + str + "'"),
-    };
+/// @returns the method and URL of req, to name it in a status.
+std::string describe(const Request &req) {
+    return std::string(to_string(req.method)) + " " + req.url;
 }
 }
 
-std::pair<WriteTaskConfig, x::errors::Error> WriteTaskConfig::parse(
-    const std::shared_ptr<task::Context> &ctx,
-    const synnax::task::Task &task
-) {
+std::pair<WriteTaskConfig, x::errors::Error>
+WriteTaskConfig::parse(const synnax::task::Task &task) {
     auto parser = x::json::Parser(task.config);
     WriteTaskConfig cfg;
     static_cast<::synnax::http::WriteConfig &>(
         cfg
     ) = ::synnax::http::WriteConfig::parse(parser);
     if (cfg.device.empty()) parser.field_err("device", "this field is required");
-
-    std::vector<std::string> all_pointers;
-
-    bool some_enabled = false;
-    for (const auto &ep: cfg.endpoints) {
+    for (const auto &ep: cfg.endpoints)
         validate_request(ep, parser);
-
-        all_pointers.clear();
-        validate_pointer(ep.channel.pointer, parser, "endpoints.channel.pointer");
-        all_pointers.push_back(ep.channel.pointer);
-        if (auto [t, type_err] = parse_json_type(ep.channel.json_type); type_err)
-            parser.field_err("endpoints.channel.json_type", type_err);
-        if (ep.channel.channel == 0)
-            parser.field_err("endpoints.channel.channel", "this field is required");
-        if (ep.channel.time_format.has_value())
-            if (auto [fmt, fmt_err] = x::json::parse_time_format(
-                    *ep.channel.time_format
-                );
-                fmt_err)
-                parser.field_err("endpoints.channel.time_format", fmt_err);
-        std::set<double> values;
-        for (const auto &entry: ep.channel.enum_values)
-            if (!values.insert(entry.value).second)
-                parser.field_err(
-                    "endpoints.channel.enum_values.value",
-                    "duplicate enum value " + x::json::json(entry.value).dump()
-                );
-        if (!ep.channel.enum_values.empty() &&
-            ep.channel.json_type != ::x::payload::JSON_TYPE_STRING)
-            parser.field_err(
-                "endpoints.channel.enum_values",
-                "enum values are only supported when json_type is 'string'"
-            );
-
-        for (const auto &field: ep.fields) {
-            const std::string *pointer = nullptr;
-            if (const auto *sf = std::get_if<::synnax::http::StaticWriteField>(&field))
-                pointer = &sf->pointer;
-            else if (
-                const auto *gf = std::get_if<::synnax::http::GeneratedWriteField>(
-                    &field
-                )
-            ) {
-                pointer = &gf->pointer;
-                if (auto [g, gen_err] = parse_generator(gf->generator); gen_err)
-                    parser.field_err("endpoints.fields.generator", gen_err);
-                if (gf->time_format.has_value())
-                    if (auto [fmt, fmt_err] = x::json::parse_time_format(
-                            *gf->time_format
-                        );
-                        fmt_err)
-                        parser.field_err("endpoints.fields.time_format", fmt_err);
-            }
-            if (pointer == nullptr) continue;
-            validate_pointer(*pointer, parser, "endpoints.fields.pointer");
-            if (pointer->empty())
-                parser.field_err(
-                    "endpoints.fields.pointer",
-                    "field pointer cannot be empty"
-                );
-            else if (std::ranges::any_of(all_pointers, [&](const auto &used) {
-                         return nested(used, *pointer);
-                     }))
-                parser.field_err(
-                    "endpoints.fields.pointer",
-                    "pointer '" + *pointer + "' is already used or overlaps one"
-                );
-            else
-                all_pointers.push_back(*pointer);
-        }
-
-        // Validate bare primitive: if channel pointer is root, no other fields.
-        if (ep.channel.pointer.empty() && !ep.fields.empty())
-            parser.field_err(
-                "endpoints.channel",
-                "bare primitive body (root pointer) cannot have additional "
-                "fields"
-            );
-
-        if (!ep.disabled) {
-            some_enabled = true;
-            cfg.cmd_keys.push_back(ep.channel.channel);
-        }
-    }
-
-    if (!some_enabled)
+    if (std::ranges::all_of(cfg.endpoints, &::synnax::http::WriteEndpoint::disabled))
         parser.field_err("endpoints", "at least one enabled endpoint is required");
-
     if (!parser.ok()) return {std::move(cfg), parser.error()};
-
-    auto [sy_channels, ch_err] = ctx->client->channels.retrieve(cfg.cmd_keys);
-    if (ch_err) return {{}, ch_err};
-
-    std::map<synnax::channel::Key, synnax::channel::Channel> ch_map;
-    for (const auto &ch: sy_channels)
-        ch_map[ch.key] = ch;
-
-    for (const auto &ep: cfg.endpoints) {
-        if (ep.disabled) continue;
-        auto it = ch_map.find(ep.channel.channel);
-        if (it == ch_map.end()) {
-            parser.field_err(
-                "endpoints",
-                "channel " + std::to_string(ep.channel.channel) + " not found"
-            );
-            continue;
-        }
-        const auto &ch = it->second;
-        cfg.cmd_names[ch.key] = ch.name;
-
-        // Timestamp channels encode by time_format, not json_type.
-        if (ch.data_type == x::telem::TIMESTAMP_T) continue;
-        if (auto conv_err = x::json::check_from_sample_value(
-                ch.data_type,
-                parse_json_type(ep.channel.json_type).first
-            );
-            conv_err) {
-            parser.field_err(
-                "endpoints",
-                "channel " + ch.name + " (type " + ch.data_type.name() +
-                    ") cannot be converted to the specified JSON type"
-            );
-        }
-    }
-
-    if (!parser.ok()) return {std::move(cfg), parser.error()};
-
     return {std::move(cfg), x::errors::NIL};
 }
 
 WriteTaskSink::WriteTaskSink(
-    WriteTaskConfig cfg,
+    std::vector<synnax::channel::Key> cmd_keys,
     std::shared_ptr<Processor> processor,
-    std::vector<Request> base_requests
+    std::vector<Request> requests,
+    std::vector<driver::icd::Writer> writers
 ):
-    Sink(cfg.cmd_keys),
-    cfg(std::move(cfg)),
+    Sink(std::move(cmd_keys)),
     processor(std::move(processor)),
-    base_requests(std::move(base_requests)) {
-    this->endpoints.reserve(this->cfg.endpoints.size());
-    for (size_t i = 0; i < this->cfg.endpoints.size(); i++) {
-        const auto &ep = this->cfg.endpoints[i];
-        Endpoint state;
-        state.method = parse_method(ep.method).first;
-        state.pointer = x::json::json::json_pointer(ep.channel.pointer);
-        state.json_type = parse_json_type(ep.channel.json_type).first;
-        if (ep.channel.time_format.has_value())
-            if (auto [fmt, fmt_err] = x::json::parse_time_format(
-                    *ep.channel.time_format
-                );
-                !fmt_err)
-                state.time_format = fmt;
-        for (const auto &entry: ep.channel.enum_values)
-            state.enum_values.emplace_back(entry.value, entry.label);
-        for (const auto &field: ep.fields)
-            if (const auto *sf = std::get_if<::synnax::http::StaticWriteField>(
-                    &field
-                )) {
-                StaticField state_field;
-                state_field.pointer = x::json::json::json_pointer(sf->pointer);
-                state_field.value = sf->value;
-                state.static_fields.push_back(std::move(state_field));
-            } else if (
-                const auto *gf = std::get_if<::synnax::http::GeneratedWriteField>(
-                    &field
-                )
-            ) {
-                GeneratedField gen_field;
-                gen_field.pointer = x::json::json::json_pointer(gf->pointer);
-                gen_field.generator = parse_generator(gf->generator).first;
-                if (gf->time_format.has_value())
-                    if (auto [fmt, fmt_err] = x::json::parse_time_format(
-                            *gf->time_format
-                        );
-                        !fmt_err)
-                        gen_field.time_format = fmt;
-                state.generated_fields.push_back(std::move(gen_field));
-            }
-        if (!ep.disabled) this->channel_to_endpoint[ep.channel.channel] = i;
-        this->endpoints.push_back(std::move(state));
-    }
-}
-
-std::string
-WriteTaskSink::build_body(const Endpoint &ep, const x::json::json &sample_val) {
-    // Bare primitive: if channel pointer is root and no other fields, body IS the value
-    // directly.
-    if (ep.pointer.empty() && ep.static_fields.empty() && ep.generated_fields.empty())
-        return sample_val.dump();
-
-    x::json::json body;
-    body[ep.pointer] = sample_val;
-
-    for (const auto &sf: ep.static_fields)
-        body[sf.pointer] = sf.value;
-
-    const auto now = x::telem::TimeStamp::now();
-    for (const auto &gf: ep.generated_fields) {
-        if (gf.generator == GeneratorType::UUID)
-            body[gf.pointer] = x::uuid::create().to_string();
-        else
-            body[gf.pointer] = x::json::from_timestamp(now, gf.time_format);
-    }
-
-    return body.dump();
-}
+    requests(std::move(requests)),
+    writers(std::move(writers)) {}
 
 x::errors::Error WriteTaskSink::write(x::telem::Frame &frame) {
-    struct PendingRequest {
-        Request request;
-        size_t ep_idx;
-        synnax::channel::Key ch_key;
-        x::telem::Series series;
-    };
-
-    std::vector<PendingRequest> pending;
-    std::vector<std::string> skipped;
-    for (const auto &[ch_key, series]: frame) {
-        auto it = channel_to_endpoint.find(ch_key);
-        if (it == channel_to_endpoint.end()) continue;
-        const auto ep_idx = it->second;
-        const auto &ep = this->endpoints[ep_idx];
-
-        const auto sample_val = series.at(-1);
-
-        x::json::json json_val;
-        if (const auto *ts = std::get_if<x::telem::TimeStamp>(&sample_val)) {
-            json_val = x::json::from_timestamp(*ts, ep.time_format);
-        } else {
-            const auto *enum_ptr = ep.enum_values.empty() ? nullptr : &ep.enum_values;
-            auto [val, conv_err] = x::json::from_sample_value(
-                sample_val,
-                ep.json_type,
-                enum_ptr
-            );
-            if (conv_err) {
-                const auto reason = conv_err.data.empty()
-                                      ? "the value has no JSON form for the field"
-                                      : conv_err.data;
-                skipped.push_back(
-                    "Channel " + this->cfg.cmd_names.at(ch_key) + ": " + reason +
-                    ". Did not send " + to_string(ep.method) + " " +
-                    base_requests[ep_idx].url + ". Write a finite number."
-                );
-                continue;
-            }
-            json_val = std::move(val);
-        }
-
-        auto req = base_requests[ep_idx];
-        req.body = build_body(ep, json_val);
-        pending.push_back({
-            .request = std::move(req),
-            .ep_idx = ep_idx,
-            .ch_key = ch_key,
-            .series = series.shallow_copy(),
-        });
-    }
-
+    // Queue i holds the requests of endpoint i in sample order. Each round sends the
+    // front of each queue, so an endpoint gets its commands in order.
+    std::vector<std::deque<Request>> queues(this->writers.size());
+    std::vector<std::string> refused;
     std::vector<std::string> error_msgs;
     std::string first_error_type;
+    for (std::size_t i = 0; i < this->writers.size(); i++) {
+        const auto &base = this->requests[i];
+        const auto result = this->writers[i].write(
+            frame,
+            [&](std::span<const std::uint8_t> payload) {
+                auto &req = queues[i].emplace_back(base);
+                req.body.assign(payload.begin(), payload.end());
+                return x::errors::NIL;
+            }
+        );
+        if (result.refused)
+            refused.push_back(
+                "Dropped a command for " + describe(base) + ": " + result.refused.data +
+                "."
+            );
+        if (result.error) {
+            if (first_error_type.empty()) first_error_type = result.error.type;
+            error_msgs.push_back(describe(base) + ": " + result.error.data);
+        }
+    }
 
-    while (!pending.empty()) {
-        std::vector<Request> batch;
-        batch.reserve(pending.size());
-        for (const auto &p: pending)
-            batch.push_back(p.request);
+    bool sent = false;
+    std::vector<Request> batch;
+    std::vector<std::size_t> owners;
+    while (true) {
+        batch.clear();
+        owners.clear();
+        for (std::size_t i = 0; i < queues.size(); i++)
+            if (!queues[i].empty()) {
+                batch.push_back(queues[i].front());
+                owners.push_back(i);
+            }
+        if (batch.empty()) break;
         auto results = processor->execute(batch);
-
-        std::vector<PendingRequest> still_pending;
         bool made_progress = false;
-        x::telem::Frame success_frame;
-
-        for (size_t i = 0; i < results.size(); i++) {
-            const auto &p = pending[i];
-            const auto &ep = this->endpoints[p.ep_idx];
-            auto &[resp, req_err] = results[i];
-
+        for (std::size_t j = 0; j < results.size(); j++) {
+            auto &queue = queues[owners[j]];
+            auto &[resp, req_err] = results[j];
             x::errors::Error err = x::errors::NIL;
             if (req_err)
                 err = req_err;
@@ -361,20 +128,13 @@ x::errors::Error WriteTaskSink::write(x::telem::Frame &frame) {
                 auto status_err = errors::from_status(resp.status_code); status_err
             )
                 err = status_err;
-
-            if (!err) {
-                made_progress = true;
-                success_frame.emplace(p.ch_key, p.series.shallow_copy());
-                continue;
-            }
-
-            if (err.matches(errors::TEMPORARY_ERROR)) {
-                still_pending.push_back(std::move(pending[i]));
-            } else {
-                made_progress = true;
+            if (err.matches(errors::TEMPORARY_ERROR)) continue;
+            made_progress = true;
+            if (!err)
+                sent = true;
+            else {
                 if (first_error_type.empty()) first_error_type = err.type;
-                auto msg = std::string(to_string(ep.method)) + " " +
-                           base_requests[p.ep_idx].url;
+                auto msg = describe(batch[j]);
                 if (req_err)
                     msg += ": " + req_err.data;
                 else {
@@ -383,26 +143,22 @@ x::errors::Error WriteTaskSink::write(x::telem::Frame &frame) {
                 }
                 error_msgs.push_back(std::move(msg));
             }
+            queue.pop_front();
         }
-
-        if (!success_frame.empty()) this->set_state(success_frame);
-        pending = std::move(still_pending);
         if (!made_progress) break;
     }
+    if (sent) this->set_state(frame);
 
-    for (const auto &p: pending) {
+    for (const auto &queue: queues) {
+        if (queue.empty()) continue;
         if (first_error_type.empty()) first_error_type = errors::TEMPORARY_ERROR.type;
-        const auto &ep = this->endpoints[p.ep_idx];
-        error_msgs.push_back(
-            std::string(to_string(ep.method)) + " " + base_requests[p.ep_idx].url +
-            ": timed out"
-        );
+        error_msgs.push_back(describe(queue.front()) + ": timed out");
     }
 
-    if (!skipped.empty())
+    if (!refused.empty())
         this->warn({
             .message = "Skipped invalid command",
-            .description = x::strings::join(skipped, " "),
+            .description = x::strings::join(refused, " "),
         });
 
     if (error_msgs.empty()) return x::errors::NIL;
@@ -414,8 +170,11 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_write(
     const synnax::task::Task &task,
     const std::shared_ptr<Processor> &processor
 ) {
-    auto [cfg, parse_err] = WriteTaskConfig::parse(ctx, task);
+    auto [cfg, parse_err] = WriteTaskConfig::parse(task);
     if (parse_err) return {common::ConfigureResult{}, parse_err};
+
+    auto [writers, writers_err] = build_writers(*ctx->client, cfg.endpoints);
+    if (writers_err) return {common::ConfigureResult{}, writers_err};
 
     auto [conn, conn_err] = device::retrieve_connection(
         ctx->client->devices,
@@ -423,19 +182,20 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_write(
     );
     if (conn_err) return {common::ConfigureResult{}, conn_err};
 
-    std::vector<Request> base_requests;
-    base_requests.reserve(cfg.endpoints.size());
+    std::vector<Request> requests;
     for (const auto &ep: cfg.endpoints) {
+        if (ep.disabled) continue;
         auto req_cfg = request_config(ep);
         req_cfg.request_content_type = "application/json";
-        base_requests.push_back(device::build_request(conn, req_cfg));
+        requests.push_back(device::build_request(conn, req_cfg));
     }
 
-    const bool auto_start = cfg.auto_start;
+    const auto keys = command_keys(cfg.endpoints);
     auto sink = std::make_unique<WriteTaskSink>(
-        std::move(cfg),
+        std::vector(keys.begin(), keys.end()),
         processor,
-        std::move(base_requests)
+        std::move(requests),
+        std::move(writers)
     );
 
     auto write_task = std::make_unique<common::WriteTask>(
@@ -448,7 +208,7 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_write(
     return {
         common::ConfigureResult{
             .task = std::move(write_task),
-            .auto_start = auto_start,
+            .auto_start = cfg.auto_start,
         },
         x::errors::NIL,
     };
@@ -459,15 +219,9 @@ std::pair<std::vector<driver::icd::Writer>, x::errors::Error> build_writers(
     const std::vector<::synnax::http::WriteEndpoint> &endpoints
 ) {
     std::set<synnax::icd::Key> icd_keys;
-    std::set<synnax::channel::Key> channel_keys;
-    for (const auto &ep: endpoints) {
-        if (ep.disabled) continue;
-        if (ep.icd.has_value()) icd_keys.insert(*ep.icd);
-        if (!ep.message.has_value()) continue;
-        for (const auto &b: ep.message->bindings)
-            if (const auto *cb = std::get_if<synnax::icd::ChannelWriteBinding>(&b))
-                channel_keys.insert(cb->channel);
-    }
+    for (const auto &ep: endpoints)
+        if (!ep.disabled && ep.icd.has_value()) icd_keys.insert(*ep.icd);
+    const auto channel_keys = command_keys(endpoints);
     auto [icds, icd_err] = client.icds.retrieve(
         std::vector(icd_keys.begin(), icd_keys.end())
     );
