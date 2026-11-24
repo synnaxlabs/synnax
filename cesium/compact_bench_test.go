@@ -231,11 +231,11 @@ func benchmarkCompactRead(b *testing.B, rewrite bool) {
 	benchmarkReads(b, db, keys, running, "the rewrite ended before the reads")
 }
 
-// readStretches and readSamples are the stretches that writeReadStretches writes, and
-// the samples of each.
-const readStretches, readSamples = 100, 100
+// readStretches and stretchSamples are the stretches that writeReadStretches writes,
+// and the samples of each.
+const readStretches, stretchSamples = 100, 100
 
-// writeReadStretches writes readStretches stretches of readSamples samples to a new
+// writeReadStretches writes readStretches stretches of stretchSamples samples to a new
 // index and data channel of db, keys 1 and 2, and returns their keys.
 func writeReadStretches(b *testing.B, db *cesium.DB) []cesium.ChannelKey {
 	b.Helper()
@@ -248,7 +248,7 @@ func writeReadStretches(b *testing.B, db *cesium.DB) []cesium.ChannelKey {
 		b.Fatal(err)
 	}
 	for s := range readStretches {
-		writePartsStretch(b, b.Context(), db, keys, s*readSamples, readSamples)
+		writePartsStretch(b, b.Context(), db, keys, s*stretchSamples, stretchSamples)
 	}
 	return keys
 }
@@ -264,7 +264,7 @@ func benchmarkReads(
 	ended string,
 ) {
 	b.Helper()
-	const stretches, samples = readStretches, readSamples
+	const stretches, samples = readStretches, stretchSamples
 	took := make([]time.Duration, 0, 1<<20)
 	b.ReportAllocs()
 	for b.Loop() {

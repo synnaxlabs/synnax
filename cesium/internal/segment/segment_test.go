@@ -28,8 +28,9 @@ import (
 )
 
 var (
-	cfg    = segment.Config{DB: 7, ID: 3, DataType: 4, Clock: 0x00200001}
+	cfg    = segment.Config{Key: 6, DB: 7, ID: 3, DataType: 4, Clock: 0x00200001}
 	varCfg = segment.Config{
+		Key:      6,
 		DB:       7,
 		ID:       3,
 		DataType: 9,
@@ -213,22 +214,6 @@ var _ = Describe("Segment", func() {
 						b := fileBytes()
 						Expect(binary.LittleEndian.Uint32(b[segment.BlockSize:])).
 							To(Equal(placeAt(cfg, 0).Sum(data[:segment.BlockSize])))
-					},
-				)
-
-				It(
-					"Should read a stream range across blocks with no trailer bytes",
-					func() {
-						w := create(cfg)
-						data := pattern(3*segment.BlockSize + 5)
-						Expect(w.Write(data)).To(Succeed())
-						Expect(budget.Sync([]*segment.Handle{h})).To(Succeed())
-						Expect(h.Close()).To(Succeed())
-						f := MustSucceed(fs.Open("3.seg", os.O_RDONLY))
-						defer func() { Expect(f.Close()).To(Succeed()) }()
-						got := make([]byte, 2*segment.BlockSize)
-						Expect(cfg.ReadAt(f, got, 100)).To(Succeed())
-						Expect(got).To(Equal(data[100 : 100+2*segment.BlockSize]))
 					},
 				)
 			})

@@ -62,6 +62,8 @@ type engine struct {
 	// that the orphan pass hands it.
 	check   *checker
 	toCheck set.Set[ChannelKey]
+	// readers pools the segment readers of iterators, each of which holds a block.
+	readers sync.Pool
 	// head is the generation of the head that recovery used.
 	head uint64
 	// switched is the generation of a log that recovery made live, whose head the
@@ -171,6 +173,7 @@ func newEngine(o *options, loaded bool) (*engine, error) {
 	}
 	e.pins.readers, e.pins.dead = make(map[uint64]int), make(map[uint64]state.Dead)
 	e.pins.parts, e.pins.keys = make(map[uint64]int), make(map[ChannelKey]int)
+	e.readers.New = func() any { return segment.NewReader() }
 	var err error
 	e.budget, err = segment.NewBudget(handleLimit, syncWidth, e.exec)
 	return e, err
@@ -968,6 +971,17 @@ func (e *engine) readConfig(key ChannelKey, seg state.Segment) (segment.Config, 
 		}
 	}
 	return cfg, err
+}
+
+// reader returns a segment reader from the pool, with no block held from an earlier
+// read.
+func (e *engine) reader() *segment.Reader {
+	rd, ok := e.readers.Get().(*segment.Reader)
+	if !ok {
+		panic("cesium: the segment reader pool holds another type")
+	}
+	rd.Reset()
+	return rd
 }
 
 // segmentConfig returns the identity and block layout of seg.
