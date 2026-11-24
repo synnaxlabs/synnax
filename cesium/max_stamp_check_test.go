@@ -47,6 +47,7 @@ var _ = Describe("Check: a sample at the largest stamp", func() {
 		)).To(Succeed())
 		w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 			Channels: keys,
+			Clock:    idx,
 			Start:    telem.TimeStampMax,
 		}))
 		_, _, werr := w.Write(ctx, telem.MultiFrame(keys, []telem.Series{

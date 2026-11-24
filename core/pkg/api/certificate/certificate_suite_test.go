@@ -63,9 +63,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Certificate: svc.Certificate,
 	}))
 	binder := MustSucceed(bind.NewService(bind.ServiceConfig{
-		DB:   node.DB,
-		RBAC: svc.RBAC,
-		Held: apiauth.HeldTables(),
+		DB:    node.DB,
+		RBAC:  svc.RBAC,
+		Held:  apiauth.HeldTables(),
+		Owned: apicertificate.OwnedTables(),
 	}))
 	set = bind.Write(binder, apiSvc.Set)
 	retrieve = bind.Read(binder, apiSvc.Retrieve)

@@ -34,6 +34,7 @@ import (
 	xfstestutil "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/types"
 	"github.com/synnaxlabs/x/validate"
@@ -1459,12 +1460,19 @@ var _ = Describe("Writer", func() {
 						return svc.NewWriter(tx).CreateMany(ctx, &chs)
 					})).To(Succeed())
 					kept, open := chs[0].Key(), chs[1].Key()
-					Expect(dist.Storage.TS.WriteSeries(
-						ctx,
+					tw := MustSucceed(
+						dist.Storage.TS.OpenWriter(ctx, cesium.WriterConfig{
+							Channels: []cesium.ChannelKey{uint32(kept)},
+							Clock:    uint32(kept),
+							Start:    10 * telem.SecondTS,
+						}),
+					)
+					MustSucceed2(tw.Write(ctx, telem.UnaryFrame(
 						uint32(kept),
-						10*telem.SecondTS,
 						telem.NewSeriesSecondsTSV(10, 11, 12),
-					)).To(Succeed())
+					), nil))
+					MustSucceed2(tw.Commit(ctx, nil))
+					Expect(tw.Close()).To(Succeed())
 					w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
 						Start: 20 * telem.SecondTS,
 						Keys:  channel.Keys{open},
@@ -1489,7 +1497,7 @@ var _ = Describe("Writer", func() {
 					)
 					Expect(
 						fr.Get(uint32(kept)).Series[0],
-					).To(telem.MatchSeriesDataV(
+					).To(MatchSeriesDataV(
 						10*telem.SecondTS,
 						11*telem.SecondTS,
 						12*telem.SecondTS,

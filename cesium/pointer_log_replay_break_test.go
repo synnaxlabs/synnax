@@ -130,6 +130,7 @@ var _ = Describe("Pointer log replay breaker", func() {
 		for range 3 {
 			w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 				Channels: keys,
+				Clock:    idx,
 				Start:    (second + 1) * telem.SecondTS,
 			}))
 			for i := range 40 {
@@ -144,7 +145,7 @@ var _ = Describe("Pointer log replay breaker", func() {
 					Expect(w.Sync()).To(Succeed())
 				}
 				if i%17 == 0 {
-					Expect(w.EndDomain(ctx, idx)).To(Succeed())
+					Expect(w.EndStretch(ctx)).To(Succeed())
 				}
 			}
 			Expect(w.Close()).To(Succeed())

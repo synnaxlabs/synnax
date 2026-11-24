@@ -153,6 +153,7 @@ var _ = Describe("Conversion on the pointer log", func() {
 		GinkgoHelper()
 		w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 			Channels: keys,
+			Clock:    keys[0],
 			Start:    start * telem.SecondTS,
 		}))
 		for c := range telem.TimeStamp(4) {

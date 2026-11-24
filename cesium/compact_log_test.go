@@ -134,7 +134,7 @@ var _ = Describe("Compaction on the pointer log", func() {
 		keys := []cesium.ChannelKey{idx, key}
 		w := MustSucceed(db.OpenWriter(
 			ctx,
-			cesium.WriterConfig{Channels: keys, Start: stamp(first)},
+			cesium.WriterConfig{Channels: keys, Clock: idx, Start: stamp(first)},
 		))
 		MustSucceed2(w.Write(ctx, telem.MultiFrame(
 			keys,

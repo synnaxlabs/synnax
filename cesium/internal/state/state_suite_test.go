@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
+	"github.com/synnaxlabs/cesium/internal/claim"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -38,6 +39,23 @@ func closed() types.GomegaMatcher {
 
 // conflict matches the error of a writer open or a commit that reaches stored data or
 // another writer's claim.
+// refusedOpen matches the refusal of an open that reaches the claim of another writer.
+func refusedOpen() types.GomegaMatcher {
+	return SatisfyAll(
+		MatchError(claim.ErrClaimed),
+		MatchError(ContainSubstring("cannot access time range")),
+	)
+}
+
+// refusedCommit matches the refusal of a commit that reaches the claim of another
+// writer.
+func refusedCommit() types.GomegaMatcher {
+	return SatisfyAll(
+		MatchError(validate.ErrValidation),
+		MatchError(ContainSubstring("cannot write to time range")),
+	)
+}
+
 func conflict() types.GomegaMatcher {
 	return SatisfyAll(
 		MatchError(validate.ErrValidation),
