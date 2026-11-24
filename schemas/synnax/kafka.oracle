@@ -267,6 +267,8 @@ WriteConfig struct extends task.StartConfig {
             new ICD, adds a target for each, and clears it.
         """
         @go marshal omit
+        @py omit
+        @ts omit
     }
 
     @doc value           """
@@ -405,4 +407,6 @@ InlineWrite struct {
     }
 
     @doc value "holds the channels of a write config from before ICDs."
+    @py omit
+    @ts omit
 }

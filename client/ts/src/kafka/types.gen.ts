@@ -169,19 +169,6 @@ export const SASL_SCHEMAS: {
   scram_sha_512: scramSha512SASLZ,
 };
 
-/** InlineWrite holds the channels of a write config from before ICDs. */
-export const inlineWriteZ = z.object({
-  /** topic is the topic of the records. */
-  topic: z.string().default(""),
-  /** recordKey is the source of the key of each record. */
-  recordKey: recordKeyZ.default("channel_name"),
-  /** record is the shape of every record. */
-  record: recordZ.prefault({}),
-  /** channels are the channels whose samples the records held. */
-  channels: writeChannelZ.array().default(() => []),
-});
-export interface InlineWrite extends z.infer<typeof inlineWriteZ> {}
-
 /** ReadTopic reads the records of one topic. */
 export const readTopicZ = z.object({
   /** key uniquely identifies the topic within the task. */
@@ -192,6 +179,16 @@ export const readTopicZ = z.object({
   records: readRecordZ.array().default(() => []),
 });
 export interface ReadTopic extends z.infer<typeof readTopicZ> {}
+
+export const writeConfigZ = task.startConfigZ.extend({
+  device: device.keyZ.default(""),
+  topic: z.string().default(""),
+  recordKey: recordKeyZ.default("channel_name"),
+  record: recordZ.prefault({}),
+  channels: writeChannelZ.array().default(() => []),
+  targets: writeTargetZ.array().default(() => []),
+});
+export interface WriteConfig extends z.infer<typeof writeConfigZ> {}
 
 /** Properties configures the connection to a Kafka cluster device. */
 export const propertiesZ = z.object({
@@ -211,17 +208,6 @@ export const propertiesZ = z.object({
   sasl: saslZ.prefault({ mechanism: "none" }),
 });
 export interface Properties extends z.infer<typeof propertiesZ> {}
-
-export const writeConfigZ = task.startConfigZ.extend({
-  device: device.keyZ.default(""),
-  topic: z.string().default(""),
-  recordKey: recordKeyZ.default("channel_name"),
-  record: recordZ.prefault({}),
-  channels: writeChannelZ.array().default(() => []),
-  targets: writeTargetZ.array().default(() => []),
-  inline: inlineWriteZ.optional(),
-});
-export interface WriteConfig extends z.infer<typeof writeConfigZ> {}
 
 export const readConfigZ = task.persistConfigZ.extend({
   device: device.keyZ.default(""),

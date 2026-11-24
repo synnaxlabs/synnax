@@ -16,22 +16,15 @@ import (
 	"uuid"
 
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/gorp/migrate"
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	http "github.com/synnaxlabs/synnax/pkg/service/http/versions/v4"
 	icdv0 "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v0"
 	icd "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v1"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/kafka/versions/v0"
-	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/set"
 )
-
-// CreateWriteICD creates ic, an ICD in the current shape, through tx.
-type CreateWriteICD func(ctx context.Context, tx gorp.Tx, ic icd.ICD) error
 
 // MigrateWriteConfig lifts a v0 write config to v1. When old has channels, it moves
 // them into Inline with the topic, record key, and record of old, for
@@ -129,90 +122,6 @@ func ResolveWriteConfig(
 	}
 	cfg.Inline = nil
 	return ic, true, nil
-}
-
-// NewWriteMigration returns the migration that moves the channels of each stored write
-// config into targets, after WriteMigration. It resolves each config as
-// ResolveWriteConfig does, with the name of its task, creates the ICD with create, and
-// logs each change to a field. The config of a snapshot task gets no ICD and loses its
-// channels, because the task service deletes snapshots after this migration runs.
-func NewWriteMigration(
-	channels icdv0.Channels,
-	create CreateWriteICD,
-) gorp.Migration {
-	return migrate.New(
-		"v63_kafka_write_icd",
-		func(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation) error {
-			var cfgs []WriteConfig
-			if err := gorp.NewRetrieve[uuid.UUID, WriteConfig]().
-				Where(gorp.Match[uuid.UUID](
-					func(_ gorp.Context, c *WriteConfig) (bool, error) {
-						return len(c.Channels) > 0, nil
-					},
-				)).
-				Entries(&cfgs).
-				Exec(ctx, tx); err != nil || len(cfgs) == 0 {
-				return err
-			}
-			tasks, err := retrieveTasks(ctx, tx, cfgs)
-			if err != nil {
-				return err
-			}
-			news := make([]WriteConfig, len(cfgs))
-			for i, cfg := range cfgs {
-				if news[i], err = migrateStored(
-					ctx,
-					tx,
-					channels,
-					create,
-					tasks[cfg.Key],
-					cfg,
-					NoteLift(ins, cfg.Key),
-				); err != nil {
-					return errors.Wrapf(err, "config %s", cfg.Key)
-				}
-			}
-			return gorp.WrapWriter[uuid.UUID, WriteConfig](tx).Set(ctx, news...)
-		},
-	)
-}
-
-func migrateStored(
-	ctx context.Context,
-	tx gorp.Tx,
-	channels icdv0.Channels,
-	create CreateWriteICD,
-	t task.Task,
-	cfg WriteConfig,
-	note func(path, change string),
-) (WriteConfig, error) {
-	stage(&cfg)
-	if t.Snapshot {
-		return cfg, nil
-	}
-	ic, ok, err := ResolveWriteConfig(ctx, tx, channels, t.Name, &cfg, note)
-	if err != nil || !ok {
-		return cfg, err
-	}
-	return cfg, create(ctx, tx, ic)
-}
-
-// retrieveTasks returns the task of each config of cfgs by key, read through tx.
-func retrieveTasks(
-	ctx context.Context,
-	tx gorp.Tx,
-	cfgs []WriteConfig,
-) (map[uuid.UUID]task.Task, error) {
-	var tasks []task.Task
-	if err := gorp.NewRetrieve[task.Key, task.Task]().
-		Where(gorp.MatchKeys[task.Key, task.Task](
-			lo.Map(cfgs, func(c WriteConfig, _ int) task.Key { return c.Key })...,
-		)).
-		Entries(&tasks).
-		Exec(ctx, tx); err != nil {
-		return nil, errors.Wrap(err, "tasks of Kafka write configs")
-	}
-	return lo.KeyBy(tasks, func(t task.Task) uuid.UUID { return t.Key }), nil
 }
 
 // liftTarget returns the message that sends wc in the shape of the record of in, with

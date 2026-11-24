@@ -11,12 +11,12 @@ package v1_test
 
 import (
 	"context"
+	"encoding/json/v2"
 	"fmt"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	http "github.com/synnaxlabs/synnax/pkg/service/http/versions/v4"
@@ -24,13 +24,11 @@ import (
 	icd "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v1"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/kafka/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/kafka/versions/v1"
-	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/payload"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
-	"go.uber.org/zap"
 )
 
 // jsonFields returns the fields of the JSON message msg.
@@ -419,55 +417,25 @@ var _ = Describe("ResolveWriteConfig", func() {
 	)
 })
 
-var _ = Describe("NewWriteMigration", func() {
-	var (
-		db       *gorp.DB
-		made     []icd.ICD
-		create   v1.CreateWriteICD
-		channels icdv0.Channels
-	)
-	BeforeEach(func() {
-		db = DeferClose(gorp.Wrap(memkv.New()))
-		made = nil
-		create = func(_ context.Context, tx gorp.Tx, ic icd.ICD) error {
-			GinkgoHelper()
-			Expect(tx).ToNot(BeNil())
-			made = append(made, ic)
-			return nil
-		}
-		channels = func(
-			context.Context,
-			gorp.Snapshot,
-			[]channel.Key,
-		) (map[channel.Key]icdv0.Channel, error) {
-			return map[channel.Key]icdv0.Channel{
-				7: {Name: "valve_cmd", DataType: telem.Float64T},
-			}, nil
-		}
+var _ = Describe("StagedChannelsKVKey", func() {
+	It("Should key staged channels by the prefix and the config key", func() {
+		key := uuid.New()
+		Expect(string(v1.StagedChannelsKVKey(key))).
+			To(Equal("sy_kafka_write_staged_channels/" + key.String()))
 	})
+})
 
-	// store writes old and a task named name that owns it.
-	store := func(ctx SpecContext, name string, old v0.WriteConfig, snapshot bool) {
+var _ = Describe("WriteStageMigration", func() {
+	var db *gorp.DB
+	BeforeEach(func() { db = DeferClose(gorp.Wrap(memkv.New())) })
+
+	migrate := func(ctx SpecContext, migrations ...gorp.Migration) {
 		GinkgoHelper()
-		Expect(gorp.WrapWriter[uuid.UUID, v0.WriteConfig](db).Set(ctx, old)).
-			To(Succeed())
-		Expect(gorp.WrapWriter[task.Key, task.Task](db).Set(ctx, task.Task{
-			Key:      old.Key,
-			Name:     name,
-			Type:     "kafka_write",
-			Snapshot: snapshot,
+		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+			DB:         db,
+			Namespace:  "kafka_write_config",
+			Migrations: migrations,
 		})).To(Succeed())
-	}
-	migrate := func(ctx SpecContext, ins alamos.Instrumentation) error {
-		return gorp.Migrate(ctx, gorp.MigrateConfig{
-			Instrumentation: ins,
-			DB:              db,
-			Namespace:       "kafka_write_config",
-			Migrations: []gorp.Migration{
-				v1.WriteMigration,
-				v1.NewWriteMigration(channels, create),
-			},
-		})
 	}
 	read := func(ctx SpecContext, key uuid.UUID) v1.WriteConfig {
 		GinkgoHelper()
@@ -478,77 +446,70 @@ var _ = Describe("NewWriteMigration", func() {
 			Exec(ctx, db)).To(Succeed())
 		return cfg
 	}
+	staged := func(key uuid.UUID) v1.InlineWrite {
+		GinkgoHelper()
+		b, closer := MustSucceed2(db.Get(v1.StagedChannelsKVKey(key)))
+		var in v1.InlineWrite
+		Expect(json.Unmarshal(b, &in)).To(Succeed())
+		Expect(closer.Close()).To(Succeed())
+		return in
+	}
 
-	It(
-		"Should move the channels of a config into targets of an ICD named after its task",
+	It("Should stage the channels of each config and store the config without them",
 		func(ctx SpecContext) {
-			old := writeConfig(writeChannel("c1", 7))
+			// A JSON round trip reads no enum values as an empty list.
+			ch := writeChannel("c1", 7)
+			ch.EnumValues = []payload.EnumEntry{}
+			old := writeConfig(ch)
 			old.Record.TimestampPointer = new("/time")
-			store(ctx, "Valves", old, false)
-			ins, logs := observe()
-			Expect(migrate(ctx, ins)).To(Succeed())
-			Expect(made).To(HaveLen(1))
-			Expect(made[0].Name).To(Equal("Valves"))
+			old.Record.Fields = []http.WriteField{
+				staticField("/site", payload.JSONTypeString, "north"),
+				generatedField("/id", payload.GeneratorTypeUUID, nil),
+			}
+			Expect(gorp.WrapWriter[uuid.UUID, v0.WriteConfig](db).Set(ctx, old)).
+				To(Succeed())
+			migrate(ctx, v1.WriteMigration, v1.WriteStageMigration)
 			cfg := read(ctx, old.Key)
 			Expect(cfg.Channels).To(BeEmpty())
+			Expect(cfg.Topic).To(BeEmpty())
 			Expect(cfg.Inline).To(BeNil())
-			Expect(cfg.Targets).To(HaveLen(1))
-			Expect(cfg.Targets[0].ICD).To(Equal(made[0].Key))
-			Expect(cfg.Targets[0].Message.Message).To(Equal(made[0].Messages[0].Key))
-			logged := logs.FilterField(
-				zap.String("field", "record.timestamp_pointer"),
-			).All()
-			Expect(logged).To(HaveLen(1))
-			Expect(logged[0].ContextMap()).
-				To(HaveKeyWithValue("config", old.Key.String()))
+			Expect(staged(old.Key)).To(Equal(v1.InlineWrite{
+				Topic:     "plant",
+				RecordKey: v1.RecordKeyChannelName,
+				Record:    old.Record,
+				Channels:  old.Channels,
+			}))
 		},
 	)
 
-	It("Should leave a config with no channels as it was", func(ctx SpecContext) {
-		old := writeConfig()
-		store(ctx, "Empty", old, false)
-		ins, _ := observe()
-		Expect(migrate(ctx, ins)).To(Succeed())
-		Expect(made).To(BeEmpty())
-		Expect(read(ctx, old.Key).Topic).To(Equal("plant"))
-	})
-
-	It("Should make no ICD for the config of a snapshot", func(ctx SpecContext) {
-		old := writeConfig(writeChannel("c1", 7))
-		store(ctx, "Valves (snapshot)", old, true)
-		ins, _ := observe()
-		Expect(migrate(ctx, ins)).To(Succeed())
-		Expect(made).To(BeEmpty())
-		cfg := read(ctx, old.Key)
-		Expect(cfg.Channels).To(BeEmpty())
-		Expect(cfg.Targets).To(BeEmpty())
-	})
-
-	It("Should do nothing without stored configs", func(ctx SpecContext) {
-		ins, _ := observe()
-		Expect(migrate(ctx, ins)).To(Succeed())
-		Expect(made).To(BeEmpty())
-	})
-
-	It("Should fail when a config has no task", func(ctx SpecContext) {
-		Expect(gorp.WrapWriter[uuid.UUID, v0.WriteConfig](db).
-			Set(ctx, writeConfig(writeChannel("c1", 7)))).To(Succeed())
-		ins, _ := observe()
-		Expect(migrate(ctx, ins)).
-			To(MatchError(ContainSubstring("tasks of Kafka write configs")))
-	})
-
-	It("Should fail with the config key when an ICD create fails",
+	It("Should stage the channels of a config that WriteMigration already rewrote",
 		func(ctx SpecContext) {
-			old := writeConfig(writeChannel("c1", 7))
-			store(ctx, "Valves", old, false)
-			create = func(context.Context, gorp.Tx, icd.ICD) error {
-				return errors.New("create failed")
+			ch := writeChannel("c1", 7)
+			ch.EnumValues = []payload.EnumEntry{}
+			cfg := v1.WriteConfig{
+				Key:       uuid.New(),
+				Topic:     "plant",
+				RecordKey: v1.RecordKeyNone,
+				Record:    v1.Record{ValuePointer: "/v", Fields: []http.WriteField{}},
+				Channels:  []v1.WriteChannel{ch},
 			}
-			ins, _ := observe()
-			Expect(migrate(ctx, ins)).To(MatchError(ContainSubstring(
-				fmt.Sprintf("config %s: create failed", old.Key),
-			)))
+			Expect(gorp.WrapWriter[uuid.UUID, v1.WriteConfig](db).Set(ctx, cfg)).
+				To(Succeed())
+			migrate(ctx, v1.WriteStageMigration)
+			Expect(read(ctx, cfg.Key).Channels).To(BeEmpty())
+			in := staged(cfg.Key)
+			Expect(in.RecordKey).To(Equal(v1.RecordKeyNone))
+			Expect(in.Channels).To(Equal(cfg.Channels))
 		},
 	)
+
+	It("Should stage nothing for a config without channels", func(ctx SpecContext) {
+		old := writeConfig()
+		Expect(gorp.WrapWriter[uuid.UUID, v0.WriteConfig](db).Set(ctx, old)).
+			To(Succeed())
+		migrate(ctx, v1.WriteMigration, v1.WriteStageMigration)
+		Expect(read(ctx, old.Key).Topic).To(Equal("plant"))
+		Expect(db.Get(v1.StagedChannelsKVKey(old.Key))).Error().
+			To(MatchError(query.ErrNotFound))
+	})
 })

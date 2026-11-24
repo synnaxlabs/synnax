@@ -183,22 +183,6 @@ SASL = Annotated[
 ]
 
 
-class InlineWrite(BaseModel):
-    """Holds the channels of a write config from before ICDs.
-
-    Attributes:
-        topic: Is the topic of the records.
-        record_key: Is the source of the key of each record.
-        record: Is the shape of every record.
-        channels: Are the channels whose samples the records held.
-    """
-
-    topic: str = ""
-    record_key: RecordKey = "channel_name"
-    record: Record = Field(default_factory=lambda: Record())
-    channels: list[WriteChannel] = Field(default_factory=list)
-
-
 class ReadTopic(BaseModel):
     """Reads the records of one topic.
 
@@ -211,6 +195,31 @@ class ReadTopic(BaseModel):
     key: str = Field(default_factory=lambda: str(uuid4()))
     name: str = ""
     records: list[ReadRecord] = Field(default_factory=list)
+
+    @_override
+    def __hash__(self) -> int:
+        return hash(self.key)
+
+
+class WriteConfig(task.StartConfig):
+    """Configures a Kafka write task, which produces one record per sample of each
+    channel to a topic.
+
+    Attributes:
+        device: Is the key of the Kafka cluster device to produce to.
+        topic: Is the topic the task produces to.
+        record_key: Is the source of the key placed on every record.
+        record: Is the shape of every record.
+        channels: Contains the channels whose samples are produced.
+        targets: Contains the topics and ICD messages to produce.
+    """
+
+    device: device_.Key = ""
+    topic: str = ""
+    record_key: RecordKey = "channel_name"
+    record: Record = Field(default_factory=lambda: Record())
+    channels: list[WriteChannel] = Field(default_factory=list)
+    targets: list[WriteTarget] = Field(default_factory=list)
 
     @_override
     def __hash__(self) -> int:
@@ -232,34 +241,6 @@ class Properties(BaseModel):
     secure: bool = False
     ca_certificate: str = ""
     sasl: SASL = Field(default_factory=lambda: NoneSASL(mechanism="none"))
-
-
-class WriteConfig(task.StartConfig):
-    """Configures a Kafka write task, which produces one record per sample of each
-    channel to a topic.
-
-    Attributes:
-        device: Is the key of the Kafka cluster device to produce to.
-        topic: Is the topic the task produces to.
-        record_key: Is the source of the key placed on every record.
-        record: Is the shape of every record.
-        channels: Contains the channels whose samples are produced.
-        targets: Contains the topics and ICD messages to produce.
-        inline: Holds the channels of a config from before ICDs. A write moves them into
-            a new ICD, adds a target for each, and clears it.
-    """
-
-    device: device_.Key = ""
-    topic: str = ""
-    record_key: RecordKey = "channel_name"
-    record: Record = Field(default_factory=lambda: Record())
-    channels: list[WriteChannel] = Field(default_factory=list)
-    targets: list[WriteTarget] = Field(default_factory=list)
-    inline: InlineWrite | None = None
-
-    @_override
-    def __hash__(self) -> int:
-        return hash(self.key)
 
 
 class ReadConfig(task.PersistConfig):

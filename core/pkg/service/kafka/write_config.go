@@ -23,13 +23,6 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// createWriteICD returns the v1.CreateWriteICD that creates an ICD with svc.
-func createWriteICD(svc *icd.Service) v1.CreateWriteICD {
-	return func(ctx context.Context, tx gorp.Tx, ic icd.ICD) error {
-		return svc.NewWriter(tx).Create(ctx, &ic)
-	}
-}
-
 // writeResolver resolves write configs against the ICDs and channels that they write.
 type writeResolver struct {
 	icds     *icd.Service
