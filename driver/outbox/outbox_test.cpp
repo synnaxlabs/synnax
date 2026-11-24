@@ -1058,4 +1058,33 @@ TEST_F(OutboxTest, BoundsCallCount) {
         );
     ASSERT_LE(outbox->size(), 8);
 }
+
+/// @brief it should send the newest set of each status once after a compaction and the
+/// removal of the offset file.
+TEST_F(OutboxTest, SendsNewestSetsAfterCompactionWithoutOffset) {
+    {
+        const auto outbox = this->open_unreachable(4096);
+        for (int i = 0; i < 300; i++)
+            ASSERT_EVENTUALLY_NIL_WITH_TIMEOUT(
+                outbox->set_status(
+                    set_of(std::to_string(i), i % 2 == 0 ? "a" : "b"),
+                    nullptr
+                ),
+                std::chrono::seconds(30),
+                std::chrono::milliseconds(5)
+            );
+    }
+    std::filesystem::remove(this->dir / "offset");
+    const auto transport = transport_of(
+        std::vector<x::errors::Error>(300, x::errors::NIL)
+    );
+    const auto outbox = this->open_outbox(transport);
+    ASSERT_EVENTUALLY_EQ(outbox->size(), 0);
+    const auto messages = messages_of(*transport);
+    ASSERT_GE(messages.size(), 2);
+    EXPECT_EQ(std::ranges::count(messages, "298"), 1);
+    EXPECT_EQ(std::ranges::count(messages, "299"), 1);
+    EXPECT_EQ(messages[messages.size() - 2], "298");
+    EXPECT_EQ(messages.back(), "299");
+}
 }

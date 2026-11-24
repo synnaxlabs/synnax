@@ -687,9 +687,15 @@ void Outbox::compact() {
     }
     std::vector<std::pair<std::uint64_t, std::shared_ptr<const pb::Call>>> kept;
     std::uint64_t first_new_seq = 0;
+    std::optional<journal::Offset> start;
     {
         std::lock_guard lock(this->mu);
         first_new_seq = this->next_seq;
+        if (!this->saved.has_value() && !this->calls.empty())
+            start = journal::Offset{
+                .segment = this->calls.front().segment,
+                .pos = journal::HEADER_SIZE,
+            };
         // The first call can be in flight on the send thread, so it stays.
         for (const auto &call: this->calls)
             if (kept.empty() || !this->is_replaced(call))
@@ -706,6 +712,15 @@ void Outbox::compact() {
         this->bytes += tail_writer->pos();
     }
     this->spare_cv.notify_all();
+    // A saved offset lets open remove the segment of a compaction that a crash stops.
+    if (start.has_value()) {
+        if (const auto err = this->save(*start)) {
+            LOG(ERROR) << "[outbox] failed to save the offset before a compaction: "
+                       << err;
+            return;
+        }
+        this->saved = start;
+    }
     auto [writer, err] = this->open_writer(key, COMPACTED_FLAG);
     std::vector<std::uint64_t> ends;
     for (std::size_t i = 0; !err && i < kept.size(); i++) {
