@@ -1457,4 +1457,85 @@ TEST(TestCommonWriteTask, WarnsWhileStateWriterWaitsForALicense) {
     );
     ASSERT_TRUE(write_task.stop("stop", true));
 }
+
+/// @brief it should show a license warning while its command streamer reopens into a
+/// Core with no license, and clear it when the streamer opens, since no state loop
+/// runs.
+TEST(TestCommonWriteTask, WarnsWhileCommandStreamerWaitsForALicense) {
+    x::breaker::Breaker cancel;
+    auto sink = std::make_unique<MockSink>(
+        x::telem::HERTZ * 100,
+        std::vector<Sink::Output>{{1, std::nullopt}},
+        false,
+        std::make_shared<x::sync::List<x::telem::Frame>>(),
+        std::make_shared<std::vector<x::errors::Error>>()
+    );
+    // The first streamer loses the Core after the start, and the reopens then wait
+    // for a license. The start answer waits for the first open, so a wait before it
+    // shows nothing.
+    const auto lost = std::make_shared<std::vector<x::telem::Frame>>();
+    lost->emplace_back();
+    auto streamer_factory = std::make_shared<pipeline::testutil::StreamerFactory>(
+        std::vector{
+            x::errors::NIL,
+            synnax::errors::LICENSE_MISSING,
+            synnax::errors::LICENSE_MISSING,
+        },
+        std::make_shared<std::vector<pipeline::testutil::StreamerConfig>>(
+            std::vector<pipeline::testutil::StreamerConfig>{
+                {lost,
+                 std::make_shared<std::vector<x::errors::Error>>(
+                     std::vector{freighter::UNREACHABLE}
+                 ),
+                 freighter::UNREACHABLE},
+                {std::make_shared<std::vector<x::telem::Frame>>(),
+                 nullptr,
+                 x::errors::NIL},
+                {std::make_shared<std::vector<x::telem::Frame>>(),
+                 nullptr,
+                 x::errors::NIL},
+                {std::make_shared<std::vector<x::telem::Frame>>(),
+                 nullptr,
+                 x::errors::NIL},
+            }
+        )
+    );
+    synnax::task::Task task;
+    task.key = x::uuid::create();
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    WriteTask write_task(
+        task,
+        ctx,
+        x::breaker::Config{
+            .name = "license",
+            .base_interval = x::telem::MILLISECOND,
+            .max_retries = x::breaker::RETRY_INFINITELY,
+            .scale = 1,
+        },
+        std::move(sink),
+        std::make_shared<pipeline::testutil::WriterFactory>(),
+        streamer_factory
+    );
+    ASSERT_TRUE(write_task.start("cmd", cancel));
+    const auto showed = [&] {
+        return std::ranges::any_of(ctx->snapshot(), [](const auto &s) {
+            return s.message == "Waiting for a license";
+        });
+    };
+    const auto shows = [&] {
+        const auto statuses = ctx->snapshot();
+        return !statuses.empty() && statuses.back().message == "Waiting for a license";
+    };
+    ASSERT_EVENTUALLY_TRUE_WITH_TIMEOUT(
+        showed(),
+        std::chrono::seconds(5),
+        std::chrono::milliseconds(10)
+    );
+    ASSERT_EVENTUALLY_FALSE_WITH_TIMEOUT(
+        shows(),
+        std::chrono::seconds(5),
+        std::chrono::milliseconds(10)
+    );
+    ASSERT_TRUE(write_task.stop("stop", true));
+}
 }

@@ -1206,4 +1206,39 @@ TEST(TestCommonReadTask, WarnsWhileWaitingForALicense) {
     );
     read_task.stop("stop_cmd", true);
 }
+
+/// @brief it should show "Failed to reach the Core" once its writer has failed to
+/// open for the warning delay.
+TEST(TestCommonReadTask, WarnsAfterTheDelayWhileTheCoreFails) {
+    x::breaker::Breaker cancel;
+    auto factory = std::make_shared<pipeline::testutil::WriterFactory>();
+    factory->open_errors = std::vector(400, freighter::TRANSPORT);
+    synnax::task::Task t;
+    t.key = x::uuid::create();
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    ctx->warning_delay = x::telem::MILLISECOND * 20;
+    auto reads = std::make_shared<std::vector<x::telem::Frame>>();
+    ReadTask read_task(
+        t,
+        ctx,
+        x::breaker::Config{
+            .name = "transport",
+            .base_interval = x::telem::MILLISECOND,
+            .max_retries = x::breaker::RETRY_INFINITELY,
+            .scale = 1,
+        },
+        std::make_unique<MockSource>(reads),
+        factory
+    );
+    read_task.start("start_cmd", cancel);
+    ASSERT_EVENTUALLY_TRUE_WITH_TIMEOUT(
+        std::ranges::any_of(
+            ctx->snapshot(),
+            [](const auto &s) { return s.message == "Failed to reach the Core"; }
+        ),
+        std::chrono::seconds(5),
+        std::chrono::milliseconds(10)
+    );
+    read_task.stop("stop_cmd", true);
+}
 }

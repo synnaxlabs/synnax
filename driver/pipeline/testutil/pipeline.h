@@ -350,6 +350,12 @@ public:
     // Counts how many times the pipeline reported missed commands.
     std::atomic<int> misses{0};
 
+    // Counts how many times the pipeline reported a wait for the Core.
+    std::atomic<int> core_waits{0};
+
+    // Counts how many times the pipeline reported a reopened Core half.
+    std::atomic<int> core_reopens{0};
+
     Sink():
         writes(std::make_shared<x::sync::List<x::telem::Frame>>()),
         write_errors(std::make_shared<std::vector<x::errors::Error>>()) {}
@@ -377,6 +383,12 @@ public:
     }
 
     void opened() override { this->opens.fetch_add(1); }
+
+    void waiting_for_core(const x::errors::Error &err) override {
+        this->core_waits.fetch_add(1);
+    }
+
+    void core_reopened() override { this->core_reopens.fetch_add(1); }
 };
 
 // Mock implementation of pipeline::Source for testing.

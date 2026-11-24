@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <atomic>
+#include <functional>
 #include <future>
 #include <thread>
 
@@ -321,5 +322,77 @@ TEST(ControlPipeline, WaitsForLicensePastLimit) {
     control.stop();
     ASSERT_EQ(factory->opens.load(), 3);
     ASSERT_MATCHES(sink->stop_err, x::errors::UNKNOWN);
+}
+
+/// @brief it should tell the sink about each wait for the Core before a reopen.
+TEST(ControlPipeline, ReportsEachWaitToTheSink) {
+    const auto factory = std::make_shared<ScriptedStreamerFactory>(std::vector{
+        freighter::UNREACHABLE,
+        freighter::UNREACHABLE,
+        x::errors::UNKNOWN,
+    });
+    const auto sink = std::make_shared<testutil::Sink>();
+    auto control = Control(
+        factory,
+        synnax::framer::StreamerConfig{},
+        sink,
+        x::breaker::Config{
+            .base_interval = x::telem::MICROSECOND * 10,
+            .max_retries = 1
+        }
+    );
+    ASSERT_TRUE(control.start());
+    ASSERT_EVENTUALLY_FALSE(control.running());
+    control.stop();
+    ASSERT_EQ(sink->core_waits.load(), 2);
+}
+
+namespace {
+/// @brief a streamer that reports one Core wait and one reopen to its watcher, then
+/// reads nothing until close_send.
+class WatchedStreamer final : public Streamer {
+    std::promise<void> closed;
+    std::shared_future<void> done = closed.get_future().share();
+
+public:
+    std::pair<x::telem::Frame, x::errors::Error> read() override {
+        done.wait();
+        return {x::telem::Frame(), freighter::ERR_EOF};
+    }
+
+    x::errors::Error close() override { return x::errors::NIL; }
+
+    void close_send() override { this->closed.set_value(); }
+
+    void watch_core(
+        const std::function<void(const x::errors::Error &)> &on_change
+    ) override {
+        on_change(freighter::UNREACHABLE);
+        on_change(x::errors::NIL);
+    }
+};
+
+class WatchedStreamerFactory final : public StreamerFactory {
+public:
+    std::pair<std::unique_ptr<Streamer>, x::errors::Error>
+    open_streamer(synnax::framer::StreamerConfig config) override {
+        return {std::make_unique<WatchedStreamer>(), x::errors::NIL};
+    }
+};
+}
+
+/// @brief it should forward the Core waits and reopens of a streamer to the sink.
+TEST(ControlPipeline, ForwardsWatchedCoreChangesToTheSink) {
+    const auto sink = std::make_shared<testutil::Sink>();
+    auto control = Control(
+        std::make_shared<WatchedStreamerFactory>(),
+        synnax::framer::StreamerConfig{},
+        sink,
+        x::breaker::Config{.base_interval = x::telem::MICROSECOND * 10}
+    );
+    ASSERT_TRUE(control.start());
+    ASSERT_EVENTUALLY_EQ(sink->core_reopens.load(), 1);
+    ASSERT_EQ(sink->core_waits.load(), 1);
+    control.stop();
 }
 }
