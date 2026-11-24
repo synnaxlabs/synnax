@@ -54,6 +54,9 @@ func (f clockSyncFS) Sub(name string) (xfs.FS, error) {
 	return segSyncFS{FS: sub, failing: f.failing}, nil
 }
 
+// unstored is the lowest alignment number of samples that are not stored.
+const unstored uint32 = 1 << 31
+
 var _ = Describe("Check: data written against stored stamps", func() {
 	var (
 		fs                xfs.FS
@@ -208,11 +211,10 @@ var _ = Describe("Check: data written against stored stamps", func() {
 			Clock:    idx,
 			Start:    11*telem.SecondTS + 500*telem.MillisecondTS,
 		}))
-		_, _, err := w.Write(ctx, frame(1), nil)
-		if err == nil {
-			_, _, err = w.Commit(ctx, nil)
-		}
-		Expect(err).To(SatisfyAll(
+		fr, _ := MustSucceed2(w.Write(ctx, frame(1), nil))
+		Expect(fr.Get(data).Series[0].Alignment.DomainIndex()).
+			To(BeNumerically(">=", unstored))
+		Expect(w.Commit(ctx, nil)).Error().To(SatisfyAll(
 			MatchError(validate.ErrValidation),
 			MatchError(ContainSubstring("does not exist in the index")),
 		))
@@ -223,11 +225,14 @@ var _ = Describe("Check: data written against stored stamps", func() {
 	It("Should refuse a commit of more samples than the stored stamps after its start",
 		func(ctx SpecContext) {
 			w := writer(ctx, 22)
-			_, _, err := w.Write(ctx, frame(1, 2, 3), nil)
-			if err == nil {
-				_, _, err = w.Commit(ctx, nil)
-			}
-			Expect(err).To(SatisfyAll(
+			fr, _ := MustSucceed2(w.Write(ctx, frame(1, 2, 3), nil))
+			series := fr.Get(data).Series
+			Expect(series).To(HaveLen(2))
+			Expect(series[0].Alignment).
+				To(Equal(telem.NewAlignment(second.DomainIndex(), 2)))
+			Expect(series[1].Alignment.DomainIndex()).
+				To(BeNumerically(">=", unstored))
+			Expect(w.Commit(ctx, nil)).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
 				MatchError(ContainSubstring("failed to resolve position")),
 			))
