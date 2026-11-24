@@ -79,10 +79,10 @@ var _ = Describe("API keys", func() {
 		ctx context.Context,
 		token string,
 		subject resource.ID,
-	) (apiauth.KeyCreateResponse, error) {
+	) (apiauth.APIKeyCreateResponse, error) {
 		return createKey(
 			authed(ctx, token),
-			apiauth.KeyCreateRequest{Subject: subject, Name: "ci"},
+			apiauth.APIKeyCreateRequest{Subject: subject, Name: "ci"},
 		)
 	}
 	BeforeEach(func(ctx SpecContext) {
@@ -116,7 +116,7 @@ var _ = Describe("API keys", func() {
 		))
 		expectLegacyUser(*renewed.User, "")
 	})
-	Describe("CreateKey", func() {
+	Describe("CreateAPIKey", func() {
 		It("Should create a key for the caller that logs in as the caller", func(
 			ctx SpecContext,
 		) {
@@ -213,28 +213,30 @@ var _ = Describe("API keys", func() {
 			))
 		})
 	})
-	Describe("RetrieveKeys", func() {
+	Describe("RetrieveAPIKeys", func() {
 		It("Should list the caller's own keys by default", func(ctx SpecContext) {
 			own := MustSucceed(create(ctx, bobToken, resource.ID{})).Key
 			MustSucceed(create(ctx, rootToken, resource.ID{}))
 			res := MustSucceed(retrieveKeys(
 				authed(ctx, bobToken),
-				apiauth.KeyRetrieveRequest{},
+				apiauth.APIKeyRetrieveRequest{},
 			))
 			Expect(res.Keys).To(ConsistOf(own))
 		})
 		It("Should deny a user listing another subject's keys", func(ctx SpecContext) {
 			Expect(retrieveKeys(
 				authed(ctx, bobToken),
-				apiauth.KeyRetrieveRequest{Subjects: []resource.ID{root.ResourceID()}},
+				apiauth.APIKeyRetrieveRequest{
+					Subjects: []resource.ID{root.ResourceID()},
+				},
 			)).Error().To(MatchError(access.ErrDenied))
 		})
 	})
-	Describe("DeleteKeys", func() {
+	Describe("DeleteAPIKeys", func() {
 		del := func(ctx context.Context, token string, keys ...apikey.Key) error {
 			_, err := deleteKeys(
 				authed(ctx, token),
-				apiauth.KeyDeleteRequest{Keys: keys},
+				apiauth.APIKeyDeleteRequest{Keys: keys},
 			)
 			return err
 		}
