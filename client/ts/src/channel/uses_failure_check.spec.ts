@@ -31,6 +31,8 @@ const FAILED: channel.Payload = {
   expression: "",
   operations: [],
   concurrency: control.Concurrency.exclusive,
+  calculated: false,
+  description: "",
 };
 const LATER: channel.Payload = { ...FAILED, key: 2, name: "later" };
 
