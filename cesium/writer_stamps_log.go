@@ -20,38 +20,20 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-// stampRun is a run of the stored stamps of a clock: the stamps of pointers whose
-// alignments touch.
-type stampRun struct {
-	alignment   telem.Alignment
-	samples     uint32
-	first, last telem.TimeStamp
+// holds reports whether p holds the stamp of the sample at alignment a.
+func holds(p state.Pointer, a telem.Alignment) bool {
+	return a.DomainIndex() == p.Alignment.DomainIndex() &&
+		a.SampleIndex() >= p.Alignment.SampleIndex() &&
+		a.SampleIndex()-p.Alignment.SampleIndex() < p.Samples
 }
 
-func (r stampRun) pointer() state.Pointer {
-	return state.Pointer{
-		First:     r.first,
-		Last:      r.last,
-		Alignment: r.alignment,
-		Samples:   r.samples,
-	}
-}
-
-// holds reports whether r holds the stamp of the sample at alignment a.
-func (r stampRun) holds(a telem.Alignment) bool {
-	return a.DomainIndex() == r.alignment.DomainIndex() &&
-		a.SampleIndex() >= r.alignment.SampleIndex() &&
-		a.SampleIndex()-r.alignment.SampleIndex() < r.samples
-}
-
-// stampRuns appends to dst the runs of the visible stamps of clock that end at or after
-// from, in rising order of first stamp. A run that a part holds in part counts from its
-// first pointer that reaches from.
-func (e *engine) stampRuns(
+// stampPointers appends to dst the visible pointers of clock that end at or after from,
+// in rising order of first stamp.
+func (e *engine) stampPointers(
 	clock ChannelKey,
 	from telem.TimeStamp,
-	dst []stampRun,
-) ([]stampRun, error) {
+	dst []state.Pointer,
+) ([]state.Pointer, error) {
 	ch, h, err, unlinkErr := e.load(clock, held{})
 	if err = errors.Join(err, unlinkErr); err != nil || ch == nil {
 		return dst, errors.Join(err, e.unpin(h))
@@ -70,43 +52,24 @@ func (e *engine) stampRuns(
 	if err = e.unpin(h); err != nil {
 		return dst, err
 	}
-	var ptrs []state.Pointer
+	start := len(dst)
 	for _, seg := range pre.Segments {
-		ptrs = append(ptrs, seg.Pointers...)
+		dst = append(dst, seg.Pointers...)
 	}
 	for _, seg := range ch.Segments {
 		if seg.Part == 0 {
-			ptrs = append(ptrs, seg.Pointers...)
+			dst = append(dst, seg.Pointers...)
 		}
 	}
-	slices.SortFunc(ptrs, func(a, b state.Pointer) int {
-		return cmp.Compare(a.Alignment, b.Alignment)
-	})
-	start := len(dst)
-	for _, p := range ptrs {
-		if n := len(dst); n > start {
-			if r := &dst[n-1]; r.alignment.AddSamples(r.samples) == p.Alignment {
-				r.samples += p.Samples
-				r.last = p.Last
-				continue
-			}
-		}
-		dst = append(dst, stampRun{
-			alignment: p.Alignment,
-			samples:   p.Samples,
-			first:     p.First,
-			last:      p.Last,
-		})
-	}
-	runs := slices.DeleteFunc(
+	ptrs := slices.DeleteFunc(
 		dst[start:],
-		func(r stampRun) bool { return r.last < from },
+		func(p state.Pointer) bool { return p.Last < from },
 	)
 	slices.SortFunc(
-		runs,
-		func(a, b stampRun) int { return cmp.Compare(a.first, b.first) },
+		ptrs,
+		func(a, b state.Pointer) int { return cmp.Compare(a.First, b.First) },
 	)
-	return dst[:start+len(runs)], nil
+	return dst[:start+len(ptrs)], nil
 }
 
 // placer places the samples of a writer that does not write its clock on the stored
@@ -116,10 +79,10 @@ type placer struct {
 	e     *engine
 	clock ChannelKey
 	start telem.TimeStamp
-	// cur is the run that holds the stamp of the next sample, next the alignment of
+	// cur is the pointer that holds the stamp of the next sample, next the alignment of
 	// that stamp, and placed the number of samples placed. started is false until the
 	// first sample has a stamp.
-	cur     stampRun
+	cur     state.Pointer
 	next    telem.Alignment
 	placed  int64
 	started bool
@@ -128,15 +91,16 @@ type placer struct {
 	// from the numbers of data that is not stored, and unstamped counts them.
 	err                 error
 	unstored, unstamped uint32
-	runs                []stampRun
+	ptrs                []state.Pointer
 	pieces              []piece
 }
 
-// piece is the samples of a write that lie on one run of stored stamps.
+// piece is the samples of a write whose stamps touch, and lo and hi bound the stamps of
+// the stored pointers that hold them.
 type piece struct {
 	alignment telem.Alignment
 	samples   uint32
-	stored    stampRun
+	lo, hi    telem.TimeStamp
 }
 
 // place places n samples, and returns the pieces of those that have stored stamps, in
@@ -168,12 +132,16 @@ func (p *placer) extend(k uint32) {
 		last := &p.pieces[n-1]
 		if last.alignment.AddSamples(last.samples) == p.next {
 			last.samples += k
-			last.stored.first = min(last.stored.first, p.cur.first)
-			last.stored.last = max(last.stored.last, p.cur.last)
+			last.lo, last.hi = min(last.lo, p.cur.First), max(last.hi, p.cur.Last)
 			return
 		}
 	}
-	p.pieces = append(p.pieces, piece{alignment: p.next, samples: k, stored: p.cur})
+	p.pieces = append(p.pieces, piece{
+		alignment: p.next,
+		samples:   k,
+		lo:        p.cur.First,
+		hi:        p.cur.Last,
+	})
 }
 
 // left returns the number of stamps of cur from next on.
@@ -181,32 +149,32 @@ func (p *placer) left() uint32 {
 	if !p.started {
 		return 0
 	}
-	return p.cur.alignment.SampleIndex() + p.cur.samples - p.next.SampleIndex()
+	return p.cur.Alignment.SampleIndex() + p.cur.Samples - p.next.SampleIndex()
 }
 
-// advance moves cur to the run that holds the next stamp: the run of start at the first
-// sample, cur again when its writer extended it, and otherwise the next run in time. It
-// sets err when the clock holds no such stamp.
+// advance moves cur to the pointer that holds the next stamp: the pointer of start at
+// the first sample, cur again when its writer extended it, and otherwise the next
+// pointer in time. It sets err when the clock holds no such stamp.
 func (p *placer) advance() error {
 	from := p.start
 	if p.started {
-		from = p.cur.last
+		from = p.cur.Last
 	}
-	runs, err := p.e.stampRuns(p.clock, from, p.runs[:0])
-	p.runs = runs
+	ptrs, err := p.e.stampPointers(p.clock, from, p.ptrs[:0])
+	p.ptrs = ptrs
 	if err != nil {
 		return err
 	}
 	if !p.started {
 		return p.locate()
 	}
-	for _, r := range runs {
-		if r.holds(p.next) {
-			p.cur = r
+	for _, ptr := range ptrs {
+		if holds(ptr, p.next) {
+			p.cur = ptr
 			return nil
 		}
-		if r.first > p.cur.last {
-			p.cur, p.next = r, r.alignment
+		if ptr.First > p.cur.Last {
+			p.cur, p.next = ptr, ptr.Alignment
 			return nil
 		}
 	}
@@ -216,11 +184,11 @@ func (p *placer) advance() error {
 
 // locate places the first sample on the stored stamp that equals start.
 func (p *placer) locate() error {
-	for _, r := range p.runs {
-		if r.first > p.start {
+	for _, ptr := range p.ptrs {
+		if ptr.First > p.start {
 			break
 		}
-		sr, err := p.e.openStamps(p.clock, r.pointer())
+		sr, err := p.e.openStamps(p.clock, ptr)
 		if err != nil {
 			return err
 		}
@@ -229,7 +197,7 @@ func (p *placer) locate() error {
 			return err
 		}
 		if stamp == p.start {
-			p.cur, p.next, p.started = r, r.alignment.AddSamples(uint32(k)), true
+			p.cur, p.next, p.started = ptr, ptr.Alignment.AddSamples(uint32(k)), true
 			return nil
 		}
 	}
@@ -244,8 +212,8 @@ func (e *engine) stampEnds(
 	r run,
 ) (first, last telem.TimeStamp, err error) {
 	sr, err := e.openStamps(clock, state.Pointer{
-		First:     r.stored.first,
-		Last:      r.stored.last,
+		First:     r.lo,
+		Last:      r.hi,
 		Alignment: r.alignment,
 		Samples:   r.samples,
 	})
@@ -362,15 +330,14 @@ func (w *logWriter) extendRuns(p piece) {
 		r := &w.runs[n-1]
 		if r.alignment.AddSamples(r.samples) == p.alignment {
 			r.samples += p.samples
-			r.stored.first = min(r.stored.first, p.stored.first)
-			r.stored.last = max(r.stored.last, p.stored.last)
+			r.lo, r.hi = min(r.lo, p.lo), max(r.hi, p.hi)
 			return
 		}
 		r.ends = w.ends(r.ends, true)
 	}
 	w.runs = append(
 		w.runs,
-		run{alignment: p.alignment, samples: p.samples, stored: p.stored},
+		run{alignment: p.alignment, samples: p.samples, lo: p.lo, hi: p.hi},
 	)
 }
 
