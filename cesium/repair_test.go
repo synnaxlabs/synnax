@@ -20,8 +20,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
+	"github.com/synnaxlabs/cesium/internal/checkpoint"
 	"github.com/synnaxlabs/cesium/internal/log"
 	"github.com/synnaxlabs/cesium/internal/place"
+	"github.com/synnaxlabs/cesium/internal/state"
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
@@ -461,6 +463,34 @@ var _ = Describe("Repair", func() {
 			Expect(rep.Unrecovered).To(BeEmpty())
 		})
 	})
+
+	It(
+		"Should list a sealed segment of the head with no pointer, which an open refuses",
+		func(ctx SpecContext) {
+			fs, id = xfs.NewMem(), 0
+			db := MustSucceed(open(ctx))
+			id = db.Identity()
+			Expect(db.Close()).To(Succeed())
+			Expect(fs.Remove(checkpoint.Name(1))).To(Succeed())
+			MustSucceed(checkpoint.Create(fs, id, 1, &state.Snapshot{
+				Limits: state.Limits{Segments: 10, Alignments: 10},
+				Channels: []*state.Channel{{Key: data, Segments: []state.Segment{{
+					ID:       3,
+					Clock:    idx,
+					Version:  1,
+					DataType: uint8(telem.DataTypeCodeInt64),
+					Sealed:   true,
+				}}}},
+			}, 0))
+			Expect(open(ctx)).Error().
+				To(MatchError(ContainSubstring("sealed with no pointer")))
+			before := rootFiles(fs)
+			rep := MustSucceed(repair(ctx, new(int)))
+			Expect(rep.Damage).To(BeEmpty())
+			Expect(rep.Buried).To(Equal([]cesium.Segment{{Key: data, Segment: 3}}))
+			Expect(rootFiles(fs)).To(Equal(before))
+		},
+	)
 
 	It("Should refuse a root of the old layout", func(ctx SpecContext) {
 		fs = xfs.NewMem()
