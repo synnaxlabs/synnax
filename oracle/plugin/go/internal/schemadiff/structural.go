@@ -10,7 +10,6 @@
 package schemadiff
 
 import (
-	"reflect"
 	"strings"
 
 	"github.com/synnaxlabs/oracle/plugin/domain"
@@ -133,7 +132,7 @@ func defaultsEqual(old, next resolution.Type) bool {
 		return true
 	}
 	for i, f := range oldForm.Fields {
-		if !reflect.DeepEqual(f.Default, newForm.Fields[i].Default) {
+		if !resolution.SameValue(f.Default, newForm.Fields[i].Default) {
 			return false
 		}
 	}

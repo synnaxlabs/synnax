@@ -87,7 +87,6 @@ func autoMigrateAxis(_ context.Context, old v10.Axis) (Axis, error) {
 		Label:          old.Label,
 		LabelDirection: old.LabelDirection,
 		LabelLevel:     old.LabelLevel,
-		Bounds:         old.Bounds,
 		ManualBounds:   old.ManualBounds,
 		TickSpacing:    old.TickSpacing,
 		Type:           old.Type,

@@ -97,6 +97,7 @@ interface FixtureProps {
   onChange: (key: string) => void;
   mode?: Form.Mode;
   allowNone?: boolean;
+  privateKeyRequired?: boolean;
 }
 
 const Fixture = ({
@@ -106,6 +107,7 @@ const Fixture = ({
   onChange,
   mode,
   allowNone,
+  privateKeyRequired,
 }: FixtureProps): ReactElement => {
   const form = Form.use({
     schema,
@@ -120,6 +122,7 @@ const Fixture = ({
         defaultName={defaultName}
         rack={rack}
         allowNone={allowNone}
+        privateKeyRequired={privateKeyRequired}
       />
     </Form.Form>
   );
@@ -139,11 +142,12 @@ interface RenderOptions {
   mode?: Form.Mode;
   rack?: rack.Key;
   allowNone?: boolean;
+  privateKeyRequired?: boolean;
 }
 
 const renderField = async (
   value: string = "",
-  { as = client, mode, rack = 0, allowNone }: RenderOptions = {},
+  { as = client, mode, rack = 0, allowNone, privateKeyRequired }: RenderOptions = {},
 ): Promise<RenderedField> => {
   const defaultName = uniqueName("default");
   const onChange = vi.fn<(key: string) => void>();
@@ -159,6 +163,7 @@ const renderField = async (
         onChange={onChange}
         mode={mode}
         allowNone={allowNone}
+        privateKeyRequired={privateKeyRequired}
       />
       <Modals.Stack />
       <CaptureStatuses
@@ -517,6 +522,51 @@ describe("Certificate.Field", () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
+  it("requires a private key when the field requires one", async () => {
+    const { onChange } = await renderField("", { privateKeyRequired: true });
+    await openCreate();
+    typeInto("Certificate", CERTIFICATE.pem);
+    expect(screen.getByRole("textbox", { name: "Private key *" })).toBeDefined();
+    fireEvent.click(findButton("Create"));
+    await screen.findByText("Private key is required");
+    expect(onChange).not.toHaveBeenCalled();
+    typeInto("Private key", CERTIFICATE.privateKeyPem);
+    const c = await saveCreated(onChange);
+    expect(c.privateKey).toBeDefined();
+  });
+
+  it("requires a private key file for a file certificate when the field requires a key", async () => {
+    const files = await createFileRack(client);
+    await serveListings(client, files, [
+      createListing({ secretsDir: SECRETS_DIR }),
+      createListing({
+        path: SECRETS_DIR,
+        secret: true,
+        entries: [
+          { name: "client.key", path: `${SECRETS_DIR}/client.key`, kind: "file" },
+        ],
+      }),
+    ]);
+    const { onChange } = await renderField("", {
+      rack: files.rack.key,
+      privateKeyRequired: true,
+    });
+    await openCreate();
+    fireEvent.click(await screen.findByText("File on Driver"));
+    fireEvent.change(
+      await screen.findByRole("textbox", { name: "Certificate file *" }),
+      {
+        target: { value: "/etc/ssl/client.crt" },
+      },
+    );
+    await open("Select a file");
+    await screen.findByRole("option", { name: "client.key" });
+    expect(screen.queryByRole("option", { name: "No file" })).toBeNull();
+    fireEvent.click(findButton("Create"));
+    await screen.findByText("Private key file is required");
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
   it("holds Cancel while the certificate saves", async () => {
     const { onChange } = await renderField();
     await openCreate();
@@ -692,5 +742,42 @@ describe("Certificate.Field", () => {
     });
     await screen.findByRole("option", { name: new RegExp(onRack.name) });
     expect(screen.queryByRole("option", { name: new RegExp(offRack.name) })).toBeNull();
+  });
+
+  it("lists only the certificates with a private key when it requires one", async () => {
+    const r = await client.racks.create({ name: uniqueName("rack") });
+    const prefix = uniqueName("keyed certificate");
+    const create = async (c: certificate.New): Promise<certificate.Certificate> => {
+      const saved = await client.certificates.set(c);
+      created.push(saved.key);
+      return saved;
+    };
+    const file = {
+      source: "file" as const,
+      certificatePath: "/etc/a.crt",
+      rack: r.key,
+    };
+    const keyed = await Promise.all([
+      create({
+        name: `${prefix} keyed stored`,
+        source: "stored",
+        pem: CERTIFICATE.pem,
+        privateKeyPem: CERTIFICATE.privateKeyPem,
+      }),
+      create({ name: `${prefix} keyed file`, ...file, privateKeyFile: "a.key" }),
+    ]);
+    const bare = await Promise.all([
+      create({ name: `${prefix} bare stored`, source: "stored", pem: CERTIFICATE.pem }),
+      create({ name: `${prefix} bare file`, ...file }),
+    ]);
+    await renderField("", { rack: r.key, privateKeyRequired: true });
+    await open("Select a certificate");
+    fireEvent.change(screen.getByPlaceholderText("Search certificates..."), {
+      target: { value: prefix },
+    });
+    for (const c of keyed)
+      await screen.findByRole("option", { name: new RegExp(c.name) });
+    for (const c of bare)
+      expect(screen.queryByRole("option", { name: new RegExp(c.name) })).toBeNull();
   });
 });

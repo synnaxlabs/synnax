@@ -328,3 +328,103 @@ var CertificateRefreshService_ServiceDesc = grpc.ServiceDesc{
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "core/pkg/transport/grpc/certificate/certificate.proto",
 }
+
+const (
+	CertificateDeleteService_Exec_FullMethodName = "/grpc.certificate.CertificateDeleteService/Exec"
+)
+
+// CertificateDeleteServiceClient is the client API for CertificateDeleteService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type CertificateDeleteServiceClient interface {
+	Exec(ctx context.Context, in *DeleteRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+}
+
+type certificateDeleteServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewCertificateDeleteServiceClient(cc grpc.ClientConnInterface) CertificateDeleteServiceClient {
+	return &certificateDeleteServiceClient{cc}
+}
+
+func (c *certificateDeleteServiceClient) Exec(ctx context.Context, in *DeleteRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, CertificateDeleteService_Exec_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// CertificateDeleteServiceServer is the server API for CertificateDeleteService service.
+// All implementations should embed UnimplementedCertificateDeleteServiceServer
+// for forward compatibility.
+type CertificateDeleteServiceServer interface {
+	Exec(context.Context, *DeleteRequest) (*emptypb.Empty, error)
+}
+
+// UnimplementedCertificateDeleteServiceServer should be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedCertificateDeleteServiceServer struct{}
+
+func (UnimplementedCertificateDeleteServiceServer) Exec(context.Context, *DeleteRequest) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method Exec not implemented")
+}
+func (UnimplementedCertificateDeleteServiceServer) testEmbeddedByValue() {}
+
+// UnsafeCertificateDeleteServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to CertificateDeleteServiceServer will
+// result in compilation errors.
+type UnsafeCertificateDeleteServiceServer interface {
+	mustEmbedUnimplementedCertificateDeleteServiceServer()
+}
+
+func RegisterCertificateDeleteServiceServer(s grpc.ServiceRegistrar, srv CertificateDeleteServiceServer) {
+	// If the following call panics, it indicates UnimplementedCertificateDeleteServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&CertificateDeleteService_ServiceDesc, srv)
+}
+
+func _CertificateDeleteService_Exec_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CertificateDeleteServiceServer).Exec(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CertificateDeleteService_Exec_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CertificateDeleteServiceServer).Exec(ctx, req.(*DeleteRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// CertificateDeleteService_ServiceDesc is the grpc.ServiceDesc for CertificateDeleteService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var CertificateDeleteService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "grpc.certificate.CertificateDeleteService",
+	HandlerType: (*CertificateDeleteServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "Exec",
+			Handler:    _CertificateDeleteService_Exec_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "core/pkg/transport/grpc/certificate/certificate.proto",
+}
