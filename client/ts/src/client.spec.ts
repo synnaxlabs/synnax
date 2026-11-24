@@ -291,6 +291,23 @@ describe("constructor with caCert", () => {
     await new Promise((resolve) => server.close(resolve));
   });
 
+  it("should name an insecure Core when secure is left out", async () => {
+    const { host, port } = testCoreAddress();
+    const client = new Synnax({
+      host,
+      port,
+      ...TEST_CREDENTIALS,
+      retry: FAST_RETRY,
+      onRetry: () => {},
+      onInternalError: () => {},
+    });
+    await expect(client.channels.retrieve(["ch"])).rejects.toThrow(
+      `The Core at ${host}:${port} does not use TLS. If it runs with --insecure, ` +
+        "set secure: false or SYNNAX_SECURE=false.",
+    );
+    await client.close();
+  });
+
   it("should reject an OpenID Connect code given with an API key", () => {
     expect(
       () => new Synnax({ host: "localhost", port: 9090, apiKey: "syk", oidc: CODE }),

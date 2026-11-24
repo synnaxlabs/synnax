@@ -29,6 +29,7 @@ const createTransport = () =>
       host: testClientParams().host,
       port: Number(testClientParams().port),
     }),
+    secure: false,
   });
 
 const makeClient = () => {
