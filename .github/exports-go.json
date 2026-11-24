@@ -12,28 +12,9 @@
     },
     {
       "module": "cesium",
-      "package": "github.com/synnaxlabs/cesium/internal/log",
-      "name": "Pointer",
-      "caller": "sy-6571-18e1-replace-state"
-    },
-    {
-      "module": "cesium",
-      "package": "github.com/synnaxlabs/cesium/internal/log",
-      "name": "Replace",
-      "caller": "sy-6571-18e1-replace-state"
-    },
-    {
-      "module": "cesium",
       "package": "github.com/synnaxlabs/cesium/internal/place",
       "name": "Check",
       "caller": "sy-6575-18i-version0-check"
-    },
-    {
-      "module": "cesium",
-      "package": "github.com/synnaxlabs/cesium/internal/state",
-      "receiver": "State",
-      "name": "Err",
-      "caller": "sy-6571-18e2-compactor"
     },
     {
       "module": "x/go",
