@@ -23,7 +23,7 @@ import {
 
 import type { channel } from "@/channel";
 import { isConnectionError, NotFoundError, UnexpectedError } from "@/errors";
-import type { ChannelRetriever } from "@/framer/adapter";
+import type { CalculationOutputs, ChannelRetriever } from "@/framer/adapter";
 import {
   align,
   countBefore,
@@ -34,7 +34,7 @@ import {
   split,
 } from "@/framer/cache/block";
 import { grid } from "@/framer/cache/grid";
-import { calculated, type CalculationOutputs, type Store } from "@/framer/cache/store";
+import type { Store } from "@/framer/cache/store";
 import type { Frame } from "@/framer/frame";
 
 /** Reads a telemetry frame from the Core, reduced when a reduction is given. */
@@ -79,7 +79,7 @@ export interface ReaderProps {
   /** Looks up the index of each channel a fetch reads. */
   retrieveChannels: ChannelRetriever;
   /** Answers which channels a calculation writes. */
-  outputs: CalculationOutputs;
+  outputs: Pick<CalculationOutputs, "retrieve">;
   /** Caches fetched blocks, and holds the blocks the stream writes into. */
   store: Store;
   /**
@@ -282,7 +282,7 @@ export class Reader {
       const idx = p.isIndex ? p.key : p.index;
       indexOf.set(p.key, idx);
       if (idx !== 0) indexOf.set(idx, idx);
-      store.setChannel(p, calculated(p, written));
+      store.setChannel(p, written);
     });
     channels.forEach((ch) => {
       if (!indexOf.has(ch)) throw new NotFoundError(`channel ${ch} not found`);
