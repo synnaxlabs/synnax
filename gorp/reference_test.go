@@ -13,6 +13,7 @@ import (
 	"context"
 	"slices"
 	"strconv"
+	"testing"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -1444,6 +1445,39 @@ var _ = Describe("Reference", func() {
 				holders...,
 			)).To(Succeed())
 			Expect(onBehalf(tx)).To(Equal(set.New(device("d2"))))
+		})
+
+		It("Should keep every mark past the first few", func(ctx SpecContext) {
+			keys := make([]string, 0, 20)
+			for i := range 20 {
+				keys = append(keys, "l"+strconv.Itoa(i))
+			}
+			createLabels(ctx, append(keys, "kept")...)
+			tx := DeferClose(db.OpenTx())
+			for _, k := range keys {
+				gorp.MarkOnBehalf(tx, label(k))
+			}
+			Expect(labels.NewDelete().
+				Where(gorp.MatchKeys[string, refLabel](append(keys, "kept")...)).
+				Exec(ctx, tx)).To(Succeed())
+			want := set.New[gorp.Target]()
+			for _, k := range keys {
+				want.Add(label(k))
+			}
+			Expect(gorp.ChangesOf(tx)).To(HaveLen(21))
+			Expect(onBehalf(tx)).To(Equal(want))
+		})
+
+		It("Should mark two targets with no allocation", func() {
+			base := testing.AllocsPerRun(100, func() {
+				Expect(db.OpenTx().Close()).To(Succeed())
+			})
+			Expect(testing.AllocsPerRun(100, func() {
+				tx := db.OpenTx()
+				gorp.MarkOnBehalf(tx, device("d1"))
+				gorp.MarkOnBehalf(tx, device("d2"))
+				Expect(tx.Close()).To(Succeed())
+			})).To(Equal(base))
 		})
 
 		It("Should panic on a DB", func() {
