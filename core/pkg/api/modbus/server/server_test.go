@@ -364,8 +364,8 @@ var _ = Describe("Service", func() {
 			s := createServer(ctx, func(s *server.Server) {
 				s.Reads = []server.Read{
 					{
-						Register: server.Register{
-							Variant: server.CoilRegister{Address: 5},
+						Location: server.Location{
+							Variant: server.CoilLocation{Address: 5},
 						},
 						Index:   1,
 						Channel: 2,
@@ -390,8 +390,8 @@ var _ = Describe("Service", func() {
 						Configuration: server.Configuration{
 							Writes: []server.Write{
 								{
-									Register: server.Register{
-										Variant: server.CoilRegister{Address: 1},
+									Location: server.Location{
+										Variant: server.CoilLocation{Address: 1},
 									},
 									Channel: 2,
 								},

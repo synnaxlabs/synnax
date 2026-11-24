@@ -28,9 +28,9 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// registerKey is a comparable form of a Register.
-type registerKey struct {
-	typ      RegisterType
+// locationKey is a comparable form of a Location.
+type locationKey struct {
+	typ      LocationType
 	address  uint16
 	value    ValueType
 	dataType DataType
@@ -38,18 +38,18 @@ type registerKey struct {
 	length   uint16
 }
 
-func keyOf(r Register) registerKey {
-	var k registerKey
+func keyOf(l Location) locationKey {
+	var k locationKey
 	var value Value
-	switch v := r.Variant.(type) {
-	case CoilRegister:
-		k.typ, k.address = CoilRegisterType, v.Address
-	case DiscreteInputRegister:
-		k.typ, k.address = DiscreteInputRegisterType, v.Address
-	case HoldingRegisterRegister:
-		k.typ, k.address, value = HoldingRegisterRegisterType, v.Address, v.Value
-	case InputRegisterRegister:
-		k.typ, k.address, value = InputRegisterRegisterType, v.Address, v.Value
+	switch v := l.Variant.(type) {
+	case CoilLocation:
+		k.typ, k.address = CoilLocationType, v.Address
+	case DiscreteInputLocation:
+		k.typ, k.address = DiscreteInputLocationType, v.Address
+	case HoldingRegisterLocation:
+		k.typ, k.address, value = HoldingRegisterLocationType, v.Address, v.Value
+	case InputRegisterLocation:
+		k.typ, k.address, value = InputRegisterLocationType, v.Address, v.Value
 	}
 	switch v := value.Variant.(type) {
 	case WholeValue:
@@ -78,13 +78,13 @@ func isHost(host string) bool {
 	return lo.EveryBy(labels, hostLabel.MatchString)
 }
 
-// isWritable returns true if write tasks can set the register: a coil, or a whole value
+// isWritable returns true if write tasks can set the location: a coil, or a whole value
 // or bit of a holding register.
-func isWritable(r Register) bool {
-	switch v := r.Variant.(type) {
-	case CoilRegister:
+func isWritable(l Location) bool {
+	switch v := l.Variant.(type) {
+	case CoilLocation:
 		return true
-	case HoldingRegisterRegister:
+	case HoldingRegisterLocation:
 		_, isString := v.Value.Variant.(StringValue)
 		return !isString
 	default:
@@ -94,7 +94,7 @@ func isWritable(r Register) bool {
 
 // validateServer checks s against its schema. It also checks that a TCP host is a
 // hostname or an IP address, that max_gap is at most max_read_registers, that no two
-// reads share a register and an index, and that each write sets a writable register
+// reads share a location and an index, and that each write sets a writable location
 // that no other write sets.
 func validateServer(s Server) error {
 	if err := s.Validate(); err != nil {
@@ -115,16 +115,16 @@ func validateServer(s Server) error {
 		s.RequestPolicy.MaxReadRegisters,
 	)
 	type readKey struct {
-		register registerKey
+		location locationKey
 		index    channel.Key
 	}
 	reads := set.New[readKey]()
 	for i, r := range s.Reads {
-		k := readKey{register: keyOf(r.Register), index: r.Index}
+		k := readKey{location: keyOf(r.Location), index: r.Index}
 		v.Ternary(
 			"reads."+strconv.Itoa(i),
 			reads.Contains(k),
-			"repeats the register and index of another read",
+			"repeats the location and index of another read",
 		)
 		reads.Add(k)
 	}
@@ -132,18 +132,22 @@ func validateServer(s Server) error {
 	for i, w := range s.Writes {
 		path := "writes." + strconv.Itoa(i)
 		v.Ternary(
-			path+".register",
-			!isWritable(w.Register),
+			path+".location",
+			!isWritable(w.Location),
 			"must be a coil, or a whole value or bit of a holding register",
 		)
-		v.Ternary(path, !written.add(w.Register), "sets a register that another write sets")
+		v.Ternary(
+			path,
+			!written.add(w.Location),
+			"sets an address that another write sets",
+		)
 	}
 	return v.Error()
 }
 
 // address is one address in one Modbus address space.
 type address struct {
-	typ     RegisterType
+	typ     LocationType
 	address int
 }
 
@@ -156,7 +160,7 @@ type writeSet struct {
 // add records the addresses that a write of r sets. It returns false if another write
 // already sets one of them: a coil, a register of a whole value, or the same bit or the
 // whole of a register that a bit write sets.
-func (ws *writeSet) add(r Register) bool {
+func (ws *writeSet) add(l Location) bool {
 	if ws.whole == nil {
 		ws.whole, ws.bits = set.New[address](), map[address]set.Set[uint8]{}
 	}
@@ -165,14 +169,14 @@ func (ws *writeSet) add(r Register) bool {
 		count   = 1
 		bit     uint8
 		isBit   bool
-		holding HoldingRegisterRegister
+		holding HoldingRegisterLocation
 	)
-	switch v := r.Variant.(type) {
-	case CoilRegister:
-		start = address{typ: CoilRegisterType, address: int(v.Address)}
-	case HoldingRegisterRegister:
+	switch v := l.Variant.(type) {
+	case CoilLocation:
+		start = address{typ: CoilLocationType, address: int(v.Address)}
+	case HoldingRegisterLocation:
 		holding = v
-		start = address{typ: HoldingRegisterRegisterType, address: int(v.Address)}
+		start = address{typ: HoldingRegisterLocationType, address: int(v.Address)}
 	default:
 		return true
 	}

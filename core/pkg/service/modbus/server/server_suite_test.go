@@ -76,7 +76,7 @@ func requestPolicy() server.RequestPolicy {
 // read binds a float32 holding register at address to channel under index.
 func read(address uint16, index, ch channel.Key) server.Read {
 	return server.Read{
-		Register: server.Register{Variant: server.HoldingRegisterRegister{
+		Location: server.Location{Variant: server.HoldingRegisterLocation{
 			Address: address,
 			Value: server.Value{
 				Variant: server.WholeValue{DataType: server.DataTypeFloat32},
@@ -90,15 +90,19 @@ func read(address uint16, index, ch channel.Key) server.Read {
 // write binds the coil at address to channel.
 func write(address uint16, ch channel.Key) server.Write {
 	return server.Write{
-		Register: server.Register{Variant: server.CoilRegister{Address: address}},
+		Location: server.Location{Variant: server.CoilLocation{Address: address}},
 		Channel:  ch,
 	}
 }
 
 // holdingWrite binds the value of the holding register at address to channel.
-func holdingWrite(address uint16, value server.ValueVariant, ch channel.Key) server.Write {
+func holdingWrite(
+	address uint16,
+	value server.ValueVariant,
+	ch channel.Key,
+) server.Write {
 	return server.Write{
-		Register: server.Register{Variant: server.HoldingRegisterRegister{
+		Location: server.Location{Variant: server.HoldingRegisterLocation{
 			Address: address,
 			Value:   server.Value{Variant: value},
 		}},

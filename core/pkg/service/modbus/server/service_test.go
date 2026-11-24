@@ -179,7 +179,7 @@ var _ = Describe("Service", func() {
 			Entry("two reads of one register into one index", func(s *server.Server) {
 				s.Reads = []server.Read{read(5, 1, 2), read(5, 1, 3)}
 			}),
-			Entry("two writes of one register", func(s *server.Server) {
+			Entry("two writes of one coil", func(s *server.Server) {
 				s.Writes = []server.Write{write(1, 2), write(1, 3)}
 			}),
 			Entry("a host with a path", func(s *server.Server) {
@@ -194,15 +194,15 @@ var _ = Describe("Service", func() {
 			}),
 			Entry("a write to a discrete input", func(s *server.Server) {
 				s.Writes = []server.Write{{
-					Register: server.Register{
-						Variant: server.DiscreteInputRegister{Address: 1},
+					Location: server.Location{
+						Variant: server.DiscreteInputLocation{Address: 1},
 					},
 					Channel: 2,
 				}}
 			}),
 			Entry("a write of a string", func(s *server.Server) {
 				s.Writes = []server.Write{{
-					Register: server.Register{Variant: server.HoldingRegisterRegister{
+					Location: server.Location{Variant: server.HoldingRegisterLocation{
 						Address: 1,
 						Value:   server.Value{Variant: server.StringValue{Length: 4}},
 					}},
@@ -259,7 +259,7 @@ var _ = Describe("Service", func() {
 			func(ctx SpecContext) {
 				s := newServer()
 				bit := read(5, 1, 3)
-				bit.Register = server.Register{Variant: server.HoldingRegisterRegister{
+				bit.Location = server.Location{Variant: server.HoldingRegisterLocation{
 					Address: 5,
 					Value:   server.Value{Variant: server.BitValue{Bit: 2}},
 				}}

@@ -232,7 +232,7 @@ describe("updateZ", () => {
   it("should parse a configuration update and apply its defaults", () => {
     const update = modbus.server.updateZ.parse({
       group: "configuration",
-      reads: [{ register: { type: "coil", address: 1 }, index: 2, channel: 3 }],
+      reads: [{ location: { table: "coil", address: 1 }, index: 2, channel: 3 }],
     });
     expect(update.group).toEqual("configuration");
     if (update.group !== "configuration") return;
