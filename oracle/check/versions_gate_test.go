@@ -762,6 +762,60 @@ Channel struct {
 		Expect(minimality).To(BeTrue(), "expected a minimality finding")
 	})
 
+	It("Should count a subset as changed when its superset changes", func() {
+		write("schemas/synnax/versions/channel/v0.oracle", `
+Base enum {
+	a = "a"
+	b = "b"
+}
+
+Kept enum of Base {
+	a
+}
+
+Channel struct {
+	key uuid @key
+	kind Kept
+
+	@go marshal
+}
+`)
+		write("schemas/synnax/versions/channel/v1.oracle", `
+Base enum {
+	a = "a"
+	b = "b"
+	c = "c"
+}
+
+Kept enum of Base {
+	a
+}
+
+Channel = v0.Channel
+`)
+		report := run(analyzeLive(`
+@go output "core/pkg/service/channel"
+
+Base enum {
+	a = "a"
+	b = "b"
+	c = "c"
+}
+
+Kept enum of Base {
+	a
+}
+
+Channel struct {
+	key uuid @key
+	kind Kept
+}
+`))
+		for _, f := range report.Findings {
+			Expect(f.FixHint).ToNot(Equal("use an alias: Kept = v0.Kept"))
+		}
+	})
+
 	It("Should pass a redeclaration that references a type redeclared with it", func() {
 		write("schemas/synnax/versions/channel/v0.oracle", `
 Old struct {

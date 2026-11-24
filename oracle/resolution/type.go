@@ -175,7 +175,8 @@ type EnumForm struct {
 	// Values are the enum's members, fully resolved. For an extending enum the
 	// analyzer expands this to the union of the parents' members plus any
 	// members declared in the enum's own body. For a narrowing enum it holds the
-	// superset's members that the body names, in body order.
+	// superset's members that the body names, in body order, or for an exclusion the
+	// superset's members that the body does not name, in superset order.
 	Values []EnumValue
 	// Declared holds the members the enum's own body declares, set only when the
 	// enum extends or narrows. Only a renderer writing the declaration back wants it.
@@ -189,6 +190,9 @@ type EnumForm struct {
 	// Superset names the enum this enum narrows. The zero TypeRef means the enum
 	// does not narrow one.
 	Superset TypeRef
+	// Exclusion is true when a narrowing enum's body names the superset members to
+	// leave out, instead of the members to keep.
+	Exclusion bool
 }
 
 func (EnumForm) typeForm() {}

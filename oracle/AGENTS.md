@@ -238,7 +238,8 @@ the one from `Base`. Every language generates `Kept` as a plain enum: a Go type 
 constants and `IsValid`, a Zod `enum`, a Python `Literal`, and C++ constants. Zod
 parsing, Pydantic, and Go validation reject a value outside the subset, and a new `Base`
 member never joins it silently. Use a subset instead of a hand copy of part of a shared
-enum. An enum can narrow or extend, never both.
+enum. An enum can narrow or extend, never both. `Kept enum of Base omit { ... }` keeps
+every member of `Base` except the ones its body names, so a new `Base` member joins it.
 
 ## Union bases
 

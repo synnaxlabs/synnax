@@ -2217,6 +2217,35 @@ Node union on variant {
 				Expect(narrower.Values[0].StringValue()).To(Equal("b"))
 			})
 
+			It(
+				"Should keep every superset member that an exclusion does not name",
+				func() {
+					source := `
+				Base enum {
+					a = "a" {
+						@doc value "is a."
+					}
+					b = "b"
+					c = "c"
+				}
+				Kept enum of Base omit {
+					b
+				}
+			`
+					table, diag := Analyze(source, "x", loader)
+					Expect(diag.Ok()).To(BeTrue(), diag.String())
+					form, ok := table.MustGet("x.Kept").Form.(resolution.EnumForm)
+					Expect(ok).To(BeTrue())
+					Expect(form.Exclusion).To(BeTrue())
+					Expect(names(form)).To(Equal([]string{"a", "c"}))
+					Expect(
+						form.Values[0].Domains["doc"].Expressions[0].Values[0].StringValue,
+					).
+						To(Equal("is a."))
+					Expect(form.Declared).To(HaveLen(1))
+				},
+			)
+
 			DescribeTable("Should reject a malformed narrowing enum",
 				func(source, message string) {
 					_, diag := Analyze(source, "x", loader)
@@ -2268,6 +2297,37 @@ Node union on variant {
 				A enum of B { a }
 				B enum of A { a }
 			`, "derives from itself"),
+				Entry("an omitted member the superset lacks", `
+				Base enum { a = "a" }
+				Sub enum of Base omit { b }
+			`, "names b, which is not a member of x.Base"),
+				Entry("a member omitted twice", `
+				Base enum {
+					a = "a"
+					b = "b"
+				}
+				Sub enum of Base omit {
+					a
+					a
+				}
+			`, "names member a twice"),
+				Entry("an exclusion of every member", `
+				Base enum { a = "a" }
+				Sub enum of Base omit { a }
+			`, "narrows x.Base to no members"),
+				Entry("an omitted member with domains", `
+				Base enum {
+					a = "a"
+					b = "b"
+				}
+				Sub enum of Base omit {
+					a { @doc value "is a." }
+				}
+			`, "omitted member a takes no domains"),
+				Entry("a mode other than omit", `
+				Base enum { a = "a" }
+				Sub enum of Base keep { a }
+			`, "expected 'omit' or a body"),
 			)
 		})
 

@@ -1486,6 +1486,9 @@ func (f *formatter) formatEnumDef(ctx parser.IEnumDefContext) {
 	f.write(" enum")
 	if keyword, ref := ctx.IDENT(1), ctx.TypeRef(); keyword != nil && ref != nil {
 		f.write(" " + keyword.GetText() + " " + ref.GetText())
+		if mode := ctx.IDENT(2); mode != nil {
+			f.write(" " + mode.GetText())
+		}
 	}
 	if ctx.EXTENDS() != nil && ctx.TypeRefList() != nil {
 		f.write(" extends ")

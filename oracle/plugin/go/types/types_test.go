@@ -748,6 +748,33 @@ var _ = Describe("Go Types Plugin", func() {
 				},
 			)
 
+			It("Should generate an exclusion as the members it does not omit", func() {
+				source := `
+					@go output "core/modbus"
+
+					DataType enum {
+						float64 = "float64"
+						int16   = "int16"
+						json    = "json"
+					}
+
+					Numeric enum of DataType omit {
+						json
+					}
+				`
+				table, diag := Analyze(source, "modbus", loader)
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+				resp := MustSucceed(
+					goPlugin.Generate(&plugin.Request{Resolutions: table}),
+				)
+				content := string(resp.Files[0].Content)
+				Expect(content).To(ContainSubstring(`type Numeric string`))
+				Expect(
+					content,
+				).To(ContainSubstring(`case NumericFloat64, NumericInt16:`))
+				Expect(content).ToNot(ContainSubstring(`NumericJSON`))
+			})
+
 			It(
 				"Should generate a narrowing enum as a standalone type of the kept members",
 				func() {

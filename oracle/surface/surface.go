@@ -60,6 +60,9 @@ func typeLines(t resolution.Type) []string {
 		header := qn + " enum"
 		if f.Narrows() {
 			header += " of " + ref(f.Superset)
+			if f.Exclusion {
+				header += " omit"
+			}
 		}
 		lines := []string{header + refs(" extends ", f.Extends)}
 		for _, v := range f.Values {

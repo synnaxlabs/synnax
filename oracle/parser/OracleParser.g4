@@ -325,8 +325,15 @@ expressionValue
 //       int16
 //       float32
 //   }
+// The soft keyword `omit` after the superset makes the body name the members to leave
+// out instead:
+//   DataType enum of telem.DataType omit {
+//       json
+//       bytes
+//   }
 enumDef
-    : IDENT ENUM (IDENT typeRef)? (EXTENDS typeRefList)? nl* LBRACE nl* enumBody RBRACE
+    : IDENT ENUM (IDENT typeRef IDENT?)? (EXTENDS typeRefList)? nl*
+      LBRACE nl* enumBody RBRACE
     ;
 
 // Enum body contains values and/or enum-level domains

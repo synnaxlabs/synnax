@@ -251,6 +251,9 @@ func (r *renderer) renderEnum(t resolution.Type, f resolution.EnumForm) {
 	values := f.Values
 	if f.Narrows() {
 		head += " of " + r.ref(f.Superset)
+		if f.Exclusion {
+			head += " omit"
+		}
 		values = f.Declared
 	}
 	if len(f.Extends) > 0 {

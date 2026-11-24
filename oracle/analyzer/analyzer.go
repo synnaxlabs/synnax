@@ -553,9 +553,10 @@ func finalizeEnumExtensions(c *analysisCtx) {
 }
 
 // narrowedEnumValues returns the members of form's superset that form's body names, in
-// body order. A member's own domains replace the superset member's domains of the same
-// name. The final bool is false when the superset is malformed or a member is unknown
-// or repeated.
+// body order, or for an exclusion the members it does not name, in superset order. A
+// kept member's own domains replace the superset member's domains of the same name. The
+// final bool is false when the superset is malformed, a member is unknown or repeated,
+// or no member is left.
 func narrowedEnumValues(
 	c *analysisCtx,
 	typ resolution.Type,
@@ -577,31 +578,45 @@ func narrowedEnumValues(
 	if !ok {
 		return nil, false, false
 	}
-	if len(form.Values) == 0 {
-		addTypeDiagf(c, typ, "enum %s narrows %s to no members",
-			typ.QualifiedName, superset.QualifiedName)
-		return nil, false, false
-	}
-	picked := make([]resolution.EnumValue, 0, len(form.Values))
-	seen := set.New[string]()
+	named := make(map[string]resolution.EnumValue, len(form.Values))
 	for _, v := range form.Values {
-		if seen.Contains(v.Name) {
+		if _, dup := named[v.Name]; dup {
 			addTypeDiagf(c, typ, "enum %s names member %s twice",
 				typ.QualifiedName, v.Name)
 			return nil, false, false
 		}
-		seen.Add(v.Name)
-		member, found := lo.Find(members, func(m resolution.EnumValue) bool {
+		if !lo.ContainsBy(members, func(m resolution.EnumValue) bool {
 			return m.Name == v.Name
-		})
-		if !found {
+		}) {
 			addTypeDiagf(c, typ, "enum %s names %s, which is not a member of %s",
 				typ.QualifiedName, v.Name, superset.QualifiedName)
 			return nil, false, false
 		}
-		member.Domains = maps.Clone(member.Domains)
-		maps.Copy(member.Domains, v.Domains)
-		picked = append(picked, member)
+		named[v.Name] = v
+	}
+	var picked []resolution.EnumValue
+	if form.Exclusion {
+		picked = lo.Reject(members, func(m resolution.EnumValue, _ int) bool {
+			_, omitted := named[m.Name]
+			return omitted
+		})
+	} else {
+		picked = lo.Map(
+			form.Values,
+			func(v resolution.EnumValue, _ int) resolution.EnumValue {
+				member, _ := lo.Find(members, func(m resolution.EnumValue) bool {
+					return m.Name == v.Name
+				})
+				member.Domains = maps.Clone(member.Domains)
+				maps.Copy(member.Domains, v.Domains)
+				return member
+			},
+		)
+	}
+	if len(picked) == 0 {
+		addTypeDiagf(c, typ, "enum %s narrows %s to no members",
+			typ.QualifiedName, superset.QualifiedName)
+		return nil, false, false
 	}
 	return picked, isInt, true
 }
@@ -1872,6 +1887,18 @@ func collectEnum(c *analysisCtx, def parser.IEnumDefContext) {
 			return
 		}
 		form.Superset = collectTypeRef(c, tr, nil, "narrowed type")
+		if mode := def.IDENT(2); mode != nil {
+			if mode.GetText() != "omit" {
+				c.report(diagnostics.Errorf(
+					def,
+					"enum %s: expected 'omit' or a body after the enum it narrows, got %q",
+					name,
+					mode.GetText(),
+				))
+				return
+			}
+			form.Exclusion = true
+		}
 	}
 	if def.EXTENDS() != nil {
 		if typeRefList := def.TypeRefList(); typeRefList != nil {
@@ -1901,6 +1928,14 @@ func collectEnum(c *analysisCtx, def parser.IEnumDefContext) {
 					format = "enum %s: member %s takes its value from the narrowed enum"
 				}
 				c.report(diagnostics.Errorf(v, format, name, ev.Name))
+			}
+			if form.Exclusion && v.EnumValueBody() != nil {
+				c.report(diagnostics.Errorf(
+					v,
+					"enum %s: omitted member %s takes no domains",
+					name,
+					ev.Name,
+				))
 			}
 			if i := v.INT_LIT(); i != nil {
 				ev.Value = parseInt(c, v, i.GetText())

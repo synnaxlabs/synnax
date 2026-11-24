@@ -256,6 +256,8 @@ var _ = Describe("Format", func() {
 		})
 
 		It("should format an enum that narrows another", func() {
+			Expect(format("Kept enum of telem.DataType   omit {\n  json\n}\n")).
+				To(Equal("Kept enum of telem.DataType omit {\n    json\n}\n"))
 			Expect(format(
 				"DataType enum of telem.DataType {\n  int16\n" +
 					"  float64 { @doc value \"is a float.\" }\n}\n",

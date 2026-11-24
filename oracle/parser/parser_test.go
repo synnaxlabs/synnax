@@ -752,6 +752,18 @@ var _ = Describe("Parser", func() {
 			Expect(diag.Ok()).To(BeFalse())
 		})
 
+		It("Should parse an enum that omits members of another enum", func() {
+			schema := MustSucceed(parser.Parse(`
+				DataType enum of telem.DataType omit {
+					json
+					bytes
+				}
+			`))
+			enumDef := schema.Definition(0).EnumDef()
+			Expect(enumDef.IDENT(2).GetText()).To(Equal("omit"))
+			Expect(enumDef.EnumBody().AllEnumValue()).To(HaveLen(2))
+		})
+
 		It("Should parse an enum that narrows another enum", func() {
 			schema := MustSucceed(parser.Parse(`
 				DataType enum of telem.DataType {
