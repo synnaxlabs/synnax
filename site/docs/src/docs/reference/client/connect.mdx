@@ -57,9 +57,20 @@ you set come first.
 This works in Node.js, Bun, and Deno. In Deno, give these flags:
 
 ```bash
-deno run --allow-sys=homedir --allow-read="$HOME/.synnax" --allow-run --allow-env \
-  my_script.ts
+deno run --allow-sys=homedir \
+  --allow-read="${XDG_CONFIG_HOME:-$HOME/.config}/synnax,$HOME/.synnax" \
+  --allow-run --allow-env my_script.ts
 ```
+
+On macOS, replace `${XDG_CONFIG_HOME:-$HOME/.config}/synnax` with
+`$HOME/Library/Application Support/Synnax`. On Windows, in PowerShell:
+
+```powershell
+deno run --allow-sys=homedir --allow-read="$env:LOCALAPPDATA\Synnax,$HOME\.synnax" `
+  --allow-run --allow-env my_script.ts
+```
+
+When both folders hold a `desktop.json`, the client reads the one that was written last.
 
 Without `--allow-sys` or `--allow-read`, the client cannot see Synnax Desktop and asks
 for a host. Without `--allow-run` or `--allow-env`, it throws an error that names the
