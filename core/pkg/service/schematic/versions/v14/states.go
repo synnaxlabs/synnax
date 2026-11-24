@@ -82,8 +82,8 @@ func stateLists(s v13.Schematic) map[string][]v13.StateMapping {
 // list, or with no entries left, gets no enumeration. The enumeration is named for the
 // node type and its label, or the schematic name when the label is empty.
 //
-// An entry with an empty or repeated key gets a new key. A value that is not finite is
-// dropped with a warning, since the enumeration writer refuses one.
+// An entry with an empty or repeated key gets a new key. A state whose value is not
+// finite, or repeats an earlier state, is dropped with a warning.
 func internStates(
 	ctx context.Context,
 	s *Schematic,
@@ -136,17 +136,26 @@ func stateEntries(
 ) []enumeration.Entry {
 	entries := make([]enumeration.Entry, 0, len(list))
 	keys := make(set.Set[string], len(list))
+	values := make(set.Set[float64], len(list))
+	drop := func(reason string, o v13.StateMapping) {
+		ins.L.Warn(
+			"dropping a state whose value "+reason,
+			zap.Stringer("schematic", s.Key),
+			zap.String("schematic_name", s.Name),
+			zap.String("node", node),
+			zap.String("state", o.Name),
+		)
+	}
 	for _, o := range list {
 		if math.IsNaN(o.Value) || math.IsInf(o.Value, 0) {
-			ins.L.Warn(
-				"dropping a state whose value is not finite",
-				zap.Stringer("schematic", s.Key),
-				zap.String("schematic_name", s.Name),
-				zap.String("node", node),
-				zap.String("state", o.Name),
-			)
+			drop("is not finite", o)
 			continue
 		}
+		if values.Contains(o.Value) {
+			drop("repeats an earlier state", o)
+			continue
+		}
+		values.Add(o.Value)
 		key := o.Key
 		if key == "" || keys.Contains(key) {
 			key = uuid.New().String()
