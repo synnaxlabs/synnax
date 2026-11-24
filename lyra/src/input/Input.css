@@ -205,3 +205,19 @@
         background: var(--pluto-hover-bg);
     }
 }
+
+/* The buttons in a text input read as one field. A flexible input's width is
+   fractional, so overlapping neighbor borders land on different device pixels and
+   draw a double line: each button after the first draws no left border instead. A
+   shadow input has no border at rest, so its buttons keep their own. */
+.lyra-flex.lyra-input__container.lyra--pack:not(:has(> .lyra-btn--shadow))
+    > .lyra-btn:not(:first-child) {
+    margin-left: 0;
+    border-left-width: 0;
+}
+
+/* A disabled button dims its text but keeps an enabled field's border. */
+.lyra-input__container:has(> .lyra-input:not(.lyra--disabled))
+    > .lyra-btn.lyra-btn--outlined.lyra--disabled:not(.lyra-input) {
+    --pluto-border-color: var(--pluto-gray-l7);
+}

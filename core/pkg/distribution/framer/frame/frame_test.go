@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/telem/testutil"
 )
 
 var _ = Describe("Frame", func() {
@@ -240,7 +241,7 @@ var _ = Describe("Frame", func() {
 			Expect(distFrame.KeysSlice()[0]).To(Equal(channel.Key(1)))
 			Expect(
 				distFrame.SeriesAt(0),
-			).To(telem.MatchSeries(telem.NewSeriesV[float32](1, 2, 3, 4)))
+			).To(MatchSeries(telem.NewSeriesV[float32](1, 2, 3, 4)))
 		})
 	})
 

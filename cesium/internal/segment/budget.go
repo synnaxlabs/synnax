@@ -26,15 +26,16 @@ func GoExecutor(f func()) { go f() }
 // Budget limits the open file handles of a database, and runs every sync of their
 // files in one pool. To open a handle when the limit is reached, it closes the idle
 // handle that was used least recently, and syncs that handle first when it has unsynced
-// bytes. When every open handle is in use, the open waits for one to become idle. At
-// most width file and directory syncs run at once. A Budget is safe for concurrent use.
+// bytes. When every open handle is in use, the open waits for one to become idle. A
+// held handle stays open outside the limit. At most width file and directory syncs run
+// at once. A Budget is safe for concurrent use.
 type Budget struct {
 	limit int
 	exec  Executor
 	slots chan struct{}
 	mu    sync.Mutex
 	cond  sync.Cond
-	// open counts the handles that are open, opening, or closing.
+	// open counts the handles that are open, opening, or closing, apart from held ones.
 	open int
 	// idle is the sentinel of a ring of the open handles that no call uses, the most
 	// recently used first.
@@ -61,6 +62,20 @@ func NewBudget(limit, width int, exec Executor) (*Budget, error) {
 // first Sync of the handle also syncs the directory of name.
 func (b *Budget) Create(fs xfs.FS, name string) (*Handle, error) {
 	h := &Handle{b: b, fs: fs, name: name, flag: createFlag, newEntry: true}
+	if _, err := h.acquire(); err != nil {
+		return nil, err
+	}
+	h.release(false)
+	return h, nil
+}
+
+// CreateHeld creates the file name in fs, which must not exist, and returns its handle,
+// which stays open outside the limit of b until Close. The first Sync of the handle
+// also syncs the directory of name.
+func (b *Budget) CreateHeld(fs xfs.FS, name string) (*Handle, error) {
+	h := &Handle{
+		b: b, fs: fs, name: name, flag: createFlag, newEntry: true, held: true,
+	}
 	if _, err := h.acquire(); err != nil {
 		return nil, err
 	}

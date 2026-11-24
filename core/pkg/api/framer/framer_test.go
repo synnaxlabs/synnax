@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"strconv"
 	"time"
+	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -23,18 +24,21 @@ import (
 	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
+	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	calctestutil "github.com/synnaxlabs/synnax/pkg/service/calculation/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	svcframer "github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
+	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -196,6 +200,53 @@ var _ = Describe("Framer", func() {
 			Eventually(done).WithTimeout(5 * time.Second).Should(Receive(BeNil()))
 		})
 
+		It("Should send an iterator error to the client with its channel named", func(
+			ctx SpecContext,
+		) {
+			index := createIndex(ctx)
+			w := MustSucceed(framerSvc.OpenWriter(ctx, svcframer.WriterConfig{
+				Start: telem.SecondTS,
+				Keys:  channel.Keys{index.Key()},
+			}))
+			Expect(w.Write(frame.NewUnary(
+				index.Key(),
+				telem.NewSeriesSecondsTSV(1, 2, 3),
+			))).To(BeTrue())
+			Expect(w.Close()).To(Succeed())
+			client, server := freightertestutil.NewStreams[
+				apiframer.IteratorRequest,
+				apiframer.IteratorResponse,
+			](ctx)
+			done := make(chan error, 1)
+			go func() { done <- apiSvc.Iterate(rootCtx(ctx), server) }()
+			Expect(client.Send(apiframer.IteratorRequest{
+				Keys:   channel.Keys{index.Key()},
+				Bounds: telem.TimeRangeMax,
+			})).To(Succeed())
+			Expect(client.Receive()).To(HaveField("Ack", BeTrue()))
+			Expect(client.Send(apiframer.IteratorRequest{
+				Command: apiframer.IteratorCommandSeekFirst,
+			})).To(Succeed())
+			Expect(client.Receive()).To(HaveField("Ack", BeTrue()))
+			faultyFS.SetOptions(WithFailReadAt())
+			DeferCleanup(func() { faultyFS.SetOptions() })
+			Expect(client.Send(apiframer.IteratorRequest{
+				Command: apiframer.IteratorCommandNext,
+				Span:    apiframer.IteratorAutoSpan,
+			})).To(Succeed())
+			Expect(client.Receive()).To(HaveField("Ack", BeFalse()))
+			Expect(client.Send(apiframer.IteratorRequest{
+				Command: apiframer.IteratorCommandError,
+			})).To(Succeed())
+			Expect(client.Receive()).To(HaveField("Error", MatchError(SatisfyAll(
+				ContainSubstring(fmt.Sprintf("channel %q", index.Name)),
+				ContainSubstring(ErrFault.Error()),
+			))))
+			Expect(client.CloseSend()).To(Succeed())
+			Eventually(done).WithTimeout(5 * time.Second).
+				Should(Receive(MatchError(ContainSubstring(ErrFault.Error()))))
+		})
+
 		It("Should return the error of an iterator that fails", func(ctx SpecContext) {
 			index := createIndex(ctx)
 			data := channel.Channel{
@@ -247,6 +298,122 @@ var _ = Describe("Framer", func() {
 			Eventually(done).WithTimeout(5 * time.Second).
 				Should(Receive(MatchError(ContainSubstring(ErrFault.Error()))))
 		})
+	})
+
+	Describe("Write", func() {
+		It("Should send the error of a write to the client and keep serving", func(
+			ctx SpecContext,
+		) {
+			index := createIndex(ctx)
+			data := channel.Channel{
+				Name:       UniqueChannelName(),
+				DataType:   telem.Float32T,
+				LocalIndex: index.LocalKey,
+			}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Channel.NewWriter(tx).Create(ctx, &data)
+			})).To(Succeed())
+			keys := channel.Keys{index.Key(), data.Key()}
+			client, server := freightertestutil.NewStreams[
+				apiframer.WriterRequest,
+				apiframer.WriterResponse,
+			](ctx)
+			done := make(chan error, 1)
+			go func() { done <- apiSvc.Write(rootCtx(ctx), server) }()
+			Expect(client.Send(apiframer.WriterRequest{Config: apiframer.WriterConfig{
+				ControlSubject: control.Subject{Key: "lengths"},
+				Keys:           keys,
+				Start:          telem.SecondTS,
+			}})).To(Succeed())
+			Expect(
+				client.Receive(),
+			).To(HaveField("Command", svcframer.WriterCommandOpen))
+			Expect(client.Send(apiframer.WriterRequest{
+				Command: svcframer.WriterCommandWrite,
+				Frame: frame.NewMulti(keys, []telem.Series{
+					telem.NewSeriesSecondsTSV(1, 2, 3),
+					telem.NewSeriesV[float32](1, 2),
+				}),
+			})).To(Succeed())
+			res := MustSucceed(client.Receive())
+			Expect(res.Err.Type).ToNot(BeEmpty())
+			Expect(client.CloseSend()).To(Succeed())
+			Eventually(done).WithTimeout(5 * time.Second).Should(Receive())
+		})
+
+		DescribeTable(
+			"Should name a channel in a write error only when the subject can read it",
+			func(ctx SpecContext, retrievable bool) {
+				index := createIndex(ctx)
+				data := channel.Channel{
+					Name:       UniqueChannelName(),
+					DataType:   telem.Float32T,
+					LocalIndex: index.LocalKey,
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.Channel.NewWriter(tx).Create(ctx, &data)
+				})).To(Succeed())
+				keys := channel.Keys{index.Key(), data.Key()}
+				u := MustSucceed(rbactestutil.CreateUser(
+					ctx, db, rbacSvc, userSvc,
+					user.User{Name: "api-framer-" + uuid.New().String()},
+				))
+				MustSucceed(rbactestutil.Grant(
+					ctx, db, rbacSvc, userSvc, u.Key,
+					[]access.Action{access.ActionCreate},
+					svcframer.ResourceIDs(keys)...,
+				))
+				if retrievable {
+					MustSucceed(rbactestutil.Grant(
+						ctx, db, rbacSvc, userSvc, u.Key,
+						[]access.Action{access.ActionRetrieve},
+						channel.ResourceIDsFromKeys(keys)...,
+					))
+				}
+				client, server := freightertestutil.NewStreams[
+					apiframer.WriterRequest,
+					apiframer.WriterResponse,
+				](ctx)
+				done := make(chan error, 1)
+				subject := subjectCtx(ctx, u.ResourceID())
+				go func() { done <- apiSvc.Write(subject, server) }()
+				Expect(client.Send(apiframer.WriterRequest{
+					Config: apiframer.WriterConfig{
+						ControlSubject: control.Subject{Key: "hidden"},
+						Keys:           keys,
+						Start:          telem.SecondTS,
+					},
+				})).To(Succeed())
+				Expect(
+					client.Receive(),
+				).To(HaveField("Command", svcframer.WriterCommandOpen))
+				Expect(client.Send(apiframer.WriterRequest{
+					Command: svcframer.WriterCommandWrite,
+					Frame: frame.NewMulti(keys, []telem.Series{
+						telem.NewSeriesSecondsTSV(1, 2, 3),
+						telem.NewSeriesV[float32](1, 2),
+					}),
+				})).To(Succeed())
+				res := MustSucceed(client.Receive())
+				key := fmt.Sprintf("channel <%d>", data.Key())
+				if retrievable {
+					Expect(res.Err.Data).To(SatisfyAll(
+						ContainSubstring(fmt.Sprintf("channel %q", data.Name)),
+						Not(ContainSubstring(key)),
+					))
+				} else {
+					Expect(res.Err.Data).To(SatisfyAll(
+						ContainSubstring(key),
+						Not(ContainSubstring(data.Name)),
+						Not(ContainSubstring(index.Name)),
+					))
+				}
+				Expect(client.CloseSend()).To(Succeed())
+				Eventually(done).WithTimeout(5 * time.Second).Should(Receive())
+			},
+			Entry("hidden from a subject that may only write", false),
+			Entry("named to a subject that may also retrieve", true),
+		)
 	})
 
 	Describe("Read", func() {
@@ -539,7 +706,7 @@ var _ = Describe("Framer", func() {
 			Expect(iter.Close()).To(Succeed())
 			Expect(series).To(HaveLen(1))
 			Expect(series[0].AlignmentMultiple).To(BeEquivalentTo(2))
-			Expect(series[0]).To(telem.MatchSeriesDataV[float32](1, 3, 5, 7))
+			Expect(series[0]).To(MatchSeriesDataV[float32](1, 3, 5, 7))
 		})
 
 		It("Should return an error when a key has no channel", func(ctx SpecContext) {
