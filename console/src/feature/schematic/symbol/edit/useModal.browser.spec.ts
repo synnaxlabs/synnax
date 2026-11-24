@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { group, schematic } from "@synnaxlabs/client";
+import { DataType, type group, schematic } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { theming } from "@synnaxlabs/pluto/ether";
@@ -44,6 +44,7 @@ import {
 import type { FLAGS } from "@/flags";
 import {
   findButton,
+  findLastButton,
   pressSaveTrigger,
   renderModalOpener,
 } from "@/platform/modals/testutil";
@@ -366,6 +367,66 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       return { symbol, handle };
     };
 
+    const retrieveStoredCommands = async (key: schematic.Key) =>
+      (await createTestClient().schematics.retrieve(key)).nodes.map(({ config }) =>
+        config.variant === "symbol" ? config.commands : undefined,
+      );
+
+    // openUsedSymbol opens the editor on a symbol that two schematics use. The nodes of
+    // used bind the Vent command, and the node of unbound binds nothing.
+    const openUsedSymbol = async () => {
+      const grp = await createParentGroup();
+      const payload = createSymbolPayload(uniqueName("vessel"));
+      payload.data.commands = [
+        { key: "vent", name: "Vent", value: { type: "fixed", value: 1 } },
+      ];
+      const symbol = await client.schematics.symbols.create({
+        ...payload,
+        group: grp.key,
+      });
+      const ch = await client.channels.create({
+        name: uniqueName("vent_cmd"),
+        dataType: DataType.FLOAT32,
+        virtual: true,
+      });
+      const project = await client.projects.create({ name: uniqueName("project") });
+      const createNode = (key: string, label: string, bound: boolean) => ({
+        key,
+        position: { x: 0, y: 0 },
+        zIndex: 0,
+        config: schematic.nodeConfigZ.parse({
+          variant: "symbol",
+          spec: { type: "custom", key: symbol.key },
+          label: { label },
+          commands: bound ? [{ key: "vent", channel: ch.key }] : [],
+        }),
+      });
+      const used = await client.schematics.create({
+        project: project.key,
+        name: uniqueName("plant"),
+        nodes: [
+          createNode("vessel", "Vessel 1", true),
+          createNode("unlabeled", "", true),
+        ],
+      });
+      const unbound = await client.schematics.create({
+        project: project.key,
+        name: uniqueName("spare"),
+        nodes: [createNode("spare", "Spare vessel", false)],
+      });
+      await renderModalOpener(
+        Schematic.Symbol.Edit.useModal,
+        [{ symbolKey: symbol.key, group: grp.key }],
+        { client, additionalRegistry: theming.REGISTRY },
+      );
+      await waitFor(() => expect(findNameInput().value).toBe(symbol.name), {
+        timeout: 5000,
+      });
+      // Save waits for the uses of the symbol to load.
+      await waitFor(() => expect(findButton("Save").disabled).toBe(false));
+      return { symbol, used, unbound };
+    };
+
     it("saves a new part and its stroke on a symbol with no state", async () => {
       const { symbol } = await openEditModal();
       fireEvent.click(screen.getByLabelText("Stroke"));
@@ -454,6 +515,51 @@ describe("Schematic.Symbol.Edit.useModal", () => {
           '<circle cx="5" cy="5" r="2" fill="#000000" data-region-id="region-2"/>',
         );
       });
+    });
+
+    it("asks before a save removes bindings from a schematic that uses the symbol", async () => {
+      const { used, unbound } = await openUsedSymbol();
+      fireEvent.click(screen.getByText("Actuator"));
+      fireEvent.click(findButton("Save"));
+      await screen.findByText(used.name);
+      await screen.findByText("Vessel 1 loses the Vent binding.");
+      await screen.findByText("A node with no label loses the Vent binding.");
+      await screen.findByText(unbound.name);
+      await screen.findByText("Each node keeps its bindings.");
+      fireEvent.click(findLastButton("Save"));
+      await waitFor(async () =>
+        expect(await retrieveStoredCommands(used.key)).toEqual([[], []]),
+      );
+    });
+
+    it("keeps the symbol and its bindings when the save confirm is canceled", async () => {
+      const { symbol, used } = await openUsedSymbol();
+      fireEvent.click(screen.getByText("Actuator"));
+      fireEvent.click(findButton("Save"));
+      await screen.findByText("Vessel 1 loses the Vent binding.");
+      fireEvent.click(findButton("Cancel"));
+      await waitFor(() =>
+        expect(screen.queryByText("Vessel 1 loses the Vent binding.")).toBeNull(),
+      );
+      expect(findNameInput().value).toBe(symbol.name);
+      expect((await retrieveStored(symbol.key)).data.variant).toBe("static");
+      const commands = await retrieveStoredCommands(used.key);
+      expect(commands.map((c) => c?.length)).toEqual([1, 1]);
+    });
+
+    it("saves a zoom and a rename of a symbol in use without asking", async () => {
+      const { symbol } = await openUsedSymbol();
+      await screen.findByText("100%");
+      pressKey("Equal");
+      await screen.findByText("120%");
+      const renamed = uniqueName("renamed_vessel");
+      fireEvent.change(findNameInput(), { target: { value: renamed } });
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () =>
+        expect((await retrieveStored(symbol.key)).name).toBe(renamed),
+      );
+      const stored = await retrieveStored(symbol.key);
+      expect(stored.data.previewViewport?.zoom).toBeCloseTo(1.2);
     });
 
     it("loads the existing symbol and renames it on save", async () => {
