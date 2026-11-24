@@ -38,14 +38,12 @@ __lazy_modules__ = [
     "synnax.task",
     "synnax.telem",
     "synnax.timing",
-    "synnax.user.payload",
+    "synnax.user",
     "synnax.view",
     "x",
     "x.color",
     "x.exceptions",
 ]
-
-from importlib.metadata import version as _version
 
 from synnax import (
     calculation,
@@ -164,14 +162,14 @@ from synnax.telem import (
     elapsed_seconds,
 )
 from synnax.timing import Loop, Timer, poll, sleep
-from synnax.user.payload import User
+from synnax.user import User
+from synnax.version import VERSION
 from synnax.view import View
 from x import filter as filter
 from x.color import Color
 from x.exceptions import ContiguityError, Error
 
-__version__ = _version("synnax")
-
+__version__ = VERSION
 
 __all__ = [
     "AUTO_SPAN",

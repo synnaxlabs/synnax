@@ -59,6 +59,44 @@ TEST_F(StoreTest, CurrentCreatesOnFirstUse) {
     ASSERT_EQ(again.certificate, id.certificate);
 }
 
+/// @brief it should list no identity in an empty directory, and make none.
+TEST_F(StoreTest, ListEmpty) {
+    Store store(StoreConfig{.dir = this->dir});
+    const auto ids = ASSERT_NIL_P(store.list());
+    ASSERT_TRUE(ids.empty());
+    ASSERT_EQ(this->cert_count(), 0);
+}
+
+/// @brief it should list the current identity, then the next one, each with its file.
+TEST_F(StoreTest, ListInOrder) {
+    x::telem::TimeStamp now = x::telem::TimeStamp::now();
+    Store store(StoreConfig{.dir = this->dir, .now = [&] { return now; }});
+    const auto current = ASSERT_NIL_P(store.current());
+    now = current.certificate.not_after() - 30 * x::telem::DAY;
+    ASSERT_NIL(store.renew());
+    const auto ids = ASSERT_NIL_P(store.list());
+    ASSERT_EQ(ids.size(), 2);
+    ASSERT_EQ(ids[0].certificate, current.certificate);
+    for (const auto &id: ids) {
+        const auto path = store.cert_path(id);
+        ASSERT_TRUE(Store::is_cert_file(path));
+        ASSERT_TRUE(std::filesystem::exists(path));
+    }
+}
+
+/// @brief it should match the name of a certificate file in any directory, and no other
+/// name.
+TEST_F(StoreTest, IsCertFile) {
+    Store store(StoreConfig{.dir = this->dir});
+    const auto path = store.cert_path(ASSERT_NIL_P(store.current()));
+    ASSERT_TRUE(Store::is_cert_file(path));
+    ASSERT_TRUE(Store::is_cert_file(std::filesystem::path("/old") / path.filename()));
+    auto key = path;
+    key.replace_extension(".pem");
+    ASSERT_FALSE(Store::is_cert_file(key));
+    ASSERT_FALSE(Store::is_cert_file(path.parent_path() / "ca.der"));
+}
+
 /// @brief it should load the same identity in a new Store over the same directory.
 TEST_F(StoreTest, CurrentPersists) {
     Store first(StoreConfig{.dir = this->dir});

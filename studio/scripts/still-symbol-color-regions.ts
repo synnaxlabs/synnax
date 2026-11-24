@@ -17,8 +17,7 @@ const SVG = path.join(import.meta.dirname, "files", "tank.svg");
 
 /**
  * Still for docs image `console/schematics/symbol-color-regions`: the create symbol
- * dialog with an SVG loaded, its Colors list showing the stroke and fill of each
- * region.
+ * dialog with an SVG loaded, its Parts list beside the inspector of the whole drawing.
  */
 export default async (session: capture.CaptureSession): Promise<void> => {
   const { page } = session;
@@ -32,13 +31,13 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   const chooser = page.waitForEvent("filechooser");
   await session.click(drop, { zoom: false });
   await (await chooser).setFiles(SVG);
-  await session.waitFor(page.locator(".console-schematic-region-list-item").first());
+  await session.waitFor(page.locator(".console-schematic-part-list-item").first());
   await session.settle(800);
   const box = await modal.boundingBox();
   const view = page.viewportSize();
   if (box == null || view == null)
     throw new Error("the create symbol dialog is not on screen");
-  // Beside the dialog, clear of the Colors list.
+  // Beside the dialog, clear of the Parts list.
   await session.moveTo({
     x: Math.min(box.x + box.width + 40, view.width - 16),
     y: box.y + box.height / 2,

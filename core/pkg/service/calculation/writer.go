@@ -51,7 +51,7 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 // the transaction of w on the channel stream, as one batch that goes only to a subject
 // who reads c.
 func (w Writer) Announce(c Calculation) {
-	w.svc.announce(w.tx, w.channelWriter(), c.Output, c, fieldsOf(c, true)...)
+	w.svc.announceFields(w.tx, w.channelWriter(), c, true)
 }
 
 func (w Writer) channelWriter() channel.Writer {
@@ -64,7 +64,8 @@ func (w Writer) channelWriter() channel.Writer {
 // calculation is not valid or its output breaks that rule, and an error wrapping
 // query.ErrNotFound when the output does not exist. It fails as compile does, and sets
 // the data type of the output to the type of the expression. The commit broadcasts a
-// create action that holds the stored calculation.
+// create action that holds the stored calculation, and to every reader of the output a
+// set of its calculated flag to true.
 func (w Writer) Create(ctx context.Context, c *Calculation) error {
 	if err := c.Validate(); err != nil {
 		return err
@@ -88,7 +89,7 @@ func (w Writer) create(ctx context.Context, c *Calculation) error {
 		return err
 	}
 	w.attach(*c, NewCreateAction(CreatePayload{Calculation: *c}))
-	w.Announce(*c)
+	w.svc.announce(w.tx, w.channelWriter(), *c, true)
 	return nil
 }
 
@@ -413,7 +414,8 @@ func (w Writer) SetReads(
 }
 
 // Delete deletes the calculations with the given keys. A key with no calculation is not
-// an error. The output of each one stays as a channel with no producer.
+// an error. The output of each one stays as a channel with no producer, and the commit
+// broadcasts to every reader of the output a set of its calculated flag to false.
 func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 	var deleted []Calculation
 	if err := w.table.NewRetrieve().
@@ -428,10 +430,8 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	// Who read a calculation before the delete learns that it no longer writes its
-	// output.
 	for _, c := range deleted {
-		w.svc.announce(w.tx, w.channelWriter(), c.Output, c, fieldsOf(c, false)...)
+		w.svc.announce(w.tx, w.channelWriter(), c, false)
 	}
 	return nil
 }

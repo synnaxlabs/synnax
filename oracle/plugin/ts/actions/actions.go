@@ -60,7 +60,10 @@ func (*Plugin) Requires() []string { return []string{"ts/types"} }
 // that declares actions. It skips types without actions and types that TS hand-writes
 // or omits.
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
-	req = req.OmitFields("ts")
+	req, err := tstypes.Request(req)
+	if err != nil {
+		return nil, err
+	}
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
 	types := append(req.Resolutions.StructTypes(), req.Resolutions.UnionTypes()...)
 	for _, typ := range types {

@@ -26,7 +26,8 @@ const documentZ = z
   .object({
     name: z.string(),
     light: color.colorZ,
-    dark: color.colorZ.optional(),
+    // A set of undefined reaches the Core as null, and its echo carries null.
+    dark: color.colorZ.nullish(),
     group: zod.nullToUndefined(z.string()),
     position: z.string().optional(),
   })
@@ -49,7 +50,7 @@ const applyPath = (state: Draft<Named>, action: patch.Action): HandlerResult => 
   else if (path[0] === "light") state.light = next.light;
   else if (path[0] === "group") state.group = next.group;
   else if (path[0] === "position") state.position = next.position;
-  else state.dark = next.dark;
+  else state.dark = next.dark ?? undefined;
   return { inverse, targets: [path.join(".")] };
 };
 

@@ -168,4 +168,18 @@ inline x::json::json Bounds::to_json() const {
     return j;
 }
 
+inline ClosedBounds ClosedBounds::parse(x::json::Parser parser) {
+    return ClosedBounds{
+        .lower = parser.field<double>("lower"),
+        .upper = parser.field<double>("upper"),
+    };
+}
+
+inline x::json::json ClosedBounds::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["lower"] = this->lower;
+    j["upper"] = this->upper;
+    return j;
+}
+
 }
