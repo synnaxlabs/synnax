@@ -14,6 +14,7 @@ import (
 	"encoding/binary"
 	"math/rand/v2"
 	"os"
+	"sync/atomic"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -61,6 +62,15 @@ var _ = Describe("Recovery", func() {
 		}
 		return offsets
 	}
+	// frameHeader returns the bytes of the frame header at off of log 1.
+	frameHeader := func(off int64) []byte {
+		GinkgoHelper()
+		f := MustSucceed(fs.Open(log.Name(1), os.O_RDONLY))
+		defer func() { Expect(f.Close()).To(Succeed()) }()
+		b := make([]byte, log.FrameHeaderSize)
+		MustSucceed(f.ReadAt(b, off))
+		return b
+	}
 	flip := func(off int64) {
 		GinkgoHelper()
 		f := MustSucceed(fs.Open(log.Name(1), os.O_RDWR))
@@ -101,6 +111,65 @@ var _ = Describe("Recovery", func() {
 			MatchError(ContainSubstring("cannot open a root of the old layout")),
 		))
 	})
+
+	It("Should read a log of synced frames at most twice at open", func(
+		ctx SpecContext,
+	) {
+		for range 8 {
+			cycle(ctx)
+		}
+		Expect(frameOffsets()).To(HaveLen(8))
+		info := MustSucceed(fs.Stat(log.Name(1)))
+		var read atomic.Int64
+		fs = logReadFS{FS: fs, read: &read}
+		cycle(ctx)
+		Expect(read.Load()).To(BeNumerically("<=", 2*info.Size()+log.BlockSize))
+	})
+
+	DescribeTable(
+		"Should read a frame of entries again when its first read fails its check",
+		func(ctx SpecContext, at int64) {
+			db := MustSucceed(open(ctx))
+			stop := StartRun(db.Run)
+			Expect(db.CreateChannel(ctx, cesium.Channel{
+				Key:      1,
+				Name:     "time",
+				IsIndex:  true,
+				DataType: telem.TimestampT,
+			})).To(Succeed())
+			w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+				Channels: []cesium.ChannelKey{1},
+				Start:    telem.SecondTS,
+			}))
+			MustSucceed2(w.Write(ctx, telem.MultiFrame(
+				[]cesium.ChannelKey{1},
+				[]telem.Series{telem.NewSeriesSecondsTSV(1, 2)},
+			), nil))
+			MustSucceed2(w.Commit(ctx, nil))
+			Expect(w.Close()).To(Succeed())
+			stop()
+			Expect(db.Close()).To(Succeed())
+			var entries int64
+			for _, off := range frameOffsets() {
+				if size, ok := log.FrameSize(frameHeader(off)); ok &&
+					size > log.FrameHeaderSize {
+					entries = off
+					break
+				}
+			}
+			Expect(entries).ToNot(BeZero())
+			fs = damageFS{FS: fs, at: entries + at, done: &atomic.Bool{}}
+			db = MustSucceed(open(ctx))
+			DeferCleanup(func() { Expect(db.Close()).To(Succeed()) })
+			DeferCleanup(StartRun(db.Run))
+			fr := MustSucceed(db.Read(ctx, telem.TimeRangeMax, 1))
+			Expect(fr.Get(1).Series[0]).To(
+				telem.MatchSeriesData(telem.NewSeriesSecondsTSV(1, 2)),
+			)
+		},
+		Entry("in the header", int64(1)),
+		Entry("in the entries", int64(log.FrameHeaderSize)),
+	)
 
 	It("Should cut a torn tail after the last frame", func(ctx SpecContext) {
 		cycle(ctx)
@@ -145,3 +214,73 @@ var _ = Describe("Recovery", func() {
 		Expect(open(ctx)).Error().To(MatchError(place.ErrCorrupt))
 	})
 })
+
+// logReadFS counts the bytes read from log 1.
+type logReadFS struct {
+	xfs.FS
+	read *atomic.Int64
+}
+
+func (f logReadFS) Sub(name string) (xfs.FS, error) {
+	sub, err := f.FS.Sub(name)
+	if err != nil || name != "" {
+		return sub, err
+	}
+	return logReadFS{FS: sub, read: f.read}, nil
+}
+
+func (f logReadFS) Open(name string, flag int) (xfs.File, error) {
+	file, err := f.FS.Open(name, flag)
+	if err != nil || name != log.Name(1) {
+		return file, err
+	}
+	return logReadFile{File: file, read: f.read}, nil
+}
+
+type logReadFile struct {
+	xfs.File
+	read *atomic.Int64
+}
+
+func (f logReadFile) ReadAt(p []byte, off int64) (int, error) {
+	n, err := f.File.ReadAt(p, off)
+	f.read.Add(int64(n))
+	return n, err
+}
+
+// damageFS damages the byte at of log 1 in the first read that covers it.
+type damageFS struct {
+	xfs.FS
+	at   int64
+	done *atomic.Bool
+}
+
+func (f damageFS) Sub(name string) (xfs.FS, error) {
+	sub, err := f.FS.Sub(name)
+	if err != nil || name != "" {
+		return sub, err
+	}
+	return damageFS{FS: sub, at: f.at, done: f.done}, nil
+}
+
+func (f damageFS) Open(name string, flag int) (xfs.File, error) {
+	file, err := f.FS.Open(name, flag)
+	if err != nil || name != log.Name(1) {
+		return file, err
+	}
+	return damageFile{File: file, fs: f}, nil
+}
+
+type damageFile struct {
+	xfs.File
+	fs damageFS
+}
+
+func (f damageFile) ReadAt(p []byte, off int64) (int, error) {
+	n, err := f.File.ReadAt(p, off)
+	covers := f.fs.at >= off && f.fs.at < off+int64(n)
+	if covers && f.fs.done.CompareAndSwap(false, true) {
+		p[f.fs.at-off] ^= 0xFF
+	}
+	return n, err
+}
