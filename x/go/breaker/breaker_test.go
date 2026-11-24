@@ -137,6 +137,19 @@ var _ = Describe("Breaker", func() {
 		Expect(clock.Pending()).To(Equal(0))
 	})
 
+	It("Should wait one second by default", func(ctx SpecContext) {
+		clock := &timetestutil.Clock{}
+		b := MustSucceed(breaker.NewBreaker(breaker.Config{
+			MaxRetries: 1,
+			Clock:      clock,
+		}))
+		waited := make(chan bool, 1)
+		var wg sync.WaitGroup
+		wg.Go(func() { waited <- b.Wait(ctx) })
+		advanceTo(clock, waited, time.Second)
+		wg.Wait()
+	})
+
 	It(
 		"Should wait again on a live context after a canceled wait",
 		func(ctx SpecContext) {

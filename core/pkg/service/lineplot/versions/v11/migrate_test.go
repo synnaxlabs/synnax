@@ -19,6 +19,7 @@ import (
 	v11 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v11"
 	rangerv1 "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v1"
 	rangerv4 "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v4"
+	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
@@ -84,4 +85,63 @@ var _ = Describe("Migration", func() {
 		Expect(rangerv4.MigrateRef(ctx, rangerv1.Ref{})).Error().
 			To(MatchError(ContainSubstring("unknown range reference variant")))
 	})
+})
+
+var _ = Describe("MigrateAxis", func() {
+	DescribeTable("Should keep bounds only where a manual edge gives them meaning",
+		func(
+			ctx SpecContext,
+			bounds spatial.Bounds,
+			manual v10.ManualBounds,
+			want *spatial.ClosedBounds,
+			wantManual v11.ManualBounds,
+		) {
+			a := MustSucceed(v11.MigrateAxis(ctx, v10.Axis{
+				Bounds:       bounds,
+				ManualBounds: manual,
+			}))
+			Expect(a.Bounds).To(Equal(want))
+			Expect(a.ManualBounds).To(Equal(wantManual))
+		},
+		Entry(
+			"dropping the bounds of an auto axis",
+			spatial.Bounds{
+				Lower: 0,
+				Upper: 0,
+			},
+			v10.ManualBounds{},
+			nil,
+			v11.ManualBounds{},
+		),
+		Entry("keeping two manual edges in order",
+			spatial.Bounds{Lower: -1, Upper: 1},
+			v10.ManualBounds{Lower: true, Upper: true},
+			&spatial.ClosedBounds{Lower: -1, Upper: 1},
+			v11.ManualBounds{Lower: true, Upper: true}),
+		Entry("swapping two reversed manual edges",
+			spatial.Bounds{Lower: 4, Upper: -4},
+			v10.ManualBounds{Lower: true, Upper: true},
+			&spatial.ClosedBounds{Lower: -4, Upper: 4},
+			v11.ManualBounds{Lower: true, Upper: true}),
+		Entry("returning two equal manual edges to auto",
+			spatial.Bounds{Lower: 3, Upper: 3},
+			v10.ManualBounds{Lower: true, Upper: true},
+			nil,
+			v11.ManualBounds{}),
+		Entry("moving the auto upper above a manual lower",
+			spatial.Bounds{Lower: 5, Upper: 0},
+			v10.ManualBounds{Lower: true},
+			&spatial.ClosedBounds{Lower: 5, Upper: 6},
+			v11.ManualBounds{Lower: true}),
+		Entry("moving the auto upper above a manual timestamp lower",
+			spatial.Bounds{Lower: 1.7e18, Upper: 0},
+			v10.ManualBounds{Lower: true},
+			&spatial.ClosedBounds{Lower: 1.7e18, Upper: 1.7e18 + 1.7e18*0x1p-51},
+			v11.ManualBounds{Lower: true}),
+		Entry("moving the auto lower below a manual upper",
+			spatial.Bounds{Lower: 0, Upper: -2},
+			v10.ManualBounds{Upper: true},
+			&spatial.ClosedBounds{Lower: -3, Upper: -2},
+			v11.ManualBounds{Upper: true}),
+	)
 })
