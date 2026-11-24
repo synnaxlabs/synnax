@@ -74,12 +74,18 @@ type Output struct {
 	// Dropped is the number of primary stamps from From on that got no output, because
 	// an input had no sample at or before the stamp, or was past its hold limit.
 	Dropped int
+	// Settled is true once the primary of a live join has a frame gap and 3 times the
+	// median of its frame gaps has passed from its first frame to its last, as of the
+	// last call to Next. Before then, drops come from inputs that are still starting. A
+	// history join is always settled.
+	Settled bool
 }
 
 // Reset empties o and keeps its buffers.
 func (o *Output) Reset() {
 	o.Runs = o.Runs[:0]
 	o.Dropped = 0
+	o.Settled = false
 }
 
 // Join pairs the samples of its inputs by sample time. It is not safe for concurrent
@@ -90,9 +96,10 @@ type Join struct {
 	from    telem.TimeStamp
 	live    bool
 	now     func() telem.TimeStamp
-	// arrived is the arrival of the last push of the primary, and frames holds the
-	// gaps between the arrivals of its pushes.
+	// arrived is the arrival of the last push of the primary, started the arrival of
+	// its first, and frames holds the gaps between the arrivals of its pushes.
 	arrived telem.TimeStamp
+	started telem.TimeStamp
 	frames  intervals
 	framed  bool
 	// last is the alignment of the last primary sample that got an output, and joined
@@ -240,6 +247,8 @@ func (j *Join) Push(i int, data, t telem.Series) error {
 		case i == j.primary:
 			if j.framed {
 				j.frames.add(telem.TimeSpan(at - j.arrived))
+			} else {
+				j.started = at
 			}
 			j.arrived, j.framed = at, true
 		case last >= j.from:
@@ -320,7 +329,7 @@ func (j *Join) validate(i int, data, t telem.Series) error {
 // Next appends to out a joined sample for each pushed primary stamp up to until. A live
 // read passes the newest primary stamp, so no input is waited for. A historical read
 // passes the earliest of the newest stamps of the inputs, so each input's value at a
-// stamp is known.
+// stamp is known. It sets out.Settled.
 func (j *Join) Next(until telem.TimeStamp, out *Output) {
 	p := j.inputs[j.primary]
 	var frame telem.TimeStamp
@@ -348,6 +357,8 @@ func (j *Join) Next(until telem.TimeStamp, out *Output) {
 		}
 		in.compact()
 	}
+	out.Settled = !j.live || (j.frames.n > 0 &&
+		telem.TimeSpan(j.arrived-j.started) >= j.frames.within())
 }
 
 // pass moves the held sample of each other input than the primary to its last sample at
