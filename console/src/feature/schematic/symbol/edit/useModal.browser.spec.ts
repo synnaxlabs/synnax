@@ -425,14 +425,19 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       expect(commands.map((c) => c?.length)).toEqual([1, 1]);
     });
 
-    it("saves a rename of a symbol in use without asking", async () => {
+    it("saves a zoom and a rename of a symbol in use without asking", async () => {
       const { symbol } = await openUsedSymbol();
+      await screen.findByText("100%");
+      pressKey("Equal");
+      await screen.findByText("120%");
       const renamed = uniqueName("renamed_vessel");
       fireEvent.change(findNameInput(), { target: { value: renamed } });
       fireEvent.click(findButton("Save"));
       await waitFor(async () =>
         expect((await retrieveStored(symbol.key)).name).toBe(renamed),
       );
+      const stored = await retrieveStored(symbol.key);
+      expect(stored.data.previewViewport?.zoom).toBeCloseTo(1.2);
     });
 
     it("loads the existing symbol and renames it on save", async () => {

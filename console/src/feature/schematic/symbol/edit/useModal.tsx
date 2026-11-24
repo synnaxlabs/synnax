@@ -115,7 +115,10 @@ const Editor = ({
     const uses = stored.data?.uses ?? [];
     if (stored.data != null && uses.length > 0) {
       const spec = form.get(path.data).value;
-      const next = { ...stored.data, data: spec };
+      const next = {
+        ...stored.data,
+        data: { ...spec, previewViewport: stored.data.data.previewViewport },
+      };
       const changed =
         actions.diffFields(Schematic.Symbol.formSchema, stored.data, next, ["data"])
           .length > 0;
