@@ -42,12 +42,7 @@ import {
   selectFromDropdown,
   toggleRefused,
 } from "@/platform/task/testutil";
-import {
-  awaitTextEditingElement,
-  commitTextEdit,
-  getSwitchInput,
-  isSelectButtonSelected,
-} from "@/testutil";
+import { awaitTextEditingElement, commitTextEdit, getSwitchInput } from "@/testutil";
 
 const client = createTestClient();
 
@@ -895,11 +890,10 @@ describe("MQTT Write form", () => {
       ],
       retained: true,
     };
-    const FORMAT_REQUIRED = "Select a message format to add topics.";
 
     // Opens the dialog over a broker whose scan task lists TOPIC, and picks it.
-    const openOnPickedTopic = async () => {
-      const { dev, draft } = await renderWrite();
+    const openOnPickedTopic = async (targets: MQTT.Task.WriteTarget[] = []) => {
+      const { dev, draft } = await renderWrite(targets);
       const scanner = await openScanner(client, dev.rack);
       const dialog = await openAddTargets();
       await scanner.answer({ data: { topics: [TOPIC], truncated: false } });
@@ -908,26 +902,65 @@ describe("MQTT Write form", () => {
       return { dialog, draft };
     };
 
-    it("should ask for a message format before it adds a whole picked topic", async () => {
-      const setpoint = createField("setpoint", "float");
-      const { ic, message } = await createFormat([setpoint]);
+    const retrievePlainTarget = async (key: task.Key, topic: string) => {
+      let found: MQTT.Task.WriteTarget | undefined;
+      await waitFor(async () => {
+        found = (await retrieveTargets(key)).find(
+          (t) => t.type === "plain" && t.topic === topic,
+        );
+        expect(found).toBeDefined();
+      });
+      if (found?.type !== "plain")
+        throw new Error(`expected a plain target of ${topic}`);
+      return found;
+    };
+
+    it("should add a whole picked topic with a format from its last message, in an ICD named after the task", async () => {
       const { dialog, draft } = await openOnPickedTopic();
       const mode = dialog.getByRole<HTMLInputElement>("checkbox", {
         name: "Record mode",
       });
       expect(mode.checked).toBe(true);
       dialog.getByText("1 topic selected");
-      const add = () => dialog.getByRole("button", { name: "Add 1 target" });
-      fireEvent.click(add());
-      await dialog.findByText(FORMAT_REQUIRED);
+      fireEvent.click(dialog.getByRole("button", { name: "Add 1 target" }));
+      const target = await retrievePlainTarget(draft.key, TOPIC.topic);
+      const [ic] = await client.icds.retrieve([target.icd]);
+      expect(ic).toMatchObject({
+        name: "MQTT write task",
+        messages: [
+          {
+            key: target.message.message,
+            name: TOPIC.topic,
+            payload: {
+              format: "json",
+              fields: [
+                { name: "setpoint", pointer: "/setpoint", type: "float" },
+                { name: "mode", pointer: "/mode", type: "string" },
+              ],
+            },
+          },
+        ],
+      });
+      expect(target.message.bindings).toEqual(
+        ICD.jsonFields(ic.messages[0]).map((f) => ({
+          type: "channel",
+          field: f.key,
+          channel: 0,
+        })),
+      );
+    });
+
+    it("should send the picked message format over the one it would infer", async () => {
+      const setpoint = createField("setpoint", "float");
+      const { ic, message } = await createFormat([setpoint]);
+      const { dialog, draft } = await openOnPickedTopic();
       await pickMessageFormat("Select message format", message.name, ic.name);
-      await waitFor(() => expect(dialog.queryByText(FORMAT_REQUIRED)).toBeNull());
-      fireEvent.click(add());
+      fireEvent.click(dialog.getByRole("button", { name: "Add 1 target" }));
       await waitFor(async () =>
         expect(await retrieveTargets(draft.key)).toMatchObject([
           {
             type: "plain",
-            topic: "plant/valve/set",
+            topic: TOPIC.topic,
             icd: ic.key,
             message: {
               message: message.key,
@@ -938,12 +971,34 @@ describe("MQTT Write form", () => {
       );
     });
 
-    it("should go back to the topics to ask for a message format when a tag adds by name", async () => {
-      const { dialog } = await openOnPickedTopic();
-      fireEvent.click(dialog.getByRole("button", { name: "Sparkplug B" }));
-      fireEvent.click(await dialog.findByRole("button", { name: "Add a tag by name" }));
-      await dialog.findByText(FORMAT_REQUIRED);
-      expect(isSelectButtonSelected("JSON topics")).toBe(true);
+    it("should add the inferred format to the ICD of the most targets, numbered when its name is taken", async () => {
+      const setpoint = createField("setpoint", "float");
+      const held = icd.messageZ.parse({
+        name: TOPIC.topic,
+        payload: { format: "json", fields: [setpoint] },
+      });
+      const ic = await client.icds.create({
+        name: uniqueName("valve"),
+        messages: [held],
+      });
+      const other = mqtt.plainWriteTargetZ.parse({
+        type: "plain",
+        key: "t1",
+        topic: "plant/other/set",
+        icd: ic.key,
+        message: { message: held.key, bindings: ICD.Write.suit([], [setpoint]) },
+      });
+      const { dialog, draft } = await openOnPickedTopic([other]);
+      fireEvent.click(dialog.getByRole("button", { name: "Add 1 target" }));
+      const target = await retrievePlainTarget(draft.key, TOPIC.topic);
+      expect(target.icd).toEqual(ic.key);
+      await waitFor(async () => {
+        const [retrieved] = await client.icds.retrieve([ic.key]);
+        expect(retrieved.messages.map(({ key, name }) => ({ key, name }))).toEqual([
+          { key: held.key, name: TOPIC.topic },
+          { key: target.message.message, name: `${TOPIC.topic} 2` },
+        ]);
+      });
     });
 
     it("should drop a whole picked topic when any of its fields is unticked", async () => {
@@ -956,34 +1011,26 @@ describe("MQTT Write form", () => {
       expect(dialog.queryByText("1 topic selected")).toBeNull();
     });
 
-    it("should ask for a message format before it adds a topic by name", async () => {
-      const setpoint = createField("setpoint", "float");
-      const mode = createField("mode", "string", { default: "auto" });
-      const { ic, message } = await createFormat([setpoint, mode]);
+    it("should add a topic by name with an empty format named after it", async () => {
       const { draft } = await renderWrite();
       const dialog = await openAddTargets();
-      const byName = () => dialog.getByRole("button", { name: "Add a topic by name" });
+      fireEvent.change(dialog.getByPlaceholderText("Search topics"), {
+        target: { value: "plant/new/set" },
+      });
       fireEvent.click(
-        await dialog.findByRole("button", { name: "Add a topic by name" }),
+        await dialog.findByRole("button", { name: "Add “plant/new/set” as a topic" }),
       );
-      await dialog.findByText(FORMAT_REQUIRED);
-      await pickMessageFormat("Select message format", message.name, ic.name);
-      await waitFor(() => expect(dialog.queryByText(FORMAT_REQUIRED)).toBeNull());
-      fireEvent.click(byName());
-      await screen.findByText(setpoint.name);
-      await waitFor(async () =>
-        expect(await retrieveTargets(draft.key)).toMatchObject([
-          {
-            type: "plain",
-            topic: "",
-            icd: ic.key,
-            message: {
-              message: message.key,
-              bindings: [{ type: "channel", field: setpoint.key, channel: 0 }],
-            },
-          },
-        ]),
-      );
+      await screen.findByText("Message has no fields");
+      const target = await retrievePlainTarget(draft.key, "plant/new/set");
+      expect(target.message.bindings).toEqual([]);
+      const [ic] = await client.icds.retrieve([target.icd]);
+      expect(ic.messages).toMatchObject([
+        {
+          key: target.message.message,
+          name: "plant/new/set",
+          payload: { format: "json", fields: [] },
+        },
+      ]);
     });
 
     it("should show a failed listen in place of the list, with no notification", async () => {

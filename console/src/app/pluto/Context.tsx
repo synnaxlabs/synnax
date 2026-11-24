@@ -12,6 +12,7 @@ import { type Alamos, Pluto } from "@synnaxlabs/pluto";
 import { Triggers } from "@/app/triggers";
 import { Embedded } from "@/feature/embedded";
 import { Core } from "@/platform/core";
+import { Runtime } from "@/platform/runtime";
 import { Session } from "@/session";
 
 export interface ContextProps extends Pick<
@@ -20,6 +21,7 @@ export interface ContextProps extends Pick<
 > {}
 
 const ALAMOS_PROPS: Alamos.ProviderProps = { level: "info" };
+const CODE_PROPS: Pluto.ProviderProps["code"] = { openLink: Runtime.openExternal };
 
 const useConnParams = DESKTOP ? Embedded.useConnParams : Core.useConnParams;
 
@@ -36,6 +38,7 @@ export const Context = (props: ContextProps) => {
       haul={haulProps}
       color={colorProps}
       alamos={ALAMOS_PROPS}
+      code={CODE_PROPS}
       theming={themingProps}
       {...props}
     />

@@ -29,10 +29,7 @@ type LayerConfig struct {
 	alamos.Instrumentation
 }
 
-var (
-	_                  config.Config[LayerConfig] = LayerConfig{}
-	DefaultLayerConfig                            = LayerConfig{}
-)
+var _ config.Config[LayerConfig] = LayerConfig{}
 
 // Validate implements config.Config.
 func (c LayerConfig) Validate() error {

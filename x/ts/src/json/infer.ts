@@ -66,3 +66,13 @@ export const shapeZ = z.object({
 });
 
 export interface Shape extends z.infer<typeof shapeZ> {}
+
+/**
+ * @returns a key for a shape that stays the same across samples while its set of field
+ * pointers does.
+ */
+export const shapeKey = ({ fields }: Pick<Shape, "fields">): string =>
+  fields
+    .map(({ pointer }) => pointer)
+    .sort()
+    .join("\n");

@@ -53,6 +53,11 @@ fragment ESCAPE_SEQUENCE
     | '\\u' [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F]
     ;
 
+// Duration literal: one or more number-unit segments, such as 5s, 1.5ms, or 1m30s.
+DURATION_LIT : '-'? ([0-9]+ ('.' [0-9]+)? DURATION_UNIT)+ ;
+
+fragment DURATION_UNIT : 'ns' | 'us' | 'ms' | 's' | 'm' | 'h' ;
+
 // Float must come before INT to properly match decimal numbers
 FLOAT_LIT   : '-'? [0-9]+ '.' [0-9]+ ;
 
