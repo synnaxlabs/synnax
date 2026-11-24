@@ -20,9 +20,9 @@ import (
 // action on a resource.
 var ErrDenied = auth.ErrAccessDenied
 
-// DeniedError is the error of a subject that cannot act on an object. It wraps
+// deniedError is the error of a subject that cannot act on an object. It wraps
 // ErrDenied.
-type DeniedError struct {
+type deniedError struct {
 	// Subject is the subject that asked.
 	Subject resource.ID
 	// Action is what the subject asked to do.
@@ -32,15 +32,15 @@ type DeniedError struct {
 }
 
 // Error implements error.
-func (e DeniedError) Error() string {
+func (e deniedError) Error() string {
 	return fmt.Sprintf("%s cannot %s %s: %s", e.Subject, e.Action, e.Object, ErrDenied)
 }
 
 // Unwrap returns ErrDenied.
-func (DeniedError) Unwrap() error { return ErrDenied }
+func (deniedError) Unwrap() error { return ErrDenied }
 
-// Denied returns a DeniedError that names the subject, the action, and the object that
-// the subject cannot act on.
+// Denied returns an error that wraps ErrDenied and names the subject, the action, and
+// the object that the subject cannot act on.
 func Denied(subject resource.ID, action Action, object resource.ID) error {
-	return DeniedError{Subject: subject, Action: action, Object: object}
+	return deniedError{Subject: subject, Action: action, Object: object}
 }
