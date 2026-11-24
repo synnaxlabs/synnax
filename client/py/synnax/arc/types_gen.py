@@ -187,8 +187,12 @@ class Base(BaseModel):
     name: str = Field(min_length=1)
     source: Source = Field(default_factory=lambda: TextSource(mode="text"))
     directory: UUID | None = None
-    reads: list[channel_.Key] = Field(default_factory=list)
-    writes: list[channel_.Key] = Field(default_factory=list)
+    reads: list[Annotated[channel_.Key, Field(ge=0, le=4294967295)]] = Field(
+        default_factory=list
+    )
+    writes: list[Annotated[channel_.Key, Field(ge=0, le=4294967295)]] = Field(
+        default_factory=list
+    )
 
     @_override
     def __hash__(self) -> int:

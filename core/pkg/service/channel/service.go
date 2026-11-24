@@ -68,12 +68,6 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Status *status.Service
-	// ValidateNames is false on a Core started with the old name validation flag. Arc
-	// then reads a dashed name as one identifier, so text written under the flag keeps
-	// compiling until the upgrade quotes it. Names follow the name rule either way.
-	//
-	// [OPTIONAL] - Defaults to true.
-	ValidateNames *bool
 	// AnnounceLinked announces through w, in tx, the fields of each stored channel
 	// among keys that a create links to a new index and that its create action does not
 	// hold.
@@ -111,7 +105,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.HostKey = override.Numeric(c.HostKey, other.HostKey)
 	c.Limit = override.Nil(c.Limit, other.Limit)
 	c.Status = override.Nil(c.Status, other.Status)
-	c.ValidateNames = override.Nil(c.ValidateNames, other.ValidateNames)
 	c.AnnounceLinked = override.Nil(c.AnnounceLinked, other.AnnounceLinked)
 	c.Computes = override.Nil(c.Computes, other.Computes)
 	return c
