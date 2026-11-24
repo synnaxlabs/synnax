@@ -10,12 +10,16 @@
 package service_test
 
 import (
+	"slices"
 	"strconv"
 	"strings"
+	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/text"
+	textv1 "github.com/synnaxlabs/arc/text/versions/v1"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -23,6 +27,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	arcversions "github.com/synnaxlabs/synnax/pkg/service/arc/versions"
+	arcv3 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v3"
 	"github.com/synnaxlabs/synnax/pkg/service/calculation"
 	channelv1 "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v1"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
@@ -163,5 +169,61 @@ var _ = Describe("Checker D-401 (1): the text pass of Declare's renames", func()
 		Expect(ok).To(BeTrue())
 		Expect(src.Text.Materialize().Raw).To(Equal("x := sy_task_cmd_2 *0 2"),
 			"the editor typed after the \"*\" that it held")
+	})
+
+	It("Should start and rename an Arc's text after a crash before the start's Arc "+
+		"migration", func(ctx SpecContext) {
+		var (
+			held channelv1.Channel
+			key  arcv3.Key
+		)
+		n := openUpgraded(ctx, func(n testutil.Node) {
+			keys := MustSucceed(n.Channel.Allocate(ctx, []distchannel.Channel{
+				{Name: "sy_x_2", Leaseholder: node.KeyFree, Virtual: true},
+			}))
+			held = channelv1.Channel{
+				Name:        keys[0].Name,
+				Leaseholder: node.KeyFree,
+				LocalKey:    keys[0].LocalKey,
+				DataType:    telem.Float64T,
+				Virtual:     true,
+			}
+			Expect(gorp.WrapWriter[channelv1.Key, channelv1.Channel](n.DB).
+				Set(ctx, held)).To(Succeed())
+			// An Arc stored as v0.62 stores it, which this start's migrations lift.
+			chain := arcversions.NewMigrations(uuid.New(), parser.Config{})
+			swap := slices.IndexFunc(chain, func(m gorp.Migration) bool {
+				return m.Key() == "v61_swap_brackets"
+			})
+			Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+				DB:         n.DB,
+				Namespace:  "Arc",
+				Migrations: chain[:swap],
+			})).To(Succeed())
+			MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[arcv3.Key, arcv3.Arc]{
+				DB: n.DB,
+			}))
+			stored := arcv3.Arc{
+				Key:  uuid.New(),
+				Name: "text",
+				Mode: arcv3.ModeText,
+				Text: textv1.Text{Doc: textv1.Create("x := sy_x * 2")},
+			}
+			Expect(
+				gorp.NewCreate[arcv3.Key, arcv3.Arc]().Entry(&stored).Exec(ctx, n.DB),
+			).
+				To(Succeed())
+			key = stored.Key
+			// A signals Declare renamed held from sy_x, and the start stopped before
+			// the
+			// Arc table opened, so the rename waits in its record.
+			record := "sy_channel_text_rename/" + strconv.FormatUint(
+				uint64(held.Key()),
+				10,
+			)
+			Expect(n.DB.Set(ctx, []byte(record), []byte("sy_x"))).To(Succeed())
+		})
+		MustOpen(svctestutil.OpenLayer(ctx, n))
+		Expect(sourceOf(ctx, n, key)).To(Equal("x := sy_x_2 * 2"))
 	})
 })
