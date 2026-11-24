@@ -70,11 +70,13 @@ func (e *engine) preload(
 	for _, p := range h.parts {
 		r, err := e.cache.Records(p, key)
 		if err != nil {
-			return pre, errors.Join(err, e.unpin(h))
+			e.unpin(h)
+			return pre, err
 		}
 		addLive(&pre, ch, p, r, first, last)
 	}
-	return pre, e.unpin(h)
+	e.unpin(h)
+	return pre, nil
 }
 
 // cached adds to pre the live records of key in reach, parts of ch, that reach [first,
