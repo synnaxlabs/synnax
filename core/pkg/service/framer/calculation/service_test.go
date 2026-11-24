@@ -146,6 +146,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			DB:      dist.DB,
 			Channel: channelSvc,
 			Framer:  dist.Framer,
+			Status:  statusSvc,
 		}))
 		creator = calctestutil.Creator{
 			DB:          dist.DB,

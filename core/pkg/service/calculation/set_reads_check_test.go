@@ -48,6 +48,7 @@ var _ = Describe("SetReads checks", func() {
 			DB:      node.DB,
 			Channel: channels,
 			Framer:  node.Framer,
+			Status:  statuses,
 		}))
 		DeferCleanup(func() { Expect(svc.Close()).To(Succeed()) })
 		virtual := func(name string) channel.Channel {

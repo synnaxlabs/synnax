@@ -16,6 +16,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
@@ -48,12 +49,13 @@ var _ = Describe("Writer", func() {
 	var (
 		node     disttestutil.Node
 		channels *channel.Service
+		statuses *status.Service
 		svc      *calculation.Service
 	)
 	BeforeEach(func(ctx SpecContext) {
 		node = disttestutil.OpenNode(ctx)
 		DeferCleanup(func() { Expect(node.Close()).To(Succeed()) })
-		statuses := MustSucceed(
+		statuses = MustSucceed(
 			status.OpenService(ctx, status.ServiceConfig{DB: node.DB}),
 		)
 		DeferCleanup(func() { Expect(statuses.Close()).To(Succeed()) })
@@ -77,6 +79,7 @@ var _ = Describe("Writer", func() {
 			DB:      node.DB,
 			Channel: channels,
 			Framer:  node.Framer,
+			Status:  statuses,
 		}))
 		DeferCleanup(func() { Expect(svc.Close()).To(Succeed()) })
 	})
@@ -884,6 +887,173 @@ var _ = Describe("Writer", func() {
 					other.Key(),
 				))),
 			))
+		})
+
+		// moves returns the statuses that say a primary moved.
+		moves := func(ctx SpecContext) []calculation.Status {
+			GinkgoHelper()
+			var all []calculation.Status
+			Expect(statuses.NewRetrieve[struct{}]().Entries(&all).Exec(ctx, node.DB)).
+				To(Succeed())
+			return lo.Filter(all, func(st calculation.Status, _ int) bool {
+				return st.Message == "Changed the primary input"
+			})
+		}
+		applyActs := func(
+			ctx SpecContext,
+			c calculation.Calculation,
+			acts ...calculation.Action,
+		) ([]calculation.Action, error) {
+			var computed []calculation.Action
+			err := node.DB.WithTx(ctx, func(tx gorp.Tx) (err error) {
+				computed, err = svc.NewWriter(tx).Apply(ctx, c.Key, acts...)
+				return err
+			})
+			return computed, err
+		}
+		setExpression := func(expression string) calculation.Action {
+			return calculation.NewSetAction(calculation.SetPayload{
+				Path:  []string{"expression"},
+				Value: expression,
+			})
+		}
+		setPrimary := func(primary any) calculation.Action {
+			return calculation.NewSetAction(calculation.SetPayload{
+				Path:  []string{"primary"},
+				Value: primary,
+			})
+		}
+
+		It("Should post one status for each move of a calculation's primary", func(
+			ctx SpecContext,
+		) {
+			stored(ctx, "fast", every(telem.SecondTS, telem.Millisecond, 17))
+			stored(ctx, "slow", every(telem.SecondTS, telem.Second, 17))
+			mid := stored(ctx, "mid", every(telem.SecondTS, 10*telem.Millisecond, 17))
+			c := createCalc(ctx, calculation.Calculation{
+				Expression: "return fast + slow",
+			})
+			var out channel.Channel
+			Expect(channels.NewRetrieve().
+				Where(channel.MatchKeys(c.Output)).
+				Entry(&out).
+				Exec(ctx, node.DB)).To(Succeed())
+			c, _ = apply(ctx, c, "return slow + mid")
+			Expect(moves(ctx)).To(ConsistOf(And(
+				HaveField("Name", out.Name),
+				HaveField("Owner", BeNil()),
+				HaveField("Description", "The expression no longer reads fast, so the "+
+					"outputs now use the timestamps of mid."),
+			)))
+			Expect(c.Primary).To(HaveValue(Equal(mid.Key())))
+			apply(ctx, c, "return slow")
+			Expect(moves(ctx)).To(ConsistOf(HaveField(
+				"Description",
+				"The expression no longer reads mid, so the outputs now use the "+
+					"timestamps of slow.",
+			)))
+			Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Delete(ctx, c.Key)
+			})).To(Succeed())
+			Expect(moves(ctx)).To(BeEmpty())
+		})
+
+		It("Should post no status when the save sets the primary itself", func(
+			ctx SpecContext,
+		) {
+			fast := stored(ctx, "fast", every(telem.SecondTS, telem.Millisecond, 17))
+			slow := stored(ctx, "slow", every(telem.SecondTS, telem.Second, 17))
+			c := createCalc(ctx, calculation.Calculation{
+				Expression: "return fast + slow",
+			})
+			Expect(c.Primary).To(HaveValue(Equal(fast.Key())))
+			Expect(applyActs(
+				ctx,
+				c,
+				setExpression("return slow"),
+				setPrimary(slow.Key()),
+			)).Error().ToNot(HaveOccurred())
+			Expect(retrieve(ctx, c.Output)[0].Primary).To(HaveValue(Equal(slow.Key())))
+			Expect(moves(ctx)).To(BeEmpty())
+		})
+
+		It("Should fail a save that sets a primary its new text drops", func(
+			ctx SpecContext,
+		) {
+			fast := stored(ctx, "fast", every(telem.SecondTS, telem.Millisecond, 17))
+			stored(ctx, "slow", every(telem.SecondTS, telem.Second, 17))
+			c := createCalc(ctx, calculation.Calculation{
+				Expression: "return fast + slow",
+			})
+			Expect(applyActs(
+				ctx,
+				c,
+				setExpression("return slow"),
+				setPrimary(fast.Key()),
+			)).Error().To(MatchError(ContainSubstring(fmt.Sprintf(
+				"channel %s is not a channel that the expression reads",
+				fast.Key(),
+			))))
+		})
+
+		It("Should broadcast the primary it picks when the actions clear it", func(
+			ctx SpecContext,
+		) {
+			fast := stored(ctx, "fast", every(telem.SecondTS, telem.Millisecond, 17))
+			slow := stored(ctx, "slow", every(telem.SecondTS, telem.Second, 17))
+			c := createCalc(ctx, calculation.Calculation{
+				Expression: "return fast + slow",
+				Primary:    new(slow.Key()),
+			})
+			computed := MustSucceed(applyActs(ctx, c, setPrimary(nil)))
+			Expect(computed).To(ContainElement(setPrimary(fast.Key())))
+			Expect(retrieve(ctx, c.Output)[0].Primary).To(HaveValue(Equal(fast.Key())))
+		})
+
+		It("Should save a calculation that reads a stored channel its transaction "+
+			"creates", func(ctx SpecContext) {
+			slow := stored(ctx, "slow", every(telem.SecondTS, telem.Second, 3))
+			out := createVirtual(ctx, "out")
+			c := calculation.Calculation{
+				Output:     out.Key(),
+				Expression: "return fresh + slow",
+			}
+			Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				w := channels.NewWriter(tx)
+				index := channel.Channel{
+					Name:     "fresh_time",
+					DataType: telem.TimestampT,
+					IsIndex:  true,
+				}
+				if err := w.Create(ctx, &index); err != nil {
+					return err
+				}
+				fresh := channel.Channel{
+					Name:       "fresh",
+					DataType:   telem.Float32T,
+					LocalIndex: index.LocalKey,
+				}
+				if err := w.Create(ctx, &fresh); err != nil {
+					return err
+				}
+				return svc.NewWriter(tx).Create(ctx, &c)
+			})).To(Succeed())
+			Expect(c.Primary).To(HaveValue(Equal(slow.Key())))
+		})
+
+		It("Should pick again in SetReads when the reads no longer hold the primary, "+
+			"and say so", func(ctx SpecContext) {
+			fast := stored(ctx, "fast", every(telem.SecondTS, telem.Millisecond, 17))
+			slow := stored(ctx, "slow", every(telem.SecondTS, telem.Second, 17))
+			c := createCalc(ctx, calculation.Calculation{
+				Expression: "return fast + slow",
+			})
+			Expect(c.Primary).To(HaveValue(Equal(fast.Key())))
+			Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).SetReads(ctx, c, []channel.Key{slow.Key()})
+			})).To(Succeed())
+			Expect(retrieve(ctx, c.Output)[0].Primary).To(HaveValue(Equal(slow.Key())))
+			Expect(moves(ctx)).To(HaveLen(1))
 		})
 	})
 })

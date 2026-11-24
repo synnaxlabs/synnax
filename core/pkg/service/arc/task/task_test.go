@@ -138,6 +138,7 @@ var _ = Describe("Task", Ordered, func() {
 			DB:      node.DB,
 			Channel: channelSvc,
 			Framer:  node.Framer,
+			Status:  statusSvc,
 		}))
 		channelGraph := MustOpen(calcgraph.Open(ctx, calcgraph.Config{
 			DB:          node.DB,

@@ -55,6 +55,7 @@ func openBenchEnv(b *testing.B) benchEnv {
 		DB:      node.DB,
 		Channel: channels,
 		Framer:  node.Framer,
+		Status:  statuses,
 	}))
 	b.Cleanup(func() {
 		lo.Must0(calcs.Close())

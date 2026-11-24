@@ -70,6 +70,7 @@ var _ = Describe("Signals", Ordered, func() {
 			DB:      node.DB,
 			Channel: channelSvc,
 			Framer:  node.Framer,
+			Status:  stat,
 		}))
 		graph := MustOpen(calcgraph.Open(ctx, calcgraph.Config{
 			DB:          node.DB,

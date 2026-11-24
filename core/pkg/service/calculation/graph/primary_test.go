@@ -11,7 +11,6 @@ package graph_test
 
 import (
 	"context"
-	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -77,43 +76,5 @@ var _ = Describe("Primary", func() {
 		store(ctx, out.Key(), new(second.Key()))
 		openGraph(ctx)
 		Expect(primaryOf(ctx, out.Key())).To(HaveValue(Equal(second.Key())))
-	})
-
-	It("Should announce a primary that the expression no longer reads", func(
-		ctx SpecContext,
-	) {
-		dropped := virtual(ctx, "pr_drop_a")
-		kept := virtual(ctx, "pr_drop_b")
-		out := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
-			Name:       "pr_drop_out",
-			Expression: "return pr_drop_a + pr_drop_b",
-		}))
-		Expect(primaryOf(ctx, out.Key())).To(HaveValue(Equal(dropped.Key())))
-		openGraph(ctx)
-		Expect(creator.Apply(
-			ctx,
-			out.Key(),
-			calculation.NewSetAction(calculation.SetPayload{
-				Path:  []string{"expression"},
-				Value: "return pr_drop_b",
-			}),
-		)).To(Succeed())
-		Expect(primaryOf(ctx, out.Key())).To(HaveValue(Equal(kept.Key())))
-		Eventually(func(g Gomega) {
-			var statuses []calculation.Status
-			g.Expect(statusSvc.NewRetrieve[struct{}]().
-				Entries(&statuses).
-				Exec(ctx, db)).To(Succeed())
-			g.Expect(statuses).To(ContainElement(And(
-				HaveField("Name", out.Name),
-				HaveField("Owner", BeNil()),
-				HaveField("Message", "Changed the primary input"),
-				HaveField("Description", fmt.Sprintf(
-					"%s is no longer read, so %s times the outputs now.",
-					dropped.Name,
-					kept.Name,
-				)),
-			)))
-		}).Should(Succeed())
 	})
 })

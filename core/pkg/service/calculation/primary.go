@@ -13,15 +13,91 @@ import (
 	"context"
 	"slices"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // intervalWindow is the number of an input's newest intervals that set its rate, the
 // same number that sets its hold limit in the join.
 const intervalWindow = 16
+
+// primaryStatusKey returns the key of the status that tells why the primary of the
+// calculation with key moved. A later move replaces it.
+func primaryStatusKey(key Key) status.Key {
+	return "calculation_primary_" + key.String()
+}
+
+// settlePrimary returns the primary that a calculation whose expression reads reads
+// stores after a save. held is the primary it stored before the save, and requested the
+// one the save leaves. A save that sets the primary must name a read, or none to have
+// one picked. Otherwise a held primary among the reads stays, and the calculation picks
+// one.
+func (w Writer) settlePrimary(
+	ctx context.Context,
+	held, requested *channel.Key,
+	set bool,
+	reads []channel.Key,
+) (*channel.Key, error) {
+	switch {
+	case set && requested != nil:
+		if !slices.Contains(reads, *requested) {
+			return nil, validate.PathedError(errors.Wrapf(
+				validate.ErrValidation,
+				"channel %s is not a channel that the expression reads",
+				*requested,
+			), "primary")
+		}
+		return requested, nil
+	case !set && held != nil && slices.Contains(reads, *held):
+		return held, nil
+	}
+	return w.pickPrimary(ctx, reads)
+}
+
+// announceDrop posts the status that the primary of c moved, when its expression no
+// longer reads held.
+func (w Writer) announceDrop(
+	ctx context.Context,
+	c Calculation,
+	held *channel.Key,
+) error {
+	if held == nil || c.Primary == nil || slices.Contains(c.Reads, *held) {
+		return nil
+	}
+	var channels []channel.Channel
+	if err := w.channels.NewRetrieve().
+		Where(channel.MatchKeys(c.Output, *held, *c.Primary)).
+		SkipMissingKeys().
+		Entries(&channels).
+		Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	// A deleted channel has no name, so the status names it by key.
+	name := func(k channel.Key) string {
+		if ch, ok := lo.Find(channels, func(ch channel.Channel) bool {
+			return ch.Key() == k
+		}); ok {
+			return ch.Name
+		}
+		return k.String()
+	}
+	st := primaryChangedStatus(c.Key, name(c.Output), name(*held), name(*c.Primary))
+	return w.svc.statuses.NewWriter(w.tx).Set(ctx, st)
+}
+
+// setsPrimary reports whether acts change the primary.
+func setsPrimary(acts []Action) bool {
+	return slices.ContainsFunc(acts, func(a Action) bool {
+		return a.Set != nil && slices.Equal(a.Set.Path, []string{"primary"}) ||
+			a.Remove != nil && slices.Equal(a.Remove.Path, []string{"primary"})
+	})
+}
 
 // pickPrimary returns the read whose index has the shortest median interval over its
 // newest stored stretch, or the earlier read on a tie. A virtual read, or one with
@@ -47,6 +123,20 @@ func (w Writer) pickPrimary(
 			indexOf[ch.Key()] = ch.Index()
 		}
 	}
+	// Storage makes a channel when the transaction that creates it commits, so an index
+	// that this transaction creates holds no samples yet.
+	var committed []channel.Channel
+	if err := w.channels.NewRetrieve().
+		Where(channel.MatchKeys(lo.Uniq(lo.Values(indexOf))...)).
+		SkipMissingKeys().
+		Entries(&committed).
+		Exec(ctx, w.svc.db); err != nil {
+		return nil, err
+	}
+	stored := make(set.Set[channel.Key], len(committed))
+	for _, ch := range committed {
+		stored.Add(ch.Key())
+	}
 	type rate struct {
 		median telem.TimeSpan
 		ok     bool
@@ -58,8 +148,8 @@ func (w Writer) pickPrimary(
 		found    bool
 	)
 	for _, read := range reads {
-		index, stored := indexOf[read]
-		if !stored {
+		index, ok := indexOf[read]
+		if !ok || !stored.Contains(index) {
 			continue
 		}
 		r, measured := rates[index]

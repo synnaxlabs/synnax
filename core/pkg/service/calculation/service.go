@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
@@ -42,6 +43,10 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Framer *framer.Service
+	// Status stores the status that a save posts when it picks a new primary.
+	//
+	// [REQUIRED]
+	Status *status.Service
 	// Instrumentation for logging, tracing, and metrics.
 	//
 	// [OPTIONAL]
@@ -56,6 +61,7 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("db", c.DB)
 	v.NotNil("channel", c.Channel)
 	v.NotNil("framer", c.Framer)
+	v.NotNil("status", c.Status)
 	return v.Error()
 }
 
@@ -65,6 +71,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Framer = override.Nil(c.Framer, other.Framer)
+	c.Status = override.Nil(c.Status, other.Status)
 	return c
 }
 
@@ -76,6 +83,8 @@ type Service struct {
 	state    *actions.State[Key, Action]
 	channels *channel.Service
 	framer   *framer.Service
+	statuses *status.Service
+	db       *gorp.DB
 	// checks holds the check of each action batch that a transaction attaches.
 	checks *gorp.Attachment[batchCheck[Key]]
 	// outputChecks holds the check of each channel action batch that announces the
@@ -118,6 +127,8 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		state:        actions.NewState[Key, Action](cfg.DB),
 		channels:     cfg.Channel,
 		framer:       cfg.Framer,
+		statuses:     cfg.Status,
+		db:           cfg.DB,
 		checks:       gorp.NewAttachment[batchCheck[Key]](),
 		outputChecks: gorp.NewAttachment[batchCheck[channel.Key]](),
 	}

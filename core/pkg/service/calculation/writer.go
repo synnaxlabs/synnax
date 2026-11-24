@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/calculation/compiler"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
@@ -63,8 +64,10 @@ func (w Writer) channelWriter() channel.Writer {
 // record writes. It returns an error wrapping validate.ErrValidation when the
 // calculation is not valid or its output breaks that rule, and an error wrapping
 // query.ErrNotFound when the output does not exist. It fails as compile does, and sets
-// the data type of the output to the type of the expression. The commit broadcasts a
-// create action that holds the stored calculation.
+// the data type of the output to the type of the expression. A primary that c names
+// must be a read, or the error wraps validate.ErrValidation at the path primary. With
+// none, Create picks one, which reads stored samples. The commit broadcasts a create
+// action that holds the stored calculation.
 func (w Writer) Create(ctx context.Context, c *Calculation) error {
 	if err := c.Validate(); err != nil {
 		return err
@@ -84,10 +87,14 @@ func (w Writer) create(ctx context.Context, c *Calculation) error {
 	if err = w.compile(ctx, output, c); err != nil {
 		return err
 	}
-	if c.Primary == nil {
-		if c.Primary, err = w.pickPrimary(ctx, c.Reads); err != nil {
-			return err
-		}
+	if c.Primary, err = w.settlePrimary(
+		ctx,
+		nil,
+		c.Primary,
+		c.Primary != nil,
+		c.Reads,
+	); err != nil {
+		return err
 	}
 	if err := w.table.NewCreate().Exclusive().Entry(c).Exec(ctx, w.tx); err != nil {
 		return err
@@ -209,8 +216,10 @@ func outputError(format string, ch channel.Channel) error {
 // broadcasts them. It returns an error wrapping validate.ErrValidation when an action
 // is a create or the result is not valid, and an error wrapping query.ErrNotFound when
 // no calculation has the key. It fails as compile does, and sets the data type of the
-// output to the type of the expression. It returns the actions it adds to acts, such
-// as a set of the reads that the new expression changed.
+// output to the type of the expression. A primary that acts set must be a read. When
+// the new expression no longer reads the stored primary, Apply picks another and posts
+// a status that says so. It returns the actions it adds to acts, such as a set of the
+// reads that the new expression changed or of the primary that it picked.
 func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, error) {
 	var c Calculation
 	if err := w.table.NewRetrieve().
@@ -244,23 +253,18 @@ func (w Writer) ApplyTo(
 		Exec(ctx, w.tx); err != nil {
 		return Calculation{}, nil, err
 	}
-	// A primary that the actions keep is picked again when the new expression drops it,
-	// while one that the actions set must be read.
-	var kept *channel.Key
-	if next.Primary != nil && c.Primary != nil && *next.Primary == *c.Primary {
-		kept, next.Primary = next.Primary, nil
-	}
 	if err = w.compile(ctx, output, &next); err != nil {
 		return Calculation{}, nil, err
 	}
-	if kept != nil && slices.Contains(next.Reads, *kept) {
-		next.Primary = kept
-	}
-	picked := next.Primary == nil
-	if picked {
-		if next.Primary, err = w.pickPrimary(ctx, next.Reads); err != nil {
-			return Calculation{}, nil, err
-		}
+	requested, set := next.Primary, setsPrimary(acts)
+	if next.Primary, err = w.settlePrimary(
+		ctx,
+		c.Primary,
+		requested,
+		set,
+		next.Reads,
+	); err != nil {
+		return Calculation{}, nil, err
 	}
 	if err = w.table.NewUpdate().
 		Where(gorp.MatchKeys[Key, Calculation](c.Key)).
@@ -275,19 +279,23 @@ func (w Writer) ApplyTo(
 			Value: next.Reads,
 		}))
 	}
-	if picked && !samePrimary(next.Primary, c.Primary) {
+	if !samePrimary(next.Primary, requested) {
 		computed = append(computed, primaryAction(next.Primary))
 	}
 	w.attach(next, slices.Concat(acts, computed)...)
+	if !set {
+		if err = w.announceDrop(ctx, next, c.Primary); err != nil {
+			return Calculation{}, nil, err
+		}
+	}
 	return next, computed, nil
 }
 
 // compile analyzes c as the calculation that writes output. It returns the analysis
 // error when the expression does not compile, and an error wrapping
-// validate.ErrValidation when the primary of c is not a channel the expression reads or
-// the calculations the expression reads lead back to output. It sets the data type of
-// output to the type of the expression, and the reads of c to the channels the
-// expression reads.
+// validate.ErrValidation when the calculations the expression reads lead back to
+// output. It sets the data type of output to the type of the expression, and the reads
+// of c to the channels the expression reads.
 func (w Writer) compile(
 	ctx context.Context,
 	output channel.Channel,
@@ -302,13 +310,6 @@ func (w Writer) compile(
 	)
 	if err != nil {
 		return validate.PathedError(err, "expression")
-	}
-	if c.Primary != nil && !slices.Contains(result.Deps, *c.Primary) {
-		return validate.PathedError(errors.Wrapf(
-			validate.ErrValidation,
-			"channel %s is not a channel that the expression reads",
-			*c.Primary,
-		), "primary")
 	}
 	reads := slices.Concat(result.Deps, resets(c.Operations))
 	if err = w.checkCycle(ctx, analyzer, output, reads); err != nil {
@@ -407,21 +408,19 @@ func (w Writer) cycleError(ctx context.Context, path channel.Keys) error {
 
 func (w Writer) newAnalyzer() *compiler.Analyzer { return w.svc.newAnalyzer(w.tx) }
 
-// SetReads stores reads, in order and each once, as the reads of c, and picks the
-// primary of c from them when it has none. It broadcasts a set of each field it
-// changes, and writes nothing when it changes no field.
+// SetReads stores reads, in order and each once, as the reads of c. It keeps the
+// primary of c when the reads hold it, and otherwise picks one and posts a status when
+// c had another. It broadcasts a set of each field it changes, and writes nothing when
+// it changes no field.
 func (w Writer) SetReads(
 	ctx context.Context,
 	c Calculation,
 	reads []channel.Key,
 ) error {
 	reads = slices.Sorted(slices.Values(lo.Uniq(reads)))
-	primary := c.Primary
-	if primary == nil {
-		var err error
-		if primary, err = w.pickPrimary(ctx, reads); err != nil {
-			return err
-		}
+	primary, err := w.settlePrimary(ctx, c.Primary, c.Primary, false, reads)
+	if err != nil {
+		return err
 	}
 	sameReads := sameKeys(reads, c.Reads)
 	if sameReads && samePrimary(primary, c.Primary) {
@@ -448,10 +447,8 @@ func (w Writer) SetReads(
 	if !samePrimary(primary, c.Primary) {
 		acts = append(acts, primaryAction(primary))
 	}
-	if len(acts) > 0 {
-		w.attach(next, acts...)
-	}
-	return nil
+	w.attach(next, acts...)
+	return w.announceDrop(ctx, next, c.Primary)
 }
 
 // primaryAction returns the action that sets the primary of a calculation to primary,
@@ -489,7 +486,10 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 	for _, c := range deleted {
 		w.svc.announce(w.tx, w.channelWriter(), c.Output, c, fieldsOf(c, false)...)
 	}
-	return nil
+	return w.svc.statuses.NewWriter(w.tx).Delete(ctx, lo.Map(
+		keys,
+		func(k Key, _ int) status.Key { return primaryStatusKey(k) },
+	)...)
 }
 
 // sameKeys reports whether a and b hold the same keys, in any order and with any
