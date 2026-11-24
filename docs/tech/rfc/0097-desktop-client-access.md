@@ -39,15 +39,15 @@ each client, and a button that replaces the key.
 
 The shell writes `desktop.json` to the config folder of the OS
 (`$XDG_CONFIG_HOME/synnax` on Linux, `~/Library/Application Support/Synnax` on macOS,
-`%APPDATA%\Synnax` on Windows) and to `~/.synnax`, the only path that 0.62 clients read.
-Clients read the config folder first. The file holds `host`, `port`, and `secure`, the
-field names of the Python `Options`, and `api_key_helper`. The write goes to a partial
-file, then renames it. The API key goes to the OS keychain under service
-`com.synnaxlabs.desktop` and account `api_key`. "Erase all data" deletes the file and
-the key. Desktop 1.1 wrote `api_key` in the file. That key never moves to the keychain:
-the window revokes it in the Core, removes it from the file only after the revoke, and
-saves a new key in the keychain. A failed revoke leaves the file as it is and runs again
-on the next read, so a plaintext root key never stays valid.
+`%APPDATA%\Synnax` on Windows) and to `~/.synnax`, where Desktop 1.1 wrote it. The file
+holds `host`, `port`, and `secure`, the field names of the Python `Options`, and
+`api_key_helper`. The write goes to a partial file, then renames it. The API key goes to
+the OS keychain under service `com.synnaxlabs.desktop` and account `api_key`. "Erase all
+data" deletes both files and the key. Desktop 1.1 wrote `api_key` in the file. That key
+never moves to the keychain: the window revokes it in the Core, removes it from the file
+only after the revoke, and saves a new key in the keychain. A failed revoke leaves the
+file as it is and runs again on the next read, so a plaintext root key never stays
+valid.
 
 `api_key_helper` is the absolute path of `synnax-desktop-key`, a program that Desktop
 installs next to its executable. It prints the key to stdout, or writes one line to
