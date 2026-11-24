@@ -141,3 +141,19 @@ var _ = Describe("RemoveToken", func() {
 		Entry("with a comment after it", "stage s // c\n{}", "stage // c\n{}"),
 	)
 })
+
+var _ = Describe("RemoveStatement", func() {
+	DescribeTable("Should remove the statement",
+		func(source, expected string) {
+			stmt := MustSucceed(parser.Parse(source)).TopLevelItem(0).AuthorityBlock()
+			Expect(applied(source, formatter.RemoveStatement(stmt))).To(Equal(expected))
+		},
+		Entry("with the newline after it", "authority 1\nx := 1\n", "x := 1\n"),
+		Entry("at the end of the source", "authority 1", ""),
+		Entry(
+			"on more than one line",
+			"authority (\n    1\n)\nx := 1\n",
+			"x := 1\n",
+		),
+	)
+})

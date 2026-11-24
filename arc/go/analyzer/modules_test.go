@@ -13,14 +13,15 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/analyzer"
+	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/analyzer/context"
+	"github.com/synnaxlabs/arc/analyzer/testutil"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
-	xlsp "github.com/synnaxlabs/x/lsp"
+	"github.com/synnaxlabs/x/diagnostics"
 	. "github.com/synnaxlabs/x/testutil"
-	"go.lsp.dev/protocol"
 )
 
 var _ = Describe("Modules", func() {
@@ -47,6 +48,29 @@ var _ = Describe("Modules", func() {
 				ContainSubstring("[E4006]: a module cannot have an authority block"),
 			)
 		})
+
+		DescribeTable(
+			"Should give a fix that removes an authority block from a module",
+			func(bCtx SpecContext, source, fixed string) {
+				ctx := analyze(bCtx, source, true)
+				var fixes []diagnostics.Fix
+				for _, d := range *ctx.Diagnostics {
+					if d.Code == codes.ModuleAuthority.Code {
+						fixes = append(fixes, d.Fixes...)
+					}
+				}
+				Expect(fixes).To(HaveLen(1))
+				Expect(fixes[0].Title).To(Equal("Remove authority block"))
+				Expect(testutil.ApplyFix(source, fixes[0])).To(Equal(fixed))
+			},
+			Entry("one value", "authority 255\nfunc f() {}", "func f() {}"),
+			Entry(
+				"a block of entries",
+				"authority (\n    200\n    out 255\n)\n\nfunc f() {}",
+				"\nfunc f() {}",
+			),
+			Entry("the last line", "authority 255", ""),
+		)
 
 		It("Should reject a top-level flow in a module", func(bCtx SpecContext) {
 			ctx := analyze(bCtx, "in -> out", true)
@@ -78,14 +102,7 @@ var _ = Describe("Modules", func() {
 				fixes := (*ctx.Diagnostics)[0].Fixes
 				Expect(fixes).To(HaveLen(1))
 				Expect(fixes[0].Title).To(Equal("Remove export"))
-				Expect(fixes[0].Edits).To(HaveLen(1))
-				Expect(xlsp.ApplyIncrementalChange(
-					source,
-					&protocol.TextDocumentContentChangePartial{
-						Range: fixes[0].Edits[0].Range,
-						Text:  fixes[0].Edits[0].NewText,
-					},
-				)).To(Equal(fixed))
+				Expect(testutil.ApplyFix(source, fixes[0])).To(Equal(fixed))
 			},
 			Entry("function", "export func f() {}", "func f() {}"),
 			Entry(

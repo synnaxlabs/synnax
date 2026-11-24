@@ -49,7 +49,7 @@ func AddImport(root *symbol.Symbol, module string) []protocol.TextEdit {
 		NewText: block.String(),
 	}}
 	for _, stmt := range stmts[1:] {
-		edits = append(edits, removeStatement(stmt))
+		edits = append(edits, RemoveStatement(stmt))
 	}
 	return edits
 }
@@ -101,7 +101,7 @@ func RemoveImport(item parser.IImportItemContext) protocol.TextEdit {
 	stmt := statementOf(item)
 	items := stmt.AllImportItem()
 	if len(items) == 1 {
-		return removeStatement(stmt)
+		return RemoveStatement(stmt)
 	}
 	i := slices.Index(items, item)
 	r := protocol.Range{Start: startOf(item.GetStart()), End: endOf(item.GetStop())}
@@ -113,8 +113,8 @@ func RemoveImport(item parser.IImportItemContext) protocol.TextEdit {
 	return protocol.TextEdit{Range: r}
 }
 
-// removeStatement returns the edit that removes stmt and the newline after it.
-func removeStatement(stmt antlr.ParserRuleContext) protocol.TextEdit {
+// RemoveStatement returns the edit that removes stmt and the newline after it.
+func RemoveStatement(stmt antlr.ParserRuleContext) protocol.TextEdit {
 	stop := stmt.GetStop()
 	end := endOf(stop)
 	if stop.GetInputStream().GetText(stop.GetStop()+1, stop.GetStop()+1) == "\n" {
