@@ -367,10 +367,10 @@ Identity struct {
         @doc value   "is the path that prefixes the path of every request."
         @go validate pattern "^$|^/[^?#[:space:]]*$" "Base path must be empty or start with /, with no query, fragment, or whitespace"
     }
-    timeout                 telem.TimeSpan = 1000000000 {
+    timeout                 telem.TimeSpan = 1s {
         @doc value    "is the timeout of each request."
         @ts type      telem.NumericTimeSpan
-        @validate max 9007199254740991
+        @validate max 3600000000000
         @validate min 10000000
     }
     max_concurrent_requests uint32 = 6 {

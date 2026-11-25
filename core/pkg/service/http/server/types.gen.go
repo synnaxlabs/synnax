@@ -216,7 +216,7 @@ func (i Identity) Validate() error {
 	}
 	v.Ternary("base_path", !validatePattern1.MatchString(string(i.BasePath)), "Base path must be empty or start with /, with no query, fragment, or whitespace")
 	v.GreaterThanEq("timeout", i.Timeout, 10000000)
-	v.LessThanEq("timeout", i.Timeout, 9007199254740991)
+	v.LessThanEq("timeout", i.Timeout, 3600000000000)
 	v.GreaterThanEq("max_concurrent_requests", i.MaxConcurrentRequests, 1)
 	v.LessThanEq("max_concurrent_requests", i.MaxConcurrentRequests, 64)
 	v.Exec(func() error { return validate.PathedError(i.Scheme.Validate(), "scheme") })

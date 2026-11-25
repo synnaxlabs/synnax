@@ -111,6 +111,14 @@ var _ = Describe("Update", func() {
 		Entry("an IPv4 address with a port", "10.0.0.5:8080", false),
 	)
 
+	It("Should refuse an identity timeout over one hour", func() {
+		update, ok := identity.Variant.(server.IdentityUpdate)
+		Expect(ok).To(BeTrue())
+		id := update.Identity
+		id.Timeout = telem.Hour + telem.Nanosecond
+		Expect(id.Validate()).To(MatchError(ContainSubstring("timeout")))
+	})
+
 	It("Should reject an unknown group in JSON", func() {
 		var got server.Update
 		Expect(json.Unmarshal([]byte(`{"group":"other"}`), &got)).

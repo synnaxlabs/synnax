@@ -331,7 +331,7 @@ export const identityZ = z.object({
   basePath: z.string().default(""),
   /** timeout is the timeout of each request. */
   timeout: telem.numericTimeSpanZ
-    .check(z.gte(10000000), z.lte(9007199254740991))
+    .check(z.gte(10000000), z.lte(3600000000000))
     .default(1000000000),
   /**
    * maxConcurrentRequests is the largest number of requests in flight to the server.
