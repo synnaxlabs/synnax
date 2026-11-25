@@ -1,0 +1,21 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+/* The description's text lines up with the name above it, and the field grows with the
+   text. A zero width keeps a long line from widening the modal. */
+.console-channel-create__description textarea {
+    width: 0;
+    min-width: 100%;
+    max-height: 30rem;
+    padding-inline: 0.5rem;
+    white-space: pre-wrap;
+    field-sizing: content;
+}

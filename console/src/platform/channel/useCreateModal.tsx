@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/platform/channel/CreateModal.css";
+
 import { DataType } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
@@ -21,6 +23,8 @@ import { Channel, Telem } from "@synnaxlabs/pluto";
 import { useState } from "react";
 
 import { Analytics } from "@/platform/analytics";
+import { DESCRIPTION_MAX_LENGTH } from "@/platform/channel/description";
+import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";
 
@@ -65,6 +69,19 @@ const Create = ({ close }: Modals.ContentProps<Record<never, never>, void>) => {
                 variant="text"
                 placeholder="Channel name"
                 aria-label="Channel name"
+                {...p}
+              />
+            )}
+          </Form.Field>
+          <Form.Field path={path.description} showLabel={false} padHelpText={false}>
+            {(p) => (
+              <Input.Text
+                area
+                variant="text"
+                className={CSS.BE("channel-create", "description")}
+                placeholder="Add a description"
+                aria-label="Channel description"
+                maxLength={DESCRIPTION_MAX_LENGTH}
                 {...p}
               />
             )}

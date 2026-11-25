@@ -53,3 +53,73 @@
         display: none;
     }
 }
+
+.console-channel-inspector__description {
+    margin: 1rem 0 1rem;
+}
+
+.console-channel-inspector__text {
+    display: -webkit-box;
+    overflow: hidden;
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+    user-select: text;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 6;
+    line-clamp: 6;
+}
+
+.console-channel-inspector__text.console--empty {
+    display: flex;
+}
+
+.console-channel-inspector__text.console--expanded {
+    display: block;
+    -webkit-line-clamp: unset;
+    line-clamp: unset;
+}
+
+/* The editable text takes the states of a Lyra text button. */
+.console-channel-inspector__text.console--editable {
+    margin: 0 -0.5rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: var(--pluto-border-radius-small);
+    cursor: text;
+    user-select: none;
+
+    &:hover {
+        background: var(--pluto-fill-hover);
+        color: var(--pluto-text-color);
+    }
+
+    &:active {
+        background: var(--pluto-fill-press);
+    }
+
+    &:focus-visible {
+        outline: 1px solid var(--pluto-primary-z);
+        outline-offset: var(--pluto-focus-ring-offset);
+    }
+}
+
+.console-channel-inspector__more {
+    align-self: flex-start;
+    margin: 0.5rem 0 0 -1.5rem;
+}
+
+.console-channel-inspector__description.console--editing {
+    align-self: stretch;
+    width: auto;
+    height: auto;
+    margin-right: -0.5rem;
+    margin-left: -0.5rem;
+
+    & textarea {
+        min-height: 9rem;
+        max-height: 40rem;
+        padding: 0.25rem 0.5rem;
+        overflow-wrap: anywhere;
+        white-space: pre-wrap;
+        field-sizing: content;
+    }
+}

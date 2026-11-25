@@ -18,6 +18,7 @@ import { Channel, Errors, Resource } from "@synnaxlabs/pluto";
 import { compare } from "@synnaxlabs/x";
 import type { ReactElement } from "react";
 
+import { Description } from "@/feature/channel/explorer/Description";
 import { FolderPath } from "@/feature/channel/explorer/FolderPath";
 import { CSS } from "@/platform/css";
 import { Tree } from "@/platform/tree";
@@ -157,6 +158,7 @@ const Header = ({ channelKey }: HeaderProps): ReactElement | null => {
         {ch.name}
       </Text.Text>
       {ch.group != null && <FolderPath folder={ch.group} />}
+      <Description key={ch.key} channelKey={ch.key} value={ch.description} />
     </Flex.Box>
   );
 };

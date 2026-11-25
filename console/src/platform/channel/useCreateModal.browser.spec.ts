@@ -136,6 +136,21 @@ describe("useCreateModal", () => {
       });
     });
 
+    it("should store the description with the new channel", async () => {
+      await openModal();
+      const name = uniqueName("virt");
+      setName(name);
+      fireEvent.change(screen.getByLabelText("Channel description"), {
+        target: { value: "Flow at the outlet.\nFrom meter FT-301." },
+      });
+      selectKind("Virtual");
+      await clickCreate();
+      await waitFor(async () => {
+        const created = await client.channels.retrieve(name);
+        expect(created.description).toBe("Flow at the outlet.\nFrom meter FT-301.");
+      });
+    });
+
     it("should report the channel it created", async () => {
       const analytics = createTestSink();
       await openModal(analytics);

@@ -275,6 +275,26 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   },
 });
 
+export interface SetDescriptionParams extends Pick<
+  channel.Payload,
+  "key" | "description"
+> {}
+
+export const { useUpdate: useSetDescription } = Flux.createUpdate<SetDescriptionParams>(
+  {
+    name: "channel description",
+    verbs: verbs.UPDATE,
+    update: async ({ client, data }) => {
+      const { key, description } = data;
+      await client.channels.dispatch(
+        key,
+        channel.set({ path: ["description"], value: description }),
+      );
+      return data;
+    },
+  },
+);
+
 export type DeleteParams = channel.Key | channel.Key[];
 
 export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams>({

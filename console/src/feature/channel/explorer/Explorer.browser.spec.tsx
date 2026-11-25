@@ -112,9 +112,10 @@ const ignoreCodeProvider = (error: unknown): void => {
   if (!String(error).includes("Code.Provider is not mounted")) console.error(error);
 };
 
-const renderView = async (stored: view.View): Promise<void> => {
+const renderView = async (stored: view.View, as?: Client): Promise<void> => {
   const { wrapper } = await createTabWrapper({
     client,
+    as,
     tab: { variant: "resource", resource: view.resourceID(stored.key) },
   });
   await renderLazy(<TreeExplorer />, { wrapper, onCaughtError: ignoreCodeProvider });
@@ -252,7 +253,7 @@ describe("channel inspector", () => {
     return { folder, read, unused, reader };
   };
 
-  const renderList = async (folder: group.Group) =>
+  const renderList = async (folder: group.Group, as?: Client) =>
     await renderView(
       await client.views.create({
         name: uniqueName("view"),
@@ -260,6 +261,7 @@ describe("channel inspector", () => {
         where: { groups: [folder.key] },
         layout: "list",
       }),
+      as,
     );
 
   const inspector = () => within(screen.getByLabelText("Channel inspector"));
@@ -303,6 +305,119 @@ describe("channel inspector", () => {
     const tree = within(await findBySelector(".console-channel-explorer__folders"));
     fireEvent.click(await tree.findByText(read.name));
     expect(await inspector().findByText(reader.name)).toBeTruthy();
+  });
+
+  describe("description", () => {
+    /** Creates a channel with the description in a folder of its own. */
+    const createDescribed = async (description: string) => {
+      const folder = await client.groups.create({
+        scope: "channel",
+        name: uniqueName("folder"),
+      });
+      const ch = await client.channels.create({
+        name: uniqueName("described"),
+        dataType: DataType.FLOAT32,
+        virtual: true,
+        group: folder.key,
+        description,
+      });
+      return { folder, ch };
+    };
+
+    const findEditor = async (): Promise<HTMLElement> =>
+      await inspector().findByRole("textbox", { name: "Channel description" });
+
+    const storedDescription = async (key: channel.Key): Promise<string> =>
+      (await client.channels.retrieve(key)).description;
+
+    it("should save a description added with Cmd+Enter", async () => {
+      const { folder, ch } = await createDescribed("");
+      await renderList(folder);
+      fireEvent.click(await screen.findByText(ch.name), { ctrlKey: true });
+      fireEvent.click(
+        await inspector().findByRole("button", { name: "Add a description" }),
+      );
+      const editor = await findEditor();
+      fireEvent.change(editor, { target: { value: "Fed by pump P-1." } });
+      fireEvent.keyDown(editor, { key: "Enter", metaKey: true });
+      expect(await inspector().findByText("Fed by pump P-1.")).toBeTruthy();
+      expect(inspector().queryByRole("textbox")).toBeNull();
+      await waitFor(async () =>
+        expect(await storedDescription(ch.key)).toBe("Fed by pump P-1."),
+      );
+    });
+
+    it("should drop the draft on Escape", async () => {
+      const { folder, ch } = await createDescribed("Kept text");
+      await renderList(folder);
+      fireEvent.click(await screen.findByText(ch.name), { ctrlKey: true });
+      fireEvent.click(await inspector().findByRole("button", { name: "Kept text" }));
+      const editor = await findEditor();
+      fireEvent.change(editor, { target: { value: "Dropped text" } });
+      fireEvent.keyDown(editor, { key: "Escape" });
+      const text = await inspector().findByRole("button", { name: "Kept text" });
+      await waitFor(() => expect(document.activeElement).toBe(text));
+      expect(inspector().queryByRole("textbox")).toBeNull();
+      expect(await storedDescription(ch.key)).toBe("Kept text");
+    });
+
+    it("should open the editor again with the user's text when a save is refused", async () => {
+      const { folder, ch } = await createDescribed("Kept text");
+      await renderList(folder);
+      fireEvent.click(await screen.findByText(ch.name), { ctrlKey: true });
+      fireEvent.click(await inspector().findByRole("button", { name: "Kept text" }));
+      // The field stops typing at the limit, so only a change event can pass it.
+      const refused = "x".repeat(1025);
+      fireEvent.change(await findEditor(), { target: { value: refused } });
+      fireEvent.keyDown(await findEditor(), { key: "Enter", metaKey: true });
+      await waitFor(async () =>
+        expect((await findEditor()) as HTMLTextAreaElement).toHaveProperty(
+          "value",
+          refused,
+        ),
+      );
+      expect(await storedDescription(ch.key)).toBe("Kept text");
+    });
+
+    it("should save a trimmed edit on blur", async () => {
+      const { folder, ch } = await createDescribed("Old text");
+      await renderList(folder);
+      fireEvent.click(await screen.findByText(ch.name), { ctrlKey: true });
+      fireEvent.click(await inspector().findByRole("button", { name: "Old text" }));
+      const editor = await findEditor();
+      fireEvent.change(editor, { target: { value: "  New text\n" } });
+      fireEvent.blur(editor);
+      await waitFor(async () =>
+        expect(await storedDescription(ch.key)).toBe("New text"),
+      );
+    });
+
+    const createReader = async () =>
+      await createTestClientWithGrants(client, {
+        retrieve: [
+          channel.TYPE_RESOURCE_ID,
+          view.TYPE_RESOURCE_ID,
+          group.TYPE_RESOURCE_ID,
+          panel.TYPE_RESOURCE_ID,
+        ],
+      });
+
+    it("should show a subject who cannot update the channel the text and no editor", async () => {
+      const { folder, ch } = await createDescribed("Visible text");
+      await renderList(folder, await createReader());
+      fireEvent.click(await screen.findByText(ch.name), { ctrlKey: true });
+      fireEvent.click(await inspector().findByText("Visible text"));
+      expect(inspector().queryByRole("button", { name: "Visible text" })).toBeNull();
+      expect(inspector().queryByRole("textbox")).toBeNull();
+    });
+
+    it("should show a subject who cannot update the channel no empty description", async () => {
+      const { folder, ch } = await createDescribed("");
+      await renderList(folder, await createReader());
+      fireEvent.click(await screen.findByText(ch.name), { ctrlKey: true });
+      expect(await inspector().findByText(ch.name)).toBeTruthy();
+      expect(inspector().queryByText("Add a description")).toBeNull();
+    });
   });
 });
 
