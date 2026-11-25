@@ -120,7 +120,7 @@ describe("Symbol form", () => {
         key: "active",
         match: { type: "within", bounds: { lower, upper } },
       });
-    const INVALID = "Minimum value must be less than maximum value";
+    const INVALID = "Min value must be less than max value";
 
     it("should hold a minimum above the maximum until the pair is valid", () => {
       const { getByLabelText, getByText, value } = render();
@@ -137,6 +137,13 @@ describe("Symbol form", () => {
       commit(getByLabelText("Min value"), "1.1");
       expect(getByText(INVALID)).toBeDefined();
       expect(value(path.states)).toEqual([]);
+    });
+
+    it("should show the error on the field that the user edited", () => {
+      const { getByLabelText } = render();
+      commit(getByLabelText("Max value"), "0.5");
+      expect(getByLabelText("Max value").getAttribute("aria-invalid")).toBe("true");
+      expect(getByLabelText("Min value").getAttribute("aria-invalid")).toBeNull();
     });
 
     it("should drop a held pair when the stored bounds change", () => {
