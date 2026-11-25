@@ -75,6 +75,22 @@ func presentPointer(shape xjson.Shape) string {
 	return shape.Fields[shape.Present].Pointer.String()
 }
 
+// narrow and wide return a document with a seconds timestamp offset s from t0, where
+// the fields of narrow are all in wide.
+func narrow(s int64) string { return fmt.Sprintf(`{"ts":%d,"v":1}`, t0Seconds+s) }
+
+func wide(s int64) string { return fmt.Sprintf(`{"ts":%d,"v":1,"w":2}`, t0Seconds+s) }
+
+// distinct returns n documents of n sets of fields, with seconds timestamps that start
+// at offset s from t0 and rise.
+func distinct(n int, s int64) []string {
+	docs := make([]string, n)
+	for i := range docs {
+		docs[i] = fmt.Sprintf(`{"ts":%d,"x%d":1}`, t0Seconds+s+int64(i), i)
+	}
+	return docs
+}
+
 // stamped returns n documents of source with a seconds timestamp at /ts and the fields
 // that fields returns for each index.
 func stamped(source string, n int, fields func(i int) string) []xjson.Document {
@@ -485,6 +501,67 @@ var _ = Describe("Infer", func() {
 		Expect(shapes[0].Index).To(Equal(-1))
 	})
 
+	DescribeTable("Should index on a timestamp that rises across the sets of a cluster",
+		func(index string, docs ...string) {
+			shapes := xjson.Infer(documents("pump", len(docs), func(i int) string {
+				return docs[i]
+			}))
+			Expect(shapes).To(HaveLen(1))
+			Expect(indexPointer(shapes[0])).To(Equal(index))
+		},
+		Entry("rising across the sets", "/ts", wide(0), narrow(1), wide(2)),
+		Entry(
+			"older than the last value of the other set",
+			"none",
+			wide(0),
+			narrow(2),
+			wide(1),
+		),
+		Entry(
+			"two sets that each rise and alternate with older values",
+			"none",
+			narrow(10), wide(5), narrow(20), wide(15), narrow(30), wide(25),
+		),
+	)
+
+	It(
+		"Should index each cluster on a timestamp that is out of order across them",
+		func() {
+			shapes := xjson.Infer(documents("pump", 4, func(i int) string {
+				s := [...]int64{10, 5, 20, 15}[i]
+				return fmt.Sprintf(
+					`{"ts":%d,"%s":1}`,
+					t0Seconds+s,
+					[...]string{"rpm", "fault"}[i%2],
+				)
+			}))
+			Expect(shapes).To(HaveLen(2))
+			Expect(indexPointer(shapes[0])).To(Equal("/ts"))
+			Expect(indexPointer(shapes[1])).To(Equal("/ts"))
+		},
+	)
+
+	DescribeTable("Should index on a timestamp after the sets of a source pass 256",
+		func(index string, docs []string) {
+			shapes := xjson.Infer(documents("pump", len(docs), func(i int) string {
+				return docs[i]
+			}))
+			Expect(shapes).To(HaveLen(1))
+			Expect(indexPointer(shapes[0])).To(Equal(index))
+		},
+		Entry("rising", "/ts", distinct(257, 0)),
+		Entry(
+			"out of order across two sets before",
+			"none",
+			append([]string{wide(0), narrow(2), wide(1)}, distinct(256, 3)...),
+		),
+		Entry(
+			"older in the 257th set than the newest value before",
+			"none",
+			append(distinct(256, 0), narrow(100)),
+		),
+	)
+
 	It("Should not index on a timestamp that some documents lack", func() {
 		docs := documents("a", 2, func(i int) string {
 			return fmt.Sprintf(`{"ts":%d,"v":1}`, t0Seconds+int64(i))
@@ -620,7 +697,10 @@ var _ = Describe("Inferrer", func() {
 			fmt.Appendf(nil, `{"ts":%d,"v":1.5}`, t0Milliseconds+3000),
 			t0+3*telem.SecondTS,
 		)
-		shape := inf.Shape()
+		shapes, last := inf.Shapes()
+		Expect(shapes).To(HaveLen(1))
+		Expect(last).To(BeZero())
+		shape := shapes[0].Shape
 		Expect(shape.Sources).To(BeEmpty())
 		Expect(shape.Count).To(Equal(4))
 		Expect(presentPointer(shape)).To(Equal("none"))
@@ -635,18 +715,124 @@ var _ = Describe("Inferrer", func() {
 		inf := xjson.NewInferrer()
 		inf.Add([]byte("not json"), t0)
 		inf.Add([]byte(`{"v":1} {"v":2}`), t0)
-		shape := inf.Shape()
-		Expect(shape.Count).To(BeZero())
-		Expect(shape.Fields).To(BeEmpty())
-		Expect(shape.Index).To(Equal(-1))
+		shapes, last := inf.Shapes()
+		Expect(shapes).To(BeEmpty())
+		Expect(last).To(Equal(-1))
+	})
+
+	DescribeTable("Should sample the newest value of each field of a shape",
+		func(docs []string, a, b string) {
+			inf := xjson.NewInferrer()
+			for _, doc := range docs {
+				inf.Add([]byte(doc), t0)
+			}
+			shapes, _ := inf.Shapes()
+			Expect(shapes).To(HaveLen(1))
+			Expect(shapes[0].Samples).To(Equal([]string{a, b}))
+		},
+		Entry("from a later set", []string{`{"a":1,"b":1}`, `{"a":2}`}, "2", "1"),
+		Entry(
+			"from an earlier set",
+			[]string{`{"a":1,"b":1}`, `{"a":2}`, `{"a":3,"b":3}`},
+			"3",
+			"3",
+		),
+	)
+
+	It("Should cut a sample at a rune boundary", func() {
+		inf := xjson.NewInferrer()
+		inf.Add([]byte(`{"v":"`+strings.Repeat("a", 62)+`éé"}`), t0)
+		shapes, _ := inf.Shapes()
+		Expect(shapes[0].Samples).To(Equal([]string{`"` + strings.Repeat("a", 62)}))
+	})
+
+	It("Should give the position of the shape of the last document", func() {
+		inf := xjson.NewInferrer()
+		lastPresent := func(doc string) string {
+			inf.Add([]byte(doc), t0)
+			shapes, last := inf.Shapes()
+			Expect(shapes).To(HaveLen(2))
+			return presentPointer(shapes[last].Shape)
+		}
+		inf.Add([]byte(`{"a":1,"b":1}`), t0)
+		inf.Add([]byte(`{"a":2}`), t0)
+		Expect(lastPresent(`{"c":1}`)).To(Equal("/c"))
+		Expect(lastPresent(`{"a":3}`)).To(Equal("/a"))
+	})
+
+	It("Should give no shape of the last document when it joins none", func() {
+		inf := xjson.NewInferrer()
+		for _, doc := range []string{`{"a":1}`, `{"b":1}`, `{}`} {
+			inf.Add([]byte(doc), t0)
+		}
+		shapes, last := inf.Shapes()
+		Expect(shapes).To(HaveLen(2))
+		Expect(last).To(Equal(-1))
 	})
 
 	It("Should give no index when a timestamp falls", func() {
 		inf := xjson.NewInferrer()
 		inf.Add(fmt.Appendf(nil, `{"ts":%d}`, t0Milliseconds+1000), t0)
 		inf.Add(fmt.Appendf(nil, `{"ts":%d}`, t0Milliseconds), t0+telem.SecondTS)
-		shape := inf.Shape()
-		Expect(fieldAt(shape, "/ts").Kind).To(Equal(payload.KindTimestamp))
-		Expect(shape.Index).To(Equal(-1))
+		shapes, _ := inf.Shapes()
+		Expect(shapes).To(HaveLen(1))
+		Expect(fieldAt(shapes[0].Shape, "/ts").Kind).To(Equal(payload.KindTimestamp))
+		Expect(shapes[0].Index).To(Equal(-1))
 	})
+
+	DescribeTable("Should give one shape past 1,024 fields across its sets of fields",
+		func(second, shapes, fields int) {
+			inf := xjson.NewInferrer()
+			for i, n := range []int{600, second} {
+				names := make([]string, n)
+				for f := range names {
+					names[f] = fmt.Sprintf(`"s%d-%d":1`, i, f)
+				}
+				inf.Add([]byte("{"+strings.Join(names, ",")+"}"), t0)
+			}
+			inferred, _ := inf.Shapes()
+			Expect(inferred).To(HaveLen(shapes))
+			Expect(inferred[0].Fields).To(HaveLen(fields))
+		},
+		Entry("1,024 fields", 424, 2, 600),
+		Entry("1,025 fields", 425, 1, 1024),
+	)
+
+	DescribeTable(
+		"Should infer the shapes that Infer gives the same documents",
+		func(docs []xjson.Document) {
+			inf := xjson.NewInferrer()
+			for _, doc := range docs {
+				inf.Add(doc.Data, doc.Time)
+			}
+			expected := xjson.Infer(docs)
+			for i := range expected {
+				expected[i].Sources = nil
+			}
+			inferred, _ := inf.Shapes()
+			shapes := make([]xjson.Shape, len(inferred))
+			for i, s := range inferred {
+				shapes[i] = s.Shape
+			}
+			Expect(shapes).To(Equal(expected))
+		},
+		Entry("two record kinds", stamped("", 4, func(i int) string {
+			return [...]string{`"rpm":1`, `"fault":"x"`, `"rpm":2.5`, `"fault":"y"`}[i]
+		})),
+		Entry("a set that joins a wider set", documents("", 3, func(i int) string {
+			return [...]string{narrow(0), wide(1), narrow(2)}[i]
+		})),
+		Entry("sets that no field tells apart", documents("", 3, func(i int) string {
+			return [...]string{`{"a":1,"b":1}`, `{"a":2,"c":1}`, `{"b":2,"c":2}`}[i]
+		})),
+		Entry(
+			"a timestamp out of order across sets",
+			documents("", 3, func(i int) string {
+				return [...]string{wide(0), narrow(2), wide(1)}[i]
+			}),
+		),
+		Entry("more than 256 sets", documents("", 257, func(i int) string {
+			return append(distinct(256, 0), narrow(100))[i]
+		})),
+	)
 })

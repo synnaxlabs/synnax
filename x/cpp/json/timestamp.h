@@ -30,7 +30,8 @@ std::pair<telem::TimeStamp, errors::Error>
 parse_unix(std::string_view text, TimeFormat format);
 
 /// @brief appends JSON text to out: ts in format. ISO8601 writes an RFC 3339 string in
-/// UTC with the shortest fraction of a second, and a Unix format writes a number with
-/// every digit of ts.
+/// UTC with the shortest fraction of a second. UnixSecond and UnixNanosecond write a
+/// number with every digit of ts. UnixMillisecond and UnixMicrosecond write a whole
+/// number of their unit, rounded toward negative infinity.
 void append_timestamp(telem::TimeStamp ts, TimeFormat format, std::string &out);
 }

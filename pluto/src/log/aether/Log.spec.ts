@@ -109,6 +109,70 @@ describe("log/aether/Log", () => {
     });
   });
 
+  describe("code font measures", () => {
+    const metrics = (ascent: number, descent: number) => ({
+      width: 24,
+      actualBoundingBoxAscent: ascent,
+      actualBoundingBoxDescent: descent,
+      fontBoundingBoxAscent: 10,
+    });
+
+    // Remeasures the Log with metrics, then renders it with its first entry selected.
+    const measure = (m: ReturnType<typeof metrics>) => {
+      const overrides = { selectionStart: 0, selectionEnd: 0 };
+      const s = setup([makeEntry(0)], REGION_500, overrides);
+      s.recorder.lower2d.measureText = vi.fn(() => m);
+      s.updateState(overrides);
+      s.recorder.clear();
+      s.leaf.render();
+      return s;
+    };
+
+    const selectionY = (recorder: ReturnType<typeof canvasTest.record>): number => {
+      const band = recorder.lower2d.calls.find(
+        ({ op, args }) => op === "rect" && args[2] === box.width(REGION_500),
+      );
+      assert(band != null);
+      return Number(band.args[1]);
+    };
+
+    it("should place the value one character width per prefix character", () => {
+      const { recorder } = measure(metrics(8, 2));
+      const [prefix, value] = recorder.lower2d.calls.filter(
+        ({ op }) => op === "fillText",
+      );
+      expect(Number(value.args[1]) - Number(prefix.args[1])).toEqual(
+        String(prefix.args[0]).length * 24,
+      );
+    });
+
+    it("should center the ink box within the row", () => {
+      const { leaf, recorder } = measure(metrics(8, 2));
+      // inkTop = fontAscent - actualAscent = 10 - 8 = 2
+      // inkHeight = actualAscent + actualDescent = 8 + 2 = 10
+      expect(selectionY(recorder)).toBeCloseTo(6 + 2 - (leaf.lineHeight - 10) / 2);
+    });
+
+    it("should offset by the ink top when the row exactly fits the ink", () => {
+      const { leaf } = setup();
+      const { recorder } = measure(metrics(leaf.lineHeight - 2, 2));
+      expect(selectionY(recorder)).toBeCloseTo(6 + 12 - leaf.lineHeight);
+    });
+
+    it("should set the code font before measuring", () => {
+      const { leaf, recorder, updateState } = setup();
+      const fonts: string[] = [];
+      recorder.lower2d.measureText = vi.fn(() => {
+        fonts.push(String(recorder.lower2d.font));
+        return metrics(8, 2);
+      });
+      updateState({});
+      expect(fonts).toContain(
+        theme.fontString(THEME, { level: leaf.state.font, variant: "code" }),
+      );
+    });
+  });
+
   describe("visibleLineCount", () => {
     it("should calculate how many lines fit in the region", () => {
       const entries = Array.from({ length: 50 }, (_, i) => makeEntry(i));
