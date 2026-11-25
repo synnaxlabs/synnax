@@ -11,7 +11,6 @@ package impact_test
 
 import (
 	"crypto/sha256"
-	"encoding/binary"
 	"encoding/hex"
 	"slices"
 	"strings"
@@ -45,14 +44,14 @@ import (
 )
 
 // guessToken computes a plan token from what D-202 says it hashes: the change type,
-// the sorted keys, then each entry's record and effect, in entry order.
+// the sorted records, then each entry's record and effect, in entry order.
 func guessToken(keys []channel.Key, entries []impact.Entry) string {
 	h := sha256.New()
-	h.Write([]byte(impact.DeleteChannelsChangeType))
+	h.Write([]byte(apiimpact.DeleteChangeType))
 	sorted := slices.Clone(keys)
 	slices.Sort(sorted)
 	for _, k := range slices.Compact(sorted) {
-		h.Write(binary.BigEndian.AppendUint32(nil, uint32(k)))
+		h.Write([]byte(channel.ResourceID(k).String()))
 	}
 	for _, e := range entries {
 		h.Write([]byte{0})
@@ -171,16 +170,18 @@ var _ = Describe("Routes breaker", Ordered, ContinueOnFailure, func() {
 			objects...,
 		))
 	}
-	deleteOf := func(keys ...channel.Key) impact.Change {
-		return impact.Change{Variant: impact.DeleteChannelsChange{Keys: keys}}
+	deleteOf := func(keys ...channel.Key) apiimpact.Change {
+		return apiimpact.Change{
+			Variant: apiimpact.DeleteChange{Records: channel.ResourceIDsFromKeys(keys)},
+		}
 	}
 	// withDelete returns p as the plan of the delete of the channels with keys.
 	withDelete := func(p impact.Plan, keys ...channel.Key) impact.Plan {
-		p.Change = deleteOf(keys...)
+		p.Records = channel.ResourceIDsFromKeys(keys)
 		return p
 	}
 	// deletedBy returns what p deletes.
-	deletedBy := func(p impact.Plan) impact.Change { return p.Change }
+	deletedBy := func(p impact.Plan) []resource.ID { return p.Records }
 	retrieve := []access.Action{access.ActionRetrieve}
 	retrieveDelete := []access.Action{access.ActionRetrieve, access.ActionDelete}
 

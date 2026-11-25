@@ -33,15 +33,13 @@ var _ = Describe("Delete checks", func() {
 		tx gorp.Tx,
 		keys ...channel.Key,
 	) (impact.Plan, error) {
-		c := impact.Change{Variant: impact.DeleteChannelsChange{Keys: keys}}
-		return layer.Impact.Apply(ctx, tx, c, impact.ApplyOptions{})
+		records := channel.ResourceIDsFromKeys(keys)
+		return layer.Impact.Apply(ctx, tx, records, impact.ApplyOptions{})
 	}
 	// emptyPlanOf returns the plan of the delete of the channels with keys that has no
 	// entries.
 	emptyPlanOf := func(keys ...channel.Key) impact.Plan {
-		return impact.Plan{Change: impact.Change{
-			Variant: impact.DeleteChannelsChange{Keys: keys},
-		}}
+		return impact.Plan{Records: channel.ResourceIDsFromKeys(keys)}
 	}
 
 	It(

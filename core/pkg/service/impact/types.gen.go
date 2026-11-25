@@ -12,114 +12,15 @@
 package impact
 
 import (
-	"encoding/json/jsontext"
-	"encoding/json/v2"
 	"strconv"
 
-	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
 )
 
-// ChangeType is the "type" value that selects a variant of Change.
-type ChangeType string
-
-// DeleteChannelsChangeType deletes channels.
-const DeleteChannelsChangeType ChangeType = "delete_channels"
-
-// ChangeVariant is implemented by every Change variant.
-type ChangeVariant interface {
-	isChangeVariant()
-}
-
-// DeleteChannelsChange deletes channels.
-type DeleteChannelsChange struct {
-	// Keys are the keys of the channels to delete.
-	Keys []channel.Key `json:"keys" msgpack:"keys"`
-}
-
-func (DeleteChannelsChange) isChangeVariant() {}
-
-// Change is a change to channels that a plan covers.
-type Change struct {
-	Variant ChangeVariant
-}
-
-// MarshalJSONTo encodes the active variant with its "type" tag injected.
-func (u Change) MarshalJSONTo(enc *jsontext.Encoder) error {
-	switch v := u.Variant.(type) {
-	case nil:
-		return enc.WriteToken(jsontext.Null)
-	case DeleteChannelsChange:
-		return json.MarshalEncode(enc, struct {
-			Type ChangeType `json:"type"`
-			DeleteChannelsChange
-		}{Type: DeleteChannelsChangeType, DeleteChannelsChange: v})
-	default:
-		return errors.Newf("Change: unknown variant %T", v)
-	}
-}
-
-// UnmarshalJSONFrom decodes the variant selected by the "type" field.
-func (u *Change) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	data, err := dec.ReadValue()
-	if err != nil {
-		return err
-	}
-	if data.Kind() == 'n' {
-		u.Variant = nil
-		return nil
-	}
-	opts := dec.Options()
-	var disc struct {
-		Type ChangeType `json:"type"`
-	}
-	if err := json.Unmarshal(
-		data, &disc, opts, json.RejectUnknownMembers(false),
-	); err != nil {
-		return err
-	}
-	switch disc.Type {
-	case DeleteChannelsChangeType:
-		var v struct {
-			Type ChangeType `json:"type"`
-			DeleteChannelsChange
-		}
-		if err := json.Unmarshal(data, &v, opts); err != nil {
-			return err
-		}
-		u.Variant = v.DeleteChannelsChange
-	default:
-		return errors.Wrapf(
-			validate.ErrValidation,
-			"Change: unknown type %q",
-			disc.Type,
-		)
-	}
-	return nil
-}
-
-// Type returns the type of the active variant, or an empty type when there is none.
-func (u Change) Type() ChangeType {
-	switch u.Variant.(type) {
-	case DeleteChannelsChange:
-		return DeleteChannelsChangeType
-	}
-	return ""
-}
-
-// Validate returns an error wrapping validate.ErrValidation if no variant is active or
-// the active variant violates its schema constraints.
-func (u Change) Validate() error {
-	v := validate.New("Change")
-	v.Ternary("type", u.Variant == nil, "required")
-	return v.Error()
-}
-
-// Effect is what a change does to a record that holds a channel it changes. A restrict
-// record stops the change unless the caller picks to delete it too, a cascade record is
-// deleted with the channel, and a detach record loses the channel.
+// Effect is what a delete does to a record that holds a record it deletes. A restrict
+// record stops the delete unless the caller picks to delete it too, a cascade record is
+// deleted with the record it holds, and a detach record loses it.
 type Effect string
 
 const (
@@ -190,7 +91,7 @@ type Hidden struct {
 	Restrict uint32 `json:"restrict" msgpack:"restrict"`
 	// Cascade is the number of hidden entries that the change deletes.
 	Cascade uint32 `json:"cascade" msgpack:"cascade"`
-	// Detach is the number of hidden entries that lose the channel.
+	// Detach is the number of hidden entries that lose a record.
 	Detach uint32 `json:"detach" msgpack:"detach"`
 }
 
@@ -198,7 +99,7 @@ type Hidden struct {
 type Plan struct {
 	// Entries are the records that the change touches, sorted by record.
 	Entries []Entry `json:"entries" msgpack:"entries"`
-	// Kept is the number of records that hold a deleted channel and keep it with no
+	// Kept is the number of records that hold a deleted record and keep it with no
 	// change. They need no pick, so they are not entries.
 	Kept uint32 `json:"kept" msgpack:"kept"`
 	// Hidden counts the entries whose records the caller cannot see. One pick covers
@@ -207,8 +108,8 @@ type Plan struct {
 	// Token is the hex form of a hash of the change, each visible entry, and the hidden
 	// counts, with the caller's picks. Apply refuses a token that no longer matches.
 	Token string `json:"token" msgpack:"token"`
-	// Change is the change that the plan covers.
-	Change Change `json:"change" msgpack:"change"`
+	// Records are the records that the caller deletes.
+	Records []resource.ID `json:"records" msgpack:"records"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -218,6 +119,8 @@ func (p Plan) Validate() error {
 	for i := range p.Entries {
 		v.Exec(func() error { return validate.PathedError(p.Entries[i].Validate(), "entries", strconv.Itoa(i)) })
 	}
-	v.Exec(func() error { return validate.PathedError(p.Change.Validate(), "change") })
+	for i := range p.Records {
+		v.Exec(func() error { return validate.PathedError(p.Records[i].Validate(), "records", strconv.Itoa(i)) })
+	}
 	return v.Error()
 }

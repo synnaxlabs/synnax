@@ -7,23 +7,23 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "schemas/synnax/channel"
 import "schemas/synnax/resource"
 
 @go output "core/pkg/service/impact"
-@ts output "client/ts/src/impact"
 @py output "client/py/synnax/impact"
+@ts output "client/ts/src/impact"
 
 Change union on type {
-    delete_channels {
-        keys channel.Key[] {
-            @doc value "are the keys of the channels to delete."
+    delete {
+        records resource.ID[] {
+            @doc value "are the records to delete."
         }
 
-        @doc value "deletes channels."
+        @doc value "deletes records."
     }
 
-    @doc value "is a change to channels that a plan covers."
+    @doc value "is a change that a plan covers."
+    @go output "core/pkg/api/impact"
 }
 
 Effect enum {
@@ -32,9 +32,9 @@ Effect enum {
     detach   = "detach"
 
     @doc value """
-        is what a change does to a record that holds a channel it changes. A restrict
-        record stops the change unless the caller picks to delete it too, a cascade
-        record is deleted with the channel, and a detach record loses the channel.
+        is what a delete does to a record that holds a record it deletes. A restrict
+        record stops the delete unless the caller picks to delete it too, a cascade
+        record is deleted with the record it holds, and a detach record loses it.
     """
 }
 
@@ -75,7 +75,7 @@ Hidden struct {
         @doc value "is the number of hidden entries that the change deletes."
     }
     detach   uint32 {
-        @doc value "is the number of hidden entries that lose the channel."
+        @doc value "is the number of hidden entries that lose a record."
     }
 
     @doc value """
@@ -85,30 +85,30 @@ Hidden struct {
 }
 
 Plan struct {
-    entries Entry[] {
+    entries Entry[]       {
         @doc value "are the records that the change touches, sorted by record."
     }
-    kept    uint32  {
+    kept    uint32        {
         @doc value """
-            is the number of records that hold a deleted channel and keep it with no
+            is the number of records that hold a deleted record and keep it with no
             change. They need no pick, so they are not entries.
         """
     }
-    hidden  Hidden  {
+    hidden  Hidden        {
         @doc value """
             counts the entries whose records the caller cannot see. One pick covers the
             ones that stop the change.
         """
     }
-    token   string  {
+    token   string        {
         @doc value """
             is the hex form of a hash of the change, each visible entry, and the hidden
             counts, with the caller's picks. Apply refuses a token that no longer
             matches.
         """
     }
-    change  Change  {
-        @doc value "is the change that the plan covers."
+    records resource.ID[] {
+        @doc value "are the records that the caller deletes."
     }
 
     @doc value "is every record that a change touches, with the picks for each."

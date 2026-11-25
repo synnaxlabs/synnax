@@ -14,13 +14,15 @@ import (
 	"context"
 	"encoding/binary"
 	"encoding/hex"
+	"iter"
 	"slices"
 	"strings"
 
 	"github.com/cespare/xxhash/v2"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // planned is a plan with what Apply needs to carry it out.
@@ -28,9 +30,18 @@ type planned struct {
 	Plan
 	// cancels maps the record of each restrict entry to the error of its cancel.
 	cancels map[resource.ID]gorp.RestrictError
-	// keys are the keys of the channels that the delete removes.
-	keys channel.Keys
-	// effects is what the delete does to the records that hold the channels.
+	// restricts are the records of the restrict entries, in the order that the delete
+	// reaches them.
+	restricts []resource.ID
+	// batches hold the delete of each type of record, in the order that the types first
+	// appear in the delete.
+	batches []batch
+}
+
+// batch is the delete of the records of one type.
+type batch struct {
+	deleter Deleter
+	removed []resource.ID
 	effects gorp.DeleteEffects
 }
 
@@ -42,32 +53,53 @@ func compareEntries(a, b Entry) int {
 	)
 }
 
-// planDelete plans the delete of the channels with keys, as seen by snap. Each record
-// gets one entry, for the first of its effects in the order restrict, cascade, detach.
+// planDelete plans the delete of records, as seen by snap, through the Deleter of each
+// type.
 func (s *Service) planDelete(
 	ctx context.Context,
 	snap gorp.Snapshot,
-	keys []channel.Key,
+	records []resource.ID,
 ) (planned, error) {
-	deleted, effects, err := s.cfg.Channel.PlanDelete(ctx, snap, keys)
-	if err != nil {
-		return planned{}, err
+	var p planned
+	for t, ids := range byType(records) {
+		d, ok := s.cfg.Deleters[t]
+		if !ok {
+			return planned{}, errors.Wrapf(
+				validate.ErrValidation,
+				"impact cannot delete %s",
+				ids[0],
+			)
+		}
+		removed, effects, err := d.Plan(ctx, snap, ids)
+		if err != nil {
+			return planned{}, err
+		}
+		p.batches = append(
+			p.batches,
+			batch{deleter: d, removed: removed, effects: effects},
+		)
 	}
-	p := planned{
-		cancels: make(map[resource.ID]gorp.RestrictError, len(effects.Restricts)),
-		keys:    deleted,
-		effects: effects,
+	s.addEntries(&p)
+	return p, nil
+}
+
+// addEntries gives each record that holds a record of p.batches one entry, for the
+// first of its effects in the order restrict, cascade, detach, and counts in p.Kept
+// each other record that keeps a weak link.
+func (s *Service) addEntries(p *planned) {
+	var restricts, cascades, detaches int
+	for _, b := range p.batches {
+		restricts += len(b.effects.Restricts)
+		cascades += len(b.effects.Cascades)
+		detaches += len(b.effects.Detaches)
 	}
-	n := len(effects.Restricts) + len(effects.Cascades) + len(effects.Detaches)
-	if n > 0 {
+	p.cancels = make(map[resource.ID]gorp.RestrictError, restricts)
+	if n := restricts + cascades + detaches; n > 0 {
 		p.Entries = make([]Entry, 0, n)
 	}
 	// effectOf holds the effect of each record with an entry, and no effect for each
 	// record that keeps a weak link.
-	effectOf := make(
-		map[resource.ID]Effect,
-		len(effects.Restricts)+len(effects.Detaches),
-	)
+	effectOf := make(map[resource.ID]Effect, restricts+detaches)
 	add := func(e gorp.DeleteEffect, effect Effect) (resource.ID, bool) {
 		record := s.cfg.RecordOf(e.Holder)
 		if effectOf[record] != "" {
@@ -82,29 +114,37 @@ func (s *Service) planDelete(
 		p.Entries = append(p.Entries, entry)
 		return record, true
 	}
-	for _, e := range effects.Restricts {
-		if id, ok := add(e, EffectRestrict); ok {
-			p.cancels[id] = gorp.RestrictError{
-				Target:    e.Target,
-				Holder:    e.Holder,
-				Reference: e.Reference,
+	for _, b := range p.batches {
+		for _, e := range b.effects.Restricts {
+			if id, ok := add(e, EffectRestrict); ok {
+				p.restricts = append(p.restricts, id)
+				p.cancels[id] = gorp.RestrictError{
+					Target:    e.Target,
+					Holder:    e.Holder,
+					Reference: e.Reference,
+				}
 			}
 		}
 	}
-	for _, e := range effects.Cascades {
-		add(e, EffectCascade)
+	for _, b := range p.batches {
+		for _, e := range b.effects.Cascades {
+			add(e, EffectCascade)
+		}
 	}
-	for _, e := range effects.Detaches {
-		add(e, EffectDetach)
+	for _, b := range p.batches {
+		for _, e := range b.effects.Detaches {
+			add(e, EffectDetach)
+		}
 	}
-	for _, e := range effects.Weak {
-		if record := s.cfg.RecordOf(e.Holder); !hasKey(effectOf, record) {
-			effectOf[record] = ""
-			p.Kept++
+	for _, b := range p.batches {
+		for _, e := range b.effects.Weak {
+			if record := s.cfg.RecordOf(e.Holder); !hasKey(effectOf, record) {
+				effectOf[record] = ""
+				p.Kept++
+			}
 		}
 	}
 	slices.SortFunc(p.Entries, compareEntries)
-	return p, nil
 }
 
 func hasKey(m map[resource.ID]Effect, k resource.ID) bool {
@@ -112,27 +152,54 @@ func hasKey(m map[resource.ID]Effect, k resource.ID) bool {
 	return ok
 }
 
-// tokenSum returns an xxHash-64 of p, the plan of the delete of the channels with keys
-// as the caller sees it: the keys in sorted order, each visible entry's record and
-// effect, and the hidden counts. Each field holds its length, so no two plans hash the
-// same bytes. The token detects a stale view, not a forged one, so it needs no
-// cryptographic hash.
-func tokenSum(keys []channel.Key, p Plan) uint64 {
-	sorted := keys
-	for i := 1; i < len(keys); i++ {
-		if keys[i] <= keys[i-1] {
-			sorted = slices.Compact(slices.Sorted(slices.Values(keys)))
-			break
+// byType returns records grouped by type, the types in the order that they first
+// appear.
+func byType(records []resource.ID) iter.Seq2[resource.Type, []resource.ID] {
+	return func(yield func(resource.Type, []resource.ID) bool) {
+		var types []resource.Type
+		of := make(map[resource.Type][]resource.ID, 1)
+		for _, r := range records {
+			if _, ok := of[r.Type]; !ok {
+				types = append(types, r.Type)
+			}
+			of[r.Type] = append(of[r.Type], r)
+		}
+		for _, t := range types {
+			if !yield(t, of[t]) {
+				return
+			}
 		}
 	}
+}
+
+// compareRecords orders records by type, then key.
+func compareRecords(a, b resource.ID) int {
+	return cmp.Or(
+		strings.Compare(string(a.Type), string(b.Type)),
+		strings.Compare(a.Key, b.Key),
+	)
+}
+
+// tokenSum returns an xxHash-64 of p, the plan of the delete of records as the caller
+// sees it: the records in sorted order, each visible entry's record and effect, and the
+// hidden counts. Each field holds its length, so no two plans hash the same bytes. The
+// token detects a stale view, not a forged one, so it needs no cryptographic hash.
+func tokenSum(records []resource.ID, p Plan) uint64 {
+	sorted := records
+	if !slices.IsSortedFunc(records, compareRecords) {
+		sorted = slices.SortedFunc(slices.Values(records), compareRecords)
+	}
+	sorted = slices.CompactFunc(slices.Clone(sorted), func(a, b resource.ID) bool {
+		return compareRecords(a, b) == 0
+	})
 	var (
 		fixed [256]byte
 		buf   = fixed[:0]
 	)
-	buf = appendField(buf, string(DeleteChannelsChangeType))
 	buf = binary.BigEndian.AppendUint32(buf, uint32(len(sorted)))
-	for _, k := range sorted {
-		buf = binary.BigEndian.AppendUint32(buf, uint32(k))
+	for _, r := range sorted {
+		buf = appendField(buf, string(r.Type))
+		buf = appendField(buf, r.Key)
 	}
 	buf = binary.BigEndian.AppendUint32(buf, uint32(len(p.Entries)))
 	for _, e := range p.Entries {
@@ -146,20 +213,20 @@ func tokenSum(keys []channel.Key, p Plan) uint64 {
 	return xxhash.Sum64(buf)
 }
 
-// token returns the hex form of tokenSum(keys, p).
-func token(keys []channel.Key, p Plan) string {
+// token returns the hex form of tokenSum(records, p).
+func token(records []resource.ID, p Plan) string {
 	var (
 		raw     [8]byte
 		encoded [16]byte
 	)
-	binary.BigEndian.PutUint64(raw[:], tokenSum(keys, p))
+	binary.BigEndian.PutUint64(raw[:], tokenSum(records, p))
 	hex.Encode(encoded[:], raw[:])
 	return string(encoded[:])
 }
 
-// matches reports whether t is the token of p, the plan of the delete of the channels
-// with keys, with no hex form built.
-func matches(t string, keys []channel.Key, p Plan) bool {
+// matches reports whether t is the token of p, the plan of the delete of records, with
+// no hex form built.
+func matches(t string, records []resource.ID, p Plan) bool {
 	var decoded [8]byte
 	if len(t) != hex.EncodedLen(len(decoded)) {
 		return false
@@ -167,7 +234,7 @@ func matches(t string, keys []channel.Key, p Plan) bool {
 	if _, err := hex.Decode(decoded[:], []byte(t)); err != nil {
 		return false
 	}
-	return binary.BigEndian.Uint64(decoded[:]) == tokenSum(keys, p)
+	return binary.BigEndian.Uint64(decoded[:]) == tokenSum(records, p)
 }
 
 // appendField appends the length of s, then s, to buf.

@@ -127,8 +127,8 @@ var _ = Describe("Delete", Ordered, func() {
 		})).To(Succeed())
 		return sch
 	}
-	deleteOf := func(keys ...channel.Key) impact.Change {
-		return impact.Change{Variant: impact.DeleteChannelsChange{Keys: keys}}
+	deleteOf := func(keys ...channel.Key) []resource.ID {
+		return channel.ResourceIDsFromKeys(keys)
 	}
 	apply := func(
 		ctx SpecContext,
@@ -185,7 +185,7 @@ var _ = Describe("Delete", Ordered, func() {
 				entry(status.ResourceID(st.Key), impact.EffectCascade),
 			))
 			Expect(p.Kept).To(Equal(uint32(1)))
-			Expect(p.Change).To(Equal(deleteOf(ch.Key())))
+			Expect(p.Records).To(Equal(deleteOf(ch.Key())))
 			Expect(exists(ctx, ch.Key())).To(BeFalse())
 			Expect(layer.Task.NewRetrieve().
 				Where(task.MatchKeys(tsk.Key)).
@@ -225,7 +225,7 @@ var _ = Describe("Delete", Ordered, func() {
 			plot := createPlot(ctx, ch.Key())
 			sch := createSchematic(ctx, ch.Key())
 			applied := MustSucceed(apply(ctx, impact.ApplyOptions{}, ch.Key()))
-			Expect(applied).To(Equal(impact.Plan{Change: deleteOf(ch.Key())}))
+			Expect(applied).To(Equal(impact.Plan{Records: deleteOf(ch.Key())}))
 			Expect(exists(ctx, ch.Key())).To(BeFalse())
 			var stored lineplot.LinePlot
 			Expect(layer.LinePlot.NewRetrieve().

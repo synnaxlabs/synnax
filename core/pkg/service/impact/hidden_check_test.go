@@ -78,10 +78,8 @@ var _ = Describe("Hidden count checks", Ordered, func() {
 			Exec(ctx, db)).To(Succeed())
 		return st.Key
 	}
-	deleteOf := func(k channel.Key) impact.Change {
-		return impact.Change{Variant: impact.DeleteChannelsChange{
-			Keys: []channel.Key{k},
-		}}
+	deleteOf := func(k channel.Key) []resource.ID {
+		return []resource.ID{channel.ResourceID(k)}
 	}
 	noStatus := func(r resource.ID) bool { return r.Type != resource.TypeStatus }
 

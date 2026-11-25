@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package impact serves the plan and apply routes of changes to channels.
+// Package impact serves the plan and apply routes of the delete of records.
 package impact
 
 import (
@@ -19,7 +19,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
-	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/impact"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
@@ -34,7 +33,7 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	RBAC *rbac.Service
-	// Impact plans and applies changes to channels.
+	// Impact plans and applies the delete of records.
 	//
 	// [REQUIRED]
 	Impact *impact.Service
@@ -69,14 +68,22 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	return &Service{cfg: cfg}, nil
 }
 
-// Named implements bind.Named: the subject needs retrieve on each channel it names.
-func (r PlanRequest) Named() []resource.ID { return named(r.Change) }
-
-func named(c impact.Change) []resource.ID {
-	if d, ok := c.Variant.(impact.DeleteChannelsChange); ok {
-		return channel.ResourceIDsFromKeys(d.Keys)
+// Named implements bind.Named: the subject needs retrieve on each record it names.
+func (r PlanRequest) Named() []resource.ID {
+	if d, ok := r.Change.Variant.(DeleteChange); ok {
+		return d.Records
 	}
 	return nil
+}
+
+// deleted returns the records that c deletes. Any other change fails with a
+// validation error.
+func deleted(c Change) ([]resource.ID, error) {
+	d, ok := c.Variant.(DeleteChange)
+	if !ok {
+		return nil, errors.Wrap(validate.ErrValidation, "unknown change")
+	}
+	return d.Records, nil
 }
 
 // Plan returns every record that the change touches with the subject's picks, with an
@@ -86,7 +93,11 @@ func (s *Service) Plan(
 	snap bind.Snapshot,
 	req PlanRequest,
 ) (impact.Plan, error) {
-	return s.cfg.Impact.Plan(ctx, snap, req.Change, impact.PlanOptions{
+	records, err := deleted(req.Change)
+	if err != nil {
+		return impact.Plan{}, err
+	}
+	return s.cfg.Impact.Plan(ctx, snap, records, impact.PlanOptions{
 		Picks:   req.Picks,
 		Hidden:  req.Hidden,
 		Visible: snap.Allowed,
@@ -106,13 +117,16 @@ func (s *Service) ApplyHandler(
 			tx gorp.Tx,
 			req ApplyRequest,
 		) (impact.Plan, error) {
-			var err error
+			records, err := deleted(req.Change)
+			if err != nil {
+				return impact.Plan{}, err
+			}
 			visible, err = s.cfg.RBAC.NewEnforcer(tx).
 				Allowed(ctx, auth.GetSubject(ctx), access.ActionRetrieve)
 			if err != nil {
 				return impact.Plan{}, err
 			}
-			return s.cfg.Impact.Apply(ctx, tx, req.Change, impact.ApplyOptions{
+			return s.cfg.Impact.Apply(ctx, tx, records, impact.ApplyOptions{
 				Token:   req.Token,
 				Picks:   req.Picks,
 				Hidden:  req.Hidden,

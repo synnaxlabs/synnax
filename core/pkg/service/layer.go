@@ -1295,14 +1295,70 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		return nil, err
 	}
 	if l.Impact, err = impact.OpenService(impact.ServiceConfig{
-		Channel:  l.Channel,
 		RecordOf: taskconfig.RecordOf,
-		Delete: func(ctx context.Context, tx gorp.Tx, records []resource.ID) error {
-			w := l.Task.NewWriter(tx)
-			for _, r := range records {
-				if r.Type != resource.TypeTask {
-					return errors.Newf("impact cannot delete %s", r)
-				}
+		Deleters: map[resource.Type]impact.Deleter{
+			resource.TypeChannel: channelDeleter(l.Channel),
+			resource.TypeTask:    taskDeleter(l.Task),
+		},
+	}); err != nil {
+		return nil, err
+	}
+	return l, nil
+}
+
+// channelDeleter returns the impact.Deleter of channels, which plans and deletes as
+// channel.Service.PlanDelete and channel.Writer.DeletePlanned do.
+func channelDeleter(svc *channel.Service) impact.Deleter {
+	return impact.Deleter{
+		Plan: func(
+			ctx context.Context,
+			snap gorp.Snapshot,
+			ids []resource.ID,
+		) ([]resource.ID, gorp.DeleteEffects, error) {
+			keys, err := channel.KeysFromResourceIDs(ids)
+			if err != nil {
+				return nil, gorp.DeleteEffects{}, err
+			}
+			removed, effects, err := svc.PlanDelete(ctx, snap, keys)
+			if err != nil {
+				return nil, gorp.DeleteEffects{}, err
+			}
+			return channel.ResourceIDsFromKeys(removed), effects, nil
+		},
+		Delete: func(
+			ctx context.Context,
+			tx gorp.Tx,
+			removed []resource.ID,
+			effects gorp.DeleteEffects,
+		) error {
+			keys, err := channel.KeysFromResourceIDs(removed)
+			if err != nil {
+				return err
+			}
+			return svc.NewWriter(tx).DeletePlanned(ctx, keys, effects)
+		},
+	}
+}
+
+// taskDeleter returns the impact.Deleter of tasks. A delete of tasks plans no effect on
+// the records that hold them.
+func taskDeleter(svc *task.Service) impact.Deleter {
+	return impact.Deleter{
+		Plan: func(
+			_ context.Context,
+			_ gorp.Snapshot,
+			ids []resource.ID,
+		) ([]resource.ID, gorp.DeleteEffects, error) {
+			return ids, gorp.DeleteEffects{}, nil
+		},
+		Delete: func(
+			ctx context.Context,
+			tx gorp.Tx,
+			removed []resource.ID,
+			_ gorp.DeleteEffects,
+		) error {
+			w := svc.NewWriter(tx)
+			for _, r := range removed {
 				k, err := uuid.Parse(r.Key)
 				if err != nil {
 					return err
@@ -1313,10 +1369,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			}
 			return nil
 		},
-	}); err != nil {
-		return nil, err
 	}
-	return l, nil
 }
 
 // openSecretsFolder returns the folder at dir. It returns an error when dir is not a

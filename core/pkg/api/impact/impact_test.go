@@ -132,8 +132,10 @@ var _ = Describe("Routes", Ordered, func() {
 			objects...,
 		))
 	}
-	deleteOf := func(keys ...channel.Key) impact.Change {
-		return impact.Change{Variant: impact.DeleteChannelsChange{Keys: keys}}
+	deleteOf := func(keys ...channel.Key) apiimpact.Change {
+		return apiimpact.Change{
+			Variant: apiimpact.DeleteChange{Records: channel.ResourceIDsFromKeys(keys)},
+		}
 	}
 	retrieve := []access.Action{access.ActionRetrieve}
 	exists := func(ctx SpecContext, k channel.Key) bool {
@@ -272,7 +274,7 @@ var _ = Describe("Routes", Ordered, func() {
 	It("Should send a changed plan through the error codec", func(ctx SpecContext) {
 		ch := createChannel(ctx)
 		changed := impact.PlanChangedError{Plan: impact.Plan{
-			Change: deleteOf(ch),
+			Records: []resource.ID{channel.ResourceID(ch)},
 			Entries: []impact.Entry{{
 				Record: task.ResourceID(uuid.New()),
 				Effect: impact.EffectRestrict,

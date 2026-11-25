@@ -12,14 +12,129 @@
 package impact
 
 import (
+	"encoding/json/jsontext"
+	"encoding/json/v2"
+	"strconv"
+
 	serviceimpact "github.com/synnaxlabs/synnax/pkg/service/impact"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
 )
+
+// ChangeType is the "type" value that selects a variant of Change.
+type ChangeType string
+
+// DeleteChangeType deletes records.
+const DeleteChangeType ChangeType = "delete"
+
+// ChangeVariant is implemented by every Change variant.
+type ChangeVariant interface {
+	isChangeVariant()
+}
+
+// DeleteChange deletes records.
+type DeleteChange struct {
+	// Records are the records to delete.
+	Records []resource.ID `json:"records" msgpack:"records"`
+}
+
+func (DeleteChange) isChangeVariant() {}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (d DeleteChange) Validate() error {
+	v := validate.New("DeleteChange")
+	for i := range d.Records {
+		v.Exec(func() error { return validate.PathedError(d.Records[i].Validate(), "records", strconv.Itoa(i)) })
+	}
+	return v.Error()
+}
+
+// Change is a change that a plan covers.
+type Change struct {
+	Variant ChangeVariant
+}
+
+// MarshalJSONTo encodes the active variant with its "type" tag injected.
+func (u Change) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
+	case DeleteChange:
+		return json.MarshalEncode(enc, struct {
+			Type ChangeType `json:"type"`
+			DeleteChange
+		}{Type: DeleteChangeType, DeleteChange: v})
+	default:
+		return errors.Newf("Change: unknown variant %T", v)
+	}
+}
+
+// UnmarshalJSONFrom decodes the variant selected by the "type" field.
+func (u *Change) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
+		u.Variant = nil
+		return nil
+	}
+	opts := dec.Options()
+	var disc struct {
+		Type ChangeType `json:"type"`
+	}
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case DeleteChangeType:
+		var v struct {
+			Type ChangeType `json:"type"`
+			DeleteChange
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.DeleteChange
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"Change: unknown type %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u Change) Type() ChangeType {
+	switch u.Variant.(type) {
+	case DeleteChange:
+		return DeleteChangeType
+	}
+	return ""
+}
+
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
+func (u Change) Validate() error {
+	v := validate.New("Change")
+	v.Ternary("type", u.Variant == nil, "required")
+	switch variant := u.Variant.(type) {
+	case DeleteChange:
+		v.Exec(variant.Validate)
+	}
+	return v.Error()
+}
 
 // PlanRequest asks what a change would do with the caller's picks.
 type PlanRequest struct {
 	// Change is the change to plan.
-	Change serviceimpact.Change `json:"change" msgpack:"change"`
+	Change Change `json:"change" msgpack:"change"`
 	// Picks maps the text form of the record of a visible entry to the pick for it.
 	Picks map[string]serviceimpact.Choice `json:"picks" msgpack:"picks"`
 	// Hidden is the pick for every hidden entry that stops the change.
@@ -40,7 +155,7 @@ func (p PlanRequest) Validate() error {
 // ApplyRequest carries out a change with the caller's picks.
 type ApplyRequest struct {
 	// Change is the change to apply.
-	Change serviceimpact.Change `json:"change" msgpack:"change"`
+	Change Change `json:"change" msgpack:"change"`
 	// Token is the token of the plan that the caller saw. Empty skips the check.
 	Token string `json:"token" msgpack:"token"`
 	// Picks maps the text form of the record of a visible entry to the pick for it.

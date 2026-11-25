@@ -129,8 +129,8 @@ var _ = Describe("Plan breaker", Ordered, ContinueOnFailure, func() {
 			})
 		})).To(Succeed())
 	}
-	deleteOf := func(keys ...channel.Key) impact.Change {
-		return impact.Change{Variant: impact.DeleteChannelsChange{Keys: keys}}
+	deleteOf := func(keys ...channel.Key) []resource.ID {
+		return channel.ResourceIDsFromKeys(keys)
 	}
 	plan := func(
 		ctx SpecContext,

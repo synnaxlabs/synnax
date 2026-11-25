@@ -126,9 +126,7 @@ func BenchmarkApply(b *testing.B) {
 	ctx := b.Context()
 	layer, db := openApplyBench(b)
 	ch, tsk := createApplyHolders(b, layer, db)
-	change := impact.Change{
-		Variant: impact.DeleteChannelsChange{Keys: channel.Keys{ch}},
-	}
+	change := []resource.ID{channel.ResourceID(ch)}
 	picks := map[string]impact.Choice{
 		task.ResourceID(tsk).String(): impact.ChoiceDelete,
 	}

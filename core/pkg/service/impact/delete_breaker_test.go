@@ -154,8 +154,8 @@ var _ = Describe("Delete breaker", Ordered, ContinueOnFailure, func() {
 			Exec(ctx, db)).To(Succeed())
 		return stored
 	}
-	deleteOf := func(keys ...channel.Key) impact.Change {
-		return impact.Change{Variant: impact.DeleteChannelsChange{Keys: keys}}
+	deleteOf := func(keys ...channel.Key) []resource.ID {
+		return channel.ResourceIDsFromKeys(keys)
 	}
 	apply := func(
 		ctx SpecContext,

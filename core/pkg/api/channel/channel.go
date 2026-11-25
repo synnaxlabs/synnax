@@ -414,7 +414,7 @@ func (s *Service) Delete(
 		if _, err := s.impact.Apply(
 			ctx,
 			tx,
-			impact.Change{Variant: impact.DeleteChannelsChange{Keys: req.Keys}},
+			channel.ResourceIDsFromKeys(req.Keys),
 			impact.ApplyOptions{},
 		); err != nil {
 			return struct{}{}, err

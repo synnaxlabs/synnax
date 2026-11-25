@@ -27,6 +27,7 @@ import (
 	channeltestutil "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/impact"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -223,9 +224,11 @@ var _ = Describe("Restrict", func() {
 			Expect(post("", "/api/v1/auth/login", creds, &login)).To(Succeed())
 			token = login.Token
 		})
-		deleteOf := func() impact.Change {
-			return impact.Change{
-				Variant: impact.DeleteChannelsChange{Keys: channel.Keys{ch.Key()}},
+		deleteOf := func() apiimpact.Change {
+			return apiimpact.Change{
+				Variant: apiimpact.DeleteChange{
+					Records: []resource.ID{channel.ResourceID(ch.Key())},
+				},
 			}
 		}
 
