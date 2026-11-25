@@ -410,6 +410,9 @@ class Server:
         """The pieces of the trickle that the host sent."""
         self.closed = threading.Event()
         """Set when the reader closes the connection during the trickle."""
+        self.stalled = False
+        """Whether the host stops sending after the blob until `release` is set."""
+        self.release = threading.Event()
         self.seen: list[tuple[str, str | None]] = []
         """The path and the Authorization header of each request."""
         server = self
@@ -431,6 +434,10 @@ class Server:
                         self.connection.close()
                         return
                     self.wfile.write(server.blob)
+                    if server.stalled:
+                        self.wfile.flush()
+                        server.release.wait(timeout=3)
+                        return
                     try:
                         for piece in server.trickle:
                             self.wfile.flush()
@@ -466,6 +473,7 @@ def server() -> Iterator[Server]:
     thread = threading.Thread(target=s.http.serve_forever, daemon=True)
     thread.start()
     yield s
+    s.release.set()
     s.http.shutdown()
 
 
@@ -523,9 +531,15 @@ class TestLog:
 
     def test_should_stop_retrying_at_the_deadline(self, server: Server) -> None:
         server.api = [503] * ATTEMPTS
+        read = log(REPO, "secret", api=server.url, delay=10)
+        with pytest.raises(Unavailable, match="out of time"):
+            read(1, time.monotonic() + 5)
+        assert len(server.seen) == 1
+
+    def test_should_read_nothing_after_the_deadline(self, server: Server) -> None:
         with pytest.raises(Unavailable, match="out of time"):
             server.read(seconds=0)
-        assert len(server.seen) == 1
+        assert server.seen == []
 
     def test_should_stop_a_download_at_the_deadline(
         self, server: Server, monkeypatch: pytest.MonkeyPatch
@@ -547,6 +561,22 @@ class TestLog:
         assert len(server.seen) == 2
         assert server.closed.wait(timeout=2)
         assert server.sent < pieces
+
+    def test_should_stop_a_stalled_download_at_the_deadline(
+        self, server: Server, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr("review.ci.LOG_SECONDS", 0.3)
+        # The host stalls for 3 s, ten times the deadline.
+        server.blob, server.stalled = b"ok  \tx/a\t1.2s\n", True
+        gh = FakeGH()
+        gh.jobs[1].append(job(13, "go / Test"))
+        start = time.monotonic()
+        out = results(REPO, SHA, gh, log(REPO, "secret", api=server.url, delay=0))
+        assert time.monotonic() - start < 1.5
+        assert (
+            "```text\n10 log unavailable\n"
+            "13 log skipped: the time to read logs ran out\n```"
+        ) in out
 
     def test_should_keep_the_start_and_end_of_a_long_log(self, server: Server) -> None:
         start = b"start\n" * (HEAD_BYTES // 6 + 1)

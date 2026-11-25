@@ -62,6 +62,10 @@ ATTEMPTS = 5
 """The attempts to read a log, as `gh_api.sh` makes."""
 LOG_SECONDS = 300
 """The most seconds spent reading logs. The logs left after them are not read."""
+API_SECONDS = 30
+"""The most seconds that a request to the API waits for an answer."""
+READ_SECONDS = 60
+"""The most seconds that one read of a log waits for data."""
 UNAVAILABLE = (
     "# CI results of `{sha}`\n\nThe CI results of this commit are unavailable: the "
     "GitHub API failed to serve them. No claim about a CI result can be checked.\n"
@@ -147,7 +151,7 @@ def log(
             },
         )
         try:
-            opener.open(req, timeout=30).close()
+            opener.open(req, timeout=_timeout(API_SECONDS, job, deadline)).close()
         except urllib.error.HTTPError as e:
             if e.code in (404, 410):
                 return None
@@ -156,7 +160,8 @@ def log(
             location = e.headers["Location"]
         else:
             raise Unavailable(f"GitHub did not redirect to the log of job {job}")
-        with urllib.request.urlopen(location, timeout=60) as res:
+        timeout = _timeout(READ_SECONDS, job, deadline)
+        with urllib.request.urlopen(location, timeout=timeout) as res:
             return _read(res, job, deadline)
 
     def read(job: int, deadline: float) -> Text | None:
@@ -186,6 +191,17 @@ def _transient(e: urllib.error.HTTPError) -> bool:
     return e.code >= 500 or e.code == 429 or limited
 
 
+def _timeout(limit: float, job: int, deadline: float) -> float:
+    """Returns the smaller of limit and the seconds left until the deadline.
+
+    :raises Unavailable: If no time is left.
+    """
+    left = deadline - time.monotonic()
+    if left <= 0:
+        raise Unavailable(f"the log of job {job}: out of time")
+    return min(limit, left)
+
+
 def _read(res: Any, job: int, deadline: float) -> Text:
     """Reads a log, and keeps its start and its end when it is longer than
     `LOG_BYTES`."""
@@ -194,10 +210,13 @@ def _read(res: Any, job: int, deadline: float) -> Text:
     chunks: deque[bytes] = deque()
     size = 0
     cut = False
-    # read1 returns what has arrived, so a slow log still meets the deadline.
-    while chunk := res.read1(_CHUNK):
-        if time.monotonic() >= deadline:
-            raise Unavailable(f"the log of job {job}: out of time")
+    # http.client has no public socket. read1 returns what has arrived, so with the
+    # timeout of each read, a slow or stalled log still meets the deadline.
+    sock = res.fp.raw._sock
+    while True:
+        sock.settimeout(_timeout(READ_SECONDS, job, deadline))
+        if not (chunk := res.read1(_CHUNK)):
+            break
         if len(head) < HEAD_BYTES:
             n = HEAD_BYTES - len(head)
             head += chunk[:n]
