@@ -298,8 +298,7 @@ func stateKey(st symbol.State) string {
 func warnEmptyThresholds(s v13.Schematic, ins alamos.Instrumentation) {
 	for _, n := range s.Nodes {
 		l, ok := n.Config.Variant.(v13.LightNodeConfig)
-		if ok && l.OnColor == nil && l.Threshold != nil &&
-			l.Threshold.Lower == l.Threshold.Upper {
+		if ok && l.Threshold != nil && l.Threshold.Lower == l.Threshold.Upper {
 			ins.L.Warn(
 				"a light with an empty threshold now turns on at 0.9 to 1.1",
 				zap.Stringer("schematic", s.Key),
