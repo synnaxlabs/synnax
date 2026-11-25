@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 // Package read checks and hashes the reads of ICD messages that task configs hold,
-// against their ICDs and channels.
+// against their ICDs and channels, and decodes the documents of reads into samples.
 package read
 
 import (

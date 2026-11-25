@@ -12,6 +12,7 @@
 #include <utility>
 
 #include "absl/log/log.h"
+#include "absl/strings/ascii.h"
 
 #include "driver/http/errors/errors.h"
 #include "driver/http/processor/processor.h"
@@ -42,6 +43,27 @@ size_t write_callback(char *ptr, size_t size, size_t nmemb, void *userdata) {
     return size * nmemb;
 }
 
+/// @brief returns the scheme, host, and port of url, or an empty string if curl cannot
+/// parse it.
+std::string origin(const std::string &url) {
+    CURLU *u = curl_url();
+    std::string result;
+    if (curl_url_set(u, CURLUPART_URL, url.c_str(), 0) == CURLUE_OK) {
+        const auto get = [u](const CURLUPart part) {
+            char *value = nullptr;
+            curl_url_get(u, part, &value, CURLU_DEFAULT_PORT);
+            std::string part_value = value == nullptr ? "" : value;
+            curl_free(value);
+            return part_value;
+        };
+        result = get(CURLUPART_SCHEME) + "://" + get(CURLUPART_HOST) + ":" +
+                 get(CURLUPART_PORT);
+        absl::AsciiStrToLower(&result);
+    }
+    curl_url_cleanup(u);
+    return result;
+}
+
 x::errors::Error parse_curl_error(CURLcode code) {
     if (code == CURLE_OK) return x::errors::NIL;
     const auto code_str = std::to_string(static_cast<int>(code));
@@ -64,6 +86,16 @@ x::errors::Error parse_curl_error(CURLcode code) {
 
 }
 
+int Processor::prereq_callback(void *data, char *, char *, int, int) {
+    auto *t = static_cast<ActiveTransfer *>(data);
+    char *url = nullptr;
+    curl_easy_getinfo(t->handle, CURLINFO_EFFECTIVE_URL, &url);
+    const auto target = origin(url == nullptr ? "" : url);
+    if (target == t->origin) return CURL_PREREQFUNC_OK;
+    t->refused_origin = target.empty() ? "an unparsable URL" : target;
+    return CURL_PREREQFUNC_ABORT;
+}
+
 std::pair<Response, x::errors::Error>
 Processor::build_result(CURL *handle, CURLcode result_code, ActiveTransfer &t) {
     long status_code = 0;
@@ -74,7 +106,14 @@ Processor::build_result(CURL *handle, CURLcode result_code, ActiveTransfer &t) {
     if (!has_response_body(t.method)) t.response_body.clear();
 
     x::errors::Error err = x::errors::NIL;
-    if (result_code != CURLE_OK) err = parse_curl_error(result_code);
+    if (!t.refused_origin.empty())
+        err = x::errors::Error(
+            http::errors::CRITICAL_ERROR,
+            "refused redirect to " + t.refused_origin +
+                ", a different scheme, host, or port than " + t.origin
+        );
+    else if (result_code != CURLE_OK)
+        err = parse_curl_error(result_code);
     return {
         Response{
             .status_code = static_cast<int>(status_code),
@@ -99,9 +138,12 @@ CURL *Processor::create_handle(const Request &req, ActiveTransfer &t) {
         static_cast<long>(req.timeout.milliseconds())
     );
 
-    // Write callback — WRITEDATA is set after the transfer is in its final location
-    // (see run()) to avoid a dangling pointer from std::move.
+    // The callback data is set after the transfer is in its final location (see
+    // dispatch()) to avoid a dangling pointer from std::move.
     curl_easy_setopt(handle, CURLOPT_WRITEFUNCTION, write_callback);
+    curl_easy_setopt(handle, CURLOPT_PREREQFUNCTION, prereq_callback);
+    t.handle = handle;
+    t.origin = origin(req.url);
 
     if (!req.verify_ssl) {
         curl_easy_setopt(handle, CURLOPT_SSL_VERIFYPEER, 0L);
@@ -172,9 +214,10 @@ bool Processor::dispatch(PendingRequest &&p, Gate &gate) {
         return false;
     }
     auto [it, _] = this->active.emplace(handle, std::move(t));
-    // Set WRITEDATA after emplace so it points to the response_body at its final
+    // Set the callback data after emplace so it points to the transfer at its final
     // address in the map.
     curl_easy_setopt(handle, CURLOPT_WRITEDATA, &it->second.response_body);
+    curl_easy_setopt(handle, CURLOPT_PREREQDATA, &it->second);
     curl_multi_add_handle(this->multi, handle);
     gate.in_flight++;
     return true;

@@ -230,12 +230,14 @@ class JSONEncoder {
         /// @brief encoder writes the samples of every kind but JSON, whose samples are
         /// JSON text. A converted field uses it only to find enum labels.
         x::json::Encoder encoder;
-        /// @brief converted is true when a numeric sample needs a scale, a rounding, or
-        /// a change to a boolean before it is written.
+        /// @brief converted is true when a numeric sample needs a scale, a rounding, a
+        /// range check, or a change to a boolean before it is written.
         bool converted = false;
         bool scaled = false;
         double scale = 1;
         double offset = 0;
+        /// @brief base holds the min and max of the field.
+        synnax::icd::BaseField base;
         /// @brief fallback is the default that an empty series writes.
         Default fallback;
 
