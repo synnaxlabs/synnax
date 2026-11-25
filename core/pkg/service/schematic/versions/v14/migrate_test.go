@@ -19,6 +19,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	servicecolor "github.com/synnaxlabs/synnax/pkg/service/color/versions/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/enumeration"
 	symbol "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v5"
 	v13 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v13"
 	v14 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v14"
@@ -48,6 +49,22 @@ func shade(r uint8) *xcolor.Color { return &xcolor.Color{R: r, A: 255} }
 
 func fixed(r uint8) *servicecolor.Ref {
 	return &servicecolor.Ref{Variant: servicecolor.FixedRef{Value: *shade(r)}}
+}
+
+// migrate opens the v14 table on db, which runs the v13 to v14 migration with the
+// interner of a real enumeration service.
+func migrate(ctx SpecContext, db *gorp.DB) *enumeration.Service {
+	GinkgoHelper()
+	enums := MustOpen(enumeration.OpenService(ctx, enumeration.ServiceConfig{DB: db}))
+	MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v14.Key, v14.Schematic]{
+		DB: db,
+		Migrations: []gorp.Migration{v14.NewMigration(v14.MigrationConfig{
+			Intern: func(tx gorp.Tx) symbol.Intern {
+				return enums.NewWriter(tx).NewInterner().Intern
+			},
+		})},
+	}))
+	return enums
 }
 
 var _ = Describe("Migration", func() {
@@ -86,9 +103,7 @@ var _ = Describe("Migration", func() {
 		}
 		Expect(gorp.NewCreate[v13.Key, v13.Schematic]().Entry(&old).Exec(ctx, db)).
 			To(Succeed())
-		MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v14.Key, v14.Schematic]{
-			DB: db, Migrations: []gorp.Migration{v14.Migration},
-		}))
+		migrate(ctx, db)
 		var got v14.Schematic
 		Expect(gorp.NewRetrieve[v14.Key, v14.Schematic]().
 			Where(gorp.MatchKeys[v14.Key, v14.Schematic](old.Key)).
@@ -413,14 +428,10 @@ var _ = Describe("MigrateSchematic", func() {
 			Expect(ok).To(BeTrue())
 			Expect(sel.Enumeration).To(BeNil())
 			Expect(sel.CommandChannel).To(BeEquivalentTo(1048577))
-			Expect(sel.Options).To(HaveLen(2))
-			Expect(sel.Options[1].Name).To(Equal("Open"))
-			Expect(sel.Options[1].Color).ToNot(BeNil())
 			ind, ok := out.Nodes[1].Config.Variant.(v14.StateIndicatorNodeConfig)
 			Expect(ok).To(BeTrue())
 			Expect(ind.Enumeration).To(BeNil())
 			Expect(ind.Channel).To(BeEquivalentTo(1048578))
-			Expect(ind.Options).To(HaveLen(2))
 		},
 	)
 

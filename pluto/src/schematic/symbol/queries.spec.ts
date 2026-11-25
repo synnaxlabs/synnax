@@ -10,6 +10,7 @@
 import { schematic } from "@synnaxlabs/client";
 import {
   createTestClient,
+  createTestClientWithPolicy,
   createTestClientWithRole,
 } from "@synnaxlabs/client/testutil";
 import { act, renderHook, waitFor } from "@testing-library/react";
@@ -104,6 +105,40 @@ describe("Symbol queries", () => {
         expect(result.current?.name).toBe("retrieve-test");
         expect(result.current?.data.drawing.markup).toBe("<svg>test</svg>");
       });
+    });
+  });
+
+  describe("useResolved", () => {
+    const create = async () =>
+      await client.schematics.symbols.create({
+        name: "resolved-test",
+        data: { drawing: { type: "svg", markup: "<svg></svg>" }, variant: "static" },
+      });
+
+    it("should resolve a symbol that loads", async () => {
+      const symbol = await create();
+      const { result } = renderHook(() => Symbol.useResolved(symbol.key), { wrapper });
+      await waitFor(() => expect(result.current.symbol?.key).toBe(symbol.key));
+      expect(result.current).toMatchObject({ missing: false, failed: false });
+    });
+
+    it("should report a symbol that does not exist as missing, not failed", async () => {
+      const symbol = await create();
+      await client.schematics.symbols.delete(symbol.key);
+      const { result } = renderHook(() => Symbol.useResolved(symbol.key), { wrapper });
+      await waitFor(() => expect(result.current.missing).toBe(true));
+      expect(result.current.failed).toBe(false);
+    });
+
+    it("should report a symbol that the user cannot read as failed", async () => {
+      const symbol = await create();
+      const denied = await createTestClientWithPolicy(client, []);
+      const { result } = renderHook(() => Symbol.useResolved(symbol.key), {
+        wrapper: await createAsyncSynnaxWrapper({ client: denied }),
+      });
+      await waitFor(() =>
+        expect(result.current).toEqual({ missing: false, failed: true }),
+      );
     });
   });
 

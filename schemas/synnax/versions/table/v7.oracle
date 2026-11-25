@@ -50,7 +50,7 @@ CellConfig union on variant extends v6.CellConfig {
                 absent the value renders with a theme-derived legible color.
             """
         }
-        staleness_timeout telem.TimeSpan = 5000000000 {
+        staleness_timeout telem.TimeSpan = 5s {
             @doc value    "is the span after which the value is considered stale."
             @validate max 9007199254740991
             @validate min 1000000000

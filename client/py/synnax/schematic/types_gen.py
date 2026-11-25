@@ -18,7 +18,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from synnax import (
     channel as channel_,
-    color as color__,
+    color as color_,
     enumeration as enumeration_,
     group as group_,
     project as project_,
@@ -27,7 +27,7 @@ from synnax.resource import ID
 from synnax.schematic import symbol
 from x import (
     border,
-    color as color_,
+    color as color__,
     filter,
     notation as notation_,
     spatial,
@@ -152,22 +152,6 @@ class ControlStateConfig(BaseModel):
     chip_hidden: bool = False
     indicator_hidden: bool = False
     orientation: spatial.Location = "bottom"
-
-
-class StateMapping(BaseModel):
-    """Maps a numeric channel value to a named, colored state.
-
-    Attributes:
-        key: Is the unique identifier for the mapping entry.
-        name: Is the display name for this state.
-        value: Is the channel value this state corresponds to.
-        color: Is the display color associated with this state.
-    """
-
-    key: str
-    name: str
-    value: float
-    color: color_.Color | None = None
 
 
 class Page(BaseModel):
@@ -351,7 +335,7 @@ class SegmentedEdgeConfig(BaseModel):
         stroke_width: Is the stroke width of the edge in pixels.
     """
 
-    stroke_color: color__.Ref | None = None
+    stroke_color: color_.Ref | None = None
     segments: list[Segment] = Field(default_factory=list)
     stroke_width: int = Field(default=2, ge=1, le=20)
 
@@ -391,9 +375,9 @@ class ScaleIndicatorConfig(NumericTelemConfig, StalenessConfig):
     bounds: spatial.ClosedBounds = Field(
         default_factory=lambda: spatial.ClosedBounds(lower=0, upper=100)
     )
-    level_color: color__.Ref | None = None
-    axis_color: color__.Ref | None = None
-    text_color: color__.Ref | None = None
+    level_color: color_.Ref | None = None
+    axis_color: color_.Ref | None = None
+    text_color: color_.Ref | None = None
     units: str = ""
     level_hidden: bool = False
     caret_hidden: bool = False
@@ -444,30 +428,44 @@ class RetrieveRequest(BaseModel):
 
 
 class PipeEdgeConfig(SegmentedEdgeConfig):
+    """Is the configuration for pipe edges."""
+
     variant: Literal["pipe"] = "pipe"
 
 
 class ElectricEdgeConfig(SegmentedEdgeConfig):
+    """Is the configuration for electrical edges."""
+
     variant: Literal["electric"] = "electric"
 
 
 class SecondaryEdgeConfig(SegmentedEdgeConfig):
+    """Is the configuration for secondary edges."""
+
     variant: Literal["secondary"] = "secondary"
 
 
 class JacketedEdgeConfig(SegmentedEdgeConfig):
+    """Is the configuration for jacketed edges."""
+
     variant: Literal["jacketed"] = "jacketed"
 
 
 class HydraulicEdgeConfig(SegmentedEdgeConfig):
+    """Is the configuration for hydraulic edges."""
+
     variant: Literal["hydraulic"] = "hydraulic"
 
 
 class PneumaticEdgeConfig(SegmentedEdgeConfig):
+    """Is the configuration for pneumatic edges."""
+
     variant: Literal["pneumatic"] = "pneumatic"
 
 
 class DataEdgeConfig(SegmentedEdgeConfig):
+    """Is the configuration for data edges."""
+
     variant: Literal["data"] = "data"
 
 
@@ -512,7 +510,7 @@ class StaticSymbolConfig(LabeledConfig, ScaledConfig):
         stroke_color: Is the stroke color of the symbol.
     """
 
-    stroke_color: color_.Color | None = None
+    stroke_color: color__.Color | None = None
 
 
 class DummyToggleSymbolConfig(LabeledConfig, ScaledConfig):
@@ -528,7 +526,7 @@ class DummyToggleSymbolConfig(LabeledConfig, ScaledConfig):
 
     enabled: bool = False
     clickable: bool = False
-    stroke_color: color_.Color | None = None
+    stroke_color: color__.Color | None = None
 
 
 class Edge(BaseModel):
@@ -555,108 +553,158 @@ class ToggleSymbolConfig(ToggleConfig):
             active.
     """
 
-    stroke_color: color_.Color | None = None
+    stroke_color: color__.Color | None = None
 
 
 class CapNodeConfig(StaticSymbolConfig):
+    """Is the configuration for cap symbols."""
+
     variant: Literal["cap"] = "cap"
 
 
 class FilterNodeConfig(StaticSymbolConfig):
+    """Is the configuration for filter symbols."""
+
     variant: Literal["filter"] = "filter"
 
 
 class FlowStraightenerNodeConfig(StaticSymbolConfig):
+    """Is the configuration for flow straightener symbols."""
+
     variant: Literal["flow_straightener"] = "flow_straightener"
 
 
 class HeaterElementNodeConfig(StaticSymbolConfig):
+    """Is the configuration for heater element symbols."""
+
     variant: Literal["heater_element"] = "heater_element"
 
 
 class IsoCapNodeConfig(StaticSymbolConfig):
+    """Is the configuration for ISO cap symbols."""
+
     variant: Literal["iso_cap"] = "iso_cap"
 
 
 class IsoFilterNodeConfig(StaticSymbolConfig):
+    """Is the configuration for ISO filter symbols."""
+
     variant: Literal["iso_filter"] = "iso_filter"
 
 
 class NozzleNodeConfig(StaticSymbolConfig):
+    """Is the configuration for nozzle symbols."""
+
     variant: Literal["nozzle"] = "nozzle"
 
 
 class OrificeNodeConfig(StaticSymbolConfig):
+    """Is the configuration for orifice symbols."""
+
     variant: Literal["orifice"] = "orifice"
 
 
 class OrificePlateNodeConfig(StaticSymbolConfig):
+    """Is the configuration for orifice plate symbols."""
+
     variant: Literal["orifice_plate"] = "orifice_plate"
 
 
 class StrainerNodeConfig(StaticSymbolConfig):
+    """Is the configuration for strainer symbols."""
+
     variant: Literal["strainer"] = "strainer"
 
 
 class StrainerConeNodeConfig(StaticSymbolConfig):
+    """Is the configuration for strainer cone symbols."""
+
     variant: Literal["strainer_cone"] = "strainer_cone"
 
 
 class ThrusterNodeConfig(ToggleSymbolConfig):
+    """Is the configuration for thruster symbols."""
+
     variant: Literal["thruster"] = "thruster"
 
 
 class VentNodeConfig(StaticSymbolConfig):
+    """Is the configuration for vent symbols."""
+
     variant: Literal["vent"] = "vent"
 
 
 class FlowmeterGeneralNodeConfig(StaticSymbolConfig):
+    """Is the configuration for general flowmeter symbols."""
+
     variant: Literal["flowmeter_general"] = "flowmeter_general"
 
 
 class FlowmeterElectromagneticNodeConfig(StaticSymbolConfig):
+    """Is the configuration for electromagnetic flowmeter symbols."""
+
     variant: Literal["flowmeter_electromagnetic"] = "flowmeter_electromagnetic"
 
 
 class FlowmeterVariableAreaNodeConfig(StaticSymbolConfig):
+    """Is the configuration for variable area flowmeter symbols."""
+
     variant: Literal["flowmeter_variable_area"] = "flowmeter_variable_area"
 
 
 class FlowmeterCoriolisNodeConfig(StaticSymbolConfig):
+    """Is the configuration for Coriolis flowmeter symbols."""
+
     variant: Literal["flowmeter_coriolis"] = "flowmeter_coriolis"
 
 
 class FlowmeterNozzleNodeConfig(StaticSymbolConfig):
+    """Is the configuration for nozzle flowmeter symbols."""
+
     variant: Literal["flowmeter_nozzle"] = "flowmeter_nozzle"
 
 
 class FlowmeterVenturiNodeConfig(StaticSymbolConfig):
+    """Is the configuration for venturi flowmeter symbols."""
+
     variant: Literal["flowmeter_venturi"] = "flowmeter_venturi"
 
 
 class FlowmeterRingPistonNodeConfig(StaticSymbolConfig):
+    """Is the configuration for ring piston flowmeter symbols."""
+
     variant: Literal["flowmeter_ring_piston"] = "flowmeter_ring_piston"
 
 
 class FlowmeterPositiveDisplacementNodeConfig(StaticSymbolConfig):
+    """Is the configuration for positive displacement flowmeter symbols."""
+
     variant: Literal["flowmeter_positive_displacement"] = (
         "flowmeter_positive_displacement"
     )
 
 
 class FlowmeterTurbineNodeConfig(StaticSymbolConfig):
+    """Is the configuration for turbine flowmeter symbols."""
+
     variant: Literal["flowmeter_turbine"] = "flowmeter_turbine"
 
 
 class FlowmeterPulseNodeConfig(StaticSymbolConfig):
+    """Is the configuration for pulse flowmeter symbols."""
+
     variant: Literal["flowmeter_pulse"] = "flowmeter_pulse"
 
 
 class FlowmeterFloatSensorNodeConfig(StaticSymbolConfig):
+    """Is the configuration for float sensor flowmeter symbols."""
+
     variant: Literal["flowmeter_float_sensor"] = "flowmeter_float_sensor"
 
 
 class FlowmeterOrificeNodeConfig(StaticSymbolConfig):
+    """Is the configuration for orifice flowmeter symbols."""
+
     variant: Literal["flowmeter_orifice"] = "flowmeter_orifice"
 
 
@@ -664,8 +712,8 @@ class BoxNodeConfig(LabeledConfig):
     """Is the configuration for box annotation symbols."""
 
     variant: Literal["box"] = "box"
-    stroke_color: color__.Ref | None = None
-    fill_color: color__.Ref | None = None
+    stroke_color: color_.Ref | None = None
+    fill_color: color_.Ref | None = None
     dimensions: spatial.Dimensions = Field(
         default_factory=lambda: spatial.Dimensions(width=125, height=200)
     )
@@ -683,7 +731,7 @@ class ButtonNodeConfig(LabeledConfig):
     )
     command_channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
     mode: ButtonMode = "fire"
-    fill_color: color__.Ref | None = None
+    fill_color: color_.Ref | None = None
     control: ControlStateConfig = Field(default_factory=lambda: ControlStateConfig())
 
 
@@ -692,8 +740,8 @@ class CircleNodeConfig(LabeledConfig):
 
     variant: Literal["circle"] = "circle"
     radius: int = Field(default=20, ge=1, le=65535)
-    stroke_color: color__.Ref | None = None
-    fill_color: color__.Ref | None = None
+    stroke_color: color_.Ref | None = None
+    fill_color: color_.Ref | None = None
     stroke_width: int | None = Field(default=None, ge=0, le=20)
 
 
@@ -702,7 +750,7 @@ class GaugeNodeConfig(LabeledConfig, NumericTelemConfig, StalenessConfig):
 
     variant: Literal["gauge"] = "gauge"
     position: spatial.XY = Field(default_factory=lambda: spatial.XY(x=0, y=0))
-    stroke_color: color__.Ref | None = None
+    stroke_color: color_.Ref | None = None
     bounds: spatial.ClosedBounds = Field(
         default_factory=lambda: spatial.ClosedBounds(lower=0, upper=100)
     )
@@ -724,7 +772,7 @@ class InputNodeConfig(LabeledConfig, StalenessConfig):
     dimensions: spatial.Dimensions = Field(
         default_factory=lambda: spatial.Dimensions(width=0, height=0)
     )
-    fill_color: color__.Ref | None = None
+    fill_color: color_.Ref | None = None
     disabled: bool = False
     inline_size: int = Field(default=150, ge=1, le=65535)
     on_click_delay: telem.TimeSpan = Field(
@@ -739,15 +787,15 @@ class LightNodeConfig(LabeledConfig, ScaledConfig, StalenessConfig):
     variant: Literal["light"] = "light"
     channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
     threshold: spatial.Bounds | None = None
-    stroke_color: color_.Color | None = None
-    on_color: color_.Color | None = None
+    stroke_color: color__.Color | None = None
+    on_color: color__.Color | None = None
 
 
 class LineNodeConfig(BaseModel):
     """Is the configuration for straight line symbols."""
 
     variant: Literal["line"] = "line"
-    stroke_color: color__.Ref | None = None
+    stroke_color: color_.Ref | None = None
     start: spatial.XY = Field(default_factory=lambda: spatial.XY(x=0, y=0))
     end: spatial.XY = Field(default_factory=lambda: spatial.XY(x=100, y=0))
     stroke_width: int = Field(default=2, ge=1, le=20)
@@ -758,7 +806,7 @@ class OffPageReferenceNodeConfig(LabeledConfig):
 
     variant: Literal["off_page_reference"] = "off_page_reference"
     orientation: spatial.OuterLocation = "right"
-    fill_color: color__.Ref | None = None
+    fill_color: color_.Ref | None = None
     page: Page = Field(default_factory=lambda: Page(type="schematic", key=""))
     double_click_navigation_disabled: bool = False
 
@@ -771,8 +819,8 @@ class PolygonNodeConfig(LabeledConfig):
     side_length: int = Field(default=20, ge=1, le=65535)
     rotation: float = 0
     border_radius: int = Field(default=0, ge=0, le=65535)
-    stroke_color: color__.Ref | None = None
-    fill_color: color__.Ref | None = None
+    stroke_color: color_.Ref | None = None
+    fill_color: color_.Ref | None = None
     stroke_width: int | None = Field(default=None, ge=0, le=20)
 
 
@@ -783,10 +831,9 @@ class SelectNodeConfig(LabeledConfig, StalenessConfig):
     size: ComponentSize = "medium"
     command_channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
     state_channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
-    fill_color: color__.Ref | None = None
-    inline_size: int = Field(default=100, ge=1, le=65535)
-    options: list[StateMapping] = Field(default_factory=list)
+    fill_color: color_.Ref | None = None
     enumeration: enumeration_.Key | None = None
+    inline_size: int = Field(default=100, ge=1, le=65535)
     disabled: bool = False
     on_click_delay: telem.TimeSpan = Field(
         default=telem.TimeSpan(0), ge=0, le=2147483647000000
@@ -815,7 +862,7 @@ class SetpointNodeConfig(LabeledConfig, StalenessConfig):
     dimensions: spatial.Dimensions = Field(
         default_factory=lambda: spatial.Dimensions(width=0, height=0)
     )
-    fill_color: color__.Ref | None = None
+    fill_color: color_.Ref | None = None
     units: str = ""
     disabled: bool = False
     inline_size: int = Field(default=100, ge=1, le=65535)
@@ -830,10 +877,9 @@ class StateIndicatorNodeConfig(LabeledConfig, StalenessConfig):
 
     variant: Literal["state_indicator"] = "state_indicator"
     channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
-    stroke_color: color__.Ref | None = None
-    inline_size: int = Field(default=100, ge=1, le=65535)
-    options: list[StateMapping] = Field(default_factory=list)
+    stroke_color: color_.Ref | None = None
     enumeration: enumeration_.Key | None = None
+    inline_size: int = Field(default=100, ge=1, le=65535)
     size: ComponentSize = "medium"
 
 
@@ -841,8 +887,8 @@ class StringDisplayNodeConfig(LabeledConfig, StalenessConfig):
     """Is the configuration for live string display symbols."""
 
     variant: Literal["string_display"] = "string_display"
-    stroke_color: color__.Ref | None = None
-    text_color: color__.Ref | None = None
+    stroke_color: color_.Ref | None = None
+    text_color: color_.Ref | None = None
     tooltip: list[str] = Field(default_factory=list)
     inline_size: int = Field(default=100, ge=1, le=65535)
     channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
@@ -850,6 +896,8 @@ class StringDisplayNodeConfig(LabeledConfig, StalenessConfig):
 
 
 class SwitchNodeConfig(ToggleSymbolConfig):
+    """Is the configuration for switch symbols."""
+
     variant: Literal["switch"] = "switch"
 
 
@@ -857,7 +905,7 @@ class TextBoxNodeConfig(LabeledConfig):
     """Is the configuration for text box annotation symbols."""
 
     variant: Literal["text_box"] = "text_box"
-    text_color: color__.Ref | None = None
+    text_color: color_.Ref | None = None
     inline_size: int = Field(default=75, ge=1, le=65535)
     align: FlexAlignment = "center"
     auto_fit_disabled: bool = False
@@ -870,11 +918,11 @@ class ValueNodeConfig(LabeledConfig, NumericTelemConfig, StalenessConfig):
 
     variant: Literal["value"] = "value"
     position: spatial.XY = Field(default_factory=lambda: spatial.XY(x=0, y=0))
-    stroke_color: color__.Ref | None = None
-    text_color: color__.Ref | None = None
-    fill_color: color__.Ref | None = None
+    stroke_color: color_.Ref | None = None
+    text_color: color_.Ref | None = None
+    fill_color: color_.Ref | None = None
     tooltip: list[str] = Field(default_factory=list)
-    redline: color_.Scale = Field(default_factory=lambda: color_.Scale())
+    redline: color__.Scale = Field(default_factory=lambda: color__.Scale())
     units: str = ""
     inline_size: int = Field(default=70, ge=1, le=65535)
     level: text.Level = "h4"
@@ -884,206 +932,308 @@ class ValueNodeConfig(LabeledConfig, NumericTelemConfig, StalenessConfig):
 
 
 class AgitatorNodeConfig(ToggleSymbolConfig):
+    """Is the configuration for agitator symbols."""
+
     variant: Literal["agitator"] = "agitator"
 
 
 class CrossBeamAgitatorNodeConfig(ToggleSymbolConfig):
+    """Is the configuration for cross beam agitator symbols."""
+
     variant: Literal["cross_beam_agitator"] = "cross_beam_agitator"
 
 
 class FlatBladeAgitatorNodeConfig(ToggleSymbolConfig):
+    """Is the configuration for flat blade agitator symbols."""
+
     variant: Literal["flat_blade_agitator"] = "flat_blade_agitator"
 
 
 class HeatExchangerGeneralNodeConfig(StaticSymbolConfig):
+    """Is the configuration for general heat exchanger symbols."""
+
     variant: Literal["heat_exchanger_general"] = "heat_exchanger_general"
 
 
 class HeatExchangerMNodeConfig(StaticSymbolConfig):
+    """Is the configuration for M-type heat exchanger symbols."""
+
     variant: Literal["heat_exchanger_m"] = "heat_exchanger_m"
 
 
 class HeatExchangerStraightTubeNodeConfig(StaticSymbolConfig):
+    """Is the configuration for straight tube heat exchanger symbols."""
+
     variant: Literal["heat_exchanger_straight_tube"] = "heat_exchanger_straight_tube"
 
 
 class HelicalAgitatorNodeConfig(ToggleSymbolConfig):
+    """Is the configuration for helical agitator symbols."""
+
     variant: Literal["helical_agitator"] = "helical_agitator"
 
 
 class PaddleAgitatorNodeConfig(ToggleSymbolConfig):
+    """Is the configuration for paddle agitator symbols."""
+
     variant: Literal["paddle_agitator"] = "paddle_agitator"
 
 
 class PropellerAgitatorNodeConfig(ToggleSymbolConfig):
+    """Is the configuration for propeller agitator symbols."""
+
     variant: Literal["propeller_agitator"] = "propeller_agitator"
 
 
 class RotaryMixerNodeConfig(ToggleSymbolConfig):
+    """Is the configuration for rotary mixer symbols."""
+
     variant: Literal["rotary_mixer"] = "rotary_mixer"
 
 
 class StaticMixerNodeConfig(StaticSymbolConfig):
+    """Is the configuration for static mixer symbols."""
+
     variant: Literal["static_mixer"] = "static_mixer"
 
 
 class CavityPumpNodeConfig(ToggleSymbolConfig):
+    """Is the configuration for cavity pump symbols."""
+
     variant: Literal["cavity_pump"] = "cavity_pump"
 
 
 class CentrifugalCompressorNodeConfig(ToggleSymbolConfig):
+    """Is the configuration for centrifugal compressor symbols."""
+
     variant: Literal["centrifugal_compressor"] = "centrifugal_compressor"
 
 
 class CompressorNodeConfig(ToggleSymbolConfig):
+    """Is the configuration for compressor symbols."""
+
     variant: Literal["compressor"] = "compressor"
 
 
 class DiaphragmPumpNodeConfig(ToggleSymbolConfig):
+    """Is the configuration for diaphragm pump symbols."""
+
     variant: Literal["diaphragm_pump"] = "diaphragm_pump"
 
 
 class EjectionPumpNodeConfig(ToggleSymbolConfig):
+    """Is the configuration for ejection pump symbols."""
+
     variant: Literal["ejection_pump"] = "ejection_pump"
 
 
 class EjectorCompressorNodeConfig(ToggleSymbolConfig):
+    """Is the configuration for ejector compressor symbols."""
+
     variant: Literal["ejector_compressor"] = "ejector_compressor"
 
 
 class LiquidRingCompressorNodeConfig(ToggleSymbolConfig):
+    """Is the configuration for liquid ring compressor symbols."""
+
     variant: Literal["liquid_ring_compressor"] = "liquid_ring_compressor"
 
 
 class PistonPumpNodeConfig(ToggleSymbolConfig):
+    """Is the configuration for piston pump symbols."""
+
     variant: Literal["piston_pump"] = "piston_pump"
 
 
 class PumpNodeConfig(ToggleSymbolConfig):
+    """Is the configuration for pump symbols."""
+
     variant: Literal["pump"] = "pump"
 
 
 class RollerVaneCompressorNodeConfig(ToggleSymbolConfig):
+    """Is the configuration for roller vane compressor symbols."""
+
     variant: Literal["roller_vane_compressor"] = "roller_vane_compressor"
 
 
 class ScrewPumpNodeConfig(ToggleSymbolConfig):
+    """Is the configuration for screw pump symbols."""
+
     variant: Literal["screw_pump"] = "screw_pump"
 
 
 class TurboCompressorNodeConfig(ToggleSymbolConfig):
+    """Is the configuration for turbo compressor symbols."""
+
     variant: Literal["turbo_compressor"] = "turbo_compressor"
 
 
 class VacuumPumpNodeConfig(ToggleSymbolConfig):
+    """Is the configuration for vacuum pump symbols."""
+
     variant: Literal["vacuum_pump"] = "vacuum_pump"
 
 
 class BurstDiscNodeConfig(StaticSymbolConfig):
+    """Is the configuration for burst disc symbols."""
+
     variant: Literal["burst_disc"] = "burst_disc"
 
 
 class FlameArrestorNodeConfig(StaticSymbolConfig):
+    """Is the configuration for flame arrestor symbols."""
+
     variant: Literal["flame_arrestor"] = "flame_arrestor"
 
 
 class FlameArrestorDetonationNodeConfig(StaticSymbolConfig):
+    """Is the configuration for detonation-proof flame arrestor symbols."""
+
     variant: Literal["flame_arrestor_detonation"] = "flame_arrestor_detonation"
 
 
 class FlameArrestorExplosionNodeConfig(StaticSymbolConfig):
+    """Is the configuration for explosion-proof flame arrestor symbols."""
+
     variant: Literal["flame_arrestor_explosion"] = "flame_arrestor_explosion"
 
 
 class FlameArrestorFireResNodeConfig(StaticSymbolConfig):
+    """Is the configuration for fire resistant flame arrestor symbols."""
+
     variant: Literal["flame_arrestor_fire_res"] = "flame_arrestor_fire_res"
 
 
 class FlameArrestorFireResDetonationNodeConfig(StaticSymbolConfig):
+    """Is the configuration for fire resistant and detonation-proof flame arrestor
+    symbols.
+    """
+
     variant: Literal["flame_arrestor_fire_res_detonation"] = (
         "flame_arrestor_fire_res_detonation"
     )
 
 
 class IsoBurstDiscNodeConfig(StaticSymbolConfig):
+    """Is the configuration for ISO burst disc symbols."""
+
     variant: Literal["iso_burst_disc"] = "iso_burst_disc"
 
 
 class AngledValveNodeConfig(ToggleSymbolConfig):
+    """Is the configuration for angled valve symbols."""
+
     variant: Literal["angled_valve"] = "angled_valve"
 
 
 class AngledReliefValveNodeConfig(DummyToggleSymbolConfig):
+    """Is the configuration for angled relief valve symbols."""
+
     variant: Literal["angled_relief_valve"] = "angled_relief_valve"
 
 
 class AngledSpringLoadedReliefValveNodeConfig(DummyToggleSymbolConfig):
+    """Is the configuration for angled spring loaded relief valve symbols."""
+
     variant: Literal["angled_spring_loaded_relief_valve"] = (
         "angled_spring_loaded_relief_valve"
     )
 
 
 class BallValveNodeConfig(ToggleSymbolConfig):
+    """Is the configuration for ball valve symbols."""
+
     variant: Literal["ball_valve"] = "ball_valve"
 
 
 class BreatherValveNodeConfig(DummyToggleSymbolConfig):
+    """Is the configuration for breather valve symbols."""
+
     variant: Literal["breather_valve"] = "breather_valve"
 
 
 class ButterflyValveOneNodeConfig(ToggleSymbolConfig):
+    """Is the configuration for remote butterfly valve symbols."""
+
     variant: Literal["butterfly_valve_one"] = "butterfly_valve_one"
 
 
 class ButterflyValveTwoNodeConfig(ToggleSymbolConfig):
+    """Is the configuration for manual butterfly valve symbols."""
+
     variant: Literal["butterfly_valve_two"] = "butterfly_valve_two"
 
 
 class CheckValveNodeConfig(StaticSymbolConfig):
+    """Is the configuration for check valve symbols."""
+
     variant: Literal["check_valve"] = "check_valve"
 
 
 class CheckValveWithArrowNodeConfig(StaticSymbolConfig):
+    """Is the configuration for check valve symbols drawn with an arrow."""
+
     variant: Literal["check_valve_with_arrow"] = "check_valve_with_arrow"
 
 
 class ElectricRegulatorNodeConfig(StaticSymbolConfig):
+    """Is the configuration for electric regulator symbols."""
+
     variant: Literal["electric_regulator"] = "electric_regulator"
 
 
 class ElectricRegulatorMotorizedNodeConfig(StaticSymbolConfig):
+    """Is the configuration for motorized electric regulator symbols."""
+
     variant: Literal["electric_regulator_motorized"] = "electric_regulator_motorized"
 
 
 class FourWayValveNodeConfig(ToggleSymbolConfig):
+    """Is the configuration for four way valve symbols."""
+
     variant: Literal["four_way_valve"] = "four_way_valve"
 
 
 class GateValveNodeConfig(ToggleSymbolConfig):
+    """Is the configuration for gate valve symbols."""
+
     variant: Literal["gate_valve"] = "gate_valve"
 
 
 class IsoCheckValveNodeConfig(StaticSymbolConfig):
+    """Is the configuration for ISO check valve symbols."""
+
     variant: Literal["iso_check_valve"] = "iso_check_valve"
 
 
 class ManualValveNodeConfig(DummyToggleSymbolConfig):
+    """Is the configuration for manual valve symbols."""
+
     variant: Literal["manual_valve"] = "manual_valve"
 
 
 class NeedleValveNodeConfig(DummyToggleSymbolConfig):
+    """Is the configuration for needle valve symbols."""
+
     variant: Literal["needle_valve"] = "needle_valve"
 
 
 class RegulatorNodeConfig(StaticSymbolConfig):
+    """Is the configuration for regulator symbols."""
+
     variant: Literal["regulator"] = "regulator"
 
 
 class RegulatorManualNodeConfig(StaticSymbolConfig):
+    """Is the configuration for manual regulator symbols."""
+
     variant: Literal["regulator_manual"] = "regulator_manual"
 
 
 class ReliefValveNodeConfig(DummyToggleSymbolConfig):
+    """Is the configuration for relief valve symbols."""
+
     variant: Literal["relief_valve"] = "relief_valve"
 
 
@@ -1095,22 +1245,32 @@ class SolenoidValveNodeConfig(ToggleSymbolConfig):
 
 
 class SpringLoadedReliefValveNodeConfig(DummyToggleSymbolConfig):
+    """Is the configuration for spring loaded relief valve symbols."""
+
     variant: Literal["spring_loaded_relief_valve"] = "spring_loaded_relief_valve"
 
 
 class ThreeWayValveNodeConfig(ToggleSymbolConfig):
+    """Is the configuration for three way valve symbols."""
+
     variant: Literal["three_way_valve"] = "three_way_valve"
 
 
 class ThreeWayBallValveNodeConfig(ToggleSymbolConfig):
+    """Is the configuration for three-way ball valve symbols."""
+
     variant: Literal["three_way_ball_valve"] = "three_way_ball_valve"
 
 
 class ValveNodeConfig(ToggleSymbolConfig):
+    """Is the configuration for generic valve symbols."""
+
     variant: Literal["valve"] = "valve"
 
 
 class CrossJunctionNodeConfig(StaticSymbolConfig):
+    """Is the configuration for cross junction symbols."""
+
     variant: Literal["cross_junction"] = "cross_junction"
 
 
@@ -1122,8 +1282,8 @@ class CylinderNodeConfig(LabeledConfig, ScaledConfig):
         default_factory=lambda: spatial.Dimensions(width=66, height=181)
     )
     border_radius: border.Radius | None = None
-    stroke_color: color__.Ref | None = None
-    fill_color: color__.Ref | None = None
+    stroke_color: color_.Ref | None = None
+    fill_color: color_.Ref | None = None
 
 
 class TankNodeConfig(LabeledConfig):
@@ -1140,16 +1300,16 @@ class TankNodeConfig(LabeledConfig):
     bounds: spatial.ClosedBounds = Field(
         default_factory=lambda: spatial.ClosedBounds(lower=0, upper=100)
     )
-    level_color: color__.Ref | None = None
-    axis_color: color__.Ref | None = None
-    text_color: color__.Ref | None = None
+    level_color: color_.Ref | None = None
+    axis_color: color_.Ref | None = None
+    text_color: color_.Ref | None = None
     units: str = ""
     level_hidden: bool = False
     caret_side: spatial.OuterLocation = "right"
     level: text.Level = "small"
     position: spatial.XY = Field(default_factory=lambda: spatial.XY(x=0, y=0))
-    stroke_color: color__.Ref | None = None
-    fill_color: color__.Ref | None = None
+    stroke_color: color_.Ref | None = None
+    fill_color: color_.Ref | None = None
     dimensions: spatial.Dimensions = Field(
         default_factory=lambda: spatial.Dimensions(width=125, height=200)
     )
@@ -1160,6 +1320,8 @@ class TankNodeConfig(LabeledConfig):
 
 
 class TJunctionNodeConfig(StaticSymbolConfig):
+    """Is the configuration for T junction symbols."""
+
     variant: Literal["t_junction"] = "t_junction"
 
 
@@ -1193,7 +1355,7 @@ class SymbolNodeConfig(LabeledConfig, ScaledConfig, StalenessConfig):
 
     variant: Literal["symbol"] = "symbol"
     spec: symbol.Ref
-    color: color__.Ref | None = None
+    color: color_.Ref | None = None
     disabled: bool = False
     motion_disabled: bool = False
     on_click_delay: telem.TimeSpan = Field(

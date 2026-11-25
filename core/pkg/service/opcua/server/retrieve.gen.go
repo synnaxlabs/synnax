@@ -198,6 +198,13 @@ func (r Retrieve) After(key Key) Retrieve {
 	return r
 }
 
+// SkipMissingKeys makes Exec treat a key with no server as a
+// non-match instead of returning query.ErrNotFound.
+func (r Retrieve) SkipMissingKeys() Retrieve {
+	r.gorp = r.gorp.SkipMissingKeys()
+	return r
+}
+
 // Exec executes the query against snap. It panics when snap is nil.
 func (r Retrieve) Exec(ctx context.Context, snap gorp.Snapshot) error {
 	return r.gorp.Exec(ctx, snap)
