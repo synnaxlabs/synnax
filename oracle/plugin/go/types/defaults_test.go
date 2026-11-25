@@ -907,6 +907,29 @@ var _ = Describe("SetDefaults and Validate generation", func() {
 			},
 		)
 
+		It("Should emit NotEmptySlice for a required list", func() {
+			source := `
+				@go output "core/pkg/service/x"
+
+				Broker struct {
+					host string
+				}
+
+				Cfg struct {
+					brokers Broker[] {
+						@validate required
+					}
+					tags string[]? {
+						@validate required
+					}
+				}
+			`
+			resp := MustGenerate(source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").
+				ToContain(`v.NotEmptySlice("brokers", c.Brokers)`).
+				ToNotContain(`NotEmptySlice("tags"`)
+		})
+
 		It("Should apply the rules of a field's alias type", func() {
 			source := `
 				@go output "core/pkg/service/x"

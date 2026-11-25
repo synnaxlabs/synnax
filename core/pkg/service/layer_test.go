@@ -60,6 +60,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ni/device"
 	svcnode "github.com/synnaxlabs/synnax/pkg/service/node"
 	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/opcua/server"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	pagerdutyv1 "github.com/synnaxlabs/synnax/pkg/service/pagerduty/versions/v1"
 	pagerdutyv2 "github.com/synnaxlabs/synnax/pkg/service/pagerduty/versions/v2"
@@ -1041,6 +1042,7 @@ var _ = Describe("Resource search", Ordered, func() {
 		Entry("NiChassis", resource.TypeNiChassis),
 		Entry("NiDevice", resource.TypeNiDevice),
 		Entry("Node", resource.TypeNode),
+		Entry("OpcuaServer", resource.TypeOpcuaServer),
 		Entry("Panel", resource.TypePanel),
 		Entry("Policy", resource.TypePolicy),
 		Entry("Project", resource.TypeProject),
@@ -1083,6 +1085,30 @@ var _ = Describe("Resource search", Ordered, func() {
 		Expect(lo.Map(res, func(r resource.Resource, _ int) resource.ID {
 			return r.ID
 		})).To(ConsistOf(c.ResourceID(), d.ResourceID()))
+	})
+
+	It("Should find OPC UA servers by name", func(ctx SpecContext) {
+		var conn server.Connection
+		conn.SetDefaults()
+		conn.Endpoint = "opc.tcp://pump:4840"
+		s := server.Server{
+			Key:        uuid.New(),
+			Rack:       layer.Rack.EmbeddedKey,
+			Name:       "Pump PLC",
+			Connection: conn,
+		}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return gorp.NewCreate[server.Key, server.Server]().
+				Entry(&s).
+				Exec(ctx, tx)
+		})).To(Succeed())
+		res := MustSucceed(layer.Resource.Search(ctx, db, resource.SearchQuery{
+			Term:  "pump",
+			Types: []resource.Type{resource.TypeOpcuaServer},
+		}))
+		Expect(lo.Map(res, func(r resource.Resource, _ int) resource.ID {
+			return r.ID
+		})).To(ConsistOf(s.ResourceID()))
 	})
 })
 
