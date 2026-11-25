@@ -86,6 +86,25 @@ const ValueBar = ({ value, onChange }: ValueBarProps): ReactElement | null => {
   );
 };
 
+// climb returns what an Alt-click on shape picks for part, as Select parent group does:
+// the group above the outermost shape of part there, or above the shape. With no group
+// above, it returns shape when part holds none of it.
+const climb = (
+  spec: schematic.symbol.Spec,
+  part: string | undefined,
+  shape: Schematic.Node.Region.Named,
+): Schematic.Node.Region.Named | null => {
+  const drawn = { ...spec, drawing: { ...spec.drawing, markup: shape.markup } };
+  const from = part == null ? undefined : Spec.outermost(drawn, part, shape.selector);
+  const group = Spec.parentGroup(drawn, [from ?? shape.selector]);
+  if (group == null) return from == null ? shape : null;
+  return Schematic.Node.Region.name(
+    shape.markup,
+    group.ownerDocument.documentElement,
+    group,
+  );
+};
+
 const Editor = ({
   symbolKey,
   group,
@@ -167,10 +186,18 @@ const Editor = ({
   };
 
   const lastClickSelectsRef = useRef(false);
-  const handleElementClick = (selector: string, count: number) => {
+  const handleElementClick = (
+    shape: Schematic.Node.Region.Named,
+    { detail, altKey }: Pick<MouseEvent, "detail" | "altKey">,
+  ) => {
     // A later click of the same double click would undo a click that selects a part.
-    if (count > 1 && lastClickSelectsRef.current) return;
+    if (detail > 1 && lastClickSelectsRef.current) return;
     const part = selectedPartRef.current;
+    const named = altKey ? climb(form.get(path.data).value, part, shape) : shape;
+    if (named == null) return;
+    if (named.markup !== form.get(path.data.drawing.markup).value)
+      form.set(path.data.drawing.markup, named.markup);
+    const { selector } = named;
     const spec = form.get(path.data).value;
     // A shape in a group of another part cannot join part, so the click selects it.
     const holder = Spec.groupOwner(spec, selector);
