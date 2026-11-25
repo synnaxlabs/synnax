@@ -15,7 +15,7 @@ import { Core } from "@/platform/core";
 import { renderCoreUI } from "@/platform/core/testutil";
 import { Session } from "@/session";
 import { createCore, createCoreState } from "@/session/core/testutil";
-import { getBySelector } from "@/testutil";
+import { dragOnto, getBySelector, HaulProvider } from "@/testutil";
 
 const ALPHA = createCore("Alpha", { clusterKey: "cluster-alpha" });
 const BRAVO = createCore("Bravo", { port: 9099, clusterKey: undefined });
@@ -174,6 +174,25 @@ describe("Core List", () => {
     editable.innerText = "Zulu";
     fireEvent.keyDown(editable, { key: "Enter" });
     await waitFor(() => expect(names(container)).toEqual(["Zulu", "Bravo"]));
+  });
+
+  it("should move a dragged Core to the place of the one it drops on", async () => {
+    const CHARLIE = createCore("Charlie");
+    const { container, store } = await renderCoreUI(
+      <HaulProvider>
+        <Core.List value={undefined} onChange={vi.fn()} />
+      </HaulProvider>,
+      createCoreState([ALPHA, BRAVO, CHARLIE]),
+    );
+    dragOnto(await screen.findByText("Alpha"), await screen.findByText("Charlie"));
+    await waitFor(() =>
+      expect(names(container)).toEqual(["Bravo", "Charlie", "Alpha"]),
+    );
+    expect(store.getState()[Session.Core.SLICE_NAME].order).toEqual([
+      BRAVO.key,
+      CHARLIE.key,
+      ALPHA.key,
+    ]);
   });
 
   // A name is a label, not an identity, so two Cores may share one.
