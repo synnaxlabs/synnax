@@ -1,0 +1,50 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+/* A list in a box with a max height scrolls below what sits above it. */
+.console-used-by__list {
+    min-height: 0;
+    overflow-y: auto;
+}
+
+.console-used-by__section + .console-used-by__section {
+    margin-top: 1rem;
+}
+
+.console-used-by__heading {
+    padding: 0.5rem 1rem 0.25rem;
+}
+
+.console-used-by__count {
+    font-variant-numeric: tabular-nums;
+}
+
+.console-used-by__resource {
+    min-width: 0;
+}
+
+.console-used-by__type {
+    margin-left: auto;
+    flex-shrink: 0;
+}
+
+.console-used-by__placeholder {
+    height: var(--pluto-height-small);
+}
+
+.console-used-by__unused {
+    padding: 0 1rem 0.5rem;
+}
+
+.console-used-by__error {
+    align-self: flex-start;
+    text-align: left;
+}

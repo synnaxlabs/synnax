@@ -7,98 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/platform/used-by/UsedBy.css";
+import "@/platform/used-by/Popover.css";
 
-import type { resource } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
-import { Flex } from "@synnaxlabs/lyra/flex";
 import { Text } from "@synnaxlabs/lyra/text";
 import { stopPropagation } from "@synnaxlabs/lyra/util";
-import { Resource } from "@synnaxlabs/pluto";
-import { compare, location, state } from "@synnaxlabs/x";
-import { type ReactElement, Suspense, useEffect, useRef, useState } from "react";
+import { location, state } from "@synnaxlabs/x";
+import { type ReactElement, useEffect, useRef, useState } from "react";
 
 import { CSS } from "@/platform/css";
-import { Tree } from "@/platform/tree";
-
-/** Selects a use of a resource type by its key, keyed by the type. */
-type Selects = Partial<Record<resource.Type, (key: string) => void>>;
-
-interface UseProps {
-  resource: resource.Resource;
-  select?: (key: string) => void;
-  close: () => void;
-}
-
-/** A resource that uses an item, shown with the icon of its type. */
-const Use = ({ resource, select, close }: UseProps): ReactElement => {
-  const Item = Tree.useItems()[resource.id.type] ?? Tree.DefaultItem;
-  const renderButton = (onClick: () => void) => (
-    <Button.Button
-      variant="text"
-      size="small"
-      justify="start"
-      full="x"
-      className={CSS.BE("used-by", "resource")}
-      onClick={onClick}
-    >
-      {Item.icon(resource)}
-      <Text.Text level="small" overflow="fade" color={10}>
-        {resource.name}
-      </Text.Text>
-    </Button.Button>
-  );
-  if (select != null)
-    return renderButton(() => {
-      close();
-      select(resource.id.key);
-    });
-  return (
-    <Item.OnSelect>
-      {(onSelect) => renderButton(() => onSelect(resource))}
-    </Item.OnSelect>
-  );
-};
-
-interface UnusedProps {
-  kind: string;
-}
-
-const Unused = ({ kind }: UnusedProps): ReactElement => (
-  <Text.Text level="small" color={9} className={CSS.BE("used-by", "unused")}>
-    Nothing uses this {kind}.
-  </Text.Text>
-);
-
-/** Orders uses by name, then by key, so equal names keep one order. */
-const USE_ORDER = compare.chain<resource.Resource>(
-  compare.by((r) => r.name),
-  compare.by((r) => r.id.key),
-);
-
-interface UsesProps extends UnusedProps, Pick<UseProps, "close"> {
-  ids: resource.ID[];
-  selects?: Selects;
-}
-
-const Uses = ({ ids, kind, selects, close }: UsesProps): ReactElement => {
-  // A resource in the uses can be deleted between the read of the uses and this read.
-  const resources = Resource.useMultiple({ ids });
-  if (resources.length === 0) return <Unused kind={kind} />;
-  return (
-    <Flex.Box y empty className={CSS.BE("used-by", "resources")}>
-      {resources.toSorted(USE_ORDER).map((r) => (
-        <Use
-          key={`${r.id.type}:${r.id.key}`}
-          resource={r}
-          select={selects?.[r.id.type]}
-          close={close}
-        />
-      ))}
-    </Flex.Box>
-  );
-};
+import { List, type Selects, type Use } from "@/platform/used-by/List";
 
 const POPOVER_LOCATION = {
   targetCorner: location.BOTTOM_RIGHT,
@@ -114,13 +33,13 @@ export const dialogID = (key: string): string => `used-by-${key}`;
 
 type PopoverMode = "hover" | "pinned" | null;
 
-export interface UsedByProps {
+export interface PopoverProps {
   /** The key of the item, which names its popover for {@link dialogID}. */
   itemKey: string;
   /** The kind of the item, such as "secret". */
   kind: string;
-  /** The resources that use the item, or undefined while they load. */
-  uses?: resource.ID[];
+  /** The uses of the item, or undefined while they load. */
+  uses?: Use[];
   /** The element the popover opens below. */
   anchor: HTMLElement | null;
   /**
@@ -134,13 +53,13 @@ export interface UsedByProps {
  * The count of the resources that use an item. Hovering or clicking it opens a popover
  * that lists them, as does {@link dialogID} through `Dialog.open`.
  */
-export const UsedBy = ({
+export const Popover = ({
   itemKey,
   kind,
   uses,
   anchor,
   selects,
-}: UsedByProps): ReactElement => {
+}: PopoverProps): ReactElement => {
   const [mode, setMode] = useState<PopoverMode>(null);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => () => clearTimeout(closeTimer.current), []);
@@ -191,19 +110,14 @@ export const UsedBy = ({
         <Text.Text level="small" color={9} className={CSS.BE("used-by", "label")}>
           Used by
         </Text.Text>
-        {uses != null &&
-          (uses.length === 0 ? (
-            <Unused kind={kind} />
-          ) : (
-            <Suspense fallback={null}>
-              <Uses
-                ids={uses}
-                kind={kind}
-                selects={selects}
-                close={() => setMode(null)}
-              />
-            </Suspense>
-          ))}
+        {uses != null && (
+          <List
+            kind={kind}
+            uses={uses}
+            selects={selects}
+            onSelect={() => setMode(null)}
+          />
+        )}
       </Dialog.Dialog>
     </Dialog.Frame>
   );
