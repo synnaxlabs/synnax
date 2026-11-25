@@ -198,6 +198,29 @@ describe("Kafka Write form", () => {
     expect(screen.getAllByRole("treeitem", { name: /Topic/ })).toHaveLength(1);
   });
 
+  it("should keep a new target in the tree while its topic is typed", async () => {
+    await renderWrite();
+    await addTarget();
+    fireEvent.change(await screen.findByPlaceholderText("synnax-samples"), {
+      target: { value: "plant" },
+    });
+    await screen.findByRole("treeitem", { name: /Topic.*plant/ });
+    expect(screen.getByRole("treeitem", { name: /JSON.*No key/ }).ariaSelected).toBe(
+      "true",
+    );
+    expect(screen.getByDisplayValue("plant")).toBeTruthy();
+  });
+
+  it("should add a first field to a message with no fields", async () => {
+    const { target } = await createTarget([]);
+    await renderWrite([target]);
+    fireEvent.click(await screen.findByRole("treeitem", { name: /JSON.*No key/ }));
+    await screen.findByText("Message has no fields");
+    fireEvent.click(screen.getByRole("button", { name: "Add field" }));
+    await screen.findByRole("treeitem", { name: /^Field 1/ });
+    screen.getByDisplayValue("Field 1");
+  });
+
   it("should name the topic in the details header when a topic is selected", async () => {
     const { target } = await createTarget([createField("speed", "float")], {
       recordKey: "pump-1",
@@ -297,6 +320,17 @@ describe("Kafka Write form", () => {
         [`plant.pumps#pump1#${speed.key}`]: first[0],
         [`plant.pumps#pump2#${speed.key}`]: other[0],
       });
+    });
+
+    it("should number the command channel of a record key that escapes to the name of another", async () => {
+      const speed = createField("speed", "float");
+      const { target } = await createTarget([speed], { recordKey: "pump-1" });
+      const second = { ...target, key: "t2", recordKey: "pump_1" };
+      const { container, dev, draft } = await renderWrite([target, second]);
+      const deployed = await deployWrite(container, draft.key);
+      const channels = await client.channels.retrieve(deployed.flatMap(boundChannels));
+      const name = `${channel.escapeInvalidName(dev.name)}_plant_pumps_pump_1_speed_cmd`;
+      expect(channels.map((ch) => ch.name)).toEqual([name, `${name}_2`]);
     });
 
     it("should bind a field to the command channel that the cluster keeps for it", async () => {

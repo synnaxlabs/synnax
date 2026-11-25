@@ -68,19 +68,31 @@ const Targets: FC = () => {
       expanded,
       onExpand: setExpanded,
     });
+  const editing = targets.find(({ key }) => key === selected[0]);
   return (
-    <Task.Views.TreeList
-      {...tree}
-      onSelect={handleSelect}
-      menu={contextMenu}
-      emptyMessage="No targets"
-      addLabel="Add target"
-      onAdd={() => {}}
-    >
-      {renderItem}
-    </Task.Views.TreeList>
+    <>
+      <Task.Views.TreeList
+        {...tree}
+        onSelect={handleSelect}
+        menu={contextMenu}
+        emptyMessage="No targets"
+        addLabel="Add target"
+        onAdd={() => {}}
+      >
+        {renderItem}
+      </Task.Views.TreeList>
+      {editing?.type === "plain" && (
+        <PForm.TextField
+          path={deep.variant(path.config.targets[editing.key], "type", "plain").topic}
+          label="Topic"
+          inputProps={TOPIC_INPUT_PROPS}
+        />
+      )}
+    </>
   );
 };
+
+const TOPIC_INPUT_PROPS = { placeholder: "Topic of the selected target" } as const;
 
 const Form: FC = () => {
   // The task form renders before it loads the config of the task.
@@ -334,6 +346,34 @@ describe("ICD.Write.useTree", () => {
       false,
       true,
     ]);
+  });
+
+  it("should keep a selected target in view when it moves to a new group", async () => {
+    await renderTargets(["a", "a"]);
+    fireEvent.click(await screen.findByRole("treeitem", { name: /^Target t0/ }));
+    fireEvent.change(screen.getByPlaceholderText("Topic of the selected target"), {
+      target: { value: "b" },
+    });
+    await screen.findByRole("treeitem", { name: /^Topic b/ });
+    expect(screen.getByRole("treeitem", { name: /^Target t0/ }).ariaSelected).toBe(
+      "true",
+    );
+    expect(screen.getByRole("treeitem", { name: /^Target t1/ })).toBeTruthy();
+    expect(screen.getByDisplayValue("b")).toBeTruthy();
+  });
+
+  it("should hide the targets of a group that its caret closes, until it opens", async () => {
+    await renderTargets(["a", "a"]);
+    const caret = async () =>
+      (await screen.findByRole("treeitem", { name: /^Topic a/ })).querySelector(
+        ".lyra-tree__expansion-indicator",
+      ) as Element;
+    fireEvent.click(await caret());
+    await waitFor(() =>
+      expect(screen.queryByRole("treeitem", { name: /^Target t0/ })).toBeNull(),
+    );
+    fireEvent.click(await caret());
+    await screen.findByRole("treeitem", { name: /^Target t1/ });
   });
 
   it("should offer Add field only on one target", async () => {

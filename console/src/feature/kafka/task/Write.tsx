@@ -362,8 +362,13 @@ const TargetItem = (props: Tree.ItemRenderProps<string>) => {
   );
 };
 
+interface TargetDetailsProps {
+  path: deep.Path<WriteTarget>;
+  onAddField: () => void;
+}
+
 /** Where a target produces, and the format of its message. */
-const TargetDetails = ({ path }: { path: deep.Path<WriteTarget> }) => {
+const TargetDetails = ({ path, onAddField }: TargetDetailsProps) => {
   const { set } = PForm.useContext();
   const isPreview = Task.useIsPreview();
   const target = PForm.useFieldValue(path);
@@ -387,7 +392,15 @@ const TargetDetails = ({ path }: { path: deep.Path<WriteTarget> }) => {
             inputProps={RECORD_KEY_INPUT_PROPS}
           />
         </PForm.Section>
-        <PForm.Section title="Message">
+        <PForm.Section
+          title="Message"
+          actions={
+            <ICD.AddField
+              onClick={onAddField}
+              disabled={message?.payload.format !== "json"}
+            />
+          }
+        >
           <ICD.MessageFormatField
             icdKey={target.icd}
             message={target.message.message}
@@ -440,18 +453,26 @@ const Targets = ({ device, selected, onSelect, expanded, onExpand }: TargetsProp
   const formats = ICD.useFormats();
   const targets = PForm.useFieldListUtils(root.config.targets);
   const all = PForm.useFieldValue(root.config.targets);
-  const { tree, handleSelect, contextMenu, renderItem, current, currentGroup, added } =
-    ICD.Write.useTree<WriteTarget>({
-      path: root.config.targets,
-      messageOf,
-      groups: TOPICS,
-      TargetItem,
-      duplicate,
-      selected,
-      onSelect,
-      expanded,
-      onExpand,
-    });
+  const {
+    tree,
+    handleSelect,
+    contextMenu,
+    renderItem,
+    current,
+    currentGroup,
+    addField,
+    added,
+  } = ICD.Write.useTree<WriteTarget>({
+    path: root.config.targets,
+    messageOf,
+    groups: TOPICS,
+    TargetItem,
+    duplicate,
+    selected,
+    onSelect,
+    expanded,
+    onExpand,
+  });
 
   const add = async () => {
     if (client == null) throw new DisconnectedError();
@@ -520,7 +541,13 @@ const Targets = ({ device, selected, onSelect, expanded, onExpand }: TargetsProp
   } else if (path != null && target != null) {
     detailsPath = path;
     title = <RecordLabel recordKey={target.recordKey} emptyLabel={NO_KEY} />;
-    details = <TargetDetails key={target.key} path={path} />;
+    details = (
+      <TargetDetails
+        key={target.key}
+        path={path}
+        onAddField={() => addField(target.key)}
+      />
+    );
   }
   return (
     <Task.Views.Panes

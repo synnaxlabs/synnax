@@ -380,9 +380,10 @@ export interface CommandChannelSpec {
  */
 const moveCommandChannel = async (
   client: Client,
+  namer: Namer,
   ch: channel.Channel,
 ): Promise<void> => {
-  const moved = await createNamer(client).move(ch);
+  const moved = await namer.move(ch);
   await client.channels.rename(ch.key, moved);
   const index = await retrieveChannel(client, ch.index);
   if (index?.name === `${ch.name}_time`)
@@ -392,7 +393,8 @@ const moveCommandChannel = async (
 /**
  * Gives a write target a command channel: the one it has, the one the device stores for
  * its key, or a new one. A replaced channel that holds the name of the new one moves to
- * a numbered name first.
+ * a numbered name first. Another channel that holds it gives the new one the first free
+ * number, such as `_2`.
  *
  * @param write - The write properties of the device. Updated in place.
  * @returns the command channel.
@@ -416,9 +418,10 @@ export const configureCommandChannel = async (
     if (suits == null || suits(stored)) return stored.key;
     replaced.push(stored);
   }
+  const namer = createNamer(client);
   const holder = replaced.find((ch) => ch.name === name);
-  if (holder != null) await moveCommandChannel(client, holder);
-  const cmdCh = await createChannelWithIndex(client, name, dataType);
+  if (holder != null) await moveCommandChannel(client, namer, holder);
+  const cmdCh = await createChannelWithIndex(client, await namer.claim(name), dataType);
   write[propertiesKey] = cmdCh.key;
   return cmdCh.key;
 };

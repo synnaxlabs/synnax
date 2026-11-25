@@ -73,6 +73,7 @@ export interface UseTreeArgs<T extends Target> {
   /** The key of each selected tree item. */
   selected: string[];
   onSelect: Dispatch<SetStateAction<string[]>>;
+  /** What the tree shows open, as expandedOf and onExpand give it. */
   expanded: string[];
   onExpand: Dispatch<SetStateAction<string[]>>;
 }
@@ -97,15 +98,16 @@ export interface UseTreeReturn {
 
 const groupKey = (name: string): string => `group/${name}`;
 
-/** @returns the keys that show the fields of targets: each target, and its group. */
+/** Opens the group of a target, whatever the name of the group. */
+const openKey = (target: string): string => `open/${target}`;
+
+/** @returns the expanded state that shows the fields of each target. */
 export const expandedOf = <T extends Target>(
   targets: T[],
   groups?: Groups<T>,
 ): string[] =>
   unique.unique(
-    targets.flatMap((t) =>
-      groups == null ? [t.key] : [groupKey(groups.of(t)), t.key],
-    ),
+    targets.flatMap((t) => (groups == null ? [t.key] : [openKey(t.key), t.key])),
   );
 
 /** Each target key, the name of its group, and its message and fields, or null. */
@@ -180,8 +182,8 @@ export const useTree = <T extends Target>({
   );
   const byKey = new Map<string, Node>();
   const groupNames = new Map<string, string>();
-  /** The key of the group of each target in one. */
-  const parents = new Map<string, string>();
+  /** The open key of each target in a group. */
+  const marks = new Set<string>();
   const nodes: Tree.Node[] = [];
   const groupNodes = new Map<string, Tree.Node[]>();
   for (const [target, group, sent] of structure) {
@@ -202,7 +204,7 @@ export const useTree = <T extends Target>({
       continue;
     }
     const key = groupKey(group);
-    parents.set(target, key);
+    marks.add(openKey(target));
     let children = groupNodes.get(key);
     if (children == null) {
       children = [];
@@ -212,12 +214,30 @@ export const useTree = <T extends Target>({
     }
     children.push(node);
   }
+  // A group is open while one of its targets is, so a target that moves to another
+  // group stays in view.
+  const open = new Set(expanded);
+  const shown = [
+    ...expanded.filter((k) => !marks.has(k)),
+    ...[...groupNodes]
+      .filter(([, children]) => children.some(({ key }) => open.has(openKey(key))))
+      .map(([key]) => key),
+  ];
+  const handleExpand = (arg: SetStateAction<string[]>) => {
+    const next = typeof arg === "function" ? arg(shown) : arg;
+    onExpand([
+      ...next.filter((k) => !marks.has(k) && !groupNodes.has(k)),
+      ...[...groupNodes]
+        .filter(([key]) => next.includes(key))
+        .flatMap(([, children]) => children.map(({ key }) => openKey(key))),
+    ]);
+  };
   const tree = Tree.use({
     nodes,
     selected,
     onSelectedChange: onSelect,
-    expanded,
-    onExpandedChange: onExpand,
+    expanded: shown,
+    onExpandedChange: handleExpand,
     toggleOn: "caret",
   });
 
@@ -254,9 +274,9 @@ export const useTree = <T extends Target>({
       fields.at(-1)?.key,
     );
     setAdded(field.key);
-    const parent = parents.get(target);
+    const mark = openKey(target);
     onExpand((prev) =>
-      unique.unique([...prev, ...(parent == null ? [] : [parent]), target]),
+      unique.unique([...prev, ...(marks.has(mark) ? [mark] : []), target]),
     );
     onSelect([ICDTree.fieldKey(target, sent.message, field.key)]);
   };
