@@ -122,7 +122,7 @@
     },
     {
       "document": { "id": -3, "v": "hot" },
-      "error": "message small: field v: unknown enum label \"hot\": validation error"
+      "error": "message small: field v: invalid number \"hot\": validation error"
     },
     {
       "document": { "id": -3.0, "v": 2 },

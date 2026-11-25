@@ -311,35 +311,6 @@ var _ = Describe("MigrateWriteEndpoint", func() {
 	})
 })
 
-var _ = Describe("StageWrite", func() {
-	var db *gorp.DB
-	BeforeEach(func() { db = DeferClose(gorp.Wrap(memkv.New())) })
-
-	It("Should clear Inline and return the write that stages it under the config key",
-		func(ctx SpecContext) {
-			old := storedWriteConfig()
-			cfg := MustSucceed(v5.MigrateWriteConfig(ctx, old))
-			stage := MustSucceed(v5.StageWrite(&cfg))
-			Expect(cfg.Inline).To(BeNil())
-			Expect(db.Get(v5.StagedWriteFieldsKVKey(old.Key))).Error().
-				To(MatchError(query.ErrNotFound))
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error { return stage(ctx, tx) })).
-				To(Succeed())
-			b, closer := MustSucceed2(db.Get(v5.StagedWriteFieldsKVKey(old.Key)))
-			var staged v5.InlineWrite
-			Expect(json.Unmarshal(b, &staged)).To(Succeed())
-			Expect(closer.Close()).To(Succeed())
-			Expect(staged).To(Equal(stagedWrite(old)))
-		},
-	)
-
-	It("Should return no write for a config without Inline", func() {
-		cfg := v5.WriteConfig{Key: uuid.New(), Device: "dev"}
-		Expect(v5.StageWrite(&cfg)).To(BeNil())
-		Expect(cfg.Device).To(Equal("dev"))
-	})
-})
-
 var _ = Describe("StagedWriteFieldsKVKey", func() {
 	It("Should key the staged channel and fields of a config under the prefix",
 		func() {

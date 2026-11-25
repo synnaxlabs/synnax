@@ -390,6 +390,54 @@ var _ = Describe("ResolveReadConfig", func() {
 		}, []string{"endpoints.0.fields.1"}),
 	)
 
+	It("Should turn a NaN fill value into a NaN default", func(ctx SpecContext) {
+		ic, _, notes := resolve(ctx, staged(ctx, v4.ReadEndpoint{
+			Key: "ep",
+			Fields: []v4.ReadField{{
+				Key:       "f",
+				Pointer:   "/f",
+				DataType:  telem.Float64T,
+				FillValue: new(any("NaN")),
+			}},
+		}), nil)
+		Expect(notes).To(BeEmpty())
+		def := as[icdv1.FloatJSONField](jsonFields(ic)[0].Variant).Default
+		Expect(def).ToNot(BeNil())
+		Expect(math.IsNaN(float64(*def))).To(BeTrue())
+	})
+
+	DescribeTable("Should drop an infinite fill value, which no default holds",
+		func(ctx SpecContext, fill string) {
+			cfg := staged(ctx, v4.ReadEndpoint{
+				Key: "ep",
+				Fields: []v4.ReadField{{
+					Key:       "f",
+					Pointer:   "/f",
+					DataType:  telem.Float64T,
+					FillValue: new(any(fill)),
+				}},
+			})
+			var changes []string
+			ic, ok := MustSucceed2(v5.ResolveReadConfig(
+				ctx,
+				nil,
+				channelsOf(nil),
+				"Plant",
+				&cfg,
+				func(path, change string) { changes = append(changes, path+": "+change) },
+			))
+			Expect(ok).To(BeTrue())
+			Expect(changes).To(Equal([]string{
+				"endpoints.0.fields.0: fill value was dropped: default cannot be infinite",
+			}))
+			Expect(as[icdv1.FloatJSONField](jsonFields(ic)[0].Variant).Default).
+				To(BeNil())
+		},
+		Entry("inf", "inf"),
+		Entry("Infinity", "Infinity"),
+		Entry("-Infinity", "-Infinity"),
+	)
+
 	Describe("Read check", func() {
 		found := map[channel.Key]icdv0.Channel{
 			6:  {Name: "time", DataType: telem.TimestampT, Index: true},

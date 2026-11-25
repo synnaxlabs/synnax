@@ -345,6 +345,10 @@ func (fc *fileController) newReader(
 			fc.freeDescriptor()
 		}
 	}()
+	// GC holds readers across its copy and swap, so the open waits for a swap and then
+	// opens the current file.
+	fc.readers.Lock()
+	defer fc.readers.Unlock()
 	file, err := fc.FS.Open(
 		fileKeyToName(key),
 		os.O_RDONLY,
@@ -357,7 +361,6 @@ func (fc *fileController) newReader(
 		ReaderAtCloser:  file,
 		controllerEntry: newPoolEntry(key, fc),
 	}
-	fc.readers.Lock()
 	f, ok := fc.readers.files[key]
 	if !ok {
 		fc.readers.files[key] = &fileReaders{open: []controlledReader{r}}
@@ -366,7 +369,6 @@ func (fc *fileController) newReader(
 		fc.readers.files[key].open = append(fc.readers.files[key].open, r)
 		f.Unlock()
 	}
-	fc.readers.Unlock()
 	return &r, err
 }
 

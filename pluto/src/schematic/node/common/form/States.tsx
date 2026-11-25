@@ -17,7 +17,7 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type deep, uuid } from "@synnaxlabs/x";
-import { type ReactElement, useState } from "react";
+import { type ReactElement, type ReactNode, useState } from "react";
 
 import { Access } from "@/access";
 import { CSS } from "@/css";
@@ -46,6 +46,107 @@ const UsedBy = ({ enumeration: key }: UsedByProps): ReactElement | null => {
   );
 };
 
+interface EnumerationFieldProps {
+  /** The enumeration that the field names. */
+  value?: enumeration.Key;
+  onChange: (next?: enumeration.Key) => void;
+  /** Returns the start of an enumeration that the user creates with no value. */
+  draft: () => Enumeration.CreatePromptParams;
+  /** Shows in place of the entries when the field names no enumeration. */
+  fallback?: ReactNode;
+}
+
+/**
+ * Picks an enumeration and edits its entries. A new enumeration takes focus in its
+ * entries. Creating one with no search text asks for its name. A field that names an
+ * enumeration gets a new empty one.
+ */
+const EnumerationField = ({
+  value,
+  onChange,
+  draft,
+  fallback,
+}: EnumerationFieldProps): ReactElement => {
+  const canCreate = Access.useCreateGranted(enumeration.TYPE_RESOURCE_ID);
+  const { updateAsync } = Enumeration.useCreate();
+  const prompt = Enumeration.useCreatePrompt();
+  // The enumeration just created, whose entries take focus.
+  const [focused, setFocused] = useState<enumeration.Key>();
+  const handleChange = (next: enumeration.Key | undefined): void => {
+    setFocused(undefined);
+    onChange(next === NONE ? undefined : next);
+  };
+  const link = (created: enumeration.Key): void => {
+    onChange(created);
+    setFocused(created);
+  };
+  const handleCreate = (term: string): void => {
+    const start = value == null ? draft() : { name: "", entries: [] };
+    void (async () => {
+      if (term === "") {
+        const created = await prompt(start);
+        if (created != null) link(created);
+        return;
+      }
+      const created = uuid.create();
+      if (
+        (await updateAsync({ key: created, name: term, entries: start.entries })) !==
+        false
+      )
+        link(created);
+    })();
+  };
+  const footer = (
+    <>
+      <Menu.Divider />
+      {canCreate && (
+        <Select.CreateItem<enumeration.Key, enumeration.Enumeration>
+          resourceName="enumeration"
+          onCreate={handleCreate}
+        />
+      )}
+      <Select.Item<enumeration.Key> itemKey={NONE} textValue="No enumeration">
+        <Icon.None />
+        No enumeration
+      </Select.Item>
+    </>
+  );
+  return (
+    <>
+      <Input.Item label="Enumeration" padHelpText={false}>
+        <Enumeration.SelectSingle
+          value={value}
+          onChange={handleChange}
+          allowNone
+          className={CSS.cls(
+            CSS.BE("states", "enumeration"),
+            CSS.BE("states", "value"),
+          )}
+          footer={footer}
+        />
+      </Input.Item>
+      {value == null ? (
+        fallback != null && (
+          <Input.Item label="Entries" padHelpText={false}>
+            {fallback}
+          </Input.Item>
+        )
+      ) : (
+        <>
+          <UsedBy enumeration={value} />
+          <Input.Item label="Entries" padHelpText={false}>
+            <Enumeration.Entries
+              key={value}
+              enumeration={value}
+              autoFocus={focused === value}
+            />
+          </Input.Item>
+        </>
+      )}
+    </>
+  );
+};
+
 export interface StatesProps {
   /** Path to the enumeration that the node names. */
   enumeration: deep.Path<enumeration.Key | undefined>;
@@ -67,75 +168,19 @@ export const States = ({
 }: StatesProps): ReactElement => {
   const { set, remove, get } = Form.useContext();
   const key = Form.useFieldValue(enumerationPath, { optional: true }) ?? undefined;
-  const canCreate = Access.useCreateGranted(enumeration.TYPE_RESOURCE_ID);
-  const { updateAsync } = Enumeration.useCreate();
-  const prompt = Enumeration.useCreatePrompt();
-  // The enumeration just created, whose entries take focus.
-  const [focused, setFocused] = useState<enumeration.Key>();
-  const handleChange = (next: enumeration.Key | undefined): void => {
-    setFocused(undefined);
-    if (next == null || next === NONE) remove(enumerationPath);
-    else set(enumerationPath, next);
-  };
-  const link = (created: enumeration.Key): void => {
-    set(enumerationPath, created);
-    setFocused(created);
-  };
-  const handleCreate = (term: string): void => {
-    void (async () => {
-      if (term === "") {
-        const name = key == null ? get<string>(label).value.trim() || symbolName : "";
-        const created = await prompt({ name });
-        if (created != null) link(created);
-        return;
-      }
-      const created = uuid.create();
-      if ((await updateAsync({ key: created, name: term, entries: [] })) !== false)
-        link(created);
-    })();
-  };
-  const footer = (
-    <>
-      <Menu.Divider />
-      {canCreate && (
-        <Select.CreateItem<enumeration.Key, enumeration.Enumeration>
-          resourceName="enumeration"
-          onCreate={handleCreate}
-        />
-      )}
-      <Select.Item<enumeration.Key> itemKey={NONE} textValue="No enumeration">
-        <Icon.None />
-        No enumeration
-      </Select.Item>
-    </>
-  );
   return (
     <Form.Sections x>
       <Form.Section className={CSS.B("states")}>
-        <Input.Item label="Enumeration" padHelpText={false}>
-          <Enumeration.SelectSingle
-            value={key}
-            onChange={handleChange}
-            allowNone
-            className={CSS.cls(
-              CSS.BE("states", "enumeration"),
-              CSS.BE("states", "value"),
-            )}
-            footer={footer}
-          />
-        </Input.Item>
-        {key != null && (
-          <>
-            <UsedBy enumeration={key} />
-            <Input.Item label="Entries" padHelpText={false}>
-              <Enumeration.Entries
-                key={key}
-                enumeration={key}
-                autoFocus={focused === key}
-              />
-            </Input.Item>
-          </>
-        )}
+        <EnumerationField
+          value={key}
+          onChange={(next) =>
+            next == null ? remove(enumerationPath) : set(enumerationPath, next)
+          }
+          draft={() => ({
+            name: get<string>(label).value.trim() || symbolName,
+            entries: [],
+          })}
+        />
       </Form.Section>
     </Form.Sections>
   );

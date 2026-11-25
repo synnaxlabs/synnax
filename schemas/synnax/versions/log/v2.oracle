@@ -74,6 +74,7 @@ Log struct {
         @doc value "is true when the receipt timestamp column is hidden."
     }
 
+    @go entry
     @go imex
     @go marshal
     @go migrate

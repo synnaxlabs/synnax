@@ -75,9 +75,26 @@ func MigrateWriteEndpoint(
 // NoteLift returns the note for ResolveReadConfig that logs each change to a field of
 // the config with key through ins.
 func NoteLift(ins alamos.Instrumentation, key uuid.UUID) func(path, change string) {
+	return noteLift(ins, "changed an HTTP read field to v5", key)
+}
+
+// NoteWriteLift returns the note for ResolveWriteConfig that logs each change to a
+// field of the config with key through ins.
+func NoteWriteLift(
+	ins alamos.Instrumentation,
+	key uuid.UUID,
+) func(path, change string) {
+	return noteLift(ins, "changed an HTTP write field to v5", key)
+}
+
+func noteLift(
+	ins alamos.Instrumentation,
+	message string,
+	key uuid.UUID,
+) func(path, change string) {
 	return func(path, change string) {
 		ins.L.Warn(
-			"changed an HTTP read field to v5",
+			message,
 			zap.Stringer("config", key),
 			zap.String("field", path),
 			zap.String("change", change),
@@ -129,7 +146,7 @@ var ReadMigration = migrate.New(
 	},
 )
 
-// StagedWriteFieldsKVPrefix is the KV key prefix under which StageWrite stages the
+// StagedWriteFieldsKVPrefix is the KV key prefix under which WriteMigration stages the
 // channel and fields of each config. The rest of the key is the config key as a string,
 // and the value is the InlineWrite that holds them, as JSON.
 const StagedWriteFieldsKVPrefix = "sy_http_write_staged_fields/"
@@ -140,25 +157,8 @@ func StagedWriteFieldsKVKey(key uuid.UUID) []byte {
 	return []byte(StagedWriteFieldsKVPrefix + key.String())
 }
 
-// StageWrite clears the Inline of cfg and returns the write that stages it under the
-// StagedWriteFieldsKVKey of cfg, or nil when cfg holds no Inline.
-func StageWrite(cfg *WriteConfig) (func(context.Context, gorp.Tx) error, error) {
-	if cfg.Inline == nil {
-		return nil, nil
-	}
-	b, err := json.Marshal(cfg.Inline)
-	if err != nil {
-		return nil, errors.Wrapf(err, "config %s", cfg.Key)
-	}
-	key := StagedWriteFieldsKVKey(cfg.Key)
-	cfg.Inline = nil
-	return func(ctx context.Context, tx gorp.Tx) error {
-		return tx.Set(ctx, key, b)
-	}, nil
-}
-
 // WriteMigration lifts each stored v4 write config to v5. The v5 shape does not store
-// Inline, so WriteMigration stages it as StageWrite does.
+// Inline, so WriteMigration stages it under StagedWriteFieldsKVPrefix.
 var WriteMigration = migrate.New(
 	"v63_http_write_stage",
 	func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
@@ -174,14 +174,15 @@ var WriteMigration = migrate.New(
 			if err != nil {
 				return errors.Wrapf(err, "config %s", old.Key)
 			}
-			stage, err := StageWrite(&cfg)
-			if err != nil {
-				return err
-			}
-			if stage != nil {
-				if err = stage(ctx, tx); err != nil {
+			if cfg.Inline != nil {
+				b, err := json.Marshal(cfg.Inline)
+				if err != nil {
+					return errors.Wrapf(err, "config %s", old.Key)
+				}
+				if err = tx.Set(ctx, StagedWriteFieldsKVKey(cfg.Key), b); err != nil {
 					return err
 				}
+				cfg.Inline = nil
 			}
 			news[i] = cfg
 		}

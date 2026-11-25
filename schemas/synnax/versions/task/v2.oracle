@@ -93,6 +93,7 @@ Task struct<
         hardware operations such as reading sensor data, writing control signals, or
         scanning for devices.
     """
+    @go entry
     @go marshal
     @go migrate
     @resource type "task"
@@ -105,6 +106,7 @@ KeyedConfig struct {
     }
 
     @doc value "is the base for every stored task configuration record."
+    @go entry
 }
 
 StartConfig struct extends KeyedConfig {
