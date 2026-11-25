@@ -10,6 +10,7 @@
 import type { icd } from "@synnaxlabs/client";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import type { Menu } from "@synnaxlabs/lyra/menu";
+import { Text } from "@synnaxlabs/lyra/text";
 import { Tree } from "@synnaxlabs/lyra/tree";
 import { deep, type record, unique } from "@synnaxlabs/x";
 import {
@@ -122,16 +123,25 @@ const FieldItem = ({
 }: FieldItemProps) => {
   const bindings = PForm.useFieldValue(path);
   const skipped = PForm.useFieldValue(disabledPath);
-  const i = bindings.findIndex((b) => b.field === field.key && b.type === "channel");
+  const i = bindings.findIndex((b) => b.field === field.key);
+  const source = i < 0 ? "default" : bindings[i].type;
   return (
     <Task.Views.TreeFieldItem
       {...props}
       label={field.name}
       emptyLabel="Unnamed field"
-      channel={i < 0 ? null : deep.variant(path[i], "type", "channel").channel}
+      channel={
+        source === "channel" ? deep.variant(path[i], "type", "channel").channel : null
+      }
       off={false}
       skipped={skipped}
-    />
+    >
+      {source !== "channel" && (
+        <Text.Text level="small" color={8}>
+          {source === "value" ? "Value" : "Default"}
+        </Text.Text>
+      )}
+    </Task.Views.TreeFieldItem>
   );
 };
 

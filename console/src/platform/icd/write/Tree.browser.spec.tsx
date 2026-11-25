@@ -13,7 +13,7 @@ import { Form as PForm } from "@synnaxlabs/lyra/form";
 import type { Tree } from "@synnaxlabs/lyra/tree";
 import { deep, uuid } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { type FC, useState } from "react";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
@@ -105,17 +105,20 @@ const Renderer = Task.wrapForm<typeof schemas>({
 describe("ICD.Write.useTree", () => {
   const client = createTestClient();
 
-  // Creates a draft with a target for each topic. Each sends one message of one field.
-  const renderTargets = async (topics: string[]) => {
-    const field = icd.jsonFieldZ.parse({
-      name: "setpoint",
-      pointer: "/setpoint",
-      type: "float",
-    });
+  const createSetpoint = () =>
+    icd.jsonFieldZ.parse({ name: "setpoint", pointer: "/setpoint", type: "float" });
+
+  // Creates a draft with a target for each topic. Each sends one message of fields, on
+  // channels unless bindingsOf says otherwise.
+  const renderTargets = async (
+    topics: string[],
+    fields: icd.JSONField[] = [createSetpoint()],
+    bindingsOf: (i: number) => icd.WriteBinding[] = () => ICD.Write.suit([], fields),
+  ) => {
     const message = {
       key: uuid.create(),
       name: "Command",
-      payload: { format: "json" as const, fields: [field] },
+      payload: { format: "json" as const, fields },
     };
     const ic = await client.icds.create({
       name: uniqueName("icd"),
@@ -127,7 +130,7 @@ describe("ICD.Write.useTree", () => {
         key: `t${i}`,
         topic,
         icd: ic.key,
-        message: { message: message.key, bindings: ICD.Write.suit([], [field]) },
+        message: { message: message.key, bindings: bindingsOf(i) },
       }),
     );
     const draft = await client.tasks.create(
@@ -156,6 +159,33 @@ describe("ICD.Write.useTree", () => {
     expect(levelOf("Target t2")).toBe("2");
     const fields = screen.getAllByRole("treeitem", { name: /^setpoint/ });
     expect(fields.map(({ ariaLevel }) => ariaLevel)).toEqual(["3", "3", "3"]);
+  });
+
+  it("should name the source of a field that is on no channel", async () => {
+    // The Core refuses a message with no field on a channel, so setpoint keeps one.
+    const setpoint = createSetpoint();
+    const mode = icd.jsonFieldZ.parse({
+      name: "mode",
+      pointer: "/mode",
+      type: "float",
+      default: 0,
+    });
+    const value: icd.WriteBinding = {
+      type: "value",
+      field: mode.key,
+      value: { type: "float", value: 5 },
+    };
+    await renderTargets(["a", "b"], [setpoint, mode], (i) => [
+      ...ICD.Write.suit([], [setpoint]),
+      ...(i === 0 ? [value] : []),
+    ]);
+    const [valued, defaulted] = await screen.findAllByRole("treeitem", {
+      name: /^mode/,
+    });
+    expect(within(valued).getByText("Value")).toBeTruthy();
+    expect(within(defaulted).getByText("Default")).toBeTruthy();
+    const [bound] = screen.getAllByRole("treeitem", { name: /^setpoint/ });
+    expect(within(bound).queryByText(/^(Value|Default)$/)).toBeNull();
   });
 
   it("should disable each target of a group from the menu of the group", async () => {
