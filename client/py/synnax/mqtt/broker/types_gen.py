@@ -209,6 +209,7 @@ class Broker(BaseModel):
         transport: Is the transport that the Core connects to the broker over.
         auth: Holds the credentials that the Core connects to the broker with.
         client_id: Is the MQTT client ID. Absent derives one from the key of the broker.
+            A broker only has to accept IDs of 1 to 23 bytes.
         keep_alive: Is the keep alive interval, in whole seconds.
         sparkplug: Configures how the Core takes part in a Sparkplug B system.
         reads: Bind the values that read tasks receive to channels.

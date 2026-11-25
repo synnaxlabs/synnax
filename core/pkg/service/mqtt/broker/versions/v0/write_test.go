@@ -119,6 +119,12 @@ var _ = Describe("ValidateWrite", func() {
 		Entry("an empty Sparkplug group", func(b *broker.Broker) {
 			b.Sparkplug.Groups = []string{""}
 		}, "groups"),
+		Entry("a client ID with NUL", func(b *broker.Broker) {
+			b.ClientID = new("core\x00")
+		}, "client_id"),
+		Entry("a duplicate Sparkplug group", func(b *broker.Broker) {
+			b.Sparkplug.Groups = []string{"Plant", "Plant"}
+		}, "groups.1"),
 		Entry("a duplicate plain read", func(b *broker.Broker) {
 			m := uuid.New()
 			b.Reads = []broker.Read{

@@ -58,6 +58,7 @@ Auth union on type {
     username {
         username string      {
             @doc value         "is the user name to authenticate with."
+            @go validate       pattern "^[^\u0000]+$" "User name must not be empty or hold NUL"
             @validate required
         }
         password secret.Key? {
@@ -82,7 +83,7 @@ SparkplugMode union on type {
             @doc value         """
                 is the ID that the Core publishes its host application state as.
             """
-            @go validate       pattern "^[^/+#]+$" "Host ID must not be empty or hold /, +, or #"
+            @go validate       pattern "^[^/+#\u0000]+$" "Host ID must not be empty or hold /, +, #, or NUL"
             @validate required
         }
 
@@ -109,7 +110,7 @@ Read union on type {
     plain {
         topic   string         {
             @doc value         "is the topic to subscribe to. It holds no wildcards."
-            @go validate       pattern "^[^+#]+$" "Topic must not be empty or hold + or #"
+            @go validate       pattern "^[^+#\u0000]+$" "Topic must not be empty or hold +, #, or NUL"
             @validate required
         }
         message icd.MessageKey {
@@ -134,20 +135,21 @@ Read union on type {
     sparkplug {
         group     string      {
             @doc value         "is the Sparkplug group ID of the edge node."
-            @go validate       pattern "^[^/+#]+$" "Group must not be empty or hold /, +, or #"
+            @go validate       pattern "^[^/+#\u0000]+$" "Group must not be empty or hold /, +, #, or NUL"
             @validate required
         }
         edge_node string      {
             @doc value         "is the Sparkplug edge node ID."
-            @go validate       pattern "^[^/+#]+$" "Edge node must not be empty or hold /, +, or #"
+            @go validate       pattern "^[^/+#\u0000]+$" "Edge node must not be empty or hold /, +, #, or NUL"
             @validate required
         }
         device    string = "" {
             @doc value   "is the Sparkplug device ID. Empty for a tag of the edge node."
-            @go validate pattern "^$|^[^/+#]+$" "Device must not hold /, +, or #"
+            @go validate pattern "^$|^[^/+#\u0000]+$" "Device must not hold /, +, #, or NUL"
         }
         tag       string      {
             @doc value         "is the name of the tag."
+            @go validate       pattern "^[^\u0000]+$" "Tag must not be empty or hold NUL"
             @validate required
         }
         index     channel.Key {
@@ -169,8 +171,10 @@ Read union on type {
 Write union on type {
     plain {
         topic   string       {
-            @doc value         "is the topic to publish to. It holds no wildcards."
-            @go validate       pattern "^[^+#]+$" "Topic must not be empty or hold + or #"
+            @doc value         """
+                is the topic to publish to. It holds no wildcards and no leading $.
+            """
+            @go validate       pattern "^[^$+#\u0000][^+#\u0000]*$" "Topic must not be empty, start with $, or hold +, #, or NUL"
             @validate required
         }
         field   icd.FieldKey {
@@ -189,20 +193,21 @@ Write union on type {
     sparkplug {
         group     string      {
             @doc value         "is the Sparkplug group ID of the edge node."
-            @go validate       pattern "^[^/+#]+$" "Group must not be empty or hold /, +, or #"
+            @go validate       pattern "^[^/+#\u0000]+$" "Group must not be empty or hold /, +, #, or NUL"
             @validate required
         }
         edge_node string      {
             @doc value         "is the Sparkplug edge node ID."
-            @go validate       pattern "^[^/+#]+$" "Edge node must not be empty or hold /, +, or #"
+            @go validate       pattern "^[^/+#\u0000]+$" "Edge node must not be empty or hold /, +, #, or NUL"
             @validate required
         }
         device    string = "" {
             @doc value   "is the Sparkplug device ID. Empty for a tag of the edge node."
-            @go validate pattern "^$|^[^/+#]+$" "Device must not hold /, +, or #"
+            @go validate pattern "^$|^[^/+#\u0000]+$" "Device must not hold /, +, #, or NUL"
         }
         tag       string      {
             @doc value         "is the name of the tag."
+            @go validate       pattern "^[^\u0000]+$" "Tag must not be empty or hold NUL"
             @validate required
         }
         channel   channel.Key {
@@ -220,16 +225,17 @@ Write union on type {
 EdgeCommand struct {
     group     string      {
         @doc value         "is the Sparkplug group ID of the edge node."
-        @go validate       pattern "^[^/+#]+$" "Group must not be empty or hold /, +, or #"
+        @go validate       pattern "^[^/+#\u0000]+$" "Group must not be empty or hold /, +, #, or NUL"
         @validate required
     }
     edge_node string      {
         @doc value         "is the Sparkplug edge node ID that the Core publishes as."
-        @go validate       pattern "^[^/+#]+$" "Edge node must not be empty or hold /, +, or #"
+        @go validate       pattern "^[^/+#\u0000]+$" "Edge node must not be empty or hold /, +, #, or NUL"
         @validate required
     }
     tag       string      {
         @doc value         "is the name of the tag."
+        @go validate       pattern "^[^\u0000]+$" "Tag must not be empty or hold NUL"
         @validate required
     }
     channel   channel.Key {
@@ -296,7 +302,8 @@ Broker struct {
     }
     client_id     string?        {
         @doc value           """
-            is the MQTT client ID. Absent derives one from the key of the broker.
+            is the MQTT client ID. Absent derives one from the key of the broker. A
+            broker only has to accept IDs of 1 to 23 bytes.
         """
         @validate min_length 1
     }

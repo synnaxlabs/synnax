@@ -195,7 +195,7 @@ export const READ_SCHEMAS: {
 /** PlainWrite binds a field of a message published to a topic to a channel. */
 export const plainWriteZ = z.object({
   type: z.literal("plain"),
-  /** topic is the topic to publish to. It holds no wildcards. */
+  /** topic is the topic to publish to. It holds no wildcards and no leading $. */
   topic: z.string().min(1, "Topic is required"),
   /** field is the ICD field that a command sets in the published message. */
   field: icd.fieldKeyZ.min(1, "Field is required"),
@@ -277,7 +277,10 @@ export const brokerZ = z.object({
   transport: transportZ.prefault({ type: "tcp" }),
   /** auth holds the credentials that the Core connects to the broker with. */
   auth: authZ.prefault({ type: "none" }),
-  /** clientId is the MQTT client ID. Absent derives one from the key of the broker. */
+  /**
+   * clientId is the MQTT client ID. Absent derives one from the key of the broker. A
+   * broker only has to accept IDs of 1 to 23 bytes.
+   */
   clientId: z.string().min(1).optional(),
   /** keepAlive is the keep alive interval, in whole seconds. */
   keepAlive: telem.numericTimeSpanZ

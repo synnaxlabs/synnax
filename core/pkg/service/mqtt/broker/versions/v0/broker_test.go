@@ -172,6 +172,23 @@ var _ = Describe("Broker", func() {
 				Variant: v0.PrimarySparkplugMode{HostID: "scada/+"},
 			}
 		}, "host_id"),
+		Entry("a plain read topic with NUL", func(b *v0.Broker) {
+			r := plainRead()
+			r.Topic = "plant/\x00"
+			b.Reads = []v0.Read{{Variant: r}}
+		}, "topic"),
+		Entry("a plain write topic that starts with $", func(b *v0.Broker) {
+			b.Writes = []v0.Write{{Variant: v0.PlainWrite{
+				Topic:   "$SYS/valve",
+				Field:   uuid.New(),
+				Channel: 3,
+			}}}
+		}, "topic"),
+		Entry("a Sparkplug tag with NUL", func(b *v0.Broker) {
+			r := sparkplugRead()
+			r.Tag = "Pressure\x00"
+			b.Reads = []v0.Read{{Variant: r}}
+		}, "tag"),
 		Entry("a plain read with a wildcard topic", func(b *v0.Broker) {
 			r := plainRead()
 			r.Topic = "plant/#"

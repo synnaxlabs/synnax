@@ -31,15 +31,19 @@ import (
 	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
 
-var validatePattern0 = regexp.MustCompile("^[^/+#]+$")
+var validatePattern0 = regexp.MustCompile("^[^\x00]+$")
 
-var validatePattern1 = regexp.MustCompile("^[^+#]+$")
+var validatePattern1 = regexp.MustCompile("^[^/+#\x00]+$")
 
-var validatePattern2 = regexp.MustCompile("^(/([^~/]|~[01])*)*$")
+var validatePattern2 = regexp.MustCompile("^[^+#\x00]+$")
 
-var validatePattern3 = regexp.MustCompile("^$|^[^/+#]+$")
+var validatePattern3 = regexp.MustCompile("^(/([^~/]|~[01])*)*$")
 
-var validatePattern4 = regexp.MustCompile("^$|^([A-Za-z0-9_]([A-Za-z0-9_-]*[A-Za-z0-9_])?([.][A-Za-z0-9_]([A-Za-z0-9_-]*[A-Za-z0-9_])?)*|[0-9A-Fa-f:.]*::[0-9A-Fa-f:.]*|([0-9A-Fa-f]{1,4}:){7}[0-9A-Fa-f]{1,4}|([0-9A-Fa-f]{1,4}:){6}[0-9.]+)$")
+var validatePattern4 = regexp.MustCompile("^$|^[^/+#\x00]+$")
+
+var validatePattern5 = regexp.MustCompile("^[^$+#\x00][^+#\x00]*$")
+
+var validatePattern6 = regexp.MustCompile("^$|^([A-Za-z0-9_]([A-Za-z0-9_-]*[A-Za-z0-9_])?([.][A-Za-z0-9_]([A-Za-z0-9_-]*[A-Za-z0-9_])?)*|[0-9A-Fa-f:.]*::[0-9A-Fa-f:.]*|([0-9A-Fa-f]{1,4}:){7}[0-9A-Fa-f]{1,4}|([0-9A-Fa-f]{1,4}:){6}[0-9.]+)$")
 
 // Key uniquely identifies an MQTT broker.
 type Key = uuid.UUID
@@ -208,6 +212,7 @@ func (UsernameAuth) isAuthVariant() {}
 func (u UsernameAuth) Validate() error {
 	v := validate.New("UsernameAuth")
 	v.NotEmptyString("username", u.Username)
+	v.Ternary("username", !validatePattern0.MatchString(string(u.Username)), "User name must not be empty or hold NUL")
 	return v.Error()
 }
 
@@ -341,7 +346,7 @@ func (PrimarySparkplugMode) isSparkplugModeVariant() {}
 func (p PrimarySparkplugMode) Validate() error {
 	v := validate.New("PrimarySparkplugMode")
 	v.NotEmptyString("host_id", p.HostID)
-	v.Ternary("host_id", !validatePattern0.MatchString(string(p.HostID)), "Host ID must not be empty or hold /, +, or #")
+	v.Ternary("host_id", !validatePattern1.MatchString(string(p.HostID)), "Host ID must not be empty or hold /, +, #, or NUL")
 	return v.Error()
 }
 
@@ -517,9 +522,9 @@ func (PlainRead) isReadVariant() {}
 func (p PlainRead) Validate() error {
 	v := validate.New("PlainRead")
 	v.NotEmptyString("topic", p.Topic)
-	v.Ternary("topic", !validatePattern1.MatchString(string(p.Topic)), "Topic must not be empty or hold + or #")
+	v.Ternary("topic", !validatePattern2.MatchString(string(p.Topic)), "Topic must not be empty or hold +, #, or NUL")
 	v.NonZero("message", p.Message)
-	v.Ternary("pointer", !validatePattern2.MatchString(string(p.Pointer)), "Pointer must be empty or a JSON Pointer that starts with / and escapes ~ as ~0 and / as ~1")
+	v.Ternary("pointer", !validatePattern3.MatchString(string(p.Pointer)), "Pointer must be empty or a JSON Pointer that starts with / and escapes ~ as ~0 and / as ~1")
 	v.NonZero("index", p.Index)
 	v.NonZero("channel", p.Channel)
 	return v.Error()
@@ -548,11 +553,12 @@ func (SparkplugRead) isReadVariant() {}
 func (s SparkplugRead) Validate() error {
 	v := validate.New("SparkplugRead")
 	v.NotEmptyString("group", s.Group)
-	v.Ternary("group", !validatePattern0.MatchString(string(s.Group)), "Group must not be empty or hold /, +, or #")
+	v.Ternary("group", !validatePattern1.MatchString(string(s.Group)), "Group must not be empty or hold /, +, #, or NUL")
 	v.NotEmptyString("edge_node", s.EdgeNode)
-	v.Ternary("edge_node", !validatePattern0.MatchString(string(s.EdgeNode)), "Edge node must not be empty or hold /, +, or #")
-	v.Ternary("device", !validatePattern3.MatchString(string(s.Device)), "Device must not hold /, +, or #")
+	v.Ternary("edge_node", !validatePattern1.MatchString(string(s.EdgeNode)), "Edge node must not be empty or hold /, +, #, or NUL")
+	v.Ternary("device", !validatePattern4.MatchString(string(s.Device)), "Device must not hold /, +, #, or NUL")
 	v.NotEmptyString("tag", s.Tag)
+	v.Ternary("tag", !validatePattern0.MatchString(string(s.Tag)), "Tag must not be empty or hold NUL")
 	v.NonZero("index", s.Index)
 	v.NonZero("channel", s.Channel)
 	return v.Error()
@@ -674,7 +680,7 @@ type WriteVariant interface {
 
 // PlainWrite binds a field of a message published to a topic to a channel.
 type PlainWrite struct {
-	// Topic is the topic to publish to. It holds no wildcards.
+	// Topic is the topic to publish to. It holds no wildcards and no leading $.
 	Topic string `json:"topic" msgpack:"topic"`
 	// Field is the ICD field that a command sets in the published message.
 	Field icd.FieldKey `json:"field" msgpack:"field"`
@@ -689,7 +695,7 @@ func (PlainWrite) isWriteVariant() {}
 func (p PlainWrite) Validate() error {
 	v := validate.New("PlainWrite")
 	v.NotEmptyString("topic", p.Topic)
-	v.Ternary("topic", !validatePattern1.MatchString(string(p.Topic)), "Topic must not be empty or hold + or #")
+	v.Ternary("topic", !validatePattern5.MatchString(string(p.Topic)), "Topic must not be empty, start with $, or hold +, #, or NUL")
 	v.NonZero("field", p.Field)
 	v.NonZero("channel", p.Channel)
 	return v.Error()
@@ -716,11 +722,12 @@ func (SparkplugWrite) isWriteVariant() {}
 func (s SparkplugWrite) Validate() error {
 	v := validate.New("SparkplugWrite")
 	v.NotEmptyString("group", s.Group)
-	v.Ternary("group", !validatePattern0.MatchString(string(s.Group)), "Group must not be empty or hold /, +, or #")
+	v.Ternary("group", !validatePattern1.MatchString(string(s.Group)), "Group must not be empty or hold /, +, #, or NUL")
 	v.NotEmptyString("edge_node", s.EdgeNode)
-	v.Ternary("edge_node", !validatePattern0.MatchString(string(s.EdgeNode)), "Edge node must not be empty or hold /, +, or #")
-	v.Ternary("device", !validatePattern3.MatchString(string(s.Device)), "Device must not hold /, +, or #")
+	v.Ternary("edge_node", !validatePattern1.MatchString(string(s.EdgeNode)), "Edge node must not be empty or hold /, +, #, or NUL")
+	v.Ternary("device", !validatePattern4.MatchString(string(s.Device)), "Device must not hold /, +, #, or NUL")
 	v.NotEmptyString("tag", s.Tag)
+	v.Ternary("tag", !validatePattern0.MatchString(string(s.Tag)), "Tag must not be empty or hold NUL")
 	v.NonZero("channel", s.Channel)
 	return v.Error()
 }
@@ -841,10 +848,11 @@ type EdgeCommand struct {
 func (e EdgeCommand) Validate() error {
 	v := validate.New("EdgeCommand")
 	v.NotEmptyString("group", e.Group)
-	v.Ternary("group", !validatePattern0.MatchString(string(e.Group)), "Group must not be empty or hold /, +, or #")
+	v.Ternary("group", !validatePattern1.MatchString(string(e.Group)), "Group must not be empty or hold /, +, #, or NUL")
 	v.NotEmptyString("edge_node", e.EdgeNode)
-	v.Ternary("edge_node", !validatePattern0.MatchString(string(e.EdgeNode)), "Edge node must not be empty or hold /, +, or #")
+	v.Ternary("edge_node", !validatePattern1.MatchString(string(e.EdgeNode)), "Edge node must not be empty or hold /, +, #, or NUL")
 	v.NotEmptyString("tag", e.Tag)
+	v.Ternary("tag", !validatePattern0.MatchString(string(e.Tag)), "Tag must not be empty or hold NUL")
 	v.NonZero("channel", e.Channel)
 	return v.Error()
 }
@@ -878,7 +886,8 @@ type Broker struct {
 	Transport Transport `json:"transport" msgpack:"transport"`
 	// Auth holds the credentials that the Core connects to the broker with.
 	Auth Auth `json:"auth" msgpack:"auth"`
-	// ClientID is the MQTT client ID. Absent derives one from the key of the broker.
+	// ClientID is the MQTT client ID. Absent derives one from the key of the broker. A
+	// broker only has to accept IDs of 1 to 23 bytes.
 	ClientID *string `json:"client_id,omitzero" msgpack:"client_id,omitempty"`
 	// KeepAlive is the keep alive interval, in whole seconds.
 	KeepAlive telem.TimeSpan `json:"keep_alive" msgpack:"keep_alive"`
@@ -927,7 +936,7 @@ func (b Broker) Validate() error {
 	v := validate.New("Broker")
 	v.NotEmptyString("name", b.Name)
 	v.NotEmptyString("host", b.Host)
-	v.Ternary("host", !validatePattern4.MatchString(string(b.Host)), "Host must be a hostname or an IP address, with no scheme, port, or path")
+	v.Ternary("host", !validatePattern6.MatchString(string(b.Host)), "Host must be a hostname or an IP address, with no scheme, port, or path")
 	if b.Port != nil {
 		v.GreaterThanEq("port", *b.Port, 1)
 	}

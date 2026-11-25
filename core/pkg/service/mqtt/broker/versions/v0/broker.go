@@ -10,16 +10,19 @@
 package v0
 
 import (
+	"regexp"
 	"strconv"
+	"strings"
 
 	"github.com/synnaxlabs/gorp"
 	icd "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v1"
-	"github.com/synnaxlabs/synnax/pkg/service/mqtt/sparkplug"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
+
+var sparkplugID = regexp.MustCompile("^[^/+#\x00]+$")
 
 var _ gorp.Entry[Key] = Broker{}
 
@@ -38,10 +41,10 @@ func (b Broker) ResourceID() resource.ID {
 type sparkplugTag struct{ group, edgeNode, device, tag string }
 
 // ValidateWrite returns the error of Validate. It also refuses a keep alive of a
-// fraction of a second, a Sparkplug group that cannot be a topic level, and a binding
-// with the natural key of another binding in its list. Each error wraps
-// validate.ErrValidation. Writes check it, so stored brokers that break it stay
-// readable.
+// fraction of a second, a client ID that holds NUL, a Sparkplug group that cannot be a
+// topic level or repeats another, and a binding with the natural key of another binding
+// in its list. Each error wraps validate.ErrValidation. Writes check it, so stored
+// brokers that break it stay readable.
 func (b Broker) ValidateWrite() error {
 	if err := b.Validate(); err != nil {
 		return err
@@ -52,13 +55,22 @@ func (b Broker) ValidateWrite() error {
 		b.KeepAlive%telem.Second != 0,
 		"must be a whole number of seconds",
 	)
+	v.Ternary(
+		"client_id",
+		b.ClientID != nil && strings.ContainsRune(*b.ClientID, 0),
+		"must not hold NUL",
+	)
+	groups := make(set.Set[string], len(b.Sparkplug.Groups))
 	for i, g := range b.Sparkplug.Groups {
-		v.Exec(func() error {
-			return validate.PathedError(
-				sparkplug.ValidateID("group", g),
-				"sparkplug", "groups", strconv.Itoa(i),
-			)
-		})
+		path := "sparkplug.groups." + strconv.Itoa(i)
+		v.Ternaryf(
+			path,
+			!sparkplugID.MatchString(g),
+			"%q must not be empty or hold /, +, #, or NUL",
+			g,
+		)
+		v.Ternaryf(path, groups.Contains(g), "duplicates the group %q", g)
+		groups.Add(g)
 	}
 	validateReads(v, b.Reads)
 	validateWrites(v, b.Writes)

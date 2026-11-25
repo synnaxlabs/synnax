@@ -148,7 +148,9 @@ Read union on type {
 Write union on type {
     plain {
         topic   string       {
-            @doc value "is the topic to publish to. It holds no wildcards."
+            @doc value """
+                is the topic to publish to. It holds no wildcards and no leading $.
+            """
         }
         field   icd.FieldKey {
             @doc value "is the ICD field that a command sets in the published message."
@@ -248,7 +250,8 @@ Broker struct {
     }
     client_id     string?        {
         @doc value """
-            is the MQTT client ID. Absent derives one from the key of the broker.
+            is the MQTT client ID. Absent derives one from the key of the broker. A
+            broker only has to accept IDs of 1 to 23 bytes.
         """
     }
     keep_alive    telem.TimeSpan = 30s {
