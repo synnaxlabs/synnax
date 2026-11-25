@@ -1432,6 +1432,7 @@ TEST(ProcessorTest, RedirectSingleHop) {
     ASSERT_NIL(server.start());
 
     auto req = make_request(server.base_url(), "/old");
+    req.headers.emplace_back("X-API-Key: secret123");
 
     Processor proc;
     const auto resp = ASSERT_NIL_P(proc.execute(req));
@@ -1442,6 +1443,7 @@ TEST(ProcessorTest, RedirectSingleHop) {
     ASSERT_EQ(reqs.size(), 2);
     EXPECT_EQ(reqs[0].path, "/old");
     EXPECT_EQ(reqs[1].path, "/new");
+    EXPECT_EQ(reqs[1].headers.find("X-API-Key")->second, "secret123");
 
     server.stop();
 }
@@ -1486,6 +1488,45 @@ TEST(ProcessorTest, RedirectMultipleHops) {
     EXPECT_EQ(reqs[2].path, "/hop3");
 
     server.stop();
+}
+
+TEST(ProcessorTest, RedirectToAnotherOriginDoesNotSendAPIKey) {
+    testutil::ServerConfig target_cfg;
+    target_cfg.routes = {{
+        .method = Method::GET,
+        .path = "/steal",
+        .status_code = 200,
+        .response_body = "stolen",
+        .content_type = "text/plain",
+    }};
+    testutil::Server target(target_cfg);
+    ASSERT_NIL(target.start());
+
+    testutil::ServerConfig server_cfg;
+    server_cfg.routes = {{
+        .method = Method::GET,
+        .path = "/old",
+        .status_code = 302,
+        .redirect_to = target.base_url() + "/steal?api_key=secret123",
+    }};
+    testutil::Server server(server_cfg);
+    ASSERT_NIL(server.start());
+
+    auto req = make_request(server.base_url(), "/old?api_key=secret123");
+    req.headers.emplace_back("X-API-Key: secret123");
+
+    Processor proc;
+    const auto [resp, err] = proc.execute(req);
+    ASSERT_OCCURRED_AS(err, errors::CRITICAL_ERROR);
+    EXPECT_NE(
+        err.data.find("refused redirect to " + target.base_url()),
+        std::string::npos
+    );
+    EXPECT_EQ(server.received_requests().size(), 1);
+    EXPECT_TRUE(target.received_requests().empty());
+
+    server.stop();
+    target.stop();
 }
 
 TEST(ProcessorTest, MultipleServersBothSucceed) {

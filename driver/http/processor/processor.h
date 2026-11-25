@@ -71,6 +71,12 @@ private:
         Method method;
         std::string base_url;
         x::telem::TimeStamp start;
+        /// @brief scheme, host, and port of the request URL.
+        std::string origin;
+        /// @brief true while curl reads the headers of a 3xx response.
+        bool redirecting = false;
+        /// @brief origin of a redirect target the transfer refused to follow.
+        std::string refused_origin;
     };
 
     /// @brief a pending request waiting to be picked up by the event loop.
@@ -99,6 +105,10 @@ private:
     /// @brief builds a Response + Error pair from a completed curl handle.
     static std::pair<Response, x::errors::Error>
     build_result(CURL *handle, CURLcode result_code, ActiveTransfer &t);
+
+    /// @brief curl header callback. Ends the transfer on a redirect to another origin,
+    /// as curl sends custom headers, such as an API key, to any redirect target.
+    static size_t header_callback(char *buf, size_t size, size_t n, void *userdata);
 
     /// @brief creates a curl easy handle from a Request and ActiveTransfer.
     static CURL *create_handle(const Request &req, ActiveTransfer &t);
