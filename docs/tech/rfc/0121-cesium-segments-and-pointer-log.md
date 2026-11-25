@@ -341,8 +341,8 @@ also checks that the stamps of each pointer rise inside its time range. A run of
 that do not rise through the end of the file is a crash tail: the pass logs a Tombstone
 from its first stamp, for the clock and for each key that it times. Any other sample
 whose stamp is not above the last kept stamp is cut alone, for the clock and for each
-key that it times at that position, by a split of the pointer around it. A warning lists
-each cut.
+key that it times at that position, by a split of the pointer around it. A warning names
+the channel and the time range of each cut.
 
 | Offset | Size | Type     | Check file of a version 0 segment of length `len`, with `n = ceil(len / 65,536)`                                     |
 | ------ | ---- | -------- | -------------------------------------------------------------------------------------------------------------------- |
@@ -776,11 +776,16 @@ one start, and the next start opens.
 
 ### 6.0 Repair
 
-`synnax repair` (NEW) gives a refused open (fault 5b) a way forward. It runs with the
-Core stopped, under the directory lock, as `synnax purge` does (§4.1). As `pg_resetwal`
-does, it gets past the damage; as RocksDB `RepairDB` does, it rebuilds what the files
-allow; as SQLite `.recover` does, it lists what it cannot save. Fault 5b means that
-valid frames follow the bad one, so repair loses only the records of the bad frame.
+`synnax repair` (NEW) gives a refused open (fault 5b) a way forward. The new version's
+repair also accepts data whose update started and never committed: it writes only the
+format that the data already uses, so an undo to the old version still opens the
+repaired data, and the next start commits the update. When it cannot write that format,
+it refuses and names the version to use. Repair reads the heads and needs no identity
+record. It runs with the Core stopped, under the directory lock, as `synnax purge` does
+(§4.1). As `pg_resetwal` does, it gets past the damage; as RocksDB `RepairDB` does, it
+rebuilds what the files allow; as SQLite `.recover` does, it lists what it cannot save.
+Fault 5b means that valid frames follow the bad one, so repair loses only the records of
+the bad frame.
 
 | A pointer needs  | Repair finds it in                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -966,7 +971,7 @@ update backup of RFC 0102.
    - In the range of the pointer before it, as when a write after a roll repeats the
      last committed stamp: the conversion cuts exactly the repeated samples, of the
      clock and of each key that it times, and keeps the earlier ones. A warning names
-     the clock, the keys, the file, and the samples cut.
+     the clock, the keys, the file, and the time range of the samples cut.
    - Below that range, a torn area that reads as zeros: the pointer becomes empty, and a
      warning names the file. Those samples were never durable.
    - At or past the end of its own range: the open refuses and names the file. So does a
@@ -1014,32 +1019,37 @@ layout is tied to a mark that every undo rolls back: the Core keeps the database
 identity in the metadata store, writes it after every open whose identity differs from
 the one it holds (step 8 of §9), and passes it to `Open`, which refuses a root that
 holds a head when the caller states no identity. A newest head whose identity differs
-from the one stated, or heads when the caller holds none (`WithIdentity(0)`), mark an
-undone conversion. Cesium then renames every `.seg`, `.chk`, and `<key>/channel` file,
-then the root logs and parts, then the heads, to `<name>.<identity>.undone` inside its
-directory, with the identity of the undone database, so a second undo keeps the files of
-the first and a crash in the middle undoes again. It syncs each directory and converts
-again from the old files as they are now. A Drop removes every file of its key's
-directory but the `.undone` files, so a channel that reuses an undone channel's key
-never deletes that telemetry. A crash between the commit point and the identity write
-converts again with nothing lost, since the Core serves only after the write. Telemetry
-that the new binary wrote is lost, so the new binary's `synnax update undo` across the
-conversion warns and asks before it runs; `--yes` skips the question, and with no answer
-or no terminal the undo refuses. The old binary's undo cannot ask: `Open` reports that
-it converted (`DB.Identity`), and once its status service opens the Core raises a
-warning status that names the cost of an undo. The release notes say it too. An update
-that keeps the Cesium formats backs up and restores no Cesium file: from Phase 7, a
-restore accepts a backup with no Cesium files and runs no `RestoreMeta` for it, and it
-still runs `RestoreMeta` for a backup from a release older than the first that writes
-segments. Its undo leaves the live state, and `Sweep` handles the keys that the restored
-channel table does not hold. No background work rewrites or unlinks a version 0 file
-while a backup from a release older than the first that writes segments exists (§5.1),
-so an undo finds every old file that the user did not delete. A user delete may unlink
-one. The old binary then fails a read over that range, and the next conversion drops the
-samples of each pointer whose file is gone, with a warning that names it. An index
-pointer stays as a mark with no stamps, so the data of another key in its range is cut
-too, and no sample takes the stamps of a later pointer. Nothing removes `.undone` files:
-a person deletes them by hand once their telemetry is not needed.
+from the one stated marks an undone conversion. Heads when the caller holds none
+(`WithIdentity(0)`) refuse the open: the error names two ways on, converting again
+(after a real undo) or adopting the newest head's identity (after a lost record), so a
+lost record or a restored metadata backup never hides acked samples. While a converting
+update has not committed, the error says that converting again loses nothing, since the
+Core served nothing from the new layout. Cesium then renames every `.seg`, `.chk`, and
+`<key>/channel` file, then the root logs and parts, then the heads, to
+`<name>.<identity>.undone` inside its directory, with the identity of the undone
+database, so a second undo keeps the files of the first and a crash in the middle undoes
+again. It syncs each directory and converts again from the old files as they are now. A
+Drop removes every file of its key's directory but the `.undone` files, so a channel
+that reuses an undone channel's key never deletes that telemetry. A crash between the
+commit point and the identity write meets that refusal, and converting again loses
+nothing, since the Core serves only after the write. Telemetry that the new binary wrote
+is lost, so the new binary's `synnax update undo` across the conversion warns and asks
+before it runs; `--yes` skips the question, and with no answer or no terminal the undo
+refuses. The old binary's undo cannot ask: `Open` reports that it converted
+(`DB.Identity`), and once its status service opens the Core raises a warning status that
+names the cost of an undo. The release notes say it too. An update that keeps the Cesium
+formats backs up and restores no Cesium file: from Phase 7, a restore accepts a backup
+with no Cesium files and runs no `RestoreMeta` for it, and it still runs `RestoreMeta`
+for a backup from a release older than the first that writes segments. Its undo leaves
+the live state, and `Sweep` handles the keys that the restored channel table does not
+hold. No background work rewrites or unlinks a version 0 file while a backup from a
+release older than the first that writes segments exists (§5.1), so an undo finds every
+old file that the user did not delete. A user delete may unlink one. The old binary then
+fails a read over that range, and the next conversion drops the samples of each pointer
+whose file is gone, with a warning that names it. An index pointer stays as a mark with
+no stamps, so the data of another key in its range is cut too, and no sample takes the
+stamps of a later pointer. Nothing removes `.undone` files: a person deletes them by
+hand once their telemetry is not needed.
 
 ### 9.1 What is owed
 
