@@ -560,8 +560,12 @@ func (s *readSource) addEntry(
 			)
 		}
 		s.topics[topic.topic] = topic
-		for _, m := range topic.messages {
-			w.add(m.keys, m.index)
+		for _, g := range topic.groups {
+			keys := g.Channels
+			if g.Index != 0 {
+				keys = append(channel.Keys{g.Index}, keys...)
+			}
+			w.add(keys, g.Index)
 		}
 		return nil
 	case SparkplugReadEntry:

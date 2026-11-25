@@ -1432,6 +1432,7 @@ TEST(ProcessorTest, RedirectSingleHop) {
     ASSERT_NIL(server.start());
 
     auto req = make_request(server.base_url(), "/old");
+    req.headers.emplace_back("X-API-Key: secret123");
 
     Processor proc;
     const auto resp = ASSERT_NIL_P(proc.execute(req));
@@ -1442,6 +1443,7 @@ TEST(ProcessorTest, RedirectSingleHop) {
     ASSERT_EQ(reqs.size(), 2);
     EXPECT_EQ(reqs[0].path, "/old");
     EXPECT_EQ(reqs[1].path, "/new");
+    EXPECT_EQ(reqs[1].headers.find("X-API-Key")->second, "secret123");
 
     server.stop();
 }
@@ -1486,6 +1488,53 @@ TEST(ProcessorTest, RedirectMultipleHops) {
     EXPECT_EQ(reqs[2].path, "/hop3");
 
     server.stop();
+}
+
+/// @brief it should refuse a redirect to another origin without sending the API key.
+TEST(ProcessorTest, RedirectToAnotherOriginDoesNotSendAPIKey) {
+    testutil::ServerConfig target_cfg;
+    target_cfg.routes = {{
+        .method = Method::GET,
+        .path = "/steal",
+        .status_code = 200,
+        .response_body = "stolen",
+        .content_type = "text/plain",
+    }};
+    testutil::Server target(target_cfg);
+    ASSERT_NIL(target.start());
+
+    // curl follows a Location with a space in it, which a strict URL parse rejects.
+    const std::vector<std::string> locations = {"/steal?api_key=secret123", "/a b"};
+    testutil::ServerConfig server_cfg;
+    for (std::size_t i = 0; i < locations.size(); i++)
+        server_cfg.routes.push_back({
+            .method = Method::GET,
+            .path = "/old" + std::to_string(i),
+            .status_code = 302,
+            .redirect_to = target.base_url() + locations[i],
+        });
+    testutil::Server server(server_cfg);
+    ASSERT_NIL(server.start());
+
+    Processor proc;
+    for (std::size_t i = 0; i < locations.size(); i++) {
+        auto req = make_request(
+            server.base_url(),
+            "/old" + std::to_string(i) + "?api_key=secret123"
+        );
+        req.headers.emplace_back("X-API-Key: secret123");
+        const auto [resp, err] = proc.execute(req);
+        ASSERT_OCCURRED_AS(err, errors::CRITICAL_ERROR);
+        EXPECT_NE(
+            err.data.find("refused redirect to " + target.base_url()),
+            std::string::npos
+        );
+    }
+    EXPECT_EQ(server.received_requests().size(), locations.size());
+    EXPECT_TRUE(target.received_requests().empty());
+
+    server.stop();
+    target.stop();
 }
 
 TEST(ProcessorTest, MultipleServersBothSucceed) {
