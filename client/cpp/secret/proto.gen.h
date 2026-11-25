@@ -17,8 +17,8 @@
 #include <utility>
 #include <variant>
 
+#include "client/cpp/resource/id.h"
 #include "client/cpp/resource/proto.gen.h"
-#include "client/cpp/resource/types.gen.h"
 #include "client/cpp/secret/json.gen.h"
 #include "client/cpp/secret/types.gen.h"
 #include "x/cpp/errors/errors.h"
