@@ -17,6 +17,7 @@ import {
   TimeStamp,
 } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
+import { useNow } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Modal } from "@synnaxlabs/lyra/modal";
@@ -69,10 +70,14 @@ const Name = ({ subject, close, onCreated }: NameProps): ReactElement => {
   const busy = variant === "loading";
   Modals.useBusy(busy);
   const empty = name.trim() === "";
-  const past = expiry === "custom" && !new TimeStamp(custom).after(TimeStamp.now());
+  const customAt = new TimeStamp(custom);
+  const now = useNow((now) =>
+    expiry === "custom" && customAt.after(now) ? customAt : null,
+  );
+  const past = expiry === "custom" && !customAt.after(now);
   const handleCreate = (): void => {
     if (empty || past) return;
-    const expires = resolve(expiry, new TimeStamp(custom), TimeStamp.now());
+    const expires = resolve(expiry, customAt, TimeStamp.now());
     update({ subject, name: name.trim(), expires });
   };
   return (

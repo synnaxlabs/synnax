@@ -41,8 +41,24 @@ const RELATIVE = new Intl.RelativeTimeFormat("en", { numeric: "always" });
 export const relative = (expires: TimeStamp, now: TimeStamp): string => {
   const left = now.span(expires);
   if (left.greaterThanOrEqual(TimeSpan.DAY))
-    return RELATIVE.format(Math.floor(left.days), "day");
+    return RELATIVE.format(Math.round(left.days), "day");
   if (left.greaterThanOrEqual(TimeSpan.HOUR))
-    return RELATIVE.format(Math.floor(left.hours), "hour");
-  return RELATIVE.format(Math.max(1, Math.floor(left.minutes)), "minute");
+    return RELATIVE.format(Math.round(left.hours), "hour");
+  return RELATIVE.format(Math.max(1, Math.round(left.minutes)), "minute");
+};
+
+/**
+ * @returns when the label of a key that expires at expires next changes, or null when
+ * the key never expires or has expired.
+ */
+export const nextChange = (
+  expires: TimeStamp | undefined,
+  now: TimeStamp,
+): TimeStamp | null => {
+  if (expires == null || !expires.after(now)) return null;
+  const step = now.span(expires).lessThan(TimeSpan.HOUR)
+    ? TimeSpan.MINUTE
+    : TimeSpan.HOUR;
+  const next = now.add(step);
+  return next.before(expires) ? next : expires;
 };

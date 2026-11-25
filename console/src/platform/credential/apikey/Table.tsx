@@ -11,6 +11,7 @@ import "@/platform/credential/apikey/Table.css";
 
 import { type auth, type resource, TimeStamp } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
+import { useNow } from "@synnaxlabs/lyra/hooks";
 import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
@@ -20,7 +21,7 @@ import { createContext, type ReactElement, use, useEffect } from "react";
 
 import { Collection } from "@/platform/collection";
 import { ContextMenu } from "@/platform/context-menu";
-import { relative } from "@/platform/credential/apikey/expiry";
+import { nextChange, relative } from "@/platform/credential/apikey/expiry";
 import { useCreateModal } from "@/platform/credential/apikey/useCreateModal";
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
@@ -36,8 +37,8 @@ const keyName = (k: auth.apiKey.APIKey): string =>
   k.name === "" ? "Unnamed key" : k.name;
 
 const Expires = ({ expires }: Pick<auth.apiKey.APIKey, "expires">): ReactElement => {
+  const now = useNow((now) => nextChange(expires, now));
   if (expires == null) return <Text.Text>Never</Text.Text>;
-  const now = TimeStamp.now();
   if (!expires.after(now)) return <Text.Text status="error">Expired</Text.Text>;
   return (
     <Text.Text color={9} overflow="fade" title={expires.toString("dateTime", "local")}>
