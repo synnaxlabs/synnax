@@ -32,6 +32,27 @@ export enum DataTypeCode {
 }
 export const dataTypeCodeZ = z.enum(DataTypeCode);
 
+export const DATA_TYPE_NAMES = [
+  "float64",
+  "float32",
+  "int64",
+  "int32",
+  "int16",
+  "int8",
+  "uint64",
+  "uint32",
+  "uint16",
+  "uint8",
+  "timestamp",
+  "uuid",
+  "boolean",
+  "string",
+  "json",
+  "bytes",
+] as const;
+export const dataTypeNameZ = z.enum(DATA_TYPE_NAMES);
+export type DataTypeName = z.infer<typeof dataTypeNameZ>;
+
 export const FIXED_WIDTH_DATA_TYPES = [
   "float64",
   "float32",

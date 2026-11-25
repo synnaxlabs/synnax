@@ -16,7 +16,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field
 
-from x.telem.telem import TimeRange, TimeSpan
+from x.telem.quantity import TimeRange, TimeSpan
 
 
 class DataTypeCode(IntEnum):
@@ -38,6 +38,58 @@ class DataTypeCode(IntEnum):
     json = 15
     boolean = 16
 
+
+DATA_TYPE_NAME_FLOAT64: Literal["float64"] = "float64"
+
+DATA_TYPE_NAME_FLOAT32: Literal["float32"] = "float32"
+
+DATA_TYPE_NAME_INT64: Literal["int64"] = "int64"
+
+DATA_TYPE_NAME_INT32: Literal["int32"] = "int32"
+
+DATA_TYPE_NAME_INT16: Literal["int16"] = "int16"
+
+DATA_TYPE_NAME_INT8: Literal["int8"] = "int8"
+
+DATA_TYPE_NAME_UINT64: Literal["uint64"] = "uint64"
+
+DATA_TYPE_NAME_UINT32: Literal["uint32"] = "uint32"
+
+DATA_TYPE_NAME_UINT16: Literal["uint16"] = "uint16"
+
+DATA_TYPE_NAME_UINT8: Literal["uint8"] = "uint8"
+
+DATA_TYPE_NAME_TIMESTAMP: Literal["timestamp"] = "timestamp"
+
+DATA_TYPE_NAME_UUID: Literal["uuid"] = "uuid"
+
+DATA_TYPE_NAME_BOOLEAN: Literal["boolean"] = "boolean"
+
+DATA_TYPE_NAME_STRING: Literal["string"] = "string"
+
+DATA_TYPE_NAME_JSON: Literal["json"] = "json"
+
+DATA_TYPE_NAME_BYTES: Literal["bytes"] = "bytes"
+
+
+DataTypeName = Literal[
+    "float64",
+    "float32",
+    "int64",
+    "int32",
+    "int16",
+    "int8",
+    "uint64",
+    "uint32",
+    "uint16",
+    "uint8",
+    "timestamp",
+    "uuid",
+    "boolean",
+    "string",
+    "json",
+    "bytes",
+]
 
 FIXED_WIDTH_DATA_TYPE_FLOAT64: Literal["float64"] = "float64"
 

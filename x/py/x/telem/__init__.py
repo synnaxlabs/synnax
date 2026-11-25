@@ -9,6 +9,21 @@
 
 from x.control import Authority, CrudeAuthority, Subject
 from x.telem.clock_skew import ClockSkewCalculator
+from x.telem.quantity import (
+    CrudeDensity,
+    CrudeRate,
+    CrudeSize,
+    CrudeTimeSpan,
+    CrudeTimeStamp,
+    Density,
+    Rate,
+    Size,
+    TimeRange,
+    TimeSpan,
+    TimeSpanUnits,
+    TimeStamp,
+    convert_time_units,
+)
 from x.telem.series import (
     CrudeSample,
     CrudeSeries,
@@ -26,20 +41,7 @@ from x.telem.telem import (
     Bounds,
     CrudeAlignment,
     CrudeDataType,
-    CrudeDensity,
-    CrudeRate,
-    CrudeSize,
-    CrudeTimeSpan,
-    CrudeTimeStamp,
     DataType,
-    Density,
-    Rate,
-    Size,
-    TimeRange,
-    TimeSpan,
-    TimeSpanUnits,
-    TimeStamp,
-    convert_time_units,
     seconds_linspace,
 )
 from x.telem.types_gen import (

@@ -26,6 +26,7 @@
 #include "x/cpp/date/date.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/strings/strings.h"
+#include "x/cpp/telem/types.gen.h"
 
 #include "x/go/telem/pb/telem.pb.h"
 
@@ -934,22 +935,22 @@ inline void to_proto(const SampleValue &sv, google::protobuf::Value *v) {
 
 namespace details {
 const std::string UNKNOWN_T;
-const std::string FLOAT64_T = "float64";
-const std::string FLOAT32_T = "float32";
-const std::string INT8_T = "int8";
-const std::string INT16_T = "int16";
-const std::string INT32_T = "int32";
-const std::string INT64_T = "int64";
-const std::string TIMESTAMP_T = "timestamp";
-const std::string UINT8_T = "uint8";
-const std::string UINT16_T = "uint16";
-const std::string UINT32_T = "uint32";
-const std::string UINT64_T = "uint64";
-const std::string UUID_T = "uuid";
-const std::string STRING_T = "string";
-const std::string JSON_T = "json";
-const std::string BYTES_T = "bytes";
-const std::string BOOLEAN_T = "boolean";
+const std::string FLOAT64_T = DATA_TYPE_NAME_FLOAT_64;
+const std::string FLOAT32_T = DATA_TYPE_NAME_FLOAT_32;
+const std::string INT8_T = DATA_TYPE_NAME_INT_8;
+const std::string INT16_T = DATA_TYPE_NAME_INT_16;
+const std::string INT32_T = DATA_TYPE_NAME_INT_32;
+const std::string INT64_T = DATA_TYPE_NAME_INT_64;
+const std::string TIMESTAMP_T = DATA_TYPE_NAME_TIMESTAMP;
+const std::string UINT8_T = DATA_TYPE_NAME_UINT_8;
+const std::string UINT16_T = DATA_TYPE_NAME_UINT_16;
+const std::string UINT32_T = DATA_TYPE_NAME_UINT_32;
+const std::string UINT64_T = DATA_TYPE_NAME_UINT_64;
+const std::string UUID_T = DATA_TYPE_NAME_UUID;
+const std::string STRING_T = DATA_TYPE_NAME_STRING;
+const std::string JSON_T = DATA_TYPE_NAME_JSON;
+const std::string BYTES_T = DATA_TYPE_NAME_BYTES;
+const std::string BOOLEAN_T = DATA_TYPE_NAME_BOOLEAN;
 const std::vector VARIABLE_TYPES = {JSON_T, STRING_T, BYTES_T};
 }
 

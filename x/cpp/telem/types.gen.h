@@ -35,6 +35,23 @@ enum class DataTypeCode : std::uint8_t {
     Boolean = 16,
 };
 
+constexpr const char *DATA_TYPE_NAME_FLOAT_64 = "float64";
+constexpr const char *DATA_TYPE_NAME_FLOAT_32 = "float32";
+constexpr const char *DATA_TYPE_NAME_INT_64 = "int64";
+constexpr const char *DATA_TYPE_NAME_INT_32 = "int32";
+constexpr const char *DATA_TYPE_NAME_INT_16 = "int16";
+constexpr const char *DATA_TYPE_NAME_INT_8 = "int8";
+constexpr const char *DATA_TYPE_NAME_UINT_64 = "uint64";
+constexpr const char *DATA_TYPE_NAME_UINT_32 = "uint32";
+constexpr const char *DATA_TYPE_NAME_UINT_16 = "uint16";
+constexpr const char *DATA_TYPE_NAME_UINT_8 = "uint8";
+constexpr const char *DATA_TYPE_NAME_TIMESTAMP = "timestamp";
+constexpr const char *DATA_TYPE_NAME_UUID = "uuid";
+constexpr const char *DATA_TYPE_NAME_BOOLEAN = "boolean";
+constexpr const char *DATA_TYPE_NAME_STRING = "string";
+constexpr const char *DATA_TYPE_NAME_JSON = "json";
+constexpr const char *DATA_TYPE_NAME_BYTES = "bytes";
+
 constexpr const char *FIXED_WIDTH_DATA_TYPE_FLOAT_64 = "float64";
 constexpr const char *FIXED_WIDTH_DATA_TYPE_FLOAT_32 = "float32";
 constexpr const char *FIXED_WIDTH_DATA_TYPE_INT_64 = "int64";
