@@ -7,12 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
 #include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
 
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/json/pointer.h"
 #include "x/cpp/payload/types.gen.h"
 #include "x/cpp/telem/telem.h"
 
@@ -92,5 +94,10 @@ x::errors::Error wrap(const x::errors::Error &err, const std::string &context) {
 
 x::errors::Error as_config(const x::errors::Error &err, const std::string &context) {
     return {CONFIG_ERROR, context + ": " + err.data};
+}
+
+bool within(const x::json::Pointer &inner, const x::json::Pointer &outer) {
+    return outer.tokens.size() <= inner.tokens.size() &&
+           std::equal(outer.tokens.begin(), outer.tokens.end(), inner.tokens.begin());
 }
 }

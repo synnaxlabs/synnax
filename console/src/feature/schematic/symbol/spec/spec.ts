@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import type { enumeration, schematic } from "@synnaxlabs/client";
+import { Schematic } from "@synnaxlabs/pluto";
 import { id } from "@synnaxlabs/x";
 
 type Spec = schematic.symbol.Spec;
@@ -271,8 +272,8 @@ export const removePart = (spec: Spec, part: string): Spec => ({
 });
 
 /**
- * @returns the part that holds the shape of selector: the shape itself, a shape inside
- * it such as the span of a text, or the nearest group around it.
+ * @returns the part that holds the shape of selector: the shape itself, a span of the
+ * text, or the nearest group around it.
  */
 export const owner = (
   spec: Pick<Spec, "drawing" | "parts">,
@@ -283,7 +284,9 @@ export const owner = (
   if (shape == null) return undefined;
   const around: Element[] = [];
   for (let el = shape.parentElement; el != null; el = el.parentElement) around.push(el);
-  for (const el of [shape, ...shape.querySelectorAll("*"), ...around]) {
+  // The spans of a text are part of its shape, but the shapes of a group are not.
+  const spans = shape.tagName === "text" ? [...shape.querySelectorAll("*")] : [];
+  for (const el of [shape, ...spans, ...around]) {
     const found = spec.parts.find((p) => p.selectors.some((s) => el.matches(s)));
     if (found != null) return found;
   }
@@ -306,6 +309,51 @@ const holderOf = (
   selector: string,
 ): schematic.symbol.Part | undefined =>
   parts.find((p) => p.selectors.some((s) => holds(doc, s, selector)));
+
+/**
+ * @returns the nearest group around every shape of selectors, in a copy of the drawing
+ * that Region.parseSVG parses. Null when no group holds them all.
+ */
+export const parentGroup = (
+  spec: Pick<Spec, "drawing">,
+  selectors: string[],
+): Element | null => {
+  const root = Schematic.Node.Region.parseSVG(spec.drawing.markup);
+  if (root == null) throw new Error("the markup of the drawing does not parse");
+  const shapes = [...new Set(selectors.flatMap((s) => [...root.querySelectorAll(s)]))];
+  for (
+    let el: Element | null | undefined = shapes[0]?.parentElement;
+    el != null && el !== root;
+    el = el.parentElement
+  ) {
+    const group = el;
+    if (
+      group.localName === "g" &&
+      shapes.every((s) => s !== group && group.contains(s))
+    )
+      return group;
+  }
+  return null;
+};
+
+/**
+ * @returns the selector of part that selects the outermost shape on the path from the
+ * shape of selector to the root, or undefined when part selects none of them.
+ */
+export const outermost = (
+  spec: Pick<Spec, "drawing" | "parts">,
+  part: string,
+  selector: string,
+): string | undefined => {
+  const selectors = spec.parts.find((p) => p.key === part)?.selectors ?? [];
+  const doc = new DOMParser().parseFromString(spec.drawing.markup, "image/svg+xml");
+  let found: string | undefined;
+  for (let el = doc.querySelector(selector); el != null; el = el.parentElement) {
+    const shape = el;
+    found = selectors.find((s) => shape.matches(s)) ?? found;
+  }
+  return found;
+};
 
 /** @returns the part that holds a group around the shape of selector. */
 export const groupOwner = (
