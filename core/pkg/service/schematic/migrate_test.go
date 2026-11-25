@@ -51,8 +51,6 @@ import (
 //go:embed testdata/released/v0.61.4/*.hex testdata/released/v0.62.0/*.hex
 var released embed.FS
 
-// openShipped returns a store that holds the migrations of core/v0.62.0, whose chains
-// end at these migrations.
 // openStore returns a DB on kvDB that holds the schematic migrations through
 // schematicLast and the symbol migrations through symbolLast as applied. An empty key
 // applies none.
