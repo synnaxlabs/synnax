@@ -212,6 +212,7 @@ func (c LayerConfig) Override(other LayerConfig) LayerConfig {
 func (c LayerConfig) Validate() error {
 	v := validate.New("service")
 	v.NotNil("distribution", c.Distribution)
+	v.NotNil("storage", c.Storage)
 	v.NotNil("security", c.Security)
 	v.Ternary("secrets_key", c.SecretsKey == secret.EncryptionKey{}, "required")
 	for _, m := range c.AuthMethods {
