@@ -223,7 +223,7 @@ describe("auth guard", () => {
         client: createTestClient(address),
         status: connection.DEFAULT_STATUS,
         preloadedState: {
-          [Session.Core.SLICE_NAME]: { ...CoreState(), selected: CORE_KEY },
+          [Session.Core.SLICE_NAME]: { ...CoreState(TYPED), selected: CORE_KEY },
         },
       });
       render(
