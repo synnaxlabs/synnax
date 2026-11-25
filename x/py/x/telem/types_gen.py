@@ -11,11 +11,33 @@
 
 from __future__ import annotations
 
+from enum import IntEnum
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field
 
 from x.telem.telem import TimeRange, TimeSpan
+
+
+class DataTypeCode(IntEnum):
+    unknown = 0
+    uint8 = 1
+    uint16 = 2
+    uint32 = 3
+    uint64 = 4
+    int8 = 5
+    int16 = 6
+    int32 = 7
+    int64 = 8
+    float32 = 9
+    float64 = 10
+    timestamp = 11
+    uuid = 12
+    string = 13
+    bytes = 14
+    json = 15
+    boolean = 16
+
 
 AGGREGATION_MIN_MAX: Literal["min_max"] = "min_max"
 
