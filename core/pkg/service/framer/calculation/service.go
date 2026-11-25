@@ -529,6 +529,7 @@ func (s *Service) updateGroup(
 	for i, m := range mods {
 		calc, err := s.openCalculator(ctx, m)
 		if err != nil {
+			s.rejectDefinition(ctx, m.Channel, "Failed to start calculation", err)
 			return errors.Join(err, calculator.Group(calculators[:i]).Close())
 		}
 		calculators[i] = calc
@@ -573,9 +574,15 @@ func (s *Service) rebuildGroups(ctx context.Context) error {
 			}
 		}
 	}
+	// A group that fails to open leaves the others running, and the status of the
+	// calculation that failed reports it.
 	for k, mods := range groups {
 		if err := s.updateGroup(ctx, k, mods); err != nil {
-			return err
+			s.cfg.L.Error(
+				"failed to open calculation group",
+				zap.Int("group_id", k),
+				zap.Error(err),
+			)
 		}
 	}
 	return nil

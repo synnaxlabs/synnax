@@ -1224,11 +1224,10 @@ var _ = Describe("Calculation", Ordered, func() {
 				heldRM := svc.OpenRequestManager()
 				Expect(heldRM.Set(ctx, channel.Keys{held.Key()})).To(Succeed())
 				defer func() { Expect(heldRM.Close(ctx)).To(Succeed()) }()
+				// The failed open sets the calculation's status, and the request
+				// stands.
 				joinedRM := svc.OpenRequestManager()
-				Expect(
-					joinedRM.Set(ctx, channel.Keys{joined.Key()}),
-				).Error().
-					To(MatchError(ContainSubstring("failed to open calculator")))
+				Expect(joinedRM.Set(ctx, channel.Keys{joined.Key()})).To(Succeed())
 				defer func() { Expect(joinedRM.Close(ctx)).To(Succeed()) }()
 				Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
 					return channelSvc.NewWriter(tx).Rename(
