@@ -20,6 +20,57 @@
 
 namespace synnax::framer {
 namespace {
+/// @brief a writer stream that saves the open request it sends and answers the open.
+class OpenSavingStream final : public WriterStream {
+    std::shared_ptr<grpc::framer::WriterRequest> opened;
+
+public:
+    explicit OpenSavingStream(std::shared_ptr<grpc::framer::WriterRequest> opened):
+        opened(std::move(opened)) {}
+
+    std::pair<grpc::framer::WriterResponse, x::errors::Error> receive() override {
+        return {grpc::framer::WriterResponse(), x::errors::NIL};
+    }
+
+    x::errors::Error send(grpc::framer::WriterRequest &req) const override {
+        *this->opened = req;
+        return x::errors::NIL;
+    }
+
+    void close_send() override {}
+};
+
+/// @brief a writer transport that opens streams that save their open request.
+class OpenSavingStreamClient final : public WriterClient {
+    std::shared_ptr<grpc::framer::WriterRequest> opened;
+
+public:
+    explicit OpenSavingStreamClient(
+        std::shared_ptr<grpc::framer::WriterRequest> opened
+    ):
+        opened(std::move(opened)) {}
+
+    void use(std::shared_ptr<freighter::Middleware>) override {}
+
+    std::pair<std::unique_ptr<WriterStream>, x::errors::Error>
+    stream(const std::string &) override {
+        return {std::make_unique<OpenSavingStream>(this->opened), x::errors::NIL};
+    }
+};
+
+/// @brief opens a writer with the given config and returns the open request it sent.
+grpc::framer::WriterRequest open_request(const WriterConfig &cfg) {
+    auto opened = std::make_shared<grpc::framer::WriterRequest>();
+    const Client client{
+        nullptr,
+        std::make_unique<OpenSavingStreamClient>(opened),
+        channel::Client()
+    };
+    auto [writer, err] = client.open_writer(cfg);
+    EXPECT_NIL(err);
+    return *opened;
+}
+
 /// @brief a writer stream that answers the open, and then ends with the given status.
 class EndedStream final : public WriterStream {
     x::errors::Error status;
@@ -94,15 +145,12 @@ TEST(WriterStream, ReturnsPermanentErrorOfEndedStream) {
 /// @brief it should enable auto commit on the wire by default.
 TEST(WriterConfig, EnablesAutoCommitByDefault) {
     ASSERT_FALSE(WriterConfig{}.auto_commit_disabled);
-    grpc::framer::WriterConfig pb;
-    ASSERT_NIL(WriterConfig{}.to_proto(&pb));
-    ASSERT_TRUE(pb.enable_auto_commit());
+    ASSERT_TRUE(open_request(WriterConfig{}).config().enable_auto_commit());
 }
 
 /// @brief it should disable auto commit on the wire when auto commit is disabled.
 TEST(WriterConfig, DisablesAutoCommitOnWire) {
-    grpc::framer::WriterConfig pb;
-    ASSERT_NIL(WriterConfig{.auto_commit_disabled = true}.to_proto(&pb));
-    ASSERT_FALSE(pb.enable_auto_commit());
+    const auto req = open_request(WriterConfig{.auto_commit_disabled = true});
+    ASSERT_FALSE(req.config().enable_auto_commit());
 }
 }
