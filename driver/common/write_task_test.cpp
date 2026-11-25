@@ -1596,7 +1596,7 @@ TEST(TestCommonWriteTask, KeepsCoreWarningThroughShortOpens) {
     // Longer than the status window, so a cleared warning would go out.
     std::this_thread::sleep_for(std::chrono::milliseconds(1500));
     const auto statuses = ctx->snapshot();
-    for (auto i = *first_warning(); i < statuses.size(); i++)
+    for (auto i = first_warning().value_or(statuses.size()); i < statuses.size(); i++)
         ASSERT_EQ(statuses[i].message, "Failed to reach the Core");
     ASSERT_TRUE(write_task.stop("stop", true));
 }
