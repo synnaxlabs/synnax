@@ -437,11 +437,12 @@ func (idx *index) unprotectedSearch(tr telem.TimeRange) (int, bool) {
 	return end, false
 }
 
-// next returns the first domain that starts after cur starts, where cur is a domain
-// the caller has seen, and its position. It skips a domain that overlaps cur and has
-// its id, which is what a delete left of cur. It finds both under one lock, so a
-// concurrent insert cannot shift one off the other. After next returns a domain written
-// inside cur, the next step can return what remains of cur, which the caller has read.
+// next returns the first domain that starts at or after the start of cur, a domain the
+// caller has seen, and its position. It skips a domain that overlaps cur and has its
+// id: cur after it grows, and what a delete left of it. It finds both under one lock,
+// so a concurrent insert cannot shift one off the other. After next returns a domain
+// written inside cur, the next step can return what remains of cur, which the caller
+// has read.
 func (idx *index) next(
 	cur pointer,
 ) (i int, ptr pointer, rewrites uint64, ok bool) {
@@ -450,7 +451,7 @@ func (idx *index) next(
 			idx.mu.pointers,
 			cur.Start,
 			func(p pointer, start telem.TimeStamp) int {
-				if p.Start > start {
+				if p.Start >= start {
 					return 1
 				}
 				return -1
@@ -464,7 +465,7 @@ func (idx *index) next(
 	return i, ptr, rewrites, ok
 }
 
-// prev returns the last domain that ends before cur ends, where cur is a domain the
+// prev returns the last domain that ends at or before the end of cur, a domain the
 // caller has seen, and its position. It skips a domain that overlaps cur and has its
 // id. After prev returns a domain written inside cur, the next step can return what
 // remains of cur, which the caller has read.
@@ -476,7 +477,7 @@ func (idx *index) prev(
 			idx.mu.pointers,
 			cur.End,
 			func(p pointer, end telem.TimeStamp) int {
-				if p.End >= end {
+				if p.End > end {
 					return 1
 				}
 				return -1

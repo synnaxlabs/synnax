@@ -144,7 +144,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					Expect(w.Close()).To(Succeed())
 				})
 
-				It("Should skip a domain that holds all of its domain", func(
+				It("Should visit on Prev a domain that holds all of its domain", func(
 					ctx SpecContext,
 				) {
 					wider := (15 * telem.SecondTS).Range(30 * telem.SecondTS)
@@ -162,7 +162,8 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					Expect(
 						testutil.WriteDomain(ctx, db, wider, []byte{4}),
 					).To(Succeed())
-					Expect(i.Prev()).To(BeFalse())
+					Expect(i.Prev()).To(BeTrue())
+					Expect(i.TimeRange()).To(Equal(wider))
 					Expect(i.Close()).To(Succeed())
 				})
 
@@ -236,38 +237,54 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					Expect(i.Prev()).To(BeFalse())
 				})
 
-				Describe(
-					"A write inside its domain after a delete of all of it",
-					func() {
-						inside := (22 * telem.SecondTS).Range(28 * telem.SecondTS)
-						var i *domain.Iterator
-						BeforeEach(func(ctx SpecContext) {
-							i = DeferClose(
+				Describe("A write in its domain after a delete of all of it", func() {
+					var forward, backward *domain.Iterator
+					BeforeEach(func(ctx SpecContext) {
+						open := func() *domain.Iterator {
+							i := DeferClose(
 								db.OpenIterator(domain.IterRange(telem.TimeRangeMax)),
 							)
 							Expect(i.SeekGE(ctx, first.Start)).To(BeTrue())
-							Expect(db.Delete(
-								ctx,
-								first,
-								fixedOffsetAndTimeStamp(0, first.Start),
-								fixedOffsetAndTimeStamp(2, first.End),
-							)).To(Succeed())
+							return i
+						}
+						forward, backward = open(), open()
+						Expect(db.Delete(
+							ctx,
+							first,
+							fixedOffsetAndTimeStamp(0, first.Start),
+							fixedOffsetAndTimeStamp(2, first.End),
+						)).To(Succeed())
+					})
+
+					DescribeTable(
+						"Should visit the write on Next and Prev",
+						func(
+							ctx SpecContext,
+							tr telem.TimeRange,
+						) {
 							Expect(
-								testutil.WriteDomain(ctx, db, inside, []byte{4}),
+								testutil.WriteDomain(ctx, db, tr, []byte{4}),
 							).To(Succeed())
-						})
-
-						It("Should visit the write on Next", func() {
-							Expect(i.Next()).To(BeTrue())
-							Expect(i.TimeRange()).To(Equal(inside))
-						})
-
-						It("Should visit the write on Prev", func() {
-							Expect(i.Prev()).To(BeTrue())
-							Expect(i.TimeRange()).To(Equal(inside))
-						})
-					},
-				)
+							Expect(forward.Next()).To(BeTrue())
+							Expect(forward.TimeRange()).To(Equal(tr))
+							Expect(backward.Prev()).To(BeTrue())
+							Expect(backward.TimeRange()).To(Equal(tr))
+						},
+						Entry(
+							"inside it",
+							(22*telem.SecondTS).Range(28*telem.SecondTS),
+						),
+						Entry(
+							"at its start",
+							(20*telem.SecondTS).Range(28*telem.SecondTS),
+						),
+						Entry(
+							"at its end",
+							(22*telem.SecondTS).Range(30*telem.SecondTS),
+						),
+						Entry("over all of it", first),
+					)
+				})
 
 				Describe("A write inside its domain after a delete", func() {
 					var (
