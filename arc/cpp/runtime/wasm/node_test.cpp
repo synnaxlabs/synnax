@@ -3489,8 +3489,7 @@ UnaryRun run_unary(
         client,
         body + "\n" + input_ch.name + " -> " + fn + " -> " + output_ch.name
     );
-    auto [wasm_mod, mod_err] = wasm::Module::open({.program = mod});
-    EXPECT_NIL(mod_err);
+    const auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.program = mod}));
     state::State state(
         state::Config{
             .ir = static_cast<const arc::ir::IR &>(mod),
@@ -3503,17 +3502,22 @@ UnaryRun run_unary(
     );
     const auto *on_node = find_node_by_type(mod, "on");
     const auto *fn_node = find_node_by_type(mod, fn.substr(0, fn.find('(')));
-    auto on_state = state.node(on_node->key).first;
-    auto [func, func_err] = wasm_mod->func(fn_node->type, fn_node->inputs);
-    EXPECT_NIL(func_err);
-    wasm::Node
-        node(mod, *fn_node, state.node(fn_node->key).first, func, wasm_mod->strings());
+    auto on_state = ASSERT_NIL_P(state.node(on_node->key));
+    const auto func = ASSERT_NIL_P(wasm_mod->func(fn_node->type, fn_node->inputs));
+    wasm::Node node(
+        mod,
+        *fn_node,
+        ASSERT_NIL_P(state.node(fn_node->key)),
+        func,
+        wasm_mod->strings()
+    );
     UnaryRun run;
     auto ctx = make_context();
     ctx.report_error = [&](const x::errors::Error &err) { run.errors.push_back(err); };
     int64_t stamp = 1;
     for (const auto &frame: frames) {
         std::vector<x::telem::TimeStamp> stamps;
+        stamps.reserve(frame.size());
         for (size_t i = 0; i < frame.size(); i++)
             stamps.emplace_back(stamp++ * x::telem::MICROSECOND);
         on_state.output(0) = x::mem::make_local_shared<x::telem::Series>(
@@ -3565,7 +3569,7 @@ void expect_batch_matches_samples(
     }
 }
 
-/// @brief a batched node gives the samples of one that runs sample by sample.
+/// @brief it should give the samples of a node that runs sample by sample.
 TEST(BatchTest, MatchesSampleBySampleForF64) {
     expect_batch_matches_samples(
         "scale()",
@@ -3575,7 +3579,7 @@ TEST(BatchTest, MatchesSampleBySampleForF64) {
     );
 }
 
-/// @brief a narrow signed input widens with its sign in the batch.
+/// @brief it should widen a narrow signed input with its sign.
 TEST(BatchTest, MatchesSampleBySampleForI8) {
     expect_batch_matches_samples(
         "neg()",
@@ -3585,7 +3589,7 @@ TEST(BatchTest, MatchesSampleBySampleForI8) {
     );
 }
 
-/// @brief a literal input repeats across every sample of the batch.
+/// @brief it should repeat a literal input across every sample.
 TEST(BatchTest, MatchesSampleBySampleWithALiteralInput) {
     expect_batch_matches_samples(
         "offset(k=3)",
@@ -3595,7 +3599,7 @@ TEST(BatchTest, MatchesSampleBySampleWithALiteralInput) {
     );
 }
 
-/// @brief a bool output reads 1 for any true value, as it does sample by sample.
+/// @brief it should write 1 for any true bool, as it does sample by sample.
 TEST(BatchTest, MatchesSampleBySampleForABoolOutput) {
     expect_batch_matches_samples(
         "pass()",
@@ -3605,7 +3609,7 @@ TEST(BatchTest, MatchesSampleBySampleForABoolOutput) {
     );
 }
 
-/// @brief a trap in the batch drops the cycle's output.
+/// @brief it should drop the cycle's output when the batch traps.
 TEST(BatchTest, TrapDropsTheCycle) {
     const auto run = run_unary(
         "reciprocal()",
@@ -3619,7 +3623,7 @@ TEST(BatchTest, TrapDropsTheCycle) {
     EXPECT_EQ(run.data[0].size(), 0);
 }
 
-/// @brief a frame of one sample runs one call, and later batches carry on from it.
+/// @brief it should mix frames of one sample with batched frames.
 TEST(BatchTest, SingleSampleFramesMixWithBatches) {
     const auto run = run_unary(
         "twice()",
@@ -3636,5 +3640,78 @@ TEST(BatchTest, SingleSampleFramesMixWithBatches) {
     EXPECT_EQ(run.data[0].values<int64_t>(), std::vector<int64_t>{8});
     EXPECT_EQ(run.data[1].values<int64_t>(), (std::vector<int64_t>{10, 12}));
     EXPECT_EQ(run.data[2].values<int64_t>(), std::vector<int64_t>{14});
+}
+/// @brief a function and the module that holds it.
+struct Opened {
+    std::shared_ptr<wasm::Module> mod;
+    wasm::Module::Function func;
+};
+
+/// @brief opens the function name of func_def, which takes two i32 triggers.
+Opened open_pair(const std::string &func_def, const std::string &name) {
+    const auto client = new_test_client();
+    auto mod = ASSERT_NIL_P(
+        wasm::Module::open({.program = testutil::compile_text(client, func_def)})
+    );
+    auto func = ASSERT_NIL_P(mod->func(name));
+    return {std::move(mod), std::move(func)};
+}
+
+/// @brief returns the samples of the function over a and b, one call at a time.
+std::vector<int32_t> call_each(
+    wasm::Module::Function &func,
+    const x::telem::Series &a,
+    const x::telem::Series &b,
+    const size_t count
+) {
+    std::vector<int32_t> out;
+    out.reserve(count);
+    std::vector<wasm::Module::Function::Result> results;
+    for (size_t i = 0; i < count; i++) {
+        const std::vector<x::telem::SampleValue> params{
+            a.at(static_cast<int>(i % a.size())),
+            b.at(static_cast<int>(i % b.size())),
+        };
+        EXPECT_NIL(func.call(params, results));
+        out.push_back(std::get<int32_t>(results[0].value));
+    }
+    return out;
+}
+
+/// @brief it should repeat a shorter input across the batch, as it does sample by
+/// sample.
+TEST(BatchTest, RepeatsAShorterInput) {
+    auto [mod, func] = open_pair(
+        "func diff() {a i32, b i32} i32 { return a * 10 - b }",
+        "diff"
+    );
+    const auto a = x::telem::Series(std::vector<int32_t>{1, 2, 3, 4, 5});
+    for (const auto &b: frames_of(
+             x::telem::Series(static_cast<int32_t>(7)),
+             x::telem::Series(std::vector<int32_t>{7, -3})
+         )) {
+        auto out = x::telem::Series(x::telem::INT32_T, 5);
+        out.resize(5);
+        const auto [ran, err] = func.batch()->call({&a, &b}, 5, out);
+        ASSERT_TRUE(ran);
+        ASSERT_NIL(err);
+        EXPECT_EQ(out.values<int32_t>(), call_each(func, a, b, 5));
+    }
+}
+
+/// @brief it should not run a batch over a series whose bits differ from the
+/// conversion of one sample at a time.
+TEST(BatchTest, RefusesASeriesOfAnotherKind) {
+    auto [mod, func] = open_pair(
+        "func sum() {a i32, b i32} i32 { return a + b }",
+        "sum"
+    );
+    const auto a = x::telem::Series(std::vector<float>{1, 2});
+    const auto b = x::telem::Series(std::vector<int32_t>{1, 2});
+    auto out = x::telem::Series(x::telem::INT32_T, 2);
+    out.resize(2);
+    const auto [ran, err] = func.batch()->call({&a, &b}, 2, out);
+    EXPECT_FALSE(ran);
+    ASSERT_NIL(err);
 }
 }
