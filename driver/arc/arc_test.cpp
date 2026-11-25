@@ -4209,24 +4209,47 @@ TEST_F(OutageTest, StreamsCalculationOfDeletedChannel) {
     task->stop("test_stop", true);
 }
 
-/// @brief it should keep its calculations and warn when it cannot load them again.
-TEST_F(OutageTest, KeepsCalculationsWhenReloadFails) {
+/// @brief it should reload the calculations of the program it runs, so that a rename
+/// of a channel that the Arc names does not block a later edit.
+TEST_F(OutageTest, ReloadsAfterRenameOfReadChannel) {
     const auto a = this->create_channel("a", x::telem::FLOAT32_T);
     const auto out = this->create_channel("out", x::telem::FLOAT32_T);
-    const auto doubled = this->create_calculated("doubled", a.name + " * 2");
-    const auto task = this->create_task(doubled.name + " -> " + out.name, {a.key});
+    const auto scaled = this->create_calculated("scaled", a.name + " * 2");
+    const auto task = this->create_task(scaled.name + " -> " + out.name, {a.key});
     this->start(*task);
     this->publish(a.key, 1.0f);
     ASSERT_EVENTUALLY_TRUE(this->wrote(out.key, 2.0f));
-    // The Arc names the channel, so it no longer compiles.
     this->dispatch(
-        doubled,
+        scaled,
         {{"type", "rename"},
          {"rename", {{"name", make_unique_channel_name("renamed")}}}}
     );
-    ASSERT_EVENTUALLY_EQ(this->warning(), "Failed to reload calculations");
-    this->publish(a.key, 4.0f);
-    ASSERT_EVENTUALLY_TRUE(this->wrote(out.key, 8.0f));
+    this->set_expression(scaled, a.name + " * 10");
+    ASSERT_EVENTUALLY_TRUE([&] {
+        this->publish(a.key, 1.0f);
+        return this->wrote(out.key, 10.0f);
+    }());
+    EXPECT_EQ(this->warning(), "");
+    task->stop("test_stop", true);
+}
+
+/// @brief it should compute a nested calculation that did not compile when the task was
+/// configured, once an edit fixes it.
+TEST_F(OutageTest, ComputesCalculationFixedAfterConfigure) {
+    const auto a = this->create_channel("a", x::telem::FLOAT32_T);
+    const auto out = this->create_channel("out", x::telem::FLOAT32_T);
+    const auto inner = this->create_calculated("inner", a.name + " * 2");
+    const auto outer = this->create_calculated("outer", inner.name + " + 1");
+    const auto renamed = make_unique_channel_name("renamed");
+    // The expression of inner names a, so inner no longer compiles.
+    this->dispatch(a, {{"type", "rename"}, {"rename", {{"name", renamed}}}});
+    const auto task = this->create_task(outer.name + " -> " + out.name, {a.key});
+    this->start(*task);
+    this->set_expression(inner, renamed + " * 2");
+    ASSERT_EVENTUALLY_TRUE([&] {
+        this->publish(a.key, 1.0f);
+        return this->wrote(out.key, 3.0f);
+    }());
     task->stop("test_stop", true);
 }
 

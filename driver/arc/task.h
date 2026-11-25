@@ -44,16 +44,9 @@
 #include "driver/task/task.h"
 
 namespace driver::arc {
-/// @brief the compiled program of an automation and the calculations it reads.
-struct Compiled {
-    ::arc::program::Program program;
-    /// @brief the calculated channels that the program reads, dependencies first.
-    std::vector<synnax::arc::Calculation> calculations;
-};
-
-/// @brief retrieves and compiles the automation with the given key.
-inline std::pair<Compiled, x::errors::Error>
-retrieve_automation(const synnax::Synnax &client, const x::uuid::UUID &key) {
+/// @brief retrieves the compiled program of the automation with the given key.
+inline std::pair<::arc::program::Program, x::errors::Error>
+retrieve_program(const synnax::Synnax &client, const x::uuid::UUID &key) {
     auto [arc_data, err] = client.arcs.retrieve(
         key,
         synnax::arc::RetrieveOptions{.include_program = true}
@@ -74,21 +67,13 @@ retrieve_automation(const synnax::Synnax &client, const x::uuid::UUID &key) {
             {},
             x::errors::Error(x::errors::INTERNAL, "The Arc program is not compiled.")
         };
-    return {
-        Compiled{
-            .program = std::move(*automation->program),
-            .calculations = std::move(automation->calculations),
-        },
-        x::errors::NIL,
-    };
+    return {std::move(*automation->program), x::errors::NIL};
 }
 
 /// @brief configuration for an arc runtime task.
 struct TaskConfig : ::synnax::task::PersistConfig {
     x::uuid::UUID arc_key;
     ::arc::program::Program program;
-    /// @brief the calculated channels that the program reads, dependencies first.
-    std::vector<synnax::arc::Calculation> calculations;
     ::arc::runtime::loop::Config loop;
     /// @brief loop iterations and function calls that the program can run in one
     /// cycle. Not read from the task's JSON config.
@@ -101,7 +86,6 @@ struct TaskConfig : ::synnax::task::PersistConfig {
         ::synnax::task::PersistConfig(std::move(other)),
         arc_key(other.arc_key),
         program(std::move(other.program)),
-        calculations(std::move(other.calculations)),
         loop(other.loop),
         loop_budget(other.loop_budget),
         reload_delay(other.reload_delay) {}
@@ -118,10 +102,9 @@ struct TaskConfig : ::synnax::task::PersistConfig {
     parse(const std::shared_ptr<synnax::Synnax> &client, x::json::Parser &parser) {
         auto cfg = TaskConfig(parser);
         if (!parser.ok()) return {std::move(cfg), parser.error()};
-        auto [compiled, err] = retrieve_automation(*client, cfg.arc_key);
+        auto [program, err] = retrieve_program(*client, cfg.arc_key);
         if (err) return {std::move(cfg), err};
-        cfg.program = std::move(compiled.program);
-        cfg.calculations = std::move(compiled.calculations);
+        cfg.program = std::move(program);
         return {std::move(cfg), x::errors::NIL};
     }
 };
@@ -242,7 +225,6 @@ class Task final : public task::Task {
     class Reloader {
         Task &task;
         std::shared_ptr<synnax::Synnax> client;
-        x::uuid::UUID arc_key;
         ::arc::runtime::Config cfg;
         ::arc::runtime::scheduler::ErrorHandler on_error;
         x::telem::TimeSpan delay;
@@ -328,8 +310,17 @@ class Task final : public task::Task {
         }
 
         x::errors::Error reload() {
-            auto [compiled, err] = retrieve_automation(*this->client, this->arc_key);
+            auto [compiled, err] = this->client->arcs.calculations(
+                this->task.runtime->read_channels
+            );
             if (err) return err;
+            {
+                std::lock_guard lock(this->mu);
+                this->watched.insert(
+                    compiled.channels.begin(),
+                    compiled.channels.end()
+                );
+            }
             auto loaded = x::json::to_array(compiled.calculations);
             if (loaded == this->loaded) return x::errors::NIL;
             auto [calc, load_err] = Calculator::load(
@@ -347,11 +338,6 @@ class Task final : public task::Task {
             }
             this->loaded = std::move(loaded);
             this->dependencies = calc.dependencies();
-            {
-                std::lock_guard lock(this->mu);
-                const auto channels = calc.channels();
-                this->watched.insert(channels.begin(), channels.end());
-            }
             std::lock_guard lock(this->task.reload_mu);
             this->task.reloaded = std::make_unique<Calculator>(std::move(calc));
             this->task.has_reloaded.store(true, std::memory_order_release);
@@ -362,20 +348,18 @@ class Task final : public task::Task {
         Reloader(
             Task &task,
             std::shared_ptr<synnax::Synnax> client,
-            const x::uuid::UUID &arc_key,
             ::arc::runtime::Config cfg,
             ::arc::runtime::scheduler::ErrorHandler on_error,
             const x::telem::TimeSpan delay,
-            const std::vector<synnax::arc::Calculation> &calculations
+            const synnax::arc::Calculations &compiled
         ):
             task(task),
             client(std::move(client)),
-            arc_key(arc_key),
             cfg(std::move(cfg)),
             on_error(std::move(on_error)),
             delay(delay),
-            watched(task.calculator.channels()),
-            loaded(x::json::to_array(calculations)),
+            watched(compiled.channels.begin(), compiled.channels.end()),
+            loaded(x::json::to_array(compiled.calculations)),
             dependencies(task.calculator.dependencies()),
             streamed(task.calculator.streamed(task.runtime->read_channels)) {
             this->watched.insert(
@@ -595,8 +579,16 @@ public:
                 "The " + node.type + " node failed: " + err.data
             );
         };
+        synnax::arc::Calculations compiled;
+        if (!task->runtime->read_channels.empty()) {
+            auto [calcs, calcs_err] = ctx->client->arcs.calculations(
+                task->runtime->read_channels
+            );
+            if (calcs_err) return {nullptr, calcs_err};
+            compiled = std::move(calcs);
+        }
         auto [calculator, calc_err] = Calculator::load(
-            cfg.calculations,
+            compiled.calculations,
             runtime_cfg,
             on_calc_error
         );
@@ -646,7 +638,7 @@ public:
                 "arc_control"
             );
         }
-        if (task->control && !cfg.calculations.empty()) {
+        if (task->control && !compiled.channels.empty()) {
             auto [signals, signals_err] = ctx->client->channels.retrieve(
                 std::vector{
                     synnax::channel::SET_CHANNEL,
@@ -670,11 +662,10 @@ public:
             task->reloader = std::make_unique<Reloader>(
                 *task,
                 ctx->client,
-                cfg.arc_key,
                 std::move(calc_cfg),
                 on_calc_error,
                 cfg.reload_delay,
-                cfg.calculations
+                compiled
             );
             task->watch = std::make_unique<pipeline::Control>(
                 std::move(watch_factory),
