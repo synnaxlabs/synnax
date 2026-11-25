@@ -13,12 +13,13 @@ import { channel, DisconnectedError, icd, mqtt, type Synnax } from "@synnaxlabs/
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
+import { useExclusiveCallback } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import type { Tree } from "@synnaxlabs/lyra/tree";
 import { ICD as PICD, Synnax as PSynnax } from "@synnaxlabs/pluto";
-import { DataType, deep, errors, map, primitive, unique, uuid } from "@synnaxlabs/x";
+import { DataType, deep, map, primitive, unique } from "@synnaxlabs/x";
 import {
   createContext,
   type Dispatch,
@@ -103,8 +104,7 @@ const isDraft = (addition: Addition): addition is Draft => addition.type === "pl
 
 /** @param index - The pointer of the leaf that indexes the message. */
 const createDraft = (topic: string, leaves: Leaf[] = [], index?: string): Draft => {
-  const names = ICD.fieldNames(leaves.map(({ pointer }) => pointer));
-  const fields = leaves.map((leaf, i) => ICD.createField(leaf, names[i]));
+  const fields = ICD.createFields(leaves);
   return {
     type: "plain",
     topic,
@@ -224,22 +224,6 @@ const appendFields = (
   return appended;
 };
 
-/**
- * @returns a message for the fields of a topic, named after the topic. A name that a
- * message in taken holds gets a number, such as `plant/oven 2`.
- */
-const createMessage = (
-  topic: string,
-  fields: icd.JSONField[],
-  taken: icd.Message[],
-): icd.Message => {
-  const names = new Set(taken.map(({ name }) => name));
-  const base = topic === "" ? "Untitled" : topic;
-  let name = base;
-  for (let n = 2; names.has(name); n++) name = `${base} ${n}`;
-  return { key: uuid.create(), name, payload: { format: "json", fields } };
-};
-
 const entryOf = (
   icdKey: icd.Key,
   topic: string,
@@ -282,7 +266,7 @@ const createICD = async (
 ): Promise<AddTopicsResult> => {
   const messages: icd.Message[] = [];
   for (const { topic, fields } of drafts)
-    messages.push(createMessage(topic, fields, messages));
+    messages.push(ICD.createMessage(topic, fields, messages));
   const { key } = await client.icds.create({ name, messages });
   const added = drafts.map((d, i) =>
     entryOf(key, d.topic, {
@@ -342,7 +326,7 @@ const addTopics = async ({
         continue;
       }
       const prior = messages.get(key) ?? [];
-      const created = createMessage(draft.topic, draft.fields, prior);
+      const created = ICD.createMessage(draft.topic, draft.fields, prior);
       inserterOf(key).insert(PICD.formPath.messages, created, prior.at(-1)?.key);
       messages.set(key, [...prior, created]);
       const bindings = bind(draft, draft.fields, created.key);
@@ -696,8 +680,6 @@ const Entries: FC<EntriesProps> = ({
   const home = ICD.mostRead(entries.filter(isPlain));
   const format = home == null ? undefined : formats.get(home);
 
-  // Adds run one at a time, so a second click cannot make a second ICD.
-  const adding = useRef(false);
   const add = async () => {
     if (client == null) throw new DisconnectedError();
     const plain = entries.filter(isPlain);
@@ -765,18 +747,9 @@ const Entries: FC<EntriesProps> = ({
     onSelect([firstKey]);
     tree.expand(firstKey);
   };
-  const handleAdd = () =>
-    handleError(async () => {
-      if (adding.current) return;
-      adding.current = true;
-      try {
-        await add();
-      } catch (e) {
-        adding.current = false;
-        throw errors.fromUnknown(e);
-      }
-      adding.current = false;
-    }, "Failed to add data");
+  // Adds run one at a time, so a second click cannot make a second ICD.
+  const addExclusive = useExclusiveCallback(add);
+  const handleAdd = () => handleError(addExclusive, "Failed to add data");
 
   const entry =
     current == null ? undefined : entries.find(({ key }) => key === current.source);

@@ -19,7 +19,7 @@ from urllib.parse import urlsplit
 
 import pytest
 
-from freighter import URL, AsyncWebsocketClient, HTTPClient, WebsocketClient
+from freighter import EOF, URL, AsyncWebsocketClient, HTTPClient, WebsocketClient
 from x.codec import JSONCodec
 
 from .interface import Message, create_registry
@@ -45,18 +45,20 @@ def _pipe(src: socket.socket, dst: socket.socket) -> None:
 class _Proxy(ThreadingTCPServer):
     requests: list[tuple[str, str | None]]
     """The target and the Proxy-Authorization header of each connection."""
+    _host: str
     _open: set[socket.socket]
     _lock: threading.Lock
 
-    def __init__(self) -> None:
-        super().__init__(("localhost", 0), _Handler)
+    def __init__(self, host: str) -> None:
+        super().__init__((host, 0), _Handler)
+        self._host = host
         self.requests = []
         self._open = set()
         self._lock = threading.Lock()
 
     @property
     def address(self) -> str:
-        return f"localhost:{self.server_address[1]}"
+        return f"{self._host}:{self.server_address[1]}"
 
     @override
     def process_request(
@@ -117,10 +119,10 @@ class _Handler(StreamRequestHandler):
 
 
 @pytest.fixture
-def proxy(monkeypatch: pytest.MonkeyPatch, tls: bool) -> Iterator[_Proxy]:
+def proxy(host: str, monkeypatch: pytest.MonkeyPatch, tls: bool) -> Iterator[_Proxy]:
     for name in _PROXY_VARIABLES:
         monkeypatch.delenv(name, raising=False)
-    server = _Proxy()
+    server = _Proxy(host)
     threading.Thread(target=server.serve_forever, args=(0.01,), daemon=True).start()
     monkeypatch.setenv(
         "HTTPS_PROXY" if tls else "HTTP_PROXY", f"http://{server.address}"
@@ -152,7 +154,11 @@ async def _stream_async(url: URL, ctx: ssl.SSLContext | None) -> None:
     client = AsyncWebsocketClient(
         encoder=JSONCodec(), registry=create_registry(), base_url=url, ssl_context=ctx
     )
-    await (await client.stream("/stream", Message, Message)).close_send()
+    stream = await client.stream("/stream", Message, Message)
+    await stream.close_send()
+    # Reads to EOF so the client answers the server's close before its loop stops.
+    with pytest.raises(EOF):
+        await stream.receive()
 
 
 def _target(url: URL) -> str:
@@ -189,13 +195,14 @@ class TestProxy:
     async def test_no_proxy(
         self,
         proxy: _Proxy,
+        host: str,
         http_url: URL,
         ws_url: URL,
         client_ctx: ssl.SSLContext | None,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """Should bypass the proxy for a host that NO_PROXY names."""
-        monkeypatch.setenv("NO_PROXY", "localhost")
+        monkeypatch.setenv("NO_PROXY", host)
         assert _send(http_url, client_ctx) == Message(id=1, message="hi")
         _stream(ws_url, client_ctx)
         await _stream_async(ws_url, client_ctx)

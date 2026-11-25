@@ -13,13 +13,14 @@ import { channel, DisconnectedError, http, icd, type Synnax } from "@synnaxlabs/
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
+import { useExclusiveCallback } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import type { Tree } from "@synnaxlabs/lyra/tree";
 import { ICD as PICD, Synnax as PSynnax } from "@synnaxlabs/pluto";
-import { deep, errors, unique, uuid } from "@synnaxlabs/x";
+import { deep, unique, uuid } from "@synnaxlabs/x";
 import {
   type Dispatch,
   type FC,
@@ -559,19 +560,11 @@ const Endpoints: FC<EndpointsProps> = ({
   };
 
   // Adds run one at a time, so a second click cannot make a second ICD.
-  const adding = useRef(false);
+  const runExclusive = useExclusiveCallback(
+    async (add: () => Promise<void>) => await add(),
+  );
   const runAdd = (add: () => Promise<void>, message: string) =>
-    handleError(async () => {
-      if (adding.current) return;
-      adding.current = true;
-      try {
-        await add();
-      } catch (e) {
-        adding.current = false;
-        throw errors.fromUnknown(e);
-      }
-      adding.current = false;
-    }, message);
+    handleError(async () => await runExclusive(add), message);
 
   const handleAdd = () =>
     runAdd(async () => {

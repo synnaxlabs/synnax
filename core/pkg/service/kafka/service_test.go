@@ -11,6 +11,7 @@ package kafka_test
 
 import (
 	"context"
+	"encoding/json/v2"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -616,6 +617,127 @@ var _ = Describe("Service", func() {
 					Expect(icds.NewRetrieve().Entries(&found).Exec(ctx, db)).
 						To(Succeed())
 					Expect(found).To(BeEmpty())
+				},
+			)
+		})
+	})
+
+	Describe("Write config", func() {
+		var (
+			setpoint icd.Message
+			ic       icd.ICD
+			value    channel.Channel
+		)
+		BeforeEach(func(ctx SpecContext) {
+			setpoint = jsonMessage("Setpoint", nil,
+				jsonField("value", "/value", icd.FloatJSONField{}),
+				jsonField("mode", "/mode", icd.StringJSONField{Default: new("auto")}),
+			)
+			ic = icd.ICD{Name: "Plant", Messages: []icd.Message{setpoint}}
+			value = channel.Channel{
+				Name:        UniqueChannelName(),
+				DataType:    telem.Float64T,
+				Virtual:     true,
+				Leaseholder: node.Identity.HostKey,
+			}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				if err := icds.NewWriter(tx).Create(ctx, &ic); err != nil {
+					return err
+				}
+				return channels.NewWriter(tx).Create(ctx, &value)
+			})).To(Succeed())
+		})
+
+		// config returns cfg as a stored config, with each zero field absent.
+		config := func(cfg kafka.WriteConfig) msgpack.EncodedJSON {
+			GinkgoHelper()
+			return toJSON(cfg, json.OmitZeroStructFields(true))
+		}
+
+		prepare := func(ctx context.Context, cfg kafka.WriteConfig) error {
+			_, err := svc.Write.Prepare(ctx, db, uuid.New(), "Pump", config(cfg))
+			return err
+		}
+
+		It("Should accept a target whose message builds from its ICD and channels",
+			func(ctx SpecContext) {
+				Expect(prepare(ctx, kafka.WriteConfig{Targets: []kafka.WriteTarget{
+					writeTarget("plant", ic, setpoint, command(setpoint, 0, value)),
+				}})).To(Succeed())
+			},
+		)
+
+		It("Should save an enabled target with no topic", func(ctx SpecContext) {
+			Expect(prepare(ctx, kafka.WriteConfig{Targets: []kafka.WriteTarget{
+				writeTarget("", ic, setpoint, command(setpoint, 0, value)),
+			}})).To(Succeed())
+		})
+
+		It("Should skip the checks of a disabled target", func(ctx SpecContext) {
+			wt := writeTarget("", ic, setpoint, command(setpoint, 1, value))
+			wt.Disabled = true
+			Expect(prepare(ctx, kafka.WriteConfig{Targets: []kafka.WriteTarget{wt}})).
+				To(Succeed())
+		})
+
+		DescribeTable("Should reject a config with the path of the problem",
+			func(ctx SpecContext, build func() kafka.WriteConfig, expected string) {
+				err := prepare(ctx, build())
+				Expect(err).To(MatchError(validate.ErrValidation))
+				Expect(err).To(MatchError(ContainSubstring(expected)))
+			},
+			Entry("both channels and targets", func() kafka.WriteConfig {
+				return kafka.WriteConfig{
+					Channels: []kafka.WriteChannel{{Key: "c1", Channel: value.Key()}},
+					Targets: []kafka.WriteTarget{
+						writeTarget("plant", ic, setpoint, command(setpoint, 0, value)),
+					},
+				}
+			}, "targets: a task cannot have both channels and targets"),
+			Entry("a message that does not build", func() kafka.WriteConfig {
+				return kafka.WriteConfig{Targets: []kafka.WriteTarget{writeTarget(
+					"plant", ic, setpoint,
+					command(setpoint, 0, value), command(setpoint, 1, value),
+				)}}
+			}, "targets.0.message: message Setpoint: field mode: cannot write float64 "+
+				"channels to string fields"),
+		)
+
+		Describe("Config hash", func() {
+			var key task.Key
+			hash := func(ctx context.Context) string {
+				GinkgoHelper()
+				var t task.Task
+				Expect(tasks.NewRetrieve().
+					Where(task.MatchKeys(key)).
+					Entry(&t).
+					Exec(ctx, db)).To(Succeed())
+				return t.ConfigHash
+			}
+			BeforeEach(func(ctx SpecContext) {
+				key = MustSucceed(tasks.Create(ctx, svc.Write, config(kafka.WriteConfig{
+					Targets: []kafka.WriteTarget{
+						writeTarget("plant", ic, setpoint, command(setpoint, 0, value)),
+					},
+				})))
+			})
+
+			It("Should change when the format of a message that a target sends changes",
+				func(ctx SpecContext) {
+					before := hash(ctx)
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return icds.NewWriter(tx).Apply(ctx, ic.Key, icd.NewSetAction(
+							icd.SetPayload{
+								Path: []string{
+									"messages", setpoint.Key.String(),
+									"payload", "fields", fieldKey(setpoint, 0).String(),
+									"pointer",
+								},
+								Value: "/setpoint",
+							},
+						))
+					})).To(Succeed())
+					Expect(hash(ctx)).ToNot(Equal(before))
 				},
 			)
 		})

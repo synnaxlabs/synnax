@@ -11,7 +11,6 @@ package check
 
 import (
 	"fmt"
-	"reflect"
 	"slices"
 	"strconv"
 	"strings"
@@ -184,7 +183,7 @@ func (s shapes) fields(at string, oldFields, newFields []resolution.Field) strin
 		case domain.HasDomainFromField(of, "key") !=
 			domain.HasDomainFromField(nf, "key"):
 			return fieldAt + ": changes @key"
-		case !reflect.DeepEqual(
+		case !resolution.SameValue(
 			writtenDefault(of, s.old), writtenDefault(nf, s.next),
 		):
 			return fieldAt + ": changes its default"
