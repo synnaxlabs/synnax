@@ -81,8 +81,14 @@ class TestRunPreviewCommand:
         assert "Status: Success" in result.stdout
         send = host.calls()[0]
         assert "--instance-ids i-123" in send
+        assert "--document-name synnax-preview" in send
         params = json.loads(send.split("--parameters ")[1].split(" --timeout")[0])
         assert params == {"commands": ["/usr/local/bin/preview up 12 image"]}
+
+    def test_document(self, host: Host) -> None:
+        host.env["DOCUMENT"] = "AWS-RunShellScript"
+        assert host.run("Success").returncode == 0
+        assert "--document-name AWS-RunShellScript" in host.calls()[0]
 
     def test_failure(self, host: Host) -> None:
         result = host.run("Failed")

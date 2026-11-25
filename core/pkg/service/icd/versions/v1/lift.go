@@ -60,8 +60,8 @@ type InlineChannelField struct {
 	EnumValues []payload.EnumEntry
 }
 
-// InlineWriteField is a field of an inline write: a StaticInlineField or a
-// GeneratedInlineField.
+// InlineWriteField is a field of an inline write: a StaticInlineField, a
+// ValueInlineField, or a GeneratedInlineField.
 type InlineWriteField interface{ isInlineWriteField() }
 
 // StaticInlineField is a field of an inline write that sends a fixed value.
@@ -75,6 +75,17 @@ type StaticInlineField struct {
 }
 
 func (StaticInlineField) isInlineWriteField() {}
+
+// ValueInlineField is a field of an inline write that sends a string that the task
+// picks, such as the name of a channel. The task holds the string, not the ICD.
+type ValueInlineField struct {
+	// Pointer is the JSON Pointer to the value of the field.
+	Pointer string
+	// Value is the string that the field sends.
+	Value string
+}
+
+func (ValueInlineField) isInlineWriteField() {}
 
 // GeneratedInlineField is a field of an inline write that sends a new value in each
 // message.
@@ -95,9 +106,10 @@ func (GeneratedInlineField) isInlineWriteField() {}
 // write of that message. The channel field takes the kind of its channel in found. When
 // found lacks that channel, the stored data type picks the kind, and the binding holds
 // no channel but the data type of a new one. A static field sends its value as a
-// constant default, and a generated field sends a generator default. note receives the
-// path of a field and each change to what that field sends. LiftWrite returns a
-// validation error that names the path of a static field whose value is not JSON.
+// constant default, a value field has no default and a binding to its value, and a
+// generated field sends a generator default. note receives the path of a field and
+// each change to what that field sends. LiftWrite returns a validation error that names
+// the path of a static field whose value is not JSON.
 func LiftWrite(
 	ctx context.Context,
 	w InlineWrite,
@@ -141,11 +153,14 @@ func LiftWrite(
 	}
 	write.Bindings = []WriteBinding{{Variant: binding}}
 	for _, wf := range w.Fields {
-		f, err := liftWriteField(wf, names, notef)
+		f, bound, err := liftWriteField(wf, names, notef)
 		if err != nil {
 			return Message{}, WriteMessage{}, err
 		}
 		fields = append(fields, f)
+		if bound != nil {
+			write.Bindings = append(write.Bindings, WriteBinding{Variant: *bound})
+		}
 	}
 	return Message{
 		Key:     write.Message,
@@ -229,24 +244,32 @@ func numeric(k payload.Kind) bool {
 }
 
 // liftWriteField returns the JSON field that sends what old sent, named apart from the
-// names in taken. A static field sends its value as a constant default, and a generated
-// field sends a generator default. notef returns the note of a field path.
+// names in taken, and the binding of a value field, or nil for another field. A static
+// field sends its value as a constant default, a value field has no default, and a
+// generated field sends a generator default. notef returns the note of a field path.
 func liftWriteField(
 	old InlineWriteField,
 	taken set.Set[string],
 	notef func(path string) func(format string, args ...any),
-) (JSONField, error) {
+) (JSONField, *ValueWriteBinding, error) {
 	switch v := old.(type) {
 	case StaticInlineField:
 		f, err := liftStatic(v.Value, writeBase(taken, v.Pointer))
-		return f, errors.Wrap(err, v.Path)
+		return f, nil, errors.Wrap(err, v.Path)
+	case ValueInlineField:
+		base := writeBase(taken, v.Pointer)
+		return JSONField{Variant: StringJSONField{JSONBaseField: base}},
+			&ValueWriteBinding{
+				Field: base.Key,
+				Value: WriteValue{Variant: StringWriteValue{Value: v.Value}},
+			}, nil
 	case GeneratedInlineField:
 		base := writeBase(taken, v.Pointer)
 		if v.Generator != payload.GeneratorTypeTimestamp {
 			return JSONField{Variant: UuidJSONField{
 				JSONBaseField: base,
 				Default:       &UUIDDefault{Variant: RandomUUIDDefault{}},
-			}}, nil
+			}}, nil, nil
 		}
 		format := payload.TimeFormatISO8601
 		if f := validFormat(v.TimeFormat, notef(v.Path)); f != nil {
@@ -256,7 +279,7 @@ func liftWriteField(
 			JSONBaseField: base,
 			TimeFormat:    format,
 			Default:       &TimestampDefault{Variant: NowTimestampDefault{}},
-		}}, nil
+		}}, nil, nil
 	}
 	panic(fmt.Sprintf("unknown inline write field %T", old))
 }

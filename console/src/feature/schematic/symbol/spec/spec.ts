@@ -9,7 +9,7 @@
 
 import type { schematic } from "@synnaxlabs/client";
 import { Schematic } from "@synnaxlabs/pluto";
-import { id } from "@synnaxlabs/x";
+import { deep, id } from "@synnaxlabs/x";
 
 type Spec = schematic.symbol.Spec;
 type Look = schematic.symbol.Look;
@@ -35,6 +35,16 @@ const BASE = 0;
 const ACTIVE = 1;
 const DEACTIVATE = "deactivate";
 const ACTIVATE = "activate";
+
+/**
+ * edited returns whether spec differs from base. The preview viewport is where the
+ * editor last looked, so a zoom or a pan is not an edit.
+ */
+export const edited = (base: Spec, spec: Spec): boolean =>
+  !deep.equal(
+    { ...base, previewViewport: undefined },
+    { ...spec, previewViewport: undefined },
+  );
 
 /** createState returns the state of a new symbol. */
 export const createState = (): schematic.symbol.State => ({
@@ -286,20 +296,10 @@ export interface Removed {
   interactions: string[];
 }
 
-// createKey returns a key from name, such as mode, or mode-2 when taken has mode.
-const createKey = (name: string, taken: string[]): string => {
-  const base = name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "");
-  let key = base;
-  for (let n = 2; taken.includes(key); n++) key = `${base}-${n}`;
-  return key;
-};
-
 /**
  * @returns spec with a new enumeration state, State N with the lowest free N from 2,
- * and the key of the state.
+ * and the key of the state. No state removed earlier had the key, so no node binding
+ * carries over to it.
  */
 export const addState = (spec: Spec): [Spec, string] => {
   const name = freeName(
@@ -307,26 +307,21 @@ export const addState = (spec: Spec): [Spec, string] => {
     spec.states.map((s) => s.name),
     2,
   );
-  const key = createKey(
-    name,
-    spec.states.map((s) => s.key),
-  );
+  const key = `state-${id.create()}`;
   return [{ ...spec, states: [...spec.states, { ...createState(), key, name }] }, key];
 };
 
 /**
  * @returns spec with a new command, Command N with the lowest free N, that sends 0, and
- * the key of the command.
+ * the key of the command. No command removed earlier had the key, so no node binding
+ * carries over to it.
  */
 export const addCommand = (spec: Spec): [Spec, string] => {
   const name = freeName(
     "Command",
     spec.commands.map((c) => c.name),
   );
-  const key = createKey(
-    name,
-    spec.commands.map((c) => c.key),
-  );
+  const key = `command-${id.create()}`;
   const command: schematic.symbol.Command = {
     key,
     name,

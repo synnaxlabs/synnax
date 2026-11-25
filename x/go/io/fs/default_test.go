@@ -12,6 +12,7 @@ package fs_test
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -31,6 +32,22 @@ var _ = Describe("Default", func() {
 			infos := MustSucceed(xfs.Default.List(dir))
 			Expect(infos).To(HaveLen(1))
 			Expect(infos[0].Name()).To(Equal("kept"))
+		})
+	})
+	Describe("NewDefault", func() {
+		It("Should create directories and files with the given modes", func() {
+			if runtime.GOOS == "windows" {
+				Skip("Windows does not use Unix permission bits")
+			}
+			fs := xfs.NewDefault(xfs.UserRWX, xfs.UserRW)
+			dir := filepath.Join(GinkgoT().TempDir(), "sub")
+			sub := MustSucceed(fs.Sub(dir))
+			f := MustSucceed(sub.Open("file", os.O_CREATE|os.O_WRONLY))
+			Expect(f.Close()).To(Succeed())
+			Expect(MustSucceed(os.Stat(dir)).Mode().Perm()).To(Equal(xfs.UserRWX))
+			Expect(
+				MustSucceed(os.Stat(filepath.Join(dir, "file"))).Mode().Perm(),
+			).To(Equal(xfs.UserRW))
 		})
 	})
 })

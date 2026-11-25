@@ -54,7 +54,7 @@ import {
   renderModalOpener,
 } from "@/platform/modals/testutil";
 import {
-  awaitTextEditing,
+  awaitTextEditingElement,
   CaptureStatuses,
   commitTextEdit,
   fakePickedFile,
@@ -457,6 +457,23 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       expect(screen.getByText("Active")).toBeDefined();
     });
 
+    it("closes at once with no drawing", async () => {
+      await openCreateModal();
+      await screen.findByText(SYMBOL_FILE_DROP_PROMPT);
+      fireEvent.click(screen.getByRole("button", { name: "Close" }));
+      await waitFor(() =>
+        expect(screen.queryByText(SYMBOL_FILE_DROP_PROMPT)).toBeNull(),
+      );
+      expect(screen.queryByText("Discard unsaved edits?")).toBeNull();
+    });
+
+    it("asks before it drops a loaded drawing on close", async () => {
+      const { picker } = await openCreateModal();
+      await loadSVG(picker);
+      fireEvent.click(screen.getByRole("button", { name: "Close" }));
+      expect(await screen.findByText("Discard unsaved edits?")).toBeDefined();
+    });
+
     it("rejects a non-SVG file without opening the editor", async () => {
       const { picker } = await openCreateModal();
       await pickFile(picker, "not_an_svg.txt", "hello");
@@ -750,6 +767,80 @@ describe("Schematic.Symbol.Edit.useModal", () => {
         const retrieved = await client.schematics.symbols.retrieve(symbol.key);
         expect(retrieved.name).toBe(renamed);
       });
+    });
+
+    // openStored opens the editor on a new symbol, and edits nothing.
+    const openStored = async () => {
+      const grp = await createParentGroup();
+      const symbol = await client.schematics.symbols.create({
+        ...createSymbolPayload(uniqueName("stored")),
+        group: grp.key,
+      });
+      await renderModalOpener(
+        Schematic.Symbol.Edit.useModal,
+        [{ symbolKey: symbol.key, group: grp.key }],
+        { client, additionalRegistry: theming.REGISTRY },
+      );
+      await waitFor(() => expect(findNameInput().value).toBe(symbol.name), {
+        timeout: 5000,
+      });
+      return symbol;
+    };
+
+    const closeEditor = (): void => {
+      fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    };
+
+    it("closes at once when nothing changed", async () => {
+      await openStored();
+      closeEditor();
+      await waitFor(() =>
+        expect(screen.queryByPlaceholderText("Symbol name")).toBeNull(),
+      );
+      expect(screen.queryByText("Discard unsaved edits?")).toBeNull();
+    });
+
+    it("closes at once when an edit is undone", async () => {
+      const symbol = await openStored();
+      fireEvent.change(findNameInput(), { target: { value: uniqueName("renamed") } });
+      fireEvent.change(findNameInput(), { target: { value: symbol.name } });
+      closeEditor();
+      await waitFor(() =>
+        expect(screen.queryByPlaceholderText("Symbol name")).toBeNull(),
+      );
+      expect(screen.queryByText("Discard unsaved edits?")).toBeNull();
+    });
+
+    it("closes at once on Escape after a zoom of the preview", async () => {
+      await openStored();
+      pressKey("Equal");
+      // A modal takes an Escape only from an element inside it.
+      const zoom = await screen.findByText("120%");
+      fireEvent.keyDown(zoom, { code: "Escape", key: "Escape" });
+      fireEvent.keyUp(zoom, { code: "Escape", key: "Escape" });
+      await waitFor(() =>
+        expect(screen.queryByPlaceholderText("Symbol name")).toBeNull(),
+      );
+      expect(screen.queryByText("Discard unsaved edits?")).toBeNull();
+    });
+
+    it("asks before it drops unsaved edits on close", async () => {
+      const symbol = await openStored();
+      const renamed = uniqueName("renamed");
+      fireEvent.change(findNameInput(), { target: { value: renamed } });
+      closeEditor();
+      expect(await screen.findByText("Discard unsaved edits?")).toBeDefined();
+      fireEvent.click(findButton("Keep editing"));
+      await waitFor(() =>
+        expect(screen.queryByText("Discard unsaved edits?")).toBeNull(),
+      );
+      expect(findNameInput().value).toBe(renamed);
+      closeEditor();
+      fireEvent.click(await waitFor(() => findButton("Discard")));
+      await waitFor(() =>
+        expect(screen.queryByPlaceholderText("Symbol name")).toBeNull(),
+      );
+      expect((await retrieveStored(symbol.key)).name).toBe(symbol.name);
     });
 
     const BODY: schematic.symbol.Part = {
@@ -1123,6 +1214,26 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       );
     });
 
+    it("edits the first enumeration state of a symbol with no active state", async () => {
+      const fault = { ...createState(), key: "fault", name: "Fault" };
+      const symbol = await openPainted({ variant: "static", states: [fault] });
+      byState("Visible");
+      fireEvent.click(await screen.findByLabelText("Visible while Active"));
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () => {
+        const { looks, states } = (await retrieveStored(symbol.key)).data;
+        expect(looks).toEqual([
+          {
+            key: expect.any(String),
+            part: "body",
+            when: { type: "equals", state: "fault", values: [1] },
+            hidden: true,
+          },
+        ]);
+        expect(states).toEqual([fault]);
+      });
+    });
+
     it("moves the preview to the default of a picked state", async () => {
       const enumeration = await client.enumerations.create({
         name: uniqueName("fault"),
@@ -1259,11 +1370,13 @@ describe("Schematic.Symbol.Edit.useModal", () => {
         states: [createState()],
       });
       fireEvent.click(getEditSectionHeaderButton("States"));
-      commitTextEdit(await awaitTextEditing("symbol-state-state-2"), "Mode");
+      const name = await awaitTextEditingElement();
+      commitTextEdit(name, "Mode");
       fireEvent.click(findButton("Save"));
       await waitFor(async () => {
-        const saved = await retrieveStored(symbol.key);
-        expect(saved.data.states[1]).toMatchObject({ key: "state-2", name: "Mode" });
+        const [, state] = (await retrieveStored(symbol.key)).data.states;
+        expect(state.name).toBe("Mode");
+        expect(name.id).toBe(`symbol-state-${state.key}`);
       });
     });
 
@@ -1311,13 +1424,16 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       });
       fireEvent.click(getEditSectionHeaderButton("Commands"));
       expect(await screen.findByText("Sends 0")).toBeDefined();
-      commitTextEdit(await awaitTextEditing("symbol-command-command-1"), "Open");
+      const name = await awaitTextEditingElement();
+      commitTextEdit(name, "Open");
       fireEvent.click(findButton("Save"));
-      await waitFor(async () =>
-        expect((await retrieveStored(symbol.key)).data.commands).toEqual([
-          { key: "command-1", name: "Open", value: { type: "fixed", value: 0 } },
-        ]),
-      );
+      await waitFor(async () => {
+        const { commands } = (await retrieveStored(symbol.key)).data;
+        expect(commands).toEqual([
+          { key: expect.any(String), name: "Open", value: { type: "fixed", value: 0 } },
+        ]);
+        expect(name.id).toBe(`symbol-command-${commands[0].key}`);
+      });
     });
 
     it("removes a command and its click after a confirm", async () => {
@@ -1661,6 +1777,26 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       assertDefined(shape);
       return shape;
     };
+
+    it("draws no fill on a shape that has none, and fills it from a fill look", async () => {
+      await openPainted({
+        drawing: { type: "svg", markup: TWO_RECTS },
+        looks: [
+          {
+            key: "red",
+            part: "body",
+            fill: {
+              type: "color",
+              value: { type: "fixed", value: color.construct("#ff0000") },
+            },
+          },
+        ],
+      });
+      await waitFor(() =>
+        expect(getComputedStyle(findShape("a")).fill).toBe("rgb(255, 0, 0)"),
+      );
+      expect(getComputedStyle(findShape("b")).fill).toBe("none");
+    });
 
     it("marks the shapes of the selected part in the preview", async () => {
       await openPainted({ drawing: { type: "svg", markup: TWO_RECTS } });

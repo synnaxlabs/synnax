@@ -23,8 +23,9 @@ import { Nav } from "@synnaxlabs/lyra/nav";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Schematic } from "@synnaxlabs/pluto";
-import { type bounds, deep, id, type xy } from "@synnaxlabs/x";
+import { type bounds, id, type xy } from "@synnaxlabs/x";
 import { type ReactElement, useRef, useState } from "react";
+import type { z } from "zod";
 
 import { HandleList } from "@/feature/schematic/symbol/edit/HandleList";
 import { Inspector } from "@/feature/schematic/symbol/edit/Inspector";
@@ -138,32 +139,40 @@ const Editor = ({
   close,
 }: Modals.ContentProps<ModalParams, void>): ReactElement => {
   const isCreate = symbolKey == null;
+  const initialValues: z.infer<typeof Schematic.Symbol.formSchema> = {
+    key: createKey,
+    name: "",
+    group,
+    data: {
+      drawing: { type: "svg", markup: "" },
+      parts: [],
+      previewViewport: { zoom: 1, position: { x: 0, y: 0 } },
+      handles: [],
+      variant: "static",
+      strokeScaled: false,
+      states: [Spec.createState()],
+      commands: [],
+      looks: [],
+      interactions: [],
+      scale: 1,
+    },
+  };
   const { form, save, variant } = Schematic.Symbol.useForm({
     query: symbolKey == null ? null : { key: symbolKey },
-    initialValues: {
-      key: createKey,
-      name: "",
-      group,
-      data: {
-        drawing: { type: "svg", markup: "" },
-        parts: [],
-        previewViewport: { zoom: 1, position: { x: 0, y: 0 } },
-        handles: [],
-        variant: "static",
-        strokeScaled: false,
-        states: [Spec.createState()],
-        commands: [],
-        looks: [],
-        interactions: [],
-        scale: 1,
-      },
-    },
+    initialValues,
     afterSave: () => close(),
   });
   Modals.useBusy(variant === "loading");
   const stored = Schematic.Symbol.useResult(
     symbolKey == null ? null : { key: symbolKey, includeUses: true },
   );
+  Modals.useUnsaved(() => {
+    const base = isCreate ? initialValues : stored.data;
+    // Until the stored symbol loads, there is nothing to compare with.
+    if (base == null) return false;
+    const { name, data } = form.value();
+    return name !== base.name || Spec.edited(base.data, data);
+  });
   const confirmSave = useConfirmSave();
   const [preview, setPreview] = useState<Spec.At>({ state: Spec.STATE, value: 0 });
   const [selectedPart, setSelectedPart, selectedPartRef] =
@@ -256,12 +265,8 @@ const Editor = ({
     const uses = stored.data?.uses ?? [];
     if (stored.data != null && uses.length > 0) {
       const next = form.get(path.data).value;
-      const changed = !deep.equal(
-        { ...stored.data.data, previewViewport: undefined },
-        { ...next, previewViewport: undefined },
-      );
       if (
-        changed &&
+        Spec.edited(stored.data.data, next) &&
         (await confirmSave({ stored: stored.data, spec: next, uses })) !== true
       )
         return;
