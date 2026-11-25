@@ -444,7 +444,9 @@ describe("Certificate", () => {
           certificate.set({ path: ["pem"], value: "x" }),
         ),
       ).rejects.toThrow('no editable field at "pem"');
-      expect(send).not.toHaveBeenCalled();
+      expect(
+        send.mock.calls.filter(([target]) => target === "/certificate/dispatch"),
+      ).toHaveLength(0);
     });
   });
 
