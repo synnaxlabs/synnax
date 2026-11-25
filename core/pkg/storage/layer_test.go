@@ -74,6 +74,38 @@ var _ = Describe("storage", func() {
 		)).To(BeTrue())
 	})
 
+	It("Should make each log file of the pointer log the log file size of the config",
+		func(ctx SpecContext) {
+			tsFS := xfs.NewMem()
+			l := MustOpen(storage.OpenLayer(ctx, storage.LayerConfig{
+				Dirname:           "data",
+				Version:           "0.0.0",
+				KVFS:              vfs.NewMem(),
+				TSFS:              tsFS,
+				Random:            rand.NewPCG(1, 2),
+				PointerLogEnabled: new(true),
+				LogFileSize:       4 << 20,
+			}))
+			StartRun(l.Run)()
+			info := MustSucceed(tsFS.Stat(
+				filepath.Join("data", "cesium", "0000000000000001.log"),
+			))
+			Expect(info.Size()).To(Equal(int64(4 << 20)))
+		})
+
+	It("Should refuse a log file size below the minimum of the pointer log", func(
+		ctx SpecContext,
+	) {
+		Expect(storage.OpenLayer(ctx, storage.LayerConfig{
+			Dirname:           "data",
+			Version:           "0.0.0",
+			KVFS:              vfs.NewMem(),
+			TSFS:              xfs.NewMem(),
+			PointerLogEnabled: new(true),
+			LogFileSize:       1 << 20,
+		})).Error().To(MatchError(ContainSubstring("log file size 1048576")))
+	})
+
 	Describe("Run", func() {
 		It("Should run the time-series engine until its context ends", func(
 			ctx SpecContext,

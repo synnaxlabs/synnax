@@ -52,8 +52,12 @@ type core struct {
 	// generation is the generation of the log of the records that the core applies, or
 	// of the head before it for replayed records. It stamps each kill.
 	generation uint64
-	// dropped holds the kills of the keys that a Drop took out of the state.
-	dropped []Kill
+	// droppedKills holds the kills of the keys that a Drop took out of the state.
+	droppedKills []Kill
+	// drops counts the Drop records applied, and dropped holds the count at the Drop of
+	// each key.
+	drops   atomic.Uint64
+	dropped map[uint32]uint64
 	// head is the generation of the head whose parts the state reads, which a preload
 	// must come from.
 	head uint64
@@ -74,6 +78,7 @@ func newCore(versions set.Set[uint16]) *core {
 		segments:  map[uint64]*segState{},
 		intents:   set.Set[uint32]{},
 		keys:      set.Set[uint32]{},
+		dropped:   map[uint32]uint64{},
 		dropUsers: map[uint32][]User{},
 		checked:   map[uint64][]Segment{},
 	}
@@ -334,14 +339,15 @@ func (c *core) drop(key uint32, pre []Preload) error {
 				u.Segment.ID, u.Key)
 		}
 	}
+	c.dropped[key] = c.drops.Add(1)
 	if ch, ok := c.channels[key]; ok {
 		// A head names a key only while it holds a durable segment or parts, so a
 		// replayed Drop of any other key finds no state of it.
 		if ch.oldest != 0 || slices.ContainsFunc(ch.segs, func(s *segState) bool {
 			return s.dur.created
 		}) {
-			c.dropped = append(
-				c.dropped,
+			c.droppedKills = append(
+				c.droppedKills,
 				Kill{Key: key, All: true, Generation: c.generation},
 			)
 		}
