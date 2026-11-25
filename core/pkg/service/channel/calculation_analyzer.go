@@ -135,15 +135,16 @@ func (a *CalculationAnalyzer) Analyze(
 	if a.resolver.readErr != nil {
 		return CalculationAnalysisResult{}, a.resolver.readErr
 	}
-	if aCtx.Diagnostics.Ok() && dataType.ToTelem() == telem.UnknownT {
-		aCtx.Diagnostics.Add(diagnostics.Errorf(
-			t, "the expression of calculated channel %q returns no value", ch.Name,
-		))
-	}
 	if !aCtx.Diagnostics.Ok() {
 		return CalculationAnalysisResult{
 			Unresolved: a.resolver.unresolved.Slice(),
 		}, aCtx.Diagnostics
+	}
+	if dataType.ToTelem() == telem.UnknownT {
+		aCtx.Diagnostics.Add(diagnostics.Errorf(
+			t, "the expression of calculated channel %q returns no value", ch.Name,
+		))
+		return CalculationAnalysisResult{}, aCtx.Diagnostics
 	}
 	s := &symbol.Symbol{
 		Name: ch.Name,

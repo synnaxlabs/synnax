@@ -52,7 +52,7 @@ var _ = Describe("Analyze", func() {
 
 	It("Should reject an expression that returns no value", func(ctx SpecContext) {
 		a := channel.NewCalculationAnalyzer(StaticResolver{})
-		Expect(a.Analyze(ctx, channel.Channel{Name: "calc", Expression: "x := 1"})).
+		Expect(a.Analyze(ctx, channel.Channel{Name: "calc", Expression: "1 + 1"})).
 			Error().To(MatchError(
 			ContainSubstring(`calculated channel "calc" returns no value`),
 		))
@@ -64,7 +64,7 @@ var _ = Describe("Analyze", func() {
 		a := channel.NewCalculationAnalyzer(StaticResolver{})
 		Expect(a.Analyze(ctx, channel.Channel{
 			Name:       "calc",
-			Expression: "x := 1",
+			Expression: "1 + 1",
 			Operations: []channel.Operation{{Type: channel.OperationTypeDerivative}},
 		})).Error().To(MatchError(ContainSubstring("returns no value")))
 	})
