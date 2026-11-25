@@ -45,8 +45,9 @@ Driver that restarts while the Core is down still starts with no tasks.
 3. **Nothing is lost silently**: Data, statuses, and ranges reach the Core with their
    original times, or the task's status reports their loss, with a count where the
    Driver knows it.
-4. **Only an unreachable Core is an outage**: Every other Core error reaches the task's
-   status as today.
+4. **Only a transient Core error is an outage**: The Driver waits out an error that §3.8
+   classifies as transient, such as an unreachable Core or a missing license. Every
+   other Core error reaches the task's status as today.
 
 ## 3 Design
 
@@ -57,8 +58,8 @@ the bus and hands the frame to a `bypass::pipeline::Forwarder` (NEW), which open
 writes, and reopens the task's Core writer on its own thread. `open_writer` returns at
 once. The handoff queue holds 64 MB.
 
-When the Core is unreachable, the forwarder closes the live writer, spools the queued
-frames in order, and reopens the live writer only after the queue is empty. Every
+After a transient Core error (§3.8), the forwarder closes the live writer, spools the
+queued frames in order, and reopens the live writer only after the queue is empty. Every
 spooled frame therefore comes before the next live session, as RFC 0095 §4.4 requires.
 
 gRPC finds a silent network loss only when a keepalive ping goes unanswered, so the
@@ -68,8 +69,8 @@ s. The Core accepts pings as often as every 5 s. The 64 MB queue covers that tim
 to about 2 MB/s. A reachable Core too slow for the task fills it, and `write` then drops
 the frame and counts it.
 
-Any other Core error, such as a deleted channel, closes the forwarder; the next `write`
-returns it and the task stops as today (`acquisition.cpp:162-167`).
+Any Core error that is not transient, such as a deleted channel, closes the forwarder;
+the next `write` returns it and the task stops as today (`acquisition.cpp:162-167`).
 
 ### 3.1 Authority
 
