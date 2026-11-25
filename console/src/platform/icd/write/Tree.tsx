@@ -25,8 +25,7 @@ import { copyName, copyPointer } from "@/platform/icd/fieldNames";
 import { createJSONField } from "@/platform/icd/Fields";
 import { fieldsOf, formatOf, useFormats } from "@/platform/icd/Formats";
 import { fieldsPath, type TreeField, treeFieldOf } from "@/platform/icd/read";
-import { fieldKey } from "@/platform/icd/tree/nodes";
-import { useStructure } from "@/platform/icd/tree/structure";
+import { Tree as ICDTree } from "@/platform/icd/tree";
 import { Task } from "@/platform/task";
 
 /** A target of a write task, in the task's form. */
@@ -167,7 +166,7 @@ export const useTree = <T extends Target>({
   const ctx = PForm.useContext();
   const formats = useFormats();
   const [added, setAdded] = useState<icd.FieldKey>();
-  const structure = useStructure(formats, (): Structure =>
+  const structure = ICDTree.useStructure(formats, (): Structure =>
     ctx.get(path).value.map((t): Structure[number] => {
       const sent = messageOf(t);
       return [
@@ -193,7 +192,7 @@ export const useTree = <T extends Target>({
         : {
             key: target,
             children: sent[1].map((field) => {
-              const key = fieldKey(target, sent[0], field.key);
+              const key = ICDTree.fieldKey(target, sent[0], field.key);
               byKey.set(key, { kind: "field", target, field });
               return { key };
             }),
@@ -259,7 +258,7 @@ export const useTree = <T extends Target>({
     onExpand((prev) =>
       unique.unique([...prev, ...(parent == null ? [] : [parent]), target]),
     );
-    onSelect([fieldKey(target, sent.message, field.key)]);
+    onSelect([ICDTree.fieldKey(target, sent.message, field.key)]);
   };
 
   const handleSelect: UseTreeReturn["handleSelect"] = (keys, { clicked }) => {
@@ -365,7 +364,7 @@ export const useTree = <T extends Target>({
               ? { ...binding, field: copy.key, channel: 0 }
               : { ...binding, field: copy.key },
           ]);
-        keys.push(fieldKey(target, sent.message, copy.key));
+        keys.push(ICDTree.fieldKey(target, sent.message, copy.key));
       }
     });
     onSelect(keys.slice(0, 1));
