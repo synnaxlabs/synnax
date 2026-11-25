@@ -574,18 +574,13 @@ func (s *Service) rebuildGroups(ctx context.Context) error {
 			}
 		}
 	}
-	// A group that fails to open leaves the others running, and the status of the
-	// calculation that failed reports it.
+	// A group that fails to open leaves the others running. Its error goes to the
+	// caller, and the status of the calculation that failed reports it.
+	var err error
 	for k, mods := range groups {
-		if err := s.updateGroup(ctx, k, mods); err != nil {
-			s.cfg.L.Error(
-				"failed to open calculation group",
-				zap.Int("group_id", k),
-				zap.Error(err),
-			)
-		}
+		err = errors.Join(err, s.updateGroup(ctx, k, mods))
 	}
-	return nil
+	return err
 }
 
 // Close stops all calculations and closes the service. No other methods should be
