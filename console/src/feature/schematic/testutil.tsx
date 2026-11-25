@@ -226,6 +226,13 @@ export const getEditSectionHeaderButton = (title: string): HTMLButtonElement => 
   return button;
 };
 
+/** Returns the inspector of the symbol editor. */
+export const getInspector = (): HTMLElement => {
+  const inspector = document.querySelector<HTMLElement>(".console-schematic-inspector");
+  assertDefined(inspector, "no symbol-edit inspector");
+  return inspector;
+};
+
 /** Returns the item in the symbol-edit part list that shows name. */
 export const getPartListItem = (name: string): HTMLElement => {
   const item = screen

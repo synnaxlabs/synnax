@@ -524,7 +524,7 @@ describe("icd", () => {
         expect(problemsOf(problems)).toEqual([
           {
             path: "messages.0.payload.fields.0.default",
-            message: "default must be finite",
+            message: "default cannot be infinite",
           },
         ]);
       },

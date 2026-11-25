@@ -26,6 +26,7 @@
 #include "driver/http/device/device.h"
 #include "driver/http/errors/errors.h"
 #include "driver/http/write_task.h"
+#include "driver/icd/retrieve.h"
 #include "driver/icd/writer.h"
 
 namespace driver::http {
@@ -221,23 +222,12 @@ std::pair<std::vector<driver::icd::Writer>, x::errors::Error> build_writers(
     std::set<synnax::icd::Key> icd_keys;
     for (const auto &ep: endpoints)
         if (!ep.disabled && ep.icd.has_value()) icd_keys.insert(*ep.icd);
-    const auto channel_keys = command_keys(endpoints);
-    auto [icds, icd_err] = client.icds.retrieve(
-        std::vector(icd_keys.begin(), icd_keys.end())
+    const auto [resources, retrieve_err] = driver::icd::retrieve(
+        client,
+        icd_keys,
+        command_keys(endpoints)
     );
-    if (icd_err) return {std::vector<driver::icd::Writer>(), icd_err};
-    std::map<synnax::channel::Key, synnax::channel::Channel> channels;
-    if (!channel_keys.empty()) {
-        // Skips missing keys, so the writer of each endpoint names the one it lacks.
-        auto [found, ch_err] = client.channels.retrieve(
-            synnax::channel::Where{
-                .key = std::vector(channel_keys.begin(), channel_keys.end())
-            }
-        );
-        if (ch_err) return {std::vector<driver::icd::Writer>(), ch_err};
-        for (auto &ch: found)
-            channels.emplace(ch.key, std::move(ch));
-    }
+    if (retrieve_err) return {std::vector<driver::icd::Writer>(), retrieve_err};
     std::vector<driver::icd::Writer> writers;
     writers.reserve(endpoints.size());
     for (const auto &ep: endpoints) {
@@ -251,8 +241,12 @@ std::pair<std::vector<driver::icd::Writer>, x::errors::Error> build_writers(
                     name + " sends no message. Open the task and pick a message for it."
                 ),
             };
-        const auto ic = std::ranges::find(icds, *ep.icd, &synnax::icd::ICD::key);
-        if (ic == icds.end())
+        const auto ic = std::ranges::find(
+            resources.icds,
+            *ep.icd,
+            &synnax::icd::ICD::key
+        );
+        if (ic == resources.icds.end())
             return {
                 std::vector<driver::icd::Writer>(),
                 x::errors::Error(
@@ -260,7 +254,11 @@ std::pair<std::vector<driver::icd::Writer>, x::errors::Error> build_writers(
                     name + ": ICD " + ep.icd->to_string() + " does not exist"
                 ),
             };
-        auto [writer, err] = driver::icd::Writer::create(*ep.message, *ic, channels);
+        auto [writer, err] = driver::icd::Writer::create(
+            *ep.message,
+            *ic,
+            resources.channels
+        );
         if (err)
             return {
                 std::vector<driver::icd::Writer>(),

@@ -114,16 +114,11 @@ std::pair<Text::Field, x::errors::Error> Text::Field::create(
 
 x::errors::Error Text::Field::append_float(double v, x::telem::Series &dst) const {
     if (this->scaled) v = v * this->scale + this->offset;
-    if (!std::isfinite(v))
-        return x::errors::Error(
-            x::errors::VALIDATION,
-            x::json::Number(v).to_string() + " is not finite"
-        );
     if (!this->narrow) {
         dst.write(v);
         return x::errors::NIL;
     }
-    if (std::abs(v) > std::numeric_limits<float>::max())
+    if (std::isfinite(v) && std::abs(v) > std::numeric_limits<float>::max())
         return x::errors::Error(
             x::errors::VALIDATION,
             x::json::Number(v).to_string() + " overflows float32"
@@ -396,13 +391,7 @@ std::pair<TextEncoder, x::errors::Error> TextEncoder::create(const TextMessage &
             field.binding = found->second;
             enc.bound[found->second] = index;
         }
-        if (const auto *t = std::get_if<icd::TaggedTextField>(&f)) {
-            for (const auto i: enc.tagged)
-                if (enc.fields[i].tag == t->tag)
-                    return refuse(
-                        "fields " + enc.fields[i].base.name + " and " + b.name +
-                        " both have the tag " + x::json::quote(t->tag)
-                    );
+        if (std::holds_alternative<icd::TaggedTextField>(f)) {
             enc.tagged.push_back(index);
         } else {
             const auto position = std::get<icd::DelimitedTextField>(f).position;
