@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -100,7 +101,7 @@ var _ = Describe(
 				of, changed := MustSucceed2(c.Next(ctx, fr, frame.Frame{}))
 				Expect(changed).To(BeTrue())
 				Expect(of.Get(out.Key()).Series[0]).
-					To(telem.MatchSeriesDataV[int64](20, 40, 60))
+					To(MatchSeriesDataV[int64](20, 40, 60))
 			},
 			Entry("control: a bare name", "by_name", "path_base"),
 			Entry("a bare path", "by_path", dir+".path_base"),
