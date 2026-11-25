@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	servicecolor "github.com/synnaxlabs/synnax/pkg/service/color/versions/v0"
 	enumeration "github.com/synnaxlabs/synnax/pkg/service/enumeration/versions/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	symbolv4 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v4"
 	symbol "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v5"
 	v13 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v13"
@@ -30,14 +31,15 @@ import (
 
 // ImportOverrides gives each custom node of old with state overrides, in an import of
 // an old file on tx, the enumeration or the copy of its symbol that NewMigration gives
-// a stored node. s must be old lifted to v14. A symbol that retrievable rejects counts
-// as missing. Each enumeration comes from intern, and create creates each copy.
+// a stored node. s must be old lifted to v14. A symbol counts as missing when
+// retrievable rejects it or its enumeration. Each enumeration comes from intern, and
+// create creates each copy.
 func ImportOverrides(
 	ctx context.Context,
 	tx gorp.Tx,
 	s *Schematic,
 	old v13.Schematic,
-	retrievable func(symbol.Key) bool,
+	retrievable func(resource.ID) bool,
 	intern symbol.Intern,
 	create func(ctx context.Context, sym *symbol.Symbol) error,
 ) error {
@@ -47,7 +49,7 @@ func ImportOverrides(
 		key symbol.Key,
 		states []symbolv4.State,
 	) (redrawn, bool, error) {
-		if !retrievable(key) {
+		if !retrievable(symbol.Symbol{Key: key}.ResourceID()) {
 			return redrawn{}, false, nil
 		}
 		var src symbol.Symbol
@@ -60,6 +62,11 @@ func ImportOverrides(
 		var state symbol.EnumerationState
 		if len(src.Data.States) > 0 {
 			state, _ = src.Data.States[0].Variant.(symbol.EnumerationState)
+		}
+		if state.Enumeration != nil && !retrievable(
+			enumeration.Enumeration{Key: *state.Enumeration}.ResourceID(),
+		) {
+			return redrawn{}, false, nil
 		}
 		entries, err := entriesOf(ctx, tx, state)
 		if err != nil {

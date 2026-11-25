@@ -622,19 +622,24 @@ var _ = Describe("Imported v13 state overrides", func() {
 	}
 
 	DescribeTable(
-		"Should import a node whose symbol its user cannot retrieve on that symbol",
-		func(ctx SpecContext, retrievable func(symbol.Key) func(resource.ID) bool) {
+		"Should import a node on its symbol when its user cannot retrieve",
+		func(ctx SpecContext, retrievable func(symbol.Symbol) func(resource.ID) bool) {
 			db := openShipped(ctx)
 			sym := v4.Symbol{Key: uuid.New(), Name: "Valve", Data: plain}
 			Expect(gorp.NewCreate[v4.Key, v4.Symbol]().Entry(&sym).Exec(ctx, db)).
 				To(Succeed())
 			svc := openService(ctx, db)
+			var stored symbol.Symbol
+			Expect(gorp.NewRetrieve[symbol.Key, symbol.Symbol]().
+				Where(gorp.MatchKeys[symbol.Key, symbol.Symbol](sym.Key)).
+				Entry(&stored).
+				Exec(ctx, db)).To(Succeed())
 			key := importFile(
 				ctx,
 				db,
 				svc,
 				panel(sym.Key, newFill),
-				retrievable(sym.Key),
+				retrievable(stored),
 			)
 			var sc schematic.Schematic
 			Expect(svc.NewRetrieve().
@@ -648,15 +653,21 @@ var _ = Describe("Imported v13 state overrides", func() {
 				gorp.NewRetrieve[symbol.Key, symbol.Symbol]().Count(ctx, db),
 			)).To(Equal(1))
 		},
+		Entry("the symbol", func(s symbol.Symbol) func(resource.ID) bool {
+			return func(id resource.ID) bool { return id != symbol.ResourceID(s.Key) }
+		}),
 		Entry(
-			"a user that cannot retrieve it",
-			func(k symbol.Key) func(resource.ID) bool {
-				return func(id resource.ID) bool { return id != symbol.ResourceID(k) }
+			"the enumeration of the symbol",
+			func(s symbol.Symbol) func(resource.ID) bool {
+				e := as[symbol.EnumerationState](s.Data.States[0].Variant).Enumeration
+				return func(id resource.ID) bool { return id != enumeration.ResourceID(*e) }
 			},
 		),
 		Entry(
-			"no retrievable check",
-			func(symbol.Key) func(resource.ID) bool { return nil },
+			"anything, with no retrievable check",
+			func(symbol.Symbol) func(resource.ID) bool {
+				return nil
+			},
 		),
 	)
 

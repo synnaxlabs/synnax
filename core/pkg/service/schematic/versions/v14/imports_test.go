@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	servicecolor "github.com/synnaxlabs/synnax/pkg/service/color/versions/v0"
 	enumerationv0 "github.com/synnaxlabs/synnax/pkg/service/enumeration/versions/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	symbolv4 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v4"
 	symbol "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v5"
 	v13 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v13"
@@ -32,7 +33,8 @@ var _ = Describe("ImportOverrides", func() {
 	var (
 		db          *gorp.DB
 		src         symbol.Symbol
-		retrievable func(symbol.Key) bool
+		enum        enumerationv0.Enumeration
+		retrievable func(resource.ID) bool
 		calls       []interned
 		created     []symbol.Symbol
 	)
@@ -67,7 +69,7 @@ var _ = Describe("ImportOverrides", func() {
 
 	BeforeEach(func(ctx SpecContext) {
 		calls, created = nil, nil
-		retrievable = func(symbol.Key) bool { return true }
+		retrievable = func(resource.ID) bool { return true }
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		StartRun(db.Run)
 		spec, entries := MustSucceed2(symbol.MigrateStoredSpec(ctx, symbolv4.Spec{
@@ -82,10 +84,14 @@ var _ = Describe("ImportOverrides", func() {
 			Selectors: []string{".b"},
 		})
 		spec.Looks = append(spec.Looks, nodePaint)
-		e := enumerationv0.Enumeration{Key: uuid.New(), Name: "Valve", Entries: entries}
+		enum = enumerationv0.Enumeration{
+			Key:     uuid.New(),
+			Name:    "Valve",
+			Entries: entries,
+		}
 		state, ok := spec.States[0].Variant.(symbol.EnumerationState)
 		Expect(ok).To(BeTrue())
-		state.Enumeration = &e.Key
+		state.Enumeration = &enum.Key
 		spec.States[0].Variant = state
 		src = symbol.Symbol{
 			Key:   uuid.New(),
@@ -94,7 +100,7 @@ var _ = Describe("ImportOverrides", func() {
 			Group: new(uuid.New()),
 		}
 		Expect(gorp.NewCreate[enumerationv0.Key, enumerationv0.Enumeration]().
-			Entry(&e).
+			Entry(&enum).
 			Exec(ctx, db)).To(Succeed())
 		Expect(gorp.NewCreate[symbol.Key, symbol.Symbol]().Entry(&src).Exec(ctx, db)).
 			To(Succeed())
@@ -193,9 +199,9 @@ var _ = Describe("ImportOverrides", func() {
 		Expect(state.Enumeration).ToNot(BeNil())
 	})
 
-	It("Should leave a node whose symbol its user cannot retrieve on that symbol",
-		func(ctx SpecContext) {
-			retrievable = func(k symbol.Key) bool { return k != src.Key }
+	DescribeTable("Should leave a node on its symbol when its user cannot retrieve",
+		func(ctx SpecContext, rejected func() resource.ID) {
+			retrievable = func(id resource.ID) bool { return id != rejected() }
 			n := run(ctx, src.Key, states(
 				[2]*xcolor.Color{shade(3), shade(9)},
 				[2]*xcolor.Color{shade(4), shade(9)},
@@ -204,7 +210,12 @@ var _ = Describe("ImportOverrides", func() {
 			Expect(n.States[0].Enumeration).To(BeNil())
 			Expect(calls).To(BeEmpty())
 			Expect(created).To(BeEmpty())
-		})
+		},
+		Entry("the symbol", func() resource.ID { return src.ResourceID() }),
+		Entry("the enumeration of the symbol", func() resource.ID {
+			return enum.ResourceID()
+		}),
+	)
 
 	It("Should leave a node whose symbol the Core lacks on that symbol",
 		func(ctx SpecContext) {
