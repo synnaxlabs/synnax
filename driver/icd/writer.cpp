@@ -76,8 +76,19 @@ bool set_default(Field &field, const Value &value) {
 std::optional<std::string> set_value(icd::JSONField &f, const icd::WriteValue &v) {
     return std::visit(
         [](auto &field, const auto &value) -> std::optional<std::string> {
-            if (set_default(field, value)) return std::nullopt;
-            return " of kind " + field.type + " needs a value of its kind";
+            if (!set_default(field, value))
+                return " of kind " + field.type + " needs a value of its kind";
+            using F = std::decay_t<decltype(field)>;
+            if constexpr (
+                std::is_same_v<F, icd::FloatJSONField> ||
+                std::is_same_v<F, icd::IntegerJSONField> ||
+                std::is_same_v<F, icd::UnsignedJSONField>
+            ) {
+                const auto raw = static_cast<double>(field.default_.value().value);
+                if (const auto err = codec::check_raw_limits(field, raw))
+                    return ": " + err.data;
+            }
+            return std::nullopt;
         },
         f,
         v
