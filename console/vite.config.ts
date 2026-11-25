@@ -36,9 +36,9 @@ const SAMPLE_SPEC = "src/feature/project/sample.desktop.browser.spec.ts";
 const JSDOM = { environment: "jsdom", setupFiles: ["src/testutil/setuptests.ts"] };
 
 /**
- * @returns the Playwright provider, with each page printing one line for a script from
- * the Vite server that fails to load or loads with an error status. WebKit reports both
- * only as "Importing a module script failed", without the URL.
+ * @returns the Playwright provider, with each browser context printing one line for a
+ * script from the Vite server that fails to load or loads with an error status. WebKit
+ * reports both only as "Importing a module script failed", without the URL.
  */
 const loggedPlaywright = (): BrowserProviderOption => {
   const base = playwright();
@@ -46,29 +46,30 @@ const loggedPlaywright = (): BrowserProviderOption => {
     ...base,
     providerFactory: (project) => {
       const provider = new PlaywrightBrowserProvider(project, base.options);
-      const openPage = provider.openPage.bind(provider);
-      provider.openPage = async (sessionId, url, options) => {
-        await openPage(sessionId, url, options);
-        const page = provider.getPage(sessionId);
-        const { origin } = new URL(url);
-        const log = (request: Request, reason?: number | string) => {
-          const target = request.url();
-          if (request.resourceType() !== "script" || !target.startsWith(origin)) return;
-          const { browserName } = provider;
-          console.error(
-            "[script failed]",
-            browserName,
-            request.method(),
-            target,
-            reason,
-          );
-        };
-        page.on("requestfailed", (request) =>
+      const log = (request: Request, reason?: number | string) => {
+        const url = request.url();
+        if (request.resourceType() !== "script") return;
+        if (new URL(url).origin !== new URL(request.frame().url()).origin) return;
+        console.error(
+          "[script failed]",
+          provider.browserName,
+          request.method(),
+          url,
+          reason,
+        );
+      };
+      // The provider stores each context before it opens the page, so the listeners
+      // see the first requests of a session.
+      const { contexts } = provider;
+      const set = contexts.set.bind(contexts);
+      contexts.set = (sessionId, context) => {
+        context.on("requestfailed", (request) =>
           log(request, request.failure()?.errorText),
         );
-        page.on("response", (response) => {
+        context.on("response", (response) => {
           if (response.status() >= 400) log(response.request(), response.status());
         });
+        return set(sessionId, context);
       };
       return provider;
     },
