@@ -88,9 +88,9 @@ const Form: FC = () => {
   const [target] = targets ?? [];
   if (target?.type !== "plain") return null;
   return (
-    <ICD.WithFormat icdKey={target.icd}>
+    <ICD.WithFormats icdKeys={[target.icd]}>
       <Targets />
-    </ICD.WithFormat>
+    </ICD.WithFormats>
   );
 };
 

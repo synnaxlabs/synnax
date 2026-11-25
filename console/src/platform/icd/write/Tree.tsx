@@ -138,7 +138,7 @@ const FieldItem = ({
 /**
  * The tree of the targets of a write task, with every field of the message that each
  * sends, under the group of each target when it has one. It edits the ICDs of the
- * targets through their open forms, so call it inside a WithFormat for each ICD.
+ * targets through their open forms, so call it inside a WithFormats that opens them.
  */
 export const useTree = <T extends Target>({
   path,

@@ -71,7 +71,7 @@ const ONLY_CHANNEL_TOOLTIP = "A message needs at least one field on a channel.";
 export interface FieldDetailsProps {
   /** The bindings of the message that the target sends. */
   path: deep.Path<icd.WriteBinding[]>;
-  /** The ICD of the message, which an enclosing WithFormat opens. */
+  /** The ICD of the message, which an enclosing WithFormats opens. */
   icdKey: icd.Key;
   message: icd.MessageKey;
   field: icd.FieldKey;

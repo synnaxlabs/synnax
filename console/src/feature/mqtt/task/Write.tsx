@@ -9,26 +9,20 @@
 
 import "@/feature/mqtt/task/Form.css";
 
-import {
-  channel,
-  DisconnectedError,
-  type icd,
-  mqtt,
-  type Synnax,
-} from "@synnaxlabs/client";
+import { channel, DisconnectedError, type icd, mqtt } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
+import { useExclusiveCallback } from "@synnaxlabs/lyra/hooks";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import type { Tree } from "@synnaxlabs/lyra/tree";
 import { Synnax as PSynnax } from "@synnaxlabs/pluto";
-import { deep, errors, id, primitive, unique } from "@synnaxlabs/x";
+import { deep, id, primitive } from "@synnaxlabs/x";
 import {
   type Dispatch,
   type FC,
   type ReactElement,
   type SetStateAction,
-  useRef,
   useState,
 } from "react";
 
@@ -114,9 +108,6 @@ const SparkplugTargetPane: FC<PaneProps<SparkplugWriteTarget>> = ({
   );
 };
 
-const MISSING_DESCRIPTION =
-  "The ICD no longer has this message. Pick another message format.";
-
 interface PlainTargetPaneProps {
   path: deep.Path<PlainWriteTarget>;
   onAddField: () => void;
@@ -157,7 +148,10 @@ const PlainTargetPane = ({ path, onAddField }: PlainTargetPaneProps): ReactEleme
           preview={isPreview}
         />
       </PForm.Section>
-      <ICD.MessageStatus message={message} missingDescription={MISSING_DESCRIPTION} />
+      <ICD.MessageStatus
+        message={message}
+        missingDescription={ICD.Write.MISSING_DESCRIPTION}
+      />
     </PForm.Sections>
   );
 };
@@ -248,16 +242,13 @@ const heldEntry = (target: WriteTarget): HeldEntry =>
 
 const useDiscoverModal = createDiscoverModal(DISCOVER_KIND);
 
-const unbind = (binding: icd.WriteBinding): icd.WriteBinding =>
-  binding.type === "channel" ? { ...binding, channel: 0 } : binding;
-
 const duplicate = (target: WriteTarget): WriteTarget =>
   target.type === "sparkplug"
     ? { ...target, key: id.create(), channel: 0, name: "" }
     : {
         ...target,
         key: id.create(),
-        message: { ...target.message, bindings: target.message.bindings.map(unbind) },
+        message: ICD.Write.unbind(target.message),
       };
 
 const messageOf = (target: WriteTarget): ICD.Write.TargetMessage | null =>
@@ -299,8 +290,6 @@ const Targets = ({ device, selected, onSelect, expanded, onExpand }: TargetsProp
       onExpand,
     });
 
-  // Adds run one at a time, so a second click cannot make a second ICD.
-  const adding = useRef(false);
   const add = async () => {
     if (client == null) throw new DisconnectedError();
     const additions = await discover({
@@ -329,18 +318,9 @@ const Targets = ({ device, selected, onSelect, expanded, onExpand }: TargetsProp
     onSelect([added[0].key]);
     tree.expand(added[0].key);
   };
-  const handleAdd = () =>
-    handleError(async () => {
-      if (adding.current) return;
-      adding.current = true;
-      try {
-        await add();
-      } catch (e) {
-        adding.current = false;
-        throw errors.fromUnknown(e);
-      }
-      adding.current = false;
-    }, "Failed to add targets");
+  // Adds run one at a time, so a second click cannot make a second ICD.
+  const addExclusive = useExclusiveCallback(add);
+  const handleAdd = () => handleError(addExclusive, "Failed to add targets");
 
   const target =
     current == null ? undefined : targets.find(({ key }) => key === current.target);
@@ -421,29 +401,22 @@ const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device.Device>)
   const [expanded, setExpanded] = useState<string[]>(() =>
     ICD.Write.expandedOf(targets),
   );
-  const icds = unique.unique(
-    targets.flatMap((t) => (t.type === "plain" ? [t.icd] : [])),
-  );
+  const icds = targets.flatMap((t) => (t.type === "plain" ? [t.icd] : []));
   const resolve = (target: WriteTarget): Partial<WriteTarget> | null =>
     target.type === "sparkplug"
       ? { channel: device.properties.write[sparkplugPropertiesKey(target)] ?? 0 }
       : null;
   return (
     <>
-      {icds.reduceRight(
-        (child, key) => (
-          <ICD.WithFormat key={key} icdKey={key}>
-            {child}
-          </ICD.WithFormat>
-        ),
+      <ICD.WithFormats icdKeys={icds}>
         <Targets
           device={device}
           selected={selected}
           onSelect={setSelected}
           expanded={expanded}
           onExpand={setExpanded}
-        />,
-      )}
+        />
+      </ICD.WithFormats>
       <Task.BindChannels path={root.config.targets} resolve={resolve} />
     </>
   );
@@ -455,42 +428,6 @@ const Form = PlatformDevice.wrapTaskForm({
   useNoneSelected: Device.useNoneSelected,
   Content,
 });
-
-/**
- * Gives each channel binding of target a command channel that its field takes: the one
- * it has, the one that dev stores for its field, or a new one. A new channel takes the
- * data type of the binding, or the default of its field when the binding names none or
- * one that the field no longer takes. Updates the write properties of dev in place.
- */
-const configureBindings = async (
-  client: Synnax,
-  dev: Device.Device,
-  target: PlainWriteTarget,
-): Promise<void> => {
-  const bindings = target.message.bindings.filter(
-    (b): b is icd.ChannelWriteBinding => b.type === "channel",
-  );
-  if (bindings.length === 0) return;
-  const messages = await ICD.retrieveMessages(client, [target.icd]);
-  const fields = ICD.jsonFields(
-    messages.get(target.icd)?.find(({ key }) => key === target.message.message),
-  );
-  const prefix = namePrefix(dev.name, target.topic);
-  for (const binding of bindings) {
-    const field = fields.find(({ key }) => key === binding.field);
-    // The Core rejects a binding to a field that the message lacks.
-    if (field == null) continue;
-    const { dataType = "" } = binding;
-    const suited = dataType !== "" && ICD.encodes(field, dataType);
-    binding.channel = await Task.configureCommandChannel(client, dev.properties.write, {
-      propertiesKey: `${target.topic}#${binding.field}`,
-      channel: binding.channel,
-      name: commandName(prefix, field),
-      dataType: ICD.bindingDataType(suited ? binding : {}, field),
-      suits: (ch) => ICD.encodes(field, ch.dataType.toString()),
-    });
-  }
-};
 
 const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
   client,
@@ -505,7 +442,11 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
     for (const target of config.targets) {
       if (target.disabled) continue;
       if (target.type === "plain") {
-        await configureBindings(client, dev, target);
+        const prefix = namePrefix(dev.name, target.topic);
+        await ICD.Write.configureChannels(client, dev.properties.write, target, {
+          key: (field) => `${target.topic}#${field.key}`,
+          name: (field) => commandName(prefix, field),
+        });
         continue;
       }
       target.channel = await Task.configureCommandChannel(
