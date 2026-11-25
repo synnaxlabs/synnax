@@ -114,7 +114,7 @@ const FORMAT_NAMES: Record<kafka.Format, string> = {
 };
 
 interface Listing extends kafka.BrowseResult {
-  /** Names the browse, so each one opens a fresh tree and drops its samples. */
+  /** Names the browse, so each one opens a fresh tree and drops the earlier samples. */
   key: string;
   /** When the browse answered. */
   listedAt: TimeStamp;
@@ -134,7 +134,10 @@ type Sample =
 
 interface ListingSamples {
   listing: string | null;
+  /** The samples read since the current listen started. Its listing keeps them. */
   topics: Map<string, Sample>;
+  /** The samples of an earlier listing, shown until the current listen answers. */
+  before: Map<string, Sample>;
 }
 
 const NO_TOPICS: kafka.Topic[] = [];
@@ -463,6 +466,7 @@ const Content = ({
   const [samples, setSamples] = useState<ListingSamples>(() => ({
     listing: null,
     topics: new Map(),
+    before: new Map(),
   }));
   const { result, listen, follow } = ICD.Picker.useListen<Listing>(
     async (client) => {
@@ -473,7 +477,17 @@ const Content = ({
   );
   const listing = result.data;
   if (listing != null && samples.listing !== listing.key)
-    setSamples({ listing: listing.key, topics: new Map() });
+    setSamples({ listing: listing.key, topics: samples.topics, before: new Map() });
+  const sampleOf = (topic: string): Sample | undefined =>
+    samples.topics.get(topic) ?? samples.before.get(topic);
+  const handleListen = () => {
+    setSamples((prev) => ({
+      listing: prev.listing,
+      topics: new Map(),
+      before: new Map([...prev.before, ...prev.topics]),
+    }));
+    listen();
+  };
 
   const loadSample = async (topic: string): Promise<kafka.SampledTopic | null> => {
     const set = (sample: Sample) =>
@@ -528,7 +542,7 @@ const Content = ({
           ?.name ?? null);
   const active = selected ?? firstActive;
   const activeEntry = entries.find(({ name }) => name === active) ?? null;
-  const activeSample = active == null ? undefined : samples.topics.get(active);
+  const activeSample = active == null ? undefined : sampleOf(active);
   useEffect(() => {
     if (activeEntry != null && sampleable(activeEntry) && activeSample == null)
       void loadSample(activeEntry.name);
@@ -538,7 +552,7 @@ const Content = ({
   const visible = entries.filter(({ name }) => search.matches(name, trimmed));
   const items = visible.map((entry): ICD.Picker.TreeItem => {
     const { name, listed: topic } = entry;
-    const sample = samples.topics.get(name);
+    const sample = sampleOf(name);
     let picked = countOf(picks.get(name)?.picks);
     let free =
       sample?.variant === "success"
@@ -570,7 +584,7 @@ const Content = ({
       setWholePicks((prev) => withWhole(prev, topic, false, null));
       return;
     }
-    const sample = samples.topics.get(topic);
+    const sample = sampleOf(topic);
     const entry = entries.find(({ name }) => name === topic);
     let data = sample?.variant === "success" ? sample.data : null;
     if (data == null && (entry == null || sampleable(entry)))
@@ -586,7 +600,7 @@ const Content = ({
       await pickWhole(topic);
       return;
     }
-    const sample = samples.topics.get(topic);
+    const sample = sampleOf(topic);
     const data = sample?.variant === "success" ? sample.data : await loadSample(topic);
     if (data == null) return;
     const defaults = defaultsOf(data.shapes, readsOf(topic));
@@ -606,9 +620,7 @@ const Content = ({
 
   const browsing = result.variant === "loading";
   const browseFailed = result.variant === "error";
-  const reading = entries.find(
-    ({ name }) => samples.topics.get(name)?.variant === "loading",
-  );
+  const reading = entries.find(({ name }) => sampleOf(name)?.variant === "loading");
   let statusText = pluralize("topic", entries.length, true);
   if (browsing) statusText = "Listing topics";
   else if (reading != null) statusText = `Reading ${reading.name}`;
@@ -765,7 +777,7 @@ const Content = ({
         <ICD.Picker.Status
           status={statusText}
           loading={browsing || reading != null}
-          onListen={listen}
+          onListen={handleListen}
         />
         <ICD.Picker.Side>
           <ICD.Picker.Search

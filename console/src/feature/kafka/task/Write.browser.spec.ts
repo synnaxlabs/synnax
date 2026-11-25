@@ -13,7 +13,7 @@ import {
   icd,
   kafka,
   type Synnax,
-  type task,
+  task,
 } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import type { Status } from "@synnaxlabs/lyra/status";
@@ -33,7 +33,10 @@ import {
 import { ICD } from "@/platform/icd";
 import { pickMessageFormat } from "@/platform/icd/testutil";
 import {
+  answerCommand,
   answerCommandsUntil,
+  answerNextCommand,
+  awaitCommand,
   clickDeploy,
   type CommandAnswer,
   countFailedSaves,
@@ -127,6 +130,12 @@ const retrieveWriteRecord = async (key: device.Key) =>
     .write;
 
 const TOPIC = "plant.pumps";
+const MISSING: kafka.SampledTopic = {
+  topic: TOPIC,
+  records: [],
+  shapes: [],
+  error: "The topic does not exist.",
+};
 
 /** @returns a shape of count records that hold the fields, sent by the keys. */
 const createShape = (sources: string[], count: number, ...pointers: string[]) => ({
@@ -328,15 +337,9 @@ describe("Kafka Write form", () => {
 
   it("should show that a typed topic the cluster does not list does not exist yet", async () => {
     const { dev } = await renderWrite();
-    const missing = {
-      topic: TOPIC,
-      records: [],
-      shapes: [],
-      error: "The topic does not exist.",
-    };
     const { answered } = await answerScan(dev, "sample", {
       browse: { data: browseOf() },
-      sample: { data: { topics: [missing], truncated: false } },
+      sample: { data: { topics: [MISSING], truncated: false } },
     });
     const dialog = await clickAddTargets();
     fireEvent.change(await dialog.findByPlaceholderText("Search topics"), {
@@ -349,6 +352,30 @@ describe("Kafka Write form", () => {
       "Its target gets a message with no fields. Add fields in the target pane.",
     );
     expect(dialog.queryByText("Read no records")).toBeNull();
+  });
+
+  it("should keep the records of a typed topic read before the topics list", async () => {
+    const { dev } = await renderWrite();
+    const scan = await createScanTask(client, dev);
+    const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+    try {
+      const dialog = await clickAddTargets();
+      const browse = await awaitCommand(streamer, scan.key, "browse");
+      const { answered } = await answerNextCommand(client, scan, {
+        type: "sample",
+        data: { topics: [MISSING], truncated: false },
+      });
+      fireEvent.change(await dialog.findByPlaceholderText("Search topics"), {
+        target: { value: TOPIC },
+      });
+      fireEvent.click(await dialog.findByRole("button", { name: `Write “${TOPIC}”` }));
+      await answered;
+      await dialog.findByText("Read no records");
+      await answerCommand(client, scan, browse, { data: browseOf() });
+      await dialog.findByText("Topic does not exist yet");
+    } finally {
+      streamer.close();
+    }
   });
 
   it("should count a topic of the task that the cluster does not list", async () => {
