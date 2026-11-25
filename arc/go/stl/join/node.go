@@ -15,6 +15,7 @@ import (
 	"strings"
 
 	"github.com/synnaxlabs/arc/runtime/node"
+	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
@@ -38,6 +39,45 @@ const arrivalPrefix = "arrival_"
 // makes input i pair by arrival.
 func ArrivalParam(i int) string { return arrivalPrefix + strconv.Itoa(i) }
 
+// Symbol returns the symbol of the join nodes named name: input i and output i of type
+// inputs[i], input i pairing by arrival when arrival[i] is set, and the input at
+// primary timing the outputs. The Host of name creates its nodes.
+func Symbol(
+	name string,
+	inputs []types.Type,
+	arrival []bool,
+	primary int,
+) symbol.Symbol {
+	var props types.FunctionProperties
+	for i, t := range inputs {
+		props.Inputs = append(props.Inputs, types.Param{Name: InputParam(i), Type: t})
+		props.Outputs = append(
+			props.Outputs,
+			types.Param{Name: OutputParam(i), Type: t},
+		)
+	}
+	for i, a := range arrival {
+		if a {
+			props.Inputs = append(props.Inputs, types.Param{
+				Name:  ArrivalParam(i),
+				Type:  types.U8(),
+				Value: uint8(1),
+			})
+		}
+	}
+	props.Inputs = append(props.Inputs, types.Param{
+		Name:  PrimaryParam,
+		Type:  types.I64(),
+		Value: int64(primary),
+	})
+	return symbol.Symbol{
+		Name: name,
+		Kind: symbol.KindFunction,
+		Exec: symbol.ExecFlow,
+		Type: types.Function(props),
+	}
+}
+
 // Host creates the live join nodes of one node type.
 type Host struct {
 	nodeType string
@@ -50,7 +90,7 @@ func NewHost(nodeType string, now func() telem.TimeStamp) *Host {
 	return &Host{nodeType: nodeType, now: now}
 }
 
-// Create implements node.Factory.
+// Create implements node.Factory. It returns an error for a node with no primary param.
 func (h *Host) Create(cfg node.Config) (node.Node, error) {
 	if cfg.Node.Type != h.nodeType {
 		return nil, query.ErrNotFound
@@ -58,7 +98,7 @@ func (h *Host) Create(cfg node.Config) (node.Node, error) {
 	n := &Node{State: cfg.State}
 	var (
 		dataTypes []telem.DataType
-		primary   int
+		primary   = -1
 	)
 	for _, p := range cfg.Node.Inputs {
 		switch {
@@ -77,6 +117,13 @@ func (h *Host) Create(cfg node.Config) (node.Node, error) {
 			n.inputs = append(n.inputs, idx)
 			dataTypes = append(dataTypes, p.Type.ToTelem())
 		}
+	}
+	if primary < 0 {
+		return nil, errors.Newf(
+			"join node %s has no %s param",
+			cfg.Node.Key,
+			PrimaryParam,
+		)
 	}
 	arrival := make([]bool, len(n.inputs))
 	for i := range arrival {
@@ -107,8 +154,10 @@ type Node struct {
 	inputs []int
 	out    Output
 	// next is the index of the next run in out to emit.
-	next    int
-	dropped int
+	next int
+	// unjoined is set when the join holds samples that no Next has joined.
+	unjoined bool
+	dropped  int
 }
 
 var _ node.Node = (*Node)(nil)
@@ -121,14 +170,13 @@ func (n *Node) Dropped() int {
 	return dropped
 }
 
-// Next pushes the new samples of each input and emits the first joined run. A gap
-// starts a new run, and the node runs again to emit each one before it reads its
-// inputs again.
+// Next pushes the new samples of each input, and emits the next joined run. It joins
+// the pushed samples once it has emitted every run of the last join. The node runs
+// again while runs or unjoined samples remain. An input whose samples the join refuses
+// reports an error, and the other inputs still push. The step then emits nothing, so
+// its output, which the error drops, holds no joined sample; the next step joins them.
 func (n *Node) Next(ctx node.Context) {
-	if n.next < len(n.out.Runs) {
-		n.emit(ctx)
-		return
-	}
+	failed := false
 	for i, idx := range n.inputs {
 		data, t, ok := n.ConsumeTimed(idx)
 		if !ok {
@@ -136,36 +184,48 @@ func (n *Node) Next(ctx node.Context) {
 		}
 		if err := n.join.Push(i, data, t); err != nil {
 			ctx.ReportError(err)
-			return
+			failed = true
+			continue
+		}
+		n.unjoined = true
+	}
+	if failed {
+		return
+	}
+	if n.next >= len(n.out.Runs) && n.unjoined {
+		n.out.Reset()
+		n.next = 0
+		n.unjoined = false
+		n.join.Next(telem.TimeStampMax, &n.out)
+		if n.out.Settled {
+			n.dropped += n.out.Dropped
 		}
 	}
-	n.out.Reset()
-	n.next = 0
-	n.join.Next(telem.TimeStampMax, &n.out)
-	if n.out.Settled {
-		n.dropped += n.out.Dropped
-	}
-	if len(n.out.Runs) > 0 {
+	if n.next < len(n.out.Runs) {
 		n.emit(ctx)
+	}
+	if n.next < len(n.out.Runs) || n.unjoined {
+		ctx.MarkSelfChanged()
 	}
 }
 
 // emit copies the next run of out into the outputs, which the next Next of the join
-// overwrites, and asks to run again while runs remain.
+// overwrites.
 func (n *Node) emit(ctx node.Context) {
 	run := n.out.Runs[n.next]
 	n.next++
 	bounds := telem.TimeRange{
 		Start: run.Time.ValueAt[telem.TimeStamp](0),
-		End:   run.Time.ValueAt[telem.TimeStamp](-1) + 1,
+		End:   run.Time.ValueAt[telem.TimeStamp](-1),
+	}
+	// The range ends past its last stamp, unless that stamp is the largest.
+	if bounds.End < telem.TimeStampMax {
+		bounds.End++
 	}
 	for i := range n.inputs {
 		copyRun(n.Output(i), run.Values[i], run.Time.Alignment, bounds)
 		copyRun(n.OutputTime(i), run.Time, run.Time.Alignment, bounds)
 		n.Emit(ctx, i)
-	}
-	if n.next < len(n.out.Runs) {
-		ctx.MarkSelfChanged()
 	}
 }
 

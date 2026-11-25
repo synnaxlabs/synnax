@@ -287,7 +287,8 @@ func addOperations(g *arc.Graph, ops []calculation.Operation) {
 }
 
 // virtualReads returns which of reads are virtual channels, and whether the live
-// program of cfg pairs reads through a join: when one of them is a stored channel.
+// program of cfg pairs reads through a join: when one of them is a stored channel and
+// each has a fixed density.
 func virtualReads(
 	ctx context.Context,
 	snap gorp.Snapshot,
@@ -314,117 +315,95 @@ func virtualReads(
 			virtual.Add(uint32(ch.Key()))
 		}
 	}
-	return virtual, len(virtual) < len(channels), nil
+	fixed := !slices.ContainsFunc(channels, func(ch channel.Channel) bool {
+		return ch.DataType.IsVariable()
+	})
+	return virtual, fixed && len(virtual) < len(channels), nil
+}
+
+// read is the node that reads a channel into the calculation function.
+type read struct {
+	key  uint32
+	name string
+	elem types.Type
 }
 
 // addReads adds an input to the calculation function of g for each channel in reads,
-// fed by a node that reads the channel. When joined, the reads pass through one join
-// that pairs them by sample time on the stamps of primary, which must be a stored read,
-// and the virtual reads pair by arrival. addReads then returns the symbol of the join,
-// and otherwise nil.
+// and a node that reads the channel, and returns them in the order of their keys, so a
+// tie between inputs breaks the same way on every compile.
 func addReads(
 	ctx context.Context,
 	g *arc.Graph,
 	symbols arc.SymbolResolver,
 	reads map[uint32]string,
-	primary *channel.Key,
-	virtual set.Set[uint32],
-	joined bool,
-) (*symbol.Symbol, error) {
-	var (
-		props      types.FunctionProperties
-		arrivals   types.Params
-		primaryIdx = -1
-	)
-	// The inputs take the order of their keys, so a tie between inputs breaks the same
-	// way on every compile.
-	for i, k := range slices.Sorted(maps.Keys(reads)) {
+) ([]read, error) {
+	nodes := make([]read, 0, len(reads))
+	for _, k := range slices.Sorted(maps.Keys(reads)) {
 		sym, err := symbols.Resolve(ctx, reads[k])
 		if err != nil {
 			return nil, err
 		}
-		elem := *sym.Type.Elem
+		r := read{key: k, name: sym.Name, elem: *sym.Type.Elem}
 		g.Functions[0].Inputs = append(
 			g.Functions[0].Inputs,
-			types.Param{Name: sym.Name, Type: elem},
+			types.Param{Name: r.name, Type: r.elem},
 		)
-		addNode(g, sym.Name, "on", xmsgpack.EncodedJSON{"channel": k})
-		if !joined {
-			addEdge(
-				g,
-				ir.Handle{Node: sym.Name, Param: ir.DefaultOutputParam},
-				ir.Handle{Node: calculationKey, Param: sym.Name},
-			)
-			continue
-		}
-		joinRead(g, &props, i, sym.Name, elem)
-		switch {
-		case virtual.Contains(k):
-			arrivals = append(arrivals, types.Param{
-				Name:  join.ArrivalParam(i),
-				Type:  types.U8(),
-				Value: uint8(1),
-			})
-		case primary != nil && channel.Key(k) == *primary:
+		addNode(g, r.name, "on", xmsgpack.EncodedJSON{"channel": k})
+		nodes = append(nodes, r)
+	}
+	return nodes, nil
+}
+
+// connectReads wires each read node straight into the calculation function.
+func connectReads(g *arc.Graph, reads []read) {
+	for _, r := range reads {
+		addEdge(
+			g,
+			ir.Handle{Node: r.name, Param: ir.DefaultOutputParam},
+			ir.Handle{Node: calculationKey, Param: r.name},
+		)
+	}
+}
+
+// joinReads wires each read node through one join into the calculation function, and
+// returns the symbol of the join. The join pairs the reads by sample time on the
+// stamps of primary, which must be a stored read, and the virtual reads pair by
+// arrival.
+func joinReads(
+	g *arc.Graph,
+	reads []read,
+	primary *channel.Key,
+	virtual set.Set[uint32],
+) (symbol.Symbol, error) {
+	var (
+		inputs     = make([]types.Type, len(reads))
+		arrival    = make([]bool, len(reads))
+		primaryIdx = -1
+	)
+	for i, r := range reads {
+		inputs[i], arrival[i] = r.elem, virtual.Contains(r.key)
+		if !arrival[i] && primary != nil && channel.Key(r.key) == *primary {
 			primaryIdx = i
 		}
-	}
-	if !joined {
-		return nil, nil
+		addEdge(
+			g,
+			ir.Handle{Node: r.name, Param: ir.DefaultOutputParam},
+			ir.Handle{Node: joinKey, Param: join.InputParam(i)},
+		)
+		addEdge(
+			g,
+			ir.Handle{Node: joinKey, Param: join.OutputParam(i)},
+			ir.Handle{Node: calculationKey, Param: r.name},
+		)
 	}
 	if primaryIdx < 0 {
-		return nil, errors.Newf(
+		return symbol.Symbol{}, errors.Newf(
 			"primary %s of a joined calculation is not a stored read",
 			lo.FromPtr(primary),
 		)
 	}
-	props.Inputs = append(props.Inputs, arrivals...)
-	return addJoin(g, props, primaryIdx), nil
-}
-
-// addJoin adds the join node to g, and returns the symbol of its type, with the
-// params of props and the primary at input primaryIdx.
-func addJoin(
-	g *arc.Graph,
-	props types.FunctionProperties,
-	primaryIdx int,
-) *symbol.Symbol {
-	props.Inputs = append(props.Inputs, types.Param{
-		Name:  join.PrimaryParam,
-		Type:  types.I64(),
-		Value: int64(primaryIdx),
-	})
 	addNode(g, joinKey, JoinType, nil)
-	return &symbol.Symbol{
-		Name: JoinType,
-		Kind: symbol.KindFunction,
-		Exec: symbol.ExecFlow,
-		Type: types.Function(props),
-	}
-}
-
-// joinRead wires the read node named name into input i of the join, and output i of the
-// join into the calculation, adding both params of type elem to props.
-func joinRead(
-	g *arc.Graph,
-	props *types.FunctionProperties,
-	i int,
-	name string,
-	elem types.Type,
-) {
-	in, out := join.InputParam(i), join.OutputParam(i)
-	props.Inputs = append(props.Inputs, types.Param{Name: in, Type: elem})
-	props.Outputs = append(props.Outputs, types.Param{Name: out, Type: elem})
-	addEdge(
-		g,
-		ir.Handle{Node: name, Param: ir.DefaultOutputParam},
-		ir.Handle{Node: joinKey, Param: in},
-	)
-	addEdge(
-		g,
-		ir.Handle{Node: joinKey, Param: out},
-		ir.Handle{Node: calculationKey, Param: name},
-	)
+	return join.Symbol(JoinType, inputs, arrival, primaryIdx), nil
 }
 
 func compile(
@@ -474,21 +453,19 @@ func compileAnalyzed(
 	if err != nil {
 		return Module{}, err
 	}
-	joinSym, err := addReads(
-		ctx,
-		&g,
-		symbols,
-		result.Reads,
-		cfg.Calculation.Primary,
-		virtual,
-		joined,
-	)
+	reads, err := addReads(ctx, &g, symbols, result.Reads)
 	if err != nil {
 		return Module{}, err
 	}
 	var extras []*symbol.Symbol
-	if joinSym != nil {
-		extras = append(extras, joinSym)
+	if joined {
+		sym, err := joinReads(&g, reads, cfg.Calculation.Primary, virtual)
+		if err != nil {
+			return Module{}, err
+		}
+		extras = append(extras, &sym)
+	} else {
+		connectReads(&g, reads)
 	}
 	program, err := arc.CompileGraph(ctx, g, arc.NewRoot(symbols, extras...),
 		arc.WithAllowDashedNames(resolver.AllowDashedNames(cfg.ChannelService)))
