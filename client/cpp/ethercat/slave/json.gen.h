@@ -248,6 +248,81 @@ inline x::json::json Where::to_json() const {
     return j;
 }
 
+inline Identity Identity::parse(x::json::Parser parser) {
+    return Identity{
+        .rack = parser.required_field<::synnax::rack::Key>("rack"),
+        .serial = parser.field<std::uint64_t>("serial", 0),
+        .vendor_id = parser.field<std::uint32_t>("vendor_id"),
+        .product_code = parser.field<std::uint32_t>("product_code"),
+        .revision = parser.field<std::uint32_t>("revision"),
+        .master = parser.required_field<::synnax::ethercat::master::Key>("master"),
+        .pdos = parser.field<PDOs>("pdos", PDOs{}),
+    };
+}
+
+inline x::json::json Identity::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["rack"] = this->rack;
+    j["serial"] = this->serial;
+    j["vendor_id"] = this->vendor_id;
+    j["product_code"] = this->product_code;
+    j["revision"] = this->revision;
+    j["master"] = this->master.to_json();
+    j["pdos"] = this->pdos.to_json();
+    return j;
+}
+
+inline Configuration Configuration::parse(x::json::Parser parser) {
+    return Configuration{
+        .name = parser.required_field<std::string>("name"),
+        .identifier = parser.field<std::string>("identifier", ""),
+        .disabled = parser.field<bool>("disabled", false),
+        .startup_parameters =
+            [&] {
+                std::vector<StartupParameter> result;
+                if (parser.has("startup_parameters"))
+                    parser.iter("startup_parameters", [&result](x::json::Parser &p) {
+                        result.push_back(parse_startup_parameter(p));
+                    });
+                return result;
+            }(),
+        .read_index = parser.field<::synnax::channel::Key>(
+            "read_index",
+            ::synnax::channel::Key(0)
+        ),
+        .write_state_index = parser.field<::synnax::channel::Key>(
+            "write_state_index",
+            ::synnax::channel::Key(0)
+        ),
+        .read_bindings = parser.field<std::vector<ReadBinding>>(
+            "read_bindings",
+            std::vector<ReadBinding>{}
+        ),
+        .write_bindings = parser.field<std::vector<WriteBinding>>(
+            "write_bindings",
+            std::vector<WriteBinding>{}
+        ),
+    };
+}
+
+inline x::json::json Configuration::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["name"] = this->name;
+    j["identifier"] = this->identifier;
+    j["disabled"] = this->disabled;
+    {
+        auto arr = x::json::json::array();
+        for (const auto &item: this->startup_parameters)
+            arr.push_back(::synnax::ethercat::slave::to_json(item));
+        j["startup_parameters"] = arr;
+    }
+    j["read_index"] = this->read_index;
+    j["write_state_index"] = this->write_state_index;
+    j["read_bindings"] = x::json::to_array(this->read_bindings);
+    j["write_bindings"] = x::json::to_array(this->write_bindings);
+    return j;
+}
+
 inline Cursor Cursor::parse(x::json::Parser parser) {
     return Cursor{
         .key = parser.field<Key>("key"),
@@ -462,6 +537,35 @@ inline x::json::json Float64StartupParameter::to_json() const {
     return j;
 }
 
+inline IdentityUpdate IdentityUpdate::parse(x::json::Parser parser) {
+    IdentityUpdate result;
+    static_cast<Identity &>(result) = Identity::parse(parser);
+    result.group = parser.field<std::string>("group");
+    return result;
+}
+
+inline x::json::json IdentityUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (const auto parent = Identity::to_json(); parent.is_object()) j.update(parent);
+    j["group"] = this->group;
+    return j;
+}
+
+inline ConfigurationUpdate ConfigurationUpdate::parse(x::json::Parser parser) {
+    ConfigurationUpdate result;
+    static_cast<Configuration &>(result) = Configuration::parse(parser);
+    result.group = parser.field<std::string>("group");
+    return result;
+}
+
+inline x::json::json ConfigurationUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (const auto parent = Configuration::to_json(); parent.is_object())
+        j.update(parent);
+    j["group"] = this->group;
+    return j;
+}
+
 inline StartupParameter parse_startup_parameter(x::json::Parser parser) {
     const auto discriminator = parser.field<std::string>("data_type");
     if (discriminator == "int8") return Int8StartupParameter::parse(parser);
@@ -482,6 +586,18 @@ inline StartupParameter parse_startup_parameter(x::json::Parser parser) {
 }
 
 inline x::json::json to_json(const StartupParameter &value) {
+    return std::visit([](const auto &v) { return v.to_json(); }, value);
+}
+
+inline Update parse_update(x::json::Parser parser) {
+    const auto discriminator = parser.field<std::string>("group");
+    if (discriminator == "identity") return IdentityUpdate::parse(parser);
+    if (discriminator == "configuration") return ConfigurationUpdate::parse(parser);
+    parser.field_err("group", "unknown Update group: " + discriminator);
+    return {};
+}
+
+inline x::json::json to_json(const Update &value) {
     return std::visit([](const auto &v) { return v.to_json(); }, value);
 }
 

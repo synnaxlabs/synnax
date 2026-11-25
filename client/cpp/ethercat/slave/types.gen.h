@@ -41,6 +41,8 @@ struct Where;
 struct Cursor;
 struct PDOs;
 struct RetrieveRequest;
+struct Identity;
+struct Configuration;
 struct Slave;
 struct RetrieveResponse;
 
@@ -366,6 +368,54 @@ struct RetrieveRequest {
     [[nodiscard]] x::json::json to_json() const;
 };
 
+/// @brief Identity holds the slave fields that the scanner owns.
+struct Identity {
+    /// @brief rack is the key of the rack the slave is connected to.
+    ::synnax::rack::Key rack = 0;
+    /// @brief serial is the serial number of the slave. 0 when the slave reports none.
+    std::uint64_t serial = 0;
+    /// @brief vendor_id is the EtherCAT vendor ID of the slave.
+    std::uint32_t vendor_id = 0;
+    /// @brief product_code is the product code of the slave.
+    std::uint32_t product_code = 0;
+    /// @brief revision is the revision number of the slave.
+    std::uint32_t revision = 0;
+    /// @brief master is the master on whose bus the slave sits.
+    ::synnax::ethercat::master::Key master;
+    /// @brief pdos are the PDO entries that the scan found on the slave.
+    PDOs pdos = {};
+
+    static Identity parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief Configuration holds the slave fields that the user owns.
+struct Configuration {
+    /// @brief name is a human-readable name for the slave.
+    std::string name;
+    /// @brief identifier is the prefix of the slave's channel names. The slave is
+    /// unconfigured while it is empty.
+    std::string identifier = "";
+    /// @brief disabled is whether the Driver leaves the slave out of the tasks it runs.
+    bool disabled = false;
+    /// @brief startup_parameters are the CoE objects the Driver writes to the slave in
+    /// PRE-OP.
+    std::vector<StartupParameter> startup_parameters = {};
+    /// @brief read_index is the index channel of the channels that the slave reads
+    /// into.
+    ::synnax::channel::Key read_index = ::synnax::channel::Key(0);
+    /// @brief write_state_index is the index channel of the state channels of the
+    /// slave's outputs.
+    ::synnax::channel::Key write_state_index = ::synnax::channel::Key(0);
+    /// @brief read_bindings are the channels of the input entries.
+    std::vector<ReadBinding> read_bindings = {};
+    /// @brief write_bindings are the channels of the output entries.
+    std::vector<WriteBinding> write_bindings = {};
+
+    static Configuration parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
 /// @brief Slave is an EtherCAT slave: one module on the bus of a master.
 struct Slave {
     /// @brief key uniquely identifies the slave.
@@ -410,6 +460,29 @@ struct Slave {
     static Slave parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
+
+/// @brief IdentityUpdate writes the fields that the scanner owns.
+struct IdentityUpdate : public Identity {
+    std::string group = "identity";
+
+    static IdentityUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief ConfigurationUpdate replaces the fields that the user owns. A client sends
+/// the whole group, because a field it leaves out is cleared.
+struct ConfigurationUpdate : public Configuration {
+    std::string group = "configuration";
+
+    static ConfigurationUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief Update is a write to one field group of a slave.
+using Update = std::variant<IdentityUpdate, ConfigurationUpdate>;
+
+Update parse_update(x::json::Parser parser);
+[[nodiscard]] x::json::json to_json(const Update &value);
 
 /// @brief RetrieveResponse holds the slaves a RetrieveRequest selects.
 struct RetrieveResponse {

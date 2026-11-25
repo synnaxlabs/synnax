@@ -109,6 +109,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}
 	if s.Slaves, err = slave.OpenService(ctx, slave.ServiceConfig{
 		DB:              cfg.DB,
+		Status:          cfg.Status,
 		Signals:         cfg.Signals,
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.Slaves) {

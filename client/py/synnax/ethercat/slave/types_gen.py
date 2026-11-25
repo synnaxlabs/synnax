@@ -288,6 +288,57 @@ class RetrieveRequest(BaseModel):
     include_status: bool = False
 
 
+class Identity(BaseModel):
+    """Holds the slave fields that the scanner owns.
+
+    Attributes:
+        rack: Is the key of the rack the slave is connected to.
+        serial: Is the serial number of the slave. 0 when the slave reports none.
+        vendor_id: Is the EtherCAT vendor ID of the slave.
+        product_code: Is the product code of the slave.
+        revision: Is the revision number of the slave.
+        master: Is the master on whose bus the slave sits.
+        pdos: Are the PDO entries that the scan found on the slave.
+    """
+
+    rack: rack_.Key = Field(gt=0, le=4294967295)
+    serial: int = Field(default=0, ge=0, le=9007199254740991)
+    vendor_id: int = Field(ge=0, le=4294967295)
+    product_code: int = Field(ge=0, le=4294967295)
+    revision: int = Field(ge=0, le=4294967295)
+    master: master_.Key
+    pdos: PDOs = Field(default_factory=lambda: PDOs())
+
+
+class Configuration(BaseModel):
+    """Holds the slave fields that the user owns.
+
+    Attributes:
+        name: Is a human-readable name for the slave.
+        identifier: Is the prefix of the slave's channel names. The slave is
+            unconfigured while it is empty.
+        disabled: Is whether the Driver leaves the slave out of the tasks it runs.
+        startup_parameters: Are the CoE objects the Driver writes to the slave in
+            PRE-OP.
+        read_index: Is the index channel of the channels that the slave reads into.
+        write_state_index: Is the index channel of the state channels of the slave's
+            outputs.
+        read_bindings: Are the channels of the input entries.
+        write_bindings: Are the channels of the output entries.
+    """
+
+    name: str = Field(min_length=1)
+    identifier: str = ""
+    disabled: bool = False
+    startup_parameters: list[StartupParameter] = Field(default_factory=list)
+    read_index: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
+    write_state_index: channel_.Key = Field(
+        default=channel_.Key(0), ge=0, le=4294967295
+    )
+    read_bindings: list[ReadBinding] = Field(default_factory=list)
+    write_bindings: list[WriteBinding] = Field(default_factory=list)
+
+
 class Slave(BaseModel):
     """Is an EtherCAT slave: one module on the bus of a master.
 
@@ -337,6 +388,27 @@ class Slave(BaseModel):
     @_override
     def __hash__(self) -> int:
         return hash(self.key)
+
+
+class IdentityUpdate(Identity):
+    """Writes the fields that the scanner owns."""
+
+    group: Literal["identity"] = "identity"
+
+
+class ConfigurationUpdate(Configuration):
+    """Replaces the fields that the user owns. A client sends the whole group, because a
+    field it leaves out is cleared.
+    """
+
+    group: Literal["configuration"] = "configuration"
+
+
+# Is a write to one field group of a slave.
+Update = Annotated[
+    IdentityUpdate | ConfigurationUpdate,
+    Field(discriminator="group"),
+]
 
 
 class RetrieveResponse(BaseModel):
