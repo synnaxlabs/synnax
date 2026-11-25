@@ -34,7 +34,7 @@ TimeSpan int64 {
         telemetry system.
     """
     @py hand
-    @py include  "x/py/x/telem/telem"
+    @py include  "x/py/x/telem/quantity"
     @ts hand
 }
 
@@ -55,7 +55,7 @@ TimeRange struct {
     """
     @go marshal
     @py hand
-    @py include  "x/py/x/telem/telem"
+    @py include  "x/py/x/telem/quantity"
     @ts hand
 }
 
@@ -164,7 +164,7 @@ DataType string {
     @ts hand
 }
 
-FixedWidthDataType enum {
+DataTypeName enum {
     float64   = "float64" {
         @doc value "is a 64-bit float."
     }
@@ -204,6 +204,34 @@ FixedWidthDataType enum {
     boolean   = "boolean" {
         @doc value "is a boolean in 8 bits."
     }
+    string    = "string" {
+        @doc value "is a UTF-8 string of any length."
+    }
+    json      = "json" {
+        @doc value "is a JSON document of any length."
+    }
+    bytes     = "bytes" {
+        @doc value "is a byte array of any length."
+    }
+
+    @doc value "names a data type."
+    @pb omit
+}
+
+FixedWidthDataType enum of DataTypeName {
+    float64
+    float32
+    int64
+    int32
+    int16
+    int8
+    uint64
+    uint32
+    uint16
+    uint8
+    timestamp
+    uuid
+    boolean
 
     @doc value "is a data type whose samples all have the same byte size."
     @pb omit

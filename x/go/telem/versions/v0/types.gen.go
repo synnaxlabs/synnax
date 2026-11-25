@@ -165,6 +165,55 @@ type Size int64
 // variable-density types (String, JSON, Bytes) for flexible data storage.
 type DataType string
 
+// DataTypeName names a data type.
+type DataTypeName string
+
+const (
+	// DataTypeNameFloat64 is a 64-bit float.
+	DataTypeNameFloat64 DataTypeName = "float64"
+	// DataTypeNameFloat32 is a 32-bit float.
+	DataTypeNameFloat32 DataTypeName = "float32"
+	// DataTypeNameInt64 is a signed 64-bit integer.
+	DataTypeNameInt64 DataTypeName = "int64"
+	// DataTypeNameInt32 is a signed 32-bit integer.
+	DataTypeNameInt32 DataTypeName = "int32"
+	// DataTypeNameInt16 is a signed 16-bit integer.
+	DataTypeNameInt16 DataTypeName = "int16"
+	// DataTypeNameInt8 is a signed 8-bit integer.
+	DataTypeNameInt8 DataTypeName = "int8"
+	// DataTypeNameUint64 is an unsigned 64-bit integer.
+	DataTypeNameUint64 DataTypeName = "uint64"
+	// DataTypeNameUint32 is an unsigned 32-bit integer.
+	DataTypeNameUint32 DataTypeName = "uint32"
+	// DataTypeNameUint16 is an unsigned 16-bit integer.
+	DataTypeNameUint16 DataTypeName = "uint16"
+	// DataTypeNameUint8 is an unsigned 8-bit integer.
+	DataTypeNameUint8 DataTypeName = "uint8"
+	// DataTypeNameTimestamp is a nanosecond timestamp in 64 bits.
+	DataTypeNameTimestamp DataTypeName = "timestamp"
+	// DataTypeNameUUID is a 128-bit UUID.
+	DataTypeNameUUID DataTypeName = "uuid"
+	// DataTypeNameBoolean is a boolean in 8 bits.
+	DataTypeNameBoolean DataTypeName = "boolean"
+	// DataTypeNameString is a UTF-8 string of any length.
+	DataTypeNameString DataTypeName = "string"
+	// DataTypeNameJSON is a JSON document of any length.
+	DataTypeNameJSON DataTypeName = "json"
+	// DataTypeNameBytes is a byte array of any length.
+	DataTypeNameBytes DataTypeName = "bytes"
+)
+
+// IsValid reports whether d is one of the defined DataTypeName
+// values.
+func (d DataTypeName) IsValid() bool {
+	switch d {
+	case DataTypeNameFloat64, DataTypeNameFloat32, DataTypeNameInt64, DataTypeNameInt32, DataTypeNameInt16, DataTypeNameInt8, DataTypeNameUint64, DataTypeNameUint32, DataTypeNameUint16, DataTypeNameUint8, DataTypeNameTimestamp, DataTypeNameUUID, DataTypeNameBoolean, DataTypeNameString, DataTypeNameJSON, DataTypeNameBytes:
+		return true
+	default:
+		return false
+	}
+}
+
 // FixedWidthDataType is a data type whose samples all have the same byte size.
 type FixedWidthDataType string
 
