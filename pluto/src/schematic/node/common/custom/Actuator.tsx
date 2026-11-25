@@ -8,9 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import type { schematic } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/lyra/icon";
-import { Note } from "@synnaxlabs/lyra/note";
-import { Text } from "@synnaxlabs/lyra/text";
 import type { MouseEventHandler, ReactElement } from "react";
 
 import { CSS } from "@/css";
@@ -19,6 +16,7 @@ import { usePaints } from "@/schematic/node/common/custom/paint";
 import { isValidSVG } from "@/schematic/node/common/custom/render";
 import type { Primitive } from "@/schematic/node/common/primitive";
 import { Toggle } from "@/schematic/node/common/toggle";
+import { Warning } from "@/schematic/node/symbol/Warning";
 import { Symbol } from "@/schematic/symbol";
 
 export interface ActuatorProps
@@ -42,18 +40,20 @@ export const Actuator = ({
   strokeColor,
   ...rest
 }: ActuatorProps): ReactElement => {
-  const { symbol, missing } = Symbol.useResolved(specKey);
+  const { symbol, missing, failed } = Symbol.useResolved(specKey);
   const spec = symbol?.data;
-  const paints = usePaints(spec, enabled ? 1 : 0, stateOverrides, strokeColor);
+  const value = enabled ? 1 : 0;
+  const paints = usePaints(spec, value, {
+    override: stateOverrides?.[value],
+    nodeColor: strokeColor,
+  });
   const invalid = spec != null && !isValidSVG(spec.drawing.markup);
-  if (missing || invalid)
+  if (missing || failed || invalid)
     return (
-      <Note.Note variant="warning" className={className}>
-        <Text.Text level="p" status="warning">
-          <Icon.Warning />
-          {missing ? "Missing custom symbol" : "Invalid custom symbol"}
-        </Text.Text>
-      </Note.Note>
+      <Warning
+        cause={missing ? "missing" : failed ? "failed" : "invalid"}
+        className={className}
+      />
     );
   return (
     <Toggle.Button

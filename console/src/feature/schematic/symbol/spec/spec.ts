@@ -221,9 +221,9 @@ const clipped = (el: Element): boolean => {
 };
 
 /**
- * LevelIssue is why a level motion cannot draw a part. Level clips each shape of the
- * part by its own box, so "shapes" is a part of more than one shape. It also replaces
- * the clip-path of the shape, so "clip" is a shape that has its own.
+ * LevelIssue is why a level motion cannot draw a part. Level clips each outermost shape
+ * or group of the part by its own box, so "shapes" is a part of more than one. It also
+ * replaces the clip-path of the shape, so "clip" is a shape that has its own.
  */
 export type LevelIssue = "shapes" | "clip";
 

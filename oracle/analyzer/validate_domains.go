@@ -428,7 +428,8 @@ func getPath(t resolution.Type, lang string) string {
 }
 
 // validateLengthRules errors on a min_length or max_length rule on a field whose type
-// is not a string or bytes, such as a uuid, a number, or an array.
+// is not a string or bytes, such as a uuid, a number, or an array. It also errors on a
+// max_length rule on bytes in a type that generates Go, which has no check for it.
 func validateLengthRules(table *resolution.Table, diag *diagnostics.Files) {
 	for _, t := range table.Types {
 		form, ok := t.Form.(resolution.StructForm)
@@ -449,12 +450,56 @@ func validateLengthRules(table *resolution.Table, diag *diagnostics.Files) {
 					typeRef = inherited.Type
 				}
 			}
-			if base := resolution.PrimitiveBase(typeRef, table); base != "string" &&
-				base != "bytes" {
+			switch base := resolution.PrimitiveBase(typeRef, table); {
+			case base != "string" && base != "bytes":
 				diag.Report(t.Namespace+".oracle", diagnostics.Errorf(nil,
 					"%s.%s has a length rule, but its type is not a string or bytes",
 					t.QualifiedName, f.Name,
 				))
+			case base == "bytes" && rules.MaxLength != nil && generatesIn(t, "go"):
+				diag.Report(t.Namespace+".oracle", diagnostics.Errorf(nil,
+					"%s.%s has a max_length rule on bytes, which Go does not check",
+					t.QualifiedName, f.Name,
+				))
+			}
+		}
+	}
+}
+
+// validateCollectionRules errors on a required rule on a collection other than a T[]
+// field, and on a required T[] field with a default, since an absent list must fail.
+func validateCollectionRules(table *resolution.Table, diag *diagnostics.Files) {
+	const notList = "only a T[] field can require a nonempty collection"
+	report := func(t resolution.Type, name, problem string) {
+		diag.Report(t.Namespace+".oracle", diagnostics.Errorf(nil,
+			"%s has a required rule, but %s", name, problem,
+		))
+	}
+	for _, t := range table.Types {
+		switch form := t.Form.(type) {
+		case resolution.AliasForm, resolution.DistinctForm:
+			ref := resolution.TypeRef{Name: t.QualifiedName}
+			if _, ok := resolution.Collection(ref, table); ok &&
+				validation.Parse(t.Domains["validate"]).Required {
+				report(t, t.QualifiedName, notList)
+			}
+		case resolution.StructForm:
+			// A restated field merges with the one it overrides, so check the merge.
+			for _, f := range resolution.UnifiedFields(t, table) {
+				_, declared := form.Field(f.Name)
+				if !declared || !validation.Parse(f.Domains["validate"]).Required {
+					continue
+				}
+				if _, ok := resolution.Collection(f.Type, table); !ok {
+					continue
+				}
+				name := t.QualifiedName + "." + f.Name
+				switch {
+				case !validation.IsList(f.Type):
+					report(t, name, notList)
+				case f.Default != nil:
+					report(t, name, "it has a default, which a required list cannot")
+				}
 			}
 		}
 	}

@@ -8,7 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { schematic } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import {
+  createTestClient,
+  createTestClientWithPolicy,
+} from "@synnaxlabs/client/testutil";
 import { act, render, waitFor } from "@testing-library/react";
 import type { FC, PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it } from "vitest";
@@ -44,12 +47,22 @@ describe("Custom.Actuator", () => {
   const createSymbol = async (svg: string): Promise<schematic.symbol.Symbol> =>
     await client.schematics.symbols.create({ name: "sym", data: createData(svg) });
 
+  it("should warn when the symbol fails to load", async () => {
+    const symbol = await createSymbol(VALID_SVG);
+    // A user with no policies cannot read the symbol, so its load fails.
+    const denied = await createTestClientWithPolicy(client, []);
+    const { findByText } = render(<Custom.Actuator specKey={symbol.key} />, {
+      wrapper: await createAsyncSynnaxWrapper({ client: denied }),
+    });
+    await findByText("Failed to load symbol");
+  });
+
   it("should warn when the symbol markup does not parse", async () => {
     const symbol = await createSymbol("<svg><rect></svg>");
     const { findByText, container } = render(<Custom.Actuator specKey={symbol.key} />, {
       wrapper,
     });
-    await findByText("Invalid custom symbol");
+    await findByText("Invalid symbol");
     expect(container.querySelector("svg rect")).toBeNull();
   });
 
@@ -82,7 +95,7 @@ describe("Custom.Actuator", () => {
       <Custom.Actuator specKey={symbol.key} />,
       { wrapper },
     );
-    await findByText("Invalid custom symbol");
+    await findByText("Invalid symbol");
     await act(async () => {
       await client.schematics.symbols.dispatch(
         symbol.key,
@@ -90,7 +103,7 @@ describe("Custom.Actuator", () => {
       );
     });
     await waitFor(() => {
-      expect(queryByText("Invalid custom symbol")).toBeNull();
+      expect(queryByText("Invalid symbol")).toBeNull();
       expect(container.querySelector("svg rect")).not.toBeNull();
     });
   });
