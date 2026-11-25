@@ -2381,6 +2381,30 @@ var _ = Describe("ProgramState", func() {
 		})
 	})
 
+	Describe("ConsumeTimed", func() {
+		It("Should return unconsumed data with its stamps and mark it consumed", func(
+			ctx SpecContext,
+		) {
+			s := newLinkedState(ctx)
+			src, dst := s.Node("src"), s.Node("dst")
+			*src.Output(0) = telem.NewSeriesV[int32](1, 2)
+			*src.OutputTime(0) = telem.NewSeriesSecondsTSV(10, 20)
+			src.MarkFresh(0)
+			data, t, ok := dst.ConsumeTimed(0)
+			Expect(ok).To(BeTrue())
+			Expect(data).To(MatchSeries(telem.NewSeriesV[int32](1, 2)))
+			Expect(t).To(MatchSeries(telem.NewSeriesSecondsTSV(10, 20)))
+			_, _, ok = dst.ConsumeTimed(0)
+			Expect(ok).To(BeFalse())
+		})
+
+		It("Should return false when the input has no data", func(ctx SpecContext) {
+			s := newLinkedState(ctx)
+			_, _, ok := s.Node("dst").ConsumeTimed(0)
+			Expect(ok).To(BeFalse())
+		})
+	})
+
 	Describe("ConsumeInput", func() {
 		It("Should return unconsumed data and mark it consumed", func(ctx SpecContext) {
 			s := newLinkedState(ctx)

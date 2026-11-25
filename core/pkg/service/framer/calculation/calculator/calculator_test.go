@@ -1380,9 +1380,8 @@ var _ = Describe("Calculator", Ordered, func() {
 						Now:    func() telem.TimeStamp { return now },
 					}))
 					g := calculator.Group{calc}
-					// step writes input i at stamp, in seconds, with alignment, after a
-					// second
-					// passes on the clock.
+					// step moves the clock on by a second, then writes input i at
+					// stamp, in seconds, with alignment.
 					step := func(i int, stamp telem.TimeStamp, a uint32) []calculator.Status {
 						GinkgoHelper()
 						now += telem.SecondTS
