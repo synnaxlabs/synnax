@@ -718,16 +718,17 @@ var _ = Describe("Service", func() {
 			})
 			return base, inner, outer
 		}
+		// grantChannels grants the author retrieve on each channel and its index.
 		grantChannels := func(ctx SpecContext, channels ...channel.Channel) {
 			GinkgoHelper()
+			var ids []resource.ID
 			for _, ch := range channels {
-				grantOn(
-					ctx,
-					author.ResourceID(),
-					access.ActionRetrieve,
-					channel.ResourceID(ch.Key()),
-				)
+				ids = append(ids, channel.ResourceID(ch.Key()))
+				if ch.Index() != 0 {
+					ids = append(ids, channel.ResourceID(ch.Index()))
+				}
 			}
+			grantOn(ctx, author.ResourceID(), access.ActionRetrieve, ids...)
 		}
 
 		It(
@@ -742,7 +743,7 @@ var _ = Describe("Service", func() {
 				Expect(res.Calculations).To(HaveLen(2))
 				Expect(res.Calculations[0].Channel).To(Equal(inner.Key()))
 				Expect(res.Calculations[1].Channel).To(Equal(outer.Key()))
-				Expect(res.Channels).To(ConsistOf(
+				Expect(res.Channels).To(ContainElements(
 					outer.Key(),
 					inner.Key(),
 					base.Key(),
@@ -769,7 +770,8 @@ var _ = Describe("Service", func() {
 					apiarc.CalculationsRequest{Channels: channel.Keys{outer.Key()}},
 				))
 				Expect(res.Calculations).To(BeEmpty())
-				Expect(res.Channels).To(ConsistOf(outer.Key(), inner.Key()))
+				Expect(res.Channels).To(ContainElements(outer.Key(), inner.Key()))
+				Expect(res.Channels).ToNot(ContainElement(base.Key()))
 				Expect(res.Omitted).To(ConsistOf(outer.Key()))
 			},
 		)

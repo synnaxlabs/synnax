@@ -538,27 +538,43 @@ type CalculationsResponse struct {
 	Omitted channel.Keys `json:"omitted" msgpack:"omitted"`
 }
 
-// Calculations compiles the calculated channels that a program that reads req.Channels
-// needs, as compile does for an automation. A requested channel that does not exist is
-// left out. The subject needs retrieve on every channel in the response.
+// CheckCalculations returns nothing. Bound with bind.Read, it checks that the subject
+// can retrieve each channel that a CalculationsRequest names.
+func (s *Service) CheckCalculations(
+	context.Context,
+	bind.Snapshot,
+	CalculationsRequest,
+) (struct{}, error) {
+	return struct{}{}, nil
+}
+
+// Calculations returns a handler that compiles the calculated channels that a program
+// reading req.Channels needs, as compile does for an automation. A requested channel
+// that does not exist is left out. check runs on the requested channels before the
+// compile, and on every channel in the response after it, so the subject needs
+// retrieve on each. The compile runs outside the snapshot of check.
 func (s *Service) Calculations(
-	ctx context.Context,
-	snap bind.Snapshot,
-	req CalculationsRequest,
-) (CalculationsResponse, error) {
-	reads := set.New(req.Channels...)
-	res, err := channel.RetryChanged(ctx, func() (CalculationsResponse, error) {
-		return s.compileCalculations(ctx, reads)
-	})
-	if err != nil {
-		return CalculationsResponse{}, err
+	check freighter.UnaryHandler[CalculationsRequest, struct{}],
+) freighter.UnaryHandler[CalculationsRequest, CalculationsResponse] {
+	return func(ctx context.Context, req CalculationsRequest) (CalculationsResponse, error) {
+		if _, err := check(ctx, req); err != nil {
+			return CalculationsResponse{}, err
+		}
+		reads := set.New(req.Channels...)
+		res, err := channel.RetryChanged(ctx, func() (CalculationsResponse, error) {
+			return s.compileCalculations(ctx, reads)
+		})
+		if err != nil {
+			return CalculationsResponse{}, err
+		}
+		if _, err = check(
+			ctx,
+			CalculationsRequest{Channels: res.Channels},
+		); err != nil {
+			return CalculationsResponse{}, err
+		}
+		return res, nil
 	}
-	if err = snap.Enforce(lo.Map(res.Channels, func(k channel.Key, _ int) resource.ID {
-		return channel.ResourceID(k)
-	})...); err != nil {
-		return CalculationsResponse{}, err
-	}
-	return res, nil
 }
 
 // compileCalculations compiles the calculated channels in reads and the ones they read

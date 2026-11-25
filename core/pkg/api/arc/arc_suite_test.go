@@ -137,7 +137,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	deleteDirectory = bind.Write(binder, apiSvc.DeleteDirectory)
 	retrieve = apiSvc.Compiled(bind.Read(binder, apiSvc.Retrieve))
 	retrieveDirectories = bind.Read(binder, apiSvc.RetrieveDirectories)
-	calculations = bind.Read(binder, apiSvc.Calculations)
+	calculations = apiSvc.Calculations(bind.Read(binder, apiSvc.CheckCalculations))
 	var r directory.Directory
 	Expect(arcSvc.NewDirectoryRetrieve().
 		Where(directory.MatchNested(false)).

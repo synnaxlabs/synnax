@@ -950,7 +950,9 @@ func (l *Layer) BindTo(t Transport) {
 		bind.WritePrepared(l.binder, l.Arc.PrepareDelete, l.Arc.Delete),
 	)
 	t.ArcRetrieve.BindHandler(l.Arc.Compiled(bind.Read(l.binder, l.Arc.Retrieve)))
-	t.ArcCalculations.BindHandler(bind.Read(l.binder, l.Arc.Calculations))
+	t.ArcCalculations.BindHandler(
+		l.Arc.Calculations(bind.Read(l.binder, l.Arc.CheckCalculations)),
+	)
 	t.ArcDispatch.BindHandler(bind.Write(l.binder, l.Arc.Dispatch))
 	t.ArcUpdateTask.BindHandler(
 		bind.WritePrepared(l.binder, l.Arc.PrepareUpdateTask, l.Arc.UpdateTask),
