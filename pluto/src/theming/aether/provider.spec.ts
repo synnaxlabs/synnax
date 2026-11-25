@@ -44,6 +44,40 @@ describe("theming.Provider", () => {
     expect(h.providers.status?.state.statuses).toHaveLength(0);
   });
 
+  describe("in a worker with no font set", () => {
+    const stubWorker = (): void => {
+      vi.stubGlobal("FontFace", class {});
+      vi.stubGlobal("FontFaceSet", undefined);
+      vi.stubGlobal("document", undefined);
+    };
+
+    it("reports one error when it has fonts to add", async () => {
+      stubWorker();
+      const h = renderAether(Leaf, {
+        state: {},
+        theming: { theme: theme.SYNNAX_LIGHT, fontURLs: FONT_URLS },
+      });
+      await expect
+        .poll(() => h.providers.status?.state.statuses)
+        .toEqual([
+          expect.objectContaining({
+            variant: "error",
+            message: "Failed to load theme fonts",
+          }),
+        ]);
+    });
+
+    it("reports no error when it has no fonts to add", async () => {
+      stubWorker();
+      const h = renderAether(Leaf, {
+        state: {},
+        theming: { theme: theme.SYNNAX_LIGHT, fontURLs: [] },
+      });
+      await sleep.sleep(TimeSpan.milliseconds(20));
+      expect(h.providers.status?.state.statuses).toHaveLength(0);
+    });
+  });
+
   it("loads each font with common ligatures off", async () => {
     const FontFace = vi.fn(
       class {
