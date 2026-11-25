@@ -4233,6 +4233,28 @@ TEST_F(OutageTest, ReloadsAfterRenameOfReadChannel) {
     task->stop("test_stop", true);
 }
 
+/// @brief it should compute a calculation that the Core left out once a channel is
+/// renamed back to the name its expression uses.
+TEST_F(OutageTest, ComputesCalculationAfterRenameBack) {
+    const auto a = this->create_channel("a", x::telem::FLOAT32_T);
+    const auto out = this->create_channel("out", x::telem::FLOAT32_T);
+    const auto inner = this->create_calculated("inner", a.name + " * 2");
+    const auto outer = this->create_calculated("outer", inner.name + " + 1");
+    this->dispatch(
+        a,
+        {{"type", "rename"},
+         {"rename", {{"name", make_unique_channel_name("renamed")}}}}
+    );
+    const auto task = this->create_task(outer.name + " -> " + out.name, {a.key});
+    this->start(*task);
+    this->dispatch(a, {{"type", "rename"}, {"rename", {{"name", a.name}}}});
+    ASSERT_EVENTUALLY_TRUE([&] {
+        this->publish(a.key, 1.0f);
+        return this->wrote(out.key, 3.0f);
+    }());
+    task->stop("test_stop", true);
+}
+
 /// @brief it should compute a nested calculation that did not compile when the task was
 /// configured, once an edit fixes it.
 TEST_F(OutageTest, ComputesCalculationFixedAfterConfigure) {

@@ -228,12 +228,16 @@ class Task final : public task::Task {
         ::arc::runtime::Config cfg;
         ::arc::runtime::scheduler::ErrorHandler on_error;
         x::telem::TimeSpan delay;
-        /// @brief guards watched, requested, running, and thread.
+        /// @brief guards watched, omitted, requested, running, and thread.
         mutable std::mutex mu;
         std::condition_variable cv;
         /// @brief the channels whose change or delete reloads the calculations. It
         /// only grows, so that a calculation the Core leaves out stays watched.
         std::set<::arc::types::ChannelKey> watched;
+        /// @brief true while the Core leaves out a calculation that the Arc reads. A
+        /// channel created or renamed to a name it uses can bring it back, so then any
+        /// channel set reloads.
+        bool omitted = false;
         bool requested = false;
         bool running = false;
         std::thread thread;
@@ -320,6 +324,7 @@ class Task final : public task::Task {
                     compiled.channels.begin(),
                     compiled.channels.end()
                 );
+                this->omitted = !compiled.omitted.empty();
             }
             auto loaded = x::json::to_array(compiled.calculations);
             if (loaded == this->loaded) return x::errors::NIL;
@@ -359,6 +364,7 @@ class Task final : public task::Task {
             on_error(std::move(on_error)),
             delay(delay),
             watched(compiled.channels.begin(), compiled.channels.end()),
+            omitted(!compiled.omitted.empty()),
             loaded(x::json::to_array(compiled.calculations)),
             dependencies(task.calculator.dependencies()),
             streamed(task.calculator.streamed(task.runtime->read_channels)) {
@@ -400,7 +406,8 @@ class Task final : public task::Task {
         }
 
         /// @brief returns true if frame, from the channel set or delete channel,
-        /// changes a watched channel.
+        /// changes a watched channel, or sets any channel while a calculation is
+        /// omitted.
         [[nodiscard]] bool changes(
             const x::telem::Frame &frame,
             const synnax::channel::Key set_key,
@@ -411,12 +418,14 @@ class Task final : public task::Task {
                 if (key == delete_key) {
                     for (const auto k: series.values<synnax::channel::Key>())
                         if (this->watched.contains(k)) return true;
-                } else if (key == set_key)
+                } else if (key == set_key) {
+                    if (this->omitted && !series.empty()) return true;
                     for (const auto &ch: series.json_values())
                         if (this->watched.contains(
                                 ch.at("key").get<synnax::channel::Key>()
                             ))
                             return true;
+                }
             return false;
         }
     };
