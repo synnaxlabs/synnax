@@ -70,10 +70,8 @@ export const useCommandChannelNames = (
   write: Record<string, channel.Key> | undefined,
   specs: CommandChannelSpec[],
 ): ReadonlyMap<string, string> => {
-  const [names] = useChannelPlans(
-    [{ write, specs: specs.map(({ suits: _, ...spec }) => spec) }],
-    async (client) =>
-      write == null ? [] : [await planCommandChannels(client, write, specs)],
+  const [names] = useChannelPlans([{ write, specs }], async (client) =>
+    write == null ? [] : [await planCommandChannels(client, write, specs)],
   );
   return names ?? NO_NAMES;
 };

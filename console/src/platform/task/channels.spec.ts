@@ -561,7 +561,7 @@ describe("channels", () => {
         channel: old.key,
         name,
         dataType: "float64",
-        suits: (ch) => ch.dataType.isFloat,
+        dataTypes: ["float32", "float64"],
       });
       expect(key).not.toBe(old.key);
       expect(write).toEqual({ "/cmd": key });
@@ -584,7 +584,7 @@ describe("channels", () => {
         channel: 0,
         name: uniqueName("cmd"),
         dataType: "float64",
-        suits: (ch) => ch.dataType.isFloat,
+        dataTypes: ["float32", "float64"],
       });
       expect(key).not.toBe(stored.key);
       expect(write).toEqual({ "/cmd": key });
@@ -613,7 +613,7 @@ describe("channels", () => {
         channel: picked.key,
         name,
         dataType: "float64",
-        suits: (ch) => ch.dataType.isFloat,
+        dataTypes: ["float32", "float64"],
       });
       expect((await client.channels.retrieve(key)).name).toBe(name);
       const [moved, movedIndex, kept] = await client.channels.retrieve([
@@ -646,7 +646,7 @@ describe("channels", () => {
         channel: old.key,
         name,
         dataType: "float64",
-        suits: (ch) => ch.dataType.isFloat,
+        dataTypes: ["float32", "float64"],
       });
       expect(key).not.toBe(old.key);
       expect(write).toEqual({ "/cmd": key });
@@ -672,7 +672,7 @@ describe("channels", () => {
           channel: current.key,
           name: "unused",
           dataType: "float64",
-          suits: (ch) => ch.dataType.isFloat,
+          dataTypes: ["float32", "float64"],
         }),
       ).toBe(stored.key);
     });
