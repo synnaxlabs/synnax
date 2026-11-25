@@ -53,6 +53,18 @@ describe("Schematic.Node.BUILT_INS", () => {
     }
   });
 
+  it("should give the root of each drawing a stroke width of 2", () => {
+    for (const [name, spec] of Node.BUILT_INS) {
+      const svg = new DOMParser().parseFromString(spec.drawing.markup, "image/svg+xml");
+      expect({ name, width: svg.documentElement.getAttribute("stroke-width") }).toEqual(
+        {
+          name,
+          width: "2",
+        },
+      );
+    }
+  });
+
   it("should give each drawing with detail lines the detail part", () => {
     for (const [name, spec] of Node.BUILT_INS)
       if (spec.drawing.markup.includes("pluto--detail"))

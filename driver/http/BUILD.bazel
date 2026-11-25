@@ -67,8 +67,11 @@ cc_test(
     tags = ["requires-core"],
     deps = [
         ":http",
+        "//client/cpp/icd",
         "//client/cpp/testutil",
+        "//driver/errors",
         "//driver/http/testutil",
+        "//driver/icd",
         "//driver/pipeline/testutil",
         "//x/cpp/breaker",
         "//x/cpp/defer",

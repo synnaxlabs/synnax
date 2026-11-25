@@ -653,6 +653,7 @@ ICD struct {
         is an interface control document: the messages a system sends and receives, and
         how to parse each one.
     """
+    @go entry
     @go imex
     @go marshal
     @go migrate

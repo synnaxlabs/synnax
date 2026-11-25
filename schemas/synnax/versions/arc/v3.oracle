@@ -42,6 +42,7 @@ Arc struct {
         @go marshal omit
     }
 
+    @go entry
     @go imex
     @go marshal
     @go migrate

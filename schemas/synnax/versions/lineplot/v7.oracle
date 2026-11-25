@@ -136,6 +136,7 @@ LinePlot struct {
         @doc value "holds annotation rules drawn over the plot."
     }
 
+    @go entry
     @go imex
     @go marshal
     @go migrate
