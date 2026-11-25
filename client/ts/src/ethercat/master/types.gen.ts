@@ -38,9 +38,9 @@ export const masterZ = z.object({
   /** rack is the key of the rack the master runs on. */
   rack: rack.keyZ,
   /** name is a human-readable name for the master. */
-  name: z.string().min(1, "name is required"),
+  name: z.string().min(1, "Name is required"),
   /** interface is the network interface the master drives, such as eth0 or igh:0. */
-  interface: z.string().min(1, "interface is required"),
+  interface: z.string().min(1, "Interface is required"),
   /**
    * slaves are the keys of the slaves on the bus, in bus order. A slave's position is
    * its index.
