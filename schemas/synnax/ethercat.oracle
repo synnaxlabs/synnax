@@ -52,10 +52,11 @@ ReadChannel union on type extends BaseReadChannel {
             @doc value "is the CoE object dictionary sub-index of the PDO entry."
         }
         data_type  telem.DataType? {
-            @doc value """
+            @doc value           """
                 is the data type of the PDO entry. Absent until an entry is picked.
             """
-            @ts type   "string"
+            @ts type             "string"
+            @validate min_length 1
         }
         calibrated bool = false {
             @doc value """
@@ -136,10 +137,11 @@ WriteChannel union on type extends BaseWriteChannel {
             @doc value "is the CoE object dictionary sub-index of the PDO entry."
         }
         data_type  telem.DataType? {
-            @doc value """
+            @doc value           """
                 is the data type of the PDO entry. Absent until an entry is picked.
             """
-            @ts type   "string"
+            @ts type             "string"
+            @validate min_length 1
         }
         stop_value float64 = 0 {
             @doc value """

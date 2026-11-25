@@ -31,8 +31,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	tasktestutil "github.com/synnaxlabs/synnax/pkg/service/task/testutil"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/patch"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // openDevices opens a device service on db and creates three slaves on its embedded
@@ -347,6 +349,32 @@ var _ = Describe("Service", func() {
 			data := MustSucceed(svc.Read.Read(ctx, db, key))
 			Expect(data["key"]).To(Equal(key.String()))
 			Expect(data["sample_rate"]).To(BeNumerically("==", 25))
+		})
+
+		It("Should refuse a path edit that sets an empty data type", func(
+			ctx SpecContext,
+		) {
+			ch := MustSucceed(channeltestutil.CreateVirtual(ctx, db, channelSvc, 1))[0]
+			key := MustSucceed(tasks.Create(ctx, svc.Read, msgpack.EncodedJSON{
+				"channels": []any{map[string]any{
+					"type":      "entry",
+					"key":       "chan-1",
+					"device":    "slave",
+					"channel":   ch,
+					"index":     0x6000,
+					"sub_index": 1,
+					"data_type": "int16",
+				}},
+			}))
+			c := MustSucceed(patch.Begin(patch.Set{
+				Path:  []string{"config", "channels", "chan-1", "data_type"},
+				Value: "",
+			})).Next()
+			Expect(svc.Read.Edit(ctx, db, key, "", []patch.Cursor{c})).
+				Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("data_type")),
+			))
 		})
 
 		It("Should address an unresolved read channel by its slave's input", func(

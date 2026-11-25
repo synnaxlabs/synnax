@@ -103,7 +103,7 @@ class EntryReadChannel(BaseReadChannel):
     type: Literal["entry"] = "entry"
     index: int = Field(ge=0, le=65535)
     sub_index: int = Field(ge=0, le=255)
-    data_type: telem.DataType | None = None
+    data_type: telem.DataType | None = Field(default=None, min_length=1)
     calibrated: bool = False
     scale: task.Scale = Field(default_factory=lambda: task.NoneScale(type="none"))
 
@@ -131,7 +131,7 @@ class EntryWriteChannel(BaseWriteChannel):
     type: Literal["entry"] = "entry"
     index: int = Field(ge=0, le=65535)
     sub_index: int = Field(ge=0, le=255)
-    data_type: telem.DataType | None = None
+    data_type: telem.DataType | None = Field(default=None, min_length=1)
     stop_value: float = 0
 
 

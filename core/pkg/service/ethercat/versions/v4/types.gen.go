@@ -81,6 +81,9 @@ func (e *EntryReadChannel) SetDefaults() {
 // schema constraints.
 func (e EntryReadChannel) Validate() error {
 	v := validate.New("EntryReadChannel")
+	if e.DataType != nil {
+		v.NotEmptyString("data_type", *e.DataType)
+	}
 	v.Exec(func() error { return validate.PathedError(e.Scale.Validate(), "scale") })
 	return v.Error()
 }
@@ -253,6 +256,16 @@ type EntryWriteChannel struct {
 
 func (EntryWriteChannel) isWriteChannelVariant() {}
 
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (e EntryWriteChannel) Validate() error {
+	v := validate.New("EntryWriteChannel")
+	if e.DataType != nil {
+		v.NotEmptyString("data_type", *e.DataType)
+	}
+	return v.Error()
+}
+
 // UnresolvedWriteChannel is a channel whose PDO entry name matched no single entry on
 // its slave. It must be given an entry before the task runs.
 type UnresolvedWriteChannel struct {
@@ -353,6 +366,10 @@ func (u WriteChannel) Type() WriteChannelType {
 func (u WriteChannel) Validate() error {
 	v := validate.New("WriteChannel")
 	v.Ternary("type", u.Variant == nil, "required")
+	switch variant := u.Variant.(type) {
+	case EntryWriteChannel:
+		v.Exec(variant.Validate)
+	}
 	return v.Error()
 }
 
