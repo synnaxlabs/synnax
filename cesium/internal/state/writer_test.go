@@ -17,6 +17,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/log"
 	"github.com/synnaxlabs/cesium/internal/state"
 	"github.com/synnaxlabs/x/errors"
@@ -349,6 +350,27 @@ var _ = Describe("Writer", func() {
 			Expect(w.Commit(first())).To(MatchError(ContainSubstring("state failed")))
 			Expect(a.durable(nil)).To(refused())
 		})
+	})
+
+	Describe("Drops", func() {
+		BeforeEach(func() { start(head(5, 3)) })
+
+		It("Should refuse a key that a Drop dropped after the read of its channels",
+			func() {
+				cfg := clockWriter(100, false, 5)
+				cfg.Drops = s.Drops()
+				durable(&log.Drop{Key: 5})
+				Expect(s.OpenWriter(context.Background(), cfg)).Error().
+					To(MatchError(channel.ErrNotFound))
+			})
+
+		It("Should open a key that a Drop dropped before the read of its channels",
+			func() {
+				durable(&log.Drop{Key: 5})
+				cfg := clockWriter(100, false, 5)
+				cfg.Drops = s.Drops()
+				Expect(open(cfg).Close()).To(Succeed())
+			})
 	})
 
 	Describe("Claims", func() {

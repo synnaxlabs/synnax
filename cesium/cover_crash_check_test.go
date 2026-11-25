@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"os"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -209,9 +210,21 @@ var _ = Describe("Check: a record whose frame fault 5d cuts before the log cover
 			Eventually(h.held).WithTimeout(time.Minute).Should(BeClosed())
 			Consistently(dropped).ShouldNot(Receive(), "a Drop before its cover")
 			Expect(idle.Close()).To(Succeed())
-			// The Drop takes the samples, and the open loads the channel file that its
-			// removal has not reached.
-			Expect(durable(ctx)).To(BeEmpty())
+			kept := MustSucceed(disk.Crash(fault.CrashConfig{}))
+			re, closeRe := breakOpen(ctx, kept)
+			// The Drop takes the samples, and a second Drop removes the key that its
+			// removal did not reach.
+			Expect(breakRead(ctx, re)).To(BeEmpty())
+			Expect(re.Drop(ctx, keys)).To(Succeed())
+			for _, k := range keys {
+				_, err := re.RetrieveChannel(ctx, k)
+				Expect(err).To(MatchError(cesium.ErrChannelNotFound))
+				Expect(err).To(MatchError(ContainSubstring(
+					"channel with key %d not found", k,
+				)))
+				Expect(kept.Exists(strconv.Itoa(int(k)))).To(BeFalse(), "key %d", k)
+			}
+			closeRe()
 			cutImages(ctx, []int64{10, 11, 20, 21, 22})
 			h.let()
 			Eventually(dropped).Should(Receive(Succeed()))
