@@ -10,6 +10,7 @@
 package calculator_test
 
 import (
+	"context"
 	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -206,4 +207,85 @@ var _ = Describe("Calculator check", Ordered, func() {
 			End:   2*telem.SecondTS + 1,
 		}))
 	})
+
+	It("Should warn of stale inputs again after an error replaced the warning",
+		func(ctx SpecContext) {
+			indexes := []channel.Channel{
+				{Name: UniqueChannelName(), DataType: telem.TimestampT, IsIndex: true},
+				{Name: UniqueChannelName(), DataType: telem.TimestampT, IsIndex: true},
+			}
+			bases := []channel.Channel{
+				{Name: UniqueChannelName(), DataType: telem.Float64T},
+				{Name: UniqueChannelName(), DataType: telem.Float64T},
+			}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				w := channelSvc.NewWriter(tx)
+				if err := w.CreateMany(ctx, &indexes); err != nil {
+					return err
+				}
+				for i := range bases {
+					bases[i].LocalIndex = indexes[i].LocalKey
+				}
+				return w.CreateMany(ctx, &bases)
+			})).To(Succeed())
+			out := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
+				Name:     UniqueChannelName(),
+				DataType: telem.Float64T,
+				Expression: fmt.Sprintf(
+					"return %s + %s",
+					bases[0].Name,
+					bases[1].Name,
+				),
+			}))
+			calc := MustSucceed(creator.CalculationOf(ctx, out.Key()))
+			Expect(calc.Primary).To(HaveValue(Equal(bases[0].Key())))
+			mod := MustSucceed(compiler.Compile(ctx, db, compiler.Config{
+				ChannelService: channelSvc,
+				Channel:        out,
+				Calculation:    calc,
+				Live:           true,
+			}))
+			var now telem.TimeStamp
+			c := MustOpen(calculator.Open(ctx, calculator.Config{
+				Module: mod,
+				Now:    func() telem.TimeStamp { return now },
+			}))
+			DeferCleanup(c.Close)
+			g := calculator.Group{c}
+			// step writes the primary at stamp, in seconds, with alignment a, a second
+			// later on the clock, and returns the variant and message of each report.
+			step := func(stamp telem.TimeStamp, a uint32) []string {
+				GinkgoHelper()
+				now += telem.SecondTS
+				idx := telem.NewSeriesSecondsTSV(stamp)
+				data := telem.NewSeriesV[float64](1)
+				idx.Alignment = telem.NewAlignment(0, a)
+				data.Alignment = idx.Alignment
+				var reported []string
+				g.Next(ctx, frame.NewMulti(
+					[]channel.Key{indexes[0].Key(), bases[0].Key()},
+					[]telem.Series{idx, data},
+				), func(
+					_ context.Context,
+					_ channel.Key,
+					_ string,
+					st calculator.Status,
+				) bool {
+					reported = append(reported, string(st.Variant)+": "+st.Message)
+					return true
+				})
+				return reported
+			}
+			stale := "warning: " + calculation.StaleMessage
+			// The join settles on the fourth frame of the primary, 1 s apart, and the
+			// other input never writes.
+			for i := range 3 {
+				Expect(step(telem.TimeStamp(i+1), uint32(i))).To(BeEmpty())
+			}
+			Expect(step(4, 3)).To(ConsistOf(stale))
+			// A primary stamp before one the join passed fails the step.
+			Expect(step(2, 4)).To(ConsistOf(HavePrefix("error: ")))
+			// The inputs are still stale, and the error is not the cause now.
+			Expect(step(5, 5)).To(ConsistOf(stale))
+		})
 })
