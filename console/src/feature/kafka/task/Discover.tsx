@@ -26,7 +26,6 @@ import {
   isExtendable,
   type Picks,
   type Reads,
-  shapeKey,
   takenPointers,
 } from "@/feature/kafka/task/additions";
 import { browseTopics, sampleTopic } from "@/feature/kafka/task/scan";
@@ -99,7 +98,7 @@ const FRAME = "records";
 
 const FORMAT_HELP = "Optional. A topic with no format gets one from its records.";
 
-const NO_READS: Reads = { pointers: new Map(), jsonless: new Set(), anyKey: new Map() };
+const NO_READS: Reads = { messages: new Map(), jsonless: new Set() };
 
 const readNothing = (): Reads => NO_READS;
 
@@ -226,7 +225,7 @@ const defaultsOf = (shapes: json.Shape[], reads: Reads): Picks =>
   new Map(
     shapes
       .map((shape): [string, Set<string>] => [
-        shapeKey(shape),
+        json.shapeKey(shape),
         defaultPicks(shape, reads),
       ])
       .filter(([, pointers]) => pointers.size > 0),
@@ -275,7 +274,7 @@ const rebase = (
 ): Map<string, TopicPick> => {
   const pick = picks.get(topic);
   if (pick == null) return picks;
-  const keys = new Set(shapes.map(shapeKey));
+  const keys = new Set(shapes.map(json.shapeKey));
   const kept: Picks = new Map([...pick.picks].filter(([key]) => keys.has(key)));
   return withTopic(picks, topic, shapes, kept);
 };
@@ -292,9 +291,16 @@ const valueOf = (
   dataType: ICD.DEFAULT_DATA_TYPES[field.kind],
 });
 
-/** @returns the title of the fields of a shape: its keys and its record count. */
-const titleOf = (shape: json.Shape, label: Params["label"]): string =>
-  `${shape.sources.map(label).join(", ")} · ${pluralize("record", shape.count, true)}`;
+/**
+ * @returns the title of the fields of a shape: its keys, its record count, and the
+ * pointer of the field that tells its records apart, if any.
+ */
+const titleOf = (shape: json.Shape, label: Params["label"]): string => {
+  const keys = shape.sources.map(label).join(", ");
+  const records = pluralize("record", shape.count, true);
+  const present = shape.present == null ? undefined : shape.fields[shape.present];
+  return `${keys} · ${records}${present == null ? "" : ` with ${present.pointer}`}`;
+};
 
 const PaneWarning = ({ warning }: { warning: string | null }) =>
   warning == null ? null : (
@@ -343,7 +349,7 @@ const TopicValues = ({
       title: titleOf(shape, label),
       values: shape.fields.map((f, j): ICD.Picker.Value => {
         const key = `${i}${f.pointer}`;
-        fields.set(key, [shapeKey(shape), f.pointer]);
+        fields.set(key, [json.shapeKey(shape), f.pointer]);
         let lock: ICD.Picker.Lock | undefined;
         if (j === shape.index) lock = ICD.Picker.INDEX;
         else if (taken.has(f.pointer))
@@ -354,7 +360,7 @@ const TopicValues = ({
     };
   });
   const picked = shapes.flatMap((shape, i) =>
-    [...(value.get(shapeKey(shape)) ?? [])].map((p) => `${i}${p}`),
+    [...(value.get(json.shapeKey(shape)) ?? [])].map((p) => `${i}${p}`),
   );
   const handleChange = (keys: string[]) => {
     const next: Picks = new Map();
