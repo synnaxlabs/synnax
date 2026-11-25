@@ -11,7 +11,11 @@
 
 package master
 
-import "github.com/synnaxlabs/synnax/pkg/service/ethercat/master/versions"
+import (
+	"github.com/synnaxlabs/synnax/pkg/service/ethercat/master/versions"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/x/filter"
+)
 
 // Key uniquely identifies an EtherCAT master.
 type Key = versions.Key
@@ -24,3 +28,21 @@ type Status = versions.Status
 
 // Master is an EtherCAT master: one network interface and the bus behind it.
 type Master = versions.Master
+
+// Where is a filter that selects EtherCAT masters.
+type Where struct {
+	// And matches when every child matches.
+	And []Where `json:"and,omitzero" msgpack:"and,omitempty"`
+	// Or matches when any child matches.
+	Or []Where `json:"or,omitzero" msgpack:"or,omitempty"`
+	// Not matches when the child does not match.
+	Not *Where `json:"not,omitzero" msgpack:"not,omitempty"`
+	// Key selects by key.
+	Key *filter.Set[Key] `json:"key,omitzero" msgpack:"key,omitempty"`
+	// Name selects by name.
+	Name *filter.String `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Interface selects by interface.
+	Interface *filter.String `json:"interface,omitzero" msgpack:"interface,omitempty"`
+	// Rack selects by rack.
+	Rack *filter.Set[rack.Key] `json:"rack,omitzero" msgpack:"rack,omitempty"`
+}

@@ -9,6 +9,7 @@
 
 import "schemas/synnax/rack"
 import "schemas/synnax/status"
+import "schemas/x/filter"
 
 @cpp output "client/cpp/ethercat/master"
 @go output  "core/pkg/service/ethercat/master"
@@ -77,4 +78,14 @@ Master struct {
     @go migrate
     @resource type "ethercat_master"
     @retrieve
+}
+
+Where filter Master {
+    key
+    name
+    interface
+    rack
+
+    @doc value         "is a filter that selects EtherCAT masters."
+    @go request_output "core/pkg/api/ethercat/master"
 }
