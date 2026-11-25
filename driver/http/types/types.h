@@ -126,7 +126,7 @@ struct RequestConfig {
 constexpr std::size_t DEFAULT_MAX_CONCURRENT_REQUESTS = 6;
 
 /// @brief default cap on the size of a response body in bytes.
-constexpr std::int64_t DEFAULT_MAX_RESPONSE_SIZE = 16 * 1024 * 1024;
+constexpr std::int64_t DEFAULT_MAX_RESPONSE_SIZE = std::int64_t{16} * 1024 * 1024;
 
 /// @brief a fully resolved HTTP request.
 struct Request {
