@@ -22,6 +22,7 @@ import (
 	v3 "github.com/synnaxlabs/synnax/pkg/service/ethercat/versions/v3"
 	v4 "github.com/synnaxlabs/synnax/pkg/service/ethercat/versions/v4"
 	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
@@ -49,6 +50,10 @@ func findSlaves(
 	keys []string,
 ) (map[string]v2.Slave, error) {
 	return lo.PickByKeys(slaves, keys), nil
+}
+
+func failLookup(context.Context, gorp.Snapshot, []string) (map[string]v2.Slave, error) {
+	return nil, errors.New("lookup failed")
 }
 
 var _ = Describe("Migrate", func() {
@@ -238,4 +243,51 @@ var _ = Describe("Migrate", func() {
 		Entry("an entry with a data type", "Output", new(telem.Uint8T)),
 		Entry("an entry with no data type as absent", "Padding", nil),
 	)
+
+	Describe("Failed resolution", func() {
+		unresolvedRead := func() v4.ReadConfig {
+			return v4.ReadConfig{Channels: []v4.ReadChannel{{
+				Variant: v4.UnresolvedReadChannel{
+					BaseReadChannel: readBase,
+					Pdo:             "Missing",
+				},
+			}}}
+		}
+		unresolvedWrite := func() v4.WriteConfig {
+			return v4.WriteConfig{Channels: []v4.WriteChannel{{
+				Variant: v4.UnresolvedWriteChannel{
+					BaseWriteChannel: writeBase,
+					Pdo:              "Missing",
+				},
+			}}}
+		}
+		It("Should leave a read channel that names no entry unresolved", func(
+			ctx SpecContext,
+		) {
+			cfg := unresolvedRead()
+			Expect(v4.ResolveReadConfig(ctx, nil, findSlaves, &cfg)).To(Succeed())
+			Expect(cfg).To(Equal(unresolvedRead()))
+		})
+		It("Should leave a write channel that names no entry unresolved", func(
+			ctx SpecContext,
+		) {
+			cfg := unresolvedWrite()
+			Expect(v4.ResolveWriteConfig(ctx, nil, findSlaves, &cfg)).To(Succeed())
+			Expect(cfg).To(Equal(unresolvedWrite()))
+		})
+		It("Should return the error of the device lookup for a read config", func(
+			ctx SpecContext,
+		) {
+			cfg := unresolvedRead()
+			Expect(v4.ResolveReadConfig(ctx, nil, failLookup, &cfg)).
+				To(MatchError("lookup failed"))
+		})
+		It("Should return the error of the device lookup for a write config", func(
+			ctx SpecContext,
+		) {
+			cfg := unresolvedWrite()
+			Expect(v4.ResolveWriteConfig(ctx, nil, failLookup, &cfg)).
+				To(MatchError("lookup failed"))
+		})
+	})
 })
