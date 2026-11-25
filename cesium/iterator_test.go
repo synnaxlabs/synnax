@@ -2170,8 +2170,7 @@ var _ = Describe("Iterator index lookups", func() {
 		tr := (100 * telem.SecondTS).Range(900 * telem.SecondTS)
 		// On the old layout, index probes are the only 8-byte reads, since data reads
 		// span many samples. The pointer log reads by block, so its probes are the
-		// reads
-		// of the index's segment files.
+		// reads of the index's segment files.
 		probe := MatchLength(8)
 		if pointerLog {
 			dir := strconv.Itoa(int(idxKey)) + "/"
