@@ -118,7 +118,29 @@ describe("Schematic.Node.BUILT_INS", () => {
         ],
       ],
       ["light", 1, [{ fill: BANDED_GREEN }]],
-      ["switch", 1, []],
+      [
+        "switch",
+        0,
+        [
+          { stroke: RED },
+          { selectors: [".pluto-switch-symbol__knob-on"], hidden: true },
+        ],
+      ],
+      [
+        "switch",
+        1,
+        [
+          { stroke: BANDED_GREEN },
+          { selectors: [".pluto-switch-symbol__track"], fill: BANDED_GREEN },
+          { selectors: [".pluto-switch-symbol__knob"], hidden: true },
+          { selectors: [".pluto-switch-symbol__knob-on"], hidden: true },
+          {
+            selectors: [".pluto-switch-symbol__knob-on"],
+            hidden: false,
+            fill: color.construct("#000000e6"),
+          },
+        ],
+      ],
       ["thruster", 1, []],
     ])(
       "should paint %s at %d as its old variant draws",
