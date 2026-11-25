@@ -22,9 +22,10 @@
 #                             its labels showed at <time> (Unix seconds). A mark older
 #                             than the saved one changes nothing.
 #   preview upgrade           Gets the wildcard certificate, restarts the GitHub login,
-#                             starts Caddy or recreates it without its access log
-#                             mount, and applies the CPU limit to the running
-#                             previews. Memory limits apply from the next deploy.
+#                             rewrites the site of each preview, starts Caddy or
+#                             recreates it without its access log mount, and applies
+#                             the CPU limit to the running previews. Memory limits
+#                             apply from the next deploy.
 #   preview down <pr>         Removes the Core for a pull request.
 #   preview sweep             Removes every Core marked none and not deployed or
 #                             viewed for the TTL, and renews the certificate when due.
@@ -78,6 +79,7 @@ start_login() {
     OAUTH2_PROXY_CLIENT_SECRET=$(parameter "$PREVIEW_LOGIN_PARAMETERS/client-secret")
     OAUTH2_PROXY_COOKIE_SECRET=$(parameter "$PREVIEW_LOGIN_PARAMETERS/cookie-secret")
     export OAUTH2_PROXY_CLIENT_ID OAUTH2_PROXY_CLIENT_SECRET OAUTH2_PROXY_COOKIE_SECRET
+    docker pull --quiet "$OAUTH2_PROXY" > /dev/null
     docker rm --force login > /dev/null
     docker run --detach --name login --network preview --restart unless-stopped \
         --env OAUTH2_PROXY_CLIENT_ID --env OAUTH2_PROXY_CLIENT_SECRET \
@@ -167,6 +169,30 @@ mark() {
     if (($3 >= saved)); then echo "$3 $2" > "$file"; fi
 }
 
+# Routes the site of pull request $1 to its Core, behind the GitHub login.
+write_site() {
+    # A Caddy reload closes every proxied websocket unless delayed, so without the delay
+    # one preview's deploy breaks the streams of all the others.
+    cat > "$PREVIEW_SITES/pr-$1.caddy" << SITE
+pr-$1.$PREVIEW_DOMAIN {
+    tls $CERT.crt $CERT.key
+    log {
+        output file $PREVIEW_LOGS/pr-$1.log
+    }
+    forward_auth login:4180 {
+        uri /oauth2/auth
+        @signed_out status 401
+        handle_response @signed_out {
+            redir * https://$AUTH/oauth2/start?rd={scheme}://{host}{uri}
+        }
+    }
+    reverse_proxy $(container "$1"):9090 {
+        stream_close_delay 1h
+    }
+}
+SITE
+}
+
 up() {
     local pr=$1 image=$2 sample=$3 name
     check_pr "$pr"
@@ -202,26 +228,7 @@ up() {
         if docker exec "$name" curl -fsS -o /dev/null -X POST \
             -H "Content-Type: application/json" -d '{}' \
             http://localhost:9090/api/v1/connectivity/check; then
-            # A Caddy reload closes every proxied websocket unless delayed, so without
-            # the delay one preview's deploy breaks the streams of all the others.
-            cat > "$PREVIEW_SITES/pr-$pr.caddy" << SITE
-pr-$pr.$PREVIEW_DOMAIN {
-    tls $CERT.crt $CERT.key
-    log {
-        output file $PREVIEW_LOGS/pr-$pr.log
-    }
-    forward_auth login:4180 {
-        uri /oauth2/auth
-        @signed_out status 401
-        handle_response @signed_out {
-            redir * https://$AUTH/oauth2/start?rd={scheme}://{host}{uri}
-        }
-    }
-    reverse_proxy $name:9090 {
-        stream_close_delay 1h
-    }
-}
-SITE
+            write_site "$pr"
             reload_caddy
             # The load takes about half a minute, so other commands need not wait on it.
             flock --unlock 9
@@ -249,9 +256,11 @@ down() {
 }
 
 upgrade() {
-    local mounts preview
+    local mounts preview pr
     renew_cert
     start_login
+    # A running preview gets its site in the current form, so it needs no redeploy.
+    previews | while read -r pr _; do write_site "$pr"; done
     # No Caddy container yet, on a new host, reads as no mounts.
     mounts=$(docker inspect -f '{{range .Mounts}}{{.Destination}} {{end}}' caddy \
         2> /dev/null || true)

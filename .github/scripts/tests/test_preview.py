@@ -396,6 +396,11 @@ def lego_runs(host: Host) -> list[str]:
     return [c for c in host.docker() if "goacme/lego" in c]
 
 
+OAUTH2_PROXY = (
+    "quay.io/oauth2-proxy/oauth2-proxy:v7.15.6"
+    "@sha256:c3415e8660af553f5e18f5d90db050614c02493c0ac6260ac59442f6d9b12048"
+)
+
 FORCED_RELOAD = "docker exec caddy caddy reload --config /etc/caddy/Caddyfile --force"
 
 
@@ -420,7 +425,8 @@ class TestUpgrade:
         run = next(
             c for c in docker if c.startswith("docker run --detach --name login")
         )
-        assert docker.index("docker rm --force login") < docker.index(run)
+        pull = docker.index(f"docker pull --quiet {OAUTH2_PROXY}")
+        assert pull < docker.index("docker rm --force login") < docker.index(run)
         for name in ("CLIENT_ID", "CLIENT_SECRET", "COOKIE_SECRET"):
             assert f"--env OAUTH2_PROXY_{name} " in run
         assert "license-key" not in run
@@ -442,6 +448,19 @@ class TestUpgrade:
             "    reverse_proxy login:4180\n"
             "}\n"
         )
+
+    def test_should_keep_the_login_when_its_pull_fails(self, host: Host) -> None:
+        (host.path / "pull_fails").touch()
+        assert host.run("upgrade").returncode != 0
+        assert "docker rm --force login" not in host.docker()
+
+    def test_should_put_running_previews_behind_the_login(self, host: Host) -> None:
+        host.containers((12, 100), (13, 200))
+        host.site(12).write_text("route")
+        assert host.run("upgrade").returncode == 0
+        for pr in (12, 13):
+            assert "forward_auth login:4180" in host.site(pr).read_text()
+            assert f"reverse_proxy synnax-pr-{pr}:9090" in host.site(pr).read_text()
 
     def test_should_keep_caddy_when_a_login_secret_fails(self, host: Host) -> None:
         (host.path / "aws_fails").touch()
