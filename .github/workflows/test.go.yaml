@@ -158,7 +158,7 @@ jobs:
           cache: false
 
       # This workflow file salts the key, so a cache saved under an older layout of the
-      # job never restores into the new one.
+      # job never restores into the new one. Each job keeps its own caches.
       - &key-caches
         name: Key the Go caches
         id: key
@@ -166,12 +166,13 @@ jobs:
         env:
           DIRECTORY: ${{ inputs.directory }}
           GOOS: ${{ matrix.goos }}
+          JOB: ${{ github.job }}
           SUM:
             ${{ hashFiles(format('{0}/go.sum', inputs.directory),
             '.github/workflows/test.go.yaml') }}
         run: |
-          echo "module=go-lint-$GOOS-$DIRECTORY-" >> "$GITHUB_OUTPUT"
-          echo "sum=go-lint-$GOOS-$DIRECTORY-$SUM-" >> "$GITHUB_OUTPUT"
+          echo "module=go-$JOB-$GOOS-$DIRECTORY-" >> "$GITHUB_OUTPUT"
+          echo "sum=go-$JOB-$GOOS-$DIRECTORY-$SUM-" >> "$GITHUB_OUTPUT"
 
       # A run reads the caches of its own branch and of main, never those of another
       # pull request, so only main saves them. A changed go.sum falls back to an older
@@ -271,17 +272,19 @@ jobs:
       # Each save holds every entry it restored, so stale builds pile up until their
       # extraction fills the disk. Go and golangci-lint refresh an entry's mtime when
       # they use it, so deleting the oldest files first keeps the ones this lint read.
-      # One cold lint fills about 11 GB.
+      # One cold lint fills about 11 GB. The fix job has no golangci-lint cache.
       - name: Trim the Go caches
         if: ${{ success() && github.ref == 'refs/heads/main' && matrix.shard == 1 }}
-        env:
+        shell: bash
+        env: &trim-env
           BUDGET: 14000000000
-        run: |
-          du -sh ~/.cache/go-build ~/.cache/golangci-lint
-          find ~/.cache/go-build ~/.cache/golangci-lint -type f -printf '%T@ %s %p\n' |
+        run: &trim |
+          mapfile -t dirs < <(ls -d ~/.cache/go-build ~/.cache/golangci-lint 2>/dev/null)
+          du -sh "${dirs[@]}"
+          find "${dirs[@]}" -type f -printf '%T@ %s %p\n' |
             sort -rn | awk -v budget="$BUDGET" '(total += $2) > budget { print $3 }' |
             xargs -r rm -f
-          du -sh ~/.cache/go-build ~/.cache/golangci-lint
+          du -sh "${dirs[@]}"
 
       # A failed lint leaves a cache that pull requests would restore, so only a
       # passing lint on main saves. The shards restore one cache, so only the first
@@ -289,7 +292,7 @@ jobs:
       - name: Save the Go caches
         if: ${{ success() && github.ref == 'refs/heads/main' && matrix.shard == 1 }}
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
-        with:
+        with: &save
           path: *lint-cache
           key: ${{ steps.cache.outputs.cache-primary-key }}
 
@@ -324,6 +327,18 @@ jobs:
           CGO_ENABLED: "0"
           GOOS: ${{ matrix.goos }}
         run: go fix -diff ./...
+
+      - name: Trim the Go caches
+        if: ${{ success() && github.ref == 'refs/heads/main' }}
+        shell: bash
+        env: *trim-env
+        run: *trim
+
+      # A failed go fix leaves a cache that pull requests would restore.
+      - name: Save the Go caches
+        if: ${{ success() && github.ref == 'refs/heads/main' }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with: *save
 
   test:
     name:
