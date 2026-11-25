@@ -236,6 +236,7 @@ func (idx *index) unprotectedSplice(start, end deleteBound, tr telem.TimeRange) 
 			fileKey: start.ptr.fileKey,
 			offset:  start.ptr.offset,
 			size:    uint32(start.offset), // size from start.Start to tr.Start
+			id:      start.ptr.id,
 		})
 	}
 
@@ -246,6 +247,7 @@ func (idx *index) unprotectedSplice(start, end deleteBound, tr telem.TimeRange) 
 			fileKey: end.ptr.fileKey,
 			offset:  end.ptr.offset + end.ptr.size - uint32(end.offset),
 			size:    uint32(end.offset), // size from tr.End to end.End
+			id:      end.ptr.id,
 		})
 	}
 
@@ -486,6 +488,7 @@ func (db *DB) swapCollectedFile(
 	if err := db.cfg.FS.Rename(copyName, name); err != nil {
 		return errors.Combine(err, db.cfg.FS.Rename(name+"_temp", name))
 	}
+	db.idx.mu.rewrites[key]++
 	for i, ptr := range db.idx.mu.pointers {
 		if ptr.fileKey != key {
 			continue
