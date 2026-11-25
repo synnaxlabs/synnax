@@ -10,7 +10,7 @@
 import { channel, icd, type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { uniqueName } from "@synnaxlabs/x/testutil";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import type { z } from "zod";
 
@@ -96,12 +96,20 @@ const addEndpoint = async (): Promise<void> => {
   await screen.findByText("Request");
 };
 
+/** Selects a field in the tree, and returns the section that fills it. */
+const selectField = async (name: string) => {
+  fireEvent.click(
+    await screen.findByRole("treeitem", { name: new RegExp(`^${name}`) }),
+  );
+  return within(await screen.findByRole("group", { name: "Source" }));
+};
+
 describe("Write", () => {
   // This first test pays the one-time load of the lazy form, which takes over 10 s on
   // a loaded CI runner.
   it("should add an endpoint that sends a new message, in an ICD named after the task", async () => {
     const { draft } = await renderWrite();
-    await screen.findByText("Select an endpoint to configure");
+    await screen.findByText("Add an endpoint to send requests to");
     await addEndpoint();
     let endpoints: HTTP.Task.WriteEndpoint[] = [];
     await waitFor(async () => {
@@ -135,8 +143,8 @@ describe("Write", () => {
     await addEndpoint();
     await addEndpoint();
     await waitFor(() => {
-      const options = screen.getAllByRole("option");
-      expect(screen.getByRole("option", { selected: true })).toBe(options[1]);
+      const items = screen.getAllByRole("treeitem");
+      expect(screen.getByRole("treeitem", { selected: true })).toBe(items[1]);
     });
     fireEvent.click(screen.getByText("PATCH"));
     fireEvent.change(screen.getByPlaceholderText("/api/control"), {
@@ -154,7 +162,7 @@ describe("Write", () => {
     const value = createField("value", "float");
     const { ic, message } = await createFormat([value]);
     await renderWrite([createEndpoint("ep1", "/setpoint", ic, message, [value])]);
-    fireEvent.click(await screen.findByRole("option", { name: /\/setpoint/ }));
+    fireEvent.click(await screen.findByRole("treeitem", { name: /\/setpoint/ }));
     fireEvent.change(await screen.findByDisplayValue("/setpoint"), {
       target: { value: "/speed" },
     });
@@ -176,7 +184,9 @@ describe("Write", () => {
       createEndpoint("ep1", "/setpoint", ic, message, [value]),
       createEndpoint("ep2", "/setpoint", ic, message, [value]),
     ]);
-    fireEvent.click((await screen.findAllByRole("option", { name: /\/setpoint/ }))[1]);
+    fireEvent.click(
+      (await screen.findAllByRole("treeitem", { name: /\/setpoint/ }))[1],
+    );
     fireEvent.change(await screen.findByDisplayValue("/setpoint"), {
       target: { value: "/speed" },
     });
@@ -188,11 +198,73 @@ describe("Write", () => {
     const value = createField("value", "float");
     const { ic, message } = await createFormat([value]);
     await renderWrite([createEndpoint("ep1", "/setpoint", ic, message, [value])]);
-    fireEvent.click(await screen.findByRole("option", { name: /\/setpoint/ }));
+    fireEvent.click(await screen.findByRole("treeitem", { name: /\/setpoint/ }));
     await screen.findByText("Request");
     expect(screen.getByDisplayValue("/setpoint")).toBeTruthy();
     expect(await screen.findByText(message.name)).toBeTruthy();
-    expect(await screen.findByText("value")).toBeTruthy();
+  });
+
+  it("should open a field under its endpoint with the name of its new command channel", async () => {
+    const value = createField("value", "float");
+    const { ic, message } = await createFormat([value]);
+    const { dev } = await renderWrite([
+      createEndpoint("ep1", "/setpoint", ic, message, [value]),
+    ]);
+    const source = await selectField("value");
+    expect(
+      screen.getByDisplayValue(
+        `${channel.escapeInvalidName(dev.name)}_setpoint_value_cmd`,
+      ),
+    ).toBeTruthy();
+    expect(source.getByRole("img", { name: "New channel" })).toBeTruthy();
+  });
+
+  it("should mark no new command channel for a field of a disabled endpoint", async () => {
+    const value = createField("value", "float");
+    const { ic, message } = await createFormat([value]);
+    const { dev } = await renderWrite([
+      { ...createEndpoint("ep1", "/setpoint", ic, message, [value]), disabled: true },
+    ]);
+    const source = await selectField("value");
+    screen.getByDisplayValue(
+      `${channel.escapeInvalidName(dev.name)}_setpoint_value_cmd`,
+    );
+    expect(source.queryByRole("img", { name: "New channel" })).toBeNull();
+  });
+
+  it("should send a fixed value for a field of an endpoint set to Value", async () => {
+    const value = createField("value", "float");
+    const mode = createField("mode", "string");
+    const { ic, message } = await createFormat([value, mode]);
+    const { draft } = await renderWrite([
+      createEndpoint("ep1", "/setpoint", ic, message, [value, mode]),
+    ]);
+    const source = await selectField("mode");
+    fireEvent.click(source.getByRole("button", { name: "Value" }));
+    const input = await source.findByRole("textbox");
+    fireEvent.change(input, { target: { value: "auto" } });
+    fireEvent.blur(input);
+    await waitFor(async () =>
+      expect((await retrieveEndpoints(draft.key))[0].message?.bindings).toEqual([
+        { type: "channel", field: value.key, channel: 0 },
+        { type: "value", field: mode.key, value: { type: "string", value: "auto" } },
+      ]),
+    );
+  });
+
+  it("should add a field to the message of an endpoint from its pane, and open it", async () => {
+    const value = createField("value", "float");
+    const { ic, message } = await createFormat([value]);
+    await renderWrite([createEndpoint("ep1", "/setpoint", ic, message, [value])]);
+    fireEvent.click(await screen.findByRole("treeitem", { name: /\/setpoint/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "Add field" }));
+    const name = await screen.findByDisplayValue("Field 2");
+    await waitFor(() => expect(document.activeElement).toBe(name));
+    await waitFor(async () => {
+      const [stored] = (await client.icds.retrieve(ic.key)).messages;
+      if (stored.payload.format !== "json") throw new Error("expected a JSON message");
+      expect(stored.payload.fields.map((f) => f.name)).toEqual(["value", "Field 2"]);
+    });
   });
 
   it("should duplicate an endpoint with its message, but no command channels", async () => {
@@ -209,7 +281,7 @@ describe("Write", () => {
       bindings: [{ type: "channel", field: value.key, channel: cmd.key }],
     };
     const { draft } = await renderWrite([ep]);
-    fireEvent.contextMenu(await screen.findByRole("option", { name: /\/setpoint/ }));
+    fireEvent.contextMenu(await screen.findByRole("treeitem", { name: /\/setpoint/ }));
     fireEvent.click(await screen.findByText("Duplicate"));
     await waitFor(async () => {
       const endpoints = await retrieveEndpoints(draft.key);
@@ -234,7 +306,8 @@ describe("Write", () => {
     const { draft } = await renderWrite([
       createEndpoint("ep1", "/setpoint", ic, message, [value]),
     ]);
-    fireEvent.click(await screen.findByRole("checkbox", { name: "Enabled" }));
+    const item = await screen.findByRole("treeitem", { name: /\/setpoint/ });
+    fireEvent.click(within(item).getByRole("checkbox", { name: "Enabled" }));
     await waitFor(async () => {
       expect((await retrieveEndpoints(draft.key))[0].disabled).toBe(true);
     });
@@ -246,7 +319,7 @@ describe("Write", () => {
     const { draft } = await renderWrite([
       { ...HTTP.Task.writeEndpointZ.parse({}), key: "ep1", path: "/setpoint" },
     ]);
-    fireEvent.click(await screen.findByRole("option", { name: /\/setpoint/ }));
+    fireEvent.click(await screen.findByRole("treeitem", { name: /\/setpoint/ }));
     await pickMessageFormat("Select message format", message.name, ic.name);
     await waitFor(async () => {
       const [ep] = await retrieveEndpoints(draft.key);
