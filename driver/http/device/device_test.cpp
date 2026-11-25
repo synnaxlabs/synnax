@@ -343,6 +343,21 @@ TEST(ConnectionConfigTest, ZeroMaxConcurrentRequestsErrors) {
     EXPECT_FALSE(parser.ok());
 }
 
+TEST(ConnectionConfigTest, MaxResponseSizeDefault) {
+    x::json::Parser parser(x::json::json{{"base_url", "http://localhost"}});
+    ConnectionConfig config(parser);
+    EXPECT_TRUE(parser.ok());
+    EXPECT_EQ(config.max_response_size, DEFAULT_MAX_RESPONSE_SIZE);
+}
+
+TEST(ConnectionConfigTest, ZeroMaxResponseSizeErrors) {
+    x::json::Parser parser(
+        x::json::json{{"base_url", "http://localhost"}, {"max_response_size", 0}}
+    );
+    ConnectionConfig config(parser);
+    EXPECT_FALSE(parser.ok());
+}
+
 TEST(ConnectionConfigTest, EmptyJSONErrors) {
     x::json::json j = x::json::json::object();
     x::json::Parser parser(j);
@@ -440,6 +455,16 @@ TEST(BuildRequestTest, CarriesBaseURLAndCap) {
     auto r = build_request(conn, req);
     EXPECT_EQ(r.base_url, "http://example.com");
     EXPECT_EQ(r.max_concurrent_requests, 3);
+}
+
+TEST(BuildRequestTest, CarriesMaxResponseSize) {
+    auto conn = ConnectionConfig(
+        x::json::Parser(
+            json{{"base_url", "http://example.com"}, {"max_response_size", 1024}}
+        )
+    );
+    RequestConfig req{.method = Method::GET, .path = "/api/data"};
+    EXPECT_EQ(build_request(conn, req).max_response_size, 1024);
 }
 
 TEST(BuildRequestTest, PreservesDoubleSlashInPath) {

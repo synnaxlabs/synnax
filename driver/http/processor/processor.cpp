@@ -46,6 +46,11 @@ x::errors::Error parse_curl_error(CURLcode code) {
     if (code == CURLE_OK) return x::errors::NIL;
     const auto code_str = std::to_string(static_cast<int>(code));
     switch (code) {
+        case CURLE_FILESIZE_EXCEEDED:
+            return x::errors::Error(
+                http::errors::CRITICAL_ERROR.sub(code_str),
+                "response body is larger than the max_response_size of the device"
+            );
         case CURLE_COULDNT_CONNECT:
         case CURLE_COULDNT_RESOLVE_HOST:
         case CURLE_COULDNT_RESOLVE_PROXY:
@@ -92,6 +97,11 @@ CURL *Processor::create_handle(const Request &req, ActiveTransfer &t) {
     curl_easy_setopt(handle, CURLOPT_URL, req.url.c_str());
     curl_easy_setopt(handle, CURLOPT_NOSIGNAL, 1L);
     curl_easy_setopt(handle, CURLOPT_FOLLOWLOCATION, 1L);
+    curl_easy_setopt(
+        handle,
+        CURLOPT_MAXFILESIZE_LARGE,
+        static_cast<curl_off_t>(req.max_response_size)
+    );
 
     curl_easy_setopt(
         handle,
