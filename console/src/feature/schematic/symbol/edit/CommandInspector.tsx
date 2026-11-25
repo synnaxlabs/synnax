@@ -11,6 +11,7 @@ import type { schematic } from "@synnaxlabs/client";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
@@ -93,14 +94,21 @@ export const CommandInspector = ({
           onChange={handleStateChange}
           allowNone={false}
           triggerProps={{ "aria-label": "State" }}
+          footer={
+            <>
+              <Divider.Divider x />
+              <Select.Item<string>
+                itemKey={NONE}
+                textValue="No state"
+                disabled={toggled}
+                tooltip={toggled ? TOGGLED : undefined}
+              >
+                <Icon.None />
+                No state
+              </Select.Item>
+            </>
+          }
         >
-          <Select.Item<string>
-            itemKey={NONE}
-            disabled={toggled}
-            tooltip={toggled ? TOGGLED : undefined}
-          >
-            None
-          </Select.Item>
           {states.map((s) => (
             <Select.Item<string>
               key={s.key}

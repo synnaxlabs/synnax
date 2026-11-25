@@ -1107,10 +1107,25 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       });
     });
 
+    it("keeps No state under the states of a command during a search", async () => {
+      await openFault();
+      fireEvent.click(screen.getByText("Go"));
+      const states = await openSelect("State");
+      fireEvent.change(screen.getByPlaceholderText("Search states..."), {
+        target: { value: "Fa" },
+      });
+      await waitFor(() =>
+        expect(states.queryByRole("option", { name: "Active" })).toBeNull(),
+      );
+      expect(screen.getByRole("option", { name: "No state" })).toBeDefined();
+    });
+
     it("sends 0 when the state of an ask command goes", async () => {
       const symbol = await openFault({ ...GO, state: "fault", value: { type: "ask" } });
       fireEvent.click(screen.getByText("Go"));
-      await pick("State", "None");
+      // The footer of a select pins No state outside its list box.
+      await openSelect("State");
+      fireEvent.click(screen.getByRole("option", { name: "No state" }));
       fireEvent.click(findButton("Save"));
       await waitFor(async () => {
         const saved = await client.schematics.symbols.retrieve(symbol.key);
@@ -1186,9 +1201,8 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       fireEvent.click(screen.getByText("on"));
       await screen.findByRole("heading", { name: "on" });
       expect(disabled(findButton("Ask"))).toBe(true);
-      expect(
-        disabled((await openSelect("State")).getByRole("option", { name: "None" })),
-      ).toBe(true);
+      await openSelect("State");
+      expect(disabled(screen.getByRole("option", { name: "No state" }))).toBe(true);
       closeSelect();
       // Off sends Base, so On cannot.
       const values = await openSelect("Fixed value");
