@@ -887,9 +887,9 @@ func (x *Where) GetRack() *RackKeySet {
 type CommandStatePair struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// command is the channel that commands the port.
-	Command uint32 `protobuf:"varint,1,opt,name=command,proto3" json:"command,omitempty"`
+	Command *uint32 `protobuf:"varint,1,opt,name=command,proto3,oneof" json:"command,omitempty"`
 	// state is the channel that holds the state of the port.
-	State         uint32 `protobuf:"varint,2,opt,name=state,proto3" json:"state,omitempty"`
+	State         *uint32 `protobuf:"varint,2,opt,name=state,proto3,oneof" json:"state,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -925,15 +925,15 @@ func (*CommandStatePair) Descriptor() ([]byte, []int) {
 }
 
 func (x *CommandStatePair) GetCommand() uint32 {
-	if x != nil {
-		return x.Command
+	if x != nil && x.Command != nil {
+		return *x.Command
 	}
 	return 0
 }
 
 func (x *CommandStatePair) GetState() uint32 {
-	if x != nil {
-		return x.State
+	if x != nil && x.State != nil {
+		return *x.State
 	}
 	return 0
 }
@@ -942,9 +942,9 @@ func (x *CommandStatePair) GetState() uint32 {
 type AnalogInputPorts struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// index is the index channel of the analog input channels.
-	Index uint32 `protobuf:"varint,1,opt,name=index,proto3" json:"index,omitempty"`
+	Index *uint32 `protobuf:"varint,1,opt,name=index,proto3,oneof" json:"index,omitempty"`
 	// temperature is the channel that holds the built-in temperature of the device.
-	Temperature uint32 `protobuf:"varint,2,opt,name=temperature,proto3" json:"temperature,omitempty"`
+	Temperature *uint32 `protobuf:"varint,2,opt,name=temperature,proto3,oneof" json:"temperature,omitempty"`
 	// channels maps a port number to the channel that holds its samples.
 	Channels      map[uint32]uint32 `protobuf:"bytes,3,rep,name=channels,proto3" json:"channels,omitempty" protobuf_key:"varint,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
@@ -982,15 +982,15 @@ func (*AnalogInputPorts) Descriptor() ([]byte, []int) {
 }
 
 func (x *AnalogInputPorts) GetIndex() uint32 {
-	if x != nil {
-		return x.Index
+	if x != nil && x.Index != nil {
+		return *x.Index
 	}
 	return 0
 }
 
 func (x *AnalogInputPorts) GetTemperature() uint32 {
-	if x != nil {
-		return x.Temperature
+	if x != nil && x.Temperature != nil {
+		return *x.Temperature
 	}
 	return 0
 }
@@ -1006,11 +1006,11 @@ func (x *AnalogInputPorts) GetChannels() map[uint32]uint32 {
 type AnalogOutputChannels struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// state_index is the index channel of the state channel.
-	StateIndex uint32 `protobuf:"varint,1,opt,name=state_index,json=stateIndex,proto3" json:"state_index,omitempty"`
+	StateIndex *uint32 `protobuf:"varint,1,opt,name=state_index,json=stateIndex,proto3,oneof" json:"state_index,omitempty"`
 	// command is the channel that commands the port.
-	Command uint32 `protobuf:"varint,2,opt,name=command,proto3" json:"command,omitempty"`
+	Command *uint32 `protobuf:"varint,2,opt,name=command,proto3,oneof" json:"command,omitempty"`
 	// state is the channel that holds the state of the port.
-	State         uint32 `protobuf:"varint,3,opt,name=state,proto3" json:"state,omitempty"`
+	State         *uint32 `protobuf:"varint,3,opt,name=state,proto3,oneof" json:"state,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1046,22 +1046,22 @@ func (*AnalogOutputChannels) Descriptor() ([]byte, []int) {
 }
 
 func (x *AnalogOutputChannels) GetStateIndex() uint32 {
-	if x != nil {
-		return x.StateIndex
+	if x != nil && x.StateIndex != nil {
+		return *x.StateIndex
 	}
 	return 0
 }
 
 func (x *AnalogOutputChannels) GetCommand() uint32 {
-	if x != nil {
-		return x.Command
+	if x != nil && x.Command != nil {
+		return *x.Command
 	}
 	return 0
 }
 
 func (x *AnalogOutputChannels) GetState() uint32 {
-	if x != nil {
-		return x.State
+	if x != nil && x.State != nil {
+		return *x.State
 	}
 	return 0
 }
@@ -1070,9 +1070,9 @@ func (x *AnalogOutputChannels) GetState() uint32 {
 type CounterInputChannels struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// index is the index channel of the counter.
-	Index uint32 `protobuf:"varint,1,opt,name=index,proto3" json:"index,omitempty"`
+	Index *uint32 `protobuf:"varint,1,opt,name=index,proto3,oneof" json:"index,omitempty"`
 	// channel is the channel that holds the samples of the counter.
-	Channel       uint32 `protobuf:"varint,2,opt,name=channel,proto3" json:"channel,omitempty"`
+	Channel       *uint32 `protobuf:"varint,2,opt,name=channel,proto3,oneof" json:"channel,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1108,15 +1108,15 @@ func (*CounterInputChannels) Descriptor() ([]byte, []int) {
 }
 
 func (x *CounterInputChannels) GetIndex() uint32 {
-	if x != nil {
-		return x.Index
+	if x != nil && x.Index != nil {
+		return *x.Index
 	}
 	return 0
 }
 
 func (x *CounterInputChannels) GetChannel() uint32 {
-	if x != nil {
-		return x.Channel
+	if x != nil && x.Channel != nil {
+		return *x.Channel
 	}
 	return 0
 }
@@ -1125,7 +1125,7 @@ func (x *CounterInputChannels) GetChannel() uint32 {
 type DigitalInputChannels struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// index is the index channel of the port.
-	Index uint32 `protobuf:"varint,1,opt,name=index,proto3" json:"index,omitempty"`
+	Index *uint32 `protobuf:"varint,1,opt,name=index,proto3,oneof" json:"index,omitempty"`
 	// lines maps a line number to the channel that holds its samples.
 	Lines         map[uint32]uint32 `protobuf:"bytes,2,rep,name=lines,proto3" json:"lines,omitempty" protobuf_key:"varint,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
@@ -1163,8 +1163,8 @@ func (*DigitalInputChannels) Descriptor() ([]byte, []int) {
 }
 
 func (x *DigitalInputChannels) GetIndex() uint32 {
-	if x != nil {
-		return x.Index
+	if x != nil && x.Index != nil {
+		return *x.Index
 	}
 	return 0
 }
@@ -1180,7 +1180,7 @@ func (x *DigitalInputChannels) GetLines() map[uint32]uint32 {
 type DigitalOutputChannels struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// state_index is the index channel of the state channels.
-	StateIndex uint32 `protobuf:"varint,1,opt,name=state_index,json=stateIndex,proto3" json:"state_index,omitempty"`
+	StateIndex *uint32 `protobuf:"varint,1,opt,name=state_index,json=stateIndex,proto3,oneof" json:"state_index,omitempty"`
 	// lines maps a line number to the channels that write to it.
 	Lines         map[uint32]*CommandStatePair `protobuf:"bytes,2,rep,name=lines,proto3" json:"lines,omitempty" protobuf_key:"varint,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
@@ -1218,8 +1218,8 @@ func (*DigitalOutputChannels) Descriptor() ([]byte, []int) {
 }
 
 func (x *DigitalOutputChannels) GetStateIndex() uint32 {
-	if x != nil {
-		return x.StateIndex
+	if x != nil && x.StateIndex != nil {
+		return *x.StateIndex
 	}
 	return 0
 }
@@ -1488,14 +1488,13 @@ type AnalogInputPort struct {
 	// terminal_configs are the terminal configurations that the port accepts.
 	TerminalConfigs []TerminalConfig `protobuf:"varint,2,rep,packed,name=terminal_configs,json=terminalConfigs,proto3,enum=service.ni_device.pb.TerminalConfig" json:"terminal_configs,omitempty"`
 	// default_terminal_config is the terminal configuration that Cfg_Default gives on the
-	// port. The value Cfg_Default means that the Driver did not read it. DAQmx always
-	// reads back a real configuration.
-	DefaultTerminalConfig TerminalConfig `protobuf:"varint,3,opt,name=default_terminal_config,json=defaultTerminalConfig,proto3,enum=service.ni_device.pb.TerminalConfig" json:"default_terminal_config,omitempty"`
+	// port. Absent when the Driver did not read it.
+	DefaultTerminalConfig *TerminalConfig `protobuf:"varint,3,opt,name=default_terminal_config,json=defaultTerminalConfig,proto3,enum=service.ni_device.pb.TerminalConfig,oneof" json:"default_terminal_config,omitempty"`
 	// types are the channel types that the port accepts, such as ai_voltage.
 	Types []AIChannelType `protobuf:"varint,4,rep,packed,name=types,proto3,enum=service.ni_device.pb.AIChannelType" json:"types,omitempty"`
 	// negative is the port that a differential channel on this port uses as its negative
-	// input. 0 means that the port has no pair. Port 0 is never a negative port.
-	Negative      uint32 `protobuf:"varint,5,opt,name=negative,proto3" json:"negative,omitempty"`
+	// input. Absent when the port has no pair.
+	Negative      *uint32 `protobuf:"varint,5,opt,name=negative,proto3,oneof" json:"negative,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1545,8 +1544,8 @@ func (x *AnalogInputPort) GetTerminalConfigs() []TerminalConfig {
 }
 
 func (x *AnalogInputPort) GetDefaultTerminalConfig() TerminalConfig {
-	if x != nil {
-		return x.DefaultTerminalConfig
+	if x != nil && x.DefaultTerminalConfig != nil {
+		return *x.DefaultTerminalConfig
 	}
 	return TerminalConfig_TERMINAL_CONFIG_CFG_DEFAULT
 }
@@ -1559,8 +1558,8 @@ func (x *AnalogInputPort) GetTypes() []AIChannelType {
 }
 
 func (x *AnalogInputPort) GetNegative() uint32 {
-	if x != nil {
-		return x.Negative
+	if x != nil && x.Negative != nil {
+		return *x.Negative
 	}
 	return 0
 }
@@ -2080,40 +2079,54 @@ const file_core_pkg_service_ni_device_pb_ni_device_proto_rawDesc = "" +
 	"\a_serialB\x10\n" +
 	"\x0e_resource_nameB\b\n" +
 	"\x06_modelB\a\n" +
-	"\x05_rack\"B\n" +
-	"\x10CommandStatePair\x12\x18\n" +
-	"\acommand\x18\x01 \x01(\rR\acommand\x12\x14\n" +
-	"\x05state\x18\x02 \x01(\rR\x05state\"\xd9\x01\n" +
-	"\x10AnalogInputPorts\x12\x14\n" +
-	"\x05index\x18\x01 \x01(\rR\x05index\x12 \n" +
-	"\vtemperature\x18\x02 \x01(\rR\vtemperature\x12P\n" +
+	"\x05_rack\"b\n" +
+	"\x10CommandStatePair\x12\x1d\n" +
+	"\acommand\x18\x01 \x01(\rH\x00R\acommand\x88\x01\x01\x12\x19\n" +
+	"\x05state\x18\x02 \x01(\rH\x01R\x05state\x88\x01\x01B\n" +
+	"\n" +
+	"\b_commandB\b\n" +
+	"\x06_state\"\xfd\x01\n" +
+	"\x10AnalogInputPorts\x12\x19\n" +
+	"\x05index\x18\x01 \x01(\rH\x00R\x05index\x88\x01\x01\x12%\n" +
+	"\vtemperature\x18\x02 \x01(\rH\x01R\vtemperature\x88\x01\x01\x12P\n" +
 	"\bchannels\x18\x03 \x03(\v24.service.ni_device.pb.AnalogInputPorts.ChannelsEntryR\bchannels\x1a;\n" +
 	"\rChannelsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\rR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\rR\x05value:\x028\x01\"g\n" +
-	"\x14AnalogOutputChannels\x12\x1f\n" +
-	"\vstate_index\x18\x01 \x01(\rR\n" +
-	"stateIndex\x12\x18\n" +
-	"\acommand\x18\x02 \x01(\rR\acommand\x12\x14\n" +
-	"\x05state\x18\x03 \x01(\rR\x05state\"F\n" +
-	"\x14CounterInputChannels\x12\x14\n" +
-	"\x05index\x18\x01 \x01(\rR\x05index\x12\x18\n" +
-	"\achannel\x18\x02 \x01(\rR\achannel\"\xb3\x01\n" +
-	"\x14DigitalInputChannels\x12\x14\n" +
-	"\x05index\x18\x01 \x01(\rR\x05index\x12K\n" +
+	"\x05value\x18\x02 \x01(\rR\x05value:\x028\x01B\b\n" +
+	"\x06_indexB\x0e\n" +
+	"\f_temperature\"\x9c\x01\n" +
+	"\x14AnalogOutputChannels\x12$\n" +
+	"\vstate_index\x18\x01 \x01(\rH\x00R\n" +
+	"stateIndex\x88\x01\x01\x12\x1d\n" +
+	"\acommand\x18\x02 \x01(\rH\x01R\acommand\x88\x01\x01\x12\x19\n" +
+	"\x05state\x18\x03 \x01(\rH\x02R\x05state\x88\x01\x01B\x0e\n" +
+	"\f_state_indexB\n" +
+	"\n" +
+	"\b_commandB\b\n" +
+	"\x06_state\"f\n" +
+	"\x14CounterInputChannels\x12\x19\n" +
+	"\x05index\x18\x01 \x01(\rH\x00R\x05index\x88\x01\x01\x12\x1d\n" +
+	"\achannel\x18\x02 \x01(\rH\x01R\achannel\x88\x01\x01B\b\n" +
+	"\x06_indexB\n" +
+	"\n" +
+	"\b_channel\"\xc2\x01\n" +
+	"\x14DigitalInputChannels\x12\x19\n" +
+	"\x05index\x18\x01 \x01(\rH\x00R\x05index\x88\x01\x01\x12K\n" +
 	"\x05lines\x18\x02 \x03(\v25.service.ni_device.pb.DigitalInputChannels.LinesEntryR\x05lines\x1a8\n" +
 	"\n" +
 	"LinesEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\rR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\rR\x05value:\x028\x01\"\xe8\x01\n" +
-	"\x15DigitalOutputChannels\x12\x1f\n" +
-	"\vstate_index\x18\x01 \x01(\rR\n" +
-	"stateIndex\x12L\n" +
+	"\x05value\x18\x02 \x01(\rR\x05value:\x028\x01B\b\n" +
+	"\x06_index\"\xfd\x01\n" +
+	"\x15DigitalOutputChannels\x12$\n" +
+	"\vstate_index\x18\x01 \x01(\rH\x00R\n" +
+	"stateIndex\x88\x01\x01\x12L\n" +
 	"\x05lines\x18\x02 \x03(\v26.service.ni_device.pb.DigitalOutputChannels.LinesEntryR\x05lines\x1a`\n" +
 	"\n" +
 	"LinesEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\rR\x03key\x12<\n" +
-	"\x05value\x18\x02 \x01(\v2&.service.ni_device.pb.CommandStatePairR\x05value:\x028\x01\";\n" +
+	"\x05value\x18\x02 \x01(\v2&.service.ni_device.pb.CommandStatePairR\x05value:\x028\x01B\x0e\n" +
+	"\f_state_index\";\n" +
 	"\rStatusDetails\x12\x12\n" +
 	"\x04rack\x18\x01 \x01(\rR\x04rack\x12\x16\n" +
 	"\x06device\x18\x02 \x01(\tR\x06device\"\xea\x01\n" +
@@ -2148,13 +2161,15 @@ const file_core_pkg_service_ni_device_pb_ni_device_proto_rawDesc = "" +
 	"\x05value\x18\x02 \x01(\v2*.service.ni_device.pb.DigitalInputChannelsR\x05value:\x028\x01\x1am\n" +
 	"\x12DigitalOutputEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\rR\x03key\x12A\n" +
-	"\x05value\x18\x02 \x01(\v2+.service.ni_device.pb.DigitalOutputChannelsR\x05value:\x028\x01\"\xab\x02\n" +
+	"\x05value\x18\x02 \x01(\v2+.service.ni_device.pb.DigitalOutputChannelsR\x05value:\x028\x01\"\xde\x02\n" +
 	"\x0fAnalogInputPort\x12\x12\n" +
 	"\x04port\x18\x01 \x01(\rR\x04port\x12O\n" +
-	"\x10terminal_configs\x18\x02 \x03(\x0e2$.service.ni_device.pb.TerminalConfigR\x0fterminalConfigs\x12\\\n" +
-	"\x17default_terminal_config\x18\x03 \x01(\x0e2$.service.ni_device.pb.TerminalConfigR\x15defaultTerminalConfig\x129\n" +
-	"\x05types\x18\x04 \x03(\x0e2#.service.ni_device.pb.AIChannelTypeR\x05types\x12\x1a\n" +
-	"\bnegative\x18\x05 \x01(\rR\bnegative\"\xb2\x01\n" +
+	"\x10terminal_configs\x18\x02 \x03(\x0e2$.service.ni_device.pb.TerminalConfigR\x0fterminalConfigs\x12a\n" +
+	"\x17default_terminal_config\x18\x03 \x01(\x0e2$.service.ni_device.pb.TerminalConfigH\x00R\x15defaultTerminalConfig\x88\x01\x01\x129\n" +
+	"\x05types\x18\x04 \x03(\x0e2#.service.ni_device.pb.AIChannelTypeR\x05types\x12\x1f\n" +
+	"\bnegative\x18\x05 \x01(\rH\x01R\bnegative\x88\x01\x01B\x1a\n" +
+	"\x18_default_terminal_configB\v\n" +
+	"\t_negative\"\xb2\x01\n" +
 	"\x10AnalogOutputPort\x12\x12\n" +
 	"\x04port\x18\x01 \x01(\rR\x04port\x12O\n" +
 	"\x10terminal_configs\x18\x02 \x03(\x0e2$.service.ni_device.pb.TerminalConfigR\x0fterminalConfigs\x129\n" +
@@ -2374,7 +2389,14 @@ func file_core_pkg_service_ni_device_pb_ni_device_proto_init() {
 	file_core_pkg_service_ni_device_pb_ni_device_proto_msgTypes[3].OneofWrappers = []any{}
 	file_core_pkg_service_ni_device_pb_ni_device_proto_msgTypes[5].OneofWrappers = []any{}
 	file_core_pkg_service_ni_device_pb_ni_device_proto_msgTypes[6].OneofWrappers = []any{}
+	file_core_pkg_service_ni_device_pb_ni_device_proto_msgTypes[7].OneofWrappers = []any{}
+	file_core_pkg_service_ni_device_pb_ni_device_proto_msgTypes[8].OneofWrappers = []any{}
+	file_core_pkg_service_ni_device_pb_ni_device_proto_msgTypes[9].OneofWrappers = []any{}
+	file_core_pkg_service_ni_device_pb_ni_device_proto_msgTypes[10].OneofWrappers = []any{}
+	file_core_pkg_service_ni_device_pb_ni_device_proto_msgTypes[11].OneofWrappers = []any{}
+	file_core_pkg_service_ni_device_pb_ni_device_proto_msgTypes[12].OneofWrappers = []any{}
 	file_core_pkg_service_ni_device_pb_ni_device_proto_msgTypes[14].OneofWrappers = []any{}
+	file_core_pkg_service_ni_device_pb_ni_device_proto_msgTypes[16].OneofWrappers = []any{}
 	file_core_pkg_service_ni_device_pb_ni_device_proto_msgTypes[20].OneofWrappers = []any{}
 	file_core_pkg_service_ni_device_pb_ni_device_proto_msgTypes[21].OneofWrappers = []any{
 		(*Update_Identity)(nil),

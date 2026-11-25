@@ -17,7 +17,43 @@ import (
 	v1 "github.com/synnaxlabs/synnax/pkg/service/ni/device/versions/v1"
 )
 
-func autoMigrateDevice(_ context.Context, old v1.Device) (Device, error) {
+func autoMigrateDevice(ctx context.Context, old v1.Device) (Device, error) {
+	analogInput, err := MigrateAnalogInputPorts(ctx, old.AnalogInput)
+	if err != nil {
+		return Device{}, err
+	}
+	analogOutput := make(map[uint16]AnalogOutputChannels, len(old.AnalogOutput))
+	for k, v := range old.AnalogOutput {
+		nv, err := MigrateAnalogOutputChannels(ctx, v)
+		if err != nil {
+			return Device{}, err
+		}
+		analogOutput[k] = nv
+	}
+	counterInput := make(map[uint16]CounterInputChannels, len(old.CounterInput))
+	for k, v := range old.CounterInput {
+		nv, err := MigrateCounterInputChannels(ctx, v)
+		if err != nil {
+			return Device{}, err
+		}
+		counterInput[k] = nv
+	}
+	digitalInput := make(map[uint16]DigitalInputChannels, len(old.DigitalInput))
+	for k, v := range old.DigitalInput {
+		nv, err := MigrateDigitalInputChannels(ctx, v)
+		if err != nil {
+			return Device{}, err
+		}
+		digitalInput[k] = nv
+	}
+	digitalOutput := make(map[uint16]DigitalOutputChannels, len(old.DigitalOutput))
+	for k, v := range old.DigitalOutput {
+		nv, err := MigrateDigitalOutputChannels(ctx, v)
+		if err != nil {
+			return Device{}, err
+		}
+		digitalOutput[k] = nv
+	}
 	return Device{
 		Key:           old.Key,
 		Rack:          old.Rack,
@@ -27,10 +63,48 @@ func autoMigrateDevice(_ context.Context, old v1.Device) (Device, error) {
 		Model:         old.Model,
 		Chassis:       old.Chassis,
 		Identifier:    old.Identifier,
-		AnalogInput:   old.AnalogInput,
-		AnalogOutput:  old.AnalogOutput,
-		CounterInput:  old.CounterInput,
-		DigitalInput:  old.DigitalInput,
-		DigitalOutput: old.DigitalOutput,
+		AnalogInput:   analogInput,
+		AnalogOutput:  analogOutput,
+		CounterInput:  counterInput,
+		DigitalInput:  digitalInput,
+		DigitalOutput: digitalOutput,
 	}, nil
+}
+
+func autoMigrateAnalogInputPorts(_ context.Context, old v1.AnalogInputPorts) (AnalogInputPorts, error) {
+	return AnalogInputPorts{
+		Channels: old.Channels,
+	}, nil
+}
+
+func autoMigrateAnalogOutputChannels(_ context.Context, old v1.AnalogOutputChannels) (AnalogOutputChannels, error) {
+	return AnalogOutputChannels{}, nil
+}
+
+func autoMigrateCounterInputChannels(_ context.Context, old v1.CounterInputChannels) (CounterInputChannels, error) {
+	return CounterInputChannels{}, nil
+}
+
+func autoMigrateDigitalInputChannels(_ context.Context, old v1.DigitalInputChannels) (DigitalInputChannels, error) {
+	return DigitalInputChannels{
+		Lines: old.Lines,
+	}, nil
+}
+
+func autoMigrateDigitalOutputChannels(ctx context.Context, old v1.DigitalOutputChannels) (DigitalOutputChannels, error) {
+	lines := make(map[uint8]CommandStatePair, len(old.Lines))
+	for k, v := range old.Lines {
+		nv, err := MigrateCommandStatePair(ctx, v)
+		if err != nil {
+			return DigitalOutputChannels{}, err
+		}
+		lines[k] = nv
+	}
+	return DigitalOutputChannels{
+		Lines: lines,
+	}, nil
+}
+
+func autoMigrateCommandStatePair(_ context.Context, old v1.CommandStatePair) (CommandStatePair, error) {
+	return CommandStatePair{}, nil
 }

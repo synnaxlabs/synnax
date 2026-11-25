@@ -123,12 +123,12 @@ Where filter Device {
 }
 
 CommandStatePair struct {
-    command channel.Key = 0 {
+    command channel.Key? {
         @doc value     "is the channel that commands the port."
         @ref kind      use
         @ref on_delete restrict
     }
-    state   channel.Key = 0 {
+    state   channel.Key? {
         @doc value     "is the channel that holds the state of the port."
         @ref kind      use
         @ref on_delete restrict
@@ -139,12 +139,12 @@ CommandStatePair struct {
 }
 
 AnalogInputPorts struct {
-    index       channel.Key = 0 {
+    index       channel.Key? {
         @doc value     "is the index channel of the analog input channels."
         @ref kind      use
         @ref on_delete restrict
     }
-    temperature channel.Key = 0 {
+    temperature channel.Key? {
         @doc value     """
             is the channel that holds the built-in temperature of the device.
         """
@@ -162,17 +162,17 @@ AnalogInputPorts struct {
 }
 
 AnalogOutputChannels struct {
-    state_index channel.Key = 0 {
+    state_index channel.Key? {
         @doc value     "is the index channel of the state channel."
         @ref kind      use
         @ref on_delete restrict
     }
-    command     channel.Key = 0 {
+    command     channel.Key? {
         @doc value     "is the channel that commands the port."
         @ref kind      use
         @ref on_delete restrict
     }
-    state       channel.Key = 0 {
+    state       channel.Key? {
         @doc value     "is the channel that holds the state of the port."
         @ref kind      use
         @ref on_delete restrict
@@ -183,12 +183,12 @@ AnalogOutputChannels struct {
 }
 
 CounterInputChannels struct {
-    index   channel.Key = 0 {
+    index   channel.Key? {
         @doc value     "is the index channel of the counter."
         @ref kind      use
         @ref on_delete restrict
     }
-    channel channel.Key = 0 {
+    channel channel.Key? {
         @doc value     "is the channel that holds the samples of the counter."
         @ref kind      use
         @ref on_delete restrict
@@ -199,7 +199,7 @@ CounterInputChannels struct {
 }
 
 DigitalInputChannels struct {
-    index channel.Key = 0 {
+    index channel.Key? {
         @doc value     "is the index channel of the port."
         @ref kind      use
         @ref on_delete restrict
@@ -215,7 +215,7 @@ DigitalInputChannels struct {
 }
 
 DigitalOutputChannels struct {
-    state_index channel.Key = 0 {
+    state_index channel.Key? {
         @doc value     "is the index channel of the state channels."
         @ref kind      use
         @ref on_delete restrict
@@ -407,20 +407,19 @@ AnalogInputPort struct {
     terminal_configs        TerminalConfig[] = [] {
         @doc value "are the terminal configurations that the port accepts."
     }
-    default_terminal_config TerminalConfig = cfg_default {
+    default_terminal_config TerminalConfig?  {
         @doc value """
-            is the terminal configuration that Cfg_Default gives on the port. The value
-            Cfg_Default means that the Driver did not read it. DAQmx always reads back a
-            real configuration.
+            is the terminal configuration that Cfg_Default gives on the port. Absent
+            when the Driver did not read it.
         """
     }
     types                   AIChannelType[] = [] {
         @doc value "are the channel types that the port accepts, such as ai_voltage."
     }
-    negative                uint16 = 0 {
+    negative                uint32?          {
         @doc value """
             is the port that a differential channel on this port uses as its negative
-            input. 0 means that the port has no pair. Port 0 is never a negative port.
+            input. Absent when the port has no pair.
         """
     }
 
@@ -505,29 +504,32 @@ Hardware struct {
         @ts type   "number"
     }
     ai_max_single_channel_rate telem.Rate?            {
-        @doc value   """
+        @doc value       """
             is the highest analog input sample rate of one channel. Absent when the
             device does not support the attribute.
         """
-        @ts type     "number"
-        @validate gt 0
+        @ts type         "number"
+        @validate finite
+        @validate gt     0
     }
     ai_max_multi_channel_rate  telem.Rate?            {
-        @doc value   """
+        @doc value       """
             is the highest analog input sample rate of the device. A task with several
             channels divides it by the channel count. Absent when the device does not
             support the attribute.
         """
-        @ts type     "number"
-        @validate gt 0
+        @ts type         "number"
+        @validate finite
+        @validate gt     0
     }
     ao_max_rate                telem.Rate?            {
-        @doc value   """
+        @doc value       """
             is the highest analog output sample rate. Absent when the device does not
             support the attribute.
         """
-        @ts type     "number"
-        @validate gt 0
+        @ts type         "number"
+        @validate finite
+        @validate gt     0
     }
     ai_voltage_ranges          spatial.ClosedBounds[] = [] {
         @doc value "are the analog input voltage ranges of the device."

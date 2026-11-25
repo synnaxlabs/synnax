@@ -34,11 +34,11 @@ func newHardware() *device.Hardware {
 				device.TerminalConfigRse,
 				device.TerminalConfigDiff,
 			},
-			DefaultTerminalConfig: device.TerminalConfigDiff,
+			DefaultTerminalConfig: new(device.TerminalConfigDiff),
 			Types: []device.AIChannelType{
 				device.AIChannelTypeAiVoltage,
 			},
-			Negative: 9,
+			Negative: new(uint32(9)),
 		}},
 		AnalogOutputs: []device.AnalogOutputPort{{
 			Port:            0,
@@ -79,24 +79,31 @@ var _ = Describe("Translator", func() {
 			Hardware:     newHardware(),
 			Identifier:   "mod1",
 			AnalogInput: device.AnalogInputPorts{
-				Index:       1,
-				Temperature: 2,
+				Index:       new(channel.Key(1)),
+				Temperature: new(channel.Key(2)),
 				Channels:    map[uint16]channel.Key{3: 4},
 			},
 			AnalogOutput: map[uint16]device.AnalogOutputChannels{
-				1: {StateIndex: 5, Command: 6, State: 7},
+				1: {
+					StateIndex: new(channel.Key(5)),
+					Command:    new(channel.Key(6)),
+					State:      new(channel.Key(7)),
+				},
 			},
 			CounterInput: map[uint16]device.CounterInputChannels{
-				2: {Index: 8, Channel: 9},
+				2: {Index: new(channel.Key(8)), Channel: new(channel.Key(9))},
 			},
 			DigitalInput: map[uint16]device.DigitalInputChannels{
-				0: {Index: 10, Lines: map[uint8]channel.Key{7: 11}},
+				0: {Index: new(channel.Key(10)), Lines: map[uint8]channel.Key{7: 11}},
 			},
 			DigitalOutput: map[uint16]device.DigitalOutputChannels{
 				1: {
-					StateIndex: 12,
+					StateIndex: new(channel.Key(12)),
 					Lines: map[uint8]device.CommandStatePair{
-						255: {Command: 13, State: 14},
+						255: {
+							Command: new(channel.Key(13)),
+							State:   new(channel.Key(14)),
+						},
 					},
 				},
 			},
@@ -131,7 +138,7 @@ var _ = Describe("Translator", func() {
 
 	It("Should reject an unknown terminal configuration", func() {
 		hw := newHardware()
-		hw.AnalogInputs[0].DefaultTerminalConfig = "Bogus"
+		hw.AnalogInputs[0].DefaultTerminalConfig = new(device.TerminalConfig("Bogus"))
 		Expect(pb.HardwareToPB(*hw)).Error().
 			To(MatchError(ContainSubstring("unrecognized device.TerminalConfig value")))
 	})

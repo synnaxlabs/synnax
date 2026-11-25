@@ -1209,7 +1209,10 @@ describe("AnalogRead ports", () => {
 
   it("should show port 0 of a device with no pairs", async () => {
     const hardware = createHardware();
-    hardware.analogInputs = hardware.analogInputs.map((p) => ({ ...p, negative: 0 }));
+    hardware.analogInputs = hardware.analogInputs.map((p) => ({
+      ...p,
+      negative: undefined,
+    }));
     const dev = await createNIDevice(client, { properties: { hardware } });
     await renderWith([createChannel("ai_voltage", 1, { device: dev.key })]);
     const grid = await openPorts(dev);
@@ -1428,7 +1431,7 @@ describe("AnalogRead ports", () => {
     const hardware = createHardware();
     hardware.analogInputs[8] = {
       ...hardware.analogInputs[8],
-      defaultTerminalConfig: "Cfg_Default",
+      defaultTerminalConfig: undefined,
     };
     const dev = await createNIDevice(client, { properties: { hardware } });
     await renderWith([createChannel("ai_voltage", 8, { device: dev.key })]);

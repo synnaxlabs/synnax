@@ -90,18 +90,18 @@ export type OrderField = z.infer<typeof orderFieldZ>;
 /** CommandStatePair is the pair of channels that writes to one port. */
 export const commandStatePairZ = z.object({
   /** command is the channel that commands the port. */
-  command: channel.keyZ.default(0),
+  command: channel.keyZ.optional(),
   /** state is the channel that holds the state of the port. */
-  state: channel.keyZ.default(0),
+  state: channel.keyZ.optional(),
 });
 export interface CommandStatePair extends z.infer<typeof commandStatePairZ> {}
 
 /** AnalogInputPorts holds the channels that a device reads analog input into. */
 export const analogInputPortsZ = z.object({
   /** index is the index channel of the analog input channels. */
-  index: channel.keyZ.default(0),
+  index: channel.keyZ.optional(),
   /** temperature is the channel that holds the built-in temperature of the device. */
-  temperature: channel.keyZ.default(0),
+  temperature: channel.keyZ.optional(),
   /** channels maps a port number to the channel that holds its samples. */
   channels: z.record(zod.uint16, channel.keyZ).default(() => ({})),
 });
@@ -110,27 +110,27 @@ export interface AnalogInputPorts extends z.infer<typeof analogInputPortsZ> {}
 /** AnalogOutputChannels holds the channels of one analog output port. */
 export const analogOutputChannelsZ = z.object({
   /** stateIndex is the index channel of the state channel. */
-  stateIndex: channel.keyZ.default(0),
+  stateIndex: channel.keyZ.optional(),
   /** command is the channel that commands the port. */
-  command: channel.keyZ.default(0),
+  command: channel.keyZ.optional(),
   /** state is the channel that holds the state of the port. */
-  state: channel.keyZ.default(0),
+  state: channel.keyZ.optional(),
 });
 export interface AnalogOutputChannels extends z.infer<typeof analogOutputChannelsZ> {}
 
 /** CounterInputChannels holds the channels of one counter input. */
 export const counterInputChannelsZ = z.object({
   /** index is the index channel of the counter. */
-  index: channel.keyZ.default(0),
+  index: channel.keyZ.optional(),
   /** channel is the channel that holds the samples of the counter. */
-  channel: channel.keyZ.default(0),
+  channel: channel.keyZ.optional(),
 });
 export interface CounterInputChannels extends z.infer<typeof counterInputChannelsZ> {}
 
 /** DigitalInputChannels holds the channels of one digital input port. */
 export const digitalInputChannelsZ = z.object({
   /** index is the index channel of the port. */
-  index: channel.keyZ.default(0),
+  index: channel.keyZ.optional(),
   /** lines maps a line number to the channel that holds its samples. */
   lines: z.record(zod.uint8, channel.keyZ).default(() => ({})),
 });
@@ -144,17 +144,16 @@ export const analogInputPortZ = z.object({
   terminalConfigs: terminalConfigZ.array().default(() => []),
   /**
    * defaultTerminalConfig is the terminal configuration that Cfg_Default gives on the
-   * port. The value Cfg_Default means that the Driver did not read it. DAQmx always
-   * reads back a real configuration.
+   * port. Absent when the Driver did not read it.
    */
-  defaultTerminalConfig: terminalConfigZ.default("Cfg_Default"),
+  defaultTerminalConfig: terminalConfigZ.optional(),
   /** types are the channel types that the port accepts, such as ai_voltage. */
   types: aiChannelTypeZ.array().default(() => []),
   /**
    * negative is the port that a differential channel on this port uses as its negative
-   * input. 0 means that the port has no pair. Port 0 is never a negative port.
+   * input. Absent when the port has no pair.
    */
-  negative: zod.uint16.default(0),
+  negative: z.uint32().optional(),
 });
 export interface AnalogInputPort extends z.infer<typeof analogInputPortZ> {}
 
@@ -206,7 +205,7 @@ export type Key = z.infer<typeof keyZ>;
 /** DigitalOutputChannels holds the channels of one digital output port. */
 export const digitalOutputChannelsZ = z.object({
   /** stateIndex is the index channel of the state channels. */
-  stateIndex: channel.keyZ.default(0),
+  stateIndex: channel.keyZ.optional(),
   /** lines maps a line number to the channels that write to it. */
   lines: z.record(zod.uint8, commandStatePairZ).default(() => ({})),
 });

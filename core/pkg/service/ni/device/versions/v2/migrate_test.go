@@ -23,7 +23,7 @@ import (
 )
 
 var _ = Describe("Migration", func() {
-	It("Should keep each field and leave the hardware absent", func(ctx SpecContext) {
+	It("Should keep each field, leave unset channels and the hardware absent", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
 		StartRun(db.Run)
 		MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v1.Key, v1.Device]{DB: db}))
@@ -39,6 +39,7 @@ var _ = Describe("Migration", func() {
 				Index:    1,
 				Channels: map[uint16]channel.Key{0: 2},
 			},
+			CounterInput: map[uint16]v1.CounterInputChannels{1: {Channel: 3}},
 		}
 		Expect(gorp.NewCreate[v1.Key, v1.Device]().Entry(&old).Exec(ctx, db)).
 			To(Succeed())
@@ -56,5 +57,9 @@ var _ = Describe("Migration", func() {
 		Expect(got.Name).To(Equal("NI 9205"))
 		Expect(got.ResourceName).To(Equal("{GUID}"))
 		Expect(got.AnalogInput.Channels).To(Equal(map[uint16]channel.Key{0: 2}))
+		Expect(got.AnalogInput.Index).To(Equal(new(channel.Key(1))))
+		Expect(got.AnalogInput.Temperature).To(BeNil())
+		Expect(got.CounterInput[1].Index).To(BeNil())
+		Expect(got.CounterInput[1].Channel).To(Equal(new(channel.Key(3))))
 	})
 })

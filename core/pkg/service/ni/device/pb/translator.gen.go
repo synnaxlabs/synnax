@@ -535,26 +535,32 @@ func WheresFromPB(pbs []*Where) ([]device.Where, error) {
 
 // CommandStatePairToPB converts CommandStatePair to CommandStatePair.
 func CommandStatePairToPB(r device.CommandStatePair) (*CommandStatePair, error) {
-	pb := &CommandStatePair{
-		Command: uint32(r.Command),
-		State:   uint32(r.State),
+	pb := &CommandStatePair{}
+	if r.Command != nil {
+		v := uint32(*r.Command)
+		pb.Command = &v
+	}
+	if r.State != nil {
+		v := uint32(*r.State)
+		pb.State = &v
 	}
 	return pb, nil
 }
 
 // CommandStatePairFromPB converts CommandStatePair to CommandStatePair.
-//
-// A message that pb omits keeps its schema default. Proto cannot tell an omitted scalar
-// from a zero one, so a scalar keeps the value that pb holds.
 func CommandStatePairFromPB(pb *CommandStatePair) (device.CommandStatePair, error) {
 	var r device.CommandStatePair
 	if pb == nil {
 		return r, nil
 	}
-	defaults.Prefill(&r)
-	r.Command = channel.Key(pb.Command)
-	r.State = channel.Key(pb.State)
-	defaults.FillGroups(&r)
+	if pb.Command != nil {
+		v := channel.Key(*pb.Command)
+		r.Command = &v
+	}
+	if pb.State != nil {
+		v := channel.Key(*pb.State)
+		r.State = &v
+	}
 	return r, nil
 }
 
@@ -586,9 +592,14 @@ func CommandStatePairsFromPB(pbs []*CommandStatePair) ([]device.CommandStatePair
 
 // AnalogInputPortsToPB converts AnalogInputPorts to AnalogInputPorts.
 func AnalogInputPortsToPB(r device.AnalogInputPorts) (*AnalogInputPorts, error) {
-	pb := &AnalogInputPorts{
-		Index:       uint32(r.Index),
-		Temperature: uint32(r.Temperature),
+	pb := &AnalogInputPorts{}
+	if r.Index != nil {
+		v := uint32(*r.Index)
+		pb.Index = &v
+	}
+	if r.Temperature != nil {
+		v := uint32(*r.Temperature)
+		pb.Temperature = &v
 	}
 	if r.Channels != nil {
 		pb.Channels = make(map[uint32]uint32, len(r.Channels))
@@ -609,8 +620,14 @@ func AnalogInputPortsFromPB(pb *AnalogInputPorts) (device.AnalogInputPorts, erro
 		return r, nil
 	}
 	defaults.Prefill(&r)
-	r.Index = channel.Key(pb.Index)
-	r.Temperature = channel.Key(pb.Temperature)
+	if pb.Index != nil {
+		v := channel.Key(*pb.Index)
+		r.Index = &v
+	}
+	if pb.Temperature != nil {
+		v := channel.Key(*pb.Temperature)
+		r.Temperature = &v
+	}
 	if pb.Channels != nil {
 		r.Channels = make(map[uint16]channel.Key, len(pb.Channels))
 		for k, v := range pb.Channels {
@@ -653,28 +670,40 @@ func AnalogInputPortsListFromPB(pbs []*AnalogInputPorts) ([]device.AnalogInputPo
 
 // AnalogOutputChannelsToPB converts AnalogOutputChannels to AnalogOutputChannels.
 func AnalogOutputChannelsToPB(r device.AnalogOutputChannels) (*AnalogOutputChannels, error) {
-	pb := &AnalogOutputChannels{
-		StateIndex: uint32(r.StateIndex),
-		Command:    uint32(r.Command),
-		State:      uint32(r.State),
+	pb := &AnalogOutputChannels{}
+	if r.StateIndex != nil {
+		v := uint32(*r.StateIndex)
+		pb.StateIndex = &v
+	}
+	if r.Command != nil {
+		v := uint32(*r.Command)
+		pb.Command = &v
+	}
+	if r.State != nil {
+		v := uint32(*r.State)
+		pb.State = &v
 	}
 	return pb, nil
 }
 
 // AnalogOutputChannelsFromPB converts AnalogOutputChannels to AnalogOutputChannels.
-//
-// A message that pb omits keeps its schema default. Proto cannot tell an omitted scalar
-// from a zero one, so a scalar keeps the value that pb holds.
 func AnalogOutputChannelsFromPB(pb *AnalogOutputChannels) (device.AnalogOutputChannels, error) {
 	var r device.AnalogOutputChannels
 	if pb == nil {
 		return r, nil
 	}
-	defaults.Prefill(&r)
-	r.StateIndex = channel.Key(pb.StateIndex)
-	r.Command = channel.Key(pb.Command)
-	r.State = channel.Key(pb.State)
-	defaults.FillGroups(&r)
+	if pb.StateIndex != nil {
+		v := channel.Key(*pb.StateIndex)
+		r.StateIndex = &v
+	}
+	if pb.Command != nil {
+		v := channel.Key(*pb.Command)
+		r.Command = &v
+	}
+	if pb.State != nil {
+		v := channel.Key(*pb.State)
+		r.State = &v
+	}
 	return r, nil
 }
 
@@ -706,26 +735,32 @@ func AnalogOutputChannelsListFromPB(pbs []*AnalogOutputChannels) ([]device.Analo
 
 // CounterInputChannelsToPB converts CounterInputChannels to CounterInputChannels.
 func CounterInputChannelsToPB(r device.CounterInputChannels) (*CounterInputChannels, error) {
-	pb := &CounterInputChannels{
-		Index:   uint32(r.Index),
-		Channel: uint32(r.Channel),
+	pb := &CounterInputChannels{}
+	if r.Index != nil {
+		v := uint32(*r.Index)
+		pb.Index = &v
+	}
+	if r.Channel != nil {
+		v := uint32(*r.Channel)
+		pb.Channel = &v
 	}
 	return pb, nil
 }
 
 // CounterInputChannelsFromPB converts CounterInputChannels to CounterInputChannels.
-//
-// A message that pb omits keeps its schema default. Proto cannot tell an omitted scalar
-// from a zero one, so a scalar keeps the value that pb holds.
 func CounterInputChannelsFromPB(pb *CounterInputChannels) (device.CounterInputChannels, error) {
 	var r device.CounterInputChannels
 	if pb == nil {
 		return r, nil
 	}
-	defaults.Prefill(&r)
-	r.Index = channel.Key(pb.Index)
-	r.Channel = channel.Key(pb.Channel)
-	defaults.FillGroups(&r)
+	if pb.Index != nil {
+		v := channel.Key(*pb.Index)
+		r.Index = &v
+	}
+	if pb.Channel != nil {
+		v := channel.Key(*pb.Channel)
+		r.Channel = &v
+	}
 	return r, nil
 }
 
@@ -757,8 +792,10 @@ func CounterInputChannelsListFromPB(pbs []*CounterInputChannels) ([]device.Count
 
 // DigitalInputChannelsToPB converts DigitalInputChannels to DigitalInputChannels.
 func DigitalInputChannelsToPB(r device.DigitalInputChannels) (*DigitalInputChannels, error) {
-	pb := &DigitalInputChannels{
-		Index: uint32(r.Index),
+	pb := &DigitalInputChannels{}
+	if r.Index != nil {
+		v := uint32(*r.Index)
+		pb.Index = &v
 	}
 	if r.Lines != nil {
 		pb.Lines = make(map[uint32]uint32, len(r.Lines))
@@ -779,7 +816,10 @@ func DigitalInputChannelsFromPB(pb *DigitalInputChannels) (device.DigitalInputCh
 		return r, nil
 	}
 	defaults.Prefill(&r)
-	r.Index = channel.Key(pb.Index)
+	if pb.Index != nil {
+		v := channel.Key(*pb.Index)
+		r.Index = &v
+	}
 	if pb.Lines != nil {
 		r.Lines = make(map[uint8]channel.Key, len(pb.Lines))
 		for k, v := range pb.Lines {
@@ -822,8 +862,10 @@ func DigitalInputChannelsListFromPB(pbs []*DigitalInputChannels) ([]device.Digit
 
 // DigitalOutputChannelsToPB converts DigitalOutputChannels to DigitalOutputChannels.
 func DigitalOutputChannelsToPB(r device.DigitalOutputChannels) (*DigitalOutputChannels, error) {
-	pb := &DigitalOutputChannels{
-		StateIndex: uint32(r.StateIndex),
+	pb := &DigitalOutputChannels{}
+	if r.StateIndex != nil {
+		v := uint32(*r.StateIndex)
+		pb.StateIndex = &v
 	}
 	if r.Lines != nil {
 		pb.Lines = make(map[uint32]*CommandStatePair, len(r.Lines))
@@ -848,7 +890,10 @@ func DigitalOutputChannelsFromPB(pb *DigitalOutputChannels) (device.DigitalOutpu
 		return r, nil
 	}
 	defaults.Prefill(&r)
-	r.StateIndex = channel.Key(pb.StateIndex)
+	if pb.StateIndex != nil {
+		v := channel.Key(*pb.StateIndex)
+		r.StateIndex = &v
+	}
 	if pb.Lines != nil {
 		r.Lines = make(map[uint8]device.CommandStatePair, len(pb.Lines))
 		for k, v := range pb.Lines {
@@ -1188,20 +1233,24 @@ func AnalogInputPortToPB(r device.AnalogInputPort) (*AnalogInputPort, error) {
 	if err != nil {
 		return nil, err
 	}
-	defaultTerminalConfigVal, err := TerminalConfigToPB(r.DefaultTerminalConfig)
-	if err != nil {
-		return nil, err
-	}
 	typesVal, err := lo.MapErr(r.Types, func(v device.AIChannelType, _ int) (AIChannelType, error) { return AIChannelTypeToPB(v) })
 	if err != nil {
 		return nil, err
 	}
 	pb := &AnalogInputPort{
-		Port:                  uint32(r.Port),
-		Negative:              uint32(r.Negative),
-		TerminalConfigs:       terminalConfigsVal,
-		DefaultTerminalConfig: defaultTerminalConfigVal,
-		Types:                 typesVal,
+		Port:            uint32(r.Port),
+		TerminalConfigs: terminalConfigsVal,
+		Types:           typesVal,
+	}
+	if r.DefaultTerminalConfig != nil {
+		val, err := TerminalConfigToPB(*r.DefaultTerminalConfig)
+		if err != nil {
+			return nil, err
+		}
+		pb.DefaultTerminalConfig = &val
+	}
+	if r.Negative != nil {
+		pb.Negative = r.Negative
 	}
 	return pb, nil
 }
@@ -1221,16 +1270,21 @@ func AnalogInputPortFromPB(pb *AnalogInputPort) (device.AnalogInputPort, error) 
 	if err != nil {
 		return device.AnalogInputPort{}, err
 	}
-	r.DefaultTerminalConfig, err = TerminalConfigFromPB(pb.DefaultTerminalConfig)
-	if err != nil {
-		return device.AnalogInputPort{}, err
-	}
 	r.Types, err = lo.MapErr(pb.Types, func(v AIChannelType, _ int) (device.AIChannelType, error) { return AIChannelTypeFromPB(v) })
 	if err != nil {
 		return device.AnalogInputPort{}, err
 	}
 	r.Port = uint16(pb.Port)
-	r.Negative = uint16(pb.Negative)
+	if pb.DefaultTerminalConfig != nil {
+		val, err := TerminalConfigFromPB(*pb.DefaultTerminalConfig)
+		if err != nil {
+			return device.AnalogInputPort{}, err
+		}
+		r.DefaultTerminalConfig = &val
+	}
+	if pb.Negative != nil {
+		r.Negative = pb.Negative
+	}
 	defaults.FillGroups(&r)
 	return r, nil
 }

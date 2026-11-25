@@ -27,11 +27,11 @@ import { Task } from "@/platform/task";
 
 /**
  * A port of a device, and the port a differential channel on it uses as its negative
- * input. A negative of 0 means that the port has no pair.
+ * input. The negative is absent when the port has no pair.
  */
 export interface Port {
   port: number;
-  negative: number;
+  negative?: number;
 }
 
 /**
@@ -60,7 +60,7 @@ const resolveTerminalConfig = (
   if (!("terminalConfig" in channel)) return null;
   const { terminalConfig } = channel;
   if (terminalConfig !== "Cfg_Default" || port == null) return terminalConfig;
-  return port.defaultTerminalConfig;
+  return port.defaultTerminalConfig ?? terminalConfig;
 };
 
 /** The ports an analog input channel holds: its own, then its negative input. */
@@ -70,11 +70,7 @@ const analogInputHolds = (
 ): string[] => {
   if (!("port" in channel)) return [];
   const port = hardware?.analogInputs.find((p) => p.port === channel.port);
-  if (
-    port == null ||
-    port.negative === 0 ||
-    resolveTerminalConfig(channel, port) !== "Diff"
-  )
+  if (port?.negative == null || resolveTerminalConfig(channel, port) !== "Diff")
     return [`ai${channel.port}`];
   return [`ai${channel.port}`, `ai${port.negative}`];
 };
@@ -92,7 +88,7 @@ export const lowestFreePort = (
   const free = (p: Port) => holds(p).every((h) => !claims.has(h));
   if (ports == null) {
     let port = 0;
-    while (!free({ port, negative: 0 })) port++;
+    while (!free({ port })) port++;
     return port;
   }
   const found = ports.find(free);
@@ -101,7 +97,7 @@ export const lowestFreePort = (
 };
 
 const numbered = (list: { port: number }[]): Port[] =>
-  list.map(({ port }) => ({ port, negative: 0 }));
+  list.map(({ port }) => ({ port }));
 
 /** The digital ports that read input, or that write output. */
 export const digitalPorts = (
@@ -158,22 +154,24 @@ export const groups = ({
     port: number,
     row: number,
     column: number,
-    negative: number = 0,
+    negative?: number,
   ): Task.Port.Cell =>
     Task.Port.cell({
       key: String(port),
-      labels: negative === 0 ? [String(port)] : [String(port), String(negative)],
+      labels: negative == null ? [String(port)] : [String(port), String(negative)],
       row,
       column,
-      ports: negative === 0 ? [name(port)] : [name(port), name(negative)],
+      ports: negative == null ? [name(port)] : [name(port), name(negative)],
       claims,
       selected,
       describe,
     });
   const negatives = new Set(
-    ports.map(({ negative }) => negative).filter((n) => n !== 0),
+    ports.flatMap(({ negative }) => (negative == null ? [] : [negative])),
   );
-  const positives = ports.filter(({ negative }) => negative !== 0);
+  const positives = ports.flatMap(({ port, negative }) =>
+    negative == null ? [] : [{ port, negative }],
+  );
   const result: Task.Port.Group[] = [];
   for (let start = 0; start < positives.length; start += PAIRED_GROUP) {
     const chunk = positives.slice(start, start + PAIRED_GROUP);
@@ -188,7 +186,7 @@ export const groups = ({
     result.push({ key: `pairs-${chunk[0].port}`, columns: chunk.length, cells });
   }
   const rest = ports.filter(
-    ({ port, negative }) => negative === 0 && !negatives.has(port),
+    ({ port, negative }) => negative == null && !negatives.has(port),
   );
   for (let start = 0; start < rest.length; start += UNPAIRED_GROUP) {
     const chunk = rest.slice(start, start + UNPAIRED_GROUP);

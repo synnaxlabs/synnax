@@ -677,10 +677,7 @@ TEST(ScannerTest, testStoresIncompleteHardware) {
         hw.analog_inputs[0].terminal_configs,
         std::vector<std::string>({"RSE", "Diff"})
     );
-    EXPECT_EQ(
-        hw.analog_inputs[0].default_terminal_config,
-        ::synnax::ni::device::TERMINAL_CONFIG_CFG_DEFAULT
-    );
+    EXPECT_FALSE(hw.analog_inputs[0].default_terminal_config.has_value());
     EXPECT_EQ(sink.warnings(READBACK_WARNING), 1);
 }
 

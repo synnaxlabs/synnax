@@ -236,11 +236,11 @@ public:
 }
 
 /// @brief returns the negative port of each analog input port, keyed by port.
-std::unordered_map<std::uint16_t, std::uint16_t>
+std::unordered_map<std::uint16_t, std::uint32_t>
 negatives(const ::synnax::ni::device::Hardware &hw) {
-    std::unordered_map<std::uint16_t, std::uint16_t> out;
+    std::unordered_map<std::uint16_t, std::uint32_t> out;
     for (const auto &ai: hw.analog_inputs)
-        out[ai.port] = ai.negative;
+        out[ai.port] = ai.negative.value_or(0);
     return out;
 }
 
@@ -349,10 +349,7 @@ TEST(ProbeTest, testLeavesDefaultUnreadWhenReadbackFails) {
     api->create_channel_status = DAQmxErrorInvalidDeviceID;
     const auto hw = probe_api(api);
     ASSERT_EQ(hw.analog_inputs.size(), 1);
-    EXPECT_EQ(
-        hw.analog_inputs[0].default_terminal_config,
-        ::synnax::ni::device::TERMINAL_CONFIG_CFG_DEFAULT
-    );
+    EXPECT_FALSE(hw.analog_inputs[0].default_terminal_config.has_value());
     EXPECT_EQ(api->calls_to("ClearTask").size(), 1);
     EXPECT_FALSE(is_complete(hw));
 }
@@ -388,7 +385,7 @@ TEST(ProbeTest, testRoundTripsThroughJSON) {
     api->create_channel_status = DAQmxErrorInvalidDeviceID;
     const auto j = probe_api(api).to_json();
     EXPECT_EQ(j["ai_min_rate"], 0);
-    EXPECT_EQ(j["analog_inputs"][0]["negative"], 0);
+    EXPECT_FALSE(j["analog_inputs"][0].contains("negative"));
     EXPECT_EQ(::synnax::ni::device::Hardware::parse(x::json::Parser(j)).to_json(), j);
 }
 
@@ -409,7 +406,7 @@ TEST(ProbeTest, testParsesEarlierStoredHardware) {
     ASSERT_TRUE(parser.ok());
     EXPECT_FALSE(hw.ai_max_multi_channel_rate.has_value());
     ASSERT_EQ(hw.analog_inputs.size(), 1);
-    EXPECT_EQ(hw.analog_inputs[0].negative, 0);
+    EXPECT_FALSE(hw.analog_inputs[0].negative.has_value());
     EXPECT_FALSE(is_complete(hw));
 }
 
@@ -433,15 +430,12 @@ TEST(ProbeTest, testNoDefaultWithoutTerminalConfigs) {
     api->add_analog_inputs(1, 0, {DAQmx_Val_Voltage});
     const auto hw = probe_api(api);
     ASSERT_EQ(hw.analog_inputs.size(), 1);
-    EXPECT_EQ(
-        hw.analog_inputs[0].default_terminal_config,
-        ::synnax::ni::device::TERMINAL_CONFIG_CFG_DEFAULT
-    );
+    EXPECT_FALSE(hw.analog_inputs[0].default_terminal_config.has_value());
     EXPECT_TRUE(is_complete(hw));
     EXPECT_TRUE(api->calls_to("CreateTask").empty());
 }
 
-/// @brief it should leave the default as Cfg_Default, and the hardware complete, on a
+/// @brief it should leave the default absent, and the hardware complete, on a
 /// port that accepts more than one terminal configuration and takes no voltage or
 /// current channel.
 TEST(ProbeTest, testNoDefaultWithoutVoltageOrCurrent) {
@@ -449,10 +443,7 @@ TEST(ProbeTest, testNoDefaultWithoutVoltageOrCurrent) {
     api->add_analog_inputs(1, RSE_DIFF, {DAQmx_Val_Bridge});
     const auto hw = probe_api(api);
     ASSERT_EQ(hw.analog_inputs.size(), 1);
-    EXPECT_EQ(
-        hw.analog_inputs[0].default_terminal_config,
-        ::synnax::ni::device::TERMINAL_CONFIG_CFG_DEFAULT
-    );
+    EXPECT_FALSE(hw.analog_inputs[0].default_terminal_config.has_value());
     EXPECT_TRUE(is_complete(hw));
     EXPECT_TRUE(api->calls_to("CreateTask").empty());
 }

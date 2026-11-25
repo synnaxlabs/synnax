@@ -352,8 +352,8 @@ x::errors::Error add_readback_channel(
 }
 
 /// @brief reads back what Cfg_Default gives on a port where reads_back_default holds. A
-/// failure returns Cfg_Default and does not fail the probe.
-std::string read_default_terminal_config(
+/// failure returns nothing and does not fail the probe.
+std::optional<std::string> read_default_terminal_config(
     daqmx::SugaredAPI &dmx,
     const Port &port,
     const AnalogInputPort &ai,
@@ -364,7 +364,7 @@ std::string read_default_terminal_config(
     if (const auto err = dmx.CreateTask("", &task)) {
         VLOG(1) << "[ni] failed to create a task to read the default terminal "
                 << "configuration of " << port.name << ": " << err;
-        return ::synnax::ni::device::TERMINAL_CONFIG_CFG_DEFAULT;
+        return std::nullopt;
     }
     int32 config = 0;
     auto err = add_readback_channel(dmx, task, port, ai, hw);
@@ -381,11 +381,10 @@ std::string read_default_terminal_config(
     if (err) {
         VLOG(1) << "[ni] failed to read the default terminal configuration of "
                 << port.name << ": " << err;
-        return ::synnax::ni::device::TERMINAL_CONFIG_CFG_DEFAULT;
+        return std::nullopt;
     }
     const auto it = TERMINAL_CONFIGS.find(config);
-    if (it == TERMINAL_CONFIGS.end())
-        return ::synnax::ni::device::TERMINAL_CONFIG_CFG_DEFAULT;
+    if (it == TERMINAL_CONFIGS.end()) return std::nullopt;
     return it->second;
 }
 
@@ -547,7 +546,7 @@ void pair_ports(Hardware &hw, const int32 category, std::string type) {
         if (ai.port % (2 * offset) >= offset) continue;
         if (!contains(ai.terminal_configs, RSE) || !contains(ai.terminal_configs, DIFF))
             continue;
-        const auto negative = static_cast<std::uint16_t>(ai.port + offset);
+        const auto negative = static_cast<std::uint32_t>(ai.port + offset);
         if (std::ranges::any_of(hw.analog_inputs, [&](const AnalogInputPort &other) {
                 return other.port == negative;
             }))
@@ -558,9 +557,7 @@ void pair_ports(Hardware &hw, const int32 category, std::string type) {
 
 bool is_complete(const Hardware &hw) {
     return std::ranges::none_of(hw.analog_inputs, [](const AnalogInputPort &ai) {
-        return reads_back_default(ai) &&
-               ai.default_terminal_config ==
-                   ::synnax::ni::device::TERMINAL_CONFIG_CFG_DEFAULT;
+        return reads_back_default(ai) && !ai.default_terminal_config.has_value();
     });
 }
 

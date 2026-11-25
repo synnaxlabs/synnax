@@ -85,7 +85,7 @@ const terminalConfigItems = (
     const resolved = port.defaultTerminalConfig;
     return (
       <PSelect.Item<TerminalConfig> key={c} itemKey={c}>
-        {c !== "Cfg_Default" || resolved === "Cfg_Default"
+        {c !== "Cfg_Default" || resolved == null
           ? TERMINAL_CONFIG_NAMES[c]
           : `${TERMINAL_CONFIG_NAMES[c]} (${TERMINAL_CONFIG_NAMES[resolved]})`}
       </PSelect.Item>

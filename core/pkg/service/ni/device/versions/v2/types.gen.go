@@ -12,12 +12,10 @@
 package v2
 
 import (
-	"encoding/json/jsontext"
-	"encoding/json/v2"
-	"reflect"
 	"regexp"
 	"strconv"
 
+	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	chassis "github.com/synnaxlabs/synnax/pkg/service/ni/chassis/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/ni/device/versions/v1"
 	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v2"
@@ -25,7 +23,6 @@ import (
 	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"
-	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
 
 var validatePattern0 = regexp.MustCompile("^$|^[A-Za-z][A-Za-z0-9_]{1,11}$")
@@ -34,22 +31,56 @@ var validatePattern0 = regexp.MustCompile("^$|^[A-Za-z][A-Za-z0-9_]{1,11}$")
 type Key = v1.Key
 
 // CommandStatePair is the pair of channels that writes to one port.
-type CommandStatePair = v1.CommandStatePair
+type CommandStatePair struct {
+	// Command is the channel that commands the port.
+	Command *channel.Key `json:"command,omitzero" msgpack:"command,omitempty"`
+	// State is the channel that holds the state of the port.
+	State *channel.Key `json:"state,omitzero" msgpack:"state,omitempty"`
+}
 
 // AnalogInputPorts holds the channels that a device reads analog input into.
-type AnalogInputPorts = v1.AnalogInputPorts
+type AnalogInputPorts struct {
+	// Index is the index channel of the analog input channels.
+	Index *channel.Key `json:"index,omitzero" msgpack:"index,omitempty"`
+	// Temperature is the channel that holds the built-in temperature of the device.
+	Temperature *channel.Key `json:"temperature,omitzero" msgpack:"temperature,omitempty"`
+	// Channels maps a port number to the channel that holds its samples.
+	Channels map[uint16]channel.Key `json:"channels" msgpack:"channels"`
+}
 
 // AnalogOutputChannels holds the channels of one analog output port.
-type AnalogOutputChannels = v1.AnalogOutputChannels
+type AnalogOutputChannels struct {
+	// StateIndex is the index channel of the state channel.
+	StateIndex *channel.Key `json:"state_index,omitzero" msgpack:"state_index,omitempty"`
+	// Command is the channel that commands the port.
+	Command *channel.Key `json:"command,omitzero" msgpack:"command,omitempty"`
+	// State is the channel that holds the state of the port.
+	State *channel.Key `json:"state,omitzero" msgpack:"state,omitempty"`
+}
 
 // CounterInputChannels holds the channels of one counter input.
-type CounterInputChannels = v1.CounterInputChannels
+type CounterInputChannels struct {
+	// Index is the index channel of the counter.
+	Index *channel.Key `json:"index,omitzero" msgpack:"index,omitempty"`
+	// Channel is the channel that holds the samples of the counter.
+	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
+}
 
 // DigitalInputChannels holds the channels of one digital input port.
-type DigitalInputChannels = v1.DigitalInputChannels
+type DigitalInputChannels struct {
+	// Index is the index channel of the port.
+	Index *channel.Key `json:"index,omitzero" msgpack:"index,omitempty"`
+	// Lines maps a line number to the channel that holds its samples.
+	Lines map[uint8]channel.Key `json:"lines" msgpack:"lines"`
+}
 
 // DigitalOutputChannels holds the channels of one digital output port.
-type DigitalOutputChannels = v1.DigitalOutputChannels
+type DigitalOutputChannels struct {
+	// StateIndex is the index channel of the state channels.
+	StateIndex *channel.Key `json:"state_index,omitzero" msgpack:"state_index,omitempty"`
+	// Lines maps a line number to the channels that write to it.
+	Lines map[uint8]CommandStatePair `json:"lines" msgpack:"lines"`
+}
 
 // StatusDetails identifies the device and rack that a status pertains to.
 type StatusDetails struct {
@@ -191,46 +222,22 @@ type AnalogInputPort struct {
 	// TerminalConfigs are the terminal configurations that the port accepts.
 	TerminalConfigs []TerminalConfig `json:"terminal_configs" msgpack:"terminal_configs"`
 	// DefaultTerminalConfig is the terminal configuration that Cfg_Default gives on the
-	// port. The value Cfg_Default means that the Driver did not read it. DAQmx always
-	// reads back a real configuration.
-	DefaultTerminalConfig TerminalConfig `json:"default_terminal_config" msgpack:"default_terminal_config"`
+	// port. Absent when the Driver did not read it.
+	DefaultTerminalConfig *TerminalConfig `json:"default_terminal_config,omitzero" msgpack:"default_terminal_config,omitempty"`
 	// Types are the channel types that the port accepts, such as ai_voltage.
 	Types []AIChannelType `json:"types" msgpack:"types"`
 	// Negative is the port that a differential channel on this port uses as its
-	// negative input. 0 means that the port has no pair. Port 0 is never a negative
-	// port.
-	Negative uint16 `json:"negative" msgpack:"negative"`
-}
-
-// SetDefaults sets every field that has a schema default to that default.
-func (a *AnalogInputPort) SetDefaults() {
-	a.DefaultTerminalConfig = TerminalConfigCfgDefault
-}
-
-// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
-// schema defaults, so an omitted member takes its default and a zero stays.
-func (a *AnalogInputPort) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	type plain AnalogInputPort
-	if reflect.ValueOf(*a).IsZero() {
-		a.SetDefaults()
-	}
-	return json.UnmarshalDecode(dec, (*plain)(a))
-}
-
-// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
-func (a *AnalogInputPort) DecodeMsgpack(dec *vmsgpack.Decoder) error {
-	type plain AnalogInputPort
-	if reflect.ValueOf(*a).IsZero() {
-		a.SetDefaults()
-	}
-	return dec.Decode((*plain)(a))
+	// negative input. Absent when the port has no pair.
+	Negative *uint32 `json:"negative,omitzero" msgpack:"negative,omitempty"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (a AnalogInputPort) Validate() error {
 	v := validate.New("AnalogInputPort")
-	v.Ternaryf("default_terminal_config", !a.DefaultTerminalConfig.IsValid(), "invalid default_terminal_config: %v", a.DefaultTerminalConfig)
+	if a.DefaultTerminalConfig != nil {
+		v.Ternaryf("default_terminal_config", !a.DefaultTerminalConfig.IsValid(), "invalid default_terminal_config: %v", *a.DefaultTerminalConfig)
+	}
 	return v.Error()
 }
 
@@ -317,12 +324,15 @@ func (h Hardware) Validate() error {
 	v.GreaterThanEq("ai_min_rate", h.AiMinRate, 0)
 	if h.AiMaxSingleChannelRate != nil {
 		v.GreaterThan("ai_max_single_channel_rate", *h.AiMaxSingleChannelRate, 0)
+		v.Finite("ai_max_single_channel_rate", *h.AiMaxSingleChannelRate)
 	}
 	if h.AiMaxMultiChannelRate != nil {
 		v.GreaterThan("ai_max_multi_channel_rate", *h.AiMaxMultiChannelRate, 0)
+		v.Finite("ai_max_multi_channel_rate", *h.AiMaxMultiChannelRate)
 	}
 	if h.AoMaxRate != nil {
 		v.GreaterThan("ao_max_rate", *h.AoMaxRate, 0)
+		v.Finite("ao_max_rate", *h.AoMaxRate)
 	}
 	for i := range h.AnalogInputs {
 		v.Exec(func() error {

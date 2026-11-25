@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "schemas/synnax/versions/channel/v0"
 import "schemas/synnax/versions/ni_chassis/v0"
 import "schemas/synnax/versions/rack/v2"
 import "schemas/synnax/versions/status/v2"
@@ -15,17 +16,83 @@ import "schemas/x/versions/telem/v0"
 
 Key = v0.Key
 
-CommandStatePair = v0.CommandStatePair
+CommandStatePair struct {
+    command channel.Key? {
+        @doc value "is the channel that commands the port."
+    }
+    state   channel.Key? {
+        @doc value "is the channel that holds the state of the port."
+    }
 
-AnalogInputPorts = v1.AnalogInputPorts
+    @doc value  "is the pair of channels that writes to one port."
+    @go marshal
+}
 
-AnalogOutputChannels = v1.AnalogOutputChannels
+AnalogInputPorts struct {
+    index       channel.Key?             {
+        @doc value "is the index channel of the analog input channels."
+    }
+    temperature channel.Key?             {
+        @doc value "is the channel that holds the built-in temperature of the device."
+    }
+    channels    map<uint16, channel.Key> = {} {
+        @doc value "maps a port number to the channel that holds its samples."
+    }
 
-CounterInputChannels = v1.CounterInputChannels
+    @doc value  "holds the channels that a device reads analog input into."
+    @go marshal
+}
 
-DigitalInputChannels = v1.DigitalInputChannels
+AnalogOutputChannels struct {
+    state_index channel.Key? {
+        @doc value "is the index channel of the state channel."
+    }
+    command     channel.Key? {
+        @doc value "is the channel that commands the port."
+    }
+    state       channel.Key? {
+        @doc value "is the channel that holds the state of the port."
+    }
 
-DigitalOutputChannels = v1.DigitalOutputChannels
+    @doc value  "holds the channels of one analog output port."
+    @go marshal
+}
+
+CounterInputChannels struct {
+    index   channel.Key? {
+        @doc value "is the index channel of the counter."
+    }
+    channel channel.Key? {
+        @doc value "is the channel that holds the samples of the counter."
+    }
+
+    @doc value  "holds the channels of one counter input."
+    @go marshal
+}
+
+DigitalInputChannels struct {
+    index channel.Key?            {
+        @doc value "is the index channel of the port."
+    }
+    lines map<uint8, channel.Key> = {} {
+        @doc value "maps a line number to the channel that holds its samples."
+    }
+
+    @doc value  "holds the channels of one digital input port."
+    @go marshal
+}
+
+DigitalOutputChannels struct {
+    state_index channel.Key?                 {
+        @doc value "is the index channel of the state channels."
+    }
+    lines       map<uint8, CommandStatePair> = {} {
+        @doc value "maps a line number to the channels that write to it."
+    }
+
+    @doc value  "holds the channels of one digital output port."
+    @go marshal
+}
 
 StatusDetails struct {
     rack   rack.Key {
@@ -128,20 +195,19 @@ AnalogInputPort struct {
     terminal_configs        TerminalConfig[] = [] {
         @doc value "are the terminal configurations that the port accepts."
     }
-    default_terminal_config TerminalConfig = cfg_default {
+    default_terminal_config TerminalConfig?  {
         @doc value """
-            is the terminal configuration that Cfg_Default gives on the port. The value
-            Cfg_Default means that the Driver did not read it. DAQmx always reads back a
-            real configuration.
+            is the terminal configuration that Cfg_Default gives on the port. Absent
+            when the Driver did not read it.
         """
     }
     types                   AIChannelType[] = [] {
         @doc value "are the channel types that the port accepts, such as ai_voltage."
     }
-    negative                uint16 = 0 {
+    negative                uint32?          {
         @doc value """
             is the port that a differential channel on this port uses as its negative
-            input. 0 means that the port has no pair. Port 0 is never a negative port.
+            input. Absent when the port has no pair.
         """
     }
 
@@ -224,26 +290,29 @@ Hardware struct {
         """
     }
     ai_max_single_channel_rate telem.Rate?            {
-        @doc value   """
+        @doc value       """
             is the highest analog input sample rate of one channel. Absent when the
             device does not support the attribute.
         """
-        @validate gt 0
+        @validate finite
+        @validate gt     0
     }
     ai_max_multi_channel_rate  telem.Rate?            {
-        @doc value   """
+        @doc value       """
             is the highest analog input sample rate of the device. A task with several
             channels divides it by the channel count. Absent when the device does not
             support the attribute.
         """
-        @validate gt 0
+        @validate finite
+        @validate gt     0
     }
     ao_max_rate                telem.Rate?            {
-        @doc value   """
+        @doc value       """
             is the highest analog output sample rate. Absent when the device does not
             support the attribute.
         """
-        @validate gt 0
+        @validate finite
+        @validate gt     0
     }
     ai_voltage_ranges          spatial.ClosedBounds[] = [] {
         @doc value "are the analog input voltage ranges of the device."

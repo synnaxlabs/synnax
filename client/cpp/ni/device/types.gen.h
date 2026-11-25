@@ -127,9 +127,9 @@ using Key = x::uuid::UUID;
 /// @brief CommandStatePair is the pair of channels that writes to one port.
 struct CommandStatePair {
     /// @brief command is the channel that commands the port.
-    ::synnax::channel::Key command = ::synnax::channel::Key(0);
+    std::optional<::synnax::channel::Key> command;
     /// @brief state is the channel that holds the state of the port.
-    ::synnax::channel::Key state = ::synnax::channel::Key(0);
+    std::optional<::synnax::channel::Key> state;
 
     static CommandStatePair parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -145,10 +145,10 @@ struct CommandStatePair {
 /// @brief AnalogInputPorts holds the channels that a device reads analog input into.
 struct AnalogInputPorts {
     /// @brief index is the index channel of the analog input channels.
-    ::synnax::channel::Key index = ::synnax::channel::Key(0);
+    std::optional<::synnax::channel::Key> index;
     /// @brief temperature is the channel that holds the built-in temperature of the
     /// device.
-    ::synnax::channel::Key temperature = ::synnax::channel::Key(0);
+    std::optional<::synnax::channel::Key> temperature;
     /// @brief channels maps a port number to the channel that holds its samples.
     std::unordered_map<std::uint16_t, ::synnax::channel::Key> channels = {};
 
@@ -166,11 +166,11 @@ struct AnalogInputPorts {
 /// @brief AnalogOutputChannels holds the channels of one analog output port.
 struct AnalogOutputChannels {
     /// @brief state_index is the index channel of the state channel.
-    ::synnax::channel::Key state_index = ::synnax::channel::Key(0);
+    std::optional<::synnax::channel::Key> state_index;
     /// @brief command is the channel that commands the port.
-    ::synnax::channel::Key command = ::synnax::channel::Key(0);
+    std::optional<::synnax::channel::Key> command;
     /// @brief state is the channel that holds the state of the port.
-    ::synnax::channel::Key state = ::synnax::channel::Key(0);
+    std::optional<::synnax::channel::Key> state;
 
     static AnalogOutputChannels parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -186,9 +186,9 @@ struct AnalogOutputChannels {
 /// @brief CounterInputChannels holds the channels of one counter input.
 struct CounterInputChannels {
     /// @brief index is the index channel of the counter.
-    ::synnax::channel::Key index = ::synnax::channel::Key(0);
+    std::optional<::synnax::channel::Key> index;
     /// @brief channel is the channel that holds the samples of the counter.
-    ::synnax::channel::Key channel = ::synnax::channel::Key(0);
+    std::optional<::synnax::channel::Key> channel;
 
     static CounterInputChannels parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -204,7 +204,7 @@ struct CounterInputChannels {
 /// @brief DigitalInputChannels holds the channels of one digital input port.
 struct DigitalInputChannels {
     /// @brief index is the index channel of the port.
-    ::synnax::channel::Key index = ::synnax::channel::Key(0);
+    std::optional<::synnax::channel::Key> index;
     /// @brief lines maps a line number to the channel that holds its samples.
     std::unordered_map<std::uint8_t, ::synnax::channel::Key> lines = {};
 
@@ -335,7 +335,7 @@ struct Cursor {
 /// @brief DigitalOutputChannels holds the channels of one digital output port.
 struct DigitalOutputChannels {
     /// @brief state_index is the index channel of the state channels.
-    ::synnax::channel::Key state_index = ::synnax::channel::Key(0);
+    std::optional<::synnax::channel::Key> state_index;
     /// @brief lines maps a line number to the channels that write to it.
     std::unordered_map<std::uint8_t, CommandStatePair> lines = {};
 
@@ -357,15 +357,13 @@ struct AnalogInputPort {
     /// @brief terminal_configs are the terminal configurations that the port accepts.
     std::vector<std::string> terminal_configs = {};
     /// @brief default_terminal_config is the terminal configuration that Cfg_Default
-    /// gives on the port. The value Cfg_Default means that the Driver did not read it.
-    /// DAQmx always reads back a real configuration.
-    std::string default_terminal_config = TERMINAL_CONFIG_CFG_DEFAULT;
+    /// gives on the port. Absent when the Driver did not read it.
+    std::optional<std::string> default_terminal_config;
     /// @brief types are the channel types that the port accepts, such as ai_voltage.
     std::vector<std::string> types = {};
     /// @brief negative is the port that a differential channel on this port uses as its
-    /// negative input. 0 means that the port has no pair. Port 0 is never a negative
-    /// port.
-    std::uint16_t negative = 0;
+    /// negative input. Absent when the port has no pair.
+    std::optional<std::uint32_t> negative;
 
     static AnalogInputPort parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

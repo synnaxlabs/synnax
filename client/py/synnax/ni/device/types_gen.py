@@ -216,8 +216,8 @@ class CommandStatePair(BaseModel):
         state: Is the channel that holds the state of the port.
     """
 
-    command: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
-    state: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
+    command: channel_.Key | None = Field(default=None, ge=0, le=4294967295)
+    state: channel_.Key | None = Field(default=None, ge=0, le=4294967295)
 
 
 class AnalogInputPorts(BaseModel):
@@ -229,8 +229,8 @@ class AnalogInputPorts(BaseModel):
         channels: Maps a port number to the channel that holds its samples.
     """
 
-    index: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
-    temperature: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
+    index: channel_.Key | None = Field(default=None, ge=0, le=4294967295)
+    temperature: channel_.Key | None = Field(default=None, ge=0, le=4294967295)
     channels: dict[
         Annotated[int, Field(ge=0, le=65535)],
         Annotated[channel_.Key, Field(ge=0, le=4294967295)],
@@ -246,9 +246,9 @@ class AnalogOutputChannels(BaseModel):
         state: Is the channel that holds the state of the port.
     """
 
-    state_index: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
-    command: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
-    state: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
+    state_index: channel_.Key | None = Field(default=None, ge=0, le=4294967295)
+    command: channel_.Key | None = Field(default=None, ge=0, le=4294967295)
+    state: channel_.Key | None = Field(default=None, ge=0, le=4294967295)
 
 
 class CounterInputChannels(BaseModel):
@@ -259,8 +259,8 @@ class CounterInputChannels(BaseModel):
         channel: Is the channel that holds the samples of the counter.
     """
 
-    index: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
-    channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
+    index: channel_.Key | None = Field(default=None, ge=0, le=4294967295)
+    channel: channel_.Key | None = Field(default=None, ge=0, le=4294967295)
 
 
 class DigitalInputChannels(BaseModel):
@@ -271,7 +271,7 @@ class DigitalInputChannels(BaseModel):
         lines: Maps a line number to the channel that holds its samples.
     """
 
-    index: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
+    index: channel_.Key | None = Field(default=None, ge=0, le=4294967295)
     lines: dict[
         Annotated[int, Field(ge=0, le=255)],
         Annotated[channel_.Key, Field(ge=0, le=4294967295)],
@@ -285,19 +285,17 @@ class AnalogInputPort(BaseModel):
         port: Is the number in the DAQmx name of the port, such as 3 for ai3.
         terminal_configs: Are the terminal configurations that the port accepts.
         default_terminal_config: Is the terminal configuration that Cfg_Default gives on
-            the port. The value Cfg_Default means that the Driver did not read it. DAQmx
-            always reads back a real configuration.
+            the port. Absent when the Driver did not read it.
         types: Are the channel types that the port accepts, such as ai_voltage.
         negative: Is the port that a differential channel on this port uses as its
-            negative input. 0 means that the port has no pair. Port 0 is never a
-            negative port.
+            negative input. Absent when the port has no pair.
     """
 
     port: int = Field(ge=0, le=65535)
     terminal_configs: list[TerminalConfig] = Field(default_factory=list)
-    default_terminal_config: TerminalConfig = "Cfg_Default"
+    default_terminal_config: TerminalConfig | None = None
     types: list[AIChannelType] = Field(default_factory=list)
-    negative: int = Field(default=0, ge=0, le=65535)
+    negative: int | None = Field(default=None, ge=0, le=4294967295)
 
 
 class AnalogOutputPort(BaseModel):
@@ -433,7 +431,7 @@ class DigitalOutputChannels(BaseModel):
         lines: Maps a line number to the channels that write to it.
     """
 
-    state_index: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
+    state_index: channel_.Key | None = Field(default=None, ge=0, le=4294967295)
     lines: dict[Annotated[int, Field(ge=0, le=255)], CommandStatePair] = Field(
         default_factory=dict
     )

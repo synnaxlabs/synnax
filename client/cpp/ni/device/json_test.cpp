@@ -49,6 +49,7 @@ TEST(Configuration, ParsesMissingPortGroups) {
     ASSERT_NIL(parser.error());
     ASSERT_EQ(parsed.name, "Module");
     ASSERT_TRUE(parsed.analog_input.channels.empty());
+    ASSERT_FALSE(parsed.analog_input.index.has_value());
     ASSERT_TRUE(parsed.digital_output.empty());
 }
 

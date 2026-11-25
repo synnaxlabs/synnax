@@ -620,24 +620,24 @@ Where::from_proto(const ::service::ni_device::pb::Where &pb) {
 inline std::pair<::service::ni_device::pb::CommandStatePair, x::errors::Error>
 CommandStatePair::to_proto() const {
     ::service::ni_device::pb::CommandStatePair pb;
-    pb.set_command(this->command);
-    pb.set_state(this->state);
+    if (this->command.has_value()) pb.set_command(*this->command);
+    if (this->state.has_value()) pb.set_state(*this->state);
     return {pb, x::errors::NIL};
 }
 
 inline std::pair<CommandStatePair, x::errors::Error>
 CommandStatePair::from_proto(const ::service::ni_device::pb::CommandStatePair &pb) {
     CommandStatePair cpp;
-    cpp.command = pb.command();
-    cpp.state = pb.state();
+    if (pb.has_command()) cpp.command = pb.command();
+    if (pb.has_state()) cpp.state = pb.state();
     return {cpp, x::errors::NIL};
 }
 
 inline std::pair<::service::ni_device::pb::AnalogInputPorts, x::errors::Error>
 AnalogInputPorts::to_proto() const {
     ::service::ni_device::pb::AnalogInputPorts pb;
-    pb.set_index(this->index);
-    pb.set_temperature(this->temperature);
+    if (this->index.has_value()) pb.set_index(*this->index);
+    if (this->temperature.has_value()) pb.set_temperature(*this->temperature);
     for (const auto &[k, v]: this->channels)
         (*pb.mutable_channels())[k] = v;
     return {pb, x::errors::NIL};
@@ -646,8 +646,8 @@ AnalogInputPorts::to_proto() const {
 inline std::pair<AnalogInputPorts, x::errors::Error>
 AnalogInputPorts::from_proto(const ::service::ni_device::pb::AnalogInputPorts &pb) {
     AnalogInputPorts cpp;
-    cpp.index = pb.index();
-    cpp.temperature = pb.temperature();
+    if (pb.has_index()) cpp.index = pb.index();
+    if (pb.has_temperature()) cpp.temperature = pb.temperature();
     for (const auto &[k, v]: pb.channels()) {
         auto [key, key_err] = x::pb::narrow<std::uint16_t>(k);
         if (key_err) return {{}, key_err};
@@ -659,9 +659,9 @@ AnalogInputPorts::from_proto(const ::service::ni_device::pb::AnalogInputPorts &p
 inline std::pair<::service::ni_device::pb::AnalogOutputChannels, x::errors::Error>
 AnalogOutputChannels::to_proto() const {
     ::service::ni_device::pb::AnalogOutputChannels pb;
-    pb.set_state_index(this->state_index);
-    pb.set_command(this->command);
-    pb.set_state(this->state);
+    if (this->state_index.has_value()) pb.set_state_index(*this->state_index);
+    if (this->command.has_value()) pb.set_command(*this->command);
+    if (this->state.has_value()) pb.set_state(*this->state);
     return {pb, x::errors::NIL};
 }
 
@@ -670,17 +670,17 @@ AnalogOutputChannels::from_proto(
     const ::service::ni_device::pb::AnalogOutputChannels &pb
 ) {
     AnalogOutputChannels cpp;
-    cpp.state_index = pb.state_index();
-    cpp.command = pb.command();
-    cpp.state = pb.state();
+    if (pb.has_state_index()) cpp.state_index = pb.state_index();
+    if (pb.has_command()) cpp.command = pb.command();
+    if (pb.has_state()) cpp.state = pb.state();
     return {cpp, x::errors::NIL};
 }
 
 inline std::pair<::service::ni_device::pb::CounterInputChannels, x::errors::Error>
 CounterInputChannels::to_proto() const {
     ::service::ni_device::pb::CounterInputChannels pb;
-    pb.set_index(this->index);
-    pb.set_channel(this->channel);
+    if (this->index.has_value()) pb.set_index(*this->index);
+    if (this->channel.has_value()) pb.set_channel(*this->channel);
     return {pb, x::errors::NIL};
 }
 
@@ -689,15 +689,15 @@ CounterInputChannels::from_proto(
     const ::service::ni_device::pb::CounterInputChannels &pb
 ) {
     CounterInputChannels cpp;
-    cpp.index = pb.index();
-    cpp.channel = pb.channel();
+    if (pb.has_index()) cpp.index = pb.index();
+    if (pb.has_channel()) cpp.channel = pb.channel();
     return {cpp, x::errors::NIL};
 }
 
 inline std::pair<::service::ni_device::pb::DigitalInputChannels, x::errors::Error>
 DigitalInputChannels::to_proto() const {
     ::service::ni_device::pb::DigitalInputChannels pb;
-    pb.set_index(this->index);
+    if (this->index.has_value()) pb.set_index(*this->index);
     for (const auto &[k, v]: this->lines)
         (*pb.mutable_lines())[k] = v;
     return {pb, x::errors::NIL};
@@ -708,7 +708,7 @@ DigitalInputChannels::from_proto(
     const ::service::ni_device::pb::DigitalInputChannels &pb
 ) {
     DigitalInputChannels cpp;
-    cpp.index = pb.index();
+    if (pb.has_index()) cpp.index = pb.index();
     for (const auto &[k, v]: pb.lines()) {
         auto [key, key_err] = x::pb::narrow<std::uint8_t>(k);
         if (key_err) return {{}, key_err};
@@ -720,7 +720,7 @@ DigitalInputChannels::from_proto(
 inline std::pair<::service::ni_device::pb::DigitalOutputChannels, x::errors::Error>
 DigitalOutputChannels::to_proto() const {
     ::service::ni_device::pb::DigitalOutputChannels pb;
-    pb.set_state_index(this->state_index);
+    if (this->state_index.has_value()) pb.set_state_index(*this->state_index);
     for (const auto &[k, v]: this->lines) {
         auto [pb_v, err] = v.to_proto();
         if (err) return {{}, err};
@@ -734,7 +734,7 @@ DigitalOutputChannels::from_proto(
     const ::service::ni_device::pb::DigitalOutputChannels &pb
 ) {
     DigitalOutputChannels cpp;
-    cpp.state_index = pb.state_index();
+    if (pb.has_state_index()) cpp.state_index = pb.state_index();
     for (const auto &[k, v]: pb.lines()) {
         auto [key, key_err] = x::pb::narrow<std::uint8_t>(k);
         if (key_err) return {{}, key_err};
@@ -884,8 +884,8 @@ AnalogInputPort::to_proto() const {
         if (err) return {{}, err};
         pb.add_terminal_configs(v);
     }
-    {
-        auto [v, err] = terminal_config_to_pb(this->default_terminal_config);
+    if (this->default_terminal_config.has_value()) {
+        auto [v, err] = terminal_config_to_pb(*this->default_terminal_config);
         if (err) return {{}, err};
         pb.set_default_terminal_config(v);
     }
@@ -894,7 +894,7 @@ AnalogInputPort::to_proto() const {
         if (err) return {{}, err};
         pb.add_types(v);
     }
-    pb.set_negative(this->negative);
+    if (this->negative.has_value()) pb.set_negative(*this->negative);
     return {pb, x::errors::NIL};
 }
 
@@ -909,7 +909,7 @@ AnalogInputPort::from_proto(const ::service::ni_device::pb::AnalogInputPort &pb)
         if (err) return {{}, err};
         cpp.terminal_configs.push_back(v);
     }
-    {
+    if (pb.has_default_terminal_config()) {
         auto [v, err] = terminal_config_from_pb(pb.default_terminal_config());
         if (err) return {{}, err};
         cpp.default_terminal_config = v;
@@ -921,7 +921,7 @@ AnalogInputPort::from_proto(const ::service::ni_device::pb::AnalogInputPort &pb)
         if (err) return {{}, err};
         cpp.types.push_back(v);
     }
-    cpp.negative = pb.negative();
+    if (pb.has_negative()) cpp.negative = pb.negative();
     return {cpp, x::errors::NIL};
 }
 
