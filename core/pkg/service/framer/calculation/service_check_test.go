@@ -147,8 +147,10 @@ var _ = Describe("Calculation check", Ordered, func() {
 			},
 		}))
 		DeferCleanup(func() { Expect(svc.Close()).To(Succeed()) })
-		rm := svc.OpenRequestManager()
-		DeferCleanup(func() { Expect(rm.Close(ctx)).To(Succeed()) })
+		failedRM := svc.OpenRequestManager()
+		DeferCleanup(func() { Expect(failedRM.Close(ctx)).To(Succeed()) })
+		runningRM := svc.OpenRequestManager()
+		DeferCleanup(func() { Expect(runningRM.Close(ctx)).To(Succeed()) })
 		sCtx, cancel := signal.Isolated()
 		DeferCleanup(cancel)
 		streamer := MustSucceed(dist.Framer.NewStreamer(framer.StreamerConfig{
@@ -158,7 +160,12 @@ var _ = Describe("Calculation check", Ordered, func() {
 		_, sOutlet := confluence.Attach(streamer, 1, 1)
 		streamer.Flow(sCtx)
 		Eventually(sOutlet.Outlet()).Should(Receive())
-		Expect(rm.Set(ctx, channel.KeysFromChannels(append(calcs, indexes...)))).
+		// The request of the calculation that fails to open fails with the open error.
+		Expect(failedRM.Set(ctx, channel.Keys{failed.Key(), indexes[0].Key()})).
+			Error().To(MatchError(ContainSubstring("failed to open calculator")))
+		// The next rebuild opens the group of failed again, which fails, and the other
+		// group still opens.
+		Expect(runningRM.Set(ctx, channel.Keys{running.Key(), indexes[1].Key()})).
 			To(Succeed())
 		w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
 			Start: 1 * telem.SecondTS,
