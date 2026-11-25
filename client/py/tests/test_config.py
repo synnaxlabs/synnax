@@ -224,7 +224,7 @@ class TestFile:
         """Should leave both files and the keyring as they were when the legacy file
         cannot be written.
         """
-        if os.geteuid() == 0:
+        if sys.platform != "win32" and os.geteuid() == 0:
             pytest.skip("root writes to a read-only directory")
         current, legacy = tmp_path / "current", tmp_path / "legacy"
         keyring = MemoryKeyring()

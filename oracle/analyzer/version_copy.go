@@ -251,15 +251,25 @@ func structAncestors(
 // copyStruct.
 //
 // An inline variant over an inline variant of the same name patches its payload as
-// copyStruct does. Any other variant of the same name replaces the copied one. New
-// variants and extends entries follow the rules of patchEntries and appendRefs.
+// copyStruct does. Any other variant of the same name replaces the copied one. A
+// variant omit removes the copied variant. New variants and extends entries follow the
+// rules of patchEntries and appendRefs.
 func copyUnion(
 	c *analysisCtx, def parser.IUnionDefContext, decl unionDecl, below int,
 ) (unionDecl, bool) {
 	name := def.AllIDENT()[0].GetText()
 	i, ok := versionBase(c, def, name, decl.extends, below)
-	if !ok || i < 0 {
-		return decl, ok
+	if !ok {
+		return decl, false
+	}
+	if i < 0 {
+		for _, omit := range decl.omits {
+			c.report(diagnostics.Errorf(omit,
+				"union %s: omits variant %q, but extends no earlier version of itself",
+				name, omit.VariantName().GetText(),
+			))
+		}
+		return decl, len(decl.omits) == 0
 	}
 	ref := decl.extends[i]
 	base, _ := c.table.Get(ref.Name)
@@ -272,6 +282,10 @@ func copyUnion(
 	}
 	k, _ := paths.Version(base.Namespace)
 	parent, ok := collectUnionDecl(c, name, baseDef, k)
+	if !ok {
+		return decl, false
+	}
+	omitted, ok := variantOmits(c, name, ref.Name, decl, parent)
 	if !ok {
 		return decl, false
 	}
@@ -293,7 +307,7 @@ func copyUnion(
 			cv.variant.Domains = mergeDomains(pv.variant.Domains, cv.variant.Domains)
 			return cv
 		},
-		func(string) bool { return false },
+		omitted.Contains,
 	)
 	return unionDecl{
 		extends:  appendRefs(parent.extends, slices.Delete(decl.extends, i, i+1)),
@@ -301,6 +315,39 @@ func copyUnion(
 		actions:  decl.actions,
 		domains:  mergeDomains(parent.domains, decl.domains),
 	}, true
+}
+
+// variantOmits returns the names of the variants that decl omits from parent, the
+// declaration of union name in version base. It returns false after it reports an omit
+// of a variant that parent lacks or that decl also declares.
+func variantOmits(
+	c *analysisCtx, name, base string, decl, parent unionDecl,
+) (set.Set[string], bool) {
+	omitted := make(set.Set[string], len(decl.omits))
+	ok := true
+	for _, omit := range decl.omits {
+		variant := omit.VariantName().GetText()
+		switch {
+		case !slices.ContainsFunc(parent.variants, func(v variantDecl) bool {
+			return v.variant.Name == variant
+		}):
+			c.report(diagnostics.Errorf(omit,
+				"union %s: omits variant %q, which %s does not declare",
+				name, variant, base,
+			))
+			ok = false
+		case slices.ContainsFunc(decl.variants, func(v variantDecl) bool {
+			return v.variant.Name == variant
+		}):
+			c.report(diagnostics.Errorf(omit,
+				"union %s: omits and declares variant %q", name, variant,
+			))
+			ok = false
+		default:
+			omitted.Add(variant)
+		}
+	}
+	return omitted, ok
 }
 
 // patchEntries applies child over parent, matching entries by name. An entry that

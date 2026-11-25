@@ -13,7 +13,6 @@ import { type ReactElement, type Ref, useState } from "react";
 
 import { Color } from "@/color";
 import { CSS } from "@/css";
-import { BUILT_INS } from "@/schematic/node/builtIns";
 import { Custom } from "@/schematic/node/common/custom";
 import { Grid } from "@/schematic/node/common/grid";
 import { Indicator } from "@/schematic/node/common/indicator";
@@ -23,44 +22,11 @@ import { Toggle } from "@/schematic/node/common/toggle";
 import type { NodeProps, PreviewProps } from "@/schematic/node/spec";
 import { bind } from "@/schematic/node/symbol/bind";
 import { Prompt, type Request, type Sendable } from "@/schematic/node/symbol/Prompt";
+import { type Resolved, useResolved } from "@/schematic/node/symbol/resolve";
 import { Warning } from "@/schematic/node/symbol/Warning";
-import { Symbol } from "@/schematic/symbol";
 import { SymbolNode } from "@/vis/symbolNode";
 
 type Config = schematic.SymbolNodeConfig;
-
-interface Resolved {
-  spec?: schematic.symbol.Spec;
-  builtIn: boolean;
-  missing: boolean;
-  failed: boolean;
-  invalid: boolean;
-}
-
-const useResolved = (ref: schematic.symbol.Ref): Resolved => {
-  const custom = Symbol.useResolved(ref.type === "custom" ? ref.key : null);
-  switch (ref.type) {
-    case "builtin": {
-      const spec = BUILT_INS.get(ref.name);
-      return {
-        spec,
-        builtIn: true,
-        missing: spec == null,
-        failed: false,
-        invalid: false,
-      };
-    }
-    case "custom": {
-      const spec = custom.symbol?.data;
-      // The check parses the markup, so it runs here, where it is cached on the spec.
-      const invalid = spec != null && !Custom.isValidSVG(spec.drawing.markup);
-      const { missing, failed } = custom;
-      return { spec, builtIn: false, missing, failed, invalid };
-    }
-    case "missing":
-      return { builtIn: false, missing: true, failed: false, invalid: false };
-  }
-};
 
 // bindStates applies the bindings of states to the symbol of resolved.
 const bindStates = (

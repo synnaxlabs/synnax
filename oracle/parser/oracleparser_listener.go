@@ -148,6 +148,9 @@ type OracleParserListener interface {
 	// EnterUnionBody is called when entering the unionBody production.
 	EnterUnionBody(c *UnionBodyContext)
 
+	// EnterVariantOmit is called when entering the variantOmit production.
+	EnterVariantOmit(c *VariantOmitContext)
+
 	// EnterNamedVariant is called when entering the NamedVariant production.
 	EnterNamedVariant(c *NamedVariantContext)
 
@@ -297,6 +300,9 @@ type OracleParserListener interface {
 
 	// ExitUnionBody is called when exiting the unionBody production.
 	ExitUnionBody(c *UnionBodyContext)
+
+	// ExitVariantOmit is called when exiting the variantOmit production.
+	ExitVariantOmit(c *VariantOmitContext)
 
 	// ExitNamedVariant is called when exiting the NamedVariant production.
 	ExitNamedVariant(c *NamedVariantContext)

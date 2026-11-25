@@ -10,10 +10,10 @@
 package icd
 
 import (
-	"fmt"
 	"math"
 
 	"github.com/synnaxlabs/x/errors"
+	xstrconv "github.com/synnaxlabs/x/strconv"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -55,12 +55,12 @@ func outOfRange(b BaseField, raw, decoded, slack float64) (string, bool) {
 	default:
 		return "", false
 	}
+	text := func(v float64) string { return xstrconv.FormatFloat(v, 64) }
 	if raw == decoded {
-		return fmt.Sprintf("%v is %s %v", decoded, side, limit), true
+		return text(decoded) + " is " + side + " " + text(limit), true
 	}
-	return fmt.Sprintf(
-		"%v decodes to %v, which is %s %v", raw, decoded, side, limit,
-	), true
+	return text(raw) + " decodes to " + text(decoded) + ", which is " + side + " " +
+		text(limit), true
 }
 
 func problemError(message string, found bool) error {
