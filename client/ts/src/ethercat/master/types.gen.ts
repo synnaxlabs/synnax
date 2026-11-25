@@ -19,9 +19,9 @@ import { status } from "@/status";
 /** Identity holds the master fields that the scanner owns. */
 export const identityZ = z.object({
   /** rack is the key of the rack the master runs on. */
-  rack: rack.keyZ.refine((v) => v !== 0, "rack is required"),
+  rack: rack.keyZ.refine((v) => v !== 0, "Rack is required"),
   /** interface is the network interface the master drives, such as eth0 or igh:0. */
-  interface: z.string().min(1, "interface is required"),
+  interface: z.string().min(1, "Interface is required"),
   /**
    * slaves are the keys of the slaves on the bus, in bus order. A slave's position is
    * its index.
@@ -36,7 +36,7 @@ export interface Identity extends z.infer<typeof identityZ> {}
 /** Configuration holds the master fields that the user owns. */
 export const configurationZ = z.object({
   /** name is a human-readable name for the master. */
-  name: z.string().min(1, "name is required"),
+  name: z.string().min(1, "Name is required"),
 });
 export interface Configuration extends z.infer<typeof configurationZ> {}
 
