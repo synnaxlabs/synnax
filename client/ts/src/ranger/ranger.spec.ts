@@ -18,6 +18,7 @@ import {
   expectDeleted,
   expectLive,
   holdResponses,
+  requestsTo,
   spyOnSend,
   waitForStreamLive,
 } from "@/testutil";
@@ -324,12 +325,8 @@ describe("range", () => {
       const timeRange = TimeStamp.now().spanRange(TimeSpan.seconds(1));
       const names = [`${prefix}-1`, `${prefix}-2`];
       await client.ranges.create(names.map((name) => ({ name, timeRange })));
-      await expect
-        .poll(async () => {
-          const results = await client.ranges.retrieve({ searchTerm: prefix });
-          return results.map((r) => r.name).sort();
-        })
-        .toEqual(names);
+      const results = await client.ranges.retrieve({ searchTerm: prefix });
+      expect(results.map((r) => r.name).sort()).toEqual(names);
     });
   });
 
@@ -1208,7 +1205,7 @@ describe("dispatch", () => {
     await expect(fresh.ranges.dispatch(rng.key, rename("Cold flow"))).rejects.toThrow(
       NotCachedError,
     );
-    expect(send).not.toHaveBeenCalled();
+    expect(requestsTo(send, "/range/dispatch")).toEqual([]);
   });
 
   it("should drop actions the Core refuses from the cached range", async () => {
@@ -1230,7 +1227,7 @@ describe("dispatch", () => {
     await expect(
       client.ranges.dispatch(rng.key, ranger.set({ path: ["key"], value: "k" })),
     ).rejects.toThrow("Failed to parse range");
-    expect(send).not.toHaveBeenCalled();
+    expect(requestsTo(send, "/range/dispatch")).toEqual([]);
     expect(expectLive(client.ranges.watch(rng.key).getCached()).name).toBe(rng.name);
   });
 

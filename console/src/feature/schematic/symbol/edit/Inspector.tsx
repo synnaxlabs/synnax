@@ -26,7 +26,11 @@ import { type color, TimeSpan } from "@synnaxlabs/x";
 import { Fragment, type PropsWithChildren, type ReactElement, useState } from "react";
 
 import { Paint } from "@/feature/schematic/symbol/edit/Paint";
-import { useValues, type Values } from "@/feature/schematic/symbol/edit/useValues";
+import {
+  useEntryColor,
+  useValues,
+  type Values,
+} from "@/feature/schematic/symbol/edit/useValues";
 import { Spec } from "@/feature/schematic/symbol/spec";
 import { FLAGS } from "@/flags";
 import { CSS } from "@/platform/css";
@@ -36,7 +40,8 @@ type Look = schematic.symbol.Look;
 
 interface InspectorContextValue {
   part: Spec.Target;
-  preview: number;
+  /** preview is the state that the inspector edits, at the value on the canvas. */
+  preview: Spec.At;
   values: Values;
 }
 
@@ -58,8 +63,8 @@ const [FieldContext, useFieldContext] = context.create<FieldContextValue>({
 });
 
 interface Scope<F extends Spec.Field> extends InspectorContextValue, FieldContextValue {
-  /** shown is the value whose looks the control shows. */
-  shown: number;
+  /** shown is the value of a state whose looks the control shows. */
+  shown: Spec.At;
   looks: Look[];
   value: Look[F] | undefined;
   /** inherited is what a look on the whole drawing gives the part. */
@@ -78,7 +83,7 @@ const useScope = <F extends Spec.Field>(name: string): Scope<F> => {
   const { part, preview } = inspector;
   const { at } = field;
   // A control for every value shows what the canvas draws at the preview value.
-  const shown = at ?? preview;
+  const shown: Spec.At = at == null ? preview : { ...preview, value: at };
   const f = field.field as F;
   return {
     ...inspector,
@@ -94,10 +99,10 @@ const useScope = <F extends Spec.Field>(name: string): Scope<F> => {
       // A stored static symbol can hold looks on Base, which an edit at every value
       // would not reach.
       const from =
-        spec.variant === "static"
+        spec.variant === "static" && !FLAGS.symbolNodes
           ? { ...spec, looks: Spec.staticLooks(spec.looks) }
           : spec;
-      set(path.data, Spec.setOwn(from, part, f, v, at));
+      set(path.data, Spec.setOwn(from, part, f, v, at == null ? undefined : shown));
     },
   };
 };
@@ -122,11 +127,15 @@ const Property = ({
   const { part, values } = useInspectorContext("Property");
   const looks = Form.useFieldValue(path.data.looks);
   const { get, set } = Form.useContext();
-  const [split, setSplit] = useState(() => Spec.variesByValue({ looks }, part, field));
+  const { state } = values;
+  const [split, setSplit] = useState(() =>
+    Spec.variesByValue({ looks }, part, field, state),
+  );
   const several = values.list.length > 1;
   // A static symbol has one value, so it ends By state.
   if (split && !several) setSplit(false);
-  const varies = several && (split || Spec.variesByValue({ looks }, part, field));
+  const varies =
+    several && (split || Spec.variesByValue({ looks }, part, field, state));
   const handleVariesChange = (next: boolean) => {
     set(
       path.data,
@@ -134,6 +143,7 @@ const Property = ({
         get(path.data).value,
         part,
         field,
+        state,
         values.list.map((v) => v.value),
         next,
       ),
@@ -202,6 +212,13 @@ const PaintControl = ({ drawingColor }: PaintControlProps): ReactElement => {
   const { value, inherited, own, onChange, label, shown, values } = useScope<
     "fill" | "stroke"
   >("PaintControl");
+  // An entry paint stores its own state, which can differ from the state shown.
+  const entryColor = useEntryColor(
+    value?.type === "entry"
+      ? values.states.find((s) => s.key === value.state)
+      : undefined,
+    shown.value,
+  );
   return (
     <Paint
       aria-label={label}
@@ -211,20 +228,24 @@ const PaintControl = ({ drawingColor }: PaintControlProps): ReactElement => {
       onChange={onChange}
       entryState={values.entryState}
       drawingColor={drawingColor}
-      entryColor={values.entryColor(shown)}
+      entryColor={entryColor}
     />
   );
 };
 
 const VisibleControl = (): ReactElement => {
-  const { value, inherited, part, at, values, looks, onChange, label } =
+  const { value, inherited, part, at, values, preview, looks, onChange, label } =
     useScope<"hidden">("VisibleControl");
   // A part shown at every value stores false when the drawing hides at any value.
   const drawingHides =
     part != null &&
     (at == null
       ? values.list.some(
-          (v) => Spec.effective({ looks }, undefined, "hidden", v.value) === true,
+          (v) =>
+            Spec.effective({ looks }, undefined, "hidden", {
+              ...preview,
+              value: v.value,
+            }) === true,
         )
       : inherited === true);
   return (
@@ -365,8 +386,8 @@ const MotionControl = (): ReactElement => {
 
 export interface InspectorProps {
   part: Spec.Target;
-  /** preview is the value that the canvas draws. */
-  preview: number;
+  /** preview is the value of a state that the canvas draws. */
+  preview: Spec.At;
 }
 
 const LEVEL_ISSUES: Record<
@@ -431,7 +452,7 @@ export const Inspector = ({ part: key, preview }: InspectorProps): ReactElement 
   const parts = Form.useFieldValue(path.data.parts);
   const drawing = Form.useFieldValue(path.data.drawing);
   const looks = Form.useFieldValue(path.data.looks);
-  const values = useValues();
+  const values = useValues(preview.state);
   const part = parts.find((p) => p.key === key);
   const drawn =
     part == null
@@ -442,7 +463,13 @@ export const Inspector = ({ part: key, preview }: InspectorProps): ReactElement 
       ? Spec.levelIssues({ drawing, parts, looks }).get(part.key)
       : undefined;
   return (
-    <InspectorContext value={{ part: part?.key, preview, values }}>
+    <InspectorContext
+      value={{
+        part: part?.key,
+        preview: { state: values.state, value: preview.value },
+        values,
+      }}
+    >
       <Flex.Box y gap="medium" className={CSS.B("schematic-inspector")}>
         <Flex.Box y gap={0}>
           <Text.Text level="h5">{part?.name ?? "Whole drawing"}</Text.Text>

@@ -286,6 +286,28 @@ describe("Stack", () => {
       expect(modals.isAnyOpen()).toBe(false);
     });
 
+    const Unsaved: Modals.Content = () => {
+      Modals.useUnsaved(() => true);
+      return (
+        <Modal.Frame>
+          <span>edits</span>
+        </Modal.Frame>
+      );
+    };
+
+    it("should ask before the close trigger closes an unsaved modal", async () => {
+      const { modals } = renderPage(["Control", "T"]);
+      act(() => modals.push(Unsaved, {}, () => {}));
+      act(() => press("ControlLeft", "KeyW"));
+      expect(await screen.findByText("Discard unsaved edits?")).toBeDefined();
+      clickText("Keep editing");
+      await waitFor(() => expect(modals.getState()).toHaveLength(1));
+      act(() => press("Escape"));
+      await screen.findByText("Discard unsaved edits?");
+      clickText("Discard");
+      await waitFor(() => expect(modals.isAnyOpen()).toBe(false));
+    });
+
     it("should keep a busy modal open on the close trigger", () => {
       const { callback, modals } = renderPage(["Control", "W"]);
       act(() => modals.push(Saving, {}, () => {}));

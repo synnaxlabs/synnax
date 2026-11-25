@@ -231,7 +231,8 @@ data "aws_iam_openid_connect_provider" "github" {
   url = "https://token.actions.githubusercontent.com"
 }
 
-# Lets workflows in the repository see the runners, and nothing else.
+# Lets Agent - Requeue see the runners, and nothing else. Only workflow runs on main may
+# assume it: relay.failure.yaml dispatches Agent - Requeue on main.
 resource "aws_iam_role" "start" {
   name = "synnax-agent-runner-start"
   assume_role_policy = jsonencode({
@@ -243,9 +244,9 @@ resource "aws_iam_role" "start" {
       Condition = {
         StringEquals = {
           "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
-        }
-        StringLike = {
-          "token.actions.githubusercontent.com:sub" = "repo:${var.repository}:*"
+          "token.actions.githubusercontent.com:sub" = join(":", [
+            "repo", var.repository, "ref", "refs/heads/main",
+          ])
         }
       }
     }]

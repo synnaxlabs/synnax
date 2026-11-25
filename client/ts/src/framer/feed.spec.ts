@@ -82,6 +82,30 @@ const latest = (keys: channel.Key[], count = 1): framer.LatestRequest => ({
 const valuesOf = (sub: framer.Subscription, key: channel.Key): number[] =>
   Array.from(sub.value(key).series) as number[];
 
+/**
+ * Describes a snapshot for an assertion message. A parked channel or a waiting join
+ * shows in the status. A series that a waiting join holds has an alignment at or past
+ * 2^62, and a stream buffer has a `dynamic-` key.
+ */
+const describeSnapshot = (snap: framer.Snapshot, iteration: number): string =>
+  JSON.stringify({
+    iteration,
+    now: TimeStamp.now().toString(),
+    status: {
+      variant: snap.status.variant,
+      message: snap.status.message,
+      description: snap.status.description,
+    },
+    time: snap.time?.toString(),
+    streaming: snap.streaming,
+    series: snap.series.series.map((s) => ({
+      key: s.key,
+      length: s.length,
+      alignment: s.alignment.toString(),
+      timeRange: s.timeRange.toString(),
+    })),
+  });
+
 /** Returns the samples of the channel once the subscription loads them. */
 const loaded = async (
   sub: framer.Subscription,
@@ -193,9 +217,10 @@ describe("Feed", () => {
             .toBe(true);
           await sleep.sleep(TimeSpan.milliseconds(50 + 10 * i));
           const opened = TimeStamp.now().sub(span);
-          const numbers = valuesOf(sub, data.key);
+          const snap = sub.value(data.key);
+          const numbers = Array.from(snap.series, Number);
           const steps = new Set(numbers.slice(1).map((n, j) => n - numbers[j]));
-          expect([...steps]).toEqual([1]);
+          expect([...steps], describeSnapshot(snap, i)).toEqual([1]);
           const from = TimeStamp.max(start, opened);
           expect(numbers[0]).toBeLessThanOrEqual(
             Number(from.span(start).milliseconds) + 1,
