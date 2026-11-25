@@ -141,7 +141,10 @@ Connection union on transport extends BaseConnection {
             @doc value "is the parity of the line."
         }
         stop_bits   StopBits = one {
-            @doc value "is the number of stop bits of the line."
+            @doc value """
+                is the number of stop bits of the line. Modbus asks for two with no
+                parity, but many devices use one, so no rule ties it to parity.
+            """
         }
         unit_id     uint8 = 1 {
             @doc value    "is the unit that requests address."
@@ -205,10 +208,10 @@ Number struct {
     data_type     telem.NumericDataType = uint16 {
         @doc value "is the type of the value in the registers."
     }
-    bytes_swapped bool?    {
+    bytes_swapped bool?                 {
         @doc value "overrides the bytes_swapped of the connection for the value."
     }
-    words_swapped bool?    {
+    words_swapped bool?                 {
         @doc value "overrides the words_swapped of the connection for the value."
     }
 
