@@ -130,6 +130,60 @@ describe("Write", () => {
     });
   });
 
+  it("should rename the message of an endpoint after its new method and path", async () => {
+    const { draft } = await renderWrite();
+    await addEndpoint();
+    await addEndpoint();
+    await waitFor(() => {
+      const options = screen.getAllByRole("option");
+      expect(screen.getByRole("option", { selected: true })).toBe(options[1]);
+    });
+    fireEvent.click(screen.getByText("PATCH"));
+    fireEvent.change(screen.getByPlaceholderText("/api/control"), {
+      target: { value: "/speed" },
+    });
+    await waitFor(async () => {
+      const [ep] = await retrieveEndpoints(draft.key);
+      if (ep?.icd == null) throw new Error("the endpoint sends no ICD");
+      const ic = await client.icds.retrieve(ep.icd);
+      expect(ic.messages.map(({ name }) => name)).toEqual(["POST", "PATCH /speed"]);
+    });
+  });
+
+  it("should keep the name of a message that its endpoint did not name", async () => {
+    const value = createField("value", "float");
+    const { ic, message } = await createFormat([value]);
+    await renderWrite([createEndpoint("ep1", "/setpoint", ic, message, [value])]);
+    fireEvent.click(await screen.findByRole("option", { name: /\/setpoint/ }));
+    fireEvent.change(await screen.findByDisplayValue("/setpoint"), {
+      target: { value: "/speed" },
+    });
+    await screen.findByDisplayValue("/speed");
+    expect(screen.getByText(message.name)).toBeTruthy();
+  });
+
+  it("should keep the name of a message that two endpoints send", async () => {
+    const value = createField("value", "float");
+    const message = icd.messageZ.parse({
+      name: "PUT /setpoint",
+      payload: { format: "json", fields: [value] },
+    });
+    const ic = await client.icds.create({
+      name: uniqueName("valve"),
+      messages: [message],
+    });
+    await renderWrite([
+      createEndpoint("ep1", "/setpoint", ic, message, [value]),
+      createEndpoint("ep2", "/setpoint", ic, message, [value]),
+    ]);
+    fireEvent.click((await screen.findAllByRole("option", { name: /\/setpoint/ }))[1]);
+    fireEvent.change(await screen.findByDisplayValue("/setpoint"), {
+      target: { value: "/speed" },
+    });
+    await screen.findByDisplayValue("/speed");
+    expect(screen.getByText("PUT /setpoint")).toBeTruthy();
+  });
+
   it("should show the request and the message of an endpoint", async () => {
     const value = createField("value", "float");
     const { ic, message } = await createFormat([value]);
