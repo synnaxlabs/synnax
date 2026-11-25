@@ -15,11 +15,14 @@ import { describe, expect, it, vi } from "vitest";
 import { Custom } from "@/schematic/node/common/custom";
 import { Primitive } from "@/schematic/node/common/primitive";
 
-const strokeColor = (el: SVGElement): string =>
-  el.style.getPropertyValue(Primitive.SYMBOL_COLOR);
+const strokeColor = (el: SVGElement): string => el.style.getPropertyValue("stroke");
 
-const rgba = (hex: string): string | undefined =>
-  color.rgbaString(color.construct(hex));
+// css returns hex as the browser writes it back as a stroke.
+const css = (hex: string): string => {
+  const el = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+  el.style.setProperty("stroke", hex);
+  return el.style.getPropertyValue("stroke");
+};
 
 const MAIN_SVG =
   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect class="main" width="50" height="50" stroke="black" fill="white"/></svg>';
@@ -281,7 +284,7 @@ describe("Custom.useRender", () => {
       );
 
       const rect = container.querySelector(".main") as SVGRectElement;
-      expect(strokeColor(rect)).toBe(rgba("#333333"));
+      expect(strokeColor(rect)).toBe(css("#333333"));
       expect(rect.getAttribute("fill")).toBe("#cccccc");
     });
 
@@ -298,7 +301,7 @@ describe("Custom.useRender", () => {
       );
 
       const rect = container.querySelector(".main") as SVGRectElement;
-      expect(strokeColor(rect)).toBe(rgba("#00ff00"));
+      expect(strokeColor(rect)).toBe(css("#00ff00"));
       expect(rect.getAttribute("fill")).toBe("#00ff0033");
     });
 
@@ -337,13 +340,13 @@ describe("Custom.useRender", () => {
       result.current(container);
 
       const rect = container.querySelector(".main") as SVGRectElement;
-      expect(strokeColor(rect)).toBe(rgba("#333333"));
+      expect(strokeColor(rect)).toBe(css("#333333"));
 
       rerender({ paints: ON });
-      expect(strokeColor(rect)).toBe(rgba("#00ff00"));
+      expect(strokeColor(rect)).toBe(css("#00ff00"));
 
       rerender({ paints: OFF });
-      expect(strokeColor(rect)).toBe(rgba("#333333"));
+      expect(strokeColor(rect)).toBe(css("#333333"));
     });
 
     it("should draw a paint on every selector", () => {
@@ -363,8 +366,8 @@ describe("Custom.useRender", () => {
 
       const rect = container.querySelector(".main") as SVGRectElement;
       const circle = container.querySelector(".secondary") as SVGCircleElement;
-      expect(strokeColor(rect)).toBe(rgba("#ff0000"));
-      expect(strokeColor(circle)).toBe(rgba("#ff0000"));
+      expect(strokeColor(rect)).toBe(css("#ff0000"));
+      expect(strokeColor(circle)).toBe(css("#ff0000"));
     });
 
     it("should draw a paint with no selectors on the whole drawing", () => {
@@ -374,10 +377,10 @@ describe("Custom.useRender", () => {
       });
       renderAttached({ paints: [createPaint(undefined, "#ff0000")], spec }, container);
       expect(strokeColor(container.querySelector(".main") as SVGElement)).toBe(
-        rgba("#ff0000"),
+        css("#ff0000"),
       );
       expect(strokeColor(container.querySelector(".other") as SVGElement)).toBe(
-        rgba("#ff0000"),
+        css("#ff0000"),
       );
     });
 
@@ -389,7 +392,7 @@ describe("Custom.useRender", () => {
       ];
       renderAttached({ paints, spec: createMockSpec() }, container);
       const rect = container.querySelector(".main") as SVGRectElement;
-      expect(strokeColor(rect)).toBe(rgba("#0000ff"));
+      expect(strokeColor(rect)).toBe(css("#0000ff"));
       expect(rect.getAttribute("fill")).toBe("#00ff00");
     });
 
@@ -425,7 +428,7 @@ describe("Custom.useRender", () => {
           container,
         );
         inside(container).forEach((el) => {
-          expect(strokeColor(el)).toBe(rgba("#ff0000"));
+          expect(strokeColor(el)).toBe(css("#ff0000"));
           expect(el.getAttribute("fill")).toBe("#00ff00");
         });
         expect(strokeColor(container.querySelector("#g") as SVGElement)).toBe("");
@@ -470,9 +473,12 @@ describe("Custom.useRender", () => {
           },
           container,
         );
-        inside(container).forEach((el) =>
-          expect(strokeColor(el)).toBe(rgba("#123456")),
-        );
+        inside(container).forEach((el) => {
+          expect(el.style.getPropertyValue(Primitive.SYMBOL_COLOR)).toBe(
+            color.rgbaString(color.construct("#123456")),
+          );
+          expect(strokeColor(el)).toBe("");
+        });
       });
     });
   });
@@ -781,6 +787,21 @@ describe("Custom.useRender", () => {
       expect(rect.getAttribute("fill")).toBe("blue");
     });
 
+    it("should remove a paint fill from a shape with no fill of its own", () => {
+      const container = document.createElement("div");
+      const spec = createMockSpec({
+        svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect class="main" width="50" height="50"/></svg>',
+      });
+      const { rerender } = renderAttached(
+        { paints: [createPaint([".main"], undefined, "#ff0000")], spec },
+        container,
+      );
+      const rect = container.querySelector(".main") as SVGRectElement;
+      expect(rect.getAttribute("fill")).toBe("#ff0000");
+      rerender({ paints: [], spec });
+      expect(rect.hasAttribute("fill")).toBe(false);
+    });
+
     it("should restore colors when a paint drops a shape", () => {
       const container = document.createElement("div");
       const [off, on] = [
@@ -806,20 +827,20 @@ describe("Custom.useRender", () => {
       const rect = container.querySelector(".main") as SVGRectElement;
       const circle = container.querySelector(".secondary") as SVGCircleElement;
 
-      expect(strokeColor(rect)).toBe(rgba("#333333"));
+      expect(strokeColor(rect)).toBe(css("#333333"));
       expect(rect.getAttribute("fill")).toBe("#cccccc");
       expect(circle.getAttribute("stroke")).toBe("blue");
       expect(strokeColor(circle)).toBe("");
       expect(circle.getAttribute("fill")).toBe("yellow");
 
       rerender({ paints: on });
-      expect(strokeColor(rect)).toBe(rgba("#ff0000"));
+      expect(strokeColor(rect)).toBe(css("#ff0000"));
       expect(rect.getAttribute("fill")).toBe("#ff0000");
-      expect(strokeColor(circle)).toBe(rgba("#ff0000"));
+      expect(strokeColor(circle)).toBe(css("#ff0000"));
       expect(circle.getAttribute("fill")).toBe("#ff0000");
 
       rerender({ paints: off });
-      expect(strokeColor(rect)).toBe(rgba("#333333"));
+      expect(strokeColor(rect)).toBe(css("#333333"));
       expect(rect.getAttribute("fill")).toBe("#cccccc");
       expect(circle.getAttribute("stroke")).toBe("blue");
       expect(strokeColor(circle)).toBe("");
@@ -898,7 +919,7 @@ describe("Custom.useRender", () => {
       result.current(container);
 
       expect(strokeColor(container.querySelector(".main") as SVGRectElement)).toBe(
-        rgba("#333333"),
+        css("#333333"),
       );
 
       rerender({
@@ -908,7 +929,7 @@ describe("Custom.useRender", () => {
       });
 
       const rebuilt = container.querySelector(".main") as SVGRectElement;
-      expect(strokeColor(rebuilt)).toBe(rgba("#333333"));
+      expect(strokeColor(rebuilt)).toBe(css("#333333"));
       expect(rebuilt.getAttribute("fill")).toBe("#cccccc");
     });
 

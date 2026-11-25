@@ -11,6 +11,7 @@ package icd
 
 import (
 	"encoding/json/jsontext"
+	"math"
 
 	xjson "github.com/synnaxlabs/x/json"
 	xmath "github.com/synnaxlabs/x/math"
@@ -18,9 +19,9 @@ import (
 )
 
 // CheckDefault returns an error wrapping validate.ErrValidation when f has a default
-// that it cannot hold: a float that is not finite, text that is not base64 or not valid
-// JSON, or a number that decodes outside the min and max of f. The error does not name
-// the default.
+// that it cannot hold: an infinite float, text that is not base64 or not valid JSON, or
+// a number that decodes outside the min and max of f. The error does not name the
+// default.
 func CheckDefault(f JSONField) error {
 	return problemError(defaultProblem(f))
 }
@@ -28,8 +29,8 @@ func CheckDefault(f JSONField) error {
 func defaultProblem(f JSONField) (string, bool) {
 	switch v := f.Variant.(type) {
 	case FloatJSONField:
-		if v.Default != nil && !xmath.Finite(*v.Default) {
-			return "must be finite", true
+		if v.Default != nil && math.IsInf(float64(*v.Default), 0) {
+			return "cannot be infinite", true
 		}
 		return defaultRangeProblem(v.BaseField, v.Default)
 	case IntegerJSONField:

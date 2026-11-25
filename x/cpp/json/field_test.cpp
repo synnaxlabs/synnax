@@ -571,11 +571,26 @@ TEST(Decoder, AppendsSamplesInOrder) {
     ASSERT_EQ(dst.strings(), (std::vector<std::string>{"a", "bc"}));
 }
 
-/// @brief it should reject a number for a string.
-TEST(Decoder, RejectsNumberForString) {
-    const auto err = decode_error({.data_type = telem::STRING_T}, "1");
-    ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "expected a string, got a number");
+/// @brief it should write a number as its JSON text to a string, which takes no enum
+/// label.
+TEST(Decoder, ConvertsNumberToStringAsJSONText) {
+    const auto s = decode(
+        {.data_type = telem::STRING_T, .enums = {{"1.50", "ON"}}},
+        "1.50"
+    );
+    ASSERT_EQ(s.strings(), std::vector<std::string>{"1.50"});
+}
+
+/// @brief it should write a boolean as its JSON text to a string.
+TEST(Decoder, ConvertsBooleanToStringAsJSONText) {
+    const auto s = decode({.data_type = telem::STRING_T}, "true");
+    ASSERT_EQ(s.strings(), std::vector<std::string>{"true"});
+}
+
+/// @brief it should write an object as its compacted JSON text to a string.
+TEST(Decoder, ConvertsObjectToStringAsCompactedJSONText) {
+    const auto s = decode({.data_type = telem::STRING_T}, R"({ "a" : [ 1 , 2 ] })");
+    ASSERT_EQ(s.strings(), std::vector<std::string>{R"({"a":[1,2]})"});
 }
 
 /// @brief it should reject a string that is no enum label for a number.
@@ -953,21 +968,34 @@ TEST(DecoderAppendFloat, ConvertsWholeFloatInRange) {
     ASSERT_EQ(s.at<double>(0), 4.0);
 }
 
-/// @brief it should reject infinity.
-TEST(DecoderAppendFloat, RejectsInfinity) {
+/// @brief it should append infinity into a float64.
+TEST(DecoderAppendFloat, AppendsInfinity) {
+    const auto inf = std::numeric_limits<double>::infinity();
+    const auto s = decode_float({.data_type = telem::FLOAT64_T}, -inf);
+    ASSERT_EQ(s.at<double>(0), -inf);
+}
+
+/// @brief it should append NaN into a float32.
+TEST(DecoderAppendFloat, AppendsNaN) {
+    const auto s = decode_float({.data_type = telem::FLOAT32_T}, NaN);
+    ASSERT_TRUE(std::isnan(s.at<float>(0)));
+}
+
+/// @brief it should reject NaN into an integer.
+TEST(DecoderAppendFloat, RejectsNaNIntoInteger) {
+    const auto err = decode_float_error({.data_type = telem::INT32_T}, NaN);
+    ASSERT_OCCURRED_AS(err, errors::VALIDATION);
+    ASSERT_EQ(err.data, "NaN is not an integer");
+}
+
+/// @brief it should reject infinity into an integer.
+TEST(DecoderAppendFloat, RejectsInfinityIntoInteger) {
     const auto err = decode_float_error(
-        {.data_type = telem::FLOAT64_T},
+        {.data_type = telem::INT64_T},
         std::numeric_limits<double>::infinity()
     );
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "Infinity is not finite");
-}
-
-/// @brief it should reject NaN.
-TEST(DecoderAppendFloat, RejectsNaN) {
-    const auto err = decode_float_error({.data_type = telem::FLOAT32_T}, NaN);
-    ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "NaN is not finite");
+    ASSERT_EQ(err.data, "Infinity is out of range for int64");
 }
 
 /// @brief it should reject a double past a float32.

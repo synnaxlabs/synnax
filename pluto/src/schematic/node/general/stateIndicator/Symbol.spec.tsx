@@ -118,3 +118,24 @@ describe("StateIndicator.Symbol staleness", () => {
     );
   });
 });
+
+describe("StateIndicator.Symbol states", () => {
+  it("should draw no options of a node that names no enumeration", async () => {
+    const { findByText } = render(
+      <StaleWrapper>
+        <ReactFlowProvider>
+          <StateIndicator.spec.Node
+            nodeKey="s1"
+            selected={false}
+            onConfigChange={vi.fn()}
+            config={schematic.stateIndicatorNodeConfigZ.parse({
+              variant: "state_indicator",
+              options: [{ key: "open", name: "Open", value: 0 }],
+            })}
+          />
+        </ReactFlowProvider>
+      </StaleWrapper>,
+    );
+    expect(await findByText("Unknown")).toBeTruthy();
+  });
+});

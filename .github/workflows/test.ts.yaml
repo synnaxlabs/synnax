@@ -13,7 +13,9 @@ on:
   workflow_call:
     inputs: &inputs
       browsers:
-        description: Whether the tests run in Playwright's Chromium and WebKit
+        description:
+          Whether the tests run in Playwright's Chromium, WebKit, and, for a package
+          with a firefox project, Firefox
         required: false
         type: boolean
         default: false
@@ -372,12 +374,13 @@ jobs:
         run:
           pnpm turbo examples --filter "$PACKAGE" --log-order=stream --log-prefix=none
 
-      # Vitest rejects more shards than files, so a package needs more browser spec files
-      # than shards times WebKit runs. Playwright's WebKit never frees the heap of a
-      # finished spec file (https://github.com/microsoft/playwright/issues/44290), so a
-      # page that runs too many files crashes. Each run starts new pages. Set
-      # webkit_runs back to 1 when the issue is fixed.
-      - name: Test in WebKit
+      # V8 coverage reads only Chromium, so WebKit and Firefox run here. Vitest rejects
+      # more shards than files, so a package needs more browser spec files than shards
+      # times WebKit runs. Playwright's WebKit never frees the heap of a finished spec
+      # file (https://github.com/microsoft/playwright/issues/44290), so a page that runs
+      # too many files crashes. Each run starts new pages. Set webkit_runs back to 1
+      # when the issue is fixed.
+      - name: Test in WebKit and Firefox
         if: inputs.test && inputs.browsers
         shell: bash
         timeout-minutes: 15
@@ -389,7 +392,27 @@ jobs:
           SYNNAX_TEST_CACHE_KEY:
             ${{ format('{0}-{1}-{2}-{3}-webkit', github.run_id, github.run_attempt,
             github.job, strategy.job-index) }}
+          # WebKit names no URL when a module import fails, so the dev server logs the
+          # requests that fail.
+          SYNNAX_TEST_REQUEST_LOG: ${{ runner.temp }}/diagnostics/webkit-requests.log
+        # A page crash leaves no memory data in the log, so a loop samples it.
         run: |
+          mkdir -p "$RUNNER_TEMP/diagnostics"
+          if [ "$RUNNER_OS" = Linux ]; then
+            log="$RUNNER_TEMP/diagnostics/webkit-memory.log"
+            (
+              set +e
+              while :; do
+                date -u +%FT%TZ
+                free -m
+                pids=$(pgrep -d, -f 'WebKit|WPE') \
+                  && ps -o rss=,args= --sort=-rss -p "$pids" | head -5 | cut -c1-160
+                sleep 5
+              done
+            ) &> "$log" < /dev/null &
+            monitor=$!
+            trap 'kill "$monitor"; echo "Memory samples: $(grep -c Mem: "$log")"' EXIT
+          fi
           read -ra specs <<< "$SPECS"
           status=0
           total=$((SHARDS * RUNS))
@@ -399,7 +422,8 @@ jobs:
               args=(--shard="$(((SHARD - 1) * RUNS + run))/$total")
             fi
             pnpm test:"$PACKAGE" --log-order=stream --log-prefix=none -- --run \
-              --project '*webkit' "${args[@]}" "${specs[@]}" || status=1
+              --project '*webkit' --project '*firefox' "${args[@]}" "${specs[@]}" \
+              || status=1
           done
           exit "$status"
 
@@ -462,6 +486,18 @@ jobs:
           ATTACHMENTS: ${{ inputs.directory }}/.vitest/attachments
         run: |
           mkdir -p "$RUNNER_TEMP/diagnostics"
+          if [ "$RUNNER_OS" = Linux ]; then
+            echo "Kernel OOM, kill, and segfault lines:"
+            { sudo dmesg 2> /dev/null || sudo journalctl -k --no-pager; } \
+              | grep -iE 'oom|killed process|segfault' | tail -50 || true
+          fi
+          if [ -f "$RUNNER_TEMP/diagnostics/webkit-memory.log" ]; then
+            tail -n 40 "$RUNNER_TEMP/diagnostics/webkit-memory.log"
+          fi
+          if [ -f "$RUNNER_TEMP/diagnostics/webkit-requests.log" ]; then
+            echo "Failed dev server requests in WebKit and Firefox:"
+            tail -n 200 "$RUNNER_TEMP/diagnostics/webkit-requests.log"
+          fi
           if [ "$RUNNER_OS" = Linux ] && docker inspect synnax &> /dev/null; then
             docker logs synnax &> "$RUNNER_TEMP/diagnostics/core.log"
             # The tail in the job output shows the Core side of a failure without the

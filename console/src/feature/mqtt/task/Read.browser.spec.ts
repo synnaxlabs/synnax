@@ -53,10 +53,10 @@ const PAGE_SIZE = 50;
 const createField = (name: string, kind: payload.Kind): icd.JSONField =>
   icd.jsonFieldZ.parse({ name, pointer: `/${name}`, type: kind });
 
-const createTimeField = (): icd.JSONField =>
+const createTimeField = (name = "time"): icd.JSONField =>
   icd.jsonFieldZ.parse({
-    name: "time",
-    pointer: "/time",
+    name,
+    pointer: `/${name}`,
     type: "timestamp",
     timeFormat: "unix_ms",
   });
@@ -652,7 +652,7 @@ describe("MQTT read form", () => {
     const { icd: icdKey, messages } = plainOf((await retrieveEntries(draft.key))[0]);
     await waitFor(async () =>
       expect((await client.icds.retrieve(icdKey)).messages[0].payload).toMatchObject({
-        fields: [{ key: temperature.key }, { name: "Field 2", pointer: "" }],
+        fields: [{ key: temperature.key }, { name: "Field 2", pointer: "/field_2" }],
       }),
     );
     const [, added] = jsonFieldsOf(await client.icds.retrieve(icdKey));
@@ -959,6 +959,14 @@ describe("MQTT read form", () => {
     await waitFor(async () =>
       expect((await retrieveEntries(draft.key))[0].disabled).toBe(false),
     );
+  });
+
+  it("should preview a new index after its index field while the entry is disabled", async () => {
+    const ts = createTimeField("ts");
+    const temperature = createField("temperature", "float");
+    const entry = await createEntry({ fields: [temperature, ts], index: ts.key });
+    const { dev } = await renderRead({ entries: [{ ...entry, disabled: true }] });
+    await screen.findByDisplayValue(`${dev.name}_plant_oven_ts`);
   });
 
   it("should read the time from the first timestamp field on payload timing", async () => {
@@ -1278,6 +1286,176 @@ describe("MQTT read form", () => {
         (await client.icds.retrieve(entry.icd)).messages.map(({ name }) => name),
       ).toEqual([TOPIC, `${TOPIC} 2`]),
     );
+  });
+
+  describe("duplicate", () => {
+    /** Creates a topic that reads temperature into a channel, and not pressure. */
+    const createBoundEntry = async () => {
+      const ch = await client.channels.create({
+        name: uniqueName("temperature"),
+        dataType: DataType.FLOAT64,
+        virtual: true,
+      });
+      const temperature = createField("temperature", "float");
+      const entry = await createEntry({
+        fields: [temperature, createField("pressure", "float")],
+        bound: { [temperature.key]: ch.key },
+      });
+      return { ch, temperature, entry };
+    };
+
+    it("should copy a field after it and read the copy into a new channel", async () => {
+      const { ch, temperature, entry } = await createBoundEntry();
+      const { draft, dev } = await renderRead({ entries: [entry] });
+      fireEvent.contextMenu(
+        await screen.findByRole("treeitem", { name: /^temperature/ }),
+      );
+      fireEvent.click(await screen.findByRole("menuitem", { name: "Duplicate" }));
+      const copy = await waitFor(async () => {
+        const [message] = (await client.icds.retrieve(entry.icd)).messages;
+        if (message.payload.format !== "json") throw new Error("expected JSON");
+        expect(message.payload.fields).toMatchObject([
+          { key: temperature.key },
+          { name: "temperature_2", pointer: "/temperature", type: "float" },
+          { name: "pressure" },
+        ]);
+        return message.payload.fields[1];
+      });
+      expect(copy.key).not.toBe(temperature.key);
+      await waitFor(async () =>
+        expect(await retrieveBindings(draft.key)).toEqual([
+          { field: temperature.key, channel: ch.key, dataType: "" },
+          { field: copy.key, channel: 0, dataType: "" },
+        ]),
+      );
+      await screen.findByRole("treeitem", { name: /^temperature_2/, selected: true });
+      await screen.findByDisplayValue(`${dev.name}_plant_oven_temperature_2`);
+    });
+
+    it("should copy a field once for each topic that reads its message", async () => {
+      const { ch, temperature, entry } = await createBoundEntry();
+      const kiln = mqtt.plainReadEntryZ.parse({
+        ...entry,
+        key: uuid.create(),
+        topic: "plant/kiln",
+        messages: [
+          { ...entry.messages[0], bindings: [{ field: temperature.key, channel: 0 }] },
+        ],
+      });
+      const { draft } = await renderRead({ entries: [entry, kiln] });
+      const [first, second] = await waitFor(() => {
+        const found = screen.getAllByRole("treeitem", { name: /^temperature/ });
+        expect(found).toHaveLength(2);
+        return found;
+      });
+      fireEvent.click(first);
+      fireEvent.keyDown(window, { code: "Control" });
+      fireEvent.click(second);
+      fireEvent.keyUp(window, { code: "Control" });
+      fireEvent.contextMenu(second);
+      fireEvent.click(await screen.findByRole("menuitem", { name: "Duplicate" }));
+      const copy = await waitFor(async () => {
+        const [message] = (await client.icds.retrieve(entry.icd)).messages;
+        if (message.payload.format !== "json") throw new Error("expected JSON");
+        expect(message.payload.fields.map(({ name }) => name)).toEqual([
+          "temperature",
+          "temperature_2",
+          "pressure",
+        ]);
+        return message.payload.fields[1];
+      });
+      await waitFor(async () =>
+        expect(
+          (await retrieveEntries(draft.key)).map(
+            (e) => plainOf(e).messages[0].bindings,
+          ),
+        ).toEqual([
+          [
+            { field: temperature.key, channel: ch.key, dataType: "" },
+            { field: copy.key, channel: 0, dataType: "" },
+          ],
+          [
+            { field: temperature.key, channel: 0, dataType: "" },
+            { field: copy.key, channel: 0, dataType: "" },
+          ],
+        ]),
+      );
+    });
+
+    it("should read the copy only in the topic of the chosen field", async () => {
+      const { ch, temperature, entry } = await createBoundEntry();
+      const kiln = mqtt.plainReadEntryZ.parse({
+        ...entry,
+        key: uuid.create(),
+        topic: "plant/kiln",
+        messages: [
+          { ...entry.messages[0], bindings: [{ field: temperature.key, channel: 0 }] },
+        ],
+      });
+      const { draft } = await renderRead({ entries: [entry, kiln] });
+      const [oven] = await waitFor(() => {
+        const found = screen.getAllByRole("treeitem", { name: /^temperature/ });
+        expect(found).toHaveLength(2);
+        return found;
+      });
+      fireEvent.contextMenu(oven);
+      fireEvent.click(await screen.findByRole("menuitem", { name: "Duplicate" }));
+      const copy = await waitFor(async () => {
+        const [message] = (await client.icds.retrieve(entry.icd)).messages;
+        if (message.payload.format !== "json") throw new Error("expected JSON");
+        expect(message.payload.fields).toHaveLength(3);
+        return message.payload.fields[1];
+      });
+      await waitFor(async () =>
+        expect(
+          (await retrieveEntries(draft.key)).map(
+            (e) => plainOf(e).messages[0].bindings,
+          ),
+        ).toEqual([
+          [
+            { field: temperature.key, channel: ch.key, dataType: "" },
+            { field: copy.key, channel: 0, dataType: "" },
+          ],
+          [{ field: temperature.key, channel: 0, dataType: "" }],
+        ]),
+      );
+    });
+
+    it("should copy a topic after it and read each field into a new channel", async () => {
+      const { temperature, entry } = await createBoundEntry();
+      const { draft } = await renderRead({ entries: [entry] });
+      fireEvent.contextMenu(
+        await screen.findByRole("treeitem", { name: /plant\/oven/ }),
+      );
+      fireEvent.click(await screen.findByRole("menuitem", { name: "Duplicate" }));
+      const [original, copy] = await waitFor(async () => {
+        const entries = (await retrieveEntries(draft.key)).map(plainOf);
+        expect(entries).toHaveLength(2);
+        return entries;
+      });
+      expect(copy.key).not.toBe(original.key);
+      expect(copy).toEqual({
+        ...original,
+        key: copy.key,
+        messages: [
+          {
+            ...original.messages[0],
+            bindings: [{ field: temperature.key, channel: 0, dataType: "" }],
+          },
+        ],
+      });
+    });
+
+    it("should offer no Duplicate for a message of a topic that reads several", async () => {
+      const entry = await createEntry({
+        fields: [createField("temperature", "float")],
+      });
+      await addMessage(entry, "status", [createField("mode", "string")], KIND_MATCH);
+      await renderRead({ entries: [entry] });
+      fireEvent.contextMenu(await screen.findByRole("treeitem", { name: "status" }));
+      await screen.findByText("Remove");
+      expect(screen.queryByText("Duplicate")).toBeNull();
+    });
   });
 
   describe("field details", () => {
@@ -2328,7 +2506,7 @@ describe("MQTT read form", () => {
     await screen.findByDisplayValue(`${dev.name}_plant_oven_temperature_2`);
   });
 
-  it("should move only the message that borrows a channel on another's index", async () => {
+  it("should move only the message that borrows a channel on another's index when its entry turns on", async () => {
     const time = await createTimeChannel();
     const createOnTime = async (name: string) =>
       await client.channels.create({
@@ -2344,10 +2522,12 @@ describe("MQTT read form", () => {
       bound: { [temperatureField.key]: temperature.key },
     });
     await addMessage(entry, "status", [createField("flow", "float")], KIND_MATCH);
-    // The second message took the channel that the first stores for /flow.
+    // The second message took the channel that the first stores for /flow. The Core
+    // checks only enabled entries, so a disabled entry can hold this state.
     entry.messages[1].bindings[0].channel = flow.key;
+    entry.disabled = true;
     const channels = { "/temperature": temperature.key, "/flow": flow.key };
-    await renderRead({
+    const { container, draft } = await renderRead({
       entries: [entry],
       properties: {
         read: {
@@ -2355,12 +2535,16 @@ describe("MQTT read form", () => {
         },
       },
     });
-    const isNew = (name: RegExp) =>
-      within(screen.getByRole("treeitem", { name })).queryByRole("img", {
-        name: "New channel",
-      });
-    await waitFor(() => expect(isNew(/^flow/)).not.toBeNull());
-    expect(isNew(/^temperature/)).toBeNull();
+    const item = await screen.findByRole("treeitem", { name: /JSON.*plant\/oven/ });
+    fireEvent.click(within(item).getByRole("checkbox", { name: "Enabled" }));
+    const created = await deploy(container, draft.key);
+    const [first, second] = plainOf(created.config.entries[0]).messages;
+    expect(first.bindings).toEqual([
+      { field: temperatureField.key, channel: temperature.key, dataType: "" },
+    ]);
+    const moved = await client.channels.retrieve(second.bindings[0].channel);
+    expect(moved.key).not.toBe(flow.key);
+    expect(moved.index).not.toBe(time.key);
   });
 
   describe("Sparkplug B entries", () => {
