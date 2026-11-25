@@ -150,7 +150,7 @@ type Status = versions.Status
 // Server is an HTTP server that a rack's Driver connects to.
 type Server = versions.Server
 
-var validatePattern0 = regexp.MustCompile("^$|^([A-Za-z0-9_]([A-Za-z0-9_-]*[A-Za-z0-9_])?([.][A-Za-z0-9_]([A-Za-z0-9_-]*[A-Za-z0-9_])?)*|[0-9A-Fa-f.]*:[0-9A-Fa-f:.]*)$")
+var validatePattern0 = regexp.MustCompile("^$|^([A-Za-z0-9_]([A-Za-z0-9_-]*[A-Za-z0-9_])?([.][A-Za-z0-9_]([A-Za-z0-9_-]*[A-Za-z0-9_])?)*|[0-9A-Fa-f:.]*::[0-9A-Fa-f:.]*|([0-9A-Fa-f]{1,4}:){7}[0-9A-Fa-f]{1,4}|([0-9A-Fa-f]{1,4}:){6}[0-9.]+)$")
 
 var validatePattern1 = regexp.MustCompile("^$|^/[^?#[:space:]]*$")
 

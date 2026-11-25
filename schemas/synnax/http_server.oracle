@@ -356,7 +356,7 @@ Identity struct {
     }
     host                    string         {
         @doc value         "is the hostname or IP address of the server."
-        @go validate       pattern "^$|^([A-Za-z0-9_]([A-Za-z0-9_-]*[A-Za-z0-9_])?([.][A-Za-z0-9_]([A-Za-z0-9_-]*[A-Za-z0-9_])?)*|[0-9A-Fa-f.]*:[0-9A-Fa-f:.]*)$" "Host must be a hostname or an IP address, with no scheme, port, or path"
+        @go validate       pattern "^$|^([A-Za-z0-9_]([A-Za-z0-9_-]*[A-Za-z0-9_])?([.][A-Za-z0-9_]([A-Za-z0-9_-]*[A-Za-z0-9_])?)*|[0-9A-Fa-f:.]*::[0-9A-Fa-f:.]*|([0-9A-Fa-f]{1,4}:){7}[0-9A-Fa-f]{1,4}|([0-9A-Fa-f]{1,4}:){6}[0-9.]+)$" "Host must be a hostname or an IP address, with no scheme, port, or path"
         @validate required
     }
     port                    uint16?        {

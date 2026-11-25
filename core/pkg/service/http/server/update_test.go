@@ -95,6 +95,22 @@ var _ = Describe("Update", func() {
 		Entry("configuration", configuration),
 	)
 
+	DescribeTable("Should check the identity host as a server checks it",
+		func(host string, valid bool) {
+			update, ok := identity.Variant.(server.IdentityUpdate)
+			Expect(ok).To(BeTrue())
+			id := update.Identity
+			id.Host = host
+			if valid {
+				Expect(id.Validate()).To(Succeed())
+			} else {
+				Expect(id.Validate()).To(MatchError(validate.ErrValidation))
+			}
+		},
+		Entry("an IPv6 address", "fe80::1", true),
+		Entry("an IPv4 address with a port", "10.0.0.5:8080", false),
+	)
+
 	It("Should reject an unknown group in JSON", func() {
 		var got server.Update
 		Expect(json.Unmarshal([]byte(`{"group":"other"}`), &got)).
