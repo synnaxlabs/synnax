@@ -35,28 +35,29 @@ export const paramsZ = z.union([
 /** Anything that names one or many channels. */
 export type Params = PrimitiveParams | Payload | Payload[];
 
-const CHAR_REGEX = /[a-zA-Z0-9_]/;
-
-const VALID_NAME_PATTERN = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
-
-/** @returns whether name is a valid channel name. */
-export const isValidName = (name: string): boolean => VALID_NAME_PATTERN.test(name);
+// REFUSED matches a character that a name cannot hold: the path separator, and a
+// character that shows as nothing or as a space other than U+0020.
+const REFUSED =
+  /[.\p{Cc}\p{Cf}\p{Zl}\p{Zp}\p{Default_Ignorable_Code_Point}\u2800]|(?! )\p{Zs}/u;
+const REFUSED_ALL = new RegExp(REFUSED.source, "gu");
+const VISIBLE = /[^ ]/;
 
 /**
- * Rewrites a channel name into a valid identifier, replacing every other character with
- * an underscore and prefixing a leading digit.
+ * @returns whether name is a valid channel name: in NFC, with a character other than a
+ * space, and with no '.' and no character that shows as nothing or as a space other
+ * than U+0020.
+ */
+export const isValidName = (name: string): boolean =>
+  VISIBLE.test(name) && !REFUSED.test(name) && name.normalize("NFC") === name;
+
+/**
+ * Rewrites a channel name into a valid one: in NFC, with an underscore in place of each
+ * character that a name cannot hold and of each space of a name of spaces alone.
  */
 export const escapeInvalidName = (name: string, changeEmptyToUnderscore = false) => {
   if (name === "") return changeEmptyToUnderscore ? "_" : "";
-  if (isValidName(name)) return name;
-  // if it doesn't match, convert non-alphanumeric characters to underscores and prepend
-  // an underscore if the first character is a digit
-  let result = "";
-  for (const char of name)
-    if (char.match(CHAR_REGEX)) result += char;
-    else result += "_";
-  if (result[0].match(/^\d/)) result = `_${result}`;
-  return result;
+  const escaped = name.normalize("NFC").replace(REFUSED_ALL, "_");
+  return VISIBLE.test(escaped) ? escaped : escaped.replaceAll(" ", "_");
 };
 
 /** @returns whether the channel computes its samples from an expression. */
