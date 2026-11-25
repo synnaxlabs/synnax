@@ -83,8 +83,9 @@ func (o *overrides) apply(ctx context.Context, s *Schematic, old v13.Schematic) 
 }
 
 // node returns cfg with the enumeration or the copy of src that draws states. When
-// actuator is true and src does not actuate, cfg gets a copy that does. cfg keeps src
-// when retrievable rejects an enumeration that it would read or that a copy would link.
+// actuator is true and src does not actuate, cfg gets a copy that does, with
+// symbol.ActuatorEntries. cfg keeps src when retrievable rejects an enumeration that it
+// would read or that a copy would link.
 func (o *overrides) node(
 	ctx context.Context,
 	cfg SymbolNodeConfig,
@@ -114,8 +115,11 @@ func (o *overrides) node(
 	if err != nil {
 		return SymbolNodeConfig{}, err
 	}
-	if drawn == nil && actuated {
-		drawn = &src.Data
+	if actuated {
+		if drawn == nil {
+			drawn = &src.Data
+		}
+		recolored = onEntries(recolored, entries)
 	}
 	if drawn != nil {
 		if !o.linksRetrievable(drawn.States) {
@@ -140,6 +144,19 @@ func (o *overrides) node(
 	}
 	cfg.States[0].Enumeration = &key
 	return cfg, nil
+}
+
+// onEntries returns recolored, or entries when recolored is nil, with
+// symbol.ActuatorEntries. It returns recolored when that adds no entry.
+func onEntries(recolored, entries []enumeration.Entry) []enumeration.Entry {
+	base := recolored
+	if base == nil {
+		base = entries
+	}
+	if on, added := symbol.ActuatorEntries(base); added {
+		return on
+	}
+	return recolored
 }
 
 // copy creates c, a copy of the symbol with key src, and returns its key. When entries
