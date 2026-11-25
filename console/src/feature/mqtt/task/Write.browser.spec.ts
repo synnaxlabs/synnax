@@ -854,14 +854,15 @@ describe("MQTT Write form", () => {
       return ICD.jsonFields(retrieved.messages.find(({ key }) => key === message.key));
     };
 
-    it("should add a field to the message in its ICD, with its editor open, then put it on a channel", async () => {
+    it("should add a field to the message in its ICD, with the focus on its name, then put it on a channel", async () => {
       const setpoint = createField("setpoint", "float");
       const { target, ic, message } = await createFormatTarget([setpoint]);
       const { draft } = await renderWrite([target]);
       await fieldGroup(setpoint.name);
       fireEvent.click(screen.getByRole("button", { name: "Add field" }));
       const group = await fieldGroup("Field 2");
-      group.getByDisplayValue("Field 2");
+      const name = group.getByDisplayValue("Field 2");
+      await waitFor(() => expect(document.activeElement).toBe(name));
       group.getByDisplayValue("/field_2");
       fireEvent.change(group.getByPlaceholderText("/temperature"), {
         target: { value: "/limit" },
