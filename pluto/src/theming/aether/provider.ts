@@ -47,11 +47,11 @@ export class Provider extends aether.Composite<typeof providerStateZ> {
     ctx.set(CONTEXT_KEY, this.state.theme);
     const runAsync = status.useErrorHandler(ctx);
     runAsync(async () => {
-      await this.loadFonts();
+      await this.loadFonts(ctx);
     }, "Failed to load theme fonts");
   }
 
-  private async loadFonts(): Promise<void> {
+  private async loadFonts(ctx: aether.Context): Promise<void> {
     // Hosts without a font registry (jsdom, some worker runtimes) have no FontFace.
     // A throw reports an error that re-renders consumers, looping any that suspend.
     if (typeof FontFace === "undefined") return;
@@ -68,6 +68,10 @@ export class Provider extends aether.Composite<typeof providerStateZ> {
         }
       }),
     );
+    // Text drawn before the fonts loaded has fallback glyphs. A new theme value makes
+    // its consumers draw again.
+    ctx.set(CONTEXT_KEY, { ...this.state.theme });
+    this.propagate();
   }
 }
 
