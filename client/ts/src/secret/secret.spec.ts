@@ -769,9 +769,9 @@ describe("Secret", () => {
         source: "stored",
         value: "abc",
       });
-      await expect
-        .poll(async () => await client.secrets.retrieve({ searchTerm: name }))
-        .toContainEqual(created);
+      expect(await client.secrets.retrieve({ searchTerm: name })).toContainEqual(
+        created,
+      );
     });
 
     it("should retrieve a secret by name", async () => {
