@@ -27,7 +27,7 @@
 #include "x/cpp/mem/indirect.h"
 #include "x/cpp/payload/number.h"
 #include "x/cpp/payload/types.gen.h"
-#include "x/cpp/telem/types.gen.h"
+#include "x/cpp/telem/telem.h"
 #include "x/cpp/uuid/uuid.h"
 
 #include "core/pkg/api/icd/pb/icd.pb.h"

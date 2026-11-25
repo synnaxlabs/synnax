@@ -28,7 +28,7 @@
 #include "x/cpp/filter/types.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/mem/indirect.h"
-#include "x/cpp/telem/types.gen.h"
+#include "x/cpp/telem/telem.h"
 #include "x/cpp/uuid/uuid.h"
 
 #include "core/pkg/api/task/pb/task.pb.h"
