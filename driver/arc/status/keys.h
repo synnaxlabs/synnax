@@ -42,6 +42,7 @@ class Keys {
     std::filesystem::path path;
     std::string cluster;
     std::size_t max;
+    journal::OnCreate on_create;
     /// @brief held for a whole save, so saves reach the disk in order. Taken before
     /// mu.
     std::mutex save_mu;
@@ -50,7 +51,12 @@ class Keys {
     std::list<std::pair<std::string, std::string>> entries;
     std::unordered_map<std::string, decltype(entries)::iterator> index;
 
-    Keys(std::filesystem::path path, std::string cluster, std::size_t max);
+    Keys(
+        std::filesystem::path path,
+        std::string cluster,
+        std::size_t max,
+        journal::OnCreate on_create
+    );
     /// @brief puts name first with key, and forgets the least recently used name past
     /// max. Requires mu.
     void put(const std::string &name, const std::string &key);
@@ -63,14 +69,16 @@ public:
     /// @brief loads the keys in the file at path that the Core cluster with the key
     /// cluster gave, or none when the file does not exist or another cluster gave
     /// them, and keeps the max most recently used. Removes a temp file that a crash
-    /// during a save left.
+    /// during a save left. Each save calls on_create with the temp file before it
+    /// takes the place of the old file.
     /// @returns journal::CORRUPT when the file is not whole. UNKNOWN_MAGIC,
     /// UNKNOWN_VERSION, or UNKNOWN_TYPE when it is not a keys file this Driver
     /// reads. An error from the file.
     static std::pair<std::shared_ptr<Keys>, x::errors::Error> open(
         const std::filesystem::path &path,
         const std::string &cluster,
-        std::size_t max = DEFAULT_MAX_KEYS
+        std::size_t max = DEFAULT_MAX_KEYS,
+        journal::OnCreate on_create = journal::no_create_hook
     );
 
     /// @returns the key of name, or "" when the Core has not given name a key.

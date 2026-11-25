@@ -10,6 +10,7 @@
 #include <filesystem>
 #include <fstream>
 #include <string>
+#include <vector>
 
 #include "gtest/gtest.h"
 
@@ -138,5 +139,45 @@ TEST_F(KeysTest, DropsKeysOfAnotherCluster) {
     const auto keys = ASSERT_NIL_P(Keys::open(this->path, "other"));
     ASSERT_EQ(keys->get("a"), "");
     ASSERT_EQ(keys->get("b"), "key_b");
+}
+
+/// @brief it should pass the temp file of each save to the create hook before the temp
+/// takes the place of the keys file.
+TEST_F(KeysTest, SavesThroughTheCreateHook) {
+    std::vector<std::filesystem::path> created;
+    const auto keys = ASSERT_NIL_P(
+        Keys::open(
+            this->path,
+            "cluster",
+            DEFAULT_MAX_KEYS,
+            [&](const std::filesystem::path &p) {
+                EXPECT_FALSE(std::filesystem::exists(this->path))
+                    << "hook ran after rename";
+                created.push_back(p);
+                return x::errors::NIL;
+            }
+        )
+    );
+    ASSERT_NIL(keys->set("a", "key_a"));
+    ASSERT_EQ(created.size(), 1);
+    auto tmp = this->path;
+    tmp += ".tmp";
+    EXPECT_EQ(created[0], tmp);
+}
+
+/// @brief it should fail a save that the create hook fails, and keep no new file.
+TEST_F(KeysTest, FailsASaveTheCreateHookFails) {
+    const auto keys = ASSERT_NIL_P(
+        Keys::open(
+            this->path,
+            "cluster",
+            DEFAULT_MAX_KEYS,
+            [](const std::filesystem::path &) {
+                return x::errors::Error(journal::BASE_ERROR, "cannot give away");
+            }
+        )
+    );
+    ASSERT_OCCURRED_AS(keys->set("a", "key_a"), journal::BASE_ERROR);
+    EXPECT_FALSE(std::filesystem::exists(this->path));
 }
 }
