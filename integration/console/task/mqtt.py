@@ -49,7 +49,7 @@ class MQTTTask(TaskPage):
     add_label: str
 
     def _rows(self) -> Locator:
-        raise NotImplementedError
+        return self._pane().locator(_ENTRY_LIST_SELECTOR).first.get_by_role("treeitem")
 
     def _title(self, title: str) -> Locator:
         return self._rows().get_by_text(f"{_LRI}{title}{_PDI}", exact=True).first
@@ -163,9 +163,6 @@ class MQTTRead(MQTTTask):
     pluto_label: str = ".console-task-configure--mqtt_read"
     add_label = "Add data"
 
-    def _rows(self) -> Locator:
-        return self._pane().locator(_ENTRY_LIST_SELECTOR).first.get_by_role("treeitem")
-
     def _read_boxes(self, title: str) -> list[Locator]:
         """Return the read box of each field under the listed entry ``title``, in the
         order of its messages and their formats. Expands the entry first."""
@@ -224,14 +221,12 @@ class MQTTRead(MQTTTask):
 
 
 class MQTTWrite(MQTTTask):
-    """MQTT write task page."""
+    """MQTT write task page. The tree lists each target, with the fields of the message
+    format of a topic beneath it."""
 
     page_type: PageType = "mqtt_write"
     pluto_label: str = ".console-task-configure--mqtt_write"
     add_label = "Add targets"
-
-    def _rows(self) -> Locator:
-        return self._channel_list().get_by_role("option")
 
 
 class MQTTEdge(TaskPage):
