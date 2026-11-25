@@ -52,7 +52,7 @@ class TestPositionalArguments:
     ) -> None:
         host, port, username, password = login_info
         with deprecated():
-            c = untyped(sy.Synnax)(host, port, username, password)
+            c = untyped(sy.Synnax)(host, port, username, password, False)
         try:
             assert c.channels.retrieve(virtual_channel.key).key == virtual_channel.key
         finally:
@@ -168,7 +168,7 @@ class TestPositionalArguments:
             matched = retrieve([policy.key])
         assert [p.key for p in matched] == [policy.key]
         with deprecated():
-            matched = retrieve(None, [user.resource_id], False)
+            matched = retrieve(None, [sy.user.resource_id(user.key)], False)
         assert [p.key for p in matched] == [policy.key]
         with deprecated():
             matched = retrieve(None, None, True)

@@ -257,9 +257,10 @@ const eventError = (ev: object): Error =>
 
 // Bun and Deno name a failure from a server that answered: a TLS failure, or an upgrade
 // refused with an HTTP status. Node and browsers give no cause for a failed dial, so
-// these failures there become Unreachable.
+// these failures there become Unreachable. A refused upgrade names its status, unlike
+// the "non-101 status code" error of every failed dial in Node 22.
 const ANSWERED_CODE = /CERT|SIGNATURE|^ERR_TLS_|^ERR_SSL_/;
-const ANSWERED_MESSAGE = /TLS handshake|invalid peer certificate|status code/;
+const ANSWERED_MESSAGE = /TLS handshake|invalid peer certificate|status code: \d/;
 
 const CERTIFICATE_HINT =
   "The server may be down, or the runtime may not trust its certificate";

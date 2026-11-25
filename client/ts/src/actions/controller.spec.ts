@@ -13,7 +13,12 @@ import z from "zod";
 
 import { actions } from "@/actions";
 import { batch } from "@/batch";
-import { AccessDeniedError, NotCachedError } from "@/index";
+import {
+  AccessDeniedError,
+  MissingCredentialsError,
+  NotCachedError,
+  ValidationError,
+} from "@/index";
 import { query } from "@/query";
 
 interface Doc {
@@ -1384,6 +1389,26 @@ describe("actions.Controller", () => {
         await sleep.sleep(TimeSpan.milliseconds(30));
         expect(errors).toEqual([]);
       });
+
+      it("ignores a doc fetched while the client has no session", async () => {
+        const fetch = vi.fn(async () => {
+          throw new MissingCredentialsError("logged out");
+        });
+        const { controller, errors } = setupStore({ fetch, listed });
+        controller.applyRemote("k", 1, "f-1", [set("name", 1)]);
+        await expect.poll(() => fetch.mock.calls.length).toBe(1);
+        await sleep.sleep(TimeSpan.milliseconds(30));
+        expect(errors).toEqual([]);
+      });
+
+      it("reports a fetch that fails for another reason", async () => {
+        const fetch = vi.fn(async () => {
+          throw new ValidationError("bad doc");
+        });
+        const { controller, errors } = setupStore({ fetch, listed });
+        controller.applyRemote("k", 1, "f-1", [set("name", 1)]);
+        await expect.poll(() => errors.length).toBe(1);
+      });
     });
 
     it("ingests a create-headed frame for a doc it has never cached", () => {
@@ -1911,6 +1936,40 @@ describe("actions.Controller", () => {
         { type: "create", doc: { values: { a: 0 } } },
       ]);
       expect(docs.get("k")).toEqual({ values: { a: 5 } });
+    });
+
+    it("keeps the identity of the parts that a create echo leaves equal", async () => {
+      interface Plot {
+        name: string;
+        rules: Array<{ key: string; position: number }>;
+      }
+      type PlotAction = { type: "create"; plot: Plot };
+      const reduce = actions.createReduceAll<Plot, PlotAction>((draft, a) => {
+        Object.assign(draft, a.plot);
+        return { inverse: [], targets: [] };
+      });
+      const docs = new query.Table<string, Plot>({ onError: () => {} });
+      const epochs = new observe.Observer<number>();
+      const controller = new actions.Controller<string, Plot, PlotAction>({
+        store: docs,
+        onError: () => {},
+        onEpoch: (callback) => epochs.onChange(callback),
+        onStreamDown: () => () => {},
+        reduce,
+        send: async () => [],
+      });
+      epochs.notify(1);
+      docs.set("k", { name: "local", rules: [{ key: "a", position: 1 }] });
+      const { rules } = docs.get("k") ?? {};
+      let dispatchKey = "";
+      await controller.create(["k"], async (key) => {
+        dispatchKey = key;
+      });
+      controller.applyRemote("k", 1, dispatchKey, [
+        { type: "create", plot: { name: "core", rules: [{ key: "a", position: 1 }] } },
+      ]);
+      expect(docs.get("k")?.name).toEqual("core");
+      expect(docs.get("k")?.rules).toBe(rules);
     });
 
     it("removes the pending create and rethrows when the send fails", async () => {

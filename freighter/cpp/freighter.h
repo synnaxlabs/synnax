@@ -27,6 +27,19 @@ const x::errors::Error ERR_EOF = {"freighter.eof", "EOF"};
 const x::errors::Error UNREACHABLE = {ERR_TYPE_UNREACHABLE, "Unreachable"};
 /// @brief the target sent no response before the deadline of the request.
 const x::errors::Error TIMEOUT = {"freighter.timeout", "Timeout"};
+/// @brief the transport broke the request off, such as with a stream reset.
+const x::errors::Error TRANSPORT = {"freighter.transport", "Transport error"};
+/// @brief the target or the transport ran out of a resource, such as memory or a
+/// message size limit.
+const x::errors::Error RESOURCE_EXHAUSTED = {
+    "freighter.resource_exhausted",
+    "Resource exhausted"
+};
+/// @brief the target or the transport cancelled the request. A cancel from the caller
+/// is x::errors::CANCELLED instead.
+const x::errors::Error CANCELLED = {"freighter.cancelled", "Cancelled"};
+/// @brief the request failed for a reason that the transport does not name.
+const x::errors::Error UNKNOWN = {"freighter.unknown", "Unknown"};
 
 enum TransportVariant { UNARY, STREAM };
 

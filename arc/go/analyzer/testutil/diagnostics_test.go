@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/analyzer/testutil"
 	"github.com/synnaxlabs/x/diagnostics"
+	"go.lsp.dev/protocol"
 )
 
 var _ = Describe("Warnings", func() {
@@ -32,5 +33,31 @@ var _ = Describe("Warnings", func() {
 		var d diagnostics.Diagnostics
 		d.Add(diagnostics.Errorf(nil, "error"))
 		Expect(testutil.Warnings(&d)).To(BeEmpty())
+	})
+})
+
+var _ = Describe("ApplyFix", func() {
+	It("Should make each edit of the fix", func() {
+		fix := diagnostics.Fix{Edits: []protocol.TextEdit{
+			{
+				Range: protocol.Range{
+					Start: protocol.Position{Character: 0},
+					End:   protocol.Position{Character: 1},
+				},
+				NewText: "first",
+			},
+			{
+				Range: protocol.Range{
+					Start: protocol.Position{Line: 1, Character: 0},
+					End:   protocol.Position{Line: 1, Character: 1},
+				},
+				NewText: "second",
+			},
+		}}
+		Expect(testutil.ApplyFix("a\nb\n", fix)).To(Equal("first\nsecond\n"))
+	})
+
+	It("Should return the source when the fix has no edit", func() {
+		Expect(testutil.ApplyFix("a\n", diagnostics.Fix{})).To(Equal("a\n"))
 	})
 })

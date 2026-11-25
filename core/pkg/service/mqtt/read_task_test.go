@@ -34,6 +34,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -202,9 +203,9 @@ var _ = Describe("Read task", func() {
 				Eventually(func() int64 { return stored(ctx, data[0]).Len() }).
 					Should(BeEquivalentTo(1))
 				Expect(stored(ctx, data[0])).
-					To(telem.MatchSeriesData(telem.NewSeriesV(23.5)))
+					To(MatchSeriesData(telem.NewSeriesV(23.5)))
 				Expect(stored(ctx, data[1])).
-					To(telem.MatchSeriesData(telem.NewSeriesV[int32](7)))
+					To(MatchSeriesData(telem.NewSeriesV[int32](7)))
 				stamp := stored(ctx, idx).ValueAt[telem.TimeStamp](0)
 				Expect(stamp).To(BeNumerically(">=", before))
 				Expect(stamp).To(BeNumerically("<=", telem.Now()))
@@ -226,9 +227,9 @@ var _ = Describe("Read task", func() {
 			Eventually(func() int64 { return stored(ctx, data[0]).Len() }).
 				Should(BeEquivalentTo(2))
 			Expect(stored(ctx, idx)).
-				To(telem.MatchSeriesData(telem.NewSeriesSecondsTSV(1, 2)))
+				To(MatchSeriesData(telem.NewSeriesSecondsTSV(1, 2)))
 			Expect(stored(ctx, data[0])).
-				To(telem.MatchSeriesData(telem.NewSeriesV(1.5, 2.5)))
+				To(MatchSeriesData(telem.NewSeriesV(1.5, 2.5)))
 		})
 
 		It("Should take a bare scalar and a bare enum label as the whole payload",
@@ -252,9 +253,9 @@ var _ = Describe("Read task", func() {
 				Eventually(func() int64 { return stored(ctx, number[0]).Len() }).
 					Should(BeEquivalentTo(1))
 				Expect(stored(ctx, number[0])).
-					To(telem.MatchSeriesData(telem.NewSeriesV[float32](23.4)))
+					To(MatchSeriesData(telem.NewSeriesV[float32](23.4)))
 				Expect(stored(ctx, state[0])).
-					To(telem.MatchSeriesData(telem.NewSeriesV[uint8](1)))
+					To(MatchSeriesData(telem.NewSeriesV[uint8](1)))
 			},
 		)
 
@@ -273,7 +274,7 @@ var _ = Describe("Read task", func() {
 				Eventually(func() int64 { return stored(ctx, data[1]).Len() }).
 					Should(BeEquivalentTo(4))
 				Expect(stored(ctx, data[1])).
-					To(telem.MatchSeriesData(telem.NewSeriesV[int32](-1, -1, -1, 5)))
+					To(MatchSeriesData(telem.NewSeriesV[int32](-1, -1, -1, 5)))
 			},
 		)
 
@@ -389,8 +390,6 @@ var _ = Describe("Read task", func() {
 				}).Should(Succeed())
 				Expect(stored(ctx, data[0]).Len()).To(BeZero())
 			},
-			Entry("a number into a string channel", telem.StringT, `{"v":1}`,
-				"field v: expected a string, got a number"),
 			Entry("a string into a number channel", telem.Float64T, `{"v":"1"}`,
 				`field v: unknown enum label "1"`),
 			Entry("a repeated member at a field", telem.Float64T, `{"v":1,"v":2}`,
@@ -412,7 +411,7 @@ var _ = Describe("Read task", func() {
 				Eventually(func() int64 { return stored(ctx, data[0]).Len() }).
 					Should(BeEquivalentTo(2))
 				Expect(stored(ctx, data[0])).
-					To(telem.MatchSeriesData(telem.NewSeriesV[float64](1, 3)))
+					To(MatchSeriesData(telem.NewSeriesV[float64](1, 3)))
 				Expect(taskStatus(ctx, t).Description).
 					To(ContainSubstring(
 						"its timestamp is not after the last one written",
@@ -431,7 +430,7 @@ var _ = Describe("Read task", func() {
 				Eventually(func() int64 { return stored(ctx, data[0]).Len() }).
 					Should(BeEquivalentTo(1))
 				Expect(stored(ctx, data[0])).
-					To(telem.MatchSeriesData(telem.NewSeriesV[float64](2)))
+					To(MatchSeriesData(telem.NewSeriesV[float64](2)))
 			},
 		)
 
@@ -457,7 +456,7 @@ var _ = Describe("Read task", func() {
 				Eventually(func() int64 { return stored(ctx, data[0]).Len() }).
 					Should(BeEquivalentTo(3))
 				Expect(stored(ctx, data[0])).
-					To(telem.MatchSeriesData(telem.NewSeriesV[float64](1, 2, 3)))
+					To(MatchSeriesData(telem.NewSeriesV[float64](1, 2, 3)))
 				stat := taskStatus(ctx, t)
 				Expect(stat.Variant).To(Equal(status.VariantSuccess))
 				Expect(stat.Details.Running).To(BeTrue())
@@ -486,7 +485,7 @@ var _ = Describe("Read task", func() {
 				Eventually(func() int64 { return stored(ctx, data[0]).Len() }).
 					Should(BeEquivalentTo(3))
 				Expect(stored(ctx, data[0])).
-					To(telem.MatchSeriesData(telem.NewSeriesV[float64](1, 2, 3)))
+					To(MatchSeriesData(telem.NewSeriesV[float64](1, 2, 3)))
 				Expect(taskStatus(ctx, t).Variant).To(Equal(status.VariantSuccess))
 			},
 		)

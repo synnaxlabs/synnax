@@ -54,7 +54,7 @@ export const baseZ = z.object({
   /** key is the unique identifier for this certificate. */
   key: keyZ.default(uuid.create),
   /** name is a human-readable name for the certificate. */
-  name: z.string().min(1, "name is required"),
+  name: z.string().min(1, "Name is required"),
   /**
    * uses are the resources that use the certificate and that the caller can read,
    * filled only when a retrieve request asks for them.
@@ -72,6 +72,7 @@ export type Where = {
   name?: filter.String;
   source?: filter.Set<typeof secret.sourceZ>;
   racks?: rack.Key[];
+  keyed?: boolean;
 };
 export const whereZ: z.ZodType<Where> = z.strictObject({
   /** and matches when every child matches. */
@@ -94,6 +95,8 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   source: filter.setZ(secret.sourceZ).optional(),
   /** racks matches the file certificates on any of the given racks. */
   racks: zod.nullToUndefined(rack.keyZ.array()),
+  /** keyed matches the certificates with a private key, or without one when false. */
+  keyed: z.boolean().optional(),
 });
 
 /**
@@ -135,7 +138,7 @@ export const fileCertificateZ = baseZ.extend({
   /** details describes the leaf, as the file browser read it. */
   details: detailsZ.optional(),
   /** rack is the rack that reads the files. */
-  rack: rack.keyZ.refine((v) => v !== 0, "rack is required"),
+  rack: rack.keyZ.refine((v) => v !== 0, "Rack is required"),
 });
 export interface FileCertificate extends z.infer<typeof fileCertificateZ> {}
 
