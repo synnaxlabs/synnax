@@ -48,7 +48,7 @@ export const readBindingZ = z.object({
   /** calibrated is whether the channel holds the calibrated samples of the entry. */
   calibrated: z.boolean().default(false),
   /** channel is the channel that holds the samples of the entry. */
-  channel: channel.keyZ.refine((v) => v !== 0, "channel is required"),
+  channel: channel.keyZ.refine((v) => v !== 0, "Channel is required"),
 });
 export interface ReadBinding extends z.infer<typeof readBindingZ> {}
 
@@ -70,7 +70,7 @@ export const writeBindingZ = z.object({
   /** subIndex is the CoE object dictionary sub-index of the output entry. */
   subIndex: zod.uint8,
   /** command is the channel that commands the entry. */
-  command: channel.keyZ.refine((v) => v !== 0, "command is required"),
+  command: channel.keyZ.refine((v) => v !== 0, "Command is required"),
   /** state is the channel that holds the state of the entry. 0 is no channel. */
   state: channel.keyZ.default(0),
 });
@@ -256,7 +256,7 @@ export const slaveZ = z.object({
   /** rack is the key of the rack the slave is connected to. */
   rack: rack.keyZ,
   /** name is a human-readable name for the slave. */
-  name: z.string().min(1, "name is required"),
+  name: z.string().min(1, "Name is required"),
   /** serial is the serial number of the slave. 0 when the slave reports none. */
   serial: z.number().max(9007199254740991).default(0),
   /** vendorId is the EtherCAT vendor ID of the slave. */
