@@ -19,7 +19,6 @@ import {
   type ReactElement,
   type SetStateAction,
   useState,
-  useSyncExternalStore,
 } from "react";
 
 import { copyName, copyPointer } from "@/platform/icd/fieldNames";
@@ -27,6 +26,7 @@ import { createJSONField } from "@/platform/icd/Fields";
 import { fieldsOf, formatOf, useFormats } from "@/platform/icd/Formats";
 import { fieldsPath, type TreeField, treeFieldOf } from "@/platform/icd/read";
 import { fieldKey } from "@/platform/icd/tree/nodes";
+import { useStructure } from "@/platform/icd/tree/structure";
 import { Task } from "@/platform/task";
 
 /** A target of a write task, in the task's form. */
@@ -167,37 +167,25 @@ export const useTree = <T extends Target>({
   const ctx = PForm.useContext();
   const formats = useFormats();
   const [added, setAdded] = useState<icd.FieldKey>();
-  const subscribe = (onChange: () => void) => {
-    const unbinds = [
-      ctx.bind(onChange),
-      ...[...formats.values()].map((f) => f.bind(onChange)),
-    ];
-    return () => unbinds.forEach((unbind) => unbind());
-  };
-  const getStructure = () =>
-    JSON.stringify(
-      ctx.get(path).value.map((t): Structure[number] => {
-        const sent = messageOf(t);
-        return [
-          t.key,
-          groups?.of(t) ?? null,
-          sent == null
-            ? null
-            : [
-                sent.message,
-                fieldsOf(formats, sent.icd, sent.message).map(treeFieldOf),
-              ],
-        ];
-      }),
-    );
-  const structure = useSyncExternalStore(subscribe, getStructure, getStructure);
+  const structure = useStructure(formats, (): Structure =>
+    ctx.get(path).value.map((t): Structure[number] => {
+      const sent = messageOf(t);
+      return [
+        t.key,
+        groups?.of(t) ?? null,
+        sent == null
+          ? null
+          : [sent.message, fieldsOf(formats, sent.icd, sent.message).map(treeFieldOf)],
+      ];
+    }),
+  );
   const byKey = new Map<string, Node>();
   const groupNames = new Map<string, string>();
   /** The key of the group of each target in one. */
   const parents = new Map<string, string>();
   const nodes: Tree.Node[] = [];
   const groupNodes = new Map<string, Tree.Node[]>();
-  for (const [target, group, sent] of JSON.parse(structure) as Structure) {
+  for (const [target, group, sent] of structure) {
     byKey.set(target, { kind: "target", target });
     const node: Tree.Node =
       sent == null
