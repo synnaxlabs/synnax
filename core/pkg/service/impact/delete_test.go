@@ -332,6 +332,20 @@ var _ = Describe("Delete", Ordered, func() {
 		Entry("task first", true),
 	)
 
+	It("Should refuse a task key that is not a UUID in a plan and an apply", func(
+		ctx SpecContext,
+	) {
+		bad := []resource.ID{{Type: resource.TypeTask, Key: "abc"}}
+		refused := And(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring(`invalid task key "abc"`)),
+		)
+		Expect(layer.Impact.Plan(ctx, db, bad, impact.PlanOptions{})).
+			Error().To(refused)
+		Expect(layer.Impact.Apply(ctx, db, bad, impact.ApplyOptions{})).
+			Error().To(refused)
+	})
+
 	It("Should name the pick with the smallest key among the picks it refuses", func(
 		ctx SpecContext,
 	) {
