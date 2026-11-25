@@ -63,7 +63,7 @@ describe("Schematic.Node.BUILT_INS", () => {
   });
 
   it("should let a look fill each shape that reads the symbol color", () => {
-    // The theme fills a text, so its solid span inherits the fill of the text.
+    // A look cannot fill a text over the theme, so it fills a span in the text.
     const paintable = (el: Element): boolean =>
       el.tagName === "text"
         ? el.querySelector(":scope > tspan.pluto--solid") != null

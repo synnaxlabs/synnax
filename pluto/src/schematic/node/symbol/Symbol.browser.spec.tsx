@@ -125,7 +125,7 @@ describe("Symbol node", () => {
     expect(getComputedStyle(lamp).strokeWidth).toBe("1px");
   });
 
-  // A shape body and a text, which the theme fills unless it sets its own fill.
+  // A shape body, and a letter in a span of a text.
   it.each(["t_junction", "flowmeter_orifice"])(
     "should fill the solid shapes of %s with the node color",
     async (name) => {
