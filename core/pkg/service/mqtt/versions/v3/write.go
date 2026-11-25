@@ -11,6 +11,7 @@ package v3
 
 import (
 	"context"
+	"encoding/json/v2"
 	"fmt"
 	"slices"
 	"strconv"
@@ -24,7 +25,6 @@ import (
 	icd "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v1"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/mqtt/versions/v1"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/mqtt/versions/v2"
-	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 	"go.uber.org/zap"
@@ -68,9 +68,6 @@ func MigrateWriteConfig(ctx context.Context, old v2.WriteConfig) (WriteConfig, e
 	}
 	return cfg, nil
 }
-
-// CreateICD creates ic through tx.
-type CreateICD func(ctx context.Context, tx gorp.Tx, ic icd.ICD) error
 
 // NoteLift returns the note for ResolveWriteConfig that logs each change to a field of
 // the config with key through ins.
@@ -144,90 +141,50 @@ func ResolveWriteConfig(
 	return ic, true, nil
 }
 
-// NewWriteMigration returns the migration that lifts stored v2 write configs to v3. It
-// resolves each config as ResolveWriteConfig does, with the name of its task, creates
-// the ICD with create, and logs each change to a field. The config of a snapshot task
-// gets no ICD and loses its plain targets, because the task service deletes snapshots
-// after this migration runs.
-func NewWriteMigration(channels icdv0.Channels, create CreateICD) gorp.Migration {
-	return migrate.New(
-		"v63_mqtt_write_icd",
-		func(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation) error {
-			var olds []v2.WriteConfig
-			if err := gorp.NewRetrieve[uuid.UUID, v2.WriteConfig]().
-				Entries(&olds).
-				Exec(ctx, tx); err != nil || len(olds) == 0 {
-				return err
-			}
-			tasks, err := retrieveTasks(ctx, tx, olds)
+// StagedTargetsKVPrefix is the KV key prefix under which WriteMigration stages the
+// plain targets of each config. The rest of the key is the config key as a string, and
+// the value is the InlineWrite that holds the targets, as JSON.
+const StagedTargetsKVPrefix = "sy_mqtt_write_staged_targets/"
+
+// StagedTargetsKVKey returns the staging KV key of the plain targets of the config with
+// the given key.
+func StagedTargetsKVKey(key uuid.UUID) []byte {
+	return []byte(StagedTargetsKVPrefix + key.String())
+}
+
+// WriteMigration lifts each stored v2 write config to v3. The v3 shape stores no inline
+// targets, so WriteMigration stages the plain targets of each config under
+// StagedTargetsKVPrefix.
+var WriteMigration = migrate.New(
+	"v63_mqtt_write_icd",
+	func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
+		var olds []v2.WriteConfig
+		if err := gorp.NewRetrieve[uuid.UUID, v2.WriteConfig]().
+			Entries(&olds).
+			Exec(ctx, tx); err != nil || len(olds) == 0 {
+			return err
+		}
+		news := make([]WriteConfig, len(olds))
+		for i, old := range olds {
+			cfg, err := MigrateWriteConfig(ctx, old)
 			if err != nil {
-				return err
+				return errors.Wrapf(err, "config %s", old.Key)
 			}
-			news := make([]WriteConfig, len(olds))
-			for i, old := range olds {
-				if news[i], err = migrateStored(
-					ctx,
-					tx,
-					channels,
-					create,
-					tasks[old.Key],
-					old,
-					NoteLift(ins, old.Key),
-				); err != nil {
+			if cfg.Inline != nil {
+				b, err := json.Marshal(cfg.Inline)
+				if err != nil {
 					return errors.Wrapf(err, "config %s", old.Key)
 				}
+				if err = tx.Set(ctx, StagedTargetsKVKey(cfg.Key), b); err != nil {
+					return err
+				}
+				cfg.Inline = nil
 			}
-			return gorp.WrapWriter[uuid.UUID, WriteConfig](tx).Set(ctx, news...)
-		},
-	)
-}
-
-func migrateStored(
-	ctx context.Context,
-	tx gorp.Tx,
-	channels icdv0.Channels,
-	create CreateICD,
-	t task.Task,
-	old v2.WriteConfig,
-	note func(path, change string),
-) (WriteConfig, error) {
-	cfg, err := MigrateWriteConfig(ctx, old)
-	if err != nil {
-		return WriteConfig{}, err
-	}
-	if t.Snapshot {
-		return cfg, nil
-	}
-	ic, ok, err := ResolveWriteConfig(ctx, tx, channels, t.Name, &cfg, note)
-	if err != nil {
-		return WriteConfig{}, err
-	}
-	if !ok {
-		return cfg, nil
-	}
-	if err = create(ctx, tx, ic); err != nil {
-		return WriteConfig{}, err
-	}
-	return cfg, nil
-}
-
-// retrieveTasks returns the task of each config of cfgs by key, read through tx.
-func retrieveTasks(
-	ctx context.Context,
-	tx gorp.Tx,
-	cfgs []v2.WriteConfig,
-) (map[uuid.UUID]task.Task, error) {
-	var tasks []task.Task
-	if err := gorp.NewRetrieve[task.Key, task.Task]().
-		Where(gorp.MatchKeys[task.Key, task.Task](
-			lo.Map(cfgs, func(c v2.WriteConfig, _ int) task.Key { return c.Key })...,
-		)).
-		Entries(&tasks).
-		Exec(ctx, tx); err != nil {
-		return nil, errors.Wrap(err, "tasks of MQTT write configs")
-	}
-	return lo.KeyBy(tasks, func(t task.Task) uuid.UUID { return t.Key }), nil
-}
+			news[i] = cfg
+		}
+		return gorp.WrapWriter[uuid.UUID, WriteConfig](tx).Set(ctx, news...)
+	},
+)
 
 // inlineWrite returns the write that t held inline. Each field takes its path in the
 // config. A null field is dropped, and note receives its path.

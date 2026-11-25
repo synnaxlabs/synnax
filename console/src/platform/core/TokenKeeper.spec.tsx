@@ -133,10 +133,7 @@ describe("Core.TokenKeeper", () => {
       store.dispatch(Session.Core.set({ ...core, lastLogin: Date.now() }));
     });
     expect(calls).toEqual([
-      {
-        cmd: "keychain_delete",
-        args: { account: `http://synnax@localhost:9090#${core.key}` },
-      },
+      { cmd: "keychain_delete", args: { account: keychainAccount(core) } },
     ]);
   });
 
