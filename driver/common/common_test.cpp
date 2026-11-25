@@ -59,7 +59,7 @@ TEST(CoreWarning, ShowsOtherErrorsAfterTheDelay) {
         x::telem::SECOND
     );
     ASSERT_EQ(w.message, "Failed to reach the Core");
-    ASSERT_NE(w.description.find(freighter::TRANSPORT.type), std::string::npos);
+    ASSERT_EQ(w.description.rfind(error_sentence(freighter::TRANSPORT), 0), 0);
 }
 
 /// @brief it should show no warning before the delay, and one once the wait reaches it.
