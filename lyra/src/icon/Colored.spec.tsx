@@ -20,13 +20,15 @@ const renderSVG = (el: ReactElement): SVGSVGElement => {
   return svg;
 };
 
-const fills = (svg: SVGSVGElement): (string | null)[] =>
-  Array.from(svg.querySelectorAll("g")).map((g) => g.getAttribute("fill"));
+const partColors = (svg: SVGSVGElement): string[] =>
+  Array.from(svg.querySelectorAll("g")).map((g) =>
+    g.style.getPropertyValue("--pluto-symbol-color"),
+  );
 
 describe("Colored", () => {
   describe("brand logos", () => {
     it("should take the text color outside a colored region", () => {
-      const svg = renderSVG(<Icon.Logo.Okta />);
+      const svg = renderSVG(<Icon.Logo.LabJack />);
       expect(svg.getAttribute("class")).not.toContain(CSS.symbolColored);
       expect(svg.style.color).toEqual("");
     });
@@ -34,13 +36,13 @@ describe("Colored", () => {
     it("should take the brand color inside a colored region", () => {
       const svg = renderSVG(
         <Icon.Colored>
-          <Icon.Logo.Okta className="custom" />
+          <Icon.Logo.LabJack className="custom" />
         </Icon.Colored>,
       );
       expect(svg.getAttribute("class")).toContain(CSS.symbolColored);
       expect(svg.getAttribute("class")).toContain("custom");
-      expect(svg.getAttribute("class")).toContain(CSS.BM("icon", "logo-okta"));
-      expect(svg.style.getPropertyValue("--pluto-symbol-color")).toEqual("0, 125, 193");
+      expect(svg.getAttribute("class")).toContain(CSS.BM("icon", "logo-labjack"));
+      expect(svg.style.getPropertyValue("--pluto-symbol-color")).toEqual("141, 2, 0");
       expect(svg.style.color).toEqual("var(--pluto-symbol-display)");
     });
 
@@ -59,16 +61,36 @@ describe("Colored", () => {
     it("should draw one color outside a colored region", () => {
       const svg = renderSVG(<Icon.Logo.Microsoft />);
       expect(svg.getAttribute("fill")).toEqual("currentColor");
-      expect(fills(svg)).toEqual([null, null, null, null]);
+      expect(partColors(svg)).toEqual(["", "", "", ""]);
+      expect(svg.querySelector(`.${CSS.symbolColored}`)).toBeNull();
     });
 
-    it("should draw every brand color inside a colored region", () => {
+    it("should draw each part in its brand color inside a colored region", () => {
       const svg = renderSVG(
         <Icon.Colored>
           <Icon.Logo.Microsoft />
         </Icon.Colored>,
       );
-      expect(fills(svg)).toEqual(["#F25022", "#7FBA00", "#00A4EF", "#FFB900"]);
+      expect(partColors(svg)).toEqual([
+        "243, 83, 37",
+        "129, 188, 6",
+        "5, 166, 240",
+        "255, 186, 8",
+      ]);
+      for (const g of svg.querySelectorAll("g")) {
+        expect(g.classList).toContain(CSS.symbolColored);
+        expect(g.getAttribute("fill")).toEqual("currentColor");
+      }
+    });
+
+    it("should color only the brand parts of a mark", () => {
+      const svg = renderSVG(
+        <Icon.Colored>
+          <Icon.Logo.EtherCAT />
+        </Icon.Colored>,
+      );
+      expect(partColors(svg)).toEqual(["237, 28, 36"]);
+      expect(svg.querySelectorAll(":scope > path")).toHaveLength(3);
     });
   });
 });

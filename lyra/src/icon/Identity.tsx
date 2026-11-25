@@ -77,7 +77,7 @@ export const Google = wrapMulticolor(
         "7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z",
     ],
     [
-      "#FBBC05",
+      "#FBBC04",
       "M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 " +
         "16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z",
     ],
@@ -93,10 +93,10 @@ export const Google = wrapMulticolor(
 export const Microsoft = wrapMulticolor(
   "0 0 23 23",
   [
-    ["#F25022", "M1 1h10v10H1z"],
-    ["#7FBA00", "M12 1h10v10H12z"],
-    ["#00A4EF", "M1 12h10v10H1z"],
-    ["#FFB900", "M12 12h10v10H12z"],
+    ["#F35325", "M1 1h10v10H1z"],
+    ["#81BC06", "M12 1h10v10H12z"],
+    ["#05A6F0", "M1 12h10v10H1z"],
+    ["#FFBA08", "M12 12h10v10H12z"],
   ],
   "logo-microsoft",
 );

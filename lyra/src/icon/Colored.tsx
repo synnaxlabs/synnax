@@ -46,34 +46,50 @@ export const withBrandColor = (Logo: FC, brandColor: string): FC => {
   return O;
 };
 
-// Icon paths take their fill from their parent, so each path sits in a group that holds
-// its color.
+export interface BrandPartProps extends PropsWithChildren {
+  /** The official color of this part of the mark. */
+  color: string;
+}
+
+/**
+ * Draws the parts of a mark inside it in one brand color, inside {@link Colored}. Use
+ * it for a mark with parts in different colors. Elsewhere, the parts take the text
+ * color.
+ */
+export const BrandPart = ({ color, children }: BrandPartProps): ReactElement => {
+  if (!use(Context)) return <g>{children}</g>;
+  const { className, style } = tint(color);
+  // Icon paths take their fill from their parent, so the group holds the color.
+  return (
+    <g className={className} style={style} fill="currentColor">
+      {children}
+    </g>
+  );
+};
+
 /* #__NO_SIDE_EFFECTS__ */
 export const wrapMulticolor = (
   viewBox: string,
-  paths: [fill: string, d: string][],
+  paths: [color: string, d: string][],
   name: string,
 ): FC => {
   const Multicolor = ({
     className,
     ...rest
-  }: SVGProps<SVGSVGElement>): ReactElement => {
-    const colored = use(Context);
-    return (
-      <svg
-        viewBox={viewBox}
-        {...rest}
-        className={CSS.cls(className, "logo")}
-        fill="currentColor"
-        xmlns="http://www.w3.org/2000/svg"
-      >
-        {paths.map(([fill, d]) => (
-          <g key={d} fill={colored ? fill : undefined}>
-            <path d={d} />
-          </g>
-        ))}
-      </svg>
-    );
-  };
+  }: SVGProps<SVGSVGElement>): ReactElement => (
+    <svg
+      viewBox={viewBox}
+      {...rest}
+      className={CSS.cls(className, "logo")}
+      fill="currentColor"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      {paths.map(([color, d]) => (
+        <BrandPart key={d} color={color}>
+          <path d={d} />
+        </BrandPart>
+      ))}
+    </svg>
+  );
   return wrapSVGIcon(Multicolor, name);
 };
