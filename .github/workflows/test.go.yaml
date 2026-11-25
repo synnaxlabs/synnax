@@ -189,6 +189,16 @@ jobs:
             ${{ steps.key.outputs.sum }}
             ${{ steps.key.outputs.module }}
 
+      # Go and golangci-lint refresh the mtime of an entry they use only when that
+      # mtime is over an hour old, so the restored entries get one two hours old.
+      - name: Age the restored Go caches
+        run: |
+          for dir in ~/.cache/go-build ~/.cache/golangci-lint; do
+            if [ -d "$dir" ]; then
+              find "$dir" -type f -exec touch -d '2 hours ago' {} +
+            fi
+          done
+
       - name: Download the Go modules
         env:
           DIRECTORY: ${{ inputs.directory }}
@@ -277,8 +287,8 @@ jobs:
           ./custom-gcl run --path-mode=abs --enable-only "$COMPLEXITY" "${packages[@]}"
 
       # Each save holds every entry it restored, so stale builds pile up until their
-      # extraction fills the disk. Go and golangci-lint refresh an entry's mtime when
-      # they use it, so deleting the oldest files first keeps the ones this lint read.
+      # extraction fills the disk. The restored entries are aged, so the entries this
+      # lint used are the newest, and deleting the oldest files first keeps them.
       # One cold lint fills about 11 GB.
       - name: Trim the Go caches
         if: success() && github.ref == 'refs/heads/main'
@@ -434,8 +444,10 @@ jobs:
           BUILD: ${{ steps.key.outputs.build }}
         run: |
           start=$(date +%s)
-          find "$BUILD" -type f -exec perl -e \
-            '$t = time - 7200; utime $t, $t, @ARGV' {} +
+          if [ -d "$BUILD" ]; then
+            find "$BUILD" -type f -exec perl -e \
+              '$t = time - 7200; utime $t, $t, @ARGV' {} +
+          fi
           echo "seconds=$start" >> "$GITHUB_OUTPUT"
 
       - name: Download the Go modules
