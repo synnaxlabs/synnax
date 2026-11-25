@@ -286,10 +286,11 @@ folder of your operating system:
 | Windows          | `%APPDATA%\Synnax` for `config.json`, and `%LOCALAPPDATA%\Synnax` for `desktop.json` |
 
 On Windows, `desktop.json` holds the port and helper path of this computer, so it stays
-out of the roaming profile. The clients read each file from the config folder or from
-`~/.synnax`, where older versions kept it. When both hold a copy, they read the one that
-was written last. While clients of Synnax 0.62 are supported, `sy login` and Synnax
-Desktop also write their files to `~/.synnax`.
+out of the roaming profile. The Python client reads `config.json`, which `sy login`
+writes. The Python and TypeScript clients both read `desktop.json`. They read each file
+from the config folder or from `~/.synnax`, where older versions kept it. When both hold
+a copy, they read the one that was written last. While clients of Synnax 0.62 are
+supported, `sy login` and Synnax Desktop also write their files to `~/.synnax`.
 
 <Divider.Divider x />
 
