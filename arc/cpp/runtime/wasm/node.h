@@ -9,7 +9,10 @@
 
 #pragma once
 
+#include <cstring>
+#include <stdexcept>
 #include <string>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -24,6 +27,84 @@
 #include "arc/cpp/stl/strings/state.h"
 
 namespace arc::runtime::wasm {
+/// @brief reads sample i of a series of one fixed data type.
+using SampleReader = x::telem::SampleValue (*)(const x::telem::Series &, size_t);
+/// @brief writes a value to sample i of a series of one fixed data type, as
+/// x::telem::Series::set does.
+using SampleWriter =
+    void (*)(x::telem::Series &, size_t, const x::telem::SampleValue &);
+
+template<typename T>
+x::telem::SampleValue read_sample(const x::telem::Series &series, const size_t i) {
+    T value;
+    std::memcpy(&value, series.data() + (i * sizeof(T)), sizeof(T));
+    return value;
+}
+
+template<>
+inline x::telem::SampleValue
+read_sample<x::telem::TimeStamp>(const x::telem::Series &series, const size_t i) {
+    int64_t value = 0;
+    std::memcpy(&value, series.data() + (i * sizeof(value)), sizeof(value));
+    return x::telem::TimeStamp(value);
+}
+
+/// @brief returns the reader of a series of data_type, or nullptr when it has none.
+inline SampleReader reader_for(const x::telem::DataType &data_type) {
+    if (data_type == x::telem::FLOAT64_T) return &read_sample<double>;
+    if (data_type == x::telem::FLOAT32_T) return &read_sample<float>;
+    if (data_type == x::telem::INT64_T) return &read_sample<int64_t>;
+    if (data_type == x::telem::INT32_T) return &read_sample<int32_t>;
+    if (data_type == x::telem::INT16_T) return &read_sample<int16_t>;
+    if (data_type == x::telem::INT8_T) return &read_sample<int8_t>;
+    if (data_type == x::telem::UINT64_T) return &read_sample<uint64_t>;
+    if (data_type == x::telem::UINT32_T) return &read_sample<uint32_t>;
+    if (data_type == x::telem::UINT16_T) return &read_sample<uint16_t>;
+    if (data_type == x::telem::UINT8_T || data_type == x::telem::BOOLEAN_T)
+        return &read_sample<uint8_t>;
+    if (data_type == x::telem::TIMESTAMP_T) return &read_sample<x::telem::TimeStamp>;
+    return nullptr;
+}
+
+template<typename T, bool Bool = false>
+void write_sample(
+    x::telem::Series &series,
+    const size_t i,
+    const x::telem::SampleValue &value
+) {
+    const T out = std::visit(
+        []<typename V>(const V &v) -> T {
+            if constexpr (std::is_same_v<V, std::string>)
+                throw std::runtime_error(
+                    "cannot set string value on non-string series"
+                );
+            else if constexpr (std::is_same_v<V, x::telem::TimeStamp>)
+                return Bool ? T(v.nanoseconds() != 0) : static_cast<T>(v.nanoseconds());
+            else
+                return Bool ? T(v != 0) : static_cast<T>(v);
+        },
+        value
+    );
+    std::memcpy(series.data() + (i * sizeof(T)), &out, sizeof(T));
+}
+
+/// @brief returns the writer of a series of data_type, or nullptr when it has none.
+inline SampleWriter writer_for(const x::telem::DataType &data_type) {
+    if (data_type == x::telem::FLOAT64_T) return &write_sample<double>;
+    if (data_type == x::telem::FLOAT32_T) return &write_sample<float>;
+    if (data_type == x::telem::INT64_T || data_type == x::telem::TIMESTAMP_T)
+        return &write_sample<int64_t>;
+    if (data_type == x::telem::INT32_T) return &write_sample<int32_t>;
+    if (data_type == x::telem::INT16_T) return &write_sample<int16_t>;
+    if (data_type == x::telem::INT8_T) return &write_sample<int8_t>;
+    if (data_type == x::telem::UINT64_T) return &write_sample<uint64_t>;
+    if (data_type == x::telem::UINT32_T) return &write_sample<uint32_t>;
+    if (data_type == x::telem::UINT16_T) return &write_sample<uint16_t>;
+    if (data_type == x::telem::UINT8_T) return &write_sample<uint8_t>;
+    if (data_type == x::telem::BOOLEAN_T) return &write_sample<uint8_t, true>;
+    return nullptr;
+}
+
 class Node : public node::Node {
     ir::Node ir;
     state::Node state;
@@ -35,6 +116,8 @@ class Node : public node::Node {
     std::vector<bool> chan_inputs;
     std::vector<bool> var_inputs;
     std::vector<bool> string_outputs;
+    std::vector<SampleReader> readers;
+    std::vector<SampleWriter> writers;
     std::shared_ptr<stl::strings::State> str_state;
     /// @brief marks a node with no $sel input.
     static constexpr size_t NO_SEL = ~size_t{0};
@@ -226,16 +309,28 @@ public:
                 this->offsets[0] = static_cast<int>(count);
             }
         }
+        if (!batched) {
+            this->readers.resize(this->ir.inputs.size());
+            for (size_t j = 0; j < this->ir.inputs.size(); j++)
+                if (this->ir.inputs[j].value.is_null() && !this->chan_inputs[j] &&
+                    !this->var_inputs[j])
+                    this->readers[j] = reader_for(this->state.input(j)->data_type());
+            this->writers.resize(this->ir.outputs.size());
+            for (size_t j = 0; j < this->ir.outputs.size(); j++)
+                this->writers[j] = writer_for(this->state.output(j)->data_type());
+        }
         for (int i = 0; !batched && i < max_length; i++) {
             for (size_t j = 0; j < this->ir.inputs.size(); j++) {
                 if (!this->ir.inputs[j].value.is_null() || this->chan_inputs[j] ||
                     this->var_inputs[j])
                     continue;
-                const auto input_series = this->state.input(j);
+                const auto &input_series = this->state.input(j);
                 const auto input_len = static_cast<int>(input_series->size());
                 const auto idx = i % input_len;
                 if (!this->string_inputs[j]) {
-                    this->inputs[j] = input_series->at(idx);
+                    this->inputs[j] = this->readers[j] != nullptr
+                                        ? this->readers[j](*input_series, idx)
+                                        : input_series->at(idx);
                 } else {
                     // String channels are variable-length but WASM expects
                     // i32 handles. Convert inline.
@@ -271,7 +366,7 @@ public:
                 ts = longest_input_time->at<x::telem::TimeStamp>(i);
 
             for (size_t j = 0; j < results.size(); j++) {
-                auto [value, changed] = results[j];
+                const auto &[value, changed] = results[j];
                 if (!changed) continue;
                 if (this->string_outputs[j]) {
                     // WASM returned an i32 string handle; materialize it
@@ -279,10 +374,18 @@ public:
                     // conversion above.
                     const auto handle = static_cast<uint32_t>(std::get<int32_t>(value));
                     string_results[j].push_back(this->str_state->get(handle));
+                } else if (this->writers[j] != nullptr) {
+                    this->writers[j](*this->state.output(j), this->offsets[j], value);
                 } else {
                     this->state.output(j)->set(this->offsets[j], value);
                 }
-                this->state.output_time(j)->set(this->offsets[j], ts);
+                const auto stamp = ts.nanoseconds();
+                std::memcpy(
+                    this->state.output_time(j)->data() +
+                        (static_cast<size_t>(this->offsets[j]) * sizeof(stamp)),
+                    &stamp,
+                    sizeof(stamp)
+                );
                 this->offsets[j]++;
             }
         }
