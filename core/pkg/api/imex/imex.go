@@ -67,12 +67,7 @@ type ServiceConfig struct {
 	ImEx *imex.Service
 }
 
-var (
-	_ config.Config[ServiceConfig] = ServiceConfig{}
-	// DefaultServiceConfig is the default configuration for the import and export API
-	// service.
-	DefaultServiceConfig = ServiceConfig{}
-)
+var _ config.Config[ServiceConfig] = ServiceConfig{}
 
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
@@ -94,7 +89,7 @@ type Service struct {
 
 // NewService creates a new ImEx API service.
 func NewService(cfgs ...ServiceConfig) (*Service, error) {
-	cfg, err := config.New(DefaultServiceConfig, cfgs...)
+	cfg, err := config.New(ServiceConfig{}, cfgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -109,16 +104,18 @@ type (
 )
 
 // Import imports a resource from an envelope. An envelope with no type goes to the
-// importer that claims its body.
+// importer that claims its body. The import reuses only stored records in retrievable.
 func (s *Service) Import(
 	ctx context.Context,
 	tx gorp.Tx,
+	retrievable bind.Retrievable,
 	req ImportRequest,
 ) (ImportResponse, error) {
 	opts, err := parseImportOptions(ctx)
 	if err != nil {
 		return ImportResponse{}, err
 	}
+	opts.Retrievable = retrievable
 	return s.internal.Import(ctx, tx, req, opts)
 }
 

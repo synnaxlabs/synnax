@@ -415,6 +415,22 @@ var _ = Describe("Python Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`tags: list[str] | None = None`))
 		})
 
+		It("Should require a required list to hold an element", func() {
+			source := `
+				@py output "out"
+
+				Cluster struct {
+					brokers string[] @validate required
+					tags    string[]? @validate required
+				}
+			`
+			resp := MustGenerate(source, "cluster", loader, typesPlugin)
+			ExpectContent(resp, "types_gen.py").ToContain(
+				`brokers: list[str] = Field(min_length=1)`,
+				`tags: list[str] | None = None`,
+			)
+		})
+
 		It(
 			"Should refuse the zero value of a required string or unsigned field",
 			func() {
@@ -2758,6 +2774,45 @@ var _ = Describe("Python Types Plugin", func() {
 						`from_: str = Field(alias="from")`,
 						`name: str`,
 						`model_config = ConfigDict(populate_by_name=True)`,
+					)
+			})
+
+			DescribeTable("Should escape a field that shadows a BaseModel attribute",
+				func(field string) {
+					source := `
+					@py output "out"
+
+					Example struct {
+						` + field + ` string
+						name string
+					}
+				`
+					resp := MustGenerate(source, "example", loader, typesPlugin)
+					ExpectContent(resp, "types_gen.py").
+						ToContain(
+							field+`_: str = Field(alias="`+field+`")`,
+							`name: str`,
+							`model_config = ConfigDict(populate_by_name=True)`,
+						)
+				},
+				Entry("an ABCMeta method", "register"),
+				Entry("a deprecated v1 method", "validate"),
+				Entry("a model attribute", "model_config"),
+			)
+
+			It("Should clear the protected namespaces of a model_dump field", func() {
+				source := `
+					@py output "out"
+
+					Example struct {
+						model_dump string
+					}
+				`
+				resp := MustGenerate(source, "example", loader, typesPlugin)
+				ExpectContent(resp, "types_gen.py").
+					ToContain(
+						`model_dump_: str = Field(alias="model_dump")`,
+						`model_config = ConfigDict(populate_by_name=True, protected_namespaces=())`,
 					)
 			})
 		})

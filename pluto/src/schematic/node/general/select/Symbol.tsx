@@ -15,9 +15,9 @@ import { Control } from "@/schematic/node/common/control";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
 import { Options } from "@/schematic/node/common/options";
-import { Primitive } from "@/schematic/node/common/primitive";
+import { Primitive as BasePrimitive } from "@/schematic/node/common/primitive";
 import { Telem } from "@/schematic/node/common/telem";
-import { optionName, Select } from "@/schematic/node/general/select/Primitive";
+import { Primitive } from "@/schematic/node/general/select/primitive";
 import type { NodeProps } from "@/schematic/node/spec";
 import { Setpoint as BaseSetpoint } from "@/vis/setpoint";
 import { Staleness } from "@/vis/staleness";
@@ -35,7 +35,6 @@ export const Symbol = ({
     commandChannel,
     stateChannel,
     stalenessTimeout,
-    options: ownOptions,
     enumeration,
     size,
     disabled,
@@ -44,7 +43,7 @@ export const Symbol = ({
   },
 }: NodeProps<schematic.SelectNodeConfig>): ReactElement => {
   const resolve = Color.useResolve();
-  const options = Options.use({ enumeration, options: ownOptions });
+  const options = Options.use(enumeration);
   const sink = Telem.numberSink(commandChannel);
   const source = Telem.numberSource(commandChannel);
   const { set, value } = BaseSetpoint.use({ aetherKey: nodeKey, sink, source });
@@ -69,7 +68,7 @@ export const Symbol = ({
         {stale ? <Staleness.Badge /> : null}
       </Control.State>
       <Label.Label config={label} onChange={onConfigChange} />
-      <Select
+      <Primitive.Select
         value={target}
         onSend={set}
         fillColor={resolve(fillColor)}
@@ -81,9 +80,9 @@ export const Symbol = ({
         onClickDelay={onClickDelay}
         readback={
           stateChannel !== 0 && (
-            <Primitive.Readout
+            <BasePrimitive.Readout
               size={size}
-              value={readback == null ? "-" : optionName(readback)}
+              value={readback == null ? "-" : Primitive.optionName(readback)}
             />
           )
         }

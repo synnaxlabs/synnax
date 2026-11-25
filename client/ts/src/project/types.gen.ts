@@ -39,7 +39,7 @@ export const projectZ = z.object({
   /** key is the unique identifier for this project. */
   key: keyZ.default(uuid.create),
   /** name is a human-readable name for the project. */
-  name: z.string().min(1, "name is required"),
+  name: z.string().min(1, "Name is required"),
   /** group is the group the project sits in, if any. */
   group: group.keyZ.optional(),
 });

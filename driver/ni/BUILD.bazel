@@ -50,6 +50,7 @@ cc_library(
         "//x/cpp/json",
         "//x/cpp/lib",
         "//x/cpp/loop",
+        "//x/cpp/spatial",
         "@nlohmann_json//:json",
     ],
 )

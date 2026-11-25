@@ -79,6 +79,8 @@ struct Config {
     /// @brief the timeout of each request and connection attempt in milliseconds. 0
     /// selects 5 seconds.
     uint32_t client_timeout_ms = 0;
+    /// @brief how long a read node command may run, from receipt, before it fails.
+    x::telem::TimeSpan read_node_timeout = 20 * x::telem::SECOND;
 
     Config() = default;
 
@@ -94,7 +96,12 @@ struct Config {
             parser.field<uint32_t>("secure_channel_lifetime_ms", 0)
         ),
         session_timeout_ms(parser.field<uint32_t>("session_timeout_ms", 0)),
-        client_timeout_ms(parser.field<uint32_t>("client_timeout_ms", 0)) {
+        client_timeout_ms(parser.field<uint32_t>("client_timeout_ms", 0)),
+        read_node_timeout(
+            parser.field<x::telem::TimeSpan>("read_node_timeout", 20 * x::telem::SECOND)
+        ) {
+        if (this->read_node_timeout <= x::telem::TimeSpan{})
+            parser.field_err("read_node_timeout", "must be greater than zero");
         this->password_secret = parse_item(parser, "password", "secret");
         this->client_certificate_item = parse_item(
             parser,
@@ -294,12 +301,17 @@ public:
         [[nodiscard]] const Server &server() const { return *server_info; }
 
         /// @brief reads the attributes that req names, in as many requests as the
-        /// server's limit needs.
+        /// server's limit needs. Sends no request once deadline passes, so a request
+        /// sent before it can still run for the client timeout.
         /// @returns errors::NO_CONNECTION without sending req when the connection is
-        /// lost, the error of the service result, or errors::CRITICAL when the server
-        /// returns a result count that does not match req.
-        [[nodiscard]] std::pair<types::ReadResponse, x::errors::Error>
-        read(const UA_ReadRequest &req) const;
+        /// lost, errors::DEADLINE_EXCEEDED when deadline stops the read, the error of
+        /// the service result, or errors::CRITICAL when the server returns a result
+        /// count that does not match req.
+        [[nodiscard]] std::pair<types::ReadResponse, x::errors::Error> read(
+            const UA_ReadRequest &req,
+            std::chrono::steady_clock::time_point deadline =
+                std::chrono::steady_clock::time_point::max()
+        ) const;
 
         /// @brief writes the values in req, in as many requests as the server's limit
         /// needs.
@@ -388,8 +400,16 @@ public:
     /// failures in a row, it refuses attempts for a cooldown that starts at
     /// Timing::min_cooldown and doubles up to Timing::max_cooldown. A connection that
     /// no one uses for Timing::idle_timeout closes.
-    std::pair<Connection, x::errors::Error>
-    acquire(const Config &cfg, const std::string &log_prefix);
+    ///
+    /// Does not start to connect once deadline passes, and keeps a connection that
+    /// opens after it. A deadline does not count as a failure.
+    /// @returns errors::DEADLINE_EXCEEDED when deadline stops the attempt.
+    std::pair<Connection, x::errors::Error> acquire(
+        const Config &cfg,
+        const std::string &log_prefix,
+        std::chrono::steady_clock::time_point deadline =
+            std::chrono::steady_clock::time_point::max()
+    );
 
     /// @brief connects again when the configuration now resolves to another client
     /// certificate than conn uses, such as after the Driver certificate changes. The

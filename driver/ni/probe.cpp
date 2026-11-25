@@ -21,6 +21,8 @@
 
 #include "absl/log/log.h"
 
+#include "x/cpp/spatial/spatial.h"
+
 #include "driver/ni/daqmx/nidaqmx.h"
 #include "driver/ni/probe.h"
 
@@ -31,7 +33,7 @@ using ::synnax::ni::AnalogOutputPort;
 using ::synnax::ni::CounterPort;
 using ::synnax::ni::DigitalPort;
 using ::synnax::ni::Hardware;
-using ::x::spatial::Bounds;
+using ::x::spatial::ClosedBounds;
 
 /// @brief the channel types of each DAQmx measurement or output type. A DAQmx type with
 /// no entry has no channel type, so no form can offer it.
@@ -136,9 +138,9 @@ const std::vector<Pairing> PAIRINGS = {
 
 /// @brief the range of the task that reads back a default terminal configuration, for a
 /// device that lists no voltage ranges.
-const Bounds FALLBACK_VOLTAGE_RANGE = {.lower = -10, .upper = 10};
+const ClosedBounds FALLBACK_VOLTAGE_RANGE = {.lower = -10, .upper = 10};
 /// @brief like FALLBACK_VOLTAGE_RANGE, for a device that lists no current ranges.
-const Bounds FALLBACK_CURRENT_RANGE = {.lower = -0.02, .upper = 0.02};
+const ClosedBounds FALLBACK_CURRENT_RANGE = {.lower = -0.02, .upper = 0.02};
 /// @brief the shunt resistance of a current readback channel, in ohms. DAQmx uses it
 /// only when the default shunt of the port is external.
 const float64 EXTERNAL_SHUNT_RESISTANCE = 249;
@@ -269,7 +271,7 @@ x::errors::Error read_ranges(
     daqmx::SugaredAPI &dmx,
     const std::string &device,
     const int32 attribute,
-    std::vector<Bounds> &ranges
+    std::vector<ClosedBounds> &ranges
 ) {
     auto [values, err] = dmx.GetDeviceAttributeDoubleArray(device.c_str(), attribute);
     if (err.matches(daqmx::ATTRIBUTE_NOT_SUPPORTED)) return x::errors::NIL;
@@ -288,10 +290,11 @@ bool reads_back_default(const AnalogInputPort &ai) {
 
 /// @brief returns the narrowest of the ranges, which is valid in every terminal
 /// configuration.
-Bounds narrowest(const std::vector<Bounds> &ranges, const Bounds &fallback) {
+ClosedBounds
+narrowest(const std::vector<ClosedBounds> &ranges, const ClosedBounds &fallback) {
     if (ranges.empty()) return fallback;
-    return std::ranges::min(ranges, {}, [](const Bounds &r) {
-        return r.upper - r.lower;
+    return std::ranges::min(ranges, {}, [](const ClosedBounds &r) {
+        return x::spatial::span(r);
     });
 }
 
