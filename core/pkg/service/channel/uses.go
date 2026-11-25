@@ -109,5 +109,8 @@ func (s *Service) PlanDelete(
 		return nil, gorp.DeleteEffects{}, err
 	}
 	effects, err := s.table.PlanDelete(ctx, snap, keys)
-	return keys, effects, err
+	if err != nil {
+		return nil, gorp.DeleteEffects{}, err
+	}
+	return keys, effects, nil
 }
