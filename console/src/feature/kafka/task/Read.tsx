@@ -52,6 +52,7 @@ import {
 } from "@/feature/kafka/task/additions";
 import { DEFAULT_READ_NAME } from "@/feature/kafka/task/create";
 import { createDiscoverModal } from "@/feature/kafka/task/Discover";
+import { RecordLabel, TopicLabel } from "@/feature/kafka/task/Labels";
 import {
   deployReadConfigZ,
   READ_SCHEMAS,
@@ -85,8 +86,6 @@ const SELECT_DIALOG_PROPS = { className: CSS.BE("kafka-select", "dialog") };
 const TEXT_FIELD_CLASS = CSS.BE("kafka-properties", "text");
 
 const TOPIC_INPUT_PROPS = { placeholder: "sensor-readings" } as const;
-
-const TOPIC_KIND_COLOR = "var(--pluto-primary-z)";
 
 const useAddDataModal = createDiscoverModal({
   title: "Add data",
@@ -206,43 +205,11 @@ const usePrefix = (
   return messagePrefix(deviceName, topic, recordKey, read, name ?? "");
 };
 
-/** Names a record by its record key. */
-const RecordLabel = ({ path }: { path: deep.Path<ReadRecord> }) => {
-  const recordKey = PForm.useFieldValue(path.recordKey);
-  return (
-    <Flex.Box x align="center" className={CSS.B("kafka-record-label")}>
-      <Task.Views.ItemLabel
-        kind="JSON"
-        kindColor="var(--pluto-secondary-z)"
-        color={recordKey === "" ? 8 : 10}
-        variant="code"
-      >
-        {recordLabel({ recordKey })}
-      </Task.Views.ItemLabel>
-    </Flex.Box>
-  );
-};
-
-/** Names a topic. */
-const TopicLabel = ({ path }: { path: deep.Path<ReadTopic> }) => {
-  const name = PForm.useFieldValue(path.name);
-  return (
-    <Task.Views.ItemLabel
-      kind="Topic"
-      kindColor={TOPIC_KIND_COLOR}
-      color={name === "" ? 8 : 10}
-      variant="code"
-    >
-      {name === "" ? "New topic" : name}
-    </Task.Views.ItemLabel>
-  );
-};
-
 const TopicItem = (props: Tree.ItemRenderProps<string>) => {
   const path = topicPath(props.itemKey);
   const name = PForm.useFieldValue(path.name, { optional: true });
   if (name == null) return null;
-  return <Task.Views.TreeGroupItem {...props} label={<TopicLabel path={path} />} />;
+  return <Task.Views.TreeGroupItem {...props} label={<TopicLabel name={name} />} />;
 };
 
 const RecordItem = (props: Tree.ItemRenderProps<string>) => {
@@ -250,11 +217,12 @@ const RecordItem = (props: Tree.ItemRenderProps<string>) => {
   const topic = topicOf(ctx.get(root.config.topics).value, props.itemKey);
   const path = recordPath(topic, props.itemKey);
   const disabled = PForm.useFieldValue(path.disabled, { optional: true });
-  if (disabled == null) return null;
+  const recordKey = PForm.useFieldValue(path.recordKey, { optional: true });
+  if (disabled == null || recordKey == null) return null;
   return (
     <Task.Views.TreeGroupItem
       {...props}
-      label={<RecordLabel path={path} />}
+      label={<RecordLabel recordKey={recordKey} emptyLabel={ANY_KEY} />}
       off={disabled}
     >
       <Task.EnabledCheckbox path={path.disabled} />
@@ -660,7 +628,9 @@ const Records: FC<RecordsProps> = ({
   let detailsPath: deep.Target<unknown> | null = null;
   if (currentGroup != null) {
     detailsPath = topicPath(currentGroup);
-    title = <TopicLabel path={topicPath(currentGroup)} />;
+    title = (
+      <TopicLabel name={topics.find((t) => t.key === currentGroup)?.name ?? ""} />
+    );
     details = <TopicDetails key={currentGroup} path={topicPath(currentGroup)} />;
   } else if (rec != null && format != null && current?.kind === "field") {
     const read = recordPath(topic, rec.key).messages[current.read];
@@ -701,7 +671,7 @@ const Records: FC<RecordsProps> = ({
     );
   } else if (rec != null) {
     detailsPath = recordPath(topic, rec.key);
-    title = <RecordLabel path={recordPath(topic, rec.key)} />;
+    title = <RecordLabel recordKey={rec.recordKey} emptyLabel={ANY_KEY} />;
     if (format != null)
       details = (
         <RecordDetails

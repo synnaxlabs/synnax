@@ -466,11 +466,13 @@ class TestPasswords:
         )
         user = admin.users.create(name="First Password", role=empty_role.key)
         new_username = str(uuid4())
-        admin.auth.passwords.create(new_username, "first", subject=user.resource_id)
+        admin.auth.passwords.create(
+            new_username, "first", subject=sy.user.resource_id(user.key)
+        )
         client = sy.Synnax(
             host=host, port=port, username=new_username, password="first", secure=False
         )
-        assert client.auth.subject == user.resource_id
+        assert client.auth.subject == sy.user.resource_id(user.key)
         client.close()
         admin.close()
 
@@ -484,7 +486,9 @@ class TestPasswords:
         )
         user = admin.users.create(name="Repeated Username", role=empty_role.key)
         with pytest.raises(sy.AuthError):
-            admin.auth.passwords.create(username, "p", subject=user.resource_id)
+            admin.auth.passwords.create(
+                username, "p", subject=sy.user.resource_id(user.key)
+            )
         admin.close()
 
     def test_retrieve_own(
@@ -501,7 +505,7 @@ class TestPasswords:
             host=host, port=port, username=new_username, password="test", secure=False
         )
         [p] = client.auth.passwords.retrieve()
-        assert (p.subject, p.username) == (user.resource_id, new_username)
+        assert (p.subject, p.username) == (sy.user.resource_id(user.key), new_username)
         client.close()
         admin.close()
 
@@ -517,7 +521,7 @@ class TestPasswords:
         user = create_user(admin, new_username, "test", empty_role.key)
         res = admin.auth.passwords.retrieve(usernames=[new_username, str(uuid4())])
         assert [(p.subject, p.username) for p in res] == [
-            (user.resource_id, new_username)
+            (sy.user.resource_id(user.key), new_username)
         ]
         admin.close()
 
@@ -531,8 +535,8 @@ class TestPasswords:
         )
         new_username = str(uuid4())
         user = create_user(admin, new_username, "test", empty_role.key)
-        res = admin.auth.passwords.retrieve(subjects=[user.resource_id])
+        res = admin.auth.passwords.retrieve(subjects=[sy.user.resource_id(user.key)])
         assert [(p.subject, p.username) for p in res] == [
-            (user.resource_id, new_username)
+            (sy.user.resource_id(user.key), new_username)
         ]
         admin.close()

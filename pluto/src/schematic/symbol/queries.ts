@@ -22,9 +22,7 @@ import { Flux } from "@/flux";
 const RESOURCE_NAME = "schematic symbol";
 const GROUP_RESOURCE_NAME = "schematic symbol group";
 
-export type RetrieveQuery = {
-  key: string;
-};
+export type RetrieveQuery = schematic.symbol.RetrieveSingleParams;
 
 export const { use, useResult } = Flux.createRetrieve<
   RetrieveQuery,

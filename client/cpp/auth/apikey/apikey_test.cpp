@@ -11,11 +11,12 @@
 
 #include "gtest/gtest.h"
 
+#include "client/cpp/auth/apikey/apikey.h"
 #include "client/cpp/synnax.h"
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/testutil/testutil.h"
 
-namespace synnax::auth {
+namespace synnax::auth::apikey {
 namespace {
 synnax::Synnax keyed_client(const std::string &token) {
     auto cfg = test_client_config();
@@ -23,7 +24,7 @@ synnax::Synnax keyed_client(const std::string &token) {
     return synnax::Synnax(cfg);
 }
 
-bool holds(const std::vector<APIKey> &keys, const std::string &key) {
+bool holds(const std::vector<APIKey> &keys, const Key &key) {
     return std::ranges::any_of(keys, [&](const APIKey &k) { return k.key == key; });
 }
 }

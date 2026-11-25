@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/platform/icd/write/Bindings";
+export * from "@/platform/icd/write/Details";
 export * from "@/platform/icd/write/mostCommon";
 export * from "@/platform/icd/write/Suit";
+export * from "@/platform/icd/write/Tree";
 export * from "@/platform/icd/write/write";

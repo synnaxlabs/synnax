@@ -34,7 +34,7 @@ type MigrationConfig struct {
 
 // NewMigration returns the migration that lifts stored schematics from v13 to v14 as
 // MigrateSchematic does, then gives their selects and state indicators enumerations as
-// internStates does.
+// InternStates does.
 func NewMigration(cfg MigrationConfig) gorp.Migration {
 	const key = "v63_color_ref"
 	return migrate.New(
@@ -52,8 +52,7 @@ func NewMigration(cfg MigrationConfig) gorp.Migration {
 					if err != nil {
 						return Schematic{}, err
 					}
-					lists := stateLists(old)
-					if err = internStates(ctx, &s, lists, intern, ins); err != nil {
+					if err = InternStates(ctx, &s, old, intern, ins); err != nil {
 						return Schematic{}, err
 					}
 					return s, nil
@@ -63,35 +62,44 @@ func NewMigration(cfg MigrationConfig) gorp.Migration {
 	)
 }
 
-// stateLists returns the options of each select and state indicator in s, by node key.
-func stateLists(s v13.Schematic) map[string][]v13.StateMapping {
-	lists := make(map[string][]v13.StateMapping)
-	for _, n := range s.Nodes {
-		switch cfg := n.Config.Variant.(type) {
-		case v13.SelectNodeConfig:
-			lists[n.Key] = cfg.Options
-		case v13.StateIndicatorNodeConfig:
-			lists[n.Key] = cfg.Options
-		}
+// stateList returns the options of n when n is a select or a state indicator.
+func stateList(n v13.Node) ([]v13.StateMapping, bool) {
+	switch cfg := n.Config.Variant.(type) {
+	case v13.SelectNodeConfig:
+		return cfg.Options, true
+	case v13.StateIndicatorNodeConfig:
+		return cfg.Options, true
 	}
-	return lists
+	return nil, false
 }
 
-// internStates gives each select and state indicator in s an enumeration with the
-// entries of its list in lists, through intern, and clears its options. A node with no
-// list, or with no entries left, gets no enumeration. The enumeration is named for the
-// node type and its label, or the schematic name when the label is empty.
+// InternStates gives each select and state indicator of s an enumeration with the
+// entries of its options in old, through intern, and clears its options. s must be old
+// lifted to v14, which keeps each node at its index. A node with no entries left gets
+// no enumeration. The enumeration is named for the node type and its label, or the
+// schematic name when the label is empty.
 //
 // An entry with an empty or repeated key gets a new key. A state whose value is not
 // finite, or repeats an earlier state, is dropped with a warning.
-func internStates(
+func InternStates(
 	ctx context.Context,
 	s *Schematic,
-	lists map[string][]v13.StateMapping,
+	old v13.Schematic,
 	intern symbol.Intern,
 	ins alamos.Instrumentation,
 ) error {
+	if len(s.Nodes) != len(old.Nodes) {
+		return errors.Newf(
+			"schematic has %d nodes, but its v13 shape has %d",
+			len(s.Nodes),
+			len(old.Nodes),
+		)
+	}
 	for i, n := range s.Nodes {
+		list, ok := stateList(old.Nodes[i])
+		if !ok {
+			continue
+		}
 		var (
 			kind, label string
 			link        func(*enumeration.Key) NodeConfigVariant
@@ -113,7 +121,7 @@ func internStates(
 			continue
 		}
 		var key *enumeration.Key
-		if entries := stateEntries(*s, n.Key, lists[n.Key], ins); len(entries) > 0 {
+		if entries := stateEntries(*s, n.Key, list, ins); len(entries) > 0 {
 			if label = strings.TrimSpace(label); label == "" {
 				label = s.Name
 			}

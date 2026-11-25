@@ -53,12 +53,6 @@
     .console-panes {
         --console-list-width: 300px;
     }
-
-    .console--off .console-kafka-record-label > :last-child {
-        color: var(--pluto-gray-l8);
-        text-decoration: line-through;
-        text-decoration-color: var(--pluto-gray-l6);
-    }
 }
 
 .console-kafka-record-label {
@@ -66,26 +60,14 @@
     min-width: 0;
 }
 
+.console--off .console-kafka-record-label > :last-child {
+    color: var(--pluto-gray-l8);
+    text-decoration: line-through;
+    text-decoration-color: var(--pluto-gray-l6);
+}
+
 .console-task-configure--kafka_write {
     .console-panes {
         --console-list-width: 300px;
     }
-
-    .console--off .console-kafka-target-label > :not(:first-child) {
-        color: var(--pluto-gray-l8);
-        text-decoration: line-through;
-        text-decoration-color: var(--pluto-gray-l6);
-    }
-}
-
-.console-kafka-target-label {
-    flex-grow: 1;
-    gap: 1rem;
-    min-width: 0;
-}
-
-/* The record key gives way before the topic. */
-.console-kafka-target-label__key {
-    flex-shrink: 1000;
-    min-width: 0;
 }
