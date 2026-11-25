@@ -20,6 +20,7 @@
 #include "driver/http/device/device.h"
 #include "driver/http/errors/errors.h"
 #include "driver/http/read_task.h"
+#include "driver/icd/retrieve.h"
 
 namespace driver::http {
 namespace {
@@ -235,22 +236,12 @@ std::pair<std::vector<driver::icd::Reader>, x::errors::Error> build_readers(
             for (const auto &b: rm.bindings)
                 if (b.channel != 0) channel_keys.insert(b.channel);
     }
-    auto [icds, icd_err] = client.icds.retrieve(
-        std::vector(icd_keys.begin(), icd_keys.end())
+    const auto [resources, retrieve_err] = driver::icd::retrieve(
+        client,
+        icd_keys,
+        channel_keys
     );
-    if (icd_err) return {std::vector<driver::icd::Reader>(), icd_err};
-    std::map<synnax::channel::Key, synnax::channel::Channel> channels;
-    if (!channel_keys.empty()) {
-        // Skips missing keys, so the reader of each endpoint names the one it lacks.
-        auto [found, ch_err] = client.channels.retrieve(
-            synnax::channel::Where{
-                .key = std::vector(channel_keys.begin(), channel_keys.end())
-            }
-        );
-        if (ch_err) return {std::vector<driver::icd::Reader>(), ch_err};
-        for (auto &ch: found)
-            channels.emplace(ch.key, std::move(ch));
-    }
+    if (retrieve_err) return {std::vector<driver::icd::Reader>(), retrieve_err};
     std::vector<driver::icd::Reader> readers;
     readers.reserve(endpoints.size());
     // Every endpoint writes into one frame, so no two may write one channel.
@@ -267,8 +258,12 @@ std::pair<std::vector<driver::icd::Reader>, x::errors::Error> build_readers(
                         " reads no messages. Open the task and pick a message for it."
                 ),
             };
-        const auto ic = std::ranges::find(icds, *ep.icd, &synnax::icd::ICD::key);
-        if (ic == icds.end())
+        const auto ic = std::ranges::find(
+            resources.icds,
+            *ep.icd,
+            &synnax::icd::ICD::key
+        );
+        if (ic == resources.icds.end())
             return {
                 std::vector<driver::icd::Reader>(),
                 x::errors::Error(
@@ -276,7 +271,11 @@ std::pair<std::vector<driver::icd::Reader>, x::errors::Error> build_readers(
                     name + ": ICD " + ep.icd->to_string() + " does not exist"
                 ),
             };
-        auto [reader, err] = driver::icd::Reader::create(ep.messages, *ic, channels);
+        auto [reader, err] = driver::icd::Reader::create(
+            ep.messages,
+            *ic,
+            resources.channels
+        );
         if (err)
             return {
                 std::vector<driver::icd::Reader>(),
