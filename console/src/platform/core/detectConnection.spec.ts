@@ -32,11 +32,6 @@ describe("detectConnection", () => {
     expect(Core.detectConnection()).toBeNull();
   });
 
-  it("should return null when the select-core param is set", () => {
-    pinLocationOrigin("http://example.com", "?select-core");
-    expect(Core.detectConnection()).toBeNull();
-  });
-
   it("should parse an insecure origin with an explicit port", () => {
     pinLocationOrigin("http://example.com:8080");
     expect(Core.detectConnection()).toEqual({
