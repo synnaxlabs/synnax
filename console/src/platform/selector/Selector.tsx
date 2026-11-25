@@ -229,17 +229,18 @@ const Body = ({
           ))}
         </div>
       )}
-      <Icon.Colored>
-        {catalog.map((section) => (
-          <div key={section.key} className={sectionClass(section)}>
-            {heading(section)}
-            <div className={CSS.BE("layout-selector", "groups")}>
-              {section.groups?.map((group) => (
+      {catalog.map((section) => (
+        <div key={section.key} className={sectionClass(section)}>
+          {heading(section)}
+          <div className={CSS.BE("layout-selector", "groups")}>
+            {section.groups?.map((group) => {
+              const groupDimmed = dimmed(group.selectables);
+              return (
                 <div
                   key={group.key}
                   className={CSS.cls(
                     CSS.BE("layout-selector", "group"),
-                    dimmed(group.selectables) && CSS.M("dimmed"),
+                    groupDimmed && CSS.M("dimmed"),
                   )}
                 >
                   <Text.Text
@@ -248,18 +249,22 @@ const Body = ({
                     className={CSS.BE("layout-selector", "group-name")}
                     overflow="fade"
                   >
-                    {group.icon}
+                    {groupDimmed ? (
+                      group.icon
+                    ) : (
+                      <Icon.Colored>{group.icon}</Icon.Colored>
+                    )}
                     {group.title}
                   </Text.Text>
                   <div className={CSS.BE("layout-selector", "actions")}>
                     {group.selectables.map((s) => item(s, "action"))}
                   </div>
                 </div>
-              ))}
-            </div>
+              );
+            })}
           </div>
-        ))}
-      </Icon.Colored>
+        </div>
+      ))}
     </Flex.Box>
   );
 };

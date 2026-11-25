@@ -21,6 +21,7 @@ import {
   SessionEndedError,
 } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { CSS as PCSS } from "@synnaxlabs/lyra/css";
 import type { Status } from "@synnaxlabs/lyra/status";
 import { expectAlways } from "@synnaxlabs/x/testutil";
 import { clearMocks, mockIPC, mockWindows } from "@tauri-apps/api/mocks";
@@ -334,6 +335,35 @@ describe("Auth login", () => {
     const plant = screen.getByRole("button", { name: "Log in with plant-sso" });
     for (const button of [google, corp, microsoft, plant])
       expect(button.querySelector("svg")).not.toBeNull();
+  });
+
+  it("should draw the provider logos in brand color", async () => {
+    const core = await serveAuth(
+      ["oidc"],
+      [
+        {
+          provider: "okta",
+          issuer: "https://acme.okta.com",
+          authorizationEndpoint: "https://acme.okta.com/oauth2/v1/authorize",
+          clientId: "synnax",
+        },
+        {
+          provider: "microsoft",
+          issuer: "https://login.microsoftonline.com",
+          authorizationEndpoint: "https://login.microsoftonline.com/acme/authorize",
+          clientId: "synnax",
+        },
+      ],
+    );
+    await renderLogin(core);
+    fireEvent.click(await screen.findByText(ALPHA.name));
+    const okta = await screen.findByRole("button", { name: "Log in with Okta" });
+    const microsoft = screen.getByRole("button", { name: "Log in with Microsoft" });
+    expect(okta.querySelector("svg")?.classList).toContain(PCSS.symbolColored);
+    const fills = Array.from(microsoft.querySelectorAll("svg g")).map((g) =>
+      g.getAttribute("fill"),
+    );
+    expect(fills).toEqual(["#F25022", "#7FBA00", "#00A4EF", "#FFB900"]);
   });
 
   it("should explain that provider login needs HTTPS", async () => {

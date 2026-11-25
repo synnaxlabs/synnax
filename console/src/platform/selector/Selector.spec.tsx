@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { CSS as PCSS } from "@synnaxlabs/lyra/css";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { fireEvent, screen } from "@testing-library/react";
 import { describe, expect, it, type Mock, vi } from "vitest";
@@ -91,6 +92,45 @@ describe("Selector.create", () => {
       },
     ]);
     expect(screen.getByRole("button", { name: "Cat food" }).textContent).toBe("Food");
+  });
+
+  describe("group logos", () => {
+    const renderShop = async () => {
+      const search = await renderSelector([
+        {
+          key: "shop",
+          groups: [
+            {
+              key: "ni",
+              title: "NI",
+              icon: <Icon.Logo.NI />,
+              selectables: [createSelectable("Analog read")],
+            },
+            {
+              key: "mqtt",
+              title: "MQTT",
+              icon: <Icon.Logo.MQTT />,
+              selectables: [createSelectable("Sparkplug")],
+            },
+          ],
+        },
+      ]);
+      const logo = (name: string): Element | null =>
+        screen.getByText(name).querySelector("svg");
+      return { search, logo };
+    };
+
+    it("should draw the logo of a group in its brand color", async () => {
+      const { logo } = await renderShop();
+      expect(logo("NI")?.classList).toContain(PCSS.symbolColored);
+    });
+
+    it("should draw the logo of a dimmed group in the text color", async () => {
+      const { search, logo } = await renderShop();
+      fireEvent.change(search, { target: { value: "sparkplug" } });
+      expect(logo("NI")?.classList).not.toContain(PCSS.symbolColored);
+      expect(logo("MQTT")?.classList).toContain(PCSS.symbolColored);
+    });
   });
 
   describe("search", () => {
