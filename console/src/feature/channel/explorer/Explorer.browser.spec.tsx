@@ -276,6 +276,17 @@ describe("channel inspector", () => {
     expect(await screen.findByDisplayValue(reader.name)).toBeTruthy();
   });
 
+  it("should show the new name of a renamed calculation with no reload", async () => {
+    const { folder, read, reader } = await createRead();
+    await renderList(folder);
+    fireEvent.click(await screen.findByText(read.name), { ctrlKey: true });
+    expect(await inspector().findByText(reader.name)).toBeTruthy();
+    const renamed = uniqueName("renamed");
+    await client.channels.rename(reader.key, renamed);
+    expect(await inspector().findByText(renamed)).toBeTruthy();
+    expect(inspector().queryByText(reader.name)).toBeNull();
+  });
+
   it("should say that nothing uses an unused channel", async () => {
     const { folder, unused } = await createRead();
     await renderList(folder);
