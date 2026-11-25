@@ -16,7 +16,6 @@ import (
 	"os"
 	"slices"
 	"time"
-	"uuid"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
@@ -1341,7 +1340,7 @@ func channelDeleter(svc *channel.Service) impact.Deleter {
 }
 
 // taskDeleter returns the impact.Deleter of tasks. A delete of tasks plans no effect on
-// the records that hold them.
+// the records that hold them. A key that is not a UUID fails the plan as invalid.
 func taskDeleter(svc *task.Service) impact.Deleter {
 	return impact.Deleter{
 		Plan: func(
@@ -1349,6 +1348,9 @@ func taskDeleter(svc *task.Service) impact.Deleter {
 			_ gorp.Snapshot,
 			ids []resource.ID,
 		) ([]resource.ID, gorp.DeleteEffects, error) {
+			if _, err := task.KeysFromResourceIDs(ids); err != nil {
+				return nil, gorp.DeleteEffects{}, err
+			}
 			return ids, gorp.DeleteEffects{}, nil
 		},
 		Delete: func(
@@ -1357,12 +1359,12 @@ func taskDeleter(svc *task.Service) impact.Deleter {
 			removed []resource.ID,
 			_ gorp.DeleteEffects,
 		) error {
+			keys, err := task.KeysFromResourceIDs(removed)
+			if err != nil {
+				return err
+			}
 			w := svc.NewWriter(tx)
-			for _, r := range removed {
-				k, err := uuid.Parse(r.Key)
-				if err != nil {
-					return err
-				}
+			for _, k := range keys {
 				if err = w.Delete(ctx, k, false); err != nil {
 					return err
 				}
