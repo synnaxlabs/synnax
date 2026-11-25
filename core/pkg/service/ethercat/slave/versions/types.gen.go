@@ -22,6 +22,12 @@ type StatusDetails = v0.StatusDetails
 // Status is the operational status of a slave.
 type Status = v0.Status
 
+// OpMode is a synchronization mode that a slave lists in its SII.
+type OpMode = v0.OpMode
+
+// OpModeChoice is the synchronization mode that the user chose for a slave.
+type OpModeChoice = v0.OpModeChoice
+
 // PDOEntry is a PDO entry that a scan found on a slave.
 type PDOEntry = v0.PDOEntry
 

@@ -47,6 +47,9 @@ struct Identity {
     /// @brief interface is the network interface the master drives, such as eth0 or
     /// igh:0.
     std::string interface;
+    /// @brief network_name is the name of the network that the user knows, such as
+    /// Ethernet 2.
+    std::string network_name = "";
     /// @brief slaves are the keys of the slaves on the bus, in bus order. A slave's
     /// position is its index.
     std::vector<x::uuid::UUID> slaves = {};
@@ -208,6 +211,9 @@ struct Master {
     /// @brief interface is the network interface the master drives, such as eth0 or
     /// igh:0.
     std::string interface;
+    /// @brief network_name is the name of the network that the user knows, such as
+    /// Ethernet 2.
+    std::string network_name = "";
     /// @brief slaves are the keys of the slaves on the bus, in bus order. A slave's
     /// position is its index.
     std::vector<x::uuid::UUID> slaves = {};

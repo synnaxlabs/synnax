@@ -30,31 +30,34 @@ Status = status.Status<StatusDetails> {
 }
 
 Master struct {
-    key       Key = create {
+    key          Key = create {
         @doc value "uniquely identifies the master."
         @key
     }
-    rack      rack.Key {
+    rack         rack.Key {
         @doc value "is the key of the rack the master runs on."
     }
-    name      string   {
+    name         string   {
         @doc value         "is a human-readable name for the master."
         @validate required
     }
-    interface string   {
+    interface    string   {
         @doc value         """
             is the network interface the master drives, such as eth0 or igh:0.
         """
         @go validate       pattern "^(igh:[0-9]+|\\\\Device\\\\NPF_[{][0-9A-Fa-f-]{36}[}]|[A-Za-z0-9][A-Za-z0-9_.-]{0,14})$" "Interface must be a network interface name, such as eth0, or igh: and a master index"
         @validate required
     }
-    slaves    uuid[] = [] {
+    network_name string = "" {
+        @doc value "is the name of the network that the user knows, such as Ethernet 2."
+    }
+    slaves       uuid[] = [] {
         @doc value """
             are the keys of the slaves on the bus, in bus order. A slave's position is
             its index.
         """
     }
-    status    Status?  {
+    status       Status?  {
         @doc value  "is the current operational status of the master."
         @go marshal omit
     }

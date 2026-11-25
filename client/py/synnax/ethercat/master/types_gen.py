@@ -29,12 +29,15 @@ class Identity(BaseModel):
     Attributes:
         rack: Is the key of the rack the master runs on.
         interface: Is the network interface the master drives, such as eth0 or igh:0.
+        network_name: Is the name of the network that the user knows, such as Ethernet
+            2.
         slaves: Are the keys of the slaves on the bus, in bus order. A slave's position
             is its index.
     """
 
     rack: rack_.Key = Field(gt=0, le=4294967295)
     interface: str = Field(min_length=1)
+    network_name: str = ""
     slaves: list[UUID] = Field(default_factory=list)
 
 
@@ -162,6 +165,8 @@ class Master(BaseModel):
         rack: Is the key of the rack the master runs on.
         name: Is a human-readable name for the master.
         interface: Is the network interface the master drives, such as eth0 or igh:0.
+        network_name: Is the name of the network that the user knows, such as Ethernet
+            2.
         slaves: Are the keys of the slaves on the bus, in bus order. A slave's position
             is its index.
         status: Is the current operational status of the master.
@@ -171,6 +176,7 @@ class Master(BaseModel):
     rack: rack_.Key = Field(ge=0, le=4294967295)
     name: str = Field(min_length=1)
     interface: str = Field(min_length=1)
+    network_name: str = ""
     slaves: list[UUID] = Field(default_factory=list)
     status: Status | None = None
 

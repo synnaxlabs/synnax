@@ -845,6 +845,14 @@ class TestEtherCATMasterResource:
         "interface": "eth0",
     }
 
+    def test_round_trips_the_network_name(self) -> None:
+        """Should keep the network name that the user knows through JSON."""
+        master = sy.ethercat.master.Master.model_validate(
+            {**self.MASTER, "network_name": "Ethernet 2"}
+        )
+        parsed = sy.ethercat.master.Master.model_validate_json(master.model_dump_json())
+        assert parsed.network_name == "Ethernet 2"
+
     def test_parses_a_master(self) -> None:
         """Should parse a master with an empty bus by default."""
         master = sy.ethercat.master.Master.model_validate(self.MASTER)
@@ -886,6 +894,28 @@ class TestEtherCATSlaveResource:
         assert not slave.disabled
         assert slave.pdos.inputs == []
         assert slave.read_bindings == []
+        assert slave.op_modes == []
+        assert slave.op_mode is None
+        assert slave.switched_at is None
+
+    def test_parses_the_switch_time(self) -> None:
+        """Should parse the time of the last switch to Synnax only."""
+        slave = sy.ethercat.slave.Slave.model_validate({**self.SLAVE, "switched_at": 5})
+        assert slave.switched_at == sy.TimeStamp(5)
+
+    def test_rejects_a_negative_op_mode_cycle(self) -> None:
+        """Should reject an op mode choice with a negative SYNC0 cycle."""
+        with pytest.raises(ValidationError):
+            sy.ethercat.slave.Slave.model_validate(
+                {
+                    **self.SLAVE,
+                    "op_mode": {
+                        "index": 0,
+                        "assign_activate": 0x300,
+                        "sync0_cycle": -1,
+                    },
+                }
+            )
 
     @pytest.mark.parametrize("missing", ["master", "vendor_id", "revision", "name"])
     def test_requires_a_field(self, missing: str) -> None:

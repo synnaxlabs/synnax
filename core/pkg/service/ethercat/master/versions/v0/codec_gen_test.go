@@ -36,25 +36,28 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", v0.Master{
-				Key:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-				Rack:      rack.Key(3),
-				Name:      "test_3",
-				Interface: "test_4",
-				Slaves:    []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805")},
+				Key:         uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				Rack:        rack.Key(3),
+				Name:        "test_3",
+				Interface:   "test_4",
+				NetworkName: "test_5",
+				Slaves:      []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806")},
 			}),
 			Entry("zero values", v0.Master{
-				Key:       uuid.Nil(),
-				Rack:      rack.Key(0),
-				Name:      "",
-				Interface: "",
-				Slaves:    []uuid.UUID{},
+				Key:         uuid.Nil(),
+				Rack:        rack.Key(0),
+				Name:        "",
+				Interface:   "",
+				NetworkName: "",
+				Slaves:      []uuid.UUID{},
 			}),
 			Entry("empty collections", v0.Master{
-				Key:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-				Rack:      rack.Key(3),
-				Name:      "test_3",
-				Interface: "test_4",
-				Slaves:    []uuid.UUID{},
+				Key:         uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				Rack:        rack.Key(3),
+				Name:        "test_3",
+				Interface:   "test_4",
+				NetworkName: "test_5",
+				Slaves:      []uuid.UUID{},
 			}),
 		)
 	})
@@ -62,11 +65,12 @@ var _ = Describe("Codec", func() {
 
 func BenchmarkEncodeDecodeMaster(b *testing.B) {
 	seed := v0.Master{
-		Key:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-		Rack:      rack.Key(3),
-		Name:      "test_3",
-		Interface: "test_4",
-		Slaves:    []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805")},
+		Key:         uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+		Rack:        rack.Key(3),
+		Name:        "test_3",
+		Interface:   "test_4",
+		NetworkName: "test_5",
+		Slaves:      []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806")},
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -86,11 +90,12 @@ func BenchmarkEncodeDecodeMaster(b *testing.B) {
 func FuzzDecodeMaster(f *testing.F) {
 	{
 		seed := v0.Master{
-			Key:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-			Rack:      rack.Key(3),
-			Name:      "test_3",
-			Interface: "test_4",
-			Slaves:    []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805")},
+			Key:         uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			Rack:        rack.Key(3),
+			Name:        "test_3",
+			Interface:   "test_4",
+			NetworkName: "test_5",
+			Slaves:      []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806")},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -100,11 +105,12 @@ func FuzzDecodeMaster(f *testing.F) {
 	}
 	{
 		seed := v0.Master{
-			Key:       uuid.Nil(),
-			Rack:      rack.Key(0),
-			Name:      "",
-			Interface: "",
-			Slaves:    []uuid.UUID{},
+			Key:         uuid.Nil(),
+			Rack:        rack.Key(0),
+			Name:        "",
+			Interface:   "",
+			NetworkName: "",
+			Slaves:      []uuid.UUID{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -114,11 +120,12 @@ func FuzzDecodeMaster(f *testing.F) {
 	}
 	{
 		seed := v0.Master{
-			Key:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-			Rack:      rack.Key(3),
-			Name:      "test_3",
-			Interface: "test_4",
-			Slaves:    []uuid.UUID{},
+			Key:         uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			Rack:        rack.Key(3),
+			Name:        "test_3",
+			Interface:   "test_4",
+			NetworkName: "test_5",
+			Slaves:      []uuid.UUID{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

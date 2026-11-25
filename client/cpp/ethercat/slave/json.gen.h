@@ -41,6 +41,63 @@ inline x::json::json StatusDetails::to_json() const {
     return j;
 }
 
+inline OpMode OpMode::parse(x::json::Parser parser) {
+    return OpMode{
+        .name = parser.field<std::string>("name", ""),
+        .assign_activate = parser.field<std::uint16_t>("assign_activate", 0),
+        .sync0_cycle = parser.field<::x::telem::TimeSpan>(
+            "sync0_cycle",
+            ::x::telem::TimeSpan(0)
+        ),
+        .sync0_factor = parser.field<std::int16_t>("sync0_factor", 0),
+        .sync0_shift = parser.field<::x::telem::TimeSpan>(
+            "sync0_shift",
+            ::x::telem::TimeSpan(0)
+        ),
+        .sync1_factor = parser.field<std::int16_t>("sync1_factor", 0),
+        .sync1_shift = parser.field<::x::telem::TimeSpan>(
+            "sync1_shift",
+            ::x::telem::TimeSpan(0)
+        ),
+    };
+}
+
+inline x::json::json OpMode::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["name"] = this->name;
+    j["assign_activate"] = this->assign_activate;
+    j["sync0_cycle"] = this->sync0_cycle.nanoseconds();
+    j["sync0_factor"] = this->sync0_factor;
+    j["sync0_shift"] = this->sync0_shift.nanoseconds();
+    j["sync1_factor"] = this->sync1_factor;
+    j["sync1_shift"] = this->sync1_shift.nanoseconds();
+    return j;
+}
+
+inline OpModeChoice OpModeChoice::parse(x::json::Parser parser) {
+    return OpModeChoice{
+        .index = parser.field<std::uint16_t>("index"),
+        .assign_activate = parser.field<std::uint16_t>("assign_activate"),
+        .sync0_cycle = parser.field<::x::telem::TimeSpan>(
+            "sync0_cycle",
+            ::x::telem::TimeSpan(0)
+        ),
+        .sync1_cycle = parser.field<::x::telem::TimeSpan>(
+            "sync1_cycle",
+            ::x::telem::TimeSpan(0)
+        ),
+    };
+}
+
+inline x::json::json OpModeChoice::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["index"] = this->index;
+    j["assign_activate"] = this->assign_activate;
+    j["sync0_cycle"] = this->sync0_cycle.nanoseconds();
+    j["sync1_cycle"] = this->sync1_cycle.nanoseconds();
+    return j;
+}
+
 inline PDOEntry PDOEntry::parse(x::json::Parser parser) {
     return PDOEntry{
         .name = parser.field<std::string>("name"),
@@ -149,8 +206,14 @@ inline Slave Slave::parse(x::json::Parser parser) {
         .revision = parser.field<std::uint32_t>("revision"),
         .master = parser.field<::synnax::ethercat::master::Key>("master"),
         .pdos = parser.field<PDOs>("pdos", PDOs{}),
+        .op_modes = parser
+                        .field<std::vector<OpMode>>("op_modes", std::vector<OpMode>{}),
+        .switched_at = parser.field<std::optional<::x::telem::TimeStamp>>(
+            "switched_at"
+        ),
         .identifier = parser.field<std::string>("identifier", ""),
         .disabled = parser.field<bool>("disabled", false),
+        .op_mode = parser.field<std::optional<OpModeChoice>>("op_mode"),
         .startup_parameters =
             [&] {
                 std::vector<StartupParameter> result;
@@ -191,8 +254,12 @@ inline x::json::json Slave::to_json() const {
     j["revision"] = this->revision;
     j["master"] = this->master.to_json();
     j["pdos"] = this->pdos.to_json();
+    j["op_modes"] = x::json::to_array(this->op_modes);
+    if (this->switched_at.has_value())
+        j["switched_at"] = this->switched_at->nanoseconds();
     j["identifier"] = this->identifier;
     j["disabled"] = this->disabled;
+    if (this->op_mode.has_value()) j["op_mode"] = this->op_mode->to_json();
     {
         auto arr = x::json::json::array();
         for (const auto &item: this->startup_parameters)
@@ -257,6 +324,11 @@ inline Identity Identity::parse(x::json::Parser parser) {
         .revision = parser.field<std::uint32_t>("revision"),
         .master = parser.required_field<::synnax::ethercat::master::Key>("master"),
         .pdos = parser.field<PDOs>("pdos", PDOs{}),
+        .op_modes = parser
+                        .field<std::vector<OpMode>>("op_modes", std::vector<OpMode>{}),
+        .switched_at = parser.field<std::optional<::x::telem::TimeStamp>>(
+            "switched_at"
+        ),
     };
 }
 
@@ -269,6 +341,9 @@ inline x::json::json Identity::to_json() const {
     j["revision"] = this->revision;
     j["master"] = this->master.to_json();
     j["pdos"] = this->pdos.to_json();
+    j["op_modes"] = x::json::to_array(this->op_modes);
+    if (this->switched_at.has_value())
+        j["switched_at"] = this->switched_at->nanoseconds();
     return j;
 }
 
@@ -277,6 +352,7 @@ inline Configuration Configuration::parse(x::json::Parser parser) {
         .name = parser.required_field<std::string>("name"),
         .identifier = parser.field<std::string>("identifier", ""),
         .disabled = parser.field<bool>("disabled", false),
+        .op_mode = parser.field<std::optional<OpModeChoice>>("op_mode"),
         .startup_parameters =
             [&] {
                 std::vector<StartupParameter> result;
@@ -310,6 +386,7 @@ inline x::json::json Configuration::to_json() const {
     j["name"] = this->name;
     j["identifier"] = this->identifier;
     j["disabled"] = this->disabled;
+    if (this->op_mode.has_value()) j["op_mode"] = this->op_mode->to_json();
     {
         auto arr = x::json::json::array();
         for (const auto &item: this->startup_parameters)

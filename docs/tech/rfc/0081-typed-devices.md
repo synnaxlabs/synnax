@@ -214,7 +214,7 @@ Field groups per make:
   `thermocouple_index`, `write_state_index`, four port channel maps.
 - **EtherCAT master**: identity `interface`, `slaves Slave.Key[]` in bus order.
 - **EtherCAT slave**: identity `serial`, `vendor_id`, `product_code`, `revision`,
-  `master Master.Key`, `pdos`; configuration `identifier`, `enabled`,
+  `master Master.Key`, `pdos`; configuration `identifier`, `disabled`,
   `startup_parameters`, `read_index`, `write_state_index`, input and output channel
   maps.
 - **OPC UA server**: identity `rack`, `name`, and `connection` (`auth`, `security`, and
@@ -383,6 +383,14 @@ Release 0.59 shipped the single table. One ordered startup migration cuts over:
    - A read takes its channel's index; a binding to a missing channel drops, warned.
    - An `ns=` binding is parked in KV under `sy_opcua_unresolved/<server key>`, warned.
    - An endpoint without a scheme gains `opc.tcp://`; another bad one is quarantined.
+
+   An EtherCAT slave row also converts, with a warning per drop:
+   - Nanosecond integers become spans; a `switched_at` of 0 becomes absent.
+   - `disabled` is `!enabled`, and a missing `enabled` is `true`. Bad identifiers clear.
+   - Startup parameters take their `data_type` variant; out-of-range ones are dropped.
+   - Bindings, map form included, convert as the Console reads them; ones to a missing
+     or repeated entry are dropped. `network_name` moves to the master.
+
 3. Re-key statuses, ontology resources and edges, and policy object IDs.
 4. Each integration's task config migration rewrites its device references through the
    map. OPC UA parks `ns=` task node IDs with the bindings for `/opcua/server/resolve`.

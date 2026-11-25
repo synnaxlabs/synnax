@@ -32,6 +32,8 @@
 
 namespace synnax::ethercat::slave {
 
+struct OpMode;
+struct OpModeChoice;
 struct PDOEntry;
 struct ReadBinding;
 struct StartupParameterBase;
@@ -47,6 +49,49 @@ struct Slave;
 struct RetrieveResponse;
 
 using Key = x::uuid::UUID;
+
+/// @brief OpMode is a synchronization mode that a slave lists in its SII.
+struct OpMode {
+    /// @brief name is the name of the mode, such as DC-Synchron. Empty when the slave
+    /// gives none.
+    std::string name = "";
+    /// @brief assign_activate is the value of the DC activation registers 0x0980 and
+    /// 0x0981.
+    std::uint16_t assign_activate = 0;
+    /// @brief sync0_cycle is the SYNC0 cycle. 0 when sync0_factor sets the cycle.
+    ::x::telem::TimeSpan sync0_cycle = ::x::telem::TimeSpan(0);
+    /// @brief sync0_factor is the SYNC0 cycle as a multiple of the bus cycle when
+    /// positive, or as a fraction of it when negative.
+    std::int16_t sync0_factor = 0;
+    /// @brief sync0_shift is the SYNC0 shift.
+    ::x::telem::TimeSpan sync0_shift = ::x::telem::TimeSpan(0);
+    /// @brief sync1_factor is the SYNC1 cycle as a multiple of the SYNC0 cycle when
+    /// positive, or of the bus cycle when negative.
+    std::int16_t sync1_factor = 0;
+    /// @brief sync1_shift is the SYNC1 shift after SYNC0.
+    ::x::telem::TimeSpan sync1_shift = ::x::telem::TimeSpan(0);
+
+    static OpMode parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief OpModeChoice is the synchronization mode that the user chose for a slave.
+struct OpModeChoice {
+    /// @brief index is the index of the mode in the op_modes of the slave.
+    std::uint16_t index = 0;
+    /// @brief assign_activate is the AssignActivate of the mode, which shows that index
+    /// is stale when the slave lists other modes.
+    std::uint16_t assign_activate = 0;
+    /// @brief sync0_cycle replaces the SYNC0 cycle of the mode. 0 keeps the cycle of
+    /// the mode.
+    ::x::telem::TimeSpan sync0_cycle = ::x::telem::TimeSpan(0);
+    /// @brief sync1_cycle replaces the SYNC1 cycle of the mode. 0 keeps the cycle of
+    /// the mode.
+    ::x::telem::TimeSpan sync1_cycle = ::x::telem::TimeSpan(0);
+
+    static OpModeChoice parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
 
 /// @brief PDOEntry is a PDO entry that a scan found on a slave.
 struct PDOEntry {
@@ -384,6 +429,11 @@ struct Identity {
     ::synnax::ethercat::master::Key master;
     /// @brief pdos are the PDO entries that the scan found on the slave.
     PDOs pdos = {};
+    /// @brief op_modes are the synchronization modes that the slave lists in its SII.
+    std::vector<OpMode> op_modes = {};
+    /// @brief switched_at is when the Driver last switched the slave to Synnax only.
+    /// Absent when it never has.
+    std::optional<::x::telem::TimeStamp> switched_at;
 
     static Identity parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -398,6 +448,9 @@ struct Configuration {
     std::string identifier = "";
     /// @brief disabled is whether the Driver leaves the slave out of the tasks it runs.
     bool disabled = false;
+    /// @brief op_mode is the synchronization mode the Driver sets up. Absent lets the
+    /// Driver pick it.
+    std::optional<OpModeChoice> op_mode;
     /// @brief startup_parameters are the CoE objects the Driver writes to the slave in
     /// PRE-OP.
     std::vector<StartupParameter> startup_parameters = {};
@@ -436,11 +489,19 @@ struct Slave {
     ::synnax::ethercat::master::Key master;
     /// @brief pdos are the PDO entries that the scan found on the slave.
     PDOs pdos = {};
+    /// @brief op_modes are the synchronization modes that the slave lists in its SII.
+    std::vector<OpMode> op_modes = {};
+    /// @brief switched_at is when the Driver last switched the slave to Synnax only.
+    /// Absent when it never has.
+    std::optional<::x::telem::TimeStamp> switched_at;
     /// @brief identifier is the prefix of the slave's channel names. The slave is
     /// unconfigured while it is empty.
     std::string identifier = "";
     /// @brief disabled is whether the Driver leaves the slave out of the tasks it runs.
     bool disabled = false;
+    /// @brief op_mode is the synchronization mode the Driver sets up. Absent lets the
+    /// Driver pick it.
+    std::optional<OpModeChoice> op_mode;
     /// @brief startup_parameters are the CoE objects the Driver writes to the slave in
     /// PRE-OP.
     std::vector<StartupParameter> startup_parameters = {};

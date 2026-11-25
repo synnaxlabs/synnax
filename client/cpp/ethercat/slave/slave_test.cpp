@@ -38,6 +38,8 @@ TEST(Slave, Parses) {
     ASSERT_FALSE(parsed.disabled);
     ASSERT_TRUE(parsed.pdos.inputs.empty());
     ASSERT_TRUE(parsed.read_bindings.empty());
+    ASSERT_TRUE(parsed.op_modes.empty());
+    ASSERT_FALSE(parsed.op_mode.has_value());
 }
 
 /// @brief it should reject a slave without a master.
@@ -65,6 +67,11 @@ TEST(Slave, RoundTrips) {
     });
     s.read_bindings.push_back({.index = 0x6000, .sub_index = 0x11, .channel = 7});
     s.write_bindings.push_back({.index = 0x7000, .sub_index = 1, .command = 8});
+    s.op_modes.push_back(
+        {.name = "DC", .assign_activate = 0x300, .sync0_shift = x::telem::TimeSpan(-5)}
+    );
+    s.op_mode = OpModeChoice{.index = 0, .assign_activate = 0x300};
+    s.switched_at = x::telem::TimeStamp(5);
     x::json::Parser parser(s.to_json());
     const auto parsed = Slave::parse(parser);
     ASSERT_NIL(parser.error());
@@ -73,6 +80,9 @@ TEST(Slave, RoundTrips) {
     ASSERT_EQ(parsed.read_bindings[0].channel, 7);
     ASSERT_EQ(parsed.write_bindings[0].command, 8);
     ASSERT_EQ(parsed.write_bindings[0].state, 0);
+    ASSERT_EQ(parsed.op_modes[0].sync0_shift, x::telem::TimeSpan(-5));
+    ASSERT_EQ(parsed.op_mode.value_or(OpModeChoice{}).assign_activate, 0x300);
+    ASSERT_EQ(parsed.switched_at, x::telem::TimeStamp(5));
 }
 
 /// @brief it should parse the startup parameter variant that its data type names and

@@ -31,6 +31,7 @@ TEST(Master, Parses) {
     ASSERT_NIL(parser.error());
     ASSERT_EQ(parsed.interface, "eth0");
     ASSERT_TRUE(parsed.slaves.empty());
+    ASSERT_EQ(parsed.network_name, "");
     ASSERT_FALSE(parsed.status.has_value());
 }
 
@@ -52,11 +53,13 @@ TEST(Master, RoundTrips) {
     m.rack = 1;
     m.name = "EtherCAT eth1";
     m.interface = "eth1";
+    m.network_name = "Ethernet 2";
     m.slaves = {x::uuid::create(), x::uuid::create()};
     x::json::Parser parser(m.to_json());
     const auto parsed = Master::parse(parser);
     ASSERT_NIL(parser.error());
     ASSERT_EQ(parsed.key, m.key);
     ASSERT_EQ(parsed.slaves, m.slaves);
+    ASSERT_EQ(parsed.network_name, "Ethernet 2");
 }
 }

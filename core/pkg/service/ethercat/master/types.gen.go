@@ -58,6 +58,8 @@ type Identity struct {
 	Rack rack.Key `json:"rack" msgpack:"rack"`
 	// Interface is the network interface the master drives, such as eth0 or igh:0.
 	Interface string `json:"interface" msgpack:"interface"`
+	// NetworkName is the name of the network that the user knows, such as Ethernet 2.
+	NetworkName string `json:"network_name" msgpack:"network_name"`
 	// Slaves are the keys of the slaves on the bus, in bus order. A slave's position is
 	// its index.
 	Slaves []uuid.UUID `json:"slaves" msgpack:"slaves"`

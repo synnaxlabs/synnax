@@ -34,6 +34,62 @@ var (
 )
 
 var _ = Describe("Codec", func() {
+	Describe("OpMode", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v0.OpMode) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v0.OpMode
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", v0.OpMode{
+				Name:           "test_1",
+				AssignActivate: 3,
+				Sync0Cycle:     telem.TimeSpan(4),
+				Sync0Factor:    5,
+				Sync0Shift:     telem.TimeSpan(6),
+				Sync1Factor:    7,
+				Sync1Shift:     telem.TimeSpan(8),
+			}),
+			Entry("zero values", v0.OpMode{
+				Name:           "",
+				AssignActivate: 0,
+				Sync0Cycle:     telem.TimeSpan(0),
+				Sync0Factor:    0,
+				Sync0Shift:     telem.TimeSpan(0),
+				Sync1Factor:    0,
+				Sync1Shift:     telem.TimeSpan(0),
+			}),
+		)
+	})
+	Describe("OpModeChoice", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v0.OpModeChoice) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v0.OpModeChoice
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", v0.OpModeChoice{
+				Index:          2,
+				AssignActivate: 3,
+				Sync0Cycle:     telem.TimeSpan(4),
+				Sync1Cycle:     telem.TimeSpan(5),
+			}),
+			Entry("zero values", v0.OpModeChoice{
+				Index:          0,
+				AssignActivate: 0,
+				Sync0Cycle:     telem.TimeSpan(0),
+				Sync1Cycle:     telem.TimeSpan(0),
+			}),
+		)
+	})
 	Describe("PDOEntry", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original v0.PDOEntry) {
@@ -175,31 +231,49 @@ var _ = Describe("Codec", func() {
 						},
 					},
 				},
-				Identifier: "test_26",
-				Disabled:   true,
+				OpModes: []v0.OpMode{
+					{
+						Name:           "test_27",
+						AssignActivate: 29,
+						Sync0Cycle:     telem.TimeSpan(30),
+						Sync0Factor:    31,
+						Sync0Shift:     telem.TimeSpan(32),
+						Sync1Factor:    33,
+						Sync1Shift:     telem.TimeSpan(34),
+					},
+				},
+				SwitchedAt: new(telem.TimeStamp(35)),
+				Identifier: "test_35",
+				Disabled:   false,
+				OpMode: new(v0.OpModeChoice{
+					Index:          39,
+					AssignActivate: 40,
+					Sync0Cycle:     telem.TimeSpan(41),
+					Sync1Cycle:     telem.TimeSpan(42),
+				}),
 				StartupParameters: []v0.StartupParameter{
 					{Variant: v0.Int8StartupParameter{
 						StartupParameterBase: fullyPopulatedStartupParameterBase,
-						Value:                30,
+						Value:                44,
 					}},
 				},
-				ReadIndex:       channel.Key(31),
-				WriteStateIndex: channel.Key(32),
+				ReadIndex:       channel.Key(45),
+				WriteStateIndex: channel.Key(46),
 				ReadBindings: []v0.ReadBinding{
 					{
-						Index:      34,
-						SubIndex:   35,
+						Index:      48,
+						SubIndex:   49,
 						Scaled:     true,
 						Calibrated: false,
-						Channel:    channel.Key(38),
+						Channel:    channel.Key(52),
 					},
 				},
 				WriteBindings: []v0.WriteBinding{
 					{
-						Index:    40,
-						SubIndex: 41,
-						Command:  channel.Key(42),
-						State:    channel.Key(43),
+						Index:    54,
+						SubIndex: 55,
+						Command:  channel.Key(56),
+						State:    channel.Key(57),
 					},
 				},
 			}),
@@ -213,8 +287,11 @@ var _ = Describe("Codec", func() {
 				Revision:          0,
 				Master:            uuid.Nil(),
 				Pdos:              v0.PDOs{Inputs: []v0.PDOEntry{}, Outputs: []v0.PDOEntry{}},
+				OpModes:           []v0.OpMode{},
+				SwitchedAt:        nil,
 				Identifier:        "",
 				Disabled:          false,
+				OpMode:            nil,
 				StartupParameters: []v0.StartupParameter{},
 				ReadIndex:         channel.Key(0),
 				WriteStateIndex:   channel.Key(0),
@@ -222,20 +299,28 @@ var _ = Describe("Codec", func() {
 				WriteBindings:     []v0.WriteBinding{},
 			}),
 			Entry("empty collections", v0.Slave{
-				Key:               uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-				Rack:              rack.Key(3),
-				Name:              "test_3",
-				Serial:            5,
-				VendorID:          6,
-				ProductCode:       7,
-				Revision:          8,
-				Master:            uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"),
-				Pdos:              v0.PDOs{Inputs: []v0.PDOEntry{}, Outputs: []v0.PDOEntry{}},
-				Identifier:        "test_12",
-				Disabled:          true,
+				Key:         uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				Rack:        rack.Key(3),
+				Name:        "test_3",
+				Serial:      5,
+				VendorID:    6,
+				ProductCode: 7,
+				Revision:    8,
+				Master:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"),
+				Pdos:        v0.PDOs{Inputs: []v0.PDOEntry{}, Outputs: []v0.PDOEntry{}},
+				OpModes:     []v0.OpMode{},
+				SwitchedAt:  new(telem.TimeStamp(14)),
+				Identifier:  "test_14",
+				Disabled:    true,
+				OpMode: new(v0.OpModeChoice{
+					Index:          18,
+					AssignActivate: 19,
+					Sync0Cycle:     telem.TimeSpan(20),
+					Sync1Cycle:     telem.TimeSpan(21),
+				}),
 				StartupParameters: []v0.StartupParameter{},
-				ReadIndex:         channel.Key(16),
-				WriteStateIndex:   channel.Key(17),
+				ReadIndex:         channel.Key(23),
+				WriteStateIndex:   channel.Key(24),
 				ReadBindings:      []v0.ReadBinding{},
 				WriteBindings:     []v0.WriteBinding{},
 			}),
@@ -339,6 +424,53 @@ var _ = Describe("Codec", func() {
 		)
 	})
 })
+
+func BenchmarkEncodeDecodeOpMode(b *testing.B) {
+	seed := v0.OpMode{
+		Name:           "test_1",
+		AssignActivate: 3,
+		Sync0Cycle:     telem.TimeSpan(4),
+		Sync0Factor:    5,
+		Sync0Shift:     telem.TimeSpan(6),
+		Sync1Factor:    7,
+		Sync1Shift:     telem.TimeSpan(8),
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v0.OpMode
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeOpModeChoice(b *testing.B) {
+	seed := v0.OpModeChoice{
+		Index:          2,
+		AssignActivate: 3,
+		Sync0Cycle:     telem.TimeSpan(4),
+		Sync1Cycle:     telem.TimeSpan(5),
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v0.OpModeChoice
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
 
 func BenchmarkEncodeDecodePDOEntry(b *testing.B) {
 	seed := v0.PDOEntry{
@@ -462,31 +594,49 @@ func BenchmarkEncodeDecodeSlave(b *testing.B) {
 				},
 			},
 		},
-		Identifier: "test_26",
-		Disabled:   true,
+		OpModes: []v0.OpMode{
+			{
+				Name:           "test_27",
+				AssignActivate: 29,
+				Sync0Cycle:     telem.TimeSpan(30),
+				Sync0Factor:    31,
+				Sync0Shift:     telem.TimeSpan(32),
+				Sync1Factor:    33,
+				Sync1Shift:     telem.TimeSpan(34),
+			},
+		},
+		SwitchedAt: new(telem.TimeStamp(35)),
+		Identifier: "test_35",
+		Disabled:   false,
+		OpMode: new(v0.OpModeChoice{
+			Index:          39,
+			AssignActivate: 40,
+			Sync0Cycle:     telem.TimeSpan(41),
+			Sync1Cycle:     telem.TimeSpan(42),
+		}),
 		StartupParameters: []v0.StartupParameter{
 			{Variant: v0.Int8StartupParameter{
 				StartupParameterBase: fullyPopulatedStartupParameterBase,
-				Value:                30,
+				Value:                44,
 			}},
 		},
-		ReadIndex:       channel.Key(31),
-		WriteStateIndex: channel.Key(32),
+		ReadIndex:       channel.Key(45),
+		WriteStateIndex: channel.Key(46),
 		ReadBindings: []v0.ReadBinding{
 			{
-				Index:      34,
-				SubIndex:   35,
+				Index:      48,
+				SubIndex:   49,
 				Scaled:     true,
 				Calibrated: false,
-				Channel:    channel.Key(38),
+				Channel:    channel.Key(52),
 			},
 		},
 		WriteBindings: []v0.WriteBinding{
 			{
-				Index:    40,
-				SubIndex: 41,
-				Command:  channel.Key(42),
-				State:    channel.Key(43),
+				Index:    54,
+				SubIndex: 55,
+				Command:  channel.Key(56),
+				State:    channel.Key(57),
 			},
 		},
 	}
@@ -562,6 +712,110 @@ func BenchmarkEncodeDecodeWriteBinding(b *testing.B) {
 			b.Fatal(err)
 		}
 	}
+}
+
+func FuzzDecodeOpMode(f *testing.F) {
+	{
+		seed := v0.OpMode{
+			Name:           "test_1",
+			AssignActivate: 3,
+			Sync0Cycle:     telem.TimeSpan(4),
+			Sync0Factor:    5,
+			Sync0Shift:     telem.TimeSpan(6),
+			Sync1Factor:    7,
+			Sync1Shift:     telem.TimeSpan(8),
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v0.OpMode{
+			Name:           "",
+			AssignActivate: 0,
+			Sync0Cycle:     telem.TimeSpan(0),
+			Sync0Factor:    0,
+			Sync0Shift:     telem.TimeSpan(0),
+			Sync1Factor:    0,
+			Sync1Shift:     telem.TimeSpan(0),
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v0.OpMode
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v0.OpMode
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeOpModeChoice(f *testing.F) {
+	{
+		seed := v0.OpModeChoice{
+			Index:          2,
+			AssignActivate: 3,
+			Sync0Cycle:     telem.TimeSpan(4),
+			Sync1Cycle:     telem.TimeSpan(5),
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v0.OpModeChoice{
+			Index:          0,
+			AssignActivate: 0,
+			Sync0Cycle:     telem.TimeSpan(0),
+			Sync1Cycle:     telem.TimeSpan(0),
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v0.OpModeChoice
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v0.OpModeChoice
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
 }
 
 func FuzzDecodePDOEntry(f *testing.F) {
@@ -775,31 +1029,49 @@ func FuzzDecodeSlave(f *testing.F) {
 					},
 				},
 			},
-			Identifier: "test_26",
-			Disabled:   true,
+			OpModes: []v0.OpMode{
+				{
+					Name:           "test_27",
+					AssignActivate: 29,
+					Sync0Cycle:     telem.TimeSpan(30),
+					Sync0Factor:    31,
+					Sync0Shift:     telem.TimeSpan(32),
+					Sync1Factor:    33,
+					Sync1Shift:     telem.TimeSpan(34),
+				},
+			},
+			SwitchedAt: new(telem.TimeStamp(35)),
+			Identifier: "test_35",
+			Disabled:   false,
+			OpMode: new(v0.OpModeChoice{
+				Index:          39,
+				AssignActivate: 40,
+				Sync0Cycle:     telem.TimeSpan(41),
+				Sync1Cycle:     telem.TimeSpan(42),
+			}),
 			StartupParameters: []v0.StartupParameter{
 				{Variant: v0.Int8StartupParameter{
 					StartupParameterBase: fullyPopulatedStartupParameterBase,
-					Value:                30,
+					Value:                44,
 				}},
 			},
-			ReadIndex:       channel.Key(31),
-			WriteStateIndex: channel.Key(32),
+			ReadIndex:       channel.Key(45),
+			WriteStateIndex: channel.Key(46),
 			ReadBindings: []v0.ReadBinding{
 				{
-					Index:      34,
-					SubIndex:   35,
+					Index:      48,
+					SubIndex:   49,
 					Scaled:     true,
 					Calibrated: false,
-					Channel:    channel.Key(38),
+					Channel:    channel.Key(52),
 				},
 			},
 			WriteBindings: []v0.WriteBinding{
 				{
-					Index:    40,
-					SubIndex: 41,
-					Command:  channel.Key(42),
-					State:    channel.Key(43),
+					Index:    54,
+					SubIndex: 55,
+					Command:  channel.Key(56),
+					State:    channel.Key(57),
 				},
 			},
 		}
@@ -820,8 +1092,11 @@ func FuzzDecodeSlave(f *testing.F) {
 			Revision:          0,
 			Master:            uuid.Nil(),
 			Pdos:              v0.PDOs{Inputs: []v0.PDOEntry{}, Outputs: []v0.PDOEntry{}},
+			OpModes:           []v0.OpMode{},
+			SwitchedAt:        nil,
 			Identifier:        "",
 			Disabled:          false,
+			OpMode:            nil,
 			StartupParameters: []v0.StartupParameter{},
 			ReadIndex:         channel.Key(0),
 			WriteStateIndex:   channel.Key(0),
@@ -836,20 +1111,28 @@ func FuzzDecodeSlave(f *testing.F) {
 	}
 	{
 		seed := v0.Slave{
-			Key:               uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-			Rack:              rack.Key(3),
-			Name:              "test_3",
-			Serial:            5,
-			VendorID:          6,
-			ProductCode:       7,
-			Revision:          8,
-			Master:            uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"),
-			Pdos:              v0.PDOs{Inputs: []v0.PDOEntry{}, Outputs: []v0.PDOEntry{}},
-			Identifier:        "test_12",
-			Disabled:          true,
+			Key:         uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			Rack:        rack.Key(3),
+			Name:        "test_3",
+			Serial:      5,
+			VendorID:    6,
+			ProductCode: 7,
+			Revision:    8,
+			Master:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"),
+			Pdos:        v0.PDOs{Inputs: []v0.PDOEntry{}, Outputs: []v0.PDOEntry{}},
+			OpModes:     []v0.OpMode{},
+			SwitchedAt:  new(telem.TimeStamp(14)),
+			Identifier:  "test_14",
+			Disabled:    true,
+			OpMode: new(v0.OpModeChoice{
+				Index:          18,
+				AssignActivate: 19,
+				Sync0Cycle:     telem.TimeSpan(20),
+				Sync1Cycle:     telem.TimeSpan(21),
+			}),
 			StartupParameters: []v0.StartupParameter{},
-			ReadIndex:         channel.Key(16),
-			WriteStateIndex:   channel.Key(17),
+			ReadIndex:         channel.Key(23),
+			WriteStateIndex:   channel.Key(24),
 			ReadBindings:      []v0.ReadBinding{},
 			WriteBindings:     []v0.WriteBinding{},
 		}

@@ -29,6 +29,9 @@ describe("slaveZ", () => {
     expect(slave.disabled).toBe(false);
     expect(slave.pdos).toEqual({ inputs: [], outputs: [] });
     expect(slave.readBindings).toEqual([]);
+    expect(slave.opModes).toEqual([]);
+    expect(slave.opMode).toBeUndefined();
+    expect(slave.switchedAt).toBeUndefined();
   });
 
   it("should parse the PDO entries and channel bindings", () => {
@@ -50,6 +53,8 @@ describe("slaveZ", () => {
       startupParameters: [
         { index: 0x8000, subIndex: 1, dataType: "uint16", value: 500 },
       ],
+      opMode: { index: 0, assignActivate: 0x300, sync0Cycle: 1000 },
+      switchedAt: 5,
     });
     expect(slave.pdos.inputs[0].pdoName).toEqual("");
     expect(slave.readBindings[0].scaled).toBe(false);
@@ -58,6 +63,8 @@ describe("slaveZ", () => {
       dataType: "uint16",
       value: 500,
     });
+    expect(slave.opMode?.sync0Cycle).toEqual(1000);
+    expect(slave.switchedAt?.nanoseconds).toEqual(5);
   });
 
   const INVALID: [string, Record<string, unknown>][] = [
@@ -76,6 +83,10 @@ describe("slaveZ", () => {
           { index: 0x8000, subIndex: 1, dataType: "uint8", value: 256 },
         ],
       },
+    ],
+    [
+      "a negative SYNC0 cycle",
+      { opMode: { index: 0, assignActivate: 0x300, sync0Cycle: -1 } },
     ],
   ];
   it.each(INVALID)("should reject %s", (_, change) => {

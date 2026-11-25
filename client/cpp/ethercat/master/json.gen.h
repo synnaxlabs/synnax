@@ -45,6 +45,7 @@ inline Master Master::parse(x::json::Parser parser) {
         .rack = parser.field<::synnax::rack::Key>("rack"),
         .name = parser.required_field<std::string>("name"),
         .interface = parser.required_field<std::string>("interface"),
+        .network_name = parser.field<std::string>("network_name", ""),
         .slaves = parser.field<std::vector<x::uuid::UUID>>(
             "slaves",
             std::vector<x::uuid::UUID>{}
@@ -59,6 +60,7 @@ inline x::json::json Master::to_json() const {
     j["rack"] = this->rack;
     j["name"] = this->name;
     j["interface"] = this->interface;
+    j["network_name"] = this->network_name;
     {
         auto arr = x::json::json::array();
         for (const auto &item: this->slaves)
@@ -99,6 +101,7 @@ inline Identity Identity::parse(x::json::Parser parser) {
     return Identity{
         .rack = parser.required_field<::synnax::rack::Key>("rack"),
         .interface = parser.required_field<std::string>("interface"),
+        .network_name = parser.field<std::string>("network_name", ""),
         .slaves = parser.field<std::vector<x::uuid::UUID>>(
             "slaves",
             std::vector<x::uuid::UUID>{}
@@ -110,6 +113,7 @@ inline x::json::json Identity::to_json() const {
     x::json::json j = x::json::json::object();
     j["rack"] = this->rack;
     j["interface"] = this->interface;
+    j["network_name"] = this->network_name;
     {
         auto arr = x::json::json::array();
         for (const auto &item: this->slaves)

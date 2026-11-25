@@ -24,6 +24,60 @@ from x import filter, telem
 Key: TypeAlias = UUID
 
 
+class OpMode(BaseModel):
+    """Is a synchronization mode that a slave lists in its SII.
+
+    Attributes:
+        name: Is the name of the mode, such as DC-Synchron. Empty when the slave gives
+            none.
+        assign_activate: Is the value of the DC activation registers 0x0980 and 0x0981.
+        sync0_cycle: Is the SYNC0 cycle. 0 when sync0_factor sets the cycle.
+        sync0_factor: Is the SYNC0 cycle as a multiple of the bus cycle when positive,
+            or as a fraction of it when negative.
+        sync0_shift: Is the SYNC0 shift.
+        sync1_factor: Is the SYNC1 cycle as a multiple of the SYNC0 cycle when positive,
+            or of the bus cycle when negative.
+        sync1_shift: Is the SYNC1 shift after SYNC0.
+    """
+
+    name: str = ""
+    assign_activate: int = Field(default=0, ge=0, le=65535)
+    sync0_cycle: telem.TimeSpan = Field(
+        default=telem.TimeSpan(0), ge=-9223372036854775808, le=9223372036854775807
+    )
+    sync0_factor: int = Field(default=0, ge=-32768, le=32767)
+    sync0_shift: telem.TimeSpan = Field(
+        default=telem.TimeSpan(0), ge=-9223372036854775808, le=9223372036854775807
+    )
+    sync1_factor: int = Field(default=0, ge=-32768, le=32767)
+    sync1_shift: telem.TimeSpan = Field(
+        default=telem.TimeSpan(0), ge=-9223372036854775808, le=9223372036854775807
+    )
+
+
+class OpModeChoice(BaseModel):
+    """Is the synchronization mode that the user chose for a slave.
+
+    Attributes:
+        index: Is the index of the mode in the op_modes of the slave.
+        assign_activate: Is the AssignActivate of the mode, which shows that index is
+            stale when the slave lists other modes.
+        sync0_cycle: Replaces the SYNC0 cycle of the mode. 0 keeps the cycle of the
+            mode.
+        sync1_cycle: Replaces the SYNC1 cycle of the mode. 0 keeps the cycle of the
+            mode.
+    """
+
+    index: int = Field(ge=0, le=65535)
+    assign_activate: int = Field(ge=0, le=65535)
+    sync0_cycle: telem.TimeSpan = Field(
+        default=telem.TimeSpan(0), ge=0, le=9223372036854775807
+    )
+    sync1_cycle: telem.TimeSpan = Field(
+        default=telem.TimeSpan(0), ge=0, le=9223372036854775807
+    )
+
+
 class PDOEntry(BaseModel):
     """Is a PDO entry that a scan found on a slave.
 
@@ -299,6 +353,9 @@ class Identity(BaseModel):
         revision: Is the revision number of the slave.
         master: Is the master on whose bus the slave sits.
         pdos: Are the PDO entries that the scan found on the slave.
+        op_modes: Are the synchronization modes that the slave lists in its SII.
+        switched_at: Is when the Driver last switched the slave to Synnax only. Absent
+            when it never has.
     """
 
     rack: rack_.Key = Field(gt=0, le=4294967295)
@@ -308,6 +365,10 @@ class Identity(BaseModel):
     revision: int = Field(ge=0, le=4294967295)
     master: master_.Key
     pdos: PDOs = Field(default_factory=lambda: PDOs())
+    op_modes: list[OpMode] = Field(default_factory=list)
+    switched_at: telem.TimeStamp | None = Field(
+        default=None, ge=-9223372036854775808, le=9223372036854775807
+    )
 
 
 class Configuration(BaseModel):
@@ -318,6 +379,8 @@ class Configuration(BaseModel):
         identifier: Is the prefix of the slave's channel names. The slave is
             unconfigured while it is empty.
         disabled: Is whether the Driver leaves the slave out of the tasks it runs.
+        op_mode: Is the synchronization mode the Driver sets up. Absent lets the Driver
+            pick it.
         startup_parameters: Are the CoE objects the Driver writes to the slave in
             PRE-OP.
         read_index: Is the index channel of the channels that the slave reads into.
@@ -330,6 +393,7 @@ class Configuration(BaseModel):
     name: str = Field(min_length=1)
     identifier: str = ""
     disabled: bool = False
+    op_mode: OpModeChoice | None = None
     startup_parameters: list[StartupParameter] = Field(default_factory=list)
     read_index: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
     write_state_index: channel_.Key = Field(
@@ -352,9 +416,14 @@ class Slave(BaseModel):
         revision: Is the revision number of the slave.
         master: Is the master on whose bus the slave sits.
         pdos: Are the PDO entries that the scan found on the slave.
+        op_modes: Are the synchronization modes that the slave lists in its SII.
+        switched_at: Is when the Driver last switched the slave to Synnax only. Absent
+            when it never has.
         identifier: Is the prefix of the slave's channel names. The slave is
             unconfigured while it is empty.
         disabled: Is whether the Driver leaves the slave out of the tasks it runs.
+        op_mode: Is the synchronization mode the Driver sets up. Absent lets the Driver
+            pick it.
         startup_parameters: Are the CoE objects the Driver writes to the slave in
             PRE-OP.
         read_index: Is the index channel of the channels that the slave reads into.
@@ -374,8 +443,13 @@ class Slave(BaseModel):
     revision: int = Field(ge=0, le=4294967295)
     master: master_.Key
     pdos: PDOs = Field(default_factory=lambda: PDOs())
+    op_modes: list[OpMode] = Field(default_factory=list)
+    switched_at: telem.TimeStamp | None = Field(
+        default=None, ge=-9223372036854775808, le=9223372036854775807
+    )
     identifier: str = ""
     disabled: bool = False
+    op_mode: OpModeChoice | None = None
     startup_parameters: list[StartupParameter] = Field(default_factory=list)
     read_index: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
     write_state_index: channel_.Key = Field(

@@ -25,6 +25,7 @@ import (
 	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -210,12 +211,16 @@ var _ = Describe("Writer", func() {
 					Revision:    3,
 					Master:      s.Master,
 					Pdos:        pdos,
+					OpModes:     []slave.OpMode{{Name: "DC", AssignActivate: 0x300}},
+					SwitchedAt:  new(telem.TimeStamp(5)),
 				},
 			}})).To(Succeed())
 			got := retrieve(ctx, s.Key)
 			Expect(got.Serial).To(Equal(uint64(2002)))
 			Expect(got.Revision).To(Equal(uint32(3)))
 			Expect(got.Pdos).To(Equal(pdos))
+			Expect(got.OpModes).To(HaveLen(1))
+			Expect(got.SwitchedAt).To(HaveValue(Equal(telem.TimeStamp(5))))
 			Expect(got.Name).To(Equal("Inlet"))
 			Expect(got.Identifier).To(Equal("inlet"))
 		})
@@ -229,11 +234,15 @@ var _ = Describe("Writer", func() {
 				Name:         "Inlet",
 				Identifier:   "inlet",
 				Disabled:     true,
+				OpMode:       &slave.OpModeChoice{Index: 1, AssignActivate: 0x300},
 				ReadIndex:    6,
 				ReadBindings: bindings,
 			}))).To(Succeed())
 			got := retrieve(ctx, s.Key)
 			Expect(got.Disabled).To(BeTrue())
+			Expect(
+				got.OpMode,
+			).To(Equal(&slave.OpModeChoice{Index: 1, AssignActivate: 0x300}))
 			Expect(got.ReadBindings).To(Equal(bindings))
 			Expect(got.Serial).To(Equal(s.Serial))
 			Expect(got.Master).To(Equal(s.Master))
@@ -335,6 +344,17 @@ var _ = Describe("Writer", func() {
 			st := statusOf(ctx, s)
 			Expect(st.Message).To(Equal("Status unknown"))
 			Expect(st.Name).To(Equal("Inlet"))
+		})
+
+		It("Should reject a negative SYNC0 cycle", func(ctx SpecContext) {
+			s := create(ctx)
+			Expect(w.Apply(ctx, s.Key, configure(slave.Configuration{
+				Name: "Inlet",
+				OpMode: &slave.OpModeChoice{
+					AssignActivate: 0x300,
+					Sync0Cycle:     telem.TimeSpan(-1),
+				},
+			}))).To(MatchError(validate.ErrValidation))
 		})
 
 		It("Should reject a configuration without a name", func(ctx SpecContext) {

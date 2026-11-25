@@ -22,6 +22,8 @@ export const identityZ = z.object({
   rack: rack.keyZ.refine((v) => v !== 0, "Rack is required"),
   /** interface is the network interface the master drives, such as eth0 or igh:0. */
   interface: z.string().min(1, "Interface is required"),
+  /** networkName is the name of the network that the user knows, such as Ethernet 2. */
+  networkName: z.string().default(""),
   /**
    * slaves are the keys of the slaves on the bus, in bus order. A slave's position is
    * its index.
@@ -155,6 +157,8 @@ export const masterZ = z.object({
   name: z.string().min(1, "Name is required"),
   /** interface is the network interface the master drives, such as eth0 or igh:0. */
   interface: z.string().min(1, "Interface is required"),
+  /** networkName is the name of the network that the user knows, such as Ethernet 2. */
+  networkName: z.string().default(""),
   /**
    * slaves are the keys of the slaves on the bus, in bus order. A slave's position is
    * its index.

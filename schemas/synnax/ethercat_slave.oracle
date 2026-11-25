@@ -38,6 +38,74 @@ Status = status.Status<StatusDetails> {
     @doc value "is the operational status of a slave."
 }
 
+OpMode struct {
+    name            string = "" {
+        @doc value """
+            is the name of the mode, such as DC-Synchron. Empty when the slave gives
+            none.
+        """
+    }
+    assign_activate uint16 = 0 {
+        @doc value "is the value of the DC activation registers 0x0980 and 0x0981."
+    }
+    sync0_cycle     telem.TimeSpan = 0s {
+        @doc value "is the SYNC0 cycle. 0 when sync0_factor sets the cycle."
+        @ts type   telem.NumericTimeSpan
+    }
+    sync0_factor    int16 = 0 {
+        @doc value """
+            is the SYNC0 cycle as a multiple of the bus cycle when positive, or as a
+            fraction of it when negative.
+        """
+    }
+    sync0_shift     telem.TimeSpan = 0s {
+        @doc value "is the SYNC0 shift."
+        @ts type   telem.NumericTimeSpan
+    }
+    sync1_factor    int16 = 0 {
+        @doc value """
+            is the SYNC1 cycle as a multiple of the SYNC0 cycle when positive, or of the
+            bus cycle when negative.
+        """
+    }
+    sync1_shift     telem.TimeSpan = 0s {
+        @doc value "is the SYNC1 shift after SYNC0."
+        @ts type   telem.NumericTimeSpan
+    }
+
+    @doc value  "is a synchronization mode that a slave lists in its SII."
+    @go marshal
+}
+
+OpModeChoice struct {
+    index           uint16         {
+        @doc value "is the index of the mode in the op_modes of the slave."
+    }
+    assign_activate uint16         {
+        @doc value """
+            is the AssignActivate of the mode, which shows that index is stale when the
+            slave lists other modes.
+        """
+    }
+    sync0_cycle     telem.TimeSpan = 0s {
+        @doc value    """
+            replaces the SYNC0 cycle of the mode. 0 keeps the cycle of the mode.
+        """
+        @ts type      telem.NumericTimeSpan
+        @validate min 0
+    }
+    sync1_cycle     telem.TimeSpan = 0s {
+        @doc value    """
+            replaces the SYNC1 cycle of the mode. 0 keeps the cycle of the mode.
+        """
+        @ts type      telem.NumericTimeSpan
+        @validate min 0
+    }
+
+    @doc value  "is the synchronization mode that the user chose for a slave."
+    @go marshal
+}
+
 PDOEntry struct {
     name       string         {
         @doc value "is the name of the entry, such as Input."
@@ -260,6 +328,15 @@ Slave struct {
     pdos               PDOs = {} {
         @doc value "are the PDO entries that the scan found on the slave."
     }
+    op_modes           OpMode[] = [] {
+        @doc value "are the synchronization modes that the slave lists in its SII."
+    }
+    switched_at        telem.TimeStamp?    {
+        @doc value """
+            is when the Driver last switched the slave to Synnax only. Absent when it
+            never has.
+        """
+    }
     identifier         string = "" {
         @doc value   """
             is the prefix of the slave's channel names. The slave is unconfigured while
@@ -269,6 +346,12 @@ Slave struct {
     }
     disabled           bool = false {
         @doc value "is whether the Driver leaves the slave out of the tasks it runs."
+    }
+    op_mode            OpModeChoice?       {
+        @doc value """
+            is the synchronization mode the Driver sets up. Absent lets the Driver pick
+            it.
+        """
     }
     startup_parameters StartupParameter[] = [] {
         @doc value "are the CoE objects the Driver writes to the slave in PRE-OP."
@@ -340,6 +423,15 @@ Identity struct {
     pdos         PDOs = {} {
         @doc value "are the PDO entries that the scan found on the slave."
     }
+    op_modes     OpMode[] = [] {
+        @doc value "are the synchronization modes that the slave lists in its SII."
+    }
+    switched_at  telem.TimeStamp?    {
+        @doc value """
+            is when the Driver last switched the slave to Synnax only. Absent when it
+            never has.
+        """
+    }
 
     @doc value "holds the slave fields that the scanner owns."
 }
@@ -357,6 +449,12 @@ Configuration struct {
     }
     disabled           bool = false {
         @doc value "is whether the Driver leaves the slave out of the tasks it runs."
+    }
+    op_mode            OpModeChoice?      {
+        @doc value """
+            is the synchronization mode the Driver sets up. Absent lets the Driver pick
+            it.
+        """
     }
     startup_parameters StartupParameter[] = [] {
         @doc value "are the CoE objects the Driver writes to the slave in PRE-OP."

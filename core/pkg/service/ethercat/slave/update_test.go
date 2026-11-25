@@ -33,6 +33,7 @@ var _ = Describe("Update", func() {
 				Inputs:  []slave.PDOEntry{},
 				Outputs: []slave.PDOEntry{},
 			},
+			OpModes: []slave.OpMode{},
 		},
 	}}
 	configuration := slave.Update{Variant: slave.ConfigurationUpdate{

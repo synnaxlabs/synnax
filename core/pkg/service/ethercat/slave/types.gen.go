@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/filter"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"strconv"
 )
@@ -32,6 +33,12 @@ type StatusDetails = versions.StatusDetails
 
 // Status is the operational status of a slave.
 type Status = versions.Status
+
+// OpMode is a synchronization mode that a slave lists in its SII.
+type OpMode = versions.OpMode
+
+// OpModeChoice is the synchronization mode that the user chose for a slave.
+type OpModeChoice = versions.OpModeChoice
 
 // PDOEntry is a PDO entry that a scan found on a slave.
 type PDOEntry = versions.PDOEntry
@@ -156,6 +163,11 @@ type Identity struct {
 	Master master.Key `json:"master" msgpack:"master"`
 	// Pdos are the PDO entries that the scan found on the slave.
 	Pdos PDOs `json:"pdos" msgpack:"pdos"`
+	// OpModes are the synchronization modes that the slave lists in its SII.
+	OpModes []OpMode `json:"op_modes" msgpack:"op_modes"`
+	// SwitchedAt is when the Driver last switched the slave to Synnax only. Absent when
+	// it never has.
+	SwitchedAt *telem.TimeStamp `json:"switched_at,omitzero" msgpack:"switched_at,omitempty"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -177,6 +189,9 @@ type Configuration struct {
 	Identifier string `json:"identifier" msgpack:"identifier"`
 	// Disabled is whether the Driver leaves the slave out of the tasks it runs.
 	Disabled bool `json:"disabled" msgpack:"disabled"`
+	// OpMode is the synchronization mode the Driver sets up. Absent lets the Driver
+	// pick it.
+	OpMode *OpModeChoice `json:"op_mode,omitzero" msgpack:"op_mode,omitempty"`
 	// StartupParameters are the CoE objects the Driver writes to the slave in PRE-OP.
 	StartupParameters []StartupParameter `json:"startup_parameters" msgpack:"startup_parameters"`
 	// ReadIndex is the index channel of the channels that the slave reads into.
@@ -195,6 +210,9 @@ type Configuration struct {
 func (c Configuration) Validate() error {
 	v := validate.New("Configuration")
 	v.NotEmptyString("name", c.Name)
+	if c.OpMode != nil {
+		v.Exec(func() error { return validate.PathedError(c.OpMode.Validate(), "op_mode") })
+	}
 	for i := range c.StartupParameters {
 		v.Exec(func() error {
 			return validate.PathedError(c.StartupParameters[i].Validate(), "startup_parameters", strconv.Itoa(i))
