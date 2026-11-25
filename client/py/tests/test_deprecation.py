@@ -168,7 +168,7 @@ class TestPositionalArguments:
             matched = retrieve([policy.key])
         assert [p.key for p in matched] == [policy.key]
         with deprecated():
-            matched = retrieve(None, [user.resource_id], False)
+            matched = retrieve(None, [sy.user.resource_id(user.key)], False)
         assert [p.key for p in matched] == [policy.key]
         with deprecated():
             matched = retrieve(None, None, True)

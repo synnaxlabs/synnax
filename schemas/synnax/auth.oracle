@@ -10,9 +10,10 @@
 import "schemas/synnax/resource"
 import "schemas/x/telem"
 
-@go output "core/pkg/service/auth"
-@py output "client/py/synnax/auth"
-@ts output "client/ts/src/auth"
+@cpp output "client/cpp/auth"
+@go output  "core/pkg/service/auth"
+@py output  "client/py/synnax/auth"
+@ts output  "client/ts/src/auth"
 
 Method enum {
     password = "password"
@@ -32,6 +33,7 @@ Session struct {
         @key
     }
     hash               bytes           {
+        @cpp omit
         @doc value "is the SHA-256 hash of the secret in the session's token."
         @go wire   omit
         @py omit
@@ -49,6 +51,7 @@ Session struct {
         @index lookup
     }
     credential_version telem.TimeStamp {
+        @cpp omit
         @doc value "is when the credential's secret was set, as the login saw it."
         @go wire   omit
         @py omit
@@ -80,6 +83,7 @@ Credentials struct {
         @validate required
     }
 
+    @cpp omit
     @doc value "is a plaintext username and password pair presented at login."
 }
 
@@ -89,6 +93,7 @@ APIKeyCredentials struct {
         @validate required
     }
 
+    @cpp omit
     @doc value "is an API key presented at login."
 }
 
@@ -110,6 +115,7 @@ OIDCCredentials struct {
         @validate required
     }
 
+    @cpp omit
     @doc value """
         is an OpenID Connect authorization code presented at login. The Core exchanges
         it with the provider.
@@ -127,6 +133,7 @@ Proof union on method Method {
         @doc value "proves an OpenID Connect provider account."
     }
 
+    @cpp omit
     @doc value """
         is what a subject presents to log in. The method selects the authenticator that
         checks it.

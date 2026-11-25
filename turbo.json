@@ -9,6 +9,7 @@
     "configs/stylelint/*.json",
     "pnpm-workspace.yaml"
   ],
+  "globalPassThroughEnv": ["PNPM_CONFIG_GLOBAL_SHIMS"],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],

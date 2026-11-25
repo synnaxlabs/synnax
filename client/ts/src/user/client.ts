@@ -33,7 +33,6 @@ import {
   type Key,
   keyZ,
   type New,
-  newZ,
   type RetrieveRequest,
   retrieveRequestZ,
   retrieveResponseZ,
@@ -68,7 +67,7 @@ const retrieveParamsZ = z.union([keyRetrieveRequestZ, retrieveRequestZ]);
 
 export type RetrieveParams = KeyRetrieveRequest | RetrieveRequest;
 
-const createReqZ = z.object({ users: newZ.array() });
+const createReqZ = z.object({ users: userZ.array() });
 const createResZ = z.object({ users: userZ.array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const deleteResZ = z.object({});
@@ -174,12 +173,9 @@ export class Client extends query.Retriever<
   async create(users: New[]): Promise<User[]>;
   async create(users: New | New[]): Promise<User | User[]> {
     const isMany = Array.isArray(users);
-    const res = await this.cfg.unary.send(
-      "/user/create",
-      { users: array.toArray(users) },
-      createReqZ,
-      createResZ,
-    );
+    // Parsed once so a retried request keeps the keys it generated.
+    const req = createReqZ.parse({ users: array.toArray(users) });
+    const res = await this.cfg.unary.send("/user/create", req, createReqZ, createResZ);
     this.store.set(res.users);
     return isMany ? res.users : res.users[0];
   }

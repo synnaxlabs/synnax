@@ -18,26 +18,23 @@ from x.testutil import untyped
 
 
 @pytest.fixture
-def new_user(empty_role: sy.Role) -> sy.user.New:
-    return sy.user.New(name="First Last", key=uuid(), role=empty_role.key)
+def new_user(empty_role: sy.Role) -> sy.user.User:
+    return sy.user.User(name="First Last", key=uuid(), role=empty_role.key)
 
 
 @pytest.fixture
-def new_user_list(empty_role: sy.Role) -> list[sy.user.New]:
+def new_user_list(empty_role: sy.Role) -> list[sy.user.User]:
     role = empty_role.key
     return [
-        sy.user.New(name="First1 Last1", role=role),
-        sy.user.New(name="First2", key=uuid(), role=role),
+        sy.user.User(name="First1 Last1", role=role),
+        sy.user.User(name="First2", key=uuid(), role=role),
     ]
 
 
-def compare_users(user: sy.user.User, new_user: sy.user.New) -> None:
+def compare_users(user: sy.user.User, new_user: sy.user.User) -> None:
     assert user.name == new_user.name
     assert user.role == new_user.role
-    if new_user.key is not None:
-        assert user.key == new_user.key
-    else:
-        assert user.key is not None
+    assert user.key == new_user.key
 
 
 @pytest.mark.user
@@ -45,11 +42,11 @@ class TestUserClient:
     def test_create_params(self, client: sy.Synnax, empty_role: sy.Role) -> None:
         role = empty_role.key
         user = client.users.create(name="test", role=role)
-        compare_users(user, sy.user.New(name="test", role=role))
+        assert (user.name, user.role) == ("test", role)
         client.users.delete(user.key)
         key = uuid()
         user = client.users.create(name="silly", key=key, role=role)
-        compare_users(user, sy.user.New(name="silly", key=key, role=role))
+        compare_users(user, sy.user.User(name="silly", key=key, role=role))
         client.users.delete(user.key)
 
     def test_create_params_without_name(self, client: sy.Synnax) -> None:
@@ -64,12 +61,12 @@ class TestUserClient:
         with pytest.raises(ValueError, match="role is required"):
             create(name="test")
 
-    def test_create_user(self, client: sy.Synnax, new_user: sy.user.New) -> None:
+    def test_create_user(self, client: sy.Synnax, new_user: sy.user.User) -> None:
         repeated_user = client.users.create(user=new_user)
         compare_users(repeated_user, new_user)
 
     def test_create_many(
-        self, client: sy.Synnax, new_user_list: list[sy.user.New]
+        self, client: sy.Synnax, new_user_list: list[sy.user.User]
     ) -> None:
         repeated_user_list = client.users.create(users=new_user_list)
         assert len(repeated_user_list) == len(new_user_list)
@@ -92,7 +89,7 @@ class TestUserClient:
         client = sy.Synnax(
             host=host, port=port, username=new_username, password="test", secure=False
         )
-        assert client.auth.subject == user.resource_id
+        assert client.auth.subject == sy.user.resource_id(user.key)
         client.close()
         admin.close()
 
@@ -111,7 +108,7 @@ class TestUserClient:
         admin.access.policies.create(
             sy.Policy(
                 name="Self Rename",
-                objects=[user.resource_id],
+                objects=[sy.user.resource_id(user.key)],
                 actions=["update"],
                 role=role.key,
             )
@@ -144,14 +141,14 @@ class TestUserClient:
             client.users.change_username(user.key, taken)
 
     def test_change_username_no_password(
-        self, client: sy.Synnax, new_user: sy.user.New
+        self, client: sy.Synnax, new_user: sy.user.User
     ) -> None:
         """Should raise NotFoundError for a user with no password."""
         user = client.users.create(user=new_user)
         with pytest.raises(sy.NotFoundError):
             client.users.change_username(user.key, str(uuid()))
 
-    def test_change_name(self, client: sy.Synnax, new_user: sy.user.New) -> None:
+    def test_change_name(self, client: sy.Synnax, new_user: sy.user.User) -> None:
         user = client.users.create(user=new_user)
         client.users.change_name(user.key, name="Thomas Jefferson")
         retrieved = client.users.retrieve(key=user.key)
@@ -164,7 +161,7 @@ class TestUserClient:
             client.users.retrieve(key=key)
 
     def test_retrieve_missing_keys(
-        self, client: sy.Synnax, new_user: sy.user.New
+        self, client: sy.Synnax, new_user: sy.user.User
     ) -> None:
         """Should omit keys that do not exist from a list retrieve."""
         user = client.users.create(user=new_user)
@@ -176,7 +173,7 @@ class TestUserClient:
         assert client.users.retrieve(keys=[]) == []
 
     def test_retrieve_where(
-        self, client: sy.Synnax, new_user_list: list[sy.user.New]
+        self, client: sy.Synnax, new_user_list: list[sy.user.User]
     ) -> None:
         """Should keep users that match a filter tree and the given keys."""
         users = client.users.create(users=new_user_list)
@@ -187,7 +184,7 @@ class TestUserClient:
         assert [u.key for u in retrieved] == [users[1].key]
 
     def test_retrieve_one(
-        self, client: sy.Synnax, new_user_list: list[sy.user.New]
+        self, client: sy.Synnax, new_user_list: list[sy.user.User]
     ) -> None:
         """Should return one user for any filter when one is set."""
         users = client.users.create(users=new_user_list)

@@ -8,7 +8,25 @@
 #  included in the file licenses/APL.txt.
 
 from synnax.user.client import Client
-from synnax.user.payload import New, User
-from synnax.user.types_gen import Cursor, Key, Order, Where, WhereInput
+from synnax.user.types_gen import (
+    TYPE_RESOURCE_ID,
+    Cursor,
+    Key,
+    Order,
+    User,
+    Where,
+    WhereInput,
+    resource_id,
+)
 
-__all__ = ["Client", "Cursor", "Key", "New", "Order", "User", "Where", "WhereInput"]
+__all__ = [
+    "TYPE_RESOURCE_ID",
+    "Client",
+    "Cursor",
+    "Key",
+    "Order",
+    "User",
+    "Where",
+    "WhereInput",
+    "resource_id",
+]
