@@ -118,8 +118,11 @@ var _ = Describe("Check: a rewrite whose Replace frame fault 5d cuts", func() {
 		kept := MustSucceed(disk.Crash(fault.CrashConfig{}))
 		re, closeRe := breakOpen(ctx, kept)
 		Expect(breakRead(ctx, re)).To(Equal(want))
+		// Run reaps once the log of the reopened DB covers the Replace.
+		Eventually(func() []string { return breakSegments(kept) }).
+			WithTimeout(10 * time.Second).
+			ShouldNot(ContainElement(old))
 		closeRe()
-		Expect(breakSegments(kept)).ToNot(ContainElement(old))
 		var failures []string
 		for runKey := range uint64(8) {
 			image := MustSucceed(disk.Crash(fault.CrashConfig{
