@@ -10,9 +10,12 @@
 package v5_test
 
 import (
+	"math"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v5 "github.com/synnaxlabs/synnax/pkg/service/http/versions/v5"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -45,6 +48,12 @@ var _ = Describe("Validate", func() {
 		),
 		Entry("a read path with a query", v5.ReadEndpoint{Path: "/a?b=1"}, "path"),
 		Entry("a write path with a fragment", v5.WriteEndpoint{Path: "/a#b"}, "path"),
+		Entry(
+			"a read rate that is not finite",
+			v5.ReadConfig{Rate: telem.Rate(math.Inf(1))},
+			"rate",
+		),
+		Entry("a read rate above 1 kHz", v5.ReadConfig{Rate: 1001}, "rate"),
 		Entry(
 			"a header value with a NUL",
 			v5.Header{Name: "Accept", Value: "a\x00b"},
