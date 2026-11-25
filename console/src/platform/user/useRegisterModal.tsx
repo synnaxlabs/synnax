@@ -66,12 +66,14 @@ const Register = ({ close }: Modals.ContentProps<Record<never, never>, void>) =>
     },
   });
   Modals.useBusy(variant === "loading");
-  // Hidden fields must not fail validation.
-  useEffect(() => {
-    if (passwordAccepted) return;
-    form.set(path.username, "");
-    form.set(path.password, "");
-  }, [passwordAccepted]);
+  const handleSave = () => {
+    // Hidden fields must not fail validation.
+    if (!passwordAccepted) {
+      form.set(path.username, "");
+      form.set(path.password, "");
+    }
+    save();
+  };
 
   return (
     <Modal.Frame>
@@ -107,7 +109,7 @@ const Register = ({ close }: Modals.ContentProps<Record<never, never>, void>) =>
       <Modal.Footer>
         <Nav.Bar.End>
           <Button.Button
-            onClick={() => save()}
+            onClick={handleSave}
             status={status.keepVariants(variant, "loading")}
             disabled={client == null}
             trigger={Triggers.SAVE}

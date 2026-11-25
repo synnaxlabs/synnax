@@ -241,21 +241,14 @@ export interface FormProps {
 export const Form = ({ subject, onMessage }: FormProps): ReactElement => {
   const query = { subject };
   const invalidate = Credential.Password.useInvalidate();
-  // This read has no live updates, so a remount is what fetches it again.
-  const [generation, setGeneration] = useState(0);
-  const handleCreate = () => {
-    invalidate(query);
-    setGeneration((g) => g + 1);
-  };
+  const refresh = Credential.Password.useRefresh();
+  // This read has no live updates, so a change made here fetches it again.
+  const handleCreate = () => refresh(query);
+  // Drop the answer on unmount so the next mount shows changes made elsewhere.
   useEffect(() => () => invalidate(query), []);
   return (
     <Flex.Box y>
-      <Passwords
-        key={generation}
-        subject={subject}
-        onCreate={handleCreate}
-        onMessage={onMessage}
-      />
+      <Passwords subject={subject} onCreate={handleCreate} onMessage={onMessage} />
     </Flex.Box>
   );
 };
