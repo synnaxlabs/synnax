@@ -387,14 +387,13 @@ var _ = Describe("Read task ICD messages", func() {
 			},
 		)
 
-		It("Should drop only the index channel whose timestamp is not after the last",
+		It("Should write nothing of a message whose timestamp is not after the last",
 			func(ctx SpecContext) {
 				cfg, stamped, temp, arrived, level := twoIndexes(ctx)
 				t := start(ctx, cfg)
+				// A QoS 1 redelivery repeats the message.
 				broker.publish("plant/status", `{"ts":2,"temp":20,"level":2.5}`, false)
-				broker.publish("plant/status", `{"ts":1,"temp":21,"level":3.5}`, false)
-				Eventually(func() int64 { return stored(ctx, level).Len() }).
-					Should(BeEquivalentTo(2))
+				broker.publish("plant/status", `{"ts":2,"temp":20,"level":2.5}`, false)
 				Eventually(func(g Gomega) {
 					stat := taskStatus(ctx, t)
 					g.Expect(stat.Message).To(Equal("Skipped 1 of 2 messages"))
@@ -407,7 +406,9 @@ var _ = Describe("Read task ICD messages", func() {
 					To(MatchSeriesData(telem.NewSeriesV(20.0)))
 				Expect(stored(ctx, stamped)).
 					To(MatchSeriesData(telem.NewSeriesV(2 * telem.SecondTS)))
-				Expect(stored(ctx, arrived).Len()).To(BeEquivalentTo(2))
+				Expect(stored(ctx, level)).
+					To(MatchSeriesData(telem.NewSeriesV(2.5)))
+				Expect(stored(ctx, arrived).Len()).To(BeEquivalentTo(1))
 			},
 		)
 

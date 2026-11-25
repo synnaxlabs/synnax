@@ -78,6 +78,31 @@ var _ = Describe("Source", func() {
 	groupsOf := func(samples []read.Sample) []int {
 		return lo.Map(samples, func(s read.Sample, _ int) int { return s.Group })
 	}
+	typeMatch := func(value string) *icd.JSONMatch {
+		return &icd.JSONMatch{Variant: icd.StringJSONMatch{
+			JSONBaseMatch: icd.JSONBaseMatch{Pointer: "/type"}, Value: value,
+		}}
+	}
+	// twoReads returns a source of a Reading read whose /type is "reading", and an
+	// Alarm read that meets alarm.
+	twoReads := func(alarm *icd.JSONMatch) *read.Source {
+		GinkgoHelper()
+		reading := jsonMessage("Reading", atField, tempField)
+		reading.Payload.Variant = icd.JSONPayload{
+			Match: typeMatch("reading"), Fields: []icd.JSONField{atField, tempField},
+		}
+		alarming := jsonMessage("Alarm", levelField)
+		alarming.Payload.Variant = icd.JSONPayload{
+			Match: alarm, Fields: []icd.JSONField{levelField},
+		}
+		ic := icd.ICD{Name: "Plant", Messages: []icd.Message{reading, alarming}}
+		return MustSucceed(read.NewSource([]icd.ReadMessage{
+			indexed(atField, readOf(
+				reading, bind(atField, clock.Key()), bind(tempField, tempCh.Key()),
+			)),
+			readOf(alarming, bind(levelField, levelCh.Key())),
+		}, ic, channels))
+	}
 
 	It("Should group fields by index channel, and each virtual field alone", func() {
 		Expect(newSource(mixedRead).Groups()).To(Equal([]read.Group{
@@ -157,10 +182,29 @@ var _ = Describe("Source", func() {
 	})
 
 	It("Should return no samples for a document that is not JSON", func() {
-		samples, ok, err := newSource(mixedRead).Decode([]byte("on"))
-		Expect(err).To(MatchError(validate.ErrValidation))
-		Expect(ok).To(BeFalse())
-		Expect(samples).To(BeEmpty())
+		Expect(newSource(mixedRead).Decode([]byte("on"))).
+			Error().To(MatchError(validate.ErrValidation))
+	})
+
+	It("Should return no samples and no error for a document that meets no rule",
+		func() {
+			samples, ok := MustSucceed2(twoReads(typeMatch("alarm")).Decode(
+				[]byte(`{"type":"other","level":2.5}`),
+			))
+			Expect(ok).To(BeFalse())
+			Expect(samples).To(BeEmpty())
+		},
+	)
+
+	It("Should return no samples for a document that meets two match rules", func() {
+		present := &icd.JSONMatch{Variant: icd.PresentJSONMatch{
+			JSONBaseMatch: icd.JSONBaseMatch{Pointer: "/level"},
+		}}
+		Expect(twoReads(present).Decode(
+			[]byte(`{"type":"reading","at":5,"temp":1.5,"level":2.5}`),
+		)).Error().To(MatchError(
+			"document matches messages Reading and Alarm: validation error",
+		))
 	})
 
 	It("Should hold only the samples of the last document", func() {
@@ -176,27 +220,7 @@ var _ = Describe("Source", func() {
 	})
 
 	It("Should give the groups of each read their own positions", func() {
-		reading := jsonMessage("Reading", atField, tempField)
-		reading.Payload.Variant = icd.JSONPayload{
-			Match: &icd.JSONMatch{Variant: icd.StringJSONMatch{
-				JSONBaseMatch: icd.JSONBaseMatch{Pointer: "/type"}, Value: "reading",
-			}},
-			Fields: []icd.JSONField{atField, tempField},
-		}
-		alarm := jsonMessage("Alarm", levelField)
-		alarm.Payload.Variant = icd.JSONPayload{
-			Match: &icd.JSONMatch{Variant: icd.StringJSONMatch{
-				JSONBaseMatch: icd.JSONBaseMatch{Pointer: "/type"}, Value: "alarm",
-			}},
-			Fields: []icd.JSONField{levelField},
-		}
-		ic := icd.ICD{Name: "Plant", Messages: []icd.Message{reading, alarm}}
-		src := MustSucceed(read.NewSource([]icd.ReadMessage{
-			indexed(atField, readOf(
-				reading, bind(atField, clock.Key()), bind(tempField, tempCh.Key()),
-			)),
-			readOf(alarm, bind(levelField, levelCh.Key())),
-		}, ic, channels))
+		src := twoReads(typeMatch("alarm"))
 		samples, _ := MustSucceed2(src.Decode([]byte(`{"type":"alarm","level":2.5}`)))
 		Expect(samples).To(Equal([]read.Sample{
 			{Group: 1, Data: [][]byte{f64(2.5)}},
