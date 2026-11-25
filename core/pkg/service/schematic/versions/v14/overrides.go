@@ -170,7 +170,10 @@ func entriesOf(
 		Where(gorp.MatchKeys[enumeration.Key, enumeration.Enumeration](*state.Enumeration)).
 		Entry(&e).
 		Exec(ctx, tx)
-	return e.Entries, err
+	if err != nil {
+		return nil, err
+	}
+	return e.Entries, nil
 }
 
 // paints is the stroke and fill that a part shows.
@@ -264,7 +267,7 @@ func overridden(
 	want := maps.Clone(draw(spec, entries))
 	svg, ok := spec.Drawing.Variant.(symbol.SvgDrawing)
 	if !ok {
-		return spec, nil, errors.New("only an svg drawing has regions")
+		return symbol.Spec{}, nil, errors.New("only an svg drawing has regions")
 	}
 	spec.Parts = slices.Clone(spec.Parts)
 	for i, st := range states {
