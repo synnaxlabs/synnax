@@ -546,7 +546,7 @@ var _ = Describe("Service", func() {
 
 		It("Should reject a resource ID with a malformed key", func(ctx SpecContext) {
 			Expect(e.svc.Resources().Retrieve(ctx, tx, []resource.ID{{
-				Type: resource.TypeOpcuaServer,
+				Type: resource.TypeOPCUAServer,
 				Key:  "plc",
 			}})).Error().To(MatchError(validate.ErrValidation))
 		})

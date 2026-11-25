@@ -323,7 +323,7 @@ var _ = Describe("ResolveWriteConfig", func() {
 			f := fields(ic.Messages[0])
 			Expect(f).To(HaveLen(4))
 			Expect(*variantOf[icd.StringJSONField](f[1]).Default).To(Equal("auto"))
-			Expect(f[2].Variant).To(Equal(icd.UuidJSONField{
+			Expect(f[2].Variant).To(Equal(icd.UUIDJSONField{
 				JSONBaseField: f[2].Base(),
 				Default:       &icd.UUIDDefault{Variant: icd.RandomUUIDDefault{}},
 			}))

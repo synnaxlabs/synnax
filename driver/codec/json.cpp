@@ -521,7 +521,7 @@ JSONEncoder::Default::create(const icd::JSONField &f) {
                 if (!x::json::valid(v.default_.value()))
                     return invalid("must be valid JSON");
                 text = v.default_.value();
-            } else if constexpr (std::is_same_v<F, icd::UuidJSONField>) {
+            } else if constexpr (std::is_same_v<F, icd::UUIDJSONField>) {
                 const auto *c = std::get_if<icd::ConstantUUIDDefault>(
                     &v.default_.value()
                 );

@@ -87,8 +87,8 @@ bool set_default(Field &field, const Value &value) {
     )
         field.default_ = icd::ConstantTimestampDefault{.value = value.value};
     else if constexpr (
-        std::is_same_v<Field, icd::UuidJSONField> &&
-        std::is_same_v<Value, icd::UuidWriteValue>
+        std::is_same_v<Field, icd::UUIDJSONField> &&
+        std::is_same_v<Value, icd::UUIDWriteValue>
     )
         field.default_ = icd::ConstantUUIDDefault{.value = value.value};
     else if constexpr (requires { field.default_ = value.value; }) {

@@ -1186,7 +1186,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			resource.TypeNIChassis:       l.NI.Chassis.Resources(),
 			resource.TypeNIDevice:        l.NI.Devices.Resources(),
 			resource.TypeNode:            l.Node.Resources(),
-			resource.TypeOpcuaServer:     l.OPCUA.Servers.Resources(),
+			resource.TypeOPCUAServer:     l.OPCUA.Servers.Resources(),
 			resource.TypePanel:           l.Panel.Resources(),
 			resource.TypePolicy:          l.RBAC.Policy.Resources(),
 			resource.TypeProject:         l.Project.Resources(),

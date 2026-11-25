@@ -1284,7 +1284,7 @@ var _ = Describe("Resource search", Ordered, func() {
 		Entry("NiChassis", resource.TypeNIChassis),
 		Entry("NiDevice", resource.TypeNIDevice),
 		Entry("Node", resource.TypeNode),
-		Entry("OpcuaServer", resource.TypeOpcuaServer),
+		Entry("OpcuaServer", resource.TypeOPCUAServer),
 		Entry("Panel", resource.TypePanel),
 		Entry("Policy", resource.TypePolicy),
 		Entry("Project", resource.TypeProject),
@@ -1346,7 +1346,7 @@ var _ = Describe("Resource search", Ordered, func() {
 		})).To(Succeed())
 		res := MustSucceed(layer.Resource.Search(ctx, db, resource.SearchQuery{
 			Term:  "pump",
-			Types: []resource.Type{resource.TypeOpcuaServer},
+			Types: []resource.Type{resource.TypeOPCUAServer},
 		}))
 		Expect(lo.Map(res, func(r resource.Resource, _ int) resource.ID {
 			return r.ID

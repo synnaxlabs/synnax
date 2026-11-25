@@ -420,8 +420,8 @@ func (p *Plugin) resourceConstant(req *plugin.Request, value string) (string, er
 		if v.StringValue() == value {
 			return "resource." + naming.GetGoName(
 				enum,
-			) + naming.ToPascalCase(
-				v.Name,
+			) + naming.GetEnumValueName(
+				v,
 			), nil
 		}
 	}

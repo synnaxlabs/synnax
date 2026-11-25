@@ -353,9 +353,9 @@ TEST(JSONEncoder, RejectsUnknownTimeFormat) {
 
 /// @brief it should write a new UUID at each encode for a random default, bound or not.
 TEST(JSONEncoder, WritesRandomDefault) {
-    auto unbound = field<icd::UuidJSONField>("unbound");
+    auto unbound = field<icd::UUIDJSONField>("unbound");
     unbound.default_ = icd::RandomUUIDDefault{};
-    auto bound = field<icd::UuidJSONField>("bound");
+    auto bound = field<icd::UUIDJSONField>("bound");
     bound.default_ = icd::RandomUUIDDefault{};
     auto enc = ASSERT_NIL_P(
         JSONEncoder::create(command({bound, unbound}, {x::telem::UUID_T}))
@@ -410,7 +410,7 @@ TEST(JSONEncoder, RejectsMissingSampleWithNoDefault) {
 /// @brief it should write a generated default beside the value of a match rule, or as
 /// the value of a present rule.
 TEST(JSONEncoder, WritesGeneratedDefaultBesideMatch) {
-    auto id = field<icd::UuidJSONField>("id");
+    auto id = field<icd::UUIDJSONField>("id");
     id.default_ = icd::RandomUUIDDefault{};
     for (const auto &[rule, type]:
          std::vector<std::pair<icd::JSONMatch, nlohmann::json>>{
