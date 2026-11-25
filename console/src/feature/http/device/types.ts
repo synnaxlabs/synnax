@@ -222,6 +222,8 @@ const v1PropertiesZ = v0PropertiesZ
       .int()
       .positive("Max concurrent requests must be at least 1")
       .default(defaultMaxConcurrentRequests),
+    // Not in the form. Kept so that a value set by hand survives a save.
+    maxResponseSize: z.number().int().positive().optional(),
     healthCheck: z
       .preprocess(fillValidateResponse, healthCheckZ)
       .default(ZERO_HEALTH_CHECK),

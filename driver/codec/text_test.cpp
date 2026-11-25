@@ -9,6 +9,7 @@
 
 #include <atomic>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <limits>
 #include <optional>
@@ -532,21 +533,25 @@ TEST(TextEncoder, EncodeDefaults) {
 /// not finite.
 TEST(TextEncoder, RejectInvalidValues) {
     const auto m = message("cmd", {at("a", 0)});
-    assert_rejects_samples(m, series_of(none()), "field a: no value and no default");
+    assert_rejects_samples(
+        m,
+        series_of(none()),
+        "message cmd: field a: no value and no default"
+    );
     assert_rejects_samples(
         m,
         series_of(x::telem::Series(std::numeric_limits<double>::infinity())),
-        "field a: Infinity is not finite"
+        "message cmd: field a: Infinity is not finite"
     );
     assert_rejects_samples(
         m,
         series_of(x::telem::Series(std::numeric_limits<double>::quiet_NaN())),
-        "field a: NaN is not finite"
+        "message cmd: field a: NaN is not finite"
     );
     assert_rejects_samples(
         message("cmd", {at("a", 0)}, "", x::telem::FLOAT32_T),
         series_of(x::telem::Series(std::numeric_limits<float>::infinity())),
-        "field a: Infinity is not finite"
+        "message cmd: field a: Infinity is not finite"
     );
 }
 
@@ -641,12 +646,96 @@ TEST(TextEncoder, CheckSample) {
     b.default_ = 1;
     auto m = message("cmd", {at("a", 0), b});
     auto enc = ASSERT_NIL_P(TextEncoder::create(m));
-    ASSERT_NIL(enc.check(0, x::telem::SampleValue(2.5)));
-    ASSERT_NIL(enc.check(1, x::telem::SampleValue(2.5)));
-    const auto err = enc.check(1, x::telem::SampleValue(std::nan("")));
+    const x::telem::Series s(std::vector<double>{2.5, std::nan("")});
+    ASSERT_NIL(enc.check(0, s, 0));
+    ASSERT_NIL(enc.check(1, s, 0));
+    const auto err = enc.check(1, s, 1);
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    EXPECT_EQ(err.data, "field b: NaN is not finite");
+    EXPECT_EQ(err.data, "message cmd: field b: NaN is not finite");
     EXPECT_FALSE(enc.has_default(0));
     EXPECT_TRUE(enc.has_default(1));
+}
+
+namespace {
+/// @brief asserts that enc refuses sample 0 of s for binding with text.
+void assert_check_refuses(
+    TextEncoder &enc,
+    const std::size_t binding,
+    const x::telem::Series &s,
+    const std::string &text
+) {
+    const auto err = enc.check(binding, s, 0);
+    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+    EXPECT_EQ(err.data, text);
+}
+}
+
+/// @brief it should refuse a sample outside the min and max of its field and accept one
+/// at a limit, before the scale and offset come off. A sample that the field cannot
+/// hold fails as encode fails.
+TEST(TextEncoder, CheckLimits) {
+    auto a = at("a", 0);
+    a.min = 0;
+    a.max = 10;
+    auto s = at("s", 1);
+    s.scale = 0.1;
+    s.max = 10;
+    auto enc = ASSERT_NIL_P(TextEncoder::create(message("cmd", {a, s})));
+    ASSERT_NIL(enc.check(0, x::telem::Series(0.0), 0));
+    ASSERT_NIL(enc.check(0, x::telem::Series(10.0), 0));
+    ASSERT_NIL(enc.check(1, x::telem::Series(5.0), 0));
+    assert_check_refuses(
+        enc,
+        0,
+        x::telem::Series(10.5),
+        "message cmd: field a: 10.5 is above the max 10"
+    );
+    assert_check_refuses(
+        enc,
+        0,
+        x::telem::Series(-1.0),
+        "message cmd: field a: -1 is below the min 0"
+    );
+    assert_check_refuses(
+        enc,
+        0,
+        x::telem::Series(std::numeric_limits<double>::infinity()),
+        "message cmd: field a: Infinity is not finite"
+    );
+    auto ints = ASSERT_NIL_P(
+        TextEncoder::create(message("cmd", {a}, "", x::telem::INT64_T))
+    );
+    assert_check_refuses(
+        ints,
+        0,
+        x::telem::Series(std::int64_t{11}),
+        "message cmd: field a: 11 is above the max 10"
+    );
+}
+
+/// @brief it should accept a float32 sample that equals a limit at float32 precision,
+/// and refuse one past it with its exact value.
+TEST(TextEncoder, CheckFloat32Limits) {
+    auto a = at("a", 0);
+    a.max = 0.1;
+    auto b = at("b", 1);
+    b.min = 3.3;
+    auto enc = ASSERT_NIL_P(
+        TextEncoder::create(message("cmd", {a, b}, "", x::telem::FLOAT32_T))
+    );
+    ASSERT_NIL(enc.check(0, x::telem::Series(0.1F), 0));
+    ASSERT_NIL(enc.check(1, x::telem::Series(3.3F), 0));
+    assert_check_refuses(
+        enc,
+        0,
+        x::telem::Series(std::nextafter(0.1F, 1.0F)),
+        "message cmd: field a: 0.10000000894069672 is above the max 0.1"
+    );
+    assert_check_refuses(
+        enc,
+        1,
+        x::telem::Series(std::nextafter(3.3F, 0.0F)),
+        "message cmd: field b: 3.299999713897705 is below the min 3.3"
+    );
 }
 }

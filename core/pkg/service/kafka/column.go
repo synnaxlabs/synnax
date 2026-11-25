@@ -11,8 +11,8 @@ package kafka
 
 import "github.com/synnaxlabs/x/telem"
 
-// column places the samples of one binding in the data its decoder appends to, in
-// arrival order. Its buffers survive across polls.
+// column places the samples of one channel in its data, in arrival order. Its buffers
+// survive across polls.
 type column struct {
 	dataType telem.DataType
 	// density is the size of a sample, zero when samples vary in size.
@@ -39,17 +39,6 @@ func (c *column) sample(data []byte, i int) []byte {
 		start = c.ends[i-1]
 	}
 	return data[start:c.ends[i]]
-}
-
-// end returns the end of the first n samples in the data.
-func (c *column) end(n int) int {
-	if c.density != 0 {
-		return n * c.density
-	}
-	if n == 0 {
-		return 0
-	}
-	return c.ends[n-1]
 }
 
 // appended records that a new sample ends data.

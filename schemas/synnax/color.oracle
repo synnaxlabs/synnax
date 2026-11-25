@@ -81,6 +81,7 @@ Named struct {
         is a color with a name. A record that uses it holds its key, so an edit to the
         color changes each user.
     """
+    @go entry
     @go marshal
     @go migrate
     @pb omit

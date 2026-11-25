@@ -13,18 +13,8 @@ import (
 	"reflect"
 	"slices"
 
-	"github.com/synnaxlabs/gorp"
 	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v4"
-	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
-
-var _ gorp.Entry[Key] = LinePlot{}
-
-func (l LinePlot) GorpKey() Key { return l.Key }
-
-func (l LinePlot) ResourceID() resource.ID {
-	return resource.ID{Type: resource.TypeLineplot, Key: l.Key.String()}
-}
 
 // SameRange returns true if a and b refer to the same saved range or the same window,
 // ignoring the T0 and color of each.
