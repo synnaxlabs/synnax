@@ -281,6 +281,7 @@ protected:
     std::thread server;
 
     void SetUp() override {
+        x::env::unset("SYNNAX_CLIENT_CA_CERT");
         x::env::unset("SYNNAX_CA_CERT");
         this->server = std::thread(
             freighter::grpc::testutil::tls_server,
@@ -339,8 +340,17 @@ TEST_F(ConfigTLS, CACertWithSecureFalseIsError) {
     ASSERT_OCCURRED_AS_P(send(cfg), x::errors::VALIDATION);
 }
 
-/// @brief it should read SYNNAX_CA_CERT when secure and ca_cert are unset.
+/// @brief it should read SYNNAX_CLIENT_CA_CERT when secure and ca_cert are unset.
 TEST_F(ConfigTLS, CACertFromEnvironmentUsesTLS) {
+    x::env::set("SYNNAX_CLIENT_CA_CERT", CA_CERT_PATH);
+    x::defer::defer unset_env([] { x::env::unset("SYNNAX_CLIENT_CA_CERT"); });
+    const synnax::Config cfg;
+    const auto res = ASSERT_NIL_P(send(cfg));
+    EXPECT_EQ(res.payload(), "Read request: ping");
+}
+
+/// @brief it should read the deprecated SYNNAX_CA_CERT when it is set alone.
+TEST_F(ConfigTLS, DeprecatedCACertFromEnvironmentUsesTLS) {
     x::env::set("SYNNAX_CA_CERT", CA_CERT_PATH);
     x::defer::defer unset_env([] { x::env::unset("SYNNAX_CA_CERT"); });
     const synnax::Config cfg;
@@ -348,39 +358,61 @@ TEST_F(ConfigTLS, CACertFromEnvironmentUsesTLS) {
     EXPECT_EQ(res.payload(), "Read request: ping");
 }
 
+/// @brief it should fail every call when SYNNAX_CLIENT_CA_CERT and SYNNAX_CA_CERT
+/// differ.
+TEST_F(ConfigTLS, DifferentEnvironmentCACertsIsError) {
+    x::env::set("SYNNAX_CLIENT_CA_CERT", CA_CERT_PATH);
+    x::env::set("SYNNAX_CA_CERT", "/etc/synnax/ca.pem");
+    x::defer::defer unset_env([] {
+        x::env::unset("SYNNAX_CLIENT_CA_CERT");
+        x::env::unset("SYNNAX_CA_CERT");
+    });
+    ASSERT_OCCURRED_AS_P(synnax::env_ca_cert(), x::errors::VALIDATION);
+    ASSERT_OCCURRED_AS_P(send(synnax::Config{}), x::errors::VALIDATION);
+}
+
+/// @brief it should accept SYNNAX_CLIENT_CA_CERT and SYNNAX_CA_CERT when they match.
+TEST_F(ConfigTLS, MatchingEnvironmentCACertsUsesTLS) {
+    x::env::set("SYNNAX_CLIENT_CA_CERT", CA_CERT_PATH);
+    x::env::set("SYNNAX_CA_CERT", CA_CERT_PATH);
+    x::defer::defer unset_env([] {
+        x::env::unset("SYNNAX_CLIENT_CA_CERT");
+        x::env::unset("SYNNAX_CA_CERT");
+    });
+    EXPECT_EQ(ASSERT_NIL_P(synnax::env_ca_cert()), CA_CERT_PATH);
+    const auto res = ASSERT_NIL_P(send(synnax::Config{}));
+    EXPECT_EQ(res.payload(), "Read request: ping");
+}
+
 /// @brief it should resolve TLS from the fields alone, without the environment.
 TEST(ConfigTLSPure, IgnoresEnvironment) {
-    x::env::set("SYNNAX_CA_CERT", "/etc/synnax/ca.pem");
-    x::defer::defer unset_env([] { x::env::unset("SYNNAX_CA_CERT"); });
+    x::env::set("SYNNAX_CLIENT_CA_CERT", "/etc/synnax/ca.pem");
+    x::defer::defer unset_env([] { x::env::unset("SYNNAX_CLIENT_CA_CERT"); });
     const synnax::Config cfg;
     const auto tls = ASSERT_NIL_P(cfg.tls());
     EXPECT_FALSE(tls.enabled);
 }
 
-/// @brief it should take the CA certificate from the environment only when neither
-/// secure nor ca_cert is set.
+/// @brief it should take the default CA certificate only when neither secure nor
+/// ca_cert is set.
 TEST(ConfigOverrideTLSDefault, AppliesOnlyWhenPairIsUnset) {
-    x::env::set("TEST_TLS_DEFAULT_CA_CERT", "/etc/synnax/env.pem");
-    x::defer::defer unset_env([] { x::env::unset("TEST_TLS_DEFAULT_CA_CERT"); });
-    x::env::Parser env("TEST_TLS_DEFAULT");
     synnax::Config unset;
-    unset.override_tls_default(env);
+    unset.override_tls_default("/etc/synnax/env.pem");
     EXPECT_EQ(unset.ca_cert, "/etc/synnax/env.pem");
     synnax::Config secure;
     secure.secure = false;
-    secure.override_tls_default(env);
+    secure.override_tls_default("/etc/synnax/env.pem");
     EXPECT_EQ(secure.ca_cert, "");
     synnax::Config ca;
     ca.ca_cert = "/etc/synnax/ca.pem";
-    ca.override_tls_default(env);
+    ca.override_tls_default("/etc/synnax/env.pem");
     EXPECT_EQ(ca.ca_cert, "/etc/synnax/ca.pem");
-    ASSERT_NIL(env.error());
 }
 
-/// @brief it should ignore SYNNAX_CA_CERT when the config sets secure.
+/// @brief it should ignore SYNNAX_CLIENT_CA_CERT when the config sets secure.
 TEST_F(ConfigTLS, SecureFromConfigIgnoresEnvironmentCACert) {
-    x::env::set("SYNNAX_CA_CERT", CA_CERT_PATH);
-    x::defer::defer unset_env([] { x::env::unset("SYNNAX_CA_CERT"); });
+    x::env::set("SYNNAX_CLIENT_CA_CERT", CA_CERT_PATH);
+    x::defer::defer unset_env([] { x::env::unset("SYNNAX_CLIENT_CA_CERT"); });
     synnax::Config cfg;
     cfg.secure = false;
     const auto tls = ASSERT_NIL_P(cfg.tls());
