@@ -1113,6 +1113,26 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       );
     });
 
+    it("edits the first enumeration state of a symbol with no active state", async () => {
+      const fault = { ...createState(), key: "fault", name: "Fault" };
+      const symbol = await openPainted({ variant: "static", states: [fault] });
+      byState("Visible");
+      fireEvent.click(await screen.findByLabelText("Visible while Active"));
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () => {
+        const { looks, states } = (await retrieveStored(symbol.key)).data;
+        expect(looks).toEqual([
+          {
+            key: expect.any(String),
+            part: "body",
+            when: { type: "equals", state: "fault", values: [1] },
+            hidden: true,
+          },
+        ]);
+        expect(states).toEqual([fault]);
+      });
+    });
+
     it("moves the preview to the default of a picked state", async () => {
       const enumeration = await client.enumerations.create({
         name: uniqueName("fault"),
