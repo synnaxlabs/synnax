@@ -7,11 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { Synnax } from "@synnaxlabs/client";
+import type { channel, Synnax } from "@synnaxlabs/client";
 import { useAsyncEffect } from "@synnaxlabs/lyra/hooks";
 import { Synnax as PSynnax } from "@synnaxlabs/pluto";
 import { binary, errors } from "@synnaxlabs/x";
 import { useState } from "react";
+
+import { type CommandChannelSpec, planCommandChannels } from "@/platform/task/channels";
 
 /**
  * Plans the channels that deploying gives each source of a task, together, so a form
@@ -51,4 +53,27 @@ export const useChannelPlans = <P>(
     [client, JSON.stringify(keys)],
   );
   return keys.map((key) => plans.get(key));
+};
+
+const NO_NAMES: ReadonlyMap<string, string> = new Map();
+
+/**
+ * Plans the command channels of the write targets of a task, as deploying gives them,
+ * so a form can show them first.
+ *
+ * @param write - The write properties of the device, or undefined before it loads.
+ * @param specs - The command channel of each enabled target, in deploy order.
+ * @returns the name of each channel that deploying creates, by the properties key of
+ * its target, once the plan is done.
+ */
+export const useCommandChannelNames = (
+  write: Record<string, channel.Key> | undefined,
+  specs: CommandChannelSpec[],
+): ReadonlyMap<string, string> => {
+  const [names] = useChannelPlans(
+    [{ write, specs: specs.map(({ suits: _, ...spec }) => spec) }],
+    async (client) =>
+      write == null ? [] : [await planCommandChannels(client, write, specs)],
+  );
+  return names ?? NO_NAMES;
 };

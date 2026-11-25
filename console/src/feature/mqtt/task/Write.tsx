@@ -65,6 +65,31 @@ const Properties = () => <Device.Select />;
 const defaultCommandName = (devName: string, target: SparkplugWriteTarget): string =>
   `${sparkplugChannelName(devName, target)}_cmd`;
 
+/** Keys and names the command channels of a plain target, as deploying does. */
+const plainNaming = (
+  devName: string,
+  { topic }: PlainWriteTarget,
+): ICD.Write.ChannelNaming => {
+  const prefix = namePrefix(devName, topic);
+  return {
+    key: (field) => `${topic}#${field.key}`,
+    name: (field) => ICD.Write.commandName(prefix, field),
+  };
+};
+
+/** What the command channel of a tag needs from deploying. */
+const sparkplugCommand = (
+  devName: string,
+  target: SparkplugWriteTarget,
+): Task.CommandChannelSpec => ({
+  propertiesKey: sparkplugPropertiesKey(target),
+  channel: target.channel,
+  name: primitive.isNonZero(target.name)
+    ? target.name
+    : defaultCommandName(devName, target),
+  dataType: fromSparkplugDataType(target.tagType),
+});
+
 const plainPath = (key: string) =>
   deep.variant(root.config.targets[key], "type", "plain");
 
@@ -77,9 +102,15 @@ interface PaneProps<T> {
   deviceName: string;
 }
 
-const SparkplugTargetPane: FC<PaneProps<SparkplugWriteTarget>> = ({
+interface SparkplugTargetPaneProps extends PaneProps<SparkplugWriteTarget> {
+  /** The name that deploying gives the command channel it creates, once planned. */
+  plannedName?: string;
+}
+
+const SparkplugTargetPane: FC<SparkplugTargetPaneProps> = ({
   path,
   deviceName,
+  plannedName,
 }) => {
   const target = PForm.useFieldValue(path);
   return (
@@ -91,7 +122,8 @@ const SparkplugTargetPane: FC<PaneProps<SparkplugWriteTarget>> = ({
         <Task.ChannelNameField
           channel={target.channel}
           namePath={path.name}
-          defaultName={defaultCommandName(deviceName, target)}
+          defaultName={plannedName ?? defaultCommandName(deviceName, target)}
+          plannedName={plannedName}
           skipped={target.disabled}
         />
         <SparkplugTypeField
@@ -154,11 +186,17 @@ const PlainTargetPane = ({ path, onAddField }: PlainTargetPaneProps): ReactEleme
 
 const TOPIC_INPUT_PROPS = { placeholder: "plant/line1/valve/set" } as const;
 
-interface TargetPaneProps extends PaneProps<WriteTarget> {
+interface TargetPaneProps
+  extends PaneProps<WriteTarget>, Pick<SparkplugTargetPaneProps, "plannedName"> {
   onAddField: () => void;
 }
 
-const TargetPane: FC<TargetPaneProps> = ({ path, deviceName, onAddField }) => {
+const TargetPane: FC<TargetPaneProps> = ({
+  path,
+  deviceName,
+  plannedName,
+  onAddField,
+}) => {
   const type = PForm.useFieldValue(path.type);
   return (
     <Flex.Box y grow empty className={CSS.BE("details", "form")}>
@@ -171,6 +209,7 @@ const TargetPane: FC<TargetPaneProps> = ({ path, deviceName, onAddField }) => {
         <SparkplugTargetPane
           path={deep.variant(path, "type", "sparkplug")}
           deviceName={deviceName}
+          plannedName={plannedName}
         />
       )}
     </Flex.Box>
@@ -285,6 +324,18 @@ const Targets = ({ device, selected, onSelect, expanded, onExpand }: TargetsProp
       expanded,
       onExpand,
     });
+  const specs = targets
+    .filter(({ disabled }) => !disabled)
+    .flatMap((t) =>
+      t.type === "plain"
+        ? ICD.Write.commandChannels(
+            ICD.fieldsOf(formats, t.icd, t.message.message),
+            t.message,
+            plainNaming(device.name, t),
+          ).map(([, spec]) => spec)
+        : [sparkplugCommand(device.name, t)],
+    );
+  const names = Task.useCommandChannelNames(device.properties.write, specs);
 
   const add = async () => {
     if (client == null) throw new DisconnectedError();
@@ -325,6 +376,7 @@ const Targets = ({ device, selected, onSelect, expanded, onExpand }: TargetsProp
   let detailsPath: deep.Target<unknown> | null = null;
   if (target?.type === "plain" && current?.kind === "field") {
     const path = plainPath(target.key).message;
+    const naming = plainNaming(device.name, target);
     const i = target.message.bindings.findIndex(
       ({ field }) => field === current.field.key,
     );
@@ -341,10 +393,7 @@ const Targets = ({ device, selected, onSelect, expanded, onExpand }: TargetsProp
         icdKey={target.icd}
         message={target.message.message}
         field={current.field.key}
-        channelName={ICD.Write.commandName(
-          namePrefix(device.name, target.topic),
-          current.field,
-        )}
+        channelName={names.get(naming.key(current.field)) ?? naming.name(current.field)}
         skipped={target.disabled}
         {...fieldProps(current.field.key)}
       />
@@ -357,6 +406,11 @@ const Targets = ({ device, selected, onSelect, expanded, onExpand }: TargetsProp
         key={target.key}
         path={root.config.targets[target.key]}
         deviceName={device.name}
+        plannedName={
+          target.type === "sparkplug"
+            ? names.get(sparkplugPropertiesKey(target))
+            : undefined
+        }
         onAddField={() => addField(target.key)}
       />
     );
@@ -441,24 +495,18 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
     for (const target of config.targets) {
       if (target.disabled) continue;
       if (target.type === "plain") {
-        const prefix = namePrefix(dev.name, target.topic);
-        await ICD.Write.configureChannels(client, dev.properties.write, target, {
-          key: (field) => `${target.topic}#${field.key}`,
-          name: (field) => ICD.Write.commandName(prefix, field),
-        });
+        await ICD.Write.configureChannels(
+          client,
+          dev.properties.write,
+          target,
+          plainNaming(dev.name, target),
+        );
         continue;
       }
       target.channel = await Task.configureCommandChannel(
         client,
         dev.properties.write,
-        {
-          propertiesKey: sparkplugPropertiesKey(target),
-          channel: target.channel,
-          name: primitive.isNonZero(target.name)
-            ? target.name
-            : defaultCommandName(dev.name, target),
-          dataType: fromSparkplugDataType(target.tagType),
-        },
+        sparkplugCommand(dev.name, target),
       );
     }
   } finally {

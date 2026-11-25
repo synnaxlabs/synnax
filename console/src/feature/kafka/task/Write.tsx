@@ -276,8 +276,17 @@ const commandPrefix = (
 /** The key of the command channel of a target's field in the device's write record. */
 const writeKey = (
   { topic, recordKey }: Pick<WriteTarget, "topic" | "recordKey">,
-  field: icd.JSONField,
+  field: Pick<icd.JSONField, "key">,
 ): string => `${topic}#${recordKey}#${field.key}`;
+
+/** Keys and names the command channels of a target, as deploying does. */
+const namingOf = (deviceName: string, target: WriteTarget): ICD.Write.ChannelNaming => {
+  const prefix = commandPrefix(deviceName, target);
+  return {
+    key: (field) => writeKey(target, field),
+    name: (field) => ICD.Write.commandName(prefix, field),
+  };
+};
 
 /**
  * A cleared pointer is omitted from the record instead of placed at "". A string,
@@ -317,11 +326,12 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
   try {
     for (const target of config.targets) {
       if (target.disabled) continue;
-      const prefix = commandPrefix(dev.name, target);
-      await ICD.Write.configureChannels(client, dev.properties.write, target, {
-        key: (field) => writeKey(target, field),
-        name: (field) => ICD.Write.commandName(prefix, field),
-      });
+      await ICD.Write.configureChannels(
+        client,
+        dev.properties.write,
+        target,
+        namingOf(dev.name, target),
+      );
     }
   } finally {
     await PlatformDevice.setProperties(client, dev, before, Device.SCHEMAS);
@@ -491,6 +501,16 @@ const Targets = ({ device, selected, onSelect, expanded, onExpand }: TargetsProp
   });
   const target =
     current == null ? undefined : all.find(({ key }) => key === current.target);
+  const specs = all
+    .filter(({ disabled }) => !disabled)
+    .flatMap((t) =>
+      ICD.Write.commandChannels(
+        ICD.fieldsOf(formats, t.icd, t.message.message),
+        t.message,
+        namingOf(device.name, t),
+      ).map(([, spec]) => spec),
+    );
+  const names = Task.useCommandChannelNames(device.properties.write, specs);
 
   const add = async () => {
     if (client == null) throw new DisconnectedError();
@@ -551,6 +571,7 @@ const Targets = ({ device, selected, onSelect, expanded, onExpand }: TargetsProp
       ({ field }) => field === current.field.key,
     );
     detailsPath = i < 0 ? path.message : path.message.bindings[i];
+    const naming = namingOf(device.name, target);
     title = (
       <Text.Text level="p" weight={500} overflow="fade">
         {current.field.name}
@@ -563,10 +584,7 @@ const Targets = ({ device, selected, onSelect, expanded, onExpand }: TargetsProp
         icdKey={target.icd}
         message={target.message.message}
         field={current.field.key}
-        channelName={ICD.Write.commandName(
-          commandPrefix(device.name, target),
-          current.field,
-        )}
+        channelName={names.get(naming.key(current.field)) ?? naming.name(current.field)}
         skipped={target.disabled}
         {...fieldProps(current.field.key)}
       />
