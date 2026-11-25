@@ -205,4 +205,13 @@ TEST(WaitWarningTest, WarnsAtOnceForALicense) {
         "Waiting for a license"
     );
 }
+
+/// @brief it should clear a license warning as soon as a run reaches the Core.
+TEST(WaitWarningTest, ClearsALicenseWarningOnReach) {
+    WaitWarning w(x::telem::SECOND * 30);
+    const auto t0 = x::telem::TimeStamp(x::telem::SECOND);
+    ASSERT_FALSE(w.failed(synnax::errors::LICENSE_MISSING, t0).empty());
+    const auto reached = t0 + x::telem::MILLISECOND;
+    ASSERT_TRUE(w.reached(reached).at(reached).empty());
+}
 }

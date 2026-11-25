@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <atomic>
+#include <future>
 #include <thread>
 
 #include "gtest/gtest.h"
@@ -416,6 +418,32 @@ TEST(TestBackgroundWarning, ShowsWhileRunning) {
     EXPECT_EQ(shown.description, BACKGROUND.description);
     EXPECT_TRUE(shown.details.running);
     EXPECT_EQ(shown.details.cmd, driver::task::NO_COMMAND);
+}
+
+/// @brief it should change the background warning while a status write blocks.
+TEST(TestBackgroundWarning, ChangesWhileAWriteBlocks) {
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    std::atomic blocking = false;
+    std::promise<void> release;
+    const auto released = release.get_future().share();
+    std::atomic writing = false;
+    ctx->on_set_status = [&] {
+        if (!blocking) return;
+        writing = true;
+        released.wait();
+    };
+    const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
+    StatusHandler handler(ctx, task, 10 * x::telem::MILLISECOND);
+    start(handler);
+    blocking = true;
+    handler.set_background_warning(BACKGROUND);
+    ASSERT_EVENTUALLY_TRUE(writing.load());
+    auto change = std::async(std::launch::async, [&] {
+        handler.set_background_warning({});
+    });
+    const auto status = change.wait_for(std::chrono::seconds(1));
+    release.set_value();
+    ASSERT_EQ(status, std::future_status::ready);
 }
 
 /// @brief it should not show a background warning while the task is stopped.

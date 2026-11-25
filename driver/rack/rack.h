@@ -350,12 +350,11 @@ inline bool waits_out(const x::errors::Error &err, const bool reconnecting) {
 /// @brief the warning that the rack status shows while its task manager waits for the
 /// Core. Not safe for concurrent use.
 class WaitWarning {
-    x::telem::TimeSpan delay;
     common::CoreWait wait;
     task::RackWarning warning;
 
 public:
-    explicit WaitWarning(const x::telem::TimeSpan delay): delay(delay), wait(delay) {}
+    explicit WaitWarning(const x::telem::TimeSpan delay): wait(delay) {}
 
     /// @returns the warning to show after a run of the task manager failed with err at
     /// now.
@@ -368,9 +367,10 @@ public:
 
     /// @returns the warning to show after a run reached the Core at now. It clears once
     /// the run lasts the delay, so a run that fails sooner keeps it without a flicker.
+    /// A license warning clears at once.
     task::RackWarning reached(const x::telem::TimeStamp now) {
         this->wait.opened(now);
-        this->warning.clears_at = now + this->delay;
+        this->warning.clears_at = this->wait.ends_at();
         return this->warning;
     }
 };

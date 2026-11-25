@@ -1539,4 +1539,65 @@ TEST(TestCommonWriteTask, WarnsWhileCommandStreamerWaitsForALicense) {
     );
     ASSERT_TRUE(write_task.stop("stop", true));
 }
+
+/// @brief it should keep the Core warning of a task with no state channels while its
+/// command streamer opens and then fails again before the delay.
+TEST(TestCommonWriteTask, KeepsCoreWarningThroughShortOpens) {
+    x::breaker::Breaker cancel;
+    auto sink = std::make_unique<MockSink>(
+        x::telem::HERTZ * 100,
+        std::vector<Sink::Output>{{1, std::nullopt}},
+        false,
+        std::make_shared<x::sync::List<x::telem::Frame>>(),
+        std::make_shared<std::vector<x::errors::Error>>()
+    );
+    // Each streamer opens, then loses the Core at its first read.
+    auto streamer_factory = std::make_shared<pipeline::testutil::StreamerFactory>(
+        std::vector<x::errors::Error>{},
+        std::make_shared<std::vector<pipeline::testutil::StreamerConfig>>(
+            std::vector<pipeline::testutil::StreamerConfig>{
+                {std::make_shared<std::vector<x::telem::Frame>>(),
+                 std::make_shared<std::vector<x::errors::Error>>(
+                     std::vector{freighter::UNREACHABLE}
+                 ),
+                 freighter::UNREACHABLE},
+            }
+        )
+    );
+    synnax::task::Task task;
+    task.key = x::uuid::create();
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    ctx->warning_delay = x::telem::MILLISECOND * 50;
+    WriteTask write_task(
+        task,
+        ctx,
+        x::breaker::Config{
+            .name = "flap",
+            .base_interval = x::telem::MILLISECOND * 5,
+            .max_retries = x::breaker::RETRY_INFINITELY,
+            .scale = 1,
+        },
+        std::move(sink),
+        std::make_shared<pipeline::testutil::WriterFactory>(),
+        streamer_factory
+    );
+    ASSERT_TRUE(write_task.start("cmd", cancel));
+    const auto first_warning = [&]() -> std::optional<size_t> {
+        const auto statuses = ctx->snapshot();
+        for (size_t i = 0; i < statuses.size(); i++)
+            if (statuses[i].message == "Failed to reach the Core") return i;
+        return std::nullopt;
+    };
+    ASSERT_EVENTUALLY_TRUE_WITH_TIMEOUT(
+        first_warning().has_value(),
+        std::chrono::seconds(5),
+        std::chrono::milliseconds(10)
+    );
+    // Longer than the status window, so a cleared warning would go out.
+    std::this_thread::sleep_for(std::chrono::milliseconds(1500));
+    const auto statuses = ctx->snapshot();
+    for (auto i = *first_warning(); i < statuses.size(); i++)
+        ASSERT_EQ(statuses[i].message, "Failed to reach the Core");
+    ASSERT_TRUE(write_task.stop("stop", true));
+}
 }

@@ -296,15 +296,10 @@ class WriteTask final : public driver::task::Task {
 
         /// @brief records that the command streamer reached the Core.
         void cmd_opened() {
-            this->p.wait_opened(this->p.cmd_wait);
-            // Only the state loop clears a wait after the delay, so without one the
-            // open clears it.
-            if (this->internal->writer_config().channels.empty())
-                this->p.clear_wait(this->p.cmd_wait_warning);
+            this->p.wait_opened(this->p.cmd_wait, this->p.cmd_wait_warning);
         }
 
         x::errors::Error write(x::telem::Frame &frame) override {
-            this->p.clear_recovered();
             if (frame.empty()) return x::errors::NIL;
             auto err = this->internal->write(frame);
             const auto warning = this->internal->take_warning();
@@ -338,7 +333,7 @@ class WriteTask final : public driver::task::Task {
         explicit StateSource(WriteTask &p): p(p) {}
 
         void writer_opened() override {
-            this->p.wait_opened(this->p.state_wait);
+            this->p.wait_opened(this->p.state_wait, this->p.state_wait_warning);
             std::lock_guard lock(this->p.state_mu);
             this->writer_open = true;
         }
@@ -364,7 +359,6 @@ class WriteTask final : public driver::task::Task {
             x::telem::Frame &fr,
             pipeline::Authorities &authorities
         ) override {
-            this->p.clear_recovered();
             return this->p.sink->internal->read(breaker, fr, authorities);
         }
 
@@ -409,17 +403,17 @@ class WriteTask final : public driver::task::Task {
         this->show_wait_locked();
     }
 
-    /// @brief records that the writer or streamer of one pipeline opened.
-    void wait_opened(CoreWait &wait) {
-        std::lock_guard lock(this->wait_mu);
-        wait.opened(x::telem::TimeStamp::now());
-    }
-
-    /// @brief clears the warning of one pipeline's wait.
-    void clear_wait(Warning &slot) {
-        std::lock_guard lock(this->wait_mu);
-        slot = {};
-        this->show_wait_locked();
+    /// @brief records that the writer or streamer of one pipeline reached the Core,
+    /// and has the notifier clear its warning once the wait ends.
+    void wait_opened(CoreWait &wait, const Warning &slot) {
+        x::telem::TimeStamp ends;
+        {
+            std::lock_guard lock(this->wait_mu);
+            wait.opened(x::telem::TimeStamp::now());
+            if (slot.empty()) return;
+            ends = wait.ends_at();
+        }
+        this->recheck_waits_at(ends);
     }
 
     /// @brief forgets both waits and their warning before the pipelines start.
@@ -432,14 +426,32 @@ class WriteTask final : public driver::task::Task {
         this->show_wait_locked();
     }
 
-    /// @brief clears the warning of each wait that its pipeline has recovered from.
+    /// @brief clears the warning of each wait that its pipeline has recovered from,
+    /// and has the notifier check again when the next open wait ends.
     void clear_recovered() {
-        std::lock_guard lock(this->wait_mu);
-        if (this->cmd_wait_warning.empty() && this->state_wait_warning.empty()) return;
-        const auto now = x::telem::TimeStamp::now();
-        if (this->cmd_wait.recovered(now)) this->cmd_wait_warning = {};
-        if (this->state_wait.recovered(now)) this->state_wait_warning = {};
-        this->show_wait_locked();
+        auto next = x::telem::TimeStamp(0);
+        {
+            std::lock_guard lock(this->wait_mu);
+            const auto now = x::telem::TimeStamp::now();
+            bool changed = false;
+            for (auto [wait, slot]: {
+                     std::pair{&this->cmd_wait, &this->cmd_wait_warning},
+                     std::pair{&this->state_wait, &this->state_wait_warning},
+                 }) {
+                if (slot->empty()) continue;
+                if (wait->recovered(now)) {
+                    *slot = {};
+                    changed = true;
+                } else if (
+                    const auto ends = wait->ends_at();
+                    ends != x::telem::TimeStamp(0) &&
+                    (next == x::telem::TimeStamp(0) || ends < next)
+                )
+                    next = ends;
+            }
+            if (changed) this->show_wait_locked();
+        }
+        if (next != x::telem::TimeStamp(0)) this->recheck_waits_at(next);
     }
     /// @brief true from a start until the command streamer opens or fails to open.
     bool opening = false;
@@ -456,6 +468,9 @@ class WriteTask final : public driver::task::Task {
     std::condition_variable notice_cv;
     /// @brief true from a warning_changed() of the sink until the notifier shows it.
     bool notice_pending = false;
+    /// @brief when the notifier next clears the warning of each recovered wait. Zero
+    /// if it has none to clear.
+    x::telem::TimeStamp recheck_at = x::telem::TimeStamp(0);
     /// @brief true once the task is destroyed.
     bool notice_closing = false;
     /// @brief shows the held warning of the sink after a change. The thread that
@@ -520,6 +535,22 @@ class WriteTask final : public driver::task::Task {
         std::lock_guard lock(this->notice_mu);
         if (this->notice_closing) return;
         this->notice_pending = true;
+        this->wake_notifier();
+    }
+
+    /// @brief asks the notifier to clear the warning of each recovered wait at at, or
+    /// at an earlier time already asked for. Thread-safe.
+    void recheck_waits_at(const x::telem::TimeStamp at) {
+        std::lock_guard lock(this->notice_mu);
+        if (this->notice_closing) return;
+        if (this->recheck_at != x::telem::TimeStamp(0) && this->recheck_at <= at)
+            return;
+        this->recheck_at = at;
+        this->wake_notifier();
+    }
+
+    /// @brief starts the notifier on first use and wakes it. Requires notice_mu.
+    void wake_notifier() {
         if (!this->notifier.joinable())
             this->notifier = std::thread(&WriteTask::run_notifier, this);
         this->notice_cv.notify_one();
@@ -528,13 +559,26 @@ class WriteTask final : public driver::task::Task {
     void run_notifier() {
         std::unique_lock lock(this->notice_mu);
         while (true) {
-            this->notice_cv.wait(lock, [this] {
-                return this->notice_pending || this->notice_closing;
-            });
+            const auto target = this->recheck_at;
+            const auto woken = [this, target] {
+                return this->notice_pending || this->notice_closing ||
+                       this->recheck_at != target;
+            };
+            if (target == x::telem::TimeStamp(0))
+                this->notice_cv.wait(lock, woken);
+            else if (
+                const auto left = target - x::telem::TimeStamp::now();
+                left > x::telem::TimeSpan::ZERO()
+            )
+                this->notice_cv.wait_for(lock, left.chrono(), woken);
             if (this->notice_closing) return;
-            this->notice_pending = false;
+            const bool show = std::exchange(this->notice_pending, false);
+            const bool recheck = this->recheck_at != x::telem::TimeStamp(0) &&
+                                 x::telem::TimeStamp::now() >= this->recheck_at;
+            if (recheck) this->recheck_at = x::telem::TimeStamp(0);
             lock.unlock();
-            {
+            if (recheck) this->clear_recovered();
+            if (show) {
                 // The sink starts and stops under state_mu. opened() shows the held
                 // warning once the start is answered.
                 std::lock_guard state_lock(this->state_mu);

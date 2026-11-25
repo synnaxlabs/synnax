@@ -66,7 +66,8 @@ protected:
         const auto kind = synnax::errors::classify(err);
         const bool retries = kind == synnax::errors::Kind::TRANSIENT ||
                              (resendable && kind == synnax::errors::Kind::INTERRUPTED);
-        if (!retries) return false;
+        // A stopped pipeline exits, so it shows no wait.
+        if (!retries || !this->breaker.running()) return false;
         this->waiting(err);
         return this->breaker.wait_unlimited(err);
     }

@@ -13,6 +13,7 @@
 #include <atomic>
 #include <condition_variable>
 #include <cstdint>
+#include <functional>
 #include <list>
 #include <memory>
 #include <mutex>
@@ -57,6 +58,8 @@ struct RackWarning {
 
 /// @brief how long a task or the rack retries a Core error before it shows a warning.
 const x::telem::TimeSpan DEFAULT_CORE_WARNING_DELAY = 30 * x::telem::SECOND;
+/// @brief the longest Core warning delay that the Driver accepts.
+const x::telem::TimeSpan MAX_CORE_WARNING_DELAY = x::telem::HOUR;
 /// @brief interface for a task that can be executed by the driver. Tasks should be
 /// constructed by an @see Factory.
 class Task {
@@ -157,6 +160,9 @@ public:
     std::vector<synnax::task::Status> statuses;
     /// @brief what core_warning_delay returns.
     x::telem::TimeSpan warning_delay = DEFAULT_CORE_WARNING_DELAY;
+    /// @brief runs at the start of each set_status, such as to block it like a slow
+    /// Core. Set it before any status is sent.
+    std::function<void()> on_set_status;
 
     explicit MockContext(const std::shared_ptr<synnax::Synnax> &client):
         Context(client) {}
@@ -164,6 +170,7 @@ public:
     x::telem::TimeSpan core_warning_delay() override { return this->warning_delay; }
 
     void set_status(synnax::task::Status &status) override {
+        if (this->on_set_status) this->on_set_status();
         mu.lock();
         statuses.push_back(status);
         mu.unlock();
@@ -452,6 +459,12 @@ struct ManagerConfig {
         this->core_warning_delay = x::telem::TimeSpan(
             static_cast<int64_t>(core_warning_delay_s * 1e9)
         );
+        if (this->core_warning_delay <= x::telem::TimeSpan::ZERO() ||
+            this->core_warning_delay > MAX_CORE_WARNING_DELAY)
+            p.field_err(
+                "core_warning_delay",
+                "must be more than 0 and at most 3600 seconds"
+            );
     }
 
     friend std::ostream &operator<<(std::ostream &os, const ManagerConfig &cfg) {

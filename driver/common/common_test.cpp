@@ -103,4 +103,33 @@ TEST(CoreWait, ForgetsTheWaitOnReset) {
     wait.reset();
     ASSERT_TRUE(wait.failed(freighter::TRANSPORT, t0 + x::telem::SECOND * 2).empty());
 }
+
+/// @brief it should describe both warnings with the error text as one sentence.
+TEST(CoreWarning, DescribesTheErrorTextAsASentence) {
+    const auto license = core_warning(
+        x::errors::Error(synnax::errors::LICENSE_MISSING, "no license."),
+        x::telem::TimeSpan::ZERO(),
+        x::telem::SECOND
+    );
+    ASSERT_EQ(license.description.find('['), std::string::npos);
+    ASSERT_EQ(license.description.find(".."), std::string::npos);
+    ASSERT_NE(license.description.find("no license."), std::string::npos);
+    const auto core = core_warning(
+        x::errors::Error(freighter::TRANSPORT, "connection reset"),
+        x::telem::SECOND,
+        x::telem::SECOND
+    );
+    ASSERT_EQ(core.description.find('['), std::string::npos);
+    ASSERT_EQ(core.description.rfind("connection reset. ", 0), 0);
+}
+
+/// @brief it should end a license wait as soon as a request opens.
+TEST(CoreWait, EndsALicenseWaitOnOpen) {
+    CoreWait wait(x::telem::SECOND * 30);
+    const auto t0 = x::telem::TimeStamp(x::telem::SECOND);
+    ASSERT_FALSE(wait.failed(synnax::errors::LICENSE_MISSING, t0).empty());
+    const auto opened = t0 + x::telem::MILLISECOND;
+    wait.opened(opened);
+    ASSERT_TRUE(wait.recovered(opened));
+}
 }
