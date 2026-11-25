@@ -33,6 +33,7 @@ import (
 	channeltestutil "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/ethercat"
 	"github.com/synnaxlabs/synnax/pkg/service/http"
+	httpv5 "github.com/synnaxlabs/synnax/pkg/service/http/versions/v5"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
@@ -115,6 +116,12 @@ var legacyICDs = set.New("http_read")
 // legacyStaged holds each task type whose ladder stages the fields of each endpoint in
 // inline, which the stored config does not hold.
 var legacyStaged = set.New("http_read", "http_write")
+
+// legacyKVStaged maps each task type whose import stages the inline fields of a config
+// in KV to the staging KV key of the config with a key.
+var legacyKVStaged = map[string]func(uuid.UUID) []byte{
+	"http_write": httpv5.StagedWriteFieldsKVKey,
+}
 
 // legacyReimportErrors holds, for each fixture whose current shape the legacy rewrite
 // cannot read, the error that normalizing an unversioned copy of its stored config
@@ -761,6 +768,10 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 			}
 			revealed := reveal(ctx, imported)
 			expectSubset("config", map[string]any(expected), revealed)
+			if stagedKey, ok := legacyKVStaged[env.Type]; ok {
+				_, closer := MustSucceed2(db.Get(stagedKey(imported.Key)))
+				Expect(closer.Close()).To(Succeed())
+			}
 
 			// The rewrite and the ladder must leave their own output unchanged. An
 			// unversioned copy of a config reads each secret key as a plain value, and
