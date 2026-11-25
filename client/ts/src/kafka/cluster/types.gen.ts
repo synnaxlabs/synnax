@@ -23,7 +23,7 @@ import { status } from "@/status";
 /** Broker is a bootstrap broker of a cluster. */
 export const brokerZ = z.object({
   /** host is the hostname or IP address of the broker. */
-  host: z.string().min(1, "host is required"),
+  host: z.string().min(1, "Host is required"),
   /** port is the TCP port. Absent takes 9092. */
   port: zod.uint16.min(1).optional(),
 });
@@ -32,29 +32,29 @@ export interface Broker extends z.infer<typeof brokerZ> {}
 /** Credentials carries the user name and password of a SASL mechanism. */
 export const credentialsZ = z.object({
   /** username is the user name to authenticate with. */
-  username: z.string().min(1, "username is required"),
+  username: z.string().min(1, "Username is required"),
   /** password is the secret that holds the password. */
-  password: secret.keyZ.min(1, "password is required"),
+  password: secret.keyZ.min(1, "Password is required"),
 });
 export interface Credentials extends z.infer<typeof credentialsZ> {}
 
 /** Read binds a value in the records of a topic to a channel. */
 export const readZ = z.object({
   /** topic is the topic to consume. */
-  topic: z.string().min(1, "topic is required"),
+  topic: z.string().min(1, "Topic is required"),
   /**
    * recordKey is the Kafka key of the records read here, never empty. Absent reads only
    * the records with no key or an empty key.
    */
   recordKey: z.string().min(1).optional(),
   /** message is the ICD message that the values of the records hold. */
-  message: icd.messageKeyZ.min(1, "message is required"),
+  message: icd.messageKeyZ.min(1, "Message is required"),
   /** pointer is the JSON Pointer to the value in the message. */
   pointer: z.string().default(""),
   /** index is the index channel of the channel. */
-  index: channel.keyZ.refine((v) => v !== 0, "index is required"),
+  index: channel.keyZ.refine((v) => v !== 0, "Index is required"),
   /** channel is the channel that holds the samples of the value. */
-  channel: channel.keyZ.refine((v) => v !== 0, "channel is required"),
+  channel: channel.keyZ.refine((v) => v !== 0, "Channel is required"),
 });
 export interface Read extends z.infer<typeof readZ> {}
 
@@ -170,9 +170,9 @@ export const clusterZ = z.object({
   /** rack is the key of the rack that connects to the cluster. */
   rack: rack.keyZ,
   /** name is a human-readable name for the cluster. */
-  name: z.string().min(1, "name is required"),
+  name: z.string().min(1, "Name is required"),
   /** brokers are the bootstrap brokers of the cluster. A cluster has at least one. */
-  brokers: brokerZ.array().default(() => []),
+  brokers: brokerZ.array().min(1, "brokers is required"),
   /** transport is the transport that the Core connects to the brokers over. */
   transport: transportZ.prefault({ type: "plaintext" }),
   /** auth is the authentication that the brokers require. */

@@ -294,6 +294,7 @@ class TestKafkaClusterResource:
         "change",
         [
             {"name": ""},
+            {"brokers": []},
             {"brokers": [{"host": ""}]},
             {"brokers": [{"host": "kafka.example.com", "port": 0}]},
             {"transport": {"type": "ssl"}},
@@ -314,9 +315,9 @@ class TestKafkaClusterResource:
         ],
     )
     def test_rejects_an_invalid_cluster(self, change: dict[str, Any]) -> None:
-        """Should reject an empty name or host, a zero port, an unknown transport, a
-        plaintext or absent password, a read with no message, and an empty record
-        key."""
+        """Should reject an empty name, broker list, or host, a zero port, an unknown
+        transport, a plaintext or absent password, a read with no message, and an
+        empty record key."""
         with pytest.raises(ValidationError):
             sy.kafka.cluster.Cluster.model_validate({**self.CLUSTER, **change})
 
@@ -337,6 +338,11 @@ class TestKafkaClusterResource:
             }
         )
         assert cluster.reads[0].record_key == "pump"
+
+    def test_requires_brokers(self) -> None:
+        """Should reject a cluster with no brokers field."""
+        with pytest.raises(ValidationError):
+            sy.kafka.cluster.Cluster.model_validate({"rack": 1, "name": "Plant"})
 
     def test_resource_id(self) -> None:
         """Should name the cluster by its key under the kafka_cluster type."""

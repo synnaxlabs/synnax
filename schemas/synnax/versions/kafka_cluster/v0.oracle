@@ -162,7 +162,8 @@ Cluster struct {
         @go marshal omit
     }
 
-    @doc value  "is a Kafka cluster that a rack connects to."
+    @doc value     "is a Kafka cluster that a rack connects to."
     @go marshal
     @go migrate
+    @resource type "kafka_cluster"
 }

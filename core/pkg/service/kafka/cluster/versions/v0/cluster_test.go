@@ -105,6 +105,10 @@ var _ = Describe("Cluster", func() {
 			))
 		},
 		Entry("no name", func(c *v0.Cluster) { c.Name = "" }, "name"),
+		Entry("no brokers", func(c *v0.Cluster) { c.Brokers = nil }, "brokers"),
+		Entry("an empty broker list", func(c *v0.Cluster) {
+			c.Brokers = []v0.Broker{}
+		}, "brokers"),
 		Entry("a broker with no host", func(c *v0.Cluster) {
 			c.Brokers = []v0.Broker{{}}
 		}, "host"),

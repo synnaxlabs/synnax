@@ -64,6 +64,8 @@ describe("clusterZ", () => {
 
   const INVALID: [string, Record<string, unknown>][] = [
     ["an empty name", { name: "" }],
+    ["no brokers", { brokers: undefined }],
+    ["an empty broker list", { brokers: [] }],
     ["an empty host", { brokers: [{ host: "" }] }],
     ["port 0", { brokers: [{ host: "kafka.example.com", port: 0 }] }],
     ["an unknown transport", { transport: { type: "ssl" } }],

@@ -500,6 +500,7 @@ func (c *Cluster) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 func (c Cluster) Validate() error {
 	v := validate.New("Cluster")
 	v.NotEmptyString("name", c.Name)
+	v.NotEmptySlice("brokers", c.Brokers)
 	for i := range c.Brokers {
 		v.Exec(func() error { return validate.PathedError(c.Brokers[i].Validate(), "brokers", strconv.Itoa(i)) })
 	}

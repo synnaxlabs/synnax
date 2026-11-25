@@ -159,7 +159,7 @@ class Cluster(BaseModel):
     key: Key = Field(default_factory=uuid4)
     rack: rack_.Key = Field(ge=0, le=4294967295)
     name: str = Field(min_length=1)
-    brokers: list[Broker] = Field(default_factory=list)
+    brokers: list[Broker] = Field(min_length=1)
     transport: Transport = Field(
         default_factory=lambda: PlaintextTransport(type="plaintext")
     )
