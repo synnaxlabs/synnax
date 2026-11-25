@@ -189,6 +189,86 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					Expect(i.Close()).To(Succeed())
 				})
 
+				It("Should not go back on Next after a write crosses its start", func(
+					ctx SpecContext,
+				) {
+					var (
+						head     = (20 * telem.SecondTS).Range(25 * telem.SecondTS)
+						crossing = (15 * telem.SecondTS).Range(25 * telem.SecondTS)
+					)
+					i := DeferClose(
+						db.OpenIterator(domain.IterRange(telem.TimeRangeMax)),
+					)
+					Expect(i.SeekGE(ctx, first.Start)).To(BeTrue())
+					Expect(db.Delete(
+						ctx,
+						head,
+						fixedOffsetAndTimeStamp(0, head.Start),
+						fixedOffsetAndTimeStamp(1, head.End),
+					)).To(Succeed())
+					Expect(
+						testutil.WriteDomain(ctx, db, crossing, []byte{4}),
+					).To(Succeed())
+					Expect(i.Next()).To(BeTrue())
+					Expect(i.TimeRange()).To(Equal(second))
+				})
+
+				It("Should not go forward on Prev after a write crosses its end", func(
+					ctx SpecContext,
+				) {
+					var (
+						tail     = (25 * telem.SecondTS).Range(30 * telem.SecondTS)
+						crossing = (25 * telem.SecondTS).Range(35 * telem.SecondTS)
+					)
+					i := DeferClose(
+						db.OpenIterator(domain.IterRange(telem.TimeRangeMax)),
+					)
+					Expect(i.SeekGE(ctx, first.Start)).To(BeTrue())
+					Expect(db.Delete(
+						ctx,
+						tail,
+						fixedOffsetAndTimeStamp(1, tail.Start),
+						fixedOffsetAndTimeStamp(2, tail.End),
+					)).To(Succeed())
+					Expect(
+						testutil.WriteDomain(ctx, db, crossing, []byte{4}),
+					).To(Succeed())
+					Expect(i.Prev()).To(BeFalse())
+				})
+
+				Describe(
+					"A write inside its domain after a delete of all of it",
+					func() {
+						inside := (22 * telem.SecondTS).Range(28 * telem.SecondTS)
+						var i *domain.Iterator
+						BeforeEach(func(ctx SpecContext) {
+							i = DeferClose(
+								db.OpenIterator(domain.IterRange(telem.TimeRangeMax)),
+							)
+							Expect(i.SeekGE(ctx, first.Start)).To(BeTrue())
+							Expect(db.Delete(
+								ctx,
+								first,
+								fixedOffsetAndTimeStamp(0, first.Start),
+								fixedOffsetAndTimeStamp(2, first.End),
+							)).To(Succeed())
+							Expect(
+								testutil.WriteDomain(ctx, db, inside, []byte{4}),
+							).To(Succeed())
+						})
+
+						It("Should visit the write on Next", func() {
+							Expect(i.Next()).To(BeTrue())
+							Expect(i.TimeRange()).To(Equal(inside))
+						})
+
+						It("Should visit the write on Prev", func() {
+							Expect(i.Prev()).To(BeTrue())
+							Expect(i.TimeRange()).To(Equal(inside))
+						})
+					},
+				)
+
 				Describe("A write inside its domain after a delete", func() {
 					var (
 						wide = (60 * telem.SecondTS).SpanRange(10 * telem.Second)
