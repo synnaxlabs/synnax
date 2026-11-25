@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -468,7 +469,8 @@ var _ = Describe("Graph", func() {
 						false,
 					)
 				})).To(Succeed())
-				Expect(g.Add(ctx, outer)).ToNot(Succeed())
+				_, invalid := errors.AsType[*diagnostics.Diagnostics](g.Add(ctx, outer))
+				Expect(invalid).To(BeTrue())
 				Expect(g.CalculatedKeys()).To(BeEmpty())
 				examined := g.Examined()
 				Expect(examined).To(HaveKey(outer.Key()))

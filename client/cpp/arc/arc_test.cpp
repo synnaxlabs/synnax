@@ -461,5 +461,6 @@ TEST(TestArc, testCalculations) {
     ASSERT_EQ(calcs.calculations[1].channel, outer.key);
     for (const auto key: {outer.key, inner.key, base_ch.key})
         ASSERT_NE(std::ranges::find(calcs.channels, key), calcs.channels.end());
+    ASSERT_TRUE(calcs.omitted.empty());
 }
 }
