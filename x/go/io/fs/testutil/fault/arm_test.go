@@ -136,6 +136,34 @@ var _ = Describe("Unsynced", func() {
 		image := MustSucceed(disk.Crash(fault.CrashConfig{EntriesOrdered: true}))
 		Expect(image.Exists("trash/x/f")).To(BeTrue())
 	})
+
+	It("Should keep the changes under a directory that only a pending change links",
+		func() {
+			disk := MustSucceed(fault.New(fault.Config{}))
+			MustSucceed(disk.Sub("a"))
+			MustSucceed(disk.Sub("tmp"))
+			Expect(disk.SyncDir("")).To(Succeed())
+			MustSucceed(disk.Sub("a/y"))
+			f := MustSucceed(disk.Open("a/y/f", os.O_CREATE|os.O_RDWR))
+			Expect(f.Close()).To(Succeed())
+			Expect(disk.Remove("a/y")).To(Succeed())
+			// The durable removal of tmp drops the changes that no crash can show. The
+			// pending create of y in a can still show y.
+			Expect(disk.Remove("tmp")).To(Succeed())
+			Expect(disk.SyncDir("")).To(Succeed())
+			shown := false
+			for runKey := range uint64(64) {
+				image := MustSucceed(disk.Crash(fault.CrashConfig{
+					RunKey:            runKey,
+					EntrySurvivalRate: 0.5,
+				}))
+				if MustSucceed(image.Exists("a/y/f")) {
+					shown = true
+					break
+				}
+			}
+			Expect(shown).To(BeTrue(), "no crash image shows a/y/f")
+		})
 })
 
 var _ = Describe("ReadFaultAt", func() {
