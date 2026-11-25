@@ -245,6 +245,10 @@ class WriteEndpoint(BaseModel):
         path: Is the URL path appended to the device's base URL.
         headers: Contains additional headers merged into the request.
         query_params: Contains query parameters appended to the request URL.
+        icd: Is the key of the ICD that holds the message of the endpoint. Absent when
+            the endpoint sends no message.
+        message: Is the message whose document is the request body. A command on any
+            bound channel sends one request.
         channel: Is the command channel whose writes trigger this endpoint.
         fields: Contains additional static or generated body fields.
     """
@@ -255,6 +259,8 @@ class WriteEndpoint(BaseModel):
     path: str = ""
     headers: list[Header] = Field(default_factory=list)
     query_params: list[QueryParam] = Field(default_factory=list)
+    icd: icd_.Key | None = None
+    message: icd_.WriteMessage | None = None
     channel: ChannelField = Field(default_factory=lambda: ChannelField())
     fields: list[WriteField] = Field(default_factory=list)
 

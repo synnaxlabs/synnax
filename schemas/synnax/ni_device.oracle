@@ -115,10 +115,14 @@ Where filter Device {
 
 CommandStatePair struct {
     command channel.Key = 0 {
-        @doc value "is the channel that commands the port."
+        @doc value     "is the channel that commands the port."
+        @ref kind      use
+        @ref on_delete restrict
     }
     state   channel.Key = 0 {
-        @doc value "is the channel that holds the state of the port."
+        @doc value     "is the channel that holds the state of the port."
+        @ref kind      use
+        @ref on_delete restrict
     }
 
     @doc value  "is the pair of channels that writes to one port."
@@ -127,13 +131,21 @@ CommandStatePair struct {
 
 AnalogInputPorts struct {
     index       channel.Key = 0 {
-        @doc value "is the index channel of the analog input channels."
+        @doc value     "is the index channel of the analog input channels."
+        @ref kind      use
+        @ref on_delete restrict
     }
     temperature channel.Key = 0 {
-        @doc value "is the channel that holds the built-in temperature of the device."
+        @doc value     """
+            is the channel that holds the built-in temperature of the device.
+        """
+        @ref kind      use
+        @ref on_delete restrict
     }
     channels    map<uint16, channel.Key> = {} {
-        @doc value "maps a port number to the channel that holds its samples."
+        @doc value     "maps a port number to the channel that holds its samples."
+        @ref kind      use
+        @ref on_delete restrict
     }
 
     @doc value  "holds the channels that a device reads analog input into."
@@ -142,13 +154,19 @@ AnalogInputPorts struct {
 
 AnalogOutputChannels struct {
     state_index channel.Key = 0 {
-        @doc value "is the index channel of the state channel."
+        @doc value     "is the index channel of the state channel."
+        @ref kind      use
+        @ref on_delete restrict
     }
     command     channel.Key = 0 {
-        @doc value "is the channel that commands the port."
+        @doc value     "is the channel that commands the port."
+        @ref kind      use
+        @ref on_delete restrict
     }
     state       channel.Key = 0 {
-        @doc value "is the channel that holds the state of the port."
+        @doc value     "is the channel that holds the state of the port."
+        @ref kind      use
+        @ref on_delete restrict
     }
 
     @doc value  "holds the channels of one analog output port."
@@ -157,10 +175,14 @@ AnalogOutputChannels struct {
 
 CounterInputChannels struct {
     index   channel.Key = 0 {
-        @doc value "is the index channel of the counter."
+        @doc value     "is the index channel of the counter."
+        @ref kind      use
+        @ref on_delete restrict
     }
     channel channel.Key = 0 {
-        @doc value "is the channel that holds the samples of the counter."
+        @doc value     "is the channel that holds the samples of the counter."
+        @ref kind      use
+        @ref on_delete restrict
     }
 
     @doc value  "holds the channels of one counter input."
@@ -169,10 +191,14 @@ CounterInputChannels struct {
 
 DigitalInputChannels struct {
     index channel.Key = 0 {
-        @doc value "is the index channel of the port."
+        @doc value     "is the index channel of the port."
+        @ref kind      use
+        @ref on_delete restrict
     }
     lines map<uint8, channel.Key> = {} {
-        @doc value "maps a line number to the channel that holds its samples."
+        @doc value     "maps a line number to the channel that holds its samples."
+        @ref kind      use
+        @ref on_delete restrict
     }
 
     @doc value  "holds the channels of one digital input port."
@@ -181,7 +207,9 @@ DigitalInputChannels struct {
 
 DigitalOutputChannels struct {
     state_index channel.Key = 0 {
-        @doc value "is the index channel of the state channels."
+        @doc value     "is the index channel of the state channels."
+        @ref kind      use
+        @ref on_delete restrict
     }
     lines       map<uint8, CommandStatePair> = {} {
         @doc value "maps a line number to the channels that write to it."

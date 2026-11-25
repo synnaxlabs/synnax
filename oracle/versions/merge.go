@@ -472,6 +472,9 @@ func referencedNames(
 		}
 	case resolution.EnumForm:
 		n.refs(f.Extends)
+		if f.Narrows() {
+			n.ref(f.Superset)
+		}
 	case resolution.UnionForm:
 		n.union(f, resolve)
 	case resolution.DistinctForm:
@@ -841,7 +844,7 @@ func definitionName(def parser.IDefinitionContext) (string, bool) {
 			return s.IDENT().GetText(), true
 		}
 	case def.EnumDef() != nil:
-		return def.EnumDef().IDENT().GetText(), true
+		return def.EnumDef().IDENT(0).GetText(), true
 	case def.TypeDefDef() != nil:
 		return def.TypeDefDef().IDENT().GetText(), true
 	case def.UnionDef() != nil:

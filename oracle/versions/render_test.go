@@ -313,6 +313,72 @@ AxisKey enum extends XAxisKey, YAxisKey {}
 		Expect(axis.Values).To(HaveLen(2))
 	})
 
+	It("Should render a narrowing enum as its bare members", func() {
+		table := analyzeFixture(`
+DataType enum {
+	float64 = "float64"
+	int16   = "int16"
+	json    = "json"
+}
+
+RegisterType enum of DataType {
+	int16 {
+		@doc value "is a signed 16-bit integer."
+	}
+	float64
+}
+`)
+		rendered := versions.Render(declsOf(table), versions.RenderOptions{
+			Qualifier: func(ns string) string {
+				if ns == "test" {
+					return ""
+				}
+				return ns
+			},
+			Resolve: table.Get,
+		})
+		Expect(rendered).To(ContainSubstring("RegisterType enum of DataType {"))
+		Expect(rendered).To(ContainSubstring("    float64\n"))
+		Expect(strings.Count(rendered, `int16 = "int16"`)).To(Equal(1))
+
+		again := analyzeFixture(MustSucceed(formatter.Format(rendered)))
+		form, ok := MustBeOk(again.Get("test.RegisterType")).Form.(resolution.EnumForm)
+		Expect(ok).To(BeTrue())
+		Expect(form.Values).To(HaveLen(2))
+		Expect(form.Values[0].StringValue()).To(Equal("int16"))
+	})
+
+	It("Should render an exclusion as its omitted members", func() {
+		table := analyzeFixture(`
+DataType enum {
+	float64 = "float64"
+	int16   = "int16"
+	json    = "json"
+}
+
+Numeric enum of DataType omit {
+	json
+}
+`)
+		rendered := versions.Render(declsOf(table), versions.RenderOptions{
+			Qualifier: func(ns string) string {
+				if ns == "test" {
+					return ""
+				}
+				return ns
+			},
+			Resolve: table.Get,
+		})
+		Expect(
+			rendered,
+		).To(ContainSubstring("Numeric enum of DataType omit {\n    json\n}"))
+		again := analyzeFixture(MustSucceed(formatter.Format(rendered)))
+		form, ok := MustBeOk(again.Get("test.Numeric")).Form.(resolution.EnumForm)
+		Expect(ok).To(BeTrue())
+		Expect(form.Exclusion).To(BeTrue())
+		Expect(form.Values).To(HaveLen(2))
+	})
+
 	It("Should render alias lines and sorted imports", func() {
 		table := analyzeFixture("Key = uuid\n")
 		decls := []versions.Decl{

@@ -41,7 +41,7 @@ export interface PaintContext {
   /** nodeColor is the color that `node` paint draws. */
   nodeColor?: color.Color;
   /** defaultEntryColor is the color of an entry that has no color. */
-  defaultEntryColor?: color.Color;
+  defaultEntryColor: color.Color;
 }
 
 type Field = "stroke" | "fill";
@@ -249,20 +249,23 @@ const enumerationKeys = (
 
 /**
  * @returns the context that resolves the looks of spec, with no value, or undefined
- * while the enumerations of its states load. An enumeration that fails to load draws no
- * entry colors.
+ * while the enumerations of its states load. An entry with no color draws nodeColor,
+ * else the theme gray. An enumeration that fails to load gives its entries no color.
  */
 export const usePaintContext = (
   spec: Pick<schematic.symbol.Spec, "states"> | undefined,
   nodeColor?: color.Crude,
 ): Omit<PaintContext, "value"> | undefined => {
   const resolve = Color.useResolve();
+  const t = Theming.use();
   const enumerations = useEnumerations(spec);
   if (enumerations == null) return undefined;
+  const node = nodeColor == null ? undefined : color.construct(nodeColor);
   return {
     resolve,
     enumerations,
-    nodeColor: nodeColor == null ? undefined : color.construct(nodeColor),
+    nodeColor: node,
+    defaultEntryColor: node ?? t.colors.gray.l11,
   };
 };
 
@@ -316,11 +319,13 @@ const NO_PAINTS: Paint[] = [];
 export interface UsePaintsParams {
   /** override replaces the looks with its regions. */
   override?: schematic.symbol.StateOverride;
-  /** nodeColor is the color that `node` paint draws. */
+  /**
+   * nodeColor is the color that `node` paint draws. An entry with no color draws it,
+   * else the theme gray.
+   */
   nodeColor?: color.Crude;
   /**
-   * builtIn marks a drawing that ships with Pluto. It bands its entry and node fills,
-   * and an entry with no color draws the node color, else the theme gray.
+   * builtIn marks a drawing that ships with Pluto. It bands its entry and node fills.
    */
   builtIn?: boolean;
 }
@@ -337,15 +342,9 @@ export const usePaints = (
 ): Paint[] => {
   const ctx = usePaintContext(spec, nodeColor);
   const t = Theming.use();
-  const defaultEntryColor = builtIn ? (ctx?.nodeColor ?? t.colors.gray.l11) : undefined;
   return useMemoDeepEqual(
     spec == null || ctx == null
       ? NO_PAINTS
-      : resolvePaints(
-          spec,
-          override,
-          { ...ctx, value, defaultEntryColor },
-          { theme: t, builtIn },
-        ),
+      : resolvePaints(spec, override, { ...ctx, value }, { theme: t, builtIn }),
   );
 };

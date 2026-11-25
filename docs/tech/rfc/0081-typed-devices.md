@@ -207,6 +207,8 @@ Device struct {
 the port maps are the configuration group. The port maps are the typed form of today's
 `analogInput.channels` and friends (`console/src/feature/ni/device/types.ts:18-63`).
 
+Every channel binding of a resource is `@ref kind use` and `@ref on_delete restrict`.
+
 Field groups per make:
 
 - **LabJack**: identity `serial`, `model` (the existing `LJM_dtT4`, `T7`, `T8` enum),

@@ -697,9 +697,10 @@ var _ = Describe("Inferrer", func() {
 			fmt.Appendf(nil, `{"ts":%d,"v":1.5}`, t0Milliseconds+3000),
 			t0+3*telem.SecondTS,
 		)
-		shapes := inf.Shapes()
+		shapes, last := inf.Shapes()
 		Expect(shapes).To(HaveLen(1))
-		shape := shapes[0]
+		Expect(last).To(BeZero())
+		shape := shapes[0].Shape
 		Expect(shape.Sources).To(BeEmpty())
 		Expect(shape.Count).To(Equal(4))
 		Expect(presentPointer(shape)).To(Equal("none"))
@@ -714,16 +715,68 @@ var _ = Describe("Inferrer", func() {
 		inf := xjson.NewInferrer()
 		inf.Add([]byte("not json"), t0)
 		inf.Add([]byte(`{"v":1} {"v":2}`), t0)
-		Expect(inf.Shapes()).To(BeEmpty())
+		shapes, last := inf.Shapes()
+		Expect(shapes).To(BeEmpty())
+		Expect(last).To(Equal(-1))
+	})
+
+	DescribeTable("Should sample the newest value of each field of a shape",
+		func(docs []string, a, b string) {
+			inf := xjson.NewInferrer()
+			for _, doc := range docs {
+				inf.Add([]byte(doc), t0)
+			}
+			shapes, _ := inf.Shapes()
+			Expect(shapes).To(HaveLen(1))
+			Expect(shapes[0].Samples).To(Equal([]string{a, b}))
+		},
+		Entry("from a later set", []string{`{"a":1,"b":1}`, `{"a":2}`}, "2", "1"),
+		Entry(
+			"from an earlier set",
+			[]string{`{"a":1,"b":1}`, `{"a":2}`, `{"a":3,"b":3}`},
+			"3",
+			"3",
+		),
+	)
+
+	It("Should cut a sample at a rune boundary", func() {
+		inf := xjson.NewInferrer()
+		inf.Add([]byte(`{"v":"`+strings.Repeat("a", 62)+`éé"}`), t0)
+		shapes, _ := inf.Shapes()
+		Expect(shapes[0].Samples).To(Equal([]string{`"` + strings.Repeat("a", 62)}))
+	})
+
+	It("Should give the position of the shape of the last document", func() {
+		inf := xjson.NewInferrer()
+		lastPresent := func(doc string) string {
+			inf.Add([]byte(doc), t0)
+			shapes, last := inf.Shapes()
+			Expect(shapes).To(HaveLen(2))
+			return presentPointer(shapes[last].Shape)
+		}
+		inf.Add([]byte(`{"a":1,"b":1}`), t0)
+		inf.Add([]byte(`{"a":2}`), t0)
+		Expect(lastPresent(`{"c":1}`)).To(Equal("/c"))
+		Expect(lastPresent(`{"a":3}`)).To(Equal("/a"))
+	})
+
+	It("Should give no shape of the last document when it joins none", func() {
+		inf := xjson.NewInferrer()
+		for _, doc := range []string{`{"a":1}`, `{"b":1}`, `{}`} {
+			inf.Add([]byte(doc), t0)
+		}
+		shapes, last := inf.Shapes()
+		Expect(shapes).To(HaveLen(2))
+		Expect(last).To(Equal(-1))
 	})
 
 	It("Should give no index when a timestamp falls", func() {
 		inf := xjson.NewInferrer()
 		inf.Add(fmt.Appendf(nil, `{"ts":%d}`, t0Milliseconds+1000), t0)
 		inf.Add(fmt.Appendf(nil, `{"ts":%d}`, t0Milliseconds), t0+telem.SecondTS)
-		shapes := inf.Shapes()
+		shapes, _ := inf.Shapes()
 		Expect(shapes).To(HaveLen(1))
-		Expect(fieldAt(shapes[0], "/ts").Kind).To(Equal(payload.KindTimestamp))
+		Expect(fieldAt(shapes[0].Shape, "/ts").Kind).To(Equal(payload.KindTimestamp))
 		Expect(shapes[0].Index).To(Equal(-1))
 	})
 
@@ -737,7 +790,7 @@ var _ = Describe("Inferrer", func() {
 				}
 				inf.Add([]byte("{"+strings.Join(names, ",")+"}"), t0)
 			}
-			inferred := inf.Shapes()
+			inferred, _ := inf.Shapes()
 			Expect(inferred).To(HaveLen(shapes))
 			Expect(inferred[0].Fields).To(HaveLen(fields))
 		},
@@ -756,7 +809,12 @@ var _ = Describe("Inferrer", func() {
 			for i := range expected {
 				expected[i].Sources = nil
 			}
-			Expect(inf.Shapes()).To(Equal(expected))
+			inferred, _ := inf.Shapes()
+			shapes := make([]xjson.Shape, len(inferred))
+			for i, s := range inferred {
+				shapes[i] = s.Shape
+			}
+			Expect(shapes).To(Equal(expected))
 		},
 		Entry("two record kinds", stamped("", 4, func(i int) string {
 			return [...]string{`"rpm":1`, `"fault":"x"`, `"rpm":2.5`, `"fault":"y"`}[i]
