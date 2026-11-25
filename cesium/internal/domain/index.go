@@ -437,16 +437,29 @@ func (idx *index) unprotectedSearch(tr telem.TimeRange) (int, bool) {
 	return end, false
 }
 
-// next returns the first domain that ends after tr.End and starts after tr.Start,
-// where tr is a domain the caller has seen, and its position. That skips what remains
-// of tr after a delete, and tr if it has grown. It also skips a domain written inside
-// tr after a delete freed that part: time bounds cannot tell it from what remains of
-// tr. It finds both under one lock, so a concurrent insert cannot shift one off the
-// other.
+// next returns the first domain after cur, a domain the caller has seen, and its
+// position. It skips each domain that overlaps cur and has its id: what a delete left
+// of cur, and cur if it has grown. If no such domain exists, it returns the first
+// domain that ends after cur and starts after cur starts. It finds both under one
+// lock, so a concurrent insert cannot shift one off the other. After next returns a
+// domain written inside cur, the next step can return what remains of cur, which the
+// caller has read.
 func (idx *index) next(
-	tr telem.TimeRange,
+	cur pointer,
 ) (i int, ptr pointer, rewrites uint64, ok bool) {
 	idx.read(func() {
+		if lo, hi := idx.unprotectedOverlap(cur.TimeRange); idx.unprotectedHasID(
+			lo,
+			hi,
+			cur.id,
+		) {
+			i, ptr, rewrites, ok = idx.unprotectedVisible(lo, 1)
+			for ok && i < hi && ptr.id == cur.id {
+				i, ptr, rewrites, ok = idx.unprotectedVisible(i+1, 1)
+			}
+			return
+		}
+		tr := cur.TimeRange
 		i, _ = slices.BinarySearchFunc(
 			idx.mu.pointers,
 			tr.End,
@@ -465,14 +478,28 @@ func (idx *index) next(
 	return i, ptr, rewrites, ok
 }
 
-// prev returns the last domain that starts before tr.Start and ends before tr.End,
-// where tr is a domain the caller has seen, and its position. That skips a domain that
-// replaced tr and holds all of it, and a domain written inside tr after a delete freed
-// that part.
+// prev returns the last domain before cur, a domain the caller has seen, and its
+// position. It skips each domain that overlaps cur and has its id. If no such domain
+// exists, it returns the last domain that starts before cur and ends before cur ends,
+// which skips a domain that replaced cur and holds all of it. After prev returns a
+// domain written inside cur, the next step can return what remains of cur, which the
+// caller has read.
 func (idx *index) prev(
-	tr telem.TimeRange,
+	cur pointer,
 ) (i int, ptr pointer, rewrites uint64, ok bool) {
 	idx.read(func() {
+		if lo, hi := idx.unprotectedOverlap(cur.TimeRange); idx.unprotectedHasID(
+			lo,
+			hi,
+			cur.id,
+		) {
+			i, ptr, rewrites, ok = idx.unprotectedVisible(hi-1, -1)
+			for ok && i >= lo && ptr.id == cur.id {
+				i, ptr, rewrites, ok = idx.unprotectedVisible(i-1, -1)
+			}
+			return
+		}
+		tr := cur.TimeRange
 		i, _ = slices.BinarySearchFunc(
 			idx.mu.pointers,
 			tr.Start,
@@ -490,6 +517,39 @@ func (idx *index) prev(
 		i, ptr, rewrites, ok = idx.unprotectedVisible(i, -1)
 	})
 	return i, ptr, rewrites, ok
+}
+
+// unprotectedOverlap returns the positions from lo up to hi of the domains that
+// overlap tr. The caller must hold idx.mu.
+func (idx *index) unprotectedOverlap(tr telem.TimeRange) (lo, hi int) {
+	lo, _ = slices.BinarySearchFunc(
+		idx.mu.pointers,
+		tr.Start,
+		func(p pointer, start telem.TimeStamp) int {
+			if p.End > start {
+				return 1
+			}
+			return -1
+		},
+	)
+	hi, _ = slices.BinarySearchFunc(
+		idx.mu.pointers,
+		tr.End,
+		func(p pointer, end telem.TimeStamp) int {
+			if p.Start >= end {
+				return 1
+			}
+			return -1
+		},
+	)
+	return lo, max(lo, hi)
+}
+
+func (idx *index) unprotectedHasID(lo, hi int, id uint64) bool {
+	return slices.ContainsFunc(
+		idx.mu.pointers[lo:hi],
+		func(p pointer) bool { return p.id == id },
+	)
 }
 
 func (idx *index) read(f func()) {

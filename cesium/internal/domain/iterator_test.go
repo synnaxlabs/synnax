@@ -189,6 +189,46 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					Expect(i.Close()).To(Succeed())
 				})
 
+				Describe("A write inside its domain after a delete", func() {
+					var (
+						wide = (60 * telem.SecondTS).SpanRange(10 * telem.Second)
+						cut  = (62 * telem.SecondTS).Range(65 * telem.SecondTS)
+						mid  = (63 * telem.SecondTS).Range(64 * telem.SecondTS)
+						i    *domain.Iterator
+					)
+					BeforeEach(func(ctx SpecContext) {
+						Expect(testutil.WriteDomain(
+							ctx,
+							db,
+							wide,
+							[]byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9},
+						)).To(Succeed())
+						i = DeferClose(
+							db.OpenIterator(domain.IterRange(telem.TimeRangeMax)),
+						)
+						Expect(i.SeekGE(ctx, wide.Start)).To(BeTrue())
+						Expect(db.Delete(
+							ctx,
+							cut,
+							fixedOffsetAndTimeStamp(2, cut.Start),
+							fixedOffsetAndTimeStamp(5, cut.End),
+						)).To(Succeed())
+						Expect(
+							testutil.WriteDomain(ctx, db, mid, []byte{10}),
+						).To(Succeed())
+					})
+
+					It("Should visit the write on Next", func() {
+						Expect(i.Next()).To(BeTrue())
+						Expect(i.TimeRange()).To(Equal(mid))
+					})
+
+					It("Should visit the write on Prev", func() {
+						Expect(i.Prev()).To(BeTrue())
+						Expect(i.TimeRange()).To(Equal(mid))
+					})
+				})
+
 				It("Should find a domain while earlier domains are inserted", func(
 					ctx SpecContext,
 				) {
