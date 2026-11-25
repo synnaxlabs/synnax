@@ -134,9 +134,14 @@ export type PDOType = "inputs" | "outputs";
 /** Clears the entry of a copied channel, so the form requires a new pick. */
 const ZERO_ENTRY = { index: 0, subIndex: 0, dataType: undefined } as const;
 
+/** An entry channel with an entry picked, which sets its data type. */
+export type PickedEntry<C extends Channel> = Extract<C, EntryChannel> & {
+  dataType: string;
+};
+
 /** @returns whether the channel has an entry picked. */
-export const hasEntry = <C extends Channel>(ch: C): ch is Extract<C, EntryChannel> =>
-  ch.type === "entry" && ch.index !== 0;
+export const hasEntry = <C extends Channel>(ch: C): ch is PickedEntry<C> =>
+  ch.type === "entry" && ch.index !== 0 && ch.dataType != null;
 
 /** The word for the direction of each side of the process image. */
 export const DIRECTIONS: Record<PDOType, string> = {

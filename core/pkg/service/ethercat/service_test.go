@@ -451,6 +451,28 @@ var _ = Describe("Service", func() {
 			Expect(channels[0]).To(HaveKeyWithValue("index", float64(0x7000)))
 		})
 
+		It("Should refuse a write path edit that sets an empty data type", func(
+			ctx SpecContext,
+		) {
+			key := MustSucceed(tasks.Create(ctx, svc.Write, msgpack.EncodedJSON{
+				"channels": []any{map[string]any{
+					"type":   "unresolved",
+					"key":    "c",
+					"device": "slave",
+					"pdo":    "Output",
+				}},
+			}))
+			c := MustSucceed(patch.Begin(patch.Set{
+				Path:  []string{"config", "channels", "c", "data_type"},
+				Value: "",
+			})).Next()
+			Expect(svc.Write.Edit(ctx, db, key, "", []patch.Cursor{c})).
+				Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("data_type")),
+			))
+		})
+
 		It("Should apply read config schema defaults to absent fields", func(
 			ctx SpecContext,
 		) {
