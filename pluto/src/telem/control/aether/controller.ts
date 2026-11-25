@@ -354,12 +354,15 @@ export class Controller
 }
 
 // controlKeys returns the keys that a write to channels needs control of: each channel
-// and its index.
+// and its index. It throws NotFoundError for a channel that does not exist.
 const controlKeys = async (
   client: Synnax,
   channels: channel.Key[],
 ): Promise<channel.Key[]> => {
   const chans = await client.channels.retrieve(channels);
+  const found = new Set(chans.map(({ key }) => key));
+  const missing = channels.find((key) => !found.has(key));
+  if (missing != null) throw new NotFoundError(`Found no channel with key ${missing}`);
   return unique.unique(
     chans.flatMap((c) => (c.index === 0 ? [c.key] : [c.key, c.index])),
   );

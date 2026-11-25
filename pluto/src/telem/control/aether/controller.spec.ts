@@ -639,4 +639,43 @@ describe("control/aether/AcquireChannelControl", SUITE, () => {
       }, POLL)
       .toEqual([250, 250]);
   });
+
+  it("should release the authority of every channel", async () => {
+    const [a, b] = await Promise.all([createIndexed(), createIndexed()]);
+    const { controller } = await setup([a.key, b.key]);
+    const sink = controller.create<control.AcquireChannelControl>(
+      control.acquireChannelControl({ channels: [a.key, b.key], authority: 250 }),
+    );
+    assert(sink != null);
+    controller.create(control.setChannelValue({ channel: a.key }));
+    controller.create(control.setChannelValue({ channel: b.key }));
+    controller.acquire();
+    await expect.poll(() => controller.state.status, POLL).toEqual("acquired");
+    const authorities = async () => {
+      const states = await client.control.retrieve([a.key, b.key]);
+      return states.map(({ authority }) => authority);
+    };
+    sink.set(true);
+    await expect.poll(authorities, POLL).toEqual([250, 250]);
+    sink.set(false);
+    await expect.poll(authorities, POLL).toEqual([0, 0]);
+  });
+
+  it("should report a channel that does not exist", async () => {
+    const [a, b] = await Promise.all([createIndexed(), createIndexed()]);
+    await client.channels.delete(b.key);
+    const { controller, handle } = await setup([a.key]);
+    const sink = controller.create<control.AcquireChannelControl>(
+      control.acquireChannelControl({ channels: [a.key, b.key], authority: 250 }),
+    );
+    assert(sink != null);
+    sink.set(true);
+    await expect
+      .poll(() => statusesOf(handle), POLL)
+      .toContainEqual({
+        name: "",
+        message: "Failed to set channel authority",
+        description: `Found no channel with key ${b.key}`,
+      });
+  });
 });
