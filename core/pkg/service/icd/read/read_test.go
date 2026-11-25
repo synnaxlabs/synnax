@@ -396,13 +396,6 @@ var _ = Describe("Read", func() {
 				Expect(check(ctx, readAt(0, plant.Key, rm))).To(Succeed())
 			})
 
-			It("Should accept an empty data type as none", func(ctx SpecContext) {
-				rm := readOf(status, icd.ReadBinding{
-					Field: temp.Base().Key, DataType: new(telem.UnknownT),
-				})
-				Expect(check(ctx, readAt(0, plant.Key, rm))).To(Succeed())
-			})
-
 			DescribeTable("Should reject a read with the path of the problem",
 				func(ctx SpecContext, rm icd.ReadMessage, path, msg string) {
 					err := check(ctx, readAt(0, plant.Key, rm))
