@@ -260,8 +260,8 @@ into each integration's write config under its typed key.
   key, or runs them all, and never copies an address or a channel.
 - **Imports**: a task schema imports only its own integration's device schema; after
   Phase 22, none imports `schemas/synnax/device`.
-- **Kafka**: an absent `record_key` matches keyless records, else that exact key; the
-  task's `""` catch-all migrates to this.
+- **Kafka**: an absent `record_key` matches an empty or no key; a present one, never
+  empty, matches that key. The task's `""` catch-all migrates to this.
 
 ### 4.2 Core services
 
