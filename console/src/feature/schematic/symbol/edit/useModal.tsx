@@ -245,6 +245,7 @@ const Editor = ({
     setSelectedPart(owner.key);
   };
   const states = Form.useFieldValue(path.data.states, { ctx: form });
+  const previewed = Spec.resolvePreview(states, preview);
   const commands = Form.useFieldValue(path.data.commands, { ctx: form });
   const hasSVG =
     Form.useFieldValue(path.data.drawing.markup, {
@@ -412,7 +413,7 @@ const Editor = ({
               >
                 {({ onChange }) => (
                   <Preview
-                    selectedValue={preview.value}
+                    value={Spec.stateValues(previewed)}
                     selectedHandle={selectedHandle}
                     selectedPart={selectedPart}
                     onElementClick={handleElementClick}
@@ -422,7 +423,7 @@ const Editor = ({
                   />
                 )}
               </Form.Field>
-              {hasSVG && <ValueBar value={preview} onChange={setPreview} />}
+              {hasSVG && <ValueBar value={previewed} onChange={setPreview} />}
             </Flex.Box>
             {hasSVG && (
               <Flex.Box
@@ -434,9 +435,9 @@ const Editor = ({
                 borderColor={6}
               >
                 <Inspector
-                  key={`${selectedPart ?? ""}/${preview.state}`}
+                  key={`${selectedPart ?? ""}/${previewed.state}`}
                   part={selectedPart}
-                  preview={preview}
+                  preview={previewed}
                 />
               </Flex.Box>
             )}

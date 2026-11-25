@@ -66,6 +66,7 @@ interface Scope<F extends Spec.Field> extends InspectorContextValue, FieldContex
   /** shown is the value of a state whose looks the control shows. */
   shown: Spec.At;
   looks: Look[];
+  states: schematic.symbol.State[];
   value: Look[F] | undefined;
   /** inherited is what a look on the whole drawing gives the part. */
   inherited: Look[F] | undefined;
@@ -79,6 +80,7 @@ const useScope = <F extends Spec.Field>(name: string): Scope<F> => {
   const inspector = useInspectorContext(name);
   const field = useFieldContext(name);
   const looks = Form.useFieldValue(path.data.looks);
+  const states = Form.useFieldValue(path.data.states);
   const { get, set } = Form.useContext();
   const { part, preview } = inspector;
   const { at } = field;
@@ -90,10 +92,11 @@ const useScope = <F extends Spec.Field>(name: string): Scope<F> => {
     ...field,
     shown,
     looks,
-    value: Spec.effective({ looks }, part, f, shown),
+    states,
+    value: Spec.effective({ looks, states }, part, f, shown),
     inherited:
-      part == null ? undefined : Spec.effective({ looks }, undefined, f, shown),
-    own: Spec.own({ looks }, part, f, shown),
+      part == null ? undefined : Spec.effective({ looks, states }, undefined, f, shown),
+    own: Spec.own({ looks, states }, part, f, shown),
     onChange: (v) => {
       const spec = get(path.data).value;
       // A stored static symbol can hold looks on Base, which an edit at every value
@@ -217,7 +220,7 @@ const PaintControl = ({ drawingColor }: PaintControlProps): ReactElement => {
     value?.type === "entry"
       ? values.states.find((s) => s.key === value.state)
       : undefined,
-    shown.value,
+    Spec.stateValues(shown),
   );
   return (
     <Paint
@@ -234,15 +237,25 @@ const PaintControl = ({ drawingColor }: PaintControlProps): ReactElement => {
 };
 
 const VisibleControl = (): ReactElement => {
-  const { value, inherited, part, at, values, preview, looks, onChange, label } =
-    useScope<"hidden">("VisibleControl");
+  const {
+    value,
+    inherited,
+    part,
+    at,
+    values,
+    preview,
+    looks,
+    states,
+    onChange,
+    label,
+  } = useScope<"hidden">("VisibleControl");
   // A part shown at every value stores false when the drawing hides at any value.
   const drawingHides =
     part != null &&
     (at == null
       ? values.list.some(
           (v) =>
-            Spec.effective({ looks }, undefined, "hidden", {
+            Spec.effective({ looks, states }, undefined, "hidden", {
               ...preview,
               value: v.value,
             }) === true,
@@ -386,7 +399,7 @@ const MotionControl = (): ReactElement => {
 
 export interface InspectorProps {
   part: Spec.Target;
-  /** preview is the value of a state that the canvas draws. */
+  /** preview is the state and value that the canvas draws, from Spec.resolvePreview. */
   preview: Spec.At;
 }
 
@@ -466,7 +479,7 @@ export const Inspector = ({ part: key, preview }: InspectorProps): ReactElement 
     <InspectorContext
       value={{
         part: part?.key,
-        preview: { state: values.state, value: preview.value },
+        preview,
         values,
       }}
     >

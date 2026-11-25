@@ -38,6 +38,8 @@ const FAULT: schematic.symbol.State = {
   default: 0,
 };
 
+const STATES = [Spec.createState(), FAULT];
+
 const onFault = (...values: number[]): schematic.symbol.Condition => ({
   type: "equals",
   state: FAULT.key,
@@ -83,7 +85,9 @@ describe("symbol editor spec", () => {
         { key: "a", part: "body", when: equals(0, 1), fill: fixed(RED) },
         { key: "b", part: "body", fill: fixed(BLUE) },
       ];
-      expect(Spec.effective({ looks }, "body", "fill", at(0))).toEqual(fixed(BLUE));
+      expect(Spec.effective({ looks, states: STATES }, "body", "fill", at(0))).toEqual(
+        fixed(BLUE),
+      );
     });
 
     it("should count a later look of the whole drawing for a part", () => {
@@ -91,25 +95,68 @@ describe("symbol editor spec", () => {
         { key: "a", part: "body", fill: fixed(BLUE) },
         { key: "b", when: equals(0), fill: fixed(RED) },
       ];
-      expect(Spec.effective({ looks }, "body", "fill", at(0))).toEqual(fixed(RED));
-      expect(Spec.effective({ looks }, "body", "fill", at(1))).toEqual(fixed(BLUE));
+      expect(Spec.effective({ looks, states: STATES }, "body", "fill", at(0))).toEqual(
+        fixed(RED),
+      );
+      expect(Spec.effective({ looks, states: STATES }, "body", "fill", at(1))).toEqual(
+        fixed(BLUE),
+      );
     });
 
     it("should not count the looks of a part for the whole drawing", () => {
       const looks: schematic.symbol.Look[] = [
         { key: "a", part: "body", fill: fixed(RED) },
       ];
-      expect(Spec.effective({ looks }, undefined, "fill", at(0))).toBeUndefined();
+      expect(
+        Spec.effective({ looks, states: STATES }, undefined, "fill", at(0)),
+      ).toBeUndefined();
     });
 
-    it("should count a look on a value only at that value of its state", () => {
+    it("should count a look on another state at the default of that state", () => {
+      const looks: schematic.symbol.Look[] = [
+        { key: "a", part: "body", fill: fixed(BLUE) },
+        { key: "b", part: "body", when: onFault(1), fill: fixed(RED) },
+      ];
+      const spec = { looks, states: STATES };
+      expect(Spec.effective(spec, "body", "fill", at(0))).toEqual(fixed(BLUE));
+      const fault = { state: FAULT.key, value: 1 };
+      expect(Spec.effective(spec, "body", "fill", fault)).toEqual(fixed(RED));
+      const faulted = { looks, states: [Spec.createState(), { ...FAULT, default: 1 }] };
+      expect(Spec.effective(faulted, "body", "fill", at(0))).toEqual(fixed(RED));
+    });
+
+    it("should not count a look on a state that the symbol lacks", () => {
       const looks: schematic.symbol.Look[] = [
         { key: "a", part: "body", fill: fixed(BLUE) },
         { key: "b", part: "body", when: onFault(0), fill: fixed(RED) },
       ];
-      expect(Spec.effective({ looks }, "body", "fill", at(0))).toEqual(fixed(BLUE));
+      const spec = { looks, states: [Spec.createState()] };
+      expect(Spec.effective(spec, "body", "fill", at(0))).toEqual(fixed(BLUE));
+    });
+  });
+
+  describe("resolvePreview", () => {
+    it("should keep a state that the symbol has", () => {
+      const fault = { state: FAULT.key, value: 2 };
+      expect(Spec.resolvePreview(STATES, fault)).toBe(fault);
+    });
+
+    it("should move to the first enumeration state when the symbol lacks the state", () => {
+      expect(Spec.resolvePreview([FAULT], at(1))).toEqual({
+        state: FAULT.key,
+        value: 1,
+      });
+    });
+
+    it("should move to STATE when the symbol has no enumeration state", () => {
+      const level: schematic.symbol.State = {
+        type: "number",
+        key: "level",
+        name: "Level",
+        bounds: { lower: 0, upper: 1 },
+      };
       const fault = { state: FAULT.key, value: 0 };
-      expect(Spec.effective({ looks }, "body", "fill", fault)).toEqual(fixed(RED));
+      expect(Spec.resolvePreview([level], fault)).toEqual(at(0));
     });
   });
 
@@ -119,9 +166,11 @@ describe("symbol editor spec", () => {
         { key: "a", part: "body", fill: fixed(BLUE) },
         { key: "b", when: equals(0), fill: fixed(RED) },
       ];
-      expect(Spec.own({ looks }, "body", "fill", at(0))).toEqual(fixed(BLUE));
+      expect(Spec.own({ looks, states: STATES }, "body", "fill", at(0))).toEqual(
+        fixed(BLUE),
+      );
       expect(
-        Spec.own({ looks: looks.slice(1) }, "body", "fill", at(0)),
+        Spec.own({ looks: looks.slice(1), states: STATES }, "body", "fill", at(0)),
       ).toBeUndefined();
     });
 
@@ -130,12 +179,29 @@ describe("symbol editor spec", () => {
         { key: "a", part: "body", fill: fixed(BLUE) },
         { key: "b", when: equals(0), fill: fixed(RED) },
       ];
-      expect(Spec.own({ looks }, undefined, "fill", at(0))).toEqual(fixed(RED));
-      expect(Spec.own({ looks }, undefined, "fill", at(1))).toBeUndefined();
+      expect(Spec.own({ looks, states: STATES }, undefined, "fill", at(0))).toEqual(
+        fixed(RED),
+      );
+      expect(
+        Spec.own({ looks, states: STATES }, undefined, "fill", at(1)),
+      ).toBeUndefined();
     });
   });
 
   describe("setOwn", () => {
+    it("should add a look after a later look of another state that covers it", () => {
+      const fault = { state: FAULT.key, value: 0 };
+      const spec = createSpec({
+        states: STATES,
+        looks: [
+          { key: "own", part: "body", when: onFault(0), fill: fixed(RED) },
+          { key: "base", part: "body", when: equals(0), fill: fixed(GREEN) },
+        ],
+      });
+      const next = Spec.setOwn(spec, "body", "fill", fixed(BLUE), fault);
+      expect(Spec.effective(next, "body", "fill", fault)).toEqual(fixed(BLUE));
+    });
+
     it("should add a drawing look after its last hider, not after every look", () => {
       const spec = createSpec({
         looks: [

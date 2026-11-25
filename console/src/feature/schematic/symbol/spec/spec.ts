@@ -23,6 +23,22 @@ export interface At {
   value: number;
 }
 
+/** @returns the values of the states at `at`. Every other state reads its default. */
+export const stateValues = (at: At): Schematic.Node.Custom.StateValues =>
+  new Map([[at.state, at.value]]);
+
+/**
+ * @returns `at` on a state that states has: its own state when that is an enumeration
+ * state of states, else the first enumeration state, else STATE.
+ */
+export const resolvePreview = (states: Spec["states"], at: At): At => {
+  const enumerations = states.filter((s) => s.type === "enumeration");
+  const state = enumerations.some((s) => s.key === at.state)
+    ? at.state
+    : (enumerations.at(0)?.key ?? STATE);
+  return state === at.state ? at : { ...at, state };
+};
+
 /** Field is a field of a look that the editor sets. */
 export type Field = "fill" | "stroke" | "hidden" | "blink" | "motion";
 
@@ -66,14 +82,18 @@ const only = (look: Look, target: Target, at: At): boolean =>
 const owns = (look: Look, target: Target, at?: At): boolean =>
   at == null ? look.part === target && look.when == null : only(look, target, at);
 
-// reaches is true for a look that target shows at `at`, or at every value when `at` is
-// undefined. A look of the whole drawing reaches every part.
-const reaches = (look: Look, target: Target, at?: At): boolean =>
+type States = ReadonlyMap<string, schematic.symbol.State>;
+
+const byKey = (states: Spec["states"]): States =>
+  new Map(states.map((s) => [s.key, s]));
+
+// reaches is true for a look that target shows at `at`, as the preview draws it, or at
+// every value when `at` is undefined. A look of the whole drawing reaches every part.
+const reaches = (look: Look, target: Target, states: States, at?: At): boolean =>
   (look.part == null || look.part === target) &&
-  (look.when == null ||
-    (at != null &&
-      look.when.state === at.state &&
-      look.when.values.includes(at.value)));
+  (at == null
+    ? look.when == null
+    : Schematic.Node.Custom.applies(look, states, stateValues(at)));
 
 const setsNothing = (look: Look): boolean => FIELDS.every((f) => look[f] == null);
 
@@ -106,28 +126,37 @@ const withActive = (states: Spec["states"]): Spec["states"] =>
 
 /**
  * @returns the field that target shows at `at` after the looks apply in order, or at
- * every value when `at` is undefined. A look on another state does not count, and looks
- * of the whole drawing count for a part.
+ * every value when `at` is undefined. A look on another state counts at the default of
+ * that state, and looks of the whole drawing count for a part.
  */
 export const effective = <F extends Field>(
-  spec: Pick<Spec, "looks">,
+  spec: Pick<Spec, "looks" | "states">,
   target: Target,
   field: F,
   at?: At,
-): Look[F] | undefined =>
-  spec.looks.findLast((l) => reaches(l, target, at) && l[field] != null)?.[field];
+): Look[F] | undefined => {
+  const states = byKey(spec.states);
+  return spec.looks.findLast(
+    (l) => reaches(l, target, states, at) && l[field] != null,
+  )?.[field];
+};
 
 /**
  * @returns the field that the looks of target give it at `at`, or at every value when
  * `at` is undefined. Looks of the whole drawing do not count for a part.
  */
 export const own = <F extends Field>(
-  spec: Pick<Spec, "looks">,
+  spec: Pick<Spec, "looks" | "states">,
   target: Target,
   field: F,
   at?: At,
 ): Look[F] | undefined =>
-  effective({ looks: spec.looks.filter((l) => l.part === target) }, target, field, at);
+  effective(
+    { ...spec, looks: spec.looks.filter((l) => l.part === target) },
+    target,
+    field,
+    at,
+  );
 
 /**
  * @returns spec in which target owns v for field at `at` alone, or at every value when
@@ -157,8 +186,9 @@ export const setOwn = <F extends Field>(
   // Pluto gives each part its own motion and blink, and one motion of each kind, so
   // only those looks hide v.
   const kind = field === "motion" ? (v as schematic.symbol.Motion).type : undefined;
+  const states = byKey(spec.states);
   const hides = (l: Look): boolean =>
-    reaches(l, target, at) &&
+    reaches(l, target, states, at) &&
     l[field] != null &&
     ((field !== "motion" && field !== "blink") || l.part === target) &&
     (kind == null || l.motion?.type === kind);
@@ -213,7 +243,12 @@ export const setVariesByValue = (
   }
   // Looks of the whole drawing stay out, so target takes no field that it did not set.
   const mine = spec.looks.filter((l) => l.part === target);
-  const first = effective({ looks: mine }, target, field, at(values[0]));
+  const first = effective(
+    { looks: mine, states: spec.states },
+    target,
+    field,
+    at(values[0]),
+  );
   const cleared = values.reduce(
     (s, v) => setOwn(s, target, field, undefined, at(v)),
     spec,

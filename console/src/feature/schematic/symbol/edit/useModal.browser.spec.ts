@@ -1033,6 +1033,121 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       );
     });
 
+    const RED = color.construct("#ff0000");
+
+    // previewFault opens a symbol whose Body takes the entry color of Active, and a red
+    // stroke at Active 0, then previews Fault at Trip (2). Active also has an entry at
+    // 2, which a preview that gave 2 to every state would draw.
+    const previewFault = async () => {
+      const active = await client.enumerations.create({
+        name: uniqueName("valve"),
+        entries: [
+          {
+            key: "closed",
+            value: 0,
+            name: "Closed",
+            color: { type: "fixed", value: GREEN },
+          },
+          {
+            key: "jammed",
+            value: 2,
+            name: "Jammed",
+            color: { type: "fixed", value: color.construct("#3366ff") },
+          },
+        ],
+      });
+      const faults = await client.enumerations.create({
+        name: uniqueName("fault"),
+        entries: [
+          { key: "ok", value: 0, name: "OK" },
+          { key: "trip", value: 2, name: "Trip" },
+        ],
+      });
+      await openPainted({
+        variant: "actuator",
+        parts: [{ ...BODY, selectors: ["#body"] }],
+        states: [
+          createState(active.key),
+          {
+            type: "enumeration",
+            key: "fault",
+            name: "Fault",
+            enumeration: faults.key,
+            match: { type: "exact" },
+            default: 2,
+          },
+        ],
+        looks: [
+          { key: "fill", part: "body", fill: { type: "entry", state: "active" } },
+          {
+            key: "base",
+            part: "body",
+            when: { type: "equals", state: "active", values: [0] },
+            stroke: { type: "color", value: { type: "fixed", value: RED } },
+          },
+        ],
+      });
+      fireEvent.click(within(getValueBar()).getByText("Fault"));
+      await waitFor(() =>
+        expect(findButton("Trip").classList.contains("lyra--selected")).toBe(true),
+      );
+    };
+
+    it("draws every other state at its default while it previews a state", async () => {
+      await previewFault();
+      await waitFor(() => {
+        const shape = getPreviewTransformWrapper(document.body).querySelector("#body");
+        assertDefined(shape);
+        expect(getComputedStyle(shape).fill).toBe("rgb(47, 179, 107)");
+        expect(getComputedStyle(shape).stroke).toBe("rgb(255, 0, 0)");
+      });
+      expect(screen.getByLabelText("Fill").style.getPropertyValue("--pluto-bg")).toBe(
+        color.cssString(GREEN),
+      );
+    });
+
+    it("shows a look of another state that the preview draws", async () => {
+      await previewFault();
+      await waitFor(() =>
+        expect(
+          screen.getByLabelText("Stroke").style.getPropertyValue("--pluto-bg"),
+        ).toBe(color.cssString(RED)),
+      );
+    });
+
+    it("previews the first state of a symbol with no Active state", async () => {
+      const faults = await client.enumerations.create({
+        name: uniqueName("fault"),
+        entries: [
+          { key: "ok", value: 0, name: "OK", color: { type: "fixed", value: GREEN } },
+          { key: "trip", value: 2, name: "Trip", color: { type: "fixed", value: RED } },
+        ],
+      });
+      await openPainted({
+        variant: "actuator",
+        parts: [{ ...BODY, selectors: ["#body"] }],
+        states: [
+          {
+            type: "enumeration",
+            key: "fault",
+            name: "Fault",
+            enumeration: faults.key,
+            match: { type: "exact" },
+            default: 2,
+          },
+        ],
+        looks: [{ key: "fill", part: "body", fill: { type: "entry", state: "fault" } }],
+      });
+      await waitFor(() =>
+        expect(findButton("OK").classList.contains("lyra--selected")).toBe(true),
+      );
+      await waitFor(() => {
+        const shape = getPreviewTransformWrapper(document.body).querySelector("#body");
+        assertDefined(shape);
+        expect(getComputedStyle(shape).fill).toBe("rgb(47, 179, 107)");
+      });
+    });
+
     it("saves a contrast paint on the state", async () => {
       const enumeration = await createEnumeration();
       const symbol = await openPainted({
