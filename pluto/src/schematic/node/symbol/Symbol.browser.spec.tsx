@@ -7,9 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { schematic } from "@synnaxlabs/client";
-import { createTestClient, SyntheticCore } from "@synnaxlabs/client/testutil";
-import { Rate, TimeStamp } from "@synnaxlabs/x";
+import { schematic, type Synnax } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { ReactFlowProvider } from "@xyflow/react";
 import type { FC, PropsWithChildren } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -18,8 +17,8 @@ import { render } from "vitest-browser-react";
 import type { z } from "zod";
 
 import { Node } from "@/schematic/node";
-import { createCommandSinks } from "@/schematic/node/testutil";
-import { telemTest } from "@/telem/aether/testutil";
+import { createChannelTelem } from "@/schematic/node/testutil";
+import type { telem } from "@/telem/aether";
 import { createAsyncSynnaxWrapper, createSynnaxWrapper } from "@/testutil";
 import { symbolNode } from "@/vis/symbolNode/aether";
 
@@ -89,6 +88,54 @@ const renderLamp = async (config: Pick<Config, "motionDisabled"> = {}) => {
   return await vi.waitUntil(() => container.querySelector(".lamp"));
 };
 
+// renderValve renders a valve whose active state has source, and returns its button.
+const renderValve = async (
+  factory: telem.Factory,
+  source: schematic.StateBinding["source"],
+): Promise<HTMLButtonElement> => {
+  const Wrapper = createSynnaxWrapper({
+    client: null,
+    additionalRegistry: symbolNode.REGISTRY,
+    telemFactories: [factory],
+  });
+  const { container } = await renderNode(Wrapper, {
+    spec: { type: "builtin", name: "valve" },
+    states: [{ key: "active", source }],
+  });
+  return await vi.waitUntil(() => container.querySelector("button"));
+};
+
+// renderAsk renders a symbol whose click asks for a value of state, which reads a local
+// value of 0, clicks it, and returns the spy on its config changes.
+const renderAsk = async (client: Synnax, state: schematic.symbol.State) => {
+  const symbol = await client.schematics.symbols.create({
+    name: "Ask",
+    data: {
+      drawing: { type: "svg", markup: MARKUP },
+      variant: "static",
+      states: [state],
+      commands: [{ key: "set", name: "Set", state: state.key, value: { type: "ask" } }],
+      interactions: [{ type: "fire", key: "click", command: "set" }],
+    },
+  });
+  const Wrapper = await createAsyncSynnaxWrapper({
+    client,
+    additionalRegistry: symbolNode.REGISTRY,
+  });
+  const onConfigChange = vi.fn();
+  const { container } = await renderNode(
+    Wrapper,
+    {
+      spec: { type: "custom", key: symbol.key },
+      states: [{ key: state.key, source: { type: "local", value: 0 } }],
+    },
+    onConfigChange,
+  );
+  const button = await vi.waitUntil(() => container.querySelector("button"));
+  await page.elementLocator(button).click();
+  return onConfigChange;
+};
+
 describe("Symbol node", () => {
   it("should move a part by the value of its bound state", async () => {
     const lamp = await renderLamp();
@@ -110,32 +157,35 @@ describe("Symbol node", () => {
   });
 
   it("should ask which command to send while its state is unknown", async () => {
-    const now = TimeStamp.now();
-    const core = new SyntheticCore({ rate: Rate.hz(10), start: now, now });
-    const { sinks, factory } = createCommandSinks();
-    const Wrapper = createSynnaxWrapper({
-      client: null,
-      additionalRegistry: symbolNode.REGISTRY,
-      telemFactories: [telemTest.createRemoteFactory(core), factory],
-    });
-    const { container } = await renderNode(Wrapper, {
-      spec: { type: "builtin", name: "valve" },
-      states: [
-        {
-          key: "active",
-          source: { type: "channel", key: core.data[0].key, command: 7 },
-        },
-      ],
-    });
+    const { sinks, factory } = createChannelTelem();
+    const button = await renderValve(factory, { type: "channel", key: 5, command: 7 });
     await expect.element(page.getByRole("img", { name: "Unknown" })).toBeVisible();
-    await vi.waitUntil(() => sinks.has(7));
-    const button = await vi.waitUntil(() => container.querySelector("button"));
     await page.elementLocator(button).click();
     const open = page.getByRole("menuitem", { name: "Open" });
     await expect.element(page.getByRole("menuitem", { name: "Close" })).toBeVisible();
     await open.click();
     await expect.poll(() => sinks.get(7)?.values).toEqual([1]);
     await expect.element(open).not.toBeInTheDocument();
+  });
+
+  it("should open a valve with no state channel on its first click", async () => {
+    const { sinks, factory } = createChannelTelem();
+    const button = await renderValve(factory, { type: "channel", command: 7 });
+    await vi.waitUntil(() => sinks.has(7));
+    await page.elementLocator(button).click();
+    await expect.poll(() => sinks.get(7)?.values).toEqual([1]);
+    expect(page.getByRole("menuitem").elements()).toHaveLength(0);
+  });
+
+  it("should ask which command to send while its command channel disagrees", async () => {
+    const { sinks, factory } = createChannelTelem({ 5: 0, 7: 1 });
+    const button = await renderValve(factory, { type: "channel", key: 5, command: 7 });
+    await expect
+      .element(page.getByRole("img", { name: "Unknown" }))
+      .not.toBeInTheDocument();
+    await page.elementLocator(button).click();
+    await page.getByRole("menuitem", { name: "Close" }).click();
+    await expect.poll(() => sinks.get(7)?.values).toEqual([0]);
   });
 
   it("should ask which command to send for a value that matches neither", async () => {
@@ -168,6 +218,53 @@ describe("Symbol node", () => {
           key: "active",
           source: { type: "local", value: 1 },
           match: { type: "exact" },
+        }),
+      ],
+    });
+  });
+
+  it("should send the entry picked for a command that asks for its value", async () => {
+    const client = createTestClient();
+    const { key: enumeration } = await client.enumerations.create({
+      name: "Mode",
+      entries: [
+        { key: "auto", value: 0, name: "Auto" },
+        { key: "manual", value: 2, name: "Manual" },
+      ],
+    });
+    const onConfigChange = await renderAsk(client, {
+      type: "enumeration",
+      key: "mode",
+      name: "Mode",
+      enumeration,
+      match: { type: "exact" },
+      default: 0,
+    });
+    await page.getByRole("menuitem", { name: "Manual" }).click();
+    expect(onConfigChange).toHaveBeenCalledExactlyOnceWith({
+      states: [
+        schematic.stateBindingZ.parse({
+          key: "mode",
+          source: { type: "local", value: 2 },
+        }),
+      ],
+    });
+  });
+
+  it("should send the number typed for a command that asks for its value", async () => {
+    const onConfigChange = await renderAsk(createTestClient(), {
+      type: "number",
+      key: "mode",
+      name: "Level",
+      bounds: { lower: 0, upper: 100 },
+    });
+    await page.getByRole("textbox").fill("42");
+    await page.getByRole("button", { name: "Set" }).click();
+    expect(onConfigChange).toHaveBeenCalledExactlyOnceWith({
+      states: [
+        schematic.stateBindingZ.parse({
+          key: "mode",
+          source: { type: "local", value: 42 },
         }),
       ],
     });

@@ -21,7 +21,7 @@ import { afterEach, assert, describe, expect, it, vi } from "vitest";
 import type { z } from "zod";
 
 import { Node } from "@/schematic/node";
-import { createCommandSinks } from "@/schematic/node/testutil";
+import { createChannelTelem } from "@/schematic/node/testutil";
 import type { telem } from "@/telem/aether";
 import { telemTest } from "@/telem/aether/testutil";
 import { createAsyncSynnaxWrapper, createSynnaxWrapper } from "@/testutil";
@@ -133,39 +133,29 @@ describe("Symbol node", () => {
   );
 
   it("should close an open valve on a click", async () => {
-    const now = TimeStamp.now();
-    const core = new SyntheticCore({ rate: Rate.hz(10), start: now, now });
-    const [reading] = core.data;
-    const { sinks, factory } = createCommandSinks();
-    const { container, findByRole, queryByRole } = renderNode(
+    const { sinks, factory } = createChannelTelem({ 5: 1 });
+    const { container } = renderNode(
       {
         spec: { type: "builtin", name: "valve" },
-        states: [
-          {
-            key: "active",
-            source: { type: "channel", key: reading.key, command: 7 },
-            match: WITHIN,
-          },
-        ],
+        color: COLOR,
+        states: [{ key: "active", source: { type: "channel", key: 5, command: 7 } }],
       },
       createSynnaxWrapper({
         client: null,
         additionalRegistry: symbolNode.REGISTRY,
-        telemFactories: [telemTest.createRemoteFactory(core), factory],
+        telemFactories: [factory],
       }),
     );
     const button = container.querySelector("button");
     assert(button != null);
     await act(async () => await vi.waitFor(() => expect(sinks.has(7)).toBe(true)));
-    await findByRole("img", { name: "Unknown" });
-    await act(async () => core.advance(TimeSpan.seconds(1)));
-    await vi.waitFor(() => expect(queryByRole("img", { name: "Unknown" })).toBeNull());
+    await vi.waitFor(() => expect(container.querySelector(FILLED)).not.toBeNull());
     fireEvent.click(button);
     await expect.poll(() => sinks.get(7)?.values).toEqual([0]);
   });
 
   it("should write a command with no state to the channel of its binding", async () => {
-    const { sinks, factory } = createCommandSinks();
+    const { sinks, factory } = createChannelTelem();
     const { key, Wrapper } = await createCustomSymbol(
       MARKUP,
       {
@@ -230,23 +220,6 @@ describe("Symbol node", () => {
         }),
       ],
     });
-  });
-
-  it("should take no clicks when its command asks for a value", async () => {
-    const { key, Wrapper } = await createCustomSymbol(MARKUP, {
-      states: [{ type: "number", key: "level", name: "Level" }],
-      commands: [{ key: "set", name: "Set", state: "level", value: { type: "ask" } }],
-      interactions: [{ type: "fire", key: "click", command: "set" }],
-    });
-    const { container } = renderNode(
-      {
-        spec: { type: "custom", key },
-        states: [{ key: "level", source: { type: "local", value: 0 } }],
-      },
-      Wrapper,
-    );
-    await vi.waitUntil(() => container.querySelector(".body"));
-    expect(container.querySelector("button")).toBeNull();
   });
 
   it("should send the command of a fire click", async () => {

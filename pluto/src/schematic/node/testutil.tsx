@@ -11,7 +11,7 @@ import type { PropsWithChildren, ReactElement } from "react";
 import { vi } from "vitest";
 
 import { Enumeration } from "@/enumeration";
-import type { telem } from "@/telem/aether";
+import { telem } from "@/telem/aether";
 import { telemTest } from "@/telem/aether/testutil";
 import { control } from "@/telem/control/aether";
 
@@ -22,20 +22,31 @@ export const CreatePromptStub = ({ children }: PropsWithChildren): ReactElement 
   </Enumeration.CreatePromptProvider>
 );
 
+const CHANNEL_VALUE_TYPE = telem.streamChannelValue({ channel: 0 }).type;
+
 /**
- * @returns a telem factory that stands in for the schematic controller. It answers each
- * command sink with a test sink, kept in sinks by its channel.
+ * @returns a telem factory that stands in for the Core and the schematic controller. It
+ * replaces the remote factory. Each channel reads its value in values, or no data, from
+ * a test source kept in sources. Each command sink is a test sink kept in sinks. Both
+ * are by channel.
  */
-export const createCommandSinks = () => {
+export const createChannelTelem = (values: Record<number, number> = {}) => {
+  const sources = new Map<number, telemTest.TestSource<number>>();
   const sinks = new Map<number, telemTest.TestSink<number>>();
   const factory: telem.Factory = {
-    type: "commands",
+    type: "remote",
     create: (spec) => {
-      if (spec.type !== control.SetChannelValue.TYPE) return null;
-      const sink = telemTest.sink<number>();
-      sinks.set(spec.props.channel, sink);
-      return sink;
+      const channel = Number(spec.props.channel);
+      if (spec.type === control.SetChannelValue.TYPE) {
+        const sink = telemTest.sink<number>();
+        sinks.set(channel, sink);
+        return sink;
+      }
+      if (spec.type !== CHANNEL_VALUE_TYPE) return null;
+      const source = telemTest.source(channel in values ? values[channel] : NaN);
+      sources.set(channel, source);
+      return source;
     },
   };
-  return { sinks, factory };
+  return { sources, sinks, factory };
 };
