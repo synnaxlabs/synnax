@@ -10,7 +10,6 @@
 package join
 
 import (
-	"slices"
 	"strconv"
 	"strings"
 
@@ -98,6 +97,7 @@ func (h *Host) Create(cfg node.Config) (node.Node, error) {
 	n := &Node{State: cfg.State}
 	var (
 		dataTypes []telem.DataType
+		arrivals  []int
 		primary   = -1
 	)
 	for _, p := range cfg.Node.Inputs {
@@ -109,6 +109,11 @@ func (h *Host) Create(cfg node.Config) (node.Node, error) {
 			}
 			primary = int(v)
 		case strings.HasPrefix(p.Name, arrivalPrefix):
+			i, err := strconv.Atoi(strings.TrimPrefix(p.Name, arrivalPrefix))
+			if err != nil || i < 0 {
+				return nil, errors.Newf("join param %s names no input", p.Name)
+			}
+			arrivals = append(arrivals, i)
 		default:
 			idx, err := cfg.State.ResolveInput(p.Name)
 			if err != nil {
@@ -126,11 +131,18 @@ func (h *Host) Create(cfg node.Config) (node.Node, error) {
 		)
 	}
 	arrival := make([]bool, len(n.inputs))
-	for i := range arrival {
-		arrival[i] = slices.ContainsFunc(cfg.Node.Inputs, func(p types.Param) bool {
-			return p.Name == ArrivalParam(i)
-		})
+	for _, i := range arrivals {
+		if i >= len(arrival) {
+			return nil, errors.Newf(
+				"join param %s marks no input to pair by arrival",
+				ArrivalParam(i),
+			)
+		}
+		arrival[i] = true
 	}
+	n.arrival = arrival
+	n.last = make([]telem.TimeStamp, len(n.inputs))
+	n.pushed = make([]bool, len(n.inputs))
 	j, err := New(Config{
 		DataTypes: dataTypes,
 		Primary:   primary,
@@ -158,6 +170,11 @@ type Node struct {
 	// unjoined is set when the join holds samples that no Next has joined.
 	unjoined bool
 	dropped  int
+	// arrival marks the inputs that pair by arrival.
+	arrival []bool
+	// last holds the newest stamp pushed to each input that pushed is set for.
+	last   []telem.TimeStamp
+	pushed []bool
 }
 
 var _ node.Node = (*Node)(nil)
@@ -172,25 +189,25 @@ func (n *Node) Dropped() int {
 
 // Next pushes the new samples of each input, and emits the next joined run. It joins
 // the pushed samples once it has emitted every run of the last join. The node runs
-// again while runs or unjoined samples remain. An input whose samples the join refuses
-// reports an error, and the other inputs still push. The step then emits nothing, so
-// its output, which the error drops, holds no joined sample; the next step joins them.
+// again while runs or unjoined samples remain. A late sample, whose stamp does not
+// rise past the newest that its input pushed, is left to history.
 func (n *Node) Next(ctx node.Context) {
-	failed := false
 	for i, idx := range n.inputs {
 		data, t, ok := n.ConsumeTimed(idx)
 		if !ok {
 			continue
 		}
+		if data, t = n.rising(i, data, t); t.Len() == 0 {
+			continue
+		}
 		if err := n.join.Push(i, data, t); err != nil {
 			ctx.ReportError(err)
-			failed = true
 			continue
 		}
 		n.unjoined = true
-	}
-	if failed {
-		return
+		if !n.arrival[i] {
+			n.last[i], n.pushed[i] = t.ValueAt[telem.TimeStamp](-1), true
+		}
 	}
 	if n.next >= len(n.out.Runs) && n.unjoined {
 		n.out.Reset()
@@ -207,6 +224,39 @@ func (n *Node) Next(ctx node.Context) {
 	if n.next < len(n.out.Runs) || n.unjoined {
 		ctx.MarkSelfChanged()
 	}
+}
+
+// rising returns the samples of data and t, the series of input i and its stamps,
+// that come after the newest stamp the input pushed. A series whose stamps do not rise
+// from there comes back empty. The samples of an arrival input all come back, since
+// its stamps time nothing.
+func (n *Node) rising(i int, data, t telem.Series) (telem.Series, telem.Series) {
+	if n.arrival[i] {
+		return data, t
+	}
+	count := int(t.Len())
+	start := 0
+	for n.pushed[i] && start < count && t.ValueAt[telem.TimeStamp](start) <= n.last[i] {
+		start++
+	}
+	for k := start + 1; k < count; k++ {
+		if t.ValueAt[telem.TimeStamp](k) <= t.ValueAt[telem.TimeStamp](k-1) {
+			return telem.Series{}, telem.Series{}
+		}
+	}
+	if start == 0 {
+		return data, t
+	}
+	return from(data, start), from(t, start)
+}
+
+// from returns the samples of s, a series of a fixed-size type, from index start on.
+func from(s telem.Series, start int) telem.Series {
+	density := int(s.DataType.Density())
+	out := s
+	out.Data = s.Data[start*density:]
+	out.Alignment = s.Alignment + telem.Alignment(start)
+	return out
 }
 
 // emit copies the next run of out into the outputs, which the next Next of the join
