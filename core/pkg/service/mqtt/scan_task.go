@@ -52,9 +52,6 @@ const (
 	browsePayloadLimit = 256
 	// browseFieldLimit is the largest count of fields of a browsed topic.
 	browseFieldLimit = 256
-	// browsePointerLimit is the most field samples that a browsed topic keeps. It is
-	// the cap of xjson.Inferrer on the fields of its field sets.
-	browsePointerLimit = 1024
 	// browseSampleLimit is the longest field sample, in bytes, of a browsed topic.
 	browseSampleLimit = 64
 )
@@ -100,9 +97,8 @@ type browsedTopic struct {
 
 // browsedShape is one shape of the JSON messages that a browse heard on a topic.
 type browsedShape struct {
-	// Fields are the scalars of the shape, each with the last value heard at its
-	// pointer in a message that a read task matches to the shape. A field with no such
-	// value is left out, but Index and Present still name it.
+	// Fields are the scalars of the shape, each with the start of the last value heard
+	// at its pointer in a message of the shape.
 	Fields []browsedField `json:"fields"`
 	// Index is the pointer of the field that indexes the messages of the shape. Absent
 	// when no field can.
@@ -284,29 +280,25 @@ func payloadSample(payload []byte) string {
 }
 
 // payloadFields returns the scalars of a JSON payload in document order, at most
-// browseFieldLimit of them, and the pointers of all of its scalars. Arrays and nulls
-// give no field. It returns no fields when the payload is not JSON, is not UTF-8, or
-// repeats a name in an object.
-func payloadFields(payload []byte) ([]browsedField, []string) {
+// browseFieldLimit of them. Arrays and nulls give no field. It returns no fields when
+// the payload is not JSON, is not UTF-8, or repeats a name in an object.
+func payloadFields(payload []byte) []browsedField {
 	fields := []browsedField{}
-	var pointers []string
 	dec := jsontext.NewDecoder(bytes.NewReader(payload))
-	if err := appendFields(dec, nil, &fields, &pointers); err != nil {
-		return []browsedField{}, nil
+	if err := appendFields(dec, nil, &fields); err != nil {
+		return []browsedField{}
 	}
 	if _, err := dec.ReadToken(); !errors.Is(err, io.EOF) {
-		return []browsedField{}, nil
+		return []browsedField{}
 	}
-	return fields, pointers
+	return fields
 }
 
-// appendFields appends the scalars of the next value of dec, at pointer, to fields,
-// and their pointers to pointers.
+// appendFields appends the scalars of the next value of dec, at pointer, to fields.
 func appendFields(
 	dec *jsontext.Decoder,
 	pointer xjson.Pointer,
 	fields *[]browsedField,
-	pointers *[]string,
 ) error {
 	var t xjson.Type
 	switch dec.PeekKind() {
@@ -320,7 +312,7 @@ func appendFields(
 				return err
 			}
 			child := append(slices.Clip(pointer), name.String())
-			if err = appendFields(dec, child, fields, pointers); err != nil {
+			if err = appendFields(dec, child, fields); err != nil {
 				return err
 			}
 		}
@@ -336,15 +328,11 @@ func appendFields(
 		return dec.SkipValue()
 	}
 	value, err := dec.ReadValue()
-	if err != nil {
+	if err != nil || len(*fields) == browseFieldLimit {
 		return err
 	}
-	*pointers = append(*pointers, pointer.String())
-	if len(*fields) == browseFieldLimit {
-		return nil
-	}
 	*fields = append(*fields, browsedField{
-		Pointer: (*pointers)[len(*pointers)-1],
+		Pointer: pointer.String(),
 		Type:    t.String(),
 		Sample:  driver.CutText(value, browseSampleLimit),
 	})

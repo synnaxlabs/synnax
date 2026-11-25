@@ -30,7 +30,6 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	xjson "github.com/synnaxlabs/x/json"
 	"github.com/synnaxlabs/x/payload"
-	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"golang.org/x/net/proxy"
@@ -198,98 +197,20 @@ type heardTopic struct {
 	retained int
 	// inferrer holds the shapes of every message heard.
 	inferrer *xjson.Inferrer
-	// sets holds the last fields heard with each set of the pointers of all scalars
-	// of a message, by the sorted pointers, until the sets would hold more than
-	// browsePointerLimit pointers.
-	sets map[string]heardSet
-	// held is the number of pointers that sets holds.
-	held int
-	// samples holds the last field heard at each pointer, for at most
-	// browsePointerLimit pointers, once sets is full. Nil until then. The inferrer then
-	// has one shape, since it keys and caps its sets in the same way.
-	samples map[string]browsedField
-	// pointers are the pointers of all scalars of the last message.
-	pointers set.Set[string]
-	// messages is the number of messages held.
-	messages int
-}
-
-// heardSet is the last fields heard with one set of pointers.
-type heardSet struct {
-	fields   []browsedField
-	pointers set.Set[string]
-	// last is the number of the message that set fields.
-	last int
-}
-
-// hold keeps fields as the last fields heard with pointers, the pointers of all
-// scalars of their message.
-func (t *heardTopic) hold(fields []browsedField, pointers []string) {
-	t.pointers = set.New(pointers...)
-	if len(pointers) == 0 {
-		return
-	}
-	t.messages++
-	if t.samples == nil {
-		key := setKey(pointers)
-		_, ok := t.sets[key]
-		if ok || t.held+len(pointers) <= browsePointerLimit {
-			if !ok {
-				t.held += len(pointers)
-			}
-			t.sets[key] = heardSet{
-				fields:   fields,
-				pointers: t.pointers,
-				last:     t.messages,
-			}
-			return
-		}
-		t.samples = make(map[string]browsedField, browsePointerLimit)
-		for _, s := range t.sortedSets() {
-			t.keep(s.fields)
-		}
-		t.sets = nil
-	}
-	t.keep(fields)
-}
-
-// keep keeps each of fields as the last field heard at its pointer, for at most
-// browsePointerLimit pointers.
-func (t *heardTopic) keep(fields []browsedField) {
-	for _, f := range fields {
-		if _, ok := t.samples[f.Pointer]; ok || len(t.samples) < browsePointerLimit {
-			t.samples[f.Pointer] = f
-		}
-	}
-}
-
-// sortedSets returns the sets heard, from the least recent to the most recent.
-func (t *heardTopic) sortedSets() []heardSet {
-	return slices.SortedFunc(maps.Values(t.sets), func(a, b heardSet) int {
-		return cmp.Compare(a.last, b.last)
-	})
-}
-
-// setKey returns the key of a set of pointers: the pointers, sorted and joined by NUL.
-func setKey(pointers []string) string {
-	return strings.Join(slices.Sorted(slices.Values(pointers)), "\x00")
 }
 
 // infer sets the shapes of the messages heard. It also sets the kind and the time
-// format of each field, and the index, from the shape that a read task matches the last
-// message to.
+// format of each field, and the index, from the shape of the last message.
 func (t *heardTopic) infer() {
-	shapes := t.inferrer.Shapes()
-	samples := t.samplesOf(shapes)
+	shapes, last := t.inferrer.Shapes()
 	t.Shapes = make([]browsedShape, len(shapes))
 	for i, s := range shapes {
-		t.Shapes[i] = newBrowsedShape(s, samples[i])
+		t.Shapes[i] = newBrowsedShape(s)
 	}
-	k := shapeOf(shapes, t.pointers)
-	if k < 0 {
+	if last < 0 {
 		return
 	}
-	shape := shapes[k]
+	shape := shapes[last]
 	byPointer := make(map[string]xjson.InferredField, len(shape.Fields))
 	for _, f := range shape.Fields {
 		byPointer[f.Pointer.String()] = f
@@ -309,67 +230,25 @@ func (t *heardTopic) infer() {
 	}
 }
 
-// samplesOf returns, for each of shapes, the last field heard at each pointer in the
-// messages that a read task matches to the shape.
-func (t *heardTopic) samplesOf(shapes []xjson.Shape) []map[string]browsedField {
-	samples := make([]map[string]browsedField, len(shapes))
-	if t.samples != nil {
-		for i := range samples {
-			samples[i] = t.samples
-		}
-		return samples
-	}
-	for i := range samples {
-		samples[i] = make(map[string]browsedField)
-	}
-	for _, s := range t.sortedSets() {
-		k := shapeOf(shapes, s.pointers)
-		if k < 0 {
-			continue
-		}
-		for _, f := range s.fields {
-			samples[k][f.Pointer] = f
-		}
-	}
-	return samples
-}
-
-// newBrowsedShape returns s with the sample in samples of each of its fields.
-func newBrowsedShape(s xjson.Shape, samples map[string]browsedField) browsedShape {
-	b := browsedShape{Fields: make([]browsedField, 0, len(s.Fields)), Count: s.Count}
+// newBrowsedShape returns the browsed form of s.
+func newBrowsedShape(s xjson.SampledShape) browsedShape {
+	b := browsedShape{Fields: make([]browsedField, len(s.Fields)), Count: s.Count}
 	for i, f := range s.Fields {
-		pointer := f.Pointer.String()
-		if i == s.Index {
-			b.Index = pointer
+		b.Fields[i] = browsedField{
+			Pointer:    f.Pointer.String(),
+			Type:       f.Type.String(),
+			Sample:     s.Samples[i],
+			Kind:       f.Kind,
+			TimeFormat: f.TimeFormat,
 		}
-		if i == s.Present {
-			b.Present = pointer
-		}
-		field, ok := samples[pointer]
-		if !ok {
-			continue
-		}
-		field.Kind, field.TimeFormat = f.Kind, f.TimeFormat
-		b.Fields = append(b.Fields, field)
+	}
+	if s.Index >= 0 {
+		b.Index = s.Fields[s.Index].Pointer.String()
+	}
+	if s.Present >= 0 {
+		b.Present = s.Fields[s.Present].Pointer.String()
 	}
 	return b
-}
-
-// shapeOf returns the position in shapes of the shape that a read task matches a
-// message with the scalars at pointers to: the shape whose present field the message
-// holds, or else the shape with none. It returns -1 when no shape matches.
-func shapeOf(shapes []xjson.Shape, pointers set.Set[string]) int {
-	bare := -1
-	for i, s := range shapes {
-		if s.Present < 0 {
-			bare = i
-			continue
-		}
-		if pointers.Contains(s.Fields[s.Present].Pointer.String()) {
-			return i
-		}
-	}
-	return bare
 }
 
 // heard is what a browse heard on each topic.
@@ -408,11 +287,7 @@ func (s *scanner) hear(ctx context.Context, args browseArgs) (heard, error) {
 					res.truncated = true
 					return false
 				}
-				t = &heardTopic{
-					Topic:    m.Topic(),
-					inferrer: xjson.NewInferrer(),
-					sets:     make(map[string]heardSet),
-				}
+				t = &heardTopic{Topic: m.Topic(), inferrer: xjson.NewInferrer()}
 				by[m.Topic()] = t
 			}
 			t.Count++
@@ -421,9 +296,8 @@ func (s *scanner) hear(ctx context.Context, args browseArgs) (heard, error) {
 			}
 			p := m.Payload()
 			t.LastSeen, t.Retained = telem.Now(), m.Retained()
-			fields, pointers := payloadFields(p)
-			t.Payload, t.Format, t.Fields = payloadSample(p), driver.FormatOf(p), fields
-			t.hold(fields, pointers)
+			t.Payload, t.Format, t.Fields = payloadSample(p), driver.FormatOf(p),
+				payloadFields(p)
 			t.inferrer.Add(p, t.LastSeen)
 			return false
 		},

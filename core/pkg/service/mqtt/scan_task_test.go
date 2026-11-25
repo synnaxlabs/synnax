@@ -956,22 +956,24 @@ var _ = Describe("Scan task", func() {
 				stat := browse(ctx, msgpack.EncodedJSON{"duration": 300})
 				topics, ok := stat.Details.Data["topics"].([]any)
 				Expect(ok).To(BeTrue())
-				sampled := HaveKeyWithValue("fields", SatisfyAll(
-					HaveLen(256),
-					HaveEach(HaveKeyWithValue("sample", Not(BeEmpty()))),
-				))
+				sampled := func(n int) OmegaMatcher {
+					return HaveKeyWithValue("fields", SatisfyAll(
+						HaveLen(n),
+						HaveEach(HaveKeyWithValue("sample", Not(BeEmpty()))),
+					))
+				}
 				Expect(topics[0]).To(SatisfyAll(
 					HaveKeyWithValue("fields", HaveEach(HaveKey("kind"))),
 					HaveKeyWithValue("shapes", HaveExactElements(
 						SatisfyAll(
 							HaveKeyWithValue("present", "/b"),
 							Not(HaveKey("index")),
-							sampled,
+							sampled(257),
 						),
 						SatisfyAll(
 							HaveKeyWithValue("present", "/a"),
 							HaveKeyWithValue("index", "/time"),
-							sampled,
+							sampled(258),
 						),
 					)),
 				))
@@ -1007,8 +1009,7 @@ var _ = Describe("Scan task", func() {
 				stat := browse(ctx, msgpack.EncodedJSON{"duration": 1000})
 				topics, ok := stat.Details.Data["topics"].([]any)
 				Expect(ok).To(BeTrue())
-				// A higher cap in the Inferrer gives five shapes, and a lower cap in
-				// the browse gives fewer samples.
+				// A higher cap in the Inferrer gives five shapes.
 				Expect(topics[0]).To(HaveKeyWithValue("shapes", HaveExactElements(
 					HaveKeyWithValue("fields", SatisfyAll(
 						HaveLen(1024),
