@@ -283,6 +283,18 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 							(22*telem.SecondTS).Range(30*telem.SecondTS),
 						),
 						Entry("over all of it", first),
+						Entry(
+							"holding it and ending with it",
+							(15*telem.SecondTS).Range(30*telem.SecondTS),
+						),
+						Entry(
+							"holding it and starting with it",
+							(20*telem.SecondTS).Range(35*telem.SecondTS),
+						),
+						Entry(
+							"holding all of it",
+							(15*telem.SecondTS).Range(35*telem.SecondTS),
+						),
 					)
 				})
 
