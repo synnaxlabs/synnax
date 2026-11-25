@@ -30,6 +30,10 @@ case "$1 $2" in
     "pull "*) [[ ! -f "$FAKE_DIR/pull_fails" ]] || exit 1 ;;
     "inspect "*) cat "$FAKE_DIR/caddy_mounts" 2> /dev/null || exit 1 ;;
     "run --rm")
+        if [[ $* != *goacme/lego* ]]; then
+            [[ ! -f "$FAKE_DIR/sample_fails" ]] || exit 1
+            exit 0
+        fi
         [[ ! -f "$FAKE_DIR/lego_fails" ]] || exit 1
         if [[ -f "$FAKE_DIR/renews" ]]; then
             mkdir -p "$FAKE_DIR/acme/certificates"
@@ -156,7 +160,9 @@ class TestUp:
 
     def test_should_start_the_core_and_route_to_it(self, host: Host) -> None:
         host.ready()
-        result = host.run("up", "12", "registry/synnax-preview:pr-12")
+        result = host.run(
+            "up", "12", "registry/synnax-preview:pr-12", "registry/sample:pr-12"
+        )
         assert result.returncode == 0, result.stderr
         docker = [c for c in host.docker() if not c.startswith("docker ps")]
         assert docker[0] == "docker pull --quiet registry/synnax-preview:pr-12"
@@ -172,9 +178,11 @@ class TestUp:
             "--no-driver"
         )
         assert docker[3] == "docker image prune --all --force"
-        assert docker[-1] == (
-            "docker exec caddy caddy reload --config /etc/caddy/Caddyfile"
-        )
+        assert docker[-2:] == [
+            "docker exec caddy caddy reload --config /etc/caddy/Caddyfile",
+            "docker run --rm --network preview --memory 1g --cpus 0.25 "
+            "registry/sample:pr-12 http://synnax-pr-12:9090",
+        ]
         cert = host.path / "acme" / "certificates" / "_.preview.example.com"
         assert host.site(12).read_text() == (
             "pr-12.preview.example.com {\n"
@@ -190,7 +198,7 @@ class TestUp:
 
     def test_should_pass_the_license_to_the_core(self, host: Host) -> None:
         host.ready()
-        host.run("up", "12", "image")
+        host.run("up", "12", "image", "sample")
         run = next(c for c in host.calls() if c.startswith("docker run"))
         assert run.endswith("| license=license-key")
         get = next(c for c in host.calls() if c.startswith("aws "))
@@ -201,17 +209,24 @@ class TestUp:
         self, host: Host
     ) -> None:
         (host.path / "aws_fails").touch()
-        result = host.run("up", "12", "image")
+        result = host.run("up", "12", "image", "sample")
         assert result.returncode != 0
         assert host.docker() == []
 
     def test_should_take_the_lock_first(self, host: Host) -> None:
         host.ready()
-        host.run("up", "12", "image")
+        host.run("up", "12", "image", "sample")
         assert host.calls()[0] == "flock 9"
 
+    def test_should_fail_when_the_sample_fails(self, host: Host) -> None:
+        host.ready()
+        (host.path / "sample_fails").touch()
+        result = host.run("up", "12", "image", "sample")
+        assert result.returncode != 0
+        assert host.site(12).exists()
+
     def test_should_fail_when_the_core_never_starts(self, host: Host) -> None:
-        result = host.run("up", "12", "image")
+        result = host.run("up", "12", "image", "sample")
         assert result.returncode == 1
         assert "did not start" in result.stderr
         assert "docker logs --tail 100 synnax-pr-12" in host.docker()
@@ -228,7 +243,7 @@ class TestCap:
         host.ready()
         host.containers((13, 200), (12, 100))
         host.site(12).write_text("route")
-        result = host.run("up", "14", "image")
+        result = host.run("up", "14", "image", "sample")
         assert result.returncode == 0, result.stderr
         assert self.evicted(host) == ["evicted 12"]
         assert not host.site(12).exists()
@@ -243,7 +258,7 @@ class TestCap:
     ) -> None:
         host.ready()
         host.containers((13, 200), (12, 100))
-        result = host.run("up", "14", "image")
+        result = host.run("up", "14", "image", "sample")
         assert result.returncode == 0, result.stderr
         docker = [c for c in host.docker() if not c.startswith("docker ps")]
         prune = docker.index("docker image prune --all --force")
@@ -256,7 +271,7 @@ class TestCap:
         host.ready()
         host.containers((12, 100), (13, 200))
         host.mark(12).write_text("50 human\n")
-        result = host.run("up", "14", "image")
+        result = host.run("up", "14", "image", "sample")
         assert result.returncode == 0, result.stderr
         assert self.evicted(host) == ["evicted 13"]
 
@@ -266,26 +281,26 @@ class TestCap:
         host.viewed(12, 300)
         host.site(13).write_text("route")
         host.viewed(13, 150)
-        result = host.run("up", "14", "image")
+        result = host.run("up", "14", "image", "sample")
         assert result.returncode == 0, result.stderr
         assert self.evicted(host) == ["evicted 13"]
         assert not (host.logs / "pr-13.log").exists()
 
     def test_should_mark_a_human_review(self, host: Host) -> None:
         host.ready()
-        assert host.run("up", "12", "image", "human", "100").returncode == 0
+        assert host.run("up", "12", "image", "sample", "human", "100").returncode == 0
         assert host.human(12)
 
     def test_should_keep_a_newer_mark(self, host: Host) -> None:
         host.ready()
         host.mark(12).write_text("200 human\n")
-        assert host.run("up", "12", "image", "none", "100").returncode == 0
+        assert host.run("up", "12", "image", "sample", "none", "100").returncode == 0
         assert host.human(12)
 
     def test_should_remove_nothing_when_the_pull_fails(self, host: Host) -> None:
         (host.path / "pull_fails").touch()
         host.containers((12, 100), (13, 200))
-        result = host.run("up", "14", "image")
+        result = host.run("up", "14", "image", "sample")
         assert result.returncode != 0
         assert self.evicted(host) == []
         assert not [c for c in host.docker() if c.startswith("docker rm")]
@@ -294,7 +309,7 @@ class TestCap:
         host.ready()
         host.containers((12, 100), (13, 200))
         (host.path / "ps_fails").touch()
-        result = host.run("up", "14", "image")
+        result = host.run("up", "14", "image", "sample")
         assert result.returncode != 0
         assert self.evicted(host) == []
         docker = host.docker()
@@ -303,21 +318,21 @@ class TestCap:
     def test_should_remove_nothing_when_replacing_a_preview(self, host: Host) -> None:
         host.ready()
         host.containers((12, 100), (13, 200))
-        result = host.run("up", "12", "image")
+        result = host.run("up", "12", "image", "sample")
         assert result.returncode == 0, result.stderr
         assert self.evicted(host) == []
 
     def test_should_remove_nothing_below_the_cap(self, host: Host) -> None:
         host.ready()
         host.containers((12, 100))
-        result = host.run("up", "14", "image")
+        result = host.run("up", "14", "image", "sample")
         assert result.returncode == 0, result.stderr
         assert self.evicted(host) == []
 
     def test_should_remove_enough_to_make_room_over_the_cap(self, host: Host) -> None:
         host.ready()
         host.containers((12, 300), (13, 100), (14, 200))
-        result = host.run("up", "15", "image")
+        result = host.run("up", "15", "image", "sample")
         assert result.returncode == 0, result.stderr
         assert self.evicted(host) == ["evicted 13", "evicted 14"]
 
@@ -357,7 +372,7 @@ LEGO = (
 
 
 def lego_runs(host: Host) -> list[str]:
-    return [c for c in host.docker() if c.startswith("docker run --rm")]
+    return [c for c in host.docker() if "goacme/lego" in c]
 
 
 FORCED_RELOAD = "docker exec caddy caddy reload --config /etc/caddy/Caddyfile --force"
@@ -666,7 +681,7 @@ class TestArguments:
     """Tests for rejected arguments."""
 
     @pytest.mark.parametrize(
-        "args", [("up", "abc", "image"), ("down", "12;rm"), ("down", "")]
+        "args", [("up", "abc", "image", "sample"), ("down", "12;rm"), ("down", "")]
     )
     def test_should_reject_an_invalid_pull_request(
         self, host: Host, args: tuple[str, ...]
@@ -677,7 +692,7 @@ class TestArguments:
         assert host.docker() == []
 
     def test_should_reject_an_invalid_review_mark(self, host: Host) -> None:
-        result = host.run("up", "12", "image", "bot", "100")
+        result = host.run("up", "12", "image", "sample", "bot", "100")
         assert result.returncode == 1
         assert "invalid review mark" in result.stderr
         assert host.docker() == []

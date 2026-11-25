@@ -1,0 +1,3 @@
+*
+!console/scripts/dist
+!console/src/feature/project/*.arc
