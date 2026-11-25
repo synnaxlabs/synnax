@@ -1593,7 +1593,10 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     });
 
     it("counts the looks of a part beside its shapes", async () => {
-      await openPainted({ looks: [{ key: "l", part: "body", hidden: true }] });
+      await openPainted({
+        drawing: { type: "svg", markup: TWO_RECTS },
+        looks: [{ key: "l", part: "body", hidden: true }],
+      });
       expect(await screen.findByText("1 shape · 1 look")).toBeDefined();
     });
 
@@ -1607,7 +1610,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       const symbol = await client.schematics.symbols.create({
         ...payload,
         group: grp.key,
-        data: { ...payload.data, parts },
+        data: { ...payload.data, drawing: { type: "svg", markup: TWO_RECTS }, parts },
       });
       await renderModalOpener(
         Schematic.Symbol.Edit.useModal,
@@ -1616,6 +1619,17 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       );
       expect(await screen.findByText("1 shape")).toBeDefined();
       expect(screen.getByText("2 shapes")).toBeDefined();
+    });
+
+    it("counts each shape in a group that a part holds, and a text as one", async () => {
+      await openPainted({
+        drawing: {
+          type: "svg",
+          markup: GROUPED.replace("</g>", '<text id="t"><tspan>T</tspan></text></g>'),
+        },
+        parts: [{ ...BODY, selectors: ["#g"] }],
+      });
+      expect(getPartListItem("Body").textContent).toContain("3 shapes");
     });
   });
 });

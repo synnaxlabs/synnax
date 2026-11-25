@@ -38,6 +38,13 @@ interface PartListItemProps extends List.ItemRenderProps<string> {
   onDelete: (key: string) => void;
 }
 
+// countShapes returns how many shapes in markup the selectors reach. A group counts as
+// each shape inside it.
+const countShapes = (markup: string, selectors: string[]): number => {
+  const doc = new DOMParser().parseFromString(markup, "image/svg+xml");
+  return new Set(Schematic.Node.Region.graphics(doc.documentElement, selectors)).size;
+};
+
 const PartListItem = ({
   onDelete,
   ...props
@@ -45,12 +52,15 @@ const PartListItem = ({
   const { itemKey } = props;
   const part = Form.useFieldValue(path.data.parts[itemKey], { optional: true });
   const looks = Form.useFieldValue(path.data.looks);
+  const markup = Form.useFieldValue(path.data.drawing.markup);
   const whole = itemKey === WHOLE_DRAWING;
   if (!whole && part == null) return null;
   const target = whole ? undefined : itemKey;
   const count = looks.filter((l) => l.part === target).length;
   const shapes =
-    part == null ? "Every shape" : pluralize("shape", part.selectors.length, true);
+    part == null
+      ? "Every shape"
+      : pluralize("shape", countShapes(markup, part.selectors), true);
   return (
     <Select.Item
       {...props}
