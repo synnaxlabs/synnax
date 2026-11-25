@@ -361,6 +361,7 @@ std::pair<TextEncoder, x::errors::Error> TextEncoder::create(const TextMessage &
     auto [bound, bind_err] = index_bindings(m.bindings, by_key);
     if (bind_err) return {TextEncoder{}, as_config(bind_err, "message " + m.name)};
     TextEncoder enc;
+    enc.name = m.name;
     enc.delimiter = delimiter;
     enc.bound.resize(m.bindings.size());
     std::size_t fixed = 0;
@@ -439,29 +440,33 @@ x::errors::Error TextEncoder::encode(
         }
         const auto &f = this->fields[static_cast<std::size_t>(item.field)];
         if (auto err = f.append(samples, this->line))
-            return wrap(err, "field " + f.base.name);
+            return wrap(err, "message " + this->name + ": field " + f.base.name);
     }
     for (const auto i: this->tagged) {
         next();
         const auto &f = this->fields[i];
         this->line += f.tag;
         if (auto err = f.append(samples, this->line))
-            return wrap(err, "field " + f.base.name);
+            return wrap(err, "message " + this->name + ": field " + f.base.name);
     }
     payload.assign(this->line.begin(), this->line.end());
     return x::errors::NIL;
 }
 
-x::errors::Error
-TextEncoder::check(const std::size_t binding, const x::telem::SampleValue &v) {
+x::errors::Error TextEncoder::check(
+    const std::size_t binding,
+    const x::telem::Series &s,
+    const std::size_t i
+) {
     const auto &f = this->fields[this->bound[binding]];
+    const auto v = s.at(static_cast<int>(i));
     this->line.clear();
     auto err = f.append(v, this->line);
     if (!err)
         err = f.number == Number::FLOAT32
                 ? check_limits(f.base, x::telem::cast<float>(v))
                 : check_limits(f.base, x::telem::cast<double>(v));
-    if (err) return wrap(err, "field " + f.base.name);
+    if (err) return wrap(err, "message " + this->name + ": field " + f.base.name);
     return x::errors::NIL;
 }
 }
