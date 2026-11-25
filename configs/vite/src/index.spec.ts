@@ -19,9 +19,9 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 
 import { build } from "vite";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { lib, moduleExports, type Options } from "./index.js";
+import { lib, moduleExports, type Options, testCore } from "./index.js";
 
 const TSCONFIG = {
   compilerOptions: {
@@ -323,5 +323,23 @@ describe("lib", () => {
     await expect(buildPackage(root, { name: "pkg", modules: true })).rejects.toThrow(
       "a imports ./a.css",
     );
+  });
+});
+
+describe("testCore", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("should provide the Core that the environment names", () => {
+    vi.stubEnv("SYNNAX_TEST_HOST", "core.local");
+    vi.stubEnv("SYNNAX_TEST_PORT", "9190");
+    expect(testCore()).toEqual({ synnaxTestCore: { host: "core.local", port: 9190 } });
+  });
+
+  it("should provide localhost:9090 when the environment names no Core", () => {
+    vi.stubEnv("SYNNAX_TEST_HOST", undefined);
+    vi.stubEnv("SYNNAX_TEST_PORT", undefined);
+    expect(testCore()).toEqual({ synnaxTestCore: { host: "localhost", port: 9090 } });
   });
 });

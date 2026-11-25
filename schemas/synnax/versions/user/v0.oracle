@@ -32,10 +32,11 @@ User struct {
         """
     }
 
-    @doc value  """
+    @doc value     """
         is an account entity representing a person accessing the Synnax system. Users
         can have roles assigned for permission management.
     """
     @go marshal
     @go migrate
+    @resource type "user"
 }

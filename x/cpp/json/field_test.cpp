@@ -968,21 +968,34 @@ TEST(DecoderAppendFloat, ConvertsWholeFloatInRange) {
     ASSERT_EQ(s.at<double>(0), 4.0);
 }
 
-/// @brief it should reject infinity.
-TEST(DecoderAppendFloat, RejectsInfinity) {
+/// @brief it should append infinity into a float64.
+TEST(DecoderAppendFloat, AppendsInfinity) {
+    const auto inf = std::numeric_limits<double>::infinity();
+    const auto s = decode_float({.data_type = telem::FLOAT64_T}, -inf);
+    ASSERT_EQ(s.at<double>(0), -inf);
+}
+
+/// @brief it should append NaN into a float32.
+TEST(DecoderAppendFloat, AppendsNaN) {
+    const auto s = decode_float({.data_type = telem::FLOAT32_T}, NaN);
+    ASSERT_TRUE(std::isnan(s.at<float>(0)));
+}
+
+/// @brief it should reject NaN into an integer.
+TEST(DecoderAppendFloat, RejectsNaNIntoInteger) {
+    const auto err = decode_float_error({.data_type = telem::INT32_T}, NaN);
+    ASSERT_OCCURRED_AS(err, errors::VALIDATION);
+    ASSERT_EQ(err.data, "NaN is not an integer");
+}
+
+/// @brief it should reject infinity into an integer.
+TEST(DecoderAppendFloat, RejectsInfinityIntoInteger) {
     const auto err = decode_float_error(
-        {.data_type = telem::FLOAT64_T},
+        {.data_type = telem::INT64_T},
         std::numeric_limits<double>::infinity()
     );
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "Infinity is not finite");
-}
-
-/// @brief it should reject NaN.
-TEST(DecoderAppendFloat, RejectsNaN) {
-    const auto err = decode_float_error({.data_type = telem::FLOAT32_T}, NaN);
-    ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "NaN is not finite");
+    ASSERT_EQ(err.data, "Infinity is out of range for int64");
 }
 
 /// @brief it should reject a double past a float32.
@@ -1115,6 +1128,17 @@ TEST(Encoder, WritesAnyNaNAsNaNEnum) {
     );
 }
 
+/// @brief it should find the enum label of a sample, and no label for any other.
+TEST(Encoder, FindsEnumLabel) {
+    const auto enc = ASSERT_NIL_P(
+        Encoder::create({.data_type = telem::FLOAT64_T, .enums = on_off()})
+    );
+    const auto *on = enc.label(1.0);
+    ASSERT_NE(on, nullptr);
+    ASSERT_EQ(*on, R"("ON")");
+    ASSERT_EQ(enc.label(2.0), nullptr);
+}
+
 /// @brief it should write text, UUIDs, and bytes as JSON strings.
 TEST(Encoder, WritesString) {
     const auto id = ASSERT_NIL_P(
@@ -1228,5 +1252,27 @@ TEST(Encoder, RejectsEnumLabelThatIsNotUTF8) {
     );
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
     ASSERT_EQ(err.data, "enum label \"a\\xff\": invalid UTF-8");
+}
+
+/// @brief it should accept one JSON value in which no object repeats a member name.
+TEST(Valid, AcceptsValueWithNoRepeatedName) {
+    for (const auto *text:
+         {R"({"a":1,"b":{"a":2}})", R"([{"a":1},{"a":2}])", R"( "a" )", "1", "null"})
+        ASSERT_TRUE(valid(text)) << text;
+}
+
+/// @brief it should refuse an object that repeats a member name, nested or not.
+TEST(Valid, RefusesRepeatedName) {
+    for (const auto *text:
+         {R"({"a":1,"a":2})",
+          R"({"o":[{"a":1,"\u0061":2}]})",
+          R"([{"b":{"a":1,"a":2}}])"})
+        ASSERT_FALSE(valid(text)) << text;
+}
+
+/// @brief it should refuse text that is not one JSON value.
+TEST(Valid, RefusesTextThatIsNotJSON) {
+    for (const auto *text: {"", R"({"a":)", "1 2", "{'a':1}"})
+        ASSERT_FALSE(valid(text)) << text;
 }
 }

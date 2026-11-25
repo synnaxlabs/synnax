@@ -148,29 +148,6 @@ const CustomVariantForm = ({
 
 const FIELDS = MultiEdit.fieldsByVariant(schematic.ELEMENT_CONFIG_SCHEMAS);
 
-const selectionColorRefs = (
-  key: string,
-  cfg: Schematic.ElementConfig,
-): MultiEdit.ColorRef[] => {
-  const refs = MultiEdit.colorRefs(
-    key,
-    cfg,
-    COLOR_FIELDS,
-    VALUE_COLOR_FIELDS[cfg.variant],
-  );
-  if (cfg.variant === "state_indicator" && cfg.enumeration == null)
-    cfg.options.forEach((o, i) => {
-      if (o.color != null)
-        refs.push({
-          key,
-          path: `options.${i}.color`,
-          value: MultiEdit.fixedRef(o.color),
-          valueOnly: true,
-        });
-    });
-  return refs;
-};
-
 const SCALE_BOUNDS = { lower: 5, upper: 1000 };
 
 interface MultiElementPropertiesProps {
@@ -223,7 +200,7 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
   });
 
   const selectionRefs = Array.from(editableByKey).flatMap(([key, cfg]) =>
-    selectionColorRefs(key, cfg),
+    MultiEdit.colorRefs(key, cfg, COLOR_FIELDS, VALUE_COLOR_FIELDS[cfg.variant]),
   );
 
   const handleLayouts = (
