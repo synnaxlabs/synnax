@@ -144,7 +144,25 @@ describe("ICD.Write.useTree", () => {
     await renderTaskFormTab(Renderer, { client, taskKey: draft.key });
     const retrieveTargets = async () =>
       (await client.tasks.retrieve({ key: draft.key, schemas })).config.targets;
-    return { retrieveTargets };
+    const retrieveFields = async () => {
+      const [{ payload }] = (await client.icds.retrieve({ key: ic.key })).messages;
+      if (payload.format !== "json") throw new Error("The message is not JSON");
+      return payload.fields;
+    };
+    return { retrieveTargets, retrieveFields };
+  };
+
+  const createRamp = () =>
+    icd.jsonFieldZ.parse({ name: "ramp", pointer: "/ramp", type: "float" });
+
+  /** @returns the bindings of a target, each as its field name and its source. */
+  const bindingsOf = (target: mqtt.WriteTarget, fields: icd.JSONField[]) => {
+    if (target.type !== "plain") throw new Error("The target sends no message");
+    const names = new Map(fields.map(({ key, name }) => [key, name]));
+    return target.message.bindings.map((b) => [
+      names.get(b.field),
+      b.type === "channel" ? b.channel : b.value.value,
+    ]);
   };
 
   const levelOf = (name: string): string | null =>
@@ -212,13 +230,64 @@ describe("ICD.Write.useTree", () => {
     );
   });
 
-  it("should give a field no menu items", async () => {
-    await renderTargets(["a"]);
+  it("should remove a field from its message and from each target that sends it", async () => {
+    const { retrieveTargets, retrieveFields } = await renderTargets(
+      ["a", "b"],
+      [createSetpoint(), createRamp()],
+    );
+    const [ramp] = await screen.findAllByRole("treeitem", { name: /^ramp/ });
+    fireEvent.contextMenu(ramp);
+    fireEvent.click(await screen.findByText("Remove"));
+    await waitFor(async () => {
+      const fields = await retrieveFields();
+      expect(fields.map(({ name }) => name)).toEqual(["setpoint"]);
+      const targets = await retrieveTargets();
+      expect(targets.map((t) => bindingsOf(t, fields))).toEqual([
+        [["setpoint", 0]],
+        [["setpoint", 0]],
+      ]);
+    });
+    expect(screen.queryByRole("treeitem", { name: /^ramp/ })).toBeNull();
+  });
+
+  it("should copy a field after it, bound as the field is but on a new channel", async () => {
+    const ch = await client.channels.create({
+      name: uniqueName("cmd"),
+      dataType: "float64",
+      virtual: true,
+    });
+    const setpoint = createSetpoint();
+    const ramp = createRamp();
+    const { retrieveTargets, retrieveFields } = await renderTargets(
+      ["a"],
+      [setpoint, ramp],
+      () => [
+        { type: "channel", field: setpoint.key, channel: ch.key },
+        { type: "value", field: ramp.key, value: { type: "float", value: 5 } },
+      ],
+    );
     fireEvent.contextMenu(await screen.findByRole("treeitem", { name: /^setpoint/ }));
-    // Every menu ends with Reload Console, so its presence proves the menu rendered.
-    await screen.findByText("Reload Console");
-    expect(screen.queryByText("Disable")).toBeNull();
-    expect(screen.queryByText("Remove")).toBeNull();
+    fireEvent.click(await screen.findByText("Duplicate"));
+    const copy = await screen.findByRole("treeitem", { name: /^setpoint_2/ });
+    expect(copy.ariaSelected).toBe("true");
+    fireEvent.contextMenu(screen.getByRole("treeitem", { name: /^ramp/ }));
+    fireEvent.click(await screen.findByText("Duplicate"));
+    await waitFor(async () => {
+      const fields = await retrieveFields();
+      expect(fields.map(({ name, pointer }) => [name, pointer])).toEqual([
+        ["setpoint", "/setpoint"],
+        ["setpoint_2", "/setpoint_2"],
+        ["ramp", "/ramp"],
+        ["ramp_2", "/ramp_2"],
+      ]);
+      const [target] = await retrieveTargets();
+      expect(bindingsOf(target, fields)).toEqual([
+        ["setpoint", ch.key],
+        ["ramp", 5],
+        ["setpoint_2", 0],
+        ["ramp_2", 5],
+      ]);
+    });
   });
 
   it("should add a field to a target from its menu, and select the field", async () => {

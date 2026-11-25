@@ -12,7 +12,7 @@ import { Form as PForm } from "@synnaxlabs/lyra/form";
 import type { Menu } from "@synnaxlabs/lyra/menu";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tree } from "@synnaxlabs/lyra/tree";
-import { deep, type record, unique } from "@synnaxlabs/x";
+import { deep, type record, unique, uuid } from "@synnaxlabs/x";
 import {
   type Dispatch,
   type FC,
@@ -22,6 +22,7 @@ import {
   useSyncExternalStore,
 } from "react";
 
+import { copyName, copyPointer } from "@/platform/icd/fieldNames";
 import { createJSONField } from "@/platform/icd/Fields";
 import { fieldsOf, formatOf, useFormats } from "@/platform/icd/Formats";
 import { fieldsPath, type TreeField, treeFieldOf } from "@/platform/icd/read";
@@ -45,6 +46,8 @@ export interface TargetMessage {
 export type Node =
   | { kind: "target"; target: string }
   | { kind: "field"; target: string; field: TreeField };
+
+type FieldNode = Extract<Node, { kind: "field" }>;
 
 export interface GroupItemProps extends Tree.ItemRenderProps<string> {
   /** The name of the group, as its targets give it. */
@@ -238,6 +241,11 @@ export const useTree = <T extends Target>({
     if (found == null) throw new Error(`The task has no target ${target}`);
     return messageOf(found);
   };
+  const sending = (target: string): TargetMessage => {
+    const sent = sentBy(target);
+    if (sent == null) throw new Error(`Target ${target} sends no message`);
+    return sent;
+  };
   const sendsJSON = (target: string): boolean => {
     const sent = sentBy(target);
     if (sent == null) return false;
@@ -250,8 +258,7 @@ export const useTree = <T extends Target>({
   };
 
   const addField = (target: string) => {
-    const sent = sentBy(target);
-    if (sent == null) throw new Error(`Target ${target} sends no message`);
+    const sent = sending(target);
     const fields = fieldsOf(formats, sent.icd, sent.message);
     const field = createJSONField(fields);
     formatOf(formats, sent.icd).insert(
@@ -304,7 +311,93 @@ export const useTree = <T extends Target>({
           onExpand((prev) => unique.unique([...prev, ...expandedOf(copies, groups)]));
           onSelect([copies[0].key]);
         };
+  /**
+   * Removes each chosen field from its message in the ICD and from each target that
+   * sends the message.
+   */
+  const removeFields = (chosen: FieldNode[]) => {
+    ctx.batch(() => {
+      for (const { target, field } of chosen) {
+        const { icd: icdKey, message } = sending(target);
+        formatOf(formats, icdKey).remove(fieldsPath(message)[field.key]);
+        for (const t of targets()) {
+          const sent = messageOf(t);
+          if (sent?.message !== message) continue;
+          const bindings = ctx.get(sent.bindings).value;
+          ctx.set(
+            sent.bindings,
+            bindings.filter((b) => b.field !== field.key),
+          );
+        }
+      }
+    });
+    onSelect([]);
+  };
+
+  /**
+   * Copies each chosen field after it in its message, at a pointer of its own. Each
+   * chosen target that binds the field binds its copy the same way, with a new channel
+   * for a channel. Selects the first copy.
+   */
+  const duplicateFields = (chosen: FieldNode[]) => {
+    const copies = new Map<string, icd.JSONField>();
+    const keys: string[] = [];
+    ctx.batch(() => {
+      for (const { target, field } of chosen) {
+        const sent = sending(target);
+        const fields = fieldsOf(formats, sent.icd, sent.message);
+        const at = `${sent.message}/${field.key}`;
+        let copy = copies.get(at);
+        if (copy == null) {
+          const full = fields.find(({ key }) => key === field.key);
+          if (full == null)
+            throw new Error(`Message ${sent.message} has no field ${field.key}`);
+          // A write sends each field, so the copy cannot share the pointer.
+          copy = {
+            ...full,
+            key: uuid.create(),
+            name: copyName(
+              field.name,
+              fields.map(({ name }) => name),
+            ),
+            pointer: copyPointer(
+              full.pointer,
+              fields.map(({ pointer }) => pointer),
+            ),
+          };
+          formatOf(formats, sent.icd).insert(fieldsPath(sent.message), copy, field.key);
+          copies.set(at, copy);
+        }
+        const bindings = ctx.get(sent.bindings).value;
+        const binding = bindings.find((b) => b.field === field.key);
+        if (binding != null)
+          ctx.set(sent.bindings, [
+            ...bindings,
+            binding.type === "channel"
+              ? { ...binding, field: copy.key, channel: 0 }
+              : { ...binding, field: copy.key },
+          ]);
+        keys.push(fieldKey(target, sent.message, copy.key));
+      }
+    });
+    onSelect(keys.slice(0, 1));
+  };
+
   const contextMenu = ({ keys }: Menu.ContextMenuMenuProps) => {
+    const fields = keys.flatMap((k) => {
+      const node = byKey.get(k);
+      return node?.kind === "field" ? [node] : [];
+    });
+    if (fields.length > 0) {
+      const onlyFields = fields.length === keys.length;
+      return (
+        <Task.Views.ContextMenu
+          keys={keys}
+          onRemove={onlyFields ? () => removeFields(fields) : undefined}
+          onDuplicate={onlyFields ? () => duplicateFields(fields) : undefined}
+        />
+      );
+    }
     const chosen = chosenTargets(keys);
     const off = chosen.filter((key) => ctx.get(disabledPath(key)).value);
     const [only] = keys;
@@ -330,8 +423,7 @@ export const useTree = <T extends Target>({
       return <groups.Item key={key} {...p} name={name} />;
     const node = byKey.get(p.itemKey);
     if (node?.kind === "field") {
-      const sent = sentBy(node.target);
-      if (sent == null) throw new Error(`Target ${node.target} sends no message`);
+      const sent = sending(node.target);
       return (
         <FieldItem
           key={key}
