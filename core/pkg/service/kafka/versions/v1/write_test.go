@@ -262,18 +262,26 @@ var _ = Describe("ResolveWriteConfig", func() {
 		Expect(f[0].Base().Pointer).To(Equal("/reading"))
 	})
 
-	It("Should send the name of the channel at the channel pointer",
+	It("Should bind the field at the channel pointer to the name of the channel",
 		func(ctx SpecContext) {
-			rec := record()
-			rec.ChannelPointer = new("/channel")
-			f := liftFields(ctx, rec)
+			old := writeConfig(writeChannel("c1", 7))
+			old.Record.ChannelPointer = new("/channel")
+			cfg, ic := lift(ctx, old)
+			f := jsonFields(ic.Messages[0])
 			Expect(f).To(HaveLen(2))
 			Expect(f[1].Variant).To(Equal(icd.StringJSONField{
 				JSONBaseField: f[1].Base(),
-				Default:       new("valve_cmd"),
 			}))
 			Expect(f[1].Base().Name).To(Equal("channel"))
 			Expect(f[1].Base().Pointer).To(Equal("/channel"))
+			Expect(cfg.Targets[0].Message.Bindings[1]).To(Equal(icd.WriteBinding{
+				Variant: icd.ValueWriteBinding{
+					Field: f[1].Base().Key,
+					Value: icd.WriteValue{
+						Variant: icd.StringWriteValue{Value: "valve_cmd"},
+					},
+				},
+			}))
 		},
 	)
 
@@ -371,14 +379,17 @@ var _ = Describe("ResolveWriteConfig", func() {
 			Expect(msg.Name).To(Equal("Untitled"))
 			f := jsonFields(msg)
 			Expect(f[0].Type()).To(Equal(payload.KindFloat))
-			Expect(*variantOf[icd.StringJSONField](f[1]).Default).To(BeEmpty())
 			Expect(cfg.Targets[0].RecordKey).To(BeEmpty())
-			Expect(cfg.Targets[0].Message.Bindings).To(Equal([]icd.WriteBinding{{
-				Variant: icd.ChannelWriteBinding{
+			Expect(cfg.Targets[0].Message.Bindings).To(Equal([]icd.WriteBinding{
+				{Variant: icd.ChannelWriteBinding{
 					Field:    f[0].Base().Key,
 					DataType: new(telem.Float64T),
-				},
-			}}))
+				}},
+				{Variant: icd.ValueWriteBinding{
+					Field: f[1].Base().Key,
+					Value: icd.WriteValue{Variant: icd.StringWriteValue{}},
+				}},
+			}))
 		},
 	)
 

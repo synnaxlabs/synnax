@@ -168,11 +168,7 @@ func inlineWrite(
 	rec := in.Record
 	fields := make([]icd.InlineWriteField, 0, 2+len(rec.Fields))
 	if p := rec.ChannelPointer; p != nil {
-		fields = append(fields, icd.StaticInlineField{
-			Path:    "record.channel_pointer",
-			Pointer: *p,
-			Value:   name,
-		})
+		fields = append(fields, icd.ValueInlineField{Pointer: *p, Value: name})
 	}
 	if p := rec.TimestampPointer; p != nil {
 		fields = append(fields, icd.GeneratedInlineField{
