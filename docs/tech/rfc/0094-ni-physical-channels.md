@@ -50,7 +50,9 @@ Port field.
 
 `ni_device.oracle` gets a `Hardware` struct (NEW). Oracle generates it to Go,
 TypeScript, Python, and C++. The device properties store it under `hardware`. RFC 0081
-Phase 3 makes it the `hardware` field of `ni.Device` with no change of shape.
+Phase 3 makes it the `hardware` field of `ni.Device`. An unsupported maximum rate is
+absent and `types` holds enums, so the Core deletes stored hardware and the Driver reads
+it again.
 
 | Field                                                                                         | DAQmx source                                                                               | Use in the form          |
 | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ | ------------------------ |
