@@ -194,7 +194,7 @@ export const extract = (svgElement: SVGElement): schematic.symbol.Region[] => {
     const regionIndex = index + 1;
     const region: schematic.symbol.Region = {
       key: `region-${regionIndex}`,
-      name: `Region ${regionIndex}`,
+      name: `Part ${regionIndex}`,
       selectors: uniqueSelectors,
     };
     region.strokeColor = group.colorPair.stroke;

@@ -18,7 +18,9 @@ import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
+import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
+import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { Schematic } from "@synnaxlabs/pluto";
 import { type color, TimeSpan } from "@synnaxlabs/x";
 import { Fragment, type PropsWithChildren, type ReactElement, useState } from "react";
@@ -367,14 +369,78 @@ export interface InspectorProps {
   preview: number;
 }
 
+const LEVEL_ISSUES: Record<
+  Spec.LevelIssue,
+  Pick<Status.SummaryProps, "message" | "description">
+> = {
+  shapes: {
+    message: "Fill motion needs one shape or group",
+    description:
+      "Fill motion fills each shape or group in this part by its own box. Use Select parent group to make the group around the shapes the part. If the shapes sit in no group, group them in the drawing, or remove the motion from the part to save.",
+  },
+  clip: {
+    message: "Fill motion replaces a clip-path",
+    description:
+      "A shape in this part has its own clip-path, which fill motion would replace. Remove the clip-path from the drawing or the motion from the part to save.",
+  },
+};
+
+const SELECT_PARENT_TOOLTIP = (
+  <Triggers.Text trigger={["Alt", "MouseLeft"]} level="small">
+    Select parent group
+  </Triggers.Text>
+);
+
+interface SelectParentProps {
+  part: schematic.symbol.Part;
+}
+
+const SelectParent = ({ part }: SelectParentProps): ReactElement => {
+  const { get, set } = Form.useContext();
+  const drawing = Form.useFieldValue(path.data.drawing);
+  const group = Spec.parentGroup({ drawing }, part.selectors);
+  const handleClick = () => {
+    if (group == null) return;
+    const { markup } = drawing;
+    const named = Schematic.Node.Region.name(
+      markup,
+      group.ownerDocument.documentElement,
+      group,
+    );
+    if (named.markup !== markup) set(path.data.drawing.markup, named.markup);
+    set(
+      path.data.parts,
+      Spec.toggleSelector(get(path.data).value, part.key, named.selector),
+    );
+  };
+  return (
+    <Button.Button
+      size="small"
+      variant="outlined"
+      tooltip={SELECT_PARENT_TOOLTIP}
+      disabled={group == null}
+      onClick={handleClick}
+    >
+      Select parent group
+    </Button.Button>
+  );
+};
+
 /** Inspector edits the looks of one part, or of the whole drawing. */
 export const Inspector = ({ part: key, preview }: InspectorProps): ReactElement => {
   const parts = Form.useFieldValue(path.data.parts);
-  const markup = Form.useFieldValue(path.data.drawing.markup);
+  const drawing = Form.useFieldValue(path.data.drawing);
+  const looks = Form.useFieldValue(path.data.looks);
   const values = useValues();
   const part = parts.find((p) => p.key === key);
   const drawn =
-    part == null ? undefined : Schematic.Node.Region.paint(markup, part.selectors);
+    part == null
+      ? undefined
+      : Schematic.Node.Region.paint(drawing.markup, part.selectors);
+  const issue =
+    FLAGS.symbolMotion && part != null
+      ? Spec.levelIssues({ drawing, parts, looks }).get(part.key)
+      : undefined;
   return (
     <InspectorContext value={{ part: part?.key, preview, values }}>
       <Flex.Box y gap="medium" className={CSS.B("schematic-inspector")}>
@@ -382,10 +448,11 @@ export const Inspector = ({ part: key, preview }: InspectorProps): ReactElement 
           <Text.Text level="h5">{part?.name ?? "Whole drawing"}</Text.Text>
           <Text.Text level="small" color={9}>
             {part == null
-              ? "Looks here reach every shape."
+              ? "Looks here reach every shape. Click a shape to select its part or add one."
               : "Click shapes in the drawing to add or remove them."}
           </Text.Text>
         </Flex.Box>
+        {part != null && <SelectParent part={part} />}
         <Divider.Divider x />
         <Property field="fill" label="Fill" icon={<Icon.FillColor />}>
           <PaintControl drawingColor={drawn?.fill} />
@@ -405,6 +472,9 @@ export const Inspector = ({ part: key, preview }: InspectorProps): ReactElement 
             <Property field="motion" label="Motion" icon={<Icon.Rotate />} wide>
               <MotionControl />
             </Property>
+            {issue != null && (
+              <Status.Summary level="small" variant="error" {...LEVEL_ISSUES[issue]} />
+            )}
           </>
         )}
       </Flex.Box>

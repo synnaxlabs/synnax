@@ -404,12 +404,12 @@ var _ = Describe("Check", func() {
 			}}),
 			"default", "default -1 is below the min 0",
 		),
-		Entry("a default that is not finite, which reports only that",
+		Entry("an infinite default, which reports only that",
 			jsonMessage(icd.JSONField{Variant: icd.FloatJSONField{
 				Name: "v", Scale: 1, Pointer: "/v",
 				Max: new(100.0), Default: new(payload.Float(math.Inf(1))),
 			}}),
-			"default", "default must be finite",
+			"default", "default cannot be infinite",
 		),
 	)
 
