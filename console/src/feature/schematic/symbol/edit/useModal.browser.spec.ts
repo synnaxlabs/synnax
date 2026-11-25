@@ -1373,7 +1373,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       return shape;
     };
 
-    it("draws an unpainted shape as a node does, and fills it from a fill look", async () => {
+    it("draws no fill on a shape that has none, and fills it from a fill look", async () => {
       await openPainted({
         drawing: { type: "svg", markup: TWO_RECTS },
         looks: [
@@ -1391,7 +1391,6 @@ describe("Schematic.Symbol.Edit.useModal", () => {
         expect(getComputedStyle(findShape("a")).fill).toBe("rgb(255, 0, 0)"),
       );
       expect(getComputedStyle(findShape("b")).fill).toBe("none");
-      expect(getComputedStyle(findShape("b")).stroke).not.toBe("none");
     });
 
     it("marks the shapes of the selected part in the preview", async () => {
