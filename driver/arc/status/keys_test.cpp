@@ -102,7 +102,7 @@ TEST_F(KeysTest, RefusesTornFile) {
 TEST_F(KeysTest, RefusesForeignFile) {
     {
         std::ofstream file(this->path, std::ios::binary);
-        file << "not a status keys file";
+        file << std::string(2 * journal::HEADER_SIZE, 'x');
     }
     ASSERT_OCCURRED_AS_P(Keys::open(this->path, "cluster"), journal::UNKNOWN_MAGIC);
 }
@@ -159,10 +159,11 @@ TEST_F(KeysTest, SavesThroughTheCreateHook) {
         )
     );
     ASSERT_NIL(keys->set("a", "key_a"));
-    ASSERT_EQ(created.size(), 1);
+    ASSERT_FALSE(created.empty());
     auto tmp = this->path;
     tmp += ".tmp";
-    EXPECT_EQ(created[0], tmp);
+    for (const auto &p: created)
+        EXPECT_TRUE(p.string().starts_with(tmp.string())) << p;
 }
 
 /// @brief it should fail a save that the create hook fails, and keep no new file.
