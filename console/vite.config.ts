@@ -294,7 +294,6 @@ export default defineConfig({
     IS_DEV: isDev,
     DESKTOP: desktop,
     RELEASE: release,
-    CORE_PORT: Number(process.env.SYNNAX_TEST_PORT ?? 9090),
   },
   worker: {
     format: "es",

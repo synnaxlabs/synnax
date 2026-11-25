@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { icd, mqtt, type Synnax, type task } from "@synnaxlabs/client";
+import { channel, icd, mqtt, type Synnax, type task } from "@synnaxlabs/client";
 import {
   createTestClient,
   holdResponses,
@@ -17,7 +17,7 @@ import type { Status } from "@synnaxlabs/lyra/status";
 import { scheduler } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it, onTestFinished } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { MQTT } from "@/feature/mqtt";
 import { createBroker, openScanner } from "@/feature/mqtt/testutil";
@@ -285,7 +285,30 @@ describe("MQTT Write form", () => {
     );
   });
 
+  it("should show the planned command channel name of a field after a rename", async () => {
+    const { target } = await createFormatTarget([createField("speed", "float")]);
+    const { dev } = await renderWrite([
+      { ...target, topic: "plant/valve-set" },
+      { ...target, key: "t2", topic: "plant/valve_set" },
+    ]);
+    const prefix = `${channel.escapeInvalidName(dev.name)}_plant_valve_set`;
+    const [, second] = await screen.findAllByRole("treeitem", { name: /^speed/ });
+    fireEvent.click(second);
+    await screen.findByDisplayValue(`${prefix}_speed_cmd_2`);
+    fireEvent.change(screen.getByDisplayValue("speed"), { target: { value: "rate" } });
+    expect(await screen.findByDisplayValue(`${prefix}_rate_cmd_2`)).toBeTruthy();
+  });
+
   describe("Sparkplug B targets", () => {
+    it("should say that deploying numbers a typed command channel name that another channel holds", async () => {
+      const name = uniqueName("mqtt_cmd");
+      await client.channels.create({ name, dataType: "float64", virtual: true });
+      await renderWrite([createTagTarget("s1", "setpoint", { name })]);
+      fireEvent.click(await screen.findByRole("treeitem", { name: /setpoint/ }));
+      expect(await screen.findByText(`Saves as ${name}_2`)).toBeTruthy();
+      expect(screen.getByDisplayValue(name)).toBeTruthy();
+    });
+
     it("should list a tag by its edge node, with its command channel in its pane", async () => {
       const ch = await client.channels.create({
         name: uniqueName("mqtt_cmd"),
@@ -772,6 +795,9 @@ describe("MQTT Write form", () => {
           new Error("channels unavailable"),
         );
         onTestFinished(() => reject.mockRestore());
+        // The plan of the command channel names fails on the same retrieval.
+        const error = vi.spyOn(console, "error").mockImplementation(() => {});
+        onTestFinished(() => error.mockRestore());
         let statuses: Status.NotificationSpec[] = [];
         await renderTaskFormTab(MQTT.Task.FORMS[MQTT.Task.WRITE_TYPE], {
           client,
@@ -793,6 +819,9 @@ describe("MQTT Write form", () => {
               description: "channels unavailable",
             }),
           ),
+        );
+        expect(error).toHaveBeenCalledWith(
+          expect.objectContaining({ message: "channels unavailable" }),
         );
       });
     });

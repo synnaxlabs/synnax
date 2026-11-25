@@ -355,7 +355,10 @@ WriteConfig struct extends task.StartConfig {
     }
     inline    InlineWrite?    {
         @cpp omit
-        @doc value  "holds the body of each endpoint of a config from before ICDs."
+        @doc value  """
+            holds the body of each endpoint of a config from before ICDs. A write moves
+            them into a new ICD and clears it.
+        """
         @go marshal omit
         @py omit
         @ts omit
