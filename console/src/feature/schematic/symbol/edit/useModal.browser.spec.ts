@@ -452,6 +452,23 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       expect(screen.getByText("Active")).toBeDefined();
     });
 
+    it("closes at once with no drawing", async () => {
+      await openCreateModal();
+      await screen.findByText(SYMBOL_FILE_DROP_PROMPT);
+      fireEvent.click(screen.getByRole("button", { name: "Close" }));
+      await waitFor(() =>
+        expect(screen.queryByText(SYMBOL_FILE_DROP_PROMPT)).toBeNull(),
+      );
+      expect(screen.queryByText("Discard unsaved edits?")).toBeNull();
+    });
+
+    it("asks before it drops a loaded drawing on close", async () => {
+      const { picker } = await openCreateModal();
+      await loadSVG(picker);
+      fireEvent.click(screen.getByRole("button", { name: "Close" }));
+      expect(await screen.findByText("Discard unsaved edits?")).toBeDefined();
+    });
+
     it("rejects a non-SVG file without opening the editor", async () => {
       const { picker } = await openCreateModal();
       await pickFile(picker, "not_an_svg.txt", "hello");
@@ -743,6 +760,80 @@ describe("Schematic.Symbol.Edit.useModal", () => {
         const retrieved = await client.schematics.symbols.retrieve(symbol.key);
         expect(retrieved.name).toBe(renamed);
       });
+    });
+
+    // openStored opens the editor on a new symbol, and edits nothing.
+    const openStored = async () => {
+      const grp = await createParentGroup();
+      const symbol = await client.schematics.symbols.create({
+        ...createSymbolPayload(uniqueName("stored")),
+        group: grp.key,
+      });
+      await renderModalOpener(
+        Schematic.Symbol.Edit.useModal,
+        [{ symbolKey: symbol.key, group: grp.key }],
+        { client, additionalRegistry: theming.REGISTRY },
+      );
+      await waitFor(() => expect(findNameInput().value).toBe(symbol.name), {
+        timeout: 5000,
+      });
+      return symbol;
+    };
+
+    const closeEditor = (): void => {
+      fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    };
+
+    it("closes at once when nothing changed", async () => {
+      await openStored();
+      closeEditor();
+      await waitFor(() =>
+        expect(screen.queryByPlaceholderText("Symbol name")).toBeNull(),
+      );
+      expect(screen.queryByText("Discard unsaved edits?")).toBeNull();
+    });
+
+    it("closes at once when an edit is undone", async () => {
+      const symbol = await openStored();
+      fireEvent.change(findNameInput(), { target: { value: uniqueName("renamed") } });
+      fireEvent.change(findNameInput(), { target: { value: symbol.name } });
+      closeEditor();
+      await waitFor(() =>
+        expect(screen.queryByPlaceholderText("Symbol name")).toBeNull(),
+      );
+      expect(screen.queryByText("Discard unsaved edits?")).toBeNull();
+    });
+
+    it("closes at once on Escape after a zoom of the preview", async () => {
+      await openStored();
+      pressKey("Equal");
+      // A modal takes an Escape only from an element inside it.
+      const zoom = await screen.findByText("120%");
+      fireEvent.keyDown(zoom, { code: "Escape", key: "Escape" });
+      fireEvent.keyUp(zoom, { code: "Escape", key: "Escape" });
+      await waitFor(() =>
+        expect(screen.queryByPlaceholderText("Symbol name")).toBeNull(),
+      );
+      expect(screen.queryByText("Discard unsaved edits?")).toBeNull();
+    });
+
+    it("asks before it drops unsaved edits on close", async () => {
+      const symbol = await openStored();
+      const renamed = uniqueName("renamed");
+      fireEvent.change(findNameInput(), { target: { value: renamed } });
+      closeEditor();
+      expect(await screen.findByText("Discard unsaved edits?")).toBeDefined();
+      fireEvent.click(findButton("Keep editing"));
+      await waitFor(() =>
+        expect(screen.queryByText("Discard unsaved edits?")).toBeNull(),
+      );
+      expect(findNameInput().value).toBe(renamed);
+      closeEditor();
+      fireEvent.click(await waitFor(() => findButton("Discard")));
+      await waitFor(() =>
+        expect(screen.queryByPlaceholderText("Symbol name")).toBeNull(),
+      );
+      expect((await retrieveStored(symbol.key)).name).toBe(symbol.name);
     });
 
     const BODY: schematic.symbol.Part = {
@@ -1372,6 +1463,26 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       assertDefined(shape);
       return shape;
     };
+
+    it("draws no fill on a shape that has none, and fills it from a fill look", async () => {
+      await openPainted({
+        drawing: { type: "svg", markup: TWO_RECTS },
+        looks: [
+          {
+            key: "red",
+            part: "body",
+            fill: {
+              type: "color",
+              value: { type: "fixed", value: color.construct("#ff0000") },
+            },
+          },
+        ],
+      });
+      await waitFor(() =>
+        expect(getComputedStyle(findShape("a")).fill).toBe("rgb(255, 0, 0)"),
+      );
+      expect(getComputedStyle(findShape("b")).fill).toBe("none");
+    });
 
     it("marks the shapes of the selected part in the preview", async () => {
       await openPainted({ drawing: { type: "svg", markup: TWO_RECTS } });
