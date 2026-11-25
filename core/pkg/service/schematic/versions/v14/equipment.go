@@ -224,13 +224,8 @@ func actuate(
 		if !found {
 			continue
 		}
-		if sym.Data, err = linkActuatorEntries(
-			ctx,
-			tx,
-			intern,
-			sym.Name,
-			symbol.Actuate(sym.Data),
-		); err != nil {
+		sym.Data = symbol.Actuate(sym.Data)
+		if err = linkActuatorEntries(ctx, tx, intern, &sym); err != nil {
 			return err
 		}
 		if err = gorp.NewCreate[symbol.Key, symbol.Symbol]().
@@ -242,58 +237,79 @@ func actuate(
 	return nil
 }
 
-// linkActuatorEntries returns spec with an enumeration of symbol.ActuatorEntries, named
-// name, on its state "active", when the enumeration of the state lacks the entry On.
+// linkActuatorEntries gives the state "active" of sym symbol.ActuatorEntries, when its
+// enumeration lacks the entry On. It adds the entry to the enumeration when no other
+// symbol links it, and links a new enumeration through intern when one does.
 func linkActuatorEntries(
 	ctx context.Context,
 	tx gorp.Tx,
 	intern symbol.Intern,
-	name string,
-	spec symbol.Spec,
-) (symbol.Spec, error) {
-	for i, s := range spec.States {
+	sym *symbol.Symbol,
+) error {
+	for i, s := range sym.Data.States {
 		state, ok := s.Variant.(symbol.EnumerationState)
-		if !ok || state.Key != activeState {
+		if !ok || state.Key != activeState || state.Enumeration == nil {
 			continue
 		}
-		entries, err := entriesOf(ctx, tx, state)
+		e, err := retrieveEnumeration(ctx, tx, *state.Enumeration)
 		if err != nil {
-			return symbol.Spec{}, err
+			return err
 		}
-		entries, added := symbol.ActuatorEntries(entries)
+		entries, added := symbol.ActuatorEntries(e.Entries)
 		if !added {
-			return spec, nil
+			return nil
 		}
-		key, err := intern(ctx, name, entries)
+		shared, err := linkedElsewhere(ctx, tx, sym.Key, e.Key)
 		if err != nil {
-			return symbol.Spec{}, err
+			return err
+		}
+		if !shared {
+			e.Entries = entries
+			return gorp.NewCreate[enumeration.Key, enumeration.Enumeration]().
+				Entry(&e).
+				Exec(ctx, tx)
+		}
+		key, err := intern(ctx, sym.Name, entries)
+		if err != nil {
+			return err
 		}
 		state.Enumeration = &key
-		spec.States[i] = symbol.State{Variant: state}
+		sym.Data.States[i] = symbol.State{Variant: state}
 	}
-	return spec, nil
+	return nil
 }
 
-// entriesOf returns the entries of the enumeration of state, or nil when it has none.
-func entriesOf(
+// linkedElsewhere returns whether a symbol other than the one with key links e.
+func linkedElsewhere(
 	ctx context.Context,
 	tx gorp.Tx,
-	state symbol.EnumerationState,
-) ([]enumeration.Entry, error) {
-	if state.Enumeration == nil {
-		return nil, nil
-	}
+	key symbol.Key,
+	e enumeration.Key,
+) (bool, error) {
+	return gorp.NewRetrieve[symbol.Key, symbol.Symbol]().
+		Where(gorp.Match(func(_ gorp.Context, s *symbol.Symbol) (bool, error) {
+			return s.Key != key && slices.ContainsFunc(
+				s.Data.States,
+				func(st symbol.State) bool {
+					es, ok := st.Variant.(symbol.EnumerationState)
+					return ok && es.Enumeration != nil && *es.Enumeration == e
+				},
+			), nil
+		})).
+		Exists(ctx, tx)
+}
+
+func retrieveEnumeration(
+	ctx context.Context,
+	tx gorp.Tx,
+	key enumeration.Key,
+) (enumeration.Enumeration, error) {
 	var e enumeration.Enumeration
 	err := gorp.NewRetrieve[enumeration.Key, enumeration.Enumeration]().
-		Where(gorp.MatchKeys[enumeration.Key, enumeration.Enumeration](
-			*state.Enumeration,
-		)).
+		Where(gorp.MatchKeys[enumeration.Key, enumeration.Enumeration](key)).
 		Entry(&e).
 		Exec(ctx, tx)
-	if err != nil {
-		return nil, err
-	}
-	return e.Entries, nil
+	return e, err
 }
 
 // resolveSymbols gives each symbol node of s whose custom symbol the store does not

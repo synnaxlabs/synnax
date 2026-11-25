@@ -428,6 +428,15 @@ var _ = Describe("ImportCustomNodes", func() {
 		}}))
 	})
 
+	It("Should give a copy of a symbol with a scale that is not positive the scale 1",
+		func(ctx SpecContext) {
+			src.Data.Scale = 0
+			stopActuating(ctx)
+			run(ctx, src.Key, nil)
+			Expect(created).To(HaveLen(1))
+			Expect(created[0].Data.Scale).To(Equal(1.0))
+		})
+
 	It("Should give a custom static node and a custom actuator with the same "+
 		"overrides their own copies", func(ctx SpecContext) {
 		stopActuating(ctx)
