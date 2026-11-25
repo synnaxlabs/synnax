@@ -16,7 +16,7 @@ export type RetrieveQuery = {
   subject: resource.ID;
 };
 
-export const { useResult, useInvalidate } = Flux.createRetrieve<
+export const { useResult, useInvalidate, useRefresh } = Flux.createRetrieve<
   RetrieveQuery,
   auth.oidc.invite.Invite[]
 >({

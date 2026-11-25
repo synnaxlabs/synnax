@@ -101,12 +101,11 @@ export interface InviteProps {
 export const Invite = ({ subject, grants, onMessage }: InviteProps): ReactElement => {
   const query = { subject };
   const invalidate = Credential.OIDC.Invite.useInvalidate();
+  const refresh = Credential.OIDC.Invite.useRefresh();
   const [token, setToken] = useState<string | null>(null);
-  // This read has no live updates, so a remount is what fetches it again.
-  const [generation, setGeneration] = useState(0);
+  // This read has no live updates, so a change made here fetches it again.
   const handleChange = (message: string) => {
-    invalidate(query);
-    setGeneration((g) => g + 1);
+    refresh(query);
     onMessage(message);
   };
   const create = Credential.OIDC.Invite.useCreate({
@@ -131,11 +130,11 @@ export const Invite = ({ subject, grants, onMessage }: InviteProps): ReactElemen
     onMessage(null);
     revoke.update(key);
   };
+  // Drop the answer on unmount so the next mount shows changes made elsewhere.
   useEffect(() => () => invalidate(query), []);
   return (
     <Flex.Box y gap="small">
       <Live
-        key={generation}
         subject={subject}
         grants={grants}
         createStatus={create.variant}
