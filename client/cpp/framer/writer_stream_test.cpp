@@ -66,8 +66,7 @@ grpc::framer::WriterRequest open_request(const WriterConfig &cfg) {
         std::make_unique<OpenSavingStreamClient>(opened),
         channel::Client()
     };
-    auto [writer, err] = client.open_writer(cfg);
-    EXPECT_NIL(err);
+    auto writer = ASSERT_NIL_P(client.open_writer(cfg));
     return *opened;
 }
 
