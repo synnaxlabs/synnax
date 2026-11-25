@@ -18,7 +18,7 @@ import { useSuit } from "@/platform/icd/useSuit";
 import { suit } from "@/platform/icd/write/write";
 
 export interface SuitProps {
-  /** The ICD of the message, which an enclosing WithFormat opens. */
+  /** The ICD of the message, which an enclosing WithFormats opens. */
   icdKey: icd.Key;
   path: deep.Path<icd.WriteMessage>;
 }

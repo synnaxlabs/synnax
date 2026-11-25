@@ -1,5 +1,5 @@
 {
-  "description": "A scaled value that is not finite does not decode.",
+  "description": "A scaled value past the range of a float64 decodes as infinity, as a float field takes any float.",
   "messages": [
     {
       "name": "reading",
@@ -30,7 +30,8 @@
       "document": {
         "v": 1e308
       },
-      "error": "field v: Infinity is not finite: validation error"
+      "message": "reading",
+      "samples": ["Infinity"]
     }
   ]
 }

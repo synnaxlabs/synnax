@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
@@ -52,11 +53,20 @@ std::vector<JSONMessage> parse_messages(const std::string &doc) {
     return out;
 }
 
+/// @brief returns v as the fixtures write it: a number, or a string for NaN, Infinity,
+/// and -Infinity.
+nlohmann::json float_json(const double v) {
+    if (std::isnan(v)) return "NaN";
+    if (std::isinf(v)) return v > 0 ? "Infinity" : "-Infinity";
+    return v;
+}
+
 /// @brief returns the JSON form of the one sample in s, as the fixtures write it.
 nlohmann::json sample_json(const x::telem::Series &s) {
     const auto dt = s.data_type();
-    if (dt == x::telem::FLOAT64_T) return s.at<double>(0);
-    if (dt == x::telem::FLOAT32_T) return static_cast<double>(s.at<float>(0));
+    if (dt == x::telem::FLOAT64_T) return float_json(s.at<double>(0));
+    if (dt == x::telem::FLOAT32_T)
+        return float_json(static_cast<double>(s.at<float>(0)));
     if (dt == x::telem::INT64_T) return s.at<std::int64_t>(0);
     if (dt == x::telem::INT32_T) return s.at<std::int32_t>(0);
     if (dt == x::telem::INT16_T) return s.at<std::int16_t>(0);
