@@ -691,6 +691,7 @@ ReadBinding struct {
     }
 
     @doc value  "writes the value of one message field to a channel."
+    @go json    hand
     @go marshal
     @pb omit
 }

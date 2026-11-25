@@ -419,6 +419,8 @@ ReadBinding struct extends v0.ReadBinding {
             exists.
         """
     }
+
+    @go json hand
 }
 
 ReadMessage struct extends v0.ReadMessage {
