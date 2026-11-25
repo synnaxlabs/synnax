@@ -48,8 +48,7 @@ var _ = Describe("Default Registry", func() {
 	})
 
 	// A routed file fails on the canceled context. A file no chain routes passes
-	// through
-	// unchanged.
+	// through unchanged.
 	canceled := func() context.Context {
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel()

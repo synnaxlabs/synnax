@@ -42,19 +42,29 @@ var _ = Describe("TypeScript Formatter", func() {
 		r = MustSucceed(format.Default(repoRoot, 2026, nil))
 	})
 
+	// stage writes each file to disk until the spec ends, as sync does for new files,
+	// because typed ESLint lints only files on disk.
+	stage := func(files ...format.File) []format.File {
+		for _, f := range files {
+			Expect(os.WriteFile(f.Path, f.Content, 0o644)).To(Succeed())
+			DeferCleanup(os.Remove, f.Path)
+		}
+		return files
+	}
+
 	It("Should sort imports and format files across packages", func(ctx SpecContext) {
 		raw := "import { z } from \"zod\";\nimport { array } from \"@/array\";\n" +
 			"export const  a = z.object({ b:array.nullishToEmpty(z.string()) })\n"
-		out := r.FormatBatch(ctx, []format.File{
-			{
+		out := r.FormatBatch(ctx, stage(
+			format.File{
 				Path:    filepath.Join(repoRoot, "x/ts/src/oracle_fixture.gen.ts"),
 				Content: []byte(raw),
 			},
-			{
+			format.File{
 				Path:    filepath.Join(repoRoot, "client/ts/src/oracle_fixture.gen.ts"),
 				Content: []byte(raw),
 			},
-		}, 2)
+		), 2)
 		for _, res := range out {
 			Expect(res.Err).ToNot(HaveOccurred())
 			Expect(string(res.Content)).To(HavePrefix("// Copyright 2026 Synnax Labs"))
@@ -68,16 +78,16 @@ var _ = Describe("TypeScript Formatter", func() {
 	})
 
 	It("Should fail only the file that does not parse", func(ctx SpecContext) {
-		out := r.FormatBatch(ctx, []format.File{
-			{
+		out := r.FormatBatch(ctx, stage(
+			format.File{
 				Path:    filepath.Join(repoRoot, "x/ts/src/oracle_ok.gen.ts"),
 				Content: []byte("export const a = 1\n"),
 			},
-			{
+			format.File{
 				Path:    filepath.Join(repoRoot, "x/ts/src/oracle_bad.gen.ts"),
 				Content: []byte("export const = ;\n"),
 			},
-		}, 1)
+		), 1)
 		Expect(out[0].Err).ToNot(HaveOccurred())
 		Expect(string(out[0].Content)).To(HaveSuffix("export const a = 1;\n"))
 		Expect(out[1].Err).To(MatchError(And(
