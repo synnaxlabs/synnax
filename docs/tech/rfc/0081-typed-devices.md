@@ -253,6 +253,16 @@ Task configs reference a resource by its typed key: `ni.Device.Key` on NI channe
 and so on. `task.WriteConfig.device device.Key` (`schemas/synnax/task.oracle:197`) moves
 into each integration's write config under its typed key.
 
+- **Ownership**: the device owns every binding (address to channel, index channels), so
+  it is the one source.
+- **Tasks**: a task holds its integration's typed `Key?` and run parameters only (rates,
+  QoS, scales, ranges, consumer group, start offset). It selects bindings by channel
+  key, or runs them all, and never copies an address or a channel.
+- **Imports**: a task schema imports only its own integration's device schema; after
+  Phase 22, none imports `schemas/synnax/device`.
+- **Kafka**: the device and task meanings of `record_key` disagree today; the device
+  meaning wins.
+
 ### 4.2 Core services
 
 Each integration service owns its resources beside its config stores: the NI service
@@ -487,7 +497,8 @@ green at every step. The migration brings 0.59 data forward near the end.
 - **Phase 21: Migration.** §4.8 steps 1 to 3 and the policy rewrite. The map now exists
   for the next phase.
 - **Phase 22: Task config references.** Typed device keys on every config, with the
-  config migrations of §4.8 step 4 reading the map.
+  config migrations of §4.8 step 4 reading the map. Each moves its legacy task's channel
+  list into the device's bindings and rewrites the task to the selection form.
 - **Phase 23: Delete the legacy path.** §4.8 step 5, the legacy service, `/device/*`
   routes, `client.devices`, `sy.Device`, `synnax::device::Client`, `pluto/src/device`,
   and the Console's generic device layer.
