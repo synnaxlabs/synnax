@@ -22,6 +22,8 @@ import { alamos } from "@/alamos/aether";
 import { Status } from "@/status";
 import { status } from "@/status/aether";
 import { createAetherProvider, render } from "@/testutil";
+import { Theming } from "@/theming";
+import { theming } from "@/theming/aether";
 import { Canvas } from "@/vis/canvas";
 import { canvas } from "@/vis/canvas/aether";
 import { canvasTest } from "@/vis/render/testutil";
@@ -171,6 +173,7 @@ describe("Canvas", () => {
       const Provider = createAetherProvider({
         ...alamos.REGISTRY,
         ...status.REGISTRY,
+        ...theming.REGISTRY,
         ...canvas.REGISTRY,
       });
       rtlRender(
@@ -178,7 +181,9 @@ describe("Canvas", () => {
           <Provider>
             <Alamos.Provider>
               <Status.Aggregator>
-                <Canvas.Canvas resizeDebounce={0} handoff="bitmap" />
+                <Theming.Provider>
+                  <Canvas.Canvas resizeDebounce={0} handoff="bitmap" />
+                </Theming.Provider>
               </Status.Aggregator>
             </Alamos.Provider>
           </Provider>

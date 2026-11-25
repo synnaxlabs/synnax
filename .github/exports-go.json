@@ -3,5 +3,12 @@
     { "module": "freighter/integration", "usage": "tests-only" },
     { "module": "freighter/integration", "usage": "unused" }
   ],
-  "pending": []
+  "pending": [
+    {
+      "module": "x/go",
+      "package": "github.com/synnaxlabs/x/io/fs/testutil/crash",
+      "name": "Writeback",
+      "caller": "https://linear.app/synnax/issue/SY-6385"
+    }
+  ]
 }

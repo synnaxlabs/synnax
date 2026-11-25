@@ -33,6 +33,14 @@ describe("HTTP Device Properties", () => {
       expect(result.auth.type).toBe("none");
     });
 
+    it("should keep a max response size set by hand", () => {
+      const result = HTTP.Device.propertiesZ.parse({
+        ...HTTP.Device.ZERO_PROPERTIES,
+        maxResponseSize: 1024,
+      });
+      expect(result.maxResponseSize).toBe(1024);
+    });
+
     it("should validate a v1 config with bearer auth", () => {
       const config: HTTP.Device.Properties = {
         secure: true,

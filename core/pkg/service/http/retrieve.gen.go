@@ -221,6 +221,87 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 				}
 			},
 		}),
+		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, WriteConfig, icd.Key]{
+			Name:     "endpoints.icd",
+			Table:    "icd",
+			OnDelete: gorp.Restrict,
+			Kind:     gorp.Use,
+			Targets: func(e *WriteConfig) []icd.Key {
+				var targets []icd.Key
+				for _, v1 := range e.Endpoints {
+					if v1.ICD != nil {
+						targets = append(targets, *v1.ICD)
+					}
+				}
+				return targets
+			},
+			Detach: func(e *WriteConfig, t icd.Key) {
+				for i2 := range e.Endpoints {
+					if e.Endpoints[i2].ICD != nil && *e.Endpoints[i2].ICD == t {
+						e.Endpoints[i2].ICD = nil
+					}
+				}
+			},
+			Retarget: func(e *WriteConfig, from, to icd.Key) {
+				for i3 := range e.Endpoints {
+					if e.Endpoints[i3].ICD != nil && *e.Endpoints[i3].ICD == from {
+						*e.Endpoints[i3].ICD = to
+					}
+				}
+			},
+		}),
+		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, WriteConfig, channel.Key]{
+			Name:     "endpoints.message.bindings.channel",
+			Table:    "channel",
+			OnDelete: gorp.Restrict,
+			Kind:     gorp.Use,
+			Targets: func(e *WriteConfig) []channel.Key {
+				var targets []channel.Key
+				for _, v1 := range e.Endpoints {
+					if v1.Message != nil {
+						for _, v2 := range v1.Message.Bindings {
+							switch v3 := v2.Variant.(type) {
+							case icd.ChannelWriteBinding:
+								if v3.Channel != 0 {
+									targets = append(targets, v3.Channel)
+								}
+							}
+						}
+					}
+				}
+				return targets
+			},
+			Detach: func(e *WriteConfig, t channel.Key) {
+				for i4 := range e.Endpoints {
+					if e.Endpoints[i4].Message != nil {
+						for i5 := range e.Endpoints[i4].Message.Bindings {
+							switch v6 := e.Endpoints[i4].Message.Bindings[i5].Variant.(type) {
+							case icd.ChannelWriteBinding:
+								if v6.Channel == t {
+									v6.Channel = 0
+								}
+								e.Endpoints[i4].Message.Bindings[i5].Variant = v6
+							}
+						}
+					}
+				}
+			},
+			Retarget: func(e *WriteConfig, from, to channel.Key) {
+				for i7 := range e.Endpoints {
+					if e.Endpoints[i7].Message != nil {
+						for i8 := range e.Endpoints[i7].Message.Bindings {
+							switch v9 := e.Endpoints[i7].Message.Bindings[i8].Variant.(type) {
+							case icd.ChannelWriteBinding:
+								if v9.Channel == from {
+									v9.Channel = to
+								}
+								e.Endpoints[i7].Message.Bindings[i8].Variant = v9
+							}
+						}
+					}
+				}
+			},
+		}),
 		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, WriteConfig, channel.Key]{
 			Name:     "endpoints.channel.channel",
 			Table:    "channel",
@@ -246,6 +327,41 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 				for i3 := range e.Endpoints {
 					if e.Endpoints[i3].Channel.Channel == from {
 						e.Endpoints[i3].Channel.Channel = to
+					}
+				}
+			},
+		}),
+		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, WriteConfig, channel.Key]{
+			Name:     "inline.endpoints.channel.channel",
+			Table:    "channel",
+			OnDelete: gorp.Restrict,
+			Kind:     gorp.Use,
+			Targets: func(e *WriteConfig) []channel.Key {
+				var targets []channel.Key
+				if e.Inline != nil {
+					for _, v1 := range e.Inline.Endpoints {
+						if v1.Channel.Channel != 0 {
+							targets = append(targets, v1.Channel.Channel)
+						}
+					}
+				}
+				return targets
+			},
+			Detach: func(e *WriteConfig, t channel.Key) {
+				if e.Inline != nil {
+					for i2 := range e.Inline.Endpoints {
+						if e.Inline.Endpoints[i2].Channel.Channel == t {
+							e.Inline.Endpoints[i2].Channel.Channel = 0
+						}
+					}
+				}
+			},
+			Retarget: func(e *WriteConfig, from, to channel.Key) {
+				if e.Inline != nil {
+					for i3 := range e.Inline.Endpoints {
+						if e.Inline.Endpoints[i3].Channel.Channel == from {
+							e.Inline.Endpoints[i3].Channel.Channel = to
+						}
 					}
 				}
 			},

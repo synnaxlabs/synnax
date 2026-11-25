@@ -77,6 +77,7 @@ Status struct<Details> {
         Statuses support different severity variants and can carry component-specific
         details.
     """
+    @go entry      "Status"
     @go marshal
     @resource type "status"
 }

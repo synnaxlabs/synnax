@@ -958,4 +958,14 @@ var _ = Describe("EnumForm", func() {
 			Expect(ok).To(BeFalse())
 		})
 	})
+
+	Describe("Narrows", func() {
+		It("Should report true when the enum names a superset", func() {
+			form := resolution.EnumForm{Superset: resolution.TypeRef{Name: "x.Base"}}
+			Expect(form.Narrows()).To(BeTrue())
+		})
+		It("Should report false when the enum names no superset", func() {
+			Expect(intEnum(0, 1).Narrows()).To(BeFalse())
+		})
+	})
 })

@@ -1,0 +1,106 @@
+{
+  "description": "A field writes a sample at its min or max. A float32 sample equals a limit at float32 precision, and a scaled field checks its sample, not the value it writes.",
+  "message": {
+    "name": "command",
+    "payload": {
+      "format": "json",
+      "fields": [
+        {
+          "key": "00000000-0000-4000-8000-000000000001",
+          "name": "bounded",
+          "scale": 1,
+          "offset": 0,
+          "units": "",
+          "pointer": "/bounded",
+          "type": "float",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "00000000-0000-4000-8000-000000000002",
+          "name": "count",
+          "scale": 1,
+          "offset": 0,
+          "units": "",
+          "pointer": "/count",
+          "type": "integer",
+          "max": 10
+        },
+        {
+          "key": "00000000-0000-4000-8000-000000000003",
+          "name": "scaled",
+          "scale": 0.1,
+          "offset": 0,
+          "units": "",
+          "pointer": "/scaled",
+          "type": "float",
+          "max": 10
+        },
+        {
+          "key": "00000000-0000-4000-8000-000000000004",
+          "name": "narrow_high",
+          "scale": 1,
+          "offset": 0,
+          "units": "",
+          "pointer": "/narrow_high",
+          "type": "float",
+          "max": 0.1
+        },
+        {
+          "key": "00000000-0000-4000-8000-000000000005",
+          "name": "narrow_low",
+          "scale": 1,
+          "offset": 0,
+          "units": "",
+          "pointer": "/narrow_low",
+          "type": "float",
+          "min": 3.3
+        }
+      ]
+    },
+    "bindings": [
+      {
+        "field": "00000000-0000-4000-8000-000000000001",
+        "data_type": "float64"
+      },
+      {
+        "field": "00000000-0000-4000-8000-000000000002",
+        "data_type": "int64"
+      },
+      {
+        "field": "00000000-0000-4000-8000-000000000003",
+        "data_type": "float64"
+      },
+      {
+        "field": "00000000-0000-4000-8000-000000000004",
+        "data_type": "float32"
+      },
+      {
+        "field": "00000000-0000-4000-8000-000000000005",
+        "data_type": "float32"
+      }
+    ]
+  },
+  "cases": [
+    {
+      "samples": [0, 10, 5, 0.1, 3.3],
+      "document": {
+        "bounded": 0,
+        "count": 10,
+        "scaled": 50,
+        "narrow_high": 0.10000000149011612,
+        "narrow_low": 3.299999952316284
+      }
+    },
+    {
+      "samples": [100, 10, 5, 0.1, 3.3],
+      "document": {
+        "bounded": 100,
+        "count": 10,
+        "scaled": 50,
+        "narrow_high": 0.10000000149011612,
+        "narrow_low": 3.299999952316284
+      }
+    }
+  ]
+}

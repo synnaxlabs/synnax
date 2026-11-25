@@ -212,7 +212,7 @@ func toInline(f ReadField, _ int) icdv0.InlineField {
 
 // liftFill sets the default of field to fill, read as a response value through the enum
 // labels and the time format of field. It returns an error when fill does not convert
-// to the kind of field.
+// to the kind of field, or when it is an infinite float, which no default holds.
 func liftFill(field *icdv1.JSONField, fill any) error {
 	f, err := fillField(*field)
 	if err != nil {
@@ -230,7 +230,11 @@ func liftFill(field *icdv1.JSONField, fill any) error {
 	if err != nil {
 		return err
 	}
-	field.Variant = withDefault(*field, sample)
+	v := withDefault(*field, sample)
+	if f, ok := v.(icdv1.FloatJSONField); ok && math.IsInf(float64(*f.Default), 0) {
+		return errors.New("default cannot be infinite")
+	}
+	field.Variant = v
 	return nil
 }
 

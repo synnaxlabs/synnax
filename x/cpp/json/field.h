@@ -103,9 +103,14 @@ public:
     /// - A UUID takes its string form.
     /// - Bytes take a string of standard, padded base64.
     /// - A numeric or boolean sample takes a number that it can hold exactly, a
-    ///   boolean as 0 or 1, or the label of an enum.
+    ///   boolean as 0 or 1, the label of an enum, or a string that C's strtod reads
+    ///   whole as such a number, after trimming whitespace from each end.
     /// @returns VALIDATION, appending nothing, when raw does not convert.
     errors::Error append(std::string_view raw, telem::Series &dst);
+
+    /// @brief returns true when raw, one valid JSON value, is a string that is the
+    /// label of an enum.
+    [[nodiscard]] bool labeled(std::string_view raw);
 
     /// @brief appends the sample of v to dst, as append does for a JSON number equal to
     /// v. A float data type takes any float, NaN and infinity included.

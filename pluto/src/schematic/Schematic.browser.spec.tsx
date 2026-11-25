@@ -19,7 +19,7 @@ import { z } from "zod";
 import { aether } from "@/aether/aether";
 import { Errors } from "@/errors";
 import { Schematic } from "@/schematic";
-import { control } from "@/telem/control/aether";
+import { controlTest } from "@/telem/control/aether/testutil";
 import { createAsyncSynnaxWrapper } from "@/testutil";
 import { diagram } from "@/vis/diagram/aether";
 import { latestSample } from "@/vis/latestSample/aether";
@@ -104,16 +104,6 @@ const renderSchematic = async (
 // Stand in for the worker components of a toggle tooltip.
 const looseZ = z.object({}).loose();
 
-class StubChip extends aether.Leaf<typeof looseZ> {
-  static readonly TYPE = control.Chip.TYPE;
-  override schema = looseZ;
-}
-
-class StubIndicator extends aether.Leaf<typeof looseZ> {
-  static readonly TYPE = control.Indicator.TYPE;
-  override schema = looseZ;
-}
-
 class StubLatestSample extends aether.Leaf<typeof looseZ> {
   static readonly TYPE = latestSample.LatestSample.TYPE;
   override schema = looseZ;
@@ -121,8 +111,7 @@ class StubLatestSample extends aether.Leaf<typeof looseZ> {
 
 const STALE_REGISTRY: aether.ComponentRegistry = {
   ...stalenessTest.createRegistry(toggle.Toggle.TYPE, toggle.toggleStateZ),
-  [StubChip.TYPE]: StubChip,
-  [StubIndicator.TYPE]: StubIndicator,
+  ...controlTest.createRegistry(),
   [StubLatestSample.TYPE]: StubLatestSample,
 };
 
@@ -249,5 +238,42 @@ describe("Schematic", () => {
     if (slot == null) throw new Error("the badge is not in the control slot");
     fireEvent.mouseMove(within(slot).getAllByRole("button", { hidden: true })[0]);
     await waitFor(() => expect(utils.queryByText(command.name)).toBeNull());
+  });
+
+  it("should hide the tooltip while a node shows its command menu", async () => {
+    const { utils } = await renderSchematic(
+      [
+        {
+          key: "v1",
+          position: xy.ZERO,
+          config: {
+            variant: "symbol",
+            spec: { type: "builtin", name: "valve" },
+            // A value that matches neither command makes a click open the menu.
+            states: [
+              {
+                key: "active",
+                source: { type: "local", value: 3 },
+                match: { type: "exact" },
+              },
+            ],
+          },
+        },
+      ],
+      { editable: false, registry: symbolNode.REGISTRY },
+    );
+    // React Flow hides unmeasured nodes, so role queries cannot see the button.
+    const button = await waitFor(() => {
+      const el = utils.container.querySelector<HTMLElement>(".react-flow__node button");
+      if (el == null) throw new Error("no symbol button yet");
+      return el;
+    });
+    fireEvent.mouseMove(button);
+    await utils.findByText("Stale timeout", undefined, { timeout: 3000 });
+    fireEvent.click(button);
+    const close = await utils.findByRole("menuitem", { name: "Close", hidden: true });
+    expect(utils.queryByText("Stale timeout")).toBeNull();
+    fireEvent.click(close);
+    await utils.findByText("Stale timeout", undefined, { timeout: 3000 });
   });
 });

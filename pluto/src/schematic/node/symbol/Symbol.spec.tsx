@@ -14,26 +14,34 @@ import {
   SyntheticCore,
 } from "@synnaxlabs/client/testutil";
 import { Rate, TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { act, render } from "@testing-library/react";
+import { act, fireEvent, render } from "@testing-library/react";
 import { ReactFlowProvider } from "@xyflow/react";
 import type { FC, PropsWithChildren } from "react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, assert, describe, expect, it, vi } from "vitest";
 import type { z } from "zod";
 
 import { Node } from "@/schematic/node";
+import { queryButton } from "@/schematic/node/common/toggle/testutil";
+import { createChannelTelem } from "@/schematic/node/testutil";
+import type { telem } from "@/telem/aether";
 import { telemTest } from "@/telem/aether/testutil";
+import { control } from "@/telem/control/aether";
+import { controlTest } from "@/telem/control/aether/testutil";
 import { createAsyncSynnaxWrapper, createSynnaxWrapper } from "@/testutil";
 import { symbolNode } from "@/vis/symbolNode/aether";
 
+// A node with a command channel mounts the control chip.
+const REGISTRY = { ...symbolNode.REGISTRY, ...controlTest.createRegistry() };
+
 const LocalWrapper = createSynnaxWrapper({
   client: null,
-  additionalRegistry: symbolNode.REGISTRY,
+  additionalRegistry: REGISTRY,
 });
 
 const createCoreWrapper = (core: SyntheticCore): FC<PropsWithChildren> =>
   createSynnaxWrapper({
     client: null,
-    additionalRegistry: symbolNode.REGISTRY,
+    additionalRegistry: REGISTRY,
     telemFactories: [telemTest.createRemoteFactory(core)],
   });
 
@@ -44,9 +52,12 @@ const FILLED = "[fill='#a0c2e3']";
 // Every sample of the synthetic Core reads as 1 through this match.
 const WITHIN = { type: "within" as const, bounds: { lower: -2, upper: 2 } };
 
+type Config = Omit<z.input<typeof schematic.symbolNodeConfigZ>, "variant">;
+
 const renderNode = (
-  config: Omit<z.input<typeof schematic.symbolNodeConfigZ>, "variant">,
+  config: Config,
   Wrapper: FC<PropsWithChildren> = LocalWrapper,
+  onConfigChange = vi.fn(),
 ) =>
   render(
     <Wrapper>
@@ -54,7 +65,7 @@ const renderNode = (
         <Node.REGISTRY.symbol.Node
           nodeKey="s1"
           selected={false}
-          onConfigChange={vi.fn()}
+          onConfigChange={onConfigChange}
           config={schematic.symbolNodeConfigZ.parse({ variant: "symbol", ...config })}
         />
       </ReactFlowProvider>
@@ -64,7 +75,7 @@ const renderNode = (
 const createCustomSymbol = async (
   markup: string,
   data: Partial<z.input<typeof schematic.symbol.specZ>> = {},
-  core?: SyntheticCore,
+  telemFactories?: telem.Factory[],
 ): Promise<{ key: string; client: Synnax; Wrapper: FC<PropsWithChildren> }> => {
   const client = createTestClient();
   const { key } = await client.schematics.symbols.create({
@@ -73,11 +84,15 @@ const createCustomSymbol = async (
   });
   const Wrapper = await createAsyncSynnaxWrapper({
     client,
-    additionalRegistry: symbolNode.REGISTRY,
-    telemFactories: core == null ? undefined : [telemTest.createRemoteFactory(core)],
+    additionalRegistry: REGISTRY,
+    telemFactories,
   });
   return { key, client, Wrapper };
 };
+
+const MARKUP =
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">' +
+  '<rect class="body" width="10" height="10" /></svg>';
 
 describe("Symbol node", () => {
   afterEach(() => {
@@ -92,6 +107,229 @@ describe("Symbol node", () => {
       states: [{ key: "active", source: { type: "local", value: 1 } }],
     });
     await vi.waitFor(() => expect(container.querySelector(FILLED)).not.toBeNull());
+  });
+
+  it.each([
+    [0, 1],
+    [1, 0],
+  ])(
+    "should write %d then %d to a local state on two clicks of a valve",
+    (from, to) => {
+      const onConfigChange = vi.fn();
+      const { container } = renderNode(
+        {
+          spec: { type: "builtin", name: "valve" },
+          states: [{ key: "active", source: { type: "local", value: from } }],
+        },
+        LocalWrapper,
+        onConfigChange,
+      );
+      const button = queryButton(container);
+      assert(button != null);
+      fireEvent.click(button);
+      expect(onConfigChange).toHaveBeenCalledExactlyOnceWith({
+        states: [
+          schematic.stateBindingZ.parse({
+            key: "active",
+            source: { type: "local", value: to },
+          }),
+        ],
+      });
+    },
+  );
+
+  it("should close an open valve on a click", async () => {
+    const { sinks, factory } = createChannelTelem({ 5: 1 });
+    const { container } = renderNode(
+      {
+        spec: { type: "builtin", name: "valve" },
+        color: COLOR,
+        states: [{ key: "active", source: { type: "channel", key: 5, command: 7 } }],
+      },
+      createSynnaxWrapper({
+        client: null,
+        additionalRegistry: REGISTRY,
+        telemFactories: [factory],
+      }),
+    );
+    const button = queryButton(container);
+    assert(button != null);
+    await act(async () => await vi.waitFor(() => expect(sinks.has(7)).toBe(true)));
+    await vi.waitFor(() => expect(container.querySelector(FILLED)).not.toBeNull());
+    fireEvent.click(button);
+    await expect.poll(() => sinks.get(7)?.values).toEqual([0]);
+  });
+
+  it("should write a command with no state to the channel of its binding", async () => {
+    const { sinks, factory } = createChannelTelem();
+    const { key, Wrapper } = await createCustomSymbol(
+      MARKUP,
+      {
+        commands: [{ key: "vent", name: "Vent", value: { type: "fixed", value: 1 } }],
+        interactions: [{ type: "fire", key: "click", command: "vent" }],
+      },
+      [factory],
+    );
+    const { container } = renderNode(
+      { spec: { type: "custom", key }, commands: [{ key: "vent", channel: 9 }] },
+      Wrapper,
+    );
+    const button = await vi.waitUntil(() => queryButton(container));
+    await vi.waitUntil(() => sinks.has(9));
+    fireEvent.click(button);
+    await expect.poll(() => sinks.get(9)?.values).toEqual([1]);
+  });
+
+  it("should acquire control of every command channel through one chip", async () => {
+    const client = createTestClient();
+    const state = (key: string): schematic.symbol.State => ({
+      type: "enumeration",
+      key,
+      name: key,
+      match: { type: "exact" },
+      default: 0,
+    });
+    const open = (key: string, s?: string): schematic.symbol.Command => ({
+      key,
+      name: key,
+      state: s,
+      value: { type: "fixed", value: 1 },
+    });
+    const { key } = await client.schematics.symbols.create({
+      name: "Pair",
+      data: {
+        drawing: { type: "svg", markup: MARKUP },
+        variant: "static",
+        states: [state("a"), state("b")],
+        commands: [open("openA", "a"), open("openB", "b"), open("vent")],
+      },
+    });
+    const chipSinks = vi.fn();
+    const Wrapper = await createAsyncSynnaxWrapper({
+      client,
+      additionalRegistry: {
+        ...symbolNode.REGISTRY,
+        ...controlTest.createRegistry(chipSinks),
+      },
+      telemFactories: [createChannelTelem().factory],
+    });
+    renderNode(
+      {
+        spec: { type: "custom", key },
+        states: [
+          { key: "a", source: { type: "channel", command: 2 } },
+          { key: "b", source: { type: "channel", command: 4 } },
+        ],
+        commands: [{ key: "vent", channel: 5 }],
+      },
+      Wrapper,
+    );
+    const all = control.acquireChannelControl({ channels: [2, 4, 5], authority: 255 });
+    await vi.waitFor(() => expect(chipSinks).toHaveBeenCalledWith(all));
+    for (const [sink] of chipSinks.mock.calls) expect(sink).toEqual(all);
+  });
+
+  it("should compare each command value after the symbol's match", async () => {
+    const within = { type: "within" as const, bounds: { lower: 4, upper: 6 } };
+    const { key, Wrapper } = await createCustomSymbol(MARKUP, {
+      states: [
+        {
+          type: "enumeration",
+          key: "active",
+          name: "Active",
+          match: within,
+          default: 0,
+        },
+      ],
+      commands: [
+        {
+          key: "close",
+          name: "Close",
+          state: "active",
+          value: { type: "fixed", value: 0 },
+        },
+        {
+          key: "open",
+          name: "Open",
+          state: "active",
+          value: { type: "fixed", value: 5 },
+        },
+      ],
+      interactions: [{ type: "next", key: "click", commands: ["close", "open"] }],
+    });
+    const onConfigChange = vi.fn();
+    const { container } = renderNode(
+      {
+        spec: { type: "custom", key },
+        states: [{ key: "active", source: { type: "local", value: 5 } }],
+      },
+      Wrapper,
+      onConfigChange,
+    );
+    fireEvent.click(await vi.waitUntil(() => queryButton(container)));
+    expect(onConfigChange).toHaveBeenCalledExactlyOnceWith({
+      states: [
+        schematic.stateBindingZ.parse({
+          key: "active",
+          source: { type: "local", value: 0 },
+        }),
+      ],
+    });
+  });
+
+  it("should send the command of a fire click", async () => {
+    const { key, Wrapper } = await createCustomSymbol(MARKUP, {
+      states: [{ type: "number", key: "level", name: "Level" }],
+      commands: [
+        {
+          key: "fill",
+          name: "Fill",
+          state: "level",
+          value: { type: "fixed", value: 7 },
+        },
+      ],
+      interactions: [{ type: "fire", key: "click", command: "fill" }],
+    });
+    const onConfigChange = vi.fn();
+    const { container } = renderNode(
+      {
+        spec: { type: "custom", key },
+        states: [{ key: "level", source: { type: "local", value: 0 } }],
+      },
+      Wrapper,
+      onConfigChange,
+    );
+    const button = await vi.waitUntil(() => queryButton(container));
+    fireEvent.click(button);
+    expect(onConfigChange).toHaveBeenCalledExactlyOnceWith({
+      states: [
+        schematic.stateBindingZ.parse({
+          key: "level",
+          source: { type: "local", value: 7 },
+        }),
+      ],
+    });
+  });
+
+  it.each<[string, Pick<Config, "disabled" | "states">]>([
+    [
+      "while disabled",
+      {
+        disabled: true,
+        states: [{ key: "active", source: { type: "local", value: 0 } }],
+      },
+    ],
+    [
+      "when its state has no command channel",
+      { states: [{ key: "active", source: { type: "channel" } }] },
+    ],
+  ])("should take no clicks %s", (_, config) => {
+    const { container } = renderNode({
+      spec: { type: "builtin", name: "valve" },
+      ...config,
+    });
+    expect(container.querySelector(".pluto-symbol")).not.toBeNull();
+    expect(queryButton(container)).toBeNull();
   });
 
   it("should draw a state with no source at its default", async () => {
@@ -233,7 +471,7 @@ describe("Symbol node", () => {
     });
     const Wrapper = await createAsyncSynnaxWrapper({
       client,
-      additionalRegistry: symbolNode.REGISTRY,
+      additionalRegistry: REGISTRY,
     });
     const { findByRole } = renderNode(
       {
@@ -314,7 +552,7 @@ describe("Symbol node", () => {
           },
         ],
       },
-      core,
+      [telemTest.createRemoteFactory(core)],
     );
     const parse = vi.spyOn(DOMParser.prototype, "parseFromString");
     const { container } = renderNode(
@@ -356,7 +594,7 @@ describe("Symbol node", () => {
     const denied = await createTestClientWithPolicy(client, []);
     const Wrapper = await createAsyncSynnaxWrapper({
       client: denied,
-      additionalRegistry: symbolNode.REGISTRY,
+      additionalRegistry: REGISTRY,
     });
     const { findByText } = renderNode({ spec: { type: "custom", key } }, Wrapper);
     await findByText("Failed to load symbol");
