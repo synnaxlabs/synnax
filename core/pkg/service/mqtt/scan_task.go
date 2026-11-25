@@ -10,11 +10,7 @@
 package mqtt
 
 import (
-	"bytes"
 	"context"
-	"encoding/json/jsontext"
-	"io"
-	"slices"
 	"time"
 	"unicode/utf8"
 	"uuid"
@@ -50,20 +46,17 @@ const (
 	maxBrowseLimit        = 5000
 	// browsePayloadLimit is the longest payload sample, in bytes, of a browsed topic.
 	browsePayloadLimit = 256
-	// browseFieldLimit is the largest count of fields of a browsed topic.
-	browseFieldLimit = 256
-	// browseSampleLimit is the longest field sample, in bytes, of a browsed topic.
-	browseSampleLimit = 64
 )
 
 var errReconnecting = errors.New("the connection is down and tries again on its own")
 
-// browsedField is one scalar of a browsed JSON payload.
+// browsedField is one scalar field of a shape of browsed JSON payloads.
 type browsedField struct {
 	Pointer string `json:"pointer"`
-	// Type is the JSON type of the scalar: "number", "string", or "boolean".
+	// Type is the JSON type of most values heard at Pointer: "number", "string", or
+	// "boolean".
 	Type string `json:"type"`
-	// Sample is the start of the JSON text of the scalar.
+	// Sample is the start of the JSON text of the last value heard at Pointer.
 	Sample string `json:"sample"`
 	// Kind is the kind of a payload field that holds most values heard at Pointer.
 	Kind payload.Kind `json:"kind"`
@@ -272,64 +265,4 @@ func payloadSample(payload []byte) string {
 		return ""
 	}
 	return driver.CutText(payload, browsePayloadLimit)
-}
-
-// payloadFields returns the scalars of a JSON payload in document order, at most
-// browseFieldLimit of them. Arrays and nulls give no field. It returns no fields when
-// the payload is not JSON, is not UTF-8, or repeats a name in an object.
-func payloadFields(payload []byte) []browsedField {
-	fields := []browsedField{}
-	dec := jsontext.NewDecoder(bytes.NewReader(payload))
-	if err := appendFields(dec, nil, &fields); err != nil {
-		return []browsedField{}
-	}
-	if _, err := dec.ReadToken(); !errors.Is(err, io.EOF) {
-		return []browsedField{}
-	}
-	return fields
-}
-
-// appendFields appends the scalars of the next value of dec, at pointer, to fields.
-func appendFields(
-	dec *jsontext.Decoder,
-	pointer xjson.Pointer,
-	fields *[]browsedField,
-) error {
-	var t xjson.Type
-	switch dec.PeekKind() {
-	case '{':
-		if _, err := dec.ReadToken(); err != nil {
-			return err
-		}
-		for dec.PeekKind() != '}' {
-			name, err := dec.ReadToken()
-			if err != nil {
-				return err
-			}
-			child := append(slices.Clip(pointer), name.String())
-			if err = appendFields(dec, child, fields); err != nil {
-				return err
-			}
-		}
-		_, err := dec.ReadToken()
-		return err
-	case '"':
-		t = xjson.String
-	case '0':
-		t = xjson.Number
-	case 't', 'f':
-		t = xjson.Boolean
-	default:
-		return dec.SkipValue()
-	}
-	value, err := dec.ReadValue()
-	if err != nil || len(*fields) == browseFieldLimit {
-		return err
-	}
-	*fields = append(*fields, browsedField{
-		Pointer: pointer.String(),
-		Type:    t.String(),
-		Sample:  driver.CutText(value, browseSampleLimit),
-	})
-	return nil
 }

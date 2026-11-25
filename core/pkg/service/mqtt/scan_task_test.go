@@ -761,7 +761,7 @@ var _ = Describe("Scan task", func() {
 			},
 		)
 
-		It("Should give at most 256 scalars of a payload, and name an index past them",
+		It("Should give every scalar of a payload past 256, with an index past them",
 			func(ctx SpecContext) {
 				names := make([]string, 301)
 				for i := range 300 {
@@ -775,11 +775,11 @@ var _ = Describe("Scan task", func() {
 				Expect(ok).To(BeTrue())
 				Expect(topics[0]).To(oneShape(SatisfyAll(
 					HaveKeyWithValue("fields", SatisfyAll(
-						HaveLen(256),
-						HaveEach(Not(HaveKeyWithValue("pointer", "/ts"))),
+						HaveLen(301),
 						ContainElement(
-							field("/f255", "number", "255", payload.KindInteger),
+							field("/f299", "number", "299", payload.KindInteger),
 						),
+						ContainElement(HaveKeyWithValue("pointer", "/ts")),
 					)),
 					HaveKeyWithValue("index", "/ts"),
 				)))
@@ -919,24 +919,24 @@ var _ = Describe("Scan task", func() {
 				sampled := func(n int) OmegaMatcher {
 					return HaveKeyWithValue("fields", SatisfyAll(
 						HaveLen(n),
-						HaveEach(HaveKeyWithValue("sample", Not(BeEmpty()))),
+						HaveEach(SatisfyAll(
+							HaveKeyWithValue("sample", Not(BeEmpty())),
+							HaveKeyWithValue("kind", Not(BeEmpty())),
+						)),
 					))
 				}
-				Expect(topics[0]).To(SatisfyAll(
-					HaveKeyWithValue("fields", HaveEach(HaveKey("kind"))),
-					HaveKeyWithValue("shapes", HaveExactElements(
-						SatisfyAll(
-							HaveKeyWithValue("present", "/b"),
-							Not(HaveKey("index")),
-							sampled(257),
-						),
-						SatisfyAll(
-							HaveKeyWithValue("present", "/a"),
-							HaveKeyWithValue("index", "/time"),
-							sampled(258),
-						),
-					)),
-				))
+				Expect(topics[0]).To(HaveKeyWithValue("shapes", HaveExactElements(
+					SatisfyAll(
+						HaveKeyWithValue("present", "/b"),
+						Not(HaveKey("index")),
+						sampled(257),
+					),
+					SatisfyAll(
+						HaveKeyWithValue("present", "/a"),
+						HaveKeyWithValue("index", "/time"),
+						sampled(258),
+					),
+				)))
 			},
 		)
 

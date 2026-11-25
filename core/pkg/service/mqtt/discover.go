@@ -201,7 +201,7 @@ type heardTopic struct {
 
 // infer sets the shapes of the messages heard.
 func (t *heardTopic) infer() {
-	shapes, _ := t.inferrer.Shapes()
+	shapes := t.inferrer.Shapes()
 	t.Shapes = make([]browsedShape, len(shapes))
 	for i, s := range shapes {
 		t.Shapes[i] = newBrowsedShape(s)
