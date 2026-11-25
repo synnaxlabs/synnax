@@ -208,6 +208,39 @@ Scale union on type {
 		Expect(versions.MergeLive(ctx, r, chain, merged)).To(Equal(merged))
 	})
 
+	It("Should drop a variant that a patch omits, with its live annotations", func(
+		ctx SpecContext,
+	) {
+		write("schemas/synnax/versions/channel/v0.oracle", `
+Scale union on type {
+    linear {
+        slope float64
+    }
+    none {}
+
+    @go marshal
+}
+`)
+		write("schemas/synnax/versions/channel/v1.oracle", `
+Scale union on type extends v0.Scale {
+    -none
+}
+`)
+		r, chain := resolver()
+		merged := MustSucceed(versions.MergeLive(ctx, r, chain, `Scale union on type {
+    linear {
+        slope float64
+    }
+    none {
+        @doc value "is a removed variant."
+    }
+}
+`))
+		Expect(merged).To(ContainSubstring("linear"))
+		Expect(merged).ToNot(ContainSubstring("none"))
+		Expect(versions.MergeLive(ctx, r, chain, merged)).To(Equal(merged))
+	})
+
 	It("Should carry live-owned action declarations through the merge", func(
 		ctx SpecContext,
 	) {

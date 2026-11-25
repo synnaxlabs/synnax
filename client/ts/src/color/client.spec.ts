@@ -84,12 +84,8 @@ describe("color.Client", () => {
       const prefix = `searchable-${id.create()}`;
       const names = [`${prefix}-1`, `${prefix}-2`];
       await client.colors.create(names.map((name) => ({ name, light: "#00ff00" })));
-      await expect
-        .poll(async () => {
-          const results = await client.colors.retrieve({ searchTerm: prefix });
-          return results.map((n) => n.name).sort();
-        })
-        .toEqual(names);
+      const results = await client.colors.retrieve({ searchTerm: prefix });
+      expect(results.map((n) => n.name).sort()).toEqual(names);
     });
 
     it("should drop the keys that do not exist from a key list", async () => {
