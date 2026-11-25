@@ -14,7 +14,6 @@ import (
 	"sync"
 
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
@@ -27,7 +26,7 @@ import (
 // index channel and each free channel with no index, shared across every writer opened
 // on the service.
 type freeWriteAlignments struct {
-	counters map[channel.Key]*cesium.AlignmentCounter
+	counters map[channel.Key]*telem.AlignmentCounter
 	mu       sync.Mutex
 }
 
@@ -50,7 +49,7 @@ func (f *freeWriteAlignments) reserve(
 		}
 		c, ok := f.counters[idx]
 		if !ok {
-			c = cesium.NewAlignmentCounter()
+			c = telem.NewAlignmentCounter(telem.LeadingDomain)
 			f.counters[idx] = c
 		}
 		a, err := c.Next()

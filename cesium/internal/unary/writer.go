@@ -15,7 +15,6 @@ import (
 	"uuid"
 
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/cesium/internal/alignment"
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/control"
 	"github.com/synnaxlabs/cesium/internal/domain"
@@ -170,7 +169,7 @@ type controlledWriter struct {
 	// Commits that resolve their end from the session sample count anchor on it.
 	sessionStart telem.TimeStamp
 	// alignments reserves the alignment domain of each domain after the first.
-	alignments *alignment.Counter
+	alignments *telem.AlignmentCounter
 }
 
 var _ control.Resource = &controlledWriter{}

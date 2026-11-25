@@ -19,7 +19,6 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
@@ -284,7 +283,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	return &Service{
 		cfg: cfg,
 		freeWriteAlignments: &freeWriteAlignments{
-			counters: make(map[channel.Key]*cesium.AlignmentCounter),
+			counters: make(map[channel.Key]*telem.AlignmentCounter),
 		},
 	}, nil
 }

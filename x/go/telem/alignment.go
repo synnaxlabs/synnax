@@ -14,8 +14,10 @@ import (
 	"encoding/json/v2"
 	"fmt"
 	"math"
+	"sync/atomic"
 
 	xjson "github.com/synnaxlabs/x/encoding/json"
+	"github.com/synnaxlabs/x/errors"
 )
 
 var (
@@ -64,4 +66,40 @@ func (a Alignment) MarshalJSONTo(enc *jsontext.Encoder) error {
 // AddSamples increments the sample index of the alignment.
 func (a Alignment) AddSamples(samples uint32) Alignment {
 	return NewAlignment(a.DomainIndex(), a.SampleIndex()+samples)
+}
+
+// LeadingDomain is the first domain index of alignments for written data that is not
+// yet stored. Stored data takes the domain indexes below it, so new data orders after
+// stored data.
+const LeadingDomain uint32 = 1 << 31
+
+// LeadingAlignment returns the alignment of sample sampleIdx in the domain domainIdx
+// domains above LeadingDomain.
+func LeadingAlignment(domainIdx, sampleIdx uint32) Alignment {
+	return NewAlignment(LeadingDomain+domainIdx, sampleIdx)
+}
+
+// ErrAlignmentsExhausted is returned by AlignmentCounter.Next when no domain index is
+// left above the counter's start.
+var ErrAlignmentsExhausted = errors.New("alignment domains exhausted, restart to reset")
+
+// AlignmentCounter hands out alignment domains in increasing order. It is safe for
+// concurrent use.
+type AlignmentCounter struct{ last atomic.Uint64 }
+
+// NewAlignmentCounter returns an AlignmentCounter whose first domain index is start+1.
+func NewAlignmentCounter(start uint32) *AlignmentCounter {
+	c := &AlignmentCounter{}
+	c.last.Store(uint64(start))
+	return c
+}
+
+// Next returns the alignment of the first sample in the next domain. It returns
+// ErrAlignmentsExhausted once the domain index would pass math.MaxUint32.
+func (c *AlignmentCounter) Next() (Alignment, error) {
+	domainIdx := c.last.Add(1)
+	if domainIdx > math.MaxUint32 {
+		return 0, ErrAlignmentsExhausted
+	}
+	return NewAlignment(uint32(domainIdx), 0), nil
 }
