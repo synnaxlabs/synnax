@@ -157,12 +157,13 @@ inline std::string queue_set(
                 sets->report(SET_FAILURE_MSG, err.data);
                 return;
             }
+            // The key is ready before a report, which can wait on the Core.
+            sets->resolve(key_or_name, res.key);
             if (res.multiple_matches)
                 sets->report(
                     MULTI_MATCH_MSG,
                     multi_match_description(key_or_name, res.key)
                 );
-            sets->resolve(key_or_name, res.key);
         }
     );
     if (err && sets->refuse(err))

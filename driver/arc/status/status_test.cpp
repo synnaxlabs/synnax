@@ -589,10 +589,15 @@ TEST(SetsTest, ReportsRefusedSetsOnce) {
 
 /// @brief it should report a key that it failed to save.
 TEST(SetsTest, ReportsAKeyItFailedToSave) {
-    const auto path = std::filesystem::temp_directory_path() /
-                      ("missing_" + x::uuid::create().to_string()) / KEYS_FILE;
+    const auto dir = std::filesystem::temp_directory_path() /
+                     ("missing_" + x::uuid::create().to_string());
+    std::filesystem::create_directories(dir);
     const auto reports = std::make_shared<Reports>();
-    Sets sets(ASSERT_NIL_P(Keys::open(path, "cluster")), recordingReporter(reports));
+    Sets sets(
+        ASSERT_NIL_P(Keys::open(dir / KEYS_FILE, "cluster")),
+        recordingReporter(reports)
+    );
+    std::filesystem::remove_all(dir);
     sets.resolve("name", "key");
     const auto calls = reports->snapshot();
     ASSERT_EQ(calls.size(), 1u);
