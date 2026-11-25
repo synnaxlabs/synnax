@@ -30,7 +30,7 @@ import {
   useState,
 } from "react";
 
-import { commandTimeout } from "@/feature/opcua/device/commandTimeout";
+import { readNodeTimeout } from "@/feature/opcua/device/commandTimeout";
 import { createHaulItem, HAUL_TYPE } from "@/feature/opcua/device/haul";
 import { HaulPreview } from "@/feature/opcua/device/HaulPreview";
 import {
@@ -235,7 +235,7 @@ export const Details = ({
         type: READ_NODE_COMMAND_TYPE,
         args: { device: key, node_id: nodeId, field },
         schema: nodeDetailsZ,
-        timeout: commandTimeout(properties.connection),
+        timeout: readNodeTimeout(properties.connection),
       });
       reading.current = read.catch(() => undefined);
       let next: State;
