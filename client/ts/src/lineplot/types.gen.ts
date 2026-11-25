@@ -196,11 +196,11 @@ export const axisZ = z.object({
   /** labelLevel is the typography level of the label. */
   labelLevel: text.levelZ.default("small"),
   /**
-   * bounds is the value-space window of the axis. When the matching entry in
-   * manual_bounds is false the field is overwritten locally on every render; otherwise
-   * it is the user-set fixed bound.
+   * bounds is the value-space window of the axis. Absent while both edges are auto. An
+   * edge whose matching entry in manual_bounds is false is overwritten locally on every
+   * render; a manual edge is the user-set bound.
    */
-  bounds: spatial.boundsZ().prefault({ lower: 0, upper: 0 }),
+  bounds: spatial.closedBoundsZ().optional(),
   /** manualBounds controls per-edge manual bound override. */
   manualBounds: manualBoundsZ.prefault({}),
   /** tickSpacing is the target pixel distance between adjacent tick marks. */
@@ -301,7 +301,7 @@ export const linePlotZ = z.object({
   /** key is the unique identifier for this line plot. */
   key: keyZ.default(uuid.create),
   /** name is a human-readable name for the line plot. */
-  name: z.string().min(1, "name is required"),
+  name: z.string().min(1, "Name is required"),
   /** title is the plot title configuration. */
   title: titleZ.prefault({}),
   /** legend is the plot legend configuration. */
