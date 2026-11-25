@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	servicecolor "github.com/synnaxlabs/synnax/pkg/service/color"
+	"github.com/synnaxlabs/synnax/pkg/service/enumeration"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
@@ -111,6 +112,28 @@ var _ = Describe("ImEx", func() {
 				To(BeAssignableToTypeOf(schematic.ValveNodeConfig{}))
 			// The file's only edge connects to a node it lacks.
 			Expect(res.Edges).To(BeEmpty())
+		})
+
+		It("Should give the selects and indicators of an old file one enumeration "+
+			"for equal options", func(ctx SpecContext) {
+			res := importAndRetrieve(
+				ctx,
+				"versions/testdata/import_v13_states.json",
+				imex.ImportOptions{Parent: proj.ResourceID()},
+			)
+			sel, ok := res.Nodes[0].Config.Variant.(schematic.SelectNodeConfig)
+			Expect(ok).To(BeTrue())
+			Expect(sel.Enumeration).ToNot(BeNil())
+			lamp, ok := res.Nodes[1].Config.Variant.(schematic.StateIndicatorNodeConfig)
+			Expect(ok).To(BeTrue())
+			Expect(lamp.Enumeration).To(Equal(sel.Enumeration))
+			var states enumeration.Enumeration
+			Expect(enumSvc.NewRetrieve().
+				Where(enumeration.MatchKeys(*sel.Enumeration)).
+				Entry(&states).
+				Exec(ctx, db)).To(Succeed())
+			Expect(states.Name).To(Equal("Select: Mode"))
+			Expect(states.Entries).To(HaveLen(2))
 		})
 
 		It(

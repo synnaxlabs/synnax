@@ -47,9 +47,16 @@ def ca() -> trustme.CA:
     return trustme.CA()
 
 
+@pytest.fixture(scope="session")
+def host() -> str:
+    """The address that every test server binds and every client dials. A name such as
+    localhost can resolve to another server on the other address family."""
+    return "127.0.0.1"
+
+
 @pytest.fixture
-def cert_host() -> str:
-    return "localhost"
+def cert_host(host: str) -> str:
+    return host
 
 
 @pytest.fixture
@@ -73,28 +80,28 @@ def trusted_ctx(tmp_path: Path, ca: trustme.CA) -> ssl.SSLContext:
 
 
 @pytest.fixture
-def http_url(server_ctx: ssl.SSLContext, tls: bool) -> Iterator[URL]:
-    server = HTTPServer(("localhost", 0), _EchoHandler)
+def http_url(host: str, server_ctx: ssl.SSLContext, tls: bool) -> Iterator[URL]:
+    server = HTTPServer((host, 0), _EchoHandler)
     if tls:
         server.socket = server_ctx.wrap_socket(server.socket, server_side=True)
     threading.Thread(target=server.serve_forever, args=(0.01,), daemon=True).start()
-    yield URL(host="localhost", port=server.server_address[1])
+    yield URL(host=host, port=server.server_address[1])
     server.shutdown()
     server.server_close()
 
 
 @pytest.fixture
-def ws_url(server_ctx: ssl.SSLContext, tls: bool) -> Iterator[URL]:
+def ws_url(host: str, server_ctx: ssl.SSLContext, tls: bool) -> Iterator[URL]:
     # The sync websockets server drops some TLS 1.3 handshakes, so the server runs on
     # an event loop in its own thread.
     loop = asyncio.new_event_loop()
     threading.Thread(target=loop.run_forever, daemon=True).start()
 
     async def start() -> Server:
-        return await serve(_open_ack, "localhost", 0, ssl=server_ctx if tls else None)
+        return await serve(_open_ack, host, 0, ssl=server_ctx if tls else None)
 
     server = asyncio.run_coroutine_threadsafe(start(), loop).result()
-    yield URL(host="localhost", port=next(iter(server.sockets)).getsockname()[1])
+    yield URL(host=host, port=next(iter(server.sockets)).getsockname()[1])
 
     async def stop() -> None:
         server.close()

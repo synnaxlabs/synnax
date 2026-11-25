@@ -27,11 +27,6 @@ export interface Values {
   list: Schematic.Node.Custom.Value[];
   /** entryState is the key of the state when it has an enumeration to color it. */
   entryState?: string;
-  /**
-   * @returns the color of the entry for value, or of the entry for the default value of
-   * the state when value has none.
-   */
-  entryColor: (value: number) => color.Color | undefined;
 }
 
 /**
@@ -56,7 +51,6 @@ export const useValues = (key?: string): Values => {
   const res = Enumeration.useResult(
     state?.enumeration == null ? null : { key: state.enumeration },
   );
-  const resolve = Color.useResolve();
   const entries = res.variant === "success" ? res.data.entries : undefined;
   const listOther = (): Schematic.Node.Custom.Value[] => {
     if (state?.enumeration != null && res.variant === "loading") return [];
@@ -83,11 +77,25 @@ export const useValues = (key?: string): Values => {
     states,
     list,
     entryState: state?.enumeration == null ? undefined : stateKey,
-    entryColor: (value) => {
-      const entry =
-        entries?.find((e) => e.value === value) ??
-        entries?.find((e) => e.value === state?.default);
-      return entry?.color == null ? undefined : resolve(entry.color);
-    },
   };
+};
+
+/**
+ * @returns the color of the entry for value in the enumeration of state, or of the
+ * entry for the default value of state when value has none.
+ */
+export const useEntryColor = (
+  state: schematic.symbol.EnumerationState | undefined,
+  value: number,
+): color.Color | undefined => {
+  const res = Enumeration.useResult(
+    state?.enumeration == null ? null : { key: state.enumeration },
+  );
+  const resolve = Color.useResolve();
+  if (state == null || res.variant !== "success") return undefined;
+  const { entries } = res.data;
+  const entry =
+    entries.find((e) => e.value === value) ??
+    entries.find((e) => e.value === state.default);
+  return entry?.color == null ? undefined : resolve(entry.color);
 };

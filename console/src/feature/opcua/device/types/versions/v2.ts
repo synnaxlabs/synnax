@@ -27,11 +27,13 @@ const VERSION = "2.0.0";
 const DEFAULT_CLIENT_TIMEOUT_MS = 5000;
 const DEFAULT_SECURE_CHANNEL_LIFETIME_MS = 600_000;
 const DEFAULT_SESSION_TIMEOUT_MS = 1_200_000;
+const DEFAULT_READ_NODE_TIMEOUT = 20_000_000_000;
 
 const TIMEOUTS = {
   clientTimeoutMs: DEFAULT_CLIENT_TIMEOUT_MS,
   secureChannelLifetimeMs: DEFAULT_SECURE_CHANNEL_LIFETIME_MS,
   sessionTimeoutMs: DEFAULT_SESSION_TIMEOUT_MS,
+  readNodeTimeout: DEFAULT_READ_NODE_TIMEOUT,
 };
 
 const wholeNumberZ = (name: string) => z.int(`${name} must be a whole number`);
@@ -63,6 +65,10 @@ export const connectionConfigZ = baseConnectionConfigZ
     sessionTimeoutMs: wholeNumberZ("Session timeout")
       .positive()
       .default(DEFAULT_SESSION_TIMEOUT_MS),
+    /** How long the Driver reads the details of one node, in nanoseconds. */
+    readNodeTimeout: wholeNumberZ("Node read timeout")
+      .positive()
+      .default(DEFAULT_READ_NODE_TIMEOUT),
   });
 export type ConnectionConfig = z.infer<typeof connectionConfigZ>;
 const { clientPrivateKey: _, ...BASE_ZERO_CONNECTION } = BASE_ZERO_CONNECTION_CONFIG;

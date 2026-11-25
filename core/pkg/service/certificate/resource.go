@@ -52,13 +52,17 @@ func (s *Service) HasPrivateKey(
 		Exec(ctx, snap); err != nil {
 		return false, err
 	}
+	return hasPrivateKey(c), nil
+}
+
+func hasPrivateKey(c Certificate) bool {
 	switch variant := c.Variant.(type) {
 	case StoredCertificate:
-		return variant.PrivateKey != nil, nil
+		return variant.PrivateKey != nil
 	case FileCertificate:
-		return variant.PrivateKeyFile != nil, nil
+		return variant.PrivateKeyFile != nil
 	}
-	return false, nil
+	return false
 }
 
 // ResourceID returns the resource ID of the certificate with the given key.

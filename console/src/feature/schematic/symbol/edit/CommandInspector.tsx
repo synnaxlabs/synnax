@@ -41,9 +41,9 @@ export interface CommandInspectorProps {
 export const CommandInspector = ({
   command: key,
 }: CommandInspectorProps): ReactElement | null => {
-  const command = Form.useFieldValue(path.data.commands[key], { optional: true });
   const states = Form.useFieldValue(path.data.states);
   const commands = Form.useFieldValue(path.data.commands);
+  const command = commands.find((c) => c.key === key);
   const interactions = Form.useFieldValue(path.data.interactions);
   const { get, set } = Form.useContext();
   const values = useValues(command?.state);
@@ -68,7 +68,8 @@ export const CommandInspector = ({
           : command.value,
     });
   };
-  const fixed = (value: number) => update({ value: { type: "fixed", value } });
+  const handleValueChange = (value: number) =>
+    update({ value: { type: "fixed", value } });
   // The Core refuses a toggle unless its commands send other fixed values on one state.
   const partners = interactions.flatMap((i) =>
     i.type === "next" && i.commands.includes(key)
@@ -79,7 +80,7 @@ export const CommandInspector = ({
   const taken = commands.flatMap((c) =>
     partners.includes(c.key) && c.value.type === "fixed" ? [c.value.value] : [],
   );
-  // useValues falls back to another state when the command's state lists no values.
+  // useValues lists another state for a number state, and no values while one loads.
   const listed =
     command.state != null && values.state === command.state && values.list.length > 0;
   return (
@@ -143,7 +144,7 @@ export const CommandInspector = ({
           (listed ? (
             <Select.Buttons<number>
               value={command.value.value}
-              onChange={fixed}
+              onChange={handleValueChange}
               size="small"
               variant="outlined"
             >
@@ -160,7 +161,7 @@ export const CommandInspector = ({
               ))}
             </Select.Buttons>
           ) : (
-            <Input.Numeric value={command.value.value} onChange={fixed} />
+            <Input.Numeric value={command.value.value} onChange={handleValueChange} />
           ))}
       </Input.Item>
     </Flex.Box>

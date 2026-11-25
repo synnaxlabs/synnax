@@ -23,7 +23,7 @@ import { Nav } from "@synnaxlabs/lyra/nav";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Schematic } from "@synnaxlabs/pluto";
-import { type bounds, id, type xy } from "@synnaxlabs/x";
+import { type bounds, deep, id, type xy } from "@synnaxlabs/x";
 import { type ReactElement, useRef, useState } from "react";
 
 import {
@@ -36,6 +36,7 @@ import { Inspector } from "@/feature/schematic/symbol/edit/Inspector";
 import { ItemList } from "@/feature/schematic/symbol/edit/ItemList";
 import { PartList } from "@/feature/schematic/symbol/edit/PartList";
 import { Preview } from "@/feature/schematic/symbol/edit/Preview";
+import { useConfirmSave } from "@/feature/schematic/symbol/edit/useConfirmSave";
 import { useValues } from "@/feature/schematic/symbol/edit/useValues";
 import { SelectVariantField } from "@/feature/schematic/symbol/SelectVariant";
 import { Spec } from "@/feature/schematic/symbol/spec";
@@ -80,8 +81,8 @@ interface ValueBarProps {
   onChange: (value: Spec.At) => void;
 }
 
-// ValueBar picks the state, and the value of it, that the canvas draws and the
-// inspector edits.
+// ValueBar picks the state that the inspector edits, and the value that the canvas
+// draws.
 const ValueBar = ({ value, onChange }: ValueBarProps): ReactElement | null => {
   const { state, states, list } = useValues(value.state);
   if (list.length < 2 && states.length < 2) return null;
@@ -171,6 +172,10 @@ const Editor = ({
     afterSave: () => close(),
   });
   Modals.useBusy(variant === "loading");
+  const stored = Schematic.Symbol.useResult(
+    symbolKey == null ? null : { key: symbolKey, includeUses: true },
+  );
+  const confirmSave = useConfirmSave();
   const [preview, setPreview] = useState<Spec.At>({ state: Spec.STATE, value: 0 });
   const [selectedPart, setSelectedPart, selectedPartRef] =
     useCombinedStateAndRef<Spec.Target>(undefined);
@@ -268,28 +273,43 @@ const Editor = ({
       ? `Sends ${name(click.command)}`
       : `Toggles ${click.commands.map(name).join(" and ")}`;
   };
-  const clickDisabled =
+  const clickDisabledReason =
     commands.length === 0
       ? "Add a command first"
       : Spec.freeTargets({ parts, interactions }).length === 0
         ? "Every part and the whole drawing have a click"
         : undefined;
+  // A removed item leaves its key, which a new item can take.
+  if (selectedItem != null && shown == null) setSelectedItem(undefined);
   const hasSVG =
     Form.useFieldValue(path.data.drawing.markup, {
       ctx: form,
     }).length > 0;
   const createSaveText = isCreate ? "Create" : "Save";
-  // A fill motion that cannot draw stops the save and selects its part, whose inspector
-  // shows why. The inspector shows the issues only with the flag on.
-  const handleSave = () => {
+  const handleSave = async () => {
     const spec = form.get(path.data).value;
+    // A fill motion that cannot draw stops the save and selects its part, whose
+    // inspector shows why. The inspector shows the issues only with the flag on.
     if (FLAGS.symbolMotion) {
       const [part] = Spec.levelIssues(spec).keys();
       if (part != null) return selectPart(part);
     }
-    // Placement reads the variant, which the lists set by whether a click exists.
+    // Placement reads the variant, so a symbol with a click saves as an actuator.
     if (FLAGS.symbolNodes)
       form.set(path.data.variant, spec.interactions.length > 0 ? "actuator" : "static");
+    const uses = stored.data?.uses ?? [];
+    if (stored.data != null && uses.length > 0) {
+      const next = form.get(path.data).value;
+      const changed = !deep.equal(
+        { ...stored.data.data, previewViewport: undefined },
+        { ...next, previewViewport: undefined },
+      );
+      if (
+        changed &&
+        (await confirmSave({ stored: stored.data, spec: next, uses })) !== true
+      )
+        return;
+    }
     save();
   };
 
@@ -346,7 +366,7 @@ const Editor = ({
                         });
                       }}
                       onRemove={() => {
-                        // The preview moves to the first state left when its own goes.
+                        // The preview moves to the first state left if its state goes.
                         const left = form
                           .get(path.data.states)
                           .value.filter(
@@ -382,7 +402,7 @@ const Editor = ({
                       label={(i) => targetName(parts, i.part)}
                       detail={describeClick}
                       add={Spec.addInteraction}
-                      addDisabled={clickDisabled}
+                      addDisabledReason={clickDisabledReason}
                       remove={Spec.removeInteraction}
                       value={shown?.type === "click" ? shown.key : undefined}
                       onChange={selectItem("click")}
@@ -499,8 +519,13 @@ const Editor = ({
             <Nav.Bar.End>
               <Button.Button
                 variant="filled"
-                status={status.keepVariants(variant, "loading")}
-                onClick={handleSave}
+                status={
+                  !isCreate && stored.variant === "loading"
+                    ? "loading"
+                    : status.keepVariants(variant, "loading")
+                }
+                disabled={!isCreate && stored.variant === "error"}
+                onClick={() => void handleSave()}
                 trigger={Triggers.SAVE}
                 triggerIndicator
               >
