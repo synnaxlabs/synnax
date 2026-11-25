@@ -150,8 +150,10 @@ Driver go stale during an outage. The Core keeps computing the channel for the C
 
 ### 3.6 Reconnect and new minors
 
-The rack breaker waits out a transient Core error (§3.8) with no limit. On reconnect the
-task manager deploys again only tasks whose config changed
+After its first run, the rack breaker waits out a transient or interrupted Core error
+(§3.8) with no limit, since a reopened task manager stream only reads. Before it, an
+interrupted enrollment is not sent again, since a rack create is not safe to send twice.
+On reconnect the task manager deploys again only tasks whose config changed
 (`driver/task/manager.cpp:714-724`).
 
 When `check_core` finds a Core on another minor (`driver/rack/remote.cpp:209-218`), the
@@ -208,7 +210,7 @@ outage and offline data is dropped with a count; phase 7 keeps it.
 | Phase | Scope                                                      | Touches                                                                                                                      | Depends on |
 | ----- | ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ---------- |
 | 1     | Set the `status.set` time in the Driver                    | `core/pkg/transport/grpc/status`, `core/pkg/api/status`, `core/pkg/service/status`, `client/cpp/status`, `driver/arc/status` | -          |
-| 2     | Wait for an unreachable Core with no limit in the rack     | `driver/rack`                                                                                                                | -          |
+| 2     | Wait out a transient Core error with no limit in the rack  | `driver/rack`                                                                                                                | -          |
 | 3     | Deliver bypass writer frames to the Core in the background | `driver/bypass/pipeline`, `freighter/cpp/grpc`, `core/pkg/server`                                                            | -          |
 | 4     | Hand off authority locally while the Core is down          | `driver/control`, `driver/bypass/pipeline`, `driver/task`                                                                    | 3          |
 | 5     | Read the bypass bus while the Core is down                 | `driver/bypass/pipeline`                                                                                                     | -          |
