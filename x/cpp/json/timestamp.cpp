@@ -244,7 +244,9 @@ void append_timestamp(
         unit *= 10;
     std::int64_t whole = ns / unit;
     std::int64_t frac = ns % unit;
-    if (frac == 0) {
+    if (format != TimeFormat::UnixSecond || frac == 0) {
+        // Division truncates toward zero, so a negative remainder takes one unit off.
+        if (frac < 0) whole--;
         append_digits(out, whole);
         return;
     }
