@@ -126,6 +126,10 @@ on:
       nilinuxrt:
         type: boolean
         default: false
+      # Test builds skip link-time optimization, which takes most of a Driver build.
+      lto_disabled:
+        type: boolean
+        default: false
       use_simple_artifact_names:
         type: boolean
         default: false
@@ -446,7 +450,8 @@ jobs:
           export MSYS_NO_PATHCONV=1
           read -ra flags <<< "$BAZEL_BUILD_FLAGS $BAZEL_REMOTE_CACHE_FLAGS"
           scripts/run_bazel.sh build "${flags[@]}" \
-            ${{ !inputs.debug && '--config=opt-windows' || '--output_groups=+pdb_file' }} //driver
+            ${{ inputs.debug && '--output_groups=+pdb_file' || inputs.lto_disabled &&
+            '--config=opt-windows-test' || '--config=opt-windows' }} //driver
 
       - name: Upload Windows debug symbols
         if:
@@ -565,10 +570,12 @@ jobs:
         if:
           inputs.driver && env.DRIVER_REF_RUN_ID == '' && matrix.os ==
           'ubuntu-build-bot'
+        env:
+          OPT_CONFIG: ${{ inputs.lto_disabled && 'opt-unix-test' || 'opt-unix' }}
         run: |
           read -ra flags <<< "$BAZEL_BUILD_FLAGS $BAZEL_REMOTE_CACHE_FLAGS"
-          .github/scripts/bazel_glibc_floor.sh build "${flags[@]}" --config=opt-unix \
-            //driver
+          .github/scripts/bazel_glibc_floor.sh build "${flags[@]}" \
+            --config="$OPT_CONFIG" //driver
           python3 .github/scripts/check_glibc_floor.py bazel-bin/driver/driver
 
       - name: Extract debug symbols (Linux)
