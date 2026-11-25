@@ -10,6 +10,7 @@
 package calculator_test
 
 import (
+	"context"
 	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -129,4 +130,162 @@ var _ = Describe("Calculator check", Ordered, func() {
 		Expect(o.Get(out.Index()).Series[0]).
 			To(MatchSeriesData(telem.NewSeries(stamps[lo])))
 	})
+
+	It("Should give a joined calculation's outputs the bounds of its primary when the "+
+		"primary is not the lowest key", func(ctx SpecContext) {
+		indexes := make([]channel.Channel, 2)
+		for i := range indexes {
+			indexes[i] = channel.Channel{
+				Name:     UniqueChannelName(),
+				DataType: telem.TimestampT,
+				IsIndex:  true,
+			}
+		}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return channelSvc.NewWriter(tx).CreateMany(ctx, &indexes)
+		})).To(Succeed())
+		bases := make([]channel.Channel, 2)
+		for i := range bases {
+			bases[i] = channel.Channel{
+				Name:       UniqueChannelName(),
+				DataType:   telem.Float64T,
+				LocalIndex: indexes[i].LocalKey,
+			}
+		}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return channelSvc.NewWriter(tx).CreateMany(ctx, &bases)
+		})).To(Succeed())
+		lo, hi := 0, 1
+		if bases[1].Key() < bases[0].Key() {
+			lo, hi = 1, 0
+		}
+		out := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
+			Name:     UniqueChannelName(),
+			DataType: telem.Float64T,
+			Expression: fmt.Sprintf(
+				"return %s + %s",
+				bases[lo].Name,
+				bases[hi].Name,
+			),
+		}))
+		Expect(creator.Apply(ctx, out.Key(), calculation.NewSetAction(
+			calculation.SetPayload{Path: []string{"primary"}, Value: bases[hi].Key()},
+		))).To(Succeed())
+		calc := MustSucceed(creator.CalculationOf(ctx, out.Key()))
+		Expect(calc.Primary).To(HaveValue(Equal(bases[hi].Key())))
+		mod := MustSucceed(compiler.Compile(ctx, db, compiler.Config{
+			ChannelService: channelSvc,
+			Channel:        out,
+			Calculation:    calc,
+			Live:           true,
+		}))
+		Expect(mod.Joined).To(BeTrue())
+		c := MustOpen(calculator.Open(ctx, calculator.Config{Module: mod}))
+		DeferCleanup(c.Close)
+		send := func(i int, a telem.Alignment, v ...float64) frame.Frame {
+			stamps := telem.NewSeriesSecondsTSV(1, 2)
+			values := telem.NewSeriesV(v...)
+			stamps.Alignment, values.Alignment = a, a
+			return frame.NewMulti(
+				[]channel.Key{indexes[i].Key(), bases[i].Key()},
+				[]telem.Series{stamps, values},
+			)
+		}
+		MustSucceed2(
+			c.Next(ctx, send(lo, telem.NewAlignment(0, 5), 1, 2), frame.Frame{}),
+		)
+		of, changed := MustSucceed2(
+			c.Next(ctx, send(hi, telem.NewAlignment(0, 9), 10, 20), frame.Frame{}),
+		)
+		Expect(changed).To(BeTrue())
+		od := of.Get(out.Key()).Series[0]
+		Expect(od).To(MatchSeriesDataV[float64](11, 22))
+		Expect(od.Alignment).To(Equal(telem.NewAlignment(0, 9)),
+			"the outputs take the alignment of the stored primary, not the lowest key")
+		Expect(od.TimeRange).To(Equal(telem.TimeRange{
+			Start: telem.SecondTS,
+			End:   2*telem.SecondTS + 1,
+		}))
+	})
+
+	It("Should warn of stale inputs again after an error replaced the warning",
+		func(ctx SpecContext) {
+			indexes := []channel.Channel{
+				{Name: UniqueChannelName(), DataType: telem.TimestampT, IsIndex: true},
+				{Name: UniqueChannelName(), DataType: telem.TimestampT, IsIndex: true},
+			}
+			bases := []channel.Channel{
+				{Name: UniqueChannelName(), DataType: telem.Float64T},
+				{Name: UniqueChannelName(), DataType: telem.Float64T},
+			}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				w := channelSvc.NewWriter(tx)
+				if err := w.CreateMany(ctx, &indexes); err != nil {
+					return err
+				}
+				for i := range bases {
+					bases[i].LocalIndex = indexes[i].LocalKey
+				}
+				return w.CreateMany(ctx, &bases)
+			})).To(Succeed())
+			out := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
+				Name:     UniqueChannelName(),
+				DataType: telem.Float64T,
+				Expression: fmt.Sprintf(
+					"return %s + %s",
+					bases[0].Name,
+					bases[1].Name,
+				),
+			}))
+			calc := MustSucceed(creator.CalculationOf(ctx, out.Key()))
+			Expect(calc.Primary).To(HaveValue(Equal(bases[0].Key())))
+			mod := MustSucceed(compiler.Compile(ctx, db, compiler.Config{
+				ChannelService: channelSvc,
+				Channel:        out,
+				Calculation:    calc,
+				Live:           true,
+			}))
+			var now telem.TimeStamp
+			c := MustOpen(calculator.Open(ctx, calculator.Config{
+				Module: mod,
+				Now:    func() telem.TimeStamp { return now },
+			}))
+			DeferCleanup(c.Close)
+			g := calculator.Group{c}
+			// step writes the primary at stamp, in seconds, with alignment a, a second
+			// later on the clock, and returns the variant and message of each report.
+			step := func(stamp telem.TimeStamp, a uint32) []string {
+				GinkgoHelper()
+				now += telem.SecondTS
+				idx := telem.NewSeriesSecondsTSV(stamp)
+				data := telem.NewSeriesV[float64](1)
+				idx.Alignment = telem.NewAlignment(0, a)
+				data.Alignment = idx.Alignment
+				var reported []string
+				g.Next(ctx, frame.NewMulti(
+					[]channel.Key{indexes[0].Key(), bases[0].Key()},
+					[]telem.Series{idx, data},
+				), func(
+					_ context.Context,
+					_ channel.Key,
+					_ string,
+					st calculator.Status,
+				) bool {
+					reported = append(reported, string(st.Variant)+": "+st.Message)
+					return true
+				})
+				return reported
+			}
+			stale := "warning: " + calculation.StaleMessage
+			// The join settles on the fourth frame of the primary, 1 s apart, and the
+			// other input never writes.
+			for i := range 3 {
+				Expect(step(telem.TimeStamp(i+1), uint32(i))).To(BeEmpty())
+			}
+			Expect(step(4, 3)).To(ConsistOf(stale))
+			// A primary stamp before one the join passed fails the step.
+			Expect(step(2, 4)).To(ConsistOf(HavePrefix("error: ")))
+			// The inputs are still stale, and the error is not the cause now.
+			Expect(step(5, 5)).To(ConsistOf(stale))
+		})
 })
