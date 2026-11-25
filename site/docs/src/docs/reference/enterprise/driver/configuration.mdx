@@ -52,8 +52,8 @@ The `--state-file` flag of `start --standalone`, `login`, and `clear` sets a dif
 path. The service always uses the default path.
 
 The Driver keeps the Arc status sets that the Core has not received in the `data` folder
-next to the state file. On Linux, the `synnax` user owns that folder, and a Driver that
-root runs gives each file it creates there to that user.
+next to the state file. For the Linux service, the `synnax` user owns that folder. A
+Driver that root runs gives each file it creates there to the owner of the folder.
 
 On Linux and macOS, the Driver creates a missing state directory with mode `0700` and a
 missing state file with mode `0600`. From Driver 0.61.5, `start` and `clear` do not
