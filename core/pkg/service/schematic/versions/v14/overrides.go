@@ -146,6 +146,20 @@ func (o *overrides) copy(
 	return c.Key, nil
 }
 
+// entriesOf returns the entries of the stored enumeration of state, or none when state
+// has none.
+func entriesOf(
+	ctx context.Context,
+	tx gorp.Tx,
+	state symbol.EnumerationState,
+) ([]enumeration.Entry, error) {
+	if state.Enumeration == nil {
+		return nil, nil
+	}
+	e, err := retrieveEnumeration(ctx, tx, *state.Enumeration)
+	return e.Entries, err
+}
+
 // paints is the stroke and fill that a part shows.
 type paints struct{ stroke, fill *xcolor.Color }
 
