@@ -1097,4 +1097,115 @@ TEST_F(OutboxTest, SendsNewestSetsAfterCompactionWithoutOffset) {
     EXPECT_EQ(messages[messages.size() - 2], "298");
     EXPECT_EQ(messages.back(), "299");
 }
+
+/// @brief it should fail a push at once while no segment can open, instead of a wait of
+/// sync_interval for each push.
+TEST_F(OutboxTest, FailsFastWhenNoSegmentOpens) {
+    std::atomic<bool> failing = false;
+    const auto fault = x::errors::Error(journal::BASE_ERROR, "disk full");
+    Config cfg{
+        .dir = this->dir,
+        .statuses = synnax::status::Client(
+            nullptr,
+            nullptr,
+            nullptr,
+            transport_of({freighter::UNREACHABLE})
+        ),
+        .sync_interval = 2 * x::telem::SECOND,
+        .on_sync = [&](const x::errors::Error &err) { return failing ? fault : err; },
+        .on_create = [&](
+                         const std::filesystem::path &
+                     ) { return failing ? fault : x::errors::NIL; },
+    };
+    cfg.retry.base_interval = x::telem::HOUR;
+    cfg.retry.max_interval = x::telem::HOUR;
+    const auto outbox = ASSERT_NIL_P(Outbox::open(cfg));
+    failing = true;
+    ASSERT_EVENTUALLY_TRUE_WITH_TIMEOUT(
+        static_cast<bool>(outbox->set_status(set_of("first"), nullptr)),
+        std::chrono::seconds(30),
+        std::chrono::milliseconds(10)
+    );
+    x::errors::Error last;
+    for (int i = 0; i < 3; i++) {
+        const auto start = std::chrono::steady_clock::now();
+        last = outbox->set_status(set_of(std::to_string(i)), nullptr);
+        EXPECT_LT(
+            std::chrono::steady_clock::now() - start,
+            std::chrono::milliseconds(500)
+        );
+    }
+    ASSERT_OCCURRED_AS(last, journal::BASE_ERROR);
+    failing = false;
+}
+
+/// @brief it should run on_create again on the directories of an open whose hook
+/// failed.
+TEST_F(OutboxTest, RunsCreateHookAgainAfterFailure) {
+    const auto dir = this->dir / "a" / "b";
+    const auto failed = x::errors::Error(journal::BASE_ERROR, "chown failed");
+    ASSERT_OCCURRED_AS_P(
+        Outbox::open({
+            .dir = dir,
+            .on_create = [&](const std::filesystem::path &) { return failed; },
+        }),
+        journal::BASE_ERROR
+    );
+    EXPECT_FALSE(std::filesystem::exists(this->dir));
+    std::vector<std::filesystem::path> created;
+    const auto outbox = ASSERT_NIL_P(
+        Outbox::open({
+            .dir = dir,
+            .on_create = [&](const std::filesystem::path &path) {
+                created.push_back(path);
+                return x::errors::NIL;
+            },
+        })
+    );
+    ASSERT_GE(created.size(), 3);
+    EXPECT_EQ(created[0], this->dir);
+    EXPECT_EQ(created[1], this->dir / "a");
+    EXPECT_EQ(created[2], dir);
+}
+
+/// @brief it should compact and send a call that a larger max_payload of an earlier run
+/// took.
+TEST_F(OutboxTest, CompactsCallOverSmallerMaxPayload) {
+    const auto big = std::string(2000, 'b');
+    {
+        const auto outbox = this->open_unreachable(4096);
+        ASSERT_NIL(outbox->set_status(set_of(big, "big"), nullptr));
+    }
+    {
+        Config cfg{
+            .dir = this->dir,
+            .statuses = synnax::status::Client(
+                nullptr,
+                nullptr,
+                nullptr,
+                transport_of({freighter::UNREACHABLE})
+            ),
+            .max_bytes = 4096,
+            .max_payload = 1024,
+        };
+        cfg.retry.base_interval = x::telem::HOUR;
+        cfg.retry.max_interval = x::telem::HOUR;
+        const auto outbox = ASSERT_NIL_P(Outbox::open(cfg));
+        for (int i = 0; i < 200; i++)
+            ASSERT_EVENTUALLY_NIL_WITH_TIMEOUT(
+                outbox->set_status(set_of(std::to_string(i), "small"), nullptr),
+                std::chrono::seconds(10),
+                std::chrono::milliseconds(5)
+            );
+        ASSERT_EVENTUALLY_FALSE(std::filesystem::exists(this->segment()));
+    }
+    const auto transport = transport_of(
+        std::vector<x::errors::Error>(10, x::errors::NIL)
+    );
+    const auto outbox = this->open_outbox(transport);
+    ASSERT_EVENTUALLY_EQ(outbox->size(), 0);
+    const auto messages = messages_of(*transport);
+    EXPECT_EQ(std::ranges::count(messages, big), 1);
+    EXPECT_EQ(messages.back(), "199");
+}
 }

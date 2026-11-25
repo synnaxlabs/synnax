@@ -94,8 +94,11 @@ std::filesystem::path Outbox::segment_path(const std::uint64_t key) const {
     return this->cfg.dir / (std::to_string(key) + SEGMENT_EXT);
 }
 
-std::pair<std::shared_ptr<journal::Writer>, x::errors::Error>
-Outbox::open_writer(const std::uint64_t key, const std::uint16_t flags) const {
+std::pair<std::shared_ptr<journal::Writer>, x::errors::Error> Outbox::open_writer(
+    const std::uint64_t key,
+    const std::uint16_t flags,
+    const std::optional<std::uint32_t> max_payload
+) const {
     // The sync thread syncs the writer, so a write never waits for the disk.
     auto [writer, err] = journal::Writer::open({
         .path = this->segment_path(key),
@@ -103,7 +106,7 @@ Outbox::open_writer(const std::uint64_t key, const std::uint16_t flags) const {
         .flags = flags,
         .sync_interval = x::telem::TimeSpan(std::numeric_limits<std::int64_t>::max()),
         .sync_bytes = std::numeric_limits<std::uint64_t>::max(),
-        .max_payload = this->cfg.max_payload,
+        .max_payload = max_payload.value_or(this->cfg.max_payload),
         .on_create = this->cfg.on_create,
         .on_sync = this->cfg.on_sync,
     });
@@ -127,7 +130,12 @@ std::pair<std::unique_ptr<Outbox>, x::errors::Error> Outbox::open(Config cfg) {
     std::filesystem::create_directories(cfg.dir, ec);
     if (ec) return {nullptr, fs_error("failed to create outbox directory", ec)};
     for (const auto &d: std::views::reverse(new_dirs))
-        if (const auto err = cfg.on_create(d)) return {nullptr, err};
+        if (const auto err = cfg.on_create(d)) {
+            // The next open runs the hook again on the directories it creates.
+            for (const auto &created: new_dirs)
+                std::filesystem::remove(created, ec);
+            return {nullptr, err};
+        }
     auto [dir_lock, lock_err] = journal::Lock::open(cfg.dir, cfg.on_create);
     if (lock_err) return {nullptr, lock_err};
     auto outbox = std::unique_ptr<Outbox>(new Outbox(std::move(cfg)));
@@ -410,13 +418,17 @@ x::errors::Error Outbox::next_tail(std::unique_lock<std::mutex> &lock) {
         this->spare_wanted = true;
         this->sync_cv.notify_one();
         if (this->tail.writer != nullptr && this->tail_overfull) return x::errors::NIL;
+        // A failed open fails the pushes that have no tail at once.
+        if (this->tail.writer == nullptr && this->open_err) return this->open_err;
         this->spare_cv.wait_for(lock, this->cfg.sync_interval.chrono(), [this] {
             return this->spare.has_value() ||
+                   (this->tail.writer == nullptr && this->open_err) ||
                    (this->tail.writer != nullptr &&
                     this->tail_calls < this->cfg.segment_calls);
         });
         // A full tail takes more calls when the sync thread is slow to open a spare.
         if (!this->spare.has_value()) {
+            if (this->tail.writer == nullptr && this->open_err) return this->open_err;
             if (this->tail.writer == nullptr)
                 return x::errors::Error(
                     BASE_ERROR,
@@ -436,10 +448,12 @@ x::errors::Error Outbox::next_tail(std::unique_lock<std::mutex> &lock) {
     return x::errors::NIL;
 }
 
-void Outbox::fail_open(const std::uint64_t key) {
+void Outbox::fail_open(const std::uint64_t key, const x::errors::Error &err) {
     // A failed open can leave the file, which remove_sent removes once it is sent.
     this->segments.try_emplace(key, 0);
     this->failed_key = key;
+    this->open_err = err;
+    this->spare_cv.notify_all();
 }
 
 void Outbox::run() {
@@ -589,8 +603,9 @@ void Outbox::sync_once(
         if (err) LOG(ERROR) << "[outbox] failed to open a segment: " << err;
         std::unique_lock lock(this->mu);
         if (err)
-            this->fail_open(*spare_key);
+            this->fail_open(*spare_key, err);
         else if (*spare_key > this->tail.key) {
+            this->open_err = x::errors::NIL;
             this->spare = Segment{.key = *spare_key, .writer = writer};
             this->writers[*spare_key] = writer;
             this->bytes += writer->pos();
@@ -682,7 +697,7 @@ void Outbox::compact() {
     if (tail_err) {
         LOG(ERROR) << "[outbox] failed to open a segment: " << tail_err;
         std::lock_guard lock(this->mu);
-        this->fail_open(tail_key);
+        this->fail_open(tail_key, tail_err);
         return;
     }
     std::vector<std::pair<std::uint64_t, std::shared_ptr<const pb::Call>>> kept;
@@ -721,7 +736,15 @@ void Outbox::compact() {
         }
         this->saved = start;
     }
-    auto [writer, err] = this->open_writer(key, COMPACTED_FLAG);
+    // A call that a larger max_payload of an earlier run took still fits.
+    std::size_t largest = this->cfg.max_payload;
+    for (const auto &[seq, request]: kept)
+        largest = std::max(largest, request->ByteSizeLong());
+    auto [writer, err] = this->open_writer(
+        key,
+        COMPACTED_FLAG,
+        static_cast<std::uint32_t>(std::min<std::size_t>(largest, journal::MAX_PAYLOAD))
+    );
     std::vector<std::uint64_t> ends;
     for (std::size_t i = 0; !err && i < kept.size(); i++) {
         err = writer->write(

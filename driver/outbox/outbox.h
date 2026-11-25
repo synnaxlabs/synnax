@@ -195,6 +195,8 @@ class Outbox {
     /// @brief the key of a segment that failed to open, which the next open tries
     /// again, so a lasting fault does not leave a file for each try.
     std::optional<std::uint64_t> failed_key;
+    /// @brief the error of the last failed segment open, until a spare opens.
+    x::errors::Error open_err;
     /// @brief the segments that left the tail, which the sync thread closes.
     std::vector<Segment> closing;
     /// @brief the position after the last sent call.
@@ -211,8 +213,11 @@ class Outbox {
 
     explicit Outbox(Config cfg);
     [[nodiscard]] std::filesystem::path segment_path(std::uint64_t key) const;
-    std::pair<std::shared_ptr<journal::Writer>, x::errors::Error>
-    open_writer(std::uint64_t key, std::uint16_t flags = 0) const;
+    std::pair<std::shared_ptr<journal::Writer>, x::errors::Error> open_writer(
+        std::uint64_t key,
+        std::uint16_t flags = 0,
+        std::optional<std::uint32_t> max_payload = std::nullopt
+    ) const;
     x::errors::Error load(std::uint64_t key, std::uint64_t pos);
     /// @brief queues a call that is on the disk. Requires mu.
     void enqueue(Call call);
@@ -221,8 +226,9 @@ class Outbox {
     /// thread to open one. Keeps a full tail when the wait ends with no spare. Requires
     /// a lock on mu.
     x::errors::Error next_tail(std::unique_lock<std::mutex> &lock);
-    /// @brief records a segment that failed to open. Requires mu.
-    void fail_open(std::uint64_t key);
+    /// @brief records a segment that failed to open with err, and wakes the pushes that
+    /// wait for a spare. Requires mu.
+    void fail_open(std::uint64_t key, const x::errors::Error &err);
     /// @returns whether a compaction frees enough of the files to run. Requires mu.
     [[nodiscard]] bool reclaimable() const;
     /// @returns whether the outbox holds 3/4 of max_bytes or max_calls. Requires mu.
