@@ -92,6 +92,9 @@ type Graph struct {
 	cfg      Config
 	channels map[channel.Key]*channelInfo
 	groups   map[int]*groupInfo
+	// examined holds every channel the graph has read, including ones that a failed
+	// Add or Update left out.
+	examined set.Set[channel.Key]
 	alamos.Instrumentation
 	nextGroupID int
 }
@@ -107,6 +110,7 @@ func New(cfgs ...Config) (*Graph, error) {
 		cfg:             cfg,
 		channels:        make(map[channel.Key]*channelInfo),
 		groups:          make(map[int]*groupInfo),
+		examined:        make(set.Set[channel.Key]),
 		nextGroupID:     0,
 	}, nil
 }
@@ -597,6 +601,7 @@ func (g *Graph) addInternal(
 		return nil
 	}
 
+	g.examined.Add(ch.Key())
 	info := &channelInfo{processing: true}
 	g.channels[ch.Key()] = info
 	defer func() { info.processing = false }()
@@ -677,6 +682,7 @@ func (g *Graph) fetchChannels(
 	ctx context.Context,
 	keys []channel.Key,
 ) ([]channel.Channel, error) {
+	g.examined.Add(keys...)
 	var channels []channel.Channel
 	if err := g.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
 		return g.cfg.Channel.NewRetrieve().
@@ -982,6 +988,10 @@ func (g *Graph) CalculateFlat() []compiler.Module {
 
 	return sortedModules
 }
+
+// Examined returns the keys of every channel that the graph has read since it was
+// created, including ones that a failed Add or Update left out.
+func (g *Graph) Examined() set.Set[channel.Key] { return g.examined.Copy() }
 
 // CalculatedKeys returns the set of all calculated channel keys managed by this
 // allocator.

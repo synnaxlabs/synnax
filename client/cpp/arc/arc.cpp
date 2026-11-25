@@ -19,15 +19,18 @@ namespace synnax::arc {
 const std::string CREATE_ENDPOINT = "/api/v1/arc/create";
 const std::string RETRIEVE_ENDPOINT = "/api/v1/arc/retrieve";
 const std::string DELETE_ENDPOINT = "/api/v1/arc/delete";
+const std::string CALCULATIONS_ENDPOINT = "/api/v1/arc/calculations";
 
 Client::Client(
     std::shared_ptr<RetrieveClient> retrieve_client,
     std::shared_ptr<CreateClient> create_client,
-    std::shared_ptr<DeleteClient> delete_client
+    std::shared_ptr<DeleteClient> delete_client,
+    std::shared_ptr<CalculationsClient> calculations_client
 ):
     retrieve_client(std::move(retrieve_client)),
     create_client(std::move(create_client)),
-    delete_client(std::move(delete_client)) {}
+    delete_client(std::move(delete_client)),
+    calculations_client(std::move(calculations_client)) {}
 
 x::errors::Error Client::create(Arc &arc) const {
     auto req = grpc::arc::CreateRequest();
@@ -140,5 +143,21 @@ x::errors::Error Client::del(const std::vector<x::uuid::UUID> &keys) const {
         req.add_keys(key.to_string());
     auto [_, err] = delete_client->send(DELETE_ENDPOINT, req);
     return err;
+}
+
+std::pair<Calculations, x::errors::Error>
+Client::calculations(const std::vector<channel::Key> &channels) const {
+    auto req = grpc::arc::CalculationsRequest();
+    req.mutable_channels()->Add(channels.begin(), channels.end());
+    auto [res, err] = calculations_client->send(CALCULATIONS_ENDPOINT, req);
+    if (err) return {{}, err};
+    Calculations calcs;
+    calcs.channels.assign(res.channels().begin(), res.channels().end());
+    for (const auto &pb: res.calculations()) {
+        auto [calc, calc_err] = Calculation::from_proto(pb);
+        if (calc_err) return {{}, calc_err};
+        calcs.calculations.push_back(std::move(calc));
+    }
+    return {std::move(calcs), x::errors::NIL};
 }
 }

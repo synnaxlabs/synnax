@@ -86,6 +86,7 @@ struct Transport {
     std::shared_ptr<arc::CreateClient> arc_create;
     std::shared_ptr<arc::RetrieveClient> arc_retrieve;
     std::shared_ptr<arc::DeleteClient> arc_delete;
+    std::shared_ptr<arc::CalculationsClient> arc_calculations;
     std::shared_ptr<icd::CreateClient> icd_create;
     std::shared_ptr<icd::RetrieveClient> icd_retrieve;
     std::unique_ptr<connection::CheckClient> connectivity_check;

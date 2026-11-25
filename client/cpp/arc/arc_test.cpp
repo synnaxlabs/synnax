@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
 #include <functional>
 #include <random>
 #include <string>
@@ -430,5 +431,35 @@ TEST(TestArc, testRetrieveWithCalculations) {
     ASSERT_EQ(calculations[1].channel, outer.key);
     for (const auto &c: calculations)
         ASSERT_FALSE(c.program.wasm.empty());
+}
+
+/// @brief it should compile the calculated channels that a set of channels reads, and
+/// return every channel the Core read to compile them.
+TEST(TestArc, testCalculations) {
+    const auto client = new_test_client();
+    const auto base_ch = ASSERT_NIL_P(client.channels.create(
+        make_unique_channel_name("calcs_base"),
+        x::telem::INT64_T
+    ));
+    channel::Channel inner{
+        .name = make_unique_channel_name("calcs_inner"),
+        .data_type = x::telem::INT64_T,
+        .is_virtual = true,
+        .expression = "return " + base_ch.name + " + 1",
+    };
+    ASSERT_NIL(client.channels.create(inner));
+    channel::Channel outer{
+        .name = make_unique_channel_name("calcs_outer"),
+        .data_type = x::telem::INT64_T,
+        .is_virtual = true,
+        .expression = "return " + inner.name + " * 2",
+    };
+    ASSERT_NIL(client.channels.create(outer));
+    const auto calcs = ASSERT_NIL_P(client.arcs.calculations({outer.key}));
+    ASSERT_EQ(calcs.calculations.size(), 2);
+    ASSERT_EQ(calcs.calculations[0].channel, inner.key);
+    ASSERT_EQ(calcs.calculations[1].channel, outer.key);
+    for (const auto key: {outer.key, inner.key, base_ch.key})
+        ASSERT_NE(std::ranges::find(calcs.channels, key), calcs.channels.end());
 }
 }

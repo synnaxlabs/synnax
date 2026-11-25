@@ -688,6 +688,10 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/arc/retrieve",
 		),
+		ArcCalculations: unary[arc.CalculationsRequest, arc.CalculationsResponse](
+			router,
+			"/api/v1/arc/calculations",
+		),
 		ArcDispatch: unary[arc.DispatchRequest, struct{}](
 			router,
 			"/api/v1"+api.PathArcDispatch,
