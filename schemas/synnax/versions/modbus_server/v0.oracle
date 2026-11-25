@@ -84,41 +84,6 @@ StopBits enum {
     @doc value "is the number of stop bits of a serial line."
 }
 
-DataType enum {
-    int8    = "int8" {
-        @doc value "is a signed 8-bit integer."
-    }
-    int16   = "int16" {
-        @doc value "is a signed 16-bit integer."
-    }
-    int32   = "int32" {
-        @doc value "is a signed 32-bit integer."
-    }
-    int64   = "int64" {
-        @doc value "is a signed 64-bit integer."
-    }
-    uint8   = "uint8" {
-        @doc value "is an unsigned 8-bit integer."
-    }
-    uint16  = "uint16" {
-        @doc value "is an unsigned 16-bit integer."
-    }
-    uint32  = "uint32" {
-        @doc value "is an unsigned 32-bit integer."
-    }
-    uint64  = "uint64" {
-        @doc value "is an unsigned 64-bit integer."
-    }
-    float32 = "float32" {
-        @doc value "is a 32-bit float."
-    }
-    float64 = "float64" {
-        @doc value "is a 64-bit float."
-    }
-
-    @doc value "is the type of the value that one or more registers hold."
-}
-
 BaseConnection struct {
     bytes_swapped bool = false {
         @doc value "is true when the bytes of each 16-bit register are swapped."
@@ -211,7 +176,7 @@ RequestPolicy struct {
 }
 
 Number struct {
-    data_type     DataType = uint16 {
+    data_type     telem.NumericDataType = uint16 {
         @doc value "is the type of the value in the registers."
     }
     bytes_swapped bool?    {
