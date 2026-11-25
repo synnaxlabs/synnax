@@ -212,11 +212,12 @@ Field groups per make:
 - **LabJack**: identity `serial`, `model` (the existing `LJM_dtT4`, `T7`, `T8` enum),
   `connection` (USB or TCP); configuration `identifier`, `read_index`,
   `thermocouple_index`, `write_state_index`, four port channel maps.
-- **EtherCAT master**: identity `interface`, `slaves Slave.Key[]` in bus order.
+- **EtherCAT master**: identity `interface`, `network_name`, `slaves Slave.Key[]` in bus
+  order.
 - **EtherCAT slave**: identity `serial`, `vendor_id`, `product_code`, `revision`,
-  `master Master.Key`, `pdos`; configuration `identifier`, `disabled`,
-  `startup_parameters`, `read_index`, `write_state_index`, input and output channel
-  maps.
+  `master Master.Key`, `pdos`, `op_modes`, `switched_at`; configuration `identifier`,
+  `disabled`, `op_mode`, `startup_parameters`, `read_index`, `write_state_index`, input
+  and output channel maps.
 - **OPC UA server**: identity `rack`, `name`, and `connection` (`auth`, `security`, and
   nested `server_trust` unions); configuration `reads` and `writes`. Node IDs name their
   namespace by URI.
