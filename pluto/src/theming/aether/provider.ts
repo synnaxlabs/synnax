@@ -54,18 +54,19 @@ export class Provider extends aether.Composite<typeof providerStateZ> {
   private async loadFonts(ctx: aether.Context): Promise<void> {
     // Hosts without a font registry (jsdom, some worker runtimes) have no FontFace.
     // A throw reports an error that re-renders consumers, looping any that suspend.
-    if (typeof FontFace === "undefined") return;
+    if (typeof FontFace === "undefined" || this.state.fontURLs.length === 0) return;
+    const fonts = fontSet();
     await Promise.all(
       this.state.fontURLs.map(async ({ name, url, tabular }) => {
         const descriptors = tabular ? TABULAR_DESCRIPTORS : DESCRIPTORS;
         const face = new FontFace(name, `url(${url})`, descriptors);
         try {
           await face.load();
-          // @ts-expect-error - font loading
-          self.fonts.add(face);
         } catch (e) {
           console.error(e);
+          return;
         }
+        fonts.add(face);
       }),
     );
     // Text drawn before the fonts loaded has fallback glyphs. A new theme value makes
@@ -74,6 +75,20 @@ export class Provider extends aether.Composite<typeof providerStateZ> {
     this.propagate();
   }
 }
+
+// The provider runs in a worker, or on the main thread with in-process comms. A canvas
+// draws only with the faces in the font set of its own scope. Each supported browser
+// has a font set in a worker, so a host without one is an error.
+const fontSet = (): FontFaceSet => {
+  if (typeof document !== "undefined") return document.fonts;
+  if (
+    typeof FontFaceSet !== "undefined" &&
+    "fonts" in self &&
+    self.fonts instanceof FontFaceSet
+  )
+    return self.fonts;
+  throw new Error("This worker has no font set. Canvas text uses a fallback font.");
+};
 
 export const use = (ctx: aether.Context): theme.Theme =>
   ctx.get<theme.Theme>(CONTEXT_KEY);
