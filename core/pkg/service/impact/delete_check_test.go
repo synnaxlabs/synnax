@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/impact"
@@ -26,6 +27,23 @@ import (
 )
 
 var _ = Describe("Delete checks", func() {
+	apply := func(
+		ctx SpecContext,
+		layer *service.Layer,
+		tx gorp.Tx,
+		keys ...channel.Key,
+	) (impact.Plan, error) {
+		c := impact.Change{Variant: impact.DeleteChannelsChange{Keys: keys}}
+		return layer.Impact.Apply(ctx, tx, c, impact.ApplyOptions{})
+	}
+	// emptyPlanOf returns the plan of the delete of the channels with keys that has no
+	// entries.
+	emptyPlanOf := func(keys ...channel.Key) impact.Plan {
+		return impact.Plan{Change: impact.Change{
+			Variant: impact.DeleteChannelsChange{Keys: keys},
+		}}
+	}
+
 	It(
 		"Should detach a record that holds the index the delete of a calculation removes",
 		func(ctx SpecContext) {
@@ -63,19 +81,13 @@ var _ = Describe("Delete checks", func() {
 			})).To(Succeed())
 			var applied impact.Plan
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
-				applied, err = layer.Impact.Apply(ctx, tx, impact.Change{
-					Variant: impact.DeleteChannelsChange{
-						Keys: []channel.Key{calc.Key()},
-					},
-				}, impact.ApplyOptions{})
+				applied, err = apply(ctx, layer, tx, calc.Key())
 				return err
 			})).To(Succeed())
 			Expect(MustSucceed(layer.Channel.NewRetrieve().
 				Where(channel.MatchKeys(calc.Index())).
 				Exists(ctx, db))).To(BeFalse())
-			Expect(applied).To(Equal(impact.Plan{Change: impact.Change{
-				Variant: impact.DeleteChannelsChange{Keys: []channel.Key{calc.Key()}},
-			}}))
+			Expect(applied).To(Equal(emptyPlanOf(calc.Key())))
 			var stored lineplot.LinePlot
 			Expect(layer.LinePlot.NewRetrieve().
 				Where(lineplot.MatchKeys(plot.Key)).

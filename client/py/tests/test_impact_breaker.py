@@ -31,6 +31,10 @@ EMPTY_APPLIED_PLAN = (
 )
 
 
+# The change that the specs below send.
+CHANGE = sy.impact.DeleteChannelsChange(keys=[1048577])
+
+
 class FakeCore:
     """Answers each POST with the next status and body, as a Core over HTTP."""
 
@@ -89,5 +93,5 @@ def test_synnax_impact_return_annotation_resolves() -> None:
 def test_apply_with_no_options_returns_after_the_core_applies(core: FakeCore) -> None:
     """Should return from an apply with no options once the Core has applied it"""
     core.replies.append((200, EMPTY_APPLIED_PLAN))
-    applied = core.client.apply(sy.impact.DeleteChannelsChange(keys=[1048577]))
+    applied = core.client.apply(CHANGE)
     assert applied.entries == []

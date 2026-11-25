@@ -174,6 +174,13 @@ var _ = Describe("Routes breaker", Ordered, ContinueOnFailure, func() {
 	deleteOf := func(keys ...channel.Key) impact.Change {
 		return impact.Change{Variant: impact.DeleteChannelsChange{Keys: keys}}
 	}
+	// withDelete returns p as the plan of the delete of the channels with keys.
+	withDelete := func(p impact.Plan, keys ...channel.Key) impact.Plan {
+		p.Change = deleteOf(keys...)
+		return p
+	}
+	// deletedBy returns what p deletes.
+	deletedBy := func(p impact.Plan) impact.Change { return p.Change }
 	retrieve := []access.Action{access.ActionRetrieve}
 	retrieveDelete := []access.Action{access.ActionRetrieve, access.ActionDelete}
 
@@ -291,15 +298,14 @@ var _ = Describe("Routes breaker", Ordered, ContinueOnFailure, func() {
 	It("Should round-trip a changed plan with a detach entry through the codec", func(
 		ctx SpecContext,
 	) {
-		changed := impact.PlanChangedError{Plan: impact.Plan{
-			Change: deleteOf(createVirtual(ctx)),
+		changed := impact.PlanChangedError{Plan: withDelete(impact.Plan{
 			Entries: []impact.Entry{{
 				Record: task.ResourceID(uuid.New()),
 				Effect: impact.EffectDetach,
 			}},
 			Kept:  3,
 			Token: "0123456789abcdef0123456789abcdef",
-		}}
+		}, createVirtual(ctx))}
 		codec := errors.NewCodec(apiimpact.ErrorProvider())
 		decoded, ok := errors.AsType[impact.PlanChangedError](
 			codec.Decode(codec.Encode(changed, false)),
@@ -309,7 +315,7 @@ var _ = Describe("Routes breaker", Ordered, ContinueOnFailure, func() {
 		Expect(decoded.Plan.Entries[0].Choices).To(BeEmpty())
 		Expect(decoded.Plan.Entries[0].Default).To(BeNil())
 		Expect(decoded.Plan.Kept).To(Equal(uint32(3)))
-		Expect(decoded.Plan.Change).To(Equal(changed.Plan.Change))
+		Expect(deletedBy(decoded.Plan)).To(Equal(deletedBy(changed.Plan)))
 	})
 
 	It("Should refuse a pick from a subject that cannot see the picked record", func(
