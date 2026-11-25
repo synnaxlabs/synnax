@@ -39,6 +39,8 @@ type ProgramState struct {
 	lastStamps map[uint32]telem.TimeStamp
 	// writers counts the channels that wrote to each index this cycle. Flush reuses it.
 	writers map[uint32]int
+	// read is set when a source passes on a read series, until TakeRead.
+	read bool
 }
 
 // NewProgramState creates a new ProgramState from channel digests.
@@ -302,6 +304,15 @@ const clearReadsReallocThreshold = 64
 
 // ClearReads clears accumulated channel read buffers while preserving the
 // latest series for each channel.
+// TakeRead reports whether a source passed on a read series since the last call, and
+// clears the mark. A source passes on one series of a frame per cycle, so a caller
+// that runs cycles until nothing is written also runs them while this holds.
+func (ps *ProgramState) TakeRead() bool {
+	read := ps.read
+	ps.read = false
+	return read
+}
+
 func (ps *ProgramState) ClearReads() {
 	for key, ser := range ps.reads {
 		if len(ser.Series) <= 1 {

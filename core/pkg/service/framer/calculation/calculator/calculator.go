@@ -381,10 +381,13 @@ func (c *Calculator) Next(
 		// handles accumulate and the counter keeps growing.
 		c.state.series.Clear()
 		c.state.strings.Clear()
-		if !currChanged {
+		// A cycle can read a series and write nothing, as a join that drops its stamps
+		// does, while a source still holds series of this frame.
+		read := c.state.channel.TakeRead()
+		if !currChanged && !read {
 			break
 		}
-		changed = true
+		changed = changed || currChanged
 	}
 	// ClearReads must run unconditionally, not just when changed is true. Otherwise,
 	// when a required input channel never sends data, consumed series accumulate

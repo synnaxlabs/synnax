@@ -287,8 +287,7 @@ func addOperations(g *arc.Graph, ops []calculation.Operation) {
 }
 
 // virtualReads returns which of reads are virtual channels, and whether the live
-// program of cfg pairs reads through a join: when one of them is a stored channel and
-// each has a fixed density.
+// program of cfg can pair reads through a join: when one of them is a stored channel.
 func virtualReads(
 	ctx context.Context,
 	snap gorp.Snapshot,
@@ -315,10 +314,7 @@ func virtualReads(
 			virtual.Add(uint32(ch.Key()))
 		}
 	}
-	fixed := !slices.ContainsFunc(channels, func(ch channel.Channel) bool {
-		return ch.DataType.IsVariable()
-	})
-	return virtual, fixed && len(virtual) < len(channels), nil
+	return virtual, len(virtual) < len(channels), nil
 }
 
 // read is the node that reads a channel into the calculation function.
@@ -449,7 +445,7 @@ func compileAnalyzed(
 	addNode(&g, calculationKey, calculationKey, nil)
 	addNode(&g, writeKey, writeKey, xmsgpack.EncodedJSON{"channel": cfg.Channel.Key()})
 	addOperations(&g, cfg.Calculation.Operations)
-	virtual, joined, err := virtualReads(ctx, snap, cfg, result.Reads)
+	virtual, stored, err := virtualReads(ctx, snap, cfg, result.Reads)
 	if err != nil {
 		return Module{}, err
 	}
@@ -457,6 +453,10 @@ func compileAnalyzed(
 	if err != nil {
 		return Module{}, err
 	}
+	// The join holds fixed-density samples, by the types the program reads.
+	joined := stored && !slices.ContainsFunc(reads, func(r read) bool {
+		return r.elem.ToTelem().IsVariable()
+	})
 	var extras []*symbol.Symbol
 	if joined {
 		sym, err := joinReads(&g, reads, cfg.Calculation.Primary, virtual)
