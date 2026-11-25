@@ -91,6 +91,7 @@ Device struct {
 
     @create
     @doc value     "is an NI module in a chassis, or a standalone USB or PCIe device."
+    @go entry      "ni_device"
     @go marshal
     @go migrate
     @resource type "ni_device"

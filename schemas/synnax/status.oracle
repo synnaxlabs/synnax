@@ -122,6 +122,7 @@ Status struct<Details?, V extends Variant = Variant> {
         details. A status is uniquely identified by a key, may name the resource that
         owns it, and may carry a human-readable name and labels.
     """
+    @go entry          "Status"
     @go marshal
     @go to_any
     @resource type     "status"
