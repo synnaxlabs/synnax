@@ -90,15 +90,34 @@ const TreeExplorer = (): ReactElement => (
   </Haul.Provider>
 );
 
+/**
+ * @returns the elements with the text in the Folders layout, outside the full tree that
+ * stays mounted and hidden under a search answer.
+ */
+const shownInFolders = (text: string): HTMLElement[] =>
+  screen
+    .queryAllByText(text)
+    .filter(
+      (el) =>
+        el.closest(".console-channel-explorer__folders") != null &&
+        el.closest(".console-tree--hidden") == null,
+    );
+
 const findBySelector = async (selector: string): Promise<HTMLElement> =>
   await waitFor(() => getBySelector(document.body, selector));
+
+// The calculation editor's code field needs a provider these specs do not mount, and
+// its boundary catches that error.
+const ignoreCodeProvider = (error: unknown): void => {
+  if (!String(error).includes("Code.Provider is not mounted")) throw error;
+};
 
 const renderView = async (stored: view.View): Promise<void> => {
   const { wrapper } = await createTabWrapper({
     client,
     tab: { variant: "resource", resource: view.resourceID(stored.key) },
   });
-  await renderLazy(<TreeExplorer />, { wrapper });
+  await renderLazy(<TreeExplorer />, { wrapper, onCaughtError: ignoreCodeProvider });
 };
 
 describe("channel explorer", () => {
@@ -111,11 +130,10 @@ describe("channel explorer", () => {
         where: { groups: [inner.key], dataType: { in: [DataType.FLOAT32] } },
       }),
     );
-    const tree = within(await findBySelector(".console-channel-explorer__folders"));
-    expect(await tree.findByText(floats.name)).toBeTruthy();
-    expect(tree.getByText(inner.name)).toBeTruthy();
-    expect(tree.getByText(outer.name)).toBeTruthy();
-    expect(tree.queryByText(ints.name)).toBeNull();
+    await waitFor(() => expect(shownInFolders(floats.name)).toHaveLength(1));
+    expect(shownInFolders(inner.name)).toHaveLength(1);
+    expect(shownInFolders(outer.name)).toHaveLength(1);
+    expect(shownInFolders(ints.name)).toHaveLength(0);
   });
 
   it("should show a chip for each field of a stored filter", async () => {
@@ -203,6 +221,88 @@ describe("channel explorer", () => {
       const saved = await client.views.retrieve(stored.key);
       expect(saved.type === "channel" && saved.layout).toBe("list");
     });
+  });
+});
+
+describe("channel inspector", () => {
+  /** Creates a channel in a folder and a calculation that reads it. */
+  const createRead = async () => {
+    const folder = await client.groups.create({
+      scope: "channel",
+      name: uniqueName("folder"),
+    });
+    const read = await client.channels.create({
+      name: uniqueName("read"),
+      dataType: DataType.FLOAT32,
+      virtual: true,
+      group: folder.key,
+    });
+    const unused = await client.channels.create({
+      name: uniqueName("unused"),
+      dataType: DataType.FLOAT32,
+      virtual: true,
+      group: folder.key,
+    });
+    const reader = await client.channels.create({
+      name: uniqueName("reader"),
+      dataType: DataType.FLOAT32,
+      virtual: true,
+      expression: `return ${read.name} * 2`,
+    });
+    return { folder, read, unused, reader };
+  };
+
+  const renderList = async (folder: group.Group) =>
+    await renderView(
+      await client.views.create({
+        name: uniqueName("view"),
+        type: "channel",
+        where: { groups: [folder.key] },
+        layout: "list",
+      }),
+    );
+
+  const inspector = () => within(screen.getByLabelText("Channel inspector"));
+
+  it("should show what reads the checked channel and open it", async () => {
+    const { folder, read, reader } = await createRead();
+    await renderList(folder);
+    expect(
+      await inspector().findByText("Select a channel to see what uses it."),
+    ).toBeTruthy();
+    fireEvent.click(await screen.findByText(read.name), { ctrlKey: true });
+    expect(await inspector().findByText("Read by · 1")).toBeTruthy();
+    fireEvent.click(await inspector().findByText(reader.name));
+    expect(await screen.findByDisplayValue(reader.name)).toBeTruthy();
+  });
+
+  it("should say that nothing uses an unused channel", async () => {
+    const { folder, unused } = await createRead();
+    await renderList(folder);
+    fireEvent.click(await screen.findByText(unused.name), { ctrlKey: true });
+    expect(await inspector().findByText("Nothing uses this channel.")).toBeTruthy();
+  });
+
+  it("should count the channels when several are checked", async () => {
+    const { folder, read, unused } = await createRead();
+    await renderList(folder);
+    fireEvent.click(await screen.findByText(read.name), { ctrlKey: true });
+    fireEvent.click(await screen.findByText(unused.name), { ctrlKey: true });
+    expect(await inspector().findByText("2 channels selected")).toBeTruthy();
+  });
+
+  it("should follow the channel selected in the Folders layout", async () => {
+    const { folder, read, reader } = await createRead();
+    await renderView(
+      await client.views.create({
+        name: uniqueName("view"),
+        type: "channel",
+        where: { groups: [folder.key] },
+      }),
+    );
+    const tree = within(await findBySelector(".console-channel-explorer__folders"));
+    fireEvent.click(await tree.findByText(read.name));
+    expect(await inspector().findByText(reader.name)).toBeTruthy();
   });
 });
 

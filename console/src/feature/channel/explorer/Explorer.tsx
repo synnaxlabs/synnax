@@ -9,7 +9,7 @@
 
 import "@/feature/channel/explorer/Explorer.css";
 
-import { channel, type group, view } from "@synnaxlabs/client";
+import { channel, view } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
@@ -20,13 +20,15 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
-import { Access, Channel, type Flux, Group as PGroup, Telem } from "@synnaxlabs/pluto";
+import { Access, Channel, type Flux, Telem } from "@synnaxlabs/pluto";
 import { deep, location } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 
 import { contextMenu } from "@/feature/channel/explorer/ContextMenu";
 import { TAB_TYPE } from "@/feature/channel/explorer/external";
 import { Filter } from "@/feature/channel/explorer/filter";
+import { FolderPath } from "@/feature/channel/explorer/FolderPath";
+import { Inspector } from "@/feature/channel/explorer/Inspector";
 import { Open } from "@/feature/channel/open";
 import { listTreeRoot } from "@/feature/channel/tree";
 import { Channel as PlatformChannel } from "@/platform/channel";
@@ -97,13 +99,14 @@ const NO_CHANNELS = <NoChannels />;
 interface FoldersProps {
   where: channel.Where | undefined;
   term: string;
+  onSelectedChange: (keys: channel.Key[]) => void;
 }
 
 /**
  * Shows the channels under their folders, as the sidebar does. A filter or a search
  * shows only the matches, each under the folders that hold it.
  */
-const Folders = ({ where, term }: FoldersProps): ReactElement => {
+const Folders = ({ where, term, onSelectedChange }: FoldersProps): ReactElement => {
   const search = useSearch(channel.TYPE_RESOURCE_ID, {
     term,
     filter: where,
@@ -117,40 +120,17 @@ const Folders = ({ where, term }: FoldersProps): ReactElement => {
         emptyContent={NO_CHANNELS}
         emptyMatches={NO_CHANNELS}
         search={search}
+        onSelectedChange={(ids) =>
+          onSelectedChange(
+            ids.filter(({ type }) => type === "channel").map(({ key }) => Number(key)),
+          )
+        }
       />
     </Flex.Box>
   );
 };
 
 const ITEM_HEIGHT = 44;
-
-/** @returns the names of the folders from the top down to the folder with the key. */
-const folderNames = (key: group.Key, folders: group.Group[]): string[] => {
-  const byKey = new Map(folders.map((f) => [f.key, f]));
-  const names: string[] = [];
-  let folder = byKey.get(key);
-  while (folder != null) {
-    names.unshift(folder.name);
-    const parent = folder.parent;
-    folder = parent?.type === "group" ? byKey.get(parent.key) : undefined;
-  }
-  return names;
-};
-
-interface FolderPathProps {
-  folder: group.Key;
-}
-
-/** Shows the folders that hold a channel, and follows a rename or move of each. */
-const FolderPath = ({ folder }: FolderPathProps): ReactElement | null => {
-  const folders = PGroup.useResultAncestors({ keys: [folder] }).data;
-  if (folders == null) return null;
-  return (
-    <Text.Text level="small" color={9} overflow="fade">
-      {folderNames(folder, folders).join(" / ")}
-    </Text.Text>
-  );
-};
 
 const ListItem = (props: List.ItemProps<channel.Key>): ReactElement | null => {
   const { itemKey } = props;
@@ -241,6 +221,12 @@ const ListLayout = ({ list }: ListLayoutProps): ReactElement => {
   );
 };
 
+/** The inspector of the channels checked in the List layout. */
+const ListInspector = (): ReactElement => {
+  const selected = View.useSelected();
+  return <Inspector keys={selected.map(Number)} />;
+};
+
 interface LayoutInfo {
   name: string;
   icon: Icon.ReactElement;
@@ -299,10 +285,22 @@ const Internal = (): ReactElement => {
   const openCreate = PlatformChannel.useCreateModal();
   const openCalculated = PlatformChannel.useCalculatedModal();
   const canCreate = Access.useCreateGranted(channel.TYPE_RESOURCE_ID);
+  const [inspecting, setInspecting] = useState(true);
+  const [treeSelected, setTreeSelected] = useState<channel.Key[]>([]);
   return (
     <View.Form {...list} onWhereChange={setWhere} itemHeight={ITEM_HEIGHT}>
       <View.Toolbar properties={Filter.PROPERTIES}>
         <LayoutSelect value={layout} onChange={setLayout} preview={!editable} />
+        <Button.Toggle
+          value={inspecting}
+          onChange={setInspecting}
+          variant="outlined"
+          size="medium"
+          tooltip={inspecting ? "Hide inspector" : "Show inspector"}
+          tooltipLocation={location.BOTTOM_LEFT}
+        >
+          <Icon.Sidebar />
+        </Button.Toggle>
         {canCreate && (
           <>
             <Button.Button
@@ -326,11 +324,21 @@ const Internal = (): ReactElement => {
           </>
         )}
       </View.Toolbar>
-      {layout === "folders" ? (
-        <Folders where={where} term={term} />
-      ) : (
-        <ListLayout list={list} />
-      )}
+      <Flex.Box x grow empty className={CSS.BE("channel-explorer", "body")}>
+        <Flex.Box y grow empty className={CSS.BE("channel-explorer", "layout-body")}>
+          {layout === "folders" ? (
+            <Folders where={where} term={term} onSelectedChange={setTreeSelected} />
+          ) : (
+            <ListLayout list={list} />
+          )}
+        </Flex.Box>
+        {inspecting &&
+          (layout === "folders" ? (
+            <Inspector keys={treeSelected} />
+          ) : (
+            <ListInspector />
+          ))}
+      </Flex.Box>
     </View.Form>
   );
 };

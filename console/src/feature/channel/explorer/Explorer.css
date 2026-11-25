@@ -9,8 +9,11 @@
  * included in the file licenses/APL.txt.
  */
 
+.console-channel-explorer__body,
+.console-channel-explorer__layout-body,
 .console-channel-explorer__folders {
     min-height: 0;
+    min-width: 0;
 }
 
 .console-channel-explorer__list {

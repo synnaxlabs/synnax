@@ -14,10 +14,11 @@ import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Channel, Resource } from "@synnaxlabs/pluto";
+import { Channel, Errors, Resource } from "@synnaxlabs/pluto";
 import { compare } from "@synnaxlabs/x";
-import { type ReactElement, Suspense } from "react";
+import type { ReactElement } from "react";
 
+import { FolderPath } from "@/feature/channel/explorer/FolderPath";
 import { CSS } from "@/platform/css";
 import { Tree } from "@/platform/tree";
 
@@ -33,7 +34,7 @@ interface EntryProps {
   resource: resource.Resource;
 }
 
-/** A record that uses the channel. A click opens it, as a double click in a tree does. */
+/** A record that uses the channel. A click opens it as the tree's double click does. */
 const Entry = ({ resource: r }: EntryProps): ReactElement => {
   const Item = Tree.useItems()[r.id.type] ?? Tree.DefaultItem;
   const typeName = Item.typeName;
@@ -86,6 +87,15 @@ const Resolved = ({ ids }: Pick<SectionProps, "ids">): ReactElement => {
   );
 };
 
+const Failed = ({ error }: Errors.FallbackProps): ReactElement => (
+  <Status.Summary
+    variant="error"
+    level="small"
+    message="Failed to load the records"
+    description={error.message}
+  />
+);
+
 /** The records that use the channel in one direction, under a heading with a count. */
 const Section = ({ title, ids }: SectionProps): ReactElement | null => {
   if (ids.length === 0) return null;
@@ -94,9 +104,9 @@ const Section = ({ title, ids }: SectionProps): ReactElement | null => {
       <Text.Text level="small" weight={500} color={9}>
         {title} · {ids.length}
       </Text.Text>
-      <Suspense fallback={null}>
+      <Errors.SuspenseBoundary FallbackComponent={Failed} loading={null}>
         <Resolved ids={ids} />
-      </Suspense>
+      </Errors.SuspenseBoundary>
     </Flex.Box>
   );
 };
@@ -121,18 +131,28 @@ const Uses = ({ channelKey }: UsesProps): ReactElement | null => {
   const ch = result.data?.[0];
   if (ch == null) return null;
   const uses = ch.uses ?? [];
-  if (uses.length === 0)
-    return (
-      <Text.Text level="small" color={9}>
-        Nothing uses this channel.
-      </Text.Text>
-    );
   const of = (direction: channel.Direction) =>
     uses.filter((u) => u.direction === direction).map(({ id }) => id);
+  const KindIcon = Channel.resolveIcon(ch.payload);
   return (
     <>
-      <Section title="Written by" ids={of("write")} />
-      <Section title="Read by" ids={of("read")} />
+      <Flex.Box y empty className={CSS.BE("channel-inspector", "header")}>
+        <Text.Text level="p" weight={500} overflow="fade">
+          <KindIcon color={10} />
+          {ch.name}
+        </Text.Text>
+        {ch.group != null && <FolderPath folder={ch.group} />}
+      </Flex.Box>
+      {uses.length === 0 ? (
+        <Text.Text level="small" color={9}>
+          Nothing uses this channel.
+        </Text.Text>
+      ) : (
+        <>
+          <Section title="Written by" ids={of("write")} />
+          <Section title="Read by" ids={of("read")} />
+        </>
+      )}
     </>
   );
 };

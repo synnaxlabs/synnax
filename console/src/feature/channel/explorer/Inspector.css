@@ -10,11 +10,15 @@
  */
 
 .console-channel-inspector {
-    width: 32rem;
+    width: 48rem;
     flex-shrink: 0;
     padding: 1.5rem 1rem;
     border-left: var(--pluto-border);
     overflow-y: auto;
+}
+
+.console-channel-inspector__header {
+    margin-bottom: 2rem;
 }
 
 .console-channel-inspector__section {

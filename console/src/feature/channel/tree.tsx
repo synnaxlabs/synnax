@@ -22,6 +22,7 @@ import {
   Access,
   Channel as PChannel,
   Schematic as PSchematic,
+  Synnax as PSynnax,
 } from "@synnaxlabs/pluto";
 import { id } from "@synnaxlabs/x";
 
@@ -222,4 +223,26 @@ const TreeItem = Tree.createItem({
   ContextMenu: TreeContextMenu,
 });
 
-export const TREE_ITEMS = { channel: TreeItem } satisfies Tree.Items;
+/** Opens the editor of the calculation that a resource names, on its output channel. */
+const useOpenCalculation = (): ((resource: Tree.Resource) => void) => {
+  const client = PSynnax.use();
+  const openCalculated = Channel.useCalculatedModal();
+  const handleError = Status.useErrorHandler();
+  return (resource) =>
+    handleError(async () => {
+      if (client == null) return;
+      const calc = await client.calculations.retrieve({ key: resource.id.key });
+      openCalculated({ channelKey: calc.output });
+    }, "Failed to open the calculation");
+};
+
+const CalculationItem = Tree.createItem({
+  icon: <Icon.Calculation />,
+  typeName: "Calculation",
+  useOnSelect: useOpenCalculation,
+});
+
+export const TREE_ITEMS = {
+  channel: TreeItem,
+  calculation: CalculationItem,
+} satisfies Tree.Items;
