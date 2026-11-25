@@ -92,10 +92,8 @@ export const SelectForm = ({ tab, onTabChange }: FormProps): ReactElement => (
     <Tabs.Content itemKey="options">
       <Form.States
         enumeration={path.enumeration}
-        options={path.options}
         label={path.label.label}
         symbolName={NAME}
-        colorHidden
       />
     </Tabs.Content>
   </Properties.Tabs>

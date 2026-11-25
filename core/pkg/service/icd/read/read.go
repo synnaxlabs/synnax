@@ -51,13 +51,15 @@ func NewResolver(icds *icd.Service, channels icdv0.Channels) Resolver {
 	return Resolver{icds: icds, channels: channels}
 }
 
-// NewChecker returns the Checker of reads, with each ICD from icds or else retrieved
-// through snap, and the channels of their bindings. The Checker skips an ICD or a
+// NewChecker returns the Checker of reads and of tags, the channels that Claim takes
+// beyond the bindings of reads. It holds each ICD from icds or else retrieved through
+// snap, and the channels of the bindings and the tags. The Checker skips an ICD or a
 // channel that does not exist, which the reference check of the write reports.
 func (r Resolver) NewChecker(
 	ctx context.Context,
 	snap gorp.Snapshot,
 	reads []Read,
+	tags []channel.Key,
 	icds map[icd.Key]icd.ICD,
 ) (Checker, error) {
 	c := Checker{
@@ -67,7 +69,7 @@ func (r Resolver) NewChecker(
 	maps.Copy(c.icds, icds)
 	var (
 		icdKeys     []icd.Key
-		channelKeys []channel.Key
+		channelKeys = slices.Clone(tags)
 	)
 	for _, rd := range reads {
 		if _, ok := c.icds[rd.ICD]; !ok {
@@ -165,6 +167,50 @@ func (c Checker) Claim(key channel.Key, path []string) error {
 		)
 	}
 	c.written[key] = strings.Join(path, ".")
+	return nil
+}
+
+// ClaimIndexes claims, for each message of rd, each index channel of its bound channels
+// that its index field does not bind, since the task writes its timestamps. Run it
+// after Read and Claim, so that an error is at the path of the message that does not
+// bind it.
+func (c Checker) ClaimIndexes(rd Read) error {
+	for j, rm := range rd.Messages {
+		path := slices.Concat(rd.Path, []string{"messages", strconv.Itoa(j)})
+		var (
+			// indexes holds each index channel of the bound channels, in binding order.
+			indexes []channel.Key
+			// indexChannel is the channel of the index field.
+			indexChannel channel.Key
+		)
+		for _, b := range rm.Bindings {
+			if rm.Index != nil && *rm.Index == b.Field {
+				indexChannel = b.Channel
+			}
+			ch, ok := c.channels[b.Channel]
+			if ok && ch.IndexKey != 0 && !slices.Contains(indexes, ch.IndexKey) {
+				indexes = append(indexes, ch.IndexKey)
+			}
+		}
+		for _, key := range indexes {
+			if key == indexChannel {
+				continue
+			}
+			if err := c.Claim(key, path); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// ClaimIndex claims the index channel of key, the channel of the tag at path, whose
+// timestamps the task writes. It returns a validation error when another binding or
+// tag already writes to it.
+func (c Checker) ClaimIndex(key channel.Key, path []string) error {
+	if ch, ok := c.channels[key]; ok && ch.IndexKey != 0 && ch.IndexKey != key {
+		return c.Claim(ch.IndexKey, path)
+	}
 	return nil
 }
 

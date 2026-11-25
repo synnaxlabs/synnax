@@ -1,10 +1,9 @@
 {
-  "description": "A float field has a default of NaN.",
-  "codec_rejects": true,
+  "description": "A text field has an infinite default.",
   "problems": [
     {
       "path": "messages.0.payload.fields.0.default",
-      "message": "default must be finite"
+      "message": "default cannot be infinite"
     }
   ],
   "icd": {
@@ -15,7 +14,9 @@
         "key": "00000000-0000-4000-8000-000000000001",
         "name": "M",
         "payload": {
-          "format": "binary",
+          "format": "text",
+          "delimiter": ",",
+          "prefix": "",
           "fields": [
             {
               "key": "00000000-0000-4000-8000-00000000000a",
@@ -23,15 +24,11 @@
               "scale": 1,
               "offset": 0,
               "units": "",
-              "multiplex_values": [],
-              "start_bit": 0,
-              "bit_length": 64,
-              "byte_order": "little_endian",
-              "kind": "float",
-              "default": "NaN"
+              "encoding": "delimited",
+              "position": 0,
+              "default": "Infinity"
             }
-          ],
-          "length": 8
+          ]
         }
       }
     ]

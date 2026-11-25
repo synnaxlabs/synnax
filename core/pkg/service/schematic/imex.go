@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/versions"
+	v14 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v14"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -37,14 +38,20 @@ func (*Service) Match(body map[string]any) bool {
 
 // Decode decodes env into a Schematic that its Write creates under opts.Parent, which
 // must be a project. A group must be in the parent project. The key on the wire is
-// discarded so every import mints a new resource. The schematic drops each named color
-// and each enumeration that the Core does not hold, so a select or state indicator that
-// loses its enumeration draws its own options. A node whose custom symbol the Core does
-// not hold draws a missing symbol with the same key, and every other node drops the
-// bindings that its symbol orphans. An unknown envelope version is a path-scoped
-// validation error.
+// discarded so every import mints a new resource. Each select and state indicator of a
+// file older than v14 gets an enumeration for its options, as at upgrade, shared with
+// equal lists of the same file. The schematic drops each named color and each
+// enumeration that the Core does not hold, so a select or state indicator that loses
+// its enumeration draws no states. A node whose custom symbol the Core does not hold
+// draws a missing symbol with the same key, and every other node drops the bindings
+// that its symbol orphans. An unknown envelope version is a path-scoped validation
+// error.
 func (s *Service) Decode(ctx context.Context, env imex.Envelope) (imex.Write, error) {
 	sch, err := versions.DecodeImExEnvelope(ctx, env)
+	if err != nil {
+		return nil, err
+	}
+	old, isOld, err := versions.DecodeV13(ctx, env)
 	if err != nil {
 		return nil, err
 	}
@@ -63,6 +70,18 @@ func (s *Service) Decode(ctx context.Context, env imex.Envelope) (imex.Write, er
 			return resource.ID{}, err
 		}
 		sch.Group, sch.Project = nil, nil
+		if isOld {
+			intern := s.cfg.Enumeration.NewWriter(tx).NewInterner().Intern
+			if err = v14.InternStates(
+				ctx,
+				&sch,
+				old,
+				intern,
+				s.cfg.Instrumentation,
+			); err != nil {
+				return resource.ID{}, err
+			}
+		}
 		if err = s.fitNodes(ctx, tx, &sch); err != nil {
 			return resource.ID{}, err
 		}

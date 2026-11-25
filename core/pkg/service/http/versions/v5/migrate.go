@@ -25,7 +25,7 @@ import (
 
 // MigrateReadConfig lifts a v4 read config to v5, with the fields of each endpoint
 // staged in Inline. NaN fill turns on when an optional field has no fill value, because
-// an ICD default cannot be NaN.
+// a v4 read wrote NaN for its missing value.
 func MigrateReadConfig(ctx context.Context, old v4.ReadConfig) (ReadConfig, error) {
 	cfg, err := autoMigrateReadConfig(ctx, old)
 	if err != nil || len(old.Endpoints) == 0 {

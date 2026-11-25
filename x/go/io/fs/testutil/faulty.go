@@ -259,6 +259,9 @@ func (fs *FaultyFS) List(name string) ([]xfs.FileInfo, error) {
 // Exists passes through to the wrapped FS. No option fails it.
 func (fs *FaultyFS) Exists(name string) (bool, error) { return fs.wrapped.Exists(name) }
 
+// SyncDir passes through to the wrapped FS. No option fails it.
+func (fs *FaultyFS) SyncDir(name string) error { return fs.wrapped.SyncDir(name) }
+
 type faultyFile struct {
 	xfs.File
 	fs   *FaultyFS

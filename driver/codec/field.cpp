@@ -7,11 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
 #include <optional>
 #include <string>
 #include <string_view>
+#include <utility>
 
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/json/pointer.h"
 #include "x/cpp/payload/types.gen.h"
 #include "x/cpp/telem/telem.h"
 
@@ -52,11 +55,49 @@ bool converts(const std::string_view k, const x::telem::DataType &dt) {
     return false;
 }
 
+std::pair<Number, x::errors::Error> number_of(
+    const x::telem::DataType &dt,
+    const std::string_view kind,
+    const bool scaled
+) {
+    const auto k = kind_of(dt);
+    auto n = Number::FLOAT64;
+    if (dt == x::telem::FLOAT32_T)
+        n = Number::FLOAT32;
+    else if (k == payload::KIND_INTEGER)
+        n = Number::SIGNED;
+    else if (k == payload::KIND_UNSIGNED || k == payload::KIND_BOOLEAN)
+        n = Number::UNSIGNED;
+    else if (k != payload::KIND_FLOAT)
+        return {
+            n,
+            x::errors::Error(
+                CONFIG_ERROR,
+                "cannot write " + dt.name() + " channels to " + std::string(kind) +
+                    " fields"
+            ),
+        };
+    if (scaled && k != payload::KIND_FLOAT)
+        return {
+            n,
+            x::errors::Error(
+                CONFIG_ERROR,
+                "a scaled field requires a float channel, not " + dt.name()
+            ),
+        };
+    return {n, x::errors::NIL};
+}
+
 x::errors::Error wrap(const x::errors::Error &err, const std::string &context) {
     return {err, context + ": " + err.data};
 }
 
 x::errors::Error as_config(const x::errors::Error &err, const std::string &context) {
     return {CONFIG_ERROR, context + ": " + err.data};
+}
+
+bool within(const x::json::Pointer &inner, const x::json::Pointer &outer) {
+    return outer.tokens.size() <= inner.tokens.size() &&
+           std::equal(outer.tokens.begin(), outer.tokens.end(), inner.tokens.begin());
 }
 }

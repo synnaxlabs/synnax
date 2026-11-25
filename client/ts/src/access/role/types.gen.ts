@@ -39,7 +39,7 @@ export const roleZ = z.object({
   /** key is the unique identifier for this role. */
   key: keyZ.default(uuid.create),
   /** name is a human-readable name for the role (e.g., 'Administrator', 'Engineer'). */
-  name: z.string().min(1, "name is required"),
+  name: z.string().min(1, "Name is required"),
   /**
    * description is an optional description explaining what permissions the role
    * provides.

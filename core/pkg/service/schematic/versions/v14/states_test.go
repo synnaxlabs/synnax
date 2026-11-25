@@ -16,6 +16,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	servicecolor "github.com/synnaxlabs/synnax/pkg/service/color/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/enumeration"
@@ -104,18 +105,6 @@ var _ = Describe("Select and state indicator states", func() {
 			Entry(&s).Exec(ctx, db)).To(Succeed())
 		return s, calls
 	}
-	options := func(n v14.Node) []v14.StateMapping {
-		GinkgoHelper()
-		switch cfg := n.Config.Variant.(type) {
-		case v14.SelectNodeConfig:
-			return cfg.Options
-		case v14.StateIndicatorNodeConfig:
-			return cfg.Options
-		}
-		Fail("not a select or a state indicator")
-		return nil
-	}
-
 	It("Should give each select and indicator with options a named enumeration",
 		func(ctx SpecContext) {
 			transparent := &xcolor.Color{R: 9}
@@ -139,9 +128,6 @@ var _ = Describe("Select and state indicator states", func() {
 			}))
 			Expect(calls[2].name).To(Equal("Select: Valve panel"))
 			Expect(calls[2].entries[0].Color).To(BeNil())
-			for _, n := range s.Nodes {
-				Expect(options(n)).To(BeEmpty())
-			}
 			empty, ok := s.Nodes[3].Config.Variant.(v14.SelectNodeConfig)
 			Expect(ok).To(BeTrue())
 			Expect(empty.Enumeration).To(BeNil())
@@ -188,6 +174,20 @@ var _ = Describe("Select and state indicator states", func() {
 			Expect(spare.Enumeration).To(BeNil())
 		},
 	)
+
+	It("Should give each node its own options when node keys repeat",
+		func(ctx SpecContext) {
+			_, calls := internAll(ctx, schematicOf(
+				"Panel",
+				selectNode("a", "Mode", state("off", 0, "Off", nil)),
+				indicatorNode("a", "Lamp", state("lit", 1, "Lit", nil)),
+			))
+			Expect(calls).To(HaveLen(2))
+			Expect(calls[0].name).To(Equal("Select: Mode"))
+			Expect(calls[0].entries[0].Key).To(Equal("off"))
+			Expect(calls[1].name).To(Equal("State indicator: Lamp"))
+			Expect(calls[1].entries[0].Key).To(Equal("lit"))
+		})
 
 	It("Should fail the migration with the node when the intern fails",
 		func(ctx SpecContext) {
@@ -299,3 +299,25 @@ var _ = Describe("Migrated states", func() {
 func schematicOf(name string, nodes ...v13.Node) v13.Schematic {
 	return v13.Schematic{Key: uuid.New(), Name: name, Nodes: nodes}
 }
+
+var _ = Describe("InternStates", func() {
+	It("Should fail when the schematic and its v13 shape differ in nodes",
+		func(ctx SpecContext) {
+			s := v14.Schematic{Nodes: []v14.Node{{Key: "mode"}}}
+			Expect(v14.InternStates(
+				ctx,
+				&s,
+				v13.Schematic{},
+				func(
+					context.Context,
+					string,
+					[]enumerationv0.Entry,
+				) (enumerationv0.Key, error) {
+					return uuid.New(), nil
+				},
+				alamos.Instrumentation{},
+			)).To(MatchError(ContainSubstring(
+				"schematic has 1 nodes, but its v13 shape has 0",
+			)))
+		})
+})
