@@ -92,8 +92,12 @@ func MigrateToggleConfig(
 // node; see SymbolNode. See MigrateSchematic for colors. A custom node keeps its state
 // overrides. The bounds of a gauge or tank become closed bounds; see closed.
 func MigrateNodeConfig(ctx context.Context, old v13.NodeConfig) (NodeConfig, error) {
-	if n, ok, err := SymbolNode(old); ok || err != nil {
-		return NodeConfig{Variant: n}, err
+	n, ok, err := SymbolNode(old)
+	if err != nil {
+		return NodeConfig{}, err
+	}
+	if ok {
+		return NodeConfig{Variant: n}, nil
 	}
 	cfg, err := autoMigrateNodeConfig(ctx, old)
 	if err != nil {

@@ -62,8 +62,11 @@ func SymbolNode(old v13.NodeConfig) (SymbolNodeConfig, bool, error) {
 		return SymbolNodeConfig{}, false, nil
 	}
 	name, err := variantName(old)
+	if err != nil {
+		return SymbolNodeConfig{}, false, err
+	}
 	n.Spec = builtin(name)
-	return n, true, err
+	return n, true, nil
 }
 
 // variantName returns the variant tag that the codec writes for cfg, which is the name
@@ -76,7 +79,10 @@ func variantName(cfg v13.NodeConfig) (string, error) {
 	var tagged struct {
 		Variant string `json:"variant"`
 	}
-	return tagged.Variant, json.Unmarshal(b, &tagged)
+	if err = json.Unmarshal(b, &tagged); err != nil {
+		return "", err
+	}
+	return tagged.Variant, nil
 }
 
 func builtin(name string) symbol.Ref {
