@@ -29,6 +29,7 @@ import type { z } from "zod";
 
 import { HandleList } from "@/feature/schematic/symbol/edit/HandleList";
 import { Inspector } from "@/feature/schematic/symbol/edit/Inspector";
+import { ItemList } from "@/feature/schematic/symbol/edit/ItemList";
 import { PartList } from "@/feature/schematic/symbol/edit/PartList";
 import { Preview } from "@/feature/schematic/symbol/edit/Preview";
 import { useConfirmSave } from "@/feature/schematic/symbol/edit/useConfirmSave";
@@ -56,6 +57,14 @@ export interface ModalParams {
 }
 
 const SCALE_BOUNDS: bounds.Bounds = { lower: 5, upper: 1000 };
+
+const STATE_TYPES: Record<schematic.symbol.StateType, string> = {
+  enumeration: "Enumeration",
+  number: "Number",
+};
+
+const describeCommand = ({ value }: schematic.symbol.Command): string =>
+  value.type === "fixed" ? `Sends ${value.value}` : "Asks for a value";
 
 interface ValueBarProps {
   value: Spec.At;
@@ -235,24 +244,30 @@ const Editor = ({
     if (owner == null) return addPart(selector);
     setSelectedPart(owner.key);
   };
+  const states = Form.useFieldValue(path.data.states, { ctx: form });
+  const commands = Form.useFieldValue(path.data.commands, { ctx: form });
   const hasSVG =
     Form.useFieldValue(path.data.drawing.markup, {
       ctx: form,
     }).length > 0;
   const createSaveText = isCreate ? "Create" : "Save";
   const handleSave = async () => {
+    const spec = form.get(path.data).value;
     // A fill motion that cannot draw stops the save and selects its part, whose
     // inspector shows why. The inspector shows the issues only with the flag on.
     if (FLAGS.symbolMotion) {
-      const [part] = Spec.levelIssues(form.get(path.data).value).keys();
+      const [part] = Spec.levelIssues(spec).keys();
       if (part != null) return setSelectedPart(part);
     }
+    // Placement reads the variant, so a symbol with a click saves as an actuator.
+    if (FLAGS.symbolNodes)
+      form.set(path.data.variant, spec.interactions.length > 0 ? "actuator" : "static");
     const uses = stored.data?.uses ?? [];
     if (stored.data != null && uses.length > 0) {
-      const spec = form.get(path.data).value;
+      const next = form.get(path.data).value;
       if (
-        Spec.edited(stored.data.data, spec) &&
-        (await confirmSave({ stored: stored.data, spec, uses })) !== true
+        Spec.edited(stored.data.data, next) &&
+        (await confirmSave({ stored: stored.data, spec: next, uses })) !== true
       )
         return;
     }
@@ -290,20 +305,59 @@ const Editor = ({
                   />
                 </Flex.Box>
                 <Divider.Divider x />
-                <Flex.Box y>
-                  <Header.Header level="p" bordered={false}>
-                    <Header.Title level="p" weight={500}>
-                      States
-                    </Header.Title>
-                  </Header.Header>
-                  <Flex.Box className={CSS.BE("schematic", "states")}>
-                    <SelectVariantField
-                      onSelectValue={(value) =>
-                        setPreview({ state: Spec.STATE, value })
-                      }
+                {FLAGS.symbolNodes ? (
+                  <>
+                    <ItemList
+                      title="States"
+                      noun="state"
+                      items={states}
+                      name={(key) => path.data.states[key].name}
+                      detail={(s) => STATE_TYPES[s.type]}
+                      add={Spec.addState}
+                      remove={Spec.removeState}
+                      onRemove={() => {
+                        // The preview moves to the first state left if its state goes.
+                        const left = form
+                          .get(path.data.states)
+                          .value.filter(
+                            (s): s is schematic.symbol.EnumerationState =>
+                              s.type === "enumeration",
+                          );
+                        if (left.some((s) => s.key === preview.state)) return;
+                        const first = left.at(0);
+                        setPreview({
+                          state: first?.key ?? Spec.STATE,
+                          value: first?.default ?? 0,
+                        });
+                      }}
                     />
+                    <Divider.Divider x />
+                    <ItemList
+                      title="Commands"
+                      noun="command"
+                      items={commands}
+                      name={(key) => path.data.commands[key].name}
+                      detail={describeCommand}
+                      add={Spec.addCommand}
+                      remove={Spec.removeCommand}
+                    />
+                  </>
+                ) : (
+                  <Flex.Box y>
+                    <Header.Header level="p" bordered={false}>
+                      <Header.Title level="p" weight={500}>
+                        States
+                      </Header.Title>
+                    </Header.Header>
+                    <Flex.Box className={CSS.BE("schematic", "states")}>
+                      <SelectVariantField
+                        onSelectValue={(value) =>
+                          setPreview({ state: Spec.STATE, value })
+                        }
+                      />
+                    </Flex.Box>
                   </Flex.Box>
-                </Flex.Box>
+                )}
                 <Divider.Divider x />
                 <PartList
                   value={selectedPart}

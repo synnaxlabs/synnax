@@ -17,14 +17,16 @@ export interface EngineRef {
   engine: "web" | "tauri";
   /** Overrides CORE_EMBEDDED when set, to drive the Synnax Desktop branches. */
   coreEmbedded?: boolean;
+  /** Overrides CORE_SELECTABLE when set, to drive the dev server branches. */
+  coreSelectable?: boolean;
 }
 
 /**
  * Mocks the `Runtime` namespace of `@/session/runtime`, so that ENGINE, CORE_EMBEDDED,
- * and isMainWindow read the ref on each call. Every other export stays real. A browser
- * mock reads each export of a module once, so only a namespace property can change
- * between tests. vi.mock factories run before imports: create the ref with vi.hoisted,
- * and load this helper with a dynamic import inside the factory.
+ * CORE_SELECTABLE, and isMainWindow read the ref on each call. Every other export stays
+ * real. A browser mock reads each export of a module once, so only a namespace property
+ * can change between tests. vi.mock factories run before imports: create the ref with
+ * vi.hoisted, and load this helper with a dynamic import inside the factory.
  */
 export const mockRuntimeEngine = async (
   importOriginal: () => Promise<{ Runtime: typeof Runtime }>,
@@ -39,6 +41,9 @@ export const mockRuntimeEngine = async (
       },
       get CORE_EMBEDDED() {
         return ref.coreEmbedded ?? original.CORE_EMBEDDED;
+      },
+      get CORE_SELECTABLE() {
+        return ref.coreSelectable ?? ref.engine === "tauri";
       },
       isMainWindow: () => original.isMainWindow(ref.engine),
     },
