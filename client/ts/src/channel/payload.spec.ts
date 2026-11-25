@@ -79,38 +79,64 @@ describe("schema validation", () => {
   });
 });
 
+describe("isValidName", () => {
+  it.each([
+    ["a dash", "sensor-temp"],
+    ["a leading digit", "1sensor"],
+    ["a space", "my channel"],
+    ["a symbol", "sensor!"],
+    ["a letter outside ASCII", "temp\u00e9rature"],
+  ])("should allow a name with %s", (_, name) => {
+    expect(channel.isValidName(name)).toBe(true);
+  });
+
+  it.each([
+    ["an empty name", ""],
+    ["spaces alone", "  "],
+    ["a dot", "sensor.temp"],
+    ["a tab", "sensor\ttemp"],
+    ["a space other than U+0020", "sensor\u00a0temp"],
+    ["a character that shows as nothing", "sensor\u200btemp"],
+    ["a name that is not in NFC", "e\u0301"],
+  ])("should refuse %s", (_, name) => {
+    expect(channel.isValidName(name)).toBe(false);
+  });
+});
+
 describe("escapeInvalidName", () => {
-  it("should escape invalid name", () => {
-    const result = channel.escapeInvalidName("sensor-temp");
-    expect(result).toBe("sensor_temp");
+  it.each([
+    ["a dash", "sensor-temp"],
+    ["a leading digit", "1sensor"],
+    ["a space", "my channel"],
+    ["a symbol", "sensor!"],
+  ])("should keep a name with %s", (_, name) => {
+    expect(channel.escapeInvalidName(name)).toBe(name);
   });
-  it("should escape name starting with digit", () => {
-    const result = channel.escapeInvalidName("1sensor");
-    expect(result).toBe("_1sensor");
+
+  it.each([
+    ["a dot", "sensor.temp", "sensor_temp"],
+    ["a tab", "sensor\ttemp", "sensor_temp"],
+    ["a space other than U+0020", "sensor\u00a0temp", "sensor_temp"],
+    ["a character that shows as nothing", "sensor\u200btemp", "sensor_temp"],
+    ["spaces alone", "  ", "__"],
+  ])("should replace %s with an underscore", (_, name, escaped) => {
+    expect(channel.escapeInvalidName(name)).toBe(escaped);
   });
-  it("should escape name with spaces", () => {
-    const result = channel.escapeInvalidName("my channel");
-    expect(result).toBe("my_channel");
+
+  it("should put a name in NFC", () => {
+    expect(channel.escapeInvalidName("e\u0301")).toBe("\u00e9");
   });
-  it("should escape name with special characters", () => {
-    const result = channel.escapeInvalidName("sensor!");
-    expect(result).toBe("sensor_");
+
+  it("should give a name that the rule allows", () => {
+    expect(channel.isValidName(channel.escapeInvalidName("a.b\u200b c"))).toBe(true);
   });
-  it("should escape name with hyphens", () => {
-    const result = channel.escapeInvalidName("sensor-temp");
-    expect(result).toBe("sensor_temp");
-  });
-  it("should escape name with dots", () => {
-    const result = channel.escapeInvalidName("sensor.temp");
-    expect(result).toBe("sensor_temp");
-  });
+
   it("should allow an empty string by default", () => {
-    const result = channel.escapeInvalidName("");
-    expect(result).toBe("");
+    expect(channel.escapeInvalidName("")).toBe("");
   });
-  it("should change empty string to underscore when changeEmptyToUnderscore is true", () => {
-    const result = channel.escapeInvalidName("", true);
-    expect(result).toBe("_");
+
+  it("should change an empty string to an underscore when asked", () => {
+    expect(channel.escapeInvalidName("", true)).toBe("_");
   });
 });
 
