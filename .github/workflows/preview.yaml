@@ -141,11 +141,13 @@ jobs:
 
             Core and Console: ${{ env.URL }}
 
-            Log in with username `synnax` and password `seldon`. The preview is a
-            throwaway Core with in-memory storage, and a push rebuilds it from empty.
-            It has no Driver, so it has no hardware tasks. Open the sample project
-            for a simulated tank pressurization. The other projects show the same
-            live data in more visualizations.
+            Open it in a browser and sign in with a GitHub account in the
+            `synnaxlabs` organization. Then log in with username `synnax` and password
+            `seldon`. Synnax Desktop cannot connect, because it cannot pass the GitHub
+            login. The preview is a throwaway Core with in-memory storage, and a push
+            rebuilds it from empty. It has no Driver, so it has no hardware tasks.
+            Open the sample project for a simulated tank pressurization. The other
+            projects show the same live data in more visualizations.
 
             To test permissions, log in as one of these users. Each password is
             `seldon`.
