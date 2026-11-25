@@ -54,16 +54,80 @@ describe("bind.spec", () => {
   });
 });
 
-describe("bind.stateChannels", () => {
-  it("should list each channel that a state reads once", () => {
+describe("bind.channels", () => {
+  it("should list each channel that a state reads or commands once", () => {
     expect(
-      bind.stateChannels([
+      bind.channels([
         { key: "active", source: { type: "channel", key: 1 } },
         { key: "level", source: { type: "local", value: 3 } },
-        { key: "other", source: { type: "channel" } },
+        { key: "other", source: { type: "channel", command: 3 } },
         { key: "again", source: { type: "channel", key: 1, command: 2 } },
       ]),
-    ).toEqual([1]);
+    ).toEqual([1, 3, 2]);
+  });
+});
+
+describe("bind.target", () => {
+  const STATES = [
+    { key: "active", source: { type: "channel" as const, key: 1, command: 2 } },
+    { key: "level", source: { type: "local" as const, value: 3 } },
+    { key: "read", source: { type: "channel" as const, key: 4 } },
+  ];
+  const COMMANDS = [{ key: "vent", channel: 5 }];
+
+  it.each([
+    ["the command channel of its state", { key: "open", state: "active" }, 2],
+    ["the channel that binds a command with no state", { key: "vent" }, 5],
+  ])("should write %s", (_, command, channel) => {
+    expect(bind.target(command, STATES, COMMANDS)).toEqual({
+      type: "channel",
+      channel,
+    });
+  });
+
+  it("should write the local value of its state", () => {
+    expect(bind.target({ key: "set", state: "level" }, STATES, COMMANDS)).toEqual({
+      type: "local",
+      state: "level",
+    });
+  });
+
+  it.each([
+    ["a state with no command channel", { key: "open", state: "read" }],
+    ["a state that the node does not bind", { key: "open", state: "other" }],
+    ["no state and no binding", { key: "purge" }],
+  ])("should give no target for %s", (_, command) => {
+    expect(bind.target(command, STATES, COMMANDS)).toBeUndefined();
+  });
+});
+
+describe("bind.sinks", () => {
+  it("should build one number sink for each channel that a command writes", () => {
+    const commands: schematic.symbol.Command[] = [
+      {
+        key: "close",
+        name: "Close",
+        state: "active",
+        value: { type: "fixed", value: 0 },
+      },
+      {
+        key: "open",
+        name: "Open",
+        state: "active",
+        value: { type: "fixed", value: 1 },
+      },
+      { key: "set", name: "Set", state: "level", value: { type: "ask" } },
+    ];
+    expect(
+      bind.sinks(
+        { commands },
+        [
+          { key: "active", source: { type: "channel", key: 1, command: 2 } },
+          { key: "level", source: { type: "local", value: 3 } },
+        ],
+        [],
+      ),
+    ).toEqual({ 2: Telem.numberSink(2) });
   });
 });
 
@@ -154,25 +218,53 @@ describe("bind.stale", () => {
   });
 });
 
-describe("bind.dataMissing", () => {
+describe("bind.missing", () => {
   const CHANNEL = { key: "active", source: { type: "channel" as const, key: 1 } };
 
   it.each([
     ["no reading", {}],
     ["a reading with no value", { 1: { value: null, stale: false } }],
-  ])("should be true for a channel with %s", (_, readings) => {
-    expect(bind.dataMissing([CHANNEL], readings)).toBe(true);
+  ])("should hold a state whose channel has %s", (_, readings) => {
+    expect(bind.missing([CHANNEL], readings)).toEqual(new Set(["active"]));
   });
 
-  it("should be false for a channel with a value", () => {
-    expect(bind.dataMissing([CHANNEL], { 1: { value: 0, stale: true } })).toBe(false);
+  it("should not hold a state whose channel has a value", () => {
+    expect(bind.missing([CHANNEL], { 1: { value: 0, stale: true } })).toEqual(
+      new Set(),
+    );
   });
 
   it.each([
     ["no source", { key: "active" }],
     ["a channel source with no key", { key: "active", source: { type: "channel" } }],
     ["a local source", { key: "active", source: { type: "local", value: 1 } }],
-  ] as const)("should be false for a state with %s", (_, binding) => {
-    expect(bind.dataMissing([binding], {})).toBe(false);
+  ] as const)("should not hold a state with %s", (_, binding) => {
+    expect(bind.missing([binding], {})).toEqual(new Set());
+  });
+});
+
+describe("bind.commanded", () => {
+  it("should read the newest value on the command channel of each state", () => {
+    expect(
+      bind.commanded(
+        [
+          { key: "active", source: { type: "channel", key: 1, command: 2 } },
+          { key: "open", source: { type: "channel", command: 3 } },
+          { key: "idle", source: { type: "channel", key: 1, command: 4 } },
+          { key: "level", source: { type: "local", value: 3 } },
+        ],
+        {
+          1: { value: 0, stale: false },
+          2: { value: 1, stale: false },
+          3: { value: 0, stale: true },
+          4: { value: null, stale: false },
+        },
+      ),
+    ).toEqual(
+      new Map([
+        ["active", 1],
+        ["open", 0],
+      ]),
+    );
   });
 });

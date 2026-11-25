@@ -17,6 +17,7 @@ import (
 	"math"
 	"slices"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/payload"
@@ -36,6 +37,8 @@ const (
 	maxClusters = 16
 	// maxFieldSets is the most sets of fields of one source that split compares.
 	maxFieldSets = 256
+	// maxSampleLength is the longest sample, in bytes, of a field of a SampledShape.
+	maxSampleLength = 64
 )
 
 // Document is one sampled JSON document.
@@ -85,6 +88,14 @@ type Shape struct {
 	Present int `json:"present" msgpack:"present"`
 }
 
+// SampledShape is a Shape with the last value of each of its fields.
+type SampledShape struct {
+	Shape
+	// Samples holds the start of the JSON text of the last value of each of Fields, in
+	// the same order: at most 64 bytes, cut at a rune boundary.
+	Samples []string
+}
+
 // Infer returns the shapes of docs, which are in the order that each source wrote them.
 //   - The documents of a source that hold the same fields are one cluster. A cluster
 //     whose fields are all in one widest cluster joins it, so a field that some
@@ -131,11 +142,26 @@ func Infer(docs []Document) []Shape {
 		}
 		src.add(parsedDocument{leaves: leaves, time: ref})
 	}
-	return infer(sources)
+	inf := infer(sources)
+	shapes := make([]Shape, len(inf.groups))
+	for i := range shapes {
+		shapes[i] = inf.shape(i)
+	}
+	return shapes
 }
 
-// infer returns the shapes of the documents of sources.
-func infer(sources []*inferSource) []Shape {
+// inference is what infer finds in the documents of its sources.
+type inference struct {
+	groups []*inferGroup
+	// present holds the position of the present field of each group, or -1.
+	present []int
+	// clusters holds the clusters of each source, and of holds the group of each.
+	clusters [][]cluster
+	of       [][]int
+}
+
+// infer returns the groups of the documents of sources.
+func infer(sources []*inferSource) inference {
 	clusters := make([][]cluster, len(sources))
 	for i, src := range sources {
 		clusters[i] = src.split()
@@ -144,14 +170,32 @@ func infer(sources []*inferSource) []Shape {
 		groups, of := group(sources, clusters)
 		present := presentFields(groups, of)
 		if !mergeUnmarked(sources, clusters, of, present) {
-			shapes := make([]Shape, len(groups))
-			for i, g := range groups {
-				shapes[i] = g.shape()
-				shapes[i].Present = present[i]
+			return inference{
+				groups:   groups,
+				present:  present,
+				clusters: clusters,
+				of:       of,
 			}
-			return shapes
 		}
 	}
+}
+
+// shape returns the shape of the group at i.
+func (inf inference) shape(i int) Shape {
+	s := inf.groups[i].shape()
+	s.Present = inf.present[i]
+	return s
+}
+
+// groupOf returns the position of the group that takes the documents of the set at k of
+// the source at i, or -1 when the set joins no cluster.
+func (inf inference) groupOf(i, k int) int {
+	for c, cl := range inf.clusters[i] {
+		if slices.Contains(cl.sets, k) {
+			return inf.of[i][c]
+		}
+	}
+	return -1
 }
 
 // group returns the groups of clusters, where the clusters that hold the same fields
@@ -261,13 +305,18 @@ func mergeUnmarked(
 
 // Inferrer infers the shapes of the documents of one source as they arrive, with the
 // rules of Infer. Past 1,024 fields across its sets of fields, the documents are one
-// shape. It keeps counts, not documents, so its memory does not grow with the number of
-// documents. It is not safe for concurrent use.
-type Inferrer struct{ src *inferSource }
+// shape. It keeps counts and the start of the last value of each field, not documents,
+// so its memory does not grow with the number of documents. It is not safe for
+// concurrent use.
+type Inferrer struct {
+	src *inferSource
+	// last is the position in src.sets of the set of the last document added, or -1.
+	last int
+}
 
 // NewInferrer returns an Inferrer that holds no documents.
 func NewInferrer() *Inferrer {
-	return &Inferrer{src: newInferSource("", maxInferredFields)}
+	return &Inferrer{src: newInferSource("", maxInferredFields), last: -1}
 }
 
 // Add adds data, written at t. Data that is not one JSON value adds nothing.
@@ -276,16 +325,23 @@ func (i *Inferrer) Add(data []byte, t telem.TimeStamp) {
 	if err != nil {
 		return
 	}
-	i.src.add(parsedDocument{leaves: leaves, time: t})
+	i.last = i.src.add(parsedDocument{leaves: leaves, time: t})
 }
 
-// Shapes returns the shapes of the documents added, with no sources.
-func (i *Inferrer) Shapes() []Shape {
-	shapes := infer([]*inferSource{i.src})
-	for k := range shapes {
+// Shapes returns the shapes of the documents added, with no sources, and the position
+// in them of the shape of the last JSON document added. The position is -1 when no JSON
+// document was added, or when the last one joins no shape.
+func (i *Inferrer) Shapes() ([]SampledShape, int) {
+	inf := infer([]*inferSource{i.src})
+	shapes := make([]SampledShape, len(inf.groups))
+	for k, g := range inf.groups {
+		shapes[k] = SampledShape{Shape: inf.shape(k), Samples: g.samples()}
 		shapes[k].Sources = nil
 	}
-	return shapes
+	if i.last < 0 {
+		return shapes, -1
+	}
+	return shapes, inf.groupOf(0, i.last)
 }
 
 type inferSource struct {
@@ -303,6 +359,8 @@ type inferSource struct {
 	// whole is true once the documents have more than 256 sets of fields, or the sets
 	// would hold more than limit fields. The one set in sets then takes every document.
 	whole bool
+	// documents is the number of documents added.
+	documents int
 }
 
 func newInferSource(name string, limit int) *inferSource {
@@ -336,16 +394,20 @@ type cluster struct {
 	sets []int
 }
 
-func (src *inferSource) add(doc parsedDocument) {
+// add adds doc and returns the position in sets of the set that takes it.
+func (src *inferSource) add(doc parsedDocument) int {
 	fields := make(set.Set[string], len(doc.leaves))
 	for _, l := range doc.leaves {
 		fields.Add(l.key)
 	}
 	k := src.setOf(fields)
+	src.documents++
+	doc.number = src.documents
 	src.sets[k].group.addDocument(src.name, doc)
 	for _, l := range doc.leaves {
 		src.recordDisorder(k, l.key)
 	}
+	return k
 }
 
 // setOf returns the position in sets of the set that takes the documents that hold
@@ -497,6 +559,8 @@ func (src *inferSource) joins() []int {
 type parsedDocument struct {
 	leaves []leaf
 	time   telem.TimeStamp
+	// number is the position of the document in its source, from 1.
+	number int
 }
 
 // leaf is one scalar of a document.
@@ -655,8 +719,17 @@ func (g *inferGroup) addDocument(source string, doc parsedDocument) {
 			g.fields[l.key] = s
 			g.order = append(g.order, s)
 		}
-		s.add(source, l, doc.time)
+		s.add(source, l, doc.time, doc.number)
 	}
+}
+
+// samples returns the sample of each field of g, in the order of its fields.
+func (g *inferGroup) samples() []string {
+	samples := make([]string, len(g.order))
+	for i, s := range g.order {
+		samples[i] = string(s.sample)
+	}
+	return samples
 }
 
 func (g *inferGroup) shape() Shape {
@@ -694,6 +767,9 @@ type fieldStats struct {
 	// longLabel is true once a string is longer than an enum label can be.
 	longLabel bool
 	time      timeStats
+	// sample is the start of the last value, and sampled is the number of its document.
+	sample  []byte
+	sampled int
 }
 
 // timeStats tracks whether the values of a field are timestamps.
@@ -741,8 +817,10 @@ func newFieldStats(pointer Pointer) *fieldStats {
 	return s
 }
 
-func (s *fieldStats) add(source string, l leaf, ref telem.TimeStamp) {
+// add adds l, the value of the field in document number of source, written at ref.
+func (s *fieldStats) add(source string, l leaf, ref telem.TimeStamp, number int) {
 	s.count++
+	s.sample, s.sampled = sampleOf(l.raw), number
 	switch l.kind {
 	case '0':
 		s.numbers++
@@ -817,6 +895,22 @@ func (s *fieldStats) merge(o *fieldStats) {
 		s.labels.Add(label)
 	}
 	s.time.merge(o.time)
+	if o.sampled > s.sampled {
+		s.sample, s.sampled = o.sample, o.sampled
+	}
+}
+
+// sampleOf returns the start of raw, at most maxSampleLength bytes, cut at a rune
+// boundary. It copies a longer raw, so that the sample does not hold all of it.
+func sampleOf(raw []byte) []byte {
+	if len(raw) <= maxSampleLength {
+		return raw
+	}
+	n := maxSampleLength
+	for n > 0 && !utf8.RuneStart(raw[n]) {
+		n--
+	}
+	return bytes.Clone(raw[:n])
 }
 
 func (s *fieldStats) timestamp() bool { return s.time.candidate && s.time.formatted }

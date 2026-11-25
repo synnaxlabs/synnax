@@ -19,6 +19,7 @@ on:
     branches: [main, release/**]
   pull_request:
     branches: [main, release/**]
+  merge_group:
   schedule:
     - cron: "0 6 * * 1" # 6am UTC on Monday
   workflow_dispatch:
@@ -64,7 +65,9 @@ jobs:
   analyze:
     name: Analyze (${{ matrix.language }})
     needs: changes
-    if: ${{ !cancelled() && needs.changes.result != 'failure' }}
+    if:
+      ${{ !cancelled() && needs.changes.result != 'failure' && github.event_name !=
+      'merge_group' }}
     runs-on: ubuntu-latest
     permissions:
       actions: read
@@ -93,13 +96,13 @@ jobs:
         run: |
           .github/scripts/go_mod_download.sh alamos/go arc/go cesium core freighter/go \
             freighter/integration gorp oracle x/go
-      - uses: github/codeql-action/init@33d7b85da1a04171e211befe2c739303b9a4c066 # v4
+      - uses: github/codeql-action/init@915412ff23e8b7659517e607487dbeae018f2934 # v4.39.5
         if: env.PLACEHOLDER != 'true'
         with:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.language == 'go' && 'autobuild' || 'none' }}
           queries: security-extended
-      - uses: github/codeql-action/analyze@33d7b85da1a04171e211befe2c739303b9a4c066 # v4
+      - uses: github/codeql-action/analyze@915412ff23e8b7659517e607487dbeae018f2934 # v4.39.5
         if: env.PLACEHOLDER != 'true'
         with:
           category: /language:${{ matrix.language }}
@@ -113,17 +116,17 @@ jobs:
             "runs": [{ "tool": { "driver": { "name": "CodeQL" } }, "results": [] }]
           }
           EOF
-      - uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4
+      - uses: github/codeql-action/upload-sarif@915412ff23e8b7659517e607487dbeae018f2934 # v4.39.5
         if: env.PLACEHOLDER == 'true'
         with:
           sarif_file: ${{ runner.temp }}/placeholder.sarif
           category: /language:${{ matrix.language }}
 
-  # The CodeQL check, not this run, fails on new alerts that the main ruleset blocks.
-  # GitHub sends no event to the default branch for it.
+  # The CodeQL check fails on new alerts in changed lines that the main ruleset blocks.
+  # GitHub sends no event to the default branch for it, so this job also waits for it.
   shepherd:
     name: Wake the shepherd
-    needs: analyze
+    needs: [analyze, gate]
     if:
       ${{ !cancelled() && github.event_name == 'pull_request' &&
       github.event.pull_request.head.repo.full_name == github.repository && github.actor
@@ -143,9 +146,10 @@ jobs:
           persist-credentials: false
           sparse-checkout: .github/scripts
 
-      - name: Start Agent - Shepherd when the CodeQL check fails
+      - name: Start Agent - Shepherd when the CodeQL check or gate fails
         shell: bash
         env:
+          GATE: ${{ needs.gate.result }}
           GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
           PR: ${{ github.event.pull_request.number }}
@@ -168,14 +172,63 @@ jobs:
             echo "Pull request #$PR is $STATE, so it gets no CodeQL check."
             exit 0
           fi
-          [ "$CONCLUSION" = failure ] || exit 0
+          [ "$CONCLUSION" = failure ] || [ "$GATE" = failure ] || exit 0
           .github/scripts/gh_api.sh \
             "repos/$GH_REPO/actions/workflows/agent.shepherd.yaml/dispatches" \
             -X POST -f ref="$REF" -f "inputs[pr]=$PR"
 
+  # The CodeQL check fails only on new alerts in the lines a pull request changes. This
+  # gate fails on each alert open on the pull request that is not open on its base. A
+  # merge group passes, because each of its pull requests passed.
+  gate:
+    name: CodeQL gate
+    needs: analyze
+    if:
+      ${{ !cancelled() && (github.event_name == 'pull_request' || github.event_name ==
+      'merge_group') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: read
+    timeout-minutes: 70
+    steps:
+      - name: Pass the merge group
+        if: github.event_name == 'merge_group'
+        run: echo "The gate ran on each pull request of the merge group."
+
+      # Without each analysis, the gate would wait for one that does not come.
+      - name: Fail when an analysis did not finish
+        if: github.event_name == 'pull_request' && needs.analyze.result != 'success'
+        env:
+          RESULT: ${{ needs.analyze.result }}
+        run: |
+          echo "::error::The CodeQL analysis ended with $RESULT. Rerun the failed jobs."
+          exit 1
+
+      - name: Checkout the scripts
+        if: github.event_name == 'pull_request'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          sparse-checkout: .github/scripts
+
+      # The analyses of the merge ref carry the merge commit, not the head. The
+      # categories match the analyze matrix.
+      - name: Fail on alerts that are not open on the base
+        if: github.event_name == 'pull_request'
+        env:
+          BASE: ${{ github.base_ref }}
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          python3 .github/scripts/codeql_new_alerts.py "refs/pull/$PR/merge" \
+            "refs/heads/$BASE" "$GITHUB_SHA" /language:actions /language:c-cpp \
+            /language:go /language:javascript-typescript /language:python \
+            /language:rust
+
   relay-failure:
     name: Relay the failure
-    needs: [changes, analyze, shepherd]
+    needs: [changes, analyze, gate, shepherd]
     if:
       always() && github.event_name == 'schedule' && contains(needs.*.result, 'failure')
     permissions:

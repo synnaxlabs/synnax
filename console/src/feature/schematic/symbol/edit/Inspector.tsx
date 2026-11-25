@@ -212,12 +212,14 @@ const PaintControl = ({ drawingColor }: PaintControlProps): ReactElement => {
   const { value, inherited, own, onChange, label, shown, values } = useScope<
     "fill" | "stroke"
   >("PaintControl");
-  // An entry paint stores its own state, which can differ from the state shown.
-  const entryColor = useEntryColor(
+  // An entry paint stores its own state. A state that is not shown is at its default.
+  const entryState =
     value?.type === "entry"
       ? values.states.find((s) => s.key === value.state)
-      : undefined,
-    shown.value,
+      : undefined;
+  const entryColor = useEntryColor(
+    entryState,
+    entryState?.key === shown.state ? shown.value : undefined,
   );
   return (
     <Paint

@@ -35,6 +35,7 @@ Policy struct {
         resources. Policies are attached to roles, and roles are assigned to users via
         ontology relationships.
     """
+    @go entry
     @go marshal
     @go migrate
     @resource type "policy"
