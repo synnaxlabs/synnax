@@ -18,14 +18,14 @@ import type { ReactElement } from "react";
 import { Symbol } from "@/feature/schematic/symbol";
 import { Modals } from "@/platform/modals";
 
-interface Losing {
+interface LosingNode {
   key: string;
   config: schematic.SymbolNodeConfig;
 }
 
 interface ConfirmChangeParams {
   /** The symbol nodes that lose bindings in the change. */
-  nodes: Losing[];
+  nodes: LosingNode[];
   /** The spec of the new symbol. */
   spec: schematic.symbol.Spec;
 }
@@ -70,7 +70,7 @@ const ConfirmChange = ({
     title="Schematic.Symbol.Change"
     icon={<Icon.Schematic />}
     message="Change the symbol?"
-    description="The new symbol lacks bindings that these nodes use, so the change removes them."
+    description="The change removes the bindings that the new symbol lacks."
     confirm={{ label: "Change", variant: "warning" }}
     onConfirm={() => close(true)}
     onCancel={() => close(false)}

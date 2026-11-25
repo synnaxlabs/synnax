@@ -25,7 +25,7 @@ const LOSS = "Valve loses the Active binding.";
 preloadTab();
 
 describe("Toolbar symbol change", () => {
-  it("should ask before it removes the bindings that the new symbol lacks", async () => {
+  it("should ask before it removes the bindings the new symbol lacks", async () => {
     const { key } = await renderSelected({
       n1: createValveNode({ states: [ACTIVE_BINDING] }),
     });
@@ -40,7 +40,7 @@ describe("Toolbar symbol change", () => {
     );
   });
 
-  it("should keep the symbol and its bindings when the confirm is canceled", async () => {
+  it("should keep the symbol and bindings when the confirm is canceled", async () => {
     const { key } = await renderSelected({
       n1: createValveNode({ states: [ACTIVE_BINDING] }),
     });
