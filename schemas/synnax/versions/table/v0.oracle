@@ -31,6 +31,7 @@ Table struct {
         Tables support multiple columns, channel data sources, and customizable
         formatting options.
     """
+    @go entry
     @go marshal
     @go migrate
     @resource type "table"

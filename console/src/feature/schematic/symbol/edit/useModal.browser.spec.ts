@@ -42,6 +42,7 @@ import {
   getOverlayHandles,
   getPartListItem,
   getPreviewTransformWrapper,
+  getValueBar,
   SYMBOL_FILE_DROP_PROMPT,
   symbolNames,
 } from "@/feature/schematic/testutil";
@@ -53,7 +54,9 @@ import {
   renderModalOpener,
 } from "@/platform/modals/testutil";
 import {
+  awaitTextEditingElement,
   CaptureStatuses,
+  commitTextEdit,
   fakePickedFile,
   getIconButton,
   interceptFilePicker,
@@ -251,6 +254,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     });
 
     it("saves a fill for one state of an actuator", async () => {
+      mocks.symbolNodes = false;
       const createKey = uuid.create();
       const { picker } = await openCreateModal({ createKey });
       await loadSVG(picker);
@@ -445,6 +449,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     });
 
     it("adds an active state when the variant switches to actuator", async () => {
+      mocks.symbolNodes = false;
       const { picker } = await openCreateModal();
       await loadSVG(picker);
       fireEvent.click(await screen.findByText("Actuator"));
@@ -617,11 +622,6 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     });
 
     it("bands a stroke in the theme of the preview", async () => {
-      // The preview's theme leaf loads fonts on this thread, which has no self.fonts.
-      vi.stubGlobal("fonts", document.fonts);
-      onTestFinished(() => {
-        vi.unstubAllGlobals();
-      });
       const grp = await createParentGroup();
       const payload = createSymbolPayload(uniqueName("banded"));
       const symbol = await client.schematics.symbols.create({
@@ -687,6 +687,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     });
 
     it("asks before a save removes bindings from a schematic that uses the symbol", async () => {
+      mocks.symbolNodes = false;
       const { used, unbound } = await openUsedSymbol();
       fireEvent.click(screen.getByText("Actuator"));
       fireEvent.click(findButton("Save"));
@@ -702,6 +703,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     });
 
     it("keeps the symbol and its bindings when the save confirm is canceled", async () => {
+      mocks.symbolNodes = false;
       const { symbol, used } = await openUsedSymbol();
       fireEvent.click(screen.getByText("Actuator"));
       fireEvent.click(findButton("Save"));
@@ -913,6 +915,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     });
 
     it("gives an overriding part the paint of the whole drawing back", async () => {
+      mocks.symbolNodes = false;
       const node: schematic.symbol.Look = { key: "node", fill: { type: "node" } };
       const symbol = await openPainted({
         states: [createState()],
@@ -978,12 +981,13 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     });
 
     it("saves the state color and shows the default entry where no entry matches", async () => {
+      mocks.symbolNodes = false;
       const enumeration = await createEnumeration();
       const symbol = await openPainted({
         variant: "actuator",
         states: [createState(enumeration.key)],
       });
-      fireEvent.click(await screen.findByText("Active"));
+      fireEvent.click(await within(getValueBar()).findByText("Active"));
       const fill = screen.getByLabelText("Fill");
       fireEvent.click(fill);
       fireEvent.click(await screen.findByText("State color"));
@@ -1022,7 +1026,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
           { key: "fill", part: "body", fill: { type: "entry", state: "active" } },
         ],
       });
-      fireEvent.click(screen.getByText("Fault"));
+      fireEvent.click(within(getValueBar()).getByText("Fault"));
       const fill = await screen.findByLabelText("Fill");
       await waitFor(() =>
         expect(fill.style.getPropertyValue("--pluto-bg")).toBe(color.cssString(GREEN)),
@@ -1058,6 +1062,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     });
 
     it("shows a part that the whole drawing hides", async () => {
+      mocks.symbolNodes = false;
       const symbol = await openPainted({ looks: [{ key: "hide", hidden: true }] });
       const visible = screen.getByLabelText<HTMLInputElement>("Visible");
       expect(visible.checked).toBe(false);
@@ -1188,7 +1193,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
         variant: "actuator",
         states: [createState(), fault],
       });
-      fireEvent.click(screen.getByText("Fault"));
+      fireEvent.click(within(getValueBar()).getByText("Fault"));
       byState("Visible");
       fireEvent.click(await screen.findByLabelText("Visible while Active"));
       fireEvent.click(findButton("Save"));
@@ -1246,7 +1251,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
           },
         ],
       });
-      fireEvent.click(screen.getByText("Fault"));
+      fireEvent.click(within(getValueBar()).getByText("Fault"));
       await waitFor(() =>
         expect(findButton("Trip").classList.contains("lyra--selected")).toBe(true),
       );
@@ -1262,7 +1267,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       expect(screen.getByLabelText("Fill by state").getAttribute("aria-pressed")).toBe(
         "true",
       );
-      fireEvent.click(screen.getByText("Fault"));
+      fireEvent.click(within(getValueBar()).getByText("Fault"));
       expect(screen.getByLabelText("Fill by state").getAttribute("aria-pressed")).toBe(
         "false",
       );
@@ -1290,12 +1295,170 @@ describe("Schematic.Symbol.Edit.useModal", () => {
           },
         ],
       });
-      fireEvent.click(screen.getByText("Fault"));
+      fireEvent.click(within(getValueBar()).getByText("Fault"));
       expect(await screen.findByLabelText("Visible while Trip")).toBeDefined();
       expect(screen.getByLabelText("Visible while Warn")).toBeDefined();
       expect(screen.getByLabelText<HTMLInputElement>("Visible while 5").checked).toBe(
         false,
       );
+    });
+
+    it("adds a state that the preview bar can pick", async () => {
+      await openPainted({ variant: "actuator", states: [createState()] });
+      fireEvent.click(getEditSectionHeaderButton("States"));
+      expect(await within(getValueBar()).findByText("State 2")).toBeDefined();
+    });
+
+    // openFaulted opens a symbol with a Fault state, which one look hides Body on, one
+    // command sets, and one click on Body sends that command.
+    const openFaulted = async () =>
+      await openPainted({
+        variant: "actuator",
+        states: [createState(), { ...createState(), key: "fault", name: "Fault" }],
+        looks: [
+          {
+            key: "odd",
+            part: "body",
+            when: { type: "equals", state: "fault", values: [1] },
+            hidden: true,
+          },
+        ],
+        commands: [
+          {
+            key: "trip",
+            name: "Trip",
+            state: "fault",
+            value: { type: "fixed", value: 1 },
+          },
+        ],
+        interactions: [{ type: "fire", key: "c", part: "body", command: "trip" }],
+      });
+
+    it("removes a state and its looks after a confirm", async () => {
+      const symbol = await openFaulted();
+      fireEvent.click(screen.getByLabelText("Remove Fault"));
+      expect(
+        await screen.findByText("Its uses go with it: 1 look, 1 command, and 1 click."),
+      ).toBeDefined();
+      fireEvent.click(findButton("Remove"));
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () => {
+        const saved = await retrieveStored(symbol.key);
+        expect(saved.data.states.map((st) => st.key)).toEqual(["active"]);
+        expect(saved.data.looks).toEqual([]);
+        expect(saved.data.commands).toEqual([]);
+        expect(saved.data.interactions).toEqual([]);
+      });
+    });
+
+    it("removes a state with no uses at once", async () => {
+      const fault = { ...createState(), key: "fault", name: "Fault" };
+      await openPainted({ variant: "actuator", states: [createState(), fault] });
+      fireEvent.click(screen.getByLabelText("Remove Fault"));
+      await waitFor(() => expect(screen.queryByText("Fault")).toBeNull());
+      expect(screen.queryByText(/Its uses go with it/)).toBeNull();
+    });
+
+    it("opens the name of a new state for edit, and a rename keeps its key", async () => {
+      const symbol = await openPainted({
+        variant: "actuator",
+        states: [createState()],
+      });
+      fireEvent.click(getEditSectionHeaderButton("States"));
+      const name = await awaitTextEditingElement();
+      commitTextEdit(name, "Mode");
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () => {
+        const [, state] = (await retrieveStored(symbol.key)).data.states;
+        expect(state.name).toBe("Mode");
+        expect(name.id).toBe(`symbol-state-${state.key}`);
+      });
+    });
+
+    it("keeps a state and its looks on a cancel", async () => {
+      const symbol = await openFaulted();
+      fireEvent.click(screen.getByLabelText("Remove Fault"));
+      fireEvent.click(await screen.findByText("Cancel"));
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () => {
+        const saved = await retrieveStored(symbol.key);
+        expect(saved.data.states.map((st) => st.key)).toEqual(["active", "fault"]);
+        expect(saved.data.looks).toHaveLength(1);
+        expect(saved.data.interactions).toHaveLength(1);
+      });
+    });
+
+    it("moves the preview to a state left when its state goes", async () => {
+      const fault = { ...createState(), key: "fault", name: "Fault" };
+      await openPainted({ variant: "actuator", states: [createState(), fault] });
+      byState("Fill");
+      expect(screen.getByLabelText("Fill while Base")).toBeDefined();
+      fireEvent.click(screen.getByLabelText("Remove Active"));
+      await waitFor(() =>
+        expect(screen.queryByLabelText("Fill while Base")).toBeNull(),
+      );
+    });
+
+    it("saves a symbol with a click as an actuator", async () => {
+      const symbol = await openPainted({
+        states: [createState()],
+        commands: [{ key: "on", name: "On", value: { type: "fixed", value: 1 } }],
+        interactions: [{ type: "fire", key: "c", part: "body", command: "on" }],
+      });
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () => {
+        const saved = await retrieveStored(symbol.key);
+        expect(saved.data.variant).toBe("actuator");
+      });
+    });
+
+    it("adds a command that sends 0 and opens its name for edit", async () => {
+      const symbol = await openPainted({
+        variant: "actuator",
+        states: [createState()],
+      });
+      fireEvent.click(getEditSectionHeaderButton("Commands"));
+      expect(await screen.findByText("Sends 0")).toBeDefined();
+      const name = await awaitTextEditingElement();
+      commitTextEdit(name, "Open");
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () => {
+        const { commands } = (await retrieveStored(symbol.key)).data;
+        expect(commands).toEqual([
+          { key: expect.any(String), name: "Open", value: { type: "fixed", value: 0 } },
+        ]);
+        expect(name.id).toBe(`symbol-command-${commands[0].key}`);
+      });
+    });
+
+    it("removes a command and its click after a confirm", async () => {
+      const symbol = await openPainted({
+        variant: "actuator",
+        states: [createState()],
+        commands: [{ key: "on", name: "On", value: { type: "fixed", value: 1 } }],
+        interactions: [{ type: "fire", key: "c", part: "body", command: "on" }],
+      });
+      fireEvent.click(screen.getByLabelText("Remove On"));
+      expect(await screen.findByText("Its uses go with it: 1 click.")).toBeDefined();
+      fireEvent.click(findButton("Remove"));
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () => {
+        const saved = await client.schematics.symbols.retrieve(symbol.key);
+        expect(saved.data.commands).toEqual([]);
+        expect(saved.data.interactions).toEqual([]);
+      });
+    });
+
+    it("saves a symbol with no click as static", async () => {
+      const symbol = await openPainted({
+        variant: "actuator",
+        states: [createState()],
+      });
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () => {
+        const saved = await retrieveStored(symbol.key);
+        expect(saved.data.variant).toBe("static");
+      });
     });
 
     it("clears the hide of a part at a value and keeps the values shown", async () => {
@@ -1383,6 +1546,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     });
 
     it("edits the paint at Base of a static symbol with one control", async () => {
+      mocks.symbolNodes = false;
       const symbol = await openPainted({
         states: [createState()],
         looks: [
@@ -1433,6 +1597,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     });
 
     it("leaves By state when the symbol turns static", async () => {
+      mocks.symbolNodes = false;
       await openPainted({ variant: "actuator", states: [createState()] });
       byState("Fill");
       expect(screen.getByLabelText("Fill while Base")).toBeDefined();
@@ -1444,6 +1609,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     });
 
     it("stays out of By state when the symbol turns static and back", async () => {
+      mocks.symbolNodes = false;
       await openPainted({ variant: "actuator", states: [createState()] });
       byState("Fill");
       fireEvent.click(screen.getByText("Static"));
@@ -1523,6 +1689,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     });
 
     it("selects the part before it asks to save a symbol in use", async () => {
+      mocks.symbolNodes = false;
       const grp = await createParentGroup();
       const payload = createSymbolPayload(uniqueName("tank"));
       const symbol = await client.schematics.symbols.create({

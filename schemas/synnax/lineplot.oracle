@@ -669,6 +669,7 @@ LinePlot struct {
         support multiple channels, real-time streaming, and historical data display with
         zoom and pan capabilities.
     """
+    @go entry
     @go imex
     @go marshal
     @go migrate

@@ -35,6 +35,7 @@ Link struct {
         links an OpenID Connect provider account to a user. A user holds one link per
         issuer.
     """
+    @go entry
     @go marshal
     @go migrate
 }

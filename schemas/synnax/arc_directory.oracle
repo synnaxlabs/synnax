@@ -56,6 +56,7 @@ Directory struct {
     action Move = patch.Move
 
     @doc value     "holds Arcs and other directories below the Arcs root."
+    @go entry
     @go marshal
     @go migrate
     @resource type "arc_directory"

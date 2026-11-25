@@ -15,6 +15,7 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/ni/chassis"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/x/compare"
@@ -37,12 +38,25 @@ type Retrieve struct {
 // onto the Retrieve so filter functions can resolve them off r.indexes
 // instead of relying on package-level state.
 type indexes struct {
-	name         *gorp.SortedIndex[Key, Device, string]
-	serial       *gorp.LookupIndex[Key, Device, string]
-	resourceName *gorp.LookupIndex[Key, Device, string]
-	rack         *gorp.KeyReference[Key, Device, rack.Key]
-	chassis      *gorp.KeyReference[Key, Device, chassis.Key]
-	search       *gorp.SearchIndex[Key, Device]
+	name                      *gorp.SortedIndex[Key, Device, string]
+	serial                    *gorp.LookupIndex[Key, Device, string]
+	resourceName              *gorp.LookupIndex[Key, Device, string]
+	rack                      *gorp.KeyReference[Key, Device, rack.Key]
+	chassis                   *gorp.KeyReference[Key, Device, chassis.Key]
+	analogInputIndex          *gorp.KeyReference[Key, Device, channel.Key]
+	analogInputTemperature    *gorp.KeyReference[Key, Device, channel.Key]
+	analogInputChannels       *gorp.KeyReference[Key, Device, channel.Key]
+	analogOutputStateIndex    *gorp.KeyReference[Key, Device, channel.Key]
+	analogOutputCommand       *gorp.KeyReference[Key, Device, channel.Key]
+	analogOutputState         *gorp.KeyReference[Key, Device, channel.Key]
+	counterInputIndex         *gorp.KeyReference[Key, Device, channel.Key]
+	counterInputChannel       *gorp.KeyReference[Key, Device, channel.Key]
+	digitalInputIndex         *gorp.KeyReference[Key, Device, channel.Key]
+	digitalInputLines         *gorp.KeyReference[Key, Device, channel.Key]
+	digitalOutputStateIndex   *gorp.KeyReference[Key, Device, channel.Key]
+	digitalOutputLinesCommand *gorp.KeyReference[Key, Device, channel.Key]
+	digitalOutputLinesState   *gorp.KeyReference[Key, Device, channel.Key]
+	search                    *gorp.SearchIndex[Key, Device]
 }
 
 // newIndexes constructs a fresh indexes value, allocating one instance of each
@@ -93,6 +107,411 @@ func newIndexes() indexes {
 				}
 			},
 		}),
+		analogInputIndex: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Device, channel.Key]{
+			Name:     "analog_input.index",
+			Table:    "channel",
+			OnDelete: gorp.Restrict,
+			Kind:     gorp.Use,
+			Targets: func(e *Device) []channel.Key {
+				var targets []channel.Key
+				if e.AnalogInput.Index != 0 {
+					targets = append(targets, e.AnalogInput.Index)
+				}
+				return targets
+			},
+			Detach: func(e *Device, t channel.Key) {
+				if e.AnalogInput.Index == t {
+					e.AnalogInput.Index = 0
+				}
+			},
+			Retarget: func(e *Device, from, to channel.Key) {
+				if e.AnalogInput.Index == from {
+					e.AnalogInput.Index = to
+				}
+			},
+		}),
+		analogInputTemperature: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Device, channel.Key]{
+			Name:     "analog_input.temperature",
+			Table:    "channel",
+			OnDelete: gorp.Restrict,
+			Kind:     gorp.Use,
+			Targets: func(e *Device) []channel.Key {
+				var targets []channel.Key
+				if e.AnalogInput.Temperature != 0 {
+					targets = append(targets, e.AnalogInput.Temperature)
+				}
+				return targets
+			},
+			Detach: func(e *Device, t channel.Key) {
+				if e.AnalogInput.Temperature == t {
+					e.AnalogInput.Temperature = 0
+				}
+			},
+			Retarget: func(e *Device, from, to channel.Key) {
+				if e.AnalogInput.Temperature == from {
+					e.AnalogInput.Temperature = to
+				}
+			},
+		}),
+		analogInputChannels: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Device, channel.Key]{
+			Name:     "analog_input.channels",
+			Table:    "channel",
+			OnDelete: gorp.Restrict,
+			Kind:     gorp.Use,
+			Targets: func(e *Device) []channel.Key {
+				var targets []channel.Key
+				for _, k1 := range e.AnalogInput.Channels {
+					targets = append(targets, k1)
+				}
+				return targets
+			},
+			Detach: func(e *Device, t channel.Key) {
+				for k2, v3 := range e.AnalogInput.Channels {
+					if v3 == t {
+						delete(e.AnalogInput.Channels, k2)
+					}
+				}
+			},
+			Retarget: func(e *Device, from, to channel.Key) {
+				for k4, v5 := range e.AnalogInput.Channels {
+					if v5 == from {
+						v5 = to
+						e.AnalogInput.Channels[k4] = v5
+					}
+				}
+			},
+		}),
+		analogOutputStateIndex: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Device, channel.Key]{
+			Name:     "analog_output.state_index",
+			Table:    "channel",
+			OnDelete: gorp.Restrict,
+			Kind:     gorp.Use,
+			Targets: func(e *Device) []channel.Key {
+				var targets []channel.Key
+				for _, v1 := range e.AnalogOutput {
+					if v1.StateIndex != 0 {
+						targets = append(targets, v1.StateIndex)
+					}
+				}
+				return targets
+			},
+			Detach: func(e *Device, t channel.Key) {
+				for k3, v2 := range e.AnalogOutput {
+					if v2.StateIndex == t {
+						v2.StateIndex = 0
+					}
+					e.AnalogOutput[k3] = v2
+				}
+			},
+			Retarget: func(e *Device, from, to channel.Key) {
+				for k5, v4 := range e.AnalogOutput {
+					if v4.StateIndex == from {
+						v4.StateIndex = to
+					}
+					e.AnalogOutput[k5] = v4
+				}
+			},
+		}),
+		analogOutputCommand: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Device, channel.Key]{
+			Name:     "analog_output.command",
+			Table:    "channel",
+			OnDelete: gorp.Restrict,
+			Kind:     gorp.Use,
+			Targets: func(e *Device) []channel.Key {
+				var targets []channel.Key
+				for _, v1 := range e.AnalogOutput {
+					if v1.Command != 0 {
+						targets = append(targets, v1.Command)
+					}
+				}
+				return targets
+			},
+			Detach: func(e *Device, t channel.Key) {
+				for k3, v2 := range e.AnalogOutput {
+					if v2.Command == t {
+						v2.Command = 0
+					}
+					e.AnalogOutput[k3] = v2
+				}
+			},
+			Retarget: func(e *Device, from, to channel.Key) {
+				for k5, v4 := range e.AnalogOutput {
+					if v4.Command == from {
+						v4.Command = to
+					}
+					e.AnalogOutput[k5] = v4
+				}
+			},
+		}),
+		analogOutputState: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Device, channel.Key]{
+			Name:     "analog_output.state",
+			Table:    "channel",
+			OnDelete: gorp.Restrict,
+			Kind:     gorp.Use,
+			Targets: func(e *Device) []channel.Key {
+				var targets []channel.Key
+				for _, v1 := range e.AnalogOutput {
+					if v1.State != 0 {
+						targets = append(targets, v1.State)
+					}
+				}
+				return targets
+			},
+			Detach: func(e *Device, t channel.Key) {
+				for k3, v2 := range e.AnalogOutput {
+					if v2.State == t {
+						v2.State = 0
+					}
+					e.AnalogOutput[k3] = v2
+				}
+			},
+			Retarget: func(e *Device, from, to channel.Key) {
+				for k5, v4 := range e.AnalogOutput {
+					if v4.State == from {
+						v4.State = to
+					}
+					e.AnalogOutput[k5] = v4
+				}
+			},
+		}),
+		counterInputIndex: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Device, channel.Key]{
+			Name:     "counter_input.index",
+			Table:    "channel",
+			OnDelete: gorp.Restrict,
+			Kind:     gorp.Use,
+			Targets: func(e *Device) []channel.Key {
+				var targets []channel.Key
+				for _, v1 := range e.CounterInput {
+					if v1.Index != 0 {
+						targets = append(targets, v1.Index)
+					}
+				}
+				return targets
+			},
+			Detach: func(e *Device, t channel.Key) {
+				for k3, v2 := range e.CounterInput {
+					if v2.Index == t {
+						v2.Index = 0
+					}
+					e.CounterInput[k3] = v2
+				}
+			},
+			Retarget: func(e *Device, from, to channel.Key) {
+				for k5, v4 := range e.CounterInput {
+					if v4.Index == from {
+						v4.Index = to
+					}
+					e.CounterInput[k5] = v4
+				}
+			},
+		}),
+		counterInputChannel: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Device, channel.Key]{
+			Name:     "counter_input.channel",
+			Table:    "channel",
+			OnDelete: gorp.Restrict,
+			Kind:     gorp.Use,
+			Targets: func(e *Device) []channel.Key {
+				var targets []channel.Key
+				for _, v1 := range e.CounterInput {
+					if v1.Channel != 0 {
+						targets = append(targets, v1.Channel)
+					}
+				}
+				return targets
+			},
+			Detach: func(e *Device, t channel.Key) {
+				for k3, v2 := range e.CounterInput {
+					if v2.Channel == t {
+						v2.Channel = 0
+					}
+					e.CounterInput[k3] = v2
+				}
+			},
+			Retarget: func(e *Device, from, to channel.Key) {
+				for k5, v4 := range e.CounterInput {
+					if v4.Channel == from {
+						v4.Channel = to
+					}
+					e.CounterInput[k5] = v4
+				}
+			},
+		}),
+		digitalInputIndex: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Device, channel.Key]{
+			Name:     "digital_input.index",
+			Table:    "channel",
+			OnDelete: gorp.Restrict,
+			Kind:     gorp.Use,
+			Targets: func(e *Device) []channel.Key {
+				var targets []channel.Key
+				for _, v1 := range e.DigitalInput {
+					if v1.Index != 0 {
+						targets = append(targets, v1.Index)
+					}
+				}
+				return targets
+			},
+			Detach: func(e *Device, t channel.Key) {
+				for k3, v2 := range e.DigitalInput {
+					if v2.Index == t {
+						v2.Index = 0
+					}
+					e.DigitalInput[k3] = v2
+				}
+			},
+			Retarget: func(e *Device, from, to channel.Key) {
+				for k5, v4 := range e.DigitalInput {
+					if v4.Index == from {
+						v4.Index = to
+					}
+					e.DigitalInput[k5] = v4
+				}
+			},
+		}),
+		digitalInputLines: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Device, channel.Key]{
+			Name:     "digital_input.lines",
+			Table:    "channel",
+			OnDelete: gorp.Restrict,
+			Kind:     gorp.Use,
+			Targets: func(e *Device) []channel.Key {
+				var targets []channel.Key
+				for _, v1 := range e.DigitalInput {
+					for _, k2 := range v1.Lines {
+						targets = append(targets, k2)
+					}
+				}
+				return targets
+			},
+			Detach: func(e *Device, t channel.Key) {
+				for k4, v3 := range e.DigitalInput {
+					for k5, v6 := range v3.Lines {
+						if v6 == t {
+							delete(v3.Lines, k5)
+						}
+					}
+					e.DigitalInput[k4] = v3
+				}
+			},
+			Retarget: func(e *Device, from, to channel.Key) {
+				for k8, v7 := range e.DigitalInput {
+					for k9, v10 := range v7.Lines {
+						if v10 == from {
+							v10 = to
+							v7.Lines[k9] = v10
+						}
+					}
+					e.DigitalInput[k8] = v7
+				}
+			},
+		}),
+		digitalOutputStateIndex: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Device, channel.Key]{
+			Name:     "digital_output.state_index",
+			Table:    "channel",
+			OnDelete: gorp.Restrict,
+			Kind:     gorp.Use,
+			Targets: func(e *Device) []channel.Key {
+				var targets []channel.Key
+				for _, v1 := range e.DigitalOutput {
+					if v1.StateIndex != 0 {
+						targets = append(targets, v1.StateIndex)
+					}
+				}
+				return targets
+			},
+			Detach: func(e *Device, t channel.Key) {
+				for k3, v2 := range e.DigitalOutput {
+					if v2.StateIndex == t {
+						v2.StateIndex = 0
+					}
+					e.DigitalOutput[k3] = v2
+				}
+			},
+			Retarget: func(e *Device, from, to channel.Key) {
+				for k5, v4 := range e.DigitalOutput {
+					if v4.StateIndex == from {
+						v4.StateIndex = to
+					}
+					e.DigitalOutput[k5] = v4
+				}
+			},
+		}),
+		digitalOutputLinesCommand: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Device, channel.Key]{
+			Name:     "digital_output.lines.command",
+			Table:    "channel",
+			OnDelete: gorp.Restrict,
+			Kind:     gorp.Use,
+			Targets: func(e *Device) []channel.Key {
+				var targets []channel.Key
+				for _, v1 := range e.DigitalOutput {
+					for _, v2 := range v1.Lines {
+						if v2.Command != 0 {
+							targets = append(targets, v2.Command)
+						}
+					}
+				}
+				return targets
+			},
+			Detach: func(e *Device, t channel.Key) {
+				for k4, v3 := range e.DigitalOutput {
+					for k6, v5 := range v3.Lines {
+						if v5.Command == t {
+							v5.Command = 0
+						}
+						v3.Lines[k6] = v5
+					}
+					e.DigitalOutput[k4] = v3
+				}
+			},
+			Retarget: func(e *Device, from, to channel.Key) {
+				for k8, v7 := range e.DigitalOutput {
+					for k10, v9 := range v7.Lines {
+						if v9.Command == from {
+							v9.Command = to
+						}
+						v7.Lines[k10] = v9
+					}
+					e.DigitalOutput[k8] = v7
+				}
+			},
+		}),
+		digitalOutputLinesState: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Device, channel.Key]{
+			Name:     "digital_output.lines.state",
+			Table:    "channel",
+			OnDelete: gorp.Restrict,
+			Kind:     gorp.Use,
+			Targets: func(e *Device) []channel.Key {
+				var targets []channel.Key
+				for _, v1 := range e.DigitalOutput {
+					for _, v2 := range v1.Lines {
+						if v2.State != 0 {
+							targets = append(targets, v2.State)
+						}
+					}
+				}
+				return targets
+			},
+			Detach: func(e *Device, t channel.Key) {
+				for k4, v3 := range e.DigitalOutput {
+					for k6, v5 := range v3.Lines {
+						if v5.State == t {
+							v5.State = 0
+						}
+						v3.Lines[k6] = v5
+					}
+					e.DigitalOutput[k4] = v3
+				}
+			},
+			Retarget: func(e *Device, from, to channel.Key) {
+				for k8, v7 := range e.DigitalOutput {
+					for k10, v9 := range v7.Lines {
+						if v9.State == from {
+							v9.State = to
+						}
+						v7.Lines[k10] = v9
+					}
+					e.DigitalOutput[k8] = v7
+				}
+			},
+		}),
 		search: gorp.NewSearchIndex[Key, Device](
 			"search",
 			func(e *Device) []string {
@@ -119,6 +538,19 @@ func (i indexes) references() []gorp.Reference[Key, Device] {
 	return []gorp.Reference[Key, Device]{
 		i.rack,
 		i.chassis,
+		i.analogInputIndex,
+		i.analogInputTemperature,
+		i.analogInputChannels,
+		i.analogOutputStateIndex,
+		i.analogOutputCommand,
+		i.analogOutputState,
+		i.counterInputIndex,
+		i.counterInputChannel,
+		i.digitalInputIndex,
+		i.digitalInputLines,
+		i.digitalOutputStateIndex,
+		i.digitalOutputLinesCommand,
+		i.digitalOutputLinesState,
 	}
 }
 
