@@ -946,6 +946,9 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.OPCUA, err = opcua.OpenService(ctx, opcua.ServiceConfig{
 		Instrumentation: cfg.Child("opcua"),
 		DB:              cfg.Distribution.DB,
+		Status:          l.Status,
+		Secret:          l.Secret,
+		Certificate:     l.Certificate,
 		Signals:         l.Signals,
 	}); !ok(err, l.OPCUA) {
 		return nil, err
