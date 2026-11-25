@@ -17,6 +17,83 @@ from pydantic import BaseModel, Field
 
 from x.telem.telem import TimeRange, TimeSpan
 
+FIXED_WIDTH_DATA_TYPE_FLOAT64: Literal["float64"] = "float64"
+
+FIXED_WIDTH_DATA_TYPE_FLOAT32: Literal["float32"] = "float32"
+
+FIXED_WIDTH_DATA_TYPE_INT64: Literal["int64"] = "int64"
+
+FIXED_WIDTH_DATA_TYPE_INT32: Literal["int32"] = "int32"
+
+FIXED_WIDTH_DATA_TYPE_INT16: Literal["int16"] = "int16"
+
+FIXED_WIDTH_DATA_TYPE_INT8: Literal["int8"] = "int8"
+
+FIXED_WIDTH_DATA_TYPE_UINT64: Literal["uint64"] = "uint64"
+
+FIXED_WIDTH_DATA_TYPE_UINT32: Literal["uint32"] = "uint32"
+
+FIXED_WIDTH_DATA_TYPE_UINT16: Literal["uint16"] = "uint16"
+
+FIXED_WIDTH_DATA_TYPE_UINT8: Literal["uint8"] = "uint8"
+
+FIXED_WIDTH_DATA_TYPE_TIMESTAMP: Literal["timestamp"] = "timestamp"
+
+FIXED_WIDTH_DATA_TYPE_UUID: Literal["uuid"] = "uuid"
+
+FIXED_WIDTH_DATA_TYPE_BOOLEAN: Literal["boolean"] = "boolean"
+
+
+FixedWidthDataType = Literal[
+    "float64",
+    "float32",
+    "int64",
+    "int32",
+    "int16",
+    "int8",
+    "uint64",
+    "uint32",
+    "uint16",
+    "uint8",
+    "timestamp",
+    "uuid",
+    "boolean",
+]
+
+NUMERIC_DATA_TYPE_FLOAT64: Literal["float64"] = "float64"
+
+NUMERIC_DATA_TYPE_FLOAT32: Literal["float32"] = "float32"
+
+NUMERIC_DATA_TYPE_INT64: Literal["int64"] = "int64"
+
+NUMERIC_DATA_TYPE_INT32: Literal["int32"] = "int32"
+
+NUMERIC_DATA_TYPE_INT16: Literal["int16"] = "int16"
+
+NUMERIC_DATA_TYPE_INT8: Literal["int8"] = "int8"
+
+NUMERIC_DATA_TYPE_UINT64: Literal["uint64"] = "uint64"
+
+NUMERIC_DATA_TYPE_UINT32: Literal["uint32"] = "uint32"
+
+NUMERIC_DATA_TYPE_UINT16: Literal["uint16"] = "uint16"
+
+NUMERIC_DATA_TYPE_UINT8: Literal["uint8"] = "uint8"
+
+
+NumericDataType = Literal[
+    "float64",
+    "float32",
+    "int64",
+    "int32",
+    "int16",
+    "int8",
+    "uint64",
+    "uint32",
+    "uint16",
+    "uint8",
+]
+
 AGGREGATION_MIN_MAX: Literal["min_max"] = "min_max"
 
 AGGREGATION_AVERAGE: Literal["average"] = "average"
