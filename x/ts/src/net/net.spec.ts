@@ -25,6 +25,12 @@ describe("addressZ", () => {
     });
   });
 
+  // The Core alone checks the host format, so clients can read every stored address.
+  const UNCHECKED = [" ", "tcp://plc.example.com", "plc.example.com:502", "plc/a"];
+  it.each(UNCHECKED)("should leave the format of host %j to the Core", (host) => {
+    expect(net.addressZ.parse({ host })).toEqual({ host });
+  });
+
   const INVALID: [string, Record<string, unknown>][] = [
     ["no host", {}],
     ["an empty host", { host: "" }],

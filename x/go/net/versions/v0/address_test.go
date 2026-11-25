@@ -70,6 +70,7 @@ var _ = Describe("Address", func() {
 		),
 		Entry("a host with a port", v0.Address{Host: "plc.example.com:502"}, "host"),
 		Entry("a host with a path", v0.Address{Host: "plc.example.com/a"}, "host"),
+		Entry("a blank host", v0.Address{Host: " "}, "host"),
 		Entry("port 0", v0.Address{Host: "plc", Port: new(uint16(0))}, "port"),
 	)
 })
