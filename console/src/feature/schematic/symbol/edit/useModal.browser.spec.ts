@@ -35,6 +35,7 @@ import {
   client,
   createSymbolPayload,
   getEditSectionHeaderButton,
+  getInspector,
   getOverlayHandles,
   getPartListItem,
   getPreviewTransformWrapper,
@@ -236,6 +237,90 @@ describe("Schematic.Symbol.Edit.useModal", () => {
           },
         ]);
       });
+    });
+
+    // createWithPart opens the editor on a new drawing with one new part, Part 1.
+    const createWithPart = async () => {
+      const createKey = uuid.create();
+      const { picker } = await openCreateModal(createKey);
+      await loadSVG(picker);
+      fireEvent.click(getEditSectionHeaderButton("Parts"));
+      await screen.findByRole("heading", { name: "Part 1" });
+      fireEvent.change(findNameInput(), {
+        target: { value: uniqueName("moving_symbol") },
+      });
+      return createKey;
+    };
+
+    const savedLooks = async (createKey: string) => {
+      const created = await client.schematics.symbols.retrieve(createKey);
+      const part = created.data.parts[0].key;
+      return created.data.looks.filter((l) => l.part === part);
+    };
+
+    it("saves a hidden part that blinks", async () => {
+      const createKey = await createWithPart();
+      fireEvent.click(screen.getByLabelText("Visible"));
+      fireEvent.click(screen.getByLabelText("Blink"));
+      fireEvent.click(findButton("Create"));
+      await waitFor(async () =>
+        expect(await savedLooks(createKey)).toEqual([
+          expect.objectContaining({ hidden: true, blink: { period: 1e9 } }),
+        ]),
+      );
+    });
+
+    it("offers the loop motions in a Loop group", async () => {
+      await createWithPart();
+      expect(screen.getByText("Loop")).toBeDefined();
+      expect(screen.getByText("Spin")).toBeDefined();
+      expect(screen.getByText("Flow")).toBeDefined();
+      expect(screen.queryByText("Follow a value")).toBeNull();
+    });
+
+    it("saves a spin at the rate that its field shows whole", async () => {
+      const createKey = await createWithPart();
+      fireEvent.click(screen.getByText("Spin"));
+      const rate = await screen.findByLabelText<HTMLInputElement>("Motion rate");
+      expect(rate.value).toBe("0.5");
+      expect(rate.classList.contains("lyra--cut")).toBe(false);
+      fireEvent.change(rate, { target: { value: "2" } });
+      fireEvent.blur(rate);
+      fireEvent.click(findButton("Create"));
+      await waitFor(async () =>
+        expect(await savedLooks(createKey)).toEqual([
+          expect.objectContaining({ motion: { type: "spin", rate: 2 } }),
+        ]),
+      );
+    });
+
+    it("keeps the rate when a spin turns into a flow", async () => {
+      const createKey = await createWithPart();
+      fireEvent.click(screen.getByText("Spin"));
+      const rate = await screen.findByLabelText<HTMLInputElement>("Motion rate");
+      fireEvent.change(rate, { target: { value: "2" } });
+      fireEvent.blur(rate);
+      fireEvent.click(screen.getByText("Flow"));
+      fireEvent.click(findButton("Create"));
+      await waitFor(async () =>
+        expect(await savedLooks(createKey)).toEqual([
+          expect.objectContaining({ motion: { type: "flow", rate: 2 } }),
+        ]),
+      );
+    });
+
+    it("saves a spin at a negative rate", async () => {
+      const createKey = await createWithPart();
+      fireEvent.click(screen.getByText("Spin"));
+      const rate = await screen.findByLabelText<HTMLInputElement>("Motion rate");
+      fireEvent.change(rate, { target: { value: "-1" } });
+      fireEvent.blur(rate);
+      fireEvent.click(findButton("Create"));
+      await waitFor(async () =>
+        expect(await savedLooks(createKey)).toEqual([
+          expect.objectContaining({ motion: { type: "spin", rate: -1 } }),
+        ]),
+      );
     });
 
     it("adds a placeable handle at the symbol center", async () => {
@@ -770,13 +855,214 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       expect(queryIcon(screen.getByLabelText("Fill"), "node")).not.toBeNull();
     });
 
+    it("shows a part that the whole drawing hides", async () => {
+      const symbol = await openPainted({ looks: [{ key: "hide", hidden: true }] });
+      const visible = screen.getByLabelText<HTMLInputElement>("Visible");
+      expect(visible.checked).toBe(false);
+      fireEvent.click(visible);
+      await waitFor(() => expect(visible.checked).toBe(true));
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () =>
+        expect((await retrieveStored(symbol.key)).data.looks).toEqual([
+          { key: "hide", hidden: true },
+          { key: expect.any(String), part: "body", hidden: false },
+        ]),
+      );
+    });
+
+    it("keeps the blink and motion that the whole drawing gives a part", async () => {
+      await openPainted({
+        looks: [
+          { key: "all", blink: { period: 1e9 }, motion: { type: "spin", rate: 1 } },
+        ],
+      });
+      const blink = screen.getByLabelText<HTMLInputElement>("Blink");
+      expect(blink.checked).toBe(true);
+      expect(blink.disabled).toBe(true);
+      for (const kind of ["None", "Spin", "Flow"])
+        expect(findButton(kind).getAttribute("aria-disabled")).toBe("true");
+      expect(screen.getByLabelText<HTMLInputElement>("Motion rate").disabled).toBe(
+        true,
+      );
+    });
+
+    it("clears the own blink and motion of a part under those of the drawing", async () => {
+      const all: schematic.symbol.Look = {
+        key: "all",
+        blink: { period: 1e9 },
+        motion: { type: "spin", rate: 1 },
+      };
+      const symbol = await openPainted({
+        looks: [
+          all,
+          {
+            key: "own",
+            part: "body",
+            blink: { period: 1e9 },
+            motion: { type: "flow", rate: 1 },
+          },
+        ],
+      });
+      const blink = () => screen.getByLabelText<HTMLInputElement>("Blink");
+      expect(blink().disabled).toBe(false);
+      fireEvent.click(blink());
+      await waitFor(() => expect(blink().disabled).toBe(true));
+      fireEvent.click(findButton("None"));
+      await waitFor(() =>
+        expect(findButton("None").getAttribute("aria-disabled")).toBe("true"),
+      );
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () =>
+        expect((await retrieveStored(symbol.key)).data.looks).toEqual([all]),
+      );
+    });
+
     const byState = (label: string) =>
       fireEvent.click(screen.getByLabelText(`${label} by state`));
+    const atActive: schematic.symbol.Condition = {
+      type: "equals",
+      state: "active",
+      values: [1],
+    };
     const atBase: schematic.symbol.Condition = {
       type: "equals",
       state: "active",
       values: [0],
     };
+
+    it("keeps a part shown at every value where the drawing hides it", async () => {
+      const hide: schematic.symbol.Look = { key: "hide", when: atActive, hidden: true };
+      const symbol = await openPainted({
+        variant: "actuator",
+        states: [createState()],
+        looks: [hide],
+      });
+      const visible = () => screen.getByLabelText<HTMLInputElement>("Visible");
+      fireEvent.click(visible());
+      await waitFor(() => expect(visible().checked).toBe(false));
+      fireEvent.click(visible());
+      await waitFor(() => expect(visible().checked).toBe(true));
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () =>
+        expect((await retrieveStored(symbol.key)).data.looks).toEqual([
+          hide,
+          { key: expect.any(String), part: "body", hidden: false },
+        ]),
+      );
+    });
+
+    it("shows and hides a part at each value of a state", async () => {
+      const hide: schematic.symbol.Look = { key: "hide", when: atActive, hidden: true };
+      const symbol = await openPainted({
+        variant: "actuator",
+        states: [createState()],
+        looks: [hide],
+      });
+      byState("Visible");
+      const visible = (v: string) =>
+        screen.getByLabelText<HTMLInputElement>(`Visible while ${v}`);
+      expect(visible("Active").checked).toBe(false);
+      fireEvent.click(visible("Active"));
+      await waitFor(() => expect(visible("Active").checked).toBe(true));
+      fireEvent.click(visible("Base"));
+      await waitFor(() => expect(visible("Base").checked).toBe(false));
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () => {
+        const { looks } = (await retrieveStored(symbol.key)).data;
+        expect(looks).toHaveLength(3);
+        expect(looks).toEqual(
+          expect.arrayContaining([
+            hide,
+            { key: expect.any(String), part: "body", when: atActive, hidden: false },
+            { key: expect.any(String), part: "body", when: atBase, hidden: true },
+          ]),
+        );
+      });
+    });
+
+    it("clears the hide of a part at a value and keeps the values shown", async () => {
+      const symbol = await openPainted({
+        variant: "actuator",
+        states: [createState()],
+        looks: [{ key: "hide", part: "body", when: atBase, hidden: true }],
+      });
+      const visible = () =>
+        screen.getByLabelText<HTMLInputElement>("Visible while Base");
+      expect(visible().checked).toBe(false);
+      fireEvent.click(visible());
+      await waitFor(() => expect(visible().checked).toBe(true));
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () =>
+        expect((await retrieveStored(symbol.key)).data.looks).toEqual([]),
+      );
+    });
+
+    it("sets the blink and motion of a part at one value of a state", async () => {
+      const all: schematic.symbol.Look = {
+        key: "all",
+        when: atActive,
+        blink: { period: 1e9 },
+      };
+      const symbol = await openPainted({
+        variant: "actuator",
+        states: [createState()],
+        looks: [all],
+      });
+      byState("Blink");
+      const blink = (v: string) =>
+        screen.getByLabelText<HTMLInputElement>(`Blink while ${v}`);
+      expect(blink("Active").checked).toBe(true);
+      expect(blink("Active").disabled).toBe(true);
+      fireEvent.click(blink("Base"));
+      await waitFor(() => expect(blink("Base").checked).toBe(true));
+      byState("Motion");
+      fireEvent.click(
+        within(screen.getByLabelText("Motion while Base")).getByText("Spin"),
+      );
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () =>
+        expect((await retrieveStored(symbol.key)).data.looks).toEqual([
+          all,
+          {
+            key: expect.any(String),
+            part: "body",
+            when: atBase,
+            blink: expect.any(Object),
+            motion: expect.objectContaining({ type: "spin" }),
+          },
+        ]),
+      );
+    });
+
+    it("fits the motion picker and its By state button in the inspector", async () => {
+      await openPainted({ variant: "actuator", states: [createState()] });
+      const right = getInspector().getBoundingClientRect().right;
+      for (const el of [screen.getByLabelText("Motion by state"), findButton("Flow")])
+        expect(el.getBoundingClientRect().right).toBeLessThanOrEqual(right);
+    });
+
+    it("shows a motion that follows a value and replaces it with a loop", async () => {
+      const level: schematic.symbol.Look = {
+        key: "level",
+        part: "body",
+        motion: { type: "level", state: "tank", side: "bottom" },
+      };
+      const symbol = await openPainted({
+        states: [
+          { type: "number", key: "tank", name: "Tank", bounds: { lower: 0, upper: 1 } },
+        ],
+        looks: [level],
+      });
+      expect(findButton("Fill").classList.contains("lyra--selected")).toBe(true);
+      expect(findButton("Fill").getAttribute("aria-disabled")).toBe("true");
+      fireEvent.click(findButton("Spin"));
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () =>
+        expect((await retrieveStored(symbol.key)).data.looks).toEqual([
+          { ...level, motion: expect.objectContaining({ type: "spin" }) },
+        ]),
+      );
+    });
 
     it("edits the paint at Base of a static symbol with one control", async () => {
       const symbol = await openPainted({

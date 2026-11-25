@@ -313,10 +313,18 @@ Enter in the field to start a new line. A label wraps at its **Wrap width**, whi
 
 ### Options tab
 
-A state indicator shows the option that matches the value of its channel. Click **Add
-option** to add one, then give it a name, a value, and a color. The value must match
-exactly. When no option matches, the symbol shows **Unknown**. Two options cannot have
-the same value.
+A select and a state indicator draw the entries of an enumeration: a set of states, each
+with a name, a value, and a color. Many symbols can use one enumeration, and a change to
+it shows on each of them.
+
+Pick the enumeration under **Enumeration**, or type a name and click **Create
+enumeration** to make an empty one. **Used by** shows how many schematics use it. Under
+**Entries**, click **Add entry**, then give the entry a name, a value, and a color. Two
+entries cannot have the same value.
+
+A state indicator shows the entry that matches the value of its channel. The value must
+match exactly. When no entry matches, or the symbol has no enumeration, it shows
+**Unknown**. A select with no enumeration lists no options.
 
 ### Redline tab
 

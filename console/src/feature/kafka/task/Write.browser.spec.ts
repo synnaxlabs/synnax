@@ -134,6 +134,7 @@ const createShape = (sources: string[], count: number, ...pointers: string[]) =>
   fields: pointers.map((p) => createInferredField(p, "float64", "number")),
   index: -1,
   count,
+  present: -1,
 });
 
 /**

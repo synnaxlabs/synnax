@@ -105,6 +105,8 @@ describe("constructor", () => {
     const home = mkdtempSync(join(tmpdir(), "synnax-home-"));
     vi.stubEnv("HOME", home);
     vi.stubEnv("USERPROFILE", home);
+    vi.stubEnv("LOCALAPPDATA", join(home, "AppData", "Local"));
+    vi.stubEnv("XDG_CONFIG_HOME", join(home, ".config"));
     try {
       expect(() => new Synnax()).toThrow(ValidationError);
       expect(() => new Synnax()).toThrow(/^give a host, or set SYNNAX_HOST$/);
@@ -122,6 +124,7 @@ describe.skipIf(process.platform === "win32")("constructor with Synnax Desktop",
     vi.stubEnv("SYNNAX_HOST", "");
     vi.stubEnv("SYNNAX_API_KEY", "");
     vi.stubEnv("HOME", home);
+    vi.stubEnv("XDG_CONFIG_HOME", join(home, ".config"));
     mkdirSync(join(home, ".synnax"));
   });
 
