@@ -1175,6 +1175,65 @@ Node union on variant {
 		)
 
 		DescribeTable(
+			"Should reject a required rule on a collection that is not a T[] field",
+			func(source, want string) {
+				_, diag := Analyze(source, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.String()).To(ContainSubstring(want))
+			},
+			Entry("a fixed-size array field", `
+				Entry struct {
+					values uint8[4] { @validate required }
+				}
+			`, "test.Entry.values has a required rule, but only a T[] field"),
+			Entry("a map field", `
+				Entry struct {
+					values map<string, int32> { @validate required }
+				}
+			`, "test.Entry.values has a required rule, but only a T[] field"),
+			Entry("a field of an array alias", `
+				Names = string[]
+				Entry struct {
+					names Names { @validate required }
+				}
+			`, "test.Entry.names has a required rule, but only a T[] field"),
+			Entry("an array alias", `
+				Names = string[] { @validate required }
+			`, "test.Names has a required rule, but only a T[] field"),
+			Entry("a list field with a default", `
+				Entry struct {
+					names string[] = [] { @validate required }
+				}
+			`, "test.Entry.names has a required rule, but it has a default"),
+			Entry("a restated required list with a default", `
+				Parent struct {
+					names string[] { @validate required }
+				}
+				Entry struct extends Parent {
+					names = ["a"]
+				}
+			`, "test.Entry.names has a required rule, but it has a default"),
+			Entry("a required rule on a restated list with a default", `
+				Parent struct {
+					names string[] = ["a"]
+				}
+				Entry struct extends Parent {
+					names { @validate required }
+				}
+			`, "test.Entry.names has a required rule, but it has a default"),
+		)
+
+		It("Should accept a required rule on a list field", func() {
+			_, diag := Analyze(`
+				Entry struct {
+					names string[] { @validate required }
+					tags string[]? { @validate required }
+				}
+			`, "test", loader)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+		})
+
+		DescribeTable(
 			"Should reject a finite rule on a type that is not a float",
 			func(source, want string) {
 				_, diag := Analyze(source, "test", loader)
