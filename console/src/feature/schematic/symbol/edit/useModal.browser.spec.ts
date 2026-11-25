@@ -1344,7 +1344,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       });
     });
 
-    it("names the click on a part in its heading and its remove", async () => {
+    it("names the click on a part in its heading and its remove button", async () => {
       await openPainted({
         states: [createState()],
         commands: [GO],

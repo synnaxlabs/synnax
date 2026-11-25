@@ -56,7 +56,10 @@ export interface ItemListProps<T extends Item> extends Input.Control<
   label: (item: T) => string;
   /** name returns the path of the name of an item, which makes the name editable. */
   name?: (key: string) => deep.Target<string>;
-  /** removeLabel names the remove of an item. It defaults to Remove and the label. */
+  /**
+   * removeLabel returns the label of the remove button and confirm of an item. It
+   * defaults to Remove and the label.
+   */
   removeLabel?: (item: T) => string;
   /** detail returns the second line of an item. */
   detail: (item: T) => ReactNode;
