@@ -57,7 +57,7 @@
             "time_format": "unix_ms",
             "default": {
               "type": "constant",
-              "value": "1000"
+              "value": "1000000"
             }
           },
           {
@@ -155,7 +155,7 @@
         4,
         "idle",
         1,
-        1000,
+        1000000,
         1,
         "6f1c3a52-9a4e-4c1b-8d2e-0b7a1f3c5d90",
         { "mode": "auto" },

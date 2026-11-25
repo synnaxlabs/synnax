@@ -82,11 +82,11 @@ export const useValues = (key?: string): Values => {
 
 /**
  * @returns the color of the entry for value in the enumeration of state, or of the
- * entry for the default value of state when value has none.
+ * entry for the default value of state when value is undefined or has no entry.
  */
 export const useEntryColor = (
   state: schematic.symbol.EnumerationState | undefined,
-  value: number,
+  value?: number,
 ): color.Color | undefined => {
   const res = Enumeration.useResult(
     state?.enumeration == null ? null : { key: state.enumeration },

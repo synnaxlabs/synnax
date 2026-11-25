@@ -85,6 +85,7 @@ type Service struct {
 	// Scan stores kafka_scan task configuration records.
 	Scan     *config.Service[ScanConfig]
 	resolver readResolver
+	writes   writeResolver
 	closer   xio.MultiCloser
 }
 
@@ -111,7 +112,12 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	); !ok(err, s.Read) {
 		return nil, err
 	}
-	writes := writeResolver{writes: write.NewResolver(cfg.ICD, channels)}
+	s.writes = writeResolver{
+		icds:     cfg.ICD,
+		channels: channels,
+		writes:   write.NewResolver(cfg.ICD, channels),
+		ins:      cfg.Instrumentation,
+	}
 	if s.Write, err = config.OpenService(
 		ctx, config.ServiceConfig[WriteConfig]{
 			DB:              cfg.DB,
@@ -119,14 +125,17 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Instrumentation: cfg.Instrumentation,
 			Type:            WriteTaskType,
 			Ladder:          versions.WriteConfigLadder,
-			Migrations:      []gorp.Migration{v1.WriteMigration},
-			SetEntryKey:     (*WriteConfig).SetKey,
-			PatchEntry:      (*WriteConfig).Patch,
-			HashEntry:       (*WriteConfig).HashContent,
-			HashReferences:  writes.hash,
-			HashedTables:    []string{"icd"},
-			ResolveEntry:    writes.resolve,
-			ValidateEntry:   (*WriteConfig).Validate,
+			Migrations: []gorp.Migration{
+				v1.WriteMigration,
+				v1.WriteStageMigration,
+			},
+			SetEntryKey:    (*WriteConfig).SetKey,
+			PatchEntry:     (*WriteConfig).Patch,
+			HashEntry:      (*WriteConfig).HashContent,
+			HashReferences: s.writes.hash,
+			HashedTables:   []string{"icd"},
+			ResolveEntry:   s.writes.resolve,
+			ValidateEntry:  (*WriteConfig).Validate,
 		},
 	); !ok(err, s.Write) {
 		return nil, err

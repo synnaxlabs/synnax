@@ -26,9 +26,11 @@ import (
 // ServiceConfig is the configuration for the OPC UA server API service.
 type ServiceConfig struct {
 	// Server stores and retrieves servers.
+	//
 	// [REQUIRED]
 	Server *server.Service
 	// Status retrieves server statuses.
+	//
 	// [REQUIRED]
 	Status *status.Service
 }

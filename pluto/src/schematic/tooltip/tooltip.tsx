@@ -16,14 +16,43 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Telem } from "@synnaxlabs/lyra/telem";
 import type { Theming } from "@synnaxlabs/lyra/theming";
 import { Tooltip as Base } from "@synnaxlabs/lyra/tooltip";
-import { primitive, strings, TimeSpan } from "@synnaxlabs/x";
-import { type ReactElement, type ReactNode, useEffect, useState } from "react";
+import { type destructor, primitive, strings, TimeSpan } from "@synnaxlabs/x";
+import {
+  createContext,
+  type ReactElement,
+  type ReactNode,
+  use,
+  useEffect,
+  useState,
+} from "react";
 
 import { Channel } from "@/channel";
 import { CSS } from "@/css";
 import type { Node } from "@/schematic/node";
 import { Synnax } from "@/synnax";
 import { LatestSample } from "@/vis/latestSample";
+
+/**
+ * Hides the hover tooltip of a schematic. The schematic gives it, and it returns a
+ * destructor that shows the tooltip again.
+ */
+export type Hide = () => destructor.Destructor;
+
+/** Gives the nodes of a schematic the {@link Hide} of its hover tooltip. */
+export const HideProvider = createContext<Hide | null>(null);
+HideProvider.displayName = "Tooltip.HideProvider";
+
+/**
+ * Hides the hover tooltip of the schematic around the caller while hidden is true, such
+ * as while a node shows a menu where the tooltip would cover it.
+ */
+export const useHidden = (hidden: boolean): void => {
+  const hide = use(HideProvider);
+  useEffect(() => {
+    if (!hidden || hide == null) return;
+    return hide();
+  }, [hidden, hide]);
+};
 
 export interface PanelProps {
   anchor: HTMLElement;

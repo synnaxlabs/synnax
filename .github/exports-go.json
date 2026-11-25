@@ -3,5 +3,65 @@
     { "module": "freighter/integration", "usage": "tests-only" },
     { "module": "freighter/integration", "usage": "unused" }
   ],
-  "pending": []
+  "pending": [
+    {
+      "module": "x/go",
+      "package": "github.com/synnaxlabs/x/io/fs/testutil/fault",
+      "receiver": "FS",
+      "name": "Arm",
+      "caller": "https://linear.app/synnax/issue/SY-6384"
+    },
+    {
+      "module": "x/go",
+      "package": "github.com/synnaxlabs/x/io/fs/testutil/fault",
+      "receiver": "FS",
+      "name": "Fill",
+      "caller": "https://linear.app/synnax/issue/SY-6384"
+    },
+    {
+      "module": "x/go",
+      "package": "github.com/synnaxlabs/x/io/fs/testutil/fault",
+      "receiver": "FS",
+      "name": "Unsynced",
+      "caller": "https://linear.app/synnax/issue/SY-6384"
+    },
+    {
+      "module": "x/go",
+      "package": "github.com/synnaxlabs/x/io/fs/testutil/fault",
+      "receiver": "FS",
+      "name": "ReadFaults",
+      "caller": "https://linear.app/synnax/issue/SY-6384"
+    },
+    {
+      "module": "x/go",
+      "package": "github.com/synnaxlabs/x/io/fs/testutil/fault",
+      "receiver": "FS",
+      "name": "Writeback",
+      "caller": "https://linear.app/synnax/issue/SY-6384"
+    },
+    {
+      "module": "x/go",
+      "package": "github.com/synnaxlabs/x/io/fs/testutil/fault",
+      "name": "ID",
+      "caller": "https://linear.app/synnax/issue/SY-6384"
+    },
+    {
+      "module": "x/go",
+      "package": "github.com/synnaxlabs/x/io/fs/testutil/fault",
+      "name": "Span",
+      "caller": "https://linear.app/synnax/issue/SY-6384"
+    },
+    {
+      "module": "x/go",
+      "package": "github.com/synnaxlabs/x/io/fs/testutil/fault",
+      "name": "Stat",
+      "caller": "https://linear.app/synnax/issue/SY-6384"
+    },
+    {
+      "module": "x/go",
+      "package": "github.com/synnaxlabs/x/io/fs/testutil/fault",
+      "name": "Fault",
+      "caller": "https://linear.app/synnax/issue/SY-6384"
+    }
+  ]
 }

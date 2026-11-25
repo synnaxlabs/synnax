@@ -949,6 +949,28 @@ Proof union on method Method {
 			Expect(form.Enum.Name).To(Equal("auth@v0.Method"))
 		})
 
+		It("Should carry the enum a subset narrows into the surface", func() {
+			r := resolverFor(map[string]string{
+				"schemas/synnax/versions/auth/v0.oracle": `
+Method enum {
+	password = "password"
+	token = "token"
+}
+Kept enum of Method {
+	token
+}
+`,
+			})
+			table := resolution.NewTable()
+			Expect(r.SurfaceInto(
+				table, "schemas/synnax/auth", 0, "auth@v0",
+			)).To(Succeed())
+			form, ok := MustBeOk(table.Get("auth@v0.Kept")).Form.(resolution.EnumForm)
+			Expect(ok).To(BeTrue())
+			Expect(form.Superset.Name).To(Equal("auth@v0.Method"))
+			Expect(form.Values).To(HaveLen(1))
+		})
+
 		It("Should take patched variant payloads from the patching version", func() {
 			r := resolverFor(map[string]string{
 				"schemas/synnax/versions/channel/v0.oracle": `
