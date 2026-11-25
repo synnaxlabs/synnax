@@ -41,14 +41,15 @@ func (*Service) Match(body map[string]any) bool {
 // must be a project. A group must be in the parent project. The key on the wire is
 // discarded so every import mints a new resource. Each select and state indicator of a
 // file older than v14 gets an enumeration for its options, as at upgrade, shared with
-// equal lists of the same file. Each custom node of such a file with state overrides
-// gets the enumeration or symbol copy that the upgrade gives it, when opts.Retrievable
-// allows its symbol and the enumeration of that symbol. The schematic drops each named
-// color and each enumeration that the Core does not hold, so a select or state
-// indicator that loses its enumeration draws its own options. A node whose custom
-// symbol the Core does not hold draws a missing symbol with the same key, and every
-// other node drops the bindings that its symbol orphans. An unknown envelope version is
-// a path-scoped validation error.
+// equal lists of the same file. Each light of such a file with an on color gets an
+// enumeration with On in that color. Each custom node of such a file with state
+// overrides gets the enumeration or symbol copy that the upgrade gives it, when
+// opts.Retrievable allows its symbol and the enumeration of that symbol. The schematic
+// drops each named color and each enumeration that the Core does not hold, so a select
+// or state indicator that loses its enumeration draws its own options. A node whose
+// custom symbol the Core does not hold draws a missing symbol with the same key, and
+// every other node drops the bindings that its symbol orphans. An unknown envelope
+// version is a path-scoped validation error.
 func (s *Service) Decode(ctx context.Context, env imex.Envelope) (imex.Write, error) {
 	sch, err := versions.DecodeImExEnvelope(ctx, env)
 	if err != nil {
