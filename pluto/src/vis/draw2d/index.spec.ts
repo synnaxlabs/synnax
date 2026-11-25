@@ -12,8 +12,7 @@ import { box, color, location, scale, xy } from "@synnaxlabs/x";
 import { describe, expect, it, type Mock, vi } from "vitest";
 
 import { text } from "@/text/aether";
-import { Draw2D } from "@/vis/draw2d";
-import { SugaredOffscreenCanvasRenderingContext2D } from "@/vis/draw2d/canvas";
+import { Draw2D, SugaredOffscreenCanvasRenderingContext2D } from "@/vis/draw2d";
 
 const THEME = theme.themeZ.parse(theme.SYNNAX_LIGHT);
 
@@ -117,48 +116,6 @@ describe("Draw2D", () => {
       expect(d.resolveColor(undefined, (t) => t.colors.primary.z)).toEqual(
         THEME.colors.primary.z,
       );
-    });
-  });
-
-  describe("measureCharWidth", () => {
-    it("should return the measured width of a character", () => {
-      const [d] = create();
-      expect(d.measureCharWidth("p")).toEqual(METRICS.width);
-    });
-
-    it("should measure a level only once", () => {
-      const [d, fake] = create();
-      d.measureCharWidth("p");
-      d.measureCharWidth("p");
-      expect(fake.measureText).toHaveBeenCalledTimes(1);
-    });
-
-    it("should measure each level separately", () => {
-      const [d, fake] = create();
-      d.measureCharWidth("p");
-      d.measureCharWidth("h1");
-      expect(fake.measureText).toHaveBeenCalledTimes(2);
-    });
-  });
-
-  describe("measureInkOffsetY", () => {
-    it("should center the ink box within the row", () => {
-      const [d] = create();
-      // inkTop = fontAscent - actualAscent = 10 - 8 = 2
-      // inkHeight = actualAscent + actualDescent = 8 + 2 = 10
-      // 2 - (20 - 10) / 2 = -3
-      expect(d.measureInkOffsetY("p", 20)).toEqual(-3);
-    });
-
-    it("should return the ink top when the row exactly fits the ink", () => {
-      const [d] = create();
-      expect(d.measureInkOffsetY("p", 10)).toEqual(2);
-    });
-
-    it("should set the font before measuring", () => {
-      const [d, fake] = create();
-      d.measureInkOffsetY("p", 20);
-      expect(fake.font).not.toEqual("10px sans-serif");
     });
   });
 

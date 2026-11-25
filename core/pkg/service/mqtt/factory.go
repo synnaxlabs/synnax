@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
+	"github.com/synnaxlabs/synnax/pkg/service/icd/read"
 	"github.com/synnaxlabs/synnax/pkg/service/icd/write"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/mqtt/sparkplug"
@@ -147,6 +148,7 @@ type Factory struct {
 	pool     *pool
 	reporter driver.ConfigReporter
 	cfg      FactoryConfig
+	reads    read.Resolver
 	// edited holds the keys of the broker devices that changed since the last
 	// reconfigure.
 	edited struct {
@@ -169,7 +171,8 @@ func OpenFactory(cfgs ...FactoryConfig) (*Factory, error) {
 		return nil, err
 	}
 	f := &Factory{
-		cfg: cfg,
+		cfg:   cfg,
+		reads: read.NewResolver(cfg.ICD, icd.ReadChannels(cfg.Channel)),
 		pool: newPool(
 			cfg.Instrumentation,
 			cfg.DB,
@@ -281,7 +284,7 @@ func (f *Factory) ConfigureTask(
 	// A successful configure writes no status: the start that follows it answers the
 	// command, and a "configured" status would answer it first with running false.
 	if autoStart {
-		if err = configured.Start(ctx, driver.NoCommand); err != nil {
+		if err = configured.Start(ctx, cmdKey); err != nil {
 			return nil, err
 		}
 	}
@@ -385,6 +388,15 @@ func (f *Factory) configureRead(
 	}
 	icds, err := f.retrieveICDs(ctx, icdKeys)
 	if err != nil {
+		return nil, cfg.AutoStart, err
+	}
+	if err = f.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		c, err := check(ctx, snap, f.reads, &cfg, icds)
+		if err != nil {
+			return err
+		}
+		return claimIndexes(c, &cfg)
+	}); err != nil {
 		return nil, cfg.AutoStart, err
 	}
 	src := &readSource{
@@ -500,31 +512,16 @@ func (f *Factory) retrieveICDs(
 
 // writers holds the channels that the messages and tags of a read task write to.
 type writers struct {
-	// names names the message or tag that writes to each channel.
-	names   map[channel.Key]string
 	keys    channel.Keys
 	indexes channel.Keys
 }
 
-// claim takes the channels of keys and their index for the writer name. Two writers on
-// one index would race for the rising order of its timestamps, or write frames that
-// lack the channels of the other.
-func (w *writers) claim(name string, keys channel.Keys, index channel.Key) error {
-	for _, key := range keys {
-		if other, ok := w.names[key]; ok {
-			return errors.Wrapf(
-				validate.ErrValidation,
-				"entries: %s and %s write to the same channel %d",
-				other, name, key,
-			)
-		}
-		w.names[key] = name
-		w.keys = append(w.keys, key)
-	}
+// add adds keys and their index channel.
+func (w *writers) add(keys channel.Keys, index channel.Key) {
+	w.keys = append(w.keys, keys...)
 	if index != 0 {
 		w.indexes = append(w.indexes, index)
 	}
-	return nil
 }
 
 // addEntries adds the topics and tags of enabled to s. icds holds the ICD of each plain
@@ -534,7 +531,7 @@ func (s *readSource) addEntries(
 	icds map[icd.Key]icd.ICD,
 	channels map[channel.Key]channel.Channel,
 ) (writerKeys, indexes channel.Keys, err error) {
-	w := writers{names: make(map[channel.Key]string)}
+	var w writers
 	for _, variant := range enabled {
 		if err = s.addEntry(variant, icds, channels, &w); err != nil {
 			return nil, nil, err
@@ -543,7 +540,7 @@ func (s *readSource) addEntries(
 	return w.keys, w.indexes, nil
 }
 
-// addEntry adds the topic or tag of variant to s, and claims its channels in w.
+// addEntry adds the topic or tag of variant to s, and its channels to w.
 func (s *readSource) addEntry(
 	variant ReadEntryVariant,
 	icds map[icd.Key]icd.ICD,
@@ -563,11 +560,12 @@ func (s *readSource) addEntry(
 			)
 		}
 		s.topics[topic.topic] = topic
-		for _, m := range topic.messages {
-			name := "message " + m.name + " of topic " + topic.topic
-			if err = w.claim(name, m.keys, m.index); err != nil {
-				return err
+		for _, g := range topic.groups {
+			keys := g.Channels
+			if g.Index != 0 {
+				keys = append(channel.Keys{g.Index}, keys...)
 			}
+			w.add(keys, g.Index)
 		}
 		return nil
 	case SparkplugReadEntry:
@@ -581,7 +579,8 @@ func (s *readSource) addEntry(
 			)
 		}
 		s.tags[tag.tagID] = tag
-		return w.claim(tag.String(), tag.keys(), tag.index)
+		w.add(tag.keys(), tag.index)
+		return nil
 	default:
 		panic(errors.Newf("mqtt: unknown read entry variant %T", entry))
 	}

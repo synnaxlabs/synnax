@@ -104,6 +104,15 @@ export const createProxiedTestClient = async (
 export const spyOnSend = (client: Synnax, field: "transport" = "transport") =>
   vi.spyOn(client[field].unary, "send");
 
+/**
+ * @returns the request bodies that send carried to target. The client sends requests
+ * of its own in the background, so specs check one target, not every call.
+ */
+export const requestsTo = (
+  send: ReturnType<typeof spyOnSend>,
+  target: string,
+): unknown[] => send.mock.calls.filter(([t]) => t === target).map(([, req]) => req);
+
 /** Records each response to target from now on, as the promise the caller awaits. */
 export const recordResponses = (
   client: Synnax,
@@ -211,9 +220,9 @@ export const failRequests = (
 
 /**
  * Holds each response to target, or to each request that target matches, until release
- * is called or the test finishes. responded resolves when the first held response
- * arrives, and sent returns the count of held requests. via picks the transport client:
- * auth requests use unaryNoRetry.
+ * is called or the test finishes. A held request that fails holds its error too.
+ * responded resolves when the first held response arrives, and sent returns the count
+ * of held requests. via picks the transport client: auth requests use unaryNoRetry.
  */
 export const holdResponses = (
   client: Synnax,
@@ -230,12 +239,13 @@ export const holdResponses = (
   const spy = vi.spyOn(unary, "send").mockImplementation(async (...args) => {
     const held = matches(args[0], args[1]);
     if (held) sent++;
-    const res = await send(...args);
+    const res = send(...args);
     if (held) {
+      await res.catch(() => undefined);
       respond();
       await released;
     }
-    return res;
+    return await res;
   });
   onTestFinished(() => {
     release();

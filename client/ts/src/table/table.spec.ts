@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id, uuid } from "@synnaxlabs/x";
-import { describe, expect, it, test, vi } from "vitest";
+import { id, TimeSpan, uuid } from "@synnaxlabs/x";
+import { describe, expect, it, test } from "vitest";
 
 import { NotFoundError } from "@/index";
 import { query } from "@/query";
@@ -94,10 +94,9 @@ describe("Table", () => {
       const proj = await client.projects.create({ name: "Table" });
       const v = await client.tables.create({ project: proj.key, name: "Table" });
       await client.projects.delete(proj.key);
-      await vi.waitFor(
-        async () =>
-          await expect(client.tables.retrieve(v.key)).rejects.toThrow(NotFoundError),
-      );
+      await expect
+        .poll(async () => await client.tables.retrieve(v.key).catch((e: unknown) => e))
+        .toBeInstanceOf(NotFoundError);
     });
   });
 
@@ -140,7 +139,7 @@ describe("Table", () => {
                   },
                   fillColor: { type: "fixed", value: [0, 255, 0, 255] },
                   units: "psi",
-                  stalenessTimeout: 5,
+                  stalenessTimeout: TimeSpan.seconds(7).nanoseconds,
                 },
               },
             ],
@@ -162,7 +161,7 @@ describe("Table", () => {
       });
       expect(cfg.fillColor).toEqual({ type: "fixed", value: [0, 255, 0, 255] });
       expect(cfg.units).toEqual("psi");
-      expect(cfg.stalenessTimeout).toEqual(5);
+      expect(cfg.stalenessTimeout).toEqual(TimeSpan.seconds(7).nanoseconds);
     });
 
     test("rejects a cell config that matches no variant", async () => {

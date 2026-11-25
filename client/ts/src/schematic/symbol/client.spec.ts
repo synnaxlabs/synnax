@@ -8,14 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { id } from "@synnaxlabs/x";
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { group } from "@/group";
 import { NotFoundError } from "@/index";
 import { query } from "@/query";
 import type { resource } from "@/resource";
 import { schematic } from "@/schematic";
-import { createTestClient, expectLive } from "@/testutil";
+import { createTestClient, expectLive, waitForStreamLive } from "@/testutil";
 
 const client = createTestClient();
 
@@ -141,14 +141,8 @@ describe("Symbol Client", () => {
           group: symbolGroup.key,
         })),
       });
-      await expect
-        .poll(async () => {
-          const results = await client.schematics.symbols.retrieve({
-            searchTerm: prefix,
-          });
-          return results.map((s) => s.name).sort();
-        })
-        .toEqual(names);
+      const results = await client.schematics.symbols.retrieve({ searchTerm: prefix });
+      expect(results.map((s) => s.name).sort()).toEqual(names);
     });
 
     it("should retrieve symbols by where", async () => {
@@ -159,15 +153,11 @@ describe("Symbol Client", () => {
           { name: `${prefix}-2`, data: SYMBOL_DATA, group: symbolGroup.key },
         ],
       });
-      await expect
-        .poll(async () => {
-          const results = await client.schematics.symbols.retrieve({
-            searchTerm: prefix,
-            where: { not: { key: { eq: first.key } } },
-          });
-          return results.map((s) => s.name);
-        })
-        .toEqual([`${prefix}-2`]);
+      const results = await client.schematics.symbols.retrieve({
+        searchTerm: prefix,
+        where: { not: { key: { eq: first.key } } },
+      });
+      expect(results.map((s) => s.name)).toEqual([`${prefix}-2`]);
     });
   });
 
@@ -202,15 +192,11 @@ describe("Symbol Client", () => {
           { name: "pump", data: SYMBOL_DATA, group: g.key },
         ],
       });
-      await expect
-        .poll(async () => {
-          const results = await client.schematics.symbols.retrieve({
-            groups: [g.key],
-            searchTerm: prefix,
-          });
-          return results.map((s) => s.name);
-        })
-        .toEqual([`${prefix}-valve`]);
+      const results = await client.schematics.symbols.retrieve({
+        groups: [g.key],
+        searchTerm: prefix,
+      });
+      expect(results.map((s) => s.name)).toEqual([`${prefix}-valve`]);
     });
 
     it("should combine a group with a where", async () => {
@@ -613,6 +599,71 @@ describe("Symbol Client", () => {
           stop();
         }
       });
+    });
+  });
+
+  describe("uses", () => {
+    const createSymbol = async (c: typeof client): Promise<schematic.symbol.Symbol> =>
+      await c.schematics.symbols.create({
+        name: id.create(),
+        data: SYMBOL_DATA,
+        group: symbolGroup.key,
+      });
+
+    const createSchematicUsing = async (
+      c: typeof client,
+      key: schematic.symbol.Key,
+    ): Promise<schematic.Schematic> => {
+      const project = await c.projects.create({ name: id.create() });
+      return await c.schematics.create({
+        project: project.key,
+        name: id.create(),
+        nodes: [
+          {
+            key: "symbol",
+            position: { x: 0, y: 0 },
+            zIndex: 0,
+            config: schematic.nodeConfigZ.parse({
+              variant: "symbol",
+              spec: { type: "custom", key },
+            }),
+          },
+        ],
+      });
+    };
+
+    it("should retrieve empty uses for a symbol that nothing uses", async () => {
+      const created = await createSymbol(client);
+      const q = { key: created.key, includeUses: true };
+      expect((await client.schematics.symbols.retrieve(q)).uses).toEqual([]);
+      expect(
+        (await client.schematics.symbols.retrieve(created.key)).uses,
+      ).toBeUndefined();
+    });
+
+    it("should update the uses of a symbol as a schematic draws it", async () => {
+      const c = createTestClient();
+      await waitForStreamLive(c.connection);
+      const created = await createSymbol(c);
+      const q = { key: created.key, includeUses: true };
+      const off = c.schematics.symbols.watch(q).onChange(() => {});
+      try {
+        expect((await c.schematics.symbols.retrieve(q)).uses).toEqual([]);
+        const s = await createSchematicUsing(c, created.key);
+        await vi.waitFor(() =>
+          expect(expectLive(c.schematics.symbols.watch(q).getCached()).uses).toEqual([
+            schematic.resourceID(s.key),
+          ]),
+        );
+        await c.schematics.delete(s.key);
+        await vi.waitFor(() =>
+          expect(expectLive(c.schematics.symbols.watch(q).getCached()).uses).toEqual(
+            [],
+          ),
+        );
+      } finally {
+        off();
+      }
     });
   });
 

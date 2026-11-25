@@ -415,6 +415,22 @@ var _ = Describe("Python Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`tags: list[str] | None = None`))
 		})
 
+		It("Should require a required list to hold an element", func() {
+			source := `
+				@py output "out"
+
+				Cluster struct {
+					brokers string[] @validate required
+					tags    string[]? @validate required
+				}
+			`
+			resp := MustGenerate(source, "cluster", loader, typesPlugin)
+			ExpectContent(resp, "types_gen.py").ToContain(
+				`brokers: list[str] = Field(min_length=1)`,
+				`tags: list[str] | None = None`,
+			)
+		})
+
 		It(
 			"Should refuse the zero value of a required string or unsigned field",
 			func() {
@@ -700,6 +716,27 @@ var _ = Describe("Python Types Plugin", func() {
 			},
 		)
 
+		It("Should keep wide integer enum values and a non-first default", func() {
+			source := `
+				@py output "out"
+
+				BaudRate enum {
+					baud_1200 = 1200
+					baud_19200 = 19200
+					baud_230400 = 230400
+				}
+
+				Connection struct {
+					baud_rate BaudRate = baud_19200
+				}
+			`
+			resp := MustGenerate(source, "serial", loader, typesPlugin)
+			ExpectContent(resp, "types_gen.py").
+				ToContain("class BaudRate(IntEnum):").
+				ToContain("baud_230400 = 230400").
+				ToContain("baud_rate: BaudRate = BaudRate.baud_19200")
+		})
+
 		It("Should generate IntEnum for integer enums", func() {
 			source := `
 				@py output "out"
@@ -844,6 +881,33 @@ var _ = Describe("Python Types Plugin", func() {
 				).To(ContainSubstring(`AxisKey = Literal["x1", "x2", "y1", "y2"]`))
 			},
 		)
+
+		It("Should generate a narrowing enum as a Literal of the kept members", func() {
+			source := `
+				@py output "out"
+
+				DataType enum {
+					float64 = "float64"
+					int16   = "int16"
+					json    = "json"
+				}
+
+				RegisterType enum of DataType {
+					int16
+					float64
+				}
+			`
+			table, diag := Analyze(source, "modbus", loader)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+
+			resp := MustSucceed(
+				typesPlugin.Generate(&plugin.Request{Resolutions: table}),
+			)
+			content := string(resp.Files[0].Content)
+			Expect(content).To(ContainSubstring(
+				`RegisterType = Literal["int16", "float64"]`,
+			))
+		})
 
 		It(
 			"Should generate screaming snake case for multi-word enum names",
@@ -2737,6 +2801,45 @@ var _ = Describe("Python Types Plugin", func() {
 						`from_: str = Field(alias="from")`,
 						`name: str`,
 						`model_config = ConfigDict(populate_by_name=True)`,
+					)
+			})
+
+			DescribeTable("Should escape a field that shadows a BaseModel attribute",
+				func(field string) {
+					source := `
+					@py output "out"
+
+					Example struct {
+						` + field + ` string
+						name string
+					}
+				`
+					resp := MustGenerate(source, "example", loader, typesPlugin)
+					ExpectContent(resp, "types_gen.py").
+						ToContain(
+							field+`_: str = Field(alias="`+field+`")`,
+							`name: str`,
+							`model_config = ConfigDict(populate_by_name=True)`,
+						)
+				},
+				Entry("an ABCMeta method", "register"),
+				Entry("a deprecated v1 method", "validate"),
+				Entry("a model attribute", "model_config"),
+			)
+
+			It("Should clear the protected namespaces of a model_dump field", func() {
+				source := `
+					@py output "out"
+
+					Example struct {
+						model_dump string
+					}
+				`
+				resp := MustGenerate(source, "example", loader, typesPlugin)
+				ExpectContent(resp, "types_gen.py").
+					ToContain(
+						`model_dump_: str = Field(alias="model_dump")`,
+						`model_config = ConfigDict(populate_by_name=True, protected_namespaces=())`,
 					)
 			})
 		})

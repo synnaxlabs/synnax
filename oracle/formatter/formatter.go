@@ -913,6 +913,9 @@ func (f *formatter) formatFieldDefaultPretty(
 	if ev := ctx.ExpressionValue(); ev != nil {
 		return f.formatExpressionValueToString(ev)
 	}
+	if d := ctx.DURATION_LIT(); d != nil {
+		return d.GetText()
+	}
 	if arr := ctx.ArrayDefault(); arr != nil {
 		return f.formatArrayDefaultPretty(arr, col, indentLevel)
 	}
@@ -1479,8 +1482,14 @@ func (f *formatter) formatTypeArgs(ctx parser.ITypeArgsContext) {
 func (f *formatter) formatTypeModifiers() { f.write("?") }
 
 func (f *formatter) formatEnumDef(ctx parser.IEnumDefContext) {
-	f.write(ctx.IDENT().GetText())
+	f.write(ctx.IDENT(0).GetText())
 	f.write(" enum")
+	if keyword, ref := ctx.IDENT(1), ctx.TypeRef(); keyword != nil && ref != nil {
+		f.write(" " + keyword.GetText() + " " + ref.GetText())
+		if mode := ctx.IDENT(2); mode != nil {
+			f.write(" " + mode.GetText())
+		}
+	}
 	if ctx.EXTENDS() != nil && ctx.TypeRefList() != nil {
 		f.write(" extends ")
 		refs := ctx.TypeRefList().AllTypeRef()
@@ -1536,13 +1545,9 @@ func (f *formatter) formatEnumValue(ctx parser.IEnumValueContext, alignTo int) {
 	name := ctx.IDENT().GetText()
 	f.write(name)
 
-	// Pad for alignment
-	padding := alignTo - len(name)
-	for range padding {
-		f.write(" ")
+	if ctx.EQUALS() != nil {
+		f.write(strings.Repeat(" ", alignTo-len(name)) + " = ")
 	}
-
-	f.write(" = ")
 	if ctx.INT_LIT() != nil {
 		f.write(ctx.INT_LIT().GetText())
 	} else if ctx.STRING_LIT() != nil {
@@ -1624,12 +1629,22 @@ func (f *formatter) formatUnionDef(ctx parser.IUnionDefContext) {
 
 func isEmptyUnionBody(ctx parser.IUnionBodyContext) bool {
 	return ctx == nil || (len(ctx.AllUnionVariant()) == 0 &&
-		len(ctx.AllActionDef()) == 0 && len(ctx.AllDomain()) == 0)
+		len(ctx.AllVariantOmit()) == 0 && len(ctx.AllActionDef()) == 0 &&
+		len(ctx.AllDomain()) == 0)
 }
 
 func (f *formatter) formatUnionBody(ctx parser.IUnionBodyContext) {
+	omits := ctx.AllVariantOmit()
 	variants := ctx.AllUnionVariant()
 	domains := ctx.AllDomain()
+
+	for _, omit := range omits {
+		f.emitCommentsBefore(omit.GetStart().GetTokenIndex())
+		f.writeIndent()
+		f.write("-")
+		f.write(omit.VariantName().GetText())
+		f.newline()
+	}
 
 	maxNameLen := 0
 	for _, v := range variants {
@@ -1646,7 +1661,8 @@ func (f *formatter) formatUnionBody(ctx parser.IUnionBodyContext) {
 	}
 
 	actions := ctx.AllActionDef()
-	if len(variants) > 0 && len(actions) > 0 {
+	entries := len(omits) + len(variants)
+	if entries > 0 && len(actions) > 0 {
 		f.newline()
 	}
 	for i, action := range actions {
@@ -1657,7 +1673,7 @@ func (f *formatter) formatUnionBody(ctx parser.IUnionBodyContext) {
 		}
 	}
 
-	if (len(variants) > 0 || len(actions) > 0) && len(domains) > 0 {
+	if (entries > 0 || len(actions) > 0) && len(domains) > 0 {
 		f.newline()
 	}
 	f.formatDomains(domains)

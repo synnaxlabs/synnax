@@ -13,14 +13,14 @@ import type { ReactElement } from "react";
 import { Color } from "@/color";
 import { CSS } from "@/css";
 import { colorFallbacks, NAME, SelectForm } from "@/schematic/node/general/select/Form";
-import { Select } from "@/schematic/node/general/select/Primitive";
+import { Primitive } from "@/schematic/node/general/select/primitive";
 import { Symbol } from "@/schematic/node/general/select/Symbol";
 import type { Spec } from "@/schematic/node/spec";
 
 const Preview = ({ fillColor, size }: schematic.SelectNodeConfig): ReactElement => {
   const resolve = Color.useResolve();
   return (
-    <Select
+    <Primitive.Select
       onSend={() => {}}
       options={[]}
       fillColor={resolve(fillColor)}

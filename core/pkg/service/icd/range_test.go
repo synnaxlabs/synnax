@@ -40,5 +40,13 @@ var _ = Describe("CheckRange", func() {
 			icd.BaseField{Scale: 1, Max: new(100.0)}, 100.5,
 			"100.5 is above the max 100: validation error",
 		),
+		Entry("above a large max, in plain digits",
+			icd.BaseField{Scale: 1, Max: new(1e6)}, 2e6,
+			"2000000 is above the max 1000000: validation error",
+		),
+		Entry("below a small min, in plain digits",
+			icd.BaseField{Scale: 1, Min: new(5e-5)}, 2e-5,
+			"0.00002 is below the min 0.00005: validation error",
+		),
 	)
 })

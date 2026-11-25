@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
+	symbolv5 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v5"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/config"
@@ -118,11 +119,15 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Schematic]{
-		DB:              cfg.DB,
-		Name:            tableName,
-		Indexes:         s.indexes.all(),
-		References:      s.indexes.references(),
-		Migrations:      versions.Migrations,
+		DB:         cfg.DB,
+		Name:       tableName,
+		Indexes:    s.indexes.all(),
+		References: s.indexes.references(),
+		Migrations: versions.NewMigrations(versions.MigrationsConfig{
+			Intern: func(tx gorp.Tx) symbolv5.Intern {
+				return cfg.Enumeration.NewWriter(tx).NewInterner().Intern
+			},
+		}),
 		Instrumentation: cfg.Instrumentation,
 		// An enumeration retarget or a named color delete rewrites the schematic
 		// outside any schematic write, so the service sends the schematic as a create.
@@ -145,6 +150,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		ImEx:            cfg.ImEx,
 		Enumeration:     cfg.Enumeration,
 		Actuators:       s.actuatorSymbols,
+		RemoveOrphans:   s.removeOrphans,
 	}); !ok(err, s.Symbol) {
 		return nil, err
 	}

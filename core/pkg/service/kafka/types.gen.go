@@ -76,6 +76,12 @@ type InlineRecord = versions.InlineRecord
 // InlineRead holds the records of a read config from before ICDs.
 type InlineRead = versions.InlineRead
 
+// WriteTarget produces the JSON documents of one ICD message as records of a topic.
+type WriteTarget = versions.WriteTarget
+
+// InlineWrite holds the channels of a write config from before ICDs.
+type InlineWrite = versions.InlineWrite
+
 // Credentials carries the username and password of a SASL mechanism.
 type Credentials struct {
 	// Username is the SASL username.

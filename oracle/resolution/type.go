@@ -12,6 +12,7 @@ package resolution
 import (
 	"fmt"
 	"maps"
+	"math"
 	"slices"
 	"strings"
 
@@ -173,20 +174,71 @@ func (f StructForm) isFieldOmitted(name string) bool {
 type EnumForm struct {
 	// Values are the enum's members, fully resolved. For an extending enum the
 	// analyzer expands this to the union of the parents' members plus any
-	// members declared in the enum's own body.
+	// members declared in the enum's own body. For a narrowing enum it holds the
+	// superset's members that the body names, in body order, or for an exclusion the
+	// superset's members that the body does not name, in superset order.
 	Values []EnumValue
 	// Declared holds the members the enum's own body declares, set only when the
-	// enum extends. Only a renderer writing the declaration back wants it.
+	// enum extends or narrows. Only a renderer writing the declaration back wants it.
 	Declared []EnumValue
 	// IsIntEnum reports whether members carry integer (vs string) values. An
-	// extending enum matches the kind of the enums it extends.
+	// extending or narrowing enum matches the kind of the enums it derives from.
 	IsIntEnum bool
 	// Extends names the enums this enum is the union of. Empty for a plain
 	// (non-extending) enum.
 	Extends []TypeRef
+	// Superset names the enum this enum narrows. The zero TypeRef means the enum
+	// does not narrow one.
+	Superset TypeRef
+	// Exclusion is true when a narrowing enum's body names the superset members to
+	// leave out, instead of the members to keep.
+	Exclusion bool
 }
 
 func (EnumForm) typeForm() {}
+
+// Narrows reports whether the enum keeps a subset of another enum's members.
+func (f EnumForm) Narrows() bool { return f.Superset.Name != "" }
+
+// IntBase returns the name of the smallest integer primitive that holds every member
+// of an integer enum: unsigned, unless a member is negative. It returns "uint8" for an
+// enum with no members.
+func (f EnumForm) IntBase() string {
+	var low, high int64
+	for _, v := range f.Values {
+		low, high = min(low, v.IntValue()), max(high, v.IntValue())
+	}
+	if low < 0 {
+		switch {
+		case low >= math.MinInt8 && high <= math.MaxInt8:
+			return "int8"
+		case low >= math.MinInt16 && high <= math.MaxInt16:
+			return "int16"
+		case low >= math.MinInt32 && high <= math.MaxInt32:
+			return "int32"
+		}
+		return "int64"
+	}
+	switch {
+	case high <= math.MaxUint8:
+		return "uint8"
+	case high <= math.MaxUint16:
+		return "uint16"
+	case high <= math.MaxUint32:
+		return "uint32"
+	}
+	return "uint64"
+}
+
+// ZeroMember returns the integer enum member whose value is 0, the zero value of the
+// enum's type in every language. It returns false for a string enum and for an integer
+// enum with no member of 0.
+func (f EnumForm) ZeroMember() (EnumValue, bool) {
+	if !f.IsIntEnum {
+		return EnumValue{}, false
+	}
+	return lo.Find(f.Values, func(v EnumValue) bool { return v.IntValue() == 0 })
+}
 
 // UnionForm describes a discriminated union: a closed set of struct variants
 // distinguished by the string value of a single shared discriminator field.

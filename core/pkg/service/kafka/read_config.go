@@ -13,10 +13,8 @@ import (
 	"context"
 	"strconv"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/icd/read"
 	icdv0 "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v0"
@@ -24,31 +22,6 @@ import (
 	v1 "github.com/synnaxlabs/synnax/pkg/service/kafka/versions/v1"
 	"github.com/synnaxlabs/x/content"
 )
-
-// readChannels returns the v1.Channels that reads channels from svc.
-func readChannels(svc *channel.Service) v1.Channels {
-	return func(
-		ctx context.Context,
-		snap gorp.Snapshot,
-		keys []channel.Key,
-	) (map[channel.Key]v1.Channel, error) {
-		var found []channel.Channel
-		if err := svc.NewRetrieve().
-			Where(channel.MatchKeys(keys...)).
-			SkipMissingKeys().
-			Entries(&found).
-			Exec(ctx, snap); err != nil {
-			return nil, err
-		}
-		return lo.SliceToMap(found, func(c channel.Channel) (channel.Key, v1.Channel) {
-			return c.Key(), v1.Channel{
-				Name:     c.Name,
-				DataType: c.DataType,
-				Index:    c.IsIndex,
-			}
-		}), nil
-	}
-}
 
 // createICD returns the v1.CreateICD that lifts an ICD to the current shape and creates
 // it with svc.
@@ -65,7 +38,7 @@ func createICD(svc *icd.Service) v1.CreateICD {
 // readResolver resolves read configs against the ICDs and channels they read.
 type readResolver struct {
 	icds     *icd.Service
-	channels v1.Channels
+	channels icdv0.Channels
 	create   v1.CreateICD
 	reads    read.Resolver
 	ins      alamos.Instrumentation
@@ -96,7 +69,7 @@ func (r readResolver) resolve(
 		}
 		icds[ic.Key] = ic
 	}
-	if err = r.check(ctx, snap, cfg, icds); err != nil || !ok {
+	if _, err = check(ctx, snap, r.reads, cfg, icds); err != nil || !ok {
 		return nil, err
 	}
 	return func(ctx context.Context, tx gorp.Tx) error {
@@ -116,20 +89,33 @@ func (r readResolver) hash(
 }
 
 // check checks each enabled record of cfg against its ICD, from icds or else read
-// through snap, and its channels.
-func (r readResolver) check(
+// through snap, and its channels. It returns the Checker that holds the claims of cfg.
+// A task save and a task configure both run it.
+func check(
 	ctx context.Context,
 	snap gorp.Snapshot,
+	resolver read.Resolver,
 	cfg *ReadConfig,
 	icds map[icd.Key]icd.ICD,
-) error {
+) (read.Checker, error) {
 	reads := readsOf(cfg)
-	c, err := r.reads.NewChecker(ctx, snap, reads, icds)
+	c, err := resolver.NewChecker(ctx, snap, reads, nil, icds)
 	if err != nil {
-		return err
+		return read.Checker{}, err
 	}
 	for _, rd := range reads {
 		if err = c.Read(rd); err != nil {
+			return read.Checker{}, err
+		}
+	}
+	return c, nil
+}
+
+// claimIndexes claims in c, the Checker that check returned for cfg, each index channel
+// whose timestamps an enabled record of cfg writes.
+func claimIndexes(c read.Checker, cfg *ReadConfig) error {
+	for _, rd := range readsOf(cfg) {
+		if err := c.ClaimIndexes(rd); err != nil {
 			return err
 		}
 	}

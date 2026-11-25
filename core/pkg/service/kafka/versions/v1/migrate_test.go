@@ -71,17 +71,18 @@ func inlineConfig(records ...v1.InlineRecord) v1.ReadConfig {
 
 var _ = Describe("ResolveReadConfig", func() {
 	var (
-		found    map[channel.Key]v1.Channel
-		channels v1.Channels
+		found    map[channel.Key]icd.Channel
+		channels icd.Channels
+		paths    []string
 		changes  []string
 	)
 	BeforeEach(func() {
-		found, changes = nil, nil
+		found, paths, changes = nil, nil, nil
 		channels = func(
 			context.Context,
 			gorp.Snapshot,
 			[]channel.Key,
-		) (map[channel.Key]v1.Channel, error) {
+		) (map[channel.Key]icd.Channel, error) {
 			return found, nil
 		}
 	})
@@ -95,7 +96,10 @@ var _ = Describe("ResolveReadConfig", func() {
 			channels,
 			"Plant",
 			cfg,
-			func(_, change string) { changes = append(changes, change) },
+			func(path, change string) {
+				paths = append(paths, path)
+				changes = append(changes, change)
+			},
 		))
 		Expect(ok).To(BeTrue())
 		return ic
@@ -163,7 +167,7 @@ var _ = Describe("ResolveReadConfig", func() {
 
 	It("Should bind the channel of a field and take the kind of the channel",
 		func(ctx SpecContext) {
-			found = map[channel.Key]v1.Channel{
+			found = map[channel.Key]icd.Channel{
 				7: {Name: "level", DataType: telem.Int32T},
 			}
 			cfg := inlineConfig(v1.InlineRecord{
@@ -280,7 +284,24 @@ var _ = Describe("ResolveReadConfig", func() {
 			})
 			ic := resolve(ctx, &cfg)
 			Expect(fields(ic.Messages[0])[0].Base().Name).To(Equal("a"))
-			Expect(fields(ic.Messages[0])[1].Base().Name).To(Equal("a (2)"))
+			Expect(fields(ic.Messages[0])[1].Base().Name).To(Equal("a_2"))
+		},
+	)
+
+	It("Should note a field that reads a value inside an earlier field",
+		func(ctx SpecContext) {
+			raw := storedField("raw", telem.Float64T)
+			raw.Pointer = "/level/raw"
+			cfg := inlineConfig(v1.InlineRecord{
+				Key:    "r1",
+				Fields: []v1.ReadField{storedField("level", telem.Float64T), raw},
+			})
+			resolve(ctx, &cfg)
+			Expect(paths).To(Equal([]string{"records.0.fields.1"}))
+			Expect(changes).To(Equal([]string{
+				`field "raw" reads a value inside field "level", so keep one of ` +
+					"them before you edit the ICD",
+			}))
 		},
 	)
 
@@ -329,7 +350,7 @@ var _ = Describe("NoteLift", func() {
 			Expect(logs.All()).To(HaveLen(1))
 			entry := logs.All()[0]
 			Expect(entry.Level).To(Equal(zapcore.WarnLevel))
-			Expect(entry.Message).To(Equal("changed a Kafka read field to v1"))
+			Expect(entry.Message).To(Equal("changed a Kafka task field to v1"))
 			Expect(entry.ContextMap()).To(Equal(map[string]any{
 				"config": key.String(),
 				"field":  "records.0.fields.1",
@@ -478,5 +499,59 @@ var _ = Describe("ReadMigration", func() {
 		Expect(topics[0].Name).To(Equal("plant"))
 		Expect(db.Get(v1.StagedRecordsKVKey(old.Key))).Error().
 			To(MatchError(query.ErrNotFound))
+	})
+})
+
+var _ = Describe("WriteMigration", func() {
+	var db *gorp.DB
+	BeforeEach(func() { db = DeferClose(gorp.Wrap(memkv.New())) })
+
+	migrate := func(ctx SpecContext) {
+		GinkgoHelper()
+		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+			DB:         db,
+			Namespace:  "kafka_write_config",
+			Migrations: []gorp.Migration{v1.WriteMigration},
+		})).To(Succeed())
+	}
+
+	It("Should store the shape that v0 stored under the same table name", func() {
+		Expect(v1.WriteConfig{}.CustomTypeName()).
+			To(Equal(v0.WriteConfig{}.CustomTypeName()))
+	})
+
+	It("Should rewrite each stored config in the v1 shape with its channels",
+		func(ctx SpecContext) {
+			old := v0.WriteConfig{
+				Key:       uuid.New(),
+				Device:    "cluster",
+				Topic:     "plant",
+				RecordKey: v0.RecordKeyNone,
+				Record:    v0.Record{ValuePointer: "/v"},
+				Channels:  []v0.WriteChannel{{Key: "c1", Channel: 4}},
+			}
+			Expect(gorp.WrapWriter[uuid.UUID, v0.WriteConfig](db).Set(ctx, old)).
+				To(Succeed())
+			migrate(ctx)
+			var cfg v1.WriteConfig
+			Expect(gorp.NewRetrieve[uuid.UUID, v1.WriteConfig]().
+				Where(gorp.MatchKeys[uuid.UUID, v1.WriteConfig](old.Key)).
+				Entry(&cfg).
+				Exec(ctx, db)).To(Succeed())
+			Expect(cfg.Device).To(Equal(old.Device))
+			Expect(cfg.Topic).To(Equal("plant"))
+			Expect(cfg.Record).To(Equal(old.Record))
+			Expect(cfg.Channels).To(Equal(old.Channels))
+			Expect(cfg.Targets).To(BeEmpty())
+		},
+	)
+
+	It("Should do nothing without stored configs", func(ctx SpecContext) {
+		migrate(ctx)
+		var cfgs []v1.WriteConfig
+		Expect(gorp.NewRetrieve[uuid.UUID, v1.WriteConfig]().
+			Entries(&cfgs).
+			Exec(ctx, db)).To(Succeed())
+		Expect(cfgs).To(BeEmpty())
 	})
 })

@@ -14,8 +14,8 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import type { FC, PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
-import { SelectForm } from "@/schematic/node/general/select/Form";
-import { createConfig } from "@/schematic/node/registry";
+import { Node } from "@/schematic/node";
+import { Select } from "@/schematic/node/general/select";
 import { CreatePromptStub } from "@/schematic/node/testutil";
 import { createAsyncSynnaxWrapper, pickOption, renderForm } from "@/testutil";
 
@@ -40,42 +40,32 @@ describe("SelectForm", () => {
     });
   });
 
-  it("should show a Color column only once an enumeration is picked", async () => {
+  it("should show the entries of a picked enumeration only", async () => {
     const created = await client.enumerations.create({
       name: `select-${id.create()}`,
       entries: [{ key: id.create(), name: "Primed", value: 0, abnormal: false }],
     });
-    const { findByRole, findByLabelText, value } = renderForm(
-      <SelectForm tab="options" onTabChange={vi.fn()} />,
-      createConfig({
-        variant: "select",
-        options: [{ key: "open", name: "Open", value: 0 }],
-      }),
+    const { findByRole, findByLabelText, queryByLabelText, value } = renderForm(
+      <Select.spec.Form tab="options" onTabChange={vi.fn()} />,
+      Node.createConfig({ variant: "select" }),
       schematic.selectNodeConfigZ,
       wrapper,
     );
-    const input = async (label: string): Promise<HTMLInputElement> =>
-      await screen.findByLabelText<HTMLInputElement>(label);
-    const name = async (): Promise<string> => (await input("Name 1")).value;
-    const columns = (): string[] =>
-      screen.getAllByRole("columnheader").flatMap((h) => h.textContent || []);
-    expect(await name()).toBe("Open");
-    expect(columns()).toEqual(["Name", "Value"]);
     fireEvent.click(await findByRole("button", { name: "Enumeration" }));
+    expect(queryByLabelText("Name 1")).toBeNull();
     await pickOption(created.name, "Search enumerations...");
     await waitFor(() => expect(value(path.enumeration)).toBe(created.key));
-    await waitFor(async () => expect(await name()).toBe("Primed"));
-    expect(columns()).toEqual(["Name", "Value", "Color", "Abnormal"]);
+    const name = await screen.findByLabelText<HTMLInputElement>("Name 1");
+    expect(name.value).toBe("Primed");
     fireEvent.click(await findByLabelText(`Clear ${created.name}`));
     await waitFor(() => expect(value(path.enumeration)).toBeUndefined());
-    await waitFor(async () => expect(await name()).toBe("Open"));
-    expect(columns()).toEqual(["Name", "Value"]);
+    await waitFor(() => expect(queryByLabelText("Name 1")).toBeNull());
   });
 
   it("should unbind and disable the command channel when it is cleared", async () => {
-    const config = createConfig({ variant: "select", commandChannel: ch.key });
+    const config = Node.createConfig({ variant: "select", commandChannel: ch.key });
     const { findByLabelText, value } = renderForm(
-      <SelectForm tab="control" onTabChange={vi.fn()} />,
+      <Select.spec.Form tab="control" onTabChange={vi.fn()} />,
       config,
       schematic.selectNodeConfigZ,
       wrapper,

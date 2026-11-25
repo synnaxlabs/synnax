@@ -7,7 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <cmath>
 #include <cstdint>
+#include <limits>
 #include <map>
 #include <optional>
 #include <string>
@@ -423,17 +425,67 @@ TEST(Reader, StampsOtherIndexChannelsOnArrival) {
     ASSERT_EQ(fr.at<double>(3, 0), 3.0);
 }
 
-/// @brief it should add no index group to the frame when a value of any group does not
-/// convert.
-TEST(Reader, AddsNothingWhenValueOfOneIndexGroupDoesNotConvert) {
+/// @brief it should write the other index groups when a value of one group does not
+/// convert, and list the field in its failures.
+TEST(Reader, WritesOtherIndexGroupsWhenValueOfOneDoesNotConvert) {
     auto e = reading();
     e.bind(float_field("w"), channel(3, x::telem::FLOAT64_T, 4));
     auto r = ASSERT_NIL_P(e.create());
     x::telem::Frame fr(4);
-    const auto err = r.read(bytes(R"({"v": 1, "w": "x"})"), RECEIVED, fr).second;
-    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    ASSERT_EQ(err.data, R"(field w: invalid number "x")");
-    ASSERT_TRUE(fr.empty());
+    ASSERT_EQ(ASSERT_NIL_P(r.read(bytes(R"({"v": 1, "w": {}})"), RECEIVED, fr)), 0U);
+    ASSERT_EQ(*fr.channels, (std::vector<std::uint32_t>{1, 2}));
+    ASSERT_EQ(fr.at<double>(2, 0), 1.0);
+    ASSERT_EQ(r.failures().size(), 1U);
+    ASSERT_EQ(r.failures()[0].channel, 3U);
+    ASSERT_FALSE(r.failures()[0].missing);
+    ASSERT_OCCURRED_AS(r.failures()[0].error, x::errors::VALIDATION);
+    ASSERT_EQ(
+        r.failures()[0].error.data,
+        "field w: expected a number or boolean, got an object"
+    );
+}
+
+/// @brief it should drop only a virtual channel whose value does not convert.
+TEST(Reader, DropsOnlyVirtualChannelWhoseValueDoesNotConvert) {
+    auto e = reading();
+    e.bind(float_field("x"), channel(5, x::telem::FLOAT64_T, 0));
+    auto r = ASSERT_NIL_P(e.create());
+    x::telem::Frame fr(3);
+    ASSERT_NIL_P(r.read(bytes(R"({"v": 1, "x": {}})"), RECEIVED, fr));
+    ASSERT_EQ(*fr.channels, (std::vector<std::uint32_t>{1, 2}));
+}
+
+/// @brief it should write the fill value for a float field that does not decode, and
+/// keep its index group.
+TEST(Reader, FillsFloatFieldThatDoesNotDecode) {
+    auto e = reading();
+    e.bind(float_field("w"), channel(3, x::telem::FLOAT32_T, 4));
+    auto r = ASSERT_NIL_P(e.create());
+    x::telem::Frame fr(4);
+    const auto nan = std::numeric_limits<double>::quiet_NaN();
+    ASSERT_NIL_P(r.read(bytes(R"({"v": {}})"), RECEIVED, fr, 1, nan));
+    ASSERT_EQ(*fr.channels, (std::vector<std::uint32_t>{1, 4, 2, 3}));
+    ASSERT_TRUE(std::isnan(fr.at<double>(2, 0)));
+    ASSERT_TRUE(std::isnan(fr.at<float>(3, 0)));
+    ASSERT_EQ(r.failures().size(), 2U);
+}
+
+/// @brief it should drop the index group of a field on a channel that is not a float
+/// when the field does not decode, even with a fill value.
+TEST(Reader, DropsGroupOfNonFloatFieldWithFill) {
+    auto e = reading();
+    synnax::icd::IntegerJSONField w;
+    w.key = x::uuid::create();
+    w.name = "w";
+    w.pointer = "/w";
+    e.bind(w, channel(3, x::telem::INT64_T, 4));
+    auto r = ASSERT_NIL_P(e.create());
+    x::telem::Frame fr(4);
+    ASSERT_NIL_P(r.read(bytes(R"({"v": 1})"), RECEIVED, fr, 1, 0.0));
+    ASSERT_EQ(*fr.channels, (std::vector<std::uint32_t>{1, 2}));
+    ASSERT_EQ(r.failures()[0].channel, 3U);
+    ASSERT_TRUE(r.failures()[0].missing);
+    ASSERT_EQ(r.failures()[0].error.data, "field w: no value at /w");
 }
 
 /// @brief it should read a response as the message whose match rule it meets, or else
@@ -451,14 +503,25 @@ TEST(Reader, ReadsMatchedMessage) {
     ASSERT_EQ(*fallback.channels, (std::vector<std::uint32_t>{4, 3}));
 }
 
-/// @brief it should add nothing to the frame when a value does not convert.
-TEST(Reader, AddsNothingWhenValueDoesNotConvert) {
+/// @brief it should add nothing to the frame when the value of its only index group
+/// does not convert.
+TEST(Reader, AddsNothingWhenValueOfOnlyIndexGroupDoesNotConvert) {
     auto r = ASSERT_NIL_P(reading().create());
     x::telem::Frame fr(2);
-    const auto err = r.read(bytes(R"({"v": "x"})"), RECEIVED, fr).second;
-    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    ASSERT_EQ(err.data, R"(field v: invalid number "x")");
+    ASSERT_EQ(ASSERT_NIL_P(r.read(bytes(R"({"v": {}})"), RECEIVED, fr)), 0U);
     ASSERT_TRUE(fr.empty());
+    ASSERT_EQ(r.failures().size(), 1U);
+}
+
+/// @brief it should list no failures after a read of a payload that belongs to no
+/// message.
+TEST(Reader, ListsNoFailuresAfterReadOfNoMessage) {
+    auto r = ASSERT_NIL_P(matching("status").create());
+    x::telem::Frame fr(2);
+    ASSERT_NIL_P(r.read(bytes(R"({"type": "status", "v": {}})"), RECEIVED, fr));
+    ASSERT_EQ(r.failures().size(), 1U);
+    ASSERT_NIL_P(r.read(bytes(R"({"type": "event", "v": 1})"), RECEIVED, fr));
+    ASSERT_TRUE(r.failures().empty());
 }
 
 /// @brief it should add nothing for a payload that belongs to no message.

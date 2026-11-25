@@ -179,11 +179,12 @@ fieldDef
     : IDENT (typeRef | typeModifiers)? (EQUALS fieldDefault)? (inlineDomain | domainOmit)* fieldBody?
     ;
 
-// A field default is a scalar/ident literal, an array literal, or a struct
-// literal.
-// Examples: = 0, = "v", = volts, = [], = [1, 2, 3], = { x = 0, y = 1 }
+// A field default is a scalar/ident literal, a duration, an array literal, or a
+// struct literal.
+// Examples: = 0, = "v", = volts, = 5s, = [], = [1, 2, 3], = { x = 0, y = 1 }
 fieldDefault
     : expressionValue
+    | DURATION_LIT
     | arrayDefault
     | structDefault
     ;
@@ -318,8 +319,21 @@ expressionValue
 // An enum may extend one or more other enums, taking the union of their
 // members (and optionally adding its own):
 //   AxisKey enum extends XAxisKey, YAxisKey {}
+// An enum may instead narrow another enum with the soft keyword `of`, keeping only the
+// members its body names. Each member is bare and takes its value from the superset:
+//   DataType enum of telem.DataType {
+//       int16
+//       float32
+//   }
+// The soft keyword `omit` after the superset makes the body name the members to leave
+// out instead:
+//   DataType enum of telem.DataType omit {
+//       json
+//       bytes
+//   }
 enumDef
-    : IDENT ENUM (EXTENDS typeRefList)? nl* LBRACE nl* enumBody RBRACE
+    : IDENT ENUM (IDENT typeRef IDENT?)? (EXTENDS typeRefList)? nl*
+      LBRACE nl* enumBody RBRACE
     ;
 
 // Enum body contains values and/or enum-level domains
@@ -327,10 +341,11 @@ enumBody
     : ((enumValue | domain) nl*)*
     ;
 
-// Enum values require explicit values (integer or string)
+// Enum values carry explicit values (integer or string), except in an enum that
+// narrows another, where each member is bare.
 // Optional body block for value-level domains (e.g., @doc)
 enumValue
-    : IDENT EQUALS (INT_LIT | STRING_LIT) enumValueBody?
+    : IDENT (EQUALS (INT_LIT | STRING_LIT))? enumValueBody?
     ;
 
 // Optional body for enum values (domains only)
@@ -388,9 +403,15 @@ unionDef
     : IDENT UNION IDENT IDENT typeRef? (EXTENDS typeRefList)? nl* LBRACE nl* unionBody RBRACE
     ;
 
-// Union body contains variants, actions, and/or union-level domains
+// Union body contains variants, variant omissions, actions, and/or union-level domains
 unionBody
-    : ((actionDef | unionVariant | domain) nl*)*
+    : ((actionDef | unionVariant | variantOmit | domain) nl*)*
+    ;
+
+// Variant omission: remove a variant from the earlier version that the union patches
+// Example: -legacy_variant
+variantOmit
+    : MINUS variantName
     ;
 
 // Single variant: discriminator value + struct type + optional per-variant domains

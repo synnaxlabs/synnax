@@ -11,8 +11,8 @@ package kafka
 
 import "github.com/synnaxlabs/x/telem"
 
-// column places the samples of one binding in the data its decoder appends to, in
-// arrival order. Its buffers survive across polls.
+// column places the samples of one channel in its data, in arrival order. Its buffers
+// survive across polls.
 type column struct {
 	dataType telem.DataType
 	// density is the size of a sample, zero when samples vary in size.

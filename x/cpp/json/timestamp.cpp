@@ -253,12 +253,7 @@ void append_timestamp(
         out += "Z\"";
         return;
     }
-    const int digits = nanos_exponent(format);
-    std::int64_t unit = 1;
-    for (int e = 0; e < digits; e++)
-        unit *= 10;
-    std::int64_t whole = ns / unit;
-    std::int64_t frac = ns % unit;
+    auto [whole, frac] = split_unix(ts, format);
     if (frac == 0) {
         append_digits(out, whole);
         return;
@@ -270,6 +265,6 @@ void append_timestamp(
     }
     append_digits(out, whole);
     out += '.';
-    append_fraction(out, frac, digits);
+    append_fraction(out, frac, nanos_exponent(format));
 }
 }

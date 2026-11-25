@@ -33,6 +33,7 @@ import (
 	channeltestutil "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/ethercat"
 	"github.com/synnaxlabs/synnax/pkg/service/http"
+	httpv5 "github.com/synnaxlabs/synnax/pkg/service/http/versions/v5"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
@@ -112,12 +113,24 @@ var legacySecrets = map[string]struct{ key, plain string }{
 // message of a new ICD, named after the task.
 var legacyICDs = set.New("http_read")
 
-// legacyReimportErrors holds, for each task type whose current shape the legacy rewrite
+// legacyStaged holds each task type whose ladder stages the fields of each endpoint in
+// inline, which the stored config does not hold.
+var legacyStaged = set.New("http_read", "http_write")
+
+// legacyKVStaged maps each task type whose import stages the inline fields of a config
+// in KV to the staging KV key of the config with a key.
+var legacyKVStaged = map[string]func(uuid.UUID) []byte{
+	"http_write": httpv5.StagedWriteFieldsKVKey,
+}
+
+// legacyReimportErrors holds, for each fixture whose current shape the legacy rewrite
 // cannot read, the error that normalizing an unversioned copy of its stored config
 // returns.
 var legacyReimportErrors = map[string]string{
-	"ethercat_read":  `within "/channels/0": ReadChannel: unknown type "unresolved"`,
-	"ethercat_write": `within "/channels/0": WriteChannel: unknown type "unresolved"`,
+	"ethercat_read":      `within "/channels/0": ReadChannel: unknown type "unresolved"`,
+	"ethercat_write":     `within "/channels/0": WriteChannel: unknown type "unresolved"`,
+	"ni_counter_read":    `unmarshal JSON string into Go float64 within "/meas_time"`,
+	"ni_counter_read_py": `unmarshal JSON string into Go float64 within "/meas_time"`,
 }
 
 // legacyVariantDiscarded lists the keys a rewrite drops on purpose from one union
@@ -742,26 +755,34 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 			expected := MustSucceed(store.Normalize(ctx, db, 0, legacy))
 			// The store assigns the key on write.
 			delete(expected, "key")
-			// The write moves the staged fields into an ICD and fills in each read.
-			if legacyICDs.Contains(env.Type) {
+			if legacyStaged.Contains(env.Type) {
 				delete(expected, "inline")
+			}
+			// The write moves the staged fields into an ICD, fills in each read, and
+			// disables an endpoint whose fields are all disabled.
+			if legacyICDs.Contains(env.Type) {
 				for _, ep := range as[[]any](expected["endpoints"]) {
 					delete(as[map[string]any](ep), "messages")
+					delete(as[map[string]any](ep), "disabled")
 				}
 			}
 			revealed := reveal(ctx, imported)
 			expectSubset("config", map[string]any(expected), revealed)
+			if stagedKey, ok := legacyKVStaged[env.Type]; ok {
+				_, closer := MustSucceed2(db.Get(stagedKey(imported.Key)))
+				Expect(closer.Close()).To(Succeed())
+			}
 
 			// The rewrite and the ladder must leave their own output unchanged. An
 			// unversioned copy of a config reads each secret key as a plain value, and
 			// stages again the fields that the import moved into an ICD.
-			reimportErr, unreadable := legacyReimportErrors[env.Type]
+			reimportErr, unreadable := legacyReimportErrors[fixture]
 			if unreadable {
 				Expect(store.Normalize(ctx, db, 0, imported.Config)).Error().
 					To(MatchError(ContainSubstring(reimportErr)))
 			}
 			_, moved := legacySecrets[env.Type]
-			if unreadable || moved || legacyICDs.Contains(env.Type) {
+			if unreadable || moved || legacyStaged.Contains(env.Type) {
 				Expect(store.Normalize(ctx, db, store.Version(), imported.Config)).
 					To(Equal(imported.Config))
 			} else {

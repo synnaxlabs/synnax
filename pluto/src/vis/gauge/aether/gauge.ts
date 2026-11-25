@@ -8,7 +8,17 @@
 // included in the file licenses/APL.txt.
 
 import type { theme } from "@synnaxlabs/lyra/theme";
-import { bounds, box, color, location, notation, scale, text, xy } from "@synnaxlabs/x";
+import {
+  bounds,
+  box,
+  closedBounds,
+  color,
+  location,
+  notation,
+  scale,
+  text,
+  xy,
+} from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -31,7 +41,7 @@ const gaugeState = staleness.stateZ.extend({
   notation: notation.notationZ.default("standard"),
   location: location.xy.default({ x: "left", y: "center" }),
   units: z.string().default(""),
-  bounds: bounds.boundsZ().default(bounds.construct(0, 100)),
+  bounds: closedBounds.closedBoundsZ().default({ lower: 0, upper: 100 }),
   // New gauge configuration properties
   barWidth: z.number().default(12), // Width of the gauge bar in pixels
 });
@@ -172,7 +182,7 @@ export class Gauge
       level: i.textLevel,
       justify: "center",
       weight: 450,
-      code: true,
+      variant: "numeric",
       useAtlas: true,
     });
     draw2d.text({
@@ -182,7 +192,7 @@ export class Gauge
       shade: 8,
       level: text.downLevel(i.textLevel),
       justify: "center",
-      code: true,
+      variant: "numeric",
       useAtlas: true,
     });
 
@@ -193,7 +203,7 @@ export class Gauge
       shade: 7,
       level: i.labelLevel,
       justify: "center",
-      code: true,
+      variant: "numeric",
       useAtlas: true,
     });
 
@@ -204,7 +214,7 @@ export class Gauge
       shade: 7,
       level: i.labelLevel,
       justify: "center",
-      code: true,
+      variant: "numeric",
       useAtlas: true,
     });
 

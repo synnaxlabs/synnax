@@ -754,7 +754,12 @@ describe("Device", async () => {
         });
 
         it("should keep the answer of a fetch that found no status", async () => {
-          const d = await client.devices.create(createNew("no-status-row"));
+          // A rack of its own, as the outage of the shared rack writes the status back.
+          const { key: rack } = await client.racks.create({ name: "no-status-row" });
+          const d = await client.devices.create({
+            ...createNew("no-status-row"),
+            rack,
+          });
           const [st] = await client.statuses.retrieve({
             owners: [device.resourceID(d.key)],
           });
@@ -942,12 +947,11 @@ describe("Device", async () => {
 
       it("should retrieve devices by search term", async () => {
         const sensor1 = testDevices.find((d) => d.name === "sensor1")!;
-        await expect
-          .poll(async () => {
-            const result = await client.devices.retrieve({ searchTerm: "sensor1" });
-            return result.find((d) => d.key === sensor1.key);
-          })
-          .toMatchObject({ name: "sensor1", key: sensor1.key });
+        const result = await client.devices.retrieve({ searchTerm: "sensor1" });
+        expect(result.find((d) => d.key === sensor1.key)).toMatchObject({
+          name: "sensor1",
+          key: sensor1.key,
+        });
       });
 
       it("should page with a limit and a cursor", async () => {

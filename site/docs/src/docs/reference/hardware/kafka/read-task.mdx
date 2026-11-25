@@ -211,13 +211,14 @@ The **Source** of a message sets the timestamps of its samples:
   default.
 - **Payload value** -> a timestamp **Field** of the message: ISO 8601, or Unix time in
   seconds, milliseconds, microseconds, or nanoseconds. The value goes to the index
-  channel of the message.
+  channel that the field binds.
 
 Timestamps in an index channel must increase. A topic with more than one partition can
-deliver records out of time order, so the task skips a record that is not after the last
-timestamp that it wrote and shows a [skip warning](#skipped-of-records). Kafka
-timestamps only count milliseconds, so a record with a Kafka timestamp in the same
-millisecond as the last written timestamp goes 1 ns after it.
+deliver records out of time order. When a timestamp is not after the last one that the
+task wrote to the index channel, the task skips the fields of the record on that index
+channel and shows a [skip warning](#skipped-of-records). Kafka timestamps only count
+milliseconds, so a record with a Kafka timestamp in the same millisecond as the last
+written timestamp goes 1 ns after it.
 
 In code, put the key of the timestamp field in `index` on the read message.
 
@@ -297,8 +298,9 @@ that records the value. The field itself is part of the ICD:
 | Enum mapping <small>`enum_values`</small> | None    | Maps text labels in the record to channel values.         |
 | Default <small>`default`</small>          | None    | Written when the record value has nothing at the pointer. |
 
-All bound channels of a message are on one index channel, and one index channel belongs
-to one message of the task.
+The bound channels of a message can be on more than one index channel. The timestamp
+field stamps only its own index channel, and the other index channels take the Kafka
+timestamp. One index channel belongs to one message of the task.
 
 <Divider.Divider x />
 
@@ -321,7 +323,9 @@ the last one, with its partition and offset:
 - **Record stamped ... is not after the last written** -> the value of a timestamp field
   is older than the last one in the index channel.
 
-The warning clears 5 seconds after the last skip.
+A field that the task cannot read drops only the fields on its index channel, and the
+other fields of the record still write. The warning clears 5 seconds after the last
+skip.
 
 </Problem.Cause>
 <Problem.Fix>
@@ -372,16 +376,16 @@ read all of the messages through one record.
 </Problem.Fix>
 </Problem.Item>
 
-<Problem.Item message={["every channel must share one index channel", "channel ... is also written by ...", "records: ... and ... write to the same ..."]}>
+<Problem.Item message={"channel ... is also written by ..."}>
 <Problem.Cause>
 
-The bound channels of a message use more than one index channel, or two messages of the
-task write to the same channel or to channels on the same index channel.
+Two messages of the task write to the same channel or to channels on the same index
+channel.
 
 </Problem.Cause>
 <Problem.Fix>
 
-Give each message channels on one index channel of its own.
+Give each message its own channels, on index channels that no other message uses.
 
 </Problem.Fix>
 </Problem.Item>

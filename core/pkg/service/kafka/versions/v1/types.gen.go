@@ -17,7 +17,7 @@ import (
 	"reflect"
 	"strconv"
 
-	icd "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v0"
+	icd "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v1"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/kafka/versions/v0"
 	device "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v1"
 	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v4"
@@ -179,6 +179,140 @@ type WriteChannel = v0.WriteChannel
 // Record is the shape of every record a write task produces.
 type Record = v0.Record
 
+// WriteTarget produces the JSON documents of one ICD message as records of a topic.
+type WriteTarget struct {
+	// Key uniquely identifies the target within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Disabled is true when the target is excluded from the task.
+	Disabled bool `json:"disabled" msgpack:"disabled"`
+	// Topic is the topic to produce to.
+	Topic string `json:"topic" msgpack:"topic"`
+	// RecordKey is the key of each record. Empty sends records with no key.
+	RecordKey string `json:"record_key" msgpack:"record_key"`
+	// ICD is the key of the ICD that holds the message.
+	ICD icd.Key `json:"icd" msgpack:"icd"`
+	// Message is the message the target produces. A command on any bound channel
+	// produces one record.
+	Message icd.WriteMessage `json:"message" msgpack:"message"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (w WriteTarget) Validate() error {
+	v := validate.New("WriteTarget")
+	v.Exec(func() error { return validate.PathedError(w.Message.Validate(), "message") })
+	return v.Error()
+}
+
+// InlineWrite holds the channels of a write config from before ICDs.
+type InlineWrite struct {
+	// Topic is the topic of the records.
+	Topic string `json:"topic" msgpack:"topic"`
+	// RecordKey is the source of the key of each record.
+	RecordKey RecordKey `json:"record_key" msgpack:"record_key"`
+	// Record is the shape of every record.
+	Record Record `json:"record" msgpack:"record"`
+	// Channels are the channels whose samples the records held.
+	Channels []WriteChannel `json:"channels" msgpack:"channels"`
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (in *InlineWrite) SetDefaults() {
+	in.Record.SetDefaults()
+	in.RecordKey = RecordKeyChannelName
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (in *InlineWrite) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain InlineWrite
+	if reflect.ValueOf(*in).IsZero() {
+		in.SetDefaults()
+	}
+	return json.UnmarshalDecode(dec, (*plain)(in))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (in *InlineWrite) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain InlineWrite
+	if reflect.ValueOf(*in).IsZero() {
+		in.SetDefaults()
+	}
+	return dec.Decode((*plain)(in))
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (in InlineWrite) Validate() error {
+	v := validate.New("InlineWrite")
+	v.Ternaryf("record_key", !in.RecordKey.IsValid(), "invalid record_key: %v", in.RecordKey)
+	v.Exec(func() error { return validate.PathedError(in.Record.Validate(), "record") })
+	for i := range in.Channels {
+		v.Exec(func() error { return validate.PathedError(in.Channels[i].Validate(), "channels", strconv.Itoa(i)) })
+	}
+	return v.Error()
+}
+
 // WriteConfig configures a Kafka write task, which produces one record per sample of
 // each channel to a topic.
-type WriteConfig = v0.WriteConfig
+type WriteConfig struct {
+	task.StartConfig
+	// Device is the key of the Kafka cluster device to produce to.
+	Device device.Key `json:"device" msgpack:"device"`
+	// Topic is the topic the task produces to.
+	Topic string `json:"topic" msgpack:"topic"`
+	// RecordKey is the source of the key placed on every record.
+	RecordKey RecordKey `json:"record_key" msgpack:"record_key"`
+	// Record is the shape of every record.
+	Record Record `json:"record" msgpack:"record"`
+	// Channels contains the channels whose samples are produced.
+	Channels []WriteChannel `json:"channels" msgpack:"channels"`
+	// Targets contains the topics and ICD messages to produce.
+	Targets []WriteTarget `json:"targets" msgpack:"targets"`
+	// Inline holds the channels of a config from before ICDs. A write moves them into a
+	// new ICD, adds a target for each, and clears it.
+	Inline *InlineWrite `json:"inline,omitzero" msgpack:"inline,omitempty"`
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (w *WriteConfig) SetDefaults() {
+	w.Record.SetDefaults()
+	w.RecordKey = RecordKeyChannelName
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (w *WriteConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain WriteConfig
+	if reflect.ValueOf(*w).IsZero() {
+		w.SetDefaults()
+	}
+	return json.UnmarshalDecode(dec, (*plain)(w))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (w *WriteConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain WriteConfig
+	if reflect.ValueOf(*w).IsZero() {
+		w.SetDefaults()
+	}
+	return dec.Decode((*plain)(w))
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (w WriteConfig) Validate() error {
+	v := validate.New("WriteConfig")
+	v.Ternaryf("record_key", !w.RecordKey.IsValid(), "invalid record_key: %v", w.RecordKey)
+	v.Exec(func() error { return validate.PathedError(w.Record.Validate(), "record") })
+	for i := range w.Channels {
+		v.Exec(func() error { return validate.PathedError(w.Channels[i].Validate(), "channels", strconv.Itoa(i)) })
+	}
+	for i := range w.Targets {
+		v.Exec(func() error { return validate.PathedError(w.Targets[i].Validate(), "targets", strconv.Itoa(i)) })
+	}
+	if w.Inline != nil {
+		v.Exec(func() error { return validate.PathedError(w.Inline.Validate(), "inline") })
+	}
+	return v.Error()
+}

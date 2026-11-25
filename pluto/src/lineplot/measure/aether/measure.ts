@@ -22,9 +22,9 @@ import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { theming } from "@/theming/aether";
-import { formatRelativeTime } from "@/vis/axis/relative";
+import { axis } from "@/vis/axis";
 import { Draw2D } from "@/vis/draw2d";
-import type { FindResult } from "@/vis/line/aether/line";
+import type { line } from "@/vis/line/aether";
 import { render } from "@/vis/render";
 
 export const modeZ = z.enum(["one", "two"]);
@@ -135,10 +135,10 @@ const POINT_LABEL_SPACING = 8;
 const TIME_FORMAT_THRESHOLD = TimeSpan.milliseconds(10);
 
 export interface MeasureProps {
-  findByXDecimal: (target: number) => FindResult[];
-  findByXValue: (target: number) => FindResult[];
+  findByXDecimal: (target: number) => line.FindResult[];
+  findByXValue: (target: number) => line.FindResult[];
   /** @returns true when a closed break lies between the points one and two. */
-  closedBetween: (one: FindResult, two: FindResult) => boolean;
+  closedBetween: (one: line.FindResult, two: line.FindResult) => boolean;
   region: box.Box;
 }
 
@@ -186,7 +186,7 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
     cachedData: xy.XY | null,
     cachedClick: xy.XY | null,
     s: scale.XY,
-  ): FindResult | null {
+  ): line.FindResult | null {
     const clickChanged = cachedClick != null && !xy.equals(clickPos, cachedClick);
 
     if (cachedData != null && !clickChanged) {
@@ -212,7 +212,7 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
     )[0];
   }
 
-  private find(props: MeasureProps): [FindResult, FindResult] | null {
+  private find(props: MeasureProps): [line.FindResult, line.FindResult] | null {
     const { one, two } = this.state;
     if (one == null || two == null) return null;
     const { dataOne, dataTwo, clickOne, clickTwo } = this.internal;
@@ -271,7 +271,7 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
       position: xy.translate(box.topRight(region), [-padding.x - 1, padding.y - 1]),
       level: "small",
       justify: "right",
-      code: true,
+      variant: "numeric",
       shade: 10,
     });
   }
@@ -374,7 +374,7 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
       ]),
       level: "small",
       justify: "right",
-      code: true,
+      variant: "numeric",
       shade: 10,
     });
   }
@@ -385,7 +385,7 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
     const { draw, theme } = this.internal;
     const ts = new TimeStamp(value.x);
     const xValue = this.state.relative
-      ? formatRelativeTime(value.x, Number(TimeSpan.MILLISECOND.valueOf()))
+      ? axis.formatRelativeTime(value.x, Number(TimeSpan.MILLISECOND.valueOf()))
       : ts.toString(ts.formatBySpan(xDist), "local");
     const yValue = `${math.smartRound(value.y, bounds)} ${units ?? ""}`;
 

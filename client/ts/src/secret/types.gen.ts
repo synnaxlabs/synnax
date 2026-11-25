@@ -40,7 +40,7 @@ export const baseZ = z.object({
   /** key is the unique identifier for this secret. */
   key: keyZ.default(uuid.create),
   /** name is a human-readable name for the secret. */
-  name: z.string().min(1, "name is required"),
+  name: z.string().min(1, "Name is required"),
   /** updated is when the value or file name of the secret last changed. */
   updated: telem.timeStampZ,
   /**
@@ -110,7 +110,7 @@ export const fileSecretZ = baseZ.extend({
   /** fileName is the name of the file in the secrets folder of the rack. */
   fileName: z.string(),
   /** rack is the rack that reads the file. */
-  rack: rack.keyZ.refine((v) => v !== 0, "rack is required"),
+  rack: rack.keyZ.refine((v) => v !== 0, "Rack is required"),
 });
 export interface FileSecret extends z.infer<typeof fileSecretZ> {}
 

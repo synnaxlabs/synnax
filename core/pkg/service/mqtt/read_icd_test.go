@@ -28,6 +28,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/telem/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -146,9 +147,9 @@ var _ = Describe("Read task ICD messages", func() {
 			Eventually(func() int64 { return stored(ctx, data[0]).Len() }).
 				Should(BeEquivalentTo(1))
 			Expect(stored(ctx, data[0])).
-				To(telem.MatchSeriesData(telem.NewSeriesV(21.5)))
+				To(MatchSeriesData(telem.NewSeriesV(21.5)))
 			Expect(stored(ctx, data[1])).
-				To(telem.MatchSeriesData(telem.NewSeriesV("run")))
+				To(MatchSeriesData(telem.NewSeriesV("run")))
 			stamp := stored(ctx, idx).ValueAt[telem.TimeStamp](0)
 			Expect(stamp).To(BeNumerically(">=", before))
 			Expect(taskStatus(ctx, t).Variant).To(Equal(status.VariantSuccess))
@@ -200,13 +201,13 @@ var _ = Describe("Read task ICD messages", func() {
 			Eventually(func() int64 { return stored(ctx, eventData[0]).Len() }).
 				Should(BeEquivalentTo(1))
 			Expect(stored(ctx, statusData[0])).
-				To(telem.MatchSeriesData(telem.NewSeriesV(20.0)))
+				To(MatchSeriesData(telem.NewSeriesV(20.0)))
 			Expect(stored(ctx, eventData[0])).
-				To(telem.MatchSeriesData(telem.NewSeriesV(7.0)))
+				To(MatchSeriesData(telem.NewSeriesV(7.0)))
 			Expect(stored(ctx, statusIdx)).
-				To(telem.MatchSeriesData(telem.NewSeriesV(telem.SecondTS)))
+				To(MatchSeriesData(telem.NewSeriesV(telem.SecondTS)))
 			Expect(stored(ctx, eventIdx)).
-				To(telem.MatchSeriesData(telem.NewSeriesV(2 * telem.SecondTS)))
+				To(MatchSeriesData(telem.NewSeriesV(2 * telem.SecondTS)))
 		},
 	)
 
@@ -264,6 +265,51 @@ var _ = Describe("Read task ICD messages", func() {
 		},
 	)
 
+	// twoIndexes returns a message whose index field ts stamps temp, and whose field
+	// level is on a second index channel, and the config that reads it on plant/status.
+	twoIndexes := func(ctx context.Context) (
+		cfg msgpack.EncodedJSON,
+		stamped, temp, arrived, level channel.Channel,
+	) {
+		GinkgoHelper()
+		m := jsonMessage("Status", nil,
+			jsonField("ts", "/ts", icd.TimestampJSONField{
+				TimeFormat: payload.TimeFormatUnixSec,
+			}),
+			jsonField("temp", "/temp", icd.FloatJSONField{}),
+			jsonField("level", "/level", icd.FloatJSONField{}),
+		)
+		ic := createICD(ctx, m)
+		stamped, temps := createIndexed(ctx, telem.Float64T)
+		arrived, levels := createIndexed(ctx, telem.Float64T)
+		read := readMessage(
+			m,
+			binding(m, 0, stamped),
+			binding(m, 1, temps[0]),
+			binding(m, 2, levels[0]),
+		)
+		read["index"] = fieldKey(m, 0)
+		cfg = readConfig(ctx, dev, icdEntry("plant/status", ic, read))
+		return cfg, stamped, temps[0], arrived, levels[0]
+	}
+
+	It("Should write a message whose channels are on two index channels",
+		func(ctx SpecContext) {
+			cfg, stamped, temp, arrived, level := twoIndexes(ctx)
+			before := telem.Now()
+			start(ctx, cfg)
+			broker.publish("plant/status", `{"ts":1,"temp":20,"level":2.5}`, false)
+			Eventually(func() int64 { return stored(ctx, level).Len() }).
+				Should(BeEquivalentTo(1))
+			Expect(stored(ctx, temp)).To(MatchSeriesData(telem.NewSeriesV(20.0)))
+			Expect(stored(ctx, stamped)).
+				To(MatchSeriesData(telem.NewSeriesV(telem.SecondTS)))
+			Expect(stored(ctx, level)).To(MatchSeriesData(telem.NewSeriesV(2.5)))
+			Expect(stored(ctx, arrived).ValueAt[telem.TimeStamp](0)).
+				To(BeNumerically(">=", before))
+		},
+	)
+
 	It("Should use a field's default when a document has no value",
 		func(ctx SpecContext) {
 			fallback := payload.Float(-1)
@@ -279,7 +325,7 @@ var _ = Describe("Read task ICD messages", func() {
 			Eventually(func() int64 { return stored(ctx, data[0]).Len() }).
 				Should(BeEquivalentTo(1))
 			Expect(stored(ctx, data[0])).
-				To(telem.MatchSeriesData(telem.NewSeriesV(-1.0)))
+				To(MatchSeriesData(telem.NewSeriesV(-1.0)))
 		},
 	)
 
@@ -317,7 +363,62 @@ var _ = Describe("Read task ICD messages", func() {
 				Eventually(func() int64 { return stored(ctx, data[0]).Len() }).
 					Should(BeEquivalentTo(1))
 				Expect(stored(ctx, data[0])).
-					To(telem.MatchSeriesData(telem.NewSeriesV(2.0)))
+					To(MatchSeriesData(telem.NewSeriesV(2.0)))
+			},
+		)
+
+		It("Should still write the other index channel of a field that does not decode",
+			func(ctx SpecContext) {
+				cfg, stamped, temp, arrived, level := twoIndexes(ctx)
+				t := start(ctx, cfg)
+				broker.publish(
+					"plant/status", `{"ts":1,"temp":"hot","level":2.5}`, false,
+				)
+				Eventually(func() int64 { return stored(ctx, level).Len() }).
+					Should(BeEquivalentTo(1))
+				warned(ctx, t, "Message on topic plant/status: field temp: "+
+					`invalid number "hot": validation error`,
+				)
+				Expect(stored(ctx, level)).
+					To(MatchSeriesData(telem.NewSeriesV(2.5)))
+				Expect(stored(ctx, arrived).Len()).To(BeEquivalentTo(1))
+				Expect(stored(ctx, temp).Len()).To(BeZero())
+				Expect(stored(ctx, stamped).Len()).To(BeZero())
+			},
+		)
+
+		It("Should write nothing of a message whose timestamp is not after the last",
+			func(ctx SpecContext) {
+				cfg, stamped, temp, arrived, level := twoIndexes(ctx)
+				t := start(ctx, cfg)
+				// A QoS 1 redelivery repeats the message.
+				broker.publish("plant/status", `{"ts":2,"temp":20,"level":2.5}`, false)
+				broker.publish("plant/status", `{"ts":2,"temp":20,"level":2.5}`, false)
+				Eventually(func(g Gomega) {
+					stat := taskStatus(ctx, t)
+					g.Expect(stat.Message).To(Equal("Skipped 1 of 2 messages"))
+					g.Expect(stat.Description).To(Equal(
+						"Message on topic plant/status: its timestamp is not after " +
+							"the last one written",
+					))
+				}).Should(Succeed())
+				// The writer stores in order, so a repeat would land before this one.
+				broker.publish("plant/status", `{"ts":3,"temp":21,"level":3.5}`, false)
+				Eventually(func(g Gomega) {
+					g.Expect(stored(ctx, level)).
+						To(MatchSeriesData(telem.NewSeriesV(2.5, 3.5)))
+				}).Should(Succeed())
+				Eventually(func(g Gomega) {
+					g.Expect(stored(ctx, temp)).
+						To(MatchSeriesData(telem.NewSeriesV(20.0, 21.0)))
+				}).Should(Succeed())
+				Eventually(func(g Gomega) {
+					g.Expect(stored(ctx, stamped)).To(MatchSeriesData(
+						telem.NewSeriesV(2*telem.SecondTS, 3*telem.SecondTS),
+					))
+				}).Should(Succeed())
+				Eventually(func() int64 { return stored(ctx, arrived).Len() }).
+					Should(BeEquivalentTo(2))
 			},
 		)
 
@@ -348,12 +449,14 @@ var _ = Describe("Read task ICD messages", func() {
 		}
 
 		// format is an ICD of a Status message with a timestamp and two floats and an
-		// Event message with one float, and channels on two indexes to bind them to.
+		// Event message with one float, and channels on three indexes to bind them to.
 		type format struct {
 			m, n       icd.Message
 			ic         icd.ICD
 			idx, other channel.Channel
 			data       []channel.Channel
+			// stamp is a data channel of timestamps.
+			stamp channel.Channel
 		}
 
 		createFormat := func(ctx context.Context) format {
@@ -373,6 +476,7 @@ var _ = Describe("Read task ICD messages", func() {
 			)
 			idx, data := createIndexed(ctx, telem.Float64T, telem.Float64T)
 			_, other := createIndexed(ctx, telem.Float64T)
+			_, stamps := createIndexed(ctx, telem.TimestampT)
 			return format{
 				m:     m,
 				n:     n,
@@ -380,6 +484,7 @@ var _ = Describe("Read task ICD messages", func() {
 				idx:   idx,
 				other: other[0],
 				data:  data,
+				stamp: stamps[0],
 			}
 		}
 
@@ -418,48 +523,81 @@ var _ = Describe("Read task ICD messages", func() {
 				missing := map[string]any{"field": fieldKey(f.m, 1), "channel": 1 << 30}
 				return status(f, readMessage(f.m, missing))
 			}, "message Status: channel 1073741824 does not exist"),
-			Entry("channels on two indexes", func(f format) []map[string]any {
-				return status(f, readMessage(
-					f.m, binding(f.m, 1, f.data[0]), binding(f.m, 2, f.other),
-				))
-			}, "every channel must share one index channel"),
 			Entry("an index field on a data channel", func(f format) []map[string]any {
-				read := readMessage(f.m, binding(f.m, 0, f.data[0]))
+				read := readMessage(f.m, binding(f.m, 0, f.stamp))
 				read["index"] = fieldKey(f.m, 0)
 				return status(f, read)
-			}, "the index field must write to an index channel"),
+			}, "the index field ts must write to an index channel"),
 			Entry("a data field on an index channel", func(f format) []map[string]any {
-				return status(f, readMessage(f.m, binding(f.m, 1, f.idx)))
-			}, "only the index field can write to an index channel"),
-			Entry("an index field with no channel", func(f format) []map[string]any {
+				return status(f, readMessage(f.m, binding(f.m, 0, f.idx)))
+			}, "field ts cannot write to index channel"),
+			Entry("an index field with no binding", func(f format) []map[string]any {
 				read := readMessage(f.m, binding(f.m, 1, f.data[0]))
 				read["index"] = fieldKey(f.m, 0)
 				return status(f, read)
-			}, "the index field has no channel"),
+			}, "the index field ts has no binding"),
 			Entry("only disabled entries", func(f format) []map[string]any {
 				list := status(f, readMessage(f.m, binding(f.m, 1, f.data[0])))
 				list[0]["disabled"] = true
 				return list
 			}, "the task has no enabled entries"),
 			Entry("a topic read twice", func(f format) []map[string]any {
-				read := readMessage(f.m, binding(f.m, 1, f.data[0]))
-				second := icdEntry("plant/status", f.ic, read)
+				second := icdEntry(
+					"plant/status", f.ic, readMessage(f.m, binding(f.m, 2, f.other)),
+				)
 				second["key"] = "second"
-				return append(status(f, read), second)
+				return append(
+					status(f, readMessage(f.m, binding(f.m, 1, f.data[0]))), second,
+				)
 			}, "topic plant/status appears more than once"),
-			Entry("two topics on one channel", func(f format) []map[string]any {
-				read := readMessage(f.m, binding(f.m, 1, f.data[0]))
-				return []map[string]any{
-					icdEntry("plant/a", f.ic, read), icdEntry("plant/b", f.ic, read),
+		)
+
+		It("Should reject two topics on one channel", func(ctx SpecContext) {
+			f := createFormat(ctx)
+			read := readMessage(f.m, binding(f.m, 1, f.data[0]))
+			cfg := readConfig(
+				ctx, dev,
+				icdEntry("plant/a", f.ic, read), icdEntry("plant/b", f.ic, read),
+			)
+			Expect(configureErr(ctx, cfg)).To(MatchError(ContainSubstring(fmt.Sprintf(
+				"entries.1.messages.0.bindings.0.channel: channel %d is also written "+
+					"by entries.0.messages.0.bindings.0.channel",
+				f.data[0].Key(),
+			))))
+		})
+
+		It("Should save two messages on one index, then refuse to configure them",
+			func(ctx SpecContext) {
+				f := createFormat(ctx)
+				t := task.Task{
+					Name: "Plant",
+					Type: mqtt.ReadTaskType,
+					Rack: rackKey,
+					Config: readConfig(ctx, dev, icdEntry(
+						"plant/status", f.ic,
+						readMessage(f.m, binding(f.m, 1, f.data[0])),
+						readMessage(f.n, binding(f.n, 0, f.data[1])),
+					)),
 				}
-			}, "write to the same channel"),
-			Entry("two messages on one index", func(f format) []map[string]any {
-				return []map[string]any{icdEntry(
-					"plant/status", f.ic,
-					readMessage(f.m, binding(f.m, 1, f.data[0])),
-					readMessage(f.n, binding(f.n, 0, f.data[1])),
-				)}
-			}, "write to the same channel"),
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return taskSvc.NewWriter(tx).Create(ctx, &t)
+				})).To(Succeed())
+				DeferCleanup(func(ctx SpecContext) {
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return taskSvc.NewWriter(tx).Delete(ctx, t.Key, true)
+					})).To(Succeed())
+				})
+				Expect(
+					factory.ConfigureTask(ctx, t, "configure"),
+				).Error().
+					To(MatchError(
+						ContainSubstring(fmt.Sprintf(
+							"entries.0.messages.1: channel %d is also written by "+
+								"entries.0.messages.0",
+							f.idx.Key(),
+						)),
+					))
+			},
 		)
 
 		It("Should reject an ICD that does not exist", func(ctx SpecContext) {
@@ -489,9 +627,11 @@ var _ = Describe("Read task ICD messages", func() {
 				)
 				Expect(configureErr(ctx, readConfig(ctx, dev, entry))).To(SatisfyAll(
 					MatchError(validate.ErrValidation),
-					MatchError(ContainSubstring(
-						"cannot write string values to float64 channels",
-					)),
+					MatchError(ContainSubstring(fmt.Sprintf(
+						"field state of kind string cannot read into channel %s of "+
+							"data type float64",
+						data[0].Name,
+					))),
 				))
 			},
 		)

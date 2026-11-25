@@ -87,6 +87,9 @@ public:
     [[nodiscard]] std::string to_string() const;
 };
 
+/// @brief returns v as a Number, or nothing when v is not numeric.
+std::optional<Number> to_number(const telem::SampleValue &v);
+
 /// @brief parses text, which Number::parse accepts, as the nearest double. It keeps no
 /// copy of text, so it allocates only for text of 64 characters or more.
 /// @returns VALIDATION when text is not a decimal number, or is past the range of a

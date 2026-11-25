@@ -13,10 +13,9 @@ import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { telem } from "@/telem/aether";
-import { noopColorSourceSpec } from "@/telem/aether/noop";
 import { theming } from "@/theming/aether";
-import type { Element } from "@/vis/diagram/aether/Diagram";
-import type { FillTextOptions } from "@/vis/draw2d/canvas";
+import type { diagram } from "@/vis/diagram/aether";
+import type { FillTextOptions } from "@/vis/draw2d";
 import { render } from "@/vis/render";
 import { staleness } from "@/vis/staleness/aether";
 
@@ -25,6 +24,8 @@ const FILL_TEXT_OPTIONS: FillTextOptions = { useAtlas: true };
 // Below this contrast against the background a color is illegible and gets swapped for
 // a legible gray.
 const MIN_LEGIBLE_CONTRAST = 1.5;
+
+const NOOP_COLOR_SOURCE_TYPE = telem.noopColorSourceSpec.type;
 
 const valueState = staleness.stateZ.extend({
   // stalenessColor is the text color while the value is stale. Absent, the text keeps
@@ -73,7 +74,7 @@ interface InternalState {
 
 export class Value
   extends aether.Leaf<typeof valueState, InternalState>
-  implements Element
+  implements diagram.Element
 {
   static readonly TYPE = "value";
   static readonly z = valueState;
@@ -93,7 +94,10 @@ export class Value
       i.staleness.received();
       this.requestRender();
     });
-    i.fontString = theme.fontString(i.theme, { level: this.state.level, code: true });
+    i.fontString = theme.fontString(i.theme, {
+      level: this.state.level,
+      variant: "numeric",
+    });
     i.backgroundTelem = telem.useSource(
       ctx,
       this.state.backgroundTelem,
@@ -196,7 +200,7 @@ export class Value
       ? canvas.scissor(b, xy.ZERO, this.state.borderRadius)
       : null;
     try {
-      if (this.state.backgroundTelem.type != noopColorSourceSpec.type) {
+      if (this.state.backgroundTelem.type != NOOP_COLOR_SOURCE_TYPE) {
         canvas.fillStyle = color.hex(backgroundTelem.value().data);
         const width = this.state.useWidthForBackground
           ? (this.state.width ?? this.state.minWidth)

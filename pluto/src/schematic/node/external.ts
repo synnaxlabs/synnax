@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+export * from "@/schematic/node/builtIns";
 export * from "@/schematic/node/common/border";
 export * from "@/schematic/node/common/control";
 export * from "@/schematic/node/common/custom";
 export * from "@/schematic/node/common/form";
 export * from "@/schematic/node/common/grid";
-export { DRAG_HANDLE_CLASS } from "@/schematic/node/common/grid/Grid";
 export * from "@/schematic/node/common/handle";
 export * from "@/schematic/node/common/label";
 export * from "@/schematic/node/common/options";

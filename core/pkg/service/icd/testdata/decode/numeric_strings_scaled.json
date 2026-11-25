@@ -1,5 +1,5 @@
 {
-  "description": "A scaled field scales a number in a string, and maps an enum label to its value with no scale.",
+  "description": "A scaled field scales a number in a string, keeps NaN and infinity, and maps an enum label to its value with no scale.",
   "messages": [
     {
       "name": "reading",
@@ -52,6 +52,27 @@
       },
       "message": "reading",
       "samples": [100]
+    },
+    {
+      "document": {
+        "v": "NaN"
+      },
+      "message": "reading",
+      "samples": ["NaN"]
+    },
+    {
+      "document": {
+        "v": "Infinity"
+      },
+      "message": "reading",
+      "samples": ["Infinity"]
+    },
+    {
+      "document": {
+        "v": "-inf"
+      },
+      "message": "reading",
+      "samples": ["-Infinity"]
     },
     {
       "document": {

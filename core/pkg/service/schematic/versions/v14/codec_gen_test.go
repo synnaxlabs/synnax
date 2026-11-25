@@ -114,7 +114,7 @@ var (
 		Precision:        new(uint8(4)),
 		Notation:         notation.Notation("standard"),
 		StalenessTimeout: telem.TimeSpan(6),
-		Bounds:           spatial.Bounds{Lower: 7.5, Upper: 8.5},
+		Bounds:           spatial.ClosedBounds{Lower: 7.5, Upper: 8.5},
 		LevelColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
 			Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780a"),
 		}}),
@@ -420,7 +420,7 @@ var _ = Describe("Codec", func() {
 				StrokeColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
 					Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805"),
 				}}),
-				Bounds:   spatial.Bounds{Lower: 7.5, Upper: 8.5},
+				Bounds:   spatial.ClosedBounds{Lower: 7.5, Upper: 8.5},
 				BarWidth: 10,
 				Location: spatial.LocationXY{
 					X: spatial.XCenterLocation("left"),
@@ -508,28 +508,15 @@ var _ = Describe("Codec", func() {
 				FillColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
 					Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805"),
 				}}),
-				InlineSize: 7,
-				Options: []v14.StateMapping{
-					{
-						Key:   "test_8",
-						Name:  "test_9",
-						Value: 10.5,
-						Color: new(xcolor.Color{
-							R: 13,
-							G: 14,
-							B: 15,
-							A: 16,
-						}),
-					},
-				},
-				Enumeration:  new(enumeration.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567810"))),
-				Disabled:     true,
-				OnClickDelay: telem.TimeSpan(19),
+				Enumeration:  new(enumeration.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"))),
+				InlineSize:   8,
+				Disabled:     false,
+				OnClickDelay: telem.TimeSpan(10),
 				Control: v14.ControlStateConfig{
-					Authority:       new(uint8(21)),
-					Hidden:          true,
-					ChipHidden:      false,
-					IndicatorHidden: true,
+					Authority:       new(uint8(12)),
+					Hidden:          false,
+					ChipHidden:      true,
+					IndicatorHidden: false,
 					Orientation:     spatial.Location("top"),
 				},
 			}}),
@@ -568,21 +555,8 @@ var _ = Describe("Codec", func() {
 				StrokeColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
 					Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567803"),
 				}}),
-				InlineSize: 5,
-				Options: []v14.StateMapping{
-					{
-						Key:   "test_6",
-						Name:  "test_7",
-						Value: 8.5,
-						Color: new(xcolor.Color{
-							R: 11,
-							G: 12,
-							B: 13,
-							A: 14,
-						}),
-					},
-				},
-				Enumeration: new(enumeration.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780e"))),
+				Enumeration: new(enumeration.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"))),
+				InlineSize:  6,
 				Size:        v14.ComponentSize("tiny"),
 			}}),
 			Entry("string_display variant", v14.NodeConfig{Variant: v14.StringDisplayNodeConfig{
@@ -800,7 +774,7 @@ var _ = Describe("Codec", func() {
 				Precision:        new(uint8(4)),
 				Notation:         notation.Notation("standard"),
 				StalenessTimeout: telem.TimeSpan(6),
-				Bounds:           spatial.Bounds{Lower: 7.5, Upper: 8.5},
+				Bounds:           spatial.ClosedBounds{Lower: 7.5, Upper: 8.5},
 				LevelColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
 					Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780a"),
 				}}),
@@ -893,7 +867,7 @@ var _ = Describe("Codec", func() {
 						Source:      new(v14.Source{Variant: v14.ChannelSource{Key: new(channel.Key(15)), Command: new(channel.Key(16))}}),
 						Enumeration: new(enumeration.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567810"))),
 						Match:       new(symbol.Matcher{Variant: symbol.ExactMatcher{}}),
-						Bounds:      new(spatial.Bounds{Lower: 19.5, Upper: 20.5}),
+						Bounds:      new(spatial.ClosedBounds{Lower: 19.5, Upper: 20.5}),
 						Default:     new(float64(21.5)),
 					},
 				},
@@ -926,7 +900,7 @@ var _ = Describe("Codec", func() {
 				Precision:        nil,
 				Notation:         notation.Notation(""),
 				StalenessTimeout: telem.TimeSpan(0),
-				Bounds:           spatial.Bounds{Lower: 0, Upper: 0},
+				Bounds:           spatial.ClosedBounds{Lower: 0, Upper: 0},
 				LevelColor:       nil,
 				AxisColor:        nil,
 				TextColor:        nil,
@@ -1067,7 +1041,7 @@ var _ = Describe("Codec", func() {
 				Source:      new(v14.Source{Variant: v14.ChannelSource{Key: new(channel.Key(7)), Command: new(channel.Key(8))}}),
 				Enumeration: new(enumeration.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"))),
 				Match:       new(symbol.Matcher{Variant: symbol.ExactMatcher{}}),
-				Bounds:      new(spatial.Bounds{Lower: 11.5, Upper: 12.5}),
+				Bounds:      new(spatial.ClosedBounds{Lower: 11.5, Upper: 12.5}),
 				Default:     new(float64(13.5)),
 			}),
 			Entry("zero values", v14.StateBinding{
@@ -1393,7 +1367,7 @@ func BenchmarkEncodeDecodeStateBinding(b *testing.B) {
 		Source:      new(v14.Source{Variant: v14.ChannelSource{Key: new(channel.Key(7)), Command: new(channel.Key(8))}}),
 		Enumeration: new(enumeration.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"))),
 		Match:       new(symbol.Matcher{Variant: symbol.ExactMatcher{}}),
-		Bounds:      new(spatial.Bounds{Lower: 11.5, Upper: 12.5}),
+		Bounds:      new(spatial.ClosedBounds{Lower: 11.5, Upper: 12.5}),
 		Default:     new(float64(13.5)),
 	}
 	w := orc.NewWriter(0)
@@ -2029,7 +2003,7 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 			StrokeColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
 				Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805"),
 			}}),
-			Bounds:   spatial.Bounds{Lower: 7.5, Upper: 8.5},
+			Bounds:   spatial.ClosedBounds{Lower: 7.5, Upper: 8.5},
 			BarWidth: 10,
 			Location: spatial.LocationXY{
 				X: spatial.XCenterLocation("left"),
@@ -2159,28 +2133,15 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 			FillColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
 				Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805"),
 			}}),
-			InlineSize: 7,
-			Options: []v14.StateMapping{
-				{
-					Key:   "test_8",
-					Name:  "test_9",
-					Value: 10.5,
-					Color: new(xcolor.Color{
-						R: 13,
-						G: 14,
-						B: 15,
-						A: 16,
-					}),
-				},
-			},
-			Enumeration:  new(enumeration.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567810"))),
-			Disabled:     true,
-			OnClickDelay: telem.TimeSpan(19),
+			Enumeration:  new(enumeration.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"))),
+			InlineSize:   8,
+			Disabled:     false,
+			OnClickDelay: telem.TimeSpan(10),
 			Control: v14.ControlStateConfig{
-				Authority:       new(uint8(21)),
-				Hidden:          true,
-				ChipHidden:      false,
-				IndicatorHidden: true,
+				Authority:       new(uint8(12)),
+				Hidden:          false,
+				ChipHidden:      true,
+				IndicatorHidden: false,
 				Orientation:     spatial.Location("top"),
 			},
 		}}
@@ -2240,21 +2201,8 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 			StrokeColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
 				Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567803"),
 			}}),
-			InlineSize: 5,
-			Options: []v14.StateMapping{
-				{
-					Key:   "test_6",
-					Name:  "test_7",
-					Value: 8.5,
-					Color: new(xcolor.Color{
-						R: 11,
-						G: 12,
-						B: 13,
-						A: 14,
-					}),
-				},
-			},
-			Enumeration: new(enumeration.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780e"))),
+			Enumeration: new(enumeration.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"))),
+			InlineSize:  6,
 			Size:        v14.ComponentSize("tiny"),
 		}}
 		w := orc.NewWriter(0)
@@ -2906,7 +2854,7 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 			Precision:        new(uint8(4)),
 			Notation:         notation.Notation("standard"),
 			StalenessTimeout: telem.TimeSpan(6),
-			Bounds:           spatial.Bounds{Lower: 7.5, Upper: 8.5},
+			Bounds:           spatial.ClosedBounds{Lower: 7.5, Upper: 8.5},
 			LevelColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
 				Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780a"),
 			}}),
@@ -3034,7 +2982,7 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 					Source:      new(v14.Source{Variant: v14.ChannelSource{Key: new(channel.Key(15)), Command: new(channel.Key(16))}}),
 					Enumeration: new(enumeration.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567810"))),
 					Match:       new(symbol.Matcher{Variant: symbol.ExactMatcher{}}),
-					Bounds:      new(spatial.Bounds{Lower: 19.5, Upper: 20.5}),
+					Bounds:      new(spatial.ClosedBounds{Lower: 19.5, Upper: 20.5}),
 					Default:     new(float64(21.5)),
 				},
 			},
@@ -3091,7 +3039,7 @@ func FuzzDecodeScaleIndicatorConfig(f *testing.F) {
 			Precision:        nil,
 			Notation:         notation.Notation(""),
 			StalenessTimeout: telem.TimeSpan(0),
-			Bounds:           spatial.Bounds{Lower: 0, Upper: 0},
+			Bounds:           spatial.ClosedBounds{Lower: 0, Upper: 0},
 			LevelColor:       nil,
 			AxisColor:        nil,
 			TextColor:        nil,
@@ -3359,7 +3307,7 @@ func FuzzDecodeStateBinding(f *testing.F) {
 			Source:      new(v14.Source{Variant: v14.ChannelSource{Key: new(channel.Key(7)), Command: new(channel.Key(8))}}),
 			Enumeration: new(enumeration.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"))),
 			Match:       new(symbol.Matcher{Variant: symbol.ExactMatcher{}}),
-			Bounds:      new(spatial.Bounds{Lower: 11.5, Upper: 12.5}),
+			Bounds:      new(spatial.ClosedBounds{Lower: 11.5, Upper: 12.5}),
 			Default:     new(float64(13.5)),
 		}
 		w := orc.NewWriter(0)

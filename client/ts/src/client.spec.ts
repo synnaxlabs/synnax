@@ -8,7 +8,16 @@
 // included in the file licenses/APL.txt.
 
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { createServer as createHTTPServer } from "node:http";
 import { createServer, type Server } from "node:https";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
@@ -32,6 +41,7 @@ import { z } from "zod";
 
 import type { connection } from "@/connection";
 import {
+  APIKeyUnavailableError,
   DisconnectedError,
   InvalidCredentialsError,
   Synnax,
@@ -42,6 +52,7 @@ import {
   createTestClient,
   createTestClientWithPolicy,
   TEST_CREDENTIALS,
+  testCoreAddress,
 } from "@/testutil";
 import { Transport } from "@/transport";
 
@@ -74,7 +85,6 @@ describe("constructor", () => {
     expect(client.params).toMatchObject({
       host: "core.env",
       port: 9091,
-      apiKey: "syk_env",
       secure: true,
     });
     await client.close();
@@ -85,7 +95,6 @@ describe("constructor", () => {
     expect(client.params).toMatchObject({
       host: "rig",
       port: 1,
-      apiKey: "syk_env",
       secure: true,
     });
     await client.close();
@@ -96,12 +105,114 @@ describe("constructor", () => {
     const home = mkdtempSync(join(tmpdir(), "synnax-home-"));
     vi.stubEnv("HOME", home);
     vi.stubEnv("USERPROFILE", home);
+    vi.stubEnv("LOCALAPPDATA", join(home, "AppData", "Local"));
+    vi.stubEnv("XDG_CONFIG_HOME", join(home, ".config"));
     try {
       expect(() => new Synnax()).toThrow(ValidationError);
       expect(() => new Synnax()).toThrow(/^give a host, or set SYNNAX_HOST$/);
     } finally {
       rmSync(home, { recursive: true });
     }
+  });
+});
+
+describe.skipIf(process.platform === "win32")("constructor with Synnax Desktop", () => {
+  let home: string;
+
+  beforeEach(() => {
+    home = mkdtempSync(join(tmpdir(), "synnax-home-"));
+    vi.stubEnv("SYNNAX_HOST", "");
+    vi.stubEnv("SYNNAX_API_KEY", "");
+    vi.stubEnv("HOME", home);
+    vi.stubEnv("XDG_CONFIG_HOME", join(home, ".config"));
+    mkdirSync(join(home, ".synnax"));
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    rmSync(home, { recursive: true });
+  });
+
+  // Saves a desktop.json for the Core at the address, with a helper that runs script.
+  const writeDesktop = (
+    script: string | null,
+    { host, port }: { host: string; port: number } = { host: "127.0.0.1", port: 1 },
+  ): void => {
+    const helper = join(home, "synnax-desktop-key");
+    if (script != null) {
+      writeFileSync(helper, `#!/bin/sh\n${script}\n`);
+      chmodSync(helper, 0o755);
+    }
+    writeFileSync(
+      join(home, ".synnax", "desktop.json"),
+      JSON.stringify({ host, port, secure: false, api_key_helper: helper }),
+    );
+  };
+
+  const createClient = (): Synnax =>
+    new Synnax({ retry: FAST_RETRY, onRetry: () => {}, onInternalError: () => {} });
+
+  it("should run the key helper without blocking other tasks", async () => {
+    const started = join(home, "started");
+    writeDesktop(`touch ${started}\nsleep 1\necho syk_slow`);
+    const start = performance.now();
+    const client = createClient();
+    expect(performance.now() - start).toBeLessThan(500);
+    let ticks = 0;
+    const timer = setInterval(() => (ticks += 1), 10);
+    const request = client.channels.retrieve("ch").catch(() => {});
+    await expect.poll(() => existsSync(started)).toBe(true);
+    const before = ticks;
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    clearInterval(timer);
+    expect(ticks).toBeGreaterThan(before);
+    await request;
+    await client.close();
+  });
+
+  it("should reject the first request with the error of the helper", async () => {
+    writeDesktop("echo 'no keychain' >&2\nexit 1", testCoreAddress());
+    const client = createClient();
+    await expect(client.channels.retrieve("ch")).rejects.toThrow(
+      new APIKeyUnavailableError("no keychain"),
+    );
+    await expect.poll(() => reasonOf(client.connection.status)).toEqual("auth");
+    await client.close();
+  });
+
+  it("should connect once the helper gives a key after it failed", async () => {
+    const owner = createTestClient();
+    const { token, key } = await owner.auth.apiKeys.create({ name: "desktop" });
+    const ready = join(home, "ready");
+    writeDesktop(`[ -f ${ready} ] || exit 1\necho ${token}`, testCoreAddress());
+    const client = createClient();
+    await expect(client.connect()).rejects.toThrow(APIKeyUnavailableError);
+    writeFileSync(ready, "");
+    await expect(client.connect()).resolves.toBeDefined();
+    await client.close();
+    await owner.auth.apiKeys.delete(key.key);
+  });
+
+  it("should tell the user to open Synnax Desktop when its helper is gone", async () => {
+    writeDesktop(null);
+    const client = createClient();
+    await expect(client.channels.retrieve("ch")).rejects.toThrow(
+      "Synnax Desktop is not running. Open it and try again.",
+    );
+    await client.close();
+  });
+
+  it("should stop the helper when the client closes", async () => {
+    const started = join(home, "started");
+    writeDesktop(`touch ${started}\nsleep 10\necho syk_slow`);
+    const client = createClient();
+    const request = client.channels.retrieve("ch").catch(() => {});
+    await expect.poll(() => existsSync(started)).toBe(true);
+    const start = performance.now();
+    await client.close();
+    await request;
+    expect(performance.now() - start).toBeLessThan(1000);
+    expect(client.auth.session).toBeUndefined();
   });
 });
 
@@ -155,9 +266,36 @@ describe("constructor with caCert", () => {
 
   it("should not fill SYNNAX_API_KEY in next to an OpenID Connect code", async () => {
     vi.stubEnv("SYNNAX_API_KEY", "syk_env");
-    const client = new Synnax({ host: "localhost", port: 9090, oidc: CODE });
-    expect(client.params.apiKey).toBeUndefined();
+    const logins: string[] = [];
+    const server = createHTTPServer((req, res) => {
+      let body = "";
+      req.on("data", (chunk: Buffer) => (body += chunk.toString()));
+      req.on("end", () => {
+        if (req.url === "/api/v1/auth/session/create") logins.push(body);
+        res.statusCode = 500;
+        res.end();
+      });
+    });
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    const address = server.address();
+    if (address == null || typeof address === "string") throw new Error("no port");
+    const client = new Synnax({
+      host: "127.0.0.1",
+      port: address.port,
+      oidc: CODE,
+      retry: FAST_RETRY,
+      onRetry: () => {},
+      onInternalError: () => {},
+    });
+    await client.channels.retrieve(["ch"]).catch(() => {});
     await client.close();
+    server.closeAllConnections();
+    await new Promise((resolve) => server.close(resolve));
+    expect(logins.length).toBeGreaterThan(0);
+    logins.forEach((login) => {
+      expect(login).toContain('"oidc"');
+      expect(login).not.toContain("syk_env");
+    });
   });
 
   it("should use TLS for a CA certificate with SYNNAX_SECURE false", async () => {
@@ -413,6 +551,23 @@ describe("short circuit", () => {
       virtual: true,
     });
     expect(ch.key).not.toBe(0);
+    await client.close();
+  });
+});
+
+describe("logout", () => {
+  it.each([
+    ["a password", { username: "synnax", password: "secret" }],
+    ["an API key", { apiKey: "secret" }],
+    ["a token", { token: "secret" }],
+    ["an OpenID Connect code", { oidc: { ...CODE, code: "secret" } }],
+  ])("should keep no copy of %s on the client", async (_, given) => {
+    const client = new Synnax({ host: "localhost", port: 9090, ...given });
+    await client.auth.logout();
+    const text = JSON.stringify(client.params, (_, v: unknown) =>
+      typeof v === "bigint" ? v.toString() : v,
+    );
+    expect(text).not.toContain("secret");
     await client.close();
   });
 });

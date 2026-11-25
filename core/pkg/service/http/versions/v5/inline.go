@@ -38,8 +38,9 @@ import (
 // through snap with channels. A field binds no channel when it is disabled, when its
 // channel does not exist, or when an earlier field writes that channel. The index of a
 // read is the field that writes an index channel, and it takes no fill value. Any other
-// fill value becomes the default of its field. note receives the path and each change.
-// ResolveReadConfig returns an error when a staged endpoint is not an endpoint of cfg.
+// fill value becomes the default of its field. An endpoint whose fields are all
+// disabled becomes disabled. note receives the path and each change. ResolveReadConfig
+// returns an error when a staged endpoint is not an endpoint of cfg.
 func ResolveReadConfig(
 	ctx context.Context,
 	snap gorp.Snapshot,
@@ -93,6 +94,11 @@ func ResolveReadConfig(
 		lifted.Messages[i] = msg
 		ep.ICD = new(lifted.Key)
 		ep.Messages = []icdv0.ReadMessage{read}
+		if !ep.Disabled && len(e.Fields) > 0 &&
+			lo.EveryBy(e.Fields, func(f ReadField) bool { return f.Disabled }) {
+			ep.Disabled = true
+			note(paths[i], "was disabled, because each of its fields is disabled")
+		}
 	}
 	ic, err := icdv1.MigrateICD(ctx, lifted)
 	if err != nil {
@@ -206,7 +212,7 @@ func toInline(f ReadField, _ int) icdv0.InlineField {
 
 // liftFill sets the default of field to fill, read as a response value through the enum
 // labels and the time format of field. It returns an error when fill does not convert
-// to the kind of field.
+// to the kind of field, or when it is an infinite float, which no default holds.
 func liftFill(field *icdv1.JSONField, fill any) error {
 	f, err := fillField(*field)
 	if err != nil {
@@ -224,7 +230,11 @@ func liftFill(field *icdv1.JSONField, fill any) error {
 	if err != nil {
 		return err
 	}
-	field.Variant = withDefault(*field, sample)
+	v := withDefault(*field, sample)
+	if f, ok := v.(icdv1.FloatJSONField); ok && math.IsInf(float64(*f.Default), 0) {
+		return errors.New("default cannot be infinite")
+	}
+	field.Variant = v
 	return nil
 }
 

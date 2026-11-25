@@ -21,6 +21,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/analyzer"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/go/types"
@@ -744,6 +745,81 @@ var _ = Describe("Go Types Plugin", func() {
 						content,
 					).To(ContainSubstring(`func (a AxisKey) IsValid() bool {`))
 					Expect(content).To(ContainSubstring(`type YAxisKey string`))
+				},
+			)
+
+			It("Should generate an exclusion as the members it does not omit", func() {
+				source := `
+					@go output "core/modbus"
+
+					DataType enum {
+						float64 = "float64"
+						int16   = "int16"
+						json    = "json"
+					}
+
+					Numeric enum of DataType omit {
+						json
+					}
+				`
+				table, diag := Analyze(source, "modbus", loader)
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+				resp := MustSucceed(
+					goPlugin.Generate(&plugin.Request{Resolutions: table}),
+				)
+				content := string(resp.Files[0].Content)
+				Expect(content).To(ContainSubstring(`type Numeric string`))
+				Expect(
+					content,
+				).To(ContainSubstring(`case NumericFloat64, NumericInt16:`))
+				Expect(content).ToNot(ContainSubstring(`NumericJSON`))
+			})
+
+			It(
+				"Should generate a narrowing enum as a standalone type of the kept members",
+				func() {
+					loader.Add("schemas/telem", `
+					@go output "x/go/telem"
+
+					DataType enum {
+						float64 = "float64"
+						int16   = "int16"
+						json    = "json"
+					}
+				`)
+					source := `
+					import "schemas/telem"
+
+					@go output "core/modbus"
+
+					DataType enum of telem.DataType {
+						int16
+						float64
+					}
+				`
+					table, diag := Analyze(source, "modbus", loader)
+					Expect(diag.Ok()).To(BeTrue(), diag.String())
+
+					resp := MustSucceed(
+						goPlugin.Generate(&plugin.Request{Resolutions: table}),
+					)
+					file, ok := lo.Find(resp.Files, func(f plugin.File) bool {
+						return strings.HasPrefix(f.Path, "core/modbus/")
+					})
+					Expect(ok).To(BeTrue())
+					content := string(file.Content)
+					Expect(content).To(ContainSubstring(`type DataType string`))
+					Expect(
+						content,
+					).To(ContainSubstring(`DataTypeInt16 DataType = "int16"`))
+					Expect(content).To(ContainSubstring(
+						`DataTypeFloat64 DataType = "float64"`,
+					))
+					Expect(
+						content,
+					).To(ContainSubstring(`case DataTypeInt16, DataTypeFloat64:`))
+					Expect(content).ToNot(ContainSubstring(`json`))
+					Expect(content).ToNot(ContainSubstring(`x/go/telem`))
 				},
 			)
 		})
@@ -2476,6 +2552,70 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 						ToNotContain("iota")
 				},
 			)
+
+			DescribeTable(
+				"Should pick the smallest underlying type that holds every member",
+				func(values, base string) {
+					source := `
+					@go output "core/rate"
+
+					Rate enum {
+						` + values + `
+					}
+				`
+					resp := MustGenerate(source, "rate", loader, goPlugin)
+					ExpectContent(resp, "types.gen.go").ToContain("type Rate " + base)
+				},
+				Entry("uint8", "a = 0\n b = 255", "uint8"),
+				Entry("uint16", "a = 0\n b = 256", "uint16"),
+				Entry("uint32", "a = 1200\n b = 230400", "uint32"),
+				Entry("uint64", "a = 0\n b = 4294967296", "uint64"),
+				Entry("int8", "a = -1\n b = 1", "int8"),
+				Entry("int32", "a = -1\n b = 65536", "int32"),
+			)
+
+			It(
+				"Should fill a non-first default of an enum with no member of 0",
+				func() {
+					source := `
+				@go output "core/serial"
+
+				BaudRate enum {
+					baud_1200 = 1200
+					baud_19200 = 19200
+					baud_230400 = 230400
+				}
+
+				Connection struct {
+					baud_rate BaudRate = baud_19200
+				}
+			`
+					resp := MustGenerate(source, "serial", loader, goPlugin)
+					ExpectContent(resp, "types.gen.go").
+						ToContain("type BaudRate uint32").
+						ToContain("BaudRateBaud1200 BaudRate = 1200").
+						ToContain("BaudRateBaud230400 BaudRate = 230400").
+						ToContain("c.BaudRate = BaudRateBaud19200")
+				},
+			)
+
+			It("Should not fill a default on the member of value 0", func() {
+				source := `
+				@go output "core/priority"
+
+				Priority enum {
+					low = 0
+					high = 1
+				}
+
+				Task struct {
+					priority Priority = low
+				}
+			`
+				resp := MustGenerate(source, "priority", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").
+					ToNotContain("t.Priority = PriorityLow")
+			})
 		})
 
 		Context("generic distinct types", func() {

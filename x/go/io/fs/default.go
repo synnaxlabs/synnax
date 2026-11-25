@@ -15,18 +15,25 @@ import (
 	"path/filepath"
 )
 
-type defaultFS struct{ perm os.FileMode }
+type defaultFS struct{ dirPerm, filePerm os.FileMode }
 
-var Default FS = &defaultFS{perm: defaultPerm}
+var Default = NewDefault(defaultPerm, defaultPerm)
+
+// NewDefault returns an FS on the OS filesystem that creates directories with dirPerm
+// and files with filePerm. The process umask can remove bits from both. The modes of
+// files and directories that already exist do not change.
+func NewDefault(dirPerm, filePerm os.FileMode) FS {
+	return &defaultFS{dirPerm: dirPerm, filePerm: filePerm}
+}
 
 // Open implements FS.
 func (d *defaultFS) Open(name string, flag int) (File, error) {
-	return os.OpenFile(filepath.Clean(name), flag, d.perm)
+	return os.OpenFile(filepath.Clean(name), flag, d.filePerm)
 }
 
 // Sub implements FS.
 func (d *defaultFS) Sub(name string) (FS, error) {
-	if err := os.MkdirAll(name, d.perm); err != nil {
+	if err := os.MkdirAll(name, d.dirPerm); err != nil {
 		return nil, err
 	}
 	return &subFS{dir: name, FS: d}, nil
@@ -50,11 +57,17 @@ func (d *defaultFS) List(dirName string) ([]os.FileInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	infos := make([]os.FileInfo, len(entries))
-	for i, e := range entries {
-		if infos[i], err = os.Stat(path.Join(dirName, e.Name())); err != nil {
+	infos := make([]os.FileInfo, 0, len(entries))
+	for _, e := range entries {
+		info, err := os.Stat(path.Join(dirName, e.Name()))
+		// An entry removed since ReadDir, or a symlink to nothing, has nothing to list.
+		if os.IsNotExist(err) {
+			continue
+		}
+		if err != nil {
 			return nil, err
 		}
+		infos = append(infos, info)
 	}
 	return infos, nil
 }
@@ -69,3 +82,6 @@ func (d *defaultFS) Rename(name, newName string) error {
 
 // Stat implements FS.
 func (d *defaultFS) Stat(name string) (os.FileInfo, error) { return os.Stat(name) }
+
+// SyncDir implements FS.
+func (d *defaultFS) SyncDir(name string) error { return syncDir(name) }

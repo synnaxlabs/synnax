@@ -586,7 +586,7 @@ var _ = Describe("Parser", func() {
 			Expect(schema.AllDefinition()).To(HaveLen(1))
 			enumDef := schema.Definition(0).EnumDef()
 			Expect(enumDef).NotTo(BeNil())
-			Expect(enumDef.IDENT().GetText()).To(Equal("TaskState"))
+			Expect(enumDef.IDENT(0).GetText()).To(Equal("TaskState"))
 
 			values := enumDef.EnumBody().AllEnumValue()
 			Expect(values).To(HaveLen(4))
@@ -641,6 +641,32 @@ var _ = Describe("Parser", func() {
 			// Third value has no body
 			Expect(values[2].IDENT().GetText()).To(Equal("completed"))
 			Expect(values[2].EnumValueBody()).To(BeNil())
+		})
+	})
+
+	Describe("Duration Defaults", func() {
+		DescribeTable("Should lex a duration literal as one token",
+			func(lit string) {
+				schema := MustSucceed(parser.Parse(
+					"Cfg struct {\n    t telem.TimeSpan = " + lit + "\n}",
+				))
+				structDef := asStructFull(schema.Definition(0).StructDef())
+				def := structDef.StructBody().FieldDef(0).FieldDefault()
+				Expect(def.DURATION_LIT().GetText()).To(Equal(lit))
+			},
+			Entry("one unit", "5s"),
+			Entry("a two-letter unit", "250ms"),
+			Entry("a fraction", "1.5us"),
+			Entry("a compound", "1h2m3s4ms5us6ns"),
+			Entry("a negative", "-2m"),
+		)
+
+		It("Should lex a number with no unit as an integer", func() {
+			schema := MustSucceed(parser.Parse("Cfg struct {\n    t int64 = 5\n}"))
+			structDef := asStructFull(schema.Definition(0).StructDef())
+			def := structDef.StructBody().FieldDef(0).FieldDefault()
+			Expect(def.DURATION_LIT()).To(BeNil())
+			Expect(def.ExpressionValue().INT_LIT().GetText()).To(Equal("5"))
 		})
 	})
 
@@ -714,14 +740,44 @@ var _ = Describe("Parser", func() {
 			Expect(diag.Ok()).To(BeFalse())
 		})
 
-		It("Should report errors for invalid enum value", func() {
+		It("Should report errors for an enum value without a literal", func() {
 			_, diag := parser.Parse(`
 				State enum {
-					pending
+					pending =
 				}
-			`) // missing = value
-			Expect(diag).To(MatchError(ContainSubstring("expecting '='")))
+			`)
+			Expect(
+				diag,
+			).To(MatchError(ContainSubstring("missing {STRING_LIT, INT_LIT}")))
 			Expect(diag.Ok()).To(BeFalse())
+		})
+
+		It("Should parse an enum that omits members of another enum", func() {
+			schema := MustSucceed(parser.Parse(`
+				DataType enum of telem.DataType omit {
+					json
+					bytes
+				}
+			`))
+			enumDef := schema.Definition(0).EnumDef()
+			Expect(enumDef.IDENT(2).GetText()).To(Equal("omit"))
+			Expect(enumDef.EnumBody().AllEnumValue()).To(HaveLen(2))
+		})
+
+		It("Should parse an enum that narrows another enum", func() {
+			schema := MustSucceed(parser.Parse(`
+				DataType enum of telem.DataType {
+					int16
+					float32 { @doc value "is a 32-bit float." }
+				}
+			`))
+			enumDef := schema.Definition(0).EnumDef()
+			Expect(enumDef.IDENT(1).GetText()).To(Equal("of"))
+			Expect(enumDef.TypeRef().GetText()).To(Equal("telem.DataType"))
+			values := enumDef.EnumBody().AllEnumValue()
+			Expect(values).To(HaveLen(2))
+			Expect(values[0].EQUALS()).To(BeNil())
+			Expect(values[1].EnumValueBody()).NotTo(BeNil())
 		})
 
 		It("Should parse an enum that extends other enums", func() {

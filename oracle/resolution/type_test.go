@@ -912,3 +912,60 @@ var _ = Describe("Action.IsAlias", func() {
 		Entry("an action with no payload", resolution.Action{Name: "Clear"}, false),
 	)
 })
+
+var _ = Describe("EnumForm", func() {
+	intEnum := func(values ...int64) resolution.EnumForm {
+		form := resolution.EnumForm{IsIntEnum: true}
+		for i, v := range values {
+			form.Values = append(form.Values, resolution.EnumValue{
+				Name:  string(rune('a' + i)),
+				Value: v,
+			})
+		}
+		return form
+	}
+
+	DescribeTable("IntBase",
+		func(values []int64, base string) {
+			Expect(intEnum(values...).IntBase()).To(Equal(base))
+		},
+		Entry("no members", []int64{}, "uint8"),
+		Entry("uint8 maximum", []int64{0, 255}, "uint8"),
+		Entry("past uint8", []int64{0, 256}, "uint16"),
+		Entry("uint16 maximum", []int64{65535}, "uint16"),
+		Entry("baud rates", []int64{1200, 19200, 230400}, "uint32"),
+		Entry("past uint32", []int64{4294967296}, "uint64"),
+		Entry("int8 range", []int64{-128, 127}, "int8"),
+		Entry("negative past int8", []int64{-1, 128}, "int16"),
+		Entry("negative past int16", []int64{-32769, 0}, "int32"),
+		Entry("negative past int32", []int64{-1, 2147483648}, "int64"),
+	)
+
+	Describe("ZeroMember", func() {
+		It("Should return the member of value 0 wherever it sits", func() {
+			v := MustBeOk(intEnum(2, 0, 1).ZeroMember())
+			Expect(v.Name).To(Equal("b"))
+		})
+		It("Should return false when no member is 0", func() {
+			_, ok := intEnum(1200, 19200).ZeroMember()
+			Expect(ok).To(BeFalse())
+		})
+		It("Should return false for a string enum", func() {
+			form := resolution.EnumForm{
+				Values: []resolution.EnumValue{{Name: "a", Value: "a"}},
+			}
+			_, ok := form.ZeroMember()
+			Expect(ok).To(BeFalse())
+		})
+	})
+
+	Describe("Narrows", func() {
+		It("Should report true when the enum names a superset", func() {
+			form := resolution.EnumForm{Superset: resolution.TypeRef{Name: "x.Base"}}
+			Expect(form.Narrows()).To(BeTrue())
+		})
+		It("Should report false when the enum names no superset", func() {
+			Expect(intEnum(0, 1).Narrows()).To(BeFalse())
+		})
+	})
+})

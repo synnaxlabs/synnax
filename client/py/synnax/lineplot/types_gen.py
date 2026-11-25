@@ -312,9 +312,9 @@ class Axis(BaseModel):
         label: Is the human-readable label rendered along the axis.
         label_direction: Is the orientation in which the label text is laid out.
         label_level: Is the typography level of the label.
-        bounds: Is the value-space window of the axis. When the matching entry in
-            manual_bounds is false the field is overwritten locally on every render;
-            otherwise it is the user-set fixed bound.
+        bounds: Is the value-space window of the axis. Absent while both edges are auto.
+            An edge whose matching entry in manual_bounds is false is overwritten
+            locally on every render; a manual edge is the user-set bound.
         manual_bounds: Controls per-edge manual bound override.
         tick_spacing: Is the target pixel distance between adjacent tick marks.
         type: Selects the tick label style. Null means default (linear). X-axes
@@ -326,9 +326,7 @@ class Axis(BaseModel):
     label: str = ""
     label_direction: spatial.Direction = "x"
     label_level: text.Level = "small"
-    bounds: spatial.Bounds = Field(
-        default_factory=lambda: spatial.Bounds(lower=0, upper=0)
-    )
+    bounds: spatial.ClosedBounds | None = None
     manual_bounds: ManualBounds = Field(default_factory=lambda: ManualBounds())
     tick_spacing: float = 75
     type: TickType | None = None

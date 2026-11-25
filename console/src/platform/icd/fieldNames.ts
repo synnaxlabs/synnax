@@ -27,3 +27,31 @@ export const fieldNames = (pointers: string[], taken: string[] = []): string[] =
     return name;
   });
 };
+
+const TRAILING_NUMBER = /^(.*)_(\d+)$/;
+
+/**
+ * @returns a name for a copy of the field named name, apart from taken, also as a
+ * channel name. It numbers name from 2, or from one past the number that name ends
+ * in: "flow" names "flow_2", and "flow_2" names "flow_3".
+ */
+export const copyName = (name: string, taken: string[]): string => {
+  const names = new Set(taken.map((t) => channel.escapeInvalidName(t)));
+  const [, base = name, last = "1"] = TRAILING_NUMBER.exec(name) ?? [];
+  let n = BigInt(last) + 1n;
+  while (names.has(channel.escapeInvalidName(`${base}_${n}`))) n++;
+  return `${base}_${n}`;
+};
+
+/**
+ * @returns a pointer for a copy of the field at pointer, apart from pointers. It
+ * numbers the pointer as copyName numbers a name: "/flow" gives "/flow_2". A pointer is
+ * taken when one of pointers is it or reads a value in it.
+ */
+export const copyPointer = (pointer: string, pointers: string[]): string => {
+  const [, base = pointer, last = "1"] = TRAILING_NUMBER.exec(pointer) ?? [];
+  const taken = (p: string) => pointers.some((q) => q === p || q.startsWith(`${p}/`));
+  let n = BigInt(last) + 1n;
+  while (taken(`${base}_${n}`)) n++;
+  return `${base}_${n}`;
+};

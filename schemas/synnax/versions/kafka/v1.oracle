@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import "schemas/synnax/versions/device/v1"
-import "schemas/synnax/versions/icd/v0"
+import "schemas/synnax/versions/icd/v1"
 import "schemas/synnax/versions/task/v2"
 
 StartOffset = v0.StartOffset
@@ -130,4 +130,60 @@ WriteChannel = v0.WriteChannel
 
 Record = v0.Record
 
-WriteConfig = v0.WriteConfig
+WriteTarget struct {
+    key        string = create {
+        @doc value "uniquely identifies the target within the task."
+        @key
+    }
+    disabled   bool = false {
+        @doc value "is true when the target is excluded from the task."
+    }
+    topic      string = "" {
+        @doc value "is the topic to produce to."
+    }
+    record_key string = "" {
+        @doc value "is the key of each record. Empty sends records with no key."
+    }
+    icd        icd.Key          {
+        @doc value "is the key of the ICD that holds the message."
+    }
+    message    icd.WriteMessage {
+        @doc value """
+            is the message the target produces. A command on any bound channel produces
+            one record.
+        """
+    }
+
+    @doc value  "produces the JSON documents of one ICD message as records of a topic."
+    @go marshal
+}
+
+InlineWrite struct {
+    topic      string = "" {
+        @doc value "is the topic of the records."
+    }
+    record_key RecordKey = channel_name {
+        @doc value "is the source of the key of each record."
+    }
+    record     Record = {} {
+        @doc value "is the shape of every record."
+    }
+    channels   WriteChannel[] = [] {
+        @doc value "are the channels whose samples the records held."
+    }
+
+    @doc value "holds the channels of a write config from before ICDs."
+}
+
+WriteConfig struct extends v0.WriteConfig {
+    targets WriteTarget[] {
+        @doc value "contains the topics and ICD messages to produce."
+    }
+    inline  InlineWrite?  {
+        @doc value  """
+            holds the channels of a config from before ICDs. A write moves them into a
+            new ICD, adds a target for each, and clears it.
+        """
+        @go marshal omit
+    }
+}

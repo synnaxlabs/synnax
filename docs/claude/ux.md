@@ -46,7 +46,9 @@ splash is one: its page is l1, so its nav and cards are l0.
 
 Hover moves one fill step from rest, and press moves one more. Disabled text is
 `--pluto-text-disabled`. A disabled outlined control (an input, a select trigger, an
-outlined button) has fill l2 and border l4, and its caret has the disabled text color.
+outlined button) has fill l2 and border l4, and its caret has the disabled text color. A
+disabled button inside an enabled input keeps the input's border (l7), so the field
+reads as one box; only its text dims.
 
 ### Status colors
 
@@ -124,6 +126,8 @@ a color picker has no "+".
   menu items, tabs, and select triggers keep the weight of their text. Do not change any
   other weight, and do not change font smoothing.
 - Numbers that change, or that people compare, use `font-variant-numeric: tabular-nums`.
+- Canvas data (axis ticks, values, tooltip and measure values) draws in Inter with
+  tabular digits, through `variant: "numeric"` in `theme.fontString`.
 
 ### Focus and motion
 
@@ -154,6 +158,21 @@ a color picker has no "+".
 - The islands of a pre-workspace surface, such as login or the project splash, are not
   the top bar. Their right end is the Core island, then the island of the theme toggle.
   On the project splash, the Settings gear shares the island of the theme toggle.
+
+### Window controls
+
+- On Windows, the Console draws its own minimize, maximize, and close buttons with the
+  10 px, 1 px stroke glyphs of Windows 11. The glyphs are gray step 10, and they dim to
+  the disabled text color while the window does not have focus.
+- Each button is 36 px wide and clicks over the full height of the top bar. Its hover is
+  a 28 px pill with the tiny radius, like the other text buttons in the bar. On hover,
+  close turns `--pluto-error-m1` with a white glyph, the Windows close red.
+- The click areas reach the window's top edge, and the close button's reaches the
+  corner, so a throw to the corner closes the window. In an island before a workspace,
+  the click areas reach past the island to the edges.
+- Rejected: full-height backplates as Windows 11 draws them. At 46 px they take too much
+  space, at 36 px they are taller than wide, and short ones that hang from the top edge
+  move the glyphs off the bar's center line.
 
 ### Toolbar search
 
@@ -423,6 +442,14 @@ bound, a log precision, or the line plot X channel.
 - The saturation and brightness plane has the tiny radius.
 - The hex and alpha inputs pack into one control, and the alpha input keeps its opacity
   icon. Hex codes use the code font, so every code takes the same width and fits.
+
+### Symbol motion
+
+- The symbol editor groups the motion kinds. "Follow a value" holds Fill, Rotation, and
+  Position. "Loop" holds Spin and Flow. Blink has its own control.
+- The editor shows the `level` motion as Fill. The stored name stays `level`.
+- Until number states arrive, the picker offers only None, Spin, and Flow. Keep the
+  groups ready for the other kinds.
 
 ### Menus and selects
 
@@ -724,6 +751,8 @@ bound, a log precision, or the line plot X channel.
   links never add one. The plot's Ranges picker searches every range, newest first, so
   no range needs a star to be plotted. A range that has not started shows in the toolbar
   only as a favorite.
+- The Favorites heading holds a Clear button while a favorite shows. A click removes
+  every favorite at once, with no confirmation. The ranges stay on the Core.
 - The header holds the explorer, then + (the create form set to the last hour), then
   Start. + and Start are outlined `Toolbar.CreateAction` buttons. The toolbar has no
   active range, and new plots open on Rolling 30s.
@@ -894,8 +923,8 @@ says why in a sentence, then gives the raw error.
   The name is in the range hue, centered on its cap height, and fades at its end. A side
   cut by the plot edge has square corners and fades out over 40 px, and the name stays
   at the edge. A fade means only "more of this range is outside the view".
-- The time sits at the bar's end in the code font: `T+h:mm:ss` for a running range, and
-  the short length (`10min`) for any other. The name gets the room first.
+- The time sits at the bar's end with tabular digits: `T+h:mm:ss` for a running range,
+  and the short length (`10min`) for any other. The name gets the room first.
 - A running bar ends at the newest sample of a live plot, or at now. Its end is a 2 px
   cap in the range color that bends around the corners, with a glow that pulses every
   1.6 s, drawn at 15 Hz. 30 Hz doubled the CPU cost for no visible gain. Rejected: a

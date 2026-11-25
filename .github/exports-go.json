@@ -6,17 +6,62 @@
   "pending": [
     {
       "module": "x/go",
-      "package": "github.com/synnaxlabs/x/validate",
-      "receiver": "Validator",
-      "name": "MaxBytes",
-      "caller": "https://github.com/synnaxlabs/synnax/pull/7346"
+      "package": "github.com/synnaxlabs/x/io/fs/testutil/fault",
+      "receiver": "FS",
+      "name": "Arm",
+      "caller": "https://linear.app/synnax/issue/SY-6384"
     },
     {
       "module": "x/go",
-      "package": "github.com/synnaxlabs/x/validate",
-      "receiver": "Validator",
-      "name": "MinBytes",
-      "caller": "https://github.com/synnaxlabs/synnax/pull/7346"
+      "package": "github.com/synnaxlabs/x/io/fs/testutil/fault",
+      "receiver": "FS",
+      "name": "Fill",
+      "caller": "https://linear.app/synnax/issue/SY-6384"
+    },
+    {
+      "module": "x/go",
+      "package": "github.com/synnaxlabs/x/io/fs/testutil/fault",
+      "receiver": "FS",
+      "name": "Unsynced",
+      "caller": "https://linear.app/synnax/issue/SY-6384"
+    },
+    {
+      "module": "x/go",
+      "package": "github.com/synnaxlabs/x/io/fs/testutil/fault",
+      "receiver": "FS",
+      "name": "ReadFaults",
+      "caller": "https://linear.app/synnax/issue/SY-6384"
+    },
+    {
+      "module": "x/go",
+      "package": "github.com/synnaxlabs/x/io/fs/testutil/fault",
+      "receiver": "FS",
+      "name": "Writeback",
+      "caller": "https://linear.app/synnax/issue/SY-6384"
+    },
+    {
+      "module": "x/go",
+      "package": "github.com/synnaxlabs/x/io/fs/testutil/fault",
+      "name": "ID",
+      "caller": "https://linear.app/synnax/issue/SY-6384"
+    },
+    {
+      "module": "x/go",
+      "package": "github.com/synnaxlabs/x/io/fs/testutil/fault",
+      "name": "Span",
+      "caller": "https://linear.app/synnax/issue/SY-6384"
+    },
+    {
+      "module": "x/go",
+      "package": "github.com/synnaxlabs/x/io/fs/testutil/fault",
+      "name": "Stat",
+      "caller": "https://linear.app/synnax/issue/SY-6384"
+    },
+    {
+      "module": "x/go",
+      "package": "github.com/synnaxlabs/x/io/fs/testutil/fault",
+      "name": "Fault",
+      "caller": "https://linear.app/synnax/issue/SY-6384"
     }
   ]
 }

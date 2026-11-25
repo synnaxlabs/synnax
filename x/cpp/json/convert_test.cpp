@@ -8,7 +8,9 @@
 // included in the file licenses/APL.txt.
 
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
+#include <fstream>
 #include <limits>
 #include <string>
 
@@ -1676,6 +1678,14 @@ TEST(FromSampleValue, Float64WithLongDecimalToString) {
     ASSERT_EQ(result, json("1.2345689012"));
 }
 
+/// @brief it should write a small float in exponent notation.
+TEST(FromSampleValue, Float64ExponentToString) {
+    const auto result = ASSERT_NIL_P(
+        x::json::from_sample_value(x::telem::SampleValue(1.5e-7), x::json::Type::String)
+    );
+    ASSERT_EQ(result, json("1.5e-7"));
+}
+
 TEST(FromSampleValue, Float64WithoutDecimalToString) {
     const auto result = ASSERT_NIL_P(
         x::json::from_sample_value(x::telem::SampleValue(42.0), x::json::Type::String)
@@ -2300,11 +2310,12 @@ TEST(FromTimestamp, UnixMicrosecondZero) {
     );
 }
 
-TEST(FromTimestamp, UnixMicrosecondPreservesSubMicrosecond) {
+/// @brief it should round a fraction of a microsecond down to a whole count.
+TEST(FromTimestamp, UnixMicrosecondRoundsDown) {
     const auto ts = x::telem::TimeStamp(int64_t(1000000500));
-    ASSERT_DOUBLE_EQ(
-        x::json::from_timestamp(ts, x::json::TimeFormat::UnixMicrosecond).get<double>(),
-        1000000.5
+    ASSERT_EQ(
+        x::json::from_timestamp(ts, x::json::TimeFormat::UnixMicrosecond),
+        json(1000000)
     );
 }
 
@@ -2328,12 +2339,12 @@ TEST(FromTimestamp, UnixMicrosecondWholePast2To53) {
     );
 }
 
-/// @brief it should round a fraction once, from its exact decimal value.
-TEST(FromTimestamp, UnixMicrosecondRoundsOnce) {
+/// @brief it should round a fraction of a second once, from its exact decimal value.
+TEST(FromTimestamp, UnixSecondRoundsOnce) {
     const auto ts = x::telem::TimeStamp(int64_t(1767323045123456789));
     ASSERT_EQ(
-        x::json::from_timestamp(ts, x::json::TimeFormat::UnixMicrosecond).get<double>(),
-        std::stod("1767323045123456.789")
+        x::json::from_timestamp(ts, x::json::TimeFormat::UnixSecond).get<double>(),
+        std::stod("1767323045.123456789")
     );
 }
 
@@ -2365,11 +2376,12 @@ TEST(FromTimestamp, UnixMillisecondZero) {
     );
 }
 
-TEST(FromTimestamp, UnixMillisecondPreservesSubMillisecond) {
+/// @brief it should round a fraction of a millisecond down to a whole count.
+TEST(FromTimestamp, UnixMillisecondRoundsDown) {
     const auto ts = x::telem::TimeStamp(int64_t(1500500000));
-    ASSERT_DOUBLE_EQ(
-        x::json::from_timestamp(ts, x::json::TimeFormat::UnixMillisecond).get<double>(),
-        1500.5
+    ASSERT_EQ(
+        x::json::from_timestamp(ts, x::json::TimeFormat::UnixMillisecond),
+        json(1500)
     );
 }
 
@@ -2450,6 +2462,28 @@ TEST(FromTimestamp, ISO8601WithNanosecondPrecision) {
         x::json::from_timestamp(ts, x::json::TimeFormat::ISO8601),
         json("2001-09-09T01:46:40.000000001Z")
     );
+}
+
+/// @brief it should give the value of each time format in the shared time formats
+/// fixture of the Core.
+TEST(FromTimestamp, MatchTheTimeFormatsFixture) {
+    std::ifstream file("core/pkg/service/icd/testdata/encode/time_formats.json");
+    ASSERT_TRUE(file.is_open());
+    const auto doc = json::parse(file);
+    const auto &fields = doc.at("message").at("payload").at("fields");
+    for (const auto &c: doc.at("cases")) {
+        const auto expected = json::parse(c.at("text").get<std::string>());
+        for (std::size_t i = 0; i < fields.size(); i++) {
+            const auto name = fields[i].at("name").get<std::string>();
+            const auto format = ASSERT_NIL_P(
+                x::json::parse_time_format(
+                    fields[i].at("time_format").get<std::string>()
+                )
+            );
+            const auto ts = x::telem::TimeStamp(c.at("samples")[i].get<int64_t>());
+            EXPECT_EQ(x::json::from_timestamp(ts, format), expected.at(name)) << name;
+        }
+    }
 }
 
 // ==================== check_to_sample_value ====================

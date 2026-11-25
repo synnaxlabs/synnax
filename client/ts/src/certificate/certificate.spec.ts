@@ -19,6 +19,7 @@ import {
   CERTIFICATE,
   createTestClient,
   expectLive,
+  requestsTo,
   spyOnSend,
   waitForStreamLive,
 } from "@/testutil";
@@ -282,6 +283,75 @@ describe("Certificate", () => {
       }
     });
 
+    it("should retrieve the certificates with or without a private key", async () => {
+      const client = createTestClient();
+      const r = await client.racks.create({ name: "Keyed" });
+      const created = await client.certificates.set([
+        { name: "Keyed", source: "stored", pem: PEM, privateKeyPem: PRIVATE_KEY },
+        { name: "Bare", source: "stored", pem: PEM },
+        {
+          name: "Keyed file",
+          source: "file",
+          certificatePath: "/a.crt",
+          privateKeyFile: "client.pem",
+          rack: r.key,
+        },
+        { name: "Bare file", source: "file", certificatePath: "/b.crt", rack: r.key },
+      ]);
+      const key = created.map((c) => c.key);
+      const retrieve = async (keyed: boolean) =>
+        new Set(
+          (await createTestClient().certificates.retrieve({ key, keyed })).map(
+            (c) => c.key,
+          ),
+        );
+      expect(await retrieve(true)).toEqual(new Set([key[0], key[2]]));
+      expect(await retrieve(false)).toEqual(new Set([key[1], key[3]]));
+    });
+
+    it("should add a certificate with a private key to a watch of keyed ones", async () => {
+      const client = createTestClient();
+      const r = await client.racks.create({ name: "Watched keyed" });
+      const key = [uuid.create(), uuid.create(), uuid.create(), uuid.create()];
+      const list = client.certificates.watch({ key, keyed: true });
+      const off = list.onChange(() => {});
+      try {
+        expect((await list.retrieve()).records).toEqual([]);
+        await client.certificates.set([
+          {
+            key: key[0],
+            name: "Keyed",
+            source: "stored",
+            pem: PEM,
+            privateKeyPem: PRIVATE_KEY,
+          },
+          { key: key[1], name: "Bare", source: "stored", pem: PEM },
+          {
+            key: key[2],
+            name: "Keyed file",
+            source: "file",
+            certificatePath: "/a.crt",
+            privateKeyFile: "client.pem",
+            rack: r.key,
+          },
+          {
+            key: key[3],
+            name: "Bare file",
+            source: "file",
+            certificatePath: "/b.crt",
+            rack: r.key,
+          },
+        ]);
+        await vi.waitFor(() =>
+          expect(
+            new Set(expectLive(list.getCached()).records.map((c) => c.key)),
+          ).toEqual(new Set([key[0], key[2]])),
+        );
+      } finally {
+        off();
+      }
+    });
+
     it("should search for certificates by name", async () => {
       const client = createTestClient();
       const name = `${id.create()} CA`;
@@ -290,9 +360,9 @@ describe("Certificate", () => {
         source: "stored",
         pem: PEM,
       });
-      await expect
-        .poll(async () => await client.certificates.retrieve({ searchTerm: name }))
-        .toContainEqual(created);
+      expect(await client.certificates.retrieve({ searchTerm: name })).toContainEqual(
+        created,
+      );
     });
 
     it("should retrieve a certificate by name", async () => {
@@ -375,7 +445,7 @@ describe("Certificate", () => {
           certificate.set({ path: ["pem"], value: "x" }),
         ),
       ).rejects.toThrow('no editable field at "pem"');
-      expect(send).not.toHaveBeenCalled();
+      expect(requestsTo(send, "/certificate/dispatch")).toEqual([]);
     });
   });
 

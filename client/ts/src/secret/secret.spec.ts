@@ -25,6 +25,7 @@ import {
   expectLive,
   holdResponses,
   PushStreamer,
+  requestsTo,
   spyOnSend,
   waitForStreamLive,
 } from "@/testutil";
@@ -769,9 +770,9 @@ describe("Secret", () => {
         source: "stored",
         value: "abc",
       });
-      await expect
-        .poll(async () => await client.secrets.retrieve({ searchTerm: name }))
-        .toContainEqual(created);
+      expect(await client.secrets.retrieve({ searchTerm: name })).toContainEqual(
+        created,
+      );
     });
 
     it("should retrieve a secret by name", async () => {
@@ -892,7 +893,7 @@ describe("Secret", () => {
       await expect(
         client.secrets.dispatch(s.key, secret.set({ path: ["value"], value: "x" })),
       ).rejects.toThrow('no editable field at "value"');
-      expect(send).not.toHaveBeenCalled();
+      expect(requestsTo(send, "/secret/dispatch")).toEqual([]);
     });
   });
 

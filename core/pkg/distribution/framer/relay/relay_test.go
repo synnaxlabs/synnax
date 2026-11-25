@@ -114,6 +114,198 @@ var _ = Describe("Relay", func() {
 			})
 		}
 	})
+	Describe("Run", func() {
+		flow := func(
+			ctx context.Context,
+			newStreamer func(relay.StreamerConfig) (relay.Streamer, error),
+			keys channel.Keys,
+		) (signal.Context, confluence.Outlet[relay.Response]) {
+			GinkgoHelper()
+			reader := MustSucceed(newStreamer(relay.StreamerConfig{
+				Keys:        keys,
+				SendOpenAck: new(true),
+			}))
+			sCtx, cancel := signal.WithCancel(ctx)
+			req, res := confluence.Attach(reader, 10)
+			reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+			DeferCleanup(func() {
+				req.Close()
+				cancel()
+				confluence.Drain(res)
+			})
+			return sCtx, res
+		}
+
+		It("Should fail the streamers when Run returns", func(ctx SpecContext) {
+			n := testutil.OpenNode(GinkgoT().Context())
+			stored := MustSucceed(n.CreateChannels(ctx, []channel.Channel{{
+				Name:        "run_stored",
+				Virtual:     true,
+				Leaseholder: node.KeyBootstrapper,
+				DataType:    telem.Float32T,
+			}}))[0]
+			Expect(stored.Key().Free()).To(BeFalse())
+			sCtx, res := flow(ctx, n.Framer.NewStreamer, channel.Keys{stored.Key()})
+			Eventually(res.Outlet()).Should(Receive())
+			Expect(n.Close()).To(Succeed())
+			Expect(sCtx.Wait()).
+				To(MatchError(ContainSubstring("relay dropped the streamer")))
+		})
+
+		freeKey := channel.NewKey(node.KeyFree, 1)
+		openRelay := func(cfg relay.Config) *relay.Relay {
+			GinkgoHelper()
+			store := DeferClose(storagetestutil.OpenLayer(GinkgoT().Context()))
+			cfg.TS = store.TS
+			return MustSucceed(relay.Open(cfg))
+		}
+		relayFlow := func(
+			ctx context.Context,
+			r *relay.Relay,
+		) (signal.Context, confluence.Outlet[relay.Response]) {
+			GinkgoHelper()
+			return flow(
+				ctx,
+				func(cfg relay.StreamerConfig) (relay.Streamer, error) {
+					return r.NewStreamer(cfg)
+				},
+				channel.Keys{freeKey},
+			)
+		}
+		freeWrite := func(v int64) relay.Response {
+			return relay.Response{Frame: frame.NewUnary(freeKey, telem.NewSeriesV(v))}
+		}
+
+		It("Should fail a second Run", func(ctx SpecContext) {
+			r := openRelay(relay.Config{
+				FreeWrites: confluence.NewStream[relay.Response](1),
+			})
+			StartRun(r.Run)
+			Expect(r.Run(ctx)).To(MatchError(ContainSubstring("run called twice")))
+		})
+
+		It("Should fail a Run after Close", func(ctx SpecContext) {
+			r := openRelay(relay.Config{
+				FreeWrites: confluence.NewStream[relay.Response](1),
+			})
+			Expect(r.Close()).To(Succeed())
+			Expect(
+				r.Run(ctx),
+			).To(MatchError(ContainSubstring("run called after close")))
+		})
+
+		It("Should close after Run returns", func() {
+			r := openRelay(relay.Config{
+				FreeWrites: confluence.NewStream[relay.Response](1),
+			})
+			StartRun(r.Run)()
+			Expect(r.Close()).To(Succeed())
+		})
+
+		It("Should fail a Close while Run runs", func() {
+			r := openRelay(relay.Config{
+				FreeWrites: confluence.NewStream[relay.Response](1),
+			})
+			StartRun(r.Run)
+			Expect(r.Close()).
+				To(MatchError(ContainSubstring("close called while Run runs")))
+		})
+
+		It("Should fail a streamer waiting for Run when the relay closes", func(
+			ctx SpecContext,
+		) {
+			r := openRelay(relay.Config{
+				FreeWrites: confluence.NewStream[relay.Response](1),
+			})
+			sCtx, _ := relayFlow(ctx, r)
+			Expect(r.Close()).To(Succeed())
+			Expect(sCtx.Wait()).To(MatchError(ContainSubstring("relay stopped")))
+		})
+
+		It("Should fail a streamer that starts after Run returns", func(
+			ctx SpecContext,
+		) {
+			r := openRelay(relay.Config{
+				FreeWrites: confluence.NewStream[relay.Response](1),
+			})
+			StartRun(r.Run)()
+			sCtx, _ := relayFlow(ctx, r)
+			Expect(sCtx.Wait()).To(MatchError(ContainSubstring("relay stopped")))
+		})
+
+		It("Should stop a streamer whose context ends before Run starts", func(
+			ctx SpecContext,
+		) {
+			r := openRelay(relay.Config{
+				FreeWrites: confluence.NewStream[relay.Response](1),
+			})
+			streamerCtx, cancel := context.WithCancel(ctx)
+			sCtx, _ := relayFlow(streamerCtx, r)
+			cancel()
+			Expect(sCtx.Wait()).To(MatchError(context.Canceled))
+		})
+
+		It(
+			"Should stop a streamer whose context ends before Run with full demands",
+			func(
+				ctx SpecContext,
+			) {
+				r := openRelay(relay.Config{
+					FreeWrites:       confluence.NewStream[relay.Response](1),
+					DemandBufferSize: 2,
+				})
+				streamerCtx, cancel := context.WithCancel(ctx)
+				sCtx, _ := relayFlow(streamerCtx, r)
+				relayFlow(ctx, r)
+				DeferCleanup(func() { Expect(r.Close()).To(Succeed()) })
+				Consistently(sCtx.Stopped(), 50*time.Millisecond).ShouldNot(BeClosed())
+				cancel()
+				errs := make(chan error, 1)
+				go func() { errs <- sCtx.Wait() }()
+				Eventually(errs).Should(Receive(MatchError(context.Canceled)))
+			},
+		)
+
+		It("Should start a streamer opened before Run once Run starts", func(
+			ctx SpecContext,
+		) {
+			freeWrites := confluence.NewStream[relay.Response](1)
+			r := openRelay(relay.Config{FreeWrites: freeWrites})
+			_, res := relayFlow(ctx, r)
+			Consistently(res.Outlet(), 50*time.Millisecond).ShouldNot(Receive())
+			StartRun(r.Run)
+			Eventually(res.Outlet()).Should(Receive())
+			freeWrites.Inlet() <- freeWrite(7)
+			var got relay.Response
+			Eventually(res.Outlet()).Should(Receive(&got))
+			Expect(got.Frame.Get(freeKey).Series[0].Data).
+				To(Equal(telem.NewSeriesV[int64](7).Data))
+		})
+
+		It("Should return when its context ends while the taps hold full buffers", func(
+			ctx SpecContext,
+		) {
+			store := DeferClose(storagetestutil.OpenLayer(GinkgoT().Context()))
+			// The delta stops reading before the free-write tap stops, so each run
+			// has a chance to leave the tap sending into a full buffer.
+			for range 20 {
+				freeWrites := confluence.NewStream[relay.Response](100)
+				r := MustSucceed(relay.Open(relay.Config{
+					TS:                 store.TS,
+					FreeWrites:         freeWrites,
+					ResponseBufferSize: 1,
+				}))
+				stop := StartRun(r.Run)
+				_, res := relayFlow(ctx, r)
+				Eventually(res.Outlet()).Should(Receive())
+				for v := range int64(100) {
+					freeWrites.Inlet() <- freeWrite(v)
+				}
+				stop()
+			}
+		})
+	})
+
 	Describe("Time Range Stamping", func() {
 		It(
 			"Should deliver series stamped with the index's time range",
@@ -315,7 +507,7 @@ var _ = Describe("Relay", func() {
 					FreeWrites:         freeWrites,
 					StreamerBufferSize: 4,
 				}))
-				DeferCleanup(r.Close)
+				StartRun(r.Run)
 				key := channel.NewKey(node.KeyFree, 1)
 				openStreamer := func(buffer int) confluence.Outlet[relay.Response] {
 					GinkgoHelper()
@@ -379,7 +571,7 @@ var _ = Describe("Relay", func() {
 					FreeWrites:         freeWrites,
 					StreamerBufferSize: 4,
 				}))
-				DeferCleanup(r.Close)
+				StartRun(r.Run)
 				key := channel.NewKey(node.KeyFree, 1)
 				openStreamer := func(
 					buffer int,
@@ -452,8 +644,8 @@ var _ = Describe("Relay", func() {
 				send(8)
 				_, markers = drain(stalled)
 				Expect(markers).To(Equal([]int{5}))
-				// Reading during the drops lets the streamer take the signal of the
-				// first drop before the next ones, which must not add a marker.
+				// Reading two frames between two runs of drops puts frames between the
+				// runs, so each run gets its own marker.
 				for range 10 {
 					send(8)
 					for range 2 {
@@ -461,8 +653,295 @@ var _ = Describe("Relay", func() {
 					}
 					send(8)
 					frames, markers = drain(stalled)
-					Expect(markers).To(Equal([]int{frames}))
+					Expect(markers).To(Equal([]int{3, frames}))
 				}
+				// The relay gets two frames for each frame the test reads, so the
+				// buffer never empties while the drops go on. The marker must still
+				// come right after the frames buffered before the first drop.
+				send(8)
+				frames = 0
+				for {
+					var res relay.Response
+					Eventually(stalled.Outlet()).Should(Receive(&res))
+					if res.Missed {
+						break
+					}
+					frames++
+					Expect(frames).To(BeNumerically("<", 30))
+					send(2)
+				}
+				Expect(frames).To(Equal(5))
+			},
+		)
+
+		It(
+			"Should send the time range of each channel's dropped samples",
+			func(ctx SpecContext) {
+				store := storagetestutil.OpenLayer(ctx)
+				DeferCleanup(store.Close)
+				freeWrites := confluence.NewStream[relay.Response](10)
+				r := MustSucceed(relay.Open(relay.Config{
+					TS:                 store.TS,
+					FreeWrites:         freeWrites,
+					StreamerBufferSize: 4,
+				}))
+				StartRun(r.Run)
+				var (
+					ranged   = channel.NewKey(node.KeyFree, 1)
+					unranged = channel.NewKey(node.KeyFree, 2)
+					other    = channel.NewKey(node.KeyFree, 3)
+				)
+				open := func(
+					keys channel.Keys,
+					buffer int,
+				) confluence.Outlet[relay.Response] {
+					GinkgoHelper()
+					reader := MustSucceed(r.NewStreamer(relay.StreamerConfig{
+						Keys:            keys,
+						SendOpenAck:     new(true),
+						MissedRequested: new(true),
+					}))
+					sCtx, cancel := signal.Isolated()
+					req, res := confluence.Attach(reader, buffer)
+					reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+					DeferCleanup(func() {
+						req.Close()
+						cancel()
+						confluence.Drain(res)
+					})
+					Eventually(res.Outlet()).Should(Receive())
+					return res
+				}
+				stalled := open(channel.Keys{ranged, unranged}, 0)
+				live := open(channel.Keys{ranged}, 10)
+				series := func(start int64, hasRange bool) telem.Series {
+					s := telem.NewSeriesV(start)
+					if hasRange {
+						s.TimeRange = telem.TimeStamp(start).SpanRange(10)
+					}
+					return s
+				}
+				// send writes frames whose samples span 10 ns from each start. The
+				// unranged channel's sample at unrangedAt has no time range.
+				send := func(starts []int64, unrangedAt int64) {
+					GinkgoHelper()
+					for _, start := range starts {
+						fr := frame.NewMulti(
+							channel.Keys{ranged, unranged, other},
+							[]telem.Series{
+								series(start, true),
+								series(start, start != unrangedAt),
+								series(start, true),
+							},
+						)
+						freeWrites.Inlet() <- relay.Response{Frame: fr}
+						Eventually(live.Outlet()).Should(Receive())
+					}
+				}
+				marker := func() relay.Response {
+					GinkgoHelper()
+					var res relay.Response
+					Eventually(func(g Gomega) {
+						g.Expect(stalled.Outlet()).To(Receive(&res))
+						g.Expect(res.Missed).To(BeTrue())
+					}).Should(Succeed())
+					return res
+				}
+				// The streamer holds one frame and buffers four, so it drops the last
+				// three.
+				send([]int64{0, 10, 20, 30, 40, 50, 60, 70}, 60)
+				Expect(marker().MissedRanges).To(Equal(
+					map[channel.Key]telem.TimeRange{
+						ranged:   {Start: 50, End: 80},
+						unranged: {},
+					},
+				))
+				send([]int64{100, 110, 120, 130, 140, 150, 160, 170}, -1)
+				Expect(marker().MissedRanges).To(Equal(
+					map[channel.Key]telem.TimeRange{
+						ranged:   {Start: 150, End: 180},
+						unranged: {Start: 150, End: 180},
+					},
+				))
+			},
+		)
+
+		It(
+			"Should never send a missed marker before a frame buffered before its drop",
+			func(ctx SpecContext) {
+				store := storagetestutil.OpenLayer(ctx)
+				DeferCleanup(store.Close)
+				freeWrites := confluence.NewStream[relay.Response](1000)
+				r := MustSucceed(relay.Open(relay.Config{
+					TS:                 store.TS,
+					FreeWrites:         freeWrites,
+					StreamerBufferSize: 1,
+				}))
+				StartRun(r.Run)
+				key := channel.NewKey(node.KeyFree, 1)
+				reader := MustSucceed(r.NewStreamer(relay.StreamerConfig{
+					Keys:            channel.Keys{key},
+					SendOpenAck:     new(true),
+					MissedRequested: new(true),
+				}))
+				sCtx, cancel := signal.Isolated()
+				const count = 200000
+				// A streamer that never waits on its outlet often empties its buffer
+				// while the relay drops frames for it.
+				req, res := confluence.Attach(reader, count+1)
+				reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+				DeferCleanup(func() {
+					req.Close()
+					cancel()
+					confluence.Drain(res)
+				})
+				Eventually(res.Outlet()).Should(Receive())
+				wCtx, wCancel := context.WithCancel(ctx)
+				DeferCleanup(wCancel)
+				go func() {
+					for v := range int64(count) {
+						s := telem.NewSeriesV(v)
+						s.TimeRange = telem.TimeStamp(v).SpanRange(1)
+						if signal.SendUnderContext(
+							wCtx,
+							freeWrites.Inlet(),
+							relay.Response{Frame: frame.NewUnary(key, s)},
+						) != nil {
+							return
+						}
+					}
+				}()
+				// The frames have increasing times, so a frame after a marker must be
+				// later than every sample the marker reports.
+				var (
+					missedEnd telem.TimeStamp
+					markers   int
+				)
+				for {
+					var got relay.Response
+					Eventually(res.Outlet()).Should(Receive(&got))
+					if got.Missed {
+						markers++
+						missedEnd = max(missedEnd, got.MissedRanges[key].End)
+						if missedEnd == count {
+							break
+						}
+						continue
+					}
+					start := got.Frame.SeriesAt(0).TimeRange.Start
+					Expect(start).To(BeNumerically(">=", missedEnd))
+					if start == count-1 {
+						break
+					}
+				}
+				Expect(markers).To(BeNumerically(">", 0))
+			},
+		)
+
+		It("Should send a pending missed marker before it fails when Run returns", func(
+			ctx SpecContext,
+		) {
+			store := storagetestutil.OpenLayer(ctx)
+			DeferCleanup(store.Close)
+			key := channel.NewKey(node.KeyFree, 1)
+			open := func(
+				r *relay.Relay,
+				buffer int,
+				missedRequested bool,
+			) (signal.Context, confluence.Outlet[relay.Response]) {
+				GinkgoHelper()
+				reader := MustSucceed(r.NewStreamer(relay.StreamerConfig{
+					Keys:            channel.Keys{key},
+					SendOpenAck:     new(true),
+					MissedRequested: new(missedRequested),
+				}))
+				sCtx, cancel := signal.Isolated()
+				req, res := confluence.Attach(reader, buffer)
+				reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+				DeferCleanup(func() {
+					req.Close()
+					cancel()
+					confluence.Drain(res)
+				})
+				Eventually(res.Outlet()).Should(Receive())
+				return sCtx, res
+			}
+			collect := func(
+				out confluence.Outlet[relay.Response],
+			) <-chan []relay.Response {
+				all := make(chan []relay.Response, 1)
+				go func() {
+					var received []relay.Response
+					for res := range out.Outlet() {
+						received = append(received, res)
+					}
+					all <- received
+				}()
+				return all
+			}
+			// Go picks at random between a pending missed signal and the closed
+			// responses, so each run has a chance to drop the marker.
+			for range 30 {
+				freeWrites := confluence.NewStream[relay.Response](10)
+				r := MustSucceed(relay.Open(relay.Config{
+					TS:                 store.TS,
+					FreeWrites:         freeWrites,
+					StreamerBufferSize: 1,
+				}))
+				stop := StartRun(r.Run)
+				_, live := open(r, 10, false)
+				sCtx, stalled := open(r, 0, true)
+				for v := range int64(5) {
+					freeWrites.Inlet() <- relay.Response{
+						Frame: frame.NewUnary(key, telem.NewSeriesV(v)),
+					}
+					Eventually(live.Outlet()).Should(Receive())
+				}
+				stop()
+				var received []relay.Response
+				Eventually(collect(stalled)).Should(Receive(&received))
+				Expect(received).To(ContainElement(HaveField("Missed", BeTrue())))
+				Expect(sCtx.Wait()).
+					To(MatchError(ContainSubstring("relay dropped the streamer")))
+			}
+		})
+
+		It(
+			"Should fail a stalled streamer that asked for missed markers when Run returns",
+			func(ctx SpecContext) {
+				store := storagetestutil.OpenLayer(ctx)
+				DeferCleanup(store.Close)
+				freeWrites := confluence.NewStream[relay.Response](10)
+				r := MustSucceed(relay.Open(relay.Config{
+					TS:                 store.TS,
+					FreeWrites:         freeWrites,
+					StreamerBufferSize: 4,
+				}))
+				stop := StartRun(r.Run)
+				key := channel.NewKey(node.KeyFree, 1)
+				reader := MustSucceed(r.NewStreamer(relay.StreamerConfig{
+					Keys:            channel.Keys{key},
+					SendOpenAck:     new(true),
+					MissedRequested: new(true),
+				}))
+				sCtx, cancel := signal.Isolated()
+				req, res := confluence.Attach(reader, 0)
+				reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+				DeferCleanup(func() {
+					req.Close()
+					cancel()
+					confluence.Drain(res)
+				})
+				Eventually(res.Outlet()).Should(Receive())
+				for v := range int64(8) {
+					freeWrites.Inlet() <- relay.Response{
+						Frame: frame.NewUnary(key, telem.NewSeriesV(v)),
+					}
+				}
+				stop()
+				confluence.Drain(res)
+				Expect(sCtx.Wait()).
+					To(MatchError(ContainSubstring("relay dropped the streamer")))
 			},
 		)
 	})

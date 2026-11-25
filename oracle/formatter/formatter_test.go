@@ -255,6 +255,18 @@ var _ = Describe("Format", func() {
 			).To(ContainSubstring("AxisKey enum extends XAxisKey, YAxisKey {}"))
 		})
 
+		It("should format an enum that narrows another", func() {
+			Expect(format("Kept enum of telem.DataType   omit {\n  json\n}\n")).
+				To(Equal("Kept enum of telem.DataType omit {\n    json\n}\n"))
+			Expect(format(
+				"DataType enum of telem.DataType {\n  int16\n" +
+					"  float64 { @doc value \"is a float.\" }\n}\n",
+			)).To(Equal(
+				"DataType enum of telem.DataType {\n    int16\n    float64 {\n" +
+					"        @doc value \"is a float.\"\n    }\n}\n",
+			))
+		})
+
 		It("should format an enum with domains", func() {
 			source := "Status enum {\n  ACTIVE = 1\n  INACTIVE = 2\n\n  @go output \"core/pkg/status\"\n}\n"
 			result := format(source)
@@ -604,6 +616,11 @@ var _ = Describe("Format", func() {
 			Expect(result).To(ContainSubstring("count int32 = 7 {"))
 		})
 
+		It("should keep the spelling of a duration default", func() {
+			result := format("Item struct {\n  t telem.TimeSpan = 1m30s\n}\n")
+			Expect(result).To(ContainSubstring("t telem.TimeSpan = 1m30s"))
+		})
+
 		It("should format an empty array default", func() {
 			result := format("Item struct {\n  vals float64[] = []\n}\n")
 			Expect(result).To(ContainSubstring("vals float64[] = []"))
@@ -856,6 +873,29 @@ var _ = Describe("Format", func() {
 					"    action Rename {\n        name string\n    }\n\n" +
 					"    action Reset {}\n\n" +
 					"    @doc value \"is a foo.\"\n}\n",
+			))
+		})
+
+		It("should format variant omits before the variants of a union", func() {
+			source := "A struct {}\nFoo union on type extends v0.Foo {\n" +
+				"  a A\n  -b\n  -c\n}\n"
+			Expect(format(source)).To(Equal(
+				"A struct {}\n\nFoo union on type extends v0.Foo {\n" +
+					"    -b\n    -c\n    a A\n}\n",
+			))
+		})
+
+		It("should format a union that holds only variant omits", func() {
+			source := "Foo union on type extends v0.Foo {\n  -b\n}\n"
+			Expect(format(source)).To(Equal(
+				"Foo union on type extends v0.Foo {\n    -b\n}\n",
+			))
+		})
+
+		It("should keep a comment above a variant omit", func() {
+			source := "Foo union on type extends v0.Foo {\n  // b is gone.\n  -b\n}\n"
+			Expect(format(source)).To(Equal(
+				"Foo union on type extends v0.Foo {\n    // b is gone.\n    -b\n}\n",
 			))
 		})
 

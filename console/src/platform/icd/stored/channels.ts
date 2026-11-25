@@ -37,10 +37,15 @@ export const bindingsOf = (
 export interface Source {
   /** The key of the source. The key of each of its messages extends it. */
   key: string;
-  /** The key where an older Console stored the channels of the source, if any. */
+  /**
+   * The key where an older Console stored the channels of the source, if any. split
+   * moves them to the keys of its messages.
+   */
   legacy?: string;
   /** The messages that the source reads. */
   messages: icd.ReadMessage[];
+  /** Whether the source is disabled. */
+  disabled?: boolean;
 }
 
 /** @returns the key of the read properties that store the channels of a message. */
@@ -57,25 +62,63 @@ const inSource = (at: string, source: string): boolean => {
 };
 
 /**
- * @returns the channels that stored holds for read r of source. The channels under the
- * legacy key belong to the message that binds one of them, or else to the first one.
+ * @returns stored with the channels under each legacy key of sources moved to the keys
+ * of the messages that read it. One message, the owner, gets them all with their index:
+ * the first enabled message that binds one of them, else the first disabled one, else
+ * the first enabled message, else the first message. Each other message gets the
+ * channels that it binds without the index, or all of them if it binds none. Only the
+ * owner gets the index, because two holders would both keep it, and the Core refuses
+ * two writers on one index. A message with a key of its own keeps it. The legacy key
+ * stays while a source that reads it has no messages.
  */
+export const split = (
+  stored: Record<string, Task.ReadChannelProps>,
+  sources: Source[],
+): Record<string, Task.ReadChannelProps> => {
+  const out = { ...stored };
+  for (const legacy of new Set(sources.flatMap((s) => s.legacy ?? []))) {
+    const held = stored[legacy];
+    if (held == null) continue;
+    const readers = sources.filter((s) => s.legacy === legacy);
+    const heldChannels = new Set([held.index, ...Object.values(held.channels)]);
+    heldChannels.delete(0);
+    const messages = readers.flatMap(({ key: sourceKey, messages, disabled }) =>
+      messages.map(({ message, bindings }) => {
+        const bound = new Set(bindings.map(({ channel }) => channel));
+        return {
+          at: key(sourceKey, message),
+          disabled: disabled === true,
+          bound,
+          binds: [...bound].some((ch) => heldChannels.has(ch)),
+        };
+      }),
+    );
+    if (messages.length === 0) continue;
+    const owner =
+      messages.find(({ disabled, binds }) => !disabled && binds) ??
+      messages.find(({ binds }) => binds) ??
+      messages.find(({ disabled }) => !disabled) ??
+      messages[0];
+    out[owner.at] ??= held;
+    for (const { at, bound, binds } of messages) {
+      const channels = binds
+        ? Object.fromEntries(
+            Object.entries(held.channels).filter(([, ch]) => bound.has(ch)),
+          )
+        : held.channels;
+      if (Object.keys(channels).length > 0) out[at] ??= { index: 0, channels };
+    }
+    if (readers.every(({ messages }) => messages.length > 0)) delete out[legacy];
+  }
+  return out;
+};
+
+/** @returns the channels that stored holds for read r of source. */
 export const of = (
   stored: Record<string, Task.ReadChannelProps>,
-  { key: sourceKey, legacy, messages }: Source,
+  { key: sourceKey, messages }: Source,
   r: number,
-): Task.ReadChannelProps | undefined => {
-  const own = stored[key(sourceKey, messages[r].message)];
-  if (own != null || legacy == null) return own;
-  const held = stored[legacy];
-  if (held == null) return undefined;
-  const heldChannels = new Set([held.index, ...Object.values(held.channels)]);
-  heldChannels.delete(0);
-  const owner = messages.findIndex(({ bindings }) =>
-    bindings.some(({ channel }) => heldChannels.has(channel)),
-  );
-  return Math.max(owner, 0) === r ? held : undefined;
-};
+): Task.ReadChannelProps | undefined => stored[key(sourceKey, messages[r].message)];
 
 /**
  * @returns the channel that stored holds for each pointer of source, for a message
@@ -92,24 +135,7 @@ export const channels = (
   );
   const merged: Record<string, channel.Key> = {};
   for (const [at, props] of Object.entries(stored))
-    if ((at === source.legacy || inSource(at, source.key)) && !claimed.has(props))
+    if (inSource(at, source.key) && !claimed.has(props))
       Object.assign(merged, props.channels);
   return { ...merged, ...stored[key(source.key, message)]?.channels };
-};
-
-/**
- * Moves the channels under the legacy key of source to the key of read r, when they
- * belong to that read.
- */
-export const moveLegacy = (
-  stored: Record<string, Task.ReadChannelProps>,
-  source: Source,
-  r: number,
-): void => {
-  const at = key(source.key, source.messages[r].message);
-  if (stored[at] != null || source.legacy == null) return;
-  const held = of(stored, source, r);
-  if (held == null) return;
-  stored[at] = held;
-  delete stored[source.legacy];
 };

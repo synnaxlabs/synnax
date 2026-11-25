@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { color as xcolor, id, sleep, TimeSpan, uuid } from "@synnaxlabs/x";
-import { beforeAll, describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 
 import type { color } from "@/color";
 import { enumeration } from "@/enumeration";
@@ -134,12 +134,8 @@ describe("enumeration.Client", () => {
       const prefix = `searchable-${id.create()}`;
       const names = [`${prefix}-1`, `${prefix}-2`];
       await client.enumerations.create(names.map((name) => ({ name })));
-      await expect
-        .poll(async () => {
-          const results = await client.enumerations.retrieve({ searchTerm: prefix });
-          return results.map((e) => e.name).sort();
-        })
-        .toEqual(names);
+      const results = await client.enumerations.retrieve({ searchTerm: prefix });
+      expect(results.map((e) => e.name).sort()).toEqual(names);
     });
   });
 
@@ -257,15 +253,13 @@ describe("enumeration.Client", () => {
       try {
         expect((await c.enumerations.retrieve(q)).uses).toEqual([]);
         const s = await createSchematicUsing(c, created.key);
-        await vi.waitFor(() =>
-          expect(expectLive(c.enumerations.watch(q).getCached()).uses).toEqual([
-            schematic.resourceID(s.key),
-          ]),
-        );
+        await expect
+          .poll(() => expectLive(c.enumerations.watch(q).getCached()).uses)
+          .toEqual([schematic.resourceID(s.key)]);
         await c.schematics.delete(s.key);
-        await vi.waitFor(() =>
-          expect(expectLive(c.enumerations.watch(q).getCached()).uses).toEqual([]),
-        );
+        await expect
+          .poll(() => expectLive(c.enumerations.watch(q).getCached()).uses)
+          .toEqual([]);
       } finally {
         off();
       }
@@ -282,11 +276,9 @@ describe("enumeration.Client", () => {
           // A commit slower than the list's refetch lets the refetch miss the key.
           { onOptimistic: async () => await sleep.sleep(TimeSpan.milliseconds(300)) },
         );
-        await vi.waitFor(() =>
-          expect(list.getCached()?.records.find((e) => e.key === key)?.uses).toEqual(
-            [],
-          ),
-        );
+        await expect
+          .poll(() => list.getCached()?.records.find((e) => e.key === key)?.uses)
+          .toEqual([]);
       } finally {
         off();
       }

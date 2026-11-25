@@ -20,11 +20,13 @@ import (
 	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
+	"github.com/synnaxlabs/x/lifetime"
 	"github.com/synnaxlabs/x/observe"
 	"go.uber.org/zap"
 )
 
-// Wrap wraps the provided key-value database in a DB.
+// Wrap wraps the provided key-value database in a DB. Wrap a key-value database in
+// one DB only: the indexes of a DB see no write made through another.
 func Wrap(
 	kv kv.DB,
 	opts ...Option,
@@ -65,21 +67,10 @@ type DB struct {
 	run runState
 }
 
-// runStage is the stage of DB.Run.
-type runStage uint8
-
-const (
-	runIdle runStage = iota
-	runRunning
-	runStopped
-)
-
 // runState is the state of DB.Run.
 type runState struct {
-	// mu orders the start of Run against Close.
-	mu     sync.Mutex
-	stage  runStage
-	closed bool
+	// guard orders the start of Run against Close.
+	guard lifetime.Guard
 	// populates receives the index populates of tables while Run runs.
 	populates chan func(context.Context)
 	// stopped closes when Run stops receiving populates.
@@ -104,7 +95,9 @@ func (db *DB) OpenTx() Tx {
 			zap.Duration("wait", wait),
 		)
 	}
-	return &tx{Tx: db.DB.OpenTx(), options: db.options, db: db, unlock: db.lock.Unlock}
+	t := &tx{Tx: db.DB.OpenTx(), options: db.options, db: db, unlock: db.lock.Unlock}
+	t.state.cleanups = t.state.inline[:0]
+	return t
 }
 
 // Set sets key to value in a transaction of its own.
@@ -179,22 +172,10 @@ func (db *DB) WithSnapshot(_ context.Context, f func(Snapshot) error) error {
 // to populate. Call Run once, and Close only after Run returns. A second Run, or a Run
 // after Close, returns an error.
 func (db *DB) Run(ctx context.Context) error {
-	db.run.mu.Lock()
-	if db.run.closed {
-		db.run.mu.Unlock()
-		return errors.New("[gorp] - Run called after Close")
+	if err := db.run.guard.Begin(); err != nil {
+		return err
 	}
-	if db.run.stage != runIdle {
-		db.run.mu.Unlock()
-		return errors.New("[gorp] - Run called twice")
-	}
-	db.run.stage = runRunning
-	db.run.mu.Unlock()
-	defer func() {
-		db.run.mu.Lock()
-		db.run.stage = runStopped
-		db.run.mu.Unlock()
-	}()
+	defer db.run.guard.End()
 	var wg sync.WaitGroup
 	defer wg.Wait()
 	defer close(db.run.stopped)
@@ -237,13 +218,9 @@ func (db *DB) goPopulate(ctx context.Context, populate func(context.Context)) er
 // Close closes the underlying DB. Call it only after Run returns: while Run runs, Close
 // returns an error and closes nothing.
 func (db *DB) Close() error {
-	db.run.mu.Lock()
-	if db.run.stage == runRunning {
-		db.run.mu.Unlock()
-		return errors.New("[gorp] - Close called while Run runs")
+	if _, err := db.run.guard.Close(); err != nil {
+		return err
 	}
-	db.run.closed = true
-	db.run.mu.Unlock()
 	return db.DB.Close()
 }
 
@@ -309,6 +286,9 @@ type txState struct {
 	// cleanups is the list of hooks to invoke when the owning tx
 	// commits or closes, in registration order.
 	cleanups []func(committed bool)
+	// inline holds the first cleanups of a transaction, so that registering them
+	// allocates nothing.
+	inline [8]func(committed bool)
 	// committing is true during a commit attempt.
 	committing atomic.Bool
 	// changes is what the typed writes through the transaction changed. Only the

@@ -39,3 +39,45 @@ describe("ICD.fieldNames", () => {
     expect(ICD.fieldNames(["/speed"], ["speed", "speed_2"])).toEqual(["speed_3"]);
   });
 });
+
+describe("ICD.copyName", () => {
+  it("should number a name from 2", () => {
+    expect(ICD.copyName("flow", ["flow"])).toBe("flow_2");
+  });
+
+  it("should take the next number that no field holds", () => {
+    expect(ICD.copyName("flow", ["flow", "flow_2"])).toBe("flow_3");
+  });
+
+  it("should number the copy of a numbered name from one past its number", () => {
+    expect(ICD.copyName("flow_2", ["flow", "flow_2"])).toBe("flow_3");
+    expect(ICD.copyName("sensor_10", ["sensor_10"])).toBe("sensor_11");
+  });
+
+  it("should count past a number too long for a float", () => {
+    expect(ICD.copyName("x_12345678901234567890", [])).toBe("x_12345678901234567891");
+    const name = "reading_99999999999999999999";
+    expect(ICD.copyName(name, [name])).toBe("reading_100000000000000000000");
+    expect(ICD.copyName(name, [name, "reading_100000000000000000000"])).toBe(
+      "reading_100000000000000000001",
+    );
+  });
+
+  it("should skip a number whose channel name a field takes", () => {
+    expect(ICD.copyName("flow", ["flow", "flow 2"])).toBe("flow_3");
+  });
+});
+
+describe("ICD.copyPointer", () => {
+  it("should number the last token of a pointer from 2", () => {
+    expect(ICD.copyPointer("/motor/speed", ["/motor/speed"])).toBe("/motor/speed_2");
+  });
+
+  it("should number a numbered pointer from one past its number", () => {
+    expect(ICD.copyPointer("/flow_2", ["/flow", "/flow_2"])).toBe("/flow_3");
+  });
+
+  it("should skip a pointer that a field reads a value in", () => {
+    expect(ICD.copyPointer("/flow", ["/flow", "/flow_2/rate"])).toBe("/flow_3");
+  });
+});

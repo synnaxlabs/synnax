@@ -35,6 +35,17 @@ type Binding struct {
 	DataType telem.DataType
 }
 
+// Failure is a field of a document that did not decode.
+type Failure struct {
+	// Binding is the index of the field's binding in its message.
+	Binding int
+	// Missing is true when the document has no value for the field, and the field has
+	// no default.
+	Missing bool
+	// Err names the field, and also the message when the decoder holds more than one.
+	Err error
+}
+
 // JSONMessage is a JSON message and the fields bound to channels.
 type JSONMessage struct {
 	// Name identifies the message in errors.
@@ -56,6 +67,8 @@ type JSON struct {
 	ruleValues int
 	messages   []jsonMessage
 	router     *router
+	// failures holds the failures of the last decode.
+	failures []Failure
 }
 
 type jsonMessage struct {
@@ -63,8 +76,6 @@ type jsonMessage struct {
 	fields []jsonField
 	// values are the values of fields, a part of JSON.values.
 	values []jsontext.Value
-	// lengths holds the length of each sample slice before a decode, to undo it.
-	lengths []int
 }
 
 type jsonField struct {
@@ -131,11 +142,7 @@ func newJSONMessage(m JSONMessage) (jsonMessage, error) {
 	for _, f := range m.Payload.Fields {
 		byKey[f.Base().Key] = f
 	}
-	msg := jsonMessage{
-		name:    m.Name,
-		fields:  make([]jsonField, len(m.Bindings)),
-		lengths: make([]int, len(m.Bindings)),
-	}
+	msg := jsonMessage{name: m.Name, fields: make([]jsonField, len(m.Bindings))}
 	for i, b := range m.Bindings {
 		f, ok := byKey[b.Field]
 		if !ok {
@@ -459,36 +466,40 @@ func (f *jsonField) appendFloat(dst []byte, v float64) ([]byte, error) {
 // bindings to samples[message]. samples holds an entry for each message in NewJSON
 // order, and each entry holds one slice for each binding, in binding order. ok is
 // false, and Decode appends nothing, when doc belongs to no message. Decode returns an
-// error, appending nothing, when doc is not JSON, meets two match rules, or holds a
-// value that does not convert. The error names the field, and also the message when the
-// decoder holds more than one.
+// error, appending nothing, when doc is not JSON or meets two match rules.
+//
+// failures holds each field whose value does not convert, or that has no value and no
+// default. A failed field appends no sample, and the other fields still append.
+// failures is nil when every field decodes, and valid until the next Decode.
 func (j *JSON) Decode(
 	doc []byte,
 	samples [][][]byte,
-) (message int, ok bool, err error) {
+) (message int, ok bool, failures []Failure, err error) {
 	if err := j.extractor.Extract(doc, j.values); err != nil {
-		return 0, false, errors.Wrap(validate.ErrValidation, err.Error())
+		return 0, false, nil, errors.Wrap(validate.ErrValidation, err.Error())
 	}
 	if message, ok, err = j.router.find(j.values[:j.ruleValues]); err != nil || !ok {
-		return 0, false, err
+		return 0, false, nil, err
 	}
 	m := &j.messages[message]
-	if err := m.decode(samples[message]); err != nil {
-		if len(j.messages) > 1 {
-			err = errors.Wrapf(err, "message %s", m.name)
-		}
-		return 0, false, err
+	if j.failures = m.decode(samples[message], j.failures[:0]); len(j.failures) == 0 {
+		return message, true, nil, nil
 	}
-	return message, true, nil
+	if len(j.messages) > 1 {
+		for i := range j.failures {
+			j.failures[i].Err = errors.Wrapf(j.failures[i].Err, "message %s", m.name)
+		}
+	}
+	return message, true, j.failures, nil
 }
 
-func (m *jsonMessage) decode(samples [][]byte) error {
-	for i := range samples {
-		m.lengths[i] = len(samples[i])
-	}
+// decode appends the sample of each field to samples, and each failed field to
+// failures.
+func (m *jsonMessage) decode(samples [][]byte, failures []Failure) []Failure {
 	for i := range m.fields {
 		f := &m.fields[i]
 		var err error
+		missing := false
 		if payload.Absent(m.values[i], f.dataType) {
 			switch {
 			case f.generate != nil:
@@ -496,6 +507,7 @@ func (m *jsonMessage) decode(samples [][]byte) error {
 			case f.fallback != nil:
 				samples[i] = append(samples[i], f.fallback...)
 			default:
+				missing = true
 				err = errors.Wrapf(
 					validate.ErrValidation, "no value at %s", f.pointer,
 				)
@@ -507,13 +519,14 @@ func (m *jsonMessage) decode(samples [][]byte) error {
 			}
 		}
 		if err != nil {
-			for k := range samples {
-				samples[k] = samples[k][:m.lengths[k]]
-			}
-			return errors.Wrapf(err, "field %s", f.name)
+			failures = append(failures, Failure{
+				Binding: i,
+				Missing: missing,
+				Err:     errors.Wrapf(err, "field %s", f.name),
+			})
 		}
 	}
-	return nil
+	return failures
 }
 
 // jsonText returns the exact bytes of text. It returns a validation error when text is

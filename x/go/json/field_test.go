@@ -182,6 +182,17 @@ var _ = Describe("Field", func() {
 				`"OFF"`, text("OFF")),
 			Entry("a string", xjson.Field{DataType: telem.StringT}, `"a\nb"`,
 				text("a\nb")),
+			Entry("a number as its JSON text into a string",
+				xjson.Field{
+					DataType: telem.StringT,
+					Enums:    []xjson.Enum{xjson.NewEnum("1.50", "ON")},
+				},
+				`1.50`, text("1.50")),
+			Entry("a boolean as its JSON text into a string",
+				xjson.Field{DataType: telem.StringT}, `true`, text("true")),
+			Entry("an object as its compacted JSON text into a string",
+				xjson.Field{DataType: telem.StringT}, `{ "a" : [ 1 , 2 ] }`,
+				text(`{"a":[1,2]}`)),
 			Entry("JSON as the document spells it", xjson.Field{DataType: telem.JSONT},
 				`{ "z" : 1.0, "a" : [ 1 , 2 ] }`, text(`{"z":1.0,"a":[1,2]}`)),
 			Entry("a scalar as JSON", xjson.Field{DataType: telem.JSONT}, `1e999`,
@@ -278,8 +289,6 @@ var _ = Describe("Field", func() {
 				))
 				Expect(out).To(BeNil())
 			},
-			Entry("a number into a string", xjson.Field{DataType: telem.StringT}, `1`,
-				"expected a string, got a number"),
 			Entry("a string that holds no number into a number",
 				xjson.Field{DataType: telem.Float64T}, `"x"`, `invalid number "x"`),
 			Entry("a string that holds two numbers into a number",
@@ -405,6 +414,10 @@ var _ = Describe("Field", func() {
 			Entry("a whole float in an integer range",
 				xjson.Field{DataType: telem.Float64T, Range: telem.Int64T}, 4.0,
 				sample(4.0)),
+			Entry("NaN into a float32", xjson.Field{DataType: telem.Float32T},
+				math.NaN(), sample(float32(math.NaN()))),
+			Entry("infinity into a float64", xjson.Field{DataType: telem.Float64T},
+				math.Inf(-1), sample(math.Inf(-1))),
 		)
 
 		DescribeTable("Should reject a float that does not convert",
@@ -415,10 +428,10 @@ var _ = Describe("Field", func() {
 					MatchError(ContainSubstring(message)),
 				))
 			},
-			Entry("infinity", xjson.Field{DataType: telem.Float64T}, math.Inf(1),
-				"Infinity is not finite"),
-			Entry("NaN", xjson.Field{DataType: telem.Float32T}, math.NaN(),
-				"NaN is not finite"),
+			Entry("NaN into an integer", xjson.Field{DataType: telem.Int32T},
+				math.NaN(), "NaN is not an integer"),
+			Entry("infinity into an integer", xjson.Field{DataType: telem.Int64T},
+				math.Inf(1), "Infinity is out of range for int64"),
 			Entry("a float past a float32", xjson.Field{DataType: telem.Float32T},
 				1e39, "1e+39 overflows float32"),
 			Entry("a fraction into an integer", xjson.Field{DataType: telem.Int32T},
@@ -491,6 +504,23 @@ var _ = Describe("Field", func() {
 			dst = MustSucceed(d.Append(dst, jsontext.Value(`"bc"`)))
 			Expect(dst).To(Equal(append(text("a"), text("bc")...)))
 		})
+
+		DescribeTable("Should report whether a JSON value is the label of an enum",
+			func(f xjson.Field, raw string, expected bool) {
+				d := MustSucceed(xjson.NewDecoder(f))
+				Expect(d.Labeled(jsontext.Value(raw))).To(Equal(expected))
+			},
+			Entry("a label", xjson.Field{DataType: telem.Float64T, Enums: onOff},
+				`"ON"`, true),
+			Entry("a label that holds an escape",
+				xjson.Field{DataType: telem.Float64T, Enums: onOff}, `"\u004fN"`, true),
+			Entry("a string that is not a label",
+				xjson.Field{DataType: telem.Float64T, Enums: onOff}, `"1"`, false),
+			Entry("a field with no enums", xjson.Field{DataType: telem.Float64T},
+				`"ON"`, false),
+			Entry("a value that is not a string",
+				xjson.Field{DataType: telem.Float64T, Enums: onOff}, `1`, false),
+		)
 	})
 
 	Describe("Encoder", func() {
@@ -519,6 +549,15 @@ var _ = Describe("Field", func() {
 			Entry("a number as a string",
 				xjson.Field{DataType: telem.Float32T, Type: xjson.String},
 				sample[float32](0.5), `"0.5"`),
+			Entry("a float32 as a string at its own precision",
+				xjson.Field{DataType: telem.Float32T, Type: xjson.String},
+				sample[float32](0.1), `"0.1"`),
+			Entry("a large float as a string without an exponent",
+				xjson.Field{DataType: telem.Float64T, Type: xjson.String},
+				sample(1e10), `"10000000000"`),
+			Entry("a small float as a string with an exponent",
+				xjson.Field{DataType: telem.Float64T, Type: xjson.String},
+				sample(1.5e-7), `"1.5e-7"`),
 			Entry("a value as its enum label",
 				xjson.Field{DataType: telem.Uint8T, Type: xjson.String, Enums: onOff},
 				sample[uint8](1), `"ON"`),
