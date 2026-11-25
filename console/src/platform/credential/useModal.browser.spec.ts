@@ -45,7 +45,8 @@ const createKey = async (name: string): Promise<void> => {
 // Types an instant into the custom expiry date and commits it.
 const setExpiryDate = async (value: string): Promise<void> => {
   fireEvent.click(await screen.findByLabelText("Expiry date"));
-  const field = await screen.findByRole("textbox", { name: "Expiry date" });
+  // The open editor holds the instant as "YYYY-MM-DD HH:MM...".
+  const field = await screen.findByDisplayValue(/^\d{4}-\d{2}-\d{2} /);
   fireEvent.change(field, { target: { value } });
   fireEvent.keyDown(field, { key: "Enter" });
 };
