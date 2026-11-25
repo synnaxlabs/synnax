@@ -107,6 +107,26 @@ describe("breaker", () => {
     expect(slept.some((ms) => ms > TimeSpan.seconds(1).milliseconds)).toBe(true);
   });
 
+  it("should back off on an exempt wait without using the budget", async () => {
+    const mockSleep = vi.fn();
+    const brk = new breaker.Breaker({
+      baseInterval: TimeSpan.seconds(1),
+      maxInterval: TimeSpan.seconds(4),
+      maxRetries: 0,
+      scale: 2,
+      sleepFn: mockSleep,
+    });
+
+    expect(await brk.wait({ exempt: true })).toBe(true);
+    expect(await brk.wait({ exempt: true })).toBe(true);
+    expect(await brk.wait({ exempt: true })).toBe(true);
+    expect(await brk.wait()).toBe(false);
+
+    expect(mockSleep).toHaveBeenNthCalledWith(1, TimeSpan.seconds(1));
+    expect(mockSleep).toHaveBeenNthCalledWith(2, TimeSpan.seconds(2));
+    expect(mockSleep).toHaveBeenNthCalledWith(3, TimeSpan.seconds(4));
+  });
+
   it("should support unbounded retries", async () => {
     const mockSleep = vi.fn();
     const brk = new breaker.Breaker({

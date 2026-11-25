@@ -358,6 +358,35 @@ TEST(Reader, WarnsAboutFrameItCannotDecode) {
     ASSERT_EQ(fr.series->at(1).values<double>(), (std::vector{21.5}));
 }
 
+/// @brief it should write the other index groups of a frame with a field that does not
+/// decode, and warn about the field.
+TEST(Reader, WarnsAboutFieldItCannotDecode) {
+    Config cfg{synnax::icd::JSONPayload{}};
+    synnax::icd::FloatJSONField v;
+    v.name = "v";
+    v.pointer = "/v";
+    cfg.bind<synnax::icd::JSONPayload>(v, 2, 1);
+    auto w = v;
+    w.name = "w";
+    w.pointer = "/w";
+    cfg.bind<synnax::icd::JSONPayload>(w, 3, 4);
+    auto r = ASSERT_NIL_P(
+        Reader::create(ASSERT_NIL_P(codec::framing::delimited({'\n'})), cfg.create())
+    );
+    Memory t;
+    t.push(std::string(R"({"v": 1, "w": {}})") + "\n");
+    x::telem::Frame fr;
+    const auto res = r.read(t, fr);
+    ASSERT_NIL(res.error);
+    ASSERT_EQ(res.warning.message, "Failed to decode message");
+    ASSERT_EQ(
+        res.warning.description,
+        "field w: expected a number or boolean, got an object"
+    );
+    ASSERT_EQ(*fr.channels, (std::vector<std::uint32_t>{1, 2}));
+    ASSERT_EQ(fr.series->at(1).values<double>(), (std::vector{1.0}));
+}
+
 /// @brief it should skip a frame that belongs to no message without a warning.
 TEST(Reader, SkipsFrameOfNoMessage) {
     auto r = lines("T");

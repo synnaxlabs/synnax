@@ -14,8 +14,10 @@ export const components = mdxOverrides;
 A computer must trust the CA certificate of a Synnax Core that uses a
 [self-signed certificate](/reference/enterprise/tls#use-a-self-signed-certificate).
 Install the CA certificate on each computer that runs the Console, a browser, a
-standalone Driver, or a TypeScript client in Node.js. A Core with a certificate from a
-public CA, or from a CA that your computers already trust, needs none of this.
+standalone Driver, a Python client, or a TypeScript client in Node.js. A Core with a
+certificate from a public CA, or from a CA that your computers already trust, needs none
+of this. The Python client reads the operating system store on Linux, Windows, and
+macOS.
 
 <Divider.Divider x />
 
@@ -103,6 +105,3 @@ the CA certificate in `NODE_EXTRA_CA_CERTS`:
 ```bash
 NODE_EXTRA_CA_CERTS=/path/to/synnax-ca.crt node app.js
 ```
-
-To make the Python client trust the CA certificate, give it the path in
-[`ca_cert`](/reference/client/connect#connect-with-tls).

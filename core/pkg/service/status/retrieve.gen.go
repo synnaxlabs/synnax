@@ -75,7 +75,7 @@ func newIndexes() indexes {
 		}),
 		owner: gorp.NewTargetReference(gorp.TargetReferenceConfig[Key, Status[any]]{
 			Name:     "owner",
-			Tables:   []string{"rack", "task", "device", "channel", "calculation", "arc", "ni_device", "ni_chassis", "certificate"},
+			Tables:   []string{"rack", "task", "device", "channel", "calculation", "arc", "ni_device", "ni_chassis", "opcua_server", "certificate"},
 			OnDelete: gorp.Cascade,
 			Kind:     gorp.Place,
 			Unique:   true,

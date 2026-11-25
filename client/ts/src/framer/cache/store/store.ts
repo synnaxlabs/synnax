@@ -1,0 +1,664 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { alamos } from "@synnaxlabs/alamos";
+import {
+  type DataType,
+  type destructor,
+  map,
+  MultiSeries,
+  type Series,
+  Size,
+  TimeRange,
+  TimeSpan,
+  TimeStamp,
+} from "@synnaxlabs/x";
+
+import type { channel } from "@/channel";
+import { UnexpectedError } from "@/errors";
+import { block as cacheBlock } from "@/framer/cache/block";
+import { dynamic } from "@/framer/cache/dynamic";
+import { grid } from "@/framer/cache/grid";
+import { reader } from "@/framer/cache/reader";
+
+export interface Props extends Partial<
+  Pick<dynamic.Props, "dynamicBufferSize" | "now">
+> {
+  /**
+   * Byte size the store evicts down to, least recently used first. Each block counts
+   * its samples and a small fixed overhead. A held block is never evicted, so the store
+   * can exceed the budget.
+   * @default Size.megabytes(128)
+   */
+  budget?: Size;
+  /**
+   * How long a fetched block answers reads before it is fetched again, so that writes
+   * into the past show up. A held block keeps answering.
+   * @default TimeSpan.minutes(10)
+   */
+  staleThreshold?: TimeSpan;
+  /**
+   * About the most raw samples the store keeps of each streamed channel with a known
+   * index. A channel keeps more while its samples since the commit point outnumber a
+   * quarter of the limit.
+   * @default 2 ** 17
+   */
+  liveSamples?: number;
+  /** Used for logging. */
+  instrumentation?: alamos.Instrumentation;
+  /**
+   * The key of the Core node the client connects to, once known. History signals name
+   * only the channels stored on it.
+   */
+  node?: () => number | undefined;
+}
+
+const DEFAULT_BUDGET = Size.megabytes(128);
+const DEFAULT_STALE_THRESHOLD = TimeSpan.minutes(10);
+const DEFAULT_LIVE_SAMPLES = 2 ** 17;
+
+// ENTRY_OVERHEAD estimates the memory of a block apart from its samples, so that blocks
+// with no samples count against the budget too.
+const ENTRY_OVERHEAD = 256;
+
+// Moves the samples of the buffer's leading series into the block as fetched ones.
+const flushInto = (block: cacheBlock.Raw, buffer: dynamic.Dynamic): void => {
+  const flushed = buffer.flush();
+  if (flushed != null && flushed.length > 0)
+    block.fill([flushed], block.coveredEnd, block.coveredCount);
+};
+
+// A cached block and the bytes it counted against the budget at its last set.
+interface Entry {
+  block: cacheBlock.Block;
+  bytes: number;
+}
+
+// The stream's buffer of one channel, and the raw block it writes into.
+interface Live {
+  buffer: dynamic.Dynamic;
+  block: cacheBlock.Raw | null;
+}
+
+// A sample of an index channel.
+interface Mark {
+  time: TimeStamp;
+  alignment: bigint;
+}
+
+/** Where the raw samples of a streamed index channel and its data channels start. */
+export interface Floor {
+  /** Raw samples draw from here on. */
+  start: TimeStamp;
+  /** The store keeps raw samples from here on, or from any time when undefined. */
+  kept?: TimeStamp;
+}
+
+/**
+ * Receives a span of a channel's history that changed, or of every channel's when the
+ * channel is null. missed is true when the stream missed frames, not when history
+ * changed.
+ */
+export type InvalidateHandler = (
+  ch: channel.Key | null,
+  tr: TimeRange,
+  missed: boolean,
+) => void;
+
+/**
+ * @returns true when a calculation writes the channel's samples: an output named in
+ * outputs, or the virtual index of a calculation.
+ */
+export const calculated = (p: channel.Payload, outputs: Set<channel.Key>): boolean =>
+  outputs.has(p.key) || (p.virtual && p.isIndex);
+
+/**
+ * Caches blocks of channel samples under one byte budget. The least recently used block
+ * leaves first. Every block of a channel holds one data type. A join appends streamed
+ * samples to the raw block of their time, which stays open until the stream moves past
+ * it. A sealed block stays valid until a history change names it while the history
+ * signals stream. Other blocks expire. A streamed index channel and its data channels
+ * keep about liveSamples raw samples each, from the floor of the index on.
+ */
+export class Store {
+  private readonly budget: number;
+  private readonly staleThreshold: TimeSpan;
+  private readonly dynamicBufferSize: number | TimeSpan;
+  private readonly instrumentation: alamos.Instrumentation;
+  private readonly now: () => TimeStamp;
+  private readonly node: () => number | undefined;
+  // Map order is recency order: a get moves its entry to the end.
+  private readonly entries = new Map<string, Entry>();
+  private readonly dataTypes = new Map<channel.Key, DataType>();
+  private readonly live = new Map<channel.Key, Live>();
+  // newest holds the newest raw block that held samples of each channel. A block that
+  // leaves stays its newest, until the channel's data type changes.
+  private readonly newest = new Map<channel.Key, number>();
+  // epochs counts the changes to the series of each channel's raw blocks.
+  private readonly epochs = new Map<channel.Key, number>();
+  // streamed holds the newest streamed series of each channel with no stored samples.
+  private readonly streamed = new Map<channel.Key, Series>();
+  private bytes = 0;
+  private readonly calculated = new Set<channel.Key>();
+  // leaseholders holds the node of each stored channel.
+  private readonly leaseholders = new Map<channel.Key, number>();
+  private readonly liveSamples: number;
+  // indexOf holds the index of each known channel, an index itself included.
+  private readonly indexOf = new Map<channel.Key, channel.Key>();
+  // floors holds the raw sample floor of each trimmed index channel, and the floor
+  // before it.
+  private readonly floors = new Map<channel.Key, { start: Mark; kept?: Mark }>();
+  private signalKey: channel.Key | null = null;
+  // signalsSince is when the stream last acked the history signals, or null when it
+  // does not carry them.
+  private signalsSince: TimeStamp | null = null;
+  private readonly invalidateHandlers = new Set<InvalidateHandler>();
+
+  constructor({
+    budget = DEFAULT_BUDGET,
+    staleThreshold = DEFAULT_STALE_THRESHOLD,
+    dynamicBufferSize = grid.tileSpan(cacheBlock.RAW_LEVEL),
+    liveSamples = DEFAULT_LIVE_SAMPLES,
+    instrumentation = alamos.NOOP,
+    now = () => TimeStamp.now(),
+    node = () => undefined,
+  }: Props = {}) {
+    this.budget = budget.valueOf();
+    this.staleThreshold = staleThreshold;
+    this.dynamicBufferSize = dynamicBufferSize;
+    this.liveSamples = liveSamples;
+    this.instrumentation = instrumentation;
+    this.now = now;
+    this.node = node;
+  }
+
+  /** @returns the block cached under the key, marking it the most recently used. */
+  get(key: string): cacheBlock.Block | undefined {
+    const entry = this.entries.get(key);
+    if (entry == null) return undefined;
+    this.entries.delete(key);
+    this.entries.set(key, entry);
+    return entry.block;
+  }
+
+  /**
+   * Caches the block under the key as the most recently used, replacing any block
+   * there, and evicts least recently used blocks past the budget. A raw block takes the
+   * floor of its channel's index. The block it sets is never evicted. Call it again
+   * after the block changes, so its new size counts against the budget.
+   */
+  set(key: string, block: cacheBlock.Block): void {
+    if (block instanceof cacheBlock.Raw) {
+      this.applyFloor(block);
+      this.changed(block.channel);
+      if (block.coveredCount > 0)
+        this.newest.set(
+          block.channel,
+          Math.max(block.tile, this.newest.get(block.channel) ?? -Infinity),
+        );
+    }
+    const bytes = block.bytes + ENTRY_OVERHEAD;
+    this.bytes += bytes - (this.entries.get(key)?.bytes ?? 0);
+    this.entries.delete(key);
+    this.entries.set(key, { block, bytes });
+    this.evict(key);
+  }
+
+  /**
+   * Moves a subscription's pins from the blocks it served to the blocks it serves now,
+   * then evicts least recently used blocks past the budget.
+   */
+  repin(prev: Set<cacheBlock.Block>, next: Set<cacheBlock.Block>): void {
+    prev.forEach((b) => {
+      if (!next.has(b)) b.pins--;
+    });
+    next.forEach((b) => {
+      if (!prev.has(b)) b.pins++;
+    });
+    this.evict(null);
+  }
+
+  /**
+   * Holds the block until the fetch settles, then evicts least recently used blocks
+   * past the budget.
+   * @returns the fetch, which the block keeps as pending until it settles.
+   */
+  hold(block: cacheBlock.Raw, fetch: Promise<void>): Promise<void> {
+    const pending = fetch.finally(() => {
+      if (block.pending !== pending) return;
+      block.pending = null;
+      this.evict(null);
+    });
+    block.pending = pending;
+    return pending;
+  }
+
+  // Evicts least recently used blocks that are not held, other than the kept one, until
+  // the store fits its budget.
+  private evict(kept: string | null): void {
+    // A Map iterator walks past the holes that deletes leave, so the check comes first.
+    if (this.bytes <= this.budget) return;
+    let visits = this.entries.size;
+    for (const [k, entry] of this.entries) {
+      if (this.bytes <= this.budget || visits-- === 0) break;
+      if (k === kept) continue;
+      if (!entry.block.held) this.delete(k);
+      else {
+        // A held block is in use, so it moves to the back as the most recently used.
+        this.entries.delete(k);
+        this.entries.set(k, entry);
+      }
+    }
+  }
+
+  /** Removes the block cached under the key. */
+  delete(key: string): void {
+    const entry = this.entries.get(key);
+    if (entry == null) return;
+    if (entry.block instanceof cacheBlock.Raw) this.changed(entry.block.channel);
+    this.entries.delete(key);
+    this.bytes -= entry.bytes;
+  }
+
+  /**
+   * @returns true when the block's fetched samples are too old to answer reads. A held
+   * block never expires, nor does a sealed block that history signals keep valid.
+   */
+  expired(block: cacheBlock.Block): boolean {
+    if (block.held) return false;
+    const age = this.now().valueOf() - block.fetchedAt.valueOf();
+    if ((age < 0n ? -age : age) < this.staleThreshold.valueOf()) return false;
+    return !this.signaled(block);
+  }
+
+  // A sealed block fetched while the stream carried the history signals stays valid
+  // until a signal names it. The signals name only the channels stored on the node, and
+  // never an append.
+  private signaled(block: cacheBlock.Block): boolean {
+    const node = this.node();
+    return (
+      block.sealed &&
+      this.signalsSince != null &&
+      node != null &&
+      this.leaseholders.get(block.channel) === node &&
+      !block.fetchedAt.before(this.signalsSince)
+    );
+  }
+
+  /** @returns true when the Core stores the channel's samples. */
+  stored(ch: channel.Key): boolean {
+    return this.leaseholders.has(ch);
+  }
+
+  /**
+   * Restarts the time from which history signals count as delivered, after the stream
+   * dropped frames that could hold them. A sealed block fetched before now then stays
+   * valid only until it is older than the stale threshold, and a held block until it
+   * is released.
+   */
+  restartSignals(): void {
+    if (this.signalsSince != null) this.signalsSince = this.now();
+  }
+
+  /** @returns true when the channel is calculated. */
+  isCalculated(ch: channel.Key): boolean {
+    return this.calculated.has(ch);
+  }
+
+  /**
+   * Records the channel, which decides whether history signals name it, and which
+   * index's floor its raw samples follow. outputs holds the channels that a calculation
+   * writes, and must hold the channel's key if one writes it.
+   */
+  setChannel(p: channel.Payload, outputs: Set<channel.Key>): void {
+    const index = p.isIndex ? p.key : p.index;
+    if (index !== 0) {
+      this.indexOf.set(p.key, index);
+      this.indexOf.set(index, index);
+    }
+    if (calculated(p, outputs)) this.calculated.add(p.key);
+    else this.calculated.delete(p.key);
+    if (p.virtual) this.leaseholders.delete(p.key);
+    else this.leaseholders.set(p.key, p.leaseholder);
+  }
+
+  /** Sets the channel that carries the history signals. */
+  setSignalKey(key: channel.Key): void {
+    this.signalKey = key;
+  }
+
+  /** Records the keys the stream has acked. */
+  setAcked(keys: Set<channel.Key>): void {
+    const flowing = this.signalKey != null && keys.has(this.signalKey);
+    if (!flowing) this.signalsSince = null;
+    else this.signalsSince ??= this.now();
+  }
+
+  /** Registers a handler for changed spans of history. */
+  onInvalidate(handler: InvalidateHandler): destructor.Destructor {
+    this.invalidateHandlers.add(handler);
+    return () => this.invalidateHandlers.delete(handler);
+  }
+
+  /**
+   * Drops the cached samples of the channel over the time range, or of every channel
+   * when the channel is null. Set missed when the stream missed frames, not when
+   * history changed. A missed span keeps the samples of a raw block before its start.
+   */
+  invalidate(
+    ch: channel.Key | null = null,
+    tr: TimeRange = TimeRange.MAX,
+    missed = false,
+  ): void {
+    const touched = [...this.entries]
+      .map(([key, { block }]) => [key, block] as const)
+      .filter(([, b]) => (ch == null || b.channel === ch) && b.range.overlapsWith(tr));
+    for (const [key, block] of touched)
+      if (!(block instanceof cacheBlock.Raw)) this.delete(key);
+      else if (missed && this.truncate(block, tr.start)) this.set(key, block);
+      else if (block.expire()) this.set(key, block);
+    this.invalidateHandlers.forEach((h) => h(ch, tr, missed));
+  }
+
+  // Cuts the raw block at the time, using the index block of the same index to count
+  // the index samples before it. Returns false when the block cannot be cut there, or
+  // when the cut would drop the sample that the start of its index's floor marks.
+  private truncate(block: cacheBlock.Raw, at: TimeStamp): boolean {
+    if (block.joined || !at.after(block.coveredStart)) return false;
+    if (!at.before(block.coveredEnd)) return true;
+    const index = this.indexOf.get(block.channel);
+    if (index == null) return false;
+    const start = this.floors.get(index)?.start;
+    if (
+      start != null &&
+      cacheBlock.domainOf(start.alignment) === BigInt(block.tile) &&
+      at.before(start.time)
+    )
+      return false;
+    const indexBlock =
+      index === block.channel ? block : this.peekRaw(index, block.tile);
+    const offset = indexBlock?.indexOffset(at);
+    if (offset == null) return false;
+    block.truncate(cacheBlock.alignmentOf(block.tile, offset), at);
+    return true;
+  }
+
+  /** @returns the index of the channel, or the channel for an index, when known. */
+  index(ch: channel.Key): channel.Key | undefined {
+    return this.indexOf.get(ch);
+  }
+
+  /** @returns the data type of the channel's cached samples. */
+  dataType(ch: channel.Key): DataType | undefined {
+    return this.dataTypes.get(ch);
+  }
+
+  /**
+   * @returns the channel's raw block at the tile, cached empty when absent. An expired
+   * block comes back without its fetched samples.
+   * @throws {UnexpectedError} if another kind of block holds the raw block's key.
+   */
+  raw(ch: channel.Key, tile: number): cacheBlock.Raw {
+    const cached = this.findRaw(ch, tile);
+    const key = cacheBlock.rawKey(ch, tile);
+    if (cached == null) {
+      const block = new cacheBlock.Raw(ch, tile, this.now);
+      this.set(key, block);
+      return block;
+    }
+    if (this.expired(cached) && cached.expire()) this.set(key, cached);
+    return cached;
+  }
+
+  /**
+   * @returns the channel's raw block at the tile, or undefined when none is cached.
+   * @throws {UnexpectedError} if another kind of block holds the raw block's key.
+   */
+  findRaw(ch: channel.Key, tile: number): cacheBlock.Raw | undefined {
+    const key = cacheBlock.rawKey(ch, tile);
+    const cached = this.get(key);
+    if (cached == null) return undefined;
+    if (!(cached instanceof cacheBlock.Raw))
+      throw new UnexpectedError(`block ${key} is not a raw block`);
+    return cached;
+  }
+
+  /**
+   * @returns the tile of the newest raw block of the channel that a read or the stream
+   * filled with samples, or -Infinity when none did.
+   */
+  newestBlock(ch: channel.Key): number {
+    return this.newest.get(ch) ?? -Infinity;
+  }
+
+  /**
+   * @returns a count that moves each time a raw block of the channel gains or loses a
+   * series. A stream that grows the open block's buffer in place leaves it alone.
+   */
+  epoch(ch: channel.Key): number {
+    return this.epochs.get(ch) ?? 0;
+  }
+
+  /**
+   * Records a series the stream carried for the channel. A series older than the one
+   * held is dropped, so a request whose lookup settles late cannot put back an older
+   * sample.
+   */
+  recordStreamed(ch: channel.Key, s: Series): void {
+    const held = this.streamed.get(ch);
+    if (held != null && s.timeRange.end.before(held.timeRange.end)) return;
+    this.streamed.set(ch, s);
+  }
+
+  /** @returns the newest series the stream carried for the channel, if any. */
+  newestStreamed(ch: channel.Key): Series | null {
+    return this.streamed.get(ch) ?? null;
+  }
+
+  /** @returns where the raw samples of the index channel start, if it was trimmed. */
+  floor(index: channel.Key): Floor | undefined {
+    const floor = this.floors.get(index);
+    if (floor == null) return undefined;
+    return { start: floor.start.time, kept: floor.kept?.time };
+  }
+
+  /** @returns the block the stream is writing the channel's samples into, if any. */
+  open(ch: channel.Key): cacheBlock.Raw | null {
+    return this.live.get(ch)?.block ?? null;
+  }
+
+  /**
+   * Opens the block for the stream's block-aligned samples of its channel. The block it
+   * replaces closes, complete when the stream moved past it. The store keeps an open
+   * block.
+   */
+  join(block: cacheBlock.Raw): void {
+    const live = this.liveOf(block.channel);
+    if (live.block === block) return;
+    if (live.block != null) this.seal(live, live.block.tile < block.tile);
+    block.buffer = live.buffer;
+    live.block = block;
+    this.set(cacheBlock.rawKey(block.channel, block.tile), block);
+  }
+
+  /**
+   * Appends a block-aligned piece to the stream's buffer of the block's channel, and
+   * extends the block's coverage to the end of the piece. The block opens as by
+   * {@link join}. The series of one run touch in time, as a read's series do, and the
+   * series of two runs do not.
+   * @param block - The block that holds the piece.
+   * @param p - The piece.
+   * @param newRun - True when the piece holds the first sample a writer wrote.
+   */
+  append(block: cacheBlock.Raw, p: Series, newRun = false): void {
+    const live = this.liveOf(block.channel);
+    const opened = live.block !== block;
+    if (opened) this.join(block);
+    if (newRun) {
+      flushInto(block, live.buffer);
+      live.buffer.startRun();
+    } else if (live.buffer.leadingBuffer == null) {
+      if (block.fetched.length === 0)
+        this.findRaw(block.channel, block.tile - 1)?.cutNewest();
+      p = block.continued(p);
+    }
+    const res = live.buffer.write(new MultiSeries([p]));
+    const flushed = res.flushed.series.length > 0;
+    if (flushed) block.fill(res.flushed.series, block.coveredEnd, block.coveredCount);
+    block.extend(p.timeRange.end, cacheBlock.offsetOf(p.alignment) + p.length);
+    if (opened || flushed || res.allocated.series.length > 0)
+      this.set(cacheBlock.rawKey(block.channel, block.tile), block);
+    if (this.indexOf.get(block.channel) === block.channel)
+      this.trim(block.channel, block);
+  }
+
+  /**
+   * Closes the channel's open block, stamping the end of its buffer. Call it when the
+   * stream stops delivering the channel, so reads fetch the span it will not deliver.
+   */
+  flush(ch: channel.Key): void {
+    const live = this.live.get(ch);
+    if (live != null) this.seal(live);
+  }
+
+  /**
+   * Records the channel's data type. A channel's data type can change, and series of
+   * two data types cannot be read together, so a new data type drops every block of the
+   * channel and its stream's buffer.
+   * @returns true if the data type changed.
+   */
+  retainDataType(ch: channel.Key, dataType: DataType): boolean {
+    const held = this.dataTypes.get(ch);
+    this.dataTypes.set(ch, dataType);
+    if (held == null || held.equals(dataType)) return false;
+    this.instrumentation.L.warn("channel data type changed, dropping its blocks", {
+      channel: ch,
+      prev: held.toString(),
+      next: dataType.toString(),
+    });
+    for (const [key, { block }] of this.entries)
+      if (block.channel === ch) this.delete(key);
+    this.newest.delete(ch);
+    this.floors.delete(ch);
+    const live = this.live.get(ch);
+    if (live == null) return true;
+    live.buffer.retainDataType(dataType);
+    if (live.block != null) live.block.buffer = null;
+    live.block = null;
+    return true;
+  }
+
+  /** Drops every block and stream buffer. */
+  close(): void {
+    this.live.forEach(({ buffer }) => buffer.close());
+    this.live.clear();
+    this.invalidateHandlers.clear();
+    this.entries.clear();
+    this.dataTypes.clear();
+    this.newest.clear();
+    this.streamed.clear();
+    this.indexOf.clear();
+    this.floors.clear();
+    this.bytes = 0;
+  }
+
+  // Closes the open block. It keeps its streamed samples as fetched ones, and is
+  // complete when the stream moved past it.
+  private seal(live: Live, complete = false): void {
+    const { block } = live;
+    if (block == null) return;
+    flushInto(block, live.buffer);
+    if (complete) block.extend(block.range.end, block.coveredCount);
+    block.buffer = null;
+    live.block = null;
+    this.set(cacheBlock.rawKey(block.channel, block.tile), block);
+  }
+
+  // Moves the index's floor once more than half the sample limit streamed past it. The
+  // new floor keeps a quarter of the limit, and never passes the commit point. Each
+  // block of the index's channels at either floor takes it again.
+  private trim(index: channel.Key, open: cacheBlock.Raw): void {
+    const prev = this.floors.get(index);
+    const keep = this.liveSamples / 4;
+    const committed = this.now().sub(reader.COMMIT_MARGIN);
+    let since = 0;
+    let next: Mark | null = null;
+    walk: for (let i = open.tile; ; i--) {
+      const block = i === open.tile ? open : this.peekRaw(index, i);
+      if (block == null) break;
+      const series = block.seriesIn(TimeRange.MAX);
+      for (let j = series.length - 1; j >= 0; j--) {
+        const s = series[j];
+        if (prev != null && s.alignment < prev.start.alignment) break walk;
+        since += s.length;
+        if (next == null && since >= keep && !s.timeRange.start.after(committed))
+          next = { time: s.timeRange.start, alignment: s.alignment };
+        if (next != null && since > 2 * keep) break walk;
+      }
+    }
+    if (
+      next == null ||
+      since <= 2 * keep ||
+      (prev != null && next.alignment <= prev.start.alignment)
+    )
+      return;
+    const kept = prev?.start;
+    this.floors.set(index, { start: next, kept });
+    const domains = new Set(
+      [next, kept].flatMap((m) =>
+        m == null ? [] : [Number(cacheBlock.domainOf(m.alignment))],
+      ),
+    );
+    for (const [ch, of] of this.indexOf) {
+      if (of !== index) continue;
+      for (const domain of domains) {
+        const block = this.peekRaw(ch, domain);
+        if (block != null) this.set(cacheBlock.rawKey(ch, domain), block);
+      }
+      this.changed(ch);
+    }
+  }
+
+  // Drops the block's samples before the kept floor of its channel's index, and splits
+  // its series at both floors, so that every channel of the index draws from them.
+  private applyFloor(block: cacheBlock.Raw): void {
+    const index = this.indexOf.get(block.channel);
+    const floor = index == null ? undefined : this.floors.get(index);
+    if (floor == null) return;
+    const { start, kept } = floor;
+    if (cacheBlock.domainOf(start.alignment) === BigInt(block.tile))
+      block.split(start.alignment, start.time);
+    if (kept != null && cacheBlock.domainOf(kept.alignment) === BigInt(block.tile)) {
+      block.split(kept.alignment, kept.time);
+      block.trim(kept.alignment, kept.time);
+    }
+  }
+
+  // Returns the cached raw block, leaving its recency alone.
+  private peekRaw(ch: channel.Key, tile: number): cacheBlock.Raw | undefined {
+    const block = this.entries.get(cacheBlock.rawKey(ch, tile))?.block;
+    return block instanceof cacheBlock.Raw ? block : undefined;
+  }
+
+  private changed(ch: channel.Key): void {
+    this.epochs.set(ch, this.epoch(ch) + 1);
+  }
+
+  private liveOf(ch: channel.Key): Live {
+    return map.getOrInsert(this.live, ch, () => ({
+      buffer: new dynamic.Dynamic({
+        dynamicBufferSize: this.dynamicBufferSize,
+        maxBufferSize: this.liveSamples / 16,
+        instrumentation: this.instrumentation.child(`live-${ch}`),
+        now: this.now,
+      }),
+      block: null,
+    }));
+  }
+}

@@ -26,44 +26,27 @@
 
 #include "driver/codec/binding.h"
 #include "driver/codec/bits.h"
+#include "driver/codec/mux.h"
 
 namespace driver::codec {
-/// @brief BinaryMessage is a binary message and the fields to decode from its frames.
+/// @brief BinaryMessage is a binary message and the fields of its frames to decode or
+/// encode.
 struct BinaryMessage {
     /// @brief name identifies the message in errors.
     std::string name;
     /// @brief payload is the layout of the message's frames.
     synnax::icd::BinaryPayload payload;
-    /// @brief bindings name the fields to decode, in sample order.
+    /// @brief bindings name the fields to decode or encode, in sample order.
     std::vector<Binding> bindings;
 };
 
 /// @brief Binary decodes frames that each belong to one of several binary messages into
 /// samples. It is not safe for concurrent use.
 class Binary {
-    /// @brief Type is how a field reads its raw bits.
-    enum class Type : std::uint8_t { UNSIGNED, SIGNED, FLOAT32, FLOAT64 };
-
-    /// @brief Condition selects a field when its multiplexor holds one of values.
-    struct Condition {
-        /// @brief mux indexes the multiplexors of the message, or is -1 for a field
-        /// that every frame holds.
-        int mux = -1;
-        std::vector<std::int64_t> values;
-    };
-
-    /// @brief Mux is a field that selects which other fields a frame holds.
-    struct Mux {
-        std::string name;
-        BitRange bits;
-        bool is_signed = false;
-        Condition condition;
-    };
-
     struct Field {
         std::string name;
         BitRange bits;
-        Type type = Type::UNSIGNED;
+        Encoding encoding = Encoding::UNSIGNED;
         /// @brief scaled is true when the field's scale or offset changes its value.
         bool scaled = false;
         double scale = 1;
@@ -76,7 +59,7 @@ class Binary {
         /// @brief fallback holds the one sample used when a frame does not hold the
         /// field, or nothing when the field requires one.
         std::optional<x::telem::Series> fallback;
-        Condition condition;
+        Multiplexors::Condition condition;
 
         static std::pair<Field, x::errors::Error>
         create(const synnax::icd::BinaryField &f, const x::telem::DataType &dt);
@@ -90,34 +73,14 @@ class Binary {
         decode(std::span<const std::uint8_t> payload, x::telem::Series &dst) const;
     };
 
-    /// @brief Layout maps the key of each ICD field of a message to the field.
-    using Layout = std::map<synnax::icd::FieldKey, const synnax::icd::BinaryField *>;
-
     struct Message {
         std::string name;
         std::vector<Field> fields;
-        /// @brief muxes holds the multiplexors of the fields, each after the
-        /// multiplexor that selects it.
-        std::vector<Mux> muxes;
-        /// @brief mux_end is the number of payload bytes that the multiplexors need.
-        std::size_t mux_end = 0;
+        Multiplexors muxes;
         /// @brief raw holds the raw value of each multiplexor in the last decode.
         std::vector<std::int64_t> raw;
         std::vector<x::telem::Series> samples;
 
-        /// @brief returns the condition that selects field f, and adds the multiplexors
-        /// that it reads to muxes. index maps the key of each multiplexor to its index
-        /// in muxes, and depth is the number of multiplexors below f in its chain.
-        /// @returns CONFIG_ERROR when a multiplexor does not exist, is a float field,
-        /// selects on no values, or is in a cycle of multiplexors.
-        std::pair<Condition, x::errors::Error> resolve(
-            const synnax::icd::BinaryBaseField &f,
-            const Layout &fields,
-            std::map<synnax::icd::FieldKey, int> &index,
-            std::size_t depth
-        );
-        /// @brief reports whether the multiplexors in the last decode select a field.
-        [[nodiscard]] bool selected(const Condition &c) const;
         /// @brief decodes the value of each field in payload into samples.
         x::errors::Error decode(std::span<const std::uint8_t> payload);
     };
@@ -150,7 +113,8 @@ class Binary {
     /// @returns CONFIG_ERROR when the identifier is invalid, it and the identifier of
     /// an earlier message match the same CAN identifier or value, or both messages have
     /// no identifier.
-    x::errors::Error route(const BinaryMessage &m, std::size_t i, const Layout &fields);
+    x::errors::Error
+    route(const BinaryMessage &m, std::size_t i, const Multiplexors::Layout &fields);
     x::errors::Error route_can(const synnax::icd::CanIdentifier &id, std::size_t i);
     /// @brief decodes payload as the message at index i.
     std::pair<std::optional<std::size_t>, x::errors::Error>
@@ -195,6 +159,88 @@ public:
     [[nodiscard]] const std::vector<x::telem::Series> &
     samples(const std::size_t message) const {
         return this->messages[message].samples;
+    }
+};
+/// @brief BinaryEncoder encodes samples into the payload of one binary message. It is
+/// not safe for concurrent use.
+class BinaryEncoder {
+    /// @brief Number is the kind of the samples of a field's channel.
+    enum class Number : std::uint8_t { FLOAT, SIGNED, UNSIGNED };
+
+    struct Field {
+        std::string name;
+        BitRange bits;
+        Encoding encoding = Encoding::UNSIGNED;
+        bool scaled = false;
+        double scale = 1;
+        double offset = 0;
+        Number number = Number::UNSIGNED;
+        /// @brief binding is the index of the field's sample, or nothing for a field
+        /// that takes its default.
+        std::optional<std::size_t> binding;
+        /// @brief fallback holds the raw bits of the field's default, or nothing.
+        std::optional<std::uint64_t> fallback;
+        Multiplexors::Condition condition;
+
+        /// @param dt is the data type of the field's channel, or nothing for a field
+        /// with no binding.
+        static std::pair<Field, x::errors::Error> create(
+            const synnax::icd::BinaryField &f,
+            const std::optional<x::telem::DataType> &dt
+        );
+        /// @brief returns the raw bits of the field's sample in samples, or of its
+        /// default.
+        [[nodiscard]] std::pair<std::uint64_t, x::errors::Error>
+        raw(std::span<const x::telem::Series> samples) const;
+        [[nodiscard]] std::pair<std::uint64_t, x::errors::Error>
+        raw(const x::telem::SampleValue &v) const;
+        [[nodiscard]] std::pair<std::uint64_t, x::errors::Error>
+        raw_float(double v) const;
+    };
+
+    std::vector<Field> fields;
+    Multiplexors muxes;
+    /// @brief mux_fields holds the index in fields of each multiplexor.
+    std::vector<std::size_t> mux_fields;
+    /// @brief raw holds the raw value of each multiplexor in the last encode.
+    std::vector<std::int64_t> raw;
+    /// @brief bound holds the index in fields of the field of each binding.
+    std::vector<std::size_t> bound;
+    std::size_t length = 0;
+
+public:
+    /// @brief creates an encoder of message. Each binding names a field that takes a
+    /// sample, in sample order, and every other field takes its default. The identifier
+    /// field takes the identifier's value.
+    /// @returns CONFIG_ERROR when a binding names no field, a field has two bindings, a
+    /// binding names the identifier field, a field's layout, default, or multiplexor is
+    /// invalid, a field's channel does not hold numbers, a scaled field's channel does
+    /// not hold floats, a field that the multiplexors can select has no binding and no
+    /// default, or a fixed multiplexor value never selects a bound field.
+    static std::pair<BinaryEncoder, x::errors::Error>
+    create(const BinaryMessage &message);
+
+    /// @brief encodes samples into payload. A field that the multiplexors do not select
+    /// is not written, and bits that no field holds are zero.
+    /// @param samples holds one series for each binding, in binding order. Each holds
+    /// the field's sample at index 0 and has the data type of its binding, or is empty
+    /// for a field that takes its default.
+    /// @returns VALIDATION when a selected field has no sample and no default, or a
+    /// sample does not fit its field. The error names the field.
+    x::errors::Error encode(
+        std::span<const x::telem::Series> samples,
+        std::vector<std::uint8_t> &payload
+    );
+
+    /// @brief returns the error that encode returns when binding holds v and its field
+    /// is selected, or NIL when the field of binding can hold v.
+    [[nodiscard]] x::errors::Error
+    check(std::size_t binding, const x::telem::SampleValue &v) const;
+
+    /// @brief returns true when the field of binding has a default, which encode writes
+    /// for an empty series.
+    [[nodiscard]] bool has_default(std::size_t binding) const {
+        return this->fields[this->bound[binding]].fallback.has_value();
     }
 };
 }
