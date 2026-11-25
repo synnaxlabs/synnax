@@ -15,6 +15,7 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium/internal/channel"
+	"github.com/synnaxlabs/cesium/internal/control"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/cesium/internal/virtual"
 	"github.com/synnaxlabs/x/config"
@@ -334,7 +335,7 @@ func (db *DB) openIndexWriters(
 	keyToIdx map[ChannelKey]*idxWriter,
 ) (
 	virtualWriters map[ChannelKey]*virtual.Writer,
-	transfers []xcontrol.Transfer[ChannelKey],
+	transfers []control.Transfer,
 	err error,
 ) {
 	for i, key := range cfg.Channels {
@@ -349,7 +350,7 @@ func (db *DB) openIndexWriters(
 		if isVirtual && !cfg.Mode.Stream() {
 			continue
 		}
-		var transfer xcontrol.Transfer[ChannelKey]
+		var transfer control.Transfer
 		if isVirtual {
 			var vW *virtual.Writer
 			vW, transfer, err = v.OpenWriter(ctx, virtual.WriterConfig{
@@ -386,14 +387,14 @@ func (db *DB) openIndexWriter(
 	cfg WriterConfig,
 	u *unary.DB,
 	i int,
-) (*idxWriter, xcontrol.Transfer[ChannelKey], error) {
+) (*idxWriter, control.Transfer, error) {
 	uW, transfer, err := u.OpenWriter(ctx, cfg.unaryConfig(i))
 	if err != nil {
-		return nil, xcontrol.Transfer[ChannelKey]{}, err
+		return nil, control.Transfer{}, err
 	}
 	idxW, err := db.openDomainIdxWriter(u.Channel().Index, cfg)
 	if err != nil {
-		return nil, xcontrol.Transfer[ChannelKey]{}, err
+		return nil, control.Transfer{}, err
 	}
 	idxW.writingToIdx = true
 	idxW.internal[cfg.Channels[i]] = &unaryWriterState{Writer: *uW}
@@ -409,8 +410,8 @@ func (db *DB) openDataWriters(
 	cfg WriterConfig,
 	domainWriters map[ChannelKey]*idxWriter,
 	keyToIdx map[ChannelKey]*idxWriter,
-	transfers []xcontrol.Transfer[ChannelKey],
-) ([]xcontrol.Transfer[ChannelKey], error) {
+	transfers []control.Transfer,
+) ([]control.Transfer, error) {
 	for i, key := range cfg.Channels {
 		u, ok := db.mu.dbs.unary[key]
 		if !ok || u.Channel().IsIndex || u.Channel().Index == 0 {

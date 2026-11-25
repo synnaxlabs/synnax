@@ -17,6 +17,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium/internal/alignment"
 	"github.com/synnaxlabs/cesium/internal/channel"
+	"github.com/synnaxlabs/cesium/internal/control"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/index"
 	"github.com/synnaxlabs/cesium/internal/resource"
@@ -172,10 +173,10 @@ type controlledWriter struct {
 	alignments *alignment.Counter
 }
 
-var _ xcontrol.Resource[channel.Key] = &controlledWriter{}
+var _ control.Resource = &controlledWriter{}
 
-// Key implements control.Resource.
-func (w *controlledWriter) Key() channel.Key { return w.channelKey }
+// ChannelKey implements controller.Resource.
+func (w *controlledWriter) ChannelKey() channel.Key { return w.channelKey }
 
 func (w *controlledWriter) loadAlignment() telem.Alignment {
 	return telem.Alignment(w.alignment.Load())
@@ -212,7 +213,7 @@ func (w *controlledWriter) endDomain(ctx context.Context) error {
 
 type Writer struct {
 	// control stores the gate held by the writer in the controller of the unaryDB.
-	control *xcontrol.Gate[channel.Key, *controlledWriter]
+	control *control.Gate[*controlledWriter]
 	// idx stores the index of the unaryDB (rate or domain).
 	idx *index.Domain
 	// wrapError is a function that wraps any error originating from this writer to
@@ -232,7 +233,7 @@ type Writer struct {
 
 func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (
 	w *Writer,
-	transfer xcontrol.Transfer[channel.Key],
+	transfer control.Transfer,
 	err error,
 ) {
 	if db.closed.Load() {
@@ -260,7 +261,7 @@ func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (
 		domainStart: start,
 	}
 	if w.control, transfer, err = db.controller.OpenGate(
-		xcontrol.GateConfig[channel.Key, *controlledWriter]{
+		control.GateConfig[*controlledWriter]{
 			Bounded:               cfg.Bounded,
 			ErrOnUnauthorizedOpen: cfg.ErrOnUnauthorizedOpen,
 			TimeRange:             cfg.controlTimeRange(start),
@@ -414,17 +415,15 @@ func (w *Writer) EndDomain(ctx context.Context) error {
 	}))
 }
 
-func (w *Writer) SetAuthority(a xcontrol.Authority) xcontrol.Transfer[channel.Key] {
+func (w *Writer) SetAuthority(a xcontrol.Authority) control.Transfer {
 	return w.visible(w.control.SetAuthority(a))
 }
 
 // visible hides a transfer of a bounded writer, which says nothing about who controls
 // the channel.
-func (w *Writer) visible(
-	t xcontrol.Transfer[channel.Key],
-) xcontrol.Transfer[channel.Key] {
+func (w *Writer) visible(t control.Transfer) control.Transfer {
 	if *w.cfg.Bounded {
-		return xcontrol.Transfer[channel.Key]{}
+		return control.Transfer{}
 	}
 	return t
 }
@@ -519,9 +518,9 @@ func (w *Writer) commitWithEnd(
 	return end, nil
 }
 
-func (w *Writer) Close() (xcontrol.Transfer[channel.Key], error) {
+func (w *Writer) Close() (control.Transfer, error) {
 	if w.closed {
-		return xcontrol.Transfer[channel.Key]{}, nil
+		return control.Transfer{}, nil
 	}
 	w.closed = true
 	dw, t := w.control.Release()

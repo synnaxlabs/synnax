@@ -16,6 +16,7 @@ import (
 
 	"github.com/synnaxlabs/cesium/internal/alignment"
 	"github.com/synnaxlabs/cesium/internal/channel"
+	"github.com/synnaxlabs/cesium/internal/control"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/index"
 	"github.com/synnaxlabs/cesium/internal/meta"
@@ -31,7 +32,7 @@ import (
 type DB struct {
 	// domain is the underlying domain database on which writes will be executed.
 	domain     *domain.DB
-	controller *xcontrol.Controller[channel.Key, *controlledWriter]
+	controller *control.Controller[*controlledWriter]
 	// idx is the index used for resolving timestamp positions on this channel.
 	idx              *index.Domain
 	wrapError        func(error) error
@@ -84,7 +85,7 @@ func (db *DB) WriteCursor(ts telem.TimeStamp) (telem.Alignment, error) {
 }
 
 // LeadingControlState returns the first chronological gate in this unary database.
-func (db *DB) LeadingControlState() *xcontrol.State[channel.Key] {
+func (db *DB) LeadingControlState() *control.State {
 	return db.controller.LeadingState()
 }
 
