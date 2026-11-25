@@ -17,6 +17,8 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	channeltestutil "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/ethercat/master"
 	"github.com/synnaxlabs/synnax/pkg/service/ethercat/slave"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
@@ -25,19 +27,22 @@ import (
 	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Writer", func() {
 	var (
-		masters *master.Service
-		rackSvc *rack.Service
-		svc     *slave.Service
-		stat    *status.Service
-		tx      gorp.Tx
-		w       slave.Writer
-		m       master.Master
+		masters    *master.Service
+		channelSvc *channel.Service
+		chs        channel.Keys
+		rackSvc    *rack.Service
+		svc        *slave.Service
+		stat       *status.Service
+		tx         gorp.Tx
+		w          slave.Writer
+		m          master.Master
 	)
 	BeforeEach(func(ctx SpecContext) {
 		MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db}))
@@ -46,7 +51,7 @@ var _ = Describe("Writer", func() {
 		roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{DB: db}))
 		rackSvc = MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:         db,
-			HostKey:    1,
+			HostKey:    node.Identity.HostKey,
 			Status:     stat,
 			DriverRole: MustSucceed(racktestutil.CreateDriverRole(ctx, db, roleSvc)),
 		}))
@@ -54,11 +59,27 @@ var _ = Describe("Writer", func() {
 			DB:     db,
 			Status: stat,
 		}))
+		channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
+			Channel: node.Channel,
+			DB:      db,
+			HostKey: node.Identity.HostKey,
+			Status:  stat,
+		}))
 		svc = MustOpen(slave.OpenService(ctx, slave.ServiceConfig{
 			DB:     db,
 			Status: stat,
 		}))
 		tx = DeferClose(db.OpenTx())
+		channels := make([]channel.Channel, 3)
+		for i := range channels {
+			channels[i] = channel.Channel{
+				Name:     channeltestutil.UniqueChannelName(),
+				DataType: telem.Float64T,
+				Virtual:  true,
+			}
+		}
+		Expect(channelSvc.NewWriter(tx).CreateMany(ctx, &channels)).To(Succeed())
+		chs = channel.KeysFromChannels(channels)
 		w = svc.NewWriter(tx)
 		m = master.Master{
 			Rack:      rackSvc.EmbeddedKey,
@@ -176,7 +197,7 @@ var _ = Describe("Writer", func() {
 		) {
 			s := newSlave()
 			s.ReadBindings = []slave.ReadBinding{
-				{Index: 0x6001, SubIndex: 1, Channel: 7},
+				{Index: 0x6001, SubIndex: 1, Channel: chs[1]},
 			}
 			Expect(w.Create(ctx, &s)).To(SatisfyAll(
 				MatchError(validate.ErrValidation),
@@ -224,12 +245,14 @@ var _ = Describe("Writer", func() {
 			ctx SpecContext,
 		) {
 			s := create(ctx)
-			bindings := []slave.ReadBinding{{Index: 0x6000, SubIndex: 0x11, Channel: 7}}
+			bindings := []slave.ReadBinding{
+				{Index: 0x6000, SubIndex: 0x11, Channel: chs[1]},
+			}
 			Expect(w.Apply(ctx, s.Key, configure(slave.Configuration{
 				Name:         "Inlet",
 				Identifier:   "inlet",
 				Disabled:     true,
-				ReadIndex:    6,
+				ReadIndex:    chs[0],
 				ReadBindings: bindings,
 			}))).To(Succeed())
 			got := retrieve(ctx, s.Key)
@@ -247,15 +270,20 @@ var _ = Describe("Writer", func() {
 			Expect(w.Apply(ctx, s.Key, configure(slave.Configuration{
 				Name: "Inlet",
 				ReadBindings: []slave.ReadBinding{
-					{Index: 0x6000, SubIndex: 0x11, Channel: 7},
-					{Index: 0x6000, SubIndex: 0x11, Scaled: true, Channel: 8},
+					{Index: 0x6000, SubIndex: 0x11, Channel: chs[1]},
+					{Index: 0x6000, SubIndex: 0x11, Scaled: true, Channel: chs[2]},
 				},
 			}))).To(Succeed())
 		})
 
 		DescribeTable("Should refuse bindings that do not match the PDOs",
-			func(ctx SpecContext, c slave.Configuration, message string) {
+			func(
+				ctx SpecContext,
+				config func(chs channel.Keys) slave.Configuration,
+				message string,
+			) {
 				s := create(ctx)
+				c := config(chs)
 				c.Name = "Inlet"
 				Expect(w.Apply(ctx, s.Key, configure(c))).To(SatisfyAll(
 					MatchError(validate.ErrValidation),
@@ -263,31 +291,63 @@ var _ = Describe("Writer", func() {
 				))
 				Expect(retrieve(ctx, s.Key).ReadBindings).To(BeEmpty())
 			},
-			Entry("a read of an entry that is not an input", slave.Configuration{
-				ReadBindings: []slave.ReadBinding{
-					{Index: 0x7000, SubIndex: 1, Channel: 7},
+			Entry(
+				"a read of an entry that is not an input",
+				func(chs channel.Keys) slave.Configuration {
+					return slave.Configuration{
+						ReadBindings: []slave.ReadBinding{
+							{Index: 0x7000, SubIndex: 1, Channel: chs[1]},
+						},
+					}
 				},
-			}, "read_bindings.0: entry 0x7000:01 is not an input"),
-			Entry("a write of an entry that is not an output", slave.Configuration{
-				WriteBindings: []slave.WriteBinding{
-					{Index: 0x6000, SubIndex: 0x11, Command: 7},
+				"read_bindings.0: entry 0x7000:01 is not an input",
+			),
+			Entry(
+				"a write of an entry that is not an output",
+				func(chs channel.Keys) slave.Configuration {
+					return slave.Configuration{
+						WriteBindings: []slave.WriteBinding{
+							{Index: 0x6000, SubIndex: 0x11, Command: chs[1]},
+						},
+					}
 				},
-			}, "write_bindings.0: entry 0x6000:11 is not an output"),
-			Entry("two reads of one entry and kind", slave.Configuration{
-				ReadBindings: []slave.ReadBinding{
-					{Index: 0x6000, SubIndex: 0x11, Channel: 7},
-					{Index: 0x6000, SubIndex: 0x11, Channel: 8},
+				"write_bindings.0: entry 0x6000:11 is not an output",
+			),
+			Entry(
+				"two reads of one entry and kind",
+				func(chs channel.Keys) slave.Configuration {
+					return slave.Configuration{
+						ReadBindings: []slave.ReadBinding{
+							{Index: 0x6000, SubIndex: 0x11, Channel: chs[1]},
+							{Index: 0x6000, SubIndex: 0x11, Channel: chs[2]},
+						},
+					}
 				},
-			}, "read_bindings.1: entry 0x6000:11 is bound twice"),
-			Entry("two writes of one entry", slave.Configuration{
-				WriteBindings: []slave.WriteBinding{
-					{Index: 0x7000, SubIndex: 1, Command: 7},
-					{Index: 0x7000, SubIndex: 1, Command: 8},
+				"read_bindings.1: entry 0x6000:11 is bound twice",
+			),
+			Entry(
+				"two writes of one entry",
+				func(chs channel.Keys) slave.Configuration {
+					return slave.Configuration{
+						WriteBindings: []slave.WriteBinding{
+							{Index: 0x7000, SubIndex: 1, Command: chs[1]},
+							{Index: 0x7000, SubIndex: 1, Command: chs[2]},
+						},
+					}
 				},
-			}, "write_bindings.1: entry 0x7000:01 is bound twice"),
-			Entry("a write without a command channel", slave.Configuration{
-				WriteBindings: []slave.WriteBinding{{Index: 0x7000, SubIndex: 1}},
-			}, "command"),
+				"write_bindings.1: entry 0x7000:01 is bound twice",
+			),
+			Entry(
+				"a write without a command channel",
+				func(chs channel.Keys) slave.Configuration {
+					return slave.Configuration{
+						WriteBindings: []slave.WriteBinding{
+							{Index: 0x7000, SubIndex: 1},
+						},
+					}
+				},
+				"command",
+			),
 		)
 
 		It("Should refuse PDOs that drop a bound entry", func(ctx SpecContext) {
@@ -295,7 +355,7 @@ var _ = Describe("Writer", func() {
 			Expect(w.Apply(ctx, s.Key, configure(slave.Configuration{
 				Name: "Inlet",
 				ReadBindings: []slave.ReadBinding{
-					{Index: 0x6000, SubIndex: 0x11, Channel: 7},
+					{Index: 0x6000, SubIndex: 0x11, Channel: chs[1]},
 				},
 			}))).To(Succeed())
 			Expect(w.Apply(ctx, s.Key, slave.Update{Variant: slave.IdentityUpdate{
@@ -395,6 +455,22 @@ var _ = Describe("Writer", func() {
 
 		It("Should succeed for a missing slave", func(ctx SpecContext) {
 			Expect(w.Delete(ctx, uuid.New())).To(Succeed())
+		})
+	})
+
+	Describe("Channels", func() {
+		It("Should keep a channel that a slave binds from being deleted", func(
+			ctx SpecContext,
+		) {
+			s := create(ctx)
+			Expect(w.Apply(ctx, s.Key, configure(slave.Configuration{
+				Name: "Inlet",
+				WriteBindings: []slave.WriteBinding{
+					{Index: 0x7000, SubIndex: 1, Command: chs[1]},
+				},
+			}))).To(Succeed())
+			Expect(channelSvc.NewWriter(tx).Delete(ctx, chs[1], false)).
+				To(MatchError(validate.ErrValidation))
 		})
 	})
 })
