@@ -52,24 +52,6 @@ func MigrateSpec(ctx context.Context, old v4.Spec) (Spec, error) {
 	return m.finish(), nil
 }
 
-// MigrateStoredSpec returns the spec that NewMigration gives a stored symbol with spec
-// old, with no enumeration key and no commands from a custom_actuator node, and the
-// entries of its default enumeration.
-func MigrateStoredSpec(
-	ctx context.Context,
-	old v4.Spec,
-) (Spec, []enumeration.Entry, error) {
-	m, err := migrateSpec(ctx, old)
-	if err != nil {
-		return Spec{}, nil, err
-	}
-	var entries []enumeration.Entry
-	if len(old.States) > 0 {
-		entries = defaultEntries(old.States, m.entryLooks())
-	}
-	return m.finish(), entries, nil
-}
-
 // Intern returns the key of an enumeration with name and entries. It creates one in the
 // migration's transaction, or returns one that an earlier call made with equal entries.
 type Intern func(
@@ -78,29 +60,20 @@ type Intern func(
 	entries []enumeration.Entry,
 ) (enumeration.Key, error)
 
-// Actuators returns the keys of the symbols that a custom_actuator node draws.
-type Actuators func(ctx context.Context, tx gorp.Tx) (set.Set[Key], error)
-
 // MigrationConfig is the configuration for NewMigration.
 type MigrationConfig struct {
 	// Intern opens the Intern of the migration's transaction.
 	Intern func(gorp.Tx) Intern
-	// Actuators returns the symbols that a custom_actuator node draws.
-	Actuators Actuators
 }
 
 // NewMigration returns the migration that lifts stored symbols from v4 to v5 as
 // MigrateSymbol does. It gives the state of each symbol a default enumeration with an
 // entry for each old state, and turns the color looks that the entries carry into entry
-// looks. A symbol that a custom_actuator node draws gets the commands of an actuator.
+// looks.
 func NewMigration(cfg MigrationConfig) gorp.Migration {
 	return migrate.New(
 		"v63_symbol_model",
 		func(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation) (err error) {
-			drawn, err := cfg.Actuators(ctx, tx)
-			if err != nil {
-				return err
-			}
 			var (
 				intern = cfg.Intern(tx)
 				reader = gorp.WrapReader[Key, v4.Symbol](tx)
@@ -117,7 +90,7 @@ func NewMigration(cfg MigrationConfig) gorp.Migration {
 					return err
 				}
 				var s Symbol
-				if s, err = migrateStored(ctx, *old, drawn, intern, ins); err != nil {
+				if s, err = migrateStored(ctx, *old, intern, ins); err != nil {
 					return errors.Wrapf(err, "symbol %v", old.Key)
 				}
 				if err = writer.Set(ctx, s); err != nil {
@@ -132,7 +105,6 @@ func NewMigration(cfg MigrationConfig) gorp.Migration {
 func migrateStored(
 	ctx context.Context,
 	old v4.Symbol,
-	drawn set.Set[Key],
 	intern Intern,
 	ins alamos.Instrumentation,
 ) (Symbol, error) {
@@ -146,9 +118,6 @@ func migrateStored(
 			zap.Stringer("symbol", old.Key),
 			zap.String("selector", sel),
 		)
-	}
-	if drawn.Contains(old.Key) {
-		m.addActuator()
 	}
 	if len(old.Data.States) > 0 {
 		entries := defaultEntries(old.Data.States, m.entryLooks())
@@ -170,6 +139,8 @@ type specMigration struct {
 	painted []regionPaint
 	// dropped holds the selectors that select no shape.
 	dropped []string
+	// actuator is true when the spec gets the commands of an actuator.
+	actuator bool
 }
 
 // regionPaint is the stroke and fill that a region gives its part at a value.
@@ -216,9 +187,7 @@ func migrateSpec(ctx context.Context, old v4.Spec) (*specMigration, error) {
 	}
 	m.spec.Drawing = Drawing{Variant: SvgDrawing{Markup: parts.markup(old.SVG)}}
 	m.dropped = parts.dropped
-	if old.Variant == actuatorVariant {
-		m.addActuator()
-	}
+	m.actuator = old.Variant == actuatorVariant
 	return m, nil
 }
 
@@ -247,16 +216,29 @@ func (m *specMigration) addLook(part string, value float64, r v4.Region) {
 	})
 }
 
-// addActuator gives the spec the commands Off and On and a click between them.
-func (m *specMigration) addActuator() {
-	if m.state == nil {
-		m.state = &EnumerationState{Key: activeState, Name: "Active"}
+// Actuate returns spec with the commands Off and On of the state "active" and a click
+// that picks between them. It adds the state when spec has none, and makes the state
+// match within 0.9 and 1.1.
+func Actuate(spec Spec) Spec {
+	spec.States = slices.Clone(spec.States)
+	i := slices.IndexFunc(spec.States, func(s State) bool {
+		st, ok := s.Variant.(EnumerationState)
+		return ok && st.Key == activeState
+	})
+	if i < 0 {
+		i = len(spec.States)
+		spec.States = append(spec.States, State{Variant: EnumerationState{
+			Key:  activeState,
+			Name: "Active",
+		}})
 	}
-	m.state.Match = Matcher{
+	st := spec.States[i].Variant.(EnumerationState)
+	st.Match = Matcher{
 		Variant: WithinMatcher{Bounds: spatial.Bounds{Lower: 0.9, Upper: 1.1}},
 	}
+	spec.States[i] = State{Variant: st}
 	active := activeState
-	m.spec.Commands = []Command{
+	spec.Commands = []Command{
 		{
 			Key:   deactivate,
 			Name:  "Off",
@@ -270,10 +252,11 @@ func (m *specMigration) addActuator() {
 			Value: CommandValue{Variant: FixedCommandValue{Value: 1}},
 		},
 	}
-	m.spec.Interactions = []Interaction{{Variant: NextInteraction{
+	spec.Interactions = []Interaction{{Variant: NextInteraction{
 		BaseInteraction: BaseInteraction{Key: "next"},
 		Commands:        []string{deactivate, activate},
 	}}}
+	return spec
 }
 
 // finish returns the spec with the state "active" when the symbol has it.
@@ -281,6 +264,9 @@ func (m *specMigration) finish() Spec {
 	m.spec.States = []State{}
 	if m.state != nil {
 		m.spec.States = append(m.spec.States, State{Variant: *m.state})
+	}
+	if m.actuator {
+		return Actuate(m.spec)
 	}
 	return m.spec
 }
@@ -345,6 +331,23 @@ func (m *partMigrator) resolve(sel string) []string {
 		out[i] = m.tree.name(el)
 	}
 	return out
+}
+
+// ResolveRegion returns the selectors of the part that a v4 region with selectors sels
+// gets in a drawing with markup, as MigrateSpec names parts. It also returns markup
+// with a data-region-id on each shape that those selectors name.
+func ResolveRegion(markup string, sels []string) ([]string, string) {
+	t, parsed := parseTree(markup)
+	m := partMigrator{tree: t, parsed: parsed}
+	out := []string{}
+	for _, sel := range sels {
+		for _, named := range m.resolve(sel) {
+			if !slices.Contains(out, named) {
+				out = append(out, named)
+			}
+		}
+	}
+	return out, m.markup(markup)
 }
 
 func (m *partMigrator) markup(svg string) string {
