@@ -27,7 +27,6 @@ export const Symbol = ({
   config: {
     label,
     channel,
-    options: ownOptions,
     enumeration,
     strokeColor,
     inlineSize,
@@ -36,7 +35,7 @@ export const Symbol = ({
   },
 }: NodeProps<schematic.StateIndicatorNodeConfig>): ReactElement => {
   const resolve = Color.useResolve();
-  const options = Options.use({ enumeration, options: ownOptions });
+  const options = Options.use(enumeration);
   const source = Telem.numberSource(channel);
   const { key: optKey, stale } = BaseStateIndicator.use({
     aetherKey: nodeKey,

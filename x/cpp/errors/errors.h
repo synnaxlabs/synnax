@@ -83,28 +83,26 @@ public:
         return os;
     }
 
-    /// @brief checks if the error matches the provided error. The error matches if
-    /// the provided type is equal to or is a prefix of this errors type.
+    /// @brief checks if the error matches the provided error, as the string overload
+    /// does.
     [[nodiscard]] bool matches(const Error &other) const { return matches(other.type); }
 
-    /// @brief checks if the error matches the provided type. The error matches if
-    /// the provided type is equal to or is a prefix of this errors type.
+    /// @brief checks if the error matches the provided type. The error matches if its
+    /// type is equal to the provided type or is a sub-type of it: "a.b" matches "a",
+    /// but "ab" does not.
     [[nodiscard]] bool matches(const std::string &other) const {
-        const auto [loc, _] = std::ranges::mismatch(other, type);
-        return loc == other.end();
+        if (!type.starts_with(other)) return false;
+        return type.size() == other.size() || type[other.size()] == '.';
     }
 
-    //// @brief checks if any of the provided types match the error. An error
-    /// matches if
-    /// the provided type is equal to or is a prefix of this errors type.
+    /// @brief checks if the error matches any of the provided types.
     [[nodiscard]] bool matches(const std::vector<std::string> &types) const {
         return std::ranges::any_of(types, [this](const std::string &t) {
             return matches(t);
         });
     }
 
-    /// @brief checks if any of the provided errors match the error. An error
-    /// matches if the provided type is equal to or is a prefix of this errors type.
+    /// @brief checks if the error matches any of the provided errors.
     [[nodiscard]] bool matches(const std::vector<Error> &errors) const {
         return std::ranges::any_of(errors, [this](const Error &e) {
             return matches(e);
