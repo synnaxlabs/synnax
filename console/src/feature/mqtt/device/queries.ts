@@ -10,11 +10,7 @@
 import { Device } from "@synnaxlabs/pluto";
 
 import { SCHEMAS } from "@/feature/mqtt/device/types";
-import { Device as PlatformDevice } from "@/platform/device";
 
 const retrieve = Device.createRetrieve(SCHEMAS);
 
 export const { use } = retrieve;
-
-/** The device the form's config names, or undefined until it resolves or on failure. */
-export const useFromConfig = PlatformDevice.createUseFromConfig(retrieve.useResult);
