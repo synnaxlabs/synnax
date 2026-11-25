@@ -24,9 +24,10 @@ Core.
 ## Connect to Synnax Desktop
 
 Scripts on the same computer as Synnax Desktop can connect to its Core while it runs.
-Synnax Desktop saves the address of its Core in `~/.synnax/desktop.json`, with the path
-of `synnax-desktop-key`, a program that prints the API key. When you give no host, the
-clients read the address and run that program to get the key:
+Synnax Desktop saves the address of its Core in `desktop.json` in the
+[config folder](#config-folder), with the path of `synnax-desktop-key`, a program that
+prints the API key. When you give no host, the clients read the address and run that
+program to get the key:
 
 <Client.Tabs exclude={["console"]}>
 
@@ -270,6 +271,25 @@ When no argument or [environment variable](#connect-with-environment-variables) 
 host, `sy.Synnax()` uses the saved login, then
 [Synnax Desktop](#connect-to-synnax-desktop). The arguments and variables that you set
 override its values.
+
+<Divider.Divider x />
+
+## Config folder
+
+The clients and Synnax Desktop keep `config.json` and `desktop.json` in the config
+folder of your operating system:
+
+| Operating system | Config folder                                                                        |
+| ---------------- | ------------------------------------------------------------------------------------ |
+| Linux            | `$XDG_CONFIG_HOME/synnax`, or `~/.config/synnax` when unset                          |
+| macOS            | `~/Library/Application Support/Synnax`                                               |
+| Windows          | `%APPDATA%\Synnax` for `config.json`, and `%LOCALAPPDATA%\Synnax` for `desktop.json` |
+
+On Windows, `desktop.json` holds the port and helper path of this computer, so it stays
+out of the roaming profile. The clients read each file from the config folder or from
+`~/.synnax`, where older versions kept it. When both hold a copy, they read the one that
+was written last. While clients of Synnax 0.62 are supported, `sy login` and Synnax
+Desktop also write their files to `~/.synnax`.
 
 <Divider.Divider x />
 
