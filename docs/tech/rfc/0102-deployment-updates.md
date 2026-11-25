@@ -120,6 +120,11 @@ counter lives in `kv/` (`core/pkg/distribution/channel/counter.go:22-38`), so it
 out those keys again, and Cesium refuses a duplicate key (`cesium/channel.go:157-164`).
 Telemetry written to known channels after the backup stays.
 
+_(Amended by RFC 0121 §9.0: the undo of the update that converts Cesium to segments and
+a pointer log moves aside the files of the new layout, so the next update converts
+again, and it loses the telemetry written since the update. A later update that keeps
+the Cesium formats backs up and restores no Cesium file.)_
+
 ### 3.2 `synnax update`
 
 `synnax update <version>` downloads the signed Core for the host from `core/vX.Y.Z`.
