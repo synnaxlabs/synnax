@@ -81,6 +81,21 @@ class TestWebsocket:
         with pytest.raises(ssl.SSLCertVerificationError):
             _stream(ws_url, trusted_ctx)
 
+    def test_session_tickets(
+        self, ws_url: URL, server_ctx: ssl.SSLContext, trusted_ctx: ssl.SSLContext
+    ) -> None:
+        """Should open streams while the server sends TLS 1.3 session tickets."""
+        server_ctx.num_tickets = 16
+        client = WebsocketClient(
+            encoder=JSONCodec(),
+            registry=create_registry(),
+            base_url=ws_url,
+            ssl_context=trusted_ctx,
+            open_timeout=2,
+        )
+        for _ in range(100):
+            client.stream("/stream", Message, Message).close_send()
+
 
 @pytest.mark.asyncio
 class TestAsyncWebsocket:

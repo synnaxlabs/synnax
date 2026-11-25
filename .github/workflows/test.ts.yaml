@@ -392,11 +392,14 @@ jobs:
           SYNNAX_TEST_CACHE_KEY:
             ${{ format('{0}-{1}-{2}-{3}-webkit', github.run_id, github.run_attempt,
             github.job, strategy.job-index) }}
+          # WebKit names no URL when a module import fails, so the dev server logs the
+          # requests that fail.
+          SYNNAX_TEST_REQUEST_LOG: ${{ runner.temp }}/diagnostics/webkit-requests.log
         # A page crash leaves no memory data in the log, so a loop samples it.
         run: |
+          mkdir -p "$RUNNER_TEMP/diagnostics"
           if [ "$RUNNER_OS" = Linux ]; then
             log="$RUNNER_TEMP/diagnostics/webkit-memory.log"
-            mkdir -p "$RUNNER_TEMP/diagnostics"
             (
               set +e
               while :; do
@@ -490,6 +493,10 @@ jobs:
           fi
           if [ -f "$RUNNER_TEMP/diagnostics/webkit-memory.log" ]; then
             tail -n 40 "$RUNNER_TEMP/diagnostics/webkit-memory.log"
+          fi
+          if [ -f "$RUNNER_TEMP/diagnostics/webkit-requests.log" ]; then
+            echo "Failed dev server requests in WebKit and Firefox:"
+            tail -n 200 "$RUNNER_TEMP/diagnostics/webkit-requests.log"
           fi
           if [ "$RUNNER_OS" = Linux ] && docker inspect synnax &> /dev/null; then
             docker logs synnax &> "$RUNNER_TEMP/diagnostics/core.log"

@@ -38,6 +38,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/log"
 	nichassis "github.com/synnaxlabs/synnax/pkg/api/ni/chassis"
 	nidevice "github.com/synnaxlabs/synnax/pkg/api/ni/device"
+	"github.com/synnaxlabs/synnax/pkg/api/opcua/server"
 	"github.com/synnaxlabs/synnax/pkg/api/panel"
 	"github.com/synnaxlabs/synnax/pkg/api/project"
 	"github.com/synnaxlabs/synnax/pkg/api/rack"
@@ -642,6 +643,12 @@ func Bind(layer *api.Layer, router *http.Router) {
 		NIChassisDelete: unary[nichassis.DeleteRequest, struct{}](
 			router,
 			"/api/v1/ni/chassis/delete",
+		),
+
+		// OPC UA SERVER
+		OPCUAServerRetrieve: unary[server.RetrieveRequest, server.RetrieveResponse](
+			router,
+			"/api/v1/opcua/server/retrieve",
 		),
 
 		// ACCESS
