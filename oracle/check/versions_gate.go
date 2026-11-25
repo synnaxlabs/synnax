@@ -239,9 +239,9 @@ func propagateChanges(
 	}
 }
 
-// referencesAny reports whether t's fields, variants, extended types, alias target, or
-// distinct base name a type in names. An inline variant's payload is part of its union,
-// so its references count as the union's.
+// referencesAny reports whether t's fields, variants, extended types, narrowed enum,
+// alias target, or distinct base name a type in names. An inline variant's payload is
+// part of its union, so its references count as the union's.
 func referencesAny(
 	t resolution.Type,
 	names set.Set[string],
@@ -266,6 +266,11 @@ func referencesAny(
 				}
 			}
 			refs = append(refs, form.Extends...)
+		case resolution.EnumForm:
+			refs = append(refs, form.Extends...)
+			if form.Narrows() {
+				refs = append(refs, form.Superset)
+			}
 		case resolution.AliasForm:
 			refs = append(refs, form.Target)
 		case resolution.DistinctForm:
@@ -461,6 +466,9 @@ func (w depWalker) decl(
 		}
 	case resolution.EnumForm:
 		visit(form.Extends...)
+		if form.Narrows() {
+			visit(form.Superset)
+		}
 	case resolution.UnionForm:
 		for _, v := range form.Variants {
 			visit(v.Type)
@@ -808,6 +816,11 @@ func membersOf(f *versions.File, ns string, omitted bool) []string {
 				walkRef(fd.Type)
 			}
 			walkRef(form.Extends...)
+		case resolution.EnumForm:
+			walkRef(form.Extends...)
+			if form.Narrows() {
+				walkRef(form.Superset)
+			}
 		case resolution.UnionForm:
 			for _, v := range form.Variants {
 				walkRef(v.Type)

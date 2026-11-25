@@ -67,6 +67,40 @@ func (ir *InlineRecord) HashContent(h *content.Hash) {
 }
 
 // Patch applies the path action at c, which is not done, to the value.
+func (iw *InlineWrite) Patch(c patch.Cursor) error {
+	switch c.Segment() {
+	case "topic":
+		return patch.Value(&iw.Topic, c.Next())
+	case "record_key":
+		return patch.Defaulted(&iw.RecordKey, c.Next(), func(def *InlineWrite) {
+			iw.RecordKey = def.RecordKey
+		})
+	case "record":
+		if c = c.Next(); c.Done() {
+			return patch.Defaulted(&iw.Record, c, func(def *InlineWrite) {
+				iw.Record = def.Record
+			})
+		}
+		return iw.Record.Patch(c)
+	case "channels":
+		return patch.List(&iw.Channels, c.Next())
+	default:
+		return c.UnknownField()
+	}
+}
+
+// HashContent writes the content of the value to h, without its keys.
+func (iw *InlineWrite) HashContent(h *content.Hash) {
+	h.String(iw.Topic)
+	h.String(string(iw.RecordKey))
+	iw.Record.HashContent(h)
+	h.Len(len(iw.Channels))
+	for i0 := range iw.Channels {
+		iw.Channels[i0].HashContent(h)
+	}
+}
+
+// Patch applies the path action at c, which is not done, to the value.
 func (rc *ReadConfig) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
@@ -203,6 +237,16 @@ func (wc *WriteConfig) Patch(c patch.Cursor) error {
 		return patch.List(&wc.Channels, c.Next())
 	case "targets":
 		return patch.List(&wc.Targets, c.Next())
+	case "inline":
+		if c = c.Next(); c.Done() || wc.Inline == nil {
+			return patch.OptionalValue(&wc.Inline, c)
+		}
+		next := *wc.Inline
+		if err := next.Patch(c); err != nil {
+			return err
+		}
+		wc.Inline = &next
+		return nil
 	default:
 		return c.UnknownField()
 	}
@@ -222,6 +266,12 @@ func (wc *WriteConfig) HashContent(h *content.Hash) {
 	h.Len(len(wc.Targets))
 	for i0 := range wc.Targets {
 		wc.Targets[i0].HashContent(h)
+	}
+	if wc.Inline == nil {
+		h.Bool(false)
+	} else {
+		h.Bool(true)
+		wc.Inline.HashContent(h)
 	}
 }
 

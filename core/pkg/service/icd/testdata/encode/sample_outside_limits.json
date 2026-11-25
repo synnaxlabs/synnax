@@ -1,0 +1,134 @@
+{
+  "description": "A field refuses a sample outside its min and max, after its scale and offset.",
+  "message": {
+    "name": "command",
+    "payload": {
+      "format": "json",
+      "fields": [
+        {
+          "key": "00000000-0000-4000-8000-000000000001",
+          "name": "low",
+          "scale": 1,
+          "offset": 0,
+          "units": "",
+          "pointer": "/low",
+          "type": "float",
+          "min": 0
+        },
+        {
+          "key": "00000000-0000-4000-8000-000000000002",
+          "name": "high",
+          "scale": 1,
+          "offset": 0,
+          "units": "",
+          "pointer": "/high",
+          "type": "float",
+          "max": 100
+        },
+        {
+          "key": "00000000-0000-4000-8000-000000000003",
+          "name": "scaled",
+          "scale": 10,
+          "offset": 0,
+          "units": "",
+          "pointer": "/scaled",
+          "type": "float",
+          "max": 100
+        },
+        {
+          "key": "00000000-0000-4000-8000-000000000004",
+          "name": "count",
+          "scale": 1,
+          "offset": 0,
+          "units": "",
+          "pointer": "/count",
+          "type": "integer",
+          "max": 10
+        },
+        {
+          "key": "00000000-0000-4000-8000-000000000005",
+          "name": "narrow_high",
+          "scale": 1,
+          "offset": 0,
+          "units": "",
+          "pointer": "/narrow_high",
+          "type": "float",
+          "max": 0.1
+        },
+        {
+          "key": "00000000-0000-4000-8000-000000000006",
+          "name": "narrow_low",
+          "scale": 1,
+          "offset": 0,
+          "units": "",
+          "pointer": "/narrow_low",
+          "type": "float",
+          "min": 3.3
+        }
+      ]
+    },
+    "bindings": [
+      {
+        "field": "00000000-0000-4000-8000-000000000001",
+        "data_type": "float64"
+      },
+      {
+        "field": "00000000-0000-4000-8000-000000000002",
+        "data_type": "float64"
+      },
+      {
+        "field": "00000000-0000-4000-8000-000000000003",
+        "data_type": "float64"
+      },
+      {
+        "field": "00000000-0000-4000-8000-000000000004",
+        "data_type": "int64"
+      },
+      {
+        "field": "00000000-0000-4000-8000-000000000005",
+        "data_type": "float32"
+      },
+      {
+        "field": "00000000-0000-4000-8000-000000000006",
+        "data_type": "float32"
+      }
+    ]
+  },
+  "cases": [
+    {
+      "samples": [1, 50, 50, 5, 0.0625, 4],
+      "document": {
+        "low": 1,
+        "high": 50,
+        "scaled": 5,
+        "count": 5,
+        "narrow_high": 0.0625,
+        "narrow_low": 4
+      }
+    },
+    {
+      "samples": [-1, 50, 50, 5, 0.0625, 4],
+      "error": "message command: field low: -1 is below the min 0: validation error"
+    },
+    {
+      "samples": [1, 120, 50, 5, 0.0625, 4],
+      "error": "message command: field high: 120 is above the max 100: validation error"
+    },
+    {
+      "samples": [1, 50, 120, 5, 0.0625, 4],
+      "error": "message command: field scaled: 120 is above the max 100: validation error"
+    },
+    {
+      "samples": [1, 50, 50, 11, 0.0625, 4],
+      "error": "message command: field count: 11 is above the max 10: validation error"
+    },
+    {
+      "samples": [1, 50, 50, 5, 0.10000000894069672, 4],
+      "error": "message command: field narrow_high: 0.10000000894069672 is above the max 0.1: validation error"
+    },
+    {
+      "samples": [1, 50, 50, 5, 0.0625, 3.299999713897705],
+      "error": "message command: field narrow_low: 3.299999713897705 is below the min 3.3: validation error"
+    }
+  ]
+}
