@@ -585,9 +585,9 @@ describe("Secret", () => {
         vi.useRealTimers();
       }
       await client.certificates.delete(c.key);
-      await vi.waitFor(() =>
-        expectDeleted(client.secrets.watch(privateKey).getCached()),
-      );
+      await expect
+        .poll(() => query.Deleted.matches(client.secrets.watch(privateKey).getCached()))
+        .toBe(true);
       await client.secrets.set({
         key: privateKey,
         name: "Gap",
@@ -596,9 +596,12 @@ describe("Secret", () => {
       });
       const offAgain = client.secrets.watch(q).onChange(() => {});
       try {
-        await vi.waitFor(() =>
-          expect(expectLive(client.secrets.watch(q).getCached()).uses).toEqual([]),
-        );
+        await expect
+          .poll(() => {
+            const cached = client.secrets.watch(q).getCached();
+            return query.isLive(cached) ? cached.uses : undefined;
+          })
+          .toEqual([]);
       } finally {
         offAgain();
       }
