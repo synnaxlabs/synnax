@@ -48,20 +48,22 @@ import {
 
 const LOCAL = createCore("Local", { username: "", password: "" });
 const CORE_KEY = LOCAL.key;
+// a password typed in this page, which a Core on another origin needs to log in
+const TYPED = { ...LOCAL, password: "seldon" };
 
-const CoreState = (): Session.Core.SliceState => ({
+const CoreState = (core = LOCAL): Session.Core.SliceState => ({
   ...Session.Core.ZERO_SLICE_STATE,
-  cores: { [CORE_KEY]: LOCAL },
+  cores: { [CORE_KEY]: core },
 });
 
-const renderGuard = async (selected?: string): Promise<TestStore> => {
+const renderGuard = async (selected?: string, core = LOCAL): Promise<TestStore> => {
   const { store } = await renderWithConsole(
     <Auth.Guard>
       <span>authenticated content</span>
     </Auth.Guard>,
     {
       preloadedState: {
-        [Session.Core.SLICE_NAME]: { ...CoreState(), selected },
+        [Session.Core.SLICE_NAME]: { ...CoreState(core), selected },
       },
     },
   );
@@ -115,9 +117,16 @@ beforeEach(() => {
 
 describe("auth guard", () => {
   it("should render children when a Core is already selected", async () => {
-    await renderGuard(CORE_KEY);
+    await renderGuard(CORE_KEY, TYPED);
     expect(screen.getByText("authenticated content")).toBeTruthy();
     expect(screen.queryByText("Log in")).toBeNull();
+  });
+
+  it("should render the login screen for a selected Core with no login", async () => {
+    pinLocationOrigin("http://localhost:5173");
+    await renderGuard(CORE_KEY);
+    expect(screen.getAllByText("Log in").length).toBeGreaterThan(0);
+    expect(screen.queryByText("authenticated content")).toBeNull();
   });
 
   it("should finish a browser login even when a Core is already selected", async () => {
@@ -314,7 +323,7 @@ describe("connection guard permissions", () => {
     const { wrapper } = await createConsoleWrapper({
       client,
       preloadedState: {
-        [Session.Core.SLICE_NAME]: { ...CoreState(), selected: CORE_KEY },
+        [Session.Core.SLICE_NAME]: { ...CoreState(TYPED), selected: CORE_KEY },
       },
       skipPermissionLoad: true,
     });

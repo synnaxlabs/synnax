@@ -307,6 +307,7 @@ Panel struct {
 
     @create
     @doc value     "is a tree of visualization tabs in a project."
+    @go entry
     @go marshal
     @go migrate
     @resource type "panel"
