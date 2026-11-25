@@ -59,6 +59,8 @@ export const nextChange = (
   const step = now.span(expires).lessThan(TimeSpan.HOUR)
     ? TimeSpan.MINUTE
     : TimeSpan.HOUR;
-  const next = now.add(step);
-  return next.before(expires) ? next : expires;
+  // The label also changes when it moves from days to hours and from hours to minutes.
+  return [now.add(step), expires.sub(TimeSpan.DAY), expires.sub(TimeSpan.HOUR), expires]
+    .filter((t) => t.after(now))
+    .reduce((a, b) => (b.before(a) ? b : a));
 };

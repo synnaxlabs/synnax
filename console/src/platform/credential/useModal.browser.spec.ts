@@ -42,6 +42,15 @@ const createKey = async (name: string): Promise<void> => {
   fireEvent.click(findButton("Create"));
 };
 
+// Formats a local time the way the date editor reads it: "YYYY-MM-DD HH:MM:SS".
+const localTime = (d: Date): string => {
+  const pad = (n: number): string => String(n).padStart(2, "0");
+  return (
+    `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ` +
+    `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+  );
+};
+
 // Types an instant into the custom expiry date and commits it.
 const setExpiryDate = async (value: string): Promise<void> => {
   fireEvent.click(await screen.findByLabelText("Expiry date"));
@@ -151,11 +160,11 @@ describe("useModal", () => {
     await type("Key name", uniqueName("key"));
     fireEvent.click(await screen.findByText("Custom"));
     await setExpiryDate("2020-01-01 00:00");
-    await screen.findByText("Pick a time in the future.");
+    await screen.findByText("Expiry must be in the future");
     expect(findButton("Create").getAttribute("aria-disabled")).toBe("true");
     await setExpiryDate("2099-01-01 00:00");
     await waitFor(() =>
-      expect(screen.queryByText("Pick a time in the future.")).toBeNull(),
+      expect(screen.queryByText("Expiry must be in the future")).toBeNull(),
     );
     fireEvent.click(findButton("Create"));
     await screen.findByText(/^syk_/);
@@ -180,6 +189,39 @@ describe("useModal", () => {
     await openModal(Credential.useModal, { client, params: { subject: id } });
     await screen.findByText("in 5 hours");
     await screen.findByText("in 30 minutes");
+  });
+
+  it("should mark a key expired when it expires while the table is open", async () => {
+    const client = createTestClient();
+    const { key: role } = await createEmptyRole(client);
+    const subject = await client.users.create({ name: uniqueName("user"), role });
+    const id = user.resourceID(subject.key);
+    await client.auth.apiKeys.create({
+      subject: id,
+      name: uniqueName("key"),
+      expires: TimeStamp.now().add(TimeSpan.seconds(5)),
+    });
+    await openModal(Credential.useModal, { client, params: { subject: id } });
+    await screen.findByText("in 1 minute");
+    await screen.findByText("Expired", undefined, { timeout: 10000 });
+  });
+
+  it("should turn off Create when the custom time passes", async () => {
+    const client = createTestClient();
+    const { key: role } = await createEmptyRole(client);
+    const subject = await client.users.create({ name: uniqueName("user"), role });
+    const id = user.resourceID(subject.key);
+    await openModal(Credential.useModal, { client, params: { subject: id } });
+    await screen.findByText("No API keys");
+    fireEvent.click(await screen.findByText("Create key"));
+    await type("Key name", uniqueName("key"));
+    fireEvent.click(await screen.findByText("Custom"));
+    await setExpiryDate(localTime(new Date(Date.now() + 3000)));
+    expect(findButton("Create").getAttribute("aria-disabled")).not.toBe("true");
+    await screen.findByText("Expiry must be in the future", undefined, {
+      timeout: 6000,
+    });
+    expect(findButton("Create").getAttribute("aria-disabled")).toBe("true");
   });
 
   it("should mark an expired key", async () => {

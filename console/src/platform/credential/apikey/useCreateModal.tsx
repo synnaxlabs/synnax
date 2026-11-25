@@ -98,7 +98,12 @@ const Name = ({ subject, close, onCreated }: NameProps): ReactElement => {
         <Text.Text level="small" color={9}>
           Name the key after the script or service that uses it.
         </Text.Text>
-        <Input.Item label="Expires" padHelpText={false}>
+        <Input.Item
+          label="Expiry"
+          helpText={
+            expiry === "never" ? "The key works until you delete it." : undefined
+          }
+        >
           <Select.Buttons<Expiry> value={expiry} onChange={setExpiry}>
             <Select.Item<Expiry> itemKey="30d">30 days</Select.Item>
             <Select.Item<Expiry> itemKey="90d">90 days</Select.Item>
@@ -108,21 +113,17 @@ const Name = ({ subject, close, onCreated }: NameProps): ReactElement => {
           </Select.Buttons>
         </Input.Item>
         {expiry === "custom" && (
-          <Input.DateTime
-            value={custom}
-            onChange={setCustom}
-            aria-label="Expiry date"
-          />
-        )}
-        {past && (
-          <Text.Text level="small" status="error">
-            Pick a time in the future.
-          </Text.Text>
-        )}
-        {expiry === "never" && (
-          <Text.Text level="small" color={9}>
-            The key works until you delete it.
-          </Text.Text>
+          <Input.Item
+            label="Expiry date"
+            status={past ? "error" : undefined}
+            helpText={past ? "Expiry must be in the future" : undefined}
+          >
+            <Input.DateTime
+              value={custom}
+              onChange={setCustom}
+              aria-label="Expiry date"
+            />
+          </Input.Item>
         )}
       </Modal.Body>
       <Modal.Footer>
