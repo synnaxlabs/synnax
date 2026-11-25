@@ -284,6 +284,7 @@ func (s *source) Next(ctx node.Context) {
 		*s.Output(0) = ser
 		*s.OutputTime(0) = timeSeries
 		s.highWaterMark = ab.Upper
+		s.state.read = true
 		s.Emit(ctx, 0)
 		return
 	}
