@@ -26,13 +26,13 @@ import { status } from "@/status";
  */
 export const edgeCommandZ = z.object({
   /** group is the Sparkplug group ID of the edge node. */
-  group: z.string().min(1, "group is required"),
+  group: z.string().min(1, "Group is required"),
   /** edgeNode is the Sparkplug edge node ID that the Core publishes as. */
-  edgeNode: z.string().min(1, "edge_node is required"),
+  edgeNode: z.string().min(1, "Edge node is required"),
   /** tag is the name of the tag. */
-  tag: z.string().min(1, "tag is required"),
+  tag: z.string().min(1, "Tag is required"),
   /** channel is the command channel of the tag. */
-  channel: channel.keyZ.refine((v) => v !== 0, "channel is required"),
+  channel: channel.keyZ.refine((v) => v !== 0, "Channel is required"),
 });
 export interface EdgeCommand extends z.infer<typeof edgeCommandZ> {}
 
@@ -90,7 +90,7 @@ export interface NoneAuth extends z.infer<typeof noneAuthZ> {}
 export const usernameAuthZ = z.object({
   type: z.literal("username"),
   /** username is the user name to authenticate with. */
-  username: z.string().min(1, "username is required"),
+  username: z.string().min(1, "Username is required"),
   /** password is the secret that holds the password. Absent sends no password. */
   password: secret.keyZ.optional(),
 });
@@ -121,7 +121,7 @@ export interface PassiveSparkplugMode extends z.infer<typeof passiveSparkplugMod
 export const primarySparkplugModeZ = z.object({
   type: z.literal("primary"),
   /** hostId is the ID that the Core publishes its host application state as. */
-  hostId: z.string().min(1, "host_id is required"),
+  hostId: z.string().min(1, "Host ID is required"),
 });
 export interface PrimarySparkplugMode extends z.infer<typeof primarySparkplugModeZ> {}
 
@@ -147,15 +147,15 @@ export const SPARKPLUG_MODE_SCHEMAS: {
 export const plainReadZ = z.object({
   type: z.literal("plain"),
   /** topic is the topic to subscribe to. It holds no wildcards. */
-  topic: z.string().min(1, "topic is required"),
+  topic: z.string().min(1, "Topic is required"),
   /** message is the ICD message that the payloads of the topic hold. */
-  message: icd.messageKeyZ.min(1, "message is required"),
+  message: icd.messageKeyZ.min(1, "Message is required"),
   /** pointer is the JSON Pointer to the value in the message. */
   pointer: z.string().default(""),
   /** index is the index channel of the channel. */
-  index: channel.keyZ.refine((v) => v !== 0, "index is required"),
+  index: channel.keyZ.refine((v) => v !== 0, "Index is required"),
   /** channel is the channel that holds the samples of the value. */
-  channel: channel.keyZ.refine((v) => v !== 0, "channel is required"),
+  channel: channel.keyZ.refine((v) => v !== 0, "Channel is required"),
 });
 export interface PlainRead extends z.infer<typeof plainReadZ> {}
 
@@ -163,17 +163,17 @@ export interface PlainRead extends z.infer<typeof plainReadZ> {}
 export const sparkplugReadZ = z.object({
   type: z.literal("sparkplug"),
   /** group is the Sparkplug group ID of the edge node. */
-  group: z.string().min(1, "group is required"),
+  group: z.string().min(1, "Group is required"),
   /** edgeNode is the Sparkplug edge node ID. */
-  edgeNode: z.string().min(1, "edge_node is required"),
+  edgeNode: z.string().min(1, "Edge node is required"),
   /** device is the Sparkplug device ID. Empty for a tag of the edge node. */
   device: z.string().default(""),
   /** tag is the name of the tag. */
-  tag: z.string().min(1, "tag is required"),
+  tag: z.string().min(1, "Tag is required"),
   /** index is the index channel of the channel. */
-  index: channel.keyZ.refine((v) => v !== 0, "index is required"),
+  index: channel.keyZ.refine((v) => v !== 0, "Index is required"),
   /** channel is the channel that holds the samples of the tag. */
-  channel: channel.keyZ.refine((v) => v !== 0, "channel is required"),
+  channel: channel.keyZ.refine((v) => v !== 0, "Channel is required"),
 });
 export interface SparkplugRead extends z.infer<typeof sparkplugReadZ> {}
 
@@ -196,11 +196,11 @@ export const READ_SCHEMAS: {
 export const plainWriteZ = z.object({
   type: z.literal("plain"),
   /** topic is the topic to publish to. It holds no wildcards. */
-  topic: z.string().min(1, "topic is required"),
+  topic: z.string().min(1, "Topic is required"),
   /** field is the ICD field that a command sets in the published message. */
-  field: icd.fieldKeyZ.min(1, "field is required"),
+  field: icd.fieldKeyZ.min(1, "Field is required"),
   /** channel is the channel whose commands publish the message. */
-  channel: channel.keyZ.refine((v) => v !== 0, "channel is required"),
+  channel: channel.keyZ.refine((v) => v !== 0, "Channel is required"),
 });
 export interface PlainWrite extends z.infer<typeof plainWriteZ> {}
 
@@ -208,15 +208,15 @@ export interface PlainWrite extends z.infer<typeof plainWriteZ> {}
 export const sparkplugWriteZ = z.object({
   type: z.literal("sparkplug"),
   /** group is the Sparkplug group ID of the edge node. */
-  group: z.string().min(1, "group is required"),
+  group: z.string().min(1, "Group is required"),
   /** edgeNode is the Sparkplug edge node ID. */
-  edgeNode: z.string().min(1, "edge_node is required"),
+  edgeNode: z.string().min(1, "Edge node is required"),
   /** device is the Sparkplug device ID. Empty for a tag of the edge node. */
   device: z.string().default(""),
   /** tag is the name of the tag. */
-  tag: z.string().min(1, "tag is required"),
+  tag: z.string().min(1, "Tag is required"),
   /** channel is the channel whose commands write the tag. */
-  channel: channel.keyZ.refine((v) => v !== 0, "channel is required"),
+  channel: channel.keyZ.refine((v) => v !== 0, "Channel is required"),
 });
 export interface SparkplugWrite extends z.infer<typeof sparkplugWriteZ> {}
 
@@ -268,9 +268,9 @@ export const brokerZ = z.object({
   /** rack is the key of the rack that connects to the broker. */
   rack: rack.keyZ,
   /** name is a human-readable name for the broker. */
-  name: z.string().min(1, "name is required"),
+  name: z.string().min(1, "Name is required"),
   /** host is the hostname or IP address of the broker. */
-  host: z.string().min(1, "host is required"),
+  host: z.string().min(1, "Host is required"),
   /** port is the TCP port. Absent takes 1883, or 8883 when the transport is TLS. */
   port: zod.uint16.min(1).optional(),
   /** transport is the transport that the Core connects to the broker over. */

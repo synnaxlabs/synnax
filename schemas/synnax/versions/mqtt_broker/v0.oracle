@@ -271,7 +271,8 @@ Broker struct {
         @go marshal omit
     }
 
-    @doc value  "is an MQTT broker that a rack connects to."
+    @doc value     "is an MQTT broker that a rack connects to."
     @go marshal
     @go migrate
+    @resource type "mqtt_broker"
 }
