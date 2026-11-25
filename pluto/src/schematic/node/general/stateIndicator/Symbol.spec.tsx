@@ -120,7 +120,7 @@ describe("StateIndicator.Symbol staleness", () => {
 });
 
 describe("StateIndicator.Symbol states", () => {
-  it("should draw no options of a node that names no enumeration", async () => {
+  it("should draw the unknown state of a node that names no enumeration", async () => {
     const { findByText } = render(
       <StaleWrapper>
         <ReactFlowProvider>
@@ -130,7 +130,6 @@ describe("StateIndicator.Symbol states", () => {
             onConfigChange={vi.fn()}
             config={schematic.stateIndicatorNodeConfigZ.parse({
               variant: "state_indicator",
-              options: [{ key: "open", name: "Open", value: 0 }],
             })}
           />
         </ReactFlowProvider>

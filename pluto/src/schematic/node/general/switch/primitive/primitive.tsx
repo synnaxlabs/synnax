@@ -21,12 +21,32 @@ import { Primitive } from "@/schematic/node/common/primitive";
 import type { Toggle } from "@/schematic/node/common/toggle";
 import svg from "@/schematic/node/general/switch/Switch.svg?raw";
 
-// The wrapper paints the switch, so the spec has no looks.
+const ON: schematic.symbol.Condition = { type: "equals", state: "active", values: [1] };
+
+// The track fills while on, and the far knob takes the place of the near one. Switch
+// ignores the looks: switch.css paints its drawing.
 export const SYMBOL: schematic.symbol.Spec = Custom.createBuiltIn({
   family: "switch",
   svg,
   handles: [],
-  looks: [],
+  parts: [
+    { key: "track", name: "Track", selectors: [".pluto-switch-symbol__track"] },
+    { key: "knob-off", name: "Knob off", selectors: [".pluto-switch-symbol__knob"] },
+    { key: "knob-on", name: "Knob on", selectors: [".pluto-switch-symbol__knob-on"] },
+  ],
+  looks: [
+    Custom.STROKE_LOOK,
+    Custom.createFillLook(1, "track"),
+    { key: "knob-off", part: "knob-off", when: ON, hidden: true },
+    { key: "knob-on", part: "knob-on", hidden: true },
+    {
+      key: "knob-on-shown",
+      part: "knob-on",
+      when: ON,
+      hidden: false,
+      fill: { type: "contrast", state: "active" },
+    },
+  ],
 });
 
 const SWITCH_SCALE = CSS.variable("switch-scale");

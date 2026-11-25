@@ -42,10 +42,10 @@ func (*Service) Match(body map[string]any) bool {
 // file older than v14 gets an enumeration for its options, as at upgrade, shared with
 // equal lists of the same file. The schematic drops each named color and each
 // enumeration that the Core does not hold, so a select or state indicator that loses
-// its enumeration draws its own options. A node whose custom symbol the Core does
-// not hold draws a missing symbol with the same key, and every other node drops the
-// bindings that its symbol orphans. An unknown envelope version is a path-scoped
-// validation error.
+// its enumeration draws no states. A node whose custom symbol the Core does not hold
+// draws a missing symbol with the same key, and every other node drops the bindings
+// that its symbol orphans. An unknown envelope version is a path-scoped validation
+// error.
 func (s *Service) Decode(ctx context.Context, env imex.Envelope) (imex.Write, error) {
 	sch, err := versions.DecodeImExEnvelope(ctx, env)
 	if err != nil {

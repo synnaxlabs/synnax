@@ -19,7 +19,9 @@
 #include <string>
 #include <string_view>
 #include <system_error>
+#include <type_traits>
 #include <utility>
+#include <variant>
 
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/decimal.h"
@@ -441,6 +443,23 @@ errors::Error append_float(const double v, std::string &out) {
     }
     out += text;
     return errors::NIL;
+}
+
+std::optional<Number> to_number(const telem::SampleValue &v) {
+    return std::visit(
+        [](const auto &s) -> std::optional<Number> {
+            using T = std::decay_t<decltype(s)>;
+            if constexpr (std::is_floating_point_v<T>)
+                return Number(static_cast<double>(s));
+            else if constexpr (std::is_integral_v<T> && std::is_signed_v<T>)
+                return Number(static_cast<std::int64_t>(s));
+            else if constexpr (std::is_integral_v<T>)
+                return Number(static_cast<std::uint64_t>(s));
+            else
+                return std::nullopt;
+        },
+        v
+    );
 }
 
 bool Number::integral() const {

@@ -1901,6 +1901,116 @@ var _ = Describe("Read task", func() {
 			},
 		)
 
+		Context("Messages on two index channels", func() {
+			// twoIndexes returns a config that reads a message on topic. Its index
+			// field /ts stamps temp, and its field /w is level, on a second index
+			// channel that takes the Kafka timestamps.
+			twoIndexes := func(ctx context.Context) (
+				cfg kafka.ReadConfig,
+				topic string,
+				stamped, temp, arrived, level channel.Channel,
+			) {
+				GinkgoHelper()
+				m := jsonMessage("Reading", nil,
+					jsonField("ts", "/ts", icd.TimestampJSONField{TimeFormat: unixNs}),
+					jsonField("v", "/v", icd.FloatJSONField{}),
+					jsonField("w", "/w", icd.FloatJSONField{}),
+				)
+				stamped, temp = createIndexed(ctx, telem.Float64T)
+				arrived, level = createIndexed(ctx, telem.Float64T)
+				ts := fieldKey(m, 0)
+				topic = newTopic()
+				rec := record("", createICD(ctx, m), icd.ReadMessage{
+					Message: m.Key,
+					Index:   &ts,
+					Bindings: []icd.ReadBinding{
+						bind(m, 0, stamped), bind(m, 1, temp), bind(m, 2, level),
+					},
+				})
+				cfg = kafka.ReadConfig{
+					Device: createDevice(ctx, clusterProperties()).Key,
+					Topics: oneTopic(topic, []kafka.ReadRecord{rec}),
+				}
+				return cfg, topic, stamped, temp, arrived, level
+			}
+
+			It("Should write a record whose channels are on two index channels",
+				func(ctx SpecContext) {
+					cfg, topic, stamped, temp, arrived, level := twoIndexes(ctx)
+					dt, t := configure(ctx, cfg)
+					start(ctx, dt, t)
+					produceJSON(ctx, producer, topic, "",
+						map[string]any{"ts": 10e9, "v": 1.0, "w": 2.0})
+					Expect(floats(expectStored(ctx, level.Key(), 1))).
+						To(Equal([]float64{2}))
+					Expect(floats(stored(ctx, temp.Key()))).To(Equal([]float64{1}))
+					Expect(timestamps(stored(ctx, stamped.Key()))).
+						To(Equal([]telem.TimeStamp{10 * telem.SecondTS}))
+					Expect(timestamps(stored(ctx, arrived.Key()))).
+						To(ConsistOf(BeNumerically(">", 10*telem.SecondTS)))
+				},
+			)
+
+			It("Should still write the other index channel of a field that does not "+
+				"decode",
+				func(ctx SpecContext) {
+					cfg, topic, _, temp, _, level := twoIndexes(ctx)
+					dt, t := configure(ctx, cfg)
+					produceJSON(ctx, producer, topic, "",
+						map[string]any{"ts": 10e9, "v": "none", "w": 2.0})
+					produceJSON(ctx, producer, topic, "",
+						map[string]any{"ts": 11e9, "v": 3.0, "w": 4.0})
+					start(ctx, dt, t)
+					Expect(floats(expectStored(ctx, level.Key(), 2))).
+						To(Equal([]float64{2, 4}))
+					Expect(floats(stored(ctx, temp.Key()))).To(Equal([]float64{3}))
+					stat := taskStatus(ctx, t)
+					Expect(stat.Message).To(Equal("Skipped 1 of 2 records"))
+					Expect(stat.Description).To(Equal(
+						`Record value: field v: unknown enum label "none": validation` +
+							" error (topic " + topic + ", partition 0, offset 0).",
+					))
+				},
+			)
+
+			It("Should drop only the index channel whose timestamp is not after the "+
+				"last",
+				func(ctx SpecContext) {
+					cfg, topic, _, temp, _, level := twoIndexes(ctx)
+					dt, t := configure(ctx, cfg)
+					start(ctx, dt, t)
+					produceJSON(ctx, producer, topic, "",
+						map[string]any{"ts": 10e9, "v": 1.0, "w": 2.0})
+					expectStored(ctx, level.Key(), 1)
+					produceJSON(ctx, producer, topic, "",
+						map[string]any{"ts": 5e9, "v": 3.0, "w": 4.0})
+					Expect(floats(expectStored(ctx, level.Key(), 2))).
+						To(Equal([]float64{2, 4}))
+					Expect(floats(stored(ctx, temp.Key()))).To(Equal([]float64{1}))
+					Expect(
+						taskStatus(ctx, t).Message,
+					).To(Equal("Skipped 1 of 2 records"))
+				},
+			)
+
+			It("Should count a record that loses both index channels as one skip",
+				func(ctx SpecContext) {
+					cfg, topic, _, temp, _, level := twoIndexes(ctx)
+					dt, t := configure(ctx, cfg)
+					start(ctx, dt, t)
+					produceJSON(ctx, producer, topic, "",
+						map[string]any{"ts": 10e9, "v": 1.0, "w": 2.0})
+					expectStored(ctx, level.Key(), 1)
+					produceJSON(ctx, producer, topic, "",
+						map[string]any{"ts": 5e9, "v": 3.0, "w": "none"})
+					Eventually(func() string { return taskStatus(ctx, t).Message }).
+						Should(Equal("Skipped 1 of 2 records"))
+					Expect(floats(stored(ctx, temp.Key()))).To(Equal([]float64{1}))
+					Expect(floats(stored(ctx, level.Key()))).To(Equal([]float64{2}))
+				},
+			)
+		})
+
 		DescribeTable("Should reject an invalid config",
 			func(
 				ctx SpecContext,
@@ -1956,7 +2066,7 @@ var _ = Describe("Read task", func() {
 						Field: fieldKey(m, 1), DataType: telem.Float64T,
 					}
 					return []kafka.ReadRecord{record("", createICD(ctx, m), rm)}
-				}, "message Reading: binding 1 has no channel"),
+				}, "message Reading: channel 0 does not exist"),
 			Entry("a channel that does not exist",
 				func(ctx context.Context, index, _ channel.Channel) []kafka.ReadRecord {
 					m := stampedMessage("Reading", nil)
@@ -1983,22 +2093,6 @@ var _ = Describe("Read task", func() {
 						},
 					)}
 				}, "field s of kind string cannot read into channel"),
-			Entry("channels on different indexes",
-				func(ctx context.Context, _, data channel.Channel) []kafka.ReadRecord {
-					_, other := createIndexed(ctx, telem.Float64T)
-					m := jsonMessage("Reading", nil,
-						jsonField("v", "/v", icd.FloatJSONField{}),
-						jsonField("w", "/w", icd.FloatJSONField{}),
-					)
-					return []kafka.ReadRecord{record("", createICD(ctx, m),
-						icd.ReadMessage{
-							Message: m.Key,
-							Bindings: []icd.ReadBinding{
-								bind(m, 0, data), bind(m, 1, other),
-							},
-						},
-					)}
-				}, "every channel must share one index channel"),
 			Entry("an index field with no binding",
 				func(ctx context.Context, _, data channel.Channel) []kafka.ReadRecord {
 					m := stampedMessage("Reading", nil)

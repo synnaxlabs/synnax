@@ -10,18 +10,19 @@
 import type { schematic } from "@synnaxlabs/client";
 
 import type { Spec } from "@/schematic/node/spec";
+import { Form } from "@/schematic/node/symbol/Form";
 import { Node, Preview } from "@/schematic/node/symbol/Symbol";
 
 export const SYMBOL_VARIANT = "symbol";
 
 /**
  * symbolSpec draws a symbol node: its symbol, with the looks that the values of its
- * bound states give it, and the stale indicator while a state is stale.
+ * bound states give it, and the stale and unknown indicators of its states.
  */
 export const symbolSpec: Spec<typeof SYMBOL_VARIANT, schematic.SymbolNodeConfig> = {
   key: SYMBOL_VARIANT,
   name: "Symbol",
-  Form: () => null,
+  Form,
   Node,
   Preview,
   zIndex: 4,
