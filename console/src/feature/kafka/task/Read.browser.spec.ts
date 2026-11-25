@@ -1549,6 +1549,40 @@ describe("Kafka read form", () => {
       expect(dialog.getAllByText("No JSON message")).toHaveLength(3);
     });
 
+    it("should lock a shape whose fields tie two value rules of its key, and pick none of it", async () => {
+      const rec = await createRecord({
+        fields: [createField("temperature", "float")],
+        recordKey: "oven-1",
+        match: KIND_MATCH,
+      });
+      await addMessage(rec, "alarm", [createField("pressure", "float")], {
+        ...KIND_MATCH,
+        value: "alarm",
+      });
+      const { dev } = await renderRead({ records: [rec] });
+      await screen.findByRole("treeitem", { name: /^temperature/ });
+      const oven = {
+        ...PRESSURE_SHAPE,
+        sources: ["oven-1"],
+        fields: [
+          ...PRESSURE_SHAPE.fields,
+          createInferredField("/kind", "string", "string"),
+        ],
+      };
+      const dialog = await openAddData(dev, { data: sampleOf(oven) });
+      await dialog.findByText(
+        "Split by the value at /kind. Add fields in the ICD editor.",
+      );
+      expect(dialog.getAllByText("Split by value")).toHaveLength(5);
+      const pressure = dialog.getByRole("checkbox", { name: "Record /pressure" });
+      expect(pressure).toHaveProperty("disabled", true);
+      expect(pressure).toHaveProperty("checked", false);
+      const pick = dialog.getByRole("checkbox", { name: "Pick oven" });
+      expect(pick).toHaveProperty("disabled", true);
+      const selectAll = dialog.getByRole("button", { name: "Select all" });
+      expect(selectAll.getAttribute("aria-disabled")).toBe("true");
+    });
+
     it("should add a field to the message that the records of the keys read", async () => {
       const temperature = createField("temperature", "float");
       const message: icd.Message = {

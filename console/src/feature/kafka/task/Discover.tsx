@@ -25,6 +25,7 @@ import {
   isExtendable,
   type Picks,
   type Reads,
+  splitOf,
   takenPointers,
 } from "@/feature/kafka/task/additions";
 import { browseTopics, sampleTopic } from "@/feature/kafka/task/scan";
@@ -259,6 +260,7 @@ const TopicValues = ({
   const groups = shapes.map((shape, i): ICD.Picker.ValueGroup => {
     const newest = newestFirst(sample, shape);
     const extendable = isExtendable(shape, reads);
+    const split = splitOf(shape, reads);
     const taken = takenPointers(shape, reads);
     const carried = carriedFields(shape, reads);
     const keys = shape.sources.map(label).join(", ");
@@ -266,11 +268,13 @@ const TopicValues = ({
     const present = shape.present == null ? undefined : shape.fields[shape.present];
     return {
       title: `${keys} · ${records}${present == null ? "" : ` with ${present.pointer}`}`,
+      note: split == null ? undefined : ICD.Picker.splitNote(split),
       values: shape.fields.map((f, j): ICD.Picker.Value => {
         const key = `${i}${f.pointer}`;
         fields.set(key, [json.shapeKey(shape), f.pointer]);
         let lock: ICD.Picker.Lock | undefined;
-        if (j === shape.index) lock = ICD.Picker.INDEX;
+        if (split != null) lock = ICD.Picker.SPLIT;
+        else if (j === shape.index) lock = ICD.Picker.INDEX;
         else if (taken.has(f.pointer))
           lock = carried.has(f.pointer) ? ANY_KEY : ICD.Picker.TAKEN;
         else if (!extendable) lock = NOT_EXTENDABLE;

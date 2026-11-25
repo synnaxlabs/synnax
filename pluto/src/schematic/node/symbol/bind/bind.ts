@@ -77,19 +77,22 @@ export const target = (
   return undefined;
 };
 
-/** @returns a number sink for each channel that a command of spec writes, by key. */
-export const sinks = (
+/** @returns each channel that a command of spec writes, once. */
+export const commandChannels = (
   spec: Pick<schematic.symbol.Spec, "commands">,
   states: Sourced[],
   commands: schematic.CommandBinding[],
-): Record<string, telem.NumberSinkSpec> => {
-  const out: Record<string, telem.NumberSinkSpec> = {};
-  for (const command of spec.commands) {
-    const t = target(command, states, commands);
-    if (t?.type === "channel") out[t.channel] = Telem.numberSink(t.channel);
-  }
-  return out;
-};
+): channel.Key[] =>
+  unique.unique(
+    spec.commands.flatMap((command) => {
+      const t = target(command, states, commands);
+      return t?.type === "channel" ? [t.channel] : [];
+    }),
+  );
+
+/** @returns a number sink for each channel in channels, by its key. */
+export const sinks = (channels: channel.Key[]): Record<string, telem.NumberSinkSpec> =>
+  Object.fromEntries(channels.map((key) => [key, Telem.numberSink(key)]));
 
 /** @returns a number source for each channel in channels, by its key. */
 export const sources = (
