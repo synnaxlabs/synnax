@@ -272,38 +272,6 @@ var _ = Describe("Delete", func() {
 								i.Close()
 							})
 
-							Describe("StreamIterator", func() {
-								Specify("Unary", func(ctx SpecContext) {
-									Expect(
-										db.CreateChannel(ctx, uChannel),
-									).To(Succeed())
-									it := MustSucceed(
-										db.NewStreamIterator(
-											cesium.IteratorConfig{
-												Bounds: telem.TimeRangeMax,
-												Channels: []cesium.ChannelKey{
-													uChannelKey,
-												},
-											},
-										),
-									)
-
-									Expect(
-										db.DeleteChannel(uChannelKey),
-									).To(MatchError(ContainSubstring("1 unclosed writers/iterators")))
-
-									sCtx, cancel := signal.Isolated()
-									i, _ := confluence.Attach(it, 1)
-									it.Flow(sCtx)
-
-									i.Close()
-									Expect(sCtx.Wait()).To(Succeed())
-									cancel()
-
-									Expect(db.DeleteChannel(uChannelKey)).To(Succeed())
-								})
-							})
-
 							Describe("StreamWriter", func() {
 								Specify("Virtual", func(ctx SpecContext) {
 									Expect(
