@@ -14,6 +14,7 @@ import { Breadcrumb } from "@synnaxlabs/lyra/breadcrumb";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { Status } from "@synnaxlabs/lyra/status";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Panel as PlutoPanel, Schematic } from "@synnaxlabs/pluto";
@@ -22,6 +23,7 @@ import type { ReactElement } from "react";
 import { Control } from "@/feature/schematic/toolbar/Control";
 import { Properties } from "@/feature/schematic/toolbar/Properties";
 import { Symbols, type SymbolsChangeProps } from "@/feature/schematic/toolbar/Symbols";
+import { useConfirmChange } from "@/feature/schematic/toolbar/useConfirmChange";
 import { Core } from "@/platform/core";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
@@ -170,6 +172,8 @@ const Internal = (): ReactElement => {
   const current = useSymbolName(changeable);
   const changing = Session.Schematic.useSelectChanging();
   const changeSymbol = Schematic.useChangeSymbol();
+  const confirmChange = useConfirmChange();
+  const handleError = Status.useErrorHandler();
   const setChanging = (changing: boolean) =>
     dispatch(Session.Schematic.setChanging({ key, changing }));
   const singleSelectedConfig = Schematic.useElementConfig({
@@ -179,8 +183,11 @@ const Internal = (): ReactElement => {
     ? {
         value: current.symbol,
         onChange: (input, spec) => {
-          changeSymbol([...changeable.keys()], input, spec);
-          setChanging(false);
+          handleError(async () => {
+            if (!(await confirmChange(changeable, spec))) return;
+            changeSymbol([...changeable.keys()], input, spec);
+            setChanging(false);
+          }, "Failed to change symbol");
         },
       }
     : undefined;
