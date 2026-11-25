@@ -1357,15 +1357,9 @@ describe("toString", () => {
       expect(status.toString(s, { nameHidden: true })).toBe("ERROR: failed");
     });
 
-    it("should map the deprecated includeName to its inverse with one warning", () => {
-      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-      onTestFinished(() => warn.mockRestore());
+    it("should map the deprecated includeName to its inverse", () => {
       expect(status.toString(s, { includeName: false })).toBe("ERROR: failed");
       expect(status.toString(s, { includeName: true })).toBe("ERROR [Task]: failed");
-      expect(status.toString(s, { includeName: false })).toBe("ERROR: failed");
-      expect(warn).toHaveBeenCalledExactlyOnceWith(
-        "includeName is deprecated. Use nameHidden, its inverse.",
-      );
     });
 
     it("should throw when both nameHidden and includeName are given", () => {

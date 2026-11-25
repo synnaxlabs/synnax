@@ -344,9 +344,6 @@ export interface ToStringOptions {
   includeName?: boolean;
 }
 
-// toString runs once per status, often on each render, so the warning logs once.
-const includeNameWarning = { logged: false };
-
 const resolveNameHidden = ({
   nameHidden,
   includeName,
@@ -359,10 +356,6 @@ const resolveNameHidden = ({
     throw new ValidationError(
       "Give nameHidden or the deprecated includeName, not both",
     );
-  if (!includeNameWarning.logged) {
-    includeNameWarning.logged = true;
-    console.warn("includeName is deprecated. Use nameHidden, its inverse.");
-  }
   return !includeName;
 };
 
