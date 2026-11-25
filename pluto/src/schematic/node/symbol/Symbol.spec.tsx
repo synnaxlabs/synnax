@@ -14,14 +14,16 @@ import {
   SyntheticCore,
 } from "@synnaxlabs/client/testutil";
 import { Rate, TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { act, render } from "@testing-library/react";
+import { act, fireEvent, render } from "@testing-library/react";
 import { ReactFlowProvider } from "@xyflow/react";
 import type { FC, PropsWithChildren } from "react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, assert, describe, expect, it, vi } from "vitest";
 import type { z } from "zod";
 
 import { Node } from "@/schematic/node";
+import type { telem } from "@/telem/aether";
 import { telemTest } from "@/telem/aether/testutil";
+import { control } from "@/telem/control/aether";
 import { createAsyncSynnaxWrapper, createSynnaxWrapper } from "@/testutil";
 import { symbolNode } from "@/vis/symbolNode/aether";
 
@@ -44,9 +46,12 @@ const FILLED = "[fill='#a0c2e3']";
 // Every sample of the synthetic Core reads as 1 through this match.
 const WITHIN = { type: "within" as const, bounds: { lower: -2, upper: 2 } };
 
+type Config = Omit<z.input<typeof schematic.symbolNodeConfigZ>, "variant">;
+
 const renderNode = (
-  config: Omit<z.input<typeof schematic.symbolNodeConfigZ>, "variant">,
+  config: Config,
   Wrapper: FC<PropsWithChildren> = LocalWrapper,
+  onConfigChange = vi.fn(),
 ) =>
   render(
     <Wrapper>
@@ -54,7 +59,7 @@ const renderNode = (
         <Node.REGISTRY.symbol.Node
           nodeKey="s1"
           selected={false}
-          onConfigChange={vi.fn()}
+          onConfigChange={onConfigChange}
           config={schematic.symbolNodeConfigZ.parse({ variant: "symbol", ...config })}
         />
       </ReactFlowProvider>
@@ -92,6 +97,125 @@ describe("Symbol node", () => {
       states: [{ key: "active", source: { type: "local", value: 1 } }],
     });
     await vi.waitFor(() => expect(container.querySelector(FILLED)).not.toBeNull());
+  });
+
+  it.each([
+    [0, 1],
+    [1, 0],
+  ])(
+    "should write %d then %d to a local state on two clicks of a valve",
+    (from, to) => {
+      const onConfigChange = vi.fn();
+      const { container } = renderNode(
+        {
+          spec: { type: "builtin", name: "valve" },
+          states: [{ key: "active", source: { type: "local", value: from } }],
+        },
+        LocalWrapper,
+        onConfigChange,
+      );
+      const button = container.querySelector("button");
+      assert(button != null);
+      fireEvent.click(button);
+      expect(onConfigChange).toHaveBeenCalledExactlyOnceWith({
+        states: [
+          schematic.stateBindingZ.parse({
+            key: "active",
+            source: { type: "local", value: to },
+          }),
+        ],
+      });
+    },
+  );
+
+  it("should write the command that a click sends to its command channel", async () => {
+    // Stands in for the schematic controller, which answers each command sink.
+    const sinks = new Map<number, telemTest.TestSink<number>>();
+    const commands: telem.Factory = {
+      type: "commands",
+      create: (spec) => {
+        if (spec.type !== control.SetChannelValue.TYPE) return null;
+        const sink = telemTest.sink<number>();
+        sinks.set(spec.props.channel, sink);
+        return sink;
+      },
+    };
+    const { container } = renderNode(
+      {
+        spec: { type: "builtin", name: "valve" },
+        states: [{ key: "active", source: { type: "channel", command: 7 } }],
+      },
+      createSynnaxWrapper({
+        client: null,
+        additionalRegistry: symbolNode.REGISTRY,
+        telemFactories: [commands],
+      }),
+    );
+    const button = container.querySelector("button");
+    assert(button != null);
+    await vi.waitUntil(() => sinks.has(7));
+    // The state reads no channel, so it reads closed, and a click opens the valve.
+    fireEvent.click(button);
+    await expect.poll(() => sinks.get(7)?.values).toEqual([1]);
+  });
+
+  it("should send the command of a fire click", async () => {
+    const { key, Wrapper } = await createCustomSymbol(
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">' +
+        '<rect class="body" width="10" height="10" /></svg>',
+      {
+        states: [{ type: "number", key: "level", name: "Level" }],
+        commands: [
+          {
+            key: "fill",
+            name: "Fill",
+            state: "level",
+            value: { type: "fixed", value: 7 },
+          },
+        ],
+        interactions: [{ type: "fire", key: "click", command: "fill" }],
+      },
+    );
+    const onConfigChange = vi.fn();
+    const { container } = renderNode(
+      {
+        spec: { type: "custom", key },
+        states: [{ key: "level", source: { type: "local", value: 0 } }],
+      },
+      Wrapper,
+      onConfigChange,
+    );
+    const button = await vi.waitUntil(() => container.querySelector("button"));
+    fireEvent.click(button);
+    expect(onConfigChange).toHaveBeenCalledExactlyOnceWith({
+      states: [
+        schematic.stateBindingZ.parse({
+          key: "level",
+          source: { type: "local", value: 7 },
+        }),
+      ],
+    });
+  });
+
+  it.each<[string, Pick<Config, "disabled" | "states">]>([
+    [
+      "while disabled",
+      {
+        disabled: true,
+        states: [{ key: "active", source: { type: "local", value: 0 } }],
+      },
+    ],
+    [
+      "when its state has no command channel",
+      { states: [{ key: "active", source: { type: "channel" } }] },
+    ],
+  ])("should take no clicks %s", (_, config) => {
+    const { container } = renderNode({
+      spec: { type: "builtin", name: "valve" },
+      ...config,
+    });
+    expect(container.querySelector(".pluto-symbol")).not.toBeNull();
+    expect(container.querySelector("button")).toBeNull();
   });
 
   it("should draw a state with no source at its default", async () => {
