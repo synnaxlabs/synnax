@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/platform/settings/UsedBy.css";
+import "@/platform/used-by/UsedBy.css";
 
 import type { resource } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
@@ -40,7 +40,7 @@ const Use = ({ resource, select, close }: UseProps): ReactElement => {
       size="small"
       justify="start"
       full="x"
-      className={CSS.BE("settings-used-by", "resource")}
+      className={CSS.BE("used-by", "resource")}
       onClick={onClick}
     >
       {Item.icon(resource)}
@@ -66,7 +66,7 @@ interface UnusedProps {
 }
 
 const Unused = ({ kind }: UnusedProps): ReactElement => (
-  <Text.Text level="small" color={9} className={CSS.BE("settings-used-by", "unused")}>
+  <Text.Text level="small" color={9} className={CSS.BE("used-by", "unused")}>
     Nothing uses this {kind}.
   </Text.Text>
 );
@@ -87,7 +87,7 @@ const Uses = ({ ids, kind, selects, close }: UsesProps): ReactElement => {
   const resources = Resource.useMultiple({ ids });
   if (resources.length === 0) return <Unused kind={kind} />;
   return (
-    <Flex.Box y empty className={CSS.BE("settings-used-by", "resources")}>
+    <Flex.Box y empty className={CSS.BE("used-by", "resources")}>
       {resources.toSorted(USE_ORDER).map((r) => (
         <Use
           key={`${r.id.type}:${r.id.key}`}
@@ -110,12 +110,12 @@ const POPOVER_LOCATION = {
 const HOVER_CLOSE_DELAY = 150;
 
 /** Returns the ID of the popover that lists the uses of the item with the key. */
-export const usedByDialogID = (key: string): string => `used-by-${key}`;
+export const dialogID = (key: string): string => `used-by-${key}`;
 
 type PopoverMode = "hover" | "pinned" | null;
 
 export interface UsedByProps {
-  /** The key of the item, which names its popover for {@link usedByDialogID}. */
+  /** The key of the item, which names its popover for {@link dialogID}. */
   itemKey: string;
   /** The kind of the item, such as "secret". */
   kind: string;
@@ -132,7 +132,7 @@ export interface UsedByProps {
 
 /**
  * The count of the resources that use an item. Hovering or clicking it opens a popover
- * that lists them, as does {@link usedByDialogID} through `Dialog.open`.
+ * that lists them, as does {@link dialogID} through `Dialog.open`.
  */
 export const UsedBy = ({
   itemKey,
@@ -161,7 +161,7 @@ export const UsedBy = ({
   const count = uses?.length ?? 0;
   return (
     <Dialog.Frame
-      id={usedByDialogID(itemKey)}
+      id={dialogID(itemKey)}
       anchor={anchor}
       visible={mode != null}
       onVisibleChange={handleVisibleChange}
@@ -183,16 +183,12 @@ export const UsedBy = ({
       <Dialog.Dialog
         background={1}
         rounded="medium"
-        className={CSS.BE("settings-used-by", "popover")}
+        className={CSS.BE("used-by", "popover")}
         onPointerEnter={cancelClose}
         onPointerLeave={mode === "hover" ? scheduleClose : undefined}
         onClick={stopPropagation}
       >
-        <Text.Text
-          level="small"
-          color={9}
-          className={CSS.BE("settings-used-by", "label")}
-        >
+        <Text.Text level="small" color={9} className={CSS.BE("used-by", "label")}>
           Used by
         </Text.Text>
         {uses != null &&

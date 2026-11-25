@@ -37,6 +37,7 @@ import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
 import { Settings as PlatformSettings } from "@/platform/settings";
+import { UsedBy } from "@/platform/used-by";
 
 /** @returns whether a stored built-in differs from its shipped name or entries. */
 const edited = (
@@ -133,7 +134,7 @@ const Item = ({
             </Text.Text>
           </List.Cell>
           <List.Cell>
-            <PlatformSettings.UsedBy
+            <UsedBy.UsedBy
               itemKey={e.key}
               kind="enumeration"
               uses={e.uses}
@@ -232,7 +233,7 @@ const SettingsMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement => {
       {single != null && (
         <Menu.Item
           itemKey="usedBy"
-          onClick={() => Dialog.open(PlatformSettings.usedByDialogID(single.key))}
+          onClick={() => Dialog.open(UsedBy.dialogID(single.key))}
         >
           <Icon.Link />
           Used by

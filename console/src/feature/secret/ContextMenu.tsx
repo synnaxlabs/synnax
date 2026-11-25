@@ -19,7 +19,7 @@ import type { ReactElement } from "react";
 import { ContextMenu } from "@/platform/context-menu";
 import { Modals } from "@/platform/modals";
 import { Secret as PlatformSecret } from "@/platform/secret";
-import { Settings as PlatformSettings } from "@/platform/settings";
+import { UsedBy } from "@/platform/used-by";
 
 const rename = (key: string): void => Text.edit(List.itemNameID(key));
 
@@ -41,7 +41,7 @@ export const SecretsMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement =
       {single != null && (
         <Menu.Item
           itemKey="usedBy"
-          onClick={() => Dialog.open(PlatformSettings.usedByDialogID(single.key))}
+          onClick={() => Dialog.open(UsedBy.dialogID(single.key))}
         >
           <Icon.Link />
           Used by
