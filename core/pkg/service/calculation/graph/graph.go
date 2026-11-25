@@ -208,7 +208,7 @@ func (g *Graph) RejectDefinition(
 // SetRuntimeStatus persists a status reported by the calculation runtime for the
 // channel with the given key when the report changes the stored status. expression is
 // the expression that the runtime ran, and the Graph clears the status once the
-// calculation holds another. A success changes only a stored error or stale warning.
+// calculation holds another. A success changes only a stored error or warning.
 // Any other report changes a stored status with a different variant, message, or
 // description. Routing runtime reports through the Graph keeps a single writer on the
 // status record, so a report and a validity clear apply in submission order. The Graph
@@ -245,9 +245,10 @@ func (g *Graph) SetRuntimeStatus(
 	})
 }
 
-// failure reports whether st is an error or a stale warning, which a success replaces.
+// failure reports whether st is an error or a warning, which a success replaces. A
+// calculation's own status holds only those and a success.
 func failure(st calculation.Status) bool {
-	return st.Variant == status.VariantError || st.Message == calculation.StaleMessage
+	return st.Variant == status.VariantError || st.Variant == status.VariantWarning
 }
 
 func changes(stored calculation.Status, found bool, next *calculation.Status) bool {
@@ -259,7 +260,7 @@ func changes(stored calculation.Status, found bool, next *calculation.Status) bo
 }
 
 // Failed returns true when the stored status of the channel with the given key is an
-// error or a stale warning.
+// error or a warning.
 func (g *Graph) Failed(ctx context.Context, key channel.Key) (bool, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()

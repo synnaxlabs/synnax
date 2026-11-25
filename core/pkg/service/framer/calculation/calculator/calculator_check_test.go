@@ -276,7 +276,7 @@ var _ = Describe("Calculator check", Ordered, func() {
 				})
 				return reported
 			}
-			stale := "warning: " + calculation.StaleMessage
+			stale := "warning: " + calculation.StaleStatus("").Message
 			// The join settles on the fourth frame of the primary, 1 s apart, and the
 			// other input never writes.
 			for i := range 3 {

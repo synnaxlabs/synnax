@@ -64,7 +64,9 @@ func (g Group) Next(
 	for _, c := range g {
 		next, changedLocal, err := c.Next(ctx, output, output)
 		if err != nil {
-			c.failed = true
+			// The error replaces a stale warning, and it reports this step's drops.
+			c.failed, c.stale = true, false
+			c.dropped()
 			report(ctx, c.Channel().Key(), c.expression(), Status{
 				Name:        c.Channel().Name,
 				Variant:     status.VariantError,
