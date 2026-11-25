@@ -79,8 +79,8 @@ func isHost(host string) bool {
 }
 
 // validateServer checks s against its schema. It also checks that a TCP host is a
-// hostname or an IP address, that max_gap is at most max_read_registers, that no two
-// reads share a location and an index, and that no two writes set one address.
+// hostname or an IP address, that no two reads share a location and an index, and that
+// no two writes set one address.
 func validateServer(s Server) error {
 	if err := s.Validate(); err != nil {
 		return err
@@ -93,12 +93,6 @@ func validateServer(s Server) error {
 			"must be a hostname, an IPv4 address, or an IPv6 address",
 		)
 	}
-	v.Ternaryf(
-		"request_policy.max_gap",
-		s.RequestPolicy.MaxGap > s.RequestPolicy.MaxReadRegisters,
-		"must be at most max_read_registers (%d)",
-		s.RequestPolicy.MaxReadRegisters,
-	)
 	type readKey struct {
 		location locationKey
 		index    channel.Key

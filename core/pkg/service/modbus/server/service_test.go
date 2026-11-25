@@ -188,10 +188,6 @@ var _ = Describe("Service", func() {
 			Entry("a host that ends in a number", func(s *server.Server) {
 				s.Connection = tcp("10.0.0.256")
 			}),
-			Entry("a gap wider than one read", func(s *server.Server) {
-				s.RequestPolicy.MaxReadRegisters = 10
-				s.RequestPolicy.MaxGap = 11
-			}),
 		)
 
 		DescribeTable("Should reject writes that set one register twice",
