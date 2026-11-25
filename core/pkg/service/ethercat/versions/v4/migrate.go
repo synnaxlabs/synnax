@@ -68,4 +68,7 @@ func MigrateWriteConfig(ctx context.Context, old v3.WriteConfig) (WriteConfig, e
 }
 
 // WriteMigration lifts stored write configs to v4.
-var WriteMigration = migrate.NewEntry("v63_ethercat_write_data_type", MigrateWriteConfig)
+var WriteMigration = migrate.NewEntry(
+	"v63_ethercat_write_data_type",
+	MigrateWriteConfig,
+)

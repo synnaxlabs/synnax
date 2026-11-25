@@ -125,7 +125,9 @@ var _ = Describe("Migrate", func() {
 				BaseReadChannel: readBase, Index: 0x6000, Scale: none,
 			}}},
 		}
-		MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[uuid.UUID, v3.ReadConfig]{DB: db}))
+		MustOpen(
+			gorp.OpenTable(ctx, gorp.TableConfig[uuid.UUID, v3.ReadConfig]{DB: db}),
+		)
 		Expect(gorp.NewCreate[uuid.UUID, v3.ReadConfig]().Entry(&old).Exec(ctx, db)).
 			To(Succeed())
 		MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[uuid.UUID, v4.ReadConfig]{
@@ -156,9 +158,14 @@ var _ = Describe("Migrate", func() {
 
 	DescribeTable("ResolveWriteConfig",
 		func(ctx SpecContext, pdo string, expected *telem.DataType) {
-			cfg := v4.WriteConfig{Channels: []v4.WriteChannel{{
-				Variant: v4.UnresolvedWriteChannel{BaseWriteChannel: writeBase, Pdo: pdo},
-			}}}
+			cfg := v4.WriteConfig{Channels: []v4.WriteChannel{
+				{
+					Variant: v4.UnresolvedWriteChannel{
+						BaseWriteChannel: writeBase,
+						Pdo:              pdo,
+					},
+				},
+			}}
 			Expect(v4.ResolveWriteConfig(ctx, nil, findSlaves, &cfg)).To(Succeed())
 			entry, ok := cfg.Channels[0].Variant.(v4.EntryWriteChannel)
 			Expect(ok).To(BeTrue())
@@ -168,7 +175,8 @@ var _ = Describe("Migrate", func() {
 		Entry("an entry with no data type as absent", "Padding", nil),
 	)
 
-	DescribeTable("Should decode an empty entry data type as absent",
+	DescribeTable(
+		"Should decode an empty entry data type as absent",
 		func(data string, isRead bool) {
 			if isRead {
 				var ch v4.ReadChannel
@@ -187,6 +195,10 @@ var _ = Describe("Migrate", func() {
 			Expect(entry.Index).To(BeEquivalentTo(1))
 		},
 		Entry("for a read channel", `{"type":"entry","index":1,"data_type":""}`, true),
-		Entry("for a write channel", `{"type":"entry","index":1,"data_type":""}`, false),
+		Entry(
+			"for a write channel",
+			`{"type":"entry","index":1,"data_type":""}`,
+			false,
+		),
 	)
 })
