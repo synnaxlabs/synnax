@@ -271,7 +271,8 @@ type Layer struct {
 	// NI owns the NI chassis, devices, and stored configuration records of the NI task
 	// types.
 	NI *ni.Service
-	// OPCUA owns the stored configuration records of the OPC UA task types.
+	// OPCUA owns the OPC UA servers and the stored configuration records of the OPC UA
+	// task types.
 	OPCUA *opcua.Service
 	// LabJack owns the stored configuration records of the LabJack task types.
 	LabJack *labjack.Service
@@ -681,7 +682,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.User, err = user.OpenService(ctx, user.ServiceConfig{
 		Instrumentation: cfg.Child("user"),
 		DB:              cfg.Distribution.DB,
-		Password:        l.Password,
 		Signals:         l.Signals,
 	}); !ok(err, l.User) {
 		return nil, err
@@ -946,6 +946,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.OPCUA, err = opcua.OpenService(ctx, opcua.ServiceConfig{
 		Instrumentation: cfg.Child("opcua"),
 		DB:              cfg.Distribution.DB,
+		Signals:         l.Signals,
 	}); !ok(err, l.OPCUA) {
 		return nil, err
 	}
@@ -1112,6 +1113,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			resource.TypeNiChassis:       l.NI.Chassis.Resources(),
 			resource.TypeNiDevice:        l.NI.Devices.Resources(),
 			resource.TypeNode:            l.Node.Resources(),
+			resource.TypeOpcuaServer:     l.OPCUA.Servers.Resources(),
 			resource.TypePanel:           l.Panel.Resources(),
 			resource.TypePolicy:          l.RBAC.Policy.Resources(),
 			resource.TypeProject:         l.Project.Resources(),
@@ -1171,6 +1173,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			l.PagerDuty.SecretMigration(taskNames(l.Task)),
 			l.Kafka.ICDMigration(taskNames(l.Task)),
 			l.HTTP.ICDMigration(taskNames(l.Task)),
+			l.MQTT.ICDMigration(taskNames(l.Task)),
 			opcua.PasswordMigration(l.Secret),
 			opcua.CertificateMigration(l.Certificate, l.Status),
 		),

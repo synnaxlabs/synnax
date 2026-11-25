@@ -11,7 +11,7 @@ import { describe, expect, it } from "vitest";
 
 import { ICD } from "@/platform/icd";
 
-describe("ICD inferred fields", () => {
+describe("ICD inferred formats", () => {
   describe("createField", () => {
     it("should create a timestamp field with the inferred time format", () => {
       const field = ICD.createField(
@@ -40,6 +40,43 @@ describe("ICD inferred fields", () => {
       expect(ICD.createField(inferred, "v").key).not.toEqual(
         ICD.createField(inferred, "v").key,
       );
+    });
+  });
+
+  describe("createFields", () => {
+    it("should name each field after its pointer", () => {
+      const fields = ICD.createFields([
+        { pointer: "/motor/speed", kind: "float" },
+        { pointer: "/time", kind: "timestamp", timeFormat: "unix_ns" },
+      ]);
+      expect(fields).toMatchObject([
+        { name: "motor_speed", pointer: "/motor/speed", type: "float" },
+        { name: "time", pointer: "/time", type: "timestamp", timeFormat: "unix_ns" },
+      ]);
+    });
+  });
+
+  describe("createMessage", () => {
+    const field = ICD.createField({ pointer: "/v", kind: "float" }, "v");
+
+    it("should create a JSON message of the fields with the name", () => {
+      expect(ICD.createMessage("plant/oven", [field], [])).toMatchObject({
+        name: "plant/oven",
+        payload: { format: "json", fields: [field] },
+      });
+    });
+
+    it("should number a name that a taken message holds", () => {
+      const first = ICD.createMessage("plant/oven", [], []);
+      const second = ICD.createMessage("plant/oven", [], [first]);
+      expect(second.name).toEqual("plant/oven 2");
+      expect(ICD.createMessage("plant/oven", [], [first, second]).name).toEqual(
+        "plant/oven 3",
+      );
+    });
+
+    it("should name a message with an empty name Untitled", () => {
+      expect(ICD.createMessage("", [], []).name).toEqual("Untitled");
     });
   });
 });

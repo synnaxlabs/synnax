@@ -14,6 +14,14 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 )
 
+// MatchKeyed returns a filter for the certificates with a private key when keyed is
+// true, and for those without one when keyed is false.
+func MatchKeyed(keyed bool) Filter {
+	return Match(func(_ gorp.Context, _ Retrieve, c *Certificate) (bool, error) {
+		return hasPrivateKey(*c) == keyed, nil
+	})
+}
+
 // MatchRacks returns a filter for the file certificates on any of the racks with keys.
 func MatchRacks(keys ...rack.Key) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Certificate] {

@@ -26,7 +26,11 @@ import { type color, TimeSpan } from "@synnaxlabs/x";
 import { Fragment, type PropsWithChildren, type ReactElement, useState } from "react";
 
 import { Paint } from "@/feature/schematic/symbol/edit/Paint";
-import { useValues, type Values } from "@/feature/schematic/symbol/edit/useValues";
+import {
+  useEntryColor,
+  useValues,
+  type Values,
+} from "@/feature/schematic/symbol/edit/useValues";
 import { Spec } from "@/feature/schematic/symbol/spec";
 import { FLAGS } from "@/flags";
 import { CSS } from "@/platform/css";
@@ -36,7 +40,8 @@ type Look = schematic.symbol.Look;
 
 interface InspectorContextValue {
   part: Spec.Target;
-  preview: number;
+  /** preview is the state that the inspector edits, at the value on the canvas. */
+  preview: Spec.At;
   values: Values;
 }
 
@@ -75,10 +80,10 @@ const useScope = <F extends Spec.Field>(name: string): Scope<F> => {
   const field = useFieldContext(name);
   const looks = Form.useFieldValue(path.data.looks);
   const { get, set } = Form.useContext();
-  const { part, preview, values } = inspector;
+  const { part, preview } = inspector;
   const { at } = field;
   // A control for every value shows what the canvas draws at the preview value.
-  const shown: Spec.At = { state: values.state, value: at ?? preview };
+  const shown: Spec.At = at == null ? preview : { ...preview, value: at };
   const f = field.field as F;
   return {
     ...inspector,
@@ -97,8 +102,7 @@ const useScope = <F extends Spec.Field>(name: string): Scope<F> => {
         spec.variant === "static" && !FLAGS.symbolNodes
           ? { ...spec, looks: Spec.staticLooks(spec.looks) }
           : spec;
-      const edited = at == null ? undefined : { state: values.state, value: at };
-      set(path.data, Spec.setOwn(from, part, f, v, edited));
+      set(path.data, Spec.setOwn(from, part, f, v, at == null ? undefined : shown));
     },
   };
 };
@@ -208,6 +212,13 @@ const PaintControl = ({ drawingColor }: PaintControlProps): ReactElement => {
   const { value, inherited, own, onChange, label, shown, values } = useScope<
     "fill" | "stroke"
   >("PaintControl");
+  // An entry paint stores its own state, which can differ from the state shown.
+  const entryColor = useEntryColor(
+    value?.type === "entry"
+      ? values.states.find((s) => s.key === value.state)
+      : undefined,
+    shown.value,
+  );
   return (
     <Paint
       aria-label={label}
@@ -217,13 +228,13 @@ const PaintControl = ({ drawingColor }: PaintControlProps): ReactElement => {
       onChange={onChange}
       entryState={values.entryState}
       drawingColor={drawingColor}
-      entryColor={values.entryColor(shown.value)}
+      entryColor={entryColor}
     />
   );
 };
 
 const VisibleControl = (): ReactElement => {
-  const { value, inherited, part, at, values, looks, onChange, label } =
+  const { value, inherited, part, at, values, preview, looks, onChange, label } =
     useScope<"hidden">("VisibleControl");
   // A part shown at every value stores false when the drawing hides at any value.
   const drawingHides =
@@ -232,7 +243,7 @@ const VisibleControl = (): ReactElement => {
       ? values.list.some(
           (v) =>
             Spec.effective({ looks }, undefined, "hidden", {
-              state: values.state,
+              ...preview,
               value: v.value,
             }) === true,
         )
@@ -384,9 +395,9 @@ const LEVEL_ISSUES: Record<
   Pick<Status.SummaryProps, "message" | "description">
 > = {
   shapes: {
-    message: "Fill motion needs one shape",
+    message: "Fill motion needs one shape or group",
     description:
-      "Fill motion fills each shape in this part by its own box. Use Select parent group to make the group around the shapes the part. If the shapes sit in no group, group them in the drawing, or remove the motion from the part to save.",
+      "Fill motion fills each shape or group in this part by its own box. Use Select parent group to make the group around the shapes the part. If the shapes sit in no group, group them in the drawing, or remove the motion from the part to save.",
   },
   clip: {
     message: "Fill motion replaces a clip-path",
@@ -452,7 +463,13 @@ export const Inspector = ({ part: key, preview }: InspectorProps): ReactElement 
       ? Spec.levelIssues({ drawing, parts, looks }).get(part.key)
       : undefined;
   return (
-    <InspectorContext value={{ part: part?.key, preview: preview.value, values }}>
+    <InspectorContext
+      value={{
+        part: part?.key,
+        preview: { state: values.state, value: preview.value },
+        values,
+      }}
+    >
       <Flex.Box y gap="medium" className={CSS.B("schematic-inspector")}>
         <Flex.Box y gap={0}>
           <Text.Text level="h5">{part?.name ?? "Whole drawing"}</Text.Text>
