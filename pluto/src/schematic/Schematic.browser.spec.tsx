@@ -19,7 +19,7 @@ import { z } from "zod";
 import { aether } from "@/aether/aether";
 import { Errors } from "@/errors";
 import { Schematic } from "@/schematic";
-import { control } from "@/telem/control/aether";
+import { controlTest } from "@/telem/control/aether/testutil";
 import { createAsyncSynnaxWrapper } from "@/testutil";
 import { diagram } from "@/vis/diagram/aether";
 import { latestSample } from "@/vis/latestSample/aether";
@@ -104,16 +104,6 @@ const renderSchematic = async (
 // Stand in for the worker components of a toggle tooltip.
 const looseZ = z.object({}).loose();
 
-class StubChip extends aether.Leaf<typeof looseZ> {
-  static readonly TYPE = control.Chip.TYPE;
-  override schema = looseZ;
-}
-
-class StubIndicator extends aether.Leaf<typeof looseZ> {
-  static readonly TYPE = control.Indicator.TYPE;
-  override schema = looseZ;
-}
-
 class StubLatestSample extends aether.Leaf<typeof looseZ> {
   static readonly TYPE = latestSample.LatestSample.TYPE;
   override schema = looseZ;
@@ -121,8 +111,7 @@ class StubLatestSample extends aether.Leaf<typeof looseZ> {
 
 const STALE_REGISTRY: aether.ComponentRegistry = {
   ...stalenessTest.createRegistry(toggle.Toggle.TYPE, toggle.toggleStateZ),
-  [StubChip.TYPE]: StubChip,
-  [StubIndicator.TYPE]: StubIndicator,
+  ...controlTest.createRegistry(),
   [StubLatestSample.TYPE]: StubLatestSample,
 };
 
