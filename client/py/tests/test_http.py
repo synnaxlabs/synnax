@@ -13,6 +13,7 @@ from pydantic import ValidationError
 import synnax as sy
 from tests.json_value import arr, obj
 from tests.task_targets import TaskTargets
+from x import http
 from x.strings import random_name
 
 
@@ -550,7 +551,7 @@ class TestHTTPHealthCheck:
             host="localhost:8080",
             health_check=sy.http.HealthCheck(
                 path="/api/status",
-                headers=[sy.http.Header(name="Accept", value="application/json")],
+                headers=[http.Header(name="Accept", value="application/json")],
             ),
         )
         hc = obj(dev.properties, "health_check")

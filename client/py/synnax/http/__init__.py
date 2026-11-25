@@ -23,17 +23,13 @@ from synnax.http.types_gen import (
     WriteConfig,
     WriteEndpoint,
 )
-from x.http import Header, Method, QueryParam
 
 __all__ = [
     "MAKE",
     "MODEL",
     "Device",
     "ExpectedResponse",
-    "Header",
     "HealthCheck",
-    "Method",
-    "QueryParam",
     "ReadConfig",
     "ReadEndpoint",
     "ReadTask",
