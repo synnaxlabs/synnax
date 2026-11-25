@@ -15,6 +15,7 @@ import { Schematic } from "@synnaxlabs/pluto";
 import { compare, strings } from "@synnaxlabs/x";
 import { type ReactElement, Suspense } from "react";
 
+import { losses } from "@/feature/schematic/symbol/losses";
 import { Modals } from "@/platform/modals";
 
 interface ConfirmSaveParams {
@@ -25,23 +26,6 @@ interface ConfirmSaveParams {
   /** The schematics that use the symbol. */
   uses: resource.ID[];
 }
-
-const nameOf = (items: { key: string; name: string }[], key: string): string =>
-  items.find((i) => i.key === key)?.name ?? key;
-
-/** @returns what a node loses in the save, such as "the Level binding". */
-const losses = (
-  { states, overrides, commands }: schematic.Orphans,
-  stored: schematic.symbol.Spec,
-  spec: schematic.symbol.Spec,
-): string[] => [
-  ...states.map((k) => `the ${nameOf(stored.states, k)} binding`),
-  ...overrides.map(
-    ({ key, fields }) =>
-      `the ${strings.naturalLanguageJoin(fields)} of ${nameOf(spec.states, key)}`,
-  ),
-  ...commands.map((k) => `the ${nameOf(stored.commands, k)} binding`),
-];
 
 interface UseProps extends Omit<ConfirmSaveParams, "uses"> {
   schematic: schematic.Schematic;
