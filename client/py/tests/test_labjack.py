@@ -729,6 +729,34 @@ class TestLabJackDeviceResource:
         assert isinstance(update, sy.labjack.device.IdentityUpdate)
         assert update.connection == "LJM_ctWIFI"
 
+    def test_round_trips_a_where(self) -> None:
+        """Should keep a nested where through JSON with its operator aliases."""
+        raw = {
+            "and": [
+                {"name": {"eq": "T7 bench"}},
+                {"not": {"model": {"in": ["t4"]}}},
+            ]
+        }
+        where = sy.labjack.device.Where.model_validate(raw)
+        assert where.and_ is not None
+        assert where.and_[1].not_ is not None
+        dumped = where.model_dump(by_alias=True, exclude_none=True)
+        assert sy.labjack.device.Where.model_validate(dumped) == where
+
+    def test_rejects_an_unknown_where_field(self) -> None:
+        """Should reject a where on a field that the filter does not have."""
+        with pytest.raises(ValidationError):
+            sy.labjack.device.Where.model_validate({"connection": {"eq": "x"}})
+
+    def test_parses_a_retrieve_request(self) -> None:
+        """Should parse a retrieve request with a where and a cursor."""
+        req = sy.labjack.device.RetrieveRequest.model_validate(
+            {"where": {"rack": {"eq": 1}}, "after": {"key": str(self.KEY)}}
+        )
+        assert req.where is not None
+        assert req.after is not None
+        assert req.after.key == self.KEY
+
     def test_resource_id(self) -> None:
         """Should name the device by its key under the labjack_device type."""
         assert sy.labjack.device.resource_id(self.KEY).type == "labjack_device"

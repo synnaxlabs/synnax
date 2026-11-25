@@ -71,3 +71,21 @@ describe("updateZ", () => {
     expect(labjack.device.updateZ.safeParse({ group: "status" }).success).toBe(false);
   });
 });
+
+describe("retrieveRequestZ", () => {
+  it("should parse a request with a where and a cursor", () => {
+    const req = labjack.device.retrieveRequestZ.parse({
+      where: { rack: { eq: 1 } },
+      after: { key: DEVICE.key },
+      limit: 10,
+    });
+    expect(req.after?.key).toEqual(DEVICE.key);
+  });
+});
+
+describe("retrieveResponseZ", () => {
+  it("should parse the devices of a response", () => {
+    const res = labjack.device.retrieveResponseZ.parse({ devices: [DEVICE] });
+    expect(res.devices).toHaveLength(1);
+  });
+});
