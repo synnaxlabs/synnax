@@ -116,6 +116,22 @@ var _ = Describe("Resources", func() {
 			Expect(rec.Snapshot()).ToNot(ContainElement(HaveField("Key", other.Key)))
 		})
 
+	It("Should announce the calculation of an output that a rename action renames",
+		func(ctx SpecContext) {
+			c := create(ctx, "tank_mean")
+			rec := &acttestutil.Recorder[calculation.Key, calculation.Action]{}
+			DeferCleanup(svc.Actions().OnChange(rec.Record))
+			Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				_, err := channels.NewWriter(tx).Apply(
+					ctx,
+					c.Output,
+					channel.NewRenameAction(channel.RenamePayload{Name: "tank_average"}),
+				)
+				return err
+			})).To(Succeed())
+			Eventually(rec.Snapshot).Should(ConsistOf(HaveField("Key", c.Key)))
+		})
+
 	It("Should leave out a key that names no calculation", func(ctx SpecContext) {
 		Expect(svc.Resources().Retrieve(ctx, node.DB, []resource.ID{
 			calculation.ResourceID(uuid.New()),
