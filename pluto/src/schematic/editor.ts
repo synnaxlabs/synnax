@@ -71,9 +71,9 @@ const defaultLabel = (client: Client, config: Node.Config): string | undefined =
 /**
  * useChangeSymbol returns a callback that changes the given symbols to the symbol the
  * input names, dispatched as a single undoable step. A label that still reads the old
- * symbol's name takes the new symbol's name. A symbol node keeps each binding that
- * spec, the spec of its new symbol, does not orphan.
- * @throws if the input names a symbol node and spec is unset.
+ * symbol's name takes the new symbol's name. A symbol node drops the bindings that
+ * spec, the spec of its new symbol, orphans.
+ * @throws {Error} if the input names a symbol node and spec is unset.
  */
 export const useChangeSymbol = () => {
   const key = Scope.use();
