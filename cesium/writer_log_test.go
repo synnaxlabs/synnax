@@ -14,7 +14,9 @@ import (
 	"math/rand/v2"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -25,6 +27,7 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
+	xtime "github.com/synnaxlabs/x/time"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -745,3 +748,128 @@ func (f logGateFile) Sync() error {
 	f.gate.wait()
 	return f.File.Sync()
 }
+
+// heldClock holds its first read of the time after it is armed, until it is released.
+type heldClock struct {
+	xtime.Clock
+	armed   atomic.Bool
+	entered chan struct{}
+	release chan struct{}
+	open    func()
+}
+
+func newHeldClock() *heldClock {
+	c := &heldClock{
+		Clock:   xtime.Real,
+		entered: make(chan struct{}),
+		release: make(chan struct{}),
+	}
+	c.open = sync.OnceFunc(func() { close(c.release) })
+	return c
+}
+
+func (c *heldClock) Now() time.Time {
+	if c.armed.CompareAndSwap(true, false) {
+		close(c.entered)
+		<-c.release
+	}
+	return c.Clock.Now()
+}
+
+var _ = Describe("Writer open on the pointer log, held after the read of its channels",
+	func() {
+		const stallTimeout = 5 * time.Second
+		var (
+			db     *cesium.DB
+			clock  *heldClock
+			idxKey cesium.ChannelKey
+			opened chan error
+		)
+
+		BeforeEach(func(ctx SpecContext) {
+			clock = newHeldClock()
+			db = mustOpenDBOnFS(
+				ctx,
+				xfs.NewMem(),
+				cesium.WithPointerLog(),
+				cesium.WithClock(clock),
+			)
+			idxKey = GenerateChannelKey()
+			Expect(db.CreateChannel(ctx, cesium.Channel{
+				Key:      idxKey,
+				Name:     "time",
+				IsIndex:  true,
+				DataType: telem.TimestampT,
+			})).To(Succeed())
+			clock.armed.Store(true)
+			opened = make(chan error, 1)
+			finished := make(chan struct{})
+			go func() {
+				defer close(finished)
+				w, err := db.OpenWriter(context.Background(), cesium.WriterConfig{
+					Channels: []cesium.ChannelKey{idxKey},
+					Clock:    idxKey,
+				})
+				if err == nil {
+					err = w.Close()
+				}
+				opened <- err
+			}()
+			Eventually(clock.entered).Should(BeClosed())
+			DeferCleanup(func() {
+				clock.open()
+				Eventually(finished).Should(BeClosed())
+			})
+		})
+
+		It("Should fail with a not-found error when a Drop takes its key",
+			func(ctx SpecContext) {
+				dropped := make(chan error, 1)
+				go func() { dropped <- db.Drop(ctx, []cesium.ChannelKey{idxKey}) }()
+				Eventually(dropped, stallTimeout).Should(Receive(Succeed()))
+				clock.open()
+				Eventually(opened).Should(
+					Receive(MatchError(cesium.ErrChannelNotFound)),
+				)
+			})
+
+		It("Should let a channel be created", func(ctx SpecContext) {
+			created := make(chan error, 1)
+			go func() {
+				created <- db.CreateChannel(ctx, cesium.Channel{
+					Key:      GenerateChannelKey(),
+					Name:     "created",
+					IsIndex:  true,
+					DataType: telem.TimestampT,
+				})
+			}()
+			Eventually(created, stallTimeout).Should(Receive(Succeed()))
+		})
+
+		It("Should let an iterator open while a channel is created", func(
+			ctx SpecContext,
+		) {
+			created := make(chan error, 1)
+			go func() {
+				created <- db.CreateChannel(ctx, cesium.Channel{
+					Key:      GenerateChannelKey(),
+					Name:     "created",
+					IsIndex:  true,
+					DataType: telem.TimestampT,
+				})
+			}()
+			iterated := make(chan error, 1)
+			go func() {
+				it, err := db.OpenIterator(cesium.IteratorConfig{
+					Bounds:   telem.TimeRangeMax,
+					Channels: []cesium.ChannelKey{idxKey},
+				})
+				if err == nil {
+					err = it.Close()
+				}
+				iterated <- err
+			}()
+			Eventually(iterated, stallTimeout).Should(Receive(Succeed()))
+			Eventually(created, stallTimeout).Should(Receive(Succeed()))
+		})
+	})
