@@ -10,10 +10,12 @@
 import { icd } from "@synnaxlabs/client";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Access, ICD as PICD } from "@synnaxlabs/pluto";
+import { unique } from "@synnaxlabs/x";
 import {
   createContext,
   type PropsWithChildren,
   type ReactElement,
+  type ReactNode,
   useContext,
   useEffect,
   useState,
@@ -31,7 +33,7 @@ export type Formats = ReadonlyMap<icd.Key, FormatForm>;
 const Context = createContext<Formats>(new Map());
 Context.displayName = "ICD.FormatsContext";
 
-/** @returns the forms that each enclosing WithFormat opens. */
+/** @returns the forms that an enclosing WithFormats opens. */
 export const useFormats = (): Formats => useContext(Context);
 
 /** @returns the open form of an ICD that the task reads. */
@@ -59,7 +61,7 @@ export const useMessages = (): Messages => {
 };
 
 /**
- * @returns a message of an ICD that an enclosing WithFormat opens, current with each
+ * @returns a message of an ICD that an enclosing WithFormats opens, current with each
  * edit, or null when the ICD has no message with the key.
  */
 export const useMessage = (
@@ -84,15 +86,11 @@ export const fieldsOf = (
       .messages.find(({ key }) => key === message),
   );
 
-export interface WithFormatProps extends PropsWithChildren {
+interface WithFormatProps extends PropsWithChildren {
   icdKey: icd.Key;
 }
 
-/**
- * Opens the form of an ICD that a read task reads, for useFormats in children. Each
- * edit updates the ICD at once, and deploying the task flushes pending edits first.
- */
-export const WithFormat = ({ icdKey, children }: WithFormatProps): ReactElement => {
+const WithFormat = ({ icdKey, children }: WithFormatProps): ReactElement => {
   const isPreview = Task.useIsPreview();
   const canEdit = Access.useUpdateGranted(icd.resourceID(icdKey));
   const { form, flush } = PICD.useForm({
@@ -104,3 +102,25 @@ export const WithFormat = ({ icdKey, children }: WithFormatProps): ReactElement 
   const formats = new Map(useContext(Context)).set(icdKey, form);
   return <Context value={formats}>{children}</Context>;
 };
+
+export interface WithFormatsProps extends PropsWithChildren {
+  /** The ICDs to open. A key may repeat. */
+  icdKeys: icd.Key[];
+}
+
+/**
+ * Opens the form of each ICD in icdKeys, for useFormats in children. Each edit updates
+ * the ICD at once, and deploying the task flushes pending edits first.
+ */
+export const WithFormats = ({ icdKeys, children }: WithFormatsProps): ReactElement => (
+  <>
+    {unique.unique(icdKeys).reduceRight<ReactNode>(
+      (child, key) => (
+        <WithFormat key={key} icdKey={key}>
+          {child}
+        </WithFormat>
+      ),
+      children,
+    )}
+  </>
+);

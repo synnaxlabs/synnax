@@ -10,8 +10,8 @@
 # Gates every merge. The ruleset requires only the OK context, so every check a pull
 # request or a merge group must pass runs from here. Nightly and Release call it with
 # full, which runs every job whatever changed, on every OS the job supports. A pull
-# request skips the macOS C++ tests, because the two macOS bots cannot keep up with
-# every push. The merge group runs them.
+# request and a merge group skip the macOS C++ tests, because the two macOS bots cannot
+# keep up with them.
 
 name: CI
 
@@ -160,7 +160,6 @@ jobs:
       runners: ${{ steps.filter.outputs.runners }}
       tls: ${{ steps.filter.outputs.tls }}
       site_common: ${{ steps.filter.outputs.site_common }}
-      soem: ${{ steps.filter.outputs.soem }}
       studio: ${{ steps.filter.outputs.studio }}
       spec_only: ${{ steps.spec.outputs.spec_only }}
       stylelint: ${{ steps.filter.outputs.stylelint }}
@@ -299,9 +298,7 @@ jobs:
       core_image: ${{ needs.core-image.outputs.image }}
       coverage_flag: arc-cpp
       directories: arc/cpp
-      macos:
-        ${{ github.event_name != 'pull_request' && (inputs.full ||
-        needs.changes.outputs.arc_cpp == 'true') }}
+      macos: *full
       targets: //arc/cpp/...
       test_flags: --spawn_strategy=local --jobs=1
       windows: ${{ inputs.full || needs.changes.outputs.arc_cpp == 'true' }}
@@ -388,9 +385,7 @@ jobs:
       core_image: ${{ needs.core-image.outputs.image }}
       coverage_flag: client-cpp
       directories: client/cpp client/clib
-      macos:
-        ${{ github.event_name != 'pull_request' && (inputs.full ||
-        needs.changes.outputs.client_cpp == 'true') }}
+      macos: *full
       targets: //client/cpp/... //client/clib/...
       test_flags: --nocache_test_results
       windows: ${{ inputs.full || needs.changes.outputs.client_cpp == 'true' }}
@@ -682,9 +677,7 @@ jobs:
       core_image: ${{ needs.core-image.outputs.image }}
       coverage_flag: driver
       directories: driver
-      macos:
-        ${{ github.event_name != 'pull_request' && (inputs.full ||
-        needs.changes.outputs.driver == 'true') }}
+      macos: *full
       targets: //driver/... //vendor/open62541:patch_test
       test_flags: --spawn_strategy=local --local_test_jobs=1
       test_tags: -hardware
@@ -910,7 +903,7 @@ jobs:
       clang_tidy: true
       coverage_flag: freighter-cpp
       directories: freighter/cpp
-      macos: ${{ github.event_name != 'pull_request' }}
+      macos: *full
       targets: //freighter/cpp/...
       windows: true
     secrets:
@@ -1267,10 +1260,8 @@ jobs:
 
   soem:
     needs: changes
-    # SOEM tests run only on macOS, so pull requests skip the job, not empty its matrix.
-    if:
-      github.event_name != 'pull_request' && (inputs.full || needs.changes.outputs.soem
-      == 'true' || contains(fromJSON(needs.changes.outputs.ci), 'soem'))
+    # SOEM tests run only on macOS, so only a full run starts the job.
+    if: inputs.full
     uses: ./.github/workflows/test.cpp.yaml
     with:
       macos: true
@@ -1398,7 +1389,7 @@ jobs:
       clang_tidy: true
       coverage_flag: x-cpp
       directories: x/cpp
-      macos: ${{ github.event_name != 'pull_request' }}
+      macos: *full
       targets: //x/cpp/...
       windows: true
     secrets:

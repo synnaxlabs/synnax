@@ -21,6 +21,7 @@ import {
   createEmptyRole,
   createTestAuthClient,
   createTestClient,
+  createTestClientAs,
   createTestUser,
   TEST_CREDENTIALS,
 } from "@/testutil";
@@ -183,7 +184,7 @@ describe("password", () => {
       } = await createTestUser(owner, {
         role,
       });
-      const client = createTestClient({ username, password: secret });
+      const client = createTestClientAs(username, secret);
       const passwords = await client.auth.passwords.retrieve();
       expect(passwords).toEqual([
         { key: expect.any(String), subject: user.resourceID(u.key), username },

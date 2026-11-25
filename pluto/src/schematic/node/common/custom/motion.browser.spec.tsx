@@ -368,6 +368,22 @@ describe("Custom.Drawing motion", () => {
       expect(pending()).toBe(0);
     });
 
+    it("should read an unknown number state in when at its lower bound", async () => {
+      const hide: schematic.symbol.Look = {
+        key: "hide",
+        part: "rotor",
+        when: { type: "equals", state: "speed", values: [0] },
+        hidden: true,
+      };
+      const { pending, rerender } = await setup({
+        spec: createSpec([SPIN, hide]),
+        readings: { speed: reading(50) },
+      });
+      expect(pending()).toBe(1);
+      await rerender({ readings: { speed: reading(NaN) } });
+      expect(pending()).toBe(0);
+    });
+
     it("should stop on a node with motion disabled", async () => {
       const { pending, rerender } = await setup();
       await rerender({ motionDisabled: true });
