@@ -370,7 +370,7 @@ var _ = Describe("Location", func() {
 		Entry("a whole value", location(v0.HoldingRegisterLocation{
 			Address: 5,
 			Value: v0.Value{Variant: v0.WholeValue{
-				DataType:     v0.DataTypeFloat32,
+				DataType:     telem.NumericDataTypeFloat32,
 				WordsSwapped: new(true),
 			}},
 		})),
@@ -395,7 +395,9 @@ var _ = Describe("Location", func() {
 		Expect(msgpack.Unmarshal(raw, &decoded)).To(Succeed())
 		Expect(decoded.Variant).To(Equal(v0.HoldingRegisterLocation{
 			Address: 2,
-			Value:   v0.Value{Variant: v0.WholeValue{DataType: v0.DataTypeUint16}},
+			Value: v0.Value{
+				Variant: v0.WholeValue{DataType: telem.NumericDataTypeUint16},
+			},
 		}))
 	})
 
@@ -426,7 +428,7 @@ var _ = Describe("WriteLocation", func() {
 			Variant: v0.HoldingRegisterWriteLocation{
 				Address: 5,
 				Value: v0.WriteValue{Variant: v0.WholeWriteValue{
-					DataType:     v0.DataTypeFloat32,
+					DataType:     telem.NumericDataTypeFloat32,
 					BytesSwapped: new(true),
 				}},
 			},
