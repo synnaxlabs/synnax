@@ -30,6 +30,8 @@ type index struct {
 		// not see yet. It is empty outside of a commit, and holds one domain for each
 		// writer that is in one.
 		staged []staged
+		// lastID is the last pointer id handed out.
+		lastID uint64
 		sync.RWMutex
 	}
 	// persistHead is the position of the first pointer that the index file may not
@@ -153,6 +155,11 @@ func (idx *index) unprotectedVisible(i, step int) (int, pointer, bool) {
 	return i, pointer{}, false
 }
 
+func (idx *index) unprotectedNextID() uint64 {
+	idx.mu.lastID++
+	return idx.mu.lastID
+}
+
 // insert adds a new pointer to the index, in g when g is not nil. When persist is true,
 // the caller must persist the returned write.
 func (idx *index) insert(
@@ -192,6 +199,7 @@ func (idx *index) insert(
 		}
 	}
 
+	p.id = idx.unprotectedNextID()
 	appended := insertAt == len(idx.mu.pointers)
 	switch {
 	case insertAt == 0:
@@ -307,6 +315,7 @@ func (idx *index) update(
 		return preparedWrite{}, span.Error(err)
 	}
 	sizeDelta := int64(p.size) - int64(oldP.size)
+	p.id = oldP.id
 	idx.mu.pointers[updateAt] = p
 	idx.totalSize.Add(sizeDelta)
 	var change historyChange
