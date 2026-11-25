@@ -58,22 +58,39 @@ export interface ModalParams {
 const SCALE_BOUNDS: bounds.Bounds = { lower: 5, upper: 1000 };
 
 interface ValueBarProps {
-  value: number;
-  onChange: (value: number) => void;
+  value: Spec.At;
+  onChange: (value: Spec.At) => void;
 }
 
-// ValueBar picks the value of the state that the canvas draws.
+// ValueBar picks the state that the inspector edits, and the value that the canvas
+// draws.
 const ValueBar = ({ value, onChange }: ValueBarProps): ReactElement | null => {
-  const { list } = useValues();
-  if (list.length < 2) return null;
+  const { state, states, list } = useValues(value.state);
+  if (list.length < 2 && states.length < 2) return null;
+  const handleStateChange = (key: string) =>
+    onChange({ state: key, value: states.find((s) => s.key === key)?.default ?? 0 });
   return (
     <Flex.Box x align="center" gap="small" className={CSS.BE("schematic", "value-bar")}>
       <Text.Text level="small" color={9}>
         Preview
       </Text.Text>
+      {states.length > 1 && (
+        <Select.Buttons<string>
+          value={state}
+          onChange={handleStateChange}
+          size="small"
+          variant="outlined"
+        >
+          {states.map((s) => (
+            <Select.Item<string> key={s.key} itemKey={s.key} size="small">
+              {s.name}
+            </Select.Item>
+          ))}
+        </Select.Buttons>
+      )}
       <Select.Buttons<number>
-        value={value}
-        onChange={onChange}
+        value={value.value}
+        onChange={(v: number) => onChange({ state, value: v })}
         size="small"
         variant="outlined"
       >
@@ -148,7 +165,7 @@ const Editor = ({
     return name !== base.name || Spec.edited(base.data, data);
   });
   const confirmSave = useConfirmSave();
-  const [selectedValue, setSelectedValue] = useState(0);
+  const [preview, setPreview] = useState<Spec.At>({ state: Spec.STATE, value: 0 });
   const [selectedPart, setSelectedPart, selectedPartRef] =
     useCombinedStateAndRef<Spec.Target>(undefined);
   const [selectedHandle, setSelectedHandle] = useState<string | undefined>(undefined);
@@ -280,7 +297,11 @@ const Editor = ({
                     </Header.Title>
                   </Header.Header>
                   <Flex.Box className={CSS.BE("schematic", "states")}>
-                    <SelectVariantField onSelectValue={setSelectedValue} />
+                    <SelectVariantField
+                      onSelectValue={(value) =>
+                        setPreview({ state: Spec.STATE, value })
+                      }
+                    />
                   </Flex.Box>
                 </Flex.Box>
                 <Divider.Divider x />
@@ -337,7 +358,7 @@ const Editor = ({
               >
                 {({ onChange }) => (
                   <Preview
-                    selectedValue={selectedValue}
+                    selectedValue={preview.value}
                     selectedHandle={selectedHandle}
                     selectedPart={selectedPart}
                     onElementClick={handleElementClick}
@@ -347,7 +368,7 @@ const Editor = ({
                   />
                 )}
               </Form.Field>
-              {hasSVG && <ValueBar value={selectedValue} onChange={setSelectedValue} />}
+              {hasSVG && <ValueBar value={preview} onChange={setPreview} />}
             </Flex.Box>
             {hasSVG && (
               <Flex.Box
@@ -359,9 +380,9 @@ const Editor = ({
                 borderColor={6}
               >
                 <Inspector
-                  key={selectedPart ?? ""}
+                  key={`${selectedPart ?? ""}/${preview.state}`}
                   part={selectedPart}
-                  preview={selectedValue}
+                  preview={preview}
                 />
               </Flex.Box>
             )}

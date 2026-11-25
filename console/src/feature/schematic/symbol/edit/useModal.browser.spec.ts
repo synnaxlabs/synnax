@@ -1003,6 +1003,32 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       });
     });
 
+    it("shows an entry paint in the color of its own state", async () => {
+      const active = await createEnumeration();
+      const red = color.construct("#d64545");
+      const faults = await client.enumerations.create({
+        name: uniqueName("fault"),
+        entries: [
+          { key: "ok", value: 0, name: "OK", color: { type: "fixed", value: red } },
+        ],
+      });
+      await openPainted({
+        variant: "actuator",
+        states: [
+          createState(active.key),
+          { ...createState(faults.key), key: "fault", name: "Fault" },
+        ],
+        looks: [
+          { key: "fill", part: "body", fill: { type: "entry", state: "active" } },
+        ],
+      });
+      fireEvent.click(screen.getByText("Fault"));
+      const fill = await screen.findByLabelText("Fill");
+      await waitFor(() =>
+        expect(fill.style.getPropertyValue("--pluto-bg")).toBe(color.cssString(GREEN)),
+      );
+    });
+
     it("saves a contrast paint on the state", async () => {
       const enumeration = await createEnumeration();
       const symbol = await openPainted({
@@ -1154,6 +1180,122 @@ describe("Schematic.Symbol.Edit.useModal", () => {
           ]),
         );
       });
+    });
+
+    it("hides a part at a value of the state picked in the preview bar", async () => {
+      const fault = { ...createState(), key: "fault", name: "Fault" };
+      const symbol = await openPainted({
+        variant: "actuator",
+        states: [createState(), fault],
+      });
+      fireEvent.click(screen.getByText("Fault"));
+      byState("Visible");
+      fireEvent.click(await screen.findByLabelText("Visible while Active"));
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () =>
+        expect((await retrieveStored(symbol.key)).data.looks).toEqual([
+          {
+            key: expect.any(String),
+            part: "body",
+            when: { type: "equals", state: "fault", values: [1] },
+            hidden: true,
+          },
+        ]),
+      );
+    });
+
+    it("edits the first enumeration state of a symbol with no active state", async () => {
+      const fault = { ...createState(), key: "fault", name: "Fault" };
+      const symbol = await openPainted({ variant: "static", states: [fault] });
+      byState("Visible");
+      fireEvent.click(await screen.findByLabelText("Visible while Active"));
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () => {
+        const { looks, states } = (await retrieveStored(symbol.key)).data;
+        expect(looks).toEqual([
+          {
+            key: expect.any(String),
+            part: "body",
+            when: { type: "equals", state: "fault", values: [1] },
+            hidden: true,
+          },
+        ]);
+        expect(states).toEqual([fault]);
+      });
+    });
+
+    it("moves the preview to the default of a picked state", async () => {
+      const enumeration = await client.enumerations.create({
+        name: uniqueName("fault"),
+        entries: [
+          { key: "ok", value: 0, name: "OK" },
+          { key: "trip", value: 2, name: "Trip" },
+        ],
+      });
+      await openPainted({
+        variant: "actuator",
+        states: [
+          createState(),
+          {
+            type: "enumeration",
+            key: "fault",
+            name: "Fault",
+            enumeration: enumeration.key,
+            match: { type: "exact" },
+            default: 2,
+          },
+        ],
+      });
+      fireEvent.click(screen.getByText("Fault"));
+      await waitFor(() =>
+        expect(findButton("Trip").classList.contains("lyra--selected")).toBe(true),
+      );
+      expect(findButton("OK").classList.contains("lyra--selected")).toBe(false);
+    });
+
+    it("turns By state off when the preview picks another state", async () => {
+      await openPainted({
+        variant: "actuator",
+        states: [createState(), { ...createState(), key: "fault", name: "Fault" }],
+      });
+      byState("Fill");
+      expect(screen.getByLabelText("Fill by state").getAttribute("aria-pressed")).toBe(
+        "true",
+      );
+      fireEvent.click(screen.getByText("Fault"));
+      expect(screen.getByLabelText("Fill by state").getAttribute("aria-pressed")).toBe(
+        "false",
+      );
+    });
+
+    it("lists the entries of a picked state and the values of its looks", async () => {
+      const enumeration = await client.enumerations.create({
+        name: uniqueName("fault"),
+        entries: [
+          { key: "ok", value: 0, name: "OK" },
+          { key: "warn", value: 1, name: "Warn" },
+          { key: "trip", value: 2, name: "Trip" },
+        ],
+      });
+      const fault = { ...createState(enumeration.key), key: "fault", name: "Fault" };
+      await openPainted({
+        variant: "actuator",
+        states: [createState(), fault],
+        looks: [
+          {
+            key: "odd",
+            part: "body",
+            when: { type: "equals", state: "fault", values: [5] },
+            hidden: true,
+          },
+        ],
+      });
+      fireEvent.click(screen.getByText("Fault"));
+      expect(await screen.findByLabelText("Visible while Trip")).toBeDefined();
+      expect(screen.getByLabelText("Visible while Warn")).toBeDefined();
+      expect(screen.getByLabelText<HTMLInputElement>("Visible while 5").checked).toBe(
+        false,
+      );
     });
 
     it("clears the hide of a part at a value and keeps the values shown", async () => {
