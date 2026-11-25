@@ -35,32 +35,30 @@ export interface PartListProps extends Input.Control<Spec.Target> {
 }
 
 interface PartListItemProps extends List.ItemRenderProps<string> {
+  // shapeCount is how many shapes the part reaches. The whole drawing has none.
+  shapeCount?: number;
   onDelete: (key: string) => void;
 }
 
-// countShapes returns how many shapes in markup the selectors reach. A group counts as
+// countShapes returns how many shapes in drawing the selectors reach. A group counts as
 // each shape inside it.
-const countShapes = (markup: string, selectors: string[]): number => {
-  const doc = new DOMParser().parseFromString(markup, "image/svg+xml");
-  return new Set(Schematic.Node.Region.graphics(doc.documentElement, selectors)).size;
-};
+const countShapes = (drawing: Element, selectors: string[]): number =>
+  new Set(Schematic.Node.Region.graphics(drawing, selectors)).size;
 
 const PartListItem = ({
+  shapeCount,
   onDelete,
   ...props
 }: PartListItemProps): ReactElement | null => {
   const { itemKey } = props;
   const part = Form.useFieldValue(path.data.parts[itemKey], { optional: true });
   const looks = Form.useFieldValue(path.data.looks);
-  const markup = Form.useFieldValue(path.data.drawing.markup);
   const whole = itemKey === WHOLE_DRAWING;
   if (!whole && part == null) return null;
   const target = whole ? undefined : itemKey;
   const count = looks.filter((l) => l.part === target).length;
   const shapes =
-    part == null
-      ? "Every shape"
-      : pluralize("shape", countShapes(markup, part.selectors), true);
+    shapeCount == null ? "Every shape" : pluralize("shape", shapeCount, true);
   return (
     <Select.Item
       {...props}
@@ -106,7 +104,15 @@ const PartListItem = ({
 /** PartList lists the whole drawing and the parts of the symbol, and picks one. */
 export const PartList = ({ value, onChange, onAdd }: PartListProps): ReactElement => {
   const parts = Form.useFieldValue(path.data.parts);
+  const markup = Form.useFieldValue(path.data.drawing.markup);
   const { get, set } = Form.useContext();
+  const drawing = new DOMParser().parseFromString(
+    markup,
+    "image/svg+xml",
+  ).documentElement;
+  const shapeCounts = new Map(
+    parts.map((p) => [p.key, countShapes(drawing, p.selectors)]),
+  );
   const handleDelete = (key: string) => {
     set(path.data, Spec.removePart(get(path.data).value, key));
     if (value === key) onChange(undefined);
@@ -132,7 +138,12 @@ export const PartList = ({ value, onChange, onAdd }: PartListProps): ReactElemen
         <List.Scroll y gap={1}>
           <List.Items<string>>
             {({ key, ...rest }) => (
-              <PartListItem key={key} {...rest} onDelete={handleDelete} />
+              <PartListItem
+                key={key}
+                {...rest}
+                shapeCount={shapeCounts.get(key)}
+                onDelete={handleDelete}
+              />
             )}
           </List.Items>
         </List.Scroll>
