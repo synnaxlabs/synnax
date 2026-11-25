@@ -32,6 +32,7 @@ type pointer struct {
 	// 4 bytes
 	size uint32
 	// id names the domain that an insert made for the life of the DB. An update and
-	// each part that a delete leaves of the domain keep it. It is not persisted.
+	// each part that a delete leaves of the domain keep it, so parts of one domain can
+	// share it. It is not persisted.
 	id uint64
 }
