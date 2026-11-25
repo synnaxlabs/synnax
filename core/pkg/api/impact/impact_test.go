@@ -214,6 +214,57 @@ var _ = Describe("Routes", Ordered, func() {
 		))
 	})
 
+	It(
+		"Should name the channel that an apply names and the subject cannot retrieve",
+		func(
+			ctx SpecContext,
+		) {
+			ch := createChannel(ctx)
+			createTask(ctx, ch)
+			u := createUser(ctx)
+			for _, token := range []string{"zz", ""} {
+				applied, err := apply(AuthedCtx(ctx, u), apiimpact.ApplyRequest{
+					Change: deleteOf(ch),
+					Token:  token,
+				})
+				Expect(applied).To(BeZero())
+				Expect(err).To(And(
+					MatchError(access.ErrDenied),
+					MatchError(ContainSubstring(
+						"%s cannot retrieve %s",
+						u.ResourceID(),
+						channel.ResourceID(ch),
+					)),
+				))
+				_, planned := errors.AsType[impact.PlanChangedError](err)
+				Expect(planned).To(BeFalse())
+			}
+			Expect(exists(ctx, ch)).To(BeTrue())
+		},
+	)
+
+	It(
+		"Should name the channel that a plan names and the subject cannot retrieve",
+		func(
+			ctx SpecContext,
+		) {
+			ch := createChannel(ctx)
+			u := createUser(ctx)
+			Expect(
+				plan(AuthedCtx(ctx, u), apiimpact.PlanRequest{Change: deleteOf(ch)}),
+			).
+				Error().
+				To(And(
+					MatchError(access.ErrDenied),
+					MatchError(ContainSubstring(
+						"%s cannot retrieve %s",
+						u.ResourceID(),
+						channel.ResourceID(ch),
+					)),
+				))
+		},
+	)
+
 	It("Should refuse a hidden delete with a denial that names no record", func(
 		ctx SpecContext,
 	) {

@@ -968,6 +968,29 @@ var _ = Describe("Write", func() {
 		},
 	)
 
+	It(
+		"Should name the first named record that the subject cannot retrieve",
+		func(ctx SpecContext) {
+			u := newUser(ctx)
+			seen, hidden := createLabel(ctx), createLabel(ctx)
+			grant(ctx, u, access.ActionRetrieve, seen.ResourceID())
+			ran := false
+			write := bind.Write(
+				binder,
+				func(context.Context, gorp.Tx, namedRequest) (struct{}, error) {
+					ran = true
+					return struct{}{}, nil
+				},
+			)
+			req := namedRequest{
+				records: []resource.ID{seen.ResourceID(), hidden.ResourceID()},
+			}
+			Expect(write(AuthedCtx(ctx, u), req)).
+				Error().To(denied(u, access.ActionRetrieve, hidden.ResourceID()))
+			Expect(ran).To(BeFalse())
+		},
+	)
+
 	It("Should return the response of apply", func(ctx SpecContext) {
 		u := newUser(ctx)
 		Expect(bind.Write(
