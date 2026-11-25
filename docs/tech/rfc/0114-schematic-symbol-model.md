@@ -483,8 +483,8 @@ clicks. Phase 6 adds the node variant with the whole shape of §4.1 and its chec
 the Core list of built-ins. Phase 7 removes the bindings and overrides that a symbol
 save orphans, and phase 8 adds the save confirm of §4.4, before the migration gives any
 node a binding that a save can remove. Phase 9 draws the node with its indicators and
-sends its commands. The `switch` keeps its own wrapper around the `symbol` drawing,
-which turns it only to stand upright and slides its knob, as phase 2 draws it. Phase 10
+sends its commands. A `switch` node draws its spec as any other `symbol` node does, so
+its knob does not slide. While on, the near knob hides and the far knob shows. Phase 10
 adds the form with the enumeration picker. Phase 11 adds the Core migration, the symbol
 import that keeps keys by §4.4, and "Change symbol". Phase 12 deletes the old variants
 from the schema, the clients, Pluto, and the Console.
