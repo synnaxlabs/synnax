@@ -115,27 +115,45 @@ func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (*Writer, er
 		}
 		return &Writer{WriterConfig: cfg, log: lw}, nil
 	}
-	if db.closed.Load() {
-		return nil, ErrDBClosed
+	dbs, err := db.channelDBsFor(cfg)
+	if err != nil {
+		return nil, err
 	}
-	db.mu.RLock()
-	defer db.mu.RUnlock()
-	idx, err := db.openClockWriter(ctx, cfg)
+	idx, err := openClockWriter(ctx, dbs, cfg)
 	if err != nil {
 		return nil, err
 	}
 	return &Writer{WriterConfig: cfg, idx: idx}, nil
 }
 
+// channelDBsFor returns the unary DB of the clock and of each channel of cfg that db
+// holds. Writers open on these copies with db.mu unlocked, since an open can block on
+// the file system. It returns ErrDBClosed when db is closed.
+func (db *DB) channelDBsFor(cfg WriterConfig) (map[ChannelKey]unary.DB, error) {
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+	if db.closed.Load() {
+		return nil, ErrDBClosed
+	}
+	dbs := make(map[ChannelKey]unary.DB, len(cfg.Channels)+1)
+	for _, key := range append([]ChannelKey{cfg.Clock}, cfg.Channels...) {
+		if u, ok := db.mu.dbs.unary[key]; ok {
+			dbs[key] = u
+		}
+	}
+	return dbs, nil
+}
+
 // openClockWriter opens the writers of the clock of cfg and of each channel of cfg that
 // it times. Alignment is not decided here: data channels resolve it from their clock on
 // every write, so a writer that joins an existing claim cannot end up in a different
-// alignment space than the clock it writes against. The caller must hold db.mu.
-func (db *DB) openClockWriter(
+// alignment space than the clock it writes against.
+func openClockWriter(
 	ctx context.Context,
+	dbs map[ChannelKey]unary.DB,
 	cfg WriterConfig,
 ) (_ *idxWriter, err error) {
-	idx, err := db.openDomainIdxWriter(cfg.Clock, cfg)
+	idx, err := openDomainIdxWriter(dbs, cfg.Clock, cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -146,7 +164,7 @@ func (db *DB) openClockWriter(
 	}()
 	// The clock opens first, so that it holds its claim before its channels do.
 	if slices.Contains(cfg.Channels, cfg.Clock) {
-		if err = db.openChannelWriter(ctx, cfg, idx, cfg.Clock); err != nil {
+		if err = openChannelWriter(ctx, dbs, cfg, idx, cfg.Clock); err != nil {
 			return nil, err
 		}
 		idx.writingToIdx = true
@@ -155,7 +173,7 @@ func (db *DB) openClockWriter(
 		if key == cfg.Clock {
 			continue
 		}
-		u, ok := db.mu.dbs.unary[key]
+		u, ok := dbs[key]
 		if !ok {
 			return nil, channel.NewNotFoundError(key)
 		}
@@ -166,22 +184,22 @@ func (db *DB) openClockWriter(
 				idx.idx.ch,
 			))
 		}
-		if err = db.openChannelWriter(ctx, cfg, idx, key); err != nil {
+		if err = openChannelWriter(ctx, dbs, cfg, idx, key); err != nil {
 			return nil, err
 		}
 	}
 	return idx, nil
 }
 
-// openChannelWriter opens the unary writer of key and adds it to idx. The caller must
-// hold db.mu.
-func (db *DB) openChannelWriter(
+// openChannelWriter opens the unary writer of key and adds it to idx.
+func openChannelWriter(
 	ctx context.Context,
+	dbs map[ChannelKey]unary.DB,
 	cfg WriterConfig,
 	idx *idxWriter,
 	key ChannelKey,
 ) error {
-	u, ok := db.mu.dbs.unary[key]
+	u, ok := dbs[key]
 	if !ok {
 		return channel.NewNotFoundError(key)
 	}
@@ -193,11 +211,12 @@ func (db *DB) openChannelWriter(
 	return nil
 }
 
-func (db *DB) openDomainIdxWriter(
+func openDomainIdxWriter(
+	dbs map[ChannelKey]unary.DB,
 	idxKey ChannelKey,
 	cfg WriterConfig,
 ) (*idxWriter, error) {
-	u, ok := db.mu.dbs.unary[idxKey]
+	u, ok := dbs[idxKey]
 	if !ok {
 		return nil, channel.NewNotFoundError(idxKey)
 	}
