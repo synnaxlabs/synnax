@@ -25,6 +25,7 @@ import {
   NotFoundError,
 } from "@/errors";
 import { Deleted } from "@/query/deleted";
+import { isOffline } from "@/query/offline";
 import {
   type Cached,
   type ChangeHandler,
@@ -794,7 +795,14 @@ export class Space<
       if (query.generation !== generation) return;
       // A refetch revalidates an answer the caller already has. Failing to
       // confirm it is not grounds for taking it away, but reads stop trusting it.
-      if (query.state.variant === "ready") return this.markStale(query);
+      if (query.state.variant === "ready") {
+        this.markStale(query);
+        // An answer that a trigger does not cover reaches no subscriber until a
+        // refetch succeeds. The epoch bump after a reconnect refetches it.
+        if (!this.triggersCover(query.params, query.state.keys) && !isOffline(reason))
+          this.report(reason);
+        return;
+      }
       query.state = { variant: "error", error: errors.fromUnknown(reason) };
       return;
     }

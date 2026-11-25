@@ -53,9 +53,10 @@ interface Request {
 /**
  * Creates a secret client on a fake transport and a pushed change stream. Each secret
  * that the transport returns has the uses of `core.usesOf`. A retrieve that asks for
- * uses waits in `core.held` while `core.holding` is set. A set waits for `core.set`. A
- * retrieve that selects by no key is a list fetch: it counts in `listFetches` and
- * returns no secrets.
+ * uses waits in `core.held` while `core.holding` is set, and fails while `core.failing`
+ * is set. A set waits for `core.set`. A retrieve that selects by no key is a list
+ * fetch: it counts in `listFetches` and returns no secrets. The cache reports errors to
+ * `errors`, and a spec fails on each error that it does not take out.
  * With `closed`, the stream opens only once `open` is called.
  * @returns the client, the fake Core, the keys of each retrieve that asks for uses, and
  * functions that push a frame, send one change on the channel of uses, drop the stream
@@ -67,11 +68,15 @@ const createFakeSecrets = async ({
 }: { recordCap?: number; closed?: boolean } = {}) => {
   const usesRequests: secret.Key[][] = [];
   const listFetches = { count: 0 };
+  // A spec takes the errors it expects, so any other error fails it.
+  const errors: Error[] = [];
+  onTestFinished(() => expect(errors).toEqual([]));
   const core = {
     usesOf,
     holding: false,
     held: [] as Array<() => void>,
     set: Promise.resolve(),
+    failing: false,
   };
   const send = async (target: string, req: Request, _: z.ZodType, res: z.ZodType) => {
     if (target === "/secret/set") {
@@ -93,6 +98,8 @@ const createFakeSecrets = async ({
     }
     const { eq, in: keys = eq == null ? [] : [eq] } = req.where.key;
     if (req.includeUses === true) usesRequests.push(keys);
+    if (req.includeUses === true && core.failing)
+      throw new Error("failed to retrieve uses");
     const reply = res.parse({
       secrets: keys.map((key) => ({
         key,
@@ -119,7 +126,7 @@ const createFakeSecrets = async ({
       return streams.current;
     },
     breaker: { baseInterval: TimeSpan.milliseconds(1) },
-    onError: () => {},
+    onError: (error) => errors.push(error),
     recordCap,
     clock,
   });
@@ -144,6 +151,7 @@ const createFakeSecrets = async ({
   return {
     secrets,
     core,
+    errors,
     usesRequests,
     listFetches,
     push,
@@ -1194,6 +1202,29 @@ describe("Secret", () => {
       change();
       await vi.advanceTimersByTimeAsync(PAST_DEBOUNCE);
       expect(usesRequests).toEqual([[unwatched], [watched], [watched]]);
+    });
+
+    it("should report a failed refetch of uses that a new subscriber lacks", async () => {
+      useFakeTimers();
+      const { secrets, core, errors, change } = await createFakeSecrets();
+      const q = { key: uuid.create(), includeUses: true };
+      const off = secrets.watch(q).onChange(() => {});
+      await secrets.retrieve(q);
+      off();
+      await vi.advanceTimersByTimeAsync(PAST_GRACE);
+      // Nothing watches the uses now, so the refetch that the change starts drops them.
+      change();
+      await vi.advanceTimersByTimeAsync(PAST_DEBOUNCE);
+      core.failing = true;
+      onTestFinished(secrets.watch(q).onChange(() => {}));
+      await vi.advanceTimersByTimeAsync(PAST_DEBOUNCE);
+      expect(secrets.watch(q).getCached()).toBeUndefined();
+      expect(errors.splice(0)).toEqual([
+        expect.objectContaining({
+          message: "failed to maintain secret answers",
+          cause: expect.objectContaining({ message: "failed to retrieve uses" }),
+        }),
+      ]);
     });
 
     it("should keep the uses of a query that watches again inside the grace", async () => {
