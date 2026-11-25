@@ -54,7 +54,7 @@ describe("Custom.Static", () => {
     const { findByText } = render(<Custom.Static specKey={symbol.key} />, {
       wrapper: await createAsyncSynnaxWrapper({ client: denied }),
     });
-    await findByText("Failed to load custom symbol");
+    await findByText("Failed to load symbol");
   });
 
   it("should warn when the symbol markup does not parse", async () => {
@@ -62,7 +62,7 @@ describe("Custom.Static", () => {
     const { findByText, container } = render(<Custom.Static specKey={symbol.key} />, {
       wrapper,
     });
-    await findByText("Invalid custom symbol");
+    await findByText("Invalid symbol");
     expect(container.querySelector("svg rect")).toBeNull();
   });
 
@@ -72,7 +72,7 @@ describe("Custom.Static", () => {
       <Custom.Static specKey={symbol.key} />,
       { wrapper },
     );
-    await findByText("Invalid custom symbol");
+    await findByText("Invalid symbol");
     await act(async () => {
       await client.schematics.symbols.dispatch(
         symbol.key,
@@ -80,7 +80,7 @@ describe("Custom.Static", () => {
       );
     });
     await waitFor(() => {
-      expect(queryByText("Invalid custom symbol")).toBeNull();
+      expect(queryByText("Invalid symbol")).toBeNull();
       expect(container.querySelector("svg rect")).not.toBeNull();
     });
   });
