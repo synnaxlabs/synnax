@@ -9,18 +9,30 @@
 
 import "@/platform/credential/apikey/useCreateModal.css";
 
-import { type auth, type resource, status } from "@synnaxlabs/client";
+import {
+  type auth,
+  type resource,
+  status,
+  TimeSpan,
+  TimeStamp,
+} from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
+import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Triggers as PTriggers } from "@synnaxlabs/lyra/triggers";
 import { Credential } from "@synnaxlabs/pluto";
 import { type ReactElement, useState } from "react";
 
 import { Code } from "@/platform/code";
+import {
+  DEFAULT_EXPIRY,
+  type Expiry,
+  resolve,
+} from "@/platform/credential/apikey/expiry";
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";
@@ -42,6 +54,10 @@ interface NameProps extends CloseProps {
 
 const Name = ({ subject, close, onCreated }: NameProps): ReactElement => {
   const [name, setName] = useState("");
+  const [expiry, setExpiry] = useState<Expiry>(DEFAULT_EXPIRY);
+  const [custom, setCustom] = useState(() =>
+    Number(TimeStamp.now().add(TimeSpan.days(90)).valueOf()),
+  );
   const query = { subject };
   const refreshKeys = Credential.APIKey.useRefresh();
   const { update, variant } = Credential.APIKey.useCreate({
@@ -53,8 +69,11 @@ const Name = ({ subject, close, onCreated }: NameProps): ReactElement => {
   const busy = variant === "loading";
   Modals.useBusy(busy);
   const empty = name.trim() === "";
+  const past = expiry === "custom" && !new TimeStamp(custom).after(TimeStamp.now());
   const handleCreate = (): void => {
-    if (!empty) update({ subject, name: name.trim() });
+    if (empty || past) return;
+    const expires = resolve(expiry, new TimeStamp(custom), TimeStamp.now());
+    update({ subject, name: name.trim(), expires });
   };
   return (
     <>
@@ -74,6 +93,32 @@ const Name = ({ subject, close, onCreated }: NameProps): ReactElement => {
         <Text.Text level="small" color={9}>
           Name the key after the script or service that uses it.
         </Text.Text>
+        <Input.Item label="Expires" padHelpText={false}>
+          <Select.Buttons<Expiry> value={expiry} onChange={setExpiry}>
+            <Select.Item<Expiry> itemKey="30d">30 days</Select.Item>
+            <Select.Item<Expiry> itemKey="90d">90 days</Select.Item>
+            <Select.Item<Expiry> itemKey="1y">1 year</Select.Item>
+            <Select.Item<Expiry> itemKey="custom">Custom</Select.Item>
+            <Select.Item<Expiry> itemKey="never">No expiry</Select.Item>
+          </Select.Buttons>
+        </Input.Item>
+        {expiry === "custom" && (
+          <Input.DateTime
+            value={custom}
+            onChange={setCustom}
+            aria-label="Expiry date"
+          />
+        )}
+        {past && (
+          <Text.Text level="small" status="error">
+            Pick a time in the future.
+          </Text.Text>
+        )}
+        {expiry === "never" && (
+          <Text.Text level="small" color={9}>
+            The key works until you delete it.
+          </Text.Text>
+        )}
       </Modal.Body>
       <Modal.Footer>
         <Nav.Bar.End x align="center">
@@ -88,7 +133,7 @@ const Name = ({ subject, close, onCreated }: NameProps): ReactElement => {
           <Button.Button
             variant="filled"
             status={status.keepVariants(variant, "loading")}
-            disabled={empty}
+            disabled={empty || past}
             onClick={handleCreate}
             trigger={Triggers.SAVE}
             triggerIndicator

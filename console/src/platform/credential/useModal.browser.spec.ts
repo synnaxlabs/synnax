@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { rack, user } from "@synnaxlabs/client";
+import { rack, TimeSpan, TimeStamp, user } from "@synnaxlabs/client";
 import {
   createEmptyRole,
   createTestClient,
@@ -15,6 +15,7 @@ import {
   createTestClientWithRole,
   createTestUser,
 } from "@synnaxlabs/client/testutil";
+import { sleep } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
@@ -75,6 +76,58 @@ describe("useModal", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
     await screen.findByText("No API keys");
     expect(await client.auth.apiKeys.retrieve([id])).toHaveLength(0);
+  });
+
+  it("should expire a new key in 90 days unless the user picks another", async () => {
+    const client = createTestClient();
+    const { key: role } = await createEmptyRole(client);
+    const subject = await client.users.create({ name: uniqueName("user"), role });
+    const id = user.resourceID(subject.key);
+    await openModal(Credential.useModal, { client, params: { subject: id } });
+    await screen.findByText("No API keys");
+    const before = TimeStamp.now();
+    await createKey(uniqueName("key"));
+    await screen.findByText(/^syk_/);
+    const [created] = await client.auth.apiKeys.retrieve([id]);
+    expect(created.expires).toBeDefined();
+    const lifetime = before.span(created.expires ?? before);
+    expect(lifetime.days).toBeGreaterThanOrEqual(90);
+    expect(lifetime.days).toBeLessThan(90 + TimeSpan.MINUTE.days);
+    fireEvent.click(findButton("Done"));
+    await screen.findByText("in 89 days");
+  });
+
+  it("should create a key with no expiry", async () => {
+    const client = createTestClient();
+    const { key: role } = await createEmptyRole(client);
+    const subject = await client.users.create({ name: uniqueName("user"), role });
+    const id = user.resourceID(subject.key);
+    await openModal(Credential.useModal, { client, params: { subject: id } });
+    await screen.findByText("No API keys");
+    fireEvent.click(await screen.findByText("Create key"));
+    await type("Key name", uniqueName("key"));
+    fireEvent.click(await screen.findByText("No expiry"));
+    fireEvent.click(findButton("Create"));
+    await screen.findByText(/^syk_/);
+    const [created] = await client.auth.apiKeys.retrieve([id]);
+    expect(created.expires).toBeUndefined();
+    fireEvent.click(findButton("Done"));
+    await screen.findByText("Never");
+  });
+
+  it("should mark an expired key", async () => {
+    const client = createTestClient();
+    const { key: role } = await createEmptyRole(client);
+    const subject = await client.users.create({ name: uniqueName("user"), role });
+    const id = user.resourceID(subject.key);
+    await client.auth.apiKeys.create({
+      subject: id,
+      name: uniqueName("key"),
+      expires: TimeStamp.now().add(TimeSpan.milliseconds(500)),
+    });
+    await sleep.sleep(TimeSpan.milliseconds(600));
+    await openModal(Credential.useModal, { client, params: { subject: id } });
+    await screen.findByText("Expired");
   });
 
   it("should stay open while a key saves", async () => {
