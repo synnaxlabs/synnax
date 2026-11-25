@@ -116,10 +116,10 @@ type sharedWriter struct {
 	// index (upper 32 bits) and sample index (lower 32 bits). Channels indexed by this
 	// one read it to resolve their own alignment, so it is published after every write
 	// rather than only at region creation. This field is accessed atomically because
-	// Gate.Authorize and Gate.PeekResource return a shared pointer to this struct, and
-	// the region's RWMutex is released before the caller accesses the field. This means
-	// one goroutine may write alignment through Authorize while another reads it
-	// through PeekResource concurrently.
+	// Gate.Authorize and Controller.ResourceAt return a shared pointer to this struct,
+	// and the lock is released before the caller accesses the field. This means one
+	// goroutine may write alignment through Authorize while another reads it through
+	// ResourceAt concurrently.
 	alignment atomic.Uint64
 	// tracker holds per-domain offset state shared across every Writer of the claim. It
 	// is created once when the resource is opened, so that per-sample byte offsets, the
@@ -193,6 +193,8 @@ func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (
 	w *Writer,
 	err error,
 ) {
+	db.opening.Add(1)
+	defer db.opening.Add(-1)
 	if db.closed.Load() {
 		return nil, db.wrapError(ErrDBClosed)
 	}

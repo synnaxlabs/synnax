@@ -32,9 +32,12 @@ type DB struct {
 	// claims holds the claims of the channel's writers.
 	claims *claim.Set[*sharedWriter]
 	// idx is the index used for resolving timestamp positions on this channel.
-	idx              *index.Domain
-	wrapError        func(error) error
-	closed           *atomic.Bool
+	idx       *index.Domain
+	wrapError func(error) error
+	closed    *atomic.Bool
+	// opening counts the calls to OpenWriter in progress. Close refuses while it is
+	// above zero, because those calls open with no lock on the DB.
+	opening          *atomic.Int32
 	leadingAlignment *telem.AlignmentCounter
 	// resolver handles sample-to-byte offset translation. Fixed-density channels
 	// carry a zero cache; variable-length channels carry a per-domain offset cache.
@@ -103,8 +106,8 @@ func (db *DB) Size() telem.Size { return db.domain.Size() }
 
 // Close closes the unary database, releasing all resources associated with it. Close
 // will return an error if there are any unclosed writers, iterators, or delete
-// operations being executed on the database. Close is idempotent, and will return nil
-// if the database is already closed.
+// operations being executed on the database, or writers opening on it. Close is
+// idempotent, and will return nil if the database is already closed.
 //
 // If close fails for a reason other than unclosed writers/readers, the database will
 // still be marked closed and no read/write operations are allowed on it to protect data
@@ -112,6 +115,16 @@ func (db *DB) Size() telem.Size { return db.domain.Size() }
 func (db *DB) Close() error {
 	if !db.closed.CompareAndSwap(false, true) {
 		return nil
+	}
+	// OpenWriter counts itself before it checks closed, so one of the two sees the
+	// other.
+	if count := db.opening.Load(); count > 0 {
+		db.closed.Store(false)
+		return db.wrapError(errors.Wrapf(
+			resource.ErrOpen,
+			"there are %d writers opening on it",
+			count,
+		))
 	}
 	if err := db.domain.MarkClosed(); err != nil {
 		db.closed.Store(false)

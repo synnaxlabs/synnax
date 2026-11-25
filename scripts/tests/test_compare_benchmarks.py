@@ -118,7 +118,7 @@ GBENCH = {
 VITEST = {
     "testResults": [
         {
-            "name": "/work/src/head/client/ts/src/framer/codec.bench.ts",
+            "name": "/work/src/head/client/ts/src/framer/codec/codec.bench.ts",
             "assertionResults": [
                 {
                     "fullName": "decode one channel",
@@ -485,6 +485,15 @@ class TestParse:
         assert error.value.code == 2
         assert message in capsys.readouterr().err
 
+    def test_should_reject_a_platform_with_no_host_facts(
+        self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        monkeypatch.setattr(cb.platform, "system", lambda: "Windows")
+        with pytest.raises(SystemExit) as error:
+            cb.parse(["--base", "a", "--head", "b"])
+        assert error.value.code == 2
+        assert "the benchmarks run only on Linux and macOS" in capsys.readouterr().err
+
     def test_should_accept_the_fewest_rounds_that_can_find_a_change(self) -> None:
         assert cb.parse(["--base", "a", "--head", "b", "--rounds", "4"]).rounds == 4
 
@@ -501,6 +510,11 @@ class TestParse:
 
 
 class TestGroups:
+    def test_should_name_sources_that_exist(self) -> None:
+        for group in cb.GROUPS:
+            for source in group.sources:
+                assert (cb.ROOT / source).exists(), f"{group.name}: {source}"
+
     def test_should_build_one_go_binary_per_package(self) -> None:
         group = cb.go("cesium/write", "cpu", "cesium", "^BenchmarkWrite$")
         assert group.sources == ("cesium",)
@@ -514,14 +528,14 @@ class TestGroups:
         )
 
     def test_should_have_vitest_write_a_json_report(self) -> None:
-        group = cb.vitest("ts/codec", "src/framer/codec.bench.ts")
+        group = cb.vitest("ts/codec", "src/framer/codec/codec.bench.ts")
         assert (group.suite, group.format) == ("cpu", "vitest")
-        assert group.sources == ("client/ts/src/framer/codec.bench.ts",)
+        assert group.sources == ("client/ts/src/framer/codec/codec.bench.ts",)
         assert group.run.directory == "client/ts"
         assert group.run.argv[-3:] == (
             "--reporter=json",
             "--outputFile={json}",
-            "src/framer/codec.bench.ts",
+            "src/framer/codec/codec.bench.ts",
         )
 
     def test_should_run_the_gbench_binary_that_bazel_builds(self) -> None:
