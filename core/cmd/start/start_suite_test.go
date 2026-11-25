@@ -11,9 +11,9 @@ package start_test
 
 import (
 	"io"
-	"net"
 	"os"
 	"os/exec"
+	"regexp"
 	"testing"
 	"time"
 
@@ -41,18 +41,15 @@ func TestMain(m *testing.M) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 // launchCore launches a Core with in-memory storage and the given extra flags. It
-// returns the Core's session, the writing end of its stdin, and its address.
-func launchCore(flags ...string) (*gexec.Session, io.WriteCloser, string) {
+// returns the Core's session and the writing end of its stdin.
+func launchCore(flags ...string) (*gexec.Session, io.WriteCloser) {
 	GinkgoHelper()
-	l := MustSucceed(net.Listen("tcp", "127.0.0.1:0"))
-	addr := l.Addr().String()
-	Expect(l.Close()).To(Succeed())
 	dir := GinkgoT().TempDir()
 	cmd := exec.Command(
 		MustSucceed(os.Executable()),
 		append([]string{
 			"start", "--mem", "--insecure", "--no-driver",
-			"--listen", addr, "--data", dir,
+			"--listen", "127.0.0.1:0", "--data", dir,
 		}, flags...)...,
 	)
 	cmd.Dir = dir
@@ -60,15 +57,18 @@ func launchCore(flags ...string) (*gexec.Session, io.WriteCloser, string) {
 	stdin := MustSucceed(cmd.StdinPipe())
 	session := MustSucceed(gexec.Start(cmd, GinkgoWriter, GinkgoWriter))
 	DeferCleanup(func() { session.Kill().Wait() })
-	return session, stdin, addr
+	return session, stdin
 }
 
-// startCore launches a Core as launchCore does and returns once the Core is running.
+var running = regexp.MustCompile(`Synnax is running and available at (\S+)`)
+
+// startCore launches a Core as launchCore does and returns once the Core is running,
+// with the address the Core bound.
 func startCore(flags ...string) (*gexec.Session, io.WriteCloser, string) {
 	GinkgoHelper()
-	session, stdin, addr := launchCore(flags...)
-	Eventually(session.Out, 30*time.Second).Should(gbytes.Say("Synnax is running"))
-	return session, stdin, addr
+	session, stdin := launchCore(flags...)
+	Eventually(session.Out, 30*time.Second).Should(gbytes.Say(running.String()))
+	return session, stdin, running.FindStringSubmatch(string(session.Out.Contents()))[1]
 }
 
 func TestStart(t *testing.T) {

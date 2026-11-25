@@ -480,7 +480,7 @@ func BootupCore(
 		return err
 	}
 
-	if rootServer, err := server.Serve(
+	rootServer, err := server.Serve(
 		server.Config{
 			Branches: []server.Branch{
 				&server.SecureHTTPBranch{
@@ -494,9 +494,11 @@ func BootupCore(
 			Instrumentation: cfg.Child("server"),
 			Security:        server.SecurityConfig{Insecure: cfg.insecure},
 		},
-	); !ok(err, rootServer) {
+	)
+	if !ok(err, rootServer) {
 		return err
 	}
+	advertised := rootServer.Addresses()[cfg.listeners.AdvertiseIndex()]
 
 	// The embedded Driver dials the advertised listener, which does not always serve
 	// the node certificate.
@@ -521,7 +523,7 @@ func BootupCore(
 				cfg.disabledIntegrations,
 			),
 			Instrumentation:     cfg.Child("driver"),
-			Address:             cfg.listeners.AdvertiseAddress(),
+			Address:             advertised,
 			RackKey:             serviceLayer.Rack.EmbeddedKey,
 			Keys:                serviceLayer.APIKey,
 			DB:                  distributionLayer.DB,
@@ -542,14 +544,14 @@ func BootupCore(
 
 	cfg.L.Infof(
 		"\033[32mSynnax is running and available at %v \033[0m",
-		cfg.listeners.AdvertiseAddress(),
+		advertised,
 	)
 	if !covered {
 		scheme := "https"
 		if *cfg.insecure {
 			scheme = "http"
 		}
-		console := scheme + "://" + string(cfg.listeners.AdvertiseAddress())
+		console := scheme + "://" + string(advertised)
 		if len(licenseInfo.Fingerprint) == 0 {
 			cfg.L.Warn(fmt.Sprintf(
 				"no active license on this Core, and it reports no network hardware "+

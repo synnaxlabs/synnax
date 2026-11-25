@@ -23,7 +23,7 @@ var _ = Describe("Data directory lock", func() {
 	It("Should exit with the locked code when another Core holds the data", func() {
 		data := GinkgoT().TempDir()
 		startCore("--mem=false", "--data", data)
-		second, _, _ := launchCore("--mem=false", "--data", data)
+		second, _ := launchCore("--mem=false", "--data", data)
 		Eventually(second, 30*time.Second).Should(gexec.Exit(exit.DataLocked))
 		Expect(second.Out).To(gbytes.Say("Failed to acquire lock"))
 	})
