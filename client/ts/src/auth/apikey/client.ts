@@ -72,7 +72,7 @@ export class Client {
    * Creates an API key. The returned token is the only copy of the key's secret.
    * @throws {AccessDeniedError} when the caller may not create a key for the subject.
    * @throws {NotFoundError} when the subject does not exist.
-   * @throws {ValidationError} when the expiry is not in the future.
+   * @throws {PathError} when the expiry is not in the future.
    */
   async create(key: New): Promise<{ token: string; key: APIKey }> {
     return await this.client.send(CREATE_ENDPOINT, key, createReqZ, createResZ);

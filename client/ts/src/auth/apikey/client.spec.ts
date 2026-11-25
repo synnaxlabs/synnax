@@ -11,7 +11,7 @@ import { sleep, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { apiKey } from "@/auth/apikey";
-import { InvalidCredentialsError, InvalidTokenError, ValidationError } from "@/index";
+import { InvalidCredentialsError, InvalidTokenError } from "@/index";
 import { createTestAuthClient, createTestClient } from "@/testutil";
 
 describe("apiKey", () => {
@@ -91,7 +91,7 @@ describe("apiKey", () => {
           name: "past",
           expires: TimeStamp.now().sub(TimeSpan.SECOND),
         }),
-      ).rejects.toThrow(ValidationError);
+      ).rejects.toThrow("expires: must be in the future");
     });
 
     it("should fail the next request of a client whose key expired", async () => {
