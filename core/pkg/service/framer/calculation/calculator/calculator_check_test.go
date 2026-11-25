@@ -129,4 +129,81 @@ var _ = Describe("Calculator check", Ordered, func() {
 		Expect(o.Get(out.Index()).Series[0]).
 			To(MatchSeriesData(telem.NewSeries(stamps[lo])))
 	})
+
+	It("Should give a joined calculation's outputs the bounds of its primary when the "+
+		"primary is not the lowest key", func(ctx SpecContext) {
+		indexes := make([]channel.Channel, 2)
+		for i := range indexes {
+			indexes[i] = channel.Channel{
+				Name:     UniqueChannelName(),
+				DataType: telem.TimestampT,
+				IsIndex:  true,
+			}
+		}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return channelSvc.NewWriter(tx).CreateMany(ctx, &indexes)
+		})).To(Succeed())
+		bases := make([]channel.Channel, 2)
+		for i := range bases {
+			bases[i] = channel.Channel{
+				Name:       UniqueChannelName(),
+				DataType:   telem.Float64T,
+				LocalIndex: indexes[i].LocalKey,
+			}
+		}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return channelSvc.NewWriter(tx).CreateMany(ctx, &bases)
+		})).To(Succeed())
+		lo, hi := 0, 1
+		if bases[1].Key() < bases[0].Key() {
+			lo, hi = 1, 0
+		}
+		out := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
+			Name:     UniqueChannelName(),
+			DataType: telem.Float64T,
+			Expression: fmt.Sprintf(
+				"return %s + %s",
+				bases[lo].Name,
+				bases[hi].Name,
+			),
+		}))
+		Expect(creator.Apply(ctx, out.Key(), calculation.NewSetAction(
+			calculation.SetPayload{Path: []string{"primary"}, Value: bases[hi].Key()},
+		))).To(Succeed())
+		calc := MustSucceed(creator.CalculationOf(ctx, out.Key()))
+		Expect(calc.Primary).To(HaveValue(Equal(bases[hi].Key())))
+		mod := MustSucceed(compiler.Compile(ctx, db, compiler.Config{
+			ChannelService: channelSvc,
+			Channel:        out,
+			Calculation:    calc,
+			Live:           true,
+		}))
+		Expect(mod.Joined).To(BeTrue())
+		c := MustOpen(calculator.Open(ctx, calculator.Config{Module: mod}))
+		DeferCleanup(c.Close)
+		send := func(i int, a telem.Alignment, v ...float64) frame.Frame {
+			stamps := telem.NewSeriesSecondsTSV(1, 2)
+			values := telem.NewSeriesV(v...)
+			stamps.Alignment, values.Alignment = a, a
+			return frame.NewMulti(
+				[]channel.Key{indexes[i].Key(), bases[i].Key()},
+				[]telem.Series{stamps, values},
+			)
+		}
+		MustSucceed2(
+			c.Next(ctx, send(lo, telem.NewAlignment(0, 5), 1, 2), frame.Frame{}),
+		)
+		of, changed := MustSucceed2(
+			c.Next(ctx, send(hi, telem.NewAlignment(0, 9), 10, 20), frame.Frame{}),
+		)
+		Expect(changed).To(BeTrue())
+		od := of.Get(out.Key()).Series[0]
+		Expect(od).To(MatchSeriesDataV[float64](11, 22))
+		Expect(od.Alignment).To(Equal(telem.NewAlignment(0, 9)),
+			"the outputs take the alignment of the stored primary, not the lowest key")
+		Expect(od.TimeRange).To(Equal(telem.TimeRange{
+			Start: telem.SecondTS,
+			End:   2*telem.SecondTS + 1,
+		}))
+	})
 })
