@@ -100,8 +100,9 @@ func (f TimeFormat) nanosPerUnit() int64 {
 	return n
 }
 
-// AppendTimeStamp appends ts as a JSON value in format: a string for ISO8601, and a
-// number with every digit of ts otherwise.
+// AppendTimeStamp appends ts as a JSON value in format: a string for ISO8601, a whole
+// number rounded toward negative infinity for UnixMillisecond and UnixMicrosecond, and
+// a number with every digit of ts otherwise.
 func AppendTimeStamp(dst []byte, ts telem.TimeStamp, format TimeFormat) []byte {
 	if format == ISO8601 {
 		dst = append(dst, '"')
@@ -110,7 +111,11 @@ func AppendTimeStamp(dst []byte, ts telem.TimeStamp, format TimeFormat) []byte {
 	}
 	unit := format.nanosPerUnit()
 	whole, frac := int64(ts)/unit, int64(ts)%unit
-	if frac == 0 {
+	if format != UnixSecond || frac == 0 {
+		// Division truncates toward zero, so a negative remainder takes one unit off.
+		if frac < 0 {
+			whole--
+		}
 		return strconv.AppendInt(dst, whole, 10)
 	}
 	if frac < 0 {
