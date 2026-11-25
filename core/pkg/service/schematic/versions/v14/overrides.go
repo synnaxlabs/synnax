@@ -160,8 +160,9 @@ func onEntries(recolored, entries []enumeration.Entry) []enumeration.Entry {
 }
 
 // copy creates c, a copy of the symbol with key src, and returns its key. When entries
-// is not empty, the first state of c gets an enumeration of entries. Nodes share a copy
-// when they have the same source symbol, overrides states, and actuated.
+// is not empty, the first state of c gets an enumeration of entries. A scale that is
+// not positive becomes 1. Nodes share a copy when they have the same source symbol,
+// overrides states, and actuated.
 func (o *overrides) copy(
 	ctx context.Context,
 	src symbol.Key,
@@ -182,6 +183,9 @@ func (o *overrides) copy(
 		if c.Data, err = o.enumerate(ctx, c.Name, c.Data, entries); err != nil {
 			return uuid.Nil(), err
 		}
+	}
+	if !(c.Data.Scale > 0) {
+		c.Data.Scale = 1
 	}
 	if err = o.create(ctx, &c); err != nil {
 		return uuid.Nil(), err
