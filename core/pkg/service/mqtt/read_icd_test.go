@@ -349,12 +349,14 @@ var _ = Describe("Read task ICD messages", func() {
 		}
 
 		// format is an ICD of a Status message with a timestamp and two floats and an
-		// Event message with one float, and channels on two indexes to bind them to.
+		// Event message with one float, and channels on three indexes to bind them to.
 		type format struct {
 			m, n       icd.Message
 			ic         icd.ICD
 			idx, other channel.Channel
 			data       []channel.Channel
+			// stamp is a data channel of timestamps.
+			stamp channel.Channel
 		}
 
 		createFormat := func(ctx context.Context) format {
@@ -374,6 +376,7 @@ var _ = Describe("Read task ICD messages", func() {
 			)
 			idx, data := createIndexed(ctx, telem.Float64T, telem.Float64T)
 			_, other := createIndexed(ctx, telem.Float64T)
+			_, stamps := createIndexed(ctx, telem.TimestampT)
 			return format{
 				m:     m,
 				n:     n,
@@ -381,6 +384,7 @@ var _ = Describe("Read task ICD messages", func() {
 				idx:   idx,
 				other: other[0],
 				data:  data,
+				stamp: stamps[0],
 			}
 		}
 
@@ -425,42 +429,80 @@ var _ = Describe("Read task ICD messages", func() {
 				))
 			}, "every channel must share one index channel"),
 			Entry("an index field on a data channel", func(f format) []map[string]any {
-				read := readMessage(f.m, binding(f.m, 0, f.data[0]))
+				read := readMessage(f.m, binding(f.m, 0, f.stamp))
 				read["index"] = fieldKey(f.m, 0)
 				return status(f, read)
-			}, "the index field must write to an index channel"),
+			}, "the index field ts must write to an index channel"),
 			Entry("a data field on an index channel", func(f format) []map[string]any {
-				return status(f, readMessage(f.m, binding(f.m, 1, f.idx)))
-			}, "only the index field can write to an index channel"),
-			Entry("an index field with no channel", func(f format) []map[string]any {
+				return status(f, readMessage(f.m, binding(f.m, 0, f.idx)))
+			}, "field ts cannot write to index channel"),
+			Entry("an index field with no binding", func(f format) []map[string]any {
 				read := readMessage(f.m, binding(f.m, 1, f.data[0]))
 				read["index"] = fieldKey(f.m, 0)
 				return status(f, read)
-			}, "the index field has no channel"),
+			}, "the index field ts has no binding"),
 			Entry("only disabled entries", func(f format) []map[string]any {
 				list := status(f, readMessage(f.m, binding(f.m, 1, f.data[0])))
 				list[0]["disabled"] = true
 				return list
 			}, "the task has no enabled entries"),
 			Entry("a topic read twice", func(f format) []map[string]any {
-				read := readMessage(f.m, binding(f.m, 1, f.data[0]))
-				second := icdEntry("plant/status", f.ic, read)
+				second := icdEntry(
+					"plant/status", f.ic, readMessage(f.m, binding(f.m, 2, f.other)),
+				)
 				second["key"] = "second"
-				return append(status(f, read), second)
+				return append(
+					status(f, readMessage(f.m, binding(f.m, 1, f.data[0]))), second,
+				)
 			}, "topic plant/status appears more than once"),
-			Entry("two topics on one channel", func(f format) []map[string]any {
-				read := readMessage(f.m, binding(f.m, 1, f.data[0]))
-				return []map[string]any{
-					icdEntry("plant/a", f.ic, read), icdEntry("plant/b", f.ic, read),
+		)
+
+		It("Should reject two topics on one channel", func(ctx SpecContext) {
+			f := createFormat(ctx)
+			read := readMessage(f.m, binding(f.m, 1, f.data[0]))
+			cfg := readConfig(
+				ctx, dev,
+				icdEntry("plant/a", f.ic, read), icdEntry("plant/b", f.ic, read),
+			)
+			Expect(configureErr(ctx, cfg)).To(MatchError(ContainSubstring(fmt.Sprintf(
+				"entries.1.messages.0.bindings.0.channel: channel %d is also written "+
+					"by entries.0.messages.0.bindings.0.channel",
+				f.data[0].Key(),
+			))))
+		})
+
+		It("Should save two messages on one index, then refuse to configure them",
+			func(ctx SpecContext) {
+				f := createFormat(ctx)
+				t := task.Task{
+					Name: "Plant",
+					Type: mqtt.ReadTaskType,
+					Rack: rackKey,
+					Config: readConfig(ctx, dev, icdEntry(
+						"plant/status", f.ic,
+						readMessage(f.m, binding(f.m, 1, f.data[0])),
+						readMessage(f.n, binding(f.n, 0, f.data[1])),
+					)),
 				}
-			}, "write to the same channel"),
-			Entry("two messages on one index", func(f format) []map[string]any {
-				return []map[string]any{icdEntry(
-					"plant/status", f.ic,
-					readMessage(f.m, binding(f.m, 1, f.data[0])),
-					readMessage(f.n, binding(f.n, 0, f.data[1])),
-				)}
-			}, "write to the same channel"),
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return taskSvc.NewWriter(tx).Create(ctx, &t)
+				})).To(Succeed())
+				DeferCleanup(func(ctx SpecContext) {
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return taskSvc.NewWriter(tx).Delete(ctx, t.Key, true)
+					})).To(Succeed())
+				})
+				Expect(
+					factory.ConfigureTask(ctx, t, "configure"),
+				).Error().
+					To(MatchError(
+						ContainSubstring(fmt.Sprintf(
+							"entries.0.messages.1: channel %d is also written by "+
+								"entries.0.messages.0",
+							f.idx.Key(),
+						)),
+					))
+			},
 		)
 
 		It("Should reject an ICD that does not exist", func(ctx SpecContext) {
@@ -490,9 +532,11 @@ var _ = Describe("Read task ICD messages", func() {
 				)
 				Expect(configureErr(ctx, readConfig(ctx, dev, entry))).To(SatisfyAll(
 					MatchError(validate.ErrValidation),
-					MatchError(ContainSubstring(
-						"cannot write string values to float64 channels",
-					)),
+					MatchError(ContainSubstring(fmt.Sprintf(
+						"field state of kind string cannot read into channel %s of "+
+							"data type float64",
+						data[0].Name,
+					))),
 				))
 			},
 		)

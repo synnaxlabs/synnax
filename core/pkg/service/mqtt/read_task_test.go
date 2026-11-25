@@ -12,6 +12,7 @@ package mqtt_test
 import (
 	"context"
 	"encoding/json/v2"
+	"fmt"
 	"maps"
 	"strconv"
 	"sync"
@@ -836,11 +837,12 @@ var _ = Describe("Read task", func() {
 			),
 			Entry("a topic that appears two times",
 				func(ctx context.Context) (msgpack.EncodedJSON, string) {
-					_, data := createIndexed(ctx, telem.Float64T, telem.Float64T)
+					_, a := createIndexed(ctx, telem.Float64T)
+					_, b := createIndexed(ctx, telem.Float64T)
 					return readConfig(
 						ctx, dev,
-						plainEntry("plant/x", field("a", data[0], "/a")),
-						plainEntry("plant/x", field("b", data[1], "/b")),
+						plainEntry("plant/x", field("a", a[0], "/a")),
+						plainEntry("plant/x", field("b", b[0], "/b")),
 					), "entries: topic plant/x appears more than once"
 				},
 			),
@@ -874,7 +876,11 @@ var _ = Describe("Read task", func() {
 					f := field("v", data[0], "")
 					f["type"] = "float"
 					return readConfig(ctx, dev, plainEntry("plant/x", f)),
-						"field v: cannot write float values to int8 channels"
+						fmt.Sprintf(
+							"field v of kind float cannot read into channel %s of "+
+								"data type int8",
+							data[0].Name,
+						)
 				},
 			),
 			Entry("fields of one topic on different indexes",
@@ -890,10 +896,15 @@ var _ = Describe("Read task", func() {
 				func(ctx context.Context) (msgpack.EncodedJSON, string) {
 					_, data := createIndexed(ctx, telem.Float64T)
 					return readConfig(
-						ctx, dev,
-						plainEntry("plant/x", field("v", data[0], "")),
-						plainEntry("plant/y", field("v", data[0], "")),
-					), "write to the same channel"
+							ctx, dev,
+							plainEntry("plant/x", field("v", data[0], "")),
+							plainEntry("plant/y", field("v", data[0], "")),
+						), fmt.Sprintf(
+							"entries.1.messages.0.bindings.0.channel: channel %d is "+
+								"also written by "+
+								"entries.0.messages.0.bindings.0.channel",
+							data[0].Key(),
+						)
 				},
 			),
 			Entry("an index field that does not exist",
@@ -902,7 +913,7 @@ var _ = Describe("Read task", func() {
 					entry := plainEntry("plant/x", field("v", data[0], "/v"))
 					entry["index"] = "time"
 					return readConfig(ctx, dev, entry),
-						"message plant/x: the index field has no channel"
+						"does not exist in message plant/x"
 				},
 			),
 			Entry("an index field that is disabled",
@@ -914,16 +925,18 @@ var _ = Describe("Read task", func() {
 					entry := plainEntry("plant/x", time, field("v", data[0], "/v"))
 					entry["index"] = "time"
 					return readConfig(ctx, dev, entry),
-						"message plant/x: the index field has no channel"
+						"the index field time has no binding"
 				},
 			),
 			Entry("an index field on a channel that is not an index",
 				func(ctx context.Context) (msgpack.EncodedJSON, string) {
-					_, data := createIndexed(ctx, telem.Float64T)
-					entry := plainEntry("plant/x", field("v", data[0], "/v"))
-					entry["index"] = "v"
+					_, stamps := createIndexed(ctx, telem.TimestampT)
+					time := field("time", stamps[0], "/ts")
+					time["time_format"] = "unix_ms"
+					entry := plainEntry("plant/x", time)
+					entry["index"] = "time"
 					return readConfig(ctx, dev, entry),
-						"message plant/x: the index field must write to an index channel"
+						"the index field time must write to an index channel"
 				},
 			),
 			Entry("an index channel field on a topic with arrival timing",
@@ -932,8 +945,11 @@ var _ = Describe("Read task", func() {
 					time := field("time", idx, "/ts")
 					time["time_format"] = "unix_ms"
 					entry := plainEntry("plant/x", time, field("v", data[0], "/v"))
-					return readConfig(ctx, dev, entry),
-						"message plant/x: only the index field can write to an index channel"
+					return readConfig(ctx, dev, entry), fmt.Sprintf(
+						"field time cannot write to index channel %s, because "+
+							"only the index field can",
+						idx.Name,
+					)
 				},
 			),
 			Entry("a second index channel field",
@@ -947,8 +963,11 @@ var _ = Describe("Read task", func() {
 						"plant/x", time, again, field("v", data[0], "/v"),
 					)
 					entry["index"] = "time"
-					return readConfig(ctx, dev, entry),
-						"message plant/x: only the index field can write to an index channel"
+					return readConfig(ctx, dev, entry), fmt.Sprintf(
+						"field again cannot write to index channel %s, because "+
+							"only the index field can",
+						idx.Name,
+					)
 				},
 			),
 			Entry("an invalid JSON Pointer",

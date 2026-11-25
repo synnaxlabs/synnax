@@ -233,6 +233,16 @@
     .console-schematic-inspector {
         padding: 2rem;
     }
+
+    .console-schematic-inspector__rate {
+        width: 24rem;
+    }
+
+    .console-schematic-inspector__value {
+        padding-left: 3rem;
+        flex-wrap: wrap;
+        row-gap: 0.5rem;
+    }
 }
 
 .console-schematic-paint-dialog {

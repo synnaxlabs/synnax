@@ -103,7 +103,7 @@ func check(
 		}
 	}
 	c := MustSucceed(resolver.NewChecker(
-		ctx, nil, reads, map[icdv1.Key]icdv1.ICD{ic.Key: ic},
+		ctx, nil, reads, nil, map[icdv1.Key]icdv1.ICD{ic.Key: ic},
 	))
 	for _, rd := range reads {
 		if err := c.Read(rd); err != nil {

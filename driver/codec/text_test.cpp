@@ -14,6 +14,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include "gtest/gtest.h"
@@ -339,5 +340,313 @@ TEST(Text, DecodeWithoutAllocating) {
         ASSERT_EQ(ASSERT_NIL_P(dec.decode(any)), 1U);
     }
     EXPECT_EQ(x::bench::alloc_count.load(std::memory_order_relaxed) - before, 0);
+}
+
+namespace {
+/// @brief returns a vector that holds each series of s.
+template<typename... S>
+std::vector<x::telem::Series> series_of(S &&...s) {
+    std::vector<x::telem::Series> out;
+    out.reserve(sizeof...(s));
+    (out.push_back(std::forward<S>(s)), ...);
+    return out;
+}
+
+/// @brief returns the line that an encoder of m encodes from samples.
+std::string encode(const TextMessage &m, const std::vector<x::telem::Series> &samples) {
+    auto enc = ASSERT_NIL_P(TextEncoder::create(m));
+    std::vector<std::uint8_t> payload;
+    EXPECT_NIL(enc.encode(samples, payload));
+    return {payload.begin(), payload.end()};
+}
+
+/// @brief asserts that encoding samples for m fails with text.
+void assert_rejects_samples(
+    const TextMessage &m,
+    const std::vector<x::telem::Series> &samples,
+    const std::string &text
+) {
+    auto enc = ASSERT_NIL_P(TextEncoder::create(m));
+    std::vector<std::uint8_t> payload;
+    const auto err = enc.encode(samples, payload);
+    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+    EXPECT_EQ(err.data, text);
+}
+
+/// @brief asserts that creating an encoder for m fails with text.
+void assert_encoder_refuses(const TextMessage &m, const std::string &text) {
+    const auto err = TextEncoder::create(m).second;
+    ASSERT_OCCURRED_AS(err, CONFIG_ERROR);
+    EXPECT_EQ(err.data, text);
+}
+
+/// @brief asserts that a decoder of m reads values back from line.
+void assert_decodes(
+    const TextMessage &m,
+    const std::string &line,
+    const std::vector<double> &values
+) {
+    auto dec = ASSERT_NIL_P(Text::create({m}));
+    ASSERT_EQ(ASSERT_NIL_P(dec.decode(line)), 0U);
+    for (std::size_t i = 0; i < values.size(); i++)
+        EXPECT_EQ(value(dec, 0, i), values[i]);
+}
+
+/// @brief returns an empty series, which takes the default of its field.
+x::telem::Series none() {
+    return x::telem::Series(x::telem::FLOAT64_T, 0);
+}
+}
+
+/// @brief it should write each delimited field at its position, with an empty item
+/// where no field is.
+TEST(TextEncoder, EncodeDelimited) {
+    const auto m = message("cmd", {at("a", 1), at("b", 3)});
+    const auto line = encode(
+        m,
+        series_of(x::telem::Series(1.5), x::telem::Series(-2.0))
+    );
+    EXPECT_EQ(line, ",1.5,,-2");
+    assert_decodes(m, line, {1.5, -2});
+}
+
+/// @brief it should start a line with its prefix, and fill the first items with it.
+TEST(TextEncoder, EncodePrefix) {
+    const auto m = message("cmd", {at("a", 1), at("b", 2)}, "$SET");
+    const auto line = encode(
+        m,
+        series_of(x::telem::Series(1.0), x::telem::Series(2.0))
+    );
+    EXPECT_EQ(line, "$SET,1,2");
+    assert_decodes(m, line, {1, 2});
+    const auto split = message("cmd", {at("a", 2)}, "$SET,X,");
+    EXPECT_EQ(encode(split, series_of(x::telem::Series(3.0))), "$SET,X,3");
+    const auto bare = message("cmd", {tagged("t", "T=")}, "$SET,");
+    EXPECT_EQ(encode(bare, series_of(x::telem::Series(4.0))), "$SET,T=4");
+    EXPECT_EQ(encode(message("cmd", {}, "$SET,"), {}), "$SET,");
+}
+
+/// @brief it should write each tagged field as its tag and value after the delimited
+/// fields.
+TEST(TextEncoder, EncodeTagged) {
+    const auto m = message("cmd", {tagged("t", "T="), at("a", 0), tagged("h", "H=")});
+    const auto line = encode(
+        m,
+        series_of(x::telem::Series(21.5), x::telem::Series(1.0), x::telem::Series(40.0))
+    );
+    EXPECT_EQ(line, "1,T=21.5,H=40");
+    assert_decodes(m, line, {21.5, 1, 40});
+}
+
+/// @brief it should write a tag that starts another tag, and read both back.
+TEST(TextEncoder, EncodeOverlappingTags) {
+    const auto m = message("cmd", {tagged("te", "TE"), tagged("t", "T")});
+    const auto line = encode(
+        m,
+        series_of(x::telem::Series(5.0), x::telem::Series(3.0))
+    );
+    EXPECT_EQ(line, "TE5,T3");
+    assert_decodes(m, line, {5, 3});
+}
+
+/// @brief it should write the shortest text that reads back as each sample, at the
+/// precision of its channel.
+TEST(TextEncoder, EncodeNumbers) {
+    const auto f = at("a", 0);
+    EXPECT_EQ(
+        encode(
+            message("cmd", {f}, "", x::telem::INT32_T),
+            series_of(x::telem::Series(-5))
+        ),
+        "-5"
+    );
+    constexpr std::int64_t odd = (std::int64_t{1} << 53) + 1;
+    EXPECT_EQ(
+        encode(
+            message("cmd", {f}, "", x::telem::INT64_T),
+            series_of(x::telem::Series(odd))
+        ),
+        "9007199254740993"
+    );
+    constexpr auto max = std::numeric_limits<std::uint64_t>::max();
+    EXPECT_EQ(
+        encode(
+            message("cmd", {f}, "", x::telem::UINT64_T),
+            series_of(x::telem::Series(max))
+        ),
+        "18446744073709551615"
+    );
+    EXPECT_EQ(
+        encode(
+            message("cmd", {f}, "", x::telem::FLOAT32_T),
+            series_of(x::telem::Series(1.1F))
+        ),
+        "1.1"
+    );
+    const auto m = message("cmd", {f});
+    EXPECT_EQ(encode(m, series_of(x::telem::Series(1e300))), "1e+300");
+    EXPECT_EQ(encode(m, series_of(x::telem::Series(1e-5))), "1e-05");
+    EXPECT_EQ(encode(m, series_of(x::telem::Series(1234567.0))), "1234567");
+}
+
+/// @brief it should remove the scale and offset from a sample, and scale a float32
+/// sample from its shortest decimal text at float64 precision.
+TEST(TextEncoder, EncodeScaled) {
+    auto f = at("a", 0);
+    f.scale = 0.5;
+    f.offset = 10;
+    const auto m = message("cmd", {f});
+    const auto line = encode(m, series_of(x::telem::Series(20.0)));
+    EXPECT_EQ(line, "20");
+    assert_decodes(m, line, {20});
+    auto doubled = f;
+    doubled.scale = 2;
+    doubled.offset = 0;
+    EXPECT_EQ(
+        encode(
+            message("cmd", {doubled}, "", x::telem::FLOAT32_T),
+            series_of(x::telem::Series(2.2F))
+        ),
+        "1.1"
+    );
+    auto shifted = f;
+    shifted.scale = 1;
+    shifted.offset = -1e6;
+    const auto narrow = message("cmd", {shifted}, "", x::telem::FLOAT32_T);
+    EXPECT_EQ(encode(narrow, series_of(x::telem::Series(0.001F))), "1000000.001");
+}
+
+/// @brief it should write the default of a field with no binding or no sample.
+TEST(TextEncoder, EncodeDefaults) {
+    auto a = at("a", 0);
+    a.default_ = 7;
+    auto b = at("b", 1);
+    b.default_ = 2.5;
+    TextMessage m = message("cmd", {a});
+    m.payload.fields.emplace_back(b);
+    EXPECT_EQ(encode(m, series_of(none())), "7,2.5");
+    EXPECT_EQ(encode(m, series_of(x::telem::Series(3.0))), "3,2.5");
+}
+
+/// @brief it should reject a field with no sample and no default, and a value that is
+/// not finite.
+TEST(TextEncoder, RejectInvalidValues) {
+    const auto m = message("cmd", {at("a", 0)});
+    assert_rejects_samples(m, series_of(none()), "field a: no value and no default");
+    assert_rejects_samples(
+        m,
+        series_of(x::telem::Series(std::numeric_limits<double>::infinity())),
+        "field a: Infinity is not finite"
+    );
+    assert_rejects_samples(
+        m,
+        series_of(x::telem::Series(std::numeric_limits<double>::quiet_NaN())),
+        "field a: NaN is not finite"
+    );
+    assert_rejects_samples(
+        message("cmd", {at("a", 0)}, "", x::telem::FLOAT32_T),
+        series_of(x::telem::Series(std::numeric_limits<float>::infinity())),
+        "field a: Infinity is not finite"
+    );
+}
+
+/// @brief it should refuse two fields at one position, a position past 65535, and a
+/// field at a position that the prefix fills.
+TEST(TextEncoder, RefuseConflictingFields) {
+    assert_encoder_refuses(
+        message("cmd", {at("a", 1), at("b", 1)}),
+        "message cmd: fields a and b both have position 1"
+    );
+    assert_encoder_refuses(
+        message("cmd", {at("a", 4000000000)}),
+        "message cmd: field a: position 4000000000 is past the last position 65535"
+    );
+    ASSERT_NIL_P(TextEncoder::create(message("cmd", {at("a", 65535)})));
+    assert_encoder_refuses(
+        message("cmd", {at("a", 0)}, "$SET"),
+        "message cmd: field a: the prefix fills position 0"
+    );
+}
+
+/// @brief it should refuse an empty delimiter, an invalid tag, a binding to a field
+/// that does not exist, and two bindings of one field.
+TEST(TextEncoder, RefuseInvalidMessage) {
+    auto empty = message("cmd", {at("a", 0)});
+    empty.payload.delimiter = "";
+    assert_encoder_refuses(empty, "message cmd: the delimiter is empty");
+    assert_encoder_refuses(
+        message("cmd", {tagged("t", "")}),
+        "message cmd: field t: the tag is empty"
+    );
+    auto unknown = message("cmd", {at("a", 0)});
+    const auto key = x::uuid::create();
+    unknown.bindings[0].field = key;
+    assert_encoder_refuses(
+        unknown,
+        "message cmd: field " + key.to_string() + " does not exist"
+    );
+    auto twice = message("cmd", {at("a", 0)});
+    twice.bindings.push_back(twice.bindings[0]);
+    assert_encoder_refuses(twice, "message cmd: field a has more than one binding");
+}
+
+/// @brief it should refuse a field with no binding and no default, a default that is
+/// not finite, and a channel of the wrong data type.
+TEST(TextEncoder, RefuseInvalidFields) {
+    auto unbound = message("cmd", {at("a", 0)});
+    unbound.payload.fields.emplace_back(at("b", 1));
+    assert_encoder_refuses(
+        unbound,
+        "message cmd: field b: needs a channel or a default"
+    );
+    auto nan = at("a", 0);
+    nan.default_ = std::numeric_limits<double>::quiet_NaN();
+    assert_encoder_refuses(
+        message("cmd", {nan}),
+        "message cmd: field a: default: NaN is not finite"
+    );
+    assert_encoder_refuses(
+        message("cmd", {at("a", 0)}, "", x::telem::STRING_T),
+        "message cmd: field a: cannot write string channels to float fields"
+    );
+    auto scaled = at("a", 0);
+    scaled.scale = 2;
+    assert_encoder_refuses(
+        message("cmd", {scaled}, "", x::telem::INT32_T),
+        "message cmd: field a: a scaled field requires a float channel, not int32"
+    );
+}
+
+/// @brief it should encode without allocating once its scratch space has grown.
+TEST(TextEncoder, EncodeWithoutAllocating) {
+    auto t = tagged("t", "T=");
+    t.default_ = 2.5;
+    TextMessage m = message("cmd", {at("a", 1)}, "$SET", x::telem::INT64_T);
+    m.payload.fields.emplace_back(t);
+    auto enc = ASSERT_NIL_P(TextEncoder::create(m));
+    const auto samples = series_of(x::telem::Series(std::int64_t{-123456789}));
+    std::vector<std::uint8_t> payload;
+    ASSERT_NIL(enc.encode(samples, payload));
+    const auto before = x::bench::alloc_count.load(std::memory_order_relaxed);
+    for (int i = 0; i < 100; i++)
+        ASSERT_NIL(enc.encode(samples, payload));
+    EXPECT_EQ(x::bench::alloc_count.load(std::memory_order_relaxed) - before, 0);
+    EXPECT_EQ(std::string(payload.begin(), payload.end()), "$SET,-123456789,T=2.5");
+}
+
+/// @brief it should check a sample of a binding as encode does, and report which fields
+/// have a default.
+TEST(TextEncoder, CheckSample) {
+    auto b = at("b", 1);
+    b.default_ = 1;
+    auto m = message("cmd", {at("a", 0), b});
+    auto enc = ASSERT_NIL_P(TextEncoder::create(m));
+    ASSERT_NIL(enc.check(0, x::telem::SampleValue(2.5)));
+    ASSERT_NIL(enc.check(1, x::telem::SampleValue(2.5)));
+    const auto err = enc.check(1, x::telem::SampleValue(std::nan("")));
+    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+    EXPECT_EQ(err.data, "field b: NaN is not finite");
+    EXPECT_FALSE(enc.has_default(0));
+    EXPECT_TRUE(enc.has_default(1));
 }
 }

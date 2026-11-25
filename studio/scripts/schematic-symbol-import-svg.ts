@@ -70,8 +70,12 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.click(part, { text: true, zoom: false });
   await session.hold(700);
 
-  // The inspector writes the fill of the part on the value that the canvas draws.
-  const fill = modal.getByLabel("Fill", { exact: true });
+  // The first "By state" belongs to the fill. It gives the fill one control per state.
+  await session.click(modal.getByText("By state", { exact: true }).first(), {
+    text: true,
+    zoom: false,
+  });
+  const fill = modal.getByLabel("Fill while Active", { exact: true });
   await fill.scrollIntoViewIfNeeded();
   await session.settle(300);
   await session.click(fill, { zoom: false });
