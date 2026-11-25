@@ -8,8 +8,11 @@
 #  included in the file licenses/APL.txt.
 
 import json
+import socket
+import struct
 import subprocess
 import threading
+import time
 from collections.abc import Iterator
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -22,6 +25,7 @@ from review.ci import (
     ATTEMPTS,
     HEAD_BYTES,
     LOG_BYTES,
+    LOG_SECONDS,
     MAX_CHARS,
     MAX_LOGS,
     Text,
@@ -107,14 +111,21 @@ class FakeGH:
 
 
 class FakeLog:
-    """Serves a log for each job, or None, or an error to raise."""
+    """Serves a log for each job, or None, or an error to raise. Each read takes
+    `seconds` of the clock."""
 
     def __init__(self, **logs: str | Text | Exception | None) -> None:
         self.logs = logs
         self.read: list[int] = []
+        self.seconds = 0.0
+        self.now = 0.0
 
-    def __call__(self, job: int) -> Text | None:
+    def clock(self) -> float:
+        return self.now
+
+    def __call__(self, job: int, deadline: float) -> Text | None:
         self.read.append(job)
+        self.now += self.seconds
         found = self.logs.get(str(job), "")
         if isinstance(found, Exception):
             raise found
@@ -339,6 +350,19 @@ class TestResults:
         out = results(REPO, SHA, gh, log)
         assert "```text\n10 log unavailable\n13 x/a: passed\n```" in out
 
+    def test_should_skip_the_logs_left_when_the_time_runs_out(self) -> None:
+        gh = FakeGH()
+        gh.jobs[1] = [job(i, f"Test {i}") for i in range(4)]
+        log = FakeLog(**{str(i): "ok  \tx/a\t1.2s\n" for i in range(4)})
+        log.seconds = LOG_SECONDS / 2
+        out = results(REPO, SHA, gh, log, clock=log.clock)
+        assert log.read == [0, 1]
+        assert (
+            "1 x/a: passed\n"
+            "2 log skipped: the time to read logs ran out\n"
+            "3 log skipped: the time to read logs ran out\n"
+        ) in out
+
     def test_should_fail_on_another_error_of_a_log(self) -> None:
         with pytest.raises(KeyError):
             results(REPO, SHA, FakeGH(), FakeLog(**{"10": KeyError("bug")}))
@@ -377,6 +401,8 @@ class Server:
         self.api: list[int] = []
         """The status that the API answers with for each request, from the first."""
         self.blob = b"log"
+        self.resets = 0
+        """The reads of the blob that the host resets after part of the log."""
         self.seen: list[tuple[str, str | None]] = []
         """The path and the Authorization header of each request."""
         server = self
@@ -387,6 +413,16 @@ class Server:
                 if self.path.startswith("/blob"):
                     self.send_response(200)
                     self.end_headers()
+                    if server.resets > 0:
+                        server.resets -= 1
+                        self.wfile.write(b"part")
+                        self.wfile.flush()
+                        # Closing with a zero linger sends a reset.
+                        self.connection.setsockopt(
+                            socket.SOL_SOCKET, socket.SO_LINGER, struct.pack("ii", 1, 0)
+                        )
+                        self.connection.close()
+                        return
                     self.wfile.write(server.blob)
                     return
                 status = server.api.pop(0) if server.api else 302
@@ -404,8 +440,9 @@ class Server:
         self.http = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
         self.url = f"http://127.0.0.1:{self.http.server_address[1]}"
 
-    def read(self, job: int = 1) -> Text | None:
-        return log(REPO, "secret", api=self.url, delay=0)(job)
+    def read(self, job: int = 1, seconds: float = 60) -> Text | None:
+        read = log(REPO, "secret", api=self.url, delay=0)
+        return read(job, time.monotonic() + seconds)
 
 
 @pytest.fixture
@@ -456,8 +493,24 @@ class TestLog:
             server.read()
 
     def test_should_retry_a_network_error(self) -> None:
+        read = log(REPO, "secret", api="http://127.0.0.1:1", delay=0)
         with pytest.raises(Unavailable, match="the log of job 1"):
-            log(REPO, "secret", api="http://127.0.0.1:1", delay=0)(1)
+            read(1, time.monotonic() + 60)
+
+    def test_should_retry_a_reset_while_a_log_downloads(self, server: Server) -> None:
+        server.resets = 1
+        assert server.read() == Text(text="log", cut=False)
+
+    def test_should_give_up_on_a_log_that_keeps_resetting(self, server: Server) -> None:
+        server.resets = ATTEMPTS
+        with pytest.raises(Unavailable, match="the log of job 1"):
+            server.read()
+
+    def test_should_stop_retrying_at_the_deadline(self, server: Server) -> None:
+        server.api = [503] * ATTEMPTS
+        with pytest.raises(Unavailable, match="out of time"):
+            server.read(seconds=0)
+        assert len(server.seen) == 1
 
     def test_should_keep_the_start_and_end_of_a_long_log(self, server: Server) -> None:
         start = b"start\n" * (HEAD_BYTES // 6 + 1)

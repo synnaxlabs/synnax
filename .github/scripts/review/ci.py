@@ -13,6 +13,7 @@ claims about CI against."""
 import http.client
 import json
 import re
+import ssl
 import time
 import urllib.error
 import urllib.request
@@ -38,10 +39,11 @@ class Unavailable(RuntimeError):
     """GitHub did not serve the log of a job, even after retries."""
 
 
-Log = Callable[[int], Text | None]
-"""Returns the log of a workflow job, or None when GitHub has no log of it.
+Log = Callable[[int, float], Text | None]
+"""Returns the log of a workflow job, or None when GitHub has no log of it. It stops at
+the deadline, a time of `time.monotonic`.
 
-:raises Unavailable: If GitHub fails to serve the log.
+:raises Unavailable: If GitHub fails to serve the log by the deadline.
 """
 
 EVENTS = {"pull_request", "pull_request_target", "push"}
@@ -58,6 +60,8 @@ MAX_CHARS = 200_000
 """The size at which the test results are cut."""
 ATTEMPTS = 5
 """The attempts to read a log, as `gh_api.sh` makes."""
+LOG_SECONDS = 300
+"""The most seconds spent reading logs. The logs left after them are not read."""
 UNAVAILABLE = (
     "# CI results of `{sha}`\n\nThe CI results of this commit are unavailable: the "
     "GitHub API failed to serve them. No claim about a CI result can be checked.\n"
@@ -107,7 +111,13 @@ _PYTEST_CHARS = {
     "x": "xfailed",
     "X": "xpassed",
 }
-_TRANSIENT = (urllib.error.URLError, http.client.HTTPException, TimeoutError)
+_TRANSIENT = (
+    urllib.error.URLError,
+    http.client.HTTPException,
+    ConnectionError,
+    TimeoutError,
+    ssl.SSLError,
+)
 _CHUNK = 1 << 16
 
 
@@ -128,7 +138,7 @@ def log(
 
     opener = urllib.request.build_opener(Stay)
 
-    def once(job: int) -> Text | None:
+    def once(job: int, deadline: float) -> Text | None:
         req = urllib.request.Request(
             f"{api}/repos/{repo}/actions/jobs/{job}/logs",
             headers={
@@ -147,22 +157,24 @@ def log(
         else:
             raise Unavailable(f"GitHub did not redirect to the log of job {job}")
         with urllib.request.urlopen(location, timeout=60) as res:
-            return _read(res)
+            return _read(res, job, deadline)
 
-    def read(job: int) -> Text | None:
+    def read(job: int, deadline: float) -> Text | None:
         wait = delay
         for _ in range(ATTEMPTS - 1):
             try:
-                return once(job)
+                return once(job, deadline)
             except urllib.error.HTTPError as e:
                 if not _transient(e):
                     raise Unavailable(f"the log of job {job}: HTTP {e.code}") from e
             except _TRANSIENT:
                 pass
+            if time.monotonic() + wait >= deadline:
+                raise Unavailable(f"the log of job {job}: out of time")
             time.sleep(wait)
             wait *= 2
         try:
-            return once(job)
+            return once(job, deadline)
         except _TRANSIENT as e:
             raise Unavailable(f"the log of job {job}: {e}") from e
 
@@ -174,7 +186,7 @@ def _transient(e: urllib.error.HTTPError) -> bool:
     return e.code >= 500 or e.code == 429 or limited
 
 
-def _read(res: Any) -> Text:
+def _read(res: Any, job: int, deadline: float) -> Text:
     """Reads a log, and keeps its start and its end when it is longer than
     `LOG_BYTES`."""
     head = res.read(HEAD_BYTES)
@@ -183,6 +195,8 @@ def _read(res: Any) -> Text:
     size = 0
     cut = False
     while chunk := res.read(_CHUNK):
+        if time.monotonic() >= deadline:
+            raise Unavailable(f"the log of job {job}: out of time")
         chunks.append(chunk)
         size += len(chunk)
         while size - len(chunks[0]) >= rest:
@@ -199,11 +213,19 @@ def _read(res: Any) -> Text:
     return Text(text=(start + end).decode(errors="replace"), cut=True)
 
 
-def results(repo: str, sha: str, gh: GH, log: Log) -> str:
+def results(
+    repo: str,
+    sha: str,
+    gh: GH,
+    log: Log,
+    *,
+    clock: Callable[[], float] = time.monotonic,
+) -> str:
     """Returns the CI results of a commit of the repository as Markdown: each job of
     the workflow runs that test it, each check run of other apps, and the test results
     that the logs of the test jobs show. A run is marked latest when it is the newest
-    run of its workflow that was not cancelled, even while it still runs."""
+    run of its workflow that was not cancelled, even while it still runs. The logs are
+    read for at most `LOG_SECONDS` of clock."""
     runs = [
         r
         for r in _lines(
@@ -265,7 +287,7 @@ def results(repo: str, sha: str, gh: GH, log: Log) -> str:
         ),
         "## Check runs of other apps",
         _table(["App", "Check run"], ["app"], checks),
-        *_tests([j for j in jobs if j["run"] in used], log),
+        *_tests([j for j in jobs if j["run"] in used], log, clock),
     ]
     return "\n\n".join(parts) + "\n"
 
@@ -296,7 +318,9 @@ def _table(names: list[str], keys: list[str], rows: list[dict[str, Any]]) -> str
     return "\n".join(f"| {' | '.join(line)} |" for line in lines)
 
 
-def _tests(jobs: list[dict[str, Any]], log: Log) -> list[str]:
+def _tests(
+    jobs: list[dict[str, Any]], log: Log, clock: Callable[[], float]
+) -> list[str]:
     tested = [
         j
         for j in jobs
@@ -304,9 +328,13 @@ def _tests(jobs: list[dict[str, Any]], log: Log) -> list[str]:
     ]
     tested.sort(key=lambda j: j["conclusion"] != "failure")
     lines: list[str] = []
+    deadline = clock() + LOG_SECONDS
     for j in tested[:MAX_LOGS]:
+        if clock() >= deadline:
+            lines.append(f"{j['id']} log skipped: the time to read logs ran out")
+            continue
         try:
-            read = log(j["id"])
+            read = log(j["id"], deadline)
         except Unavailable:
             lines.append(f"{j['id']} log unavailable")
             continue
