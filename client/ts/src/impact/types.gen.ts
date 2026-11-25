@@ -12,7 +12,6 @@
 import { caseconv } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { channel } from "@/channel";
 import { resource } from "@/resource";
 
 export const EFFECTS = ["restrict", "cascade", "detach"] as const;
@@ -45,31 +44,31 @@ export const hiddenZ = z.object({
   restrict: z.uint32(),
   /** cascade is the number of hidden entries that the change deletes. */
   cascade: z.uint32(),
-  /** detach is the number of hidden entries that lose the channel. */
+  /** detach is the number of hidden entries that lose a record. */
   detach: z.uint32(),
 });
 export interface Hidden extends z.infer<typeof hiddenZ> {}
 
-/** DeleteChannelsChange deletes channels. */
-export const deleteChannelsChangeZ = z.object({
-  type: z.literal("delete_channels"),
-  /** keys are the keys of the channels to delete. */
-  keys: channel.keyZ.array().default(() => []),
+/** DeleteChange deletes records. */
+export const deleteChangeZ = z.object({
+  type: z.literal("delete"),
+  /** records are the records to delete. */
+  records: resource.idZ.array().default(() => []),
 });
-export interface DeleteChannelsChange extends z.infer<typeof deleteChannelsChangeZ> {}
+export interface DeleteChange extends z.infer<typeof deleteChangeZ> {}
 
-export const CHANGE_TYPES = ["delete_channels"] as const;
+export const CHANGE_TYPES = ["delete"] as const;
 export const changeTypeZ = z.enum(CHANGE_TYPES);
 export type ChangeType = z.infer<typeof changeTypeZ>;
 
-/** Change is a change to channels that a plan covers. */
-export const changeZ = z.discriminatedUnion("type", [deleteChannelsChangeZ]);
-export type Change = DeleteChannelsChange;
+/** Change is a change that a plan covers. */
+export const changeZ = z.discriminatedUnion("type", [deleteChangeZ]);
+export type Change = DeleteChange;
 
 export const CHANGE_SCHEMAS: {
   [K in ChangeType]: z.ZodType<Extract<Change, { type: K }>>;
 } = {
-  delete_channels: deleteChannelsChangeZ,
+  delete: deleteChangeZ,
 };
 
 /** Plan is every record that a change touches, with the picks for each. */
@@ -77,7 +76,7 @@ export const planZ = z.object({
   /** entries are the records that the change touches, sorted by record. */
   entries: entryZ.array().default(() => []),
   /**
-   * kept is the number of records that hold a deleted channel and keep it with no
+   * kept is the number of records that hold a deleted record and keep it with no
    * change. They need no pick, so they are not entries.
    */
   kept: z.uint32(),
@@ -91,8 +90,8 @@ export const planZ = z.object({
    * counts, with the caller's picks. Apply refuses a token that no longer matches.
    */
   token: z.string(),
-  /** change is the change that the plan covers. */
-  change: changeZ,
+  /** records are the records that the caller deletes. */
+  records: resource.idZ.array().default(() => []),
 });
 export interface Plan extends z.infer<typeof planZ> {}
 

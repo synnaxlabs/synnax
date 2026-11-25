@@ -10,6 +10,7 @@
 import type { UnaryClient } from "@synnaxlabs/freighter";
 import type { z } from "zod";
 
+import { channel } from "@/channel";
 import type { PlanChangedError } from "@/errors";
 import {
   applyRequestZ,
@@ -73,6 +74,12 @@ export class Client {
     );
   }
 }
+
+/** Returns the change that deletes the channels with keys. */
+export const deleteChannels = (keys: channel.Key[]): Change => ({
+  type: "delete",
+  records: keys.map((key) => channel.resourceID(key)),
+});
 
 /** Returns the plan as it is now, which error carries. */
 export const planOf = (error: PlanChangedError): Plan =>

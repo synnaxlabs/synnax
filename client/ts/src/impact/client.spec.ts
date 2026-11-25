@@ -72,10 +72,7 @@ const isGone = async (retrieve: () => Promise<unknown>): Promise<boolean> =>
     (e: unknown) => NotFoundError.matches(e),
   );
 
-const deleteOf = (...keys: channel.Key[]): impact.Change => ({
-  type: "delete_channels",
-  keys,
-});
+const deleteOf = (...keys: channel.Key[]): impact.Change => impact.deleteChannels(keys);
 
 describe("impact", () => {
   it("should plan a delete and apply it with the plan's token", async () => {
@@ -95,11 +92,11 @@ describe("impact", () => {
       .toBe(true);
   });
 
-  it("should apply a delete with no token and return its change", async () => {
+  it("should apply a delete with no token and return its records", async () => {
     const ch = await createChannel();
     await createPlot(ch.key);
     const applied = await client.impact.apply(deleteOf(ch.key));
-    expect(applied.change).toEqual(deleteOf(ch.key));
+    expect(applied.records).toEqual([channel.resourceID(ch.key)]);
     expect(applied.entries).toEqual([]);
     await expect
       .poll(

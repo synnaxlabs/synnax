@@ -53,14 +53,14 @@ const fakeCore = (
   return { client: new impact.Client({ unary: http, unaryNoRetry: http }), sent };
 };
 
-const change: impact.Change = { type: "delete_channels", keys: [1048577] };
+const change: impact.Change = impact.deleteChannels([1048577]);
 
 // What core/pkg/service/impact.Apply returns with no token, picks, or hidden pick,
 // encoded by the Core's JSON codec: a plan of the change with no entries.
 const EMPTY_APPLIED_PLAN =
   '{"entries":[],"kept":0,"hidden":{"restrict":0,"cascade":0,"detach":0},' +
   '"token":"",' +
-  '"change":{"type":"delete_channels","keys":[1048577]}}';
+  '"records":[{"type":"channel","key":"1048577"}]}';
 
 const CHANGED_PLAN = JSON.stringify({
   entries: [
@@ -74,7 +74,7 @@ const CHANGED_PLAN = JSON.stringify({
   kept: 0,
   hidden: { restrict: 0, cascade: 0, detach: 0 },
   token: "0123456789abcdef",
-  change: { type: "delete_channels", keys: [1048577] },
+  records: [{ type: "channel", key: "1048577" }],
 });
 
 describe("impact breaker", () => {

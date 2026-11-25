@@ -30,7 +30,7 @@ describe("planOf", () => {
       kept: 0,
       hidden: { restrict: 0, cascade: 0, detach: 1 },
       token: "0123456789abcdef",
-      change: { type: "delete_channels", keys },
+      records: keys.map((key) => channel.resourceID(key)),
     };
     const decoded = errors.decode({
       type: "sy.impact.plan_changed",
