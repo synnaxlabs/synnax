@@ -324,15 +324,12 @@ const Targets = ({ device, selected, onSelect, expanded, onExpand }: TargetsProp
       expanded,
       onExpand,
     });
+  const commandChannelsOf = ICD.Write.useCommandChannels();
   const specs = targets
     .filter(({ disabled }) => !disabled)
     .flatMap((t) =>
       t.type === "plain"
-        ? ICD.Write.commandChannels(
-            ICD.fieldsOf(formats, t.icd, t.message.message),
-            t.message,
-            plainNaming(device.name, t),
-          ).map(([, spec]) => spec)
+        ? commandChannelsOf(t, plainNaming(device.name, t))
         : [sparkplugCommand(device.name, t)],
     );
   const names = Task.useCommandChannelNames(device.properties.write, specs);

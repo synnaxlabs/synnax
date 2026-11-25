@@ -483,15 +483,10 @@ const Targets = ({ device, selected, onSelect, expanded, onExpand }: TargetsProp
     expanded,
     onExpand,
   });
+  const commandChannelsOf = ICD.Write.useCommandChannels();
   const specs = all
     .filter(({ disabled }) => !disabled)
-    .flatMap((t) =>
-      ICD.Write.commandChannels(
-        ICD.fieldsOf(formats, t.icd, t.message.message),
-        t.message,
-        namingOf(device.name, t),
-      ).map(([, spec]) => spec),
-    );
+    .flatMap((t) => commandChannelsOf(t, namingOf(device.name, t)));
   const names = Task.useCommandChannelNames(device.properties.write, specs);
 
   const add = async () => {
