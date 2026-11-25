@@ -147,22 +147,28 @@ func (r Record) Write(ctx context.Context, tx gorp.Tx) error { return r.write(ct
 // the service stores.
 type ServiceConfig[E gorp.Entry[uuid.UUID]] struct {
 	// DB is the database config records are stored in.
+	//
 	// [REQUIRED]
 	DB *gorp.DB
 	// Type is the task type whose records the service owns.
+	//
 	// [REQUIRED]
 	Type string
 	// SetEntryKey stamps key onto an entry before it is stored.
+	//
 	// [REQUIRED]
 	SetEntryKey func(e *E, key uuid.UUID)
 	// PatchEntry applies the path action at c, which is not done, to an entry.
+	//
 	// [REQUIRED]
 	PatchEntry func(e *E, c patch.Cursor) error
 	// HashEntry writes the content of an entry to h.
+	//
 	// [REQUIRED]
 	HashEntry func(e *E, h *content.Hash)
 	// HashReferences writes to h the content of the records that e references and that
 	// change what its task runs, read through snap.
+	//
 	// [OPTIONAL] - nil when what the task runs depends on e alone.
 	HashReferences func(
 		ctx context.Context,
@@ -171,6 +177,7 @@ type ServiceConfig[E gorp.Entry[uuid.UUID]] struct {
 		h *content.Hash,
 	) error
 	// HashedTables names the tables of the records that HashReferences reads.
+	//
 	// [REQUIRED] - when HashReferences is set, and empty otherwise.
 	HashedTables []string
 	// Migrations is the stored-shape migration chain for the record type. Empty for a
@@ -178,10 +185,12 @@ type ServiceConfig[E gorp.Entry[uuid.UUID]] struct {
 	Migrations []gorp.Migration
 	// References are the references the records hold, besides the one to their task.
 	// Opening the service drops each target that does not exist from stored entries.
+	//
 	// [OPTIONAL]
 	References []gorp.Reference[uuid.UUID, E]
 	// Ladder decodes typed config blobs at every version the type has exported and
 	// migrates them to the current shape. Its Latest is stamped on exports.
+	//
 	// [REQUIRED]
 	Ladder imex.Ladder[E]
 	// LegacyVersion is the newest version released Cores stamped on a shape that needs
@@ -195,6 +204,7 @@ type ServiceConfig[E gorp.Entry[uuid.UUID]] struct {
 	// snap, before the entry is validated. name is the name of the task that owns the
 	// entry. It returns nil, or a write that Record.Write runs in its transaction
 	// before it stores the entry.
+	//
 	// [OPTIONAL] - nil when the entry depends on no other resource.
 	ResolveEntry func(
 		ctx context.Context,
@@ -206,9 +216,11 @@ type ServiceConfig[E gorp.Entry[uuid.UUID]] struct {
 	// read through tx, so that a config from an older version or another Core passes
 	// ResolveEntry and ValidateEntry. Normalize runs it at every version. Prepare and
 	// Edit do not.
+	//
 	// [OPTIONAL] - nil when every such config passes as it is.
 	ReconcileEntry func(ctx context.Context, tx gorp.Tx, e *E) error
 	// ValidateEntry checks a decoded entry before it is stored.
+	//
 	// [OPTIONAL] - nil when the entry type has no validation rules.
 	ValidateEntry func(*E) error
 	alamos.Instrumentation

@@ -59,12 +59,14 @@ type Config struct {
 	// FS is the filesystem that the DB will use to store its data. DB will write to the
 	// root of the filesystem, so this should probably be a subdirectory. DB should have
 	// exclusive access, and it should be empty when the DB is first opened.
+	//
 	// [REQUIRED]
 	FS fs.FS
 	alamos.Instrumentation
 	// FileSize is the maximum size, in bytes, for a writer to be created on a file.
 	// Note while that a file's size may still exceed this value, it is not likely to
 	// exceed by much with frequent commits.
+	//
 	// [OPTIONAL] Default: 800 MB
 	FileSize telem.Size
 	// MaxDescriptors is the maximum number of file descriptors that the DB will use for
@@ -72,21 +74,25 @@ type Config struct {
 	// higher value will allow more concurrent reads and writes. It's important to note
 	// that the exact performance impact of changing this value is still relatively
 	// unknown.
+	//
 	// [OPTIONAL] Default: 100
 	MaxDescriptors int
 	// GCThreshold is the minimum tombstone proportion of the FileSize to trigger a GC.
 	// Must be in (0, 1].
 	// Note: Setting this value to 0 will have NO EFFECT as it is the default value.
 	// instead, set it to a very small number greater than 0.
+	//
 	// [OPTIONAL] Default: 0.2
 	GCThreshold float32
 	// OnHistoryChange receives the time range of each domain inserted before the last,
 	// each commit to a domain that is not the last, and each delete that removes data.
 	// It runs inline under the DB's locks and must not block or call back into the DB.
+	//
 	// [OPTIONAL]
 	OnHistoryChange func(context.Context, telem.TimeRange)
 	// Clock times the AutoIndexPersistInterval of each writer. It must be monotonic, so
 	// that a change to the system clock does not delay a persist.
+	//
 	// [OPTIONAL] Default: xtime.Real
 	Clock xtime.Clock
 }
