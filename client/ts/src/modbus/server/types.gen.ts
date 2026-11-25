@@ -85,8 +85,8 @@ export const requestPolicyZ = z.object({
   /** maxWriteBits is the most coils that one write sets. */
   maxWriteBits: zod.uint16.min(1).max(1968).default(1968),
   /**
-   * maxGap is the most unbound addresses between two values that one read spans. It is
-   * at most max_read_registers.
+   * maxGap is the most unbound addresses between two values that one read spans. A read
+   * still requests at most max_read_registers or max_read_bits.
    */
   maxGap: zod.uint16.max(125).default(125),
   /** writeFunction selects the function codes that write tasks use. */

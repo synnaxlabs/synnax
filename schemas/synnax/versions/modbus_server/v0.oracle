@@ -192,8 +192,8 @@ RequestPolicy struct {
     }
     max_gap              uint16 = 125 {
         @doc value """
-            is the most unbound addresses between two values that one read spans. It is
-            at most max_read_registers.
+            is the most unbound addresses between two values that one read spans. A read
+            still requests at most max_read_registers or max_read_bits.
         """
     }
     write_function       WriteFunction = multiple {

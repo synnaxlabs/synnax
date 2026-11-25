@@ -118,8 +118,8 @@ class RequestPolicy(BaseModel):
         max_write_registers: Is the most registers that one write sets.
         max_read_bits: Is the most coils or discrete inputs that one read requests.
         max_write_bits: Is the most coils that one write sets.
-        max_gap: Is the most unbound addresses between two values that one read spans.
-            It is at most max_read_registers.
+        max_gap: Is the most unbound addresses between two values that one read spans. A
+            read still requests at most max_read_registers or max_read_bits.
         write_function: Selects the function codes that write tasks use.
         mask_write_supported: Is true when bit writes use function code 22.
         delay: Is the wait between two requests.

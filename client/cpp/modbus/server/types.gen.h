@@ -158,7 +158,7 @@ struct RequestPolicy {
     /// @brief max_write_bits is the most coils that one write sets.
     std::uint16_t max_write_bits = 1968;
     /// @brief max_gap is the most unbound addresses between two values that one read
-    /// spans. It is at most max_read_registers.
+    /// spans. A read still requests at most max_read_registers or max_read_bits.
     std::uint16_t max_gap = 125;
     /// @brief write_function selects the function codes that write tasks use.
     std::string write_function = WRITE_FUNCTION_MULTIPLE;

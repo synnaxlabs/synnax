@@ -420,8 +420,8 @@ type RequestPolicy struct {
 	MaxReadBits uint16 `json:"max_read_bits" msgpack:"max_read_bits"`
 	// MaxWriteBits is the most coils that one write sets.
 	MaxWriteBits uint16 `json:"max_write_bits" msgpack:"max_write_bits"`
-	// MaxGap is the most unbound addresses between two values that one read spans. It
-	// is at most max_read_registers.
+	// MaxGap is the most unbound addresses between two values that one read spans. A
+	// read still requests at most max_read_registers or max_read_bits.
 	MaxGap uint16 `json:"max_gap" msgpack:"max_gap"`
 	// WriteFunction selects the function codes that write tasks use.
 	WriteFunction WriteFunction `json:"write_function" msgpack:"write_function"`
