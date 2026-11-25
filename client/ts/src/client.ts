@@ -325,7 +325,8 @@ export default class Synnax extends framer.Client {
    * SYNNAX_INSECURE (false with SYNNAX_CA_CERT), then the value of Synnax Desktop when
    * it gives the host, then false.
    * @param props.secure - Deprecated, and removed in 0.64: the opposite of
-   * props.insecure. It logs a warning, as does SYNNAX_SECURE.
+   * props.insecure. Alone, it logs a warning; it throws if props.insecure disagrees.
+   * SYNNAX_SECURE does the same with SYNNAX_INSECURE.
    * A Synnax client must be closed when it is no longer needed. This stops the
    * connection machine and closes the change stream.
    * @param props.caCert - The PEM text of a CA certificate that signs the Core's

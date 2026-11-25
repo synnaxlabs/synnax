@@ -436,10 +436,11 @@ export const nodeSystem = (
  * come as a pair from the first source that sets either one: the params (insecure,
  * caCert), then the variables (SYNNAX_INSECURE, and SYNNAX_CA_CERT as the path of a PEM
  * file), then Synnax Desktop. The deprecated secure and SYNNAX_SECURE give the opposite
- * of insecure and log a warning. When system.caCertUnsupported is true, SYNNAX_CA_CERT
- * turns TLS on but its file is not read. Reads only the variables of missing fields.
- * Variable values are trimmed, and an empty value is unset. In Deno, a variable the
- * script has no permission to read is unset.
+ * of insecure. Each logs a warning when set alone and throws when its new name
+ * disagrees. When system.caCertUnsupported is true, SYNNAX_CA_CERT turns TLS on but its
+ * file is not read. Reads only the variables of missing fields. Variable values are
+ * trimmed, and an empty value is unset. In Deno, a variable the script has no
+ * permission to read is unset.
  * @param system - Finds Synnax Desktop and reads the SYNNAX_CA_CERT file. Undefined in
  * a runtime that cannot.
  * @throws {ValidationError} If no host is given, set, or saved by Synnax Desktop, if

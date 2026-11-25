@@ -268,7 +268,7 @@ describe("resolveParams with Synnax Desktop", () => {
   it("should reject a Synnax Desktop file with neither insecure nor secure", () => {
     const { insecure: _, ...file } = DESKTOP_FILE;
     expect(() => env.resolveParams({}, {}, desktop(file))).toThrow(
-      "Cannot read ~/.synnax/desktop.json",
+      "Cannot read ~/.config/synnax/desktop.json",
     );
   });
 
