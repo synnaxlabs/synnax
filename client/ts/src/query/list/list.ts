@@ -766,6 +766,7 @@ export class Lists<
   private scheduleRefetch(entry: Entry<Q, K, D, V, C>): void {
     entry.stale = true;
     if (entry.handlers.size === 0 || entry.refetchTimer != null) return;
+    (globalThis as unknown as { __sy6899?: (m: string) => void }).__sy6899?.(`LIST REFETCH ${JSON.stringify(entry.query, (_, v: unknown) => (typeof v === "bigint" ? v.toString() : v))}\n${new Error().stack?.split("\n").slice(2, 40).join("\n")}`);
     entry.refetchTimer = setTimeout(() => {
       entry.refetchTimer = undefined;
       // A failed refetch leaves the window in place, and the next read fetches it.

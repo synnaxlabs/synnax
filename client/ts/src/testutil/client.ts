@@ -9,7 +9,7 @@
 
 import type { Middleware } from "@synnaxlabs/freighter";
 import { TimeSpan } from "@synnaxlabs/x";
-import { afterAll, onTestFinished, TestRunner, vi } from "vitest";
+import { afterAll, onTestFailed, onTestFinished, TestRunner, vi } from "vitest";
 
 import Synnax, { type SynnaxParams } from "@/client";
 import { testCoreAddress } from "@/testutil/address";
@@ -101,8 +101,35 @@ export const createProxiedTestClient = async (
 };
 
 /** Spies on the client's unary send so specs can count requests on the wire. */
-export const spyOnSend = (client: Synnax, field: "transport" = "transport") =>
-  vi.spyOn(client[field].unary, "send");
+export const spyOnSend = (client: Synnax, field: "transport" = "transport") => {
+  // PROBE SY-6899
+  const { unary } = client[field];
+  if (vi.isMockFunction(unary.send) || TestRunner.getCurrentTest() == null)
+    return vi.spyOn(unary, "send");
+  const log: string[] = [];
+  const t0 = performance.now();
+  const at = () => (performance.now() - t0).toFixed(0);
+  const g = globalThis as unknown as { __sy6899?: (m: string) => void };
+  g.__sy6899 = (m) => log.push(`${at()}ms ${m}`);
+  const cache = (client as unknown as { cache: { onMissed: (cb: () => void) => () => void; onEpoch: (cb: (e: number) => void) => () => void } }).cache;
+  const offMissed = cache.onMissed(() => log.push(`${at()}ms MISSED`));
+  const offEpoch = cache.onEpoch((e) => log.push(`${at()}ms EPOCH ${e}`));
+  const send = unary.send.bind(unary);
+  const spy = vi.spyOn(unary, "send").mockImplementation(async (...args) => {
+    const body = JSON.stringify(args[1], (_, v: unknown) => (typeof v === "bigint" ? v.toString() : v));
+    log.push(`${at()}ms SEND ${String(args[0])} ${body?.slice(0, 200)}\n${new Error().stack?.split("\n").slice(2, 40).join("\n")}`);
+    return await send(...args);
+  });
+  onTestFailed(() => {
+    console.log(`PROBE SY-6899 log:\n${log.join("\n")}`);
+  });
+  onTestFinished(() => {
+    g.__sy6899 = undefined;
+    offMissed();
+    offEpoch();
+  });
+  return spy;
+};
 
 /** Records each response to target from now on, as the promise the caller awaits. */
 export const recordResponses = (
