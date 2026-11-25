@@ -33,8 +33,9 @@ type planned struct {
 	// restricts are the records of the restrict entries, in the order that the delete
 	// reaches them.
 	restricts []resource.ID
-	// batches hold the delete of each type of record, in the order that the types first
-	// appear in the delete.
+	// batches hold the delete of each type of record, in the order that Apply deletes
+	// them: a batch that removes a holder of a record of another batch comes first, and
+	// otherwise the order that the types first appear in the delete.
 	batches []batch
 }
 
@@ -79,14 +80,78 @@ func (s *Service) planDelete(
 			batch{deleter: d, removed: removed, effects: effects},
 		)
 	}
-	s.addEntries(&p)
+	// A Deleter plans its own type whole, so only another batch removes a holder.
+	var removed map[resource.ID]int
+	if len(p.batches) > 1 {
+		removed = make(map[resource.ID]int)
+		for i, b := range p.batches {
+			for _, id := range b.removed {
+				removed[id] = i
+			}
+		}
+		if err := s.orderBatches(&p, removed); err != nil {
+			return planned{}, err
+		}
+	}
+	s.addEntries(&p, removed)
 	return p, nil
+}
+
+// orderBatches orders p.batches so that each batch that removes a holder of a record of
+// another batch comes before that batch. Batches with no such link keep their order.
+// removed maps each record that p removes to the index of its batch. A cycle of links
+// fails, since no order deletes each holder first.
+func (s *Service) orderBatches(p *planned, removed map[resource.ID]int) error {
+	n := len(p.batches)
+	// first[i*n+j] reports that batch i removes a holder of a record of batch j.
+	first := make([]bool, n*n)
+	waits := make([]int, n)
+	for j, b := range p.batches {
+		for _, effects := range [][]gorp.DeleteEffect{
+			b.effects.Restricts,
+			b.effects.Cascades,
+			b.effects.Detaches,
+			b.effects.Weak,
+		} {
+			for _, e := range effects {
+				i, ok := removed[s.cfg.RecordOf(e.Holder)]
+				if ok && i != j && !first[i*n+j] {
+					first[i*n+j] = true
+					waits[j]++
+				}
+			}
+		}
+	}
+	ordered := make([]batch, 0, n)
+	placed := make([]bool, n)
+	for range n {
+		next := -1
+		for i := range n {
+			if !placed[i] && waits[i] == 0 {
+				next = i
+				break
+			}
+		}
+		if next < 0 {
+			return errors.New("[impact] - the records hold each other in a cycle")
+		}
+		placed[next] = true
+		ordered = append(ordered, p.batches[next])
+		for j := range n {
+			if first[next*n+j] {
+				waits[j]--
+			}
+		}
+	}
+	p.batches = ordered
+	return nil
 }
 
 // addEntries gives each record that holds a record of p.batches one entry, for the
 // first of its effects in the order restrict, cascade, detach, and counts in p.Kept
-// each other record that keeps a weak link.
-func (s *Service) addEntries(p *planned) {
+// each other record that keeps a weak link. A holder that removed holds, since p
+// deletes it, gets neither.
+func (s *Service) addEntries(p *planned, removed map[resource.ID]int) {
 	var restricts, cascades, detaches int
 	for _, b := range p.batches {
 		restricts += len(b.effects.Restricts)
@@ -102,7 +167,7 @@ func (s *Service) addEntries(p *planned) {
 	effectOf := make(map[resource.ID]Effect, restricts+detaches)
 	add := func(e gorp.DeleteEffect, effect Effect) (resource.ID, bool) {
 		record := s.cfg.RecordOf(e.Holder)
-		if effectOf[record] != "" {
+		if effectOf[record] != "" || hasKey(removed, record) {
 			return record, false
 		}
 		effectOf[record] = effect
@@ -138,7 +203,8 @@ func (s *Service) addEntries(p *planned) {
 	}
 	for _, b := range p.batches {
 		for _, e := range b.effects.Weak {
-			if record := s.cfg.RecordOf(e.Holder); !hasKey(effectOf, record) {
+			record := s.cfg.RecordOf(e.Holder)
+			if !hasKey(effectOf, record) && !hasKey(removed, record) {
 				effectOf[record] = ""
 				p.Kept++
 			}
@@ -147,7 +213,7 @@ func (s *Service) addEntries(p *planned) {
 	slices.SortFunc(p.Entries, compareEntries)
 }
 
-func hasKey(m map[resource.ID]Effect, k resource.ID) bool {
+func hasKey[V any](m map[resource.ID]V, k resource.ID) bool {
 	_, ok := m[k]
 	return ok
 }
