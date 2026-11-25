@@ -42,7 +42,17 @@ func NewMigration(cfg MigrationConfig) gorp.Migration {
 		key,
 		func(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation) error {
 			intern := cfg.Intern(tx)
-			o := &overrides{tx: tx, intern: intern, copies: map[string]symbol.Key{}}
+			o := &overrides{
+				tx:     tx,
+				intern: intern,
+				create: func(ctx context.Context, sym *symbol.Symbol) error {
+					sym.Key = uuid.New()
+					return gorp.NewCreate[symbol.Key, symbol.Symbol]().
+						Entry(sym).
+						Exec(ctx, tx)
+				},
+				copies: map[string]symbol.Key{},
+			}
 			return migrate.NewInstrumentedEntry(
 				key,
 				func(
@@ -60,11 +70,17 @@ func NewMigration(cfg MigrationConfig) gorp.Migration {
 					if err = internLights(ctx, &s, old, intern); err != nil {
 						return Schematic{}, err
 					}
+					if err = actuate(ctx, tx, old); err != nil {
+						return Schematic{}, err
+					}
 					if err = o.apply(ctx, &s, old); err != nil {
 						return Schematic{}, err
 					}
+					if err = resolveSymbols(ctx, tx, &s); err != nil {
+						return Schematic{}, err
+					}
 					warnEmptyThresholds(old, ins)
-					return s, markMissing(ctx, tx, &s)
+					return s, nil
 				},
 			).Run(ctx, tx, ins)
 		},

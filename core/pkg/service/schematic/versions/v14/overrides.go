@@ -12,24 +12,28 @@ package v14
 import (
 	"context"
 	"encoding/json/v2"
-	"reflect"
+	"maps"
 	"slices"
+	"strconv"
 	"uuid"
 
 	"github.com/synnaxlabs/gorp"
+	servicecolor "github.com/synnaxlabs/synnax/pkg/service/color/versions/v0"
 	enumeration "github.com/synnaxlabs/synnax/pkg/service/enumeration/versions/v0"
 	symbolv4 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v4"
 	symbol "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v5"
 	v13 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v13"
+	xcolor "github.com/synnaxlabs/x/color/versions/v2"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/set"
 )
 
-// overrides moves the state overrides of custom nodes to new records in one migration
-// run. The symbols are still v4, since the symbol migration runs after this one.
+// overrides moves the state overrides of custom nodes to new records.
 type overrides struct {
 	tx     gorp.Tx
 	intern symbol.Intern
+	// create creates each copy.
+	create func(ctx context.Context, sym *symbol.Symbol) error
 	// copies holds the copy of a symbol for each source symbol and set of overrides.
 	copies map[string]symbol.Key
 }
@@ -49,7 +53,7 @@ func (o *overrides) apply(ctx context.Context, s *Schematic, old v13.Schematic) 
 			return err
 		}
 		if ref, ok := cfg.Spec.Variant.(symbol.CustomRef); ok {
-			src, found, err := o.source(ctx, ref.Key)
+			src, found, err := retrieveSymbol(ctx, o.tx, ref.Key)
 			if err != nil {
 				return err
 			}
@@ -64,106 +68,359 @@ func (o *overrides) apply(ctx context.Context, s *Schematic, old v13.Schematic) 
 	return nil
 }
 
-// source returns the stored symbol with key, or false when the store does not hold it.
-func (o *overrides) source(
-	ctx context.Context,
-	key symbol.Key,
-) (symbolv4.Symbol, bool, error) {
-	var src symbolv4.Symbol
-	err := gorp.NewRetrieve[symbolv4.Key, symbolv4.Symbol]().
-		Where(gorp.MatchKeys[symbolv4.Key, symbolv4.Symbol](key)).
-		Entry(&src).
-		Exec(ctx, o.tx)
-	if errors.Is(err, query.ErrNotFound) {
-		return src, false, nil
-	}
-	return src, err == nil, err
-}
-
 // node returns cfg with the enumeration or the copy of src that draws states.
 func (o *overrides) node(
 	ctx context.Context,
 	cfg SymbolNodeConfig,
-	src symbolv4.Symbol,
+	src symbol.Symbol,
 	states []symbolv4.State,
 	schematic string,
 ) (SymbolNodeConfig, error) {
-	entries, drawn, err := redraw(ctx, src.Data, states)
-	if err != nil || (entries == nil && drawn == nil) {
-		return cfg, err
+	var state symbol.EnumerationState
+	if len(src.Data.States) > 0 {
+		state, _ = src.Data.States[0].Variant.(symbol.EnumerationState)
+	}
+	entries, err := entriesOf(ctx, o.tx, state)
+	if err != nil {
+		return SymbolNodeConfig{}, err
+	}
+	recolored, drawn, err := redraw(src.Data, state.Key, entries, states)
+	if err != nil {
+		return SymbolNodeConfig{}, err
 	}
 	if drawn != nil {
-		key, err := o.copy(ctx, src, *drawn, states, schematic)
+		c := symbol.Symbol{Name: src.Name + " (" + schematic + ")", Group: src.Group}
+		c.Data = *drawn
+		key, err := o.copy(ctx, src.Key, states, c, recolored)
+		if err != nil {
+			return SymbolNodeConfig{}, err
+		}
 		cfg.Spec = symbol.Ref{Variant: symbol.CustomRef{Key: key}}
-		return cfg, err
+		return cfg, nil
+	}
+	if recolored == nil {
+		return cfg, nil
 	}
 	name := src.Name + ": " + labelOr(cfg.Label.Label, schematic)
-	key, err := o.intern(ctx, name, entries)
+	key, err := o.intern(ctx, name, recolored)
+	if err != nil {
+		return SymbolNodeConfig{}, err
+	}
 	cfg.States[0].Enumeration = &key
-	return cfg, err
+	return cfg, nil
 }
 
-// redraw returns the entries of an enumeration that draws the overrides states on src,
-// or the spec of a copy of src when an enumeration cannot draw them. It returns neither
-// when the overrides equal src.
-func redraw(
-	ctx context.Context,
-	src symbolv4.Spec,
-	states []symbolv4.State,
-) ([]enumeration.Entry, *symbolv4.Spec, error) {
-	// State i drew the regions of override i, as a 0.62 Console drew it.
-	drawn := src
-	drawn.States = slices.Clone(src.States)
-	for i := range min(len(states), len(drawn.States)) {
-		drawn.States[i].Regions = states[i].Regions
-	}
-	want, entries, err := symbol.MigrateStoredSpec(ctx, drawn)
-	if err != nil {
-		return nil, nil, err
-	}
-	has, hasEntries, err := symbol.MigrateStoredSpec(ctx, src)
-	if err != nil {
-		return nil, nil, err
-	}
-	if !reflect.DeepEqual(want, has) {
-		return nil, &drawn, nil
-	}
-	if reflect.DeepEqual(entries, hasEntries) {
-		return nil, nil, nil
-	}
-	return entries, nil, nil
-}
-
-// copy returns the key of a copy of src that draws spec, in the group of src. Nodes
-// share a copy when they have the same source symbol and the same overrides.
+// copy creates c, a copy of the symbol with key src, with an enumeration of entries on
+// its first state, and returns its key. Nodes share a copy when they have the same
+// source symbol and the same overrides states.
 func (o *overrides) copy(
 	ctx context.Context,
-	src symbolv4.Symbol,
-	spec symbolv4.Spec,
+	src symbol.Key,
 	states []symbolv4.State,
-	schematic string,
+	c symbol.Symbol,
+	entries []enumeration.Entry,
 ) (symbol.Key, error) {
 	b, err := json.Marshal(states)
 	if err != nil {
 		return uuid.Nil(), err
 	}
-	id := src.Key.String() + string(b)
+	id := src.String() + string(b)
 	if key, ok := o.copies[id]; ok {
 		return key, nil
 	}
-	c := symbolv4.Symbol{
-		Key:   uuid.New(),
-		Name:  src.Name + " (" + schematic + ")",
-		Data:  spec,
-		Group: src.Group,
+	e, err := o.intern(ctx, c.Name, entries)
+	if err != nil {
+		return uuid.Nil(), err
 	}
-	if err = gorp.NewCreate[symbolv4.Key, symbolv4.Symbol]().
-		Entry(&c).
-		Exec(ctx, o.tx); err != nil {
+	c.Data.States = slices.Clone(c.Data.States)
+	state := c.Data.States[0].Variant.(symbol.EnumerationState)
+	state.Enumeration = &e
+	c.Data.States[0] = symbol.State{Variant: state}
+	if err = o.create(ctx, &c); err != nil {
 		return uuid.Nil(), err
 	}
 	o.copies[id] = c.Key
 	return c.Key, nil
+}
+
+// entriesOf returns the entries of the stored enumeration of state, or none when state
+// has none.
+func entriesOf(
+	ctx context.Context,
+	tx gorp.Tx,
+	state symbol.EnumerationState,
+) ([]enumeration.Entry, error) {
+	if state.Enumeration == nil {
+		return nil, nil
+	}
+	var e enumeration.Enumeration
+	err := gorp.NewRetrieve[enumeration.Key, enumeration.Enumeration]().
+		Where(gorp.MatchKeys[enumeration.Key, enumeration.Enumeration](*state.Enumeration)).
+		Entry(&e).
+		Exec(ctx, tx)
+	return e.Entries, err
+}
+
+// paints is the stroke and fill that a part shows.
+type paints struct{ stroke, fill *xcolor.Color }
+
+func (p paints) equal(o paints) bool {
+	same := func(a, b *xcolor.Color) bool {
+		return (a == nil) == (b == nil) && (a == nil || *a == *b)
+	}
+	return same(p.stroke, o.stroke) && same(p.fill, o.fill)
+}
+
+// drawing is what a symbol shows: the paints of each part, for each value.
+type drawing map[float64]map[string]paints
+
+func (d drawing) equal(o drawing) bool {
+	return maps.EqualFunc(d, o, func(a, b map[string]paints) bool {
+		return maps.EqualFunc(a, b, paints.equal)
+	})
+}
+
+// draw returns what spec shows with entries, after its looks apply in order.
+func draw(spec symbol.Spec, entries []enumeration.Entry) drawing {
+	d := drawing{}
+	for _, e := range entries {
+		parts := map[string]paints{}
+		for _, l := range spec.Looks {
+			if l.Part == nil || !applies(l.When, e.Value) {
+				continue
+			}
+			p := parts[*l.Part]
+			if l.Stroke != nil {
+				p.stroke = paintColor(l.Stroke, e)
+			}
+			if l.Fill != nil {
+				p.fill = paintColor(l.Fill, e)
+			}
+			parts[*l.Part] = p
+		}
+		maps.DeleteFunc(parts, func(_ string, p paints) bool {
+			return p.stroke == nil && p.fill == nil
+		})
+		d[e.Value] = parts
+	}
+	return d
+}
+
+func applies(c *symbol.Condition, v float64) bool {
+	if c == nil {
+		return true
+	}
+	eq, ok := c.Variant.(symbol.EqualsCondition)
+	return ok && slices.Contains(eq.Values, v)
+}
+
+// paintColor returns the color that p paints at the value of e, or nil when the node or
+// the background sets the color.
+func paintColor(p *symbol.Paint, e enumeration.Entry) *xcolor.Color {
+	switch pv := p.Variant.(type) {
+	case symbol.EntryPaint:
+		return entryColor(e)
+	case symbol.ColorPaint:
+		if f, ok := pv.Value.Variant.(servicecolor.FixedRef); ok {
+			return &f.Value
+		}
+	}
+	return nil
+}
+
+// overridden returns what a 0.62 Console drew for a node with overrides states on spec,
+// where state i showed the regions of override i, and the spec with the parts and the
+// markup that those regions need.
+func overridden(
+	spec symbol.Spec,
+	entries []enumeration.Entry,
+	states []symbolv4.State,
+) (symbol.Spec, drawing, error) {
+	want := maps.Clone(draw(spec, entries))
+	svg, ok := spec.Drawing.Variant.(symbol.SvgDrawing)
+	if !ok {
+		return spec, nil, errors.New("only an svg drawing has regions")
+	}
+	spec.Parts = slices.Clone(spec.Parts)
+	for i, st := range states[:min(len(states), len(entries))] {
+		parts := map[string]paints{}
+		for _, r := range st.Regions {
+			if r.StrokeColor == nil && r.FillColor == nil {
+				continue
+			}
+			var sels []string
+			sels, svg.Markup = symbol.ResolveRegion(svg.Markup, r.Selectors)
+			if len(sels) == 0 {
+				continue
+			}
+			key := partKey(&spec, r, sels)
+			parts[key] = paints{stroke: r.StrokeColor, fill: r.FillColor}
+		}
+		want[entries[i].Value] = parts
+	}
+	spec.Drawing = symbol.Drawing{Variant: svg}
+	return spec, want, nil
+}
+
+// partKey returns the key of the part of spec with selectors sels, and adds a part for
+// r when spec has none.
+func partKey(spec *symbol.Spec, r symbolv4.Region, sels []string) string {
+	for _, p := range spec.Parts {
+		if len(p.Selectors) == len(sels) &&
+			!slices.ContainsFunc(sels, func(s string) bool {
+				return !slices.Contains(p.Selectors, s)
+			}) {
+			return p.Key
+		}
+	}
+	key := r.Key
+	for n := 2; slices.ContainsFunc(spec.Parts, func(p symbol.Part) bool {
+		return p.Key == key
+	}); n++ {
+		key = r.Key + "-" + strconv.Itoa(n)
+	}
+	spec.Parts = append(
+		spec.Parts,
+		symbol.Part{Key: key, Name: r.Name, Selectors: sels},
+	)
+	return key
+}
+
+// redraw returns the entries of an enumeration that draws the overrides states on spec,
+// a symbol whose enumeration state is state. When an enumeration cannot draw them, it
+// also returns a copy of spec that can. It returns neither when states equal spec.
+func redraw(
+	spec symbol.Spec,
+	state string,
+	entries []enumeration.Entry,
+	states []symbolv4.State,
+) ([]enumeration.Entry, *symbol.Spec, error) {
+	c, want, err := overridden(spec, entries, states)
+	if err != nil || want.equal(draw(spec, entries)) {
+		return nil, nil, err
+	}
+	recolored := recolor(spec.Looks, entries, want)
+	if len(c.Parts) == len(spec.Parts) && draw(spec, recolored).equal(want) {
+		return recolored, nil, nil
+	}
+	c.Looks = repaint(spec.Looks, state, recolored, want)
+	return recolored, &c, nil
+}
+
+// recolor returns entries in the color that want paints, at each value, on the first
+// part that a look paints with the entry.
+func recolor(
+	looks []symbol.Look,
+	entries []enumeration.Entry,
+	want drawing,
+) []enumeration.Entry {
+	out := slices.Clone(entries)
+	for i, e := range out {
+		out[i].Color = nil
+		for _, l := range looks {
+			if l.Part == nil || !applies(l.When, e.Value) {
+				continue
+			}
+			p := want[e.Value][*l.Part]
+			if isEntry(l.Stroke) {
+				out[i].Color = fixed(p.stroke)
+				break
+			}
+			if isEntry(l.Fill) {
+				out[i].Color = fixed(p.fill)
+				break
+			}
+		}
+	}
+	return out
+}
+
+// repaint returns looks with no paint on parts but the paints that paintColor cannot
+// resolve, then a look for each part at each value of state that paints it as want
+// does. A paint in the entry's color paints with the entry.
+func repaint(
+	looks []symbol.Look,
+	state string,
+	entries []enumeration.Entry,
+	want drawing,
+) []symbol.Look {
+	out := make([]symbol.Look, 0, len(looks))
+	taken := set.Set[string]{}
+	for _, l := range looks {
+		if l.Part != nil {
+			l.Stroke, l.Fill = unresolved(l.Stroke), unresolved(l.Fill)
+			if l.Stroke == nil && l.Fill == nil && l.Hidden == nil && l.Motion == nil &&
+				l.Blink == nil {
+				continue
+			}
+		}
+		taken.Add(l.Key)
+		out = append(out, l)
+	}
+	for _, e := range entries {
+		paint := func(c *xcolor.Color) *symbol.Paint {
+			if c == nil {
+				return nil
+			}
+			if ec := entryColor(e); ec != nil && *ec == *c {
+				return &symbol.Paint{Variant: symbol.EntryPaint{State: state}}
+			}
+			return colorPaint(*c)
+		}
+		for _, part := range slices.Sorted(maps.Keys(want[e.Value])) {
+			key := "look-" + strconv.Itoa(len(out)+1)
+			for n := len(out) + 2; taken.Contains(key); n++ {
+				key = "look-" + strconv.Itoa(n)
+			}
+			taken.Add(key)
+			out = append(out, symbol.Look{
+				Key:  key,
+				Part: new(part),
+				When: &symbol.Condition{Variant: symbol.EqualsCondition{
+					State:  state,
+					Values: []float64{e.Value},
+				}},
+				Stroke: paint(want[e.Value][part].stroke),
+				Fill:   paint(want[e.Value][part].fill),
+			})
+		}
+	}
+	return out
+}
+
+// unresolved returns p when the node or the background sets its color, and otherwise
+// nil.
+func unresolved(p *symbol.Paint) *symbol.Paint {
+	if p == nil {
+		return nil
+	}
+	switch p.Variant.(type) {
+	case symbol.NodePaint, symbol.ContrastPaint:
+		return p
+	}
+	return nil
+}
+
+func entryColor(e enumeration.Entry) *xcolor.Color {
+	if e.Color == nil {
+		return nil
+	}
+	if f, ok := e.Color.Variant.(servicecolor.FixedRef); ok {
+		return &f.Value
+	}
+	return nil
+}
+
+func isEntry(p *symbol.Paint) bool {
+	if p == nil {
+		return false
+	}
+	_, ok := p.Variant.(symbol.EntryPaint)
+	return ok
+}
+
+func colorPaint(c xcolor.Color) *symbol.Paint {
+	return &symbol.Paint{Variant: symbol.ColorPaint{Value: *fixed(&c)}}
 }
 
 // withoutOverrides returns cfg with no state overrides, and the overrides it had.

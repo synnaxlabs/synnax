@@ -10,7 +10,6 @@
 package v5_test
 
 import (
-	"context"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -22,7 +21,6 @@ import (
 	v4 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v4"
 	v5 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v5"
 	color "github.com/synnaxlabs/x/color/versions/v2"
-	"github.com/synnaxlabs/x/set"
 	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
@@ -317,16 +315,13 @@ var _ = Describe("Migration", func() {
 			To(Succeed())
 		return sym
 	}
-	migrate := func(ctx SpecContext, actuators ...v4.Key) {
+	migrate := func(ctx SpecContext) {
 		GinkgoHelper()
 		MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v5.Key, v5.Symbol]{
 			DB: db,
 			Migrations: []gorp.Migration{v5.NewMigration(v5.MigrationConfig{
 				Intern: func(tx gorp.Tx) v5.Intern {
 					return enumSvc.NewWriter(tx).NewInterner().Intern
-				},
-				Actuators: func(context.Context, gorp.Tx) (set.Set[v5.Key], error) {
-					return set.New(actuators...), nil
 				},
 			})},
 		}))
@@ -429,19 +424,71 @@ var _ = Describe("Migration", func() {
 		Expect(enumerationOf(ctx, retrieve(ctx, other.Key)).Key).ToNot(Equal(shared))
 	})
 
-	It("Should give a symbol that an actuator node draws the commands of an actuator",
-		func(ctx SpecContext) {
-			drawn, plain := create(ctx, valve()), create(ctx, valve())
-			migrate(ctx, drawn.Key)
-			Expect(retrieve(ctx, drawn.Key).Data.Commands).To(HaveLen(2))
-			Expect(retrieve(ctx, drawn.Key).Data.Interactions).To(HaveLen(1))
-			Expect(retrieve(ctx, plain.Key).Data.Commands).To(BeEmpty())
-		},
-	)
-
 	It("Should give a symbol with no states no enumeration", func(ctx SpecContext) {
 		old := create(ctx, v4.Spec{SVG: "<svg/>", Variant: "static"})
 		migrate(ctx)
 		Expect(retrieve(ctx, old.Key).Data.States).To(BeEmpty())
+	})
+})
+
+var _ = Describe("Actuate", func() {
+	within := v5.Matcher{Variant: v5.WithinMatcher{
+		Bounds: spatial.Bounds{Lower: 0.9, Upper: 1.1},
+	}}
+	It("Should give a spec with no states the state active", func() {
+		spec := v5.Actuate(v5.Spec{})
+		Expect(spec.States).To(Equal([]v5.State{{Variant: v5.EnumerationState{
+			BaseState: v5.BaseState{Key: "active", Name: "Active"},
+			Match:     within,
+		}}}))
+		Expect(spec.Commands).To(HaveLen(2))
+		Expect(spec.Interactions).To(HaveLen(1))
+	})
+
+	It("Should keep the enumeration of the state active", func() {
+		e := uuid.New()
+		in := v5.Spec{States: []v5.State{{Variant: v5.EnumerationState{
+			BaseState:   v5.BaseState{Key: "active", Name: "Active"},
+			Enumeration: &e,
+			Match:       v5.Matcher{Variant: v5.ExactMatcher{}},
+		}}}}
+		spec := v5.Actuate(in)
+		Expect(spec.States).To(Equal([]v5.State{{Variant: v5.EnumerationState{
+			BaseState:   v5.BaseState{Key: "active", Name: "Active"},
+			Enumeration: &e,
+			Match:       within,
+		}}}))
+		Expect(in.States[0].Variant.(v5.EnumerationState).Match).
+			To(Equal(v5.Matcher{Variant: v5.ExactMatcher{}}))
+	})
+})
+
+var _ = Describe("ResolveRegion", func() {
+	It("Should keep a selector that names shapes", func() {
+		sels, markup := v5.ResolveRegion(`<svg><rect class="a"/></svg>`, []string{".a"})
+		Expect(sels).To(Equal([]string{".a"}))
+		Expect(markup).To(Equal(`<svg><rect class="a"/></svg>`))
+	})
+
+	It("Should name a shape that a selector picks by position", func() {
+		sels, markup := v5.ResolveRegion(
+			`<svg><rect data-region-id="region-1"/><rect/></svg>`,
+			[]string{"rect:nth-of-type(2)", "rect:nth-of-type(1)"},
+		)
+		Expect(sels).To(Equal([]string{
+			`[data-region-id="region-2"]`,
+			`[data-region-id="region-1"]`,
+		}))
+		Expect(markup).To(Equal(
+			`<svg><rect data-region-id="region-1"/><rect data-region-id="region-2"/></svg>`,
+		))
+	})
+
+	It("Should drop a selector that picks no shape", func() {
+		sels, _ := v5.ResolveRegion(
+			`<svg><rect/></svg>`,
+			[]string{"circle:nth-of-type(1)"},
+		)
+		Expect(sels).To(BeEmpty())
 	})
 })
