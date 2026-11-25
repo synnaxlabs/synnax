@@ -11,6 +11,7 @@ import "@/feature/schematic/symbol/edit/Edit.css";
 
 import type { schematic } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
+import { CSS as PCSS } from "@synnaxlabs/lyra/css";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -354,6 +355,7 @@ export const Preview = ({
                 {dims != null && (
                   <svg
                     ref={setSVG}
+                    className={PCSS.symbolColored}
                     xmlns="http://www.w3.org/2000/svg"
                     viewBox={dimensions.svgViewBox(dims)}
                     {...dimensions.scale(
