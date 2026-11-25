@@ -27,17 +27,26 @@ export const createFields = (inferred: Inferred[]): icd.JSONField[] => {
 };
 
 /**
+ * @returns name, or name with a number when a message in taken holds it, such as
+ * `plant/oven 2`.
+ */
+export const availableName = (name: string, taken: icd.Message[]): string => {
+  const names = new Set(taken.map((m) => m.name));
+  let next = name;
+  for (let n = 2; names.has(next); n++) next = `${name} ${n}`;
+  return next;
+};
+
+/**
  * @returns a JSON message of fields named name, or `Untitled` when name is empty. A
- * name that a message in taken holds gets a number, such as `plant/oven 2`.
+ * name that a message in taken holds gets a number, as availableName gives.
  */
 export const createMessage = (
   name: string,
   fields: icd.JSONField[],
   taken: icd.Message[],
-): icd.Message => {
-  const names = new Set(taken.map((m) => m.name));
-  const base = name === "" ? "Untitled" : name;
-  let next = base;
-  for (let n = 2; names.has(next); n++) next = `${base} ${n}`;
-  return { key: uuid.create(), name: next, payload: { format: "json", fields } };
-};
+): icd.Message => ({
+  key: uuid.create(),
+  name: availableName(name === "" ? "Untitled" : name, taken),
+  payload: { format: "json", fields },
+});
