@@ -120,6 +120,12 @@ export interface RenamePayload {
   name: string;
 }
 
+export interface ReorderPayload {
+  key: string;
+  /** The place in the order that the Core takes. */
+  index: number;
+}
+
 export interface RecordLoginPayload {
   key: string;
   /** When the login finished, in milliseconds since the Unix epoch. */
@@ -168,6 +174,12 @@ const { actions, reducer } = createSlice({
       const core = state.cores[key];
       if (core != null) core.name = name;
     },
+    reorder: (state, { payload: { key, index } }: PayloadAction<ReorderPayload>) => {
+      const from = state.order.indexOf(key);
+      if (from === -1) return;
+      state.order.splice(from, 1);
+      state.order.splice(index, 0, key);
+    },
     // a removed Core stays removed; the record keeps any edit made during the login
     recordLogin: (
       state,
@@ -197,6 +209,7 @@ export const {
   clearSelected,
   remove,
   rename,
+  reorder,
   recordLogin,
   setClusterKey,
 } = actions;

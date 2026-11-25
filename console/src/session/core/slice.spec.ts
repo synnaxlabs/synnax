@@ -238,6 +238,31 @@ describe("remove", () => {
   });
 });
 
+describe("reorder", () => {
+  const CHARLIE: Core.Core = { ...BASE, key: "charlie", name: "Charlie" };
+
+  it("should move a Core down to the place of the one it drops on", () => {
+    const state = reduce(
+      withCores(ALPHA, BRAVO, CHARLIE),
+      Core.reorder({ key: ALPHA.key, index: 2 }),
+    );
+    expect(state.order).toEqual([BRAVO.key, CHARLIE.key, ALPHA.key]);
+  });
+
+  it("should move a Core up to the place of the one it drops on", () => {
+    const state = reduce(
+      withCores(ALPHA, BRAVO, CHARLIE),
+      Core.reorder({ key: CHARLIE.key, index: 0 }),
+    );
+    expect(state.order).toEqual([CHARLIE.key, ALPHA.key, BRAVO.key]);
+  });
+
+  it("should drop a move of a missing Core", () => {
+    const state = reduce(withCores(ALPHA, BRAVO), Core.reorder({ key: "x", index: 0 }));
+    expect(state.order).toEqual([ALPHA.key, BRAVO.key]);
+  });
+});
+
 describe("select / clearSelected", () => {
   it("should set the selected key", () => {
     const state = reduce(withCores(ALPHA), Core.select(ALPHA.key));
