@@ -182,6 +182,6 @@ func (c *core) snapshot() *Snapshot {
 	for _, k := range keys {
 		s.Kills = append(s.Kills, c.channels[k].kills...)
 	}
-	s.Kills = append(s.Kills, c.dropped...)
+	s.Kills = append(s.Kills, c.droppedKills...)
 	return s
 }
