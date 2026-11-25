@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	channeltestutil "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/http/server"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
@@ -37,12 +38,27 @@ import (
 
 var _ = Describe("Service", func() {
 	var (
-		stat    *status.Service
-		rackSvc *rack.Service
-		secrets *secret.Service
-		svc     *server.Service
-		tx      gorp.Tx
+		stat       *status.Service
+		rackSvc    *rack.Service
+		secrets    *secret.Service
+		channelSvc *channel.Service
+		svc        *server.Service
+		tx         gorp.Tx
+		channels   channel.Keys
 	)
+	createChannels := func(ctx context.Context, count int) channel.Keys {
+		GinkgoHelper()
+		chs := make([]channel.Channel, count)
+		for i := range chs {
+			chs[i] = channel.Channel{
+				Name:     channeltestutil.UniqueChannelName(),
+				DataType: telem.Float64T,
+				Virtual:  true,
+			}
+		}
+		Expect(channelSvc.NewWriter(tx).CreateMany(ctx, &chs)).To(Succeed())
+		return channel.KeysFromChannels(chs)
+	}
 	BeforeEach(func(ctx SpecContext) {
 		MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db}))
 		MustOpen(label.OpenService(ctx, label.ServiceConfig{DB: db}))
@@ -50,7 +66,7 @@ var _ = Describe("Service", func() {
 		roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{DB: db}))
 		rackSvc = MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:         db,
-			HostKey:    1,
+			HostKey:    node.Identity.HostKey,
 			Status:     stat,
 			DriverRole: MustSucceed(racktestutil.CreateDriverRole(ctx, db, roleSvc)),
 		}))
@@ -64,9 +80,17 @@ var _ = Describe("Service", func() {
 			Status: stat,
 			Secret: secrets,
 		}))
+		channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
+			Channel: node.Channel,
+			DB:      db,
+			HostKey: node.Identity.HostKey,
+			Status:  stat,
+		}))
 		tx = DeferClose(db.OpenTx())
+		channels = createChannels(ctx, 6)
 	})
 
+	key := func(n int) channel.Key { return channels[n] }
 	newServer := func() server.Server {
 		var s server.Server
 		s.SetDefaults()
@@ -86,8 +110,8 @@ var _ = Describe("Service", func() {
 				Query:  query,
 			},
 			Pointer: pointer,
-			Index:   1,
-			Channel: 2,
+			Index:   key(1),
+			Channel: key(2),
 		}
 	}
 	write := func(path string, ch channel.Key, query ...http.QueryParam) server.Write {
@@ -170,6 +194,37 @@ var _ = Describe("Service", func() {
 		})
 	})
 
+	Describe("Channels", func() {
+		It("Should reject a binding to a missing channel", func(ctx SpecContext) {
+			s := newServer()
+			s.Writes = []server.Write{write("/valve", 99999)}
+			Expect(svc.NewWriter(tx).Create(ctx, &s)).
+				To(MatchError(ContainSubstring("channel 99999 does not exist")))
+		})
+
+		DescribeTable("Should keep a channel that a server binds from being deleted",
+			func(ctx SpecContext, bound func(s *server.Server) channel.Key) {
+				s := newServer()
+				ch := bound(&s)
+				Expect(svc.NewWriter(tx).Create(ctx, &s)).To(Succeed())
+				Expect(channelSvc.NewWriter(tx).Delete(ctx, ch, false)).
+					To(MatchError(validate.ErrValidation))
+			},
+			Entry("a read index", func(s *server.Server) channel.Key {
+				s.Reads = []server.Read{read("/now", "/t")}
+				return key(1)
+			}),
+			Entry("a read channel", func(s *server.Server) channel.Key {
+				s.Reads = []server.Read{read("/now", "/t")}
+				return key(2)
+			}),
+			Entry("a write channel", func(s *server.Server) channel.Key {
+				s.Writes = []server.Write{write("/valve", key(3))}
+				return key(3)
+			}),
+		)
+	})
+
 	Describe("Create", func() {
 		It("Should mint a key, store the server, and write an unknown status", func(
 			ctx SpecContext,
@@ -233,17 +288,23 @@ var _ = Describe("Service", func() {
 				a := http.QueryParam{Parameter: "a", Value: "1"}
 				b := http.QueryParam{Parameter: "b", Value: "2"}
 				s.Writes = []server.Write{
-					write("/valve", 3, a, b),
-					write("/valve", 4, b, a),
+					write("/valve", key(3), a, b),
+					write("/valve", key(4), b, a),
 				}
 			}),
 			Entry("a duplicate write", func(s *server.Server) {
-				s.Writes = []server.Write{write("/valve", 3), write("valve", 4)}
+				s.Writes = []server.Write{
+					write("/valve", key(3)),
+					write("valve", key(4)),
+				}
 			}),
 			Entry(
 				"a duplicate write with a doubled leading slash",
 				func(s *server.Server) {
-					s.Writes = []server.Write{write("/valve", 3), write("//valve", 4)}
+					s.Writes = []server.Write{
+						write("/valve", key(3)),
+						write("//valve", key(4)),
+					}
 				},
 			),
 		)
@@ -300,7 +361,7 @@ var _ = Describe("Service", func() {
 				_ secret.Key,
 			) {
 				s.Writes = []server.Write{
-					write("/valve", 3, http.QueryParam{Value: "1"}),
+					write("/valve", key(3), http.QueryParam{Value: "1"}),
 				}
 			}, "writes.0.request.query.0.parameter"),
 		)
@@ -325,7 +386,7 @@ var _ = Describe("Service", func() {
 				http.QueryParam{Parameter: "units", Value: "si"},
 				http.QueryParam{Parameter: "city", Value: "Austin"},
 			)}
-			s.Writes = []server.Write{write("//", 3), write("/valve/", 4)}
+			s.Writes = []server.Write{write("//", key(3)), write("/valve/", key(4))}
 			Expect(svc.NewWriter(tx).Create(ctx, &s)).To(Succeed())
 			got := retrieve(ctx, s.Key)
 			Expect(got.Reads[0].Request.Path).To(Equal("/weather/now/"))
@@ -344,19 +405,19 @@ var _ = Describe("Service", func() {
 			post := read("/now", "/t")
 			post.Request.Method = http.MethodPost
 			reindexed := read("/now", "/t")
-			reindexed.Index = 5
+			reindexed.Index = key(5)
 			s.Reads = []server.Read{
 				read("/now", "/t"),
 				post,
 				read("/now", "/t", http.QueryParam{Parameter: "a", Value: "1"}),
 				reindexed,
 			}
-			put := write("/valve", 3)
+			put := write("/valve", key(3))
 			put.Request.Method = http.MethodPut
 			s.Writes = []server.Write{
-				write("/valve", 3),
+				write("/valve", key(3)),
 				put,
-				write("/valve", 3, http.QueryParam{Parameter: "id", Value: "1"}),
+				write("/valve", key(3), http.QueryParam{Parameter: "id", Value: "1"}),
 			}
 			Expect(svc.NewWriter(tx).Create(ctx, &s)).To(Succeed())
 		})
@@ -391,7 +452,7 @@ var _ = Describe("Service", func() {
 			Expect(svc.NewWriter(tx).Apply(ctx, s.Key, server.Update{
 				Variant: server.ConfigurationUpdate{Configuration: server.Configuration{
 					Reads:  []server.Read{read("/weather", "/temp")},
-					Writes: []server.Write{write("/valve", 3)},
+					Writes: []server.Write{write("/valve", key(3))},
 				}},
 			})).To(Succeed())
 			got := retrieve(ctx, s.Key)
@@ -399,7 +460,7 @@ var _ = Describe("Service", func() {
 			Expect(got.Host).To(Equal(s.Host))
 			Expect(got.Auth).To(Equal(s.Auth))
 			Expect(got.Reads).To(Equal([]server.Read{read("/weather", "/temp")}))
-			Expect(got.Writes).To(Equal([]server.Write{write("/valve", 3)}))
+			Expect(got.Writes).To(Equal([]server.Write{write("/valve", key(3))}))
 		})
 
 		It("Should move the status with the rack", func(ctx SpecContext) {
@@ -456,7 +517,10 @@ var _ = Describe("Service", func() {
 			) server.Update {
 				return server.Update{Variant: server.ConfigurationUpdate{
 					Configuration: server.Configuration{
-						Writes: []server.Write{write("/valve", 3), write("valve", 4)},
+						Writes: []server.Write{
+							write("/valve", key(3)),
+							write("valve", key(4)),
+						},
 					},
 				}}
 			}),
