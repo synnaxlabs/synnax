@@ -111,6 +111,13 @@ long as that producer names it.
 - **Unique**: Clock keys in producer configs share one unique space (RFC 0119 §4.1), so
   a save that names another producer's clock fails. A task copy and an import allocate
   new clock keys. A spooled Driver frame keeps its key.
+- **End of a clock**: When its producer ends, the Core calls `Delete` on its clock (RFC
+  0121 §4.1): a task delete saves a pending-drop note for its clocks in its transaction,
+  and the framer's sweep deletes the clock of the entry it removes. At start, the Core
+  also deletes each clock of an earlier run that no record and no producer config holds,
+  which until Phase 9 is a key of the clock range. Storage keeps a clock's stamps while
+  a stored segment of another key names it, so no stamp that data uses goes. The start
+  check never counts a clock as data with no record.
 - **One clock, one producer**: Stored writes of two producers never share a clock. An
   index channel that several sessions still write stays under write control until Phase
   9, as today: the framer gates its writers by authority.
@@ -118,16 +125,16 @@ long as that producer names it.
   (`core/pkg/distribution/channel/counter.go:38-40`), because a v2 channel record cannot
   hold a larger one. From Phase 6, clock keys come from their own counter below
   `0xFFF00000`. It starts above the host's lease (`0x00200000` for host key 1), or above
-  the largest channel key below `0xFFF00000` that the table holds when that is higher,
-  since a Core from a cluster before 0.61 can have another host key and hold keys on
-  other leases. The free keys of today sit at `0xFFF00000` and up, and their counter
-  still serves virtual channels, such as signals and calculation outputs. The v3 record
-  of Phase 9 stores `key` whole and drops `leaseholder` and `local_key` (RFC 0119 §4.0);
-  from then one counter serves both, above the largest key issued below `0xFFF00000`,
-  and it never enters the free range. So no value is both a channel and a clock. The
-  channel table answers "issued" for the leased range, the clock range, and the free
-  range up to the current value of its counter. One new clock per second lasts 136
-  years.
+  the largest key below `0xFFF00000` that the table or storage holds when that is higher
+  (RFC 0121 §4.1), since a Core from a cluster before 0.61 can have another host key and
+  hold keys on other leases. The free keys of today sit at `0xFFF00000` and up, and
+  their counter still serves virtual channels, such as signals and calculation outputs.
+  The v3 record of Phase 9 stores `key` whole and drops `leaseholder` and `local_key`
+  (RFC 0119 §4.0); from then one counter serves both, above the largest key issued below
+  `0xFFF00000`, and it never enters the free range. So no value is both a channel and a
+  clock. The channel table answers "issued" for the leased range, the clock range, and
+  the free range up to the current value of its counter. One new clock per second lasts
+  136 years.
 - **Index keys**: The key of each index channel of today becomes the key of its clock,
   so stored configs, stored data, and frames keep their numbers.
 
@@ -405,7 +412,7 @@ names no clock key.
   clock is not yet in the set is kept when a kept timed series of the same frame names
   it, which the filter checks after the frame's data series, so the first stamps of a
   new clock are never dropped. That check also finds a clock move and updates the set.
-  The relay (`core/pkg/distribution/framer/relay/streamer.go:220`), the calculation
+  The relay (`core/pkg/distribution/framer/relay/streamer.go:294`), the calculation
   transform, and the iterator's calculation step take the rule.
 - **Requests**: A request names channel keys only. `TimestampsIncluded` and
   `ReadResponse.Indexes` go (`core/pkg/api/framer/framer.go:192-194`, `:228-231`), and
@@ -524,43 +531,21 @@ holds the link from a hardware address to a channel key. A clock key in a config
 plain field, `clock uint32 = 0`, with no `@ref`: a clock has no record. A config holds
 one clock key per sample clock of the task, each in the unique space.
 
-**Port lists**: Gorp tracks a reference in a list entry and not in a map value, so the
-port maps of a typed device become lists, and every channel field of a typed device
-carries a tracked link. For the NI device (`schemas/synnax/ni_device.oracle:128-141`):
-
-```
-PortChannel struct {
-    port    uint16
-    channel channel.Key {
-        @ref kind      use
-        @ref on_delete restrict
-    }
-}
-AnalogInputPorts struct {
-    temperature channel.Key = 0 {
-        @ref kind      use
-        @ref on_delete restrict
-    }
-    channels    PortChannel[]
-}
-```
-
-`PortChannel` is new; the nearest form is the channel link of a task config
-(`schemas/synnax/http.oracle:100-104`). Digital lines take the same form with
-`line uint8`, a map whose value is a struct of channels becomes a list of that struct
-with a `port` field, and `command` and `state` of `CommandStatePair`
-(`ni_device.oracle:116-126`) get the same `@ref` lines. Ports are unique within one
-list, and a channel appears once across the port lists of a device; both are checked at
-save. The five index fields leave in the same schema version (`ni_device.oracle:129`,
-`:144`, `:159`, `:171`, `:183`). Its migration drops an entry whose channel is 0 or has
-no record. For a channel on two ports it keeps the first in the order of the port lists
-in the schema, then of port numbers, drops the others, and writes a warning status. A
-`CommandStatePair` with one key of 0 keeps the other one.
+**Port maps**: Every channel field of a typed device carries a tracked link,
+`@ref kind use` with `@ref on_delete restrict`, map values included, as `main` has them
+(`schemas/synnax/ni_device.oracle:117-154`). A channel appears once across the port maps
+of a device, which the save checks. Phase 9 drops every index field of a typed device in
+a new schema version of each: the five of the NI device (`ni_device.oracle:134`, `:157`,
+`:178`, `:194`, `:210`), `read_index` and `write_state_index` of the LabJack device
+(`labjack_device.oracle:125-130`, `:186-191`), and `index` of an OPC UA read binding
+(`opcua_server.oracle:178-183`). For a channel on two ports, the migration keeps the
+first in the order of the port maps in the schema, then of port numbers, drops the
+others, and writes a warning status.
 
 **Amendments to RFC 0081:**
 
-1. **§4.1**: Port maps are lists of entries with a tracked channel link, as above. No
-   typed device stores an index key.
+1. **§4.1**: No typed device stores an index key, and a channel appears once across the
+   port maps of a device.
 2. **Task configs** (RFC 0081 Phase 22): A config holds the typed device key, ports,
    hardware facts, scales, and one `clock` per sample clock. Each takes one index key of
    the integration. Where several configs name one index key, as v0.62 analog tasks on
@@ -585,8 +570,8 @@ in the schema, then of port numbers, drops the others, and writes a warning stat
 **Retiring index channels**: Phase 9 has a fixed order. RFC 0081 Phase 22 has moved
 every integration's index keys into its task config. The migration then applies, to
 every holder of an index channel key, the rule for its holder in the table below, and
-deletes the index channel records last. Storage keeps the stamps: `Drop` in RFC 0121
-never refuses, and it keeps stamps that segments of other keys name.
+deletes the index channel records last, with no storage delete: each key lives on as the
+clock that its producer config holds.
 
 | Holder                                                  | Rule                                                                                                  |
 | ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
@@ -636,6 +621,8 @@ which allocates clock keys from it.
 - **Fail rule**: A time rise over 5% at p < 0.05 in `benchstat`, or any rise in
   allocations per operation. TypeScript and Python gate on time only. New work that the
   base never did is held to its bound in RFC 0119 §4.8 instead.
+- **Reads**: Reads of stored data and their clocks are held to RFC 0121 §8: within 15%
+  of `main` in time, bytes, and allocations, with read checks off, at 1 and 8 readers.
 - **Floors**: A target is a ratio to a floor measured in the same run by a Go benchmark
   of the standard library: `BenchmarkFloorCopy`, the time of `copy` over n bytes. A
   floor never gates. Each ratio is on a shape that Phase 1 records, as channels ×
@@ -691,10 +678,11 @@ a primary for each calculation record that has none, and it deletes the stored
 version for the Arc task config (`schemas/synnax/arc_task.oracle`, shipped in
 `core/v0.61.4` and unchanged in `core/v0.62.0`) with a migration that sets `clock`.
 Phase 9 mints one schema version each for the channel record (from v1), the NI device
-(from v1), and Sift (from v0, first stable in `core/v0.62.0`), with migrations; line
-plot v10 and log v5 need none, since detach changes no shape. A Sift flow, named after
-an index channel in `core/v0.62.0`, keeps that name in its config from Phase 6. Keys of
-`core/v0.62.0` keep their numbers.
+(from v1), the LabJack device and the OPC UA server (each from v0), and Sift (from v0,
+first stable in `core/v0.62.0`), with migrations; line plot v10 and log v5 need none,
+since detach changes no shape. A Sift flow, named after an index channel in
+`core/v0.62.0`, keeps that name in its config from Phase 6. Keys of `core/v0.62.0` keep
+their numbers.
 
 | Phase | Scope                                                      | Touches                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | Depends on |
 | ----- | ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
@@ -706,7 +694,7 @@ an index channel in `core/v0.62.0`, keeps that name in its config from Phase 6. 
 | 6     | Give each writer its own clock                             | `core/pkg/service/framer`, `schemas/synnax/sift.oracle`, `core/pkg/distribution/framer`, `core/pkg/api/framer`, `core/pkg/transport/http/framer`, `core/pkg/service/sift`, `client/ts/src/framer/cache`, `driver/bypass`, `pluto/src/telem/aether`, `core/pkg/service/channel`, `core/pkg/distribution/channel`, `core/pkg/service/metrics`, `client/py/synnax`, `client/ts/src`, `client/clib`, `core/pkg/service/arc/runtime`, `schemas/synnax/arc_task.oracle`, `cesium`, `arc/cpp/runtime`, `pluto/src/telem/control`, `console/src/feature/channel`, `core/pkg/service/task` | 2, 3       |
 | 7     | Allow data type changes                                    | `core/pkg/service/channel`, `core/pkg/service/framer`, `core/pkg/transport/http/framer`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | 4, 6       |
 | 8     | Delete the old Cesium format and move tests to clocks      | `cesium`, `client/py/tests`, `client/ts/src`, `client/cpp`, `client/py/examples`, `client/ts/examples`, `integration`                                                                                                                                                                                                                                                                                                                                                                                                                                                             | 6          |
-| 9     | Create task channels in the Core and retire index channels | `schemas/synnax/ni_device.oracle`, `schemas/synnax/sift.oracle`, `core/pkg/service/sift`, `core/pkg/service/ni`, `core/pkg/service/task`, `core/pkg/service/channel`, `schemas/synnax/channel.oracle`, `schemas/synnax/lineplot.oracle`, `core/pkg/service/lineplot`, `core/pkg/api/channel`, `client/ts`, `client/py`                                                                                                                                                                                                                                                            | 6, 8       |
+| 9     | Create task channels in the Core and retire index channels | `schemas/synnax/ni_device.oracle`, `schemas/synnax/labjack_device.oracle`, `schemas/synnax/opcua_server.oracle`, `schemas/synnax/sift.oracle`, `core/pkg/service/sift`, `core/pkg/service/ni`, `core/pkg/service/labjack`, `core/pkg/service/opcua`, `core/pkg/service/task`, `core/pkg/service/channel`, `schemas/synnax/channel.oracle`, `schemas/synnax/lineplot.oracle`, `core/pkg/service/lineplot`, `core/pkg/api/channel`, `client/ts`, `client/py`                                                                                                                        | 6, 8       |
 
 ## 6 What this RFC does not cover
 

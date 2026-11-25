@@ -215,8 +215,8 @@ the port maps are the configuration group. The port maps are the typed form of t
 
 Every channel binding of a resource is `@ref kind use` and `@ref on_delete restrict`.
 
-_(Amended by [RFC 0120](0120-channel-storage-and-time.md) §4.9: the port maps are lists
-of entries with a tracked channel link, and no typed device stores an index key.)_
+_(Amended by [RFC 0120](0120-channel-storage-and-time.md) §4.9: no typed device stores
+an index key, and a channel appears once across the port maps of a device.)_
 
 Field groups per make:
 
