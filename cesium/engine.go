@@ -50,6 +50,12 @@ type engine struct {
 	log    *log.Log
 	ckpt   *checkpoint.Checkpointer
 	budget *segment.Budget
+	// handles holds the handle of each segment file that a read opened, by segment ID,
+	// until the segment is unlinked or the engine closes.
+	handles struct {
+		sync.RWMutex
+		m map[uint64]*segment.Handle
+	}
 	// head is the generation of the head that recovery used.
 	head uint64
 	// switched is the generation of a log that recovery made live, whose head the
@@ -112,6 +118,7 @@ func openEngine(o *options) (*engine, error) {
 		unstored: telem.NewAlignmentCounter(telem.LeadingDomain),
 	}
 	e.cover.advanced = make(chan struct{})
+	e.handles.m = make(map[uint64]*segment.Handle)
 	if snapshot == nil {
 		if snapshot, err = e.create(o, r); err != nil {
 			return nil, err
@@ -349,14 +356,43 @@ func (e *engine) waitCovered(ctx context.Context, sequence uint64) error {
 	}
 }
 
-// unlink removes the file of each segment of dead.
+// unlink closes the read handle of each segment of dead and removes its file.
 func (e *engine) unlink(dead []state.Dead) error {
 	for _, d := range dead {
-		if err := e.fs.Remove(segmentName(d.Key, d.Segment)); err != nil {
+		e.handles.Lock()
+		h := e.handles.m[d.Segment]
+		delete(e.handles.m, d.Segment)
+		e.handles.Unlock()
+		var err error
+		if h != nil {
+			err = h.Close()
+		}
+		if err = errors.Join(
+			err,
+			e.fs.Remove(segmentName(d.Key, d.Segment)),
+		); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// handle returns the read handle of segment id of key, which every read of the segment
+// shares.
+func (e *engine) handle(key ChannelKey, id uint64) *segment.Handle {
+	e.handles.RLock()
+	h := e.handles.m[id]
+	e.handles.RUnlock()
+	if h != nil {
+		return h
+	}
+	e.handles.Lock()
+	defer e.handles.Unlock()
+	if h = e.handles.m[id]; h == nil {
+		h = e.budget.Open(e.fs, segmentName(key, id))
+		e.handles.m[id] = h
+	}
+	return h
 }
 
 // run runs the owners until ctx is done, then closes them in order: the log, so that
@@ -431,9 +467,26 @@ func (e *engine) replay(sequence uint64, records []log.Record) error {
 // close closes the owners once.
 func (e *engine) close() error {
 	e.shutdown.Do(func() {
-		e.closeErr = errors.Join(e.log.Close(), e.ckpt.Close(), e.state.Close())
+		e.closeErr = errors.Join(
+			e.log.Close(),
+			e.ckpt.Close(),
+			e.state.Close(),
+			e.closeHandles(),
+		)
 	})
 	return e.closeErr
+}
+
+// closeHandles closes the read handle of every segment.
+func (e *engine) closeHandles() error {
+	e.handles.Lock()
+	defer e.handles.Unlock()
+	var err error
+	for id, h := range e.handles.m {
+		err = errors.Join(err, h.Close())
+		delete(e.handles.m, id)
+	}
+	return err
 }
 
 // segmentName returns the file name of segment id of key.
