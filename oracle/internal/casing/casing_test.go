@@ -264,3 +264,22 @@ var _ = Describe("QualifiedVariantTypeName", func() {
 		),
 	)
 })
+
+var _ = Describe("Label", func() {
+	DescribeTable("should write sentence-case words",
+		func(input, expected string) {
+			Expect(casing.Label(input)).To(Equal(expected))
+		},
+		Entry("single word", "role", "Role"),
+		Entry("snake_case words", "resource_name", "Resource name"),
+		Entry("trailing initialism", "redirect_uri", "Redirect URI"),
+		Entry("URL", "issuer_url", "Issuer URL"),
+		Entry("ID", "client_id", "Client ID"),
+		Entry("leading API", "api_key", "API key"),
+		Entry("OIDC", "oidc_provider", "OIDC provider"),
+		Entry("plural initialism", "channel_ids", "Channel IDs"),
+		Entry("schema acronym", "ai_channel", "AI channel"),
+		Entry("PascalCase", "Name", "Name"),
+		Entry("camelCase", "firstName", "First name"),
+	)
+})

@@ -43,6 +43,18 @@ func problemsOf(ic icd.ICD) []problem {
 	})
 }
 
+// withTags returns an ICD with one text message whose tagged fields a, b, and so on
+// have the given tags.
+func withTags(tags ...string) icd.ICD {
+	fields := lo.Map(tags, func(tag string, i int) icd.TextField {
+		return icd.TextField{Variant: icd.TaggedTextField{
+			BaseField: icd.BaseField{Name: string(rune('a' + i)), Scale: 1},
+			Tag:       tag,
+		}}
+	})
+	return icd.ICD{Name: "L", Messages: []icd.Message{textMessage("M", fields...)}}
+}
+
 // checkFixture is one ICD from testdata/fixtures. An invalid fixture lists the exact
 // problems Check must find, and says whether the Driver's codec also rejects it.
 type checkFixture struct {
@@ -161,6 +173,80 @@ var _ = Describe("Check", func() {
 			"\rT",
 			"the tag starts with whitespace",
 		),
+	)
+
+	DescribeTable(
+		"Should refuse a tag that the Driver cannot tell from another tag",
+		func(first, second string, field int, message string) {
+			Expect(problemsOf(withTags(first, second))).To(ConsistOf(problem{
+				Path:    fmt.Sprintf("messages.0.payload.fields.%d.tag", field),
+				Message: message,
+			}))
+		},
+		Entry("a tag and a digit", "T", "T1", 1,
+			`a value of field a after its tag "T" reads as this tag`),
+		Entry("a tag that ends in a digit and another digit", "CH1", "CH10", 1,
+			`a value of field a after its tag "CH1" reads as this tag`),
+		Entry("a tag and a minus sign", "T", "T-", 1,
+			`a value of field a after its tag "T" reads as this tag`),
+		Entry("a tag and a plus sign", "T", "T+", 1,
+			`a value of field a after its tag "T" reads as this tag`),
+		Entry("a tag and a point", "T", "T.", 1,
+			`a value of field a after its tag "T" reads as this tag`),
+		Entry("a tag and the start of an exponent", "T", "T1e+", 1,
+			`a value of field a after its tag "T" reads as this tag`),
+		Entry("a tag, a space, and a digit", "T", "T 5", 1,
+			`a value of field a after its tag "T" reads as this tag`),
+		Entry("a tag and a space", "T", "T ", 1,
+			`a value of field a after its tag "T" reads as this tag`),
+		Entry("the longer tag first", "T=1", "T=", 0,
+			`a value of field b after its tag "T=" reads as this tag`),
+		Entry("two equal tags", "T", "T", 1, `the tag "T" is also the tag of field a`),
+	)
+
+	DescribeTable(
+		"Should accept a tag that starts another tag with text no value starts with",
+		func(first, second string) {
+			Expect(problemsOf(withTags(first, second))).To(BeEmpty())
+		},
+		Entry("a tag and a letter", "T", "TE"),
+		Entry("a tag and an equals sign", "T", "T="),
+		Entry("the longer tag first", "TE", "T"),
+		Entry("a tag, a minus sign, and a letter", "T", "T-A"),
+		Entry("a tag, a point, and a letter", "T", "T.X"),
+		Entry("a tag, a plus sign, and a letter", "T", "T+Z"),
+		Entry("a tag, a digit, and a letter", "T", "T1A"),
+		Entry("a tag, a minus sign, and a word", "V", "V-SET"),
+		Entry("a tag and an exponent with no digit before it", "T", "T.e"),
+	)
+
+	It("Should refuse a tag that two shorter tags start only once", func() {
+		Expect(problemsOf(withTags("T", "T1", "T12"))).To(ConsistOf(
+			problem{
+				Path:    "messages.0.payload.fields.1.tag",
+				Message: `a value of field a after its tag "T" reads as this tag`,
+			},
+			problem{
+				Path:    "messages.0.payload.fields.2.tag",
+				Message: `a value of field a after its tag "T" reads as this tag`,
+			},
+		))
+	})
+
+	It(
+		"Should refuse an empty tag as missing, not as the start of another tag",
+		func() {
+			Expect(problemsOf(withTags("", "", "1"))).To(ConsistOf(
+				problem{
+					Path:    "messages.0.payload.fields.0.tag",
+					Message: "tag is required",
+				},
+				problem{
+					Path:    "messages.0.payload.fields.1.tag",
+					Message: "tag is required",
+				},
+			))
+		},
 	)
 
 	It("Should refuse an empty delimiter but not each tag in its message", func() {

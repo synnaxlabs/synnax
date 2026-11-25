@@ -2138,7 +2138,7 @@ export const schematicZ = z.object({
   /** key is the unique identifier for this schematic. */
   key: keyZ.default(uuid.create),
   /** name is a human-readable name for the schematic. */
-  name: z.string().min(1, "name is required"),
+  name: z.string().min(1, "Name is required"),
   /** nodes contains all diagram nodes in the schematic. */
   nodes: nodeZ.array().default(() => []),
   /** edges contains all connections between nodes. */

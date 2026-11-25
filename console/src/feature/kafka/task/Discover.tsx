@@ -25,7 +25,6 @@ import {
   isExtendable,
   type Picks,
   type Reads,
-  shapeKey,
   takenPointers,
 } from "@/feature/kafka/task/additions";
 import { browseTopics, sampleTopic } from "@/feature/kafka/task/scan";
@@ -192,7 +191,7 @@ const defaultsOf = (shapes: json.Shape[], reads: Reads): Picks =>
   new Map(
     shapes
       .map((shape): [string, Set<string>] => [
-        shapeKey(shape),
+        json.shapeKey(shape),
         defaultPicks(shape, reads),
       ])
       .filter(([, pointers]) => pointers.size > 0),
@@ -225,7 +224,7 @@ const rebase = (
 ): Map<string, TopicPick> => {
   const pick = picks.get(topic);
   if (pick == null) return picks;
-  const keys = new Set(shapes.map(shapeKey));
+  const keys = new Set(shapes.map(json.shapeKey));
   const kept: Picks = new Map([...pick.picks].filter(([key]) => keys.has(key)));
   return withTopic(picks, topic, shapes, kept);
 };
@@ -263,11 +262,13 @@ const TopicValues = ({
     const taken = takenPointers(shape, reads);
     const carried = carriedFields(shape, reads);
     const keys = shape.sources.map(label).join(", ");
+    const records = pluralize("record", shape.count, true);
+    const present = shape.present == null ? undefined : shape.fields[shape.present];
     return {
-      title: `${keys} · ${pluralize("record", shape.count, true)}`,
+      title: `${keys} · ${records}${present == null ? "" : ` with ${present.pointer}`}`,
       values: shape.fields.map((f, j): ICD.Picker.Value => {
         const key = `${i}${f.pointer}`;
-        fields.set(key, [shapeKey(shape), f.pointer]);
+        fields.set(key, [json.shapeKey(shape), f.pointer]);
         let lock: ICD.Picker.Lock | undefined;
         if (j === shape.index) lock = ICD.Picker.INDEX;
         else if (taken.has(f.pointer))
@@ -284,7 +285,7 @@ const TopicValues = ({
     };
   });
   const picked = shapes.flatMap((shape, i) =>
-    [...(value.get(shapeKey(shape)) ?? [])].map((p) => `${i}${p}`),
+    [...(value.get(json.shapeKey(shape)) ?? [])].map((p) => `${i}${p}`),
   );
   const handleChange = (keys: string[]) => {
     const next: Picks = new Map();

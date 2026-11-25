@@ -415,6 +415,22 @@ var _ = Describe("Python Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`tags: list[str] | None = None`))
 		})
 
+		It("Should require a required list to hold an element", func() {
+			source := `
+				@py output "out"
+
+				Cluster struct {
+					brokers string[] @validate required
+					tags    string[]? @validate required
+				}
+			`
+			resp := MustGenerate(source, "cluster", loader, typesPlugin)
+			ExpectContent(resp, "types_gen.py").ToContain(
+				`brokers: list[str] = Field(min_length=1)`,
+				`tags: list[str] | None = None`,
+			)
+		})
+
 		It(
 			"Should refuse the zero value of a required string or unsigned field",
 			func() {

@@ -19,3 +19,10 @@ const MARGIN = TimeSpan.seconds(2);
  */
 export const commandTimeout = ({ clientTimeoutMs }: ConnectionConfig): TimeSpan =>
   TimeSpan.milliseconds(2 * clientTimeoutMs).add(MARGIN);
+
+/**
+ * @returns how long to wait for a read node command, which the Driver stops after the
+ * read node timeout of the connection.
+ */
+export const readNodeTimeout = (connection: ConnectionConfig): TimeSpan =>
+  commandTimeout(connection).add(new TimeSpan(connection.readNodeTimeout));
