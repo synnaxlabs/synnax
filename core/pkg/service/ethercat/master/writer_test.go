@@ -247,21 +247,34 @@ var _ = Describe("Writer", func() {
 	})
 
 	Describe("Delete", func() {
-		It("Should remove the master with its slaves and status", func(
+		It("Should remove the master with only its own slaves and status", func(
 			ctx SpecContext,
 		) {
 			m := create(ctx)
-			s := slave.Slave{
-				Key:         uuid.New(),
-				Rack:        m.Rack,
-				Name:        "EL3102",
-				VendorID:    2,
-				ProductCode: 0x0C1E3052,
-				Master:      m.Key,
+			other := create(ctx)
+			newSlave := func(owner master.Key) slave.Slave {
+				GinkgoHelper()
+				s := slave.Slave{
+					Key:         uuid.New(),
+					Rack:        m.Rack,
+					Name:        "EL3102",
+					VendorID:    2,
+					ProductCode: 0x0C1E3052,
+					Master:      owner,
+				}
+				Expect(
+					gorp.NewCreate[slave.Key, slave.Slave]().Entry(&s).Exec(ctx, tx),
+				).
+					To(Succeed())
+				return s
 			}
-			Expect(gorp.NewCreate[slave.Key, slave.Slave]().Entry(&s).Exec(ctx, tx)).
-				To(Succeed())
+			s := newSlave(m.Key)
+			kept := newSlave(other.Key)
 			Expect(w.Delete(ctx, m.Key)).To(Succeed())
+			Expect(
+				slaves.NewRetrieve().Where(slave.MatchKeys(kept.Key)).Exists(ctx, tx),
+			).
+				To(BeTrue())
 			Expect(svc.NewRetrieve().Where(master.MatchKeys(m.Key)).Exists(ctx, tx)).
 				To(BeFalse())
 			Expect(slaves.NewRetrieve().Where(slave.MatchKeys(s.Key)).Exists(ctx, tx)).
