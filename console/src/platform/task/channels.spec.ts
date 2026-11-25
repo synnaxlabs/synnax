@@ -486,6 +486,27 @@ describe("channels", () => {
       expect((await client.channels.retrieve(ch.index)).name).toBe(`${name}_time`);
     });
 
+    it("should give a new channel the first free number when another target holds its name", async () => {
+      const name = uniqueName("cmd");
+      const held = await Task.configureCommandChannel(
+        client,
+        {},
+        { propertiesKey: "/a", channel: 0, name, dataType: "float64" },
+      );
+      const write: Record<string, number> = {};
+      const key = await Task.configureCommandChannel(client, write, {
+        propertiesKey: "/b",
+        channel: 0,
+        name,
+        dataType: "float64",
+      });
+      expect(key).not.toBe(held);
+      expect(write).toEqual({ "/b": key });
+      const ch = await client.channels.retrieve(key);
+      expect(ch.name).toBe(`${name}_2`);
+      expect((await client.channels.retrieve(ch.index)).name).toBe(`${name}_2_time`);
+    });
+
     it("should replace a channel that does not suit the target, and move it", async () => {
       const name = uniqueName("cmd");
       const write: Record<string, number> = {};
