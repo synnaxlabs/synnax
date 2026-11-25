@@ -182,7 +182,7 @@ export class Gauge
       level: i.textLevel,
       justify: "center",
       weight: 450,
-      code: true,
+      variant: "numeric",
       useAtlas: true,
     });
     draw2d.text({
@@ -192,7 +192,7 @@ export class Gauge
       shade: 8,
       level: text.downLevel(i.textLevel),
       justify: "center",
-      code: true,
+      variant: "numeric",
       useAtlas: true,
     });
 
@@ -203,7 +203,7 @@ export class Gauge
       shade: 7,
       level: i.labelLevel,
       justify: "center",
-      code: true,
+      variant: "numeric",
       useAtlas: true,
     });
 
@@ -214,7 +214,7 @@ export class Gauge
       shade: 7,
       level: i.labelLevel,
       justify: "center",
-      code: true,
+      variant: "numeric",
       useAtlas: true,
     });
 

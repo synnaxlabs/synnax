@@ -49,6 +49,19 @@ jobs:
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
+  # Saves the Go cache that the Core image builds of pull requests and merge groups
+  # restore.
+  core-image:
+    name: Core image
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/build.docker.yaml
+    with:
+      module: core
+      repository: ghcr.io/synnaxlabs/synnax
+      prebuilt: true
+
   # A failed test job does not stop the lint jobs, which save caches too.
   prune:
     name: Prune older caches

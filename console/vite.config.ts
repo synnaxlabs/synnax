@@ -11,12 +11,14 @@
 
 import { layers, plutoLayers, reactCompiler, testCore } from "@synnaxlabs/vite-plugin";
 import react from "@vitejs/plugin-react";
-import { playwright } from "@vitest/browser-playwright";
+import { PlaywrightBrowserProvider, playwright } from "@vitest/browser-playwright";
 import { appendFileSync, createWriteStream, mkdirSync } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as path from "path";
+import type { Request } from "playwright";
 import { defineConfig, normalizePath, type Plugin } from "vite";
 import type { TestProjectInlineConfiguration } from "vitest/config";
+import type { BrowserProviderOption } from "vitest/node";
 
 const isDev = process.env.VITE_IS_DEV === "true";
 // Builds compile workspace packages from source, so code splitting reaches into them.
@@ -32,6 +34,47 @@ const BROWSER_SPECS = "src/**/*.browser.spec.{ts,tsx}";
 const DESKTOP_BROWSER_SPECS = "src/**/*.desktop.browser.spec.{ts,tsx}";
 const SAMPLE_SPEC = "src/feature/project/sample.desktop.browser.spec.ts";
 const JSDOM = { environment: "jsdom", setupFiles: ["src/testutil/setuptests.ts"] };
+
+/**
+ * @returns the Playwright provider, with each browser context printing one line for a
+ * script from the Vite server that fails to load or loads with an error status. WebKit
+ * reports both only as "Importing a module script failed", without the URL.
+ */
+const loggedPlaywright = (): BrowserProviderOption => {
+  const base = playwright();
+  return {
+    ...base,
+    providerFactory: (project) => {
+      const provider = new PlaywrightBrowserProvider(project, base.options);
+      const log = (request: Request, reason?: number | string) => {
+        const url = request.url();
+        if (request.resourceType() !== "script") return;
+        if (new URL(url).origin !== new URL(request.frame().url()).origin) return;
+        console.error(
+          "[script failed]",
+          provider.browserName,
+          request.method(),
+          url,
+          reason,
+        );
+      };
+      // The provider stores each context before it opens the page, so the listeners
+      // see the first requests of a session.
+      const { contexts } = provider;
+      const set = contexts.set.bind(contexts);
+      contexts.set = (sessionId, context) => {
+        context.on("requestfailed", (request) =>
+          log(request, request.failure()?.errorText),
+        );
+        context.on("response", (response) => {
+          if (response.status() >= 400) log(response.request(), response.status());
+        });
+        return set(sessionId, context);
+      };
+      return provider;
+    },
+  };
+};
 
 interface BrowserProjectProps {
   name: string;
@@ -79,7 +122,7 @@ const browserProject = ({
       browser: {
         enabled: true,
         headless: true,
-        provider: playwright(),
+        provider: loggedPlaywright(),
         // V8 coverage reads only Chromium, so `cov` leaves out WebKit.
         instances: webkit
           ? [

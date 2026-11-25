@@ -882,6 +882,33 @@ var _ = Describe("Python Types Plugin", func() {
 			},
 		)
 
+		It("Should generate a narrowing enum as a Literal of the kept members", func() {
+			source := `
+				@py output "out"
+
+				DataType enum {
+					float64 = "float64"
+					int16   = "int16"
+					json    = "json"
+				}
+
+				RegisterType enum of DataType {
+					int16
+					float64
+				}
+			`
+			table, diag := Analyze(source, "modbus", loader)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+
+			resp := MustSucceed(
+				typesPlugin.Generate(&plugin.Request{Resolutions: table}),
+			)
+			content := string(resp.Files[0].Content)
+			Expect(content).To(ContainSubstring(
+				`RegisterType = Literal["int16", "float64"]`,
+			))
+		})
+
 		It(
 			"Should generate screaming snake case for multi-word enum names",
 			func() {

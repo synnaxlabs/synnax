@@ -34,6 +34,20 @@ func autoMigrateReadConfig(ctx context.Context, old v4.ReadConfig) (ReadConfig, 
 	}, nil
 }
 
+func autoMigrateWriteConfig(ctx context.Context, old v4.WriteConfig) (WriteConfig, error) {
+	endpoints, err := lo.MapErr(old.Endpoints, func(v v4.WriteEndpoint, _ int) (WriteEndpoint, error) {
+		return MigrateWriteEndpoint(ctx, v)
+	})
+	if err != nil {
+		return WriteConfig{}, err
+	}
+	return WriteConfig{
+		StartConfig: old.StartConfig,
+		Device:      old.Device,
+		Endpoints:   endpoints,
+	}, nil
+}
+
 func autoMigrateReadEndpoint(_ context.Context, old v4.ReadEndpoint) (ReadEndpoint, error) {
 	return ReadEndpoint{
 		Key:         old.Key,
@@ -44,5 +58,18 @@ func autoMigrateReadEndpoint(_ context.Context, old v4.ReadEndpoint) (ReadEndpoi
 		Body:        old.Body,
 		Fields:      old.Fields,
 		Index:       old.Index,
+	}, nil
+}
+
+func autoMigrateWriteEndpoint(_ context.Context, old v4.WriteEndpoint) (WriteEndpoint, error) {
+	return WriteEndpoint{
+		Key:         old.Key,
+		Disabled:    old.Disabled,
+		Method:      old.Method,
+		Path:        old.Path,
+		Headers:     old.Headers,
+		QueryParams: old.QueryParams,
+		Channel:     old.Channel,
+		Fields:      old.Fields,
 	}, nil
 }
