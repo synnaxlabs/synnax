@@ -398,14 +398,14 @@ func (r *partedRequest) run(s *State) {
 	}
 	s.core.forget(changed, tagged)
 	folded := func(k Kill) bool { return k.Generation < r.generation }
-	s.core.dropped = slices.DeleteFunc(s.core.dropped, folded)
+	s.core.droppedKills = slices.DeleteFunc(s.core.droppedKills, folded)
 	ranges := make(map[uint32]Range, len(r.ranges))
 	for _, rg := range r.ranges {
 		ranges[rg.Key] = rg
 	}
 	// A key that a Drop took out after the snapshot of the head is a new key, and the
 	// range of the head belongs to the dropped one.
-	for _, k := range s.core.dropped {
+	for _, k := range s.core.droppedKills {
 		delete(ranges, k.Key)
 	}
 	for key, ch := range s.core.channels {
@@ -457,6 +457,9 @@ func (s *State) Parted(
 		swap:       swap,
 	})
 }
+
+// Drops returns the count of the Drop records that the state applied.
+func (s *State) Drops() uint64 { return s.core.drops.Load() }
 
 // Durable queues the records of the durable entry of sequence, which the log owner
 // hands over in log order after the entry's frame is synced. The owner applies them to
