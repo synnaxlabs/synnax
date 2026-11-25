@@ -185,6 +185,16 @@ describe("UsedBy.List", () => {
     );
   });
 
+  it("should offer no click on a use whose tree item opens nothing", async () => {
+    const ch = await createChannel();
+    await renderList(
+      { kind: "range", uses: [read(ch)] },
+      { items: { channel: Tree.createItem({ typeName: "Channel" }) } },
+    );
+    await screen.findByText(ch.name);
+    expect(screen.queryByRole("button", { name: new RegExp(ch.name) })).toBeNull();
+  });
+
   it("should run the select of a type in place of its tree item", async () => {
     const onOpen = vi.fn();
     const select = vi.fn();
@@ -210,5 +220,27 @@ describe("UsedBy.List", () => {
     expect(await screen.findByText("Failed to load the uses")).toBeTruthy();
     expect(screen.getByText(/cannot retrieve range.*access denied/)).toBeTruthy();
     expect(onCaughtError).toHaveBeenCalledOnce();
+  });
+
+  it("should read the uses again on Retry", async () => {
+    const r = await createRange();
+    const limited = await createTestClientWithGrants(client);
+    await renderList(
+      { kind: "channel", uses: [{ id: ranger.resourceID(r.key) }] },
+      { as: limited, onCaughtError: vi.fn() },
+    );
+    await screen.findByText("Failed to load the uses");
+    const { role } = await limited.users.current.retrieve();
+    await client.access.policies.create({
+      name: uniqueName("policy"),
+      role,
+      objects: [ranger.resourceID(r.key)],
+      actions: ["retrieve"],
+    });
+    // The read that the click starts suspends, which needs an async act.
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    });
+    expect(await screen.findByText(r.name)).toBeTruthy();
   });
 });

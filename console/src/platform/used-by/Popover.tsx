@@ -9,6 +9,7 @@
 
 import "@/platform/used-by/Popover.css";
 
+import { resource } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Text } from "@synnaxlabs/lyra/text";
@@ -77,7 +78,8 @@ export const Popover = ({
   };
   const handleVisibleChange = (arg: state.SetArg<boolean>) =>
     setMode((m) => (state.resolve(arg, m != null) ? "pinned" : null));
-  const count = uses?.length ?? 0;
+  // A resource that both reads and writes the item counts once.
+  const count = new Set(uses?.map(({ id }) => resource.idToString(id))).size;
   return (
     <Dialog.Frame
       id={dialogID(itemKey)}

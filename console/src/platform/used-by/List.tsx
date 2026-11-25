@@ -12,11 +12,13 @@ import "@/platform/used-by/List.css";
 import { resource } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
+import { Header } from "@synnaxlabs/lyra/header";
+import { Skeleton } from "@synnaxlabs/lyra/skeleton";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Errors, Resource } from "@synnaxlabs/pluto";
 import { compare, errors } from "@synnaxlabs/x";
-import type { PropsWithChildren, ReactElement } from "react";
+import { type PropsWithChildren, type ReactElement, useState } from "react";
 
 import { CSS } from "@/platform/css";
 import { Tree } from "@/platform/tree";
@@ -71,10 +73,6 @@ const USE_ORDER = compare.chain<ResolvedUse>(
   compare.by(({ resource: r }) => r.id.key),
 );
 
-/** Keeps an acronym, such as the "NI" of "NI device", in capitals. */
-const lowerFirst = (text: string): string =>
-  /^[A-Z][a-z]/.test(text) ? text[0].toLowerCase() + text.slice(1) : text;
-
 interface EntryProps {
   resource: resource.Resource;
   select?: (key: string) => void;
@@ -84,7 +82,19 @@ interface EntryProps {
 /** A use of the item. A click opens it as a double click on its tree item does. */
 const Entry = ({ resource: r, select, onSelect }: EntryProps): ReactElement => {
   const Item = Tree.useItems()[r.id.type] ?? Tree.DefaultItem;
-  const { typeName } = Item;
+  const content = (
+    <>
+      {Item.icon(r)}
+      <Text.Text level="small" overflow="fade" color={10}>
+        {r.name}
+      </Text.Text>
+      {Item.typeName != null && (
+        <Text.Text level="small" color={9} className={CSS.BE("used-by", "type")}>
+          {Item.typeName}
+        </Text.Text>
+      )}
+    </>
+  );
   const renderButton = (onClick: () => void) => (
     <Button.Button
       variant="text"
@@ -92,19 +102,11 @@ const Entry = ({ resource: r, select, onSelect }: EntryProps): ReactElement => {
       justify="start"
       full="x"
       className={CSS.BE("used-by", "resource")}
-      tooltip={`Open ${typeName == null ? "" : `${lowerFirst(typeName)} `}${r.name}`}
+      tooltip={`Open ${r.name}`}
       tooltipLocation="left"
       onClick={onClick}
     >
-      {Item.icon(r)}
-      <Text.Text level="small" overflow="fade" color={10}>
-        {r.name}
-      </Text.Text>
-      {typeName != null && (
-        <Text.Text level="small" color={9} className={CSS.BE("used-by", "type")}>
-          {typeName}
-        </Text.Text>
-      )}
+      {content}
     </Button.Button>
   );
   if (select != null)
@@ -112,6 +114,20 @@ const Entry = ({ resource: r, select, onSelect }: EntryProps): ReactElement => {
       onSelect?.();
       select(r.id.key);
     });
+  // A use that nothing opens is plain text, so it promises no action.
+  if (!Item.selectable)
+    return (
+      <Text.Text
+        el="div"
+        level="small"
+        x
+        align="center"
+        gap="small"
+        className={CSS.BE("used-by", "row")}
+      >
+        {content}
+      </Text.Text>
+    );
   return <Item.OnSelect>{(open) => renderButton(() => open(r))}</Item.OnSelect>;
 };
 
@@ -120,28 +136,29 @@ interface SectionProps extends PropsWithChildren {
   count: number;
 }
 
-/** The uses in one direction, under a heading with their count when it has a title. */
-const Section = ({ title, count, children }: SectionProps): ReactElement => (
-  <Flex.Box
-    y
-    empty
-    role="group"
-    aria-label={title}
-    className={CSS.BE("used-by", "section")}
-  >
-    {title != null && (
-      <Flex.Box x align="center" gap="small" className={CSS.BE("used-by", "heading")}>
-        <Text.Text level="small" weight={500} color={9}>
+/** The uses in one direction, under a heading that opens and closes them. */
+const Section = ({ title, count, children }: SectionProps): ReactElement => {
+  const [open, setOpen] = useState(true);
+  return (
+    <Flex.Box
+      y
+      empty
+      role="group"
+      aria-label={title}
+      className={CSS.BE("used-by", "section")}
+    >
+      {title != null && (
+        <Header.Group size="small" level="small" open={open} onOpenChange={setOpen}>
           {title}
-        </Text.Text>
-        <Text.Text level="small" color={9} className={CSS.BE("used-by", "count")}>
-          {count}
-        </Text.Text>
-      </Flex.Box>
-    )}
-    {children}
-  </Flex.Box>
-);
+          <Text.Text level="tiny" color={9} className={CSS.BE("used-by", "count")}>
+            {count}
+          </Text.Text>
+        </Header.Group>
+      )}
+      {(title == null || open) && children}
+    </Flex.Box>
+  );
+};
 
 interface UnusedProps {
   kind: string;
@@ -153,30 +170,53 @@ const Unused = ({ kind }: UnusedProps): ReactElement => (
   </Text.Text>
 );
 
-/** Holds the height of each entry while the resources load, so nothing below moves. */
+/** Holds the place of each entry while the resources load, so nothing below moves. */
 const Loading = ({ uses }: Pick<ListProps, "uses">): ReactElement => (
   <>
     {group(uses, ({ direction }) => direction).map(({ title, items }) => (
       <Section key={title ?? ""} title={title} count={items.length}>
         {items.map((_, i) => (
-          <div key={i} className={CSS.BE("used-by", "placeholder")} />
+          <Text.Text
+            key={i}
+            el="div"
+            level="small"
+            x
+            align="center"
+            className={CSS.BE("used-by", "row")}
+          >
+            <Skeleton.Skeleton className={CSS.BE("used-by", "skeleton")} />
+          </Text.Text>
         ))}
       </Section>
     ))}
   </>
 );
 
-const Failed = ({ error }: Errors.FallbackProps): ReactElement => {
+interface FailedProps extends Errors.FallbackProps {
+  ids: resource.ID[];
+}
+
+const Failed = ({ ids, error, resetErrorBoundary }: FailedProps): ReactElement => {
+  const invalidate = Resource.useInvalidateMultiple();
   // A read wraps the error of the Core, which says why the read failed.
   const cause = Array.from(errors.causes(error)).at(-1);
+  const retry = () => {
+    invalidate({ ids });
+    resetErrorBoundary();
+  };
   return (
-    <Status.Summary
-      variant="error"
-      level="small"
-      className={CSS.BE("used-by", "error")}
-      message="Failed to load the uses"
-      description={errors.fromUnknown(cause ?? error).message}
-    />
+    <Flex.Box y empty align="start">
+      <Status.Summary
+        variant="error"
+        level="small"
+        className={CSS.BE("used-by", "error")}
+        message="Failed to load the uses"
+        description={errors.fromUnknown(cause ?? error).message}
+      />
+      <Button.Button variant="text" size="small" onClick={retry}>
+        Retry
+      </Button.Button>
+    </Flex.Box>
   );
 };
 
@@ -224,12 +264,17 @@ export interface ListProps {
  * "Written by" and "Read by", each with its count. A click on a use opens it.
  */
 export const List = (props: ListProps): ReactElement => {
-  if (props.uses.length === 0) return <Unused kind={props.kind} />;
+  const { kind, uses } = props;
+  if (uses.length === 0) return <Unused kind={kind} />;
+  const ids = uses.map(({ id }) => id);
+  const Fallback = (fallback: Errors.FallbackProps): ReactElement => (
+    <Failed {...fallback} ids={ids} />
+  );
   return (
     <Flex.Box y empty className={CSS.BE("used-by", "list")}>
       <Errors.SuspenseBoundary
-        FallbackComponent={Failed}
-        loading={<Loading uses={props.uses} />}
+        FallbackComponent={Fallback}
+        loading={<Loading uses={uses} />}
       >
         <Resolved {...props} />
       </Errors.SuspenseBoundary>

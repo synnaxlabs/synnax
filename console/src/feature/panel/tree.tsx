@@ -56,6 +56,7 @@ const haulPreview: Tree.HaulPreview = ({ resource, client, count, resolveColor }
 
 const TreeItem = Tree.createItem({
   icon: ({ id }) => <ItemIcon panelKey={id.key} />,
+  typeName: "Panel",
   haulPreview,
 });
 
