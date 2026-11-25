@@ -49,7 +49,11 @@ const HAUL_DRAG_PROPS: Haul.UseDragProps = {
 export interface SymbolsChangeProps {
   /** The symbol that every symbol to change draws, if they all draw the same one. */
   value?: string;
-  onChange: <V extends Schematic.Node.Variant>(input: Schematic.Node.Input<V>) => void;
+  /** Takes the picked symbol, with its spec when it draws as a symbol node. */
+  onChange: <V extends Schematic.Node.Variant>(
+    input: Schematic.Node.Input<V>,
+    spec?: schematic.symbol.Spec,
+  ) => void;
 }
 
 const ChangeContext = createContext<SymbolsChangeProps | undefined>(undefined);
@@ -73,8 +77,9 @@ const StaticListItem = (props: List.ItemProps<string>): ReactElement | null => {
   const config = spec == null ? null : Schematic.Node.createConfig({ variant });
   if (spec == null || config == null) return null;
   const { name, Preview } = spec;
+  const builtIn = FLAGS.symbolNodes ? Schematic.Node.BUILT_INS.get(variant) : undefined;
   const createParams = (): Schematic.AddNodeProps<"symbol"> | Schematic.AddNodeProps =>
-    FLAGS.symbolNodes && Schematic.Node.BUILT_INS.has(variant)
+    builtIn != null
       ? createSymbolParams({ type: "builtin", name: variant }, spec.label ?? name)
       : { key: id.create(), config: { variant } };
   const handleAddNode = () => addNode(createParams());
@@ -94,7 +99,11 @@ const StaticListItem = (props: List.ItemProps<string>): ReactElement | null => {
       selected={change?.value === variant}
       onDragStart={handleDragStart}
       onDragEnd={onDragEnd}
-      onClick={change == null ? handleAddNode : () => change.onChange({ variant })}
+      onClick={
+        change == null
+          ? handleAddNode
+          : () => change.onChange(createParams().config, builtIn)
+      }
       y
       {...props}
     >
@@ -180,7 +189,7 @@ const RemoteListItem = (props: RemoteListItemProps): ReactElement | null => {
       onClick={
         change == null
           ? handleAddNode
-          : () => change.onChange({ variant, specKey: itemKey })
+          : () => change.onChange(createParams().config, symbol.data)
       }
       y
       {...props}
