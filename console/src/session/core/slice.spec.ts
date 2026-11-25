@@ -29,6 +29,7 @@ const reduce = (state: Core.SliceState, action: Core.Action): Core.SliceState =>
 const withCores = (...cores: Core.Core[]): Core.SliceState => ({
   ...Core.ZERO_SLICE_STATE,
   cores: Object.fromEntries(cores.map((c) => [c.key, c])),
+  order: cores.map((c) => c.key),
 });
 
 describe("set", () => {
@@ -45,6 +46,21 @@ describe("set", () => {
       ({ host, port }) => host === BASE.host && port === BASE.port,
     );
     expect(atAddress).toHaveLength(2);
+  });
+
+  it("should list a Core the user has just added last", () => {
+    const state = reduce(withCores(BRAVO), Core.set({ ...BASE, name: "Alpha" }));
+    expect(state.order).toHaveLength(2);
+    expect(state.order[0]).toBe(BRAVO.key);
+    expect(state.cores[state.order[1]].name).toBe("Alpha");
+  });
+
+  it("should keep the place of a Core that an edit replaces", () => {
+    const state = reduce(
+      withCores(ALPHA, BRAVO),
+      Core.set({ ...BASE, key: ALPHA.key, name: "Zulu" }),
+    );
+    expect(state.order).toEqual([ALPHA.key, BRAVO.key]);
   });
 
   it("should replace the Core stored under an explicit key", () => {
@@ -126,6 +142,7 @@ describe("setClusterKey", () => {
 describe("defaults", () => {
   it("should start with only the local Core", () => {
     expect(Object.keys(Core.ZERO_SLICE_STATE.cores)).toEqual(["LOCAL"]);
+    expect(Core.ZERO_SLICE_STATE.order).toEqual(["LOCAL"]);
   });
 });
 
@@ -148,6 +165,7 @@ describe("sliceStateZ", () => {
       version: 0,
       selected: ALPHA.key,
       cores: { [ALPHA.key]: ALPHA },
+      order: [ALPHA.key],
     });
   });
 
@@ -170,6 +188,24 @@ describe("sliceStateZ", () => {
     expect(state.cores.DEMO).toEqual(repointed);
     expect(state.selected).toBe("DEMO");
   });
+
+  it("should order saved Cores that have no order by name", () => {
+    const state = Core.sliceStateZ.parse({
+      version: 0,
+      cores: { [BRAVO.key]: BRAVO, [ALPHA.key]: ALPHA },
+    });
+    expect(state.order).toEqual([ALPHA.key, BRAVO.key]);
+  });
+
+  it("should keep a saved order and add missing Cores at the end", () => {
+    const CHARLIE: Core.Core = { ...BASE, key: "charlie", name: "Charlie" };
+    const state = Core.sliceStateZ.parse({
+      version: 0,
+      cores: { [ALPHA.key]: ALPHA, [BRAVO.key]: BRAVO, [CHARLIE.key]: CHARLIE },
+      order: [CHARLIE.key, "removed", BRAVO.key],
+    });
+    expect(state.order).toEqual([CHARLIE.key, BRAVO.key, ALPHA.key]);
+  });
 });
 
 describe("remove", () => {
@@ -181,6 +217,7 @@ describe("remove", () => {
   it("should remove multiple Cores by key", () => {
     const state = reduce(withCores(ALPHA, BRAVO), Core.remove([ALPHA.key, BRAVO.key]));
     expect(Object.keys(state.cores)).toHaveLength(0);
+    expect(state.order).toEqual([]);
   });
 
   it("should leave the defaults untouched when removing a missing key", () => {
@@ -284,6 +321,14 @@ describe("rename", () => {
       Core.rename({ key: ALPHA.key, name: "Renamed" }),
     );
     expect(state.cores[ALPHA.key].name).toBe("Renamed");
+  });
+
+  it("should keep a renamed Core in its place", () => {
+    const state = reduce(
+      withCores(ALPHA, BRAVO),
+      Core.rename({ key: ALPHA.key, name: "Zulu" }),
+    );
+    expect(state.order).toEqual([ALPHA.key, BRAVO.key]);
   });
 
   // A name is a label, not an identity: the key is what everything resolves by.

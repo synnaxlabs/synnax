@@ -56,6 +56,7 @@ const TYPED = { ...LOCAL, password: "seldon" };
 const CoreState = (core = LOCAL): Session.Core.SliceState => ({
   ...Session.Core.ZERO_SLICE_STATE,
   cores: { [CORE_KEY]: core },
+  order: [CORE_KEY],
 });
 
 const renderGuard = async (selected?: string, core = LOCAL): Promise<TestStore> => {
@@ -87,6 +88,7 @@ const renderUnreachable = async (): Promise<void> => {
             port: 9098,
           }),
         },
+        order: [DEAD_KEY],
         selected: DEAD_KEY,
       },
     },

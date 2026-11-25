@@ -20,6 +20,12 @@ import { getBySelector } from "@/testutil";
 const ALPHA = createCore("Alpha", { clusterKey: "cluster-alpha" });
 const BRAVO = createCore("Bravo", { port: 9099, clusterKey: undefined });
 
+const names = (container: HTMLElement): string[] =>
+  Array.from(
+    container.querySelectorAll<HTMLElement>(".console-core-list-item__name"),
+    (el) => el.textContent,
+  );
+
 describe("Core List", () => {
   it("should call onChange with the clicked Core's key", async () => {
     const onChange = vi.fn();
@@ -145,6 +151,29 @@ describe("Core List", () => {
     await waitFor(() =>
       expect(Session.Core.selectState(store.getState(), ALPHA.key)?.name).toBe("Beta"),
     );
+  });
+
+  it("should show Cores in the order the user added them", async () => {
+    const { container } = await renderCoreUI(
+      <Core.List value={undefined} onChange={vi.fn()} />,
+      createCoreState([BRAVO, ALPHA]),
+    );
+    await screen.findByText("Alpha");
+    expect(names(container)).toEqual(["Bravo", "Alpha"]);
+  });
+
+  it("should keep a renamed Core in its place", async () => {
+    const { container } = await renderCoreUI(
+      <Core.List value={ALPHA.key} onChange={vi.fn()} />,
+      createCoreState([ALPHA, BRAVO], ALPHA.key),
+    );
+    fireEvent.contextMenu(await screen.findByText("Alpha"));
+    fireEvent.click(await screen.findByText("Rename"));
+    const editable = screen.getByText("Alpha");
+    await waitFor(() => expect(editable.getAttribute("contenteditable")).toBe("true"));
+    editable.innerText = "Zulu";
+    fireEvent.keyDown(editable, { key: "Enter" });
+    await waitFor(() => expect(names(container)).toEqual(["Zulu", "Bravo"]));
   });
 
   // A name is a label, not an identity, so two Cores may share one.
