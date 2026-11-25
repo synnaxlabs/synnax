@@ -253,6 +253,10 @@ var _ = Describe("Writer", func() {
 			Entry("with digits", "name_valid_sensor1"),
 			Entry("with underscores", "name_valid_sensor_temp"),
 			Entry("letters, digits, and underscores", "name_valid_temp123_sensor"),
+			Entry("dashes and capitals", "name_valid PT-FU-01"),
+			Entry("a leading digit", "1sensor_name_valid"),
+			Entry("punctuation", "name_valid sensor!@#$%"),
+			Entry("letters of other scripts", "name_valid 圧力"),
 		)
 		DescribeTable(
 			"Should reject invalid names",
@@ -268,13 +272,10 @@ var _ = Describe("Writer", func() {
 					To(MatchError(ContainSubstring(msg)))
 			},
 			Entry("empty name", "", "name: required"),
-			Entry("name starting with a digit", "1sensor", "cannot start with a digit"),
-			Entry("name with spaces", "my channel", "contains invalid characters"),
-			Entry(
-				"name with special characters",
-				"sensor!",
-				"contains invalid characters",
-			),
+			Entry("spaces only", "   ", "must hold a visible character"),
+			Entry("a separator", "stand.pt", "no '.' or invisible character"),
+			Entry("a zero-width space", "pt\u200B01", "no '.' or invisible character"),
+			Entry("a no-break space", "pt\u00A001", "no '.' or invisible character"),
 		)
 	})
 
@@ -305,11 +306,11 @@ var _ = Describe("Writer", func() {
 				It(
 					"Should return an error if the name is invalid",
 					func(ctx SpecContext) {
-						ch.Name = "invalid name"
+						ch.Name = "invalid.name"
 						Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 							return svc.NewWriter(tx).Create(ctx, &ch)
 						})).
-							To(MatchError(ContainSubstring("contains invalid characters")))
+							To(MatchError(ContainSubstring("no '.' or invisible character")))
 					},
 				)
 				It(
@@ -1169,142 +1170,6 @@ var _ = Describe("Writer", func() {
 		})
 	})
 
-	Context("Name Validation Disabled", func() {
-		Describe("Channel Creation", Ordered, func() {
-			var (
-				db  *gorp.DB
-				svc *channel.Service
-			)
-			BeforeAll(func(ctx SpecContext) {
-				ShouldNotLeakGoroutines()
-				dist := testutil.NewNode(ctx)
-				db = dist.DB
-				svc = openService(
-					ctx,
-					dist,
-					channel.ServiceConfig{ValidateNames: new(false)},
-				)
-			})
-			It(
-				"Should create a channel with spaces in the name",
-				func(ctx SpecContext) {
-					ch := channel.Channel{
-						Name:        "my channel with spaces",
-						DataType:    telem.TimestampT,
-						IsIndex:     true,
-						Leaseholder: 1,
-					}
-					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-						return svc.NewWriter(tx).Create(ctx, &ch)
-					})).To(Succeed())
-					Expect(ch.Key()).ToNot(BeZero())
-					var retrieved channel.Channel
-					Expect(svc.NewRetrieve().
-						Where(channel.MatchKeys(ch.Key())).
-						Entry(&retrieved).
-						Exec(ctx, db)).To(Succeed())
-					Expect(retrieved.Name).To(Equal("my channel with spaces"))
-				},
-			)
-			It(
-				"Should create a channel with special characters in the name",
-				func(ctx SpecContext) {
-					ch := channel.Channel{
-						Name:        "sensor!@#$%",
-						DataType:    telem.Float64T,
-						Virtual:     true,
-						Leaseholder: node.KeyFree,
-					}
-					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-						return svc.NewWriter(tx).Create(ctx, &ch)
-					})).To(Succeed())
-					Expect(ch.Key()).ToNot(BeZero())
-					var retrieved channel.Channel
-					Expect(svc.NewRetrieve().
-						Where(channel.MatchKeys(ch.Key())).
-						Entry(&retrieved).
-						Exec(ctx, db)).To(Succeed())
-					Expect(retrieved.Name).To(Equal("sensor!@#$%"))
-				},
-			)
-			It(
-				"Should create a channel with a name starting with a digit",
-				func(ctx SpecContext) {
-					ch := channel.Channel{
-						Name:        "1sensor",
-						DataType:    telem.TimestampT,
-						IsIndex:     true,
-						Leaseholder: 1,
-					}
-					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-						return svc.NewWriter(tx).Create(ctx, &ch)
-					})).To(Succeed())
-					Expect(ch.Key()).ToNot(BeZero())
-					var retrieved channel.Channel
-					Expect(svc.NewRetrieve().
-						Where(channel.MatchKeys(ch.Key())).
-						Entry(&retrieved).
-						Exec(ctx, db)).To(Succeed())
-					Expect(retrieved.Name).To(Equal("1sensor"))
-				},
-			)
-			It("Should still reject empty names", func(ctx SpecContext) {
-				ch := channel.Channel{
-					Name:        "",
-					DataType:    telem.Float64T,
-					Virtual:     true,
-					Leaseholder: node.KeyFree,
-				}
-				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					return svc.NewWriter(tx).Create(ctx, &ch)
-				})).
-					To(MatchError(ContainSubstring("name: required")))
-			})
-			It("Should reject renaming to an empty name", func(ctx SpecContext) {
-				ch := channel.Channel{
-					Name:        "named",
-					DataType:    telem.Float64T,
-					Virtual:     true,
-					Leaseholder: node.KeyFree,
-				}
-				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					return svc.NewWriter(tx).Create(ctx, &ch)
-				})).To(Succeed())
-				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					return svc.NewWriter(tx).Rename(ctx, ch.Key(), "", false)
-				})).To(MatchError(ContainSubstring("name: required")))
-			})
-			It(
-				"Should allow renaming to a name with special characters",
-				func(ctx SpecContext) {
-					ch := channel.Channel{
-						Name:        "original_name",
-						DataType:    telem.TimestampT,
-						IsIndex:     true,
-						Leaseholder: 1,
-					}
-					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-						return svc.NewWriter(tx).Create(ctx, &ch)
-					})).To(Succeed())
-					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-						return svc.NewWriter(tx).Rename(
-							ctx,
-							ch.Key(),
-							"new name with spaces!",
-							false,
-						)
-					})).To(Succeed())
-					var retrieved channel.Channel
-					Expect(svc.NewRetrieve().
-						Where(channel.MatchKeys(ch.Key())).
-						Entry(&retrieved).
-						Exec(ctx, db)).To(Succeed())
-					Expect(retrieved.Name).To(Equal("new name with spaces!"))
-				},
-			)
-		})
-	})
-
 	Describe("Delete", Ordered, func() {
 		var (
 			dist testutil.Node
@@ -1705,8 +1570,8 @@ var _ = Describe("Writer", func() {
 				It("Should return an error", func(ctx SpecContext) {
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 						return svc.NewWriter(tx).
-							Rename(ctx, ch.Key(), "invalid name", false)
-					})).To(MatchError(ContainSubstring("contains invalid characters")))
+							Rename(ctx, ch.Key(), "invalid.name", false)
+					})).To(MatchError(ContainSubstring("no '.' or invisible character")))
 				})
 			})
 			Context("new name is empty", func() {

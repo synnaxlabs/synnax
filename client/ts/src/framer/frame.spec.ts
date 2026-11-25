@@ -962,6 +962,24 @@ describe("framer.Frame", () => {
       expect(result.series.length).toEqual(2);
     });
 
+    it("should read a record key of all digits as a channel key", () => {
+      const keyed = new framer.Frame({
+        12: new Series([1]),
+        13: new Series([2]),
+      });
+      expect(keyed.columns).toEqual([12, 13]);
+      const named = new framer.Frame({
+        "3-tank": new Series([1]),
+        "1e3": new Series([2]),
+        "0x10": new Series([3]),
+      });
+      expect(named.columns).toEqual(["3-tank", "1e3", "0x10"]);
+    });
+
+    it("should read a column list of digit text as names", () => {
+      expect(new framer.Frame(["12"], [new Series([1])]).columns).toEqual(["12"]);
+    });
+
     it("should work with string keys", () => {
       const f = new framer.Frame({
         a: new Series({
