@@ -11,7 +11,8 @@
 # request or a merge group must pass runs from here. Nightly and Release call it with
 # full, which runs every job whatever changed, on every OS the job supports. A pull
 # request and a merge group skip the macOS C++ tests, because the two macOS bots cannot
-# keep up with them.
+# keep up with them. They also skip the WebKit and Firefox tests, which add six minutes
+# to the Console and client jobs.
 
 name: CI
 
@@ -452,6 +453,7 @@ jobs:
       packed: true
       runtimes: true
       ubuntu_arm: *full
+      webkit: *full
       windows: *full
       windows_arm: *full
     secrets:
@@ -473,6 +475,7 @@ jobs:
       directory: console
       package: console
       shards: 3
+      webkit: *full
       # Three runs hold each WebKit page under 2.3 GB, from 4.1 GB with one.
       webkit_runs: 3
     secrets:
@@ -632,6 +635,7 @@ jobs:
       directory: site/docs
       macos: *full
       package: docs
+      webkit: *full
       windows: *full
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
@@ -1109,6 +1113,7 @@ jobs:
       directory: lyra
       macos: *full
       package: lyra
+      webkit: *full
       windows: *full
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
@@ -1166,6 +1171,7 @@ jobs:
       coverage_flag: pluto
       directory: pluto
       package: pluto
+      webkit: *full
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
@@ -1183,6 +1189,7 @@ jobs:
       directory: site/portal
       macos: *full
       package: portal
+      webkit: *full
       windows: *full
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}

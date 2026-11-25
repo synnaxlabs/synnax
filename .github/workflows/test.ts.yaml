@@ -13,9 +13,7 @@ on:
   workflow_call:
     inputs: &inputs
       browsers:
-        description:
-          Whether the tests run in Playwright's Chromium, WebKit, and, for a package
-          with a firefox project, Firefox
+        description: Whether the tests run in Playwright's Chromium
         required: false
         type: boolean
         default: false
@@ -114,6 +112,13 @@ on:
         default: true
       ubuntu_arm:
         description: Whether to test on Ubuntu on ARM
+        required: false
+        type: boolean
+        default: false
+      webkit:
+        description:
+          Whether the browser tests also run in WebKit and, for a package with a firefox
+          project, Firefox
         required: false
         type: boolean
         default: false
@@ -309,8 +314,11 @@ jobs:
           scripts/check_declarations_ts.sh "$PACKAGE" "$RUNNER_TEMP/packed"
 
       # Without a limit, a stuck mirror holds the merge queue for up to 6 hours.
+      # The Node version changes no browser run, so a Node variant runs no browser.
       - name: Install browsers
-        if: (inputs.test && inputs.browsers) || (inputs.runtimes && matrix.lint)
+        if:
+          (inputs.test && inputs.browsers && !matrix.node) || (inputs.runtimes &&
+          matrix.lint)
         uses: ./.github/actions/setup-browsers
         timeout-minutes: 20
         with:
@@ -351,6 +359,8 @@ jobs:
             ${{ matrix.node && '--coverage.enabled=false' || inputs.coverage_flag != ''
             && '--coverage.reporter=text-summary --coverage.reporter=clover
             --coverage.reporter=json' || '' }}
+          PROJECT_ARG:
+            ${{ matrix.node && inputs.browsers && '--project=!*chromium' || '' }}
           SHARD_ARG:
             ${{ inputs.shards > 1 && format('--shard={0}/{1}', matrix.shard,
             inputs.shards) || '' }}
@@ -359,7 +369,7 @@ jobs:
             ${{ format('{0}-{1}-{2}-{3}-cov', github.run_id, github.run_attempt,
             github.job, strategy.job-index) }}
         run: |
-          read -ra args <<< "$COVERAGE_ARGS $SHARD_ARG $TEST_ARGS $SPECS"
+          read -ra args <<< "$COVERAGE_ARGS $PROJECT_ARG $SHARD_ARG $TEST_ARGS $SPECS"
           pnpm cov:"$PACKAGE" --log-order=stream --log-prefix=none -- "${args[@]}"
 
       - name: Run the examples
@@ -381,7 +391,7 @@ jobs:
       # too many files crashes. Each run starts new pages. Set webkit_runs back to 1
       # when the issue is fixed.
       - name: Test in WebKit and Firefox
-        if: inputs.test && inputs.browsers
+        if: inputs.test && inputs.webkit && !matrix.node
         shell: bash
         timeout-minutes: 15
         env:
