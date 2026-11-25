@@ -16,9 +16,11 @@ export * from "@/schematic/node/common/custom/Overrides";
 export {
   listValues,
   type Paint,
+  type StateValues,
   usePaints,
   type UsePaintsParams,
   useRegions,
+  useUnmatched,
   type Value,
 } from "@/schematic/node/common/custom/paint";
 export * from "@/schematic/node/common/custom/render";

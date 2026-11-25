@@ -9,6 +9,23 @@
  * included in the file licenses/APL.txt.
  */
 
+/* Each filter stays on the shape that sets it, so a group does not pass its filter to
+   the shapes inside it. */
+@property --console-schematic-selected-filter {
+    syntax: "*";
+    inherits: false;
+}
+
+@property --console-schematic-hover-filter {
+    syntax: "*";
+    inherits: false;
+}
+
+@property --console-schematic-own-filter {
+    syntax: "*";
+    inherits: false;
+}
+
 /* Fixed dimensions matching the original symbol-create window (1200x800). The 2-class
  * selector overrides pluto's global modal min-width floor, which is wider than 1200px. */
 .lyra-modal.console-schematic__symbol-create-layout {
@@ -89,8 +106,46 @@
         transition: all 0.2s ease;
     }
 
-    .console-schematic__svg-region--hover {
-        cursor: pointer;
+    /* A shape at rest draws the filter of the drawing. */
+    :where(.console-schematic__svg-region--hoverable) {
+        filter: var(--console-schematic-own-filter, none);
+    }
+
+    /* This rule owns the filter on hover and selection, so the filter of the drawing,
+       the hover, and the selected mark all show. */
+    :is(
+        .console-schematic__svg-region--hoverable:hover,
+        .console-schematic__svg-region--selected
+    ) {
+        filter: var(--console-schematic-own-filter, brightness(1))
+            var(--console-schematic-selected-filter, brightness(1))
+            var(--console-schematic-hover-filter, brightness(1));
+    }
+
+    .console-schematic__svg-region--hoverable:hover {
+        --console-schematic-hover-filter: brightness(1.3);
+    }
+
+    :is(line, polyline).console-schematic__svg-region--hoverable:hover {
+        --console-schematic-hover-filter: drop-shadow(0 0 3px var(--pluto-primary-z));
+    }
+
+    /* A shape with no fill of its own takes a tint on hover. */
+    .console-schematic__svg-region--hoverable:hover:not(line, polyline):is(
+            :not([fill]),
+            [fill="none"],
+            [fill="transparent"]
+        ) {
+        --console-schematic-hover-filter: brightness(1);
+
+        fill: var(--pluto-primary-z-20);
+        fill-opacity: 1;
+    }
+
+    .console-schematic__svg-region--selected {
+        --console-schematic-selected-filter: drop-shadow(
+            0 0 2px var(--pluto-primary-z)
+        );
     }
 
     .console-schematic__handle-preview {
@@ -232,6 +287,16 @@
 
     .console-schematic-inspector {
         padding: 2rem;
+    }
+
+    .console-schematic-inspector__rate {
+        width: 24rem;
+    }
+
+    .console-schematic-inspector__value {
+        padding-left: 3rem;
+        flex-wrap: wrap;
+        row-gap: 0.5rem;
     }
 }
 

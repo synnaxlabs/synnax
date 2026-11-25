@@ -125,7 +125,8 @@ Device struct {
         @go marshal omit
     }
 
-    @doc value  "is an NI module in a chassis, or a standalone USB or PCIe device."
+    @doc value     "is an NI module in a chassis, or a standalone USB or PCIe device."
     @go marshal
     @go migrate
+    @resource type "ni_device"
 }

@@ -23,16 +23,18 @@ import { Nav } from "@synnaxlabs/lyra/nav";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Schematic } from "@synnaxlabs/pluto";
-import { type bounds, id, type xy } from "@synnaxlabs/x";
-import { type ReactElement, useState } from "react";
+import { type bounds, deep, id, type xy } from "@synnaxlabs/x";
+import { type ReactElement, useRef, useState } from "react";
 
 import { HandleList } from "@/feature/schematic/symbol/edit/HandleList";
 import { Inspector } from "@/feature/schematic/symbol/edit/Inspector";
 import { PartList } from "@/feature/schematic/symbol/edit/PartList";
 import { Preview } from "@/feature/schematic/symbol/edit/Preview";
+import { useConfirmSave } from "@/feature/schematic/symbol/edit/useConfirmSave";
 import { useValues } from "@/feature/schematic/symbol/edit/useValues";
 import { SelectVariantField } from "@/feature/schematic/symbol/SelectVariant";
 import { Spec } from "@/feature/schematic/symbol/spec";
+import { FLAGS } from "@/flags";
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";
@@ -114,19 +116,31 @@ const Editor = ({
     afterSave: () => close(),
   });
   Modals.useBusy(variant === "loading");
+  const stored = Schematic.Symbol.useResult(
+    symbolKey == null ? null : { key: symbolKey, includeUses: true },
+  );
+  const confirmSave = useConfirmSave();
   const [selectedValue, setSelectedValue] = useState(0);
   const [selectedPart, setSelectedPart, selectedPartRef] =
     useCombinedStateAndRef<Spec.Target>(undefined);
   const [selectedHandle, setSelectedHandle] = useState<string | undefined>(undefined);
 
-  const addPart = () => {
+  // addPart adds a part, with the shape of selector when one is given, and selects it.
+  const addPart = (selector?: string) => {
     const parts = form.get(path.data.parts).value;
     const part: schematic.symbol.Part = {
       key: `part-${id.create()}`,
       name: Spec.nextPartName(parts),
       selectors: [],
     };
-    form.set(path.data.parts, [...parts, part]);
+    const next = [...parts, part];
+    const drawing = form.get(path.data.drawing).value;
+    form.set(
+      path.data.parts,
+      selector == null
+        ? next
+        : Spec.toggleSelector({ drawing, parts: next }, part.key, selector),
+    );
     setSelectedPart(part.key);
   };
 
@@ -152,19 +166,46 @@ const Editor = ({
     }
   };
 
-  const handleElementClick = (selector: string) => {
+  const lastClickSelectsRef = useRef(false);
+  const handleElementClick = (selector: string, count: number) => {
+    // A later click of the same double click would undo a click that selects a part.
+    if (count > 1 && lastClickSelectsRef.current) return;
     const part = selectedPartRef.current;
-    if (part == null) return;
-    form.set(
-      path.data.parts,
-      Spec.toggleSelector(form.get(path.data.parts).value, part, selector),
-    );
+    const spec = form.get(path.data).value;
+    // A shape in a group of another part cannot join part, so the click selects it.
+    const holder = Spec.groupOwner(spec, selector);
+    const toggles = part != null && (holder == null || holder.key === part);
+    lastClickSelectsRef.current = !toggles;
+    if (toggles)
+      return form.set(path.data.parts, Spec.toggleSelector(spec, part, selector));
+    const owner = part == null ? Spec.owner(spec, selector) : holder;
+    if (owner == null) return addPart(selector);
+    setSelectedPart(owner.key);
   };
   const hasSVG =
     Form.useFieldValue(path.data.drawing.markup, {
       ctx: form,
     }).length > 0;
   const createSaveText = isCreate ? "Create" : "Save";
+  const handleSave = async () => {
+    // A fill motion that cannot draw stops the save and selects its part, whose
+    // inspector shows why. The inspector shows the issues only with the flag on.
+    if (FLAGS.symbolMotion) {
+      const [part] = Spec.levelIssues(form.get(path.data).value).keys();
+      if (part != null) return setSelectedPart(part);
+    }
+    const uses = stored.data?.uses ?? [];
+    if (stored.data != null && uses.length > 0) {
+      const spec = form.get(path.data).value;
+      const changed = !deep.equal(
+        { ...stored.data.data, previewViewport: undefined },
+        { ...spec, previewViewport: undefined },
+      );
+      if (changed && (await confirmSave({ stored: stored.data, spec, uses })) !== true)
+        return;
+    }
+    save();
+  };
 
   return (
     <Form.Form<typeof Schematic.Symbol.formSchema> {...form}>
@@ -214,7 +255,7 @@ const Editor = ({
                     setSelectedPart(value);
                     setSelectedHandle(undefined);
                   }}
-                  onAdd={addPart}
+                  onAdd={() => addPart()}
                 />
                 <Divider.Divider x />
                 <HandleList
@@ -263,6 +304,7 @@ const Editor = ({
                   <Preview
                     selectedValue={selectedValue}
                     selectedHandle={selectedHandle}
+                    selectedPart={selectedPart}
                     onElementClick={handleElementClick}
                     onContentsChange={onChange}
                     onHandlePlace={handleHandlePlace}
@@ -295,8 +337,13 @@ const Editor = ({
             <Nav.Bar.End>
               <Button.Button
                 variant="filled"
-                status={status.keepVariants(variant, "loading")}
-                onClick={() => save()}
+                status={
+                  !isCreate && stored.variant === "loading"
+                    ? "loading"
+                    : status.keepVariants(variant, "loading")
+                }
+                disabled={!isCreate && stored.variant === "error"}
+                onClick={() => void handleSave()}
                 trigger={Triggers.SAVE}
                 triggerIndicator
               >
