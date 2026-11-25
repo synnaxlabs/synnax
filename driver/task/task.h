@@ -139,12 +139,16 @@ public:
     ):
         Context(client), calls(std::move(outbox)) {}
 
-    /// @brief creates a context whose outbox failed to open with outbox_err.
-    MockContext(
+    /// @brief creates a context whose outbox failed to open with outbox_err, so a task
+    /// that queues Core calls fails to start. By default, it has no outbox.
+    explicit MockContext(
         const std::shared_ptr<synnax::Synnax> &client,
-        x::errors::Error outbox_err
+        const x::errors::Error &outbox_err = x::errors::Error(
+            ::driver::outbox::BASE_ERROR,
+            "the mock context has no outbox"
+        )
     ):
-        Context(client), calls_err(std::move(outbox_err)) {}
+        Context(client), calls_err(outbox_err) {}
 
     std::pair<std::shared_ptr<::driver::outbox::Outbox>, x::errors::Error>
     outbox() override {

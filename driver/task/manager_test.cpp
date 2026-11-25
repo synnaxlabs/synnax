@@ -4363,9 +4363,7 @@ TEST_F(SynnaxContextTest, ReturnsInjectedOutbox) {
         std::make_shared<StatusCache>(client->statuses),
         std::pair{outbox, x::errors::NIL}
     );
-    const auto [got, err] = ctx->outbox();
-    ASSERT_NIL(err);
-    ASSERT_EQ(got, outbox);
+    ASSERT_EQ(ASSERT_NIL_P(ctx->outbox()), outbox);
 }
 
 /// @brief it should give tasks the error that kept the outbox from opening.
@@ -4378,9 +4376,7 @@ TEST_F(SynnaxContextTest, ReturnsOutboxError) {
             ::driver::outbox::CORRUPT
         }
     );
-    const auto [got, err] = ctx->outbox();
-    ASSERT_OCCURRED_AS(err, ::driver::outbox::CORRUPT);
-    ASSERT_EQ(got, nullptr);
+    ASSERT_OCCURRED_AS_P(ctx->outbox(), ::driver::outbox::CORRUPT);
 }
 
 /// @brief it should send the latest status of each task again, with no command key.
