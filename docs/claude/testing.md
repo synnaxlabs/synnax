@@ -22,8 +22,11 @@ uv run --project scripts scripts/compare_benchmarks.py --base main --head HEAD
 ```
 
 - It builds each ref once, then runs each group once per ref in each of 10 rounds, back
-  to back. A benchmark fails on a `sec/op` rise over 5% at p < 0.05, on an `allocs/op`
-  rise of any size at p < 0.05 (Go and C++), or when head does not have it.
+  to back. A benchmark fails, at p < 0.05, on a `sec/op` rise over 5%, a p50 or p99
+  latency rise over 10%, a max latency rise over 25%, or an `allocs/op` rise of any size
+  (Go and C++). It also fails when head does not have it.
+- The live groups of the `io` suite measure the write-to-stream latency and throughput
+  of an auto-commit writer at three shapes. The script's docstring gives them.
 - `GROUPS` in the script lists the gate. A new gate benchmark needs a row there.
   `--only <regex>` limits a run to the groups a change touches.
 - The `cpu` suite runs on any quiet Linux or macOS host. The `io` suite
@@ -41,9 +44,9 @@ uv run --project scripts scripts/compare_benchmarks.py --base main --head HEAD
 
 Client (TS/Python/C++) tests, Pluto and Console live-Core specs, and Driver tests
 connect to a Core (login `synnax`/`seldon`). They read `SYNNAX_TEST_HOST` and
-`SYNNAX_TEST_PORT`, and default to `localhost:9090`. A browser has no environment, so a
-browser project passes that address to its specs as `synnaxTestCore` (Vitest `provide`),
-as `console/vite.config.ts` does.
+`SYNNAX_TEST_PORT`, and default to `localhost:9090`. TS specs never read them: the
+Vitest config reads them with `testCore()` from `@synnaxlabs/vite-plugin` and provides
+the address to every project as `synnaxTestCore`, as `console/vite.config.ts` does.
 
 Parallel sessions share this machine. Build a Core from your worktree and run it on a
 free port. Never use, stop, or replace a Core that you did not start.

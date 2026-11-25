@@ -20,8 +20,8 @@ class SelectStateIndicatorEnumeration(ConsoleCase):
     Both symbols name one enumeration. The test sends an entry through the Select and
     reads it on the State Indicator, then renames an entry in the Core and checks that
     both symbols draw the new name with no edit to the schematic. It then renames an
-    entry from the symbol's own Options tab, and moves the options of a third symbol
-    into a new enumeration from its picker.
+    entry from the symbol's own Options tab, and creates a new enumeration for a third
+    symbol from its picker.
     """
 
     created: list[str]
@@ -126,28 +126,32 @@ class SelectStateIndicatorEnumeration(ConsoleCase):
         offset = indicator.used_by_offset()
         assert abs(offset) < 1, f"Used by starts {offset} px right of the picker"
 
-        self.log("Moving the options of a new State Indicator into an enumeration")
+        self.log("Creating an enumeration from a new State Indicator")
         PUMP_NAME = f"pump_state_{random_name()}"
         self.created.append(PUMP_NAME)
-        pump = StateIndicator(
-            label="Pump Display",
-            channel_name=CHANNEL_NAME,
-            options=[
-                sy.schematic.StateMapping(key="off", name="Off", value=0),
-                sy.schematic.StateMapping(key="on", name="On", value=1),
-            ],
-        )
+        pump = StateIndicator(label="Pump Display", channel_name=CHANNEL_NAME)
         schematic.create_symbol(pump)
         pump.move(delta_x=0, delta_y=150)
         pump.create_enumeration(PUMP_NAME)
+        pump.add_entries(
+            [
+                enumeration.Entry(key="off", name="Off", value=0),
+                enumeration.Entry(key="on", name="On", value=1),
+            ]
+        )
 
-        def created() -> list[tuple[str, float]] | None:
+        want = [("Off", 0), ("On", 1)]
+
+        def held() -> list[tuple[str, float]]:
             found = client.enumerations.retrieve(names=[PUMP_NAME])
             if len(found) == 0:
-                return None
+                return []
             return [(e.name, e.value) for e in found[0].entries]
 
-        entries = sy.poll(created, timeout=5, interval=0.25)
-        assert entries == [("Off", 0), ("On", 1)], f"Core holds entries {entries}"
+        # Each entry saves on its own, so wait for all of them.
+        saved = sy.poll(
+            lambda: want if held() == want else None, timeout=5, interval=0.25
+        )
+        assert saved is not None, f"Core holds entries {held()}"
 
         schematic.screenshot()

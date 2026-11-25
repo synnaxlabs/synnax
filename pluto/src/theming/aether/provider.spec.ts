@@ -51,4 +51,27 @@ describe("theming.Provider", () => {
         featureSettings: '"liga" 0',
       });
   });
+
+  it("loads a tabular font with tabular digits at every weight", async () => {
+    const FontFace = vi.fn(
+      class {
+        load = async () => {};
+      },
+    );
+    vi.stubGlobal("FontFace", FontFace);
+    vi.stubGlobal("fonts", { add: vi.fn() });
+    renderAether(Leaf, {
+      state: {},
+      theming: {
+        theme: theme.SYNNAX_LIGHT,
+        fontURLs: [{ name: "Inter Tabular", url: "inter.woff2", tabular: true }],
+      },
+    });
+    await expect
+      .poll(() => FontFace)
+      .toHaveBeenCalledWith("Inter Tabular", "url(inter.woff2)", {
+        featureSettings: '"liga" 0, "tnum" 1',
+        weight: "100 900",
+      });
+  });
 });

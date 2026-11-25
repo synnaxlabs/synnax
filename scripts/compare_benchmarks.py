@@ -16,10 +16,19 @@ Builds each ref once in its own worktree. Each round then runs every group once 
 ref, back to back, and odd rounds run head first. One process runs at a time.
 benchstat compares the two result files.
 
-A benchmark fails on a sec/op rise over 5% at p < 0.05, on an allocs/op rise of any
-size at p < 0.05, or when head does not have it. A failure exits with 1. A control
-group that breaks the rule does not fail the run: it means the host is noisy. A
-benchmark or a whole group that only head has reports as new.
+A benchmark fails, at p < 0.05, on a rise in sec/op over 5%, in p50 or p99 latency
+over 10%, in max latency over 25%, or in allocs/op of any size. It also fails when head
+does not have it. A failure exits with 1. A control group that breaks the rule does not
+fail the run: it means the host is noisy. A benchmark or a whole group that only head
+has reports as new.
+
+The live groups of the io suite measure an auto-commit writer on the OS file system,
+with a streamer on its channels, in three shapes. 1khz is 8 float64 channels at 1 kHz,
+with 40 samples per write. 25khz-card is 16 float32 channels at 25 kHz, with 1000
+samples per write. wide is 1000 float64 channels at 25 Hz, with 1 sample per write.
+framer/live-latency writes at 25 Hz and reports the write-to-stream latency: the mean
+as sec/op, and p50-ns, p99-ns, and max-ns, which benchstat shows in sec.
+framer/live-throughput writes back to back and reports samples/s.
 
 Pass one ref as both --base and --head for an A/A run, which measures the noise of the
 host. The io suite puts its files in --io-dir, the disk to measure.
@@ -52,7 +61,9 @@ MIN_ROUNDS = 4
 type Suite = Literal["cpu", "io"]
 BENCHMARK = re.compile(r"^Benchmark", re.MULTILINE)
 ALPHA = 0.05
-MAX_TIME_RISE = 0.05
+# The largest rise of each time unit that passes. benchstat shows a metric that a
+# benchmark reports in ns, such as p99-ns, in sec.
+MAX_RISE = {"sec/op": 0.05, "p50-sec": 0.10, "p99-sec": 0.10, "max-sec": 0.25}
 
 
 @dataclass(frozen=True)
@@ -84,10 +95,19 @@ class Group:
 
 
 def go(
-    name: str, suite: Suite, package: str, pattern: str, control: bool = False
+    name: str,
+    suite: Suite,
+    package: str,
+    pattern: str,
+    control: bool = False,
+    benchtime: str = "",
+    cpu: int = 0,
 ) -> Group:
-    """Returns the group for the Go benchmarks of package that match pattern."""
+    """Returns the group for the Go benchmarks of package that match pattern. A
+    benchtime or cpu sets the -test flag of that name, and cpu pins GOMAXPROCS."""
     binary = "{bin}/" + package.replace("/", "-") + ".test"
+    flags = (f"-test.benchtime={benchtime}",) if benchtime else ()
+    flags += (f"-test.cpu={cpu}",) if cpu else ()
     return Group(
         name,
         suite,
@@ -101,6 +121,7 @@ def go(
                 f"-test.bench={pattern}",
                 "-test.benchmem",
                 "-test.timeout=0",
+                *flags,
             ),
         ),
         control,
@@ -154,6 +175,9 @@ def gbench(name: str, package: str, binary: str) -> Group:
 
 
 FRAMER = "core/pkg/service/framer"
+WRITER = "core/pkg/distribution/framer/writer"
+# The live groups pin GOMAXPROCS so that their tails do not move with the host's cores.
+LIVE_CPUS = 8
 GROUPS: tuple[Group, ...] = (
     go("cesium/write", "cpu", "cesium", "^BenchmarkWrite$/^fs=mem$"),
     go("cesium/write-os", "io", "cesium", "^BenchmarkWrite$/^fs=os$"),
@@ -164,11 +188,21 @@ GROUPS: tuple[Group, ...] = (
         "cesium",
         "^Benchmark(ReadDomains|ReadSamples|StreamFixedSpan)$",
     ),
+    go("framer/writer", "cpu", WRITER, "^Benchmark(Write|Open)$"),
     go(
-        "framer/writer",
-        "cpu",
-        "core/pkg/distribution/framer/writer",
-        "^Benchmark(Write|Open)$",
+        "framer/live-latency",
+        "io",
+        WRITER,
+        "^BenchmarkLiveWriteLatency$",
+        benchtime="250x",
+        cpu=LIVE_CPUS,
+    ),
+    go(
+        "framer/live-throughput",
+        "io",
+        WRITER,
+        "^BenchmarkLiveWriteThroughput$",
+        cpu=LIVE_CPUS,
     ),
     go(
         "framer/codec",
@@ -455,8 +489,10 @@ def judge(table: str) -> list[Finding]:
         before, after = float(base), float(head)
         if change in ("", "~") or after <= before:
             continue
-        if unit == "sec/op" and after > before * (1 + MAX_TIME_RISE):
+        if unit in MAX_RISE and after > before * (1 + MAX_RISE[unit]):
             detail = f"{after / before - 1:+.2%}"
+            if unit != "sec/op":
+                detail = f"{unit.removesuffix('-sec')} {detail}"
             findings.append(Finding("slower", package, name, detail))
         if unit == "allocs/op":
             detail = f"{before:g} to {after:g} allocs/op"

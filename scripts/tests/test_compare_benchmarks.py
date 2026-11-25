@@ -26,6 +26,33 @@ def table(unit: str, *rows: str, package: str = PACKAGE) -> str:
     return "\n".join([*header, *rows, "geomean,1,,1,,+0.00%,", "", ""])
 
 
+WRITER = "github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
+# benchstat prints a metric that a benchmark reports in ns, such as p99-ns, in sec.
+LIVE = f"""goos: linux
+goarch: amd64
+pkg: {WRITER}
+,base,,head,,,
+,sec/op,CI,sec/op,CI,vs base,P
+Live-8,0.000198895,1%,0.00020382550000000002,1%,+2.48%,p=0.000 n=10
+geomean,0.00019889499999999996,,0.00020382550000000015,,+2.48%,
+
+,base,,head,,,
+,max-sec,CI,max-sec,CI,vs base,P
+Live-8,0.0008995990000000001,1%,0.0090197195,1%,+902.64%,p=0.000 n=10
+geomean,0.0008995989999999997,,0.009019719500000002,,+902.64%,
+
+,base,,head,,,
+,p50-sec,CI,p50-sec,CI,vs base,P
+Live-8,0.00018052900000000002,1%,0.00018362500000000003,1%,+1.71%,p=0.000 n=10
+geomean,0.00018052900000000002,,0.000183625,,+1.71%,
+
+,base,,head,,,
+,p99-sec,CI,p99-sec,CI,vs base,P
+Live-8,0.000397944,1%,0.0024042380000000004,1%,+504.16%,p=0.000 n=10
+geomean,0.000397944,,0.0024042380000000012,,+504.16%,
+"""
+
+
 class TestJudge:
     @pytest.mark.parametrize(
         ("unit", "row", "want"),
@@ -56,6 +83,26 @@ class TestJudge:
             ("allocs/op", "Gone-8,3,0%", []),
             ("B/op", "Write-8,512,0%,1024,0%,+100.00%,p=0.000 n=10", []),
             ("samples/sec", "Write-8,100,0%,200,0%,+100.00%,p=0.000 n=10", []),
+            (
+                "p50-sec",
+                "Live-8,1e-04,1%,1.11e-04,1%,+11.00%,p=0.000 n=10",
+                [cb.Finding("slower", PACKAGE, "Live-8", "p50 +11.00%")],
+            ),
+            ("p50-sec", "Live-8,1e-04,1%,1.09e-04,1%,+9.00%,p=0.000 n=10", []),
+            (
+                "p99-sec",
+                "Live-8,1e-04,1%,1.11e-04,1%,+11.00%,p=0.000 n=10",
+                [cb.Finding("slower", PACKAGE, "Live-8", "p99 +11.00%")],
+            ),
+            ("p99-sec", "Live-8,1e-04,1%,1.09e-04,1%,+9.00%,p=0.000 n=10", []),
+            ("p99-sec", "Live-8,1e-04,9%,2e-04,9%,~,p=0.200 n=10", []),
+            (
+                "max-sec",
+                "Live-8,1e-03,1%,1.26e-03,1%,+26.00%,p=0.000 n=10",
+                [cb.Finding("slower", PACKAGE, "Live-8", "max +26.00%")],
+            ),
+            ("max-sec", "Live-8,1e-03,1%,1.24e-03,1%,+24.00%,p=0.000 n=10", []),
+            ("max-sec", "Gone-8,5e-09,0%", []),
         ],
     )
     def test_should_apply_the_rule(
@@ -71,6 +118,12 @@ class TestJudge:
         ]
         assert cb.judge(f"pkg: {PACKAGE}\n,base,\n{rows}") == [
             cb.Finding("missing", PACKAGE, "Commit-8")
+        ]
+
+    def test_should_judge_the_latency_units_that_benchstat_prints(self) -> None:
+        assert cb.judge(LIVE) == [
+            cb.Finding("slower", WRITER, "Live-8", "max +902.64%"),
+            cb.Finding("slower", WRITER, "Live-8", "p99 +504.16%"),
         ]
 
     def test_should_name_the_package_of_each_table(self) -> None:
@@ -520,6 +573,10 @@ class TestGroups:
             "-test.run=^$",
             "-test.bench=^BenchmarkWrite$",
         )
+
+    def test_should_pass_the_benchtime_and_cpu_count_of_a_go_group(self) -> None:
+        group = cb.go("w", "io", "cesium", "^BenchmarkW$", benchtime="250x", cpu=8)
+        assert group.run.argv[-2:] == ("-test.benchtime=250x", "-test.cpu=8")
 
     def test_should_have_vitest_write_a_json_report(self) -> None:
         group = cb.vitest("ts/codec", "src/framer/codec/codec.bench.ts")
