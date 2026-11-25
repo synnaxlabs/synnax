@@ -81,8 +81,8 @@ public:
     /// @returns CONFIGURATION_ERROR when ic has no message that wm names, the message
     /// is neither text nor JSON, wm binds no channels, channels has no channel that a
     /// binding names, a value binding names no field, a field has two bindings, a value
-    /// is not of its field's kind, a value of a text field decodes outside the min and
-    /// max of its field, or the encoder refuses the message.
+    /// is not of its field's kind, a value decodes outside the min and max of its
+    /// field, or the encoder refuses the message.
     static std::pair<Writer, x::errors::Error> create(
         const synnax::icd::WriteMessage &wm,
         const synnax::icd::ICD &ic,

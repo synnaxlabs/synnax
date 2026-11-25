@@ -84,12 +84,8 @@ describe("Label", () => {
           color: { type: "fixed" as const, value: "#E774D0" },
         })),
       );
-      await expect
-        .poll(async () => {
-          const results = await client.labels.retrieve({ searchTerm: prefix });
-          return results.map((l) => l.name).sort();
-        })
-        .toEqual(names);
+      const results = await client.labels.retrieve({ searchTerm: prefix });
+      expect(results.map((l) => l.name).sort()).toEqual(names);
     });
     it("should retrieve labels by where", async () => {
       const prefix = `where-label-${id.create()}`;

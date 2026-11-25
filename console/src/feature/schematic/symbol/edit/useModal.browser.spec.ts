@@ -9,11 +9,13 @@
 
 import { DataType, type group, schematic } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import type { Status } from "@synnaxlabs/lyra/status";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { theming } from "@synnaxlabs/pluto/ether";
 import { color, uuid } from "@synnaxlabs/x";
 import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { createElement, type ReactElement } from "react";
 import { afterEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import { page, server, userEvent } from "vitest/browser";
 
@@ -51,6 +53,7 @@ import {
   renderModalOpener,
 } from "@/platform/modals/testutil";
 import {
+  CaptureStatuses,
   fakePickedFile,
   getIconButton,
   interceptFilePicker,
@@ -79,15 +82,30 @@ const createParentGroup = async (): Promise<group.Group> =>
     name: uniqueName("edit_grp"),
   });
 
-const openCreateModal = async (createKey?: string) => {
+interface OpenCreateModalParams {
+  createKey?: string;
+  extra?: ReactElement;
+}
+
+const openCreateModal = async ({ createKey, extra }: OpenCreateModalParams = {}) => {
   const grp = await createParentGroup();
   const picker = interceptFilePicker();
   const handle = await renderModalOpener(
     Schematic.Symbol.Edit.useModal,
     [{ group: grp.key, createKey }],
-    { client, additionalRegistry: theming.REGISTRY },
+    { client, additionalRegistry: theming.REGISTRY, extra },
   );
   return { grp, picker, handle };
+};
+
+const pickFile = async (
+  picker: ReturnType<typeof interceptFilePicker>,
+  fileName: string,
+  contents: string,
+) => {
+  fireEvent.click(await screen.findByText(SYMBOL_FILE_DROP_PROMPT));
+  await waitFor(() => expect(picker.lastInput()).toBeDefined());
+  picker.selectFiles([fakePickedFile(fileName, contents)]);
 };
 
 const loadSVG = async (
@@ -95,9 +113,7 @@ const loadSVG = async (
   fileName = "flow_meter.svg",
   contents = SHAPELESS_SVG,
 ) => {
-  fireEvent.click(await screen.findByText(SYMBOL_FILE_DROP_PROMPT));
-  await waitFor(() => expect(picker.lastInput()).toBeDefined());
-  picker.selectFiles([fakePickedFile(fileName, contents)]);
+  await pickFile(picker, fileName, contents);
   await screen.findByText("Parts");
 };
 
@@ -114,6 +130,27 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       expect(screen.getByText("Handles")).toBeDefined();
       expect(screen.getByText("Properties")).toBeDefined();
       expect(screen.getByText("Scale stroke")).toBeDefined();
+    });
+
+    it.each([
+      ["notes.txt", SHAPELESS_SVG, "The file is not an SVG."],
+      ["empty.svg", "", "The file is empty."],
+    ])("reports %s, which it cannot read, by its name", async (name, contents, why) => {
+      let statuses: Status.NotificationSpec[] = [];
+      const { picker } = await openCreateModal({
+        extra: createElement(CaptureStatuses, { onStatuses: (s) => (statuses = s) }),
+      });
+      await pickFile(picker, name, contents);
+      await waitFor(() =>
+        expect(statuses).toContainEqual(
+          expect.objectContaining({
+            variant: "error",
+            name,
+            message: "Failed to read file",
+            description: why,
+          }),
+        ),
+      );
     });
 
     it("creates the symbol under the parent group on save", async () => {
@@ -139,7 +176,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
 
     it("persists the symbol under a forced key when createKey is provided", async () => {
       const createKey = uuid.create();
-      const { picker } = await openCreateModal(createKey);
+      const { picker } = await openCreateModal({ createKey });
       await loadSVG(picker);
       const name = uniqueName("healed_symbol");
       fireEvent.change(findNameInput(), { target: { value: name } });
@@ -163,7 +200,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
 
     it("saves a part stroke picked in the inspector", async () => {
       const createKey = uuid.create();
-      const { picker } = await openCreateModal(createKey);
+      const { picker } = await openCreateModal({ createKey });
       await loadSVG(picker);
       fireEvent.click(getEditSectionHeaderButton("Parts"));
       await screen.findByRole("heading", { name: "Part 1" });
@@ -190,7 +227,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
 
     it("saves the node color as the fill of the whole drawing", async () => {
       const createKey = uuid.create();
-      const { picker } = await openCreateModal(createKey);
+      const { picker } = await openCreateModal({ createKey });
       await loadSVG(picker);
       expect(
         await screen.findByText(
@@ -215,7 +252,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
 
     it("saves a fill for one state of an actuator", async () => {
       const createKey = uuid.create();
-      const { picker } = await openCreateModal(createKey);
+      const { picker } = await openCreateModal({ createKey });
       await loadSVG(picker);
       fireEvent.click(await screen.findByText("Actuator"));
       fireEvent.click(getEditSectionHeaderButton("Parts"));
@@ -247,7 +284,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     // createWithPart opens the editor on a new drawing with one new part, Part 1.
     const createWithPart = async () => {
       const createKey = uuid.create();
-      const { picker } = await openCreateModal(createKey);
+      const { picker } = await openCreateModal({ createKey });
       await loadSVG(picker);
       fireEvent.click(getEditSectionHeaderButton("Parts"));
       await screen.findByRole("heading", { name: "Part 1" });
@@ -417,9 +454,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
 
     it("rejects a non-SVG file without opening the editor", async () => {
       const { picker } = await openCreateModal();
-      fireEvent.click(await screen.findByText(SYMBOL_FILE_DROP_PROMPT));
-      await waitFor(() => expect(picker.lastInput()).toBeDefined());
-      picker.selectFiles([fakePickedFile("not_an_svg.txt", "hello")]);
+      await pickFile(picker, "not_an_svg.txt", "hello");
       await waitFor(() => expect(screen.queryByText("Parts")).toBeNull());
       expect(screen.getByText(SYMBOL_FILE_DROP_PROMPT)).toBeDefined();
     });
@@ -516,6 +551,33 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       await waitFor(() => expect(findButton("Save").disabled).toBe(false));
       return { symbol, used, unbound };
     };
+
+    it("zooms and saves the preview of a symbol with no preview viewport", async () => {
+      const grp = await createParentGroup();
+      const payload = createSymbolPayload(uniqueName("unzoomed"));
+      const { previewViewport: _, ...data } = payload.data;
+      const symbol = await client.schematics.symbols.create({
+        ...payload,
+        data,
+        group: grp.key,
+      });
+      expect(symbol.data.previewViewport).toBeUndefined();
+      await renderModalOpener(
+        Schematic.Symbol.Edit.useModal,
+        [{ symbolKey: symbol.key, group: grp.key }],
+        { client, additionalRegistry: theming.REGISTRY },
+      );
+      expect(await screen.findByText("100%")).toBeDefined();
+      pressKey("Equal");
+      expect(await screen.findByText("120%")).toBeDefined();
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () =>
+        expect((await retrieveStored(symbol.key)).data.previewViewport).toEqual({
+          zoom: 1.2,
+          position: { x: 0, y: 0 },
+        }),
+      );
+    });
 
     it("saves a new part and its stroke on a symbol with no state", async () => {
       const { symbol } = await openEditModal();
@@ -1220,10 +1282,10 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       expect(findButton("Save").getAttribute("aria-disabled")).toBeNull();
       fireEvent.click(findButton("Save"));
       await screen.findByRole("heading", { name: "Body" });
-      expect(screen.getByText("Fill motion needs one shape")).toBeDefined();
+      expect(screen.getByText("Fill motion needs one shape or group")).toBeDefined();
       fireEvent.click(screen.getByText("Spin"));
       await waitFor(() =>
-        expect(screen.queryByText("Fill motion needs one shape")).toBeNull(),
+        expect(screen.queryByText("Fill motion needs one shape or group")).toBeNull(),
       );
     });
 
@@ -1262,7 +1324,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       fireEvent.click(screen.getByText("Actuator"));
       fireEvent.click(findButton("Save"));
       await screen.findByRole("heading", { name: "Body" });
-      expect(screen.getByText("Fill motion needs one shape")).toBeDefined();
+      expect(screen.getByText("Fill motion needs one shape or group")).toBeDefined();
       expect(screen.queryByText(`Save the changes to ${symbol.name}?`)).toBeNull();
     });
 
@@ -1595,10 +1657,10 @@ describe("Schematic.Symbol.Edit.useModal", () => {
           },
         ],
       });
-      expect(screen.getByText("Fill motion needs one shape")).toBeDefined();
+      expect(screen.getByText("Fill motion needs one shape or group")).toBeDefined();
       fireEvent.click(screen.getByText("Select parent group"));
       await waitFor(() =>
-        expect(screen.queryByText("Fill motion needs one shape")).toBeNull(),
+        expect(screen.queryByText("Fill motion needs one shape or group")).toBeNull(),
       );
       // The group sits in no group, so the action turns off.
       await waitFor(() =>
@@ -1717,7 +1779,10 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     });
 
     it("counts the looks of a part beside its shapes", async () => {
-      await openPainted({ looks: [{ key: "l", part: "body", hidden: true }] });
+      await openPainted({
+        drawing: { type: "svg", markup: TWO_RECTS },
+        looks: [{ key: "l", part: "body", hidden: true }],
+      });
       expect(await screen.findByText("1 shape · 1 look")).toBeDefined();
     });
 
@@ -1731,7 +1796,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       const symbol = await client.schematics.symbols.create({
         ...payload,
         group: grp.key,
-        data: { ...payload.data, parts },
+        data: { ...payload.data, drawing: { type: "svg", markup: TWO_RECTS }, parts },
       });
       await renderModalOpener(
         Schematic.Symbol.Edit.useModal,
@@ -1740,6 +1805,17 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       );
       expect(await screen.findByText("1 shape")).toBeDefined();
       expect(screen.getByText("2 shapes")).toBeDefined();
+    });
+
+    it("counts each shape in a group that a part holds, and a text as one", async () => {
+      await openPainted({
+        drawing: {
+          type: "svg",
+          markup: GROUPED.replace("</g>", '<text id="t"><tspan>T</tspan></text></g>'),
+        },
+        parts: [{ ...BODY, selectors: ["#g"] }],
+      });
+      expect(getPartListItem("Body").textContent).toContain("3 shapes");
     });
   });
 });

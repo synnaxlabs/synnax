@@ -536,6 +536,36 @@ TEST(Writer, RefuseInvalidJSONValues) {
     EXPECT_EQ(err.data, "message cmd: field j: default: must be valid JSON");
 }
 
+/// @brief it should refuse a value of a number JSON field that decodes outside the min
+/// and max of the field.
+TEST(Writer, RefuseJSONValueOutsideLimits) {
+    auto integer = json_message();
+    integer.bind(field<synnax::icd::FloatJSONField>("a"), 2);
+    auto i = field<synnax::icd::IntegerJSONField>("i");
+    i.max = 100;
+    integer.add(i);
+    integer.fix(i.key, synnax::icd::IntegerWriteValue{.value = 500});
+    assert_refuses(integer, "message cmd: field i: 500 is above the max 100");
+    auto scaled = json_message();
+    scaled.bind(field<synnax::icd::FloatJSONField>("a"), 2);
+    auto u = field<synnax::icd::UnsignedJSONField>("u");
+    u.scale = 5;
+    u.max = 10;
+    scaled.add(u);
+    scaled.fix(u.key, synnax::icd::UnsignedWriteValue{.value = 3});
+    assert_refuses(
+        scaled,
+        "message cmd: field u: 3 decodes to 15, which is above the max 10"
+    );
+    auto low = json_message();
+    low.bind(field<synnax::icd::FloatJSONField>("a"), 2);
+    auto f = field<synnax::icd::FloatJSONField>("f");
+    f.min = 0;
+    low.add(f);
+    low.fix(f.key, synnax::icd::FloatWriteValue{.value = -2});
+    assert_refuses(low, "message cmd: field f: -2 is below the min 0");
+}
+
 /// @brief it should drop a command that its JSON field cannot hold, and keep the last
 /// good command of the field.
 TEST(Writer, DropRefusedJSONCommands) {
