@@ -19,11 +19,11 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-// instant builds a Policy whose backoff is zero, so Decide returns without waiting.
+// instant builds a Policy whose backoff is one nanosecond, so Decide returns at once.
 func instant(maxRetries int, healthy time.Duration) *restart.Policy {
 	GinkgoHelper()
 	return MustSucceed(restart.New(restart.Config{
-		BaseInterval:  0,
+		BaseInterval:  time.Nanosecond,
 		Scale:         1,
 		MaxRetries:    maxRetries,
 		HealthyUptime: healthy,

@@ -26,6 +26,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
+	"github.com/synnaxlabs/synnax/pkg/api/auth/session"
 	"github.com/synnaxlabs/synnax/pkg/api/batch"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/api/panel"
@@ -93,7 +94,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	app = fiber.New()
 	router.BindTo(app)
 	DeferCleanup(func() { Expect(app.Shutdown()).To(Succeed()) })
-	var login apiauth.LoginResponse
+	var login session.LoginResponse
 	Expect(post("", "/api/v1/auth/login", rootCreds, &login)).To(Succeed())
 	rootToken = login.Token
 })

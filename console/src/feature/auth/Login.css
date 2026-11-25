@@ -9,14 +9,35 @@
  * included in the file licenses/APL.txt.
  */
 
+/* the password form and the provider window do not fit the Shell's usual card */
+.console-login.console--providers .console-shell__card {
+    height: 640px;
+}
+
 .console-login__form {
     width: 100%;
     height: 100%;
-    padding: 10rem 8rem;
+    padding: 9rem 8rem;
+    overflow-y: auto;
 }
 
-.console-login__form form {
-    height: 100%;
+/* never shrinks below its content, so a long provider list scrolls instead of being cut
+   off above and below the centered column */
+.console-login__content {
+    flex-shrink: 0;
+}
+
+/* a window of three whole buttons that settles on a button when a scroll stops */
+.console-login__providers {
+    flex-shrink: 0;
+    max-height: calc(3 * var(--pluto-height-large) + 2 * 1rem);
+    overflow-y: auto;
+    scroll-snap-type: y mandatory;
+
+    & > * {
+        flex-shrink: 0;
+        scroll-snap-align: start;
+    }
 }
 
 .console-login__back {

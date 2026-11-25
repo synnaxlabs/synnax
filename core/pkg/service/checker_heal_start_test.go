@@ -28,14 +28,16 @@ import (
 var _ = Describe("Checker heal r2: a Core start", func() {
 	It("Should heal a schematic onto a built-in that the start declares at the path "+
 		"of the channel it held", func(ctx SpecContext) {
-		store := DeferClose(storagetestutil.OpenLayer(ctx))
+		// The store and nodes run until their cleanups, which come after the It ends.
+		life := GinkgoT().Context()
+		store := DeferClose(storagetestutil.OpenLayer(life))
 		type core struct {
 			node  testutil.Node
 			layer *service.Layer
 		}
 		start := func() core {
 			GinkgoHelper()
-			n := testutil.OpenNode(ctx, distribution.LayerConfig{Storage: store.Layer})
+			n := testutil.OpenNode(life, distribution.LayerConfig{Storage: store.Layer})
 			return core{node: n, layer: MustSucceed(svctestutil.OpenLayer(ctx, n))}
 		}
 		stop := func(c core) {

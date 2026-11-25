@@ -40,17 +40,21 @@ func (s *Service) planGroups(
 	}
 	p := Plan{Change: c}
 	if len(dead) > 0 {
-		paths, err := s.tombstonePaths(ctx, snap, keys, dead)
+		paths, hidden, err := s.tombstonePaths(ctx, snap, keys, dead, opts.Visible)
 		if err != nil {
 			return Plan{}, err
 		}
-		p.Entries = make([]Entry, len(dead))
+		p.Entries = make([]Entry, 0, len(dead))
 		for i, t := range dead {
-			p.Entries[i] = Entry{
+			if hidden != nil && hidden[i] {
+				p.Hidden.count(EffectCascade)
+				continue
+			}
+			p.Entries = append(p.Entries, Entry{
 				Record: channel.ResourceID(t.Key),
 				Effect: EffectCascade,
 				Path:   &paths[i],
-			}
+			})
 		}
 		slices.SortFunc(p.Entries, compareEntries)
 	}

@@ -1210,6 +1210,38 @@ var _ = Describe("C++ Types Plugin", func() {
 		)
 
 		It(
+			"Should give an int enum the smallest base that holds its members",
+			func() {
+				source := `
+				@cpp output "client/cpp/serial"
+
+				BaudRate enum {
+					baud_1200 = 1200
+					baud_19200 = 19200
+					baud_230400 = 230400
+				}
+
+				Offset enum {
+					back = -1
+					forward = 1
+				}
+
+				Connection struct {
+					baud_rate BaudRate = baud_19200
+					offset Offset = back
+				}
+			`
+				resp := MustGenerate(source, "serial", loader, cppPlugin)
+				ExpectContent(resp, "types.gen.h").
+					ToContain("enum class BaudRate : std::uint32_t {").
+					ToContain("Baud230400 = 230400,").
+					ToContain("enum class Offset : std::int8_t {").
+					ToContain("Back = -1,").
+					ToContain("BaudRate baud_rate = BaudRate::Baud19200;")
+			},
+		)
+
+		It(
 			"Should handle int enums with uint8_t underlying type",
 			func() {
 				source := `

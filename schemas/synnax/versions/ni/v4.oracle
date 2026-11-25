@@ -10,6 +10,7 @@
 import "schemas/synnax/versions/channel/v0"
 import "schemas/synnax/versions/device/v0"
 import "schemas/synnax/versions/task/v2"
+import "schemas/x/versions/telem/v0"
 
 Units = v2.Units
 
@@ -123,7 +124,22 @@ BaseCIChannel struct extends v3.BaseCIChannel {
     }
 }
 
-CIChannel union on type extends v3.CIChannel {}
+CIChannel union on type extends v3.CIChannel {
+    ci_frequency {
+        meas_time telem.TimeSpan = 6us {
+            @doc value    "is the averaging window for high-frequency measurement."
+            @validate max 9007199254740991
+            @validate min 1
+        }
+    }
+    ci_period {
+        meas_time telem.TimeSpan = 1ms {
+            @doc value    "is the averaging window for high-frequency measurement."
+            @validate max 9007199254740991
+            @validate min 1
+        }
+    }
+}
 
 WaveType = v2.WaveType
 

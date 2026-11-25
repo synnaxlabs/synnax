@@ -10,6 +10,7 @@
 package schematic_test
 
 import (
+	"context"
 	"testing"
 	"uuid"
 
@@ -20,21 +21,26 @@ import (
 	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	apischematic "github.com/synnaxlabs/synnax/pkg/api/schematic"
+	apisymbol "github.com/synnaxlabs/synnax/pkg/api/schematic/symbol"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/enumeration"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
+	"github.com/synnaxlabs/synnax/pkg/service/impact"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
+	"github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/testutil"
-	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 func TestAPISchematic(t *testing.T) {
@@ -46,12 +52,13 @@ var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
 	db           *gorp.DB
+	channelSvc   *channel.Service
 	groupSvc     *group.Service
 	rbacSvc      *rbac.Service
 	schematicSvc *schematic.Service
 	apiSvc       *apischematic.Service
-	// create, del, dispatch, copySchematic, and retrieve run their routes as the API
-	// layer binds them.
+	// create, del, dispatch, copySchematic, retrieve, and dispatchSymbol run their
+	// routes as the API layer binds them.
 	create freighter.UnaryHandler[
 		apischematic.CreateRequest,
 		apischematic.CreateResponse,
@@ -66,29 +73,37 @@ var (
 		apischematic.RetrieveRequest,
 		apischematic.RetrieveResponse,
 	]
-	proj       project.Project
-	projectSvc *project.Service
-	author     user.User
-	userSvc    *user.Service
+	dispatchSymbol freighter.UnaryHandler[apisymbol.DispatchRequest, struct{}]
+	deleteGroup    freighter.UnaryHandler[apisymbol.DeleteGroupRequest, struct{}]
+	proj           project.Project
+	projectSvc     *project.Service
+	author         user.User
+	userSvc        *user.Service
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	db = DeferClose(gorp.Wrap(memkv.New()))
-	StartRun(db.Run)
+	node := testutil.NewNode(ctx)
+	db = node.DB
 	groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB: db,
 	}))
 	passwordSvc := MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
 	userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
-		DB:       db,
-		Password: passwordSvc,
+		DB: db,
 	}))
 	projectSvc = MustOpen(project.OpenService(ctx, project.ServiceConfig{
 		DB: db,
 	}))
 	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 		DB: db,
+	}))
+	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
+		Channel: node.Channel,
+		TS:      node.Storage.TS,
+		DB:      db,
+		HostKey: node.Identity.HostKey,
+		Status:  statusSvc,
 	}))
 	rbacSvc = MustOpen(rbactestutil.Open(ctx, rbactestutil.Config{
 		DB:     db,
@@ -115,15 +130,33 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Schematic: schematicSvc,
 	}))
 	binder := MustSucceed(bind.NewService(bind.ServiceConfig{
-		DB:   db,
-		RBAC: rbacSvc,
-		Held: apiauth.HeldTables(),
+		DB:      db,
+		RBAC:    rbacSvc,
+		Held:    apiauth.HeldTables(),
+		Mirrors: channel.MirrorTables(),
 	}))
 	create = bind.Write(binder, apiSvc.Create)
 	del = bind.Write(binder, apiSvc.Delete)
 	dispatch = bind.Write(binder, apiSvc.Dispatch)
 	copySchematic = bind.Write(binder, apiSvc.Copy)
 	retrieve = bind.Read(binder, apiSvc.Retrieve)
+	impactSvc := MustSucceed(impact.OpenService(impact.ServiceConfig{
+		Channel:  channelSvc,
+		Group:    groupSvc,
+		RecordOf: taskconfig.RecordOf,
+		DB:       db,
+		Policies: suitePolicies(),
+		Delete: func(context.Context, gorp.Tx, []resource.ID) error {
+			return errors.New("[schematic suite] - no record to delete")
+		},
+	}))
+	Expect(channelSvc.Heal(ctx)).To(Succeed())
+	symbolSvc := MustSucceed(apisymbol.NewService(apisymbol.ServiceConfig{
+		Symbol: schematicSvc.Symbol,
+		Impact: impactSvc,
+	}))
+	dispatchSymbol = bind.Write(binder, symbolSvc.Dispatch)
+	deleteGroup = bind.Write(binder, symbolSvc.DeleteGroup)
 	author = MustSucceed(rbactestutil.CreateUser(ctx, db, rbacSvc, userSvc, user.User{
 		Name: "test",
 	}))
@@ -157,4 +190,21 @@ func newUser(ctx SpecContext) user.User {
 func grantUpdateOn(ctx SpecContext, subject resource.ID, objects ...resource.ID) {
 	GinkgoHelper()
 	grantOn(ctx, subject, access.ActionUpdate, objects...)
+}
+
+// suitePolicies maps the references to channels that the suite opens.
+func suitePolicies() impact.Policies {
+	retarget, keep := impact.PolicyRetarget, impact.PolicyKeep
+	return impact.Policies{Links: map[gorp.ReferenceID]impact.Policy{
+		{Table: "channel", Name: "index"}:                                keep,
+		{Table: "channel", Name: "rewires.from"}:                         keep,
+		{Table: "channel_tombstone", Name: "rewires.from"}:               keep,
+		{Table: "status", Name: "owner"}:                                 keep,
+		{Table: "schematic", Name: "nodes.config.channel"}:               retarget,
+		{Table: "schematic", Name: "nodes.config.command_channel"}:       retarget,
+		{Table: "schematic", Name: "nodes.config.state_channel"}:         retarget,
+		{Table: "schematic", Name: "nodes.config.commands.channel"}:      retarget,
+		{Table: "schematic", Name: "nodes.config.states.source.command"}: retarget,
+		{Table: "schematic", Name: "nodes.config.states.source.key"}:     retarget,
+	}}
 }

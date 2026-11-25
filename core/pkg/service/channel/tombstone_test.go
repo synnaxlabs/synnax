@@ -131,6 +131,22 @@ var _ = Describe("Tombstone", Ordered, func() {
 		return ch
 	}
 
+	It("Should heal a channel that a migration made at a tombstone's path, so a "+
+		"later delete of it succeeds", func(ctx SpecContext) {
+		dead := deleteHeld(ctx, channel.Channel{})
+		// A migration writes the channel at the path with no heal.
+		booted := create(ctx, channel.Channel{})
+		booted.Name = dead.Name
+		Expect(gorp.WrapWriter[channel.Key, channel.Channel](db).Set(ctx, booted)).
+			To(Succeed())
+		Expect(svc.Heal(ctx)).To(Succeed())
+		_, found := tombstoneOf(ctx, dead.Key())
+		Expect(found).To(BeFalse())
+		hold(ctx, booted.Key())
+		del(ctx, booted.Key())
+		MustBeOk(tombstoneOf(ctx, booted.Key()))
+	})
+
 	It("Should keep the path of a deleted channel that a display holds", func(
 		ctx SpecContext,
 	) {
