@@ -1423,6 +1423,7 @@ jobs:
       directory: x/go
       os_specific: true
       macos: *full
+      shards: 2
       windows: *full
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}

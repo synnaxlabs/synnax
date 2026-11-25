@@ -308,7 +308,7 @@ export const usePendingFetch = <Query extends query.Params, Data>(
       pending.current = { query: q, promise };
     },
     fulfill: (value) => {
-      if (settled.current?.value !== value)
+      if (settled.current == null || settled.current.value !== value)
         settled.current = { value, promise: fulfilled(value) };
       return settled.current.promise;
     },
