@@ -11,9 +11,11 @@ package v5_test
 
 import (
 	"context"
+	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/alamos"
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	v4 "github.com/synnaxlabs/synnax/pkg/service/http/versions/v4"
 	v5 "github.com/synnaxlabs/synnax/pkg/service/http/versions/v5"
@@ -21,6 +23,9 @@ import (
 	icdv1 "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v1"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 // resolveWrite stages old, then resolves it with found as the channels that exist. It
@@ -82,6 +87,16 @@ var _ = Describe("ResolveWriteConfig", func() {
 					Channel:          42,
 				},
 			}}))
+		},
+	)
+
+	It("Should move a disabled endpoint into a message and keep it disabled",
+		func(ctx SpecContext) {
+			ic, cfg, _ := resolveWrite(ctx, storedWriteConfig(), setpoint)
+			valve := cfg.Endpoints[1]
+			Expect(valve.Disabled).To(BeTrue())
+			Expect(valve.ICD).To(Equal(new(ic.Key)))
+			Expect(valve.Message.Message).To(Equal(ic.Messages[1].Key))
 		},
 	)
 
@@ -149,4 +164,25 @@ var _ = Describe("ResolveWriteConfig", func() {
 			))
 		},
 	)
+})
+
+var _ = Describe("NoteWriteLift", func() {
+	It("Should log each change with the config and the field", func() {
+		core, logs := observer.New(zapcore.WarnLevel)
+		logger := MustSucceed(alamos.NewLogger(alamos.LoggerConfig{
+			ZapLogger: zap.New(core),
+		}))
+		key := uuid.New()
+		v5.NoteWriteLift(alamos.New("test", alamos.WithLogger(logger)), key)(
+			"endpoints.1.channel",
+			"channel name was dropped",
+		)
+		entries := logs.FilterMessage("changed an HTTP write field to v5").All()
+		Expect(entries).To(HaveLen(1))
+		Expect(entries[0].ContextMap()).To(Equal(map[string]any{
+			"config": key.String(),
+			"field":  "endpoints.1.channel",
+			"change": "channel name was dropped",
+		}))
+	})
 })
