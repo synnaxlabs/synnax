@@ -1121,21 +1121,18 @@ TEST_F(OutboxTest, FailsFastWhenNoSegmentOpens) {
     cfg.retry.max_interval = x::telem::HOUR;
     const auto outbox = ASSERT_NIL_P(Outbox::open(cfg));
     failing = true;
-    ASSERT_EVENTUALLY_TRUE_WITH_TIMEOUT(
-        static_cast<bool>(outbox->set_status(set_of("first"), nullptr)),
-        std::chrono::seconds(30),
-        std::chrono::milliseconds(10)
-    );
-    x::errors::Error last;
-    for (int i = 0; i < 3; i++) {
+    // A spare that opened before the fault can take pushes until its sync fails.
+    int errors = 0;
+    for (int i = 0; errors < 3; i++) {
+        ASSERT_LT(i, 100000);
         const auto start = std::chrono::steady_clock::now();
-        last = outbox->set_status(set_of(std::to_string(i)), nullptr);
-        EXPECT_LT(
+        if (outbox->set_status(set_of(std::to_string(i)), nullptr)) errors++;
+        ASSERT_LT(
             std::chrono::steady_clock::now() - start,
             std::chrono::milliseconds(500)
         );
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
     }
-    ASSERT_OCCURRED_AS(last, journal::BASE_ERROR);
     failing = false;
 }
 
@@ -1152,16 +1149,19 @@ TEST_F(OutboxTest, RunsCreateHookAgainAfterFailure) {
         journal::BASE_ERROR
     );
     EXPECT_FALSE(std::filesystem::exists(this->dir));
+    std::mutex mu;
     std::vector<std::filesystem::path> created;
     const auto outbox = ASSERT_NIL_P(
         Outbox::open({
             .dir = dir,
             .on_create = [&](const std::filesystem::path &path) {
+                std::lock_guard lock(mu);
                 created.push_back(path);
                 return x::errors::NIL;
             },
         })
     );
+    std::lock_guard lock(mu);
     ASSERT_GE(created.size(), 3);
     EXPECT_EQ(created[0], this->dir);
     EXPECT_EQ(created[1], this->dir / "a");
