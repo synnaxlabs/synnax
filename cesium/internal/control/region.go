@@ -122,11 +122,11 @@ func (r *region[R]) unsafeFinishOpening() {
 }
 
 // state returns the control State of the gate in control, or nil when the region is
-// bounded or still opening.
+// bounded or still opening. The caller must hold controller.mu.
 func (r *region[R]) state() *State {
 	r.RLock()
 	defer r.RUnlock()
-	if r.bounded || r.curr == nil {
+	if r.bounded || r.opening != nil || r.curr == nil {
 		return nil
 	}
 	return r.curr.state()

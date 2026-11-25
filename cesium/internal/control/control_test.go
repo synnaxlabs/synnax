@@ -1883,6 +1883,12 @@ var _ = Describe("Control", func() {
 			Eventually(found).Should(Receive(BeFalse()))
 		})
 
+		It("Should hide the region from LeadingState", func() {
+			held, _ := MustSucceed2(c.OpenGate(exclusive("held", 1)))
+			Expect(c.LeadingState()).To(BeNil())
+			held.Release()
+		})
+
 		It("Should fail to open where another gate has control", func() {
 			cfg, _ := baseConfig(1)
 			g, _ := MustSucceed2(c.OpenGate(cfg))
