@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -70,7 +71,13 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 }
 
 func apiKey(k apikey.APIKey) APIKey {
-	return APIKey{Key: k.Key, Subject: k.Subject, Name: k.Name, Created: k.Created}
+	return APIKey{
+		Key:     k.Key,
+		Subject: k.Subject,
+		Name:    k.Name,
+		Created: k.Created,
+		Expires: k.Expires,
+	}
 }
 
 // CreateRequest creates an API key.
@@ -79,6 +86,8 @@ type CreateRequest struct {
 	Subject resource.ID `json:"subject" msgpack:"subject"`
 	// Name is a label that tells the subject's keys apart.
 	Name string `json:"name" msgpack:"name"`
+	// Expires is when the key stops logging in. Nil means never.
+	Expires *telem.TimeStamp `json:"expires,omitzero" msgpack:"expires,omitempty"`
 }
 
 // CreateResponse is a new API key.
@@ -90,8 +99,8 @@ type CreateResponse struct {
 }
 
 // Create creates an API key for the caller, or for another user or rack. It returns a
-// validation error when the API key method is off or the subject is not a user or rack
-// that exists.
+// validation error when the API key method is off, the subject is not a user or rack
+// that exists, or the expiry is not in the future.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -101,7 +110,7 @@ func (s *Service) Create(
 		return CreateResponse{}, err
 	}
 	subject := lo.Ternary(req.Subject.IsZero(), apiauth.GetSubject(ctx), req.Subject)
-	k, token, err := s.apiKey.NewWriter(tx).Create(ctx, subject, req.Name)
+	k, token, err := s.apiKey.NewWriter(tx).Create(ctx, subject, req.Name, req.Expires)
 	if err != nil {
 		return CreateResponse{}, err
 	}

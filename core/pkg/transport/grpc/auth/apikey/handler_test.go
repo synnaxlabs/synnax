@@ -108,6 +108,12 @@ var _ = Describe("APIKey", func() {
 				},
 			))).To(Equal(apikey.CreateRequest{Subject: id, Name: "ci"}))
 		})
+		It("Should translate the expiry", func(ctx SpecContext) {
+			Expect(MustSucceed(keyCreate.RequestTranslator.Backward(
+				ctx,
+				&grpcauth.APIKeyCreateRequest{Name: "ci", Expires: new(int64(7))},
+			)).Expires).To(HaveValue(Equal(telem.TimeStamp(7))))
+		})
 	})
 
 	Describe("APIKeyCreateResponse", func() {
@@ -118,6 +124,16 @@ var _ = Describe("APIKey", func() {
 			))
 			Expect(pb.Token).To(Equal("syk_secret"))
 			Expect(pb.Key).To(matchAPIKey(apiKey))
+			Expect(pb.Key.Expires).To(BeNil())
+		})
+		It("Should translate the key's expiry", func(ctx SpecContext) {
+			expiring := apiKey
+			expiring.Expires = new(telem.TimeStamp(11))
+			pb := MustSucceed(keyCreate.ResponseTranslator.Forward(
+				ctx,
+				apikey.CreateResponse{Key: expiring},
+			))
+			Expect(pb.Key.Expires).To(HaveValue(Equal(int64(11))))
 		})
 	})
 

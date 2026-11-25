@@ -167,7 +167,7 @@ func createKey(ctx context.Context, subject resource.ID) string {
 	GinkgoHelper()
 	var token string
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
-		_, token, err = apiKeySvc.NewWriter(tx).Create(ctx, subject, "spec")
+		_, token, err = apiKeySvc.NewWriter(tx).Create(ctx, subject, "spec", nil)
 		return err
 	})).To(Succeed())
 	return token

@@ -725,6 +725,7 @@ func (d *Driver) resolveKey(ctx context.Context) (string, error) {
 			ctx,
 			d.cfg.RackKey.ResourceID(),
 			apiKeyName,
+			nil,
 		)
 		return err
 	}); err != nil {

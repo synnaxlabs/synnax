@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // Writer creates and deletes API keys in one transaction. It makes no identity check
@@ -28,14 +29,31 @@ type Writer struct {
 }
 
 // Create stores a new API key for subject and returns it with the full key, which is
-// the only copy of its secret. It returns a validation error when subject is invalid.
+// the only copy of its secret. A nil expires makes a key that never expires. It returns
+// a validation error when subject is invalid or expires is not in the future.
 func (w Writer) Create(
 	ctx context.Context,
 	subject resource.ID,
 	name string,
+	expires *telem.TimeStamp,
 ) (APIKey, string, error) {
-	k := APIKey{Key: uuid.New(), Subject: subject, Name: name, Created: telem.Now()}
+	k := APIKey{
+		Key:     uuid.New(),
+		Subject: subject,
+		Name:    name,
+		Created: w.svc.now(),
+		Expires: expires,
+	}
 	if err := k.Validate(); err != nil {
+		return APIKey{}, "", err
+	}
+	v := validate.New("api_key")
+	v.Ternary(
+		"expires",
+		expires != nil && *expires <= k.Created,
+		"must be in the future",
+	)
+	if err := v.Error(); err != nil {
 		return APIKey{}, "", err
 	}
 	token, hash, err := auth.NewToken(prefix, k.Key)

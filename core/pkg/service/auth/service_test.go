@@ -475,6 +475,37 @@ var _ = Describe("Service", func() {
 				Eventually(ended).Should(BeClosed())
 			},
 		)
+		Context("With an API key that expires", func() {
+			var keys *apikey.Service
+			BeforeEach(func(ctx SpecContext) {
+				keys = MustOpen(apikey.OpenService(ctx, apikey.ServiceConfig{
+					DB:    db,
+					Clock: clock,
+				}))
+				authenticators[auth.MethodAPIKey] = keys
+			})
+			It("Should end its sessions once the key expires", func(ctx SpecContext) {
+				expires := telem.NewTimeStamp(clock.Now().Add(idle / 2))
+				var token string
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
+					_, token, err = keys.NewWriter(tx).
+						Create(ctx, alice, "expiring", new(expires))
+					return err
+				})).To(Succeed())
+				session, sessionToken := MustSucceed2(svc.Login(ctx, auth.Proof{
+					Variant: auth.APIKeyProof{
+						APIKeyCredentials: auth.APIKeyCredentials{Key: token},
+					},
+				}))
+				ended, release := MustSucceed2(svc.Hold(ctx, session.Key))
+				defer release()
+				clock.Advance(idle / 2)
+				Expect(svc.CheckHolds(ctx)).To(Succeed())
+				Eventually(ended).Should(BeClosed())
+				Expect(svc.Authenticate(ctx, sessionToken)).Error().
+					To(MatchError(auth.ErrInvalidToken))
+			})
+		})
 		It("Should check holds when nothing is held", func(ctx SpecContext) {
 			Expect(svc.CheckHolds(ctx)).To(Succeed())
 		})

@@ -11,10 +11,10 @@
 
 package versions
 
-import "github.com/synnaxlabs/synnax/pkg/service/auth/apikey/versions/v0"
+import "github.com/synnaxlabs/synnax/pkg/service/auth/apikey/versions/v1"
 
 // Key is a unique identifier for an API key.
-type Key = v0.Key
+type Key = v1.Key
 
 // APIKey is a stored API key. A subject holds any number of them.
-type APIKey = v0.APIKey
+type APIKey = v1.APIKey

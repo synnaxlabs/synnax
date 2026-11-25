@@ -11,6 +11,7 @@
 
 #pragma once
 
+#include <optional>
 #include <string>
 
 #include "client/cpp/resource/id.h"
@@ -35,6 +36,8 @@ struct APIKey {
     std::string name;
     /// @brief created is when the key was created.
     ::x::telem::TimeStamp created = x::telem::TimeStamp(0);
+    /// @brief expires is when the key stops logging in. Absent means never.
+    std::optional<::x::telem::TimeStamp> expires;
 
     static APIKey parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

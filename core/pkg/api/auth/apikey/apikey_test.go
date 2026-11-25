@@ -11,6 +11,7 @@ package apikey_test
 
 import (
 	"context"
+	"time"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -25,6 +26,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 	"github.com/synnaxlabs/x/validate"
@@ -160,6 +162,26 @@ var _ = Describe("API keys", func() {
 			))
 			Expect(session.Subject).To(Equal(bob.ResourceID()))
 			Expect(session.Credential).To(Equal(res.Key.Key))
+		})
+		It("Should return the key's expiry", func(ctx SpecContext) {
+			expires := telem.Now().Add(telem.TimeSpan(time.Hour))
+			res := MustSucceed(createKey(
+				authed(ctx, bobToken),
+				apiapikey.CreateRequest{Name: "ci", Expires: new(expires)},
+			))
+			Expect(res.Key.Expires).To(HaveValue(Equal(expires)))
+			retrieved := MustSucceed(retrieveKeys(
+				authed(ctx, bobToken),
+				apiapikey.RetrieveRequest{},
+			))
+			Expect(retrieved.Keys).To(ContainElement(res.Key))
+		})
+		It("Should reject an expiry in the past", func(ctx SpecContext) {
+			Expect(createKey(
+				authed(ctx, bobToken),
+				apiapikey.CreateRequest{Name: "ci", Expires: new(telem.TimeStamp(1))},
+			)).Error().
+				To(MatchError(ContainSubstring("expires: must be in the future")))
 		})
 		It("Should let an Engineer create a key for a rack", func(ctx SpecContext) {
 			res := MustSucceed(create(ctx, engToken, rackID))

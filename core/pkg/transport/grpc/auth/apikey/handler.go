@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	grpcauth "github.com/synnaxlabs/synnax/pkg/transport/grpc/auth"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/telem"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -71,22 +72,30 @@ var (
 )
 
 func apiKeyForward(k apikey.APIKey) *grpcauth.APIKey {
-	return &grpcauth.APIKey{
+	pb := &grpcauth.APIKey{
 		Key:     k.Key.String(),
 		Subject: grpcauth.SubjectForward(k.Subject),
 		Name:    k.Name,
 		Created: int64(k.Created),
 	}
+	if k.Expires != nil {
+		pb.Expires = new(int64(*k.Expires))
+	}
+	return pb
 }
 
 func (createRequestTranslator) Backward(
 	_ context.Context,
 	r *grpcauth.APIKeyCreateRequest,
 ) (apikey.CreateRequest, error) {
-	return apikey.CreateRequest{
+	req := apikey.CreateRequest{
 		Subject: grpcauth.SubjectBackward(r.Subject),
 		Name:    r.Name,
-	}, nil
+	}
+	if r.Expires != nil {
+		req.Expires = new(telem.TimeStamp(*r.Expires))
+	}
+	return req, nil
 }
 
 func (createResponseTranslator) Forward(

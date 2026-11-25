@@ -288,15 +288,15 @@ func (s *Service) version(
 }
 
 // current returns true when the session holds the current version of its credential in
-// snap. A session's version never changes after login. A session whose method is off is
-// never current: no authenticator in the config holds its credential.
+// snap. A session's version never changes after login. A session whose method is off,
+// or whose credential no longer logs in, is never current.
 func (s *Service) current(
 	ctx context.Context,
 	snap gorp.Snapshot,
 	session Session,
 ) (bool, error) {
 	v, err := s.version(ctx, snap, session.Credential)
-	if errors.Is(err, query.ErrNotFound) {
+	if errors.Is(err, query.ErrNotFound) || errors.Is(err, ErrInvalidCredentials) {
 		return false, nil
 	}
 	return err == nil && session.CredentialVersion == v, err
@@ -397,10 +397,10 @@ func (s *Service) Login(
 
 // Authenticate returns the session a token belongs to and counts the request as
 // activity. It returns [ErrInvalidToken] when no session matches the token, the
-// session's credential changed since login, or its method is off, and [ErrExpiredToken]
-// when the session has been idle for the idle timeout. Both of the latter delete the
-// session. It reads two records under the shared read lock, so it waits for a write
-// that is in progress.
+// session's credential changed since login or no longer logs in, or its method is off,
+// and [ErrExpiredToken] when the session has been idle for the idle timeout. Both of
+// the latter delete the session. It reads two records under the shared read lock, so
+// it waits for a write that is in progress.
 func (s *Service) Authenticate(ctx context.Context, token string) (Session, error) {
 	key, hash, err := ParseToken(tokenPrefix, token)
 	if err != nil {

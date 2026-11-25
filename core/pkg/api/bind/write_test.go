@@ -537,7 +537,7 @@ var _ = Describe("Write", func() {
 			return rule{
 				write: func(ctx context.Context, tx gorp.Tx) error {
 					_, _, err := svc.APIKey.NewWriter(tx).
-						Create(ctx, other.ResourceID(), "key")
+						Create(ctx, other.ResourceID(), "key", nil)
 					return err
 				},
 				needed: need{access.ActionCreate, other.ResourceID()},
@@ -550,7 +550,7 @@ var _ = Describe("Write", func() {
 				var k apikey.APIKey
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
 					k, _, err = svc.APIKey.NewWriter(tx).
-						Create(ctx, other.ResourceID(), "key")
+						Create(ctx, other.ResourceID(), "key", nil)
 					return err
 				})).To(Succeed())
 				return rule{
@@ -770,7 +770,7 @@ var _ = Describe("Write", func() {
 		u := newUser(ctx)
 		var k apikey.APIKey
 		Expect(write(ctx, u, func(ctx context.Context, tx gorp.Tx) (err error) {
-			k, _, err = svc.APIKey.NewWriter(tx).Create(ctx, u.ResourceID(), "own")
+			k, _, err = svc.APIKey.NewWriter(tx).Create(ctx, u.ResourceID(), "own", nil)
 			return err
 		})).To(Succeed())
 		Expect(write(ctx, u, func(ctx context.Context, tx gorp.Tx) error {
@@ -785,7 +785,7 @@ var _ = Describe("Write", func() {
 			var k apikey.APIKey
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
 				k, _, err = svc.APIKey.NewWriter(tx).
-					Create(ctx, other.ResourceID(), "key")
+					Create(ctx, other.ResourceID(), "key", nil)
 				return err
 			})).To(Succeed())
 			Expect(write(ctx, u, func(ctx context.Context, tx gorp.Tx) error {

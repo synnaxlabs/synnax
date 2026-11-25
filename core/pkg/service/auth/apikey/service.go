@@ -20,11 +20,13 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey/versions"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
+	xtime "github.com/synnaxlabs/x/time"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -36,6 +38,10 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	DB *gorp.DB
+	// Clock tells the time, for key expiry.
+	//
+	// [OPTIONAL] - Defaults to the system clock.
+	Clock xtime.Clock
 	// Instrumentation is for logging, tracing, metrics, etc.
 	//
 	// [OPTIONAL] - Defaults to noop instrumentation.
@@ -48,6 +54,7 @@ var _ config.Config[ServiceConfig] = ServiceConfig{}
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
+	c.Clock = override.Nil(c.Clock, other.Clock)
 	return c
 }
 
@@ -55,6 +62,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("apikey")
 	v.NotNil("db", c.DB)
+	v.NotNil("clock", c.Clock)
 	return v.Error()
 }
 
@@ -69,7 +77,7 @@ var _ auth.Authenticator = (*Service)(nil)
 
 // OpenService opens a [Service] with the given configurations.
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
-	cfg, err := config.New(ServiceConfig{}, cfgs...)
+	cfg, err := config.New(ServiceConfig{Clock: xtime.Real}, cfgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -78,6 +86,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		DB:              cfg.DB,
 		Indexes:         s.indexes.all(),
 		References:      s.indexes.references(),
+		Migrations:      versions.Migrations,
 		Instrumentation: cfg.Instrumentation,
 	}); err != nil {
 		return nil, err
@@ -98,8 +107,14 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{svc: s, tx: tx}
 }
 
-// Authenticate implements [auth.Authenticator]. A malformed key, an unknown key, and a
-// wrong secret all return [auth.ErrInvalidCredentials].
+func (s *Service) now() telem.TimeStamp { return telem.NewTimeStamp(s.cfg.Clock.Now()) }
+
+func (s *Service) expired(k APIKey) bool {
+	return k.Expires != nil && *k.Expires <= s.now()
+}
+
+// Authenticate implements [auth.Authenticator]. A malformed key, an unknown key, a
+// wrong secret, and an expired key all return [auth.ErrInvalidCredentials].
 func (s *Service) Authenticate(
 	ctx context.Context,
 	proof auth.Proof,
@@ -131,6 +146,12 @@ func (s *Service) Authenticate(
 	if subtle.ConstantTimeCompare(k.Hash, hash) != 1 {
 		return auth.Identity{}, auth.ErrInvalidCredentials
 	}
+	if s.expired(k) {
+		return auth.Identity{}, errors.Wrap(
+			auth.ErrInvalidCredentials,
+			"API key expired",
+		)
+	}
 	return auth.Identity{
 		Subject:    k.Subject,
 		Credential: k.Key,
@@ -138,13 +159,22 @@ func (s *Service) Authenticate(
 	}, nil
 }
 
-// Version implements [auth.Authenticator]. An API key keeps one version for life.
+// Version implements [auth.Authenticator]. An API key keeps one version for life. An
+// expired key returns [auth.ErrInvalidCredentials], so its sessions end.
 func (s *Service) Version(
 	ctx context.Context,
 	snap gorp.Snapshot,
 	credential uuid.UUID,
 ) (telem.TimeStamp, error) {
 	var k APIKey
-	err := s.NewRetrieve().Where(MatchKeys(credential)).Entry(&k).Exec(ctx, snap)
-	return k.Created, err
+	if err := s.NewRetrieve().
+		Where(MatchKeys(credential)).
+		Entry(&k).
+		Exec(ctx, snap); err != nil {
+		return 0, err
+	}
+	if s.expired(k) {
+		return 0, errors.Wrapf(auth.ErrInvalidCredentials, "API key %s expired", k.Key)
+	}
+	return k.Created, nil
 }
