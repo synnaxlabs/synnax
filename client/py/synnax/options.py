@@ -7,8 +7,9 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import operator
 import warnings
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Any
 
@@ -70,27 +71,54 @@ _LIBRARY_DIRS = tuple(
 )
 
 
+def _warn(msg: str) -> None:
+    warnings.warn(msg, DeprecationWarning, skip_file_prefixes=_LIBRARY_DIRS)
+
+
 def _warn_secure() -> None:
-    warnings.warn(
-        _SECURE_DEPRECATED_MSG, DeprecationWarning, skip_file_prefixes=_LIBRARY_DIRS
-    )
+    _warn(_SECURE_DEPRECATED_MSG)
+
+
+def replace_alias(
+    source: Mapping[str, Any],
+    name: str,
+    alias: str,
+    *,
+    deprecated_msg: str,
+    disagree_msg: str,
+    convert: Callable[[Any], Any] = lambda v: v,
+) -> Mapping[str, Any]:
+    """Returns source with its deprecated alias key replaced by name, and the value of
+    alias passed through convert. Warns with deprecated_msg as a DeprecationWarning when
+    source sets alias without name. A source may set both when they agree, with no
+    warning, so that clients older and newer than Synnax 0.63 read the same choice.
+
+    :raises ValidationError: With disagree_msg, if source sets both, and the converted
+        value of alias is not the value of name.
+    """
+    if alias not in source:
+        return source
+    value = convert(source[alias])
+    if name not in source:
+        _warn(deprecated_msg)
+    elif source[name] != value:
+        raise ValidationError(disagree_msg)
+    rest = {k: v for k, v in source.items() if k != alias}
+    return {**rest, name: value}
 
 
 def without_secure(source: Mapping[str, Any]) -> Mapping[str, Any]:
     """Returns the options that one source sets, with the deprecated secure replaced by
-    insecure. Warns with DeprecationWarning when the source sets secure without
-    insecure. A source may set both when they agree, with no warning, so that clients
-    older and newer than Synnax 0.63 read the same choice.
+    insecure. See replace_alias.
 
     :raises ValidationError: If the source sets both, and secure is not the inverse of
         insecure.
     """
-    if "secure" not in source:
-        return source
-    insecure = not source["secure"]
-    if "insecure" not in source:
-        _warn_secure()
-    elif source["insecure"] != insecure:
-        raise ValidationError(_TLS_FLAGS_DISAGREE_MSG)
-    rest = {k: v for k, v in source.items() if k != "secure"}
-    return {**rest, "insecure": insecure}
+    return replace_alias(
+        source,
+        "insecure",
+        "secure",
+        deprecated_msg=_SECURE_DEPRECATED_MSG,
+        disagree_msg=_TLS_FLAGS_DISAGREE_MSG,
+        convert=operator.not_,
+    )

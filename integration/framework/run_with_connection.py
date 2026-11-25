@@ -60,9 +60,9 @@ def run_scripts(
         "SYNNAX_PASSWORD": conn.password,
         "SYNNAX_CLIENT_INSECURE": "0" if conn.secure else "1",
     }
-    env.pop("SYNNAX_CA_CERT", None)
+    env.pop("SYNNAX_CLIENT_CA_CERT", None)
     if conn.ca_cert is not None:
-        env["SYNNAX_CA_CERT"] = conn.ca_cert
+        env["SYNNAX_CLIENT_CA_CERT"] = conn.ca_cert
     procs = []
     for module in modules:
         proc = subprocess.Popen(
@@ -91,7 +91,7 @@ def options_from_env() -> Options:
         username=os.environ["SYNNAX_USERNAME"],
         password=os.environ["SYNNAX_PASSWORD"],
         insecure=os.environ["SYNNAX_CLIENT_INSECURE"] == "1",
-        ca_cert=os.environ.get("SYNNAX_CA_CERT"),
+        ca_cert=os.environ.get("SYNNAX_CLIENT_CA_CERT"),
     )
 
 

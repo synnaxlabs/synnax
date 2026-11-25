@@ -26,7 +26,7 @@ from synnax.config.clusters import (
 )
 from synnax.config.file import File, read_latest
 from synnax.exceptions import ConfigurationError, ValidationError
-from synnax.options import Options, from_stored, without_secure
+from synnax.options import Options, from_stored, replace_alias, without_secure
 
 __all__ = [
     "KEYCHAIN_UNAVAILABLE_MSG",
@@ -46,7 +46,8 @@ __all__ = [
 
 NO_HOME_MSG = (
     "Cannot find the home directory that holds the saved logins. Set HOME "
-    "(USERPROFILE on Windows), or set SYNNAX_HOST to connect without a saved login."
+    "(USERPROFILE on Windows), or set SYNNAX_CLIENT_HOST to connect without a saved "
+    "login."
 )
 
 
@@ -233,30 +234,65 @@ def _env_bool(env: Mapping[str, str], name: str) -> bool | None:
     return raw.lower() in _TRUE
 
 
+# Each variable the client reads, and the deprecated name it replaces. The Core reads
+# its flags from the SYNNAX_ prefix.
+_ENV_ALIASES = (
+    ("SYNNAX_CLIENT_HOST", "SYNNAX_HOST"),
+    ("SYNNAX_CLIENT_PORT", "SYNNAX_PORT"),
+    ("SYNNAX_CLIENT_API_KEY", "SYNNAX_API_KEY"),
+    ("SYNNAX_CLIENT_CA_CERT", "SYNNAX_CA_CERT"),
+)
+
+
+def _env_values(env: Mapping[str, str]) -> Mapping[str, str]:
+    values: Mapping[str, str] = {
+        name: value
+        for pair in _ENV_ALIASES
+        for name in pair
+        if (value := _env(env, name))
+    }
+    for name, alias in _ENV_ALIASES:
+        values = replace_alias(
+            values,
+            name,
+            alias,
+            deprecated_msg=(
+                f"{alias} is deprecated and stops working in Synnax 0.64. Use {name}."
+            ),
+            disagree_msg=(
+                f"{name} and the deprecated {alias} disagree. Set only {name}."
+            ),
+        )
+    return values
+
+
 def load_env_options(env: Mapping[str, str]) -> PartialOptions:
-    """Loads the options in the SYNNAX_HOST, SYNNAX_PORT, SYNNAX_API_KEY,
-    SYNNAX_CLIENT_INSECURE, and SYNNAX_CA_CERT environment variables. The deprecated
-    SYNNAX_SECURE applies only when SYNNAX_CLIENT_INSECURE is unset. Values are
-    stripped, and an empty value counts as unset.
+    """Loads the options in the SYNNAX_CLIENT_HOST, SYNNAX_CLIENT_PORT,
+    SYNNAX_CLIENT_API_KEY, SYNNAX_CLIENT_INSECURE, and SYNNAX_CLIENT_CA_CERT environment
+    variables. The deprecated SYNNAX_HOST, SYNNAX_PORT, SYNNAX_API_KEY, and
+    SYNNAX_CA_CERT still work, with a DeprecationWarning when set without the new name.
+    The deprecated SYNNAX_SECURE applies only when SYNNAX_CLIENT_INSECURE is unset.
+    Values are stripped, and an empty value counts as unset.
 
     :param env: The environment variables, such as os.environ.
     :returns: The options that the variables set.
-    :raises ValidationError: If SYNNAX_PORT, SYNNAX_CLIENT_INSECURE, or SYNNAX_SECURE is
-        not valid.
+    :raises ValidationError: If SYNNAX_CLIENT_PORT, SYNNAX_CLIENT_INSECURE, or
+        SYNNAX_SECURE is not valid, or if a deprecated name disagrees with its new name.
     """
     opts = PartialOptions()
-    if host := _env(env, "SYNNAX_HOST"):
+    values = _env_values(env)
+    if host := values.get("SYNNAX_CLIENT_HOST"):
         opts["host"] = host
-    if api_key := _env(env, "SYNNAX_API_KEY"):
+    if api_key := values.get("SYNNAX_CLIENT_API_KEY"):
         opts["api_key"] = api_key
-    if raw_port := _env(env, "SYNNAX_PORT"):
+    if raw_port := values.get("SYNNAX_CLIENT_PORT"):
         try:
             port = int(raw_port)
         except ValueError:
             port = 0
         if not 0 < port < 65536:
             raise ValidationError(
-                f"SYNNAX_PORT must be a port from 1 to 65535, not {raw_port!r}"
+                f"SYNNAX_CLIENT_PORT must be a port from 1 to 65535, not {raw_port!r}"
             )
         opts["port"] = port
     if (insecure := _env_bool(env, "SYNNAX_CLIENT_INSECURE")) is not None:
@@ -265,7 +301,7 @@ def load_env_options(env: Mapping[str, str]) -> PartialOptions:
     # name can hold a value meant for the Core.
     elif (secure := _env_bool(env, "SYNNAX_SECURE")) is not None:
         opts["secure"] = secure
-    if ca_cert := _env(env, "SYNNAX_CA_CERT"):
+    if ca_cert := values.get("SYNNAX_CLIENT_CA_CERT"):
         opts["ca_cert"] = os.path.expanduser(ca_cert)
     return opts
 
@@ -287,13 +323,13 @@ def _saved_by_desktop(opts: Options, path: Path | None) -> bool:
 
 
 NO_OPTIONS_MSG = (
-    "No host was given and no Core is saved. Give a host, set SYNNAX_HOST, or log "
-    "in with `sy login`."
+    "No host was given and no Core is saved. Give a host, set SYNNAX_CLIENT_HOST, or "
+    "log in with `sy login`."
 )
 
 NO_CREDENTIALS_MSG = (
-    "No credentials were given. Set SYNNAX_API_KEY, or give an API key or a username "
-    "and password."
+    "No credentials were given. Set SYNNAX_CLIENT_API_KEY, or give an API key or a "
+    "username and password."
 )
 
 DEFAULT_PORT = 9090

@@ -507,14 +507,14 @@ Ask an administrator to give your user a role that allows the action. See
 ## No connection parameters were given
 
 ```
-ValidationError: No host was given and no Core is saved. Give a host, set SYNNAX_HOST, or log in with `sy login`.
+ValidationError: No host was given and no Core is saved. Give a host, set SYNNAX_CLIENT_HOST, or log in with `sy login`.
 ```
 
 <Problem.Body>
 <Problem.Cause>
 
-You created a Python client with no host. `SYNNAX_HOST` is not set, and there is no
-saved login.
+You created a Python client with no host. `SYNNAX_CLIENT_HOST` is not set, and there is
+no saved login.
 
 </Problem.Cause>
 <Problem.Fix>
@@ -531,19 +531,20 @@ or run `sy login`. See [Connect to a Core](/reference/client/connect).
 ## No credentials were given
 
 ```
-ValidationError: No credentials were given. Set SYNNAX_API_KEY, or give an API key or a username and password.
+ValidationError: No credentials were given. Set SYNNAX_CLIENT_API_KEY, or give an API key or a username and password.
 ```
 
 <Problem.Body>
 <Problem.Cause>
 
-A host came from an argument or from `SYNNAX_HOST`, but no source gave an API key or a
-username.
+A host came from an argument or from `SYNNAX_CLIENT_HOST`, but no source gave an API key
+or a username.
 
 </Problem.Cause>
 <Problem.Fix>
 
-Set `SYNNAX_API_KEY`, or give `api_key`, or `username` and `password`, to `sy.Synnax`.
+Set `SYNNAX_CLIENT_API_KEY`, or give `api_key`, or `username` and `password`, to
+`sy.Synnax`.
 
 </Problem.Fix>
 </Problem.Body>
@@ -553,7 +554,7 @@ Set `SYNNAX_API_KEY`, or give `api_key`, or `username` and `password`, to `sy.Sy
 ## No OS keychain is available
 
 ```
-ConfigurationError: Cannot read the login saved for core.example.com:9090. No OS keychain is available in this session. Set SYNNAX_HOST and SYNNAX_API_KEY instead.
+ConfigurationError: Cannot read the login saved for core.example.com:9090. No OS keychain is available in this session. Set SYNNAX_CLIENT_HOST and SYNNAX_CLIENT_API_KEY instead.
 ```
 
 <Problem.Body>
@@ -567,7 +568,7 @@ sentence.
 </Problem.Cause>
 <Problem.Fix>
 
-Set `SYNNAX_HOST` and `SYNNAX_API_KEY` in the session. See
+Set `SYNNAX_CLIENT_HOST` and `SYNNAX_CLIENT_API_KEY` in the session. See
 [Connect without a keychain](/reference/client/connect#connect-without-a-keychain).
 
 </Problem.Fix>
@@ -619,7 +620,7 @@ the program at the path in `desktop.json` cannot start. The
 
 Open Synnax Desktop and wait until the workspace shows, then run the script again. If
 the program cannot start, update or install Synnax Desktop again. Over SSH or in a
-session with no keychain, set `SYNNAX_HOST` and `SYNNAX_API_KEY` instead.
+session with no keychain, set `SYNNAX_CLIENT_HOST` and `SYNNAX_CLIENT_API_KEY` instead.
 
 </Problem.Fix>
 </Problem.Body>

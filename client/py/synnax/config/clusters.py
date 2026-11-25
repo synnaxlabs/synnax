@@ -34,8 +34,8 @@ class Keyring(Protocol):
 
 
 KEYCHAIN_UNAVAILABLE_MSG = (
-    "No OS keychain is available in this session. Set SYNNAX_HOST and SYNNAX_API_KEY "
-    "instead."
+    "No OS keychain is available in this session. Set SYNNAX_CLIENT_HOST and "
+    "SYNNAX_CLIENT_API_KEY instead."
 )
 
 # keyring's Windows backend raises a pywintypes.error, which is not a KeyringError, with

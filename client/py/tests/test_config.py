@@ -172,7 +172,7 @@ class TestConfigDirs:
         )
 
     def test_unknown_home(self) -> None:
-        """Should ask for SYNNAX_HOST when the home is unknown."""
+        """Should ask for SYNNAX_CLIENT_HOST when the home is unknown."""
         with pytest.raises(ConfigurationError) as e:
             config_dirs(Path("~"), {}, "linux")
         assert str(e.value) == NO_HOME_MSG
@@ -606,7 +606,7 @@ class TestLoadDesktopOptions:
             load_desktop_options(desktop_file, time_out)
 
 
-ENV = {"SYNNAX_HOST": "core.lab", "SYNNAX_API_KEY": "syk_env"}
+ENV = {"SYNNAX_CLIENT_HOST": "core.lab", "SYNNAX_CLIENT_API_KEY": "syk_env"}
 
 
 class TestLoadEnvOptions:
@@ -619,9 +619,9 @@ class TestLoadEnvOptions:
         assert load_env_options(
             {
                 **ENV,
-                "SYNNAX_PORT": "9091",
+                "SYNNAX_CLIENT_PORT": "9091",
                 "SYNNAX_CLIENT_INSECURE": "TRUE",
-                "SYNNAX_CA_CERT": "~/ca.crt",
+                "SYNNAX_CLIENT_CA_CERT": "~/ca.crt",
             }
         ) == {
             "host": "core.lab",
@@ -633,20 +633,22 @@ class TestLoadEnvOptions:
 
     def test_one_variable(self) -> None:
         """Should read one variable without the others."""
-        assert load_env_options({"SYNNAX_API_KEY": "syk_env"}) == {"api_key": "syk_env"}
+        assert load_env_options({"SYNNAX_CLIENT_API_KEY": "syk_env"}) == {
+            "api_key": "syk_env"
+        }
 
     def test_strips_values(self) -> None:
         """Should strip whitespace, such as the newline that ends a secret file."""
         assert load_env_options(
-            {"SYNNAX_HOST": " core.lab\n", "SYNNAX_CLIENT_INSECURE": "true "}
+            {"SYNNAX_CLIENT_HOST": " core.lab\n", "SYNNAX_CLIENT_INSECURE": "true "}
         ) == {"host": "core.lab", "insecure": True}
 
     @pytest.mark.parametrize(
         "name",
         [
-            "SYNNAX_HOST",
-            "SYNNAX_PORT",
-            "SYNNAX_API_KEY",
+            "SYNNAX_CLIENT_HOST",
+            "SYNNAX_CLIENT_PORT",
+            "SYNNAX_CLIENT_API_KEY",
             "SYNNAX_CLIENT_INSECURE",
             "SYNNAX_SECURE",
         ],
@@ -668,9 +670,9 @@ class TestLoadEnvOptions:
     @pytest.mark.parametrize(
         ("env", "message"),
         [
-            ({"SYNNAX_PORT": "abc"}, "SYNNAX_PORT must be a port"),
-            ({"SYNNAX_PORT": "0"}, "SYNNAX_PORT must be a port"),
-            ({"SYNNAX_PORT": "65536"}, "SYNNAX_PORT must be a port"),
+            ({"SYNNAX_CLIENT_PORT": "abc"}, "SYNNAX_CLIENT_PORT must be a port"),
+            ({"SYNNAX_CLIENT_PORT": "0"}, "SYNNAX_CLIENT_PORT must be a port"),
+            ({"SYNNAX_CLIENT_PORT": "65536"}, "SYNNAX_CLIENT_PORT must be a port"),
             (
                 {"SYNNAX_CLIENT_INSECURE": "maybe"},
                 "SYNNAX_CLIENT_INSECURE must be true or false",
@@ -683,6 +685,53 @@ class TestLoadEnvOptions:
         """Should name the variable that is wrong."""
         with pytest.raises(ValidationError, match=message):
             load_env_options(env)
+
+    @pytest.mark.parametrize(
+        ("alias", "value", "expected"),
+        [
+            ("SYNNAX_HOST", "core.lab", {"host": "core.lab"}),
+            ("SYNNAX_PORT", "9091", {"port": 9091}),
+            ("SYNNAX_API_KEY", "syk_env", {"api_key": "syk_env"}),
+            ("SYNNAX_CA_CERT", "/ca.crt", {"ca_cert": "/ca.crt"}),
+        ],
+    )
+    def test_deprecated_name(
+        self, alias: str, value: str, expected: dict[str, Any]
+    ) -> None:
+        """Should read a deprecated name set alone, with a DeprecationWarning."""
+        name = alias.replace("SYNNAX_", "SYNNAX_CLIENT_")
+        with pytest.warns(DeprecationWarning, match=f"{alias} is deprecated.*{name}"):
+            assert load_env_options({alias: value}) == expected
+
+    @pytest.mark.parametrize(
+        "alias", ["SYNNAX_HOST", "SYNNAX_PORT", "SYNNAX_API_KEY", "SYNNAX_CA_CERT"]
+    )
+    def test_agreeing_deprecated_name(self, alias: str) -> None:
+        """Should read a deprecated name that agrees with its new name, with no
+        warning.
+        """
+        name = alias.replace("SYNNAX_", "SYNNAX_CLIENT_")
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            assert load_env_options({name: "9091", alias: " 9091\n"}) == (
+                load_env_options({name: "9091"})
+            )
+
+    @pytest.mark.parametrize(
+        "alias", ["SYNNAX_HOST", "SYNNAX_PORT", "SYNNAX_API_KEY", "SYNNAX_CA_CERT"]
+    )
+    def test_disagreeing_deprecated_name(self, alias: str) -> None:
+        """Should reject a deprecated name that disagrees with its new name."""
+        name = alias.replace("SYNNAX_", "SYNNAX_CLIENT_")
+        with pytest.raises(ValidationError, match=f"{name} and the deprecated {alias}"):
+            load_env_options({name: "9091", alias: "9092"})
+
+    def test_deprecated_warning_names_the_caller(self) -> None:
+        """Should attribute the DeprecationWarning to the caller's line."""
+        line = sys._getframe().f_lineno + 2
+        with pytest.warns(DeprecationWarning, match="SYNNAX_HOST") as record:
+            load_env_options({"SYNNAX_HOST": "core.lab"})
+        assert (record[0].filename, record[0].lineno) == (__file__, line)
 
 
 class TestOptions:
@@ -739,20 +788,20 @@ class TestLoadOptions:
     @pytest.mark.parametrize(
         ("field", "arg", "env", "expected"),
         [
-            ("host", "arg.lab", {"SYNNAX_HOST": "env.lab"}, "arg.lab"),
-            ("host", None, {"SYNNAX_HOST": "env.lab"}, "env.lab"),
-            ("port", 1, {"SYNNAX_PORT": "2"}, 1),
-            ("port", None, {"SYNNAX_PORT": "2"}, 2),
+            ("host", "arg.lab", {"SYNNAX_CLIENT_HOST": "env.lab"}, "arg.lab"),
+            ("host", None, {"SYNNAX_CLIENT_HOST": "env.lab"}, "env.lab"),
+            ("port", 1, {"SYNNAX_CLIENT_PORT": "2"}, 1),
+            ("port", None, {"SYNNAX_CLIENT_PORT": "2"}, 2),
             ("port", None, {}, 9090),
-            ("api_key", "syk_arg", {"SYNNAX_API_KEY": "syk_env"}, "syk_arg"),
-            ("api_key", None, {"SYNNAX_API_KEY": "syk_env"}, "syk_env"),
+            ("api_key", "syk_arg", {"SYNNAX_CLIENT_API_KEY": "syk_env"}, "syk_arg"),
+            ("api_key", None, {"SYNNAX_CLIENT_API_KEY": "syk_env"}, "syk_env"),
             ("insecure", True, {"SYNNAX_CLIENT_INSECURE": "false"}, True),
             ("insecure", None, {"SYNNAX_CLIENT_INSECURE": "true"}, True),
             ("insecure", None, {"SYNNAX_CLIENT_INSECURE": "false"}, False),
             ("insecure", None, {}, False),
-            ("ca_cert", "/arg.crt", {"SYNNAX_CA_CERT": "/env.crt"}, "/arg.crt"),
-            ("ca_cert", None, {"SYNNAX_CA_CERT": "/env.crt"}, "/env.crt"),
-            ("ca_cert", "", {"SYNNAX_CA_CERT": "/env.crt"}, "/env.crt"),
+            ("ca_cert", "/arg.crt", {"SYNNAX_CLIENT_CA_CERT": "/env.crt"}, "/arg.crt"),
+            ("ca_cert", None, {"SYNNAX_CLIENT_CA_CERT": "/env.crt"}, "/env.crt"),
+            ("ca_cert", "", {"SYNNAX_CLIENT_CA_CERT": "/env.crt"}, "/env.crt"),
             ("ca_cert", None, {}, None),
         ],
     )
@@ -780,11 +829,11 @@ class TestLoadOptions:
     def test_host_in_code_with_env_key(
         self, clusters: Clusters, desktop_file: Path
     ) -> None:
-        """Should connect to the host in code with the key in SYNNAX_API_KEY."""
+        """Should connect to the host in code with the key in SYNNAX_CLIENT_API_KEY."""
         opts, embedded = load_options(
             host="rig",
             port=9090,
-            env={"SYNNAX_API_KEY": "syk_env"},
+            env={"SYNNAX_CLIENT_API_KEY": "syk_env"},
             clusters=clusters,
             desktop_file=desktop_file,
         )
@@ -794,7 +843,9 @@ class TestLoadOptions:
     def test_password_replaces_env_key(
         self, clusters: Clusters, desktop_file: Path
     ) -> None:
-        """Should log in with the given username and password, not SYNNAX_API_KEY."""
+        """Should log in with the given username and password, not
+        SYNNAX_CLIENT_API_KEY.
+        """
         opts, _ = load_options(
             username="u",
             password="p",
@@ -809,7 +860,7 @@ class TestLoadOptions:
         [
             ({}, {}, SAVED),
             ({"port": 2}, {}, SAVED.model_copy(update={"port": 2})),
-            ({}, {"SYNNAX_PORT": "3"}, SAVED.model_copy(update={"port": 3})),
+            ({}, {"SYNNAX_CLIENT_PORT": "3"}, SAVED.model_copy(update={"port": 3})),
             (
                 {"insecure": True},
                 {},
@@ -822,12 +873,15 @@ class TestLoadOptions:
             ),
             (
                 {},
-                {"SYNNAX_CLIENT_INSECURE": "false", "SYNNAX_CA_CERT": "/env.crt"},
+                {
+                    "SYNNAX_CLIENT_INSECURE": "false",
+                    "SYNNAX_CLIENT_CA_CERT": "/env.crt",
+                },
                 SAVED.model_copy(update={"ca_cert": "/env.crt"}),
             ),
             (
                 {},
-                {"SYNNAX_CA_CERT": "/env.crt"},
+                {"SYNNAX_CLIENT_CA_CERT": "/env.crt"},
                 SAVED.model_copy(update={"ca_cert": "/env.crt"}),
             ),
             (
@@ -842,12 +896,12 @@ class TestLoadOptions:
             ),
             (
                 {},
-                {"SYNNAX_API_KEY": "syk_env"},
+                {"SYNNAX_CLIENT_API_KEY": "syk_env"},
                 SAVED.model_copy(update={"api_key": "syk_env"}),
             ),
             (
                 {"username": "u", "password": "p"},
-                {"SYNNAX_API_KEY": "syk_env"},
+                {"SYNNAX_CLIENT_API_KEY": "syk_env"},
                 SAVED.model_copy(
                     update={"api_key": "", "username": "u", "password": "p"}
                 ),
@@ -885,12 +939,12 @@ class TestLoadOptions:
     def test_password_login_replaced_by_env_key(
         self, clusters: Clusters, desktop_file: Path
     ) -> None:
-        """Should drop the saved username and password for SYNNAX_API_KEY."""
+        """Should drop the saved username and password for SYNNAX_CLIENT_API_KEY."""
         clusters.set(
             Cluster(options=Options(host="h", port=1, username="u", password="p"))
         )
         opts, _ = load_options(
-            env={"SYNNAX_API_KEY": "syk_env"},
+            env={"SYNNAX_CLIENT_API_KEY": "syk_env"},
             clusters=clusters,
             desktop_file=desktop_file,
         )
@@ -979,7 +1033,10 @@ class TestLoadOptions:
             host="h",
             api_key="syk_k",
             **args,
-            env={"SYNNAX_CLIENT_INSECURE": "false", "SYNNAX_CA_CERT": "/env.crt"},
+            env={
+                "SYNNAX_CLIENT_INSECURE": "false",
+                "SYNNAX_CLIENT_CA_CERT": "/env.crt",
+            },
             clusters=clusters,
             desktop_file=desktop_file,
         )
@@ -1111,7 +1168,7 @@ class TestLoadOptions:
         ("args", "env"),
         [
             ({"host": "h"}, {}),
-            ({}, {"SYNNAX_HOST": "h"}),
+            ({}, {"SYNNAX_CLIENT_HOST": "h"}),
             ({"host": "h", "password": "p"}, {}),
         ],
         ids=["host-arg", "host-env", "password-only"],
@@ -1224,7 +1281,7 @@ class TestLoadOptions:
     def test_env_host_before_saved_login(
         self, clusters: Clusters, desktop_file: Path
     ) -> None:
-        """Should not use a login or Synnax Desktop when SYNNAX_HOST is set."""
+        """Should not use a login or Synnax Desktop when SYNNAX_CLIENT_HOST is set."""
         clusters.set(Cluster(options=SAVED))
         write_desktop_file(desktop_file, port=4321)
         opts, embedded = load_options(
@@ -1270,7 +1327,7 @@ class TestLoadOptions:
         [
             ({}, {}),
             ({"port": 1, "api_key": "syk_k", "insecure": False}, {}),
-            ({}, {"SYNNAX_PORT": "1", "SYNNAX_API_KEY": "syk_k"}),
+            ({}, {"SYNNAX_CLIENT_PORT": "1", "SYNNAX_CLIENT_API_KEY": "syk_k"}),
         ],
         ids=["nothing", "args-without-host", "env-without-host"],
     )
@@ -1287,8 +1344,8 @@ class TestLoadOptions:
         with pytest.raises(ValidationError) as e:
             load_options(**args, env=env, clusters=clusters, desktop_file=desktop_file)
         assert str(e.value) == (
-            "No host was given and no Core is saved. Give a host, set SYNNAX_HOST, or "
-            "log in with `sy login`."
+            "No host was given and no Core is saved. Give a host, set "
+            "SYNNAX_CLIENT_HOST, or log in with `sy login`."
         )
 
 
@@ -1304,7 +1361,7 @@ class TestHome:
             monkeypatch.setenv(k, v)
         tmp_path.chmod(0o500)
         try:
-            with pytest.raises(ValidationError, match="SYNNAX_HOST"):
+            with pytest.raises(ValidationError, match="SYNNAX_CLIENT_HOST"):
                 load_options()
             assert list(tmp_path.iterdir()) == []
         finally:
@@ -1313,7 +1370,9 @@ class TestHome:
     def test_unknown_home(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """Should ask for SYNNAX_HOST, and write nothing, when the home is unknown."""
+        """Should ask for SYNNAX_CLIENT_HOST, and write nothing, when the home is
+        unknown.
+        """
         monkeypatch.delenv("HOME", raising=False)
         monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
         monkeypatch.setattr("pwd.getpwuid", _no_passwd_entry)
@@ -1415,9 +1474,9 @@ class TestEnvConnection:
         env = {
             **{k: v for k, v in os.environ.items() if not k.startswith("SYNNAX_")},
             **home_env(tmp_path),
-            "SYNNAX_HOST": "127.0.0.1",
-            "SYNNAX_PORT": str(port),
-            "SYNNAX_API_KEY": "syk_env",
+            "SYNNAX_CLIENT_HOST": "127.0.0.1",
+            "SYNNAX_CLIENT_PORT": str(port),
+            "SYNNAX_CLIENT_API_KEY": "syk_env",
         }
         result = subprocess.run(
             [sys.executable, "-c", "import synnax as sy; sy.Synnax(max_retries=0)"],
