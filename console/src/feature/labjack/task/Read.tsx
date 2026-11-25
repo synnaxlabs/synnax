@@ -312,7 +312,7 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
       if (primitive.isZero(existing)) toCreate.push(c);
       else
         try {
-          await client.channels.retrieve(existing);
+          await client.channels.retrieve(existing.toString());
         } catch (e) {
           if (NotFoundError.matches(e)) toCreate.push(c);
           else throw errors.fromUnknown(e);

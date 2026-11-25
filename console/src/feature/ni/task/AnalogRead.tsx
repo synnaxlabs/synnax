@@ -224,7 +224,7 @@ const onConfigure: Task.OnConfigure<typeof analogReadConfigZ> = async (
         if (primitive.isZero(exKey)) toCreate.push(channel);
         else
           try {
-            await client.channels.retrieve(exKey);
+            await client.channels.retrieve(exKey.toString());
           } catch (e) {
             if (QueryError.matches(e)) toCreate.push(channel);
             else throw errors.fromUnknown(e);

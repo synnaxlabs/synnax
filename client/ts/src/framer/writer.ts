@@ -158,31 +158,26 @@ export interface CommitResult {
 const authorityParamsZ = z
   .tuple([
     z.union([
-      z.record(channel.nameZ, control.authorityZ),
-      z.uint32().or(channel.nameZ),
+      z.record(channel.keyZ.or(channel.nameZ), control.authorityZ),
+      channel.keyZ.or(channel.nameZ),
       control.authorityZ,
     ]),
     control.authorityZ.optional(),
   ])
   .transform(([value, authority]) => {
     if (z.validate(control.authorityZ, value))
-      return { keys: [], recordKeys: [], authorities: [value] };
-    if (typeof value !== "object") {
+      return { keys: [], authorities: [value] };
+    if (z.validate(channel.keyZ.or(channel.nameZ), value)) {
       if (authority == null)
         throw new Error(
           "authority is required when setting authority for a single channel",
         );
       return {
         keys: [value] as channel.Key[] | channel.Name[],
-        recordKeys: [],
         authorities: [authority],
       };
     }
-    return {
-      keys: [],
-      recordKeys: Object.keys(value),
-      authorities: Object.values(value),
-    };
+    return { keys: Object.keys(value), authorities: Object.values(value) };
   });
 
 /**
@@ -293,11 +288,10 @@ export class Writer {
     const parsed = zod.parse(authorityParamsZ, [value, authority], {
       label: "authority params",
     });
-    const keys =
-      parsed.recordKeys.length > 0
-        ? await this.adapter.adaptRecordKeys(parsed.recordKeys)
-        : await this.adapter.adaptParams(parsed.keys);
-    const config = { keys, authorities: parsed.authorities };
+    const config = {
+      keys: await this.adapter.adaptParams(parsed.keys),
+      authorities: parsed.authorities,
+    };
     await this.execute({ command: WriterCommand.SetAuthority, config });
   }
 
