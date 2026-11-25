@@ -122,26 +122,32 @@ export const recordResponses = (
 };
 
 /**
- * Holds each request to target until release is called, so the Core does not get it.
- * Call it inside a test: the hold ends when that test finishes.
+ * Holds each request to target, or each that target matches, until release is called,
+ * so the Core does not get it. sent counts the held requests. Call it inside a test:
+ * the hold ends when that test finishes.
  */
 export const holdRequests = (
   client: Synnax,
-  target: string,
+  target: string | ((target: string, req: unknown) => boolean),
   field: "transport" = "transport",
 ) => {
+  const matches = typeof target === "string" ? (t: string) => t === target : target;
   const { unary } = client[field];
   const send = unary.send.bind(unary);
   const released = Promise.withResolvers<void>();
+  let sent = 0;
   const spy = vi.spyOn(unary, "send").mockImplementation(async (...args) => {
-    if (args[0] === target) await released.promise;
+    if (matches(args[0], args[1])) {
+      sent++;
+      await released.promise;
+    }
     return await send(...args);
   });
   onTestFinished(() => {
     released.resolve();
     spy.mockRestore();
   });
-  return { release: () => released.resolve() };
+  return { release: () => released.resolve(), sent: () => sent };
 };
 
 export interface RequestHold {

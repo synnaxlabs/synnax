@@ -421,7 +421,7 @@ func (w Writer) create(
 	if err != nil {
 		return err
 	}
-	regroup, err := w.adoptIndexes(ctx, indexChannels, opts)
+	regroup, err := w.adoptIndexes(ctx, indexChannels)
 	if err != nil {
 		return err
 	}
@@ -614,7 +614,6 @@ func isFreeIndex(ch Channel) bool {
 func (w Writer) adoptIndexes(
 	ctx context.Context,
 	indexChannels []Channel,
-	opts createOptions,
 ) (map[int]*group.Key, error) {
 	regroup := make(map[int]*group.Key)
 	if len(indexChannels) == 0 {

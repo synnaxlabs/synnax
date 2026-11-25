@@ -83,7 +83,11 @@ export const Button = ({
     <Primitive.Div orientation={orientation}>
       <Base.Button
         variant="filled"
-        className={CSS.cls(CSS.symbolColored, CSS.B("symbol-button"))}
+        className={CSS.cls(
+          CSS.symbolColored,
+          CSS.B("symbol-button"),
+          disabled === true && CSS.BM("symbol-button", "disabled"),
+        )}
         style={style}
         {...handlers}
         disabled={disabled}
