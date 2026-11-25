@@ -114,10 +114,10 @@ func holdingWrite(
 
 // whole returns a write of a number of the data type.
 func whole(dt server.DataType) server.WholeWriteValue {
-	return server.WholeWriteValue{Number: server.Number{DataType: dt}}
+	return server.WholeWriteValue{DataType: dt}
 }
 
 // bit returns a write of one bit of a register.
 func bit(b uint8) server.BitWriteValue {
-	return server.BitWriteValue{RegisterBit: server.RegisterBit{Bit: b}}
+	return server.BitWriteValue{Bit: b}
 }
