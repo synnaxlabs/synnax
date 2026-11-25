@@ -265,6 +265,51 @@ var _ = Describe("Read task ICD messages", func() {
 		},
 	)
 
+	// twoIndexes returns a message whose index field ts stamps temp, and whose field
+	// level is on a second index channel, and the config that reads it on plant/status.
+	twoIndexes := func(ctx context.Context) (
+		cfg msgpack.EncodedJSON,
+		stamped, temp, arrived, level channel.Channel,
+	) {
+		GinkgoHelper()
+		m := jsonMessage("Status", nil,
+			jsonField("ts", "/ts", icd.TimestampJSONField{
+				TimeFormat: payload.TimeFormatUnixSec,
+			}),
+			jsonField("temp", "/temp", icd.FloatJSONField{}),
+			jsonField("level", "/level", icd.FloatJSONField{}),
+		)
+		ic := createICD(ctx, m)
+		stamped, temps := createIndexed(ctx, telem.Float64T)
+		arrived, levels := createIndexed(ctx, telem.Float64T)
+		read := readMessage(
+			m,
+			binding(m, 0, stamped),
+			binding(m, 1, temps[0]),
+			binding(m, 2, levels[0]),
+		)
+		read["index"] = fieldKey(m, 0)
+		cfg = readConfig(ctx, dev, icdEntry("plant/status", ic, read))
+		return cfg, stamped, temps[0], arrived, levels[0]
+	}
+
+	It("Should write a message whose channels are on two index channels",
+		func(ctx SpecContext) {
+			cfg, stamped, temp, arrived, level := twoIndexes(ctx)
+			before := telem.Now()
+			start(ctx, cfg)
+			broker.publish("plant/status", `{"ts":1,"temp":20,"level":2.5}`, false)
+			Eventually(func() int64 { return stored(ctx, level).Len() }).
+				Should(BeEquivalentTo(1))
+			Expect(stored(ctx, temp)).To(MatchSeriesData(telem.NewSeriesV(20.0)))
+			Expect(stored(ctx, stamped)).
+				To(MatchSeriesData(telem.NewSeriesV(telem.SecondTS)))
+			Expect(stored(ctx, level)).To(MatchSeriesData(telem.NewSeriesV(2.5)))
+			Expect(stored(ctx, arrived).ValueAt[telem.TimeStamp](0)).
+				To(BeNumerically(">=", before))
+		},
+	)
+
 	It("Should use a field's default when a document has no value",
 		func(ctx SpecContext) {
 			fallback := payload.Float(-1)
@@ -322,6 +367,61 @@ var _ = Describe("Read task ICD messages", func() {
 			},
 		)
 
+		It("Should still write the other index channel of a field that does not decode",
+			func(ctx SpecContext) {
+				cfg, stamped, temp, arrived, level := twoIndexes(ctx)
+				t := start(ctx, cfg)
+				broker.publish(
+					"plant/status", `{"ts":1,"temp":"hot","level":2.5}`, false,
+				)
+				Eventually(func() int64 { return stored(ctx, level).Len() }).
+					Should(BeEquivalentTo(1))
+				warned(ctx, t, "Message on topic plant/status: field temp: "+
+					`invalid number "hot": validation error`,
+				)
+				Expect(stored(ctx, level)).
+					To(MatchSeriesData(telem.NewSeriesV(2.5)))
+				Expect(stored(ctx, arrived).Len()).To(BeEquivalentTo(1))
+				Expect(stored(ctx, temp).Len()).To(BeZero())
+				Expect(stored(ctx, stamped).Len()).To(BeZero())
+			},
+		)
+
+		It("Should write nothing of a message whose timestamp is not after the last",
+			func(ctx SpecContext) {
+				cfg, stamped, temp, arrived, level := twoIndexes(ctx)
+				t := start(ctx, cfg)
+				// A QoS 1 redelivery repeats the message.
+				broker.publish("plant/status", `{"ts":2,"temp":20,"level":2.5}`, false)
+				broker.publish("plant/status", `{"ts":2,"temp":20,"level":2.5}`, false)
+				Eventually(func(g Gomega) {
+					stat := taskStatus(ctx, t)
+					g.Expect(stat.Message).To(Equal("Skipped 1 of 2 messages"))
+					g.Expect(stat.Description).To(Equal(
+						"Message on topic plant/status: its timestamp is not after " +
+							"the last one written",
+					))
+				}).Should(Succeed())
+				// The writer stores in order, so a repeat would land before this one.
+				broker.publish("plant/status", `{"ts":3,"temp":21,"level":3.5}`, false)
+				Eventually(func(g Gomega) {
+					g.Expect(stored(ctx, level)).
+						To(MatchSeriesData(telem.NewSeriesV(2.5, 3.5)))
+				}).Should(Succeed())
+				Eventually(func(g Gomega) {
+					g.Expect(stored(ctx, temp)).
+						To(MatchSeriesData(telem.NewSeriesV(20.0, 21.0)))
+				}).Should(Succeed())
+				Eventually(func(g Gomega) {
+					g.Expect(stored(ctx, stamped)).To(MatchSeriesData(
+						telem.NewSeriesV(2*telem.SecondTS, 3*telem.SecondTS),
+					))
+				}).Should(Succeed())
+				Eventually(func() int64 { return stored(ctx, arrived).Len() }).
+					Should(BeEquivalentTo(2))
+			},
+		)
+
 		It("Should warn and write nothing for a value that does not decode",
 			func(ctx SpecContext) {
 				m := jsonMessage("Status", nil,
@@ -334,7 +434,7 @@ var _ = Describe("Read task ICD messages", func() {
 				)))
 				broker.publish("plant/status", `{"temp":"hot"}`, false)
 				warned(ctx, t, "Message on topic plant/status: field temp: "+
-					`unknown enum label "hot": validation error`,
+					`invalid number "hot": validation error`,
 				)
 				Expect(stored(ctx, data[0]).Len()).To(BeZero())
 			},
@@ -423,11 +523,6 @@ var _ = Describe("Read task ICD messages", func() {
 				missing := map[string]any{"field": fieldKey(f.m, 1), "channel": 1 << 30}
 				return status(f, readMessage(f.m, missing))
 			}, "message Status: channel 1073741824 does not exist"),
-			Entry("channels on two indexes", func(f format) []map[string]any {
-				return status(f, readMessage(
-					f.m, binding(f.m, 1, f.data[0]), binding(f.m, 2, f.other),
-				))
-			}, "every channel must share one index channel"),
 			Entry("an index field on a data channel", func(f format) []map[string]any {
 				read := readMessage(f.m, binding(f.m, 0, f.stamp))
 				read["index"] = fieldKey(f.m, 0)

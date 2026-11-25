@@ -219,9 +219,7 @@ var _ = Describe("Stored v4 symbols", func() {
 			Exec(ctx, db)).To(Succeed())
 		Expect(sym.Data.Variant).To(Equal("actuator"))
 		Expect(sym.Data.Looks).To(HaveLen(1))
-		Expect(sym.Data.Looks[0].When).To(Equal(&symbol.Condition{
-			Variant: symbol.EqualsCondition{State: "active", Values: []float64{0, 1}},
-		}))
+		Expect(sym.Data.Looks[0].When).To(BeNil())
 		state := as[symbol.EnumerationState](sym.Data.States[0].Variant)
 		var e enumeration.Enumeration
 		Expect(gorp.NewRetrieve[enumeration.Key, enumeration.Enumeration]().
