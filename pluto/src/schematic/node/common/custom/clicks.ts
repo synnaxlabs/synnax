@@ -9,6 +9,7 @@
 
 import type { schematic } from "@synnaxlabs/client";
 import { useHold } from "@synnaxlabs/lyra/hooks";
+import { useMemoArray } from "@synnaxlabs/lyra/memo";
 import type { CrudeTimeSpan } from "@synnaxlabs/x";
 import {
   type CSSProperties,
@@ -30,7 +31,7 @@ const OPEN = CSS.BEM("symbol", "part", "open");
 
 // partAt returns the key of the part that holds target inside host.
 const partAt = (
-  parts: schematic.symbol.Part[],
+  parts: readonly schematic.symbol.Part[],
   host: Element | null,
   target: EventTarget | null,
 ): string | undefined => {
@@ -114,7 +115,10 @@ export const usePartClicks = ({
   delay,
 }: UsePartClicksParams): UsePartClicksReturn => {
   const hostRef = useRef<SVGGElement | null>(null);
-  const clickable = spec.parts.filter(({ key }) => Object.hasOwn(clicks, key));
+  // Clicks change on each render of a node, so only a change of parts marks the shapes.
+  const clickable = useMemoArray(
+    spec.parts.filter(({ key }) => Object.hasOwn(clicks, key)),
+  );
   const at = (target: EventTarget | null) => partAt(clickable, hostRef.current, target);
   const [hovered, setHovered] = useState<string>();
   const [pressed, setPressed] = useState<string>();
@@ -130,7 +134,7 @@ export const usePartClicks = ({
   useLayoutEffect(() => {
     const host = hostRef.current;
     if (host == null) return;
-    const shapes = (parts: schematic.symbol.Part[]) =>
+    const shapes = (parts: readonly schematic.symbol.Part[]) =>
       parts.flatMap(({ selectors }) => Region.graphics(host, selectors));
     const keyed = (key?: string) => shapes(clickable.filter((p) => p.key === key));
     const all = shapes(clickable);

@@ -291,31 +291,36 @@ describe("Symbol node", () => {
     const renderParts = async (
       interactions: schematic.symbol.Interaction[],
       config: Partial<Config> = {},
+      telemFactories?: telem.Factory[],
     ) => {
-      const { key, Wrapper } = await createCustomSymbol(PARTS_MARKUP, {
-        parts: [
-          { key: "left", name: "Left", selectors: [".left"] },
-          { key: "right", name: "Right", selectors: [".right"] },
-        ],
-        states: [{ type: "number", key: "level", name: "Level" }],
-        commands: [
-          {
-            key: "open",
-            name: "Open",
-            state: "level",
-            value: { type: "fixed", value: 1 },
-          },
-          {
-            key: "close",
-            name: "Close",
-            state: "level",
-            value: { type: "fixed", value: 0 },
-          },
-        ],
-        interactions,
-      });
+      const { key, Wrapper } = await createCustomSymbol(
+        PARTS_MARKUP,
+        {
+          parts: [
+            { key: "left", name: "Left", selectors: [".left"] },
+            { key: "right", name: "Right", selectors: [".right"] },
+          ],
+          states: [{ type: "number", key: "level", name: "Level" }],
+          commands: [
+            {
+              key: "open",
+              name: "Open",
+              state: "level",
+              value: { type: "fixed", value: 1 },
+            },
+            {
+              key: "close",
+              name: "Close",
+              state: "level",
+              value: { type: "fixed", value: 0 },
+            },
+          ],
+          interactions,
+        },
+        telemFactories,
+      );
       const onConfigChange = vi.fn();
-      const { container } = renderNode(
+      const { container, queryByRole } = renderNode(
         {
           spec: { type: "custom", key },
           states: [{ key: "level", source: { type: "local", value: 0.5 } }],
@@ -334,7 +339,7 @@ describe("Symbol node", () => {
           }),
         ],
       });
-      return { container, onConfigChange, shape, sent };
+      return { container, queryByRole, onConfigChange, shape, sent };
     };
 
     const PART_CLICKS: schematic.symbol.Interaction[] = [
@@ -395,6 +400,28 @@ describe("Symbol node", () => {
       expect(tinted()).toEqual(["left", "left"]);
       fireEvent.mouseOver(await shape(".body"));
       expect(tinted()).toEqual([]);
+    });
+
+    it("should change no class of a part shape on a value update", async () => {
+      const { sources, factory } = createChannelTelem();
+      const { queryByRole, shape } = await renderParts(
+        PART_CLICKS,
+        { states: [{ key: "level", source: { type: "channel", key: 5, command: 7 } }] },
+        [factory],
+      );
+      const drawing = (await shape(".pluto-symbol__part--clickable")).closest("svg");
+      assert(drawing != null);
+      await vi.waitUntil(() => queryByRole("img", { name: "Unknown" }));
+      const changes: MutationRecord[] = [];
+      const observer = new MutationObserver((records) => changes.push(...records));
+      observer.observe(drawing, { subtree: true, attributeFilter: ["class"] });
+      act(() => sources.get(5)?.setValue(1));
+      await vi.waitFor(() =>
+        expect(queryByRole("img", { name: "Unknown" })).toBeNull(),
+      );
+      changes.push(...observer.takeRecords());
+      expect(changes).toEqual([]);
+      observer.disconnect();
     });
 
     it("should run the click of a part after the hold delay of the node", async () => {
