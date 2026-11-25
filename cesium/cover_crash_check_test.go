@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"os"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -104,7 +105,10 @@ func (f frameHoldFile) WriteAt(p []byte, off int64) (int, error) {
 	return f.File.WriteAt(p, off)
 }
 
-const coverSpare cesium.ChannelKey = 3
+const (
+	coverSpare cesium.ChannelKey = 3
+	coverIdle  cesium.ChannelKey = 4
+)
 
 var _ = Describe("Check: a record whose frame fault 5d cuts before the log covers it",
 	func() {
@@ -112,6 +116,7 @@ var _ = Describe("Check: a record whose frame fault 5d cuts before the log cover
 			disk *fault.FS
 			h    *frameHold
 			db   *cesium.DB
+			idle *cesium.Writer
 		)
 		BeforeEach(func(ctx SpecContext) {
 			disk = MustSucceed(fault.New(fault.Config{}))
@@ -142,9 +147,22 @@ var _ = Describe("Check: a record whose frame fault 5d cuts before the log cover
 					IsIndex:  true,
 					DataType: telem.TimestampT,
 				},
+				cesium.Channel{
+					Key:      coverIdle,
+					Name:     "idle",
+					IsIndex:  true,
+					DataType: telem.TimestampT,
+				},
 			)).To(Succeed())
 			breakWrite(ctx, db, 10, 11)
 			breakWrite(ctx, db, 20, 21, 22)
+			// The close of a writer reaps, so it takes dead segments while the log
+			// waits.
+			idle = MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+				Channels: []cesium.ChannelKey{coverIdle},
+				Clock:    coverIdle,
+				Start:    100 * telem.SecondTS,
+			}))
 			// A Drop returns once the log covers it, so no mark of an earlier frame
 			// is left to write when the hold arms.
 			Expect(db.Drop(ctx, []cesium.ChannelKey{coverSpare})).To(Succeed())
@@ -191,9 +209,22 @@ var _ = Describe("Check: a record whose frame fault 5d cuts before the log cover
 			go func() { dropped <- db.Drop(ctx, keys) }()
 			Eventually(h.held).WithTimeout(time.Minute).Should(BeClosed())
 			Consistently(dropped).ShouldNot(Receive(), "a Drop before its cover")
-			// The Drop takes the samples, and the open loads the channel file that its
-			// removal has not reached.
-			Expect(durable(ctx)).To(BeEmpty())
+			Expect(idle.Close()).To(Succeed())
+			kept := MustSucceed(disk.Crash(fault.CrashConfig{}))
+			re, closeRe := breakOpen(ctx, kept)
+			// The Drop takes the samples, and a second Drop removes the key that its
+			// removal did not reach.
+			Expect(breakRead(ctx, re)).To(BeEmpty())
+			Expect(re.Drop(ctx, keys)).To(Succeed())
+			for _, k := range keys {
+				_, err := re.RetrieveChannel(ctx, k)
+				Expect(err).To(MatchError(cesium.ErrChannelNotFound))
+				Expect(err).To(MatchError(ContainSubstring(
+					"channel with key %d not found", k,
+				)))
+				Expect(kept.Exists(strconv.Itoa(int(k)))).To(BeFalse(), "key %d", k)
+			}
+			closeRe()
 			cutImages(ctx, []int64{10, 11, 20, 21, 22})
 			h.let()
 			Eventually(dropped).Should(Receive(Succeed()))
@@ -211,6 +242,7 @@ var _ = Describe("Check: a record whose frame fault 5d cuts before the log cover
 				(0 * telem.SecondTS).Range(15*telem.SecondTS),
 			)).To(Succeed())
 			Eventually(h.held).WithTimeout(time.Minute).Should(BeClosed())
+			Expect(idle.Close()).To(Succeed())
 			Expect(durable(ctx)).To(Equal([]int64{20, 21, 22}))
 			cutImages(ctx, []int64{10, 11, 20, 21, 22})
 		})
