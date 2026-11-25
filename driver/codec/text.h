@@ -137,13 +137,11 @@ public:
 /// for concurrent use.
 class TextEncoder {
     struct Field {
-        std::string name;
+        synnax::icd::TextBaseField base;
         /// @brief tag is the text before the value of a tagged field, or empty for a
         /// delimited field.
         std::string tag;
         bool scaled = false;
-        double scale = 1;
-        double offset = 0;
         Number number = Number::FLOAT64;
         /// @brief binding is the index of the field's sample, or nothing for a field
         /// that takes its default.
@@ -211,8 +209,9 @@ public:
         std::vector<std::uint8_t> &payload
     );
 
-    /// @brief returns the error that encode returns when binding holds v, or NIL when
-    /// the field of binding can hold v.
+    /// @brief returns the error that encode returns when binding holds v, or VALIDATION
+    /// when v is outside the min and max of the field of binding. A float32 sample that
+    /// equals a limit at float32 precision is at that limit.
     [[nodiscard]] x::errors::Error
     check(std::size_t binding, const x::telem::SampleValue &v);
 

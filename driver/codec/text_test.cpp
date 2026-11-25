@@ -9,6 +9,7 @@
 
 #include <atomic>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <limits>
 #include <optional>
@@ -648,5 +649,88 @@ TEST(TextEncoder, CheckSample) {
     EXPECT_EQ(err.data, "field b: NaN is not finite");
     EXPECT_FALSE(enc.has_default(0));
     EXPECT_TRUE(enc.has_default(1));
+}
+
+namespace {
+/// @brief asserts that enc refuses v for binding with text.
+void assert_check_refuses(
+    TextEncoder &enc,
+    const std::size_t binding,
+    const x::telem::SampleValue &v,
+    const std::string &text
+) {
+    const auto err = enc.check(binding, v);
+    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+    EXPECT_EQ(err.data, text);
+}
+}
+
+/// @brief it should refuse a sample outside the min and max of its field and accept one
+/// at a limit, before the scale and offset come off. A sample that the field cannot
+/// hold fails as encode fails.
+TEST(TextEncoder, CheckLimits) {
+    auto a = at("a", 0);
+    a.min = 0;
+    a.max = 10;
+    auto s = at("s", 1);
+    s.scale = 0.1;
+    s.max = 10;
+    auto enc = ASSERT_NIL_P(TextEncoder::create(message("cmd", {a, s})));
+    ASSERT_NIL(enc.check(0, x::telem::SampleValue(0.0)));
+    ASSERT_NIL(enc.check(0, x::telem::SampleValue(10.0)));
+    ASSERT_NIL(enc.check(1, x::telem::SampleValue(5.0)));
+    assert_check_refuses(
+        enc,
+        0,
+        x::telem::SampleValue(10.5),
+        "field a: 10.5 is above the max 10"
+    );
+    assert_check_refuses(
+        enc,
+        0,
+        x::telem::SampleValue(-1.0),
+        "field a: -1 is below the min 0"
+    );
+    assert_check_refuses(
+        enc,
+        0,
+        x::telem::SampleValue(std::numeric_limits<double>::infinity()),
+        "field a: Infinity is not finite"
+    );
+    auto ints = ASSERT_NIL_P(
+        TextEncoder::create(message("cmd", {a}, "", x::telem::INT64_T))
+    );
+    assert_check_refuses(
+        ints,
+        0,
+        x::telem::SampleValue(std::int64_t{11}),
+        "field a: 11 is above the max 10"
+    );
+}
+
+/// @brief it should accept a float32 sample that equals a limit at float32 precision,
+/// and refuse one past it with its exact value.
+TEST(TextEncoder, CheckFloat32Limits) {
+    auto a = at("a", 0);
+    a.max = 0.1;
+    auto b = at("b", 1);
+    b.min = 3.3;
+    auto enc = ASSERT_NIL_P(
+        TextEncoder::create(message("cmd", {a, b}, "", x::telem::FLOAT32_T))
+    );
+    ASSERT_NIL(enc.check(0, x::telem::SampleValue(0.1F)));
+    ASSERT_NIL(enc.check(1, x::telem::SampleValue(3.3F)));
+    assert_check_refuses(
+        enc,
+        0,
+        x::telem::SampleValue(std::nextafter(0.1F, 1.0F)),
+        "field a: 0.10000000894069672 is above the max 0.1"
+    );
+    assert_check_refuses(
+        enc,
+        1,
+        x::telem::SampleValue(std::nextafter(3.3F, 0.0F)),
+        "field b: 3.299999713897705 is below the min 3.3"
+    );
 }
 }
