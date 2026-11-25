@@ -239,4 +239,41 @@ describe("Schematic", () => {
     fireEvent.mouseMove(within(slot).getAllByRole("button", { hidden: true })[0]);
     await waitFor(() => expect(utils.queryByText(command.name)).toBeNull());
   });
+
+  it("should hide the tooltip while a node shows its command menu", async () => {
+    const { utils } = await renderSchematic(
+      [
+        {
+          key: "v1",
+          position: xy.ZERO,
+          config: {
+            variant: "symbol",
+            spec: { type: "builtin", name: "valve" },
+            // A value that matches neither command makes a click open the menu.
+            states: [
+              {
+                key: "active",
+                source: { type: "local", value: 3 },
+                match: { type: "exact" },
+              },
+            ],
+          },
+        },
+      ],
+      { editable: false, registry: symbolNode.REGISTRY },
+    );
+    // React Flow hides unmeasured nodes, so role queries cannot see the button.
+    const button = await waitFor(() => {
+      const el = utils.container.querySelector<HTMLElement>(".react-flow__node button");
+      if (el == null) throw new Error("no symbol button yet");
+      return el;
+    });
+    fireEvent.mouseMove(button);
+    await utils.findByText("Stale timeout", undefined, { timeout: 3000 });
+    fireEvent.click(button);
+    const close = await utils.findByRole("menuitem", { name: "Close", hidden: true });
+    expect(utils.queryByText("Stale timeout")).toBeNull();
+    fireEvent.click(close);
+    await utils.findByText("Stale timeout", undefined, { timeout: 3000 });
+  });
 });

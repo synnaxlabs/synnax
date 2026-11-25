@@ -63,11 +63,14 @@ LEGO+=@sha256:9fe6151508c0e1ddc51a6d3e474353520f4b008782bf0c6d31676da72e6d4766
 
 cert_hash() { sha256sum "$CERT.crt" 2> /dev/null || true; }
 
-# Gets the certificate, or renews it when it is due.
+# Gets the certificate, or renews it when it is due. The host may send DNS only to the
+# VPC resolver, so lego checks the challenge record there and not at the name servers
+# of the zone.
 renew_cert() {
     docker run --rm --volume "$PREVIEW_ACME:/acme" --env AWS_REGION="$PREVIEW_REGION" \
         --env AWS_HOSTED_ZONE_ID="$PREVIEW_ZONE_ID" "$LEGO" run --accept-tos \
-        --no-random-sleep --dns route53 --domains "*.$PREVIEW_DOMAIN" --path /acme
+        --no-random-sleep --dns route53 --dns.resolvers 169.254.169.253:53 \
+        --dns.propagation.disable-ans --domains "*.$PREVIEW_DOMAIN" --path /acme
 }
 
 # Prints "<pr> <deployed>" for each preview.
