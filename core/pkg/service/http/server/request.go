@@ -59,9 +59,7 @@ func normalize(s *Server) {
 // tokenPattern matches an HTTP field name, which RFC 9110 defines as a token.
 var tokenPattern = regexp.MustCompile("^[!#$%&'*+.^_`|~0-9A-Za-z-]+$")
 
-// checkFields refuses an API key header name or a health check header name that is not
-// a token, a header value that holds a line break or NUL, and an empty query parameter
-// name.
+// checkFields refuses an API key header name that is not a token.
 func checkFields(s Server, v *validate.Validator) {
 	if a, ok := s.Auth.Variant.(APIKeyAuth); ok && a.SendAs == SendAsHeader {
 		v.Ternary(
@@ -69,35 +67,6 @@ func checkFields(s Server, v *validate.Validator) {
 			!tokenPattern.MatchString(a.Name),
 			"must be a header name",
 		)
-	}
-	for i, h := range s.HealthCheck.Headers {
-		path := fmt.Sprintf("health_check.headers.%d", i)
-		v.Ternary(
-			path+".name",
-			!tokenPattern.MatchString(h.Name),
-			"must be a header name",
-		)
-		v.Ternary(
-			path+".value",
-			strings.ContainsAny(h.Value, "\r\n\x00"),
-			"must not hold a line break or NUL",
-		)
-	}
-	for i, q := range s.HealthCheck.QueryParams {
-		path := fmt.Sprintf("health_check.query_params.%d.parameter", i)
-		v.Ternary(path, q.Parameter == "", "required")
-	}
-	for i, r := range s.Reads {
-		for j, q := range r.Request.Query {
-			path := fmt.Sprintf("reads.%d.request.query.%d.parameter", i, j)
-			v.Ternary(path, q.Parameter == "", "required")
-		}
-	}
-	for i, w := range s.Writes {
-		for j, q := range w.Request.Query {
-			path := fmt.Sprintf("writes.%d.request.query.%d.parameter", i, j)
-			v.Ternary(path, q.Parameter == "", "required")
-		}
 	}
 }
 
