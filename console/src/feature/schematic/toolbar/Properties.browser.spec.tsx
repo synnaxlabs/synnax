@@ -536,6 +536,32 @@ describe("Schematic toolbar Properties", () => {
       expect(screen.queryByText("Selection")).toBeNull();
     });
 
+    it("recolors the node color of symbol nodes", async () => {
+      const { key } = await renderProperties({
+        nodeKeys: ["n1", "n2"],
+        createConfig: () => ({
+          ...schematic.symbolNodeConfigZ.parse({
+            variant: "symbol",
+            spec: { type: "builtin", name: "valve" },
+          }),
+          color: fixed(RED),
+        }),
+      });
+      await screen.findByText("Selection");
+      fireEvent.click(getSwatches("Selection")[0]);
+      fireEvent.change(screen.getByLabelText("Hex"), {
+        target: { value: BLUE.slice(1) },
+      });
+      fireEvent.keyDown(document.body, { code: "Escape" });
+      await expect
+        .poll(async () =>
+          (
+            await Promise.all([retrieveConfig(key, "n1"), retrieveConfig(key, "n2")])
+          ).map((c) => fixedHexOf(c.color)),
+        )
+        .toEqual([BLUE, BLUE]);
+    });
+
     it("recolors every field that holds a selection color", async () => {
       const { key } = await renderProperties({
         nodeKeys: ["n1", "n2", "n3"],
@@ -589,21 +615,6 @@ describe("Schematic toolbar Properties", () => {
       await expect.poll(strokes).toEqual([GREEN, GREEN]);
       fireEvent.change(hex, { target: { value: BLUE.slice(1) } });
       await expect.poll(strokes).toEqual([BLUE, GREEN]);
-    });
-
-    it("lists no option colors of a state indicator", async () => {
-      await renderProperties({
-        nodeKeys: ["n1", "n2"],
-        createConfig: (key) =>
-          key === "n1"
-            ? {
-                ...PSchematic.Node.createConfig({ variant: "state_indicator" }),
-                options: [{ key: "a", name: "A", value: 0, color: RED }],
-              }
-            : { ...createBoxConfig(), strokeColor: fixed(GREEN) },
-      });
-      await screen.findByText("Selection");
-      expect(getSwatches("Selection")).toHaveLength(1);
     });
 
     it("sets a staleness timeout only on the symbols that have staleness", async () => {

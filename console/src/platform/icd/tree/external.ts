@@ -8,4 +8,5 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/platform/icd/tree/nodes";
+export * from "@/platform/icd/tree/structure";
 export * from "@/platform/icd/tree/use";

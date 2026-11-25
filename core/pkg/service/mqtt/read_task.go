@@ -23,7 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
-	"github.com/synnaxlabs/synnax/pkg/service/icd/codec"
+	"github.com/synnaxlabs/synnax/pkg/service/icd/read"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/mqtt/sparkplug"
 	"github.com/synnaxlabs/x/control"
@@ -73,45 +73,19 @@ type topicSubscription struct {
 	retainedIgnored bool
 }
 
-// topicSample holds the samples that one message on a topic gives.
-type topicSample struct {
-	// index is the index channel of keys. Zero for virtual channels.
-	index channel.Key
-	keys  channel.Keys
-	// series can share memory that the next convert of the topic overwrites.
-	series []telem.Series
-	stamp  telem.TimeStamp
-}
-
-// topicMessage reads the documents of one ICD message into its bound channels.
-type topicMessage struct {
-	name string
-	// keys are the channels of one frame: the index, when there is one, then the
-	// bound channels that are not the index.
-	keys channel.Keys
-	// index is the index channel of every binding. Zero for virtual channels.
-	index channel.Key
-	// indexField is the position in bindings of the field that gives the timestamp.
-	// It is -1 when the sample takes its arrival time.
-	indexField int
-	dataTypes  []telem.DataType
-}
-
 // readTopic reads the topic of one plain entry, whose documents are each one of several
 // ICD messages.
 type readTopic struct {
 	topicSubscription
-	messages []*topicMessage
-	decoder  *codec.JSON
-	// samples holds, for each message, the sample of each binding in the last
-	// document that message matched.
-	samples [][][]byte
+	source *read.Source
+	groups []read.Group
 	// text holds a payload that is not JSON as a JSON string.
 	text []byte
 }
 
 // newReadTopic validates entry against ic, the ICD it names, and channels, which holds
-// every channel that a binding of the entry names.
+// every channel that a binding of the entry names. The messages of entry must pass
+// check.
 func newReadTopic(
 	entry PlainReadEntry,
 	ic icd.ICD,
@@ -134,168 +108,30 @@ func newReadTopic(
 			validate.ErrValidation, "topic %s reads no messages", entry.Topic,
 		)
 	}
-	decoded := make([]codec.JSONMessage, len(entry.Messages))
-	for i, rm := range entry.Messages {
-		m, err := newTopicMessage(rm, ic, channels, &decoded[i])
-		if err != nil {
-			return nil, errors.Wrapf(err, "topic %s", entry.Topic)
-		}
-		t.messages = append(t.messages, m)
-		t.samples = append(t.samples, make([][]byte, len(decoded[i].Bindings)))
-	}
-	if t.decoder, err = codec.NewJSON(decoded); err != nil {
+	if t.source, err = read.NewSource(entry.Messages, ic, channels); err != nil {
 		return nil, errors.Wrapf(err, "topic %s", entry.Topic)
 	}
+	t.groups = t.source.Groups()
 	return t, nil
 }
 
-// newTopicMessage validates rm and fills decoded with what the decoder needs to read
-// it.
-func newTopicMessage(
-	rm icd.ReadMessage,
-	ic icd.ICD,
-	channels map[channel.Key]channel.Channel,
-	decoded *codec.JSONMessage,
-) (*topicMessage, error) {
-	var msg *icd.Message
-	for i := range ic.Messages {
-		if ic.Messages[i].Key == rm.Message {
-			msg = &ic.Messages[i]
-			break
-		}
-	}
-	if msg == nil {
-		return nil, errors.Wrapf(
-			validate.ErrValidation,
-			"message %s does not exist in ICD %s", rm.Message, ic.Name,
-		)
-	}
-	payload, ok := msg.Payload.Variant.(icd.JSONPayload)
-	if !ok {
-		return nil, errors.Wrapf(
-			validate.ErrValidation, "message %s is not a JSON message", msg.Name,
-		)
-	}
-	if len(rm.Bindings) == 0 {
-		return nil, errors.Wrapf(
-			validate.ErrValidation, "message %s binds no fields", msg.Name,
-		)
-	}
-	m := &topicMessage{name: msg.Name, indexField: -1}
-	bindings, err := m.bind(rm, channels)
-	if err != nil {
-		return nil, errors.Wrapf(err, "message %s", msg.Name)
-	}
-	*decoded = codec.JSONMessage{Name: msg.Name, Payload: payload, Bindings: bindings}
-	if m.index != 0 {
-		m.keys = append(m.keys, m.index)
-	}
-	for i, b := range rm.Bindings {
-		if i != m.indexField {
-			m.keys = append(m.keys, b.Channel)
-		}
-	}
-	return m, nil
-}
-
-// bind sets the data types, the index channel, and the index field of m from the
-// bindings of rm and their channels. It returns the codec binding of each.
-func (m *topicMessage) bind(
-	rm icd.ReadMessage,
-	channels map[channel.Key]channel.Channel,
-) ([]codec.Binding, error) {
-	bindings := make([]codec.Binding, len(rm.Bindings))
-	for i, b := range rm.Bindings {
-		ch, ok := channels[b.Channel]
-		if !ok {
-			return nil, errors.Wrapf(
-				validate.ErrValidation, "channel %d does not exist", b.Channel,
-			)
-		}
-		bindings[i] = codec.Binding{Field: b.Field, DataType: ch.DataType}
-		m.dataTypes = append(m.dataTypes, ch.DataType)
-		if i == 0 {
-			m.index = ch.Index()
-		} else if ch.Index() != m.index {
-			return nil, errors.Wrap(
-				validate.ErrValidation, "every channel must share one index channel",
-			)
-		}
-		isIndexField := rm.Index != nil && *rm.Index == b.Field
-		switch {
-		case isIndexField && !ch.IsIndex:
-			return nil, errors.Wrap(
-				validate.ErrValidation,
-				"the index field must write to an index channel",
-			)
-		case !isIndexField && ch.IsIndex:
-			return nil, errors.Wrap(
-				validate.ErrValidation,
-				"only the index field can write to an index channel",
-			)
-		case isIndexField:
-			m.indexField = i
-		}
-	}
-	if rm.Index != nil && m.indexField == -1 {
-		return nil, errors.Wrap(
-			validate.ErrValidation, "the index field has no channel",
-		)
-	}
-	return bindings, nil
-}
-
-// convert reads msg as the message whose match rule its document meets. A payload that
-// is not JSON is read as a bare string, such as ON.
-func (t *readTopic) convert(msg message) (topicSample, error) {
-	for _, samples := range t.samples {
-		for i := range samples {
-			samples[i] = samples[i][:0]
-		}
-	}
-	i, ok, failures, err := t.decoder.Decode(msg.payload, t.samples)
+// convert reads payload as the message whose match rule it meets, and returns a sample
+// for each group whose fields decode. A payload that is not JSON is read as a bare
+// string, such as ON. An error that names a field comes with the samples of the other
+// groups.
+func (t *readTopic) convert(payload []byte) ([]read.Sample, error) {
+	samples, ok, err := t.source.Decode(payload)
 	if err != nil &&
-		!jsontext.Value(msg.payload).IsValid(jsontext.AllowDuplicateNames(true)) {
-		if t.text, err = jsontext.AppendQuote(t.text[:0], msg.payload); err != nil {
-			return topicSample{}, err
+		!jsontext.Value(payload).IsValid(jsontext.AllowDuplicateNames(true)) {
+		if t.text, err = jsontext.AppendQuote(t.text[:0], payload); err != nil {
+			return nil, err
 		}
-		i, ok, failures, err = t.decoder.Decode(t.text, t.samples)
+		samples, ok, err = t.source.Decode(t.text)
 	}
-	if err != nil {
-		return topicSample{}, err
+	if err == nil && !ok {
+		err = errors.New("the payload matches no message")
 	}
-	if !ok {
-		return topicSample{}, errors.New("the payload matches no message")
-	}
-	if failures != nil {
-		return topicSample{}, failures[0].Err
-	}
-	return t.messages[i].sample(t.samples[i], msg.received), nil
-}
-
-// sample builds a topic sample from the samples of each binding in one document,
-// stamped received when the message has no index field.
-func (m *topicMessage) sample(samples [][]byte, received telem.TimeStamp) topicSample {
-	s := topicSample{
-		index:  m.index,
-		keys:   m.keys,
-		series: make([]telem.Series, 0, len(m.keys)),
-		stamp:  received,
-	}
-	if m.index != 0 {
-		s.series = append(s.series, telem.Series{DataType: telem.TimestampT})
-	}
-	for i, data := range samples {
-		if i == m.indexField {
-			s.stamp = telem.TimeStamp(telem.ByteOrder.Uint64(data))
-			continue
-		}
-		s.series = append(s.series, telem.Series{DataType: m.dataTypes[i], Data: data})
-	}
-	if m.index != 0 {
-		s.series[0].Data = telem.ByteOrder.AppendUint64(nil, uint64(s.stamp))
-	}
-	return s
+	return samples, err
 }
 
 // batch gathers the samples of many messages into one frame, with one series for each
@@ -654,29 +490,61 @@ func (r *reader) convert(now time.Time, msg message, b *batch) {
 		return
 	}
 	r.skips.Read()
-	s, err := t.convert(msg)
+	samples, err := t.convert(msg.payload)
+	// reason is why the message lost a group, and the message counts as one skip.
+	var reason string
 	if err != nil {
-		r.skips.Skip(now, fmt.Sprintf("Message on topic %s: %s", sub.topic, err))
-		return
+		reason = err.Error()
 	}
-	if s.index != 0 {
-		// An index takes timestamps in rising order only. A retained message repeats a
-		// value that the task may have, so a stale one is no loss.
-		if s.stamp <= r.lastStamp[s.index] {
-			if !msg.retained {
-				r.skips.Skip(now, fmt.Sprintf(
-					"Message on topic %s: its timestamp is not after the last one "+
-						"written",
-					sub.topic,
-				))
-			}
-			return
+	// An index takes timestamps in rising order only. A stale stamp marks a repeat of a
+	// message, such as a QoS 1 redelivery, so none of its groups write. A retained
+	// message repeats a value that the task may have, so a stale one is no loss.
+	if r.repeats(t, samples) {
+		if !msg.retained && reason == "" {
+			reason = staleReason
 		}
-		r.lastStamp[s.index] = s.stamp
+		samples = nil
 	}
-	for i, key := range s.keys {
-		b.append(key, s.series[i].DataType, s.series[i].Data)
+	for _, s := range samples {
+		g := t.groups[s.Group]
+		if g.Index != 0 {
+			stamp := msg.received
+			if g.Stamped {
+				stamp = s.Stamp
+			}
+			if stamp <= r.lastStamp[g.Index] {
+				if !msg.retained && reason == "" {
+					reason = staleReason
+				}
+				continue
+			}
+			r.lastStamp[g.Index] = stamp
+			var data [8]byte
+			b.append(
+				g.Index,
+				telem.TimestampT,
+				telem.ByteOrder.AppendUint64(data[:0], uint64(stamp)),
+			)
+		}
+		for i, key := range g.Channels {
+			b.append(key, g.DataTypes[i], s.Data[i])
+		}
 	}
+	if reason != "" {
+		r.skips.Skip(now, fmt.Sprintf("Message on topic %s: %s", sub.topic, reason))
+	}
+}
+
+// staleReason is the skip reason of a timestamp that is not after the last one.
+const staleReason = "its timestamp is not after the last one written"
+
+// repeats reports whether a stamped group of samples is not after the last timestamp
+// of its index.
+func (r *reader) repeats(t *readTopic, samples []read.Sample) bool {
+	return slices.ContainsFunc(samples, func(s read.Sample) bool {
+		g := t.groups[s.Group]
+		return g.Index != 0 && g.Stamped && s.Stamp <= r.lastStamp[g.Index]
+	})
 }
 
 // convertEvent applies one Sparkplug B message: a birth or a death changes which edge

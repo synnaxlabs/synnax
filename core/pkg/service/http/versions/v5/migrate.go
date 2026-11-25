@@ -45,6 +45,33 @@ func MigrateReadEndpoint(
 	return autoMigrateReadEndpoint(ctx, old)
 }
 
+// MigrateWriteConfig lifts a v4 write config to v5, with the key, channel, and fields
+// of each endpoint staged in Inline.
+func MigrateWriteConfig(ctx context.Context, old v4.WriteConfig) (WriteConfig, error) {
+	cfg, err := autoMigrateWriteConfig(ctx, old)
+	if err != nil || len(old.Endpoints) == 0 {
+		return cfg, err
+	}
+	staged := make([]InlineWriteEndpoint, len(old.Endpoints))
+	for i, ep := range old.Endpoints {
+		staged[i] = InlineWriteEndpoint{
+			Key:     ep.Key,
+			Channel: ep.Channel,
+			Fields:  ep.Fields,
+		}
+	}
+	cfg.Inline = &InlineWrite{Endpoints: staged}
+	return cfg, nil
+}
+
+// MigrateWriteEndpoint lifts a v4 write endpoint to v5, with no ICD and no message.
+func MigrateWriteEndpoint(
+	ctx context.Context,
+	old v4.WriteEndpoint,
+) (WriteEndpoint, error) {
+	return autoMigrateWriteEndpoint(ctx, old)
+}
+
 // NoteLift returns the note for ResolveReadConfig that logs each change to a field of
 // the config with key through ins.
 func NoteLift(ins alamos.Instrumentation, key uuid.UUID) func(path, change string) {
@@ -99,5 +126,65 @@ var ReadMigration = migrate.New(
 			news[i] = cfg
 		}
 		return gorp.WrapWriter[uuid.UUID, ReadConfig](tx).Set(ctx, news...)
+	},
+)
+
+// StagedWriteFieldsKVPrefix is the KV key prefix under which StageWrite stages the
+// channel and fields of each config. The rest of the key is the config key as a string,
+// and the value is the InlineWrite that holds them, as JSON.
+const StagedWriteFieldsKVPrefix = "sy_http_write_staged_fields/"
+
+// StagedWriteFieldsKVKey returns the staging KV key of the channel and fields of the
+// config with the given key.
+func StagedWriteFieldsKVKey(key uuid.UUID) []byte {
+	return []byte(StagedWriteFieldsKVPrefix + key.String())
+}
+
+// StageWrite clears the Inline of cfg and returns the write that stages it under the
+// StagedWriteFieldsKVKey of cfg, or nil when cfg holds no Inline.
+func StageWrite(cfg *WriteConfig) (func(context.Context, gorp.Tx) error, error) {
+	if cfg.Inline == nil {
+		return nil, nil
+	}
+	b, err := json.Marshal(cfg.Inline)
+	if err != nil {
+		return nil, errors.Wrapf(err, "config %s", cfg.Key)
+	}
+	key := StagedWriteFieldsKVKey(cfg.Key)
+	cfg.Inline = nil
+	return func(ctx context.Context, tx gorp.Tx) error {
+		return tx.Set(ctx, key, b)
+	}, nil
+}
+
+// WriteMigration lifts each stored v4 write config to v5. The v5 shape does not store
+// Inline, so WriteMigration stages it as StageWrite does.
+var WriteMigration = migrate.New(
+	"v63_http_write_stage",
+	func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
+		var olds []v4.WriteConfig
+		if err := gorp.NewRetrieve[uuid.UUID, v4.WriteConfig]().
+			Entries(&olds).
+			Exec(ctx, tx); err != nil || len(olds) == 0 {
+			return err
+		}
+		news := make([]WriteConfig, len(olds))
+		for i, old := range olds {
+			cfg, err := MigrateWriteConfig(ctx, old)
+			if err != nil {
+				return errors.Wrapf(err, "config %s", old.Key)
+			}
+			stage, err := StageWrite(&cfg)
+			if err != nil {
+				return err
+			}
+			if stage != nil {
+				if err = stage(ctx, tx); err != nil {
+					return err
+				}
+			}
+			news[i] = cfg
+		}
+		return gorp.WrapWriter[uuid.UUID, WriteConfig](tx).Set(ctx, news...)
 	},
 )

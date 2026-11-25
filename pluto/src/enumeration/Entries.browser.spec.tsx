@@ -98,8 +98,6 @@ describe("Enumeration.Table", () => {
     interface HarnessProps {
       initial: enumeration.Entry[];
       onChange?: OnChange;
-      abnormalHidden?: boolean;
-      colorHidden?: boolean;
       preview?: boolean;
     }
 

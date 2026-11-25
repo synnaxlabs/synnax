@@ -55,21 +55,15 @@ func MigrateReadConfig(ctx context.Context, old v0.ReadConfig) (ReadConfig, erro
 	return cfg, nil
 }
 
-// MigrateWriteConfig lifts a v0 write config to v1. It keeps the channels of old and
-// adds no targets.
-func MigrateWriteConfig(ctx context.Context, old v0.WriteConfig) (WriteConfig, error) {
-	return autoMigrateWriteConfig(ctx, old)
-}
-
 // CreateICD creates ic through tx.
 type CreateICD func(ctx context.Context, tx gorp.Tx, ic icd.ICD) error
 
-// NoteLift returns the note for ResolveReadConfig that logs each change to a field of
-// the config with key through ins.
+// NoteLift returns the note for ResolveReadConfig and ResolveWriteConfig that logs each
+// change to a field of the config with key through ins.
 func NoteLift(ins alamos.Instrumentation, key uuid.UUID) func(path, change string) {
 	return func(path, change string) {
 		ins.L.Warn(
-			"changed a Kafka read field to v1",
+			"changed a Kafka task field to v1",
 			zap.Stringer("config", key),
 			zap.String("field", path),
 			zap.String("change", change),
@@ -141,5 +135,49 @@ var WriteMigration = migrate.New(
 			}
 		}
 		return gorp.WrapWriter[uuid.UUID, WriteConfig](tx).Set(ctx, news...)
+	},
+)
+
+// StagedChannelsKVPrefix is the KV key prefix under which WriteStageMigration stages
+// the channels of each write config. The rest of the key is the config key as a string,
+// and the value is the InlineWrite that holds the channels, as JSON.
+const StagedChannelsKVPrefix = "sy_kafka_write_staged_channels/"
+
+// StagedChannelsKVKey returns the staging KV key of the channels of the write config
+// with the given key.
+func StagedChannelsKVKey(key uuid.UUID) []byte {
+	return []byte(StagedChannelsKVPrefix + key.String())
+}
+
+// WriteStageMigration stages the channels of each stored write config under
+// StagedChannelsKVPrefix, with its topic, record key, and record, and stores the config
+// without them. It runs after WriteMigration.
+var WriteStageMigration = migrate.New(
+	"v63_kafka_write_stage",
+	func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
+		var cfgs []WriteConfig
+		if err := gorp.NewRetrieve[uuid.UUID, WriteConfig]().
+			Where(gorp.Match[uuid.UUID](
+				func(_ gorp.Context, c *WriteConfig) (bool, error) {
+					return len(c.Channels) > 0, nil
+				},
+			)).
+			Entries(&cfgs).
+			Exec(ctx, tx); err != nil || len(cfgs) == 0 {
+			return err
+		}
+		for i := range cfgs {
+			cfg := &cfgs[i]
+			stage(cfg)
+			b, err := json.Marshal(cfg.Inline)
+			if err != nil {
+				return errors.Wrapf(err, "config %s", cfg.Key)
+			}
+			if err = tx.Set(ctx, StagedChannelsKVKey(cfg.Key), b); err != nil {
+				return err
+			}
+			cfg.Inline = nil
+		}
+		return gorp.WrapWriter[uuid.UUID, WriteConfig](tx).Set(ctx, cfgs...)
 	},
 )
