@@ -31,9 +31,11 @@ type ServiceConfig struct {
 	// [REQUIRED]
 	DB *gorp.DB
 	// Status stores each server's status.
+	//
 	// [REQUIRED]
 	Status *status.Service
 	// Secret holds the credentials of each server.
+	//
 	// [REQUIRED]
 	Secret *secret.Service
 	// Signals publishes sy_http_server_set and sy_http_server_delete.

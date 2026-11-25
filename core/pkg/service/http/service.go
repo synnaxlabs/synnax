@@ -47,9 +47,11 @@ type ServiceConfig struct {
 	// [REQUIRED]
 	ICD *icd.Service
 	// Status stores the status of each server.
+	//
 	// [REQUIRED]
 	Status *status.Service
 	// Secret holds the credentials of each server.
+	//
 	// [REQUIRED]
 	Secret *secret.Service
 	// Signals publishes server changes.
