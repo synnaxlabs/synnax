@@ -96,9 +96,9 @@ func sampleJSON(dt telem.DataType, data []byte) any {
 	}
 	switch dt {
 	case telem.Float64T:
-		return math.Float64frombits(telem.ByteOrder.Uint64(data))
+		return floatJSON(math.Float64frombits(telem.ByteOrder.Uint64(data)))
 	case telem.Float32T:
-		return float64(math.Float32frombits(telem.ByteOrder.Uint32(data)))
+		return floatJSON(float64(math.Float32frombits(telem.ByteOrder.Uint32(data))))
 	case telem.Int64T:
 		return int64(telem.ByteOrder.Uint64(data))
 	case telem.Int32T:
@@ -129,6 +129,20 @@ func sampleJSON(dt telem.DataType, data []byte) any {
 	}
 	Fail("unknown data type " + string(dt))
 	return nil
+}
+
+// floatJSON returns f as the fixtures write it: a number, or a string for NaN,
+// Infinity, and -Infinity.
+func floatJSON(f float64) any {
+	switch {
+	case math.IsNaN(f):
+		return "NaN"
+	case math.IsInf(f, 1):
+		return "Infinity"
+	case math.IsInf(f, -1):
+		return "-Infinity"
+	}
+	return f
 }
 
 func readDecodeFixture(path string) decodeFixture {

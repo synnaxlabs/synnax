@@ -20,6 +20,7 @@
 
 #include "client/cpp/icd/types.gen.h"
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/json/pointer.h"
 #include "x/cpp/telem/telem.h"
 
 #include "driver/codec/binding.h"
@@ -97,4 +98,7 @@ x::errors::Error check_limits(const synnax::icd::BaseField &b, float v);
 /// decodes outside the min and max of b. It allows the float64 rounding of the decode,
 /// so a value that decodes to a limit passes.
 x::errors::Error check_raw_limits(const synnax::icd::BaseField &b, double raw);
+
+/// @brief reports whether inner is outer or a pointer into the value at outer.
+bool within(const x::json::Pointer &inner, const x::json::Pointer &outer);
 }

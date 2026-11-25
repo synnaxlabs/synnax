@@ -33,9 +33,8 @@ describe("Form.States", () => {
   let prompt: Mock<Enumeration.CreatePrompt>;
   beforeEach(() => {
     prompt = vi.fn(
-      async ({ entries }) =>
-        (await client.enumerations.create({ name: `Created ${id.create()}`, entries }))
-          .key,
+      async () =>
+        (await client.enumerations.create({ name: `Created ${id.create()}` })).key,
     );
   });
   const createWrapper = async (as: Synnax = client): Promise<FC<PropsWithChildren>> => {
@@ -146,7 +145,6 @@ describe("Form.States", () => {
       const c = renderStates();
       await openCreate(c);
       const e = await created(c.value);
-      expect(prompt).toHaveBeenCalledWith(expect.objectContaining({ entries: [] }));
       expect(e.entries).toEqual([]);
       await waitFor(() =>
         expect(document.activeElement).toBe(
@@ -233,7 +231,7 @@ describe("Form.States", () => {
       const c = renderStates({ enumeration: linked.key, label: { label: "Pump" } });
       await openCreate(c);
       const e = await created(c.value, linked.key);
-      expect(prompt).toHaveBeenCalledWith({ name: "", entries: [] });
+      expect(prompt).toHaveBeenCalledWith({ name: "" });
       expect(e.entries).toEqual([]);
       await waitFor(() =>
         expect(document.activeElement).toBe(
@@ -343,6 +341,21 @@ describe("Form.States", () => {
       const last = columns[columns.length - 1].getBoundingClientRect();
       expect(picker.left).toBeCloseTo(first.left, 0);
       expect(picker.right).toBeCloseTo(last.right, 0);
+    });
+
+    it("should keep the picker as wide when the node names no enumeration", async () => {
+      const e = await client.enumerations.create({
+        name: id.create(),
+        entries: [{ key: id.create(), name: "Primed", value: 0, abnormal: false }],
+      });
+      const c = renderStates({ enumeration: e.key });
+      await findInput("Name 1");
+      const picker = (): HTMLElement => c.getByRole("button", { name: /^Enumeration/ });
+      const linked = picker().getBoundingClientRect().width;
+      fireEvent.click(picker());
+      fireEvent.click(await c.findByText("No enumeration"));
+      await waitFor(() => expect(c.queryByLabelText("Name 1")).toBeNull());
+      expect(picker().getBoundingClientRect().width).toBeCloseTo(linked, 0);
     });
   });
 });
