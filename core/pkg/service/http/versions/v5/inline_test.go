@@ -357,6 +357,39 @@ var _ = Describe("ResolveReadConfig", func() {
 		},
 	)
 
+	DescribeTable("Should not note an optional field that the read never decodes",
+		func(ctx SpecContext, fields []v4.ReadField, expected []string) {
+			found := map[channel.Key]icdv0.Channel{
+				8: {Name: "count", DataType: telem.Int32T},
+			}
+			_, _, notes := resolve(ctx, staged(ctx, v4.ReadEndpoint{
+				Key:    "ep",
+				Fields: fields,
+			}), found)
+			Expect(notes).To(Equal(expected))
+		},
+		Entry("a disabled field", []v4.ReadField{
+			{
+				Key:      "o",
+				Pointer:  "/o",
+				Optional: true,
+				Disabled: true,
+				DataType: telem.Int32T,
+			},
+			{Key: "r", Pointer: "/r", DataType: telem.Float64T},
+		}, []string(nil)),
+		Entry("a field that binds no channel", []v4.ReadField{
+			{Key: "a", Channel: 8, Pointer: "/a", DataType: telem.Int32T},
+			{
+				Key:      "b",
+				Channel:  8,
+				Pointer:  "/b",
+				Optional: true,
+				DataType: telem.Int32T,
+			},
+		}, []string{"endpoints.0.fields.1"}),
+	)
+
 	Describe("Read check", func() {
 		found := map[channel.Key]icdv0.Channel{
 			6:  {Name: "time", DataType: telem.TimestampT, Index: true},
