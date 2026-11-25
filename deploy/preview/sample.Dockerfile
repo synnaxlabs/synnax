@@ -17,5 +17,5 @@ COPY console/scripts/dist dist
 COPY console/src/feature/project/*.arc src/feature/project/
 USER node
 
-ENTRYPOINT ["/bin/sh", "-c", \
-    "node dist/create_sample.js \"$0\" && node dist/create_preview_workspace.js \"$0\""]
+# A hung load stops after five minutes, so it never holds a deploy for long.
+ENTRYPOINT ["timeout", "300", "/bin/sh", "-c", "node dist/create_sample.js \"$0\" && node dist/create_preview_workspace.js \"$0\""]

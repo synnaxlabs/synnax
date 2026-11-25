@@ -184,6 +184,8 @@ pr-$pr.$PREVIEW_DOMAIN {
 }
 SITE
             reload_caddy
+            # The load takes about half a minute, so other commands need not wait on it.
+            flock --unlock 9
             docker run --rm --network preview --memory "$PREVIEW_MEMORY" \
                 --cpus "$PREVIEW_CPUS" "$sample" "http://$name:9090"
             return

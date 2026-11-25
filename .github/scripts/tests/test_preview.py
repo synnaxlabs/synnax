@@ -218,6 +218,17 @@ class TestUp:
         host.run("up", "12", "image", "sample")
         assert host.calls()[0] == "flock 9"
 
+    def test_should_release_the_lock_before_the_sample(self, host: Host) -> None:
+        host.ready()
+        assert host.run("up", "12", "image", "sample").returncode == 0
+        calls = [c.split(" | ")[0] for c in host.calls()]
+        sample = next(
+            i
+            for i, c in enumerate(calls)
+            if c.endswith("sample http://synnax-pr-12:9090")
+        )
+        assert calls[sample - 1] == "flock --unlock 9"
+
     def test_should_fail_when_the_sample_fails(self, host: Host) -> None:
         host.ready()
         (host.path / "sample_fails").touch()
