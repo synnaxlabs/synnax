@@ -9,6 +9,7 @@
 
 #include <functional>
 #include <string>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -50,11 +51,11 @@ public:
         channels(this->client, specs),
         harness(this->client, testutil::compile(this->client, build(this->channels))) {}
 
-    /// @brief ticks the scheduler and drains the cycle's writes, matching what
-    /// the runtime loop does after every tick.
+    /// @brief ticks the scheduler, then flushes and drops the cycle's writes, matching
+    /// what the runtime loop does after every tick.
     void advance(const x::telem::TimeSpan elapsed) {
         this->harness.tick(elapsed);
-        this->harness.drain();
+        std::ignore = this->harness.flush();
     }
 
     /// @brief ingests data onto the channel declared as name.
