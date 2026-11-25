@@ -1125,9 +1125,10 @@ describe("MQTT Write form", () => {
         kind: "timestamp",
         timeFormat: "unix_ms",
       };
+      const [shape] = TOPIC.shapes;
       const { dialog, draft } = await openOnPickedTopic([], {
         ...TOPIC,
-        fields: [...TOPIC.fields, time],
+        shapes: [{ ...shape, fields: [...shape.fields, time] }],
       });
       fireEvent.click(dialog.getByRole("button", { name: "Add 1 target" }));
       const target = await retrievePlainTarget(draft.key, TOPIC.topic);
