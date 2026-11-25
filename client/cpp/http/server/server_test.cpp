@@ -37,7 +37,7 @@ TEST(Server, AppliesDefaults) {
     ASSERT_EQ(server.timeout, x::telem::SECOND);
     ASSERT_EQ(server.max_concurrent_requests, 6);
     ASSERT_TRUE(std::holds_alternative<NoneAuth>(server.auth));
-    ASSERT_EQ(server.health_check.method, ::synnax::http::METHOD_GET);
+    ASSERT_EQ(server.health_check.method, ::x::http::METHOD_GET);
     ASSERT_FALSE(server.health_check.response.has_value());
     ASSERT_FALSE(server.status.has_value());
 }
@@ -55,7 +55,7 @@ TEST(Server, RoundTrips) {
         Read{
             .request =
                 ReadRequest{
-                    .method = ::synnax::http::METHOD_GET,
+                    .method = ::x::http::METHOD_GET,
                     .path = "/weather",
                     .query = {{.parameter = "units", .value = "si"}},
                 },
@@ -66,7 +66,7 @@ TEST(Server, RoundTrips) {
     );
     server.writes.push_back(
         Write{
-            .request = Request{.method = ::synnax::http::METHOD_PUT, .path = "/valve"},
+            .request = Request{.method = ::x::http::METHOD_PUT, .path = "/valve"},
             .channel = 3,
         }
     );
@@ -81,7 +81,7 @@ TEST(Server, RoundTrips) {
     ASSERT_EQ(parsed.reads.at(0).request.query.at(0).value, "si");
     ASSERT_EQ(parsed.reads.at(0).pointer, "/t");
     ASSERT_EQ(parsed.reads.at(0).channel, 2);
-    ASSERT_EQ(parsed.writes.at(0).request.method, ::synnax::http::METHOD_PUT);
+    ASSERT_EQ(parsed.writes.at(0).request.method, ::x::http::METHOD_PUT);
     ASSERT_EQ(parsed.writes.at(0).channel, 3);
 }
 
