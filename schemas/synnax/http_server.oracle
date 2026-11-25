@@ -325,6 +325,7 @@ Server struct {
 
     @create
     @doc value     "is an HTTP server that a rack's Driver connects to."
+    @go entry      "http_server"
     @go marshal
     @go migrate
     @resource type "http_server"

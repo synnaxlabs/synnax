@@ -14,7 +14,6 @@ import pytest
 from pydantic import ValidationError
 
 import synnax as sy
-import synnax.http.server
 from tests.json_value import arr, obj
 from tests.task_targets import TaskTargets
 from x import http
