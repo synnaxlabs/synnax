@@ -12,8 +12,6 @@ package check
 import (
 	"context"
 	"io/fs"
-	"runtime"
-	"sync"
 
 	"github.com/synnaxlabs/oracle/format"
 	"github.com/synnaxlabs/oracle/paths"
@@ -21,7 +19,6 @@ import (
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
-	"golang.org/x/sync/errgroup"
 )
 
 // GeneratedGate is the load-bearing gate of `oracle check`: it asserts that what the
@@ -62,31 +59,15 @@ func (g generatedGate) Run(
 		all = append(all, files...)
 	}
 
-	workers := g.workers
-	if workers <= 0 {
-		workers = runtime.GOMAXPROCS(0)
-	}
-
-	findings := make([]Finding, len(all))
-	var fillFinding sync.Mutex
-	eg, gctx := errgroup.WithContext(ctx)
-	eg.SetLimit(workers)
+	batch := make([]format.File, len(all))
 	for i, f := range all {
-		eg.Go(func() error {
-			if err := gctx.Err(); err != nil {
-				return err
-			}
-			finding, ok := g.checkOne(gctx, env, f)
-			if !ok {
-				return nil
-			}
-			fillFinding.Lock()
-			findings[i] = finding
-			fillFinding.Unlock()
-			return nil
-		})
+		batch[i] = format.File{
+			Path:    paths.Resolve(f.Path, env.RepoRoot),
+			Content: f.Content,
+		}
 	}
-	if err := eg.Wait(); err != nil {
+	formatted := g.formatters.FormatBatch(ctx, batch, g.workers)
+	if err := ctx.Err(); err != nil {
 		r.Status = StatusFail
 		r.Findings = append(r.Findings, Finding{
 			Severity: SeverityError,
@@ -95,11 +76,10 @@ func (g generatedGate) Run(
 		r.Elapsed = telem.Since(start)
 		return r
 	}
-	for _, f := range findings {
-		if f.Severity == 0 && f.Message == "" {
-			continue
+	for i, f := range all {
+		if finding, ok := checkOne(env, f, formatted[i]); ok {
+			r.Findings = append(r.Findings, finding)
 		}
-		r.Findings = append(r.Findings, f)
 	}
 	if len(r.Findings) > 0 {
 		r.Status = StatusFail
@@ -108,26 +88,20 @@ func (g generatedGate) Run(
 	return r
 }
 
-// checkOne runs the formatter chain on a single plugin output and compares the
-// canonical bytes to the on-disk file. Returns (finding, true) when there is something
-// to report, (zero, false) when the file is up to date.
+// checkOne compares the formatted bytes of one plugin output to the on-disk file.
+// Returns (finding, true) when there is something to report, (zero, false) when the
+// file is up to date.
 //
 // Errors from the formatter chain are reported as findings rather than surfaced as Go
 // errors. Sync would experience the same error on the next run; for a CI gate the right
 // thing is to attribute the failure to the file that triggered it and keep going so the
 // user sees every failing file at once.
-func (g generatedGate) checkOne(
-	ctx context.Context,
-	env Env,
-	f plugin.File,
-) (Finding, bool) {
-	abs := paths.Resolve(f.Path, env.RepoRoot)
-	canonical, err := g.formatters.Format(ctx, f.Content, abs)
-	if err != nil {
+func checkOne(env Env, f plugin.File, formatted format.Result) (Finding, bool) {
+	if formatted.Err != nil {
 		return Finding{
 			Path:     f.Path,
 			Severity: SeverityError,
-			Message:  "formatter failed for generated output: " + err.Error(),
+			Message:  "formatter failed for generated output: " + formatted.Err.Error(),
 			FixHint:  "fix the formatter for this extension and re-run `oracle sync`",
 		}, true
 	}
@@ -147,7 +121,7 @@ func (g generatedGate) checkOne(
 			Message:  "read existing file: " + err.Error(),
 		}, true
 	}
-	if string(existing) == string(canonical) {
+	if string(existing) == string(formatted.Content) {
 		return Finding{}, false
 	}
 	finding := Finding{
@@ -157,7 +131,12 @@ func (g generatedGate) checkOne(
 		FixHint:  "run `oracle sync`",
 	}
 	if env.IncludeDiffs {
-		finding.Diff = unifiedDiff(f.Path, string(existing), string(canonical), 60)
+		finding.Diff = unifiedDiff(
+			f.Path,
+			string(existing),
+			string(formatted.Content),
+			60,
+		)
 	}
 	return finding, true
 }

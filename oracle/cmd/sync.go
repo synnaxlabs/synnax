@@ -234,9 +234,11 @@ func syncOutputs(
 		return nil, err
 	}
 	formatStart := time.Now()
-	formatted, err := formatters.FormatBatch(ctx, batch, workers)
-	if err != nil {
-		return nil, err
+	formatted := formatters.FormatBatch(ctx, batch, workers)
+	for _, f := range formatted {
+		if f.Err != nil {
+			return nil, f.Err
+		}
 	}
 	printFormatDone(time.Since(formatStart))
 
@@ -328,7 +330,7 @@ func stageOutputs(toFormat []pendingOutput) ([]format.File, error) {
 func writeOutputs(
 	ctx context.Context,
 	toFormat []pendingOutput,
-	formatted []format.File,
+	formatted []format.Result,
 	cache *format.Cache,
 	r *syncResult,
 	workers int,

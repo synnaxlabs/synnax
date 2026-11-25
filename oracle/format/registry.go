@@ -13,9 +13,10 @@ import (
 	"context"
 	"path/filepath"
 	"runtime"
+	"sync"
 
 	"github.com/synnaxlabs/x/errors"
-	"golang.org/x/sync/errgroup"
+	"golang.org/x/sync/semaphore"
 )
 
 // File is one (path, content) pair. The path is absolute and is used both
@@ -26,16 +27,23 @@ type File struct {
 	Content []byte
 }
 
+// Result is the outcome of formatting one File: the canonical bytes, or the error that
+// stopped its formatter chain.
+type Result struct {
+	Content []byte
+	Err     error
+}
+
 // Registry routes files to formatters by file extension. A given extension
 // may have multiple formatters; they run in the order they were registered
-// (e.g. prettier first, then eslint --fix).
+// (e.g. eslint --fix first, then prettier).
 type Registry struct {
-	byExt map[string][]formatter
+	byExt map[string][]batchFormatter
 }
 
 // NewRegistry creates an empty Registry.
 func NewRegistry() *Registry {
-	return &Registry{byExt: make(map[string][]formatter)}
+	return &Registry{byExt: make(map[string][]batchFormatter)}
 }
 
 // Register appends a formatter for the given extension. The extension must
@@ -43,65 +51,96 @@ func NewRegistry() *Registry {
 // formatters, they run sequentially in registration order, each receiving
 // the previous formatter's output.
 func (r *Registry) Register(ext string, f formatter) {
+	r.registerBatch(ext, eachFile{f: f})
+}
+
+func (r *Registry) registerBatch(ext string, f batchFormatter) {
 	r.byExt[ext] = append(r.byExt[ext], f)
 }
 
-// Format runs all formatters registered for the file's extension,
-// chaining their output. Returns content unchanged if no formatter is
-// registered.
-func (r *Registry) Format(
-	ctx context.Context,
-	content []byte,
-	absPath string,
-) ([]byte, error) {
-	ext := filepath.Ext(absPath)
-	formatters, ok := r.byExt[ext]
-	if !ok {
-		return content, nil
-	}
-	current := content
-	for _, f := range formatters {
-		out, err := f.Format(ctx, current, absPath)
-		if err != nil {
-			return nil, errors.Wrapf(err, "format %s", absPath)
-		}
-		current = out
-	}
-	return current, nil
-}
-
-// FormatBatch formats a slice of files in parallel and returns a new slice
-// with the canonical bytes. Worker count defaults to GOMAXPROCS; pass 0 for
-// the default. Files with no registered formatter pass through unchanged.
-//
-// On the first error the context is cancelled and the partial results are
-// discarded; the caller receives only the wrapped error.
+// FormatBatch formats files and returns one Result per file, in input order. The files
+// of one extension pass through each formatter of its chain as one batch, and at most
+// workers tool processes run at once; pass 0 for GOMAXPROCS. Files with no registered
+// formatter pass through unchanged. A file whose chain fails gets the error in its
+// Result, and the other files still format.
 func (r *Registry) FormatBatch(
 	ctx context.Context,
 	files []File,
 	workers int,
-) ([]File, error) {
+) []Result {
 	if workers <= 0 {
 		workers = runtime.GOMAXPROCS(0)
 	}
-	out := make([]File, len(files))
-	eg, gctx := errgroup.WithContext(ctx)
-	eg.SetLimit(workers)
+	sem := semaphore.NewWeighted(int64(workers))
+	out := make([]Result, len(files))
+	byExt := make(map[string][]int)
 	for i, f := range files {
-		eg.Go(func() error {
-			if err := gctx.Err(); err != nil {
-				return err
+		out[i].Content = f.Content
+		ext := filepath.Ext(f.Path)
+		if _, ok := r.byExt[ext]; ok {
+			byExt[ext] = append(byExt[ext], i)
+		}
+	}
+	var wg sync.WaitGroup
+	for ext, indices := range byExt {
+		wg.Go(func() { formatChain(ctx, r.byExt[ext], files, indices, out, sem) })
+	}
+	wg.Wait()
+	return out
+}
+
+// formatChain runs each formatter of chain over the files at indices that have not
+// failed yet and writes the results to out.
+func formatChain(
+	ctx context.Context,
+	chain []batchFormatter,
+	files []File,
+	indices []int,
+	out []Result,
+	sem *semaphore.Weighted,
+) {
+	for _, f := range chain {
+		live := make([]int, 0, len(indices))
+		batch := make([]File, 0, len(indices))
+		for _, i := range indices {
+			if out[i].Err == nil {
+				live = append(live, i)
+				batch = append(
+					batch,
+					File{Path: files[i].Path, Content: out[i].Content},
+				)
 			}
-			content, err := r.Format(gctx, f.Content, f.Path)
-			if err != nil {
-				return err
+		}
+		for j, res := range f.formatBatch(ctx, batch, sem) {
+			i := live[j]
+			if res.Err != nil {
+				res = Result{Err: errors.Wrapf(res.Err, "format %s", files[i].Path)}
 			}
-			out[i] = File{Path: f.Path, Content: content}
-			return nil
+			out[i] = res
+		}
+	}
+}
+
+// eachFile runs a per-file formatter once for each file of a batch.
+type eachFile struct{ f formatter }
+
+func (e eachFile) formatBatch(
+	ctx context.Context,
+	files []File,
+	sem *semaphore.Weighted,
+) []Result {
+	out := make([]Result, len(files))
+	var wg sync.WaitGroup
+	for i, file := range files {
+		if err := sem.Acquire(ctx, 1); err != nil {
+			out[i].Err = err
+			continue
+		}
+		wg.Go(func() {
+			defer sem.Release(1)
+			out[i].Content, out[i].Err = e.f.Format(ctx, file.Content, file.Path)
 		})
 	}
-	if err := eg.Wait(); err != nil {
-		return nil, err
-	}
-	return out, nil
+	wg.Wait()
+	return out
 }

@@ -309,9 +309,11 @@ func FormatBufOutputs(
 		batch[i] = format.File{Path: path, Content: raw}
 	}
 
-	formatted, err := formatters.FormatBatch(ctx, batch, workers)
-	if err != nil {
-		return 0, errors.Wrap(err, "format buf outputs")
+	formatted := formatters.FormatBatch(ctx, batch, workers)
+	for _, f := range formatted {
+		if f.Err != nil {
+			return 0, errors.Wrap(f.Err, "format buf outputs")
+		}
 	}
 
 	var written int

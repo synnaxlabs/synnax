@@ -12,7 +12,6 @@ package format_test
 import (
 	"context"
 	"os"
-	"os/exec"
 	"path/filepath"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -48,25 +47,25 @@ var _ = Describe("Default Registry", func() {
 			To(MatchError(ContainSubstring("license template")))
 	})
 
-	// A chain stops at its first external tool: on the canceled context when the tool
-	// is installed, and on the lookup when it is not. A file no chain routes passes
-	// through unchanged.
+	// A routed file fails on the canceled context. A file no chain routes passes
+	// through
+	// unchanged.
 	canceled := func() context.Context {
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel()
 		return ctx
 	}
+	formatOne := func(r *format.Registry, ext string) format.Result {
+		files := []format.File{
+			{Path: filepath.Join(repoRoot, "file"+ext), Content: []byte("x")},
+		}
+		return r.FormatBatch(canceled(), files, 1)[0]
+	}
 
 	DescribeTable("Should register every supported extension",
 		func(ext string) {
 			r := MustSucceed(format.Default(repoRoot, 2026, nil))
-			Expect(
-				r.Format(canceled(), []byte("x"), filepath.Join(repoRoot, "file"+ext)),
-			).Error().
-				To(SatisfyAny(
-					MatchError(context.Canceled),
-					MatchError(exec.ErrNotFound),
-				))
+			Expect(formatOne(r, ext).Err).To(MatchError(context.Canceled))
 		},
 		Entry("Go", ".go"),
 		Entry("C++ source", ".cpp"),
@@ -84,10 +83,7 @@ var _ = Describe("Default Registry", func() {
 		"Should not route unknown extensions through any formatter",
 		func(ext string) {
 			r := MustSucceed(format.Default(repoRoot, 2026, nil))
-			Expect(
-				r.Format(canceled(), []byte("x"), filepath.Join(repoRoot, "file"+ext)),
-			).
-				To(Equal([]byte("x")))
+			Expect(formatOne(r, ext)).To(Equal(format.Result{Content: []byte("x")}))
 		},
 		Entry("Rust", ".rs"),
 		Entry("Markdown", ".md"),

@@ -16,7 +16,11 @@
 // they match.
 package format
 
-import "context"
+import (
+	"context"
+
+	"golang.org/x/sync/semaphore"
+)
 
 // formatter produces canonical bytes for a single generated file.
 //
@@ -24,8 +28,15 @@ import "context"
 // must also be deterministic given the same content and path; the sync
 // layer relies on byte-identical output across invocations to decide
 // whether a write is needed. ctx carries cancellation from the parent
-// sync call so long-running shell-outs (eslint, prettier) terminate when
-// the caller aborts.
+// sync call so long-running shell-outs terminate when the caller aborts.
 type formatter interface {
 	Format(ctx context.Context, content []byte, absPath string) ([]byte, error)
+}
+
+// batchFormatter formats many files at once, so a tool with a slow start runs once
+// per batch instead of once per file. It returns one Result per file, in order, and
+// holds one slot of workers while each tool process runs. It keeps the idempotence and
+// determinism contract of formatter.
+type batchFormatter interface {
+	formatBatch(ctx context.Context, files []File, workers *semaphore.Weighted) []Result
 }
