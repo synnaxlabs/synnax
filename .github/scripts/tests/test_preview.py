@@ -375,6 +375,7 @@ class TestUpgrade:
             f"docker run --rm --volume {host.path}/acme:/acme"
             " --env AWS_REGION=us-east-1 --env AWS_HOSTED_ZONE_ID=Z123"
             f" {LEGO} run --accept-tos --no-random-sleep --dns route53"
+            " --dns.resolvers 169.254.169.253:53 --dns.propagation.disable-ans"
             " --domains *.preview.example.com --path /acme"
         )
 
