@@ -60,7 +60,7 @@
     },
     {
       "samples": [1e19, 2, 1],
-      "error": "message command: field integer: 1e+19 is out of range for integer values: validation error"
+      "error": "message command: field integer: 10000000000000000000 is out of range for integer values: validation error"
     },
     {
       "samples": [1, -1, 1],

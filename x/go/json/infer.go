@@ -11,6 +11,7 @@ package json
 
 import (
 	"bytes"
+	"cmp"
 	"encoding/json/jsontext"
 	"io"
 	"math"
@@ -31,12 +32,15 @@ const (
 	maxEnumLabelLength = 64
 	// maxInferredFields is the most fields that one shape holds.
 	maxInferredFields = 1024
+	// maxClusters is the most clusters of documents that one source splits into.
+	maxClusters = 16
+	// maxFieldSets is the most sets of fields of one source that split compares.
+	maxFieldSets = 256
 )
 
 // Document is one sampled JSON document.
 type Document struct {
-	// Source is where the document came from, such as a record key or a topic. The
-	// sources whose documents hold the same fields share one shape.
+	// Source is where the document came from, such as a record key or a topic.
 	Source string
 	// Data is the JSON text of the document.
 	Data []byte
@@ -65,7 +69,7 @@ type InferredField struct {
 	Mismatched int `json:"mismatched" msgpack:"mismatched"`
 }
 
-// Shape is the layout that the documents of one or more sources share.
+// Shape is the layout of one cluster of documents, from one or more sources.
 type Shape struct {
 	// Sources are the sources of the documents, in the order first seen.
 	Sources []string `json:"sources" msgpack:"sources"`
@@ -76,9 +80,24 @@ type Shape struct {
 	Index int `json:"index" msgpack:"index"`
 	// Count is the number of documents of the shape.
 	Count int `json:"count" msgpack:"count"`
+	// Present is the position in Fields of the field that tells the documents of the
+	// shape apart from the other shapes of its sources, or -1 when it has none.
+	Present int `json:"present" msgpack:"present"`
 }
 
 // Infer returns the shapes of docs, which are in the order that each source wrote them.
+//   - The documents of a source that hold the same fields are one cluster. A cluster
+//     whose fields are all in one widest cluster joins it, so a field that some
+//     documents lack does not split a cluster. A source with more than 16 clusters or
+//     256 sets of fields is one cluster.
+//   - A document with no fields joins the one widest cluster of its source, or no
+//     cluster.
+//   - The clusters of every source that hold the same fields share a shape.
+//   - A shape's present field is its first field, other than the whole document, that
+//     every one of its documents holds and that no other shape of its sources holds. A
+//     shape that is the only shape of each of its sources has none. The clusters of a
+//     source whose shapes have none merge into one, so each source has at most one
+//     shape with none.
 //   - A field is a JSON pointer to a scalar. Arrays and nulls give no field.
 //   - Types widen across documents: int64, then uint64, then float64. A boolean field
 //     gives uint8. The JSON type of most values wins, and the rest are mismatched.
@@ -102,7 +121,7 @@ func Infer(docs []Document) []Shape {
 		}
 		src, ok := byName[doc.Source]
 		if !ok {
-			src = &inferSource{name: doc.Source, fields: make(set.Set[string])}
+			src = newInferSource(doc.Source, math.MaxInt)
 			byName[doc.Source] = src
 			sources = append(sources, src)
 		}
@@ -110,44 +129,146 @@ func Infer(docs []Document) []Shape {
 		if ref <= 0 {
 			ref = now
 		}
-		src.docs = append(src.docs, parsedDocument{leaves: leaves, time: ref})
-		for _, l := range leaves {
-			if !src.fields.Contains(l.key) {
-				src.fields.Add(l.key)
-				src.order = append(src.order, l.key)
+		src.add(parsedDocument{leaves: leaves, time: ref})
+	}
+	return infer(sources)
+}
+
+// infer returns the shapes of the documents of sources.
+func infer(sources []*inferSource) []Shape {
+	clusters := make([][]cluster, len(sources))
+	for i, src := range sources {
+		clusters[i] = src.split()
+	}
+	for {
+		groups, of := group(sources, clusters)
+		present := presentFields(groups, of)
+		if !mergeUnmarked(sources, clusters, of, present) {
+			shapes := make([]Shape, len(groups))
+			for i, g := range groups {
+				shapes[i] = g.shape()
+				shapes[i].Present = present[i]
+			}
+			return shapes
+		}
+	}
+}
+
+// group returns the groups of clusters, where the clusters that hold the same fields
+// share a group, and of, which holds the group of each cluster of each source.
+func group(sources []*inferSource, clusters [][]cluster) ([]*inferGroup, [][]int) {
+	var (
+		groups []*inferGroup
+		byKey  = make(map[string]int)
+		of     = make([][]int, len(sources))
+	)
+	for i, src := range sources {
+		of[i] = make([]int, len(clusters[i]))
+		for k, c := range clusters[i] {
+			g, ok := byKey[c.key]
+			if !ok {
+				g = len(groups)
+				byKey[c.key] = g
+				groups = append(groups, newInferGroup())
+			}
+			groups[g].sources = append(groups[g].sources, src.name)
+			groups[g].merge(src, c.sets)
+			of[i][k] = g
+		}
+	}
+	return groups, of
+}
+
+// presentFields returns the position of the present field of each group, or -1. A
+// present field is not at, above, or inside a field of another group of its sources, so
+// the present rules of a source never nest.
+func presentFields(groups []*inferGroup, of [][]int) []int {
+	others := sharers(groups, of)
+	above := make([]set.Set[string], len(groups))
+	for i, g := range groups {
+		above[i] = g.above()
+	}
+	present := make([]int, len(groups))
+	for i, g := range groups {
+		present[i] = -1
+		if len(others[i]) == 0 {
+			continue
+		}
+		present[i] = g.presentField(func(p Pointer) bool {
+			for o := range others[i] {
+				if groups[o].nests(p, above[o]) {
+					return false
+				}
+			}
+			return true
+		})
+	}
+	return present
+}
+
+// sharers returns, for each group, the other groups that share a source with it.
+func sharers(groups []*inferGroup, of [][]int) []set.Set[int] {
+	others := make([]set.Set[int], len(groups))
+	for i := range others {
+		others[i] = make(set.Set[int])
+	}
+	for _, gs := range of {
+		for _, g := range gs {
+			for _, o := range gs {
+				if o != g {
+					others[g].Add(o)
+				}
 			}
 		}
 	}
-	var (
-		groups      []*inferGroup
-		bySignature = make(map[string]*inferGroup)
-	)
-	for _, src := range sources {
-		sig := slices.Clone(src.order)
-		slices.Sort(sig)
-		key := strings.Join(sig, "\x00")
-		g, ok := bySignature[key]
-		if !ok {
-			g = newInferGroup()
-			bySignature[key] = g
-			groups = append(groups, g)
-		}
-		g.add(src)
-	}
-	shapes := make([]Shape, len(groups))
-	for i, g := range groups {
-		shapes[i] = g.shape()
-	}
-	return shapes
+	return others
 }
 
-// Inferrer infers the shape of the documents of one source as they arrive, with the
-// rules of Infer. It keeps counts, not documents, so its memory does not grow with the
-// number of documents. It is not safe for concurrent use.
-type Inferrer struct{ group *inferGroup }
+// mergeUnmarked merges the clusters of each source that has more than one cluster in a
+// group with no present field. It reports whether it merged any.
+func mergeUnmarked(
+	sources []*inferSource,
+	clusters [][]cluster,
+	of [][]int,
+	present []int,
+) bool {
+	merged := false
+	for i, src := range sources {
+		var (
+			marked   []cluster
+			unmarked []int
+			count    int
+		)
+		for k, c := range clusters[i] {
+			if present[of[i][k]] >= 0 {
+				marked = append(marked, c)
+				continue
+			}
+			unmarked = append(unmarked, c.sets...)
+			count++
+		}
+		if count < 2 {
+			continue
+		}
+		clusters[i] = append(marked, src.merge(unmarked))
+		slices.SortFunc(clusters[i], func(a, b cluster) int {
+			return cmp.Compare(a.sets[0], b.sets[0])
+		})
+		merged = true
+	}
+	return merged
+}
+
+// Inferrer infers the shapes of the documents of one source as they arrive, with the
+// rules of Infer. Past 1,024 fields across its sets of fields, the documents are one
+// shape. It keeps counts, not documents, so its memory does not grow with the number of
+// documents. It is not safe for concurrent use.
+type Inferrer struct{ src *inferSource }
 
 // NewInferrer returns an Inferrer that holds no documents.
-func NewInferrer() *Inferrer { return &Inferrer{group: newInferGroup()} }
+func NewInferrer() *Inferrer {
+	return &Inferrer{src: newInferSource("", maxInferredFields)}
+}
 
 // Add adds data, written at t. Data that is not one JSON value adds nothing.
 func (i *Inferrer) Add(data []byte, t telem.TimeStamp) {
@@ -155,17 +276,222 @@ func (i *Inferrer) Add(data []byte, t telem.TimeStamp) {
 	if err != nil {
 		return
 	}
-	i.group.addDocument("", parsedDocument{leaves: leaves, time: t})
+	i.src.add(parsedDocument{leaves: leaves, time: t})
 }
 
-// Shape returns the shape of the documents added, with no sources.
-func (i *Inferrer) Shape() Shape { return i.group.shape() }
+// Shapes returns the shapes of the documents added, with no sources.
+func (i *Inferrer) Shapes() []Shape {
+	shapes := infer([]*inferSource{i.src})
+	for k := range shapes {
+		shapes[k].Sources = nil
+	}
+	return shapes
+}
 
 type inferSource struct {
-	name   string
-	docs   []parsedDocument
+	name string
+	// sets holds each set of fields of the documents, in the order first seen.
+	sets  []fieldSet
+	byKey map[string]int
+	// disordered holds, for each time field, the pairs of sets where a value of one is
+	// older than the last value of the other.
+	disordered map[string]set.Set[[2]int]
+	// held is the number of fields that the sets hold.
+	held int
+	// limit is the most fields that the sets hold before the source has one set.
+	limit int
+	// whole is true once the documents have more than 256 sets of fields, or the sets
+	// would hold more than limit fields. The one set in sets then takes every document.
+	whole bool
+}
+
+func newInferSource(name string, limit int) *inferSource {
+	return &inferSource{
+		name:       name,
+		byKey:      make(map[string]int),
+		disordered: make(map[string]set.Set[[2]int]),
+		limit:      limit,
+	}
+}
+
+// fieldSet is a set of field pointers in their text form, with the stats of the
+// documents that hold exactly those fields.
+type fieldSet struct {
+	// key is the sorted pointers, joined by NUL.
+	key    string
 	fields set.Set[string]
-	order  []string
+	group  *inferGroup
+}
+
+func newFieldSet(fields set.Set[string]) fieldSet {
+	sorted := fields.Slice()
+	slices.Sort(sorted)
+	return fieldSet{key: strings.Join(sorted, "\x00"), fields: fields}
+}
+
+// cluster is the sets of fields of a source whose documents share a shape.
+type cluster struct {
+	key string
+	// sets are the positions of the sets in inferSource.sets, in order.
+	sets []int
+}
+
+func (src *inferSource) add(doc parsedDocument) {
+	fields := make(set.Set[string], len(doc.leaves))
+	for _, l := range doc.leaves {
+		fields.Add(l.key)
+	}
+	k := src.setOf(fields)
+	src.sets[k].group.addDocument(src.name, doc)
+	for _, l := range doc.leaves {
+		src.recordDisorder(k, l.key)
+	}
+}
+
+// setOf returns the position in sets of the set that takes the documents that hold
+// fields.
+func (src *inferSource) setOf(fields set.Set[string]) int {
+	if src.whole {
+		return 0
+	}
+	fs := newFieldSet(fields)
+	if k, ok := src.byKey[fs.key]; ok {
+		return k
+	}
+	if len(src.sets) == maxFieldSets || src.held+len(fields) > src.limit {
+		src.collapse()
+		return 0
+	}
+	src.held += len(fields)
+	fs.group = newInferGroup()
+	src.byKey[fs.key] = len(src.sets)
+	src.sets = append(src.sets, fs)
+	return len(src.sets) - 1
+}
+
+// collapse merges every set of src into one set that takes every later document.
+func (src *inferSource) collapse() {
+	g := newInferGroup()
+	g.merge(src, src.union()[0].sets)
+	src.sets = []fieldSet{{group: g}}
+	src.byKey, src.disordered, src.whole = nil, nil, true
+}
+
+// recordDisorder records each set whose last value of the time field key is newer than
+// the value that the set at k just took.
+func (src *inferSource) recordDisorder(k int, key string) {
+	s := src.sets[k].group.fields[key]
+	if s == nil || !s.timestamp() {
+		return
+	}
+	ts := s.time.last[src.name]
+	for o, other := range src.sets {
+		theirs := other.group.fields[key]
+		if o == k || theirs == nil || !theirs.timestamp() ||
+			theirs.time.last[src.name] <= ts {
+			continue
+		}
+		pairs, ok := src.disordered[key]
+		if !ok {
+			pairs = make(set.Set[[2]int])
+			src.disordered[key] = pairs
+		}
+		pairs.Add([2]int{min(k, o), max(k, o)})
+	}
+}
+
+// split returns the clusters of src, in the order of their first documents.
+func (src *inferSource) split() []cluster {
+	if src.whole {
+		fields := make(set.Set[string], len(src.sets[0].group.fields))
+		for key := range src.sets[0].group.fields {
+			fields.Add(key)
+		}
+		return []cluster{{key: newFieldSet(fields).key, sets: []int{0}}}
+	}
+	into := src.joins()
+	var (
+		clusters []cluster
+		at       = make(map[int]int)
+	)
+	for k, target := range into {
+		if target < 0 {
+			continue
+		}
+		c, ok := at[target]
+		if !ok {
+			c = len(clusters)
+			at[target] = c
+			clusters = append(clusters, cluster{key: src.sets[target].key})
+		}
+		clusters[c].sets = append(clusters[c].sets, k)
+	}
+	if len(clusters) > maxClusters {
+		return src.union()
+	}
+	return clusters
+}
+
+// union returns one cluster that holds every set of src.
+func (src *inferSource) union() []cluster {
+	sets := make([]int, len(src.sets))
+	for i := range sets {
+		sets[i] = i
+	}
+	return []cluster{src.merge(sets)}
+}
+
+// merge returns one cluster that holds the sets of src at sets.
+func (src *inferSource) merge(sets []int) cluster {
+	slices.Sort(sets)
+	fields := make(set.Set[string])
+	for _, k := range sets {
+		fields.Add(src.sets[k].fields.Slice()...)
+	}
+	return cluster{key: newFieldSet(fields).key, sets: sets}
+}
+
+// joins returns, for each set of fields of src, the set whose cluster its documents
+// join: the one widest set that holds all of its fields, or else itself. A set is
+// widest when no other set holds all of its fields. An empty set that two widest sets
+// hold joins no cluster: -1.
+func (src *inferSource) joins() []int {
+	holds := func(a, b int) bool {
+		return len(src.sets[a].fields) > len(src.sets[b].fields) &&
+			src.sets[b].fields.IsSubsetOf(src.sets[a].fields)
+	}
+	n := len(src.sets)
+	widest := make([]bool, n)
+	for i := range n {
+		widest[i] = true
+		for j := range n {
+			if holds(j, i) {
+				widest[i] = false
+				break
+			}
+		}
+	}
+	into := make([]int, n)
+	for i := range n {
+		into[i] = i
+		if widest[i] {
+			continue
+		}
+		holders := 0
+		for j := range n {
+			if widest[j] && holds(j, i) {
+				into[i] = j
+				holders++
+			}
+		}
+		if holders > 1 {
+			into[i] = i
+			if len(src.sets[i].fields) == 0 {
+				into[i] = -1
+			}
+		}
+	}
+	return into
 }
 
 type parsedDocument struct {
@@ -238,14 +564,82 @@ type inferGroup struct {
 	count   int
 }
 
+// above returns the pointer of each field of g and of each value above it.
+func (g *inferGroup) above() set.Set[string] {
+	above := make(set.Set[string])
+	for _, s := range g.order {
+		for k := 1; k <= len(s.pointer); k++ {
+			above.Add(s.pointer[:k].String())
+		}
+	}
+	return above
+}
+
+// nests reports whether p is at, above, or inside a field of g. above is g.above().
+func (g *inferGroup) nests(p Pointer, above set.Set[string]) bool {
+	if above.Contains(p.String()) {
+		return true
+	}
+	for k := 1; k < len(p); k++ {
+		if _, ok := g.fields[p[:k].String()]; ok {
+			return true
+		}
+	}
+	return false
+}
+
+// presentField returns the position of the first field that every document of g holds
+// and that apart accepts, or -1. It is a timestamp only when no value field can be.
+func (g *inferGroup) presentField(apart func(Pointer) bool) int {
+	// A value field names the kind of its documents, and a timestamp does not.
+	for _, timestamp := range []bool{false, true} {
+		if k := slices.IndexFunc(g.order, func(s *fieldStats) bool {
+			// A present rule at the root meets every document.
+			return s.timestamp() == timestamp && s.count == g.count &&
+				len(s.pointer) > 0 && apart(s.pointer)
+		}); k >= 0 {
+			return k
+		}
+	}
+	return -1
+}
+
 func newInferGroup() *inferGroup {
 	return &inferGroup{fields: make(map[string]*fieldStats)}
 }
 
-func (g *inferGroup) add(src *inferSource) {
-	g.sources = append(g.sources, src.name)
-	for _, doc := range src.docs {
-		g.addDocument(src.name, doc)
+// merge adds the documents of the sets of src at sets. A time field does not rise when
+// two of the sets are out of order in it.
+func (g *inferGroup) merge(src *inferSource, sets []int) {
+	for _, k := range sets {
+		from := src.sets[k].group
+		g.count += from.count
+		for _, o := range from.order {
+			key := o.pointer.String()
+			s, ok := g.fields[key]
+			if !ok {
+				if len(g.order) == maxInferredFields {
+					continue
+				}
+				s = newFieldStats(o.pointer)
+				g.fields[key] = s
+				g.order = append(g.order, s)
+			}
+			s.merge(o)
+		}
+	}
+	members := set.New(sets...)
+	for key, pairs := range src.disordered {
+		s, ok := g.fields[key]
+		if !ok {
+			continue
+		}
+		for p := range pairs {
+			if members.Contains(p[0]) && members.Contains(p[1]) {
+				s.time.rising = false
+				break
+			}
+		}
 	}
 }
 
@@ -271,6 +665,7 @@ func (g *inferGroup) shape() Shape {
 		Fields:  make([]InferredField, len(g.order)),
 		Index:   -1,
 		Count:   g.count,
+		Present: -1,
 	}
 	nearest := math.Inf(1)
 	for i, s := range g.order {
@@ -313,6 +708,25 @@ type timeStats struct {
 	last   map[string]telem.TimeStamp
 	// distance is the sum of the distances of the values from their document times.
 	distance float64
+}
+
+// merge adds the values of o. The last value of each source is the newest of the two,
+// which is the last value heard when the values rise.
+func (t *timeStats) merge(o timeStats) {
+	if !t.candidate || !o.candidate || !o.formatted {
+		t.candidate = t.candidate && o.candidate
+		return
+	}
+	if t.formatted && t.format != o.format {
+		t.candidate = false
+		return
+	}
+	t.format, t.formatted = o.format, true
+	t.rising = t.rising && o.rising
+	t.distance += o.distance
+	for source, ts := range o.last {
+		t.last[source] = max(t.last[source], ts)
+	}
 }
 
 func newFieldStats(pointer Pointer) *fieldStats {
@@ -383,6 +797,26 @@ func (s *fieldStats) addTime(source string, l leaf, ref telem.TimeStamp) {
 	}
 	t.last[source] = ts
 	t.distance += math.Abs(float64(ts) - float64(ref))
+}
+
+// merge adds the values of o, which is a field at the same pointer.
+func (s *fieldStats) merge(o *fieldStats) {
+	s.count += o.count
+	s.numbers += o.numbers
+	s.strings += o.strings
+	s.booleans += o.booleans
+	s.unreadable += o.unreadable
+	s.floating = s.floating || o.floating
+	s.unsigned = s.unsigned || o.unsigned
+	s.negative = s.negative || o.negative
+	s.longLabel = s.longLabel || o.longLabel
+	for label := range o.labels {
+		if len(s.labels) > maxEnumLabels {
+			break
+		}
+		s.labels.Add(label)
+	}
+	s.time.merge(o.time)
 }
 
 func (s *fieldStats) timestamp() bool { return s.time.candidate && s.time.formatted }

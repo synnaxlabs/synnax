@@ -299,6 +299,47 @@ data "aws_iam_policy_document" "ci_trust" {
   }
 }
 
+locals {
+  image = join("", [
+    replace(aws_ecr_repository.preview.repository_url, ".", "\\."),
+    ":pr-[0-9]+-[0-9a-f]{40}-[0-9]+-[0-9]+",
+  ])
+  notice_time = "[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z"
+}
+
+# Any workflow on a pull request branch can assume the CI role, so the role may send
+# only this document. Its pattern admits the preview commands that preview.yaml sends,
+# and no shell syntax.
+resource "aws_ssm_document" "preview" {
+  name            = "synnax-preview"
+  document_type   = "Command"
+  document_format = "JSON"
+  content = jsonencode({
+    schemaVersion = "2.2"
+    description   = "Runs one preview command on the preview host."
+    parameters = {
+      commands = {
+        type        = "String"
+        description = "The preview command line."
+        allowedPattern = join("", [
+          "^/usr/local/bin/preview (",
+          "up [0-9]+ ${local.image} (human|none) [0-9]+",
+          "|mark [0-9]+ (human|none) [0-9]+",
+          "|down [0-9]+",
+          "|notices",
+          "|ack( [0-9]+ ${local.notice_time})+",
+          ")$",
+        ])
+      }
+    }
+    mainSteps = [{
+      action = "aws:runShellScript"
+      name   = "preview"
+      inputs = { runCommand = ["{{ commands }}"] }
+    }]
+  })
+}
+
 data "aws_iam_policy_document" "ci" {
   statement {
     actions   = ["ecr:GetAuthorizationToken"]
@@ -316,11 +357,8 @@ data "aws_iam_policy_document" "ci" {
     resources = [aws_ecr_repository.preview.arn]
   }
   statement {
-    actions = ["ssm:SendCommand"]
-    resources = [
-      aws_instance.host.arn,
-      "arn:aws:ssm:${var.region}::document/AWS-RunShellScript",
-    ]
+    actions   = ["ssm:SendCommand"]
+    resources = [aws_instance.host.arn, aws_ssm_document.preview.arn]
   }
   statement {
     actions   = ["ssm:GetCommandInvocation"]

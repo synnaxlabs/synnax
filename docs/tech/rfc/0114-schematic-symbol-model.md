@@ -422,9 +422,9 @@ Each built-in gets the enumeration and command names of its family. A normally o
 
 A schematic import carries no symbols. The migration and a schematic import give a node
 whose custom symbol is not in the Core `missing` with the old key, and keep its
-bindings. Pluto draws today's "Missing custom symbol" look, and "Change symbol" moves
-the node to another symbol. A node stays `missing` until "Change symbol" moves it, also
-after a symbol import adds a symbol with its key.
+bindings. Pluto draws today's "Missing symbol" look, and "Change symbol" moves the node
+to another symbol. A node stays `missing` until "Change symbol" moves it, also after a
+symbol import adds a symbol with its key.
 
 In a stored custom symbol, `svg` becomes an `svg` drawing, each distinct pair of region
 key and selector set becomes a part, state `i` becomes value `i` of one state `active`
@@ -476,14 +476,15 @@ variant, and each merges on its own. Phase 5 gives each built-in spec its `activ
 state, its commands, its `entry` looks, and its `next` click, with no visible change.
 The pump and agitator specs draw their detail lines with the `contrast` paint, which
 phase 4 adds to the schema, the clients, the Core checks, and Pluto. The `switch` spec
-has no looks, because its wrapper keeps the colors that phase 2 draws. The `thruster`
+has looks that only a `symbol` node draws: the track fills while on, and a far knob
+takes the place of the near one. The old switch draws as phase 2 does. The `thruster`
 spec has no looks and no `next`, because today it draws as a static picture and takes no
 clicks. Phase 6 adds the node variant with the whole shape of §4.1 and its checks with
 the Core list of built-ins. Phase 7 removes the bindings and overrides that a symbol
 save orphans, and phase 8 adds the save confirm of §4.4, before the migration gives any
 node a binding that a save can remove. Phase 9 draws the node with its indicators and
-sends its commands. The `switch` keeps its own wrapper around the `symbol` drawing,
-which turns it only to stand upright and slides its knob, as phase 2 draws it. Phase 10
+sends its commands. A `switch` node draws its spec as any other `symbol` node does, so
+its knob does not slide. While on, the near knob hides and the far knob shows. Phase 10
 adds the form with the enumeration picker. Phase 11 adds the Core migration, the symbol
 import that keeps keys by §4.4, and "Change symbol". Phase 12 deletes the old variants
 from the schema, the clients, Pluto, and the Console.
