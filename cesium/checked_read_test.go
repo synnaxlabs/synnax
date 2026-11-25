@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/cesium/internal/place"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
 	xfs "github.com/synnaxlabs/x/io/fs"
+	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -87,4 +88,49 @@ var _ = Describe("Checked reads on the pointer log", func() {
 			Expect(MustSucceed(db.Read(ctx, telem.TimeRangeMax, idx)).Get(idx).Series).
 				To(HaveLen(1), "another key reads on")
 		})
+})
+
+var _ = Describe("Reads on the pointer log with read checks off", func() {
+	It("Should look a stamp up in its clock with 8-byte reads", func(ctx SpecContext) {
+		rec := NewRecorder(xfs.NewMem())
+		db := mustOpenDBOnFS(ctx, rec, cesium.WithPointerLog())
+		idx, data := GenerateChannelKey(), GenerateChannelKey()
+		Expect(db.CreateChannel(
+			ctx,
+			cesium.Channel{
+				Key:      idx,
+				Name:     "time",
+				IsIndex:  true,
+				DataType: telem.TimestampT,
+			},
+			cesium.Channel{
+				Key:      data,
+				Name:     "data",
+				Index:    idx,
+				DataType: telem.Float32T,
+			},
+		)).To(Succeed())
+		// 100,000 stamps take 13 blocks, so a whole-block read differs from a stamp.
+		const n = 100_000
+		stamps := make([]telem.TimeStamp, n)
+		for i := range stamps {
+			stamps[i] = telem.TimeStamp(i+1) * telem.MillisecondTS
+		}
+		Expect(write(ctx, db, stamps[0], telem.MultiFrame(
+			[]cesium.ChannelKey{idx, data},
+			[]telem.Series{
+				telem.NewSeries(stamps),
+				telem.NewSeries(make([]float32, n)),
+			},
+		))).To(Succeed())
+		dir := strconv.FormatUint(uint64(idx), 10) + "/"
+		onClock := func(e Event) bool { return strings.HasPrefix(e.Name, dir) }
+		rec.Reset()
+		s := stamps[n/3]
+		fr := MustSucceed(db.Read(ctx, s.Range(s+1), data))
+		Expect(fr.Get(data).Len()).To(BeEquivalentTo(1))
+		reads := rec.Count(MatchOp(OpReadAt), onClock)
+		Expect(reads).To(BeNumerically(">", 0))
+		Expect(rec.Count(MatchOp(OpReadAt), onClock, MatchLength(8))).To(Equal(reads))
+	})
 })
