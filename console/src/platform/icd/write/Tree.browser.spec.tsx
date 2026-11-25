@@ -36,8 +36,8 @@ const messageOf = (target: mqtt.WriteTarget): ICD.Write.TargetMessage | null =>
     ? {
         icd: target.icd,
         message: target.message.message,
-        bindings: deep.variant(path.config.targets[target.key], "type", "plain").message
-          .bindings,
+        path: deep.variant(path.config.targets[target.key], "type", "plain").message,
+        channelName: ({ name }) => `${name}_cmd`,
       }
     : null;
 
@@ -63,6 +63,11 @@ const Targets: FC = () => {
       messageOf,
       groups,
       TargetItem,
+      targetPane: (target) => ({
+        path: path.config.targets[target.key],
+        title: null,
+        details: null,
+      }),
       selected,
       onSelect: setSelected,
       expanded,
