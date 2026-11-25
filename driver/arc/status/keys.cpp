@@ -87,6 +87,8 @@ std::pair<std::shared_ptr<Keys>, x::errors::Error> Keys::open(
     std::filesystem::remove(temp_path(path), ec);
     if (ec)
         return {nullptr, fs_error("failed to remove " + temp_path(path).string(), ec)};
+    // A writer creates the temp through a temp of its own.
+    if (auto err = journal::remove_temps(temp_path(path))) return {nullptr, err};
     if (!std::filesystem::exists(path, ec)) {
         if (ec) return {nullptr, fs_error("failed to read " + path.string(), ec)};
         return {keys, x::errors::NIL};

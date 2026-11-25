@@ -541,7 +541,9 @@ TEST_F(StatusTest, ReportsARefusedSetDuringARetryWait) {
     ::driver::outbox::pb::Call call;
     auto *set = call.mutable_set_status();
     set->set_key_or_name(name);
-    set->set_message("msg");
+    // A long message, so one set is larger than the headers of two segments.
+    const std::string message(200, 'm');
+    set->set_message(message);
     set->set_variant("info");
     set->set_time(x::telem::TimeStamp::now().nanoseconds());
     const auto call_bytes = ::driver::journal::RECORD_PREFIX_SIZE + call.ByteSizeLong();
@@ -553,11 +555,15 @@ TEST_F(StatusTest, ReportsARefusedSetDuringARetryWait) {
     );
     const auto reports = std::make_shared<Reports>();
     Module module(this->outbox, this->keys, recordingReporter(reports));
-    const auto f = set_spec().config({name, "msg", "info"});
-    auto created = ASSERT_NIL_P(module.create(f.make_config()));
     auto ctx = make_context();
-    ASSERT_NIL(created->next(ctx));
-    ASSERT_NIL(created->next(ctx));
+    // A set of another status of the same size, so the outbox cannot replace the first.
+    auto other = name;
+    other[0] = 't';
+    for (const auto &n: {name, other}) {
+        const auto f = set_spec().config({n, message, "info"});
+        auto created = ASSERT_NIL_P(module.create(f.make_config()));
+        ASSERT_NIL(created->next(ctx));
+    }
     ASSERT_EVENTUALLY_FALSE(reports->snapshot().empty());
 }
 
