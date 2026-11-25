@@ -394,8 +394,7 @@ unionBody
     : ((actionDef | unionVariant | variantOmit | domain) nl*)*
     ;
 
-// Variant omission: remove a variant from the earlier version of the union that the
-// union patches
+// Variant omission: remove a variant from the earlier version that the union patches
 // Example: -legacy_variant
 variantOmit
     : MINUS variantName

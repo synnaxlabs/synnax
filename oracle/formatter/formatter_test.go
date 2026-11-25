@@ -880,6 +880,13 @@ var _ = Describe("Format", func() {
 			))
 		})
 
+		It("should keep a comment above a variant omit", func() {
+			source := "Foo union on type extends v0.Foo {\n  // b is gone.\n  -b\n}\n"
+			Expect(format(source)).To(Equal(
+				"Foo union on type extends v0.Foo {\n    // b is gone.\n    -b\n}\n",
+			))
+		})
+
 		It("should format a union that holds only actions", func() {
 			source := "Foo union on type {\n  action Reset {}\n}\n"
 			Expect(format(source)).To(Equal(
