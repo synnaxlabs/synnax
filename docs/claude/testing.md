@@ -22,8 +22,11 @@ uv run --project scripts scripts/compare_benchmarks.py --base main --head HEAD
 ```
 
 - It builds each ref once, then runs each group once per ref in each of 10 rounds, back
-  to back. A benchmark fails on a `sec/op` rise over 5% at p < 0.05, on an `allocs/op`
-  rise of any size at p < 0.05 (Go and C++), or when head does not have it.
+  to back. A benchmark fails, at p < 0.05, on a `sec/op` rise over 5%, a p50 or p99
+  latency rise over 10%, a max latency rise over 25%, or an `allocs/op` rise of any size
+  (Go and C++). It also fails when head does not have it.
+- The live groups of the `io` suite measure the write-to-stream latency and throughput
+  of an auto-commit writer at three shapes. The script's docstring gives them.
 - `GROUPS` in the script lists the gate. A new gate benchmark needs a row there.
   `--only <regex>` limits a run to the groups a change touches.
 - The `cpu` suite runs on any quiet Linux or macOS host. The `io` suite
