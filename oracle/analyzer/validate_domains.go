@@ -466,6 +466,45 @@ func validateLengthRules(table *resolution.Table, diag *diagnostics.Files) {
 	}
 }
 
+// validateCollectionRules errors on a required rule on a collection other than a T[]
+// field, and on a required T[] field with a default, since an absent list must fail.
+func validateCollectionRules(table *resolution.Table, diag *diagnostics.Files) {
+	const notList = "only a T[] field can require a nonempty collection"
+	report := func(t resolution.Type, name, problem string) {
+		diag.Report(t.Namespace+".oracle", diagnostics.Errorf(nil,
+			"%s has a required rule, but %s", name, problem,
+		))
+	}
+	for _, t := range table.Types {
+		switch form := t.Form.(type) {
+		case resolution.AliasForm, resolution.DistinctForm:
+			ref := resolution.TypeRef{Name: t.QualifiedName}
+			if _, ok := resolution.Collection(ref, table); ok &&
+				validation.Parse(t.Domains["validate"]).Required {
+				report(t, t.QualifiedName, notList)
+			}
+		case resolution.StructForm:
+			// A restated field merges with the one it overrides, so check the merge.
+			for _, f := range resolution.UnifiedFields(t, table) {
+				_, declared := form.Field(f.Name)
+				if !declared || !validation.Parse(f.Domains["validate"]).Required {
+					continue
+				}
+				if _, ok := resolution.Collection(f.Type, table); !ok {
+					continue
+				}
+				name := t.QualifiedName + "." + f.Name
+				switch {
+				case !validation.IsList(f.Type):
+					report(t, name, notList)
+				case f.Default != nil:
+					report(t, name, "it has a default, which a required list cannot")
+				}
+			}
+		}
+	}
+}
+
 // validateFiniteRules errors on a finite rule on a field or a type that is not a float.
 func validateFiniteRules(table *resolution.Table, diag *diagnostics.Files) {
 	report := func(t resolution.Type, name string, ref resolution.TypeRef) {
