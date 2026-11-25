@@ -48,5 +48,6 @@ func deleteRange(ctx context.Context, db *unary.DB, tr telem.TimeRange) error {
 		return err
 	}
 	defer release()
-	return del(ctx)
+	_, err = del(ctx)
+	return err
 }

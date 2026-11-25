@@ -205,18 +205,18 @@ var _ = Describe("Index Persist", Ordered, func() {
 					).To(Succeed())
 
 					By("Deleting some data")
-					Expect(db.Delete(
+					MustSucceed(db.Delete(
 						ctx,
 						(12 * telem.SecondTS).Range(15*telem.SecondTS),
 						fixedOffset(2),
 						fixedOffset(5),
-					)).To(Succeed())
-					Expect(db.Delete(
+					))
+					MustSucceed(db.Delete(
 						ctx,
 						(27 * telem.SecondTS).Range(30*telem.SecondTS),
 						fixedOffset(1),
 						fixedOffset(2),
-					)).To(Succeed())
+					))
 
 					By("Re-opening the database")
 					Expect(db.Close()).To(Succeed())
@@ -589,12 +589,13 @@ var _ = Describe("Index Persist", Ordered, func() {
 						Eventually(entered).Should(Receive())
 						deleted := make(chan error, 1)
 						go func() {
-							deleted <- db.Delete(
+							_, err := db.Delete(
 								ctx,
 								(2 * telem.SecondTS).Range(3*telem.SecondTS),
 								fixedOffset(0),
 								fixedOffset(0),
 							)
+							deleted <- err
 						}()
 						Eventually(prepared).Should(Receive())
 						release()
@@ -665,7 +666,7 @@ var _ = Describe("Index Persist", Ordered, func() {
 						// second.
 						MustSucceed(w.Write([]byte{22, 23}))
 						Expect(w.Commit(ctx, 23*telem.SecondTS+1, nil)).To(Succeed())
-						Expect(db.Delete(
+						MustSucceed(db.Delete(
 							ctx,
 							telem.TimeRange{
 								Start: 32*telem.SecondTS + 1,
@@ -673,7 +674,7 @@ var _ = Describe("Index Persist", Ordered, func() {
 							},
 							fixedOffset(3),
 							fixedOffset(5),
-						)).To(Succeed())
+						))
 						// Failing the persist of the writer's close leaves the index
 						// that the delete wrote.
 						hooked.writeAt = func([]byte) error { return ErrFault }
@@ -700,12 +701,12 @@ var _ = Describe("Index Persist", Ordered, func() {
 							)).To(Succeed())
 						}
 
-						Expect(db.Delete(
+						MustSucceed(db.Delete(
 							ctx,
 							(20 * telem.SecondTS).Range(32*telem.SecondTS),
 							fixedOffset(0),
 							fixedOffset(2),
-						)).To(Succeed())
+						))
 
 						expectDomains(
 							ctx,

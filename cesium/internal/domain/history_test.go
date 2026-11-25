@@ -68,23 +68,25 @@ var _ = Describe("OnHistoryChange", func() {
 		}))
 	})
 
-	It("Should report a delete", func(ctx SpecContext) {
+	It("Should return the range of a delete, and not report it", func(ctx SpecContext) {
 		write(ctx, 10, 20)
 		tr := (12 * telem.SecondTS).Range(15 * telem.SecondTS)
-		Expect(db.Delete(ctx, tr, fixedOffset(1), fixedOffset(2))).To(Succeed())
-		Expect(changes).To(Equal([]telem.TimeRange{tr}))
-	})
-
-	It("Should not report a delete between two domains", func(ctx SpecContext) {
-		write(ctx, 10, 20)
-		write(ctx, 30, 40)
-		tr := (22 * telem.SecondTS).Range(25 * telem.SecondTS)
-		Expect(db.Delete(ctx, tr, fixedOffset(0), fixedOffset(0))).To(Succeed())
+		Expect(db.Delete(ctx, tr, fixedOffset(1), fixedOffset(2))).To(Equal(tr))
 		Expect(changes).To(BeEmpty())
 	})
 
+	It("Should return no range for a delete between two domains", func(
+		ctx SpecContext,
+	) {
+		write(ctx, 10, 20)
+		write(ctx, 30, 40)
+		tr := (22 * telem.SecondTS).Range(25 * telem.SecondTS)
+		Expect(db.Delete(ctx, tr, fixedOffset(0), fixedOffset(0))).
+			To(Equal(telem.TimeRangeZero))
+	})
+
 	It(
-		"Should not report a delete between domains of different sizes",
+		"Should return no range for a delete between domains of different sizes",
 		func(ctx SpecContext) {
 			write(ctx, 10, 20)
 			tr := (30 * telem.SecondTS).Range(40 * telem.SecondTS)
@@ -92,13 +94,13 @@ var _ = Describe("OnHistoryChange", func() {
 				testutil.WriteDomain(ctx, db, tr, []byte{1, 2, 3, 4, 5}),
 			).To(Succeed())
 			del := (15 * telem.SecondTS).Range(30 * telem.SecondTS)
-			Expect(db.Delete(ctx, del, fixedOffset(3), fixedOffset(0))).To(Succeed())
-			Expect(changes).To(BeEmpty())
+			Expect(db.Delete(ctx, del, fixedOffset(3), fixedOffset(0))).
+				To(Equal(telem.TimeRangeZero))
 		},
 	)
 
 	It(
-		"Should report a delete ending at a smaller domain",
+		"Should return the range of a delete ending at a smaller domain",
 		func(ctx SpecContext) {
 			first := (10 * telem.SecondTS).Range(20 * telem.SecondTS)
 			Expect(testutil.WriteDomain(
@@ -112,8 +114,7 @@ var _ = Describe("OnHistoryChange", func() {
 				testutil.WriteDomain(ctx, db, second, []byte{1, 2, 3, 4, 5}),
 			).To(Succeed())
 			del := (15 * telem.SecondTS).Range(30 * telem.SecondTS)
-			Expect(db.Delete(ctx, del, fixedOffset(5), fixedOffset(0))).To(Succeed())
-			Expect(changes).To(Equal([]telem.TimeRange{del}))
+			Expect(db.Delete(ctx, del, fixedOffset(5), fixedOffset(0))).To(Equal(del))
 			i := db.OpenIterator(domain.IterRange(telem.TimeRangeMax))
 			Expect(i.SeekFirst(ctx)).To(BeTrue())
 			Expect(i.TimeRange()).To(Equal(first.Start.Range(del.Start)))

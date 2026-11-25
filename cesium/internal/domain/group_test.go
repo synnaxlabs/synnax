@@ -311,12 +311,12 @@ var _ = Describe("Group", func() {
 				Expect(w.Commit(ctx, 20*telem.SecondTS, nil)).To(Succeed())
 				MustSucceed(w.Write([]byte{3, 4}))
 				Expect(w.Commit(ctx, 30*telem.SecondTS, &g)).To(Succeed())
-				Expect(db.Delete(
+				MustSucceed(db.Delete(
 					ctx,
 					seconds(10, 25),
 					fixedOffset(0),
 					fixedOffset(3),
-				)).To(Succeed())
+				))
 				Expect(visible(ctx)).To(Equal([]telem.TimeRange{seconds(25, 30)}))
 				Expect(read(ctx)).To(Equal([]byte{4}))
 			})
@@ -325,12 +325,12 @@ var _ = Describe("Group", func() {
 			var g domain.Group
 			commitIn(ctx, openWriter(ctx, 10), 20, nil)
 			commitIn(ctx, openWriter(ctx, 30), 40, &g)
-			Expect(db.Delete(
+			MustSucceed(db.Delete(
 				ctx,
 				seconds(10, 20),
 				fixedOffset(0),
 				fixedOffset(1),
-			)).To(Succeed())
+			))
 			Expect(visible(ctx)).To(BeEmpty())
 			g.Publish()
 			Expect(visible(ctx)).To(Equal([]telem.TimeRange{seconds(30, 40)}))
@@ -425,12 +425,12 @@ var _ = Describe("Group", func() {
 				var g domain.Group
 				commitIn(ctx, openWriter(ctx, 30), 40, nil)
 				commitIn(ctx, openWriter(ctx, 10), 20, &g)
-				Expect(db.Delete(
+				MustSucceed(db.Delete(
 					ctx,
 					seconds(10, 20),
 					fixedOffset(0),
 					fixedOffset(1),
-				)).To(Succeed())
+				))
 				Expect(changes).To(Equal([]telem.TimeRange{
 					seconds(10, 20),
 					seconds(10, 20),
