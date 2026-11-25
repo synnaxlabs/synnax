@@ -281,6 +281,7 @@ var _ = Describe("Drop during the check pass", func() {
 		for _, start := range []telem.TimeStamp{1, 1000} {
 			w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 				Channels: keys,
+				Clock:    idx,
 				Start:    start * telem.SecondTS,
 			}))
 			for c := range telem.TimeStamp(4) {
