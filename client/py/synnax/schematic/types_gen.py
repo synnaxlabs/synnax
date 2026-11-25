@@ -18,7 +18,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from synnax import (
     channel as channel_,
-    color as color__,
+    color as color_,
     enumeration as enumeration_,
     group as group_,
     project as project_,
@@ -27,7 +27,7 @@ from synnax.resource import ID
 from synnax.schematic import symbol
 from x import (
     border,
-    color as color_,
+    color as color__,
     filter,
     notation as notation_,
     spatial,
@@ -152,22 +152,6 @@ class ControlStateConfig(BaseModel):
     chip_hidden: bool = False
     indicator_hidden: bool = False
     orientation: spatial.Location = "bottom"
-
-
-class StateMapping(BaseModel):
-    """Maps a numeric channel value to a named, colored state.
-
-    Attributes:
-        key: Is the unique identifier for the mapping entry.
-        name: Is the display name for this state.
-        value: Is the channel value this state corresponds to.
-        color: Is the display color associated with this state.
-    """
-
-    key: str
-    name: str
-    value: float
-    color: color_.Color | None = None
 
 
 class Page(BaseModel):
@@ -351,7 +335,7 @@ class SegmentedEdgeConfig(BaseModel):
         stroke_width: Is the stroke width of the edge in pixels.
     """
 
-    stroke_color: color__.Ref | None = None
+    stroke_color: color_.Ref | None = None
     segments: list[Segment] = Field(default_factory=list)
     stroke_width: int = Field(default=2, ge=1, le=20)
 
@@ -391,9 +375,9 @@ class ScaleIndicatorConfig(NumericTelemConfig, StalenessConfig):
     bounds: spatial.ClosedBounds = Field(
         default_factory=lambda: spatial.ClosedBounds(lower=0, upper=100)
     )
-    level_color: color__.Ref | None = None
-    axis_color: color__.Ref | None = None
-    text_color: color__.Ref | None = None
+    level_color: color_.Ref | None = None
+    axis_color: color_.Ref | None = None
+    text_color: color_.Ref | None = None
     units: str = ""
     level_hidden: bool = False
     caret_hidden: bool = False
@@ -526,7 +510,7 @@ class StaticSymbolConfig(LabeledConfig, ScaledConfig):
         stroke_color: Is the stroke color of the symbol.
     """
 
-    stroke_color: color_.Color | None = None
+    stroke_color: color__.Color | None = None
 
 
 class DummyToggleSymbolConfig(LabeledConfig, ScaledConfig):
@@ -542,7 +526,7 @@ class DummyToggleSymbolConfig(LabeledConfig, ScaledConfig):
 
     enabled: bool = False
     clickable: bool = False
-    stroke_color: color_.Color | None = None
+    stroke_color: color__.Color | None = None
 
 
 class Edge(BaseModel):
@@ -569,7 +553,7 @@ class ToggleSymbolConfig(ToggleConfig):
             active.
     """
 
-    stroke_color: color_.Color | None = None
+    stroke_color: color__.Color | None = None
 
 
 class CapNodeConfig(StaticSymbolConfig):
@@ -728,8 +712,8 @@ class BoxNodeConfig(LabeledConfig):
     """Is the configuration for box annotation symbols."""
 
     variant: Literal["box"] = "box"
-    stroke_color: color__.Ref | None = None
-    fill_color: color__.Ref | None = None
+    stroke_color: color_.Ref | None = None
+    fill_color: color_.Ref | None = None
     dimensions: spatial.Dimensions = Field(
         default_factory=lambda: spatial.Dimensions(width=125, height=200)
     )
@@ -747,7 +731,7 @@ class ButtonNodeConfig(LabeledConfig):
     )
     command_channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
     mode: ButtonMode = "fire"
-    fill_color: color__.Ref | None = None
+    fill_color: color_.Ref | None = None
     control: ControlStateConfig = Field(default_factory=lambda: ControlStateConfig())
 
 
@@ -756,8 +740,8 @@ class CircleNodeConfig(LabeledConfig):
 
     variant: Literal["circle"] = "circle"
     radius: int = Field(default=20, ge=1, le=65535)
-    stroke_color: color__.Ref | None = None
-    fill_color: color__.Ref | None = None
+    stroke_color: color_.Ref | None = None
+    fill_color: color_.Ref | None = None
     stroke_width: int | None = Field(default=None, ge=0, le=20)
 
 
@@ -766,7 +750,7 @@ class GaugeNodeConfig(LabeledConfig, NumericTelemConfig, StalenessConfig):
 
     variant: Literal["gauge"] = "gauge"
     position: spatial.XY = Field(default_factory=lambda: spatial.XY(x=0, y=0))
-    stroke_color: color__.Ref | None = None
+    stroke_color: color_.Ref | None = None
     bounds: spatial.ClosedBounds = Field(
         default_factory=lambda: spatial.ClosedBounds(lower=0, upper=100)
     )
@@ -788,7 +772,7 @@ class InputNodeConfig(LabeledConfig, StalenessConfig):
     dimensions: spatial.Dimensions = Field(
         default_factory=lambda: spatial.Dimensions(width=0, height=0)
     )
-    fill_color: color__.Ref | None = None
+    fill_color: color_.Ref | None = None
     disabled: bool = False
     inline_size: int = Field(default=150, ge=1, le=65535)
     on_click_delay: telem.TimeSpan = Field(
@@ -803,15 +787,15 @@ class LightNodeConfig(LabeledConfig, ScaledConfig, StalenessConfig):
     variant: Literal["light"] = "light"
     channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
     threshold: spatial.Bounds | None = None
-    stroke_color: color_.Color | None = None
-    on_color: color_.Color | None = None
+    stroke_color: color__.Color | None = None
+    on_color: color__.Color | None = None
 
 
 class LineNodeConfig(BaseModel):
     """Is the configuration for straight line symbols."""
 
     variant: Literal["line"] = "line"
-    stroke_color: color__.Ref | None = None
+    stroke_color: color_.Ref | None = None
     start: spatial.XY = Field(default_factory=lambda: spatial.XY(x=0, y=0))
     end: spatial.XY = Field(default_factory=lambda: spatial.XY(x=100, y=0))
     stroke_width: int = Field(default=2, ge=1, le=20)
@@ -822,7 +806,7 @@ class OffPageReferenceNodeConfig(LabeledConfig):
 
     variant: Literal["off_page_reference"] = "off_page_reference"
     orientation: spatial.OuterLocation = "right"
-    fill_color: color__.Ref | None = None
+    fill_color: color_.Ref | None = None
     page: Page = Field(default_factory=lambda: Page(type="schematic", key=""))
     double_click_navigation_disabled: bool = False
 
@@ -835,8 +819,8 @@ class PolygonNodeConfig(LabeledConfig):
     side_length: int = Field(default=20, ge=1, le=65535)
     rotation: float = 0
     border_radius: int = Field(default=0, ge=0, le=65535)
-    stroke_color: color__.Ref | None = None
-    fill_color: color__.Ref | None = None
+    stroke_color: color_.Ref | None = None
+    fill_color: color_.Ref | None = None
     stroke_width: int | None = Field(default=None, ge=0, le=20)
 
 
@@ -847,10 +831,9 @@ class SelectNodeConfig(LabeledConfig, StalenessConfig):
     size: ComponentSize = "medium"
     command_channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
     state_channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
-    fill_color: color__.Ref | None = None
-    inline_size: int = Field(default=100, ge=1, le=65535)
-    options: list[StateMapping] = Field(default_factory=list)
+    fill_color: color_.Ref | None = None
     enumeration: enumeration_.Key | None = None
+    inline_size: int = Field(default=100, ge=1, le=65535)
     disabled: bool = False
     on_click_delay: telem.TimeSpan = Field(
         default=telem.TimeSpan(0), ge=0, le=2147483647000000
@@ -879,7 +862,7 @@ class SetpointNodeConfig(LabeledConfig, StalenessConfig):
     dimensions: spatial.Dimensions = Field(
         default_factory=lambda: spatial.Dimensions(width=0, height=0)
     )
-    fill_color: color__.Ref | None = None
+    fill_color: color_.Ref | None = None
     units: str = ""
     disabled: bool = False
     inline_size: int = Field(default=100, ge=1, le=65535)
@@ -894,10 +877,9 @@ class StateIndicatorNodeConfig(LabeledConfig, StalenessConfig):
 
     variant: Literal["state_indicator"] = "state_indicator"
     channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
-    stroke_color: color__.Ref | None = None
-    inline_size: int = Field(default=100, ge=1, le=65535)
-    options: list[StateMapping] = Field(default_factory=list)
+    stroke_color: color_.Ref | None = None
     enumeration: enumeration_.Key | None = None
+    inline_size: int = Field(default=100, ge=1, le=65535)
     size: ComponentSize = "medium"
 
 
@@ -905,8 +887,8 @@ class StringDisplayNodeConfig(LabeledConfig, StalenessConfig):
     """Is the configuration for live string display symbols."""
 
     variant: Literal["string_display"] = "string_display"
-    stroke_color: color__.Ref | None = None
-    text_color: color__.Ref | None = None
+    stroke_color: color_.Ref | None = None
+    text_color: color_.Ref | None = None
     tooltip: list[str] = Field(default_factory=list)
     inline_size: int = Field(default=100, ge=1, le=65535)
     channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
@@ -923,7 +905,7 @@ class TextBoxNodeConfig(LabeledConfig):
     """Is the configuration for text box annotation symbols."""
 
     variant: Literal["text_box"] = "text_box"
-    text_color: color__.Ref | None = None
+    text_color: color_.Ref | None = None
     inline_size: int = Field(default=75, ge=1, le=65535)
     align: FlexAlignment = "center"
     auto_fit_disabled: bool = False
@@ -936,11 +918,11 @@ class ValueNodeConfig(LabeledConfig, NumericTelemConfig, StalenessConfig):
 
     variant: Literal["value"] = "value"
     position: spatial.XY = Field(default_factory=lambda: spatial.XY(x=0, y=0))
-    stroke_color: color__.Ref | None = None
-    text_color: color__.Ref | None = None
-    fill_color: color__.Ref | None = None
+    stroke_color: color_.Ref | None = None
+    text_color: color_.Ref | None = None
+    fill_color: color_.Ref | None = None
     tooltip: list[str] = Field(default_factory=list)
-    redline: color_.Scale = Field(default_factory=lambda: color_.Scale())
+    redline: color__.Scale = Field(default_factory=lambda: color__.Scale())
     units: str = ""
     inline_size: int = Field(default=70, ge=1, le=65535)
     level: text.Level = "h4"
@@ -1300,8 +1282,8 @@ class CylinderNodeConfig(LabeledConfig, ScaledConfig):
         default_factory=lambda: spatial.Dimensions(width=66, height=181)
     )
     border_radius: border.Radius | None = None
-    stroke_color: color__.Ref | None = None
-    fill_color: color__.Ref | None = None
+    stroke_color: color_.Ref | None = None
+    fill_color: color_.Ref | None = None
 
 
 class TankNodeConfig(LabeledConfig):
@@ -1318,16 +1300,16 @@ class TankNodeConfig(LabeledConfig):
     bounds: spatial.ClosedBounds = Field(
         default_factory=lambda: spatial.ClosedBounds(lower=0, upper=100)
     )
-    level_color: color__.Ref | None = None
-    axis_color: color__.Ref | None = None
-    text_color: color__.Ref | None = None
+    level_color: color_.Ref | None = None
+    axis_color: color_.Ref | None = None
+    text_color: color_.Ref | None = None
     units: str = ""
     level_hidden: bool = False
     caret_side: spatial.OuterLocation = "right"
     level: text.Level = "small"
     position: spatial.XY = Field(default_factory=lambda: spatial.XY(x=0, y=0))
-    stroke_color: color__.Ref | None = None
-    fill_color: color__.Ref | None = None
+    stroke_color: color_.Ref | None = None
+    fill_color: color_.Ref | None = None
     dimensions: spatial.Dimensions = Field(
         default_factory=lambda: spatial.Dimensions(width=125, height=200)
     )
@@ -1373,7 +1355,7 @@ class SymbolNodeConfig(LabeledConfig, ScaledConfig, StalenessConfig):
 
     variant: Literal["symbol"] = "symbol"
     spec: symbol.Ref
-    color: color__.Ref | None = None
+    color: color_.Ref | None = None
     disabled: bool = False
     motion_disabled: bool = False
     on_click_delay: telem.TimeSpan = Field(

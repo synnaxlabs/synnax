@@ -83,10 +83,10 @@ func stateList(n v13.Node) ([]v13.StateMapping, bool) {
 }
 
 // InternStates gives each select and state indicator of s an enumeration with the
-// entries of its options in old, through intern, and clears its options. s must be old
-// lifted to v14, which keeps each node at its index. A node with no entries left gets
-// no enumeration. The enumeration is named for the node type and its label, or the
-// schematic name when the label is empty.
+// entries of its options in old, through intern. s must be old lifted to v14, which
+// keeps each node at its index. A node with no entries left gets no enumeration. The
+// enumeration is named for the node type and its label, or the schematic name when the
+// label is empty.
 //
 // An entry with an empty or repeated key gets a new key. A state whose value is not
 // finite, or repeats an earlier state, is dropped with a warning.
@@ -117,13 +117,13 @@ func InternStates(
 		case SelectNodeConfig:
 			kind, label = "Select", cfg.Label.Label
 			link = func(k *enumeration.Key) NodeConfigVariant {
-				cfg.Enumeration, cfg.Options = k, nil
+				cfg.Enumeration = k
 				return cfg
 			}
 		case StateIndicatorNodeConfig:
 			kind, label = "State indicator", cfg.Label.Label
 			link = func(k *enumeration.Key) NodeConfigVariant {
-				cfg.Enumeration, cfg.Options = k, nil
+				cfg.Enumeration = k
 				return cfg
 			}
 		default:

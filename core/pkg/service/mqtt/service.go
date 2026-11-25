@@ -88,6 +88,7 @@ type Service struct {
 	Scan *config.Service[ScanConfig]
 	// Edge stores mqtt_sparkplug_edge task configuration records.
 	Edge   *config.Service[EdgeConfig]
+	writes writeResolver
 	closer xio.MultiCloser
 }
 
@@ -99,7 +100,13 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{}
+	channels := icd.ReadChannels(cfg.Channel)
+	s = &Service{writes: writeResolver{
+		icds:     cfg.ICD,
+		channels: channels,
+		writes:   write.NewResolver(cfg.ICD, channels),
+		ins:      cfg.Instrumentation,
+	}}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.Read, err = config.OpenService(ctx, readServiceConfig(cfg)); !ok(err, s.Read) {
@@ -107,11 +114,8 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}
 	if s.Write, err = config.OpenService(
 		ctx,
-		writeServiceConfig(cfg),
-	); !ok(
-		err,
-		s.Write,
-	) {
+		writeServiceConfig(cfg, s.writes),
+	); !ok(err, s.Write) {
 		return nil, err
 	}
 	if s.Scan, err = config.OpenService(ctx, scanServiceConfig(cfg)); !ok(err, s.Scan) {
@@ -160,31 +164,26 @@ func readServiceConfig(cfg ServiceConfig) config.ServiceConfig[ReadConfig] {
 	}
 }
 
-// writeServiceConfig returns the config of the write task config service.
-func writeServiceConfig(cfg ServiceConfig) config.ServiceConfig[WriteConfig] {
-	channels := icd.ReadChannels(cfg.Channel)
-	resolver := writeResolver{
-		icds:     cfg.ICD,
-		channels: channels,
-		writes:   write.NewResolver(cfg.ICD, channels),
-		ins:      cfg.Instrumentation,
-	}
+// writeServiceConfig returns the config of the write task config service, which
+// resolves configs with resolver.
+func writeServiceConfig(
+	cfg ServiceConfig,
+	resolver writeResolver,
+) config.ServiceConfig[WriteConfig] {
 	return config.ServiceConfig[WriteConfig]{
 		DB:              cfg.DB,
 		References:      writeConfigReferences(),
 		Instrumentation: cfg.Instrumentation,
 		Type:            WriteTaskType,
 		Ladder:          versions.WriteConfigLadder,
-		Migrations: []gorp.Migration{
-			v3.NewWriteMigration(resolver.channels, createWriteICD(cfg.ICD)),
-		},
-		SetEntryKey:    (*WriteConfig).SetKey,
-		PatchEntry:     (*WriteConfig).Patch,
-		HashEntry:      (*WriteConfig).HashContent,
-		HashReferences: resolver.hash,
-		HashedTables:   []string{"icd"},
-		ResolveEntry:   resolver.resolve,
-		ValidateEntry:  (*WriteConfig).Validate,
+		Migrations:      []gorp.Migration{v3.WriteMigration},
+		SetEntryKey:     (*WriteConfig).SetKey,
+		PatchEntry:      (*WriteConfig).Patch,
+		HashEntry:       (*WriteConfig).HashContent,
+		HashReferences:  resolver.hash,
+		HashedTables:    []string{"icd"},
+		ResolveEntry:    resolver.resolve,
+		ValidateEntry:   (*WriteConfig).Validate,
 	}
 }
 

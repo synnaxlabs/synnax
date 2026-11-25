@@ -1,10 +1,9 @@
 {
-  "description": "A JSON float field has a default of Infinity.",
-  "codec_rejects": true,
+  "description": "A binary float field has an infinite default.",
   "problems": [
     {
       "path": "messages.0.payload.fields.0.default",
-      "message": "default must be finite"
+      "message": "default cannot be infinite"
     }
   ],
   "icd": {
@@ -15,19 +14,23 @@
         "key": "00000000-0000-4000-8000-000000000001",
         "name": "M",
         "payload": {
-          "format": "json",
+          "format": "binary",
           "fields": [
             {
               "key": "00000000-0000-4000-8000-00000000000a",
-              "name": "temp",
+              "name": "v",
               "scale": 1,
               "offset": 0,
               "units": "",
-              "pointer": "/temp",
-              "type": "float",
-              "default": "Infinity"
+              "multiplex_values": [],
+              "start_bit": 0,
+              "bit_length": 64,
+              "byte_order": "little_endian",
+              "kind": "float",
+              "default": "-Infinity"
             }
-          ]
+          ],
+          "length": 8
         }
       }
     ]
