@@ -18,7 +18,7 @@ import (
 	"strconv"
 
 	v4 "github.com/synnaxlabs/synnax/pkg/service/http/versions/v4"
-	icd "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v0"
+	icd "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v1"
 	device "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v0"
 	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v4"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
@@ -246,11 +246,156 @@ type StaticWriteField = v4.StaticWriteField
 type GeneratedWriteField = v4.GeneratedWriteField
 
 // WriteEndpoint is a single HTTP endpoint written to by a write task.
-type WriteEndpoint = v4.WriteEndpoint
+type WriteEndpoint struct {
+	// Key uniquely identifies the endpoint within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Disabled is true when the endpoint is excluded from the task.
+	Disabled bool `json:"disabled" msgpack:"disabled"`
+	// Method is the HTTP method used to send the request.
+	Method Method `json:"method" msgpack:"method"`
+	// Path is the URL path appended to the device's base URL.
+	Path string `json:"path" msgpack:"path"`
+	// Headers contains additional headers merged into the request.
+	Headers []Header `json:"headers" msgpack:"headers"`
+	// QueryParams contains query parameters appended to the request URL.
+	QueryParams []QueryParam `json:"query_params" msgpack:"query_params"`
+	// ICD is the key of the ICD that holds the message of the endpoint. Absent when the
+	// endpoint sends no message.
+	ICD *icd.Key `json:"icd,omitzero" msgpack:"icd,omitempty"`
+	// Message is the message whose document is the request body. A command on any bound
+	// channel sends one request.
+	Message *icd.WriteMessage `json:"message,omitzero" msgpack:"message,omitempty"`
+	// Channel is the command channel whose writes trigger this endpoint.
+	Channel ChannelField `json:"channel" msgpack:"channel"`
+	// Fields contains additional static or generated body fields.
+	Fields []WriteField `json:"fields" msgpack:"fields"`
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (w *WriteEndpoint) SetDefaults() {
+	w.Channel.SetDefaults()
+	w.Method = MethodPost
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (w *WriteEndpoint) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain WriteEndpoint
+	if reflect.ValueOf(*w).IsZero() {
+		w.SetDefaults()
+	}
+	return json.UnmarshalDecode(dec, (*plain)(w))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (w *WriteEndpoint) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain WriteEndpoint
+	if reflect.ValueOf(*w).IsZero() {
+		w.SetDefaults()
+	}
+	return dec.Decode((*plain)(w))
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (w WriteEndpoint) Validate() error {
+	v := validate.New("WriteEndpoint")
+	v.Ternaryf("method", !w.Method.IsValid(), "invalid method: %v", w.Method)
+	if w.Message != nil {
+		v.Exec(func() error { return validate.PathedError(w.Message.Validate(), "message") })
+	}
+	v.Exec(func() error { return validate.PathedError(w.Channel.Validate(), "channel") })
+	for i := range w.Fields {
+		v.Exec(func() error { return validate.PathedError(w.Fields[i].Validate(), "fields", strconv.Itoa(i)) })
+	}
+	return v.Error()
+}
+
+// InlineWriteEndpoint is a write endpoint from before ICDs, which held its body inline.
+type InlineWriteEndpoint struct {
+	// Key is the key of the endpoint that held the body.
+	Key string `json:"key" msgpack:"key"`
+	// Channel is the command channel of the endpoint.
+	Channel ChannelField `json:"channel" msgpack:"channel"`
+	// Fields are the static and generated fields of the body.
+	Fields []WriteField `json:"fields" msgpack:"fields"`
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (in *InlineWriteEndpoint) SetDefaults() {
+	in.Channel.SetDefaults()
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (in *InlineWriteEndpoint) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain InlineWriteEndpoint
+	if reflect.ValueOf(*in).IsZero() {
+		in.SetDefaults()
+	}
+	return json.UnmarshalDecode(dec, (*plain)(in))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (in *InlineWriteEndpoint) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain InlineWriteEndpoint
+	if reflect.ValueOf(*in).IsZero() {
+		in.SetDefaults()
+	}
+	return dec.Decode((*plain)(in))
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (in InlineWriteEndpoint) Validate() error {
+	v := validate.New("InlineWriteEndpoint")
+	v.Exec(func() error { return validate.PathedError(in.Channel.Validate(), "channel") })
+	for i := range in.Fields {
+		v.Exec(func() error { return validate.PathedError(in.Fields[i].Validate(), "fields", strconv.Itoa(i)) })
+	}
+	return v.Error()
+}
+
+// InlineWrite holds the bodies of a write config from before ICDs.
+type InlineWrite struct {
+	// Endpoints are the endpoints that held their bodies inline.
+	Endpoints []InlineWriteEndpoint `json:"endpoints" msgpack:"endpoints"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (in InlineWrite) Validate() error {
+	v := validate.New("InlineWrite")
+	for i := range in.Endpoints {
+		v.Exec(func() error { return validate.PathedError(in.Endpoints[i].Validate(), "endpoints", strconv.Itoa(i)) })
+	}
+	return v.Error()
+}
 
 // WriteConfig configures an HTTP write task, which sends an HTTP request whenever a
 // value is written to an endpoint's command channel.
-type WriteConfig = v4.WriteConfig
+type WriteConfig struct {
+	task.StartConfig
+	// Device is the key of the HTTP server device to write to.
+	Device device.Key `json:"device" msgpack:"device"`
+	// Endpoints contains the endpoints to write to.
+	Endpoints []WriteEndpoint `json:"endpoints" msgpack:"endpoints"`
+	// Inline holds the body of each endpoint of a config from before ICDs.
+	Inline *InlineWrite `json:"inline,omitzero" msgpack:"inline,omitempty"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (w WriteConfig) Validate() error {
+	v := validate.New("WriteConfig")
+	for i := range w.Endpoints {
+		v.Exec(func() error { return validate.PathedError(w.Endpoints[i].Validate(), "endpoints", strconv.Itoa(i)) })
+	}
+	if w.Inline != nil {
+		v.Exec(func() error { return validate.PathedError(w.Inline.Validate(), "inline") })
+	}
+	return v.Error()
+}
 
 // ScanConfig configures an HTTP scan task.
 type ScanConfig = v4.ScanConfig

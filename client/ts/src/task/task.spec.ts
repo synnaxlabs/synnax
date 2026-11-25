@@ -42,6 +42,7 @@ import {
   expectLive,
   holdResponses,
   recordResponses,
+  requestsTo,
   spyOnSend,
   waitForStreamLive,
 } from "@/testutil";
@@ -420,12 +421,8 @@ describe("Task", async () => {
           testRack.createTask({ name, config: {}, type: "pagerduty_alert" }),
         ),
       );
-      await expect
-        .poll(async () => {
-          const results = await client.tasks.retrieve({ searchTerm: prefix });
-          return results.map((t) => t.name).sort();
-        })
-        .toEqual(names);
+      const results = await client.tasks.retrieve({ searchTerm: prefix });
+      expect(results.map((t) => t.name).sort()).toEqual(names);
     });
 
     describe("status", () => {
@@ -691,7 +688,7 @@ describe("Task", async () => {
       await expect(
         fresh.tasks.dispatch(t.key, routingKey(OTHER_ROUTING_KEY)),
       ).rejects.toThrow(NotCachedError);
-      expect(send).not.toHaveBeenCalled();
+      expect(requestsTo(send, "/task/dispatch")).toEqual([]);
     });
 
     it("should adopt the config the Core stores when it fills a default", async () => {

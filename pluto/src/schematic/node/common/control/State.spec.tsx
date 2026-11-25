@@ -99,7 +99,7 @@ describe("Control.State authority", () => {
     renderState(7, { registry: STUB_REGISTRY });
     await waitFor(() =>
       expect(chipSinks).toHaveBeenCalledWith(
-        control.acquireChannelControl({ channel: 7, authority: 255 }),
+        control.acquireChannelControl({ channels: [7], authority: 255 }),
       ),
     );
   });
@@ -111,7 +111,7 @@ describe("Control.State authority", () => {
     });
     await waitFor(() =>
       expect(chipSinks).toHaveBeenCalledWith(
-        control.acquireChannelControl({ channel: 7, authority: 100 }),
+        control.acquireChannelControl({ channels: [7], authority: 100 }),
       ),
     );
   });

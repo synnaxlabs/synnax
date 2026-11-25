@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { DataType, id, uuid } from "@synnaxlabs/x";
-import { describe, expect, it, test, vi } from "vitest";
+import { describe, expect, it, test } from "vitest";
 
 import { NotFoundError } from "@/index";
 import { lineplot } from "@/lineplot";
@@ -130,10 +130,11 @@ describe("LinePlot", () => {
       const proj = await client.projects.create({ name: "Line Plot" });
       const v = await client.lineplots.create({ project: proj.key, name: "Line Plot" });
       await client.projects.delete(proj.key);
-      await vi.waitFor(
-        async () =>
-          await expect(client.lineplots.retrieve(v.key)).rejects.toThrow(NotFoundError),
-      );
+      await expect
+        .poll(
+          async () => await client.lineplots.retrieve(v.key).catch((e: unknown) => e),
+        )
+        .toBeInstanceOf(NotFoundError);
     });
   });
 
