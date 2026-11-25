@@ -715,31 +715,23 @@ describe("symbol editor spec", () => {
   });
 
   describe("addState", () => {
-    it("should add an enumeration state with a key from its name", () => {
+    it("should add an enumeration state named State 2", () => {
       const [spec, key] = Spec.addState(createSpec());
-      expect(key).toBe("state-2");
-      expect(spec.states[1]).toEqual({
-        ...Spec.createState(),
-        key: "state-2",
-        name: "State 2",
-      });
+      expect(spec.states[1]).toEqual({ ...Spec.createState(), key, name: "State 2" });
     });
 
-    it("should add a number to a key that a state has", () => {
-      const spec = createSpec({
-        states: [Spec.createState(), { ...FAULT, key: "state-2", name: "Trip" }],
-      });
-      expect(Spec.addState(spec)[0].states[2]).toMatchObject({ key: "state-2-2" });
+    it("should give a new state a key other than that of a removed state", () => {
+      const [added, removedKey] = Spec.addState(createSpec());
+      const [removed] = Spec.removeState(added, removedKey);
+      const [, key] = Spec.addState(removed);
+      expect(key).not.toBe(removedKey);
     });
 
     it("should skip a name that a state has", () => {
       const spec = createSpec({
         states: [Spec.createState(), { ...FAULT, name: "State 2" }],
       });
-      expect(Spec.addState(spec)[0].states[2]).toMatchObject({
-        key: "state-3",
-        name: "State 3",
-      });
+      expect(Spec.addState(spec)[0].states[2]).toMatchObject({ name: "State 3" });
     });
   });
 

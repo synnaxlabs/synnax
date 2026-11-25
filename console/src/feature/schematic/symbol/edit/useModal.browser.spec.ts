@@ -54,7 +54,7 @@ import {
   renderModalOpener,
 } from "@/platform/modals/testutil";
 import {
-  awaitTextEditing,
+  awaitTextEditingElement,
   CaptureStatuses,
   commitTextEdit,
   fakePickedFile,
@@ -1370,11 +1370,13 @@ describe("Schematic.Symbol.Edit.useModal", () => {
         states: [createState()],
       });
       fireEvent.click(getEditSectionHeaderButton("States"));
-      commitTextEdit(await awaitTextEditing("symbol-state-state-2"), "Mode");
+      const name = await awaitTextEditingElement();
+      commitTextEdit(name, "Mode");
       fireEvent.click(findButton("Save"));
       await waitFor(async () => {
-        const saved = await retrieveStored(symbol.key);
-        expect(saved.data.states[1]).toMatchObject({ key: "state-2", name: "Mode" });
+        const [, state] = (await retrieveStored(symbol.key)).data.states;
+        expect(state.name).toBe("Mode");
+        expect(name.id).toBe(`symbol-state-${state.key}`);
       });
     });
 

@@ -290,31 +290,18 @@ export interface Removed {
   interactions: string[];
 }
 
-// createKey returns a key from name, such as mode, or mode-2 when taken has mode.
-const createKey = (name: string, taken: string[]): string => {
-  const base = name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "");
-  let key = base;
-  for (let n = 2; taken.includes(key); n++) key = `${base}-${n}`;
-  return key;
-};
-
 /**
  * @returns spec with a new enumeration state, State N with the lowest free N from 2,
- * and the key of the state.
+ * and the key of the state. No state removed earlier had the key, so no node binding
+ * carries over to it.
  */
 export const addState = (spec: Spec): [Spec, string] => {
   const taken = new Set(spec.states.map((s) => s.name));
   let n = 2;
   while (taken.has(`State ${n}`)) n++;
-  const name = `State ${n}`;
-  const key = createKey(
-    name,
-    spec.states.map((s) => s.key),
-  );
-  return [{ ...spec, states: [...spec.states, { ...createState(), key, name }] }, key];
+  const key = `state-${id.create()}`;
+  const state = { ...createState(), key, name: `State ${n}` };
+  return [{ ...spec, states: [...spec.states, state] }, key];
 };
 
 const reads = (v: Look["fill"] | Look["motion"], state: string): boolean =>
