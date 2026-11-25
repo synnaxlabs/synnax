@@ -93,8 +93,8 @@ func (o *overrides) node(
 	actuator bool,
 	schematic string,
 ) (SymbolNodeConfig, error) {
-	actuate := actuator && !actuates(src.Data)
-	if actuate {
+	actuated := actuator && !actuates(src.Data)
+	if actuated {
 		src.Data = symbol.Actuate(src.Data)
 	}
 	var state symbol.EnumerationState
@@ -114,7 +114,7 @@ func (o *overrides) node(
 	if err != nil {
 		return SymbolNodeConfig{}, err
 	}
-	if drawn == nil && actuate {
+	if drawn == nil && actuated {
 		drawn = &src.Data
 	}
 	if drawn != nil {
@@ -123,7 +123,7 @@ func (o *overrides) node(
 		}
 		c := symbol.Symbol{Name: src.Name + " (" + schematic + ")", Group: src.Group}
 		c.Data = *drawn
-		key, err := o.copy(ctx, src.Key, states, actuate, c, recolored)
+		key, err := o.copy(ctx, src.Key, states, actuated, c, recolored)
 		if err != nil {
 			return SymbolNodeConfig{}, err
 		}
@@ -144,12 +144,12 @@ func (o *overrides) node(
 
 // copy creates c, a copy of the symbol with key src, and returns its key. When entries
 // is not empty, the first state of c gets an enumeration of entries. Nodes share a copy
-// when they have the same source symbol, overrides states, and actuate.
+// when they have the same source symbol, overrides states, and actuated.
 func (o *overrides) copy(
 	ctx context.Context,
 	src symbol.Key,
 	states []symbolv4.State,
-	actuate bool,
+	actuated bool,
 	c symbol.Symbol,
 	entries []enumeration.Entry,
 ) (symbol.Key, error) {
@@ -157,7 +157,7 @@ func (o *overrides) copy(
 	if err != nil {
 		return uuid.Nil(), err
 	}
-	id := src.String() + strconv.FormatBool(actuate) + string(b)
+	id := src.String() + strconv.FormatBool(actuated) + string(b)
 	if key, ok := o.copies[id]; ok {
 		return key, nil
 	}
