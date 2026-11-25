@@ -131,8 +131,7 @@ TEST(ControlPipeline, StopsWhenReopenedStreamerRejectsChannels) {
     const auto sink = std::make_shared<testutil::Sink>();
     auto control = Control(factory, {.channels = {1}}, sink, x::breaker::Config{});
     ASSERT_TRUE(control.start());
-    // Lets the pipeline thread reach the open, which then waits on the gate.
-    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    ASSERT_EVENTUALLY_GE(factory->open_calls.load(), 1);
     ASSERT_NIL(control.set_channels({2}));
     release.set_value();
     ASSERT_EVENTUALLY_FALSE(control.running());
@@ -270,7 +269,7 @@ TEST(ControlPipeline, OpenedFollowsStreamerOpen) {
         x::breaker::Config{}
     );
     ASSERT_TRUE(control.start());
-    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    ASSERT_EVENTUALLY_GE(factory->open_calls.load(), 1);
     EXPECT_EQ(sink->opens.load(), 0);
     release.set_value();
     ASSERT_EVENTUALLY_EQ(sink->opens.load(), 1);

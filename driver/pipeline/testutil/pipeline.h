@@ -132,6 +132,9 @@ public:
     // When valid, open_streamer blocks until it is ready.
     std::shared_future<void> open_gate;
 
+    // Counts calls to open_streamer, including those still waiting on open_gate.
+    std::atomic<size_t> open_calls{0};
+
     // Counts how many times open_streamer has been called.
     // Atomic with release semantics so that readers who observe the incremented
     // value are guaranteed to see the config assignment that precedes it.
@@ -145,6 +148,7 @@ public:
 
     std::pair<std::unique_ptr<pipeline::Streamer>, x::errors::Error>
     open_streamer(const synnax::framer::StreamerConfig config) override {
+        this->open_calls.fetch_add(1);
         if (this->open_gate.valid()) this->open_gate.wait();
         this->config = config;
         this->streamer_opens.fetch_add(1, std::memory_order_release);
