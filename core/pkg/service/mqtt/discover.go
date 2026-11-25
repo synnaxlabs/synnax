@@ -197,13 +197,54 @@ type heardTopic struct {
 	retained int
 	// inferrer holds the shapes of every message heard.
 	inferrer *xjson.Inferrer
-	// samples holds the last field heard at each pointer.
+	// sets holds the last fields heard with each set of pointers, by the sorted
+	// pointers, until the sets would hold more than browsePointerLimit fields.
+	sets map[string]heardSet
+	// held is the number of fields that sets holds.
+	held int
+	// samples holds the last field heard at each pointer, for at most
+	// browsePointerLimit pointers, once sets is full. Nil until then. The inferrer then
+	// has one shape, since its cap on the fields of its sets is the same.
 	samples map[string]browsedField
+	// messages is the number of messages held.
+	messages int
 }
 
-// hold keeps each of fields as the last field heard at its pointer, for at most
-// browsePointerLimit pointers.
+// heardSet is the last fields heard with one set of pointers.
+type heardSet struct {
+	fields []browsedField
+	// last is the number of the message that set fields.
+	last int
+}
+
+// hold keeps fields as the last fields heard with their set of pointers.
 func (t *heardTopic) hold(fields []browsedField) {
+	if len(fields) == 0 {
+		return
+	}
+	t.messages++
+	if t.samples == nil {
+		key := setKey(fields)
+		_, ok := t.sets[key]
+		if ok || t.held+len(fields) <= browsePointerLimit {
+			if !ok {
+				t.held += len(fields)
+			}
+			t.sets[key] = heardSet{fields: fields, last: t.messages}
+			return
+		}
+		t.samples = make(map[string]browsedField, browsePointerLimit)
+		for _, s := range t.sortedSets() {
+			t.keep(s.fields)
+		}
+		t.sets = nil
+	}
+	t.keep(fields)
+}
+
+// keep keeps each of fields as the last field heard at its pointer, for at most
+// browsePointerLimit pointers.
+func (t *heardTopic) keep(fields []browsedField) {
 	for _, f := range fields {
 		if _, ok := t.samples[f.Pointer]; ok || len(t.samples) < browsePointerLimit {
 			t.samples[f.Pointer] = f
@@ -211,19 +252,39 @@ func (t *heardTopic) hold(fields []browsedField) {
 	}
 }
 
+// sortedSets returns the sets heard, from the least recent to the most recent.
+func (t *heardTopic) sortedSets() []heardSet {
+	return slices.SortedFunc(maps.Values(t.sets), func(a, b heardSet) int {
+		return cmp.Compare(a.last, b.last)
+	})
+}
+
+// setKey returns the key of the set of pointers of fields: the pointers, sorted and
+// joined by NUL.
+func setKey(fields []browsedField) string {
+	pointers := make([]string, len(fields))
+	for i, f := range fields {
+		pointers[i] = f.Pointer
+	}
+	slices.Sort(pointers)
+	return strings.Join(pointers, "\x00")
+}
+
 // infer sets the shapes of the messages heard. It also sets the kind and the time
 // format of each field, and the index, from the shape that a read task matches the last
 // message to.
 func (t *heardTopic) infer() {
 	shapes := t.inferrer.Shapes()
+	samples := t.samplesOf(shapes)
 	t.Shapes = make([]browsedShape, len(shapes))
 	for i, s := range shapes {
-		t.Shapes[i] = t.shape(s)
+		t.Shapes[i] = newBrowsedShape(s, samples[i])
 	}
-	shape, ok := lastShape(shapes, t.Fields)
-	if !ok {
+	k := shapeOf(shapes, t.Fields)
+	if k < 0 {
 		return
 	}
+	shape := shapes[k]
 	byPointer := make(map[string]xjson.InferredField, len(shape.Fields))
 	for _, f := range shape.Fields {
 		byPointer[f.Pointer.String()] = f
@@ -243,30 +304,56 @@ func (t *heardTopic) infer() {
 	}
 }
 
-// shape returns s with the last sample heard at the pointer of each field.
-func (t *heardTopic) shape(s xjson.Shape) browsedShape {
+// samplesOf returns, for each of shapes, the last field heard at each pointer in the
+// messages that a read task matches to the shape.
+func (t *heardTopic) samplesOf(shapes []xjson.Shape) []map[string]browsedField {
+	samples := make([]map[string]browsedField, len(shapes))
+	if t.samples != nil {
+		for i := range samples {
+			samples[i] = t.samples
+		}
+		return samples
+	}
+	for i := range samples {
+		samples[i] = make(map[string]browsedField)
+	}
+	for _, s := range t.sortedSets() {
+		k := shapeOf(shapes, s.fields)
+		if k < 0 {
+			continue
+		}
+		for _, f := range s.fields {
+			samples[k][f.Pointer] = f
+		}
+	}
+	return samples
+}
+
+// newBrowsedShape returns s with the sample in samples of each of its fields.
+func newBrowsedShape(s xjson.Shape, samples map[string]browsedField) browsedShape {
 	b := browsedShape{Fields: make([]browsedField, 0, len(s.Fields)), Count: s.Count}
 	for i, f := range s.Fields {
 		pointer := f.Pointer.String()
-		field, ok := t.samples[pointer]
-		if !ok {
-			continue
-		}
-		field.Kind, field.TimeFormat = f.Kind, f.TimeFormat
-		b.Fields = append(b.Fields, field)
 		if i == s.Index {
 			b.Index = pointer
 		}
 		if i == s.Present {
 			b.Present = pointer
 		}
+		field, ok := samples[pointer]
+		if !ok {
+			continue
+		}
+		field.Kind, field.TimeFormat = f.Kind, f.TimeFormat
+		b.Fields = append(b.Fields, field)
 	}
 	return b
 }
 
-// lastShape returns the shape that a read task matches a message with fields to: the
-// shape whose present field the message holds, or else the shape with none.
-func lastShape(shapes []xjson.Shape, fields []browsedField) (xjson.Shape, bool) {
+// shapeOf returns the position in shapes of the shape that a read task matches a
+// message with fields to: the shape whose present field the message holds, or else the
+// shape with none. It returns -1 when no shape matches.
+func shapeOf(shapes []xjson.Shape, fields []browsedField) int {
 	bare := -1
 	for i, s := range shapes {
 		if s.Present < 0 {
@@ -277,13 +364,10 @@ func lastShape(shapes []xjson.Shape, fields []browsedField) (xjson.Shape, bool) 
 		if slices.ContainsFunc(fields, func(f browsedField) bool {
 			return f.Pointer == present
 		}) {
-			return s, true
+			return i
 		}
 	}
-	if bare < 0 {
-		return xjson.Shape{}, false
-	}
-	return shapes[bare], true
+	return bare
 }
 
 // heard is what a browse heard on each topic.
@@ -325,7 +409,7 @@ func (s *scanner) hear(ctx context.Context, args browseArgs) (heard, error) {
 				t = &heardTopic{
 					Topic:    m.Topic(),
 					inferrer: xjson.NewInferrer(),
-					samples:  make(map[string]browsedField),
+					sets:     make(map[string]heardSet),
 				}
 				by[m.Topic()] = t
 			}
