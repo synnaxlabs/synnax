@@ -132,11 +132,10 @@ export const Section = ({ subject, onMessage }: SectionProps): ReactElement => {
   const selectedCore = Session.Core.useSelectSelectedKey();
   const query = { subject };
   const invalidate = Credential.OIDC.useInvalidate();
-  // This read has no live updates, so a remount is what fetches it again.
-  const [generation, setGeneration] = useState(0);
+  const refresh = Credential.OIDC.useRefresh();
+  // This read has no live updates, so a change made here fetches it again.
   const handleChange = (message: string) => {
-    invalidate(query);
-    setGeneration((g) => g + 1);
+    refresh(query);
     onMessage(message);
   };
   const link = Credential.OIDC.useLink({
@@ -188,12 +187,12 @@ export const Section = ({ subject, onMessage }: SectionProps): ReactElement => {
       if (confirmed === true) unlink.update(link.key);
     }, "Failed to unlink provider account");
   };
+  // Drop the answer on unmount so the next mount shows changes made elsewhere.
   useEffect(() => () => invalidate(query), []);
   return (
     <Flex.Box y>
       <Text.Text level="h5">Provider accounts</Text.Text>
       <List
-        key={generation}
         subject={subject}
         providers={providers}
         linking={linking}

@@ -92,7 +92,8 @@ export const useCompleteBrowserLogin = (): void => {
   const handleError = Status.useErrorHandler();
   const addStatus = Status.useAdder();
   const reportUnfinished = Core.useReportUnfinished();
-  const [pendingLink, setPendingLink] = useState<Core.CompletedLogin>();
+  // a link waits here until the client connects
+  const pendingLink = useRef<Core.CompletedLogin>(undefined);
   const link = Credential.OIDC.useLink();
   useEffect(() => {
     const purpose = Core.pendingPurpose();
@@ -114,7 +115,7 @@ export const useCompleteBrowserLogin = (): void => {
             throw new Error(
               "The Console left the Core that started the link. Log in and try again.",
             );
-          setPendingLink(completed);
+          pendingLink.current = completed;
           return;
         }
         const core = cores.find((c) => c.key === completed.core) ?? servingCore;
@@ -127,22 +128,23 @@ export const useCompleteBrowserLogin = (): void => {
     );
   }, []);
   useEffect(() => {
-    if (pendingLink == null || client == null) return;
-    setPendingLink(undefined);
+    const pending = pendingLink.current;
+    if (pending == null || client == null) return;
+    pendingLink.current = undefined;
     handleError(async () => {
       // the session cookie is shared, so another tab can change the user mid-redirect
       await client.auth.sessions.retrieve();
-      if (client.auth.subject?.key !== pendingLink.subject)
+      if (client.auth.subject?.key !== pending.subject)
         throw new Error("Another user logged in during the link. Please try again.");
-      const { provider } = pendingLink.credentials;
-      if (await link.updateAsync(pendingLink.credentials))
+      const { provider } = pending.credentials;
+      if (await link.updateAsync(pending.credentials))
         addStatus({
           variant: "success",
           name: provider,
           message: "Linked provider account",
         });
     }, "Failed to link provider account");
-  }, [client, pendingLink]);
+  }, [client]);
 };
 
 /**
