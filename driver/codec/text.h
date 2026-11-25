@@ -204,7 +204,7 @@ public:
     /// the field's sample at index 0 and has the data type of its binding, or is empty
     /// for a field that takes its default.
     /// @returns VALIDATION when a field has no sample and no default, or a value is not
-    /// finite. The error names the field.
+    /// finite. The error names the message and the field.
     x::errors::Error encode(
         std::span<const x::telem::Series> samples,
         std::vector<std::uint8_t> &payload
