@@ -343,7 +343,7 @@ export interface Cursor extends z.infer<typeof cursorZ> {}
 /** Identity holds the slave fields that the scanner owns. */
 export const identityZ = z.object({
   /** rack is the key of the rack the slave is connected to. */
-  rack: rack.keyZ.refine((v) => v !== 0, "rack is required"),
+  rack: rack.keyZ.refine((v) => v !== 0, "Rack is required"),
   /** serial is the serial number of the slave. 0 when the slave reports none. */
   serial: z.number().max(9007199254740991).default(0),
   /** vendorId is the EtherCAT vendor ID of the slave. */
@@ -353,7 +353,7 @@ export const identityZ = z.object({
   /** revision is the revision number of the slave. */
   revision: z.uint32(),
   /** master is the master on whose bus the slave sits. */
-  master: ethercatMaster.keyZ.min(1, "master is required"),
+  master: ethercatMaster.keyZ.min(1, "Master is required"),
   /** pdos are the PDO entries that the scan found on the slave. */
   pdos: pdOsZ.prefault({}),
   /** opModes are the synchronization modes that the slave lists in its SII. */
@@ -369,7 +369,7 @@ export interface Identity extends z.infer<typeof identityZ> {}
 /** Configuration holds the slave fields that the user owns. */
 export const configurationZ = z.object({
   /** name is a human-readable name for the slave. */
-  name: z.string().min(1, "name is required"),
+  name: z.string().min(1, "Name is required"),
   /**
    * identifier is the prefix of the slave's channel names. The slave is unconfigured
    * while it is empty.
