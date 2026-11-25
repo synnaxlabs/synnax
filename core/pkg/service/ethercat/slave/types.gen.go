@@ -11,7 +11,12 @@
 
 package slave
 
-import "github.com/synnaxlabs/synnax/pkg/service/ethercat/slave/versions"
+import (
+	"github.com/synnaxlabs/synnax/pkg/service/ethercat/master"
+	"github.com/synnaxlabs/synnax/pkg/service/ethercat/slave/versions"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/x/filter"
+)
 
 // Key uniquely identifies an EtherCAT slave.
 type Key = versions.Key
@@ -104,3 +109,27 @@ type WriteBinding = versions.WriteBinding
 
 // Slave is an EtherCAT slave: one module on the bus of a master.
 type Slave = versions.Slave
+
+// Where is a filter that selects EtherCAT slaves.
+type Where struct {
+	// And matches when every child matches.
+	And []Where `json:"and,omitzero" msgpack:"and,omitempty"`
+	// Or matches when any child matches.
+	Or []Where `json:"or,omitzero" msgpack:"or,omitempty"`
+	// Not matches when the child does not match.
+	Not *Where `json:"not,omitzero" msgpack:"not,omitempty"`
+	// Key selects by key.
+	Key *filter.Set[Key] `json:"key,omitzero" msgpack:"key,omitempty"`
+	// Name selects by name.
+	Name *filter.String `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Serial selects by serial.
+	Serial *filter.Ordered[uint64] `json:"serial,omitzero" msgpack:"serial,omitempty"`
+	// VendorID selects by vendor_id.
+	VendorID *filter.Ordered[uint32] `json:"vendor_id,omitzero" msgpack:"vendor_id,omitempty"`
+	// ProductCode selects by product_code.
+	ProductCode *filter.Ordered[uint32] `json:"product_code,omitzero" msgpack:"product_code,omitempty"`
+	// Master selects by master.
+	Master *filter.Set[master.Key] `json:"master,omitzero" msgpack:"master,omitempty"`
+	// Rack selects by rack.
+	Rack *filter.Set[rack.Key] `json:"rack,omitzero" msgpack:"rack,omitempty"`
+}

@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/color"
 	"github.com/synnaxlabs/synnax/pkg/api/enumeration"
 	ethercatmaster "github.com/synnaxlabs/synnax/pkg/api/ethercat/master"
+	ethercatslave "github.com/synnaxlabs/synnax/pkg/api/ethercat/slave"
 	apiframer "github.com/synnaxlabs/synnax/pkg/api/framer"
 	"github.com/synnaxlabs/synnax/pkg/api/group"
 	"github.com/synnaxlabs/synnax/pkg/api/icd"
@@ -173,6 +174,12 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.EtherCATMasterRetrieve = noop.UnaryServer[
 		ethercatmaster.RetrieveRequest,
 		ethercatmaster.RetrieveResponse,
+	]{}
+
+	// ETHERCAT SLAVE
+	t.EtherCATSlaveRetrieve = noop.UnaryServer[
+		ethercatslave.RetrieveRequest,
+		ethercatslave.RetrieveResponse,
 	]{}
 
 	// STATUS

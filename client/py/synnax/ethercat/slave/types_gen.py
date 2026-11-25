@@ -11,15 +11,15 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal, TypeAlias, override as _override
+from typing import Annotated, Literal, TypeAlias, TypedDict, override as _override
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from synnax import channel as channel_, rack as rack_, status as status_
 from synnax.ethercat import master as master_
 from synnax.resource import ID
-from x import telem
+from x import filter, telem
 
 Key: TypeAlias = UUID
 
@@ -104,6 +104,66 @@ class StatusDetails(BaseModel):
 
     rack: rack_.Key = Field(ge=0, le=4294967295)
     slave: Key
+
+
+class Where(BaseModel):
+    """Is a filter that selects EtherCAT slaves.
+
+    Attributes:
+        and_: Matches when every child matches.
+        or_: Matches when any child matches.
+        not_: Matches when the child does not match.
+        key: Selects by key.
+        name: Selects by name.
+        serial: Selects by serial.
+        vendor_id: Selects by vendor_id.
+        product_code: Selects by product_code.
+        master: Selects by master.
+        rack: Selects by rack.
+    """
+
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
+
+    and_: list[Where] | None = Field(default=None, alias="and")
+    or_: list[Where] | None = Field(default=None, alias="or")
+    not_: Where | None = Field(default=None, alias="not")
+    key: filter.Set[Key] | None = None
+    name: filter.String | None = None
+    serial: filter.Ordered[int] | None = None
+    vendor_id: filter.Ordered[int] | None = None
+    product_code: filter.Ordered[int] | None = None
+    master: filter.Set[master_.Key] | None = None
+    rack: filter.Set[rack_.Key] | None = None
+
+
+# WhereInput is a Where written as a partial record.
+# A plain value or a list stands for an operator.
+WhereInput = TypedDict(
+    "WhereInput",
+    {
+        "and": list["WhereInput"],
+        "or": list["WhereInput"],
+        "not": "WhereInput",
+        "key": filter.SetInput[Key],
+        "name": filter.StringInput,
+        "serial": filter.OrderedInput[int],
+        "vendor_id": filter.OrderedInput[int],
+        "product_code": filter.OrderedInput[int],
+        "master": filter.SetInput[master_.Key],
+        "rack": filter.SetInput[rack_.Key],
+    },
+    total=False,
+)
+
+
+class Cursor(BaseModel):
+    """Is a position in an order of slaves: the sort value and the key of a slave.
+
+    Attributes:
+        key: Is the key of the slave at the position.
+    """
+
+    key: Key
 
 
 class PDOs(BaseModel):
@@ -208,6 +268,26 @@ StartupParameter = Annotated[
 Status: TypeAlias = status_.Status[StatusDetails]
 
 
+class RetrieveRequest(BaseModel):
+    """Is a request to retrieve slaves.
+
+    Attributes:
+        where: Selects the slaves to retrieve. An absent where selects all of them.
+        search_term: Keeps the slaves that match the term, closest match first.
+        after: Starts the slaves strictly past this position in their order.
+        limit: Is the most slaves to return.
+        include_status: Includes the status of each record.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    where: Where | None = None
+    search_term: str = ""
+    after: Cursor | None = None
+    limit: int | None = Field(default=None, ge=0, le=4294967295)
+    include_status: bool = False
+
+
 class Slave(BaseModel):
     """Is an EtherCAT slave: one module on the bus of a master.
 
@@ -257,6 +337,19 @@ class Slave(BaseModel):
     @_override
     def __hash__(self) -> int:
         return hash(self.key)
+
+
+class RetrieveResponse(BaseModel):
+    """Holds the slaves a RetrieveRequest selects.
+
+    Attributes:
+        slaves: Are the slaves the request selects.
+    """
+
+    slaves: list[Slave] = Field(default_factory=list)
+
+
+Where.model_rebuild()
 
 
 TYPE_RESOURCE_ID = ID(type="ethercat_slave")

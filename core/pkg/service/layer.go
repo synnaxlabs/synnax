@@ -278,8 +278,8 @@ type Layer struct {
 	LabJack *labjack.Service
 	// Modbus owns the stored configuration records of the Modbus task types.
 	Modbus *modbus.Service
-	// EtherCAT owns the EtherCAT masters and the stored configuration records of the
-	// EtherCAT task types.
+	// EtherCAT owns the EtherCAT masters, slaves, and stored configuration records of
+	// the EtherCAT task types.
 	EtherCAT *ethercat.Service
 	// HTTP owns the stored configuration records of the HTTP task types.
 	HTTP *http.Service
@@ -1108,6 +1108,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			resource.TypeDevice:          l.Device.Resources(),
 			resource.TypeEnumeration:     l.Enumeration.Resources(),
 			resource.TypeEthercatMaster:  l.EtherCAT.Masters.Resources(),
+			resource.TypeEthercatSlave:   l.EtherCAT.Slaves.Resources(),
 			resource.TypeGroup:           l.Group.Resources(),
 			resource.TypeICD:             l.ICD.Resources(),
 			resource.TypeLabel:           l.Label.Resources(),

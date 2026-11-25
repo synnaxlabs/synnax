@@ -11,6 +11,7 @@ import "schemas/synnax/channel"
 import "schemas/synnax/ethercat_master"
 import "schemas/synnax/rack"
 import "schemas/synnax/status"
+import "schemas/x/filter"
 import "schemas/x/telem"
 
 @cpp output "client/cpp/ethercat/slave"
@@ -296,4 +297,17 @@ Slave struct {
     @go migrate
     @resource type "ethercat_slave"
     @retrieve
+}
+
+Where filter Slave {
+    key
+    name
+    serial
+    vendor_id
+    product_code
+    master
+    rack
+
+    @doc value         "is a filter that selects EtherCAT slaves."
+    @go request_output "core/pkg/api/ethercat/slave"
 }
