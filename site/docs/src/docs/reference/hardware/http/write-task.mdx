@@ -7,14 +7,13 @@ import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Fragment } from "react";
 import { Client } from "@/components/client";
-import { Video } from "@/components/media/Media";
 import { Problem } from "@/components/problem";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
 An HTTP write task sends a request to a web API each time you write a value to a command
 channel. For example, a valve on a schematic can send `{"open": 1}` to a pump
-controller. If you write several values at once, the task sends only the last one.
+controller.
 
 The task has no state channels. To see the value on the server, read it back with an
 [HTTP read task](/reference/hardware/http/read-task). Before you start, you need a
@@ -24,22 +23,31 @@ The task has no state channels. To see the value on the server, read it back wit
 
 ## Request body
 
-Each endpoint has one command channel. The task puts the channel value in the JSON body
-at a **Pointer**, with a **JSON type** of Number, String, or Boolean. With the pointer
-`/setpoint`, a value of 42 sends this body:
+The body of each endpoint is the JSON payload of one message of an
+[interface control document (ICD)](/reference/hardware/icds). Each field of the message
+sends a command from a command channel, a fixed value, or its
+[default](/reference/hardware/icds/reference#defaults).
+
+- **Commands** -> each command sends one request. If you write several commands at once,
+  the endpoint sends them in order. A field with no new command sends the last command
+  of its channel.
+- **First commands** -> the endpoint sends nothing until each field with a channel and
+  no default has a command.
+- **Dropped commands** -> the task drops a command that its field cannot hold, such as
+  NaN in a JSON number, and shows a warning.
+
+For a message where `/setpoint` has a command channel, `/unit` has the fixed value
+`psi`, and `/id` has a random UUID default, a command of 42 sends this body:
 
 ```json
-{ "setpoint": 42 }
+{ "setpoint": 42, "unit": "psi", "id": "6f1c2e3a-..." }
 ```
 
-- **Empty pointer** -> the body is the value alone, such as `42`. The endpoint cannot
-  have other fields.
-- **Static** field -> adds a fixed value at its own pointer, such as `/unit` with
-  `"psi"`.
-- **Generated** field -> adds a new UUID or timestamp at its own pointer in each
-  request.
-- **Enum mapping** -> for the String type, sends a label for each number, such as
-  `"open"` for 1.
+When you upgrade the Core, it moves the body of each endpoint of a write task from an
+earlier version into a new ICD named after the task. Each endpoint gets one message,
+named after its method and path. A static field becomes a fixed default, and a generated
+field becomes a current time or random UUID default. A channel with an empty pointer
+becomes the one field of its message, so the body is still the value alone.
 
 <Divider.Divider x />
 
@@ -48,23 +56,28 @@ at a **Pointer**, with a **JSON type** of Number, String, or Boolean. With the p
 <Client.Tabs>
   <Fragment slot="console">
 
-1. In the devices toolbar, right-click the server and select **Create write task**.
+1. In the devices toolbar, right-click the server and select **Create write task**. You
+   can also run the "Create HTTP write task" command.
 2. Click **Add endpoint**, then set **Method** (POST, PUT, or PATCH) and **Path**.
-3. Set **Pointer** and **JSON type** for the channel value.
-4. To add more body fields, click **Static** or **Generated**.
+3. Click **Add field** for each value in the body, then set its **Name**, **Pointer**,
+   and **Type**.
+4. A new field sends the commands of a channel. To send a fixed value, select **Value**.
 5. Click <Icon.Play /> (**Start**).
 
-The Console creates a command channel for each endpoint. For a server named "Pump
-controller" and the path `/api/control`, it creates `Pump_controller_api_control_cmd`
-and its index `Pump_controller_api_control_cmd_time`. To choose another name,
-right-click the endpoint and select **Rename** before you start.
+The first endpoint creates an ICD named after the task, and each new endpoint adds a
+message to it. To send a message of another ICD, select it in **Message format**.
 
-<Video id="hardware/http/write-task" label="Create and start an HTTP write task" />
+When you start the task, the Console creates a command channel for each field that sends
+commands. For a server named "Pump controller", the path `/api/control`, and the field
+`setpoint`, it creates `Pump_controller_api_control_setpoint_cmd` and its index
+`Pump_controller_api_control_setpoint_cmd_time`. To rename a channel, edit **Channel**
+after you start.
 
   </Fragment>
   <Fragment slot="python">
 
-Python does not create channels. Create the command channel and its index first.
+Python does not create channels. Create the command channel, its index, and the ICD
+first.
 
 ```python
 import synnax as sy
@@ -78,6 +91,14 @@ cmd = client.channels.create(
     name="pump_setpoint_cmd", index=cmd_time.key, data_type=sy.DataType.FLOAT64
 )
 
+setpoint = sy.icd.FloatJSONField(name="setpoint", pointer="/setpoint")
+unit = sy.icd.StringJSONField(name="unit", pointer="/unit")
+control = sy.icd.Message(
+    name="POST /api/control",
+    payload=sy.icd.JSONPayload(fields=[setpoint, unit]),
+)
+pump = client.icds.create(name="Pump controller", messages=[control])
+
 task = http.WriteTask(
     name="Pump controller write",
     device=server.key,
@@ -85,8 +106,16 @@ task = http.WriteTask(
         http.WriteEndpoint(
             method="POST",
             path="/api/control",
-            channel=http.ChannelField(pointer="/setpoint", channel=cmd.key),
-            fields=[http.StaticWriteField(pointer="/unit", value="psi")],
+            icd=pump.key,
+            message=sy.icd.WriteMessage(
+                message=control.key,
+                bindings=[
+                    sy.icd.ChannelWriteBinding(field=setpoint.key, channel=cmd.key),
+                    sy.icd.ValueWriteBinding(
+                        field=unit.key, value=sy.icd.StringWriteValue(value="psi")
+                    ),
+                ],
+            ),
         )
     ],
 )
@@ -97,10 +126,11 @@ task.start()
   </Fragment>
   <Fragment slot="typescript">
 
-TypeScript does not create channels. Create the command channel and its index first.
+TypeScript does not create channels. Create the command channel, its index, and the ICD
+first.
 
 ```typescript
-import { http } from "@synnaxlabs/client";
+import { http, icd } from "@synnaxlabs/client";
 
 const [server] = await client.devices.retrieve({
   where: { name: { eq: "Pump controller" } },
@@ -116,6 +146,25 @@ const cmd = await client.channels.create({
   dataType: "float64",
 });
 
+const setpoint = icd.floatJSONFieldZ.parse({
+  type: "float",
+  name: "setpoint",
+  pointer: "/setpoint",
+});
+const unit = icd.stringJSONFieldZ.parse({
+  type: "string",
+  name: "unit",
+  pointer: "/unit",
+});
+const control = icd.messageZ.parse({
+  name: "POST /api/control",
+  payload: { format: "json", fields: [setpoint, unit] },
+});
+const pump = await client.icds.create({
+  name: "Pump controller",
+  messages: [control],
+});
+
 const task = await client.tasks.create({
   name: "Pump controller write",
   rack: server.rack,
@@ -126,10 +175,18 @@ const task = await client.tasks.create({
       {
         method: "POST",
         path: "/api/control",
-        channel: { pointer: "/setpoint", channel: cmd.key },
-        fields: [
-          { type: "static", pointer: "/unit", jsonType: "string", value: "psi" },
-        ],
+        icd: pump.key,
+        message: {
+          message: control.key,
+          bindings: [
+            { type: "channel", field: setpoint.key, channel: cmd.key },
+            {
+              type: "value",
+              field: unit.key,
+              value: { type: "string", value: "psi" },
+            },
+          ],
+        },
       },
     ],
   }),
@@ -150,31 +207,28 @@ each time the Driver starts.
 Each table shows the Console label of a setting, with its Python field under it. An
 endpoint has these settings:
 
-| Setting                                        | Default | Notes                                     |
-| ---------------------------------------------- | ------- | ----------------------------------------- |
-| Method <small>`method`</small>                 | `POST`  | `POST`, `PUT`, or `PATCH` in the Console. |
-| Path <small>`path`</small>                     |         | Added to the base address of the server.  |
-| Query parameters <small>`query_params`</small> | None    | A list of `{parameter, value}`.           |
-| Headers <small>`headers`</small>               | None    | A list of `{name, value}`.                |
-| <small>`disabled`</small>                      | `false` | Leaves the endpoint out of the task.      |
+| Setting                                        | Default | Notes                                                |
+| ---------------------------------------------- | ------- | ---------------------------------------------------- |
+| Method <small>`method`</small>                 | `POST`  | `POST`, `PUT`, or `PATCH` in the Console.            |
+| Path <small>`path`</small>                     |         | Added to the base address of the server.             |
+| Query parameters <small>`query_params`</small> | None    | A list of `{parameter, value}`.                      |
+| Headers <small>`headers`</small>               | None    | A list of `{name, value}`.                           |
+| <small>`disabled`</small>                      | `false` | Leaves the endpoint out of the task.                 |
+| Message format <small>`icd`</small>            |         | The ICD that holds the message.                      |
+| <small>`message`</small>                       |         | The message to send, and the bindings of its fields. |
 
-The channel value has these settings:
+A binding fills one field of the message from a command channel or a fixed value. A
+field with no binding sends its default.
 
-| Setting                                   | Default   | Notes                                                |
-| ----------------------------------------- | --------- | ---------------------------------------------------- |
-| Pointer <small>`pointer`</small>          | Empty     | Where the value goes in the body.                    |
-| JSON type <small>`json_type`</small>      | Number    | Number, String, or Boolean. Not for timestamps.      |
-| Data type <small>`data_type`</small>      | `float64` | Used only when the Console creates the channel.      |
-| Time format <small>`time_format`</small>  | `iso8601` | For a `timestamp` channel.                           |
-| Enum mapping <small>`enum_values`</small> | None      | String type only. Maps numbers to labels.            |
-| <small>`channel`</small>                  |           | The command channel. The Console creates it for you. |
+| Setting                          | Default | Notes                                                               |
+| -------------------------------- | ------- | ------------------------------------------------------------------- |
+| <small>`type`</small>            |         | `channel` or `value`. **Channel** or **Value** in the Console.      |
+| <small>`field`</small>           |         | The field to fill.                                                  |
+| Channel <small>`channel`</small> |         | Channel bindings only. The command channel whose commands it sends. |
+| <small>`value`</small>           |         | Value bindings only. The fixed value that it sends.                 |
 
-An additional field is static or generated:
-
-| Type      | Fields                                                                        |
-| --------- | ----------------------------------------------------------------------------- |
-| Static    | `pointer`, `value`. The value goes into the body as you give it.              |
-| Generated | `pointer`, `generator` (`uuid` or `timestamp`), `time_format` for timestamps. |
+In code, a binding to a command channel is `icd.ChannelWriteBinding`, and a binding to a
+fixed value is `icd.ValueWriteBinding`.
 
 <Divider.Divider x />
 
@@ -185,31 +239,63 @@ An additional field is static or generated:
 <Problem.Item message={"... returned ...: ..."}>
 <Problem.Cause>
 
-The server rejected the request. The description shows the status code and the response
-body. The task tries again after a temporary error, such as 408, 429, or a 5xx code.
+The server rejected the request. The description shows the method, the address, the
+status code, and the response body.
 
 </Problem.Cause>
 <Problem.Fix>
 
-Check the path, the body fields, and the authentication of the server.
+Check the path, the message, and the authentication of the server.
 
 </Problem.Fix>
 </Problem.Item>
 
-<Problem.Item message={"Pointer ... is already used by or overlaps another field"}>
+<Problem.Item message={"...: timed out"}>
 <Problem.Cause>
 
-Two fields in the body use the same pointer, or one pointer sits inside another, such as
-`/value` and `/value/unit`.
+The server did not answer, or it returned a temporary error, such as 408, 429, or a 5xx
+code. The task drops the command, waits, and then goes on with the next command. After
+50 failures in a row, the task stops.
 
 </Problem.Cause>
 <Problem.Fix>
 
-Give each field its own pointer that does not overlap another.
+Make sure that the server is running and that the Driver can reach it.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"endpoint ... sends no message"}>
+<Problem.Cause>
+
+An endpoint has no ICD message, such as an endpoint made in code without `icd` and
+`message`. The task does not start.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Open the task, select the endpoint, and select a message in **Message format**. In code,
+set `icd` and `message` on the endpoint.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"Skipped invalid command"}>
+<Problem.Cause>
+
+A field cannot hold a command, such as NaN in a JSON number. The description names the
+endpoint, the message, and the field. The field keeps its last good command.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Write a value that the field can hold, or change the type of the field in the ICD.
 
 </Problem.Fix>
 </Problem.Item>
 
 </Problem.List>
 
-For other problems, see [Troubleshoot hardware](/reference/hardware/troubleshooting).
+For problems with a message or its fields, see
+[ICD problems](/reference/hardware/icds/reference#problems). For other problems, see
+[Troubleshoot hardware](/reference/hardware/troubleshooting).
