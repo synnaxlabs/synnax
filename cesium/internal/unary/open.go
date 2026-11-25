@@ -140,6 +140,7 @@ func Open(ctx context.Context, configs ...Config) (*DB, error) {
 		controller:       c,
 		wrapError:        wrapError,
 		closed:           &atomic.Bool{},
+		pending:          &atomic.Int32{},
 		leadingAlignment: telem.NewAlignmentCounter(telem.LeadingDomain),
 		resolver:         newOffsetResolver(cfg.Channel.DataType, cfg.Instrumentation),
 	}

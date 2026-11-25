@@ -9,7 +9,7 @@
 
 import { Form } from "@synnaxlabs/lyra/form";
 import type { deep } from "@synnaxlabs/x";
-import { render, type RenderResult } from "@testing-library/react";
+import { act, render, type RenderResult } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement, useEffect } from "react";
 import type { z } from "zod";
 
@@ -39,4 +39,21 @@ export const renderForm = <Z extends z.ZodType>(
   };
   const result = render(<Harness />, { wrapper });
   return { ...result, value: (path) => read(path) };
+};
+
+/**
+ * Renders a form body as renderForm does, for a body that suspends on a cold cache.
+ * Never call this inside an `act` scope.
+ */
+export const renderFormSuspended = async <Z extends z.ZodType>(
+  ui: ReactElement,
+  values: NoInfer<z.infer<Z>>,
+  schema: Z,
+  wrapper?: FC<PropsWithChildren>,
+): Promise<RenderFormResult> => {
+  let rendered!: RenderFormResult;
+  await act(async () => {
+    rendered = renderForm(ui, values, schema, wrapper);
+  });
+  return rendered;
 };
