@@ -26,6 +26,7 @@ import (
 // ServiceConfig is the configuration for opening the file config service.
 type ServiceConfig struct {
 	// DB is the database config records are stored in.
+	//
 	// [REQUIRED]
 	DB *gorp.DB
 	alamos.Instrumentation

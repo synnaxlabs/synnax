@@ -15,18 +15,25 @@ import (
 	"path/filepath"
 )
 
-type defaultFS struct{ perm os.FileMode }
+type defaultFS struct{ dirPerm, filePerm os.FileMode }
 
-var Default FS = &defaultFS{perm: defaultPerm}
+var Default = NewDefault(defaultPerm, defaultPerm)
+
+// NewDefault returns an FS on the OS filesystem that creates directories with dirPerm
+// and files with filePerm. The process umask can remove bits from both. The modes of
+// files and directories that already exist do not change.
+func NewDefault(dirPerm, filePerm os.FileMode) FS {
+	return &defaultFS{dirPerm: dirPerm, filePerm: filePerm}
+}
 
 // Open implements FS.
 func (d *defaultFS) Open(name string, flag int) (File, error) {
-	return os.OpenFile(filepath.Clean(name), flag, d.perm)
+	return os.OpenFile(filepath.Clean(name), flag, d.filePerm)
 }
 
 // Sub implements FS.
 func (d *defaultFS) Sub(name string) (FS, error) {
-	if err := os.MkdirAll(name, d.perm); err != nil {
+	if err := os.MkdirAll(name, d.dirPerm); err != nil {
 		return nil, err
 	}
 	return &subFS{dir: name, FS: d}, nil
@@ -75,3 +82,6 @@ func (d *defaultFS) Rename(name, newName string) error {
 
 // Stat implements FS.
 func (d *defaultFS) Stat(name string) (os.FileInfo, error) { return os.Stat(name) }
+
+// SyncDir implements FS.
+func (d *defaultFS) SyncDir(name string) error { return syncDir(name) }

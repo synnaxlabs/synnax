@@ -67,6 +67,38 @@ func indexPointer(shape xjson.Shape) string {
 	return shape.Fields[shape.Index].Pointer.String()
 }
 
+// presentPointer returns the pointer of the present field of shape, or "none".
+func presentPointer(shape xjson.Shape) string {
+	if shape.Present < 0 {
+		return "none"
+	}
+	return shape.Fields[shape.Present].Pointer.String()
+}
+
+// narrow and wide return a document with a seconds timestamp offset s from t0, where
+// the fields of narrow are all in wide.
+func narrow(s int64) string { return fmt.Sprintf(`{"ts":%d,"v":1}`, t0Seconds+s) }
+
+func wide(s int64) string { return fmt.Sprintf(`{"ts":%d,"v":1,"w":2}`, t0Seconds+s) }
+
+// distinct returns n documents of n sets of fields, with seconds timestamps that start
+// at offset s from t0 and rise.
+func distinct(n int, s int64) []string {
+	docs := make([]string, n)
+	for i := range docs {
+		docs[i] = fmt.Sprintf(`{"ts":%d,"x%d":1}`, t0Seconds+s+int64(i), i)
+	}
+	return docs
+}
+
+// stamped returns n documents of source with a seconds timestamp at /ts and the fields
+// that fields returns for each index.
+func stamped(source string, n int, fields func(i int) string) []xjson.Document {
+	return documents(source, n, func(i int) string {
+		return fmt.Sprintf(`{"ts":%d,%s}`, t0Seconds+int64(i), fields(i))
+	})
+}
+
 var _ = Describe("Infer", func() {
 	It("Should find an ISO 8601 index and an enum", func() {
 		states := []string{"open", "closed", "open", "open"}
@@ -141,6 +173,232 @@ var _ = Describe("Infer", func() {
 		Expect(fieldAt(shapes[0], "/time").TimeFormat).
 			To(HaveValue(Equal(xjson.UnixSecond)))
 	})
+
+	It("Should give a shape to each cluster of documents of one source", func() {
+		clusters := func(i int) string {
+			ms := t0Milliseconds + int64(i)
+			if i%2 == 0 {
+				return fmt.Sprintf(`{"time":%d,"pressure":%d.5,"flow":2}`, ms, i)
+			}
+			return fmt.Sprintf(`{"time":%d,"state":"run","faults":0}`, ms)
+		}
+		docs := documents("line-1", 6, clusters)
+		docs = append(docs, documents("line-2", 2, func(i int) string {
+			return clusters(i * 2)
+		})...)
+		shapes := xjson.Infer(docs)
+		Expect(shapes).To(HaveLen(2))
+		Expect(shapes[0].Sources).To(Equal([]string{"line-1", "line-2"}))
+		Expect(shapes[0].Count).To(Equal(5))
+		Expect(shapes[0].Fields).To(HaveLen(3))
+		Expect(fieldAt(shapes[0], "/pressure").DataType).To(Equal(telem.Float64T))
+		Expect(indexPointer(shapes[0])).To(Equal("/time"))
+		Expect(shapes[1].Sources).To(Equal([]string{"line-1"}))
+		Expect(shapes[1].Count).To(Equal(3))
+		Expect(fieldAt(shapes[1], "/state").Type).To(Equal(xjson.String))
+		Expect(indexPointer(shapes[1])).To(Equal("/time"))
+	})
+
+	It("Should join a cluster whose fields are all in one wider cluster", func() {
+		shapes := xjson.Infer(documents("tank", 4, func(i int) string {
+			flow := "2"
+			if i%2 == 1 {
+				flow = "null"
+			}
+			return fmt.Sprintf(
+				`{"ts":%d,"pressure":1,"flow":%s}`, t0Seconds+int64(i), flow,
+			)
+		}))
+		Expect(shapes).To(HaveLen(1))
+		Expect(shapes[0].Count).To(Equal(4))
+		Expect(fieldAt(shapes[0], "/flow").Count).To(Equal(2))
+		Expect(indexPointer(shapes[0])).To(Equal("/ts"))
+	})
+
+	It("Should keep apart a cluster whose fields are in two wider clusters", func() {
+		shapes := xjson.Infer(documents("line", 3, func(i int) string {
+			return [...]string{
+				`{"t":1,"pressure":1}`,
+				`{"t":2,"state":"run"}`,
+				`{"t":3}`,
+			}[i]
+		}))
+		Expect(shapes).To(HaveLen(3))
+		Expect(shapes[2].Fields).To(HaveLen(1))
+		Expect(shapes[2].Count).To(Equal(1))
+	})
+
+	It("Should give documents with no fields to no cluster of two", func() {
+		shapes := xjson.Infer(documents("line", 4, func(i int) string {
+			return [...]string{
+				`{"t":1,"pressure":1}`,
+				`{"t":2,"state":"run"}`,
+				`{}`,
+				`{"faults":[],"flow":null}`,
+			}[i]
+		}))
+		Expect(shapes).To(HaveLen(2))
+		Expect(shapes[0].Count).To(Equal(1))
+		Expect(shapes[1].Count).To(Equal(1))
+	})
+
+	It(
+		"Should give documents with no fields to the one cluster of their source",
+		func() {
+			shapes := xjson.Infer(documents("tank", 2, func(i int) string {
+				return [...]string{`{"pressure":1}`, `{}`}[i]
+			}))
+			Expect(shapes).To(HaveLen(1))
+			Expect(shapes[0].Count).To(Equal(2))
+			Expect(fieldAt(shapes[0], "/pressure").Count).To(Equal(1))
+		},
+	)
+
+	DescribeTable("Should split a source into clusters only up to 16 clusters",
+		func(sets, shapes, fields int) {
+			inferred := xjson.Infer(documents("devices", sets, func(i int) string {
+				return fmt.Sprintf(`{"device-%d":1}`, i)
+			}))
+			Expect(inferred).To(HaveLen(shapes))
+			Expect(inferred[0].Fields).To(HaveLen(fields))
+			Expect(inferred[0].Count).To(Equal(fields))
+		},
+		Entry("16 clusters", 16, 16, 1),
+		Entry("17 clusters", 17, 1, 17),
+	)
+
+	DescribeTable("Should count clusters after joining up to 256 sets of fields",
+		func(sets, shapes int) {
+			docs := documents("line", sets-1, func(i int) string {
+				fields := []string{`"t":1`, `"pressure":1`}
+				for f := range 8 {
+					if i&(1<<f) == 0 {
+						fields = append(fields, fmt.Sprintf(`"v%d":1`, f))
+					}
+				}
+				return "{" + strings.Join(fields, ",") + "}"
+			})
+			docs = append(docs, documents("line", 1, func(int) string {
+				return `{"t":1,"state":"run"}`
+			})...)
+			Expect(xjson.Infer(docs)).To(HaveLen(shapes))
+		},
+		Entry("256 sets", 256, 2),
+		Entry("257 sets", 257, 1),
+	)
+
+	It(
+		"Should mark a shape by its first field that only its documents all hold",
+		func() {
+			shapes := xjson.Infer(stamped("pump", 3, func(i int) string {
+				return [...]string{`"note":"x","rpm":1`, `"fault":3`, `"rpm":2`}[i]
+			}))
+			Expect(shapes).To(HaveLen(2))
+			Expect(presentPointer(shapes[0])).To(Equal("/rpm"))
+			Expect(presentPointer(shapes[1])).To(Equal("/fault"))
+		},
+	)
+
+	DescribeTable(
+		"Should not mark a shape by a field that nests with a field of another",
+		func(kinds, present []string) {
+			shapes := xjson.Infer(documents("pump", len(kinds), func(i int) string {
+				return kinds[i]
+			}))
+			pointers := make([]string, len(shapes))
+			for i, s := range shapes {
+				pointers[i] = presentPointer(s)
+			}
+			Expect(pointers).To(Equal(present))
+		},
+		Entry("an object and a string at one pointer",
+			[]string{`{"status":{"code":1}}`, `{"status":"ok"}`},
+			[]string{"none"},
+		),
+		Entry("a string and an object at one pointer, with a shared field",
+			[]string{`{"t":1,"status":"ok"}`, `{"t":1,"status":{"code":3}}`},
+			[]string{"none"},
+		),
+		Entry("an object and a string at one pointer, with fields that differ",
+			[]string{`{"status":{"code":1},"fault":2}`, `{"status":"ok","rpm":3}`},
+			[]string{"/fault", "/rpm"},
+		),
+	)
+
+	It("Should mark a shape by a value field before its timestamp", func() {
+		shapes := xjson.Infer(documents("pump", 4, func(i int) string {
+			if i%2 == 0 {
+				return fmt.Sprintf(`{"ts":%d,"rpm":%d}`, t0Seconds+int64(i), i)
+			}
+			return fmt.Sprintf(`{"time":%d,"code":%d}`, t0Seconds+int64(i), i)
+		}))
+		Expect(shapes).To(HaveLen(2))
+		Expect(presentPointer(shapes[0])).To(Equal("/rpm"))
+		Expect(presentPointer(shapes[1])).To(Equal("/code"))
+	})
+
+	It(
+		"Should mark a shape by its timestamp when no value field sets it apart",
+		func() {
+			shapes := xjson.Infer(documents("pump", 4, func(i int) string {
+				if i%2 == 0 {
+					return fmt.Sprintf(`{"ts":%d,"v":%d}`, t0Seconds+int64(i), i)
+				}
+				return fmt.Sprintf(`{"time":%d,"v":%d}`, t0Seconds+int64(i), i)
+			}))
+			Expect(shapes).To(HaveLen(2))
+			Expect(presentPointer(shapes[0])).To(Equal("/ts"))
+			Expect(presentPointer(shapes[1])).To(Equal("/time"))
+		},
+	)
+
+	It("Should not mark a shape by the whole document", func() {
+		shapes := xjson.Infer(documents("pump", 2, func(i int) string {
+			return [...]string{`1.5`, `{"rpm":1}`}[i]
+		}))
+		Expect(shapes).To(HaveLen(2))
+		Expect(presentPointer(shapes[0])).To(Equal("none"))
+		Expect(presentPointer(shapes[1])).To(Equal("/rpm"))
+	})
+
+	It("Should give no present field to the only shape of its source", func() {
+		shapes := xjson.Infer(stamped("pump", 2, func(i int) string {
+			return fmt.Sprintf(`"rpm":%d`, i)
+		}))
+		Expect(shapes).To(HaveLen(1))
+		Expect(presentPointer(shapes[0])).To(Equal("none"))
+	})
+
+	It("Should merge the clusters of a source that no field tells apart", func() {
+		shapes := xjson.Infer(stamped("line", 5, func(i int) string {
+			return [...]string{
+				`"a":1,"b":1`, `"b":1,"c":1`, `"a":1,"b":1`, `"a":1,"c":1`, `"d":1`,
+			}[i]
+		}))
+		Expect(shapes).To(HaveLen(2))
+		Expect(shapes[0].Count).To(Equal(4))
+		Expect(shapes[0].Fields).To(HaveLen(4))
+		Expect(presentPointer(shapes[0])).To(Equal("none"))
+		Expect(indexPointer(shapes[0])).To(Equal("/ts"))
+		Expect(presentPointer(shapes[1])).To(Equal("/d"))
+	})
+
+	It("Should mark a shape of two sources by a field no other shape of either holds",
+		func() {
+			docs := stamped("pump-1", 2, func(i int) string {
+				return [...]string{`"a":1,"b":1`, `"a":1,"c":1`}[i]
+			})
+			docs = append(docs, stamped("pump-2", 2, func(i int) string {
+				return [...]string{`"a":1,"b":1`, `"b":1,"d":1`}[i]
+			})...)
+			shapes := xjson.Infer(docs)
+			Expect(shapes).To(HaveLen(3))
+			Expect(shapes[0].Sources).To(Equal([]string{"pump-1", "pump-2"}))
+			Expect(presentPointer(shapes[0])).To(Equal("none"))
+			Expect(presentPointer(shapes[1])).To(Equal("/c"))
+			Expect(presentPointer(shapes[2])).To(Equal("/d"))
+		},
+	)
 
 	It("Should keep every digit of a nanosecond index and read a boolean", func() {
 		shapes := xjson.Infer(documents("valve", 3, func(i int) string {
@@ -242,6 +500,67 @@ var _ = Describe("Infer", func() {
 		Expect(fieldAt(shapes[0], "/ts").DataType).To(Equal(telem.TimestampT))
 		Expect(shapes[0].Index).To(Equal(-1))
 	})
+
+	DescribeTable("Should index on a timestamp that rises across the sets of a cluster",
+		func(index string, docs ...string) {
+			shapes := xjson.Infer(documents("pump", len(docs), func(i int) string {
+				return docs[i]
+			}))
+			Expect(shapes).To(HaveLen(1))
+			Expect(indexPointer(shapes[0])).To(Equal(index))
+		},
+		Entry("rising across the sets", "/ts", wide(0), narrow(1), wide(2)),
+		Entry(
+			"older than the last value of the other set",
+			"none",
+			wide(0),
+			narrow(2),
+			wide(1),
+		),
+		Entry(
+			"two sets that each rise and alternate with older values",
+			"none",
+			narrow(10), wide(5), narrow(20), wide(15), narrow(30), wide(25),
+		),
+	)
+
+	It(
+		"Should index each cluster on a timestamp that is out of order across them",
+		func() {
+			shapes := xjson.Infer(documents("pump", 4, func(i int) string {
+				s := [...]int64{10, 5, 20, 15}[i]
+				return fmt.Sprintf(
+					`{"ts":%d,"%s":1}`,
+					t0Seconds+s,
+					[...]string{"rpm", "fault"}[i%2],
+				)
+			}))
+			Expect(shapes).To(HaveLen(2))
+			Expect(indexPointer(shapes[0])).To(Equal("/ts"))
+			Expect(indexPointer(shapes[1])).To(Equal("/ts"))
+		},
+	)
+
+	DescribeTable("Should index on a timestamp after the sets of a source pass 256",
+		func(index string, docs []string) {
+			shapes := xjson.Infer(documents("pump", len(docs), func(i int) string {
+				return docs[i]
+			}))
+			Expect(shapes).To(HaveLen(1))
+			Expect(indexPointer(shapes[0])).To(Equal(index))
+		},
+		Entry("rising", "/ts", distinct(257, 0)),
+		Entry(
+			"out of order across two sets before",
+			"none",
+			append([]string{wide(0), narrow(2), wide(1)}, distinct(256, 3)...),
+		),
+		Entry(
+			"older in the 257th set than the newest value before",
+			"none",
+			append(distinct(256, 0), narrow(100)),
+		),
+	)
 
 	It("Should not index on a timestamp that some documents lack", func() {
 		docs := documents("a", 2, func(i int) string {
@@ -378,9 +697,13 @@ var _ = Describe("Inferrer", func() {
 			fmt.Appendf(nil, `{"ts":%d,"v":1.5}`, t0Milliseconds+3000),
 			t0+3*telem.SecondTS,
 		)
-		shape := inf.Shape()
+		shapes, last := inf.Shapes()
+		Expect(shapes).To(HaveLen(1))
+		Expect(last).To(BeZero())
+		shape := shapes[0].Shape
 		Expect(shape.Sources).To(BeEmpty())
 		Expect(shape.Count).To(Equal(4))
+		Expect(presentPointer(shape)).To(Equal("none"))
 		Expect(indexPointer(shape)).To(Equal("/ts"))
 		ts := fieldAt(shape, "/ts")
 		Expect(ts.Kind).To(Equal(payload.KindTimestamp))
@@ -392,18 +715,124 @@ var _ = Describe("Inferrer", func() {
 		inf := xjson.NewInferrer()
 		inf.Add([]byte("not json"), t0)
 		inf.Add([]byte(`{"v":1} {"v":2}`), t0)
-		shape := inf.Shape()
-		Expect(shape.Count).To(BeZero())
-		Expect(shape.Fields).To(BeEmpty())
-		Expect(shape.Index).To(Equal(-1))
+		shapes, last := inf.Shapes()
+		Expect(shapes).To(BeEmpty())
+		Expect(last).To(Equal(-1))
+	})
+
+	DescribeTable("Should sample the newest value of each field of a shape",
+		func(docs []string, a, b string) {
+			inf := xjson.NewInferrer()
+			for _, doc := range docs {
+				inf.Add([]byte(doc), t0)
+			}
+			shapes, _ := inf.Shapes()
+			Expect(shapes).To(HaveLen(1))
+			Expect(shapes[0].Samples).To(Equal([]string{a, b}))
+		},
+		Entry("from a later set", []string{`{"a":1,"b":1}`, `{"a":2}`}, "2", "1"),
+		Entry(
+			"from an earlier set",
+			[]string{`{"a":1,"b":1}`, `{"a":2}`, `{"a":3,"b":3}`},
+			"3",
+			"3",
+		),
+	)
+
+	It("Should cut a sample at a rune boundary", func() {
+		inf := xjson.NewInferrer()
+		inf.Add([]byte(`{"v":"`+strings.Repeat("a", 62)+`éé"}`), t0)
+		shapes, _ := inf.Shapes()
+		Expect(shapes[0].Samples).To(Equal([]string{`"` + strings.Repeat("a", 62)}))
+	})
+
+	It("Should give the position of the shape of the last document", func() {
+		inf := xjson.NewInferrer()
+		lastPresent := func(doc string) string {
+			inf.Add([]byte(doc), t0)
+			shapes, last := inf.Shapes()
+			Expect(shapes).To(HaveLen(2))
+			return presentPointer(shapes[last].Shape)
+		}
+		inf.Add([]byte(`{"a":1,"b":1}`), t0)
+		inf.Add([]byte(`{"a":2}`), t0)
+		Expect(lastPresent(`{"c":1}`)).To(Equal("/c"))
+		Expect(lastPresent(`{"a":3}`)).To(Equal("/a"))
+	})
+
+	It("Should give no shape of the last document when it joins none", func() {
+		inf := xjson.NewInferrer()
+		for _, doc := range []string{`{"a":1}`, `{"b":1}`, `{}`} {
+			inf.Add([]byte(doc), t0)
+		}
+		shapes, last := inf.Shapes()
+		Expect(shapes).To(HaveLen(2))
+		Expect(last).To(Equal(-1))
 	})
 
 	It("Should give no index when a timestamp falls", func() {
 		inf := xjson.NewInferrer()
 		inf.Add(fmt.Appendf(nil, `{"ts":%d}`, t0Milliseconds+1000), t0)
 		inf.Add(fmt.Appendf(nil, `{"ts":%d}`, t0Milliseconds), t0+telem.SecondTS)
-		shape := inf.Shape()
-		Expect(fieldAt(shape, "/ts").Kind).To(Equal(payload.KindTimestamp))
-		Expect(shape.Index).To(Equal(-1))
+		shapes, _ := inf.Shapes()
+		Expect(shapes).To(HaveLen(1))
+		Expect(fieldAt(shapes[0].Shape, "/ts").Kind).To(Equal(payload.KindTimestamp))
+		Expect(shapes[0].Index).To(Equal(-1))
 	})
+
+	DescribeTable("Should give one shape past 1,024 fields across its sets of fields",
+		func(second, shapes, fields int) {
+			inf := xjson.NewInferrer()
+			for i, n := range []int{600, second} {
+				names := make([]string, n)
+				for f := range names {
+					names[f] = fmt.Sprintf(`"s%d-%d":1`, i, f)
+				}
+				inf.Add([]byte("{"+strings.Join(names, ",")+"}"), t0)
+			}
+			inferred, _ := inf.Shapes()
+			Expect(inferred).To(HaveLen(shapes))
+			Expect(inferred[0].Fields).To(HaveLen(fields))
+		},
+		Entry("1,024 fields", 424, 2, 600),
+		Entry("1,025 fields", 425, 1, 1024),
+	)
+
+	DescribeTable(
+		"Should infer the shapes that Infer gives the same documents",
+		func(docs []xjson.Document) {
+			inf := xjson.NewInferrer()
+			for _, doc := range docs {
+				inf.Add(doc.Data, doc.Time)
+			}
+			expected := xjson.Infer(docs)
+			for i := range expected {
+				expected[i].Sources = nil
+			}
+			inferred, _ := inf.Shapes()
+			shapes := make([]xjson.Shape, len(inferred))
+			for i, s := range inferred {
+				shapes[i] = s.Shape
+			}
+			Expect(shapes).To(Equal(expected))
+		},
+		Entry("two record kinds", stamped("", 4, func(i int) string {
+			return [...]string{`"rpm":1`, `"fault":"x"`, `"rpm":2.5`, `"fault":"y"`}[i]
+		})),
+		Entry("a set that joins a wider set", documents("", 3, func(i int) string {
+			return [...]string{narrow(0), wide(1), narrow(2)}[i]
+		})),
+		Entry("sets that no field tells apart", documents("", 3, func(i int) string {
+			return [...]string{`{"a":1,"b":1}`, `{"a":2,"c":1}`, `{"b":2,"c":2}`}[i]
+		})),
+		Entry(
+			"a timestamp out of order across sets",
+			documents("", 3, func(i int) string {
+				return [...]string{wide(0), narrow(2), wide(1)}[i]
+			}),
+		),
+		Entry("more than 256 sets", documents("", 257, func(i int) string {
+			return append(distinct(256, 0), narrow(100))[i]
+		})),
+	)
 })

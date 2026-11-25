@@ -25,6 +25,7 @@ import { diagram } from "@/vis/diagram/aether";
 import { latestSample } from "@/vis/latestSample/aether";
 import { canvasTest } from "@/vis/render/testutil";
 import { stalenessTest } from "@/vis/staleness/aether/testutil";
+import { symbolNode } from "@/vis/symbolNode/aether";
 import { toggle } from "@/vis/toggle/aether";
 
 const client = createTestClient();
@@ -203,17 +204,20 @@ describe("Schematic", () => {
   });
 
   it("should draw the label of a symbol node", async () => {
-    const { utils } = await renderSchematic([
-      {
-        key: "n1",
-        position: { x: 0, y: 0 },
-        config: {
-          variant: "symbol",
-          label: { label: "Heater" },
-          spec: { type: "builtin", name: "valve" },
+    const { utils } = await renderSchematic(
+      [
+        {
+          key: "n1",
+          position: { x: 0, y: 0 },
+          config: {
+            variant: "symbol",
+            label: { label: "Heater" },
+            spec: { type: "builtin", name: "valve" },
+          },
         },
-      },
-    ]);
+      ],
+      { registry: symbolNode.REGISTRY },
+    );
     expect(await utils.findByText("Heater")).toBeDefined();
   });
 
@@ -245,5 +249,42 @@ describe("Schematic", () => {
     if (slot == null) throw new Error("the badge is not in the control slot");
     fireEvent.mouseMove(within(slot).getAllByRole("button", { hidden: true })[0]);
     await waitFor(() => expect(utils.queryByText(command.name)).toBeNull());
+  });
+
+  it("should hide the tooltip while a node shows its command menu", async () => {
+    const { utils } = await renderSchematic(
+      [
+        {
+          key: "v1",
+          position: xy.ZERO,
+          config: {
+            variant: "symbol",
+            spec: { type: "builtin", name: "valve" },
+            // A value that matches neither command makes a click open the menu.
+            states: [
+              {
+                key: "active",
+                source: { type: "local", value: 3 },
+                match: { type: "exact" },
+              },
+            ],
+          },
+        },
+      ],
+      { editable: false, registry: symbolNode.REGISTRY },
+    );
+    // React Flow hides unmeasured nodes, so role queries cannot see the button.
+    const button = await waitFor(() => {
+      const el = utils.container.querySelector<HTMLElement>(".react-flow__node button");
+      if (el == null) throw new Error("no symbol button yet");
+      return el;
+    });
+    fireEvent.mouseMove(button);
+    await utils.findByText("Stale timeout", undefined, { timeout: 3000 });
+    fireEvent.click(button);
+    const close = await utils.findByRole("menuitem", { name: "Close", hidden: true });
+    expect(utils.queryByText("Stale timeout")).toBeNull();
+    fireEvent.click(close);
+    await utils.findByText("Stale timeout", undefined, { timeout: 3000 });
   });
 });

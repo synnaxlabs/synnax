@@ -36,16 +36,17 @@ or generator logic and schemas disagree.
   no `@go version` tag; the current version is the highest vN file, and membership in it
   marks a type persisted. Version-owned content: fields, optionality, docs, `@key`,
   `@resource type` (stored ontology keys hold it), and the `@go` persistence set
-  (`marshal` incl. field-level `omit`, `wire`, `json`, `hand`, `migrate`, `imex`).
-  Codecs are explicit: a struct or union gets one iff its declaration carries
+  (`marshal` incl. field-level `omit`, `wire`, `json`, `hand`, `migrate`, `imex`,
+  `entry`). Codecs are explicit: a struct or union gets one iff its declaration carries
   `@go marshal`; references never pull a codec in. `@go marshal hand` marks hand-written
   codec methods: nothing generates, references stay valid. Generation fails when a
   codec's persisted graph reaches a struct or union carrying neither form.
 - **A full declaration can be a patch on an earlier version.** `X struct extends vK.X`
   (or a union of the same name) copies vK's declaration, resolved in vN's scope, then
-  applies its body: an entry of the same name merges in place, `-field` removes one, and
-  a new entry follows the nearest restated parent entry above it (a bare `name` restates
-  a field), or ends the list. An `extends` of another name is a plain mixin.
+  applies its body: an entry of the same name merges in place, `-name` removes one (a
+  field, or a union's variant), and a new entry follows the nearest restated parent
+  entry above it (a bare `name` restates a field), or ends the list. A variant omit is
+  valid only in such a patch. An `extends` of another name is a plain mixin.
 - **The live file is a generated projection, then an annotation surface.** Sync writes
   each versioned resource's live schema by merging chain resolution (version-owned
   content) with the live file's own annotations (outputs, `@ts`/`@py`/`@cpp` bindings,
@@ -147,6 +148,12 @@ or generator logic and schemas disagree.
   task file: no `Export`, several types may share a package, and each gets an exported
   `<Type>Ladder` (`imex.Ladder`) over body blobs. A version that redeclares a marked
   type must declare its exported `Migrate<Type>` step.
+- `@go entry` on a struct or union in a version file emits `entry.gen.go` in every
+  `versions/vN` package that declares the type: `GorpKey` from its `@key` field, own or
+  inherited (a union reads its shared base), and `ResourceID` when it has
+  `@resource type`. `@go entry "name"` also emits `CustomTypeName`, which sets the Gorp
+  key prefix, so the name is storage: never change it. A computed or composite key stays
+  hand-written.
 
 ## Field optionality
 
@@ -222,6 +229,17 @@ An integer enum's underlying type is the smallest one that holds all its values:
 unsigned, or signed when a value is negative (`std::uint32_t` and `uint32` for baud
 rates up to 230400). A field may default to any member. When a member has the value 0,
 the default must be that member, because 0 is also the type's zero value.
+
+## Enum subsets
+
+`Kept enum of Base { ... }` narrows the enum `Base` to the members its body names.
+Members are bare names and take their values from `Base`. A member's own `@doc` replaces
+the one from `Base`. Every language generates `Kept` as a plain enum: a Go type with
+constants and `IsValid`, a Zod `enum`, a Python `Literal`, and C++ constants. Zod
+parsing, Pydantic, and Go validation reject a value outside the subset, and a new `Base`
+member never joins it silently. Use a subset instead of a hand copy of part of a shared
+enum. An enum can narrow or extend, never both. `Kept enum of Base omit { ... }` keeps
+every member of `Base` except the ones its body names, so a new `Base` member joins it.
 
 ## Union bases
 

@@ -37,3 +37,9 @@ export const LINKS_DISABLED = DESKTOP;
 
 /** True when the app runs its own Core, so it has no login and no Core to pick. */
 export const CORE_EMBEDDED = DESKTOP;
+
+/**
+ * True when the user adds, edits, and switches between Cores: on desktop and on the
+ * dev server. A page that a Core serves talks to that Core alone.
+ */
+export const CORE_SELECTABLE = ENGINE === "tauri" || IS_DEV;

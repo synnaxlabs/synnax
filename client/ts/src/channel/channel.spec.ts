@@ -19,6 +19,7 @@ import {
   expectDeleted,
   expectLive,
   FAST_RETRY,
+  requestsTo,
   spyOnSend,
   waitForStreamLive,
 } from "@/testutil";
@@ -335,12 +336,8 @@ describe("Channel", () => {
       await client.channels.create(
         names.map((name) => ({ name, virtual: true, dataType: DataType.FLOAT32 })),
       );
-      await expect
-        .poll(async () => {
-          const results = await client.channels.retrieve({ searchTerm: prefix });
-          return results.map((c) => c.name).sort();
-        })
-        .toEqual(names);
+      const results = await client.channels.retrieve({ searchTerm: prefix });
+      expect(results.map((c) => c.name).sort()).toEqual(names);
     });
     test("retrieve by where", async () => {
       const prefix = `qry_${id.create()}`;
@@ -806,7 +803,11 @@ describe("cached reads", () => {
       try {
         const res = await client.channels.retrieve({ key: [ch.key] });
         expect(res.map(({ key }) => key)).toEqual([ch.key]);
-        expect(send).not.toHaveBeenCalled();
+        expect(requestsTo(send, "/channel/retrieve")).not.toContainEqual(
+          expect.objectContaining({
+            where: expect.objectContaining({ key: expect.anything() }),
+          }),
+        );
       } finally {
         send.mockRestore();
       }

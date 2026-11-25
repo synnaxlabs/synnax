@@ -11,11 +11,14 @@
 
 import { layers, plutoLayers, reactCompiler, testCore } from "@synnaxlabs/vite-plugin";
 import react from "@vitejs/plugin-react";
-import { playwright } from "@vitest/browser-playwright";
+import { PlaywrightBrowserProvider, playwright } from "@vitest/browser-playwright";
+import { appendFileSync, createWriteStream, mkdirSync } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as path from "path";
+import type { Request } from "playwright";
 import { defineConfig, normalizePath, type Plugin } from "vite";
 import type { TestProjectInlineConfiguration } from "vitest/config";
+import type { BrowserProviderOption } from "vitest/node";
 
 const isDev = process.env.VITE_IS_DEV === "true";
 // Builds compile workspace packages from source, so code splitting reaches into them.
@@ -31,6 +34,47 @@ const BROWSER_SPECS = "src/**/*.browser.spec.{ts,tsx}";
 const DESKTOP_BROWSER_SPECS = "src/**/*.desktop.browser.spec.{ts,tsx}";
 const SAMPLE_SPEC = "src/feature/project/sample.desktop.browser.spec.ts";
 const JSDOM = { environment: "jsdom", setupFiles: ["src/testutil/setuptests.ts"] };
+
+/**
+ * @returns the Playwright provider, with each browser context printing one line for a
+ * script from the Vite server that fails to load or loads with an error status. WebKit
+ * reports both only as "Importing a module script failed", without the URL.
+ */
+const loggedPlaywright = (): BrowserProviderOption => {
+  const base = playwright();
+  return {
+    ...base,
+    providerFactory: (project) => {
+      const provider = new PlaywrightBrowserProvider(project, base.options);
+      const log = (request: Request, reason?: number | string) => {
+        const url = request.url();
+        if (request.resourceType() !== "script") return;
+        if (new URL(url).origin !== new URL(request.frame().url()).origin) return;
+        console.error(
+          "[script failed]",
+          provider.browserName,
+          request.method(),
+          url,
+          reason,
+        );
+      };
+      // The provider stores each context before it opens the page, so the listeners
+      // see the first requests of a session.
+      const { contexts } = provider;
+      const set = contexts.set.bind(contexts);
+      contexts.set = (sessionId, context) => {
+        context.on("requestfailed", (request) =>
+          log(request, request.failure()?.errorText),
+        );
+        context.on("response", (response) => {
+          if (response.status() >= 400) log(response.request(), response.status());
+        });
+        return set(sessionId, context);
+      };
+      return provider;
+    },
+  };
+};
 
 interface BrowserProjectProps {
   name: string;
@@ -78,7 +122,7 @@ const browserProject = ({
       browser: {
         enabled: true,
         headless: true,
-        provider: playwright(),
+        provider: loggedPlaywright(),
         // V8 coverage reads only Chromium, so `cov` leaves out WebKit.
         instances: webkit
           ? [
@@ -120,6 +164,51 @@ const workspaceSourcemaps = (): Plugin => {
     },
   };
 };
+
+// Appends each response that is not 2xx or 304, and each request closed before its
+// response, to the file in SYNNAX_TEST_REQUEST_LOG. WebKit names no URL when a module
+// import fails.
+const requestLog = (): Plugin => ({
+  name: "request-log",
+  apply: "serve",
+  configureServer: (server) => {
+    const file = process.env.SYNNAX_TEST_REQUEST_LOG;
+    if (file == null) return;
+    if (file.trim() === "") throw new Error("SYNNAX_TEST_REQUEST_LOG is blank");
+    // Throws at start when the file cannot be written.
+    mkdirSync(path.dirname(file), { recursive: true });
+    appendFileSync(
+      file,
+      `${new Date().toISOString()} server started (pid ${process.pid})\n`,
+    );
+    // One stream keeps the lines in order with one open file.
+    const stream = createWriteStream(file, { flags: "a" });
+    let open = true;
+    stream.on("error", (error) => {
+      open = false;
+      console.error(`Stopped writing ${file}: ${error.message}`);
+    });
+    server.httpServer?.once("close", () => {
+      open = false;
+      stream.end();
+    });
+    const start = Date.now();
+    const log = (line: string): void => {
+      if (open) stream.write(`${new Date().toISOString()} ${line}\n`);
+    };
+    server.middlewares.use((req, res, next) => {
+      const begin = Date.now();
+      res.on("close", () => {
+        const at = `+${begin - start}ms (${Date.now() - begin}ms)`;
+        const { statusCode: status } = res;
+        if (!res.writableFinished) log(`${at} aborted ${req.method} ${req.url}`);
+        else if ((status < 200 || status >= 300) && status !== 304)
+          log(`${at} ${status} ${res.statusMessage} ${req.method} ${req.url}`);
+      });
+      next();
+    });
+  },
+});
 
 // The dev server loads the standalone React DevTools (`pnpm devtools`) before React, so
 // React finds the DevTools hook when it starts. Builds never load it.
@@ -187,6 +276,7 @@ export default defineConfig({
     reactDevtools(),
     workspaceSourcemaps(),
     stripSourcesContent(),
+    requestLog(),
   ],
   build: {
     target: process.env.TAURI_ENV_PLATFORM === "windows" ? "chrome125" : "safari17.4",
@@ -204,7 +294,6 @@ export default defineConfig({
     IS_DEV: isDev,
     DESKTOP: desktop,
     RELEASE: release,
-    CORE_PORT: Number(process.env.SYNNAX_TEST_PORT ?? 9090),
   },
   worker: {
     format: "es",

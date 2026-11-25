@@ -32,9 +32,11 @@ import (
 // ServiceConfig is the configuration for opening the EtherCAT task config service.
 type ServiceConfig struct {
 	// DB is the database config records are stored in.
+	//
 	// [REQUIRED]
 	DB *gorp.DB
 	// Device reads the slave devices whose discovered PDO entries address channels.
+	//
 	// [REQUIRED]
 	Device *device.Service
 	alamos.Instrumentation

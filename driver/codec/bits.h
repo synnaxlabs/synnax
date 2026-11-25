@@ -98,7 +98,7 @@ std::pair<Encoding, x::errors::Error> encoding_of(const synnax::icd::BinaryField
 
 /// @brief returns the raw bits of the default of f, or nothing when f has none.
 /// @returns CONFIG_ERROR when f is a float field that is not 32 or 64 bits, or its
-/// default is not finite, overflows float32, or is out of range for its bits.
+/// default overflows float32 or is out of range for its bits.
 std::pair<std::optional<std::uint64_t>, x::errors::Error>
 default_raw(const synnax::icd::BinaryField &f);
 }
