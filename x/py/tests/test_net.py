@@ -27,6 +27,14 @@ class TestAddress:
         assert Address.model_validate({"host": "10.0.0.2", "port": 502}).port == 502
 
     @pytest.mark.parametrize(
+        "host", [" ", "tcp://plc.example.com", "plc.example.com:502", "plc/a"]
+    )
+    def test_leaves_the_host_format_to_the_core(self, host: str) -> None:
+        """Should accept any non-empty host, because only the Core checks its format,
+        so clients can read every stored address."""
+        assert Address.model_validate({"host": host}).host == host
+
+    @pytest.mark.parametrize(
         "address",
         [{}, {"host": ""}, {"host": "plc", "port": 0}, {"host": "plc", "port": 65536}],
     )
