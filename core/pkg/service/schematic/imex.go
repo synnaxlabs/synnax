@@ -43,11 +43,12 @@ func (*Service) Match(body map[string]any) bool {
 // file older than v14 gets an enumeration for its options, as at upgrade, shared with
 // equal lists of the same file. Each custom node of such a file with state overrides
 // gets the enumeration or symbol copy that the upgrade gives it, when opts.Retrievable
-// allows its symbol. The schematic drops each named color and each enumeration that the
-// Core does not hold, so a select or state indicator that loses its enumeration draws
-// its own options. A node whose custom symbol the Core does not hold draws a missing
-// symbol with the same key, and every other node drops the bindings that its symbol
-// orphans. An unknown envelope version is a path-scoped validation error.
+// allows its symbol and the enumeration of that symbol. The schematic drops each named
+// color and each enumeration that the Core does not hold, so a select or state
+// indicator that loses its enumeration draws its own options. A node whose custom
+// symbol the Core does not hold draws a missing symbol with the same key, and every
+// other node drops the bindings that its symbol orphans. An unknown envelope version is
+// a path-scoped validation error.
 func (s *Service) Decode(ctx context.Context, env imex.Envelope) (imex.Write, error) {
 	sch, err := versions.DecodeImExEnvelope(ctx, env)
 	if err != nil {
@@ -93,8 +94,8 @@ func (s *Service) Decode(ctx context.Context, env imex.Envelope) (imex.Write, er
 
 // importOld gives sch, lifted from the old schematic old, the enumerations and symbol
 // copies that its selects, state indicators, and custom nodes need. Each import makes
-// its own records. A node keeps a symbol that retrievable rejects, and a nil
-// retrievable rejects all.
+// its own records. A node keeps its symbol when retrievable rejects the symbol or its
+// enumeration, and a nil retrievable rejects all.
 func (s *Service) importOld(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -117,9 +118,7 @@ func (s *Service) importOld(
 		tx,
 		sch,
 		old,
-		func(k symbol.Key) bool {
-			return retrievable != nil && retrievable(symbol.ResourceID(k))
-		},
+		func(id resource.ID) bool { return retrievable != nil && retrievable(id) },
 		intern,
 		func(ctx context.Context, sym *symbol.Symbol) error {
 			return s.Symbol.NewWriter(tx).Create(ctx, sym)
