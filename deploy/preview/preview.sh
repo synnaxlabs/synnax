@@ -21,12 +21,13 @@
 #                             Sets whether a pull request waits on a human review, as
 #                             its labels showed at <time> (Unix seconds). A mark older
 #                             than the saved one changes nothing.
-#   preview upgrade           Starts Caddy, or recreates it without its access log
-#                             mount, and applies the CPU limit to the running
-#                             previews. Memory limits apply from the next deploy.
+#   preview upgrade           Gets the wildcard certificate, starts Caddy or recreates
+#                             it without its access log mount, and applies the CPU
+#                             limit to the running previews. Memory limits apply from
+#                             the next deploy.
 #   preview down <pr>         Removes the Core for a pull request.
 #   preview sweep             Removes every Core marked none and not deployed or
-#                             viewed for the TTL.
+#                             viewed for the TTL, and renews the certificate when due.
 #   preview notices           Prints the notices of removed previews, one per line:
 #                             "<pr> <UTC time> evicted <pr that took its place>" or
 #                             "<pr> <UTC time> expired".
@@ -38,6 +39,7 @@ set -euo pipefail
 # shellcheck source=/dev/null
 source "${PREVIEW_ENV:-/etc/synnax-preview.env}"
 : "${PREVIEW_DOMAIN:?}" "${PREVIEW_SITES:?}" "${PREVIEW_TTL_DAYS:?}"
+: "${PREVIEW_ZONE_ID:?}" "${PREVIEW_ACME:?}"
 : "${PREVIEW_LICENSE_PARAMETER:?}" "${PREVIEW_REGION:?}"
 : "${PREVIEW_MAX:?}" "${PREVIEW_CPUS:?}" "${PREVIEW_MEMORY:?}" "${PREVIEW_LOGS:?}"
 : "${PREVIEW_GO_MEMORY:?}"
@@ -51,7 +53,22 @@ container() { echo "synnax-pr-$1"; }
 # Each deploy pulls a new image, so the replaced one must go or the disk fills.
 prune_images() { docker image prune --all --force > /dev/null; }
 
-reload_caddy() { docker exec caddy caddy reload --config /etc/caddy/Caddyfile; }
+reload_caddy() { docker exec caddy caddy reload --config /etc/caddy/Caddyfile "$@"; }
+
+# One wildcard certificate covers every preview, so a new preview never counts against
+# the Let's Encrypt limit for the domain.
+CERT=$PREVIEW_ACME/certificates/_.$PREVIEW_DOMAIN
+LEGO=goacme/lego:v5.7.0
+LEGO+=@sha256:9fe6151508c0e1ddc51a6d3e474353520f4b008782bf0c6d31676da72e6d4766
+
+cert_hash() { sha256sum "$CERT.crt" 2> /dev/null || true; }
+
+# Gets the certificate, or renews it when it is due.
+renew_cert() {
+    docker run --rm --volume "$PREVIEW_ACME:/acme" --env AWS_REGION="$PREVIEW_REGION" \
+        --env AWS_HOSTED_ZONE_ID="$PREVIEW_ZONE_ID" "$LEGO" run --accept-tos \
+        --no-random-sleep --dns route53 --domains "*.$PREVIEW_DOMAIN" --path /acme
+}
 
 # Prints "<pr> <deployed>" for each preview.
 previews() {
@@ -157,6 +174,7 @@ up() {
             # the delay one preview's deploy breaks the streams of all the others.
             cat > "$PREVIEW_SITES/pr-$pr.caddy" << SITE
 pr-$pr.$PREVIEW_DOMAIN {
+    tls $CERT.crt $CERT.key
     log {
         output file $PREVIEW_LOGS/pr-$pr.log
     }
@@ -189,6 +207,7 @@ down() {
 
 upgrade() {
     local mounts preview
+    renew_cert
     # No Caddy container yet, on a new host, reads as no mounts.
     mounts=$(docker inspect -f '{{range .Mounts}}{{.Destination}} {{end}}' caddy \
         2> /dev/null || true)
@@ -199,6 +218,8 @@ upgrade() {
             --publish 443:443 --volume /etc/caddy:/etc/caddy:ro \
             --volume "$PREVIEW_LOGS:$PREVIEW_LOGS" --volume caddy_data:/data \
             caddy:2.10 > /dev/null
+    else
+        reload_caddy --force
     fi
     # A running Core cannot get GOMEMLIMIT, so a lower memory limit could kill it.
     for preview in $(docker ps --all --quiet --filter label=synnax.preview); do
@@ -207,7 +228,7 @@ upgrade() {
 }
 
 sweep() {
-    local cutoff pr deployed
+    local cutoff pr deployed before
     cutoff=$(($(date +%s) - PREVIEW_TTL_DAYS * 86400))
     previews | while read -r pr deployed _; do
         if ! marked_none "$pr" || (($(active "$pr" "$deployed") >= cutoff)); then
@@ -218,6 +239,10 @@ sweep() {
     done
     # A failed deploy can leave a pulled image that no container uses.
     prune_images
+    before=$(cert_hash)
+    renew_cert
+    # Caddy loads a changed certificate file only on a forced reload.
+    if [[ $(cert_hash) != "$before" ]]; then reload_caddy --force; fi
 }
 
 notices() { if [[ -f $NOTICES ]]; then cat "$NOTICES"; fi; }

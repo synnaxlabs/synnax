@@ -43,11 +43,11 @@ variable "region" {
 
 variable "domain" {
   description = <<-EOT
-    Parent domain of the previews, with a wildcard record to the host. A preview is at
-    pr-<number>.<domain>. Empty uses <host IP>.sslip.io, which needs no DNS record.
+    Parent domain of the previews. Terraform creates its Route 53 zone, which the
+    parent zone must delegate to. A preview is at pr-<number>.<domain>.
   EOT
   type        = string
-  default     = ""
+  default     = "preview.synnaxlabs.com"
 }
 
 variable "repository" {
@@ -204,6 +204,29 @@ resource "aws_iam_role_policy" "host_license" {
   })
 }
 
+# lego on the host gets the wildcard certificate through a DNS-01 challenge.
+resource "aws_iam_role_policy" "host_dns" {
+  role = aws_iam_role.host.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "route53:ChangeResourceRecordSets",
+          "route53:ListResourceRecordSets",
+        ]
+        Resource = aws_route53_zone.preview.arn
+      },
+      {
+        Effect   = "Allow"
+        Action   = "route53:GetChange"
+        Resource = "arn:aws:route53:::change/*"
+      },
+    ]
+  })
+}
+
 resource "aws_iam_instance_profile" "host" {
   name = "synnax-preview-host"
   role = aws_iam_role.host.name
@@ -229,6 +252,8 @@ resource "aws_instance" "host" {
     http_tokens = "required"
   }
   tags = { Name = "synnax-preview" }
+  # The first upgrade gets the certificate through the role.
+  depends_on = [aws_iam_role_policy.host_dns]
   # User data only bootstraps a new host. install.sh brings a running host up to date,
   # so a script or setting change never replaces the host under live previews.
   lifecycle {
@@ -238,7 +263,9 @@ resource "aws_instance" "host" {
 
 locals {
   host_env = <<-EOT
-    PREVIEW_DOMAIN=${local.domain}
+    PREVIEW_DOMAIN=${var.domain}
+    PREVIEW_ZONE_ID=${aws_route53_zone.preview.zone_id}
+    PREVIEW_ACME=/etc/caddy/acme
     PREVIEW_SITES=/etc/caddy/sites
     PREVIEW_TTL_DAYS=${var.ttl_days}
     PREVIEW_LICENSE_PARAMETER=${var.license_parameter}
@@ -260,8 +287,18 @@ resource "aws_eip_association" "host" {
   instance_id   = aws_instance.host.id
 }
 
-locals {
-  domain = coalesce(var.domain, "${replace(aws_eip.host.public_ip, ".", "-")}.sslip.io")
+resource "aws_route53_zone" "preview" {
+  # checkov:skip=CKV2_AWS_38:The parent zone is unsigned, so signing adds no trust.
+  # checkov:skip=CKV2_AWS_39:The zone holds one record to a public host.
+  name = var.domain
+}
+
+resource "aws_route53_record" "previews" {
+  zone_id = aws_route53_zone.preview.zone_id
+  name    = "*.${var.domain}"
+  type    = "A"
+  ttl     = 300
+  records = [aws_eip.host.public_ip]
 }
 
 resource "aws_iam_openid_connect_provider" "github" {
@@ -386,12 +423,16 @@ output "instance_id" {
 }
 
 output "public_ip" {
-  description = "Target of the wildcard DNS record *.<domain>."
-  value       = aws_eip.host.public_ip
+  value = aws_eip.host.public_ip
 }
 
 output "domain" {
-  value = local.domain
+  value = var.domain
+}
+
+output "name_servers" {
+  description = "The NS records the parent zone needs for <domain>."
+  value       = aws_route53_zone.preview.name_servers
 }
 
 output "ecr_repository_url" {
