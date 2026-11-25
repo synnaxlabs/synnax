@@ -43,13 +43,14 @@ func (*Service) Match(body map[string]any) bool {
 // file older than v14 gets an enumeration for its options, as at upgrade, shared with
 // equal lists of the same file. Each light of such a file with an on color gets an
 // enumeration with On in that color. Each custom node of such a file with state
-// overrides gets the enumeration or symbol copy that the upgrade gives it, when
-// opts.Retrievable allows its symbol and the enumeration of that symbol. The schematic
-// drops each named color and each enumeration that the Core does not hold, so a select
-// or state indicator that loses its enumeration draws no states. A node whose custom
-// symbol the Core does not hold draws a missing symbol with the same key, and every
-// other node drops the bindings that its symbol orphans. An unknown envelope version is
-// a path-scoped validation error.
+// overrides gets the enumeration or symbol copy that the upgrade gives it, and each
+// custom actuator whose symbol does not actuate gets a copy that does, when
+// opts.Retrievable allows the symbol and each enumeration that the node needs. The
+// schematic drops each named color and each enumeration that the Core does not hold, so
+// a select or state indicator that loses its enumeration draws no states. A node whose
+// custom symbol the Core does not hold draws a missing symbol with the same key, and
+// every other node drops the bindings that its symbol orphans. An unknown envelope
+// version is a path-scoped validation error.
 func (s *Service) Decode(ctx context.Context, env imex.Envelope) (imex.Write, error) {
 	sch, err := versions.DecodeImExEnvelope(ctx, env)
 	if err != nil {
@@ -96,7 +97,7 @@ func (s *Service) Decode(ctx context.Context, env imex.Envelope) (imex.Write, er
 // importOld gives sch, lifted from the old schematic old, the enumerations and symbol
 // copies that its selects, state indicators, lights, and custom nodes need. Each import
 // makes its own records. A node keeps its symbol when retrievable rejects the symbol or
-// its enumeration, and a nil retrievable rejects all.
+// an enumeration that the node needs, and a nil retrievable rejects all.
 func (s *Service) importOld(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -117,7 +118,7 @@ func (s *Service) importOld(
 	if err := v14.InternLights(ctx, sch, old, intern); err != nil {
 		return err
 	}
-	return v14.ImportOverrides(
+	return v14.ImportCustomNodes(
 		ctx,
 		tx,
 		sch,

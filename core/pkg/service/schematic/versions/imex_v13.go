@@ -25,8 +25,7 @@ import (
 // DecodeV13 decodes env as a v13 Schematic when env holds a file of v13 or older,
 // Console files included, and returns false for a newer file. The v13 shape holds the
 // state lists and colors that v14 no longer stores. A scale that is not positive
-// becomes
-// 1, as in DecodeImExEnvelope.
+// becomes 1, as in DecodeImExEnvelope.
 func DecodeV13(ctx context.Context, env imex.Envelope) (v13.Schematic, bool, error) {
 	if env.Version > v13.Version {
 		return v13.Schematic{}, false, nil

@@ -55,8 +55,6 @@ import (
 //go:embed testdata/released/v0.61.4/*.hex testdata/released/v0.62.0/*.hex
 var released embed.FS
 
-// openShipped returns a store that holds the migrations of core/v0.62.0, whose chains
-// end at these migrations.
 // openStore returns a DB on kvDB that holds the schematic migrations through
 // schematicLast and the symbol migrations through symbolLast as applied. An empty key
 // applies none.
@@ -817,7 +815,7 @@ var _ = Describe("Imported v13 state overrides", func() {
 	}
 
 	DescribeTable(
-		"Should import a node on its symbol when its user cannot retrieve",
+		"Should leave a node on its symbol when retrievable rejects",
 		func(ctx SpecContext, retrievable func(symbol.Symbol) func(resource.ID) bool) {
 			db := openShipped(ctx)
 			sym := v4.Symbol{Key: uuid.New(), Name: "Valve", Data: plain}
@@ -865,6 +863,28 @@ var _ = Describe("Imported v13 state overrides", func() {
 			},
 		),
 	)
+
+	It("Should import a custom actuator on a symbol with no states with a copy that "+
+		"keeps its state binding", func(ctx SpecContext) {
+		db := openShipped(ctx)
+		sym := v4.Symbol{Key: uuid.New(), Name: "Plain", Data: v4.Spec{
+			Variant: "static",
+			Scale:   1,
+			SVG:     `<svg><rect class="a"/></svg>`,
+		}}
+		Expect(gorp.NewCreate[v4.Key, v4.Symbol]().Entry(&sym).Exec(ctx, db)).
+			To(Succeed())
+		svc := openService(ctx, db)
+		key := importFile(ctx, db, svc, panel(sym.Key, nil), all)
+		var sc schematic.Schematic
+		Expect(svc.NewRetrieve().
+			Where(schematic.MatchKeys(key)).
+			Entry(&sc).
+			Exec(ctx, db)).To(Succeed())
+		n := as[schematic.SymbolNodeConfig](sc.Nodes[0].Config.Variant)
+		Expect(as[symbol.CustomRef](n.Spec.Variant).Key).ToNot(Equal(sym.Key))
+		Expect(n.States).To(ConsistOf(HaveField("Key", "active")))
+	})
 
 	It("Should import a node whose symbol the Core lacks with a missing symbol",
 		func(ctx SpecContext) {

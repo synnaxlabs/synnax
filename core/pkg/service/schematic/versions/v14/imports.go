@@ -18,12 +18,13 @@ import (
 	v13 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v13"
 )
 
-// ImportOverrides gives each custom node of old with state overrides, in an import of
+// ImportCustomNodes gives each custom node of old with state overrides, in an import of
 // an old file on tx, the enumeration or the copy of its symbol that NewMigration gives
-// a stored node. s must be old lifted to v14. A symbol counts as missing when
-// retrievable rejects it or its enumeration. Each enumeration comes from intern, and
-// create creates each copy.
-func ImportOverrides(
+// a stored node. Each custom actuator whose symbol does not actuate gets a copy that
+// does. s must be old lifted to v14. A node keeps its symbol when retrievable rejects
+// the symbol or an enumeration that its enumeration or copy needs. Each enumeration
+// comes from intern, and create creates each copy.
+func ImportCustomNodes(
 	ctx context.Context,
 	tx gorp.Tx,
 	s *Schematic,
