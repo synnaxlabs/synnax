@@ -85,7 +85,6 @@ type topicSample struct {
 
 // topicMessage reads the documents of one ICD message into its bound channels.
 type topicMessage struct {
-	name string
 	// keys are the channels of one frame: the index, when there is one, then the
 	// bound channels that are not the index.
 	keys channel.Keys
@@ -149,39 +148,31 @@ func newReadTopic(
 	return t, nil
 }
 
-// newTopicMessage validates rm and fills decoded with what the decoder needs to read
-// it.
+// newTopicMessage returns the message that rm reads, and fills decoded with what the
+// decoder needs to read it. rm must pass check.
 func newTopicMessage(
 	rm icd.ReadMessage,
 	ic icd.ICD,
 	channels map[channel.Key]channel.Channel,
 	decoded *codec.JSONMessage,
 ) (*topicMessage, error) {
-	var msg *icd.Message
-	for i := range ic.Messages {
-		if ic.Messages[i].Key == rm.Message {
-			msg = &ic.Messages[i]
-			break
-		}
+	i := slices.IndexFunc(ic.Messages, func(m icd.Message) bool {
+		return m.Key == rm.Message
+	})
+	if i < 0 {
+		panic(errors.Newf("mqtt: message %s is not in ICD %s", rm.Message, ic.Name))
 	}
-	if msg == nil {
-		return nil, errors.Wrapf(
-			validate.ErrValidation,
-			"message %s does not exist in ICD %s", rm.Message, ic.Name,
-		)
-	}
+	msg := ic.Messages[i]
 	payload, ok := msg.Payload.Variant.(icd.JSONPayload)
 	if !ok {
-		return nil, errors.Wrapf(
-			validate.ErrValidation, "message %s is not a JSON message", msg.Name,
-		)
+		panic(errors.Newf("mqtt: message %s is not a JSON message", msg.Name))
 	}
 	if len(rm.Bindings) == 0 {
 		return nil, errors.Wrapf(
 			validate.ErrValidation, "message %s binds no fields", msg.Name,
 		)
 	}
-	m := &topicMessage{name: msg.Name, indexField: -1}
+	m := &topicMessage{indexField: -1}
 	bindings, err := m.bind(rm, channels)
 	if err != nil {
 		return nil, errors.Wrapf(err, "message %s", msg.Name)
@@ -221,26 +212,9 @@ func (m *topicMessage) bind(
 				validate.ErrValidation, "every channel must share one index channel",
 			)
 		}
-		isIndexField := rm.Index != nil && *rm.Index == b.Field
-		switch {
-		case isIndexField && !ch.IsIndex:
-			return nil, errors.Wrap(
-				validate.ErrValidation,
-				"the index field must write to an index channel",
-			)
-		case !isIndexField && ch.IsIndex:
-			return nil, errors.Wrap(
-				validate.ErrValidation,
-				"only the index field can write to an index channel",
-			)
-		case isIndexField:
+		if rm.Index != nil && *rm.Index == b.Field {
 			m.indexField = i
 		}
-	}
-	if rm.Index != nil && m.indexField == -1 {
-		return nil, errors.Wrap(
-			validate.ErrValidation, "the index field has no channel",
-		)
 	}
 	return bindings, nil
 }
@@ -253,19 +227,22 @@ func (t *readTopic) convert(msg message) (topicSample, error) {
 			samples[i] = samples[i][:0]
 		}
 	}
-	i, ok, err := t.decoder.Decode(msg.payload, t.samples)
+	i, ok, failures, err := t.decoder.Decode(msg.payload, t.samples)
 	if err != nil &&
 		!jsontext.Value(msg.payload).IsValid(jsontext.AllowDuplicateNames(true)) {
 		if t.text, err = jsontext.AppendQuote(t.text[:0], msg.payload); err != nil {
 			return topicSample{}, err
 		}
-		i, ok, err = t.decoder.Decode(t.text, t.samples)
+		i, ok, failures, err = t.decoder.Decode(t.text, t.samples)
 	}
 	if err != nil {
 		return topicSample{}, err
 	}
 	if !ok {
 		return topicSample{}, errors.New("the payload matches no message")
+	}
+	if failures != nil {
+		return topicSample{}, failures[0].Err
 	}
 	return t.messages[i].sample(t.samples[i], msg.received), nil
 }

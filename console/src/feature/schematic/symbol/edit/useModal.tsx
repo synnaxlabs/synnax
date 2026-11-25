@@ -20,17 +20,21 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
-import { Theming } from "@synnaxlabs/lyra/theming";
-import { Enumeration, Schematic } from "@synnaxlabs/pluto";
-import { type bounds, color, id, type xy } from "@synnaxlabs/x";
-import { type ReactElement, useState } from "react";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Schematic } from "@synnaxlabs/pluto";
+import { type bounds, deep, id, type xy } from "@synnaxlabs/x";
+import { type ReactElement, useRef, useState } from "react";
 
 import { HandleList } from "@/feature/schematic/symbol/edit/HandleList";
+import { Inspector } from "@/feature/schematic/symbol/edit/Inspector";
+import { PartList } from "@/feature/schematic/symbol/edit/PartList";
 import { Preview } from "@/feature/schematic/symbol/edit/Preview";
-import { RegionList } from "@/feature/schematic/symbol/edit/RegionList";
-import { StateList } from "@/feature/schematic/symbol/edit/StateList";
+import { useConfirmSave } from "@/feature/schematic/symbol/edit/useConfirmSave";
+import { useValues } from "@/feature/schematic/symbol/edit/useValues";
 import { SelectVariantField } from "@/feature/schematic/symbol/SelectVariant";
 import { Spec } from "@/feature/schematic/symbol/spec";
+import { FLAGS } from "@/flags";
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";
@@ -52,26 +56,52 @@ export interface ModalParams {
 
 const SCALE_BOUNDS: bounds.Bounds = { lower: 5, upper: 1000 };
 
-const DEFAULT_REGION_KEY = "default";
-
-interface StatesProps {
+interface ValueBarProps {
   value: number;
   onChange: (value: number) => void;
 }
 
-// States lists the values of the state, named by the entries of its enumeration.
-const States = ({ value, onChange }: StatesProps): ReactElement | null => {
-  const states = Form.useFieldValue(path.data.states);
-  const variant = Form.useFieldValue(path.data.variant);
-  const key = Spec.enumerationKey({ states });
-  const res = Enumeration.useResult(key == null ? null : { key });
-  const entries = res.variant === "success" ? res.data.entries : undefined;
+// ValueBar picks the value of the state that the canvas draws.
+const ValueBar = ({ value, onChange }: ValueBarProps): ReactElement | null => {
+  const { list } = useValues();
+  if (list.length < 2) return null;
   return (
-    <StateList
-      value={value}
-      onChange={onChange}
-      tabs={Schematic.Node.Custom.listValues({ variant }, entries)}
-    />
+    <Flex.Box x align="center" gap="small" className={CSS.BE("schematic", "value-bar")}>
+      <Text.Text level="small" color={9}>
+        Preview
+      </Text.Text>
+      <Select.Buttons<number>
+        value={value}
+        onChange={onChange}
+        size="small"
+        variant="outlined"
+      >
+        {list.map((v) => (
+          <Select.Item<number> key={v.value} itemKey={v.value} size="small">
+            {v.name}
+          </Select.Item>
+        ))}
+      </Select.Buttons>
+    </Flex.Box>
+  );
+};
+
+// climb returns what an Alt-click on shape picks for part, as Select parent group does:
+// the group above the outermost shape of part there, or above the shape. With no group
+// above, it returns shape when part holds none of it.
+const climb = (
+  spec: schematic.symbol.Spec,
+  part: string | undefined,
+  shape: Schematic.Node.Region.Named,
+): Schematic.Node.Region.Named | null => {
+  const drawn = { ...spec, drawing: { ...spec.drawing, markup: shape.markup } };
+  const from = part == null ? undefined : Spec.outermost(drawn, part, shape.selector);
+  const group = Spec.parentGroup(drawn, [from ?? shape.selector]);
+  if (group == null) return from == null ? shape : null;
+  return Schematic.Node.Region.name(
+    shape.markup,
+    group.ownerDocument.documentElement,
+    group,
   );
 };
 
@@ -82,7 +112,6 @@ const Editor = ({
   close,
 }: Modals.ContentProps<ModalParams, void>): ReactElement => {
   const isCreate = symbolKey == null;
-  const theme = Theming.use();
   const { form, save, variant } = Schematic.Symbol.useForm({
     query: symbolKey == null ? null : { key: symbolKey },
     initialValues: {
@@ -106,28 +135,32 @@ const Editor = ({
     afterSave: () => close(),
   });
   Modals.useBusy(variant === "loading");
-  const [selectedValue, setSelectedValue, selectedValueRef] =
-    useCombinedStateAndRef<number>(0);
-  const [selectedRegion, setSelectedRegion, selectedRegionRef] =
-    useCombinedStateAndRef<string>(DEFAULT_REGION_KEY);
+  const stored = Schematic.Symbol.useResult(
+    symbolKey == null ? null : { key: symbolKey, includeUses: true },
+  );
+  const confirmSave = useConfirmSave();
+  const [selectedValue, setSelectedValue] = useState(0);
+  const [selectedPart, setSelectedPart, selectedPartRef] =
+    useCombinedStateAndRef<Spec.Target>(undefined);
   const [selectedHandle, setSelectedHandle] = useState<string | undefined>(undefined);
 
-  const addNewRegion = () => {
-    const spec = form.get(path.data).value;
+  // addPart adds a part, with the shape of selector when one is given, and selects it.
+  const addPart = (selector?: string) => {
+    const parts = form.get(path.data.parts).value;
     const part: schematic.symbol.Part = {
-      key: `reg-${id.create()}`,
-      name: `Region ${spec.parts.length + 1}`,
+      key: `part-${id.create()}`,
+      name: Spec.nextPartName(parts),
       selectors: [],
     };
-    const value = selectedValueRef.current;
-    const stroke = theme.colors.gray.l10;
-    const withPart = { ...spec, parts: [...spec.parts, part] };
-    const stroked = Spec.setColor(withPart, part.key, value, "stroke", stroke);
+    const next = [...parts, part];
+    const drawing = form.get(path.data.drawing).value;
     form.set(
-      path.data,
-      Spec.setColor(stroked, part.key, value, "fill", color.setOpacity(stroke, 0)),
+      path.data.parts,
+      selector == null
+        ? next
+        : Spec.toggleSelector({ drawing, parts: next }, part.key, selector),
     );
-    setSelectedRegion(part.key);
+    setSelectedPart(part.key);
   };
 
   const addNewHandle = () => {
@@ -152,20 +185,54 @@ const Editor = ({
     }
   };
 
-  const handleElementClick = (selector: string) =>
-    form.set(
-      path.data.parts,
-      Spec.toggleSelector(
-        form.get(path.data.parts).value,
-        selectedRegionRef.current,
-        selector,
-      ),
-    );
+  const lastClickSelectsRef = useRef(false);
+  const handleElementClick = (
+    shape: Schematic.Node.Region.Named,
+    { detail, altKey }: Pick<MouseEvent, "detail" | "altKey">,
+  ) => {
+    // A later click of the same double click would undo a click that selects a part.
+    if (detail > 1 && lastClickSelectsRef.current) return;
+    const part = selectedPartRef.current;
+    const named = altKey ? climb(form.get(path.data).value, part, shape) : shape;
+    if (named == null) return;
+    if (named.markup !== form.get(path.data.drawing.markup).value)
+      form.set(path.data.drawing.markup, named.markup);
+    const { selector } = named;
+    const spec = form.get(path.data).value;
+    // A shape in a group of another part cannot join part, so the click selects it.
+    const holder = Spec.groupOwner(spec, selector);
+    const toggles = part != null && (holder == null || holder.key === part);
+    lastClickSelectsRef.current = !toggles;
+    if (toggles)
+      return form.set(path.data.parts, Spec.toggleSelector(spec, part, selector));
+    const owner = part == null ? Spec.owner(spec, selector) : holder;
+    if (owner == null) return addPart(selector);
+    setSelectedPart(owner.key);
+  };
   const hasSVG =
     Form.useFieldValue(path.data.drawing.markup, {
       ctx: form,
     }).length > 0;
   const createSaveText = isCreate ? "Create" : "Save";
+  const handleSave = async () => {
+    // A fill motion that cannot draw stops the save and selects its part, whose
+    // inspector shows why. The inspector shows the issues only with the flag on.
+    if (FLAGS.symbolMotion) {
+      const [part] = Spec.levelIssues(form.get(path.data).value).keys();
+      if (part != null) return setSelectedPart(part);
+    }
+    const uses = stored.data?.uses ?? [];
+    if (stored.data != null && uses.length > 0) {
+      const spec = form.get(path.data).value;
+      const changed = !deep.equal(
+        { ...stored.data.data, previewViewport: undefined },
+        { ...spec, previewViewport: undefined },
+      );
+      if (changed && (await confirmSave({ stored: stored.data, spec, uses })) !== true)
+        return;
+    }
+    save();
+  };
 
   return (
     <Form.Form<typeof Schematic.Symbol.formSchema> {...form}>
@@ -206,18 +273,16 @@ const Editor = ({
                   </Header.Header>
                   <Flex.Box className={CSS.BE("schematic", "states")}>
                     <SelectVariantField onSelectValue={setSelectedValue} />
-                    <States value={selectedValue} onChange={setSelectedValue} />
                   </Flex.Box>
                 </Flex.Box>
                 <Divider.Divider x />
-                <RegionList
-                  value={selectedRegion}
+                <PartList
+                  value={selectedPart}
                   onChange={(value) => {
-                    setSelectedRegion(value);
+                    setSelectedPart(value);
                     setSelectedHandle(undefined);
                   }}
-                  selectedValue={selectedValue}
-                  onAddRegion={addNewRegion}
+                  onAdd={() => addPart()}
                 />
                 <Divider.Divider x />
                 <HandleList
@@ -256,22 +321,42 @@ const Editor = ({
                 </Flex.Box>
               </Flex.Box>
             )}
-            <Form.Field
-              path={path.data.drawing.markup}
-              showLabel={false}
-              showHelpText={false}
-            >
-              {({ onChange }) => (
-                <Preview
-                  selectedValue={selectedValue}
-                  selectedHandle={selectedHandle}
-                  onElementClick={handleElementClick}
-                  onContentsChange={onChange}
-                  onHandlePlace={handleHandlePlace}
-                  onHandleSelect={setSelectedHandle}
+            <Flex.Box y grow className={CSS.BE("schematic", "canvas")}>
+              <Form.Field
+                path={path.data.drawing.markup}
+                showLabel={false}
+                showHelpText={false}
+              >
+                {({ onChange }) => (
+                  <Preview
+                    selectedValue={selectedValue}
+                    selectedHandle={selectedHandle}
+                    selectedPart={selectedPart}
+                    onElementClick={handleElementClick}
+                    onContentsChange={onChange}
+                    onHandlePlace={handleHandlePlace}
+                    onHandleSelect={setSelectedHandle}
+                  />
+                )}
+              </Form.Field>
+              {hasSVG && <ValueBar value={selectedValue} onChange={setSelectedValue} />}
+            </Flex.Box>
+            {hasSVG && (
+              <Flex.Box
+                className={CSS.BE("schematic", "sidebar")}
+                y
+                rounded="small"
+                background={0}
+                bordered
+                borderColor={6}
+              >
+                <Inspector
+                  key={selectedPart ?? ""}
+                  part={selectedPart}
+                  preview={selectedValue}
                 />
-              )}
-            </Form.Field>
+              </Flex.Box>
+            )}
           </Flex.Box>
         </Modal.Body>
         {hasSVG && (
@@ -279,8 +364,13 @@ const Editor = ({
             <Nav.Bar.End>
               <Button.Button
                 variant="filled"
-                status={status.keepVariants(variant, "loading")}
-                onClick={() => save()}
+                status={
+                  !isCreate && stored.variant === "loading"
+                    ? "loading"
+                    : status.keepVariants(variant, "loading")
+                }
+                disabled={!isCreate && stored.variant === "error"}
+                onClick={() => void handleSave()}
                 trigger={Triggers.SAVE}
                 triggerIndicator
               >

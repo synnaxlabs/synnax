@@ -117,6 +117,7 @@ import {
   MdComputer,
   MdContentCut,
   MdContentPaste,
+  MdContrast,
   MdDarkMode,
   MdDataArray,
   MdDataObject,
@@ -649,6 +650,7 @@ export const False = wrapSVGIcon(FaXmark, "false");
 export const KebabMenu = wrapSVGIcon(MdMoreVert, "kebab-menu");
 export const Annotation = wrapSVGIcon(MdComment, "annotation");
 export const Click = wrapSVGIcon(HiCursorClick, "click");
+export const Contrast = wrapSVGIcon(MdContrast, "contrast");
 export const DarkMode = wrapSVGIcon(MdDarkMode, "dark-mode");
 export const LightMode = wrapSVGIcon(MdLightMode, "light-mode");
 export const Safety = wrapSVGIcon(FaHelmetSafety, "safety");

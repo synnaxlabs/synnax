@@ -716,8 +716,8 @@ type constraintCheckData struct {
 	GoName    string
 	FieldName string
 	// Kind selects the assertion form: non_empty_string, min_len, max_len, pattern
-	// (string), min_bytes, max_bytes (bytes), non_zero (numeric or uuid), or ge, le,
-	// lt (numeric).
+	// (string), min_bytes (bytes), non_empty_slice (list), non_zero (numeric or uuid),
+	// or ge, le, lt (numeric).
 	Kind string
 	// Arg is the length or numeric threshold literal for the kinds that take one, the
 	// Go name of the compared field for lt, or the regex var for pattern.
@@ -763,6 +763,10 @@ func goConstraintChecks(
 	required := rules.Required && !field.Optional
 	var checks []constraintCheckData
 	switch {
+	case validation.IsList(field.Type):
+		if required {
+			checks = append(checks, check("non_empty_slice", ""))
+		}
 	case base == "uuid":
 		if required {
 			checks = append(checks, check("non_zero", ""))
@@ -782,22 +786,15 @@ func goConstraintChecks(
 	return checks
 }
 
-// bytesChecks returns the length checks of a bytes field, which count bytes.
+// bytesChecks returns the min_length check of a bytes field, which counts bytes. The
+// analyzer refuses a max_length rule on bytes for Go.
 func bytesChecks(rules *validation.Rules, check constraintCheck) []constraintCheckData {
-	var checks []constraintCheckData
-	if rules.MinLength != nil {
-		checks = append(
-			checks,
-			check("min_bytes", strconv.FormatInt(*rules.MinLength, 10)),
-		)
+	if rules.MinLength == nil {
+		return nil
 	}
-	if rules.MaxLength != nil {
-		checks = append(
-			checks,
-			check("max_bytes", strconv.FormatInt(*rules.MaxLength, 10)),
-		)
+	return []constraintCheckData{
+		check("min_bytes", strconv.FormatInt(*rules.MinLength, 10)),
 	}
-	return checks
 }
 
 // goLessThanCheck returns the check of the lt rule that field sets for Go. siblings are
@@ -1061,10 +1058,10 @@ func probeData(data *templateData) *templateData {
 // typeNeedsMethod reports whether the type named by ref emits the method of rule: it is
 // a union and rule.everyUnion is set, or it has a field satisfying rule.hasOwn, or a
 // nested struct field, slice/array element, map value, union base, or union variant
-// payload that (transitively) does. Generic types and type parameters never emit a
-// method. visited guards against cycles in recursive types. Probing must not leak
-// imports into the emitted file, so rule.hasOwn runs against a scratch-import copy of
-// data.
+// payload that (transitively) does. A type parameter, or a struct with a type parameter
+// that has no default, never emits a method. visited guards against cycles in recursive
+// types. Probing must not leak imports into the emitted file, so rule.hasOwn runs
+// against a scratch-import copy of data.
 func typeNeedsMethod(
 	ref resolution.TypeRef,
 	data *templateData,
@@ -1114,11 +1111,12 @@ func structNeedsMethod(
 	visited set.Set[string],
 	rule methodRule,
 ) bool {
-	if form.IsGeneric() {
+	if len(resolution.NonDefaultedTypeParams(form.TypeParams)) > 0 {
 		return false
 	}
 	probe := probeData(data)
-	for _, field := range resolution.UnifiedFields(resolved, data.table) {
+	fields, _ := resolution.RecordFields(resolved, data.table)
+	for _, field := range fields {
 		if rule.skip(field, data) {
 			continue
 		}
@@ -1390,12 +1388,13 @@ func typeSetsDefaults(
 		return false
 	}
 	form, ok := resolved.Form.(resolution.StructForm)
-	if !ok || form.IsGeneric() {
+	if !ok || len(resolution.NonDefaultedTypeParams(form.TypeParams)) > 0 {
 		return false
 	}
 	probe := probeData(data)
+	fields, _ := resolution.RecordFields(resolved, data.table)
 	return lo.SomeBy(
-		resolution.UnifiedFields(resolved, data.table),
+		fields,
 		func(f resolution.Field) bool {
 			return defaultsHasOwn(f, probe) ||
 				(!f.Optional && typeSetsDefaults(f.Type, data, visited))
@@ -1481,12 +1480,13 @@ func typeHasGroups(
 		return false
 	}
 	form, ok := resolved.Form.(resolution.StructForm)
-	if !ok || form.IsGeneric() {
+	if !ok || len(resolution.NonDefaultedTypeParams(form.TypeParams)) > 0 {
 		return false
 	}
 	probe := probeData(data)
+	fields, _ := resolution.RecordFields(resolved, data.table)
 	return lo.SomeBy(
-		resolution.UnifiedFields(resolved, data.table),
+		fields,
 		func(f resolution.Field) bool {
 			return (defaultGroupName(f) != "" && defaultsHasOwn(f, probe)) ||
 				(!f.Optional && typeHasGroups(f.Type, data, visited))

@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <optional>
@@ -27,6 +26,7 @@
 #include "x/cpp/json/text.h"
 
 #include "driver/codec/errors.h"
+#include "driver/codec/field.h"
 #include "driver/codec/json.h"
 
 namespace driver::codec {
@@ -39,12 +39,6 @@ std::optional<std::size_t> claim(Map &m, const Key &key, const std::size_t messa
     const auto [it, inserted] = m.try_emplace(key, message);
     if (inserted) return std::nullopt;
     return it->second;
-}
-
-/// @brief reports whether inner is outer or a pointer into the value at outer.
-bool within(const x::json::Pointer &inner, const x::json::Pointer &outer) {
-    return outer.tokens.size() <= inner.tokens.size() &&
-           std::equal(outer.tokens.begin(), outer.tokens.end(), inner.tokens.begin());
 }
 }
 

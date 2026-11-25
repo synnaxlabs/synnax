@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
+	"github.com/synnaxlabs/synnax/pkg/service/icd/read"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -55,7 +56,7 @@ type FactoryConfig struct {
 	//
 	// [REQUIRED]
 	Status *status.Service
-	// ICD holds the ICDs whose messages read tasks decode.
+	// ICD holds the ICDs whose messages read tasks decode and write tasks send.
 	//
 	// [REQUIRED]
 	ICD *icd.Service
@@ -107,7 +108,10 @@ func (c FactoryConfig) Validate() error {
 	return v.Error()
 }
 
-type factory struct{ cfg FactoryConfig }
+type factory struct {
+	cfg   FactoryConfig
+	reads read.Resolver
+}
 
 var _ driver.Factory = (*factory)(nil)
 
@@ -125,7 +129,10 @@ func NewFactory(cfgs ...FactoryConfig) (driver.Factory, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &factory{cfg: cfg}, nil
+	return &factory{
+		cfg:   cfg,
+		reads: read.NewResolver(cfg.ICD, icd.ReadChannels(cfg.Channel)),
+	}, nil
 }
 
 // Name implements driver.Factory.
@@ -175,7 +182,25 @@ func (f *factory) ConfigureTask(
 		}
 		return rt, nil
 	case WriteTaskType:
-		wt, err := f.configureWrite(ctx, t)
+		var cfg WriteConfig
+		if err := t.Config.Unmarshal(&cfg); err != nil {
+			f.reporter().Report(ctx, t, cmdKey, err)
+			return nil, err
+		}
+		if len(cfg.Targets) > 0 {
+			wt, err := f.configureTargets(ctx, t, cfg)
+			if err != nil {
+				f.reporter().Report(ctx, t, cmdKey, err)
+				return nil, err
+			}
+			if cfg.AutoStart {
+				if err = wt.Start(ctx, cmdKey); err != nil {
+					return nil, err
+				}
+			}
+			return wt, nil
+		}
+		wt, err := f.configureWrite(ctx, t, cfg)
 		if err != nil {
 			f.reporter().Report(ctx, t, cmdKey, err)
 			return nil, err

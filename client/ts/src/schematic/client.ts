@@ -141,7 +141,10 @@ export class Client extends query.Retriever<
       },
     });
     this.cfg = cfg;
-    this.symbols = new symbol.Client(cfg);
+    this.symbols = new symbol.Client({
+      ...cfg,
+      usesChannels: [SET_CHANNEL_NAME, DELETE_CHANNEL_NAME],
+    });
     this.store = store;
     const build: group.EntryBuilder<Key> = (key, acts) =>
       dispatcher.request("/schematic/dispatch", key, acts, dispatchResZ);

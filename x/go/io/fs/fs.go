@@ -62,6 +62,12 @@ type FS interface {
 	Rename(oldPath, newPath string) error
 	// Stat returns a FileInfo interface.
 	Stat(name string) (FileInfo, error)
+	// SyncDir makes the entries of the directory name durable, so a file created in,
+	// renamed in, or removed from name stays that way after a power loss. An empty name
+	// is the root of the FS. Windows has no directory sync, so there SyncDir only
+	// checks name. The error matches os.ErrNotExist when name does not exist and
+	// syscall.ENOTDIR when name is not a directory.
+	SyncDir(name string) error
 }
 
 type subFS struct {
@@ -91,6 +97,10 @@ func (s *subFS) Rename(oldName, newName string) error {
 
 func (s *subFS) Stat(name string) (FileInfo, error) {
 	return s.FS.Stat(path.Join(s.dir, name))
+}
+
+func (s *subFS) SyncDir(name string) error {
+	return s.FS.SyncDir(path.Join(s.dir, name))
 }
 
 // CopyFile copies the file name in src to the same name in dst, replaces any file

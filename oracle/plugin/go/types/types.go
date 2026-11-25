@@ -1687,6 +1687,8 @@ func ({{$s.Receiver}} {{$s.Name}}) Validate() error {
 {{- end}}
 {{- if eq .Kind "non_empty_string"}}
 	v.NotEmptyString("{{.FieldName}}", {{$val}})
+{{- else if eq .Kind "non_empty_slice"}}
+	v.NotEmptySlice("{{.FieldName}}", {{$val}})
 {{- else if eq .Kind "non_zero"}}
 	v.NonZero("{{.FieldName}}", {{$val}})
 {{- else if eq .Kind "min_len"}}
@@ -1695,8 +1697,6 @@ func ({{$s.Receiver}} {{$s.Name}}) Validate() error {
 	v.MaxLength("{{.FieldName}}", {{$val}}, {{.Arg}})
 {{- else if eq .Kind "min_bytes"}}
 	v.MinBytes("{{.FieldName}}", {{$val}}, {{.Arg}})
-{{- else if eq .Kind "max_bytes"}}
-	v.MaxBytes("{{.FieldName}}", {{$val}}, {{.Arg}})
 {{- else if eq .Kind "ge"}}
 	v.GreaterThanEq("{{.FieldName}}", {{$val}}, {{.Arg}})
 {{- else if eq .Kind "gt"}}
@@ -1831,6 +1831,8 @@ func ({{$vt.Receiver}} {{$vt.TypeName}}) Validate() error {
 {{- end}}
 {{- if eq .Kind "non_empty_string"}}
 	v.NotEmptyString("{{.FieldName}}", {{$val}})
+{{- else if eq .Kind "non_empty_slice"}}
+	v.NotEmptySlice("{{.FieldName}}", {{$val}})
 {{- else if eq .Kind "non_zero"}}
 	v.NonZero("{{.FieldName}}", {{$val}})
 {{- else if eq .Kind "min_len"}}
@@ -1839,8 +1841,6 @@ func ({{$vt.Receiver}} {{$vt.TypeName}}) Validate() error {
 	v.MaxLength("{{.FieldName}}", {{$val}}, {{.Arg}})
 {{- else if eq .Kind "min_bytes"}}
 	v.MinBytes("{{.FieldName}}", {{$val}}, {{.Arg}})
-{{- else if eq .Kind "max_bytes"}}
-	v.MaxBytes("{{.FieldName}}", {{$val}}, {{.Arg}})
 {{- else if eq .Kind "ge"}}
 	v.GreaterThanEq("{{.FieldName}}", {{$val}}, {{.Arg}})
 {{- else if eq .Kind "gt"}}
