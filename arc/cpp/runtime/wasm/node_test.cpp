@@ -3692,9 +3692,7 @@ TEST(BatchTest, RepeatsAShorterInput) {
          )) {
         auto out = x::telem::Series(x::telem::INT32_T, 5);
         out.resize(5);
-        const auto [ran, err] = func.batch()->call({&a, &b}, 5, out);
-        ASSERT_TRUE(ran);
-        ASSERT_NIL(err);
+        ASSERT_TRUE(ASSERT_NIL_P(func.batch()->call({&a, &b}, 5, out)));
         EXPECT_EQ(out.values<int32_t>(), call_each(func, a, b, 5));
     }
 }
@@ -3710,8 +3708,6 @@ TEST(BatchTest, RefusesASeriesOfAnotherKind) {
     const auto b = x::telem::Series(std::vector<int32_t>{1, 2});
     auto out = x::telem::Series(x::telem::INT32_T, 2);
     out.resize(2);
-    const auto [ran, err] = func.batch()->call({&a, &b}, 2, out);
-    EXPECT_FALSE(ran);
-    ASSERT_NIL(err);
+    EXPECT_FALSE(ASSERT_NIL_P(func.batch()->call({&a, &b}, 2, out)));
 }
 }
