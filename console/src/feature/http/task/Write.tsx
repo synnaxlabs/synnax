@@ -9,7 +9,7 @@
 
 import "@/feature/http/task/Form.css";
 
-import { channel, DisconnectedError, type http, type icd } from "@synnaxlabs/client";
+import { channel, DisconnectedError, http, type icd } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
@@ -30,7 +30,6 @@ import {
   WRITE_SCHEMAS,
   WRITE_TYPE,
   type WriteEndpoint,
-  writeEndpointZ,
   type WriteSchemas,
 } from "@/feature/http/task/types";
 import { CSS } from "@/platform/css";
@@ -261,7 +260,7 @@ const Endpoints = ({ device }: EndpointsProps) => {
    */
   const add = async () => {
     if (client == null) throw new DisconnectedError();
-    const ep = writeEndpointZ.parse({});
+    const ep = http.writeEndpointZ.parse({});
     const {
       icd: key,
       messages: [message],

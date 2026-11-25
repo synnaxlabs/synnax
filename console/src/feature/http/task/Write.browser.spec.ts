@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, icd, type Synnax, type task } from "@synnaxlabs/client";
+import { channel, http, icd, type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
@@ -66,7 +66,7 @@ const createEndpoint = (
   message: icd.Message,
   fields: icd.JSONField[],
 ): HTTP.Task.WriteEndpoint => ({
-  ...HTTP.Task.writeEndpointZ.parse({}),
+  ...http.writeEndpointZ.parse({}),
   key,
   method: "PUT",
   path,
@@ -190,7 +190,7 @@ describe("Write", () => {
     const value = createField("value", "float");
     const { ic, message } = await createFormat([value]);
     const { draft } = await renderWrite([
-      { ...HTTP.Task.writeEndpointZ.parse({}), key: "ep1", path: "/setpoint" },
+      { ...http.writeEndpointZ.parse({}), key: "ep1", path: "/setpoint" },
     ]);
     fireEvent.click(await screen.findByRole("option", { name: /\/setpoint/ }));
     await pickMessageFormat("Select message format", message.name, ic.name);

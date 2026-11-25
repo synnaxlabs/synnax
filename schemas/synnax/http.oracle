@@ -251,8 +251,11 @@ ChannelField struct {
         """
     }
 
+    @cpp omit
     @doc value  "is the command channel value placed into a write endpoint's body."
     @go marshal
+    @py omit
+    @ts omit
 }
 
 BaseWriteField struct {
@@ -264,6 +267,7 @@ BaseWriteField struct {
         @doc value "is the JSON Pointer where the value is placed in the body."
     }
 
+    @cpp omit
     @doc value  "carries the fields every write body field shares."
     @go marshal
 }
@@ -292,6 +296,7 @@ WriteField union on type extends BaseWriteField {
         @doc value "places a freshly generated UUID or timestamp in the body."
     }
 
+    @cpp omit
     @doc value  """
         is an additional body field on a write endpoint. The type field selects whether
         the value is fixed or generated per request.
@@ -332,12 +337,6 @@ WriteEndpoint struct {
             is the message whose document is the request body. A command on any bound
             channel sends one request.
         """
-    }
-    channel      ChannelField = {} {
-        @doc value "is the command channel whose writes trigger this endpoint."
-    }
-    fields       WriteField[]      {
-        @doc value "contains additional static or generated body fields."
     }
 
     @doc value  "is a single HTTP endpoint written to by a write task."

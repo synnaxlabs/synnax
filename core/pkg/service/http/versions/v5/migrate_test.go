@@ -287,8 +287,6 @@ var _ = Describe("MigrateWriteConfig", func() {
 			Expect(ep.Method).To(Equal(v4.MethodPut))
 			Expect(ep.Path).To(Equal("/setpoint"))
 			Expect(ep.Headers).To(Equal(old.Endpoints[0].Headers))
-			Expect(ep.Channel).To(Equal(old.Endpoints[0].Channel))
-			Expect(ep.Fields).To(Equal(old.Endpoints[0].Fields))
 			Expect(ep.ICD).To(BeNil())
 			Expect(ep.Message).To(BeNil())
 			Expect(cfg.Endpoints[1].Disabled).To(BeTrue())
