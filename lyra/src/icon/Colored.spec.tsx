@@ -77,6 +77,7 @@ describe("Colored", () => {
         "5, 166, 240",
         "255, 186, 8",
       ]);
+      expect(svg.getAttribute("stroke-width")).toEqual("0");
       for (const g of svg.querySelectorAll("g")) {
         expect(g.classList).toContain(CSS.symbolColored);
         expect(g.getAttribute("fill")).toEqual("currentColor");

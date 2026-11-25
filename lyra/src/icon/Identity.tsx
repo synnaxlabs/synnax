@@ -23,6 +23,7 @@ const mark = (viewBox: string, d: string, name: string) =>
         {...rest}
         className={CSS.cls(className, "logo")}
         fill="currentColor"
+        strokeWidth={0}
         xmlns="http://www.w3.org/2000/svg"
       >
         <path d={d} fillRule="evenodd" />
