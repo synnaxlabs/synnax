@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	disttestutil "github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	acttestutil "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -51,6 +52,13 @@ var _ = Describe("Resources", func() {
 				keys ...channel.Key,
 			) error {
 				return svc.AnnounceOutputs(ctx, tx, w, keys...)
+			},
+			AnnounceRenamed: func(
+				ctx context.Context,
+				tx gorp.Tx,
+				keys ...channel.Key,
+			) error {
+				return svc.AnnounceRenamed(ctx, tx, keys...)
 			},
 		}))
 		DeferCleanup(func() { Expect(channels.Close()).To(Succeed()) })
@@ -93,6 +101,20 @@ var _ = Describe("Resources", func() {
 			calculation.ResourceID(c.Key),
 		})).To(ConsistOf(HaveField("Name", "tank_average")))
 	})
+
+	It("Should announce the calculation of a renamed output, so its name is read again",
+		func(ctx SpecContext) {
+			c := create(ctx, "tank_mean")
+			other := create(ctx, "other_mean")
+			rec := &acttestutil.Recorder[calculation.Key, calculation.Action]{}
+			DeferCleanup(svc.Actions().OnChange(rec.Record))
+			Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				return channels.NewWriter(tx).
+					Rename(ctx, c.Output, "tank_average", false)
+			})).To(Succeed())
+			Eventually(rec.Snapshot).Should(ConsistOf(HaveField("Key", c.Key)))
+			Expect(rec.Snapshot()).ToNot(ContainElement(HaveField("Key", other.Key)))
+		})
 
 	It("Should leave out a key that names no calculation", func(ctx SpecContext) {
 		Expect(svc.Resources().Retrieve(ctx, node.DB, []resource.ID{
