@@ -59,7 +59,8 @@ Master struct {
         @go marshal omit
     }
 
-    @doc value  "is an EtherCAT master: one network interface and the bus behind it."
+    @doc value     "is an EtherCAT master: one network interface and the bus behind it."
     @go marshal
     @go migrate
+    @resource type "ethercat_master"
 }
