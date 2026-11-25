@@ -13,6 +13,7 @@ package lifetime
 
 import (
 	"context"
+	"runtime/debug"
 	"runtime/pprof"
 	"slices"
 	"sync"
@@ -102,7 +103,7 @@ func (s *Stack) Stop(ctx context.Context) error {
 			// %v, not a wrap, so a context.Canceled panic is not a clean stop.
 			defer func() {
 				if r := recover(); r != nil {
-					l.closeErr = errors.Newf("panic: %v", r)
+					l.closeErr = errors.Newf("panic: %v\n%s", r, debug.Stack())
 				}
 			}()
 			l.closeErr = l.closer()

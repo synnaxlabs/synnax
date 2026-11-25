@@ -214,6 +214,7 @@ var _ = Describe("Stack", func() {
 		Expect(
 			err,
 		).To(MatchError(ContainSubstring("service close: panic: context canceled")))
+		Expect(err).To(MatchError(ContainSubstring("lifetime/stack_test.go")))
 		Expect(err).ToNot(MatchError(context.Canceled))
 		Expect(storageClosed).To(BeClosed())
 	})
