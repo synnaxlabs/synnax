@@ -42,6 +42,7 @@ import {
   expectLive,
   holdResponses,
   recordResponses,
+  requestsTo,
   spyOnSend,
   waitForStreamLive,
 } from "@/testutil";
@@ -687,7 +688,7 @@ describe("Task", async () => {
       await expect(
         fresh.tasks.dispatch(t.key, routingKey(OTHER_ROUTING_KEY)),
       ).rejects.toThrow(NotCachedError);
-      expect(send).not.toHaveBeenCalled();
+      expect(requestsTo(send, "/task/dispatch")).toEqual([]);
     });
 
     it("should adopt the config the Core stores when it fills a default", async () => {

@@ -2123,4 +2123,76 @@ TEST(ProcessorTest, GateRefillsEverySlotFreedInOneBatch) {
     server.stop();
 }
 
+/// @brief it should fail a request whose body is larger than max_response_size.
+TEST(ProcessorTest, ResponseLargerThanMaxResponseSizeErrors) {
+    testutil::ServerConfig server_cfg;
+    server_cfg.routes = {{
+        .method = Method::GET,
+        .path = "/big",
+        .status_code = 200,
+        .response_body = std::string(2048, 'a'),
+        .content_type = "text/plain",
+    }};
+    testutil::Server server(server_cfg);
+    ASSERT_NIL(server.start());
+
+    auto req = make_request(server.base_url(), "/big");
+    req.max_response_size = 1024;
+
+    Processor proc;
+    const auto [resp, err] = proc.execute(req);
+    ASSERT_OCCURRED_AS(err, errors::CRITICAL_ERROR);
+    EXPECT_NE(err.data.find("max_response_size"), std::string::npos);
+
+    server.stop();
+}
+
+/// @brief it should fail a chunked response that grows past max_response_size.
+TEST(ProcessorTest, ChunkedResponseLargerThanMaxResponseSizeErrors) {
+    testutil::ServerConfig server_cfg;
+    server_cfg.routes = {{
+        .method = Method::GET,
+        .path = "/big",
+        .status_code = 200,
+        .response_body = std::string(2048, 'a'),
+        .content_type = "text/plain",
+        .body_delay = x::telem::MILLISECOND,
+    }};
+    testutil::Server server(server_cfg);
+    ASSERT_NIL(server.start());
+
+    auto req = make_request(server.base_url(), "/big");
+    req.max_response_size = 1024;
+
+    Processor proc;
+    const auto [resp, err] = proc.execute(req);
+    ASSERT_OCCURRED_AS(err, errors::CRITICAL_ERROR);
+    EXPECT_NE(err.data.find("max_response_size"), std::string::npos);
+
+    server.stop();
+}
+
+/// @brief it should accept a body exactly max_response_size bytes long.
+TEST(ProcessorTest, ResponseAtMaxResponseSizeSucceeds) {
+    testutil::ServerConfig server_cfg;
+    server_cfg.routes = {{
+        .method = Method::GET,
+        .path = "/exact",
+        .status_code = 200,
+        .response_body = std::string(1024, 'a'),
+        .content_type = "text/plain",
+    }};
+    testutil::Server server(server_cfg);
+    ASSERT_NIL(server.start());
+
+    auto req = make_request(server.base_url(), "/exact");
+    req.max_response_size = 1024;
+
+    Processor proc;
+    const auto resp = ASSERT_NIL_P(proc.execute(req));
+    EXPECT_EQ(resp.body.size(), 1024);
+
+    server.stop();
+}
+
 }

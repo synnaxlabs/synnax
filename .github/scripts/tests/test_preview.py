@@ -21,13 +21,21 @@ SCRIPT = Path(__file__).resolve().parents[3] / "deploy" / "preview" / "preview.s
 AT = "2026-11-22T10:00:00Z"
 
 # Logs each call with the license it sees. A Core answers its readiness check only once
-# the file "ready" exists, and ps lists the file "containers".
+# the file "ready" exists, and ps lists the file "containers". lego writes a new
+# certificate when the file "renews" exists.
 FAKE_DOCKER = """#!/usr/bin/env bash
 echo "docker $* | license=${SYNNAX_LICENSE_KEY:-}" >> "$FAKE_DIR/calls"
 case "$1 $2" in
     "exec synnax-"*) [[ -f "$FAKE_DIR/ready" ]] || exit 7 ;;
     "pull "*) [[ ! -f "$FAKE_DIR/pull_fails" ]] || exit 1 ;;
     "inspect "*) cat "$FAKE_DIR/caddy_mounts" 2> /dev/null || exit 1 ;;
+    "run --rm")
+        [[ ! -f "$FAKE_DIR/lego_fails" ]] || exit 1
+        if [[ -f "$FAKE_DIR/renews" ]]; then
+            mkdir -p "$FAKE_DIR/acme/certificates"
+            date +%s%N > "$FAKE_DIR/acme/certificates/_.preview.example.com.crt"
+        fi
+        ;;
     "ps "*)
         [[ ! -f "$FAKE_DIR/ps_fails" ]] || exit 1
         if [[ $* == *--quiet* ]]; then
@@ -75,6 +83,8 @@ class Host:
         env_file = path / "preview.env"
         env_file.write_text(
             "PREVIEW_DOMAIN=preview.example.com\n"
+            "PREVIEW_ZONE_ID=Z123\n"
+            f"PREVIEW_ACME={path / 'acme'}\n"
             f"PREVIEW_SITES={self.sites}\n"
             "PREVIEW_TTL_DAYS=7\n"
             "PREVIEW_LICENSE_PARAMETER=/synnax-preview/license-key\n"
@@ -165,8 +175,10 @@ class TestUp:
         assert docker[-1] == (
             "docker exec caddy caddy reload --config /etc/caddy/Caddyfile"
         )
+        cert = host.path / "acme" / "certificates" / "_.preview.example.com"
         assert host.site(12).read_text() == (
             "pr-12.preview.example.com {\n"
+            f"    tls {cert}.crt {cert}.key\n"
             "    log {\n"
             f"        output file {host.logs}/pr-12.log\n"
             "    }\n"
@@ -338,11 +350,43 @@ class TestMark:
         assert "invalid review mark" in result.stderr
 
 
+LEGO = (
+    "goacme/lego:v5.7.0"
+    "@sha256:9fe6151508c0e1ddc51a6d3e474353520f4b008782bf0c6d31676da72e6d4766"
+)
+
+
+def lego_runs(host: Host) -> list[str]:
+    return [c for c in host.docker() if c.startswith("docker run --rm")]
+
+
+FORCED_RELOAD = "docker exec caddy caddy reload --config /etc/caddy/Caddyfile --force"
+
+
 class TestUpgrade:
     """Tests for bringing Caddy and the running previews to the settings."""
 
     def caddy_runs(self, host: Host) -> list[str]:
-        return [c for c in host.docker() if c.startswith("docker run")]
+        return [c for c in host.docker() if c.startswith("docker run --detach")]
+
+    def test_should_get_the_wildcard_certificate_first(self, host: Host) -> None:
+        assert host.run("upgrade").returncode == 0
+        assert host.docker()[0] == (
+            f"docker run --rm --volume {host.path}/acme:/acme"
+            " --env AWS_REGION=us-east-1 --env AWS_HOSTED_ZONE_ID=Z123"
+            f" {LEGO} run --accept-tos --no-random-sleep --dns route53"
+            " --domains *.preview.example.com --path /acme"
+        )
+
+    def test_should_change_nothing_when_the_certificate_fails(self, host: Host) -> None:
+        (host.path / "lego_fails").touch()
+        assert host.run("upgrade").returncode != 0
+        assert self.caddy_runs(host) == []
+
+    def test_should_reload_a_running_caddy(self, host: Host) -> None:
+        (host.path / "caddy_mounts").write_text(f"/etc/caddy {host.logs} /data\n")
+        assert host.run("upgrade").returncode == 0
+        assert FORCED_RELOAD in host.docker()
 
     def test_should_start_caddy_with_the_access_log_mount(self, host: Host) -> None:
         assert host.run("upgrade").returncode == 0
@@ -445,7 +489,22 @@ class TestSweep:
         host.containers((13, int(time.time())))
         result = host.run("sweep")
         assert result.returncode == 0, result.stderr
-        assert host.docker()[-1] == "docker image prune --all --force"
+        assert "docker image prune --all --force" in host.docker()
+
+    def test_should_check_the_certificate(self, host: Host) -> None:
+        assert host.run("sweep").returncode == 0
+        assert len(lego_runs(host)) == 1
+        assert FORCED_RELOAD not in host.docker()
+
+    def test_should_reload_caddy_on_a_renewal(self, host: Host) -> None:
+        (host.path / "renews").touch()
+        assert host.run("sweep").returncode == 0
+        assert host.docker()[-1] == FORCED_RELOAD
+
+    def test_should_fail_when_the_renewal_fails(self, host: Host) -> None:
+        (host.path / "lego_fails").touch()
+        assert host.run("sweep").returncode != 0
+        assert FORCED_RELOAD not in host.docker()
 
 
 class TestNotices:

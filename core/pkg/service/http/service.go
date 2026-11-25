@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/http/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/http/versions/legacy"
+	v5 "github.com/synnaxlabs/synnax/pkg/service/http/versions/v5"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/icd/read"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
@@ -30,12 +31,15 @@ import (
 // ServiceConfig is the configuration for opening the HTTP task config service.
 type ServiceConfig struct {
 	// DB is the database config records are stored in.
+	//
 	// [REQUIRED]
 	DB *gorp.DB
 	// Channel holds the channels that config fields read from and write to.
+	//
 	// [REQUIRED]
 	Channel *channel.Service
 	// ICD holds the ICDs whose messages read configs read.
+	//
 	// [REQUIRED]
 	ICD *icd.Service
 	alamos.Instrumentation
@@ -117,13 +121,22 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			References:      writeConfigReferences(),
 			Instrumentation: cfg.Instrumentation,
 			Type:            "http_write",
+			Migrations:      versions.WriteMigrations,
 			LegacyVersion:   legacy.LastVersion,
 			Ladder:          versions.WriteConfigLadder,
 			Legacy:          &legacy.Write,
 			SetEntryKey:     (*WriteConfig).SetKey,
 			PatchEntry:      (*WriteConfig).Patch,
 			HashEntry:       (*WriteConfig).HashContent,
-			ValidateEntry:   (*WriteConfig).Validate,
+			ResolveEntry: func(
+				_ context.Context,
+				_ gorp.Snapshot,
+				_ string,
+				cfg *WriteConfig,
+			) (func(context.Context, gorp.Tx) error, error) {
+				return v5.StageWrite(cfg)
+			},
+			ValidateEntry: (*WriteConfig).Validate,
 		},
 	); !ok(err, s.Write) {
 		return nil, err

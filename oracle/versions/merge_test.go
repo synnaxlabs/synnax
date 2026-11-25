@@ -1027,6 +1027,30 @@ Channel struct {
 		Expect(merged).To(ContainSubstring("telem.TimeStamp"))
 	})
 
+	It("Should import the dependency a narrowing enum names", func(
+		ctx SpecContext,
+	) {
+		write("schemas/x/versions/telem/v0.oracle", "Kind enum {\n    a = \"a\"\n}\n")
+		write("schemas/x/telem.oracle", "Kind enum {\n    a = \"a\"\n}\n")
+		write("schemas/synnax/versions/channel/v0.oracle", `
+import "schemas/x/versions/telem/v0"
+
+Kept enum of telem.Kind {
+    a
+}
+
+Channel struct {
+    kind Kept
+
+    @go marshal
+}
+`)
+		r, chain := resolver()
+		merged := MustSucceed(versions.MergeLive(ctx, r, chain, ""))
+		Expect(merged).To(ContainSubstring("Kept enum of telem.Kind"))
+		Expect(merged).To(ContainSubstring(`import "schemas/x/telem"`))
+	})
+
 	It("Should import the dependency an inline union variant extends", func(
 		ctx SpecContext,
 	) {
