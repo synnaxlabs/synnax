@@ -25,6 +25,7 @@ import { diagram } from "@/vis/diagram/aether";
 import { latestSample } from "@/vis/latestSample/aether";
 import { canvasTest } from "@/vis/render/testutil";
 import { stalenessTest } from "@/vis/staleness/aether/testutil";
+import { symbolNode } from "@/vis/symbolNode/aether";
 import { toggle } from "@/vis/toggle/aether";
 
 const client = createTestClient();
@@ -203,17 +204,20 @@ describe("Schematic", () => {
   });
 
   it("should draw the label of a symbol node", async () => {
-    const { utils } = await renderSchematic([
-      {
-        key: "n1",
-        position: { x: 0, y: 0 },
-        config: {
-          variant: "symbol",
-          label: { label: "Heater" },
-          spec: { type: "builtin", name: "valve" },
+    const { utils } = await renderSchematic(
+      [
+        {
+          key: "n1",
+          position: { x: 0, y: 0 },
+          config: {
+            variant: "symbol",
+            label: { label: "Heater" },
+            spec: { type: "builtin", name: "valve" },
+          },
         },
-      },
-    ]);
+      ],
+      { registry: symbolNode.REGISTRY },
+    );
     expect(await utils.findByText("Heater")).toBeDefined();
   });
 

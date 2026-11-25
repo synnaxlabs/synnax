@@ -38,15 +38,18 @@ var _ = Describe("CheckDefault", func() {
 		}),
 		Entry("base64 text", icd.BytesJSONField{Default: new("AQI=")}),
 		Entry("valid JSON", icd.JSONJSONField{Default: new(`{"a":1}`)}),
+		Entry("a NaN float", icd.FloatJSONField{
+			Scale: 1, Default: new(payload.Float(math.NaN())),
+		}),
 	)
 
 	DescribeTable("Should refuse a default that its field cannot hold",
 		func(v icd.JSONFieldVariant, expected string) {
 			Expect(icd.CheckDefault(icd.JSONField{Variant: v})).To(MatchError(expected))
 		},
-		Entry("a float that is not finite",
-			icd.FloatJSONField{Scale: 1, Default: new(payload.Float(math.NaN()))},
-			"must be finite: validation error",
+		Entry("an infinite float",
+			icd.FloatJSONField{Scale: 1, Default: new(payload.Float(math.Inf(1)))},
+			"cannot be infinite: validation error",
 		),
 		Entry("text that is not base64",
 			icd.BytesJSONField{Default: new("a*b=")},

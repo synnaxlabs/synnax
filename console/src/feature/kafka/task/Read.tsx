@@ -881,14 +881,7 @@ const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device.Device>)
       )}
     </Plans>
   );
-  return unique.unique(records.map((r) => r.icd)).reduceRight(
-    (child, key) => (
-      <ICD.WithFormat key={key} icdKey={key}>
-        {child}
-      </ICD.WithFormat>
-    ),
-    body,
-  );
+  return <ICD.WithFormats icdKeys={records.map((r) => r.icd)}>{body}</ICD.WithFormats>;
 };
 
 const Form = PlatformDevice.wrapTaskForm({

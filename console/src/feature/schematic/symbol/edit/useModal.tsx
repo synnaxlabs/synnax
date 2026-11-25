@@ -34,6 +34,7 @@ import { useConfirmSave } from "@/feature/schematic/symbol/edit/useConfirmSave";
 import { useValues } from "@/feature/schematic/symbol/edit/useValues";
 import { SelectVariantField } from "@/feature/schematic/symbol/SelectVariant";
 import { Spec } from "@/feature/schematic/symbol/spec";
+import { FLAGS } from "@/flags";
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";
@@ -119,19 +120,6 @@ const Editor = ({
     symbolKey == null ? null : { key: symbolKey, includeUses: true },
   );
   const confirmSave = useConfirmSave();
-  const handleSave = async () => {
-    const uses = stored.data?.uses ?? [];
-    if (stored.data != null && uses.length > 0) {
-      const spec = form.get(path.data).value;
-      const changed = !deep.equal(
-        { ...stored.data.data, previewViewport: undefined },
-        { ...spec, previewViewport: undefined },
-      );
-      if (changed && (await confirmSave({ stored: stored.data, spec, uses })) !== true)
-        return;
-    }
-    save();
-  };
   const [selectedValue, setSelectedValue] = useState(0);
   const [selectedPart, setSelectedPart, selectedPartRef] =
     useCombinedStateAndRef<Spec.Target>(undefined);
@@ -183,6 +171,25 @@ const Editor = ({
       ctx: form,
     }).length > 0;
   const createSaveText = isCreate ? "Create" : "Save";
+  const handleSave = async () => {
+    // A fill motion that cannot draw stops the save and selects its part, whose
+    // inspector shows why. The inspector shows the issues only with the flag on.
+    if (FLAGS.symbolMotion) {
+      const [part] = Spec.levelIssues(form.get(path.data).value).keys();
+      if (part != null) return setSelectedPart(part);
+    }
+    const uses = stored.data?.uses ?? [];
+    if (stored.data != null && uses.length > 0) {
+      const spec = form.get(path.data).value;
+      const changed = !deep.equal(
+        { ...stored.data.data, previewViewport: undefined },
+        { ...spec, previewViewport: undefined },
+      );
+      if (changed && (await confirmSave({ stored: stored.data, spec, uses })) !== true)
+        return;
+    }
+    save();
+  };
 
   return (
     <Form.Form<typeof Schematic.Symbol.formSchema> {...form}>
