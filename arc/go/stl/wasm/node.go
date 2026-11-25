@@ -242,13 +242,16 @@ func (n *nodeImpl) resizeOutputs(maxLength int64) [][]string {
 // copyInputBounds gives every output the bounds of input src, the longest input, when
 // stampBounded, and summedBounds otherwise.
 func (n *nodeImpl) copyInputBounds(src int) {
-	alignment, timeRange := n.summedBounds()
-	if n.stampBounded {
-		alignment, timeRange = 0, telem.TimeRange{}
-		if src >= 0 {
-			input := n.Input(src)
-			alignment, timeRange = input.Alignment, input.TimeRange
-		}
+	var (
+		alignment telem.Alignment
+		timeRange telem.TimeRange
+	)
+	switch {
+	case !n.stampBounded:
+		alignment, timeRange = n.summedBounds()
+	case src >= 0:
+		input := n.Input(src)
+		alignment, timeRange = input.Alignment, input.TimeRange
 	}
 	for i := range n.ir.Outputs {
 		n.Output(i).Alignment = alignment

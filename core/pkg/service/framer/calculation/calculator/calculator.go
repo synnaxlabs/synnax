@@ -138,12 +138,11 @@ func Open(ctx context.Context, cfgs ...Config) (_ *Calculator, err error) {
 			ctx,
 			cfg.Module.WASM,
 			cs,
+			cfg.Module.Joined,
 			&closers,
 		); err != nil {
 			return nil, err
 		}
-		// The join gives every input the bounds of the primary.
-		mod.StampBounded = cfg.Module.Joined
 		f = append(f, mod)
 	}
 	cs.nodes = node.New(cfg.Module.IR)
@@ -156,10 +155,12 @@ func Open(ctx context.Context, cfgs ...Config) (_ *Calculator, err error) {
 		return nil, err
 	}
 	c := newCalculator(cfg, sched, cs, closers, budget)
-	for _, n := range nodes {
-		if j, ok := n.(*join.Node); ok {
-			c.join = j
+	if cfg.Module.Joined {
+		j, ok := nodes[compiler.JoinType].(*join.Node)
+		if !ok {
+			return nil, errors.Newf("joined calculation has no join node")
 		}
+		c.join = j
 	}
 	closers = nil
 	return c, nil
@@ -254,11 +255,14 @@ func createNodes(
 
 // openGuest instantiates the WASM module wasmBytes in a new runtime with the host
 // modules it imports. It appends the closers of the runtime and the guest to closers,
-// and returns the guest as a node module with its loop budget.
+// and returns the guest as a node module with its loop budget. A joined program's
+// nodes take the bounds of their stamp input, since the join gives every input the
+// bounds of the primary.
 func openGuest(
 	ctx context.Context,
 	wasmBytes []byte,
 	cs calcState,
+	joined bool,
 	closers *io.MultiCloser,
 ) (*wasm.Module, runtime.Budget, error) {
 	wasmRT := wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigCompiler())
@@ -306,6 +310,7 @@ func openGuest(
 		Memory:        guest.Memory(),
 		Strings:       cs.strings,
 		NodeKeySetter: statefulMod,
+		StampBounded:  joined,
 	}, budget, nil
 }
 
