@@ -365,6 +365,9 @@ func (s *State) Parted(tags []Tag) error {
 	return s.enqueue(&partedRequest{tags: tags})
 }
 
+// Drops returns the count of the Drop records that the state applied.
+func (s *State) Drops() uint64 { return s.core.drops.Load() }
+
 // Durable queues the records of the durable entry of sequence, which the log owner
 // hands over in log order after the entry's frame is synced. The owner applies them to
 // the durable view with the rules of Replay. A refusal is a defect of the database: it
