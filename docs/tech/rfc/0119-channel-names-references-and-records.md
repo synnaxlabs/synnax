@@ -660,17 +660,21 @@ a second channel with a taken name anywhere in the Core, with or without the fla
   too, from Phase 30, which adds creates and moves to the CI check. A built-in that a
   service creates at open, such as the task command channel or a signals channel, goes
   through `Declare`, which runs before `impact` exists, and the CI check names `Declare`
-  as an allowed caller. From Phase 18 the channel writer already heals at every create
-  (§4.12). `Declare` runs before the text holders open, so it reports the channels that
-  it creates and renames; before the API serves, `impact` applies their heals and text
-  passes with the defaults. A migration that moves a channel onto a tombstone's path
-  runs the same heal, so a live channel and a tombstone never share a path. `Declare`
-  renames a user channel and creates the built-in as two actions, the rename first, so
-  text that names the user channel follows it. Before any compile and before the API
-  serves, the rename's text pass runs from the stored old path, with `update_text` for
-  each of its tokens whatever holds the path by then, and deletes the stored path. A
-  crash before the pass runs it at the next start. Every first free suffix in this RFC
-  (`Declare`, the Phase 7 migration, a displaced channel) skips tombstone paths.
+  as an allowed caller. It also names the metrics service's open, which makes its own
+  channels in the `Metrics` folder before `impact` exists
+  (`core/pkg/service/metrics/service.go:174-234`); these are not built-ins, and some are
+  calculation outputs, so they cannot go through `Declare`. From Phase 18 the channel
+  writer already heals at every create (§4.12). `Declare` runs before the text holders
+  open, so it reports the channels that it creates and renames; before the API serves,
+  `impact` applies their heals and text passes with the defaults. A migration that moves
+  a channel onto a tombstone's path runs the same heal, so a live channel and a
+  tombstone never share a path. `Declare` renames a user channel and creates the
+  built-in as two actions, the rename first, so text that names the user channel follows
+  it. Before any compile and before the API serves, the rename's text pass runs from the
+  stored old path, with `update_text` for each of its tokens whatever holds the path by
+  then, and deletes the stored path. A crash before the pass runs it at the next start.
+  Every first free suffix in this RFC (`Declare`, the Phase 7 migration, a displaced
+  channel) skips tombstone paths.
 - **Access**: An entry for a record that the caller cannot retrieve is a count for its
   effect, with no name or text. A tombstone entry shows its path only when the caller
   can retrieve each folder on it and the dead channel's ID. Applying an entry needs
