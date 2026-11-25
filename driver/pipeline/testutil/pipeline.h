@@ -55,6 +55,9 @@ struct StreamerConfig {
 
     // Records each set_channels() call if not nullptr.
     std::shared_ptr<ChannelSets> channel_sets;
+
+    // Error to return when set_channels() is called on the Streamer.
+    x::errors::Error set_channels_err;
 };
 
 // Mock implementation of pipeline::Streamer for testing.
@@ -104,7 +107,7 @@ public:
     set_channels(const std::vector<synnax::channel::Key> &channels) override {
         if (this->config.channel_sets != nullptr)
             this->config.channel_sets->push(channels);
-        return x::errors::NIL;
+        return this->config.set_channels_err;
     }
 
 private:
