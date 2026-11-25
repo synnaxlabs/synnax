@@ -20,8 +20,20 @@
 #include "x/cpp/telem/telem.h"
 
 namespace x::json {
-/// @brief it should append every digit of a timestamp in each format after what out
-/// holds.
+/// @brief asserts that appending each timestamp of cases in its format after what out
+/// holds gives its text.
+void assert_appends(
+    const std::vector<std::tuple<std::int64_t, TimeFormat, std::string>> &cases
+) {
+    for (const auto &[ns, format, expected]: cases) {
+        std::string out = "x";
+        append_timestamp(telem::TimeStamp(ns), format, out);
+        EXPECT_EQ(out, "x" + expected) << ns;
+    }
+}
+
+/// @brief it should append every digit of a timestamp in ISO 8601, unix_sec, and
+/// unix_ns after what out holds.
 TEST(AppendTimestamp, AppendsEveryDigit) {
     const std::vector<std::tuple<std::int64_t, TimeFormat, std::string>> cases{
         {1500000006, TimeFormat::ISO8601, R"("1970-01-01T00:00:01.500000006Z")"},
@@ -31,8 +43,6 @@ TEST(AppendTimestamp, AppendsEveryDigit) {
         {2000000000, TimeFormat::UnixSecond, "2"},
         {1767323045123456789, TimeFormat::UnixSecond, "1767323045.123456789"},
         {1000000005, TimeFormat::UnixSecond, "1.000000005"},
-        {1500000000, TimeFormat::UnixMillisecond, "1500"},
-        {1500, TimeFormat::UnixMicrosecond, "1.5"},
         {-1500000000, TimeFormat::UnixSecond, "-1.5"},
         {-500000000, TimeFormat::UnixSecond, "-0.5"},
         {
@@ -46,10 +56,47 @@ TEST(AppendTimestamp, AppendsEveryDigit) {
             "-9223372036.854775808",
         },
     };
-    for (const auto &[ns, format, expected]: cases) {
-        std::string out = "x";
-        append_timestamp(telem::TimeStamp(ns), format, out);
-        EXPECT_EQ(out, "x" + expected);
-    }
+    assert_appends(cases);
+}
+
+/// @brief it should append a whole number of milliseconds, rounded down.
+TEST(AppendTimestamp, RoundsMillisecondsDown) {
+    assert_appends({
+        {1500000000, TimeFormat::UnixMillisecond, "1500"},
+        {1999999, TimeFormat::UnixMillisecond, "1"},
+        {1767323045123456789, TimeFormat::UnixMillisecond, "1767323045123"},
+    });
+}
+
+/// @brief it should append a whole number of microseconds, rounded down.
+TEST(AppendTimestamp, RoundsMicrosecondsDown) {
+    assert_appends({
+        {1500, TimeFormat::UnixMicrosecond, "1"},
+        {1767323045123456789, TimeFormat::UnixMicrosecond, "1767323045123456"},
+    });
+}
+
+/// @brief it should keep every decimal of a time in seconds.
+TEST(AppendTimestamp, KeepsDecimalsOfSeconds) {
+    assert_appends({
+        {1999999, TimeFormat::UnixSecond, "0.001999999"},
+        {1500, TimeFormat::UnixSecond, "0.0000015"},
+    });
+}
+
+/// @brief it should round a time before 1970 toward negative infinity in milliseconds
+/// and microseconds, and keep its decimals in seconds.
+TEST(AppendTimestamp, RoundsTimesBefore1970Down) {
+    assert_appends({
+        {-1, TimeFormat::UnixMillisecond, "-1"},
+        {-1000000, TimeFormat::UnixMillisecond, "-1"},
+        {-1500, TimeFormat::UnixMicrosecond, "-2"},
+        {
+            std::numeric_limits<std::int64_t>::min(),
+            TimeFormat::UnixMillisecond,
+            "-9223372036855",
+        },
+        {-1500, TimeFormat::UnixSecond, "-0.0000015"},
+    });
 }
 }

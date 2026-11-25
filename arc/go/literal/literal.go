@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
+	xtypes "github.com/synnaxlabs/x/types"
 )
 
 // ParsedValue represents a parsed literal value with its type.
@@ -437,124 +438,25 @@ func parseFloatLiteral(value float64, targetType types.Type) (ParsedValue, error
 		return ParsedValue{Value: float32(value), Type: types.F32()}, nil
 	case types.KindF64:
 		return ParsedValue{Value: value, Type: types.F64()}, nil
-	case types.KindI8:
+	case types.KindI8, types.KindI16, types.KindI32, types.KindI64,
+		types.KindU8, types.KindU16, types.KindU32, types.KindU64:
+		intType := types.Type{Kind: targetType.Kind}
 		if value != math.Trunc(value) {
 			return ParsedValue{}, codes.InvalidLiteral.Mark(errors.Mark(errors.Newf(
-				"cannot convert non-integer float %f to i8",
+				"cannot convert non-integer float %f to %s",
 				value,
+				intType,
 			), ErrTruncated))
 		}
-		intVal := int64(value)
-		if intVal < math.MinInt8 || intVal > math.MaxInt8 {
+		parsed, ok := toIntegerKind(value, intType)
+		if !ok {
 			return ParsedValue{}, codes.ConstantOverflow.Errorf(
-				"value %f out of range for i8",
+				"value %f out of range for %s",
 				value,
+				intType,
 			)
 		}
-		return ParsedValue{Value: int8(intVal), Type: types.I8()}, nil
-	case types.KindI16:
-		if value != math.Trunc(value) {
-			return ParsedValue{}, codes.InvalidLiteral.Mark(errors.Mark(errors.Newf(
-				"cannot convert non-integer float %f to i16",
-				value,
-			), ErrTruncated))
-		}
-		intVal := int64(value)
-		if intVal < math.MinInt16 || intVal > math.MaxInt16 {
-			return ParsedValue{}, codes.ConstantOverflow.Errorf(
-				"value %f out of range for i16",
-				value,
-			)
-		}
-		return ParsedValue{Value: int16(intVal), Type: types.I16()}, nil
-	case types.KindI32:
-		if value != math.Trunc(value) {
-			return ParsedValue{}, codes.InvalidLiteral.Mark(errors.Mark(errors.Newf(
-				"cannot convert non-integer float %f to i32",
-				value,
-			), ErrTruncated))
-		}
-		intVal := int64(value)
-		if intVal < math.MinInt32 || intVal > math.MaxInt32 {
-			return ParsedValue{}, codes.ConstantOverflow.Errorf(
-				"value %f out of range for i32",
-				value,
-			)
-		}
-		return ParsedValue{Value: int32(intVal), Type: types.I32()}, nil
-	case types.KindI64:
-		if value != math.Trunc(value) {
-			return ParsedValue{}, codes.InvalidLiteral.Mark(errors.Mark(errors.Newf(
-				"cannot convert non-integer float %f to i64",
-				value,
-			), ErrTruncated))
-		}
-		if value < math.MinInt64 || value >= math.MaxInt64 {
-			return ParsedValue{}, codes.ConstantOverflow.Errorf(
-				"value %f out of range for i64",
-				value,
-			)
-		}
-		return ParsedValue{Value: int64(value), Type: types.I64()}, nil
-	case types.KindU8:
-		if value != math.Trunc(value) {
-			return ParsedValue{}, codes.InvalidLiteral.Mark(errors.Mark(errors.Newf(
-				"cannot convert non-integer float %f to u8",
-				value,
-			), ErrTruncated))
-		}
-		intVal := int64(value)
-		if intVal < 0 || intVal > math.MaxUint8 {
-			return ParsedValue{}, codes.ConstantOverflow.Errorf(
-				"value %f out of range for u8",
-				value,
-			)
-		}
-		return ParsedValue{Value: uint8(intVal), Type: types.U8()}, nil
-	case types.KindU16:
-		if value != math.Trunc(value) {
-			return ParsedValue{}, codes.InvalidLiteral.Mark(errors.Mark(errors.Newf(
-				"cannot convert non-integer float %f to u16",
-				value,
-			), ErrTruncated))
-		}
-		intVal := int64(value)
-		if intVal < 0 || intVal > math.MaxUint16 {
-			return ParsedValue{}, codes.ConstantOverflow.Errorf(
-				"value %f out of range for u16",
-				value,
-			)
-		}
-		return ParsedValue{Value: uint16(intVal), Type: types.U16()}, nil
-	case types.KindU32:
-		if value != math.Trunc(value) {
-			return ParsedValue{}, codes.InvalidLiteral.Mark(errors.Mark(errors.Newf(
-				"cannot convert non-integer float %f to u32",
-				value,
-			), ErrTruncated))
-		}
-		intVal := int64(value)
-		if intVal < 0 || intVal > math.MaxUint32 {
-			return ParsedValue{}, codes.ConstantOverflow.Errorf(
-				"value %f out of range for u32",
-				value,
-			)
-		}
-		return ParsedValue{Value: uint32(intVal), Type: types.U32()}, nil
-	case types.KindU64:
-		if value != math.Trunc(value) {
-			return ParsedValue{}, codes.InvalidLiteral.Mark(errors.Mark(errors.Newf(
-				"cannot convert non-integer float %f to u64",
-				value,
-			), ErrTruncated))
-		}
-		if value < 0 || value >= math.MaxUint64 {
-			return ParsedValue{}, codes.ConstantOverflow.Errorf(
-				"value %f out of range for u64",
-				value,
-			)
-		}
-		return ParsedValue{Value: uint64(value), Type: types.U64()}, nil
+		return parsed, nil
 	case types.KindInvalid, types.KindString, types.KindChan, types.KindSeries,
 		types.KindVariable, types.KindNumericConstant, types.KindIntegerConstant,
 		types.KindFloatConstant, types.KindExactIntegerFloatConstant,
@@ -586,87 +488,15 @@ func convertToTargetKind(
 		}
 		// Round to nearest integer to clean up floating-point precision issues
 		value = math.Round(value)
-	case types.KindInvalid, types.KindF32, types.KindF64, types.KindString,
-		types.KindChan, types.KindSeries, types.KindVariable, types.KindNumericConstant,
-		types.KindIntegerConstant, types.KindFloatConstant,
-		types.KindExactIntegerFloatConstant, types.KindFunction, types.KindSequence,
-		types.KindStage, types.KindVarRef, types.KindBool:
-	}
-
-	switch targetType.Kind {
-	case types.KindI8:
-		intVal := int64(value)
-		if intVal < math.MinInt8 || intVal > math.MaxInt8 {
+		parsed, ok := toIntegerKind(value, resultType)
+		if !ok {
 			return ParsedValue{}, codes.ConstantOverflow.Errorf(
-				"value %g out of range for i8",
+				"value %g out of range for %s",
 				value,
+				types.Type{Kind: targetType.Kind},
 			)
 		}
-		return ParsedValue{Value: int8(intVal), Type: resultType}, nil
-	case types.KindI16:
-		intVal := int64(value)
-		if intVal < math.MinInt16 || intVal > math.MaxInt16 {
-			return ParsedValue{}, codes.ConstantOverflow.Errorf(
-				"value %g out of range for i16",
-				value,
-			)
-		}
-		return ParsedValue{Value: int16(intVal), Type: resultType}, nil
-	case types.KindI32:
-		intVal := int64(value)
-		if intVal < math.MinInt32 || intVal > math.MaxInt32 {
-			return ParsedValue{}, codes.ConstantOverflow.Errorf(
-				"value %g out of range for i32",
-				value,
-			)
-		}
-		return ParsedValue{Value: int32(intVal), Type: resultType}, nil
-	case types.KindI64:
-		if value < math.MinInt64 || value >= math.MaxInt64 {
-			return ParsedValue{}, codes.ConstantOverflow.Errorf(
-				"value %g out of range for i64",
-				value,
-			)
-		}
-		if isTime(resultType.Unit) {
-			return ParsedValue{Value: telem.TimeSpan(value), Type: resultType}, nil
-		}
-		return ParsedValue{Value: int64(value), Type: resultType}, nil
-	case types.KindU8:
-		intVal := int64(value)
-		if intVal < 0 || intVal > math.MaxUint8 {
-			return ParsedValue{}, codes.ConstantOverflow.Errorf(
-				"value %g out of range for u8",
-				value,
-			)
-		}
-		return ParsedValue{Value: uint8(intVal), Type: resultType}, nil
-	case types.KindU16:
-		intVal := int64(value)
-		if intVal < 0 || intVal > math.MaxUint16 {
-			return ParsedValue{}, codes.ConstantOverflow.Errorf(
-				"value %g out of range for u16",
-				value,
-			)
-		}
-		return ParsedValue{Value: uint16(intVal), Type: resultType}, nil
-	case types.KindU32:
-		intVal := int64(value)
-		if intVal < 0 || intVal > math.MaxUint32 {
-			return ParsedValue{}, codes.ConstantOverflow.Errorf(
-				"value %g out of range for u32",
-				value,
-			)
-		}
-		return ParsedValue{Value: uint32(intVal), Type: resultType}, nil
-	case types.KindU64:
-		if value < 0 || value >= math.MaxUint64 {
-			return ParsedValue{}, codes.ConstantOverflow.Errorf(
-				"value %g out of range for u64",
-				value,
-			)
-		}
-		return ParsedValue{Value: uint64(value), Type: resultType}, nil
+		return parsed, nil
 	case types.KindF32:
 		if math.Abs(value) > math.MaxFloat32 && !math.IsInf(value, 0) {
 			return ParsedValue{}, codes.ConstantOverflow.Errorf(
@@ -689,6 +519,54 @@ func convertToTargetKind(
 
 func isTime(unit *types.Unit) bool {
 	return unit != nil && unit.Dimensions.Equal(types.TimeSpan().Unit.Dimensions)
+}
+
+// toIntegerKind converts value to a Go value of the integer kind of t, or a
+// telem.TimeSpan for an i64 in a unit of time. It returns false if value is out of
+// the range of t. It panics if t is not an integer kind.
+func toIntegerKind(value float64, t types.Type) (ParsedValue, bool) {
+	switch t.Kind {
+	case types.KindI8:
+		return toInteger[int8](value, math.MinInt8, math.MaxInt8, t)
+	case types.KindI16:
+		return toInteger[int16](value, math.MinInt16, math.MaxInt16, t)
+	case types.KindI32:
+		return toInteger[int32](value, math.MinInt32, math.MaxInt32, t)
+	case types.KindI64:
+		if isTime(t.Unit) {
+			return toInteger[telem.TimeSpan](value, math.MinInt64, math.MaxInt64, t)
+		}
+		return toInteger[int64](value, math.MinInt64, math.MaxInt64, t)
+	case types.KindU8:
+		return toInteger[uint8](value, 0, math.MaxUint8, t)
+	case types.KindU16:
+		return toInteger[uint16](value, 0, math.MaxUint16, t)
+	case types.KindU32:
+		return toInteger[uint32](value, 0, math.MaxUint32, t)
+	case types.KindU64:
+		return toInteger[uint64](value, 0, math.MaxUint64, t)
+	case types.KindInvalid, types.KindF32, types.KindF64, types.KindString,
+		types.KindChan, types.KindSeries, types.KindVariable, types.KindNumericConstant,
+		types.KindIntegerConstant, types.KindFloatConstant,
+		types.KindExactIntegerFloatConstant, types.KindFunction, types.KindSequence,
+		types.KindStage, types.KindVarRef, types.KindBool:
+	}
+	panic(t.String() + " is not an integer type")
+}
+
+// toInteger converts value to T if value is in [lo, hi]. It checks the bounds as
+// floats, since Go leaves the conversion of an out-of-range float to each platform.
+func toInteger[T xtypes.Integer](
+	value float64,
+	lo, hi T,
+	t types.Type,
+) (ParsedValue, bool) {
+	// float64(hi) + 1 is the first value above hi for every T: float64 rounds it to
+	// 2^63 for int64 and 2^64 for uint64.
+	if value >= float64(lo) && value < float64(hi)+1 {
+		return ParsedValue{Value: T(value), Type: t}, true
+	}
+	return ParsedValue{}, false
 }
 
 // IsExactInteger checks if a float64 value is very close to an integer.

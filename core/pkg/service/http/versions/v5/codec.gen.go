@@ -12,7 +12,7 @@
 package v5
 
 import (
-	icd "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v0"
+	icd "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v1"
 	"github.com/synnaxlabs/x/encoding/orc"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 )
@@ -245,6 +245,214 @@ func (re *ReadEndpoint) DecodeOrc(r *orc.Reader) error {
 	}
 	if re.Index, err = r.String(); err != nil {
 		return err
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (wc WriteConfig) EncodeOrc(w *orc.Writer) error {
+	w.Write(wc.Key[:])
+	w.Bool(wc.AutoStart)
+	w.String(wc.Device)
+	w.Bool(wc.Endpoints != nil)
+	if wc.Endpoints != nil {
+		w.Uint32(uint32(len(wc.Endpoints)))
+		for i := range wc.Endpoints {
+			if err := wc.Endpoints[i].EncodeOrc(w); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (wc *WriteConfig) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if _, err := r.Read(wc.Key[:]); err != nil {
+		return err
+	}
+	if wc.AutoStart, err = r.Bool(); err != nil {
+		return err
+	}
+	if wc.Device, err = r.String(); err != nil {
+		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			wc.Endpoints = make([]WriteEndpoint, n)
+			for i := range wc.Endpoints {
+				if err = wc.Endpoints[i].DecodeOrc(r); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (we WriteEndpoint) EncodeOrc(w *orc.Writer) error {
+	w.String(we.Key)
+	w.Bool(we.Disabled)
+	w.String(string(we.Method))
+	w.String(we.Path)
+	w.Bool(we.Headers != nil)
+	if we.Headers != nil {
+		w.Uint32(uint32(len(we.Headers)))
+		for i := range we.Headers {
+			if err := we.Headers[i].EncodeOrc(w); err != nil {
+				return err
+			}
+		}
+	}
+	w.Bool(we.QueryParams != nil)
+	if we.QueryParams != nil {
+		w.Uint32(uint32(len(we.QueryParams)))
+		for i := range we.QueryParams {
+			if err := we.QueryParams[i].EncodeOrc(w); err != nil {
+				return err
+			}
+		}
+	}
+	if we.ICD != nil {
+		w.Bool(true)
+		w.Write((*we.ICD)[:])
+	} else {
+		w.Bool(false)
+	}
+	if we.Message != nil {
+		w.Bool(true)
+		if err := we.Message.EncodeOrc(w); err != nil {
+			return err
+		}
+	} else {
+		w.Bool(false)
+	}
+	if err := we.Channel.EncodeOrc(w); err != nil {
+		return err
+	}
+	w.Bool(we.Fields != nil)
+	if we.Fields != nil {
+		w.Uint32(uint32(len(we.Fields)))
+		for i := range we.Fields {
+			if err := we.Fields[i].EncodeOrc(w); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (we *WriteEndpoint) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if we.Key, err = r.String(); err != nil {
+		return err
+	}
+	if we.Disabled, err = r.Bool(); err != nil {
+		return err
+	}
+	{
+		rawV, err := r.String()
+		if err != nil {
+			return err
+		}
+		we.Method = Method(rawV)
+	}
+	if we.Path, err = r.String(); err != nil {
+		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			we.Headers = make([]Header, n)
+			for i := range we.Headers {
+				if err = we.Headers[i].DecodeOrc(r); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			we.QueryParams = make([]QueryParam, n)
+			for i := range we.QueryParams {
+				if err = we.QueryParams[i].DecodeOrc(r); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv icd.Key
+			if _, err := r.Read(hv[:]); err != nil {
+				return err
+			}
+			we.ICD = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv icd.WriteMessage
+			if err = hv.DecodeOrc(r); err != nil {
+				return err
+			}
+			we.Message = &hv
+		}
+	}
+	if err = we.Channel.DecodeOrc(r); err != nil {
+		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			we.Fields = make([]WriteField, n)
+			for i := range we.Fields {
+				if err = we.Fields[i].DecodeOrc(r); err != nil {
+					return err
+				}
+			}
+		}
 	}
 	return nil
 }

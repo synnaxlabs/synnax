@@ -22,6 +22,7 @@ cc_library(
         "//x/cpp/errors",
         "//x/cpp/telem",
         "@abseil-cpp//absl/log",
+        "@abseil-cpp//absl/strings",
         "@curl",
     ],
 )

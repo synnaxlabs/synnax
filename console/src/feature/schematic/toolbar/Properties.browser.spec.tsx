@@ -536,6 +536,32 @@ describe("Schematic toolbar Properties", () => {
       expect(screen.queryByText("Selection")).toBeNull();
     });
 
+    it("recolors the node color of symbol nodes", async () => {
+      const { key } = await renderProperties({
+        nodeKeys: ["n1", "n2"],
+        createConfig: () => ({
+          ...schematic.symbolNodeConfigZ.parse({
+            variant: "symbol",
+            spec: { type: "builtin", name: "valve" },
+          }),
+          color: fixed(RED),
+        }),
+      });
+      await screen.findByText("Selection");
+      fireEvent.click(getSwatches("Selection")[0]);
+      fireEvent.change(screen.getByLabelText("Hex"), {
+        target: { value: BLUE.slice(1) },
+      });
+      fireEvent.keyDown(document.body, { code: "Escape" });
+      await expect
+        .poll(async () =>
+          (
+            await Promise.all([retrieveConfig(key, "n1"), retrieveConfig(key, "n2")])
+          ).map((c) => fixedHexOf(c.color)),
+        )
+        .toEqual([BLUE, BLUE]);
+    });
+
     it("recolors every field that holds a selection color", async () => {
       const { key } = await renderProperties({
         nodeKeys: ["n1", "n2", "n3"],

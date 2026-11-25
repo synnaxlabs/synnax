@@ -384,16 +384,17 @@ bool writes(const std::string_view k, const x::telem::DataType &dt) {
     return dk.has_value() && (*dk == k || (numeric(*dk) && numeric(k)));
 }
 
-/// @brief reports whether a field of kind k changes the number that an encoder writes
-/// for a sample of dt.
+/// @brief reports whether a field of kind k changes or checks the number that an
+/// encoder writes for a sample of dt.
 bool needs_conversion(
     const std::string_view k,
     const x::telem::DataType &dt,
-    const bool scaled
+    const bool scaled,
+    const bool bounded
 ) {
-    if (k == payload::KIND_FLOAT) return scaled;
+    if (k == payload::KIND_FLOAT) return scaled || bounded;
     if (k == payload::KIND_INTEGER || k == payload::KIND_UNSIGNED)
-        return scaled || kind_of(dt) != k;
+        return scaled || bounded || kind_of(dt) != k;
     if (k == payload::KIND_BOOLEAN) return kind_of(dt) != k;
     return false;
 }
@@ -549,6 +550,7 @@ JSONEncoder::Field::create(const icd::JSONField &f, const x::telem::DataType &dt
     field.scaled = b.scale != 1 || b.offset != 0;
     field.scale = b.scale;
     field.offset = b.offset;
+    field.base = static_cast<const icd::BaseField &>(b);
     auto [v, variant_err] = read_variant(f, dt);
     if (variant_err) return {Field{}, variant_err};
     field.kind = v.kind;
@@ -565,7 +567,12 @@ JSONEncoder::Field::create(const icd::JSONField &f, const x::telem::DataType &dt
             Field{},
             invalid("a scaled field requires a float channel, not " + dt.name()),
         };
-    field.converted = needs_conversion(v.kind, dt, field.scaled);
+    field.converted = needs_conversion(
+        v.kind,
+        dt,
+        field.scaled,
+        b.min.has_value() || b.max.has_value()
+    );
     if (v.kind == payload::KIND_JSON) return {std::move(field), x::errors::NIL};
     auto type = x::json::Type::Number;
     if (v.kind == payload::KIND_STRING || v.kind == payload::KIND_UUID ||
@@ -599,7 +606,7 @@ x::errors::Error JSONEncoder::Field::append(
     auto sample = s.at(static_cast<int>(i));
     // A boolean matches and converts as 0 or 1.
     if (s.data_type() == x::telem::BOOLEAN_T) sample = x::telem::BOOLEAN_T.cast(sample);
-    // An enum label writes a value that the ICD names, which takes no conversion.
+    // An enum label writes a value that the ICD names, with no conversion or check.
     if (const auto *label = this->encoder.label(sample)) {
         out += *label;
         return x::errors::NIL;
@@ -607,6 +614,10 @@ x::errors::Error JSONEncoder::Field::append(
     const auto n = x::json::to_number(sample).value();
     const auto v = n.to_float64();
     if (!std::isfinite(v)) return invalid(n.to_string() + " is not a JSON number");
+    const auto *narrow = std::get_if<float>(&sample);
+    if (auto err = narrow != nullptr ? check_limits(this->base, *narrow)
+                                     : check_limits(this->base, v))
+        return err;
     if (this->kind == payload::KIND_FLOAT)
         return x::json::append_float((v - this->offset) / this->scale, out);
     if (this->kind != payload::KIND_BOOLEAN) return this->append_integer(n, out);

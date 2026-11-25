@@ -25,12 +25,15 @@ import (
 // ServiceConfig is the configuration for opening a Service.
 type ServiceConfig struct {
 	// DB is the database servers are stored in.
+	//
 	// [REQUIRED]
 	DB *gorp.DB
 	// Signals publishes sy_opcua_server_set and sy_opcua_server_delete.
+	//
 	// [OPTIONAL]
 	Signals *signals.Provider
 	// Instrumentation is used for logging, tracing, and metrics.
+	//
 	// [OPTIONAL]
 	alamos.Instrumentation
 }

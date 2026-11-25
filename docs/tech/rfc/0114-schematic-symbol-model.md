@@ -254,7 +254,8 @@ no data has arrived, for NaN, and, when it has an enumeration, for a value that 
 no entry after its match. Pluto then adds the unknown indicator. `within` 0.9 to 1.1
 reads 0.5 as 0, so a valve at 0.5 shows Closed with no indicator, as today. A state with
 no source, or with a `channel` source that has no `key`, draws its default entry, or
-fraction 0 for a number state, with no indicator. The binding holds the number format,
+fraction 0 for a number state, with no indicator. An `entry` paint whose entry has no
+color draws the node `color`, else the theme gray. The binding holds the number format,
 as each readout does today (`schemas/synnax/schematic.oracle:1224-1249` at
 `core/v0.62.0`).
 
@@ -436,7 +437,8 @@ follow the parts. A selector that is not a name resolves against the drawing, an
 match gets a `data-region-id`. A stored actuator, and a static symbol that a
 `custom_actuator` node uses, get `within` 0.9 to 1.1 on `active`, the `fixed` commands
 `deactivate` for value 0 and `activate` for value 1, named Off and On, and `next` on the
-whole drawing.
+whole drawing. A static symbol that no `custom_actuator` node uses keeps only its value
+0 looks, with no condition.
 
 ## 5 What this RFC does not cover
 
