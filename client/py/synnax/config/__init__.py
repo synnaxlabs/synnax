@@ -244,9 +244,13 @@ _ENV_ALIASES = (
 )
 
 
+# The CA path is expanded first, so ~/ca.crt and the full path of the same file agree.
+_PATHS = ("SYNNAX_CLIENT_CA_CERT", "SYNNAX_CA_CERT")
+
+
 def _env_values(env: Mapping[str, str]) -> Mapping[str, str]:
     values: Mapping[str, str] = {
-        name: value
+        name: os.path.expanduser(value) if name in _PATHS else value
         for pair in _ENV_ALIASES
         for name in pair
         if (value := _env(env, name))
@@ -302,7 +306,7 @@ def load_env_options(env: Mapping[str, str]) -> PartialOptions:
     elif (secure := _env_bool(env, "SYNNAX_SECURE")) is not None:
         opts["secure"] = secure
     if ca_cert := values.get("SYNNAX_CLIENT_CA_CERT"):
-        opts["ca_cert"] = os.path.expanduser(ca_cert)
+        opts["ca_cert"] = ca_cert
     return opts
 
 

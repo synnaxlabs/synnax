@@ -726,6 +726,18 @@ class TestLoadEnvOptions:
         with pytest.raises(ValidationError, match=f"{name} and the deprecated {alias}"):
             load_env_options({name: "9091", alias: "9092"})
 
+    def test_agreeing_deprecated_ca_cert_path(self) -> None:
+        """Should read a deprecated CA path that names the same file after expanding
+        ~, with no warning.
+        """
+        full = os.path.expanduser("~/ca.crt")
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            opts = load_env_options(
+                {"SYNNAX_CLIENT_CA_CERT": full, "SYNNAX_CA_CERT": "~/ca.crt"}
+            )
+        assert opts == {"ca_cert": full}
+
     def test_deprecated_warning_names_the_caller(self) -> None:
         """Should attribute the DeprecationWarning to the caller's line."""
         line = sys._getframe().f_lineno + 2
