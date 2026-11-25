@@ -41,3 +41,29 @@ var _ = Describe("InferDataType", func() {
 	Specify("bytes", DataTypeInferTest[[]byte](telem.BytesT))
 	Specify("bool", DataTypeInferTest[bool](telem.BooleanT))
 })
+
+var _ = Describe("FixedWidthDataType", func() {
+	DescribeTable("Should name a fixed-density data type",
+		func(dt telem.FixedWidthDataType, expected telem.DataType) {
+			Expect(telem.DataType(dt)).To(Equal(expected))
+			Expect(expected.IsVariable()).To(BeFalse())
+		},
+		Entry("float64", telem.FixedWidthDataTypeFloat64, telem.Float64T),
+		Entry("int8", telem.FixedWidthDataTypeInt8, telem.Int8T),
+		Entry("uint64", telem.FixedWidthDataTypeUint64, telem.Uint64T),
+		Entry("timestamp", telem.FixedWidthDataTypeTimestamp, telem.TimestampT),
+		Entry("uuid", telem.FixedWidthDataTypeUUID, telem.UUIDT),
+		Entry("boolean", telem.FixedWidthDataTypeBoolean, telem.BooleanT),
+	)
+})
+
+var _ = Describe("NumericDataType", func() {
+	It("Should hold the integer and float data types", func() {
+		Expect(telem.NumericDataTypeUint16.IsValid()).To(BeTrue())
+		Expect(telem.DataType(telem.NumericDataTypeFloat32)).To(Equal(telem.Float32T))
+	})
+
+	It("Should reject a fixed-width data type that is not a number", func() {
+		Expect(telem.NumericDataType(telem.TimestampT).IsValid()).To(BeFalse())
+	})
+})
