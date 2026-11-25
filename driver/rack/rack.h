@@ -177,6 +177,9 @@ struct Config {
     x::errors::Error outbox_err;
     /// @brief the warning of a stuck outbox, which the rack status reports.
     std::shared_ptr<status::Alert> outbox_alert = std::make_shared<status::Alert>();
+    /// @brief called with each file that the Driver creates in the data directory, such
+    /// as to give it to the owner of that directory. Set by Rack::run.
+    journal::OnCreate on_create = journal::no_create_hook;
 
     /// @brief returns a new task factory to use for creating tasks in the task manager.
     /// Give it the same client as the task manager. With an incompatible Core, the

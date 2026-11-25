@@ -21,7 +21,6 @@
 #include "driver/modbus/names.h"
 #include "driver/rack/factories.h"
 #include "driver/rack/rack.h"
-#include "driver/rack/state.h"
 #include "driver/rack/status/status.h"
 #include "driver/secret/secret.h"
 #include "driver/version/version.h"
@@ -141,9 +140,10 @@ void configure_arc(
         [&config, &rt_manager]() {
             return std::make_unique<arc::Factory>(
                 rt_manager,
-                state::data_dir(config.state_dir) / arc::status::KEYS_FILE,
+                config.state_dir / DATA_DIR / arc::status::KEYS_FILE,
                 config.remote_info.cluster_key.to_string(),
-                config.status_keys
+                config.status_keys,
+                config.on_create
             );
         }
     );

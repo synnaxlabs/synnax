@@ -44,12 +44,14 @@ class Factory final : public task::Factory {
 
 public:
     /// @brief loads the status keys at keys_path that the Core cluster with the key
-    /// cluster gave, which hold at most max_keys names.
+    /// cluster gave, which hold at most max_keys names. on_create gets each file a
+    /// save of the keys creates.
     Factory(
         std::shared_ptr<x::thread::rt::Manager> rt_manager,
         const std::filesystem::path &keys_path,
         const std::string &cluster,
-        std::size_t max_keys
+        std::size_t max_keys,
+        journal::OnCreate on_create = journal::no_create_hook
     );
 
     std::pair<std::unique_ptr<task::Task>, bool> configure_task(

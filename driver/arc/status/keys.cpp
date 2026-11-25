@@ -53,8 +53,16 @@ x::errors::Error fs_error(const std::string &action, const std::error_code &ec) 
 }
 }
 
-Keys::Keys(std::filesystem::path path, std::string cluster, const std::size_t max):
-    path(std::move(path)), cluster(std::move(cluster)), max(max) {}
+Keys::Keys(
+    std::filesystem::path path,
+    std::string cluster,
+    const std::size_t max,
+    journal::OnCreate on_create
+):
+    path(std::move(path)),
+    cluster(std::move(cluster)),
+    max(max),
+    on_create(std::move(on_create)) {}
 
 void Keys::put(const std::string &name, const std::string &key) {
     if (const auto it = this->index.find(name); it != this->index.end())
@@ -69,9 +77,12 @@ void Keys::put(const std::string &name, const std::string &key) {
 std::pair<std::shared_ptr<Keys>, x::errors::Error> Keys::open(
     const std::filesystem::path &path,
     const std::string &cluster,
-    const std::size_t max
+    const std::size_t max,
+    journal::OnCreate on_create
 ) {
-    auto keys = std::shared_ptr<Keys>(new Keys(path, cluster, max));
+    auto keys = std::shared_ptr<Keys>(
+        new Keys(path, cluster, max, std::move(on_create))
+    );
     std::error_code ec;
     std::filesystem::remove(temp_path(path), ec);
     if (ec)
@@ -86,7 +97,6 @@ std::pair<std::shared_ptr<Keys>, x::errors::Error> Keys::open(
         .path = path,
         .magic = KEYS_MAGIC,
         .types = {KEY_TYPE, CLUSTER_TYPE},
-        .sync_bytes = 0,
     });
     if (err) return {nullptr, err};
     bool same_cluster = false;
@@ -130,6 +140,7 @@ Keys::save(const std::vector<std::pair<std::string, std::string>> &entries) cons
         .magic = KEYS_MAGIC,
         .sync_interval = x::telem::TimeSpan(std::numeric_limits<std::int64_t>::max()),
         .sync_bytes = std::numeric_limits<std::uint64_t>::max(),
+        .on_create = this->on_create,
     });
     if (err) return err;
     if (err = writer->write({.type = CLUSTER_TYPE, .payload = this->cluster}); err)

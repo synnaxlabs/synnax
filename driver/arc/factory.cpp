@@ -18,10 +18,16 @@ Factory::Factory(
     std::shared_ptr<x::thread::rt::Manager> rt_manager,
     const std::filesystem::path &keys_path,
     const std::string &cluster,
-    const std::size_t max_keys
+    const std::size_t max_keys,
+    journal::OnCreate on_create
 ):
     rt_manager(std::move(rt_manager)) {
-    auto [keys, err] = status::Keys::open(keys_path, cluster, max_keys);
+    auto [keys, err] = status::Keys::open(
+        keys_path,
+        cluster,
+        max_keys,
+        std::move(on_create)
+    );
     if (err) {
         err = x::errors::Error(
             err,
