@@ -12,7 +12,7 @@ import { computed, resolve } from "@synnaxlabs/lyra/styletest";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { color, type dimensions, location, type xy } from "@synnaxlabs/x";
 import type { FC, ReactElement } from "react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { userEvent } from "vitest/browser";
 import { render } from "vitest-browser-react";
 
@@ -427,6 +427,35 @@ const findMaskSource = (fill: Element): Element | null => {
   const href = doc.getElementById(maskID)?.querySelector("use")?.getAttribute("href");
   return doc.getElementById(href?.slice(1) ?? "");
 };
+
+describe("Custom.Drawing part clicks", () => {
+  it("should take a click on a part with no fill after its markup changes", async () => {
+    // The part has no fill, so only its click mark lets a press inside it land.
+    const markup = (x: number) =>
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">' +
+      `<rect class="main" x="${x}" width="5" height="5" /></svg>`;
+    const spec = {
+      ...createSpec(markup(0)),
+      parts: [{ key: "main", name: "Main", selectors: [".main"] }],
+    };
+    const clicks = { main: vi.fn() };
+    const Clickable = ({ s }: { s: schematic.symbol.Spec }): ReactElement => (
+      <Wrapper>
+        <Primitive.Div>
+          <Custom.Drawing spec={s} partClicks={clicks} />
+        </Primitive.Div>
+      </Wrapper>
+    );
+    const { container, rerender } = await render(<Clickable s={spec} />);
+    await rerender(
+      <Clickable s={{ ...spec, drawing: { type: "svg", markup: markup(5) } }} />,
+    );
+    const rect = container.querySelector("rect[x='5']");
+    if (rect == null) throw new Error("new markup not mounted");
+    await userEvent.click(rect);
+    expect(clicks.main).toHaveBeenCalledOnce();
+  });
+});
 
 describe("Custom.Drawing hold fill", () => {
   it("should fill the drawing while held, as a built-in symbol does", async () => {

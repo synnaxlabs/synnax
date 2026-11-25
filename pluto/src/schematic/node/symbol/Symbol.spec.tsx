@@ -277,6 +277,130 @@ describe("Symbol node", () => {
     expect(container.querySelector("button")).toBeNull();
   });
 
+  describe("clicks on parts", () => {
+    // The left part is a group of two shapes. The body is in no part.
+    const PARTS_MARKUP =
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 10">' +
+      '<rect class="body" width="10" height="10" />' +
+      '<g class="left"><rect x="10" width="10" height="10" />' +
+      '<rect x="10" width="5" height="5" /></g>' +
+      '<rect class="right" x="20" width="10" height="10" /></svg>';
+    const HOVERED = "pluto-symbol__part--hovered";
+    const PRESSED = "pluto-symbol__part--pressed";
+
+    const renderParts = async (
+      interactions: schematic.symbol.Interaction[],
+      config: Partial<Config> = {},
+    ) => {
+      const { key, Wrapper } = await createCustomSymbol(PARTS_MARKUP, {
+        parts: [
+          { key: "left", name: "Left", selectors: [".left"] },
+          { key: "right", name: "Right", selectors: [".right"] },
+        ],
+        states: [{ type: "number", key: "level", name: "Level" }],
+        commands: [
+          {
+            key: "open",
+            name: "Open",
+            state: "level",
+            value: { type: "fixed", value: 1 },
+          },
+          {
+            key: "close",
+            name: "Close",
+            state: "level",
+            value: { type: "fixed", value: 0 },
+          },
+        ],
+        interactions,
+      });
+      const onConfigChange = vi.fn();
+      const { container } = renderNode(
+        {
+          spec: { type: "custom", key },
+          states: [{ key: "level", source: { type: "local", value: 0.5 } }],
+          ...config,
+        },
+        Wrapper,
+        onConfigChange,
+      );
+      const shape = async (selector: string): Promise<Element> =>
+        await vi.waitUntil(() => container.querySelector(selector));
+      const sent = (value: number) => ({
+        states: [
+          schematic.stateBindingZ.parse({
+            key: "level",
+            source: { type: "local", value },
+          }),
+        ],
+      });
+      return { container, onConfigChange, shape, sent };
+    };
+
+    const PART_CLICKS: schematic.symbol.Interaction[] = [
+      { type: "fire", key: "left", part: "left", command: "open" },
+      { type: "fire", key: "right", part: "right", command: "close" },
+    ];
+
+    it.each([
+      [".left rect", 1],
+      [".right", 0],
+    ])("should send the command of the part that holds %s", async (selector, value) => {
+      const { onConfigChange, shape, sent } = await renderParts(PART_CLICKS);
+      fireEvent.click(await shape(selector));
+      expect(onConfigChange).toHaveBeenCalledExactlyOnceWith(sent(value));
+    });
+
+    it("should take no click outside its parts", async () => {
+      const { container, onConfigChange, shape } = await renderParts(PART_CLICKS);
+      fireEvent.click(await shape(".body"));
+      expect(onConfigChange).not.toHaveBeenCalled();
+      expect(container.querySelector("button")).toBeNull();
+    });
+
+    it("should send only the command of a part inside a drawing that takes clicks", async () => {
+      const { onConfigChange, shape, sent } = await renderParts([
+        { type: "fire", key: "body", command: "close" },
+        { type: "fire", key: "left", part: "left", command: "open" },
+      ]);
+      fireEvent.click(await shape(".left rect"));
+      expect(onConfigChange).toHaveBeenCalledExactlyOnceWith(sent(1));
+      fireEvent.click(await shape(".body"));
+      expect(onConfigChange).toHaveBeenLastCalledWith(sent(0));
+    });
+
+    it("should tint each shape of the part under the pointer", async () => {
+      const { container, shape } = await renderParts(PART_CLICKS);
+      fireEvent.mouseOver(await shape(".left rect"));
+      const tinted = () =>
+        Array.from(container.querySelectorAll(`.${HOVERED}`), (el) =>
+          el.parentElement?.getAttribute("class"),
+        );
+      expect(tinted()).toEqual(["left", "left"]);
+      fireEvent.mouseOver(await shape(".body"));
+      expect(tinted()).toEqual([]);
+    });
+
+    it("should run the click of a part after the hold delay of the node", async () => {
+      const { onConfigChange, shape, sent } = await renderParts(PART_CLICKS, {
+        onClickDelay: Number(TimeSpan.milliseconds(500).valueOf()),
+      });
+      const right = await shape(".right");
+      fireEvent.click(right);
+      expect(onConfigChange).not.toHaveBeenCalled();
+      vi.useFakeTimers();
+      fireEvent.mouseDown(right);
+      expect(right.classList).toContain(PRESSED);
+      vi.advanceTimersByTime(499);
+      expect(onConfigChange).not.toHaveBeenCalled();
+      act(() => {
+        vi.advanceTimersByTime(1);
+      });
+      expect(onConfigChange).toHaveBeenCalledExactlyOnceWith(sent(0));
+      expect(right.classList).not.toContain(PRESSED);
+    });
+  });
+
   it("should draw a state with no source at its default", async () => {
     const { container } = renderNode({
       spec: { type: "builtin", name: "valve" },

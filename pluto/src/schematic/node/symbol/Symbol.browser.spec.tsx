@@ -249,6 +249,60 @@ describe("Symbol node", () => {
     });
   });
 
+  it("should ask which command to send for a click on a part", async () => {
+    const client = createTestClient();
+    const symbol = await client.schematics.symbols.create({
+      name: "Lamp switch",
+      data: {
+        drawing: { type: "svg", markup: MARKUP },
+        variant: "static",
+        ...DATA,
+        commands: [
+          {
+            key: "off",
+            name: "Off",
+            state: "active",
+            value: { type: "fixed", value: 0 },
+          },
+          {
+            key: "on",
+            name: "On",
+            state: "active",
+            value: { type: "fixed", value: 1 },
+          },
+        ],
+        interactions: [
+          { type: "next", key: "switch", part: "lamp", commands: ["off", "on"] },
+        ],
+      },
+    });
+    const Wrapper = await createAsyncSynnaxWrapper({
+      client,
+      additionalRegistry: symbolNode.REGISTRY,
+    });
+    const onConfigChange = vi.fn();
+    const { container } = await renderNode(
+      Wrapper,
+      {
+        spec: { type: "custom", key: symbol.key },
+        states: [{ key: "active", source: { type: "local", value: 3 } }],
+      },
+      onConfigChange,
+    );
+    const lamp = await vi.waitUntil(() => container.querySelector(".lamp"));
+    await page.elementLocator(lamp).click();
+    expect(onConfigChange).not.toHaveBeenCalled();
+    await page.getByRole("menuitem", { name: "On" }).click();
+    expect(onConfigChange).toHaveBeenCalledExactlyOnceWith({
+      states: [
+        schematic.stateBindingZ.parse({
+          key: "active",
+          source: { type: "local", value: 1 },
+        }),
+      ],
+    });
+  });
+
   it("should send the entry picked for a command that asks for its value", async () => {
     const client = createTestClient();
     const { key: enumeration } = await client.enumerations.create({

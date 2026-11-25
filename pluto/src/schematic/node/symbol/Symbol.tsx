@@ -9,7 +9,7 @@
 
 import type { schematic } from "@synnaxlabs/client";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
-import { type ReactElement, type Ref, useState } from "react";
+import { type ReactElement, type RefCallback, useState } from "react";
 
 import { Color } from "@/color";
 import { CSS } from "@/css";
@@ -43,8 +43,9 @@ interface DrawnProps
   value: Custom.StateValues;
   readings?: Record<string, Custom.Reading>;
   onClick?: () => void;
+  partClicks?: Record<string, () => void>;
   onClickDelay?: Config["onClickDelay"];
-  buttonRef?: Ref<HTMLButtonElement>;
+  anchorRef?: RefCallback<HTMLElement>;
 }
 
 const Drawn = ({
@@ -60,8 +61,9 @@ const Drawn = ({
   value,
   readings,
   onClick,
+  partClicks,
   onClickDelay,
-  buttonRef,
+  anchorRef,
 }: DrawnProps): ReactElement => {
   const [nodeColor] = Color.useValues([color]);
   const paints = Custom.usePaints(spec, value, { nodeColor, builtIn });
@@ -77,17 +79,19 @@ const Drawn = ({
       paints={paints}
       readings={readings}
       motionDisabled={motionDisabled}
+      partClicks={partClicks}
+      onClickDelay={onClickDelay}
     />
   );
   if (onClick == null)
     return (
-      <Primitive.Div orientation={orientation} className={className}>
+      <Primitive.Div ref={anchorRef} orientation={orientation} className={className}>
         {drawing}
       </Primitive.Div>
     );
   return (
     <Toggle.Button
-      ref={buttonRef}
+      ref={anchorRef}
       orientation={orientation}
       className={className}
       onClick={onClick}
@@ -112,17 +116,17 @@ interface ClickActions {
   ask: (r: Request) => void;
 }
 
-// resolveClick returns what a click on the whole drawing does, where spec is symbol
-// with the node's bindings. It is undefined when a click does nothing, such as a
-// command with no target.
+// resolveClick returns what a click does for interaction, where spec is symbol with the
+// node's bindings. It is undefined when a click does nothing, such as a command with no
+// target.
 const resolveClick = (
+  interaction: schematic.symbol.Interaction | undefined,
   symbol: schematic.symbol.Spec | undefined,
   spec: schematic.symbol.Spec | undefined,
   { disabled, states, commands }: Pick<Config, "disabled" | "states" | "commands">,
   { value, missing, commanded }: Reads,
   { send, ask }: ClickActions,
 ): (() => void) | undefined => {
-  const interaction = spec?.interactions.find(({ part }) => part == null);
   if (symbol == null || spec == null || interaction == null || disabled)
     return undefined;
   if (interaction.type === "fire") {
@@ -178,7 +182,7 @@ export const Node = ({
   });
   const value = bind.values(states, readings);
   const missing = bind.missing(states, readings);
-  const [anchor, setAnchor] = useState<HTMLButtonElement | null>(null);
+  const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const [request, setRequest] = useState<Request>();
   const [promptVisible, setPromptVisible] = useState(false);
   Tooltip.useHidden(promptVisible);
@@ -191,19 +195,24 @@ export const Node = ({
         ),
       });
   };
-  const onClick = resolveClick(
-    resolved.spec,
-    bound.spec,
-    config,
-    { value, missing, commanded: bind.commanded(states, readings) },
-    {
-      send,
-      ask: (r) => {
-        setRequest(r);
-        setPromptVisible(true);
-      },
+  const reads = { value, missing, commanded: bind.commanded(states, readings) };
+  const actions = {
+    send,
+    ask: (r: Request) => {
+      setRequest(r);
+      setPromptVisible(true);
     },
-  );
+  };
+  const clickOf = (interaction?: schematic.symbol.Interaction) =>
+    resolveClick(interaction, resolved.spec, bound.spec, config, reads, actions);
+  const interactions = bound.spec?.interactions ?? [];
+  const onClick = clickOf(interactions.find(({ part }) => part == null));
+  const partClicks: Record<string, () => void> = {};
+  for (const interaction of interactions) {
+    if (interaction.part == null) continue;
+    const click = clickOf(interaction);
+    if (click != null) partClicks[interaction.part] = click;
+  }
   const unmatched = Custom.useUnmatched(bound.spec, value);
   const scaleResize = Grid.useScaleResize(config, onConfigChange);
   return (
@@ -228,8 +237,9 @@ export const Node = ({
         value={value}
         readings={bind.stateReadings(states, readings)}
         onClick={onClick}
+        partClicks={partClicks}
         onClickDelay={config.onClickDelay}
-        buttonRef={setAnchor}
+        anchorRef={setAnchor}
       />
       <Dialog.Frame
         visible={promptVisible}
