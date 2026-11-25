@@ -13,9 +13,7 @@ on:
   workflow_call:
     inputs: &inputs
       browsers:
-        description:
-          Whether the tests run in Playwright's Chromium, WebKit, and, for a package
-          with a firefox project, Firefox
+        description: Whether the tests run in Playwright's Chromium
         required: false
         type: boolean
         default: false
@@ -70,6 +68,13 @@ on:
         required: false
         type: boolean
         default: false
+      node_projects:
+        description:
+          The Vitest projects the Node.js LTS variants run, split by spaces, or empty
+          for the projects of the cov script; required for a package with browsers
+        required: false
+        type: string
+        default: ""
       package:
         description: The pnpm package name
         required: true
@@ -114,6 +119,13 @@ on:
         default: true
       ubuntu_arm:
         description: Whether to test on Ubuntu on ARM
+        required: false
+        type: boolean
+        default: false
+      webkit:
+        description:
+          Whether the browser tests also run in WebKit and, for a package with a firefox
+          project, Firefox
         required: false
         type: boolean
         default: false
@@ -309,8 +321,11 @@ jobs:
           scripts/check_declarations_ts.sh "$PACKAGE" "$RUNNER_TEMP/packed"
 
       # Without a limit, a stuck mirror holds the merge queue for up to 6 hours.
+      # The Node version changes no browser run, so a Node variant runs no browser.
       - name: Install browsers
-        if: (inputs.test && inputs.browsers) || (inputs.runtimes && matrix.lint)
+        if:
+          (inputs.test && inputs.browsers && !matrix.node) || (inputs.runtimes &&
+          matrix.lint)
         uses: ./.github/actions/setup-browsers
         timeout-minutes: 20
         with:
@@ -351,6 +366,7 @@ jobs:
             ${{ matrix.node && '--coverage.enabled=false' || inputs.coverage_flag != ''
             && '--coverage.reporter=text-summary --coverage.reporter=clover
             --coverage.reporter=json' || '' }}
+          NODE_PROJECTS: ${{ matrix.node && inputs.node_projects || '' }}
           SHARD_ARG:
             ${{ inputs.shards > 1 && format('--shard={0}/{1}', matrix.shard,
             inputs.shards) || '' }}
@@ -360,7 +376,13 @@ jobs:
             github.job, strategy.job-index) }}
         run: |
           read -ra args <<< "$COVERAGE_ARGS $SHARD_ARG $TEST_ARGS $SPECS"
-          pnpm cov:"$PACKAGE" --log-order=stream --log-prefix=none -- "${args[@]}"
+          script="cov"
+          if [ -n "$NODE_PROJECTS" ]; then
+            script="test"
+            read -ra projects <<< "$NODE_PROJECTS"
+            args+=(--run "${projects[@]/#/--project=}")
+          fi
+          pnpm "$script:$PACKAGE" --log-order=stream --log-prefix=none -- "${args[@]}"
 
       - name: Run the examples
         if:
@@ -381,7 +403,7 @@ jobs:
       # too many files crashes. Each run starts new pages. Set webkit_runs back to 1
       # when the issue is fixed.
       - name: Test in WebKit and Firefox
-        if: inputs.test && inputs.browsers
+        if: inputs.test && inputs.webkit && !matrix.node
         shell: bash
         timeout-minutes: 15
         env:
@@ -392,11 +414,14 @@ jobs:
           SYNNAX_TEST_CACHE_KEY:
             ${{ format('{0}-{1}-{2}-{3}-webkit', github.run_id, github.run_attempt,
             github.job, strategy.job-index) }}
+          # WebKit names no URL when a module import fails, so the dev server logs the
+          # requests that fail.
+          SYNNAX_TEST_REQUEST_LOG: ${{ runner.temp }}/diagnostics/webkit-requests.log
         # A page crash leaves no memory data in the log, so a loop samples it.
         run: |
+          mkdir -p "$RUNNER_TEMP/diagnostics"
           if [ "$RUNNER_OS" = Linux ]; then
             log="$RUNNER_TEMP/diagnostics/webkit-memory.log"
-            mkdir -p "$RUNNER_TEMP/diagnostics"
             (
               set +e
               while :; do
@@ -490,6 +515,10 @@ jobs:
           fi
           if [ -f "$RUNNER_TEMP/diagnostics/webkit-memory.log" ]; then
             tail -n 40 "$RUNNER_TEMP/diagnostics/webkit-memory.log"
+          fi
+          if [ -f "$RUNNER_TEMP/diagnostics/webkit-requests.log" ]; then
+            echo "Failed dev server requests in WebKit and Firefox:"
+            tail -n 200 "$RUNNER_TEMP/diagnostics/webkit-requests.log"
           fi
           if [ "$RUNNER_OS" = Linux ] && docker inspect synnax &> /dev/null; then
             docker logs synnax &> "$RUNNER_TEMP/diagnostics/core.log"

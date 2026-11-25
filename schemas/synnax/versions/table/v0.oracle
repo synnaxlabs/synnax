@@ -26,11 +26,13 @@ Table struct {
         """
     }
 
-    @doc value  """
+    @doc value     """
         is a tabular data display component for viewing structured telemetry data.
         Tables support multiple columns, channel data sources, and customizable
         formatting options.
     """
+    @go entry
     @go marshal
     @go migrate
+    @resource type "table"
 }

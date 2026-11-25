@@ -19,7 +19,6 @@ import (
 	"uuid"
 
 	"github.com/synnaxlabs/x/errors"
-	xmath "github.com/synnaxlabs/x/math"
 	xstrconv "github.com/synnaxlabs/x/strconv"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -202,7 +201,8 @@ func NewDecoder(f Field) (*Decoder, error) {
 //   - A UUID takes its string form.
 //   - Bytes take a string of standard, padded base64.
 //   - A numeric or boolean sample takes a number that it can hold exactly, a boolean
-//     as 0 or 1, or the label of an enum.
+//     as 0 or 1, the label of an enum, or a string that C's strtod reads whole as such
+//     a number, after trimming whitespace from each end.
 //
 // When raw does not convert, Append returns an error wrapping validate.ErrValidation.
 func (d *Decoder) Append(dst []byte, raw jsontext.Value) ([]byte, error) {
@@ -323,32 +323,47 @@ func appendBase64(dst, text []byte) ([]byte, error) {
 }
 
 func (d *Decoder) appendNumeric(dst []byte, raw jsontext.Value) ([]byte, error) {
+	var (
+		n   number
+		err error
+	)
 	if raw.Kind() == '"' {
-		if err := d.unquote(raw); err != nil {
+		if err = d.unquote(raw); err != nil {
 			return nil, err
 		}
 		if sample, ok := d.enum(); ok {
 			return append(dst, sample...), nil
 		}
-		return nil, errors.Wrapf(
-			validate.ErrValidation, "unknown enum label %q", d.text,
-		)
+		if n, err = parseQuoted(d.text); err != nil && len(d.enums) > 0 {
+			return nil, errors.Wrapf(
+				validate.ErrValidation, "unknown enum label %q", d.text,
+			)
+		}
+	} else {
+		n, err = d.number(raw)
 	}
-	n, err := d.number(raw)
 	if err != nil {
 		return nil, err
 	}
 	return d.appendNumber(dst, n)
 }
 
+// Labeled reports whether raw is a JSON string that is the label of an enum of the
+// field.
+func (d *Decoder) Labeled(raw jsontext.Value) bool {
+	if len(d.enums) == 0 || raw.Kind() != '"' || d.unquote(raw) != nil {
+		return false
+	}
+	_, ok := d.enum()
+	return ok
+}
+
 // AppendFloat appends the sample of v to dst, as Append does for a JSON number equal to
-// v. It returns an error wrapping validate.ErrValidation when v is not finite, the data
-// type is not numeric, or v does not convert to it.
+// v. A float data type takes any float, NaN and infinity included. It returns an error
+// wrapping validate.ErrValidation when the data type is not numeric or v does not
+// convert to it.
 func (d *Decoder) AppendFloat(dst []byte, v float64) ([]byte, error) {
 	n := number{kind: floatNumber, f: v}
-	if !xmath.Finite(v) {
-		return nil, errors.Wrapf(validate.ErrValidation, "%s is not finite", n)
-	}
 	if dt := d.field.DataType; !numeric(dt) {
 		return nil, errors.Wrapf(
 			validate.ErrValidation, "cannot convert a float to %s", dt,

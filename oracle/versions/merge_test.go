@@ -208,6 +208,39 @@ Scale union on type {
 		Expect(versions.MergeLive(ctx, r, chain, merged)).To(Equal(merged))
 	})
 
+	It("Should drop a variant that a patch omits, with its live annotations", func(
+		ctx SpecContext,
+	) {
+		write("schemas/synnax/versions/channel/v0.oracle", `
+Scale union on type {
+    linear {
+        slope float64
+    }
+    none {}
+
+    @go marshal
+}
+`)
+		write("schemas/synnax/versions/channel/v1.oracle", `
+Scale union on type extends v0.Scale {
+    -none
+}
+`)
+		r, chain := resolver()
+		merged := MustSucceed(versions.MergeLive(ctx, r, chain, `Scale union on type {
+    linear {
+        slope float64
+    }
+    none {
+        @doc value "is a removed variant."
+    }
+}
+`))
+		Expect(merged).To(ContainSubstring("linear"))
+		Expect(merged).ToNot(ContainSubstring("none"))
+		Expect(versions.MergeLive(ctx, r, chain, merged)).To(Equal(merged))
+	})
+
 	It("Should carry live-owned action declarations through the merge", func(
 		ctx SpecContext,
 	) {
@@ -312,6 +345,54 @@ Channel struct {
 		Expect(merged).ToNot(ContainSubstring("extra"))
 	})
 
+	It("Should project the resource type from the chain", func(ctx SpecContext) {
+		write("schemas/synnax/versions/channel/v0.oracle", `
+Channel struct {
+    name string
+
+    @go marshal
+    @resource type "channel"
+}
+`)
+		liveSource := `Channel struct {
+    name string
+
+    @go marshal
+    @resource type "hand_edited"
+}
+`
+		r, chain := resolver()
+		merged := MustSucceed(versions.MergeLive(ctx, r, chain, liveSource))
+		Expect(merged).To(ContainSubstring(`@resource type "channel"`))
+		Expect(merged).ToNot(ContainSubstring("hand_edited"))
+	})
+
+	It("Should reject a live resource type the chain does not have", func(
+		ctx SpecContext,
+	) {
+		write("schemas/synnax/versions/channel/v0.oracle", `
+Channel struct {
+    name string
+
+    @go marshal
+}
+`)
+		liveSource := `Channel struct {
+    name string
+
+    @go marshal
+    @resource type "channel"
+}
+`
+		r, chain := resolver()
+		Expect(versions.MergeLive(ctx, r, chain, liveSource)).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring(
+				"move @resource of Channel to schemas/synnax/versions/channel/v0.oracle",
+			)),
+		))
+	})
+
 	Describe("Erased docs", func() {
 		const version = `
 Mode enum {
@@ -367,7 +448,7 @@ Where filter Channel {
 				Expect(versions.MergeLive(ctx, r, chain, live)).Error().To(SatisfyAll(
 					MatchError(validate.ErrValidation),
 					MatchError(ContainSubstring("schemas/synnax/channel.oracle")),
-					MatchError(ContainSubstring("move "+path+" to "+file)),
+					MatchError(ContainSubstring("move @doc of "+path+" to "+file)),
 				))
 			},
 			Entry("on a struct", `Channel struct {
@@ -455,7 +536,9 @@ Where filter Channel {
 
     @go marshal
 }
-`)).Error().To(MatchError(ContainSubstring("Channel.name, Channel.uses")))
+`)).Error().To(MatchError(ContainSubstring(
+				"@doc of Channel.name, @doc of Channel.uses",
+			)))
 		})
 
 		It("Should drop a removed declaration and its doc without an error", func(
@@ -942,6 +1025,30 @@ Channel struct {
 		merged := MustSucceed(versions.MergeLive(ctx, r, chain, ""))
 		Expect(merged).To(ContainSubstring(`import "schemas/x/telem"`))
 		Expect(merged).To(ContainSubstring("telem.TimeStamp"))
+	})
+
+	It("Should import the dependency a narrowing enum names", func(
+		ctx SpecContext,
+	) {
+		write("schemas/x/versions/telem/v0.oracle", "Kind enum {\n    a = \"a\"\n}\n")
+		write("schemas/x/telem.oracle", "Kind enum {\n    a = \"a\"\n}\n")
+		write("schemas/synnax/versions/channel/v0.oracle", `
+import "schemas/x/versions/telem/v0"
+
+Kept enum of telem.Kind {
+    a
+}
+
+Channel struct {
+    kind Kept
+
+    @go marshal
+}
+`)
+		r, chain := resolver()
+		merged := MustSucceed(versions.MergeLive(ctx, r, chain, ""))
+		Expect(merged).To(ContainSubstring("Kept enum of telem.Kind"))
+		Expect(merged).To(ContainSubstring(`import "schemas/x/telem"`))
 	})
 
 	It("Should import the dependency an inline union variant extends", func(

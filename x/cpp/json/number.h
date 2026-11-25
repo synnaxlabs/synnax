@@ -57,6 +57,14 @@ public:
     /// double.
     static std::pair<Number, errors::Error> parse(std::string_view text);
 
+    /// @brief parses text, the content of a JSON string, as C's strtod reads a whole
+    /// string: a decimal or 0x hex number, inf, infinity, nan, or nan(chars) in any
+    /// case, each with an optional sign. It also trims whitespace from each end. A hex
+    /// integer that 64 bits hold stays exact.
+    /// @returns VALIDATION when the trimmed text is none of these, or is past the range
+    /// of a double.
+    static std::pair<Number, errors::Error> parse_quoted(std::string_view text);
+
     /// @brief returns the number when it is an integer that an int64 holds.
     [[nodiscard]] std::optional<std::int64_t> to_int64() const;
     /// @brief returns the number when it is an integer that a uint64 holds.
@@ -75,6 +83,9 @@ public:
     /// -Infinity.
     [[nodiscard]] std::string to_string() const;
 };
+
+/// @brief returns v as a Number, or nothing when v is not numeric.
+std::optional<Number> to_number(const telem::SampleValue &v);
 
 /// @brief parses text, which Number::parse accepts, as the nearest double. It keeps no
 /// copy of text, so it allocates only for text of 64 characters or more.

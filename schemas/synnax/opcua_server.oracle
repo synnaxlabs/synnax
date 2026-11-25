@@ -12,6 +12,7 @@ import "schemas/synnax/channel"
 import "schemas/synnax/rack"
 import "schemas/synnax/secret"
 import "schemas/synnax/status"
+import "schemas/x/filter"
 import "schemas/x/telem"
 
 @cpp output "client/cpp/opcua/server"
@@ -176,10 +177,14 @@ Read struct {
     }
     index   channel.Key {
         @doc value         "is the index channel of the channel."
+        @ref kind          use
+        @ref on_delete     restrict
         @validate required
     }
     channel channel.Key {
         @doc value         "is the channel that holds the samples of the node."
+        @ref kind          use
+        @ref on_delete     restrict
         @validate required
     }
 
@@ -197,6 +202,8 @@ Write struct {
     }
     channel channel.Key {
         @doc value         "is the channel that commands the node."
+        @ref kind          use
+        @ref on_delete     restrict
         @validate required
     }
 
@@ -255,8 +262,18 @@ Server struct {
 
     @create
     @doc value     "is an OPC UA server that a rack's Driver connects to."
+    @go entry      "opcua_server"
     @go marshal
     @go migrate
     @resource type "opcua_server"
     @retrieve
+}
+
+Where filter Server {
+    key
+    name
+    rack
+
+    @doc value         "is a filter that selects OPC UA servers."
+    @go request_output "core/pkg/api/opcua/server"
 }

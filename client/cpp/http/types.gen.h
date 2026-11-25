@@ -225,6 +225,12 @@ struct WriteEndpoint {
     std::vector<Header> headers;
     /// @brief query_params contains query parameters appended to the request URL.
     std::vector<QueryParam> query_params;
+    /// @brief icd is the key of the ICD that holds the message of the endpoint. Absent
+    /// when the endpoint sends no message.
+    std::optional<::synnax::icd::Key> icd;
+    /// @brief message is the message whose document is the request body. A command on
+    /// any bound channel sends one request.
+    std::optional<::synnax::icd::WriteMessage> message;
     /// @brief channel is the command channel whose writes trigger this endpoint.
     ChannelField channel = {};
     /// @brief fields contains additional static or generated body fields.

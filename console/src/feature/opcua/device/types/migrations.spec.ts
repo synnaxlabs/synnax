@@ -67,6 +67,7 @@ const TEST_RECORD: TestCase[] = [
         clientTimeoutMs: 5000,
         secureChannelLifetimeMs: 600_000,
         sessionTimeoutMs: 1_200_000,
+        readNodeTimeout: 20_000_000_000,
       },
       read: { indexes: [34], channels: { test: 34 }, fields: [] },
       version: "2.0.0",

@@ -15,10 +15,13 @@ export { MotionProvider } from "@/schematic/node/common/custom/MotionProvider";
 export * from "@/schematic/node/common/custom/Overrides";
 export {
   listValues,
+  matched,
   type Paint,
+  type StateValues,
   usePaints,
   type UsePaintsParams,
   useRegions,
+  useUnmatched,
   type Value,
 } from "@/schematic/node/common/custom/paint";
 export * from "@/schematic/node/common/custom/render";

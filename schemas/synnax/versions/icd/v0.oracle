@@ -380,13 +380,15 @@ ICD struct {
         @doc value "are the messages the ICD holds."
     }
 
-    @doc value  """
+    @doc value     """
         is an interface control document: the messages a system sends and receives, and
         how to parse each one.
     """
+    @go entry
     @go imex
     @go marshal
     @go migrate
+    @resource type "icd"
 }
 
 ReadBinding struct {

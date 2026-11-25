@@ -79,7 +79,6 @@ export const StateIndicatorForm = ({ tab, onTabChange }: FormProps): ReactElemen
     <Tabs.Content itemKey="options">
       <Form.States
         enumeration={path.enumeration}
-        options={path.options}
         label={path.label.label}
         symbolName={NAME}
       />

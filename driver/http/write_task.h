@@ -23,6 +23,7 @@
 #include "driver/http/http.h"
 #include "driver/http/processor/processor.h"
 #include "driver/http/types/types.h"
+#include "driver/icd/writer.h"
 #include "driver/task/task.h"
 
 namespace driver::http {
@@ -126,5 +127,19 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_write(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::task::Task &task,
     const std::shared_ptr<Processor> &processor
+);
+
+/// @brief builds the message writer of each write endpoint from the message of its ICD.
+/// @param client the client that retrieves the ICDs and the command channels of the
+/// endpoints.
+/// @param endpoints the endpoints to build writers for.
+/// @returns one writer per enabled endpoint, in order. Returns CONFIGURATION_ERROR that
+/// names the endpoint when it sends no message, when its ICD does not exist, or when
+/// driver::icd::Writer rejects its message. Returns the error of a failed retrieve as
+/// is.
+[[nodiscard]] std::pair<std::vector<driver::icd::Writer>, x::errors::Error>
+build_writers(
+    const synnax::Synnax &client,
+    const std::vector<::synnax::http::WriteEndpoint> &endpoints
 );
 }

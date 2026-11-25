@@ -159,6 +159,43 @@ describe("Kafka Task Types", () => {
     });
   });
 
+  describe("deployICDWriteConfigZ", () => {
+    const createTarget = (topic: string, disabled = false) => ({
+      key: topic === "" ? "empty" : topic,
+      topic,
+      disabled,
+      icd: "6f1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d",
+      message: { message: "8d6a1ec4-7c8e-4f0a-9b8e-0c7f0d5c1a02", bindings: [] },
+    });
+    const issuesOf = (targets: ReturnType<typeof createTarget>[]) =>
+      (
+        Kafka.Task.deployICDWriteConfigZ.safeParse({ device: "dev", targets }).error
+          ?.issues ?? []
+      ).map(({ message, path }) => ({ message, path: path.join(".") }));
+
+    it("should accept a target with a topic", () => {
+      expect(issuesOf([createTarget("plant.pumps")])).toEqual([]);
+    });
+
+    it("should reject an enabled target with no topic", () => {
+      expect(issuesOf([createTarget("plant.pumps"), createTarget("")])).toEqual([
+        { message: "Topic is required", path: "targets.1.topic" },
+      ]);
+    });
+
+    it("should reject a config whose targets are all disabled", () => {
+      expect(issuesOf([createTarget("plant.pumps", true)])).toEqual([
+        { message: "At least one target must be enabled", path: "targets" },
+      ]);
+    });
+
+    it("should accept a disabled target with no topic", () => {
+      expect(issuesOf([createTarget("plant.pumps"), createTarget("", true)])).toEqual(
+        [],
+      );
+    });
+  });
+
   describe("isString", () => {
     it.each(["string", "json", "uuid"])("should send %s as a string", (dt) => {
       expect(Kafka.Task.isString(dt)).toBe(true);

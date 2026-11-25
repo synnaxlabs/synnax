@@ -350,7 +350,7 @@ var _ = Describe("NoteLift", func() {
 			Expect(logs.All()).To(HaveLen(1))
 			entry := logs.All()[0]
 			Expect(entry.Level).To(Equal(zapcore.WarnLevel))
-			Expect(entry.Message).To(Equal("changed a Kafka read field to v1"))
+			Expect(entry.Message).To(Equal("changed a Kafka task field to v1"))
 			Expect(entry.ContextMap()).To(Equal(map[string]any{
 				"config": key.String(),
 				"field":  "records.0.fields.1",
@@ -429,30 +429,6 @@ func storedConfig() v0.ReadConfig {
 		}},
 	}
 }
-
-var _ = Describe("MigrateWriteConfig", func() {
-	It("Should keep every field of the config and add no targets", func(
-		ctx SpecContext,
-	) {
-		old := v0.WriteConfig{
-			Key:       uuid.New(),
-			AutoStart: true,
-			Device:    "cluster",
-			Topic:     "plant",
-			RecordKey: v0.RecordKeyNone,
-			Record:    v0.Record{ValuePointer: "/v"},
-			Channels:  []v0.WriteChannel{{Key: "c1", Channel: 4}},
-		}
-		cfg := MustSucceed(v1.MigrateWriteConfig(ctx, old))
-		Expect(cfg.StartConfig).To(Equal(old.StartConfig))
-		Expect(cfg.Device).To(Equal(old.Device))
-		Expect(cfg.Topic).To(Equal("plant"))
-		Expect(cfg.RecordKey).To(Equal(v1.RecordKeyNone))
-		Expect(cfg.Record).To(Equal(old.Record))
-		Expect(cfg.Channels).To(Equal(old.Channels))
-		Expect(cfg.Targets).To(BeEmpty())
-	})
-})
 
 var _ = Describe("StagedRecordsKVKey", func() {
 	It("Should key staged records by the prefix and the config key", func() {

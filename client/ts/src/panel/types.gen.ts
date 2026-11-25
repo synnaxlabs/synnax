@@ -220,7 +220,7 @@ export const panelZ = z.object({
   /** key is the unique identifier for this panel. */
   key: keyZ.default(uuid.create),
   /** name is a human-readable name for the panel. */
-  name: z.string().min(1, "name is required"),
+  name: z.string().min(1, "Name is required"),
   /** root is the root of the panel tree. */
   root: nodeZ.prefault({ variant: "leaf", tabs: [] }),
   /**

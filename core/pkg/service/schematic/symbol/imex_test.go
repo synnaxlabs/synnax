@@ -177,7 +177,12 @@ var _ = Describe("ImEx", func() {
 
 		DescribeTable(
 			"Should keep the colors of an old symbol file as color looks with no enumeration",
-			func(ctx SpecContext, path string, colors [][2]string) {
+			func(
+				ctx SpecContext,
+				path string,
+				colors [][2]string,
+				whens []*symbol.Condition,
+			) {
 				countEnumerations := func() int {
 					GinkgoHelper()
 					var all []enumeration.Enumeration
@@ -195,12 +200,7 @@ var _ = Describe("ImEx", func() {
 				Expect(res.Data.Looks).To(HaveLen(len(colors)))
 				for i, c := range colors {
 					look := res.Data.Looks[i]
-					Expect(look.When).To(HaveValue(Equal(symbol.Condition{
-						Variant: symbol.EqualsCondition{
-							State:  "active",
-							Values: []float64{float64(i)},
-						},
-					})))
+					Expect(look.When).To(Equal(whens[i]))
 					Expect(look.Stroke).To(HaveValue(Equal(colorPaint(c[0]))))
 					Expect(look.Fill).To(HaveValue(Equal(colorPaint(c[1]))))
 				}
@@ -209,11 +209,13 @@ var _ = Describe("ImEx", func() {
 				"a v2 file with one state",
 				"versions/testdata/import_v2.json",
 				[][2]string{{"#ff0000", "#00ff00"}},
+				[]*symbol.Condition{nil},
 			),
 			Entry(
 				"a v3 file with the states Base and Active",
 				"versions/testdata/import_v3.json",
 				[][2]string{{"#111111", "#222222"}, {"#333333", "#444444"}},
+				[]*symbol.Condition{equals("active", 0), equals("active", 1)},
 			),
 		)
 

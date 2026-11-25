@@ -74,12 +74,8 @@ var _ = Describe("DecodeImExEnvelope", func() {
 			},
 		}}))
 		Expect(sym.Data.Looks).To(Equal([]versions.Look{{
-			Key:  "look-1",
-			Part: new("r1"),
-			When: &versions.Condition{Variant: versions.EqualsCondition{
-				State:  "active",
-				Values: []float64{0},
-			}},
+			Key:    "look-1",
+			Part:   new("r1"),
 			Stroke: colorPaint("#123456"),
 			Fill:   colorPaint("#654321"),
 		}}))

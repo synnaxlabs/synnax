@@ -415,6 +415,22 @@ var _ = Describe("Python Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`tags: list[str] | None = None`))
 		})
 
+		It("Should require a required list to hold an element", func() {
+			source := `
+				@py output "out"
+
+				Cluster struct {
+					brokers string[] @validate required
+					tags    string[]? @validate required
+				}
+			`
+			resp := MustGenerate(source, "cluster", loader, typesPlugin)
+			ExpectContent(resp, "types_gen.py").ToContain(
+				`brokers: list[str] = Field(min_length=1)`,
+				`tags: list[str] | None = None`,
+			)
+		})
+
 		It(
 			"Should refuse the zero value of a required string or unsigned field",
 			func() {
@@ -865,6 +881,33 @@ var _ = Describe("Python Types Plugin", func() {
 				).To(ContainSubstring(`AxisKey = Literal["x1", "x2", "y1", "y2"]`))
 			},
 		)
+
+		It("Should generate a narrowing enum as a Literal of the kept members", func() {
+			source := `
+				@py output "out"
+
+				DataType enum {
+					float64 = "float64"
+					int16   = "int16"
+					json    = "json"
+				}
+
+				RegisterType enum of DataType {
+					int16
+					float64
+				}
+			`
+			table, diag := Analyze(source, "modbus", loader)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+
+			resp := MustSucceed(
+				typesPlugin.Generate(&plugin.Request{Resolutions: table}),
+			)
+			content := string(resp.Files[0].Content)
+			Expect(content).To(ContainSubstring(
+				`RegisterType = Literal["int16", "float64"]`,
+			))
+		})
 
 		It(
 			"Should generate screaming snake case for multi-word enum names",

@@ -213,14 +213,17 @@ Device struct {
 the port maps are the configuration group. The port maps are the typed form of today's
 `analogInput.channels` and friends (`console/src/feature/ni/device/types.ts:18-63`).
 
+Every channel binding of a resource is `@ref kind use` and `@ref on_delete restrict`.
+
 _(Amended by [RFC 0120](0120-channel-storage-and-time.md) §4.9: the port maps are lists
 of entries with a tracked channel link, and no typed device stores an index key.)_
 
 Field groups per make:
 
-- **LabJack**: identity `serial`, `model` (the existing `LJM_dtT4`, `T7`, `T8` enum),
-  `connection` (USB or TCP); configuration `identifier`, `read_index`,
-  `thermocouple_index`, `write_state_index`, four port channel maps.
+- **LabJack**: identity `rack`, `serial`, `model`, `connection` (USB, Ethernet, Wi-Fi);
+  configuration `name`, `identifier`, `read_index`, `write_state_index`, `ports`.
+  `ports` is a union on `model` with its port maps; the T7's `AIN48`-`AIN127` need its
+  `mux80_attached`. `model` never changes.
 - **EtherCAT master**: identity `interface`, `slaves Slave.Key[]` in bus order.
 - **EtherCAT slave**: identity `serial`, `vendor_id`, `product_code`, `revision`,
   `master Master.Key`, `pdos`; configuration `identifier`, `enabled`,
@@ -384,7 +387,7 @@ Release 0.59 shipped the single table. One ordered startup migration cuts over:
    bus order in `position` (`console/src/feature/ethercat/device/types.ts:50-51`). Slave
    rows grouped by `rack` and `network` yield one `ethercat.Master` per group, `rack`
    and `interface` from the group, `slaves` ordered by `position`, and each slave's
-   `master` set to the new key. OPC UA rows change as follows:
+   `master` set to the new key. OPC UA and LabJack rows change as follows:
    - Timeouts in ms become `TimeSpan`; 0 takes the default, a lower value the minimum.
    - A user name becomes `username` auth; a password alone becomes `anonymous`, warned.
    - Mode `None` plus a policy is `sign`; secured with no policy gets `Basic256Sha256`.
@@ -392,6 +395,10 @@ Release 0.59 shipped the single table. One ordered startup migration cuts over:
    - A read takes its channel's index; a binding to a missing channel drops, warned.
    - An `ns=` binding is parked in KV under `sy_opcua_unresolved/<server key>`, warned.
    - An endpoint without a scheme gains `opc.tcp://`; another bad one is quarantined.
+   - LabJack `model` `LJM_dtT4`-`T8` maps to `t4`-`t8`; a non-`uint32` key quarantines.
+   - LabJack `location` `WIFI` types map to `LJM_ctWIFI`; `TCP`, `ETHERNET`, `NETWORK`
+     types to `LJM_ctETHERNET`; anything else to `LJM_ctUSB`.
+   - LabJack T7s mapping `AIN48`-`AIN127` get `mux80_attached`; bad identifiers clear.
 3. Re-key statuses, ontology resources and edges, and policy object IDs.
 4. Each integration's task config migration rewrites its device references through the
    map. OPC UA parks `ns=` task node IDs with the bindings for `/opcua/server/resolve`.

@@ -69,7 +69,8 @@
         overflow: visible;
     }
 
-    &:not(.pluto-symbol--custom) svg {
+    /* A symbol drawing carries its stroke width in its markup. */
+    &:not(.pluto-symbol--custom) svg:not(.pluto-symbol__drawing) {
         stroke-width: 2px;
     }
 
