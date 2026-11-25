@@ -62,8 +62,9 @@ func keyOf(l Location) locationKey {
 	return k
 }
 
-// hostLabel matches one label of a hostname.
-var hostLabel = regexp.MustCompile(`^[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?$`)
+// hostLabel matches one label of a hostname. It allows underscores, which Docker
+// service names and some Windows machine names hold and which getaddrinfo resolves.
+var hostLabel = regexp.MustCompile(`^[A-Za-z0-9_]([A-Za-z0-9_-]{0,61}[A-Za-z0-9_])?$`)
 
 // isHost returns true if host is an IP address or a hostname whose last label is not
 // all digits.

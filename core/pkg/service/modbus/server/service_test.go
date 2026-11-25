@@ -230,6 +230,7 @@ var _ = Describe("Service", func() {
 				Expect(svc.NewWriter(tx).Create(ctx, &s)).To(Succeed())
 			},
 			Entry("hostname", "plc-1.plant.local"),
+			Entry("hostname with an underscore", "modbus_sim"),
 			Entry("IPv4", "10.0.0.5"),
 			Entry("IPv6", "fe80::1"),
 		)
