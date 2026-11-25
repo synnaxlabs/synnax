@@ -133,10 +133,7 @@ describe("Core.TokenKeeper", () => {
       store.dispatch(Session.Core.set({ ...core, lastLogin: Date.now() }));
     });
     expect(calls).toEqual([
-      {
-        cmd: "keychain_delete",
-        args: { account: `http://synnax@localhost:9090#${core.key}` },
-      },
+      { cmd: "keychain_delete", args: { account: keychainAccount(core) } },
     ]);
   });
 
@@ -165,7 +162,7 @@ describe("Core.TokenKeeper", () => {
     );
     await waitFor(() => expect(calls).toHaveLength(1));
     await act(async () => {
-      await grabbed.client?.auth.setPassword({
+      await grabbed.client?.auth.passwords.set({
         password: "new",
         currentPassword: "old",
       });
@@ -260,7 +257,7 @@ describe("Core.TokenKeeper", () => {
       sessionCookie: token === "",
     });
     onTestFinished(async () => await client.close());
-    await client.auth.retrieveSessions();
+    await client.auth.sessions.retrieve();
     const core = createCore("Local", {
       host: "127.0.0.1",
       port,

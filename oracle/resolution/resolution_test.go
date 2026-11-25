@@ -296,6 +296,37 @@ var _ = Describe("Table", func() {
 			Expect(sorted[1].Name).To(Equal("Derived"))
 		})
 
+		It("places the types of inherited fields before the child", func() {
+			key := resolution.Type{
+				Name: "Key", QualifiedName: "ns.Key", Namespace: "ns",
+				Form: resolution.AliasForm{Target: resolution.TypeRef{Name: "uuid"}},
+			}
+			parent := resolution.Type{
+				Name: "Parent", QualifiedName: "ns.Parent", Namespace: "ns",
+				Form: resolution.StructForm{
+					Fields: []resolution.Field{
+						{Name: "key", Type: resolution.TypeRef{Name: "ns.Key"}},
+					},
+				},
+			}
+			child := resolution.Type{
+				Name: "Child", QualifiedName: "ns.Child", Namespace: "ns",
+				Form: resolution.StructForm{
+					Extends: []resolution.TypeRef{{Name: "ns.Parent"}},
+				},
+			}
+			Expect(table.Add(key)).To(Succeed())
+			Expect(table.Add(parent)).To(Succeed())
+			Expect(table.Add(child)).To(Succeed())
+
+			sorted := table.TopologicalSort([]resolution.Type{
+				table.MustGet("ns.Child"),
+				table.MustGet("ns.Key"),
+			})
+			Expect(sorted[0].Name).To(Equal("Key"))
+			Expect(sorted[1].Name).To(Equal("Child"))
+		})
+
 		It("handles transitive dependencies", func() {
 			a := resolution.Type{
 				Name: "A", QualifiedName: "ns.A", Namespace: "ns",
@@ -1324,5 +1355,27 @@ var _ = Describe("PrimitiveBase", func() {
 		Expect(
 			resolution.PrimitiveBase(resolution.TypeRef{Name: "ns.Missing"}, table),
 		).To(Equal(""))
+	})
+})
+
+var _ = Describe("SameValue", func() {
+	It("Should ignore how a duration literal spelled a value", func() {
+		a := resolution.ExpressionValue{
+			Kind: resolution.ValueKindInt, IntValue: 90e9, Duration: "1m30s",
+		}
+		b := resolution.ExpressionValue{Kind: resolution.ValueKindInt, IntValue: 90e9}
+		Expect(resolution.SameValue(&a, &b)).To(BeTrue())
+	})
+
+	It("Should compare the values", func() {
+		a := resolution.ExpressionValue{Kind: resolution.ValueKindInt, IntValue: 1}
+		b := resolution.ExpressionValue{Kind: resolution.ValueKindInt, IntValue: 2}
+		Expect(resolution.SameValue(&a, &b)).To(BeFalse())
+	})
+
+	It("Should equal a nil value only to another nil value", func() {
+		a := resolution.ExpressionValue{Kind: resolution.ValueKindInt}
+		Expect(resolution.SameValue(nil, nil)).To(BeTrue())
+		Expect(resolution.SameValue(&a, nil)).To(BeFalse())
 	})
 })
