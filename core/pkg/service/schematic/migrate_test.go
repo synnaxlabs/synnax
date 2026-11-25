@@ -20,6 +20,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
+	gorptestutil "github.com/synnaxlabs/gorp/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	servicecolor "github.com/synnaxlabs/synnax/pkg/service/color"
 	"github.com/synnaxlabs/synnax/pkg/service/enumeration"
@@ -28,11 +29,14 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	symbolversions "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions"
+	symbolv0 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v0"
 	v4 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v4"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/versions"
 	v13 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v13"
 	"github.com/synnaxlabs/x/color"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/encoding/orc"
+	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/telem"
@@ -46,29 +50,64 @@ var released embed.FS
 
 // openShipped returns a store that holds the migrations of core/v0.62.0, whose chains
 // end at these migrations.
+// openStore returns a DB on kvDB that holds the schematic migrations through
+// schematicLast and the symbol migrations through symbolLast as applied. An empty key
+// applies none.
+func openStore(ctx SpecContext, kvDB kv.DB, schematicLast, symbolLast string) *gorp.DB {
+	GinkgoHelper()
+	db := DeferClose(gorp.Wrap(kvDB))
+	StartRun(db.Run)
+	apply := func(namespace string, chain []gorp.Migration, last string) {
+		if last == "" {
+			return
+		}
+		i := slices.IndexFunc(chain, func(m gorp.Migration) bool {
+			return m.Key() == last
+		})
+		Expect(i).ToNot(Equal(-1))
+		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+			DB:         db,
+			Namespace:  namespace,
+			Migrations: chain[:i+1],
+		})).To(Succeed())
+	}
+	apply(
+		types.Name[schematic.Schematic](),
+		versions.NewMigrations(versions.MigrationsConfig{}),
+		schematicLast,
+	)
+	apply(
+		types.Name[symbol.Symbol](),
+		symbolversions.NewMigrations(symbolversions.MigrationsConfig{}),
+		symbolLast,
+	)
+	return db
+}
+
+// openShipped returns a DB that holds the migrations that core/v0.62.0 ran.
 func openShipped(ctx SpecContext) *gorp.DB {
 	GinkgoHelper()
-	db := DeferClose(gorp.Wrap(memkv.New()))
-	StartRun(db.Run)
-	schematics := versions.NewMigrations(versions.MigrationsConfig{})
-	shipped := slices.IndexFunc(schematics, func(m gorp.Migration) bool {
-		return m.Key() == v13.NameMigration.Key()
-	})
-	Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
-		DB:         db,
-		Namespace:  types.Name[schematic.Schematic](),
-		Migrations: schematics[:shipped+1],
-	})).To(Succeed())
-	chain := symbolversions.NewMigrations(symbolversions.MigrationsConfig{})
-	shipped = slices.IndexFunc(chain, func(m gorp.Migration) bool {
-		return m.Key() == v4.NameMigration.Key()
-	})
-	Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
-		DB:         db,
-		Namespace:  types.Name[symbol.Symbol](),
-		Migrations: chain[:shipped+1],
-	})).To(Succeed())
-	return db
+	return openStore(
+		ctx,
+		memkv.New(),
+		v13.NameMigration.Key(),
+		v4.NameMigration.Key(),
+	)
+}
+
+// retrieveSchematic returns the stored schematic with key.
+func retrieveSchematic(
+	ctx SpecContext,
+	db *gorp.DB,
+	key schematic.Key,
+) schematic.Schematic {
+	GinkgoHelper()
+	var sc schematic.Schematic
+	Expect(gorp.NewRetrieve[schematic.Key, schematic.Schematic]().
+		Where(gorp.MatchKeys[schematic.Key, schematic.Schematic](key)).
+		Entry(&sc).
+		Exec(ctx, db)).To(Succeed())
+	return sc
 }
 
 // openService opens the schematic service on db, which runs its migrations.
@@ -137,6 +176,66 @@ var _ = Describe("Stored v4 symbols", func() {
 		Expect(retrieve(drawn.Key).Data.Commands).To(HaveLen(2))
 		Expect(retrieve(static.Key).Data.Commands).To(BeEmpty())
 	})
+
+	It("Should drop the state binding of a custom_static node whose symbol has no "+
+		"states", func(ctx SpecContext) {
+		db := openShipped(ctx)
+		plain := v4.Symbol{
+			Key:  uuid.New(),
+			Name: "Plain",
+			Data: v4.Spec{SVG: "<svg/>", Variant: "static", Scale: 1},
+		}
+		Expect(gorp.NewCreate[v4.Key, v4.Symbol]().Entry(&plain).Exec(ctx, db)).
+			To(Succeed())
+		sc := v13.Schematic{
+			Key:  uuid.New(),
+			Name: "Schematic",
+			Nodes: []v13.Node{{Key: "a", Config: v13.NodeConfig{
+				Variant: v13.CustomStaticNodeConfig{SpecKey: plain.Key.String()},
+			}}},
+		}
+		Expect(gorp.NewCreate[v13.Key, v13.Schematic]().Entry(&sc).Exec(ctx, db)).
+			To(Succeed())
+		openService(ctx, db)
+		n := retrieveSchematic(ctx, db, sc.Key).Nodes[0]
+		cfg, ok := n.Config.Variant.(schematic.SymbolNodeConfig)
+		Expect(ok).To(BeTrue())
+		Expect(cfg.Spec.Variant).To(Equal(symbol.CustomRef{Key: plain.Key}))
+		Expect(cfg.States).To(BeEmpty())
+	})
+})
+
+var _ = Describe("A store from before v0.54", func() {
+	It("Should keep a node on a symbol stored under the pre-v0.54 key format",
+		func(ctx SpecContext) {
+			kvDB := memkv.New()
+			db := openStore(ctx, kvDB, v13.NameMigration.Key(), "")
+			sym := symbolv0.Symbol{
+				Key:  uuid.New(),
+				Name: "Valve",
+				Data: msgpack.EncodedJSON{
+					"svg":     "<svg/>",
+					"variant": "static",
+					"scale":   1,
+				},
+			}
+			gorptestutil.SetPreV54Row(ctx, kvDB, "Symbol", sym.Key, sym)
+			sc := v13.Schematic{
+				Key:  uuid.New(),
+				Name: "Schematic",
+				Nodes: []v13.Node{{Key: "a", Config: v13.NodeConfig{
+					Variant: v13.CustomStaticNodeConfig{SpecKey: sym.Key.String()},
+				}}},
+			}
+			Expect(gorp.NewCreate[v13.Key, v13.Schematic]().Entry(&sc).Exec(ctx, db)).
+				To(Succeed())
+			openService(ctx, db)
+			n := retrieveSchematic(ctx, db, sc.Key).Nodes[0]
+			cfg, ok := n.Config.Variant.(schematic.SymbolNodeConfig)
+			Expect(ok).To(BeTrue())
+			Expect(cfg.Spec.Variant).To(Equal(symbol.CustomRef{Key: sym.Key}))
+		},
+	)
 })
 
 var _ = Describe("A store from core/v0.62.0", func() {

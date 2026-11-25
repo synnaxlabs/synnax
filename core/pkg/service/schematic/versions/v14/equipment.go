@@ -13,6 +13,7 @@ import (
 	"context"
 	"encoding/json/v2"
 	"reflect"
+	"slices"
 	"uuid"
 
 	"github.com/synnaxlabs/alamos"
@@ -21,6 +22,8 @@ import (
 	symbol "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v5"
 	v13 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v13"
 	xcolor "github.com/synnaxlabs/x/color/versions/v2"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
 	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
 	"go.uber.org/zap"
 )
@@ -194,9 +197,38 @@ func channelKey(k channel.Key) *channel.Key {
 	return &k
 }
 
-// markMissing gives each symbol node of s whose custom symbol the store does not hold a
-// missing ref.
-func markMissing(ctx context.Context, tx gorp.Tx, s *Schematic) error {
+// actuate gives each stored symbol that a custom_actuator node of s draws the commands
+// of an actuator.
+func actuate(ctx context.Context, tx gorp.Tx, s v13.Schematic) error {
+	for _, n := range s.Nodes {
+		cfg, ok := n.Config.Variant.(v13.CustomActuatorNodeConfig)
+		if !ok {
+			continue
+		}
+		key, err := uuid.Parse(cfg.SpecKey)
+		if err != nil {
+			continue
+		}
+		sym, found, err := retrieveSymbol(ctx, tx, key)
+		if err != nil {
+			return err
+		}
+		if !found {
+			continue
+		}
+		sym.Data = symbol.Actuate(sym.Data)
+		if err = gorp.NewCreate[symbol.Key, symbol.Symbol]().
+			Entry(&sym).
+			Exec(ctx, tx); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// resolveSymbols gives each symbol node of s whose custom symbol the store does not
+// hold a missing ref, and drops each state binding that names no state of its symbol.
+func resolveSymbols(ctx context.Context, tx gorp.Tx, s *Schematic) error {
 	for i, n := range s.Nodes {
 		cfg, ok := n.Config.Variant.(SymbolNodeConfig)
 		if !ok {
@@ -206,18 +238,56 @@ func markMissing(ctx context.Context, tx gorp.Tx, s *Schematic) error {
 		if !ok {
 			continue
 		}
-		held, err := gorp.NewRetrieve[symbol.Key, symbol.Symbol]().
-			Where(gorp.MatchKeys[symbol.Key, symbol.Symbol](ref.Key)).
-			Exists(ctx, tx)
+		sym, found, err := retrieveSymbol(ctx, tx, ref.Key)
 		if err != nil {
 			return err
 		}
-		if !held {
+		if !found {
 			cfg.Spec = symbol.Ref{Variant: symbol.MissingRef{Key: ref.Key.String()}}
-			s.Nodes[i].Config.Variant = cfg
+		} else {
+			cfg.States = slices.DeleteFunc(cfg.States, func(b StateBinding) bool {
+				return !slices.ContainsFunc(
+					sym.Data.States,
+					func(st symbol.State) bool {
+						return stateKey(st) == b.Key
+					},
+				)
+			})
 		}
+		s.Nodes[i].Config.Variant = cfg
 	}
 	return nil
+}
+
+// retrieveSymbol returns the stored symbol with key, or false when the store does not
+// hold it.
+func retrieveSymbol(
+	ctx context.Context,
+	tx gorp.Tx,
+	key symbol.Key,
+) (symbol.Symbol, bool, error) {
+	var sym symbol.Symbol
+	err := gorp.NewRetrieve[symbol.Key, symbol.Symbol]().
+		Where(gorp.MatchKeys[symbol.Key, symbol.Symbol](key)).
+		Entry(&sym).
+		Exec(ctx, tx)
+	if errors.Is(err, query.ErrNotFound) {
+		return symbol.Symbol{}, false, nil
+	}
+	if err != nil {
+		return symbol.Symbol{}, false, err
+	}
+	return sym, true, nil
+}
+
+func stateKey(st symbol.State) string {
+	switch v := st.Variant.(type) {
+	case symbol.EnumerationState:
+		return v.Key
+	case symbol.NumberState:
+		return v.Key
+	}
+	return ""
 }
 
 // warnEmptyThresholds logs each light of s whose threshold is empty. Such a light never
@@ -225,7 +295,8 @@ func markMissing(ctx context.Context, tx gorp.Tx, s *Schematic) error {
 func warnEmptyThresholds(s v13.Schematic, ins alamos.Instrumentation) {
 	for _, n := range s.Nodes {
 		l, ok := n.Config.Variant.(v13.LightNodeConfig)
-		if ok && l.Threshold != nil && l.Threshold.Lower == l.Threshold.Upper {
+		if ok && l.OnColor == nil && l.Threshold != nil &&
+			l.Threshold.Lower == l.Threshold.Upper {
 			ins.L.Warn(
 				"a light with an empty threshold now turns on at 0.9 to 1.1",
 				zap.Stringer("schematic", s.Key),

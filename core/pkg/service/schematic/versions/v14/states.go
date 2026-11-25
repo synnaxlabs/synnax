@@ -55,8 +55,14 @@ func NewMigration(cfg MigrationConfig) gorp.Migration {
 					if err = InternStates(ctx, &s, old, intern, ins); err != nil {
 						return Schematic{}, err
 					}
+					if err = actuate(ctx, tx, old); err != nil {
+						return Schematic{}, err
+					}
+					if err = resolveSymbols(ctx, tx, &s); err != nil {
+						return Schematic{}, err
+					}
 					warnEmptyThresholds(old, ins)
-					return s, markMissing(ctx, tx, &s)
+					return s, nil
 				},
 			).Run(ctx, tx, ins)
 		},
