@@ -73,4 +73,35 @@ TEST(Server, RoundTrips) {
     ASSERT_EQ(parsed.reads.at(0).index, 3);
     ASSERT_EQ(parsed.writes.at(0).node, "nsu=urn:plc;s=Valve");
 }
+
+/// @brief it should fail to parse a server without a rack.
+TEST(Server, RequiresRack) {
+    auto j = valid_server();
+    j.erase("rack");
+    x::json::Parser parser(j);
+    Server::parse(parser);
+    ASSERT_FALSE(parser.ok());
+}
+
+/// @brief it should fail to parse a certificate login without a certificate.
+TEST(Server, RequiresLoginCertificate) {
+    auto j = valid_server();
+    j["connection"]["auth"] = {{"type", "certificate"}};
+    x::json::Parser parser(j);
+    Server::parse(parser);
+    ASSERT_FALSE(parser.ok());
+}
+
+/// @brief it should fail to parse a pinned trust without a certificate.
+TEST(Server, RequiresPinnedCertificate) {
+    auto j = valid_server();
+    j["connection"]["security"] = {
+        {"mode", "sign"},
+        {"policy", "Basic256Sha256"},
+        {"server_trust", {{"type", "pinned"}}},
+    };
+    x::json::Parser parser(j);
+    Server::parse(parser);
+    ASSERT_FALSE(parser.ok());
+}
 }
