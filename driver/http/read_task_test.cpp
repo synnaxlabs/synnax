@@ -1237,7 +1237,7 @@ TEST(HTTPReadTask, UnconvertibleFloatFilledWithNaN) {
     EXPECT_EQ(
         p.result.warning.description,
         "Failed to convert /p2 for channel " + chs[0].name +
-            R"(: field p2: unknown enum label "INVALID")"
+            R"(: field p2: invalid number "INVALID")"
     );
     ASSERT_EQ(p.frame.size(), 3);
     EXPECT_TRUE(std::isnan(p.frame.at<double>(chs[0].key, 0)));
@@ -1266,7 +1266,7 @@ TEST(HTTPReadTask, InvalidIntegerDropsGroupWhenFilled) {
     EXPECT_EQ(
         p.result.warning.description,
         "Failed to convert /p2 for channel " + p.endpoint.channels[0].name +
-            R"(: field p2: unknown enum label "INVALID")"
+            R"(: field p2: invalid number "INVALID")"
     );
     EXPECT_EQ(p.frame.size(), 0);
 }
