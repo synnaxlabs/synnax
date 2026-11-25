@@ -113,7 +113,7 @@ func openEngine(o *options) (*engine, error) {
 		reaps:    make(chan struct{}, 1),
 		unstored: telem.NewAlignmentCounter(telem.LeadingDomain),
 	}
-	e.readers.New = func() any { return segment.NewReader(o.checkedReads) }
+	e.readers.New = func() any { return segment.NewReader(o.readsChecked) }
 	e.cover.advanced = make(chan struct{})
 	if snapshot == nil {
 		if snapshot, err = e.create(o, r); err != nil {

@@ -49,8 +49,8 @@ type options struct {
 	executor    func(f func())
 	// pointerLog opens the database on the pointer log layout.
 	pointerLog bool
-	// checkedReads makes each data read of the pointer log check its blocks.
-	checkedReads bool
+	// readsChecked makes each data read of the pointer log check its blocks.
+	readsChecked bool
 }
 
 func (o *options) Report() alamos.Report { return alamos.Report{"dirname": o.dirname} }
@@ -141,10 +141,10 @@ func WithExecutor(exec func(f func())) Option {
 // one log and syncs them, in place of the old layout.
 func WithPointerLog() Option { return func(o *options) { o.pointerLog = true } }
 
-// WithCheckedReads makes each data read of the pointer log check every block that it
+// WithReadsChecked makes each data read of the pointer log check every block that it
 // reads against the checksum that the write stored, and refuse a block that fails two
 // reads. Without it, a data read reads only the bytes it needs and checks nothing.
-func WithCheckedReads() Option { return func(o *options) { o.checkedReads = true } }
+func WithReadsChecked() Option { return func(o *options) { o.readsChecked = true } }
 
 // WithGCConfig sets the garbage collection configuration for the DB. See the GCConfig
 // struct for more details.
