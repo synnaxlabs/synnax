@@ -251,12 +251,14 @@ Rewire struct {
   `core/pkg/service/channel/retrieve.gen.go:188`) matches the local name in any folder.
 - **Several matches**: A retrieve by name returns every match. A name that resolves a
   channel to act on it (writer, streamer, delete, rename) fails and lists every path.
-- **Client shorthand**: A number is a key. A string with a `.` is a path, and a string
-  with none is a name; the `paths` parameter names a root channel exactly. No string
-  falls back to a key: a channel named `2024` would change what a call returns. The rule
-  covers lookups only. A stored value that the schema types as a channel key still
-  parses from text: a JSON object key, and the TypeScript key schema that accepts a
-  numeric string (`client/ts/src/channel/types.gen.ts:20-25`).
+- **Client shorthand** (the number rule): A number is a key. A string with a `.` is a
+  path, and a string with none is a name; the `paths` parameter names a root channel
+  exactly. No string falls back to a key: a channel named `2024` would change what a
+  call returns. The rule covers lookups only. A stored value that the schema types as a
+  channel key still parses from text: a JSON object key, and the TypeScript key schema
+  that accepts a numeric string (`client/ts/src/channel/types.gen.ts:20-25`). Until the
+  quotes land, a digit-only string is still a key, as on `main`: a default Core accepts
+  no channel name that starts with a digit (§4.1).
 - **Arc**: From Phase 31, a bare name is a channel at the root, and a channel in a
   folder needs its path: a new channel in another folder must never change what a
   working program means. Files, export, and import use exact paths only. Until the
@@ -623,16 +625,16 @@ Only the stored data of `core/v0.62.0` is owed: every stored channel, folder, Ar
 and calculation migrates forward. No client, Driver, or script of `core/v0.62.0` or
 older works with this Core, and none is owed (founder, 2026-11-21): `APIChannel` keeps
 no old field, and its `virtual` filter means the stored field from Phase 3. Four breaks
-go in the release notes, the first and the last with the quotes (§5). A start with the
-old flag fails. A digit-only string no longer means a key, except that a frame record
-still reads an all-digit key as a key unless the writer holds a channel by that name. A
-lookup that acts on a duplicate name fails where it picked one. On a Core that ran with
-the old flag, an Arc program or calculation that gives a dashed name to a variable,
-function, parameter, or stage fails its compile, and the error names the place: the one
-exception to the rule that stored data migrates (founder, 2026-11-22). The release notes
-also say that every client and Driver upgrades with the Core. A release that holds Phase
-4 and not Phase 31 also notes that it refuses a second channel with a taken name
-anywhere in the Core, with or without the flag.
+go in the release notes, and all but the third come with the quotes (§5). A start with
+the old flag fails. A digit-only string no longer means a key, except that a frame
+record still reads an all-digit key as a key unless the writer holds a channel by that
+name. A lookup that acts on a duplicate name fails where it picked one. On a Core that
+ran with the old flag, an Arc program or calculation that gives a dashed name to a
+variable, function, parameter, or stage fails its compile, and the error names the
+place: the one exception to the rule that stored data migrates (founder, 2026-11-22).
+The release notes also say that every client and Driver upgrades with the Core. A
+release that holds Phase 4 and not Phase 31 also notes that it refuses a second channel
+with a taken name anywhere in the Core, with or without the flag.
 
 ### 4.10 Amendments to prior RFCs
 
@@ -844,10 +846,11 @@ Phase 39 is documentation, and Phases 40 and 41 split the impact service.
   to 30 add bare paths, the two lists, the lookup at each compile, the text pass, the
   key lookup, and files by path. The specs of Phases 11 and 12 pin both halves of the
   number rule: a stored config that holds a key as a numeric string parses to the key,
-  and a lookup by a digit-only string resolves as a name or a path.
+  and, with the quotes, a lookup by a digit-only string resolves as a name or a path.
 - **The quotes**: Phase 5, Phase 8, the quoting of dashed text in Phase 7, the quoted
-  Form of Phase 29, and the free-text rule for channel names land last, as one group
-  after Phase 38. Until then every text pass writes the bare form (§4.1, §4.5).
+  Form of Phase 29, the free-text rule for channel names, and the number rule of §4.2
+  land last, as one group after Phase 38. Until then every text pass writes the bare
+  form (§4.1, §4.5).
 - **The path service**: Phase 15 plans the delete of any record type. Phase 40 moves the
   folder changes and heal policies to `path`, and Phase 41 gates path writes by
   capability (§4.11). Phases 29, 30, 35, and 36 build on `path`.
