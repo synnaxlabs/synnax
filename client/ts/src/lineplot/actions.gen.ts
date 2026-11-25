@@ -214,7 +214,7 @@ export type SetAxisLabelLevelPayload = z.infer<typeof setAxisLabelLevelPayloadZ>
  */
 export const setAxisBoundsPayloadZ = z.object({
   key: axisKeyZ,
-  bounds: spatial.boundsZ(),
+  bounds: spatial.closedBoundsZ().optional(),
   manualBounds: manualBoundsZ,
 });
 

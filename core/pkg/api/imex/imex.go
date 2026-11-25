@@ -104,16 +104,18 @@ type (
 )
 
 // Import imports a resource from an envelope. An envelope with no type goes to the
-// importer that claims its body.
+// importer that claims its body. The import reuses only stored records in retrievable.
 func (s *Service) Import(
 	ctx context.Context,
 	tx gorp.Tx,
+	retrievable bind.Retrievable,
 	req ImportRequest,
 ) (ImportResponse, error) {
 	opts, err := parseImportOptions(ctx)
 	if err != nil {
 		return ImportResponse{}, err
 	}
+	opts.Retrievable = retrievable
 	return s.internal.Import(ctx, tx, req, opts)
 }
 
