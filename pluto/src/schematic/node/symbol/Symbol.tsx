@@ -8,9 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import type { schematic } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/lyra/icon";
-import { Note } from "@synnaxlabs/lyra/note";
-import { Text } from "@synnaxlabs/lyra/text";
 import type { ReactElement } from "react";
 
 import { Color } from "@/color";
@@ -23,6 +20,7 @@ import { Label } from "@/schematic/node/common/label";
 import { Primitive } from "@/schematic/node/common/primitive";
 import type { NodeProps, PreviewProps } from "@/schematic/node/spec";
 import { bind } from "@/schematic/node/symbol/bind";
+import { Warning } from "@/schematic/node/symbol/Warning";
 import { Symbol } from "@/schematic/symbol";
 import { SymbolNode } from "@/vis/symbolNode";
 
@@ -32,6 +30,7 @@ interface Resolved {
   spec?: schematic.symbol.Spec;
   builtIn: boolean;
   missing: boolean;
+  failed: boolean;
   invalid: boolean;
 }
 
@@ -40,16 +39,23 @@ const useResolved = (ref: schematic.symbol.Ref): Resolved => {
   switch (ref.type) {
     case "builtin": {
       const spec = BUILT_INS.get(ref.name);
-      return { spec, builtIn: true, missing: spec == null, invalid: false };
+      return {
+        spec,
+        builtIn: true,
+        missing: spec == null,
+        failed: false,
+        invalid: false,
+      };
     }
     case "custom": {
       const spec = custom.symbol?.data;
       // The check parses the markup, so it runs here, where it is cached on the spec.
       const invalid = spec != null && !Custom.isValidSVG(spec.drawing.markup);
-      return { spec, builtIn: false, missing: custom.missing, invalid };
+      const { missing, failed } = custom;
+      return { spec, builtIn: false, missing, failed, invalid };
     }
     case "missing":
-      return { builtIn: false, missing: true, invalid: false };
+      return { builtIn: false, missing: true, failed: false, invalid: false };
   }
 };
 
@@ -69,6 +75,7 @@ const Drawn = ({
   spec,
   builtIn,
   missing,
+  failed,
   invalid,
   color,
   orientation,
@@ -79,15 +86,8 @@ const Drawn = ({
 }: DrawnProps): ReactElement => {
   const [nodeColor] = Color.useValues([color]);
   const paints = Custom.usePaints(spec, value, { nodeColor, builtIn });
-  if (missing || invalid)
-    return (
-      <Note.Note variant="warning">
-        <Text.Text level="p" status="warning">
-          <Icon.Warning />
-          {missing ? "Missing symbol" : "Invalid symbol"}
-        </Text.Text>
-      </Note.Note>
-    );
+  if (missing || failed || invalid)
+    return <Warning cause={missing ? "missing" : failed ? "failed" : "invalid"} />;
   return (
     <Primitive.Div
       orientation={orientation}
