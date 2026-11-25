@@ -138,13 +138,16 @@ class Task final : public task::Task {
     std::shared_ptr<x::thread::rt::Handle> rt_handle;
     /// @brief computes calculated channels on the control thread.
     Calculator calculator;
-    /// @brief guards reloaded.
+    /// @brief guards reloaded and retired.
     std::mutex reload_mu;
     /// @brief a calculator to swap in before the next compute.
     std::unique_ptr<Calculator> reloaded;
     /// @brief true while reloaded holds a calculator. Lets the control thread skip
     /// reload_mu on each frame.
     std::atomic<bool> has_reloaded = false;
+    /// @brief the calculator that a swap replaced, which the reload thread destroys
+    /// so that the control thread does not.
+    std::unique_ptr<Calculator> retired;
     std::unique_ptr<pipeline::Acquisition> acquisition;
     std::unique_ptr<pipeline::Control> control;
     class Reloader;
@@ -212,8 +215,8 @@ class Task final : public task::Task {
             if (frame.empty()) return x::errors::NIL;
             if (this->task.has_reloaded.load(std::memory_order_acquire)) {
                 std::lock_guard lock(this->task.reload_mu);
-                const auto next = std::move(this->task.reloaded);
-                this->task.calculator = std::move(*next);
+                std::swap(this->task.calculator, *this->task.reloaded);
+                this->task.retired = std::move(this->task.reloaded);
                 this->task.has_reloaded.store(false, std::memory_order_release);
             }
             this->task.calculator.compute(frame);
@@ -227,6 +230,7 @@ class Task final : public task::Task {
         // send commands at once, and the program reads its own first writes.
         void opened() override {
             this->task.start_runtime();
+            if (this->task.reloader) this->task.reloader->retry();
             std::lock_guard lock(this->task.state_mu);
             if (this->task.opening) this->task.answer_pending_starts();
         }
@@ -253,12 +257,15 @@ class Task final : public task::Task {
         ::arc::runtime::Config cfg;
         ::arc::runtime::scheduler::ErrorHandler on_error;
         x::telem::TimeSpan delay;
-        /// @brief guards watched, requested, running, and thread.
+        /// @brief guards watched, failed, requested, running, and thread.
         mutable std::mutex mu;
         std::condition_variable cv;
         /// @brief the channels whose change or delete reloads the calculations. It
         /// only grows, so that a calculation the Core leaves out stays watched.
         std::set<::arc::types::ChannelKey> watched;
+        /// @brief true if the last reload failed, so that the next open of the
+        /// control pipeline retries it.
+        bool failed = false;
         bool requested = false;
         bool running = false;
         std::thread thread;
@@ -284,7 +291,8 @@ class Task final : public task::Task {
                 if (!this->running) return;
                 this->requested = false;
                 lock.unlock();
-                if (const auto err = this->reload()) {
+                const auto err = this->reload();
+                if (err) {
                     std::lock_guard state_lock(this->task.state_mu);
                     this->task.state.send_warning(
                         "Failed to reload calculations",
@@ -292,6 +300,7 @@ class Task final : public task::Task {
                     );
                 }
                 lock.lock();
+                this->failed = static_cast<bool>(err);
             }
         }
 
@@ -347,21 +356,28 @@ class Task final : public task::Task {
             if (load_err) return load_err;
             if (const auto drop_err = this->check_dropped(calc)) return drop_err;
             auto streamed = calc.streamed(this->task.runtime->read_channels);
+            auto dependencies = calc.dependencies();
+            const auto channels = calc.channels();
+            // The calculator goes out before the channels change, so that a frame of
+            // the new channels never reaches the old calculator.
+            std::unique_ptr<Calculator> retired;
+            std::unique_ptr<Calculator> unused;
+            {
+                std::lock_guard lock(this->task.reload_mu);
+                retired = std::move(this->task.retired);
+                unused = std::move(this->task.reloaded);
+                this->task.reloaded = std::make_unique<Calculator>(std::move(calc));
+                this->task.has_reloaded.store(true, std::memory_order_release);
+            }
             if (streamed != this->streamed) {
                 if (const auto set_err = this->task.control->set_channels(streamed))
                     return set_err;
                 this->streamed = std::move(streamed);
             }
             this->loaded = std::move(loaded);
-            this->dependencies = calc.dependencies();
-            {
-                std::lock_guard lock(this->mu);
-                const auto channels = calc.channels();
-                this->watched.insert(channels.begin(), channels.end());
-            }
-            std::lock_guard lock(this->task.reload_mu);
-            this->task.reloaded = std::make_unique<Calculator>(std::move(calc));
-            this->task.has_reloaded.store(true, std::memory_order_release);
+            this->dependencies = std::move(dependencies);
+            std::lock_guard lock(this->mu);
+            this->watched.insert(channels.begin(), channels.end());
             return x::errors::NIL;
         }
 
@@ -411,6 +427,16 @@ class Task final : public task::Task {
             }
             this->cv.notify_all();
             if (done.joinable()) done.join();
+        }
+
+        /// @brief asks for a reload after the delay if the last reload failed.
+        void retry() {
+            {
+                std::lock_guard lock(this->mu);
+                if (!this->failed) return;
+                this->requested = true;
+            }
+            this->cv.notify_all();
         }
 
         /// @brief asks for a reload after the delay.
@@ -722,8 +748,9 @@ public:
             // came after the last compute is already fresh.
             if (this->has_reloaded.exchange(false, std::memory_order_acq_rel)) {
                 std::lock_guard lock(this->reload_mu);
-                const auto next = std::move(this->reloaded);
-                this->calculator = std::move(*next);
+                std::swap(this->calculator, *this->reloaded);
+                this->reloaded = nullptr;
+                this->retired = nullptr;
             } else if (const auto err = this->calculator.reset()) {
                 std::lock_guard lock(this->state_mu);
                 this->state.error(err, "Failed to load calculations");

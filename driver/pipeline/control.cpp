@@ -96,6 +96,7 @@ bool Control::run_once() {
         {
             std::lock_guard lock{this->streamer_mu};
             close_err = this->streamer->close();
+            this->streamer = nullptr;
         }
         const auto err = close_err ? close_err : set_err;
         if (this->wait_for_core(err)) return true;
@@ -121,6 +122,9 @@ bool Control::run_once() {
     {
         std::lock_guard lock{this->streamer_mu};
         close_err = this->streamer->close();
+        // A set_channels while the pipeline waits for the Core then changes only the
+        // channels of the next open.
+        this->streamer = nullptr;
     }
     if (this->wait_for_core(close_err)) return true;
     if (sink_err)

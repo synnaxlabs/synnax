@@ -140,6 +140,41 @@ TEST(ControlPipeline, StopsWhenReopenedStreamerRejectsChannels) {
     EXPECT_EQ(sink->opens.load(), 0);
 }
 
+/// @brief it should change only the channels of the next open while it waits for the
+/// Core, and not call a streamer that it closed.
+TEST(ControlPipeline, SetChannelsWhileWaitingForCore) {
+    const auto factory = std::make_shared<testutil::StreamerFactory>(
+        std::vector<x::errors::Error>{},
+        std::make_shared<std::vector<testutil::StreamerConfig>>(
+            std::vector{testutil::StreamerConfig{
+                .reads = std::make_shared<std::vector<x::telem::Frame>>(),
+                .read_errors = std::make_shared<std::vector<x::errors::Error>>(
+                    std::vector{freighter::UNREACHABLE}
+                ),
+                .set_channels_err = x::errors::VALIDATION,
+            }}
+        )
+    );
+    const auto sink = std::make_shared<testutil::Sink>();
+    auto control = Control(
+        factory,
+        {.channels = {1}},
+        sink,
+        x::breaker::Config{
+            .base_interval = 200 * x::telem::MILLISECOND,
+            .max_retries = 1,
+            .scale = 1,
+            .max_interval = 200 * x::telem::MILLISECOND,
+        }
+    );
+    control.start();
+    ASSERT_EVENTUALLY_NIL(control.set_channels({2}));
+    const auto opens = factory->streamer_opens.load();
+    ASSERT_EVENTUALLY_GE(factory->streamer_opens.load(), opens + 1);
+    control.stop();
+    ASSERT_EQ(factory->config.channels, std::vector<synnax::channel::Key>{2});
+}
+
 /// @brief it should report missed commands to the sink and keep running.
 TEST(ControlPipeline, ReportsMissedCommands) {
     const auto streamer_factory = std::make_shared<testutil::StreamerFactory>(
