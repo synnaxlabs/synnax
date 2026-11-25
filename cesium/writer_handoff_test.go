@@ -949,6 +949,24 @@ var _ = Describe("Handoff on the pointer log", func() {
 		Entry("an adopted key, in the same run", true, cesium.SameRun),
 	)
 
+	It("Should add a key that a Drop dropped and a create brought back", func(
+		ctx SpecContext,
+	) {
+		Expect(db.Drop(ctx, []cesium.ChannelKey{data})).To(Succeed())
+		Expect(db.CreateChannel(ctx, cesium.Channel{
+			Key: data, Name: "data", Index: clock, DataType: telem.Int64T,
+		})).To(Succeed())
+		w := MustSucceed(db.OpenWriter(ctx, config(clock)))
+		mustWrite(ctx, w, telem.UnaryFrame(clock, telem.NewSeriesSecondsTSV(12)))
+		w, _ = MustSucceed2(
+			db.Handoff(ctx, w, config(clock, data), nil, cesium.SameRun),
+		)
+		mustWrite(ctx, w, both(13))
+		MustSucceed2(w.Commit(ctx, nil))
+		Expect(w.Close()).To(Succeed())
+		Expect(seconds(ctx)).To(Equal([]int64{13}))
+	})
+
 	It("Should commit a key that a write skips only over the stamps of its samples",
 		func(ctx SpecContext) {
 			w := MustSucceed(db.OpenWriter(ctx, config(clock, data)))
