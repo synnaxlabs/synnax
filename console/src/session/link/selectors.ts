@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { SLICE_NAME, type StoreState } from "@/session/link/slice";
+import { type Invite, SLICE_NAME, type StoreState } from "@/session/link/slice";
 import { Select } from "@/session/select";
 
 const selectAwaitingProject = (state: StoreState): boolean =>
@@ -15,3 +15,13 @@ const selectAwaitingProject = (state: StoreState): boolean =>
 
 export const useSelectAwaitingProject = (): boolean =>
   Select.useMemo(selectAwaitingProject, []);
+
+const selectInvite = (state: StoreState): Invite | null => state[SLICE_NAME].invite;
+
+export const useSelectInvite = (): Invite | null => Select.useMemo(selectInvite, []);
+
+const selectInvitesReceived = (state: StoreState): number =>
+  state[SLICE_NAME].invitesReceived;
+
+export const useSelectInvitesReceived = (): number =>
+  Select.useMemo(selectInvitesReceived, []);

@@ -119,6 +119,17 @@ describe("createStore", () => {
     expect(Session.Core.selectSelectedKey(store.getState())).toBe(REMOTE_KEY);
   });
 
+  it("should hold the invite the address brought and never store it", async () => {
+    const invite = { core: REMOTE_KEY, code: "syi_code" };
+    const store = await createStore({ invite });
+    expect(store.getState()[Session.Link.SLICE_NAME].invite).toEqual(invite);
+    store.dispatch(Session.Core.select(REMOTE_KEY));
+    await Session.Persist.flush(store.dispatch);
+    expect(JSON.stringify(readPersisted(db))).not.toContain("syi_code");
+    const reloaded = await createStore();
+    expect(reloaded.getState()[Session.Link.SLICE_NAME].invite).toBeNull();
+  });
+
   it("should hold every dispatched change in storage once a flush resolves", async () => {
     const store = await createStore();
     store.dispatch(

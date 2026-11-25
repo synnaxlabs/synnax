@@ -20,10 +20,19 @@ const CompleteBrowserLogin = (): null => {
 
 export const Guard = ({ children }: PropsWithChildren): ReactNode => {
   const core = Session.Core.useSelectSelected();
+  // An invite logs in as the invited user, so it replaces the session of the main
+  // window. Each new invite starts a fresh login surface on its Core.
+  const invited =
+    Session.Link.useSelectInvite() != null && Session.Runtime.isMainWindow();
+  const invitesReceived = Session.Link.useSelectInvitesReceived();
   return (
     <>
       <CompleteBrowserLogin />
-      {core != null && Core.hasLogin(core) ? children : <Login />}
+      {core != null && Core.hasLogin(core) && !invited ? (
+        children
+      ) : (
+        <Login key={invitesReceived} />
+      )}
     </>
   );
 };

@@ -24,7 +24,7 @@ import { createTestClient } from "@synnaxlabs/client/testutil";
 import type { Status } from "@synnaxlabs/lyra/status";
 import { expectAlways } from "@synnaxlabs/x/testutil";
 import { clearMocks, mockIPC, mockWindows } from "@tauri-apps/api/mocks";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import {
   afterEach,
   assert,
@@ -172,6 +172,7 @@ const renderLogin = async (
   alpha = ALPHA,
   createWrapper = createSessionConsoleWrapper,
   beta = BETA,
+  invite: Session.Link.Invite | null = null,
 ) => {
   let statuses: Status.NotificationSpec[] = [];
   const { wrapper, store } = await createWrapper({
@@ -183,6 +184,7 @@ const renderLogin = async (
         order: [alpha.key, beta.key],
         selected: undefined,
       },
+      [Session.Link.SLICE_NAME]: { ...Session.Link.ZERO_SLICE_STATE, invite },
     },
   });
   const { container } = render(
@@ -511,6 +513,83 @@ describe("Auth login", () => {
     expect(window.location.href).not.toContain(INVITE_CODE);
   });
 
+  describe("an invite a link brought", () => {
+    const renderLinked = async () => {
+      const { core } = await serveInvites();
+      onTestFinished(() => sessionStorage.clear());
+      return await renderLogin(core, undefined, BETA, {
+        core: core.key,
+        code: INVITE_CODE,
+      });
+    };
+
+    it("should open on its Core with the code filled in", async () => {
+      await renderLinked();
+      const field = await screen.findByPlaceholderText(INVITE_PLACEHOLDER);
+      expect(field).toHaveProperty("value", INVITE_CODE);
+      fireEvent.click(await screen.findByText("Log in with company-sso"));
+      await vi.waitFor(() =>
+        expect(
+          JSON.parse(sessionStorage.getItem("synnax-oidc-login") ?? "{}"),
+        ).toMatchObject({ purpose: "invite", invite: INVITE_CODE, core: ALPHA.key }),
+      );
+    });
+
+    it("should drop the code when the person cancels it", async () => {
+      const { store } = await renderLinked();
+      await screen.findByPlaceholderText(INVITE_PLACEHOLDER);
+      fireEvent.click(screen.getByText("Cancel"));
+      expect(await screen.findByText(INVITE_CONTROL)).toBeTruthy();
+      expect(store.getState()[Session.Link.SLICE_NAME].invite).toBeNull();
+    });
+
+    it("should drop the code when a password logs in", async () => {
+      const { core } = await serveInvites({ methods: ["password", "oidc"] });
+      const { store } = await renderLogin(core, undefined, BETA, {
+        core: core.key,
+        code: INVITE_CODE,
+      });
+      fireEvent.change(await screen.findByPlaceholderText(USERNAME_PLACEHOLDER), {
+        target: { value: "ada" },
+      });
+      fireEvent.change(screen.getByPlaceholderText("seldon"), {
+        target: { value: "secret" },
+      });
+      fireEvent.click(screen.getByText("Log in"));
+      await vi.waitFor(() => expect(store.getState().core.selected).toBe(core.key));
+      expect(store.getState()[Session.Link.SLICE_NAME].invite).toBeNull();
+      expect(await screen.findByText("workspace")).toBeTruthy();
+    });
+
+    it("should move to the Core of an invite that arrives while it shows", async () => {
+      const { server } = await serveInvites();
+      const beta = { ...BETA, ...server.address };
+      onTestFinished(() => sessionStorage.clear());
+      const { store } = await renderLogin(ALPHA, undefined, beta);
+      fireEvent.click(await screen.findByText(ALPHA.name));
+      await screen.findByPlaceholderText(USERNAME_PLACEHOLDER);
+      act(() => {
+        store.dispatch(
+          Session.Link.receiveInvite({ core: beta.key, code: INVITE_CODE }),
+        );
+      });
+      const field = await screen.findByPlaceholderText(INVITE_PLACEHOLDER);
+      expect(field).toHaveProperty("value", INVITE_CODE);
+      fireEvent.click(await screen.findByText("Log in with company-sso"));
+      await vi.waitFor(() =>
+        expect(
+          JSON.parse(sessionStorage.getItem("synnax-oidc-login") ?? "{}"),
+        ).toMatchObject({ purpose: "invite", invite: INVITE_CODE, core: beta.key }),
+      );
+    });
+
+    it("should keep the person on its Core", async () => {
+      const { container } = await renderLinked();
+      await screen.findByPlaceholderText(INVITE_PLACEHOLDER);
+      expect(container.querySelector(BACK)).toBeNull();
+    });
+  });
+
   it("should not carry an invite code to another Core", async () => {
     const { server, core } = await serveInvites();
     const beta = { ...BETA, ...server.address };
@@ -723,6 +802,46 @@ describe("Auth login", () => {
         ),
       );
       expect(statuses().map((s) => s.message)).not.toContain(FAILED);
+    });
+
+    it("should save no session for a provider login that Cancel ended", async () => {
+      const { server, core } = await serveInvites();
+      const saved = new Map<string, string>();
+      let finish: (() => void) | undefined;
+      const waiting = Promise.withResolvers<void>();
+      mockWindows("main");
+      mockIPC(async (cmd, args) => {
+        const { account, secret, state } = args as Record<string, string>;
+        switch (cmd) {
+          case "plugin:app|version":
+            return "0.0.0";
+          case "keychain_set":
+            saved.set(account, secret);
+            return undefined;
+          case "oidc_listen":
+            return 4242;
+          case "oidc_wait":
+            return await new Promise<string>((resolve) => {
+              finish = () => resolve(`code=abc&state=${state}`);
+              waiting.resolve();
+            });
+          default:
+            return undefined;
+        }
+      });
+      onTestFinished(clearMocks);
+      const { store } = await renderLogin(core, createConsoleWrapper, BETA, {
+        core: core.key,
+        code: INVITE_CODE,
+      });
+      fireEvent.click(await screen.findByText("Log in with company-sso"));
+      await waiting.promise;
+      fireEvent.click(screen.getByText("Cancel"));
+      finish?.();
+      expect(await screen.findByText(INVITE_CONTROL)).toBeTruthy();
+      await expectAlways(() => expect(server.redeemed).toEqual([]));
+      expect(saved.size).toBe(0);
+      expect(store.getState()[Session.Link.SLICE_NAME].invite).toBeNull();
     });
 
     it("should let a new provider login replace one still waiting", async () => {

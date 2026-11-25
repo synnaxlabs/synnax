@@ -164,6 +164,8 @@ export const redeemInvite = async (
  * session instead of spending the same code.
  * @param invite - An invite code to redeem, which links the account before the session
  * opens.
+ * @param signal - Ends the login once aborted, with its abort reason: it then sends
+ * nothing more to the Core and saves no token.
  * @throws {UnfinishedLoginError} when the person cancels or the provider denies access.
  * @throws {Error} when the person does not finish within five minutes, the provider
  * returns another error, or the Core rejects the code.
@@ -172,8 +174,10 @@ export const loginDesktop = async (
   core: Pick<Session.Core.Core, "key" | "host" | "port" | "secure">,
   login: auth.OIDCLogin,
   invite?: string,
+  signal?: AbortSignal,
 ): Promise<void> => {
   const credentials = await authorizeDesktop(login);
+  signal?.throwIfAborted();
   const token =
     invite == null
       ? (
@@ -183,6 +187,7 @@ export const loginDesktop = async (
           })
         ).token
       : await redeemInvite(core, invite, credentials);
+  signal?.throwIfAborted();
   // recordLogin clears the username, so the session is saved under the account the
   // record has after it
   await writeToken({ ...core, username: "" }, token);
