@@ -66,8 +66,10 @@ var _ = Describe("Calculator", Ordered, func() {
 	) *calculator.Calculator {
 		GinkgoHelper()
 		if indexes != nil {
+			// Specs share one index between calculators, and a name holds one channel.
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return channelSvc.NewWriter(tx).CreateMany(ctx, indexes)
+				return channelSvc.NewWriter(tx).
+					CreateMany(ctx, indexes, channel.RetrieveIfNameExists())
 			})).To(Succeed())
 		}
 		if bases != nil {
