@@ -235,7 +235,11 @@ describe("auth guard", () => {
         </>,
         { wrapper },
       );
-      return { store, statuses: () => statuses.map((s) => s.message) };
+      return {
+        store,
+        statuses: () => statuses.map((s) => s.message),
+        unfinished: () => statuses.find((s) => s.message === "Link not finished"),
+      };
     };
 
     it("should clear a saved login that is not valid without a status", async () => {
@@ -289,9 +293,34 @@ describe("auth guard", () => {
       expect(statuses()).not.toContain("Linked provider account");
     });
 
-    it("should report the provider's refusal as a failed link", async () => {
+    it("should report a cancelled link as not finished and keep the session", async () => {
       const server = await serveOIDC();
       returnFromProvider("/?error=access_denied&state=state");
+      const { store, statuses, unfinished } = await renderReturn(server);
+      await waitFor(() =>
+        expect(unfinished()).toMatchObject({
+          variant: "info",
+          description: "You cancelled the login, or the provider refused it.",
+        }),
+      );
+      expect(statuses()).not.toContain("Failed to link provider account");
+      expect(server.linked).toEqual([]);
+      expect(Session.Core.selectSelectedKey(store.getState())).toBe(CORE_KEY);
+      expect(screen.getByText("authenticated content")).toBeTruthy();
+    });
+
+    it("should give the provider's reason for a link it denied", async () => {
+      const server = await serveOIDC();
+      returnFromProvider("/?error=access_denied&error_description=Denied&state=state");
+      const { unfinished } = await renderReturn(server);
+      await waitFor(() =>
+        expect(unfinished()).toMatchObject({ variant: "info", description: "Denied" }),
+      );
+    });
+
+    it("should report a provider error as a failed link", async () => {
+      const server = await serveOIDC();
+      returnFromProvider("/?error=server_error&state=state");
       const { statuses } = await renderReturn(server);
       await waitFor(() =>
         expect(statuses()).toContain("Failed to link provider account"),

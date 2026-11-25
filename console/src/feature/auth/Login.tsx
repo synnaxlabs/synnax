@@ -91,13 +91,23 @@ export const useCompleteBrowserLogin = (): void => {
   const dispatch = Session.useDispatch();
   const handleError = Status.useErrorHandler();
   const addStatus = Status.useAdder();
+  const reportUnfinished = Core.useReportUnfinished();
   const [pendingLink, setPendingLink] = useState<Core.CompletedLogin>();
   const link = Credential.OIDC.useLink();
   useEffect(() => {
     const purpose = Core.pendingPurpose();
     handleError(
       () => {
-        const completed = Core.completeBrowserLogin();
+        let completed: Core.CompletedLogin | undefined;
+        try {
+          completed = Core.completeBrowserLogin();
+        } catch (e) {
+          reportUnfinished(
+            e,
+            purpose === "link" ? "Link not finished" : "Login not finished",
+          );
+          return;
+        }
         if (completed == null) return;
         if (completed.purpose === "link") {
           if (completed.core !== selected)

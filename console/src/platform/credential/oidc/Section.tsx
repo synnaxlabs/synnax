@@ -148,6 +148,7 @@ export const Section = ({ subject, onMessage }: SectionProps): ReactElement => {
   // a second link would replace the first one's loopback listener
   const [linking, setLinking] = useState(false);
   const handleError = Status.useErrorHandler();
+  const reportUnfinished = Core.useReportUnfinished();
   const startLink = async (login: auth.OIDCLogin): Promise<void> => {
     if (Session.Runtime.ENGINE === "tauri") {
       await link.updateAsync(await Core.authorizeDesktop(login));
@@ -167,7 +168,7 @@ export const Section = ({ subject, onMessage }: SectionProps): ReactElement => {
         failure = errors.fromUnknown(e);
       }
       setLinking(false);
-      if (failure != null) throw failure;
+      if (failure != null) reportUnfinished(failure, "Link not finished");
     }, "Failed to link provider account");
   };
   const confirm = Modals.useConfirm();

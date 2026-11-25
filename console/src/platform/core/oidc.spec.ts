@@ -261,7 +261,17 @@ describe("oidc", () => {
       expect(sessionStorage.getItem("synnax-oidc-login")).toBeNull();
     });
 
-    it("should report the provider's refusal", () => {
+    it("should report the provider's error", () => {
+      pending("s");
+      window.history.replaceState(
+        null,
+        "",
+        "/?error=server_error&error_description=Broken&state=s",
+      );
+      expect(() => Core.completeBrowserLogin()).toThrow("Broken");
+    });
+
+    it("should report a denied login as not finished with the provider's reason", () => {
       pending("s");
       window.history.replaceState(
         null,

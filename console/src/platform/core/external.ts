@@ -18,4 +18,5 @@ export * from "@/platform/core/useConnParams";
 export * from "@/platform/core/useCopyLinkToClipboard";
 export * from "@/platform/core/useLogout";
 export * from "@/platform/core/useProviders";
+export * from "@/platform/core/useReportUnfinished";
 export * from "@/platform/core/useSetUsername";

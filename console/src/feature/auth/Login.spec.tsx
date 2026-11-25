@@ -537,6 +537,7 @@ describe("Auth login", () => {
       sessionStorage.setItem(
         "synnax-oidc-login",
         JSON.stringify({
+          purpose: "login",
           core: ALPHA.key,
           provider: "company-sso",
           verifier: "verifier",
