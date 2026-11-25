@@ -61,6 +61,23 @@ const pickSymbol = async (name: string): Promise<void> => {
   fireEvent.click(await within(symbols).findByText(name, { selector: "small" }));
 };
 
+// A bound active state, which every clickable built-in has.
+const ACTIVE: schematic.StateBinding = {
+  key: "active",
+  source: { type: "channel", key: 12, command: 13 },
+};
+
+// A node that draws the built-in valve, labeled with the valve's name.
+const valveNode = (
+  input: Partial<Schematic.Node.Input<"symbol">> = {},
+): schematic.NodeConfig =>
+  Schematic.Node.createConfig({
+    variant: "symbol",
+    spec: { type: "builtin", name: "valve" },
+    label: { label: "Valve" },
+    ...input,
+  });
+
 const retrieveConfigs = async (key: string) =>
   client.schematics.configsOf(await client.schematics.retrieve(key));
 
@@ -167,21 +184,34 @@ describe("Toolbar", () => {
   });
 
   describe("changing symbols", () => {
-    it("keeps the settings the new symbol accepts", async () => {
+    it("keeps the settings and bindings the new symbol accepts", async () => {
       const { key } = await renderSelected({
-        n1: Schematic.Node.createConfig({
-          variant: "valve",
+        n1: valveNode({
           label: { label: "OX-1" },
           orientation: "top",
+          states: [ACTIVE],
         }),
       });
       expect(await screen.findByText("Valve")).toBeDefined();
       await pickSymbol("Solenoid");
       await waitFor(async () =>
         expect((await retrieveConfigs(key)).n1).toMatchObject({
-          variant: "solenoid_valve",
+          variant: "symbol",
+          spec: { type: "builtin", name: "solenoid_valve" },
           label: { label: "OX-1" },
           orientation: "top",
+          states: [ACTIVE],
+        }),
+      );
+    });
+
+    it("drops the bindings of states that the new symbol lacks", async () => {
+      const { key } = await renderSelected({ n1: valveNode({ states: [ACTIVE] }) });
+      await pickSymbol("Cap");
+      await waitFor(async () =>
+        expect((await retrieveConfigs(key)).n1).toMatchObject({
+          spec: { type: "builtin", name: "cap" },
+          states: [],
         }),
       );
     });
@@ -201,7 +231,7 @@ describe("Toolbar", () => {
     });
 
     it("marks the current symbol in the symbols tab", async () => {
-      await renderSelected({ n1: Schematic.Node.createConfig({ variant: "valve" }) });
+      await renderSelected({ n1: valveNode() });
       fireEvent.click(await screen.findByLabelText("Change symbol"));
       const symbols = await waitFor(() => {
         const el = document.querySelector<HTMLElement>(".console-schematic__symbols");
@@ -218,12 +248,12 @@ describe("Toolbar", () => {
     });
 
     it("changes the symbol without adding one", async () => {
-      const { key } = await renderSelected({
-        n1: Schematic.Node.createConfig({ variant: "valve" }),
-      });
+      const { key } = await renderSelected({ n1: valveNode() });
       await pickSymbol("Solenoid");
       await waitFor(async () =>
-        expect((await retrieveConfigs(key)).n1.variant).toBe("solenoid_valve"),
+        expect((await retrieveConfigs(key)).n1).toMatchObject({
+          spec: { type: "builtin", name: "solenoid_valve" },
+        }),
       );
       expect(Object.keys(await retrieveConfigs(key))).toEqual(["n1"]);
     });
@@ -243,13 +273,11 @@ describe("Toolbar", () => {
     });
 
     it("renames a label that still reads the old symbol's name", async () => {
-      const { key } = await renderSelected({
-        n1: Schematic.Node.createConfig({ variant: "valve" }),
-      });
+      const { key } = await renderSelected({ n1: valveNode() });
       await pickSymbol("Solenoid");
       await waitFor(async () =>
         expect((await retrieveConfigs(key)).n1).toMatchObject({
-          variant: "solenoid_valve",
+          spec: { type: "builtin", name: "solenoid_valve" },
           label: { label: "Solenoid" },
         }),
       );
@@ -257,16 +285,17 @@ describe("Toolbar", () => {
 
     it("changes every selected symbol", async () => {
       const { key } = await renderSelected({
-        n1: Schematic.Node.createConfig({ variant: "valve" }),
-        n2: Schematic.Node.createConfig({ variant: "tank" }),
+        n1: valveNode(),
+        n2: valveNode({ spec: { type: "builtin", name: "cap" } }),
       });
       expect(await screen.findByText("Mixed")).toBeDefined();
       await pickSymbol("Ball");
+      const ball = { type: "builtin", name: "ball_valve" };
       await waitFor(async () => {
         const configs = await retrieveConfigs(key);
-        expect([configs.n1.variant, configs.n2.variant]).toEqual([
-          "ball_valve",
-          "ball_valve",
+        expect([configs.n1, configs.n2]).toMatchObject([
+          { spec: ball },
+          { spec: ball },
         ]);
       });
     });
@@ -275,17 +304,34 @@ describe("Toolbar", () => {
       const symbol = await client.schematics.symbols.create(
         createSymbolPayload(uniqueName("custom")),
       );
-      const { key } = await renderSelected({
-        n1: Schematic.Node.createConfig({ variant: "valve" }),
-      });
+      const { key } = await renderSelected({ n1: valveNode() });
       await pickSymbol(symbol.name);
       await waitFor(async () =>
         expect((await retrieveConfigs(key)).n1).toMatchObject({
-          variant: "custom_static",
-          specKey: symbol.key,
+          variant: "symbol",
+          spec: { type: "custom", key: symbol.key },
           label: { label: symbol.name },
         }),
       );
+    });
+
+    it("names the custom symbol that a symbol node draws", async () => {
+      const symbol = await client.schematics.symbols.create(
+        createSymbolPayload(uniqueName("custom")),
+      );
+      await renderSelected({
+        n1: valveNode({ spec: { type: "custom", key: symbol.key } }),
+      });
+      expect(await screen.findByText(symbol.name, { selector: "p" })).toBeDefined();
+    });
+
+    it("names a symbol that the Core does not have as missing", async () => {
+      await renderSelected({
+        n1: valveNode({ spec: { type: "missing", key: "gone" } }),
+      });
+      expect(
+        await screen.findByText("Missing symbol", { selector: "p" }),
+      ).toBeDefined();
     });
 
     it("shows the form of the new symbol", async () => {
