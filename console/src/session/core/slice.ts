@@ -39,6 +39,11 @@ export const coreZ = synnaxParamsZ.pick({ host: true, secure: true }).extend({
    * stored state before a connection is up; absent until the first connection.
    */
   clusterKey: z.string().optional(),
+  /**
+   * The display name of the user whose session last opened on the Core. It stays after
+   * a logout, so two records at one address show whose each one is.
+   */
+  user: z.string().optional(),
 });
 export interface Core extends z.infer<typeof coreZ> {}
 
@@ -106,7 +111,7 @@ export interface StoreState {
   [SLICE_NAME]: SliceState;
 }
 
-export interface SetPayload extends Omit<Core, "key" | "clusterKey"> {
+export interface SetPayload extends Omit<Core, "key" | "clusterKey" | "user"> {
   /** The key to store under. A Core the user has just added gets a generated one. */
   key?: string;
 }
@@ -124,6 +129,11 @@ export interface ReorderPayload {
   key: string;
   /** The place in the order that the Core takes. */
   index: number;
+}
+
+export interface SetUserPayload {
+  key: string;
+  user: string;
 }
 
 export interface RecordLoginPayload {
@@ -146,14 +156,16 @@ const { actions, reducer } = createSlice({
         payload: { ...core, key: key ?? uuid.create() },
       }),
       reducer: (state, { payload }: PayloadAction<Core>) => {
-        // The cached cluster is the last one this record reached, not a claim about
-        // where its current address points. A repointed record keeps it until a
-        // connection answers for the new address, so nothing drops that cluster's
-        // stored state on a guess.
-        if (!(payload.key in state.cores)) state.order.push(payload.key);
+        // The cached cluster and user are the last ones this record reached, not a
+        // claim about where its current address points. A repointed record keeps them
+        // until a connection answers for the new address, so nothing drops that
+        // cluster's stored state on a guess.
+        const prev = state.cores[payload.key];
+        if (prev == null) state.order.push(payload.key);
         state.cores[payload.key] = {
           ...payload,
-          clusterKey: state.cores[payload.key]?.clusterKey,
+          clusterKey: prev?.clusterKey,
+          user: prev?.user,
         };
       },
     },
@@ -193,6 +205,10 @@ const { actions, reducer } = createSlice({
       core.lastLogin = at;
       state.selected = key;
     },
+    setUser: (state, { payload: { key, user } }: PayloadAction<SetUserPayload>) => {
+      const core = state.cores[key];
+      if (core != null) core.user = user;
+    },
     setClusterKey: (
       state,
       { payload: { key, clusterKey } }: PayloadAction<SetClusterKeyPayload>,
@@ -212,6 +228,7 @@ export const {
   reorder,
   recordLogin,
   setClusterKey,
+  setUser,
 } = actions;
 
 const purgeSecrets = <S extends StoreState>(state: S): S => ({

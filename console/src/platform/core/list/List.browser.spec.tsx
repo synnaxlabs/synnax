@@ -195,6 +195,20 @@ describe("Core List", () => {
     ]);
   });
 
+  it("should show the user of each Core at one address", async () => {
+    const pat = createCore("Core", { user: "Pat" });
+    const sam = createCore("Core A", { user: "Sam" });
+    const fresh = createCore("Core B");
+    await renderCoreUI(
+      <Core.List value={undefined} onChange={vi.fn()} />,
+      createCoreState([pat, sam, fresh]),
+    );
+    const address = `${pat.host}:${pat.port}`;
+    expect(await screen.findByText(`${address} · Pat`)).toBeTruthy();
+    expect(screen.getByText(`${address} · Sam`)).toBeTruthy();
+    expect(screen.getByText(address)).toBeTruthy();
+  });
+
   // A name is a label, not an identity, so two Cores may share one.
   it("should accept renaming a Core to a name another Core already has", async () => {
     const { store } = await renderCoreUI(
