@@ -1211,4 +1211,39 @@ TEST_F(OutboxTest, CompactsCallOverSmallerMaxPayload) {
     EXPECT_EQ(std::ranges::count(messages, big), 1);
     EXPECT_EQ(messages.back(), "199");
 }
+
+/// @brief it should take a push at once when the disk recovers from a fault.
+TEST_F(OutboxTest, TakesPushesAfterFaultClears) {
+    std::atomic<bool> failing = false;
+    const auto fault = x::errors::Error(journal::BASE_ERROR, "disk full");
+    Config cfg{
+        .dir = this->dir,
+        .statuses = synnax::status::Client(
+            nullptr,
+            nullptr,
+            nullptr,
+            transport_of({freighter::UNREACHABLE})
+        ),
+        .sync_interval = 2 * x::telem::SECOND,
+        .on_sync = [&](const x::errors::Error &err) { return failing ? fault : err; },
+        .on_create = [&](
+                         const std::filesystem::path &
+                     ) { return failing ? fault : x::errors::NIL; },
+    };
+    cfg.retry.base_interval = x::telem::HOUR;
+    cfg.retry.max_interval = x::telem::HOUR;
+    const auto outbox = ASSERT_NIL_P(Outbox::open(cfg));
+    failing = true;
+    int errors = 0;
+    for (int i = 0; errors < 3; i++) {
+        ASSERT_LT(i, 100000);
+        if (const auto err = outbox->set_status(set_of(std::to_string(i)), nullptr)) {
+            ASSERT_OCCURRED_AS(err, journal::BASE_ERROR);
+            errors++;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    }
+    failing = false;
+    ASSERT_NIL(outbox->set_status(set_of("recovered"), nullptr));
+}
 }

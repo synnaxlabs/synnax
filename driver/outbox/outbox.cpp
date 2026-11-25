@@ -418,11 +418,11 @@ x::errors::Error Outbox::next_tail(std::unique_lock<std::mutex> &lock) {
         this->spare_wanted = true;
         this->sync_cv.notify_one();
         if (this->tail.writer != nullptr && this->tail_overfull) return x::errors::NIL;
-        // A failed open fails the pushes that have no tail at once.
-        if (this->tail.writer == nullptr && this->open_err) return this->open_err;
-        this->spare_cv.wait_for(lock, this->cfg.sync_interval.chrono(), [this] {
+        // The result of an open that started before this push can be stale.
+        const auto target = this->opens_done + (this->opening ? 2 : 1);
+        this->spare_cv.wait_for(lock, this->cfg.sync_interval.chrono(), [&] {
             return this->spare.has_value() ||
-                   (this->tail.writer == nullptr && this->open_err) ||
+                   (this->tail.writer == nullptr && this->opens_done >= target) ||
                    (this->tail.writer != nullptr &&
                     this->tail_calls < this->cfg.segment_calls);
         });
@@ -453,6 +453,11 @@ void Outbox::fail_open(const std::uint64_t key, const x::errors::Error &err) {
     this->segments.try_emplace(key, 0);
     this->failed_key = key;
     this->open_err = err;
+}
+
+void Outbox::finish_open() {
+    ++this->opens_done;
+    this->opening = false;
     this->spare_cv.notify_all();
 }
 
@@ -594,13 +599,19 @@ void Outbox::sync_once(
             else
                 spare_key = this->next_key++;
             this->failed_key.reset();
+            this->opening = true;
         }
         this->spare_wanted = false;
     }
     // A push can wait for the spare, so it opens first.
     if (spare_key.has_value()) {
         auto [writer, err] = this->open_writer(*spare_key);
-        if (err) LOG(ERROR) << "[outbox] failed to open a segment: " << err;
+        // Each push during a fault retries the open, so the log is limited.
+        if (const auto now = steady_now();
+            err && now - this->open_logged >= this->cfg.sync_interval) {
+            this->open_logged = now;
+            LOG(ERROR) << "[outbox] failed to open a segment: " << err;
+        }
         std::unique_lock lock(this->mu);
         if (err)
             this->fail_open(*spare_key, err);
@@ -610,8 +621,9 @@ void Outbox::sync_once(
             this->writers[*spare_key] = writer;
             this->bytes += writer->pos();
             this->segments[*spare_key] = writer->pos();
-            this->spare_cv.notify_all();
-        } else {
+        }
+        this->finish_open();
+        if (!err && *spare_key <= this->tail.key) {
             lock.unlock();
             // The send thread or a compaction took a later segment first.
             (void) writer->close();
@@ -720,6 +732,7 @@ void Outbox::compact() {
         this->spare.reset();
         this->spare_wanted = true;
         this->tail = {.key = tail_key, .writer = tail_writer};
+        this->open_err = x::errors::NIL;
         this->tail_calls = 0;
         this->tail_overfull = false;
         this->writers[tail_key] = tail_writer;

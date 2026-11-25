@@ -197,6 +197,14 @@ class Outbox {
     std::optional<std::uint64_t> failed_key;
     /// @brief the error of the last failed segment open, until a spare opens.
     x::errors::Error open_err;
+    /// @brief the number of segment opens that finished, so a push can wait for an open
+    /// that started after it.
+    std::uint64_t opens_done = 0;
+    /// @brief the sync thread opens a segment now.
+    bool opening = false;
+    /// @brief the time the sync thread last logged a failed open. Used only by the sync
+    /// thread.
+    x::telem::TimeStamp open_logged;
     /// @brief the segments that left the tail, which the sync thread closes.
     std::vector<Segment> closing;
     /// @brief the position after the last sent call.
@@ -226,9 +234,11 @@ class Outbox {
     /// thread to open one. Keeps a full tail when the wait ends with no spare. Requires
     /// a lock on mu.
     x::errors::Error next_tail(std::unique_lock<std::mutex> &lock);
-    /// @brief records a segment that failed to open with err, and wakes the pushes that
-    /// wait for a spare. Requires mu.
+    /// @brief records a segment that failed to open with err. Requires mu.
     void fail_open(std::uint64_t key, const x::errors::Error &err);
+    /// @brief counts a finished segment open, and wakes the pushes that wait for it.
+    /// Requires mu.
+    void finish_open();
     /// @returns whether a compaction frees enough of the files to run. Requires mu.
     [[nodiscard]] bool reclaimable() const;
     /// @returns whether the outbox holds 3/4 of max_bytes or max_calls. Requires mu.
