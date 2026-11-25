@@ -11,12 +11,12 @@
 
 # Manages the preview Cores on this host.
 #
-#   preview up <pr> <image> [human|none <time>]
-#                             Starts or replaces the Core for a pull request, and
-#                             marks it as mark does. At the cap, it first removes a
-#                             preview: ones not marked human before ones marked
-#                             human, and within each, the one deployed or viewed
-#                             longest ago.
+#   preview up <pr> <image> <sample image> [human|none <time>]
+#                             Starts or replaces the Core for a pull request, runs
+#                             the sample image against it, and marks it as mark does.
+#                             At the cap, it first removes a preview: ones not marked
+#                             human before ones marked human, and within each, the
+#                             one deployed or viewed longest ago.
 #   preview mark <pr> human|none <time>
 #                             Sets whether a pull request waits on a human review, as
 #                             its labels showed at <time> (Unix seconds). A mark older
@@ -137,9 +137,9 @@ mark() {
 }
 
 up() {
-    local pr=$1 image=$2 name
+    local pr=$1 image=$2 sample=$3 name
     check_pr "$pr"
-    mark "$pr" "${3:-none}" "${4:-0}"
+    mark "$pr" "${4:-none}" "${5:-0}"
     name=$(container "$pr")
     # An unlicensed Core rejects every request but login. The license and the image come
     # first, so a failure to get either leaves every running Core in place.
@@ -187,6 +187,10 @@ pr-$pr.$PREVIEW_DOMAIN {
 }
 SITE
             reload_caddy
+            # The load takes about half a minute, so other commands need not wait on it.
+            flock --unlock 9
+            docker run --rm --network preview --memory "$PREVIEW_MEMORY" \
+                --cpus "$PREVIEW_CPUS" "$sample" "http://$name:9090"
             return
         fi
         sleep 2
@@ -271,7 +275,7 @@ ack() {
 }
 
 case "${1:-}" in
-    up) up "$2" "$3" "${4:-}" "${5:-}" ;;
+    up) up "$2" "$3" "${4:-}" "${5:-}" "${6:-}" ;;
     mark) mark "$2" "${3:-}" "${4:-}" ;;
     upgrade) upgrade ;;
     down) down "$2" ;;
@@ -279,7 +283,7 @@ case "${1:-}" in
     notices) notices ;;
     ack) ack "${@:2}" ;;
     *)
-        echo "usage: preview up <pr> <image> [human|none <time>]" \
+        echo "usage: preview up <pr> <image> <sample image> [human|none <time>]" \
             "| mark <pr> human|none <time> | upgrade | down <pr> | sweep" \
             "| notices | ack [<pr> <UTC time>]..." >&2
         exit 2

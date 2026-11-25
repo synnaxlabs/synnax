@@ -360,7 +360,7 @@ resource "aws_ssm_document" "preview" {
         description = "The preview command line."
         allowedPattern = join("", [
           "^/usr/local/bin/preview (",
-          "up [0-9]+ ${local.image} (human|none) [0-9]+",
+          "up [0-9]+ ${local.image} ${local.image}-sample (human|none) [0-9]+",
           "|mark [0-9]+ (human|none) [0-9]+",
           "|down [0-9]+",
           "|notices",
