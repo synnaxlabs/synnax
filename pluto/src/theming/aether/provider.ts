@@ -17,11 +17,19 @@ const CONTEXT_KEY = "pluto-theming-context";
 
 // A ligature in Geist Mono is one cell wide, so it breaks a fixed character grid.
 const DESCRIPTORS: FontFaceDescriptors = { featureSettings: '"liga" 0' };
+// The face loads the variable font, so it spans every weight.
+const TABULAR_DESCRIPTORS: FontFaceDescriptors = {
+  featureSettings: '"liga" 0, "tnum" 1',
+  weight: "100 900",
+};
 
 export const fontSpecZ = z.object({
   name: z.string(),
   url: z.string(),
+  /** If true, the face draws digits at one width. */
+  tabular: z.boolean().default(false),
 });
+export interface FontSpec extends z.input<typeof fontSpecZ> {}
 
 const providerStateZ = z.object({
   theme: theme.themeZ,
@@ -48,8 +56,9 @@ export class Provider extends aether.Composite<typeof providerStateZ> {
     // A throw reports an error that re-renders consumers, looping any that suspend.
     if (typeof FontFace === "undefined") return;
     await Promise.all(
-      this.state.fontURLs.map(async ({ name, url }) => {
-        const face = new FontFace(name, `url(${url})`, DESCRIPTORS);
+      this.state.fontURLs.map(async ({ name, url, tabular }) => {
+        const descriptors = tabular ? TABULAR_DESCRIPTORS : DESCRIPTORS;
+        const face = new FontFace(name, `url(${url})`, descriptors);
         try {
           await face.load();
           // @ts-expect-error - font loading
