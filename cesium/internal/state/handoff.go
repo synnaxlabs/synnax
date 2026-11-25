@@ -12,6 +12,7 @@ package state
 import (
 	"slices"
 
+	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -165,6 +166,7 @@ type addRequest struct {
 	w     *Writer
 	keys  []WriterKey
 	start telem.TimeStamp
+	drops uint64
 	pre   []Preload
 }
 
@@ -178,6 +180,10 @@ func (r *addRequest) run(s *State) {
 	}
 	start := r.start
 	for _, k := range r.keys {
+		if s.core.dropped[k.Key] > r.drops {
+			w.done <- channel.NewNotFoundError(k.Key)
+			return
+		}
 		if _, written := w.types[k.Key]; written {
 			w.done <- errors.Newf("writer of clock %d already writes key %d",
 				w.cfg.Clock, k.Key)
@@ -197,10 +203,16 @@ func (r *addRequest) run(s *State) {
 }
 
 // Add makes w write keys too, with claims from start, after the checks that OpenWriter
-// makes at start. pre holds the preload of each key of keys at start, in rising order
-// of key. It returns the errors of OpenWriter.
-func (w *Writer) Add(keys []WriterKey, start telem.TimeStamp, pre ...Preload) error {
-	return w.call(&addRequest{w: w, keys: keys, start: start, pre: pre})
+// makes at start. drops is the value of State.Drops when the caller read the channels
+// of keys. pre holds the preload of each key of keys at start, in rising order of key.
+// It returns the errors of OpenWriter.
+func (w *Writer) Add(
+	keys []WriterKey,
+	start telem.TimeStamp,
+	drops uint64,
+	pre ...Preload,
+) error {
+	return w.call(&addRequest{w: w, keys: keys, start: start, drops: drops, pre: pre})
 }
 
 type stampedRequest struct {

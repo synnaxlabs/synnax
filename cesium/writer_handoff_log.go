@@ -288,33 +288,9 @@ func (w *logWriter) join(a *logWriter) error {
 // addKeys makes l write each key of keys that it does not, with claims from the start
 // of its first run.
 func (db *DB) addKeys(l *logWriter, keys []ChannelKey) error {
-	db.mu.RLock()
-	defer db.mu.RUnlock()
-	var (
-		added []*logKey
-		wks   []state.WriterKey
-	)
-	for _, key := range keys {
-		if _, ok := l.byKey[key]; ok {
-			continue
-		}
-		ch, ok := db.channelOf(key)
-		if !ok {
-			return channel.NewNotFoundError(key)
-		}
-		if ch.Clock() != l.clock {
-			return channel.Wrap(key, errors.Wrapf(
-				validate.ErrValidation,
-				"channel is not timed by the writer clock <%d>",
-				l.clock,
-			))
-		}
-		lk := &logKey{ch: ch, code: telem.CodeOf(ch.DataType)}
-		added = append(added, lk)
-		wks = append(wks, state.WriterKey{Key: key, DataType: uint8(lk.code)})
-	}
-	if len(added) == 0 {
-		return nil
+	added, wks, drops, err := db.readAddedKeys(l, keys)
+	if err != nil || len(added) == 0 {
+		return err
 	}
 	slices.SortFunc(
 		wks,
@@ -328,7 +304,7 @@ func (db *DB) addKeys(l *logWriter, keys []ChannelKey) error {
 	if _, err := l.e.withPreloads(nil, keyed, start, start, false, func(
 		pre []state.Preload,
 	) error {
-		return l.st.Add(wks, start, pre...)
+		return l.st.Add(wks, start, drops, pre...)
 	}); err != nil {
 		return err
 	}
@@ -342,6 +318,40 @@ func (db *DB) addKeys(l *logWriter, keys []ChannelKey) error {
 		}
 	}
 	return nil
+}
+
+// readAddedKeys reads under db.mu the channel of each key of keys that l does not
+// write, and returns them with the value of State.Drops at the read.
+func (db *DB) readAddedKeys(
+	l *logWriter,
+	keys []ChannelKey,
+) ([]*logKey, []state.WriterKey, uint64, error) {
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+	var (
+		added []*logKey
+		wks   []state.WriterKey
+	)
+	for _, key := range keys {
+		if _, ok := l.byKey[key]; ok {
+			continue
+		}
+		ch, ok := db.channelOf(key)
+		if !ok {
+			return nil, nil, 0, channel.NewNotFoundError(key)
+		}
+		if ch.Clock() != l.clock {
+			return nil, nil, 0, channel.Wrap(key, errors.Wrapf(
+				validate.ErrValidation,
+				"channel is not timed by the writer clock <%d>",
+				l.clock,
+			))
+		}
+		lk := &logKey{ch: ch, code: telem.CodeOf(ch.DataType)}
+		added = append(added, lk)
+		wks = append(wks, state.WriterKey{Key: key, DataType: uint8(lk.code)})
+	}
+	return added, wks, db.engine.state.Drops(), nil
 }
 
 // commitLog commits the samples of p, a Pending of the pointer log layout, once the
