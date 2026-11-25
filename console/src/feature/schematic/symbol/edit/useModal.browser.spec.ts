@@ -325,6 +325,23 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       expect(screen.getByText("Active")).toBeDefined();
     });
 
+    it("closes at once with no drawing", async () => {
+      await openCreateModal();
+      await screen.findByText(SYMBOL_FILE_DROP_PROMPT);
+      fireEvent.click(screen.getByRole("button", { name: "Close" }));
+      await waitFor(() =>
+        expect(screen.queryByText(SYMBOL_FILE_DROP_PROMPT)).toBeNull(),
+      );
+      expect(screen.queryByText("Discard unsaved edits?")).toBeNull();
+    });
+
+    it("asks before it drops a loaded drawing on close", async () => {
+      const { picker } = await openCreateModal();
+      await loadSVG(picker);
+      fireEvent.click(screen.getByRole("button", { name: "Close" }));
+      expect(await screen.findByText("Discard unsaved edits?")).toBeDefined();
+    });
+
     it("rejects a non-SVG file without opening the editor", async () => {
       const { picker } = await openCreateModal();
       fireEvent.click(await screen.findByText(SYMBOL_FILE_DROP_PROMPT));
