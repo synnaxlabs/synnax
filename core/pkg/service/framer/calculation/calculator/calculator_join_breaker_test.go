@@ -94,9 +94,17 @@ var _ = Describe("Breaker live join", Ordered, ContinueOnFailure, func() {
 			return w.CreateMany(ctx, &bases)
 		})).To(Succeed())
 		out := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
-			Name:       UniqueChannelName(),
-			DataType:   telem.Float64T,
-			Expression: fmt.Sprintf("return %s + %s", bases[0].Name, bases[1].Name),
+			Name:     UniqueChannelName(),
+			DataType: telem.Float64T,
+			// The term adds nothing, and an integer divide by zero fails the step when
+			// a
+			// is -1.
+			Expression: fmt.Sprintf(
+				"return %s + %s + f64(i64(0) / i64(%s + 1))",
+				bases[0].Name,
+				bases[1].Name,
+				bases[0].Name,
+			),
 		}))
 		Expect(bases[0].Key()).To(BeNumerically("<", bases[1].Key()))
 		c := MustSucceed(creator.CalculationOf(ctx, out.Key()))
@@ -206,13 +214,32 @@ var _ = Describe("Breaker live join", Ordered, ContinueOnFailure, func() {
 			Expect(step(telem.TimeStamp(i+1), uint32(i))).To(BeEmpty())
 		}
 		Expect(step(4, 3)).To(ConsistOf(calculation.StaleStatus(calc.Channel().Name)))
-		// A stamp that does not rise fails the step, and the error replaces the saved
+		// b writes once, and a of -1 beside it fails the step, which replaces the saved
 		// stale warning.
-		errored := step(3, 4)
+		now += telem.SecondTS
+		kb, sb := series(indexes[1].Key(), bases[1].Key(), 0, []float64{10}, 5)
+		ka, sa := series(indexes[0].Key(), bases[0].Key(), 4, []float64{-1}, 5)
+		var errored []calculator.Status
+		g.Next(ctx, frame.NewMulti(append(kb, ka...), append(sb, sa...)), func(
+			_ context.Context,
+			_ channel.Key,
+			_ string,
+			st calculator.Status,
+		) bool {
+			errored = append(errored, st)
+			return true
+		})
 		Expect(errored).To(HaveLen(1))
 		Expect(errored[0].Message).To(Equal("Failed to run calculation"))
-		// b still has no sample, so the join drops the next primary stamp.
-		Expect(step(6, 5)).To(ConsistOf(calculation.StaleStatus(calc.Channel().Name)))
+		// b writes no more, and its last sample's hold passes on the arrival clock, so
+		// the join drops the later primary stamps with no output between.
+		now += 10 * telem.SecondTS
+		after := make([]calculator.Status, 0, 4)
+		for i := range 4 {
+			after = append(after, step(telem.TimeStamp(10+i), uint32(5+i))...)
+		}
+		Expect(after).To(ContainElement(calculation.StaleStatus(calc.Channel().Name)))
+		Expect(after).ToNot(ContainElement(HaveField("Variant", status.VariantSuccess)))
 	})
 
 	// A step with no drops reports a success, which replaces a stale warning.
@@ -266,11 +293,10 @@ var _ = Describe("Breaker live join", Ordered, ContinueOnFailure, func() {
 			)
 			Expect(step()).To(BeEmpty())
 		}
-		// b skips from 5 s to 21 s, so a at 20 s is past b's hold limit, and a's second
-		// series in the frame does not rise.
+		// b skips from 5 s to 21 s, so a at 20 s is past b's hold limit, and a of -1 at
+		// 21 s fails the step.
 		add(series(indexes[1].Key(), bases[1].Key(), 4, []float64{10, 10}, 5, 21))
-		add(series(indexes[0].Key(), bases[0].Key(), 4, []float64{1, 1}, 5, 20))
-		add(series(indexes[0].Key(), bases[0].Key(), 6, []float64{1}, 19))
+		add(series(indexes[0].Key(), bases[0].Key(), 4, []float64{1, 1, -1}, 5, 20, 21))
 		errored := step()
 		Expect(errored).To(HaveLen(1))
 		Expect(errored[0].Message).To(Equal("Failed to run calculation"))
@@ -324,11 +350,10 @@ var _ = Describe("Breaker live join", Ordered, ContinueOnFailure, func() {
 		Expect(of.Get(out.Key()).Series[0].Unmarshal[int64]()).To(Equal([]int64{2, 3}))
 	})
 
-	// A primary stamp either gets an output or counts in Dropped, so the order of the
-	// keys must not decide whether a primary sample survives a refused push of another
-	// input.
+	// A backfill of the other input is a late input, so it fails nothing, and the
+	// primary samples beside it are joined whatever the order of the keys.
 	DescribeTable(
-		"Should keep the primary samples of a step whose other input fails",
+		"Should join the primary samples of a step that backfills the other input",
 		func(ctx SpecContext, primary int) {
 			var now telem.TimeStamp
 			calc, indexes, bases := openSum(ctx, &now, primary)
@@ -353,10 +378,10 @@ var _ = Describe("Breaker live join", Ordered, ContinueOnFailure, func() {
 				s1[i].Alignment = telem.NewAlignment(1, 0)
 			}
 			k2, s2 = series(pIdx, pKey, 3, []float64{4, 5}, 13, 14)
-			Expect(next(append(k1, k2...), append(s1, s2...))).Error().
-				To(MatchError(ContainSubstring("does not follow")))
+			got := MustSucceed(next(append(k1, k2...), append(s1, s2...)))
 			k2, s2 = series(pIdx, pKey, 5, []float64{6}, 15)
-			Expect(next(k2, s2)).To(Equal([]float64{34, 35, 36}))
+			got = append(got, MustSucceed(next(k2, s2))...)
+			Expect(got).To(Equal([]float64{34, 35, 36}))
 		},
 		Entry("with the primary at the lower key", 0),
 		Entry("with the primary at the higher key", 1),
