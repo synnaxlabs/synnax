@@ -141,6 +141,71 @@ var _ = Describe("Migrate", func() {
 		Expect(entry.DataType).To(BeNil())
 	})
 
+	It("Should lift a stored write config with an empty data type", func(
+		ctx SpecContext,
+	) {
+		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
+		key := uuid.New()
+		old := v3.WriteConfig{
+			Key: key,
+			Channels: []v3.WriteChannel{{Variant: v3.EntryWriteChannel{
+				BaseWriteChannel: writeBase, Index: 0x7000, StopValue: 1,
+			}}},
+		}
+		MustOpen(
+			gorp.OpenTable(ctx, gorp.TableConfig[uuid.UUID, v3.WriteConfig]{DB: db}),
+		)
+		Expect(gorp.NewCreate[uuid.UUID, v3.WriteConfig]().Entry(&old).Exec(ctx, db)).
+			To(Succeed())
+		MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[uuid.UUID, v4.WriteConfig]{
+			DB: db, Migrations: []gorp.Migration{v4.WriteMigration},
+		}))
+		var got v4.WriteConfig
+		Expect(gorp.NewRetrieve[uuid.UUID, v4.WriteConfig]().
+			Where(gorp.MatchKeys[uuid.UUID, v4.WriteConfig](key)).
+			Entry(&got).Exec(ctx, db)).To(Succeed())
+		Expect(got.Channels).To(Equal([]v4.WriteChannel{{
+			Variant: v4.EntryWriteChannel{
+				BaseWriteChannel: writeBase, Index: 0x7000, StopValue: 1,
+			},
+		}}))
+	})
+
+	It("Should keep every channel of a v3 read config", func(ctx SpecContext) {
+		cfg := MustSucceed(v4.MigrateReadConfig(ctx, v3.ReadConfig{
+			Channels: []v3.ReadChannel{
+				{Variant: v3.EntryReadChannel{
+					BaseReadChannel: readBase, DataType: "int16", Scale: none,
+				}},
+				{Variant: v3.UnresolvedReadChannel{
+					BaseReadChannel: readBase, Pdo: "Value",
+				}},
+			},
+		}))
+		Expect(cfg.Channels).To(Equal([]v4.ReadChannel{
+			{Variant: v4.EntryReadChannel{
+				BaseReadChannel: readBase, DataType: new(telem.Int16T), Scale: none,
+			}},
+			{Variant: v4.UnresolvedReadChannel{
+				BaseReadChannel: readBase, Pdo: "Value",
+			}},
+		}))
+	})
+
+	It("Should keep every channel of a v3 write config", func(ctx SpecContext) {
+		cfg := MustSucceed(v4.MigrateWriteConfig(ctx, v3.WriteConfig{
+			Channels: []v3.WriteChannel{{Variant: v3.EntryWriteChannel{
+				BaseWriteChannel: writeBase, DataType: "uint8", StopValue: 2,
+			}}},
+		}))
+		Expect(cfg.Channels).To(Equal([]v4.WriteChannel{{
+			Variant: v4.EntryWriteChannel{
+				BaseWriteChannel: writeBase, DataType: new(telem.Uint8T), StopValue: 2,
+			},
+		}}))
+	})
+
 	DescribeTable("ResolveReadConfig",
 		func(ctx SpecContext, pdo string, expected *telem.DataType) {
 			cfg := v4.ReadConfig{Channels: []v4.ReadChannel{{
