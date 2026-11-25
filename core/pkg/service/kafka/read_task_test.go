@@ -1903,9 +1903,8 @@ var _ = Describe("Read task", func() {
 
 		Context("Messages on two index channels", func() {
 			// twoIndexes returns a config that reads a message on topic. Its index
-			// field
-			// /ts stamps temp, and its field /w is level, on a second index channel
-			// that takes the Kafka timestamps.
+			// field /ts stamps temp, and its field /w is level, on a second index
+			// channel that takes the Kafka timestamps.
 			twoIndexes := func(ctx context.Context) (
 				cfg kafka.ReadConfig,
 				topic string,
@@ -1968,8 +1967,8 @@ var _ = Describe("Read task", func() {
 					stat := taskStatus(ctx, t)
 					Expect(stat.Message).To(Equal("Skipped 1 of 2 records"))
 					Expect(stat.Description).To(Equal(
-						`Record value: field v: unknown enum label "none": validation ` +
-							"error (topic " + topic + ", partition 0, offset 0).",
+						`Record value: field v: unknown enum label "none": validation` +
+							" error (topic " + topic + ", partition 0, offset 0).",
 					))
 				},
 			)
