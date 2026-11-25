@@ -329,11 +329,11 @@ export type RetrieveRequest = z.infer<typeof retrieveRequestZ>;
 /** Identity holds the broker fields that the connect form owns. */
 export const identityZ = z.object({
   /** rack is the key of the rack that connects to the broker. */
-  rack: rack.keyZ.refine((v) => v !== 0, "rack is required"),
+  rack: rack.keyZ.refine((v) => v !== 0, "Rack is required"),
   /** name is a human-readable name for the broker. */
-  name: z.string().min(1, "name is required"),
+  name: z.string().min(1, "Name is required"),
   /** host is the hostname or IP address of the broker. */
-  host: z.string().min(1, "host is required"),
+  host: z.string().min(1, "Host is required"),
   /** port is the TCP port. Absent takes 1883, or 8883 when the transport is TLS. */
   port: zod.uint16.min(1).optional(),
   /** transport is the transport that the Core connects to the broker over. */
