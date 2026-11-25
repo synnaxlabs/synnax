@@ -342,9 +342,9 @@ describe("Auth login", () => {
       ["oidc"],
       [
         {
-          provider: "okta",
-          issuer: "https://acme.okta.com",
-          authorizationEndpoint: "https://acme.okta.com/oauth2/v1/authorize",
+          provider: "gitlab",
+          issuer: "https://gitlab.com",
+          authorizationEndpoint: "https://gitlab.com/oauth/authorize",
           clientId: "synnax",
         },
         {
@@ -357,13 +357,12 @@ describe("Auth login", () => {
     );
     await renderLogin(core);
     fireEvent.click(await screen.findByText(ALPHA.name));
-    const okta = await screen.findByRole("button", { name: "Log in with Okta" });
+    const gitlab = await screen.findByRole("button", { name: "Log in with GitLab" });
     const microsoft = screen.getByRole("button", { name: "Log in with Microsoft" });
-    expect(okta.querySelector("svg")?.classList).toContain(PCSS.symbolColored);
-    const fills = Array.from(microsoft.querySelectorAll("svg g")).map((g) =>
-      g.getAttribute("fill"),
-    );
-    expect(fills).toEqual(["#F25022", "#7FBA00", "#00A4EF", "#FFB900"]);
+    expect(gitlab.querySelector("svg")?.classList).toContain(PCSS.symbolColored);
+    const parts = Array.from(microsoft.querySelectorAll("svg g"));
+    expect(parts).toHaveLength(4);
+    for (const part of parts) expect(part.classList).toContain(PCSS.symbolColored);
   });
 
   it("should explain that provider login needs HTTPS", async () => {
