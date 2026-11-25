@@ -145,7 +145,8 @@ func (c channelParams) eachNodeKey(
 // direction: the keys that read returns from its Base, and the channels that its graph
 // nodes set on channel params in direction. A deleted channel stays in the Arc, and a
 // detach removes the target from the list that field names and clears each node input
-// that holds it.
+// that holds it. A retarget moves the same list entry and node inputs to the new key
+// and never changes the text.
 func newChannelReference(
 	name string,
 	direction types.ChanDirection,
@@ -187,7 +188,42 @@ func newChannelReference(
 				}
 			})
 		},
+		Retarget: retargetChannel(direction, field, params),
 	})
+}
+
+// retargetChannel returns the function that moves an Arc from one channel to another in
+// the list that field names and in each node input in direction that holds the first.
+func retargetChannel(
+	direction types.ChanDirection,
+	field func(*Base) *[]channel.Key,
+	params func() channelParams,
+) func(a *Arc, from, to channel.Key) {
+	return func(a *Arc, from, to channel.Key) {
+		b := a.Base()
+		held := field(&b)
+		for i, k := range *held {
+			if k == from {
+				(*held)[i] = to
+			}
+		}
+		slices.Sort(*held)
+		*held = slices.Compact(*held)
+		a.SetBase(b)
+		src, ok := b.Source.Variant.(GraphSource)
+		if !ok {
+			return
+		}
+		params().eachNodeKey(src.Graph, direction, func(
+			inputs msgpack.EncodedJSON,
+			param string,
+			k channel.Key,
+		) {
+			if k == from {
+				inputs[param] = float64(to)
+			}
+		})
+	}
 }
 
 // newChannelReferences returns the references from each Arc to the channels it reads
