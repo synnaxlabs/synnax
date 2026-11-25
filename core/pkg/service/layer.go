@@ -1180,6 +1180,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.Resource, err = resource.NewService(resource.ServiceConfig{
 		Providers: map[resource.Type]resource.Provider{
 			resource.TypeArc:             l.Arc.Resources(),
+			resource.TypeCalculation:     l.Calculation.Resources(),
 			resource.TypeArcDirectory:    l.Arc.DirectoryResources(),
 			resource.TypeCertificate:     l.Certificate.Resources(),
 			resource.TypeChannel:         l.Channel.Resources(),
