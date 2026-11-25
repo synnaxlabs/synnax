@@ -438,7 +438,7 @@ const Editor = ({
               >
                 {({ onChange }) => (
                   <Preview
-                    selectedValue={preview.value}
+                    value={new Map([[preview.state, preview.value]])}
                     selectedHandle={selectedHandle}
                     selectedPart={selectedPart}
                     onElementClick={handleElementClick}
