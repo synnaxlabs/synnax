@@ -77,6 +77,7 @@ Group struct {
         is a named folder that holds records of the types its scope allows. A group sits
         in its parent, or at the top of its tree when it has none.
     """
+    @go entry
     @go marshal
     @go migrate
     @resource type "group"

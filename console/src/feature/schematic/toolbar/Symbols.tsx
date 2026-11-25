@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { group, imex, schematic } from "@synnaxlabs/client";
+import { DisconnectedError, group, imex, schematic } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
@@ -20,7 +20,7 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Access, Flux, Group, Schematic } from "@synnaxlabs/pluto";
+import { Access, Flux, Group, Schematic, Synnax } from "@synnaxlabs/pluto";
 import { id, uuid } from "@synnaxlabs/x";
 import {
   createContext,
@@ -112,17 +112,148 @@ export interface SymbolListProps {
   groupKey: group.Key;
 }
 
-const StaticSymbolList = ({ groupKey }: SymbolListProps): ReactElement => {
+/** useCreateGroup asks for a name and creates a custom symbol group with it. */
+const useCreateGroup = (): (() => Promise<group.Key | undefined>) => {
+  const { updateAsync } = Group.useCreate();
+  const rename = Modals.useRename();
+  return async () => {
+    const name = await rename({
+      initialValue: "",
+      allowEmpty: false,
+      title: "Schematic.Symbol.Group.Create",
+      icon: <Icon.Group />,
+    });
+    if (name == null || name.length === 0) return undefined;
+    const key = uuid.create();
+    const created = await updateAsync({
+      key,
+      name,
+      scope: schematic.symbol.TYPE_RESOURCE_ID.type,
+    });
+    return created ? key : undefined;
+  };
+};
+
+interface DuplicateToProps {
+  name: string;
+  spec: schematic.symbol.Spec;
+  onSelectGroup: (group: group.Key) => void;
+}
+
+/** DuplicateTo copies a built-in symbol into a custom group and opens the copy. */
+const DuplicateTo = ({
+  name,
+  spec,
+  onSelectGroup,
+}: DuplicateToProps): ReactElement | null => {
+  const client = Synnax.use();
+  const groups = Group.useResultList(Schematic.Symbol.GROUP_QUERY);
+  const canCreateGroup = Access.useCreateGranted(group.TYPE_RESOURCE_ID);
+  const createGroup = useCreateGroup();
+  const openEdit = Symbol.Edit.useModal();
+  const handleError = Status.useErrorHandler();
+  const duplicate = async (key: group.Key | undefined) => {
+    if (key == null) return;
+    if (client == null) throw new DisconnectedError();
+    const copy = await client.schematics.symbols.create({
+      name: `${name} (copy)`,
+      group: key,
+      data: spec,
+    });
+    onSelectGroup(key);
+    openEdit({ symbolKey: copy.key });
+  };
+  const list = groups.variant === "success" ? groups.data : [];
+  const handleDuplicate = (key?: group.Key) =>
+    handleError(
+      async () => await duplicate(key ?? (await createGroup())),
+      "Failed to duplicate symbol",
+    );
+  if (list.length === 0 && !canCreateGroup) return null;
+  return (
+    <Menu.Sub itemKey="duplicateTo" textValue="Duplicate to">
+      <Menu.SubTrigger>
+        <Icon.Copy />
+        Duplicate to
+      </Menu.SubTrigger>
+      <Menu.Dialog aria-label="Duplicate to">
+        <Menu.Menu gap="small">
+          {list.map((g) => (
+            <Menu.Item
+              key={g.key}
+              itemKey={g.key}
+              onClick={() => handleDuplicate(g.key)}
+            >
+              <Icon.Group />
+              {g.name}
+            </Menu.Item>
+          ))}
+          {canCreateGroup && (
+            <Menu.Item itemKey="newGroup" onClick={() => handleDuplicate()}>
+              <Icon.Add />
+              New group…
+            </Menu.Item>
+          )}
+        </Menu.Menu>
+      </Menu.Dialog>
+    </Menu.Sub>
+  );
+};
+
+interface StaticSymbolListContextMenuProps extends Menu.ContextMenuMenuProps {
+  onSelectGroup: (group: group.Key) => void;
+}
+
+const StaticSymbolListContextMenu = ({
+  keys,
+  onSelectGroup,
+}: StaticSymbolListContextMenuProps): ReactElement => {
+  const variant = keys[0];
+  const item = List.useItem<string, Schematic.Node.Spec>(variant);
+  const spec = Schematic.Node.BUILT_INS.get(variant);
+  const canCreate = Access.useCreateGranted(schematic.symbol.TYPE_RESOURCE_ID);
+  return (
+    <ContextMenu.Menu>
+      {canCreate && item != null && spec != null && (
+        <DuplicateTo name={item.name} spec={spec} onSelectGroup={onSelectGroup} />
+      )}
+      <Menu.Divider />
+      <ContextMenu.ReloadConsoleItem />
+    </ContextMenu.Menu>
+  );
+};
+
+interface StaticSymbolListProps extends SymbolListProps {
+  onSelectGroup: (group: group.Key) => void;
+}
+
+const StaticSymbolList = ({
+  groupKey,
+  onSelectGroup,
+}: StaticSymbolListProps): ReactElement => {
   const g = Schematic.Node.GROUPS.find((g) => g.key === groupKey);
   const symbols = Schematic.Node.STATIC_SPECS.filter((s) => g?.symbols.includes(s.key));
   const { data, getItem } = List.useStaticData<string, Schematic.Node.Spec>({
     data: symbols,
   });
+  const menuProps = Menu.useContextMenu();
   return (
     <List.Frame<string, Schematic.Node.Spec> data={data} getItem={getItem}>
-      <List.Scroll x className={CSS.BE("schematic", "symbols", "group")} wrap>
-        <List.Items>{staticListItem}</List.Items>
-      </List.Scroll>
+      <Menu.ContextMenu
+        {...menuProps}
+        menu={(props) => (
+          <StaticSymbolListContextMenu {...props} onSelectGroup={onSelectGroup} />
+        )}
+      >
+        <List.Scroll
+          x
+          className={CSS.BE("schematic", "symbols", "group")}
+          onContextMenu={menuProps.open}
+          wrap
+        >
+          <List.Items>{staticListItem}</List.Items>
+        </List.Scroll>
+      </Menu.ContextMenu>
     </List.Frame>
   );
 };
@@ -201,13 +332,9 @@ const RemoteListItem = (props: RemoteListItemProps): ReactElement | null => {
 
 const remoteListItem = Component.renderProp(RemoteListItem);
 
-export interface RemoteSymbolListContextMenuProps extends Menu.ContextMenuMenuProps {
-  groupKey: string;
-}
-
 const RemoteSymbolListContextMenu = ({
   ...rest
-}: RemoteSymbolListContextMenuProps): ReactElement => {
+}: Menu.ContextMenuMenuProps): ReactElement => {
   const firstKey = rest.keys[0];
   const item = List.useItem<schematic.symbol.Key, schematic.symbol.Symbol>(firstKey);
   const canRename = Access.useUpdateGranted(schematic.symbol.resourceID(firstKey));
@@ -288,7 +415,7 @@ const RemoteSymbolList = ({ groupKey }: SymbolListProps): ReactElement => {
     >
       <Menu.ContextMenu
         {...menuProps}
-        menu={(props) => <RemoteSymbolListContextMenu {...props} groupKey={groupKey} />}
+        menu={(props) => <RemoteSymbolListContextMenu {...props} />}
       >
         <List.Scroll
           x
@@ -357,8 +484,7 @@ export interface ActionsProps {
 }
 
 const Actions = ({ selectedGroup, onSelectGroup }: ActionsProps): ReactElement => {
-  const { updateAsync } = Group.useCreate();
-  const rename = Modals.useRename();
+  const createGroup = useCreateGroup();
   const handleError = Status.useErrorHandler();
   const openEdit = Symbol.Edit.useModal();
   const importSymbol = Symbol.useImport();
@@ -370,20 +496,8 @@ const Actions = ({ selectedGroup, onSelectGroup }: ActionsProps): ReactElement =
 
   const handleCreateGroup = () => {
     handleError(async () => {
-      const result = await rename({
-        initialValue: "",
-        allowEmpty: false,
-        title: "Schematic.Symbol.Group.Create",
-        icon: <Icon.Group />,
-      });
-      if (result == null || result.length === 0) return;
-      const key = uuid.create();
-      const created = await updateAsync({
-        key,
-        name: result,
-        scope: schematic.symbol.TYPE_RESOURCE_ID.type,
-      });
-      if (created) onSelectGroup(key);
+      const key = await createGroup();
+      if (key != null) onSelectGroup(key);
     }, "Failed to create group");
   };
 
@@ -527,7 +641,17 @@ const GroupList = ({ value, onChange }: GroupListProps): ReactElement => {
 
 interface SearchSymbolListProps {
   searchTerm: string;
+  onSelectGroup: (group: group.Key) => void;
 }
+
+const SearchSymbolListContextMenu = (
+  props: StaticSymbolListContextMenuProps,
+): ReactElement =>
+  z.validate(schematic.symbol.keyZ, props.keys[0]) ? (
+    <RemoteSymbolListContextMenu {...props} />
+  ) : (
+    <StaticSymbolListContextMenu {...props} />
+  );
 
 const SearchListItem = (props: List.ItemProps<string>): ReactElement | null => {
   const { itemKey } = props;
@@ -542,7 +666,10 @@ const SearchListItem = (props: List.ItemProps<string>): ReactElement | null => {
 
 const searchListItem = Component.renderProp(SearchListItem);
 
-const SearchSymbolList = ({ searchTerm }: SearchSymbolListProps): ReactElement => {
+const SearchSymbolList = ({
+  searchTerm,
+  onSelectGroup,
+}: SearchSymbolListProps): ReactElement => {
   const remote = Schematic.Symbol.useList();
   const staticData = List.useStaticData<string, Schematic.Node.Spec>({
     data: Schematic.Node.STATIC_SPECS,
@@ -557,15 +684,28 @@ const SearchSymbolList = ({ searchTerm }: SearchSymbolListProps): ReactElement =
     searchRemote(searchTerm);
     searchStatic(searchTerm);
   }, [searchRemote, searchStatic, searchTerm]);
+  const menuProps = Menu.useContextMenu();
   return (
     <List.Frame<string, Schematic.Node.Spec | schematic.symbol.Symbol>
       data={data}
       getItem={getItem}
       subscribe={subscribe}
     >
-      <List.Scroll x className={CSS.BE("schematic", "symbols", "group")} wrap>
-        <List.Items>{searchListItem}</List.Items>
-      </List.Scroll>
+      <Menu.ContextMenu
+        {...menuProps}
+        menu={(props) => (
+          <SearchSymbolListContextMenu {...props} onSelectGroup={onSelectGroup} />
+        )}
+      >
+        <List.Scroll
+          x
+          className={CSS.BE("schematic", "symbols", "group")}
+          onContextMenu={menuProps.open}
+          wrap
+        >
+          <List.Items>{searchListItem}</List.Items>
+        </List.Scroll>
+      </Menu.ContextMenu>
     </List.Frame>
   );
 };
@@ -585,10 +725,15 @@ export const Symbols = ({ change }: SymbolsProps): ReactElement => {
 
   const [searchTerm, setSearchTerm] = useState("");
   const searchMode = searchTerm.length > 0;
-  let symbolList = <StaticSymbolList key={groupKey} groupKey={groupKey} />;
+  let symbolList = (
+    <StaticSymbolList key={groupKey} groupKey={groupKey} onSelectGroup={setGroupKey} />
+  );
   if (isRemoteGroup)
     symbolList = <RemoteSymbolList key={groupKey} groupKey={groupKey} />;
-  else if (searchMode) symbolList = <SearchSymbolList searchTerm={searchTerm} />;
+  else if (searchMode)
+    symbolList = (
+      <SearchSymbolList searchTerm={searchTerm} onSelectGroup={setGroupKey} />
+    );
   return (
     <ChangeContext value={change}>
       <Flex.Box

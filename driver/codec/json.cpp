@@ -231,9 +231,13 @@ JSON::Field::create(const icd::JSONField &f, const x::telem::DataType &dt) {
                     "a scaled field requires a float channel, not " + dt.name()
                 ),
             };
-        auto [number, err] = x::json::Decoder::create(
-            {.data_type = x::telem::FLOAT64_T, .range = v.sample.range}
-        );
+        // The enums of number fail a string that is no label as an unknown label. A
+        // label itself goes to sample.
+        auto [number, err] = x::json::Decoder::create({
+            .data_type = x::telem::FLOAT64_T,
+            .enums = v.sample.enums,
+            .range = v.sample.range,
+        });
         if (err) return {Field{}, err};
         field.number = std::move(number);
         // A scaled value need not be an integer.
@@ -266,8 +270,16 @@ JSON::Field::decode(const std::string_view raw, x::telem::Series &dst) {
             x::errors::VALIDATION,
             "expected a boolean, got number " + std::string(raw)
         );
-    // An enum label maps straight to a channel value, which takes no scale.
-    if (!this->scaled || raw.front() == '"') return this->sample.append(raw, dst);
+    if (raw.front() == '"' && (this->boolean || this->scaled)) {
+        // An enum label maps straight to a channel value, which takes no scale.
+        if (this->sample.labeled(raw)) return this->sample.append(raw, dst);
+        if (this->boolean)
+            return x::errors::Error(
+                x::errors::VALIDATION,
+                "expected a boolean, got string " + std::string(raw)
+            );
+    }
+    if (!this->scaled) return this->sample.append(raw, dst);
     this->scratch.clear();
     if (const auto err = this->number.append(raw, this->scratch)) return err;
     return this->append_float(this->scratch.at<double>(0), dst);

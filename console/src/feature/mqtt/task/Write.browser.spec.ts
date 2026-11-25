@@ -876,8 +876,9 @@ describe("MQTT Write form", () => {
       const { target, ic, message } = await createFormatTarget([setpoint]);
       const { draft } = await renderWrite([target]);
       fireEvent.click(await screen.findByRole("button", { name: "Add field" }));
-      const name = await screen.findByDisplayValue("Field 2");
+      const name = await screen.findByDisplayValue<HTMLInputElement>("Field 2");
       await waitFor(() => expect(document.activeElement).toBe(name));
+      expect([name.selectionStart, name.selectionEnd]).toEqual([0, "Field 2".length]);
       screen.getByDisplayValue("/field_2");
       fireEvent.change(screen.getByPlaceholderText("/temperature"), {
         target: { value: "/limit" },

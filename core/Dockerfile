@@ -71,23 +71,12 @@ RUN if [ "$CONSOLE_ENABLED" = "true" ]; then \
 
 # GOPROXY=off makes a module that the download missed fail the build.
 RUN --mount=type=cache,target=/root/.cache/go-build \
-    export GOPROXY=off; \
-    TAGS=""; \
-    if [ "$DRIVER_ENABLED" = "true" ]; then \
-    TAGS="${TAGS}driver"; \
-    fi; \
-    if [ "$CONSOLE_ENABLED" = "true" ]; then \
-    if [ -n "$TAGS" ]; then TAGS="${TAGS},"; fi; \
-    TAGS="${TAGS}console"; \
-    fi; \
-    LDFLAGS="-w -s -X github.com/synnaxlabs/synnax/pkg/version.version=${VERSION} -X github.com/synnaxlabs/synnax/pkg/version.gitCommit=${GIT_COMMIT} -X github.com/synnaxlabs/synnax/pkg/version.buildDate=${BUILD_DATE}"; \
-    if [ -n "$TAGS" ]; then \
-    CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
-    go build -trimpath -tags "$TAGS" -ldflags="${LDFLAGS}" -o synnax .; \
-    else \
-    CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
-    go build -trimpath -ldflags="${LDFLAGS}" -o synnax .; \
-    fi
+    GOPROXY=off GOOS=${TARGETOS} GOARCH=${TARGETARCH} ./docker-build.sh .
+
+# A build context named binary replaces this stage with a directory that holds a binary
+# that docker-build.sh built outside Docker.
+FROM scratch AS binary
+COPY --from=builder /workspace/core/synnax /synnax
 
 # Stage 3: Minimal runtime image with glibc for driver support. The base is Ubuntu 26.04
 # with curl for health checks, so the build installs no packages from an Ubuntu mirror.
@@ -116,9 +105,9 @@ RUN groupadd -g 65532 nonroot \
 
 WORKDIR /synnax
 
-# Copy binary and entrypoint script from builder
-COPY --from=builder /workspace/core/synnax /synnax/synnax
-COPY --from=builder /workspace/core/docker-entrypoint.sh /docker-entrypoint.sh
+# Copy binary and entrypoint script
+COPY --from=binary /synnax /synnax/synnax
+COPY core/docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh
 
 # Expose default Synnax port (documentation only)
