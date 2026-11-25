@@ -19,8 +19,8 @@
 #include "x/cpp/testutil/testutil.h"
 
 namespace synnax::channel {
-/// @brief it should create a virtual channel and assign it a non-zero key.
-TEST(TestChannel, testCreateVirtual) {
+/// @brief it should create a virtual channel from a name and a data type.
+TEST(TestChannel, testCreateVirtualFromNameAndDataType) {
     const auto client = new_test_client();
     const auto name = make_unique_channel_name("test");
     const auto channel = ASSERT_NIL_P(
