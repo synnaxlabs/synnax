@@ -86,7 +86,7 @@ export const certificateAuthZ = z.object({
    * certificate is the user certificate to log in with. It holds a private key and is
    * not the certificate that secures the channel.
    */
-  certificate: certificate.keyZ.min(1, "certificate is required"),
+  certificate: certificate.keyZ.min(1, "Certificate is required"),
 });
 export interface CertificateAuth extends z.infer<typeof certificateAuthZ> {}
 
@@ -123,7 +123,7 @@ export interface FirstUseServerTrust extends z.infer<typeof firstUseServerTrustZ
 export const pinnedServerTrustZ = z.object({
   type: z.literal("pinned"),
   /** certificate is the only server certificate that the Driver trusts. */
-  certificate: certificate.keyZ.min(1, "certificate is required"),
+  certificate: certificate.keyZ.min(1, "Certificate is required"),
 });
 export interface PinnedServerTrust extends z.infer<typeof pinnedServerTrustZ> {}
 
@@ -317,7 +317,7 @@ export const serverZ = z.object({
   /** key uniquely identifies the server. */
   key: keyZ.default(uuid.create),
   /** rack is the key of the rack whose Driver connects to the server. */
-  rack: rack.keyZ.refine((v) => v !== 0, "rack is required"),
+  rack: rack.keyZ.refine((v) => v !== 0, "Rack is required"),
   /** name is a human-readable name for the server. */
   name: z.string().min(1, "Name is required"),
   /** connection holds the settings that the Driver connects with. */
