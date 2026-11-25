@@ -26,6 +26,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/arc"
 	arcdirectory "github.com/synnaxlabs/synnax/pkg/api/arc/directory"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
+	"github.com/synnaxlabs/synnax/pkg/api/auth/apikey"
+	"github.com/synnaxlabs/synnax/pkg/api/auth/oidc"
+	"github.com/synnaxlabs/synnax/pkg/api/auth/password"
+	"github.com/synnaxlabs/synnax/pkg/api/auth/session"
 	"github.com/synnaxlabs/synnax/pkg/api/batch"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/api/calculation"
@@ -68,28 +72,35 @@ import (
 // LayerConfig is the configuration for opening the API layer.
 type LayerConfig = config.LayerConfig
 
-var DefaultLayerConfig = config.DefaultLayerConfig
-
 type Transport struct {
 	// AUTH
-	AuthLogin           freighter.UnaryServer[auth.LoginRequest, auth.LoginResponse]
+	AuthLogin           freighter.UnaryServer[session.LoginRequest, session.LoginResponse]
 	AuthMethods         freighter.UnaryServer[struct{}, auth.MethodsResponse]
-	AuthChangePassword  freighter.UnaryServer[auth.ChangePasswordRequest, struct{}]
-	AuthSessionCreate   freighter.UnaryServer[auth.SessionCreateRequest, auth.SessionCreateResponse]
-	AuthSessionRenew    freighter.UnaryServer[struct{}, auth.SessionRenewResponse]
-	AuthSessionRetrieve freighter.UnaryServer[auth.SessionRetrieveRequest, auth.SessionRetrieveResponse]
-	AuthSessionDelete   freighter.UnaryServer[auth.SessionDeleteRequest, struct{}]
-	AuthKeyCreate       freighter.UnaryServer[auth.KeyCreateRequest, auth.KeyCreateResponse]
-	AuthKeyRetrieve     freighter.UnaryServer[auth.KeyRetrieveRequest, auth.KeyRetrieveResponse]
-	AuthKeyDelete       freighter.UnaryServer[auth.KeyDeleteRequest, struct{}]
+	AuthChangePassword  freighter.UnaryServer[password.ChangeRequest, struct{}]
+	AuthSessionCreate   freighter.UnaryServer[session.CreateRequest, session.CreateResponse]
+	AuthSessionRenew    freighter.UnaryServer[struct{}, session.RenewResponse]
+	AuthSessionRetrieve freighter.UnaryServer[session.RetrieveRequest, session.RetrieveResponse]
+	AuthSessionDelete   freighter.UnaryServer[session.DeleteRequest, struct{}]
+	AuthAPIKeyCreate    freighter.UnaryServer[apikey.CreateRequest, apikey.CreateResponse]
+	AuthAPIKeyRetrieve  freighter.UnaryServer[apikey.RetrieveRequest, apikey.RetrieveResponse]
+	AuthAPIKeyDelete    freighter.UnaryServer[apikey.DeleteRequest, struct{}]
 	// AuthOIDCLink links a provider account to the caller.
-	AuthOIDCLink freighter.UnaryServer[auth.OIDCLinkRequest, auth.OIDCLinkResponse]
+	AuthOIDCLink freighter.UnaryServer[oidc.LinkRequest, oidc.LinkResponse]
 	// AuthOIDCRetrieve lists provider links.
-	AuthOIDCRetrieve freighter.UnaryServer[auth.OIDCRetrieveRequest, auth.OIDCRetrieveResponse]
+	AuthOIDCRetrieve freighter.UnaryServer[oidc.RetrieveRequest, oidc.RetrieveResponse]
 	// AuthOIDCUnlink removes provider links and ends their sessions.
-	AuthOIDCUnlink freighter.UnaryServer[auth.OIDCUnlinkRequest, struct{}]
+	AuthOIDCUnlink freighter.UnaryServer[oidc.UnlinkRequest, struct{}]
+	// AuthPasswordCreate gives the caller or another user its first password.
+	AuthPasswordCreate freighter.UnaryServer[password.CreateRequest, struct{}]
+	// AuthPasswordRetrieve lists passwords by subject or username, without hashes.
+	AuthPasswordRetrieve freighter.UnaryServer[
+		password.RetrieveRequest,
+		password.RetrieveResponse,
+	]
+	// AuthPasswordDispatch applies actions to a password.
+	AuthPasswordDispatch freighter.UnaryServer[password.DispatchRequest, struct{}]
 	// AuthPasswordSet sets the caller's password or another user's.
-	AuthPasswordSet freighter.UnaryServer[auth.PasswordSetRequest, auth.PasswordSetResponse]
+	AuthPasswordSet freighter.UnaryServer[password.SetRequest, password.SetResponse]
 	// USER
 	UserCreate   freighter.UnaryServer[user.CreateRequest, user.CreateResponse]
 	UserDelete   freighter.UnaryServer[user.DeleteRequest, struct{}]
@@ -105,11 +116,6 @@ type Transport struct {
 	ChannelCountLimited freighter.UnaryServer[
 		channel.CountLimitedRequest,
 		channel.CountLimitedResponse,
-	]
-	// ChannelRetrieveBuiltIns returns the keys of the built-in channels.
-	ChannelRetrieveBuiltIns freighter.UnaryServer[
-		channel.RetrieveBuiltInsRequest,
-		channel.RetrieveBuiltInsResponse,
 	]
 	// ChannelDispatch applies actions to a channel.
 	ChannelDispatch freighter.UnaryServer[channel.DispatchRequest, channel.DispatchResponse]
@@ -359,30 +365,38 @@ type Layer struct {
 	Group        *group.Service
 	Log          *log.Service
 	Auth         *auth.Service
-	Schematic    *schematic.Service
-	Symbol       *symbol.Service
-	View         *view.Service
-	Secret       *secret.Service
-	Certificate  *certificate.Service
-	Table        *table.Service
-	Panel        *panel.Service
-	Label        *label.Service
-	Color        *color.Service
-	Enumeration  *enumeration.Service
-	Calculation  *calculation.Service
-	Rack         *rack.Service
-	Task         *task.Service
-	Device       *device.Service
-	NIDevice     *nidevice.Service
-	NIChassis    *nichassis.Service
-	Policy       *policy.Service
-	Role         *role.Service
-	Arc          *arc.Service
-	Status       *status.Service
-	ImEx         *imex.Service
-	Batch        *batch.Service
-	binder       *bind.Service
-	config       config.LayerConfig
+	// Session logs in and lists, renews, and ends sessions.
+	Session *session.Service
+	// APIKey creates, lists, and deletes API keys.
+	APIKey *apikey.Service
+	// Password creates, sets, renames, and lists passwords.
+	Password *password.Service
+	// OIDC links, lists, and unlinks OpenID Connect provider accounts.
+	OIDC        *oidc.Service
+	Schematic   *schematic.Service
+	Symbol      *symbol.Service
+	View        *view.Service
+	Secret      *secret.Service
+	Certificate *certificate.Service
+	Table       *table.Service
+	Panel       *panel.Service
+	Label       *label.Service
+	Color       *color.Service
+	Enumeration *enumeration.Service
+	Calculation *calculation.Service
+	Rack        *rack.Service
+	Task        *task.Service
+	Device      *device.Service
+	NIDevice    *nidevice.Service
+	NIChassis   *nichassis.Service
+	Policy      *policy.Service
+	Role        *role.Service
+	Arc         *arc.Service
+	Status      *status.Service
+	ImEx        *imex.Service
+	Batch       *batch.Service
+	binder      *bind.Service
+	config      config.LayerConfig
 }
 
 // Errors returns the codec that encodes the errors the API sends to clients.
@@ -437,12 +451,15 @@ func (l *Layer) BindTo(t Transport) {
 
 		// AUTH
 		t.AuthChangePassword,
-		t.AuthKeyCreate,
-		t.AuthKeyRetrieve,
-		t.AuthKeyDelete,
+		t.AuthAPIKeyCreate,
+		t.AuthAPIKeyRetrieve,
+		t.AuthAPIKeyDelete,
 		t.AuthOIDCLink,
 		t.AuthOIDCRetrieve,
 		t.AuthOIDCUnlink,
+		t.AuthPasswordCreate,
+		t.AuthPasswordRetrieve,
+		t.AuthPasswordDispatch,
 		t.AuthPasswordSet,
 
 		// USER
@@ -456,7 +473,6 @@ func (l *Layer) BindTo(t Transport) {
 		t.ChannelRetrieve,
 		t.ChannelDelete,
 		t.ChannelCountLimited,
-		t.ChannelRetrieveBuiltIns,
 		t.ChannelDispatch,
 
 		// FRAME
@@ -670,49 +686,62 @@ func (l *Layer) BindTo(t Transport) {
 	db := l.config.Distribution.DB
 
 	// AUTH
-	t.AuthLogin.BindHandler(l.Auth.Login)
+	t.AuthLogin.BindHandler(l.Session.Login)
 	t.AuthMethods.BindHandler(l.Auth.Methods)
 	t.AuthChangePassword.BindHandler(bind.WritePrepared(
 		l.binder,
-		l.Auth.PrepareChangePassword,
-		l.Auth.ChangePassword,
+		l.Password.PrepareChange,
+		l.Password.Change,
 	))
-	t.AuthSessionCreate.BindHandler(l.Auth.CreateSession)
-	t.AuthSessionRenew.BindHandler(l.Auth.RenewSession)
+	t.AuthSessionCreate.BindHandler(l.Session.Create)
+	t.AuthSessionRenew.BindHandler(l.Session.Renew)
 	t.AuthSessionRetrieve.BindHandler(bind.Read(l.binder, func(
 		ctx context.Context,
 		snap bind.Snapshot,
-		req auth.SessionRetrieveRequest,
-	) (auth.SessionRetrieveResponse, error) {
-		return l.Auth.RetrieveSessions(ctx, snap, req)
+		req session.RetrieveRequest,
+	) (session.RetrieveResponse, error) {
+		return l.Session.Retrieve(ctx, snap, req)
 	}))
-	t.AuthSessionDelete.BindHandler(bind.Write(l.binder, l.Auth.DeleteSessions))
-	t.AuthKeyCreate.BindHandler(bind.Write(l.binder, l.Auth.CreateKey))
-	t.AuthKeyRetrieve.BindHandler(bind.Read(l.binder, func(
+	t.AuthSessionDelete.BindHandler(bind.Write(l.binder, l.Session.Delete))
+	t.AuthAPIKeyCreate.BindHandler(bind.Write(l.binder, l.APIKey.Create))
+	t.AuthAPIKeyRetrieve.BindHandler(bind.Read(l.binder, func(
 		ctx context.Context,
 		snap bind.Snapshot,
-		req auth.KeyRetrieveRequest,
-	) (auth.KeyRetrieveResponse, error) {
-		return l.Auth.RetrieveKeys(ctx, snap, req)
+		req apikey.RetrieveRequest,
+	) (apikey.RetrieveResponse, error) {
+		return l.APIKey.Retrieve(ctx, snap, req)
 	}))
-	t.AuthKeyDelete.BindHandler(bind.Write(l.binder, l.Auth.DeleteKeys))
+	t.AuthAPIKeyDelete.BindHandler(bind.Write(l.binder, l.APIKey.Delete))
 	t.AuthOIDCLink.BindHandler(bind.WritePrepared(
 		l.binder,
-		l.Auth.PrepareLinkOIDC,
-		l.Auth.LinkOIDC,
+		l.OIDC.PrepareLink,
+		l.OIDC.Link,
 	))
 	t.AuthOIDCRetrieve.BindHandler(bind.Read(l.binder, func(
 		ctx context.Context,
 		snap bind.Snapshot,
-		req auth.OIDCRetrieveRequest,
-	) (auth.OIDCRetrieveResponse, error) {
-		return l.Auth.RetrieveOIDCLinks(ctx, snap, req)
+		req oidc.RetrieveRequest,
+	) (oidc.RetrieveResponse, error) {
+		return l.OIDC.Retrieve(ctx, snap, req)
 	}))
-	t.AuthOIDCUnlink.BindHandler(bind.Write(l.binder, l.Auth.UnlinkOIDC))
+	t.AuthOIDCUnlink.BindHandler(bind.Write(l.binder, l.OIDC.Unlink))
+	t.AuthPasswordCreate.BindHandler(bind.WritePrepared(
+		l.binder,
+		l.Password.PrepareCreate,
+		l.Password.Create,
+	))
+	t.AuthPasswordRetrieve.BindHandler(bind.Read(l.binder, func(
+		ctx context.Context,
+		snap bind.Snapshot,
+		req password.RetrieveRequest,
+	) (password.RetrieveResponse, error) {
+		return l.Password.Retrieve(ctx, snap, snap.Allowed, req)
+	}))
+	t.AuthPasswordDispatch.BindHandler(bind.Write(l.binder, l.Password.Dispatch))
 	t.AuthPasswordSet.BindHandler(bind.WritePrepared(
 		l.binder,
-		l.Auth.PrepareSetPassword,
-		l.Auth.SetPassword,
+		l.Password.PrepareSet,
+		l.Password.Set,
 	))
 
 	// LICENSE
@@ -722,7 +751,7 @@ func (l *Layer) BindTo(t Transport) {
 
 	// USER
 	t.UserCreate.BindHandler(
-		bind.WritePrepared(l.binder, l.User.PrepareCreate, l.User.Create),
+		bind.Write(l.binder, l.User.Create),
 	)
 	t.UserDelete.BindHandler(bind.Write(l.binder, l.User.Delete))
 	t.UserRetrieve.BindHandler(bind.Read(l.binder, l.User.Retrieve))
@@ -734,9 +763,6 @@ func (l *Layer) BindTo(t Transport) {
 	t.ConnectivityCheck.BindHandler(l.Connectivity.Check)
 	t.ChannelDelete.BindHandler(bind.Write(l.binder, l.Channel.Delete))
 	t.ChannelCountLimited.BindHandler(bind.Read(l.binder, l.Channel.CountLimited))
-	t.ChannelRetrieveBuiltIns.BindHandler(
-		bind.Read(l.binder, l.Channel.RetrieveBuiltIns),
-	)
 	t.ChannelDispatch.BindHandler(bind.Write(l.binder, l.Channel.Dispatch))
 
 	// FRAME
@@ -960,14 +986,14 @@ func (l *Layer) BindTo(t Transport) {
 	t.ArcLSP.BindHandler(l.Arc.LSP)
 
 	// IMPORT/EXPORT
-	t.ImExImport.BindHandler(bind.Write(l.binder, l.ImEx.Import))
+	t.ImExImport.BindHandler(bind.WriteRetrievable(l.binder, l.ImEx.Import))
 	t.ImExExport.BindHandler(bind.Read(l.binder, l.ImEx.Export))
 }
 
 // NewLayer instantiates the server API layer using the provided Configs. This should
 // only be called once.
 func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
-	cfg, err := xconfig.New(config.DefaultLayerConfig, cfgs...)
+	cfg, err := xconfig.New(LayerConfig{}, cfgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -976,30 +1002,52 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		DB:          cfg.Distribution.DB,
 		RBAC:        cfg.Service.RBAC,
 		Held:        auth.HeldTables(),
-		Owned:       panel.OwnedTables(),
+		Owned:       append(panel.OwnedTables(), certificate.OwnedTables()...),
 		OwnedPlaces: panel.OwnedPlaces(),
 		Vouched:     secret.Vouched(cfg.Service.Certificate),
 	}); err != nil {
 		return nil, err
 	}
 	if l.Auth, err = auth.NewService(auth.ServiceConfig{
+		Auth: cfg.Service.Auth,
+		OIDC: cfg.Service.OIDC,
+	}); err != nil {
+		return nil, err
+	}
+	if l.Session, err = session.NewService(session.ServiceConfig{
 		DB:       cfg.Distribution.DB,
 		Auth:     cfg.Service.Auth,
 		Password: cfg.Service.Password,
-		APIKey:   cfg.Service.APIKey,
-		OIDC:     cfg.Service.OIDC,
 		User:     cfg.Service.User,
-		RBAC:     cfg.Service.RBAC,
 		Identity: cfg.Distribution.Identity,
 	}); err != nil {
 		return nil, err
 	}
-	if l.User, err = user.NewService(user.ServiceConfig{
+	if l.APIKey, err = apikey.NewService(apikey.ServiceConfig{
+		Auth:   cfg.Service.Auth,
+		APIKey: cfg.Service.APIKey,
+	}); err != nil {
+		return nil, err
+	}
+	if l.Password, err = password.NewService(password.ServiceConfig{
 		DB:       cfg.Distribution.DB,
-		RBAC:     cfg.Service.RBAC,
-		User:     cfg.Service.User,
-		Password: cfg.Service.Password,
 		Auth:     cfg.Service.Auth,
+		Password: cfg.Service.Password,
+		User:     cfg.Service.User,
+		RBAC:     cfg.Service.RBAC,
+	}); err != nil {
+		return nil, err
+	}
+	if l.OIDC, err = oidc.NewService(oidc.ServiceConfig{
+		Auth: cfg.Service.Auth,
+		OIDC: cfg.Service.OIDC,
+	}); err != nil {
+		return nil, err
+	}
+	if l.User, err = user.NewService(user.ServiceConfig{
+		DB:   cfg.Distribution.DB,
+		RBAC: cfg.Service.RBAC,
+		User: cfg.Service.User,
 	}); err != nil {
 		return nil, err
 	}

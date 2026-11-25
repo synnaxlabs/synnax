@@ -41,7 +41,7 @@ import {
   retrieveInputZ,
   serverComputed,
 } from "@/status/where.gen";
-import { checkForMultipleOrNoResults } from "@/util/retrieve";
+import { util } from "@/util";
 
 const setReqZ = <DetailsSchema extends z.ZodType = z.ZodNever>(
   detailsSchema?: DetailsSchema,
@@ -182,7 +182,7 @@ export class Client extends query.Retriever<
     if (detailsSchema != null) {
       const request = query.dropOne(rest);
       const statuses = await this.execRetrieve(request, detailsSchema);
-      checkForMultipleOrNoResults(
+      util.checkForMultipleOrNoResults(
         "status",
         retrieveParamsZ.parse(request),
         statuses,

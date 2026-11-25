@@ -16,6 +16,7 @@ import (
 	"uuid"
 
 	"github.com/synnaxlabs/x/errors"
+	xstrconv "github.com/synnaxlabs/x/strconv"
 	"github.com/synnaxlabs/x/types"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -232,7 +233,7 @@ func formatScalar(val reflect.Value) (string, bool) {
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 		return strconv.FormatUint(val.Uint(), 10), true
 	case reflect.Float32, reflect.Float64:
-		return strconv.FormatFloat(val.Float(), 'f', -1, 64), true
+		return xstrconv.FormatFloat(val.Float(), val.Type().Bits()), true
 	case reflect.Bool:
 		return strconv.FormatBool(val.Bool()), true
 	default:

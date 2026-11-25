@@ -24,7 +24,7 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-// RFC 0116 §4.5: a quoted path escapes '\' and ”'.
+// A quoted path escapes each backslash and each single quote in it.
 var _ = Describe("Ambiguity breaker 2", func() {
 	It("Should escape a quote inside each quoted path", func(ctx SpecContext) {
 		fresh := testutil.NewNode(ctx)

@@ -153,10 +153,10 @@ type Axis struct {
 	LabelDirection spatial.Direction `json:"label_direction" msgpack:"label_direction"`
 	// LabelLevel is the typography level of the label.
 	LabelLevel text.Level `json:"label_level" msgpack:"label_level"`
-	// Bounds is the value-space window of the axis. When the matching entry in
-	// manual_bounds is false the field is overwritten locally on every render;
-	// otherwise it is the user-set fixed bound.
-	Bounds spatial.Bounds `json:"bounds" msgpack:"bounds"`
+	// Bounds is the value-space window of the axis. Absent while both edges are auto.
+	// An edge whose matching entry in manual_bounds is false is overwritten locally on
+	// every render; a manual edge is the user-set bound.
+	Bounds *spatial.ClosedBounds `json:"bounds,omitzero" msgpack:"bounds,omitempty"`
 	// ManualBounds controls per-edge manual bound override.
 	ManualBounds ManualBounds `json:"manual_bounds" msgpack:"manual_bounds"`
 	// TickSpacing is the target pixel distance between adjacent tick marks.
@@ -206,6 +206,9 @@ func (a Axis) Validate() error {
 	}
 	if a.TimeMode != nil {
 		v.Ternaryf("time_mode", !a.TimeMode.IsValid(), "invalid time_mode: %v", *a.TimeMode)
+	}
+	if a.Bounds != nil {
+		v.Exec(func() error { return validate.PathedError(a.Bounds.Validate(), "bounds") })
 	}
 	return v.Error()
 }

@@ -59,7 +59,8 @@ describe("User.useRegisterModal", () => {
     fireEvent.click(findButton("Register"));
     await waitFor(() => expect(screen.queryByText("Username")).toBeNull());
 
-    const created = await client.users.retrieve({ username });
+    const [p] = await client.auth.passwords.retrieve({ usernames: [username] });
+    const created = await client.users.retrieve(p.subject.key);
     expect(created.name).toEqual("Ada Lovelace");
     expect(created.role).toEqual(role.key);
   });
