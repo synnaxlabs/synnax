@@ -91,7 +91,7 @@ var _ = Describe("Checked read check", func() {
 			cesium.WithFS(fs),
 			cesium.WithPointerLog(),
 			cesium.WithRandom(rand.NewPCG(1, 2)),
-			cesium.WithCheckedReads(),
+			cesium.WithReadsChecked(),
 		))
 		StartRun(db.Run)
 		idx, data := GenerateChannelKey(), GenerateChannelKey()

@@ -38,7 +38,7 @@ func runLog(
 		func() cesium.Option { return cesium.WithRandom(rand.NewPCG(1, 2)) },
 	}
 	if faultsReads(profile) {
-		opts = append(opts, cesium.WithCheckedReads)
+		opts = append(opts, cesium.WithReadsChecked)
 	}
 	return MustSucceed(crash.Run(ctx, crash.Config{
 		Open:           openCrashEngine(ack, opts...),
