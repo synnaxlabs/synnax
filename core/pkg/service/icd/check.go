@@ -184,11 +184,83 @@ func (c *checker) checkTextFields(path []string, p TextPayload, untyped set.Set[
 			c.checkTag(pathOf(fieldPath, "tag"), v.Tag, p.Delimiter)
 		}
 		b := f.Base()
-		if d := b.Default; d != nil && !xmath.Finite(*d) {
-			c.addf(pathOf(fieldPath, "default"), "default must be finite")
+		if d := b.Default; d != nil && math.IsInf(float64(*d), 0) {
+			c.addf(pathOf(fieldPath, "default"), "default cannot be infinite")
 		}
 		checkDefaultRange(c, fieldPath, b.BaseField, b.Default)
 	}
+	c.checkTagOverlaps(pathOf(path, "fields"), p.Fields)
+}
+
+// checkTagOverlaps refuses a tag that equals the tag of another field, or that is the
+// other tag and then text that can start a value. The Driver gives such a value to the
+// longer tag. A field gets at most one such problem.
+func (c *checker) checkTagOverlaps(path []string, fields []TextField) {
+	for j, f := range fields {
+		long, ok := f.Variant.(TaggedTextField)
+		if !ok {
+			continue
+		}
+		for i, g := range fields {
+			short, ok := g.Variant.(TaggedTextField)
+			if i == j || !ok || short.Tag == "" ||
+				!strings.HasPrefix(long.Tag, short.Tag) {
+				continue
+			}
+			tagPath := pathOf(path, strconv.Itoa(j), "tag")
+			switch rest := long.Tag[len(short.Tag):]; {
+			case rest == "" && i < j:
+				c.addf(
+					tagPath,
+					"the tag %q is also the tag of field %s",
+					long.Tag,
+					short.Name,
+				)
+			case rest != "" && startsValue(rest):
+				c.addf(
+					tagPath,
+					"a value of field %s after its tag %q reads as this tag",
+					short.Name, short.Tag,
+				)
+			default:
+				continue
+			}
+			break
+		}
+	}
+}
+
+// startsValue reports whether rest, once the Driver trims textSpace from it, is empty
+// or the start of a number that the Driver reads: an optional sign, digits, an optional
+// point and digits, and an optional e or E with an optional sign and digits.
+func startsValue(rest string) bool {
+	s := strings.TrimLeft(rest, textSpace)
+	i := 0
+	skipSign := func() {
+		if i < len(s) && (s[i] == '+' || s[i] == '-') {
+			i++
+		}
+	}
+	skipDigits := func() int {
+		start := i
+		for i < len(s) && s[i] >= '0' && s[i] <= '9' {
+			i++
+		}
+		return i - start
+	}
+	skipSign()
+	n := skipDigits()
+	if i < len(s) && s[i] == '.' {
+		i++
+		n += skipDigits()
+	}
+	// An exponent needs a digit before it.
+	if i < len(s) && n > 0 && (s[i] == 'e' || s[i] == 'E') {
+		i++
+		skipSign()
+		skipDigits()
+	}
+	return i == len(s)
 }
 
 // checkDefaultRange adds a problem when the finite default d of a number field with
@@ -563,8 +635,8 @@ func (c *checker) checkBinaryDefault(path []string, f BinaryField) {
 		}
 		d := float64(*v.Default)
 		switch {
-		case !xmath.Finite(d):
-			c.addf(defaultPath, "default must be finite")
+		case math.IsInf(d, 0):
+			c.addf(defaultPath, "default cannot be infinite")
 		case n == 32 && math.Abs(d) > math.MaxFloat32:
 			c.addf(defaultPath, "default %g does not fit a 32-bit float", d)
 		}

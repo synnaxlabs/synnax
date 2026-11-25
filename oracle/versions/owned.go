@@ -17,12 +17,12 @@ import "github.com/synnaxlabs/x/set"
 var versionOwnedGo = set.New("marshal", "wire", "json", "hand", "migrate", "imex")
 
 // versionOwned reports whether a domain expression belongs to the version files: the
-// live file must match chain resolution on it exactly. Everything else (outputs,
-// language bindings, validation, indexing) is live-owned and authored directly in the
-// live file.
+// live file must match chain resolution on it exactly. The resource type is version
+// owned because stored ontology keys hold it. Everything else (outputs, language
+// bindings, validation, indexing) is live-owned and authored directly in the live file.
 func versionOwned(domain, exprName string) bool {
 	switch domain {
-	case "key", "doc":
+	case "key", "doc", "resource":
 		return true
 	case "go":
 		return versionOwnedGo.Contains(exprName)

@@ -46,7 +46,7 @@ export type Key = z.infer<typeof keyZ>;
 /** ChannelEntry is a per-channel display configuration entry within a log. */
 export const channelEntryZ = z.object({
   /** channel is the channel this entry references. */
-  channel: channel.keyZ.refine((v) => v !== 0, "channel is required"),
+  channel: channel.keyZ.refine((v) => v !== 0, "Channel is required"),
   /**
    * color is the display color for the channel, a named color or a fixed color. Absent
    * uses the text color of the log.
@@ -122,7 +122,7 @@ export const logZ = z.object({
   /** key is the unique identifier for this log. */
   key: keyZ.default(uuid.create),
   /** name is a human-readable name for the log. */
-  name: z.string().min(1, "name is required"),
+  name: z.string().min(1, "Name is required"),
   /** channels are the channels displayed in this log. */
   channels: channelEntryZ.array().default(() => []),
   /** timestampPrecision is the precision of displayed timestamps (0-3). */

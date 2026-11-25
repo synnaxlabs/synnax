@@ -1016,14 +1016,7 @@ const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device.Device>)
   );
   return (
     <>
-      {unique.unique(plain.map((e) => e.icd)).reduceRight(
-        (child, key) => (
-          <ICD.WithFormat key={key} icdKey={key}>
-            {child}
-          </ICD.WithFormat>
-        ),
-        body,
-      )}
+      <ICD.WithFormats icdKeys={plain.map((e) => e.icd)}>{body}</ICD.WithFormats>
       <Task.BindChannels path={root.config.entries} resolve={resolve} />
     </>
   );
