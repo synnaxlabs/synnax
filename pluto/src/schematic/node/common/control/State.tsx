@@ -42,14 +42,15 @@ const Internal = ({
   ...rest
 }: InternalProps) => {
   const controlShown = !hidden && primitive.isNonZero(channel);
+  const channels = [channel];
   const chip = {
-    source: control.authoritySource({ channel }),
+    source: control.authoritySource({ channels }),
     sink: control.acquireChannelControl({
-      channel,
+      channels,
       authority: authority ?? xControl.ABSOLUTE_AUTHORITY,
     }),
   };
-  const indicator = { statusSource: control.authoritySource({ channel }) };
+  const indicator = { statusSource: control.authoritySource({ channels }) };
   return (
     <Flex.Box
       direction={direction.swap(orientation)}

@@ -86,13 +86,39 @@ var _ = Describe("MigrateSpec", func() {
 	) {
 		spec := migrate(ctx, `<svg><rect id="body"/></svg>`,
 			state("off", stroked(region("body", "#body"), red)),
-			state("on", stroked(region("body", "#body"), green)),
 		)
 		Expect(spec.Drawing).To(Equal(svg(`<svg><rect id="body"/></svg>`)))
 		Expect(spec.Parts).To(Equal([]v5.Part{
 			{Key: "body", Name: "body", Selectors: []string{"#body"}},
 		}))
 		Expect(spec.States).To(Equal([]v5.State{activeState}))
+		Expect(spec.Looks).To(Equal([]v5.Look{
+			{Key: "look-1", Part: new("body"), Stroke: colorPaint(red)},
+		}))
+		Expect(spec.Commands).To(BeEmpty())
+		Expect(spec.Interactions).To(BeEmpty())
+	})
+
+	It("Should keep only the looks of a static symbol on value 0, with no condition",
+		func(ctx SpecContext) {
+			spec := migrate(ctx, `<svg><rect id="body"/></svg>`,
+				state("base", stroked(region("body", "#body"), red)),
+				state("on", stroked(region("body", "#body"), green)),
+			)
+			Expect(spec.Looks).To(Equal([]v5.Look{
+				{Key: "look-1", Part: new("body"), Stroke: colorPaint(red)},
+			}))
+		},
+	)
+
+	It("Should keep the value of each look of an actuator", func(ctx SpecContext) {
+		spec := MustSucceed(v5.MigrateSpec(ctx, v4.Spec{
+			SVG: `<svg><rect id="body"/></svg>`, Variant: "actuator", Scale: 1,
+			States: []v4.State{
+				state("off", stroked(region("body", "#body"), red)),
+				state("on", stroked(region("body", "#body"), green)),
+			},
+		}))
 		Expect(spec.Looks).To(Equal([]v5.Look{
 			{
 				Key:    "look-1",
@@ -107,8 +133,6 @@ var _ = Describe("MigrateSpec", func() {
 				Stroke: colorPaint(green),
 			},
 		}))
-		Expect(spec.Commands).To(BeEmpty())
-		Expect(spec.Interactions).To(BeEmpty())
 	})
 
 	It("Should give no state to a symbol with no states", func(ctx SpecContext) {
@@ -378,19 +402,11 @@ var _ = Describe("Migration", func() {
 				{
 					Key:  "entry-b-fill",
 					Part: new("b"),
-					When: equals(0, 1),
 					Fill: &v5.Paint{Variant: v5.EntryPaint{State: "active"}},
 				},
 				{
 					Key:    "look-1",
 					Part:   new("b"),
-					When:   equals(0),
-					Stroke: colorPaint(black),
-				},
-				{
-					Key:    "look-2",
-					Part:   new("b"),
-					When:   equals(1),
 					Stroke: colorPaint(black),
 				},
 			}))
@@ -412,7 +428,9 @@ var _ = Describe("Migration", func() {
 			{Key: "1", Value: 1},
 			{Key: "2", Value: 2, Name: "off"},
 		}))
-		Expect(sym.Data.Looks).To(HaveLen(2))
+		Expect(sym.Data.Looks).To(Equal([]v5.Look{
+			{Key: "look-1", Part: new("b"), Stroke: colorPaint(black)},
+		}))
 	})
 
 	It("Should share one enumeration between symbols with equal states", func(
@@ -435,7 +453,9 @@ var _ = Describe("Migration", func() {
 			migrate(ctx, drawn.Key)
 			Expect(retrieve(ctx, drawn.Key).Data.Commands).To(HaveLen(2))
 			Expect(retrieve(ctx, drawn.Key).Data.Interactions).To(HaveLen(1))
+			Expect(retrieve(ctx, drawn.Key).Data.Looks[0].When).To(Equal(equals(0, 1)))
 			Expect(retrieve(ctx, plain.Key).Data.Commands).To(BeEmpty())
+			Expect(retrieve(ctx, plain.Key).Data.Looks[0].When).To(BeNil())
 		},
 	)
 

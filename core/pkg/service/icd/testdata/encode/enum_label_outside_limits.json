@@ -1,0 +1,45 @@
+{
+  "description": "A field writes the label of a value that an enum labels, even outside its min and max, and refuses any other value outside them.",
+  "message": {
+    "name": "command",
+    "payload": {
+      "format": "json",
+      "fields": [
+        {
+          "key": "00000000-0000-4000-8000-000000000001",
+          "name": "state",
+          "scale": 1,
+          "offset": 0,
+          "units": "",
+          "pointer": "/state",
+          "type": "integer",
+          "max": 0,
+          "enum_values": [
+            {
+              "label": "run",
+              "value": "1"
+            }
+          ]
+        }
+      ]
+    },
+    "bindings": [
+      {
+        "field": "00000000-0000-4000-8000-000000000001",
+        "data_type": "float64"
+      }
+    ]
+  },
+  "cases": [
+    {
+      "samples": [1],
+      "document": {
+        "state": "run"
+      }
+    },
+    {
+      "samples": [2],
+      "error": "message command: field state: 2 is above the max 0: validation error"
+    }
+  ]
+}

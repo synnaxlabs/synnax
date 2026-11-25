@@ -173,7 +173,7 @@ describe("Symbol form", () => {
         key: "active",
         match: { type: "within", bounds: { lower, upper } },
       });
-    const INVALID = "Minimum value must be less than maximum value";
+    const INVALID = "Min value must be less than max value";
 
     it("should start a within match at 0.9 to 1.1 on an exact symbol", async () => {
       const exact = await client.schematics.symbols.create({
@@ -208,6 +208,13 @@ describe("Symbol form", () => {
       commit(await findByLabelText("Min value"), "1.1");
       expect(getByText(INVALID)).toBeDefined();
       expect(value(path.states)).toEqual([]);
+    });
+
+    it("should show the error on the field that the user edited", async () => {
+      const { findByLabelText, getByLabelText } = await render({ spec: VALVE });
+      commit(await findByLabelText("Max value"), "0.5");
+      expect(getByLabelText("Max value").getAttribute("aria-invalid")).toBe("true");
+      expect(getByLabelText("Min value").getAttribute("aria-invalid")).toBeNull();
     });
 
     it("should drop a held pair when the stored bounds change", async () => {

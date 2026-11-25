@@ -21,6 +21,7 @@ type IteratorConfig struct {
 	// Bounds represent the interval of time that the iterator will be able to access.
 	// Any domains whose Bounds overlap with the iterator's Bounds will be accessible. A
 	// zero span domain is valid, but is relatively useless.
+	//
 	// [REQUIRED]
 	Bounds telem.TimeRange
 }

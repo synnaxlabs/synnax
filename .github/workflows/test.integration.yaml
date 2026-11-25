@@ -199,6 +199,7 @@ jobs:
       flags_enabled: true
       core: true
       use_simple_artifact_names: true
+      lto_disabled: true
       driver_ref_run_id: ${{ needs.setup.outputs.DRIVER_REF_RUN_ID }}
       console_ref_run_id: ${{ needs.setup.outputs.CONSOLE_REF_RUN_ID }}
       core_ref_run_id: ${{ needs.setup.outputs.CORE_REF_RUN_ID }}

@@ -136,13 +136,17 @@ interface BoundsInputsProps {
   onChange: (next: bounds.Bounds) => void;
 }
 
+type Edge = keyof bounds.Bounds;
+
 interface Held {
   typed: bounds.Bounds;
   /** The stored bounds when the hold started. */
   stored: bounds.Bounds;
+  /** The field that the user edited, which shows the error. */
+  edge: Edge;
 }
 
-const INVALID_BOUNDS = "Minimum value must be less than maximum value";
+const INVALID_BOUNDS = "Min value must be less than max value";
 
 /**
  * Edits a pair of bounds. The Core refuses bounds whose lower is not below its upper,
@@ -155,25 +159,29 @@ const BoundsInputs = ({ value, onChange }: BoundsInputsProps): ReactElement => {
   if (stale) setHeld(undefined);
   const holding = held != null && !stale;
   const shown = holding ? held.typed : value;
-  const handleChange = (key: keyof bounds.Bounds) => (v: number) => {
-    const next = { ...shown, [key]: v };
-    if (next.lower >= next.upper) return setHeld({ typed: next, stored: value });
+  const handleChange = (edge: Edge) => (v: number) => {
+    const next = { ...shown, [edge]: v };
+    if (next.lower >= next.upper) return setHeld({ typed: next, stored: value, edge });
     setHeld(undefined);
     onChange(next);
   };
+  const field = (edge: Edge, label: string): ReactElement => {
+    const invalid = holding && held.edge === edge;
+    return (
+      <Input.Item
+        label={label}
+        padHelpText={false}
+        status={invalid ? "error" : undefined}
+        helpText={invalid ? INVALID_BOUNDS : undefined}
+      >
+        <Input.Numeric value={shown[edge]} onChange={handleChange(edge)} />
+      </Input.Item>
+    );
+  };
   return (
     <>
-      <Input.Item
-        label="Min value"
-        padHelpText={false}
-        status={holding ? "error" : undefined}
-        helpText={holding ? INVALID_BOUNDS : undefined}
-      >
-        <Input.Numeric value={shown.lower} onChange={handleChange("lower")} />
-      </Input.Item>
-      <Input.Item label="Max value" padHelpText={false}>
-        <Input.Numeric value={shown.upper} onChange={handleChange("upper")} />
-      </Input.Item>
+      {field("lower", "Min value")}
+      {field("upper", "Max value")}
     </>
   );
 };
