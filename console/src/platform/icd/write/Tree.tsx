@@ -292,7 +292,7 @@ export const useTree = <T extends Target>({
       }),
     );
   };
-  const remove = (keys: string[]) => {
+  const removeTargets = (keys: string[]) => {
     PForm.fieldListUtils(ctx, path).remove(keys);
     onSelect([]);
   };
@@ -300,7 +300,7 @@ export const useTree = <T extends Target>({
     ctx.batch(() => {
       for (const key of keys) ctx.set(disabledPath(key), !enabled);
     });
-  const copy =
+  const duplicateTargets =
     duplicate == null
       ? undefined
       : (keys: string[]) => {
@@ -406,13 +406,13 @@ export const useTree = <T extends Target>({
     return (
       <Task.Views.ContextMenu
         keys={chosen}
-        onRemove={remove}
+        onRemove={removeTargets}
         onEnable={off.length > 0 ? () => setEnabled(chosen, true) : undefined}
         onDisable={
           off.length < chosen.length ? () => setEnabled(chosen, false) : undefined
         }
         onAddField={addable ? () => addField(only) : undefined}
-        onDuplicate={copy}
+        onDuplicate={duplicateTargets}
       />
     );
   };

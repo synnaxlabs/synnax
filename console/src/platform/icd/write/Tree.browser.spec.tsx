@@ -221,6 +221,32 @@ describe("ICD.Write.useTree", () => {
     );
   });
 
+  it("should enable the disabled targets of a group from the menu of the group", async () => {
+    const { retrieveTargets } = await renderTargets(["a", "a", "b"]);
+    const group = await screen.findByRole("treeitem", { name: /^Topic a/ });
+    fireEvent.contextMenu(group);
+    fireEvent.click(await screen.findByText("Disable"));
+    // The targets start enabled, so the Core must store the disable first.
+    await waitFor(async () =>
+      expect((await retrieveTargets()).map(({ disabled }) => disabled)).toEqual([
+        true,
+        true,
+        false,
+      ]),
+    );
+    fireEvent.contextMenu(group);
+    const enable = await screen.findByText("Enable");
+    expect(screen.queryByText("Disable")).toBeNull();
+    fireEvent.click(enable);
+    await waitFor(async () =>
+      expect((await retrieveTargets()).map(({ disabled }) => disabled)).toEqual([
+        false,
+        false,
+        false,
+      ]),
+    );
+  });
+
   it("should remove a target from its menu", async () => {
     const { retrieveTargets } = await renderTargets(["a", "b"]);
     fireEvent.contextMenu(await screen.findByRole("treeitem", { name: /^Target t0/ }));
