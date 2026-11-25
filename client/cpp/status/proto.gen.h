@@ -16,8 +16,8 @@
 #include <unordered_map>
 #include <utility>
 
+#include "client/cpp/resource/id.h"
 #include "client/cpp/resource/proto.gen.h"
-#include "client/cpp/resource/types.gen.h"
 #include "client/cpp/status/json.gen.h"
 #include "client/cpp/status/types.gen.h"
 #include "x/cpp/errors/errors.h"
