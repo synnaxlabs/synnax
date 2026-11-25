@@ -51,12 +51,12 @@ const only = (look: Look, target: Target, at: At): boolean =>
   look.when.values.length === 1 &&
   look.when.values[0] === at.value;
 
-// owns is true for a look of target at at alone, or at every value when at is
+// owns is true for a look of target at `at` alone, or at every value when `at` is
 // undefined.
 const owns = (look: Look, target: Target, at?: At): boolean =>
   at == null ? look.part === target && look.when == null : only(look, target, at);
 
-// reaches is true for a look that target shows at at, or at every value when at is
+// reaches is true for a look that target shows at `at`, or at every value when `at` is
 // undefined. A look of the whole drawing reaches every part.
 const reaches = (look: Look, target: Target, at?: At): boolean =>
   (look.part == null || look.part === target) &&
@@ -67,8 +67,8 @@ const reaches = (look: Look, target: Target, at?: At): boolean =>
 
 const setsNothing = (look: Look): boolean => FIELDS.every((f) => look[f] == null);
 
-// split copies onto at alone each look of target that sets field on at and other values
-// of its state. An edit at at then leaves the other values as they are.
+// split copies onto `at` alone each look of target that sets field on `at` and other
+// values of its state. An edit at `at` then leaves the other values as they are.
 const split = (looks: Look[], target: Target, field: Field, at: At): Look[] =>
   looks.flatMap((l): Look[] => {
     if (l.part !== target || l[field] == null || l.when == null) return [l];
@@ -95,8 +95,8 @@ const withActive = (states: Spec["states"]): Spec["states"] =>
   states.some((s) => s.key === STATE) ? states : [...states, createState()];
 
 /**
- * @returns the field that target shows at at after the looks apply in order, or at
- * every value when at is undefined. A look on another state does not count, and looks
+ * @returns the field that target shows at `at` after the looks apply in order, or at
+ * every value when `at` is undefined. A look on another state does not count, and looks
  * of the whole drawing count for a part.
  */
 export const effective = <F extends Field>(
@@ -108,8 +108,8 @@ export const effective = <F extends Field>(
   spec.looks.findLast((l) => reaches(l, target, at) && l[field] != null)?.[field];
 
 /**
- * @returns the field that the looks of target give it at at, or at every value when at
- * is undefined. Looks of the whole drawing do not count for a part.
+ * @returns the field that the looks of target give it at `at`, or at every value when
+ * `at` is undefined. Looks of the whole drawing do not count for a part.
  */
 export const own = <F extends Field>(
   spec: Pick<Spec, "looks">,
@@ -120,10 +120,10 @@ export const own = <F extends Field>(
   effective({ looks: spec.looks.filter((l) => l.part === target) }, target, field, at);
 
 /**
- * @returns spec in which target owns v for field at at alone, or at every value when at
- * is undefined. A new look on a value of STATE adds the state when spec lacks it. With
- * no v, it takes field off the looks that target owns there, and a look on more values
- * keeps field on the others.
+ * @returns spec in which target owns v for field at `at` alone, or at every value when
+ * `at` is undefined. A new look on a value of STATE adds the state when spec lacks it.
+ * With no v, it takes field off the looks that target owns there, and a look on more
+ * values keeps field on the others.
  */
 export const setOwn = <F extends Field>(
   spec: Spec,
@@ -221,9 +221,9 @@ const clipped = (el: Element): boolean => {
 };
 
 /**
- * LevelIssue is why a level motion cannot draw a part. Level clips each shape of the
- * part by its own box, so "shapes" is a part of more than one shape. It also replaces
- * the clip-path of the shape, so "clip" is a shape that has its own.
+ * LevelIssue is why a level motion cannot draw a part. Level clips each outermost shape
+ * or group of the part by its own box, so "shapes" is a part of more than one. It also
+ * replaces the clip-path of the shape, so "clip" is a shape that has its own.
  */
 export type LevelIssue = "shapes" | "clip";
 
@@ -299,8 +299,8 @@ const createKey = (name: string, taken: string[]): string => {
 };
 
 /**
- * @returns spec with a new enumeration state, State N with the lowest free N, and the
- * key of the state.
+ * @returns spec with a new enumeration state, State N with the lowest free N from 2,
+ * and the key of the state.
  */
 export const addState = (spec: Spec): [Spec, string] => {
   const name = freeName(

@@ -9,14 +9,17 @@
 
 #include <cerrno>
 #include <chrono>
-#include <functional>
 #include <future>
 #include <string>
 #include <system_error>
 #include <utility>
+#include <vector>
 
 #include "asio/error.hpp"
 #include "asio/io_context.hpp"
+#include "asio/ip/address.hpp"
+#include "asio/ip/tcp.hpp"
+#include "asio/ip/udp.hpp"
 #include "asio/post.hpp"
 #include "asio/steady_timer.hpp"
 #include "gtest/gtest.h"
@@ -29,10 +32,6 @@
 #include "driver/transport/transport.h"
 
 namespace driver::transport {
-namespace {
-using Handler = std::function<void(const std::error_code &, std::size_t)>;
-}
-
 /// @brief it should return an operation that completes before the timeout.
 TEST(RunFor, ReturnCompletion) {
     asio::io_context ctx;
@@ -150,5 +149,44 @@ TEST(AbandonAfter, StopWaitingPastTimeout) {
     EXPECT_EQ(ec, std::errc::timed_out);
     EXPECT_TRUE(value.empty());
     release.set_value();
+}
+
+/// @brief it should resolve an IP address without waiting for getaddrinfo.
+TEST(Resolve, ReturnIPAddressAtOnce) {
+    const auto [v4, v4_err] = resolve<asio::ip::tcp>(
+        "192.0.2.7",
+        502,
+        x::telem::TimeSpan::ZERO()
+    );
+    ASSERT_FALSE(v4_err) << v4_err.message();
+    EXPECT_EQ(
+        v4,
+        std::vector{asio::ip::tcp::endpoint(asio::ip::make_address("192.0.2.7"), 502)}
+    );
+    const auto [v6, v6_err] = resolve<asio::ip::udp>(
+        "::1",
+        5000,
+        x::telem::TimeSpan::ZERO()
+    );
+    ASSERT_FALSE(v6_err) << v6_err.message();
+    EXPECT_EQ(
+        v6,
+        std::vector{asio::ip::udp::endpoint(asio::ip::make_address("::1"), 5000)}
+    );
+}
+
+/// @brief it should resolve a name to its addresses on the port.
+TEST(Resolve, ReturnAddressesOfName) {
+    const auto [endpoints, err] = resolve<asio::ip::tcp>(
+        "localhost",
+        502,
+        5 * x::telem::SECOND
+    );
+    ASSERT_FALSE(err) << err.message();
+    ASSERT_FALSE(endpoints.empty());
+    for (const auto &e: endpoints) {
+        EXPECT_TRUE(e.address().is_loopback()) << e.address().to_string();
+        EXPECT_EQ(e.port(), 502);
+    }
 }
 }

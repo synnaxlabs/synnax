@@ -490,8 +490,6 @@ describe("Panel.Selector", () => {
       const me = (await client.users.current.retrieve()).key;
       const role = await createEmptyRole(client);
       const other = await client.users.create({
-        username: uuid.create(),
-        password: "test",
         name: "other",
         role: role.key,
       });

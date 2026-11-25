@@ -57,12 +57,16 @@ var (
 	id       = jsonField("id", icd.UuidJSONField{})
 	setpoint = jsonMessage("Setpoint", temp, mode, limit)
 	tagged   = jsonMessage("Tagged", id)
+	empty    = jsonMessage("Empty")
 	binary   = icd.Message{
 		Key:     uuid.New(),
 		Name:    "Frame",
 		Payload: icd.Payload{Variant: icd.BinaryPayload{}},
 	}
-	plant = icd.ICD{Name: "Plant", Messages: []icd.Message{setpoint, tagged, binary}}
+	plant = icd.ICD{
+		Name:     "Plant",
+		Messages: []icd.Message{setpoint, tagged, empty, binary},
+	}
 )
 
 const valueKey channel.Key = 2
@@ -106,7 +110,7 @@ var _ = Describe("NewDocuments", func() {
 		d := MustSucceed(documents(wm, ic))
 		skips := driver.NewSkips("command", driver.SkipHold)
 		var docs []string
-		for doc := range d.From(frame.NewUnary(valueKey, command), skips) {
+		for _, doc := range d.From(frame.NewUnary(valueKey, command), skips) {
 			docs = append(docs, string(doc))
 		}
 		Expect(docs).To(HaveLen(1))
@@ -199,10 +203,15 @@ var _ = Describe("NewDocuments", func() {
 			icd.BytesWriteValue{Value: "AQI"},
 			"bindings.1.value: field v: must be base64",
 		),
-		Entry("a float that is not finite",
+		Entry("an infinite float",
 			jsonField("v", icd.FloatJSONField{}),
 			icd.FloatWriteValue{Value: payload.Float(math.Inf(1))},
-			"bindings.1.value: field v: must be finite",
+			"bindings.1.value: field v: cannot be infinite",
+		),
+		Entry("a NaN float, which JSON cannot hold",
+			jsonField("v", icd.FloatJSONField{}),
+			icd.FloatWriteValue{Value: payload.Float(math.NaN())},
+			"bindings.1.value: field v: NaN is not a JSON number",
 		),
 		Entry("a float above the max",
 			withMax(jsonField("v", icd.FloatJSONField{}), 100),
@@ -258,6 +267,10 @@ var _ = Describe("NewDocuments", func() {
 		Entry("a message with no bindings",
 			writeOf(setpoint),
 			"message Setpoint binds no channels",
+		),
+		Entry("a message with no fields",
+			writeOf(empty),
+			"message Empty binds no channels",
 		),
 		Entry("a message whose bindings all have values",
 			writeOf(

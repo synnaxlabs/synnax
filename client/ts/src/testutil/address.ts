@@ -11,27 +11,21 @@ import { inject } from "vitest";
 
 declare module "vitest" {
   export interface ProvidedContext {
-    /** The Core that browser specs connect to, as Node read it. */
+    /** The Core that live-Core specs connect to. */
     synnaxTestCore?: { host: string; port: number };
   }
 }
 
 /**
- * @returns the Core that specs connect to: `SYNNAX_TEST_HOST` and `SYNNAX_TEST_PORT`
- * when set, else localhost:9090. In a browser, it is the `synnaxTestCore` that the
- * Vitest project provides.
- * @throws in a browser whose Vitest project provides no `synnaxTestCore`.
+ * @returns the Core that specs connect to, as the Vitest project provides it in
+ * `synnaxTestCore`.
+ * @throws in a Vitest project that provides no `synnaxTestCore`.
  */
 export const testCoreAddress = (): { host: string; port: number } => {
-  if (typeof process !== "undefined")
-    return {
-      host: process.env.SYNNAX_TEST_HOST ?? "localhost",
-      port: Number(process.env.SYNNAX_TEST_PORT ?? 9090),
-    };
   const core = inject("synnaxTestCore");
   if (core == null)
     throw new Error(
-      "no Core address in this browser: provide synnaxTestCore in the Vitest project",
+      "no test Core address: provide synnaxTestCore in the Vitest project",
     );
   return core;
 };

@@ -87,6 +87,17 @@ describe("planMessage", () => {
     expect((await client.channels.retrieve(key)).name).toBe(`${prefix}_temp`);
   });
 
+  it("should name a new index after its index field", async () => {
+    const prefix = uniqueName("src");
+    const bound = createBound({ temp: 0, ts: 0 }, "ts");
+    const plan = await ICD.planMessage(client, Task.createNamer(client), bound, prefix);
+    await ICD.applyMessage(client, bound, plan);
+    const [temp, ts] = bound.source.messages[0].bindings.map(({ channel }) => channel);
+    const index = await client.channels.retrieve(ts);
+    expect(index.name).toBe(`${prefix}_ts`);
+    expect((await client.channels.retrieve(temp)).index).toBe(index.key);
+  });
+
   it("should plan a float64 channel for a scaled integer field", async () => {
     const bound = createBound({ count: 0 }, undefined, { type: "integer", scale: 0.5 });
     const namer = Task.createNamer(client);

@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -684,7 +685,7 @@ var _ = Describe("Writer AutoIndex", func() {
 						MustCommit(w)
 						Expect(w.Close()).To(Succeed())
 						f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, idx))
-						Expect(f.SeriesAt(0)).To(telem.MatchSeriesData(
+						Expect(f.SeriesAt(0)).To(MatchSeriesData(
 							telem.NewSeriesSecondsTSV(1),
 						))
 					},

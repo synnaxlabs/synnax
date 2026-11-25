@@ -32,6 +32,7 @@ cc_test(
         ":structure",
         "//driver/opcua/certificate",
         "//driver/opcua/connection",
+        "//driver/opcua/errors",
         "//driver/opcua/testutil",
         "//driver/opcua/types",
         "//vendor/open62541",
