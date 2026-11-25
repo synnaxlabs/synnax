@@ -1445,8 +1445,8 @@ TEST(SizeTests, testParseInvalid) {
           "1MB 1GB",
           "1MB 1MB",
           "1MB,2KB",
-          "256\u00a0MB",
-          "4 \u041c\u0411"}) {
+          "256\xc2\xa0MB",
+          "4 \xd0\x9c\xd0\x91"}) {
         SCOPED_TRACE(text);
         ASSERT_OCCURRED_AS_P(Size::parse(text), errors::VALIDATION);
     }
