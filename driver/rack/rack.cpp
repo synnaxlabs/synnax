@@ -23,9 +23,7 @@ bool Rack::should_exit(
     const bool reconnecting
 ) {
     if (!err) return false;
-    // The rack enrolls and writes statuses, which are not safe to send twice, so it
-    // does not resend a call that the Core interrupted.
-    if (synnax::errors::classify(err) == synnax::errors::Kind::TRANSIENT &&
+    if (waits_out(err, reconnecting) &&
         (reconnecting ? this->breaker.wait_unlimited(err) : this->breaker.wait(err)))
         return false;
     // A stop came first, so the error did not stop the rack.

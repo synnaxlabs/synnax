@@ -28,6 +28,7 @@
 #include "absl/log/log.h"
 
 #include "client/cpp/auth/auth.h"
+#include "client/cpp/errors/errors.h"
 #include "x/cpp/args/args.h"
 #include "x/cpp/log/log.h"
 #include "x/cpp/thread/rt/rt.h"
@@ -335,6 +336,15 @@ struct Config {
 
 /// @brief clears the persisted state file, removing all cached information.
 x::errors::Error clear_persisted_state();
+
+/// @returns whether the rack waits out err. A run only reopens the task manager stream,
+/// which is safe to send twice, so a reconnecting rack also waits out an interrupted
+/// error. An enrollment before the first run creates a rack, so it does not.
+inline bool waits_out(const x::errors::Error &err, const bool reconnecting) {
+    const auto kind = synnax::errors::classify(err);
+    return kind == synnax::errors::Kind::TRANSIENT ||
+           (reconnecting && kind == synnax::errors::Kind::INTERRUPTED);
+}
 
 /// @brief rack is the entry point for driver operation. It is responsible for
 /// communicating its identity to the Synnax cluster and managing the lifecycle

@@ -16,6 +16,7 @@
 #include "gtest/gtest.h"
 
 #include "client/cpp/auth/auth.h"
+#include "client/cpp/errors/errors.h"
 #include "client/cpp/testutil/pipe.h"
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/kv/kv.h"
@@ -168,5 +169,13 @@ TEST(RackTest, KeepsRunningThroughAStreamReset) {
     std::this_thread::sleep_for(std::chrono::seconds(1));
     ASSERT_FALSE(r.shut_down);
     ASSERT_NIL(r.rack.stop());
+}
+
+/// @brief it should wait out an interrupted error only while it reconnects.
+TEST(RackTest, WaitsOutAnInterruptedErrorOnlyWhileReconnecting) {
+    ASSERT_TRUE(waits_out(freighter::UNREACHABLE, false));
+    ASSERT_TRUE(waits_out(synnax::errors::INTERRUPTED, true));
+    ASSERT_FALSE(waits_out(synnax::errors::INTERRUPTED, false));
+    ASSERT_FALSE(waits_out(x::errors::VALIDATION, true));
 }
 }
