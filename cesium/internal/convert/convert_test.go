@@ -18,6 +18,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/convert"
 	"github.com/synnaxlabs/cesium/internal/place"
@@ -27,6 +28,9 @@ import (
 	"github.com/synnaxlabs/x/io/fs/testutil/fault"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 var codec = json.NewCodec(jsonv2.MatchCaseInsensitiveNames(true))
@@ -210,6 +214,37 @@ var _ = Describe("Read", func() {
 			))
 		},
 	)
+
+	It("Should cut the stamps that an old index file repeats from the file before it, "+
+		"and warn with the channel and the cut time range", func() {
+		root.channel(idx(1))
+		s := telem.SecondTS
+		root.file(1, 1, stamps(10*s, 20*s, 30*s))
+		// The writer rolled to a new file and wrote 20 s and 30 s again.
+		root.file(1, 2, stamps(20*s, 30*s, 40*s, 50*s))
+		root.pointers(
+			1,
+			old{10 * s, 30*s + 1, 1, 0, 24},
+			old{30*s + 1, 50*s + 1, 2, 0, 32},
+		)
+		core, logs := observer.New(zapcore.WarnLevel)
+		c := cfg()
+		c.Instrumentation = alamos.New("convert", alamos.WithLogger(MustSucceed(
+			alamos.NewLogger(alamos.LoggerConfig{ZapLogger: zap.New(core)}),
+		)))
+		snap, _ := MustSucceed2(convert.Read(c))
+		Expect(snap.Channels[0].Segments[1].Pointers[0].First).To(Equal(40 * s))
+		cut := logs.FilterMessage(
+			"cut the samples of an old file that repeat the stamps of the file before it",
+		).All()
+		Expect(cut).To(HaveLen(1))
+		Expect(cut[0].ContextMap()).To(SatisfyAll(
+			HaveKeyWithValue("channel", "idx"),
+			HaveKeyWithValue("start", (20*s).String()),
+			HaveKeyWithValue("end", (30*s).String()),
+			HaveKeyWithValue("samples", uint32(2)),
+		))
+	})
 
 	It("Should read the stamps of an old index file in file-offset order", func() {
 		root.channel(idx(1))
