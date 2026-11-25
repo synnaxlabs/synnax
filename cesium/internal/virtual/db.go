@@ -16,7 +16,6 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium/internal/alignment"
 	"github.com/synnaxlabs/cesium/internal/channel"
-	"github.com/synnaxlabs/cesium/internal/control"
 	"github.com/synnaxlabs/cesium/internal/meta"
 	"github.com/synnaxlabs/cesium/internal/resource"
 	"github.com/synnaxlabs/x/config"
@@ -33,14 +32,14 @@ type controlResource struct {
 	ck channel.Key
 	// alignment tracks the current write position as a packed domain index (upper 32
 	// bits) and sample index (lower 32 bits). This field is accessed atomically because
-	// Gate.Authorize and Gate.PeekResource return a shared pointer to this struct, and
-	// the region's RWMutex is released before the caller accesses the field. This means
-	// one goroutine may write alignment through Authorize while another reads it
-	// through PeekResource concurrently.
+	// Gate.Authorize and Controller.ResourceAt return a shared pointer to this struct,
+	// and the lock is released before the caller accesses the field. This means one
+	// goroutine may write alignment through Authorize while another reads it through
+	// ResourceAt concurrently.
 	alignment atomic.Uint64
 }
 
-func (r *controlResource) ChannelKey() channel.Key { return r.ck }
+func (r *controlResource) Key() channel.Key { return r.ck }
 
 func (r *controlResource) loadAlignment() telem.Alignment {
 	return telem.Alignment(r.alignment.Load())
@@ -51,7 +50,7 @@ func (r *controlResource) storeAlignment(a telem.Alignment) {
 }
 
 type DB struct {
-	controller       *control.Controller[*controlResource]
+	controller       *xcontrol.Controller[channel.Key, *controlResource]
 	wrapError        func(error) error
 	closed           *atomic.Bool
 	leadingAlignment *alignment.Counter
@@ -115,7 +114,7 @@ func Open(ctx context.Context, configs ...Config) (*DB, error) {
 	if !cfg.Channel.Virtual {
 		return nil, wrapError(ErrNotVirtual)
 	}
-	c, err := control.New[*controlResource](control.Config{
+	c, err := xcontrol.New[channel.Key, *controlResource](xcontrol.Config{
 		Concurrency:     xcontrol.ConcurrencyShared,
 		Instrumentation: cfg.Instrumentation,
 	})
@@ -137,7 +136,7 @@ func (db *DB) Channel() channel.Channel {
 	return db.cfg.Channel
 }
 
-func (db *DB) LeadingControlState() *control.State {
+func (db *DB) LeadingControlState() *xcontrol.State[channel.Key] {
 	return db.controller.LeadingState()
 }
 
