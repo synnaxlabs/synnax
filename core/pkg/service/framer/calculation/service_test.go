@@ -1359,6 +1359,193 @@ var _ = Describe("Calculation", Ordered, func() {
 			},
 		)
 
+		Describe("Open failures", func() {
+			// createCalculation creates a virtual base and a calculation that doubles
+			// it.
+			createCalculation := func(
+				ctx context.Context,
+			) (channel.Channel, channel.Channel) {
+				GinkgoHelper()
+				base := channel.Channel{
+					Name:     UniqueChannelName(),
+					DataType: telem.Int64T,
+					Virtual:  true,
+				}
+				Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &base)
+				})).To(Succeed())
+				calc := channel.Channel{
+					Name:        UniqueChannelName(),
+					DataType:    telem.Int64T,
+					Virtual:     true,
+					Leaseholder: node.KeyFree,
+					Expression:  fmt.Sprintf("return %s * 2", base.Name),
+				}
+				Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &calc)
+				})).To(Succeed())
+				return base, calc
+			}
+			// openFailing opens a Service whose calculator for a channel that fails
+			// matches cannot open.
+			openFailing := func(
+				ctx context.Context,
+				fails func(channel.Channel) bool,
+			) *calculation.Service {
+				GinkgoHelper()
+				svc := MustSucceed(
+					calculation.OpenService(ctx, calculation.ServiceConfig{
+						DB:           dist.DB,
+						Framer:       dist.Framer,
+						Writer:       writerSvc,
+						Channel:      channelSvc,
+						ChannelGraph: channelGraph,
+						Compile: func(
+							compileCtx context.Context,
+							db *gorp.DB,
+							cfgs ...compiler.Config,
+						) (compiler.Module, error) {
+							mod, err := compiler.Compile(compileCtx, db, cfgs...)
+							if err == nil && fails(cfgs[0].Channel) {
+								mod.WASM = []byte{1, 2, 3}
+							}
+							return mod, err
+						},
+					}),
+				)
+				DeferCleanup(func() { Expect(svc.Close()).To(Succeed()) })
+				return svc
+			}
+			request := func(
+				ctx context.Context,
+				svc *calculation.Service,
+				ch channel.Channel,
+			) error {
+				rm := svc.OpenRequestManager()
+				DeferCleanup(
+					func(ctx SpecContext) { Expect(rm.Close(ctx)).To(Succeed()) },
+				)
+				return rm.Set(ctx, channel.Keys{ch.Key()})
+			}
+			statusesOf := func(
+				ctx context.Context,
+				ch channel.Channel,
+			) []calculation.Status {
+				GinkgoHelper()
+				var sts []calculation.Status
+				Expect(statusSvc.NewRetrieve[struct{}]().
+					Where(status.MatchOwners[struct{}](ch.ResourceID())).
+					Entries(&sts).
+					Exec(ctx, dist.DB)).To(Succeed())
+				return sts
+			}
+			setExpression := func(
+				ctx context.Context,
+				ch channel.Channel,
+				expr string,
+			) {
+				GinkgoHelper()
+				Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+					_, err := channelSvc.NewWriter(tx).Apply(
+						ctx,
+						ch.Key(),
+						channel.NewSetAction(channel.SetPayload{
+							Path:  []string{"expression"},
+							Value: expr,
+						}),
+					)
+					return err
+				})).To(Succeed())
+			}
+			// expectWrites writes 1 and 2 to base and expects calc to give want.
+			expectWrites := func(
+				ctx context.Context,
+				base, calc channel.Channel,
+				want ...int64,
+			) {
+				GinkgoHelper()
+				s := MustSucceed(dist.Framer.NewStreamer(framer.StreamerConfig{
+					Keys:        channel.Keys{calc.Key()},
+					SendOpenAck: new(true),
+				}))
+				sCtx, cancel := signal.Isolated()
+				defer cancel()
+				_, outlet := confluence.Attach(s, 1, 1)
+				s.Flow(sCtx)
+				Eventually(outlet.Outlet()).Should(Receive())
+				w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+					Start: telem.Now(),
+					Keys:  channel.Keys{base.Key()},
+				}))
+				defer func() { Expect(w.Close()).To(Succeed()) }()
+				Expect(w.Write(frame.NewUnary(
+					base.Key(),
+					telem.NewSeriesV[int64](1, 2),
+				))).To(BeTrue())
+				var res framer.StreamerResponse
+				Eventually(outlet.Outlet()).Should(Receive(&res))
+				Expect(res.Frame.Get(calc.Key()).Series[0]).
+					To(MatchSeriesDataV[int64](want...))
+			}
+			isError := HaveField("Variant", status.VariantError)
+
+			It("Should open the other groups when a calculator fails to open", func(
+				ctx SpecContext,
+			) {
+				_, failed := createCalculation(ctx)
+				base, running := createCalculation(ctx)
+				svc := openFailing(ctx, func(ch channel.Channel) bool {
+					return ch.Key() == failed.Key()
+				})
+				Expect(request(ctx, svc, failed)).
+					To(MatchError(ContainSubstring("failed to open calculator")))
+				// Each rebuild opens the group of failed again, and it fails again.
+				Expect(request(ctx, svc, running)).To(Succeed())
+				expectWrites(ctx, base, running, 2, 4)
+				Expect(statusesOf(ctx, failed)).To(ContainElement(isError))
+			})
+
+			It(
+				"Should reject an update that makes its own calculator fail to open",
+				func(
+					ctx SpecContext,
+				) {
+					base, calc := createCalculation(ctx)
+					var broken atomic.Bool
+					svc := openFailing(ctx, func(ch channel.Channel) bool {
+						return ch.Key() == calc.Key() && broken.Load()
+					})
+					Expect(request(ctx, svc, calc)).To(Succeed())
+					broken.Store(true)
+					setExpression(ctx, calc, fmt.Sprintf("return %s * 3", base.Name))
+					Eventually(
+						func() []calculation.Status { return statusesOf(ctx, calc) },
+					).
+						Should(ContainElement(SatisfyAll(
+							isError,
+							HaveField("Message", "Failed to compile calculation"),
+						)))
+				},
+			)
+
+			It("Should accept an update beside a calculator that fails to open", func(
+				ctx SpecContext,
+			) {
+				_, failed := createCalculation(ctx)
+				base, running := createCalculation(ctx)
+				svc := openFailing(ctx, func(ch channel.Channel) bool {
+					return ch.Key() == failed.Key()
+				})
+				Expect(request(ctx, svc, running)).To(Succeed())
+				Expect(request(ctx, svc, failed)).
+					To(MatchError(ContainSubstring("failed to open calculator")))
+				setExpression(ctx, running, fmt.Sprintf("return %s * 3", base.Name))
+				flushChanges(ctx)
+				Expect(statusesOf(ctx, running)).ToNot(ContainElement(isError))
+				expectWrites(ctx, base, running, 3, 6)
+			})
+		})
+
 		Describe("Runtime", func() {
 			var (
 				w      *framer.Writer
