@@ -12,6 +12,7 @@ package v14_test
 import (
 	"context"
 	"slices"
+	"strconv"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -31,7 +32,7 @@ import (
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
-var _ = Describe("ImportOverrides", func() {
+var _ = Describe("ImportCustomNodes", func() {
 	var (
 		db          *gorp.DB
 		src         symbol.Symbol
@@ -122,23 +123,23 @@ var _ = Describe("ImportOverrides", func() {
 			Exec(ctx, db)).To(Succeed())
 	})
 
-	// run imports a schematic named Panel with one custom node, labeled Vent, that
-	// draws the symbol with key with overrides, and returns that node.
-	run := func(
+	// importNodes imports a schematic named Panel with a node for each of cfgs, and
+	// returns its nodes.
+	importNodes := func(
 		ctx SpecContext,
-		key symbol.Key,
-		overrides []symbolv4.State,
-	) v14.SymbolNodeConfig {
+		cfgs ...v13.NodeConfigVariant,
+	) []v14.SymbolNodeConfig {
 		GinkgoHelper()
-		cfg := defaults.Fill(v13.CustomActuatorNodeConfig{SpecKey: key.String()})
-		cfg.Label.Label, cfg.StateOverrides = "Vent", overrides
-		old := v13.Schematic{
-			Name:  "Panel",
-			Nodes: []v13.Node{{Key: "a", Config: v13.NodeConfig{Variant: cfg}}},
+		old := v13.Schematic{Name: "Panel"}
+		for i, cfg := range cfgs {
+			old.Nodes = append(old.Nodes, v13.Node{
+				Key:    strconv.Itoa(i),
+				Config: v13.NodeConfig{Variant: cfg},
+			})
 		}
 		s := MustSucceed(v14.MigrateSchematic(ctx, old))
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			return v14.ImportOverrides(
+			return v14.ImportCustomNodes(
 				ctx,
 				tx,
 				&s,
@@ -159,9 +160,47 @@ var _ = Describe("ImportOverrides", func() {
 				},
 			)
 		})).To(Succeed())
-		n, ok := s.Nodes[0].Config.Variant.(v14.SymbolNodeConfig)
-		Expect(ok).To(BeTrue())
-		return n
+		nodes := make([]v14.SymbolNodeConfig, len(s.Nodes))
+		for i, n := range s.Nodes {
+			var ok bool
+			nodes[i], ok = n.Config.Variant.(v14.SymbolNodeConfig)
+			Expect(ok).To(BeTrue())
+		}
+		return nodes
+	}
+	// actuator returns a custom actuator, labeled Vent, that draws the symbol with key
+	// with overrides.
+	actuator := func(
+		key symbol.Key,
+		overrides []symbolv4.State,
+	) v13.CustomActuatorNodeConfig {
+		cfg := defaults.Fill(v13.CustomActuatorNodeConfig{SpecKey: key.String()})
+		cfg.Label.Label, cfg.StateOverrides = "Vent", overrides
+		return cfg
+	}
+	// run imports a schematic named Panel with the actuator of key and overrides, and
+	// returns its node.
+	run := func(
+		ctx SpecContext,
+		key symbol.Key,
+		overrides []symbolv4.State,
+	) v14.SymbolNodeConfig {
+		GinkgoHelper()
+		return importNodes(ctx, actuator(key, overrides))[0]
+	}
+	// stopActuating stores src with no commands or interactions.
+	stopActuating := func(ctx SpecContext) {
+		GinkgoHelper()
+		src.Data.Commands, src.Data.Interactions = nil, nil
+		Expect(gorp.NewCreate[symbol.Key, symbol.Symbol]().Entry(&src).Exec(ctx, db)).
+			To(Succeed())
+	}
+	// newFill returns overrides with a fill that no entry carries.
+	newFill := func() []symbolv4.State {
+		return states(
+			[2]*xcolor.Color{shade(3), shade(9)},
+			[2]*xcolor.Color{shade(4), shade(9)},
+		)
 	}
 	colors := func(entries []enumerationv0.Entry) []*servicecolor.Ref {
 		out := make([]*servicecolor.Ref, len(entries))
@@ -288,6 +327,77 @@ var _ = Describe("ImportOverrides", func() {
 			return enum.ResourceID()
 		}),
 	)
+
+	It("Should leave a node on its symbol when its user cannot retrieve an "+
+		"enumeration that its copy keeps", func(ctx SpecContext) {
+		mode := enumerationv0.Enumeration{Key: uuid.New(), Name: "Mode"}
+		Expect(gorp.NewCreate[enumerationv0.Key, enumerationv0.Enumeration]().
+			Entry(&mode).
+			Exec(ctx, db)).To(Succeed())
+		src.Data.States = append(src.Data.States, symbol.State{
+			Variant: symbol.EnumerationState{
+				BaseState:   symbol.BaseState{Key: "mode", Name: "Mode"},
+				Enumeration: &mode.Key,
+				Match:       symbol.Matcher{Variant: symbol.ExactMatcher{}},
+			},
+		})
+		Expect(gorp.NewCreate[symbol.Key, symbol.Symbol]().Entry(&src).Exec(ctx, db)).
+			To(Succeed())
+		retrievable = func(id resource.ID) bool { return id != mode.ResourceID() }
+		n := run(ctx, src.Key, newFill())
+		Expect(n.Spec.Variant).To(Equal(symbol.CustomRef{Key: src.Key}))
+		Expect(calls).To(BeEmpty())
+		Expect(created).To(BeEmpty())
+	})
+
+	It("Should leave a custom actuator with no overrides on a symbol that actuates",
+		func(ctx SpecContext) {
+			n := run(ctx, src.Key, nil)
+			Expect(n.Spec.Variant).To(Equal(symbol.CustomRef{Key: src.Key}))
+			Expect(created).To(BeEmpty())
+		})
+
+	It("Should give a custom actuator a copy that actuates when its symbol does not",
+		func(ctx SpecContext) {
+			stopActuating(ctx)
+			n := run(ctx, src.Key, nil)
+			Expect(created).To(HaveLen(1))
+			c := created[0]
+			Expect(n.Spec.Variant).To(Equal(symbol.CustomRef{Key: c.Key}))
+			Expect(c.Name).To(Equal("Valve (Panel)"))
+			Expect(c.Group).To(Equal(src.Group))
+			Expect(c.Data).To(Equal(symbol.Actuate(src.Data)))
+			Expect(calls).To(BeEmpty())
+		})
+
+	It("Should give a custom actuator with new entry colors a copy that actuates, "+
+		"when its symbol does not", func(ctx SpecContext) {
+		stopActuating(ctx)
+		n := run(ctx, src.Key, states(
+			[2]*xcolor.Color{shade(3), shade(3)},
+			[2]*xcolor.Color{shade(4), shade(4)},
+		))
+		Expect(created).To(HaveLen(1))
+		c := created[0]
+		Expect(n.Spec.Variant).To(Equal(symbol.CustomRef{Key: c.Key}))
+		Expect(c.Data.Commands).To(Equal(symbol.Actuate(src.Data).Commands))
+		Expect(calls).To(HaveLen(1))
+		Expect(colors(calls[0].entries)).
+			To(Equal([]*servicecolor.Ref{fixed(3), fixed(4)}))
+	})
+
+	It("Should give a custom static node and a custom actuator with the same "+
+		"overrides their own copies", func(ctx SpecContext) {
+		stopActuating(ctx)
+		static := defaults.Fill(v13.CustomStaticNodeConfig{SpecKey: src.Key.String()})
+		static.StateOverrides = newFill()
+		nodes := importNodes(ctx, static, actuator(src.Key, newFill()))
+		Expect(created).To(HaveLen(2))
+		Expect(nodes[0].Spec.Variant).To(Equal(symbol.CustomRef{Key: created[0].Key}))
+		Expect(nodes[1].Spec.Variant).To(Equal(symbol.CustomRef{Key: created[1].Key}))
+		Expect(created[0].Data.Commands).To(BeEmpty())
+		Expect(created[1].Data.Commands).To(HaveLen(2))
+	})
 
 	It("Should leave a node whose symbol the Core lacks on that symbol",
 		func(ctx SpecContext) {

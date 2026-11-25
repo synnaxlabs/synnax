@@ -29,7 +29,8 @@ import (
 	"github.com/synnaxlabs/x/set"
 )
 
-// overrides moves the state overrides of custom nodes to new records.
+// overrides moves the state overrides of custom nodes to new records, and gives each
+// custom actuator a symbol that actuates.
 type overrides struct {
 	tx     gorp.Tx
 	intern symbol.Intern
@@ -43,12 +44,14 @@ type overrides struct {
 
 // apply makes each custom node of old with state overrides a symbol node in s, with the
 // look that its overrides drew: an enumeration with their entry colors, or a copy of
-// its symbol when an enumeration cannot carry them. A node whose overrides equal its
-// symbol, or whose symbol is gone, gets neither.
+// its symbol when an enumeration cannot carry them. A custom actuator whose symbol does
+// not actuate gets a copy that does. A node whose overrides equal its symbol, or whose
+// symbol is gone, gets neither.
 func (o *overrides) apply(ctx context.Context, s *Schematic, old v13.Schematic) error {
 	for i, n := range old.Nodes {
 		plain, states := withoutOverrides(n.Config)
-		if len(states) == 0 {
+		_, actuator := plain.Variant.(v13.CustomActuatorNodeConfig)
+		if len(states) == 0 && !actuator {
 			continue
 		}
 		cfg, _, err := SymbolNode(plain)
@@ -62,7 +65,14 @@ func (o *overrides) apply(ctx context.Context, s *Schematic, old v13.Schematic) 
 				return err
 			}
 			if found {
-				if cfg, err = o.node(ctx, cfg, src, states, s.Name); err != nil {
+				if cfg, err = o.node(
+					ctx,
+					cfg,
+					src,
+					states,
+					actuator,
+					s.Name,
+				); err != nil {
 					return errors.Wrapf(err, "node %s", n.Key)
 				}
 			}
@@ -72,14 +82,21 @@ func (o *overrides) apply(ctx context.Context, s *Schematic, old v13.Schematic) 
 	return nil
 }
 
-// node returns cfg with the enumeration or the copy of src that draws states.
+// node returns cfg with the enumeration or the copy of src that draws states. When
+// actuator is true and src does not actuate, cfg gets a copy that does. cfg keeps src
+// when retrievable rejects an enumeration that it would read or that a copy would link.
 func (o *overrides) node(
 	ctx context.Context,
 	cfg SymbolNodeConfig,
 	src symbol.Symbol,
 	states []symbolv4.State,
+	actuator bool,
 	schematic string,
 ) (SymbolNodeConfig, error) {
+	actuate := actuator && !actuates(src.Data)
+	if actuate {
+		src.Data = symbol.Actuate(src.Data)
+	}
 	var state symbol.EnumerationState
 	if len(src.Data.States) > 0 {
 		state, _ = src.Data.States[0].Variant.(symbol.EnumerationState)
@@ -97,10 +114,16 @@ func (o *overrides) node(
 	if err != nil {
 		return SymbolNodeConfig{}, err
 	}
+	if drawn == nil && actuate {
+		drawn = &src.Data
+	}
 	if drawn != nil {
+		if !o.linksRetrievable(drawn.States) {
+			return cfg, nil
+		}
 		c := symbol.Symbol{Name: src.Name + " (" + schematic + ")", Group: src.Group}
 		c.Data = *drawn
-		key, err := o.copy(ctx, src.Key, states, c, recolored)
+		key, err := o.copy(ctx, src.Key, states, actuate, c, recolored)
 		if err != nil {
 			return SymbolNodeConfig{}, err
 		}
@@ -119,13 +142,14 @@ func (o *overrides) node(
 	return cfg, nil
 }
 
-// copy creates c, a copy of the symbol with key src, with an enumeration of entries on
-// its first state, and returns its key. Nodes share a copy when they have the same
-// source symbol and the same overrides states.
+// copy creates c, a copy of the symbol with key src, and returns its key. When entries
+// is not empty, the first state of c gets an enumeration of entries. Nodes share a copy
+// when they have the same source symbol, overrides states, and actuate.
 func (o *overrides) copy(
 	ctx context.Context,
 	src symbol.Key,
 	states []symbolv4.State,
+	actuate bool,
 	c symbol.Symbol,
 	entries []enumeration.Entry,
 ) (symbol.Key, error) {
@@ -133,26 +157,61 @@ func (o *overrides) copy(
 	if err != nil {
 		return uuid.Nil(), err
 	}
-	id := src.String() + string(b)
+	id := src.String() + strconv.FormatBool(actuate) + string(b)
 	if key, ok := o.copies[id]; ok {
 		return key, nil
 	}
-	e, err := o.intern(ctx, c.Name, entries)
-	if err != nil {
-		return uuid.Nil(), err
+	if len(entries) > 0 {
+		if c.Data, err = o.enumerate(ctx, c.Name, c.Data, entries); err != nil {
+			return uuid.Nil(), err
+		}
 	}
-	c.Data.States = slices.Clone(c.Data.States)
-	state, ok := c.Data.States[0].Variant.(symbol.EnumerationState)
-	if !ok {
-		return uuid.Nil(), errors.New("a copy draws only an enumeration state")
-	}
-	state.Enumeration = &e
-	c.Data.States[0] = symbol.State{Variant: state}
 	if err = o.create(ctx, &c); err != nil {
 		return uuid.Nil(), err
 	}
 	o.copies[id] = c.Key
 	return c.Key, nil
+}
+
+// enumerate returns spec with an enumeration of entries, named name, on its first
+// state.
+func (o *overrides) enumerate(
+	ctx context.Context,
+	name string,
+	spec symbol.Spec,
+	entries []enumeration.Entry,
+) (symbol.Spec, error) {
+	e, err := o.intern(ctx, name, entries)
+	if err != nil {
+		return symbol.Spec{}, err
+	}
+	spec.States = slices.Clone(spec.States)
+	state, ok := spec.States[0].Variant.(symbol.EnumerationState)
+	if !ok {
+		return symbol.Spec{}, errors.New("a copy draws only an enumeration state")
+	}
+	state.Enumeration = &e
+	spec.States[0] = symbol.State{Variant: state}
+	return spec, nil
+}
+
+// linksRetrievable returns whether retrievable allows the enumeration of each state.
+func (o *overrides) linksRetrievable(states []symbol.State) bool {
+	return !slices.ContainsFunc(states, func(st symbol.State) bool {
+		e, ok := st.Variant.(symbol.EnumerationState)
+		return ok && e.Enumeration != nil &&
+			!o.retrievable(enumeration.Enumeration{Key: *e.Enumeration}.ResourceID())
+	})
+}
+
+// actuates returns whether spec has the state "active" and a command that sets it.
+func actuates(spec symbol.Spec) bool {
+	return slices.ContainsFunc(spec.States, func(st symbol.State) bool {
+		e, ok := st.Variant.(symbol.EnumerationState)
+		return ok && e.Key == activeState
+	}) && slices.ContainsFunc(spec.Commands, func(c symbol.Command) bool {
+		return c.State != nil && *c.State == activeState
+	})
 }
 
 // entriesOf returns the entries of the stored enumeration of state, or none when state
