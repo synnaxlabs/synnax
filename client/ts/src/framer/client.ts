@@ -28,6 +28,7 @@ import { Feed, type FeedOptions } from "@/framer/feed";
 import { Frame } from "@/framer/frame";
 import { Iterator, type IteratorConfig } from "@/framer/iterator";
 import { Reader, type ReadFileOptions, type ReadOptions } from "@/framer/reader";
+import { recordColumn } from "@/framer/record";
 import { openStreamer, type Streamer, type StreamerConfig } from "@/framer/streamer";
 import { Writer, type WriterConfig, WriterMode } from "@/framer/writer";
 import { resource } from "@/resource";
@@ -161,7 +162,8 @@ export class Client {
       const data_ = channels as Record<channel.Key | channel.Name, CrudeSeries>;
       const w = await this.openWriter({
         start,
-        channels: Object.keys(data_),
+        channels: Object.keys(data_).map(recordColumn) as
+          channel.Key[] | channel.Name[],
         mode: WriterMode.Persist,
         errOnUnauthorized: true,
         autoIndexPersistInterval: TimeSpan.MAX,

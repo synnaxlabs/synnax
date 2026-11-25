@@ -201,7 +201,7 @@ const onConfigure: Task.OnConfigure<typeof counterReadConfigZ> = async (
         if (primitive.isZero(exKey)) toCreate.push(channel);
         else
           try {
-            await client.channels.retrieve(exKey.toString());
+            await client.channels.retrieve(exKey);
           } catch (e) {
             if (QueryError.matches(e)) toCreate.push(channel);
             else throw errors.fromUnknown(e);

@@ -13,6 +13,7 @@ import { channel } from "@/channel";
 import { NotFoundError, ValidationError } from "@/errors";
 import { Codec } from "@/framer/codec";
 import { type CrudeFrame, Frame } from "@/framer/frame";
+import { recordColumn } from "@/framer/record";
 import { util } from "@/util";
 
 /** Fetches channel payloads. Missing channels are omitted, not thrown. */
@@ -111,6 +112,11 @@ export class ReadAdapter {
 export class WriteAdapter {
   private byName: Map<channel.Name, channel.Payload> | null;
   private byKey: Map<channel.Key, channel.Payload>;
+  /**
+   * The held channel of each key of a record frame, until an update. A fetched channel
+   * does not count, since its name can move to another channel between records.
+   */
+  private byRecordKey: Map<string, channel.Payload>;
   private readonly retrieveChannels: ChannelRetriever;
   keys: channel.Key[];
   codec: Codec;
@@ -119,6 +125,7 @@ export class WriteAdapter {
     this.retrieveChannels = retrieveChannels;
     this.byName = null;
     this.byKey = new Map();
+    this.byRecordKey = new Map();
     this.keys = [];
     this.codec = new Codec();
   }
@@ -149,6 +156,7 @@ export class WriteAdapter {
     if (newKeySet.size === previousKeySet.size && newKeySet.isSubsetOf(previousKeySet))
       return false;
     this.byName = new Map(results.map((c) => [c.name, c]));
+    this.byRecordKey = new Map();
     this.byKey = new Map(results.map((c) => [c.key, c]));
     this.keys = newKeys;
     this.codec.update(
@@ -156,6 +164,35 @@ export class WriteAdapter {
       results.map((c) => c.dataType),
     );
     return true;
+  }
+
+  /**
+   * @returns the keys of the channels that the keys of a record name, by the same rule
+   * as a record frame.
+   * @throws {ValidationError} if a key names both a channel key and a channel name of
+   * the writer.
+   */
+  async adaptRecordKeys(keys: string[]): Promise<channel.Key[]> {
+    return await Promise.all(
+      keys.map(async (k) => await this.adaptToKey(this.recordKey(k))),
+    );
+  }
+
+  /**
+   * @returns the channel that a key of a record frame names. A record keys its columns
+   * by string, so a key of all digits is a channel key unless a channel of the writer
+   * holds it as a name.
+   * @throws {ValidationError} if the writer holds both a channel with that name and a
+   * channel with that key.
+   */
+  private recordKey(k: string): channel.Key | channel.Name {
+    const col = recordColumn(k);
+    if (typeof col === "string" || this.byName?.has(k) !== true) return col;
+    if (this.byKey.has(col))
+      throw new ValidationError(
+        `Record column "${k}" names both channel ${col} and the channel named "${k}"`,
+      );
+    return k;
   }
 
   private async fetchChannel(
@@ -251,7 +288,14 @@ export class WriteAdapter {
     const kvs = Object.entries(columnsOrData);
     for (let i = 0; i < kvs.length; i++) {
       const [k, v] = kvs[i];
-      const pld = await this.fetchChannel(k);
+      let pld = this.byRecordKey.get(k);
+      if (pld == null) {
+        const ref = this.recordKey(k);
+        const held =
+          typeof ref === "number" ? this.byKey.get(ref) : this.byName?.get(ref);
+        if (held != null) this.byRecordKey.set(k, held);
+        pld = held ?? (await this.fetchChannel(ref));
+      }
       const s = new Series({ data: v, dataType: pld.dataType });
       cols.push(pld.key);
       data.push(s);

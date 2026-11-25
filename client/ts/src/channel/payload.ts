@@ -12,7 +12,6 @@ import { z } from "zod";
 
 import {
   type Key,
-  keyZ,
   type Name,
   nameZ,
   type Payload,
@@ -24,9 +23,12 @@ import { util } from "@/util";
 /** One or many channels, named by key or by name. */
 export type PrimitiveParams = Key | Name | Key[] | Name[];
 
-/** Zod schema for {@link Params}, resolving every form to a key array. */
+/**
+ * Zod schema for {@link Params}. A number is a key and a string is a name, digits
+ * included.
+ */
 export const paramsZ = z.union([
-  zod.toArray(keyZ),
+  zod.toArray(z.uint32()),
   zod.toArray(nameZ),
   zod.toArray(payloadZ).transform((p) => p.map((c) => c.key)),
 ]);
@@ -71,15 +73,16 @@ export const analyzeParams = (
   if (Array.isArray(channels) && channels.length > 0 && typeof channels[0] === "object")
     channels = (channels as Payload[]).map((c) => c.key);
   else if (typeof channels === "object" && "key" in channels) channels = [channels.key];
-  return util.analyzeParams(channels as PrimitiveParams, {
-    number: "keys",
-    string: "names",
-  });
+  return util.analyzeParams(
+    channels as PrimitiveParams,
+    { number: "keys", string: "names" },
+    { convertNumericStrings: false },
+  );
 };
 
 /**
- * @returns the filter that a retrieve of one channel sends. A string that analyzeParams
- * reads as a number is a key.
+ * @returns the filter that a retrieve of one channel sends. A number is a key and a
+ * string is a name.
  */
 export const singleWhere = (channel: Key | Name): Where => {
   const { variant, normalized } = analyzeParams(channel);

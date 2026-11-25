@@ -23,6 +23,7 @@ import { z } from "zod";
 
 import type { channel } from "@/channel";
 import { UnexpectedError, ValidationError } from "@/errors";
+import { recordColumn } from "@/framer/record";
 
 type ColumnType = "key" | "name" | null;
 
@@ -33,7 +34,6 @@ const columnType = (columns: channel.PrimitiveParams): ColumnType => {
   const arrKeys = array.toArray(columns);
   if (arrKeys.length === 0) return null;
   if (typeof arrKeys[0] === "number") return "key";
-  if (!isNaN(parseInt(arrKeys[0], 10))) return "key";
   return "name";
 };
 
@@ -126,8 +126,7 @@ export class Frame {
         this.series = series;
       } else
         Object.entries(columnsOrData).forEach(([k, v]) => {
-          const key = parseInt(k, 10);
-          const col = isNaN(key) ? k : key;
+          const col = recordColumn(k);
           array.toArray(v).forEach((s) => this.push(col, s));
         });
       return;
