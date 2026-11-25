@@ -25,7 +25,6 @@ import {
   NotFoundError,
 } from "@/errors";
 import { Deleted } from "@/query/deleted";
-import { isOffline } from "@/query/offline";
 import {
   type Cached,
   type ChangeHandler,
@@ -122,6 +121,8 @@ export interface Hooks {
    * reconnect. Defaults to a stream that is always live.
    */
   epoch?: () => number;
+  /** Whether the change stream is up now. Defaults to true. */
+  live?: () => boolean;
   /**
    * Whether change delivery keeps subscribed answers current. False when the
    * cache is detached or the cluster refused the stream. Defaults to true.
@@ -798,8 +799,13 @@ export class Space<
       if (query.state.variant === "ready") {
         this.markStale(query);
         // An answer that a trigger does not cover reaches no subscriber until a
-        // refetch succeeds. The epoch bump after a reconnect refetches it.
-        if (!this.triggersCover(query.params, query.state.keys) && !isOffline(reason))
+        // refetch succeeds. A reconnect refetches it, so only a live stream reports.
+        if (
+          query.handlers.size > 0 &&
+          !this.triggersCover(query.params, query.state.keys) &&
+          this.hooks.live?.() !== false &&
+          this.liveEpoch() === basis.epoch
+        )
           this.report(reason);
         return;
       }

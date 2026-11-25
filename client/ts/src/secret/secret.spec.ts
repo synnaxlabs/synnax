@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { UnaryClient } from "@synnaxlabs/freighter";
+import { Timeout, type UnaryClient } from "@synnaxlabs/freighter";
 import { id, Series, sleep, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import { assert, describe, expect, it, onTestFinished, vi } from "vitest";
 import type { z } from "zod";
@@ -53,9 +53,9 @@ interface Request {
 /**
  * Creates a secret client on a fake transport and a pushed change stream. Each secret
  * that the transport returns has the uses of `core.usesOf`. A retrieve that asks for
- * uses waits in `core.held` while `core.holding` is set, and fails while `core.failing`
- * is set. A set waits for `core.set`. A retrieve that selects by no key is a list
- * fetch: it counts in `listFetches` and returns no secrets. The cache reports errors to
+ * uses waits in `core.held` while `core.holding` is set, then throws `core.failure` if
+ * set. A set waits for `core.set`. A retrieve that selects by no key is a list fetch:
+ * it counts in `listFetches` and returns no secrets. The cache reports errors to
  * `errors`, and a spec fails on each error that it does not take out.
  * With `closed`, the stream opens only once `open` is called.
  * @returns the client, the fake Core, the keys of each retrieve that asks for uses, and
@@ -76,7 +76,7 @@ const createFakeSecrets = async ({
     holding: false,
     held: [] as Array<() => void>,
     set: Promise.resolve(),
-    failing: false,
+    failure: undefined as Error | undefined,
   };
   const send = async (target: string, req: Request, _: z.ZodType, res: z.ZodType) => {
     if (target === "/secret/set") {
@@ -98,8 +98,6 @@ const createFakeSecrets = async ({
     }
     const { eq, in: keys = eq == null ? [] : [eq] } = req.where.key;
     if (req.includeUses === true) usesRequests.push(keys);
-    if (req.includeUses === true && core.failing)
-      throw new Error("failed to retrieve uses");
     const reply = res.parse({
       secrets: keys.map((key) => ({
         key,
@@ -111,6 +109,7 @@ const createFakeSecrets = async ({
     });
     if (req.includeUses === true && core.holding)
       await new Promise<void>((resolve) => core.held.push(resolve));
+    if (req.includeUses === true && core.failure != null) throw core.failure;
     return reply;
   };
   const unary = { use: () => {}, send } as unknown as UnaryClient;
@@ -1204,27 +1203,56 @@ describe("Secret", () => {
       expect(usesRequests).toEqual([[unwatched], [watched], [watched]]);
     });
 
-    it("should report a failed refetch of uses that a new subscriber lacks", async () => {
-      useFakeTimers();
-      const { secrets, core, errors, change } = await createFakeSecrets();
+    /**
+     * Creates fake secrets with a query whose answer the client holds without its uses,
+     * so that only a refetch can answer a new subscriber.
+     */
+    const createLackingUses = async () => {
+      const fake = await createFakeSecrets();
       const q = { key: uuid.create(), includeUses: true };
-      const off = secrets.watch(q).onChange(() => {});
-      await secrets.retrieve(q);
+      const off = fake.secrets.watch(q).onChange(() => {});
+      await fake.secrets.retrieve(q);
       off();
       await vi.advanceTimersByTimeAsync(PAST_GRACE);
       // Nothing watches the uses now, so the refetch that the change starts drops them.
-      change();
+      fake.change();
       await vi.advanceTimersByTimeAsync(PAST_DEBOUNCE);
-      core.failing = true;
+      return { ...fake, q };
+    };
+
+    const reported = (cause: Error) =>
+      expect.objectContaining({ message: "failed to maintain secret answers", cause });
+
+    it("should report a failed refetch of uses that a new subscriber lacks", async () => {
+      useFakeTimers();
+      const { secrets, core, errors, q } = await createLackingUses();
+      core.failure = new Error("failed to retrieve uses");
       onTestFinished(secrets.watch(q).onChange(() => {}));
       await vi.advanceTimersByTimeAsync(PAST_DEBOUNCE);
       expect(secrets.watch(q).getCached()).toBeUndefined();
-      expect(errors.splice(0)).toEqual([
-        expect.objectContaining({
-          message: "failed to maintain secret answers",
-          cause: expect.objectContaining({ message: "failed to retrieve uses" }),
-        }),
-      ]);
+      expect(errors.splice(0)).toEqual([reported(core.failure)]);
+    });
+
+    it("should report a refetch of uses that times out while the stream is live", async () => {
+      useFakeTimers();
+      const { secrets, core, errors, q } = await createLackingUses();
+      core.failure = new Timeout("retrieve timed out");
+      onTestFinished(secrets.watch(q).onChange(() => {}));
+      await vi.advanceTimersByTimeAsync(PAST_DEBOUNCE);
+      expect(errors.splice(0)).toEqual([reported(core.failure)]);
+    });
+
+    it("should not report a failed refetch of uses after the last subscriber leaves", async () => {
+      useFakeTimers();
+      const { secrets, core, q } = await createLackingUses();
+      core.holding = true;
+      const off = secrets.watch(q).onChange(() => {});
+      await vi.advanceTimersByTimeAsync(PAST_DEBOUNCE);
+      expect(core.held).toHaveLength(1);
+      off();
+      core.failure = new Error("failed to retrieve uses");
+      core.held.splice(0).forEach((release) => release());
+      await vi.advanceTimersByTimeAsync(PAST_DEBOUNCE);
     });
 
     it("should keep the uses of a query that watches again inside the grace", async () => {
