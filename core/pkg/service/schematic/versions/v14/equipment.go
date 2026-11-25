@@ -224,7 +224,7 @@ func actuate(
 		if !found {
 			continue
 		}
-		if sym.Data, err = actuatorEntries(
+		if sym.Data, err = linkActuatorEntries(
 			ctx,
 			tx,
 			intern,
@@ -242,9 +242,9 @@ func actuate(
 	return nil
 }
 
-// actuatorEntries returns spec with an enumeration of symbol.ActuatorEntries, named
+// linkActuatorEntries returns spec with an enumeration of symbol.ActuatorEntries, named
 // name, on its state "active", when the enumeration of the state lacks the entry On.
-func actuatorEntries(
+func linkActuatorEntries(
 	ctx context.Context,
 	tx gorp.Tx,
 	intern symbol.Intern,

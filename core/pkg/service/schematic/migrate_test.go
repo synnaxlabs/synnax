@@ -63,6 +63,7 @@ func openStore(ctx SpecContext, kvDB kv.DB, schematicLast, symbolLast string) *g
 	db := DeferClose(gorp.Wrap(kvDB))
 	StartRun(db.Run)
 	apply := func(namespace string, chain []gorp.Migration, last string) {
+		GinkgoHelper()
 		if last == "" {
 			return
 		}
