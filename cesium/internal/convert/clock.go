@@ -30,10 +30,13 @@ const stampSize = 8
 // roll. first is the first stamp past the cut.
 type clock struct {
 	key         uint32
+	name        string
 	ptrs        []pointer
 	nums        []uint32
 	first, last []telem.TimeStamp
 	cut         []uint32
+	// cutFirst and cutLast are the first and last stamps of the cut of each pointer.
+	cutFirst, cutLast []telem.TimeStamp
 }
 
 // count returns the number of stamps of pointer k.
@@ -49,6 +52,7 @@ func (r *reader) indexes() error {
 			ptrs := r.ptrs[ch.Key]
 			c := &clock{
 				key:   ch.Key,
+				name:  ch.Name,
 				ptrs:  ptrs,
 				first: make([]telem.TimeStamp, len(ptrs)),
 				last:  make([]telem.TimeStamp, len(ptrs)),
@@ -96,6 +100,8 @@ func (r *reader) indexes() error {
 // can place.
 func (h *handle) cuts(c *clock) error {
 	c.cut = make([]uint32, len(c.ptrs))
+	c.cutFirst = make([]telem.TimeStamp, len(c.ptrs))
+	c.cutLast = make([]telem.TimeStamp, len(c.ptrs))
 	if len(c.ptrs) == 0 {
 		return nil
 	}
@@ -113,12 +119,17 @@ func (h *handle) cuts(c *clock) error {
 				prev,
 			)
 		case c.last[k] <= prev:
+			c.cutFirst[k], c.cutLast[k] = c.first[k], c.last[k]
 			c.cut[k], c.last[k] = c.count(k), prev
 		default:
 			n, first, err := h.search(c, k, 0, prev+1)
 			if err != nil {
 				return err
 			}
+			if c.cutLast[k], err = h.stamp(c, k, n-1); err != nil {
+				return err
+			}
+			c.cutFirst[k] = c.first[k]
 			c.cut[k], c.first[k] = n, first
 		}
 		prev = max(prev, c.last[k])
@@ -136,6 +147,9 @@ func (r *reader) warnCut(c *clock, k int) {
 	}
 	r.L.Warn(
 		"cut the samples of an old file that repeat the stamps of the file before it",
+		zap.String("channel", c.name),
+		zap.Stringer("start", c.cutFirst[k]),
+		zap.Stringer("end", c.cutLast[k]),
 		zap.Uint32("clock", c.key),
 		zap.Uint32s("keys", keys),
 		zap.String("file", fileName(c.key, c.ptrs[k].file)),
