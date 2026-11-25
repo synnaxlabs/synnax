@@ -11,9 +11,9 @@
 #include <string>
 #include <system_error>
 
-#include "driver/journal/file.h"
+#include "x/cpp/fs/file.h"
 
-namespace driver::journal {
+namespace x::fs {
 namespace {
 x::errors::Error
 write_synced(const std::filesystem::path &path, std::string_view data) {

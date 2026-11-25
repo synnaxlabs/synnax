@@ -15,11 +15,10 @@
 
 #include "gtest/gtest.h"
 
+#include "x/cpp/fs/file.h"
 #include "x/cpp/testutil/testutil.h"
 
-#include "driver/journal/file.h"
-
-namespace driver::journal {
+namespace x::fs {
 namespace {
 std::string read_file(const std::filesystem::path &path) {
     std::ifstream f(path, std::ios::binary);
@@ -34,7 +33,7 @@ protected:
     void SetUp() override {
         std::random_device rd;
         this->dir = std::filesystem::temp_directory_path() /
-                    ("journal_file_test_" + std::to_string(rd()));
+                    ("fs_file_test_" + std::to_string(rd()));
         std::filesystem::create_directories(this->dir);
     }
 
@@ -138,7 +137,7 @@ TEST_F(FileTest, LockDoesNotBlockReads) {
 TEST_F(FileTest, CreateRemovesTempFileOnFailure) {
     const auto path = this->dir / "a";
     std::filesystem::create_directories(path / "child");
-    ASSERT_OCCURRED_AS(create(path, "data"), BASE_ERROR);
+    ASSERT_OCCURRED_AS(create(path, "data"), FS_ERROR);
     EXPECT_EQ(
         std::distance(
             std::filesystem::directory_iterator(this->dir),

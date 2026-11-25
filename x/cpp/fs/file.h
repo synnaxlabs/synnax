@@ -16,11 +16,11 @@
 #include <utility>
 
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/fs/fs.h"
 
-namespace driver::journal {
-const x::errors::Error BASE_ERROR = x::errors::Error("journal", "");
+namespace x::fs {
 /// @brief another holder has the lock of a file.
-const x::errors::Error LOCKED = BASE_ERROR.sub("locked");
+const x::errors::Error LOCKED = FS_ERROR.sub("locked");
 
 /// @brief a file opened for appending, which can sync to the disk.
 class File {
