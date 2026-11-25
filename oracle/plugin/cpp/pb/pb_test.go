@@ -1626,6 +1626,41 @@ var _ = Describe("C++ PB Plugin", func() {
 						)
 				},
 			)
+
+			It(
+				"Should include the declared header of a hand-written struct in a package with no JSON content",
+				func() {
+					loader.Add("schemas/telem", `
+					@cpp output "x/cpp/telem"
+					@pb output "x/go/telem/pb"
+
+					TimeRange struct {
+						start uint64
+						end   uint64
+
+						@cpp hand
+						@cpp include "x/cpp/telem/telem.h"
+					}
+				`)
+
+					source := `
+					import "schemas/telem"
+
+					@cpp output "client/cpp/ranger"
+					@pb output "core/pkg/service/ranger/pb"
+
+					Range struct {
+						name       string
+						time_range telem.TimeRange
+					}
+				`
+					resp := MustGenerate(source, "ranger", loader, pbPlugin)
+
+					ExpectContent(resp, "proto.gen.h").
+						ToContain(`#include "x/cpp/telem/telem.h"`).
+						ToNotContain(`#include "x/cpp/telem/types.gen.h"`)
+				},
+			)
 		})
 
 		Context("packages without JSON content", func() {
