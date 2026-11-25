@@ -24,6 +24,7 @@ import { bind } from "@/schematic/node/symbol/bind";
 import { Prompt, type Request, type Sendable } from "@/schematic/node/symbol/Prompt";
 import { type Resolved, useResolved } from "@/schematic/node/symbol/resolve";
 import { Warning } from "@/schematic/node/symbol/Warning";
+import { Tooltip } from "@/schematic/tooltip";
 import { SymbolNode } from "@/vis/symbolNode";
 
 type Config = schematic.SymbolNodeConfig;
@@ -180,6 +181,7 @@ export const Node = ({
   const [anchor, setAnchor] = useState<HTMLButtonElement | null>(null);
   const [request, setRequest] = useState<Request>();
   const [promptVisible, setPromptVisible] = useState(false);
+  Tooltip.useHidden(promptVisible);
   const send = ({ target, value: v }: Sendable): void => {
     if (target.type === "channel") set(target.channel.toString(), v);
     else
