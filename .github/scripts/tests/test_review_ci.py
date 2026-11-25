@@ -406,6 +406,10 @@ class Server:
         self.trickle: list[bytes] = []
         """The pieces that the host sends after the blob, `pause` seconds apart."""
         self.pause = 0.0
+        self.sent = 0
+        """The pieces of the trickle that the host sent."""
+        self.closed = threading.Event()
+        """Set when the reader closes the connection during the trickle."""
         self.seen: list[tuple[str, str | None]] = []
         """The path and the Authorization header of each request."""
         server = self
@@ -432,8 +436,9 @@ class Server:
                             self.wfile.flush()
                             time.sleep(server.pause)
                             self.wfile.write(piece)
+                            server.sent += 1
                     except ConnectionError:
-                        pass
+                        server.closed.set()
                     return
                 status = server.api.pop(0) if server.api else 302
                 self.send_response(status)
@@ -527,15 +532,21 @@ class TestLog:
     ) -> None:
         monkeypatch.setattr("review.ci.LOG_SECONDS", 0.3)
         server.blob = b"x" * HEAD_BYTES
-        server.trickle, server.pause = [b"ok  \tx/a\t1.2s\n"] * 10, 0.1
+        # The whole trickle takes 3 s, ten times the deadline.
+        pieces = 60
+        server.trickle, server.pause = [b"ok  \tx/a\t1.2s\n"] * pieces, 0.05
         gh = FakeGH()
         gh.jobs[1].append(job(13, "go / Test"))
+        start = time.monotonic()
         out = results(REPO, SHA, gh, log(REPO, "secret", api=server.url, delay=0))
+        assert time.monotonic() - start < 1.5
         assert (
             "```text\n10 log unavailable\n"
             "13 log skipped: the time to read logs ran out\n```"
         ) in out
         assert len(server.seen) == 2
+        assert server.closed.wait(timeout=2)
+        assert server.sent < pieces
 
     def test_should_keep_the_start_and_end_of_a_long_log(self, server: Server) -> None:
         start = b"start\n" * (HEAD_BYTES // 6 + 1)

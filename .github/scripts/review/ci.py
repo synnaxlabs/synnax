@@ -189,14 +189,21 @@ def _transient(e: urllib.error.HTTPError) -> bool:
 def _read(res: Any, job: int, deadline: float) -> Text:
     """Reads a log, and keeps its start and its end when it is longer than
     `LOG_BYTES`."""
-    head = res.read(HEAD_BYTES)
+    head = bytearray()
     rest = LOG_BYTES - HEAD_BYTES
     chunks: deque[bytes] = deque()
     size = 0
     cut = False
-    while chunk := res.read(_CHUNK):
+    # read1 returns what has arrived, so a slow log still meets the deadline.
+    while chunk := res.read1(_CHUNK):
         if time.monotonic() >= deadline:
             raise Unavailable(f"the log of job {job}: out of time")
+        if len(head) < HEAD_BYTES:
+            n = HEAD_BYTES - len(head)
+            head += chunk[:n]
+            chunk = chunk[n:]
+            if not chunk:
+                continue
         chunks.append(chunk)
         size += len(chunk)
         while size - len(chunks[0]) >= rest:
