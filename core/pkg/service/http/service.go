@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/http/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/http/versions/legacy"
+	v5 "github.com/synnaxlabs/synnax/pkg/service/http/versions/v5"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/icd/read"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
@@ -124,7 +125,15 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			SetEntryKey:     (*WriteConfig).SetKey,
 			PatchEntry:      (*WriteConfig).Patch,
 			HashEntry:       (*WriteConfig).HashContent,
-			ValidateEntry:   (*WriteConfig).Validate,
+			ResolveEntry: func(
+				_ context.Context,
+				_ gorp.Snapshot,
+				_ string,
+				cfg *WriteConfig,
+			) (func(context.Context, gorp.Tx) error, error) {
+				return v5.StageWrite(cfg)
+			},
+			ValidateEntry: (*WriteConfig).Validate,
 		},
 	); !ok(err, s.Write) {
 		return nil, err
