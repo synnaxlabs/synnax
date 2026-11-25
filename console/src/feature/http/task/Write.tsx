@@ -114,14 +114,14 @@ const sendsICD = (ep: WriteEndpoint): ep is ICDEndpoint =>
 
 const icdPath = (key: string) => root.config.endpoints[key] as deep.Path<ICDEndpoint>;
 
-/** The name deploying gives the command channel of a field of an endpoint. */
-const fieldCommandName = (
-  device: string,
-  endpoint: string,
-  { name }: Pick<icd.JSONField, "name">,
-): string =>
-  `${channel.escapeInvalidName(device)}${channel.escapeInvalidName(endpoint)}_` +
-  `${channel.escapeInvalidName(name)}_cmd`;
+/** Keys and names the command channels of fields of an endpoint, as deploying does. */
+const namingOf = (device: string, { path }: WriteEndpoint): ICD.Write.ChannelNaming => {
+  const prefix = channel.escapeInvalidName(device) + channel.escapeInvalidName(path);
+  return {
+    key: (field) => `${path}#${field.key}`,
+    name: (field) => ICD.Write.commandName(prefix, field),
+  };
+};
 
 /** @returns the name that an endpoint gives the message it sends. */
 const messageName = ({ method, path }: RequestLine): string =>
@@ -271,15 +271,21 @@ const Endpoints = ({
   const list = PForm.useFieldListUtils(root.config.endpoints);
   const endpoints = PForm.useFieldValue(root.config.endpoints);
   const sending = endpoints.filter(sendsICD);
-  const messageOf = (ep: WriteEndpoint): ICD.Write.TargetMessage | null =>
-    sendsICD(ep)
-      ? {
-          icd: ep.icd,
-          message: ep.message.message,
-          path: icdPath(ep.key).message,
-          channelName: (field) => fieldCommandName(device.name, ep.path, field),
-        }
-      : null;
+  const commandChannelsOf = ICD.Write.useCommandChannels();
+  const specs = sending
+    .filter(({ disabled }) => !disabled)
+    .flatMap((ep) => commandChannelsOf(ep, namingOf(device.name, ep)));
+  const names = Task.useCommandChannelNames(device.properties.write, specs);
+  const messageOf = (ep: WriteEndpoint): ICD.Write.TargetMessage | null => {
+    if (!sendsICD(ep)) return null;
+    const naming = namingOf(device.name, ep);
+    return {
+      icd: ep.icd,
+      message: ep.message.message,
+      path: icdPath(ep.key).message,
+      channelName: (field) => names.get(naming.key(field)) ?? naming.name(field),
+    };
+  };
   const { tree, handleSelect, contextMenu, renderItem, pane } = ICD.Write.useTree({
     path: root.config.endpoints,
     messageOf,
@@ -393,10 +399,12 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
   try {
     for (const ep of config.endpoints.filter(sendsICD)) {
       if (ep.disabled) continue;
-      await ICD.Write.configureChannels(client, dev.properties.write, ep, {
-        key: (field) => `${ep.path}#${field.key}`,
-        name: (field) => fieldCommandName(dev.name, ep.path, field),
-      });
+      await ICD.Write.configureChannels(
+        client,
+        dev.properties.write,
+        ep,
+        namingOf(dev.name, ep),
+      );
     }
   } finally {
     await PlatformDevice.setProperties(client, dev, before, Device.SCHEMAS);
