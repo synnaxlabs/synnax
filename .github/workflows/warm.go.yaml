@@ -71,7 +71,7 @@ jobs:
   # A failed test job does not stop the lint jobs, which save caches too.
   prune:
     name: Prune older caches
-    needs: core
+    needs: [core, core-cross]
     if: ${{ !cancelled() }}
     permissions:
       actions: write
