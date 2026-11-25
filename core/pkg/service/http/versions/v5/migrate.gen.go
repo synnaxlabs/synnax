@@ -48,10 +48,14 @@ func autoMigrateWriteConfig(ctx context.Context, old v4.WriteConfig) (WriteConfi
 	}, nil
 }
 
-func autoMigrateReadEndpoint(_ context.Context, old v4.ReadEndpoint) (ReadEndpoint, error) {
+func autoMigrateReadEndpoint(ctx context.Context, old v4.ReadEndpoint) (ReadEndpoint, error) {
+	method, err := autoMigrateMethod(ctx, old.Method)
+	if err != nil {
+		return ReadEndpoint{}, err
+	}
 	return ReadEndpoint{
 		Key:         old.Key,
-		Method:      old.Method,
+		Method:      method,
 		Path:        old.Path,
 		Headers:     old.Headers,
 		QueryParams: old.QueryParams,
@@ -59,13 +63,21 @@ func autoMigrateReadEndpoint(_ context.Context, old v4.ReadEndpoint) (ReadEndpoi
 	}, nil
 }
 
-func autoMigrateWriteEndpoint(_ context.Context, old v4.WriteEndpoint) (WriteEndpoint, error) {
+func autoMigrateWriteEndpoint(ctx context.Context, old v4.WriteEndpoint) (WriteEndpoint, error) {
+	method, err := autoMigrateMethod(ctx, old.Method)
+	if err != nil {
+		return WriteEndpoint{}, err
+	}
 	return WriteEndpoint{
 		Key:         old.Key,
 		Disabled:    old.Disabled,
-		Method:      old.Method,
+		Method:      method,
 		Path:        old.Path,
 		Headers:     old.Headers,
 		QueryParams: old.QueryParams,
 	}, nil
+}
+
+func autoMigrateMethod(_ context.Context, old v4.Method) (Method, error) {
+	return Method(old), nil
 }

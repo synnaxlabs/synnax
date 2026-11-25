@@ -19,7 +19,6 @@ import (
 	"github.com/synnaxlabs/gorp"
 	v4 "github.com/synnaxlabs/synnax/pkg/service/http/versions/v4"
 	v5 "github.com/synnaxlabs/synnax/pkg/service/http/versions/v5"
-	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 	"github.com/synnaxlabs/x/validate"
@@ -133,9 +132,7 @@ var _ = Describe("Removed method warnings", func() {
 	It("Should warn about each write endpoint that uses TRACE or CONNECT",
 		func(ctx SpecContext) {
 			cfg := v4.WriteConfig{
-				StartConfig: task.StartConfig{
-					KeyedConfig: task.KeyedConfig{Key: uuid.New()},
-				},
+				Key: uuid.New(),
 				Endpoints: []v4.WriteEndpoint{
 					{Key: "post", Method: v4.MethodPost},
 					{Key: "trace", Method: "TRACE"},

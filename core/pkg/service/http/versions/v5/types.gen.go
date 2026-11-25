@@ -27,28 +27,37 @@ import (
 )
 
 // Method is the HTTP method used when requesting an endpoint.
-type Method = v4.Method
+type Method string
 
 const (
 	// MethodGet reads a resource.
-	MethodGet Method = v4.MethodGet
+	MethodGet Method = "GET"
 	// MethodHead reads the headers of a resource, with no body.
-	MethodHead Method = v4.MethodHead
+	MethodHead Method = "HEAD"
 	// MethodPost submits data to a resource.
-	MethodPost Method = v4.MethodPost
+	MethodPost Method = "POST"
 	// MethodPut replaces a resource.
-	MethodPut Method = v4.MethodPut
+	MethodPut Method = "PUT"
 	// MethodDelete removes a resource.
-	MethodDelete Method = v4.MethodDelete
+	MethodDelete Method = "DELETE"
 	// MethodPatch changes part of a resource.
-	MethodPatch Method = v4.MethodPatch
+	MethodPatch Method = "PATCH"
 	// MethodOptions asks which communication options a resource supports.
-	MethodOptions Method = v4.MethodOptions
-	// MethodTrace asks the server to echo the request it receives.
-	MethodTrace Method = v4.MethodTrace
-	// MethodConnect opens a tunnel to the server.
-	MethodConnect Method = v4.MethodConnect
+	MethodOptions Method = "OPTIONS"
+	// MethodQuery reads a resource with a query in the body, safely and idempotently.
+	MethodQuery Method = "QUERY"
 )
+
+// IsValid reports whether m is one of the defined Method
+// values.
+func (m Method) IsValid() bool {
+	switch m {
+	case MethodGet, MethodHead, MethodPost, MethodPut, MethodDelete, MethodPatch, MethodOptions, MethodQuery:
+		return true
+	default:
+		return false
+	}
+}
 
 // Header is a single HTTP header sent with a request.
 type Header = v4.Header
