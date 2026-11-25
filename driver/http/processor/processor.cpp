@@ -9,12 +9,10 @@
 
 #include <algorithm>
 #include <string>
-#include <string_view>
 #include <utility>
 
 #include "absl/log/log.h"
 #include "absl/strings/ascii.h"
-#include "absl/strings/match.h"
 
 #include "driver/http/errors/errors.h"
 #include "driver/http/processor/processor.h"
@@ -45,22 +43,24 @@ size_t write_callback(char *ptr, size_t size, size_t nmemb, void *userdata) {
     return size * nmemb;
 }
 
-/// @brief returns the scheme, host, and port of ref resolved against base.
-std::string origin(const std::string &base, const std::string &ref = "") {
+/// @brief returns the scheme, host, and port of url, or an empty string if curl cannot
+/// parse it.
+std::string origin(const std::string &url) {
     CURLU *u = curl_url();
-    curl_url_set(u, CURLUPART_URL, base.c_str(), 0);
-    if (!ref.empty()) curl_url_set(u, CURLUPART_URL, ref.c_str(), 0);
-    const auto get = [u](const CURLUPart part) {
-        char *value = nullptr;
-        curl_url_get(u, part, &value, CURLU_DEFAULT_PORT);
-        std::string result = value == nullptr ? "" : value;
-        curl_free(value);
-        return result;
-    };
-    auto result = get(CURLUPART_SCHEME) + "://" + get(CURLUPART_HOST) + ":" +
-                  get(CURLUPART_PORT);
+    std::string result;
+    if (curl_url_set(u, CURLUPART_URL, url.c_str(), 0) == CURLUE_OK) {
+        const auto get = [u](const CURLUPart part) {
+            char *value = nullptr;
+            curl_url_get(u, part, &value, CURLU_DEFAULT_PORT);
+            std::string part_value = value == nullptr ? "" : value;
+            curl_free(value);
+            return part_value;
+        };
+        result = get(CURLUPART_SCHEME) + "://" + get(CURLUPART_HOST) + ":" +
+                 get(CURLUPART_PORT);
+        absl::AsciiStrToLower(&result);
+    }
     curl_url_cleanup(u);
-    absl::AsciiStrToLower(&result);
     return result;
 }
 
@@ -86,26 +86,14 @@ x::errors::Error parse_curl_error(CURLcode code) {
 
 }
 
-size_t Processor::header_callback(char *buf, size_t size, size_t n, void *userdata) {
-    auto *t = static_cast<ActiveTransfer *>(userdata);
-    std::string_view line(buf, size * n);
-    constexpr std::string_view LOCATION = "location:";
-    if (line.starts_with("HTTP/")) {
-        const auto space = line.find(' ');
-        t->redirecting = space != std::string_view::npos && space + 1 < line.size() &&
-                         line[space + 1] == '3';
-    } else if (t->redirecting && absl::StartsWithIgnoreCase(line, LOCATION)) {
-        line.remove_prefix(LOCATION.size());
-        const auto target = origin(
-            t->origin,
-            std::string(absl::StripAsciiWhitespace(line))
-        );
-        if (target != t->origin) {
-            t->refused_origin = target;
-            return 0;
-        }
-    }
-    return size * n;
+int Processor::prereq_callback(void *data, char *, char *, int, int) {
+    auto *t = static_cast<ActiveTransfer *>(data);
+    char *url = nullptr;
+    curl_easy_getinfo(t->handle, CURLINFO_EFFECTIVE_URL, &url);
+    const auto target = origin(url == nullptr ? "" : url);
+    if (target == t->origin) return CURL_PREREQFUNC_OK;
+    t->refused_origin = target.empty() ? "an unparsable URL" : target;
+    return CURL_PREREQFUNC_ABORT;
 }
 
 std::pair<Response, x::errors::Error>
@@ -153,7 +141,8 @@ CURL *Processor::create_handle(const Request &req, ActiveTransfer &t) {
     // The callback data is set after the transfer is in its final location (see
     // dispatch()) to avoid a dangling pointer from std::move.
     curl_easy_setopt(handle, CURLOPT_WRITEFUNCTION, write_callback);
-    curl_easy_setopt(handle, CURLOPT_HEADERFUNCTION, header_callback);
+    curl_easy_setopt(handle, CURLOPT_PREREQFUNCTION, prereq_callback);
+    t.handle = handle;
     t.origin = origin(req.url);
 
     if (!req.verify_ssl) {
@@ -228,7 +217,7 @@ bool Processor::dispatch(PendingRequest &&p, Gate &gate) {
     // Set the callback data after emplace so it points to the transfer at its final
     // address in the map.
     curl_easy_setopt(handle, CURLOPT_WRITEDATA, &it->second.response_body);
-    curl_easy_setopt(handle, CURLOPT_HEADERDATA, &it->second);
+    curl_easy_setopt(handle, CURLOPT_PREREQDATA, &it->second);
     curl_multi_add_handle(this->multi, handle);
     gate.in_flight++;
     return true;
