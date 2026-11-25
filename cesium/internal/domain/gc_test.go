@@ -171,8 +171,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 					Eventually(collected).Should(Receive(BeNil()))
 					var res result
 					Eventually(opened).Should(Receive(&res))
-					Expect(res.err).ToNot(HaveOccurred())
-					r := DeferClose(res.r)
+					r := MustOpen(res.r, res.err)
 					read := make([]byte, len(data))
 					MustSucceed(r.ReadAt(read, 0))
 					Expect(read).To(Equal(data))
