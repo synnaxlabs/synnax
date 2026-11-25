@@ -253,6 +253,19 @@ var _ = Describe("Delete on the pointer log", func() {
 			Expect(iter.SeekGE(20 * telem.SecondTS)).To(BeTrue())
 			Expect(step(5 * telem.Second)).To(Equal(both(20, 21, 22, 23, 24)))
 		})
+
+		It("Should leave out the samples that a delete of one key takes between two "+
+			"steps at a seek of the second", func(ctx SpecContext) {
+			Expect(iter.SeekFirst()).To(BeTrue())
+			Expect(step(3 * telem.Second)).To(Equal(both(10, 11, 12)))
+			Expect(db.DeleteTimeRange(ctx, []cesium.ChannelKey{data}, span(13, 16))).
+				To(Succeed())
+			Expect(iter.SeekGE(13 * telem.SecondTS)).To(BeTrue())
+			Expect(step(7 * telem.Second)).To(Equal(map[cesium.ChannelKey][]int64{
+				data: {16, 17, 18, 19},
+				more: {13, 14, 15, 16, 17, 18, 19},
+			}))
+		})
 	})
 
 	It("Should delete a range from the middle of the data of a key", func(
