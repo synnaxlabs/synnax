@@ -13,8 +13,6 @@ import { context } from "@synnaxlabs/lyra/context";
 export interface CreatePromptParams {
   /** The name that the field starts with. */
   name: string;
-  /** The entries of the new enumeration. */
-  entries: enumeration.Entry[];
 }
 
 /**

@@ -171,4 +171,5 @@ Table struct {
     @go imex
     @go marshal
     @go migrate
+    @resource type "table"
 }

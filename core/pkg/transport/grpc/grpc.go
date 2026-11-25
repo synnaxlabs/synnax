@@ -32,6 +32,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/license"
 	"github.com/synnaxlabs/synnax/pkg/api/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/api/log"
+	"github.com/synnaxlabs/synnax/pkg/api/opcua/server"
 	"github.com/synnaxlabs/synnax/pkg/api/panel"
 	"github.com/synnaxlabs/synnax/pkg/api/project"
 	apikv "github.com/synnaxlabs/synnax/pkg/api/ranger/kv"
@@ -163,6 +164,9 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.ProjectDispatch = noop.UnaryServer[project.DispatchRequest, struct{}]{}
 	t.ProjectExport = noop.UnaryServer[project.ExportRequest, project.ExportResponse]{}
 	t.ProjectImport = noop.UnaryServer[project.ImportRequest, project.ImportResponse]{}
+
+	// OPC UA SERVER
+	t.OPCUAServerRetrieve = noop.UnaryServer[server.RetrieveRequest, server.RetrieveResponse]{}
 
 	// STATUS
 	t.StatusRename = noop.UnaryServer[apistatus.RenameRequest, struct{}]{}
