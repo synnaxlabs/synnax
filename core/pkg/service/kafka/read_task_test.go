@@ -1956,7 +1956,7 @@ var _ = Describe("Read task", func() {
 						Field: fieldKey(m, 1), DataType: telem.Float64T,
 					}
 					return []kafka.ReadRecord{record("", createICD(ctx, m), rm)}
-				}, "message Reading: binding 1 has no channel"),
+				}, "message Reading: channel 0 does not exist"),
 			Entry("a channel that does not exist",
 				func(ctx context.Context, index, _ channel.Channel) []kafka.ReadRecord {
 					m := stampedMessage("Reading", nil)

@@ -15,9 +15,9 @@ import { CSS } from "@/css";
 import { BUILT_INS } from "@/schematic/node/builtIns";
 import { Custom } from "@/schematic/node/common/custom";
 import { Grid } from "@/schematic/node/common/grid";
+import { Indicator } from "@/schematic/node/common/indicator";
 import { Label } from "@/schematic/node/common/label";
 import { Primitive } from "@/schematic/node/common/primitive";
-import { Stale } from "@/schematic/node/common/stale";
 import type { NodeProps, PreviewProps } from "@/schematic/node/spec";
 import { bind } from "@/schematic/node/symbol/bind";
 import { Warning } from "@/schematic/node/symbol/Warning";
@@ -34,7 +34,7 @@ interface Resolved {
   invalid: boolean;
 }
 
-const useSpec = (ref: schematic.symbol.Ref): Resolved => {
+const useResolved = (ref: schematic.symbol.Ref): Resolved => {
   const custom = Symbol.useResolved(ref.type === "custom" ? ref.key : null);
   switch (ref.type) {
     case "builtin": {
@@ -59,28 +59,33 @@ const useSpec = (ref: schematic.symbol.Ref): Resolved => {
   }
 };
 
-interface DrawnProps extends Pick<
-  Config,
-  "spec" | "color" | "states" | "orientation" | "scale" | "motionDisabled"
-> {
+// useBound resolves the symbol of a node, with the bindings of its states applied.
+const useBound = ({ spec: ref, states }: Pick<Config, "spec" | "states">): Resolved => {
+  const { spec, ...rest } = useResolved(ref);
+  return { ...rest, spec: spec == null ? undefined : bind.spec(spec, states) };
+};
+
+interface DrawnProps
+  extends Resolved, Pick<Config, "color" | "orientation" | "scale" | "motionDisabled"> {
   value: Custom.StateValues;
   readings?: Record<string, Custom.Reading>;
 }
 
 const Drawn = ({
-  spec: ref,
+  spec,
+  builtIn,
+  missing,
+  failed,
+  invalid,
   color,
-  states,
   orientation,
   scale,
   motionDisabled,
   value,
   readings,
 }: DrawnProps): ReactElement => {
-  const { spec, builtIn, missing, failed, invalid } = useSpec(ref);
-  const bound = spec == null ? undefined : bind.spec(spec, states);
   const [nodeColor] = Color.useValues([color]);
-  const paints = Custom.usePaints(bound, value, { nodeColor, builtIn });
+  const paints = Custom.usePaints(spec, value, { nodeColor, builtIn });
   if (missing || failed || invalid)
     return <Warning cause={missing ? "missing" : failed ? "failed" : "invalid"} />;
   return (
@@ -88,9 +93,9 @@ const Drawn = ({
       orientation={orientation}
       className={CSS.cls(CSS.B("symbol"), !builtIn && CSS.BM("symbol", "custom"))}
     >
-      {bound != null && (
+      {spec != null && (
         <Custom.Drawing
-          spec={bound}
+          spec={spec}
           builtIn={builtIn}
           orientation={orientation}
           scale={scale}
@@ -109,22 +114,17 @@ export const Node = ({
   selected,
   onConfigChange,
 }: NodeProps<Config>): ReactElement => {
-  const {
-    label,
-    orientation,
-    scale,
-    spec,
-    color,
-    states,
-    stalenessTimeout,
-    motionDisabled,
-  } = config;
+  const { label, orientation, scale, color, states, stalenessTimeout, motionDisabled } =
+    config;
   const { readings } = SymbolNode.use({
     aetherKey: nodeKey,
     sources: bind.sources(bind.stateChannels(states)),
     sinks: {},
     stalenessTimeout,
   });
+  const bound = useBound(config);
+  const value = bind.values(states, readings);
+  const unmatched = Custom.useUnmatched(bound.spec, value);
   const scaleResize = Grid.useScaleResize(config, onConfigChange);
   return (
     <Grid.Grid
@@ -135,15 +135,17 @@ export const Node = ({
       {...scaleResize}
     >
       <Label.Label config={label} onChange={onConfigChange} />
-      {bind.stale(states, readings) && <Stale.Indicator />}
+      <Indicator.Slot
+        stale={bind.stale(states, readings)}
+        unknown={bind.dataMissing(states, readings) || unmatched}
+      />
       <Drawn
-        spec={spec}
+        {...bound}
         color={color}
-        states={states}
         orientation={orientation}
         scale={scale}
         motionDisabled={motionDisabled}
-        value={bind.values(states, readings)}
+        value={value}
         readings={bind.stateReadings(states, readings)}
       />
     </Grid.Grid>
@@ -153,20 +155,21 @@ export const Node = ({
 const NO_VALUES: Custom.StateValues = new Map();
 
 export const Preview = ({
-  spec,
   color,
-  states,
   orientation,
   scale,
   motionDisabled,
-}: PreviewProps<Config>): ReactElement => (
-  <Drawn
-    spec={spec}
-    color={color}
-    states={states}
-    orientation={orientation}
-    scale={scale}
-    motionDisabled={motionDisabled}
-    value={NO_VALUES}
-  />
-);
+  ...rest
+}: PreviewProps<Config>): ReactElement => {
+  const bound = useBound(rest);
+  return (
+    <Drawn
+      {...bound}
+      color={color}
+      orientation={orientation}
+      scale={scale}
+      motionDisabled={motionDisabled}
+      value={NO_VALUES}
+    />
+  );
+};
