@@ -325,6 +325,25 @@ describe("Toolbar", () => {
       expect(await screen.findByText(symbol.name, { selector: "p" })).toBeDefined();
     });
 
+    it("names and changes a built-in that no older variant draws", async () => {
+      const { key } = await renderSelected({
+        n1: valveNode({
+          spec: { type: "builtin", name: "normally_open_solenoid_valve" },
+          label: { label: "Normally open solenoid" },
+        }),
+      });
+      expect(
+        await screen.findByText("Normally open solenoid", { selector: "p" }),
+      ).toBeDefined();
+      await pickSymbol("Solenoid");
+      await waitFor(async () =>
+        expect((await retrieveConfigs(key)).n1).toMatchObject({
+          spec: { type: "builtin", name: "solenoid_valve" },
+          label: { label: "Solenoid" },
+        }),
+      );
+    });
+
     it("names a symbol that the Core does not have as missing", async () => {
       await renderSelected({
         n1: valveNode({ spec: { type: "missing", key: "gone" } }),

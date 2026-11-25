@@ -44,11 +44,6 @@ export const useAddNode = () => {
   };
 };
 
-const builtInName = (variant: string): string => {
-  const spec = Node.resolveSpec(variant);
-  return spec.label ?? spec.name;
-};
-
 const customName = (client: Client, key: string): string | undefined => {
   const sym = client.schematics.symbols.watch(key).getCached();
   return query.isLive(sym) ? sym.name : undefined;
@@ -57,10 +52,13 @@ const customName = (client: Client, key: string): string | undefined => {
 // The label a symbol takes on creation: a custom symbol's name, or its spec's label.
 const defaultLabel = (client: Client, config: Node.Config): string | undefined => {
   if (Node.isCustomConfig(config)) return customName(client, config.specKey);
-  if (config.variant !== "symbol") return builtInName(config.variant);
+  if (config.variant !== "symbol") {
+    const spec = Node.resolveSpec(config.variant);
+    return spec.label ?? spec.name;
+  }
   switch (config.spec.type) {
     case "builtin":
-      return builtInName(config.spec.name);
+      return Node.builtInLabel(config.spec.name);
     case "custom":
       return customName(client, config.spec.key);
     case "missing":

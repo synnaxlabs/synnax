@@ -96,7 +96,10 @@ const useSymbolName = (configs: Map<string, Schematic.Node.Config>): SymbolName 
   if (shared == null) return { name: "Mixed" };
   const symbol = Schematic.Node.symbolKey(shared);
   if (specKey != null) return { symbol, name: custom?.name ?? "" };
-  if (ref?.type === "missing") return { symbol, name: "Missing symbol" };
+  if (ref != null) {
+    const name = ref.type === "builtin" ? Schematic.Node.builtInLabel(ref.name) : null;
+    return { symbol, name: name ?? "Missing symbol" };
+  }
   const spec = Schematic.Node.resolveSpec(symbol);
   return { symbol, name: spec.label ?? spec.name };
 };

@@ -210,6 +210,28 @@ describe("Schematic.Node.symbolKey", () => {
   });
 });
 
+describe("Schematic.Node.builtInLabel", () => {
+  it("should return the label of the variant that draws the built-in", () => {
+    expect(Node.builtInLabel("valve")).toBe("Valve");
+  });
+
+  it("should label a built-in that no variant draws", () => {
+    expect(Node.builtInLabel("normally_open_solenoid_valve")).toBe(
+      "Normally open solenoid",
+    );
+  });
+
+  it("should label every built-in", () => {
+    for (const name of Node.BUILT_INS.keys())
+      expect(Node.builtInLabel(name)).toBeDefined();
+  });
+
+  it.each(["not_a_symbol", "constructor", "symbol"])(
+    "should return undefined for %s, which no built-in has",
+    (name) => expect(Node.builtInLabel(name)).toBeUndefined(),
+  );
+});
+
 describe("Schematic.Node.changeConfig", () => {
   it("should keep the wrap width of a symbol that changes to a button", () => {
     const tank = Node.createConfig({ variant: "tank", label: { maxInlineSize: 80 } });
