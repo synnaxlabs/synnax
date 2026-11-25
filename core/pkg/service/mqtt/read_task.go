@@ -496,6 +496,15 @@ func (r *reader) convert(now time.Time, msg message, b *batch) {
 	if err != nil {
 		reason = err.Error()
 	}
+	// An index takes timestamps in rising order only. A stale stamp marks a repeat of a
+	// message, such as a QoS 1 redelivery, so none of its groups write. A retained
+	// message repeats a value that the task may have, so a stale one is no loss.
+	if r.repeats(t, samples) {
+		if !msg.retained && reason == "" {
+			reason = staleReason
+		}
+		samples = nil
+	}
 	for _, s := range samples {
 		g := t.groups[s.Group]
 		if g.Index != 0 {
@@ -503,11 +512,9 @@ func (r *reader) convert(now time.Time, msg message, b *batch) {
 			if g.Stamped {
 				stamp = s.Stamp
 			}
-			// An index takes timestamps in rising order only. A retained message
-			// repeats a value that the task may have, so a stale one is no loss.
 			if stamp <= r.lastStamp[g.Index] {
 				if !msg.retained && reason == "" {
-					reason = "its timestamp is not after the last one written"
+					reason = staleReason
 				}
 				continue
 			}
@@ -526,6 +533,18 @@ func (r *reader) convert(now time.Time, msg message, b *batch) {
 	if reason != "" {
 		r.skips.Skip(now, fmt.Sprintf("Message on topic %s: %s", sub.topic, reason))
 	}
+}
+
+// staleReason is the skip reason of a timestamp that is not after the last one.
+const staleReason = "its timestamp is not after the last one written"
+
+// repeats reports whether a stamped group of samples is not after the last timestamp
+// of its index.
+func (r *reader) repeats(t *readTopic, samples []read.Sample) bool {
+	return slices.ContainsFunc(samples, func(s read.Sample) bool {
+		g := t.groups[s.Group]
+		return g.Index != 0 && g.Stamped && s.Stamp <= r.lastStamp[g.Index]
+	})
 }
 
 // convertEvent applies one Sparkplug B message: a birth or a death changes which edge
