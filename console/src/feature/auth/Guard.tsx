@@ -13,17 +13,9 @@ import { Login, useCompleteBrowserLogin } from "@/feature/auth/Login";
 import { Core } from "@/platform/core";
 import { Session } from "@/session";
 
-const CompleteBrowserLogin = (): null => {
-  useCompleteBrowserLogin();
-  return null;
-};
-
 export const Guard = ({ children }: PropsWithChildren): ReactNode => {
   const core = Session.Core.useSelectSelected();
-  return (
-    <>
-      <CompleteBrowserLogin />
-      {core != null && Core.hasLogin(core) ? children : <Login />}
-    </>
-  );
+  // Login reads the address when it mounts, so it waits for the page's query to return
+  if (useCompleteBrowserLogin()) return null;
+  return core != null && Core.hasLogin(core) ? children : <Login />;
 };

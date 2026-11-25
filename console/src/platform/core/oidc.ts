@@ -165,6 +165,13 @@ export interface CompletedLogin {
   credentials: auth.OIDCCredentials;
 }
 
+/** Reports whether the page loaded from a provider's redirect for a browser login. */
+export const isLoginReturn = (): boolean => {
+  if (sessionStorage.getItem(PENDING_KEY) == null) return false;
+  const params = new URLSearchParams(window.location.search);
+  return params.has("code") || params.has("error");
+};
+
 /**
  * Finishes a browser login on the page load the provider redirected to. Removes the
  * code from the address bar either way, and restores the query the login left from.
@@ -173,9 +180,8 @@ export interface CompletedLogin {
  */
 export const completeBrowserLogin = (): CompletedLogin | undefined => {
   const raw = sessionStorage.getItem(PENDING_KEY);
+  if (raw == null || !isLoginReturn()) return undefined;
   const { search } = window.location;
-  const params = new URLSearchParams(search);
-  if (raw == null || (!params.has("code") && !params.has("error"))) return undefined;
   sessionStorage.removeItem(PENDING_KEY);
   window.history.replaceState(null, "", window.location.pathname);
   const pending = pendingZ.parse(JSON.parse(raw));

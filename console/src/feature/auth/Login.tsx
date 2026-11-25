@@ -120,8 +120,10 @@ const useAccepted = (core?: auth.TokenlessParams): Accepted => {
 /**
  * Finishes a browser login the provider redirected back from, before any guard chooses
  * between the login surface and a session the browser already holds.
+ * @returns true until the login is finished and the page has its query back.
  */
-export const useCompleteBrowserLogin = (): void => {
+export const useCompleteBrowserLogin = (): boolean => {
+  const [returning, setReturning] = useState(Core.isLoginReturn);
   const cores = Session.Core.useSelectMany();
   const servingCore = Core.detectConnection();
   const dispatch = Session.useDispatch();
@@ -136,7 +138,9 @@ export const useCompleteBrowserLogin = (): void => {
       dispatch(Session.Core.set({ ...core, username: "", password: "", oidc }));
       dispatch(Session.Core.select(core.key));
     }, "Failed to log in");
+    setReturning(false);
   }, []);
+  return returning;
 };
 
 /**

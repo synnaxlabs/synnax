@@ -160,6 +160,28 @@ describe("auth guard", () => {
     expect(window.location.search).toBe("");
   });
 
+  it("should show the Cores list after a cancelled login from a chosen Core", async () => {
+    sessionStorage.setItem(
+      "synnax-oidc-login",
+      JSON.stringify({
+        core: CORE_KEY,
+        provider: "company-sso",
+        verifier: "verifier",
+        state: "state",
+        redirectUri: "https://core.example.com/",
+        search: "?select-core",
+      }),
+    );
+    window.history.replaceState(null, "", "/?error=access_denied&state=state");
+    onTestFinished(() => {
+      sessionStorage.clear();
+      window.history.replaceState(null, "", "/");
+    });
+    await renderGuard();
+    expect(await screen.findByText("Add a Core")).toBeTruthy();
+    expect(window.location.search).toBe("?select-core");
+  });
+
   it("should render the login screen when no Core is selected", async () => {
     await renderGuard();
     expect(screen.getAllByText("Log in").length).toBeGreaterThan(0);
