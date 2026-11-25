@@ -225,13 +225,17 @@ describe("OIDC section", () => {
   });
 
   describe("on desktop", () => {
+    // the query the provider redirects to the loopback port with
+    let redirect = "code=abc";
+
     beforeEach(() => {
+      redirect = "code=abc";
       runtime.engine = "tauri";
       mockWindows("main");
       mockIPC((cmd, args) => {
         if (cmd === "oidc_listen") return 4242;
         if (cmd === "oidc_wait")
-          return `code=abc&state=${(args as { state: string }).state}`;
+          return `${redirect}&state=${(args as { state: string }).state}`;
         return undefined;
       });
       onTestFinished(clearMocks);
@@ -256,6 +260,22 @@ describe("OIDC section", () => {
         redirect_uri: "http://127.0.0.1:4242/callback",
       });
       expect(onMessage).toHaveBeenLastCalledWith("Successfully linked account");
+    });
+
+    it("should report a cancelled link as information", async () => {
+      redirect = "error=access_denied";
+      const { client, server } = await open({ providers: [PROVIDER] });
+      let statuses: Status.NotificationSpec[] = [];
+      await renderLocal(client, LOCAL_SUBJECT, (s) => (statuses = s));
+      await screen.findByText(`Link ${PROVIDER.provider}`);
+      fireEvent.click(findButton(`Link ${PROVIDER.provider}`));
+      await waitFor(() =>
+        expect(statuses).toContainEqual(
+          expect.objectContaining({ variant: "info", message: "Link not finished" }),
+        ),
+      );
+      expect(statuses.map((s) => s.variant)).not.toContain("error");
+      expect(server.linked).toHaveLength(0);
     });
 
     it("should report a link the Core refuses", async () => {

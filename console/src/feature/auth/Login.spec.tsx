@@ -167,8 +167,8 @@ const renderLogin = async (
 
 // The desktop shell of a dev build: its main window, keychain, loopback listener, and
 // the browser a login hands the provider page to. The browser returns at once with the
-// state the Console waits for.
-const fakeDesktop = (onWait?: () => void, result = "code=abc") => {
+// state the Console waits for, after the given redirect query.
+const fakeDesktop = (onWait?: () => void, query = "code=abc") => {
   const ipc = { listens: 0, saved: new Map<string, string>() };
   mockWindows("main");
   mockIPC((cmd, args) => {
@@ -184,13 +184,29 @@ const fakeDesktop = (onWait?: () => void, result = "code=abc") => {
         return 4242;
       case "oidc_wait":
         onWait?.();
-        return `${result}&state=${state}`;
+        return `${query}&state=${state}`;
       default:
         return undefined;
     }
   });
   onTestFinished(clearMocks);
   return ipc;
+};
+
+const expectNotFinished = async (
+  statuses: () => Status.NotificationSpec[],
+  description: string,
+): Promise<void> => {
+  await vi.waitFor(() =>
+    expect(statuses()).toContainEqual(
+      expect.objectContaining({
+        variant: "info",
+        message: "Login not finished",
+        description,
+      }),
+    ),
+  );
+  expect(statuses().map((s) => s.variant)).not.toContain("error");
 };
 
 describe("Auth login", () => {
@@ -552,22 +568,6 @@ describe("Auth login", () => {
       });
     };
 
-    const expectNotFinished = async (
-      statuses: () => Status.NotificationSpec[],
-      description: string,
-    ): Promise<void> => {
-      await vi.waitFor(() =>
-        expect(statuses()).toContainEqual(
-          expect.objectContaining({
-            variant: "info",
-            message: "Login not finished",
-            description,
-          }),
-        ),
-      );
-      expect(statuses().map((s) => s.variant)).not.toContain("error");
-    };
-
     it("should report the provider's reason as information", async () => {
       returnWith("error=access_denied&error_description=Denied");
       const { statuses } = await renderLogin();
@@ -668,6 +668,20 @@ describe("Auth login", () => {
       expect(Object.fromEntries(saved)).toEqual({
         [`http://@127.0.0.1:${core.port}#${core.key}`]: "sys_token",
       });
+    });
+
+    it("should report a cancelled provider login as information", async () => {
+      const core = await serveAuth(["oidc"], [PROVIDER]);
+      const ipc = fakeDesktop(undefined, "error=access_denied");
+      const { store, statuses } = await renderLogin(core, createConsoleWrapper);
+      fireEvent.click(await screen.findByText(ALPHA.name));
+      fireEvent.click(await screen.findByText("Log in with company-sso"));
+      await expectNotFinished(
+        statuses,
+        "You cancelled the login, or the provider refused it.",
+      );
+      expect(ipc.saved.size).toBe(0);
+      expect(store.getState().core.cores[core.key].lastLogin).toBeUndefined();
     });
 
     it("should let the user retry a login the Core rejects", async () => {

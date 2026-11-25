@@ -109,8 +109,9 @@ const parseCallback = (query: string, state: string): string => {
  * Proves a provider account from the desktop Console: opens the provider's login page
  * in the browser and waits for it to redirect to a loopback port.
  * @returns The credentials, which the Core accepts once.
+ * @throws {UnfinishedLoginError} when the person cancels or the provider denies access.
  * @throws {Error} when the person does not finish within five minutes, or the provider
- * refuses.
+ * returns another error.
  */
 export const authorizeDesktop = async (
   login: auth.OIDCLogin,
@@ -130,8 +131,9 @@ export const authorizeDesktop = async (
  * {@link authorizeDesktop} for a session and saves the session's token in the keychain.
  * The code never reaches the Core's shared record, so other windows resume the saved
  * session instead of spending the same code.
+ * @throws {UnfinishedLoginError} when the person cancels or the provider denies access.
  * @throws {Error} when the person does not finish within five minutes, the provider
- * refuses, or the Core rejects the code.
+ * returns another error, or the Core rejects the code.
  */
 export const loginDesktop = async (
   core: Pick<Session.Core.Core, "key" | "host" | "port" | "secure">,
@@ -230,8 +232,9 @@ export const pendingPurpose = (): Purpose | undefined => readPending()?.purpose;
  * Finishes a browser login on the page load the provider redirected to. Removes the
  * code from the address bar either way. Resolves undefined when the page did not come
  * back from a login, and then clears a saved login that is not valid.
- * @throws {Error} when the provider refused, the redirect belongs to another login, or
- * the saved login is not valid.
+ * @throws {UnfinishedLoginError} when the person cancelled or the provider refused.
+ * @throws {Error} when the provider returned another error, the redirect belongs to
+ * another login, or the saved login is not valid.
  */
 export const completeBrowserLogin = (): CompletedLogin | undefined => {
   const raw = sessionStorage.getItem(PENDING_KEY);
