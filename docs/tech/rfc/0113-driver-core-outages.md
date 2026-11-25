@@ -46,8 +46,9 @@ Driver that restarts while the Core is down still starts with no tasks.
    original times, or the task's status reports their loss, with a count where the
    Driver knows it.
 4. **Only a transient Core error is an outage**: The Driver waits out an error that §3.8
-   classifies as transient, such as an unreachable Core or a missing license. Every
-   other Core error reaches the task's status as today.
+   classifies as transient, such as an unreachable Core or a missing license, and an
+   interrupted one for a call that is safe to send twice. Every other Core error reaches
+   the task's status as today.
 
 ## 3 Design
 
@@ -58,9 +59,10 @@ the bus and hands the frame to a `bypass::pipeline::Forwarder` (NEW), which open
 writes, and reopens the task's Core writer on its own thread. `open_writer` returns at
 once. The handoff queue holds 64 MB.
 
-After a transient Core error (§3.8), the forwarder closes the live writer, spools the
-queued frames in order, and reopens the live writer only after the queue is empty. Every
-spooled frame therefore comes before the next live session, as RFC 0095 §4.4 requires.
+After a transient or interrupted Core error (§3.8), the forwarder closes the live
+writer, spools the queued frames in order, and reopens the live writer only after the
+queue is empty. Every spooled frame therefore comes before the next live session, as RFC
+0095 §4.4 requires.
 
 gRPC finds a silent network loss only when a keepalive ping goes unanswered, so the
 Driver pings the Core every 10 s and closes a connection whose ping goes 20 s without an
@@ -69,8 +71,8 @@ s. The Core accepts pings as often as every 5 s. The 64 MB queue covers that tim
 to about 2 MB/s. A reachable Core too slow for the task fills it, and `write` then drops
 the frame and counts it.
 
-Any Core error that is not transient, such as a deleted channel, closes the forwarder;
-the next `write` returns it and the task stops as today (`acquisition.cpp:162-167`).
+Any other Core error, such as a deleted channel, closes the forwarder; the next `write`
+returns it and the task stops as today (`acquisition.cpp:162-167`).
 
 ### 3.1 Authority
 
@@ -85,7 +87,7 @@ forwarders open before the task manager retrieves control states
 
 `bypass::pipeline::StreamerFactory::open_streamer` (`streamer.h:128-159`) subscribes to
 the bus and returns. Its Core half (`streamer.h:94-115`) reopens on its own thread, and
-an unreachable Core never ends `read`.
+a transient or interrupted Core error never ends `read`.
 
 ### 3.3 The spool
 
@@ -126,9 +128,10 @@ latest status per task, it keeps every call, so the Core sees what happened.
   Core keeps a client key (`core/pkg/service/ranger/writer.go:45-46`).
 - **`range.end`**: Queued after its create.
 
-The outbox retries while the Core is unreachable. When a create fails validation, it
-retrieves the key, and a range that exists counts as sent. Any other error drops and
-counts the call. A full outbox refuses and counts new calls, except `range.end`.
+The outbox retries after a transient or interrupted Core error (§3.8), since each of its
+calls is safe to send twice. When a create fails validation, it retrieves the key, and a
+range that exists counts as sent. Any other error drops and counts the call. A full
+outbox refuses and counts new calls, except `range.end`.
 
 `SetByKeyOrNameRequest` gains `time`
 (`core/pkg/transport/grpc/status/status.proto:56-60`). A zero time means now, and a set
@@ -147,8 +150,8 @@ Driver go stale during an outage. The Core keeps computing the channel for the C
 
 ### 3.6 Reconnect and new minors
 
-The rack breaker waits for an unreachable Core with no limit. On reconnect the task
-manager deploys again only tasks whose config changed
+The rack breaker waits out a transient Core error (§3.8) with no limit. On reconnect the
+task manager deploys again only tasks whose config changed
 (`driver/task/manager.cpp:714-724`).
 
 When `check_core` finds a Core on another minor (`driver/rack/remote.cpp:209-218`), the
