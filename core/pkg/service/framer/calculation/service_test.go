@@ -1506,6 +1506,34 @@ var _ = Describe("Calculation", Ordered, func() {
 			})
 
 			It(
+				"Should give each calculation in a group that fails to open an error",
+				func(ctx SpecContext) {
+					base, healthy := createCalculation(ctx)
+					broken := channel.Channel{
+						Name:        UniqueChannelName(),
+						DataType:    telem.Int64T,
+						Virtual:     true,
+						Leaseholder: node.KeyFree,
+						Expression:  fmt.Sprintf("return %s * 3", base.Name),
+					}
+					Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+						return channelSvc.NewWriter(tx).Create(ctx, &broken)
+					})).To(Succeed())
+					svc := openFailing(ctx, func(ch channel.Channel) bool {
+						return ch.Key() == broken.Key()
+					})
+					Expect(request(ctx, svc, healthy)).To(Succeed())
+					Expect(request(ctx, svc, broken)).
+						To(MatchError(ContainSubstring("failed to open calculator")))
+					Expect(statusesOf(ctx, healthy)).To(ContainElement(SatisfyAll(
+						isError,
+						HaveField("Message", "Failed to run calculation"),
+						HaveField("Description", ContainSubstring(broken.Name)),
+					)))
+				},
+			)
+
+			It(
 				"Should reject an update that makes its own calculator fail to open",
 				func(
 					ctx SpecContext,
