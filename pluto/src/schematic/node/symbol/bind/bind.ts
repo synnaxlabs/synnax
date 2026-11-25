@@ -51,6 +51,44 @@ export const stateChannels = (bindings: Sourced[]): channel.Key[] =>
     ),
   );
 
+/** Target is where a command writes: a channel, or the local value of a state. */
+export type Target =
+  { type: "channel"; channel: channel.Key } | { type: "local"; state: string };
+
+/**
+ * @returns where command writes: the command channel of its state, the local value of
+ * its state, or the channel that commands binds it to. Undefined when it has none.
+ */
+export const target = (
+  command: Pick<schematic.symbol.Command, "key" | "state">,
+  states: Sourced[],
+  commands: schematic.CommandBinding[],
+): Target | undefined => {
+  if (command.state == null) {
+    const binding = commands.find(({ key }) => key === command.key);
+    return binding == null ? undefined : { type: "channel", channel: binding.channel };
+  }
+  const source = states.find(({ key }) => key === command.state)?.source;
+  if (source?.type === "local") return { type: "local", state: command.state };
+  if (source?.type === "channel" && source.command != null)
+    return { type: "channel", channel: source.command };
+  return undefined;
+};
+
+/** @returns a number sink for each channel that a command of spec writes, by key. */
+export const sinks = (
+  spec: Pick<schematic.symbol.Spec, "commands">,
+  states: Sourced[],
+  commands: schematic.CommandBinding[],
+): Record<string, telem.NumberSinkSpec> => {
+  const out: Record<string, telem.NumberSinkSpec> = {};
+  for (const command of spec.commands) {
+    const t = target(command, states, commands);
+    if (t?.type === "channel") out[t.channel] = Telem.numberSink(t.channel);
+  }
+  return out;
+};
+
 /** @returns a number source for each channel in channels, by its key. */
 export const sources = (
   channels: channel.Key[],

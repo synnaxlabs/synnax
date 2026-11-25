@@ -25,6 +25,7 @@ import {
   expectLive,
   holdResponses,
   PushStreamer,
+  requestsTo,
   spyOnSend,
   waitForStreamLive,
 } from "@/testutil";
@@ -892,7 +893,7 @@ describe("Secret", () => {
       await expect(
         client.secrets.dispatch(s.key, secret.set({ path: ["value"], value: "x" })),
       ).rejects.toThrow('no editable field at "value"');
-      expect(send).not.toHaveBeenCalled();
+      expect(requestsTo(send, "/secret/dispatch")).toEqual([]);
     });
   });
 

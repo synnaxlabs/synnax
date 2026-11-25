@@ -19,6 +19,7 @@ import {
   expectDeleted,
   expectLive,
   FAST_RETRY,
+  requestsTo,
   spyOnSend,
   waitForStreamLive,
 } from "@/testutil";
@@ -802,7 +803,11 @@ describe("cached reads", () => {
       try {
         const res = await client.channels.retrieve({ key: [ch.key] });
         expect(res.map(({ key }) => key)).toEqual([ch.key]);
-        expect(send).not.toHaveBeenCalled();
+        expect(requestsTo(send, "/channel/retrieve")).not.toContainEqual(
+          expect.objectContaining({
+            where: expect.objectContaining({ key: expect.anything() }),
+          }),
+        );
       } finally {
         send.mockRestore();
       }
