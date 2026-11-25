@@ -113,19 +113,6 @@ export const controlStateConfigZ = z.object({
 });
 export interface ControlStateConfig extends z.infer<typeof controlStateConfigZ> {}
 
-/** StateMapping maps a numeric channel value to a named, colored state. */
-export const stateMappingZ = z.object({
-  /** key is the unique identifier for the mapping entry. */
-  key: z.string(),
-  /** name is the display name for this state. */
-  name: z.string(),
-  /** value is the channel value this state corresponds to. */
-  value: z.number(),
-  /** color is the display color associated with this state. */
-  color: xcolor.colorZ.optional(),
-});
-export interface StateMapping extends z.infer<typeof stateMappingZ> {}
-
 /** Page identifies a page an off-page reference links to. */
 export const pageZ = z.object({
   /** type is the kind of page referenced. */
@@ -893,15 +880,10 @@ export const selectNodeConfigZ = labeledConfigZ.extend(stalenessConfigZ.shape).e
    * named color or a fixed color.
    */
   fillColor: zod.nullToUndefined(color.refZ),
+  /** enumeration is the enumeration whose entries the select offers. */
+  enumeration: enumeration.keyZ.optional(),
   /** inlineSize is the width of the field in pixels, not counting the Set button. */
   inlineSize: zod.uint16.min(1).default(100),
-  /** options is the set of selectable states. */
-  options: stateMappingZ.array().default(() => []),
-  /**
-   * enumeration is the enumeration whose entries the select offers in place of its
-   * options.
-   */
-  enumeration: enumeration.keyZ.optional(),
   /** disabled indicates whether the select rejects interaction. */
   disabled: z.boolean().default(false),
   /** onClickDelay is the debounce delay applied to clicks. */
@@ -989,15 +971,10 @@ export const stateIndicatorNodeConfigZ = labeledConfigZ
      * strokeColor is the border color of the indicator, a named color or a fixed color.
      */
     strokeColor: zod.nullToUndefined(color.refZ),
+    /** enumeration is the enumeration whose entries the indicator shows. */
+    enumeration: enumeration.keyZ.optional(),
     /** inlineSize is the inline size of the indicator in pixels. */
     inlineSize: zod.uint16.min(1).default(100),
-    /** options is the set of displayable states. */
-    options: stateMappingZ.array().default(() => []),
-    /**
-     * enumeration is the enumeration whose entries the indicator shows in place of its
-     * options.
-     */
-    enumeration: enumeration.keyZ.optional(),
     /** size is the rendered size preset of the indicator. */
     size: componentSizeZ.default("medium"),
   });
