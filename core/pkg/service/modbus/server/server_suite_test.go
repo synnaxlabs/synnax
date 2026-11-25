@@ -90,22 +90,34 @@ func read(address uint16, index, ch channel.Key) server.Read {
 // write binds the coil at address to channel.
 func write(address uint16, ch channel.Key) server.Write {
 	return server.Write{
-		Location: server.Location{Variant: server.CoilLocation{Address: address}},
-		Channel:  ch,
+		Location: server.WriteLocation{
+			Variant: server.CoilWriteLocation{Address: address},
+		},
+		Channel: ch,
 	}
 }
 
 // holdingWrite binds the value of the holding register at address to channel.
 func holdingWrite(
 	address uint16,
-	value server.ValueVariant,
+	value server.WriteValueVariant,
 	ch channel.Key,
 ) server.Write {
 	return server.Write{
-		Location: server.Location{Variant: server.HoldingRegisterLocation{
+		Location: server.WriteLocation{Variant: server.HoldingRegisterWriteLocation{
 			Address: address,
-			Value:   server.Value{Variant: value},
+			Value:   server.WriteValue{Variant: value},
 		}},
 		Channel: ch,
 	}
+}
+
+// whole returns a write of a number of the data type.
+func whole(dt server.DataType) server.WholeWriteValue {
+	return server.WholeWriteValue{Number: server.Number{DataType: dt}}
+}
+
+// bit returns a write of one bit of a register.
+func bit(b uint8) server.BitWriteValue {
+	return server.BitWriteValue{RegisterBit: server.RegisterBit{Bit: b}}
 }

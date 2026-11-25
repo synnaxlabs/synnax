@@ -316,6 +316,22 @@ class RetrieveRequest(BaseModel):
     include_status: bool = False
 
 
+class Identity(BaseModel):
+    """Holds the server fields that the connect form owns.
+
+    Attributes:
+        rack: Is the key of the rack whose Driver connects to the server.
+        name: Is a human-readable name for the server.
+        connection: Holds the settings that the Driver connects with.
+        request_policy: Limits and paces the requests that the Driver sends.
+    """
+
+    rack: rack_.Key = Field(gt=0, le=4294967295)
+    name: str = Field(min_length=1)
+    connection: Connection
+    request_policy: RequestPolicy = Field(default_factory=lambda: RequestPolicy())
+
+
 class CoilLocation(BaseLocation):
     """Is a coil, which tasks can read and write."""
 
@@ -370,22 +386,6 @@ WriteLocation = Annotated[
     CoilWriteLocation | HoldingRegisterWriteLocation,
     Field(discriminator="table"),
 ]
-
-class Identity(BaseModel):
-    """Holds the server fields that the connect form owns.
-
-    Attributes:
-        rack: Is the key of the rack whose Driver connects to the server.
-        name: Is a human-readable name for the server.
-        connection: Holds the settings that the Driver connects with.
-        request_policy: Limits and paces the requests that the Driver sends.
-    """
-
-    rack: rack_.Key = Field(gt=0, le=4294967295)
-    name: str = Field(min_length=1)
-    connection: Connection
-    request_policy: RequestPolicy = Field(default_factory=lambda: RequestPolicy())
-
 
 Status: TypeAlias = status_.Status[StatusDetails]
 

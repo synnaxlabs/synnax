@@ -26,14 +26,12 @@
 #include "x/cpp/filter/types.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/mem/indirect.h"
-#include "x/cpp/telem/telem.h"
 #include "x/cpp/telem/types.gen.h"
 #include "x/cpp/uuid/uuid.h"
 
 namespace synnax::modbus::server {
 
 struct BaseConnection;
-struct Number;
 struct RegisterBit;
 struct BaseLocation;
 struct Stats;
@@ -41,18 +39,32 @@ struct Where;
 struct Cursor;
 struct StatusDetails;
 struct RequestPolicy;
+struct Number;
 struct RetrieveRequest;
+struct Identity;
 struct Read;
 struct Write;
 struct Server;
+struct Configuration;
 struct RetrieveResponse;
 
 constexpr const char *WRITE_FUNCTION_MULTIPLE = "multiple";
 constexpr const char *WRITE_FUNCTION_SINGLE = "single";
 
-constexpr const char *PARITY_NONE_ = "none";
-constexpr const char *PARITY_EVEN_ = "even";
-constexpr const char *PARITY_ODD_ = "odd";
+constexpr const char *DATA_TYPE_INT_8 = "int8";
+constexpr const char *DATA_TYPE_INT_16 = "int16";
+constexpr const char *DATA_TYPE_INT_32 = "int32";
+constexpr const char *DATA_TYPE_INT_64 = "int64";
+constexpr const char *DATA_TYPE_UINT_8 = "uint8";
+constexpr const char *DATA_TYPE_UINT_16 = "uint16";
+constexpr const char *DATA_TYPE_UINT_32 = "uint32";
+constexpr const char *DATA_TYPE_UINT_64 = "uint64";
+constexpr const char *DATA_TYPE_FLOAT_32 = "float32";
+constexpr const char *DATA_TYPE_FLOAT_64 = "float64";
+
+constexpr const char *PARITY_NONE = "none";
+constexpr const char *PARITY_EVEN = "even";
+constexpr const char *PARITY_ODD = "odd";
 
 enum class BaudRate : std::uint32_t {
     B1200 = 1200,
@@ -86,21 +98,6 @@ struct BaseConnection {
     std::uint8_t retries = 1;
 
     static BaseConnection parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief Number is a number that fills one or more registers.
-struct Number {
-    /// @brief data_type is the type of the value in the registers.
-    std::string data_type = ::x::telem::NUMERIC_DATA_TYPE_UINT_16;
-    /// @brief bytes_swapped overrides the bytes_swapped of the connection for the
-    /// value.
-    std::optional<bool> bytes_swapped;
-    /// @brief words_swapped overrides the words_swapped of the connection for the
-    /// value.
-    std::optional<bool> words_swapped;
-
-    static Number parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
@@ -196,63 +193,6 @@ struct Cursor {
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief WholeValue is a number that fills one or more registers.
-struct WholeValue : public Number {
-    std::string type = "whole";
-
-    static WholeValue parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief BitValue is one bit of a register.
-struct BitValue : public RegisterBit {
-    std::string type = "bit";
-
-    static BitValue parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief StringValue is a fixed-length string that read tasks read.
-struct StringValue {
-    std::string type = "string";
-    /// @brief length is the number of characters, two to each register.
-    std::uint16_t length = 0;
-    /// @brief bytes_swapped overrides the bytes_swapped of the connection for the
-    /// value.
-    std::optional<bool> bytes_swapped;
-
-    static StringValue parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief Value is how one or more registers hold a value.
-using Value = std::variant<WholeValue, BitValue, StringValue>;
-
-Value parse_value(x::json::Parser parser);
-[[nodiscard]] x::json::json to_json(const Value &value);
-
-/// @brief WholeWriteValue is a number that fills one or more registers.
-struct WholeWriteValue : public Number {
-    std::string type = "whole";
-
-    static WholeWriteValue parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief BitWriteValue is one bit of a register.
-struct BitWriteValue : public RegisterBit {
-    std::string type = "bit";
-
-    static BitWriteValue parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief WriteValue is how a holding register holds a value that write tasks write.
-using WriteValue = std::variant<WholeWriteValue, BitWriteValue>;
-
-WriteValue parse_write_value(x::json::Parser parser);
-[[nodiscard]] x::json::json to_json(const WriteValue &value);
-
 /// @brief StatusDetails identifies the server and rack that a status pertains to.
 struct StatusDetails {
     /// @brief rack is the key of the rack the server belongs to.
@@ -317,9 +257,8 @@ struct RtuConnection : public BaseConnection {
     /// @brief baud_rate is the baud rate of the line.
     BaudRate baud_rate = BaudRate::B19200;
     /// @brief parity is the parity of the line.
-    std::string parity = PARITY_EVEN_;
-    /// @brief stop_bits is the number of stop bits of the line. Modbus asks for two
-    /// with no parity, but many devices use one, so no rule ties it to parity.
+    std::string parity = PARITY_EVEN;
+    /// @brief stop_bits is the number of stop bits of the line.
     StopBits stop_bits = StopBits::One;
     /// @brief unit_id is the unit that requests address.
     std::uint8_t unit_id = 1;
@@ -338,6 +277,21 @@ Connection parse_connection(x::json::Parser parser);
 [[nodiscard]] inline const BaseConnection &base(const Connection &value) {
     return std::visit([](const auto &v) -> const BaseConnection & { return v; }, value);
 }
+
+/// @brief Number is a number that fills one or more registers.
+struct Number {
+    /// @brief data_type is the type of the value in the registers.
+    std::string data_type = DATA_TYPE_UINT_16;
+    /// @brief bytes_swapped overrides the bytes_swapped of the connection for the
+    /// value.
+    std::optional<bool> bytes_swapped;
+    /// @brief words_swapped overrides the words_swapped of the connection for the
+    /// value.
+    std::optional<bool> words_swapped;
+
+    static Number parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
 
 /// @brief RetrieveOptions holds every field of a RetrieveRequest except where.
 struct RetrieveOptions {
@@ -379,6 +333,80 @@ struct RetrieveRequest {
     static RetrieveRequest parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
+
+using Status = ::synnax::status::Status<StatusDetails>;
+
+/// @brief Identity holds the server fields that the connect form owns.
+struct Identity {
+    /// @brief rack is the key of the rack whose Driver connects to the server.
+    ::synnax::rack::Key rack = 0;
+    /// @brief name is a human-readable name for the server.
+    std::string name;
+    /// @brief connection holds the settings that the Driver connects with.
+    Connection connection;
+    /// @brief request_policy limits and paces the requests that the Driver sends.
+    RequestPolicy request_policy = {};
+
+    static Identity parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief WholeValue is a number that fills one or more registers.
+struct WholeValue : public Number {
+    std::string type = "whole";
+
+    static WholeValue parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief BitValue is one bit of a register.
+struct BitValue : public RegisterBit {
+    std::string type = "bit";
+
+    static BitValue parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief StringValue is a fixed-length string that read tasks read.
+struct StringValue {
+    std::string type = "string";
+    /// @brief length is the number of characters, two to each register.
+    std::uint16_t length = 0;
+    /// @brief bytes_swapped overrides the bytes_swapped of the connection for the
+    /// value.
+    std::optional<bool> bytes_swapped;
+
+    static StringValue parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief Value is how one or more registers hold a value.
+using Value = std::variant<WholeValue, BitValue, StringValue>;
+
+Value parse_value(x::json::Parser parser);
+[[nodiscard]] x::json::json to_json(const Value &value);
+
+/// @brief WholeWriteValue is a number that fills one or more registers.
+struct WholeWriteValue : public Number {
+    std::string type = "whole";
+
+    static WholeWriteValue parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief BitWriteValue is one bit of a register.
+struct BitWriteValue : public RegisterBit {
+    std::string type = "bit";
+
+    static BitWriteValue parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief WriteValue is how a holding register holds a value that write tasks write.
+using WriteValue = std::variant<WholeWriteValue, BitWriteValue>;
+
+WriteValue parse_write_value(x::json::Parser parser);
+[[nodiscard]] x::json::json to_json(const WriteValue &value);
 
 /// @brief CoilLocation is a coil, which tasks can read and write.
 struct CoilLocation : public BaseLocation {
@@ -462,8 +490,6 @@ WriteLocation parse_write_location(x::json::Parser parser);
     return std::visit([](const auto &v) -> const BaseLocation & { return v; }, value);
 }
 
-using Status = ::synnax::status::Status<StatusDetails>;
-
 /// @brief Read binds a value that read tasks read to its channel.
 struct Read {
     /// @brief location is the value that the channel holds.
@@ -511,6 +537,17 @@ struct Server {
     [[nodiscard]] x::json::json to_json() const;
 };
 
+/// @brief Configuration holds the server fields that the task forms own.
+struct Configuration {
+    /// @brief reads bind the values that read tasks read to their channels.
+    std::vector<Read> reads = {};
+    /// @brief writes bind the values that write tasks write to their command channels.
+    std::vector<Write> writes = {};
+
+    static Configuration parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
 /// @brief RetrieveResponse holds the servers a RetrieveRequest selects.
 struct RetrieveResponse {
     /// @brief servers are the servers the request selects.
@@ -519,6 +556,30 @@ struct RetrieveResponse {
     static RetrieveResponse parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
+
+/// @brief IdentityUpdate writes the rack, name, connection, and request policy of the
+/// server.
+struct IdentityUpdate : public Identity {
+    std::string group = "identity";
+
+    static IdentityUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief ConfigurationUpdate replaces the channel maps of the server. A client sends
+/// the whole group, because a field it leaves out is cleared.
+struct ConfigurationUpdate : public Configuration {
+    std::string group = "configuration";
+
+    static ConfigurationUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief Update is a write to one field group of a server.
+using Update = std::variant<IdentityUpdate, ConfigurationUpdate>;
+
+Update parse_update(x::json::Parser parser);
+[[nodiscard]] x::json::json to_json(const Update &value);
 
 const synnax::resource::ID TYPE_RESOURCE_ID("modbus_server", "");
 

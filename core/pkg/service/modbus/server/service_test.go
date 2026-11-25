@@ -192,27 +192,10 @@ var _ = Describe("Service", func() {
 				s.RequestPolicy.MaxReadRegisters = 10
 				s.RequestPolicy.MaxGap = 11
 			}),
-			Entry("a write to a discrete input", func(s *server.Server) {
-				s.Writes = []server.Write{{
-					Location: server.Location{
-						Variant: server.DiscreteInputLocation{Address: 1},
-					},
-					Channel: 2,
-				}}
-			}),
-			Entry("a write of a string", func(s *server.Server) {
-				s.Writes = []server.Write{{
-					Location: server.Location{Variant: server.HoldingRegisterLocation{
-						Address: 1,
-						Value:   server.Value{Variant: server.StringValue{Length: 4}},
-					}},
-					Channel: 2,
-				}}
-			}),
 		)
 
 		DescribeTable("Should reject writes that set one register twice",
-			func(ctx SpecContext, a, b server.ValueVariant, offset uint16) {
+			func(ctx SpecContext, a, b server.WriteValueVariant, offset uint16) {
 				s := newServer()
 				s.Writes = []server.Write{
 					holdingWrite(5, a, 2),
@@ -222,24 +205,24 @@ var _ = Describe("Service", func() {
 					To(MatchError(ContainSubstring("another write sets")))
 			},
 			Entry("two data types at one address",
-				server.WholeValue{DataType: server.DataTypeFloat32},
-				server.WholeValue{DataType: server.DataTypeUint16}, uint16(0)),
+				whole(server.DataTypeFloat32),
+				whole(server.DataTypeUint16), uint16(0)),
 			Entry("a float32 and the next register",
-				server.WholeValue{DataType: server.DataTypeFloat32},
-				server.WholeValue{DataType: server.DataTypeUint16}, uint16(1)),
+				whole(server.DataTypeFloat32),
+				whole(server.DataTypeUint16), uint16(1)),
 			Entry("a whole value and one of its bits",
-				server.WholeValue{DataType: server.DataTypeUint16},
-				server.BitValue{Bit: 3}, uint16(0)),
+				whole(server.DataTypeUint16),
+				bit(3), uint16(0)),
 			Entry("one bit twice",
-				server.BitValue{Bit: 3}, server.BitValue{Bit: 3}, uint16(0)),
+				bit(3), bit(3), uint16(0)),
 		)
 
 		It("Should accept writes of two bits of one register", func(ctx SpecContext) {
 			s := newServer()
 			s.Writes = []server.Write{
-				holdingWrite(5, server.BitValue{Bit: 1}, 2),
-				holdingWrite(5, server.BitValue{Bit: 2}, 3),
-				holdingWrite(6, server.WholeValue{DataType: server.DataTypeInt16}, 4),
+				holdingWrite(5, bit(1), 2),
+				holdingWrite(5, bit(2), 3),
+				holdingWrite(6, whole(server.DataTypeInt16), 4),
 			}
 			Expect(svc.NewWriter(tx).Create(ctx, &s)).To(Succeed())
 		})

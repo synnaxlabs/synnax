@@ -240,6 +240,39 @@ inline x::json::json Where::to_json() const {
     return j;
 }
 
+inline Identity Identity::parse(x::json::Parser parser) {
+    return Identity{
+        .rack = parser.required_field<::synnax::rack::Key>("rack"),
+        .name = parser.required_field<std::string>("name"),
+        .connection = parse_connection(parser.child("connection")),
+        .request_policy = parser
+                              .field<RequestPolicy>("request_policy", RequestPolicy{}),
+    };
+}
+
+inline x::json::json Identity::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["rack"] = this->rack;
+    j["name"] = this->name;
+    j["connection"] = ::synnax::modbus::server::to_json(this->connection);
+    j["request_policy"] = this->request_policy.to_json();
+    return j;
+}
+
+inline Configuration Configuration::parse(x::json::Parser parser) {
+    return Configuration{
+        .reads = parser.field<std::vector<Read>>("reads", std::vector<Read>{}),
+        .writes = parser.field<std::vector<Write>>("writes", std::vector<Write>{}),
+    };
+}
+
+inline x::json::json Configuration::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["reads"] = x::json::to_array(this->reads);
+    j["writes"] = x::json::to_array(this->writes);
+    return j;
+}
+
 inline Cursor Cursor::parse(x::json::Parser parser) {
     return Cursor{
         .key = parser.field<Key>("key"),
@@ -501,6 +534,35 @@ inline x::json::json HoldingRegisterWriteLocation::to_json() const {
     return j;
 }
 
+inline IdentityUpdate IdentityUpdate::parse(x::json::Parser parser) {
+    IdentityUpdate result;
+    static_cast<Identity &>(result) = Identity::parse(parser);
+    result.group = parser.field<std::string>("group");
+    return result;
+}
+
+inline x::json::json IdentityUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (const auto parent = Identity::to_json(); parent.is_object()) j.update(parent);
+    j["group"] = this->group;
+    return j;
+}
+
+inline ConfigurationUpdate ConfigurationUpdate::parse(x::json::Parser parser) {
+    ConfigurationUpdate result;
+    static_cast<Configuration &>(result) = Configuration::parse(parser);
+    result.group = parser.field<std::string>("group");
+    return result;
+}
+
+inline x::json::json ConfigurationUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (const auto parent = Configuration::to_json(); parent.is_object())
+        j.update(parent);
+    j["group"] = this->group;
+    return j;
+}
+
 inline Connection parse_connection(x::json::Parser parser) {
     const auto discriminator = parser.field<std::string>("transport");
     if (discriminator == "tcp") return TcpConnection::parse(parser);
@@ -563,6 +625,18 @@ inline WriteLocation parse_write_location(x::json::Parser parser) {
 }
 
 inline x::json::json to_json(const WriteLocation &value) {
+    return std::visit([](const auto &v) { return v.to_json(); }, value);
+}
+
+inline Update parse_update(x::json::Parser parser) {
+    const auto discriminator = parser.field<std::string>("group");
+    if (discriminator == "identity") return IdentityUpdate::parse(parser);
+    if (discriminator == "configuration") return ConfigurationUpdate::parse(parser);
+    parser.field_err("group", "unknown Update group: " + discriminator);
+    return {};
+}
+
+inline x::json::json to_json(const Update &value) {
     return std::visit([](const auto &v) { return v.to_json(); }, value);
 }
 

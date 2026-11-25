@@ -301,6 +301,19 @@ export const cursorZ = z.object({
 });
 export interface Cursor extends z.infer<typeof cursorZ> {}
 
+/** Identity holds the server fields that the connect form owns. */
+export const identityZ = z.object({
+  /** rack is the key of the rack whose Driver connects to the server. */
+  rack: rack.keyZ.refine((v) => v !== 0, "rack is required"),
+  /** name is a human-readable name for the server. */
+  name: z.string().min(1, "name is required"),
+  /** connection holds the settings that the Driver connects with. */
+  connection: connectionZ,
+  /** requestPolicy limits and paces the requests that the Driver sends. */
+  requestPolicy: requestPolicyZ.prefault({}),
+});
+export interface Identity extends z.infer<typeof identityZ> {}
+
 /** CoilLocation is a coil, which tasks can read and write. */
 export const coilLocationZ = baseLocationZ.extend({
   table: z.literal("coil"),
@@ -459,6 +472,15 @@ export const serverZ = z.object({
   status: statusZ.optional(),
 });
 export interface Server extends z.infer<typeof serverZ> {}
+
+/** Configuration holds the server fields that the task forms own. */
+export const configurationZ = z.object({
+  /** reads bind the values that read tasks read to their channels. */
+  reads: readZ.array().default(() => []),
+  /** writes bind the values that write tasks write to their command channels. */
+  writes: writeZ.array().default(() => []),
+});
+export interface Configuration extends z.infer<typeof configurationZ> {}
 export interface New extends z.input<typeof serverZ> {}
 
 /** RetrieveResponse holds the servers a RetrieveRequest selects. */
@@ -467,6 +489,41 @@ export const retrieveResponseZ = z.object({
   servers: serverZ.array().default(() => []),
 });
 export interface RetrieveResponse extends z.infer<typeof retrieveResponseZ> {}
+
+/**
+ * IdentityUpdate writes the rack, name, connection, and request policy of the server.
+ */
+export const identityUpdateZ = identityZ.extend({
+  group: z.literal("identity"),
+});
+export interface IdentityUpdate extends z.infer<typeof identityUpdateZ> {}
+
+/**
+ * ConfigurationUpdate replaces the channel maps of the server. A client sends the whole
+ * group, because a field it leaves out is cleared.
+ */
+export const configurationUpdateZ = configurationZ.extend({
+  group: z.literal("configuration"),
+});
+export interface ConfigurationUpdate extends z.infer<typeof configurationUpdateZ> {}
+
+export const UPDATE_TYPES = ["identity", "configuration"] as const;
+export const updateTypeZ = z.enum(UPDATE_TYPES);
+export type UpdateType = z.infer<typeof updateTypeZ>;
+
+/** Update is a write to one field group of a server. */
+export const updateZ = z.discriminatedUnion("group", [
+  identityUpdateZ,
+  configurationUpdateZ,
+]);
+export type Update = IdentityUpdate | ConfigurationUpdate;
+
+export const UPDATE_SCHEMAS: {
+  [K in UpdateType]: z.ZodType<Extract<Update, { group: K }>>;
+} = {
+  identity: identityUpdateZ,
+  configuration: configurationUpdateZ,
+};
 
 export const resourceID = resource.createIDFactory<Key>("modbus_server");
 export const TYPE_RESOURCE_ID = resourceID("");

@@ -390,8 +390,8 @@ var _ = Describe("Service", func() {
 						Configuration: server.Configuration{
 							Writes: []server.Write{
 								{
-									Location: server.Location{
-										Variant: server.CoilLocation{Address: 1},
+									Location: server.WriteLocation{
+										Variant: server.CoilWriteLocation{Address: 1},
 									},
 									Channel: 2,
 								},
