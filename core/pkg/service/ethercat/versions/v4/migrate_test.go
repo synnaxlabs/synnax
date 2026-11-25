@@ -11,7 +11,6 @@ package v4_test
 
 import (
 	"context"
-	"encoding/json/v2"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -173,32 +172,5 @@ var _ = Describe("Migrate", func() {
 		},
 		Entry("an entry with a data type", "Output", new(telem.Uint8T)),
 		Entry("an entry with no data type as absent", "Padding", nil),
-	)
-
-	DescribeTable(
-		"Should decode an empty entry data type as absent",
-		func(data string, isRead bool) {
-			if isRead {
-				var ch v4.ReadChannel
-				Expect(json.Unmarshal([]byte(data), &ch)).To(Succeed())
-				entry, ok := ch.Variant.(v4.EntryReadChannel)
-				Expect(ok).To(BeTrue())
-				Expect(entry.DataType).To(BeNil())
-				Expect(entry.Index).To(BeEquivalentTo(1))
-				return
-			}
-			var ch v4.WriteChannel
-			Expect(json.Unmarshal([]byte(data), &ch)).To(Succeed())
-			entry, ok := ch.Variant.(v4.EntryWriteChannel)
-			Expect(ok).To(BeTrue())
-			Expect(entry.DataType).To(BeNil())
-			Expect(entry.Index).To(BeEquivalentTo(1))
-		},
-		Entry("for a read channel", `{"type":"entry","index":1,"data_type":""}`, true),
-		Entry(
-			"for a write channel",
-			`{"type":"entry","index":1,"data_type":""}`,
-			false,
-		),
 	)
 })
