@@ -1,0 +1,105 @@
+{
+  "description": "A timestamp writes every digit in unix_sec, unix_ns, and ISO 8601, and a whole number rounded toward negative infinity in unix_ms and unix_us.",
+  "message": {
+    "name": "command",
+    "payload": {
+      "format": "json",
+      "fields": [
+        {
+          "key": "00000000-0000-4000-8000-000000000001",
+          "name": "sec",
+          "scale": 1,
+          "offset": 0,
+          "units": "",
+          "pointer": "/sec",
+          "type": "timestamp",
+          "time_format": "unix_sec"
+        },
+        {
+          "key": "00000000-0000-4000-8000-000000000002",
+          "name": "ms",
+          "scale": 1,
+          "offset": 0,
+          "units": "",
+          "pointer": "/ms",
+          "type": "timestamp",
+          "time_format": "unix_ms"
+        },
+        {
+          "key": "00000000-0000-4000-8000-000000000003",
+          "name": "us",
+          "scale": 1,
+          "offset": 0,
+          "units": "",
+          "pointer": "/us",
+          "type": "timestamp",
+          "time_format": "unix_us"
+        },
+        {
+          "key": "00000000-0000-4000-8000-000000000004",
+          "name": "ns",
+          "scale": 1,
+          "offset": 0,
+          "units": "",
+          "pointer": "/ns",
+          "type": "timestamp",
+          "time_format": "unix_ns"
+        },
+        {
+          "key": "00000000-0000-4000-8000-000000000005",
+          "name": "iso",
+          "scale": 1,
+          "offset": 0,
+          "units": "",
+          "pointer": "/iso",
+          "type": "timestamp",
+          "time_format": "iso8601"
+        }
+      ]
+    },
+    "bindings": [
+      {
+        "field": "00000000-0000-4000-8000-000000000001",
+        "data_type": "timestamp"
+      },
+      {
+        "field": "00000000-0000-4000-8000-000000000002",
+        "data_type": "timestamp"
+      },
+      {
+        "field": "00000000-0000-4000-8000-000000000003",
+        "data_type": "timestamp"
+      },
+      {
+        "field": "00000000-0000-4000-8000-000000000004",
+        "data_type": "timestamp"
+      },
+      {
+        "field": "00000000-0000-4000-8000-000000000005",
+        "data_type": "timestamp"
+      }
+    ]
+  },
+  "cases": [
+    {
+      "samples": [
+        1767323045123456789,
+        1767323045123456789,
+        1767323045123456789,
+        1767323045123456789,
+        1767323045123456789
+      ],
+      "text": "{\"sec\":1767323045.123456789,\"ms\":1767323045123,\"us\":1767323045123456,\"ns\":1767323045123456789,\"iso\":\"2026-01-02T03:04:05.123456789Z\"}"
+    },
+    {
+      "samples": [
+        -1500,
+        -1500,
+        -1500,
+        -1500,
+        -1500
+      ],
+      "text": "{\"sec\":-0.0000015,\"ms\":-1,\"us\":-2,\"ns\":-1500,\"iso\":\"1969-12-31T23:59:59.9999985Z\"}"
+    }
+  ]
+}
