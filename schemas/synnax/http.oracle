@@ -269,10 +269,10 @@ WriteEndpoint struct {
         @doc value   "is the URL path appended to the device's base URL."
         @go validate pattern "^[^?#[:space:]]*$" "Path must not hold a query, a fragment, or whitespace"
     }
-    headers      http.Header[]          {
+    headers      http.Header[]     {
         @doc value "contains additional headers merged into the request."
     }
-    query_params http.QueryParam[]      {
+    query_params http.QueryParam[] {
         @doc value "contains query parameters appended to the request URL."
     }
     icd          icd.Key?          {
