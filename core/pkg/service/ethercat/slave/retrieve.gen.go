@@ -13,8 +13,10 @@ package slave
 
 import (
 	"context"
+	"slices"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/ethercat/master"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/x/set"
@@ -36,10 +38,15 @@ type Retrieve struct {
 // onto the Retrieve so filter functions can resolve them off r.indexes
 // instead of relying on package-level state.
 type indexes struct {
-	serial *gorp.LookupIndex[Key, Slave, uint64]
-	rack   *gorp.KeyReference[Key, Slave, rack.Key]
-	master *gorp.KeyReference[Key, Slave, master.Key]
-	search *gorp.SearchIndex[Key, Slave]
+	serial               *gorp.LookupIndex[Key, Slave, uint64]
+	rack                 *gorp.KeyReference[Key, Slave, rack.Key]
+	master               *gorp.KeyReference[Key, Slave, master.Key]
+	readIndex            *gorp.KeyReference[Key, Slave, channel.Key]
+	writeStateIndex      *gorp.KeyReference[Key, Slave, channel.Key]
+	readBindingsChannel  *gorp.KeyReference[Key, Slave, channel.Key]
+	writeBindingsCommand *gorp.KeyReference[Key, Slave, channel.Key]
+	writeBindingsState   *gorp.KeyReference[Key, Slave, channel.Key]
+	search               *gorp.SearchIndex[Key, Slave]
 }
 
 // newIndexes constructs a fresh indexes value, allocating one instance of each
@@ -79,6 +86,125 @@ func newIndexes() indexes {
 				}
 			},
 		}),
+		readIndex: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Slave, channel.Key]{
+			Name:     "read_index",
+			Table:    "channel",
+			OnDelete: gorp.Restrict,
+			Kind:     gorp.Use,
+			Targets: func(e *Slave) []channel.Key {
+				if e.ReadIndex == 0 {
+					return nil
+				}
+				return []channel.Key{e.ReadIndex}
+			},
+			Retarget: func(e *Slave, from, to channel.Key) {
+				if e.ReadIndex == from {
+					e.ReadIndex = to
+				}
+			},
+		}),
+		writeStateIndex: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Slave, channel.Key]{
+			Name:     "write_state_index",
+			Table:    "channel",
+			OnDelete: gorp.Restrict,
+			Kind:     gorp.Use,
+			Targets: func(e *Slave) []channel.Key {
+				if e.WriteStateIndex == 0 {
+					return nil
+				}
+				return []channel.Key{e.WriteStateIndex}
+			},
+			Retarget: func(e *Slave, from, to channel.Key) {
+				if e.WriteStateIndex == from {
+					e.WriteStateIndex = to
+				}
+			},
+		}),
+		readBindingsChannel: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Slave, channel.Key]{
+			Name:     "read_bindings.channel",
+			Table:    "channel",
+			OnDelete: gorp.Restrict,
+			Kind:     gorp.Use,
+			Targets: func(e *Slave) []channel.Key {
+				var targets []channel.Key
+				for _, v1 := range e.ReadBindings {
+					targets = append(targets, v1.Channel)
+				}
+				return targets
+			},
+			Detach: func(e *Slave, t channel.Key) {
+				e.ReadBindings = slices.DeleteFunc(e.ReadBindings, func(v2 ReadBinding) bool {
+					if v2.Channel == t {
+						return true
+					}
+					return false
+				})
+			},
+			Retarget: func(e *Slave, from, to channel.Key) {
+				for i3 := range e.ReadBindings {
+					if e.ReadBindings[i3].Channel == from {
+						e.ReadBindings[i3].Channel = to
+					}
+				}
+			},
+		}),
+		writeBindingsCommand: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Slave, channel.Key]{
+			Name:     "write_bindings.command",
+			Table:    "channel",
+			OnDelete: gorp.Restrict,
+			Kind:     gorp.Use,
+			Targets: func(e *Slave) []channel.Key {
+				var targets []channel.Key
+				for _, v1 := range e.WriteBindings {
+					targets = append(targets, v1.Command)
+				}
+				return targets
+			},
+			Detach: func(e *Slave, t channel.Key) {
+				e.WriteBindings = slices.DeleteFunc(e.WriteBindings, func(v2 WriteBinding) bool {
+					if v2.Command == t {
+						return true
+					}
+					return false
+				})
+			},
+			Retarget: func(e *Slave, from, to channel.Key) {
+				for i3 := range e.WriteBindings {
+					if e.WriteBindings[i3].Command == from {
+						e.WriteBindings[i3].Command = to
+					}
+				}
+			},
+		}),
+		writeBindingsState: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Slave, channel.Key]{
+			Name:     "write_bindings.state",
+			Table:    "channel",
+			OnDelete: gorp.Restrict,
+			Kind:     gorp.Use,
+			Targets: func(e *Slave) []channel.Key {
+				var targets []channel.Key
+				for _, v1 := range e.WriteBindings {
+					if v1.State != 0 {
+						targets = append(targets, v1.State)
+					}
+				}
+				return targets
+			},
+			Detach: func(e *Slave, t channel.Key) {
+				for i2 := range e.WriteBindings {
+					if e.WriteBindings[i2].State == t {
+						e.WriteBindings[i2].State = 0
+					}
+				}
+			},
+			Retarget: func(e *Slave, from, to channel.Key) {
+				for i3 := range e.WriteBindings {
+					if e.WriteBindings[i3].State == from {
+						e.WriteBindings[i3].State = to
+					}
+				}
+			},
+		}),
 		search: gorp.NewSearchIndex[Key, Slave](
 			"search",
 			func(e *Slave) []string {
@@ -103,6 +229,11 @@ func (i indexes) references() []gorp.Reference[Key, Slave] {
 	return []gorp.Reference[Key, Slave]{
 		i.rack,
 		i.master,
+		i.readIndex,
+		i.writeStateIndex,
+		i.readBindingsChannel,
+		i.writeBindingsCommand,
+		i.writeBindingsState,
 	}
 }
 
@@ -226,6 +357,40 @@ func MatchProductCodes(vals ...uint32) Filter {
 func MatchMasters(vals ...master.Key) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Slave] {
 		return r.indexes.master.Filter(vals...)
+	}
+}
+
+// MatchReadIndexes returns a filter for slaves
+// whose ReadIndex matches any of the provided
+// values.
+func MatchReadIndexes(vals ...channel.Key) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Slave] {
+		return r.indexes.readIndex.Filter(vals...)
+	}
+}
+
+// MatchHasReadIndex returns a filter for slaves whose
+// ReadIndex holds a target when has is true, and holds none when has is false.
+func MatchHasReadIndex(has bool) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Slave] {
+		return r.indexes.readIndex.FilterHolding(has)
+	}
+}
+
+// MatchWriteStateIndexes returns a filter for slaves
+// whose WriteStateIndex matches any of the provided
+// values.
+func MatchWriteStateIndexes(vals ...channel.Key) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Slave] {
+		return r.indexes.writeStateIndex.Filter(vals...)
+	}
+}
+
+// MatchHasWriteStateIndex returns a filter for slaves whose
+// WriteStateIndex holds a target when has is true, and holds none when has is false.
+func MatchHasWriteStateIndex(has bool) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Slave] {
+		return r.indexes.writeStateIndex.FilterHolding(has)
 	}
 }
 

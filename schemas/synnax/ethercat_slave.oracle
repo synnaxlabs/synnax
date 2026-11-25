@@ -92,6 +92,8 @@ ReadBinding struct {
     }
     channel    channel.Key {
         @doc value         "is the channel that holds the samples of the entry."
+        @ref kind          use
+        @ref on_delete     restrict
         @validate required
     }
 
@@ -205,10 +207,16 @@ WriteBinding struct {
     }
     command   channel.Key {
         @doc value         "is the channel that commands the entry."
+        @ref kind          use
+        @ref on_delete     restrict
         @validate required
     }
     state     channel.Key = 0 {
-        @doc value "is the channel that holds the state of the entry. 0 is no channel."
+        @doc value     """
+            is the channel that holds the state of the entry. 0 is no channel.
+        """
+        @ref kind      use
+        @ref on_delete restrict
     }
 
     @doc value  "is the pair of channels that a slave maps for one output entry."
@@ -273,10 +281,16 @@ Slave struct {
         @doc value "are the CoE objects the Driver writes to the slave in PRE-OP."
     }
     read_index         channel.Key = 0 {
-        @doc value "is the index channel of the channels that the slave reads into."
+        @doc value     "is the index channel of the channels that the slave reads into."
+        @ref kind      use
+        @ref on_delete restrict
     }
     write_state_index  channel.Key = 0 {
-        @doc value "is the index channel of the state channels of the slave's outputs."
+        @doc value     """
+            is the index channel of the state channels of the slave's outputs.
+        """
+        @ref kind      use
+        @ref on_delete restrict
     }
     read_bindings      ReadBinding[] = [] {
         @doc value "are the channels of the input entries."
