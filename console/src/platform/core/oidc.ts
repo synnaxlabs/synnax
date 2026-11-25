@@ -128,6 +128,8 @@ const pendingZ = z.object({
   verifier: z.string(),
   state: z.string(),
   redirectUri: z.string(),
+  /** The query of the page the login left from. */
+  search: z.string().default(""),
 });
 
 /**
@@ -150,6 +152,7 @@ export const beginBrowserLogin = async (
     verifier,
     state,
     redirectUri,
+    search: window.location.search,
   };
   sessionStorage.setItem(PENDING_KEY, JSON.stringify(pending));
   window.location.assign(url);
@@ -164,8 +167,8 @@ export interface CompletedLogin {
 
 /**
  * Finishes a browser login on the page load the provider redirected to. Removes the
- * code from the address bar either way. Resolves undefined when the page did not come
- * back from a login.
+ * code from the address bar either way, and restores the query the login left from.
+ * Resolves undefined when the page did not come back from a login.
  * @throws {Error} when the provider refused or the redirect belongs to another login.
  */
 export const completeBrowserLogin = (): CompletedLogin | undefined => {
@@ -176,6 +179,8 @@ export const completeBrowserLogin = (): CompletedLogin | undefined => {
   sessionStorage.removeItem(PENDING_KEY);
   window.history.replaceState(null, "", window.location.pathname);
   const pending = pendingZ.parse(JSON.parse(raw));
+  // the provider returns to the bare origin, so the page takes back its old query
+  window.history.replaceState(null, "", window.location.pathname + pending.search);
   const code = parseCallback(search, pending.state);
   return {
     core: pending.core,

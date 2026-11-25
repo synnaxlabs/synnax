@@ -190,6 +190,15 @@ describe("oidc", () => {
       expect(sessionStorage.getItem("synnax-oidc-login")).toBeNull();
     });
 
+    it("should restore the query the login left from", async () => {
+      window.history.replaceState(null, "", "/?select-core");
+      await Core.beginBrowserLogin("alpha", LOGIN);
+      const { state } = JSON.parse(sessionStorage.getItem("synnax-oidc-login") ?? "{}");
+      window.history.replaceState(null, "", `/?code=abc&state=${state}`);
+      expect(Core.completeBrowserLogin()?.credentials.code).toBe("abc");
+      expect(window.location.search).toBe("?select-core");
+    });
+
     it("should reject a redirect for another login", () => {
       pending("s");
       window.history.replaceState(null, "", "/?code=abc&state=other");
