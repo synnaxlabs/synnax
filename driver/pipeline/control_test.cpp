@@ -95,6 +95,52 @@ TEST(ControlPipeline, SetChannelsAppliesToNextOpen) {
     control.stop();
 }
 
+/// @brief it should return the error of an open streamer that rejects the channels.
+TEST(ControlPipeline, SetChannelsReturnsRejection) {
+    const auto factory = std::make_shared<testutil::StreamerFactory>(
+        std::vector<x::errors::Error>{},
+        std::make_shared<std::vector<testutil::StreamerConfig>>(
+            std::vector{testutil::StreamerConfig{
+                .reads = std::make_shared<std::vector<x::telem::Frame>>(),
+                .set_channels_err = x::errors::VALIDATION,
+            }}
+        )
+    );
+    const auto sink = std::make_shared<testutil::Sink>();
+    auto control = Control(factory, {.channels = {1}}, sink, x::breaker::Config{});
+    control.start();
+    ASSERT_EVENTUALLY_GE(sink->opens.load(), 1);
+    ASSERT_OCCURRED_AS(control.set_channels({2}), x::errors::VALIDATION);
+    control.stop();
+}
+
+/// @brief it should stop with the error of a streamer that rejects channels set while
+/// it opened.
+TEST(ControlPipeline, StopsWhenReopenedStreamerRejectsChannels) {
+    const auto factory = std::make_shared<testutil::StreamerFactory>(
+        std::vector<x::errors::Error>{},
+        std::make_shared<std::vector<testutil::StreamerConfig>>(
+            std::vector{testutil::StreamerConfig{
+                .reads = std::make_shared<std::vector<x::telem::Frame>>(),
+                .set_channels_err = x::errors::VALIDATION,
+            }}
+        )
+    );
+    std::promise<void> release;
+    factory->open_gate = release.get_future().share();
+    const auto sink = std::make_shared<testutil::Sink>();
+    auto control = Control(factory, {.channels = {1}}, sink, x::breaker::Config{});
+    ASSERT_TRUE(control.start());
+    // Lets the pipeline thread reach the open, which then waits on the gate.
+    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    ASSERT_NIL(control.set_channels({2}));
+    release.set_value();
+    ASSERT_EVENTUALLY_FALSE(control.running());
+    control.stop();
+    ASSERT_MATCHES(sink->stop_err, x::errors::VALIDATION);
+    EXPECT_EQ(sink->opens.load(), 0);
+}
+
 /// @brief it should report missed commands to the sink and keep running.
 TEST(ControlPipeline, ReportsMissedCommands) {
     const auto streamer_factory = std::make_shared<testutil::StreamerFactory>(
