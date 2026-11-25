@@ -234,7 +234,6 @@ FixedWidthDataType enum {
         @doc value "is a boolean in 8 bits."
     }
 
-    @cpp omit
     @doc value "is a data type whose samples all have the same byte size."
     @pb omit
 }
@@ -251,7 +250,6 @@ NumericDataType enum of FixedWidthDataType {
     uint16
     uint8
 
-    @cpp omit
     @doc value "is a fixed-width integer or float data type."
     @pb omit
 }
