@@ -368,31 +368,74 @@ export interface CommandChannelSpec {
   name: string;
   dataType: string;
   /**
-   * Whether an existing channel can carry the commands of the target. A current or
-   * stored channel that cannot is replaced. When absent, every channel can.
+   * The data types of an existing channel that can carry the commands of the target. A
+   * current or stored channel of another data type is replaced. When absent, every
+   * channel can.
    */
-  suits?: (ch: channel.Channel) => boolean;
+  dataTypes?: string[];
 }
 
 /**
- * Moves a command channel, and the index created with it, to the first free numbered
- * name, so that its replacement can take its name.
+ * What deploying does for the command channel of a write target: keep a channel, or
+ * create one by name after moving the replaced channel that holds it.
  */
-const moveCommandChannel = async (
+type CommandChannelPlan =
+  | { keeps: channel.Key }
+  | { creates: string; moves?: { channel: channel.Channel; name: string } };
+
+const planCommandChannel = async (
   client: Client,
-  ch: channel.Channel,
-): Promise<void> => {
-  const moved = await createNamer(client).move(ch);
-  await client.channels.rename(ch.key, moved);
-  const index = await retrieveChannel(client, ch.index);
-  if (index?.name === `${ch.name}_time`)
-    await client.channels.rename(index.key, `${moved}_time`);
+  namer: Namer,
+  write: Record<string, channel.Key>,
+  { propertiesKey, channel: current, name, dataTypes }: CommandChannelSpec,
+): Promise<CommandChannelPlan> => {
+  const suits = (ch: channel.Channel) =>
+    dataTypes == null || dataTypes.includes(ch.dataType.toString());
+  const replaced: channel.Channel[] = [];
+  if (primitive.isNonZero(current)) {
+    const ch = dataTypes == null ? null : await retrieveChannel(client, current);
+    if (dataTypes == null || (ch != null && suits(ch))) return { keeps: current };
+    if (ch != null) replaced.push(ch);
+  }
+  const stored = await retrieveChannel(client, write[propertiesKey]);
+  if (stored != null) {
+    if (suits(stored)) return { keeps: stored.key };
+    replaced.push(stored);
+  }
+  const holder = replaced.find((ch) => ch.name === name);
+  const moves =
+    holder == null ? undefined : { channel: holder, name: await namer.move(holder) };
+  return { creates: await namer.claim(name), moves };
+};
+
+/**
+ * Plans the command channels of the write targets of a task, in deploy order, as
+ * configureCommandChannel gives them. Reads from the Core, and changes nothing.
+ *
+ * @returns the name of each channel that deploying creates, by the properties key of
+ * its target.
+ */
+export const planCommandChannels = async (
+  client: Client,
+  write: Record<string, channel.Key>,
+  specs: CommandChannelSpec[],
+): Promise<Map<string, string>> => {
+  const namer = createNamer(client);
+  const names = new Map<string, string>();
+  for (const spec of specs) {
+    // Deploying stores the channel it creates, so a later target of the key adopts it.
+    if (names.has(spec.propertiesKey)) continue;
+    const plan = await planCommandChannel(client, namer, write, spec);
+    if ("creates" in plan) names.set(spec.propertiesKey, plan.creates);
+  }
+  return names;
 };
 
 /**
  * Gives a write target a command channel: the one it has, the one the device stores for
  * its key, or a new one. A replaced channel that holds the name of the new one moves to
- * a numbered name first.
+ * a numbered name first. Another channel that holds it gives the new one the first free
+ * number, such as `_2`.
  *
  * @param write - The write properties of the device. Updated in place.
  * @returns the command channel.
@@ -400,25 +443,22 @@ const moveCommandChannel = async (
 export const configureCommandChannel = async (
   client: Client,
   write: Record<string, channel.Key>,
-  { propertiesKey, channel: current, name, dataType, suits }: CommandChannelSpec,
+  spec: CommandChannelSpec,
 ): Promise<channel.Key> => {
-  const replaced: channel.Channel[] = [];
-  if (primitive.isNonZero(current)) {
-    const ch = suits == null ? null : await retrieveChannel(client, current);
-    if (suits == null || (ch != null && suits(ch))) {
-      write[propertiesKey] = current;
-      return current;
-    }
-    if (ch != null) replaced.push(ch);
+  const plan = await planCommandChannel(client, createNamer(client), write, spec);
+  if ("keeps" in plan) {
+    write[spec.propertiesKey] = plan.keeps;
+    return plan.keeps;
   }
-  const stored = await retrieveChannel(client, write[propertiesKey]);
-  if (stored != null) {
-    if (suits == null || suits(stored)) return stored.key;
-    replaced.push(stored);
+  if (plan.moves != null) {
+    const { channel: ch, name } = plan.moves;
+    await client.channels.rename(ch.key, name);
+    // The index created with the channel moves with it.
+    const index = await retrieveChannel(client, ch.index);
+    if (index?.name === `${ch.name}_time`)
+      await client.channels.rename(index.key, `${name}_time`);
   }
-  const holder = replaced.find((ch) => ch.name === name);
-  if (holder != null) await moveCommandChannel(client, holder);
-  const cmdCh = await createChannelWithIndex(client, name, dataType);
-  write[propertiesKey] = cmdCh.key;
+  const cmdCh = await createChannelWithIndex(client, plan.creates, spec.dataType);
+  write[spec.propertiesKey] = cmdCh.key;
   return cmdCh.key;
 };

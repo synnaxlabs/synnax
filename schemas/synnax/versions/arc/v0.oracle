@@ -75,6 +75,7 @@ Arc struct {
         code for reactive control systems. Compiles to WebAssembly for sandboxed
         execution.
     """
+    @go entry
     @go marshal
     @go migrate
     @resource type "arc"

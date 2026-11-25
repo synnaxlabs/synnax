@@ -10,6 +10,8 @@
 package unary_test
 
 import (
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/synnaxlabs/alamos/testutil"
@@ -1930,19 +1932,61 @@ var _ = Describe("Delete", func() {
 						(10 * telem.SecondTS).Range(12 * telem.SecondTS),
 					)).Error().To(MatchError(unary.ErrDBClosed))
 				})
-				It("Should block writers until release", func(ctx SpecContext) {
+				It("Should make HasDataFor wait until release", func(ctx SpecContext) {
+					Expect(unary.Write(
+						ctx, indexDB, 10*telem.SecondTS,
+						telem.NewSeriesSecondsTSV(10, 11, 12, 13),
+					)).To(Succeed())
+					Expect(unary.Write(
+						ctx, dataDB, 10*telem.SecondTS,
+						telem.NewSeriesV[int64](0, 1, 2, 3),
+					)).To(Succeed())
+					tr := (10 * telem.SecondTS).Range(12 * telem.SecondTS)
+					del, release := MustSucceed2(dataDB.OpenDelete(tr))
+					found := make(chan bool, 1)
+					go func() {
+						defer GinkgoRecover()
+						found <- MustSucceed(dataDB.HasDataFor(ctx, tr))
+					}()
+					Consistently(found, 50*time.Millisecond).ShouldNot(Receive())
+					Expect(del(ctx)).To(Succeed())
+					release()
+					Eventually(found).Should(Receive(BeFalse()))
+				})
+				It("Should make WriteCursor wait until release", func(ctx SpecContext) {
+					tr := (10 * telem.SecondTS).Range(12 * telem.SecondTS)
+					_, release := MustSucceed2(indexDB.OpenDelete(tr))
+					cursor := make(chan telem.Alignment, 1)
+					go func() {
+						defer GinkgoRecover()
+						cursor <- MustSucceed(indexDB.WriteCursor(10 * telem.SecondTS))
+					}()
+					Consistently(cursor, 50*time.Millisecond).ShouldNot(Receive())
+					release()
+					Eventually(cursor).Should(Receive())
+				})
+				It("Should make a writer wait until release", func(ctx SpecContext) {
+					Expect(unary.Write(
+						ctx, indexDB, 10*telem.SecondTS,
+						telem.NewSeriesSecondsTSV(10, 11, 12, 13),
+					)).To(Succeed())
 					tr := (10 * telem.SecondTS).Range(12 * telem.SecondTS)
 					_, release := MustSucceed2(dataDB.OpenDelete(tr))
-					Expect(dataDB.OpenWriter(ctx, unary.WriterConfig{
-						Start:                 10 * telem.SecondTS,
-						Subject:               control.Subject{Key: "foo_writer"},
-						ErrOnUnauthorizedOpen: new(true),
-					})).Error().To(MatchError(control.ErrUnauthorized))
+					opened := make(chan *unary.Writer, 1)
+					go func() {
+						defer GinkgoRecover()
+						w, _ := MustSucceed2(dataDB.OpenWriter(ctx, unary.WriterConfig{
+							Start:   10 * telem.SecondTS,
+							Subject: control.Subject{Key: "foo_writer"},
+						}))
+						opened <- w
+					}()
+					Consistently(opened, 50*time.Millisecond).ShouldNot(Receive())
 					release()
-					w, _ := MustSucceed2(dataDB.OpenWriter(ctx, unary.WriterConfig{
-						Start:   10 * telem.SecondTS,
-						Subject: control.Subject{Key: "foo_writer"},
-					}))
+					var w *unary.Writer
+					Eventually(opened).Should(Receive(&w))
+					MustSucceed(w.Write(telem.NewSeriesV[int64](0, 1, 2, 3)))
+					MustSucceed(w.Commit(ctx))
 					MustSucceed(w.Close())
 				})
 			})

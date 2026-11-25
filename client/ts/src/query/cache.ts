@@ -293,6 +293,7 @@ export class Cache {
       onEpoch: (callback) => this.onEpoch(callback),
       onMissed: (callback) => this.onMissed(callback),
       epoch: () => this.epochCount,
+      live: () => this._live,
       maintained: () => !this.unmaintained && this.params.openStreamer != null,
       onError: this.onError,
       clock: this.params.clock,

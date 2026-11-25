@@ -98,6 +98,7 @@ Range struct {
         is a user-defined region of time in the Synnax cluster. Ranges act as a method
         for labeling and categorizing telemetry data within specific time periods.
     """
+    @go entry
     @go marshal
     @go migrate
     @pb

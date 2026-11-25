@@ -122,7 +122,7 @@
         "level": 1,
         "raw": 1
       },
-      "error": "field temp: unknown enum label \"x\": validation error"
+      "error": "field temp: invalid number \"x\": validation error"
     },
     {
       "document": {

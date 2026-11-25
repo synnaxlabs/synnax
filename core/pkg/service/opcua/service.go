@@ -30,9 +30,11 @@ import (
 // ServiceConfig is the configuration for opening the OPC UA service.
 type ServiceConfig struct {
 	// DB is the database config records and servers are stored in.
+	//
 	// [REQUIRED]
 	DB *gorp.DB
 	// Signals publishes server changes.
+	//
 	// [OPTIONAL]
 	Signals *signals.Provider
 	alamos.Instrumentation

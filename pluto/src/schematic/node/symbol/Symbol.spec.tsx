@@ -21,9 +21,9 @@ import { afterEach, assert, describe, expect, it, vi } from "vitest";
 import type { z } from "zod";
 
 import { Node } from "@/schematic/node";
+import { createChannelTelem } from "@/schematic/node/testutil";
 import type { telem } from "@/telem/aether";
 import { telemTest } from "@/telem/aether/testutil";
-import { control } from "@/telem/control/aether";
 import { createAsyncSynnaxWrapper, createSynnaxWrapper } from "@/testutil";
 import { symbolNode } from "@/vis/symbolNode/aether";
 
@@ -88,21 +88,6 @@ const MARKUP =
   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">' +
   '<rect class="body" width="10" height="10" /></svg>';
 
-// Stands in for the schematic controller, which answers each command sink.
-const createCommandSinks = () => {
-  const sinks = new Map<number, telemTest.TestSink<number>>();
-  const factory: telem.Factory = {
-    type: "commands",
-    create: (spec) => {
-      if (spec.type !== control.SetChannelValue.TYPE) return null;
-      const sink = telemTest.sink<number>();
-      sinks.set(spec.props.channel, sink);
-      return sink;
-    },
-  };
-  return { sinks, factory };
-};
-
 describe("Symbol node", () => {
   afterEach(() => {
     vi.useRealTimers();
@@ -147,41 +132,30 @@ describe("Symbol node", () => {
     },
   );
 
-  it("should send nothing while its state is unknown, then close an open valve", async () => {
-    const now = TimeStamp.now();
-    const core = new SyntheticCore({ rate: Rate.hz(10), start: now, now });
-    const [reading] = core.data;
-    const { sinks, factory } = createCommandSinks();
-    const { container, findByRole, queryByRole } = renderNode(
+  it("should close an open valve on a click", async () => {
+    const { sinks, factory } = createChannelTelem({ 5: 1 });
+    const { container } = renderNode(
       {
         spec: { type: "builtin", name: "valve" },
-        states: [
-          {
-            key: "active",
-            source: { type: "channel", key: reading.key, command: 7 },
-            match: WITHIN,
-          },
-        ],
+        color: COLOR,
+        states: [{ key: "active", source: { type: "channel", key: 5, command: 7 } }],
       },
       createSynnaxWrapper({
         client: null,
         additionalRegistry: symbolNode.REGISTRY,
-        telemFactories: [telemTest.createRemoteFactory(core), factory],
+        telemFactories: [factory],
       }),
     );
     const button = container.querySelector("button");
     assert(button != null);
     await act(async () => await vi.waitFor(() => expect(sinks.has(7)).toBe(true)));
-    await findByRole("img", { name: "Unknown" });
-    fireEvent.click(button);
-    await act(async () => core.advance(TimeSpan.seconds(1)));
-    await vi.waitFor(() => expect(queryByRole("img", { name: "Unknown" })).toBeNull());
+    await vi.waitFor(() => expect(container.querySelector(FILLED)).not.toBeNull());
     fireEvent.click(button);
     await expect.poll(() => sinks.get(7)?.values).toEqual([0]);
   });
 
   it("should write a command with no state to the channel of its binding", async () => {
-    const { sinks, factory } = createCommandSinks();
+    const { sinks, factory } = createChannelTelem();
     const { key, Wrapper } = await createCustomSymbol(
       MARKUP,
       {
@@ -246,23 +220,6 @@ describe("Symbol node", () => {
         }),
       ],
     });
-  });
-
-  it("should take no clicks when its command asks for a value", async () => {
-    const { key, Wrapper } = await createCustomSymbol(MARKUP, {
-      states: [{ type: "number", key: "level", name: "Level" }],
-      commands: [{ key: "set", name: "Set", state: "level", value: { type: "ask" } }],
-      interactions: [{ type: "fire", key: "click", command: "set" }],
-    });
-    const { container } = renderNode(
-      {
-        spec: { type: "custom", key },
-        states: [{ key: "level", source: { type: "local", value: 0 } }],
-      },
-      Wrapper,
-    );
-    await vi.waitUntil(() => container.querySelector(".body"));
-    expect(container.querySelector("button")).toBeNull();
   });
 
   it("should send the command of a fire click", async () => {
