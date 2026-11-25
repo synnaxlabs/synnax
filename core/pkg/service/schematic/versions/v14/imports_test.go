@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	servicecolor "github.com/synnaxlabs/synnax/pkg/service/color/versions/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/enumeration"
 	enumerationv0 "github.com/synnaxlabs/synnax/pkg/service/enumeration/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	symbolv4 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v4"
@@ -72,38 +73,52 @@ var _ = Describe("ImportOverrides", func() {
 		retrievable = func(resource.ID) bool { return true }
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		StartRun(db.Run)
-		spec, entries := MustSucceed2(symbol.MigrateStoredSpec(ctx, symbolv4.Spec{
-			Variant: "actuator",
-			Scale:   1,
-			SVG:     `<svg><rect class="a"/><rect class="b"/></svg>`,
-			States:  stored,
+		old := symbolv4.Symbol{
+			Key:   uuid.New(),
+			Name:  "Valve",
+			Group: new(uuid.New()),
+			Data: symbolv4.Spec{
+				Variant: "actuator",
+				Scale:   1,
+				SVG:     `<svg><rect class="a"/><rect class="b"/></svg>`,
+				States:  stored,
+			},
+		}
+		Expect(
+			gorp.NewCreate[symbolv4.Key, symbolv4.Symbol]().Entry(&old).Exec(ctx, db),
+		).
+			To(Succeed())
+		enums := MustOpen(
+			enumeration.OpenService(ctx, enumeration.ServiceConfig{DB: db}),
+		)
+		MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[symbol.Key, symbol.Symbol]{
+			DB: db,
+			Migrations: []gorp.Migration{symbol.NewMigration(symbol.MigrationConfig{
+				Intern: func(tx gorp.Tx) symbol.Intern {
+					return enums.NewWriter(tx).NewInterner().Intern
+				},
+			})},
 		}))
-		spec.Parts = append(spec.Parts, symbol.Part{
+		Expect(gorp.NewRetrieve[symbol.Key, symbol.Symbol]().
+			Where(gorp.MatchKeys[symbol.Key, symbol.Symbol](old.Key)).
+			Entry(&src).
+			Exec(ctx, db)).To(Succeed())
+		src.Data.Parts = append(src.Data.Parts, symbol.Part{
 			Key:       "b",
 			Name:      "b",
 			Selectors: []string{".b"},
 		})
-		spec.Looks = append(spec.Looks, nodePaint)
-		enum = enumerationv0.Enumeration{
-			Key:     uuid.New(),
-			Name:    "Valve",
-			Entries: entries,
-		}
-		state, ok := spec.States[0].Variant.(symbol.EnumerationState)
-		Expect(ok).To(BeTrue())
-		state.Enumeration = &enum.Key
-		spec.States[0].Variant = state
-		src = symbol.Symbol{
-			Key:   uuid.New(),
-			Name:  "Valve",
-			Data:  spec,
-			Group: new(uuid.New()),
-		}
-		Expect(gorp.NewCreate[enumerationv0.Key, enumerationv0.Enumeration]().
-			Entry(&enum).
-			Exec(ctx, db)).To(Succeed())
+		src.Data.Looks = append(src.Data.Looks, nodePaint)
 		Expect(gorp.NewCreate[symbol.Key, symbol.Symbol]().Entry(&src).Exec(ctx, db)).
 			To(Succeed())
+		state, ok := src.Data.States[0].Variant.(symbol.EnumerationState)
+		Expect(ok).To(BeTrue())
+		Expect(gorp.NewRetrieve[enumerationv0.Key, enumerationv0.Enumeration]().
+			Where(gorp.MatchKeys[enumerationv0.Key, enumerationv0.Enumeration](
+				*state.Enumeration,
+			)).
+			Entry(&enum).
+			Exec(ctx, db)).To(Succeed())
 	})
 
 	// run imports a schematic named Panel with one custom node, labeled Vent, that
