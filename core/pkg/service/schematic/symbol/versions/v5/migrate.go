@@ -121,6 +121,9 @@ func migrateStored(
 	}
 	if len(old.Data.States) > 0 {
 		entries := defaultEntries(old.Data.States, m.entryLooks())
+		if m.actuator {
+			entries, _ = ActuatorEntries(entries)
+		}
 		key, err := intern(ctx, old.Name, entries)
 		if err != nil {
 			return Symbol{}, err
@@ -216,10 +219,14 @@ func (m *specMigration) addLook(part string, value float64, r v4.Region) {
 	})
 }
 
-// Actuate returns spec with the commands Off and On of the state "active" and a click
-// that picks between them. It adds the state when spec has none, and makes the state
-// match within 0.9 and 1.1.
+// Actuate returns spec as an actuator: the commands Off and On of the state "active", a
+// click that picks between them, and the variant actuator. It adds the state when spec
+// has none, and makes the state match within 0.9 and 1.1. When no look holds on value
+// 1, each look on value 0 holds on value 1 too. The enumeration of the state needs
+// ActuatorEntries.
 func Actuate(spec Spec) Spec {
+	spec.Variant = actuatorVariant
+	spec.Looks = activeLooks(spec.Looks)
 	spec.States = slices.Clone(spec.States)
 	st := EnumerationState{Key: activeState, Name: "Active"}
 	i := slices.IndexFunc(spec.States, func(s State) bool {
@@ -257,6 +264,34 @@ func Actuate(spec Spec) Spec {
 		Commands:        []string{deactivate, activate},
 	}}}
 	return spec
+}
+
+// activeLooks returns looks with each look on value 0 also on value 1, when no look
+// holds on value 1.
+func activeLooks(looks []Look) []Look {
+	if slices.ContainsFunc(looks, func(l Look) bool {
+		values, ok := activeValues(l)
+		return ok && slices.Contains(values, 1)
+	}) {
+		return looks
+	}
+	looks = slices.Clone(looks)
+	for i, l := range looks {
+		if values, ok := activeValues(l); ok && slices.Contains(values, 0) {
+			looks[i].When = equals(append(slices.Clone(values), 1)...)
+		}
+	}
+	return looks
+}
+
+// activeValues returns the values of the state "active" that the condition of l holds
+// on, and false when l has no such condition.
+func activeValues(l Look) ([]float64, bool) {
+	if l.When == nil {
+		return nil, false
+	}
+	eq, ok := l.When.Variant.(EqualsCondition)
+	return eq.Values, ok && eq.State == activeState
 }
 
 // finish returns the spec with the state "active" when the symbol has it.

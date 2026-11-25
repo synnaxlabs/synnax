@@ -424,6 +424,27 @@ var _ = Describe("Migration", func() {
 		Expect(enumerationOf(ctx, retrieve(ctx, other.Key)).Key).ToNot(Equal(shared))
 	})
 
+	It("Should give an actuator with one state the entry On and its looks on value 1",
+		func(ctx SpecContext) {
+			old := create(ctx, v4.Spec{
+				SVG: `<svg><rect id="b"/></svg>`, Variant: "actuator",
+				States: []v4.State{state("off", filled(region("b", "#b"), red))},
+			})
+			migrate(ctx)
+			sym := retrieve(ctx, old.Key)
+			Expect(enumerationOf(ctx, sym).Entries).To(Equal([]enumeration.Entry{
+				{Key: "off", Value: 0, Name: "off"},
+				{Key: "on", Value: 1, Name: "On"},
+			}))
+			Expect(sym.Data.Looks).To(Equal([]v5.Look{{
+				Key:  "look-1",
+				Part: new("b"),
+				When: equals(0, 1),
+				Fill: colorPaint(red),
+			}}))
+		},
+	)
+
 	It("Should give a symbol with no states no enumeration", func(ctx SpecContext) {
 		old := create(ctx, v4.Spec{SVG: "<svg/>", Variant: "static"})
 		migrate(ctx)
@@ -462,4 +483,46 @@ var _ = Describe("Actuate", func() {
 		Expect(ok).To(BeTrue())
 		Expect(st.Match).To(Equal(v5.Matcher{Variant: v5.ExactMatcher{}}))
 	})
+
+	It("Should make a spec an actuator that holds its looks on value 0 on value 1, "+
+		"when no look holds on value 1", func() {
+		spec := v5.Actuate(v5.Spec{Variant: "static", Looks: []v5.Look{
+			{Key: "a", When: equals(0)},
+			{Key: "b", When: equals(2)},
+			{Key: "c"},
+		}})
+		Expect(spec.Variant).To(Equal("actuator"))
+		Expect(spec.Looks).To(Equal([]v5.Look{
+			{Key: "a", When: equals(0, 1)},
+			{Key: "b", When: equals(2)},
+			{Key: "c"},
+		}))
+	})
+
+	It("Should keep the looks when a look holds on value 1", func() {
+		looks := []v5.Look{{Key: "a", When: equals(0)}, {Key: "b", When: equals(1)}}
+		Expect(v5.Actuate(v5.Spec{Looks: looks}).Looks).To(Equal(looks))
+	})
+})
+
+var _ = Describe("ActuatorEntries", func() {
+	It("Should add the entry On with a free key when no entry has value 1", func() {
+		entries, added := v5.ActuatorEntries([]enumeration.Entry{
+			{Key: "on", Value: 0, Name: "Base"},
+		})
+		Expect(added).To(BeTrue())
+		Expect(entries).To(Equal([]enumeration.Entry{
+			{Key: "on", Value: 0, Name: "Base"},
+			{Key: "1", Value: 1, Name: "On"},
+		}))
+	})
+
+	DescribeTable("Should add no entry", func(entries []enumeration.Entry) {
+		next, added := v5.ActuatorEntries(entries)
+		Expect(added).To(BeFalse())
+		Expect(next).To(Equal(entries))
+	},
+		Entry("to no entries", []enumeration.Entry(nil)),
+		Entry("to entries with value 1", []enumeration.Entry{{Key: "a", Value: 1}}),
+	)
 })

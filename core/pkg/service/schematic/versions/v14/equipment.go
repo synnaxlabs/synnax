@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
+	enumeration "github.com/synnaxlabs/synnax/pkg/service/enumeration/versions/v0"
 	symbol "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v5"
 	v13 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v13"
 	xcolor "github.com/synnaxlabs/x/color/versions/v2"
@@ -197,9 +198,14 @@ func channelKey(k channel.Key) *channel.Key {
 	return &k
 }
 
-// actuate gives each stored symbol that a custom_actuator node of s draws the commands
-// of an actuator.
-func actuate(ctx context.Context, tx gorp.Tx, s v13.Schematic) error {
+// actuate makes each stored symbol that a custom_actuator node of s draws an actuator,
+// as symbol.Actuate does. Its enumeration gets symbol.ActuatorEntries through intern.
+func actuate(
+	ctx context.Context,
+	tx gorp.Tx,
+	intern symbol.Intern,
+	s v13.Schematic,
+) error {
 	for _, n := range s.Nodes {
 		cfg, ok := n.Config.Variant.(v13.CustomActuatorNodeConfig)
 		if !ok {
@@ -216,7 +222,15 @@ func actuate(ctx context.Context, tx gorp.Tx, s v13.Schematic) error {
 		if !found {
 			continue
 		}
-		sym.Data = symbol.Actuate(sym.Data)
+		if sym.Data, err = actuatorEntries(
+			ctx,
+			tx,
+			intern,
+			sym.Name,
+			symbol.Actuate(sym.Data),
+		); err != nil {
+			return err
+		}
 		if err = gorp.NewCreate[symbol.Key, symbol.Symbol]().
 			Entry(&sym).
 			Exec(ctx, tx); err != nil {
@@ -224,6 +238,60 @@ func actuate(ctx context.Context, tx gorp.Tx, s v13.Schematic) error {
 		}
 	}
 	return nil
+}
+
+// actuatorEntries returns spec with an enumeration of symbol.ActuatorEntries, named
+// name, on its state "active", when the enumeration of the state lacks the entry On.
+func actuatorEntries(
+	ctx context.Context,
+	tx gorp.Tx,
+	intern symbol.Intern,
+	name string,
+	spec symbol.Spec,
+) (symbol.Spec, error) {
+	for i, s := range spec.States {
+		state, ok := s.Variant.(symbol.EnumerationState)
+		if !ok || state.Key != activeState {
+			continue
+		}
+		entries, err := entriesOf(ctx, tx, state)
+		if err != nil {
+			return symbol.Spec{}, err
+		}
+		entries, added := symbol.ActuatorEntries(entries)
+		if !added {
+			return spec, nil
+		}
+		key, err := intern(ctx, name, entries)
+		if err != nil {
+			return symbol.Spec{}, err
+		}
+		state.Enumeration = &key
+		spec.States[i] = symbol.State{Variant: state}
+	}
+	return spec, nil
+}
+
+// entriesOf returns the entries of the enumeration of state, or nil when it has none.
+func entriesOf(
+	ctx context.Context,
+	tx gorp.Tx,
+	state symbol.EnumerationState,
+) ([]enumeration.Entry, error) {
+	if state.Enumeration == nil {
+		return nil, nil
+	}
+	var e enumeration.Enumeration
+	err := gorp.NewRetrieve[enumeration.Key, enumeration.Enumeration]().
+		Where(gorp.MatchKeys[enumeration.Key, enumeration.Enumeration](
+			*state.Enumeration,
+		)).
+		Entry(&e).
+		Exec(ctx, tx)
+	if err != nil {
+		return nil, err
+	}
+	return e.Entries, nil
 }
 
 // resolveSymbols gives each symbol node of s whose custom symbol the store does not
