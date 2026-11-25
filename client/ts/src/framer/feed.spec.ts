@@ -184,20 +184,25 @@ describe("Feed", () => {
     const writer = await client.openWriter({ start, channels: [time.key, data.key] });
     let written = 0;
     let running = true;
-    // A 1 kHz writer: ten samples a millisecond apart, paced to the wall clock. Each
-    // data sample holds its sample number.
+    // A 1 kHz writer: sample n is stamped n milliseconds after start and holds n. Each
+    // write holds every sample due by now, so a late timer never leaves the samples
+    // behind the window.
     const writing = (async () => {
       while (running) {
-        const numbers = Array.from({ length: 10 }, (_, i) => written + i);
-        await writer.write({
-          [time.key]: new BigInt64Array(
-            numbers.map((n) => start.add(TimeSpan.milliseconds(n)).valueOf()),
-          ),
-          [data.key]: new Float32Array(numbers),
-        });
-        written += 10;
-        const next = start.add(TimeSpan.milliseconds(written));
-        if (next.after(TimeStamp.now())) await sleep.sleep(next.span(TimeStamp.now()));
+        const due = Math.floor(TimeStamp.now().span(start).milliseconds) + 1;
+        const numbers = Array.from(
+          { length: Math.max(due - written, 0) },
+          (_, i) => written + i,
+        );
+        if (numbers.length > 0)
+          await writer.write({
+            [time.key]: new BigInt64Array(
+              numbers.map((n) => start.add(TimeSpan.milliseconds(n)).valueOf()),
+            ),
+            [data.key]: new Float32Array(numbers),
+          });
+        written += numbers.length;
+        await sleep.sleep(TimeSpan.milliseconds(10));
       }
     })();
     const seamFeed = client.openFeed({ removalDelay: TimeSpan.ZERO });
