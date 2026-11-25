@@ -53,11 +53,12 @@ Arc struct {
         @go marshal omit
     }
 
-    @doc value  """
+    @doc value     """
         is an Arc module combining visual graph representation and text-based source
         code for reactive control systems. Compiles to WebAssembly for sandboxed
         execution.
     """
     @go marshal
     @go migrate
+    @resource type "arc"
 }
