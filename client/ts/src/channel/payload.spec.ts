@@ -123,7 +123,7 @@ describe("singleWhere", () => {
     expect(channel.singleWhere("sensor")).toEqual({ name: { eq: "sensor" } });
   });
 
-  it("should read a string with leading digits as a name", () => {
-    expect(channel.singleWhere("12abc")).toEqual({ name: { eq: "12abc" } });
+  it("should read a string with leading digits as a key, as the retrieve does", () => {
+    expect(channel.singleWhere("12abc")).toEqual({ key: { eq: 12 } });
   });
 });

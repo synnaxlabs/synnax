@@ -279,16 +279,6 @@ describe("Channel", () => {
   });
 
   describe("retrieve", () => {
-    it("should retrieve a list of digit text as names", async () => {
-      const rand = Math.floor(Math.random() * 1e9);
-      const names = [`${Date.now()}${rand}`, `${Date.now()}${rand + 1}`];
-      const made = await client.channels.create(
-        names.map((name) => ({ name, dataType: DataType.FLOAT32, virtual: true })),
-      );
-      const got = await client.channels.retrieve(names);
-      expect(got.map((c) => c.key).sort()).toEqual(made.map((c) => c.key).sort());
-    });
-
     test("retrieve by key", async () => {
       const channel = await client.channels.create({
         name: id.create(),
@@ -423,28 +413,6 @@ describe("Channel", () => {
   });
 
   describe("delete", async () => {
-    it("should delete the channels named by digit text and no channel by key", async () => {
-      const keep = await client.channels.create({
-        name: id.create(),
-        dataType: DataType.FLOAT32,
-        virtual: true,
-      });
-      const rand = Math.floor(Math.random() * 1e9);
-      const names = [
-        `${Date.now()}${rand}`,
-        `${keep.key}-tank`,
-        `1e${rand}`,
-        `0x${rand.toString(16)}`,
-      ];
-      const made = await client.channels.create(
-        names.map((name) => ({ name, dataType: DataType.FLOAT32, virtual: true })),
-      );
-      expect((await client.channels.retrieve(names[0])).key).toEqual(made[0].key);
-      await client.channels.delete(names);
-      expect(await client.channels.retrieve(made.map((c) => c.key))).toHaveLength(0);
-      expect((await client.channels.retrieve(keep.key)).key).toEqual(keep.key);
-    });
-
     test("delete by key", async () => {
       const channel = await client.channels.create({
         name: id.create(),

@@ -453,7 +453,7 @@ describe("MQTT Edge form", () => {
       const failing = createTag("t2", {
         name: "b",
         channel: ch.key,
-        commandChannelName: "bad.name",
+        commandChannelName: "bad name",
       });
       const first = await renderEdge([tag, failing]);
       await clickDeploy(first.container);
