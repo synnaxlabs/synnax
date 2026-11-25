@@ -49,8 +49,7 @@ var _ = Describe("Planned delete", Ordered, func() {
 	It("Should plan and delete channels that nothing holds", func(ctx SpecContext) {
 		keys := MustSucceed(CreateVirtual(ctx, db, svc, 2))
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			removed, effects, err := svc.PlanDelete(ctx, tx, keys)
-			Expect(err).ToNot(HaveOccurred())
+			removed, effects := MustSucceed2(svc.PlanDelete(ctx, tx, keys))
 			Expect(removed).To(ConsistOf(keys))
 			Expect(effects.Restricts).To(BeEmpty())
 			return svc.NewWriter(tx).DeletePlanned(ctx, removed, effects)
@@ -104,8 +103,9 @@ var _ = Describe("Planned delete", Ordered, func() {
 			Leaseholder: 1,
 		})
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			removed, effects, err := svc.PlanDelete(ctx, tx, channel.Keys{idx.Key()})
-			Expect(err).ToNot(HaveOccurred())
+			removed, effects := MustSucceed2(
+				svc.PlanDelete(ctx, tx, channel.Keys{idx.Key()}),
+			)
 			Expect(effects.Restricts).To(HaveLen(1))
 			return svc.NewWriter(tx).DeletePlanned(ctx, removed, effects)
 		})).To(MatchError(gorp.RestrictError{

@@ -32,9 +32,7 @@ var _ = Describe("Delete order", func() {
 				var effects gorp.DeleteEffects
 				for _, id := range ids {
 					effects.Restricts = append(effects.Restricts, gorp.DeleteEffect{
-						Dependent: gorp.Dependent{
-							Holder: gorp.Target{Table: string(holder), Key: id.Key},
-						},
+						Holder: gorp.Target{Table: string(holder), Key: id.Key},
 						Target: gorp.Target{Table: string(id.Type), Key: id.Key},
 					})
 				}
