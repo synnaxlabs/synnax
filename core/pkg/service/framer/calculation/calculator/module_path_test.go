@@ -26,6 +26,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -95,7 +96,7 @@ var _ = Describe("Module member names in a calculation", Ordered, func() {
 			written, changed := MustSucceed2(c.Next(ctx, fr, frame.Frame{}))
 			Expect(changed).To(BeTrue())
 			Expect(written.Get(out.Key()).Series[0]).
-				To(telem.MatchSeriesDataV(3.0, 5.0))
+				To(MatchSeriesDataV(3.0, 5.0))
 		},
 		Entry("by its bare path", "return math.inf * 2.0"),
 		Entry("by its quoted path", "return 'math.inf' * 2.0"),
