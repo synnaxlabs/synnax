@@ -456,29 +456,49 @@ describe("Custom.Drawing part clicks", () => {
     expect(clicks.main).toHaveBeenCalledOnce();
   });
 
-  it("should tint the inside of a part with no fill while the pointer is on it", async () => {
-    const spec = {
-      ...createSpec(
-        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">' +
-          '<rect class="main" width="10" height="10" fill="none" /></svg>',
-      ),
-      parts: [{ key: "main", name: "Main", selectors: [".main"] }],
-    };
-    const { container } = await render(
-      <Theming.Provider theme={Theming.SYNNAX_DARK}>
-        <div className={CSS.BE("symbol", "container")}>
-          <Primitive.Div>
-            <Custom.Drawing spec={spec} partClicks={{ main: vi.fn() }} />
-          </Primitive.Div>
-        </div>
-      </Theming.Provider>,
-    );
-    const rect = container.querySelector(".main");
-    if (rect == null) throw new Error("drawing not mounted");
-    expect(computed(rect, "fill")).toBe("none");
-    await userEvent.hover(rect);
-    await expect.poll(() => computed(rect, "fill")).not.toBe("none");
-  });
+  it.each([
+    [
+      "inside a closed shape",
+      '<path class="main" d="M0 0 H10 V10 Z" fill="none" />',
+      true,
+    ],
+    [
+      "no inside of an open shape",
+      '<path class="main" d="M0 0 H10 V10" fill="none" />',
+      false,
+    ],
+    [
+      "no inside of a polyline",
+      '<polyline class="main" points="0,0 10,0 10,10" fill="none" />',
+      false,
+    ],
+  ])(
+    "should tint %s of a part while the pointer is on it",
+    async (_, shape, filled) => {
+      const spec = {
+        ...createSpec(
+          `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">${shape}</svg>`,
+        ),
+        parts: [{ key: "main", name: "Main", selectors: [".main"] }],
+      };
+      const { container } = await render(
+        <Theming.Provider theme={Theming.SYNNAX_DARK}>
+          <div className={CSS.BE("symbol", "container")}>
+            <Primitive.Div>
+              <Custom.Drawing spec={spec} partClicks={{ main: vi.fn() }} />
+            </Primitive.Div>
+          </div>
+        </Theming.Provider>,
+      );
+      const rect = container.querySelector(".main");
+      if (rect == null) throw new Error("drawing not mounted");
+      const rest = computed(rect, "stroke");
+      expect(computed(rect, "fill")).toBe("none");
+      await userEvent.hover(rect);
+      await expect.poll(() => computed(rect, "stroke")).not.toBe(rest);
+      expect(computed(rect, "fill") !== "none").toBe(filled);
+    },
+  );
 });
 
 describe("Custom.Drawing hold fill", () => {

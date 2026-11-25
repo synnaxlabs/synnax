@@ -26,6 +26,7 @@ import { Region } from "@/schematic/node/common/region";
 const CLICKABLE = CSS.BEM("symbol", "part", "clickable");
 const HOVERED = CSS.BEM("symbol", "part", "hovered");
 const PRESSED = CSS.BEM("symbol", "part", "pressed");
+const OPEN = CSS.BEM("symbol", "part", "open");
 
 // partAt returns the key of the part that holds target inside host.
 const partAt = (
@@ -42,15 +43,22 @@ const partAt = (
   )?.key;
 };
 
-// mark gives className to each shape of parts inside host, and to no other.
-const mark = (host: Element, parts: schematic.symbol.Part[], className: string) => {
+// mark gives className to each of shapes inside host, and to no other element.
+const mark = (host: Element, shapes: SVGElement[], className: string) => {
   host
     .querySelectorAll(`.${className}`)
     .forEach((el) => el.classList.remove(className));
-  parts.forEach(({ selectors }) =>
-    Region.graphics(host, selectors).forEach((el) => el.classList.add(className)),
-  );
+  shapes.forEach((el) => el.classList.add(className));
 };
+
+// SVG fills an open shape as if it were closed, so an open shape takes no tint fill.
+const isOpen = (el: SVGElement): boolean =>
+  el.tagName === "line" ||
+  el.tagName === "polyline" ||
+  (el.tagName === "path" &&
+    (el.getAttribute("d") ?? "")
+      .split(/(?=[Mm])/)
+      .some((sub) => sub.trim() !== "" && !/[Zz]\s*$/.test(sub)));
 
 // A press released off its part makes the browser click the shapes around both ends.
 // dropStrayClick drops that click until the press ends, so no other part and not the
@@ -122,8 +130,12 @@ export const usePartClicks = ({
   useLayoutEffect(() => {
     const host = hostRef.current;
     if (host == null) return;
-    const keyed = (key?: string) => clickable.filter((p) => p.key === key);
-    mark(host, clickable, CLICKABLE);
+    const shapes = (parts: schematic.symbol.Part[]) =>
+      parts.flatMap(({ selectors }) => Region.graphics(host, selectors));
+    const keyed = (key?: string) => shapes(clickable.filter((p) => p.key === key));
+    const all = shapes(clickable);
+    mark(host, all, CLICKABLE);
+    mark(host, all.filter(isOpen), OPEN);
     mark(host, keyed(hovered), HOVERED);
     mark(host, keyed(shownPress), PRESSED);
   }, [spec.drawing.markup, clickable, hovered, shownPress]);
