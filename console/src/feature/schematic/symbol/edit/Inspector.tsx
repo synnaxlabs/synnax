@@ -406,7 +406,7 @@ export const Inspector = ({ part: key, preview }: InspectorProps): ReactElement 
           <Text.Text level="h5">{part?.name ?? "Whole drawing"}</Text.Text>
           <Text.Text level="small" color={9}>
             {part == null
-              ? "Looks here reach every shape."
+              ? "Looks here reach every shape. Click a shape to select its part or add one."
               : "Click shapes in the drawing to add or remove them."}
           </Text.Text>
         </Flex.Box>
