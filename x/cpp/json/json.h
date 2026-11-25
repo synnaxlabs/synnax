@@ -346,7 +346,8 @@ public:
     }
 
     /// @brief pulls the value at the given path like field, and also accumulates an
-    /// error when the value is the zero value of T, such as an empty string or 0.
+    /// error when the value is the zero value of T, such as an empty string, an empty
+    /// vector, or 0.
     /// @param path The JSON path to the field.
     /// @returns The value at the given path, or a default-constructed T if not found.
     template<typename T>
@@ -357,7 +358,12 @@ public:
         const auto before = this->errors == nullptr ? 0 : this->errors->size();
         T value = get<T>(path, iter);
         const bool parsed = this->errors == nullptr || this->errors->size() == before;
-        if (parsed && value == T()) field_err(path, "This field is required");
+        bool zero = false;
+        if constexpr (requires { value.empty(); })
+            zero = value.empty();
+        else
+            zero = value == T();
+        if (parsed && zero) field_err(path, "This field is required");
         return value;
     }
 

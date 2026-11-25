@@ -18,7 +18,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Theming as Base } from "@synnaxlabs/lyra/theming";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { Schematic, Theming } from "@synnaxlabs/pluto";
-import { bounds, deep, dimensions, TimeSpan } from "@synnaxlabs/x";
+import { bounds, type color, deep, dimensions, TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement, useEffect, useRef, useState } from "react";
 
 import { FileDrop } from "@/feature/schematic/symbol/edit/FileDrop";
@@ -70,13 +70,14 @@ interface PreviewProps {
 interface DrawingProps {
   spec: schematic.symbol.Spec;
   value: number;
+  nodeColor: color.Crude;
   onMount: (drawing: SVGGElement) => void;
 }
 
 // Drawing renders inside the preview's theme provider, so its paints band in the
 // preview theme.
-const Drawing = ({ spec, value, onMount }: DrawingProps): ReactElement => {
-  const paints = Schematic.Node.Custom.usePaints(spec, value);
+const Drawing = ({ spec, value, nodeColor, onMount }: DrawingProps): ReactElement => {
+  const paints = Schematic.Node.Custom.usePaints(spec, value, { nodeColor });
   const setDrawing = Schematic.Node.Custom.useRender({ spec, paints, onMount });
   return <g ref={setDrawing} />;
 };
@@ -99,7 +100,7 @@ export const Preview = ({
   const zoom = Form.useField(ZOOM_PATH);
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-  const isDark = Base.use().dark;
+  const { dark: isDark, colors } = Base.use();
   // The toggle holds until the app theme changes.
   const [darkMode, setDarkMode] = useState({ app: isDark, dark: isDark });
   if (darkMode.app !== isDark) setDarkMode({ app: isDark, dark: isDark });
@@ -228,6 +229,8 @@ export const Preview = ({
     Array.from(drawing.children).forEach(addInteractivity);
   };
 
+  // A schematic node gives the node color, so the preview draws a sample of it.
+  const nodeColor = colors.primary.z;
   const dims = Schematic.Node.Region.measure(spec.drawing.markup);
 
   const handleContentsChange = (contents: string, filename?: string) => {
@@ -343,7 +346,12 @@ export const Preview = ({
                       Schematic.Node.Primitive.resolveScale(spec.scale),
                     )}
                   >
-                    <Drawing spec={spec} value={selectedValue} onMount={onMount} />
+                    <Drawing
+                      spec={spec}
+                      value={selectedValue}
+                      nodeColor={nodeColor}
+                      onMount={onMount}
+                    />
                   </svg>
                 )}
               </div>

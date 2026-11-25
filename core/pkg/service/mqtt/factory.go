@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
+	"github.com/synnaxlabs/synnax/pkg/service/icd/read"
 	"github.com/synnaxlabs/synnax/pkg/service/icd/write"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/mqtt/sparkplug"
@@ -147,6 +148,7 @@ type Factory struct {
 	pool     *pool
 	reporter driver.ConfigReporter
 	cfg      FactoryConfig
+	reads    read.Resolver
 	// edited holds the keys of the broker devices that changed since the last
 	// reconfigure.
 	edited struct {
@@ -169,7 +171,8 @@ func OpenFactory(cfgs ...FactoryConfig) (*Factory, error) {
 		return nil, err
 	}
 	f := &Factory{
-		cfg: cfg,
+		cfg:   cfg,
+		reads: read.NewResolver(cfg.ICD, icd.ReadChannels(cfg.Channel)),
 		pool: newPool(
 			cfg.Instrumentation,
 			cfg.DB,
@@ -385,6 +388,15 @@ func (f *Factory) configureRead(
 	}
 	icds, err := f.retrieveICDs(ctx, icdKeys)
 	if err != nil {
+		return nil, cfg.AutoStart, err
+	}
+	if err = f.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		c, err := check(ctx, snap, f.reads, &cfg, icds)
+		if err != nil {
+			return err
+		}
+		return claimIndexes(c, &cfg)
+	}); err != nil {
 		return nil, cfg.AutoStart, err
 	}
 	src := &readSource{

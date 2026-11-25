@@ -652,7 +652,7 @@ describe("MQTT read form", () => {
     const { icd: icdKey, messages } = plainOf((await retrieveEntries(draft.key))[0]);
     await waitFor(async () =>
       expect((await client.icds.retrieve(icdKey)).messages[0].payload).toMatchObject({
-        fields: [{ key: temperature.key }, { name: "Field 2", pointer: "" }],
+        fields: [{ key: temperature.key }, { name: "Field 2", pointer: "/field_2" }],
       }),
     );
     const [, added] = jsonFieldsOf(await client.icds.retrieve(icdKey));
@@ -1278,6 +1278,176 @@ describe("MQTT read form", () => {
         (await client.icds.retrieve(entry.icd)).messages.map(({ name }) => name),
       ).toEqual([TOPIC, `${TOPIC} 2`]),
     );
+  });
+
+  describe("duplicate", () => {
+    /** Creates a topic that reads temperature into a channel, and not pressure. */
+    const createBoundEntry = async () => {
+      const ch = await client.channels.create({
+        name: uniqueName("temperature"),
+        dataType: DataType.FLOAT64,
+        virtual: true,
+      });
+      const temperature = createField("temperature", "float");
+      const entry = await createEntry({
+        fields: [temperature, createField("pressure", "float")],
+        bound: { [temperature.key]: ch.key },
+      });
+      return { ch, temperature, entry };
+    };
+
+    it("should copy a field after it and read the copy into a new channel", async () => {
+      const { ch, temperature, entry } = await createBoundEntry();
+      const { draft, dev } = await renderRead({ entries: [entry] });
+      fireEvent.contextMenu(
+        await screen.findByRole("treeitem", { name: /^temperature/ }),
+      );
+      fireEvent.click(await screen.findByRole("menuitem", { name: "Duplicate" }));
+      const copy = await waitFor(async () => {
+        const [message] = (await client.icds.retrieve(entry.icd)).messages;
+        if (message.payload.format !== "json") throw new Error("expected JSON");
+        expect(message.payload.fields).toMatchObject([
+          { key: temperature.key },
+          { name: "temperature_2", pointer: "/temperature", type: "float" },
+          { name: "pressure" },
+        ]);
+        return message.payload.fields[1];
+      });
+      expect(copy.key).not.toBe(temperature.key);
+      await waitFor(async () =>
+        expect(await retrieveBindings(draft.key)).toEqual([
+          { field: temperature.key, channel: ch.key, dataType: "" },
+          { field: copy.key, channel: 0, dataType: "" },
+        ]),
+      );
+      await screen.findByRole("treeitem", { name: /^temperature_2/, selected: true });
+      await screen.findByDisplayValue(`${dev.name}_plant_oven_temperature_2`);
+    });
+
+    it("should copy a field once for each topic that reads its message", async () => {
+      const { ch, temperature, entry } = await createBoundEntry();
+      const kiln = mqtt.plainReadEntryZ.parse({
+        ...entry,
+        key: uuid.create(),
+        topic: "plant/kiln",
+        messages: [
+          { ...entry.messages[0], bindings: [{ field: temperature.key, channel: 0 }] },
+        ],
+      });
+      const { draft } = await renderRead({ entries: [entry, kiln] });
+      const [first, second] = await waitFor(() => {
+        const found = screen.getAllByRole("treeitem", { name: /^temperature/ });
+        expect(found).toHaveLength(2);
+        return found;
+      });
+      fireEvent.click(first);
+      fireEvent.keyDown(window, { code: "Control" });
+      fireEvent.click(second);
+      fireEvent.keyUp(window, { code: "Control" });
+      fireEvent.contextMenu(second);
+      fireEvent.click(await screen.findByRole("menuitem", { name: "Duplicate" }));
+      const copy = await waitFor(async () => {
+        const [message] = (await client.icds.retrieve(entry.icd)).messages;
+        if (message.payload.format !== "json") throw new Error("expected JSON");
+        expect(message.payload.fields.map(({ name }) => name)).toEqual([
+          "temperature",
+          "temperature_2",
+          "pressure",
+        ]);
+        return message.payload.fields[1];
+      });
+      await waitFor(async () =>
+        expect(
+          (await retrieveEntries(draft.key)).map(
+            (e) => plainOf(e).messages[0].bindings,
+          ),
+        ).toEqual([
+          [
+            { field: temperature.key, channel: ch.key, dataType: "" },
+            { field: copy.key, channel: 0, dataType: "" },
+          ],
+          [
+            { field: temperature.key, channel: 0, dataType: "" },
+            { field: copy.key, channel: 0, dataType: "" },
+          ],
+        ]),
+      );
+    });
+
+    it("should read the copy only in the topic of the chosen field", async () => {
+      const { ch, temperature, entry } = await createBoundEntry();
+      const kiln = mqtt.plainReadEntryZ.parse({
+        ...entry,
+        key: uuid.create(),
+        topic: "plant/kiln",
+        messages: [
+          { ...entry.messages[0], bindings: [{ field: temperature.key, channel: 0 }] },
+        ],
+      });
+      const { draft } = await renderRead({ entries: [entry, kiln] });
+      const [oven] = await waitFor(() => {
+        const found = screen.getAllByRole("treeitem", { name: /^temperature/ });
+        expect(found).toHaveLength(2);
+        return found;
+      });
+      fireEvent.contextMenu(oven);
+      fireEvent.click(await screen.findByRole("menuitem", { name: "Duplicate" }));
+      const copy = await waitFor(async () => {
+        const [message] = (await client.icds.retrieve(entry.icd)).messages;
+        if (message.payload.format !== "json") throw new Error("expected JSON");
+        expect(message.payload.fields).toHaveLength(3);
+        return message.payload.fields[1];
+      });
+      await waitFor(async () =>
+        expect(
+          (await retrieveEntries(draft.key)).map(
+            (e) => plainOf(e).messages[0].bindings,
+          ),
+        ).toEqual([
+          [
+            { field: temperature.key, channel: ch.key, dataType: "" },
+            { field: copy.key, channel: 0, dataType: "" },
+          ],
+          [{ field: temperature.key, channel: 0, dataType: "" }],
+        ]),
+      );
+    });
+
+    it("should copy a topic after it and read each field into a new channel", async () => {
+      const { temperature, entry } = await createBoundEntry();
+      const { draft } = await renderRead({ entries: [entry] });
+      fireEvent.contextMenu(
+        await screen.findByRole("treeitem", { name: /plant\/oven/ }),
+      );
+      fireEvent.click(await screen.findByRole("menuitem", { name: "Duplicate" }));
+      const [original, copy] = await waitFor(async () => {
+        const entries = (await retrieveEntries(draft.key)).map(plainOf);
+        expect(entries).toHaveLength(2);
+        return entries;
+      });
+      expect(copy.key).not.toBe(original.key);
+      expect(copy).toEqual({
+        ...original,
+        key: copy.key,
+        messages: [
+          {
+            ...original.messages[0],
+            bindings: [{ field: temperature.key, channel: 0, dataType: "" }],
+          },
+        ],
+      });
+    });
+
+    it("should offer no Duplicate for a message of a topic that reads several", async () => {
+      const entry = await createEntry({
+        fields: [createField("temperature", "float")],
+      });
+      await addMessage(entry, "status", [createField("mode", "string")], KIND_MATCH);
+      await renderRead({ entries: [entry] });
+      fireEvent.contextMenu(await screen.findByRole("treeitem", { name: "status" }));
+      await screen.findByText("Remove");
+      expect(screen.queryByText("Duplicate")).toBeNull();
+    });
   });
 
   describe("field details", () => {
@@ -2328,7 +2498,7 @@ describe("MQTT read form", () => {
     await screen.findByDisplayValue(`${dev.name}_plant_oven_temperature_2`);
   });
 
-  it("should move only the message that borrows a channel on another's index", async () => {
+  it("should move only the message that borrows a channel on another's index when its entry turns on", async () => {
     const time = await createTimeChannel();
     const createOnTime = async (name: string) =>
       await client.channels.create({
@@ -2344,10 +2514,12 @@ describe("MQTT read form", () => {
       bound: { [temperatureField.key]: temperature.key },
     });
     await addMessage(entry, "status", [createField("flow", "float")], KIND_MATCH);
-    // The second message took the channel that the first stores for /flow.
+    // The second message took the channel that the first stores for /flow. The Core
+    // checks only enabled entries, so a disabled entry can hold this state.
     entry.messages[1].bindings[0].channel = flow.key;
+    entry.disabled = true;
     const channels = { "/temperature": temperature.key, "/flow": flow.key };
-    await renderRead({
+    const { container, draft } = await renderRead({
       entries: [entry],
       properties: {
         read: {
@@ -2355,12 +2527,16 @@ describe("MQTT read form", () => {
         },
       },
     });
-    const isNew = (name: RegExp) =>
-      within(screen.getByRole("treeitem", { name })).queryByRole("img", {
-        name: "New channel",
-      });
-    await waitFor(() => expect(isNew(/^flow/)).not.toBeNull());
-    expect(isNew(/^temperature/)).toBeNull();
+    const item = await screen.findByRole("treeitem", { name: /JSON.*plant\/oven/ });
+    fireEvent.click(within(item).getByRole("checkbox", { name: "Enabled" }));
+    const created = await deploy(container, draft.key);
+    const [first, second] = plainOf(created.config.entries[0]).messages;
+    expect(first.bindings).toEqual([
+      { field: temperatureField.key, channel: temperature.key, dataType: "" },
+    ]);
+    const moved = await client.channels.retrieve(second.bindings[0].channel);
+    expect(moved.key).not.toBe(flow.key);
+    expect(moved.index).not.toBe(time.key);
   });
 
   describe("Sparkplug B entries", () => {
@@ -3093,7 +3269,7 @@ describe("MQTT read form", () => {
       ).toEqual([]);
     });
 
-    it("should keep the channels stored under a topic when an earlier message fails", async () => {
+    it("should store the channels under a topic for their message when an earlier message fails", async () => {
       const time = await createTimeChannel();
       const createFloat = async (name: string) =>
         await client.channels.create({
@@ -3114,7 +3290,7 @@ describe("MQTT read form", () => {
         match("failing"),
       );
       const valueField = createField("value", "float");
-      await addMessage(entry, "owner", [valueField], match("owner"));
+      const owner = await addMessage(entry, "owner", [valueField], match("owner"));
       entry.messages[2].bindings = [
         { field: valueField.key, channel: value.key, dataType: "" },
       ];
@@ -3134,7 +3310,79 @@ describe("MQTT read form", () => {
           expect.objectContaining({ message: "Failed to start task" }),
         ),
       );
-      expect((await retrieveRead(dev.key))[TOPIC]).toEqual(legacy);
+      const read = await retrieveRead(dev.key);
+      expect(read[`${TOPIC}#${owner.key}`]).toEqual(legacy);
+      expect(read).not.toHaveProperty(TOPIC);
+    });
+
+    it("should give the index stored under a topic to an enabled entry before a disabled one", async () => {
+      const time = await createTimeChannel();
+      const [a, b] = await client.channels.create([
+        { name: uniqueName("a"), dataType: DataType.FLOAT64, index: time.key },
+        { name: uniqueName("b"), dataType: DataType.FLOAT64, index: time.key },
+      ]);
+      const aField = createField("a", "float");
+      const disabled = await createEntry({
+        fields: [aField],
+        bound: { [aField.key]: a.key },
+      });
+      disabled.disabled = true;
+      const bField = createField("b", "float");
+      const enabled = await createEntry({
+        fields: [bField],
+        bound: { [bField.key]: b.key },
+      });
+      const legacy = { index: time.key, channels: { "/a": a.key, "/b": b.key } };
+      const { container, dev, draft } = await renderRead({
+        entries: [disabled, enabled],
+        properties: { read: { [TOPIC]: legacy } },
+      });
+      const created = await deploy(container, draft.key);
+      expect(plainOf(created.config.entries[1]).messages[0].bindings[0].channel).toBe(
+        b.key,
+      );
+      const read = await retrieveRead(dev.key);
+      expect(read).not.toHaveProperty(TOPIC);
+      expect(read[`${TOPIC}#${disabled.messages[0].message}`]).toEqual({
+        index: 0,
+        channels: { "/a": a.key },
+      });
+      expect(read[`${TOPIC}#${enabled.messages[0].message}`]).toEqual(legacy);
+    });
+
+    it("should read a new index field into the index stored under the topic before a disabled entry", async () => {
+      const time = await createTimeChannel();
+      const [a, b] = await client.channels.create([
+        { name: uniqueName("a"), dataType: DataType.FLOAT64, index: time.key },
+        { name: uniqueName("b"), dataType: DataType.FLOAT64, index: time.key },
+      ]);
+      const aField = createField("a", "float");
+      const disabled = await createEntry({
+        fields: [aField],
+        bound: { [aField.key]: a.key },
+      });
+      disabled.disabled = true;
+      const bField = createField("b", "float");
+      const stamp = createTimeField();
+      const enabled = await createEntry({
+        fields: [bField, stamp],
+        bound: { [bField.key]: b.key },
+      });
+      const legacy = { index: time.key, channels: { "/a": a.key, "/b": b.key } };
+      const { draft } = await renderRead({
+        entries: [disabled, enabled],
+        properties: { read: { [TOPIC]: legacy } },
+      });
+      const topics = await screen.findAllByRole("treeitem", {
+        name: new RegExp(TOPIC),
+      });
+      fireEvent.click(topics[topics.length - 1]);
+      fireEvent.click(await screen.findByRole("button", { name: "Payload value" }));
+      await waitFor(async () =>
+        expect(
+          plainOf((await retrieveEntries(draft.key))[1]).messages[0].bindings,
+        ).toContainEqual({ field: stamp.key, channel: time.key, dataType: "" }),
+      );
     });
 
     it("should give a new entry the stored channel that only a disabled entry binds", async () => {

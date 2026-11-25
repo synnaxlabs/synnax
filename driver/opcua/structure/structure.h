@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <chrono>
 #include <cstddef>
 #include <memory>
 #include <string>
@@ -108,10 +109,12 @@ public:
     /// with the types their members use. A type that does not build keeps the reason,
     /// which field returns.
     /// @returns the error of a request, such as errors::UNREACHABLE when the connection
-    /// is lost.
+    /// is lost, or errors::DEADLINE_EXCEEDED once deadline passes.
     static std::pair<Types, x::errors::Error> read(
         const connection::Pool::Connection &conn,
-        const std::vector<UA_NodeId> &data_types
+        const std::vector<UA_NodeId> &data_types,
+        std::chrono::steady_clock::time_point deadline =
+            std::chrono::steady_clock::time_point::max()
     );
 
     /// @returns the type with the data type ID, or nullptr if neither the client nor

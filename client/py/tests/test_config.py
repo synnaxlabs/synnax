@@ -26,11 +26,14 @@ from synnax.config import (
     DESKTOP_NOT_RUNNING_MSG,
     KEYCHAIN_UNAVAILABLE_MSG,
     NO_CREDENTIALS_MSG,
+    NO_HOME_MSG,
     NO_KEY_HELPER_MSG,
     OLD_DESKTOP_MSG,
     Cluster,
     Clusters,
     File,
+    config_dirs,
+    file,
     load_desktop_options,
     load_env_options,
     load_options,
@@ -88,6 +91,17 @@ def time_out(path: Path) -> subprocess.CompletedProcess[str]:
     raise subprocess.TimeoutExpired(str(path), 60)
 
 
+def home_env(home: Path) -> dict[str, str]:
+    """Returns the variables that point every config directory into home."""
+    return {
+        "HOME": str(home),
+        "USERPROFILE": str(home),
+        "APPDATA": str(home / "AppData" / "Roaming"),
+        "LOCALAPPDATA": str(home / "AppData" / "Local"),
+        "XDG_CONFIG_HOME": str(home / ".config"),
+    }
+
+
 @pytest.fixture
 def clusters(tmp_path: Path) -> Clusters:
     return Clusters(File(config_dir=tmp_path), MemoryKeyring())
@@ -98,7 +112,279 @@ def desktop_file(tmp_path: Path) -> Path:
     return tmp_path / "desktop.json"
 
 
+class TestConfigDirs:
+    @pytest.mark.parametrize(
+        ("platform", "env", "current"),
+        [
+            ("linux", {}, ".config/synnax"),
+            ("linux", {"XDG_CONFIG_HOME": "xdg"}, "xdg/synnax"),
+            ("linux", {"XDG_CONFIG_HOME": "relative"}, ".config/synnax"),
+            ("linux", {"XDG_CONFIG_HOME": ""}, ".config/synnax"),
+            ("freebsd14", {}, ".config/synnax"),
+            (
+                "darwin",
+                {"XDG_CONFIG_HOME": "xdg"},
+                "Library/Application Support/Synnax",
+            ),
+            ("win32", {}, "AppData/Roaming/Synnax"),
+            ("win32", {"APPDATA": "roaming"}, "roaming/Synnax"),
+            ("win32", {"APPDATA": "relative"}, "AppData/Roaming/Synnax"),
+            ("win32", {"LOCALAPPDATA": "local"}, "AppData/Roaming/Synnax"),
+        ],
+    )
+    def test_dirs(
+        self, platform: str, env: dict[str, str], current: str, tmp_path: Path
+    ) -> None:
+        """Should place the config directory where the operating system keeps config,
+        then ~/.synnax.
+        """
+        # A relative value stays relative, and other values sit in the home.
+        env = {
+            k: v if v in ("", "relative") else str(tmp_path / v) for k, v in env.items()
+        }
+        assert config_dirs(tmp_path, env, platform) == (
+            tmp_path / current,
+            tmp_path / ".synnax",
+        )
+
+    @pytest.mark.parametrize(
+        ("platform", "env", "current"),
+        [
+            ("win32", {}, "AppData/Local/Synnax"),
+            ("win32", {"LOCALAPPDATA": "local"}, "local/Synnax"),
+            ("win32", {"LOCALAPPDATA": "relative"}, "AppData/Local/Synnax"),
+            ("win32", {"APPDATA": "roaming"}, "AppData/Local/Synnax"),
+            ("linux", {"XDG_CONFIG_HOME": "xdg"}, "xdg/synnax"),
+            ("darwin", {}, "Library/Application Support/Synnax"),
+        ],
+    )
+    def test_local_dirs(
+        self, platform: str, env: dict[str, str], current: str, tmp_path: Path
+    ) -> None:
+        """Should place files of this computer in %LOCALAPPDATA% on Windows, and in
+        the config directory elsewhere.
+        """
+        env = {k: v if v == "relative" else str(tmp_path / v) for k, v in env.items()}
+        assert config_dirs(tmp_path, env, platform, local=True) == (
+            tmp_path / current,
+            tmp_path / ".synnax",
+        )
+
+    def test_unknown_home(self) -> None:
+        """Should ask for SYNNAX_HOST when the home is unknown."""
+        with pytest.raises(ConfigurationError) as e:
+            config_dirs(Path("~"), {}, "linux")
+        assert str(e.value) == NO_HOME_MSG
+
+
 class TestFile:
+    def test_reads_the_legacy_file(self, tmp_path: Path) -> None:
+        """Should load the legacy file when the config directory holds none, and
+        write both files on the first write.
+        """
+        current, legacy = tmp_path / "current", tmp_path / "legacy"
+        legacy.mkdir()
+        (legacy / "config.json").write_text('{"a": 1}', encoding="utf-8")
+        config = File(config_dir=current, legacy_dir=legacy)
+        assert config.config == {"a": 1}
+        config.set("b", 2)
+        assert File(config_dir=current).config == {"a": 1, "b": 2}
+        assert File(config_dir=legacy).config == {"a": 1, "b": 2}
+
+    def test_prefers_the_config_dir(self, tmp_path: Path) -> None:
+        """Should load the file in the config directory over the legacy file."""
+        current, legacy = tmp_path / "current", tmp_path / "legacy"
+        File(config_dir=legacy).set("a", 1)
+        File(config_dir=current).set("a", 2)
+        assert File(config_dir=current, legacy_dir=legacy).config == {"a": 2}
+
+    def test_reads_the_legacy_file_when_the_config_dir_fails(
+        self, tmp_path: Path
+    ) -> None:
+        """Should load the legacy file when the file in the config directory exists
+        but cannot be read.
+        """
+        current, legacy = tmp_path / "current", tmp_path / "legacy"
+        (current / "config.json").mkdir(parents=True)
+        File(config_dir=legacy).set("a", 1)
+        assert File(config_dir=current, legacy_dir=legacy).config == {"a": 1}
+
+    def test_names_both_files_when_neither_can_be_read(self, tmp_path: Path) -> None:
+        """Should name each file and its reason when no file can be read."""
+        current, legacy = tmp_path / "current", tmp_path / "legacy"
+        (current / "config.json").mkdir(parents=True)
+        (legacy / "config.json").mkdir(parents=True)
+        with pytest.raises(ConfigurationError) as e:
+            File(config_dir=current, legacy_dir=legacy)
+        assert str(current / "config.json") in str(e.value)
+        assert str(legacy / "config.json") in str(e.value)
+
+    @pytest.mark.skipif(sys.platform == "win32", reason="POSIX file modes")
+    def test_failed_legacy_write_changes_nothing(self, tmp_path: Path) -> None:
+        """Should leave both files and the keyring as they were when the legacy file
+        cannot be written.
+        """
+        if os.geteuid() == 0:
+            pytest.skip("root writes to a read-only directory")
+        current, legacy = tmp_path / "current", tmp_path / "legacy"
+        keyring = MemoryKeyring()
+        clusters = Clusters(File(config_dir=current, legacy_dir=legacy), keyring)
+        clusters.set(Cluster(options=Options(host="a.lab", port=9090, api_key="syk_a")))
+        before = {p: p.read_bytes() for p in (current, legacy) for p in p.iterdir()}
+        legacy.chmod(0o500)
+        try:
+            with pytest.raises(PermissionError):
+                clusters.set(
+                    Cluster(options=Options(host="b.lab", port=9090, api_key="syk_b"))
+                )
+        finally:
+            legacy.chmod(0o700)
+        after = {p: p.read_bytes() for p in (current, legacy) for p in p.iterdir()}
+        assert after == before
+        for d in (current, legacy):
+            cluster = Clusters(File(config_dir=d), keyring).get()
+            assert cluster is not None
+            assert cluster.options.host == "a.lab"
+            assert cluster.options.api_key == "syk_a"
+
+    def test_failed_replace_changes_nothing(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Should put both files and the keyring back, and leave no other file, when
+        the second file cannot be replaced.
+        """
+        current, legacy = tmp_path / "current", tmp_path / "legacy"
+        keyring = MemoryKeyring()
+        clusters = Clusters(File(config_dir=current, legacy_dir=legacy), keyring)
+        clusters.set(Cluster(options=Options(host="a.lab", port=9090, api_key="syk_a")))
+        before = {p: p.read_bytes() for d in (current, legacy) for p in d.iterdir()}
+        replace = file._replace
+        calls: list[Path] = []
+
+        def fail_second(src: str, dst: Path) -> None:
+            calls.append(dst)
+            if len(calls) == 2:
+                raise PermissionError("replace")
+            replace(src, dst)
+
+        monkeypatch.setattr(file, "_replace", fail_second)
+        with pytest.raises(PermissionError):
+            clusters.set(
+                Cluster(options=Options(host="b.lab", port=9090, api_key="syk_b"))
+            )
+        after = {p: p.read_bytes() for d in (current, legacy) for p in d.iterdir()}
+        assert after == before
+        for d in (current, legacy):
+            cluster = Clusters(File(config_dir=d), keyring).get()
+            assert cluster is not None
+            assert cluster.options.host == "a.lab"
+            assert cluster.options.api_key == "syk_a"
+
+    def test_failed_first_replace_restores_nothing(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Should replace and restore no file, and leave no other file, when the first
+        file cannot be replaced.
+        """
+        current, legacy = tmp_path / "current", tmp_path / "legacy"
+        config = File(config_dir=current, legacy_dir=legacy)
+        config.set("a", 1)
+        calls: list[Path] = []
+
+        def fail(src: str, dst: Path) -> None:
+            calls.append(dst)
+            raise PermissionError("replace")
+
+        monkeypatch.setattr(file, "_replace", fail)
+        with pytest.raises(PermissionError):
+            config.set("a", 2)
+        assert calls == [(current / "config.json").resolve()]
+        for d in (current, legacy):
+            assert [p.name for p in d.iterdir()] == ["config.json"]
+            assert File(config_dir=d).config == {"a": 1}
+
+    def test_backup_left_behind_after_a_save(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Should save when a backup cannot be removed, and remove it on the next
+        save.
+        """
+        current, legacy = tmp_path / "current", tmp_path / "legacy"
+        config = File(config_dir=current, legacy_dir=legacy)
+        config.set("a", 1)
+        unlink = Path.unlink
+
+        def keep_backups(self: Path, missing_ok: bool = False) -> None:
+            if self.name.endswith(".bak"):
+                raise PermissionError("in use")
+            unlink(self, missing_ok=missing_ok)
+
+        with monkeypatch.context() as m:
+            m.setattr(Path, "unlink", keep_backups)
+            config.set("a", 2)
+        for d in (current, legacy):
+            assert File(config_dir=d).config == {"a": 2}
+        config.set("a", 3)
+        for d in (current, legacy):
+            assert [p.name for p in d.iterdir()] == ["config.json"]
+
+    def test_reads_a_newer_legacy_login(self, tmp_path: Path) -> None:
+        """Should read the legacy file when a 0.62 client saved a login to another Core
+        there after a new login.
+        """
+        current, legacy = tmp_path / "current", tmp_path / "legacy"
+        keyring = MemoryKeyring()
+        new = Clusters(File(config_dir=current, legacy_dir=legacy), keyring)
+        new.set(Cluster(options=Options(host="a.lab", port=9090, api_key="syk_a")))
+        old = Clusters(File(config_dir=legacy), keyring)
+        old.set(Cluster(options=Options(host="b.lab", port=9090, api_key="syk_b")))
+        stamp = (current / "config.json").stat().st_mtime_ns
+        os.utime(legacy / "config.json", ns=(stamp + 10**9, stamp + 10**9))
+        cluster = Clusters(File(config_dir=current, legacy_dir=legacy), keyring).get()
+        assert cluster is not None
+        assert cluster.options.host == "b.lab"
+        assert cluster.options.api_key == "syk_b"
+
+    def test_reads_the_config_dir_on_a_tie(self, tmp_path: Path) -> None:
+        """Should read the file in the config directory when both files have the same
+        modified time.
+        """
+        current, legacy = tmp_path / "current", tmp_path / "legacy"
+        File(config_dir=legacy).set("a", 1)
+        File(config_dir=current).set("a", 2)
+        stamp = (current / "config.json").stat().st_mtime_ns
+        os.utime(legacy / "config.json", ns=(stamp, stamp))
+        assert File(config_dir=current, legacy_dir=legacy).config == {"a": 2}
+
+    def test_legacy_reader_sees_a_new_login(self, tmp_path: Path) -> None:
+        """Should keep the legacy file current, so an older client reads the Core of
+        the last login.
+        """
+        current, legacy = tmp_path / "current", tmp_path / "legacy"
+        keyring = MemoryKeyring()
+        old = Clusters(File(config_dir=legacy), keyring)
+        old.set(Cluster(options=Options(host="old.lab", port=9090, api_key="syk_o")))
+        new = Clusters(File(config_dir=current, legacy_dir=legacy), keyring)
+        new.set(Cluster(options=Options(host="new.lab", port=9090, api_key="syk_n")))
+        cluster = Clusters(File(config_dir=legacy), keyring).get()
+        assert cluster is not None
+        assert cluster.options.host == "new.lab"
+        assert cluster.options.api_key == "syk_n"
+
+    def test_missing_file(self, tmp_path: Path) -> None:
+        """Should load an empty config, and write nothing, when no file exists."""
+        assert File(config_dir=tmp_path / ".synnax").config == {}
+        assert list(tmp_path.iterdir()) == []
+
+    def test_unreadable_file(self, tmp_path: Path) -> None:
+        """Should name the file and the reason when the file cannot be read."""
+        # A directory at the path cannot be read as a file, on any platform or user.
+        (tmp_path / "config.json").mkdir()
+        with pytest.raises(ConfigurationError, match="Cannot read") as e:
+            File(config_dir=tmp_path)
+        assert str(tmp_path / "config.json") in str(e.value)
+        assert isinstance(e.value.__cause__, OSError)
+
     @pytest.mark.parametrize("content", [b"{", b"\xff"])
     def test_corrupt_file(self, content: bytes, tmp_path: Path) -> None:
         """Should name the file when it is not valid JSON."""
@@ -151,6 +437,52 @@ class TestFile:
 
 
 class TestLoadDesktopOptions:
+    @pytest.mark.parametrize("current", [True, False])
+    def test_reads_the_config_dir_then_the_home(
+        self, current: bool, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Should read the file in the config directory, or else in ~/.synnax."""
+        for k, v in home_env(tmp_path).items():
+            monkeypatch.setenv(k, v)
+        write_desktop_file(tmp_path / ".synnax" / "desktop.json", port=1)
+        if current:
+            write_desktop_file(config_dirs(local=True)[0] / "desktop.json", port=2)
+        opts = load_desktop_options(run=FakeHelper())
+        assert opts is not None
+        assert opts.port == (2 if current else 1)
+
+    def test_reads_a_newer_desktop_file_in_the_home(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Should read ~/.synnax/desktop.json when Synnax Desktop 1.1 wrote it after
+        the file in the config directory.
+        """
+        for k, v in home_env(tmp_path).items():
+            monkeypatch.setenv(k, v)
+        current = config_dirs(local=True)[0] / "desktop.json"
+        legacy = tmp_path / ".synnax" / "desktop.json"
+        write_desktop_file(current, port=2)
+        write_desktop_file(legacy, port=1)
+        stamp = current.stat().st_mtime_ns
+        os.utime(legacy, ns=(stamp + 10**9, stamp + 10**9))
+        opts = load_desktop_options(run=FakeHelper())
+        assert opts is not None
+        assert opts.port == 1
+
+    def test_reads_the_home_when_the_config_dir_fails(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Should read ~/.synnax when the file in the config directory cannot be
+        read.
+        """
+        for k, v in home_env(tmp_path).items():
+            monkeypatch.setenv(k, v)
+        write_desktop_file(tmp_path / ".synnax" / "desktop.json", port=1)
+        (config_dirs(local=True)[0] / "desktop.json").mkdir(parents=True)
+        opts = load_desktop_options(run=FakeHelper())
+        assert opts is not None
+        assert opts.port == 1
+
     def test_reads_the_file_and_the_helper(self, desktop_file: Path) -> None:
         """Should read the address from the file and the API key from the helper that
         the file names.
@@ -365,6 +697,7 @@ class TestLoadOptions:
             ("secure", None, {}, False),
             ("ca_cert", "/arg.crt", {"SYNNAX_CA_CERT": "/env.crt"}, "/arg.crt"),
             ("ca_cert", None, {"SYNNAX_CA_CERT": "/env.crt"}, "/env.crt"),
+            ("ca_cert", "", {"SYNNAX_CA_CERT": "/env.crt"}, "/env.crt"),
             ("ca_cert", None, {}, None),
         ],
     )
@@ -724,6 +1057,54 @@ class TestLoadOptions:
         )
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX home directories")
+class TestHome:
+    def test_read_only_home(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Should ask for a host, and write nothing, when the home is read-only."""
+        if sys.platform != "win32" and os.geteuid() == 0:
+            pytest.skip("root writes to a read-only directory")
+        for k, v in home_env(tmp_path).items():
+            monkeypatch.setenv(k, v)
+        tmp_path.chmod(0o500)
+        try:
+            with pytest.raises(ValidationError, match="SYNNAX_HOST"):
+                load_options()
+            assert list(tmp_path.iterdir()) == []
+        finally:
+            tmp_path.chmod(0o700)
+
+    def test_unknown_home(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Should ask for SYNNAX_HOST, and write nothing, when the home is unknown."""
+        monkeypatch.delenv("HOME", raising=False)
+        monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+        monkeypatch.setattr("pwd.getpwuid", _no_passwd_entry)
+        monkeypatch.chdir(tmp_path)
+        with pytest.raises(ConfigurationError) as e:
+            load_options()
+        assert str(e.value) == NO_HOME_MSG
+        assert list(tmp_path.iterdir()) == []
+
+    def test_unknown_home_with_a_host(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Should connect to a given host when the home is unknown."""
+        monkeypatch.delenv("HOME", raising=False)
+        monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+        monkeypatch.setattr("pwd.getpwuid", _no_passwd_entry)
+        monkeypatch.chdir(tmp_path)
+        opts, embedded = load_options(host="core.lab", api_key="syk_k")
+        assert opts == Options(host="core.lab", port=9090, api_key="syk_k")
+        assert not embedded
+
+
+def _no_passwd_entry(uid: int) -> None:
+    raise KeyError(uid)
+
+
 class TestDesktopConnection:
     def test_not_running(self, tmp_path: Path) -> None:
         """Should say that Synnax Desktop is not running when its Core is gone."""
@@ -738,8 +1119,7 @@ class TestDesktopConnection:
         # A fresh interpreter reads the home directory of the test.
         env = {
             **{k: v for k, v in os.environ.items() if not k.startswith("SYNNAX_")},
-            "HOME": str(tmp_path),
-            "USERPROFILE": str(tmp_path),
+            **home_env(tmp_path),
         }
         script = "import synnax as sy\nsy.Synnax(max_retries=0)\n"
         result = subprocess.run(
@@ -775,8 +1155,7 @@ class TestDesktopConnection:
         )
         env = {
             **{k: v for k, v in os.environ.items() if not k.startswith("SYNNAX_")},
-            "HOME": str(tmp_path),
-            "USERPROFILE": str(tmp_path),
+            **home_env(tmp_path),
         }
         with listener:
             result = subprocess.run(
@@ -800,8 +1179,7 @@ class TestEnvConnection:
             port = int(s.getsockname()[1])
         env = {
             **{k: v for k, v in os.environ.items() if not k.startswith("SYNNAX_")},
-            "HOME": str(tmp_path),
-            "USERPROFILE": str(tmp_path),
+            **home_env(tmp_path),
             "SYNNAX_HOST": "127.0.0.1",
             "SYNNAX_PORT": str(port),
             "SYNNAX_API_KEY": "syk_env",
