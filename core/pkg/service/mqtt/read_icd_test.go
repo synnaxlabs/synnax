@@ -402,13 +402,23 @@ var _ = Describe("Read task ICD messages", func() {
 							"the last one written",
 					))
 				}).Should(Succeed())
-				Expect(stored(ctx, temp)).
-					To(MatchSeriesData(telem.NewSeriesV(20.0)))
-				Expect(stored(ctx, stamped)).
-					To(MatchSeriesData(telem.NewSeriesV(2 * telem.SecondTS)))
-				Expect(stored(ctx, level)).
-					To(MatchSeriesData(telem.NewSeriesV(2.5)))
-				Expect(stored(ctx, arrived).Len()).To(BeEquivalentTo(1))
+				// The writer stores in order, so a repeat would land before this one.
+				broker.publish("plant/status", `{"ts":3,"temp":21,"level":3.5}`, false)
+				Eventually(func(g Gomega) {
+					g.Expect(stored(ctx, level)).
+						To(MatchSeriesData(telem.NewSeriesV(2.5, 3.5)))
+				}).Should(Succeed())
+				Eventually(func(g Gomega) {
+					g.Expect(stored(ctx, temp)).
+						To(MatchSeriesData(telem.NewSeriesV(20.0, 21.0)))
+				}).Should(Succeed())
+				Eventually(func(g Gomega) {
+					g.Expect(stored(ctx, stamped)).To(MatchSeriesData(
+						telem.NewSeriesV(2*telem.SecondTS, 3*telem.SecondTS),
+					))
+				}).Should(Succeed())
+				Eventually(func() int64 { return stored(ctx, arrived).Len() }).
+					Should(BeEquivalentTo(2))
 			},
 		)
 
