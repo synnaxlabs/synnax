@@ -311,7 +311,7 @@ func (s *Service) handleChange(ctx context.Context, reader calcgraph.Changes) {
 	if !rebuild {
 		return
 	}
-	if err = s.start(ctx, running, nil); err != nil {
+	if err = s.start(ctx, running); err != nil {
 		s.cfg.L.Error("failed to start calculations", zap.Error(err))
 	}
 }
@@ -355,11 +355,8 @@ func (s *Service) request(
 }
 
 // start clears the status of each calculation not in running and starts the groups of
-// the graph. It returns the open errors of the groups that hold a channel in requested.
-func (s *Service) start(
-	ctx context.Context,
-	running, requested set.Set[channel.Key],
-) error {
+// the graph.
+func (s *Service) start(ctx context.Context, running set.Set[channel.Key]) error {
 	// A calculation that already runs owns its status, so only a new one clears it.
 	// Dependencies start with the channel that reads them.
 	for k := range s.mu.graph.CalculatedKeys() {
@@ -367,7 +364,7 @@ func (s *Service) start(
 			s.clearStatus(ctx, k)
 		}
 	}
-	return s.rebuildGroups(ctx, requested)
+	return s.rebuildGroups(ctx)
 }
 
 // retry runs update on the stored definition of the channel with key, then adds its
@@ -416,7 +413,7 @@ func (s *Service) retry(ctx context.Context, key channel.Key) {
 	for range pending {
 		s.request(ctx, ch, c)
 	}
-	if err := s.start(ctx, running, set.New(key)); err != nil {
+	if err := s.start(ctx, running); err != nil {
 		s.cfg.L.Error("failed to start calculation",
 			zap.Error(err), zap.Stringer("channel", key))
 	}
@@ -434,7 +431,7 @@ func (s *Service) updateCalculation(
 	if err := s.mu.graph.Update(ctx, ch, c); err != nil {
 		return err
 	}
-	return s.rebuildGroups(ctx, set.New(ch.Key()))
+	return s.rebuildGroups(ctx)
 }
 
 func (s *Service) openCalculator(
@@ -532,7 +529,6 @@ func (s *Service) updateGroup(
 	for i, m := range mods {
 		calc, err := s.openCalculator(ctx, m)
 		if err != nil {
-			s.rejectDefinition(ctx, m.Channel, "Failed to start calculation", err)
 			return errors.Join(err, calculator.Group(calculators[:i]).Close())
 		}
 		calculators[i] = calc
@@ -559,14 +555,7 @@ func (s *Service) updateGroup(
 	return nil
 }
 
-// rebuildGroups opens and closes groups to match the graph. A group that fails to open
-// leaves the others running, and the status of the calculation that failed reports
-// it. It returns the open errors of the groups that hold a channel in requested, and
-// logs the others.
-func (s *Service) rebuildGroups(
-	ctx context.Context,
-	requested set.Set[channel.Key],
-) error {
+func (s *Service) rebuildGroups(ctx context.Context) error {
 	groups := s.mu.graph.CalculateGrouped()
 	s.cfg.L.Debug("rebuilding groups",
 		zap.Int("new_group_count", len(groups)),
@@ -584,25 +573,12 @@ func (s *Service) rebuildGroups(
 			}
 		}
 	}
-	var err error
 	for k, mods := range groups {
-		groupErr := s.updateGroup(ctx, k, mods)
-		if groupErr == nil {
-			continue
+		if err := s.updateGroup(ctx, k, mods); err != nil {
+			return err
 		}
-		if slices.ContainsFunc(mods, func(m compiler.Module) bool {
-			return requested.Contains(m.Channel.Key())
-		}) {
-			err = errors.Join(err, groupErr)
-			continue
-		}
-		s.cfg.L.Error(
-			"failed to open calculation group",
-			zap.Int("group_id", k),
-			zap.Error(groupErr),
-		)
 	}
-	return err
+	return nil
 }
 
 // Close stops all calculations and closes the service. No other methods should be
@@ -671,7 +647,7 @@ func (s *Service) updateRequests(
 			s.mu.pending[ch.Key()]++
 		}
 	}
-	if err := s.start(ctx, running, set.New(added...)); err != nil {
+	if err := s.start(ctx, running); err != nil {
 		return err
 	}
 	if len(added) > 0 {
