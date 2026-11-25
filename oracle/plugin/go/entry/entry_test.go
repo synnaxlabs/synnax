@@ -125,6 +125,7 @@ type stubImporter struct {
 }
 
 func (i stubImporter) Import(path string) (*types.Package, error) {
+	GinkgoHelper()
 	if path != entry.DefaultOptions().ResourceImportPath {
 		return i.fallback.Import(path)
 	}
@@ -135,6 +136,7 @@ func (i stubImporter) Import(path string) (*types.Package, error) {
 // typeCheck type-checks the generated source together with the declarations it
 // attaches methods to.
 func typeCheck(generated, declarations string) error {
+	GinkgoHelper()
 	fset := token.NewFileSet()
 	gen := MustSucceed(parser.ParseFile(fset, "entry.gen.go", generated, 0))
 	decl := MustSucceed(parser.ParseFile(fset, "types.gen.go", declarations, 0))
