@@ -23,7 +23,9 @@ import (
 )
 
 var _ = Describe("Migration", func() {
-	It("Should keep each field, leave unset channels and the hardware absent", func(ctx SpecContext) {
+	It("Should keep each field, leave unset channels and the hardware absent", func(
+		ctx SpecContext,
+	) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
 		StartRun(db.Run)
 		MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v1.Key, v1.Device]{DB: db}))
@@ -40,6 +42,21 @@ var _ = Describe("Migration", func() {
 				Channels: map[uint16]channel.Key{0: 2},
 			},
 			CounterInput: map[uint16]v1.CounterInputChannels{1: {Channel: 3}},
+			AnalogOutput: map[uint16]v1.AnalogOutputChannels{
+				0: {StateIndex: 4, Command: 5},
+			},
+			DigitalInput: map[uint16]v1.DigitalInputChannels{
+				0: {Lines: map[uint8]channel.Key{1: 6}},
+			},
+			DigitalOutput: map[uint16]v1.DigitalOutputChannels{
+				0: {
+					StateIndex: 7,
+					Lines: map[uint8]v1.CommandStatePair{
+						2: {Command: 8},
+						3: {},
+					},
+				},
+			},
 		}
 		Expect(gorp.NewCreate[v1.Key, v1.Device]().Entry(&old).Exec(ctx, db)).
 			To(Succeed())
@@ -61,5 +78,16 @@ var _ = Describe("Migration", func() {
 		Expect(got.AnalogInput.Temperature).To(BeNil())
 		Expect(got.CounterInput[1].Index).To(BeNil())
 		Expect(got.CounterInput[1].Channel).To(Equal(new(channel.Key(3))))
+		Expect(got.AnalogOutput[0]).To(Equal(v2.AnalogOutputChannels{
+			StateIndex: new(channel.Key(4)),
+			Command:    new(channel.Key(5)),
+		}))
+		Expect(got.DigitalInput[0].Index).To(BeNil())
+		Expect(got.DigitalInput[0].Lines).To(Equal(map[uint8]channel.Key{1: 6}))
+		Expect(got.DigitalOutput[0].StateIndex).To(Equal(new(channel.Key(7))))
+		Expect(got.DigitalOutput[0].Lines).To(Equal(map[uint8]v2.CommandStatePair{
+			2: {Command: new(channel.Key(8))},
+			3: {},
+		}))
 	})
 })

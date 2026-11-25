@@ -31,9 +31,12 @@ func MigrateAnalogInputPorts(
 	old v1.AnalogInputPorts,
 ) (AnalogInputPorts, error) {
 	ports, err := autoMigrateAnalogInputPorts(ctx, old)
+	if err != nil {
+		return AnalogInputPorts{}, err
+	}
 	ports.Index = presentKey(old.Index)
 	ports.Temperature = presentKey(old.Temperature)
-	return ports, err
+	return ports, nil
 }
 
 // MigrateAnalogOutputChannels migrates the channels of a v1 analog output port,
@@ -43,10 +46,13 @@ func MigrateAnalogOutputChannels(
 	old v1.AnalogOutputChannels,
 ) (AnalogOutputChannels, error) {
 	channels, err := autoMigrateAnalogOutputChannels(ctx, old)
+	if err != nil {
+		return AnalogOutputChannels{}, err
+	}
 	channels.StateIndex = presentKey(old.StateIndex)
 	channels.Command = presentKey(old.Command)
 	channels.State = presentKey(old.State)
-	return channels, err
+	return channels, nil
 }
 
 // MigrateCounterInputChannels migrates the channels of a v1 counter input, leaving
@@ -56,9 +62,12 @@ func MigrateCounterInputChannels(
 	old v1.CounterInputChannels,
 ) (CounterInputChannels, error) {
 	channels, err := autoMigrateCounterInputChannels(ctx, old)
+	if err != nil {
+		return CounterInputChannels{}, err
+	}
 	channels.Index = presentKey(old.Index)
 	channels.Channel = presentKey(old.Channel)
-	return channels, err
+	return channels, nil
 }
 
 // MigrateDigitalInputChannels migrates the channels of a v1 digital input port,
@@ -68,8 +77,11 @@ func MigrateDigitalInputChannels(
 	old v1.DigitalInputChannels,
 ) (DigitalInputChannels, error) {
 	channels, err := autoMigrateDigitalInputChannels(ctx, old)
+	if err != nil {
+		return DigitalInputChannels{}, err
+	}
 	channels.Index = presentKey(old.Index)
-	return channels, err
+	return channels, nil
 }
 
 // MigrateDigitalOutputChannels migrates the channels of a v1 digital output port,
@@ -79,8 +91,11 @@ func MigrateDigitalOutputChannels(
 	old v1.DigitalOutputChannels,
 ) (DigitalOutputChannels, error) {
 	channels, err := autoMigrateDigitalOutputChannels(ctx, old)
+	if err != nil {
+		return DigitalOutputChannels{}, err
+	}
 	channels.StateIndex = presentKey(old.StateIndex)
-	return channels, err
+	return channels, nil
 }
 
 // MigrateCommandStatePair migrates a v1 command and state pair, leaving unset channels
@@ -90,7 +105,10 @@ func MigrateCommandStatePair(
 	old v1.CommandStatePair,
 ) (CommandStatePair, error) {
 	pair, err := autoMigrateCommandStatePair(ctx, old)
+	if err != nil {
+		return CommandStatePair{}, err
+	}
 	pair.Command = presentKey(old.Command)
 	pair.State = presentKey(old.State)
-	return pair, err
+	return pair, nil
 }
