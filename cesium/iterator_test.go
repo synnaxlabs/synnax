@@ -13,6 +13,7 @@ import (
 	"context"
 	"slices"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -2132,9 +2133,14 @@ var _ = Describe("Iterator Behavior", func() {
 var _ = Describe("Iterator index lookups", func() {
 	DescribeTable("Should read the index once for every channel on it", func(
 		ctx SpecContext,
-		opts ...cesium.Option,
+		pointerLog bool,
+		want int,
 	) {
 		rec := NewRecorder(fs.NewMem())
+		var opts []cesium.Option
+		if pointerLog {
+			opts = append(opts, cesium.WithPointerLog())
+		}
 		db := mustOpenDBOnFS(ctx, rec, opts...)
 		idxKey := GenerateChannelKey()
 		Expect(db.CreateChannel(ctx, cesium.Channel{
@@ -2162,20 +2168,29 @@ var _ = Describe("Iterator index lookups", func() {
 		}
 		Expect(write(ctx, db, 0, telem.MultiFrame(keys, series))).To(Succeed())
 		tr := (100 * telem.SecondTS).Range(900 * telem.SecondTS)
-		// Index probes are the only 8-byte reads, since data reads span many samples.
+		// On the old layout, index probes are the only 8-byte reads, since data reads
+		// span many samples. The pointer log reads by block, so its probes are the
+		// reads
+		// of the index's segment files.
+		probe := MatchLength(8)
+		if pointerLog {
+			dir := strconv.Itoa(int(idxKey)) + "/"
+			probe = func(e Event) bool { return strings.HasPrefix(e.Name, dir) }
+		}
 		indexReads := func(keys ...cesium.ChannelKey) int {
 			GinkgoHelper()
 			rec.Reset()
 			fr := MustSucceed(db.Read(ctx, tr, keys...))
 			Expect(fr.Count()).To(Equal(len(keys)))
-			return rec.Count(MatchOp(OpReadAt), MatchLength(8))
+			return rec.Count(MatchOp(OpReadAt), probe)
 		}
-		// 48 is main's count for one channel.
-		Expect(indexReads(keys[1])).To(Equal(48))
-		Expect(indexReads(keys[1:]...)).To(Equal(48))
+		Expect(indexReads(keys[1])).To(Equal(want))
+		Expect(indexReads(keys[1:]...)).To(Equal(want))
 	},
-		Entry("on the old layout"),
-		Entry("on the pointer log", cesium.WithPointerLog()),
+		// 48 is main's count for one channel.
+		Entry("on the old layout", false, 48),
+		// A sealed segment's partial last block is not cached, so each probe reads it.
+		Entry("on the pointer log", true, 3),
 	)
 
 	It("Should see an index rewritten between commands", func(ctx SpecContext) {
