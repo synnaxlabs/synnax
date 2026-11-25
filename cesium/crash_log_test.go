@@ -11,6 +11,7 @@ package cesium_test
 
 import (
 	"context"
+	"fmt"
 	"math/rand/v2"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -32,12 +33,15 @@ func runLog(
 	ordered bool,
 ) crash.Result {
 	GinkgoHelper()
+	opts := []func() cesium.Option{
+		cesium.WithPointerLog,
+		func() cesium.Option { return cesium.WithRandom(rand.NewPCG(1, 2)) },
+	}
+	if faultsReads(profile) {
+		opts = append(opts, cesium.WithCheckedReads)
+	}
 	return MustSucceed(crash.Run(ctx, crash.Config{
-		Open: openCrashEngine(
-			ack,
-			cesium.WithPointerLog,
-			func() cesium.Option { return cesium.WithRandom(rand.NewPCG(1, 2)) },
-		),
+		Open:           openCrashEngine(ack, opts...),
 		Commits:        8,
 		Stride:         1,
 		Profile:        profile,
@@ -46,6 +50,23 @@ func runLog(
 			return errors.Is(err, place.ErrCorrupt)
 		},
 	}))
+}
+
+// faultsReads reports whether profile corrupts or faults the bytes that a read returns.
+// An unchecked read gives those bytes back as data, so the rule against wrong data
+// holds under such a profile only with checked reads.
+func faultsReads(profile crash.Profile) bool {
+	switch profile {
+	case crash.OldCorruption,
+		crash.NewCorruption,
+		crash.OneTimeReadFaults,
+		crash.RepeatedReadFaults,
+		crash.Mixed:
+		return true
+	case crash.Strict, crash.Partial, crash.SyncErrors, crash.FullDisk:
+		return false
+	}
+	panic(fmt.Sprintf("crash profile %d", profile))
 }
 
 var _ = DescribeTable("Crash harness, pointer log",
