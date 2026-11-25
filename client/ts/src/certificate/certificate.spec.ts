@@ -359,9 +359,9 @@ describe("Certificate", () => {
         source: "stored",
         pem: PEM,
       });
-      await expect
-        .poll(async () => await client.certificates.retrieve({ searchTerm: name }))
-        .toContainEqual(created);
+      expect(await client.certificates.retrieve({ searchTerm: name })).toContainEqual(
+        created,
+      );
     });
 
     it("should retrieve a certificate by name", async () => {

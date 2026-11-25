@@ -33,6 +33,7 @@ import {
 import { z } from "zod";
 
 import { Symbol } from "@/feature/schematic/symbol";
+import { FLAGS } from "@/flags";
 import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
@@ -54,21 +55,29 @@ export interface SymbolsChangeProps {
 const ChangeContext = createContext<SymbolsChangeProps | undefined>(undefined);
 ChangeContext.displayName = "Symbols.ChangeContext";
 
+const createSymbolParams = (
+  ref: schematic.symbol.Ref,
+  label: string,
+): Schematic.AddNodeProps<"symbol"> => ({
+  key: id.create(),
+  config: { variant: "symbol", spec: ref, label: { label } },
+});
+
 const StaticListItem = (props: List.ItemProps<string>): ReactElement | null => {
   const { itemKey } = props;
   const addNode = Schematic.useAddNode();
   const { startDrag, onDragEnd } = Haul.useDrag(HAUL_DRAG_PROPS);
   const variant = itemKey as Schematic.Node.Variant;
-  const createParams = (): Schematic.AddNodeProps => ({
-    key: id.create(),
-    config: { variant },
-  });
-  const handleAddNode = () => addNode(createParams());
-  const change = use(ChangeContext);
   const spec = List.useItem<string, Schematic.Node.Spec>(itemKey);
+  const change = use(ChangeContext);
   const config = spec == null ? null : Schematic.Node.createConfig({ variant });
   if (spec == null || config == null) return null;
   const { name, Preview } = spec;
+  const createParams = (): Schematic.AddNodeProps<"symbol"> | Schematic.AddNodeProps =>
+    FLAGS.symbolNodes && Schematic.Node.BUILT_INS.has(variant)
+      ? createSymbolParams({ type: "builtin", name: variant }, spec.label ?? name)
+      : { key: id.create(), config: { variant } };
+  const handleAddNode = () => addNode(createParams());
   const handleDragStart = (event: DragEvent<HTMLElement>) =>
     startDrag({
       event,
@@ -133,17 +142,19 @@ const RemoteListItem = (props: RemoteListItemProps): ReactElement | null => {
   const addNode = Schematic.useAddNode();
   const { startDrag, onDragEnd } = Haul.useDrag(HAUL_DRAG_PROPS);
 
-  const createParams = (): Schematic.AddNodeProps<Schematic.Node.CustomVariant> => ({
-    key: id.create(),
-    config: { variant, specKey: itemKey },
-  });
-  const handleAddNode = () => addNode(createParams());
   const change = use(ChangeContext);
   const { update: rename } = Schematic.Symbol.useRename();
   const canRename = Access.useUpdateGranted(schematic.symbol.resourceID(itemKey));
   const handleRename = (name: string) => rename({ key: itemKey, name });
 
   if (symbol == null) return null;
+  const createParams = ():
+    | Schematic.AddNodeProps<"symbol">
+    | Schematic.AddNodeProps<Schematic.Node.CustomVariant> =>
+    FLAGS.symbolNodes
+      ? createSymbolParams({ type: "custom", key: itemKey }, symbol.name)
+      : { key: id.create(), config: { variant, specKey: itemKey } };
+  const handleAddNode = () => addNode(createParams());
   // The node's own drawing reads the symbol through a hook, which a preview cannot.
   const handleDragStart = (event: DragEvent<HTMLElement>) =>
     startDrag({

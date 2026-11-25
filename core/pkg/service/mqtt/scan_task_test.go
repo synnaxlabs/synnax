@@ -841,6 +841,35 @@ var _ = Describe("Scan task", func() {
 			},
 		)
 
+		It("Should infer the kinds and the index from the messages of the last kind",
+			func(ctx SpecContext) {
+				ms := int64(telem.Now() / telem.MillisecondTS)
+				broker.publish("plant/a", fmt.Sprintf(`{"ts":%d,"rpm":1.5}`, ms), true)
+				publishUntilDone(
+					broker,
+					"plant/a",
+					fmt.Sprintf(`{"time":%d,"code":3}`, ms+1),
+				)
+				stat := browse(ctx, msgpack.EncodedJSON{"duration": 300})
+				topics, ok := stat.Details.Data["topics"].([]any)
+				Expect(ok).To(BeTrue())
+				Expect(topics).To(HaveLen(1))
+				Expect(topics[0]).To(SatisfyAll(
+					HaveKeyWithValue("index", "/time"),
+					HaveKeyWithValue("fields", []any{
+						map[string]any{
+							"pointer":     "/time",
+							"type":        "number",
+							"sample":      strconv.FormatInt(ms+1, 10),
+							"kind":        "timestamp",
+							"time_format": "unix_ms",
+						},
+						field("/code", "number", "3", payload.KindInteger),
+					}),
+				))
+			},
+		)
+
 		It("Should give no index when no field holds a timestamp",
 			func(ctx SpecContext) {
 				broker.publish("plant/a", `{"time":"soon","v":1}`, true)
