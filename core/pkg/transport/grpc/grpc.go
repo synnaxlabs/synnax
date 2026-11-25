@@ -28,6 +28,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/group"
 	"github.com/synnaxlabs/synnax/pkg/api/icd"
 	"github.com/synnaxlabs/synnax/pkg/api/imex"
+	apiimpact "github.com/synnaxlabs/synnax/pkg/api/impact"
 	"github.com/synnaxlabs/synnax/pkg/api/label"
 	"github.com/synnaxlabs/synnax/pkg/api/license"
 	"github.com/synnaxlabs/synnax/pkg/api/lineplot"
@@ -43,6 +44,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/table"
 	"github.com/synnaxlabs/synnax/pkg/api/user"
 	"github.com/synnaxlabs/synnax/pkg/api/view"
+	"github.com/synnaxlabs/synnax/pkg/service/impact"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/arc"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/auth"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/auth/apikey"
@@ -119,6 +121,10 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.LicenseRetrieve = noop.UnaryServer[license.RetrieveRequest, license.RetrieveResponse]{}
 	t.LicenseActivate = noop.UnaryServer[license.ActivateRequest, license.ActivateResponse]{}
 	t.LicenseDeactivate = noop.UnaryServer[license.DeactivateRequest, license.DeactivateResponse]{}
+
+	// IMPACT
+	t.ImpactPlan = noop.UnaryServer[apiimpact.PlanRequest, impact.Plan]{}
+	t.ImpactApply = noop.UnaryServer[apiimpact.ApplyRequest, impact.Plan]{}
 
 	// CHANNEL
 	t.ChannelCountLimited = noop.UnaryServer[

@@ -32,6 +32,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/group"
 	"github.com/synnaxlabs/synnax/pkg/api/icd"
 	"github.com/synnaxlabs/synnax/pkg/api/imex"
+	apiimpact "github.com/synnaxlabs/synnax/pkg/api/impact"
 	"github.com/synnaxlabs/synnax/pkg/api/label"
 	"github.com/synnaxlabs/synnax/pkg/api/license"
 	"github.com/synnaxlabs/synnax/pkg/api/lineplot"
@@ -52,6 +53,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/task"
 	"github.com/synnaxlabs/synnax/pkg/api/user"
 	"github.com/synnaxlabs/synnax/pkg/api/view"
+	"github.com/synnaxlabs/synnax/pkg/service/impact"
 	"github.com/synnaxlabs/synnax/pkg/transport/http/framer"
 	"github.com/synnaxlabs/x/encoding/zip"
 )
@@ -168,6 +170,14 @@ func Bind(layer *api.Layer, router *http.Router) {
 		ChannelDelete: unary[channel.DeleteRequest, struct{}](
 			router,
 			"/api/v1/channel/delete",
+		),
+		ImpactPlan: unary[apiimpact.PlanRequest, impact.Plan](
+			router,
+			"/api/v1/impact/plan",
+		),
+		ImpactApply: unary[apiimpact.ApplyRequest, impact.Plan](
+			router,
+			"/api/v1/impact/apply",
 		),
 		ChannelCountLimited: unary[
 			channel.CountLimitedRequest,

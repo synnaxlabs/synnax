@@ -10,17 +10,37 @@
 package access
 
 import (
+	"fmt"
+
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
-	"github.com/synnaxlabs/x/errors"
 )
 
 // ErrDenied is returned when a subject does not have permission to perform an
 // action on a resource.
 var ErrDenied = auth.ErrAccessDenied
 
-// Denied returns an error that wraps ErrDenied and names the subject, the action, and
-// the object that the subject cannot act on.
+// DeniedError is the error of a subject that cannot act on an object. It wraps
+// ErrDenied.
+type DeniedError struct {
+	// Subject is the subject that asked.
+	Subject resource.ID
+	// Action is what the subject asked to do.
+	Action Action
+	// Object is the record that the subject cannot act on.
+	Object resource.ID
+}
+
+// Error implements error.
+func (e DeniedError) Error() string {
+	return fmt.Sprintf("%s cannot %s %s: %s", e.Subject, e.Action, e.Object, ErrDenied)
+}
+
+// Unwrap returns ErrDenied.
+func (DeniedError) Unwrap() error { return ErrDenied }
+
+// Denied returns a DeniedError that names the subject, the action, and the object that
+// the subject cannot act on.
 func Denied(subject resource.ID, action Action, object resource.ID) error {
-	return errors.Wrapf(ErrDenied, "%s cannot %s %s", subject, action, object)
+	return DeniedError{Subject: subject, Action: action, Object: object}
 }

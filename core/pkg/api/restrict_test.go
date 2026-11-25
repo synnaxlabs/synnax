@@ -17,11 +17,20 @@ import (
 	"github.com/synnaxlabs/gorp"
 	apirole "github.com/synnaxlabs/synnax/pkg/api/access/role"
 	"github.com/synnaxlabs/synnax/pkg/api/auth/session"
+	apichannel "github.com/synnaxlabs/synnax/pkg/api/channel"
+	apiimpact "github.com/synnaxlabs/synnax/pkg/api/impact"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	channeltestutil "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/impact"
+	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
+	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -147,5 +156,112 @@ var _ = Describe("Restrict", func() {
 			MatchError(validate.ErrValidation),
 			MatchError(ContainSubstring(`"/does-not-exist" cannot run in a batch`)),
 		))
+	})
+
+	Describe("A delete that a holder the user cannot see refuses", func() {
+		var (
+			token string
+			ch    channel.Channel
+			tsk   task.Task
+		)
+		BeforeEach(func(ctx SpecContext) {
+			ch = channel.Channel{
+				Name:     channeltestutil.UniqueChannelName(),
+				DataType: telem.Float32T,
+				Virtual:  true,
+			}
+			dev := device.Device{
+				Key:      channeltestutil.UniqueChannelName(),
+				Rack:     svc.Rack.EmbeddedKey,
+				Name:     "plc",
+				Make:     "modbus",
+				Model:    "modbus",
+				Location: "127.0.0.1:502",
+			}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				if err := svc.Channel.NewWriter(tx).Create(ctx, &ch); err != nil {
+					return err
+				}
+				if err := svc.Device.NewWriter(tx).Create(ctx, &dev); err != nil {
+					return err
+				}
+				tsk = task.Task{
+					Name: "modbus_read",
+					Type: "modbus_read",
+					Config: msgpack.EncodedJSON{
+						"device": dev.Key,
+						"channels": []any{map[string]any{
+							"type":    "coil",
+							"key":     "coil-1",
+							"channel": ch.Key(),
+						}},
+					},
+				}
+				return svc.Task.NewWriter(tx).Create(ctx, &tsk)
+			})).To(Succeed())
+			u := MustSucceed(
+				rbactestutil.CreateUser(ctx, db, svc.RBAC, svc.User, user.User{
+					Name: "user-" + uuid.New().String(),
+				}),
+			)
+			MustSucceed(rbactestutil.Grant(
+				ctx,
+				db,
+				svc.RBAC,
+				svc.User,
+				u.Key,
+				[]access.Action{access.ActionRetrieve, access.ActionDelete},
+				channel.ResourceID(ch.Key()),
+			))
+			creds := auth.Credentials{Username: u.Name, Password: "secret"}
+			hash := MustSucceed(svc.Password.Hash(creds.Password))
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Password.NewWriter(tx).
+					Set(ctx, user.ResourceID(u.Key), creds.Username, hash)
+			})).To(Succeed())
+			var login session.LoginResponse
+			Expect(post("", "/api/v1/auth/login", creds, &login)).To(Succeed())
+			token = login.Token
+		})
+		deleteOf := func() impact.Change {
+			return impact.Change{
+				Variant: impact.DeleteChannelsChange{Keys: channel.Keys{ch.Key()}},
+			}
+		}
+
+		DescribeTable("Should not name the holder",
+			func(send func() error) {
+				Expect(send()).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring(
+						"cannot delete channel "+ch.Name+" because the task that uses "+
+							"it is not visible to you; ask someone who can see it to "+
+							"remove the use",
+					)),
+					Not(MatchError(ContainSubstring(tsk.Key.String()))),
+				))
+			},
+			Entry("on the channel delete route", func() error {
+				return post(token, "/api/v1/channel/delete", apichannel.DeleteRequest{
+					Keys: channel.Keys{ch.Key()},
+				}, nil)
+			}),
+			Entry("on an apply with no plan", func() error {
+				return post(token, "/api/v1/impact/apply", apiimpact.ApplyRequest{
+					Change: deleteOf(),
+				}, nil)
+			}),
+			Entry("on an apply with the token of its plan", func() error {
+				var p impact.Plan
+				Expect(post(token, "/api/v1/impact/plan", apiimpact.PlanRequest{
+					Change: deleteOf(),
+				}, &p)).To(Succeed())
+				Expect(p.Hidden).To(Equal(impact.Hidden{Restrict: 1}))
+				return post(token, "/api/v1/impact/apply", apiimpact.ApplyRequest{
+					Change: deleteOf(),
+					Token:  p.Token,
+				}, nil)
+			}),
+		)
 	})
 })
