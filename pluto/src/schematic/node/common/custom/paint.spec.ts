@@ -532,4 +532,35 @@ describe("Custom.usePaints", () => {
       ]);
     });
   });
+
+  describe("useUnmatched", () => {
+    // The entry fill shows once the enumeration loads.
+    const createStateSpec = () =>
+      createSpec({
+        states: [
+          { type: "enumeration", key: "active", name: "Active", enumeration: valve },
+        ],
+        looks: [
+          { key: "fill", part: "body", fill: { type: "entry", state: "active" } },
+        ],
+      });
+
+    it.each([
+      ["a value that names no entry", new Map([["active", 5]]), true],
+      ["a value that names an entry", new Map([["active", 2]]), false],
+      ["no value", new Map<string, number>(), false],
+      ["one number for every state", 5, false],
+    ] as const)("should read %s", async (_, value, unmatched) => {
+      const spec = createStateSpec();
+      const { result } = renderHook(
+        () => ({
+          unmatched: Custom.useUnmatched(spec, value),
+          paints: Custom.usePaints(spec, value),
+        }),
+        { wrapper },
+      );
+      await waitFor(() => expect(result.current.paints).not.toHaveLength(0));
+      expect(result.current.unmatched).toBe(unmatched);
+    });
+  });
 });

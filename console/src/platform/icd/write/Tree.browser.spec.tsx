@@ -221,6 +221,32 @@ describe("ICD.Write.useTree", () => {
     );
   });
 
+  it("should enable the disabled targets of a group from the menu of the group", async () => {
+    const { retrieveTargets } = await renderTargets(["a", "a", "b"]);
+    const group = await screen.findByRole("treeitem", { name: /^Topic a/ });
+    fireEvent.contextMenu(group);
+    fireEvent.click(await screen.findByText("Disable"));
+    // The targets start enabled, so the Core must store the disable first.
+    await waitFor(async () =>
+      expect((await retrieveTargets()).map(({ disabled }) => disabled)).toEqual([
+        true,
+        true,
+        false,
+      ]),
+    );
+    fireEvent.contextMenu(group);
+    const enable = await screen.findByText("Enable");
+    expect(screen.queryByText("Disable")).toBeNull();
+    fireEvent.click(enable);
+    await waitFor(async () =>
+      expect((await retrieveTargets()).map(({ disabled }) => disabled)).toEqual([
+        false,
+        false,
+        false,
+      ]),
+    );
+  });
+
   it("should remove a target from its menu", async () => {
     const { retrieveTargets } = await renderTargets(["a", "b"]);
     fireEvent.contextMenu(await screen.findByRole("treeitem", { name: /^Target t0/ }));
@@ -288,6 +314,14 @@ describe("ICD.Write.useTree", () => {
         ["ramp_2", 5],
       ]);
     });
+  });
+
+  it("should offer no Duplicate on a field at the whole document", async () => {
+    const value = icd.jsonFieldZ.parse({ name: "value", pointer: "", type: "float" });
+    await renderTargets(["a"], [value]);
+    fireEvent.contextMenu(await screen.findByRole("treeitem", { name: /^value/ }));
+    expect(await screen.findByText("Remove")).toBeTruthy();
+    expect(screen.queryByText("Duplicate")).toBeNull();
   });
 
   it("should add a field to a target from its menu, and select the field", async () => {

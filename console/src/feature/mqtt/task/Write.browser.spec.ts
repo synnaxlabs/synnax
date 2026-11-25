@@ -997,6 +997,20 @@ describe("MQTT Write form", () => {
       );
     });
 
+    it("should show the fields of each target that one pick adds", async () => {
+      const { dev } = await renderWrite();
+      const scanner = await openScanner(client, dev.rack);
+      const dialog = await openAddTargets();
+      const pump = { ...TOPIC, topic: "plant/pump/set" };
+      await scanner.answer({ data: { topics: [TOPIC, pump], truncated: false } });
+      scanner.close();
+      fireEvent.click(await dialog.findByRole("checkbox", { name: "Pick plant" }));
+      fireEvent.click(dialog.getByRole("button", { name: "Add 2 targets" }));
+      await waitFor(() =>
+        expect(screen.getAllByRole("treeitem", { name: /^setpoint/ })).toHaveLength(2),
+      );
+    });
+
     it("should send the time of each write from an inferred timestamp field", async () => {
       const time = {
         pointer: "/time",

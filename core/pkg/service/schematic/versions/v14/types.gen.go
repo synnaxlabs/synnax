@@ -669,9 +669,6 @@ func (s ScaleIndicatorConfig) Validate() error {
 	return v.Error()
 }
 
-// StateMapping maps a numeric channel value to a named, colored state.
-type StateMapping = v13.StateMapping
-
 // PageType names the kinds of page an off-page reference can link to.
 type PageType = v13.PageType
 
@@ -2039,13 +2036,10 @@ type SelectNodeConfig struct {
 	// FillColor is the fill color of the Set button, which the select border follows, a
 	// named color or a fixed color.
 	FillColor *servicecolor.Ref `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
+	// Enumeration is the enumeration whose entries the select offers.
+	Enumeration *enumeration.Key `json:"enumeration,omitzero" msgpack:"enumeration,omitempty"`
 	// InlineSize is the width of the field in pixels, not counting the Set button.
 	InlineSize uint16 `json:"inline_size" msgpack:"inline_size"`
-	// Options is the set of selectable states.
-	Options []StateMapping `json:"options" msgpack:"options"`
-	// Enumeration is the enumeration whose entries the select offers in place of its
-	// options.
-	Enumeration *enumeration.Key `json:"enumeration,omitzero" msgpack:"enumeration,omitempty"`
 	// Disabled indicates whether the select rejects interaction.
 	Disabled bool `json:"disabled" msgpack:"disabled"`
 	// OnClickDelay is the debounce delay applied to clicks.
@@ -2181,13 +2175,10 @@ type StateIndicatorNodeConfig struct {
 	Channel channel.Key `json:"channel" msgpack:"channel"`
 	// StrokeColor is the border color of the indicator, a named color or a fixed color.
 	StrokeColor *servicecolor.Ref `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	// Enumeration is the enumeration whose entries the indicator shows.
+	Enumeration *enumeration.Key `json:"enumeration,omitzero" msgpack:"enumeration,omitempty"`
 	// InlineSize is the inline size of the indicator in pixels.
 	InlineSize uint16 `json:"inline_size" msgpack:"inline_size"`
-	// Options is the set of displayable states.
-	Options []StateMapping `json:"options" msgpack:"options"`
-	// Enumeration is the enumeration whose entries the indicator shows in place of its
-	// options.
-	Enumeration *enumeration.Key `json:"enumeration,omitzero" msgpack:"enumeration,omitempty"`
 	// Size is the rendered size preset of the indicator.
 	Size ComponentSize `json:"size" msgpack:"size"`
 }

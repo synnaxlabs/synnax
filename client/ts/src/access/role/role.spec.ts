@@ -81,12 +81,8 @@ describe("role", () => {
       const prefix = `searchable-role-${id.create()}`;
       const names = [`${prefix}-1`, `${prefix}-2`];
       await client.access.roles.create(names.map((name) => ({ name })));
-      await expect
-        .poll(async () => {
-          const results = await client.access.roles.retrieve({ searchTerm: prefix });
-          return results.map((r) => r.name).sort();
-        })
-        .toEqual(names);
+      const results = await client.access.roles.retrieve({ searchTerm: prefix });
+      expect(results.map((r) => r.name).sort()).toEqual(names);
     });
   });
 

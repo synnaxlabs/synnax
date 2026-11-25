@@ -105,9 +105,8 @@ public:
     /// the message with no prefix.
     /// @returns CONFIG_ERROR when two messages have the same prefix or no prefix, a
     /// delimiter or tag is empty, a tag contains its delimiter or starts with
-    /// whitespace, a binding names no field of its message, a default is not finite or
-    /// does not fit its channel, or a field does not convert to the data type of its
-    /// binding.
+    /// whitespace, a binding names no field of its message, a default does not fit its
+    /// channel, or a field does not convert to the data type of its binding.
     static std::pair<Text, x::errors::Error>
     create(const std::vector<TextMessage> &messages);
 
@@ -121,9 +120,8 @@ public:
     /// to no message. A line of only spaces, tabs, and carriage returns belongs to
     /// none.
     /// @returns VALIDATION when a field with no default has no value in line, a value
-    /// is not a number, or a scaled value is not finite or does not fit its channel.
-    /// The error names the field, and also the message when the decoder holds more than
-    /// one.
+    /// is not a number, or a scaled value does not fit its channel. The error names the
+    /// field, and also the message when the decoder holds more than one.
     std::pair<std::optional<std::size_t>, x::errors::Error>
     decode(std::string_view line);
 
@@ -139,13 +137,11 @@ public:
 /// for concurrent use.
 class TextEncoder {
     struct Field {
-        std::string name;
+        synnax::icd::TextBaseField base;
         /// @brief tag is the text before the value of a tagged field, or empty for a
         /// delimited field.
         std::string tag;
         bool scaled = false;
-        double scale = 1;
-        double offset = 0;
         Number number = Number::FLOAT64;
         /// @brief binding is the index of the field's sample, or nothing for a field
         /// that takes its default.
@@ -176,6 +172,7 @@ class TextEncoder {
         int field = -1;
     };
 
+    std::string name;
     std::string delimiter;
     std::vector<Field> fields;
     std::vector<Item> items;
@@ -207,16 +204,18 @@ public:
     /// the field's sample at index 0 and has the data type of its binding, or is empty
     /// for a field that takes its default.
     /// @returns VALIDATION when a field has no sample and no default, or a value is not
-    /// finite. The error names the field.
+    /// finite. The error names the message and the field.
     x::errors::Error encode(
         std::span<const x::telem::Series> samples,
         std::vector<std::uint8_t> &payload
     );
 
-    /// @brief returns the error that encode returns when binding holds v, or NIL when
-    /// the field of binding can hold v.
+    /// @brief returns the error that encode returns when binding holds sample i of s,
+    /// or VALIDATION when the sample is outside the min and max of the field of
+    /// binding. A float32 sample that equals a limit at float32 precision is at that
+    /// limit.
     [[nodiscard]] x::errors::Error
-    check(std::size_t binding, const x::telem::SampleValue &v);
+    check(std::size_t binding, const x::telem::Series &s, std::size_t i);
 
     /// @brief returns true when the field of binding has a default, which encode writes
     /// for an empty series.
