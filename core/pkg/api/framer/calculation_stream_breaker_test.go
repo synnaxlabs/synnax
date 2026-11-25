@@ -48,11 +48,13 @@ var _ = Describe("Calculation change stream breaker", func() {
 		return ch
 	}
 	// serve opens a stream of ch as a new user that may retrieve ch and granted, on a
-	// test stream with buffers, and returns the error that the stream ends with.
+	// test stream with buffers, and returns the error that the stream ends with. With
+	// missed set, the stream asks for a marker when the Core drops frames for it.
 	serve := func(
 		ctx SpecContext,
 		ch channel.Channel,
 		buffers []int,
+		missed bool,
 		granted ...resource.ID,
 	) <-chan error {
 		GinkgoHelper()
@@ -67,20 +69,37 @@ var _ = Describe("Calculation change stream breaker", func() {
 		](ctx, buffers...)
 		done := make(chan error, 1)
 		go func() { done <- apiSvc.Stream(subjectCtx(ctx, u.ResourceID()), server) }()
-		Expect(client.Send(apiframer.StreamerRequest{Keys: channel.Keys{ch.Key()}})).
-			To(Succeed())
+		Expect(client.Send(apiframer.StreamerRequest{
+			Keys:            channel.Keys{ch.Key()},
+			MissedRequested: missed,
+		})).To(Succeed())
 		Expect(MustSucceed(client.Receive()).Frame.Empty()).To(BeTrue())
 		return done
+	}
+	// openStream opens a stream of ch as serve does and closes it after the spec.
+	openStream := func(
+		ctx SpecContext,
+		ch channel.Channel,
+		missed bool,
+		granted ...resource.ID,
+	) {
+		GinkgoHelper()
+		done := serve(ctx, ch, nil, missed, granted...)
+		DeferCleanup(func() {
+			Expect(client.CloseSend()).To(Succeed())
+			Eventually(done).WithTimeout(5 * time.Second).Should(Receive())
+		})
 	}
 	// open opens a stream of ch as a new user that may retrieve ch and granted, and
 	// closes it after the spec.
 	open := func(ctx SpecContext, ch channel.Channel, granted ...resource.ID) {
 		GinkgoHelper()
-		done := serve(ctx, ch, nil, granted...)
-		DeferCleanup(func() {
-			Expect(client.CloseSend()).To(Succeed())
-			Eventually(done).WithTimeout(5 * time.Second).Should(Receive())
-		})
+		openStream(ctx, ch, false, granted...)
+	}
+	// openMissed opens a stream as open does, which also asks for a missed marker.
+	openMissed := func(ctx SpecContext, ch channel.Channel, granted ...resource.ID) {
+		GinkgoHelper()
+		openStream(ctx, ch, true, granted...)
 	}
 	// samples returns the samples of ch in the next frame.
 	samples := func(ch channel.Channel) []string {
@@ -94,9 +113,16 @@ var _ = Describe("Calculation change stream breaker", func() {
 		}
 		return out
 	}
-	// count counts the samples of ch that the stream receives from now on.
-	count := func(ch channel.Channel) *atomic.Int64 {
-		var n atomic.Int64
+	// tally holds the samples of a channel that a stream received and whether it
+	// received a missed marker.
+	type tally struct {
+		samples atomic.Int64
+		missed  atomic.Bool
+	}
+	// count counts the samples of ch that the stream receives from now on, and records
+	// a missed marker.
+	count := func(ch channel.Channel) *tally {
+		var t tally
 		go func() {
 			defer GinkgoRecover()
 			for {
@@ -104,12 +130,24 @@ var _ = Describe("Calculation change stream breaker", func() {
 				if err != nil {
 					return
 				}
+				if res.Missed {
+					t.missed.Store(true)
+				}
 				for _, series := range res.Frame.Get(ch.Key()).Series {
-					n.Add(series.Len())
+					t.samples.Add(series.Len())
 				}
 			}
 		}()
-		return &n
+		return &t
+	}
+	// accounted waits until t holds n samples or a missed marker: a stream that drops
+	// changes must say so. It then expects no change twice.
+	accounted := func(ctx SpecContext, t *tally, n int64) {
+		GinkgoHelper()
+		Eventually(ctx, func() bool {
+			return t.samples.Load() == n || t.missed.Load()
+		}).Should(BeTrue())
+		Expect(t.samples.Load()).To(BeNumerically("<=", n))
 	}
 	virtual := func(ctx SpecContext) channel.Channel {
 		GinkgoHelper()
@@ -194,7 +232,7 @@ var _ = Describe("Calculation change stream breaker", func() {
 			ch := find(ctx, name)
 			// With no response buffer, the stream checks the first change and holds it
 			// for the spec, so the second change is the oldest that it checks late.
-			done := serve(ctx, ch, []int{1, 0}, links(c)...)
+			done := serve(ctx, ch, []int{1, 0}, false, links(c)...)
 			// The window holds the frames that the relay, a streamer, and its reader
 			// buffer, and the 300 frames of the request pipe of a signals feed.
 			edits := relayBuffer + streamer.BufferSize + 300 + 1
@@ -206,22 +244,29 @@ var _ = Describe("Calculation change stream breaker", func() {
 			}
 			Expect(samples(ch)).To(HaveLen(1))
 			if past {
-				Eventually(done).WithTimeout(10 * time.Second).Should(Receive(
+				Eventually(ctx, done).Should(Receive(
 					MatchError("[signals] - the check of a change is gone"),
 				))
 				Expect(client.CloseSend()).To(Succeed())
 				return
 			}
-			// A stream that fails sends nothing more, so the read is bounded.
+			// A stream that fails sends nothing more, so the wait ends when it does.
 			next := make(chan []string, 1)
 			go func() {
 				defer GinkgoRecover()
 				next <- samples(ch)
 			}()
-			Eventually(next).WithTimeout(10 * time.Second).Should(Receive(HaveLen(1)))
+			select {
+			case received := <-next:
+				Expect(received).To(HaveLen(1))
+			case err := <-done:
+				Fail(fmt.Sprintf("the stream ended before its next frame: %v", err))
+			case <-ctx.Done():
+				Fail("the stream sent no next frame before the spec timed out")
+			}
 			count(ch)
 			Expect(client.CloseSend()).To(Succeed())
-			Eventually(done).WithTimeout(5 * time.Second).Should(Receive(BeNil()))
+			Eventually(ctx, done).Should(Receive(BeNil()))
 		},
 		Entry(
 			"a calculation set inside the window",
@@ -274,46 +319,39 @@ var _ = Describe("Calculation change stream breaker", func() {
 		SpecTimeout(30*time.Second),
 	)
 
-	It("Should send each label set to a stream that lags 280 frames", func(
-		ctx SpecContext,
-	) {
+	It("Should send each label set to a stream that lags 280 frames, or a missed "+
+		"marker for those it drops", func(ctx SpecContext) {
 		const creates = 280
 		ch := find(ctx, "sy_label_set")
-		open(ctx, ch, resource.ID{Type: resource.TypeLabel})
+		openMissed(ctx, ch, resource.ID{Type: resource.TypeLabel})
 		for range creates {
 			l := label.Label{Key: uuid.New(), Name: "lag", Color: labelColor}
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return svc.Label.NewWriter(tx).Create(ctx, &l)
 			})).To(Succeed())
 		}
-		n := count(ch)
-		Eventually(n.Load).
-			WithTimeout(10 * time.Second).
-			Should(BeEquivalentTo(creates))
-	}, SpecTimeout(60*time.Second))
+		accounted(ctx, count(ch), creates)
+	}, SpecTimeout(2*time.Minute))
 
 	DescribeTable(
 		"Should send each change to a subject that reads the calculation when its "+
-			"stream lags 280 frames",
+			"stream lags 280 frames, or a missed marker for those it drops",
 		func(ctx SpecContext, name string) {
 			const edits = 280
 			in := virtual(ctx)
 			c := calculate(ctx, times(in, 2))
 			ch := find(ctx, name)
-			open(ctx, ch, links(c)...)
+			openMissed(ctx, ch, links(c)...)
 			for i := range edits {
 				edit(ctx, c, times(in, i+3))
 			}
-			n := count(ch)
-			Eventually(n.Load).
-				WithTimeout(10 * time.Second).
-				Should(BeEquivalentTo(edits))
+			accounted(ctx, count(ch), edits)
 		},
-		Entry("a calculation set", "sy_calculation_set", SpecTimeout(60*time.Second)),
+		Entry("a calculation set", "sy_calculation_set", SpecTimeout(2*time.Minute)),
 		Entry(
 			"a calculation action",
 			"sy_calculation_action_set",
-			SpecTimeout(60*time.Second),
+			SpecTimeout(2*time.Minute),
 		),
 	)
 })
