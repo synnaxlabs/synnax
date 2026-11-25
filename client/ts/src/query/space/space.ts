@@ -657,9 +657,11 @@ export class Space<
     query.composed = undefined;
     if (query.handlers.size === 0) return;
     const result = this.cachedOf(query);
+    const { state } = query;
     query.handlers.forEach((handler) => {
       try {
-        handler(result);
+        if (state.variant === "error") handler(result, state.error);
+        else handler(result);
       } catch (exc) {
         this.report(exc, `failed to notify ${this.config.name} answer subscriber`);
       }
@@ -771,7 +773,10 @@ export class Space<
     });
   }
 
-  /** Never rejects: a failed refetch leaves the previous answer in place. */
+  /**
+   * Never rejects. A NotFound answers that nothing matches; any other failure keeps the
+   * previous answer, stale.
+   */
   private async refetch(query: Query<P, K, D, V>): Promise<void> {
     if (query.refetchTimer != null) {
       clearTimeout(query.refetchTimer);
@@ -792,10 +797,20 @@ export class Space<
     } catch (reason) {
       if (query.refetchRechecks === rechecks) query.refetchRechecks = undefined;
       if (query.generation !== generation) return;
+      const error = errors.fromUnknown(reason);
+      // A NotFound is the Core's answer that nothing matches, not a failure.
+      if (NotFoundError.matches(error)) {
+        if (query.state.variant === "deleted") return;
+        // A change that raced the refetch may make a match that the Core had not seen.
+        if (rechecks.size > 0 || !array.equal(basis.versions, this.basis().versions))
+          return this.scheduleRefetch(query);
+        query.state = { variant: "error", error };
+        return this.touch(query);
+      }
       // A refetch revalidates an answer the caller already has. Failing to
       // confirm it is not grounds for taking it away, but reads stop trusting it.
       if (query.state.variant === "ready") return this.markStale(query);
-      query.state = { variant: "error", error: errors.fromUnknown(reason) };
+      query.state = { variant: "error", error };
       return;
     }
     if (query.refetchRechecks === rechecks) query.refetchRechecks = undefined;

@@ -142,6 +142,16 @@ describe("flux.Retrieve", () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
+  it("drops the previous answer when a push says nothing matches", async () => {
+    const observer = create();
+    observer.update(CLIENT, { key: "a" });
+    await scheduler.nextTask();
+    harness.handlers[0](undefined, new NotFoundError("test not found"));
+    expect(observer.value).toBeUndefined();
+    expect(onChange).toHaveBeenLastCalledWith(undefined);
+    expect(onError).not.toHaveBeenCalled();
+  });
+
   it("forwards a deletion push", async () => {
     const observer = create();
     observer.update(CLIENT, { key: "a" });

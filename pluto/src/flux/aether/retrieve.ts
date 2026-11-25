@@ -97,10 +97,10 @@ export class Retrieve<Query extends query.Params, Data extends query.Data> {
     const params = { client, query: q };
     const { onChange, getCached } = this.definition;
     if (onChange != null)
-      this.disconnect = onChange(params, (result) => {
-        // An undefined push is an invalidation the maintained entry will repair.
-        // Hold the previous answer until the repair lands.
-        if (result === undefined && this.result !== undefined) return;
+      this.disconnect = onChange(params, (result, error) => {
+        // An undefined push with no error is an invalidation the maintained entry will
+        // repair. Hold the previous answer until the repair lands.
+        if (result === undefined && error == null && this.result !== undefined) return;
         this.set(result);
       });
     const cached = getCached?.(params);

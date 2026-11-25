@@ -1433,7 +1433,7 @@ describe("createSelector", () => {
 
   interface Harness {
     retrieve: ReturnType<typeof vi.fn<() => Promise<Data>>>;
-    set: (next: query.Cached<Data> | undefined) => void;
+    set: (next: query.Cached<Data> | undefined, error?: Error) => void;
     createSelector: Flux.CreateSelector<{ key: string }, Data>;
   }
 
@@ -1453,9 +1453,9 @@ describe("createSelector", () => {
     return {
       retrieve,
       createSelector,
-      set: (next) => {
+      set: (next, error) => {
         cached = next;
-        handler?.(next);
+        handler?.(next, error);
       },
     };
   };
@@ -1573,6 +1573,31 @@ describe("createSelector", () => {
     expect(result.current).toEqual("live");
     act(() => harness.set(undefined));
     expect(result.current).toEqual("live");
+  });
+
+  it("throws the Core's NotFoundError when a push says nothing matches", async () => {
+    const harness = createHarness({ name: "live", value: 1 });
+    const useName = harness.createSelector((data) => data.name);
+    const Display = (): ReactElement => <div>{useName({ key: "a" })}</div>;
+    let utils!: ReturnType<typeof render>;
+    await act(async () => {
+      utils = render(
+        <Wrapper>
+          <Errors.SuspenseBoundary
+            loading={null}
+            FallbackComponent={({ error }) => (
+              <div data-testid="error">{error.message}</div>
+            )}
+          >
+            <Display />
+          </Errors.SuspenseBoundary>
+        </Wrapper>,
+        { onCaughtError: quiet },
+      );
+    });
+    expect(utils.getByText("live")).toBeTruthy();
+    act(() => harness.set(undefined, new NotFoundError("resource not found")));
+    expect(utils.queryByTestId("error")?.textContent).toEqual("resource not found");
   });
 
   it("memoizes the selection on the raw answer's reference", () => {
