@@ -49,6 +49,11 @@
         pointer-events: none;
     }
 
+    /* A symbol node shows on with the far knob. This switch moves the near one. */
+    .pluto-switch-symbol__knob-on {
+        display: none;
+    }
+
     &.pluto-switch-symbol--on {
         .pluto-switch-symbol__track {
             fill: var(--pluto-primary-m1);

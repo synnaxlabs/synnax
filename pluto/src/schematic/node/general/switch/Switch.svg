@@ -11,6 +11,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 37.5 18.75">
   <rect class="pluto-switch-symbol__track" width="37.5" height="18.75" rx="9.375" />
   <circle class="pluto-switch-symbol__knob" cx="9.375" cy="9.375" r="7.5" />
+  <circle class="pluto-switch-symbol__knob-on" cx="28.125" cy="9.375" r="7.5" />
   <g class="pluto-switch-symbol__hold">
     <rect class="pluto-switch-symbol__shade" width="37.5" height="18.75" rx="9.375" />
     <rect class="pluto-switch-symbol__tint" width="37.5" height="18.75" rx="9.375" />
