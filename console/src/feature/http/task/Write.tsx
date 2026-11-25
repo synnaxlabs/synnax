@@ -18,7 +18,7 @@ import { useExclusiveCallback } from "@synnaxlabs/lyra/hooks";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Synnax as PSynnax } from "@synnaxlabs/pluto";
+import { ICD as PICD, Synnax as PSynnax } from "@synnaxlabs/pluto";
 import { deep, id, primitive } from "@synnaxlabs/x";
 import { type FC, useState } from "react";
 
@@ -45,8 +45,13 @@ const root = deep.path<Task.Values<WriteSchemas>>();
 
 const Properties = () => <Device.Select />;
 
-const MethodSelect: FC<{ path: deep.Target<http.Method> }> = ({ path }) => (
-  <PForm.Field path={path} label="Method">
+interface MethodSelectProps {
+  path: deep.Target<http.Method>;
+  onChange?: (method: http.Method) => void;
+}
+
+const MethodSelect = ({ path, onChange }: MethodSelectProps) => (
+  <PForm.Field path={path} label="Method" onChange={onChange}>
     {renderMethodSelect}
   </PForm.Field>
 );
@@ -107,14 +112,24 @@ const endpointItem = Component.renderProp(EndpointItem);
 
 const EMPTY_ENDPOINTS = <Empty.Action message="No endpoints" />;
 
-const RequestSection: FC<{ path: deep.Path<WriteEndpoint> }> = ({ path }) => (
+/** The method and path of the request of an endpoint. */
+type RequestLine = Pick<WriteEndpoint, "method" | "path">;
+
+interface RequestSectionProps {
+  path: deep.Path<WriteEndpoint>;
+  /** Called with each change to the method or path, before the form applies it. */
+  onChange?: (change: Partial<RequestLine>) => void;
+}
+
+const RequestSection = ({ path, onChange }: RequestSectionProps) => (
   <PForm.Section title="Request">
-    <MethodSelect path={path.method} />
+    <MethodSelect path={path.method} onChange={(method) => onChange?.({ method })} />
     <PForm.TextField
       path={path.path}
       label="Path"
       padHelpText={false}
       inputProps={PATH_INPUT_PROPS}
+      onChange={(p) => onChange?.({ path: p })}
     />
     <PlatformForm.KeyValueEditor
       path={path.queryParams}
@@ -257,6 +272,17 @@ const fieldCommandName = (
   `${channel.escapeInvalidName(device)}${channel.escapeInvalidName(endpoint)}_` +
   `${channel.escapeInvalidName(field.name)}_cmd`;
 
+/** @returns the name that an endpoint gives the message it sends. */
+const messageName = ({ method, path }: RequestLine): string =>
+  `${method} ${path}`.trim();
+
+/** @returns whether name is the message name of request, with or without a number. */
+const namedBy = (name: string, request: RequestLine): boolean => {
+  const base = messageName(request);
+  if (name === base) return true;
+  return name.startsWith(`${base} `) && /^\d+$/.test(name.slice(base.length + 1));
+};
+
 /** @returns the name of the ICD of a task named name. */
 const icdName = (name: string): string =>
   name.trim() === "" ? DEFAULT_WRITE_NAME : name;
@@ -359,11 +385,40 @@ const MessagePick = ({ epKey }: { epKey: string }) => {
 };
 
 const ICDEndpointDetails = ({ epKey, deviceName }: ICDDetailsProps) => {
-  const sends = sendsICD(PForm.useFieldValue(root.config.endpoints[epKey]));
+  const path = root.config.endpoints[epKey];
+  const ctx = PForm.useContext();
+  const formats = ICD.useFormats();
+  const sends = sendsICD(PForm.useFieldValue(path));
+  // A message that only this endpoint sends follows its request while it keeps the
+  // name that the request gave it.
+  const handleRequestChange = (change: Partial<RequestLine>) => {
+    const ep = ctx.get(path).value;
+    if (!sendsICD(ep)) return;
+    const shared = ctx
+      .get(root.config.endpoints)
+      .value.some(
+        (other) =>
+          other.key !== ep.key &&
+          other.icd === ep.icd &&
+          other.message?.message === ep.message.message,
+      );
+    if (shared) return;
+    const format = ICD.formatOf(formats, ep.icd);
+    const { messages } = format.value();
+    const message = messages.find(({ key }) => key === ep.message.message);
+    if (message == null || !namedBy(message.name, ep)) return;
+    format.set(
+      PICD.formPath.messages[message.key].name,
+      ICD.availableName(
+        messageName({ ...ep, ...change }),
+        messages.filter(({ key }) => key !== message.key),
+      ),
+    );
+  };
   return (
     <Flex.Box y grow empty className={CSS.B("endpoint-details")}>
       <PForm.Sections className={CSS.B("endpoint-form")}>
-        <RequestSection path={root.config.endpoints[epKey]} />
+        <RequestSection path={path} onChange={handleRequestChange} />
         {sends ? (
           <MessageDetails epKey={epKey} deviceName={deviceName} />
         ) : (
@@ -415,7 +470,7 @@ const Endpoints = ({ device }: EndpointsProps) => {
       formats,
       targets: sending,
       name: icdName(ctx.get(root.name).value),
-      messages: [{ name: ep.method, fields: [] }],
+      messages: [{ name: messageName(ep), fields: [] }],
     });
     const added = { ...ep, icd: key, message: ICD.Write.create(message) };
     endpoints.push([added]);
