@@ -131,6 +131,11 @@ type LayerConfig struct {
 	//
 	// [OPTIONAL] - Defaults to the executor of the engine.
 	Executor func(f func())
+	// LogFileSize is the size of each new log file of the pointer log layout, a whole
+	// number of 4 KiB blocks of at least 4 MiB.
+	//
+	// [OPTIONAL] - Defaults to 64 MiB.
+	LogFileSize telem.Size
 	// PointerLogEnabled opens the time-series engine on its pointer log layout.
 	//
 	// [OPTIONAL] - Defaults to false.
@@ -180,6 +185,7 @@ func (cfg LayerConfig) Override(other LayerConfig) LayerConfig {
 	cfg.Executor = override.Nil(cfg.Executor, other.Executor)
 	cfg.PointerLogEnabled = override.Nil(cfg.PointerLogEnabled, other.PointerLogEnabled)
 	cfg.PartSize = override.Numeric(cfg.PartSize, other.PartSize)
+	cfg.LogFileSize = override.Numeric(cfg.LogFileSize, other.LogFileSize)
 	cfg.Version = override.String(cfg.Version, other.Version)
 	cfg.UpdateBackupDisabled = override.Nil(
 		cfg.UpdateBackupDisabled,
@@ -624,6 +630,9 @@ func openTS(
 	}
 	if cfg.PartSize != 0 {
 		opts = append(opts, cesium.WithPartSize(cfg.PartSize))
+	}
+	if cfg.LogFileSize != 0 {
+		opts = append(opts, cesium.WithLogFileSize(cfg.LogFileSize))
 	}
 	dir := filepath.Join(cfg.Dirname, cesiumDir)
 	if !*cfg.PointerLogEnabled {

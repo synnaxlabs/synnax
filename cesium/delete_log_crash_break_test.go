@@ -69,19 +69,27 @@ func breakWrite(ctx context.Context, db *cesium.DB, seconds ...telem.TimeStamp) 
 
 func breakValues(ctx context.Context, db *cesium.DB) []int64 {
 	GinkgoHelper()
-	series := MustSucceed(db.Read(ctx, telem.TimeRangeMax, breakData)).
-		Get(breakData).Series
+	return MustSucceed(breakRead(ctx, db))
+}
+
+// breakRead reads every sample of breakData in db.
+func breakRead(ctx context.Context, db *cesium.DB) ([]int64, error) {
+	fr, err := db.Read(ctx, telem.TimeRangeMax, breakData)
+	if err != nil {
+		return nil, err
+	}
+	series := fr.Get(breakData).Series
 	out := make([]int64, 0, len(series))
 	for _, s := range series {
 		out = append(out, s.Unmarshal[int64]()...)
 	}
-	return out
+	return out, nil
 }
 
-func breakSegments(fs xfs.FS, key cesium.ChannelKey) []string {
+func breakSegments(fs xfs.FS) []string {
 	GinkgoHelper()
 	var out []string
-	for _, e := range MustSucceed(fs.List(strconv.FormatUint(uint64(key), 10))) {
+	for _, e := range MustSucceed(fs.List(strconv.FormatUint(uint64(breakData), 10))) {
 		if strings.HasSuffix(e.Name(), ".seg") {
 			out = append(out, e.Name())
 		}
@@ -119,8 +127,9 @@ var _ = Describe("Delete on the pointer log, broken by a crash", func() {
 				(0 * telem.SecondTS).Range(15*telem.SecondTS),
 			)).To(Succeed())
 			// The unlink waits for the log to cover the Tombstone, after its ack.
-			Eventually(func() []string { return breakSegments(disk, breakData) }).
-				Should(HaveLen(1))
+			Eventually(
+				func() []string { return breakSegments(disk) },
+			).Should(HaveLen(1))
 			image := MustSucceed(disk.Crash(fault.CrashConfig{
 				RunKey:            runKey,
 				EntrySurvivalRate: 0.5,
@@ -131,7 +140,7 @@ var _ = Describe("Delete on the pointer log, broken by a crash", func() {
 			Expect(breakValues(ctx, re)).To(Equal([]int64{20, 21, 22}))
 			// Run returns only after the orphan pass, and a read does not wait for it.
 			closeRe()
-			if segs := breakSegments(image, breakData); len(segs) != 1 {
+			if segs := breakSegments(image); len(segs) != 1 {
 				failures = append(failures, fmt.Sprintf(
 					"run key %d: segment files %v after the orphan pass", runKey, segs,
 				))

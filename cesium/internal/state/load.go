@@ -186,7 +186,7 @@ func (c *core) snapshot() *Snapshot {
 	for _, k := range keys {
 		s.Kills = append(s.Kills, c.channels[k].kills...)
 	}
-	s.Kills = append(s.Kills, c.dropped...)
+	s.Kills = append(s.Kills, c.droppedKills...)
 	if len(c.candidates) > 0 {
 		s.Candidates = c.candidates.Slice()
 		slices.Sort(s.Candidates)
