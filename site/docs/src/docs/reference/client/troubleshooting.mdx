@@ -420,14 +420,17 @@ One of these:
 
 - The Core does not run, or the host or the port is wrong.
 - A firewall blocks the port.
-- `secure` does not match the Core.
+- The TLS option does not match the Core: `secure` in Python, or `insecure` in
+  TypeScript.
 
 </Problem.Cause>
 <Problem.Fix>
 
 1. Check that the Core runs, and that the host and the port are correct.
 2. Check that no firewall blocks the port.
-3. Set `secure` to true when the Core serves TLS, and to false when it does not.
+3. In Python, set `secure` to true when the Core serves TLS, and to false when it does
+   not. In TypeScript, set `insecure` to true when the Core does not serve TLS, and to
+   false when it does.
 
 </Problem.Fix>
 </Problem.Body>
