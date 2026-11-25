@@ -9,12 +9,15 @@
 
 import { DataType, type group, schematic } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import type { Status } from "@synnaxlabs/lyra/status";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { theming } from "@synnaxlabs/pluto/ether";
 import { color, uuid } from "@synnaxlabs/x";
 import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { createElement, type ReactElement } from "react";
 import { afterEach, describe, expect, it, onTestFinished, vi } from "vitest";
+import { page, server, userEvent } from "vitest/browser";
 
 const mocks = vi.hoisted(() => ({ symbolNodes: true }));
 
@@ -50,6 +53,7 @@ import {
   renderModalOpener,
 } from "@/platform/modals/testutil";
 import {
+  CaptureStatuses,
   fakePickedFile,
   getIconButton,
   interceptFilePicker,
@@ -78,15 +82,30 @@ const createParentGroup = async (): Promise<group.Group> =>
     name: uniqueName("edit_grp"),
   });
 
-const openCreateModal = async (createKey?: string) => {
+interface OpenCreateModalParams {
+  createKey?: string;
+  extra?: ReactElement;
+}
+
+const openCreateModal = async ({ createKey, extra }: OpenCreateModalParams = {}) => {
   const grp = await createParentGroup();
   const picker = interceptFilePicker();
   const handle = await renderModalOpener(
     Schematic.Symbol.Edit.useModal,
     [{ group: grp.key, createKey }],
-    { client, additionalRegistry: theming.REGISTRY },
+    { client, additionalRegistry: theming.REGISTRY, extra },
   );
   return { grp, picker, handle };
+};
+
+const pickFile = async (
+  picker: ReturnType<typeof interceptFilePicker>,
+  fileName: string,
+  contents: string,
+) => {
+  fireEvent.click(await screen.findByText(SYMBOL_FILE_DROP_PROMPT));
+  await waitFor(() => expect(picker.lastInput()).toBeDefined());
+  picker.selectFiles([fakePickedFile(fileName, contents)]);
 };
 
 const loadSVG = async (
@@ -94,9 +113,7 @@ const loadSVG = async (
   fileName = "flow_meter.svg",
   contents = SHAPELESS_SVG,
 ) => {
-  fireEvent.click(await screen.findByText(SYMBOL_FILE_DROP_PROMPT));
-  await waitFor(() => expect(picker.lastInput()).toBeDefined());
-  picker.selectFiles([fakePickedFile(fileName, contents)]);
+  await pickFile(picker, fileName, contents);
   await screen.findByText("Parts");
 };
 
@@ -113,6 +130,27 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       expect(screen.getByText("Handles")).toBeDefined();
       expect(screen.getByText("Properties")).toBeDefined();
       expect(screen.getByText("Scale stroke")).toBeDefined();
+    });
+
+    it.each([
+      ["notes.txt", SHAPELESS_SVG, "The file is not an SVG."],
+      ["empty.svg", "", "The file is empty."],
+    ])("reports %s, which it cannot read, by its name", async (name, contents, why) => {
+      let statuses: Status.NotificationSpec[] = [];
+      const { picker } = await openCreateModal({
+        extra: createElement(CaptureStatuses, { onStatuses: (s) => (statuses = s) }),
+      });
+      await pickFile(picker, name, contents);
+      await waitFor(() =>
+        expect(statuses).toContainEqual(
+          expect.objectContaining({
+            variant: "error",
+            name,
+            message: "Failed to read file",
+            description: why,
+          }),
+        ),
+      );
     });
 
     it("creates the symbol under the parent group on save", async () => {
@@ -138,7 +176,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
 
     it("persists the symbol under a forced key when createKey is provided", async () => {
       const createKey = uuid.create();
-      const { picker } = await openCreateModal(createKey);
+      const { picker } = await openCreateModal({ createKey });
       await loadSVG(picker);
       const name = uniqueName("healed_symbol");
       fireEvent.change(findNameInput(), { target: { value: name } });
@@ -162,7 +200,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
 
     it("saves a part stroke picked in the inspector", async () => {
       const createKey = uuid.create();
-      const { picker } = await openCreateModal(createKey);
+      const { picker } = await openCreateModal({ createKey });
       await loadSVG(picker);
       fireEvent.click(getEditSectionHeaderButton("Parts"));
       await screen.findByRole("heading", { name: "Part 1" });
@@ -189,9 +227,13 @@ describe("Schematic.Symbol.Edit.useModal", () => {
 
     it("saves the node color as the fill of the whole drawing", async () => {
       const createKey = uuid.create();
-      const { picker } = await openCreateModal(createKey);
+      const { picker } = await openCreateModal({ createKey });
       await loadSVG(picker);
-      expect(await screen.findByText("Looks here reach every shape.")).toBeDefined();
+      expect(
+        await screen.findByText(
+          "Looks here reach every shape. Click a shape to select its part or add one.",
+        ),
+      ).toBeDefined();
       fireEvent.click(screen.getByLabelText("Fill"));
       expect(findButton("State color").getAttribute("aria-disabled")).toBe("true");
       expect(findButton("Contrast").getAttribute("aria-disabled")).toBe("true");
@@ -210,7 +252,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
 
     it("saves a fill for one state of an actuator", async () => {
       const createKey = uuid.create();
-      const { picker } = await openCreateModal(createKey);
+      const { picker } = await openCreateModal({ createKey });
       await loadSVG(picker);
       fireEvent.click(await screen.findByText("Actuator"));
       fireEvent.click(getEditSectionHeaderButton("Parts"));
@@ -242,7 +284,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     // createWithPart opens the editor on a new drawing with one new part, Part 1.
     const createWithPart = async () => {
       const createKey = uuid.create();
-      const { picker } = await openCreateModal(createKey);
+      const { picker } = await openCreateModal({ createKey });
       await loadSVG(picker);
       fireEvent.click(getEditSectionHeaderButton("Parts"));
       await screen.findByRole("heading", { name: "Part 1" });
@@ -412,9 +454,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
 
     it("rejects a non-SVG file without opening the editor", async () => {
       const { picker } = await openCreateModal();
-      fireEvent.click(await screen.findByText(SYMBOL_FILE_DROP_PROMPT));
-      await waitFor(() => expect(picker.lastInput()).toBeDefined());
-      picker.selectFiles([fakePickedFile("not_an_svg.txt", "hello")]);
+      await pickFile(picker, "not_an_svg.txt", "hello");
       await waitFor(() => expect(screen.queryByText("Parts")).toBeNull());
       expect(screen.getByText(SYMBOL_FILE_DROP_PROMPT)).toBeDefined();
     });
@@ -511,6 +551,33 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       await waitFor(() => expect(findButton("Save").disabled).toBe(false));
       return { symbol, used, unbound };
     };
+
+    it("zooms and saves the preview of a symbol with no preview viewport", async () => {
+      const grp = await createParentGroup();
+      const payload = createSymbolPayload(uniqueName("unzoomed"));
+      const { previewViewport: _, ...data } = payload.data;
+      const symbol = await client.schematics.symbols.create({
+        ...payload,
+        data,
+        group: grp.key,
+      });
+      expect(symbol.data.previewViewport).toBeUndefined();
+      await renderModalOpener(
+        Schematic.Symbol.Edit.useModal,
+        [{ symbolKey: symbol.key, group: grp.key }],
+        { client, additionalRegistry: theming.REGISTRY },
+      );
+      expect(await screen.findByText("100%")).toBeDefined();
+      pressKey("Equal");
+      expect(await screen.findByText("120%")).toBeDefined();
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () =>
+        expect((await retrieveStored(symbol.key)).data.previewViewport).toEqual({
+          zoom: 1.2,
+          position: { x: 0, y: 0 },
+        }),
+      );
+    });
 
     it("saves a new part and its stroke on a symbol with no state", async () => {
       const { symbol } = await openEditModal();
@@ -725,6 +792,24 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       );
       fireEvent.click(await screen.findByText("Body"));
       await screen.findByRole("heading", { name: "Body" });
+      return symbol;
+    };
+
+    // openDrawing opens the editor on a new symbol that draws markup and has no parts.
+    const openDrawing = async (markup: string) => {
+      const grp = await createParentGroup();
+      const payload = createSymbolPayload(uniqueName("drawn"));
+      const symbol = await client.schematics.symbols.create({
+        ...payload,
+        group: grp.key,
+        data: { ...payload.data, drawing: { type: "svg", markup } },
+      });
+      await renderModalOpener(
+        Schematic.Symbol.Edit.useModal,
+        [{ symbolKey: symbol.key, group: grp.key }],
+        { client, additionalRegistry: theming.REGISTRY },
+      );
+      await screen.findByRole("heading", { name: "Whole drawing" });
       return symbol;
     };
 
@@ -1272,8 +1357,417 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       );
     });
 
+    const TWO_RECTS =
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 10">' +
+      '<rect id="a" width="10" height="10"/><rect id="b" x="10" width="10" height="10"/>' +
+      "</svg>";
+
+    const GROUPED =
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 10">' +
+      '<g id="g"><rect id="c" width="10" height="10"/>' +
+      '<rect id="d" x="10" width="10" height="10"/></g></svg>';
+
+    const findShape = (id: string): Element => {
+      const shape = getPreviewTransformWrapper(document.body).querySelector(`#${id}`);
+      assertDefined(shape);
+      return shape;
+    };
+
+    it("marks the shapes of the selected part in the preview", async () => {
+      await openPainted({ drawing: { type: "svg", markup: TWO_RECTS } });
+      const selected = "console-schematic__svg-region--selected";
+      await waitFor(() =>
+        expect(findShape("a").classList.contains(selected)).toBe(true),
+      );
+      expect(findShape("b").classList.contains(selected)).toBe(false);
+      fireEvent.click(screen.getByText("Whole drawing"));
+      await waitFor(() =>
+        expect(findShape("a").classList.contains(selected)).toBe(false),
+      );
+    });
+
+    it("makes a part of a shape clicked with the whole drawing selected", async () => {
+      const symbol = await openDrawing(TWO_RECTS);
+      fireEvent.click(findShape("b"));
+      expect(await screen.findByRole("heading", { name: "Part 1" })).toBeDefined();
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () => {
+        const saved = await retrieveStored(symbol.key);
+        expect(saved.data.parts).toEqual([
+          { key: expect.any(String), name: "Part 1", selectors: ["#b"] },
+        ]);
+      });
+    });
+
+    it("keeps the parts when a Shift+drag pan ends on a shape", async () => {
+      const symbol = await openPainted({ drawing: { type: "svg", markup: TWO_RECTS } });
+      fireEvent.click(findShape("b"), { shiftKey: true });
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () =>
+        expect((await retrieveStored(symbol.key)).data.parts).toEqual([BODY]),
+      );
+    });
+
+    it("selects the part of a shape clicked with the whole drawing selected", async () => {
+      const symbol = await openPainted({ drawing: { type: "svg", markup: TWO_RECTS } });
+      fireEvent.click(screen.getByText("Whole drawing"));
+      await screen.findByRole("heading", { name: "Whole drawing" });
+      fireEvent.click(findShape("a"));
+      expect(await screen.findByRole("heading", { name: "Body" })).toBeDefined();
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () =>
+        expect((await retrieveStored(symbol.key)).data.parts).toEqual([BODY]),
+      );
+    });
+
+    it("keeps the filter of the drawing on a shape at rest", async () => {
+      await openPainted({
+        drawing: {
+          type: "svg",
+          markup:
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 10">' +
+            '<defs><filter id="f"><feGaussianBlur stdDeviation="1"/></filter></defs>' +
+            '<rect id="a" width="10" height="10"/>' +
+            '<rect id="b" x="10" width="10" height="10" filter="url(#f)"/></svg>',
+        },
+      });
+      await waitFor(() =>
+        expect(getComputedStyle(findShape("b")).filter).toContain("url("),
+      );
+    });
+
+    it("keeps the filter that a style sets on a shape at rest", async () => {
+      await openPainted({
+        drawing: {
+          type: "svg",
+          markup:
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 10">' +
+            '<defs><filter id="f"><feGaussianBlur stdDeviation="1"/></filter></defs>' +
+            '<rect id="a" width="10" height="10"/>' +
+            '<rect id="b" x="10" width="10" height="10" style="filter:url(#f)"/></svg>',
+        },
+      });
+      await waitFor(() =>
+        expect(getComputedStyle(findShape("b")).filter).toContain("url("),
+      );
+    });
+
+    it("keeps the filter of the drawing on a selected shape", async () => {
+      await openPainted({
+        drawing: {
+          type: "svg",
+          markup:
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">' +
+            '<defs><filter id="f"><feGaussianBlur stdDeviation="1"/></filter></defs>' +
+            '<rect id="b" width="10" height="10" filter="url(#f)"/></svg>',
+        },
+        parts: [{ ...BODY, selectors: ["#b"] }],
+      });
+      await waitFor(() => {
+        const { filter } = getComputedStyle(findShape("b"));
+        expect(filter).toContain("url(");
+        expect(filter).toContain("drop-shadow");
+      });
+    });
+
+    it("marks a selected shape whose style sets a filter", async () => {
+      await openPainted({
+        drawing: {
+          type: "svg",
+          markup:
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">' +
+            '<defs><filter id="f"><feGaussianBlur stdDeviation="1"/></filter></defs>' +
+            '<rect id="b" width="10" height="10" style="filter:url(#f)"/></svg>',
+        },
+        parts: [{ ...BODY, selectors: ["#b"] }],
+      });
+      await waitFor(() => {
+        const { filter } = getComputedStyle(findShape("b"));
+        expect(filter).toContain("url(");
+        expect(filter).toContain("drop-shadow");
+      });
+    });
+
+    it("marks a selected group and not each shape inside it", async () => {
+      await openPainted({
+        drawing: { type: "svg", markup: GROUPED },
+        parts: [{ ...BODY, selectors: ["#g"] }],
+      });
+      await waitFor(() =>
+        expect(getComputedStyle(findShape("g")).filter).toContain("drop-shadow"),
+      );
+      expect(getComputedStyle(findShape("c")).filter).not.toContain("drop-shadow");
+    });
+
+    it("keeps the mark of a filled selected shape under the pointer", async () => {
+      const { width, height } = server.config.browser.viewport;
+      onTestFinished(async () => await page.viewport(width, height));
+      // The pointer reaches the shape only when the editor fits the viewport.
+      await page.viewport(1300, 900);
+      await openPainted({
+        drawing: {
+          type: "svg",
+          markup: GROUPED.replace('id="c"', 'id="c" fill="red"'),
+        },
+        parts: [{ ...BODY, selectors: ["#c"] }],
+      });
+      const shape = findShape("c");
+      await userEvent.hover(shape);
+      await waitFor(() => {
+        const { filter } = getComputedStyle(shape);
+        expect(filter).toContain("drop-shadow");
+        expect(filter).toContain("brightness(1.3)");
+      });
+    });
+
+    it("selects the part that holds the group of a shape clicked", async () => {
+      await openPainted({
+        drawing: { type: "svg", markup: GROUPED },
+        parts: [{ ...BODY, selectors: ["#g"] }],
+      });
+      fireEvent.click(screen.getByText("Whole drawing"));
+      await screen.findByRole("heading", { name: "Whole drawing" });
+      fireEvent.click(findShape("c"));
+      expect(await screen.findByRole("heading", { name: "Body" })).toBeDefined();
+      expect(screen.queryByText("Part 1")).toBeNull();
+    });
+
+    it("selects the part that holds the group of a clicked shape from another part", async () => {
+      await openPainted({
+        drawing: {
+          type: "svg",
+          markup: GROUPED.replace("</svg>", '<rect id="e" y="10" width="10"/></svg>'),
+        },
+        parts: [
+          { ...BODY, selectors: ["#e"] },
+          { key: "pump", name: "Pump", selectors: ["#g"] },
+        ],
+      });
+      fireEvent.click(findShape("c"));
+      expect(await screen.findByRole("heading", { name: "Pump" })).toBeDefined();
+      expect(getPartListItem("Body").textContent).toContain("1 shape");
+    });
+
+    it("keeps the part that a double click selects", async () => {
+      const symbol = await openPainted({
+        drawing: { type: "svg", markup: GROUPED },
+        parts: [{ ...BODY, selectors: ["#c"] }],
+      });
+      fireEvent.click(screen.getByText("Whole drawing"));
+      await screen.findByRole("heading", { name: "Whole drawing" });
+      fireEvent.click(findShape("c"), { detail: 1 });
+      await screen.findByRole("heading", { name: "Body" });
+      fireEvent.click(findShape("c"), { detail: 2 });
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () =>
+        expect((await retrieveStored(symbol.key)).data.parts).toEqual([
+          { ...BODY, selectors: ["#c"] },
+        ]),
+      );
+    });
+
+    it("takes each click of a double click while a part is selected", async () => {
+      const symbol = await openPainted({ drawing: { type: "svg", markup: TWO_RECTS } });
+      fireEvent.click(findShape("b"), { detail: 1 });
+      fireEvent.click(findShape("a"), { detail: 2 });
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () =>
+        expect((await retrieveStored(symbol.key)).data.parts).toEqual([
+          { ...BODY, selectors: ["#b"] },
+        ]),
+      );
+    });
+
+    it("takes the group out of the part when a click lands inside it", async () => {
+      const symbol = await openPainted({
+        drawing: { type: "svg", markup: GROUPED },
+        parts: [{ ...BODY, selectors: ["#g"] }],
+      });
+      fireEvent.click(findShape("c"));
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () =>
+        expect((await retrieveStored(symbol.key)).data.parts).toEqual([
+          { ...BODY, selectors: [] },
+        ]),
+      );
+    });
+
+    it("takes a text out of a part that holds only its span", async () => {
+      const symbol = await openPainted({
+        drawing: {
+          type: "svg",
+          markup:
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 10">' +
+            '<text id="t" y="8"><tspan id="s">Tank</tspan></text></svg>',
+        },
+        parts: [{ ...BODY, selectors: ["#s"] }],
+      });
+      fireEvent.click(findShape("s"));
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () =>
+        expect((await retrieveStored(symbol.key)).data.parts).toEqual([
+          { ...BODY, selectors: [] },
+        ]),
+      );
+    });
+
+    it("toggles the text of a span clicked", async () => {
+      const symbol = await openPainted({
+        drawing: {
+          type: "svg",
+          markup:
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 10">' +
+            '<text id="t" y="8"><tspan id="s">Tank</tspan></text></svg>',
+        },
+        parts: [{ ...BODY, selectors: ["#t"] }],
+      });
+      fireEvent.click(findShape("s"));
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () =>
+        expect((await retrieveStored(symbol.key)).data.parts).toEqual([
+          { ...BODY, selectors: [] },
+        ]),
+      );
+    });
+
+    it("adds only the clicked shape of a group to a part", async () => {
+      const symbol = await openDrawing(GROUPED);
+      fireEvent.click(findShape("c"));
+      await screen.findByRole("heading", { name: "Part 1" });
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () =>
+        expect((await retrieveStored(symbol.key)).data.parts).toEqual([
+          { key: expect.any(String), name: "Part 1", selectors: ["#c"] },
+        ]),
+      );
+    });
+
+    it("makes the group around the shapes of a part the part", async () => {
+      const symbol = await openPainted({
+        drawing: { type: "svg", markup: GROUPED },
+        parts: [{ ...BODY, selectors: ["#c", "#d"] }],
+        states: [
+          { type: "number", key: "tank", name: "Tank", bounds: { lower: 0, upper: 1 } },
+        ],
+        looks: [
+          {
+            key: "level",
+            part: "body",
+            motion: { type: "level", state: "tank", side: "bottom" },
+          },
+        ],
+      });
+      expect(screen.getByText("Fill motion needs one shape")).toBeDefined();
+      fireEvent.click(screen.getByText("Select parent group"));
+      await waitFor(() =>
+        expect(screen.queryByText("Fill motion needs one shape")).toBeNull(),
+      );
+      // The group sits in no group, so the action turns off.
+      await waitFor(() =>
+        expect(findButton("Select parent group").getAttribute("aria-disabled")).toBe(
+          "true",
+        ),
+      );
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () =>
+        expect((await retrieveStored(symbol.key)).data.parts).toEqual([
+          { ...BODY, selectors: ["#g"] },
+        ]),
+      );
+    });
+
+    it("turns off Select parent group for a part in no group", async () => {
+      await openPainted({ drawing: { type: "svg", markup: TWO_RECTS } });
+      expect(findButton("Select parent group").getAttribute("aria-disabled")).toBe(
+        "true",
+      );
+    });
+
+    it("makes the nearest group around shapes at two depths the part", async () => {
+      const symbol = await openPainted({
+        drawing: {
+          type: "svg",
+          markup:
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 10">' +
+            '<g id="g"><rect id="c" width="10" height="10"/>' +
+            '<g id="h"><rect id="d" x="10" width="10" height="10"/></g></g></svg>',
+        },
+        parts: [{ ...BODY, selectors: ["#c", "#d"] }],
+      });
+      fireEvent.click(screen.getByText("Select parent group"));
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () =>
+        expect((await retrieveStored(symbol.key)).data.parts).toEqual([
+          { ...BODY, selectors: ["#g"] },
+        ]),
+      );
+    });
+
+    const NESTED =
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 10">' +
+      '<g id="o"><g id="g"><rect id="c" width="10" height="10"/>' +
+      '<rect id="d" x="10" width="10" height="10"/></g>' +
+      '<rect id="e" x="20" width="10" height="10"/></g></svg>';
+
+    it("climbs from the group of the selected part on an alt-click", async () => {
+      const symbol = await openPainted({
+        drawing: { type: "svg", markup: NESTED },
+        parts: [{ ...BODY, selectors: ["#g"] }],
+      });
+      fireEvent.click(findShape("c"), { altKey: true });
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () =>
+        expect((await retrieveStored(symbol.key)).data.parts).toEqual([
+          { ...BODY, selectors: ["#o"] },
+        ]),
+      );
+    });
+
+    it("keeps the part on an alt-click when no group is above it", async () => {
+      const symbol = await openPainted({
+        drawing: { type: "svg", markup: NESTED },
+        parts: [{ ...BODY, selectors: ["#o"] }],
+      });
+      fireEvent.click(findShape("c"), { altKey: true });
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () =>
+        expect((await retrieveStored(symbol.key)).data.parts).toEqual([
+          { ...BODY, selectors: ["#o"] },
+        ]),
+      );
+    });
+
+    it("adds a shape in no group to the part on an alt-click", async () => {
+      const symbol = await openPainted({ drawing: { type: "svg", markup: TWO_RECTS } });
+      fireEvent.click(findShape("b"), { altKey: true });
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () =>
+        expect((await retrieveStored(symbol.key)).data.parts).toEqual([
+          { ...BODY, selectors: ["#a", "#b"] },
+        ]),
+      );
+    });
+
+    it("makes a part of the group of a shape alt-clicked", async () => {
+      const symbol = await openPainted({
+        drawing: { type: "svg", markup: GROUPED },
+        parts: [{ ...BODY, selectors: ["#c"] }],
+      });
+      fireEvent.click(screen.getByText("Whole drawing"));
+      await screen.findByRole("heading", { name: "Whole drawing" });
+      fireEvent.click(findShape("c"), { altKey: true });
+      await screen.findByRole("heading", { name: "Part 1" });
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () =>
+        expect((await retrieveStored(symbol.key)).data.parts).toEqual([
+          { ...BODY, selectors: [] },
+          { key: expect.any(String), name: "Part 1", selectors: ["#g"] },
+        ]),
+      );
+    });
+
     it("selects the whole drawing again when the selected part is removed", async () => {
-      const { symbol, handle } = await openEditModal(
+      await openEditModal(
         '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">' +
           '<rect id="a" width="10" height="10"/></svg>',
       );
@@ -1282,13 +1776,6 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       expect(
         getPartListItem("Whole drawing").classList.contains("lyra--selected"),
       ).toBe(true);
-      const shape = getPreviewTransformWrapper(handle.baseElement).querySelector("#a");
-      assertDefined(shape);
-      fireEvent.click(shape);
-      fireEvent.click(findButton("Save"));
-      await waitFor(async () =>
-        expect((await retrieveStored(symbol.key)).data.parts).toEqual([]),
-      );
     });
 
     it("counts the looks of a part beside its shapes", async () => {

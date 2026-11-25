@@ -153,3 +153,26 @@ describe("bind.stale", () => {
     ).toBe(false);
   });
 });
+
+describe("bind.dataMissing", () => {
+  const CHANNEL = { key: "active", source: { type: "channel" as const, key: 1 } };
+
+  it.each([
+    ["no reading", {}],
+    ["a reading with no value", { 1: { value: null, stale: false } }],
+  ])("should be true for a channel with %s", (_, readings) => {
+    expect(bind.dataMissing([CHANNEL], readings)).toBe(true);
+  });
+
+  it("should be false for a channel with a value", () => {
+    expect(bind.dataMissing([CHANNEL], { 1: { value: 0, stale: true } })).toBe(false);
+  });
+
+  it.each([
+    ["no source", { key: "active" }],
+    ["a channel source with no key", { key: "active", source: { type: "channel" } }],
+    ["a local source", { key: "active", source: { type: "local", value: 1 } }],
+  ] as const)("should be false for a state with %s", (_, binding) => {
+    expect(bind.dataMissing([binding], {})).toBe(false);
+  });
+});
