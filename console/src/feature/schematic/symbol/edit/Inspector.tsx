@@ -374,9 +374,9 @@ const LEVEL_ISSUES: Record<
   Pick<Status.SummaryProps, "message" | "description">
 > = {
   shapes: {
-    message: "Fill motion needs one shape",
+    message: "Fill motion needs one shape or group",
     description:
-      "Fill motion fills each shape in this part by its own box. Use Select parent group to make the group around the shapes the part. If the shapes sit in no group, group them in the drawing, or remove the motion from the part to save.",
+      "Fill motion fills each shape or group in this part by its own box. Use Select parent group to make the group around the shapes the part. If the shapes sit in no group, group them in the drawing, or remove the motion from the part to save.",
   },
   clip: {
     message: "Fill motion replaces a clip-path",
