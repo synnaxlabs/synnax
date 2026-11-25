@@ -57,7 +57,8 @@ interface Request {
  * set. A set waits for `core.set`. A retrieve that selects by no key is a list fetch:
  * it counts in `listFetches` and returns no secrets. The cache reports errors to
  * `errors`, and a spec fails on each error that it does not take out.
- * With `closed`, the stream opens only once `open` is called.
+ * With `closed`, the stream opens only once `open` is called. With `streamless`, the
+ * cache has no stream, as a client with no cache has.
  * @returns the client, the fake Core, the keys of each retrieve that asks for uses, and
  * functions that push a frame, send one change on the channel of uses, drop the stream
  * and wait for the reconnect, and open a closed stream.
@@ -65,7 +66,8 @@ interface Request {
 const createFakeSecrets = async ({
   recordCap,
   closed = false,
-}: { recordCap?: number; closed?: boolean } = {}) => {
+  streamless = false,
+}: { recordCap?: number; closed?: boolean; streamless?: boolean } = {}) => {
   const usesRequests: secret.Key[][] = [];
   const listFetches = { count: 0 };
   // A spec takes the errors it expects, so any other error fails it.
@@ -90,6 +92,7 @@ const createFakeSecrets = async ({
         })),
       });
     }
+    if (target === "/secret/delete") return res.parse({});
     if (target !== "/secret/retrieve")
       throw new Error(`unexpected request to ${target}`);
     if (req.where?.key == null) {
@@ -118,12 +121,14 @@ const createFakeSecrets = async ({
   if (!closed) gate.resolve();
   let onMissed: (() => void) | undefined;
   const cache = new query.Cache({
-    openStreamer: async (config) => {
-      if (typeof config === "object" && "onMissed" in config)
-        onMissed = config.onMissed;
-      await gate.promise;
-      return streams.current;
-    },
+    openStreamer: streamless
+      ? null
+      : async (config) => {
+          if (typeof config === "object" && "onMissed" in config)
+            onMissed = config.onMissed;
+          await gate.promise;
+          return streams.current;
+        },
     breaker: { baseInterval: TimeSpan.milliseconds(1) },
     onError: (error) => errors.push(error),
     recordCap,
@@ -1220,6 +1225,25 @@ describe("Secret", () => {
       return { ...fake, q };
     };
 
+    /**
+     * Creates fake secrets as {@link createLackingUses} does, but drops the uses with a
+     * delete and a set of the secret, so the stream can be down or absent.
+     */
+    const createRecreated = async (options: {
+      closed?: boolean;
+      streamless?: boolean;
+    }) => {
+      const fake = await createFakeSecrets(options);
+      const q = { key: uuid.create(), includeUses: true };
+      const off = fake.secrets.watch(q).onChange(() => {});
+      await fake.secrets.retrieve(q);
+      off();
+      await vi.advanceTimersByTimeAsync(PAST_GRACE);
+      await fake.secrets.delete(q.key);
+      await fake.secrets.set({ key: q.key, name: q.key, source: "stored", value: "a" });
+      return { ...fake, q };
+    };
+
     const reported = (cause: Error) =>
       expect.objectContaining({ message: "failed to maintain secret answers", cause });
 
@@ -1240,6 +1264,28 @@ describe("Secret", () => {
       onTestFinished(secrets.watch(q).onChange(() => {}));
       await vi.advanceTimersByTimeAsync(PAST_DEBOUNCE);
       expect(errors.splice(0)).toEqual([reported(core.failure)]);
+    });
+
+    it("should report a failed refetch of uses for a client with no stream", async () => {
+      useFakeTimers();
+      const { secrets, core, errors, q } = await createRecreated({ streamless: true });
+      core.failure = new Error("failed to retrieve uses");
+      onTestFinished(secrets.watch(q).onChange(() => {}));
+      await vi.advanceTimersByTimeAsync(PAST_DEBOUNCE);
+      expect(errors.splice(0)).toEqual([reported(core.failure)]);
+    });
+
+    it("should refetch uses after a reconnect instead of reporting a failure while the stream is down", async () => {
+      useFakeTimers();
+      const { secrets, core, q, open } = await createRecreated({ closed: true });
+      core.failure = new Error("failed to retrieve uses");
+      onTestFinished(secrets.watch(q).onChange(() => {}));
+      await vi.advanceTimersByTimeAsync(PAST_DEBOUNCE);
+      expect(secrets.watch(q).getCached()).toBeUndefined();
+      core.failure = undefined;
+      await open();
+      await vi.advanceTimersByTimeAsync(PAST_DEBOUNCE);
+      expect(expectLive(secrets.watch(q).getCached()).uses).toEqual(usesOf(q.key));
     });
 
     it("should not report a failed refetch of uses after the last subscriber leaves", async () => {

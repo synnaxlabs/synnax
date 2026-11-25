@@ -799,12 +799,13 @@ export class Space<
       if (query.state.variant === "ready") {
         this.markStale(query);
         // An answer that a trigger does not cover reaches no subscriber until a
-        // refetch succeeds. A reconnect refetches it, so only a live stream reports.
+        // refetch succeeds. The reconnect of a down stream refetches it.
+        const reconnects =
+          this.hooks.maintained?.() !== false && this.hooks.live?.() === false;
         if (
           query.handlers.size > 0 &&
           !this.triggersCover(query.params, query.state.keys) &&
-          this.hooks.live?.() !== false &&
-          this.liveEpoch() === basis.epoch
+          !reconnects
         )
           this.report(reason);
         return;
