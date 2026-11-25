@@ -10,7 +10,7 @@
 import { connection } from "@synnaxlabs/client";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
 const mocks = vi.hoisted((): { engine: "web" | "tauri"; coreSelectable?: boolean } => ({
   engine: "web",
@@ -178,6 +178,18 @@ describe("Core.Badge", () => {
     });
     clickCoreBadge(container);
     expect(await screen.findByLabelText("Edit connection")).toBeTruthy();
+  });
+
+  it("should not offer to edit the connection on a pinned dev server", async () => {
+    mocks.coreSelectable = true;
+    localStorage.setItem("synnax-dev-connection-port", "9090");
+    onTestFinished(() => localStorage.removeItem("synnax-dev-connection-port"));
+    const { container } = await renderWithConsole(<Core.Badge />, {
+      preloadedState: createStateWithUser("Core-user"),
+    });
+    clickCoreBadge(container);
+    await screen.findByText("Log out");
+    expect(screen.queryByLabelText("Edit connection")).toBeNull();
   });
 
   it("should not offer to edit the connection in a browser", async () => {

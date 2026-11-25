@@ -9,7 +9,9 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted((): { engine: "web" | "tauri" } => ({ engine: "web" }));
+const mocks = vi.hoisted((): { engine: "web" | "tauri"; coreSelectable?: boolean } => ({
+  engine: "web",
+}));
 
 vi.mock("@/session/runtime", async (importOriginal) => {
   const { mockRuntimeEngine } = await import("@/testutil/runtime");
@@ -72,11 +74,11 @@ describe("detectConnection", () => {
 describe("detectConnection on the dev server", () => {
   beforeEach(() => {
     mocks.engine = "web";
-    vi.stubGlobal("IS_DEV", true);
+    mocks.coreSelectable = true;
   });
 
   afterEach(() => {
-    vi.unstubAllGlobals();
+    mocks.coreSelectable = undefined;
     localStorage.clear();
   });
 

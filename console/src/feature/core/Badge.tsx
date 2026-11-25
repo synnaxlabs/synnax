@@ -69,7 +69,11 @@ const Content = (): ReactElement => {
   const copyAddress = (): void => {
     if (core != null) copy(`${core.host}:${core.port}`, "Core address", core.name);
   };
-  const editable = activeKey != null && Session.Runtime.CORE_SELECTABLE;
+  // a pinned dev Console logs in to its pinned Core, which would undo an edit
+  const editable =
+    activeKey != null &&
+    Session.Runtime.CORE_SELECTABLE &&
+    Core.detectConnection() == null;
   const editConnection = (): void => {
     if (activeKey == null) return;
     close();
