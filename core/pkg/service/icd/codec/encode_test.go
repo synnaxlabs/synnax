@@ -39,6 +39,18 @@ func unprefixed(dt telem.DataType, sample []byte) []byte {
 	return data
 }
 
+// finite reports whether c writes each float sample of m as a number. The fixtures
+// write NaN and infinity as strings, as JSON holds neither.
+func finite(m codec.JSONMessage, c decodeCase) bool {
+	for k, b := range m.Bindings {
+		float := b.DataType == telem.Float64T || b.DataType == telem.Float32T
+		if float && c.Samples[k][0] == '"' {
+			return false
+		}
+	}
+	return true
+}
+
 // documentEntries returns an entry for each decode fixture that holds documents.
 func documentEntries() []TableEntry {
 	GinkgoHelper()
@@ -116,6 +128,17 @@ func floatField(name string, key icd.FieldKey, scale, offset float64) icd.JSONFi
 	}}
 }
 
+// nanField returns a float field at /name whose default is NaN.
+func nanField(name string, key icd.FieldKey) icd.JSONField {
+	return icd.JSONField{Variant: icd.FloatJSONField{
+		Key:     key,
+		Name:    name,
+		Scale:   1,
+		Pointer: "/" + name,
+		Default: new(payload.Float(math.NaN())),
+	}}
+}
+
 func message(fields []icd.JSONField, bindings ...codec.Binding) codec.JSONMessage {
 	return codec.JSONMessage{
 		Name:     "command",
@@ -148,6 +171,11 @@ var _ = Describe("JSONEncoder", func() {
 					samples := make([][]byte, len(m.Bindings))
 					for b, binding := range m.Bindings {
 						samples[b] = unprefixed(binding.DataType, decoded[i][b])
+					}
+					if !finite(m, c) {
+						Expect(enc.Encode(nil, samples)).Error().
+							To(MatchError(validate.ErrValidation))
+						continue
 					}
 					encoded := MustSucceed(enc.Encode(nil, samples))
 					again := newSamples(messages)
@@ -310,6 +338,30 @@ var _ = Describe("JSONEncoder", func() {
 		)))
 		Expect(enc.Encode(nil, [][]byte{nil})).Error().
 			To(MatchError("message command: field temp: no sample and no default"))
+	})
+
+	It("Should refuse a NaN default for a field with no binding", func() {
+		f := nanField("v", uuid.New())
+		Expect(codec.NewJSONEncoder(message([]icd.JSONField{f}))).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError("message command: field v: default: NaN is not a JSON number: "+
+				"validation error"),
+		))
+	})
+
+	It("Should fail only the encode of a nil sample for a bound NaN default", func() {
+		key := uuid.New()
+		enc := MustSucceed(codec.NewJSONEncoder(message(
+			[]icd.JSONField{nanField("v", key)},
+			codec.Binding{Field: key, DataType: telem.Float64T},
+		)))
+		Expect(enc.HasDefault(0)).To(BeTrue())
+		Expect(enc.Encode(nil, [][]byte{float64Sample(2.5)})).To(MatchJSON(`{"v":2.5}`))
+		Expect(enc.Encode(nil, [][]byte{nil})).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError("message command: field v: default: NaN is not a JSON number: "+
+				"validation error"),
+		))
 	})
 
 	DescribeTable("Should write a generated default beside a match rule",
@@ -547,6 +599,10 @@ var _ = Describe("CheckDefault", func() {
 				Scale: 1, Max: new(100.0), Default: new(payload.Float(120)),
 			},
 			"120 is above the max 100: validation error",
+		),
+		Entry("a NaN float, which JSON cannot hold",
+			icd.FloatJSONField{Scale: 1, Default: new(payload.Float(math.NaN()))},
+			"NaN is not a JSON number: validation error",
 		),
 		Entry("a timestamp default with no type",
 			icd.TimestampJSONField{

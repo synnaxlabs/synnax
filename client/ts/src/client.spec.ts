@@ -105,6 +105,8 @@ describe("constructor", () => {
     const home = mkdtempSync(join(tmpdir(), "synnax-home-"));
     vi.stubEnv("HOME", home);
     vi.stubEnv("USERPROFILE", home);
+    vi.stubEnv("LOCALAPPDATA", join(home, "AppData", "Local"));
+    vi.stubEnv("XDG_CONFIG_HOME", join(home, ".config"));
     try {
       expect(() => new Synnax()).toThrow(ValidationError);
       expect(() => new Synnax()).toThrow(/^give a host, or set SYNNAX_HOST$/);
@@ -122,6 +124,7 @@ describe.skipIf(process.platform === "win32")("constructor with Synnax Desktop",
     vi.stubEnv("SYNNAX_HOST", "");
     vi.stubEnv("SYNNAX_API_KEY", "");
     vi.stubEnv("HOME", home);
+    vi.stubEnv("XDG_CONFIG_HOME", join(home, ".config"));
     mkdirSync(join(home, ".synnax"));
   });
 
@@ -179,7 +182,7 @@ describe.skipIf(process.platform === "win32")("constructor with Synnax Desktop",
 
   it("should connect once the helper gives a key after it failed", async () => {
     const owner = createTestClient();
-    const { token, key } = await owner.auth.createAPIKey({ name: "desktop" });
+    const { token, key } = await owner.auth.apiKeys.create({ name: "desktop" });
     const ready = join(home, "ready");
     writeDesktop(`[ -f ${ready} ] || exit 1\necho ${token}`, testCoreAddress());
     const client = createClient();
@@ -187,7 +190,7 @@ describe.skipIf(process.platform === "win32")("constructor with Synnax Desktop",
     writeFileSync(ready, "");
     await expect(client.connect()).resolves.toBeDefined();
     await client.close();
-    await owner.auth.deleteAPIKeys(key.key);
+    await owner.auth.apiKeys.delete(key.key);
   });
 
   it("should tell the user to open Synnax Desktop when its helper is gone", async () => {

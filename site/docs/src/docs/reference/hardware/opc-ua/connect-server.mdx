@@ -232,11 +232,12 @@ plain text. The Driver cannot log in with a user certificate.
 | Request timeout             | `client_timeout_ms`               | 5,000 ms                   | The wait for a reply to each request and connection attempt.                              |
 | Session timeout             | `session_timeout_ms`              | 1,200,000 ms (20 minutes)  | How long the server keeps a session that gets no requests.                                |
 | Channel lifetime            | `secure_channel_lifetime_ms`      | 600,000 ms (10 minutes)    | How long the keys of the connection last before the Driver renews them.                   |
+| Node read timeout           |                                   | 20 s                       | The longest time to read the details of one node. The Python client cannot set it.        |
 
 The timeouts are in the **Advanced** section of the dialog. In TypeScript, the fields
 are in `properties.connection` in camel case, such as `securityMode`,
 `clientCertificate`, `serverCertificate`, `certificateValidationDisabled`, and
-`clientTimeoutMs`.
+`clientTimeoutMs`. `readNodeTimeout` is in nanoseconds, not milliseconds.
 
 ### Security policies
 

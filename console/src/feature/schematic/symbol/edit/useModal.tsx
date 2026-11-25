@@ -20,17 +20,21 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Text } from "@synnaxlabs/lyra/text";
 import { Schematic } from "@synnaxlabs/pluto";
-import { type bounds, id, type xy } from "@synnaxlabs/x";
+import { type bounds, deep, id, type xy } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 
 import { HandleList } from "@/feature/schematic/symbol/edit/HandleList";
+import { Inspector } from "@/feature/schematic/symbol/edit/Inspector";
 import { PartList } from "@/feature/schematic/symbol/edit/PartList";
 import { Preview } from "@/feature/schematic/symbol/edit/Preview";
-import { StateList } from "@/feature/schematic/symbol/edit/StateList";
+import { useConfirmSave } from "@/feature/schematic/symbol/edit/useConfirmSave";
 import { useValues } from "@/feature/schematic/symbol/edit/useValues";
 import { SelectVariantField } from "@/feature/schematic/symbol/SelectVariant";
 import { Spec } from "@/feature/schematic/symbol/spec";
+import { FLAGS } from "@/flags";
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";
@@ -52,15 +56,35 @@ export interface ModalParams {
 
 const SCALE_BOUNDS: bounds.Bounds = { lower: 5, upper: 1000 };
 
-interface StatesProps {
+interface ValueBarProps {
   value: number;
   onChange: (value: number) => void;
 }
 
-// States lists the values of the state, named by the entries of its enumeration.
-const States = ({ value, onChange }: StatesProps): ReactElement | null => (
-  <StateList value={value} onChange={onChange} tabs={useValues().list} />
-);
+// ValueBar picks the value of the state that the canvas draws.
+const ValueBar = ({ value, onChange }: ValueBarProps): ReactElement | null => {
+  const { list } = useValues();
+  if (list.length < 2) return null;
+  return (
+    <Flex.Box x align="center" gap="small" className={CSS.BE("schematic", "value-bar")}>
+      <Text.Text level="small" color={9}>
+        Preview
+      </Text.Text>
+      <Select.Buttons<number>
+        value={value}
+        onChange={onChange}
+        size="small"
+        variant="outlined"
+      >
+        {list.map((v) => (
+          <Select.Item<number> key={v.value} itemKey={v.value} size="small">
+            {v.name}
+          </Select.Item>
+        ))}
+      </Select.Buttons>
+    </Flex.Box>
+  );
+};
 
 const Editor = ({
   symbolKey,
@@ -92,6 +116,10 @@ const Editor = ({
     afterSave: () => close(),
   });
   Modals.useBusy(variant === "loading");
+  const stored = Schematic.Symbol.useResult(
+    symbolKey == null ? null : { key: symbolKey, includeUses: true },
+  );
+  const confirmSave = useConfirmSave();
   const [selectedValue, setSelectedValue] = useState(0);
   const [selectedPart, setSelectedPart, selectedPartRef] =
     useCombinedStateAndRef<Spec.Target>(undefined);
@@ -143,6 +171,25 @@ const Editor = ({
       ctx: form,
     }).length > 0;
   const createSaveText = isCreate ? "Create" : "Save";
+  const handleSave = async () => {
+    // A fill motion that cannot draw stops the save and selects its part, whose
+    // inspector shows why. The inspector shows the issues only with the flag on.
+    if (FLAGS.symbolMotion) {
+      const [part] = Spec.levelIssues(form.get(path.data).value).keys();
+      if (part != null) return setSelectedPart(part);
+    }
+    const uses = stored.data?.uses ?? [];
+    if (stored.data != null && uses.length > 0) {
+      const spec = form.get(path.data).value;
+      const changed = !deep.equal(
+        { ...stored.data.data, previewViewport: undefined },
+        { ...spec, previewViewport: undefined },
+      );
+      if (changed && (await confirmSave({ stored: stored.data, spec, uses })) !== true)
+        return;
+    }
+    save();
+  };
 
   return (
     <Form.Form<typeof Schematic.Symbol.formSchema> {...form}>
@@ -183,7 +230,6 @@ const Editor = ({
                   </Header.Header>
                   <Flex.Box className={CSS.BE("schematic", "states")}>
                     <SelectVariantField onSelectValue={setSelectedValue} />
-                    <States value={selectedValue} onChange={setSelectedValue} />
                   </Flex.Box>
                 </Flex.Box>
                 <Divider.Divider x />
@@ -194,7 +240,6 @@ const Editor = ({
                     setSelectedHandle(undefined);
                   }}
                   onAdd={addPart}
-                  selectedValue={selectedValue}
                 />
                 <Divider.Divider x />
                 <HandleList
@@ -233,22 +278,41 @@ const Editor = ({
                 </Flex.Box>
               </Flex.Box>
             )}
-            <Form.Field
-              path={path.data.drawing.markup}
-              showLabel={false}
-              showHelpText={false}
-            >
-              {({ onChange }) => (
-                <Preview
-                  selectedValue={selectedValue}
-                  selectedHandle={selectedHandle}
-                  onElementClick={handleElementClick}
-                  onContentsChange={onChange}
-                  onHandlePlace={handleHandlePlace}
-                  onHandleSelect={setSelectedHandle}
+            <Flex.Box y grow className={CSS.BE("schematic", "canvas")}>
+              <Form.Field
+                path={path.data.drawing.markup}
+                showLabel={false}
+                showHelpText={false}
+              >
+                {({ onChange }) => (
+                  <Preview
+                    selectedValue={selectedValue}
+                    selectedHandle={selectedHandle}
+                    onElementClick={handleElementClick}
+                    onContentsChange={onChange}
+                    onHandlePlace={handleHandlePlace}
+                    onHandleSelect={setSelectedHandle}
+                  />
+                )}
+              </Form.Field>
+              {hasSVG && <ValueBar value={selectedValue} onChange={setSelectedValue} />}
+            </Flex.Box>
+            {hasSVG && (
+              <Flex.Box
+                className={CSS.BE("schematic", "sidebar")}
+                y
+                rounded="small"
+                background={0}
+                bordered
+                borderColor={6}
+              >
+                <Inspector
+                  key={selectedPart ?? ""}
+                  part={selectedPart}
+                  preview={selectedValue}
                 />
-              )}
-            </Form.Field>
+              </Flex.Box>
+            )}
           </Flex.Box>
         </Modal.Body>
         {hasSVG && (
@@ -256,8 +320,13 @@ const Editor = ({
             <Nav.Bar.End>
               <Button.Button
                 variant="filled"
-                status={status.keepVariants(variant, "loading")}
-                onClick={() => save()}
+                status={
+                  !isCreate && stored.variant === "loading"
+                    ? "loading"
+                    : status.keepVariants(variant, "loading")
+                }
+                disabled={!isCreate && stored.variant === "error"}
+                onClick={() => void handleSave()}
                 trigger={Triggers.SAVE}
                 triggerIndicator
               >

@@ -53,10 +53,10 @@ const PAGE_SIZE = 50;
 const createField = (name: string, kind: payload.Kind): icd.JSONField =>
   icd.jsonFieldZ.parse({ name, pointer: `/${name}`, type: kind });
 
-const createTimeField = (): icd.JSONField =>
+const createTimeField = (name = "time"): icd.JSONField =>
   icd.jsonFieldZ.parse({
-    name: "time",
-    pointer: "/time",
+    name,
+    pointer: `/${name}`,
     type: "timestamp",
     timeFormat: "unix_ms",
   });
@@ -652,7 +652,7 @@ describe("MQTT read form", () => {
     const { icd: icdKey, messages } = plainOf((await retrieveEntries(draft.key))[0]);
     await waitFor(async () =>
       expect((await client.icds.retrieve(icdKey)).messages[0].payload).toMatchObject({
-        fields: [{ key: temperature.key }, { name: "Field 2", pointer: "" }],
+        fields: [{ key: temperature.key }, { name: "Field 2", pointer: "/field_2" }],
       }),
     );
     const [, added] = jsonFieldsOf(await client.icds.retrieve(icdKey));
@@ -959,6 +959,14 @@ describe("MQTT read form", () => {
     await waitFor(async () =>
       expect((await retrieveEntries(draft.key))[0].disabled).toBe(false),
     );
+  });
+
+  it("should preview a new index after its index field while the entry is disabled", async () => {
+    const ts = createTimeField("ts");
+    const temperature = createField("temperature", "float");
+    const entry = await createEntry({ fields: [temperature, ts], index: ts.key });
+    const { dev } = await renderRead({ entries: [{ ...entry, disabled: true }] });
+    await screen.findByDisplayValue(`${dev.name}_plant_oven_ts`);
   });
 
   it("should read the time from the first timestamp field on payload timing", async () => {
@@ -2498,7 +2506,7 @@ describe("MQTT read form", () => {
     await screen.findByDisplayValue(`${dev.name}_plant_oven_temperature_2`);
   });
 
-  it("should move only the message that borrows a channel on another's index", async () => {
+  it("should move only the message that borrows a channel on another's index when its entry turns on", async () => {
     const time = await createTimeChannel();
     const createOnTime = async (name: string) =>
       await client.channels.create({
@@ -2514,10 +2522,12 @@ describe("MQTT read form", () => {
       bound: { [temperatureField.key]: temperature.key },
     });
     await addMessage(entry, "status", [createField("flow", "float")], KIND_MATCH);
-    // The second message took the channel that the first stores for /flow.
+    // The second message took the channel that the first stores for /flow. The Core
+    // checks only enabled entries, so a disabled entry can hold this state.
     entry.messages[1].bindings[0].channel = flow.key;
+    entry.disabled = true;
     const channels = { "/temperature": temperature.key, "/flow": flow.key };
-    await renderRead({
+    const { container, draft } = await renderRead({
       entries: [entry],
       properties: {
         read: {
@@ -2525,12 +2535,16 @@ describe("MQTT read form", () => {
         },
       },
     });
-    const isNew = (name: RegExp) =>
-      within(screen.getByRole("treeitem", { name })).queryByRole("img", {
-        name: "New channel",
-      });
-    await waitFor(() => expect(isNew(/^flow/)).not.toBeNull());
-    expect(isNew(/^temperature/)).toBeNull();
+    const item = await screen.findByRole("treeitem", { name: /JSON.*plant\/oven/ });
+    fireEvent.click(within(item).getByRole("checkbox", { name: "Enabled" }));
+    const created = await deploy(container, draft.key);
+    const [first, second] = plainOf(created.config.entries[0]).messages;
+    expect(first.bindings).toEqual([
+      { field: temperatureField.key, channel: temperature.key, dataType: "" },
+    ]);
+    const moved = await client.channels.retrieve(second.bindings[0].channel);
+    expect(moved.key).not.toBe(flow.key);
+    expect(moved.index).not.toBe(time.key);
   });
 
   describe("Sparkplug B entries", () => {

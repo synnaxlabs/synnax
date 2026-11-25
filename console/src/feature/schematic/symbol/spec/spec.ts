@@ -170,6 +170,91 @@ export const setOwn = <F extends Field>(
   };
 };
 
+/** @returns whether a look of target sets field on some values alone. */
+export const variesByValue = (
+  spec: Pick<Spec, "looks">,
+  target: Target,
+  field: Field,
+): boolean =>
+  spec.looks.some(
+    (l) => l.part === target && l.when?.state === STATE && l[field] != null,
+  );
+
+/**
+ * @returns spec in which field of target varies by value, with each value starting from
+ * the field on every value. With varies false, it returns spec in which every value
+ * takes the field that target sets at the first value.
+ */
+export const setVariesByValue = (
+  spec: Spec,
+  target: Target,
+  field: Field,
+  values: number[],
+  varies: boolean,
+): Spec => {
+  if (varies) {
+    const shared = spec.looks.findLast((l) => owns(l, target) && l[field] != null);
+    if (shared == null) return spec;
+    const cleared = setOwn(spec, target, field, undefined);
+    return values.reduce((s, v) => setOwn(s, target, field, shared[field], v), cleared);
+  }
+  // Looks of the whole drawing stay out, so target takes no field that it did not set.
+  const mine = spec.looks.filter((l) => l.part === target);
+  const first = effective({ looks: mine }, target, field, values[0]);
+  const cleared = values.reduce((s, v) => setOwn(s, target, field, undefined, v), spec);
+  return setOwn(cleared, target, field, first);
+};
+
+const CLIP_STYLE = /(^|;)\s*clip-path\s*:\s*(?!none\s*(;|$))[^;\s]/;
+
+const clipped = (el: Element): boolean => {
+  const clip = el.getAttribute("clip-path")?.trim() ?? "none";
+  return (
+    !["", "none"].includes(clip) || CLIP_STYLE.test(el.getAttribute("style") ?? "")
+  );
+};
+
+/**
+ * LevelIssue is why a level motion cannot draw a part. Level clips each shape of the
+ * part by its own box, so "shapes" is a part of more than one shape. It also replaces
+ * the clip-path of the shape, so "clip" is a shape that has its own.
+ */
+export type LevelIssue = "shapes" | "clip";
+
+/**
+ * @returns each part whose level motion cannot draw, mapped to the reason. Only the
+ * looks that the editor reaches count, so the user can remove each one.
+ */
+export const levelIssues = (
+  spec: Pick<Spec, "drawing" | "parts" | "looks">,
+): Map<string, LevelIssue> => {
+  const issues = new Map<string, LevelIssue>();
+  const levels = new Set(
+    spec.looks.flatMap((l) =>
+      l.motion?.type === "level" &&
+      l.part != null &&
+      (l.when == null || l.when.state === STATE)
+        ? [l.part]
+        : [],
+    ),
+  );
+  if (levels.size === 0) return issues;
+  const doc = new DOMParser().parseFromString(spec.drawing.markup, "image/svg+xml");
+  for (const p of spec.parts) {
+    if (!levels.has(p.key)) continue;
+    const matched = [
+      ...new Set(p.selectors.flatMap((s) => [...doc.querySelectorAll(s)])),
+    ];
+    // The renderer moves only the outermost elements of a part.
+    const shapes = matched.filter(
+      (el) => !matched.some((o) => o !== el && o.contains(el)),
+    );
+    if (shapes.length > 1) issues.set(p.key, "shapes");
+    else if (shapes.some(clipped)) issues.set(p.key, "clip");
+  }
+  return issues;
+};
+
 /** @returns the name "Part N" with the lowest N that no part in parts has. */
 export const nextPartName = (parts: schematic.symbol.Part[]): string => {
   const taken = new Set(parts.map((p) => p.name));
@@ -210,10 +295,22 @@ const withState = (spec: Spec, match: schematic.symbol.Matcher): Spec["states"] 
   );
 
 /**
+ * @returns looks as a static symbol draws them, with only Base: each look on Base
+ * reaches every value, and the looks on other values go.
+ */
+export const staticLooks = (looks: Look[]): Look[] =>
+  looks.flatMap((l): Look[] => {
+    if (l.when?.state !== STATE) return [l];
+    if (!l.when.values.includes(BASE)) return [];
+    const { when: _, ...rest } = l;
+    return [rest];
+  });
+
+/**
  * @returns spec as variant. An actuator gets the Base looks again on Active, `within`
  * 0.9 to 1.1, the commands Off and On, and a click that picks between them, as the
- * migration gives a stored actuator. A static symbol loses the looks of Active alone,
- * the commands, and the clicks.
+ * migration gives a stored actuator. A static symbol keeps its Base looks on every
+ * value and loses its other looks on the state, the commands, and the clicks.
  */
 export const setVariant = (spec: Spec, variant: string): Spec => {
   if (variant === "actuator") {
@@ -253,7 +350,7 @@ export const setVariant = (spec: Spec, variant: string): Spec => {
     ...spec,
     variant,
     states: withState(spec, { type: "exact" }),
-    looks: spec.looks.filter((l) => !only(l, l.part, ACTIVE)),
+    looks: staticLooks(spec.looks),
     commands: [],
     interactions: [],
   };

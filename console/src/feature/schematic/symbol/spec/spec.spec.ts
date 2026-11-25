@@ -451,6 +451,165 @@ describe("symbol editor spec", () => {
     });
   });
 
+  describe("setVariesByValue", () => {
+    it("should move the field on every value onto each value", () => {
+      const looks: schematic.symbol.Look[] = [{ key: "a", part: "body", hidden: true }];
+      const next = Spec.setVariesByValue(
+        createSpec({ looks }),
+        "body",
+        "hidden",
+        [0, 1],
+        true,
+      );
+      expect(next.looks).toEqual([
+        expect.objectContaining({ part: "body", when: equals(0), hidden: true }),
+        expect.objectContaining({ part: "body", when: equals(1), hidden: true }),
+      ]);
+      expect(Spec.variesByValue(next, "body", "hidden")).toBe(true);
+    });
+
+    it("should keep the field at the first value on every value", () => {
+      const looks: schematic.symbol.Look[] = [
+        { key: "a", part: "body", when: equals(0), fill: fixed(RED) },
+        { key: "b", part: "body", when: equals(1), fill: fixed(BLUE) },
+      ];
+      const next = Spec.setVariesByValue(
+        createSpec({ looks }),
+        "body",
+        "fill",
+        [0, 1],
+        false,
+      );
+      expect(next.looks).toEqual([
+        { key: expect.any(String), part: "body", fill: fixed(RED) },
+      ]);
+      expect(Spec.variesByValue(next, "body", "fill")).toBe(false);
+    });
+
+    it("should not give the part a field of the whole drawing", () => {
+      const looks: schematic.symbol.Look[] = [
+        { key: "a", fill: fixed(RED) },
+        { key: "b", part: "body", when: equals(1), fill: fixed(BLUE) },
+      ];
+      const next = Spec.setVariesByValue(
+        createSpec({ looks }),
+        "body",
+        "fill",
+        [0, 1],
+        false,
+      );
+      expect(next.looks).toEqual([looks[0]]);
+    });
+
+    it("should keep a spec with no field on every value", () => {
+      const spec = createSpec();
+      expect(Spec.setVariesByValue(spec, "body", "fill", [0, 1], true)).toBe(spec);
+    });
+  });
+
+  describe("levelIssues", () => {
+    const LEVEL: schematic.symbol.Motion = {
+      type: "level",
+      state: "fill",
+      side: "bottom",
+    };
+    const createDrawing = (shape: string): schematic.symbol.Spec["drawing"] => ({
+      type: "svg",
+      markup: `<svg xmlns="http://www.w3.org/2000/svg">${shape}<rect id="seat"/></svg>`,
+    });
+
+    it("should return a part with a level motion and a shape with a clip-path", () => {
+      const spec = createSpec({
+        drawing: createDrawing('<rect id="body" clip-path="url(#c)"/>'),
+        looks: [{ key: "a", part: "body", motion: LEVEL }],
+      });
+      expect(Spec.levelIssues(spec)).toEqual(new Map([["body", "clip"]]));
+    });
+
+    it("should skip a level motion on a state that the editor does not edit", () => {
+      const spec = createSpec({
+        drawing: createDrawing('<rect id="body" clip-path="url(#c)"/>'),
+        looks: [
+          {
+            key: "a",
+            part: "body",
+            when: { type: "equals", state: "other", values: [0] },
+            motion: LEVEL,
+          },
+        ],
+      });
+      expect(Spec.levelIssues(spec)).toEqual(new Map());
+    });
+
+    it("should count a clip-path in the style of a shape", () => {
+      const spec = createSpec({
+        drawing: createDrawing(
+          '<rect id="body" style="fill: red; clip-path: inset(0)"/>',
+        ),
+        looks: [{ key: "a", part: "body", motion: LEVEL }],
+      });
+      expect(Spec.levelIssues(spec)).toEqual(new Map([["body", "clip"]]));
+    });
+
+    it("should not count a clip-path of none", () => {
+      const spec = createSpec({
+        drawing: createDrawing(
+          '<rect id="body" clip-path="none" style="clip-path: none; fill: red"/>',
+        ),
+        looks: [{ key: "a", part: "body", motion: LEVEL }],
+      });
+      expect(Spec.levelIssues(spec)).toEqual(new Map());
+    });
+
+    it("should return a part with a level motion and more than one shape", () => {
+      const spec = createSpec({
+        drawing: createDrawing('<rect id="body"/>'),
+        parts: [{ key: "body", name: "Body", selectors: ["#body", "#seat"] }],
+        looks: [{ key: "a", part: "body", motion: LEVEL }],
+      });
+      expect(Spec.levelIssues(spec)).toEqual(new Map([["body", "shapes"]]));
+    });
+
+    it("should count a shape that two selectors match once", () => {
+      const spec = createSpec({
+        drawing: createDrawing('<rect id="body" class="tank"/>'),
+        parts: [{ key: "body", name: "Body", selectors: ["#body", ".tank"] }],
+        looks: [{ key: "a", part: "body", motion: LEVEL }],
+      });
+      expect(Spec.levelIssues(spec).size).toBe(0);
+    });
+
+    it("should count a group of shapes as one shape", () => {
+      const spec = createSpec({
+        drawing: createDrawing('<g id="body"><rect/><rect/></g>'),
+        looks: [{ key: "a", part: "body", motion: LEVEL }],
+      });
+      expect(Spec.levelIssues(spec).size).toBe(0);
+    });
+
+    it("should count only the outermost shapes of a part", () => {
+      const spec = createSpec({
+        drawing: createDrawing(
+          '<g id="body"><rect id="inner" clip-path="url(#c)"/><rect/></g>',
+        ),
+        parts: [{ key: "body", name: "Body", selectors: ["#body", "#inner"] }],
+        looks: [{ key: "a", part: "body", motion: LEVEL }],
+      });
+      expect(Spec.levelIssues(spec).size).toBe(0);
+    });
+
+    it("should return no part when the clipped part has no level motion", () => {
+      const spec = createSpec({
+        drawing: createDrawing('<rect id="body" clip-path="url(#c)"/>'),
+        looks: [
+          { key: "a", part: "body", motion: { type: "spin", rate: 1 } },
+          { key: "b", part: "seat", motion: LEVEL },
+        ],
+      });
+      expect(Spec.levelIssues(spec).size).toBe(0);
+    });
+  });
+
   describe("nextPartName", () => {
     it("should take the lowest number that no part has", () => {
       const parts = [
@@ -525,7 +684,9 @@ describe("symbol editor spec", () => {
           { key: "b", when: equals(1), fill: fixed(BLUE) },
         ],
       });
-      expect(Spec.setVariant(spec, "static").looks.map((l) => l.key)).toEqual(["a"]);
+      expect(Spec.setVariant(spec, "static").looks).toEqual([
+        { key: "a", fill: fixed(RED) },
+      ]);
     });
 
     it("should give an actuator the commands, the match, and the Base looks on Active", () => {
@@ -563,7 +724,10 @@ describe("symbol editor spec", () => {
         "actuator",
       );
       const next = Spec.setVariant(actuator, "static");
-      expect(next.looks.map((l) => l.key)).toEqual(["a", "b"]);
+      expect(next.looks).toEqual([
+        { key: "a", part: "body", stroke: fixed(RED) },
+        { key: "b", part: "body", fill: fixed(BLUE) },
+      ]);
       expect(next.commands).toEqual([]);
       expect(next.interactions).toEqual([]);
       expect(next.states[0]).toMatchObject({ match: { type: "exact" } });

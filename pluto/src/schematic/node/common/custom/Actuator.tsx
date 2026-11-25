@@ -42,16 +42,24 @@ export const Actuator = ({
   strokeColor,
   ...rest
 }: ActuatorProps): ReactElement => {
-  const { symbol, missing } = Symbol.useResolved(specKey);
+  const { symbol, missing, failed } = Symbol.useResolved(specKey);
   const spec = symbol?.data;
-  const paints = usePaints(spec, enabled ? 1 : 0, stateOverrides, strokeColor);
+  const value = enabled ? 1 : 0;
+  const paints = usePaints(spec, value, {
+    override: stateOverrides?.[value],
+    nodeColor: strokeColor,
+  });
   const invalid = spec != null && !isValidSVG(spec.drawing.markup);
-  if (missing || invalid)
+  if (missing || failed || invalid)
     return (
       <Note.Note variant="warning" className={className}>
         <Text.Text level="p" status="warning">
           <Icon.Warning />
-          {missing ? "Missing custom symbol" : "Invalid custom symbol"}
+          {missing
+            ? "Missing custom symbol"
+            : failed
+              ? "Failed to load custom symbol"
+              : "Invalid custom symbol"}
         </Text.Text>
       </Note.Note>
     );

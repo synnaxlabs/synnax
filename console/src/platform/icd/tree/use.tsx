@@ -262,7 +262,7 @@ interface BaseArgs<S extends Source> {
   messageName: (source: string, held: icd.Message[]) => string;
   /**
    * The key of each message that the task made. The hook adds each message it makes.
-   * Keep it outside of each {@link WithFormat}, as a new ICD mounts the hook again.
+   * Keep it outside of {@link WithFormats}, as a new ICD mounts the hook again.
    */
   made: RefObject<Set<string>>;
   /** The key of each selected tree item. */
@@ -307,8 +307,8 @@ export interface UseReturn {
 
 /**
  * The tree of the sources of a read task, with each message and field that they read.
- * It edits the ICDs of the sources through their open forms, so call it inside a
- * {@link WithFormat} for the ICD of each source. Source keys must be unique across
+ * It edits the ICDs of the sources through their open forms, so call it inside
+ * {@link WithFormats} with the ICD of each source. Source keys must be unique across
  * groups.
  */
 export const use = <
@@ -466,7 +466,7 @@ export const use = <
     const source = ctx.get(pathOf(sourceKey)).value;
     const { message } = source.messages[r];
     const fields = fieldsOf(formats, source.icd, message);
-    const field = createJSONField(fields.map(({ name }) => name));
+    const field = createJSONField(fields);
     formatOf(formats, source.icd).insert(
       fieldsPath(message),
       field,
