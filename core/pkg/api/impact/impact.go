@@ -105,8 +105,9 @@ func (s *Service) Plan(
 }
 
 // ApplyHandler returns the apply route on binder: it plans and applies the change and
-// checks access on what it wrote, in one transaction. A denial on a record that the
-// subject cannot retrieve names no record.
+// checks access on what it wrote, in one transaction. As the plan route does, it
+// refuses a change that names a record the subject cannot retrieve, before it plans. A
+// denial on a record that the subject cannot retrieve names no record.
 func (s *Service) ApplyHandler(
 	binder *bind.Service,
 ) freighter.UnaryHandler[ApplyRequest, impact.Plan] {
@@ -121,10 +122,20 @@ func (s *Service) ApplyHandler(
 			if err != nil {
 				return impact.Plan{}, err
 			}
+			subject := auth.GetSubject(ctx)
 			visible, err = s.cfg.RBAC.NewEnforcer(tx).
-				Allowed(ctx, auth.GetSubject(ctx), access.ActionRetrieve)
+				Allowed(ctx, subject, access.ActionRetrieve)
 			if err != nil {
 				return impact.Plan{}, err
+			}
+			for _, r := range records {
+				if !visible(r) {
+					return impact.Plan{}, access.Denied(
+						subject,
+						access.ActionRetrieve,
+						r,
+					)
+				}
 			}
 			return s.cfg.Impact.Apply(ctx, tx, records, impact.ApplyOptions{
 				Token:   req.Token,
