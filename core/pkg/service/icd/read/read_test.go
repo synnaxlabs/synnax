@@ -81,13 +81,23 @@ const (
 	timeKey  channel.Key = 1
 	valueKey channel.Key = 2
 	stampKey channel.Key = 3
+	levelKey channel.Key = 4
+	// pressureKey is a data channel on an index channel other than timeKey.
+	pressureKey channel.Key = 5
 )
 
 // held holds the channels that the channel lookup of the specs finds.
 var held = map[channel.Key]icdv0.Channel{
-	timeKey:  {Name: "time", DataType: telem.TimestampT, Index: true},
-	valueKey: {Name: "value", DataType: telem.Float64T},
-	stampKey: {Name: "stamp", DataType: telem.TimestampT},
+	timeKey: {
+		Name:     "time",
+		DataType: telem.TimestampT,
+		Index:    true,
+		IndexKey: timeKey,
+	},
+	valueKey:    {Name: "value", DataType: telem.Float64T, IndexKey: timeKey},
+	stampKey:    {Name: "stamp", DataType: telem.TimestampT},
+	levelKey:    {Name: "level", DataType: telem.Float64T, IndexKey: timeKey},
+	pressureKey: {Name: "pressure", DataType: telem.Float64T, IndexKey: 6},
 }
 
 func bind(f icd.JSONField, key channel.Key) icd.ReadBinding {
@@ -127,18 +137,26 @@ var _ = Describe("Read", func() {
 		})
 	})
 
-	// check checks reads with the Checker of them, which is given plant.
-	check := func(ctx context.Context, reads ...read.Read) error {
+	// checker returns the Checker of reads, which is given plant, after it reads each
+	// of them, and the error of the first read that it refuses.
+	checker := func(ctx context.Context, reads ...read.Read) (read.Checker, error) {
 		GinkgoHelper()
 		c := MustSucceed(resolver.NewChecker(
-			ctx, db, reads, map[icd.Key]icd.ICD{plant.Key: plant},
+			ctx, db, reads, nil, map[icd.Key]icd.ICD{plant.Key: plant},
 		))
 		for _, rd := range reads {
 			if err := c.Read(rd); err != nil {
-				return err
+				return read.Checker{}, err
 			}
 		}
-		return nil
+		return c, nil
+	}
+
+	// check checks reads with the Checker of them.
+	check := func(ctx context.Context, reads ...read.Read) error {
+		GinkgoHelper()
+		_, err := checker(ctx, reads...)
+		return err
 	}
 
 	Describe("Checker", func() {
@@ -150,6 +168,20 @@ var _ = Describe("Read", func() {
 					ts,
 					readOf(status, bind(ts, timeKey), bind(temp, valueKey)),
 				)
+				Expect(check(ctx, readAt(0, plant.Key, rm))).To(Succeed())
+			})
+
+			It("Should accept a message with no index field on one index channel", func(
+				ctx SpecContext,
+			) {
+				rm := readOf(status, bind(temp, valueKey), bind(temp, levelKey))
+				Expect(check(ctx, readAt(0, plant.Key, rm))).To(Succeed())
+			})
+
+			It("Should accept a message whose channels are on two index channels", func(
+				ctx SpecContext,
+			) {
+				rm := readOf(status, bind(temp, valueKey), bind(temp, pressureKey))
 				Expect(check(ctx, readAt(0, plant.Key, rm))).To(Succeed())
 			})
 
@@ -254,16 +286,95 @@ var _ = Describe("Read", func() {
 			})
 		})
 
+		Describe("ClaimIndexes", func() {
+			// claimIndexes claims the index channels of reads with the Checker of them,
+			// which accepts each of them first.
+			claimIndexes := func(ctx context.Context, reads ...read.Read) error {
+				GinkgoHelper()
+				c := MustSucceed(checker(ctx, reads...))
+				for _, rd := range reads {
+					if err := c.ClaimIndexes(rd); err != nil {
+						return err
+					}
+				}
+				return nil
+			}
+
+			It("Should take an index channel that the index field binds", func(
+				ctx SpecContext,
+			) {
+				rm := indexed(
+					ts,
+					readOf(status, bind(ts, timeKey), bind(temp, valueKey)),
+				)
+				Expect(claimIndexes(ctx, readAt(0, plant.Key, rm))).To(Succeed())
+			})
+
+			It("Should take an index channel of two bound channels once", func(
+				ctx SpecContext,
+			) {
+				rm := readOf(status, bind(temp, valueKey), bind(temp, levelKey))
+				Expect(claimIndexes(ctx, readAt(0, plant.Key, rm))).To(Succeed())
+			})
+
+			It("Should reject a message that writes the index channel of another", func(
+				ctx SpecContext,
+			) {
+				rd := readAt(
+					0,
+					plant.Key,
+					indexed(
+						ts,
+						readOf(status, bind(ts, timeKey), bind(temp, valueKey)),
+					),
+					readOf(status, bind(temp, levelKey)),
+				)
+				Expect(claimIndexes(ctx, rd)).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError("reads.0.messages.1: channel 1 is also written by "+
+						"reads.0.messages.0.bindings.0.channel"),
+				))
+			})
+
+			DescribeTable("Should reject two messages that write one index channel",
+				func(ctx SpecContext, first icd.ReadMessage, other string) {
+					Expect(claimIndexes(
+						ctx,
+						readAt(0, plant.Key, first),
+						readAt(1, plant.Key, readOf(status, bind(temp, levelKey))),
+					)).To(MatchError(
+						"reads.1.messages.0: channel 1 is also written by " + other,
+					))
+				},
+				Entry("when neither has an index field",
+					readOf(status, bind(temp, valueKey)),
+					"reads.0.messages.0",
+				),
+				Entry(
+					"when the other binds an index field to it",
+					indexed(
+						ts,
+						readOf(status, bind(ts, timeKey), bind(temp, valueKey)),
+					),
+					"reads.0.messages.0.bindings.0.channel",
+				),
+				Entry("when the other writes it among two index channels",
+					readOf(status, bind(temp, pressureKey), bind(temp, valueKey)),
+					"reads.0.messages.0",
+				),
+			)
+		})
+
 		Describe("Claim", func() {
 			It("Should take a channel that nothing writes", func(ctx SpecContext) {
-				c := MustSucceed(resolver.NewChecker(ctx, db, nil, nil))
+				c := MustSucceed(resolver.NewChecker(ctx, db, nil, nil, nil))
 				Expect(c.Claim(valueKey, []string{"tag"})).To(Succeed())
 			})
 
 			It("Should reject a channel that another binding or tag writes", func(
 				ctx SpecContext,
 			) {
-				c := MustSucceed(resolver.NewChecker(ctx, db, nil, nil))
+				c := MustSucceed(resolver.NewChecker(ctx, db, nil, nil, nil))
 				Expect(c.Claim(valueKey, []string{"a", "channel"})).To(Succeed())
 				err := c.Claim(valueKey, []string{"b", "channel"})
 				Expect(err).To(MatchError(validate.ErrValidation))
@@ -272,9 +383,43 @@ var _ = Describe("Read", func() {
 				))
 			})
 		})
+
+		Describe("ClaimIndex", func() {
+			It("Should reject a tag whose index channel another tag writes", func(
+				ctx SpecContext,
+			) {
+				tags := []channel.Key{valueKey, levelKey}
+				c := MustSucceed(resolver.NewChecker(ctx, db, nil, tags, nil))
+				Expect(c.Claim(valueKey, []string{"a", "channel"})).To(Succeed())
+				Expect(c.Claim(levelKey, []string{"b", "channel"})).To(Succeed())
+				Expect(c.ClaimIndex(valueKey, []string{"a", "channel"})).To(Succeed())
+				Expect(c.ClaimIndex(levelKey, []string{"b", "channel"})).To(MatchError(
+					"b.channel: channel 1 is also written by a.channel",
+				))
+			})
+
+			It("Should take nothing for a tag on an index channel", func(
+				ctx SpecContext,
+			) {
+				tags := []channel.Key{timeKey}
+				c := MustSucceed(resolver.NewChecker(ctx, db, nil, tags, nil))
+				Expect(c.Claim(timeKey, []string{"a", "channel"})).To(Succeed())
+				Expect(c.ClaimIndex(timeKey, []string{"a", "channel"})).To(Succeed())
+			})
+		})
 	})
 
 	Describe("NewChecker", func() {
+		It("Should look up the channel of each tag with the channels of reads", func(
+			ctx SpecContext,
+		) {
+			rd := readAt(0, plant.Key, readOf(status, bind(temp, valueKey)))
+			Expect(resolver.NewChecker(
+				ctx, db, []read.Read{rd}, []channel.Key{levelKey, valueKey}, nil,
+			)).Error().ToNot(HaveOccurred())
+			Expect(asked).To(HaveExactElements(ConsistOf(levelKey, valueKey)))
+		})
+
 		It("Should retrieve an ICD that the given ICDs lack", func(ctx SpecContext) {
 			stored := icd.ICD{Name: "Stored", Messages: []icd.Message{status}}
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -316,7 +461,7 @@ var _ = Describe("Read", func() {
 				return nil, errors.New("no channels")
 			})
 			rd := readAt(0, plant.Key, readOf(status, bind(temp, valueKey)))
-			Expect(resolver.NewChecker(ctx, db, []read.Read{rd}, nil)).Error().
+			Expect(resolver.NewChecker(ctx, db, []read.Read{rd}, nil, nil)).Error().
 				To(MatchError("no channels"))
 		})
 	})

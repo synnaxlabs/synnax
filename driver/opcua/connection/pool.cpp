@@ -369,8 +369,12 @@ Pool::Connection::update_namespaces(const UA_DataValue &value) {
     return {true, x::errors::NIL};
 }
 
-std::pair<types::ReadResponse, x::errors::Error>
-Pool::Connection::read(const UA_ReadRequest &req) const {
+std::pair<types::ReadResponse, x::errors::Error> Pool::Connection::read(
+    const UA_ReadRequest &req,
+    const std::chrono::steady_clock::time_point deadline
+) const {
+    if (std::chrono::steady_clock::now() >= deadline)
+        return {types::ReadResponse(), errors::DEADLINE_EXCEEDED};
     const size_t limit = this->server_info->max_nodes_per_read;
     const size_t total = req.nodesToReadSize;
     if (limit == 0 || total <= limit) {
@@ -393,7 +397,7 @@ Pool::Connection::read(const UA_ReadRequest &req) const {
         UA_ReadRequest part = req;
         part.nodesToRead = req.nodesToRead + offset;
         part.nodesToReadSize = std::min(limit, total - offset);
-        auto [res, err] = this->read(part);
+        auto [res, err] = this->read(part, deadline);
         if (err) return {types::ReadResponse(), err};
         auto &raw = *res.ptr();
         move_results(out.results + offset, raw.results, raw.resultsSize);
@@ -592,8 +596,13 @@ void Pool::BreakerState::succeeded() {
     this->last_error = x::errors::NIL;
 }
 
-std::pair<Pool::Connection, x::errors::Error>
-Pool::acquire(const Config &cfg, const std::string &log_prefix) {
+std::pair<Pool::Connection, x::errors::Error> Pool::acquire(
+    const Config &cfg,
+    const std::string &log_prefix,
+    const std::chrono::steady_clock::time_point deadline
+) {
+    if (std::chrono::steady_clock::now() >= deadline)
+        return {Connection(nullptr, nullptr, ""), errors::DEADLINE_EXCEEDED};
     auto [sec, sec_err] = resolve_security(cfg, *this->store);
     if (sec_err) return {Connection(nullptr, nullptr, ""), sec_err};
     sec.first_certificate_trusted = true;
@@ -637,6 +646,10 @@ Pool::acquire(const Config &cfg, const std::string &log_prefix) {
         breaker.consecutive_failures = 0;
         breaker.cooldown = {};
     }
+    const auto expired = [&]() -> std::pair<Connection, x::errors::Error> {
+        if (client != nullptr) this->put_back(key, client);
+        return {Connection(nullptr, nullptr, ""), errors::DEADLINE_EXCEEDED};
+    };
     while (true) {
         if (breaker.open()) {
             if (client != nullptr) this->put_back(key, client);
@@ -645,7 +658,10 @@ Pool::acquire(const Config &cfg, const std::string &log_prefix) {
         }
         if (!breaker.connecting) break;
         VLOG(1) << log_prefix << "Waiting for another connection attempt";
-        this->connect_cv.wait(lock, [&breaker] { return !breaker.connecting; });
+        if (!this->connect_cv.wait_until(lock, deadline, [&breaker] {
+                return !breaker.connecting;
+            }))
+            return expired();
         auto other = this->take(key, cfg);
         if (other != nullptr && !lost(other.get())) {
             if (client != nullptr) this->put_back(key, client);
@@ -658,6 +674,7 @@ Pool::acquire(const Config &cfg, const std::string &log_prefix) {
         else
             this->put_back(key, other);
     }
+    if (std::chrono::steady_clock::now() >= deadline) return expired();
     breaker.connecting = true;
     lock.unlock();
 
