@@ -23,12 +23,10 @@
           "bindings": [
             {
               "channel": 10110,
-              "data_type": "",
               "field": "fixture_http_list_timestamp"
             },
             {
               "channel": 10120,
-              "data_type": "",
               "field": "fixture_http_list_mode"
             }
           ],
