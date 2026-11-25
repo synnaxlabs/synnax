@@ -231,10 +231,13 @@ var _ = Describe("Calculator check", Ordered, func() {
 			out := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
 				Name:     UniqueChannelName(),
 				DataType: telem.Float64T,
+				// The term adds nothing, and an integer divide by zero fails the step
+				// when the primary is -1.
 				Expression: fmt.Sprintf(
-					"return %s + %s",
+					"return %s + %s + f64(i64(0) / i64(%s + 1))",
 					bases[0].Name,
 					bases[1].Name,
+					bases[0].Name,
 				),
 			}))
 			calc := MustSucceed(creator.CalculationOf(ctx, out.Key()))
@@ -252,20 +255,29 @@ var _ = Describe("Calculator check", Ordered, func() {
 			}))
 			DeferCleanup(c.Close)
 			g := calculator.Group{c}
-			// step writes the primary at stamp, in seconds, with alignment a, a second
-			// later on the clock, and returns the variant and message of each report.
-			step := func(stamp telem.TimeStamp, a uint32) []string {
-				GinkgoHelper()
-				now += telem.SecondTS
+			// write returns the series of input i at stamp, in seconds, with value v
+			// and
+			// alignment a.
+			write := func(
+				i int,
+				stamp telem.TimeStamp,
+				a uint32,
+				v float64,
+			) ([]channel.Key, []telem.Series) {
 				idx := telem.NewSeriesSecondsTSV(stamp)
-				data := telem.NewSeriesV[float64](1)
+				data := telem.NewSeriesV(v)
 				idx.Alignment = telem.NewAlignment(0, a)
 				data.Alignment = idx.Alignment
+				return []channel.Key{indexes[i].Key(), bases[i].Key()},
+					[]telem.Series{idx, data}
+			}
+			// run runs a step a second later on the clock, and returns the variant and
+			// message of each report.
+			run := func(keys []channel.Key, series []telem.Series) []string {
+				GinkgoHelper()
+				now += telem.SecondTS
 				var reported []string
-				g.Next(ctx, frame.NewMulti(
-					[]channel.Key{indexes[0].Key(), bases[0].Key()},
-					[]telem.Series{idx, data},
-				), func(
+				g.Next(ctx, frame.NewMulti(keys, series), func(
 					_ context.Context,
 					_ channel.Key,
 					_ string,
@@ -276,6 +288,11 @@ var _ = Describe("Calculator check", Ordered, func() {
 				})
 				return reported
 			}
+			// step writes the primary at stamp with alignment a.
+			step := func(stamp telem.TimeStamp, a uint32) []string {
+				GinkgoHelper()
+				return run(write(0, stamp, a, 1))
+			}
 			stale := "warning: " + calculation.StaleStatus("").Message
 			// The join settles on the fourth frame of the primary, 1 s apart, and the
 			// other input never writes.
@@ -283,9 +300,21 @@ var _ = Describe("Calculator check", Ordered, func() {
 				Expect(step(telem.TimeStamp(i+1), uint32(i))).To(BeEmpty())
 			}
 			Expect(step(4, 3)).To(ConsistOf(stale))
-			// A primary stamp before one the join passed fails the step.
-			Expect(step(2, 4)).To(ConsistOf(HavePrefix("error: ")))
-			// The inputs are still stale, and the error is not the cause now.
-			Expect(step(5, 5)).To(ConsistOf(stale))
+			// The other input writes once, and a primary of -1 beside it fails the
+			// step.
+			kb, sb := write(1, 5, 0, 10)
+			ka, sa := write(0, 5, 4, -1)
+			Expect(run(append(kb, ka...), append(sb, sa...))).
+				To(ConsistOf(HavePrefix("error: ")))
+			// The other input writes no more, and its last sample's hold passes on the
+			// arrival clock, so the inputs are stale again, and the error is not the
+			// cause now.
+			now += 10 * telem.SecondTS
+			var after []string
+			for i := range 4 {
+				after = append(after, step(telem.TimeStamp(10+i), uint32(5+i))...)
+			}
+			Expect(after).To(ContainElement(stale))
+			Expect(after).ToNot(ContainElement(HavePrefix("success: ")))
 		})
 })

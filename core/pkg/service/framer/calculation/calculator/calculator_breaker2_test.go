@@ -104,176 +104,103 @@ var _ = Describe("Breaker 2 live join", Ordered, ContinueOnFailure, func() {
 		}))
 	}
 
-	// B5: a step whose push the join refuses emits no joined sample, since the error
-	// drops the step's output, and the next step joins the held samples. A frame that
-	// holds two series of one input runs the join twice in one step: the first run
-	// emits, and the second refuses the backfill. Every primary stamp must still get
-	// one output.
-	It("Should not lose the samples a step joined before a later push of the same "+
-		"step fails", func(ctx SpecContext) {
-		var now telem.TimeStamp
-		indexes := []channel.Channel{
-			{Name: UniqueChannelName(), DataType: telem.TimestampT, IsIndex: true},
-			{Name: UniqueChannelName(), DataType: telem.TimestampT, IsIndex: true},
-		}
-		bases := []channel.Channel{
-			{Name: UniqueChannelName(), DataType: telem.Float64T},
-			{Name: UniqueChannelName(), DataType: telem.Float64T},
-		}
-		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			w := channelSvc.NewWriter(tx)
-			if err := w.CreateMany(ctx, &indexes); err != nil {
-				return err
+	// A frame that holds two series of one input runs the join twice in one step: the
+	// first run emits, and the second takes a backfill, which is a late input. Every
+	// primary stamp must still get one output.
+	It(
+		"Should keep the output a step joined when a later series of the step backfills "+
+			"another input, with no error",
+		func(ctx SpecContext) {
+			var now telem.TimeStamp
+			indexes := []channel.Channel{
+				{Name: UniqueChannelName(), DataType: telem.TimestampT, IsIndex: true},
+				{Name: UniqueChannelName(), DataType: telem.TimestampT, IsIndex: true},
 			}
-			for i := range bases {
-				bases[i].LocalIndex = indexes[i].LocalKey
+			bases := []channel.Channel{
+				{Name: UniqueChannelName(), DataType: telem.Float64T},
+				{Name: UniqueChannelName(), DataType: telem.Float64T},
 			}
-			return w.CreateMany(ctx, &bases)
-		})).To(Succeed())
-		out := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
-			Name:       UniqueChannelName(),
-			DataType:   telem.Float64T,
-			Expression: fmt.Sprintf("return %s + %s", bases[0].Name, bases[1].Name),
-		}))
-		c := MustSucceed(creator.CalculationOf(ctx, out.Key()))
-		primary := bases[0].Key()
-		c.Primary = &primary
-		mod := MustSucceed(compiler.Compile(ctx, db, compiler.Config{
-			ChannelService: channelSvc,
-			Channel:        out,
-			Calculation:    c,
-			Live:           true,
-		}))
-		Expect(mod.Joined).To(BeTrue())
-		calc := MustOpen(calculator.Open(ctx, calculator.Config{
-			Module: mod,
-			Now:    func() telem.TimeStamp { return now },
-		}))
-		DeferCleanup(calc.Close)
-		series := func(
-			i int,
-			domain, a uint32,
-			values []float64,
-			stamps ...telem.TimeStamp,
-		) ([]channel.Key, []telem.Series) {
-			t := telem.NewSeriesSecondsTSV(stamps...)
-			d := telem.NewSeries(values)
-			t.Alignment = telem.NewAlignment(domain, a)
-			d.Alignment = t.Alignment
-			return []channel.Key{indexes[i].Key(), bases[i].Key()}, []telem.Series{t, d}
-		}
-		var got []float64
-		next := func(keys []channel.Key, sers []telem.Series) error {
-			of, _, err := calc.Next(ctx, frame.NewMulti(keys, sers), frame.Frame{})
-			if err != nil {
-				return err
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				w := channelSvc.NewWriter(tx)
+				if err := w.CreateMany(ctx, &indexes); err != nil {
+					return err
+				}
+				for i := range bases {
+					bases[i].LocalIndex = indexes[i].LocalKey
+				}
+				return w.CreateMany(ctx, &bases)
+			})).To(Succeed())
+			out := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
+				Name:       UniqueChannelName(),
+				DataType:   telem.Float64T,
+				Expression: fmt.Sprintf("return %s + %s", bases[0].Name, bases[1].Name),
+			}))
+			c := MustSucceed(creator.CalculationOf(ctx, out.Key()))
+			primary := bases[0].Key()
+			c.Primary = &primary
+			mod := MustSucceed(compiler.Compile(ctx, db, compiler.Config{
+				ChannelService: channelSvc,
+				Channel:        out,
+				Calculation:    c,
+				Live:           true,
+			}))
+			Expect(mod.Joined).To(BeTrue())
+			calc := MustOpen(calculator.Open(ctx, calculator.Config{
+				Module: mod,
+				Now:    func() telem.TimeStamp { return now },
+			}))
+			DeferCleanup(calc.Close)
+			series := func(
+				i int,
+				domain, a uint32,
+				values []float64,
+				stamps ...telem.TimeStamp,
+			) ([]channel.Key, []telem.Series) {
+				t := telem.NewSeriesSecondsTSV(stamps...)
+				d := telem.NewSeries(values)
+				t.Alignment = telem.NewAlignment(domain, a)
+				d.Alignment = t.Alignment
+				return []channel.Key{
+					indexes[i].Key(),
+					bases[i].Key(),
+				}, []telem.Series{
+					t,
+					d,
+				}
 			}
-			for _, s := range of.Get(out.Key()).Series {
-				got = append(got, s.Unmarshal[float64]()...)
+			var got []float64
+			next := func(keys []channel.Key, sers []telem.Series) error {
+				of, _, err := calc.Next(ctx, frame.NewMulti(keys, sers), frame.Frame{})
+				if err != nil {
+					return err
+				}
+				for _, s := range of.Get(out.Key()).Series {
+					got = append(got, s.Unmarshal[float64]()...)
+				}
+				return nil
 			}
-			return nil
-		}
-		var (
-			keys []channel.Key
-			sers []telem.Series
-		)
-		add := func(k []channel.Key, s []telem.Series) {
-			keys, sers = append(keys, k...), append(sers, s...)
-		}
-		// One frame: b at 10 s to 12 s, a at 10 s to 12 s, then a backfill of b in a
-		// new domain whose stamps do not rise.
-		add(series(1, 0, 0, []float64{10, 20, 30}, 10, 11, 12))
-		add(series(0, 0, 0, []float64{1, 2, 3}, 10, 11, 12))
-		add(series(1, 1, 0, []float64{7, 8}, 1, 2))
-		Expect(next(keys, sers)).To(MatchError(ContainSubstring("does not follow")))
-		k, s := series(0, 0, 3, []float64{4}, 13)
-		Expect(next(k, s)).To(Succeed())
-		Expect(got).To(Equal([]float64{11, 22, 33, 34}))
-	})
-
-	// B5: "the next step joins the held samples". In a group, a step can hold no new
-	// sample of this calculation's reads, as when the frame holds only another
-	// calculation's channels, or the inputs stopped after the failed step.
-	It("Should join the held samples of a failed step on the next step", func(
-		ctx SpecContext,
-	) {
-		var now telem.TimeStamp
-		indexes := []channel.Channel{
-			{Name: UniqueChannelName(), DataType: telem.TimestampT, IsIndex: true},
-			{Name: UniqueChannelName(), DataType: telem.TimestampT, IsIndex: true},
-		}
-		bases := []channel.Channel{
-			{Name: UniqueChannelName(), DataType: telem.Float64T},
-			{Name: UniqueChannelName(), DataType: telem.Float64T},
-		}
-		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			w := channelSvc.NewWriter(tx)
-			if err := w.CreateMany(ctx, &indexes); err != nil {
-				return err
+			var (
+				keys []channel.Key
+				sers []telem.Series
+			)
+			add := func(k []channel.Key, s []telem.Series) {
+				keys, sers = append(keys, k...), append(sers, s...)
 			}
-			for i := range bases {
-				bases[i].LocalIndex = indexes[i].LocalKey
-			}
-			return w.CreateMany(ctx, &bases)
-		})).To(Succeed())
-		out := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
-			Name:       UniqueChannelName(),
-			DataType:   telem.Float64T,
-			Expression: fmt.Sprintf("return %s + %s", bases[0].Name, bases[1].Name),
-		}))
-		c := MustSucceed(creator.CalculationOf(ctx, out.Key()))
-		primary := bases[0].Key()
-		c.Primary = &primary
-		mod := MustSucceed(compiler.Compile(ctx, db, compiler.Config{
-			ChannelService: channelSvc,
-			Channel:        out,
-			Calculation:    c,
-			Live:           true,
-		}))
-		Expect(mod.Joined).To(BeTrue())
-		calc := MustOpen(calculator.Open(ctx, calculator.Config{
-			Module: mod,
-			Now:    func() telem.TimeStamp { return now },
-		}))
-		DeferCleanup(calc.Close)
-		var (
-			keys []channel.Key
-			sers []telem.Series
-		)
-		add := func(
-			i int,
-			domain, a uint32,
-			values []float64,
-			stamps ...telem.TimeStamp,
-		) {
-			t := telem.NewSeriesSecondsTSV(stamps...)
-			d := telem.NewSeries(values)
-			t.Alignment = telem.NewAlignment(domain, a)
-			d.Alignment = t.Alignment
-			keys = append(keys, indexes[i].Key(), bases[i].Key())
-			sers = append(sers, t, d)
-		}
-		next := func() ([]float64, error) {
-			of, _, err := calc.Next(ctx, frame.NewMulti(keys, sers), frame.Frame{})
-			keys, sers = nil, nil
-			if err != nil {
-				return nil, err
-			}
-			var v []float64
-			for _, s := range of.Get(out.Key()).Series {
-				v = append(v, s.Unmarshal[float64]()...)
-			}
-			return v, nil
-		}
-		add(1, 0, 0, []float64{10, 20, 30}, 10, 11, 12)
-		add(0, 0, 0, []float64{1, 2, 3}, 10, 11, 12)
-		Expect(next()).To(Equal([]float64{11, 22, 33}))
-		add(0, 0, 3, []float64{4, 5}, 13, 14)
-		add(1, 1, 0, []float64{7, 8}, 1, 2)
-		Expect(next()).Error().To(MatchError(ContainSubstring("does not follow")))
-		// The next step holds no sample of a or b.
-		Expect(next()).To(Equal([]float64{34, 35}))
-	})
+			// One frame: b at 10 s to 12 s, a at 10 s to 12 s, then a backfill of b in
+			// a
+			// new domain whose stamps do not rise.
+			add(series(1, 0, 0, []float64{10, 20, 30}, 10, 11, 12))
+			add(series(0, 0, 0, []float64{1, 2, 3}, 10, 11, 12))
+			add(series(1, 1, 0, []float64{7, 8}, 1, 2))
+			// The backfill is a late input: the step fails nothing and keeps its
+			// output.
+			Expect(next(keys, sers)).To(Succeed())
+			Expect(got).To(Equal([]float64{11, 22, 33}))
+			k, s := series(0, 0, 3, []float64{4}, 13)
+			Expect(next(k, s)).To(Succeed())
+			Expect(got).To(Equal([]float64{11, 22, 33, 34}))
+		},
+	)
 
 	// The join's contract: each primary stamp gets an output or counts in Dropped. A
 	// frame with three series of the primary, whose first the join drops before b's
