@@ -279,7 +279,10 @@ type Transport struct {
 
 	// OPC UA SERVER
 	OPCUAServerRetrieve    freighter.UnaryServer[server.RetrieveRequest, server.RetrieveResponse]
+	EtherCATMasterCreate   freighter.UnaryServer[ethercatmaster.CreateRequest, ethercatmaster.CreateResponse]
 	EtherCATMasterRetrieve freighter.UnaryServer[ethercatmaster.RetrieveRequest, ethercatmaster.RetrieveResponse]
+	EtherCATMasterUpdate   freighter.UnaryServer[ethercatmaster.UpdateRequest, struct{}]
+	EtherCATMasterDelete   freighter.UnaryServer[ethercatmaster.DeleteRequest, struct{}]
 
 	// ETHERCAT SLAVE
 	EtherCATSlaveRetrieve freighter.UnaryServer[ethercatslave.RetrieveRequest, ethercatslave.RetrieveResponse]

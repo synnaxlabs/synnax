@@ -61,7 +61,10 @@ var _ = Describe("Where", Ordered, func() {
 				racktestutil.CreateDriverRole(ctx, whereDB, roleSvc),
 			),
 		}))
-		MustOpen(master.OpenService(ctx, master.ServiceConfig{DB: whereDB}))
+		MustOpen(master.OpenService(ctx, master.ServiceConfig{
+			DB:     whereDB,
+			Status: stat,
+		}))
 		svc = MustOpen(slave.OpenService(ctx, slave.ServiceConfig{DB: whereDB}))
 		rackKeys := lo.Uniq(lo.MapToSlice(v.Records, func(
 			_ string,

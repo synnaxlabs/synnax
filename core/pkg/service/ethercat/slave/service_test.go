@@ -48,7 +48,10 @@ var _ = Describe("Service", func() {
 			Status:     stat,
 			DriverRole: MustSucceed(racktestutil.CreateDriverRole(ctx, db, roleSvc)),
 		}))
-		MustOpen(master.OpenService(ctx, master.ServiceConfig{DB: db}))
+		MustOpen(master.OpenService(ctx, master.ServiceConfig{
+			DB:     db,
+			Status: stat,
+		}))
 		svc = MustOpen(slave.OpenService(ctx, slave.ServiceConfig{DB: db}))
 		tx = DeferClose(db.OpenTx())
 		m = master.Master{

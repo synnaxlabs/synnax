@@ -23,6 +23,7 @@ import (
 	v3 "github.com/synnaxlabs/synnax/pkg/service/ethercat/versions/v3"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
@@ -37,6 +38,9 @@ type ServiceConfig struct {
 	// DB is the database config records, masters, and slaves are stored in.
 	// [REQUIRED]
 	DB *gorp.DB
+	// Status stores the status of each master and slave.
+	// [REQUIRED]
+	Status *status.Service
 	// Signals publishes master and slave changes.
 	// [OPTIONAL]
 	Signals *signals.Provider
@@ -52,6 +56,7 @@ var _ xconfig.Config[ServiceConfig] = ServiceConfig{}
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Device = override.Nil(c.Device, other.Device)
+	c.Status = override.Nil(c.Status, other.Status)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	return c
@@ -62,6 +67,7 @@ func (c ServiceConfig) Validate() error {
 	v := validate.New("ethercat.service")
 	v.NotNil("db", c.DB)
 	v.NotNil("device", c.Device)
+	v.NotNil("status", c.Status)
 	return v.Error()
 }
 
@@ -95,6 +101,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	defer func() { err = cleanup(err) }()
 	if s.Masters, err = master.OpenService(ctx, master.ServiceConfig{
 		DB:              cfg.DB,
+		Status:          cfg.Status,
 		Signals:         cfg.Signals,
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.Masters) {

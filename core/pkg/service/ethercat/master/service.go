@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
@@ -27,6 +28,9 @@ type ServiceConfig struct {
 	// DB is the database masters are stored in.
 	// [REQUIRED]
 	DB *gorp.DB
+	// Status stores each master's status.
+	// [REQUIRED]
+	Status *status.Service
 	// Signals publishes sy_ethercat_master_set and sy_ethercat_master_delete.
 	// [OPTIONAL]
 	Signals *signals.Provider
@@ -40,6 +44,7 @@ var _ config.Config[ServiceConfig] = ServiceConfig{}
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
+	c.Status = override.Nil(c.Status, other.Status)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	return c
@@ -49,11 +54,13 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("ethercat.master")
 	v.NotNil("db", c.DB)
+	v.NotNil("status", c.Status)
 	return v.Error()
 }
 
 // Service stores EtherCAT masters.
 type Service struct {
+	cfg     ServiceConfig
 	closer  xio.MultiCloser
 	table   *gorp.Table[Key, Master]
 	indexes indexes
@@ -65,7 +72,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{indexes: newIndexes()}
+	s = &Service{cfg: cfg, indexes: newIndexes()}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Master]{
@@ -94,6 +101,16 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 // Close closes the service and releases the resources it holds. Close is not safe to
 // call concurrently with any other service methods.
 func (s *Service) Close() error { return s.closer.Close() }
+
+// NewWriter opens a writer that runs its operations in tx.
+func (s *Service) NewWriter(tx gorp.Tx) Writer {
+	return Writer{
+		tx:       tx,
+		status:   s.cfg.Status.NewWriter(tx),
+		statuses: s.cfg.Status,
+		table:    s.table,
+	}
+}
 
 // NewRetrieve opens a query over the stored masters.
 func (s *Service) NewRetrieve() Retrieve {
