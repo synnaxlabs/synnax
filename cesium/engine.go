@@ -80,6 +80,9 @@ type engine struct {
 		// advanced is closed and replaced each time covered rises.
 		advanced chan struct{}
 	}
+	// reaps asks Run for a reap. A reap waits for a step of the state, so it never runs
+	// on the executor that runs those steps.
+	reaps chan struct{}
 	// reaping serializes reap.
 	reaping  sync.Mutex
 	shutdown sync.Once
@@ -123,6 +126,7 @@ func openEngine(o *options) (*engine, error) {
 		exec:     o.executor,
 		ready:    make(chan struct{}),
 		failed:   make(chan struct{}),
+		reaps:    make(chan struct{}, 1),
 		unstored: telem.NewAlignmentCounter(telem.LeadingDomain),
 		partSize: o.partSize,
 	}
@@ -374,8 +378,8 @@ func (e *engine) reap() error {
 	return e.release(e.uncover(dead))
 }
 
-// covered raises the covered sequence, and reaps off the step of the log when a dead
-// segment waits for the log or the state holds new ones.
+// covered raises the covered sequence, and asks Run for a reap when a dead segment
+// waits for the log or the state holds new ones.
 func (e *engine) covered(sequence uint64) {
 	e.cover.Lock()
 	if sequence > e.cover.covered {
@@ -388,11 +392,10 @@ func (e *engine) covered(sequence uint64) {
 	if !waiting && !e.state.HasDead() {
 		return
 	}
-	e.exec(func() {
-		if err := e.reap(); err != nil {
-			e.ins.L.Error("failed to unlink the file of a dead segment", zap.Error(err))
-		}
-	})
+	select {
+	case e.reaps <- struct{}{}:
+	default:
+	}
 }
 
 // uncover adds dead to the segments that wait for the log, and returns those whose
@@ -455,14 +458,31 @@ func (e *engine) run(ctx context.Context) error {
 	}
 	close(e.ready)
 	if err == nil {
-		select {
-		case <-ctx.Done():
-		case <-owners.Done():
-		case <-e.failed:
-			err = e.failure
-		}
+		err = e.serve(ctx, owners)
 	}
 	return errors.Join(err, e.close(), errors.Skip(owners.Wait(), context.Canceled))
+}
+
+// serve reaps each time covered asks, until ctx is done, an owner stops, or a caller
+// fails the engine.
+func (e *engine) serve(ctx context.Context, owners signal.Context) error {
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-owners.Done():
+			return nil
+		case <-e.failed:
+			return e.failure
+		case <-e.reaps:
+			if err := e.reap(); err != nil {
+				e.ins.L.Error(
+					"failed to unlink the file of a dead segment",
+					zap.Error(err),
+				)
+			}
+		}
+	}
 }
 
 // fail ends Run with err, when no fatal error ended it first.
