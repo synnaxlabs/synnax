@@ -171,7 +171,7 @@ export interface SynnaxParams extends Omit<z.input<typeof synnaxParamsZ>, "cache
   /** @deprecated Use uncached, its inverse. Removed in 0.64. */
   cache?: boolean;
 }
-export interface ParsedSynnaxParams extends z.infer<typeof synnaxParamsZ> {}
+export interface ParsedSynnaxParams extends z.output<typeof constructorParamsZ> {}
 
 /**
  * The parameters of the client constructor. The SYNNAX_HOST, SYNNAX_PORT,
