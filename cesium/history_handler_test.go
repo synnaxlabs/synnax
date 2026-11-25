@@ -50,11 +50,14 @@ var _ = Describe("History handlers that call the DB", func() {
 			_, err := db.Read(ctx, c.TimeRange, c.Key)
 			return err
 		},
-		"a channel create": func(ctx context.Context, _ cesium.HistoryChange) error {
+		"a create of a channel on the changed index": func(
+			ctx context.Context,
+			c cesium.HistoryChange,
+		) error {
 			return db.CreateChannel(ctx, cesium.Channel{
 				Key:      GenerateChannelKey(),
 				Name:     "Amundsen",
-				Virtual:  true,
+				Index:    c.Key,
 				DataType: telem.Float32T,
 			})
 		},
