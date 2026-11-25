@@ -862,3 +862,82 @@ class TestEtherCATMasterResource:
         """Should name the master by its key under the ethercat_master type."""
         assert sy.ethercat.master.resource_id(self.KEY).type == "ethercat_master"
         assert sy.ethercat.master.resource_id(self.KEY).key == str(self.KEY)
+
+
+@pytest.mark.ethercat
+class TestEtherCATSlaveResource:
+    """Tests for the typed EtherCAT slave resource."""
+
+    KEY = UUID("11111111-1111-4111-8111-111111111111")
+    SLAVE: ClassVar[dict[str, object]] = {
+        "rack": 1,
+        "name": "EL3102",
+        "vendor_id": 2,
+        "product_code": 0x0C1E3052,
+        "revision": 0x00110000,
+        "master": "33333333-3333-4333-8333-333333333333",
+    }
+
+    def test_parses_an_unconfigured_slave(self) -> None:
+        """Should parse a slave with no identifier, PDOs, or bindings by default."""
+        slave = sy.ethercat.slave.Slave.model_validate(self.SLAVE)
+        assert slave.serial == 0
+        assert slave.identifier == ""
+        assert not slave.disabled
+        assert slave.pdos.inputs == []
+        assert slave.read_bindings == []
+
+    @pytest.mark.parametrize("missing", ["master", "vendor_id", "revision", "name"])
+    def test_requires_a_field(self, missing: str) -> None:
+        """Should reject a slave without a master, vendor ID, revision, or name."""
+        data = {k: v for k, v in self.SLAVE.items() if k != missing}
+        with pytest.raises(ValidationError):
+            sy.ethercat.slave.Slave.model_validate(data)
+
+    def test_resource_id(self) -> None:
+        """Should name the slave by its key under the ethercat_slave type."""
+        assert sy.ethercat.slave.resource_id(self.KEY).type == "ethercat_slave"
+        assert sy.ethercat.slave.resource_id(self.KEY).key == str(self.KEY)
+
+    def test_parses_a_startup_parameter_by_data_type(self) -> None:
+        """Should parse the variant that the data type names and keep a 64-bit value."""
+        slave = sy.ethercat.slave.Slave.model_validate(
+            {
+                **self.SLAVE,
+                "startup_parameters": [
+                    {
+                        "index": 0x8000,
+                        "sub_index": 1,
+                        "data_type": "uint64",
+                        "value": 2**63 + 1,
+                    }
+                ],
+            }
+        )
+        param = slave.startup_parameters[0]
+        assert isinstance(param, sy.ethercat.slave.Uint64StartupParameter)
+        assert param.value == 2**63 + 1
+
+    @pytest.mark.parametrize(
+        "change",
+        [
+            {"serial": 2**53},
+            {
+                "startup_parameters": [
+                    {"index": 1, "sub_index": 0, "data_type": "uint8", "value": 256}
+                ]
+            },
+            {
+                "startup_parameters": [
+                    {"index": 1, "sub_index": 0, "data_type": "bool", "value": 1}
+                ]
+            },
+            {"read_bindings": [{"index": 0x6000, "sub_index": 1, "channel": 0}]},
+            {"write_bindings": [{"index": 0x7000, "sub_index": 1, "command": 0}]},
+        ],
+    )
+    def test_rejects_an_invalid_slave(self, change: dict[str, object]) -> None:
+        """Should reject a large serial, a bad startup value or type, and a zero
+        binding channel."""
+        with pytest.raises(ValidationError):
+            sy.ethercat.slave.Slave.model_validate({**self.SLAVE, **change})

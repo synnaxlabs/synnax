@@ -1,0 +1,58 @@
+#  Copyright 2026 Synnax Labs, Inc.
+#
+#  Use of this software is governed by the Business Source License included in the file
+#  licenses/BSL.txt.
+#
+#  As of the Change Date specified in that file, in accordance with the Business Source
+#  License, use of this software will be governed by the Apache License, Version 2.0,
+#  included in the file licenses/APL.txt.
+
+from synnax.ethercat.slave.types_gen import (
+    TYPE_RESOURCE_ID,
+    Float32StartupParameter,
+    Float64StartupParameter,
+    Int8StartupParameter,
+    Int16StartupParameter,
+    Int32StartupParameter,
+    Int64StartupParameter,
+    Key,
+    PDOEntry,
+    PDOs,
+    ReadBinding,
+    Slave,
+    StartupParameter,
+    StartupParameterBase,
+    Status,
+    StatusDetails,
+    Uint8StartupParameter,
+    Uint16StartupParameter,
+    Uint32StartupParameter,
+    Uint64StartupParameter,
+    WriteBinding,
+    resource_id,
+)
+
+__all__ = [
+    "TYPE_RESOURCE_ID",
+    "Float32StartupParameter",
+    "Float64StartupParameter",
+    "Int8StartupParameter",
+    "Int16StartupParameter",
+    "Int32StartupParameter",
+    "Int64StartupParameter",
+    "Key",
+    "PDOEntry",
+    "PDOs",
+    "ReadBinding",
+    "Slave",
+    "StartupParameter",
+    "StartupParameterBase",
+    "Status",
+    "StatusDetails",
+    "Uint8StartupParameter",
+    "Uint16StartupParameter",
+    "Uint32StartupParameter",
+    "Uint64StartupParameter",
+    "WriteBinding",
+    "resource_id",
+]
