@@ -28,9 +28,9 @@ export type Model = z.infer<typeof modelZ>;
 /** Identity holds the device fields that the scanner owns. */
 export const identityZ = z.object({
   /** rack is the key of the rack the device is connected to. */
-  rack: rack.keyZ.refine((v) => v !== 0, "rack is required"),
+  rack: rack.keyZ.refine((v) => v !== 0, "Rack is required"),
   /** serial is the serial number of the device. */
-  serial: z.uint32().refine((v) => v !== 0, "serial is required"),
+  serial: z.uint32().refine((v) => v !== 0, "Serial is required"),
   /** connection is the connection the scanner last found the device on. */
   connection: connectionZ,
   /** model is the model of the device. An update cannot change it. */
@@ -91,7 +91,7 @@ export interface StatusDetails extends z.infer<typeof statusDetailsZ> {}
 /** Configuration holds the device fields that the user owns. */
 export const configurationZ = z.object({
   /** name is a human-readable name for the device. */
-  name: z.string().min(1, "name is required"),
+  name: z.string().min(1, "Name is required"),
   /**
    * identifier is the prefix of the device's channel names. The device is unconfigured
    * while it is empty.
@@ -154,9 +154,9 @@ export const deviceZ = z.object({
   /** rack is the key of the rack the device is connected to. */
   rack: rack.keyZ,
   /** name is a human-readable name for the device. */
-  name: z.string().min(1, "name is required"),
+  name: z.string().min(1, "Name is required"),
   /** serial is the serial number of the device. */
-  serial: z.uint32().refine((v) => v !== 0, "serial is required"),
+  serial: z.uint32().refine((v) => v !== 0, "Serial is required"),
   /** connection is the connection the scanner last found the device on. */
   connection: connectionZ,
   /**

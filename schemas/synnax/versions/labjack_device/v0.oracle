@@ -129,7 +129,8 @@ Device struct {
         @doc value "holds the channel maps and the accessories of the device's model."
     }
 
-    @doc value  "is a LabJack T-series device."
+    @doc value     "is a LabJack T-series device."
     @go marshal
     @go migrate
+    @resource type "labjack_device"
 }
