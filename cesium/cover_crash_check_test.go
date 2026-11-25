@@ -15,7 +15,6 @@ import (
 	"os"
 	"slices"
 	"strconv"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -30,8 +29,9 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-// frameHold lets the next write of a log through once armed, and then holds the write
-// after it, which covers that frame, until let.
+// frameHold lets the next write of log 1 through once armed, and then holds the write
+// after it, which covers that frame, until let. It watches no other log, since the
+// prepare of log 2 writes from a goroutine of its own.
 type frameHold struct {
 	armed         atomic.Bool
 	held, release chan struct{}
@@ -64,7 +64,7 @@ func (h *frameHold) cut(image xfs.FS) {
 	Expect(f.Close()).To(Succeed())
 }
 
-// frameHoldFS writes each log file through h.
+// frameHoldFS writes log 1 through h.
 type frameHoldFS struct {
 	xfs.FS
 	h *frameHold
@@ -80,7 +80,7 @@ func (f frameHoldFS) Sub(name string) (xfs.FS, error) {
 
 func (f frameHoldFS) Open(name string, flag int) (xfs.File, error) {
 	file, err := f.FS.Open(name, flag)
-	if err != nil || !strings.HasSuffix(name, ".log") {
+	if err != nil || name != log.Name(1) {
 		return file, err
 	}
 	return frameHoldFile{File: file, name: name, h: f.h}, nil
