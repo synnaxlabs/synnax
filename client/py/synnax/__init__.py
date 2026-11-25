@@ -67,6 +67,7 @@ from synnax import (
     sift,
     status,
     tcp,
+    tls,
     udp,
 )
 from synnax.access.policy import Policy
@@ -289,5 +290,6 @@ __all__ = [
     "sleep",
     "status",
     "tcp",
+    "tls",
     "udp",
 ]

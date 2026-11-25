@@ -30,6 +30,7 @@ export * from "@/link";
 export * from "@/map";
 export * from "@/math";
 export * from "@/narrow";
+export * from "@/net";
 export * from "@/notation";
 export * from "@/numeric";
 export * from "@/observe";
