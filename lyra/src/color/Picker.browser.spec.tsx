@@ -493,7 +493,7 @@ describe("Picker", () => {
       { value: "#DDDDDDDD", percent: "87" },
       { value: "#DDDDDD", percent: "100" },
     ])(
-      "should fit the widest hex and $percent% opacity in the Custom tab",
+      "should fit DDDDDD in the hex box and $percent in the opacity box",
       async ({ value, percent }) => {
         await renderLibrary({ value });
         const hex = page.getByRole("textbox", { name: "Hex" }).element();
