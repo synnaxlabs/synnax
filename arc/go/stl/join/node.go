@@ -130,15 +130,9 @@ func (h *Host) Create(cfg node.Config) (node.Node, error) {
 			PrimaryParam,
 		)
 	}
-	arrival := make([]bool, len(n.inputs))
-	for _, i := range arrivals {
-		if i >= len(arrival) {
-			return nil, errors.Newf(
-				"join param %s marks no input to pair by arrival",
-				ArrivalParam(i),
-			)
-		}
-		arrival[i] = true
+	arrival, err := arrivalMarks(arrivals, len(n.inputs))
+	if err != nil {
+		return nil, err
 	}
 	n.arrival = arrival
 	n.last = make([]telem.TimeStamp, len(n.inputs))
@@ -155,6 +149,22 @@ func (h *Host) Create(cfg node.Config) (node.Node, error) {
 	}
 	n.join = j
 	return n, nil
+}
+
+// arrivalMarks returns, for each of count inputs, whether arrivals marks it to pair by
+// arrival. It returns an error for a mark past the inputs.
+func arrivalMarks(arrivals []int, count int) ([]bool, error) {
+	arrival := make([]bool, count)
+	for _, i := range arrivals {
+		if i >= count {
+			return nil, errors.Newf(
+				"join param %s marks no input to pair by arrival",
+				ArrivalParam(i),
+			)
+		}
+		arrival[i] = true
+	}
+	return arrival, nil
 }
 
 // Node is a live join in an Arc program. Each output gives the joined samples of the
