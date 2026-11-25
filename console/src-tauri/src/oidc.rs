@@ -149,9 +149,9 @@ fn accept(
 /// Reads one request, within [`REQUEST_TIMEOUT`], the deadline, and [`MAX_REQUEST`]
 /// bytes, so a local process cannot hold the listener or grow its memory. A request for
 /// `/callback` with the given state yields its query, and gets a page that says whether
-/// the login finished. A callback with another state gets a 400, any other
-/// request a 404, and both yield nothing. A failed connection yields what its request
-/// asked for, so it cannot end the login.
+/// the login finished. A callback with another state gets a 400, any other request a
+/// 404, and both yield nothing. A failed connection yields what its request asked for,
+/// so it cannot end the login.
 fn respond(mut stream: TcpStream, state: &str, deadline: Instant) -> Option<String> {
     if stream.set_nonblocking(false).is_err() {
         return None;
