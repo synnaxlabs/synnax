@@ -155,7 +155,8 @@ var _ = Describe("DB Metadata Operations", func() {
 				).To(MatchError(unary.ErrDBClosed))
 				Expect(db.GarbageCollect(ctx)).To(MatchError(unary.ErrDBClosed))
 				Expect(
-					db.HasDataFor(ctx, telem.TimeRangeMax),
+					hasDataFor(ctx,
+						db, telem.TimeRangeMax),
 				).Error().
 					To(MatchError(unary.ErrDBClosed))
 				Expect(
@@ -253,7 +254,8 @@ var _ = Describe("DB Metadata Operations", func() {
 			Expect(db.MarkClosed()).To(Succeed())
 			Expect(db.Release()).To(Succeed())
 			db = MustOpen(unary.Open(ctx, cfg))
-			Expect(db.HasDataFor(ctx, telem.TimeRangeMax)).To(BeTrue())
+			Expect(hasDataFor(ctx,
+				db, telem.TimeRangeMax)).To(BeTrue())
 		})
 	})
 })

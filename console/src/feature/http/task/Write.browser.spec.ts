@@ -421,4 +421,17 @@ describe("Write channel names", () => {
     const off = await findChannelListItem(`${escape(dev.name)}${escape("/off")}_cmd`);
     expect(within(off).queryByRole("img", { name: "New channel" })).toBeNull();
   });
+
+  it("should show the numbered name that deploying gives a command channel whose name another endpoint takes", async () => {
+    const dev = await createHTTPDevice(client);
+    const config = createWriteConfig(dev.key, [
+      createWriteEndpoint("ep1", "/valve-1", { dataType: "uint8" }),
+      createWriteEndpoint("ep2", "/valve_1", { dataType: "uint8" }),
+    ]);
+    const draft = await createDraft(client, config);
+    await renderWrite({ client, taskKey: draft.key });
+    const name = `${channel.escapeInvalidName(dev.name)}_valve_1_cmd`;
+    expect(await findChannelListItem(name)).toBeTruthy();
+    expect(await findChannelListItem(`${name}_2`)).toBeTruthy();
+  });
 });

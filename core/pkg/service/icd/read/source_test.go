@@ -151,7 +151,7 @@ var _ = Describe("Source", func() {
 		Entry("a data field",
 			`{"at":5,"temp":"hot","level":2.5,"flow":3.5,"duty":4.5}`,
 			[]int{1, 2, 3},
-			`field temp: unknown enum label "hot": validation error`,
+			`field temp: invalid number "hot": validation error`,
 		),
 		Entry("the index field",
 			`{"at":"noon","temp":1.5,"level":2.5,"flow":3.5,"duty":4.5}`,
@@ -166,7 +166,7 @@ var _ = Describe("Source", func() {
 		Entry("a field on a virtual channel",
 			`{"at":5,"temp":1.5,"level":2.5,"flow":"fast","duty":4.5}`,
 			[]int{0, 1, 3},
-			`field flow: unknown enum label "fast": validation error`,
+			`field flow: invalid number "fast": validation error`,
 		),
 	)
 
@@ -177,7 +177,7 @@ var _ = Describe("Source", func() {
 		Expect(ok).To(BeTrue())
 		Expect(
 			err,
-		).To(MatchError(`field temp: unknown enum label "hot": validation error`))
+		).To(MatchError(`field temp: invalid number "hot": validation error`))
 		Expect(groupsOf(samples)).To(Equal([]int{2, 3}))
 	})
 
