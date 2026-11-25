@@ -42,17 +42,8 @@ from pydantic_core import core_schema
 
 from x.interop import ArrayOperators
 from x.params import deprecate_positional
-from x.telem.telem import (
-    Alignment,
-    Bounds,
-    CrudeAlignment,
-    CrudeDataType,
-    DataType,
-    Size,
-    TimeRange,
-    TimeSpan,
-    TimeStamp,
-)
+from x.telem.quantity import Size, TimeRange, TimeSpan, TimeStamp
+from x.telem.telem import Alignment, Bounds, CrudeAlignment, CrudeDataType, DataType
 
 _VARIABLE_LENGTH_PREFIX_SIZE = 4
 

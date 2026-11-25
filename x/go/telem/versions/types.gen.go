@@ -64,6 +64,44 @@ type Size = v0.Size
 // variable-density types (String, JSON, Bytes) for flexible data storage.
 type DataType = v0.DataType
 
+// DataTypeName names a data type.
+type DataTypeName = v0.DataTypeName
+
+const (
+	// DataTypeNameFloat64 is a 64-bit float.
+	DataTypeNameFloat64 DataTypeName = v0.DataTypeNameFloat64
+	// DataTypeNameFloat32 is a 32-bit float.
+	DataTypeNameFloat32 DataTypeName = v0.DataTypeNameFloat32
+	// DataTypeNameInt64 is a signed 64-bit integer.
+	DataTypeNameInt64 DataTypeName = v0.DataTypeNameInt64
+	// DataTypeNameInt32 is a signed 32-bit integer.
+	DataTypeNameInt32 DataTypeName = v0.DataTypeNameInt32
+	// DataTypeNameInt16 is a signed 16-bit integer.
+	DataTypeNameInt16 DataTypeName = v0.DataTypeNameInt16
+	// DataTypeNameInt8 is a signed 8-bit integer.
+	DataTypeNameInt8 DataTypeName = v0.DataTypeNameInt8
+	// DataTypeNameUint64 is an unsigned 64-bit integer.
+	DataTypeNameUint64 DataTypeName = v0.DataTypeNameUint64
+	// DataTypeNameUint32 is an unsigned 32-bit integer.
+	DataTypeNameUint32 DataTypeName = v0.DataTypeNameUint32
+	// DataTypeNameUint16 is an unsigned 16-bit integer.
+	DataTypeNameUint16 DataTypeName = v0.DataTypeNameUint16
+	// DataTypeNameUint8 is an unsigned 8-bit integer.
+	DataTypeNameUint8 DataTypeName = v0.DataTypeNameUint8
+	// DataTypeNameTimestamp is a nanosecond timestamp in 64 bits.
+	DataTypeNameTimestamp DataTypeName = v0.DataTypeNameTimestamp
+	// DataTypeNameUUID is a 128-bit UUID.
+	DataTypeNameUUID DataTypeName = v0.DataTypeNameUUID
+	// DataTypeNameBoolean is a boolean in 8 bits.
+	DataTypeNameBoolean DataTypeName = v0.DataTypeNameBoolean
+	// DataTypeNameString is a UTF-8 string of any length.
+	DataTypeNameString DataTypeName = v0.DataTypeNameString
+	// DataTypeNameJSON is a JSON document of any length.
+	DataTypeNameJSON DataTypeName = v0.DataTypeNameJSON
+	// DataTypeNameBytes is a byte array of any length.
+	DataTypeNameBytes DataTypeName = v0.DataTypeNameBytes
+)
+
 // FixedWidthDataType is a data type whose samples all have the same byte size.
 type FixedWidthDataType = v0.FixedWidthDataType
 

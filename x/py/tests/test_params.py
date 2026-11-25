@@ -18,7 +18,7 @@ import pytest
 from x.exceptions import Error
 from x.params import deprecate_positional, require_named_params
 from x.telem import Density, MultiSeries, Rate, Series, Size, TimeRange, TimeSpan
-from x.telem.telem import convert_time_units
+from x.telem.quantity import convert_time_units
 from x.testutil import untyped
 from x.timing import Loop, poll, sleep
 
