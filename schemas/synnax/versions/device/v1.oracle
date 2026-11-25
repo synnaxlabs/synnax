@@ -85,6 +85,7 @@ Device struct<
         @go marshal omit
     }
 
+    @go entry
     @go marshal
     @go migrate
     @resource type "device"

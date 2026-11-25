@@ -8,6 +8,8 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
+#include <cstdint>
+#include <limits>
 #include <string>
 
 #include "gtest/gtest.h"
@@ -343,6 +345,37 @@ TEST(ConnectionConfigTest, ZeroMaxConcurrentRequestsErrors) {
     EXPECT_FALSE(parser.ok());
 }
 
+/// @brief it should default max_response_size to DEFAULT_MAX_RESPONSE_SIZE.
+TEST(ConnectionConfigTest, MaxResponseSizeDefault) {
+    x::json::Parser parser(x::json::json{{"base_url", "http://localhost"}});
+    ConnectionConfig config(parser);
+    EXPECT_TRUE(parser.ok());
+    EXPECT_EQ(config.max_response_size, DEFAULT_MAX_RESPONSE_SIZE);
+}
+
+/// @brief it should reject a max_response_size that is not positive.
+TEST(ConnectionConfigTest, ZeroMaxResponseSizeErrors) {
+    for (const auto size: {0LL, -1LL}) {
+        x::json::Parser parser(
+            x::json::json{{"base_url", "http://localhost"}, {"max_response_size", size}}
+        );
+        ConnectionConfig config(parser);
+        EXPECT_FALSE(parser.ok());
+    }
+}
+
+/// @brief it should reject a max_response_size too large for a signed 64-bit value.
+TEST(ConnectionConfigTest, MaxResponseSizeOverflowErrors) {
+    x::json::Parser parser(
+        x::json::json{
+            {"base_url", "http://localhost"},
+            {"max_response_size", std::numeric_limits<std::uint64_t>::max()},
+        }
+    );
+    ConnectionConfig config(parser);
+    EXPECT_FALSE(parser.ok());
+}
+
 TEST(ConnectionConfigTest, EmptyJSONErrors) {
     x::json::json j = x::json::json::object();
     x::json::Parser parser(j);
@@ -440,6 +473,17 @@ TEST(BuildRequestTest, CarriesBaseURLAndCap) {
     auto r = build_request(conn, req);
     EXPECT_EQ(r.base_url, "http://example.com");
     EXPECT_EQ(r.max_concurrent_requests, 3);
+}
+
+/// @brief it should copy max_response_size from the connection to the request.
+TEST(BuildRequestTest, CarriesMaxResponseSize) {
+    auto conn = ConnectionConfig(
+        x::json::Parser(
+            json{{"base_url", "http://example.com"}, {"max_response_size", 1024}}
+        )
+    );
+    RequestConfig req{.method = Method::GET, .path = "/api/data"};
+    EXPECT_EQ(build_request(conn, req).max_response_size, 1024);
 }
 
 TEST(BuildRequestTest, PreservesDoubleSlashInPath) {

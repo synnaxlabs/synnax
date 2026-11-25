@@ -11,6 +11,7 @@ package fs_test
 
 import (
 	"io"
+	"maps"
 	"os"
 	"syscall"
 
@@ -20,6 +21,7 @@ import (
 	xfs "github.com/synnaxlabs/x/io/fs"
 	invariants "github.com/synnaxlabs/x/io/fs/internal/invariants"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
+	"github.com/synnaxlabs/x/io/fs/testutil/fault"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -29,8 +31,24 @@ var _ = Describe("Default", func() {
 	})
 })
 
+var _ = Describe("CopyFile", func() {
+	It("Should sync the copy, so its bytes stay after a power loss", func() {
+		src, dst := xfs.NewMem(), MustSucceed(fault.New(fault.Config{}))
+		Expect(xfs.WriteFile(src, "f.txt", []byte("tacocat"))).To(Succeed())
+		Expect(xfs.CopyFile(src, dst, "f.txt")).To(Succeed())
+		Expect(dst.SyncDir("")).To(Succeed())
+		image := MustSucceed(dst.Crash(fault.CrashConfig{}))
+		Expect(xfs.ReadFile(image, "f.txt")).To(Equal([]byte("tacocat")))
+	})
+})
+
 var _ = Describe("FS", func() {
-	for fsName, openFS := range FileSystems {
+	fileSystems := maps.Clone(FileSystems)
+	fileSystems["faultFS"] = func() xfs.FS {
+		GinkgoHelper()
+		return MustSucceed(MustSucceed(fault.New(fault.Config{})).Sub("testdata"))
+	}
+	for fsName, openFS := range fileSystems {
 		var fs xfs.FS
 		Context("FS: "+fsName, Ordered, func() {
 			BeforeEach(func() { fs = openFS() })

@@ -109,6 +109,7 @@ const addMessage = async (
   ep: HTTP.Task.ReadEndpoint,
   name: string,
   fields: icd.JSONField[],
+  match: icd.JSONMatch = { type: "string", pointer: "/kind", value: name },
 ): Promise<icd.Message> => {
   const icdKey = ep.icd;
   assertDefined(icdKey, "the endpoint reads no ICD");
@@ -117,7 +118,7 @@ const addMessage = async (
     name,
     payload: {
       format: "json",
-      match: { type: "string", pointer: "/kind", value: name },
+      match,
       fields,
     },
   };
@@ -845,7 +846,7 @@ describe("Read", () => {
     ]);
   });
 
-  it("should name and store the channels of a later message by that message", async () => {
+  it("should name the channels of a later message after the endpoint and store them by that message", async () => {
     const ep = await createEndpoint({
       key: "ep1",
       path: "/data",
@@ -857,7 +858,7 @@ describe("Read", () => {
     const created = await deploy(container, draft.key);
     const [, later] = created.config.endpoints[0].messages;
     const ch = await client.channels.retrieve(later.bindings[0].channel);
-    expect(ch.name).toBe(`${channel.escapeInvalidName(dev.name)}_data_status_w`);
+    expect(ch.name).toBe(`${channel.escapeInvalidName(dev.name)}_data_w`);
     const stored = await client.devices.retrieve({
       key: dev.key,
       schemas: HTTP.Device.SCHEMAS,
@@ -865,6 +866,31 @@ describe("Read", () => {
     expect(stored.properties.read[`/data#${status.key}`].channels).toEqual({
       "/w": ch.key,
     });
+  });
+
+  it("should add the kind of a later message to a channel name that another message takes", async () => {
+    const ep = await createEndpoint({
+      key: "ep1",
+      path: "/data",
+      fields: [createField("v")],
+    });
+    await addMessage(ep, "code", [createField("code"), createField("v")], {
+      type: "present",
+      pointer: "/code",
+    });
+    const { container, draft, dev } = await renderWithDevice([ep]);
+    await screen.findAllByRole("treeitem", { name: /\/data/ });
+    const created = await deploy(container, draft.key);
+    const [first, later] = created.config.endpoints[0].messages;
+    const names = await client.channels.retrieve(
+      [...first.bindings, ...later.bindings].map(({ channel }) => channel),
+    );
+    const prefix = `${channel.escapeInvalidName(dev.name)}_data`;
+    expect(names.map(({ name }) => name)).toEqual([
+      `${prefix}_v`,
+      `${prefix}_code`,
+      `${prefix}_code_v`,
+    ]);
   });
 
   it("should deploy with the channels stored under the path and move them to the message", async () => {
