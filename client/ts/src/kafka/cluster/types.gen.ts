@@ -210,11 +210,11 @@ export interface Cursor extends z.infer<typeof cursorZ> {}
 /** Identity holds the cluster fields that the connect form owns. */
 export const identityZ = z.object({
   /** rack is the key of the rack that connects to the cluster. */
-  rack: rack.keyZ.refine((v) => v !== 0, "rack is required"),
+  rack: rack.keyZ.refine((v) => v !== 0, "Rack is required"),
   /** name is a human-readable name for the cluster. */
-  name: z.string().min(1, "name is required"),
+  name: z.string().min(1, "Name is required"),
   /** brokers are the bootstrap brokers of the cluster. A cluster has at least one. */
-  brokers: brokerZ.array().default(() => []),
+  brokers: brokerZ.array().min(1, "brokers is required"),
   /** transport is the transport that the Core connects to the brokers over. */
   transport: transportZ.prefault({ type: "plaintext" }),
   /** auth is the authentication that the brokers require. */

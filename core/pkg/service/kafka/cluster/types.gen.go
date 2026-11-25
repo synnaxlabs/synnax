@@ -139,6 +139,7 @@ func (id Identity) Validate() error {
 	v := validate.New("Identity")
 	v.NonZero("rack", id.Rack)
 	v.NotEmptyString("name", id.Name)
+	v.NotEmptySlice("brokers", id.Brokers)
 	for i := range id.Brokers {
 		v.Exec(func() error { return validate.PathedError(id.Brokers[i].Validate(), "brokers", strconv.Itoa(i)) })
 	}

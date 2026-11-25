@@ -31,14 +31,13 @@ const Integration = "kafka"
 // defaultPort is the port of a broker with no port.
 const defaultPort uint16 = 9092
 
-// validateFields validates c and refuses a cluster with no brokers, a broker or read
-// with the natural key of another of its list.
+// validateFields validates c and refuses a broker or read with the natural key of
+// another of its list.
 func validateFields(c *Cluster) error {
 	if err := c.Validate(); err != nil {
 		return err
 	}
 	v := validate.New("Cluster")
-	v.Ternary("brokers", len(c.Brokers) == 0, "must hold at least one broker")
 	type address struct {
 		host string
 		port uint16

@@ -217,9 +217,10 @@ Identity struct {
         @validate required
     }
     brokers   Broker[]  {
-        @doc value """
+        @doc value         """
             are the bootstrap brokers of the cluster. A cluster has at least one.
         """
+        @validate required
     }
     transport Transport = plaintext {
         @doc value "is the transport that the Core connects to the brokers over."
