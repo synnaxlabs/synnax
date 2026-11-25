@@ -65,6 +65,13 @@ describe("gauge/aether/Gauge", () => {
     });
   });
 
+  describe("text", () => {
+    it("should draw the value with tabular digits", () => {
+      const { recorder } = setup({ value: "50" });
+      expect(canvasTest.fontOf(recorder, "50")).toContain("Inter Tabular");
+    });
+  });
+
   describe("value arc", () => {
     it("should measure the arc from a stored lower above the upper", () => {
       const reversed = setup({

@@ -693,22 +693,13 @@ func (nc NodeConfig) EncodeOrc(w *orc.Writer) error {
 		} else {
 			w.Bool(false)
 		}
-		w.Uint16(uint16(v.InlineSize))
-		w.Bool(v.Options != nil)
-		if v.Options != nil {
-			w.Uint32(uint32(len(v.Options)))
-			for i := range v.Options {
-				if err := v.Options[i].EncodeOrc(w); err != nil {
-					return err
-				}
-			}
-		}
 		if v.Enumeration != nil {
 			w.Bool(true)
 			w.Write((*v.Enumeration)[:])
 		} else {
 			w.Bool(false)
 		}
+		w.Uint16(uint16(v.InlineSize))
 		w.Bool(v.Disabled)
 		w.Int64(int64(v.OnClickDelay))
 		if err := v.Control.EncodeOrc(w); err != nil {
@@ -774,22 +765,13 @@ func (nc NodeConfig) EncodeOrc(w *orc.Writer) error {
 		} else {
 			w.Bool(false)
 		}
-		w.Uint16(uint16(v.InlineSize))
-		w.Bool(v.Options != nil)
-		if v.Options != nil {
-			w.Uint32(uint32(len(v.Options)))
-			for i := range v.Options {
-				if err := v.Options[i].EncodeOrc(w); err != nil {
-					return err
-				}
-			}
-		}
 		if v.Enumeration != nil {
 			w.Bool(true)
 			w.Write((*v.Enumeration)[:])
 		} else {
 			w.Bool(false)
 		}
+		w.Uint16(uint16(v.InlineSize))
 		w.String(string(v.Size))
 	case StringDisplayNodeConfig:
 		w.String("string_display")
@@ -2032,27 +2014,6 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				v.FillColor = &hv
 			}
 		}
-		if v.InlineSize, err = r.Uint16(); err != nil {
-			return err
-		}
-		{
-			present, err := r.Bool()
-			if err != nil {
-				return err
-			}
-			if present {
-				n, err := r.CollectionLen()
-				if err != nil {
-					return err
-				}
-				v.Options = make([]StateMapping, n)
-				for i := range v.Options {
-					if err = v.Options[i].DecodeOrc(r); err != nil {
-						return err
-					}
-				}
-			}
-		}
 		{
 			present, err := r.Bool()
 			if err != nil {
@@ -2065,6 +2026,9 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				}
 				v.Enumeration = &hv
 			}
+		}
+		if v.InlineSize, err = r.Uint16(); err != nil {
+			return err
 		}
 		if v.Disabled, err = r.Bool(); err != nil {
 			return err
@@ -2188,27 +2152,6 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				v.StrokeColor = &hv
 			}
 		}
-		if v.InlineSize, err = r.Uint16(); err != nil {
-			return err
-		}
-		{
-			present, err := r.Bool()
-			if err != nil {
-				return err
-			}
-			if present {
-				n, err := r.CollectionLen()
-				if err != nil {
-					return err
-				}
-				v.Options = make([]StateMapping, n)
-				for i := range v.Options {
-					if err = v.Options[i].DecodeOrc(r); err != nil {
-						return err
-					}
-				}
-			}
-		}
 		{
 			present, err := r.Bool()
 			if err != nil {
@@ -2221,6 +2164,9 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				}
 				v.Enumeration = &hv
 			}
+		}
+		if v.InlineSize, err = r.Uint16(); err != nil {
+			return err
 		}
 		{
 			rawV, err := r.String()

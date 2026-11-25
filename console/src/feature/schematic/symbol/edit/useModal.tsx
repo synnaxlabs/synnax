@@ -23,8 +23,9 @@ import { Nav } from "@synnaxlabs/lyra/nav";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Schematic } from "@synnaxlabs/pluto";
-import { type bounds, deep, id, type xy } from "@synnaxlabs/x";
-import { type ReactElement, useState } from "react";
+import { type bounds, id, type xy } from "@synnaxlabs/x";
+import { type ReactElement, useRef, useState } from "react";
+import type { z } from "zod";
 
 import { HandleList } from "@/feature/schematic/symbol/edit/HandleList";
 import { Inspector } from "@/feature/schematic/symbol/edit/Inspector";
@@ -57,22 +58,39 @@ export interface ModalParams {
 const SCALE_BOUNDS: bounds.Bounds = { lower: 5, upper: 1000 };
 
 interface ValueBarProps {
-  value: number;
-  onChange: (value: number) => void;
+  value: Spec.At;
+  onChange: (value: Spec.At) => void;
 }
 
-// ValueBar picks the value of the state that the canvas draws.
+// ValueBar picks the state that the inspector edits, and the value that the canvas
+// draws.
 const ValueBar = ({ value, onChange }: ValueBarProps): ReactElement | null => {
-  const { list } = useValues();
-  if (list.length < 2) return null;
+  const { state, states, list } = useValues(value.state);
+  if (list.length < 2 && states.length < 2) return null;
+  const handleStateChange = (key: string) =>
+    onChange({ state: key, value: states.find((s) => s.key === key)?.default ?? 0 });
   return (
     <Flex.Box x align="center" gap="small" className={CSS.BE("schematic", "value-bar")}>
       <Text.Text level="small" color={9}>
         Preview
       </Text.Text>
+      {states.length > 1 && (
+        <Select.Buttons<string>
+          value={state}
+          onChange={handleStateChange}
+          size="small"
+          variant="outlined"
+        >
+          {states.map((s) => (
+            <Select.Item<string> key={s.key} itemKey={s.key} size="small">
+              {s.name}
+            </Select.Item>
+          ))}
+        </Select.Buttons>
+      )}
       <Select.Buttons<number>
-        value={value}
-        onChange={onChange}
+        value={value.value}
+        onChange={(v: number) => onChange({ state, value: v })}
         size="small"
         variant="outlined"
       >
@@ -86,6 +104,25 @@ const ValueBar = ({ value, onChange }: ValueBarProps): ReactElement | null => {
   );
 };
 
+// climb returns what an Alt-click on shape picks for part, as Select parent group does:
+// the group above the outermost shape of part there, or above the shape. With no group
+// above, it returns shape when part holds none of it.
+const climb = (
+  spec: schematic.symbol.Spec,
+  part: string | undefined,
+  shape: Schematic.Node.Region.Named,
+): Schematic.Node.Region.Named | null => {
+  const drawn = { ...spec, drawing: { ...spec.drawing, markup: shape.markup } };
+  const from = part == null ? undefined : Spec.outermost(drawn, part, shape.selector);
+  const group = Spec.parentGroup(drawn, [from ?? shape.selector]);
+  if (group == null) return from == null ? shape : null;
+  return Schematic.Node.Region.name(
+    shape.markup,
+    group.ownerDocument.documentElement,
+    group,
+  );
+};
+
 const Editor = ({
   symbolKey,
   group,
@@ -93,46 +130,62 @@ const Editor = ({
   close,
 }: Modals.ContentProps<ModalParams, void>): ReactElement => {
   const isCreate = symbolKey == null;
+  const initialValues: z.infer<typeof Schematic.Symbol.formSchema> = {
+    key: createKey,
+    name: "",
+    group,
+    data: {
+      drawing: { type: "svg", markup: "" },
+      parts: [],
+      previewViewport: { zoom: 1, position: { x: 0, y: 0 } },
+      handles: [],
+      variant: "static",
+      strokeScaled: false,
+      states: [Spec.createState()],
+      commands: [],
+      looks: [],
+      interactions: [],
+      scale: 1,
+    },
+  };
   const { form, save, variant } = Schematic.Symbol.useForm({
     query: symbolKey == null ? null : { key: symbolKey },
-    initialValues: {
-      key: createKey,
-      name: "",
-      group,
-      data: {
-        drawing: { type: "svg", markup: "" },
-        parts: [],
-        previewViewport: { zoom: 1, position: { x: 0, y: 0 } },
-        handles: [],
-        variant: "static",
-        strokeScaled: false,
-        states: [Spec.createState()],
-        commands: [],
-        looks: [],
-        interactions: [],
-        scale: 1,
-      },
-    },
+    initialValues,
     afterSave: () => close(),
   });
   Modals.useBusy(variant === "loading");
   const stored = Schematic.Symbol.useResult(
     symbolKey == null ? null : { key: symbolKey, includeUses: true },
   );
+  Modals.useUnsaved(() => {
+    const base = isCreate ? initialValues : stored.data;
+    // Until the stored symbol loads, there is nothing to compare with.
+    if (base == null) return false;
+    const { name, data } = form.value();
+    return name !== base.name || Spec.edited(base.data, data);
+  });
   const confirmSave = useConfirmSave();
-  const [selectedValue, setSelectedValue] = useState(0);
+  const [preview, setPreview] = useState<Spec.At>({ state: Spec.STATE, value: 0 });
   const [selectedPart, setSelectedPart, selectedPartRef] =
     useCombinedStateAndRef<Spec.Target>(undefined);
   const [selectedHandle, setSelectedHandle] = useState<string | undefined>(undefined);
 
-  const addPart = () => {
+  // addPart adds a part, with the shape of selector when one is given, and selects it.
+  const addPart = (selector?: string) => {
     const parts = form.get(path.data.parts).value;
     const part: schematic.symbol.Part = {
       key: `part-${id.create()}`,
       name: Spec.nextPartName(parts),
       selectors: [],
     };
-    form.set(path.data.parts, [...parts, part]);
+    const next = [...parts, part];
+    const drawing = form.get(path.data.drawing).value;
+    form.set(
+      path.data.parts,
+      selector == null
+        ? next
+        : Spec.toggleSelector({ drawing, parts: next }, part.key, selector),
+    );
     setSelectedPart(part.key);
   };
 
@@ -158,13 +211,29 @@ const Editor = ({
     }
   };
 
-  const handleElementClick = (selector: string) => {
+  const lastClickSelectsRef = useRef(false);
+  const handleElementClick = (
+    shape: Schematic.Node.Region.Named,
+    { detail, altKey }: Pick<MouseEvent, "detail" | "altKey">,
+  ) => {
+    // A later click of the same double click would undo a click that selects a part.
+    if (detail > 1 && lastClickSelectsRef.current) return;
     const part = selectedPartRef.current;
-    if (part == null) return;
-    form.set(
-      path.data.parts,
-      Spec.toggleSelector(form.get(path.data.parts).value, part, selector),
-    );
+    const named = altKey ? climb(form.get(path.data).value, part, shape) : shape;
+    if (named == null) return;
+    if (named.markup !== form.get(path.data.drawing.markup).value)
+      form.set(path.data.drawing.markup, named.markup);
+    const { selector } = named;
+    const spec = form.get(path.data).value;
+    // A shape in a group of another part cannot join part, so the click selects it.
+    const holder = Spec.groupOwner(spec, selector);
+    const toggles = part != null && (holder == null || holder.key === part);
+    lastClickSelectsRef.current = !toggles;
+    if (toggles)
+      return form.set(path.data.parts, Spec.toggleSelector(spec, part, selector));
+    const owner = part == null ? Spec.owner(spec, selector) : holder;
+    if (owner == null) return addPart(selector);
+    setSelectedPart(owner.key);
   };
   const hasSVG =
     Form.useFieldValue(path.data.drawing.markup, {
@@ -181,11 +250,10 @@ const Editor = ({
     const uses = stored.data?.uses ?? [];
     if (stored.data != null && uses.length > 0) {
       const spec = form.get(path.data).value;
-      const changed = !deep.equal(
-        { ...stored.data.data, previewViewport: undefined },
-        { ...spec, previewViewport: undefined },
-      );
-      if (changed && (await confirmSave({ stored: stored.data, spec, uses })) !== true)
+      if (
+        Spec.edited(stored.data.data, spec) &&
+        (await confirmSave({ stored: stored.data, spec, uses })) !== true
+      )
         return;
     }
     save();
@@ -229,7 +297,11 @@ const Editor = ({
                     </Header.Title>
                   </Header.Header>
                   <Flex.Box className={CSS.BE("schematic", "states")}>
-                    <SelectVariantField onSelectValue={setSelectedValue} />
+                    <SelectVariantField
+                      onSelectValue={(value) =>
+                        setPreview({ state: Spec.STATE, value })
+                      }
+                    />
                   </Flex.Box>
                 </Flex.Box>
                 <Divider.Divider x />
@@ -239,7 +311,7 @@ const Editor = ({
                     setSelectedPart(value);
                     setSelectedHandle(undefined);
                   }}
-                  onAdd={addPart}
+                  onAdd={() => addPart()}
                 />
                 <Divider.Divider x />
                 <HandleList
@@ -286,8 +358,9 @@ const Editor = ({
               >
                 {({ onChange }) => (
                   <Preview
-                    selectedValue={selectedValue}
+                    selectedValue={preview.value}
                     selectedHandle={selectedHandle}
+                    selectedPart={selectedPart}
                     onElementClick={handleElementClick}
                     onContentsChange={onChange}
                     onHandlePlace={handleHandlePlace}
@@ -295,7 +368,7 @@ const Editor = ({
                   />
                 )}
               </Form.Field>
-              {hasSVG && <ValueBar value={selectedValue} onChange={setSelectedValue} />}
+              {hasSVG && <ValueBar value={preview} onChange={setPreview} />}
             </Flex.Box>
             {hasSVG && (
               <Flex.Box
@@ -307,9 +380,9 @@ const Editor = ({
                 borderColor={6}
               >
                 <Inspector
-                  key={selectedPart ?? ""}
+                  key={`${selectedPart ?? ""}/${preview.state}`}
                   part={selectedPart}
-                  preview={selectedValue}
+                  preview={preview}
                 />
               </Flex.Box>
             )}

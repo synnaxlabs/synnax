@@ -420,12 +420,8 @@ describe("Task", async () => {
           testRack.createTask({ name, config: {}, type: "pagerduty_alert" }),
         ),
       );
-      await expect
-        .poll(async () => {
-          const results = await client.tasks.retrieve({ searchTerm: prefix });
-          return results.map((t) => t.name).sort();
-        })
-        .toEqual(names);
+      const results = await client.tasks.retrieve({ searchTerm: prefix });
+      expect(results.map((t) => t.name).sort()).toEqual(names);
     });
 
     describe("status", () => {

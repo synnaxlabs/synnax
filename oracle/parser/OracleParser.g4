@@ -389,9 +389,15 @@ unionDef
     : IDENT UNION IDENT IDENT typeRef? (EXTENDS typeRefList)? nl* LBRACE nl* unionBody RBRACE
     ;
 
-// Union body contains variants, actions, and/or union-level domains
+// Union body contains variants, variant omissions, actions, and/or union-level domains
 unionBody
-    : ((actionDef | unionVariant | domain) nl*)*
+    : ((actionDef | unionVariant | variantOmit | domain) nl*)*
+    ;
+
+// Variant omission: remove a variant from the earlier version that the union patches
+// Example: -legacy_variant
+variantOmit
+    : MINUS variantName
     ;
 
 // Single variant: discriminator value + struct type + optional per-variant domains

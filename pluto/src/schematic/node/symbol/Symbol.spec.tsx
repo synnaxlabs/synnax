@@ -7,8 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { schematic } from "@synnaxlabs/client";
-import { createTestClient, SyntheticCore } from "@synnaxlabs/client/testutil";
+import { schematic, type Synnax } from "@synnaxlabs/client";
+import {
+  createTestClient,
+  createTestClientWithPolicy,
+  SyntheticCore,
+} from "@synnaxlabs/client/testutil";
 import { Rate, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, render } from "@testing-library/react";
 import { ReactFlowProvider } from "@xyflow/react";
@@ -61,7 +65,7 @@ const createCustomSymbol = async (
   markup: string,
   data: Partial<z.input<typeof schematic.symbol.specZ>> = {},
   core?: SyntheticCore,
-): Promise<{ key: string; Wrapper: FC<PropsWithChildren> }> => {
+): Promise<{ key: string; client: Synnax; Wrapper: FC<PropsWithChildren> }> => {
   const client = createTestClient();
   const { key } = await client.schematics.symbols.create({
     name: "Custom",
@@ -72,7 +76,7 @@ const createCustomSymbol = async (
     additionalRegistry: symbolNode.REGISTRY,
     telemFactories: core == null ? undefined : [telemTest.createRemoteFactory(core)],
   });
-  return { key, Wrapper };
+  return { key, client, Wrapper };
 };
 
 describe("Symbol node", () => {
@@ -161,6 +165,109 @@ describe("Symbol node", () => {
     expect(queryByRole("img", { name: "Stale" })).toBeNull();
   });
 
+  it("should show the unknown indicator while a channel has no data", async () => {
+    const now = TimeStamp.now();
+    const core = new SyntheticCore({ rate: Rate.hz(10), start: now, now });
+    const [reading] = core.data;
+    const { findByRole } = renderNode(
+      {
+        spec: { type: "builtin", name: "valve" },
+        states: [
+          {
+            key: "active",
+            source: { type: "channel", key: reading.key },
+          },
+        ],
+      },
+      createCoreWrapper(core),
+    );
+    await findByRole("img", { name: "Unknown" });
+  });
+
+  it("should show no unknown indicator for a state with no source", async () => {
+    const { container, queryByRole } = renderNode({
+      spec: { type: "builtin", name: "valve" },
+      color: COLOR,
+      states: [{ key: "active", default: 1 }],
+    });
+    await vi.waitFor(() => expect(container.querySelector(FILLED)).not.toBeNull());
+    expect(queryByRole("img", { name: "Unknown" })).toBeNull();
+  });
+
+  it("should show the stale and unknown indicators side by side", async () => {
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval", "performance"] });
+    const now = TimeStamp.now().sub(TimeSpan.minutes(1));
+    const core = new SyntheticCore({ rate: Rate.hz(10), start: now, now });
+    const [reading] = core.data;
+    const { findByRole } = renderNode(
+      {
+        spec: { type: "builtin", name: "valve" },
+        states: [
+          { key: "active", source: { type: "channel", key: reading.key } },
+          // The synthetic Core has no such channel, so this state never gets data.
+          { key: "fault", source: { type: "channel", key: 999_999 } },
+        ],
+      },
+      createCoreWrapper(core),
+    );
+    await act(
+      async () => await vi.waitFor(() => expect(core.streams(reading.key)).toBe(true)),
+    );
+    await act(async () => core.advance(TimeSpan.seconds(1)));
+    const stale = await findByRole("img", { name: "Stale" });
+    const unknown = await findByRole("img", { name: "Unknown" });
+    expect(unknown.parentElement).toBe(stale.parentElement);
+    expect(stale.closest(".pluto-grid__item")?.classList).toContain(
+      "lyra--location-bottom",
+    );
+  });
+
+  it("should show the unknown indicator for a local value that names no entry", async () => {
+    const client = createTestClient();
+    const { key: enumeration } = await client.enumerations.create({
+      name: "Valve",
+      entries: [
+        { key: "closed", value: 0, name: "Closed" },
+        { key: "open", value: 1, name: "Open" },
+      ],
+    });
+    const Wrapper = await createAsyncSynnaxWrapper({
+      client,
+      additionalRegistry: symbolNode.REGISTRY,
+    });
+    const { findByRole } = renderNode(
+      {
+        spec: { type: "builtin", name: "valve" },
+        states: [
+          {
+            key: "active",
+            source: { type: "local", value: 5 },
+            enumeration,
+            match: { type: "exact" },
+          },
+        ],
+      },
+      Wrapper,
+    );
+    await findByRole("img", { name: "Unknown" });
+  });
+
+  it("should show no unknown indicator while the enumeration of a state is not loaded", async () => {
+    const { container, queryByRole } = renderNode({
+      spec: { type: "builtin", name: "valve" },
+      states: [
+        {
+          key: "active",
+          source: { type: "local", value: 5 },
+          enumeration: "00000000-0000-0000-0000-000000000000",
+          match: { type: "exact" },
+        },
+      ],
+    });
+    await vi.waitFor(() => expect(container.querySelector("path")).not.toBeNull());
+    expect(queryByRole("img", { name: "Unknown" })).toBeNull();
+  });
+
   it("should draw a custom symbol that the Core holds", async () => {
     const { key, Wrapper } = await createCustomSymbol(
       '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">' +
@@ -239,6 +346,20 @@ describe("Symbol node", () => {
     const { key, Wrapper } = await createCustomSymbol("<svg><rect></svg>");
     const { findByText } = renderNode({ spec: { type: "custom", key } }, Wrapper);
     await findByText("Invalid symbol");
+  });
+
+  it("should warn when a custom symbol fails to load", async () => {
+    const { key, client } = await createCustomSymbol(
+      '<svg xmlns="http://www.w3.org/2000/svg"><rect class="body" /></svg>',
+    );
+    // A user with no policies cannot read the symbol, so its load fails.
+    const denied = await createTestClientWithPolicy(client, []);
+    const Wrapper = await createAsyncSynnaxWrapper({
+      client: denied,
+      additionalRegistry: symbolNode.REGISTRY,
+    });
+    const { findByText } = renderNode({ spec: { type: "custom", key } }, Wrapper);
+    await findByText("Failed to load symbol");
   });
 
   it("should draw its preview at the defaults of its states", async () => {
