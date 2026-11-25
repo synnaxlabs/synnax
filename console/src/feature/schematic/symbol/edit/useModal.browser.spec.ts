@@ -1255,10 +1255,10 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       expect(findButton("Save").getAttribute("aria-disabled")).toBeNull();
       fireEvent.click(findButton("Save"));
       await screen.findByRole("heading", { name: "Body" });
-      expect(screen.getByText("Fill motion needs one shape")).toBeDefined();
+      expect(screen.getByText("Fill motion needs one shape or group")).toBeDefined();
       fireEvent.click(screen.getByText("Spin"));
       await waitFor(() =>
-        expect(screen.queryByText("Fill motion needs one shape")).toBeNull(),
+        expect(screen.queryByText("Fill motion needs one shape or group")).toBeNull(),
       );
     });
 
@@ -1297,7 +1297,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       fireEvent.click(screen.getByText("Actuator"));
       fireEvent.click(findButton("Save"));
       await screen.findByRole("heading", { name: "Body" });
-      expect(screen.getByText("Fill motion needs one shape")).toBeDefined();
+      expect(screen.getByText("Fill motion needs one shape or group")).toBeDefined();
       expect(screen.queryByText(`Save the changes to ${symbol.name}?`)).toBeNull();
     });
 
@@ -1630,10 +1630,10 @@ describe("Schematic.Symbol.Edit.useModal", () => {
           },
         ],
       });
-      expect(screen.getByText("Fill motion needs one shape")).toBeDefined();
+      expect(screen.getByText("Fill motion needs one shape or group")).toBeDefined();
       fireEvent.click(screen.getByText("Select parent group"));
       await waitFor(() =>
-        expect(screen.queryByText("Fill motion needs one shape")).toBeNull(),
+        expect(screen.queryByText("Fill motion needs one shape or group")).toBeNull(),
       );
       // The group sits in no group, so the action turns off.
       await waitFor(() =>
