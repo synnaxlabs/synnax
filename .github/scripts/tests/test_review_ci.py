@@ -403,6 +403,9 @@ class Server:
         self.blob = b"log"
         self.resets = 0
         """The reads of the blob that the host resets after part of the log."""
+        self.trickle: list[bytes] = []
+        """The pieces that the host sends after the blob, `pause` seconds apart."""
+        self.pause = 0.0
         self.seen: list[tuple[str, str | None]] = []
         """The path and the Authorization header of each request."""
         server = self
@@ -424,6 +427,13 @@ class Server:
                         self.connection.close()
                         return
                     self.wfile.write(server.blob)
+                    try:
+                        for piece in server.trickle:
+                            self.wfile.flush()
+                            time.sleep(server.pause)
+                            self.wfile.write(piece)
+                    except ConnectionError:
+                        pass
                     return
                 status = server.api.pop(0) if server.api else 302
                 self.send_response(status)
@@ -511,6 +521,21 @@ class TestLog:
         with pytest.raises(Unavailable, match="out of time"):
             server.read(seconds=0)
         assert len(server.seen) == 1
+
+    def test_should_stop_a_download_at_the_deadline(
+        self, server: Server, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr("review.ci.LOG_SECONDS", 0.3)
+        server.blob = b"x" * HEAD_BYTES
+        server.trickle, server.pause = [b"ok  \tx/a\t1.2s\n"] * 10, 0.1
+        gh = FakeGH()
+        gh.jobs[1].append(job(13, "go / Test"))
+        out = results(REPO, SHA, gh, log(REPO, "secret", api=server.url, delay=0))
+        assert (
+            "```text\n10 log unavailable\n"
+            "13 log skipped: the time to read logs ran out\n```"
+        ) in out
+        assert len(server.seen) == 2
 
     def test_should_keep_the_start_and_end_of_a_long_log(self, server: Server) -> None:
         start = b"start\n" * (HEAD_BYTES // 6 + 1)
