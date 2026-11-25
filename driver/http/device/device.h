@@ -83,6 +83,8 @@ struct ConnectionConfig {
     x::telem::TimeSpan timeout;
     /// @brief cap on in-flight requests to the device.
     std::size_t max_concurrent_requests;
+    /// @brief largest response body in bytes.
+    std::int64_t max_response_size;
     /// @brief authentication configuration.
     AuthConfig auth;
     /// @brief whether to verify SSL certificates.
@@ -96,6 +98,9 @@ struct ConnectionConfig {
             "max_concurrent_requests",
             DEFAULT_MAX_CONCURRENT_REQUESTS
         )),
+        max_response_size(
+            parser.field<std::int64_t>("max_response_size", DEFAULT_MAX_RESPONSE_SIZE)
+        ),
         auth(AuthConfig(parser.optional_child("auth"))),
         verify_ssl(parser.field<bool>("verify_ssl", true)) {
         if (!base_url.starts_with("http://") && !base_url.starts_with("https://"))
@@ -115,6 +120,8 @@ struct ConnectionConfig {
             parser.field_err("timeout_ms", "must be positive");
         if (max_concurrent_requests == 0)
             parser.field_err("max_concurrent_requests", "must be positive");
+        if (max_response_size <= 0)
+            parser.field_err("max_response_size", "must be positive");
     }
 };
 

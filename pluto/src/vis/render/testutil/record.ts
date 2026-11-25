@@ -13,3 +13,12 @@ import { Recorder } from "@/vis/render/testutil/Recorder";
  * the `render` option to `renderAether` (or `render`), or used standalone to record
  * draw calls from non-aether code. */
 export const record = (): Recorder => new Recorder();
+
+/** @returns the font that drew text on the upper canvas, or undefined if none did. */
+export const fontOf = (recorder: Recorder, text: string): string | undefined => {
+  let font = "";
+  for (const c of recorder.upper2d.calls)
+    if (c.op === "set:font") font = String(c.args[0]);
+    else if (c.op === "fillText" && c.args[0] === text) return font;
+  return undefined;
+};

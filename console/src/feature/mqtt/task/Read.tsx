@@ -38,7 +38,7 @@ import { DEFAULT_READ_NAME } from "@/feature/mqtt/task/create";
 import type { Kind } from "@/feature/mqtt/task/discover/Discover";
 import { createDiscoverModal } from "@/feature/mqtt/task/discover/modal";
 import { createSparkplugEntry, namePrefix } from "@/feature/mqtt/task/entries";
-import { EntryLabel } from "@/feature/mqtt/task/EntryLabel";
+import { EntryItem, EntryLabel } from "@/feature/mqtt/task/EntryLabel";
 import type { Leaf } from "@/feature/mqtt/task/leaves";
 import { QoSField } from "@/feature/mqtt/task/QoSField";
 import {
@@ -368,26 +368,9 @@ const usePrefix = (
   return messagePrefix(deviceName, topic, read, name ?? "");
 };
 
-const EntryItem = (props: Tree.ItemRenderProps<string>) => {
-  const path = root.config.entries[props.itemKey];
-  const type = PForm.useFieldValue(path.type, { optional: true });
-  const disabled = PForm.useFieldValue(path.disabled, { optional: true }) === true;
-  if (type == null) return null;
-  return (
-    <Task.Views.TreeGroupItem
-      {...props}
-      label={<EntryLabel path={path} />}
-      channel={
-        type === "sparkplug"
-          ? deep.variant(path, "type", "sparkplug").channel
-          : undefined
-      }
-      off={disabled}
-    >
-      <Task.EnabledCheckbox path={path.disabled} />
-    </Task.Views.TreeGroupItem>
-  );
-};
+const SourceItem = (props: Tree.ItemRenderProps<string>) => (
+  <EntryItem {...props} path={root.config.entries[props.itemKey]} />
+);
 
 /** @returns the props that the panels of a message of a topic share. */
 const useMessageProps = (
@@ -653,7 +636,7 @@ const Entries: FC<EntriesProps> = ({
     sources: root.config.entries,
     sourceOf: (e) => (isPlain(e) ? e : null),
     pathOf: plainPath,
-    SourceItem: EntryItem,
+    SourceItem,
     // Starting reuses the channel that the device stores for the field's pointer,
     // unless another field reads it. A topic that reads one message also reuses the
     // channels of its earlier messages, so a new message format keeps its channels.

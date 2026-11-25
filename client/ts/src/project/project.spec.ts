@@ -62,12 +62,8 @@ describe("Project", () => {
       const prefix = `searchable-project-${id.create()}`;
       const names = [`${prefix}-1`, `${prefix}-2`];
       await client.projects.create(names.map((name) => ({ name })));
-      await expect
-        .poll(async () => {
-          const results = await client.projects.retrieve({ searchTerm: prefix });
-          return results.map((p) => p.name).sort();
-        })
-        .toEqual(names);
+      const results = await client.projects.retrieve({ searchTerm: prefix });
+      expect(results.map((p) => p.name).sort()).toEqual(names);
     });
     test("throw a NotFoundError for a missing key in a key list", async () => {
       const proj = await client.projects.create({ name: "survivor" });
