@@ -52,6 +52,8 @@ type Returns interface {
 //   - retrieve on the target of each use link added. A rack is denied a new use of a
 //     record that ServiceConfig.Vouched reports, and a move onto a rack of a record
 //     that uses one or holds a record that uses one;
+//   - retrieve on each record that a request implementing Named names, before apply
+//     runs;
 //   - retrieve on each source of a request that implements Copy;
 //   - retrieve on each record that a response implementing Returns holds and the
 //     transaction did not change.
@@ -73,6 +75,11 @@ func Write[RQ, RS freighter.Payload](
 			sources = c.Sources()
 		}
 		if err := s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) (err error) {
+			if n, ok := any(req).(Named); ok {
+				if err = s.enforceNamed(ctx, tx, n.Named()); err != nil {
+					return err
+				}
+			}
 			if res, err = apply(ctx, tx, req); err != nil {
 				return err
 			}
@@ -82,6 +89,25 @@ func Write[RQ, RS freighter.Payload](
 		}
 		return res, nil
 	}
+}
+
+// enforceNamed returns an error that wraps access.ErrDenied and names the first of ids
+// that the subject of the request cannot retrieve in tx.
+func (s *Service) enforceNamed(
+	ctx context.Context,
+	tx gorp.Tx,
+	ids []resource.ID,
+) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	subject := auth.GetSubject(ctx)
+	allowed, err := s.cfg.RBAC.NewEnforcer(tx).
+		Allowed(ctx, subject, access.ActionRetrieve)
+	if err != nil {
+		return err
+	}
+	return deny(subject, allowed, ids)
 }
 
 // WritePrepared returns a handler that runs prepare outside any transaction, then runs

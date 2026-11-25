@@ -72,6 +72,9 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 // Named implements bind.Named: the subject needs retrieve on each record it names.
 func (r PlanRequest) Named() []resource.ID { return named(r.Change) }
 
+// Named implements bind.Named, as PlanRequest does.
+func (r ApplyRequest) Named() []resource.ID { return named(r.Change) }
+
 // named returns the records that c names.
 func named(c Change) []resource.ID {
 	if d, ok := c.Variant.(DeleteChange); ok {
@@ -126,20 +129,10 @@ func (s *Service) ApplyHandler(
 			if err != nil {
 				return impact.Plan{}, err
 			}
-			subject := auth.GetSubject(ctx)
 			visible, err = s.cfg.RBAC.NewEnforcer(tx).
-				Allowed(ctx, subject, access.ActionRetrieve)
+				Allowed(ctx, auth.GetSubject(ctx), access.ActionRetrieve)
 			if err != nil {
 				return impact.Plan{}, err
-			}
-			for _, r := range records {
-				if !visible(r) {
-					return impact.Plan{}, access.Denied(
-						subject,
-						access.ActionRetrieve,
-						r,
-					)
-				}
 			}
 			return s.cfg.Impact.Apply(ctx, tx, records, impact.ApplyOptions{
 				Token:   req.Token,
