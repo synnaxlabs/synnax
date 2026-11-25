@@ -94,7 +94,9 @@ describe("Core.useConnParams", () => {
   });
 
   it("should leave out an empty username once the code is spent", async () => {
+    pinLocationOrigin("http://example.com:9095");
     const { result } = await renderParams({ ...CORE, username: "" });
+    expect(result.current).toBeDefined();
     expect(result.current?.username).toBeUndefined();
   });
 
