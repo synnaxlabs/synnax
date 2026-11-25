@@ -16,7 +16,6 @@ import { Project } from "@/feature/project";
 import { Range } from "@/feature/range";
 import { Status } from "@/feature/status";
 import { Task } from "@/feature/task";
-import { FLAGS } from "@/flags";
 import type { Nav } from "@/platform/nav";
 
 export const DEFAULT_SIZE = 200;
@@ -28,7 +27,7 @@ export const LEFT: Nav.Toolbar[] = [
   Device.TOOLBAR,
   Task.TOOLBAR,
   Arc.TOOLBAR,
-  ...(FLAGS.icds ? [ICD.TOOLBAR] : []),
+  ICD.TOOLBAR,
   Status.TOOLBAR,
 ];
 

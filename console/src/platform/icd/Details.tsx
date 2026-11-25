@@ -20,7 +20,6 @@ import { ICD as PICD } from "@synnaxlabs/pluto";
 import { deep } from "@synnaxlabs/x";
 import type { FC, ReactElement, ReactNode } from "react";
 
-import { FLAGS } from "@/flags";
 import { CSS } from "@/platform/css";
 import type { MessagePlan } from "@/platform/icd/configure";
 import { defaultDataType } from "@/platform/icd/dataType";
@@ -303,8 +302,8 @@ export const MessageStatus = ({
     return (
       <PForm.Section title="Message" actions={actions}>
         <Text.Text color={9}>
-          The format of this message is not JSON.
-          {FLAGS.icds && " Open it in the editor to change its format."}
+          The format of this message is not JSON. Open it in the editor to change its
+          format.
         </Text.Text>
       </PForm.Section>
     );
