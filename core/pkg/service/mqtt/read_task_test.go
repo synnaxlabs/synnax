@@ -390,8 +390,8 @@ var _ = Describe("Read task", func() {
 				}).Should(Succeed())
 				Expect(stored(ctx, data[0]).Len()).To(BeZero())
 			},
-			Entry("a string into a number channel", telem.Float64T, `{"v":"1"}`,
-				`field v: unknown enum label "1"`),
+			Entry("a string that holds no number into a number channel", telem.Float64T,
+				`{"v":"x"}`, `field v: invalid number "x"`),
 			Entry("a repeated member at a field", telem.Float64T, `{"v":1,"v":2}`,
 				"duplicate value at /v"),
 			Entry("a payload that is not UTF-8", telem.StringT, "\xff",

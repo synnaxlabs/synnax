@@ -1628,6 +1628,7 @@ AnalogReadConfig struct extends task.ReadConfig {
     @doc value           """
         configures an NI analog read task. Each channel carries its own device.
     """
+    @go entry            "ni_analog_read_config"
     @go imex             body
     @go marshal
     @go migrate
@@ -1643,6 +1644,7 @@ CounterReadConfig struct extends task.ReadConfig {
     @doc value           """
         configures an NI counter read task. Each channel carries its own device.
     """
+    @go entry            "ni_counter_read_config"
     @go imex             body
     @go marshal
     @go migrate
@@ -1669,6 +1671,7 @@ AnalogWriteConfig struct extends WriteConfig {
     }
 
     @doc value           "configures an NI analog write task."
+    @go entry            "ni_analog_write_config"
     @go imex             body
     @go marshal
     @go migrate
@@ -1687,6 +1690,7 @@ DigitalReadConfig struct extends task.ReadConfig {
     }
 
     @doc value           "configures an NI digital read task."
+    @go entry            "ni_digital_read_config"
     @go imex             body
     @go marshal
     @go migrate
@@ -1700,6 +1704,7 @@ DigitalWriteConfig struct extends WriteConfig {
     }
 
     @doc value           "configures an NI digital write task."
+    @go entry            "ni_digital_write_config"
     @go imex             body
     @go marshal
     @go migrate
@@ -1709,6 +1714,7 @@ DigitalWriteConfig struct extends WriteConfig {
 
 ScanConfig struct extends task.ScanConfig {
     @doc value  "configures the NI device scanner task."
+    @go entry   "ni_scanner_config"
     @go imex    body
     @go marshal
     @go migrate

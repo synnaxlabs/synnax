@@ -68,6 +68,21 @@ variable "license_parameter" {
   default     = "/synnax-preview/license-key"
 }
 
+variable "login_parameters" {
+  description = <<-EOT
+    Path of the SSM SecureString parameters of the GitHub login: client-id and
+    client-secret of the GitHub OAuth app, and cookie-secret.
+  EOT
+  type        = string
+  default     = "/synnax-preview/oauth2-proxy"
+}
+
+variable "github_org" {
+  description = "GitHub organization whose members may open a preview."
+  type        = string
+  default     = "synnaxlabs"
+}
+
 variable "instance_type" {
   type    = string
   default = "t3.large"
@@ -182,24 +197,56 @@ resource "aws_iam_role_policy_attachment" "host_ssm" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
 }
 
-resource "aws_iam_role_policy_attachment" "host_ecr" {
-  role       = aws_iam_role.host.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
+# The host pulls the Core and sample images. The other images come from public
+# registries.
+resource "aws_iam_role_policy" "host_images" {
+  role = aws_iam_role.host.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = "ecr:GetAuthorizationToken"
+        Resource = "*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:BatchGetImage",
+          "ecr:GetDownloadUrlForLayer",
+        ]
+        Resource = aws_ecr_repository.preview.arn
+      },
+    ]
+  })
 }
 
 data "aws_caller_identity" "current" {}
 
-resource "aws_iam_role_policy" "host_license" {
+locals {
+  parameter_arn = join("", [
+    "arn:aws:ssm:${var.region}:${data.aws_caller_identity.current.account_id}",
+    ":parameter/",
+  ])
+}
+
+moved {
+  from = aws_iam_role_policy.host_license
+  to   = aws_iam_role_policy.host_parameters
+}
+
+resource "aws_iam_role_policy" "host_parameters" {
   role = aws_iam_role.host.id
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
       Effect = "Allow"
       Action = "ssm:GetParameter"
-      Resource = join("", [
-        "arn:aws:ssm:${var.region}:${data.aws_caller_identity.current.account_id}",
-        ":parameter/${trimprefix(var.license_parameter, "/")}",
-      ])
+      Resource = [
+        "${local.parameter_arn}${trimprefix(var.license_parameter, "/")}",
+        "${local.parameter_arn}${trimprefix(var.login_parameters, "/")}/*",
+      ]
     }]
   })
 }
@@ -248,8 +295,11 @@ resource "aws_instance" "host" {
     volume_size = 60
     volume_type = "gp3"
   }
+  # A hop limit of 1 keeps the role from bridge network containers, such as the
+  # preview Cores.
   metadata_options {
-    http_tokens = "required"
+    http_tokens                 = "required"
+    http_put_response_hop_limit = 1
   }
   tags = { Name = "synnax-preview" }
   # The first upgrade gets the certificate through the role.
@@ -269,6 +319,8 @@ locals {
     PREVIEW_SITES=/etc/caddy/sites
     PREVIEW_TTL_DAYS=${var.ttl_days}
     PREVIEW_LICENSE_PARAMETER=${var.license_parameter}
+    PREVIEW_LOGIN_PARAMETERS=${var.login_parameters}
+    PREVIEW_GITHUB_ORG=${var.github_org}
     PREVIEW_REGION=${var.region}
     PREVIEW_MAX=${var.max_previews}
     PREVIEW_CPUS=${var.preview_cpus}
@@ -360,7 +412,7 @@ resource "aws_ssm_document" "preview" {
         description = "The preview command line."
         allowedPattern = join("", [
           "^/usr/local/bin/preview (",
-          "up [0-9]+ ${local.image} (human|none) [0-9]+",
+          "up [0-9]+ ${local.image} ${local.image}-sample (human|none) [0-9]+",
           "|mark [0-9]+ (human|none) [0-9]+",
           "|down [0-9]+",
           "|notices",

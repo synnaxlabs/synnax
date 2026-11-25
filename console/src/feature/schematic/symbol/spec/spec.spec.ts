@@ -735,6 +735,50 @@ describe("symbol editor spec", () => {
     });
   });
 
+  describe("addCommand", () => {
+    it("should add a command named Command 1 that sends 0", () => {
+      const [spec, key] = Spec.addCommand(createSpec());
+      expect(spec.commands).toEqual([
+        { key, name: "Command 1", value: { type: "fixed", value: 0 } },
+      ]);
+    });
+
+    it("should give a new command a key other than that of a removed command", () => {
+      const [added, removedKey] = Spec.addCommand(createSpec());
+      const [removed] = Spec.removeCommand(added, removedKey);
+      const [, key] = Spec.addCommand(removed);
+      expect(key).not.toBe(removedKey);
+    });
+  });
+
+  describe("removeCommand", () => {
+    it("should remove the command and the clicks that send it", () => {
+      const send = (key: string): schematic.symbol.Command => ({
+        key,
+        name: key,
+        value: { type: "fixed", value: 1 },
+      });
+      const kept: schematic.symbol.Interaction = {
+        type: "fire",
+        key: "c",
+        part: "seat",
+        command: "b",
+      };
+      const spec = createSpec({
+        commands: [send("a"), send("b")],
+        interactions: [
+          { type: "fire", key: "x", part: "body", command: "a" },
+          { type: "next", key: "y", commands: ["a", "b"] },
+          kept,
+        ],
+      });
+      const [next, removed] = Spec.removeCommand(spec, "a");
+      expect(next.commands).toEqual([send("b")]);
+      expect(next.interactions).toEqual([kept]);
+      expect(removed).toEqual({ looks: [], commands: [], interactions: ["x", "y"] });
+    });
+  });
+
   describe("removeState", () => {
     const onEntry: schematic.symbol.Paint = { type: "entry", state: FAULT.key };
 

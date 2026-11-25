@@ -126,6 +126,35 @@ export const deployWriteConfigZ = kafka.writeConfigZ.extend({
     }),
 });
 
+export interface WriteTarget extends kafka.WriteTarget {}
+
+// The Core skips disabled targets, so only the enabled ones need a topic.
+const validateTargets = (ctx: z.core.ParsePayload<WriteTarget[]>) => {
+  if (ctx.value.every(({ disabled }) => disabled))
+    ctx.issues.push({
+      continue: true,
+      code: "custom",
+      input: ctx.value,
+      message: "At least one target must be enabled",
+      path: [],
+    });
+  ctx.value.forEach(({ disabled, topic }, i) => {
+    if (disabled || topic !== "") return;
+    ctx.issues.push({
+      continue: true,
+      code: "custom",
+      input: ctx.value,
+      message: "Topic is required",
+      path: [i, "topic"],
+    });
+  });
+};
+
+export const deployICDWriteConfigZ = kafka.writeConfigZ.extend({
+  device: Task.deviceKeyZ,
+  targets: kafka.writeTargetZ.array().check(validateTargets),
+});
+
 export const WRITE_SCHEMAS = {
   type: z.literal(WRITE_TYPE),
   config: writeConfigZ,
