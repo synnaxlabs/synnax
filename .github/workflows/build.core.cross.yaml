@@ -85,28 +85,26 @@ jobs:
             GOOS=$os GOARCH=${target#*/} go build -o "$OUT/$os/synnax$exe" .
           done
 
-      # A re-run of failed jobs downloads these artifacts, and GitHub allows a re-run for
-      # 30 days.
       - name: Upload the Linux Core
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: ${{ steps.key.outputs.artifact }}linux
           path: ${{ runner.temp }}/core/linux
-          retention-days: 30
+          retention-days: 3
 
       - name: Upload the macOS Core
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: ${{ steps.key.outputs.artifact }}darwin
           path: ${{ runner.temp }}/core/darwin
-          retention-days: 30
+          retention-days: 3
 
       - name: Upload the Windows Core
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: ${{ steps.key.outputs.artifact }}windows
           path: ${{ runner.temp }}/core/windows
-          retention-days: 30
+          retention-days: 3
 
       # Go marks a used cache entry at most once an hour, so the margin keeps the ones
       # the build used.

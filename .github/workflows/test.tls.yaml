@@ -84,11 +84,26 @@ jobs:
             echo "CA=$RUNNER_TEMP/certs/ca.crt"
           } >> "$GITHUB_ENV"
 
+      # A re-run of failed jobs after the artifact expires builds the Core instead.
       - name: Download the Core
+        id: download
+        continue-on-error: true
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: ${{ needs.build.outputs.artifact }}${{ matrix.goos }}
           path: ${{ runner.temp }}
+
+      - name: Set up Go
+        if: steps.download.outcome == 'failure'
+        uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
+        with:
+          go-version-file: core/go.mod
+          cache: false
+
+      - name: Build Core
+        if: steps.download.outcome == 'failure'
+        working-directory: core
+        run: go build -o "$CORE" .
 
       # An artifact does not keep the file mode.
       - name: Make the Core executable
