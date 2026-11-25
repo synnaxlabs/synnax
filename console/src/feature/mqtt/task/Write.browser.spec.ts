@@ -17,7 +17,7 @@ import type { Status } from "@synnaxlabs/lyra/status";
 import { scheduler } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it, onTestFinished } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { MQTT } from "@/feature/mqtt";
 import { createBroker, openScanner } from "@/feature/mqtt/testutil";
@@ -286,6 +286,15 @@ describe("MQTT Write form", () => {
   });
 
   describe("Sparkplug B targets", () => {
+    it("should say that deploying numbers a typed command channel name that another channel holds", async () => {
+      const name = uniqueName("mqtt_cmd");
+      await client.channels.create({ name, dataType: "float64", virtual: true });
+      await renderWrite([createTagTarget("s1", "setpoint", { name })]);
+      fireEvent.click(await screen.findByRole("treeitem", { name: /setpoint/ }));
+      expect(await screen.findByText(`Saves as ${name}_2`)).toBeTruthy();
+      expect(screen.getByDisplayValue(name)).toBeTruthy();
+    });
+
     it("should list a tag by its edge node, with its command channel in its pane", async () => {
       const ch = await client.channels.create({
         name: uniqueName("mqtt_cmd"),
@@ -772,6 +781,9 @@ describe("MQTT Write form", () => {
           new Error("channels unavailable"),
         );
         onTestFinished(() => reject.mockRestore());
+        // The plan of the command channel names fails on the same retrieval.
+        const error = vi.spyOn(console, "error").mockImplementation(() => {});
+        onTestFinished(() => error.mockRestore());
         let statuses: Status.NotificationSpec[] = [];
         await renderTaskFormTab(MQTT.Task.FORMS[MQTT.Task.WRITE_TYPE], {
           client,
@@ -793,6 +805,9 @@ describe("MQTT Write form", () => {
               description: "channels unavailable",
             }),
           ),
+        );
+        expect(error).toHaveBeenCalledWith(
+          expect.objectContaining({ message: "channels unavailable" }),
         );
       });
     });

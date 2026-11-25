@@ -211,6 +211,22 @@ describe("Kafka Write form", () => {
     expect(screen.getByDisplayValue("plant")).toBeTruthy();
   });
 
+  it("should show the numbered name that deploying gives a command channel whose name another target takes", async () => {
+    const { target } = await createTarget([createField("speed", "float")], {
+      recordKey: "pump-1",
+    });
+    const { dev } = await renderWrite([
+      target,
+      { ...target, key: "t2", recordKey: "pump_1" },
+    ]);
+    const name = `${channel.escapeInvalidName(dev.name)}_plant_pumps_pump_1_speed_cmd`;
+    const [first, second] = await screen.findAllByRole("treeitem", { name: /^speed/ });
+    fireEvent.click(second);
+    expect(await screen.findByDisplayValue(`${name}_2`)).toBeTruthy();
+    fireEvent.click(first);
+    expect(await screen.findByDisplayValue(name)).toBeTruthy();
+  });
+
   it("should add a first field to a message with no fields", async () => {
     const { target } = await createTarget([]);
     await renderWrite([target]);
