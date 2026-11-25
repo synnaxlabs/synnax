@@ -113,12 +113,15 @@ long as that producer names it.
   a save that names another producer's clock fails. A task copy and an import allocate
   new clock keys. A spooled Driver frame keeps its key.
 - **End of a clock**: When its producer ends, the Core calls `Delete` on its clock (RFC
-  0121 §4.1): a task delete saves a pending-drop note for its clocks in its transaction.
-  A script's clock and the metrics clock end with their Core run: the framer and the
+  0121 §4.1). A task save or delete saves a pending-drop note, in its transaction, for
+  each clock that the old config held and the new config does not. Until Phase 9, a
+  clock that an index channel record holds is that record's and takes no note. A
+  script's clock and the metrics clock end with their Core run: the framer and the
   metrics service save a note for each clock that they make, so the next start deletes
-  it, and the framer's sweep deletes the clock of an entry that it removes. Storage
-  keeps a clock's stamps while a stored segment of another key names it, so no stamp
-  that data uses goes, and the Core deletes no clock on absence.
+  it, and the framer's sweep deletes the clock of an entry that it removes when the
+  framer made that clock. An index key that the framer gives (§4.8) is never deleted and
+  takes no note. Storage keeps a clock's stamps while a stored segment of another key
+  names it, so no stamp that data uses goes, and the Core deletes no clock on absence.
 - **One clock, one producer**: From Phase 9, stored writes of two producers never share
   a clock. Until then, an index channel that several sessions or tasks write stays under
   write control, as today: the framer gates its writers by authority.
