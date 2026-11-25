@@ -9,7 +9,14 @@
   included in the file licenses/APL.txt.
   -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 87 42">
-  <circle cx="43.5" cy="21" r="10" fill="var(--pluto-symbol-display)" />
+  <circle
+        class="pluto--solid"
+        cx="43.5"
+        cy="21"
+        r="10"
+        fill="currentColor"
+        style="color: var(--pluto-symbol-display)"
+    />
   <rect x="2" y="2" width="83" height="38" rx="1" />
   <path d="M2.29001 2.29004L84.7069 39.676" />
 </svg>

@@ -62,6 +62,29 @@ describe("Schematic.Node.BUILT_INS", () => {
         });
   });
 
+  it("should let a look fill each shape that reads the symbol color", () => {
+    // The theme fills a text, so its solid span inherits the fill of the text.
+    const paintable = (el: Element): boolean =>
+      el.tagName === "text"
+        ? el.querySelector(":scope > tspan.pluto--solid") != null
+        : el.matches(".pluto--solid[fill='currentColor']");
+    for (const [name, spec] of Node.BUILT_INS) {
+      const svg = new DOMParser().parseFromString(spec.drawing.markup, "image/svg+xml");
+      const reads = [...svg.querySelectorAll("[style*='--pluto-symbol']")];
+      expect({
+        name,
+        unpaintable: reads.filter((el) => !paintable(el)),
+        // A browser ignores a variable in a fill attribute.
+        variable: svg.querySelector("[fill*='var(']"),
+      }).toEqual({ name, unpaintable: [], variable: null });
+      if (reads.length > 0)
+        expect({ name, parts: spec.parts.map((p) => p.key) }).toEqual({
+          name,
+          parts: expect.arrayContaining(["solid"]),
+        });
+    }
+  });
+
   it("should give each symbol a spec that the Core accepts", async () => {
     const client = createTestClient();
     const symbols = await client.schematics.symbols.create({
@@ -92,6 +115,27 @@ describe("Schematic.Node.BUILT_INS", () => {
       colored = created.key;
     });
 
+    const SOLID = ".pluto--solid";
+
+    const expectPaints = async (
+      name: string,
+      value: number,
+      paints: Custom.Paint[],
+      nodeColor?: color.Color,
+    ) => {
+      const spec = Node.BUILT_INS.get(name);
+      if (spec == null) throw new Error(`expected a spec for ${name}`);
+      const states = spec.states.map((s) =>
+        s.type === "enumeration" ? { ...s, enumeration: colored } : s,
+      );
+      const { result } = renderHook(
+        () =>
+          Custom.usePaints({ ...spec, states }, value, { builtIn: true, nodeColor }),
+        { wrapper },
+      );
+      await waitFor(() => expect(result.current).toEqual(paints));
+    };
+
     it.each<[string, number, Custom.Paint[]]>([
       ["valve", 0, [{ stroke: RED }]],
       ["valve", 1, [{ stroke: BANDED_GREEN }, { fill: BANDED_GREEN }]],
@@ -117,22 +161,75 @@ describe("Schematic.Node.BUILT_INS", () => {
           { selectors: [".pluto--detail"], stroke: color.construct("#000000e6") },
         ],
       ],
+      [
+        "butterfly_valve_one",
+        1,
+        [
+          { stroke: BANDED_GREEN },
+          { fill: BANDED_GREEN },
+          { selectors: [SOLID], fill: BANDED_GREEN },
+        ],
+      ],
       ["light", 1, [{ fill: BANDED_GREEN }]],
       ["switch", 1, []],
       ["thruster", 1, []],
     ])(
       "should paint %s at %d as its old variant draws",
       async (name, value, paints) => {
-        const spec = Node.BUILT_INS.get(name);
-        if (spec == null) throw new Error(`expected a spec for ${name}`);
-        const states = spec.states.map((s) =>
-          s.type === "enumeration" ? { ...s, enumeration: colored } : s,
-        );
-        const { result } = renderHook(
-          () => Custom.usePaints({ ...spec, states }, value, { builtIn: true }),
-          { wrapper },
-        );
-        await waitFor(() => expect(result.current).toEqual(paints));
+        await expectPaints(name, value, paints);
+      },
+    );
+
+    const STATIC_SOLID = [
+      "flowmeter_coriolis",
+      "flowmeter_electromagnetic",
+      "flowmeter_float_sensor",
+      "flowmeter_general",
+      "flowmeter_nozzle",
+      "flowmeter_orifice",
+      "flowmeter_positive_displacement",
+      "flowmeter_pulse",
+      "flowmeter_ring_piston",
+      "flowmeter_turbine",
+      "flowmeter_variable_area",
+      "flowmeter_venturi",
+      "burst_disc",
+      "check_valve_with_arrow",
+      "iso_check_valve",
+      "cross_junction",
+      "t_junction",
+    ];
+    const ACTIVE_SOLID = [
+      "angled_spring_loaded_relief_valve",
+      "breather_valve",
+      "butterfly_valve_one",
+      "butterfly_valve_two",
+      "four_way_valve",
+      "needle_valve",
+      "spring_loaded_relief_valve",
+    ];
+
+    it.each(STATIC_SOLID)(
+      "should fill the solid shapes of %s with the node color",
+      async (name) => {
+        await expectPaints(name, 0, [{ selectors: [SOLID], fill: RED }], RED);
+      },
+    );
+
+    it.each(STATIC_SOLID)(
+      "should leave the solid shapes of %s to the theme with no node color",
+      async (name) => {
+        await expectPaints(name, 0, [{ selectors: [SOLID] }]);
+      },
+    );
+
+    it.each(ACTIVE_SOLID)(
+      "should fill the solid shapes of %s with the color of its stroke",
+      async (name) => {
+        await expectPaints(name, 0, [
+          { stroke: RED },
+          { selectors: [SOLID], fill: RED },
+        ]);
       },
     );
   });

@@ -81,6 +81,36 @@ export const DETAIL_LINES: Pick<schematic.symbol.Spec, "parts" | "looks"> = {
   ],
 };
 
+const SOLID_PART: schematic.symbol.Part = {
+  key: "solid",
+  name: "Solid",
+  selectors: [".pluto--solid"],
+};
+
+const createSolidLook = (fill: schematic.symbol.Paint): schematic.symbol.Look => ({
+  key: "solid",
+  part: SOLID_PART.key,
+  fill,
+});
+
+/**
+ * SOLID_SHAPES fills the `.pluto--solid` shapes of a static drawing with the node
+ * color.
+ */
+export const SOLID_SHAPES: Pick<schematic.symbol.Spec, "parts" | "looks"> = {
+  parts: [SOLID_PART],
+  looks: [createSolidLook({ type: "node" })],
+};
+
+/**
+ * ACTIVE_SOLID_SHAPES fills the `.pluto--solid` shapes of a drawing with the color of
+ * the active entry, as its stroke draws. It keeps the default stroke and fill looks.
+ */
+export const ACTIVE_SOLID_SHAPES: Pick<schematic.symbol.Spec, "parts" | "looks"> = {
+  parts: [SOLID_PART],
+  looks: [...ACTIVE_LOOKS, createSolidLook(ENTRY)],
+};
+
 type Behavior = Pick<
   schematic.symbol.Spec,
   "states" | "commands" | "looks" | "interactions" | "variant"

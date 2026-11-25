@@ -9,13 +9,14 @@
 
 import { schematic } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { renderThemed } from "@synnaxlabs/lyra/styletest";
 import { ReactFlowProvider } from "@xyflow/react";
 import { describe, expect, it, vi } from "vitest";
 import { render } from "vitest-browser-react";
 import type { z } from "zod";
 
 import { Node } from "@/schematic/node";
-import { createAsyncSynnaxWrapper } from "@/testutil";
+import { createAsyncSynnaxWrapper, createSynnaxWrapper } from "@/testutil";
 import { symbolNode } from "@/vis/symbolNode/aether";
 
 const MARKUP =
@@ -78,6 +79,32 @@ const renderLamp = async (
   return await vi.waitUntil(() => container.querySelector(".lamp"));
 };
 
+const BuiltInWrapper = createSynnaxWrapper({
+  client: null,
+  additionalRegistry: symbolNode.REGISTRY,
+});
+
+// The theme gives the colors that a drawing with no node color falls back to.
+const renderSolid = async (name: string, color?: string): Promise<Element> => {
+  const { container } = await renderThemed(
+    <BuiltInWrapper>
+      <ReactFlowProvider>
+        <Node.REGISTRY.symbol.Node
+          nodeKey="s1"
+          selected={false}
+          onConfigChange={vi.fn()}
+          config={schematic.symbolNodeConfigZ.parse({
+            variant: "symbol",
+            spec: { type: "builtin", name },
+            color: color == null ? undefined : { type: "fixed", value: color },
+          })}
+        />
+      </ReactFlowProvider>
+    </BuiltInWrapper>,
+  );
+  return await vi.waitUntil(() => container.querySelector(".pluto--solid"));
+};
+
 describe("Symbol node", () => {
   it("should move a part by the value of its bound state", async () => {
     const lamp = await renderLamp();
@@ -97,4 +124,23 @@ describe("Symbol node", () => {
     const lamp = await renderLamp();
     expect(getComputedStyle(lamp).strokeWidth).toBe("1px");
   });
+
+  // A shape body and a text, which the theme fills unless it sets its own fill.
+  it.each(["t_junction", "flowmeter_orifice"])(
+    "should fill the solid shapes of %s with the node color",
+    async (name) => {
+      const solid = await renderSolid(name, "#ff0000");
+      await vi.waitFor(() =>
+        expect(getComputedStyle(solid).fill).toBe("rgb(255, 0, 0)"),
+      );
+    },
+  );
+
+  it.each(["t_junction", "flowmeter_orifice"])(
+    "should fill the solid shapes of %s with no node color",
+    async (name) => {
+      const solid = await renderSolid(name);
+      expect(getComputedStyle(solid).fill).not.toBe("none");
+    },
+  );
 });
