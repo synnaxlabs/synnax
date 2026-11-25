@@ -861,8 +861,9 @@ describe("MQTT Write form", () => {
       await fieldGroup(setpoint.name);
       fireEvent.click(screen.getByRole("button", { name: "Add field" }));
       const group = await fieldGroup("Field 2");
-      const name = group.getByDisplayValue("Field 2");
+      const name = group.getByDisplayValue<HTMLInputElement>("Field 2");
       await waitFor(() => expect(document.activeElement).toBe(name));
+      expect([name.selectionStart, name.selectionEnd]).toEqual([0, "Field 2".length]);
       group.getByDisplayValue("/field_2");
       fireEvent.change(group.getByPlaceholderText("/temperature"), {
         target: { value: "/limit" },
