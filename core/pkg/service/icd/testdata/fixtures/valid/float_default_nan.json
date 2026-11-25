@@ -1,0 +1,72 @@
+{
+  "description": "A JSON, text, and binary float field each take a NaN default.",
+  "icd": {
+    "key": "00000000-0000-4000-8000-000000000fff",
+    "name": "Fixture",
+    "messages": [
+      {
+        "key": "00000000-0000-4000-8000-000000000001",
+        "name": "JSON",
+        "payload": {
+          "format": "json",
+          "fields": [
+            {
+              "key": "00000000-0000-4000-8000-00000000000a",
+              "name": "temp",
+              "scale": 1,
+              "offset": 0,
+              "units": "",
+              "pointer": "/temp",
+              "type": "float",
+              "default": "NaN"
+            }
+          ]
+        }
+      },
+      {
+        "key": "00000000-0000-4000-8000-000000000002",
+        "name": "Text",
+        "payload": {
+          "format": "text",
+          "delimiter": ",",
+          "prefix": "",
+          "fields": [
+            {
+              "key": "00000000-0000-4000-8000-00000000000b",
+              "name": "volts",
+              "scale": 1,
+              "offset": 0,
+              "units": "V",
+              "encoding": "delimited",
+              "position": 0,
+              "default": "NaN"
+            }
+          ]
+        }
+      },
+      {
+        "key": "00000000-0000-4000-8000-000000000003",
+        "name": "Binary",
+        "payload": {
+          "format": "binary",
+          "fields": [
+            {
+              "key": "00000000-0000-4000-8000-00000000000c",
+              "name": "level",
+              "scale": 1,
+              "offset": 0,
+              "units": "",
+              "multiplex_values": [],
+              "start_bit": 0,
+              "bit_length": 32,
+              "byte_order": "little_endian",
+              "kind": "float",
+              "default": "NaN"
+            }
+          ],
+          "length": 4
+        }
+      }
+    ]
+  }
+}
