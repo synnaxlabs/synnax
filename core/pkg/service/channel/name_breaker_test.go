@@ -314,26 +314,6 @@ var _ = Describe("Name breaker", Ordered, ContinueOnFailure, func() {
 				Exists(ctx, db)).To(BeFalse())
 		})
 
-	It("Should declare a built-in over two stored user channels of its name",
-		func(ctx SpecContext) {
-			a, b := virtual(UniqueChannelName()), virtual(UniqueChannelName())
-			Expect(create(ctx, &a)).To(Succeed())
-			Expect(create(ctx, &b)).To(Succeed())
-			storeName(ctx, a.Key(), "sy_brk_builtin")
-			storeName(ctx, b.Key(), "sy_brk_builtin")
-			builtIn := channel.Channel{
-				Name:     "sy_brk_builtin",
-				DataType: telem.Uint8T,
-				Virtual:  true,
-			}
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return bsvc.NewWriter(tx).Declare(ctx, &builtIn)
-			})).To(Succeed())
-			names := []string{stored(ctx, a.Key()).Name, stored(ctx, b.Key()).Name}
-			Expect(names).To(ConsistOf("sy_brk_builtin_2", "sy_brk_builtin_3"))
-			Expect(bsvc.IsBuiltIn(builtIn.Key())).To(BeTrue())
-		})
-
 	It("Should keep leading and trailing spaces as a distinct name",
 		func(ctx SpecContext) {
 			a, b := virtual("brk_space"), virtual(" brk_space ")

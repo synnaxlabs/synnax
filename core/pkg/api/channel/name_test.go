@@ -44,7 +44,7 @@ var _ = Describe("Names", func() {
 		decomposed := UniqueChannelName() + "_e\u0301"
 		ch := channel.Channel{Name: decomposed, DataType: telem.Float32T, Virtual: true}
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			return layer.Channel.NewWriter(tx).Create(ctx, &ch)
+			return channelSvc.NewWriter(tx).Create(ctx, &ch)
 		})).To(Succeed())
 		for _, where := range []channel.Where{
 			{Name: &filter.String{Eq: &decomposed}},
