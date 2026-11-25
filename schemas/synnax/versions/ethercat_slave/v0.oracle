@@ -270,7 +270,8 @@ Slave struct {
         @go marshal omit
     }
 
-    @doc value  "is an EtherCAT slave: one module on the bus of a master."
+    @doc value     "is an EtherCAT slave: one module on the bus of a master."
     @go marshal
     @go migrate
+    @resource type "ethercat_slave"
 }
