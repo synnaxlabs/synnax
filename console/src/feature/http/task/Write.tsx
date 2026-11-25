@@ -16,7 +16,14 @@ import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { deep, id, primitive } from "@synnaxlabs/x";
-import { type FC, useState } from "react";
+import {
+  createContext,
+  type FC,
+  type PropsWithChildren,
+  type ReactElement,
+  useContext,
+  useState,
+} from "react";
 
 import { Device } from "@/feature/http/device";
 import { EndpointLabel } from "@/feature/http/task/EndpointLabel";
@@ -58,6 +65,37 @@ const renderMethodSelect = Component.renderProp(SelectMethod);
 const commandChannelName = (device: string, endpoint: string): string =>
   `${channel.escapeInvalidName(device)}${channel.escapeInvalidName(endpoint)}_cmd`;
 
+/** What the command channel of an endpoint needs from deploying. */
+const endpointCommand = (
+  device: string,
+  ep: WriteEndpoint,
+): Task.CommandChannelSpec => ({
+  propertiesKey: ep.path,
+  channel: ep.channel.channel,
+  name: primitive.isNonZero(ep.channel.name)
+    ? ep.channel.name
+    : commandChannelName(device, ep.path),
+  dataType: ep.channel.dataType,
+});
+
+/** The name that deploying gives each command channel it creates, by endpoint path. */
+const NamesContext = createContext<ReadonlyMap<string, string>>(new Map());
+NamesContext.displayName = "HTTP.NamesContext";
+
+/** Plans the command channels of every endpoint together, as deploying does. */
+const CommandNames = ({ children }: PropsWithChildren): ReactElement => {
+  const endpoints = PForm.useFieldValue(root.config.endpoints);
+  const dev = Device.useFromConfig();
+  const specs =
+    dev == null
+      ? []
+      : endpoints
+          .filter(({ disabled }) => !disabled)
+          .map((ep) => endpointCommand(dev.name, ep));
+  const names = Task.useCommandChannelNames(dev?.properties.write, specs);
+  return <NamesContext value={names}>{children}</NamesContext>;
+};
+
 const EndpointItem = (props: Task.ChannelListItemProps) => {
   const { itemKey } = props;
   const path = root.config.endpoints[itemKey];
@@ -65,6 +103,7 @@ const EndpointItem = (props: Task.ChannelListItemProps) => {
   const endpointPath = PForm.useFieldValue(path.path);
   const disabled = PForm.useFieldValue(path.disabled);
   const dev = Device.useFromConfig();
+  const planned = useContext(NamesContext).get(endpointPath);
   return (
     <Select.Item
       {...props}
@@ -81,7 +120,9 @@ const EndpointItem = (props: Task.ChannelListItemProps) => {
           channel={channelKey}
           namePath={path.channel.name}
           defaultName={
-            dev == null ? undefined : commandChannelName(dev.name, endpointPath)
+            dev == null
+              ? undefined
+              : (planned ?? commandChannelName(dev.name, endpointPath))
           }
           skipped={disabled}
           id={Task.getChannelNameID(itemKey)}
@@ -166,20 +207,22 @@ const Form: FC = () => {
     <Task.Views.Panes
       listTitle="Endpoints"
       list={
-        <Task.Views.ChannelList<WriteEndpoint>
-          path={root.config.endpoints}
-          header={null}
-          emptyContent={EMPTY_ENDPOINTS}
-          addLabel="Add endpoint"
-          createChannel={createEndpoint}
-          createChannels={duplicateEndpoints}
-          listItem={endpointItem}
-          contextMenuItems={Task.readChannelContextMenuItem}
-          resolve={resolve}
-          selected={selected}
-          onSelect={setSelected}
-          grow
-        />
+        <CommandNames>
+          <Task.Views.ChannelList<WriteEndpoint>
+            path={root.config.endpoints}
+            header={null}
+            emptyContent={EMPTY_ENDPOINTS}
+            addLabel="Add endpoint"
+            createChannel={createEndpoint}
+            createChannels={duplicateEndpoints}
+            listItem={endpointItem}
+            contextMenuItems={Task.readChannelContextMenuItem}
+            resolve={resolve}
+            selected={selected}
+            onSelect={setSelected}
+            grow
+          />
+        </CommandNames>
       }
       detailsPath={current != null ? root.config.endpoints[current] : null}
       title={current != null && <EndpointLabel path={root.config.endpoints[current]} />}
@@ -210,14 +253,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
       ep.channel.channel = await Task.configureCommandChannel(
         client,
         dev.properties.write,
-        {
-          propertiesKey: ep.path,
-          channel: ep.channel.channel,
-          name: primitive.isNonZero(ep.channel.name)
-            ? ep.channel.name
-            : commandChannelName(dev.name, ep.path),
-          dataType: ep.channel.dataType,
-        },
+        endpointCommand(dev.name, ep),
       );
     }
   } finally {

@@ -625,18 +625,27 @@ from_series(const telem::Series &series, const int index) {
     };
 }
 
-nlohmann::json from_timestamp(telem::TimeStamp ts, TimeFormat format) {
-    if (format == TimeFormat::ISO8601) return ts.iso8601();
+std::pair<int64_t, int64_t>
+split_unix(const telem::TimeStamp ts, const TimeFormat format) {
     const int64_t unit = nanoseconds_per_unit(format);
     const int64_t ns = ts.nanoseconds();
-    const int64_t whole = ns / unit;
+    int64_t whole = ns / unit;
     const int64_t frac = ns % unit;
+    if (format == TimeFormat::UnixSecond || frac == 0) return {whole, frac};
+    // Division truncates toward zero, so a negative remainder takes one unit off.
+    if (frac < 0) whole--;
+    return {whole, 0};
+}
+
+nlohmann::json from_timestamp(telem::TimeStamp ts, TimeFormat format) {
+    if (format == TimeFormat::ISO8601) return ts.iso8601();
+    const auto [whole, frac] = split_unix(ts, format);
     if (frac == 0) return whole;
     // Parse the exact decimal text, so the double rounds once.
-    const auto digits = std::to_string(unit).size() - 1;
+    const auto digits = std::to_string(nanoseconds_per_unit(format)).size() - 1;
     const auto text = std::format(
         "{}{}.{:0{}}",
-        ns < 0 ? "-" : "",
+        frac < 0 ? "-" : "",
         whole < 0 ? -static_cast<uint64_t>(whole) : static_cast<uint64_t>(whole),
         frac < 0 ? -frac : frac,
         digits

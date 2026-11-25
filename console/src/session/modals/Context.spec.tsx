@@ -109,6 +109,33 @@ describe("Store", () => {
       entry.dismiss();
       expect(resolve).toHaveBeenCalledWith(null);
     });
+
+    it("should dismiss a guarded modal only when its guard allows it", async () => {
+      const store = new Modals.Store();
+      const resolve = vi.fn();
+      store.push(Noop, undefined, resolve);
+      const [entry] = store.getState();
+      const guard = vi.fn(async () => false);
+      entry.setGuard(guard);
+      entry.dismiss();
+      await vi.waitFor(() => expect(guard).toHaveBeenCalledOnce());
+      expect(store.isAnyOpen()).toBe(true);
+      guard.mockResolvedValue(true);
+      entry.dismiss();
+      await vi.waitFor(() => expect(resolve).toHaveBeenCalledWith(null));
+      expect(store.isAnyOpen()).toBe(false);
+    });
+
+    it("should dismiss at once when the guard is removed", () => {
+      const store = new Modals.Store();
+      const resolve = vi.fn();
+      store.push(Noop, undefined, resolve);
+      const [entry] = store.getState();
+      entry.setGuard(async () => false);
+      entry.setGuard(undefined);
+      entry.dismiss();
+      expect(resolve).toHaveBeenCalledWith(null);
+    });
   });
 
   describe("closeTop", () => {
@@ -152,6 +179,18 @@ describe("Store", () => {
       store.clear();
       expect(store.isAnyOpen()).toBe(false);
       expect(resolve).toHaveBeenCalledWith(null);
+    });
+
+    it("should dismiss a guarded modal without asking", () => {
+      const store = new Modals.Store();
+      const resolve = vi.fn();
+      store.push(Noop, undefined, resolve);
+      const guard = vi.fn(async () => false);
+      store.getState()[0].setGuard(guard);
+      store.clear();
+      expect(store.isAnyOpen()).toBe(false);
+      expect(resolve).toHaveBeenCalledWith(null);
+      expect(guard).not.toHaveBeenCalled();
     });
   });
 

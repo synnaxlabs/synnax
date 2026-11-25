@@ -49,11 +49,6 @@ const isAlarm = (pair: theme.Pair): boolean =>
     );
   });
 
-export interface CheckOptions {
-  /** Whether no entry can be abnormal, as for the options of a node. */
-  abnormalHidden?: boolean;
-}
-
 /**
  * Returns the warnings for one entry of an enumeration, or none. The checks warn and
  * never block a save.
@@ -62,7 +57,6 @@ export const check = (
   entry: enumeration.Entry,
   entries: enumeration.Entry[],
   resolve: ResolveColor,
-  { abnormalHidden = false }: CheckOptions = {},
 ): string[] => {
   const warnings: string[] = [];
   const others = entries.filter((e) => e.key !== entry.key);
@@ -90,7 +84,7 @@ export const check = (
       warnings.push(`With color blindness, its color looks like ${lookalike}.`);
       break;
     }
-  if (!abnormalHidden && !entry.abnormal && isAlarm(pair))
+  if (!entry.abnormal && isAlarm(pair))
     warnings.push("It has an alarm color, but it is not abnormal.");
   return warnings;
 };

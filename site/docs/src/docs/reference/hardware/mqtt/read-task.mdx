@@ -162,7 +162,8 @@ The options of a field read values that its type alone cannot:
   field. Scale and offset apply to the default as they do to a payload value. No value
   means that the pointer finds nothing. Except on a JSON channel, `null` is also no
   value, and so is `""` on a channel that is not a string or bytes channel. With no
-  default, the task skips the payload.
+  default, the task skips the fields of the payload on the field's index channel, or the
+  field alone when its channel is virtual.
 - **Enum mapping** -> maps a text label in the payload, such as `ON`, to a value of the
   field's type, such as `1`.
 
@@ -203,22 +204,24 @@ level = sy.icd.FloatJSONField(
 
 ## Timestamps
 
-Each message takes the timestamps of its samples from one of two sources:
+A message can bind channels on more than one index channel. Each index channel takes its
+timestamps from one of two sources:
 
 - **Arrival time** -> the time at which the payload arrives at the Core. The default.
 - **Payload value** -> a timestamp field of the message. The
   [type](/reference/hardware/icds/reference#types) of the field sets its format, and a
   field with a default cannot be the source. The value goes to the index channel of the
-  message.
+  field. The other index channels of the message take the arrival time.
 
 To read the time from the payload in the Console, set the **Type** of the field to a
 timestamp type, such as **Timestamp (ms)**. Then, under **Timestamp**, set **Source** to
 **Payload value** and select the **Field**. The list does not show the field, and
 **Channel** under **Timestamp** names its index channel.
 
-Timestamps in an index channel must increase. The task skips a payload whose timestamp
-is not after the last one it wrote. A broker can send such a payload when it delivers a
-message twice at quality of service 1.
+Timestamps in an index channel must increase. When the timestamp field of a payload is
+not after the last timestamp that the task wrote to its index channel, the task skips
+the whole payload. A broker can send such a payload when it delivers a message twice at
+quality of service 1.
 
 In code, bind the timestamp field to the index channel, and put the key of the field in
 `index` on the message:
@@ -442,7 +445,9 @@ message and its fields, and the data types that each field type can write to.
 
 The task read some messages that it cannot record. The description gives the topic and
 the reason for the last one, such as `field temp: no value at /temp`, a payload that
-matches no message, or a timestamp that is not after the last one written. The warning
+matches no message, or a timestamp that is not after the last one written. A field that
+the task cannot read drops only the fields on its index channel, or the field alone when
+its channel is virtual, and the other fields of the payload still write. The warning
 clears 5 seconds after the last skip.
 
 </Problem.Cause>
@@ -570,16 +575,28 @@ Select each message of the topic and change its **Match**. See
 </Problem.Fix>
 </Problem.Item>
 
-<Problem.Item message={["entries: topic ... appears more than once", "entries: ... and ... write to the same channel ...", "channel ... is also written by ..."]}>
+<Problem.Item message={["entries: topic ... appears more than once", "channel ... is also written by ..."]}>
 <Problem.Cause>
 
-Two entries read the same topic, or two fields write to the same channel.
+Two parts of the task read one topic or write to one channel. For a channel, the path at
+the start of the error names the second part:
+
+- **Two entries read the same topic** -> the error names the topic.
+- **Two fields or tags write to the same channel** -> the path names a binding, such as
+  `entries.0.messages.0.bindings.1.channel`, or a tag entry, such as
+  `entries.1.channel`.
+- **Two messages have channels on the same index channel** -> the path names a message,
+  such as `entries.0.messages.1`. The messages can be in one topic or in different
+  topics. The task writes the timestamps of the index channel for each of them.
+- **Two Sparkplug B tags have channels on the same index channel** -> the path names a
+  tag entry, such as `entries.1.channel`.
 
 </Problem.Cause>
 <Problem.Fix>
 
-Read each topic once, and give each field its own channel. Give each message of a topic
-its own index channel.
+Read each topic in one entry, and give each field and each tag its own channel. Give
+each message and each tag channels on an index channel that no other message or tag
+uses.
 
 </Problem.Fix>
 </Problem.Item>

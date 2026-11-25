@@ -25,6 +25,7 @@
 #include "driver/http/device/device.h"
 #include "driver/http/errors/errors.h"
 #include "driver/http/read_task.h"
+#include "driver/icd/retrieve.h"
 
 namespace driver::http {
 std::pair<ReadTaskConfig, x::errors::Error>
@@ -56,22 +57,13 @@ std::pair<Readers, x::errors::Error> build_readers(
             for (const auto &b: rm.bindings)
                 if (b.channel != 0) channel_keys.insert(b.channel);
     }
-    auto [icds, icd_err] = client.icds.retrieve(
-        std::vector(icd_keys.begin(), icd_keys.end())
+    auto [resources, retrieve_err] = driver::icd::retrieve(
+        client,
+        icd_keys,
+        channel_keys
     );
-    if (icd_err) return {Readers{}, icd_err};
-    Readers readers;
-    if (!channel_keys.empty()) {
-        // Skips missing keys, so the reader of each endpoint names the one it lacks.
-        auto [found, ch_err] = client.channels.retrieve(
-            synnax::channel::Where{
-                .key = std::vector(channel_keys.begin(), channel_keys.end())
-            }
-        );
-        if (ch_err) return {Readers{}, ch_err};
-        for (auto &ch: found)
-            readers.channels.emplace(ch.key, std::move(ch));
-    }
+    if (retrieve_err) return {Readers{}, retrieve_err};
+    Readers readers{.channels = std::move(resources.channels)};
     readers.endpoints.reserve(endpoints.size());
     // Every endpoint writes into one frame, so no two may write one channel.
     std::map<synnax::channel::Key, std::string> writers;
@@ -86,8 +78,12 @@ std::pair<Readers, x::errors::Error> build_readers(
                         " reads no messages. Open the task and pick a message for it."
                 ),
             };
-        const auto ic = std::ranges::find(icds, *ep.icd, &synnax::icd::ICD::key);
-        if (ic == icds.end())
+        const auto ic = std::ranges::find(
+            resources.icds,
+            *ep.icd,
+            &synnax::icd::ICD::key
+        );
+        if (ic == resources.icds.end())
             return {
                 Readers{},
                 x::errors::Error(

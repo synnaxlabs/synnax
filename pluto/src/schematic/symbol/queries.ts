@@ -38,23 +38,28 @@ export const { use, useResult } = Flux.createRetrieve<
 
 export interface Resolved {
   symbol?: schematic.symbol.Symbol;
-  // missing reports whether the key points at a symbol that no longer exists
-  // (or never did), as opposed to one still loading.
+  /**
+   * missing reports whether the key points at a symbol that no longer exists (or never
+   * did), as opposed to one still loading.
+   */
   missing: boolean;
+  /** failed reports whether the load ended in another error, such as a denied read. */
+  failed: boolean;
 }
 
 /**
- * Resolves a symbol specification by key, kept live across edits and deletes.
- * Loading and missing are distinct: `symbol` is unset for both, `missing` is
- * true only once the reference is known to be dangling.
+ * Resolves a symbol specification by key, kept live across edits and deletes. Loading,
+ * missing, and failed are distinct: `symbol` is unset for all three, and `missing` or
+ * `failed` is true only once the load has ended.
  */
 export const useResolved = (key: string | null): Resolved => {
   const res = useResult(key == null ? null : { key });
-  if (res.variant !== "error") return { symbol: res.data, missing: false };
+  if (res.variant !== "error")
+    return { symbol: res.data, missing: false, failed: false };
   const { error } = res.status.details;
-  return {
-    missing: NotFoundError.matches(error.cause) || Flux.DeletedError.matches(error),
-  };
+  const missing =
+    NotFoundError.matches(error.cause) || Flux.DeletedError.matches(error);
+  return { missing, failed: !missing };
 };
 
 /** Lists the symbol groups, which are top-level groups of the symbol scope. */
