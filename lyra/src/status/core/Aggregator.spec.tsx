@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { act, render, renderHook, waitFor } from "@testing-library/react";
+import { act, render, renderHook } from "@testing-library/react";
 import type { PropsWithChildren } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -71,25 +71,31 @@ describe("Aggregator", () => {
       });
       expect(result.current.statuses.statuses).toHaveLength(0);
     });
-    it("should remove notifications after an expiration threshold", async () => {
-      const { result } = renderHook(
-        () => ({
-          add: Status.useAdder(),
-          statuses: Status.useNotifications({
-            expiration: TimeSpan.milliseconds(1),
+    it("should remove notifications after an expiration threshold", () => {
+      vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date", "Temporal"] });
+      try {
+        const { result } = renderHook(
+          () => ({
+            add: Status.useAdder(),
+            statuses: Status.useNotifications({
+              expiration: TimeSpan.milliseconds(100),
+            }),
           }),
-        }),
-        { wrapper },
-      );
-      act(() => {
-        result.current.add({
-          variant: "success",
-          message: "Test",
-          description: "Test",
+          { wrapper },
+        );
+        act(() => {
+          result.current.add({
+            variant: "success",
+            message: "Test",
+            description: "Test",
+          });
         });
-      });
-      expect(result.current.statuses.statuses).toHaveLength(1);
-      await waitFor(() => expect(result.current.statuses.statuses).toHaveLength(0));
+        expect(result.current.statuses.statuses).toHaveLength(1);
+        act(() => void vi.advanceTimersByTime(100));
+        expect(result.current.statuses.statuses).toHaveLength(0);
+      } finally {
+        vi.useRealTimers();
+      }
     });
 
     describe("expiration", () => {
