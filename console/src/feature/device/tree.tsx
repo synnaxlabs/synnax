@@ -40,9 +40,12 @@ const useRename = Tree.createUseRename({
 
 const retrieve: Tree.Retrieve = async (c, key) => await c.devices.retrieve({ key });
 
-/** @returns the make that every selected device shares. */
-const sharedMake = (devices: device.Device[], count: number): string | null => {
-  if (devices.length !== count) return null;
+/** @returns the make that every selected device shares, once all of them load. */
+const sharedMake = (
+  devices: device.Device[] | undefined,
+  count: number,
+): string | null => {
+  if (devices == null || devices.length !== count) return null;
   const makes = new Set(devices.map(({ make }) => make));
   return makes.size === 1 ? devices[0].make : null;
 };
@@ -57,15 +60,16 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const hasDeletePermission = Access.useDeleteGranted(resourceIDs);
   const singleResource = ids.length === 1;
   const first = Tree.useResource(state, ids[0]);
-  // Suspends until the devices load, so the menu opens with the items of their
-  // integration instead of growing when they arrive.
-  const selected = Device.useMultiple({
+  const { data: selected, variant } = Device.useResultMultiple({
     where: { key: { in: ids.map((id) => id.key) } },
   });
   const handleDelete = useDelete(props);
   const rename = useRename(props);
   const group = Group.useCreateFromSelection();
   const handleLink = Core.useCopyLinkToClipboard();
+  // The menu stays empty and hidden until the devices load, so it opens with the items
+  // of their integration instead of growing when they arrive.
+  if (variant === "loading") return null;
   const integration = getIntegration(sharedMake(selected, ids.length));
   const customMenuItems =
     integration == null ? null : (
