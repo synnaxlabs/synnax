@@ -61,6 +61,14 @@ const messageReads = (record: ReadRecord, held: icd.Message[]): MessageRead[] =>
     ];
   });
 
+/** @returns the message of messages that the Core gives the documents of shape. */
+const routeOf = (shape: json.Shape, messages: MessageRead[]) =>
+  ICD.route(shape.fields, messages, ({ fields }) => fields.keys());
+
+/** @returns the messages that the records of a Kafka key read. */
+const messagesOfKey = ({ messages }: Reads, key: string): MessageRead[] =>
+  messages.get(key) ?? messages.get("") ?? [];
+
 /** @returns what the records of each Kafka key read. */
 export const readsOf = (records: ReadRecord[], messagesOf: MessagesOf): Reads => {
   const reads: Reads = { messages: new Map(), jsonless: new Set() };
@@ -84,7 +92,7 @@ export const carriedFields = (
 ): Map<string, icd.JSONField> => {
   const carried = new Map<string, icd.JSONField>();
   if (shape.sources.every((key) => messages.has(key))) return carried;
-  const routed = ICD.route(shape.fields, messages.get("") ?? [])?.fields;
+  const routed = routeOf(shape, messages.get("") ?? []).message?.fields;
   shape.fields.forEach(({ pointer }, i) => {
     const field = routed?.get(pointer);
     if (i !== shape.index && field != null) carried.set(pointer, field);
@@ -92,24 +100,28 @@ export const carriedFields = (
   return carried;
 };
 
+/**
+ * @returns the pointer of the value that tells the documents of a shape apart, when the
+ * fields of the shape do not tell which message of a key gets them.
+ */
+export const splitOf = (shape: json.Shape, reads: Reads): string | undefined =>
+  shape.sources
+    .map((key) => routeOf(shape, messagesOfKey(reads, key)).split)
+    .find((split) => split != null);
+
 /** @returns whether a pick of a shape can extend each record of its keys. */
-export const isExtendable = (shape: json.Shape, { jsonless }: Reads): boolean =>
-  !shape.sources.some((key) => jsonless.has(key));
+export const isExtendable = (shape: json.Shape, reads: Reads): boolean =>
+  !shape.sources.some((key) => reads.jsonless.has(key)) &&
+  splitOf(shape, reads) == null;
 
 /**
  * @returns the pointers that every key of a shape reads in the message that the Core
  * gives the documents of the shape: its fields in the task. A key with no record of its
  * own reads what the record of the empty key reads.
  */
-export const takenPointers = (shape: json.Shape, { messages }: Reads): Set<string> => {
+export const takenPointers = (shape: json.Shape, reads: Reads): Set<string> => {
   const [first, ...rest] = shape.sources.map(
-    (key) =>
-      new Set(
-        ICD.route(
-          shape.fields,
-          messages.get(key) ?? messages.get("") ?? [],
-        )?.fields.keys(),
-      ),
+    (key) => new Set(routeOf(shape, messagesOfKey(reads, key)).message?.fields.keys()),
   );
   return new Set([...(first ?? [])].filter((p) => rest.every((r) => r.has(p))));
 };
@@ -277,7 +289,11 @@ export const createExtensions = (
       const own = messageReads(record, held);
       if (own.length === 0)
         throw new Error(`Record ${record.key} reads no JSON message`);
-      const routed = ICD.route(shape.fields, own);
+      const { message: routed, split } = routeOf(shape, own);
+      if (split != null)
+        throw new Error(
+          `Record ${record.key} has no one message for shape ${json.shapeKey(shape)}`,
+        );
       const picked = shape.fields.filter(
         (f) => pointers.has(f.pointer) && routed?.fields.has(f.pointer) !== true,
       );

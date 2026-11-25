@@ -798,6 +798,111 @@ describe("MQTT read form", () => {
       });
     });
 
+    it("should count a field that two shapes of one held message share once", async () => {
+      const time = createTimeField();
+      const entry = await createEntry({
+        fields: [time, createField("temperature", "float")],
+        index: time.key,
+      });
+      const { dev } = await renderRead({ entries: [entry] });
+      const dialog = await openKinds(
+        dev.rack,
+        withStatus(createShape("/temperature", "float", 44)),
+        withStatus(createShape("/fault", "integer", 11)),
+      );
+      fireEvent.click(await dialog.findByRole("checkbox", { name: "Pick oven" }));
+      fireEvent.click(dialog.getByRole("button", { name: "Add 2 fields" }));
+      await waitFor(async () =>
+        expect((await retrieveFields(entry.icd)).map((f) => f.pointer)).toEqual([
+          "/time",
+          "/temperature",
+          "/status",
+          "/fault",
+        ]),
+      );
+    });
+
+    describe("split by value", () => {
+      const KIND = {
+        pointer: "/kind",
+        type: "string",
+        sample: '"status"',
+        kind: "string",
+      };
+
+      // Holds a message of each value at /kind: status with /code and reading with
+      // /temperature.
+      const renderKinds = async (...pointers: string[]) => {
+        const time = createTimeField();
+        const kind = createField("kind", "string");
+        const entry = await createEntry({
+          fields: [time, kind, createField("code", "integer")],
+          index: time.key,
+          match: KIND_MATCH,
+        });
+        const reading = await addMessage(
+          entry,
+          `${TOPIC} reading`,
+          [
+            createTimeField(),
+            createField("kind", "string"),
+            createField("temperature", "float"),
+          ],
+          { ...KIND_MATCH, value: "reading" },
+        );
+        const { dev } = await renderRead({ entries: [entry] });
+        const dialog = await openKinds(dev.rack, {
+          fields: [
+            TIMED_TOPIC.shapes[0].fields[0],
+            KIND,
+            ...pointers.map((pointer) => ({
+              pointer,
+              type: "number",
+              sample: "1",
+              kind: "float",
+            })),
+          ],
+          index: "/time",
+          count: 5,
+        });
+        return { dialog, entry, reading };
+      };
+
+      it("should give a shape to the message of a value that reads the most of its fields", async () => {
+        const { dialog, entry, reading } = await renderKinds("/temperature", "/rpm");
+        const temperature = await dialog.findByRole<HTMLInputElement>("checkbox", {
+          name: "Record temperature",
+        });
+        expect(temperature.disabled).toBe(true);
+        fireEvent.click(dialog.getByRole("checkbox", { name: "Record rpm" }));
+        fireEvent.click(dialog.getByRole("button", { name: "Add 1 field" }));
+        await waitFor(async () => {
+          const { messages } = await client.icds.retrieve(entry.icd);
+          const held = messages.find(({ key }) => key === reading.key);
+          if (held?.payload.format !== "json") throw new Error("reading is not JSON");
+          expect(held.payload.fields.map((f) => f.pointer)).toEqual([
+            "/time",
+            "/kind",
+            "/temperature",
+            "/rpm",
+          ]);
+          expect(messages).toHaveLength(2);
+        });
+      });
+
+      it("should lock a shape that two messages of a value read as much of", async () => {
+        const { dialog } = await renderKinds("/flow");
+        await dialog.findByText(
+          "Split by the value at /kind. Add fields in the ICD editor.",
+        );
+        const flow = dialog.getByRole<HTMLInputElement>("checkbox", {
+          name: "Record flow",
+        });
+        expect(flow.disabled).toBe(true);
+        expect(flow.checked).toBe(false);
+      });
+    });
+
     it("should add a message for a new kind of a held topic after its other messages", async () => {
       const time = createTimeField();
       const entry = await createEntry({

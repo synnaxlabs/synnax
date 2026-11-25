@@ -34,6 +34,13 @@ export const TAKEN: Lock = { checked: true, label: "In task" };
 /** The lock of the timestamp that indexes the picked values. */
 export const INDEX: Lock = { checked: true, label: "Index" };
 
+/** The lock of a value of a shape that no held message is sure to get. */
+export const SPLIT: Lock = { checked: false, label: "Split by value" };
+
+/** @returns the note of a shape whose messages differ only in the value at pointer. */
+export const splitNote = (pointer: string): string =>
+  `Split by the value at ${pointer}. Add fields in the ICD editor.`;
+
 /** A value the pane offers, such as one field of a message. */
 export interface Value {
   key: string;

@@ -991,6 +991,51 @@ describe("MQTT Write form", () => {
       ]);
     });
 
+    it("should infer the format of a picked topic from the last listen", async () => {
+      const listen = (setpoints: number, rpms: number) => ({
+        topic: "plant/pump/set",
+        payload: '{"rpm": 5, "mode": "auto"}',
+        shapes: [
+          {
+            fields: [
+              { pointer: "/setpoint", type: "number", kind: "float", sample: "1" },
+            ],
+            present: "/setpoint",
+            count: setpoints,
+          },
+          {
+            fields: [
+              { pointer: "/rpm", type: "number", kind: "float", sample: "5" },
+              { pointer: "/mode", type: "string", kind: "string", sample: '"auto"' },
+            ],
+            present: "/rpm",
+            count: rpms,
+          },
+        ],
+        retained: true,
+      });
+      const { dev, draft } = await renderWrite();
+      const scanner = await openScanner(client, dev.rack);
+      const dialog = await openAddTargets();
+      await scanner.answer({ data: { topics: [listen(3, 1)], truncated: false } });
+      fireEvent.click(await dialog.findByRole("checkbox", { name: "Pick set" }));
+      fireEvent.click(dialog.getByRole("button", { name: "Listen again" }));
+      await scanner.answer({ data: { topics: [listen(1, 3)], truncated: false } });
+      scanner.close();
+      await waitFor(() =>
+        expect(titleOf(dialog.getByText("Used for the format"))).toBe(
+          "3 messages with /rpm",
+        ),
+      );
+      fireEvent.click(dialog.getByRole("button", { name: "Add 1 target" }));
+      const target = await retrievePlainTarget(draft.key, "plant/pump/set");
+      const [ic] = await client.icds.retrieve([target.icd]);
+      expect(ICD.jsonFields(ic.messages[0]).map((f) => f.pointer)).toEqual([
+        "/rpm",
+        "/mode",
+      ]);
+    });
+
     it("should send the picked message format over the one it would infer", async () => {
       const setpoint = createField("setpoint", "float");
       const { ic, message } = await createFormat([setpoint]);

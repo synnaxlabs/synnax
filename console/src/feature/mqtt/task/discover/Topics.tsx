@@ -14,9 +14,9 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import type { Tree } from "@synnaxlabs/lyra/tree";
-import { compare, id, math, search, unique } from "@synnaxlabs/x";
+import { compare, id, map, math, search, unique } from "@synnaxlabs/x";
 import pluralize from "pluralize";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 
 import { Device } from "@/feature/mqtt/device";
 import { pointerLabel, type Shape, shapesOf } from "@/feature/mqtt/task/entries";
@@ -124,6 +124,8 @@ export interface ShapePick {
   pointers: Set<string>;
   /** The pointer of the timestamp that indexes the picked values. */
   index?: string;
+  /** The position of the held message that the pick extends. Absent for a new one. */
+  read?: number;
 }
 
 /** The values picked from one topic, by the key of their shape. */
@@ -135,12 +137,46 @@ export type TopicPicks = Map<string, TopicPick>;
 export const formatOf = (pick: TopicPick): ShapePick | null =>
   ICD.Write.mostCommon([...pick.values()], ({ shape }) => shape.count ?? 0);
 
-/** @returns the number of values picked from a topic. */
-export const countOf = (pick: TopicPick): number =>
-  math.sum([...pick.values()].map(({ pointers }) => pointers.size));
+/**
+ * @returns the picks of a topic that each add a message, and the picks that extend each
+ * held message, by its position.
+ */
+export const groupOf = (
+  pick: TopicPick,
+): { added: ShapePick[]; extended: Map<number, ShapePick[]> } => {
+  const added: ShapePick[] = [];
+  const extended = new Map<number, ShapePick[]>();
+  for (const p of pick.values())
+    if (p.read == null) added.push(p);
+    else map.getOrInsert(extended, p.read, () => []).push(p);
+  return { added, extended };
+};
 
-/** The pointers of each shape of a topic that the task takes, by shape key. */
-type TopicTaken = Map<string, Set<string>>;
+/** @returns the number of values that the picks of a topic add. */
+export const countOf = (pick: TopicPick): number => {
+  const { added, extended } = groupOf(pick);
+  return (
+    math.sum(added.map(({ pointers }) => pointers.size)) +
+    math.sum(
+      [...extended.values()].map(
+        (picks) => new Set(picks.flatMap(({ pointers }) => [...pointers])).size,
+      ),
+    )
+  );
+};
+
+/** What the task takes of one shape of a topic. */
+interface ShapeTaken {
+  /** The pointers that the message of the shape reads. */
+  pointers: Set<string>;
+  /** The position of the held message that the Core gives the shape's messages. */
+  read?: number;
+  /** The pointer of the value that tells the messages of the shape apart. */
+  split?: string;
+}
+
+/** What the task takes of each shape of a topic, by shape key. */
+type TopicTaken = Map<string, ShapeTaken>;
 
 /** What the task takes of each topic that it holds. */
 type Taken = Map<string, TopicTaken>;
@@ -158,13 +194,17 @@ const takenBy = (
   for (const { topic, shapes } of topics) {
     const entry = entries.find((e) => e.type === "plain" && e.topic === topic);
     if (entry?.type !== "plain") continue;
-    const takenOf = (shape: Shape): { pointer: string }[] =>
+    const takenOf = (shape: Shape): ShapeTaken => {
       // A target holds a whole topic, so one in the task takes all its values.
-      whole ? shape.leaves : (ICD.route(shape.leaves, entry.messages)?.fields ?? []);
-    taken.set(
-      topic,
-      new Map(shapes.map((s) => [s.key, new Set(takenOf(s).map((f) => f.pointer))])),
-    );
+      if (whole) return { pointers: new Set(shape.leaves.map((l) => l.pointer)) };
+      const { message, split } = ICD.route(shape.leaves, entry.messages, ({ fields }) =>
+        fields.map(({ pointer }) => pointer),
+      );
+      const pointers = new Set(message?.fields.map((f) => f.pointer));
+      if (message == null) return { pointers, split };
+      return { pointers, read: entry.messages.indexOf(message) };
+    };
+    taken.set(topic, new Map(shapes.map((s) => [s.key, takenOf(s)])));
   }
   return taken;
 };
@@ -174,8 +214,8 @@ const takenBy = (
  * whose message in the task has fields keeps the index of its read.
  * @param taken - The pointers that the topic of the shape takes.
  */
-const indexOf = ({ index }: Shape, taken: Set<string> | undefined, indexed: boolean) =>
-  indexed && (taken?.size ?? 0) === 0 ? index : undefined;
+const indexOf = ({ index }: Shape, taken: ShapeTaken | undefined, indexed: boolean) =>
+  indexed && (taken?.pointers.size ?? 0) === 0 ? index : undefined;
 
 /**
  * @returns the index that a pick takes only with other values. A topic whose only value
@@ -187,12 +227,13 @@ const lockedIndex = (leaves: Leaf[], index?: string): string | undefined =>
 /** @returns the leaves of the shape that a pick can take. */
 const freeLeaves = (
   shape: Shape,
-  taken: Set<string> | undefined,
+  taken: ShapeTaken | undefined,
   indexed: boolean,
 ): Leaf[] => {
+  if (taken?.split != null) return [];
   const index = lockedIndex(shape.leaves, indexOf(shape, taken, indexed));
   return shape.leaves.filter(
-    (l) => l.pointer !== index && taken?.has(l.pointer) !== true,
+    (l) => l.pointer !== index && taken?.pointers.has(l.pointer) !== true,
   );
 };
 
@@ -210,7 +251,12 @@ const defaultPick = (
     const own = taken?.get(shape.key);
     const pointers = new Set(freeLeaves(shape, own, indexed).map((l) => l.pointer));
     if (pointers.size > 0)
-      pick.set(shape.key, { shape, pointers, index: indexOf(shape, own, indexed) });
+      pick.set(shape.key, {
+        shape,
+        pointers,
+        index: indexOf(shape, own, indexed),
+        read: own?.read,
+      });
   }
   return pick;
 };
@@ -292,15 +338,20 @@ const TopicValues = ({
   const format = whole && shapes.length > 1 ? formatOf(free)?.shape : undefined;
   const groups = shapes.map((shape, i): ICD.Picker.ValueGroup => {
     const own = taken?.get(shape.key);
+    const split = own?.split;
     const locked = lockedIndex(shape.leaves, indexOf(shape, own, indexed));
+    let note: string | undefined;
+    if (split != null) note = ICD.Picker.splitNote(split);
+    else if (shape === format) note = "Used for the format";
     return {
-      title: shapes.length > 1 ? titleOf(shape) : undefined,
-      note: shape === format ? "Used for the format" : undefined,
+      title: shapes.length > 1 || split != null ? titleOf(shape) : undefined,
+      note,
       dimmed: format != null && shape !== format,
       values: shape.leaves.map((l): ICD.Picker.Value => {
         let lock: ICD.Picker.Lock | undefined;
-        if (l.pointer === locked) lock = ICD.Picker.INDEX;
-        else if (own?.has(l.pointer) === true) lock = ICD.Picker.TAKEN;
+        if (split != null) lock = ICD.Picker.SPLIT;
+        else if (l.pointer === locked) lock = ICD.Picker.INDEX;
+        else if (own?.pointers.has(l.pointer) === true) lock = ICD.Picker.TAKEN;
         return {
           key: keyOf(i, l.pointer),
           name: pointerLabel(l.pointer),
@@ -321,8 +372,10 @@ const TopicValues = ({
       const pointers = new Set(
         shape.leaves.map((l) => l.pointer).filter((p) => keyed.has(keyOf(i, p))),
       );
-      const index = indexOf(shape, taken?.get(shape.key), indexed);
-      if (pointers.size > 0) next.set(shape.key, { shape, pointers, index });
+      const own = taken?.get(shape.key);
+      const index = indexOf(shape, own, indexed);
+      if (pointers.size > 0)
+        next.set(shape.key, { shape, pointers, index, read: own?.read });
     });
     onChange(next);
   };
@@ -422,6 +475,16 @@ export const TopicPicker = ({
   const topics = listing?.topics ?? NO_TOPICS;
 
   const taken = takenBy(entries, topics, whole);
+  // A whole pick is its topic as last heard, so each listing picks it again.
+  useEffect(() => {
+    if (!whole) return;
+    const listed = topics.filter((t) => value.has(t.topic));
+    if (listed.length === 0) return;
+    const next = new Map(value);
+    for (const t of listed)
+      next.set(t.topic, defaultPick(t, taken.get(t.topic), indexed));
+    onChange(next);
+  }, [listing]);
   const trimmed = term.trim();
   const visible = topics.filter((t) => search.matches(t.topic, trimmed));
   const folders = buildFolders(visible);

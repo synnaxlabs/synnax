@@ -43,7 +43,11 @@ import { Device } from "@/feature/mqtt/device";
 import { DEFAULT_READ_NAME } from "@/feature/mqtt/task/create";
 import type { Kind } from "@/feature/mqtt/task/discover/Discover";
 import { createDiscoverModal } from "@/feature/mqtt/task/discover/modal";
-import type { ShapePick, TopicPick } from "@/feature/mqtt/task/discover/Topics";
+import {
+  groupOf,
+  type ShapePick,
+  type TopicPick,
+} from "@/feature/mqtt/task/discover/Topics";
 import { createSparkplugEntry, namePrefix } from "@/feature/mqtt/task/entries";
 import { EntryLabel } from "@/feature/mqtt/task/EntryLabel";
 import type { Leaf } from "@/feature/mqtt/task/leaves";
@@ -146,21 +150,12 @@ const pickedLeaves = ({ shape, pointers, index }: ShapePick): Leaf[] =>
  * @returns the drafts of the picks of a topic. The picks of the shapes whose documents
  * the Core gives one held message make one draft that extends it. Each other picked
  * shape gets a new message.
- * @param held - The messages that the task reads from the topic.
  */
-const draftsOf = (
-  topic: string,
-  pick: TopicPick,
-  held: HeldMessage[] = [],
-): Draft[] => {
-  const drafts: Draft[] = [];
-  const extended = new Map<number, ShapePick[]>();
-  for (const p of pick.values()) {
-    const routed = ICD.route(p.shape.leaves, held);
-    if (routed == null)
-      drafts.push(createDraft(topic, pickedLeaves(p), p.index, p.shape.present));
-    else map.getOrInsert(extended, held.indexOf(routed), () => []).push(p);
-  }
+const draftsOf = (topic: string, pick: TopicPick): Draft[] => {
+  const { added, extended } = groupOf(pick);
+  const drafts = added.map((p) =>
+    createDraft(topic, pickedLeaves(p), p.index, p.shape.present),
+  );
   for (const [read, picks] of extended) {
     const leaves = unique.by(picks.flatMap(pickedLeaves), ({ pointer }) => pointer);
     const index = picks.find((p) => p.index != null)?.index;
@@ -176,16 +171,8 @@ const DISCOVER_KIND: Kind<Addition> = {
   noun: "field",
   tagNoun: "tag",
   indexed: true,
-  create: ({ topics, tags }, entries) => [
-    ...[...topics].flatMap(([topic, pick]) =>
-      draftsOf(
-        topic,
-        pick,
-        entries.flatMap((e) =>
-          e.type === "plain" && e.topic === topic ? e.messages : [],
-        ),
-      ),
-    ),
+  create: ({ topics, tags }) => [
+    ...[...topics].flatMap(([topic, pick]) => draftsOf(topic, pick)),
     ...[...tags.values()].map((t) => createSparkplugEntry(t)),
   ],
   // A topic that the task reads keeps its first message.

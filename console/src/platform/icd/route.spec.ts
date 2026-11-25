@@ -12,29 +12,67 @@ import { describe, expect, it } from "vitest";
 
 import { ICD } from "@/platform/icd";
 
+interface Message {
+  match?: icd.JSONMatch;
+  pointers?: string[];
+}
+
 describe("route", () => {
-  const present = (pointer: string): { match: icd.JSONMatch } => ({
+  const present = (pointer: string): Message => ({
     match: { type: "present", pointer },
   });
+  const kind = (value: string, ...pointers: string[]): Message => ({
+    match: { type: "string", pointer: "/kind", value },
+    pointers,
+  });
   const fields = (...pointers: string[]) => pointers.map((pointer) => ({ pointer }));
+  const route = (pointers: string[], messages: Message[]) =>
+    ICD.route(fields(...pointers), messages, (m) => m.pointers ?? []);
 
   it("should give the message whose present rule is at a field", () => {
     const rpm = present("/rpm");
-    expect(ICD.route(fields("/t", "/rpm"), [present("/fault"), rpm])).toBe(rpm);
+    expect(route(["/t", "/rpm"], [present("/fault"), rpm])).toEqual({ message: rpm });
   });
 
   it("should give the message whose present rule holds a field", () => {
     const status = present("/status");
-    expect(ICD.route(fields("/status/code"), [status])).toBe(status);
-    expect(ICD.route(fields("/statuses"), [status])).toBeUndefined();
+    expect(route(["/status/code"], [status])).toEqual({ message: status });
+    expect(route(["/statuses"], [status])).toEqual({});
   });
 
   it("should give the message with no rule when no present rule matches", () => {
     const rest = {};
-    expect(ICD.route(fields("/t"), [present("/rpm"), rest])).toBe(rest);
+    expect(route(["/t"], [present("/rpm"), rest])).toEqual({ message: rest });
   });
 
   it("should give no message when none matches and each has a rule", () => {
-    expect(ICD.route(fields("/t"), [present("/rpm")])).toBeUndefined();
+    expect(route(["/t"], [present("/rpm")])).toEqual({});
+  });
+
+  it("should give the message of a value rule that reads the most of the fields", () => {
+    const status = kind("status", "/kind", "/code");
+    const reading = kind("reading", "/kind", "/temp", "/rpm");
+    expect(route(["/kind", "/temp", "/rpm"], [status, reading])).toEqual({
+      message: reading,
+    });
+  });
+
+  it("should give the message with no rule when it reads the most of the fields", () => {
+    const rest = { pointers: ["/kind", "/temp"] };
+    expect(route(["/kind", "/temp"], [kind("status", "/kind"), rest])).toEqual({
+      message: rest,
+    });
+  });
+
+  it("should split when two messages read the most of the fields", () => {
+    const messages = [kind("status", "/kind", "/code"), kind("fault", "/kind", "/rpm")];
+    expect(route(["/kind", "/temp"], messages)).toEqual({ split: "/kind" });
+  });
+
+  it("should leave a value rule out when no field is at its pointer", () => {
+    const rest = {};
+    expect(route(["/temp"], [kind("status", "/temp"), rest])).toEqual({
+      message: rest,
+    });
   });
 });
