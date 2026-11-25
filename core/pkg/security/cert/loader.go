@@ -47,8 +47,8 @@ type LoaderConfig struct {
 
 var (
 	_ config.Config[LoaderConfig] = LoaderConfig{}
-	// DefaultLoaderConfig is the default configuration for a Loader. Its FS keeps the
-	// certificates directory and the private keys in it private to the owner.
+	// DefaultLoaderConfig is the default configuration for a Loader. Its FS creates
+	// the certificates directory as 0700 and the files in it as 0600.
 	DefaultLoaderConfig = LoaderConfig{
 		CertsDir:     "/usr/local/synnax/certs",
 		CAKeyPath:    "ca.key",
