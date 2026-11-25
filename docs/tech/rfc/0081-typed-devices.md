@@ -465,8 +465,8 @@ green at every step. The migration brings 0.59 data forward near the end.
   [RFC 0120](0120-channel-storage-and-time.md) §4.9: a config holds the typed device
   key, ports, hardware facts, scales, and one `clock` per sample clock, each taking one
   index key of the integration. Where several configs name one index key, the lowest
-  task key keeps it and each other config gets a new clock key. Until Phase 9 of RFC
-  0120 the Console still makes channels.)_
+  task key keeps it, and each other config holds no clock until RFC 0120 Phase 9
+  allocates one. Until Phase 9 of RFC 0120 the Console still makes channels.)_
 - **Phase 23: Delete the legacy path.** §4.8 step 5, the legacy service, `/device/*`
   routes, `client.devices`, `sy.Device`, `synnax::device::Client`, `pluto/src/device`,
   and the Console's generic device layer.

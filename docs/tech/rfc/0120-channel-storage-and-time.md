@@ -99,8 +99,8 @@ long as that producer names it.
 - **Who may name a clock**: A subject that may update a producer may name a clock that
   the producer's config holds. The API checks it through an injected owner lookup over
   the unique space of clock keys. Until Phase 9 the framer gives a writer of a channel
-  that has an index channel that index key (§4.8). No client names a clock. An open
-  fails on a key that is not issued, and on a key of a record that is not an index
+  that has an index channel that index key (§4.8). Only a task writer names a clock. An
+  open fails on a key that is not issued, and on a key of a record that is not an index
   channel.
 - **Claims**: A clock key takes claims like a channel key (RFC 0121 §5.8). Sessions of
   one producer may write one clock on time ranges that do not overlap, and an open that
@@ -505,7 +505,8 @@ writer.write({"time": sy.TimeStamp.now(), "temperature": 20.0})
   work until Phase 9, after which no channel has an index channel.
 - **Control writers**: Arc tasks, the Python `Controller`, and Pluto control write their
   command channels on their own clocks from Phase 6 and never write an index channel.
-  Authority applies to command channels only.
+  Authority applies to command channels, and until Phase 9 to an index channel that
+  several sessions write (§4.0).
 - **Types**: A writer may name the type of each key at open; the default is the declared
   type. The validator checks each series against the session's type, so a Driver spool
   that holds an old type drains after a type change.
@@ -549,8 +550,9 @@ others, and writes a warning status.
 2. **Task configs** (RFC 0081 Phase 22): A config holds the typed device key, ports,
    hardware facts, scales, and one `clock` per sample clock. Each takes one index key of
    the integration. Where several configs name one index key, as v0.62 analog tasks on
-   one NI device do, the config with the lowest task key keeps it and each other config
-   gets a new clock key. Until Phase 9 of this RFC the Console still makes channels.
+   one NI device do, the config with the lowest task key keeps it. Each other config
+   holds no clock until Phase 9, whose migration allocates one (§4.0). Until Phase 9 of
+   this RFC the Console still makes channels.
 3. **Provisioning** (Phase 9 of this RFC): Saving a hardware task makes the channels and
    clock keys it lacks in the same transaction. An injected proposer per integration
    gives names (the port) and a folder (named after the device).
@@ -577,7 +579,7 @@ clock that its producer config holds.
 | ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
 | Line plot and log channel lists                         | Detach: the key leaves the list. A line plot axis then shows time                                     |
 | Schematic symbol, table cell, Arc key list, calculation | Keeps a weak link. An Arc program and a calculation name the deleted channel at compile               |
-| Task config                                             | The key is already in `clock` (RFC 0081 Phase 22)                                                     |
+| Task config                                             | The key is already in `clock` (RFC 0081 Phase 22). A config with no clock gets a new one              |
 | Sift stream config                                      | The index key leaves `channels` (sift v1) before the index record goes, since the list is `restrict`  |
 | Sift progress status                                    | A stored position keyed by an index channel reads as a position on its clock: keys keep their numbers |
 
