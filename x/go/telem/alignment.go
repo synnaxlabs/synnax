@@ -73,12 +73,6 @@ func (a Alignment) AddSamples(samples uint32) Alignment {
 // stored data.
 const LeadingDomain uint32 = 1 << 31
 
-// LeadingAlignment returns the alignment of sample sampleIdx in the domain domainIdx
-// domains above LeadingDomain.
-func LeadingAlignment(domainIdx, sampleIdx uint32) Alignment {
-	return NewAlignment(LeadingDomain+domainIdx, sampleIdx)
-}
-
 // ErrAlignmentsExhausted is returned by AlignmentCounter.Next when no domain index is
 // left above the counter's start.
 var ErrAlignmentsExhausted = errors.New("alignment domains exhausted, restart to reset")
