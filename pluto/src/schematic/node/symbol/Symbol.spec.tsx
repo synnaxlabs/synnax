@@ -369,6 +369,22 @@ describe("Symbol node", () => {
       expect(onConfigChange).toHaveBeenLastCalledWith(sent(0));
     });
 
+    it("should send nothing for a press on a part released off it", async () => {
+      const { onConfigChange, shape, sent } = await renderParts([
+        { type: "fire", key: "body", command: "close" },
+        { type: "fire", key: "left", part: "left", command: "open" },
+      ]);
+      const body = await shape(".body");
+      fireEvent.mouseDown(await shape(".left rect"));
+      fireEvent.mouseUp(body);
+      fireEvent.click(body);
+      expect(onConfigChange).not.toHaveBeenCalled();
+      await vi.waitFor(() => {
+        fireEvent.click(body);
+        expect(onConfigChange).toHaveBeenCalledExactlyOnceWith(sent(0));
+      });
+    });
+
     it("should tint each shape of the part under the pointer", async () => {
       const { container, shape } = await renderParts(PART_CLICKS);
       fireEvent.mouseOver(await shape(".left rect"));

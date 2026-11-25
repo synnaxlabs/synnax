@@ -251,6 +251,58 @@ describe("Schematic", () => {
     await waitFor(() => expect(utils.queryByText(command.name)).toBeNull());
   });
 
+  it.each([
+    ["off", false, "all"],
+    ["on", true, "none"],
+  ])(
+    "should give a part with a click pointer events %s edit mode",
+    async (_, editable, pointerEvents) => {
+      const symbol = await client.schematics.symbols.create({
+        name: "Lamp",
+        data: {
+          drawing: {
+            type: "svg",
+            markup:
+              '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">' +
+              '<rect class="lamp" width="10" height="10" /></svg>',
+          },
+          variant: "static",
+          parts: [{ key: "lamp", name: "Lamp", selectors: [".lamp"] }],
+          states: [{ type: "number", key: "level", name: "Level" }],
+          commands: [
+            {
+              key: "on",
+              name: "On",
+              state: "level",
+              value: { type: "fixed", value: 1 },
+            },
+          ],
+          interactions: [{ type: "fire", key: "lamp", part: "lamp", command: "on" }],
+        },
+      });
+      const { utils } = await renderSchematic(
+        [
+          {
+            key: "l1",
+            position: xy.ZERO,
+            config: {
+              variant: "symbol",
+              spec: { type: "custom", key: symbol.key },
+              states: [{ key: "level", source: { type: "local", value: 0 } }],
+            },
+          },
+        ],
+        { editable, registry: symbolNode.REGISTRY },
+      );
+      const lamp = await waitFor(() => {
+        const el = utils.container.querySelector(".pluto-symbol__part--clickable");
+        if (el == null) throw new Error("no clickable part yet");
+        return el;
+      });
+      expect(getComputedStyle(lamp).pointerEvents).toBe(pointerEvents);
+    },
+  );
+
   it("should hide the tooltip while a node shows its command menu", async () => {
     const { utils } = await renderSchematic(
       [

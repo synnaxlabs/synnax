@@ -31,7 +31,7 @@ const PRESSED = CSS.BEM("symbol", "part", "pressed");
 const partAt = (
   parts: schematic.symbol.Part[],
   host: Element | null,
-  target: EventTarget,
+  target: EventTarget | null,
 ): string | undefined => {
   if (host == null || !(target instanceof Element)) return undefined;
   return parts.find(({ selectors }) =>
@@ -50,6 +50,30 @@ const mark = (host: Element, parts: schematic.symbol.Part[], className: string) 
   parts.forEach(({ selectors }) =>
     Region.graphics(host, selectors).forEach((el) => el.classList.add(className)),
   );
+};
+
+// A press released off its part makes the browser click the shapes around both ends.
+// dropStrayClick drops that click until the press ends, so no other part and not the
+// drawing takes it.
+const dropStrayClick = (
+  doc: Document,
+  onPart: (target: EventTarget | null) => boolean,
+) => {
+  const drop = (e: MouseEvent) => {
+    if (!onPart(e.target)) e.stopPropagation();
+  };
+  const end = () => {
+    doc.removeEventListener("click", drop, true);
+    doc.removeEventListener("mouseup", afterRelease, true);
+    doc.removeEventListener("dragstart", end, true);
+    doc.defaultView?.removeEventListener("blur", end);
+  };
+  // The click comes after the mouseup in the same task.
+  const afterRelease = () => setTimeout(end);
+  doc.addEventListener("click", drop, true);
+  doc.addEventListener("mouseup", afterRelease, true);
+  doc.addEventListener("dragstart", end, true);
+  doc.defaultView?.addEventListener("blur", end);
 };
 
 export interface UsePartClicksParams {
@@ -83,7 +107,7 @@ export const usePartClicks = ({
 }: UsePartClicksParams): UsePartClicksReturn => {
   const hostRef = useRef<SVGGElement | null>(null);
   const clickable = spec.parts.filter(({ key }) => Object.hasOwn(clicks, key));
-  const at = (target: EventTarget) => partAt(clickable, hostRef.current, target);
+  const at = (target: EventTarget | null) => partAt(clickable, hostRef.current, target);
   const [hovered, setHovered] = useState<string>();
   const [pressed, setPressed] = useState<string>();
   const hold = useHold<SVGGElement>({
@@ -116,6 +140,8 @@ export const usePartClicks = ({
       e.stopPropagation();
       setPressed(key);
       hold.onMouseDown(e);
+      if (e.button === 0)
+        dropStrayClick(e.currentTarget.ownerDocument, (t) => at(t) === key);
     },
     onClick: (e) => {
       if (at(e.target) == null) return;
