@@ -96,7 +96,7 @@ export interface NoneAuth extends z.infer<typeof noneAuthZ> {}
 export const bearerAuthZ = z.object({
   type: z.literal("bearer"),
   /** token is the secret that holds the bearer token. */
-  token: secret.keyZ.min(1, "token is required"),
+  token: secret.keyZ.min(1, "Token is required"),
 });
 export interface BearerAuth extends z.infer<typeof bearerAuthZ> {}
 
@@ -104,9 +104,9 @@ export interface BearerAuth extends z.infer<typeof bearerAuthZ> {}
 export const basicAuthZ = z.object({
   type: z.literal("basic"),
   /** username is the user name to authenticate with. */
-  username: z.string().min(1, "username is required"),
+  username: z.string().min(1, "Username is required"),
   /** password is the secret that holds the password. */
-  password: secret.keyZ.min(1, "password is required"),
+  password: secret.keyZ.min(1, "Password is required"),
 });
 export interface BasicAuth extends z.infer<typeof basicAuthZ> {}
 
@@ -114,11 +114,11 @@ export interface BasicAuth extends z.infer<typeof basicAuthZ> {}
 export const apiKeyAuthZ = z.object({
   type: z.literal("api_key"),
   /** key is the secret that holds the API key. */
-  key: secret.keyZ.min(1, "key is required"),
+  key: secret.keyZ.min(1, "Key is required"),
   /** sendAs selects where requests carry the key. */
   sendAs: sendAsZ.default("header"),
   /** name is the name of the header or query parameter that carries the key. */
-  name: z.string().min(1, "name is required"),
+  name: z.string().min(1, "Name is required"),
 });
 export interface APIKeyAuth extends z.infer<typeof apiKeyAuthZ> {}
 
@@ -201,7 +201,7 @@ export const writeZ = z.object({
   /** request is the request that commands send. */
   request: requestZ,
   /** channel is the channel whose commands send the request. */
-  channel: channel.keyZ.refine((v) => v !== 0, "channel is required"),
+  channel: channel.keyZ.refine((v) => v !== 0, "Channel is required"),
 });
 export interface Write extends z.infer<typeof writeZ> {}
 
@@ -212,9 +212,9 @@ export const readZ = z.object({
   /** pointer is the JSON Pointer to the value in the response body. */
   pointer: z.string().default(""),
   /** index is the index channel of the channel. */
-  index: channel.keyZ.refine((v) => v !== 0, "index is required"),
+  index: channel.keyZ.refine((v) => v !== 0, "Index is required"),
   /** channel is the channel that holds the samples of the value. */
-  channel: channel.keyZ.refine((v) => v !== 0, "channel is required"),
+  channel: channel.keyZ.refine((v) => v !== 0, "Channel is required"),
 });
 export interface Read extends z.infer<typeof readZ> {}
 
@@ -259,11 +259,11 @@ export const serverZ = z.object({
   /** rack is the key of the rack whose Driver connects to the server. */
   rack: rack.keyZ,
   /** name is a human-readable name for the server. */
-  name: z.string().min(1, "name is required"),
+  name: z.string().min(1, "Name is required"),
   /** scheme is the URL scheme that the Driver reaches the server with. */
   scheme: schemeZ.prefault({ type: "https" }),
   /** host is the hostname or IP address of the server. */
-  host: z.string().min(1, "host is required"),
+  host: z.string().min(1, "Host is required"),
   /** port is the TCP port. Absent takes the default port of the scheme. */
   port: zod.uint16.min(1).optional(),
   /** basePath is the path that prefixes the path of every request. */

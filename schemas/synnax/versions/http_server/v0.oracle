@@ -276,7 +276,8 @@ Server struct {
         @go marshal omit
     }
 
-    @doc value  "is an HTTP server that a rack's Driver connects to."
+    @doc value     "is an HTTP server that a rack's Driver connects to."
     @go marshal
     @go migrate
+    @resource type "http_server"
 }
