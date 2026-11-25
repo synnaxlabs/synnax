@@ -588,6 +588,8 @@ class TestHTTPWriteTask:
         assert ep.method == "POST"
         assert ep.headers == []
         assert ep.query_params == []
+        assert ep.icd is None
+        assert ep.message is None
         assert ep.fields == []
 
     def test_channel_field_defaults(self) -> None:

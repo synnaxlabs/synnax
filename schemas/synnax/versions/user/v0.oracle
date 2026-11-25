@@ -36,6 +36,7 @@ User struct {
         is an account entity representing a person accessing the Synnax system. Users
         can have roles assigned for permission management.
     """
+    @go entry
     @go marshal
     @go migrate
     @resource type "user"

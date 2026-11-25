@@ -53,6 +53,18 @@ describe("Schematic.Node.BUILT_INS", () => {
     }
   });
 
+  it("should give the root of each drawing a stroke width of 2", () => {
+    for (const [name, spec] of Node.BUILT_INS) {
+      const svg = new DOMParser().parseFromString(spec.drawing.markup, "image/svg+xml");
+      expect({ name, width: svg.documentElement.getAttribute("stroke-width") }).toEqual(
+        {
+          name,
+          width: "2",
+        },
+      );
+    }
+  });
+
   it("should give each drawing with detail lines the detail part", () => {
     for (const [name, spec] of Node.BUILT_INS)
       if (spec.drawing.markup.includes("pluto--detail"))
@@ -118,7 +130,29 @@ describe("Schematic.Node.BUILT_INS", () => {
         ],
       ],
       ["light", 1, [{ fill: BANDED_GREEN }]],
-      ["switch", 1, []],
+      [
+        "switch",
+        0,
+        [
+          { stroke: RED },
+          { selectors: [".pluto-switch-symbol__knob-on"], hidden: true },
+        ],
+      ],
+      [
+        "switch",
+        1,
+        [
+          { stroke: BANDED_GREEN },
+          { selectors: [".pluto-switch-symbol__track"], fill: BANDED_GREEN },
+          { selectors: [".pluto-switch-symbol__knob"], hidden: true },
+          { selectors: [".pluto-switch-symbol__knob-on"], hidden: true },
+          {
+            selectors: [".pluto-switch-symbol__knob-on"],
+            hidden: false,
+            fill: color.construct("#000000e6"),
+          },
+        ],
+      ],
       ["thruster", 1, []],
     ])(
       "should paint %s at %d as its old variant draws",

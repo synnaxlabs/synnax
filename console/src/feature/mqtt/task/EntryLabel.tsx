@@ -9,8 +9,10 @@
 
 import "@/feature/mqtt/task/EntryLabel.css";
 
+import type { channel } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
+import type { Tree } from "@synnaxlabs/lyra/tree";
 import { deep } from "@synnaxlabs/x";
 
 import type { SparkplugTagID } from "@/feature/mqtt/task/types";
@@ -84,5 +86,41 @@ export const EntryLabel = ({ path }: EntryLabelProps) => {
     <PlainLabel path={deep.variant(path, "type", "plain")} />
   ) : (
     <SparkplugLabel path={deep.variant(path, "type", "sparkplug")} />
+  );
+};
+
+interface TreePlainEntry extends PlainEntry {
+  disabled: boolean;
+}
+
+interface TreeSparkplugEntry extends SparkplugEntry {
+  disabled: boolean;
+  channel: channel.Key;
+}
+
+export interface EntryItemProps extends Tree.ItemRenderProps<string> {
+  /** The form path of a read entry or a write target. */
+  path: deep.Target<TreePlainEntry | TreeSparkplugEntry>;
+}
+
+/** An entry in the tree of a task, with its channel when it is a Sparkplug B tag. */
+export const EntryItem = ({ path, ...props }: EntryItemProps) => {
+  const wide = deep.widen(path);
+  const type = PForm.useFieldValue(wide.type, { optional: true });
+  const disabled = PForm.useFieldValue(wide.disabled, { optional: true }) === true;
+  if (type == null) return null;
+  return (
+    <Task.Views.TreeGroupItem
+      {...props}
+      label={<EntryLabel path={path} />}
+      channel={
+        type === "sparkplug"
+          ? deep.variant(path, "type", "sparkplug").channel
+          : undefined
+      }
+      off={disabled}
+    >
+      <Task.EnabledCheckbox path={wide.disabled} />
+    </Task.Views.TreeGroupItem>
   );
 };

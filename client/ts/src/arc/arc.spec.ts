@@ -47,12 +47,8 @@ describe("arc", () => {
       const prefix = `searchable-arc-${id.create()}`;
       const names = [`${prefix}-1`, `${prefix}-2`];
       await client.arcs.create(names.map((name) => newTextArc(name)));
-      await expect
-        .poll(async () => {
-          const results = await client.arcs.retrieve({ searchTerm: prefix });
-          return results.map((a) => a.name).sort();
-        })
-        .toEqual(names);
+      const results = await client.arcs.retrieve({ searchTerm: prefix });
+      expect(results.map((a) => a.name).sort()).toEqual(names);
     });
 
     it("should retrieve arcs by where", async () => {

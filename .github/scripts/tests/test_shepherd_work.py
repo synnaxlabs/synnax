@@ -20,6 +20,26 @@ SCRIPT = Path(__file__).resolve().parents[1] / "shepherd_work.sh"
 FINDINGS = "<!-- sedosaur_outside_diff -->\n\n- **Bug** `a.go:1`\n"
 COMMITTED = "2026-01-01T12:00:00Z"
 QUEUE_BRANCH = "gh-readonly-queue/main/pr-7-base"
+URL = "https://github.com/synnaxlabs/synnax/security/code-scanning/"
+
+
+def gate_alert(number: int) -> dict[str, object]:
+    """Returns an alert open on the ref it was listed for."""
+    rule = {"id": "go/incorrect-integer-conversion", "severity": "warning"}
+    location = {"path": "pkg/parse.go", "start_line": 10}
+    instance = {
+        "state": "open",
+        "commit_sha": "merge",
+        "category": "/language:go",
+        "location": location,
+    }
+    return {
+        "number": number,
+        "state": "open",
+        "html_url": f"{URL}{number}",
+        "rule": {**rule, "security_severity_level": "high"},
+        "most_recent_instance": instance,
+    }
 
 
 class Harness:
@@ -39,13 +59,19 @@ class Harness:
         self.pull()
         self.ok()
         self.runs()
+        self.gate("success")
         self.codeql(check="success")
         self.graphql()
         self.comments()
 
     def pull(self, state: str = "clean") -> None:
         self.gh.serve(
-            "api */pulls/7", {"head": {"sha": "head"}, "mergeable_state": state}
+            "api */pulls/7",
+            {
+                "head": {"sha": "head"},
+                "base": {"ref": "main"},
+                "mergeable_state": state,
+            },
         )
 
     def runs(
@@ -86,6 +112,19 @@ class Harness:
             for line in lines
         ]
         self.gh.serve("api */code-scanning/*", alerts)
+
+    def gate(
+        self, conclusion: str, pull: tuple[int, ...] = (), main: tuple[int, ...] = ()
+    ) -> None:
+        """Serves the CodeQL gate check on the head, and the CodeQL alerts open on the
+        merge ref and on main that the gate compares. It must be served before the
+        CodeQL check, whose patterns also match."""
+        run = {"conclusion": conclusion}
+        self.gh.serve("api *check_name=CodeQL%20gate", {"check_runs": [run]})
+        self.gh.serve("api */code-scanning/analyses*", [{"commit_sha": "merge"}])
+        for ref, numbers in (("refs/pull/7/merge", pull), ("refs/heads/main", main)):
+            alerts = [gate_alert(n) for n in numbers]
+            self.gh.serve(f"api *ref={ref}*tool_name=CodeQL*", [alerts])
 
     def ok(self, conclusion: str | None = None) -> None:
         jobs = [{"name": "OK", "conclusion": conclusion}]
@@ -178,6 +217,19 @@ class TestShepherdWork:
             "codeql a.go:3 go/x Bad cast.",
             "codeql a.go:9 go/x Bad cast.",
         ]
+
+    def test_should_report_each_new_alert_of_a_failed_gate(self, gh: Harness) -> None:
+        gh.runs("success")
+        gh.gate("failure", pull=(1, 5), main=(1,))
+        assert gh.run() == [
+            "codeql pkg/parse.go:10 go/incorrect-integer-conversion new alert "
+            f"#5 {URL}5"
+        ]
+
+    def test_should_ignore_the_alerts_of_a_passed_gate(self, gh: Harness) -> None:
+        gh.runs("success")
+        gh.gate("success", pull=(5,))
+        assert gh.run() == []
 
     def test_should_report_a_queue_removal_after_the_head_commit(
         self, gh: Harness

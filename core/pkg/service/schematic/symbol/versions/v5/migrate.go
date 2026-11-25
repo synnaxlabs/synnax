@@ -39,6 +39,7 @@ const (
 // MigrateSymbol lifts a v4 symbol to v5. Each region becomes a part, state i becomes
 // value i of the state "active", and each region color becomes a color look on that
 // value. An actuator gets the commands Off and On and a click that picks between them.
+// A static symbol keeps only its looks on value 0, with no condition.
 func MigrateSymbol(ctx context.Context, old v4.Symbol) (Symbol, error) {
 	return autoMigrateSymbol(ctx, old)
 }
@@ -294,7 +295,9 @@ func activeValues(l Look) ([]float64, bool) {
 	return eq.Values, ok && eq.State == activeState
 }
 
-// finish returns the spec with the state "active" when the symbol has it.
+// finish returns the spec with the state "active" when the symbol has it. An actuator
+// gets its commands from Actuate. A static symbol draws only value 0, so its looks on
+// value 0 reach every value, and its other looks go.
 func (m *specMigration) finish() Spec {
 	m.spec.States = []State{}
 	if m.state != nil {
@@ -303,6 +306,14 @@ func (m *specMigration) finish() Spec {
 	if m.actuator {
 		return Actuate(m.spec)
 	}
+	looks := make([]Look, 0, len(m.spec.Looks))
+	for _, l := range m.spec.Looks {
+		if values, ok := activeValues(l); ok && slices.Contains(values, 0) {
+			l.When = nil
+			looks = append(looks, l)
+		}
+	}
+	m.spec.Looks = looks
 	return m.spec
 }
 
