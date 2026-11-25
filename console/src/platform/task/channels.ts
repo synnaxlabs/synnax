@@ -250,10 +250,12 @@ export const planReadChannels = async <F extends ReadChannelField>({
   const planned = unbound.map(nameOf);
   const indexName = indexField == null ? `${namePrefix}_time` : nameOf(indexField);
   await namer.load([...planned, ...(createsIndex ? [indexName] : [])]);
+  const named = unbound.map((field, i): [F, string] => [field, planned[i]]);
+  if (createsIndex && indexField != null) named.push([indexField, indexName]);
   const renames: ReadChannelPlan["renames"] = [];
-  for (const [i, field] of unbound.entries()) {
+  for (const [field, name] of named) {
     const old = await retrieveChannel(client, field.replaces ?? 0);
-    if (old == null || old.name !== planned[i]) continue;
+    if (old == null || old.name !== name) continue;
     renames.push({ key: old.key, name: await namer.move(old) });
   }
   const creates: ReadChannelPlan["creates"] = [];
