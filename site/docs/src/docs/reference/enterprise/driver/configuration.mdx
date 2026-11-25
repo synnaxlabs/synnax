@@ -278,8 +278,8 @@ a key is saved, the Driver ignores a username and password and logs a warning.
 
 <Field.Item name="outbox_compact_share" default="0.25">
   The share of `outbox_size` or `outbox_max_calls` that the Driver must be able to free
-  before it removes sets that later sets replace. Use a value from 0 to 1. In the
-  configuration file, it goes in `outage`.
+  before it removes sets that later sets replace. Use a value greater than 0 and less
+  than 1. In the configuration file, it goes in `outage`.
 </Field.Item>
 
 <Field.Item name="outbox_segment_calls" default="1000">
