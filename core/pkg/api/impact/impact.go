@@ -12,7 +12,6 @@ package impact
 
 import (
 	"context"
-	"slices"
 
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
@@ -143,8 +142,7 @@ func (s *Service) ApplyHandler(
 		}
 		plan, err := bind.Write(binder, apply)(ctx, req)
 		denied, ok := errors.AsType[access.DeniedError](err)
-		if !ok || visible == nil || visible(denied.Object) ||
-			slices.Contains(named(req.Change), denied.Object) {
+		if !ok || visible == nil || visible(denied.Object) {
 			return plan, err
 		}
 		return impact.Plan{}, errors.Wrapf(
