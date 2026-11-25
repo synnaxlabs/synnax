@@ -88,6 +88,8 @@ class Host:
         env_file.write_text(
             "PREVIEW_DOMAIN=preview.example.com\n"
             "PREVIEW_ZONE_ID=Z123\n"
+            "PREVIEW_LOGIN_PARAMETERS=/synnax-preview/oauth2-proxy\n"
+            "PREVIEW_GITHUB_ORG=synnaxlabs\n"
             f"PREVIEW_ACME={path / 'acme'}\n"
             f"PREVIEW_SITES={self.sites}\n"
             "PREVIEW_TTL_DAYS=7\n"
@@ -189,6 +191,14 @@ class TestUp:
             f"    tls {cert}.crt {cert}.key\n"
             "    log {\n"
             f"        output file {host.logs}/pr-12.log\n"
+            "    }\n"
+            "    forward_auth login:4180 {\n"
+            "        uri /oauth2/auth\n"
+            "        @signed_out status 401\n"
+            "        handle_response @signed_out {\n"
+            "            redir * https://auth.preview.example.com/oauth2/start"
+            "?rd={scheme}://{host}{uri}\n"
+            "        }\n"
             "    }\n"
             "    reverse_proxy synnax-pr-12:9090 {\n"
             "        stream_close_delay 1h\n"
@@ -386,6 +396,11 @@ def lego_runs(host: Host) -> list[str]:
     return [c for c in host.docker() if "goacme/lego" in c]
 
 
+OAUTH2_PROXY = (
+    "quay.io/oauth2-proxy/oauth2-proxy:v7.15.6"
+    "@sha256:c3415e8660af553f5e18f5d90db050614c02493c0ac6260ac59442f6d9b12048"
+)
+
 FORCED_RELOAD = "docker exec caddy caddy reload --config /etc/caddy/Caddyfile --force"
 
 
@@ -393,7 +408,65 @@ class TestUpgrade:
     """Tests for bringing Caddy and the running previews to the settings."""
 
     def caddy_runs(self, host: Host) -> list[str]:
-        return [c for c in host.docker() if c.startswith("docker run --detach")]
+        return [
+            c for c in host.docker() if c.startswith("docker run --detach --name caddy")
+        ]
+
+    def test_should_start_the_login_with_the_secrets_in_its_env(
+        self, host: Host
+    ) -> None:
+        assert host.run("upgrade").returncode == 0
+        gets = [c for c in host.calls() if c.startswith("aws ssm get-parameter")]
+        assert [g.split("--name ")[1].split()[0] for g in gets] == [
+            f"/synnax-preview/oauth2-proxy/{name}"
+            for name in ("client-id", "client-secret", "cookie-secret")
+        ]
+        docker = host.docker()
+        run = next(
+            c for c in docker if c.startswith("docker run --detach --name login")
+        )
+        pull = docker.index(f"docker pull --quiet {OAUTH2_PROXY}")
+        assert pull < docker.index("docker rm --force login") < docker.index(run)
+        for name in ("CLIENT_ID", "CLIENT_SECRET", "COOKIE_SECRET"):
+            assert f"--env OAUTH2_PROXY_{name} " in run
+        assert "license-key" not in run
+        for flag in (
+            "--provider=github",
+            "--github-org=synnaxlabs",
+            "--redirect-url=https://auth.preview.example.com/oauth2/callback",
+            "--cookie-domain=.preview.example.com",
+            "--whitelist-domain=.preview.example.com",
+        ):
+            assert f" {flag} " in f"{run} "
+
+    def test_should_route_the_auth_site_to_the_login(self, host: Host) -> None:
+        assert host.run("upgrade").returncode == 0
+        cert = host.path / "acme" / "certificates" / "_.preview.example.com"
+        assert (host.sites / "auth.caddy").read_text() == (
+            "auth.preview.example.com {\n"
+            f"    tls {cert}.crt {cert}.key\n"
+            "    reverse_proxy login:4180\n"
+            "}\n"
+        )
+
+    def test_should_keep_the_login_when_its_pull_fails(self, host: Host) -> None:
+        (host.path / "pull_fails").touch()
+        assert host.run("upgrade").returncode != 0
+        assert "docker rm --force login" not in host.docker()
+
+    def test_should_put_running_previews_behind_the_login(self, host: Host) -> None:
+        host.containers((12, 100), (13, 200))
+        host.site(12).write_text("route")
+        assert host.run("upgrade").returncode == 0
+        for pr in (12, 13):
+            assert "forward_auth login:4180" in host.site(pr).read_text()
+            assert f"reverse_proxy synnax-pr-{pr}:9090" in host.site(pr).read_text()
+
+    def test_should_keep_caddy_when_a_login_secret_fails(self, host: Host) -> None:
+        (host.path / "aws_fails").touch()
+        assert host.run("upgrade").returncode != 0
+        assert self.caddy_runs(host) == []
+        assert "docker rm --force login" not in host.docker()
 
     def test_should_get_the_wildcard_certificate_first(self, host: Host) -> None:
         assert host.run("upgrade").returncode == 0

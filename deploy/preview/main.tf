@@ -68,6 +68,21 @@ variable "license_parameter" {
   default     = "/synnax-preview/license-key"
 }
 
+variable "login_parameters" {
+  description = <<-EOT
+    Path of the SSM SecureString parameters of the GitHub login: client-id and
+    client-secret of the GitHub OAuth app, and cookie-secret.
+  EOT
+  type        = string
+  default     = "/synnax-preview/oauth2-proxy"
+}
+
+variable "github_org" {
+  description = "GitHub organization whose members may open a preview."
+  type        = string
+  default     = "synnaxlabs"
+}
+
 variable "instance_type" {
   type    = string
   default = "t3.large"
@@ -189,17 +204,29 @@ resource "aws_iam_role_policy_attachment" "host_ecr" {
 
 data "aws_caller_identity" "current" {}
 
-resource "aws_iam_role_policy" "host_license" {
+locals {
+  parameter_arn = join("", [
+    "arn:aws:ssm:${var.region}:${data.aws_caller_identity.current.account_id}",
+    ":parameter/",
+  ])
+}
+
+moved {
+  from = aws_iam_role_policy.host_license
+  to   = aws_iam_role_policy.host_parameters
+}
+
+resource "aws_iam_role_policy" "host_parameters" {
   role = aws_iam_role.host.id
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
       Effect = "Allow"
       Action = "ssm:GetParameter"
-      Resource = join("", [
-        "arn:aws:ssm:${var.region}:${data.aws_caller_identity.current.account_id}",
-        ":parameter/${trimprefix(var.license_parameter, "/")}",
-      ])
+      Resource = [
+        "${local.parameter_arn}${trimprefix(var.license_parameter, "/")}",
+        "${local.parameter_arn}${trimprefix(var.login_parameters, "/")}/*",
+      ]
     }]
   })
 }
@@ -269,6 +296,8 @@ locals {
     PREVIEW_SITES=/etc/caddy/sites
     PREVIEW_TTL_DAYS=${var.ttl_days}
     PREVIEW_LICENSE_PARAMETER=${var.license_parameter}
+    PREVIEW_LOGIN_PARAMETERS=${var.login_parameters}
+    PREVIEW_GITHUB_ORG=${var.github_org}
     PREVIEW_REGION=${var.region}
     PREVIEW_MAX=${var.max_previews}
     PREVIEW_CPUS=${var.preview_cpus}
