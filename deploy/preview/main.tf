@@ -252,6 +252,8 @@ resource "aws_instance" "host" {
     http_tokens = "required"
   }
   tags = { Name = "synnax-preview" }
+  # The first upgrade gets the certificate through the role.
+  depends_on = [aws_iam_role_policy.host_dns]
   # User data only bootstraps a new host. install.sh brings a running host up to date,
   # so a script or setting change never replaces the host under live previews.
   lifecycle {
