@@ -622,7 +622,10 @@ func (l *Layer) BindTo(t Transport) {
 		t.OPCUAServerRetrieve,
 
 		// ETHERCAT MASTER
+		t.EtherCATMasterCreate,
 		t.EtherCATMasterRetrieve,
+		t.EtherCATMasterUpdate,
+		t.EtherCATMasterDelete,
 		// ETHERCAT SLAVE
 		t.EtherCATSlaveRetrieve,
 
@@ -928,7 +931,10 @@ func (l *Layer) BindTo(t Transport) {
 	t.OPCUAServerRetrieve.BindHandler(bind.Read(l.binder, l.OPCUAServer.Retrieve))
 
 	// ETHERCAT MASTER
+	t.EtherCATMasterCreate.BindHandler(bind.Write(l.binder, l.EtherCATMaster.Create))
 	t.EtherCATMasterRetrieve.BindHandler(bind.Read(l.binder, l.EtherCATMaster.Retrieve))
+	t.EtherCATMasterUpdate.BindHandler(bind.Write(l.binder, l.EtherCATMaster.Update))
+	t.EtherCATMasterDelete.BindHandler(bind.Write(l.binder, l.EtherCATMaster.Delete))
 	// ETHERCAT SLAVE
 	t.EtherCATSlaveRetrieve.BindHandler(bind.Read(l.binder, l.EtherCATSlave.Retrieve))
 
