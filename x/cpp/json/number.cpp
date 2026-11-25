@@ -382,11 +382,11 @@ std::optional<std::int64_t> Number::to_int64_times(const std::int64_t factor) co
             if (this->i > max / factor || this->i < min / factor) return std::nullopt;
             return this->i * factor;
         case Kind::Uint:
-            if (this->u > static_cast<std::uint64_t>(max / factor)) return std::nullopt;
+            if (std::cmp_greater(this->u, max / factor)) return std::nullopt;
             return static_cast<std::int64_t>(this->u) * factor;
         case Kind::Float: {
             const double f = this->f * static_cast<double>(factor);
-            if (this->out_of_range || !(f >= -0x1p63 && f < 0x1p63))
+            if (this->out_of_range || std::isnan(f) || f < -0x1p63 || f >= 0x1p63)
                 return std::nullopt;
             return static_cast<std::int64_t>(f);
         }
