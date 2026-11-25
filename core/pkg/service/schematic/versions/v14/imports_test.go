@@ -11,6 +11,7 @@ package v14_test
 
 import (
 	"context"
+	"slices"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -213,6 +214,62 @@ var _ = Describe("ImportOverrides", func() {
 		Expect(ok).To(BeTrue())
 		Expect(state.Enumeration).ToNot(BeNil())
 	})
+
+	It("Should keep each state of the symbol in a copy", func(ctx SpecContext) {
+		level := symbol.State{Variant: symbol.NumberState{
+			BaseState: symbol.BaseState{Key: "level", Name: "Level"},
+		}}
+		src.Data.States = append(src.Data.States, level)
+		Expect(gorp.NewCreate[symbol.Key, symbol.Symbol]().Entry(&src).Exec(ctx, db)).
+			To(Succeed())
+		run(ctx, src.Key, states(
+			[2]*xcolor.Color{shade(3), shade(9)},
+			[2]*xcolor.Color{shade(4), shade(9)},
+		))
+		Expect(created).To(HaveLen(1))
+		Expect(created[0].Data.States).To(HaveLen(2))
+		Expect(created[0].Data.States[1]).To(Equal(level))
+	})
+
+	It("Should give no copy for a part that selects no shape", func(ctx SpecContext) {
+		src.Data.Parts = append(src.Data.Parts, symbol.Part{
+			Key:       "ghost",
+			Name:      "ghost",
+			Selectors: []string{},
+		})
+		src.Data.Looks = append([]symbol.Look{{
+			Key:  "ghost",
+			Part: new("ghost"),
+			Fill: &symbol.Paint{Variant: symbol.EntryPaint{State: "active"}},
+		}}, src.Data.Looks...)
+		Expect(gorp.NewCreate[symbol.Key, symbol.Symbol]().Entry(&src).Exec(ctx, db)).
+			To(Succeed())
+		run(ctx, src.Key, states(
+			[2]*xcolor.Color{shade(3), shade(3)},
+			[2]*xcolor.Color{shade(4), shade(4)},
+		))
+		Expect(created).To(BeEmpty())
+		Expect(calls).To(HaveLen(1))
+		Expect(colors(calls[0].entries)).
+			To(Equal([]*servicecolor.Ref{fixed(3), fixed(4)}))
+	})
+
+	It("Should draw override i on value i when the entries are out of order",
+		func(ctx SpecContext) {
+			slices.Reverse(enum.Entries)
+			Expect(gorp.NewCreate[enumerationv0.Key, enumerationv0.Enumeration]().
+				Entry(&enum).
+				Exec(ctx, db)).To(Succeed())
+			run(ctx, src.Key, states(
+				[2]*xcolor.Color{shade(3), shade(3)},
+				[2]*xcolor.Color{shade(4), shade(4)},
+			))
+			Expect(calls).To(HaveLen(1))
+			Expect(calls[0].entries).To(HaveLen(2))
+			Expect(calls[0].entries[0].Value).To(Equal(1.0))
+			Expect(colors(calls[0].entries)).
+				To(Equal([]*servicecolor.Ref{fixed(4), fixed(3)}))
+		})
 
 	DescribeTable("Should leave a node on its symbol when its user cannot retrieve",
 		func(ctx SpecContext, rejected func() resource.ID) {

@@ -189,13 +189,15 @@ func (d drawing) equal(o drawing) bool {
 	})
 }
 
-// draw returns what spec shows with entries, after its looks apply in order.
+// draw returns what spec shows with entries, after its looks apply in order. A part
+// with no selectors shows nothing.
 func draw(spec symbol.Spec, entries []enumeration.Entry) drawing {
+	shown := shownParts(spec)
 	d := drawing{}
 	for _, e := range entries {
 		parts := map[string]paints{}
 		for _, l := range spec.Looks {
-			if l.Part == nil || !applies(l.When, e.Value) {
+			if l.Part == nil || !shown.Contains(*l.Part) || !applies(l.When, e.Value) {
 				continue
 			}
 			p := parts[*l.Part]
@@ -213,6 +215,17 @@ func draw(spec symbol.Spec, entries []enumeration.Entry) drawing {
 		d[e.Value] = parts
 	}
 	return d
+}
+
+// shownParts returns the keys of the parts of spec that select a shape.
+func shownParts(spec symbol.Spec) set.Set[string] {
+	shown := set.Set[string]{}
+	for _, p := range spec.Parts {
+		if len(p.Selectors) > 0 {
+			shown.Add(p.Key)
+		}
+	}
+	return shown
 }
 
 func applies(c *symbol.Condition, v float64) bool {
@@ -238,7 +251,7 @@ func paintColor(p *symbol.Paint, e enumeration.Entry) *xcolor.Color {
 }
 
 // overridden returns what a 0.62 Console drew for a node with overrides states on spec,
-// where state i showed the regions of override i, and the spec with the parts and the
+// where value i showed the regions of override i, and the spec with the parts and the
 // markup that those regions need.
 func overridden(
 	spec symbol.Spec,
@@ -251,7 +264,11 @@ func overridden(
 		return spec, nil, errors.New("only an svg drawing has regions")
 	}
 	spec.Parts = slices.Clone(spec.Parts)
-	for i, st := range states[:min(len(states), len(entries))] {
+	for i, st := range states {
+		value := float64(i)
+		if _, ok := want[value]; !ok {
+			continue
+		}
 		parts := map[string]paints{}
 		for _, r := range st.Regions {
 			if r.StrokeColor == nil && r.FillColor == nil {
@@ -265,7 +282,7 @@ func overridden(
 			key := partKey(&spec, r, sels)
 			parts[key] = paints{stroke: r.StrokeColor, fill: r.FillColor}
 		}
-		want[entries[i].Value] = parts
+		want[value] = parts
 	}
 	spec.Drawing = symbol.Drawing{Variant: svg}
 	return spec, want, nil
@@ -308,7 +325,7 @@ func redraw(
 	if err != nil || want.equal(draw(spec, entries)) {
 		return nil, nil, err
 	}
-	recolored := recolor(spec.Looks, entries, want)
+	recolored := recolor(spec, entries, want)
 	if len(c.Parts) == len(spec.Parts) && draw(spec, recolored).equal(want) {
 		return recolored, nil, nil
 	}
@@ -317,17 +334,18 @@ func redraw(
 }
 
 // recolor returns entries in the color that want paints, at each value, on the first
-// part that a look paints with the entry.
+// shown part that a look of spec paints with the entry.
 func recolor(
-	looks []symbol.Look,
+	spec symbol.Spec,
 	entries []enumeration.Entry,
 	want drawing,
 ) []enumeration.Entry {
+	shown := shownParts(spec)
 	out := slices.Clone(entries)
 	for i, e := range out {
 		out[i].Color = nil
-		for _, l := range looks {
-			if l.Part == nil || !applies(l.When, e.Value) {
+		for _, l := range spec.Looks {
+			if l.Part == nil || !shown.Contains(*l.Part) || !applies(l.When, e.Value) {
 				continue
 			}
 			p := want[e.Value][*l.Part]
