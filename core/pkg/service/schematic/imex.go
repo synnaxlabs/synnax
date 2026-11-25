@@ -41,12 +41,13 @@ func (*Service) Match(body map[string]any) bool {
 // must be a project. A group must be in the parent project. The key on the wire is
 // discarded so every import mints a new resource. Each select and state indicator of a
 // file older than v14 gets an enumeration for its options, as at upgrade, shared with
-// equal lists of the same file. The schematic drops each named color and each
-// enumeration that the Core does not hold, so a select or state indicator that loses
-// its enumeration draws its own options. A node whose custom symbol the Core does
-// not hold draws a missing symbol with the same key, and every other node drops the
-// bindings that its symbol orphans. An unknown envelope version is a path-scoped
-// validation error.
+// equal lists of the same file. Each custom node of such a file with state overrides
+// gets the enumeration or symbol copy that the upgrade gives it, when opts.Retrievable
+// allows its symbol. The schematic drops each named color and each enumeration that the
+// Core does not hold, so a select or state indicator that loses its enumeration draws
+// its own options. A node whose custom symbol the Core does not hold draws a missing
+// symbol with the same key, and every other node drops the bindings that its symbol
+// orphans. An unknown envelope version is a path-scoped validation error.
 func (s *Service) Decode(ctx context.Context, env imex.Envelope) (imex.Write, error) {
 	sch, err := versions.DecodeImExEnvelope(ctx, env)
 	if err != nil {
@@ -72,7 +73,7 @@ func (s *Service) Decode(ctx context.Context, env imex.Envelope) (imex.Write, er
 		}
 		sch.Group, sch.Project = nil, nil
 		if isOld {
-			if err = s.importOld(ctx, tx, &sch, old); err != nil {
+			if err = s.importOld(ctx, tx, &sch, old, opts.Retrievable); err != nil {
 				return resource.ID{}, err
 			}
 		}
@@ -92,12 +93,14 @@ func (s *Service) Decode(ctx context.Context, env imex.Envelope) (imex.Write, er
 
 // importOld gives sch, lifted from the old schematic old, the enumerations and symbol
 // copies that its selects, state indicators, lights, and custom nodes need. Each import
-// makes its own records.
+// makes its own records. A node keeps a symbol that retrievable rejects, and a nil
+// retrievable rejects all.
 func (s *Service) importOld(
 	ctx context.Context,
 	tx gorp.Tx,
 	sch *Schematic,
 	old v13.Schematic,
+	retrievable func(resource.ID) bool,
 ) error {
 	intern := s.cfg.Enumeration.NewWriter(tx).NewInterner().Intern
 	if err := v14.InternStates(
@@ -117,6 +120,9 @@ func (s *Service) importOld(
 		tx,
 		sch,
 		old,
+		func(k symbol.Key) bool {
+			return retrievable != nil && retrievable(symbol.ResourceID(k))
+		},
 		intern,
 		func(ctx context.Context, sym *symbol.Symbol) error {
 			return s.Symbol.NewWriter(tx).Create(ctx, sym)

@@ -30,13 +30,14 @@ import (
 
 // ImportOverrides gives each custom node of old with state overrides, in an import of
 // an old file on tx, the enumeration or the copy of its symbol that NewMigration gives
-// a stored node. s must be old lifted to v14. Each enumeration comes from intern, and
-// create creates each copy.
+// a stored node. s must be old lifted to v14. A symbol that retrievable rejects counts
+// as missing. Each enumeration comes from intern, and create creates each copy.
 func ImportOverrides(
 	ctx context.Context,
 	tx gorp.Tx,
 	s *Schematic,
 	old v13.Schematic,
+	retrievable func(symbol.Key) bool,
 	intern symbol.Intern,
 	create func(ctx context.Context, sym *symbol.Symbol) error,
 ) error {
@@ -46,6 +47,9 @@ func ImportOverrides(
 		key symbol.Key,
 		states []symbolv4.State,
 	) (redrawn, bool, error) {
+		if !retrievable(key) {
+			return redrawn{}, false, nil
+		}
 		var src symbol.Symbol
 		if err := gorp.NewRetrieve[symbol.Key, symbol.Symbol]().
 			Where(gorp.MatchKeys[symbol.Key, symbol.Symbol](key)).

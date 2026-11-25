@@ -30,10 +30,11 @@ import (
 
 var _ = Describe("ImportOverrides", func() {
 	var (
-		db      *gorp.DB
-		src     symbol.Symbol
-		calls   []interned
-		created []symbol.Symbol
+		db          *gorp.DB
+		src         symbol.Symbol
+		retrievable func(symbol.Key) bool
+		calls       []interned
+		created     []symbol.Symbol
 	)
 	// states returns the states off and on with the shape a in the colors of each pair.
 	states := func(pairs ...[2]*xcolor.Color) []symbolv4.State {
@@ -66,6 +67,7 @@ var _ = Describe("ImportOverrides", func() {
 
 	BeforeEach(func(ctx SpecContext) {
 		calls, created = nil, nil
+		retrievable = func(symbol.Key) bool { return true }
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		StartRun(db.Run)
 		spec, entries := MustSucceed2(symbol.MigrateStoredSpec(ctx, symbolv4.Spec{
@@ -99,8 +101,7 @@ var _ = Describe("ImportOverrides", func() {
 	})
 
 	// run imports a schematic named Panel with one custom node, labeled Vent, that
-	// draws
-	// the symbol with key with overrides, and returns that node.
+	// draws the symbol with key with overrides, and returns that node.
 	run := func(
 		ctx SpecContext,
 		key symbol.Key,
@@ -120,6 +121,7 @@ var _ = Describe("ImportOverrides", func() {
 				tx,
 				&s,
 				old,
+				retrievable,
 				func(
 					_ context.Context,
 					name string,
@@ -190,6 +192,19 @@ var _ = Describe("ImportOverrides", func() {
 		Expect(ok).To(BeTrue())
 		Expect(state.Enumeration).ToNot(BeNil())
 	})
+
+	It("Should leave a node whose symbol its user cannot retrieve on that symbol",
+		func(ctx SpecContext) {
+			retrievable = func(k symbol.Key) bool { return k != src.Key }
+			n := run(ctx, src.Key, states(
+				[2]*xcolor.Color{shade(3), shade(9)},
+				[2]*xcolor.Color{shade(4), shade(9)},
+			))
+			Expect(n.Spec.Variant).To(Equal(symbol.CustomRef{Key: src.Key}))
+			Expect(n.States[0].Enumeration).To(BeNil())
+			Expect(calls).To(BeEmpty())
+			Expect(created).To(BeEmpty())
+		})
 
 	It("Should leave a node whose symbol the Core lacks on that symbol",
 		func(ctx SpecContext) {
