@@ -115,7 +115,8 @@ type LayerConfig struct {
 	//
 	// [REQUIRED]
 	Distribution *distribution.Layer
-	// Storage is the storage layer used for disk usage metrics.
+	// Storage is the storage layer. The channel service stores channels in its
+	// time-series database, and the metrics report its disk usage.
 	//
 	// [REQUIRED]
 	Storage *storage.Layer
