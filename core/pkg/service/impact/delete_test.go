@@ -10,6 +10,7 @@
 package impact_test
 
 import (
+	"fmt"
 	"slices"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -304,6 +305,31 @@ var _ = Describe("Delete", Ordered, func() {
 			MatchError(validate.ErrValidation),
 			MatchError(ContainSubstring("entry "+id+" cannot take delete")),
 		))
+		Expect(exists(ctx, ch.Key())).To(BeTrue())
+	})
+
+	It("Should name the pick with the smallest key among the picks it refuses", func(
+		ctx SpecContext,
+	) {
+		ch := createChannel(ctx, channel.Channel{})
+		invalid := make(map[string]impact.Choice, 8)
+		unparsed := make(map[string]impact.Choice, 8)
+		for c := 'a'; c <= 'h'; c++ {
+			invalid[fmt.Sprintf("task:%c", c)] = impact.Choice(
+				fmt.Sprintf("keep_%c", c),
+			)
+			unparsed[fmt.Sprintf("%c", c)] = impact.ChoiceDelete
+		}
+		for range 32 {
+			Expect(layer.Impact.Plan(
+				ctx,
+				db,
+				deleteOf(ch.Key()),
+				impact.PlanOptions{Picks: invalid},
+			)).Error().To(MatchError(ContainSubstring("keep_a is not a choice")))
+			Expect(apply(ctx, impact.ApplyOptions{Picks: unparsed}, ch.Key())).
+				Error().To(MatchError(ContainSubstring("a is not a record")))
+		}
 		Expect(exists(ctx, ch.Key())).To(BeTrue())
 	})
 
