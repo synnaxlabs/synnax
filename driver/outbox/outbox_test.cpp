@@ -1126,7 +1126,10 @@ TEST_F(OutboxTest, FailsFastWhenNoSegmentOpens) {
     for (int i = 0; errors < 3; i++) {
         ASSERT_LT(i, 100000);
         const auto start = std::chrono::steady_clock::now();
-        if (outbox->set_status(set_of(std::to_string(i)), nullptr)) errors++;
+        if (const auto err = outbox->set_status(set_of(std::to_string(i)), nullptr)) {
+            ASSERT_OCCURRED_AS(err, journal::BASE_ERROR);
+            errors++;
+        }
         ASSERT_LT(
             std::chrono::steady_clock::now() - start,
             std::chrono::milliseconds(500)

@@ -294,8 +294,8 @@ public:
     /// @param done called once the Core answers the set.
     /// @returns FULL when the outbox holds max_bytes or max_calls, and counts the set
     /// in refused(). journal::TOO_LARGE when the encoded set is larger than
-    /// max_payload. The error of a failed write, and then the outbox does not hold the
-    /// set.
+    /// max_payload. The error of a failed write or of a failed segment open, and then
+    /// the outbox does not hold the set.
     x::errors::Error
     set_status(const ::grpc::status::SetByKeyOrNameRequest &req, SetStatusDone done);
 
