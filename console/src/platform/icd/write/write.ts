@@ -88,20 +88,29 @@ export interface AddMessagesResult {
   messages: icd.Message[];
 }
 
+/** @returns field, sending the write time when it is a timestamp with no default. */
+const sendWriteTime = (field: icd.JSONField): icd.JSONField =>
+  field.type === "timestamp" && field.default == null
+    ? { ...field, default: { type: "now" } }
+    : field;
+
 const createMessages = (
   messages: AddMessagesParams["messages"],
   taken: icd.Message[],
 ): icd.Message[] => {
   const created: icd.Message[] = [];
   for (const { name, fields } of messages)
-    created.push(createMessage(name, fields, [...taken, ...created]));
+    created.push(
+      createMessage(name, fields.map(sendWriteTime), [...taken, ...created]),
+    );
   return created;
 };
 
 /**
  * Adds a JSON message for each of messages to the ICD of the most targets, through its
  * form, or to a new ICD named name when no target sends one. A message name that the
- * ICD holds gets a number.
+ * ICD holds gets a number. A timestamp field with no default sends the time of each
+ * write, so it takes no channel.
  */
 export const addMessages = async ({
   client,
