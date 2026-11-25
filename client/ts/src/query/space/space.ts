@@ -145,6 +145,19 @@ export const DEFAULT_DEBOUNCE = TimeSpan.milliseconds(100);
 export const DEFAULT_TEARDOWN_GRACE = TimeSpan.seconds(5);
 
 /**
+ * Whether a failed refetch of an answer needs a report. An answer that its triggers
+ * cover keeps showing, and the reconnect of a down stream refetches. Otherwise each
+ * subscriber waits on the answer with nothing to show.
+ */
+export const reportsFailedRefetch = (
+  hooks: Hooks,
+  { subscribed, covered }: { subscribed: boolean; covered: boolean },
+): boolean =>
+  subscribed &&
+  !covered &&
+  !(hooks.maintained?.() !== false && hooks.live?.() === false);
+
+/**
  * Opens change delivery in the background, since a streaming failure must never block
  * a read. Never rejects. A rejected login or session, a denial, or a missing license
  * belongs to the connection, which reports it once. Only other failures go to report.
@@ -798,14 +811,11 @@ export class Space<
       // confirm it is not grounds for taking it away, but reads stop trusting it.
       if (query.state.variant === "ready") {
         this.markStale(query);
-        // An answer that a trigger does not cover reaches no subscriber until a
-        // refetch succeeds. The reconnect of a down stream refetches it.
-        const reconnects =
-          this.hooks.maintained?.() !== false && this.hooks.live?.() === false;
         if (
-          query.handlers.size > 0 &&
-          !this.triggersCover(query.params, query.state.keys) &&
-          !reconnects
+          reportsFailedRefetch(this.hooks, {
+            subscribed: query.handlers.size > 0,
+            covered: this.triggersCover(query.params, query.state.keys),
+          })
         )
           this.report(reason);
         return;

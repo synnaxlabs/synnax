@@ -61,7 +61,7 @@ interface Request {
  * cache has no stream, as a client with no cache has.
  * @returns the client, the fake Core, the keys of each retrieve that asks for uses, and
  * functions that push a frame, send one change on the channel of uses, drop the stream
- * and wait for the reconnect, and open a closed stream.
+ * and wait for the reconnect, open a closed stream, and close the cache.
  */
 const createFakeSecrets = async ({
   recordCap,
@@ -163,6 +163,7 @@ const createFakeSecrets = async ({
     reconnect,
     open,
     miss,
+    close: async (): Promise<void> => await cache.close(),
   };
 };
 
@@ -1344,6 +1345,54 @@ describe("Secret", () => {
       expect(list.getCached()).toBeUndefined();
       onTestFinished(list.onChange(() => {}));
       expect((await list.retrieve()).records.map((s) => s.uses)).toEqual([usesOf(key)]);
+    });
+
+    /**
+     * Creates fake secrets with a closed list whose uses a change dropped, so that only
+     * a refetch can answer a new subscriber.
+     */
+    const createListLackingUses = async () => {
+      const fake = await createFakeSecrets();
+      const key = uuid.create();
+      const list = fake.secrets.watch({
+        where: { key: { in: [key] } },
+        includeUses: true,
+      });
+      const off = list.onChange(() => {});
+      await list.retrieve();
+      off();
+      await vi.advanceTimersByTimeAsync(PAST_GRACE);
+      fake.change();
+      await vi.advanceTimersByTimeAsync(PAST_DEBOUNCE);
+      return { ...fake, list };
+    };
+
+    it("should report a failed refetch of a list that lacks its uses", async () => {
+      useFakeTimers();
+      const { core, errors, list } = await createListLackingUses();
+      core.failure = new Error("failed to retrieve uses");
+      onTestFinished(list.onChange(() => {}));
+      await vi.advanceTimersByTimeAsync(PAST_DEBOUNCE);
+      expect(list.getCached()).toBeUndefined();
+      expect(errors.splice(0)).toEqual([
+        expect.objectContaining({
+          message: "failed to maintain secret lists",
+          cause: core.failure,
+        }),
+      ]);
+    });
+
+    it("should not report a failed refetch of a list after its cache closes", async () => {
+      useFakeTimers();
+      const { core, list, close } = await createListLackingUses();
+      core.holding = true;
+      list.onChange(() => {});
+      await vi.advanceTimersByTimeAsync(PAST_DEBOUNCE);
+      expect(core.held).toHaveLength(1);
+      await close();
+      core.failure = new Error("failed to retrieve uses");
+      core.held.splice(0).forEach((release) => release());
+      await vi.advanceTimersByTimeAsync(PAST_DEBOUNCE);
     });
 
     it.each([
