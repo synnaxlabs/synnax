@@ -25,14 +25,15 @@ import (
 // logView is what the iterators of a read on one clock read: the visible Channels of
 // the clock and of each key of the read that it times, which the engine loads from one
 // step of the state and pins together, so the samples of every key and their stamps
-// come from one state. The view loads once in each step of the read: the first seek of
-// the step loads it, and the stream iterator makes it stale before the next. A data
-// cursor keeps the ranges of its last seek, and their segments, until it seeks again.
-// So the view keeps its last load for the rest of the read once a load would take away
-// stamps that such ranges can need: a key or the clock gone, as a Drop leaves them, or
-// a stamp of the clock gone, as a delete of the clock leaves it. Each lookup of the
-// index closes its clock cursor and reader before it returns, and the calls of a read
-// never overlap, so a load never unpins what a cursor still reads.
+// come from one state. The view loads once in each step of the read in which the state
+// published: the first seek of the step loads it, and the stream iterator makes it
+// stale before the next. A data cursor keeps the ranges of its last seek, and their
+// segments, until it seeks again. So the view keeps its last load for the rest of the
+// read once a load would take away stamps that such ranges can need: a key or the clock
+// gone, as a Drop leaves them, or a stamp of the clock gone, as a delete of the clock
+// leaves it. Each lookup of the index closes its clock cursor and reader before it
+// returns, and the calls of a read never overlap, so a load never unpins what a cursor
+// still reads.
 type logView struct {
 	e *engine
 	// keys holds the clock and then each key of the read on it, and chs their Channels.
@@ -41,6 +42,8 @@ type logView struct {
 	chs, next []*state.Channel
 	loaded    bool
 	fresh     bool
+	// count is the publish count of the state at the last load.
+	count uint64
 	// frozen is true once the view keeps its last load for the rest of the read.
 	frozen bool
 	// readers counts the data cursors of the view. The Close of the last unpins it.
@@ -76,8 +79,11 @@ func (v *logView) load() {
 		return
 	}
 	v.fresh = true
+	if v.loaded && v.e.state.Unchanged(v.count) {
+		return
+	}
 	v.next = slices.Grow(v.next[:0], len(v.keys))[:len(v.keys)]
-	ids, err := v.e.loadView(v.keys, v.next, nil, v.spare)
+	count, ids, err := v.e.loadView(v.keys, v.next, nil, v.spare)
 	v.err = errors.Join(v.err, err)
 	if v.loaded && (gone(v.chs, v.next) || cut(v.chs[0], v.next[0])) {
 		v.err = errors.Join(v.err, v.e.unpin(ids))
@@ -87,7 +93,7 @@ func (v *logView) load() {
 	v.err = errors.Join(v.err, v.e.unpin(v.pinned))
 	v.chs, v.next = v.next, v.chs
 	v.pinned, v.spare = ids, v.pinned[:0]
-	v.loaded = true
+	v.loaded, v.count = true, count
 }
 
 // gone reports whether a Channel that last holds is missing from next.
