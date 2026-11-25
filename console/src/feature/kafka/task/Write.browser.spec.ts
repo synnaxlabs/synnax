@@ -18,7 +18,7 @@ import {
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import type { Status } from "@synnaxlabs/lyra/status";
 import { uniqueName } from "@synnaxlabs/x/testutil";
-import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Kafka } from "@/feature/kafka";
@@ -125,7 +125,7 @@ describe("Kafka Write form", () => {
   // a loaded CI runner.
   it("should show the empty state and add + select a target", async () => {
     await renderWrite();
-    await screen.findByText("Select a target to configure");
+    await screen.findByText("Add a target to send records to a topic");
     await addTarget();
     await screen.findByText("Produce");
     expect(screen.getByText("Message has no fields")).toBeTruthy();
@@ -156,7 +156,7 @@ describe("Kafka Write form", () => {
   it("should add the message of a new target to the ICD of the most targets", async () => {
     const { ic, target } = await createTarget([createField("speed", "float")]);
     const { draft } = await renderWrite([target]);
-    await screen.findByRole("option", { name: /plant\.pumps/ });
+    await screen.findByRole("treeitem", { name: /Topic.*plant\.pumps/ });
     await addTarget();
     const added = await waitFor(async () => {
       const targets = await retrieveTargets(draft.key);
@@ -178,32 +178,24 @@ describe("Kafka Write form", () => {
       recordKey: "pump-1",
     });
     await renderWrite([target]);
-    fireEvent.click(await screen.findByRole("option", { name: /plant\.pumps/ }));
+    fireEvent.click(await screen.findByRole("treeitem", { name: /JSON.*pump-1/ }));
     await screen.findByText("Produce");
     expect(screen.getByDisplayValue("plant.pumps")).toBeTruthy();
     expect(screen.getByDisplayValue("pump-1")).toBeTruthy();
   });
 
-  it("should start every topic on one edge and truncate the record key first", async () => {
+  it("should show each topic above its record keys, and each record key above its fields", async () => {
     const fields = [createField("speed", "float")];
-    const { target: short } = await createTarget(fields);
-    const { target: long } = await createTarget(fields, {
-      key: "t2",
-      topic: "plant.commands",
-      recordKey: "pump_speed_setpoint_of_the_north_pump_house",
-    });
-    await renderWrite([short, long]);
-    const item = async (topic: RegExp) =>
-      within(await screen.findByRole("option", { name: topic }));
-    const pumps = (await item(/plant\.pumps/)).getByText("plant.pumps");
-    const keyed = await item(/plant\.commands/);
-    const commands = keyed.getByText("plant.commands");
-    const key = keyed.getByText("pump_speed_setpoint_of_the_north_pump_house");
-    expect(commands.getBoundingClientRect().left).toBe(
-      pumps.getBoundingClientRect().left,
-    );
-    expect(key.scrollWidth).toBeGreaterThan(key.clientWidth);
-    expect(commands.scrollWidth).toBe(commands.clientWidth);
+    const { target: keyed } = await createTarget(fields, { recordKey: "pump-1" });
+    const unkeyed = { ...keyed, key: "t2", recordKey: "" };
+    await renderWrite([keyed, unkeyed]);
+    const level = async (name: RegExp) =>
+      (await screen.findByRole("treeitem", { name })).getAttribute("aria-level");
+    expect(await level(/Topic.*plant\.pumps/)).toBe("1");
+    expect(await level(/JSON.*pump-1/)).toBe("2");
+    expect(await level(/JSON.*No key/)).toBe("2");
+    expect(screen.getAllByRole("treeitem", { name: /^speed/ })).toHaveLength(2);
+    expect(screen.getAllByRole("treeitem", { name: /Topic/ })).toHaveLength(1);
   });
 
   it("should name a new command channel after the device, topic, record key, and field", async () => {
@@ -211,7 +203,7 @@ describe("Kafka Write form", () => {
       recordKey: "pump-1",
     });
     const { dev } = await renderWrite([target]);
-    fireEvent.click(await screen.findByRole("option", { name: /plant\.pumps/ }));
+    fireEvent.click(await screen.findByRole("treeitem", { name: /^speed/ }));
     const name = `${channel.escapeInvalidName(dev.name)}_plant_pumps_pump_1_speed_cmd`;
     expect(await screen.findByDisplayValue(name)).toBeTruthy();
   });
@@ -232,7 +224,9 @@ describe("Kafka Write form", () => {
       },
     };
     const { draft } = await renderWrite([bound]);
-    fireEvent.contextMenu(await screen.findByRole("option", { name: /plant\.pumps/ }));
+    fireEvent.contextMenu(
+      await screen.findByRole("treeitem", { name: /JSON.*No key/ }),
+    );
     fireEvent.click(await screen.findByText("Duplicate"));
     await waitFor(async () => {
       const targets = await retrieveTargets(draft.key);
@@ -249,7 +243,7 @@ describe("Kafka Write form", () => {
       topic: "",
     });
     const { container } = await renderWrite([target]);
-    await screen.findByRole("option", { name: /New topic/ });
+    await screen.findByRole("treeitem", { name: /Topic.*New topic/ });
     await clickDeploy(container);
     await screen.findByText("Topic is required");
   });
