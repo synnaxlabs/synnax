@@ -2445,5 +2445,29 @@ var _ = Describe("Writer", func() {
 				Expect(stored.DataType).To(Equal(telem.Int64T))
 			},
 		)
+		It("Should refuse a rename of a stored channel with no data type",
+			func(ctx SpecContext) {
+				untyped := channel.Channel{
+					Name:        UniqueChannelName(),
+					Leaseholder: node.KeyFree,
+					LocalKey:    9002,
+					Virtual:     true,
+				}
+				Expect(gorp.NewCreate[channel.Key, channel.Channel]().
+					Entry(&untyped).
+					Exec(ctx, db)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					_, err := svc.NewWriter(tx).Apply(ctx, untyped.Key(),
+						channel.NewRenameAction(channel.RenamePayload{
+							Name: UniqueChannelName(),
+						}),
+					)
+					return err
+				})).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring("data_type")),
+				))
+			},
+		)
 	})
 })
