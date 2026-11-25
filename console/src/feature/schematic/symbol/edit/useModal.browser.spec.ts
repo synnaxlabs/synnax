@@ -552,6 +552,33 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       return { symbol, used, unbound };
     };
 
+    it("zooms and saves the preview of a symbol with no preview viewport", async () => {
+      const grp = await createParentGroup();
+      const payload = createSymbolPayload(uniqueName("unzoomed"));
+      const { previewViewport: _, ...data } = payload.data;
+      const symbol = await client.schematics.symbols.create({
+        ...payload,
+        data,
+        group: grp.key,
+      });
+      expect(symbol.data.previewViewport).toBeUndefined();
+      await renderModalOpener(
+        Schematic.Symbol.Edit.useModal,
+        [{ symbolKey: symbol.key, group: grp.key }],
+        { client, additionalRegistry: theming.REGISTRY },
+      );
+      expect(await screen.findByText("100%")).toBeDefined();
+      pressKey("Equal");
+      expect(await screen.findByText("120%")).toBeDefined();
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () =>
+        expect((await retrieveStored(symbol.key)).data.previewViewport).toEqual({
+          zoom: 1.2,
+          position: { x: 0, y: 0 },
+        }),
+      );
+    });
+
     it("saves a new part and its stroke on a symbol with no state", async () => {
       const { symbol } = await openEditModal();
       fireEvent.click(screen.getByLabelText("Stroke"));
@@ -1255,10 +1282,10 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       expect(findButton("Save").getAttribute("aria-disabled")).toBeNull();
       fireEvent.click(findButton("Save"));
       await screen.findByRole("heading", { name: "Body" });
-      expect(screen.getByText("Fill motion needs one shape")).toBeDefined();
+      expect(screen.getByText("Fill motion needs one shape or group")).toBeDefined();
       fireEvent.click(screen.getByText("Spin"));
       await waitFor(() =>
-        expect(screen.queryByText("Fill motion needs one shape")).toBeNull(),
+        expect(screen.queryByText("Fill motion needs one shape or group")).toBeNull(),
       );
     });
 
@@ -1297,7 +1324,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       fireEvent.click(screen.getByText("Actuator"));
       fireEvent.click(findButton("Save"));
       await screen.findByRole("heading", { name: "Body" });
-      expect(screen.getByText("Fill motion needs one shape")).toBeDefined();
+      expect(screen.getByText("Fill motion needs one shape or group")).toBeDefined();
       expect(screen.queryByText(`Save the changes to ${symbol.name}?`)).toBeNull();
     });
 
@@ -1630,10 +1657,10 @@ describe("Schematic.Symbol.Edit.useModal", () => {
           },
         ],
       });
-      expect(screen.getByText("Fill motion needs one shape")).toBeDefined();
+      expect(screen.getByText("Fill motion needs one shape or group")).toBeDefined();
       fireEvent.click(screen.getByText("Select parent group"));
       await waitFor(() =>
-        expect(screen.queryByText("Fill motion needs one shape")).toBeNull(),
+        expect(screen.queryByText("Fill motion needs one shape or group")).toBeNull(),
       );
       // The group sits in no group, so the action turns off.
       await waitFor(() =>
@@ -1752,7 +1779,10 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     });
 
     it("counts the looks of a part beside its shapes", async () => {
-      await openPainted({ looks: [{ key: "l", part: "body", hidden: true }] });
+      await openPainted({
+        drawing: { type: "svg", markup: TWO_RECTS },
+        looks: [{ key: "l", part: "body", hidden: true }],
+      });
       expect(await screen.findByText("1 shape · 1 look")).toBeDefined();
     });
 
@@ -1766,7 +1796,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       const symbol = await client.schematics.symbols.create({
         ...payload,
         group: grp.key,
-        data: { ...payload.data, parts },
+        data: { ...payload.data, drawing: { type: "svg", markup: TWO_RECTS }, parts },
       });
       await renderModalOpener(
         Schematic.Symbol.Edit.useModal,
@@ -1775,6 +1805,17 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       );
       expect(await screen.findByText("1 shape")).toBeDefined();
       expect(screen.getByText("2 shapes")).toBeDefined();
+    });
+
+    it("counts each shape in a group that a part holds, and a text as one", async () => {
+      await openPainted({
+        drawing: {
+          type: "svg",
+          markup: GROUPED.replace("</g>", '<text id="t"><tspan>T</tspan></text></g>'),
+        },
+        parts: [{ ...BODY, selectors: ["#g"] }],
+      });
+      expect(getPartListItem("Body").textContent).toContain("3 shapes");
     });
   });
 });
