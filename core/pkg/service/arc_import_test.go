@@ -45,18 +45,21 @@ func arcEnvelope(version int, src arc.Source) imex.Envelope {
 	return env
 }
 
-// importArc imports env through l and returns the key of the new Arc.
+// importArc imports env through l for an importer that can retrieve what retrievable
+// reports, and returns the key of the new Arc.
 func importArc(
 	ctx SpecContext,
 	n testutil.Node,
 	l *service.Layer,
 	env imex.Envelope,
+	retrievable func(resource.ID) bool,
 ) arc.Key {
 	GinkgoHelper()
 	var id resource.ID
 	Expect(n.DB.WithTx(ctx, func(tx gorp.Tx) (err error) {
 		id, err = l.ImEx.Import(ctx, tx, env, imex.ImportOptions{
-			Parent: resource.ID{Type: resource.TypeProject, Key: "parent"},
+			Parent:      resource.ID{Type: resource.TypeProject, Key: "parent"},
+			Retrievable: retrievable,
 		})
 		return err
 	})).To(Succeed())
@@ -73,7 +76,7 @@ var _ = Describe("Arc import", func() {
 		env := arcEnvelope(5, arc.Source{Variant: arc.TextSource{
 			Text: text.Text{Raw: "pt-01 * 2.0 -> out"},
 		}})
-		Expect(sourceOf(ctx, n, importArc(ctx, n, l, env))).
+		Expect(sourceOf(ctx, n, importArc(ctx, n, l, env, nil))).
 			To(Equal("pt-01 * 2.0 -> out"))
 	})
 
@@ -88,7 +91,37 @@ var _ = Describe("Arc import", func() {
 				{Key: "f", Body: ir.Body{Raw: "return pt-01 * 2.0"}},
 			},
 		}}})
-		Expect(sourceOf(ctx, n, importArc(ctx, n, l, env))).
+		Expect(sourceOf(ctx, n, importArc(ctx, n, l, env, nil))).
 			To(Equal("return 'pt-01' * 2.0"))
 	})
+
+	It(
+		"Should leave bare a dashed name whose channel the importer cannot retrieve",
+		func(
+			ctx SpecContext,
+		) {
+			n := testutil.NewNode(ctx)
+			stored := storeV062(
+				ctx,
+				n,
+				[]string{"pt-01", "pt-02"},
+				func([]channelv1.Channel) {},
+			)
+			l := MustOpen(svctestutil.OpenLayer(ctx, n))
+			env := arcEnvelope(
+				4,
+				arc.Source{Variant: arc.GraphSource{Graph: graph.Graph{
+					Functions: ir.Functions{
+						{Key: "f", Body: ir.Body{Raw: "return pt-01 + pt-02"}},
+					},
+				}}},
+			)
+			hidden := stored[0].ResourceID()
+			Expect(
+				sourceOf(ctx, n, importArc(ctx, n, l, env, func(id resource.ID) bool {
+					return id != hidden
+				})),
+			).To(Equal("return pt-01 + 'pt-02'"))
+		},
+	)
 })
