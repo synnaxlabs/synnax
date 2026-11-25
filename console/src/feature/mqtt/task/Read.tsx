@@ -13,12 +13,13 @@ import { channel, DisconnectedError, icd, mqtt, type Synnax } from "@synnaxlabs/
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
+import { useExclusiveCallback } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import type { Tree } from "@synnaxlabs/lyra/tree";
 import { ICD as PICD, Synnax as PSynnax } from "@synnaxlabs/pluto";
-import { DataType, deep, errors, map, primitive, unique, uuid } from "@synnaxlabs/x";
+import { DataType, deep, map, primitive } from "@synnaxlabs/x";
 import {
   createContext,
   type Dispatch,
@@ -103,8 +104,7 @@ const isDraft = (addition: Addition): addition is Draft => addition.type === "pl
 
 /** @param index - The pointer of the leaf that indexes the message. */
 const createDraft = (topic: string, leaves: Leaf[] = [], index?: string): Draft => {
-  const names = ICD.fieldNames(leaves.map(({ pointer }) => pointer));
-  const fields = leaves.map((leaf, i) => ICD.createField(leaf, names[i]));
+  const fields = ICD.createFields(leaves);
   return {
     type: "plain",
     topic,
@@ -168,6 +168,21 @@ const storedSource = ({
 });
 
 /**
+ * @returns stored with the channels that an older Console stored under the topic of
+ * entries split among the messages that read the topic.
+ */
+const splitStored = (
+  stored: Record<string, Task.ReadChannelProps>,
+  entries: ReadEntry[],
+): Record<string, Task.ReadChannelProps> =>
+  ICD.Stored.split(
+    stored,
+    entries
+      .filter(isPlain)
+      .map((entry) => ({ ...storedSource(entry), disabled: entry.disabled })),
+  );
+
+/**
  * The prefix of the names of the channels that deploying creates for a message. A
  * message after the first adds its name to the prefix of the topic.
  */
@@ -207,22 +222,6 @@ const appendFields = (
     after = field.key;
   }
   return appended;
-};
-
-/**
- * @returns a message for the fields of a topic, named after the topic. A name that a
- * message in taken holds gets a number, such as `plant/oven 2`.
- */
-const createMessage = (
-  topic: string,
-  fields: icd.JSONField[],
-  taken: icd.Message[],
-): icd.Message => {
-  const names = new Set(taken.map(({ name }) => name));
-  const base = topic === "" ? "Untitled" : topic;
-  let name = base;
-  for (let n = 2; names.has(name); n++) name = `${base} ${n}`;
-  return { key: uuid.create(), name, payload: { format: "json", fields } };
 };
 
 const entryOf = (
@@ -267,7 +266,7 @@ const createICD = async (
 ): Promise<AddTopicsResult> => {
   const messages: icd.Message[] = [];
   for (const { topic, fields } of drafts)
-    messages.push(createMessage(topic, fields, messages));
+    messages.push(ICD.createMessage(topic, fields, messages));
   const { key } = await client.icds.create({ name, messages });
   const added = drafts.map((d, i) =>
     entryOf(key, d.topic, {
@@ -327,7 +326,7 @@ const addTopics = async ({
         continue;
       }
       const prior = messages.get(key) ?? [];
-      const created = createMessage(draft.topic, draft.fields, prior);
+      const created = ICD.createMessage(draft.topic, draft.fields, prior);
       inserterOf(key).insert(PICD.formPath.messages, created, prior.at(-1)?.key);
       messages.set(key, [...prior, created]);
       const bindings = bind(draft, draft.fields, created.key);
@@ -398,14 +397,18 @@ const useMessageProps = (
 ): Omit<ICD.MessageSectionsProps, "format"> => {
   const topic = PForm.useFieldValue(path.topic);
   const messages = PForm.useFieldValue(path.messages);
+  const entries = PForm.useFieldValue(root.config.entries);
   const prefix = usePrefix(device.name, path, read);
   return {
     path,
     read,
     prefix,
     indexChannel:
-      ICD.Stored.of(device.properties.read, storedSource({ topic, messages }), read)
-        ?.index ?? 0,
+      ICD.Stored.of(
+        splitStored(device.properties.read, entries),
+        storedSource({ topic, messages }),
+        read,
+      )?.index ?? 0,
     sourceLabel: "Arrival time",
     missingDescription:
       read === 0
@@ -657,11 +660,13 @@ const Entries: FC<EntriesProps> = ({
     bindDisabled,
     bindingOf: (key, read, field) => {
       const entry = ctx.get(plainPath(key)).value;
+      const all = ctx.get(root.config.entries).value;
+      const held = splitStored(stored, all);
       const channels =
         entry.messages.length === 1
-          ? ICD.Stored.channels(stored, storedSource(entry), entry.messages[0].message)
-          : (ICD.Stored.of(stored, storedSource(entry), read)?.channels ?? {});
-      const written = writtenChannels(ctx.get(root.config.entries).value);
+          ? ICD.Stored.channels(held, storedSource(entry), entry.messages[0].message)
+          : (ICD.Stored.of(held, storedSource(entry), read)?.channels ?? {});
+      const written = writtenChannels(all);
       return ICD.Stored.bindingsOf(channels, [field], written, dataTypes)[0];
     },
     messageName: (entry, held) =>
@@ -675,8 +680,6 @@ const Entries: FC<EntriesProps> = ({
   const home = ICD.mostRead(entries.filter(isPlain));
   const format = home == null ? undefined : formats.get(home);
 
-  // Adds run one at a time, so a second click cannot make a second ICD.
-  const adding = useRef(false);
   const add = async () => {
     if (client == null) throw new DisconnectedError();
     const plain = entries.filter(isPlain);
@@ -694,10 +697,11 @@ const Entries: FC<EntriesProps> = ({
     const drafts = additions.filter(isDraft);
     const tags = additions.filter((a): a is SparkplugReadEntry => !isDraft(a));
     const written = writtenChannels(entries);
+    const split = splitStored(stored, entries);
     const bind: Bind = ({ topic }, fields, message) => {
       const entry = plain.find((e) => e.topic === topic) ?? { topic, messages: [] };
       return ICD.Stored.bindingsOf(
-        ICD.Stored.channels(stored, storedSource(entry), message),
+        ICD.Stored.channels(split, storedSource(entry), message),
         fields,
         written,
         dataTypes,
@@ -743,18 +747,9 @@ const Entries: FC<EntriesProps> = ({
     onSelect([firstKey]);
     tree.expand(firstKey);
   };
-  const handleAdd = () =>
-    handleError(async () => {
-      if (adding.current) return;
-      adding.current = true;
-      try {
-        await add();
-      } catch (e) {
-        adding.current = false;
-        throw errors.fromUnknown(e);
-      }
-      adding.current = false;
-    }, "Failed to add data");
+  // Adds run one at a time, so a second click cannot make a second ICD.
+  const addExclusive = useExclusiveCallback(add);
+  const handleAdd = () => handleError(addExclusive, "Failed to add data");
 
   const entry =
     current == null ? undefined : entries.find(({ key }) => key === current.source);
@@ -888,6 +883,7 @@ const Plans = ({ device, children }: PlansProps): ReactElement => {
     }),
   );
   const tags = enabled.filter((e) => e.type === "sparkplug");
+  const stored = splitStored(device.properties.read, entries);
   const sources = [
     ...bound.map((b) => ({
       key: b.source.key,
@@ -896,7 +892,7 @@ const Plans = ({ device, children }: PlansProps): ReactElement => {
       read: b.source.messages[b.read],
       message: b.message,
       prefix: messagePrefix(device.name, b.source.topic, b.read, b.message.name),
-      props: ICD.Stored.of(device.properties.read, storedSource(b.source), b.read),
+      props: ICD.Stored.of(stored, storedSource(b.source), b.read),
     })),
     ...tags.map((entry) => ({
       entry,
@@ -905,14 +901,7 @@ const Plans = ({ device, children }: PlansProps): ReactElement => {
     })),
   ];
   const plans = Task.useChannelPlans<SourcePlan>(sources, async (client, signal) => {
-    const plan = await planRead(
-      client,
-      device,
-      bound,
-      tags,
-      writtenChannels(entries),
-      signal,
-    );
+    const plan = await planRead(client, device, bound, tags, entries, signal);
     return [
       ...plan.messages.map((p): SourcePlan => ({ type: "message", plan: p })),
       ...plan.tags.map((p): SourcePlan => ({ type: "tag", plan: p })),
@@ -971,14 +960,7 @@ const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device.Device>)
   );
   return (
     <>
-      {unique.unique(plain.map((e) => e.icd)).reduceRight(
-        (child, key) => (
-          <ICD.WithFormat key={key} icdKey={key}>
-            {child}
-          </ICD.WithFormat>
-        ),
-        body,
-      )}
+      <ICD.WithFormats icdKeys={plain.map((e) => e.icd)}>{body}</ICD.WithFormats>
       <Task.BindChannels path={root.config.entries} resolve={resolve} />
     </>
   );
@@ -1003,20 +985,21 @@ interface ReadPlan {
 
 /**
  * Plans the channels of each message and then each tag, in deploy order with one
- * namer. A message plans with written and the channels that earlier ones keep, so it
- * leaves a stored channel that another binding writes. Reads from the Core alone, and
- * changes no argument. Throws between sources once signal aborts.
+ * namer. A message plans with the channels that entries bind and that earlier messages
+ * keep, so it leaves a stored channel that another binding writes. Reads from the Core
+ * alone, and changes no argument. Throws between sources once signal aborts.
  */
 const planRead = async (
   client: Synnax,
   dev: Pick<Device.Device, "name" | "properties">,
   bound: ICD.BoundMessage<PlainReadEntry>[],
   tags: SparkplugReadEntry[],
-  written: ReadonlySet<channel.Key>,
+  entries: ReadEntry[],
   signal?: AbortSignal,
 ): Promise<ReadPlan> => {
   const namer = Task.createNamer(client);
-  const kept = new Set(written);
+  const kept = writtenChannels(entries);
+  const stored = splitStored(dev.properties.read, entries);
   const messages: ICD.MessagePlan[] = [];
   for (const b of bound) {
     signal?.throwIfAborted();
@@ -1026,7 +1009,7 @@ const planRead = async (
       namer,
       b,
       messagePrefix(dev.name, entry.topic, r, message.name),
-      ICD.Stored.of(dev.properties.read, storedSource(entry), r),
+      ICD.Stored.of(stored, storedSource(entry), r),
       kept,
     );
     ICD.keptChannels(plan).forEach((ch) => kept.add(ch));
@@ -1067,8 +1050,7 @@ const applyTag = async (
 
 /**
  * Gives each field that a message reads its channel, as plan plans it, and stores the
- * channels under the message in place of the bare topic, where an older Console stored
- * them.
+ * channels under the message.
  */
 const applyMessage = async (
   client: Synnax,
@@ -1077,10 +1059,8 @@ const applyMessage = async (
   plan: ICD.MessagePlan,
 ): Promise<void> => {
   const { source: entry, read: r } = bound;
-  const { read } = dev.properties;
-  ICD.Stored.moveLegacy(read, storedSource(entry), r);
   await ICD.applyMessage(client, bound, plan, {
-    read,
+    read: dev.properties.read,
     key: ICD.Stored.key(entry.topic, entry.messages[r].message),
   });
 };
@@ -1105,14 +1085,11 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
   );
   const before = deep.copy(dev.properties);
   try {
+    // Each entry gets its share of the channels stored under its topic, even when it is
+    // disabled or a create below fails.
+    dev.properties.read = splitStored(dev.properties.read, config.entries);
     const tags = enabled.filter((e) => e.type === "sparkplug");
-    const plan = await planRead(
-      client,
-      dev,
-      bound,
-      tags,
-      writtenChannels(config.entries),
-    );
+    const plan = await planRead(client, dev, bound, tags, config.entries);
     for (const [i, message] of bound.entries())
       await applyMessage(client, dev, message, plan.messages[i]);
     for (const [i, entry] of tags.entries())

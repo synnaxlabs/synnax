@@ -15,6 +15,7 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/icd/read"
 	icdv0 "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v0"
@@ -68,7 +69,7 @@ func (r readResolver) resolve(
 		}
 		icds[ic.Key] = ic
 	}
-	if err = r.check(ctx, snap, cfg, icds); err != nil || !ok {
+	if _, err = check(ctx, snap, r.reads, cfg, icds); err != nil || !ok {
 		return nil, err
 	}
 	return func(ctx context.Context, tx gorp.Tx) error {
@@ -88,16 +89,18 @@ func (r readResolver) hash(
 }
 
 // check checks each enabled entry of cfg, in order, against its ICD, from icds or else
-// read through snap, and its channels.
-func (r readResolver) check(
+// read through snap, and its channels. It returns the Checker that holds the claims of
+// cfg. A task save and a task configure both run it.
+func check(
 	ctx context.Context,
 	snap gorp.Snapshot,
+	resolver read.Resolver,
 	cfg *ReadConfig,
 	icds map[icd.Key]icd.ICD,
-) error {
-	c, err := r.reads.NewChecker(ctx, snap, readsOf(cfg), icds)
+) (read.Checker, error) {
+	c, err := resolver.NewChecker(ctx, snap, readsOf(cfg), tagsOf(cfg), icds)
 	if err != nil {
-		return err
+		return read.Checker{}, err
 	}
 	for i, e := range cfg.Entries {
 		switch entry := e.Variant.(type) {
@@ -109,6 +112,29 @@ func (r readResolver) check(
 			if !entry.Disabled && entry.Channel != 0 {
 				path := []string{"entries", strconv.Itoa(i), "channel"}
 				err = c.Claim(entry.Channel, path)
+			}
+		}
+		if err != nil {
+			return read.Checker{}, err
+		}
+	}
+	return c, nil
+}
+
+// claimIndexes claims in c, the Checker that check returned for cfg, each index channel
+// whose timestamps an enabled entry of cfg writes.
+func claimIndexes(c read.Checker, cfg *ReadConfig) error {
+	for i, e := range cfg.Entries {
+		var err error
+		switch entry := e.Variant.(type) {
+		case PlainReadEntry:
+			if !entry.Disabled {
+				err = c.ClaimIndexes(readOf(i, entry))
+			}
+		case SparkplugReadEntry:
+			if !entry.Disabled && entry.Channel != 0 {
+				path := []string{"entries", strconv.Itoa(i), "channel"}
+				err = c.ClaimIndex(entry.Channel, path)
 			}
 		}
 		if err != nil {
@@ -127,6 +153,18 @@ func readsOf(cfg *ReadConfig) []read.Read {
 		}
 	}
 	return reads
+}
+
+// tagsOf returns the channel of each enabled Sparkplug B entry of cfg.
+func tagsOf(cfg *ReadConfig) []channel.Key {
+	var tags []channel.Key
+	for _, e := range cfg.Entries {
+		if entry, ok := e.Variant.(SparkplugReadEntry); ok && !entry.Disabled &&
+			entry.Channel != 0 {
+			tags = append(tags, entry.Channel)
+		}
+	}
+	return tags
 }
 
 // readOf returns the read of e, the plain entry at i of a config.

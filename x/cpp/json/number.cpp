@@ -19,7 +19,9 @@
 #include <string>
 #include <string_view>
 #include <system_error>
+#include <type_traits>
 #include <utility>
+#include <variant>
 
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/decimal.h"
@@ -220,6 +222,7 @@ std::pair<Number, errors::Error> Number::parse(const std::string_view text) {
     n.kind = Kind::Float;
     n.f = *v;
     n.fraction = d->fraction;
+    n.out_of_range = !d->fraction && d->magnitude != 0;
     n.text = text;
     return {std::move(n), errors::NIL};
 }
@@ -333,6 +336,23 @@ errors::Error append_float(const double v, std::string &out) {
     return errors::NIL;
 }
 
+std::optional<Number> to_number(const telem::SampleValue &v) {
+    return std::visit(
+        [](const auto &s) -> std::optional<Number> {
+            using T = std::decay_t<decltype(s)>;
+            if constexpr (std::is_floating_point_v<T>)
+                return Number(static_cast<double>(s));
+            else if constexpr (std::is_integral_v<T> && std::is_signed_v<T>)
+                return Number(static_cast<std::int64_t>(s));
+            else if constexpr (std::is_integral_v<T>)
+                return Number(static_cast<std::uint64_t>(s));
+            else
+                return std::nullopt;
+        },
+        v
+    );
+}
+
 bool Number::integral() const {
     return this->kind != Kind::Float ||
            (!this->fraction && this->f == std::trunc(this->f));
@@ -347,7 +367,7 @@ bool Number::within(const std::int64_t lo, const std::uint64_t hi) const {
         case Kind::Float:
             // static_cast<double>(hi) + 1 rounds to the first value past hi for every
             // integer type.
-            return this->f >= static_cast<double>(lo) &&
+            return !this->out_of_range && this->f >= static_cast<double>(lo) &&
                    this->f < static_cast<double>(hi) + 1;
     }
     return false;

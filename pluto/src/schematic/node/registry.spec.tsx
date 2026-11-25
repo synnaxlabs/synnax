@@ -105,7 +105,7 @@ describe("Schematic.Node.STATIC_SPECS", () => {
     expect(keys).not.toContain(GroupBox.VARIANT);
   });
 
-  it("should not include the symbol placeholder", () => {
+  it("should not include the symbol variant", () => {
     expect(Node.STATIC_SPECS.map((s) => s.key)).not.toContain("symbol");
   });
 

@@ -644,6 +644,32 @@ var _ = Describe("Parser", func() {
 		})
 	})
 
+	Describe("Duration Defaults", func() {
+		DescribeTable("Should lex a duration literal as one token",
+			func(lit string) {
+				schema := MustSucceed(parser.Parse(
+					"Cfg struct {\n    t telem.TimeSpan = " + lit + "\n}",
+				))
+				structDef := asStructFull(schema.Definition(0).StructDef())
+				def := structDef.StructBody().FieldDef(0).FieldDefault()
+				Expect(def.DURATION_LIT().GetText()).To(Equal(lit))
+			},
+			Entry("one unit", "5s"),
+			Entry("a two-letter unit", "250ms"),
+			Entry("a fraction", "1.5us"),
+			Entry("a compound", "1h2m3s4ms5us6ns"),
+			Entry("a negative", "-2m"),
+		)
+
+		It("Should lex a number with no unit as an integer", func() {
+			schema := MustSucceed(parser.Parse("Cfg struct {\n    t int64 = 5\n}"))
+			structDef := asStructFull(schema.Definition(0).StructDef())
+			def := structDef.StructBody().FieldDef(0).FieldDefault()
+			Expect(def.DURATION_LIT()).To(BeNil())
+			Expect(def.ExpressionValue().INT_LIT().GetText()).To(Equal("5"))
+		})
+	})
+
 	Describe("Struct Aliases", func() {
 		It("Should parse a simple struct alias", func() {
 			schema := MustSucceed(parser.Parse(`Status = status.Status<Details>`))

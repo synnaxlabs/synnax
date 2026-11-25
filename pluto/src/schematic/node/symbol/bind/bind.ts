@@ -10,6 +10,7 @@
 import type { channel, schematic } from "@synnaxlabs/client";
 import { unique } from "@synnaxlabs/x";
 
+import type { Custom } from "@/schematic/node/common/custom";
 import { Telem } from "@/schematic/node/common/telem";
 import type { telem } from "@/telem/aether";
 import type { symbolNode } from "@/vis/symbolNode/aether";
@@ -81,6 +82,24 @@ export const values = (
       source?.type === "local" ? source.value : reading(readings, source)?.value;
     if (v != null) out.set(key, v);
   }
+  return out;
+};
+
+/**
+ * @returns the reading of each bound state that has a source, by its key. A state whose
+ * channel has no data reads as NaN.
+ */
+export const stateReadings = (
+  bindings: Sourced[],
+  readings: Record<string, symbolNode.Reading>,
+): Record<string, Custom.Reading> => {
+  const out: Record<string, Custom.Reading> = {};
+  for (const { key, source } of bindings)
+    if (source?.type === "local") out[key] = { value: source.value };
+    else if (source?.type === "channel" && source.key != null) {
+      const r = reading(readings, source);
+      out[key] = { value: r?.value ?? NaN, stale: r?.stale };
+    }
   return out;
 };
 

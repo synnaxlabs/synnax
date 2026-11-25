@@ -123,6 +123,19 @@ TEST(Number, ConvertsWholeDoubleToInteger) {
     ASSERT_EQ(n.to_uint64(), 3U);
 }
 
+/// @brief it should convert a numeric sample to a number without losing precision.
+TEST(Number, ConvertsSample) {
+    const auto max = std::numeric_limits<std::uint64_t>::max();
+    ASSERT_EQ(to_number(max).value().to_uint64(), max);
+    ASSERT_EQ(to_number(std::int8_t{-3}).value().to_int64(), -3);
+    ASSERT_EQ(to_number(0.5F).value().to_float64(), 0.5);
+}
+
+/// @brief it should not convert a sample that is not numeric.
+TEST(Number, RejectsSampleThatIsNotNumeric) {
+    ASSERT_FALSE(to_number(std::string("1")).has_value());
+}
+
 /// @brief it should hold a fraction only as a double.
 TEST(Number, ParsesFraction) {
     expect_number("2.5", std::nullopt, std::nullopt, 2.5);
@@ -173,6 +186,14 @@ TEST(NumberCheckFits, RejectsUint64ForInt64) {
     const auto err = fits("18446744073709551615", telem::INT64_T);
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
     ASSERT_EQ(err.data, "18446744073709551615 is out of range for int64");
+}
+
+/// @brief it should reject an integer below an int64 that a double rounds to the
+/// smallest int64.
+TEST(NumberCheckFits, RejectsIntegerBelowInt64) {
+    const auto err = fits("-9223372036854775809", telem::INT64_T);
+    ASSERT_OCCURRED_AS(err, errors::VALIDATION);
+    ASSERT_EQ(err.data, "-9223372036854775809 is out of range for int64");
 }
 
 /// @brief it should reject a negative number for an unsigned data type.

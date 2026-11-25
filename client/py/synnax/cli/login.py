@@ -13,6 +13,7 @@ import sys
 from synnax import config
 from synnax.cli import connect
 from synnax.cli.prompt import Prompt
+from synnax.exceptions import ConfigurationError
 
 
 def login() -> bool:
@@ -23,4 +24,10 @@ def login() -> bool:
     # stdin is a pipe. A frontend such as Jupyter replaces it with a masked prompt.
     masked = sys.stdin.isatty() or getpass.getpass.__module__ != "getpass"
     read_secret = getpass.getpass if masked else input
-    return connect.login(Prompt(read_secret=read_secret), config.default_clusters())
+    prompt = Prompt(read_secret=read_secret)
+    try:
+        clusters = config.default_clusters()
+    except ConfigurationError as e:
+        prompt.error(str(e))
+        return False
+    return connect.login(prompt, clusters)

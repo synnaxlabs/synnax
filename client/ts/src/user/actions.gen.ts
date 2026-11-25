@@ -51,23 +51,12 @@ export const movePayloadZ = patch.moveZ;
 
 export type MovePayload = patch.Move;
 
-/**
- * SetUsername changes the username of the user's password. The Core refuses a username
- * that another user holds.
- */
-export const setUsernamePayloadZ = z.object({
-  username: z.string(),
-});
-
-export type SetUsernamePayload = z.infer<typeof setUsernamePayloadZ>;
-
 export type Action =
   | { type: "create"; create: CreatePayload }
   | { type: "set"; set: SetPayload }
   | { type: "remove"; remove: RemovePayload }
   | { type: "insert"; insert: InsertPayload }
-  | { type: "move"; move: MovePayload }
-  | { type: "set_username"; setUsername: SetUsernamePayload };
+  | { type: "move"; move: MovePayload };
 
 export const actionZ: z.ZodType<Action> = z.discriminatedUnion("type", [
   z.object({ type: z.literal("create"), create: createPayloadZ }),
@@ -75,7 +64,6 @@ export const actionZ: z.ZodType<Action> = z.discriminatedUnion("type", [
   z.object({ type: z.literal("remove"), remove: removePayloadZ }),
   z.object({ type: z.literal("insert"), insert: insertPayloadZ }),
   z.object({ type: z.literal("move"), move: movePayloadZ }),
-  z.object({ type: z.literal("set_username"), setUsername: setUsernamePayloadZ }),
 ]);
 
 export const create = (payload: z.input<typeof createPayloadZ>): Action => ({
@@ -113,13 +101,6 @@ export const move = (payload: z.input<typeof movePayloadZ>): Action => ({
   }),
 });
 
-export const setUsername = (payload: z.input<typeof setUsernamePayloadZ>): Action => ({
-  type: "set_username",
-  setUsername: zod.parse(setUsernamePayloadZ, payload, {
-    label: "user set_username action payload",
-  }),
-});
-
 export type HandlerResult = actions.HandlerResult<Action>;
 
 export type ReduceAllResult = actions.ReduceAllResult<User, Action>;
@@ -130,7 +111,6 @@ export interface Handlers {
   remove: (state: Draft<User>, payload: RemovePayload) => HandlerResult;
   insert: (state: Draft<User>, payload: InsertPayload) => HandlerResult;
   move: (state: Draft<User>, payload: MovePayload) => HandlerResult;
-  setUsername: (state: Draft<User>, payload: SetUsernamePayload) => HandlerResult;
 }
 
 export const createReduceAll = (handlers: Handlers) =>
@@ -146,8 +126,6 @@ export const createReduceAll = (handlers: Handlers) =>
         return handlers.insert(state, action.insert);
       case "move":
         return handlers.move(state, action.move);
-      case "set_username":
-        return handlers.setUsername(state, action.setUsername);
     }
   });
 

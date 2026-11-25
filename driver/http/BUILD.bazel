@@ -32,6 +32,7 @@ cc_library(
         "//driver/http/processor",
         "//driver/http/types",
         "//driver/icd",
+        "//driver/icd:retrieve",
         "//driver/pipeline",
         "//driver/task",
         "//x/cpp/json",

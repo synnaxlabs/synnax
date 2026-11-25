@@ -83,10 +83,11 @@ Certificate union on source secret.Source extends Base {
         @doc value "is a certificate in files on the computer that uses it."
     }
 
-    @doc value  """
+    @doc value     """
         is a public certificate that a device uses to secure a connection, with the
         private key that proves it when there is one.
     """
     @go marshal
     @go migrate
+    @resource type "certificate"
 }

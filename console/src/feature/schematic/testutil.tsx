@@ -217,13 +217,30 @@ export const renderSchematicTree = async (overrides: Partial<schematic.New> = {}
 
 /**
  * Finds the action button inside the symbol-edit sidebar section header with the
- * given title (e.g. the add button of the "Colors" or "Handles" section).
+ * given title (e.g. the add button of the "Parts" or "Handles" section).
  */
 export const getEditSectionHeaderButton = (title: string): HTMLButtonElement => {
   const header = screen.getByText(title).closest("header");
   const button = header?.querySelector("button");
   assertDefined(button, `no button in section header ${title}`);
   return button;
+};
+
+/** Returns the inspector of the symbol editor. */
+export const getInspector = (): HTMLElement => {
+  const inspector = document.querySelector<HTMLElement>(".console-schematic-inspector");
+  assertDefined(inspector, "no symbol-edit inspector");
+  return inspector;
+};
+
+/** Returns the item in the symbol-edit part list that shows name. */
+export const getPartListItem = (name: string): HTMLElement => {
+  const item = screen
+    .getAllByText(name)
+    .map((el) => el.closest<HTMLElement>(".console-schematic-part-list-item"))
+    .find((el) => el != null);
+  assertDefined(item, `no part list item ${name}`);
+  return item;
 };
 
 /** Returns the symbol-edit preview overlay handles with the given orientation. */
