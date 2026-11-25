@@ -353,7 +353,8 @@ func (w Writer) Rename(
 }
 
 // RenameMany renames the channels with the given keys to the corresponding entries in
-// newNames, which must be parallel to keys, and attaches a rename action for each one.
+// newNames, which must be parallel to keys, attaches a rename action for each one, and
+// announces the renames.
 // Unless allowInternal is true, renaming any internal channel returns an error. The
 // error of a name that is not valid is a BatchError at its position in keys.
 func (w Writer) RenameMany(
@@ -370,7 +371,10 @@ func (w Writer) RenameMany(
 			NewRenameAction(RenamePayload{Name: newNames[i]}),
 		)
 	}
-	return nil
+	if w.svc.cfg.AnnounceRenamed == nil {
+		return nil
+	}
+	return w.svc.cfg.AnnounceRenamed(ctx, w.tx, keys...)
 }
 
 // create orchestrates channel creation: it validates names, resolves existing channels,

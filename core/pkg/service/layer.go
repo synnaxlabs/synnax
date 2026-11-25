@@ -477,6 +477,13 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		) error {
 			return l.Calculation.AnnounceOutputs(ctx, tx, w, keys...)
 		},
+		AnnounceRenamed: func(
+			ctx context.Context,
+			tx gorp.Tx,
+			keys ...channel.Key,
+		) error {
+			return l.Calculation.AnnounceRenamed(ctx, tx, keys...)
+		},
 		Computes: func(u channel.Use) bool {
 			return u.Holder.Table == string(resource.TypeCalculation) &&
 				u.Direction == channel.DirectionWrite

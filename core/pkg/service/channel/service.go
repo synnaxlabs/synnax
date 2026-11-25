@@ -80,6 +80,11 @@ type ServiceConfig struct {
 	//
 	// [OPTIONAL] - Defaults to announcing nothing.
 	AnnounceLinked func(ctx context.Context, tx gorp.Tx, w Writer, keys ...Key) error
+	// AnnounceRenamed announces, in tx, that the channels with keys took new names, so
+	// a record that takes its name from one of them is read again.
+	//
+	// [OPTIONAL] - Defaults to announcing nothing.
+	AnnounceRenamed func(ctx context.Context, tx gorp.Tx, keys ...Key) error
 	// Computes reports whether the holder of a use computes the channel, as a
 	// calculation computes the channel it writes. Declare never adopts a computed
 	// channel as a built-in.
@@ -114,6 +119,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Status = override.Nil(c.Status, other.Status)
 	c.ValidateNames = override.Nil(c.ValidateNames, other.ValidateNames)
 	c.AnnounceLinked = override.Nil(c.AnnounceLinked, other.AnnounceLinked)
+	c.AnnounceRenamed = override.Nil(c.AnnounceRenamed, other.AnnounceRenamed)
 	c.Computes = override.Nil(c.Computes, other.Computes)
 	return c
 }

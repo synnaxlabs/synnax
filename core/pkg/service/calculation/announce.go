@@ -80,6 +80,25 @@ func (s *Service) AnnounceOutputs(
 	return nil
 }
 
+// AnnounceRenamed attaches, in tx, a set of its reads to each calculation whose output
+// is among keys. The set changes nothing, and tells each client to read again the name
+// that the calculation takes from its output.
+func (s *Service) AnnounceRenamed(
+	ctx context.Context,
+	tx gorp.Tx,
+	keys ...channel.Key,
+) error {
+	calcs, err := s.Outputs(ctx, tx, keys...)
+	if err != nil {
+		return err
+	}
+	w := s.NewWriter(tx)
+	for _, c := range calcs {
+		w.attach(c, NewSetAction(SetPayload{Path: []string{"reads"}, Value: c.Reads}))
+	}
+	return nil
+}
+
 // ChannelBatchChecks returns the lookup of the check of each channel action batch that
 // c holds, by the key of its channel and its number. A batch that announces the
 // expression and operations of an output goes only to a subject who reads the
