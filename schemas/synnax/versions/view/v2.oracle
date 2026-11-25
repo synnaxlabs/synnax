@@ -39,10 +39,11 @@ View union on type Type extends Base {
         @doc value "is a saved view of statuses."
     }
 
-    @doc value  """
+    @doc value     """
         is a saved, named filter over a list of resources. The type selects the resource
         the view lists and the shape of its where.
     """
     @go marshal
     @go migrate
+    @resource type "view"
 }
