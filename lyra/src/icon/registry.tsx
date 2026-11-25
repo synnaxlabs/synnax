@@ -48,7 +48,6 @@ import {
   FaDocker,
   FaLinux,
   FaMicrophone,
-  FaMicrosoft,
   FaRegStar,
   FaSalesforce,
   FaStar,
@@ -231,7 +230,6 @@ import {
   SiFusionauth,
   SiGitea,
   SiGitlab,
-  SiGoogle,
   SiKeycloak,
   SiMqtt,
   SiNodedotjs,
@@ -289,11 +287,20 @@ import {
 
 import { CSS } from "@/css";
 import { Bridge } from "@/icon/Bridge";
+import { withBrandColor } from "@/icon/Colored";
 import { Device } from "@/icon/Device";
 import { EtherCAT } from "@/icon/EtherCAT";
 import { Fitting } from "@/icon/Fitting";
 import { type IconProps, type ReactElement, wrapSVGIcon } from "@/icon/Icon";
-import { Duo, JumpCloud, OneLogin, PingIdentity, Zitadel } from "@/icon/Identity";
+import {
+  Duo,
+  Google,
+  JumpCloud,
+  Microsoft,
+  OneLogin,
+  PingIdentity,
+  Zitadel,
+} from "@/icon/Identity";
 import { LabJack } from "@/icon/LabJack";
 import { Modbus } from "@/icon/Modbus";
 import { New } from "@/icon/New";
@@ -439,37 +446,37 @@ export const Menu = wrapSVGIcon(GiHamburgerMenu, "menu");
 export const Sidebar = wrapSVGIcon(TbLayoutSidebar, "sidebar");
 export const Logo = {
   Apple: wrapSVGIcon(FaApple, "logo-apple"),
-  Auth0: wrapSVGIcon(SiAuth0, "logo-auth0"),
-  Authelia: wrapSVGIcon(SiAuthelia, "logo-authelia"),
-  Authentik: wrapSVGIcon(SiAuthentik, "logo-authentik"),
-  AWS: wrapSVGIcon(FaAws, "logo-aws"),
-  Cloudflare: wrapSVGIcon(SiCloudflare, "logo-cloudflare"),
-  Docker: wrapSVGIcon(FaDocker, "logo-docker"),
+  Auth0: withBrandColor(wrapSVGIcon(SiAuth0, "logo-auth0"), "#EB5424"),
+  Authelia: withBrandColor(wrapSVGIcon(SiAuthelia, "logo-authelia"), "#113155"),
+  Authentik: withBrandColor(wrapSVGIcon(SiAuthentik, "logo-authentik"), "#FD4B2D"),
+  AWS: withBrandColor(wrapSVGIcon(FaAws, "logo-aws"), "#FF9900"),
+  Cloudflare: withBrandColor(wrapSVGIcon(SiCloudflare, "logo-cloudflare"), "#F38020"),
+  Docker: withBrandColor(wrapSVGIcon(FaDocker, "logo-docker"), "#2496ED"),
   Duo,
-  FusionAuth: wrapSVGIcon(SiFusionauth, "logo-fusionauth"),
-  Gitea: wrapSVGIcon(SiGitea, "logo-gitea"),
+  FusionAuth: withBrandColor(wrapSVGIcon(SiFusionauth, "logo-fusionauth"), "#F58320"),
+  Gitea: withBrandColor(wrapSVGIcon(SiGitea, "logo-gitea"), "#609926"),
   Github: wrapSVGIcon(AiFillGithub, "logo-github"),
-  GitLab: wrapSVGIcon(SiGitlab, "logo-gitlab"),
-  Google: wrapSVGIcon(SiGoogle, "logo-google"),
+  GitLab: withBrandColor(wrapSVGIcon(SiGitlab, "logo-gitlab"), "#FC6D26"),
+  Google,
   JumpCloud,
   Keycloak: wrapSVGIcon(SiKeycloak, "logo-keycloak"),
   LabJack,
-  LinkedIn: wrapSVGIcon(AiFillLinkedin, "logo-linkedin"),
-  Linux: wrapSVGIcon(FaLinux, "logo-linux"),
-  Microsoft: wrapSVGIcon(FaMicrosoft, "logo-microsoft"),
+  LinkedIn: withBrandColor(wrapSVGIcon(AiFillLinkedin, "logo-linkedin"), "#0A66C2"),
+  Linux: withBrandColor(wrapSVGIcon(FaLinux, "logo-linux"), "#FCC624"),
+  Microsoft,
   Modbus,
-  MQTT: wrapSVGIcon(SiMqtt, "logo-mqtt"),
-  NI,
-  Okta: wrapSVGIcon(SiOkta, "logo-okta"),
+  MQTT: withBrandColor(wrapSVGIcon(SiMqtt, "logo-mqtt"), "#660066"),
+  NI: withBrandColor(NI, "#03B584"),
+  Okta: withBrandColor(wrapSVGIcon(SiOkta, "logo-okta"), "#007DC1"),
   OneLogin,
-  OpenID: wrapSVGIcon(SiOpenid, "logo-openid"),
-  Ory: wrapSVGIcon(SiOry, "logo-ory"),
+  OpenID: withBrandColor(wrapSVGIcon(SiOpenid, "logo-openid"), "#F78C40"),
+  Ory: withBrandColor(wrapSVGIcon(SiOry, "logo-ory"), "#4F46E5"),
   OPCUA,
-  PagerDuty: wrapSVGIcon(SiPagerduty, "logo-pagerduty"),
+  PagerDuty: withBrandColor(wrapSVGIcon(SiPagerduty, "logo-pagerduty"), "#06AC38"),
   PingIdentity,
-  Salesforce: wrapSVGIcon(FaSalesforce, "logo-salesforce"),
+  Salesforce: withBrandColor(wrapSVGIcon(FaSalesforce, "logo-salesforce"), "#00A1E0"),
   Sift,
-  Windows: wrapSVGIcon(FaWindows, "logo-windows"),
+  Windows: withBrandColor(wrapSVGIcon(FaWindows, "logo-windows"), "#0078D4"),
   EtherCAT,
   Zitadel,
   // Crops the view box to the mark, which fills only a thin strip of the original.
