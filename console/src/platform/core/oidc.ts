@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { auth, AuthError } from "@synnaxlabs/client";
+import { auth, AuthError, InvalidCredentialsError } from "@synnaxlabs/client";
 import { errors } from "@synnaxlabs/x";
 import { invoke } from "@tauri-apps/api/core";
 import { z } from "zod";
 
 import { writeToken } from "@/platform/core/token";
 import { Runtime } from "@/platform/runtime";
-import type { Session } from "@/session";
+import { Session } from "@/session";
 
 /** The scopes a login asks the provider for: the ID token, with the `name` claim. */
 const SCOPES = "openid profile";
@@ -155,6 +155,38 @@ export const redeemInvite = async (
     if (!AuthError.matches(e)) throw errors.fromUnknown(e);
     throw new Error(INVITE_REFUSED, { cause: e });
   }
+};
+
+/**
+ * Gives the invited user its first username and password and opens a session, without
+ * a logged-in client. The desktop Console saves the session's token in the keychain.
+ * @param invite - The invite code.
+ * @param cookie - Whether the Core keeps the session's token in a cookie.
+ * @returns The session's token, which is empty when the cookie holds it.
+ * @throws {Error} with a message for the person, caused by the Core's error, when the
+ * Core refuses the invite code.
+ * @throws the Core's error when it refuses the username or password.
+ */
+export const redeemInviteWithPassword = async (
+  core: Pick<Session.Core.Core, "key" | "host" | "port" | "secure">,
+  invite: string,
+  credentials: auth.Credentials,
+  cookie = false,
+): Promise<string> => {
+  let token: string;
+  try {
+    ({ token } = await auth.redeemInviteWithPassword(auth.createTokenlessClient(core), {
+      token: invite,
+      credentials,
+      cookie,
+    }));
+  } catch (e) {
+    if (!InvalidCredentialsError.matches(e)) throw errors.fromUnknown(e);
+    throw new Error(INVITE_REFUSED, { cause: e });
+  }
+  if (Session.Runtime.ENGINE === "tauri")
+    await writeToken({ ...core, username: "" }, token);
+  return token;
 };
 
 /**

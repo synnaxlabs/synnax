@@ -37,9 +37,13 @@ import {
 } from "vitest";
 
 // A serving Core skips the Core step, and detection reports one for every browser
-// build. The module is the only seam.
+// build. The module is the only seam. A spec may still serve the page from the Core,
+// which keeps a redeemed session in a cookie.
+const page = vi.hoisted((): { served: boolean } => ({ served: false }));
+
 vi.mock("@/platform/core/detectConnection", () => ({
   detectConnection: () => null,
+  servesPage: () => page.served,
 }));
 
 const runtime = vi.hoisted((): { engine: "web" | "tauri" } => ({ engine: "web" }));
@@ -50,7 +54,12 @@ vi.mock("@/session/runtime", async (importOriginal) => {
 });
 
 import { Auth } from "@/feature/auth";
-import { serveOIDC, type ServeOIDCParams } from "@/platform/core/server/testutil";
+import {
+  createHold,
+  serveOIDC,
+  type ServeOIDCParams,
+} from "@/platform/core/server/testutil";
+import { findButton } from "@/platform/modals/testutil";
 import { Session } from "@/session";
 import { createCore } from "@/session/core/testutil";
 import {
@@ -491,6 +500,162 @@ describe("Auth login", () => {
     await expectAlways(() => expect(screen.queryByText(INVITE_CONTROL)).toBeNull());
   });
 
+  describe("an invite redeemed with a password", () => {
+    const redeemWithPassword = async (): Promise<void> => {
+      expect(await screen.findByText("Choose a username and password")).toBeTruthy();
+      fireEvent.change(screen.getByPlaceholderText(USERNAME_PLACEHOLDER), {
+        target: { value: "ada" },
+      });
+      fireEvent.change(screen.getByPlaceholderText("seldon"), {
+        target: { value: "secret" },
+      });
+      fireEvent.click(screen.getByText("Redeem invite"));
+    };
+
+    it("should offer it on a Core without providers", async () => {
+      const { core } = await serveInvites({
+        methods: ["password", "oidc"],
+        providers: [],
+      });
+      await renderLogin(core);
+      await typeInviteCode();
+      expect(await screen.findByText("Redeem invite")).toBeTruthy();
+      expect(screen.queryByText("Log in with company-sso")).toBeNull();
+    });
+
+    it("should set the credentials and open the session", async () => {
+      const { server, core } = await serveInvites({ methods: ["password", "oidc"] });
+      // the session wrapper builds a client from the raw record, which a token-only
+      // record does not satisfy; the production params drop its empty username
+      const { store } = await renderLogin(core, createConsoleWrapper, BETA, {
+        core: core.key,
+        code: INVITE_CODE,
+      });
+      await redeemWithPassword();
+      await vi.waitFor(() => expect(store.getState().core.selected).toBe(core.key));
+      expect(server.redeemed).toEqual([
+        {
+          token: INVITE_CODE,
+          credentials: { username: "ada", password: "secret" },
+          cookie: false,
+        },
+      ]);
+      expect(server.sessionsCreated).toBe(0);
+      const record = store.getState().core.cores[core.key];
+      expect(record.token).toBe("sys_invited");
+      expect(record.password).toBe("");
+      expect(store.getState()[Session.Link.SLICE_NAME].invite).toBeNull();
+    });
+
+    it("should show the Core's refusal of a username and keep the invite", async () => {
+      const { core } = await serveInvites({
+        methods: ["password", "oidc"],
+        providers: [],
+        usernameTaken: true,
+      });
+      const { container, store } = await renderLogin(core, undefined, BETA, {
+        core: core.key,
+        code: INVITE_CODE,
+      });
+      await redeemWithPassword();
+      await vi.waitFor(() =>
+        expect(getBySelector(container, ERROR).textContent).toContain(
+          "username ada already exists",
+        ),
+      );
+      expect(store.getState().core.selected).toBeUndefined();
+      expect(store.getState()[Session.Link.SLICE_NAME].invite).not.toBeNull();
+    });
+
+    it("should drop a refusal once the person cancels the invite", async () => {
+      const { core } = await serveInvites({
+        methods: ["password", "oidc"],
+        providers: [],
+        inviteRefused: true,
+      });
+      const { container } = await renderLogin(core);
+      await typeInviteCode();
+      await redeemWithPassword();
+      await vi.waitFor(() =>
+        expect(getBySelector(container, ERROR).classList).not.toContain(GHOST),
+      );
+      fireEvent.click(screen.getByText("Cancel"));
+      await vi.waitFor(() =>
+        expect(getBySelector(container, ERROR).classList).toContain(GHOST),
+      );
+    });
+
+    it("should hold the button while a redeem runs", async () => {
+      const hold = createHold("/auth/oidc/invite/redeem-password");
+      const { server, core } = await serveInvites({
+        methods: ["password", "oidc"],
+        providers: [],
+        hold,
+      });
+      const { store } = await renderLogin(core, createConsoleWrapper, BETA, {
+        core: core.key,
+        code: INVITE_CODE,
+      });
+      await redeemWithPassword();
+      await vi.waitFor(() =>
+        expect(findButton("Redeem invite").getAttribute("aria-disabled")).toBe("true"),
+      );
+      fireEvent.click(screen.getByText("Redeem invite"));
+      hold.release();
+      await vi.waitFor(() => expect(store.getState().core.selected).toBe(core.key));
+      expect(server.redeemed).toHaveLength(1);
+    });
+
+    it("should leave the session to a cookie on a page the Core serves", async () => {
+      page.served = true;
+      onTestFinished(() => {
+        page.served = false;
+      });
+      const { server, core } = await serveInvites({
+        methods: ["password", "oidc"],
+        providers: [],
+      });
+      const { store } = await renderLogin(core, createConsoleWrapper, BETA, {
+        core: core.key,
+        code: INVITE_CODE,
+      });
+      await redeemWithPassword();
+      await vi.waitFor(() => expect(store.getState().core.selected).toBe(core.key));
+      expect(server.redeemed[0].cookie).toBe(true);
+      expect(store.getState().core.cores[core.key].token).toBeUndefined();
+    });
+
+    it("should not redeem without an invite code", async () => {
+      const { core } = await serveInvites({
+        methods: ["password", "oidc"],
+        providers: [],
+      });
+      await renderLogin(core);
+      fireEvent.click(await screen.findByText(ALPHA.name));
+      fireEvent.click(await screen.findByText(INVITE_CONTROL));
+      expect(await screen.findByText("Redeem invite")).toBeTruthy();
+      expect(findButton("Redeem invite").getAttribute("aria-disabled")).toBe("true");
+    });
+
+    it("should explain a refused invite code and open no session", async () => {
+      const { core } = await serveInvites({
+        methods: ["password", "oidc"],
+        providers: [],
+        inviteRefused: true,
+      });
+      const { container, store, statuses } = await renderLogin(core);
+      await typeInviteCode();
+      await redeemWithPassword();
+      await vi.waitFor(() =>
+        expect(getBySelector(container, ERROR).textContent).toBe(
+          "This invite code is not valid. Ask your administrator for a new one.",
+        ),
+      );
+      expect(statuses()).toEqual([]);
+      expect(store.getState().core.selected).toBeUndefined();
+    });
+  });
+
   it("should hide the invite code field until the person asks for it", async () => {
     const { core } = await serveInvites();
     await renderLogin(core);
@@ -541,24 +706,6 @@ describe("Auth login", () => {
       fireEvent.click(screen.getByText("Cancel"));
       expect(await screen.findByText(INVITE_CONTROL)).toBeTruthy();
       expect(store.getState()[Session.Link.SLICE_NAME].invite).toBeNull();
-    });
-
-    it("should drop the code when a password logs in", async () => {
-      const { core } = await serveInvites({ methods: ["password", "oidc"] });
-      const { store } = await renderLogin(core, undefined, BETA, {
-        core: core.key,
-        code: INVITE_CODE,
-      });
-      fireEvent.change(await screen.findByPlaceholderText(USERNAME_PLACEHOLDER), {
-        target: { value: "ada" },
-      });
-      fireEvent.change(screen.getByPlaceholderText("seldon"), {
-        target: { value: "secret" },
-      });
-      fireEvent.click(screen.getByText("Log in"));
-      await vi.waitFor(() => expect(store.getState().core.selected).toBe(core.key));
-      expect(store.getState()[Session.Link.SLICE_NAME].invite).toBeNull();
-      expect(await screen.findByText("workspace")).toBeTruthy();
     });
 
     it("should move to the Core of an invite that arrives while it shows", async () => {
@@ -902,6 +1049,25 @@ describe("Auth login", () => {
         }),
       ]);
       expect(server.sessionsCreated).toBe(0);
+      expect(Object.fromEntries(ipc.saved)).toEqual({
+        [`http://@127.0.0.1:${core.port}#${core.key}`]: "sys_invited",
+      });
+    });
+
+    it("should save the session of an invite redeemed with a password", async () => {
+      const { server, core } = await serveInvites({ methods: ["password", "oidc"] });
+      const ipc = fakeDesktop();
+      const { store } = await renderLogin(core, createConsoleWrapper);
+      await typeInviteCode();
+      fireEvent.change(await screen.findByPlaceholderText(USERNAME_PLACEHOLDER), {
+        target: { value: "ada" },
+      });
+      fireEvent.change(screen.getByPlaceholderText("seldon"), {
+        target: { value: "secret" },
+      });
+      fireEvent.click(screen.getByText("Redeem invite"));
+      await vi.waitFor(() => expect(store.getState().core.selected).toBe(core.key));
+      expect(server.redeemed).toHaveLength(1);
       expect(Object.fromEntries(ipc.saved)).toEqual({
         [`http://@127.0.0.1:${core.port}#${core.key}`]: "sys_invited",
       });
