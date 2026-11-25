@@ -1198,14 +1198,13 @@ var _ = Describe("LayerConfig", func() {
 
 	It("Should not open with no storage layer", func(ctx SpecContext) {
 		node := testutil.NewNode(ctx)
-		_, err := service.OpenLayer(ctx, service.LayerConfig{
+		Expect(service.OpenLayer(ctx, service.LayerConfig{
 			Distribution: node.Layer,
 			Security: MustSucceed(security.NewProvider(security.ProviderConfig{
 				Insecure: new(true),
 			})),
 			SecretsKey: secret.EncryptionKey{1},
-		})
-		Expect(err).To(MatchError(ContainSubstring("storage: must be non-nil")))
+		})).Error().To(MatchError(ContainSubstring("storage: must be non-nil")))
 	})
 
 	It("Should reject an unknown auth method", func() {
