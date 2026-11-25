@@ -52,17 +52,21 @@ type offsetResolver = func(
 // The following requirements are placed on the variables:
 // 0 <= startPosition <= endPosition < len(db.mu.idx.pointers), and must both be valid
 // positions in the index.
+//
+// Delete returns the time range that it removed data from, or telem.TimeRangeZero when
+// it removed none. It reports no history change, so that the caller can report it once
+// it releases its own locks.
 func (db *DB) Delete(
 	ctx context.Context,
 	tr telem.TimeRange,
 	calculateStartOffset offsetResolver,
 	calculateEndOffset offsetResolver,
-) (err error) {
+) (deleted telem.TimeRange, err error) {
 	ctx, span := db.cfg.T.Bench(ctx, "Delete")
 	defer span.End()
 
 	if db.closed.Load() {
-		return ErrDBClosed
+		return telem.TimeRangeZero, ErrDBClosed
 	}
 	db.resourceCount.Add(1)
 	defer db.resourceCount.Add(-1)
@@ -83,14 +87,14 @@ func (db *DB) Delete(
 		tr.Start,
 		calculateStartOffset,
 	); err != nil || !found {
-		return err
+		return telem.TimeRangeZero, err
 	}
 	if end, tr.End, found, err = db.findDeleteEnd(
 		ctx,
 		tr.End,
 		calculateEndOffset,
 	); err != nil || !found {
-		return err
+		return telem.TimeRangeZero, err
 	}
 
 	db.idx.mu.Lock()
@@ -99,7 +103,7 @@ func (db *DB) Delete(
 	db.idx.unprotectedRelocate(&start, &end)
 	ok, err := validateDelete(&start, &end, db.idx)
 	if err != nil || !ok {
-		return span.Error(err)
+		return telem.TimeRangeZero, span.Error(err)
 	}
 
 	// A garbage collection may have moved these domains within their file since the
@@ -111,13 +115,12 @@ func (db *DB) Delete(
 	db.idx.unprotectedSplice(start, end, tr)
 
 	write := db.idx.indexPersist.prepare(start.position)
-	db.idx.notifyHistoryChange(ctx, tr)
 	// We choose to keep the mutex locked while persisting to index.
 	err = write.run()
 	if errors.Is(err, errUncovered) {
 		err = db.idx.indexPersist.prepare(0).run()
 	}
-	return span.Error(err)
+	return tr, span.Error(err)
 }
 
 // deleteBound is one end of a deletion: the position of its domain in the index, the

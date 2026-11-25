@@ -25,9 +25,8 @@ type HistoryChange struct {
 	TimeRange telem.TimeRange `json:"time_range"`
 }
 
-// OnHistoryChange registers handler to receive every HistoryChange. Handlers run inline
-// while the DB holds its locks, so a handler must hand the change off: blocking on it
-// stalls writers and deletes, and calling back into the DB deadlocks it. The returned
+// OnHistoryChange registers handler to receive every HistoryChange. The DB calls
+// handlers after it releases its locks, so a handler may call the DB. The returned
 // function unregisters the handler.
 func (db *DB) OnHistoryChange(
 	handler func(context.Context, HistoryChange),

@@ -225,23 +225,38 @@ func (db *DB) removeDirs(names ...string) {
 // deletes nothing and returns ctx.Err() if ctx is already canceled.
 //
 // Writers that open on tr in a channel it deletes, or in a dependent of an index it
-// deletes, wait until it returns. So does CreateChannel of a new dependent.
+// deletes, wait until it returns. So does CreateChannel of a new dependent. It calls
+// the history handlers once it holds nothing, so a handler may call the DB.
 func (db *DB) DeleteTimeRange(
 	ctx context.Context,
 	chs []ChannelKey,
 	tr telem.TimeRange,
 ) error {
-	if err := ctx.Err(); err != nil {
-		return err
+	changes, err := db.deleteTimeRange(ctx, chs, tr)
+	for _, c := range changes {
+		db.historyChanges.Notify(ctx, c)
+	}
+	return err
+}
+
+// deleteTimeRange deletes as DeleteTimeRange does, and returns the history change of
+// each channel that it removed data from, also when it fails after a delete.
+func (db *DB) deleteTimeRange(
+	ctx context.Context,
+	chs []ChannelKey,
+	tr telem.TimeRange,
+) (changes []HistoryChange, err error) {
+	if err = ctx.Err(); err != nil {
+		return nil, err
 	}
 	targets, end, err := db.startTimeRangeDelete(chs)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer end()
 	var (
-		dataDels  = make([]func(context.Context) error, 0, len(targets))
-		indexDels = make([]func(context.Context) error, 0, len(targets))
+		dataDels  = make([]keyDelete, 0, len(targets))
+		indexDels = make([]keyDelete, 0, len(targets))
 		releases  = make([]func(), 0, len(targets))
 	)
 	defer func() {
@@ -256,11 +271,11 @@ func (db *DB) DeleteTimeRange(
 		if t.dependent {
 			hasData, release, err := t.db.OpenHold(ctx, tr)
 			if err != nil {
-				return err
+				return nil, err
 			}
 			releases = append(releases, release)
 			if hasData {
-				return errors.Newf(
+				return nil, errors.Newf(
 					"cannot delete index channel %v "+
 						"with channel %v depending on it on the time range %s",
 					t.index,
@@ -272,25 +287,36 @@ func (db *DB) DeleteTimeRange(
 		}
 		del, release, err := t.db.OpenDelete(tr)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		releases = append(releases, release)
+		kd := keyDelete{key: t.db.Channel().Key, del: del}
 		if t.db.Channel().IsIndex {
-			indexDels = append(indexDels, del)
+			indexDels = append(indexDels, kd)
 		} else {
-			dataDels = append(dataDels, del)
+			dataDels = append(dataDels, kd)
 		}
 	}
 	// Data deletes resolve their offsets through the index, so they run first.
 	for _, del := range slices.Concat(dataDels, indexDels) {
-		if err := del(ctx); err != nil {
-			return err
+		deleted, err := del.del(ctx)
+		if err != nil {
+			return changes, err
+		}
+		if !deleted.IsZero() {
+			changes = append(changes, HistoryChange{Key: del.key, TimeRange: deleted})
 		}
 	}
-	return nil
+	return changes, nil
 }
 
 // deleteTarget is a channel that DeleteTimeRange takes before it deletes.
+// keyDelete is the delete of one channel that DeleteTimeRange opened.
+type keyDelete struct {
+	key ChannelKey
+	del func(context.Context) (telem.TimeRange, error)
+}
+
 type deleteTarget struct {
 	db unary.DB
 	// index is the channel that db depends on, set when dependent is true.

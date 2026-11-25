@@ -57,7 +57,12 @@ func (db *DB) TruncateToIndex(ctx context.Context) error {
 		}
 		var file string
 		if file, err = db.quarantine(ctx, c); err == nil {
-			err = db.domain.Delete(ctx, c.start.Range(c.domain.End), cutStart, keepEnd)
+			_, err = db.domain.Delete(
+				ctx,
+				c.start.Range(c.domain.End),
+				cutStart,
+				keepEnd,
+			)
 		}
 		if err != nil {
 			return db.wrapError(errors.Wrapf(err, "domain %v", c.domain))
