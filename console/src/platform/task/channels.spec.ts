@@ -395,6 +395,28 @@ describe("channels", () => {
       ]);
       expect((await client.channels.retrieve(old.key)).name).toBe(`${prefix}_mode`);
     });
+    it("should move the replaced channel of the index field off the name of the new index", async () => {
+      const prefix = uniqueName("src");
+      const old = await client.channels.create({
+        name: `${prefix}_ts`,
+        dataType: "string",
+        virtual: true,
+      });
+      const fields = [
+        createField("f1", "/temperature"),
+        { ...createField("ts", "/ts", "timestamp"), replaces: old.key },
+      ];
+      const plan = await Task.planReadChannels({
+        client,
+        namer: Task.createNamer(client),
+        fields,
+        namePrefix: prefix,
+        indexKey: "ts",
+      });
+      expect(plan.renames).toEqual([{ key: old.key, name: `${prefix}_ts_2` }]);
+      expect(plan.newIndex).toBe(`${prefix}_ts`);
+    });
+
     it("should number a name that an earlier plan of the same namer claims", async () => {
       const name = uniqueName("temperature");
       const namer = Task.createNamer(client);

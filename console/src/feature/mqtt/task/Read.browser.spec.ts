@@ -53,10 +53,10 @@ const PAGE_SIZE = 50;
 const createField = (name: string, kind: payload.Kind): icd.JSONField =>
   icd.jsonFieldZ.parse({ name, pointer: `/${name}`, type: kind });
 
-const createTimeField = (): icd.JSONField =>
+const createTimeField = (name = "time"): icd.JSONField =>
   icd.jsonFieldZ.parse({
-    name: "time",
-    pointer: "/time",
+    name,
+    pointer: `/${name}`,
     type: "timestamp",
     timeFormat: "unix_ms",
   });
@@ -1321,6 +1321,14 @@ describe("MQTT read form", () => {
     await waitFor(async () =>
       expect((await retrieveEntries(draft.key))[0].disabled).toBe(false),
     );
+  });
+
+  it("should preview a new index after its index field while the entry is disabled", async () => {
+    const ts = createTimeField("ts");
+    const temperature = createField("temperature", "float");
+    const entry = await createEntry({ fields: [temperature, ts], index: ts.key });
+    const { dev } = await renderRead({ entries: [{ ...entry, disabled: true }] });
+    await screen.findByDisplayValue(`${dev.name}_plant_oven_ts`);
   });
 
   it("should read the time from the first timestamp field on payload timing", async () => {
