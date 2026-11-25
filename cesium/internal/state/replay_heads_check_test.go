@@ -418,7 +418,11 @@ var _ = Describe(
 							func(pre []state.Preload) error {
 								var err error
 								w, err = st.OpenWriter(ctx, state.WriterConfig{
-									Keys: keys, Clock: 5, Start: start, Bounded: true,
+									Keys:    keys,
+									Clock:   5,
+									Start:   start,
+									Bounded: true,
+									Drops:   st.Drops(),
 								}, pre...)
 								return err
 							},
@@ -570,6 +574,7 @@ var _ = Describe(
 									Keys:  keys[1:],
 									Clock: 5,
 									Start: start,
+									Drops: st.Drops(),
 								}, pre...)
 								return err
 							},
