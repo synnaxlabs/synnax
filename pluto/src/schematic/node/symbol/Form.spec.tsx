@@ -8,7 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, DataType, schematic } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import {
+  createTestClient,
+  createTestClientWithPolicy,
+} from "@synnaxlabs/client/testutil";
 import { deep, id } from "@synnaxlabs/x";
 import { fireEvent, waitFor } from "@testing-library/react";
 import type { FC, PropsWithChildren } from "react";
@@ -285,6 +288,21 @@ describe("Symbol form", () => {
         createSynnaxWrapper({ client: null }),
       );
       expect(getByText("The symbol of this node was not found.")).toBeDefined();
+    },
+  );
+
+  it.each(["telemetry", "control"] as const)(
+    "should warn on the %s tab when the symbol fails to load",
+    async (tab) => {
+      // A user with no policies cannot read the symbol, so its load fails.
+      const denied = await createTestClientWithPolicy(client, []);
+      const { findByText } = renderForm(
+        <Form tab={tab} onTabChange={vi.fn()} />,
+        schematic.symbolNodeConfigZ.parse({ variant: "symbol", spec: heater }),
+        schematic.symbolNodeConfigZ,
+        await createAsyncSynnaxWrapper({ client: denied }),
+      );
+      expect(await findByText("The symbol of this node failed to load.")).toBeDefined();
     },
   );
 

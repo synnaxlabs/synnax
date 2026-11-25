@@ -362,20 +362,27 @@ const CommandField = ({ command }: CommandFieldProps): ReactElement => {
 
 const useSymbol = (): Resolved => useResolved(Base.useFieldValue(path.spec));
 
-const MissingSection = (): ReactElement => (
-  <Base.Section title="Symbol">
-    <Text.Text level="p" status="warning">
-      <Icon.Warning />
-      The symbol of this node was not found.
-    </Text.Text>
-  </Base.Section>
-);
+// WarningSection tells why a tab shows no states or commands.
+const WarningSection = ({
+  missing,
+  failed,
+}: Pick<Resolved, "missing" | "failed">): ReactElement | null =>
+  !missing && !failed ? null : (
+    <Base.Section title="Symbol">
+      <Text.Text level="p" status="warning">
+        <Icon.Warning />
+        {missing
+          ? "The symbol of this node was not found."
+          : "The symbol of this node failed to load."}
+      </Text.Text>
+    </Base.Section>
+  );
 
 const TelemetryForm = (): ReactElement => {
-  const { spec, missing } = useSymbol();
+  const { spec, missing, failed } = useSymbol();
   return (
     <Base.Sections x>
-      {missing && <MissingSection />}
+      <WarningSection missing={missing} failed={failed} />
       {spec?.states.map((state) => (
         <StateSection key={state.key} state={state} />
       ))}
@@ -387,11 +394,11 @@ const TelemetryForm = (): ReactElement => {
 };
 
 const ControlForm = (): ReactElement => {
-  const { spec, missing } = useSymbol();
+  const { spec, missing, failed } = useSymbol();
   const commands = spec?.commands.filter((c) => c.state == null) ?? [];
   return (
     <Base.Sections x>
-      {missing && <MissingSection />}
+      <WarningSection missing={missing} failed={failed} />
       {commands.length > 0 && (
         <Base.Section title="Commands">
           {commands.map((command) => (
