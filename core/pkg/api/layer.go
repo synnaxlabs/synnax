@@ -613,6 +613,9 @@ func (l *Layer) BindTo(t Transport) {
 		// OPC UA SERVER
 		t.OPCUAServerRetrieve,
 
+		// ETHERCAT MASTER
+		t.EtherCATMasterRetrieve,
+
 		// ACCESS
 		t.AccessCreatePolicy,
 		t.AccessDeletePolicy,
@@ -913,6 +916,9 @@ func (l *Layer) BindTo(t Transport) {
 
 	// OPC UA SERVER
 	t.OPCUAServerRetrieve.BindHandler(bind.Read(l.binder, l.OPCUAServer.Retrieve))
+
+	// ETHERCAT MASTER
+	t.EtherCATMasterRetrieve.BindHandler(bind.Read(l.binder, l.EtherCATMaster.Retrieve))
 
 	// ACCESS
 	t.AccessCreatePolicy.BindHandler(bind.Write(l.binder, l.Policy.Create))
