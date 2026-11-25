@@ -12,9 +12,12 @@ package telem_test
 import (
 	"encoding/json/v2"
 	"fmt"
+	"math"
+	"sync"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -92,6 +95,56 @@ var _ = Describe("Alignment", func() {
 	Describe("String", func() {
 		It("Should return the string representation of the alignment", func() {
 			Expect(telem.NewAlignment(5, 7).String()).To(Equal("5-7"))
+		})
+	})
+})
+
+var _ = Describe("Leading alignments", func() {
+	Describe("LeadingAlignment", func() {
+		It("Should offset the domain index from LeadingDomain", func() {
+			Expect(telem.LeadingAlignment(3, 7)).To(Equal(
+				telem.NewAlignment(telem.LeadingDomain+3, 7),
+			))
+		})
+	})
+
+	Describe("AlignmentCounter", func() {
+		It("Should start at the domain after start", func() {
+			c := telem.NewAlignmentCounter(telem.LeadingDomain)
+			Expect(c.Next()).To(Equal(telem.LeadingAlignment(1, 0)))
+			Expect(c.Next()).To(Equal(telem.LeadingAlignment(2, 0)))
+		})
+
+		It("Should hand out the last domain index", func() {
+			c := telem.NewAlignmentCounter(math.MaxUint32 - 1)
+			Expect(c.Next()).To(Equal(telem.NewAlignment(math.MaxUint32, 0)))
+		})
+
+		It("Should return ErrAlignmentsExhausted once every domain is used", func() {
+			c := telem.NewAlignmentCounter(math.MaxUint32 - 1)
+			MustSucceed(c.Next())
+			Expect(c.Next()).Error().To(MatchError(telem.ErrAlignmentsExhausted))
+			Expect(c.Next()).Error().To(MatchError(telem.ErrAlignmentsExhausted))
+		})
+
+		It("Should hand out distinct domains to concurrent callers", func() {
+			var (
+				c        = telem.NewAlignmentCounter(telem.LeadingDomain)
+				mu       sync.Mutex
+				wg       sync.WaitGroup
+				received = make(set.Set[telem.Alignment])
+			)
+			for range 100 {
+				wg.Go(func() {
+					defer GinkgoRecover()
+					a := MustSucceed(c.Next())
+					mu.Lock()
+					defer mu.Unlock()
+					received.Add(a)
+				})
+			}
+			wg.Wait()
+			Expect(received).To(HaveLen(100))
 		})
 	})
 })

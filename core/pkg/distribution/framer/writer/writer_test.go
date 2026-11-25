@@ -16,7 +16,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
@@ -752,7 +751,9 @@ var _ = Describe("Writer", func() {
 				groupDomain := writtenData.Alignment.DomainIndex()
 				Expect(groupDomain).To(BeNumerically(
 					">=",
-					MustSucceed(cesium.NewAlignmentCounter().Next()).DomainIndex(),
+					MustSucceed(
+						telem.NewAlignmentCounter(telem.LeadingDomain).Next(),
+					).DomainIndex(),
 				))
 				Expect(writtenData.Alignment.SampleIndex()).To(BeEquivalentTo(0))
 				Expect(writtenIdx.Alignment).To(Equal(writtenData.Alignment))
