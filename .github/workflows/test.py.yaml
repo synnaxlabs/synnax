@@ -84,6 +84,13 @@ on:
         required: false
         type: boolean
         default: false
+      windows_supported:
+        description:
+          Whether the package runs on Windows, so Linux runs also check its types
+          against the Windows stubs
+        required: false
+        type: boolean
+        default: false
     secrets:
       CODECOV_TOKEN:
         required: false
@@ -219,6 +226,17 @@ jobs:
         run: |
           read -ra directories <<< "$TYPE_CHECK_DIR"
           uv run mypy "${directories[@]}"
+
+      # A run with no Windows rows checks the Windows stubs on Linux, so an error that
+      # only Windows shows fails the PR and not the nightly run.
+      - name: Check types for Windows
+        if: inputs.windows_supported && !inputs.windows && runner.os == 'Linux'
+        shell: bash
+        env:
+          TYPE_CHECK_DIR: ${{ inputs.type_check_dir }}
+        run: |
+          read -ra directories <<< "$TYPE_CHECK_DIR"
+          uv run mypy --platform win32 "${directories[@]}"
 
       # Only the x86 Linux runners start a Core, and not for a fork, so the others skip
       # the tests that need one.
