@@ -188,6 +188,57 @@ var _ = Describe("Stored v4 symbols", func() {
 		Expect(retrieve(static.Key).Data.Commands).To(BeEmpty())
 	})
 
+	It("Should make a symbol with one state that a custom_actuator node draws an "+
+		"actuator that draws value 1 as value 0", func(ctx SpecContext) {
+		db := openShipped(ctx)
+		blue := color.Color{R: 40, G: 80, B: 220, A: 255}
+		tank := v4.Symbol{Key: uuid.New(), Name: "Tank", Data: v4.Spec{
+			SVG:     `<svg><rect class="body"/></svg>`,
+			Variant: "static",
+			Scale:   1,
+			States: []v4.State{{Key: "base", Name: "Base", Regions: []v4.Region{{
+				Key:       "body",
+				Name:      "Body",
+				Selectors: []string{".body"},
+				FillColor: &blue,
+			}}}},
+		}}
+		Expect(gorp.NewCreate[v4.Key, v4.Symbol]().Entry(&tank).Exec(ctx, db)).
+			To(Succeed())
+		sc := v13.Schematic{
+			Key:  uuid.New(),
+			Name: "Schematic",
+			Nodes: []v13.Node{{Key: "a", Config: v13.NodeConfig{
+				Variant: v13.CustomActuatorNodeConfig{SpecKey: tank.Key.String()},
+			}}},
+		}
+		Expect(gorp.NewCreate[v13.Key, v13.Schematic]().Entry(&sc).Exec(ctx, db)).
+			To(Succeed())
+		openService(ctx, db)
+		var sym symbol.Symbol
+		Expect(gorp.NewRetrieve[symbol.Key, symbol.Symbol]().
+			Where(gorp.MatchKeys[symbol.Key, symbol.Symbol](tank.Key)).
+			Entry(&sym).
+			Exec(ctx, db)).To(Succeed())
+		Expect(sym.Data.Variant).To(Equal("actuator"))
+		Expect(sym.Data.Looks).To(HaveLen(1))
+		Expect(sym.Data.Looks[0].When).To(Equal(&symbol.Condition{
+			Variant: symbol.EqualsCondition{State: "active", Values: []float64{0, 1}},
+		}))
+		state := as[symbol.EnumerationState](sym.Data.States[0].Variant)
+		var e enumeration.Enumeration
+		Expect(gorp.NewRetrieve[enumeration.Key, enumeration.Enumeration]().
+			Where(gorp.MatchKeys[enumeration.Key, enumeration.Enumeration](
+				*state.Enumeration,
+			)).
+			Entry(&e).
+			Exec(ctx, db)).To(Succeed())
+		Expect(e.Entries).To(Equal([]enumeration.Entry{
+			{Key: "base", Value: 0, Name: "Base"},
+			{Key: "on", Value: 1, Name: "On"},
+		}))
+	})
+
 	It("Should drop the state binding of a custom_static node whose symbol has no "+
 		"states", func(ctx SpecContext) {
 		db := openShipped(ctx)

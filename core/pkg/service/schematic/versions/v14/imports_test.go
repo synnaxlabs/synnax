@@ -386,6 +386,48 @@ var _ = Describe("ImportCustomNodes", func() {
 			To(Equal([]*servicecolor.Ref{fixed(3), fixed(4)}))
 	})
 
+	It("Should give a custom actuator on a symbol with one state a copy that draws "+
+		"value 1 as value 0 and reads it as the entry On", func(ctx SpecContext) {
+		e := enumerationv0.Enumeration{
+			Key:     uuid.New(),
+			Name:    "Tank",
+			Entries: []enumerationv0.Entry{{Key: "base", Value: 0, Name: "Base"}},
+		}
+		Expect(gorp.NewCreate[enumerationv0.Key, enumerationv0.Enumeration]().
+			Entry(&e).
+			Exec(ctx, db)).To(Succeed())
+		on := func(values ...float64) *symbol.Condition {
+			return &symbol.Condition{
+				Variant: symbol.EqualsCondition{State: "active", Values: values},
+			}
+		}
+		tank := symbol.Symbol{Key: uuid.New(), Name: "Tank", Data: symbol.Spec{
+			Drawing: symbol.Drawing{Variant: symbol.SvgDrawing{Markup: "<svg/>"}},
+			States: []symbol.State{{Variant: symbol.EnumerationState{
+				BaseState:   symbol.BaseState{Key: "active", Name: "Active"},
+				Enumeration: &e.Key,
+				Match:       symbol.Matcher{Variant: symbol.ExactMatcher{}},
+			}}},
+			Looks:   []symbol.Look{{Key: "look-1", When: on(0)}},
+			Variant: "static",
+			Scale:   1,
+		}}
+		Expect(gorp.NewCreate[symbol.Key, symbol.Symbol]().Entry(&tank).Exec(ctx, db)).
+			To(Succeed())
+		run(ctx, tank.Key, nil)
+		Expect(created).To(HaveLen(1))
+		Expect(created[0].Data.Looks).To(Equal([]symbol.Look{
+			{Key: "look-1", When: on(0, 1)},
+		}))
+		Expect(calls).To(Equal([]interned{{
+			name: "Tank (Panel)",
+			entries: []enumerationv0.Entry{
+				{Key: "base", Value: 0, Name: "Base"},
+				{Key: "on", Value: 1, Name: "On"},
+			},
+		}}))
+	})
+
 	It("Should give a custom static node and a custom actuator with the same "+
 		"overrides their own copies", func(ctx SpecContext) {
 		stopActuating(ctx)
