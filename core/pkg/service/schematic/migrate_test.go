@@ -538,6 +538,11 @@ var _ = Describe("Imported v13 state overrides", func() {
 			[]v4.Region{region("a", &blue, &white)},
 			[]v4.Region{region("a", &green, &white)},
 		)
+		// newFill draws plain with a fill that no entry carries, which only a copy can.
+		newFill = states(
+			[]v4.Region{region("a", &red, &white)},
+			[]v4.Region{region("a", &yellow, &white)},
+		)
 	)
 	// look is what a node draws: its symbol, and the entries that its state draws with.
 	type look struct {
@@ -584,13 +589,17 @@ var _ = Describe("Imported v13 state overrides", func() {
 			Nodes: []v13.Node{{Key: "a", Config: v13.NodeConfig{Variant: cfg}}},
 		}
 	}
-	// importFile imports old as a file through svc into a new project, and returns the
-	// key of the schematic it makes.
+	// all allows every record.
+	all := func(resource.ID) bool { return true }
+	// importFile imports old as a file through svc into a new project, for a user that
+	// can retrieve what retrievable allows, and returns the key of the schematic it
+	// makes.
 	importFile := func(
 		ctx SpecContext,
 		db *gorp.DB,
 		svc *schematic.Service,
 		old v13.Schematic,
+		retrievable func(resource.ID) bool,
 	) schematic.Key {
 		GinkgoHelper()
 		projects := MustOpen(project.OpenService(ctx, project.ServiceConfig{DB: db}))
@@ -603,17 +612,59 @@ var _ = Describe("Imported v13 state overrides", func() {
 		write := MustSucceed(svc.Decode(ctx, WireRoundTrip(env)))
 		var id resource.ID
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
-			id, err = write(ctx, tx, imex.ImportOptions{Parent: proj.ResourceID()})
+			id, err = write(ctx, tx, imex.ImportOptions{
+				Parent:      proj.ResourceID(),
+				Retrievable: retrievable,
+			})
 			return err
 		})).To(Succeed())
 		return MustSucceed(uuid.Parse(id.Key))
 	}
 
+	DescribeTable(
+		"Should import a node whose symbol its user cannot retrieve on that symbol",
+		func(ctx SpecContext, retrievable func(symbol.Key) func(resource.ID) bool) {
+			db := openShipped(ctx)
+			sym := v4.Symbol{Key: uuid.New(), Name: "Valve", Data: plain}
+			Expect(gorp.NewCreate[v4.Key, v4.Symbol]().Entry(&sym).Exec(ctx, db)).
+				To(Succeed())
+			svc := openService(ctx, db)
+			key := importFile(
+				ctx,
+				db,
+				svc,
+				panel(sym.Key, newFill),
+				retrievable(sym.Key),
+			)
+			var sc schematic.Schematic
+			Expect(svc.NewRetrieve().
+				Where(schematic.MatchKeys(key)).
+				Entry(&sc).
+				Exec(ctx, db)).To(Succeed())
+			n := as[schematic.SymbolNodeConfig](sc.Nodes[0].Config.Variant)
+			Expect(n.Spec.Variant).To(Equal(symbol.CustomRef{Key: sym.Key}))
+			Expect(n.States[0].Enumeration).To(BeNil())
+			Expect(MustSucceed(
+				gorp.NewRetrieve[symbol.Key, symbol.Symbol]().Count(ctx, db),
+			)).To(Equal(1))
+		},
+		Entry(
+			"a user that cannot retrieve it",
+			func(k symbol.Key) func(resource.ID) bool {
+				return func(id resource.ID) bool { return id != symbol.ResourceID(k) }
+			},
+		),
+		Entry(
+			"no retrievable check",
+			func(symbol.Key) func(resource.ID) bool { return nil },
+		),
+	)
+
 	It("Should import a node whose symbol the Core lacks with a missing symbol",
 		func(ctx SpecContext) {
 			db := openShipped(ctx)
 			svc := openService(ctx, db)
-			key := importFile(ctx, db, svc, panel(uuid.New(), plain.States))
+			key := importFile(ctx, db, svc, panel(uuid.New(), plain.States), all)
 			var sc schematic.Schematic
 			Expect(svc.NewRetrieve().
 				Where(schematic.MatchKeys(key)).
@@ -635,7 +686,7 @@ var _ = Describe("Imported v13 state overrides", func() {
 				To(Succeed())
 			svc := openService(ctx, db)
 			upgraded := lookOf(ctx, db, old.Key)
-			imported := lookOf(ctx, db, importFile(ctx, db, svc, old))
+			imported := lookOf(ctx, db, importFile(ctx, db, svc, old, all))
 			outcome := func(l look) string {
 				switch {
 				case l.symbol.Key != sym.Key:
@@ -678,10 +729,7 @@ var _ = Describe("Imported v13 state overrides", func() {
 				region("b", &black, nil),
 			},
 		), "enumeration"),
-		Entry("a fill that no entry carries", plain, states(
-			[]v4.Region{region("a", &red, &white)},
-			[]v4.Region{region("a", &yellow, &white)},
-		), "copy"),
+		Entry("a fill that no entry carries", plain, newFill, "copy"),
 		Entry("a fill that no entry carries on regions in another order", acb, states(
 			[]v4.Region{
 				region("a", &blue, &white),
