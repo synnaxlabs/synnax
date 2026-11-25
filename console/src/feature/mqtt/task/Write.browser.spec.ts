@@ -935,12 +935,15 @@ describe("MQTT Write form", () => {
       retained: true,
     };
 
-    // Opens the dialog over a broker whose scan task lists TOPIC, and picks it.
-    const openOnPickedTopic = async (targets: MQTT.Task.WriteTarget[] = []) => {
+    // Opens the dialog over a broker whose scan task lists topic, and picks it.
+    const openOnPickedTopic = async (
+      targets: MQTT.Task.WriteTarget[] = [],
+      topic: typeof TOPIC = TOPIC,
+    ) => {
       const { dev, draft } = await renderWrite(targets);
       const scanner = await openScanner(client, dev.rack);
       const dialog = await openAddTargets();
-      await scanner.answer({ data: { topics: [TOPIC], truncated: false } });
+      await scanner.answer({ data: { topics: [topic], truncated: false } });
       scanner.close();
       fireEvent.click(await dialog.findByRole("checkbox", { name: "Record setpoint" }));
       return { dialog, draft };
@@ -991,6 +994,46 @@ describe("MQTT Write form", () => {
           field: f.key,
           channel: 0,
         })),
+      );
+    });
+
+    it("should show the fields of each target that one pick adds", async () => {
+      const { dev } = await renderWrite();
+      const scanner = await openScanner(client, dev.rack);
+      const dialog = await openAddTargets();
+      const pump = { ...TOPIC, topic: "plant/pump/set" };
+      await scanner.answer({ data: { topics: [TOPIC, pump], truncated: false } });
+      scanner.close();
+      fireEvent.click(await dialog.findByRole("checkbox", { name: "Pick plant" }));
+      fireEvent.click(dialog.getByRole("button", { name: "Add 2 targets" }));
+      await waitFor(() =>
+        expect(screen.getAllByRole("treeitem", { name: /^setpoint/ })).toHaveLength(2),
+      );
+    });
+
+    it("should send the time of each write from an inferred timestamp field", async () => {
+      const time = {
+        pointer: "/time",
+        type: "number",
+        sample: "1700000000000",
+        kind: "timestamp",
+        timeFormat: "unix_ms",
+      };
+      const { dialog, draft } = await openOnPickedTopic([], {
+        ...TOPIC,
+        fields: [...TOPIC.fields, time],
+      });
+      fireEvent.click(dialog.getByRole("button", { name: "Add 1 target" }));
+      const target = await retrievePlainTarget(draft.key, TOPIC.topic);
+      const [ic] = await client.icds.retrieve([target.icd]);
+      const fields = ICD.jsonFields(ic.messages[0]);
+      expect(fields.at(-1)).toMatchObject({
+        pointer: "/time",
+        type: "timestamp",
+        default: { type: "now" },
+      });
+      expect(target.message.bindings.map(({ field }) => field)).toEqual(
+        fields.slice(0, -1).map(({ key }) => key),
       );
     });
 

@@ -85,7 +85,7 @@ export const States = ({
     void (async () => {
       if (term === "") {
         const name = key == null ? get<string>(label).value.trim() || symbolName : "";
-        const created = await prompt({ name, entries: [] });
+        const created = await prompt({ name });
         if (created != null) link(created);
         return;
       }

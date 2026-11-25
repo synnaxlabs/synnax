@@ -19,14 +19,13 @@ import {
   type ReactElement,
   type SetStateAction,
   useState,
-  useSyncExternalStore,
 } from "react";
 
 import { copyName, copyPointer } from "@/platform/icd/fieldNames";
 import { createJSONField } from "@/platform/icd/Fields";
 import { fieldsOf, formatOf, useFormats } from "@/platform/icd/Formats";
 import { fieldsPath, type TreeField, treeFieldOf } from "@/platform/icd/read";
-import { fieldKey } from "@/platform/icd/tree/nodes";
+import { Tree as ICDTree } from "@/platform/icd/tree";
 import { Task } from "@/platform/task";
 
 /** A target of a write task, in the task's form. */
@@ -167,37 +166,25 @@ export const useTree = <T extends Target>({
   const ctx = PForm.useContext();
   const formats = useFormats();
   const [added, setAdded] = useState<icd.FieldKey>();
-  const subscribe = (onChange: () => void) => {
-    const unbinds = [
-      ctx.bind(onChange),
-      ...[...formats.values()].map((f) => f.bind(onChange)),
-    ];
-    return () => unbinds.forEach((unbind) => unbind());
-  };
-  const getStructure = () =>
-    JSON.stringify(
-      ctx.get(path).value.map((t): Structure[number] => {
-        const sent = messageOf(t);
-        return [
-          t.key,
-          groups?.of(t) ?? null,
-          sent == null
-            ? null
-            : [
-                sent.message,
-                fieldsOf(formats, sent.icd, sent.message).map(treeFieldOf),
-              ],
-        ];
-      }),
-    );
-  const structure = useSyncExternalStore(subscribe, getStructure, getStructure);
+  const structure = ICDTree.useStructure(formats, (): Structure =>
+    ctx.get(path).value.map((t): Structure[number] => {
+      const sent = messageOf(t);
+      return [
+        t.key,
+        groups?.of(t) ?? null,
+        sent == null
+          ? null
+          : [sent.message, fieldsOf(formats, sent.icd, sent.message).map(treeFieldOf)],
+      ];
+    }),
+  );
   const byKey = new Map<string, Node>();
   const groupNames = new Map<string, string>();
   /** The key of the group of each target in one. */
   const parents = new Map<string, string>();
   const nodes: Tree.Node[] = [];
   const groupNodes = new Map<string, Tree.Node[]>();
-  for (const [target, group, sent] of JSON.parse(structure) as Structure) {
+  for (const [target, group, sent] of structure) {
     byKey.set(target, { kind: "target", target });
     const node: Tree.Node =
       sent == null
@@ -205,7 +192,7 @@ export const useTree = <T extends Target>({
         : {
             key: target,
             children: sent[1].map((field) => {
-              const key = fieldKey(target, sent[0], field.key);
+              const key = ICDTree.fieldKey(target, sent[0], field.key);
               byKey.set(key, { kind: "field", target, field });
               return { key };
             }),
@@ -271,7 +258,7 @@ export const useTree = <T extends Target>({
     onExpand((prev) =>
       unique.unique([...prev, ...(parent == null ? [] : [parent]), target]),
     );
-    onSelect([fieldKey(target, sent.message, field.key)]);
+    onSelect([ICDTree.fieldKey(target, sent.message, field.key)]);
   };
 
   const handleSelect: UseTreeReturn["handleSelect"] = (keys, { clicked }) => {
@@ -292,7 +279,7 @@ export const useTree = <T extends Target>({
       }),
     );
   };
-  const remove = (keys: string[]) => {
+  const removeTargets = (keys: string[]) => {
     PForm.fieldListUtils(ctx, path).remove(keys);
     onSelect([]);
   };
@@ -300,7 +287,7 @@ export const useTree = <T extends Target>({
     ctx.batch(() => {
       for (const key of keys) ctx.set(disabledPath(key), !enabled);
     });
-  const copy =
+  const duplicateTargets =
     duplicate == null
       ? undefined
       : (keys: string[]) => {
@@ -377,7 +364,7 @@ export const useTree = <T extends Target>({
               ? { ...binding, field: copy.key, channel: 0 }
               : { ...binding, field: copy.key },
           ]);
-        keys.push(fieldKey(target, sent.message, copy.key));
+        keys.push(ICDTree.fieldKey(target, sent.message, copy.key));
       }
     });
     onSelect(keys.slice(0, 1));
@@ -390,11 +377,13 @@ export const useTree = <T extends Target>({
     });
     if (fields.length > 0) {
       const onlyFields = fields.length === keys.length;
+      // A field at the whole document leaves no pointer free for a copy.
+      const copyable = onlyFields && fields.every(({ field }) => field.pointer !== "");
       return (
         <Task.Views.ContextMenu
           keys={keys}
           onRemove={onlyFields ? () => removeFields(fields) : undefined}
-          onDuplicate={onlyFields ? () => duplicateFields(fields) : undefined}
+          onDuplicate={copyable ? () => duplicateFields(fields) : undefined}
         />
       );
     }
@@ -406,13 +395,13 @@ export const useTree = <T extends Target>({
     return (
       <Task.Views.ContextMenu
         keys={chosen}
-        onRemove={remove}
+        onRemove={removeTargets}
         onEnable={off.length > 0 ? () => setEnabled(chosen, true) : undefined}
         onDisable={
           off.length < chosen.length ? () => setEnabled(chosen, false) : undefined
         }
         onAddField={addable ? () => addField(only) : undefined}
-        onDuplicate={copy}
+        onDuplicate={duplicateTargets}
       />
     );
   };

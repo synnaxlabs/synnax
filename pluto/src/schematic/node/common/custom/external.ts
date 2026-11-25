@@ -20,6 +20,7 @@ export {
   usePaints,
   type UsePaintsParams,
   useRegions,
+  useUnmatched,
   type Value,
 } from "@/schematic/node/common/custom/paint";
 export * from "@/schematic/node/common/custom/render";

@@ -114,16 +114,11 @@ std::pair<Text::Field, x::errors::Error> Text::Field::create(
 
 x::errors::Error Text::Field::append_float(double v, x::telem::Series &dst) const {
     if (this->scaled) v = v * this->scale + this->offset;
-    if (!std::isfinite(v))
-        return x::errors::Error(
-            x::errors::VALIDATION,
-            x::json::Number(v).to_string() + " is not finite"
-        );
     if (!this->narrow) {
         dst.write(v);
         return x::errors::NIL;
     }
-    if (std::abs(v) > std::numeric_limits<float>::max())
+    if (std::isfinite(v) && std::abs(v) > std::numeric_limits<float>::max())
         return x::errors::Error(
             x::errors::VALIDATION,
             x::json::Number(v).to_string() + " overflows float32"
@@ -302,7 +297,7 @@ TextEncoder::Field::append(const x::telem::SampleValue &v, std::string &out) con
     }
     auto d = this->number == Number::FLOAT32 ? widen(x::telem::cast<float>(v))
                                              : x::telem::cast<double>(v);
-    if (this->scaled) d = (d - this->offset) / this->scale;
+    if (this->scaled) d = (d - this->base.offset) / this->base.scale;
     if (!std::isfinite(d))
         return x::errors::Error(
             x::errors::VALIDATION,
@@ -319,10 +314,8 @@ std::pair<TextEncoder::Field, x::errors::Error> TextEncoder::Field::create(
 ) {
     const auto &b = icd::base(f);
     Field field{
-        .name = b.name,
+        .base = b,
         .scaled = b.scale != 1 || b.offset != 0,
-        .scale = b.scale,
-        .offset = b.offset,
     };
     if (const auto *t = std::get_if<icd::TaggedTextField>(&f)) {
         if (auto err = check_tag(t->tag, delimiter)) return {Field{}, err};
@@ -368,6 +361,7 @@ std::pair<TextEncoder, x::errors::Error> TextEncoder::create(const TextMessage &
     auto [bound, bind_err] = index_bindings(m.bindings, by_key);
     if (bind_err) return {TextEncoder{}, as_config(bind_err, "message " + m.name)};
     TextEncoder enc;
+    enc.name = m.name;
     enc.delimiter = delimiter;
     enc.bound.resize(m.bindings.size());
     std::size_t fixed = 0;
@@ -414,7 +408,8 @@ std::pair<TextEncoder, x::errors::Error> TextEncoder::create(const TextMessage &
             auto &item = enc.items[position];
             if (item.field >= 0)
                 return refuse(
-                    "fields " + enc.fields[static_cast<std::size_t>(item.field)].name +
+                    "fields " +
+                    enc.fields[static_cast<std::size_t>(item.field)].base.name +
                     " and " + b.name + " both have position " + std::to_string(position)
                 );
             item.field = static_cast<int>(index);
@@ -445,24 +440,33 @@ x::errors::Error TextEncoder::encode(
         }
         const auto &f = this->fields[static_cast<std::size_t>(item.field)];
         if (auto err = f.append(samples, this->line))
-            return wrap(err, "field " + f.name);
+            return wrap(err, "message " + this->name + ": field " + f.base.name);
     }
     for (const auto i: this->tagged) {
         next();
         const auto &f = this->fields[i];
         this->line += f.tag;
         if (auto err = f.append(samples, this->line))
-            return wrap(err, "field " + f.name);
+            return wrap(err, "message " + this->name + ": field " + f.base.name);
     }
     payload.assign(this->line.begin(), this->line.end());
     return x::errors::NIL;
 }
 
-x::errors::Error
-TextEncoder::check(const std::size_t binding, const x::telem::SampleValue &v) {
+x::errors::Error TextEncoder::check(
+    const std::size_t binding,
+    const x::telem::Series &s,
+    const std::size_t i
+) {
     const auto &f = this->fields[this->bound[binding]];
+    const auto v = s.at(static_cast<int>(i));
     this->line.clear();
-    if (auto err = f.append(v, this->line)) return wrap(err, "field " + f.name);
+    auto err = f.append(v, this->line);
+    if (!err)
+        err = f.number == Number::FLOAT32
+                ? check_limits(f.base, x::telem::cast<float>(v))
+                : check_limits(f.base, x::telem::cast<double>(v));
+    if (err) return wrap(err, "message " + this->name + ": field " + f.base.name);
     return x::errors::NIL;
 }
 }
