@@ -8,6 +8,8 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
+#include <chrono>
+#include <thread>
 
 #include "gtest/gtest.h"
 
@@ -54,6 +56,21 @@ TEST(TestAPIKeys, DeletedKey) {
     ASSERT_NIL(keyed.auth->authenticate());
     ASSERT_NIL(client.api_keys.del({created.key.key}));
     ASSERT_OCCURRED_AS_P(keyed.api_keys.retrieve(), ERR);
+}
+
+/// @brief it should create a key with an expiry and fail requests once it passes.
+TEST(TestAPIKeys, Expiry) {
+    auto client = new_test_client();
+    const auto never = ASSERT_NIL_P(client.api_keys.create("never"));
+    ASSERT_FALSE(never.key.expires.has_value());
+    const auto expires = x::telem::TimeStamp::now() + x::telem::SECOND;
+    const auto created = ASSERT_NIL_P(client.api_keys.create("short", {}, expires));
+    ASSERT_EQ(created.key.expires, expires);
+    const auto keyed = keyed_client(created.token);
+    ASSERT_NIL(keyed.auth->authenticate());
+    std::this_thread::sleep_for(std::chrono::milliseconds(1500));
+    ASSERT_OCCURRED_AS_P(keyed.api_keys.retrieve(), ERR);
+    ASSERT_NIL(client.api_keys.del({never.key.key, created.key.key}));
 }
 
 /// @brief it should reject a key the Core never issued.

@@ -10,6 +10,7 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -79,12 +80,16 @@ public:
         delete_client(std::move(delete_client)) {}
 
     /// @brief creates an API key for the subject, or for the caller when the subject
-    /// is empty.
-    [[nodiscard]] std::pair<New, x::errors::Error>
-    create(const std::string &name, const resource::ID &subject = {}) const {
+    /// is empty. The key never expires when expires is empty.
+    [[nodiscard]] std::pair<New, x::errors::Error> create(
+        const std::string &name,
+        const resource::ID &subject = {},
+        const std::optional<x::telem::TimeStamp> &expires = std::nullopt
+    ) const {
         grpc::auth::APIKeyCreateRequest req;
         req.set_name(name);
         if (!subject.is_zero()) subject_to_pb(subject, req.mutable_subject());
+        if (expires.has_value()) req.set_expires(expires->nanoseconds());
         auto [res, err] = this->create_client->send("/auth/api-key/create", req);
         if (err) return {{}, err};
         auto [key, key_err] = from_pb(res.key());
