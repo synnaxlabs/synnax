@@ -39,6 +39,10 @@ using SetClient = freighter::
 using RefreshClient = freighter::
     UnaryClient<grpc::certificate::RefreshRequest, google::protobuf::Empty>;
 
+/// @brief Freighter delete transport.
+using DeleteClient = freighter::
+    UnaryClient<grpc::certificate::DeleteRequest, google::protobuf::Empty>;
+
 /// @brief Client for reading and writing certificates in the Core.
 class Client {
 public:
@@ -47,7 +51,8 @@ public:
     Client(
         std::shared_ptr<RetrieveClient> retrieve_client,
         std::shared_ptr<SetClient> set_client,
-        std::shared_ptr<RefreshClient> refresh_client
+        std::shared_ptr<RefreshClient> refresh_client,
+        std::shared_ptr<DeleteClient> delete_client
     );
 
     /// @brief retrieves the certificate with the given key.
@@ -56,10 +61,12 @@ public:
     [[nodiscard]] std::pair<Certificate, x::errors::Error>
     retrieve(const Key &key) const;
 
-    /// @brief retrieves the certificates with the given keys.
-    /// @returns the certificates for the keys that exist.
+    /// @brief retrieves the certificates that where selects.
+    /// @param where the filter that the certificates match. An empty filter matches
+    /// all certificates.
+    /// @param options the options of the retrieve.
     [[nodiscard]] std::pair<std::vector<Certificate>, x::errors::Error>
-    retrieve(const std::vector<Key> &keys) const;
+    retrieve(const Where &where, const RetrieveOptions &options = {}) const;
 
     /// @brief creates the certificate, or replaces the one with its key. The Core reads
     /// the details of a stored certificate from its PEM.
@@ -75,9 +82,15 @@ public:
     [[nodiscard]] x::errors::Error
     refresh(const Key &key, const Details &details) const;
 
+    /// @brief deletes the certificates with the given keys, the secrets that hold
+    /// their private keys, and their expiry statuses. A rack may delete only the file
+    /// certificates on it.
+    [[nodiscard]] x::errors::Error del(const std::vector<Key> &keys) const;
+
 private:
     std::shared_ptr<RetrieveClient> retrieve_client;
     std::shared_ptr<SetClient> set_client;
     std::shared_ptr<RefreshClient> refresh_client;
+    std::shared_ptr<DeleteClient> delete_client;
 };
 }

@@ -81,3 +81,21 @@ describe("ICD.Write.suit", () => {
     ).toEqual([onChannel(count, 12)]);
   });
 });
+
+describe("ICD.Write.unbind", () => {
+  it("should clear the channel of each channel binding and keep fixed values", () => {
+    const setpoint = createField("setpoint", "float");
+    const mode = createField("mode", "string");
+    const message: icd.WriteMessage = {
+      message: "8d6a1ec4-7c8e-4f0a-9b8e-0c7f0d5c1a02",
+      bindings: [
+        onChannel(setpoint, 12),
+        { type: "value", field: mode.key, value: { type: "string", value: "auto" } },
+      ],
+    };
+    expect(ICD.Write.unbind(message)).toEqual({
+      ...message,
+      bindings: [onChannel(setpoint), message.bindings[1]],
+    });
+  });
+});

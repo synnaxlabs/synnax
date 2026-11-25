@@ -68,23 +68,24 @@ ToggleSymbolConfig struct extends v13.ToggleSymbolConfig {}
 DummyToggleSymbolConfig = v13.DummyToggleSymbolConfig
 
 ScaleIndicatorConfig struct extends v13.ScaleIndicatorConfig {
-    level_color color.Ref? {
+    bounds      spatial.ClosedBounds = { lower = 0, upper = 100 } {
+        @doc value "is the numeric range the indicator maps onto its extent."
+    }
+    level_color color.Ref?           {
         @doc value """
             is the color of the filled portion, the caret, and the value readout border,
             a named color or a fixed color.
         """
     }
-    axis_color  color.Ref? {
+    axis_color  color.Ref?           {
         @doc value """
             is the color of the axis and its ticks, a named color or a fixed color.
         """
     }
-    text_color  color.Ref? {
+    text_color  color.Ref?           {
         @doc value "is the color of the tick labels, a named color or a fixed color."
     }
 }
-
-StateMapping = v13.StateMapping
 
 PageType = v9.PageType
 
@@ -109,22 +110,22 @@ FormatConfig struct {
 }
 
 StateBinding struct extends FormatConfig {
-    key         string           {
+    key         string                {
         @doc value "is the key of the state of the symbol that the binding sets."
     }
-    source      Source?          {
+    source      Source?               {
         @doc value "is where the state reads its value, or nowhere."
     }
-    enumeration enumeration.Key? {
+    enumeration enumeration.Key?      {
         @doc value "replaces the enumeration of the state."
     }
-    match       symbol.Matcher?  {
+    match       symbol.Matcher?       {
         @doc value "replaces the match of the state."
     }
-    bounds      spatial.Bounds?  {
+    bounds      spatial.ClosedBounds? {
         @doc value "replaces the bounds of a number state."
     }
-    default     float64?         {
+    default     float64?              {
         @doc value "replaces the default of the state."
     }
 
@@ -227,8 +228,11 @@ NodeConfig union on variant extends v13.NodeConfig {
         }
     }
     gauge {
-        stroke_color color.Ref? {
+        stroke_color color.Ref?           {
             @doc value "is the color of the gauge arc, a named color or a fixed color."
+        }
+        bounds       spatial.ClosedBounds = { lower = 0, upper = 100 } {
+            @doc value "is the numeric range displayed by the gauge."
         }
     }
     line {
@@ -283,18 +287,15 @@ NodeConfig union on variant extends v13.NodeConfig {
         }
     }
     select {
+        -options
         fill_color  color.Ref?       {
             @doc value """
                 is the fill color of the Set button, which the select border follows, a
                 named color or a fixed color.
             """
         }
-        options
         enumeration enumeration.Key? {
-            @doc value """
-                is the enumeration whose entries the select offers in place of its
-                options.
-            """
+            @doc value "is the enumeration whose entries the select offers."
         }
     }
     setpoint {
@@ -306,17 +307,14 @@ NodeConfig union on variant extends v13.NodeConfig {
         }
     }
     state_indicator {
+        -options
         stroke_color color.Ref?       {
             @doc value """
                 is the border color of the indicator, a named color or a fixed color.
             """
         }
-        options
         enumeration  enumeration.Key? {
-            @doc value """
-                is the enumeration whose entries the indicator shows in place of its
-                options.
-            """
+            @doc value "is the enumeration whose entries the indicator shows."
         }
     }
     string_display {

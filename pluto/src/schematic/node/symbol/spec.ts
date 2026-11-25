@@ -17,7 +17,7 @@ export const SYMBOL_VARIANT = "symbol";
 
 /**
  * symbolSpec draws a symbol node: its symbol, with the looks that the values of its
- * bound states give it, and the stale indicator while a state is stale.
+ * bound states give it, and the stale and unknown indicators of its states.
  */
 export const symbolSpec: Spec<typeof SYMBOL_VARIANT, schematic.SymbolNodeConfig> = {
   key: SYMBOL_VARIANT,

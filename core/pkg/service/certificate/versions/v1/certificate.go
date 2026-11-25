@@ -33,9 +33,6 @@ func (c Certificate) Details() (Details, bool) {
 // GorpKey returns the certificate's storage key.
 func (c Certificate) GorpKey() Key { return c.Base().Key }
 
-// SetOptions returns no additional storage options.
-func (Certificate) SetOptions() []any { return nil }
-
 // ResourceID returns the certificate's resource identifier.
 func (c Certificate) ResourceID() resource.ID {
 	return resource.ID{

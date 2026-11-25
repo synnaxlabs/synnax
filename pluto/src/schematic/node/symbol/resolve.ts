@@ -10,6 +10,7 @@
 import type { schematic } from "@synnaxlabs/client";
 
 import { BUILT_INS } from "@/schematic/node/builtIns";
+import { Custom } from "@/schematic/node/common/custom";
 import { Symbol } from "@/schematic/symbol";
 
 /** The symbol that a node draws, before the node's bindings apply. */
@@ -17,6 +18,8 @@ export interface Resolved {
   spec?: schematic.symbol.Spec;
   builtIn: boolean;
   missing: boolean;
+  failed: boolean;
+  invalid: boolean;
 }
 
 /** Resolves a symbol reference to its spec, reading a custom symbol from the Core. */
@@ -25,11 +28,22 @@ export const useResolved = (ref: schematic.symbol.Ref): Resolved => {
   switch (ref.type) {
     case "builtin": {
       const spec = BUILT_INS.get(ref.name);
-      return { spec, builtIn: true, missing: spec == null };
+      return {
+        spec,
+        builtIn: true,
+        missing: spec == null,
+        failed: false,
+        invalid: false,
+      };
     }
-    case "custom":
-      return { spec: custom.symbol?.data, builtIn: false, missing: custom.missing };
+    case "custom": {
+      const spec = custom.symbol?.data;
+      // The check parses the markup, so it runs here, where it is cached on the spec.
+      const invalid = spec != null && !Custom.isValidSVG(spec.drawing.markup);
+      const { missing, failed } = custom;
+      return { spec, builtIn: false, missing, failed, invalid };
+    }
     case "missing":
-      return { builtIn: false, missing: true };
+      return { builtIn: false, missing: true, failed: false, invalid: false };
   }
 };

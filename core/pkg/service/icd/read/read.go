@@ -13,7 +13,6 @@ package read
 
 import (
 	"context"
-	"encoding/json/v2"
 	"maps"
 	"slices"
 	"strconv"
@@ -52,13 +51,15 @@ func NewResolver(icds *icd.Service, channels icdv0.Channels) Resolver {
 	return Resolver{icds: icds, channels: channels}
 }
 
-// NewChecker returns the Checker of reads, with each ICD from icds or else retrieved
-// through snap, and the channels of their bindings. The Checker skips an ICD or a
+// NewChecker returns the Checker of reads and of tags, the channels that Claim takes
+// beyond the bindings of reads. It holds each ICD from icds or else retrieved through
+// snap, and the channels of the bindings and the tags. The Checker skips an ICD or a
 // channel that does not exist, which the reference check of the write reports.
 func (r Resolver) NewChecker(
 	ctx context.Context,
 	snap gorp.Snapshot,
 	reads []Read,
+	tags []channel.Key,
 	icds map[icd.Key]icd.ICD,
 ) (Checker, error) {
 	c := Checker{
@@ -68,7 +69,7 @@ func (r Resolver) NewChecker(
 	maps.Copy(c.icds, icds)
 	var (
 		icdKeys     []icd.Key
-		channelKeys []channel.Key
+		channelKeys = slices.Clone(tags)
 	)
 	for _, rd := range reads {
 		if _, ok := c.icds[rd.ICD]; !ok {
@@ -83,17 +84,14 @@ func (r Resolver) NewChecker(
 		}
 	}
 	if len(icdKeys) > 0 {
-		var found []icd.ICD
-		if err := r.icds.NewRetrieve().
+		found, err := r.icds.NewRetrieve().
 			Where(icd.MatchKeys(lo.Uniq(icdKeys)...)).
 			SkipMissingKeys().
-			Entries(&found).
-			Exec(ctx, snap); err != nil {
+			ByKey(ctx, snap)
+		if err != nil {
 			return Checker{}, err
 		}
-		for _, ic := range found {
-			c.icds[ic.Key] = ic
-		}
+		maps.Copy(c.icds, found)
 	}
 	if len(channelKeys) > 0 {
 		var err error
@@ -106,8 +104,8 @@ func (r Resolver) NewChecker(
 
 // Hash writes to h the payload of each ICD message that reads read, retrieved through
 // snap, so an edit to the format of one changes the hash. A read of a message that its
-// ICD lacks writes only that the message is absent. Hash returns query.ErrNotFound
-// when an ICD of reads does not exist.
+// ICD lacks writes only that the message is absent. Hash returns query.ErrNotFound when
+// an ICD of reads does not exist.
 func (r Resolver) Hash(
 	ctx context.Context,
 	snap gorp.Snapshot,
@@ -118,17 +116,15 @@ func (r Resolver) Hash(
 		return nil
 	}
 	keys := lo.Uniq(lo.Map(reads, func(rd Read, _ int) icd.Key { return rd.ICD }))
-	var found []icd.ICD
-	if err := r.icds.NewRetrieve().
-		Where(icd.MatchKeys(keys...)).
-		Entries(&found).
-		Exec(ctx, snap); err != nil {
+	icds, err := r.icds.NewRetrieve().Where(icd.MatchKeys(keys...)).ByKey(ctx, snap)
+	if err != nil {
 		return err
 	}
-	icds := lo.KeyBy(found, func(ic icd.ICD) icd.Key { return ic.Key })
 	for _, rd := range reads {
-		if err := hash(h, icds[rd.ICD], rd.Messages); err != nil {
-			return err
+		for _, rm := range rd.Messages {
+			if err = icd.HashMessage(h, icds[rd.ICD], rm.Message); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -171,6 +167,50 @@ func (c Checker) Claim(key channel.Key, path []string) error {
 		)
 	}
 	c.written[key] = strings.Join(path, ".")
+	return nil
+}
+
+// ClaimIndexes claims, for each message of rd, each index channel of its bound channels
+// that its index field does not bind, since the task writes its timestamps. Run it
+// after Read and Claim, so that an error is at the path of the message that does not
+// bind it.
+func (c Checker) ClaimIndexes(rd Read) error {
+	for j, rm := range rd.Messages {
+		path := slices.Concat(rd.Path, []string{"messages", strconv.Itoa(j)})
+		var (
+			// indexes holds each index channel of the bound channels, in binding order.
+			indexes []channel.Key
+			// indexChannel is the channel of the index field.
+			indexChannel channel.Key
+		)
+		for _, b := range rm.Bindings {
+			if rm.Index != nil && *rm.Index == b.Field {
+				indexChannel = b.Channel
+			}
+			ch, ok := c.channels[b.Channel]
+			if ok && ch.IndexKey != 0 && !slices.Contains(indexes, ch.IndexKey) {
+				indexes = append(indexes, ch.IndexKey)
+			}
+		}
+		for _, key := range indexes {
+			if key == indexChannel {
+				continue
+			}
+			if err := c.Claim(key, path); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// ClaimIndex claims the index channel of key, the channel of the tag at path, whose
+// timestamps the task writes. It returns a validation error when another binding or
+// tag already writes to it.
+func (c Checker) ClaimIndex(key channel.Key, path []string) error {
+	if ch, ok := c.channels[key]; ok && ch.IndexKey != 0 && ch.IndexKey != key {
+		return c.Claim(ch.IndexKey, path)
+	}
 	return nil
 }
 
@@ -299,23 +339,4 @@ func (c Checker) checkBinding(
 		), "channel")
 	}
 	return c.Claim(b.Channel, slices.Concat(path, []string{"channel"}))
-}
-
-// hash writes to h the payload of the message of ic that each of rms reads.
-func hash(h *content.Hash, ic icd.ICD, rms []icd.ReadMessage) error {
-	for _, rm := range rms {
-		m, ok := lo.Find(ic.Messages, func(m icd.Message) bool {
-			return m.Key == rm.Message
-		})
-		h.Bool(ok)
-		if !ok {
-			continue
-		}
-		b, err := json.Marshal(m.Payload, json.Deterministic(true))
-		if err != nil {
-			return err
-		}
-		h.Bytes(b)
-	}
-	return nil
 }

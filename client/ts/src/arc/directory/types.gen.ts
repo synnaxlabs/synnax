@@ -35,7 +35,7 @@ export const directoryZ = z.object({
   /** key is the unique identifier for this directory. */
   key: keyZ,
   /** name is the name of the directory, one segment of an import path. */
-  name: z.string().min(1, "name is required"),
+  name: z.string().min(1, "Name is required"),
   /** parent is the directory that holds this directory. The root has none. */
   parent: keyZ.optional(),
 });

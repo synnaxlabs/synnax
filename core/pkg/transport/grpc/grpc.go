@@ -17,7 +17,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/access/role"
 	apiarc "github.com/synnaxlabs/synnax/pkg/api/arc"
 	apiarcdirectory "github.com/synnaxlabs/synnax/pkg/api/arc/directory"
-	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
+	apioidc "github.com/synnaxlabs/synnax/pkg/api/auth/oidc"
+	apipassword "github.com/synnaxlabs/synnax/pkg/api/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/api/batch"
 	apicertificate "github.com/synnaxlabs/synnax/pkg/api/certificate"
 	apichannel "github.com/synnaxlabs/synnax/pkg/api/channel"
@@ -31,6 +32,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/license"
 	"github.com/synnaxlabs/synnax/pkg/api/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/api/log"
+	"github.com/synnaxlabs/synnax/pkg/api/opcua/server"
 	"github.com/synnaxlabs/synnax/pkg/api/panel"
 	"github.com/synnaxlabs/synnax/pkg/api/project"
 	apikv "github.com/synnaxlabs/synnax/pkg/api/ranger/kv"
@@ -44,6 +46,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/view"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/arc"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/auth"
+	"github.com/synnaxlabs/synnax/pkg/transport/grpc/auth/apikey"
+	"github.com/synnaxlabs/synnax/pkg/transport/grpc/auth/session"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/certificate"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/channel"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/connectivity"
@@ -76,6 +80,8 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 		framer.New(&t, layer.Channel, errs),
 		connectivity.New(&t, errs),
 		auth.New(&t, errs),
+		session.New(&t, errs),
+		apikey.New(&t, errs),
 		ranger.New(&t, errs),
 		kv.New(&t, errs),
 		rack.New(&t, errs),
@@ -92,14 +98,22 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	}
 
 	// AUTH
-	t.AuthChangePassword = noop.UnaryServer[apiauth.ChangePasswordRequest, struct{}]{}
-	t.AuthOIDCLink = noop.UnaryServer[apiauth.OIDCLinkRequest, apiauth.OIDCLinkResponse]{}
-	t.AuthOIDCRetrieve = noop.UnaryServer[apiauth.OIDCRetrieveRequest, apiauth.OIDCRetrieveResponse]{}
-	t.AuthOIDCUnlink = noop.UnaryServer[apiauth.OIDCUnlinkRequest, struct{}]{}
-	t.AuthPasswordCreate = noop.UnaryServer[apiauth.PasswordCreateRequest, struct{}]{}
+	t.AuthChangePassword = noop.UnaryServer[apipassword.ChangeRequest, struct{}]{}
+	t.AuthOIDCLink = noop.UnaryServer[apioidc.LinkRequest, apioidc.LinkResponse]{}
+	t.AuthOIDCRetrieve = noop.UnaryServer[
+		apioidc.RetrieveRequest,
+		apioidc.RetrieveResponse,
+	]{}
+	t.AuthOIDCUnlink = noop.UnaryServer[apioidc.UnlinkRequest, struct{}]{}
+	t.AuthPasswordCreate = noop.UnaryServer[apipassword.CreateRequest, struct{}]{}
+	t.AuthPasswordRetrieve = noop.UnaryServer[
+		apipassword.RetrieveRequest,
+		apipassword.RetrieveResponse,
+	]{}
+	t.AuthPasswordDispatch = noop.UnaryServer[apipassword.DispatchRequest, struct{}]{}
 	t.AuthPasswordSet = noop.UnaryServer[
-		apiauth.PasswordSetRequest,
-		apiauth.PasswordSetResponse,
+		apipassword.SetRequest,
+		apipassword.SetResponse,
 	]{}
 
 	// LICENSE
@@ -150,6 +164,9 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.ProjectDispatch = noop.UnaryServer[project.DispatchRequest, struct{}]{}
 	t.ProjectExport = noop.UnaryServer[project.ExportRequest, project.ExportResponse]{}
 	t.ProjectImport = noop.UnaryServer[project.ImportRequest, project.ImportResponse]{}
+
+	// OPC UA SERVER
+	t.OPCUAServerRetrieve = noop.UnaryServer[server.RetrieveRequest, server.RetrieveResponse]{}
 
 	// STATUS
 	t.StatusRename = noop.UnaryServer[apistatus.RenameRequest, struct{}]{}
@@ -265,7 +282,6 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.SecretGrantCreate = noop.UnaryServer[apisecret.GrantCreateRequest, apisecret.GrantCreateResponse]{}
 
 	// CERTIFICATE
-	t.CertificateDelete = noop.UnaryServer[apicertificate.DeleteRequest, struct{}]{}
 	t.CertificateDispatch = noop.UnaryServer[apicertificate.DispatchRequest, struct{}]{}
 
 	// IMPORT/EXPORT

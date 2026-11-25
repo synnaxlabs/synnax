@@ -10,7 +10,9 @@
 # The Linux and NI Linux Real-Time Drivers build here. Ubuntu 22.04 ships glibc 2.35, the
 # oldest glibc the Driver supports (NI Linux Real-Time 23.8 and later). GCC 13 comes from
 # the toolchain PPA, because the Driver needs C++23. Its LTO plugin goes where ar and ld
-# find it, so archives index the LTO objects they hold.
+# find it, so archives index the LTO objects they hold. CI pushes this image to
+# ghcr.io/synnaxlabs/driver-builder, so a build needs the PPA only when this file
+# changes.
 FROM ubuntu:22.04@sha256:9abcaffc92a5279fff3a6a41635c0800ea33e528425fb389658806476e7defde
 
 ARG BAZELISK_VERSION=1.30.0
