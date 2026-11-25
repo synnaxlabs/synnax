@@ -43,6 +43,7 @@ Range struct {
         """
     }
 
+    @go entry
     @go marshal
     @go migrate
     @resource type "range"

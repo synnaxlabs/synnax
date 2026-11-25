@@ -47,6 +47,7 @@ Grant struct {
         lets a subject read secrets once, such as for a rack to test a connection before
         the device that uses them is saved.
     """
+    @go entry
     @go marshal
     @go migrate
 }
