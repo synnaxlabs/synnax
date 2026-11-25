@@ -230,6 +230,17 @@ unsigned, or signed when a value is negative (`std::uint32_t` and `uint32` for b
 rates up to 230400). A field may default to any member. When a member has the value 0,
 the default must be that member, because 0 is also the type's zero value.
 
+## Enum subsets
+
+`Kept enum of Base { ... }` narrows the enum `Base` to the members its body names.
+Members are bare names and take their values from `Base`. A member's own `@doc` replaces
+the one from `Base`. Every language generates `Kept` as a plain enum: a Go type with
+constants and `IsValid`, a Zod `enum`, a Python `Literal`, and C++ constants. Zod
+parsing, Pydantic, and Go validation reject a value outside the subset, and a new `Base`
+member never joins it silently. Use a subset instead of a hand copy of part of a shared
+enum. An enum can narrow or extend, never both. `Kept enum of Base omit { ... }` keeps
+every member of `Base` except the ones its body names, so a new `Base` member joins it.
+
 ## Union bases
 
 When a union extends one base struct and every variant inherits it, Oracle generates

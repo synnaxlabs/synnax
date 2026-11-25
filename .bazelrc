@@ -136,6 +136,10 @@ build:opt-windows --copt=/O2
 build:opt-windows --copt=/GL
 build:opt-windows --linkopt=/LTCG
 
+# CI test builds skip LTO, which compiles the whole Driver again at link time.
+build:opt-unix-test --copt=-O3
+build:opt-windows-test --copt=/O2
+
 # ===== Sanitizers =====
 
 build:asan --copt=-fsanitize=address

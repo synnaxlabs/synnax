@@ -23,6 +23,7 @@ import { Triggers } from "@/platform/triggers";
 const Create = ({
   close,
   name: initialName,
+  entries,
 }: Modals.ContentProps<
   Enumeration.CreatePromptParams,
   enumeration.Key
@@ -41,7 +42,7 @@ const Create = ({
     if (trimmed === "") return setError("Name is required");
     const key = uuid.create();
     void (async () => {
-      if ((await updateAsync({ key, name: trimmed })) !== false) close(key);
+      if ((await updateAsync({ key, name: trimmed, entries })) !== false) close(key);
     })();
   };
   return (

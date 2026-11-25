@@ -18,12 +18,16 @@
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 #endif
 #include <regex>
+#include <span>
+#include <string>
+#include <vector>
 #if defined(__GNUC__) && !defined(__clang__)
 #pragma GCC diagnostic pop
 #endif
 #
 #include "gtest/gtest.h"
 
+#include "client/cpp/icd/types.gen.h"
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/defer/defer.h"
@@ -31,10 +35,12 @@
 #include "x/cpp/testutil/testutil.h"
 #include "x/cpp/uuid/uuid.h"
 
+#include "driver/errors/errors.h"
 #include "driver/http/device/device.h"
 #include "driver/http/errors/errors.h"
 #include "driver/http/testutil/server.h"
 #include "driver/http/write_task.h"
+#include "driver/icd/writer.h"
 #include "driver/pipeline/testutil/pipeline.h"
 
 namespace driver::http {
@@ -2281,5 +2287,140 @@ TEST(HTTPWriteTask, AllCriticalNoRetry) {
 
     auto reqs = server.received_requests();
     EXPECT_EQ(reqs.size(), 2);
+}
+
+namespace {
+/// @brief creates a virtual float64 command channel.
+synnax::channel::Channel create_command_channel(const synnax::Synnax &client) {
+    synnax::channel::Channel ch{
+        .name = make_unique_channel_name("cmd"),
+        .data_type = x::telem::FLOAT64_T,
+        .is_virtual = true,
+    };
+    EXPECT_NIL(client.channels.create(ch));
+    return ch;
+}
+
+/// @brief creates an ICD whose message Setpoint holds a float field v at /v.
+/// @returns a POST endpoint at path that sends the commands of ch as v.
+::synnax::http::WriteEndpoint create_icd_endpoint(
+    const synnax::Synnax &client,
+    const std::string &path,
+    const synnax::channel::Channel &ch
+) {
+    synnax::icd::FloatJSONField v;
+    v.key = x::uuid::create();
+    v.name = "v";
+    v.pointer = "/v";
+    synnax::icd::Message m;
+    m.key = x::uuid::create();
+    m.name = "Setpoint";
+    m.payload = synnax::icd::JSONPayload{.fields = {v}};
+    synnax::icd::ICD ic;
+    ic.key = x::uuid::create();
+    ic.name = "Plant";
+    ic.messages = {m};
+    EXPECT_NIL(client.icds.create(ic));
+    synnax::icd::ChannelWriteBinding b;
+    b.field = v.key;
+    b.channel = ch.key;
+    ::synnax::http::WriteEndpoint ep;
+    ep.key = path;
+    ep.path = path;
+    ep.icd = ic.key;
+    ep.message = synnax::icd::WriteMessage{.message = m.key, .bindings = {b}};
+    return ep;
+}
+
+/// @brief returns the payloads that w sends for fr.
+std::vector<std::string> sent(driver::icd::Writer &w, const x::telem::Frame &fr) {
+    std::vector<std::string> out;
+    const auto [error, refused] = w.write(fr, [&](std::span<const std::uint8_t> p) {
+        out.emplace_back(p.begin(), p.end());
+        return x::errors::NIL;
+    });
+    EXPECT_NIL(error);
+    EXPECT_NIL(refused);
+    return out;
+}
+}
+
+/// @brief it should build the writer of each endpoint from the message of its ICD.
+TEST(HTTPWriteTask, BuildWritersSendsEachEndpoint) {
+    const auto client = new_test_client();
+    const auto first = create_command_channel(client);
+    const auto second = create_command_channel(client);
+    auto writers = ASSERT_NIL_P(build_writers(
+        client,
+        {create_icd_endpoint(client, "/a", first),
+         create_icd_endpoint(client, "/b", second)}
+    ));
+    ASSERT_EQ(writers.size(), 2);
+    const x::telem::Frame fr(second.key, x::telem::Series(2.5));
+    EXPECT_EQ(sent(writers[1], fr), (std::vector<std::string>{R"({"v":2.5})"}));
+    EXPECT_TRUE(sent(writers[0], fr).empty());
+}
+
+/// @brief it should build no writer for a disabled endpoint and skip its checks.
+TEST(HTTPWriteTask, BuildWritersSkipsDisabledEndpoint) {
+    const auto client = new_test_client();
+    const auto ch = create_command_channel(client);
+    auto disabled = create_icd_endpoint(client, "/b", ch);
+    disabled.disabled = true;
+    disabled.icd = x::uuid::create();
+    auto writers = ASSERT_NIL_P(
+        build_writers(client, {create_icd_endpoint(client, "/a", ch), disabled})
+    );
+    ASSERT_EQ(writers.size(), 1);
+    EXPECT_EQ(
+        sent(writers[0], x::telem::Frame(ch.key, x::telem::Series(1.5))),
+        (std::vector<std::string>{R"({"v":1.5})"})
+    );
+}
+
+/// @brief it should reject an endpoint with no ICD or no message, and name it.
+TEST(HTTPWriteTask, BuildWritersRejectsEndpointWithNoMessage) {
+    const auto client = new_test_client();
+    ::synnax::http::WriteEndpoint no_icd;
+    no_icd.path = "/a";
+    no_icd.message = synnax::icd::WriteMessage{.message = x::uuid::create()};
+    auto no_message = create_icd_endpoint(client, "/a", create_command_channel(client));
+    no_message.message.reset();
+    for (const auto &ep: {no_icd, no_message}) {
+        const auto err = build_writers(client, {ep}).second;
+        ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
+        EXPECT_EQ(
+            err.data,
+            "endpoint POST /a sends no message. Open the task and pick a message for "
+            "it."
+        );
+    }
+}
+
+/// @brief it should reject an endpoint whose ICD does not exist.
+TEST(HTTPWriteTask, BuildWritersRejectsMissingICD) {
+    const auto client = new_test_client();
+    ::synnax::http::WriteEndpoint ep;
+    ep.path = "/a";
+    ep.icd = x::uuid::create();
+    ep.message = synnax::icd::WriteMessage{.message = x::uuid::create()};
+    const auto err = build_writers(client, {ep}).second;
+    ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
+    EXPECT_EQ(
+        err.data,
+        "endpoint POST /a: ICD " + ep.icd->to_string() + " does not exist"
+    );
+}
+
+/// @brief it should name the endpoint in an error that the writer of its message
+/// returns, such as for a channel that does not exist.
+TEST(HTTPWriteTask, BuildWritersNamesEndpointOfMessageError) {
+    const auto client = new_test_client();
+    synnax::channel::Channel missing;
+    missing.key = 1;
+    const auto err = build_writers(client, {create_icd_endpoint(client, "/a", missing)})
+                         .second;
+    ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
+    EXPECT_EQ(err.data, "endpoint POST /a: message Setpoint: channel 1 does not exist");
 }
 }

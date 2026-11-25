@@ -578,7 +578,7 @@ export const FieldsStatus = ({ path }: FieldsStatusProps): ReactElement | null =
 
 const POINTER_INPUT_PROPS = { placeholder: "/temperature" } as const;
 
-const FOCUSED_NAME_INPUT_PROPS = { autoFocus: true } as const;
+const FOCUSED_NAME_INPUT_PROPS = { autoFocus: true, selectOnFocus: true } as const;
 
 interface ScaleControlProps extends Input.Control<number> {
   offset: deep.Target<number>;

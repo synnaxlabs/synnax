@@ -12,6 +12,7 @@ import "@/input/Input.css";
 import {
   type ReactElement,
   type ReactNode,
+  useEffect,
   useLayoutEffect,
   useRef,
   useState,
@@ -60,7 +61,7 @@ export interface TextProps
  * @param props.onChange - A function to call when the input value changes.
  * @param props.size - The size of the input: "small" | "medium" | "large".
  * @param props.selectOnFocus - Whether the input should select its contents when
- * focused.
+ * focused. With `autoFocus`, the input selects them when it mounts.
  * @param props.centerPlaceholder - Whether the placeholder should be centered.
  * @param props.resetOnBlurIfEmpty - Whether the input should reset to its previous
  * value if blurred while empty.
@@ -120,6 +121,7 @@ export const Text = ({
   flush = false,
   preview,
   propagateClick,
+  autoFocus,
   ...rest
 }: TextProps): ReactElement => {
   const cachedFocusRef = useRef(value);
@@ -128,6 +130,12 @@ export const Text = ({
   const discardedRef = useRef(false);
   const internalRef = useRef<HTMLInputElement>(null);
   const focusedRef = useRef(false);
+  // A focus with no pointer has no mouse up to select the text.
+  useEffect(() => {
+    if (!autoFocus || !selectOnFocus) return;
+    internalRef.current?.select();
+    focusedRef.current = true;
+  }, []);
 
   const handleBlur = (e: React.FocusEvent<HTMLInputElement>): void => {
     focusedRef.current = false;
@@ -337,6 +345,7 @@ export const Text = ({
           tabIndex={tabIndex}
           onMouseUp={handleMouseUp}
           onBlur={handleBlur}
+          autoFocus={autoFocus}
           disabled={disabled}
           placeholder={typeof placeholder === "string" ? placeholder : undefined}
           style={inputStyle}

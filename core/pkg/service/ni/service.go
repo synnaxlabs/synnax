@@ -33,12 +33,15 @@ import (
 // ServiceConfig is the configuration for opening the NI service.
 type ServiceConfig struct {
 	// DB is the database config records, chassis, and devices are stored in.
+	//
 	// [REQUIRED]
 	DB *gorp.DB
 	// Status stores the status of each chassis and device.
+	//
 	// [REQUIRED]
 	Status *status.Service
 	// Signals publishes chassis and device changes.
+	//
 	// [OPTIONAL]
 	Signals *signals.Provider
 	alamos.Instrumentation

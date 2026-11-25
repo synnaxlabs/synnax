@@ -8,20 +8,22 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, schematic } from "@synnaxlabs/client";
+import { Button } from "@synnaxlabs/lyra/button";
 import { Form as Base } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { Text } from "@synnaxlabs/lyra/text";
-import { deep, notation } from "@synnaxlabs/x";
-import type { ReactElement } from "react";
+import { bounds, deep, notation } from "@synnaxlabs/x";
+import { type ReactElement, useState } from "react";
 
 import { Channel } from "@/channel";
 import { Notation } from "@/notation";
 import { Form as NodeForm } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
 import { Orientation } from "@/schematic/node/common/orientation";
+import { Telem } from "@/schematic/node/common/telem";
 import type { FormProps } from "@/schematic/node/spec";
 import { type Resolved, useResolved } from "@/schematic/node/symbol/resolve";
 import { Properties } from "@/vis/properties";
@@ -129,6 +131,107 @@ const FormatFields = ({ binding, onChange }: BindingProps): ReactElement => (
   </>
 );
 
+interface BoundsInputsProps {
+  value: bounds.Bounds;
+  onChange: (next: bounds.Bounds) => void;
+}
+
+type Edge = keyof bounds.Bounds;
+
+interface Held {
+  typed: bounds.Bounds;
+  /** The stored bounds when the hold started. */
+  stored: bounds.Bounds;
+  /** The field that the user edited, which shows the error. */
+  edge: Edge;
+}
+
+const INVALID_BOUNDS = "Min value must be less than max value";
+
+/**
+ * Edits a pair of bounds. The Core refuses bounds whose lower is not below its upper,
+ * so the fields hold such a pair with an error and save nothing until it is valid. A
+ * change to the stored bounds drops the held pair.
+ */
+const BoundsInputs = ({ value, onChange }: BoundsInputsProps): ReactElement => {
+  const [held, setHeld] = useState<Held>();
+  const stale = held != null && !bounds.equals(held.stored, value);
+  if (stale) setHeld(undefined);
+  const holding = held != null && !stale;
+  const shown = holding ? held.typed : value;
+  const handleChange = (edge: Edge) => (v: number) => {
+    const next = { ...shown, [edge]: v };
+    if (next.lower >= next.upper) return setHeld({ typed: next, stored: value, edge });
+    setHeld(undefined);
+    onChange(next);
+  };
+  const field = (edge: Edge, label: string): ReactElement => {
+    const invalid = holding && held.edge === edge;
+    return (
+      <Input.Item
+        label={label}
+        padHelpText={false}
+        status={invalid ? "error" : undefined}
+        helpText={invalid ? INVALID_BOUNDS : undefined}
+      >
+        <Input.Numeric value={shown[edge]} onChange={handleChange(edge)} />
+      </Input.Item>
+    );
+  };
+  return (
+    <>
+      {field("lower", "Min value")}
+      {field("upper", "Max value")}
+    </>
+  );
+};
+
+interface EnumerationOverridesProps extends BindingProps {
+  state: schematic.symbol.EnumerationState;
+}
+
+const EnumerationOverrides = ({
+  state,
+  binding,
+  onChange,
+}: EnumerationOverridesProps): ReactElement => {
+  const match = binding.match ?? state.match;
+  const within =
+    state.match.type === "within" ? state.match.bounds : Telem.DEFAULT_THRESHOLD;
+  const setMatch = (next: schematic.symbol.Matcher): void =>
+    onChange({ ...binding, match: next });
+  return (
+    <>
+      <Input.Item label="Match" padHelpText={false}>
+        <Select.Buttons
+          value={match.type}
+          onChange={(type: schematic.symbol.MatcherType) =>
+            setMatch(type === "exact" ? { type } : { type, bounds: within })
+          }
+        >
+          <Select.Item itemKey="exact">Exact</Select.Item>
+          <Select.Item itemKey="within">Within</Select.Item>
+        </Select.Buttons>
+      </Input.Item>
+      {match.type === "within" && (
+        <BoundsInputs
+          value={match.bounds}
+          onChange={(b) => setMatch({ ...match, bounds: b })}
+        />
+      )}
+      <Input.Item label="Default" padHelpText={false}>
+        <Input.Numeric
+          value={binding.default ?? state.default}
+          onChange={(d) => onChange({ ...binding, default: d })}
+        />
+      </Input.Item>
+    </>
+  );
+};
+
+const overridden = (b: Binding): boolean =>
+  b.enumeration != null || b.match != null || b.bounds != null || b.default != null;
+
 interface StateSectionProps {
   state: schematic.symbol.State;
 }
@@ -143,8 +246,33 @@ const StateSection = ({ state }: StateSectionProps): ReactElement => {
   return (
     <Base.Section title={state.name}>
       <SourceFields binding={binding} onChange={handleChange} />
-      {state.type === "number" && (
-        <FormatFields binding={binding} onChange={handleChange} />
+      {state.type === "number" ? (
+        <>
+          <FormatFields binding={binding} onChange={handleChange} />
+          <BoundsInputs
+            value={binding.bounds ?? state.bounds}
+            onChange={(b) => handleChange({ ...binding, bounds: b })}
+          />
+        </>
+      ) : (
+        <EnumerationOverrides state={state} binding={binding} onChange={handleChange} />
+      )}
+      {overridden(binding) && (
+        <Button.Button
+          variant="text"
+          onClick={() =>
+            handleChange({
+              ...binding,
+              enumeration: undefined,
+              match: undefined,
+              bounds: undefined,
+              default: undefined,
+            })
+          }
+        >
+          <Icon.Reset />
+          Reset to symbol
+        </Button.Button>
       )}
     </Base.Section>
   );
@@ -251,8 +379,8 @@ const StyleForm = (): ReactElement => (
 );
 
 /**
- * Edits a symbol node: the source and format of each state of its symbol, the channel
- * of each command with no state, its clicks, and its style.
+ * Edits a symbol node: the source, format, and overrides of each state of its symbol,
+ * the channel of each command with no state, its clicks, and its style.
  */
 export const Form = ({ actions, tab, onTabChange }: FormProps): ReactElement => (
   <Properties.Tabs
