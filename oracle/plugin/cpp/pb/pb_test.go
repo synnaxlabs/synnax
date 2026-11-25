@@ -1661,6 +1661,78 @@ var _ = Describe("C++ PB Plugin", func() {
 						ToNotContain(`#include "x/cpp/telem/types.gen.h"`)
 				},
 			)
+
+			DescribeTable(
+				"Should use a hand-written target's declared header in each conversion",
+				func(schema, field string) {
+					loader.Add("schemas/telem", `
+					@cpp output "x/cpp/telem"
+					@pb output "x/go/telem/pb"
+					`+schema)
+					source := `
+					import "schemas/telem"
+
+					@cpp output "client/cpp/ranger"
+					@pb output "core/pkg/service/ranger/pb"
+
+					Range struct {
+						` + field + `
+					}
+				`
+					resp := MustGenerate(source, "ranger", loader, pbPlugin)
+
+					ExpectContent(resp, "proto.gen.h").
+						ToContain(`#include "x/cpp/telem/telem.h"`).
+						ToNotContain(`#include "x/cpp/telem/types.gen.h"`)
+				},
+				Entry("an array", handTimeRange, "ranges telem.TimeRange[]"),
+				Entry(
+					"a named array",
+					handTimeRange+"\nTimeRanges = TimeRange[]",
+					"ranges telem.TimeRanges",
+				),
+				Entry(
+					"a map value",
+					handTimeRange,
+					"by_name map<string, telem.TimeRange>",
+				),
+				Entry(
+					"a nested array",
+					handTimeRange+"\nTimeRanges = TimeRange[]",
+					"grid telem.TimeRanges[]",
+				),
+				Entry("an enum array", handCode, "codes telem.Code[]"),
+				Entry("a union", handBound, "bound telem.Bound"),
+			)
+
+			It(
+				"Should keep a JSON package's json.gen.h for a hand-written target",
+				func() {
+					loader.Add("schemas/telem", `
+					@cpp output "x/cpp/telem"
+					@pb output "x/go/telem/pb"
+					`+handTimeRange+`
+					Bounds struct {
+						lo float64
+						hi float64
+					}
+				`)
+					source := `
+					import "schemas/telem"
+
+					@cpp output "client/cpp/ranger"
+					@pb output "core/pkg/service/ranger/pb"
+
+					Range struct {
+						time_range telem.TimeRange
+					}
+				`
+					resp := MustGenerate(source, "ranger", loader, pbPlugin)
+
+					ExpectContent(resp, "proto.gen.h").
+						ToContain(`#include "x/cpp/telem/json.gen.h"`)
+				},
+			)
 		})
 
 		Context("packages without JSON content", func() {
@@ -2221,3 +2293,35 @@ var _ = Describe("C++ PB Plugin unions", func() {
 })
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
+
+// handTimeRange is a hand-written struct that declares its header.
+const handTimeRange = `
+TimeRange struct {
+	start uint64
+	end   uint64
+
+	@cpp hand
+	@cpp include "x/cpp/telem/telem.h"
+}
+`
+
+// handCode is an int enum that declares its header.
+const handCode = `
+Code enum {
+	unknown = 0
+	one = 1
+
+	@cpp include "x/cpp/telem/telem.h"
+}
+`
+
+// handBound is a hand-written union that declares its header.
+const handBound = `
+Bound union on kind {
+	open {}
+	closed { at uint64 }
+
+	@cpp hand
+	@cpp include "x/cpp/telem/telem.h"
+}
+`
