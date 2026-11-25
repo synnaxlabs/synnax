@@ -59,7 +59,7 @@ describe("channels", () => {
         indexKey: "ts",
       });
       const { index } = read.src;
-      expect((await client.channels.retrieve(index)).name).toBe(`${prefix}_time`);
+      expect((await client.channels.retrieve(index)).name).toBe(`${prefix}_ts`);
       const data = await client.channels.retrieve(fields[0].channel);
       expect(data.name).toBe(`${prefix}_temperature`);
       expect(data.index).toBe(index);
@@ -70,6 +70,30 @@ describe("channels", () => {
         "/label": fields[1].channel,
       });
     });
+
+    it.each([
+      { source: "a ts index field", pointer: "/ts", indexKey: "f2", name: "ts" },
+      { source: "a time index field", pointer: "/time", indexKey: "f2", name: "time" },
+      { source: "arrival time", pointer: "/ts", indexKey: "", name: "time" },
+    ])(
+      "should name a new index for $source after it",
+      async ({ pointer, indexKey, name }) => {
+        const prefix = uniqueName("src");
+        const read: Record<string, Task.ReadChannelProps> = {};
+        await configure({
+          stored: { read, key: "src" },
+          fields: [
+            createField("f1", "/temperature"),
+            createField("f2", pointer, indexKey === "" ? "float64" : "timestamp"),
+          ],
+          namePrefix: prefix,
+          indexKey,
+        });
+        expect((await client.channels.retrieve(read.src.index)).name).toBe(
+          `${prefix}_${name}`,
+        );
+      },
+    );
 
     it("should number a new index whose name a field takes", async () => {
       const prefix = uniqueName("src");
@@ -157,7 +181,7 @@ describe("channels", () => {
         indexKey: "ts",
       });
       const index = await client.channels.retrieve(fields[1].channel);
-      expect(index).toMatchObject({ name: `${prefix}_time`, isIndex: true });
+      expect(index).toMatchObject({ name: `${prefix}_ts`, isIndex: true });
       const data = await client.channels.retrieve(fields[0].channel);
       expect(data).toMatchObject({ name: `${prefix}_temperature`, index: index.key });
     });
@@ -341,7 +365,7 @@ describe("channels", () => {
       });
       expect(plan).toEqual({
         props: { index: 0, channels: {} },
-        newIndex: `${prefix}_time`,
+        newIndex: `${prefix}_ts`,
         indexField: "ts",
         channels: {},
         creates: [{ key: "f1", name: `${prefix}_temperature_2`, indexed: true }],
@@ -350,7 +374,7 @@ describe("channels", () => {
       expect(fields.map(({ channel }) => channel)).toEqual([0, 0]);
       expect(props).toEqual({ index: 0, channels: {} });
       expect(
-        await client.channels.retrieve([`${prefix}_temperature_2`, `${prefix}_time`]),
+        await client.channels.retrieve([`${prefix}_temperature_2`, `${prefix}_ts`]),
       ).toEqual([]);
     });
 
@@ -371,6 +395,28 @@ describe("channels", () => {
       ]);
       expect((await client.channels.retrieve(old.key)).name).toBe(`${prefix}_mode`);
     });
+    it("should move the replaced channel of the index field off the name of the new index", async () => {
+      const prefix = uniqueName("src");
+      const old = await client.channels.create({
+        name: `${prefix}_ts`,
+        dataType: "string",
+        virtual: true,
+      });
+      const fields = [
+        createField("f1", "/temperature"),
+        { ...createField("ts", "/ts", "timestamp"), replaces: old.key },
+      ];
+      const plan = await Task.planReadChannels({
+        client,
+        namer: Task.createNamer(client),
+        fields,
+        namePrefix: prefix,
+        indexKey: "ts",
+      });
+      expect(plan.renames).toEqual([{ key: old.key, name: `${prefix}_ts_2` }]);
+      expect(plan.newIndex).toBe(`${prefix}_ts`);
+    });
+
     it("should number a name that an earlier plan of the same namer claims", async () => {
       const name = uniqueName("temperature");
       const namer = Task.createNamer(client);

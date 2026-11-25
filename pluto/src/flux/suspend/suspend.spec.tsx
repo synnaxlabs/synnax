@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { DisconnectedError, query, type Synnax as Client } from "@synnaxlabs/client";
-import { act, render, waitFor } from "@testing-library/react";
+import { act, render, renderHook, waitFor } from "@testing-library/react";
 import { type ReactElement, useState } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Errors } from "@/errors";
 import { Flux } from "@/flux";
@@ -34,6 +34,10 @@ const settle = async (local: Suspend.LocalCache<number>, key: string, data: numb
   );
 
 const hashOf = (key: string): string => query.hash({ key });
+
+afterEach(() => {
+  details.epoch = 0;
+});
 
 describe("Suspend.ensureFetch", () => {
   it("evicts the oldest settled entry once the cap is exceeded", async () => {
@@ -71,6 +75,45 @@ describe("Suspend.ensureFetch", () => {
     await settle(local, "q", 1);
     expect(listener).not.toHaveBeenCalled();
   });
+
+  it("fetches again when a reconnect lands before the fetch fails", async () => {
+    const local = newLocal();
+    const { promise: first, reject } = Promise.withResolvers<number>();
+    const retrieve = vi.fn(async () => 7);
+    retrieve.mockImplementationOnce(async () => await first);
+    const listener = vi.fn();
+    Suspend.subscribeReader(local, hashOf("q"), listener);
+    const fetched = Suspend.ensureFetch(
+      { client, query: { key: "q" } },
+      { name: "Number", retrieve, local },
+    );
+    details.epoch = 1;
+    reject(new Error("connection lost"));
+    await expect(fetched).resolves.toEqual(7);
+    expect(retrieve).toHaveBeenCalledTimes(2);
+    expect(local.settled.get(hashOf("q"))).toEqual({ data: 7 });
+    expect(listener).toHaveBeenCalledTimes(1);
+  });
+
+  it("fetches a result again when a reconnect drops the failure it settled", async () => {
+    const retrieve = vi.fn(async () => 7);
+    retrieve.mockImplementationOnce(async () => {
+      throw new Error("connection lost");
+    });
+    const { useResult } = Flux.createRetrieve<{ key: string }, number>({
+      name: "Number",
+      retrieve,
+    });
+    const { result, rerender } = renderHook(() => useResult({ key: "dropped" }), {
+      wrapper: Wrapper,
+    });
+    await waitFor(() => expect(result.current.variant).toEqual("error"));
+    details.epoch = 1;
+    rerender();
+    await waitFor(() => expect(result.current.variant).toEqual("success"));
+    expect(result.current.data).toEqual(7);
+    expect(retrieve).toHaveBeenCalledTimes(2);
+  });
 });
 
 describe("Suspend.subscribeReader", () => {
@@ -96,9 +139,9 @@ const WARM = { key: "warm" };
 const QUERY = { key: "query" };
 const READERS = ["first", "second", "third"];
 
-const client = {
-  connection: { status: { details: { epoch: 0 } } },
-} as unknown as Client;
+// details is the connection status of client, so a spec can move its epoch.
+const details = { epoch: 0 };
+const client = { connection: { status: { details } } } as unknown as Client;
 const Wrapper = createSynnaxWrapper({ client });
 
 // Each reader commits on WARM before it reads QUERY. A committed reader keeps its

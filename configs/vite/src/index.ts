@@ -114,3 +114,14 @@ export const lib = ({
 };
 
 export const isProd = () => process.env.SYNNAX_TS_ENV === "prod";
+
+/**
+ * @returns the Vitest `provide` entry that names the Core for live-Core specs:
+ * `SYNNAX_TEST_HOST` and `SYNNAX_TEST_PORT` when set, else localhost:9090.
+ */
+export const testCore = () => ({
+  synnaxTestCore: {
+    host: process.env.SYNNAX_TEST_HOST ?? "localhost",
+    port: Number(process.env.SYNNAX_TEST_PORT ?? 9090),
+  },
+});

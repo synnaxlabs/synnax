@@ -45,10 +45,10 @@ func (*Service) Match(body map[string]any) bool {
 // gets the enumeration or symbol copy that the upgrade gives it, when opts.Retrievable
 // allows its symbol and the enumeration of that symbol. The schematic drops each named
 // color and each enumeration that the Core does not hold, so a select or state
-// indicator that loses its enumeration draws its own options. A node whose custom
-// symbol the Core does not hold draws a missing symbol with the same key, and every
-// other node drops the bindings that its symbol orphans. An unknown envelope version is
-// a path-scoped validation error.
+// indicator that loses its enumeration draws no states. A node whose custom symbol the
+// Core does not hold draws a missing symbol with the same key, and every other node
+// drops the bindings that its symbol orphans. An unknown envelope version is a
+// path-scoped validation error.
 func (s *Service) Decode(ctx context.Context, env imex.Envelope) (imex.Write, error) {
 	sch, err := versions.DecodeImExEnvelope(ctx, env)
 	if err != nil {
