@@ -342,5 +342,20 @@ describe("Form.States", () => {
       expect(picker.left).toBeCloseTo(first.left, 0);
       expect(picker.right).toBeCloseTo(last.right, 0);
     });
+
+    it("should keep the picker as wide when the node names no enumeration", async () => {
+      const e = await client.enumerations.create({
+        name: id.create(),
+        entries: [{ key: id.create(), name: "Primed", value: 0, abnormal: false }],
+      });
+      const c = renderStates({ enumeration: e.key });
+      await findInput("Name 1");
+      const picker = (): HTMLElement => c.getByRole("button", { name: /^Enumeration/ });
+      const linked = picker().getBoundingClientRect().width;
+      fireEvent.click(picker());
+      fireEvent.click(await c.findByText("No enumeration"));
+      await waitFor(() => expect(c.queryByLabelText("Name 1")).toBeNull());
+      expect(picker().getBoundingClientRect().width).toBeCloseTo(linked, 0);
+    });
   });
 });

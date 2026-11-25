@@ -1168,6 +1168,110 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       });
     });
 
+    // LEVEL_OF_TWO gives Body a level motion over two shapes, which a fill cannot draw.
+    const LEVEL_OF_TWO: Partial<schematic.symbol.Spec> = {
+      drawing: {
+        type: "svg",
+        markup:
+          '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 10">' +
+          '<rect id="a" width="10" height="10"/>' +
+          '<rect id="b" x="10" width="10" height="10"/></svg>',
+      },
+      parts: [{ ...BODY, selectors: ["#a", "#b"] }],
+      states: [
+        { type: "number", key: "tank", name: "Tank", bounds: { lower: 0, upper: 1 } },
+      ],
+      looks: [
+        {
+          key: "level",
+          part: "body",
+          motion: { type: "level", state: "tank", side: "bottom" },
+        },
+      ],
+    };
+
+    it("selects the part when a save meets a level motion of two shapes", async () => {
+      await openPainted(LEVEL_OF_TWO);
+      fireEvent.click(screen.getByText("Whole drawing"));
+      await screen.findByRole("heading", { name: "Whole drawing" });
+      expect(findButton("Save").getAttribute("aria-disabled")).toBeNull();
+      fireEvent.click(findButton("Save"));
+      await screen.findByRole("heading", { name: "Body" });
+      expect(screen.getByText("Fill motion needs one shape")).toBeDefined();
+      fireEvent.click(screen.getByText("Spin"));
+      await waitFor(() =>
+        expect(screen.queryByText("Fill motion needs one shape")).toBeNull(),
+      );
+    });
+
+    it("selects the part before it asks to save a symbol in use", async () => {
+      const grp = await createParentGroup();
+      const payload = createSymbolPayload(uniqueName("tank"));
+      const symbol = await client.schematics.symbols.create({
+        ...payload,
+        group: grp.key,
+        data: { ...payload.data, ...LEVEL_OF_TWO },
+      });
+      const project = await client.projects.create({ name: uniqueName("project") });
+      await client.schematics.create({
+        project: project.key,
+        name: uniqueName("plant"),
+        nodes: [
+          {
+            key: "tank",
+            position: { x: 0, y: 0 },
+            zIndex: 0,
+            config: schematic.nodeConfigZ.parse({
+              variant: "symbol",
+              spec: { type: "custom", key: symbol.key },
+              label: { label: "Tank 1" },
+            }),
+          },
+        ],
+      });
+      await renderModalOpener(
+        Schematic.Symbol.Edit.useModal,
+        [{ symbolKey: symbol.key, group: grp.key }],
+        { client, additionalRegistry: theming.REGISTRY },
+      );
+      await waitFor(() => expect(findButton("Save").disabled).toBe(false));
+      await screen.findByRole("heading", { name: "Whole drawing" });
+      fireEvent.click(screen.getByText("Actuator"));
+      fireEvent.click(findButton("Save"));
+      await screen.findByRole("heading", { name: "Body" });
+      expect(screen.getByText("Fill motion needs one shape")).toBeDefined();
+      expect(screen.queryByText(`Save the changes to ${symbol.name}?`)).toBeNull();
+    });
+
+    it("saves once the level motion that replaces a clip-path goes", async () => {
+      const symbol = await openPainted({
+        drawing: {
+          type: "svg",
+          markup:
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">' +
+            '<rect id="a" width="10" height="10" clip-path="inset(1px)"/></svg>',
+        },
+        states: [
+          { type: "number", key: "tank", name: "Tank", bounds: { lower: 0, upper: 1 } },
+        ],
+        looks: [
+          {
+            key: "level",
+            part: "body",
+            motion: { type: "level", state: "tank", side: "bottom" },
+          },
+        ],
+      });
+      const reason = "Fill motion replaces a clip-path";
+      expect(screen.getByText(reason)).toBeDefined();
+      fireEvent.click(screen.getByText("None"));
+      await waitFor(() => expect(screen.queryByText(reason)).toBeNull());
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () =>
+        expect((await retrieveStored(symbol.key)).data.looks).toEqual([]),
+      );
+    });
+
     it("selects the whole drawing again when the selected part is removed", async () => {
       const { symbol, handle } = await openEditModal(
         '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">' +

@@ -968,21 +968,34 @@ TEST(DecoderAppendFloat, ConvertsWholeFloatInRange) {
     ASSERT_EQ(s.at<double>(0), 4.0);
 }
 
-/// @brief it should reject infinity.
-TEST(DecoderAppendFloat, RejectsInfinity) {
+/// @brief it should append infinity into a float64.
+TEST(DecoderAppendFloat, AppendsInfinity) {
+    const auto inf = std::numeric_limits<double>::infinity();
+    const auto s = decode_float({.data_type = telem::FLOAT64_T}, -inf);
+    ASSERT_EQ(s.at<double>(0), -inf);
+}
+
+/// @brief it should append NaN into a float32.
+TEST(DecoderAppendFloat, AppendsNaN) {
+    const auto s = decode_float({.data_type = telem::FLOAT32_T}, NaN);
+    ASSERT_TRUE(std::isnan(s.at<float>(0)));
+}
+
+/// @brief it should reject NaN into an integer.
+TEST(DecoderAppendFloat, RejectsNaNIntoInteger) {
+    const auto err = decode_float_error({.data_type = telem::INT32_T}, NaN);
+    ASSERT_OCCURRED_AS(err, errors::VALIDATION);
+    ASSERT_EQ(err.data, "NaN is not an integer");
+}
+
+/// @brief it should reject infinity into an integer.
+TEST(DecoderAppendFloat, RejectsInfinityIntoInteger) {
     const auto err = decode_float_error(
-        {.data_type = telem::FLOAT64_T},
+        {.data_type = telem::INT64_T},
         std::numeric_limits<double>::infinity()
     );
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "Infinity is not finite");
-}
-
-/// @brief it should reject NaN.
-TEST(DecoderAppendFloat, RejectsNaN) {
-    const auto err = decode_float_error({.data_type = telem::FLOAT32_T}, NaN);
-    ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "NaN is not finite");
+    ASSERT_EQ(err.data, "Infinity is out of range for int64");
 }
 
 /// @brief it should reject a double past a float32.
