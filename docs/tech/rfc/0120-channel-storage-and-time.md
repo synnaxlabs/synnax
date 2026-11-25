@@ -99,28 +99,29 @@ long as that producer names it.
 - **Who may name a clock**: A subject that may update a producer may name a clock that
   the producer's config holds. The API checks it through an injected owner lookup over
   the unique space of clock keys. Until Phase 9 the framer gives a writer of a channel
-  that has an index channel that index key (§4.8). Only a task writer names a clock. An
+  that has an index channel that index key (§4.8). A task writer names its clock from
+  its config, and the metrics service from Core memory; the framer picks a script's. An
   open fails on a key that is not issued, and on a key of a record that is not an index
   channel.
 - **Claims**: A clock key takes claims like a channel key (RFC 0121 §5.8). Sessions of
   one producer may write one clock on time ranges that do not overlap, and an open that
-  overlaps fails. The exception, until Phase 9, is an index key that the framer gives to
-  several sessions (§4.8): a later session joins the control region of the clock, as a
-  second writer does in RFC 0121 §5.8, and does not fail. A calculation session names no
-  clock and takes no claim (§4.5).
+  overlaps fails. The exception, until Phase 9, is an index key that several sessions
+  write, whether a task config names it or the framer gives it (§4.8): a later session
+  joins the control region of the clock, as a second writer does in RFC 0121 §5.8, and
+  does not fail. A calculation session names no clock and takes no claim (§4.5).
 - **Unique**: Clock keys in producer configs share one unique space (RFC 0119 §4.1), so
   a save that names another producer's clock fails. A task copy and an import allocate
   new clock keys. A spooled Driver frame keeps its key.
 - **End of a clock**: When its producer ends, the Core calls `Delete` on its clock (RFC
-  0121 §4.1): a task delete saves a pending-drop note for its clocks in its transaction,
-  and the framer's sweep deletes the clock of the entry it removes. At start, the Core
-  also deletes each clock of an earlier run that no record and no producer config holds,
-  which until Phase 9 is a key of the clock range. Storage keeps a clock's stamps while
-  a stored segment of another key names it, so no stamp that data uses goes. The start
-  check never counts a clock as data with no record.
-- **One clock, one producer**: Stored writes of two producers never share a clock. An
-  index channel that several sessions still write stays under write control until Phase
-  9, as today: the framer gates its writers by authority.
+  0121 §4.1): a task delete saves a pending-drop note for its clocks in its transaction.
+  A script's clock and the metrics clock end with their Core run: the framer and the
+  metrics service save a note for each clock that they make, so the next start deletes
+  it, and the framer's sweep deletes the clock of an entry that it removes. Storage
+  keeps a clock's stamps while a stored segment of another key names it, so no stamp
+  that data uses goes, and the Core deletes no clock on absence.
+- **One clock, one producer**: From Phase 9, stored writes of two producers never share
+  a clock. Until then, an index channel that several sessions or tasks write stays under
+  write control, as today: the framer gates its writers by authority.
 - **Key ranges**: A channel's local key stays below 2^20 until Phase 9
   (`core/pkg/distribution/channel/counter.go:38-40`), because a v2 channel record cannot
   hold a larger one. From Phase 6, clock keys come from their own counter below
