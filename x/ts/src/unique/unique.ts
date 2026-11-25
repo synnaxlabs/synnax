@@ -45,7 +45,11 @@ interface By {
    */
   <V>(values: V[] | readonly V[], key: (value: V) => unknown, options?: ByOptions): V[];
   /** @deprecated Pass `{ keep: "last" }` in place of false. Removed in 0.64. */
-  <V>(values: V[] | readonly V[], key: (value: V) => unknown, keepFirst: boolean): V[];
+  <V>(
+    values: V[] | readonly V[],
+    key: (value: V) => unknown,
+    keepFirst: boolean | undefined,
+  ): V[];
 }
 
 export const by: By = <V>(

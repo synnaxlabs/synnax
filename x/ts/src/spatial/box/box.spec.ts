@@ -391,7 +391,7 @@ describe("Box", () => {
     });
     describe("deprecated inclusive argument", () => {
       // A plain type for the deprecated overload keeps lint from flagging each call.
-      const containsInclusive: (c: box.Box, p: xy.XY, inclusive: boolean) => boolean =
+      const containsInclusive: (c: box.Box, p: xy.XY, inclusive?: boolean) => boolean =
         box.contains;
       it("should count the border when inclusive is true", () => {
         const b = box.construct(0, 0, 10, 10);
@@ -400,6 +400,10 @@ describe("Box", () => {
       it("should leave out the border when inclusive is false", () => {
         const b = box.construct(0, 0, 10, 10);
         expect(containsInclusive(b, { x: 10, y: 10 }, false)).toBe(false);
+      });
+      it("should count the border when inclusive is undefined", () => {
+        const b = box.construct(0, 0, 10, 10);
+        expect(containsInclusive(b, { x: 10, y: 10 }, undefined)).toBe(true);
       });
     });
   });

@@ -96,7 +96,7 @@ describe("by", () => {
     const byKeepFirst: <V>(
       values: V[],
       key: (value: V) => unknown,
-      keepFirst: boolean,
+      keepFirst?: boolean,
     ) => V[] = unique.by;
     const values = [
       { id: 1, name: "A" },
@@ -107,6 +107,9 @@ describe("by", () => {
     ]);
     expect(byKeepFirst(values, (v: IDTestCase) => v.id, false)).toEqual([
       { id: 1, name: "B" },
+    ]);
+    expect(byKeepFirst(values, (v: IDTestCase) => v.id, undefined)).toEqual([
+      { id: 1, name: "A" },
     ]);
   });
 

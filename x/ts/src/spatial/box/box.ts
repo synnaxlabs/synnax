@@ -156,7 +156,7 @@ interface Contains {
   /** @returns true if container holds the given point or box. */
   (container: Crude, value: Box | xy.XY, options?: ContainsOptions): boolean;
   /** @deprecated Pass `{ exclusive: !inclusive }`. Removed in 0.64. */
-  (container: Crude, value: Box | xy.XY, inclusive: boolean): boolean;
+  (container: Crude, value: Box | xy.XY, inclusive: boolean | undefined): boolean;
 }
 
 export const contains: Contains = (
