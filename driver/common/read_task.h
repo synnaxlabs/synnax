@@ -9,6 +9,8 @@
 
 #pragma once
 
+#include <mutex>
+
 #include "absl/log/log.h"
 
 #include "client/cpp/task/json.gen.h"
@@ -120,6 +122,10 @@ class ReadTask final : public driver::task::Task {
     /// @brief the task context used to communicate state changes back to Synnax.
     /// @brief tare middleware used for taring values.
     driver::transform::Tare tare;
+    /// @brief guards state, which the command and pipeline threads both change. Never
+    /// held while the pipeline starts or stops, since either can wait for the pipeline
+    /// thread, which takes it.
+    std::mutex state_mu;
     /// @brief handles communicating the task state back to the cluster.
     StatusHandler state;
 
@@ -154,10 +160,13 @@ class ReadTask final : public driver::task::Task {
         void interrupt() override { this->internal->interrupt(); }
 
         void stopped_with_err(const x::errors::Error &err) override {
-            this->p.state.error(
-                err,
-                this->writer_open ? "Failed to read data" : "Failed to start task"
-            );
+            {
+                std::lock_guard lock(this->p.state_mu);
+                this->p.state.error(
+                    err,
+                    this->writer_open ? "Failed to read data" : "Failed to start task"
+                );
+            }
             this->p.stop("", true);
         }
 
@@ -183,6 +192,7 @@ class ReadTask final : public driver::task::Task {
                     }
                     LOG(WARNING)
                         << this->p.name() << ": [" << err.type << "] " << description;
+                    std::lock_guard lock(this->p.state_mu);
                     this->p.state.send_warning("Failed to read data", description);
                 } else if (!err.matches(errors::NOMINAL_SHUTDOWN_ERROR))
                     LOG(ERROR) << this->p.name() << ": " << err.message();
@@ -193,9 +203,11 @@ class ReadTask final : public driver::task::Task {
                     LOG(WARNING) << this->p.name() << ": " << warning.message << ": "
                                  << warning.description;
                 this->logged_warning = warning;
+                std::lock_guard lock(this->p.state_mu);
                 this->p.state.send_warning(warning.message, warning.description);
             } else {
                 this->forget_warning();
+                std::lock_guard lock(this->p.state_mu);
                 this->p.state.clear_warning();
             }
             return this->p.tare.transform(fr);
@@ -273,6 +285,7 @@ public:
     /// communicating success state.
     bool stop(const std::string &cmd_key, const bool propagate_state) {
         const auto stopped = this->pipe.stop();
+        std::lock_guard lock(this->state_mu);
         if (stopped)
             this->state.error(this->source->internal->stop(), "Failed to stop task");
         if (propagate_state) this->state.send_stop(cmd_key);
@@ -283,18 +296,24 @@ public:
     /// communicating task state. A task that is already running is not restarted:
     /// the command is answered with the current status.
     bool start(const std::string &cmd_key, x::breaker::Breaker &cancel) {
-        if (this->pipe.running()) {
-            this->state.ack(cmd_key, true);
-            return false;
+        bool start_ok = false;
+        {
+            std::lock_guard lock(this->state_mu);
+            if (this->pipe.running()) {
+                this->state.ack(cmd_key, true);
+                return false;
+            }
+            this->state.reset();
+            this->source->begin_run();
+            start_ok = !this->state.error(
+                this->source->internal->start(cmd_key, cancel),
+                "Failed to start task"
+            );
+            // The start answer goes out before the pipeline runs, so a status that
+            // the pipeline sends always follows it.
+            this->state.send_start(cmd_key);
         }
-        this->state.reset();
-        this->source->begin_run();
-        const auto start_ok = !this->state.error(
-            this->source->internal->start(cmd_key, cancel),
-            "Failed to start task"
-        );
         if (start_ok) this->pipe.start();
-        this->state.send_start(cmd_key);
         return start_ok;
     }
 
