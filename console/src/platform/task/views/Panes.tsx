@@ -29,7 +29,10 @@ export interface PanesProps {
   list: ReactNode;
   /** Sits at the end of the list's header, such as a switch between views. */
   listActions?: ReactNode;
-  /** The form path of the selected item, or null when nothing is selected. */
+  /**
+   * The form path of the selected item, or null when nothing is selected or the item
+   * has no path, such as a group.
+   */
   detailsPath: deep.Target<unknown> | null;
   /** Names the selected item in the details header. */
   title?: ReactNode;

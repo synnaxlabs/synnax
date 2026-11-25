@@ -121,7 +121,9 @@ jobs:
     name: Scan and report
     needs: [authn, api, tls, files, driver, console, ci]
     if: ${{ !cancelled() }}
-    runs-on: ubuntu-latest
+    # Ubuntu 26.04 ships libgcrypt 1.12.0, which can reject the imported report key with
+    # "Bad secret key" on its first use. libgcrypt 1.12.1 fixes this.
+    runs-on: ubuntu-24.04
     timeout-minutes: 90
     permissions:
       contents: read
@@ -142,6 +144,7 @@ jobs:
         uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           version: latest-known
+          cache-dependency-glob: uv.lock
 
       - name: Install the scanners
         run: |
