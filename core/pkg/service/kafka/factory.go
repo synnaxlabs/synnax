@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
+	"github.com/synnaxlabs/synnax/pkg/service/icd/read"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -107,7 +108,10 @@ func (c FactoryConfig) Validate() error {
 	return v.Error()
 }
 
-type factory struct{ cfg FactoryConfig }
+type factory struct {
+	cfg   FactoryConfig
+	reads read.Resolver
+}
 
 var _ driver.Factory = (*factory)(nil)
 
@@ -125,7 +129,10 @@ func NewFactory(cfgs ...FactoryConfig) (driver.Factory, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &factory{cfg: cfg}, nil
+	return &factory{
+		cfg:   cfg,
+		reads: read.NewResolver(cfg.ICD, icd.ReadChannels(cfg.Channel)),
+	}, nil
 }
 
 // Name implements driver.Factory.

@@ -45,6 +45,7 @@ Range struct {
 
     @go marshal
     @go migrate
+    @resource type "range"
 }
 
 Where filter Range {
