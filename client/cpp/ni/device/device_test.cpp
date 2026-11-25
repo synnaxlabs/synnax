@@ -107,10 +107,9 @@ TEST(Client, UpdatesConfigurationAndKeepsIdentity) {
     ConfigurationUpdate configuration;
     configuration.name = "Thermocouples";
     configuration.identifier = "tc";
-    const auto ch = ASSERT_NIL_P(client.channels.create(
+    const auto ch = ASSERT_NIL_P(client.channels.create_virtual(
         make_unique_channel_name("ni_device_port"),
-        x::telem::FLOAT64_T,
-        true
+        x::telem::FLOAT64_T
     ));
     configuration.analog_input.channels[0] = ch.key;
     const auto got = ASSERT_NIL_P(
