@@ -8,9 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import type { schematic } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/lyra/icon";
-import { Note } from "@synnaxlabs/lyra/note";
-import { Text } from "@synnaxlabs/lyra/text";
 import type { location } from "@synnaxlabs/x";
 import type { ReactElement } from "react";
 
@@ -19,6 +16,7 @@ import { Drawing } from "@/schematic/node/common/custom/Drawing";
 import { usePaints } from "@/schematic/node/common/custom/paint";
 import { isValidSVG } from "@/schematic/node/common/custom/render";
 import { Primitive } from "@/schematic/node/common/primitive";
+import { Warning } from "@/schematic/node/symbol/Warning";
 import { Symbol } from "@/schematic/symbol";
 
 export interface StaticProps {
@@ -42,16 +40,10 @@ export const Static = ({
   const invalid = spec != null && !isValidSVG(spec.drawing.markup);
   if (missing || failed || invalid)
     return (
-      <Note.Note variant="warning" className={className}>
-        <Text.Text level="p" status="warning">
-          <Icon.Warning />
-          {missing
-            ? "Missing custom symbol"
-            : failed
-              ? "Failed to load custom symbol"
-              : "Invalid custom symbol"}
-        </Text.Text>
-      </Note.Note>
+      <Warning
+        cause={missing ? "missing" : failed ? "failed" : "invalid"}
+        className={className}
+      />
     );
   return (
     <Primitive.Div

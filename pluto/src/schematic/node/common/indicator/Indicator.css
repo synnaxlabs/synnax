@@ -9,9 +9,13 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-symbol-placeholder {
-    width: var(--pluto-height-large);
-    height: var(--pluto-height-large);
-    border: var(--pluto-border);
-    border-radius: var(--pluto-border-radius);
+.pluto-unknown-badge {
+    justify-content: center;
+    min-width: 3rem;
+    padding: 0 0.5rem;
+
+    & .pluto-unknown-badge__icon {
+        width: 2rem;
+        height: 2rem;
+    }
 }
