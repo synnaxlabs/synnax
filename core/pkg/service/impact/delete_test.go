@@ -308,6 +308,30 @@ var _ = Describe("Delete", Ordered, func() {
 		Expect(exists(ctx, ch.Key())).To(BeTrue())
 	})
 
+	DescribeTable("Should delete a task and the channel it uses that a change names",
+		func(ctx SpecContext, taskFirst bool) {
+			ch := createChannel(ctx, channel.Channel{})
+			tsk := createTask(ctx, ch.Key())
+			records := []resource.ID{
+				channel.ResourceID(ch.Key()),
+				task.ResourceID(tsk.Key),
+			}
+			if taskFirst {
+				slices.Reverse(records)
+			}
+			p := MustSucceed(layer.Impact.Plan(ctx, db, records, impact.PlanOptions{}))
+			Expect(p.Entries).To(BeEmpty())
+			Expect(layer.Impact.Apply(ctx, db, records, impact.ApplyOptions{})).
+				To(Equal(impact.Plan{Records: records}))
+			Expect(exists(ctx, ch.Key())).To(BeFalse())
+			Expect(layer.Task.NewRetrieve().
+				Where(task.MatchKeys(tsk.Key)).
+				Exists(ctx, db)).To(BeFalse())
+		},
+		Entry("channel first", false),
+		Entry("task first", true),
+	)
+
 	It("Should name the pick with the smallest key among the picks it refuses", func(
 		ctx SpecContext,
 	) {
