@@ -22,13 +22,21 @@ from pydantic import BaseModel
 
 import synnax as sy
 from alamos import NOOP
-from freighter import AsyncMiddleware, AsyncStream, Middleware, Stream, Unreachable
+from freighter import (
+    AsyncMiddleware,
+    AsyncStream,
+    Middleware,
+    Stream,
+    UnaryClient,
+    Unreachable,
+)
 from synnax.channel.retrieve import Retriever
 from synnax.framer.adapter import ReadFrameAdapter
 from synnax.framer.client import Client as FramerClient
 from synnax.framer.deleter import Deleter
 from synnax.framer.streamer import AsyncStreamer
 from tests.channel import assert_eventually_channels_are_found
+from tests.loop import ticks_while
 from tests.proxy import Proxy
 from x.codec import Codec
 from x.exceptions import Registry
@@ -731,6 +739,21 @@ class _FakeUnaryClient:
         raise NotImplementedError
 
 
+class _SlowUnaryClient:
+    """Answers every request with one channel after blocking for a second."""
+
+    def use(self, *middleware: Middleware) -> None:
+        pass
+
+    def send[Q: BaseModel, R: BaseModel](
+        self, target: str, req: Q, res_t: type[R]
+    ) -> R:
+        time.sleep(1)
+        return res_t.model_validate(
+            {"channels": [{"key": 1, "name": "slow", "data_type": "float64"}]}
+        )
+
+
 class _FakeFileTransport:
     def use(self, *middleware: Middleware) -> None:
         pass
@@ -754,8 +777,10 @@ class _FakeFileTransport:
         raise NotImplementedError
 
 
-def _fake_framer_client(responses: list[dict[str, Any]]) -> FramerClient:
-    unary = _FakeUnaryClient()
+def _fake_framer_client(
+    responses: list[dict[str, Any]], unary: UnaryClient | None = None
+) -> FramerClient:
+    unary = unary or _FakeUnaryClient()
     retriever = Retriever(client=unary)
     return FramerClient(
         stream_client=_FakeStreamClient(responses),
@@ -766,6 +791,18 @@ def _fake_framer_client(responses: list[dict[str, Any]]) -> FramerClient:
         deleter=Deleter(client=unary, instrumentation=NOOP),
         registry=Registry(),
     )
+
+
+@pytest.mark.framer
+@pytest.mark.streamer
+class TestAsyncStreamerOpen:
+    @pytest.mark.asyncio
+    async def test_slow_channel_retrieve(self) -> None:
+        """Should keep the event loop running while the channel retrieve waits."""
+        empty: dict[str, Any] = {"frame": {"keys": [], "series": []}}
+        client = _fake_framer_client([empty], _SlowUnaryClient())
+        _, ticks = await ticks_while(client.open_async_streamer(1))
+        assert ticks > 10
 
 
 @pytest.mark.framer

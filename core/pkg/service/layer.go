@@ -174,13 +174,7 @@ type LayerConfig struct {
 	alamos.Instrumentation
 }
 
-var (
-	_ config.Config[LayerConfig] = LayerConfig{}
-	// DefaultLayerConfig is the default configuration for opening the service layer.
-	// This configuration is not valid on its own and must be overridden by the
-	// required fields specified in Config.
-	DefaultLayerConfig = LayerConfig{}
-)
+var _ config.Config[LayerConfig] = LayerConfig{}
 
 // Override implements config.Config.
 func (c LayerConfig) Override(other LayerConfig) LayerConfig {
@@ -375,7 +369,7 @@ func revokePasswordSessions(
 // invalid, or any services fail to open, Open returns a nil layer and an error. If the
 // returned error is nil, the Layer must be closed by calling Close after use.
 func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
-	cfg, err := config.New(DefaultLayerConfig, cfgs...)
+	cfg, err := config.New(LayerConfig{}, cfgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -694,7 +688,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.User, err = user.OpenService(ctx, user.ServiceConfig{
 		Instrumentation: cfg.Child("user"),
 		DB:              cfg.Distribution.DB,
-		Password:        l.Password,
 		Signals:         l.Signals,
 	}); !ok(err, l.User) {
 		return nil, err
@@ -1341,16 +1334,19 @@ func channelPolicies() impact.Policies {
 	retarget, keep := impact.PolicyRetarget, impact.PolicyKeep
 	return impact.Policies{
 		Links: map[gorp.ReferenceID]impact.Policy{
-			{Table: "schematic", Name: "nodes.config.channel"}:         retarget,
-			{Table: "schematic", Name: "nodes.config.command_channel"}: retarget,
-			{Table: "schematic", Name: "nodes.config.state_channel"}:   retarget,
-			{Table: "table", Name: "rows.cells.config.channel"}:        retarget,
-			{Table: "lineplot", Name: "channels"}:                      retarget,
-			{Table: "log", Name: "channels.channel"}:                   retarget,
-			{Table: "channel", Name: "index"}:                          keep,
-			{Table: "channel", Name: "rewires.from"}:                   keep,
-			{Table: "channel_tombstone", Name: "rewires.from"}:         keep,
-			{Table: "status", Name: "owner"}:                           keep,
+			{Table: "schematic", Name: "nodes.config.channel"}:               retarget,
+			{Table: "schematic", Name: "nodes.config.command_channel"}:       retarget,
+			{Table: "schematic", Name: "nodes.config.state_channel"}:         retarget,
+			{Table: "schematic", Name: "nodes.config.commands.channel"}:      retarget,
+			{Table: "schematic", Name: "nodes.config.states.source.command"}: retarget,
+			{Table: "schematic", Name: "nodes.config.states.source.key"}:     retarget,
+			{Table: "table", Name: "rows.cells.config.channel"}:              retarget,
+			{Table: "lineplot", Name: "channels"}:                            retarget,
+			{Table: "log", Name: "channels.channel"}:                         retarget,
+			{Table: "channel", Name: "index"}:                                keep,
+			{Table: "channel", Name: "rewires.from"}:                         keep,
+			{Table: "channel_tombstone", Name: "rewires.from"}:               keep,
+			{Table: "status", Name: "owner"}:                                 keep,
 		},
 		KeptTables: func(table string) bool {
 			_, ok := taskconfig.TaskOf(gorp.Target{Table: table})

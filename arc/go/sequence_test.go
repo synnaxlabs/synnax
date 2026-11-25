@@ -5857,6 +5857,38 @@ var _ = Describe("Sequence", func() {
 			expectWaitOf20ms(ctx, h)
 		})
 
+		DescribeTable("Waits for the period of a rate",
+			func(ctx SpecContext, declarations, duration string) {
+				h := newRuntimeHarness(ctx, `
+				import time
+				`+declarations+`
+				sequence main {
+				    sequence pause {
+				        time.wait(duration=`+duration+`)
+				    }
+				    "done" -> log
+				}
+				1 => main`, resolver, digests...)
+				defer h.Close(ctx)
+				expectWaitOf20ms(ctx, h)
+			},
+			Entry("a cast of a literal", "", "i64 ns(50hz)"),
+			Entry("a cast of a sum of rates", "", "i64 ns(25hz + 25hz)"),
+			Entry("a cast of a variable", "r := 50hz", "i64 ns(r)"),
+			Entry("a cast of a float rate", "r := 0.05khz", "i64 ns(r)"),
+			Entry("a variable that is a time span", "d i64 ns := 50hz", "d"),
+			Entry("the result of a function",
+				"func period(r i64 hz) i64 ns {\nreturn r\n}", "period(50hz)"),
+			Entry("a variable in a function",
+				"func period() i64 ns {\nd i64 ns := 50hz\nreturn d\n}", "period()"),
+			Entry("an assignment in a function",
+				"func period(r i64 hz) i64 ns {\nd i64 ns := 0ns\nd = r\nreturn d\n}",
+				"period(50hz)"),
+			Entry("a compound sum in a function",
+				"func period(r i64 hz) i64 ns {\nd i64 ns := 0ns\nd += r\nreturn d\n}",
+				"period(50hz)"),
+		)
+
 		// expectWaitOf checks that "done" is logged after span and not before it.
 		expectWaitOf := func(ctx SpecContext, h *runtimeHarness, span telem.TimeSpan) {
 			GinkgoHelper()
@@ -9646,6 +9678,159 @@ var _ = Describe("Sequence", func() {
 				Expect(lastU8(out, 345)).To(Equal(uint8(1)))
 			},
 		)
+
+		It(
+			"adopts the period of a reassigned interval rate at the next fire",
+			func(ctx SpecContext) {
+				resolver := channelSymbols(map[string]channelDef{
+					"start_cmd": {types.U8(), 346},
+					"tick_ch":   {types.U8(), 347},
+				})
+				h := newRuntimeHarness(ctx, `
+    sequence main {
+        rate := 10hz
+        stage s1 {
+            interval(period=rate) -> tick_ch
+            wait(1s) -> sequence {
+                rate = 1hz
+            }
+        }
+    }
+    start_cmd => main`, resolver,
+					channels.Digest{Key: 346, DataType: telem.Uint8T},
+					channels.Digest{Key: 347, DataType: telem.Uint8T},
+				)
+				defer h.Close(ctx)
+				trigger(h, ctx, 346)
+				out, _ := h.Flush()
+				Expect(out.Get(347).Series).ToNot(BeEmpty())
+				// 10 hz is a 100 ms period.
+				advance(h, ctx, 141*telem.Millisecond)
+				out, _ = h.Flush()
+				Expect(out.Get(347).Series).ToNot(BeEmpty())
+				advance(h, ctx, 171*telem.Millisecond)
+				out, _ = h.Flush()
+				Expect(out.Get(347).Series).To(BeEmpty(),
+					"30 ms after the last fire must not tick at 10 hz")
+				// The wait sets the rate to 1 hz. The interval also ticks here.
+				advance(h, ctx, 1101*telem.Millisecond)
+				_, _ = h.Flush()
+				advance(h, ctx, 1400*telem.Millisecond)
+				out, _ = h.Flush()
+				Expect(out.Get(347).Series).To(BeEmpty(),
+					"the interval must adopt the 1 s period of 1 hz")
+				advance(h, ctx, 2*telem.Second)
+				out, _ = h.Flush()
+				Expect(out.Get(347).Series).To(BeEmpty())
+				advance(h, ctx, 2200*telem.Millisecond)
+				out, _ = h.Flush()
+				Expect(out.Get(347).Series).ToNot(BeEmpty())
+			},
+		)
+
+		It("parks an interval that reads a rate of zero", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 348},
+				"tick_ch":   {types.U8(), 349},
+			})
+			h := newRuntimeHarness(ctx, `
+    sequence main {
+        rate := 10hz
+        stage s1 {
+            interval(period=rate) -> tick_ch
+            wait(300ms) -> sequence {
+                rate = 0hz
+            }
+        }
+    }
+    start_cmd => main`, resolver,
+				channels.Digest{Key: 348, DataType: telem.Uint8T},
+				channels.Digest{Key: 349, DataType: telem.Uint8T},
+			)
+			defer h.Close(ctx)
+			trigger(h, ctx, 348)
+			advance(h, ctx, 141*telem.Millisecond)
+			out, _ := h.Flush()
+			Expect(out.Get(349).Series).ToNot(BeEmpty())
+			// The wait sets the rate to 0. The flush drains a tick at this time.
+			advance(h, ctx, 401*telem.Millisecond)
+			_, _ = h.Flush()
+			advance(h, ctx, 2*telem.Second)
+			out, _ = h.Flush()
+			Expect(out.Get(349).Series).To(BeEmpty())
+		})
+
+		DescribeTable("fires an interval at the period of a rate",
+			func(ctx SpecContext, declarations, period string) {
+				resolver := channelSymbols(map[string]channelDef{
+					"start_cmd": {types.U8(), 353},
+					"tick_ch":   {types.U8(), 354},
+				})
+				h := newRuntimeHarness(ctx, declarations+`
+    sequence main {
+        stage s1 {
+            interval(period=`+period+`) -> tick_ch
+        }
+    }
+    start_cmd => main`, resolver,
+					channels.Digest{Key: 353, DataType: telem.Uint8T},
+					channels.Digest{Key: 354, DataType: telem.Uint8T},
+				)
+				defer h.Close(ctx)
+				// fired reports whether the interval fires in the cycle at elapsed.
+				fired := func(elapsed telem.TimeSpan) bool {
+					advance(h, ctx, elapsed)
+					out, _ := h.Flush()
+					return len(out.Get(354).Series) > 0
+				}
+				// The first fire is at 1 ms, and 50 hz is a 20 ms period.
+				trigger(h, ctx, 353)
+				_, _ = h.Flush()
+				Expect(fired(20 * telem.Millisecond)).To(BeFalse())
+				Expect(fired(21 * telem.Millisecond)).To(BeTrue())
+				Expect(fired(40 * telem.Millisecond)).To(BeFalse())
+				Expect(fired(41 * telem.Millisecond)).To(BeTrue())
+			},
+			Entry("a literal", "", "50hz"),
+			Entry("a sum of rates", "", "25hz + 25hz"),
+			Entry("a variable", "r := 50hz", "r"),
+			Entry("a computed variable", "r := 25hz * 2", "r"),
+		)
+
+		It("stops an interval while a rate from a channel is zero", func(
+			ctx SpecContext,
+		) {
+			resolver := channelSymbols(map[string]channelDef{
+				"rate_ch": {types.I64(), 350},
+				"tick_ch": {types.U8(), 351},
+			})
+			h := newRuntimeHarness(ctx,
+				`interval(period=i64 hz(rate_ch)) -> tick_ch`, resolver,
+				channels.Digest{Key: 350, DataType: telem.Int64T},
+				channels.Digest{Key: 351, DataType: telem.Uint8T},
+			)
+			defer h.Close(ctx)
+			// fired reports whether the interval fires in the cycle at elapsed.
+			fired := func(elapsed telem.TimeSpan) bool {
+				advance(h, ctx, elapsed)
+				out, _ := h.Flush()
+				return len(out.Get(351).Series) > 0
+			}
+			h.Ingest(350, telem.NewSeriesV[int64](10))
+			Expect(fired(20 * telem.Millisecond)).To(BeTrue())
+			Expect(fired(130 * telem.Millisecond)).To(BeTrue())
+			h.Ingest(350, telem.NewSeriesV[int64](0))
+			Expect(fired(140 * telem.Millisecond)).To(BeFalse())
+			Expect(fired(3 * telem.Second)).To(BeFalse())
+			Expect(h.scheduler.NextDeadline()).To(Equal(telem.TimeSpanMax))
+			h.Ingest(350, telem.NewSeriesV[int64](10))
+			Expect(fired(3010 * telem.Millisecond)).To(BeTrue())
+			// The schedule keeps its phase from the fire at 120 ms.
+			Expect(fired(3019 * telem.Millisecond)).To(BeFalse())
+			Expect(fired(3020 * telem.Millisecond)).To(BeTrue())
+			Expect(fired(3119 * telem.Millisecond)).To(BeFalse())
+			Expect(fired(3120 * telem.Millisecond)).To(BeTrue())
+		})
 	})
 
 	// A triggered mid-chain variable read emits the variable's live value on
@@ -10010,6 +10195,225 @@ var _ = Describe("Sequence", func() {
 			}
 			out, _ = h.Flush()
 			Expect(countOf(out, 401, "parent")).To(BeZero())
+		})
+	})
+
+	Describe("Head call that reads a channel", func() {
+		DescribeTable(
+			"runs on each new value of the channel and on no other cycle",
+			func(ctx SpecContext, fn, call string) {
+				resolver := channelSymbols(map[string]channelDef{
+					"start_cmd": {types.U8(), 420},
+					"cpu":       {types.F32(), 421},
+					"log":       {types.String(), 422},
+					"other":     {types.F32(), 423},
+					"other_out": {types.F32(), 424},
+				})
+				h := newRuntimeHarness(ctx, fn+`
+    sequence main {
+        stage s1 {
+            `+call+`
+            other -> other_out
+        }
+    }
+    start_cmd => main`, resolver,
+					channels.Digest{Key: 420, DataType: telem.Uint8T},
+					channels.Digest{Key: 421, DataType: telem.Float32T},
+					channels.Digest{Key: 422, DataType: telem.StringT},
+					channels.Digest{Key: 423, DataType: telem.Float32T},
+					channels.Digest{Key: 424, DataType: telem.Float32T},
+				)
+				defer h.Close(ctx)
+				trigger(h, ctx, 420)
+				h.Flush()
+				h.Ingest(421, telem.NewSeriesV[float32](1))
+				advance(h, ctx, telem.Millisecond)
+				advance(h, ctx, telem.Millisecond)
+				h.Ingest(423, telem.NewSeriesV[float32](9))
+				advance(h, ctx, telem.Millisecond)
+				h.Ingest(421, telem.NewSeriesV[float32](2))
+				advance(h, ctx, telem.Millisecond)
+				out, _ := h.Flush()
+				Expect(drainStrings(out, 422)).To(Equal([]string{"S1: 1.0", "S1: 2.0"}))
+				Expect(out.Get(424).Series).To(HaveLen(1))
+			},
+			Entry(
+				"no inputs",
+				`func check() { log = f"S1: {cpu:.1f}" }`,
+				`check()`,
+			),
+			Entry(
+				"a literal input",
+				`func check(prefix str) { log = f"{prefix}: {cpu:.1f}" }`,
+				`check("S1")`,
+			),
+			Entry(
+				"a named channel input",
+				`func check(prefix str, x chan f32) { log = f"{prefix}: {x:.1f}" }`,
+				`check(prefix="S1", x=cpu)`,
+			),
+			Entry(
+				"a positional channel input",
+				`func check(prefix str, x chan f32) { log = f"{prefix}: {x:.1f}" }`,
+				`check("S1", cpu)`,
+			),
+			Entry(
+				"a declared trigger that keeps its default",
+				`func check() {offset f32 = 0.0} { log = f"S1: {cpu + offset:.1f}" }`,
+				`check()`,
+			),
+			Entry(
+				"a channel that a called function reads",
+				`func read() f32 { return cpu }
+    func check() { log = f"S1: {read():.1f}" }`,
+				`check()`,
+			),
+		)
+	})
+
+	Describe("Call with a parameter named input", func() {
+		// run starts the stage, then gives cpu the value 1 and trig the value 9.
+		run := func(ctx SpecContext, fn, flow string) []string {
+			GinkgoHelper()
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 430},
+				"cpu":       {types.F32(), 431},
+				"trig":      {types.F32(), 432},
+				"log":       {types.String(), 433},
+			})
+			h := newRuntimeHarness(ctx, fn+`
+    sequence main {
+        stage s1 {
+            `+flow+`
+        }
+    }
+    start_cmd => main`, resolver,
+				channels.Digest{Key: 430, DataType: telem.Uint8T},
+				channels.Digest{Key: 431, DataType: telem.Float32T},
+				channels.Digest{Key: 432, DataType: telem.Float32T},
+				channels.Digest{Key: 433, DataType: telem.StringT},
+			)
+			defer h.Close(ctx)
+			trigger(h, ctx, 430)
+			h.Flush()
+			h.Ingest(431, telem.NewSeriesV[float32](1))
+			h.Ingest(432, telem.NewSeriesV[float32](9))
+			advance(h, ctx, telem.Millisecond)
+			out, _ := h.Flush()
+			return drainStrings(out, 433)
+		}
+
+		DescribeTable(
+			"keeps the value passed for the parameter",
+			func(ctx SpecContext, fn, flow, want string) {
+				Expect(run(ctx, fn, flow)).To(Equal([]string{want}))
+			},
+			Entry(
+				"first of two, by position, with no trigger",
+				`func f(input f32, b f32) str {
+        return f"{input:.0f} {b:.0f} {cpu:.0f}"
+    }`,
+				`f(5.0, 6.0) -> log`,
+				"5 6 1",
+			),
+			Entry(
+				"first of two, by name, with no trigger",
+				`func f(input f32, b f32) str {
+        return f"{input:.0f} {b:.0f} {cpu:.0f}"
+    }`,
+				`f(b=6.0, input=5.0) -> log`,
+				"5 6 1",
+			),
+			Entry(
+				"middle of three, with no trigger",
+				`func f(a f32, input f32, b f32) str {
+        return f"{a:.0f} {input:.0f} {b:.0f} {cpu:.0f}"
+    }`,
+				`f(4.0, 5.0, 6.0) -> log`,
+				"4 5 6 1",
+			),
+			Entry(
+				"last of two, with no trigger",
+				`func f(a f32, input f32) str {
+        return f"{a:.0f} {input:.0f} {cpu:.0f}"
+    }`,
+				`f(4.0, 5.0) -> log`,
+				"4 5 1",
+			),
+			Entry(
+				"last of two, on a bare call",
+				`func f(a f32, input f32) {
+        log = f"{a:.0f} {input:.0f} {cpu:.0f}"
+    }`,
+				`f(4.0, 5.0)`,
+				"4 5 1",
+			),
+			Entry(
+				"a channel between two literals, with no trigger",
+				`func f(a f32, input chan f32, b f32) str {
+        return f"{a:.0f} {input:.0f} {b:.0f}"
+    }`,
+				`f(4.0, cpu, 6.0) -> log`,
+				"4 1 6",
+			),
+			Entry(
+				"a declared trigger with a default, with no trigger",
+				`func f(b f32) {input f32 = 5.0} str {
+        return f"{input:.0f} {b:.0f} {cpu:.0f}"
+    }`,
+				`f(6.0) -> log`,
+				"5 6 1",
+			),
+			Entry(
+				"a second declared trigger, with no trigger",
+				`func f(b f32) {x f32 = 7.0, input f32 = 5.0} str {
+        return f"{x:.0f} {input:.0f} {b:.0f} {cpu:.0f}"
+    }`,
+				`f(6.0) -> log`,
+				"7 5 6 1",
+			),
+			Entry(
+				"middle of three, with a -> trigger",
+				`func f(a f32, input f32, b f32) str {
+        return f"{a:.0f} {input:.0f} {b:.0f}"
+    }`,
+				`trig -> f(4.0, 5.0, 6.0) -> log`,
+				"4 5 6",
+			),
+			Entry(
+				"middle of three, with a => trigger",
+				`func f(a f32, input f32, b f32) str {
+        return f"{a:.0f} {input:.0f} {b:.0f}"
+    }`,
+				`trig => f(4.0, 5.0, 6.0) -> log`,
+				"4 5 6",
+			),
+			Entry(
+				"a channel after a literal, with a -> trigger",
+				`func f(a f32, input chan f32) str {
+        return f"{a:.0f} {input:.0f}"
+    }`,
+				`trig -> f(4.0, cpu) -> log`,
+				"4 1",
+			),
+			Entry(
+				"a type that differs from the trigger",
+				`func f(input u8, b f32) str {
+        return f"{input} {b:.0f}"
+    }`,
+				`trig -> f(5, 6.0) -> log`,
+				"5 6",
+			),
+		)
+
+		It("feeds a declared trigger named input from its wire", func(ctx SpecContext) {
+			Expect(run(
+				ctx,
+				`func f(b f32) {input f32} str {
+        return f"{input:.0f} {b:.0f}"
+    }`,
+				`trig -> f(6.0) -> log`,
+			)).To(Equal([]string{"9 6"}))
 		})
 	})
 

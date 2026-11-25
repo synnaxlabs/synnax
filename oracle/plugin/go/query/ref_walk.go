@@ -32,6 +32,8 @@ const (
 	stepField stepKind = iota
 	// stepArray ranges over the elements of an array.
 	stepArray
+	// stepMap ranges over the values of a map.
+	stepMap
 	// stepVariant switches a union to one of its variants.
 	stepVariant
 	// stepLeaf reads the @ref field itself, or the value it reaches when field is
@@ -57,6 +59,8 @@ func (s refStep) id() string {
 	switch s.kind {
 	case stepArray:
 		return "[]"
+	case stepMap:
+		return "{}"
 	case stepVariant:
 		return "|" + s.union.QualifiedName + "." + s.variant
 	case stepField, stepLeaf:
@@ -78,6 +82,8 @@ const (
 	leafOptional
 	// leafSlice holds one target per element.
 	leafSlice
+	// leafMap holds one target per map value.
+	leafMap
 )
 
 // refSite is one path from an entry to a @ref field.
@@ -111,7 +117,7 @@ func (r *walkedRef) tree() []*stepNode {
 	return buildTree(steps)
 }
 
-// refWalker finds every @ref field that a type holds through its fields, arrays,
+// refWalker finds every @ref field that a type holds through its fields, arrays, maps,
 // optional structs, and unions.
 type refWalker struct {
 	table *resolution.Table
@@ -204,6 +210,7 @@ func (w *refWalker) walkField(
 			at,
 		)
 	}
+	isMap := isMapType(f.Type)
 	if refdomain.Declares(f) {
 		w.declared.Add(fieldDecl{typ: declarer(owner, f.Name, w.table), field: f.Name})
 		site := refSite{
@@ -214,6 +221,19 @@ func (w *refWalker) walkField(
 			field:     f,
 			mode:      leafModeOf(f, isSlice),
 			direction: w.direction,
+		}
+		if isMap {
+			if value := f.Type.TypeArgs[1]; value.Name == "Array" || isMapType(value) {
+				return errors.Newf(
+					"%s: @ref field %s needs a map of keys, not a map of %s",
+					owner.QualifiedName,
+					f.Name,
+					value.Name,
+				)
+			}
+			site.field.Type = f.Type.TypeArgs[1]
+			site.field.Default = nil
+			site.mode = leafMap
 		}
 		w.add(at, site)
 		return nil
@@ -245,9 +265,13 @@ func (w *refWalker) walkBelow(
 	path []string,
 	isSlice bool,
 ) error {
+	isMap := isMapType(f.Type)
 	elem := f.Type
-	if isSlice {
+	switch {
+	case isSlice:
 		elem = elem.TypeArgs[0]
+	case isMap:
+		elem = elem.TypeArgs[1]
 	}
 	resolved, ref, ok := resolution.Dealias(elem, w.table)
 	if !ok {
@@ -259,8 +283,11 @@ func (w *refWalker) walkBelow(
 		optional: f.Optional && !isSlice,
 	}
 	next := append(slices.Clone(steps), fieldStep)
-	if isSlice {
+	switch {
+	case isSlice:
 		next = append(next, refStep{kind: stepArray, elem: ref})
+	case isMap:
+		next = append(next, refStep{kind: stepMap, elem: ref})
 	}
 	switch form := resolved.Form.(type) {
 	case resolution.StructForm:
@@ -331,6 +358,8 @@ func (w *refWalker) holdsRef(typ resolution.Type, seen set.Set[string]) bool {
 		elem := f.Type
 		if elem.Name == "Array" && len(elem.TypeArgs) == 1 {
 			elem = elem.TypeArgs[0]
+		} else if isMapType(elem) {
+			elem = elem.TypeArgs[1]
 		}
 		if t, _, ok := resolution.Dealias(elem, w.table); ok && w.holdsRef(t, seen) {
 			return true
@@ -383,6 +412,11 @@ func declarer(typ resolution.Type, name string, table *resolution.Table) string 
 		}
 	}
 	return typ.QualifiedName
+}
+
+// isMapType reports whether ref is a map.
+func isMapType(ref resolution.TypeRef) bool {
+	return ref.Name == "Map" && len(ref.TypeArgs) == 2
 }
 
 func leafModeOf(f resolution.Field, isSlice bool) leafMode {
@@ -525,6 +559,18 @@ func (rd *renderer) walk(
 				rd.walk(b, n.children, v, mutable, leaf)
 			}
 			b.WriteString("}\n")
+		case stepMap:
+			v := rd.nextVar("v")
+			if !mutable {
+				fmt.Fprintf(b, "for _, %s := range %s {\n", v, expr)
+				rd.walk(b, n.children, v, mutable, leaf)
+				b.WriteString("}\n")
+				continue
+			}
+			k := rd.nextVar("k")
+			fmt.Fprintf(b, "for %s, %s := range %s {\n", k, v, expr)
+			rd.walk(b, n.children, v, mutable, leaf)
+			fmt.Fprintf(b, "%s[%s] = %s\n}\n", expr, k, v)
 		case stepVariant:
 			variants = append(variants, n)
 		}
@@ -578,7 +624,7 @@ func (rd *renderer) targetsBody(ref *walkedRef) string {
 				grow,
 				rd.target("*"+expr),
 			)
-		case leafSlice:
+		case leafSlice, leafMap:
 			k := rd.nextVar("k")
 			fmt.Fprintf(
 				b,
@@ -667,6 +713,18 @@ func (rd *renderer) detachLeafBody(ref *walkedRef, mode leafMode) string {
 				k,
 				rd.info.ElemGoType,
 				rd.target(k),
+			)
+		case leafMap:
+			k, v := rd.nextVar("k"), rd.nextVar("v")
+			fmt.Fprintf(
+				b,
+				"for %s, %s := range %s {\nif %s == t {\ndelete(%s, %s)\n}\n}\n",
+				k,
+				v,
+				expr,
+				rd.operand(v),
+				expr,
+				k,
 			)
 		case leafRequired:
 			panic("detach walk reached a required leaf")
@@ -805,9 +863,31 @@ func (rd *renderer) retargetBody(nodes []*stepNode, mode leafMode) string {
 				kept,
 				k,
 			)
+		case leafMap:
+			k, v := rd.nextVar("k"), rd.nextVar("v")
+			fmt.Fprintf(
+				b,
+				"for %[1]s, %[2]s := range %[3]s {\n"+
+					"if %[4]s, ok := to[%[5]s]; ok {\n%[6]s\n%[3]s[%[1]s] = %[2]s\n}\n}\n",
+				k,
+				v,
+				expr,
+				t,
+				rd.target(v),
+				rd.assign(v, t),
+			)
 		}
 	})
 	return b.String()
+}
+
+// operand returns the target of expr in a form that can sit in an if condition, where a
+// bare composite literal does not parse.
+func (rd *renderer) operand(expr string) string {
+	if rd.info.IsID {
+		return "(" + rd.target(expr) + ")"
+	}
+	return rd.target(expr)
 }
 
 // assign returns the statement that points the field at expr to the target value. A
@@ -1026,7 +1106,7 @@ func walkedRefInfo(
 			)
 		}
 	}
-	inArray := mode == leafRequired && !slices.ContainsFunc(
+	inArray := mode == leafMap || mode == leafRequired && !slices.ContainsFunc(
 		ref.sites,
 		func(s refSite) bool { return !s.inArray() },
 	)

@@ -32,7 +32,6 @@ import {
 } from "@/schematic/queries";
 import { useKey } from "@/schematic/Suspended";
 import { Diagram as Base } from "@/vis/diagram";
-import { internalNodeBox, resolveEndpoint } from "@/vis/diagram/util";
 
 // The partial merges against the latest config through a ref, not the render's
 // closure, so two changes in one tick both land.
@@ -102,15 +101,15 @@ const EdgeJumpProvider = ({ children }: PropsWithChildren): ReactElement => {
       const sourceNode = nodeLookup.get(edge.source.node);
       const targetNode = nodeLookup.get(edge.target.node);
       if (sourceNode == null || targetNode == null) return;
-      const source = resolveEndpoint(sourceNode.internals, edge.source.param);
-      const target = resolveEndpoint(targetNode.internals, edge.target.param);
+      const source = Base.resolveEndpoint(sourceNode.internals, edge.source.param);
+      const target = Base.resolveEndpoint(targetNode.internals, edge.target.param);
       const cfg = configs.get(edge.key) as Edge.Config | undefined;
       if (source == null || target == null || cfg == null) return;
       const segments = Edge.Segmented.build({
         source,
         target,
-        sourceBox: internalNodeBox(sourceNode),
-        targetBox: internalNodeBox(targetNode),
+        sourceBox: Base.internalNodeBox(sourceNode),
+        targetBox: Base.internalNodeBox(targetNode),
         middleSegments: cfg.segments,
       });
       const points = Edge.Segmented.segmentsToPoints(
@@ -180,38 +179,3 @@ export const Diagram = Base.create({
   connectionLine: Component.renderProp(Edge.ConnectionLine),
   Provider,
 });
-
-export const nodeChangesToActions = (
-  changes: Base.NodeChange[],
-): schematic.Action[] => {
-  const actions: schematic.Action[] = [];
-  changes.forEach((ch) => {
-    switch (ch.type) {
-      case "position":
-        actions.push(schematic.setNodePosition({ key: ch.key, position: ch.position }));
-        return;
-      case "remove":
-        actions.push(schematic.removeNode({ key: ch.key }));
-        break;
-      case "select":
-        break;
-    }
-  });
-  return actions;
-};
-
-export const edgeChangesToActions = (changes: Base.EdgeChange[]): schematic.Action[] =>
-  changes.flatMap((ch) => {
-    switch (ch.type) {
-      case "add":
-        return [
-          schematic.addEdge({
-            edge: { ...ch.edge, config: Edge.REGISTRY.pipe.defaultConfig() },
-          }),
-        ];
-      case "remove":
-        return [schematic.removeEdge({ key: ch.key })];
-      default:
-        return [];
-    }
-  });

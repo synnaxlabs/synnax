@@ -12,11 +12,11 @@ import z from "zod";
 
 import { NotFoundError, ValidationError } from "@/errors";
 import type { Cache } from "@/query/cache";
-import type { List, ListQuery, Lists } from "@/query/list";
+import type { list } from "@/query/list";
 import type { Live, Retrieves, Trigger } from "@/query/query";
 import type { Keyed, Table } from "@/query/table";
 import type { Data, FetchOptions, Params } from "@/query/types";
-import { checkForMultipleOrNoResults, singleQueryError } from "@/util/retrieve";
+import { util } from "@/util";
 
 /** Query fields only the server can evaluate, shared by most request shapes. */
 const DEFAULT_SERVER_FIELDS = ["searchTerm", "limit", "after"] as const;
@@ -38,8 +38,8 @@ const whereOp = (where: unknown, field: string, op: string): unknown => {
 
 /** @returns the list of a filter that only matches field against a list, or null. */
 const whereIn = (where: unknown, field: string): unknown[] | null => {
-  const list = whereOp(where, field, "in");
-  return Array.isArray(list) ? list : null;
+  const values = whereOp(where, field, "in");
+  return Array.isArray(values) ? values : null;
 };
 
 /** @returns the keys of a request whose only field is a `where` on keys, or null. */
@@ -317,8 +317,8 @@ export abstract class Retriever<
   private readonly singleSpace: Retrieves<Params, D | D[]>;
   private readonly oneSpace: Retrieves<Params, D | D[]>;
   private readonly requestSpace: Retrieves<Params, D | D[]>;
-  private readonly lists: Lists<
-    ListQuery<OrderOf<z.output<Z>>, CursorOf<z.output<Z>>> & {
+  private readonly lists: list.Lists<
+    list.Query<OrderOf<z.output<Z>>, CursorOf<z.output<Z>>> & {
       readonly [key: string]: Params;
     },
     D,
@@ -331,7 +331,7 @@ export abstract class Retriever<
   private readonly normalizeRequest: (params: unknown) => z.output<Z>;
   private readonly readShortcut: ((params: unknown) => Params) | null;
   private readonly routes = new WeakMap<object, [Retrieves<Params, D | D[]>, Params]>();
-  private readonly listed = new WeakMap<object, List<D, CursorOf<z.output<Z>>>>();
+  private readonly listed = new WeakMap<object, list.List<D, CursorOf<z.output<Z>>>>();
 
   constructor(
     cache: Cache,
@@ -424,7 +424,7 @@ export abstract class Retriever<
           return records;
         });
         const { where, searchTerm } = narrow.isObject(query) ? query : {};
-        checkForMultipleOrNoResults(
+        util.checkForMultipleOrNoResults(
           name,
           {
             where: narrow.isObject(where) ? where : undefined,
@@ -451,7 +451,7 @@ export abstract class Retriever<
       // reports only its strict arm, which calls the key an unexpected field.
       const one =
         singleSchema != null && addressesKey(p) ? singleSchema.safeParse(p) : null;
-      if (one?.success === false) throw singleQueryError(name, p, one.error);
+      if (one?.success === false) throw util.singleQueryError(name, p, one.error);
       throw new zod.ParseError({
         issues: res.error.issues,
         input: p,
@@ -582,10 +582,10 @@ export abstract class Retriever<
    */
   watch(params: Shortcut | SingleInput | OneInput<Z>): Live<D>;
   watch(params: Shortcut[]): Live<D[]>;
-  watch(params: RequestInput<Z>): List<D, CursorOf<z.output<Z>>>;
+  watch(params: RequestInput<Z>): list.List<D, CursorOf<z.output<Z>>>;
   watch(
     params: Shortcut | Shortcut[] | SingleInput | OneInput<Z> | RequestInput<Z>,
-  ): Live<D> | Live<D[]> | List<D, CursorOf<z.output<Z>>> {
+  ): Live<D> | Live<D[]> | list.List<D, CursorOf<z.output<Z>>> {
     const [space, query] = this.route(params);
     if (Array.isArray(params)) {
       const live = space.watch(query) as Live<D[]>;
@@ -596,8 +596,8 @@ export abstract class Retriever<
     // Params are readonly, so a repeat read of one object skips validation.
     const held = this.listed.get(params as object);
     if (held != null) return held;
-    const list = this.lists.list(query as never);
-    this.listed.set(params as object, list);
-    return list;
+    const watched = this.lists.list(query as never);
+    this.listed.set(params as object, watched);
+    return watched;
   }
 }
