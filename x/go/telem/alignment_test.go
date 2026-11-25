@@ -100,19 +100,11 @@ var _ = Describe("Alignment", func() {
 })
 
 var _ = Describe("Leading alignments", func() {
-	Describe("LeadingAlignment", func() {
-		It("Should offset the domain index from LeadingDomain", func() {
-			Expect(telem.LeadingAlignment(3, 7)).To(Equal(
-				telem.NewAlignment(telem.LeadingDomain+3, 7),
-			))
-		})
-	})
-
 	Describe("AlignmentCounter", func() {
 		It("Should start at the domain after start", func() {
 			c := telem.NewAlignmentCounter(telem.LeadingDomain)
-			Expect(c.Next()).To(Equal(telem.LeadingAlignment(1, 0)))
-			Expect(c.Next()).To(Equal(telem.LeadingAlignment(2, 0)))
+			Expect(c.Next()).To(Equal(telem.NewAlignment(telem.LeadingDomain+1, 0)))
+			Expect(c.Next()).To(Equal(telem.NewAlignment(telem.LeadingDomain+2, 0)))
 		})
 
 		It("Should hand out the last domain index", func() {

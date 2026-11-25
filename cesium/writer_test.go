@@ -5104,7 +5104,7 @@ var _ = Describe("Writer Behavior", func() {
 						Eventually(o.Outlet()).Should(Receive(&res))
 						Expect(
 							res.Frame.SeriesAt(0).Alignment,
-						).To(Equal(telem.LeadingAlignment(1, 0)))
+						).To(Equal(telem.NewAlignment(telem.LeadingDomain+1, 0)))
 
 						Expect(
 							w.Write(
@@ -5114,7 +5114,7 @@ var _ = Describe("Writer Behavior", func() {
 						Eventually(o.Outlet()).Should(Receive(&res))
 						Expect(
 							res.Frame.SeriesAt(0).Alignment,
-						).To(Equal(telem.LeadingAlignment(1, 3)))
+						).To(Equal(telem.NewAlignment(telem.LeadingDomain+1, 3)))
 
 						i.Close()
 						Expect(sCtx.Wait()).To(Succeed())

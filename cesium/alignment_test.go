@@ -476,7 +476,7 @@ var _ = Describe("Alignment", func() {
 var _ = Describe("NewAlignmentCounter", func() {
 	It("Should hand out leading domains after the zero leading alignment", func() {
 		c := telem.NewAlignmentCounter(telem.LeadingDomain)
-		Expect(c.Next()).To(Equal(telem.LeadingAlignment(1, 0)))
-		Expect(c.Next()).To(Equal(telem.LeadingAlignment(2, 0)))
+		Expect(c.Next()).To(Equal(telem.NewAlignment(telem.LeadingDomain+1, 0)))
+		Expect(c.Next()).To(Equal(telem.NewAlignment(telem.LeadingDomain+2, 0)))
 	})
 })
