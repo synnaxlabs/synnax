@@ -59,7 +59,6 @@ var _ = Describe("Dispatch", func() {
 			Group:         groupSvc,
 			ImEx:          imex.NewService(),
 			Enumeration:   openEnumerations(ctx, db),
-			Actuators:     noActuators,
 			RemoveOrphans: noOrphans,
 		}))
 		g = createGroup(ctx, resource.TypeSchematicSymbol)

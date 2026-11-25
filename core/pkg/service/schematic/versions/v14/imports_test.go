@@ -11,12 +11,14 @@ package v14_test
 
 import (
 	"context"
+	"slices"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	servicecolor "github.com/synnaxlabs/synnax/pkg/service/color/versions/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/enumeration"
 	enumerationv0 "github.com/synnaxlabs/synnax/pkg/service/enumeration/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	symbolv4 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v4"
@@ -72,38 +74,52 @@ var _ = Describe("ImportOverrides", func() {
 		retrievable = func(resource.ID) bool { return true }
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		StartRun(db.Run)
-		spec, entries := MustSucceed2(symbol.MigrateStoredSpec(ctx, symbolv4.Spec{
-			Variant: "actuator",
-			Scale:   1,
-			SVG:     `<svg><rect class="a"/><rect class="b"/></svg>`,
-			States:  stored,
+		old := symbolv4.Symbol{
+			Key:   uuid.New(),
+			Name:  "Valve",
+			Group: new(uuid.New()),
+			Data: symbolv4.Spec{
+				Variant: "actuator",
+				Scale:   1,
+				SVG:     `<svg><rect class="a"/><rect class="b"/></svg>`,
+				States:  stored,
+			},
+		}
+		Expect(
+			gorp.NewCreate[symbolv4.Key, symbolv4.Symbol]().Entry(&old).Exec(ctx, db),
+		).
+			To(Succeed())
+		enums := MustOpen(
+			enumeration.OpenService(ctx, enumeration.ServiceConfig{DB: db}),
+		)
+		MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[symbol.Key, symbol.Symbol]{
+			DB: db,
+			Migrations: []gorp.Migration{symbol.NewMigration(symbol.MigrationConfig{
+				Intern: func(tx gorp.Tx) symbol.Intern {
+					return enums.NewWriter(tx).NewInterner().Intern
+				},
+			})},
 		}))
-		spec.Parts = append(spec.Parts, symbol.Part{
+		Expect(gorp.NewRetrieve[symbol.Key, symbol.Symbol]().
+			Where(gorp.MatchKeys[symbol.Key, symbol.Symbol](old.Key)).
+			Entry(&src).
+			Exec(ctx, db)).To(Succeed())
+		src.Data.Parts = append(src.Data.Parts, symbol.Part{
 			Key:       "b",
 			Name:      "b",
 			Selectors: []string{".b"},
 		})
-		spec.Looks = append(spec.Looks, nodePaint)
-		enum = enumerationv0.Enumeration{
-			Key:     uuid.New(),
-			Name:    "Valve",
-			Entries: entries,
-		}
-		state, ok := spec.States[0].Variant.(symbol.EnumerationState)
-		Expect(ok).To(BeTrue())
-		state.Enumeration = &enum.Key
-		spec.States[0].Variant = state
-		src = symbol.Symbol{
-			Key:   uuid.New(),
-			Name:  "Valve",
-			Data:  spec,
-			Group: new(uuid.New()),
-		}
-		Expect(gorp.NewCreate[enumerationv0.Key, enumerationv0.Enumeration]().
-			Entry(&enum).
-			Exec(ctx, db)).To(Succeed())
+		src.Data.Looks = append(src.Data.Looks, nodePaint)
 		Expect(gorp.NewCreate[symbol.Key, symbol.Symbol]().Entry(&src).Exec(ctx, db)).
 			To(Succeed())
+		state, ok := src.Data.States[0].Variant.(symbol.EnumerationState)
+		Expect(ok).To(BeTrue())
+		Expect(gorp.NewRetrieve[enumerationv0.Key, enumerationv0.Enumeration]().
+			Where(gorp.MatchKeys[enumerationv0.Key, enumerationv0.Enumeration](
+				*state.Enumeration,
+			)).
+			Entry(&enum).
+			Exec(ctx, db)).To(Succeed())
 	})
 
 	// run imports a schematic named Panel with one custom node, labeled Vent, that
@@ -198,6 +214,62 @@ var _ = Describe("ImportOverrides", func() {
 		Expect(ok).To(BeTrue())
 		Expect(state.Enumeration).ToNot(BeNil())
 	})
+
+	It("Should keep each state of the symbol in a copy", func(ctx SpecContext) {
+		level := symbol.State{Variant: symbol.NumberState{
+			BaseState: symbol.BaseState{Key: "level", Name: "Level"},
+		}}
+		src.Data.States = append(src.Data.States, level)
+		Expect(gorp.NewCreate[symbol.Key, symbol.Symbol]().Entry(&src).Exec(ctx, db)).
+			To(Succeed())
+		run(ctx, src.Key, states(
+			[2]*xcolor.Color{shade(3), shade(9)},
+			[2]*xcolor.Color{shade(4), shade(9)},
+		))
+		Expect(created).To(HaveLen(1))
+		Expect(created[0].Data.States).To(HaveLen(2))
+		Expect(created[0].Data.States[1]).To(Equal(level))
+	})
+
+	It("Should give no copy for a part that selects no shape", func(ctx SpecContext) {
+		src.Data.Parts = append(src.Data.Parts, symbol.Part{
+			Key:       "ghost",
+			Name:      "ghost",
+			Selectors: []string{},
+		})
+		src.Data.Looks = append([]symbol.Look{{
+			Key:  "ghost",
+			Part: new("ghost"),
+			Fill: &symbol.Paint{Variant: symbol.EntryPaint{State: "active"}},
+		}}, src.Data.Looks...)
+		Expect(gorp.NewCreate[symbol.Key, symbol.Symbol]().Entry(&src).Exec(ctx, db)).
+			To(Succeed())
+		run(ctx, src.Key, states(
+			[2]*xcolor.Color{shade(3), shade(3)},
+			[2]*xcolor.Color{shade(4), shade(4)},
+		))
+		Expect(created).To(BeEmpty())
+		Expect(calls).To(HaveLen(1))
+		Expect(colors(calls[0].entries)).
+			To(Equal([]*servicecolor.Ref{fixed(3), fixed(4)}))
+	})
+
+	It("Should draw override i on value i when the entries are out of order",
+		func(ctx SpecContext) {
+			slices.Reverse(enum.Entries)
+			Expect(gorp.NewCreate[enumerationv0.Key, enumerationv0.Enumeration]().
+				Entry(&enum).
+				Exec(ctx, db)).To(Succeed())
+			run(ctx, src.Key, states(
+				[2]*xcolor.Color{shade(3), shade(3)},
+				[2]*xcolor.Color{shade(4), shade(4)},
+			))
+			Expect(calls).To(HaveLen(1))
+			Expect(calls[0].entries).To(HaveLen(2))
+			Expect(calls[0].entries[0].Value).To(Equal(1.0))
+			Expect(colors(calls[0].entries)).
+				To(Equal([]*servicecolor.Ref{fixed(4), fixed(3)}))
+		})
 
 	DescribeTable("Should leave a node on its symbol when its user cannot retrieve",
 		func(ctx SpecContext, rejected func() resource.ID) {
