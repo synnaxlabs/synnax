@@ -8,7 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import type { schematic } from "@synnaxlabs/client";
-import type { ReactElement } from "react";
+import { Dialog } from "@synnaxlabs/lyra/dialog";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { type ReactElement, type Ref, useState } from "react";
 
 import { Color } from "@/color";
 import { CSS } from "@/css";
@@ -75,6 +77,7 @@ interface DrawnProps
   readings?: Record<string, Custom.Reading>;
   onClick?: () => void;
   onClickDelay?: Config["onClickDelay"];
+  buttonRef?: Ref<HTMLButtonElement>;
 }
 
 const Drawn = ({
@@ -91,6 +94,7 @@ const Drawn = ({
   readings,
   onClick,
   onClickDelay,
+  buttonRef,
 }: DrawnProps): ReactElement => {
   const [nodeColor] = Color.useValues([color]);
   const paints = Custom.usePaints(spec, value, { nodeColor, builtIn });
@@ -116,6 +120,7 @@ const Drawn = ({
     );
   return (
     <Toggle.Button
+      ref={buttonRef}
       orientation={orientation}
       className={className}
       onClick={onClick}
@@ -132,15 +137,21 @@ interface Sendable {
   target: bind.Target;
 }
 
-// resolveClick returns what a click on the whole drawing sends, where spec is symbol
-// with the node's bindings. It is undefined when a click sends nothing, such as a
+interface ClickActions {
+  send: (s: Sendable) => void;
+  /** open asks the user which of options to send. */
+  open: (options: Sendable[]) => void;
+}
+
+// resolveClick returns what a click on the whole drawing does, where spec is symbol
+// with the node's bindings. It is undefined when a click does nothing, such as a
 // command with no target or one that asks for a value.
 const resolveClick = (
   symbol: schematic.symbol.Spec | undefined,
   spec: schematic.symbol.Spec | undefined,
   { disabled, states, commands }: Pick<Config, "disabled" | "states" | "commands">,
   value: ReadonlyMap<string, number>,
-  send: (s: Sendable) => void,
+  { send, open }: ClickActions,
 ): (() => void) | undefined => {
   const interaction = spec?.interactions.find(({ part }) => part == null);
   if (symbol == null || spec == null || interaction == null || disabled)
@@ -160,13 +171,21 @@ const resolveClick = (
   return () => {
     const state = spec.states.find(({ key }) => key === a.command.state);
     const own = symbol.states.find(({ key }) => key === a.command.state);
-    // An unknown value sends nothing.
-    if (state == null || own == null || !value.has(state.key)) return;
-    const current = Custom.matched(state, value);
-    // A command value passes through the symbol's match, and the state value through
-    // the node's.
-    if (current === Custom.matched(own, a.value)) send(b);
-    else if (current === Custom.matched(own, b.value)) send(a);
+    if (state != null && own != null && value.has(state.key)) {
+      const current = Custom.matched(state, value);
+      // A command value passes through the symbol's match, and the state value through
+      // the node's.
+      if (current === Custom.matched(own, a.value)) {
+        send(b);
+        return;
+      }
+      if (current === Custom.matched(own, b.value)) {
+        send(a);
+        return;
+      }
+    }
+    // An unknown value, or one that matches neither command, asks which to send.
+    open([a, b]);
   };
 };
 
@@ -187,21 +206,25 @@ export const Node = ({
     stalenessTimeout,
   });
   const value = bind.values(states, readings);
-  const onClick = resolveClick(
-    resolved.spec,
-    bound.spec,
-    config,
-    value,
-    ({ target, value: v }) => {
-      if (target.type === "channel") set(target.channel.toString(), v);
-      else
-        onConfigChange({
-          states: states.map((s) =>
-            s.key === target.state ? { ...s, source: { type: "local", value: v } } : s,
-          ),
-        });
+  const [anchor, setAnchor] = useState<HTMLButtonElement | null>(null);
+  const [options, setOptions] = useState<Sendable[]>([]);
+  const [menuVisible, setMenuVisible] = useState(false);
+  const send = ({ target, value: v }: Sendable): void => {
+    if (target.type === "channel") set(target.channel.toString(), v);
+    else
+      onConfigChange({
+        states: states.map((s) =>
+          s.key === target.state ? { ...s, source: { type: "local", value: v } } : s,
+        ),
+      });
+  };
+  const onClick = resolveClick(resolved.spec, bound.spec, config, value, {
+    send,
+    open: (next) => {
+      setOptions(next);
+      setMenuVisible(true);
     },
-  );
+  });
   const unmatched = Custom.useUnmatched(bound.spec, value);
   const scaleResize = Grid.useScaleResize(config, onConfigChange);
   return (
@@ -227,7 +250,33 @@ export const Node = ({
         readings={bind.stateReadings(states, readings)}
         onClick={onClick}
         onClickDelay={config.onClickDelay}
+        buttonRef={setAnchor}
       />
+      <Dialog.Frame
+        visible={menuVisible}
+        onVisibleChange={setMenuVisible}
+        anchor={anchor}
+      >
+        <Menu.Dialog aria-label="Commands">
+          <Menu.Menu
+            onChange={Object.fromEntries(
+              options.map((o) => [
+                o.command.key,
+                () => {
+                  setMenuVisible(false);
+                  send(o);
+                },
+              ]),
+            )}
+          >
+            {options.map(({ command }) => (
+              <Menu.Item key={command.key} itemKey={command.key}>
+                {command.name}
+              </Menu.Item>
+            ))}
+          </Menu.Menu>
+        </Menu.Dialog>
+      </Dialog.Frame>
     </Grid.Grid>
   );
 };

@@ -11,6 +11,9 @@ import type { PropsWithChildren, ReactElement } from "react";
 import { vi } from "vitest";
 
 import { Enumeration } from "@/enumeration";
+import type { telem } from "@/telem/aether";
+import { telemTest } from "@/telem/aether/testutil";
+import { control } from "@/telem/control/aether";
 
 /** Gives the forms below it a create prompt that never opens. */
 export const CreatePromptStub = ({ children }: PropsWithChildren): ReactElement => (
@@ -18,3 +21,21 @@ export const CreatePromptStub = ({ children }: PropsWithChildren): ReactElement 
     {children}
   </Enumeration.CreatePromptProvider>
 );
+
+/**
+ * @returns a telem factory that stands in for the schematic controller. It answers each
+ * command sink with a test sink, kept in sinks by its channel.
+ */
+export const createCommandSinks = () => {
+  const sinks = new Map<number, telemTest.TestSink<number>>();
+  const factory: telem.Factory = {
+    type: "commands",
+    create: (spec) => {
+      if (spec.type !== control.SetChannelValue.TYPE) return null;
+      const sink = telemTest.sink<number>();
+      sinks.set(spec.props.channel, sink);
+      return sink;
+    },
+  };
+  return { sinks, factory };
+};

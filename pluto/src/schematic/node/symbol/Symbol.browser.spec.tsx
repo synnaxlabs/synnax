@@ -8,14 +8,19 @@
 // included in the file licenses/APL.txt.
 
 import { schematic } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { createTestClient, SyntheticCore } from "@synnaxlabs/client/testutil";
+import { Rate, TimeStamp } from "@synnaxlabs/x";
 import { ReactFlowProvider } from "@xyflow/react";
+import type { FC, PropsWithChildren } from "react";
 import { describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 import { render } from "vitest-browser-react";
 import type { z } from "zod";
 
 import { Node } from "@/schematic/node";
-import { createAsyncSynnaxWrapper } from "@/testutil";
+import { createCommandSinks } from "@/schematic/node/testutil";
+import { telemTest } from "@/telem/aether/testutil";
+import { createAsyncSynnaxWrapper, createSynnaxWrapper } from "@/testutil";
 import { symbolNode } from "@/vis/symbolNode/aether";
 
 const MARKUP =
@@ -44,9 +49,29 @@ const DATA: Partial<schematic.symbol.Spec> = {
   ],
 };
 
-const renderLamp = async (
-  config: Pick<z.input<typeof schematic.symbolNodeConfigZ>, "motionDisabled"> = {},
-) => {
+type Config = Omit<z.input<typeof schematic.symbolNodeConfigZ>, "variant">;
+
+const renderNode = async (
+  Wrapper: FC<PropsWithChildren>,
+  config: Config,
+  onConfigChange = vi.fn(),
+) =>
+  await render(
+    <Wrapper>
+      <Node.Custom.MotionProvider>
+        <ReactFlowProvider>
+          <Node.REGISTRY.symbol.Node
+            nodeKey="s1"
+            selected={false}
+            onConfigChange={onConfigChange}
+            config={schematic.symbolNodeConfigZ.parse({ variant: "symbol", ...config })}
+          />
+        </ReactFlowProvider>
+      </Node.Custom.MotionProvider>
+    </Wrapper>,
+  );
+
+const renderLamp = async (config: Pick<Config, "motionDisabled"> = {}) => {
   const client = createTestClient();
   const symbol = await client.schematics.symbols.create({
     name: "Lamp",
@@ -56,25 +81,11 @@ const renderLamp = async (
     client,
     additionalRegistry: symbolNode.REGISTRY,
   });
-  const { container } = await render(
-    <Wrapper>
-      <Node.Custom.MotionProvider>
-        <ReactFlowProvider>
-          <Node.REGISTRY.symbol.Node
-            nodeKey="s1"
-            selected={false}
-            onConfigChange={vi.fn()}
-            config={schematic.symbolNodeConfigZ.parse({
-              variant: "symbol",
-              spec: { type: "custom", key: symbol.key },
-              states: [{ key: "active", source: { type: "local", value: 1 } }],
-              ...config,
-            })}
-          />
-        </ReactFlowProvider>
-      </Node.Custom.MotionProvider>
-    </Wrapper>,
-  );
+  const { container } = await renderNode(Wrapper, {
+    spec: { type: "custom", key: symbol.key },
+    states: [{ key: "active", source: { type: "local", value: 1 } }],
+    ...config,
+  });
   return await vi.waitUntil(() => container.querySelector(".lamp"));
 };
 
@@ -96,5 +107,69 @@ describe("Symbol node", () => {
   it("should keep the stroke width of a custom drawing", async () => {
     const lamp = await renderLamp();
     expect(getComputedStyle(lamp).strokeWidth).toBe("1px");
+  });
+
+  it("should ask which command to send while its state is unknown", async () => {
+    const now = TimeStamp.now();
+    const core = new SyntheticCore({ rate: Rate.hz(10), start: now, now });
+    const { sinks, factory } = createCommandSinks();
+    const Wrapper = createSynnaxWrapper({
+      client: null,
+      additionalRegistry: symbolNode.REGISTRY,
+      telemFactories: [telemTest.createRemoteFactory(core), factory],
+    });
+    const { container } = await renderNode(Wrapper, {
+      spec: { type: "builtin", name: "valve" },
+      states: [
+        {
+          key: "active",
+          source: { type: "channel", key: core.data[0].key, command: 7 },
+        },
+      ],
+    });
+    await expect.element(page.getByRole("img", { name: "Unknown" })).toBeVisible();
+    await vi.waitUntil(() => sinks.has(7));
+    const button = await vi.waitUntil(() => container.querySelector("button"));
+    await page.elementLocator(button).click();
+    const open = page.getByRole("menuitem", { name: "Open" });
+    await expect.element(page.getByRole("menuitem", { name: "Close" })).toBeVisible();
+    await open.click();
+    await expect.poll(() => sinks.get(7)?.values).toEqual([1]);
+    await expect.element(open).not.toBeInTheDocument();
+  });
+
+  it("should ask which command to send for a value that matches neither", async () => {
+    const onConfigChange = vi.fn();
+    const Wrapper = createSynnaxWrapper({
+      client: null,
+      additionalRegistry: symbolNode.REGISTRY,
+    });
+    const { container } = await renderNode(
+      Wrapper,
+      {
+        spec: { type: "builtin", name: "valve" },
+        states: [
+          {
+            key: "active",
+            source: { type: "local", value: 3 },
+            match: { type: "exact" },
+          },
+        ],
+      },
+      onConfigChange,
+    );
+    const button = await vi.waitUntil(() => container.querySelector("button"));
+    await page.elementLocator(button).click();
+    expect(onConfigChange).not.toHaveBeenCalled();
+    await page.getByRole("menuitem", { name: "Open" }).click();
+    expect(onConfigChange).toHaveBeenCalledExactlyOnceWith({
+      states: [
+        schematic.stateBindingZ.parse({
+          key: "active",
+          source: { type: "local", value: 1 },
+          match: { type: "exact" },
+        }),
+      ],
+    });
   });
 });
