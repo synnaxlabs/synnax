@@ -64,6 +64,19 @@ const createSpec = (
 });
 
 describe("symbol editor spec", () => {
+  describe("edited", () => {
+    it("should not count a zoom or a pan of the preview", () => {
+      const spec = createSpec();
+      const moved = { ...spec, previewViewport: { zoom: 2, position: { x: 5, y: 9 } } };
+      expect(Spec.edited(spec, moved)).toBe(false);
+    });
+
+    it("should count a change to the drawing", () => {
+      const spec = createSpec();
+      expect(Spec.edited(spec, Spec.removePart(spec, "body"))).toBe(true);
+    });
+  });
+
   describe("effective", () => {
     it("should return the field that wins for the part at the value", () => {
       const looks: schematic.symbol.Look[] = [
