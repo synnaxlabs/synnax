@@ -92,9 +92,7 @@ var _ = Describe("Invariants", func() {
 		},
 	)
 
-	// open opens a DB over four domains of 8 bytes each in file 1, the last two of
-	// which
-	// overlap.
+	// open opens a DB over four domains of 8 bytes in file 1, whose last two overlap.
 	open := func() *domain.DB {
 		GinkgoHelper()
 		fs := xfs.NewMem()
