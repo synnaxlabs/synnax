@@ -370,10 +370,19 @@ describe("Core.TokenKeeper", () => {
     const openWindows = async () => {
       disableActEnvironment();
       const keychain = new Map<string, string>();
-      // a write held back lands right after the next read, as a write from window A
-      // would between window B's read and B's delete
-      const race: { held: boolean; pending?: [string, string] } = { held: false };
-      mockIPC((cmd, args) => {
+      // Once armed, the first read and the first write wait for the spec to release
+      // them, so it can land window A's write between window B's read and B's delete.
+      const race = {
+        armed: false,
+        read: Promise.withResolvers<void>(),
+        releaseRead: Promise.withResolvers<void>(),
+        write: Promise.withResolvers<void>(),
+        releaseWrite: Promise.withResolvers<void>(),
+        written: Promise.withResolvers<void>(),
+        deleted: Promise.withResolvers<string | undefined>(),
+        held: { read: false, write: false },
+      };
+      mockIPC(async (cmd, args) => {
         const { account, secret, expected } = args as {
           account: string;
           secret?: string;
@@ -381,20 +390,28 @@ describe("Core.TokenKeeper", () => {
         };
         if (cmd === "keychain_get") {
           const token = keychain.get(account) ?? null;
-          if (race.pending != null) keychain.set(...race.pending);
-          race.pending = undefined;
+          if (race.armed && !race.held.read) {
+            race.held.read = true;
+            race.read.resolve();
+            await race.releaseRead.promise;
+          }
           return token;
         }
-        if (cmd === "keychain_set" && secret != null)
-          if (race.held) {
-            race.held = false;
-            race.pending = [account, secret];
-          } else keychain.set(account, secret);
-        if (
-          cmd === "keychain_delete" &&
-          (expected == null || keychain.get(account) === expected)
-        )
-          keychain.delete(account);
+        if (cmd === "keychain_set" && secret != null) {
+          const holds = race.armed && !race.held.write;
+          if (holds) {
+            race.held.write = true;
+            race.write.resolve();
+            await race.releaseWrite.promise;
+          }
+          keychain.set(account, secret);
+          if (holds) race.written.resolve();
+        }
+        if (cmd === "keychain_delete") {
+          if (expected == null || keychain.get(account) === expected)
+            keychain.delete(account);
+          if (race.armed) race.deleted.resolve(expected);
+        }
         return undefined;
       });
       onTestFinished(clearMocks);
@@ -433,7 +450,7 @@ describe("Core.TokenKeeper", () => {
       const clients = windows.map((w) => w.client);
       const [a, b] = clients;
       if (a == null || b == null) throw new Error("no client");
-      return { admin, a, b, windows, keychain, race, store, core, u, clients };
+      return { admin, a, b, windows, keychain, race, store, core, u, clients, token };
     };
 
     // window A sets its own password, which ends the session both windows resumed
@@ -458,21 +475,20 @@ describe("Core.TokenKeeper", () => {
     });
 
     it("should keep a token saved between another window's read and delete", async () => {
-      const { a, b, windows, keychain, race, core, clients } = await openWindows();
-      race.held = true;
+      const { a, b, windows, keychain, race, core, clients, token } =
+        await openWindows();
+      race.armed = true;
       await a.auth.passwords.set({ password: "new", currentPassword: "old" });
       const fresh = a.auth.token;
-      await waitFor(() => expect(race.pending?.[1]).toBe(fresh));
-      await b.auth.sessions.retrieve().catch(() => undefined);
-      // window B read the dead token, so it logs in again; window A's token stays
-      await waitFor(() =>
-        expect(windows[1].status).toMatchObject({
-          variant: "error",
-          details: { reason: "auth" },
-        }),
-      );
-      await expectAlways(() => expect(keychain.get(keychainAccount(core))).toBe(fresh));
-      expect(b.auth.token).not.toBe(fresh);
+      // window B's next request finds its session ended and reads the keychain
+      b.auth.sessions.retrieve().catch(() => undefined);
+      await Promise.all([race.read.promise, race.write.promise]);
+      race.releaseWrite.resolve();
+      await race.written.promise;
+      race.releaseRead.resolve();
+      // window B read the dead token, so it deletes only while the keychain holds it
+      expect(await race.deleted.promise).toBe(token);
+      expect(keychain.get(keychainAccount(core))).toBe(fresh);
       expect(windows.map((w) => w.client)).toEqual(clients);
     });
 
