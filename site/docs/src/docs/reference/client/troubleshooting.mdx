@@ -611,7 +611,8 @@ You created a Python client with no arguments, and it ran `synnax-desktop-key` t
 the API key of [Synnax Desktop](/reference/client/connect#connect-to-synnax-desktop).
 The program could not read the key from the keychain of your operating system. The text
 after `failed:` tells why. A message that says `Cannot run the key helper` means that
-the program at the path in `~/.synnax/desktop.json` cannot start.
+the program at the path in `desktop.json` cannot start. The
+[config folder](/reference/client/connect#config-folder) holds that file.
 
 </Problem.Cause>
 <Problem.Fix>
