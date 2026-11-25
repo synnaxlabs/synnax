@@ -114,7 +114,9 @@ type Service struct {
 	// renames holds the renames of each transaction. The hook of the last one sends all
 	// of them to storage in one call.
 	renames *gorp.Attachment[rename]
-	mu      struct {
+	// names keeps channel names unique across the Core.
+	names *gorp.UniqueIndex[Key, Channel, string]
+	mu    struct {
 		sync.RWMutex
 		// externalNonVirtualSet holds the keys of external (non-internal, non-virtual)
 		// channels, which count toward the channel limit.
@@ -139,6 +141,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		state:   actions.NewState[Key, Action](cfg.DB),
 		renames: gorp.NewAttachment[rename](),
 	}
+	s.names = newNameIndex()
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Channel]{
@@ -148,7 +151,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			slices.Clone(versions.Migrations),
 			gorp.DanglingMigration("v61_dangling_references"),
 		),
-		Indexes:         s.indexes.all(),
+		Indexes:         append(s.indexes.all(), s.names),
 		References:      append(s.indexes.references(), s.index),
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
