@@ -35,6 +35,7 @@ import {
   createWriteChannel,
   deployWriteConfigZ,
   entryAt,
+  entryDataType,
   type EntryWriteChannel,
   getEntryChannelName,
   hasEntry,
@@ -221,7 +222,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
       const cmdChannels = await client.channels.create(
         cmdToCreate.map((ch, i) => ({
           name: writeChannelNames(slave, ch).cmd,
-          dataType: ch.dataType,
+          dataType: entryDataType(ch),
           index: cmdIndexes[i].key,
         })),
       );
@@ -235,7 +236,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
       const stateChannels = await client.channels.create(
         stateToCreate.map((ch) => ({
           name: writeChannelNames(slave, ch).state,
-          dataType: ch.dataType,
+          dataType: entryDataType(ch),
           index: slave.properties.writeStateIndex,
         })),
       );

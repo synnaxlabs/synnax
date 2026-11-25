@@ -20,6 +20,7 @@ import { Device } from "@/feature/ethercat/device";
 import { type CheckedConfig, checkSlaves } from "@/feature/ethercat/task/checks";
 import {
   type EntryChannel,
+  entryDataType,
   type EntryReadChannel,
   hasEntry,
   mappedChannels,
@@ -275,7 +276,7 @@ export const findChannelsToCreate = async <C extends EntryChannel>(
       toCreate.push(ch);
       continue;
     }
-    checkDataType(existing, ch.dataType);
+    checkDataType(existing, entryDataType(ch));
   }
   return toCreate;
 };
@@ -332,7 +333,7 @@ export const bindOrphanedChannels = async <C extends EntryChannel>({
   index,
   mapped,
   bind,
-  getDataType = (ch) => ch.dataType,
+  getDataType = entryDataType,
 }: BindOrphanedChannelsArgs<C>): Promise<C[]> => {
   const existing = await retrieveByName(client, names);
   if (existing.size === 0) return channels;

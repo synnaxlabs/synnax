@@ -206,9 +206,16 @@ class TestEtherCATReadTask:
         assert isinstance(ch.scale, cls)
         assert ch.model_dump()["scale"] == scale
 
-    @pytest.mark.parametrize("field", ["index", "sub_index", "data_type"])
+    def test_entry_channel_data_type_is_optional(self) -> None:
+        """Should leave the data type of an entry channel absent until it is set."""
+        ch = sy.ethercat.EntryReadChannel.model_validate(
+            {"device": "slave-key", "index": 0x6000, "sub_index": 1}
+        )
+        assert ch.data_type is None
+
+    @pytest.mark.parametrize("field", ["index", "sub_index"])
     def test_entry_channel_requires_address(self, field: str) -> None:
-        """Should reject an entry channel without its full address and type."""
+        """Should reject an entry channel without its full address."""
         fields = {"index": 0x6000, "sub_index": 1, "data_type": "uint8"}
         del fields[field]
         with pytest.raises(ValidationError):

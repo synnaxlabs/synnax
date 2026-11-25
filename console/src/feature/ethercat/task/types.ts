@@ -171,9 +171,18 @@ export const isCalibrated = (
   return input?.entries.some((e) => at(e) && e.calibration != null) === true;
 };
 
+/**
+ * @returns the data type of the entry of ch.
+ * @throws {Error} if ch has no entry picked, which deploy validation rules out.
+ */
+export const entryDataType = (ch: EntryChannel): string => {
+  if (ch.dataType == null) throw new Error(`Channel ${ch.key} has no entry picked`);
+  return ch.dataType;
+};
+
 /** @returns the data type of the read channel's Synnax channel. */
 export const readDataType = (ch: EntryReadChannel): string =>
-  isScaled(ch) || ch.calibrated ? "float64" : ch.dataType;
+  isScaled(ch) || ch.calibrated ? "float64" : entryDataType(ch);
 
 /**
  * The data type of each Synnax channel that a slave maps, keyed by the channel. A
