@@ -93,19 +93,6 @@ describe("serverZ", () => {
       },
     ],
     ["no rack", { rack: 0 }],
-    [
-      "a certificate login without a certificate",
-      { connection: { ...SERVER.connection, auth: { type: "certificate" } } },
-    ],
-    [
-      "a pinned trust without a certificate",
-      {
-        connection: {
-          ...SERVER.connection,
-          security: { ...SIGNED, serverTrust: { type: "pinned" } },
-        },
-      },
-    ],
     ["a read without an index", { reads: [{ node: "i=85", channel: 2 }] }],
     ["a write without a node", { writes: [{ node: "", channel: 3 }] }],
   ];

@@ -74,34 +74,47 @@ TEST(Server, RoundTrips) {
     ASSERT_EQ(parsed.writes.at(0).node, "nsu=urn:plc;s=Valve");
 }
 
-/// @brief it should fail to parse a server without a rack.
+/// @brief it should refuse a server whose rack is zero.
 TEST(Server, RequiresRack) {
     auto j = valid_server();
-    j.erase("rack");
+    j["rack"] = 0;
     x::json::Parser parser(j);
     Server::parse(parser);
-    ASSERT_FALSE(parser.ok());
+    ASSERT_EQ(parser.errors->size(), 1);
+    EXPECT_EQ(parser.errors->at(0)["path"], "rack");
+    EXPECT_EQ(parser.errors->at(0)["message"], "This field is required");
 }
 
-/// @brief it should fail to parse a certificate login without a certificate.
+/// @brief it should refuse a certificate login whose certificate is the nil UUID.
 TEST(Server, RequiresLoginCertificate) {
     auto j = valid_server();
-    j["connection"]["auth"] = {{"type", "certificate"}};
+    j["connection"]["auth"] = {
+        {"type", "certificate"},
+        {"certificate", "00000000-0000-0000-0000-000000000000"}
+    };
     x::json::Parser parser(j);
     Server::parse(parser);
-    ASSERT_FALSE(parser.ok());
+    ASSERT_EQ(parser.errors->size(), 1);
+    EXPECT_EQ(parser.errors->at(0)["path"], "connection.auth.certificate");
+    EXPECT_EQ(parser.errors->at(0)["message"], "This field is required");
 }
 
-/// @brief it should fail to parse a pinned trust without a certificate.
+/// @brief it should refuse a pinned trust whose certificate is the nil UUID.
 TEST(Server, RequiresPinnedCertificate) {
     auto j = valid_server();
     j["connection"]["security"] = {
         {"mode", "sign"},
         {"policy", "Basic256Sha256"},
-        {"server_trust", {{"type", "pinned"}}},
+        {"server_trust",
+         {{"type", "pinned"}, {"certificate", "00000000-0000-0000-0000-000000000000"}}},
     };
     x::json::Parser parser(j);
     Server::parse(parser);
-    ASSERT_FALSE(parser.ok());
+    ASSERT_EQ(parser.errors->size(), 1);
+    EXPECT_EQ(
+        parser.errors->at(0)["path"],
+        "connection.security.server_trust.certificate"
+    );
+    EXPECT_EQ(parser.errors->at(0)["message"], "This field is required");
 }
 }
