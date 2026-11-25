@@ -124,7 +124,7 @@ const useAccepted = (core?: auth.TokenlessParams): Accepted => {
  */
 export const useCompleteBrowserLogin = (): boolean => {
   const [returning, setReturning] = useState(Core.isLoginReturn);
-  const cores = Session.Core.useSelectMany();
+  const store = Session.useStore();
   const servingCore = Core.detectConnection();
   const dispatch = Session.useDispatch();
   const handleError = Status.useErrorHandler();
@@ -132,7 +132,8 @@ export const useCompleteBrowserLogin = (): boolean => {
     handleError(() => {
       const completed = Core.completeBrowserLogin();
       if (completed == null) return;
-      const core = cores.find((c) => c.key === completed.core) ?? servingCore;
+      const core =
+        Session.Core.selectState(store.getState(), completed.core) ?? servingCore;
       if (core == null) return;
       const oidc = completed.credentials;
       dispatch(Session.Core.set({ ...core, username: "", password: "", oidc }));
