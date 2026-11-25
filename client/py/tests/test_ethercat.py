@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import pytest
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 
 import synnax as sy
 from tests.json_value import arr, obj
@@ -209,7 +209,9 @@ class TestEtherCATReadTask:
     @pytest.mark.parametrize(
         "model", [sy.ethercat.EntryReadChannel, sy.ethercat.EntryWriteChannel]
     )
-    def test_entry_channel_rejects_an_empty_data_type(self, model: type) -> None:
+    def test_entry_channel_rejects_an_empty_data_type(
+        self, model: type[BaseModel]
+    ) -> None:
         """Should reject an entry channel whose data type is empty."""
         with pytest.raises(ValidationError, match="data_type"):
             model.model_validate(
