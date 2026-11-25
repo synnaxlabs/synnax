@@ -309,18 +309,18 @@ class Symbol(ABC):
             name, placeholder="Search enumerations", exact=True
         )
 
-    def add_options(self, options: list[sy.schematic.StateMapping]) -> None:
-        """Add options to a symbol that draws its own states, one entry each.
+    def add_entries(self, entries: list[sy.enumeration.Entry]) -> None:
+        """Add entries to the enumeration that the symbol draws.
 
-        :param options: The options to add, in order.
+        :param entries: The entries to add, in order.
         """
         self.open_options_tab()
         names = self.page.get_by_label(re.compile(r"^Name \d+$"))
-        for option in options:
+        for entry in entries:
             row = names.count() + 1
             click_past(self.page.get_by_role("button", name="Add entry", exact=True))
-            self._commit(f"Name {row}", option.name)
-            self._commit(f"Value {row}", option_text(option.value))
+            self._commit(f"Name {row}", entry.name)
+            self._commit(f"Value {row}", option_text(entry.value))
 
     def rename_entry(self, row: int, name: str) -> None:
         """Rename an entry of the states that the symbol draws.
@@ -332,8 +332,7 @@ class Symbol(ABC):
         self._commit(f"Name {row}", name)
 
     def create_enumeration(self, name: str) -> None:
-        """Create an enumeration from the picker, which the symbol then draws. A symbol
-        that draws no enumeration moves its options into it. Otherwise it starts empty.
+        """Create an empty enumeration from the picker, which the symbol then draws.
 
         :param name: The name of the new enumeration.
         """
