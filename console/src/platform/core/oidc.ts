@@ -92,7 +92,9 @@ const parseCallback = (query: string, state: string): string => {
   const params = new URLSearchParams(query);
   const error = params.get("error");
   if (error === "access_denied")
-    throw new UnfinishedLoginError(params.get("error_description") ?? UNFINISHED);
+    throw new UnfinishedLoginError(
+      params.get("error_description")?.trim() || UNFINISHED,
+    );
   if (error != null)
     throw new Error(
       params.get("error_description") ?? `The provider refused: ${error}`,
@@ -109,8 +111,10 @@ const parseCallback = (query: string, state: string): string => {
  * a session, and saves the session's token in the keychain. The code never reaches the
  * Core's shared record, so other windows resume the saved session instead of spending
  * the same code.
+ * @throws {UnfinishedLoginError} when the person cancels or the provider denies the
+ * login.
  * @throws {Error} when the person does not finish within five minutes, the provider
- * refuses, or the Core rejects the code.
+ * fails, or the Core rejects the code.
  */
 export const loginDesktop = async (
   core: Pick<Session.Core.Core, "key" | "host" | "port" | "secure">,
@@ -179,7 +183,9 @@ export interface CompletedLogin {
  * Finishes a browser login on the page load the provider redirected to. Removes the
  * code from the address bar either way. Resolves undefined when the page did not come
  * back from a login.
- * @throws {Error} when the provider refused or the redirect belongs to another login.
+ * @throws {UnfinishedLoginError} when the person cancelled or the provider denied the
+ * login.
+ * @throws {Error} when the provider failed or the redirect belongs to another login.
  */
 export const completeBrowserLogin = (): CompletedLogin | undefined => {
   const raw = sessionStorage.getItem(PENDING_KEY);

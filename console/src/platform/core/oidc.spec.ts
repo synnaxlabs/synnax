@@ -235,5 +235,17 @@ describe("oidc", () => {
         "You cancelled the login, or the provider refused it.",
       );
     });
+
+    it("should name both reasons for a denied login with a blank description", () => {
+      pending("s");
+      window.history.replaceState(
+        null,
+        "",
+        "/?error=access_denied&error_description=%20&state=s",
+      );
+      expect(() => Core.completeBrowserLogin()).toThrow(
+        "You cancelled the login, or the provider refused it.",
+      );
+    });
   });
 });
