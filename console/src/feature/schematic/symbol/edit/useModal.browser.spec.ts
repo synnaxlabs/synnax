@@ -622,11 +622,6 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     });
 
     it("bands a stroke in the theme of the preview", async () => {
-      // The preview's theme leaf loads fonts on this thread, which has no self.fonts.
-      vi.stubGlobal("fonts", document.fonts);
-      onTestFinished(() => {
-        vi.unstubAllGlobals();
-      });
       const grp = await createParentGroup();
       const payload = createSymbolPayload(uniqueName("banded"));
       const symbol = await client.schematics.symbols.create({

@@ -9,7 +9,7 @@
 
 import { theme } from "@synnaxlabs/lyra/theme";
 import { sleep, TimeSpan } from "@synnaxlabs/x";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { aetherTest } from "@/aether/testutil";
 import { renderAether } from "@/testutil/internal";
@@ -17,6 +17,17 @@ import { renderAether } from "@/testutil/internal";
 const { Leaf } = aetherTest;
 
 const FONT_URLS = [{ name: "Inter Four", url: "inter-400.woff2" }];
+
+// jsdom has no document.fonts.
+const stubFontSet = (): void => {
+  Object.defineProperty(document, "fonts", {
+    configurable: true,
+    value: { add: vi.fn() },
+  });
+  onTestFinished(() => {
+    Reflect.deleteProperty(document, "fonts");
+  });
+};
 
 describe("theming.Provider", () => {
   afterEach(() => {
@@ -40,7 +51,7 @@ describe("theming.Provider", () => {
       },
     );
     vi.stubGlobal("FontFace", FontFace);
-    vi.stubGlobal("fonts", { add: vi.fn() });
+    stubFontSet();
     renderAether(Leaf, {
       state: {},
       theming: { theme: theme.SYNNAX_LIGHT, fontURLs: FONT_URLS },
@@ -59,7 +70,7 @@ describe("theming.Provider", () => {
       },
     );
     vi.stubGlobal("FontFace", FontFace);
-    vi.stubGlobal("fonts", { add: vi.fn() });
+    stubFontSet();
     renderAether(Leaf, {
       state: {},
       theming: {
