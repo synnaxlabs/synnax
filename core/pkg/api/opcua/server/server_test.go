@@ -19,6 +19,8 @@ import (
 	apiserver "github.com/synnaxlabs/synnax/pkg/api/opcua/server"
 	"github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	channeltestutil "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/opcua/server"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -33,7 +35,9 @@ import (
 var (
 	serverType = resource.ID{Type: resource.TypeOpcuaServer}
 	statusType = resource.ID{Type: resource.TypeStatus}
-	allWrites  = []access.Action{
+	// channelType lets a user bind any channel, which a write needs to use it.
+	channelType = resource.ID{Type: resource.TypeChannel}
+	allWrites   = []access.Action{
 		access.ActionCreate,
 		access.ActionUpdate,
 		access.ActionDelete,
@@ -344,9 +348,10 @@ var _ = Describe("Service", func() {
 		}
 
 		It("Should write only the identity group", func(ctx SpecContext) {
+			keys := MustSucceed(channeltestutil.CreateVirtual(ctx, db, svc.Channel, 2))
 			s := createServer(ctx, func(s *server.Server) {
 				s.Reads = []server.Read{
-					{Node: "nsu=urn:plc;s=Temp", Index: 1, Channel: 2},
+					{Node: "nsu=urn:plc;s=Temp", Index: keys[0], Channel: keys[1]},
 				}
 			})
 			grantWrites(ctx, s.Rack)
@@ -356,27 +361,42 @@ var _ = Describe("Service", func() {
 			Expect(got.Reads).To(Equal(s.Reads))
 		})
 
+		// bindValve returns an update that binds the node Valve to the channel ch.
+		bindValve := func(s server.Server, ch channel.Key) apiserver.UpdateRequest {
+			return apiserver.UpdateRequest{
+				Key: s.Key,
+				Update: server.Update{Variant: server.ConfigurationUpdate{
+					Configuration: server.Configuration{
+						Writes: []server.Write{
+							{Node: "nsu=urn:plc;s=Valve", Channel: ch},
+						},
+					},
+				}},
+			}
+		}
+
 		It("Should write only the configuration group", func(ctx SpecContext) {
+			ch := MustSucceed(channeltestutil.CreateVirtual(ctx, db, svc.Channel, 1))[0]
 			s := createServer(ctx)
 			grantWrites(ctx, s.Rack)
-			MustSucceed(update(
-				testutil.AuthedCtx(ctx, u),
-				apiserver.UpdateRequest{
-					Key: s.Key,
-					Update: server.Update{Variant: server.ConfigurationUpdate{
-						Configuration: server.Configuration{
-							Writes: []server.Write{
-								{Node: "nsu=urn:plc;s=Valve", Channel: 2},
-							},
-						},
-					}},
-				},
-			))
+			grant(ctx, u, []access.Action{access.ActionRetrieve}, channelType)
+			MustSucceed(update(testutil.AuthedCtx(ctx, u), bindValve(s, ch)))
 			got := retrieveServer(ctx, s.Key)
 			Expect(
 				got.Writes,
-			).To(Equal([]server.Write{{Node: "nsu=urn:plc;s=Valve", Channel: 2}}))
+			).To(Equal([]server.Write{{Node: "nsu=urn:plc;s=Valve", Channel: ch}}))
 			Expect(got.Name).To(Equal(s.Name))
+		})
+
+		It("Should reject a binding to a channel the user cannot retrieve", func(
+			ctx SpecContext,
+		) {
+			ch := MustSucceed(channeltestutil.CreateVirtual(ctx, db, svc.Channel, 1))[0]
+			s := createServer(ctx)
+			grantWrites(ctx, s.Rack)
+			Expect(update(testutil.AuthedCtx(ctx, u), bindValve(s, ch))).
+				Error().To(MatchError(access.ErrDenied))
+			Expect(retrieveServer(ctx, s.Key).Writes).To(BeEmpty())
 		})
 
 		It("Should reject a request with no group", func(ctx SpecContext) {
