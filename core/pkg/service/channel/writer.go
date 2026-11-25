@@ -144,6 +144,9 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, e
 	}
 	if renamed {
 		w.stageRenames(Keys{key}, []string{next.Name})
+		if err = w.announceRenamed(ctx, Keys{key}); err != nil {
+			return nil, err
+		}
 	}
 	if _, ok := freeIndexOf(next); ok && !sameGroup(prev.Group, next.Group) {
 		if err = w.regroupIndex(ctx, key, next); err != nil {
@@ -371,6 +374,11 @@ func (w Writer) RenameMany(
 			NewRenameAction(RenamePayload{Name: newNames[i]}),
 		)
 	}
+	return w.announceRenamed(ctx, keys)
+}
+
+// announceRenamed announces that the channels with keys took new names.
+func (w Writer) announceRenamed(ctx context.Context, keys Keys) error {
 	if w.svc.cfg.AnnounceRenamed == nil {
 		return nil
 	}
