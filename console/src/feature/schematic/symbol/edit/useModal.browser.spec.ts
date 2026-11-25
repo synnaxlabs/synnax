@@ -1617,7 +1617,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       fireEvent.click(screen.getByLabelText("Remove Command 1"));
       await screen.findByRole("heading", { name: "Whole drawing" });
       fireEvent.click(getEditSectionHeaderButton("Commands"));
-      await awaitTextEditing("symbol-command-command-1");
+      await awaitTextEditingElement();
       const inspector = within(getInspector());
       expect(inspector.queryByRole("heading", { name: "Command 1" })).toBeNull();
       expect(inspector.getByRole("heading", { name: "Whole drawing" })).toBeDefined();
