@@ -18,6 +18,7 @@ import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
+import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Schematic } from "@synnaxlabs/pluto";
 import { type color, TimeSpan } from "@synnaxlabs/x";
@@ -367,14 +368,37 @@ export interface InspectorProps {
   preview: number;
 }
 
+const LEVEL_ISSUES: Record<
+  Spec.LevelIssue,
+  Pick<Status.SummaryProps, "message" | "description">
+> = {
+  shapes: {
+    message: "Fill motion needs one shape",
+    description:
+      "Fill motion fills each shape in this part by its own box. Put the shapes in one group in the drawing and make the group the part, or remove the motion from the part to save.",
+  },
+  clip: {
+    message: "Fill motion replaces a clip-path",
+    description:
+      "A shape in this part has its own clip-path, which fill motion would replace. Remove the clip-path from the drawing or the motion from the part to save.",
+  },
+};
+
 /** Inspector edits the looks of one part, or of the whole drawing. */
 export const Inspector = ({ part: key, preview }: InspectorProps): ReactElement => {
   const parts = Form.useFieldValue(path.data.parts);
-  const markup = Form.useFieldValue(path.data.drawing.markup);
+  const drawing = Form.useFieldValue(path.data.drawing);
+  const looks = Form.useFieldValue(path.data.looks);
   const values = useValues();
   const part = parts.find((p) => p.key === key);
   const drawn =
-    part == null ? undefined : Schematic.Node.Region.paint(markup, part.selectors);
+    part == null
+      ? undefined
+      : Schematic.Node.Region.paint(drawing.markup, part.selectors);
+  const issue =
+    FLAGS.symbolMotion && part != null
+      ? Spec.levelIssues({ drawing, parts, looks }).get(part.key)
+      : undefined;
   return (
     <InspectorContext value={{ part: part?.key, preview, values }}>
       <Flex.Box y gap="medium" className={CSS.B("schematic-inspector")}>
@@ -405,6 +429,9 @@ export const Inspector = ({ part: key, preview }: InspectorProps): ReactElement 
             <Property field="motion" label="Motion" icon={<Icon.Rotate />} wide>
               <MotionControl />
             </Property>
+            {issue != null && (
+              <Status.Summary level="small" variant="error" {...LEVEL_ISSUES[issue]} />
+            )}
           </>
         )}
       </Flex.Box>
