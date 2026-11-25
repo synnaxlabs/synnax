@@ -293,6 +293,8 @@ export default class Synnax extends framer.Client {
   private readonly cache: query.Cache;
   private readonly transport: Transport;
   private readonly conn: connection.Client;
+  // stops the key helper of Synnax Desktop when the client closes
+  private readonly closing = new AbortController();
 
   /** The version of the client. */
   readonly clientVersion: string = __VERSION__;
@@ -326,21 +328,27 @@ export default class Synnax extends framer.Client {
    * certificate. Turns on props.secure when it is not given. When props.secure and
    * props.caCert are both left out, defaults to the text of the file at SYNNAX_CA_CERT,
    * except in Deno, where TLS trusts the store that --cert or DENO_CERT fills.
+   * The key helper of Synnax Desktop runs before the first login. If it is gone or
+   * fails, that login rejects with an APIKeyUnavailableError, and the connection status
+   * gives the reason "auth".
    * @throws {ValidationError} If no host is given, set, or saved by Synnax Desktop, if
    * SYNNAX_PORT or SYNNAX_SECURE is not valid, if SYNNAX_CA_CERT is set with
    * SYNNAX_SECURE false, if the SYNNAX_CA_CERT file is missing, empty, not PEM text, or
-   * cannot be read, if ~/.synnax/desktop.json cannot be read, if Synnax Desktop is too
-   * old, or if its key helper fails.
-   * @throws {Unreachable} If the key helper of Synnax Desktop is gone.
+   * cannot be read, if the desktop.json of Synnax Desktop cannot be read, or if Synnax
+   * Desktop is too old.
    * @throws {Error} if props.caCert is set with props.secure false, in a browser, or in
    * Deno.
+   * @throws {Error} in Node, if HTTP_PROXY or HTTPS_PROXY is set to a value that is not
+   * an http or https URL.
    */
   constructor(params: ConstructorParams = {}) {
     const system = env.nodeSystem();
-    const parsedParams = zod.parse(
-      constructorParamsZ,
-      env.resolveParams(params, globalThis.process?.env, system),
+    const { loadAPIKey, ...resolved } = env.resolveParams(
+      params,
+      globalThis.process?.env,
+      system,
     );
+    const parsedParams = zod.parse(constructorParamsZ, resolved);
     const { host, port, connectivityPollFrequency, clockSkewThreshold, secure, retry } =
       parsedParams;
     const address = new url.URL({ host, port: Number(port) });
@@ -411,7 +419,14 @@ export default class Synnax extends framer.Client {
     const identity = new observe.Observer<user.User | undefined>();
     // The auth client fails fast: login retries belong to the request that triggered
     // them (the breaker-wrapped unary or the check loop), never stacked beneath it.
-    this.auth = new auth.Client(transport.unaryNoRetry, authorityOf(parsedParams), {
+    const authority = {
+      ...authorityOf(parsedParams),
+      loadAPIKey:
+        loadAPIKey == null
+          ? undefined
+          : async () => await loadAPIKey(this.closing.signal),
+    };
+    this.auth = new auth.Client(transport.unaryNoRetry, authority, {
       onUser: (u) => identity.notify(u),
       onSuccess: (session) => this.conn.notify({ type: "auth.success", session }),
       onFailure: (error) => this.conn.notify({ type: "auth.failure", error }),
@@ -461,6 +476,7 @@ export default class Synnax extends framer.Client {
     this.control = new control.Client({ unary, cache });
     this.users = new user.Client({
       unary,
+      auth: this.auth,
       cache,
       batch: this.batch,
       connection: this.conn,
@@ -554,6 +570,14 @@ export default class Synnax extends framer.Client {
    * @throws {Error} if the timeout elapses first.
    */
   async connect({ timeout }: ConnectOptions = {}): Promise<connection.Status> {
+    const { status } = this.conn;
+    // a key that failed to load may load now, for example once Synnax Desktop opens
+    if (
+      status.variant === "error" &&
+      status.details.reason === "auth" &&
+      this.auth.apiKeyLoadable
+    )
+      this.conn.notify({ type: "credentials.replaced" });
     return await this.conn.connect(timeout);
   }
 
@@ -572,6 +596,7 @@ export default class Synnax extends framer.Client {
    * @throws {AggregateError} carrying every underlying close failure.
    */
   async close(): Promise<void> {
+    this.closing.abort();
     const results = await Promise.allSettled([this.conn.close(), this.cache.close()]);
     const failures: unknown[] = results
       .filter((r) => r.status === "rejected")

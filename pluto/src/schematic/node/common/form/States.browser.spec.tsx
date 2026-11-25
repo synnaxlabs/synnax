@@ -9,87 +9,32 @@
 
 import { type enumeration, schematic, type Synnax } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
-import { Form as Base } from "@synnaxlabs/lyra/form";
-import { renderThemed } from "@synnaxlabs/lyra/styletest";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
-import { color, deep, id } from "@synnaxlabs/x";
+import { deep, id } from "@synnaxlabs/x";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
-import type { FC, PropsWithChildren, ReactElement } from "react";
+import type { FC, PropsWithChildren } from "react";
 import { beforeAll, beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 import { page } from "vitest/browser";
 import type { z } from "zod";
 
 import { Enumeration } from "@/enumeration";
 import { Form } from "@/schematic/node/common/form";
-import { CreatePromptStub } from "@/schematic/node/testutil";
-import { createAsyncSynnaxWrapper, createSynnaxWrapper, renderForm } from "@/testutil";
+import { createAsyncSynnaxWrapper, renderForm } from "@/testutil";
 
 const path = deep.path<schematic.StateIndicatorNodeConfig>();
-
-const States = (): ReactElement => {
-  const methods = Base.use({
-    values: schematic.stateIndicatorNodeConfigZ.parse({
-      variant: "state_indicator",
-      options: [
-        { key: "off", name: "Off", value: 0 },
-        { key: "on", name: "On", value: 1 },
-      ],
-    }),
-    schema: schematic.stateIndicatorNodeConfigZ,
-  });
-  return (
-    <Base.Form<typeof schematic.stateIndicatorNodeConfigZ> {...methods}>
-      <Form.States
-        enumeration={path.enumeration}
-        options={path.options}
-        label={path.label.label}
-        symbolName="State indicator"
-      />
-    </Base.Form>
-  );
-};
-
-describe("Form.States", () => {
-  it("should span the picker across the columns of the entries", async () => {
-    const Wrapper = createSynnaxWrapper({ client: null });
-    await renderThemed(
-      <Wrapper>
-        <CreatePromptStub>
-          <States />
-        </CreatePromptStub>
-      </Wrapper>,
-    );
-    const picker = screen
-      .getByRole("button", { name: /^Enumeration/ })
-      .getBoundingClientRect();
-    const columns = screen
-      .getAllByRole("columnheader")
-      .filter((th) => th.textContent !== "");
-    const first = columns[0].getBoundingClientRect();
-    const last = columns[columns.length - 1].getBoundingClientRect();
-    expect(picker.left).toBeCloseTo(first.left, 0);
-    expect(picker.right).toBeCloseTo(last.right, 0);
-  });
-});
 
 const client = createTestClient();
 
 const findInput = async (label: string): Promise<HTMLInputElement> =>
   await screen.findByLabelText<HTMLInputElement>(label);
 
-const OPTIONS: schematic.StateMapping[] = [
-  { key: "off", name: "Off", value: 0 },
-  { key: "on", name: "On", value: 1, color: color.construct("#2e7d32") },
-];
-
 describe("Form.States", () => {
   // Stands in for the Console's name modal, which creates the enumeration on Create.
   let prompt: Mock<Enumeration.CreatePrompt>;
   beforeEach(() => {
     prompt = vi.fn(
-      async ({ entries }) =>
-        (await client.enumerations.create({ name: `Created ${id.create()}`, entries }))
-          .key,
+      async () =>
+        (await client.enumerations.create({ name: `Created ${id.create()}` })).key,
     );
   });
   const createWrapper = async (as: Synnax = client): Promise<FC<PropsWithChildren>> => {
@@ -111,20 +56,16 @@ describe("Form.States", () => {
 
   const renderStates = (
     config: Partial<z.input<typeof schematic.stateIndicatorNodeConfigZ>> = {},
-    colorHidden = false,
     as: FC<PropsWithChildren> = wrapper,
   ) =>
     renderForm(
       <Form.States
         enumeration={path.enumeration}
-        options={path.options}
         label={path.label.label}
         symbolName="State indicator"
-        colorHidden={colorHidden}
       />,
       schematic.stateIndicatorNodeConfigZ.parse({
         variant: "state_indicator",
-        options: OPTIONS,
         ...config,
       }),
       schematic.stateIndicatorNodeConfigZ,
@@ -143,105 +84,6 @@ describe("Form.States", () => {
     });
     return await client.enumerations.retrieve(key as enumeration.Key);
   };
-
-  describe("options", () => {
-    it("should edit the node's own options when it names no enumeration", async () => {
-      const { value } = renderStates();
-      const name = await findInput("Name 1");
-      fireEvent.focus(name);
-      fireEvent.change(name, { target: { value: "Closed" } });
-      fireEvent.blur(name);
-      await waitFor(() =>
-        expect(
-          (value(path.options) as schematic.StateMapping[]).map((o) => o.name),
-        ).toEqual(["Closed", "On"]),
-      );
-    });
-
-    it("should keep every row of a paste into the options", async () => {
-      const { value } = renderStates();
-      const name = await findInput("Name 1");
-      fireEvent.focus(name);
-      const clipboardData = new DataTransfer();
-      clipboardData.setData("text/plain", "Closed\t5\nOpen\t6");
-      // Testing Library's paste drops clipboardData in a browser, so the event is built
-      // here.
-      act(() => {
-        name.dispatchEvent(
-          new ClipboardEvent("paste", {
-            clipboardData,
-            bubbles: true,
-            cancelable: true,
-          }),
-        );
-      });
-      await waitFor(() =>
-        expect(
-          (value(path.options) as schematic.StateMapping[]).map((o) => [
-            o.name,
-            o.value,
-          ]),
-        ).toEqual([
-          ["Closed", 5],
-          ["Open", 6],
-        ]),
-      );
-    });
-
-    it("should remove one of the node's own options", async () => {
-      const { value } = renderStates();
-      fireEvent.click(await screen.findByRole("button", { name: "Remove entry 1" }));
-      await waitFor(() =>
-        expect(
-          (value(path.options) as schematic.StateMapping[]).map((o) => o.key),
-        ).toEqual(["on"]),
-      );
-    });
-
-    it("should move one of the node's own options", async () => {
-      const { value } = renderStates();
-      fireEvent.keyDown(await screen.findByRole("button", { name: "Move entry 2" }), {
-        key: "ArrowUp",
-      });
-      await waitFor(() =>
-        expect(
-          (value(path.options) as schematic.StateMapping[]).map((o) => o.key),
-        ).toEqual(["on", "off"]),
-      );
-    });
-
-    it("should keep a named color picked for an option as its color", async () => {
-      const palette = await client.groups.create({
-        scope: "color",
-        name: `palette-${id.create()}`,
-      });
-      const named = await client.colors.create({
-        name: `color-${id.create()}`,
-        light: "#00FF00",
-        group: palette.key,
-      });
-      const { value } = renderStates();
-      fireEvent.click(await screen.findByRole("button", { name: "Pick color 1" }));
-      fireEvent.click(await screen.findByRole("button", { name: named.name }));
-      await waitFor(() =>
-        expect((value(path.options) as schematic.StateMapping[])[0].color).toEqual(
-          color.construct("#00FF00"),
-        ),
-      );
-    });
-
-    it("should leave out the Abnormal column of the options", async () => {
-      renderStates();
-      await findInput("Color 2");
-      expect(screen.queryByLabelText("Abnormal 2")).toBeNull();
-    });
-
-    it("should leave out the Color column for a node that draws no color", async () => {
-      renderStates({}, true);
-      await findInput("Name 2");
-      expect(screen.queryByLabelText("Color 2")).toBeNull();
-    });
-  });
 
   describe("create", () => {
     const openPicker = async (
@@ -276,20 +118,13 @@ describe("Form.States", () => {
       await page.getByRole("option", { name: e.name, exact: true }).click();
     };
 
-    it("should lock the options while it creates an enumeration", async () => {
-      const c = renderStates();
-      await openCreate(c, `Valve ${id.create()}`);
-      expect(c.queryByRole("button", { name: "Add entry" })).toBeNull();
-      await created(c.value);
-    });
-
     it("should not offer Create enumeration to a user who cannot create", async () => {
       const viewer = await new RoleClients(client).get("Viewer");
       const viewerWrapper = await createWrapper(viewer);
       // A render as a user who is not an admin suspends at first.
       let c: ReturnType<typeof renderStates> | undefined;
       await act(async () => {
-        c = renderStates({}, false, viewerWrapper);
+        c = renderStates({}, viewerWrapper);
       });
       if (c == null) throw new Error("expected a render");
       fireEvent.click(c.getByRole("button", { name: "Enumeration" }));
@@ -306,16 +141,16 @@ describe("Form.States", () => {
       expect(e.name).toBe(term);
     });
 
-    it("should move the node's options into a new enumeration", async () => {
+    it("should create an empty enumeration for a node that names none", async () => {
       const c = renderStates();
       await openCreate(c);
       const e = await created(c.value);
-      expect(
-        e.entries.map(({ name, value, color: ref }) => ({ name, value, ref })),
-      ).toEqual([
-        { name: "Off", value: 0, ref: undefined },
-        { name: "On", value: 1, ref: { type: "fixed", value: OPTIONS[1].color } },
-      ]);
+      expect(e.entries).toEqual([]);
+      await waitFor(() =>
+        expect(document.activeElement).toBe(
+          c.getByRole("button", { name: "Add entry" }),
+        ),
+      );
     });
 
     it("should start the name of an unlinked node's enumeration with its label", async () => {
@@ -334,14 +169,13 @@ describe("Form.States", () => {
       );
     });
 
-    it("should keep the node's options when the user cancels the name", async () => {
+    it("should name no enumeration when the user cancels the name", async () => {
       prompt.mockResolvedValueOnce(null);
       const c = renderStates();
       await openCreate(c);
       await act(async () => {});
       expect(prompt).toHaveBeenCalledOnce();
       expect(c.value(path.enumeration)).toBeUndefined();
-      expect((await findInput("Name 1")).value).toBe("Off");
     });
 
     it("should list Create enumeration above No enumeration", async () => {
@@ -397,7 +231,7 @@ describe("Form.States", () => {
       const c = renderStates({ enumeration: linked.key, label: { label: "Pump" } });
       await openCreate(c);
       const e = await created(c.value, linked.key);
-      expect(prompt).toHaveBeenCalledWith({ name: "", entries: [] });
+      expect(prompt).toHaveBeenCalledWith({ name: "" });
       expect(e.entries).toEqual([]);
       await waitFor(() =>
         expect(document.activeElement).toBe(
@@ -477,13 +311,51 @@ describe("Form.States", () => {
       expect((await findInput("Name 1")).value).toBe("Primed");
     });
 
-    it("should go back to the node's options on No enumeration", async () => {
-      const e = await client.enumerations.create({ name: id.create(), entries: [] });
+    it("should show no entries on No enumeration", async () => {
+      const e = await client.enumerations.create({
+        name: id.create(),
+        entries: [{ key: id.create(), name: "Primed", value: 0, abnormal: false }],
+      });
       const c = renderStates({ enumeration: e.key });
+      await findInput("Name 1");
       fireEvent.click(await c.findByRole("button", { name: /^Enumeration/ }));
       fireEvent.click(await c.findByText("No enumeration"));
       await waitFor(() => expect(c.value(path.enumeration)).toBeUndefined());
-      expect((await findInput("Name 1")).value).toBe("Off");
+      expect(c.queryByLabelText("Name 1")).toBeNull();
+    });
+
+    it("should span the picker across the columns of the entries", async () => {
+      const e = await client.enumerations.create({
+        name: id.create(),
+        entries: [{ key: id.create(), name: "Primed", value: 0, abnormal: false }],
+      });
+      const c = renderStates({ enumeration: e.key });
+      await findInput("Name 1");
+      const picker = c
+        .getByRole("button", { name: /^Enumeration/ })
+        .getBoundingClientRect();
+      const columns = c
+        .getAllByRole("columnheader")
+        .filter((th) => th.textContent !== "");
+      const first = columns[0].getBoundingClientRect();
+      const last = columns[columns.length - 1].getBoundingClientRect();
+      expect(picker.left).toBeCloseTo(first.left, 0);
+      expect(picker.right).toBeCloseTo(last.right, 0);
+    });
+
+    it("should keep the picker as wide when the node names no enumeration", async () => {
+      const e = await client.enumerations.create({
+        name: id.create(),
+        entries: [{ key: id.create(), name: "Primed", value: 0, abnormal: false }],
+      });
+      const c = renderStates({ enumeration: e.key });
+      await findInput("Name 1");
+      const picker = (): HTMLElement => c.getByRole("button", { name: /^Enumeration/ });
+      const linked = picker().getBoundingClientRect().width;
+      fireEvent.click(picker());
+      fireEvent.click(await c.findByText("No enumeration"));
+      await waitFor(() => expect(c.queryByLabelText("Name 1")).toBeNull());
+      expect(picker().getBoundingClientRect().width).toBeCloseTo(linked, 0);
     });
   });
 });

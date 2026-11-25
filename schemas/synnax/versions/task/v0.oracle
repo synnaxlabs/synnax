@@ -71,11 +71,12 @@ Task struct {
         @doc value "is the current execution status of the task."
     }
 
-    @doc value  """
+    @doc value     """
         is an executable unit of work in the Driver system. Tasks represent specific
         hardware operations such as reading sensor data, writing control signals, or
         scanning for devices.
     """
     @go marshal
     @go migrate
+    @resource type "task"
 }

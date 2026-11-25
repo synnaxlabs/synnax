@@ -98,8 +98,8 @@ public:
     /// data type of the field and has room for one more sample.
     /// - A timestamp takes a string in ISO 8601 format, and a number or a string
     ///   holding one in a Unix format.
-    /// - A string takes a string, or the label of an enum. JSON takes any value,
-    ///   compacted but spelled as raw.
+    /// - A string takes a string, or the label of an enum. Any other value writes its
+    ///   JSON text, as for JSON. JSON takes any value, compacted but spelled as raw.
     /// - A UUID takes its string form.
     /// - Bytes take a string of standard, padded base64.
     /// - A numeric or boolean sample takes a number that it can hold exactly, a
@@ -108,9 +108,9 @@ public:
     errors::Error append(std::string_view raw, telem::Series &dst);
 
     /// @brief appends the sample of v to dst, as append does for a JSON number equal to
-    /// v.
-    /// @returns VALIDATION, appending nothing, when v is not finite, the data type is
-    /// not numeric, or v does not convert to it.
+    /// v. A float data type takes any float, NaN and infinity included.
+    /// @returns VALIDATION, appending nothing, when the data type is not numeric or v
+    /// does not convert to it.
     errors::Error append_float(double v, telem::Series &dst) const;
 };
 

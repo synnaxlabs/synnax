@@ -7,7 +7,9 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import asyncio
 import base64
+import threading
 from contextvars import ContextVar
 from uuid import UUID
 
@@ -23,11 +25,11 @@ from freighter import (
     UnaryClient,
 )
 from synnax import resource
-from synnax.auth.types_gen import Proof, Session, SessionKey
+from synnax.auth import apikey, password, session
+from synnax.auth.types_gen import PasswordProof, Proof, Session
 from synnax.exceptions import ExpiredToken, InvalidToken, SessionEnded
-from synnax.user.payload import User
+from synnax.user.types_gen import User
 from synnax.util.send_required import send_required
-from x.telem import TimeStamp
 
 _API_KEY_PREFIX = "syk_"
 
@@ -68,68 +70,9 @@ class _SessionRenewResponse(BaseModel):
     user: User | None = None
 
 
-class _SessionRetrieveRequest(BaseModel):
-    subjects: list[resource.ID] = []
-
-
-class _SessionRetrieveResponse(BaseModel):
-    sessions: list[Session] = []
-
-
-class _SessionDeleteRequest(BaseModel):
-    keys: list[SessionKey] = []
-
-
-class APIKey(BaseModel):
-    """An API key as the API returns it: the stored record without its hash."""
-
-    key: UUID
-    """The unique identifier for this API key."""
-    subject: resource.ID
-    """The user or rack the key logs in as."""
-    name: str
-    """A label that tells the subject's keys apart."""
-    created: TimeStamp
-    """When the key was created."""
-
-
-class _KeyCreateRequest(BaseModel):
-    subject: resource.ID | None = None
-    name: str
-
-
-class _KeyCreateResponse(BaseModel):
-    token: str
-    key: APIKey
-
-
-class _KeyRetrieveRequest(BaseModel):
-    subjects: list[resource.ID] = []
-
-
-class _KeyRetrieveResponse(BaseModel):
-    keys: list[APIKey] = []
-
-
-class _KeyDeleteRequest(BaseModel):
-    keys: list[UUID] = []
-
-
-class _PasswordCreateRequest(BaseModel):
-    subject: resource.ID | None = None
-    username: str
-    password: str
-
-
 _METHODS_ENDPOINT = "/auth/methods"
 _SESSION_CREATE_ENDPOINT = "/auth/session/create"
 _SESSION_RENEW_ENDPOINT = "/auth/session/renew"
-_SESSION_RETRIEVE_ENDPOINT = "/auth/session/retrieve"
-_SESSION_DELETE_ENDPOINT = "/auth/session/delete"
-_KEY_CREATE_ENDPOINT = "/auth/key/create"
-_KEY_RETRIEVE_ENDPOINT = "/auth/key/retrieve"
-_KEY_DELETE_ENDPOINT = "/auth/key/delete"
-_PASSWORD_CREATE_ENDPOINT = "/auth/password/create"
 
 _AUTHORIZATION_HEADER = "Authorization"
 _RETRY_ON_ERRORS = (InvalidToken, ExpiredToken, SessionEnded)
@@ -160,6 +103,10 @@ class Client:
         self.session = None
         self.user = None
         self.authenticated = False
+        self._login_lock = threading.Lock()
+        self.api_keys = apikey.Client(transport)
+        self.sessions = session.Client(transport)
+        self.passwords = password.Client(transport, self._on_username)
         # Scoped to the caller's thread or task, so only the logout's own request
         # carries the ended token.
         self._logout_token: ContextVar[str | None] = ContextVar(
@@ -201,83 +148,10 @@ class Client:
         self.user = res.user
         return res.session
 
-    def retrieve_sessions(
-        self, subjects: list[resource.ID] | None = None
-    ) -> list[Session]:
-        """Lists the caller's sessions, or those of the given subjects when the caller
-        may retrieve them.
-        """
-        res = send_required(
-            self.client,
-            _SESSION_RETRIEVE_ENDPOINT,
-            _SessionRetrieveRequest(subjects=subjects or []),
-            _SessionRetrieveResponse,
-        )
-        return res.sessions
-
-    def delete_sessions(self, *keys: SessionKey) -> None:
-        """Ends the given sessions. Unknown keys are ignored."""
-        send_required(
-            self.client,
-            _SESSION_DELETE_ENDPOINT,
-            _SessionDeleteRequest(keys=list(keys)),
-            Empty,
-        )
-
-    def create_key(
-        self, name: str, subject: resource.ID | None = None
-    ) -> tuple[str, APIKey]:
-        """Creates an API key for the subject, or for the caller when none is given.
-
-        :returns: the token to log in with, the only copy of its secret, and the key.
-        :raises AccessDenied: if the caller may not create a key for the subject.
-        :raises NotFoundError: if the subject does not exist.
-        """
-        res = send_required(
-            self.client,
-            _KEY_CREATE_ENDPOINT,
-            _KeyCreateRequest(subject=subject, name=name),
-            _KeyCreateResponse,
-        )
-        return res.token, res.key
-
-    def retrieve_keys(self, subjects: list[resource.ID] | None = None) -> list[APIKey]:
-        """Lists the caller's API keys, or those of the given subjects when the caller
-        may retrieve them.
-        """
-        res = send_required(
-            self.client,
-            _KEY_RETRIEVE_ENDPOINT,
-            _KeyRetrieveRequest(subjects=subjects or []),
-            _KeyRetrieveResponse,
-        )
-        return res.keys
-
-    def delete_keys(self, *keys: UUID) -> None:
-        """Deletes API keys and ends their sessions. Unknown keys are ignored."""
-        send_required(
-            self.client, _KEY_DELETE_ENDPOINT, _KeyDeleteRequest(keys=list(keys)), Empty
-        )
-
-    def create_password(
-        self, username: str, password: str, subject: resource.ID | None = None
-    ) -> None:
-        """Gives the subject, or the caller when none is given, its first password.
-
-        :raises AuthError: if another user holds the username.
-        :raises AccessDenied: if the caller may not create and update the subject.
-        :raises NotFoundError: if the subject does not exist.
-        :raises ValidationError: if the username or password is empty, or the subject
-            already has a password.
-        """
-        send_required(
-            self.client,
-            _PASSWORD_CREATE_ENDPOINT,
-            _PasswordCreateRequest(
-                subject=subject, username=username, password=password
-            ),
-            Empty,
-        )
+    def _on_username(self, key: password.Key, username: str) -> None:
+        own = self.session is not None and self.session.credential == key
+        if own and isinstance(self.proof, PasswordProof):
+            self.proof = self.proof.model_copy(update={"username": username})
 
     def logout(self) -> None:
         """Ends the client's own session and forgets it. A later request logs in
@@ -290,7 +164,7 @@ class Client:
         self.token = ""
         self.session = None
         try:
-            self.delete_sessions(key)
+            self.sessions.delete(key)
         except _RETRY_ON_ERRORS:
             pass
         finally:
@@ -298,11 +172,18 @@ class Client:
 
     def _forget(self, token: str) -> None:
         # A failure on an older session must not erase one logged in since.
-        if self.token == token:
-            self.authenticated = False
+        with self._login_lock:
+            if self.token == token:
+                self.authenticated = False
+
+    def _login(self) -> None:
+        """Logs in unless a concurrent renewal already did."""
+        with self._login_lock:
+            if not self.authenticated:
+                self.authenticate()
 
     def _prepare(self, ctx: Context) -> bool:
-        """Attaches the token and reports whether a rejected token may log in again."""
+        """Attaches a logout's token. Reports whether the request needs a session."""
         target = ctx.target.rstrip("/")
         # The Core serves these without a token, so they must not trigger a login.
         if target.endswith((_METHODS_ENDPOINT, _SESSION_CREATE_ENDPOINT)):
@@ -310,17 +191,17 @@ class Client:
         # A logout ends the session its token belongs to; a dead one must not log in
         # again.
         logout_token = self._logout_token.get()
-        if logout_token is not None and target.endswith(_SESSION_DELETE_ENDPOINT):
+        if logout_token is not None and target.endswith(session.DELETE_ENDPOINT):
             ctx.set(_AUTHORIZATION_HEADER, _TOKEN_PREFIX + logout_token)
             return False
-        if not self.authenticated:
-            self.authenticate()
-        ctx.set(_AUTHORIZATION_HEADER, _TOKEN_PREFIX + self.token)
         return True
 
     def middleware(self) -> Middleware:
         def mw(ctx: Context, _next: Next) -> Context:
             retry = self._prepare(ctx)
+            if retry:
+                self._login()
+                ctx.set(_AUTHORIZATION_HEADER, _TOKEN_PREFIX + self.token)
             sent = self.token
             try:
                 return _next(ctx)
@@ -335,13 +216,19 @@ class Client:
     def async_middleware(self) -> AsyncMiddleware:
         async def mw(ctx: Context, _next: AsyncNext) -> Context:
             retry = self._prepare(ctx)
+            if retry:
+                # The login is a blocking request, so it runs off the event loop.
+                if not self.authenticated:
+                    await asyncio.to_thread(self._login)
+                ctx.set(_AUTHORIZATION_HEADER, _TOKEN_PREFIX + self.token)
             sent = self.token
             try:
                 return await _next(ctx)
             except _RETRY_ON_ERRORS:
                 if not retry:
                     raise
-                self._forget(sent)
+                # A login can hold the lock that _forget waits on.
+                await asyncio.to_thread(self._forget, sent)
                 return await mw(ctx, _next)
 
         return mw

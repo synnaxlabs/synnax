@@ -138,6 +138,21 @@ Framing struct {
 		Expect(fields[1].Default.StringValue).To(Equal("\r\n"))
 	})
 
+	It("Should keep the spelling of a duration default", func() {
+		table := resolution.NewTable()
+		loader := testutil.NewMockFileLoader()
+		loader.Files["schemas/x/telem"] = "TimeSpan int64"
+		Expect(analyzer.AnalyzeSeeded(`
+import "schemas/x/telem"
+Cfg struct {
+	timeout telem.TimeSpan = 1m30s
+}
+`, "schemas/synnax/versions/test/v0.oracle", "test", loader, table).Ok()).
+			To(BeTrue())
+		rendered := versions.Render(declsOf(table), versions.RenderOptions{})
+		Expect(rendered).To(ContainSubstring("timeout telem.TimeSpan = 1m30s"))
+	})
+
 	It("Should keep an integral float default a float", func() {
 		table := analyzeFixture(`
 Scale struct {
