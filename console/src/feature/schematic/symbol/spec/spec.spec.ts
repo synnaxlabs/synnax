@@ -637,9 +637,132 @@ describe("symbol editor spec", () => {
     });
   });
 
+  describe("owner", () => {
+    const spec = createSpec({
+      drawing: {
+        type: "svg",
+        markup:
+          '<svg xmlns="http://www.w3.org/2000/svg">' +
+          '<g id="g"><rect id="body"/><rect id="c"/></g><rect id="d"/></svg>',
+      },
+      parts: [
+        { key: "group", name: "Group", selectors: ["#g"] },
+        { key: "body", name: "Body", selectors: ["#body"] },
+      ],
+    });
+
+    it("should return the part that holds the shape itself", () => {
+      expect(Spec.owner(spec, "#body")?.key).toBe("body");
+    });
+
+    it("should return the part that holds the group around the shape", () => {
+      expect(Spec.owner(spec, "#c")?.key).toBe("group");
+    });
+
+    it("should return the part that holds a span of a text", () => {
+      const text = createSpec({
+        drawing: {
+          type: "svg",
+          markup:
+            '<svg xmlns="http://www.w3.org/2000/svg">' +
+            '<text id="t"><tspan id="s">Tank</tspan></text></svg>',
+        },
+        parts: [{ key: "label", name: "Label", selectors: ["#s"] }],
+      });
+      expect(Spec.owner(text, "#t")?.key).toBe("label");
+    });
+
+    it("should return undefined for a shape that no part holds", () => {
+      expect(Spec.owner(spec, "#d")).toBeUndefined();
+    });
+
+    it("should not return the part of a shape inside a group", () => {
+      expect(Spec.owner({ ...spec, parts: [spec.parts[1]] }, "#g")).toBeUndefined();
+    });
+  });
+
+  describe("parentGroup", () => {
+    const spec = createSpec({
+      drawing: {
+        type: "svg",
+        markup:
+          '<svg xmlns="http://www.w3.org/2000/svg"><g id="o">' +
+          '<g id="g"><rect id="c"/><rect id="d"/></g><g id="h"><rect id="e"/></g>' +
+          '</g><rect id="f"/></svg>',
+      },
+    });
+
+    it.each([
+      { name: "the group around a shape", selectors: ["#c"], group: "g" },
+      { name: "the group around every shape", selectors: ["#c", "#d"], group: "g" },
+      {
+        name: "the nearest group around shapes at two depths",
+        selectors: ["#c", "#e"],
+        group: "o",
+      },
+      { name: "the group around a group", selectors: ["#g"], group: "o" },
+      { name: "no group for a shape in no group", selectors: ["#f"], group: undefined },
+      {
+        name: "no group for shapes that no group holds",
+        selectors: ["#c", "#f"],
+        group: undefined,
+      },
+      {
+        name: "no group for a selector of no shape",
+        selectors: ["#x"],
+        group: undefined,
+      },
+    ])("should return $name", ({ selectors, group }) => {
+      expect(Spec.parentGroup(spec, selectors)?.id).toBe(group);
+    });
+  });
+
+  describe("outermost", () => {
+    const markup =
+      '<svg xmlns="http://www.w3.org/2000/svg">' +
+      '<g id="o"><g id="g"><rect id="c"/></g></g><rect id="f"/></svg>';
+
+    it.each([
+      { name: "the shape itself", selectors: ["#c"], found: "#c" },
+      { name: "a group around the shape", selectors: ["#g", "#f"], found: "#g" },
+      { name: "the outermost of two groups", selectors: ["#g", "#o"], found: "#o" },
+      { name: "no selector away from the shape", selectors: ["#f"], found: undefined },
+    ])("should return $name", ({ selectors, found }) => {
+      const spec = createSpec({
+        drawing: { type: "svg", markup },
+        parts: [{ key: "body", name: "Body", selectors }],
+      });
+      expect(Spec.outermost(spec, "body", "#c")).toBe(found);
+    });
+  });
+
+  describe("groupOwner", () => {
+    const spec = createSpec({
+      drawing: {
+        type: "svg",
+        markup:
+          '<svg xmlns="http://www.w3.org/2000/svg">' +
+          '<g id="g"><rect id="c"/></g><rect id="d"/></svg>',
+      },
+      parts: [
+        { key: "group", name: "Group", selectors: ["#g"] },
+        { key: "d", name: "D", selectors: ["#d"] },
+      ],
+    });
+
+    it("should return the part that holds the group around the shape", () => {
+      expect(Spec.groupOwner(spec, "#c")?.key).toBe("group");
+    });
+
+    it("should not return the part that holds the shape itself", () => {
+      expect(Spec.groupOwner(spec, "#d")).toBeUndefined();
+      expect(Spec.groupOwner(spec, "#g")).toBeUndefined();
+    });
+  });
+
   describe("toggleSelector", () => {
     it("should move a selector to the part from the other parts", () => {
-      const next = Spec.toggleSelector(createSpec().parts, "body", "#seat");
+      const next = Spec.toggleSelector(createSpec(), "body", "#seat");
       expect(next).toEqual([
         { key: "body", name: "Body", selectors: ["#body", "#seat"] },
         { key: "seat", name: "Seat", selectors: [] },
@@ -647,8 +770,68 @@ describe("symbol editor spec", () => {
     });
 
     it("should remove a selector that the part already has", () => {
-      const next = Spec.toggleSelector(createSpec().parts, "body", "#body");
+      const next = Spec.toggleSelector(createSpec(), "body", "#body");
       expect(next[0].selectors).toEqual([]);
+    });
+
+    const labeled = createSpec({
+      drawing: {
+        type: "svg",
+        markup:
+          '<svg xmlns="http://www.w3.org/2000/svg">' +
+          '<text id="t"><tspan id="s">Tank</tspan></text><rect id="seat"/></svg>',
+      },
+      parts: [
+        { key: "body", name: "Body", selectors: ["#s", "#t"] },
+        { key: "seat", name: "Seat", selectors: ["#seat"] },
+      ],
+    });
+
+    it("should take the spans of a text out with the text", () => {
+      expect(Spec.toggleSelector(labeled, "body", "#t")[0].selectors).toEqual([]);
+    });
+
+    it("should take a text out of a part that holds only its span", () => {
+      const parts = [{ key: "body", name: "Body", selectors: ["#s"] }];
+      expect(Spec.toggleSelector({ ...labeled, parts }, "body", "#t")).toEqual([
+        { key: "body", name: "Body", selectors: [] },
+      ]);
+    });
+
+    it("should move the spans of a text with the text", () => {
+      expect(Spec.toggleSelector(labeled, "seat", "#t")).toEqual([
+        { key: "body", name: "Body", selectors: [] },
+        { key: "seat", name: "Seat", selectors: ["#seat", "#t"] },
+      ]);
+    });
+
+    const grouped = createSpec({
+      drawing: {
+        type: "svg",
+        markup:
+          '<svg xmlns="http://www.w3.org/2000/svg">' +
+          '<g id="g"><rect id="body"/><rect id="seat"/></g></svg>',
+      },
+    });
+
+    it("should put a group in place of the shapes of every part inside it", () => {
+      expect(Spec.toggleSelector(grouped, "body", "#g")).toEqual([
+        { key: "body", name: "Body", selectors: ["#g"] },
+        { key: "seat", name: "Seat", selectors: [] },
+      ]);
+    });
+
+    it("should take a group out of the part when a shape inside it is clicked", () => {
+      const parts = Spec.toggleSelector(grouped, "body", "#g");
+      expect(Spec.toggleSelector({ ...grouped, parts }, "body", "#seat")).toEqual([
+        { key: "body", name: "Body", selectors: [] },
+        { key: "seat", name: "Seat", selectors: [] },
+      ]);
+    });
+
+    it("should keep the parts when another part holds a group around the shape", () => {
+      const parts = Spec.toggleSelector(grouped, "body", "#g");
+      expect(Spec.toggleSelector({ ...grouped, parts }, "seat", "#seat")).toBe(parts);
     });
   });
 

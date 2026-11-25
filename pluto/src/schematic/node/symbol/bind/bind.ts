@@ -108,3 +108,18 @@ export const stale = (
   bindings: Sourced[],
   readings: Record<string, symbolNode.Reading>,
 ): boolean => bindings.some(({ source }) => reading(readings, source)?.stale === true);
+
+/**
+ * @returns whether a state reads a channel that has no data yet, or whose newest value
+ * is NaN.
+ */
+export const dataMissing = (
+  bindings: Sourced[],
+  readings: Record<string, symbolNode.Reading>,
+): boolean =>
+  bindings.some(
+    ({ source }) =>
+      source?.type === "channel" &&
+      source.key != null &&
+      reading(readings, source)?.value == null,
+  );
