@@ -230,6 +230,7 @@ Server struct {
     }
 
     @doc value     "is an OPC UA server that a rack's Driver connects to."
+    @go entry      "opcua_server"
     @go marshal
     @go migrate
     @resource type "opcua_server"

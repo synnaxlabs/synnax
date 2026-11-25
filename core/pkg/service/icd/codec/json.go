@@ -390,7 +390,13 @@ func (f *jsonField) compile(v jsonVariant) error {
 				f.dataType,
 			)
 		}
-		numberField := xjson.Field{DataType: telem.Float64T, Range: v.sample.Range}
+		// The enums of number fail a string that is no label as an unknown label. A
+		// label itself goes to sample.
+		numberField := xjson.Field{
+			DataType: telem.Float64T,
+			Enums:    v.sample.Enums,
+			Range:    v.sample.Range,
+		}
 		if f.number, err = xjson.NewDecoder(numberField); err != nil {
 			return err
 		}
@@ -421,13 +427,24 @@ func boolSample(v bool) uint8 {
 
 // decode appends the sample of raw to dst.
 func (f *jsonField) decode(dst []byte, raw jsontext.Value) ([]byte, error) {
-	if f.kind == payload.KindBoolean && raw.Kind() == '0' {
+	boolean := f.kind == payload.KindBoolean
+	if boolean && raw.Kind() == '0' {
 		return nil, errors.Wrapf(
 			validate.ErrValidation, "expected a boolean, got number %s", raw,
 		)
 	}
-	// An enum label maps straight to a channel value, which takes no scale.
-	if !f.scaled || raw.Kind() == '"' {
+	if raw.Kind() == '"' && (boolean || f.scaled) {
+		// An enum label maps straight to a channel value, which takes no scale.
+		if f.sample.Labeled(raw) {
+			return f.sample.Append(dst, raw)
+		}
+		if boolean {
+			return nil, errors.Wrapf(
+				validate.ErrValidation, "expected a boolean, got string %s", raw,
+			)
+		}
+	}
+	if !f.scaled {
 		return f.sample.Append(dst, raw)
 	}
 	var err error

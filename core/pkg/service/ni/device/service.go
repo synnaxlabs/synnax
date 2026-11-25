@@ -11,6 +11,7 @@ package device
 
 import (
 	"context"
+	"slices"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
@@ -27,15 +28,19 @@ import (
 // ServiceConfig is the configuration for opening a Service.
 type ServiceConfig struct {
 	// DB is the database devices are stored in.
+	//
 	// [REQUIRED]
 	DB *gorp.DB
 	// Status stores each device's status.
+	//
 	// [REQUIRED]
 	Status *status.Service
 	// Signals publishes sy_ni_device_set and sy_ni_device_delete.
+	//
 	// [OPTIONAL]
 	Signals *signals.Provider
 	// Instrumentation is used for logging, tracing, and metrics.
+	//
 	// [OPTIONAL]
 	alamos.Instrumentation
 }
@@ -76,10 +81,14 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	s = &Service{cfg: cfg, indexes: newIndexes()}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
+	migrations := append(
+		slices.Clone(versions.Migrations),
+		gorp.DanglingMigration("v63_ni_device_dangling_channels"),
+	)
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Device]{
 		DB:              cfg.DB,
 		Name:            tableName,
-		Migrations:      versions.Migrations,
+		Migrations:      migrations,
 		Indexes:         s.indexes.all(),
 		References:      s.indexes.references(),
 		Instrumentation: cfg.Instrumentation,
