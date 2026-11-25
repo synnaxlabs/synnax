@@ -251,15 +251,6 @@ const duplicate = (target: WriteTarget): WriteTarget =>
         message: ICD.Write.unbind(target.message),
       };
 
-const messageOf = (target: WriteTarget): ICD.Write.TargetMessage | null =>
-  target.type === "plain"
-    ? {
-        icd: target.icd,
-        message: target.message.message,
-        bindings: plainPath(target.key).message.bindings,
-      }
-    : null;
-
 interface TargetsProps {
   device: Device.Device;
   selected: string[];
@@ -278,17 +269,38 @@ const Targets = ({ device, selected, onSelect, expanded, onExpand }: TargetsProp
   const targets = PForm.useFieldValue(root.config.targets);
   const plain = targets.filter((t) => t.type === "plain");
   const discover = useDiscoverModal();
-  const { tree, handleSelect, contextMenu, renderItem, current, addField, added } =
-    ICD.Write.useTree({
-      path: root.config.targets,
-      messageOf,
-      TargetItem,
-      duplicate,
-      selected,
-      onSelect,
-      expanded,
-      onExpand,
-    });
+  const messageOf = (target: WriteTarget): ICD.Write.TargetMessage | null =>
+    target.type === "plain"
+      ? {
+          icd: target.icd,
+          message: target.message.message,
+          path: plainPath(target.key).message,
+          channelName: (field) =>
+            commandName(namePrefix(device.name, target.topic), field),
+        }
+      : null;
+  const { tree, handleSelect, contextMenu, renderItem, pane } = ICD.Write.useTree({
+    path: root.config.targets,
+    messageOf,
+    TargetItem,
+    targetPane: (target, onAddField) => ({
+      path: root.config.targets[target.key],
+      title: <EntryLabel path={root.config.targets[target.key]} />,
+      details: (
+        <TargetPane
+          key={target.key}
+          path={root.config.targets[target.key]}
+          deviceName={device.name}
+          onAddField={onAddField}
+        />
+      ),
+    }),
+    duplicate,
+    selected,
+    onSelect,
+    expanded,
+    onExpand,
+  });
 
   const add = async () => {
     if (client == null) throw new DisconnectedError();
@@ -322,47 +334,6 @@ const Targets = ({ device, selected, onSelect, expanded, onExpand }: TargetsProp
   const addExclusive = useExclusiveCallback(add);
   const handleAdd = () => handleError(addExclusive, "Failed to add targets");
 
-  const target =
-    current == null ? undefined : targets.find(({ key }) => key === current.target);
-  let details = null;
-  let title = null;
-  let detailsPath: deep.Target<unknown> | null = null;
-  if (target?.type === "plain" && current?.kind === "field") {
-    const path = plainPath(target.key).message;
-    const i = target.message.bindings.findIndex(
-      ({ field }) => field === current.field.key,
-    );
-    detailsPath = i < 0 ? path : path.bindings[i];
-    title = (
-      <Text.Text level="p" weight={500} overflow="fade">
-        {current.field.name}
-      </Text.Text>
-    );
-    details = (
-      <ICD.Write.FieldDetails
-        key={selected[0]}
-        path={path.bindings}
-        icdKey={target.icd}
-        message={target.message.message}
-        field={current.field.key}
-        channelName={commandName(namePrefix(device.name, target.topic), current.field)}
-        skipped={target.disabled}
-        autoFocus={current.field.key === added}
-      />
-    );
-  } else if (target != null) {
-    detailsPath = root.config.targets[target.key];
-    title = <EntryLabel path={root.config.targets[target.key]} />;
-    details = (
-      <TargetPane
-        key={target.key}
-        path={root.config.targets[target.key]}
-        deviceName={device.name}
-        onAddField={() => addField(target.key)}
-      />
-    );
-  }
-
   return (
     <Task.Views.Panes
       listTitle="Targets"
@@ -378,10 +349,10 @@ const Targets = ({ device, selected, onSelect, expanded, onExpand }: TargetsProp
           {renderItem}
         </Task.Views.TreeList>
       }
-      detailsPath={detailsPath}
-      title={title ?? undefined}
+      detailsPath={pane?.path ?? null}
+      title={pane?.title}
     >
-      {details ?? (
+      {pane?.details ?? (
         <Flex.Box y grow align="center" justify="center">
           <Text.Text status="disabled">
             Add targets to write to a topic or a tag
