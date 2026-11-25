@@ -32,10 +32,10 @@ type controlResource struct {
 	ck channel.Key
 	// alignment tracks the current write position as a packed domain index (upper 32
 	// bits) and sample index (lower 32 bits). This field is accessed atomically because
-	// Gate.Authorize and Controller.ResourceAt return a shared pointer to this struct,
-	// and the lock is released before the caller accesses the field. This means one
-	// goroutine may write alignment through Authorize while another reads it through
-	// ResourceAt concurrently.
+	// Gate.Authorize and Gate.PeekResource return a shared pointer to this struct, and
+	// the region's RWMutex is released before the caller accesses the field. This means
+	// one goroutine may write alignment through Authorize while another reads it
+	// through PeekResource concurrently.
 	alignment atomic.Uint64
 }
 
