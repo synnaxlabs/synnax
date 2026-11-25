@@ -166,10 +166,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 						opened <- result{r: r, err: err}
 					}()
 					// A reader that waits for GC before its open never enters it.
-					select {
-					case <-gate.opened:
-					case <-time.After(100 * time.Millisecond):
-					}
+					Consistently(gate.opened, 100*time.Millisecond).ShouldNot(Receive())
 					close(gate.release)
 					Eventually(collected).Should(Receive(BeNil()))
 					var res result
