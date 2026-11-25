@@ -337,9 +337,9 @@ export interface Server extends z.infer<typeof serverZ> {}
  */
 export const identityZ = z.object({
   /** rack is the key of the rack whose Driver connects to the server. */
-  rack: rack.keyZ.refine((v) => v !== 0, "rack is required"),
+  rack: rack.keyZ.refine((v) => v !== 0, "Rack is required"),
   /** name is a human-readable name for the server. */
-  name: z.string().min(1, "name is required"),
+  name: z.string().min(1, "Name is required"),
   /** connection holds the settings that the Driver connects with. */
   connection: connectionZ,
 });
