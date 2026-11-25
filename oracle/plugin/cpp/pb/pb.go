@@ -536,7 +536,7 @@ func (p *Plugin) unionTranslatorNames(
 	ns := data.Namespace
 	if resolved.FilePath != data.filePath {
 		if targetOutputPath := output.GetPath(resolved, "cpp"); targetOutputPath != "" {
-			data.addConversionIncludes(targetOutputPath)
+			data.addConversionIncludes(resolved, targetOutputPath)
 			ns = naming.Namespace(targetOutputPath)
 		}
 	}
@@ -1098,7 +1098,7 @@ func (p *Plugin) generateStructConversion(
 	if resolved.FilePath != data.filePath {
 		targetOutputPath := output.GetPath(resolved, "cpp")
 		if targetOutputPath != "" {
-			data.addConversionIncludes(targetOutputPath)
+			data.addConversionIncludes(resolved, targetOutputPath)
 		}
 	}
 
@@ -1544,7 +1544,7 @@ func (p *Plugin) namedArrayConversion(
 	if resolved.FilePath != data.filePath {
 		targetOutputPath := output.GetPath(resolved, "cpp")
 		if targetOutputPath != "" {
-			data.addConversionIncludes(targetOutputPath)
+			data.addConversionIncludes(resolved, targetOutputPath)
 		}
 	}
 	elemCppType := p.typeRefToCppForTranslator(elemType, data)
@@ -1690,7 +1690,7 @@ func enumElementConversion(
 	funcNamespace := ""
 	if resolved.FilePath != data.filePath {
 		if target := output.GetPath(resolved, "cpp"); target != "" {
-			data.addConversionIncludes(target)
+			data.addConversionIncludes(resolved, target)
 			ns := naming.Namespace(target)
 			cppEnumType = fmt.Sprintf("::%s::%s", ns, cppEnumType)
 			funcNamespace = fmt.Sprintf("::%s::", ns)
@@ -1879,7 +1879,7 @@ func (p *Plugin) structMapLoops(
 	if value.FilePath != data.filePath {
 		targetOutputPath := output.GetPath(value, "cpp")
 		if targetOutputPath != "" {
-			data.addConversionIncludes(targetOutputPath)
+			data.addConversionIncludes(value, targetOutputPath)
 		}
 	}
 	valueCppType := p.typeRefToCppForTranslator(valueType, data)
@@ -1989,7 +1989,7 @@ func (p *Plugin) structNestedArrayConversion(
 	if innerResolved.FilePath != data.filePath {
 		targetOutputPath := output.GetPath(innerResolved, "cpp")
 		if targetOutputPath != "" {
-			data.addConversionIncludes(targetOutputPath)
+			data.addConversionIncludes(innerResolved, targetOutputPath)
 		}
 	}
 	innerCppType := p.typeRefToCppForTranslator(innerElem, data)
@@ -2162,12 +2162,21 @@ func (d *templateData) jsonInclude(outputPath string) string {
 	return json.IncludeFor(d.jsonPaths, outputPath)
 }
 
-// addConversionIncludes registers the headers a cross-package conversion needs: the
-// target's proto.gen.h when the plugin emits one (otherwise the conversions are
-// hand-written next to the type) and its JSON header.
-func (d *templateData) addConversionIncludes(targetOutputPath string) {
+// addConversionIncludes registers the headers a cross-package conversion of target
+// needs: the target's proto.gen.h when the plugin emits one (otherwise the conversions
+// are hand-written next to the type) and its JSON header. In a package with no JSON
+// header, a cpp include expression on target names the header in place of types.gen.h.
+func (d *templateData) addConversionIncludes(
+	target resolution.Type,
+	targetOutputPath string,
+) {
 	if d.protoPaths.Contains(targetOutputPath) {
 		d.AddInternal(targetOutputPath + "/proto.gen.h")
+	}
+	if include := domain.GetStringFromType(target, "cpp", "include"); include != "" &&
+		!d.jsonPaths.Contains(targetOutputPath) {
+		d.AddInternal(include)
+		return
 	}
 	d.AddInternal(d.jsonInclude(targetOutputPath))
 }
