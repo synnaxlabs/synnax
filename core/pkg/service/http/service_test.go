@@ -22,7 +22,14 @@ import (
 	v5 "github.com/synnaxlabs/synnax/pkg/service/http/versions/v5"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
+	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	tasktestutil "github.com/synnaxlabs/synnax/pkg/service/task/testutil"
+	v2 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
+	v3 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -86,6 +93,53 @@ var _ = Describe("Service", func() {
 				}))
 				_, closer := MustSucceed2(db.Get(v5.StagedWriteFieldsKVKey(old.Key)))
 				Expect(closer.Close()).To(Succeed())
+			},
+		)
+
+		It(
+			"Should move the fields of a write task row from before 0.57 into an ICD",
+			func(ctx SpecContext) {
+				db := DeferClose(gorp.Wrap(memkv.New()))
+				StartRun(db.Run)
+				MustOpen(label.OpenService(ctx, label.ServiceConfig{DB: db}))
+				statuses := MustOpen(status.OpenService(ctx, status.ServiceConfig{
+					DB: db,
+				}))
+				svc := MustOpen(http.OpenService(ctx, http.ServiceConfig{
+					DB:      db,
+					Channel: channelSvc,
+					ICD: MustOpen(icd.OpenService(ctx, icd.ServiceConfig{
+						DB:   db,
+						ImEx: imex.NewService(),
+					})),
+				}))
+				row := v2.Task{
+					Key:  uuid.New(),
+					Name: "Pump",
+					Type: "http_write",
+					Config: msgpack.EncodedJSON{"endpoints": []any{map[string]any{
+						"key":     "sp",
+						"path":    "/setpoint",
+						"channel": map[string]any{"pointer": "/value"},
+					}}},
+				}
+				Expect(gorp.NewCreate[v2.Key, v2.Task]().Entry(&row).Exec(ctx, db)).
+					To(Succeed())
+				Expect(ontology.DefineResources(ctx, db, resource.ID{
+					Type: resource.TypeTask,
+					Key:  row.Key.String(),
+				})).To(Succeed())
+				MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v2.Key, v2.Task]{
+					DB:   db,
+					Name: string(resource.TypeTask),
+					Migrations: []gorp.Migration{v3.NewMigration(v3.MigrationConfig{
+						Status:  statuses,
+						Configs: MustSucceed(config.NewRegistry(svc.Stores()...)),
+					})},
+				}))
+				stored := MustSucceed(svc.Write.Read(ctx, db, row.Key))
+				Expect(stored).ToNot(HaveKey("inline"))
+				Expect(stored["endpoints"]).To(HaveExactElements(HaveKey("icd")))
 			},
 		)
 	})
@@ -302,6 +356,117 @@ var _ = Describe("Service", func() {
 				}))
 			},
 		)
+
+		DescribeTable(
+			"Should return the write config it stores, with its fields in an ICD",
+			func(ctx SpecContext, version int) {
+				idx := createChannel(ctx, telem.TimestampT, channel.Channel{})
+				cmd := createChannel(ctx, telem.Float64T, idx)
+				channelField := map[string]any{
+					"pointer":   "/value",
+					"json_type": "number",
+					"channel":   cmd.Key(),
+					"name":      cmd.Name,
+					"data_type": "float64",
+				}
+				data := MustSucceed(svc.Write.Normalize(
+					ctx, db, imex.Version(version), msgpack.EncodedJSON{
+						"endpoints": []any{map[string]any{
+							"key":     "sp",
+							"method":  "PUT",
+							"path":    "/setpoint",
+							"channel": channelField,
+							"fields": []any{map[string]any{
+								"type":      "static",
+								"key":       "u",
+								"pointer":   "/unit",
+								"json_type": "string",
+								"value":     "psi",
+							}},
+						}},
+					},
+				))
+				Expect(data).To(HaveKey("inline"))
+				key := MustSucceed(tasks.Create(ctx, svc.Write, msgpack.EncodedJSON{}))
+				rec := MustSucceed(svc.Write.Prepare(ctx, db, key, "Pump", data))
+				returned := MustSucceed(rec.Data())
+				Expect(returned).ToNot(HaveKey("inline"))
+				Expect(
+					db.WithTx(
+						ctx,
+						func(tx gorp.Tx) error { return rec.Write(ctx, tx) },
+					),
+				).
+					To(Succeed())
+				Expect(svc.Write.Read(ctx, db, key)).To(Equal(returned))
+				Expect(returned["endpoints"]).To(HaveExactElements(SatisfyAll(
+					HaveKey("icd"),
+					HaveKey("message"),
+				)))
+			},
+			Entry("from a v4 export", 4),
+			Entry("from a Console-era config, as a legacy import reads it", 0),
+		)
+	})
+
+	Describe("Write references", func() {
+		var (
+			m   icd.Message
+			ic  icd.ICD
+			cmd channel.Channel
+			key uuid.UUID
+		)
+		BeforeEach(func(ctx SpecContext) {
+			m = jsonMessage(
+				"Setpoint",
+				jsonField("value", "/value", icd.FloatJSONField{}),
+			)
+			ic = icd.ICD{Name: "Pump", Messages: []icd.Message{m}}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return icdSvc.NewWriter(tx).Create(ctx, &ic)
+			})).To(Succeed())
+			idx := createChannel(ctx, telem.TimestampT, channel.Channel{})
+			cmd = createChannel(ctx, telem.Float64T, idx)
+			key = MustSucceed(tasks.Create(ctx, svc.Write, msgpack.EncodedJSON{
+				"endpoints": []any{map[string]any{
+					"key":  "sp",
+					"path": "/setpoint",
+					"icd":  ic.Key,
+					"message": map[string]any{
+						"message": m.Key,
+						"bindings": []any{map[string]any{
+							"type":    "channel",
+							"field":   fieldKey(m, 0),
+							"channel": cmd.Key(),
+						}},
+					},
+				}},
+			}))
+		})
+
+		It("Should refuse deleting the ICD that an endpoint sends", func(
+			ctx SpecContext,
+		) {
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return icdSvc.NewWriter(tx).Delete(ctx, ic.Key)
+			})).To(MatchError(gorp.RestrictError{
+				Target:    gorp.NewTarget("icd", ic.Key),
+				Holder:    gorp.NewTarget("http_write_config", key),
+				Reference: "endpoints.icd",
+			}))
+		})
+
+		It("Should refuse deleting a channel that an endpoint binds", func(
+			ctx SpecContext,
+		) {
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Delete(ctx, cmd.Key(), false)
+			})).To(MatchError(gorp.RestrictError{
+				Target:    gorp.NewTarget("channel", cmd.Key()),
+				Holder:    gorp.NewTarget("http_write_config", key),
+				Reference: "endpoints.message.bindings.channel",
+			}))
+		})
 	})
 
 	DescribeTable("Should reject a scan config whose rate is not positive",
