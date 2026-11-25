@@ -206,16 +206,28 @@ class StlStatus(ArcCase):
             self.fail(f"{name}: row {key} never became ({variant!r}, {message!r})")
 
     def _fire(
-        self, trigger: str, rows: list[tuple[str, str, sy.status.Variant, str]]
+        self,
+        trigger: str,
+        rows: list[tuple[str, str, sy.status.Variant, str]],
+        keys: list[tuple[str, str]],
     ) -> None:
         """Fire trigger. On a Driver, status.set returns the key of the last set that
-        reached the Core, so wait for the rows and fire again."""
+        reached the Core once the Driver saved it, so wait for the rows and fire until
+        each key channel shows its key."""
         self.writer.write(trigger, 1)
         if runtime(self.rack) == "Go":
             return
         for name, key, variant, message in rows:
             self._wait_for_row(name, key, variant, message)
-        self.writer.write(trigger, 1)
+
+        def keyed() -> bool | None:
+            if all(self.read_tlm(channel, "") == key for channel, key in keys):
+                return True
+            self.writer.write(trigger, 1)
+            return None
+
+        if sy.poll(keyed, timeout=5 * sy.TimeSpan.SECOND, interval=0.25) is None:
+            self.fail(f"{trigger}: the key channels never showed their keys")
 
     def verify_sequence_execution(self) -> None:
         self._verify_set()
@@ -224,7 +236,11 @@ class StlStatus(ArcCase):
 
     def _verify_set(self) -> None:
         self.log("Firing set trigger: every case upserts its predefined row")
-        self._fire(TRIG_SET, [(c.name, c.key, c.variant, c.message) for c in CASES])
+        self._fire(
+            TRIG_SET,
+            [(c.name, c.key, c.variant, c.message) for c in CASES],
+            [(c.key_channel, c.key) for c in CASES],
+        )
         for c in CASES:
             self.wait_for_eq(c.key_channel, c.key)
             rows = self._rows(c.name)
@@ -239,7 +255,11 @@ class StlStatus(ArcCase):
 
     def _verify_warn_on_duplicate(self) -> None:
         self.log("Firing set duplicate: warn and set only the first status")
-        self._fire(TRIG_DUP_FUNC, [(DUP_NAME, DUP_KEYS[0], DUP_VARIANT, DUP_MESSAGE)])
+        self._fire(
+            TRIG_DUP_FUNC,
+            [(DUP_NAME, DUP_KEYS[0], DUP_VARIANT, DUP_MESSAGE)],
+            [(DUP_FUNC_KEY, DUP_KEYS[0])],
+        )
         self.wait_for_eq(DUP_FUNC_KEY, DUP_KEYS[0])
         if not self.wait_for_notification("Found duplicate status names"):
             self.fail("duplicate set did not surface a multi-match warning")
