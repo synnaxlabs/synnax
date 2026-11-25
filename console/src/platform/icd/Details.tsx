@@ -181,7 +181,7 @@ const TimestampFields: FC<TimestampFieldsProps> = ({
             plan,
             indexBinding.field,
             indexBinding.channel,
-            `${prefix}_time`,
+            `${prefix}_${index == null ? "time" : channel.escapeInvalidName(index.name)}`,
           )}
           skipped={sourceDisabled}
         />

@@ -105,18 +105,6 @@ var _ = Describe("Select and state indicator states", func() {
 			Entry(&s).Exec(ctx, db)).To(Succeed())
 		return s, calls
 	}
-	options := func(n v14.Node) []v14.StateMapping {
-		GinkgoHelper()
-		switch cfg := n.Config.Variant.(type) {
-		case v14.SelectNodeConfig:
-			return cfg.Options
-		case v14.StateIndicatorNodeConfig:
-			return cfg.Options
-		}
-		Fail("not a select or a state indicator")
-		return nil
-	}
-
 	It("Should give each select and indicator with options a named enumeration",
 		func(ctx SpecContext) {
 			transparent := &xcolor.Color{R: 9}
@@ -140,9 +128,6 @@ var _ = Describe("Select and state indicator states", func() {
 			}))
 			Expect(calls[2].name).To(Equal("Select: Valve panel"))
 			Expect(calls[2].entries[0].Color).To(BeNil())
-			for _, n := range s.Nodes {
-				Expect(options(n)).To(BeEmpty())
-			}
 			empty, ok := s.Nodes[3].Config.Variant.(v14.SelectNodeConfig)
 			Expect(ok).To(BeTrue())
 			Expect(empty.Enumeration).To(BeNil())

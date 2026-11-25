@@ -197,7 +197,7 @@ const FieldBinding = ({
 
 export interface BindingsProps {
   path: deep.Path<icd.WriteBinding[]>;
-  /** The ICD of the message, which an enclosing WithFormat opens. */
+  /** The ICD of the message, which an enclosing WithFormats opens. */
   icdKey: icd.Key;
   message: icd.MessageKey;
   /** @returns the name of the command channel that deploying creates for the field. */
