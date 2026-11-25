@@ -255,7 +255,7 @@ and so on. `task.WriteConfig.device device.Key` (`schemas/synnax/task.oracle:197
 into each integration's write config under its typed key.
 
 - **Kafka**: an absent `record_key` matches an empty or no key; a present one, never
-  empty, matches that key. The task's `""` catch-all migrates to this.
+  empty, matches that key.
 
 ### 4.2 Core services
 
