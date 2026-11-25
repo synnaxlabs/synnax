@@ -257,6 +257,7 @@ type CalculationsResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Calculations  []*pb.Calculation      `protobuf:"bytes,1,rep,name=calculations,proto3" json:"calculations,omitempty"`
 	Channels      []uint32               `protobuf:"varint,2,rep,packed,name=channels,proto3" json:"channels,omitempty"`
+	Omitted       []uint32               `protobuf:"varint,3,rep,packed,name=omitted,proto3" json:"omitted,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -305,6 +306,13 @@ func (x *CalculationsResponse) GetChannels() []uint32 {
 	return nil
 }
 
+func (x *CalculationsResponse) GetOmitted() []uint32 {
+	if x != nil {
+		return x.Omitted
+	}
+	return nil
+}
+
 var File_core_pkg_transport_grpc_arc_arc_proto protoreflect.FileDescriptor
 
 const file_core_pkg_transport_grpc_arc_arc_proto_rawDesc = "" +
@@ -319,10 +327,11 @@ const file_core_pkg_transport_grpc_arc_arc_proto_rawDesc = "" +
 	"\rDeleteRequest\x12\x12\n" +
 	"\x04keys\x18\x01 \x03(\tR\x04keys\"1\n" +
 	"\x13CalculationsRequest\x12\x1a\n" +
-	"\bchannels\x18\x01 \x03(\rR\bchannels\"s\n" +
+	"\bchannels\x18\x01 \x03(\rR\bchannels\"\x8d\x01\n" +
 	"\x14CalculationsResponse\x12?\n" +
 	"\fcalculations\x18\x01 \x03(\v2\x1b.service.arc.pb.CalculationR\fcalculations\x12\x1a\n" +
-	"\bchannels\x18\x02 \x03(\rR\bchannels2O\n" +
+	"\bchannels\x18\x02 \x03(\rR\bchannels\x12\x18\n" +
+	"\aomitted\x18\x03 \x03(\rR\aomitted2O\n" +
 	"\x10ArcCreateService\x12;\n" +
 	"\x04Exec\x12\x17.grpc.arc.CreateRequest\x1a\x18.grpc.arc.CreateResponse\"\x002W\n" +
 	"\x12ArcRetrieveService\x12A\n" +

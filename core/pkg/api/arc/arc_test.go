@@ -718,17 +718,23 @@ var _ = Describe("Service", func() {
 			})
 			return base, inner, outer
 		}
+		grantChannels := func(ctx SpecContext, channels ...channel.Channel) {
+			GinkgoHelper()
+			for _, ch := range channels {
+				grantOn(
+					ctx,
+					author.ResourceID(),
+					access.ActionRetrieve,
+					channel.ResourceID(ch.Key()),
+				)
+			}
+		}
 
 		It(
 			"Should compile the calculations that the channels read, dependencies first",
 			func(ctx SpecContext) {
 				base, inner, outer := createCalculated(ctx, "calc_ok")
-				grantOn(
-					ctx,
-					author.ResourceID(),
-					access.ActionRetrieve,
-					channel.ResourceID(outer.Key()),
-				)
+				grantChannels(ctx, base, inner, outer)
 				res := MustSucceed(calculations(
 					AuthedCtx(ctx, author),
 					apiarc.CalculationsRequest{Channels: channel.Keys{outer.Key()}},
@@ -736,16 +742,17 @@ var _ = Describe("Service", func() {
 				Expect(res.Calculations).To(HaveLen(2))
 				Expect(res.Calculations[0].Channel).To(Equal(inner.Key()))
 				Expect(res.Calculations[1].Channel).To(Equal(outer.Key()))
-				Expect(res.Channels).To(ContainElements(
+				Expect(res.Channels).To(ConsistOf(
 					outer.Key(),
 					inner.Key(),
 					base.Key(),
 				))
+				Expect(res.Omitted).To(BeEmpty())
 			},
 		)
 
 		It(
-			"Should return the channels of a calculation that it leaves out",
+			"Should return the channels and the omission of a calculation that it leaves out",
 			func(ctx SpecContext) {
 				base, inner, outer := createCalculated(ctx, "calc_out")
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -756,25 +763,44 @@ var _ = Describe("Service", func() {
 						false,
 					)
 				})).To(Succeed())
-				grantOn(
-					ctx,
-					author.ResourceID(),
-					access.ActionRetrieve,
-					channel.ResourceID(outer.Key()),
-				)
+				grantChannels(ctx, inner, outer)
 				res := MustSucceed(calculations(
 					AuthedCtx(ctx, author),
 					apiarc.CalculationsRequest{Channels: channel.Keys{outer.Key()}},
 				))
 				Expect(res.Calculations).To(BeEmpty())
-				Expect(res.Channels).To(ContainElements(outer.Key(), inner.Key()))
+				Expect(res.Channels).To(ConsistOf(outer.Key(), inner.Key()))
+				Expect(res.Omitted).To(ConsistOf(outer.Key()))
 			},
 		)
 
 		It(
-			"Should deny a subject that cannot retrieve the channels",
+			"Should leave out a requested channel that does not exist",
+			func(ctx SpecContext) {
+				base, inner, outer := createCalculated(ctx, "calc_missing")
+				grantChannels(ctx, base, inner, outer)
+				missing := channel.Key(1 << 30)
+				grantOn(
+					ctx,
+					author.ResourceID(),
+					access.ActionRetrieve,
+					channel.ResourceID(missing),
+				)
+				res := MustSucceed(calculations(
+					AuthedCtx(ctx, author),
+					apiarc.CalculationsRequest{
+						Channels: channel.Keys{outer.Key(), missing},
+					},
+				))
+				Expect(res.Calculations).To(HaveLen(2))
+			},
+		)
+
+		It(
+			"Should deny a subject that cannot retrieve a channel that a calculation reads",
 			func(ctx SpecContext) {
 				_, _, outer := createCalculated(ctx, "calc_denied")
+				grantChannels(ctx, outer)
 				Expect(calculations(
 					AuthedCtx(ctx, author),
 					apiarc.CalculationsRequest{Channels: channel.Keys{outer.Key()}},

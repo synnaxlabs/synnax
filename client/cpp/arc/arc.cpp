@@ -153,6 +153,7 @@ Client::calculations(const std::vector<channel::Key> &channels) const {
     if (err) return {{}, err};
     Calculations calcs;
     calcs.channels.assign(res.channels().begin(), res.channels().end());
+    calcs.omitted.assign(res.omitted().begin(), res.omitted().end());
     for (const auto &pb: res.calculations()) {
         auto [calc, calc_err] = Calculation::from_proto(pb);
         if (calc_err) return {{}, calc_err};
