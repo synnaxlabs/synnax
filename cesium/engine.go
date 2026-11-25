@@ -12,7 +12,9 @@ package cesium
 import (
 	"context"
 	"fmt"
+	"maps"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -50,11 +52,11 @@ type engine struct {
 	log    *log.Log
 	ckpt   *checkpoint.Checkpointer
 	budget *segment.Budget
-	// handles holds the handle of each segment file that a read opened, by segment ID,
-	// until the segment is unlinked or the engine closes.
+	// handles holds the read handle of each segment file that a read opened, by key and
+	// segment ID, until the file is removed or the engine closes.
 	handles struct {
 		sync.RWMutex
-		m map[uint64]*segment.Handle
+		m map[ChannelKey]map[uint64]*segment.Handle
 	}
 	// head is the generation of the head that recovery used.
 	head uint64
@@ -118,7 +120,7 @@ func openEngine(o *options) (*engine, error) {
 		unstored: telem.NewAlignmentCounter(telem.LeadingDomain),
 	}
 	e.cover.advanced = make(chan struct{})
-	e.handles.m = make(map[uint64]*segment.Handle)
+	e.handles.m = make(map[ChannelKey]map[uint64]*segment.Handle)
 	if snapshot == nil {
 		if snapshot, err = e.create(o, r); err != nil {
 			return nil, err
@@ -359,16 +361,8 @@ func (e *engine) waitCovered(ctx context.Context, sequence uint64) error {
 // unlink closes the read handle of each segment of dead and removes its file.
 func (e *engine) unlink(dead []state.Dead) error {
 	for _, d := range dead {
-		e.handles.Lock()
-		h := e.handles.m[d.Segment]
-		delete(e.handles.m, d.Segment)
-		e.handles.Unlock()
-		var err error
-		if h != nil {
-			err = h.Close()
-		}
-		if err = errors.Join(
-			err,
+		if err := errors.Join(
+			e.closeHandle(d.Key, d.Segment),
 			e.fs.Remove(segmentName(d.Key, d.Segment)),
 		); err != nil {
 			return err
@@ -381,18 +375,55 @@ func (e *engine) unlink(dead []state.Dead) error {
 // shares.
 func (e *engine) handle(key ChannelKey, id uint64) *segment.Handle {
 	e.handles.RLock()
-	h := e.handles.m[id]
+	h := e.handles.m[key][id]
 	e.handles.RUnlock()
 	if h != nil {
 		return h
 	}
 	e.handles.Lock()
 	defer e.handles.Unlock()
-	if h = e.handles.m[id]; h == nil {
+	segs := e.handles.m[key]
+	if segs == nil {
+		segs = make(map[uint64]*segment.Handle)
+		e.handles.m[key] = segs
+	}
+	if h = segs[id]; h == nil {
 		h = e.budget.Open(e.fs, segmentName(key, id))
-		e.handles.m[id] = h
+		segs[id] = h
 	}
 	return h
+}
+
+// closeHandle closes the read handle of segment id of key, if a read opened one. It
+// waits for the reads that hold the handle.
+func (e *engine) closeHandle(key ChannelKey, id uint64) error {
+	e.handles.Lock()
+	h := e.handles.m[key][id]
+	delete(e.handles.m[key], id)
+	e.handles.Unlock()
+	if h == nil {
+		return nil
+	}
+	return h.Close()
+}
+
+// closeHandles closes the read handles of the segments of keys. It waits for the reads
+// that hold them.
+func (e *engine) closeHandles(keys ...ChannelKey) error {
+	var hs []*segment.Handle
+	e.handles.Lock()
+	for _, k := range keys {
+		for _, h := range e.handles.m[k] {
+			hs = append(hs, h)
+		}
+		delete(e.handles.m, k)
+	}
+	e.handles.Unlock()
+	var err error
+	for _, h := range hs {
+		err = errors.Join(err, h.Close())
+	}
+	return err
 }
 
 // run runs the owners until ctx is done, then closes them in order: the log, so that
@@ -471,22 +502,18 @@ func (e *engine) close() error {
 			e.log.Close(),
 			e.ckpt.Close(),
 			e.state.Close(),
-			e.closeHandles(),
+			e.closeAllHandles(),
 		)
 	})
 	return e.closeErr
 }
 
-// closeHandles closes the read handle of every segment.
-func (e *engine) closeHandles() error {
-	e.handles.Lock()
-	defer e.handles.Unlock()
-	var err error
-	for id, h := range e.handles.m {
-		err = errors.Join(err, h.Close())
-		delete(e.handles.m, id)
-	}
-	return err
+// closeAllHandles closes the read handle of every segment.
+func (e *engine) closeAllHandles() error {
+	e.handles.RLock()
+	keys := slices.Collect(maps.Keys(e.handles.m))
+	e.handles.RUnlock()
+	return e.closeHandles(keys...)
 }
 
 // segmentName returns the file name of segment id of key.
@@ -534,6 +561,8 @@ func (e *engine) orphansOf(key ChannelKey, named map[string]state.Segment) error
 		}
 		seg, ok := named[name]
 		if !ok {
+			// No read opens a file that the state does not name, so no read handle
+			// needs a close first.
 			if err = e.fs.Remove(name); err != nil {
 				return err
 			}
