@@ -203,6 +203,7 @@ describe("OPCUA.Device.useConnectModal", () => {
           clientTimeoutMs: 2000,
           secureChannelLifetimeMs: 60_000,
           sessionTimeoutMs: 120_000,
+          readNodeTimeout: 45_000_000_000,
         },
       },
     });
@@ -211,6 +212,7 @@ describe("OPCUA.Device.useConnectModal", () => {
     });
     await screen.findByDisplayValue(dev.name);
     expect(screen.getByDisplayValue("2s")).toBeTruthy();
+    expect(screen.getByDisplayValue("45s")).toBeTruthy();
     expect(screen.getByDisplayValue("1min")).toBeTruthy();
     expect(screen.getByDisplayValue("2min")).toBeTruthy();
     expect(screen.getByDisplayValue("opc.tcp://existing-server:4840")).toBeTruthy();
@@ -250,6 +252,30 @@ describe("OPCUA.Device.useConnectModal", () => {
       securityMode: "Sign",
       securityPolicy: "Basic256Sha256",
     });
+  });
+
+  it("should save a node read timeout typed in seconds as nanoseconds", async () => {
+    const rack = await createRunningRack(client, "opc");
+    const scan = await createScanTask(rack);
+    const { result } = await renderModalOpener(
+      OPCUA.Device.useConnectModal,
+      [{ rack: rack.key }],
+      { client },
+    );
+    const field = await screen.findByDisplayValue("20s");
+    fireEvent.focus(field);
+    fireEvent.change(field, { target: { value: "30" } });
+    fireEvent.blur(field);
+    await screen.findByDisplayValue("30s");
+    const { answered } = await answerNextCommand(client, scan, TEST_CONNECTION);
+    pressSaveTrigger();
+    await answered;
+    const key = await result();
+    if (key == null) throw new Error("the modal closed without a device");
+    const dev = await client.devices.retrieve({ key, schemas: OPCUA.Device.SCHEMAS });
+    expect(dev.properties.connection.readNodeTimeout).toEqual(
+      Number(TimeSpan.seconds(30).valueOf()),
+    );
   });
 
   it("should save policy None when the security mode returns to None", async () => {
@@ -705,6 +731,35 @@ describe("OPCUA.Device.useConnectModal", () => {
       client,
     });
     expect(await findDialogTriggerByText(own.name)).toBeTruthy();
+  });
+
+  it("should offer only certificates with a private key as the client certificate", async () => {
+    const prefix = uniqueName("opc_keyed");
+    const keyed = await client.certificates.set({
+      name: `${prefix} keyed`,
+      source: "stored",
+      pem: CERTIFICATE.pem,
+      privateKeyPem: CERTIFICATE.privateKeyPem,
+    });
+    const bare = await client.certificates.set({
+      name: `${prefix} bare`,
+      source: "stored",
+      pem: CERTIFICATE.pem,
+    });
+    const dev = await createOPCDevice(client, {
+      properties: {
+        connection: { ...SECURED_CONNECTION, clientCertificate: keyed.key },
+      },
+    });
+    await renderModalOpener(OPCUA.Device.useConnectModal, [{ deviceKey: dev.key }], {
+      client,
+    });
+    fireEvent.click(await findDialogTriggerByText(keyed.name));
+    fireEvent.change(screen.getByPlaceholderText("Search certificates..."), {
+      target: { value: prefix },
+    });
+    await findOption("certificate", keyed.name);
+    expect(screen.queryByRole("option", { name: new RegExp(bare.name) })).toBeNull();
   });
 
   it("should clear the client certificate when the Driver certificate is chosen again", async () => {

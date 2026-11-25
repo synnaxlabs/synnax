@@ -21,7 +21,13 @@ import { Primitive } from "@/schematic/node/common/primitive";
 import type { Toggle } from "@/schematic/node/common/toggle";
 import svg from "@/schematic/node/general/switch/Switch.svg?raw";
 
-export const SYMBOL: schematic.symbol.Spec = Custom.createBuiltIn({ svg, handles: [] });
+// The wrapper paints the switch, so the spec has no looks.
+export const SYMBOL: schematic.symbol.Spec = Custom.createBuiltIn({
+  family: "switch",
+  svg,
+  handles: [],
+  looks: [],
+});
 
 const SWITCH_SCALE = CSS.variable("switch-scale");
 

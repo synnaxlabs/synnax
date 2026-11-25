@@ -8,10 +8,10 @@
 ## 0 Summary
 
 Scripts on the same computer connect to the Core of Synnax Desktop. Desktop saves the
-address in `~/.synnax/desktop.json` and an API key of the root user in the OS keychain.
-With no arguments, `sy.Synnax()` reads the address and runs the key helper that the file
-names. A "Connect from code" dialog gives the install command and code for each client,
-and a button that replaces the key.
+address in `desktop.json` in the OS config folder and an API key of the root user in the
+OS keychain. With no arguments, `sy.Synnax()` reads the address and runs the key helper
+that the file names. A "Connect from code" dialog gives the install command and code for
+each client, and a button that replaces the key.
 
 ## 1 Motivation
 
@@ -37,14 +37,17 @@ and a button that replaces the key.
 
 ### 3.0 The discovery file
 
-The shell writes `~/.synnax/desktop.json` on every operating system: `host`, `port`, and
-`secure`, the field names of the Python `Options`, and `api_key_helper`. The write goes
-to a partial file, then renames it. The API key goes to the OS keychain under service
-`com.synnaxlabs.desktop` and account `api_key`. "Erase all data" deletes the file and
-the key. Desktop 1.1 wrote `api_key` in the file. That key never moves to the keychain:
-the window revokes it in the Core, removes it from the file only after the revoke, and
-saves a new key in the keychain. A failed revoke leaves the file as it is and runs again
-on the next read, so a plaintext root key never stays valid.
+The shell writes `desktop.json` to the config folder of the OS
+(`$XDG_CONFIG_HOME/synnax` on Linux, `~/Library/Application Support/Synnax` on macOS,
+`%LOCALAPPDATA%\Synnax` on Windows, which does not roam) and to `~/.synnax`, where
+Desktop 1.1 wrote it. The file holds `host`, `port`, and `secure`, the field names of
+the Python `Options`, and `api_key_helper`. The write goes to a partial file, then
+renames it. The API key goes to the OS keychain under service `com.synnaxlabs.desktop`
+and account `api_key`. "Erase all data" deletes both files and the key. Desktop 1.1
+wrote `api_key` in the file. That key never moves to the keychain: the window revokes it
+in the Core, removes it from the file only after the revoke, and saves a new key in the
+keychain. A failed revoke leaves the file as it is and runs again on the next read, so a
+plaintext root key never stays valid.
 
 `api_key_helper` is the absolute path of `synnax-desktop-key`, a program that Desktop
 installs next to its executable. It prints the key to stdout, or writes one line to
@@ -62,7 +65,7 @@ from the file; copied TypeScript code needs it again.
 ### 3.2 The key
 
 After sign-in, the main window reads the saved key. When it is missing, malformed, or
-not in `client.auth.retrieveKeys()`, the window creates a key named "Scripts on this
+not in `client.auth.apiKeys.retrieve()`, the window creates a key named "Scripts on this
 computer" and saves it. Otherwise it saves the same key again, with the current port.
 Root's API keys survive the password reset of each launch (RFC 0073 §4.7). When a save
 fails, the window deletes the new key. The shell saves a key only while the keychain

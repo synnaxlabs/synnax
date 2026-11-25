@@ -194,7 +194,7 @@ export const extract = (svgElement: SVGElement): schematic.symbol.Region[] => {
     const regionIndex = index + 1;
     const region: schematic.symbol.Region = {
       key: `region-${regionIndex}`,
-      name: `Region ${regionIndex}`,
+      name: `Part ${regionIndex}`,
       selectors: uniqueSelectors,
     };
     region.strokeColor = group.colorPair.stroke;
@@ -203,22 +203,40 @@ export const extract = (svgElement: SVGElement): schematic.symbol.Region[] => {
   });
 };
 
+// GRAPHICS selects each SVG element that draws.
+const GRAPHICS = [...VISUAL_ELEMENTS, "use", "image"].join(",");
+
+/** @returns each element inside root that draws, in document order. */
+export const allGraphics = (root: Element): SVGElement[] =>
+  Array.from(root.querySelectorAll<SVGElement>(GRAPHICS)).filter(isRendered);
+
+/**
+ * @returns the elements that selectors match in root, in selector order. A selector
+ * that matches a group stands for each element inside it that draws, in document order.
+ */
+export const graphics = (root: Element, selectors: string[]): SVGElement[] =>
+  selectors.flatMap((s) =>
+    Array.from(root.querySelectorAll<SVGElement>(s)).flatMap((el) =>
+      el.tagName === "g" ? allGraphics(el) : [el],
+    ),
+  );
+
 /**
  * Returns the colors a normalized SVG paints a region with when the region sets none:
- * the stroke and fill attributes of the first element the selectors match. A missing
- * element or attribute reads as transparent.
+ * the stroke and fill attributes of the first element that {@link graphics} returns,
+ * skipping each use and image inside a group. A missing element or attribute reads as
+ * transparent.
  */
 export const paint = (svg: string, selectors: string[]): ColorPair => {
   const doc = new DOMParser().parseFromString(svg, "image/svg+xml");
-  for (const sel of selectors) {
-    const el = doc.querySelector(sel);
-    if (el != null)
-      return {
-        stroke: normalizeColor(el.getAttribute("stroke")),
-        fill: normalizeColor(el.getAttribute("fill")),
-      };
-  }
-  return { stroke: color.TRANSPARENT, fill: color.TRANSPARENT };
+  const [el] = graphics(doc.documentElement, selectors).filter(
+    (g) => VISUAL_ELEMENTS.includes(g.tagName) || selectors.some((s) => g.matches(s)),
+  );
+  if (el == null) return { stroke: color.TRANSPARENT, fill: color.TRANSPARENT };
+  return {
+    stroke: normalizeColor(el.getAttribute("stroke")),
+    fill: normalizeColor(el.getAttribute("fill")),
+  };
 };
 
 const REGION_ID_ATTRIBUTE = "data-region-id";
