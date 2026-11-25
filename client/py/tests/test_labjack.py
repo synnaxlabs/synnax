@@ -695,7 +695,7 @@ class TestLabJackDeviceResource:
         assert isinstance(device.ports, sy.labjack.device.T7Ports)
         assert not device.ports.mux80_attached
         assert device.identifier == ""
-        assert device.read_index == 0
+        assert device.read_index is None
 
     @pytest.mark.parametrize(
         "change",

@@ -143,11 +143,11 @@ export const configurationZ = z.object({
    */
   identifier: z.string().default(""),
   /** readIndex is the index channel of the channels that the device reads into. */
-  readIndex: channel.keyZ.default(0),
+  readIndex: channel.keyZ.optional(),
   /**
    * writeStateIndex is the index channel of the state channels of the device's outputs.
    */
-  writeStateIndex: channel.keyZ.default(0),
+  writeStateIndex: channel.keyZ.optional(),
   /**
    * ports holds the configuration that depends on the model. Its model must be the
    * model of the stored device.
@@ -225,11 +225,11 @@ export const deviceZ = z.object({
    */
   identifier: z.string().default(""),
   /** readIndex is the index channel of the channels that the device reads into. */
-  readIndex: channel.keyZ.default(0),
+  readIndex: channel.keyZ.optional(),
   /**
    * writeStateIndex is the index channel of the state channels of the device's outputs.
    */
-  writeStateIndex: channel.keyZ.default(0),
+  writeStateIndex: channel.keyZ.optional(),
   /** status is the current operational status of the device. */
   status: statusZ.optional(),
   /** model is the model of the device. It selects the ports the device has. */

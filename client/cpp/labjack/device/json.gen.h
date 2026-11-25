@@ -47,13 +47,9 @@ inline Device Device::parse(x::json::Parser parser) {
         .serial = parser.required_field<std::uint32_t>("serial"),
         .connection = parser.field<std::string>("connection"),
         .identifier = parser.field<std::string>("identifier", ""),
-        .read_index = parser.field<::synnax::channel::Key>(
-            "read_index",
-            ::synnax::channel::Key(0)
-        ),
-        .write_state_index = parser.field<::synnax::channel::Key>(
-            "write_state_index",
-            ::synnax::channel::Key(0)
+        .read_index = parser.field<std::optional<::synnax::channel::Key>>("read_index"),
+        .write_state_index = parser.field<std::optional<::synnax::channel::Key>>(
+            "write_state_index"
         ),
         .status = parser.field<std::optional<Status>>("status"),
         .model = parser.field<std::string>("model"),
@@ -69,8 +65,9 @@ inline x::json::json Device::to_json() const {
     j["serial"] = this->serial;
     j["connection"] = this->connection;
     j["identifier"] = this->identifier;
-    j["read_index"] = this->read_index;
-    j["write_state_index"] = this->write_state_index;
+    if (this->read_index.has_value()) j["read_index"] = *this->read_index;
+    if (this->write_state_index.has_value())
+        j["write_state_index"] = *this->write_state_index;
     if (this->status.has_value()) j["status"] = this->status->to_json();
     j["model"] = this->model;
     j["ports"] = ::synnax::labjack::device::to_json(this->ports);
@@ -99,13 +96,9 @@ inline Configuration Configuration::parse(x::json::Parser parser) {
     return Configuration{
         .name = parser.required_field<std::string>("name"),
         .identifier = parser.field<std::string>("identifier", ""),
-        .read_index = parser.field<::synnax::channel::Key>(
-            "read_index",
-            ::synnax::channel::Key(0)
-        ),
-        .write_state_index = parser.field<::synnax::channel::Key>(
-            "write_state_index",
-            ::synnax::channel::Key(0)
+        .read_index = parser.field<std::optional<::synnax::channel::Key>>("read_index"),
+        .write_state_index = parser.field<std::optional<::synnax::channel::Key>>(
+            "write_state_index"
         ),
         .ports = parse_ports(parser.child("ports")),
     };
@@ -115,8 +108,9 @@ inline x::json::json Configuration::to_json() const {
     x::json::json j = x::json::json::object();
     j["name"] = this->name;
     j["identifier"] = this->identifier;
-    j["read_index"] = this->read_index;
-    j["write_state_index"] = this->write_state_index;
+    if (this->read_index.has_value()) j["read_index"] = *this->read_index;
+    if (this->write_state_index.has_value())
+        j["write_state_index"] = *this->write_state_index;
     j["ports"] = ::synnax::labjack::device::to_json(this->ports);
     return j;
 }

@@ -108,10 +108,10 @@ type Configuration struct {
 	// unconfigured while it is empty.
 	Identifier string `json:"identifier" msgpack:"identifier"`
 	// ReadIndex is the index channel of the channels that the device reads into.
-	ReadIndex channel.Key `json:"read_index" msgpack:"read_index"`
+	ReadIndex *channel.Key `json:"read_index,omitzero" msgpack:"read_index,omitempty"`
 	// WriteStateIndex is the index channel of the state channels of the device's
 	// outputs.
-	WriteStateIndex channel.Key `json:"write_state_index" msgpack:"write_state_index"`
+	WriteStateIndex *channel.Key `json:"write_state_index,omitzero" msgpack:"write_state_index,omitempty"`
 	// Ports holds the configuration that depends on the model. Its model must be the
 	// model of the stored device.
 	Ports Ports `json:"ports" msgpack:"ports"`

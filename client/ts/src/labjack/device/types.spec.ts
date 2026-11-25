@@ -26,7 +26,7 @@ describe("deviceZ", () => {
     const device = labjack.device.deviceZ.parse(DEVICE);
     expect(device.ports).toEqual({ model: "t7", mux80Attached: false });
     expect(device.identifier).toEqual("");
-    expect(device.readIndex).toEqual(0);
+    expect(device.readIndex).toBeUndefined();
   });
 
   const INVALID: [string, Record<string, unknown>][] = [

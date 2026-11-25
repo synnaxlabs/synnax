@@ -219,10 +219,10 @@ struct Configuration {
     std::string identifier = "";
     /// @brief read_index is the index channel of the channels that the device reads
     /// into.
-    ::synnax::channel::Key read_index = ::synnax::channel::Key(0);
+    std::optional<::synnax::channel::Key> read_index;
     /// @brief write_state_index is the index channel of the state channels of the
     /// device's outputs.
-    ::synnax::channel::Key write_state_index = ::synnax::channel::Key(0);
+    std::optional<::synnax::channel::Key> write_state_index;
     /// @brief ports holds the configuration that depends on the model. Its model must
     /// be the model of the stored device.
     Ports ports;
@@ -248,10 +248,10 @@ struct Device {
     std::string identifier = "";
     /// @brief read_index is the index channel of the channels that the device reads
     /// into.
-    ::synnax::channel::Key read_index = ::synnax::channel::Key(0);
+    std::optional<::synnax::channel::Key> read_index;
     /// @brief write_state_index is the index channel of the state channels of the
     /// device's outputs.
-    ::synnax::channel::Key write_state_index = ::synnax::channel::Key(0);
+    std::optional<::synnax::channel::Key> write_state_index;
     /// @brief status is the current operational status of the device.
     std::optional<Status> status;
     /// @brief model is the model of the device. It selects the ports the device has.

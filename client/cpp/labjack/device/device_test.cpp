@@ -38,7 +38,7 @@ TEST(Device, ParsesThePortsOfTheModel) {
     ASSERT_EQ(d.serial, 470010001);
     ASSERT_EQ(d.connection, CONNECTION_USB);
     ASSERT_EQ(d.identifier, "");
-    ASSERT_EQ(d.read_index, 0);
+    ASSERT_FALSE(d.read_index.has_value());
     ASSERT_FALSE(d.status.has_value());
 }
 
