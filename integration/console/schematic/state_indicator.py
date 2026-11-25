@@ -23,24 +23,20 @@ class StateIndicator(Symbol):
         *,
         label: str,
         channel_name: str,
-        options: list[sy.schematic.StateMapping] | None = None,
         enumeration: str | None = None,
     ):
         """Initialize a state indicator symbol with configuration.
 
         :param label: Display label for the symbol
         :param channel_name: Channel name for the state input
-        :param options: List of option dicts with "name", "value", and optional "color"
-            keys
         :param enumeration: Name of the enumeration whose entries the symbol draws
         """
         super().__init__(label=label, symbol_type="State indicator", rotatable=False)
         self.channel_name = channel_name
-        self.options = options or []
         self.enumeration = enumeration
 
     def _apply_properties(self) -> None:
-        self.set_properties(channel_name=self.channel_name, options=self.options)
+        self.set_properties(channel_name=self.channel_name)
         if self.enumeration is not None:
             self.set_enumeration(self.enumeration)
 
@@ -48,7 +44,6 @@ class StateIndicator(Symbol):
         self,
         *,
         channel_name: str | None = None,
-        options: list[sy.schematic.StateMapping] | None = None,
     ) -> None:
         self.click()
 
@@ -57,9 +52,6 @@ class StateIndicator(Symbol):
             self.open_properties_tab()
             click_past(self.page.get_by_text("Telemetry"))
             self.set_channel(section="State", channel_name=channel_name)
-
-        if options is not None and len(options) > 0:
-            self.add_options(options)
 
     def get_label(self) -> str:
         """Read the currently displayed state label text.

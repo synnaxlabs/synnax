@@ -26,6 +26,9 @@ def sy_env(home: Path) -> dict[str, str]:
         **os.environ,
         "HOME": str(home),
         "USERPROFILE": str(home),
+        "APPDATA": str(home / "AppData" / "Roaming"),
+        "LOCALAPPDATA": str(home / "AppData" / "Local"),
+        "XDG_CONFIG_HOME": str(home / ".config"),
         "PYTHON_KEYRING_BACKEND": "keyring.backends.null.Keyring",
     }
 

@@ -940,7 +940,7 @@ export class Log
         level: font,
         color: prefixColor,
         position: { x: posX, y: posY },
-        code: true,
+        variant: "code",
       });
       const valueX = posX + prefix.length * charWidth;
       const isNegative = first && value[0] === "-";
@@ -951,14 +951,14 @@ export class Log
           level: font,
           color: entryColor,
           position: { x: valueX - charWidth, y: posY },
-          code: true,
+          variant: "code",
         });
       draw2D.text({
         text: displayValue,
         level: font,
         color: entryColor,
         position: { x: valueX, y: posY },
-        code: true,
+        variant: "code",
       });
     }
   }
