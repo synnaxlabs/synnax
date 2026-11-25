@@ -11,7 +11,8 @@ import type { enumeration, schematic } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Menu } from "@synnaxlabs/lyra/menu";
-import { type ReactElement, useRef, useState } from "react";
+import { Status } from "@synnaxlabs/lyra/status";
+import { type ReactElement, useState } from "react";
 
 import { Enumeration } from "@/enumeration";
 import type { bind } from "@/schematic/node/symbol/bind";
@@ -100,11 +101,16 @@ const Entries = ({
   onSend,
 }: AskProps & { enumeration: enumeration.Key }): ReactElement => {
   const res = Enumeration.useResult({ key: enumeration });
-  const entries = res.variant === "success" ? res.data.entries : [];
+  if (res.variant !== "success")
+    return (
+      <Menu.Dialog itemless aria-label={command.name}>
+        <Status.Summary status={res.status} />
+      </Menu.Dialog>
+    );
   return (
     <Options
       aria-label={command.name}
-      options={entries.map(({ key, name, value }) => ({
+      options={res.data.entries.map(({ key, name, value }) => ({
         key,
         name,
         onSelect: () => onSend(value),
@@ -113,31 +119,31 @@ const Entries = ({
   );
 };
 
+// parse returns the number in the text of a number input, which is empty for any text
+// that is not a number, or NaN for none.
+const parse = (text: string): number => (text.trim() === "" ? NaN : Number(text));
+
 const Field = ({ command, onSend }: AskProps): ReactElement => {
-  const [value, setValue] = useState(NaN);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const [text, setText] = useState("");
+  const value = parse(text);
+  const send = (): void => {
+    if (!Number.isNaN(value)) onSend(value);
+  };
   return (
     <Menu.Dialog itemless aria-label={command.name}>
-      <Input.Numeric
-        ref={inputRef}
-        value={value}
-        emptyValue={NaN}
-        onChange={setValue}
-        showDragHandle={false}
+      <Input.Text
+        type="number"
+        value={text}
+        onChange={setText}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") send();
+        }}
         autoFocus
       >
-        <Button.Button
-          variant="filled"
-          onClick={() => {
-            if (!Number.isNaN(value)) onSend(value);
-          }}
-          // WebKit leaves the input focused on a button press, so the typed value would
-          // never commit. Blurring commits it before the click sends.
-          onMouseDown={() => inputRef.current?.blur()}
-        >
+        <Button.Button variant="filled" disabled={Number.isNaN(value)} onClick={send}>
           {command.name}
         </Button.Button>
-      </Input.Numeric>
+      </Input.Text>
     </Menu.Dialog>
   );
 };

@@ -8,11 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { schematic, type Synnax } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import {
+  createTestClient,
+  createTestClientWithPolicy,
+} from "@synnaxlabs/client/testutil";
 import { ReactFlowProvider } from "@xyflow/react";
 import type { FC, PropsWithChildren } from "react";
 import { describe, expect, it, vi } from "vitest";
-import { page } from "vitest/browser";
+import { page, userEvent } from "vitest/browser";
 import { render } from "vitest-browser-react";
 import type { z } from "zod";
 
@@ -105,10 +108,9 @@ const renderValve = async (
   return await vi.waitUntil(() => container.querySelector("button"));
 };
 
-// renderAsk renders a symbol whose click asks for a value of state, which reads a local
-// value of 0, clicks it, and returns the spy on its config changes.
-const renderAsk = async (client: Synnax, state: schematic.symbol.State) => {
-  const symbol = await client.schematics.symbols.create({
+// createAsk creates a symbol whose click asks for a value of state.
+const createAsk = async (client: Synnax, state: schematic.symbol.State) =>
+  await client.schematics.symbols.create({
     name: "Ask",
     data: {
       drawing: { type: "svg", markup: MARKUP },
@@ -118,6 +120,10 @@ const renderAsk = async (client: Synnax, state: schematic.symbol.State) => {
       interactions: [{ type: "fire", key: "click", command: "set" }],
     },
   });
+
+// renderAsk renders a node of symbol, whose state reads a local value of 0, and clicks
+// it. It returns the spy on its config changes and its button.
+const renderAsk = async (client: Synnax, symbol: schematic.symbol.Symbol) => {
   const Wrapper = await createAsyncSynnaxWrapper({
     client,
     additionalRegistry: symbolNode.REGISTRY,
@@ -127,13 +133,13 @@ const renderAsk = async (client: Synnax, state: schematic.symbol.State) => {
     Wrapper,
     {
       spec: { type: "custom", key: symbol.key },
-      states: [{ key: state.key, source: { type: "local", value: 0 } }],
+      states: [{ key: symbol.data.states[0].key, source: { type: "local", value: 0 } }],
     },
     onConfigChange,
   );
   const button = await vi.waitUntil(() => container.querySelector("button"));
   await page.elementLocator(button).click();
-  return onConfigChange;
+  return { onConfigChange, button };
 };
 
 describe("Symbol node", () => {
@@ -232,7 +238,7 @@ describe("Symbol node", () => {
         { key: "manual", value: 2, name: "Manual" },
       ],
     });
-    const onConfigChange = await renderAsk(client, {
+    const symbol = await createAsk(client, {
       type: "enumeration",
       key: "mode",
       name: "Mode",
@@ -240,6 +246,7 @@ describe("Symbol node", () => {
       match: { type: "exact" },
       default: 0,
     });
+    const { onConfigChange } = await renderAsk(client, symbol);
     await page.getByRole("menuitem", { name: "Manual" }).click();
     expect(onConfigChange).toHaveBeenCalledExactlyOnceWith({
       states: [
@@ -252,21 +259,81 @@ describe("Symbol node", () => {
   });
 
   it("should send the number typed for a command that asks for its value", async () => {
-    const onConfigChange = await renderAsk(createTestClient(), {
+    const client = createTestClient();
+    const symbol = await createAsk(client, {
       type: "number",
-      key: "mode",
+      key: "level",
       name: "Level",
       bounds: { lower: 0, upper: 100 },
     });
-    await page.getByRole("textbox").fill("42");
-    await page.getByRole("button", { name: "Set" }).click();
+    const { onConfigChange, button } = await renderAsk(client, symbol);
+    const set = page.getByRole("button", { name: "Set" });
+    const field = page.getByRole("textbox");
+    await expect.element(set).toHaveAttribute("aria-disabled", "true");
+    await field.click();
+    await userEvent.keyboard("{Enter}");
+    expect(onConfigChange).not.toHaveBeenCalled();
+    await field.fill("42");
+    await set.click();
     expect(onConfigChange).toHaveBeenCalledExactlyOnceWith({
       states: [
         schematic.stateBindingZ.parse({
-          key: "mode",
+          key: "level",
           source: { type: "local", value: 42 },
         }),
       ],
     });
+    await page.elementLocator(button).click();
+    await expect.element(field).toHaveValue(null);
+    await expect.element(set).toHaveAttribute("aria-disabled", "true");
+  });
+
+  it("should give an enumeration state with no enumeration a number field", async () => {
+    const client = createTestClient();
+    const symbol = await createAsk(client, {
+      type: "enumeration",
+      key: "mode",
+      name: "Mode",
+      match: { type: "exact" },
+      default: 0,
+    });
+    const { onConfigChange } = await renderAsk(client, symbol);
+    await page.getByRole("textbox").fill("3");
+    await userEvent.keyboard("{Enter}");
+    expect(onConfigChange).toHaveBeenCalledExactlyOnceWith({
+      states: [
+        schematic.stateBindingZ.parse({
+          key: "mode",
+          source: { type: "local", value: 3 },
+        }),
+      ],
+    });
+  });
+
+  it("should show why the entries of its enumeration did not load", async () => {
+    const client = createTestClient();
+    const { key: enumeration } = await client.enumerations.create({
+      name: "Mode",
+      entries: [{ key: "auto", value: 0, name: "Auto" }],
+    });
+    const symbol = await createAsk(client, {
+      type: "enumeration",
+      key: "mode",
+      name: "Mode",
+      enumeration,
+      match: { type: "exact" },
+      default: 0,
+    });
+    // A user who can read the symbol but not its enumeration.
+    const limited = await createTestClientWithPolicy(client, {
+      name: "symbols",
+      objects: [schematic.symbol.TYPE_RESOURCE_ID],
+      actions: ["retrieve"],
+    });
+    await renderAsk(limited, symbol);
+    await expect
+      .element(page.getByText("Failed to retrieve enumeration"))
+      .toBeVisible();
+    expect(page.getByRole("menuitem").elements()).toHaveLength(0);
   });
 });

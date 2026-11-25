@@ -234,7 +234,8 @@ export const Node = ({
         onVisibleChange={setPromptVisible}
         anchor={anchor}
       >
-        {request != null && (
+        {/* The prompt mounts for each open, so a typed value never outlives it. */}
+        {promptVisible && request != null && (
           <Prompt
             request={request}
             onSend={(s) => {
