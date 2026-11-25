@@ -271,7 +271,8 @@ void Outbox::enqueue(Call call) {
     }
     if (call.request->has_create_range())
         this->open_range(call.request->create_range().key());
-    if (call.request->has_end_range()) this->close_range(call.request->end_range().key());
+    if (call.request->has_end_range())
+        this->close_range(call.request->end_range().key());
     if (call.over_cap) ++this->over_cap_ends;
     this->queued_bytes += call.size;
     this->calls.push_back(std::move(call));

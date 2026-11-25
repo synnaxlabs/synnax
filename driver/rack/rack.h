@@ -350,6 +350,14 @@ struct Config {
         };
         this->outbox.max_bytes = count("outbox_size", this->outbox.max_bytes);
         this->outbox.max_calls = count("outbox_max_calls", this->outbox.max_calls);
+        this->outbox.max_open_ranges = count(
+            "outbox_max_open_ranges",
+            this->outbox.max_open_ranges
+        );
+        this->outbox.max_ends_when_full = count(
+            "outbox_max_ends_when_full",
+            this->outbox.max_ends_when_full
+        );
         const auto max_payload = count("outbox_max_payload", this->outbox.max_payload);
         if (max_payload > journal::MAX_PAYLOAD)
             p.field_err(
