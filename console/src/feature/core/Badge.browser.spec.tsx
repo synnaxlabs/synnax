@@ -12,7 +12,9 @@ import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted((): { engine: "web" | "tauri" } => ({ engine: "web" }));
+const mocks = vi.hoisted((): { engine: "web" | "tauri"; coreSelectable?: boolean } => ({
+  engine: "web",
+}));
 
 vi.mock("@/session/runtime", async (importOriginal) => {
   const { mockRuntimeEngine } = await import("@/testutil/runtime");
@@ -65,6 +67,7 @@ const INCOMPATIBLE: connection.Status = {
 describe("Core.Badge", () => {
   beforeEach(() => {
     mocks.engine = "web";
+    mocks.coreSelectable = undefined;
   });
 
   it("should report disconnected when no Core connection exists", async () => {
@@ -166,6 +169,15 @@ describe("Core.Badge", () => {
     // than in create mode.
     expect(await screen.findByRole("button", { name: "Save" })).toBeTruthy();
     expect(screen.queryByText("Log out")).toBeNull();
+  });
+
+  it("should offer to edit the connection on the dev server", async () => {
+    mocks.coreSelectable = true;
+    const { container } = await renderWithConsole(<Core.Badge />, {
+      preloadedState: createStateWithUser("Core-user"),
+    });
+    clickCoreBadge(container);
+    expect(await screen.findByLabelText("Edit connection")).toBeTruthy();
   });
 
   it("should not offer to edit the connection in a browser", async () => {
