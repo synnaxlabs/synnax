@@ -55,13 +55,11 @@ const Credentials = ({
           )}
         </Flex.Box>
       </Modal.Body>
-      {message != null && (
-        <Modal.Footer>
-          <Nav.Bar.Start>
-            <Status.Summary variant="success" message={message} />
-          </Nav.Bar.Start>
-        </Modal.Footer>
-      )}
+      <Modal.Footer>
+        <Nav.Bar.Start>
+          {message != null && <Status.Summary variant="success" message={message} />}
+        </Nav.Bar.Start>
+      </Modal.Footer>
     </Modal.Frame>
   );
 };
