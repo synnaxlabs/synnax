@@ -514,6 +514,7 @@ jobs:
       module: core
       repository: ghcr.io/synnaxlabs/synnax
       unused_by_forks: true
+      prebuilt: true
 
   # Fails a pull request that adds a runtime or development dependency with a high or
   # critical advisory. A merge group has no diff to review, so the job skips it. The
