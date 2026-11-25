@@ -29,6 +29,7 @@ cc_library(
         "//client/cpp/opcua",
         "//driver/common",
         "//driver/opcua/certificate",
+        "//driver/opcua/certificate:records",
         "//driver/opcua/connection",
         "//driver/opcua/device",
         "//driver/opcua/errors",

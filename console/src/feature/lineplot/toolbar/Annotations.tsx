@@ -18,7 +18,7 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Color, LinePlot } from "@synnaxlabs/pluto";
-import { bounds, id } from "@synnaxlabs/x";
+import { bounds, type closedBounds, id } from "@synnaxlabs/x";
 import type { ReactElement } from "react";
 import { useDispatch } from "react-redux";
 
@@ -26,6 +26,10 @@ import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
 import { Session } from "@/session";
+
+// An auto axis stores no bounds, so a new rule starts at 0.
+const midpoint = (b?: closedBounds.ClosedBounds): number =>
+  b == null ? 0 : bounds.mean(b);
 
 interface EmptyContentProps {
   onCreateRule: () => void;
@@ -158,7 +162,7 @@ const Details = ({ ruleKey }: DetailsProps): ReactElement | null => {
   const handleChangeColor = (v?: color.Ref): void =>
     dispatch(lineplot.setRuleColor({ key: ruleKey, color: v }));
   const handleChangeAxis = (axis: lineplot.AxisKey): void => {
-    const position = bounds.mean(axes[axis].bounds);
+    const position = midpoint(axes[axis].bounds);
     dispatch([
       lineplot.setRuleAxis({ key: ruleKey, axis }),
       lineplot.setRulePosition({ key: ruleKey, position }),
@@ -235,7 +239,7 @@ export const Annotations = (): ReactElement => {
   const handleCreateRule = (): void => {
     const ruleKey = id.create();
     const axis: lineplot.AxisKey = "y1";
-    const position = bounds.mean(axes[axis].bounds);
+    const position = midpoint(axes[axis].bounds);
     const label = `Rule ${rules.length + 1}`;
     const rule = lineplot.ruleZ.parse({ key: ruleKey, label, axis, position });
     dispatch(lineplot.setRule({ rule }));

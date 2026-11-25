@@ -10,23 +10,29 @@
 import type { schematic } from "@synnaxlabs/client";
 import { describe, expect, it } from "vitest";
 
-import { offPageReferenceTooltip } from "@/schematic/node/general/offPageReference/Primitive";
+import { Primitive } from "@/schematic/node/general/offPageReference/primitive";
 const PAGE: schematic.Page = { type: "schematic", key: "page-key" };
 
-describe("offPageReferenceTooltip", () => {
+describe("Primitive.offPageReferenceTooltip", () => {
   it("should return double-click tooltip by default", () => {
-    expect(offPageReferenceTooltip(PAGE)).toBe("Double-click to navigate");
+    expect(Primitive.offPageReferenceTooltip(PAGE)).toBe("Double-click to navigate");
   });
 
   it("should return single-click tooltip when double-click nav is disabled", () => {
-    expect(offPageReferenceTooltip(PAGE, true)).toBe("Single-click to navigate");
+    expect(Primitive.offPageReferenceTooltip(PAGE, true)).toBe(
+      "Single-click to navigate",
+    );
   });
 
   it("should return double-click tooltip when double-click nav is enabled", () => {
-    expect(offPageReferenceTooltip(PAGE, false)).toBe("Double-click to navigate");
+    expect(Primitive.offPageReferenceTooltip(PAGE, false)).toBe(
+      "Double-click to navigate",
+    );
   });
 
   it("should return undefined when the page key is empty", () => {
-    expect(offPageReferenceTooltip({ type: "schematic", key: "" })).toBeUndefined();
+    expect(
+      Primitive.offPageReferenceTooltip({ type: "schematic", key: "" }),
+    ).toBeUndefined();
   });
 });

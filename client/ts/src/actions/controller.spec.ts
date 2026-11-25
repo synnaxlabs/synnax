@@ -11,16 +11,15 @@ import { observe, scheduler, sleep, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import z from "zod";
 
-import { createReduceAll } from "@/actions/actions";
-import {
-  Controller,
-  type Frame,
-  type Reducer,
-  type SendDispatch,
-} from "@/actions/controller";
+import { actions } from "@/actions";
 import { batch } from "@/batch";
-import { AccessDeniedError, NotCachedError } from "@/errors";
-import { Table } from "@/query/table";
+import {
+  AccessDeniedError,
+  MissingCredentialsError,
+  NotCachedError,
+  ValidationError,
+} from "@/index";
+import { query } from "@/query";
 
 interface Doc {
   values: Record<string, number>;
@@ -34,7 +33,7 @@ type Action =
   | { type: "invalid" }
   | { type: "noop" };
 
-const reducer: Reducer<Doc, Action> = (state, actions) => {
+const reducer: actions.Reducer<Doc, Action> = (state, actions) => {
   let next = state;
   const inverse: Action[] = [];
   const targets = new Set<string>();
@@ -63,7 +62,7 @@ const frameZ = z.object({
   dispatchKey: z.string(),
   seq: z.number().int().nonnegative(),
   actions: z.array(z.any()),
-}) as unknown as z.ZodType<Frame<string, Action>>;
+}) as unknown as z.ZodType<actions.Frame<string, Action>>;
 
 /** A manually advanced clock, so coalesce-window tests need no real sleeps. */
 const createFakeClock = () => {
@@ -85,17 +84,19 @@ const setupStore = (
     now: () => TimeStamp;
     fetch: (keys: string[]) => Promise<Array<Doc & { key: string }>>;
     encode: (doc: Doc, action: Action) => Action;
-    send: SendDispatch<string, Action>;
+    send: actions.SendDispatch<string, Action>;
     listed: (a: Action) => boolean;
   }> = {},
 ) => {
   const errors: Error[] = [];
   const onError = (error: Error) => errors.push(error);
-  const docs = new Table<string, Doc>({ onError, fetch: opts.fetch });
+  const docs = new query.Table<string, Doc>({ onError, fetch: opts.fetch });
   const epochs = new observe.Observer<number>();
   const downs = new observe.Observer<void>();
-  const send = vi.fn<SendDispatch<string, Action>>(opts.send ?? (async () => []));
-  const controller = new Controller<string, Doc, Action>({
+  const send = vi.fn<actions.SendDispatch<string, Action>>(
+    opts.send ?? (async () => []),
+  );
+  const controller = new actions.Controller<string, Doc, Action>({
     store: docs,
     onError,
     onEpoch: (callback) => epochs.onChange(callback),
@@ -129,7 +130,7 @@ interface HeldCall {
 /** A send that settles only when the spec says, to hold a dispatch pending. */
 const createHeldSend = () => {
   const calls: HeldCall[] = [];
-  const send: SendDispatch<string, Action> = async (_, actions, dispatchKey) =>
+  const send: actions.SendDispatch<string, Action> = async (_, actions, dispatchKey) =>
     await new Promise<Action[]>((resolve, reject) =>
       calls.push({
         actions,
@@ -142,7 +143,7 @@ const createHeldSend = () => {
 };
 
 const prime = (
-  docs: Table<string, Doc>,
+  docs: query.Table<string, Doc>,
   key: string,
   values: Record<string, number> = {},
 ) => docs.set(key, { values });
@@ -332,7 +333,7 @@ describe("actions.Controller", () => {
 
   describe("coalescing", () => {
     const push = (
-      controller: Controller<string, Doc, Action>,
+      controller: actions.Controller<string, Doc, Action>,
       key: string,
       target: string,
       value: number,
@@ -642,7 +643,7 @@ describe("actions.Controller", () => {
     // A send that waits on the returned gate before its first call settles.
     const createGatedSend = () => {
       const gate = Promise.withResolvers<void>();
-      const send = vi.fn<SendDispatch<string, Action>>(async () => {
+      const send = vi.fn<actions.SendDispatch<string, Action>>(async () => {
         if (send.mock.calls.length === 1) await gate.promise;
         return [];
       });
@@ -726,7 +727,7 @@ describe("actions.Controller", () => {
 
     // Fails the sends whose call numbers are listed, counting from 1.
     const createFailingSend = (...failing: number[]) => {
-      const send = vi.fn<SendDispatch<string, Action>>(async () => {
+      const send = vi.fn<actions.SendDispatch<string, Action>>(async () => {
         if (failing.includes(send.mock.calls.length)) throw new Error("rejected");
         return [];
       });
@@ -842,7 +843,7 @@ describe("actions.Controller", () => {
 
     it("rolls back every dispatch in a failed batch, newest first", async () => {
       const gate = Promise.withResolvers<void>();
-      const send = vi.fn<SendDispatch<string, Action>>(async () => {
+      const send = vi.fn<actions.SendDispatch<string, Action>>(async () => {
         if (send.mock.calls.length === 1) {
           await gate.promise;
           return [];
@@ -863,7 +864,7 @@ describe("actions.Controller", () => {
     });
 
     it("sends undo and redo through the queue in program order", async () => {
-      const send = vi.fn<SendDispatch<string, Action>>(async () => []);
+      const send = vi.fn<actions.SendDispatch<string, Action>>(async () => []);
       const { docs, controller } = setupStore({ send });
       prime(docs, "k", { a: 0 });
       await controller.dispatch("k", [set("a", 1)]);
@@ -1415,6 +1416,26 @@ describe("actions.Controller", () => {
         await sleep.sleep(TimeSpan.milliseconds(30));
         expect(errors).toEqual([]);
       });
+
+      it("ignores a doc fetched while the client has no session", async () => {
+        const fetch = vi.fn(async () => {
+          throw new MissingCredentialsError("logged out");
+        });
+        const { controller, errors } = setupStore({ fetch, listed });
+        controller.applyRemote("k", 1, "f-1", [set("name", 1)]);
+        await expect.poll(() => fetch.mock.calls.length).toBe(1);
+        await sleep.sleep(TimeSpan.milliseconds(30));
+        expect(errors).toEqual([]);
+      });
+
+      it("reports a fetch that fails for another reason", async () => {
+        const fetch = vi.fn(async () => {
+          throw new ValidationError("bad doc");
+        });
+        const { controller, errors } = setupStore({ fetch, listed });
+        controller.applyRemote("k", 1, "f-1", [set("name", 1)]);
+        await expect.poll(() => errors.length).toBe(1);
+      });
     });
 
     it("ingests a create-headed frame for a doc it has never cached", () => {
@@ -1842,7 +1863,7 @@ describe("actions.Controller", () => {
       type PlotAction =
         | { type: "add"; range: { key: string } }
         | { type: "color"; key: string; color: string };
-      const reduce = createReduceAll<Plot, PlotAction>((draft, a) => {
+      const reduce = actions.createReduceAll<Plot, PlotAction>((draft, a) => {
         if (a.type === "add") draft.ranges.push(a.range);
         else {
           const range = draft.ranges.find(({ key }) => key === a.key);
@@ -1852,10 +1873,10 @@ describe("actions.Controller", () => {
       });
       const errors: Error[] = [];
       const onError = (error: Error) => errors.push(error);
-      const docs = new Table<string, Plot>({ onError, fetch: async () => [] });
+      const docs = new query.Table<string, Plot>({ onError, fetch: async () => [] });
       const epochs = new observe.Observer<number>();
       const color: PlotAction = { type: "color", key: "r", color: "#f00" };
-      const controller = new Controller<string, Plot, PlotAction>({
+      const controller = new actions.Controller<string, Plot, PlotAction>({
         store: docs,
         onError,
         onEpoch: (callback) => epochs.onChange(callback),
@@ -1944,6 +1965,40 @@ describe("actions.Controller", () => {
       expect(docs.get("k")).toEqual({ values: { a: 5 } });
     });
 
+    it("keeps the identity of the parts that a create echo leaves equal", async () => {
+      interface Plot {
+        name: string;
+        rules: Array<{ key: string; position: number }>;
+      }
+      type PlotAction = { type: "create"; plot: Plot };
+      const reduce = actions.createReduceAll<Plot, PlotAction>((draft, a) => {
+        Object.assign(draft, a.plot);
+        return { inverse: [], targets: [] };
+      });
+      const docs = new query.Table<string, Plot>({ onError: () => {} });
+      const epochs = new observe.Observer<number>();
+      const controller = new actions.Controller<string, Plot, PlotAction>({
+        store: docs,
+        onError: () => {},
+        onEpoch: (callback) => epochs.onChange(callback),
+        onStreamDown: () => () => {},
+        reduce,
+        send: async () => [],
+      });
+      epochs.notify(1);
+      docs.set("k", { name: "local", rules: [{ key: "a", position: 1 }] });
+      const { rules } = docs.get("k") ?? {};
+      let dispatchKey = "";
+      await controller.create(["k"], async (key) => {
+        dispatchKey = key;
+      });
+      controller.applyRemote("k", 1, dispatchKey, [
+        { type: "create", plot: { name: "core", rules: [{ key: "a", position: 1 }] } },
+      ]);
+      expect(docs.get("k")?.name).toEqual("core");
+      expect(docs.get("k")?.rules).toBe(rules);
+    });
+
     it("removes the pending create and rethrows when the send fails", async () => {
       const { docs, controller } = setupStore();
       prime(docs, "k", { a: 0 });
@@ -1961,6 +2016,65 @@ describe("actions.Controller", () => {
       expect(await controller.create(["missing"], create)).toBe("created");
       expect(create).toHaveBeenCalledTimes(1);
       expect(controller.hasPending("missing")).toBe(false);
+    });
+
+    it("sends a dispatch made during the create after the create", async () => {
+      const { docs, controller, send } = setupStore();
+      prime(docs, "k", { a: 0 });
+      const created = Promise.withResolvers<string>();
+      const done = controller.create(["k"], async () => await created.promise);
+      const dispatched = controller.dispatch("k", [set("a", 1)]);
+      expect(docs.get("k")?.values).toEqual({ a: 1 });
+      expect(send).not.toHaveBeenCalled();
+      created.resolve("created");
+      expect(await done).toBe("created");
+      expect(await dispatched).toBe(true);
+      expect(send.mock.calls[0][1]).toEqual([set("a", 1)]);
+    });
+
+    it("sends a dispatch made during a failed create after the create", async () => {
+      const { docs, controller, send } = setupStore({
+        send: async () => {
+          throw new Error("not found");
+        },
+      });
+      prime(docs, "k", { a: 0 });
+      const created = Promise.withResolvers<string>();
+      const done = controller.create(["k"], async () => await created.promise);
+      const dispatched = controller.dispatch("k", [set("a", 1)]);
+      created.reject(new Error("create failed"));
+      await expect(done).rejects.toThrow("create failed");
+      await expect(dispatched).rejects.toThrow("not found");
+      expect(send).toHaveBeenCalledTimes(1);
+      expect(docs.get("k")?.values).toEqual({ a: 0 });
+      expect(controller.hasUndo("k")).toBe(false);
+      expect(controller.hasPending("k")).toBe(false);
+    });
+
+    it("sends one dispatch at a time for a key passed twice", async () => {
+      const sent: Array<PromiseWithResolvers<[]>> = [];
+      const { docs, controller, send } = setupStore({
+        send: async () => {
+          const result = Promise.withResolvers<[]>();
+          sent.push(result);
+          return await result.promise;
+        },
+      });
+      prime(docs, "k", { a: 0 });
+      const created = Promise.withResolvers<string>();
+      const done = controller.create(["k", "k"], async () => await created.promise);
+      const first = controller.dispatch("k", [set("a", 1)]);
+      created.resolve("created");
+      await done;
+      await expect.poll(() => send.mock.calls.length).toBe(1);
+      const second = controller.dispatch("k", [set("a", 2)]);
+      await sleep.sleep(TimeSpan.milliseconds(5));
+      expect(send).toHaveBeenCalledTimes(1);
+      sent[0].resolve([]);
+      expect(await first).toBe(true);
+      await expect.poll(() => send.mock.calls.length).toBe(2);
+      sent[1].resolve([]);
+      expect(await second).toBe(true);
     });
   });
 

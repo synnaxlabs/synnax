@@ -10,10 +10,12 @@
 #pragma once
 
 #include <algorithm>
+#include <cerrno>
 #include <initializer_list>
 #include <string>
 #include <system_error>
 
+#include "asio/error.hpp"
 #include "asio/error_code.hpp"
 
 #include "x/cpp/errors/errors.h"
@@ -36,6 +38,14 @@ const x::errors::Error CONFIG_ERROR = driver::errors::CONFIGURATION_ERROR.sub(
 const x::errors::Error CRITICAL_ERROR = driver::errors::CRITICAL_HARDWARE_ERROR.sub(
     "transport"
 );
+
+/// @brief HOST_DOWN is the native error of a host on the local network that stops
+/// answering, which no std::errc names.
+#ifdef _WIN32
+inline const std::error_code HOST_DOWN(WSAEHOSTDOWN, std::system_category());
+#else
+inline const std::error_code HOST_DOWN(EHOSTDOWN, std::system_category());
+#endif
 
 /// @returns true when ec equals one of codes.
 inline bool

@@ -10,7 +10,7 @@
 import { deep, TimeSpan } from "@synnaxlabs/x";
 import { fireEvent, render } from "@testing-library/react";
 import type { PropsWithChildren, ReactElement } from "react";
-import { beforeAll, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import { CSS } from "@/css";
@@ -18,9 +18,9 @@ import { Dialog } from "@/dialog";
 import { Flex } from "@/flex";
 import { Form } from "@/form";
 import { Input } from "@/input";
-import { loadLanguage } from "@/input/time/suggest";
 import { Select } from "@/select";
 import { computed, renderThemed, resolve } from "@/styletest";
+import { preloadTimeLanguage } from "@/testutil";
 
 const renderSections = async (
   x: boolean,
@@ -271,7 +271,7 @@ describe("Form", () => {
 
 describe("Form", () => {
   describe("TimeSpanField", () => {
-    beforeAll(loadLanguage);
+    preloadTimeLanguage();
     const spanSchema = z.object({
       timeoutMs: z.number(),
       keepAlive: z.number().optional(),

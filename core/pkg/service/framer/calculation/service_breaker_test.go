@@ -30,6 +30,7 @@ import (
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -129,7 +130,7 @@ var _ = Describe("Calculation breaker", Ordered, func() {
 		var res framer.StreamerResponse
 		Eventually(sOutlet.Outlet(), 1*time.Second).Should(Receive(&res))
 		Expect(res.Frame.Get(output.Key()).Series[0]).
-			To(telem.MatchSeriesDataV[int64](2, 4))
+			To(MatchSeriesDataV[int64](2, 4))
 
 		By("Deleting the calculation and keeping its output")
 		Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {

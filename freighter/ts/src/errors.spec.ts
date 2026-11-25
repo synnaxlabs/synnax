@@ -10,7 +10,7 @@
 import { errors } from "@synnaxlabs/x";
 import { describe, expect, test } from "vitest";
 
-import { EOF, StreamClosed, Timeout, Unreachable } from "@/index";
+import { EOF, StreamClosed, Timeout, Unreachable, UntrustedCertificate } from "@/index";
 
 describe("errors", () => {
   test("encoding and decoding freighter errors", () => {
@@ -19,12 +19,20 @@ describe("errors", () => {
       new StreamClosed(),
       new Unreachable(),
       new Timeout("no response"),
+      new UntrustedCertificate("not trusted"),
     ].forEach((error) => {
       const encoded = errors.encode(error);
       expect(encoded.type.startsWith("freighter")).toBeTruthy();
       expect(encoded.data).toEqual(error.message);
       const decoded = errors.decode(encoded);
       expect(error.matches(decoded)).toBeTruthy();
+      expect(decoded?.message).toEqual(error.message);
     });
+  });
+
+  test("an Unreachable message ends with its hint", () => {
+    expect(new Unreachable({ hint: "Check the cable" }).message).toEqual(
+      "Unreachable. Check the cable",
+    );
   });
 });

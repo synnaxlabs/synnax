@@ -9,14 +9,15 @@
 
 export * from "@/testutil/access";
 export * from "@/testutil/address";
+export * from "@/testutil/auth";
 export * from "@/testutil/certificates";
 export * from "@/testutil/channels";
 export * from "@/testutil/client";
 export * from "@/testutil/connection";
 export * from "@/testutil/core";
-export * from "@/testutil/keepAlive";
 export * from "@/testutil/panels";
 export * from "@/testutil/proxy";
 export * from "@/testutil/query";
 export * from "@/testutil/streamer";
 export * from "@/testutil/telem";
+export * from "@/testutil/user";
