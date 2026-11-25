@@ -508,28 +508,15 @@ var _ = Describe("Codec", func() {
 				FillColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
 					Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805"),
 				}}),
-				InlineSize: 7,
-				Options: []v14.StateMapping{
-					{
-						Key:   "test_8",
-						Name:  "test_9",
-						Value: 10.5,
-						Color: new(xcolor.Color{
-							R: 13,
-							G: 14,
-							B: 15,
-							A: 16,
-						}),
-					},
-				},
-				Enumeration:  new(enumeration.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567810"))),
-				Disabled:     true,
-				OnClickDelay: telem.TimeSpan(19),
+				Enumeration:  new(enumeration.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"))),
+				InlineSize:   8,
+				Disabled:     false,
+				OnClickDelay: telem.TimeSpan(10),
 				Control: v14.ControlStateConfig{
-					Authority:       new(uint8(21)),
-					Hidden:          true,
-					ChipHidden:      false,
-					IndicatorHidden: true,
+					Authority:       new(uint8(12)),
+					Hidden:          false,
+					ChipHidden:      true,
+					IndicatorHidden: false,
 					Orientation:     spatial.Location("top"),
 				},
 			}}),
@@ -568,21 +555,8 @@ var _ = Describe("Codec", func() {
 				StrokeColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
 					Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567803"),
 				}}),
-				InlineSize: 5,
-				Options: []v14.StateMapping{
-					{
-						Key:   "test_6",
-						Name:  "test_7",
-						Value: 8.5,
-						Color: new(xcolor.Color{
-							R: 11,
-							G: 12,
-							B: 13,
-							A: 14,
-						}),
-					},
-				},
-				Enumeration: new(enumeration.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780e"))),
+				Enumeration: new(enumeration.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"))),
+				InlineSize:  6,
 				Size:        v14.ComponentSize("tiny"),
 			}}),
 			Entry("string_display variant", v14.NodeConfig{Variant: v14.StringDisplayNodeConfig{
@@ -2159,28 +2133,15 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 			FillColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
 				Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805"),
 			}}),
-			InlineSize: 7,
-			Options: []v14.StateMapping{
-				{
-					Key:   "test_8",
-					Name:  "test_9",
-					Value: 10.5,
-					Color: new(xcolor.Color{
-						R: 13,
-						G: 14,
-						B: 15,
-						A: 16,
-					}),
-				},
-			},
-			Enumeration:  new(enumeration.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567810"))),
-			Disabled:     true,
-			OnClickDelay: telem.TimeSpan(19),
+			Enumeration:  new(enumeration.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"))),
+			InlineSize:   8,
+			Disabled:     false,
+			OnClickDelay: telem.TimeSpan(10),
 			Control: v14.ControlStateConfig{
-				Authority:       new(uint8(21)),
-				Hidden:          true,
-				ChipHidden:      false,
-				IndicatorHidden: true,
+				Authority:       new(uint8(12)),
+				Hidden:          false,
+				ChipHidden:      true,
+				IndicatorHidden: false,
 				Orientation:     spatial.Location("top"),
 			},
 		}}
@@ -2240,21 +2201,8 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 			StrokeColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
 				Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567803"),
 			}}),
-			InlineSize: 5,
-			Options: []v14.StateMapping{
-				{
-					Key:   "test_6",
-					Name:  "test_7",
-					Value: 8.5,
-					Color: new(xcolor.Color{
-						R: 11,
-						G: 12,
-						B: 13,
-						A: 14,
-					}),
-				},
-			},
-			Enumeration: new(enumeration.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780e"))),
+			Enumeration: new(enumeration.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"))),
+			InlineSize:  6,
 			Size:        v14.ComponentSize("tiny"),
 		}}
 		w := orc.NewWriter(0)

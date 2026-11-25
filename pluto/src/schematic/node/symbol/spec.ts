@@ -7,30 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/schematic/node/placeholder.css";
-
 import type { schematic } from "@synnaxlabs/client";
-import type { ReactElement } from "react";
 
-import { CSS } from "@/css";
-import { Label } from "@/schematic/node/common/label";
-import { Primitive } from "@/schematic/node/common/primitive";
 import type { Spec } from "@/schematic/node/spec";
+import { Node, Preview } from "@/schematic/node/symbol/Symbol";
 
 export const SYMBOL_VARIANT = "symbol";
 
-type Config = schematic.SymbolNodeConfig;
-
-const Box = (): ReactElement => (
-  <Primitive.Div className={CSS.B("symbol-placeholder")} />
-);
-
-/** Draws the label of a symbol node beside an empty box. SY-6750 replaces it. */
-export const symbolSpec: Spec<typeof SYMBOL_VARIANT, Config> = {
+/**
+ * symbolSpec draws a symbol node: its symbol, with the looks that the values of its
+ * bound states give it, and the stale and unknown indicators of its states.
+ */
+export const symbolSpec: Spec<typeof SYMBOL_VARIANT, schematic.SymbolNodeConfig> = {
   key: SYMBOL_VARIANT,
   name: "Symbol",
   Form: () => null,
-  Node: Label.createLabeled<Config>(Box),
-  Preview: Box,
+  Node,
+  Preview,
   zIndex: 4,
 };

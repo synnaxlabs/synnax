@@ -335,12 +335,8 @@ describe("Channel", () => {
       await client.channels.create(
         names.map((name) => ({ name, virtual: true, dataType: DataType.FLOAT32 })),
       );
-      await expect
-        .poll(async () => {
-          const results = await client.channels.retrieve({ searchTerm: prefix });
-          return results.map((c) => c.name).sort();
-        })
-        .toEqual(names);
+      const results = await client.channels.retrieve({ searchTerm: prefix });
+      expect(results.map((c) => c.name).sort()).toEqual(names);
     });
     test("retrieve by where", async () => {
       const prefix = `qry_${id.create()}`;

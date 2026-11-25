@@ -85,7 +85,7 @@ export interface DrawTextProps extends Pick<FillTextOptions, "useAtlas"> {
   maxWidth?: number;
   /** fade fades text cut at maxWidth over this many pixels, in place of a hard cut. */
   fade?: number;
-  code?: boolean;
+  variant?: theme.FontVariant;
   color?: ColorSpec;
 }
 
@@ -409,7 +409,7 @@ export class Draw2D {
    * box, not the ink, which sits a few pixels lower.
    */
   measureInkOffsetY(level: text.Level, rowHeight: number): number {
-    this.canvas.font = theme.fontString(this.theme, { level, code: true });
+    this.canvas.font = theme.fontString(this.theme, { level, variant: "code" });
     const m = this.canvas.measureText("0M[]g_");
     const inkTop = m.fontBoundingBoxAscent - m.actualBoundingBoxAscent;
     const inkHeight = m.actualBoundingBoxAscent + m.actualBoundingBoxDescent;
@@ -419,7 +419,7 @@ export class Draw2D {
   measureCharWidth(level: text.Level): number {
     const cached = this.charWidthCache[level];
     if (cached != null) return cached;
-    this.canvas.font = theme.fontString(this.theme, { level, code: true });
+    this.canvas.font = theme.fontString(this.theme, { level, variant: "code" });
     const width = this.canvas.measureText("M").width;
     this.charWidthCache[level] = width;
     return width;
@@ -438,14 +438,14 @@ export class Draw2D {
     weight,
     shade,
     maxWidth,
-    code,
+    variant,
     justify = "left",
     align = "top",
     useAtlas,
     fade,
     color: colorVal,
   }: DrawTextProps): void {
-    this.canvas.font = theme.fontString(this.theme, { level, weight, code });
+    this.canvas.font = theme.fontString(this.theme, { level, weight, variant });
     if (colorVal != null)
       this.canvas.fillStyle = color.hex(this.resolveColor(colorVal));
     else if (shade == null) this.canvas.fillStyle = color.hex(this.theme.colors.text);
@@ -476,11 +476,11 @@ export class Draw2D {
     width,
     level,
     weight,
-    code,
-  }: Pick<DrawTextProps, "text" | "level" | "weight" | "code"> & {
+    variant,
+  }: Pick<DrawTextProps, "text" | "level" | "weight" | "variant"> & {
     width: number;
   }): string[] {
-    this.canvas.font = theme.fontString(this.theme, { level, weight, code });
+    this.canvas.font = theme.fontString(this.theme, { level, weight, variant });
     const fits = (v: string): boolean => this.canvas.measureText(v).width <= width;
     const lines: string[] = [];
     let line = "";

@@ -241,6 +241,9 @@ no value at the pointer of the field:
 The scale and offset apply to a number default. When a field that a task reads has no
 default, the task skips each document that has no value for the field.
 
+A float default can be NaN, so that a read writes NaN for a missing value. A write of a
+JSON message cannot send a NaN default. A float default cannot be infinite.
+
 A JSON default is JSON text, and a bytes default is base64 text, such as `AQI=`. A
 timestamp default is now, the time of each read or write, or a constant time. In Python,
 the class is `NowTimestampDefault` or `ConstantTimestampDefault`. In TypeScript, `type`
@@ -578,14 +581,13 @@ code, `client.icds.check` returns the problems of an ICD.
 
 <Problem.Item
   message={[
-    "default must be finite",
+    "default cannot be infinite",
     "default <n> does not fit a 32-bit float",
     "default <n> does not fit the field",
   ]}
 >
   <Problem.Cause>
-    A float default is not a finite number, or a binary default does not fit the bits of
-    its field.
+    A float default is infinite, or a binary default does not fit the bits of its field.
   </Problem.Cause>
   <Problem.Fix>Enter a value that the field can hold.</Problem.Fix>
 </Problem.Item>
@@ -689,6 +691,29 @@ code, `client.icds.check` returns the problems of an ICD.
     Driver removes these from the start of each item, so no item can start with the tag.
   </Problem.Cause>
   <Problem.Fix>Remove the whitespace from the start of the tag.</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={'the tag "<tag>" is also the tag of field <name>'}>
+  <Problem.Cause>
+    Two tagged fields of one message have the same tag. The Driver cannot tell which
+    field an item of the line belongs to.
+  </Problem.Cause>
+  <Problem.Fix>Enter a different tag for one of the two fields.</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item
+  message={'a value of field <name> after its tag "<tag>" reads as this tag'}
+>
+  <Problem.Cause>
+    The tag of the named field is the start of this tag, and the rest of this tag can
+    start a number, such as `T` and `T1`. The Driver gives each item to the longest tag
+    that starts it, so a value of the named field, such as `T1.5`, reads as a value of
+    this field.
+  </Problem.Cause>
+  <Problem.Fix>
+    Change one of the tags so that no number can follow the shorter tag inside the
+    longer tag, such as `T=` and `T1=`.
+  </Problem.Fix>
 </Problem.Item>
 
 </Problem.List>
