@@ -10,7 +10,6 @@
 #pragma once
 
 #include <array>
-#include <cctype>
 #include <chrono>
 #include <cmath>
 #include <compare>
@@ -924,9 +923,12 @@ inline std::pair<Size, errors::Error> Size::parse(const std::string &text) {
         };
     };
     constexpr auto max = std::numeric_limits<std::int64_t>::max();
-    const auto is_space = [](const char c) { return std::isspace(c) != 0; };
-    const auto is_digit = [](const char c) { return std::isdigit(c) != 0; };
-    const auto is_alpha = [](const char c) { return std::isalpha(c) != 0; };
+    const auto is_space = [](const char c) { return c == ' ' || c == '\t'; };
+    const auto is_digit = [](const char c) { return c >= '0' && c <= '9'; };
+    const auto is_lower = [](const char c) { return c >= 'a' && c <= 'z'; };
+    const auto is_alpha = [&](const char c) {
+        return is_lower(c) || (c >= 'A' && c <= 'Z');
+    };
     std::int64_t total = 0;
     std::size_t terms = 0;
     std::size_t next_unit = 0;
@@ -947,7 +949,8 @@ inline std::pair<Size, errors::Error> Size::parse(const std::string &text) {
             ++i;
         std::string name;
         for (; i < text.size() && is_alpha(text[i]); ++i)
-            name += static_cast<char>(std::toupper(text[i]));
+            name += is_lower(text[i]) ? static_cast<char>(text[i] - 'a' + 'A')
+                                      : text[i];
         ++terms;
         if (name.empty()) {
             if (i == text.size() && terms == 1) return {Size(count), errors::NIL};
