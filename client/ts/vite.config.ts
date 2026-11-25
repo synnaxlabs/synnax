@@ -42,6 +42,8 @@ const NODE_SPECS = [
   "src/schematic/orphans.spec.ts",
   // Checks the error for a Core that no project provides.
   "src/testutil/address.spec.ts",
+  // Finds a closed port with a TCP server.
+  "src/impact/unreachable.spec.ts",
 ];
 
 // A stale entry would let a browser run a Node spec.
