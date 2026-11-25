@@ -232,6 +232,19 @@ describe("Write", () => {
     expect(source.queryByRole("img", { name: "New channel" })).toBeNull();
   });
 
+  it("should show the numbered name that deploying gives a field channel whose name another endpoint takes", async () => {
+    const value = createField("value", "float");
+    const { ic, message } = await createFormat([value]);
+    const { dev } = await renderWrite([
+      createEndpoint("ep1", "/valve-1", ic, message, [value]),
+      createEndpoint("ep2", "/valve_1", ic, message, [value]),
+    ]);
+    const name = `${channel.escapeInvalidName(dev.name)}_valve_1_value_cmd`;
+    const fields = await screen.findAllByRole("treeitem", { name: /^value/ });
+    fireEvent.click(fields[1]);
+    expect(await screen.findByDisplayValue(`${name}_2`)).toBeTruthy();
+  });
+
   it("should send a fixed value for a field of an endpoint set to Value", async () => {
     const value = createField("value", "float");
     const mode = createField("mode", "string");
