@@ -500,6 +500,57 @@ describe("Auth login", () => {
     expect(screen.queryByText(/no credentials/)).toBeNull();
   });
 
+  describe("a provider login the person did not finish", () => {
+    const returnWith = (query: string): void => {
+      sessionStorage.setItem(
+        "synnax-oidc-login",
+        JSON.stringify({
+          core: ALPHA.key,
+          provider: "company-sso",
+          verifier: "verifier",
+          state: "s",
+          redirectUri: "http://localhost:3000/",
+        }),
+      );
+      window.history.replaceState(null, "", `/?${query}&state=s`);
+      onTestFinished(() => {
+        sessionStorage.clear();
+        window.history.replaceState(null, "", "/");
+      });
+    };
+
+    const expectNotFinished = async (
+      statuses: () => Status.NotificationSpec[],
+      description: string,
+    ): Promise<void> => {
+      await vi.waitFor(() =>
+        expect(statuses()).toContainEqual(
+          expect.objectContaining({
+            variant: "info",
+            message: "Login not finished",
+            description,
+          }),
+        ),
+      );
+      expect(statuses().map((s) => s.variant)).not.toContain("error");
+    };
+
+    it("should report the provider's reason as information", async () => {
+      returnWith("error=access_denied&error_description=Denied");
+      const { statuses } = await renderLogin();
+      await expectNotFinished(statuses, "Denied");
+    });
+
+    it("should name both reasons when the provider gives none", async () => {
+      returnWith("error=access_denied");
+      const { statuses } = await renderLogin();
+      await expectNotFinished(
+        statuses,
+        "You cancelled the login, or the provider refused it.",
+      );
+    });
+  });
+
   describe("on desktop", () => {
     beforeEach(() => {
       runtime.engine = "tauri";

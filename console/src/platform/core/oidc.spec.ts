@@ -125,9 +125,16 @@ describe("oidc", () => {
       );
     });
 
-    it("should report the provider's refusal", async () => {
+    it("should report the provider's error", async () => {
+      tauri.query = "error=server_error&error_description=Broken";
+      await expect(Core.loginDesktop(core, LOGIN)).rejects.toThrow("Broken");
+    });
+
+    it("should report a denied login as not finished", async () => {
       tauri.query = "error=access_denied&error_description=Denied";
-      await expect(Core.loginDesktop(core, LOGIN)).rejects.toThrow("Denied");
+      await expect(Core.loginDesktop(core, LOGIN)).rejects.toThrow(
+        Core.UnfinishedLoginError,
+      );
     });
 
     it("should refuse a login address that is not HTTPS or HTTP", async () => {
@@ -199,14 +206,34 @@ describe("oidc", () => {
       expect(window.location.search).toBe("");
     });
 
-    it("should report the provider's refusal", () => {
+    it("should report the provider's error", () => {
+      pending("s");
+      window.history.replaceState(
+        null,
+        "",
+        "/?error=server_error&error_description=Broken&state=s",
+      );
+      expect(() => Core.completeBrowserLogin()).toThrow("Broken");
+    });
+
+    it("should report a denied login as not finished with the provider's reason", () => {
       pending("s");
       window.history.replaceState(
         null,
         "",
         "/?error=access_denied&error_description=Denied&state=s",
       );
-      expect(() => Core.completeBrowserLogin()).toThrow("Denied");
+      expect(() => Core.completeBrowserLogin()).toThrow(
+        new Core.UnfinishedLoginError("Denied"),
+      );
+    });
+
+    it("should name both reasons for a denied login without a description", () => {
+      pending("s");
+      window.history.replaceState(null, "", "/?error=access_denied&state=s");
+      expect(() => Core.completeBrowserLogin()).toThrow(
+        "You cancelled the login, or the provider refused it.",
+      );
     });
   });
 });

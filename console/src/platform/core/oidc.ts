@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { auth } from "@synnaxlabs/client";
+import { errors } from "@synnaxlabs/x";
 import { invoke } from "@tauri-apps/api/core";
 import { z } from "zod";
 
@@ -76,10 +77,22 @@ const authorizeURL = ({
   return url.toString();
 };
 
+/**
+ * Raised when the provider returns without a code because the person cancelled the
+ * login or the provider refused it. Its message says why.
+ */
+export class UnfinishedLoginError extends errors.createTyped(
+  "console.oidc.unfinished",
+) {}
+
+const UNFINISHED = "You cancelled the login, or the provider refused it.";
+
 // throws when the provider refused, or when the redirect belongs to another login
 const parseCallback = (query: string, state: string): string => {
   const params = new URLSearchParams(query);
   const error = params.get("error");
+  if (error === "access_denied")
+    throw new UnfinishedLoginError(params.get("error_description") ?? UNFINISHED);
   if (error != null)
     throw new Error(
       params.get("error_description") ?? `The provider refused: ${error}`,
