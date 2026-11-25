@@ -1417,6 +1417,43 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       });
     });
 
+    it("adds a command that sends 0 and opens its name for edit", async () => {
+      const symbol = await openPainted({
+        variant: "actuator",
+        states: [createState()],
+      });
+      fireEvent.click(getEditSectionHeaderButton("Commands"));
+      expect(await screen.findByText("Sends 0")).toBeDefined();
+      const name = await awaitTextEditingElement();
+      commitTextEdit(name, "Open");
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () => {
+        const { commands } = (await retrieveStored(symbol.key)).data;
+        expect(commands).toEqual([
+          { key: expect.any(String), name: "Open", value: { type: "fixed", value: 0 } },
+        ]);
+        expect(name.id).toBe(`symbol-command-${commands[0].key}`);
+      });
+    });
+
+    it("removes a command and its click after a confirm", async () => {
+      const symbol = await openPainted({
+        variant: "actuator",
+        states: [createState()],
+        commands: [{ key: "on", name: "On", value: { type: "fixed", value: 1 } }],
+        interactions: [{ type: "fire", key: "c", part: "body", command: "on" }],
+      });
+      fireEvent.click(screen.getByLabelText("Remove On"));
+      expect(await screen.findByText("Its uses go with it: 1 click.")).toBeDefined();
+      fireEvent.click(findButton("Remove"));
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () => {
+        const saved = await client.schematics.symbols.retrieve(symbol.key);
+        expect(saved.data.commands).toEqual([]);
+        expect(saved.data.interactions).toEqual([]);
+      });
+    });
+
     it("saves a symbol with no click as static", async () => {
       const symbol = await openPainted({
         variant: "actuator",
