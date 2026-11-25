@@ -143,13 +143,15 @@ jobs:
 
       # The Ubuntu image ships toolchains lint never uses, and the restored cache plus a
       # compile overflows the disk they leave free.
-      - name: Free disk space
+      - &free-disk-space
+        name: Free disk space
         run: |
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
             /usr/local/.ghcup /opt/hostedtoolcache/CodeQL
           df -h /
 
-      - name: Set up Go
+      - &setup-go
+        name: Set up Go
         uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
           go-version-file: ${{ inputs.directory }}/go.mod
@@ -157,7 +159,8 @@ jobs:
 
       # This workflow file salts the key, so a cache saved under an older layout of the
       # job never restores into the new one.
-      - name: Key the Go caches
+      - &key-caches
+        name: Key the Go caches
         id: key
         shell: bash
         env:
@@ -173,7 +176,8 @@ jobs:
       # A run reads the caches of its own branch and of main, never those of another
       # pull request, so only main saves them. A changed go.sum falls back to an older
       # cache of the module.
-      - name: Restore the Go caches
+      - &restore-caches
+        name: Restore the Go caches
         id: cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
@@ -186,7 +190,8 @@ jobs:
             ${{ steps.key.outputs.sum }}
             ${{ steps.key.outputs.module }}
 
-      - name: Download the Go modules
+      - &download-modules
+        name: Download the Go modules
         env:
           DIRECTORY: ${{ inputs.directory }}
         run: .github/scripts/go_mod_download.sh "$DIRECTORY"
@@ -212,16 +217,6 @@ jobs:
       - name: Verify the Go module cache
         working-directory: ${{ inputs.directory }}
         run: go mod verify
-
-      # go fix -diff prints the fixes that the modernizers suggest and fails if there
-      # are any. Build constraints hide files, so each GOOS checks its own.
-      - name: Check that go fix has no fixes
-        if: matrix.shard == 1
-        working-directory: ${{ inputs.directory }}
-        env:
-          CGO_ENABLED: "0"
-          GOOS: ${{ matrix.goos }}
-        run: go fix -diff ./...
 
       # Code with no build constraint can still use an API that some operating systems
       # lack, so a module with no OS-specific code type-checks for the others. Main runs
@@ -297,6 +292,38 @@ jobs:
         with:
           path: *lint-cache
           key: ${{ steps.cache.outputs.cache-primary-key }}
+
+  # go fix -diff prints the fixes that the modernizers suggest and fails if there are
+  # any. Build constraints hide files, so each GOOS checks its own. It takes as long as
+  # a lint shard, so it runs in its own job.
+  fix:
+    name: Go fix (${{ matrix.goos }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        goos:
+          ${{ fromJSON((inputs.windows || inputs.macos) && '["linux", "windows",
+          "darwin"]' || '["linux"]') }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - *free-disk-space
+      - *setup-go
+      - *key-caches
+      - *restore-caches
+      - *download-modules
+
+      - name: Check that go fix has no fixes
+        working-directory: ${{ inputs.directory }}
+        env:
+          CGO_ENABLED: "0"
+          GOOS: ${{ matrix.goos }}
+        run: go fix -diff ./...
 
   test:
     name:
