@@ -227,7 +227,7 @@ const EnumerationOverrides = ({
   const setDefault = (next: number): void => onChange({ default: next });
   const client = Synnax.use();
   // A new enumeration starts with the entries that the state draws.
-  const draft = (): NodeForm.Draft => {
+  const draft = (): Enumeration.CreatePromptParams => {
     const drawn =
       state.enumeration == null
         ? undefined
@@ -257,7 +257,7 @@ const EnumerationOverrides = ({
         value={binding.enumeration}
         onChange={(next) => onChange({ enumeration: next })}
         draft={draft}
-        fallback={() =>
+        fallback={
           state.enumeration == null ? (
             <Text.Text level="p">The symbol names no enumeration.</Text.Text>
           ) : (

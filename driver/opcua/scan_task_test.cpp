@@ -27,6 +27,7 @@
 
 #include "driver/common/scan_task.h"
 #include "driver/opcua/certificate/store.h"
+#include "driver/opcua/errors/errors.h"
 #include "driver/opcua/opcua.h"
 #include "driver/opcua/scan_task.h"
 #include "driver/opcua/testutil/server.h"
@@ -1224,6 +1225,21 @@ TEST_F(TestScanTask, testRenewalIgnoresUnreachableServer) {
     EXPECT_EQ(current.certificate, old.certificate);
 }
 
+/// @brief it should save the Driver certificate as a file certificate on the rack.
+TEST_F(TestScanTask, testScanSavesDriverCertificate) {
+    ctx->set_rack_name(rack.name);
+    Scanner scanner(ctx, task, conn_pool, store, reader);
+    ASSERT_EQ(scan(scanner, secured_device(secured_config())).size(), 1);
+    const auto current = ASSERT_NIL_P(store->current());
+    const auto records = ASSERT_NIL_P(
+        client->certificates.retrieve(synnax::certificate::Where{.racks = rack.key})
+    );
+    ASSERT_EQ(records.size(), 1);
+    const auto &file = std::get<synnax::certificate::FileCertificate>(records[0]);
+    EXPECT_EQ(file.name, rack.name + " OPC UA Driver certificate");
+    EXPECT_EQ(file.certificate_path, store->cert_path(current).string());
+}
+
 /// @brief it should keep the scanned devices and report a failed renewal as a partial
 /// scan failure.
 TEST_F(TestScanTask, testRenewalFailureIsPartialScan) {
@@ -1244,6 +1260,37 @@ TEST_F(TestScanTask, testRenewalFailureIsPartialScan) {
     );
     ASSERT_EQ(scanned.size(), 1);
 }
+/// @brief it should keep the scanned devices and report a failed save of the Driver
+/// certificate as a partial scan failure.
+TEST_F(TestScanTask, testRecordsFailureIsPartialScan) {
+    synnax::certificate::Certificate stale = synnax::certificate::FileCertificate{};
+    auto &file = std::get<synnax::certificate::FileCertificate>(stale);
+    file.name = "Stale";
+    file.certificate_path = "/var/lib/synnax/Synnax Driver [00].der";
+    file.rack = rack.key;
+    ASSERT_NIL(client->certificates.set(stale));
+    // Another rack cannot delete the stale record on this rack.
+    const auto other = ASSERT_NIL_P(client->racks.create("opc_scan_task_other_rack"));
+    const auto denied = std::make_shared<task::MockContext>(
+        std::make_shared<synnax::Synnax>(rack_client_config(*client, other.key))
+    );
+    denied->set_rack_name(rack.name);
+    Scanner scanner(denied, task, conn_pool, store, reader);
+    const auto dev = secured_device(secured_config());
+    std::unordered_map<std::string, synnax::device::Device> devices{{dev.key, dev}};
+    common::ScannerContext scan_ctx;
+    scan_ctx.devices = &devices;
+    const auto [scanned, err] = scanner.scan(scan_ctx);
+    ASSERT_OCCURRED_AS(err, common::PARTIAL_SCAN_ERROR);
+    ASSERT_EQ(
+        err.data,
+        "Failed to save the Driver certificate in the Core: rack:" +
+            std::to_string(other.key) + " cannot delete certificate:" +
+            file.key.to_string() + ": access denied: auth error"
+    );
+    ASSERT_EQ(scanned.size(), 1);
+}
+
 /// @brief browses the node at path in the server on port 4881, and returns the status.
 synnax::task::Status browse_node(
     const std::shared_ptr<task::MockContext> &ctx,
@@ -1409,7 +1456,8 @@ synnax::task::Status run_command(
     const std::shared_ptr<certificate::Store> &store,
     const std::string &type,
     const int port,
-    x::json::json args
+    x::json::json args,
+    const x::telem::TimeSpan read_node_timeout = connection::Config{}.read_node_timeout
 ) {
     Scanner scanner(
         ctx,
@@ -1423,6 +1471,7 @@ synnax::task::Status run_command(
         "opc.tcp://localhost:" + std::to_string(port),
         std::move(args)
     );
+    cmd.args["connection"]["read_node_timeout"] = read_node_timeout.nanoseconds();
     const auto before = ctx->statuses.size();
     EXPECT_TRUE(scanner.exec(cmd, task, ctx));
     EXPECT_EQ(ctx->statuses.size(), before + 1);
@@ -1615,6 +1664,115 @@ TEST_F(TestScanTask, testBrowseVariablesStopsAtObjectLimit) {
     EXPECT_TRUE(data.at("truncated").get<bool>());
     EXPECT_EQ(data.at("channels")[0]["name"], "V0");
     generated->stop();
+}
+
+/// @brief starts a server that takes one node in each Read, and waits delay before it
+/// handles each request once the pool holds a connection to it.
+std::unique_ptr<testutil::Server> start_one_node_server(
+    const std::shared_ptr<task::MockContext> &ctx,
+    const synnax::task::Task &task,
+    const std::shared_ptr<connection::Pool> &pool,
+    const std::shared_ptr<certificate::Store> &store,
+    const x::telem::TimeSpan delay
+) {
+    auto cfg = testutil::ServerConfig::create_default();
+    cfg.port = 4882;
+    cfg.max_nodes_per_read = 1;
+    auto server = std::make_unique<testutil::Server>(cfg);
+    server->start();
+    EXPECT_TRUE(server->wait_until_ready());
+    const auto status = run_command(
+        ctx,
+        task,
+        pool,
+        store,
+        READ_NODE_CMD_TYPE,
+        4882,
+        {{"node_id", "NS=1;S=TestDouble"}}
+    );
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_SUCCESS) << status.description;
+    server->probe_delay = delay;
+    return server;
+}
+
+/// @brief it should send a separate read for each attribute of a node.
+TEST_F(TestScanTask, testReadNodeOneNodePerRequest) {
+    const auto delay = 50 * x::telem::MILLISECOND;
+    const auto slow = start_one_node_server(ctx, task, conn_pool, store, delay);
+    const auto start = std::chrono::steady_clock::now();
+    const auto status = run_command(
+        ctx,
+        task,
+        conn_pool,
+        store,
+        READ_NODE_CMD_TYPE,
+        4882,
+        {{"node_id", "NS=1;S=TestDouble"}}
+    );
+    EXPECT_GT(
+        std::chrono::steady_clock::now() - start,
+        11 * std::chrono::milliseconds(50)
+    );
+    ASSERT_EQ(status.variant, synnax::status::VARIANT_SUCCESS) << status.description;
+    slow->stop();
+}
+
+/// @brief it should fail with a reason once the reads of a node use up their time.
+TEST_F(TestScanTask, testReadNodeStopsAtDeadline) {
+    const auto delay = 100 * x::telem::MILLISECOND;
+    const auto slow = start_one_node_server(ctx, task, conn_pool, store, delay);
+    const auto status = run_command(
+        ctx,
+        task,
+        conn_pool,
+        store,
+        READ_NODE_CMD_TYPE,
+        4882,
+        {{"node_id", "NS=1;S=TestDouble"}},
+        300 * x::telem::MILLISECOND
+    );
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(status.message, "Failed to read node");
+    EXPECT_EQ(status.description, errors::DEADLINE_EXCEEDED.data);
+    slow->stop();
+}
+
+/// @brief it should count the check of an idle connection against the deadline, so the
+/// namespace read never goes out.
+TEST_F(TestScanTask, testReadNodeDeadlineCoversNamespaceRead) {
+    const auto delay = 100 * x::telem::MILLISECOND;
+    const auto slow = start_one_node_server(ctx, task, conn_pool, store, delay);
+    const auto status = run_command(
+        ctx,
+        task,
+        conn_pool,
+        store,
+        READ_NODE_CMD_TYPE,
+        4882,
+        {{"node_id", "NS=1;S=TestDouble"}},
+        10 * x::telem::MILLISECOND
+    );
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(status.message, "Failed to read node");
+    EXPECT_EQ(status.description, errors::DEADLINE_EXCEEDED.data);
+    slow->stop();
+}
+
+/// @brief it should fail without connecting when the deadline passes first.
+TEST_F(TestScanTask, testReadNodeDeadlineCoversConnection) {
+    const auto status = run_command(
+        ctx,
+        task,
+        conn_pool,
+        store,
+        READ_NODE_CMD_TYPE,
+        4840,
+        {{"node_id", "NS=1;S=TestDouble"}},
+        x::telem::TimeSpan(1)
+    );
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(status.message, "Failed to connect to server");
+    EXPECT_EQ(status.description, errors::DEADLINE_EXCEEDED.data);
 }
 
 /// @brief it should read the attributes and the value of a variable.

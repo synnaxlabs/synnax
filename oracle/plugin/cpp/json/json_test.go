@@ -781,6 +781,38 @@ var _ = Describe("C++ JSON Plugin", func() {
 						)
 				},
 			)
+			It("Should refuse an empty required list", func() {
+				source := `
+					@cpp output "client/cpp/task"
+
+					Broker struct {
+						host string
+					}
+					Plain struct { port uint16 }
+					Tls struct { host string }
+
+					Transport union on type {
+						plain Plain
+						tls   Tls
+					}
+
+					Cluster struct {
+						hosts      string[] @validate required
+						brokers    Broker[] @validate required
+						transports Transport[] @validate required
+						tags       string[]
+					}
+				`
+				resp := MustGenerate(source, "task", loader, jsonPlugin)
+				ExpectContent(resp, "json.gen.h").
+					ToContain(
+						`.hosts = parser.required_field<std::vector<std::string>>("hosts"),`,
+						`.brokers = parser.required_field<std::vector<Broker>>("brokers"),`,
+						`const auto before = parser.errors == nullptr ? 0 : parser.errors->size();`,
+						`parser.field_err("transports", "This field is required");`,
+						`.tags = parser.field<std::vector<std::string>>("tags", std::vector<std::string>{}),`,
+					)
+			})
 			It(
 				"Should write the UUID keys of a map of scalars as strings",
 				func() {

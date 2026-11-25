@@ -9,7 +9,7 @@
 
 /// <reference types="vitest/config" />
 
-import { layers, lib, plutoLayers } from "@synnaxlabs/vite-plugin";
+import { layers, lib, plutoLayers, testCore } from "@synnaxlabs/vite-plugin";
 import react from "@vitejs/plugin-react";
 import { playwright } from "@vitest/browser-playwright";
 import path from "path";
@@ -37,6 +37,8 @@ export default defineConfig({
       external: [
         "vitest",
         /^@vitest\//,
+        // A bundled copy would ignore the Testing Library config of the spec runner.
+        /^@testing-library\//,
         "react-hook-form",
         /^zod(\/|$)/,
         "@synnaxlabs/x",
@@ -57,6 +59,7 @@ export default defineConfig({
   },
   test: {
     globals: true,
+    provide: testCore(),
     // vscode-languageclient's "./browser" entry only resolves under the "browser"
     // exports condition, which Vitest's node-based resolver does not apply.
     alias: {
@@ -116,13 +119,6 @@ export default defineConfig({
           name: "browser",
           setupFiles: ["src/testutil/browser.ts"],
           include: ["src/**/*.browser.spec.tsx"],
-          // A browser has no `process` to read the test Core from.
-          provide: {
-            synnaxTestCore: {
-              host: process.env.SYNNAX_TEST_HOST ?? "localhost",
-              port: Number(process.env.SYNNAX_TEST_PORT ?? 9090),
-            },
-          },
           browser: {
             enabled: true,
             headless: true,

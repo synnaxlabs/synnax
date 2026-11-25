@@ -72,8 +72,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	db = node.DB
 	passwordSvc := MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
 	userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
-		DB:       db,
-		Password: passwordSvc,
+		DB: db,
 	}))
 	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 		DB: db,
@@ -126,7 +125,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		RBAC: rbacSvc,
 		Held: apiauth.HeldTables(),
 	}))
-	importEnvelope = bind.Write(binder, apiSvc.Import)
+	importEnvelope = bind.WriteRetrievable(binder, apiSvc.Import)
 	export = bind.Read(binder, apiSvc.Export)
 	Expect(userSvc.NewRetrieve().
 		Where(user.MatchRootUser(true)).

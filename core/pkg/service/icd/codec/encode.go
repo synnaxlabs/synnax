@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	xjson "github.com/synnaxlabs/x/json"
 	"github.com/synnaxlabs/x/payload"
+	xstrconv "github.com/synnaxlabs/x/strconv"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -56,11 +57,18 @@ type generator func(dst []byte) ([]byte, error)
 type fieldDefault struct {
 	literal  []byte
 	generate generator
+	// err is why JSON cannot hold the default, such as NaN.
+	err error
 }
 
-func (d fieldDefault) defined() bool { return d.literal != nil || d.generate != nil }
+func (d fieldDefault) defined() bool {
+	return d.literal != nil || d.generate != nil || d.err != nil
+}
 
 func (d fieldDefault) append(dst []byte) ([]byte, error) {
+	if d.err != nil {
+		return nil, errors.Wrap(d.err, "default")
+	}
 	if d.generate != nil {
 		return d.generate(dst)
 	}
@@ -105,12 +113,14 @@ func (f *encodeField) atLimit(v float64) float64 {
 
 // NewJSONEncoder returns an encoder of the documents of m. A document holds the value
 // of m's value rule, the sample of each bound field, and the default of each other
-// field. The fields at or inside the pointer of a present rule give it its value. A
-// scaled field writes its sample before the scale and offset, and an integer field
-// rounds it to the nearest integer. A number channel writes to any number or boolean
-// field, and a boolean field takes only 0 and 1 from one. NewJSONEncoder returns an
-// error wrapping validate.ErrValidation when:
+// field. A bound field whose default JSON cannot hold, such as NaN, fails each encode
+// of a nil sample. The fields at or inside the pointer of a present rule give it its
+// value. A scaled field writes its sample before the scale and offset, and an integer
+// field rounds it to the nearest integer. A number channel writes to any number or
+// boolean field, and a boolean field takes only 0 and 1 from one. NewJSONEncoder
+// returns an error wrapping validate.ErrValidation when:
 //   - a field has no binding and no default
+//   - a field has no binding and a default that JSON cannot hold, such as NaN
 //   - a field's default is not valid or is outside its min and max, bound or not
 //   - a binding names no field of m, or a field has two bindings
 //   - a binding's data type does not write to its field's kind
@@ -127,26 +137,9 @@ func NewJSONEncoder(m JSONMessage) (*JSONEncoder, error) {
 }
 
 func newJSONEncoder(m JSONMessage) (*JSONEncoder, error) {
-	byKey := make(map[icd.FieldKey]icd.JSONField, len(m.Payload.Fields))
-	for _, f := range m.Payload.Fields {
-		byKey[f.Base().Key] = f
-	}
-	bound := make(map[icd.FieldKey]int, len(m.Bindings))
-	for i, b := range m.Bindings {
-		f, ok := byKey[b.Field]
-		if !ok {
-			return nil, errors.Wrapf(
-				validate.ErrValidation, "field %s does not exist", b.Field,
-			)
-		}
-		if _, ok = bound[b.Field]; ok {
-			return nil, errors.Wrapf(
-				validate.ErrValidation,
-				"field %s has more than one binding",
-				f.Base().Name,
-			)
-		}
-		bound[b.Field] = i
+	bound, err := bindingIndexes(m)
+	if err != nil {
+		return nil, err
 	}
 	e := &JSONEncoder{
 		name:  m.Name,
@@ -183,11 +176,37 @@ func newJSONEncoder(m JSONMessage) (*JSONEncoder, error) {
 			return nil, errors.Wrap(err, "match")
 		}
 	}
-	var err error
 	if e.template, err = xjson.NewTemplate(fields); err != nil {
 		return nil, err
 	}
 	return e, nil
+}
+
+// bindingIndexes returns the index of the binding of each bound field in m. It fails
+// when a binding names a field that m does not have, or a field has two bindings.
+func bindingIndexes(m JSONMessage) (map[icd.FieldKey]int, error) {
+	byKey := make(map[icd.FieldKey]icd.JSONField, len(m.Payload.Fields))
+	for _, f := range m.Payload.Fields {
+		byKey[f.Base().Key] = f
+	}
+	bound := make(map[icd.FieldKey]int, len(m.Bindings))
+	for i, b := range m.Bindings {
+		f, ok := byKey[b.Field]
+		if !ok {
+			return nil, errors.Wrapf(
+				validate.ErrValidation, "field %s does not exist", b.Field,
+			)
+		}
+		if _, ok = bound[b.Field]; ok {
+			return nil, errors.Wrapf(
+				validate.ErrValidation,
+				"field %s has more than one binding",
+				f.Base().Name,
+			)
+		}
+		bound[b.Field] = i
+	}
+	return bound, nil
 }
 
 // templateField returns the template field of f and its binding in m, or -1 when f
@@ -213,6 +232,9 @@ func (e *JSONEncoder) templateField(
 	}
 	binding, ok := bound[b.Key]
 	if !ok {
+		if def.err != nil {
+			return xjson.TemplateField{}, 0, nil, errors.Wrap(def.err, "default")
+		}
 		if !def.defined() {
 			return xjson.TemplateField{}, 0, nil, errors.Wrap(
 				validate.ErrValidation, "needs a channel or a default",
@@ -419,15 +441,19 @@ func matchLiteral(m icd.JSONMatch) (xjson.TemplateField, error) {
 	return f, nil
 }
 
-// CheckDefault returns a validation error when f cannot send its default, such as JSON
-// text that is not valid or a number that decodes outside the min and max of f. The
-// error does not name the default, so the caller adds the path of the value.
+// CheckDefault returns a validation error when f cannot send its default, such as NaN,
+// JSON text that is not valid, or a number that decodes outside the min and max of f.
+// The error does not name the default, so the caller adds the path of the value.
 func CheckDefault(f icd.JSONField) error {
-	_, err := defaultOf(f)
-	return err
+	d, err := defaultOf(f)
+	if err != nil {
+		return err
+	}
+	return d.err
 }
 
-// defaultOf returns the default of jf, or the zero fieldDefault when jf has none. Its
+// defaultOf returns the default of jf, or the zero fieldDefault when jf has none. A
+// default that JSON cannot hold returns no error, and the fieldDefault holds it. Its
 // errors do not name the default.
 func defaultOf(jf icd.JSONField) (fieldDefault, error) {
 	if err := icd.CheckDefault(jf); err != nil {
@@ -440,7 +466,7 @@ func defaultOf(jf icd.JSONField) (fieldDefault, error) {
 	switch v := jf.Variant.(type) {
 	case icd.FloatJSONField:
 		if v.Default != nil {
-			d.literal, err = xjson.AppendFloat(nil, float64(*v.Default))
+			d.literal, d.err = xjson.AppendFloat(nil, float64(*v.Default))
 		}
 	case icd.IntegerJSONField:
 		if v.Default != nil {
@@ -629,7 +655,9 @@ func appendBoolean(dst []byte, v float64) ([]byte, error) {
 	case 1:
 		return strconv.AppendBool(dst, true), nil
 	}
-	return nil, errors.Wrapf(validate.ErrValidation, "%v is not 0 or 1", v)
+	return nil, errors.Wrapf(
+		validate.ErrValidation, "%s is not 0 or 1", xstrconv.FormatFloat(v, 64),
+	)
 }
 
 // appendInteger appends n, unscaled and rounded to the nearest integer, to dst.
@@ -654,6 +682,9 @@ func (f *encodeField) appendInteger(dst []byte, n xjson.ParsedNumber) ([]byte, e
 		return strconv.AppendUint(dst, uint64(r), 10), nil
 	}
 	return nil, errors.Wrapf(
-		validate.ErrValidation, "%v is out of range for %s values", v, f.kind,
+		validate.ErrValidation,
+		"%s is out of range for %s values",
+		xstrconv.FormatFloat(v, 64),
+		f.kind,
 	)
 }
