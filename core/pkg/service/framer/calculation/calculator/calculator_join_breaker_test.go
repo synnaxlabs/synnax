@@ -234,7 +234,7 @@ var _ = Describe("Breaker live join", Ordered, ContinueOnFailure, func() {
 		// b writes no more, and its last sample's hold passes on the arrival clock, so
 		// the join drops the later primary stamps with no output between.
 		now += 10 * telem.SecondTS
-		var after []calculator.Status
+		after := make([]calculator.Status, 0, 4)
 		for i := range 4 {
 			after = append(after, step(telem.TimeStamp(10+i), uint32(5+i))...)
 		}

@@ -310,7 +310,7 @@ var _ = Describe("Calculator check", Ordered, func() {
 			// arrival clock, so the inputs are stale again, and the error is not the
 			// cause now.
 			now += 10 * telem.SecondTS
-			var after []string
+			after := make([]string, 0, 4)
 			for i := range 4 {
 				after = append(after, step(telem.TimeStamp(10+i), uint32(5+i))...)
 			}
