@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, mqtt, type task } from "@synnaxlabs/client";
+import { channel, type icd, mqtt, type task } from "@synnaxlabs/client";
 import { zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -39,9 +39,15 @@ export const nodeKey = ({
 export const tagKey = (id: SparkplugTagID): string =>
   `${nodeKey(id)}/${id.device}/${id.tag}`;
 
+/** What a browse dialog reads from a message of a topic that a task holds. */
+export interface HeldMessage {
+  match?: icd.JSONMatch;
+  fields: { pointer: string }[];
+}
+
 /** What a browse dialog reads from an item that a task holds. */
 export type HeldEntry =
-  | { type: "plain"; topic: string; fields: { pointer: string }[] }
+  | { type: "plain"; topic: string; messages: HeldMessage[] }
   | ({ type: "sparkplug" } & SparkplugTagID);
 
 const deployTopicZ = z

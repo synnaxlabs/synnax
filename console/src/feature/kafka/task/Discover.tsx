@@ -26,6 +26,7 @@ import {
   isExtendable,
   type Picks,
   type Reads,
+  splitOf,
   takenPointers,
 } from "@/feature/kafka/task/additions";
 import { browseTopics, sampleTopic } from "@/feature/kafka/task/scan";
@@ -346,15 +347,18 @@ const TopicValues = ({
   const groups = shapes.map((shape, i): ICD.Picker.ValueGroup => {
     const newest = newestFirst(sample, shape);
     const extendable = isExtendable(shape, reads);
+    const split = splitOf(shape, reads);
     const taken = takenPointers(shape, reads);
     const carried = carriedFields(shape, reads);
     return {
       title: titleOf(shape, label),
+      note: split == null ? undefined : ICD.Picker.splitNote(split),
       values: shape.fields.map((f, j): ICD.Picker.Value => {
         const key = `${i}${f.pointer}`;
         fields.set(key, [json.shapeKey(shape), f.pointer]);
         let lock: ICD.Picker.Lock | undefined;
-        if (j === shape.index) lock = ICD.Picker.INDEX;
+        if (split != null) lock = ICD.Picker.SPLIT;
+        else if (j === shape.index) lock = ICD.Picker.INDEX;
         else if (taken.has(f.pointer))
           lock = carried.has(f.pointer) ? ANY_KEY : ICD.Picker.TAKEN;
         else if (!extendable) lock = NOT_EXTENDABLE;
@@ -587,8 +591,11 @@ const Content = ({
     const sample = sampleOf(topic);
     const entry = entries.find(({ name }) => name === topic);
     let data = sample?.variant === "success" ? sample.data : null;
-    if (data == null && (entry == null || sampleable(entry)))
+    if (data == null && (entry == null || sampleable(entry))) {
       data = await loadSample(topic);
+      // A failed read shows its error and leaves the topic unpicked.
+      if (data == null) return;
+    }
     const shape =
       data == null ? null : ICD.Write.mostCommon(data.shapes, (shape) => shape.count);
     setWholePicks((prev) => withWhole(prev, topic, true, shape));
@@ -621,7 +628,8 @@ const Content = ({
   const browsing = result.variant === "loading";
   const browseFailed = result.variant === "error";
   const reading = entries.find(({ name }) => sampleOf(name)?.variant === "loading");
-  let statusText = pluralize("topic", entries.length, true);
+  // The write dialog counts the topics it can write that the cluster does not list.
+  let statusText = pluralize("topic", whole ? entries.length : listed.length, true);
   if (browsing) statusText = "Listing topics";
   else if (reading != null) statusText = `Reading ${reading.name}`;
   else if (browseFailed) statusText = "Failed to list topics";
@@ -712,12 +720,7 @@ const Content = ({
           }
         />
       );
-  } else if (
-    whole &&
-    listing != null &&
-    activeTopic == null &&
-    activeSample.data.records.length === 0
-  )
+  } else if (whole && listing?.truncated === false && activeSample.data.missing)
     pane = (
       <Status.Summary
         center
@@ -793,6 +796,7 @@ const Content = ({
                 icdKey={format?.icd}
                 message={format?.message.key}
                 onChange={(icdKey, message) => setFormat({ icd: icdKey, message })}
+                onClear={() => setFormat(null)}
                 helpText={FORMAT_HELP}
                 padHelpText
               />

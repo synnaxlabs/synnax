@@ -327,9 +327,9 @@ const MessageStatus = ({
 }: MessageStatusProps): ReactElement | null => {
   const warning = warningOf(rest);
   if (warning == null) return null;
-  const json = rest.message?.payload.format === "json";
+  const notJSON = rest.message != null && rest.message.payload.format !== "json";
   return (
-    <PForm.Section title="Message" actions={json ? undefined : actions}>
+    <PForm.Section title="Message" actions={notJSON ? actions : undefined}>
       {warning}
     </PForm.Section>
   );

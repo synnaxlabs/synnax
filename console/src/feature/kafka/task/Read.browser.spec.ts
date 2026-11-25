@@ -585,6 +585,13 @@ describe("Kafka read form", () => {
       expect(listen().getAttribute("aria-disabled")).toBeNull();
     });
 
+    it("should count only the topics that the cluster lists", async () => {
+      const { dev } = await renderRead();
+      const browse = browseOf(listTopic("plant"));
+      const dialog = await openAddData(dev, { data: sampleOf() }, TOPIC, browse);
+      await dialog.findByText("1 topic");
+    });
+
     it("should mark the topics that the task holds", async () => {
       const { dev } = await renderRead();
       const browse = browseOf(listTopic(TOPIC), listTopic("plant"));
@@ -1253,7 +1260,9 @@ describe("Kafka read form", () => {
       ];
       const dialog = await openAddData(dev, {
         data: {
-          topics: [{ topic: TOPIC, records, shapes: [OVEN_SHAPE], error: "" }],
+          topics: [
+            { topic: TOPIC, records, shapes: [OVEN_SHAPE], error: "", missing: false },
+          ],
           truncated: false,
         },
       });
@@ -1331,7 +1340,13 @@ describe("Kafka read form", () => {
       const { dev } = await renderRead();
       const data = {
         topics: [
-          { topic: TOPIC, records: [], shapes: [], error: "The topic does not exist." },
+          {
+            topic: TOPIC,
+            records: [],
+            shapes: [],
+            error: "The topic does not exist.",
+            missing: true,
+          },
         ],
         truncated: false,
       };
@@ -1345,7 +1360,9 @@ describe("Kafka read form", () => {
       const { dev } = await renderRead();
       const error = "partition 2: OFFSET_OUT_OF_RANGE";
       const data = {
-        topics: [{ topic: TOPIC, records: [], shapes: [OVEN_SHAPE], error }],
+        topics: [
+          { topic: TOPIC, records: [], shapes: [OVEN_SHAPE], error, missing: false },
+        ],
         truncated: false,
       };
       const dialog = await openAddData(dev, { data });
@@ -1504,6 +1521,40 @@ describe("Kafka read form", () => {
       const pressure = dialog.getByRole("checkbox", { name: "Record /pressure" });
       expect(pressure).toHaveProperty("disabled", true);
       expect(dialog.getAllByText("No JSON message")).toHaveLength(3);
+    });
+
+    it("should lock a shape whose fields tie two value rules of its key, and pick none of it", async () => {
+      const rec = await createRecord({
+        fields: [createField("temperature", "float")],
+        recordKey: "oven-1",
+        match: KIND_MATCH,
+      });
+      await addMessage(rec, "alarm", [createField("pressure", "float")], {
+        ...KIND_MATCH,
+        value: "alarm",
+      });
+      const { dev } = await renderRead({ records: [rec] });
+      await screen.findByRole("treeitem", { name: /^temperature/ });
+      const oven = {
+        ...PRESSURE_SHAPE,
+        sources: ["oven-1"],
+        fields: [
+          ...PRESSURE_SHAPE.fields,
+          createInferredField("/kind", "string", "string"),
+        ],
+      };
+      const dialog = await openAddData(dev, { data: sampleOf(oven) });
+      await dialog.findByText(
+        "Split by the value at /kind. Add fields in the ICD editor.",
+      );
+      expect(dialog.getAllByText("Split by value")).toHaveLength(5);
+      const pressure = dialog.getByRole("checkbox", { name: "Record /pressure" });
+      expect(pressure).toHaveProperty("disabled", true);
+      expect(pressure).toHaveProperty("checked", false);
+      const pick = dialog.getByRole("checkbox", { name: "Pick oven" });
+      expect(pick).toHaveProperty("disabled", true);
+      const selectAll = dialog.getByRole("button", { name: "Select all" });
+      expect(selectAll.getAttribute("aria-disabled")).toBe("true");
     });
 
     it("should add a field to the message that the records of the keys read", async () => {
@@ -1762,6 +1813,7 @@ describe("Kafka read form", () => {
         records: [createSampledRecord(1, { temperature: 61.5 })],
         shapes: [OVEN_SHAPE],
         error: "A record is not JSON.",
+        missing: false,
       };
       const dialog = await openAddData(dev, {
         data: { topics: [topic], truncated: false },

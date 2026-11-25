@@ -130,6 +130,7 @@ ReadConfig struct extends task.PersistConfig {
         configures an MQTT read task, which subscribes to topics and Sparkplug B tags on
         a broker device and writes their values to Synnax channels.
     """
+    @go entry   "mqtt_read_config"
     @go imex    body
     @go marshal
     @go migrate
