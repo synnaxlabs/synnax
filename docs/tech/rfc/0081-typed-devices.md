@@ -229,8 +229,9 @@ Field groups per make:
 - **Modbus server**: `connection` and `requests` (RFC 0091 §2.0), `read_index`, register
   channel maps. Its `StatusDetails` hold the request counts as `stats` (RFC 0091 §2.7).
 - **HTTP server**: `host`, `secure`, `verify_ssl`, `timeout`, `auth` (the existing
-  union), `max_concurrent_requests`, `health_check`, per-path read and write channel
-  maps (`console/src/feature/http/device/types.ts:224-239`). The `base_url` the Driver
+  union, credentials as `secret.Key`), `max_concurrent_requests`, `health_check`,
+  per-path read and write channel maps
+  (`console/src/feature/http/device/types.ts:224-239`). The `base_url` the Driver
   injects from `location` (`driver/http/device/device.cpp:100-106`) is derived from
   `host` and `secure` in generated code.
 - **MQTT broker**: `host`, `port?`, `transport` (`tcp`, or `tls` with an optional CA,
