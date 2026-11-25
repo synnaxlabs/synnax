@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { log, type status } from "@synnaxlabs/client";
-import type { theme } from "@synnaxlabs/lyra/theme";
+import { theme } from "@synnaxlabs/lyra/theme";
 import {
   array,
   bounds,
@@ -33,7 +33,7 @@ import {
 } from "@/log/aether/telem/types";
 import { telem } from "@/telem/aether";
 import { theming } from "@/theming/aether";
-import { Draw2D } from "@/vis/draw2d";
+import { Draw2D, type SugaredOffscreenCanvasRenderingContext2D } from "@/vis/draw2d";
 import { render } from "@/vis/render";
 
 export const logStateZ = log.logZ
@@ -133,8 +133,7 @@ interface InternalState {
   namePadding: Record<string, string>;
   charWidth: number;
   lineHeight: number;
-  // Downward nudge aligning the selection band with glyph ink (see
-  // Draw2D.measureInkOffsetY).
+  // Downward nudge aligning the selection band with glyph ink (see measureInkOffsetY).
   selectionOffsetY: number;
   tsLen: number;
   selectionColor: color.Color;
@@ -191,6 +190,30 @@ const ZERO_SCROLLBACK: ScrollbackState = {
   scrollRef: 0,
   moved: 0,
   awayFromEnd: false,
+};
+
+const measureCharWidth = (
+  canvas: SugaredOffscreenCanvasRenderingContext2D,
+  t: theme.Theme,
+  level: text.Level,
+): number => {
+  canvas.font = theme.fontString(t, { level, variant: "code" });
+  return canvas.measureText("M").width;
+};
+
+// Returns the offset that centers code-font ink in a row drawn from its top. Canvas
+// positions the em box, not the ink, which sits a few pixels lower.
+const measureInkOffsetY = (
+  canvas: SugaredOffscreenCanvasRenderingContext2D,
+  t: theme.Theme,
+  level: text.Level,
+  rowHeight: number,
+): number => {
+  canvas.font = theme.fontString(t, { level, variant: "code" });
+  const m = canvas.measureText("0M[]g_");
+  const inkTop = m.fontBoundingBoxAscent - m.actualBoundingBoxAscent;
+  const inkHeight = m.actualBoundingBoxAscent + m.actualBoundingBoxDescent;
+  return inkTop - (rowHeight - inkHeight) / 2;
 };
 
 const muteColor = (c: color.Crude, theme: theme.Theme): color.Color => {
@@ -319,8 +342,14 @@ export class Log
     i.textColor = this.state.color ?? i.theme.colors.gray.l11;
 
     i.lineHeight = i.theme.typography[this.state.font].size * i.theme.sizes.base;
-    i.charWidth = i.draw2d.measureCharWidth(this.state.font);
-    i.selectionOffsetY = i.draw2d.measureInkOffsetY(this.state.font, i.lineHeight);
+    const canvas = i.render[CANVAS];
+    i.charWidth = measureCharWidth(canvas, i.theme, this.state.font);
+    i.selectionOffsetY = measureInkOffsetY(
+      canvas,
+      i.theme,
+      this.state.font,
+      i.lineHeight,
+    );
     i.tsLen =
       this.state.timestampPrecision === 0 ? 8 : 9 + this.state.timestampPrecision;
 

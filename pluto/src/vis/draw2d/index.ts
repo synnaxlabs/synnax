@@ -137,7 +137,6 @@ type ColorSpec = color.Crude | ((t: theme.Theme) => color.Color);
 export class Draw2D {
   readonly canvas: SugaredOffscreenCanvasRenderingContext2D;
   readonly theme: theme.Theme;
-  private charWidthCache: Partial<Record<text.Level, number>> = {};
   private readonly capHeights = new Map<string, number>();
 
   constructor(canvas: SugaredOffscreenCanvasRenderingContext2D, theme: theme.Theme) {
@@ -401,28 +400,6 @@ export class Draw2D {
       );
       draw(i, itemBox);
     }
-  }
-
-  /**
-   * Vertical offset that centers text ink within a rowHeight-tall band when the
-   * text is drawn at the band's top with align "top". Canvas positions the em
-   * box, not the ink, which sits a few pixels lower.
-   */
-  measureInkOffsetY(level: text.Level, rowHeight: number): number {
-    this.canvas.font = theme.fontString(this.theme, { level, variant: "code" });
-    const m = this.canvas.measureText("0M[]g_");
-    const inkTop = m.fontBoundingBoxAscent - m.actualBoundingBoxAscent;
-    const inkHeight = m.actualBoundingBoxAscent + m.actualBoundingBoxDescent;
-    return inkTop - (rowHeight - inkHeight) / 2;
-  }
-
-  measureCharWidth(level: text.Level): number {
-    const cached = this.charWidthCache[level];
-    if (cached != null) return cached;
-    this.canvas.font = theme.fontString(this.theme, { level, variant: "code" });
-    const width = this.canvas.measureText("M").width;
-    this.charWidthCache[level] = width;
-    return width;
   }
 
   drawTextInCenter({ box: b, text: label, level }: DrawTextInCenterProps): void {
