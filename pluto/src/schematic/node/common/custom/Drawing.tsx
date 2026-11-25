@@ -77,7 +77,10 @@ export const Drawing = ({
         orientation={orientation}
         scale={svgScale}
         strokeColor={strokeColor}
-        className={CSS.cls(!builtIn && CSS.B("custom-drawing"))}
+        className={CSS.cls(
+          CSS.BE("symbol", "drawing"),
+          !builtIn && CSS.B("custom-drawing"),
+        )}
       >
         <g ref={setDrawing} />
       </Primitive.SVG>

@@ -14,11 +14,11 @@ import { text } from "@/text/aether";
 import { SugaredOffscreenCanvasRenderingContext2D } from "@/vis/draw2d";
 import type { render } from "@/vis/render";
 
-const INK = 6;
 const PADDING = 2;
+const INK_MARGIN = 1;
 
-/** Advance the atlas lays consecutive glyphs out on. */
-export const ATLAS_ADVANCE = INK + PADDING;
+/** Advance of every glyph, which the atlas lays consecutive glyphs out on. */
+export const ATLAS_ADVANCE = 6;
 
 const RUN_ASCENT = 9;
 const RUN_DESCENT = 3;
@@ -41,8 +41,9 @@ const BASELINE_SHIFTS: Record<CanvasTextBaseline, number> = {
 
 const metrics = (ascent: number, descent: number): TextMetrics =>
   ({
+    width: ATLAS_ADVANCE,
     actualBoundingBoxLeft: 0,
-    actualBoundingBoxRight: INK,
+    actualBoundingBoxRight: ATLAS_ADVANCE,
     actualBoundingBoxAscent: ascent,
     actualBoundingBoxDescent: descent,
   }) as TextMetrics;
@@ -75,7 +76,7 @@ export interface AtlasSurface {
   canvas: SugaredOffscreenCanvasRenderingContext2D;
   /** A `render.Context`-shaped value whose canvases are all {@link canvas}. */
   context: render.Context;
-  /** Where the atlas copied each glyph out to, in draw order. */
+  /** Where the atlas put the origin of each glyph, in draw order. */
   glyphs: () => xy.XY[];
   /** Drops the glyphs recorded so far. */
   clear: () => void;
@@ -98,8 +99,9 @@ export const atlasSurface = (): AtlasSurface => {
     textAlign: "start",
     textBaseline: "alphabetic",
     measureText: () => metrics(ATLAS_INK_HEIGHT, 0),
+    // A glyph's ink, which starts at its origin, sits INK_MARGIN into each copy.
     drawImage: (_: unknown, ...rest: number[]) =>
-      glyphs.push(xy.construct(rest[4], rest[5])),
+      glyphs.push(xy.construct(rest[4] + INK_MARGIN, rest[5])),
   };
   const surface = new Proxy(target, {
     get: (t, prop) => {

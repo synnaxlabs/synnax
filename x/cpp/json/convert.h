@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <cstdint>
 #include <map>
 #include <string>
 #include <utility>
@@ -119,12 +120,18 @@ errors::Error check_from_sample_value(const telem::DataType &type, Type target);
 std::pair<nlohmann::json, errors::Error>
 from_series(const telem::Series &series, int index);
 
+/// @brief splits ts into a whole count of the units of format, a Unix format, and the
+/// nanoseconds left over, both with the sign of ts. UnixMillisecond and UnixMicrosecond
+/// round the count toward negative infinity and leave nothing over.
+std::pair<std::int64_t, std::int64_t>
+split_unix(telem::TimeStamp ts, TimeFormat format);
+
 /// @brief converts a TimeStamp to a JSON value using the given TimeFormat.
 /// @param ts the timestamp to convert.
 /// @param format the output format.
-/// @returns the JSON representation of the timestamp. A Unix format is an exact integer
-/// when ts is a whole count of units, and otherwise the double nearest its exact
-/// decimal value.
+/// @returns the JSON representation of the timestamp, with the count of split_unix for
+/// a Unix format. It is an exact integer when nothing is left over, and otherwise the
+/// double nearest the exact decimal value.
 nlohmann::json from_timestamp(telem::TimeStamp ts, TimeFormat format);
 
 /// @brief returns the zero value for a JSON Type.

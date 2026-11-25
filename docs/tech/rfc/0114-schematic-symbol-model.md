@@ -254,7 +254,8 @@ no data has arrived, for NaN, and, when it has an enumeration, for a value that 
 no entry after its match. Pluto then adds the unknown indicator. `within` 0.9 to 1.1
 reads 0.5 as 0, so a valve at 0.5 shows Closed with no indicator, as today. A state with
 no source, or with a `channel` source that has no `key`, draws its default entry, or
-fraction 0 for a number state, with no indicator. The binding holds the number format,
+fraction 0 for a number state, with no indicator. An `entry` paint whose entry has no
+color draws the node `color`, else the theme gray. The binding holds the number format,
 as each readout does today (`schemas/synnax/schematic.oracle:1224-1249` at
 `core/v0.62.0`).
 
@@ -436,7 +437,8 @@ follow the parts. A selector that is not a name resolves against the drawing, an
 match gets a `data-region-id`. A stored actuator, and a static symbol that a
 `custom_actuator` node uses, get `within` 0.9 to 1.1 on `active`, the `fixed` commands
 `deactivate` for value 0 and `activate` for value 1, named Off and On, and `next` on the
-whole drawing.
+whole drawing. A static symbol that no `custom_actuator` node uses keeps only its value
+0 looks, with no condition.
 
 ## 5 What this RFC does not cover
 
@@ -476,14 +478,15 @@ variant, and each merges on its own. Phase 5 gives each built-in spec its `activ
 state, its commands, its `entry` looks, and its `next` click, with no visible change.
 The pump and agitator specs draw their detail lines with the `contrast` paint, which
 phase 4 adds to the schema, the clients, the Core checks, and Pluto. The `switch` spec
-has no looks, because its wrapper keeps the colors that phase 2 draws. The `thruster`
+has looks that only a `symbol` node draws: the track fills while on, and a far knob
+takes the place of the near one. The old switch draws as phase 2 does. The `thruster`
 spec has no looks and no `next`, because today it draws as a static picture and takes no
 clicks. Phase 6 adds the node variant with the whole shape of §4.1 and its checks with
 the Core list of built-ins. Phase 7 removes the bindings and overrides that a symbol
 save orphans, and phase 8 adds the save confirm of §4.4, before the migration gives any
 node a binding that a save can remove. Phase 9 draws the node with its indicators and
-sends its commands. The `switch` keeps its own wrapper around the `symbol` drawing,
-which turns it only to stand upright and slides its knob, as phase 2 draws it. Phase 10
+sends its commands. A `switch` node draws its spec as any other `symbol` node does, so
+its knob does not slide. While on, the near knob hides and the far knob shows. Phase 10
 adds the form with the enumeration picker. Phase 11 adds the Core migration, the symbol
 import that keeps keys by §4.4, and "Change symbol". Phase 12 deletes the old variants
 from the schema, the clients, Pluto, and the Console.

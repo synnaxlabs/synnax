@@ -8,8 +8,11 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
+#include <map>
 #include <set>
 #include <tuple>
+#include <utility>
+#include <variant>
 #include <vector>
 
 #include "client/cpp/http/json.gen.h"
@@ -17,9 +20,12 @@
 #include "x/cpp/strings/strings.h"
 #include "x/cpp/uuid/uuid.h"
 
+#include "driver/errors/errors.h"
 #include "driver/http/device/device.h"
 #include "driver/http/errors/errors.h"
 #include "driver/http/write_task.h"
+#include "driver/icd/retrieve.h"
+#include "driver/icd/writer.h"
 
 namespace driver::http {
 namespace {
@@ -447,5 +453,66 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_write(
         },
         x::errors::NIL,
     };
+}
+
+std::pair<std::vector<driver::icd::Writer>, x::errors::Error> build_writers(
+    const synnax::Synnax &client,
+    const std::vector<::synnax::http::WriteEndpoint> &endpoints
+) {
+    std::set<synnax::icd::Key> icd_keys;
+    std::set<synnax::channel::Key> channel_keys;
+    for (const auto &ep: endpoints) {
+        if (ep.disabled) continue;
+        if (ep.icd.has_value()) icd_keys.insert(*ep.icd);
+        if (!ep.message.has_value()) continue;
+        for (const auto &b: ep.message->bindings)
+            if (const auto *cb = std::get_if<synnax::icd::ChannelWriteBinding>(&b))
+                channel_keys.insert(cb->channel);
+    }
+    const auto [resources, retrieve_err] = driver::icd::retrieve(
+        client,
+        icd_keys,
+        channel_keys
+    );
+    if (retrieve_err) return {std::vector<driver::icd::Writer>(), retrieve_err};
+    std::vector<driver::icd::Writer> writers;
+    writers.reserve(endpoints.size());
+    for (const auto &ep: endpoints) {
+        if (ep.disabled) continue;
+        const auto name = "endpoint " + ep.method + " " + ep.path;
+        if (!ep.icd.has_value() || !ep.message.has_value())
+            return {
+                std::vector<driver::icd::Writer>(),
+                x::errors::Error(
+                    driver::errors::CONFIGURATION_ERROR,
+                    name + " sends no message. Open the task and pick a message for it."
+                ),
+            };
+        const auto ic = std::ranges::find(
+            resources.icds,
+            *ep.icd,
+            &synnax::icd::ICD::key
+        );
+        if (ic == resources.icds.end())
+            return {
+                std::vector<driver::icd::Writer>(),
+                x::errors::Error(
+                    driver::errors::CONFIGURATION_ERROR,
+                    name + ": ICD " + ep.icd->to_string() + " does not exist"
+                ),
+            };
+        auto [writer, err] = driver::icd::Writer::create(
+            *ep.message,
+            *ic,
+            resources.channels
+        );
+        if (err)
+            return {
+                std::vector<driver::icd::Writer>(),
+                x::errors::Error(err, name + ": " + err.data)
+            };
+        writers.push_back(std::move(writer));
+    }
+    return {std::move(writers), x::errors::NIL};
 }
 }

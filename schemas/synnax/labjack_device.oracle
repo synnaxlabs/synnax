@@ -1,0 +1,214 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/channel"
+import "schemas/synnax/rack"
+import "schemas/synnax/status"
+
+@cpp output "client/cpp/labjack/device"
+@go output  "core/pkg/service/labjack/device"
+@py output  "client/py/synnax/labjack/device"
+@ts output  "client/ts/src/labjack/device"
+
+Key = uuid {
+    @doc value "uniquely identifies a LabJack device."
+}
+
+Model enum {
+    t4 = "t4" {
+        @doc value "is a T4."
+    }
+    t7 = "t7" {
+        @doc value "is a T7."
+    }
+    t8 = "t8" {
+        @doc value "is a T8."
+    }
+
+    @doc value "is the model of a LabJack device."
+}
+
+Connection enum {
+    usb      = "LJM_ctUSB" {
+        @doc value "is a USB connection."
+    }
+    ethernet = "LJM_ctETHERNET" {
+        @doc value "is an Ethernet connection."
+    }
+    wifi     = "LJM_ctWIFI" {
+        @doc value "is a Wi-Fi connection."
+    }
+
+    @doc value """
+        is the connection of a LabJack device, named by its LJM connection type.
+    """
+}
+
+StatusDetails struct {
+    rack   rack.Key {
+        @doc value "is the key of the rack the device belongs to."
+    }
+    device Key      {
+        @doc value "is the key of the device."
+    }
+
+    @doc value "identifies the device and rack that a status pertains to."
+}
+
+Status = status.Status<StatusDetails> {
+    @doc value "is the operational status of a device."
+}
+
+Ports union on model Model {
+    t4 {
+        @doc value "are the ports of a T4."
+    }
+    t7 {
+        mux80_attached bool = false {
+            @doc value """
+                is true when a Mux80 is attached, which adds the analog input ports
+                AIN48 to AIN127.
+            """
+        }
+
+        @doc value "are the ports of a T7."
+    }
+    t8 {
+        @doc value "are the ports of a T8."
+    }
+
+    @doc value  """
+        holds the configuration that depends on the model: the channel maps and the
+        accessories that add ports.
+    """
+    @go marshal
+}
+
+Device struct {
+    key               Key = create {
+        @doc value "uniquely identifies the device."
+        @key
+    }
+    rack              rack.Key    {
+        @doc value     "is the key of the rack the device is connected to."
+        @ref kind      place
+        @ref on_delete restrict
+    }
+    name              string      {
+        @doc value         "is a human-readable name for the device."
+        @filter
+        @search
+        @validate required
+    }
+    serial            uint32      {
+        @doc value         "is the serial number of the device."
+        @filter
+        @index lookup
+        @validate required
+    }
+    connection        Connection  {
+        @doc value "is the connection the scanner last found the device on."
+    }
+    identifier        string = "" {
+        @doc value   """
+            is the prefix of the device's channel names. The device is unconfigured
+            while it is empty.
+        """
+        @go validate pattern "^$|^[A-Za-z][A-Za-z0-9_]{1,11}$" "Identifier must be 2 to 12 characters, start with a letter, and contain only letters, digits, and underscores"
+    }
+    read_index        channel.Key = 0 {
+        @doc value "is the index channel of the channels that the device reads into."
+    }
+    write_state_index channel.Key = 0 {
+        @doc value "is the index channel of the state channels of the device's outputs."
+    }
+    status            Status?     {
+        @doc value  "is the current operational status of the device."
+        @go marshal omit
+    }
+    model             Model       {
+        @doc value         """
+            is the model of the device. It selects the ports the device has.
+        """
+        @filter
+        @validate required
+    }
+    ports             Ports       {
+        @doc value "holds the channel maps and the accessories of the device's model."
+    }
+
+    @create
+    @doc value     "is a LabJack T-series device."
+    @go marshal
+    @go migrate
+    @resource type "labjack_device"
+    @retrieve
+}
+
+Identity struct {
+    rack       rack.Key   {
+        @doc value         "is the key of the rack the device is connected to."
+        @validate required
+    }
+    serial     uint32     {
+        @doc value         "is the serial number of the device."
+        @validate required
+    }
+    connection Connection {
+        @doc value "is the connection the scanner last found the device on."
+    }
+    model      Model      {
+        @doc value         "is the model of the device. An update cannot change it."
+        @validate required
+    }
+
+    @doc value "holds the device fields that the scanner owns."
+}
+
+Configuration struct {
+    name              string      {
+        @doc value         "is a human-readable name for the device."
+        @validate required
+    }
+    identifier        string = "" {
+        @doc value   """
+            is the prefix of the device's channel names. The device is unconfigured
+            while it is empty.
+        """
+        @go validate pattern "^$|^[A-Za-z][A-Za-z0-9_]{1,11}$" "Identifier must be 2 to 12 characters, start with a letter, and contain only letters, digits, and underscores"
+    }
+    read_index        channel.Key = 0 {
+        @doc value "is the index channel of the channels that the device reads into."
+    }
+    write_state_index channel.Key = 0 {
+        @doc value "is the index channel of the state channels of the device's outputs."
+    }
+    ports             Ports       {
+        @doc value """
+            holds the configuration that depends on the model. Its model must be the
+            model of the stored device.
+        """
+    }
+
+    @doc value "holds the device fields that the user owns."
+}
+
+Update union on group {
+    identity      Identity {
+        @doc value "writes the fields that the scanner owns."
+    }
+    configuration Configuration {
+        @doc value """
+            replaces the fields that the user owns. A client sends the whole group,
+            because a field it leaves out is cleared.
+        """
+    }
+
+    @doc value "is a write to one field group of a device."
+}
