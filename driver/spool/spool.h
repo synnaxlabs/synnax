@@ -269,7 +269,8 @@ public:
     x::errors::Error remove(std::uint64_t key);
 
     /// @brief renames a closed segment to `<key>.seg.bad` and its read offset to
-    /// `<key>.offset.bad`, so the spool no longer lists it, and adds it to
+    /// `<key>.offset.bad`, or to `.bad.<n>` when that name is taken, so the spool no
+    /// longer lists it, and adds it to
     /// bad_segments(). The spool never deletes these files. Call it when open_reader
     /// or a reader of the segment returns an error that is_bad accepts. On Windows,
     /// the readers of the segment must first be destroyed.

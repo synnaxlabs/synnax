@@ -1063,6 +1063,44 @@ TEST_F(SpoolTest, RemovesTempFiles) {
     ASSERT_EQ(spool->segments(), std::vector<std::uint64_t>{0});
 }
 
+/// @brief it should set aside a segment and its read offset to the next free names
+/// when a crash left files at their set-aside names, and keep those files.
+TEST_F(SpoolTest, SetsAsideToNextFreeName) {
+    std::filesystem::create_directories(this->dir);
+    append_record(this->dir / "0.seg", {.type = 2, .payload = ""});
+    ASSERT_NIL(
+        journal::commit_offset(this->dir / "0.offset", OFFSET_MAGIC, {.segment = 0})
+    );
+    append_file(this->dir / "0.seg.bad", "");
+    append_file(this->dir / "0.offset.bad", "");
+    {
+        const auto spool = this->open_spool();
+        ASSERT_TRUE(spool->segments().empty());
+        const auto bad = spool->bad_segments();
+        ASSERT_EQ(bad.size(), 1);
+        EXPECT_EQ(bad[0].path, this->dir / "0.seg.bad.1");
+    }
+    for (const auto *name:
+         {"0.seg.bad", "0.seg.bad.1", "0.offset.bad", "0.offset.bad.1"})
+        EXPECT_TRUE(std::filesystem::exists(this->dir / name)) << name;
+    EXPECT_FALSE(std::filesystem::exists(this->dir / "0.seg"));
+    EXPECT_FALSE(std::filesystem::exists(this->dir / "0.offset"));
+    const auto spool = this->open_spool();
+    EXPECT_TRUE(spool->bad_segments().empty());
+    this->write_frames(*spool, header_of(1), 1);
+    ASSERT_EQ(spool->segments(), std::vector<std::uint64_t>{1});
+}
+
+/// @brief it should keep the key of a segment that only a numbered set-aside file
+/// holds.
+TEST_F(SpoolTest, KeepsKeyOfNumberedSetAsideSegment) {
+    std::filesystem::create_directories(this->dir);
+    append_file(this->dir / "4.seg.bad.2", "");
+    const auto spool = this->open_spool();
+    this->write_frames(*spool, header_of(1), 1);
+    ASSERT_EQ(spool->segments(), std::vector<std::uint64_t>{5});
+}
+
 /// @brief it should set aside a segment with an unknown format version.
 TEST_F(SpoolTest, SetsAsideUnknownVersion) {
     set_version(this->write_segment(), journal::VERSION + 1);

@@ -60,6 +60,21 @@ std::optional<std::uint64_t> parse_key(const std::string &name) {
     return key;
 }
 
+/// @brief renames path to `<path>.bad`, or to `<path>.bad.<n>` with the lowest n that
+/// is free, so a file that an earlier set-aside left never blocks this one.
+/// @returns the new path.
+std::pair<std::filesystem::path, x::errors::Error>
+rename_aside(const std::filesystem::path &path) {
+    for (std::uint64_t n = 0;; n++) {
+        auto to = path;
+        to += BAD_EXT;
+        if (n > 0) to += "." + std::to_string(n);
+        const auto err = journal::rename_new(path, to);
+        if (!err) return {std::move(to), x::errors::NIL};
+        if (!err.matches(journal::EXISTS)) return {{}, err};
+    }
+}
+
 std::string bytes_of(const x::uuid::UUID &id) {
     return {reinterpret_cast<const char *>(id.data()), x::uuid::UUID::size()};
 }
@@ -466,8 +481,9 @@ std::pair<std::unique_ptr<Spool>, x::errors::Error> Spool::open(Config cfg) {
     std::vector<std::uint64_t> keys;
     for (const auto &path: paths) {
         // Keys of set-aside segments stay taken, so a new segment never collides.
-        if (path.extension() == BAD_EXT && path.stem().extension() == SEGMENT_EXT) {
-            if (const auto key = parse_key(path.stem().stem().string()))
+        const auto name = path.filename().string();
+        if (const auto i = name.find(SEGMENT_EXT + BAD_EXT); i != std::string::npos) {
+            if (const auto key = parse_key(name.substr(0, i)))
                 spool->next_key = std::max(spool->next_key, *key + 1);
             continue;
         }
@@ -554,20 +570,16 @@ x::errors::Error Spool::set_aside_files(
     const std::filesystem::path &segment,
     const x::errors::Error &cause
 ) {
-    auto bad_path = segment;
-    bad_path += BAD_EXT;
-    if (const auto err = journal::rename_new(segment, bad_path)) return err;
+    auto [bad_path, err] = rename_aside(segment);
+    if (err) return err;
     auto offset = segment;
     offset.replace_extension(OFFSET_EXT);
     std::error_code ec;
     const auto found = std::filesystem::exists(offset, ec);
     if (ec) return fs_error("failed to stat read offset", ec);
-    if (found) {
-        auto bad_offset = offset;
-        bad_offset += BAD_EXT;
-        if (const auto err = journal::rename_new(offset, bad_offset)) return err;
-    }
-    if (const auto err = journal::sync_dir(this->cfg.dir)) return err;
+    if (found)
+        if (const auto o_err = rename_aside(offset).second) return o_err;
+    if (const auto s_err = journal::sync_dir(this->cfg.dir)) return s_err;
     std::lock_guard lock(this->mu);
     this->bad.push_back({.path = std::move(bad_path), .cause = cause});
     return x::errors::NIL;
