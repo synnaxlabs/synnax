@@ -10,7 +10,7 @@
 import type { schematic } from "@synnaxlabs/client";
 import { computed, resolve } from "@synnaxlabs/lyra/styletest";
 import { Theming } from "@synnaxlabs/lyra/theming";
-import { color, type dimensions, location, type xy } from "@synnaxlabs/x";
+import { color, type dimensions, location, TimeSpan, type xy } from "@synnaxlabs/x";
 import type { FC, ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { userEvent } from "vitest/browser";
@@ -499,6 +499,43 @@ describe("Custom.Drawing part clicks", () => {
       expect(computed(rect, "fill") !== "none").toBe(filled);
     },
   );
+
+  it("should darken an open part more when its press is delayed", async () => {
+    const spec = {
+      ...createSpec(
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">' +
+          '<polyline class="main" points="0,0 10,0 10,10" fill="none" /></svg>',
+      ),
+      parts: [{ key: "main", name: "Main", selectors: [".main"] }],
+    };
+    // Specs run with transitions off, so a held part shows the end of its hold at once.
+    const pressedStroke = async (delay?: TimeSpan): Promise<string> => {
+      const { container, unmount } = await render(
+        <Theming.Provider theme={Theming.SYNNAX_DARK}>
+          <div className={CSS.BE("symbol", "container")}>
+            <Primitive.Div>
+              <Custom.Drawing
+                spec={spec}
+                partClicks={{ main: vi.fn() }}
+                onClickDelay={delay}
+              />
+            </Primitive.Div>
+          </div>
+        </Theming.Provider>,
+      );
+      const line = container.querySelector(".main");
+      if (line == null) throw new Error("drawing not mounted");
+      line.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, button: 0 }));
+      await expect
+        .poll(() => line.classList.contains(CSS.BEM("symbol", "part", "pressed")))
+        .toBe(true);
+      const stroke = computed(line, "stroke");
+      line.dispatchEvent(new MouseEvent("mouseup", { bubbles: true, button: 0 }));
+      await unmount();
+      return stroke;
+    };
+    expect(await pressedStroke(TimeSpan.seconds(10))).not.toBe(await pressedStroke());
+  });
 });
 
 describe("Custom.Drawing hold fill", () => {

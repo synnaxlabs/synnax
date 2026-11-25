@@ -169,7 +169,7 @@
 }
 
 /* A part with a click tints like a toggle, also inside a closed shape with no fill. A
-   held part fills over the hold delay. */
+   held part darkens over the hold delay: its stroke, and the fill of a closed shape. */
 .pluto-symbol__container:not(.lyra--editable) {
     /* stylelint-disable declaration-no-important -- part tints win over the paints of
        the looks */
@@ -189,11 +189,15 @@
         }
     }
 
-    &
-        .pluto-symbol-parts--delayed
-        .pluto-symbol__part--pressed:not(.pluto-symbol__part--open) {
-        fill: oklch(from var(--pluto-symbol-display) l c h / 40%) !important;
-        transition: fill var(--pluto-toggle-delay) linear;
+    & .pluto-symbol-parts--delayed .pluto-symbol__part--pressed {
+        stroke: oklch(from var(--pluto-symbol-display) l c h / 100%) !important;
+        transition:
+            stroke var(--pluto-toggle-delay) linear,
+            fill var(--pluto-toggle-delay) linear;
+
+        &:not(.pluto-symbol__part--open) {
+            fill: oklch(from var(--pluto-symbol-display) l c h / 40%) !important;
+        }
     }
     /* stylelint-enable declaration-no-important */
 }
