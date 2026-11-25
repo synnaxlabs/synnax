@@ -253,7 +253,7 @@ Server struct {
     base_path               string = "" {
         @doc value "is the path that prefixes the path of every request."
     }
-    timeout                 telem.TimeSpan = 1000000000 {
+    timeout                 telem.TimeSpan = 1s {
         @doc value "is the timeout of each request."
     }
     max_concurrent_requests uint32 = 6 {

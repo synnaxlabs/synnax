@@ -150,7 +150,7 @@ class NumberResponse(BaseResponse):
     """Expects a number."""
 
     expected_value_type: Literal["number"] = "number"
-    expected_value: float
+    expected_value: float = Field(allow_inf_nan=False)
 
 
 class BooleanResponse(BaseResponse):
@@ -254,7 +254,7 @@ class Server(BaseModel):
     port: int | None = Field(default=None, ge=1, le=65535)
     base_path: str = ""
     timeout: telem.TimeSpan = Field(
-        default=telem.TimeSpan(1000000000), ge=10000000, le=9007199254740991
+        default=telem.TimeSpan(1000000000), ge=10000000, le=3600000000000
     )
     max_concurrent_requests: int = Field(default=6, ge=1, le=64)
     auth: Auth = Field(default_factory=lambda: NoneAuth(type="none"))

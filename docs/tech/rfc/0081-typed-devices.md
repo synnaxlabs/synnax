@@ -398,7 +398,7 @@ Release 0.59 shipped the single table. One ordered startup migration cuts over:
    - `secure: false` becomes `http`; otherwise `https` with
      `certificate_validation_disabled = !verifySsl`, a missing `verifySsl` being `true`.
    - `location` parses into `host`, `port`, and `base_path`, or the row is quarantined.
-   - `timeoutMs` rises to at least 10 ms; concurrency caps at 64.
+   - `timeoutMs` clamps to between 10 ms and 1 h; concurrency caps at 64.
    - Task read fields and write endpoints become bindings, falling back to the map; a
      read with index 0 takes its channel's index, or is dropped with a warning.
 

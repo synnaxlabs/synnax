@@ -30,7 +30,7 @@ import (
 	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
 
-var validatePattern0 = regexp.MustCompile("^[^:]*$")
+var validatePattern0 = regexp.MustCompile("^[^:[:cntrl:]]*$")
 
 var validatePattern1 = regexp.MustCompile("^(/([^~/]|~[01])*)*$")
 
@@ -242,7 +242,7 @@ func (BasicAuth) isAuthVariant() {}
 func (b BasicAuth) Validate() error {
 	v := validate.New("BasicAuth")
 	v.NotEmptyString("username", b.Username)
-	v.Ternary("username", !validatePattern0.MatchString(string(b.Username)), "User name must not contain a colon")
+	v.Ternary("username", !validatePattern0.MatchString(string(b.Username)), "User name must not contain a colon or a control character")
 	v.NonZero("password", b.Password)
 	return v.Error()
 }
@@ -470,6 +470,7 @@ func (NumberResponse) isResponseVariant() {}
 // schema constraints.
 func (n NumberResponse) Validate() error {
 	v := validate.New("NumberResponse")
+	v.Finite("expected_value", n.ExpectedValue)
 	v.Exec(n.BaseResponse.Validate)
 	return v.Error()
 }
@@ -988,7 +989,7 @@ func (s Server) Validate() error {
 	}
 	v.Ternary("base_path", !validatePattern4.MatchString(string(s.BasePath)), "Base path must be empty or start with /, with no query, fragment, or whitespace")
 	v.GreaterThanEq("timeout", s.Timeout, 10000000)
-	v.LessThanEq("timeout", s.Timeout, 9007199254740991)
+	v.LessThanEq("timeout", s.Timeout, 3600000000000)
 	v.GreaterThanEq("max_concurrent_requests", s.MaxConcurrentRequests, 1)
 	v.LessThanEq("max_concurrent_requests", s.MaxConcurrentRequests, 64)
 	v.Exec(func() error { return validate.PathedError(s.Scheme.Validate(), "scheme") })
