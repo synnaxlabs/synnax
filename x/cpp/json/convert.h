@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <cstdint>
 #include <map>
 #include <string>
 #include <utility>
@@ -70,5 +71,11 @@ std::pair<telem::SampleValue, errors::Error> to_sample_value(
 
 /// @brief JSON value type.
 enum class Type { Number, String, Boolean };
+
+/// @brief splits ts into a whole count of the units of format, a Unix format, and the
+/// nanoseconds left over, both with the sign of ts. UnixMillisecond and UnixMicrosecond
+/// round the count toward negative infinity and leave nothing over.
+std::pair<std::int64_t, std::int64_t>
+split_unix(telem::TimeStamp ts, TimeFormat format);
 
 }

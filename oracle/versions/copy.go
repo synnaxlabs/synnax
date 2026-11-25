@@ -51,6 +51,9 @@ func copyForm(form resolution.TypeForm, rw func(string) string) resolution.TypeF
 		f.Values = slices.Clone(f.Values)
 		f.Declared = slices.Clone(f.Declared)
 		f.Extends = copyRefs(f.Extends, rw)
+		if f.Narrows() {
+			f.Superset = copyRef(f.Superset, rw)
+		}
 		return f
 	case resolution.UnionForm:
 		f.Variants = copyVariants(f.Variants, rw)
