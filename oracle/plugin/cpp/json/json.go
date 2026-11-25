@@ -701,6 +701,9 @@ func (f fieldParser) vector(elemType string) string {
 		return f.plain(fmt.Sprintf("std::optional<std::vector<%s>>", elemType))
 	}
 	vec := fmt.Sprintf("std::vector<%s>", elemType)
+	if validation.NonEmpty(f.field) {
+		return fmt.Sprintf(`parser.required_field<%s>("%s")`, vec, f.jsonName)
+	}
 	return f.withFallback(vec, vec+"{}")
 }
 
@@ -740,15 +743,39 @@ func (f fieldParser) array(elemType resolution.TypeRef) string {
 		_, parseFn := f.unionNames(union)
 		return fmt.Sprintf(
 			`[&] {
-        std::vector<%s> result;
+        std::vector<%s> result;%s
         if (parser.has("%s"))
-            parser.iter("%s", [&result](x::json::Parser& p) { result.push_back(%s(p)); });
+            parser.iter("%s", [&result](x::json::Parser& p) { result.push_back(%s(p)); });%s
         return result;
     }()`,
-			innerType, f.jsonName, f.jsonName, parseFn,
+			innerType, f.nonEmptyBefore(), f.jsonName, f.jsonName, parseFn,
+			f.nonEmptyCheck(),
 		)
 	}
 	return f.vector(innerType)
+}
+
+// nonEmptyBefore returns the statement that counts the parser's errors before a
+// required list parses, or "" for any other field.
+func (f fieldParser) nonEmptyBefore() string {
+	if !validation.NonEmpty(f.field) {
+		return ""
+	}
+	return `
+        const auto before = parser.errors == nullptr ? 0 : parser.errors->size();`
+}
+
+// nonEmptyCheck returns the statement that reports an empty result for a required
+// list, or "" for any other field. A value that is not an array has an error already.
+func (f fieldParser) nonEmptyCheck() string {
+	if !validation.NonEmpty(f.field) {
+		return ""
+	}
+	return fmt.Sprintf(`
+        if (result.empty() && (parser.errors == nullptr || parser.errors->size() == before))
+            parser.field_err("%s", "This field is required");`,
+		f.jsonName,
+	)
 }
 
 // named parses a field whose type resolves to an enum, struct, union, or struct alias.

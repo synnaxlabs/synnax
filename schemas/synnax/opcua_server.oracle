@@ -12,6 +12,7 @@ import "schemas/synnax/channel"
 import "schemas/synnax/rack"
 import "schemas/synnax/secret"
 import "schemas/synnax/status"
+import "schemas/x/filter"
 import "schemas/x/telem"
 
 @cpp output "client/cpp/opcua/server"
@@ -259,4 +260,13 @@ Server struct {
     @go migrate
     @resource type "opcua_server"
     @retrieve
+}
+
+Where filter Server {
+    key
+    name
+    rack
+
+    @doc value         "is a filter that selects OPC UA servers."
+    @go request_output "core/pkg/api/opcua/server"
 }

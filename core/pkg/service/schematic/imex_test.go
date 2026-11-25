@@ -123,11 +123,9 @@ var _ = Describe("ImEx", func() {
 			)
 			sel, ok := res.Nodes[0].Config.Variant.(schematic.SelectNodeConfig)
 			Expect(ok).To(BeTrue())
-			Expect(sel.Options).To(BeEmpty())
 			Expect(sel.Enumeration).ToNot(BeNil())
 			lamp, ok := res.Nodes[1].Config.Variant.(schematic.StateIndicatorNodeConfig)
 			Expect(ok).To(BeTrue())
-			Expect(lamp.Options).To(BeEmpty())
 			Expect(lamp.Enumeration).To(Equal(sel.Enumeration))
 			var states enumeration.Enumeration
 			Expect(enumSvc.NewRetrieve().

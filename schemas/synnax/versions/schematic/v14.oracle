@@ -87,8 +87,6 @@ ScaleIndicatorConfig struct extends v13.ScaleIndicatorConfig {
     }
 }
 
-StateMapping = v13.StateMapping
-
 PageType = v9.PageType
 
 Page = v9.Page
@@ -289,18 +287,15 @@ NodeConfig union on variant extends v13.NodeConfig {
         }
     }
     select {
+        -options
         fill_color  color.Ref?       {
             @doc value """
                 is the fill color of the Set button, which the select border follows, a
                 named color or a fixed color.
             """
         }
-        options
         enumeration enumeration.Key? {
-            @doc value """
-                is the enumeration whose entries the select offers in place of its
-                options.
-            """
+            @doc value "is the enumeration whose entries the select offers."
         }
     }
     setpoint {
@@ -312,17 +307,14 @@ NodeConfig union on variant extends v13.NodeConfig {
         }
     }
     state_indicator {
+        -options
         stroke_color color.Ref?       {
             @doc value """
                 is the border color of the indicator, a named color or a fixed color.
             """
         }
-        options
         enumeration  enumeration.Key? {
-            @doc value """
-                is the enumeration whose entries the indicator shows in place of its
-                options.
-            """
+            @doc value "is the enumeration whose entries the indicator shows."
         }
     }
     string_display {
