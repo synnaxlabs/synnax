@@ -476,7 +476,8 @@ variant, and each merges on its own. Phase 5 gives each built-in spec its `activ
 state, its commands, its `entry` looks, and its `next` click, with no visible change.
 The pump and agitator specs draw their detail lines with the `contrast` paint, which
 phase 4 adds to the schema, the clients, the Core checks, and Pluto. The `switch` spec
-has no looks, because its wrapper keeps the colors that phase 2 draws. The `thruster`
+has looks that only a `symbol` node draws: the track fills while on, and a far knob
+takes the place of the near one. The old switch draws as phase 2 does. The `thruster`
 spec has no looks and no `next`, because today it draws as a static picture and takes no
 clicks. Phase 6 adds the node variant with the whole shape of §4.1 and its checks with
 the Core list of built-ins. Phase 7 removes the bindings and overrides that a symbol
