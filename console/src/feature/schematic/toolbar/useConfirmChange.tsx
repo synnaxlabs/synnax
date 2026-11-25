@@ -23,21 +23,21 @@ interface LosingNode {
   config: schematic.SymbolNodeConfig;
 }
 
+/** The states and commands that a symbol takes bindings for. */
+type Bindable = Pick<schematic.symbol.Spec, "states" | "commands">;
+
 interface ConfirmChangeParams {
   /** The symbol nodes that lose bindings in the change. */
   nodes: LosingNode[];
   /** The spec of the new symbol. */
-  spec: schematic.symbol.Spec;
+  spec: Bindable;
 }
 
-const NO_SPEC: Pick<schematic.symbol.Spec, "states" | "commands"> = {
-  states: [],
-  commands: [],
-};
+const NO_SPEC: Bindable = { states: [], commands: [] };
 
 interface LossProps {
   config: schematic.SymbolNodeConfig;
-  spec: schematic.symbol.Spec;
+  spec: Bindable;
 }
 
 /** What a node loses in the change, with the names that its old symbol gives. */
@@ -85,7 +85,7 @@ const ConfirmChange = ({
 
 const useConfirm = Modals.createPrompt<boolean, ConfirmChangeParams>(ConfirmChange);
 
-const orphaned = (config: schematic.SymbolNodeConfig, spec: schematic.symbol.Spec) => {
+const orphaned = (config: schematic.SymbolNodeConfig, spec: Bindable) => {
   const { states, overrides, commands } = schematic.orphans(
     config,
     spec.states,
@@ -96,15 +96,15 @@ const orphaned = (config: schematic.SymbolNodeConfig, spec: schematic.symbol.Spe
 
 /**
  * @returns a callback that resolves true when a change of configs to the symbol with
- * spec may go ahead. It asks first when the change removes a binding from a node.
+ * spec may go ahead. It asks first when the change removes a binding from a node. With
+ * no spec, the new item takes no bindings, so a change to it removes each one.
  */
 export const useConfirmChange = () => {
   const confirm = useConfirm();
   return async (
     configs: Map<string, Schematic.Node.Config>,
-    spec?: schematic.symbol.Spec,
+    spec: Bindable = NO_SPEC,
   ): Promise<boolean> => {
-    if (spec == null) return true;
     const nodes = [...configs].flatMap(([key, config]) =>
       config.variant === "symbol" && orphaned(config, spec) ? [{ key, config }] : [],
     );

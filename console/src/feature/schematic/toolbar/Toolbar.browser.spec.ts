@@ -40,6 +40,18 @@ describe("Toolbar symbol change", () => {
     );
   });
 
+  it("should ask before a change to an item that takes no bindings", async () => {
+    const { key } = await renderSelected({
+      n1: createValveNode({ states: [ACTIVE_BINDING] }),
+    });
+    await pickSymbol("Value");
+    await screen.findByText(LOSS);
+    fireEvent.click(findLastButton("Change"));
+    await waitFor(async () =>
+      expect((await retrieveConfigs(key)).n1.variant).toBe("value"),
+    );
+  });
+
   it("should keep the symbol and bindings when the confirm is canceled", async () => {
     const { key } = await renderSelected({
       n1: createValveNode({ states: [ACTIVE_BINDING] }),
