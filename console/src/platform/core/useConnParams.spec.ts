@@ -57,7 +57,7 @@ describe("Core.useConnParams", () => {
 
   it("should not ask for a cookie from a Core on another origin", async () => {
     pinLocationOrigin("http://localhost:5173");
-    const { result } = await renderParams();
+    const { result } = await renderParams({ ...CORE, password: "typed" });
     expect(result.current?.sessionCookie).toBe(false);
     expect(result.current?.sessionPersistent).toBe(false);
   });
@@ -70,12 +70,12 @@ describe("Core.useConnParams", () => {
 
   it("should not ask for a cookie when the page and the Core differ in scheme", async () => {
     pinLocationOrigin("https://example.com:9095");
-    const { result } = await renderParams();
+    const { result } = await renderParams({ ...CORE, password: "typed" });
     expect(result.current?.sessionCookie).toBe(false);
   });
 
   it("should keep the Core's name and cluster out of the connection", async () => {
-    const { result } = await renderParams();
+    const { result } = await renderParams({ ...CORE, password: "typed" });
     expect(result.current).not.toHaveProperty("name");
     expect(result.current).not.toHaveProperty("clusterKey");
     expect(result.current).not.toHaveProperty("key");
@@ -96,6 +96,12 @@ describe("Core.useConnParams", () => {
   it("should leave out an empty username once the code is spent", async () => {
     const { result } = await renderParams({ ...CORE, username: "" });
     expect(result.current?.username).toBeUndefined();
+  });
+
+  it("should give no parameters for a Core on another origin with no login", async () => {
+    pinLocationOrigin("http://localhost:5173");
+    const { result } = await renderParams();
+    expect(result.current).toBeUndefined();
   });
 
   it("should log in with a password the user entered", async () => {
