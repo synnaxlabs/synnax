@@ -7,8 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { schematic } from "@synnaxlabs/client";
-import { createTestClient, SyntheticCore } from "@synnaxlabs/client/testutil";
+import { schematic, type Synnax } from "@synnaxlabs/client";
+import {
+  createTestClient,
+  createTestClientWithPolicy,
+  SyntheticCore,
+} from "@synnaxlabs/client/testutil";
 import { Rate, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, render } from "@testing-library/react";
 import { ReactFlowProvider } from "@xyflow/react";
@@ -61,7 +65,7 @@ const createCustomSymbol = async (
   markup: string,
   data: Partial<z.input<typeof schematic.symbol.specZ>> = {},
   core?: SyntheticCore,
-): Promise<{ key: string; Wrapper: FC<PropsWithChildren> }> => {
+): Promise<{ key: string; client: Synnax; Wrapper: FC<PropsWithChildren> }> => {
   const client = createTestClient();
   const { key } = await client.schematics.symbols.create({
     name: "Custom",
@@ -72,7 +76,7 @@ const createCustomSymbol = async (
     additionalRegistry: symbolNode.REGISTRY,
     telemFactories: core == null ? undefined : [telemTest.createRemoteFactory(core)],
   });
-  return { key, Wrapper };
+  return { key, client, Wrapper };
 };
 
 describe("Symbol node", () => {
@@ -239,6 +243,20 @@ describe("Symbol node", () => {
     const { key, Wrapper } = await createCustomSymbol("<svg><rect></svg>");
     const { findByText } = renderNode({ spec: { type: "custom", key } }, Wrapper);
     await findByText("Invalid symbol");
+  });
+
+  it("should warn when a custom symbol fails to load", async () => {
+    const { key, client } = await createCustomSymbol(
+      '<svg xmlns="http://www.w3.org/2000/svg"><rect class="body" /></svg>',
+    );
+    // A user with no policies cannot read the symbol, so its load fails.
+    const denied = await createTestClientWithPolicy(client, []);
+    const Wrapper = await createAsyncSynnaxWrapper({
+      client: denied,
+      additionalRegistry: symbolNode.REGISTRY,
+    });
+    const { findByText } = renderNode({ spec: { type: "custom", key } }, Wrapper);
+    await findByText("Failed to load symbol");
   });
 
   it("should draw its preview at the defaults of its states", async () => {
