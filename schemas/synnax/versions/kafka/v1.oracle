@@ -121,6 +121,7 @@ ReadConfig struct extends task.PersistConfig {
         configures a Kafka read task, which consumes topics and writes the fields of ICD
         messages into channels.
     """
+    @go entry   "kafka_read_config"
     @go imex    body
     @go marshal
     @go migrate

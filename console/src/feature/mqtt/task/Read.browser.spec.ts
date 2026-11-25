@@ -83,6 +83,7 @@ interface EntryParams {
   bound?: Record<string, number>;
   /** The key of the ICD that holds the message. Random by default. */
   icdKey?: icd.Key;
+  match?: icd.JSONMatch;
 }
 
 interface RenderParams extends Partial<Omit<EntryParams, "topic">> {
@@ -105,11 +106,12 @@ const createEntry = async ({
   index,
   bound = Object.fromEntries(fields.map(({ key }) => [key, 0])),
   icdKey,
+  match,
 }: EntryParams): Promise<MQTT.Task.PlainReadEntry> => {
   const message: icd.Message = {
     key: uuid.create(),
     name: topic,
-    payload: { format: "json", fields },
+    payload: { format: "json", match, fields },
   };
   const format = await client.icds.create({
     key: icdKey,
@@ -220,7 +222,12 @@ const addField = async (rackKey: rack.Key, topic: string, name: string) => {
   const scanned = {
     topic,
     payload: `{"${name}": 1}`,
-    fields: [{ pointer: `/${name}`, type: "number", sample: "1" }],
+    shapes: [
+      {
+        fields: [{ pointer: `/${name}`, type: "number", kind: "float", sample: "1" }],
+        count: 1,
+      },
+    ],
     retained: true,
   };
   await scanner.answer({ data: { topics: [scanned], truncated: false } });
@@ -300,25 +307,30 @@ const TIMED_TOPIC = {
   payload:
     '{"time": 1763900000000000000, "count": 3, "temperature": 21.5, ' +
     '"updated": "2026-11-23T10:00:00Z"}',
-  fields: [
+  shapes: [
     {
-      pointer: "/time",
-      type: "number",
-      sample: "1763900000000000000",
-      kind: "timestamp",
-      timeFormat: "unix_ns",
-    },
-    { pointer: "/count", type: "number", sample: "3", kind: "integer" },
-    { pointer: "/temperature", type: "number", sample: "21.5", kind: "float" },
-    {
-      pointer: "/updated",
-      type: "string",
-      sample: '"2026-11-23T10:00:00Z"',
-      kind: "timestamp",
-      timeFormat: "iso8601",
+      fields: [
+        {
+          pointer: "/time",
+          type: "number",
+          sample: "1763900000000000000",
+          kind: "timestamp",
+          timeFormat: "unix_ns",
+        },
+        { pointer: "/count", type: "number", sample: "3", kind: "integer" },
+        { pointer: "/temperature", type: "number", sample: "21.5", kind: "float" },
+        {
+          pointer: "/updated",
+          type: "string",
+          sample: '"2026-11-23T10:00:00Z"',
+          kind: "timestamp",
+          timeFormat: "iso8601",
+        },
+      ],
+      index: "/time",
+      count: 1,
     },
   ],
-  index: "/time",
   retained: true,
 };
 
@@ -327,6 +339,41 @@ const openTimedTopic = async (rackKey: rack.Key) => {
   const scanner = await openScanner(client, rackKey);
   const dialog = await openAddData();
   await scanner.answer({ data: { topics: [TIMED_TOPIC], truncated: false } });
+  scanner.close();
+  return dialog;
+};
+
+/** @returns a shape with the time of TIMED_TOPIC and a number that only it holds. */
+const createShape = (pointer: string, kind: string, count: number) => ({
+  fields: [
+    TIMED_TOPIC.shapes[0].fields[0],
+    { pointer, type: "number", sample: "1", kind },
+  ],
+  index: "/time",
+  present: pointer,
+  count,
+});
+
+/** Opens Add data on a topic of 44 messages with /temperature and 11 with /fault. */
+const openShapedTopic = async (rackKey: rack.Key) => {
+  const scanner = await openScanner(client, rackKey);
+  const dialog = await openAddData();
+  await scanner.answer({
+    data: {
+      topics: [
+        {
+          topic: TOPIC,
+          payload: '{"time": 1763900000000000000, "fault": 1}',
+          shapes: [
+            createShape("/temperature", "float", 44),
+            createShape("/fault", "integer", 11),
+          ],
+          retained: true,
+        },
+      ],
+      truncated: false,
+    },
+  });
   scanner.close();
   return dialog;
 };
@@ -356,9 +403,19 @@ describe("MQTT read form", () => {
       {
         topic: TOPIC,
         payload: '{"temperature": 21.5, "label": "ok"}',
-        fields: [
-          { pointer: "/temperature", type: "number", sample: "21.5" },
-          { pointer: "/label", type: "string", sample: '"ok"' },
+        shapes: [
+          {
+            fields: [
+              {
+                pointer: "/temperature",
+                type: "number",
+                kind: "float",
+                sample: "21.5",
+              },
+              { pointer: "/label", type: "string", kind: "string", sample: '"ok"' },
+            ],
+            count: 1,
+          },
         ],
         retained: true,
       },
@@ -421,9 +478,19 @@ describe("MQTT read form", () => {
           {
             topic: TOPIC,
             payload: '{"temperature": 21.5, "label": "ok"}',
-            fields: [
-              { pointer: "/temperature", type: "number", sample: "21.5" },
-              { pointer: "/label", type: "string", sample: '"ok"' },
+            shapes: [
+              {
+                fields: [
+                  {
+                    pointer: "/temperature",
+                    type: "number",
+                    kind: "float",
+                    sample: "21.5",
+                  },
+                  { pointer: "/label", type: "string", kind: "string", sample: '"ok"' },
+                ],
+                count: 1,
+              },
             ],
             retained: true,
           },
@@ -555,7 +622,9 @@ describe("MQTT read form", () => {
           {
             ...TIMED_TOPIC,
             payload: '{"time": 1763900000000000000}',
-            fields: [TIMED_TOPIC.fields[0]],
+            shapes: [
+              { ...TIMED_TOPIC.shapes[0], fields: [TIMED_TOPIC.shapes[0].fields[0]] },
+            ],
           },
         ],
         truncated: false,
@@ -572,6 +641,299 @@ describe("MQTT read form", () => {
         { pointer: "/time", type: "timestamp", timeFormat: "unix_ns" },
       ]);
       expect(entry.messages[0].index).toBe(fields[0].key);
+    });
+  });
+
+  it("should add a message for each shape of a new topic, named after the field that matches its documents", async () => {
+    const { dev, draft } = await renderRead();
+    const dialog = await openShapedTopic(dev.rack);
+    await dialog.findByText("44 messages with /temperature");
+    expect(dialog.getByText("11 messages with /fault")).toBeTruthy();
+    fireEvent.click(dialog.getByRole("checkbox", { name: "Pick oven" }));
+    fireEvent.click(dialog.getByRole("button", { name: "Add 2 fields" }));
+    await waitFor(async () => {
+      const entries = (await retrieveEntries(draft.key)).map(plainOf);
+      expect(entries).toHaveLength(1);
+      const { messages } = await client.icds.retrieve(entries[0].icd);
+      expect(messages).toMatchObject([
+        {
+          name: `${TOPIC} temperature`,
+          payload: {
+            match: { type: "present", pointer: "/temperature" },
+            fields: [{ pointer: "/time" }, { pointer: "/temperature" }],
+          },
+        },
+        {
+          name: `${TOPIC} fault`,
+          payload: {
+            match: { type: "present", pointer: "/fault" },
+            fields: [{ pointer: "/time" }, { pointer: "/fault" }],
+          },
+        },
+      ]);
+      const timeKeys = messages.map((m) =>
+        m.payload.format === "json" ? m.payload.fields[0].key : "",
+      );
+      expect(entries[0].messages).toMatchObject(
+        messages.map(({ key }, i) => ({ message: key, index: timeKeys[i] })),
+      );
+    });
+  });
+
+  it("should read the whole payload of a topic that is not JSON as a string", async () => {
+    const { dev, draft } = await renderRead();
+    const scanner = await openScanner(client, dev.rack);
+    const dialog = await openAddData();
+    await scanner.answer({
+      data: {
+        topics: [{ topic: TOPIC, payload: "ON", shapes: [], retained: true }],
+        truncated: false,
+      },
+    });
+    scanner.close();
+    (await findValue(dialog, "Whole payload")).getByText("ON");
+    fireEvent.click(dialog.getByRole("checkbox", { name: "Record Whole payload" }));
+    fireEvent.click(dialog.getByRole("button", { name: "Add 1 field" }));
+    await waitFor(async () => {
+      const [entry] = (await retrieveEntries(draft.key)).map(plainOf);
+      expect(await retrieveFields(entry.icd)).toMatchObject([
+        { pointer: "", type: "string" },
+      ]);
+    });
+  });
+
+  it("should append the picks of each shape to the message of a topic that the task reads", async () => {
+    const { dev, draft } = await renderRead({
+      fields: [createField("count", "integer")],
+    });
+    const dialog = await openShapedTopic(dev.rack);
+    fireEvent.click(
+      await dialog.findByRole("checkbox", { name: "Record temperature" }),
+    );
+    fireEvent.click(dialog.getByRole("checkbox", { name: "Record fault" }));
+    fireEvent.click(dialog.getByRole("button", { name: "Add 2 fields" }));
+    await waitFor(async () => {
+      const entries = (await retrieveEntries(draft.key)).map(plainOf);
+      expect(entries).toHaveLength(1);
+      expect(entries[0].messages).toHaveLength(1);
+      expect(await retrieveFields(entries[0].icd)).toMatchObject([
+        { pointer: "/count" },
+        { pointer: "/temperature" },
+        { pointer: "/fault" },
+      ]);
+    });
+  });
+
+  describe("a topic with a message for each kind", () => {
+    const STATUS = {
+      pointer: "/status",
+      type: "string",
+      sample: '"ok"',
+      kind: "string",
+    };
+
+    // Opens Add data on the shapes of TOPIC, each named by the pointer that it holds.
+    const openKinds = async (rackKey: rack.Key, ...shapes: object[]) => {
+      const scanner = await openScanner(client, rackKey);
+      const dialog = await openAddData();
+      await scanner.answer({
+        data: {
+          topics: [{ topic: TOPIC, payload: "{}", shapes, retained: true }],
+          truncated: false,
+        },
+      });
+      scanner.close();
+      return dialog;
+    };
+
+    const withStatus = (shape: ReturnType<typeof createShape>) => ({
+      ...shape,
+      fields: [...shape.fields, STATUS],
+    });
+
+    it("should offer a field of a kind that only the message of another kind reads, and add it to the message of its kind", async () => {
+      const time = createTimeField();
+      const entry = await createEntry({
+        fields: [
+          time,
+          createField("temperature", "float"),
+          createField("status", "string"),
+        ],
+        index: time.key,
+      });
+      await addMessage(
+        entry,
+        `${TOPIC} fault`,
+        [createTimeField(), createField("fault", "integer")],
+        {
+          type: "present",
+          pointer: "/fault",
+        },
+      );
+      const { dev, draft } = await renderRead({ entries: [entry] });
+      const dialog = await openKinds(
+        dev.rack,
+        withStatus(createShape("/temperature", "float", 44)),
+        withStatus(createShape("/fault", "integer", 11)),
+      );
+      const [taken, free] = await dialog.findAllByRole<HTMLInputElement>("checkbox", {
+        name: "Record status",
+      });
+      expect(taken.disabled).toBe(true);
+      expect(free.disabled).toBe(false);
+      fireEvent.click(free);
+      fireEvent.click(dialog.getByRole("button", { name: "Add 1 field" }));
+      await waitFor(async () => {
+        const { messages } = await client.icds.retrieve(entry.icd);
+        expect(
+          messages.map((m) =>
+            (m.payload.format === "json" ? m.payload.fields : []).map((f) => f.pointer),
+          ),
+        ).toEqual([
+          ["/time", "/temperature", "/status"],
+          ["/time", "/fault", "/status"],
+        ]);
+        const [, read] = plainOf((await retrieveEntries(draft.key))[0]).messages;
+        expect(read.bindings).toHaveLength(3);
+      });
+    });
+
+    it("should count a field that two shapes of one held message share once", async () => {
+      const time = createTimeField();
+      const entry = await createEntry({
+        fields: [time, createField("temperature", "float")],
+        index: time.key,
+      });
+      const { dev } = await renderRead({ entries: [entry] });
+      const dialog = await openKinds(
+        dev.rack,
+        withStatus(createShape("/temperature", "float", 44)),
+        withStatus(createShape("/fault", "integer", 11)),
+      );
+      fireEvent.click(await dialog.findByRole("checkbox", { name: "Pick oven" }));
+      fireEvent.click(dialog.getByRole("button", { name: "Add 2 fields" }));
+      await waitFor(async () =>
+        expect((await retrieveFields(entry.icd)).map((f) => f.pointer)).toEqual([
+          "/time",
+          "/temperature",
+          "/status",
+          "/fault",
+        ]),
+      );
+    });
+
+    describe("split by value", () => {
+      const KIND = {
+        pointer: "/kind",
+        type: "string",
+        sample: '"status"',
+        kind: "string",
+      };
+
+      // Holds a message of each value at /kind: status with /code and reading with
+      // /temperature.
+      const renderKinds = async (...pointers: string[]) => {
+        const time = createTimeField();
+        const kind = createField("kind", "string");
+        const entry = await createEntry({
+          fields: [time, kind, createField("code", "integer")],
+          index: time.key,
+          match: KIND_MATCH,
+        });
+        const reading = await addMessage(
+          entry,
+          `${TOPIC} reading`,
+          [
+            createTimeField(),
+            createField("kind", "string"),
+            createField("temperature", "float"),
+          ],
+          { ...KIND_MATCH, value: "reading" },
+        );
+        const { dev } = await renderRead({ entries: [entry] });
+        const dialog = await openKinds(dev.rack, {
+          fields: [
+            TIMED_TOPIC.shapes[0].fields[0],
+            KIND,
+            ...pointers.map((pointer) => ({
+              pointer,
+              type: "number",
+              sample: "1",
+              kind: "float",
+            })),
+          ],
+          index: "/time",
+          count: 5,
+        });
+        return { dialog, entry, reading };
+      };
+
+      it("should give a shape to the message of a value that reads the most of its fields", async () => {
+        const { dialog, entry, reading } = await renderKinds("/temperature", "/rpm");
+        const temperature = await dialog.findByRole<HTMLInputElement>("checkbox", {
+          name: "Record temperature",
+        });
+        expect(temperature.disabled).toBe(true);
+        fireEvent.click(dialog.getByRole("checkbox", { name: "Record rpm" }));
+        fireEvent.click(dialog.getByRole("button", { name: "Add 1 field" }));
+        await waitFor(async () => {
+          const { messages } = await client.icds.retrieve(entry.icd);
+          const held = messages.find(({ key }) => key === reading.key);
+          if (held?.payload.format !== "json") throw new Error("reading is not JSON");
+          expect(held.payload.fields.map((f) => f.pointer)).toEqual([
+            "/time",
+            "/kind",
+            "/temperature",
+            "/rpm",
+          ]);
+          expect(messages).toHaveLength(2);
+        });
+      });
+
+      it("should lock a shape that two messages of a value read as much of", async () => {
+        const { dialog } = await renderKinds("/flow");
+        await dialog.findByText(
+          "Split by the value at /kind. Add fields in the ICD editor.",
+        );
+        const flow = dialog.getByRole<HTMLInputElement>("checkbox", {
+          name: "Record flow",
+        });
+        expect(flow.disabled).toBe(true);
+        expect(flow.checked).toBe(false);
+      });
+    });
+
+    it("should add a message for a new kind of a held topic after its other messages", async () => {
+      const time = createTimeField();
+      const entry = await createEntry({
+        fields: [time, createField("temperature", "float")],
+        index: time.key,
+        match: { type: "present", pointer: "/temperature" },
+      });
+      const { dev, draft } = await renderRead({ entries: [entry] });
+      const dialog = await openKinds(
+        dev.rack,
+        createShape("/temperature", "float", 44),
+        createShape("/fault", "integer", 11),
+      );
+      fireEvent.click(await dialog.findByRole("checkbox", { name: "Record fault" }));
+      fireEvent.click(dialog.getByRole("button", { name: "Add 1 field" }));
+      await waitFor(async () => {
+        const reads = plainOf((await retrieveEntries(draft.key))[0]).messages;
+        expect(reads).toHaveLength(2);
+        const { messages } = await client.icds.retrieve(entry.icd);
+        expect(messages).toMatchObject([
+          { key: reads[0].message, payload: { fields: [{}, {}] } },
+          {
+            key: reads[1].message,
+            name: `${TOPIC} fault`,
+            payload: {
+              match: { type: "present", pointer: "/fault" },
+              fields: [{ pointer: "/time" }, { pointer: "/fault" }],
+            },
+          },
+        ]);
+      });
     });
   });
 
@@ -2660,7 +3022,14 @@ describe("MQTT read form", () => {
       const topic = {
         topic: TOPIC,
         payload: '{"temperature": 1}',
-        fields: [{ pointer: "/temperature", type: "number", sample: "1" }],
+        shapes: [
+          {
+            fields: [
+              { pointer: "/temperature", type: "number", kind: "float", sample: "1" },
+            ],
+            count: 1,
+          },
+        ],
         retained: true,
       };
       await scanner.answer({ data: { topics: [topic], truncated: false } });
@@ -3079,7 +3448,7 @@ describe("MQTT read form", () => {
       );
     });
 
-    it("should time and deploy each message of a topic on its own", async () => {
+    it("should time and deploy each message of a topic on its own, named after its topic", async () => {
       const time = createTimeField();
       const entry = await createEntry({
         fields: [createField("temperature", "float"), time],
@@ -3107,7 +3476,7 @@ describe("MQTT read form", () => {
       expect(deployed.index).toBeUndefined();
       expect(deployed.bindings[0].channel).toBe(channels["/mode"]);
       const ch = await client.channels.retrieve(channels["/mode"]);
-      expect(ch.name).toBe(`${dev.name}_plant_oven_status_mode`);
+      expect(ch.name).toBe(`${dev.name}_plant_oven_mode`);
     });
 
     it("should replace the stored channel of a field whose kind changed and keep its name", async () => {

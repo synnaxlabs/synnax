@@ -136,6 +136,9 @@ export interface ReadChannelPlan {
 const isFixed = (field: ReadChannelField): boolean =>
   !new DataType(field.dataType).isVariable;
 
+/** The name of a new index of arrival times, after the prefix of its source. */
+export const ARRIVAL_NAME = "time";
+
 /** Holds a name for a channel that deploying creates, which has no key yet. */
 const NEW_HOLDER = 0;
 
@@ -248,7 +251,8 @@ export const planReadChannels = async <F extends ReadChannelField>({
       ? field.name
       : `${namePrefix}${channel.escapeInvalidName(field.pointer)}`;
   const planned = unbound.map(nameOf);
-  const indexName = indexField == null ? `${namePrefix}_time` : nameOf(indexField);
+  const indexName =
+    indexField == null ? `${namePrefix}_${ARRIVAL_NAME}` : nameOf(indexField);
   await namer.load([...planned, ...(createsIndex ? [indexName] : [])]);
   const named = unbound.map((field, i): [F, string] => [field, planned[i]]);
   if (createsIndex && indexField != null) named.push([indexField, indexName]);
