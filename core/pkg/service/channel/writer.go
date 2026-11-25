@@ -441,10 +441,15 @@ func (w Writer) validateCreate(ctx context.Context, channels []Channel) error {
 			return validate.PathedError(err, strconv.Itoa(i))
 		}
 	}
+	names := Names(channels)
+	// A repeat fails here on every Core, before Allocate uses up keys.
+	if err := validateRepeatedNames(names); err != nil {
+		return err
+	}
 	if !*w.svc.cfg.ValidateNames {
 		return nil
 	}
-	return validateNameSyntax(Names(channels))
+	return validateNameSyntax(names)
 }
 
 // prepareCreate sets the leaseholder of each channel. A calculated channel is virtual
@@ -899,8 +904,8 @@ func indexesFirst(a, b Channel) int {
 	}
 }
 
-// validateNameSyntax rejects names that are not identifiers or that repeat. It
-// leaves an empty name to Channel.Validate.
+// validateNameSyntax rejects names that are not identifiers. It leaves an empty name to
+// Channel.Validate.
 func validateNameSyntax(names []string) error {
 	for i, name := range names {
 		if name != "" && !validate.IsIdentifier(name) {
@@ -914,6 +919,11 @@ func validateNameSyntax(names []string) error {
 			)
 		}
 	}
+	return nil
+}
+
+// validateRepeatedNames rejects a request that names one channel name twice.
+func validateRepeatedNames(names []string) error {
 	namesSeen := make(set.Set[string], len(names))
 	for i, name := range names {
 		if namesSeen.Contains(name) {
@@ -931,9 +941,6 @@ func validateNameSyntax(names []string) error {
 	return nil
 }
 
-// nameTaken returns err as a validation error at the name of the channel at position i
-// of a request when err is a clash of the name index, and returns err unchanged
-// otherwise.
 // takenName returns the name of a clash of the name index, or "" when err is not one.
 func takenName(err error) string {
 	var clash gorp.UniqueError
@@ -944,6 +951,9 @@ func takenName(err error) string {
 	return ""
 }
 
+// nameTaken returns err as a validation error at the name of the channel at position i
+// of a request when err is a clash of the name index, and returns err unchanged
+// otherwise.
 func nameTaken(err error, i int) error {
 	var clash gorp.UniqueError
 	if !errors.As(err, &clash) || clash.Space != nameSpace {
@@ -998,6 +1008,9 @@ func (w Writer) rename(
 			validate.ErrValidation,
 			"keys and names must be the same length",
 		)
+	}
+	if err := validateRepeatedNames(names); err != nil {
+		return err
 	}
 	if *w.svc.cfg.ValidateNames {
 		if err := validateNameSyntax(names); err != nil {
