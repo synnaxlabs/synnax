@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { schematic } from "@synnaxlabs/client";
+import { schematic, type Synnax } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { ReactFlowProvider } from "@xyflow/react";
-import { describe, expect, it, vi } from "vitest";
+import { assert, describe, expect, it, vi } from "vitest";
 import { render } from "vitest-browser-react";
 import type { z } from "zod";
 
@@ -44,14 +44,9 @@ const DATA: Partial<schematic.symbol.Spec> = {
   ],
 };
 
-const renderLamp = async (
-  config: Pick<z.input<typeof schematic.symbolNodeConfigZ>, "motionDisabled"> = {},
-) => {
-  const client = createTestClient();
-  const symbol = await client.schematics.symbols.create({
-    name: "Lamp",
-    data: { drawing: { type: "svg", markup: MARKUP }, variant: "static", ...DATA },
-  });
+type Config = z.input<typeof schematic.symbolNodeConfigZ>;
+
+const renderNode = async (client: Synnax, config: Omit<Config, "variant">) => {
   const Wrapper = await createAsyncSynnaxWrapper({
     client,
     additionalRegistry: symbolNode.REGISTRY,
@@ -64,17 +59,26 @@ const renderLamp = async (
             nodeKey="s1"
             selected={false}
             onConfigChange={vi.fn()}
-            config={schematic.symbolNodeConfigZ.parse({
-              variant: "symbol",
-              spec: { type: "custom", key: symbol.key },
-              states: [{ key: "active", source: { type: "local", value: 1 } }],
-              ...config,
-            })}
+            config={schematic.symbolNodeConfigZ.parse({ variant: "symbol", ...config })}
           />
         </ReactFlowProvider>
       </Node.Custom.MotionProvider>
     </Wrapper>,
   );
+  return container;
+};
+
+const renderLamp = async (config: Pick<Config, "motionDisabled"> = {}) => {
+  const client = createTestClient();
+  const symbol = await client.schematics.symbols.create({
+    name: "Lamp",
+    data: { drawing: { type: "svg", markup: MARKUP }, variant: "static", ...DATA },
+  });
+  const container = await renderNode(client, {
+    spec: { type: "custom", key: symbol.key },
+    states: [{ key: "active", source: { type: "local", value: 1 } }],
+    ...config,
+  });
   return await vi.waitUntil(() => container.querySelector(".lamp"));
 };
 
@@ -96,5 +100,21 @@ describe("Symbol node", () => {
   it("should keep the stroke width of a custom drawing", async () => {
     const lamp = await renderLamp();
     expect(getComputedStyle(lamp).strokeWidth).toBe("1px");
+  });
+
+  it("should draw a copy of a built-in as wide as the built-in", async () => {
+    const client = createTestClient();
+    const data = Node.BUILT_INS.get("ball_valve");
+    assert(data != null);
+    const copy = await client.schematics.symbols.create({ name: "Ball (copy)", data });
+    const widthOf = async (spec: Config["spec"]) => {
+      const container = await renderNode(client, { spec });
+      const circle = await vi.waitUntil(() => container.querySelector("circle"));
+      return getComputedStyle(circle).strokeWidth;
+    };
+    expect([
+      await widthOf({ type: "custom", key: copy.key }),
+      await widthOf({ type: "builtin", name: "ball_valve" }),
+    ]).toEqual(["2px", "2px"]);
   });
 });

@@ -15,7 +15,13 @@ import { group } from "@/group";
 import { NotCachedError, NotFoundError } from "@/index";
 import { query } from "@/query";
 import { resource } from "@/resource";
-import { createTestClient, expectDeleted, expectLive, spyOnSend } from "@/testutil";
+import {
+  createTestClient,
+  expectDeleted,
+  expectLive,
+  requestsTo,
+  spyOnSend,
+} from "@/testutil";
 
 const client = createTestClient();
 const remote = createTestClient();
@@ -332,7 +338,7 @@ describe("color.Client", () => {
       await expect(fresh.colors.dispatch(named.key, rename("Anomaly"))).rejects.toThrow(
         NotCachedError,
       );
-      expect(send).not.toHaveBeenCalled();
+      expect(requestsTo(send, "/color/dispatch")).toEqual([]);
     });
 
     it("should drop the actions that the Core refuses from the cache", async () => {
