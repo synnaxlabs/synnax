@@ -67,3 +67,17 @@ describe("ICD.copyName", () => {
     expect(ICD.copyName("flow", ["flow", "flow 2"])).toBe("flow_3");
   });
 });
+
+describe("ICD.copyPointer", () => {
+  it("should number the last token of a pointer from 2", () => {
+    expect(ICD.copyPointer("/motor/speed", ["/motor/speed"])).toBe("/motor/speed_2");
+  });
+
+  it("should number a numbered pointer from one past its number", () => {
+    expect(ICD.copyPointer("/flow_2", ["/flow", "/flow_2"])).toBe("/flow_3");
+  });
+
+  it("should skip a pointer that a field reads a value in", () => {
+    expect(ICD.copyPointer("/flow", ["/flow", "/flow_2/rate"])).toBe("/flow_3");
+  });
+});
