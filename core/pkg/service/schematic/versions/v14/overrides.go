@@ -142,7 +142,10 @@ func (o *overrides) copy(
 		return uuid.Nil(), err
 	}
 	c.Data.States = slices.Clone(c.Data.States)
-	state := c.Data.States[0].Variant.(symbol.EnumerationState)
+	state, ok := c.Data.States[0].Variant.(symbol.EnumerationState)
+	if !ok {
+		return uuid.Nil(), errors.New("a copy draws only an enumeration state")
+	}
 	state.Enumeration = &e
 	c.Data.States[0] = symbol.State{Variant: state}
 	if err = o.create(ctx, &c); err != nil {
