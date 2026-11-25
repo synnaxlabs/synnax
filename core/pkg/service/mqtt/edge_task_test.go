@@ -35,6 +35,7 @@ import (
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -555,7 +556,7 @@ var _ = Describe("Edge task", func() {
 					Should(BeEquivalentTo(1))
 				after := telem.Now()
 				Expect(stored(ctx, cmdData[0])).
-					To(telem.MatchSeriesData(telem.NewSeriesV(2.5)))
+					To(MatchSeriesData(telem.NewSeriesV(2.5)))
 				Expect(stored(ctx, cmdIdx).ValueAt[telem.TimeStamp](0)).To(And(
 					BeNumerically(">=", before), BeNumerically("<=", after),
 				))
@@ -581,7 +582,7 @@ var _ = Describe("Edge task", func() {
 				host.sendCommand(commandMetric("setpoint", 0, 1.0))
 				host.sendCommand(commandMetric("setpoint", 0, 2.0))
 				Eventually(func() telem.Series { return stored(ctx, cmdData[0]) }).
-					Should(telem.MatchSeriesData(telem.NewSeriesV(1.0, 2.0)))
+					Should(MatchSeriesData(telem.NewSeriesV(1.0, 2.0)))
 			},
 		)
 
@@ -603,7 +604,7 @@ var _ = Describe("Edge task", func() {
 				// No reconnect follows, so a held command is written now or never.
 				broker.stop()
 				Eventually(func() telem.Series { return stored(ctx, cmdData[0]) }).
-					Should(telem.MatchSeriesData(telem.NewSeriesV(values...)))
+					Should(MatchSeriesData(telem.NewSeriesV(values...)))
 			},
 		)
 
@@ -673,7 +674,7 @@ var _ = Describe("Edge task", func() {
 				Eventually(func() int64 { return stored(ctx, cmdData[0]).Len() }).
 					Should(BeEquivalentTo(1))
 				Expect(stored(ctx, cmdData[0])).
-					To(telem.MatchSeriesData(telem.NewSeriesV(3.5)))
+					To(MatchSeriesData(telem.NewSeriesV(3.5)))
 			},
 		)
 
@@ -695,7 +696,7 @@ var _ = Describe("Edge task", func() {
 				Eventually(func() int64 { return stored(ctx, cmdData[0]).Len() }).
 					Should(BeEquivalentTo(1))
 				Expect(stored(ctx, cmdData[0])).
-					To(telem.MatchSeriesData(telem.NewSeriesV(1.5)))
+					To(MatchSeriesData(telem.NewSeriesV(1.5)))
 				Consistently(func() status.Variant {
 					return taskStatus(ctx, t).Variant
 				}, 200*time.Millisecond).Should(Equal(status.VariantSuccess))
@@ -716,7 +717,7 @@ var _ = Describe("Edge task", func() {
 				host.sendCommand(commandMetric("setpoint", 0, value))
 				Eventually(func() int64 { return stored(ctx, cmdData[0]).Len() }).
 					Should(BeEquivalentTo(1))
-				Expect(stored(ctx, cmdData[0])).To(telem.MatchSeriesData(expected))
+				Expect(stored(ctx, cmdData[0])).To(MatchSeriesData(expected))
 			},
 			Entry("a double into an int32 channel",
 				telem.Int32T, 7.0, telem.NewSeriesV[int32](7),
@@ -749,7 +750,7 @@ var _ = Describe("Edge task", func() {
 				Eventually(func() int64 { return stored(ctx, cmdData[0]).Len() }).
 					Should(BeEquivalentTo(1))
 				Expect(stored(ctx, cmdData[0])).
-					To(telem.MatchSeriesData(telem.NewSeriesV(4.0)))
+					To(MatchSeriesData(telem.NewSeriesV(4.0)))
 			},
 		)
 
@@ -777,7 +778,7 @@ var _ = Describe("Edge task", func() {
 			host.sendCommand(commandMetric("setpoint", 0, 2.5))
 			expectStatus(ctx, t, status.VariantWarning, "unauthorized")
 			Expect(stored(ctx, cmdData[0])).
-				To(telem.MatchSeriesData(telem.NewSeriesV(1.5)))
+				To(MatchSeriesData(telem.NewSeriesV(1.5)))
 		})
 
 		It("Should warn on a command that a higher authority blocks and clear the "+
@@ -800,7 +801,7 @@ var _ = Describe("Edge task", func() {
 				Eventually(func() int64 { return stored(ctx, cmdData[0]).Len() }).
 					Should(BeEquivalentTo(1))
 				Expect(stored(ctx, cmdData[0])).
-					To(telem.MatchSeriesData(telem.NewSeriesV(3.5)))
+					To(MatchSeriesData(telem.NewSeriesV(3.5)))
 				expectStatus(ctx, t, status.VariantSuccess, "")
 			},
 		)

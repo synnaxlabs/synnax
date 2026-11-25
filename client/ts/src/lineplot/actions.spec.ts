@@ -737,7 +737,7 @@ describe("lineplot reducer", () => {
       );
       const relative = lineplot.setAxisTimeMode({ key: "x1", timeMode: "relative" });
       const out = apply(manual, relative).axes.x1;
-      expect(out.bounds).toEqual({ lower: 0, upper: 0 });
+      expect(out.bounds).toBeUndefined();
       expect(out.manualBounds).toEqual({ lower: false, upper: false });
       expect(roundTrip(manual, relative).axes.x1).toEqual(manual.axes.x1);
     });

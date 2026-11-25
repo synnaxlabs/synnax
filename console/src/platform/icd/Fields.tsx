@@ -322,19 +322,23 @@ const COLUMNS: { [E in Encoding]: Column<FieldOf<E>>[] } = {
   ],
 };
 
-const createJSON = (name: string): icd.JSONField => ({
+const createJSON = (name: string, pointer: string): icd.JSONField => ({
   key: uuid.create(),
   name,
   scale: 1,
   offset: 0,
   units: "",
   type: "float",
-  pointer: "",
+  pointer,
   enumValues: [],
 });
 
-const createField = (encoding: Encoding, name: string = ""): Field => {
-  if (encoding === "json") return createJSON(name);
+const createField = (
+  encoding: Encoding,
+  name: string = "",
+  pointer: string = "",
+): Field => {
+  if (encoding === "json") return createJSON(name, pointer);
   const base = { key: uuid.create(), name, scale: 1, offset: 0, units: "" };
   switch (encoding) {
     case "binary":
@@ -353,16 +357,31 @@ const createField = (encoding: Encoding, name: string = ""): Field => {
   }
 };
 
-const uniqueFieldName = (names: string[]): string => {
+/**
+ * @returns a numbered name that no field takes, and the pointer of the same number. No
+ * field at one of pointers reads the value at that pointer or a value in it.
+ */
+const freeNameAndPointer = (
+  names: string[],
+  pointers: string[],
+): { name: string; pointer: string } => {
   const taken = new Set(names);
-  let i = names.length + 1;
-  while (taken.has(`Field ${i}`)) i++;
-  return `Field ${i}`;
+  for (let i = names.length + 1; ; i++) {
+    const name = `Field ${i}`;
+    const pointer = `/field_${i}`;
+    const used = pointers.some((p) => p === pointer || p.startsWith(`${pointer}/`));
+    if (!taken.has(name) && !used) return { name, pointer };
+  }
 };
 
-/** @returns a float field that reads the whole document, named apart from taken. */
-export const createJSONField = (taken: string[]): icd.JSONField =>
-  createJSON(uniqueFieldName(taken));
+/** @returns a float field named apart from fields, at a pointer none of them reads. */
+export const createJSONField = (fields: icd.JSONField[]): icd.JSONField => {
+  const { name, pointer } = freeNameAndPointer(
+    fields.map((f) => f.name),
+    fields.map((f) => f.pointer),
+  );
+  return createJSON(name, pointer);
+};
 
 /**
  * Rebuilds the fields a grid shows from its rows. Each row updates the field at its
@@ -509,8 +528,11 @@ export const Fields = ({ path, encoding }: FieldsProps): ReactElement => {
   // name.
   const createRow = (value: Input.TableCell[][]) => {
     const added = value.slice(own.length).map(([name]) => String(name));
-    const fieldName = uniqueFieldName([...fields.map((f) => f.name), ...added]);
-    return columns.map((c) => c.get(createField(encoding, fieldName)));
+    const { name, pointer } = freeNameAndPointer(
+      [...fields.map((f) => f.name), ...added],
+      fields.flatMap((f) => ("pointer" in f ? [f.pointer] : [])),
+    );
+    return columns.map((c) => c.get(createField(encoding, name, pointer)));
   };
   const failing = own.findIndex((f) => matchOwnField(status?.key, path, f));
   let helpText = status?.message;
@@ -550,6 +572,8 @@ export const FieldsStatus = ({ path }: FieldsStatusProps): ReactElement | null =
 
 const POINTER_INPUT_PROPS = { placeholder: "/temperature" } as const;
 
+const FOCUSED_NAME_INPUT_PROPS = { autoFocus: true } as const;
+
 interface ScaleControlProps extends Input.Control<number> {
   offset: deep.Target<number>;
 }
@@ -567,13 +591,19 @@ export interface JSONFieldProps {
   path: deep.Path<icd.JSONField>;
   /** Actions in the header of the field's section. */
   actions?: ReactNode;
+  /** Name takes focus when the field mounts. */
+  autoFocus?: boolean;
 }
 
 /**
  * Edits one field of a JSON message: its name, pointer, type, and conversion, then its
  * default and enum mapping when its kind has them.
  */
-export const JSONField = ({ path, actions }: JSONFieldProps): ReactElement => {
+export const JSONField = ({
+  path,
+  actions,
+  autoFocus = false,
+}: JSONFieldProps): ReactElement => {
   const { get, set, mode } = Form.useContext();
   const field = Form.useFieldValue(path);
   const type = jsonTypeOf(field);
@@ -582,7 +612,12 @@ export const JSONField = ({ path, actions }: JSONFieldProps): ReactElement => {
   };
   return (
     <Form.Section title="Field" actions={actions}>
-      <Form.TextField path={path.name} label="Name" padHelpText={false} />
+      <Form.TextField
+        path={path.name}
+        label="Name"
+        padHelpText={false}
+        inputProps={autoFocus ? FOCUSED_NAME_INPUT_PROPS : undefined}
+      />
       <Form.TextField
         path={path.pointer}
         label="Pointer"

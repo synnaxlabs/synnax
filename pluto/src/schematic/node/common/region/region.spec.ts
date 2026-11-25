@@ -338,6 +338,57 @@ describe("Region.paint", () => {
     });
   });
 
+  it("should return the paint of the first shape inside a group", () => {
+    const grouped =
+      '<svg xmlns="http://www.w3.org/2000/svg"><g id="g" fill="#000000">' +
+      '<rect stroke="#ff0000" fill="#00ff00" /></g></svg>';
+    expect(Region.paint(grouped, ["#g"])).toEqual({
+      stroke: color.construct("#ff0000"),
+      fill: color.construct("#00ff00"),
+    });
+  });
+
+  it("should return the paint of the first shape of a group in document order", () => {
+    const grouped =
+      '<svg xmlns="http://www.w3.org/2000/svg"><g id="g">' +
+      '<rect stroke="#ff0000" fill="#0000ff" /><path fill="#00ff00" /></g></svg>';
+    expect(Region.paint(grouped, ["#g"])).toEqual({
+      stroke: color.construct("#ff0000"),
+      fill: color.construct("#0000ff"),
+    });
+  });
+
+  it("should skip a use at the start of a group", () => {
+    const grouped =
+      '<svg xmlns="http://www.w3.org/2000/svg"><defs><rect id="t"/></defs><g id="g">' +
+      '<use href="#t" /><rect stroke="#ff0000" fill="#0000ff" /></g></svg>';
+    expect(Region.paint(grouped, ["#g"])).toEqual({
+      stroke: color.construct("#ff0000"),
+      fill: color.construct("#0000ff"),
+    });
+  });
+
+  it("should skip a shape in a clip path of a group", () => {
+    const grouped =
+      '<svg xmlns="http://www.w3.org/2000/svg"><g id="g">' +
+      '<clipPath id="c"><rect fill="#000000" /></clipPath>' +
+      '<rect stroke="#ff0000" fill="#0000ff" /></g></svg>';
+    expect(Region.paint(grouped, ["#g"])).toEqual({
+      stroke: color.construct("#ff0000"),
+      fill: color.construct("#0000ff"),
+    });
+  });
+
+  it("should read a use that a selector names", () => {
+    const used =
+      '<svg xmlns="http://www.w3.org/2000/svg"><defs><rect id="t"/></defs>' +
+      '<use id="u" href="#t" stroke="#ff0000" fill="#0000ff" /></svg>';
+    expect(Region.paint(used, ["#u"])).toEqual({
+      stroke: color.construct("#ff0000"),
+      fill: color.construct("#0000ff"),
+    });
+  });
+
   it("should return transparent when no selector matches", () => {
     expect(Region.paint(SVG, ["#missing"])).toEqual({
       stroke: color.TRANSPARENT,

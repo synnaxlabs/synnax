@@ -7,6 +7,9 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import asyncio
+import threading
+import time
 from uuid import uuid4
 
 import pytest
@@ -18,7 +21,9 @@ from freighter import Context, Empty, Next
 from freighter.mock import MockUnaryClient
 from synnax.auth.client import _SessionCreateResponse
 from synnax.exceptions import create_registry
+from tests.loop import ticks_while
 from tests.proxy import Proxy
+from tests.user import create_user
 
 
 @pytest.mark.auth
@@ -34,6 +39,7 @@ class TestClusterAuth:
                 port=port,
                 username=username,
                 password="wrong",
+                secure=False,
             )
 
     def test_no_password_provided(self, login_info: tuple[str, int, str, str]) -> None:
@@ -46,6 +52,7 @@ class TestClusterAuth:
                 host=host,
                 port=port,
                 username=username,
+                secure=False,
             )
 
 
@@ -154,12 +161,97 @@ class TestAuthRetry:
         assert len(login.requests) == 2
 
 
+def _slow_login(count: int) -> tuple[sy.auth.Client, MockUnaryClient]:
+    """Returns an auth client whose logins each block for half a second, and the
+    transport they go through.
+    """
+    session = sy.auth.Session(
+        key=uuid4(),
+        subject=sy.resource.ID(key=str(uuid4()), type="user"),
+        credential=uuid4(),
+        last_active=sy.TimeStamp(0),
+    )
+    login = MockUnaryClient(
+        responses=[_SessionCreateResponse(token="abc", session=session)] * count
+    )
+
+    def slow(ctx: Context, _next: Next) -> Context:
+        time.sleep(0.5)
+        return _next(ctx)
+
+    login.use(slow)
+    auth = sy.auth.Client(
+        transport=login,
+        proof=sy.auth.PasswordProof(username="synnax", password="seldon"),
+    )
+    return auth, login
+
+
+@pytest.mark.auth
+class TestAuthRenewal:
+    @pytest.mark.asyncio
+    async def test_async_login_keeps_loop_running(self) -> None:
+        """Should keep the event loop running while the async middleware logs in."""
+        auth, _ = _slow_login(1)
+
+        async def finish(ctx: Context) -> Context:
+            return ctx
+
+        ctx = Context(protocol="mock", target="/frame/stream", role="client")
+        _, ticks = await ticks_while(auth.async_middleware()(ctx, finish))
+        assert ticks > 10
+        assert ctx.params["Authorization"] == "Bearer abc"
+
+    @pytest.mark.asyncio
+    async def test_async_failure_during_login_keeps_loop_running(self) -> None:
+        """Should keep the event loop running when an async request fails while
+        another thread logs in.
+        """
+        auth, login = _slow_login(1)
+        auth.token = "old"
+        auth.authenticated = True
+        thread = threading.Thread(target=auth._login)
+
+        async def expire_once(ctx: Context) -> Context:
+            if thread.is_alive() or login.requests:
+                return ctx
+            auth.authenticated = False
+            thread.start()
+            while not auth._login_lock.locked():
+                await asyncio.sleep(0)
+            raise sy.ExpiredToken("expired")
+
+        ctx = Context(protocol="mock", target="/frame/stream", role="client")
+        _, ticks = await ticks_while(auth.async_middleware()(ctx, expire_once))
+        thread.join()
+        assert ticks > 10
+        assert len(login.requests) == 1
+        assert ctx.params["Authorization"] == "Bearer abc"
+
+    def test_concurrent_renewals_open_one_session(self) -> None:
+        """Should log in once when several threads renew the token together."""
+        auth, login = _slow_login(8)
+        client = MockUnaryClient(responses=[Empty()] * 8)
+        client.use(auth.middleware())
+        threads = [
+            threading.Thread(target=client.send, args=("", Empty(), Empty))
+            for _ in range(8)
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+        assert len(login.requests) == 1
+
+
 @pytest.mark.auth
 class TestMethods:
     def test_retrieve_methods(self, login_info: tuple[str, int, str, str]) -> None:
         """Should list the login methods the Core accepts."""
         host, port, username, password = login_info
-        client = sy.Synnax(host=host, port=port, username=username, password=password)
+        client = sy.Synnax(
+            host=host, port=port, username=username, password=password, secure=False
+        )
         assert sorted(client.auth.retrieve_methods()) == ["api_key", "password"]
         client.close()
 
@@ -168,7 +260,9 @@ class TestMethods:
     ) -> None:
         """Should list the methods after logout without logging in again."""
         host, port, username, password = login_info
-        client = sy.Synnax(host=host, port=port, username=username, password=password)
+        client = sy.Synnax(
+            host=host, port=port, username=username, password=password, secure=False
+        )
         client.auth.logout()
         assert sorted(client.auth.retrieve_methods()) == ["api_key", "password"]
         assert not client.auth.authenticated
@@ -180,18 +274,20 @@ class TestSessions:
     def test_session_lifecycle(self, login_info: tuple[str, int, str, str]) -> None:
         """Should open a session on login, renew it, list it, and end it on logout."""
         host, port, username, password = login_info
-        client = sy.Synnax(host=host, port=port, username=username, password=password)
+        client = sy.Synnax(
+            host=host, port=port, username=username, password=password, secure=False
+        )
         session = client.auth.session
         assert session is not None
         assert client.auth.subject is not None
         assert client.auth.subject.type == "user"
         assert client.auth.renew().key == session.key
-        keys = [s.key for s in client.auth.retrieve_sessions()]
+        keys = [s.key for s in client.auth.sessions.retrieve()]
         assert session.key in keys
         client.auth.logout()
         assert not client.auth.authenticated
         # The next request logs in again with a fresh session.
-        keys = [s.key for s in client.auth.retrieve_sessions()]
+        keys = [s.key for s in client.auth.sessions.retrieve()]
         assert session.key not in keys
         assert client.auth.session is not None
         assert client.auth.session.key in keys
@@ -204,17 +300,23 @@ class TestSessions:
         already ended.
         """
         host, port, username, password = login_info
-        admin = sy.Synnax(host=host, port=port, username=username, password=password)
+        admin = sy.Synnax(
+            host=host, port=port, username=username, password=password, secure=False
+        )
         user_name = str(uuid4())
-        admin.users.create(username=user_name, password="seldon", role=empty_role.key)
-        ending = sy.Synnax(host=host, port=port, username=user_name, password="seldon")
-        other = sy.Synnax(host=host, port=port, username=user_name, password="seldon")
+        create_user(admin, user_name, "seldon", empty_role.key)
+        ending = sy.Synnax(
+            host=host, port=port, username=user_name, password="seldon", secure=False
+        )
+        other = sy.Synnax(
+            host=host, port=port, username=user_name, password="seldon", secure=False
+        )
         assert ending.auth.session is not None
         assert other.auth.session is not None
-        other.auth.delete_sessions(ending.auth.session.key)
+        other.auth.sessions.delete(ending.auth.session.key)
         ending.auth.logout()
         assert not ending.auth.authenticated
-        keys = [s.key for s in other.auth.retrieve_sessions()]
+        keys = [s.key for s in other.auth.sessions.retrieve()]
         assert keys == [other.auth.session.key]
         ending.close()
         other.close()
@@ -227,16 +329,22 @@ class TestSessions:
         the connectivity thread.
         """
         host, port, username, password = login_info
-        admin = sy.Synnax(host=host, port=port, username=username, password=password)
+        admin = sy.Synnax(
+            host=host, port=port, username=username, password=password, secure=False
+        )
         user_name = str(uuid4())
-        admin.users.create(username=user_name, password="seldon", role=empty_role.key)
-        closing = sy.Synnax(host=host, port=port, username=user_name, password="seldon")
-        other = sy.Synnax(host=host, port=port, username=user_name, password="seldon")
+        create_user(admin, user_name, "seldon", empty_role.key)
+        closing = sy.Synnax(
+            host=host, port=port, username=user_name, password="seldon", secure=False
+        )
+        other = sy.Synnax(
+            host=host, port=port, username=user_name, password="seldon", secure=False
+        )
         assert other.auth.session is not None
-        assert len(other.auth.retrieve_sessions()) == 2
+        assert len(other.auth.sessions.retrieve()) == 2
         closing.close()
         assert not closing.connectivity._thread.is_alive()
-        keys = [s.key for s in other.auth.retrieve_sessions()]
+        keys = [s.key for s in other.auth.sessions.retrieve()]
         assert keys == [other.auth.session.key]
         other.close()
         admin.close()
@@ -262,6 +370,7 @@ class TestSessions:
             username=username,
             password=password,
             read_timeout=0.5,
+            secure=False,
         )
         assert proxy.blackhole() > 0
         client.close()
@@ -279,6 +388,7 @@ class TestAPIKeys:
                 username=username,
                 password=password,
                 api_key="syk_key",
+                secure=False,
             )
 
     def test_lifecycle(
@@ -286,25 +396,25 @@ class TestAPIKeys:
     ) -> None:
         """Should create a key, log in with it, list it, and delete it."""
         host, port, username, password = login_info
-        admin = sy.Synnax(host=host, port=port, username=username, password=password)
+        admin = sy.Synnax(
+            host=host, port=port, username=username, password=password, secure=False
+        )
         new_username = str(uuid4())
-        admin.users.create(
-            username=new_username, password="seldon", role=empty_role.key
-        )
+        create_user(admin, new_username, "seldon", empty_role.key)
         owner = sy.Synnax(
-            host=host, port=port, username=new_username, password="seldon"
+            host=host, port=port, username=new_username, password="seldon", secure=False
         )
-        token, key = owner.auth.create_key("script")
+        token, key = owner.auth.api_keys.create("script")
         assert token.startswith("syk_")
         assert key.name == "script"
         assert key.subject == owner.auth.subject
-        keyed = sy.Synnax(host=host, port=port, api_key=token)
+        keyed = sy.Synnax(host=host, port=port, api_key=token, secure=False)
         assert keyed.auth.subject == owner.auth.subject
         assert keyed.auth.session is not None
         assert keyed.auth.session.credential == key.key
-        assert [k.key for k in owner.auth.retrieve_keys()] == [key.key]
-        owner.auth.delete_keys(key.key)
-        assert owner.auth.retrieve_keys() == []
+        assert [k.key for k in owner.auth.api_keys.retrieve()] == [key.key]
+        owner.auth.api_keys.delete(key.key)
+        assert owner.auth.api_keys.retrieve() == []
         keyed.close()
         owner.close()
         admin.close()
@@ -312,12 +422,14 @@ class TestAPIKeys:
     def test_deleted_key(self, login_info: tuple[str, int, str, str]) -> None:
         """Should fail the next request of a client whose key was deleted."""
         host, port, username, password = login_info
-        admin = sy.Synnax(host=host, port=port, username=username, password=password)
-        token, key = admin.auth.create_key("deleted")
-        keyed = sy.Synnax(host=host, port=port, api_key=token)
-        admin.auth.delete_keys(key.key)
+        admin = sy.Synnax(
+            host=host, port=port, username=username, password=password, secure=False
+        )
+        token, key = admin.auth.api_keys.create("deleted")
+        keyed = sy.Synnax(host=host, port=port, api_key=token, secure=False)
+        admin.auth.api_keys.delete(key.key)
         with pytest.raises(sy.AuthError):
-            keyed.auth.retrieve_sessions()
+            keyed.auth.sessions.retrieve()
         keyed.close()
         admin.close()
 
@@ -325,7 +437,9 @@ class TestAPIKeys:
         """Should reject a key the Core never issued."""
         host, port, _, _ = login_info
         with pytest.raises(sy.AuthError):
-            sy.Synnax(host=host, port=port, api_key=f"syk_{uuid4()}secret")
+            sy.Synnax(
+                host=host, port=port, api_key=f"syk_{uuid4()}secret", secure=False
+            )
 
 
 @pytest.mark.auth
@@ -333,7 +447,96 @@ class TestPasswords:
     def test_create_existing(self, login_info: tuple[str, int, str, str]) -> None:
         """Should refuse a first password for a user that already has one."""
         host, port, username, password = login_info
-        admin = sy.Synnax(host=host, port=port, username=username, password=password)
+        admin = sy.Synnax(
+            host=host, port=port, username=username, password=password, secure=False
+        )
         with pytest.raises(sy.ValidationError):
-            admin.auth.create_password(str(uuid4()), "p")
+            admin.auth.passwords.create(str(uuid4()), "p")
+        admin.close()
+
+    def test_create_for_new_user(
+        self, login_info: tuple[str, int, str, str], empty_role: sy.Role
+    ) -> None:
+        """Should let an owner give a new user its first password, and let a client
+        log in with it.
+        """
+        host, port, username, password = login_info
+        admin = sy.Synnax(
+            host=host, port=port, username=username, password=password, secure=False
+        )
+        user = admin.users.create(name="First Password", role=empty_role.key)
+        new_username = str(uuid4())
+        admin.auth.passwords.create(
+            new_username, "first", subject=sy.user.resource_id(user.key)
+        )
+        client = sy.Synnax(
+            host=host, port=port, username=new_username, password="first", secure=False
+        )
+        assert client.auth.subject == sy.user.resource_id(user.key)
+        client.close()
+        admin.close()
+
+    def test_create_repeated_username(
+        self, login_info: tuple[str, int, str, str], empty_role: sy.Role
+    ) -> None:
+        """Should refuse a username another user holds."""
+        host, port, username, password = login_info
+        admin = sy.Synnax(
+            host=host, port=port, username=username, password=password, secure=False
+        )
+        user = admin.users.create(name="Repeated Username", role=empty_role.key)
+        with pytest.raises(sy.AuthError):
+            admin.auth.passwords.create(
+                username, "p", subject=sy.user.resource_id(user.key)
+            )
+        admin.close()
+
+    def test_retrieve_own(
+        self, login_info: tuple[str, int, str, str], empty_role: sy.Role
+    ) -> None:
+        """Should retrieve the caller's own password by default."""
+        host, port, username, password = login_info
+        admin = sy.Synnax(
+            host=host, port=port, username=username, password=password, secure=False
+        )
+        new_username = str(uuid4())
+        user = create_user(admin, new_username, "test", empty_role.key)
+        client = sy.Synnax(
+            host=host, port=port, username=new_username, password="test", secure=False
+        )
+        [p] = client.auth.passwords.retrieve()
+        assert (p.subject, p.username) == (sy.user.resource_id(user.key), new_username)
+        client.close()
+        admin.close()
+
+    def test_retrieve_by_username(
+        self, login_info: tuple[str, int, str, str], empty_role: sy.Role
+    ) -> None:
+        """Should retrieve a password by its username and ignore unknown ones."""
+        host, port, username, password = login_info
+        admin = sy.Synnax(
+            host=host, port=port, username=username, password=password, secure=False
+        )
+        new_username = str(uuid4())
+        user = create_user(admin, new_username, "test", empty_role.key)
+        res = admin.auth.passwords.retrieve(usernames=[new_username, str(uuid4())])
+        assert [(p.subject, p.username) for p in res] == [
+            (sy.user.resource_id(user.key), new_username)
+        ]
+        admin.close()
+
+    def test_retrieve_by_subject(
+        self, login_info: tuple[str, int, str, str], empty_role: sy.Role
+    ) -> None:
+        """Should retrieve a password by its subject."""
+        host, port, username, password = login_info
+        admin = sy.Synnax(
+            host=host, port=port, username=username, password=password, secure=False
+        )
+        new_username = str(uuid4())
+        user = create_user(admin, new_username, "test", empty_role.key)
+        res = admin.auth.passwords.retrieve(subjects=[sy.user.resource_id(user.key)])
+        assert [(p.subject, p.username) for p in res] == [
+            (sy.user.resource_id(user.key), new_username)
+        ]
         admin.close()

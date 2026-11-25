@@ -551,7 +551,7 @@ var _ = Describe("TS Types Plugin", func() {
 				ExpectContent(
 					resp,
 					"types.gen.ts",
-				).ToContain(`rack: keyZ.refine((v) => v !== 0, "rack is required")`)
+				).ToContain(`rack: keyZ.refine((v) => v !== 0, "Rack is required")`)
 			},
 		)
 
@@ -1179,10 +1179,10 @@ var _ = Describe("TS Types Plugin", func() {
 				content := string(resp.Files[0].Content)
 				Expect(
 					content,
-				).To(ContainSubstring(`username: z.string().min(1, "username is required")`))
+				).To(ContainSubstring(`username: z.string().min(1, "Username is required")`))
 				Expect(
 					content,
-				).To(ContainSubstring(`firstName: z.string().min(1, "first_name is required")`))
+				).To(ContainSubstring(`firstName: z.string().min(1, "First name is required")`))
 			},
 		)
 
