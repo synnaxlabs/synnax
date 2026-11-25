@@ -27,12 +27,12 @@ from x.codec import JSONCodec
 EMPTY_APPLIED_PLAN = (
     '{"entries":[],"kept":0,"hidden":{"restrict":0,"cascade":0,"detach":0},'
     '"token":"",'
-    '"change":{"type":"delete_channels","keys":[1048577]}}'
+    '"records":[{"type":"channel","key":"1048577"}]}'
 )
 
 
 # The change that the specs below send.
-CHANGE = sy.impact.DeleteChannelsChange(keys=[1048577])
+CHANGE = sy.impact.delete_channels([1048577])
 
 
 class FakeCore:

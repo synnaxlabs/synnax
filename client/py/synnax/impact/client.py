@@ -8,7 +8,20 @@
 #  included in the file licenses/APL.txt.
 
 from freighter import UnaryClient
-from synnax.impact.types_gen import ApplyRequest, Change, Choice, Plan, PlanRequest
+from synnax.channel import types_gen as channel
+from synnax.impact.types_gen import (
+    ApplyRequest,
+    Change,
+    Choice,
+    DeleteChange,
+    Plan,
+    PlanRequest,
+)
+
+
+def delete_channels(keys: list[channel.Key]) -> DeleteChange:
+    """Returns the change that deletes the channels with keys."""
+    return DeleteChange(records=[channel.resource_id(key) for key in keys])
 
 
 class Client:

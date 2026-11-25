@@ -15,7 +15,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field
 
-from synnax import channel, resource
+from synnax import resource
 
 EFFECT_RESTRICT: Literal["restrict"] = "restrict"
 
@@ -57,7 +57,7 @@ class Hidden(BaseModel):
     Attributes:
         restrict: Is the number of hidden entries that stop the change.
         cascade: Is the number of hidden entries that the change deletes.
-        detach: Is the number of hidden entries that lose the channel.
+        detach: Is the number of hidden entries that lose a record.
     """
 
     restrict: int = Field(ge=0, le=4294967295)
@@ -65,18 +65,16 @@ class Hidden(BaseModel):
     detach: int = Field(ge=0, le=4294967295)
 
 
-class DeleteChannelsChange(BaseModel):
-    """Deletes channels."""
+class DeleteChange(BaseModel):
+    """Deletes records."""
 
-    type: Literal["delete_channels"] = "delete_channels"
-    keys: list[Annotated[channel.Key, Field(ge=0, le=4294967295)]] = Field(
-        default_factory=list
-    )
+    type: Literal["delete"] = "delete"
+    records: list[resource.ID] = Field(default_factory=list)
 
 
-# Is a change to channels that a plan covers.
+# Is a change that a plan covers.
 Change = Annotated[
-    DeleteChannelsChange,
+    DeleteChange,
     Field(discriminator="type"),
 ]
 
@@ -86,21 +84,21 @@ class Plan(BaseModel):
 
     Attributes:
         entries: Are the records that the change touches, sorted by record.
-        kept: Is the number of records that hold a deleted channel and keep it with no
+        kept: Is the number of records that hold a deleted record and keep it with no
             change. They need no pick, so they are not entries.
         hidden: Counts the entries whose records the caller cannot see. One pick covers
             the ones that stop the change.
         token: Is the hex form of a hash of the change, each visible entry, and the
             hidden counts, with the caller's picks. Apply refuses a token that no longer
             matches.
-        change: Is the change that the plan covers.
+        records: Are the records that the caller deletes.
     """
 
     entries: list[Entry] = Field(default_factory=list)
     kept: int = Field(ge=0, le=4294967295)
     hidden: Hidden
     token: str
-    change: Change
+    records: list[resource.ID] = Field(default_factory=list)
 
 
 class PlanRequest(BaseModel):

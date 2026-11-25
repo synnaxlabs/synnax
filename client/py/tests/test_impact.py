@@ -42,8 +42,8 @@ def create_read_task(client: sy.Synnax, ch: sy.Channel) -> sy.Task:
     )
 
 
-def delete_of(ch: sy.Channel) -> sy.impact.DeleteChannelsChange:
-    return sy.impact.DeleteChannelsChange(keys=[ch.key])
+def delete_of(ch: sy.Channel) -> sy.impact.DeleteChange:
+    return sy.impact.delete_channels([ch.key])
 
 
 def assert_gone(retrieve: Callable[[], object]) -> None:
@@ -81,9 +81,9 @@ class TestImpact:
     def test_apply_with_no_token(
         self, client: sy.Synnax, virtual_channel: sy.Channel
     ) -> None:
-        """Should apply a delete with no token and return its change"""
+        """Should apply a delete with no token and return its records"""
         applied = client.impact.apply(delete_of(virtual_channel))
-        assert applied.change == delete_of(virtual_channel)
+        assert applied.records == delete_of(virtual_channel).records
         assert applied.entries == []
         assert_eventually(
             lambda: assert_gone(lambda: client.channels.retrieve(virtual_channel.key))
