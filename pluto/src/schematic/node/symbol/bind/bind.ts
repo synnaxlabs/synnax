@@ -43,11 +43,13 @@ export const spec = (
 
 type Sourced = Pick<schematic.StateBinding, "key" | "source">;
 
-/** @returns the channels that the bound states read. */
-export const stateChannels = (bindings: Sourced[]): channel.Key[] =>
+/** @returns each channel that a bound state reads or commands, once. */
+export const channels = (bindings: Sourced[]): channel.Key[] =>
   unique.unique(
     bindings.flatMap(({ source }) =>
-      source?.type === "channel" && source.key != null ? [source.key] : [],
+      source?.type === "channel"
+        ? [source.key, source.command].filter((key) => key != null)
+        : [],
     ),
   );
 
@@ -98,13 +100,15 @@ export const sources = (
 // Readings are keyed by channel.
 const reading = (
   readings: Record<string, symbolNode.Reading>,
+  key: channel.Key | undefined,
+): symbolNode.Reading | undefined =>
+  key != null && Object.hasOwn(readings, key) ? readings[key] : undefined;
+
+const stateReading = (
+  readings: Record<string, symbolNode.Reading>,
   source: schematic.StateBinding["source"],
 ): symbolNode.Reading | undefined =>
-  source?.type === "channel" &&
-  source.key != null &&
-  Object.hasOwn(readings, source.key)
-    ? readings[source.key]
-    : undefined;
+  reading(readings, source?.type === "channel" ? source.key : undefined);
 
 /**
  * @returns the value of each bound state that has one: the reading of its channel, or
@@ -117,7 +121,7 @@ export const values = (
   const out = new Map<string, number>();
   for (const { key, source } of bindings) {
     const v =
-      source?.type === "local" ? source.value : reading(readings, source)?.value;
+      source?.type === "local" ? source.value : stateReading(readings, source)?.value;
     if (v != null) out.set(key, v);
   }
   return out;
@@ -135,7 +139,7 @@ export const stateReadings = (
   for (const { key, source } of bindings)
     if (source?.type === "local") out[key] = { value: source.value };
     else if (source?.type === "channel" && source.key != null) {
-      const r = reading(readings, source);
+      const r = stateReading(readings, source);
       out[key] = { value: r?.value ?? NaN, stale: r?.stale };
     }
   return out;
@@ -145,19 +149,37 @@ export const stateReadings = (
 export const stale = (
   bindings: Sourced[],
   readings: Record<string, symbolNode.Reading>,
-): boolean => bindings.some(({ source }) => reading(readings, source)?.stale === true);
+): boolean =>
+  bindings.some(({ source }) => stateReading(readings, source)?.stale === true);
 
 /**
- * @returns whether a state reads a channel that has no data yet, or whose newest value
- * is NaN.
+ * @returns the key of each state that reads a channel that has no data yet, or whose
+ * newest value is NaN.
  */
-export const dataMissing = (
+export const missing = (
   bindings: Sourced[],
   readings: Record<string, symbolNode.Reading>,
-): boolean =>
-  bindings.some(
-    ({ source }) =>
+): Set<string> =>
+  new Set(
+    bindings.flatMap(({ key, source }) =>
       source?.type === "channel" &&
       source.key != null &&
-      reading(readings, source)?.value == null,
+      stateReading(readings, source)?.value == null
+        ? [key]
+        : [],
+    ),
   );
+
+/** @returns the newest value on the command channel of each bound state, by its key. */
+export const commanded = (
+  bindings: Sourced[],
+  readings: Record<string, symbolNode.Reading>,
+): Map<string, number> => {
+  const out = new Map<string, number>();
+  for (const { key, source } of bindings) {
+    if (source?.type !== "channel") continue;
+    const v = reading(readings, source.command)?.value;
+    if (v != null) out.set(key, v);
+  }
+  return out;
+};

@@ -267,13 +267,19 @@ export const levelIssues = (
   return issues;
 };
 
-/** @returns the name "Part N" with the lowest N that no part in parts has. */
-export const nextPartName = (parts: schematic.symbol.Part[]): string => {
-  const taken = new Set(parts.map((p) => p.name));
-  let n = 1;
-  while (taken.has(`Part ${n}`)) n++;
-  return `Part ${n}`;
+// freeName returns prefix N with the lowest N from first that taken lacks.
+const freeName = (prefix: string, taken: string[], first = 1): string => {
+  let n = first;
+  while (taken.includes(`${prefix} ${n}`)) n++;
+  return `${prefix} ${n}`;
 };
+
+/** @returns the name "Part N" with the lowest N that no part in parts has. */
+export const nextPartName = (parts: schematic.symbol.Part[]): string =>
+  freeName(
+    "Part",
+    parts.map((p) => p.name),
+  );
 
 /** @returns spec without part and the looks on it. */
 export const removePart = (spec: Spec, part: string): Spec => ({
@@ -281,6 +287,101 @@ export const removePart = (spec: Spec, part: string): Spec => ({
   parts: spec.parts.filter((p) => p.key !== part),
   looks: spec.looks.filter((l) => l.part !== part),
 });
+
+/** Removed holds the keys of what an edit takes with the item, for its confirm. */
+export interface Removed {
+  /** looks go, or lose a fill, stroke, or motion. */
+  looks: string[];
+  commands: string[];
+  interactions: string[];
+}
+
+/**
+ * @returns spec with a new enumeration state, State N with the lowest free N from 2,
+ * and the key of the state. No state removed earlier had the key, so no node binding
+ * carries over to it.
+ */
+export const addState = (spec: Spec): [Spec, string] => {
+  const name = freeName(
+    "State",
+    spec.states.map((s) => s.name),
+    2,
+  );
+  const key = `state-${id.create()}`;
+  return [{ ...spec, states: [...spec.states, { ...createState(), key, name }] }, key];
+};
+
+/**
+ * @returns spec with a new command, Command N with the lowest free N, that sends 0, and
+ * the key of the command. No command removed earlier had the key, so no node binding
+ * carries over to it.
+ */
+export const addCommand = (spec: Spec): [Spec, string] => {
+  const name = freeName(
+    "Command",
+    spec.commands.map((c) => c.name),
+  );
+  const key = `command-${id.create()}`;
+  const command: schematic.symbol.Command = {
+    key,
+    name,
+    value: { type: "fixed", value: 0 },
+  };
+  return [{ ...spec, commands: [...spec.commands, command] }, key];
+};
+
+// withoutCommands returns spec without commands and the clicks that send them, and the
+// keys of those clicks.
+const withoutCommands = (spec: Spec, commands: string[]): [Spec, string[]] => {
+  const gone = spec.interactions
+    .filter((i) =>
+      (i.type === "fire" ? [i.command] : i.commands).some((c) => commands.includes(c)),
+    )
+    .map((i) => i.key);
+  return [
+    {
+      ...spec,
+      commands: spec.commands.filter((c) => !commands.includes(c.key)),
+      interactions: spec.interactions.filter((i) => !gone.includes(i.key)),
+    },
+    gone,
+  ];
+};
+
+/** @returns spec without command and the clicks that send it, and what goes with it. */
+export const removeCommand = (spec: Spec, command: string): [Spec, Removed] => {
+  const [next, interactions] = withoutCommands(spec, [command]);
+  return [next, { looks: [], commands: [], interactions }];
+};
+
+const reads = (v: Look["fill"] | Look["motion"], state: string): boolean =>
+  v != null && "state" in v && v.state === state;
+
+const READERS = ["fill", "stroke", "motion"] as const;
+
+/**
+ * @returns spec without state and its uses, and what goes with it. A look on the state
+ * goes. A fill, stroke, or motion that reads it goes from its look, and the look goes
+ * when it then sets nothing. The commands on the state go, with their clicks.
+ */
+export const removeState = (spec: Spec, state: string): [Spec, Removed] => {
+  const changed: string[] = [];
+  const looks = spec.looks.flatMap((l): Look[] => {
+    const read = READERS.filter((f) => reads(l[f], state));
+    if (l.when?.state !== state && read.length === 0) return [l];
+    changed.push(l.key);
+    if (l.when?.state === state) return [];
+    const next = { ...l };
+    for (const f of read) next[f] = undefined;
+    return setsNothing(next) ? [] : [next];
+  });
+  const commands = spec.commands.filter((c) => c.state === state).map((c) => c.key);
+  const [next, interactions] = withoutCommands(
+    { ...spec, states: spec.states.filter((s) => s.key !== state), looks },
+    commands,
+  );
+  return [next, { looks: changed, commands, interactions }];
+};
 
 /**
  * @returns the part that holds the shape of selector: the shape itself, a span of the

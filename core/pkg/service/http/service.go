@@ -30,12 +30,15 @@ import (
 // ServiceConfig is the configuration for opening the HTTP task config service.
 type ServiceConfig struct {
 	// DB is the database config records are stored in.
+	//
 	// [REQUIRED]
 	DB *gorp.DB
 	// Channel holds the channels that config fields read from and write to.
+	//
 	// [REQUIRED]
 	Channel *channel.Service
 	// ICD holds the ICDs whose messages read configs read.
+	//
 	// [REQUIRED]
 	ICD *icd.Service
 	alamos.Instrumentation

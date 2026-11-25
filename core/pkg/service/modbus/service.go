@@ -29,6 +29,7 @@ import (
 // ServiceConfig is the configuration for opening the Modbus task config service.
 type ServiceConfig struct {
 	// DB is the database config records are stored in.
+	//
 	// [REQUIRED]
 	DB *gorp.DB
 	alamos.Instrumentation
