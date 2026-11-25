@@ -218,7 +218,7 @@ jobs:
             { echo "::error::Run scripts/fix.sh to format the changed files."; exit 1; }
 
       # Windows and macOS rows exist only in full runs (nightly and release), so mypy
-      # checks each OS's stubs there and only Linux on other runs.
+      # checks each OS's stubs there and the Linux stubs on other runs.
       - name: Check types
         shell: bash
         env:
