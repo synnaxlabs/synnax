@@ -27,7 +27,10 @@ type Layer struct {
 // OpenLayer opens an in-memory storage layer and runs it until Close or until ctx ends.
 // ctx must outlive the Layer. The caller closes it.
 func OpenLayer(ctx context.Context) Layer {
-	l := lo.Must(storage.OpenLayer(ctx, storage.LayerConfig{InMemory: new(true)}))
+	l := lo.Must(storage.OpenLayer(ctx, storage.LayerConfig{
+		InMemory:    new(true),
+		LogFileSize: 4 << 20,
+	}))
 	return Layer{Layer: l, stop: testutil.GoRun(ctx, l.Run)}
 }
 

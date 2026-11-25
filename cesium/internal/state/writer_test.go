@@ -17,6 +17,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/log"
 	"github.com/synnaxlabs/cesium/internal/state"
 	"github.com/synnaxlabs/x/errors"
@@ -371,6 +372,27 @@ var _ = Describe("Writer", func() {
 			).To(MatchError(ContainSubstring("state failed")))
 			Expect(a.durable(nil)).To(refused())
 		})
+	})
+
+	Describe("Drops", func() {
+		BeforeEach(func() { start(head(5, 3)) })
+
+		It("Should refuse a key that a Drop dropped after the read of its channels",
+			func() {
+				cfg := clockWriter(100, false, 5)
+				cfg.Drops = s.Drops()
+				durable(&log.Drop{Key: 5})
+				Expect(s.OpenWriter(context.Background(), cfg)).Error().
+					To(MatchError(channel.ErrNotFound))
+			})
+
+		It("Should open a key that a Drop dropped before the read of its channels",
+			func() {
+				durable(&log.Drop{Key: 5})
+				cfg := clockWriter(100, false, 5)
+				cfg.Drops = s.Drops()
+				Expect(open(cfg).Close()).To(Succeed())
+			})
 	})
 
 	Describe("Claims", func() {
@@ -804,11 +826,12 @@ var _ = Describe("Writer", func() {
 		})
 
 		It("Should add a key with a claim from its start", func() {
-			Expect(w.Add([]state.WriterKey{{Key: 7, DataType: 4}}, 100)).To(Succeed())
+			Expect(w.Add([]state.WriterKey{{Key: 7, DataType: 4}}, 100, s.Drops())).
+				To(Succeed())
 			id := MustSucceed(w.NewSegment(7))
 			Expect(w.Commit([]*log.Commit{commit(2, n, 0, 100, 110, slot(clockID, 16),
 				slot(id, 16))})).To(Succeed())
-			Expect(w.Add([]state.WriterKey{{Key: 7, DataType: 4}}, 100)).
+			Expect(w.Add([]state.WriterKey{{Key: 7, DataType: 4}}, 100, s.Drops())).
 				To(MatchError(ContainSubstring("already writes key 7")))
 		})
 
@@ -819,11 +842,39 @@ var _ = Describe("Writer", func() {
 			Expect(other.Commit([]*log.Commit{commit(2, m, 0, 100, 110,
 				slot(id, 16))})).To(Succeed())
 			Expect(other.Close()).To(Succeed())
-			Expect(w.Add([]state.WriterKey{{Key: 8, DataType: 4}}, 100)).To(SatisfyAll(
-				conflict(),
-				MatchError(ContainSubstring("inside its stored data")),
-			))
+			Expect(w.Add([]state.WriterKey{{Key: 8, DataType: 4}}, 100, s.Drops())).
+				To(SatisfyAll(
+					conflict(),
+					MatchError(ContainSubstring("inside its stored data")),
+				))
 		})
+
+		It("Should refuse to add a key that a Drop dropped after the read of its "+
+			"channels", func() {
+			other := open(clockWriter(100, false, 8))
+			id := MustSucceed(other.NewSegment(8))
+			m := MustSucceed(other.NewAlignment())
+			Expect(other.Commit([]*log.Commit{commit(2, m, 0, 100, 110,
+				slot(id, 16))})).To(Succeed())
+			Expect(other.Close()).To(Succeed())
+			drops := s.Drops()
+			durable(&log.Drop{Key: 8})
+			Expect(w.Add([]state.WriterKey{{Key: 8, DataType: 4}}, 120, drops)).
+				To(MatchError(channel.ErrNotFound))
+		})
+
+		It("Should add a key that a Drop dropped before the read of its channels",
+			func() {
+				other := open(clockWriter(100, false, 8))
+				id := MustSucceed(other.NewSegment(8))
+				m := MustSucceed(other.NewAlignment())
+				Expect(other.Commit([]*log.Commit{commit(2, m, 0, 100, 110,
+					slot(id, 16))})).To(Succeed())
+				Expect(other.Close()).To(Succeed())
+				durable(&log.Drop{Key: 8})
+				Expect(w.Add([]state.WriterKey{{Key: 8, DataType: 4}}, 120, s.Drops())).
+					To(Succeed())
+			})
 
 		It("Should report the stamps of a run once the clock holds them, and fail on "+
 			"other stamps", func() {

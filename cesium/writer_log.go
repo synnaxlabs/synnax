@@ -132,7 +132,8 @@ type logKey struct {
 }
 
 // openLogWriter opens a writer of cfg on the pointer log layout. The writer writes its
-// clock and the channels that the clock times. The caller holds db.mu.
+// clock and the channels that the clock times. It holds db.mu only while it reads the
+// channels of cfg, since the open of the state writer can wait.
 func (db *DB) openLogWriter(ctx context.Context, cfg WriterConfig) (*logWriter, error) {
 	w := &logWriter{
 		e:        db.engine,
@@ -141,11 +142,36 @@ func (db *DB) openLogWriter(ctx context.Context, cfg WriterConfig) (*logWriter, 
 		byKey:    make(map[ChannelKey]*logKey, len(cfg.Channels)),
 		unstored: cfg.Unstored,
 	}
+	stateCfg, err := db.readLogChannels(w, cfg)
+	if err != nil {
+		return nil, err
+	}
+	if w.unstored {
+		return w, nil
+	}
+	if err = w.openState(ctx, db, cfg, stateCfg); err != nil {
+		return nil, err
+	}
+	return w, nil
+}
+
+// readLogChannels reads the channel of each key of cfg into w under db.mu, and returns
+// the config of its state writer with no start. It returns ErrDBClosed when db is
+// closed.
+func (db *DB) readLogChannels(
+	w *logWriter,
+	cfg WriterConfig,
+) (state.WriterConfig, error) {
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+	if db.closed.Load() {
+		return state.WriterConfig{}, ErrDBClosed
+	}
 	clock, ok := db.channelOf(cfg.Clock)
 	if !ok {
-		return nil, channel.NewNotFoundError(cfg.Clock)
+		return state.WriterConfig{}, channel.NewNotFoundError(cfg.Clock)
 	} else if !clock.IsIndex {
-		return nil, channel.Wrap(cfg.Clock, errors.Wrap(
+		return state.WriterConfig{}, channel.Wrap(cfg.Clock, errors.Wrap(
 			validate.ErrValidation,
 			"writer clock is not an index",
 		))
@@ -155,10 +181,10 @@ func (db *DB) openLogWriter(ctx context.Context, cfg WriterConfig) (*logWriter, 
 	for _, key := range cfg.Channels {
 		ch, ok := db.channelOf(key)
 		if !ok {
-			return nil, channel.NewNotFoundError(key)
+			return state.WriterConfig{}, channel.NewNotFoundError(key)
 		}
 		if ch.Clock() != cfg.Clock {
-			return nil, channel.Wrap(key, errors.Wrapf(
+			return state.WriterConfig{}, channel.Wrap(key, errors.Wrapf(
 				validate.ErrValidation,
 				"channel is not timed by the writer clock <%d>",
 				cfg.Clock,
@@ -175,35 +201,30 @@ func (db *DB) openLogWriter(ctx context.Context, cfg WriterConfig) (*logWriter, 
 	slices.SortStableFunc(w.keys, func(a, b *logKey) int {
 		return boolOrder(b.ch.Key == w.clock) - boolOrder(a.ch.Key == w.clock)
 	})
-	if w.unstored {
-		return w, nil
-	}
-	if err := w.openState(ctx, db, cfg, keys); err != nil {
-		return nil, err
-	}
-	return w, nil
+	return state.WriterConfig{
+		Keys:  keys,
+		Clock: w.clock,
+		Drops: db.engine.state.Drops(),
+	}, nil
 }
 
-// openState opens the state writer of w, and seals each open segment of its keys that
-// the state hands over, since a writer starts a new segment for each key.
+// openState opens the state writer of w on stateCfg, with the start and bound of cfg,
+// and seals each open segment of its keys that the state hands over, since a writer
+// starts a new segment for each key.
 func (w *logWriter) openState(
 	ctx context.Context,
 	db *DB,
 	cfg WriterConfig,
-	keys []state.WriterKey,
+	stateCfg state.WriterConfig,
 ) error {
-	start := cfg.Start
-	if start.IsZero() {
-		start = telem.NewTimeStamp(db.clock.Now())
+	stateCfg.Start = cfg.Start
+	if stateCfg.Start.IsZero() {
+		stateCfg.Start = telem.NewTimeStamp(db.clock.Now())
 	}
-	stateCfg := state.WriterConfig{
-		Keys:    keys,
-		Clock:   w.clock,
-		Start:   start,
-		Bounded: cfg.Bounded,
-	}
-	stateKeys := make([]ChannelKey, len(keys))
-	for i, k := range keys {
+	stateCfg.Bounded = cfg.Bounded
+	start := stateCfg.Start
+	stateKeys := make([]ChannelKey, len(stateCfg.Keys))
+	for i, k := range stateCfg.Keys {
 		stateKeys[i] = k.Key
 	}
 	slices.Sort(stateKeys)
