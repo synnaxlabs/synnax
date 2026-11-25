@@ -429,7 +429,7 @@ bound, a log precision, or the line plot X channel.
   Custom (`Icon.Sliders`). It opens on Library while the value is linked or absent, and
   on Custom while the value is a fixed color.
 - One 1.5rem inset holds the tab boxes, the search icon, the titles, and the swatches.
-  Swatches are 21 px with 1rem gaps across and down. Eight across set the width: 38rem.
+  Swatches are 21 px with 8 px gaps across and down. Eight across set the width: 242 px.
 - Library has the select dialog's search under the tab bar's hairline, with a hairline
   under it. Each palette sits under its title, which ends with the name of the color an
   open swatch menu acts on, else the hovered color, else the focused color, else the
@@ -445,8 +445,8 @@ bound, a log precision, or the line plot X channel.
   value. Create sits at the trailing edge, under a hairline across the view, 9 px from
   each edge. An edit saves at once.
 - The saturation and brightness plane has the tiny radius.
-- The hex and alpha inputs pack into one control. The alpha input has no icon, so the
-  widest hex in Inter fits; its "%" names it. Hex codes are Inter.
+- The hex and alpha inputs pack into one control, and the alpha input keeps its opacity
+  icon. Hex codes are Inter, and the inputs fit the widest hex.
 
 ### Symbol motion
 
