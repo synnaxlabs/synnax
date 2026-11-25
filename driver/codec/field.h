@@ -86,9 +86,6 @@ x::errors::Error wrap(const x::errors::Error &err, const std::string &context);
 /// @brief returns err as a CONFIG_ERROR with context before its text.
 x::errors::Error as_config(const x::errors::Error &err, const std::string &context);
 
-/// @brief reports whether inner is outer or a pointer into the value at outer.
-bool within(const x::json::Pointer &inner, const x::json::Pointer &outer);
-
 /// @brief returns VALIDATION when v, a value after the scale and offset of b, is
 /// outside the min and max of b.
 x::errors::Error check_limits(const synnax::icd::BaseField &b, double v);
@@ -96,4 +93,12 @@ x::errors::Error check_limits(const synnax::icd::BaseField &b, double v);
 /// @brief returns VALIDATION when v, a float32 sample, is outside the min and max of b.
 /// A sample that equals a limit at float32 precision is at that limit.
 x::errors::Error check_limits(const synnax::icd::BaseField &b, float v);
+
+/// @brief returns VALIDATION when raw, a value before the scale and offset of b,
+/// decodes outside the min and max of b. It allows the float64 rounding of the decode,
+/// so a value that decodes to a limit passes.
+x::errors::Error check_raw_limits(const synnax::icd::BaseField &b, double raw);
+
+/// @brief reports whether inner is outer or a pointer into the value at outer.
+bool within(const x::json::Pointer &inner, const x::json::Pointer &outer);
 }
