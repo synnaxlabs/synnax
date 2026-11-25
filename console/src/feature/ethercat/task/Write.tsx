@@ -114,9 +114,10 @@ const ContextMenuItems = (props: Task.ContextMenuItemProps<WriteChannel>) => (
 const contextMenuItems = Component.renderProp(ContextMenuItems);
 
 const Form: FC = () => {
-  const slaves = Device.useSlavesByKeys(
+  const slaveResult = Device.useResultSlavesByKeys(
     Task.useChannelDeviceKeys(path.config.channels),
   );
+  const slaves = slaveResult.data;
   const onRack = Device.useSlavesOnRack(slaves?.[0]?.rack);
   PForm.useCheck(path.config, slavesZ("outputs", slaves ?? [], onRack ?? []));
   const resolve = (ch: WriteChannel) => {
@@ -143,6 +144,7 @@ const Form: FC = () => {
         pdoType="outputs"
         path={path.config.channels}
         slaves={slaves}
+        slavesFailed={slaveResult.variant === "error"}
       />
     </Flex.Box>
   );

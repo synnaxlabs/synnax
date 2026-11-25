@@ -19,7 +19,6 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
-	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/user/versions"
 	"github.com/synnaxlabs/x/config"
@@ -35,10 +34,6 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	DB *gorp.DB
-	// Password holds the usernames that [MatchUsernames] matches.
-	//
-	// [REQUIRED]
-	Password *password.Service
 	// Signals is used to propagate user changes through the Synnax signals' channel
 	// communication mechanism.
 	//
@@ -56,7 +51,6 @@ var _ config.Config[ServiceConfig] = ServiceConfig{}
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
-	c.Password = override.Nil(c.Password, other.Password)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	return c
 }
@@ -65,7 +59,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("user")
 	v.NotNil("db", c.DB)
-	v.NotNil("password", c.Password)
 	return v.Error()
 }
 
@@ -123,7 +116,6 @@ func OpenService(
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
 		tx:         tx,
-		svc:        s,
 		table:      s.table,
 		dispatcher: s.state.Dispatcher(),
 	}
@@ -135,9 +127,8 @@ func (s *Service) Actions() *actions.State[Key, Action] { return s.state }
 // NewRetrieve opens a new [Retrieve] query capable of retrieving [User]s.
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
-		gorp:     s.table.NewRetrieve(),
-		indexes:  s.indexes,
-		password: s.cfg.Password,
+		gorp:    s.table.NewRetrieve(),
+		indexes: s.indexes,
 	}
 }
 

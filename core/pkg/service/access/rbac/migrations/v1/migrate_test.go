@@ -20,7 +20,6 @@ import (
 	v1 "github.com/synnaxlabs/synnax/pkg/service/access/rbac/migrations/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
-	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
@@ -39,10 +38,8 @@ var _ = Describe("User role migration", func() {
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		StartRun(db.Run)
-		passwords := MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
 		users = MustOpen(user.OpenService(ctx, user.ServiceConfig{
-			DB:       db,
-			Password: passwords,
+			DB: db,
 		}))
 		roles = MustOpen(role.OpenService(ctx, role.ServiceConfig{DB: db}))
 		policies = MustOpen(policy.OpenService(ctx, policy.ServiceConfig{

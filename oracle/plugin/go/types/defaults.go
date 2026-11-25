@@ -716,8 +716,8 @@ type constraintCheckData struct {
 	GoName    string
 	FieldName string
 	// Kind selects the assertion form: non_empty_string, min_len, max_len, pattern
-	// (string), min_bytes, max_bytes (bytes), non_zero (numeric or uuid), or ge, le,
-	// lt (numeric).
+	// (string), min_bytes (bytes), non_empty_slice (list), non_zero (numeric or uuid),
+	// or ge, le, lt (numeric).
 	Kind string
 	// Arg is the length or numeric threshold literal for the kinds that take one, the
 	// Go name of the compared field for lt, or the regex var for pattern.
@@ -763,6 +763,10 @@ func goConstraintChecks(
 	required := rules.Required && !field.Optional
 	var checks []constraintCheckData
 	switch {
+	case validation.IsList(field.Type):
+		if required {
+			checks = append(checks, check("non_empty_slice", ""))
+		}
 	case base == "uuid":
 		if required {
 			checks = append(checks, check("non_zero", ""))
@@ -782,22 +786,15 @@ func goConstraintChecks(
 	return checks
 }
 
-// bytesChecks returns the length checks of a bytes field, which count bytes.
+// bytesChecks returns the min_length check of a bytes field, which counts bytes. The
+// analyzer refuses a max_length rule on bytes for Go.
 func bytesChecks(rules *validation.Rules, check constraintCheck) []constraintCheckData {
-	var checks []constraintCheckData
-	if rules.MinLength != nil {
-		checks = append(
-			checks,
-			check("min_bytes", strconv.FormatInt(*rules.MinLength, 10)),
-		)
+	if rules.MinLength == nil {
+		return nil
 	}
-	if rules.MaxLength != nil {
-		checks = append(
-			checks,
-			check("max_bytes", strconv.FormatInt(*rules.MaxLength, 10)),
-		)
+	return []constraintCheckData{
+		check("min_bytes", strconv.FormatInt(*rules.MinLength, 10)),
 	}
-	return checks
 }
 
 // goLessThanCheck returns the check of the lt rule that field sets for Go. siblings are

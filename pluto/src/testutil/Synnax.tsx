@@ -140,7 +140,7 @@ export const createSynnaxWrapper = ({
     return (
       <AetherProvider>
         <Status.Aggregator log={quiet}>
-          <Alamos.Provider>
+          <Alamos.Provider level="warn">
             <Synnax.TestProvider client={client} status={connectionStatus}>
               <Suspense fallback={null}>
                 <ThemingSeed>
