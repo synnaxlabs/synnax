@@ -364,7 +364,6 @@ func (idx *index) update(
 	sizeDelta := int64(p.size) - int64(oldP.size)
 	p.id = oldP.id
 	idx.mu.pointers[updateAt] = p
-	idx.checkApart(updateAt, updateAt)
 	idx.totalSize.Add(sizeDelta)
 	var change historyChange
 	// The live stream carries commits to the last domain.
