@@ -58,6 +58,10 @@ type WriterConfig struct {
 	// Bounded makes each claim cover one nanosecond at Start and grow to the end of
 	// each commit. A claim that is not bounded runs from Start to the end of time.
 	Bounded bool
+	// Drops is the value of State.Drops when the caller read the channels of Keys and
+	// Clock. The open fails with a not-found error when a later Drop dropped one of
+	// them.
+	Drops uint64
 }
 
 // claim is the time range that a writer may write on one key. A pin keeps stamps that a
@@ -133,13 +137,14 @@ func (r *openRequest) fail(err error) { r.w.done <- err }
 func (r *openRequest) run(s *State) { r.w.done <- s.openWriter(r.w, r.pre) }
 
 // OpenWriter opens a writer of cfg. pre holds the preload of each key of cfg at its
-// start, in rising order of key. It returns an error that wraps validate.ErrValidation
-// when the start lies in stored data of one of its keys, when a bounded claim starts
-// inside another claim, or when another writer that is not bounded claims one of its
-// keys, and ErrStale when a preload is stale. The writer takes over each open segment
-// of its keys that no writer holds, when it has the same clock, type, and version, and
-// every commit of it is durable. The open queues until Run runs it: when ctx ends
-// first, OpenWriter returns the error of ctx, and the open never runs.
+// start, in rising order of key. It returns a not-found error when a Drop after
+// cfg.Drops dropped one of its keys, an error that wraps validate.ErrValidation when
+// the start lies in stored data of one of its keys, when a bounded claim starts inside
+// another claim, or when another writer that is not bounded claims one of its keys,
+// and ErrStale when a preload is stale. The writer takes over each open segment of its
+// keys that no writer holds, when it has the same clock, type, and version, and every
+// commit of it is durable. The open queues until Run runs it: when ctx ends first,
+// OpenWriter returns the error of ctx, and the open never runs.
 func (s *State) OpenWriter(
 	ctx context.Context,
 	cfg WriterConfig,
@@ -162,7 +167,24 @@ func (s *State) OpenWriter(
 	return w, nil
 }
 
+// checkDropped returns a not-found error when a Drop after the read of the channels of
+// w dropped one of its keys.
+func (s *State) checkDropped(w *Writer) error {
+	for _, k := range w.cfg.Keys {
+		if s.core.dropped[k.Key] > w.cfg.Drops {
+			return channel.NewNotFoundError(k.Key)
+		}
+	}
+	if s.core.dropped[w.cfg.Clock] > w.cfg.Drops {
+		return channel.NewNotFoundError(w.cfg.Clock)
+	}
+	return nil
+}
+
 func (s *State) openWriter(w *Writer, pre []Preload) error {
+	if err := s.checkDropped(w); err != nil {
+		return err
+	}
 	if err := s.checkOpen(w, pre); err != nil {
 		return err
 	}
@@ -194,7 +216,8 @@ func (s *State) openWriter(w *Writer, pre []Preload) error {
 }
 
 // checkOpen refuses the open of w when its start lies in stored data of one of its
-// keys, or when the claim of w would reach another writer's claim.
+// keys, or when the claim of w would reach the claim of another writer or a delete. pre
+// holds the preloads of the keys of w at its start.
 func (s *State) checkOpen(w *Writer, pre []Preload) error {
 	start := w.cfg.Start
 	for key := range w.types {
