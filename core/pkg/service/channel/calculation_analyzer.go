@@ -22,11 +22,11 @@ import (
 	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
-	"github.com/synnaxlabs/x/validate"
 )
 
 type resolver struct {
@@ -135,6 +135,11 @@ func (a *CalculationAnalyzer) Analyze(
 	if a.resolver.readErr != nil {
 		return CalculationAnalysisResult{}, a.resolver.readErr
 	}
+	if aCtx.Diagnostics.Ok() && dataType.ToTelem() == telem.UnknownT {
+		aCtx.Diagnostics.Add(diagnostics.Errorf(
+			t, "the expression of calculated channel %q returns no value", ch.Name,
+		))
+	}
 	if !aCtx.Diagnostics.Ok() {
 		return CalculationAnalysisResult{
 			Unresolved: a.resolver.unresolved.Slice(),
@@ -164,13 +169,6 @@ func (a *CalculationAnalyzer) Analyze(
 		return op.Type == OperationTypeDerivative
 	}) {
 		inferredDataType = telem.Float64T
-	}
-	if inferredDataType == telem.UnknownT {
-		return CalculationAnalysisResult{}, errors.Wrapf(
-			validate.ErrValidation,
-			"the expression of calculated channel %q returns no value",
-			ch.Name,
-		)
 	}
 	return CalculationAnalysisResult{
 		ChanDataType:         inferredDataType,

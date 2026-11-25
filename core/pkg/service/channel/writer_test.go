@@ -2387,24 +2387,63 @@ var _ = Describe("Writer", func() {
 			db = dist.DB
 			svc = openService(ctx, dist)
 		})
-		DescribeTable("Should reject the channel",
-			func(ctx SpecContext, ch channel.Channel, msg string) {
-				ch.Name = UniqueChannelName()
+		It("Should reject a channel with a free leaseholder and no data type", func(
+			ctx SpecContext,
+		) {
+			ch := channel.Channel{
+				Name:        UniqueChannelName(),
+				Virtual:     true,
+				Leaseholder: node.KeyFree,
+			}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &ch)
+			})).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("data_type")),
+			))
+		})
+
+		It("Should reject a calculated channel that returns no value", func(
+			ctx SpecContext,
+		) {
+			ch := channel.Channel{
+				Name:       UniqueChannelName(),
+				Virtual:    true,
+				Expression: "x := 1",
+			}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &ch)
+			})).To(MatchError(ContainSubstring("returns no value")))
+		})
+
+		It("Should type a stored channel with no data type when its expression changes",
+			func(ctx SpecContext) {
+				untyped := channel.Channel{
+					Name:        UniqueChannelName(),
+					Leaseholder: node.KeyFree,
+					LocalKey:    9001,
+					Virtual:     true,
+					Expression:  "x := 1",
+				}
+				Expect(gorp.NewCreate[channel.Key, channel.Channel]().
+					Entry(&untyped).
+					Exec(ctx, db)).To(Succeed())
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					return svc.NewWriter(tx).Create(ctx, &ch)
-				})).To(SatisfyAll(
-					MatchError(validate.ErrValidation),
-					MatchError(ContainSubstring(msg)),
-				))
+					_, err := svc.NewWriter(tx).Apply(ctx, untyped.Key(),
+						channel.NewSetAction(channel.SetPayload{
+							Path:  []string{"expression"},
+							Value: "return 1",
+						}),
+					)
+					return err
+				})).To(Succeed())
+				var stored channel.Channel
+				Expect(svc.NewRetrieve().
+					Where(channel.MatchKeys(untyped.Key())).
+					Entry(&stored).
+					Exec(ctx, db)).To(Succeed())
+				Expect(stored.DataType).To(Equal(telem.Int64T))
 			},
-			Entry("with a free leaseholder",
-				channel.Channel{Virtual: true, Leaseholder: node.KeyFree},
-				"data_type",
-			),
-			Entry("with an expression that returns no value",
-				channel.Channel{Virtual: true, Expression: "x := 1"},
-				"returns no value",
-			),
 		)
 	})
 })

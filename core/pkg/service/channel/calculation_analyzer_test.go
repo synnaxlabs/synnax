@@ -24,7 +24,6 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
-	"github.com/synnaxlabs/x/validate"
 )
 
 // failingResolver fails every lookup with context.Canceled.
@@ -54,10 +53,20 @@ var _ = Describe("Analyze", func() {
 	It("Should reject an expression that returns no value", func(ctx SpecContext) {
 		a := channel.NewCalculationAnalyzer(StaticResolver{})
 		Expect(a.Analyze(ctx, channel.Channel{Name: "calc", Expression: "x := 1"})).
-			Error().To(SatisfyAll(
-			MatchError(validate.ErrValidation),
-			MatchError(ContainSubstring(`calculated channel "calc" returns no value`)),
+			Error().To(MatchError(
+			ContainSubstring(`calculated channel "calc" returns no value`),
 		))
+	})
+
+	It("Should reject a derivative of an expression that returns no value", func(
+		ctx SpecContext,
+	) {
+		a := channel.NewCalculationAnalyzer(StaticResolver{})
+		Expect(a.Analyze(ctx, channel.Channel{
+			Name:       "calc",
+			Expression: "x := 1",
+			Operations: []channel.Operation{{Type: channel.OperationTypeDerivative}},
+		})).Error().To(MatchError(ContainSubstring("returns no value")))
 	})
 
 	Describe("Type Inference", func() {
