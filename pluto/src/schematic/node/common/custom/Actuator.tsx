@@ -44,7 +44,11 @@ export const Actuator = ({
 }: ActuatorProps): ReactElement => {
   const { symbol, missing } = Symbol.useResolved(specKey);
   const spec = symbol?.data;
-  const paints = usePaints(spec, enabled ? 1 : 0, stateOverrides, strokeColor);
+  const value = enabled ? 1 : 0;
+  const paints = usePaints(spec, value, {
+    override: stateOverrides?.[value],
+    nodeColor: strokeColor,
+  });
   const invalid = spec != null && !isValidSVG(spec.drawing.markup);
   if (missing || invalid)
     return (
