@@ -24,7 +24,7 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Schematic } from "@synnaxlabs/pluto";
 import { type bounds, deep, id, type xy } from "@synnaxlabs/x";
-import { type ReactElement, useState } from "react";
+import { type ReactElement, useRef, useState } from "react";
 
 import { HandleList } from "@/feature/schematic/symbol/edit/HandleList";
 import { Inspector } from "@/feature/schematic/symbol/edit/Inspector";
@@ -125,14 +125,22 @@ const Editor = ({
     useCombinedStateAndRef<Spec.Target>(undefined);
   const [selectedHandle, setSelectedHandle] = useState<string | undefined>(undefined);
 
-  const addPart = () => {
+  // addPart adds a part, with the shape of selector when one is given, and selects it.
+  const addPart = (selector?: string) => {
     const parts = form.get(path.data.parts).value;
     const part: schematic.symbol.Part = {
       key: `part-${id.create()}`,
       name: Spec.nextPartName(parts),
       selectors: [],
     };
-    form.set(path.data.parts, [...parts, part]);
+    const next = [...parts, part];
+    const drawing = form.get(path.data.drawing).value;
+    form.set(
+      path.data.parts,
+      selector == null
+        ? next
+        : Spec.toggleSelector({ drawing, parts: next }, part.key, selector),
+    );
     setSelectedPart(part.key);
   };
 
@@ -158,13 +166,21 @@ const Editor = ({
     }
   };
 
-  const handleElementClick = (selector: string) => {
+  const lastClickSelectsRef = useRef(false);
+  const handleElementClick = (selector: string, count: number) => {
+    // A later click of the same double click would undo a click that selects a part.
+    if (count > 1 && lastClickSelectsRef.current) return;
     const part = selectedPartRef.current;
-    if (part == null) return;
-    form.set(
-      path.data.parts,
-      Spec.toggleSelector(form.get(path.data.parts).value, part, selector),
-    );
+    const spec = form.get(path.data).value;
+    // A shape in a group of another part cannot join part, so the click selects it.
+    const holder = Spec.groupOwner(spec, selector);
+    const toggles = part != null && (holder == null || holder.key === part);
+    lastClickSelectsRef.current = !toggles;
+    if (toggles)
+      return form.set(path.data.parts, Spec.toggleSelector(spec, part, selector));
+    const owner = part == null ? Spec.owner(spec, selector) : holder;
+    if (owner == null) return addPart(selector);
+    setSelectedPart(owner.key);
   };
   const hasSVG =
     Form.useFieldValue(path.data.drawing.markup, {
@@ -239,7 +255,7 @@ const Editor = ({
                     setSelectedPart(value);
                     setSelectedHandle(undefined);
                   }}
-                  onAdd={addPart}
+                  onAdd={() => addPart()}
                 />
                 <Divider.Divider x />
                 <HandleList
@@ -288,6 +304,7 @@ const Editor = ({
                   <Preview
                     selectedValue={selectedValue}
                     selectedHandle={selectedHandle}
+                    selectedPart={selectedPart}
                     onElementClick={handleElementClick}
                     onContentsChange={onChange}
                     onHandlePlace={handleHandlePlace}
