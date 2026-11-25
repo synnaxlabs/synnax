@@ -58,7 +58,7 @@ def run_scripts(
         "SYNNAX_TEST_PORT": str(conn.port),
         "SYNNAX_USERNAME": conn.username,
         "SYNNAX_PASSWORD": conn.password,
-        "SYNNAX_INSECURE": "0" if conn.secure else "1",
+        "SYNNAX_CLIENT_INSECURE": "0" if conn.secure else "1",
     }
     env.pop("SYNNAX_CA_CERT", None)
     if conn.ca_cert is not None:
@@ -90,7 +90,7 @@ def options_from_env() -> Options:
         port=int(os.environ["SYNNAX_TEST_PORT"]),
         username=os.environ["SYNNAX_USERNAME"],
         password=os.environ["SYNNAX_PASSWORD"],
-        insecure=os.environ["SYNNAX_INSECURE"] == "1",
+        insecure=os.environ["SYNNAX_CLIENT_INSECURE"] == "1",
         ca_cert=os.environ.get("SYNNAX_CA_CERT"),
     )
 

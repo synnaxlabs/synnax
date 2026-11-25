@@ -98,5 +98,5 @@ class TestTLS:
             )
         assert str(e.value) == (
             f"The Core at {host}:{port} does not use TLS. If it runs with "
-            "--insecure, set insecure=True or SYNNAX_INSECURE=true."
+            "--insecure, set insecure=True or SYNNAX_CLIENT_INSECURE=true."
         )

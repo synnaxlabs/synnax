@@ -299,26 +299,26 @@ supported, `sy login` and Synnax Desktop also write their files to `~/.synnax`.
 The clients read these environment variables. They take an API key, not a username and
 password.
 
-| Variable          | Value                                                                          |
-| ----------------- | ------------------------------------------------------------------------------ |
-| `SYNNAX_HOST`     | The host of the Core.                                                          |
-| `SYNNAX_API_KEY`  | An API key.                                                                    |
-| `SYNNAX_PORT`     | The port of the Core. The default is `9090`.                                   |
-| `SYNNAX_INSECURE` | Python: `true` or `1` to not use TLS, `false` or `0` to use TLS.               |
-| `SYNNAX_SECURE`   | `true` or `1` to use TLS, `false` or `0` to not use TLS. Deprecated in Python. |
-| `SYNNAX_CA_CERT`  | The path to the PEM file of the CA certificate of the Core.                    |
+| Variable                 | Value                                                                          |
+| ------------------------ | ------------------------------------------------------------------------------ |
+| `SYNNAX_HOST`            | The host of the Core.                                                          |
+| `SYNNAX_API_KEY`         | An API key.                                                                    |
+| `SYNNAX_PORT`            | The port of the Core. The default is `9090`.                                   |
+| `SYNNAX_CLIENT_INSECURE` | Python: `true` or `1` to not use TLS, `false` or `0` to use TLS.               |
+| `SYNNAX_SECURE`          | `true` or `1` to use TLS, `false` or `0` to not use TLS. Deprecated in Python. |
+| `SYNNAX_CA_CERT`         | The path to the PEM file of the CA certificate of the Core.                    |
 
 Each client takes each option from the first source that sets it: the argument, then its
 variable, then its default.
 
-| Python     | TypeScript | Variable          | Default |
-| ---------- | ---------- | ----------------- | ------- |
-| `host`     | `host`     | `SYNNAX_HOST`     | None    |
-| `port`     | `port`     | `SYNNAX_PORT`     | `9090`  |
-| `api_key`  | `apiKey`   | `SYNNAX_API_KEY`  | None    |
-| `insecure` |            | `SYNNAX_INSECURE` | False   |
-|            | `secure`   | `SYNNAX_SECURE`   | True    |
-| `ca_cert`  | `caCert`   | `SYNNAX_CA_CERT`  | None    |
+| Python     | TypeScript | Variable                 | Default |
+| ---------- | ---------- | ------------------------ | ------- |
+| `host`     | `host`     | `SYNNAX_HOST`            | None    |
+| `port`     | `port`     | `SYNNAX_PORT`            | `9090`  |
+| `api_key`  | `apiKey`   | `SYNNAX_API_KEY`         | None    |
+| `insecure` |            | `SYNNAX_CLIENT_INSECURE` | False   |
+|            | `secure`   | `SYNNAX_SECURE`          | True    |
+| `ca_cert`  | `caCert`   | `SYNNAX_CA_CERT`         | None    |
 
 <Client.Tabs exclude={["console"]}>
 
@@ -335,9 +335,9 @@ Two groups come whole from the first source that sets one of their options:
   store of the operating system, even when `SYNNAX_CA_CERT` is set.
 
 `secure` and `SYNNAX_SECURE` still work in 0.63 as the inverse of `insecure` and
-`SYNNAX_INSECURE`, and they stop working in 0.64. The client warns only when it reads
-the old name without the new one. To serve clients older and newer than 0.63, set both
-names with values that agree. When they disagree, the client raises
+`SYNNAX_CLIENT_INSECURE`, and they stop working in 0.64. The client warns only when it
+reads the old name without the new one. To serve clients older and newer than 0.63, set
+both names with values that agree. When they disagree, the client raises
 `sy.ValidationError`.
 
 To keep the API key out of your code, give the host and set only `SYNNAX_API_KEY`:
@@ -351,8 +351,9 @@ export SYNNAX_API_KEY=syk_...
 python my_script.py
 ```
 
-When no source gives a host or credentials, or when `SYNNAX_PORT` or `SYNNAX_INSECURE`
-has a value that is not valid, the client raises `sy.ValidationError`.
+When no source gives a host or credentials, or when `SYNNAX_PORT` or
+`SYNNAX_CLIENT_INSECURE` has a value that is not valid, the client raises
+`sy.ValidationError`.
 
   </Fragment>
 

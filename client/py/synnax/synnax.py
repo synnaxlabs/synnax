@@ -256,7 +256,7 @@ class Synnax(framer.Client):
                     target=e.target,
                     message=f"The Core at {opts.host}:{opts.port} does not use TLS. "
                     "If it runs with --insecure, set insecure=True or "
-                    "SYNNAX_INSECURE=true.",
+                    "SYNNAX_CLIENT_INSECURE=true.",
                 ) from e
             if embedded and _connect_failed(e):
                 raise Unreachable(

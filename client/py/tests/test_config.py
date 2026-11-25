@@ -620,7 +620,7 @@ class TestLoadEnvOptions:
             {
                 **ENV,
                 "SYNNAX_PORT": "9091",
-                "SYNNAX_INSECURE": "TRUE",
+                "SYNNAX_CLIENT_INSECURE": "TRUE",
                 "SYNNAX_SECURE": "false",
                 "SYNNAX_CA_CERT": "~/ca.crt",
             }
@@ -640,7 +640,7 @@ class TestLoadEnvOptions:
     def test_strips_values(self) -> None:
         """Should strip whitespace, such as the newline that ends a secret file."""
         assert load_env_options(
-            {"SYNNAX_HOST": " core.lab\n", "SYNNAX_INSECURE": "true "}
+            {"SYNNAX_HOST": " core.lab\n", "SYNNAX_CLIENT_INSECURE": "true "}
         ) == {"host": "core.lab", "insecure": True}
 
     @pytest.mark.parametrize(
@@ -649,7 +649,7 @@ class TestLoadEnvOptions:
             "SYNNAX_HOST",
             "SYNNAX_PORT",
             "SYNNAX_API_KEY",
-            "SYNNAX_INSECURE",
+            "SYNNAX_CLIENT_INSECURE",
             "SYNNAX_SECURE",
         ],
     )
@@ -662,8 +662,10 @@ class TestLoadEnvOptions:
         [("1", True), ("yes", True), ("0", False), ("false", False), ("no", False)],
     )
     def test_insecure_values(self, value: str, insecure: bool) -> None:
-        """Should read the true and false spellings of SYNNAX_INSECURE."""
-        assert load_env_options({"SYNNAX_INSECURE": value}) == {"insecure": insecure}
+        """Should read the true and false spellings of SYNNAX_CLIENT_INSECURE."""
+        assert load_env_options({"SYNNAX_CLIENT_INSECURE": value}) == {
+            "insecure": insecure
+        }
 
     @pytest.mark.parametrize(
         ("env", "message"),
@@ -671,7 +673,10 @@ class TestLoadEnvOptions:
             ({"SYNNAX_PORT": "abc"}, "SYNNAX_PORT must be a port"),
             ({"SYNNAX_PORT": "0"}, "SYNNAX_PORT must be a port"),
             ({"SYNNAX_PORT": "65536"}, "SYNNAX_PORT must be a port"),
-            ({"SYNNAX_INSECURE": "maybe"}, "SYNNAX_INSECURE must be true or false"),
+            (
+                {"SYNNAX_CLIENT_INSECURE": "maybe"},
+                "SYNNAX_CLIENT_INSECURE must be true or false",
+            ),
             ({"SYNNAX_SECURE": "maybe"}, "SYNNAX_SECURE must be true or false"),
         ],
         ids=["port-text", "port-zero", "port-high", "insecure", "secure"],
@@ -743,9 +748,9 @@ class TestLoadOptions:
             ("port", None, {}, 9090),
             ("api_key", "syk_arg", {"SYNNAX_API_KEY": "syk_env"}, "syk_arg"),
             ("api_key", None, {"SYNNAX_API_KEY": "syk_env"}, "syk_env"),
-            ("insecure", True, {"SYNNAX_INSECURE": "false"}, True),
-            ("insecure", None, {"SYNNAX_INSECURE": "true"}, True),
-            ("insecure", None, {"SYNNAX_INSECURE": "false"}, False),
+            ("insecure", True, {"SYNNAX_CLIENT_INSECURE": "false"}, True),
+            ("insecure", None, {"SYNNAX_CLIENT_INSECURE": "true"}, True),
+            ("insecure", None, {"SYNNAX_CLIENT_INSECURE": "false"}, False),
             ("insecure", None, {}, False),
             ("ca_cert", "/arg.crt", {"SYNNAX_CA_CERT": "/env.crt"}, "/arg.crt"),
             ("ca_cert", None, {"SYNNAX_CA_CERT": "/env.crt"}, "/env.crt"),
@@ -814,12 +819,12 @@ class TestLoadOptions:
             ),
             (
                 {},
-                {"SYNNAX_INSECURE": "true"},
+                {"SYNNAX_CLIENT_INSECURE": "true"},
                 SAVED.model_copy(update={"insecure": True, "ca_cert": None}),
             ),
             (
                 {},
-                {"SYNNAX_INSECURE": "false", "SYNNAX_CA_CERT": "/env.crt"},
+                {"SYNNAX_CLIENT_INSECURE": "false", "SYNNAX_CA_CERT": "/env.crt"},
                 SAVED.model_copy(update={"ca_cert": "/env.crt"}),
             ),
             (
@@ -976,7 +981,7 @@ class TestLoadOptions:
             host="h",
             api_key="syk_k",
             **args,
-            env={"SYNNAX_INSECURE": "false", "SYNNAX_CA_CERT": "/env.crt"},
+            env={"SYNNAX_CLIENT_INSECURE": "false", "SYNNAX_CA_CERT": "/env.crt"},
             clusters=clusters,
             desktop_file=desktop_file,
         )
@@ -1032,8 +1037,8 @@ class TestLoadOptions:
         [
             ({"insecure": True, "secure": False}, {}, True),
             ({"insecure": False, "secure": True}, {}, False),
-            ({}, {"SYNNAX_INSECURE": "true", "SYNNAX_SECURE": "false"}, True),
-            ({}, {"SYNNAX_INSECURE": "false", "SYNNAX_SECURE": "true"}, False),
+            ({}, {"SYNNAX_CLIENT_INSECURE": "true", "SYNNAX_SECURE": "false"}, True),
+            ({}, {"SYNNAX_CLIENT_INSECURE": "false", "SYNNAX_SECURE": "true"}, False),
         ],
         ids=["args-cleartext", "args-tls", "env-cleartext", "env-tls"],
     )
@@ -1065,8 +1070,8 @@ class TestLoadOptions:
         [
             ({"insecure": True, "secure": True}, {}),
             ({"insecure": False, "secure": False}, {}),
-            ({}, {"SYNNAX_INSECURE": "true", "SYNNAX_SECURE": "true"}),
-            ({}, {"SYNNAX_INSECURE": "false", "SYNNAX_SECURE": "false"}),
+            ({}, {"SYNNAX_CLIENT_INSECURE": "true", "SYNNAX_SECURE": "true"}),
+            ({}, {"SYNNAX_CLIENT_INSECURE": "false", "SYNNAX_SECURE": "false"}),
         ],
         ids=["args-true", "args-false", "env-true", "env-false"],
     )

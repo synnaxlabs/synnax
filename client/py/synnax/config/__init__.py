@@ -235,13 +235,13 @@ def _env_bool(env: Mapping[str, str], name: str) -> bool | None:
 
 def load_env_options(env: Mapping[str, str]) -> PartialOptions:
     """Loads the options in the SYNNAX_HOST, SYNNAX_PORT, SYNNAX_API_KEY,
-    SYNNAX_INSECURE, and SYNNAX_CA_CERT environment variables, and in the deprecated
-    SYNNAX_SECURE. Values are stripped, and an empty value counts as unset.
+    SYNNAX_CLIENT_INSECURE, and SYNNAX_CA_CERT environment variables, and in the
+    deprecated SYNNAX_SECURE. Values are stripped, and an empty value counts as unset.
 
     :param env: The environment variables, such as os.environ.
     :returns: The options that the variables set.
-    :raises ValidationError: If SYNNAX_PORT, SYNNAX_INSECURE, or SYNNAX_SECURE is not
-        valid.
+    :raises ValidationError: If SYNNAX_PORT, SYNNAX_CLIENT_INSECURE, or SYNNAX_SECURE is
+        not valid.
     """
     opts = PartialOptions()
     if host := _env(env, "SYNNAX_HOST"):
@@ -258,7 +258,7 @@ def load_env_options(env: Mapping[str, str]) -> PartialOptions:
                 f"SYNNAX_PORT must be a port from 1 to 65535, not {raw_port!r}"
             )
         opts["port"] = port
-    if (insecure := _env_bool(env, "SYNNAX_INSECURE")) is not None:
+    if (insecure := _env_bool(env, "SYNNAX_CLIENT_INSECURE")) is not None:
         opts["insecure"] = insecure
     if (secure := _env_bool(env, "SYNNAX_SECURE")) is not None:
         opts["secure"] = secure

@@ -56,12 +56,13 @@ def from_stored(raw: Mapping[str, Any]) -> dict[str, Any]:
 
 _TLS_FLAGS_DISAGREE_MSG = (
     "insecure and the deprecated secure disagree. secure must be the inverse of "
-    "insecure, and SYNNAX_SECURE the inverse of SYNNAX_INSECURE. Give only insecure."
+    "insecure, and SYNNAX_SECURE the inverse of SYNNAX_CLIENT_INSECURE. Give only "
+    "insecure."
 )
 
 _SECURE_DEPRECATED_MSG = (
     "secure and SYNNAX_SECURE are deprecated and stop working in Synnax 0.64. Use "
-    "insecure and SYNNAX_INSECURE, which mean the inverse."
+    "insecure and SYNNAX_CLIENT_INSECURE, which mean the inverse."
 )
 
 # The warning names the first frame of the caller's code.
