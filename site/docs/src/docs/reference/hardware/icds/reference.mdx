@@ -175,17 +175,17 @@ and **Enum mapping** settings.
 
 ### Types
 
-| Type                                           | Python class         | New channel | Notes                                            |
-| ---------------------------------------------- | -------------------- | ----------- | ------------------------------------------------ |
-| Float                                          | `FloatJSONField`     | `float64`   | A number.                                        |
-| Signed integer                                 | `IntegerJSONField`   | `int64`     | An integer.                                      |
-| Unsigned integer                               | `UnsignedJSONField`  | `uint64`    | An integer of 0 or more.                         |
-| Boolean                                        | `BooleanJSONField`   | `uint8`     | `true` or `false`, as 1 or 0. Not a number.      |
-| String                                         | `StringJSONField`    | `string`    | A string.                                        |
-| JSON                                           | `JSONJSONField`      | `json`      | Any JSON value.                                  |
-| UUID                                           | `UuidJSONField`      | `uuid`      | A UUID in a string.                              |
-| Bytes (base64)                                 | `BytesJSONField`     | `bytes`     | Base64 text in a string. Needs a pointer.        |
-| Timestamp (ISO 8601), (s), (ms), (µs), or (ns) | `TimestampJSONField` | `timestamp` | ISO 8601 text, or Unix time in s, ms, µs, or ns. |
+| Type                                           | Python class         | New channel | Notes                                                               |
+| ---------------------------------------------- | -------------------- | ----------- | ------------------------------------------------------------------- |
+| Float                                          | `FloatJSONField`     | `float64`   | A number.                                                           |
+| Signed integer                                 | `IntegerJSONField`   | `int64`     | An integer.                                                         |
+| Unsigned integer                               | `UnsignedJSONField`  | `uint64`    | An integer of 0 or more.                                            |
+| Boolean                                        | `BooleanJSONField`   | `uint8`     | `true` or `false`, as 1 or 0. Not a number.                         |
+| String                                         | `StringJSONField`    | `string`    | A string. A number, Boolean, object, or array writes its JSON text. |
+| JSON                                           | `JSONJSONField`      | `json`      | Any JSON value.                                                     |
+| UUID                                           | `UuidJSONField`      | `uuid`      | A UUID in a string.                                                 |
+| Bytes (base64)                                 | `BytesJSONField`     | `bytes`     | Base64 text in a string. Needs a pointer.                           |
+| Timestamp (ISO 8601), (s), (ms), (µs), or (ns) | `TimestampJSONField` | `timestamp` | ISO 8601 text, or Unix time in s, ms, µs, or ns.                    |
 
 In TypeScript, the `type` of a field is `"float"`, `"integer"`, `"unsigned"`,
 `"boolean"`, `"string"`, `"json"`, `"uuid"`, `"bytes"`, or `"timestamp"`.
@@ -240,6 +240,9 @@ no value at the pointer of the field:
 
 The scale and offset apply to a number default. When a field that a task reads has no
 default, the task skips each document that has no value for the field.
+
+A float default can be NaN, so that a read writes NaN for a missing value. A write of a
+JSON message cannot send a NaN default. A float default cannot be infinite.
 
 A JSON default is JSON text, and a bytes default is base64 text, such as `AQI=`. A
 timestamp default is now, the time of each read or write, or a constant time. In Python,
@@ -578,14 +581,13 @@ code, `client.icds.check` returns the problems of an ICD.
 
 <Problem.Item
   message={[
-    "default must be finite",
+    "default cannot be infinite",
     "default <n> does not fit a 32-bit float",
     "default <n> does not fit the field",
   ]}
 >
   <Problem.Cause>
-    A float default is not a finite number, or a binary default does not fit the bits of
-    its field.
+    A float default is infinite, or a binary default does not fit the bits of its field.
   </Problem.Cause>
   <Problem.Fix>Enter a value that the field can hold.</Problem.Fix>
 </Problem.Item>
@@ -689,6 +691,29 @@ code, `client.icds.check` returns the problems of an ICD.
     Driver removes these from the start of each item, so no item can start with the tag.
   </Problem.Cause>
   <Problem.Fix>Remove the whitespace from the start of the tag.</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={'the tag "<tag>" is also the tag of field <name>'}>
+  <Problem.Cause>
+    Two tagged fields of one message have the same tag. The Driver cannot tell which
+    field an item of the line belongs to.
+  </Problem.Cause>
+  <Problem.Fix>Enter a different tag for one of the two fields.</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item
+  message={'a value of field <name> after its tag "<tag>" reads as this tag'}
+>
+  <Problem.Cause>
+    The tag of the named field is the start of this tag, and the rest of this tag can
+    start a number, such as `T` and `T1`. The Driver gives each item to the longest tag
+    that starts it, so a value of the named field, such as `T1.5`, reads as a value of
+    this field.
+  </Problem.Cause>
+  <Problem.Fix>
+    Change one of the tags so that no number can follow the shorter tag inside the
+    longer tag, such as `T=` and `T1=`.
+  </Problem.Fix>
 </Problem.Item>
 
 </Problem.List>

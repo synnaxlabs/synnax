@@ -212,6 +212,64 @@ var _ = Describe("Parse", func() {
 	})
 })
 
+var _ = Describe("NonEmpty", func() {
+	required := map[string]resolution.Domain{
+		"validate": {Expressions: []resolution.Expression{{Name: "required"}}},
+	}
+	size := int64(3)
+	list := resolution.TypeRef{
+		Name:     "Array",
+		TypeArgs: []resolution.TypeRef{{Name: "string"}},
+	}
+	DescribeTable(
+		"should report whether a field must hold at least one element",
+		func(field resolution.Field, want bool) {
+			Expect(validation.NonEmpty(field)).To(Equal(want))
+		},
+		Entry("a required list", resolution.Field{Type: list, Domains: required}, true),
+		Entry("a list without a rule", resolution.Field{Type: list}, false),
+		Entry(
+			"an optional list",
+			resolution.Field{Type: list, Optional: true, Domains: required},
+			false,
+		),
+		Entry(
+			"a fixed-size array",
+			resolution.Field{
+				Type:    resolution.TypeRef{Name: "Array", ArraySize: &size},
+				Domains: required,
+			},
+			false,
+		),
+		Entry(
+			"a string",
+			resolution.Field{
+				Type:    resolution.TypeRef{Name: "string"},
+				Domains: required,
+			},
+			false,
+		),
+	)
+})
+
+var _ = Describe("IsList", func() {
+	size := int64(3)
+	DescribeTable(
+		"should report whether a type is written as T[]",
+		func(ref resolution.TypeRef, want bool) {
+			Expect(validation.IsList(ref)).To(Equal(want))
+		},
+		Entry("a T[]", resolution.TypeRef{Name: "Array"}, true),
+		Entry(
+			"a fixed-size array",
+			resolution.TypeRef{Name: "Array", ArraySize: &size},
+			false,
+		),
+		Entry("a map", resolution.TypeRef{Name: "Map"}, false),
+		Entry("a named type", resolution.TypeRef{Name: "test.Names"}, false),
+	)
+})
+
 var _ = Describe("LessThan", func() {
 	ident := func(name string) resolution.ExpressionValue {
 		return resolution.ExpressionValue{

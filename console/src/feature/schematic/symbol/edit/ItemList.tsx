@@ -60,8 +60,8 @@ export interface ItemListProps<T extends Item> extends Input.Control<
   detail: (item: T) => ReactNode;
   /** add returns spec with a new item, and the key of the item. */
   add: (spec: schematic.symbol.Spec) => [schematic.symbol.Spec, string];
-  /** addDisabled, when set, turns off the add button and says why. */
-  addDisabled?: string;
+  /** addDisabledReason, when set, turns off the add button and says why. */
+  addDisabledReason?: string;
   /** remove returns spec without an item, and what goes with it. */
   remove: (
     spec: schematic.symbol.Spec,
@@ -83,7 +83,7 @@ export const ItemList = <T extends Item>({
   name,
   detail,
   add,
-  addDisabled,
+  addDisabledReason,
   remove,
   onRemove,
   value,
@@ -110,7 +110,6 @@ export const ItemList = <T extends Item>({
   const handleAdd = () => {
     const [next, key] = add(get(path.data).value);
     set(path.data, next);
-    // The new item takes focus: its name opens for edit, or else the item is picked.
     if (name != null) Text.edit(nameID(key));
     else onChange(key);
   };
@@ -126,8 +125,8 @@ export const ItemList = <T extends Item>({
             onClick={handleAdd}
             size="small"
             variant="text"
-            tooltip={addDisabled ?? `Add ${noun}`}
-            disabled={addDisabled != null}
+            tooltip={addDisabledReason ?? `Add ${noun}`}
+            disabled={addDisabledReason != null}
           >
             <Icon.Add />
           </Button.Button>

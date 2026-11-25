@@ -81,12 +81,8 @@ describe("role", () => {
       const prefix = `searchable-role-${id.create()}`;
       const names = [`${prefix}-1`, `${prefix}-2`];
       await client.access.roles.create(names.map((name) => ({ name })));
-      await expect
-        .poll(async () => {
-          const results = await client.access.roles.retrieve({ searchTerm: prefix });
-          return results.map((r) => r.name).sort();
-        })
-        .toEqual(names);
+      const results = await client.access.roles.retrieve({ searchTerm: prefix });
+      expect(results.map((r) => r.name).sort()).toEqual(names);
     });
   });
 
@@ -143,11 +139,7 @@ describe("role", () => {
 
     it("should refuse to delete a role that a user holds", async () => {
       const held = await client.access.roles.create({ name: `held-${id.create()}` });
-      const u = await client.users.create({
-        username: id.create(),
-        password: "test",
-        role: held.key,
-      });
+      const u = await client.users.create({ name: "test", role: held.key });
       await expect(client.access.roles.delete(held.key)).rejects.toThrow(
         new ValidationError(
           `cannot delete role ${held.name} because user ${u.name} ` +

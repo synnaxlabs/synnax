@@ -16,7 +16,7 @@ import type { list } from "@/query/list";
 import type { Live, Retrieves, Trigger } from "@/query/query";
 import type { Keyed, Table } from "@/query/table";
 import type { Data, FetchOptions, Params } from "@/query/types";
-import { checkForMultipleOrNoResults, singleQueryError } from "@/util/retrieve";
+import { util } from "@/util";
 
 /** Query fields only the server can evaluate, shared by most request shapes. */
 const DEFAULT_SERVER_FIELDS = ["searchTerm", "limit", "after"] as const;
@@ -424,7 +424,7 @@ export abstract class Retriever<
           return records;
         });
         const { where, searchTerm } = narrow.isObject(query) ? query : {};
-        checkForMultipleOrNoResults(
+        util.checkForMultipleOrNoResults(
           name,
           {
             where: narrow.isObject(where) ? where : undefined,
@@ -451,7 +451,7 @@ export abstract class Retriever<
       // reports only its strict arm, which calls the key an unexpected field.
       const one =
         singleSchema != null && addressesKey(p) ? singleSchema.safeParse(p) : null;
-      if (one?.success === false) throw singleQueryError(name, p, one.error);
+      if (one?.success === false) throw util.singleQueryError(name, p, one.error);
       throw new zod.ParseError({
         issues: res.error.issues,
         input: p,

@@ -334,10 +334,12 @@ export default class Synnax extends framer.Client {
    * @throws {ValidationError} If no host is given, set, or saved by Synnax Desktop, if
    * SYNNAX_PORT or SYNNAX_SECURE is not valid, if SYNNAX_CA_CERT is set with
    * SYNNAX_SECURE false, if the SYNNAX_CA_CERT file is missing, empty, not PEM text, or
-   * cannot be read, if ~/.synnax/desktop.json cannot be read, or if Synnax Desktop is
-   * too old.
+   * cannot be read, if the desktop.json of Synnax Desktop cannot be read, or if Synnax
+   * Desktop is too old.
    * @throws {Error} if props.caCert is set with props.secure false, in a browser, or in
    * Deno.
+   * @throws {Error} in Node, if HTTP_PROXY or HTTPS_PROXY is set to a value that is not
+   * an http or https URL.
    */
   constructor(params: ConstructorParams = {}) {
     const system = env.nodeSystem();
@@ -474,6 +476,7 @@ export default class Synnax extends framer.Client {
     this.control = new control.Client({ unary, cache });
     this.users = new user.Client({
       unary,
+      auth: this.auth,
       cache,
       batch: this.batch,
       connection: this.conn,
