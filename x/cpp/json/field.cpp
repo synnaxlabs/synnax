@@ -197,8 +197,6 @@ errors::Error Decoder::append(const std::string_view raw, telem::Series &dst) {
 
 errors::Error Decoder::append_float(const double v, telem::Series &dst) const {
     const Number n(v);
-    if (std::isnan(v) || std::isinf(v))
-        return invalid(n.to_string() + " is not finite");
     if (const auto &dt = this->field.data_type; !numeric(dt))
         return invalid("cannot convert a float to " + dt.name());
     return this->append_number(n, dst);

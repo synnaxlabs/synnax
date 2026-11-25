@@ -35,14 +35,15 @@ type Factory func() xfs.FS
 // produces a fresh FS rooted at an isolated location and arranges for that
 // location to be torn down when the surrounding Ginkgo node exits. Both roots are
 // named "testdata"; osFS puts its root in a new os.TempDir directory whose name
-// starts with "testdata-p<N>-", where N is the Ginkgo parallel process.
+// starts with "testdata-p<N>-<pid>-", where N is the Ginkgo parallel process and pid
+// is the test process, so two test binaries never share one.
 var FileSystems = map[string]Factory{
 	"memFS": openMem,
 	"osFS":  openOS,
 }
 
 func tempDirPrefix() string {
-	return fmt.Sprintf("testdata-p%d-", ginkgo.GinkgoParallelProcess())
+	return fmt.Sprintf("testdata-p%d-%d-", ginkgo.GinkgoParallelProcess(), os.Getpid())
 }
 
 func openMem() xfs.FS {
