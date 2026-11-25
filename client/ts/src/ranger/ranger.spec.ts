@@ -324,12 +324,8 @@ describe("range", () => {
       const timeRange = TimeStamp.now().spanRange(TimeSpan.seconds(1));
       const names = [`${prefix}-1`, `${prefix}-2`];
       await client.ranges.create(names.map((name) => ({ name, timeRange })));
-      await expect
-        .poll(async () => {
-          const results = await client.ranges.retrieve({ searchTerm: prefix });
-          return results.map((r) => r.name).sort();
-        })
-        .toEqual(names);
+      const results = await client.ranges.retrieve({ searchTerm: prefix });
+      expect(results.map((r) => r.name).sort()).toEqual(names);
     });
   });
 
