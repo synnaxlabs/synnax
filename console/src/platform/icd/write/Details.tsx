@@ -8,15 +8,22 @@
 // included in the file licenses/APL.txt.
 
 import type { icd } from "@synnaxlabs/client";
+import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
+import type { ICD as PICD } from "@synnaxlabs/pluto";
 import { bounds, DataType, deep, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
-import type { ReactElement } from "react";
+import type { FC } from "react";
 
+import { CSS } from "@/platform/css";
 import { defaultDataType, encodes } from "@/platform/icd/dataType";
+import { JSONField } from "@/platform/icd/Fields";
+import { formatOf, useFormats } from "@/platform/icd/Formats";
+import { OpenInEditor } from "@/platform/icd/OpenInEditor";
 import { formatDefault } from "@/platform/icd/Options";
 import { rawBounds } from "@/platform/icd/range";
+import { fieldsPath } from "@/platform/icd/read";
 import { ValueField } from "@/platform/icd/ValueField";
 import { Task } from "@/platform/task";
 
@@ -61,23 +68,41 @@ const hiddenDataTypes = (field: icd.JSONField): DataType[] =>
 
 const ONLY_CHANNEL_TOOLTIP = "A message needs at least one field on a channel.";
 
-interface FieldBindingProps {
+export interface FieldDetailsProps {
+  /** The bindings of the message that the target sends. */
   path: deep.Path<icd.WriteBinding[]>;
-  field: icd.JSONField;
+  /** The ICD of the message, which an enclosing WithFormats opens. */
+  icdKey: icd.Key;
+  message: icd.MessageKey;
+  field: icd.FieldKey;
+  /** The name of the command channel that deploying creates for the field. */
   channelName: string;
-  skipped: boolean;
+  /** Deploying creates no channel, because the target is disabled. */
+  skipped?: boolean;
+  /** The name of the field takes the focus on mount. */
+  autoFocus?: boolean;
 }
 
-const FieldBinding = ({
+/**
+ * The format of a field, which each edit saves to the ICD at once, then what fills the
+ * field: a command channel, a fixed value, or its default.
+ */
+export const FieldDetails: FC<FieldDetailsProps> = ({
   path,
-  field,
+  icdKey,
+  message,
+  field: key,
   channelName,
-  skipped,
-}: FieldBindingProps): ReactElement => {
+  skipped = false,
+  autoFocus = false,
+}) => {
   const { set } = PForm.useContext();
   const isPreview = Task.useIsPreview();
+  const format = formatOf(useFormats(), icdKey);
+  const fieldPath = fieldsPath(message)[key];
+  const field = PForm.useFieldValue(fieldPath, { ctx: format });
   const bindings = PForm.useFieldValue(path);
-  const i = bindings.findIndex((b) => b.field === field.key);
+  const i = bindings.findIndex((b) => b.field === key);
   const binding = i >= 0 ? bindings[i] : undefined;
   const bound = binding != null;
   // The Core refuses a message that binds no channels.
@@ -85,15 +110,15 @@ const FieldBinding = ({
     binding?.type === "channel" &&
     bindings.filter(({ type }) => type === "channel").length === 1;
   const handleMode = (mode: Mode) => {
-    const others = bindings.filter((b) => b.field !== field.key);
+    const others = bindings.filter((b) => b.field !== key);
     if (mode === "default") {
       set(path, others);
       return;
     }
     const next: icd.WriteBinding =
       mode === "channel"
-        ? { type: "channel", field: field.key, channel: 0 }
-        : { type: "value", field: field.key, value: INITIAL_VALUES[field.type](field) };
+        ? { type: "channel", field: key, channel: 0 }
+        : { type: "value", field: key, value: INITIAL_VALUES[field.type](field) };
     set(path, bound ? bindings.with(i, next) : [...bindings, next]);
   };
   const modes = (
@@ -123,66 +148,42 @@ const FieldBinding = ({
     </Select.Buttons>
   );
   return (
-    <PForm.Section
-      title={field.name}
-      actions={modes}
-      role="group"
-      aria-label={field.name}
-    >
-      {bound && binding.type === "channel" && (
-        <>
-          <Task.ChannelNameField
-            channel={binding.channel}
-            defaultName={channelName}
-            skipped={skipped}
+    <Flex.Box y grow empty className={CSS.BE("details", "form")}>
+      <PForm.Sections>
+        <PForm.Form<typeof PICD.formSchema> {...format}>
+          <JSONField
+            path={fieldPath}
+            autoFocus={autoFocus}
+            actions={<OpenInEditor icdKey={icdKey} message={message} />}
           />
-          <Task.Payload.DataTypeField
-            path={deep.variant(path[i], "type", "channel").dataType}
-            channel={binding.channel}
-            defaultDataType={defaultDataType(field)}
-            hideDataTypes={hiddenDataTypes(field)}
-          />
-        </>
-      )}
-      {bound && binding.type === "value" && (
-        <ValueField
-          type={field.type}
-          path={deep.variant(path[i], "type", "value").value.value}
-        />
-      )}
-      {!bound && (
-        <Text.Text color={9}>Sends its default, {formatDefault(field)}.</Text.Text>
-      )}
-    </PForm.Section>
+        </PForm.Form>
+        <PForm.Section title="Source" actions={modes} role="group" aria-label="Source">
+          {bound && binding.type === "channel" && (
+            <>
+              <Task.ChannelNameField
+                channel={binding.channel}
+                defaultName={channelName}
+                skipped={skipped}
+              />
+              <Task.Payload.DataTypeField
+                path={deep.variant(path[i], "type", "channel").dataType}
+                channel={binding.channel}
+                defaultDataType={defaultDataType(field)}
+                hideDataTypes={hiddenDataTypes(field)}
+              />
+            </>
+          )}
+          {bound && binding.type === "value" && (
+            <ValueField
+              type={field.type}
+              path={deep.variant(path[i], "type", "value").value.value}
+            />
+          )}
+          {!bound && (
+            <Text.Text color={9}>Sends its default, {formatDefault(field)}.</Text.Text>
+          )}
+        </PForm.Section>
+      </PForm.Sections>
+    </Flex.Box>
   );
 };
-
-export interface BindingsProps {
-  path: deep.Path<icd.WriteBinding[]>;
-  /** The fields of the message. */
-  fields: icd.JSONField[];
-  /** @returns the name of the command channel that deploying creates for the field. */
-  channelName: (field: icd.JSONField) => string;
-  /** Deploying creates no channels, because the target is disabled. */
-  skipped?: boolean;
-}
-
-/** Fills each field of a message from a channel, a fixed value, or its default. */
-export const Bindings = ({
-  path,
-  fields,
-  channelName,
-  skipped = false,
-}: BindingsProps): ReactElement => (
-  <>
-    {fields.map((field) => (
-      <FieldBinding
-        key={field.key}
-        path={path}
-        field={field}
-        channelName={channelName(field)}
-        skipped={skipped}
-      />
-    ))}
-  </>
-);

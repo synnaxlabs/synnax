@@ -34,18 +34,19 @@ or generator logic and schemas disagree.
   (`Key = v0.Key`, pointing at the defining version) for the rest. Absence means the
   type was removed at N. The versions directory is the sole version authority: there is
   no `@go version` tag; the current version is the highest vN file, and membership in it
-  marks a type persisted. Version-owned content: fields, optionality, docs, `@key`, and
-  the `@go` persistence set (`marshal` incl. field-level `omit`, `wire`, `json`, `hand`,
-  `migrate`, `imex`). Codecs are explicit: a struct or union gets one iff its
-  declaration carries `@go marshal`; references never pull a codec in.
-  `@go marshal hand` marks hand-written codec methods: nothing generates, references
-  stay valid. Generation fails when a codec's persisted graph reaches a struct or union
-  carrying neither form.
+  marks a type persisted. Version-owned content: fields, optionality, docs, `@key`,
+  `@resource type` (stored ontology keys hold it), and the `@go` persistence set
+  (`marshal` incl. field-level `omit`, `wire`, `json`, `hand`, `migrate`, `imex`,
+  `entry`). Codecs are explicit: a struct or union gets one iff its declaration carries
+  `@go marshal`; references never pull a codec in. `@go marshal hand` marks hand-written
+  codec methods: nothing generates, references stay valid. Generation fails when a
+  codec's persisted graph reaches a struct or union carrying neither form.
 - **A full declaration can be a patch on an earlier version.** `X struct extends vK.X`
   (or a union of the same name) copies vK's declaration, resolved in vN's scope, then
-  applies its body: an entry of the same name merges in place, `-field` removes one, and
-  a new entry follows the nearest restated parent entry above it (a bare `name` restates
-  a field), or ends the list. An `extends` of another name is a plain mixin.
+  applies its body: an entry of the same name merges in place, `-name` removes one (a
+  field, or a union's variant), and a new entry follows the nearest restated parent
+  entry above it (a bare `name` restates a field), or ends the list. A variant omit is
+  valid only in such a patch. An `extends` of another name is a plain mixin.
 - **The live file is a generated projection, then an annotation surface.** Sync writes
   each versioned resource's live schema by merging chain resolution (version-owned
   content) with the live file's own annotations (outputs, `@ts`/`@py`/`@cpp` bindings,
@@ -54,8 +55,8 @@ or generator logic and schemas disagree.
   rejects them in version files). Edit shapes in version files; edit live-only concerns
   in the live file. A hand edit to version-owned live content is overwritten by the next
   sync, and the `versions` gate errors on the drift naming the version files as
-  authority. A `@doc` on a kept declaration that the chain leaves undocumented fails
-  sync and check, and the error names the version file to move it to.
+  authority. A `@doc` or `@resource type` on a kept declaration that the chain lacks
+  fails sync and check, and the error names the version file to move it to.
 - **A resource is versioned iff its data is gorp-persisted.** Never version derived
   artifacts. A resource that stops being persisted ENDS its chain with a tombstone: an
   empty v(N+1).oracle (header and a comment only) records that everything was removed at
@@ -147,6 +148,12 @@ or generator logic and schemas disagree.
   task file: no `Export`, several types may share a package, and each gets an exported
   `<Type>Ladder` (`imex.Ladder`) over body blobs. A version that redeclares a marked
   type must declare its exported `Migrate<Type>` step.
+- `@go entry` on a struct or union in a version file emits `entry.gen.go` in every
+  `versions/vN` package that declares the type: `GorpKey` from its `@key` field, own or
+  inherited (a union reads its shared base), and `ResourceID` when it has
+  `@resource type`. `@go entry "name"` also emits `CustomTypeName`, which sets the Gorp
+  key prefix, so the name is storage: never change it. A computed or composite key stays
+  hand-written.
 
 ## Field optionality
 

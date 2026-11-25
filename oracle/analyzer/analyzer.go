@@ -107,6 +107,7 @@ func Analyze(
 	detectRecursiveTypes(table)
 	validateDomainOmits(table, diag)
 	validateLengthRules(table, diag)
+	validateCollectionRules(table, diag)
 	validateFiniteRules(table, diag)
 	validatePatternRules(table, diag)
 	validateComparisonRules(table, diag)
@@ -145,6 +146,7 @@ func AnalyzeSeeded(
 	detectRecursiveTypes(table)
 	validateDomainOmits(table, diag)
 	validateLengthRules(table, diag)
+	validateCollectionRules(table, diag)
 	validateFiniteRules(table, diag)
 	validatePatternRules(table, diag)
 	validateComparisonRules(table, diag)
@@ -1570,8 +1572,11 @@ func collectUnion(c *analysisCtx, def parser.IUnionDefContext) {
 type unionDecl struct {
 	extends  []resolution.TypeRef
 	variants []variantDecl
-	actions  []resolution.Action
-	domains  map[string]resolution.Domain
+	// omits are the variants that the declaration removes from the earlier version of
+	// itself that it patches. See copyUnion.
+	omits   []parser.IVariantOmitContext
+	actions []resolution.Action
+	domains map[string]resolution.Domain
 }
 
 // variantDecl is a union variant collected but not yet registered. payload holds the
@@ -1604,6 +1609,7 @@ func collectUnionDecl(
 		for _, v := range body.AllUnionVariant() {
 			decl.variants = append(decl.variants, collectVariantDecl(c, name, v))
 		}
+		decl.omits = body.AllVariantOmit()
 		for _, a := range body.AllActionDef() {
 			decl.actions = append(decl.actions, collectAction(c, a, nil))
 		}

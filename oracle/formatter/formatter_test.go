@@ -864,6 +864,29 @@ var _ = Describe("Format", func() {
 			))
 		})
 
+		It("should format variant omits before the variants of a union", func() {
+			source := "A struct {}\nFoo union on type extends v0.Foo {\n" +
+				"  a A\n  -b\n  -c\n}\n"
+			Expect(format(source)).To(Equal(
+				"A struct {}\n\nFoo union on type extends v0.Foo {\n" +
+					"    -b\n    -c\n    a A\n}\n",
+			))
+		})
+
+		It("should format a union that holds only variant omits", func() {
+			source := "Foo union on type extends v0.Foo {\n  -b\n}\n"
+			Expect(format(source)).To(Equal(
+				"Foo union on type extends v0.Foo {\n    -b\n}\n",
+			))
+		})
+
+		It("should keep a comment above a variant omit", func() {
+			source := "Foo union on type extends v0.Foo {\n  // b is gone.\n  -b\n}\n"
+			Expect(format(source)).To(Equal(
+				"Foo union on type extends v0.Foo {\n    // b is gone.\n    -b\n}\n",
+			))
+		})
+
 		It("should format a union that holds only actions", func() {
 			source := "Foo union on type {\n  action Reset {}\n}\n"
 			Expect(format(source)).To(Equal(

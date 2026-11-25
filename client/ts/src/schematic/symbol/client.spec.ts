@@ -141,14 +141,8 @@ describe("Symbol Client", () => {
           group: symbolGroup.key,
         })),
       });
-      await expect
-        .poll(async () => {
-          const results = await client.schematics.symbols.retrieve({
-            searchTerm: prefix,
-          });
-          return results.map((s) => s.name).sort();
-        })
-        .toEqual(names);
+      const results = await client.schematics.symbols.retrieve({ searchTerm: prefix });
+      expect(results.map((s) => s.name).sort()).toEqual(names);
     });
 
     it("should retrieve symbols by where", async () => {
@@ -159,15 +153,11 @@ describe("Symbol Client", () => {
           { name: `${prefix}-2`, data: SYMBOL_DATA, group: symbolGroup.key },
         ],
       });
-      await expect
-        .poll(async () => {
-          const results = await client.schematics.symbols.retrieve({
-            searchTerm: prefix,
-            where: { not: { key: { eq: first.key } } },
-          });
-          return results.map((s) => s.name);
-        })
-        .toEqual([`${prefix}-2`]);
+      const results = await client.schematics.symbols.retrieve({
+        searchTerm: prefix,
+        where: { not: { key: { eq: first.key } } },
+      });
+      expect(results.map((s) => s.name)).toEqual([`${prefix}-2`]);
     });
   });
 
@@ -202,15 +192,11 @@ describe("Symbol Client", () => {
           { name: "pump", data: SYMBOL_DATA, group: g.key },
         ],
       });
-      await expect
-        .poll(async () => {
-          const results = await client.schematics.symbols.retrieve({
-            groups: [g.key],
-            searchTerm: prefix,
-          });
-          return results.map((s) => s.name);
-        })
-        .toEqual([`${prefix}-valve`]);
+      const results = await client.schematics.symbols.retrieve({
+        groups: [g.key],
+        searchTerm: prefix,
+      });
+      expect(results.map((s) => s.name)).toEqual([`${prefix}-valve`]);
     });
 
     it("should combine a group with a where", async () => {

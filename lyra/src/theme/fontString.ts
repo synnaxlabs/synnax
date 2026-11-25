@@ -12,10 +12,13 @@ import type { text } from "@synnaxlabs/x";
 import { Component } from "@/component";
 import type { ThemeSpec } from "@/theme/theme";
 
+/** The canvas face: Inter, Inter with tabular digits ("Inter Tabular"), or code. */
+export type FontVariant = "prose" | "numeric" | "code";
+
 interface FontStringOptions {
   level: text.Level | Component.Size;
   weight?: text.Weight;
-  code?: boolean;
+  variant?: FontVariant;
 }
 
 type FontThreshold = {
@@ -25,8 +28,8 @@ type FontThreshold = {
 };
 
 const thresholds: FontThreshold[] = [
-  { weight: 200, style: "light", value: "Inter 200, sans-serif" },
-  { weight: 300, value: "Inter Threee, sans-serif" },
+  { weight: 200, style: "light", value: "Inter Two, sans-serif" },
+  { weight: 300, value: "Inter Three, sans-serif" },
   { weight: 400, value: "Inter Four, sans-serif" },
   { weight: 500, value: "Inter Five, sans-serif" },
   { weight: 600, value: "Inter Six, sans-serif" },
@@ -34,6 +37,8 @@ const thresholds: FontThreshold[] = [
   { weight: 800, value: "Inter Eight, sans-serif" },
   { weight: 900, style: "bold", value: "Inter Nine, sans-serif" },
 ];
+
+const NUMERIC_FAMILY = "Inter Tabular, sans-serif";
 
 const matchThreshold = (weight: text.Weight): FontThreshold | undefined =>
   thresholds.find((t, i) => {
@@ -46,14 +51,15 @@ const matchThreshold = (weight: text.Weight): FontThreshold | undefined =>
 
 export const fontString = (
   theme: ThemeSpec,
-  { level, weight, code }: FontStringOptions,
+  { level, weight, variant = "prose" }: FontStringOptions,
 ): string => {
   const {
     typography,
     sizes: { base },
   } = theme;
   let fmly = typography.family;
-  if (code) fmly = typography.codeFamily;
+  if (variant === "code") fmly = typography.codeFamily;
+  else if (variant === "numeric") fmly = NUMERIC_FAMILY;
   else if (weight != null) {
     const threshold = matchThreshold(weight);
     if (threshold != null) fmly = threshold.value;
