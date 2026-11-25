@@ -31,6 +31,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	channeltestutil "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -222,10 +223,12 @@ var _ = Describe("NewLSP", func() {
 			})).To(Succeed())
 			DeferCleanup(func(ctx SpecContext) {
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					return channelSvc.NewWriter(tx).DeleteMany(
+					return channeltestutil.Delete(
 						ctx,
-						[]channel.Key{visible.Key(), hidden.Key()},
-						false,
+						channelSvc,
+						tx,
+						visible.Key(),
+						hidden.Key(),
 					)
 				})).To(Succeed())
 			})

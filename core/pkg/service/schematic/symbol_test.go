@@ -349,7 +349,7 @@ var _ = Describe("Symbol node channel bindings", func() {
 		s := bound(ctx, keys[0], keys[1], keys[2])
 		createSchematic(ctx, &s)
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			return channelSvc.NewWriter(tx).DeleteMany(ctx, keys, false)
+			return channeltestutil.Delete(ctx, channelSvc, tx, keys...)
 		})).To(Succeed())
 		var stored schematic.Schematic
 		Expect(svc.NewRetrieve().

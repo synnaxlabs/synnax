@@ -40,14 +40,13 @@ func oldDelete(
 	GinkgoHelper()
 	tx := db.OpenTx()
 	defer func() { Expect(tx.Close()).To(Succeed()) }()
-	w := svc.NewWriter(tx)
 	if len(req.Keys) > 0 {
-		if err := w.DeleteMany(ctx, req.Keys, false); err != nil {
+		if err := Delete(ctx, svc, tx, req.Keys...); err != nil {
 			return err
 		}
 	}
 	if len(req.Names) > 0 {
-		return w.DeleteManyByNames(ctx, req.Names, false)
+		return svc.NewWriter(tx).DeleteManyByNames(ctx, req.Names, false)
 	}
 	return nil
 }

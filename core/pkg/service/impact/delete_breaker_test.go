@@ -179,7 +179,7 @@ var _ = Describe("Delete breaker", Ordered, ContinueOnFailure, func() {
 		GinkgoHelper()
 		tx := db.OpenTx()
 		defer func() { Expect(tx.Close()).To(Succeed()) }()
-		return layer.Channel.NewWriter(tx).DeleteMany(ctx, keys, false)
+		return Delete(ctx, layer.Channel, tx, keys...)
 	}
 	entry := func(id resource.ID, effect impact.Effect) impact.Entry {
 		e := impact.Entry{Record: id, Effect: effect}

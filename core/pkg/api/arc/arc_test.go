@@ -32,6 +32,7 @@ import (
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	calctestutil "github.com/synnaxlabs/synnax/pkg/service/calculation/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	channeltestutil "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -372,9 +373,12 @@ var _ = Describe("Service", func() {
 						); err != nil {
 							return err
 						}
-						return channelSvc.NewWriter(tx).DeleteMany(ctx, []channel.Key{
+						return channeltestutil.Delete(
+							ctx,
+							channelSvc,
+							tx,
 							outer.Key(), inner.Key(), out.Key(), base.Key(),
-						}, false)
+						)
 					})).To(Succeed())
 				})
 				grantOn(ctx, author.ResourceID(), access.ActionRetrieve, a.ResourceID())
@@ -443,9 +447,12 @@ var _ = Describe("Service", func() {
 						); err != nil {
 							return err
 						}
-						return channelSvc.NewWriter(tx).DeleteMany(ctx, []channel.Key{
+						return channeltestutil.Delete(
+							ctx,
+							channelSvc,
+							tx,
 							outer.Key(), inner.Key(), out.Key(),
-						}, false)
+						)
 					})).To(Succeed())
 				})
 				grantOn(ctx, author.ResourceID(), access.ActionRetrieve, a.ResourceID())
@@ -524,9 +531,12 @@ var _ = Describe("Service", func() {
 						); err != nil {
 							return err
 						}
-						return channelSvc.NewWriter(tx).DeleteMany(ctx, []channel.Key{
+						return channeltestutil.Delete(
+							ctx,
+							channelSvc,
+							tx,
 							a.Key(), b.Key(), out.Key(), base.Key(),
-						}, false)
+						)
 					})).To(Succeed())
 				})
 				grantOn(

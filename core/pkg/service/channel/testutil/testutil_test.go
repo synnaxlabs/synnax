@@ -18,6 +18,7 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/set"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -36,7 +37,7 @@ var _ = Describe("UniqueChannelName", func() {
 	})
 })
 
-var _ = Describe("CreateVirtual", func() {
+var _ = Describe("Service helpers", func() {
 	var (
 		db  *gorp.DB
 		svc *channel.Service
@@ -56,20 +57,77 @@ var _ = Describe("CreateVirtual", func() {
 		}))
 	})
 
-	It("Should create virtual channels with unique names", func(ctx SpecContext) {
-		keys := MustSucceed(CreateVirtual(ctx, db, svc, 3))
-		Expect(keys).To(HaveLen(3))
-		var channels []channel.Channel
-		Expect(svc.NewRetrieve().
-			Where(channel.MatchKeys(keys...)).
-			Entries(&channels).
-			Exec(ctx, db)).To(Succeed())
-		Expect(channel.KeysFromChannels(channels)).To(ConsistOf(keys))
-		Expect(channels).To(HaveEach(HaveField("Virtual", BeTrue())))
-		Expect(set.New(channel.Names(channels)...)).To(HaveLen(3))
+	Describe("CreateVirtual", func() {
+		It("Should create virtual channels with unique names", func(ctx SpecContext) {
+			keys := MustSucceed(CreateVirtual(ctx, db, svc, 3))
+			Expect(keys).To(HaveLen(3))
+			var channels []channel.Channel
+			Expect(svc.NewRetrieve().
+				Where(channel.MatchKeys(keys...)).
+				Entries(&channels).
+				Exec(ctx, db)).To(Succeed())
+			Expect(channel.KeysFromChannels(channels)).To(ConsistOf(keys))
+			Expect(channels).To(HaveEach(HaveField("Virtual", BeTrue())))
+			Expect(set.New(channel.Names(channels)...)).To(HaveLen(3))
+		})
+
+		It("Should create no channels for a zero count", func(ctx SpecContext) {
+			Expect(CreateVirtual(ctx, db, svc, 0)).To(BeEmpty())
+		})
 	})
 
-	It("Should create no channels for a zero count", func(ctx SpecContext) {
-		Expect(CreateVirtual(ctx, db, svc, 0)).To(BeEmpty())
+	Describe("Delete", func() {
+		It("Should delete the channels with keys", func(ctx SpecContext) {
+			keys := MustSucceed(CreateVirtual(ctx, db, svc, 2))
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return Delete(ctx, svc, tx, keys...)
+			})).To(Succeed())
+			Expect(svc.NewRetrieve().
+				Where(channel.MatchKeys(keys...)).
+				Exists(ctx, db)).To(BeFalse())
+		})
+
+		It("Should refuse a built-in channel", func(ctx SpecContext) {
+			builtIn := channel.Channel{
+				Name:        UniqueChannelName(),
+				DataType:    telem.TimestampT,
+				IsIndex:     true,
+				Leaseholder: 1,
+			}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Declare(ctx, &builtIn)
+			})).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return Delete(ctx, svc, tx, builtIn.Key())
+			})).To(MatchError(ContainSubstring("can't delete built-in channel")))
+		})
+
+		It("Should refuse a channel that another channel restricts", func(
+			ctx SpecContext,
+		) {
+			idx := channel.Channel{
+				Name:     UniqueChannelName(),
+				DataType: telem.TimestampT,
+				IsIndex:  true,
+			}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &idx)
+			})).To(Succeed())
+			data := channel.Channel{
+				Name:       UniqueChannelName(),
+				DataType:   telem.Float32T,
+				LocalIndex: idx.LocalKey,
+			}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &data)
+			})).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return Delete(ctx, svc, tx, idx.Key())
+			})).To(MatchError(gorp.RestrictError{
+				Target:    gorp.NewTarget("channel", idx.Key()),
+				Holder:    gorp.NewTarget("channel", data.Key()),
+				Reference: "index",
+			}))
+		})
 	})
 })

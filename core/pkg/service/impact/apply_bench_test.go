@@ -135,7 +135,7 @@ func BenchmarkApply(b *testing.B) {
 			if err := layer.Task.NewWriter(tx).Delete(ctx, tsk, false); err != nil {
 				return err
 			}
-			return layer.Channel.NewWriter(tx).DeleteMany(ctx, channel.Keys{ch}, false)
+			return channeltestutil.Delete(ctx, layer.Channel, tx, ch)
 		})
 	})
 	b.Run("picks", func(b *testing.B) {

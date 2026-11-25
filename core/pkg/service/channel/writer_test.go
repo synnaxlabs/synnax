@@ -1098,9 +1098,9 @@ var _ = Describe("Writer", func() {
 			)
 			It("Should delete the channel without error", func(ctx SpecContext) {
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					return svc.NewWriter(tx).DeleteMany(
+					return svc.NewWriter(tx).DeleteManyByNames(
 						ctx,
-						channel.Keys{idxCh.Key(), ch.Key()},
+						[]string{idxCh.Name, ch.Name},
 						true,
 					)
 				})).To(Succeed())
@@ -1218,9 +1218,9 @@ var _ = Describe("Writer", func() {
 						}),
 					)
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-						return svc.NewWriter(tx).DeleteMany(
+						return svc.NewWriter(tx).DeleteManyByNames(
 							ctx,
-							channel.Keys{kept, open},
+							[]string{chs[0].Name, chs[1].Name},
 							true,
 						)
 					})).To(MatchError(ContainSubstring("unclosed writers/iterators")))
@@ -1288,7 +1288,7 @@ var _ = Describe("Writer", func() {
 						distchannel.NewKey(1, 40002),
 					}
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-						return svc.NewWriter(tx).DeleteMany(ctx, keys, false)
+						return Delete(ctx, svc, tx, keys...)
 					})).To(Succeed())
 				},
 			)
@@ -1385,7 +1385,7 @@ var _ = Describe("Writer", func() {
 					})).To(Succeed())
 					keys := channel.Keys{externalCh.Key(), internalCh.Key()}
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-						return svc.NewWriter(tx).DeleteMany(ctx, keys, false)
+						return Delete(ctx, svc, tx, keys...)
 					})).
 						To(MatchError(ContainSubstring("can't delete built-in channel")))
 					var remaining []channel.Channel
