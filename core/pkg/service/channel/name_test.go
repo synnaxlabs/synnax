@@ -105,7 +105,7 @@ var _ = Describe("Unique names", Ordered, func() {
 		))
 		pathErr, ok := errors.AsType[validate.PathError](err)
 		Expect(ok).To(BeTrue())
-		Expect(pathErr.Path).To(Equal([]string{"[1]", "name"}))
+		Expect(pathErr.Path).To(Equal([]string{"1", "name"}))
 	})
 
 	It("Should refuse a rename of two channels to one name", func(ctx SpecContext) {
