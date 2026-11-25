@@ -145,6 +145,7 @@ func Open(configs ...Config) (*DB, error) {
 		return nil, err
 	}
 	idx := &index{onHistoryChange: cfg.OnHistoryChange}
+	idx.mu.rewrites = make(map[uint16]uint64)
 	idxPst, err := openIndexPersist(idx, cfg.FS)
 	if err != nil {
 		return nil, err
