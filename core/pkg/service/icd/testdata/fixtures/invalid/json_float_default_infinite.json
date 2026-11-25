@@ -1,10 +1,9 @@
 {
-  "description": "A text field has an infinite default.",
-  "codec_rejects": true,
+  "description": "A JSON float field has a default of Infinity.",
   "problems": [
     {
       "path": "messages.0.payload.fields.0.default",
-      "message": "default must be finite"
+      "message": "default cannot be infinite"
     }
   ],
   "icd": {
@@ -15,18 +14,16 @@
         "key": "00000000-0000-4000-8000-000000000001",
         "name": "M",
         "payload": {
-          "format": "text",
-          "delimiter": ",",
-          "prefix": "",
+          "format": "json",
           "fields": [
             {
               "key": "00000000-0000-4000-8000-00000000000a",
-              "name": "v",
+              "name": "temp",
               "scale": 1,
               "offset": 0,
               "units": "",
-              "encoding": "delimited",
-              "position": 0,
+              "pointer": "/temp",
+              "type": "float",
               "default": "Infinity"
             }
           ]

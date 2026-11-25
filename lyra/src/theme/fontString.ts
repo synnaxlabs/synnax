@@ -25,8 +25,8 @@ type FontThreshold = {
 };
 
 const thresholds: FontThreshold[] = [
-  { weight: 200, style: "light", value: "Inter 200, sans-serif" },
-  { weight: 300, value: "Inter Threee, sans-serif" },
+  { weight: 200, style: "light", value: "Inter Two, sans-serif" },
+  { weight: 300, value: "Inter Three, sans-serif" },
   { weight: 400, value: "Inter Four, sans-serif" },
   { weight: 500, value: "Inter Five, sans-serif" },
   { weight: 600, value: "Inter Six, sans-serif" },
