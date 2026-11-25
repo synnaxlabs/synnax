@@ -189,53 +189,105 @@ var _ = Describe("Stored v4 symbols", func() {
 		Expect(retrieve(static.Key).Data.Commands).To(BeEmpty())
 	})
 
-	It("Should make a symbol with one state that a custom_actuator node draws an "+
-		"actuator that draws value 1 as value 0", func(ctx SpecContext) {
-		db := openShipped(ctx)
-		blue := color.Color{R: 40, G: 80, B: 220, A: 255}
-		tank := v4.Symbol{Key: uuid.New(), Name: "Tank", Data: v4.Spec{
-			SVG:     `<svg><rect class="body"/></svg>`,
-			Variant: "static",
-			Scale:   1,
-			States: []v4.State{{Key: "base", Name: "Base", Regions: []v4.Region{{
-				Key:       "body",
-				Name:      "Body",
-				Selectors: []string{".body"},
-				FillColor: &blue,
-			}}}},
-		}}
-		Expect(gorp.NewCreate[v4.Key, v4.Symbol]().Entry(&tank).Exec(ctx, db)).
-			To(Succeed())
-		sc := v13.Schematic{
-			Key:  uuid.New(),
-			Name: "Schematic",
-			Nodes: []v13.Node{{Key: "a", Config: v13.NodeConfig{
-				Variant: v13.CustomActuatorNodeConfig{SpecKey: tank.Key.String()},
-			}}},
+	Describe("A symbol with one state that a custom_actuator node draws", func() {
+		var db *gorp.DB
+		BeforeEach(func(ctx SpecContext) { db = openShipped(ctx) })
+		// store stores a static v4 symbol named name with the one state Base.
+		store := func(ctx SpecContext, name string) v4.Symbol {
+			GinkgoHelper()
+			blue := color.Color{R: 40, G: 80, B: 220, A: 255}
+			sym := v4.Symbol{Key: uuid.New(), Name: name, Data: v4.Spec{
+				SVG:     `<svg><rect class="body"/></svg>`,
+				Variant: "static",
+				Scale:   1,
+				States: []v4.State{{Key: "base", Name: "Base", Regions: []v4.Region{{
+					Key:       "body",
+					Name:      "Body",
+					Selectors: []string{".body"},
+					FillColor: &blue,
+				}}}},
+			}}
+			Expect(gorp.NewCreate[v4.Key, v4.Symbol]().Entry(&sym).Exec(ctx, db)).
+				To(Succeed())
+			return sym
 		}
-		Expect(gorp.NewCreate[v13.Key, v13.Schematic]().Entry(&sc).Exec(ctx, db)).
-			To(Succeed())
-		openService(ctx, db)
-		var sym symbol.Symbol
-		Expect(gorp.NewRetrieve[symbol.Key, symbol.Symbol]().
-			Where(gorp.MatchKeys[symbol.Key, symbol.Symbol](tank.Key)).
-			Entry(&sym).
-			Exec(ctx, db)).To(Succeed())
-		Expect(sym.Data.Variant).To(Equal("actuator"))
-		Expect(sym.Data.Looks).To(HaveLen(1))
-		Expect(sym.Data.Looks[0].When).To(BeNil())
-		state := as[symbol.EnumerationState](sym.Data.States[0].Variant)
-		var e enumeration.Enumeration
-		Expect(gorp.NewRetrieve[enumeration.Key, enumeration.Enumeration]().
-			Where(gorp.MatchKeys[enumeration.Key, enumeration.Enumeration](
-				*state.Enumeration,
-			)).
-			Entry(&e).
-			Exec(ctx, db)).To(Succeed())
-		Expect(e.Entries).To(Equal([]enumeration.Entry{
-			{Key: "base", Value: 0, Name: "Base"},
-			{Key: "on", Value: 1, Name: "On"},
-		}))
+		// upgrade stores a schematic with a custom_actuator node that draws drawn, then
+		// opens the service.
+		upgrade := func(ctx SpecContext, drawn v4.Symbol) {
+			GinkgoHelper()
+			sc := v13.Schematic{
+				Key:  uuid.New(),
+				Name: "Schematic",
+				Nodes: []v13.Node{{Key: "a", Config: v13.NodeConfig{
+					Variant: v13.CustomActuatorNodeConfig{SpecKey: drawn.Key.String()},
+				}}},
+			}
+			Expect(gorp.NewCreate[v13.Key, v13.Schematic]().Entry(&sc).Exec(ctx, db)).
+				To(Succeed())
+			openService(ctx, db)
+		}
+		retrieve := func(ctx SpecContext, key symbol.Key) symbol.Symbol {
+			GinkgoHelper()
+			var sym symbol.Symbol
+			Expect(gorp.NewRetrieve[symbol.Key, symbol.Symbol]().
+				Where(gorp.MatchKeys[symbol.Key, symbol.Symbol](key)).
+				Entry(&sym).
+				Exec(ctx, db)).To(Succeed())
+			return sym
+		}
+		enumerationOf := func(
+			ctx SpecContext,
+			sym symbol.Symbol,
+		) enumeration.Enumeration {
+			GinkgoHelper()
+			state := as[symbol.EnumerationState](sym.Data.States[0].Variant)
+			var e enumeration.Enumeration
+			Expect(gorp.NewRetrieve[enumeration.Key, enumeration.Enumeration]().
+				Where(gorp.MatchKeys[enumeration.Key, enumeration.Enumeration](
+					*state.Enumeration,
+				)).
+				Entry(&e).
+				Exec(ctx, db)).To(Succeed())
+			return e
+		}
+		base := enumeration.Entry{Key: "base", Value: 0, Name: "Base"}
+		on := enumeration.Entry{Key: "on", Value: 1, Name: "On"}
+
+		It("Should make it an actuator that draws value 1 as value 0, with the entry "+
+			"On in its own enumeration", func(ctx SpecContext) {
+			tank := store(ctx, "Tank")
+			upgrade(ctx, tank)
+			sym := retrieve(ctx, tank.Key)
+			Expect(sym.Data.Variant).To(Equal("actuator"))
+			Expect(sym.Data.Looks).To(HaveLen(1))
+			Expect(sym.Data.Looks[0].When).To(BeNil())
+			Expect(
+				enumerationOf(ctx, sym).Entries,
+			).To(Equal([]enumeration.Entry{base, on}))
+			var named []enumeration.Enumeration
+			Expect(gorp.NewRetrieve[enumeration.Key, enumeration.Enumeration]().
+				Where(gorp.Match(func(
+					_ gorp.Context,
+					e *enumeration.Enumeration,
+				) (bool, error) {
+					return e.Name == "Tank", nil
+				})).
+				Entries(&named).
+				Exec(ctx, db)).To(Succeed())
+			Expect(named).To(HaveLen(1))
+		})
+
+		It("Should give it a new enumeration with the entry On when another symbol "+
+			"links its enumeration", func(ctx SpecContext) {
+			tank, twin := store(ctx, "Tank"), store(ctx, "Twin")
+			upgrade(ctx, tank)
+			drawn, other := retrieve(ctx, tank.Key), retrieve(ctx, twin.Key)
+			Expect(enumerationOf(ctx, drawn).Entries).
+				To(Equal([]enumeration.Entry{base, on}))
+			Expect(
+				enumerationOf(ctx, other).Entries,
+			).To(Equal([]enumeration.Entry{base}))
+		})
 	})
 
 	It("Should drop the state binding of a custom_static node whose symbol has no "+
