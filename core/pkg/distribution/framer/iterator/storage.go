@@ -12,49 +12,31 @@ package iterator
 import (
 	"context"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/confluence"
-	"github.com/synnaxlabs/x/confluence/plumber"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/signal"
+	"github.com/synnaxlabs/x/validate"
 )
 
-func translateResponse(
-	_ context.Context,
-	res ts.IteratorResponse,
-) (Response, bool, error) {
-	return Response{
-		Ack:     res.Ack,
-		Variant: ResponseVariant(res.Variant),
-		SeqNum:  res.SeqNum,
-		Error:   res.Err,
-		Command: Command(res.Command),
-		Frame:   frame.NewFromStorage(res.Frame),
-	}, true, nil
+// storage runs the requests of a stream on one storage iterator, in order. It answers
+// each request with an acknowledgement, after one data response for each chunk that a
+// Next or a Prev reads.
+type storage struct {
+	confluence.UnarySink[Request]
+	confluence.AbstractUnarySource[Response]
+	iter *ts.Iterator
+	// seqNum is the sequence number of the next request.
+	seqNum int
 }
 
-func newStorageRequestTranslator() func(
-	ctx context.Context,
-	in Request,
-) (ts.IteratorRequest, bool, error) {
-	seqNum := 0
-	return func(ctx context.Context, req Request) (ts.IteratorRequest, bool, error) {
-		oReq := ts.IteratorRequest{
-			Command: ts.IteratorCommand(req.Command),
-			Span:    req.Span,
-			Stamp:   req.Stamp,
-			Bounds:  req.Bounds,
-			SeqNum:  seqNum,
-		}
-		seqNum++
-		return oReq, true, nil
-	}
-}
+var validateCommand = validate.NewInclusiveBoundsChecker(CommandNext, CommandSetBounds)
 
 func (s *Service) newStorage(
 	cfg Config,
 ) (confluence.Segment[Request, Response], error) {
-	iter, err := s.cfg.TS.NewStreamIterator(ts.IteratorConfig{
+	iter, err := s.cfg.TS.OpenIterator(ts.IteratorConfig{
 		Bounds:        cfg.Bounds,
 		Channels:      cfg.Keys.Storage(),
 		AutoChunkSize: cfg.ChunkSize,
@@ -63,18 +45,70 @@ func (s *Service) newStorage(
 	if err != nil {
 		return nil, err
 	}
-	pipe := plumber.New()
-	reqT := &confluence.LinearTransform[Request, ts.IteratorRequest]{}
-	reqT.Transform = newStorageRequestTranslator()
-	resT := &confluence.LinearTransform[ts.IteratorResponse, Response]{}
-	resT.Transform = translateResponse
-	pipe.SetSegment[ts.IteratorRequest, ts.IteratorResponse]("storage", iter)
-	pipe.SetSegment[Request, ts.IteratorRequest]("requests", reqT)
-	pipe.SetSegment[ts.IteratorResponse, Response]("responses", resT)
-	pipe.MustConnect[ts.IteratorRequest]("requests", "storage", 1)
-	pipe.MustConnect[ts.IteratorResponse]("storage", "responses", 1)
-	seg := &plumber.Segment[Request, Response]{Pipeline: pipe}
-	lo.Must0(seg.RouteInletTo("requests"))
-	lo.Must0(seg.RouteOutletFrom("responses"))
-	return seg, nil
+	return &storage{iter: iter}, nil
+}
+
+// Flow implements confluence.Segment.
+func (s *storage) Flow(sCtx signal.Context, opts ...confluence.Option) {
+	o := confluence.NewOptions(opts)
+	o.AttachClosables(s.Out)
+	sCtx.Go(func(ctx context.Context) error {
+		for {
+			select {
+			case <-ctx.Done():
+				return errors.Combine(s.iter.Close(), ctx.Err())
+			case req, ok := <-s.In.Outlet():
+				if !ok {
+					return s.iter.Close()
+				}
+				seqNum := s.seqNum
+				s.seqNum++
+				ok, err := s.exec(ctx, req, seqNum)
+				if err := signal.SendUnderContext(ctx, s.Out.Inlet(), Response{
+					Variant: ResponseVariantAck,
+					Command: req.Command,
+					SeqNum:  seqNum,
+					Ack:     ok,
+					Error:   err,
+				}); err != nil {
+					return errors.Combine(s.iter.Close(), err)
+				}
+			}
+		}
+	}, o.Signal...)
+}
+
+func (s *storage) exec(ctx context.Context, req Request, seqNum int) (bool, error) {
+	if err := validateCommand(req.Command); err != nil {
+		return false, err
+	}
+	emit := func(fr ts.Frame) error {
+		return signal.SendUnderContext(ctx, s.Out.Inlet(), Response{
+			Variant: ResponseVariantData,
+			Command: CommandNext,
+			SeqNum:  seqNum,
+			Frame:   frame.NewFromStorage(fr),
+		})
+	}
+	switch req.Command {
+	case CommandNext:
+		return s.iter.NextChunks(ctx, req.Span, emit)
+	case CommandPrev:
+		return s.iter.PrevChunks(ctx, req.Span, emit)
+	case CommandSeekFirst:
+		return s.iter.SeekFirst(), nil
+	case CommandSeekLast:
+		return s.iter.SeekLast(), nil
+	case CommandSeekLE:
+		return s.iter.SeekLE(req.Stamp), nil
+	case CommandSeekGE:
+		return s.iter.SeekGE(req.Stamp), nil
+	case CommandValid:
+		return s.iter.Valid(), nil
+	case CommandError:
+		return false, s.iter.Error()
+	default:
+		s.iter.SetBounds(req.Bounds)
+		return true, nil
+	}
 }

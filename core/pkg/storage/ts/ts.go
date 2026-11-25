@@ -38,10 +38,6 @@ type (
 	HistoryChange    = cesium.HistoryChange
 	IteratorConfig   = cesium.IteratorConfig
 	Iterator         = cesium.Iterator
-	StreamIterator   = cesium.StreamIterator
-	IteratorRequest  = cesium.IteratorRequest
-	IteratorResponse = cesium.IteratorResponse
-	IteratorCommand  = cesium.IteratorCommand
 	StreamerConfig   = cesium.StreamerConfig
 	StreamerRequest  = cesium.StreamerRequest
 	StreamerResponse = cesium.StreamerResponse
