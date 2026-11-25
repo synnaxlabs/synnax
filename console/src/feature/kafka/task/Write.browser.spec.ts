@@ -45,6 +45,7 @@ import {
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
 } from "@/platform/task/testutil";
+import { findDialogTriggerByText } from "@/testutil";
 
 const client = createTestClient();
 
@@ -135,6 +136,7 @@ const MISSING: kafka.SampledTopic = {
   records: [],
   shapes: [],
   error: "The topic does not exist.",
+  missing: true,
 };
 
 /** @returns a shape of count records that hold the fields, sent by the keys. */
@@ -296,6 +298,34 @@ describe("Kafka Write form", () => {
     ]);
   });
 
+  it("should leave a topic unpicked when its records fail to read", async () => {
+    const { dev } = await renderWrite();
+    const scan = await createScanTask(client, dev);
+    const failed = {
+      variant: "error",
+      message: "Failed to reach the cluster",
+    } as const;
+    const first = await answerCommandsUntil(client, [scan], "sample", {
+      browse: { data: browseOf(listTopic(TOPIC)) },
+      sample: failed,
+    });
+    const dialog = await clickAddTargets();
+    await first.answered;
+    await dialog.findByText("Failed to read records");
+    const second = await answerNextCommand(client, scan, { type: "sample", ...failed });
+    fireEvent.click(dialog.getByRole("checkbox", { name: `Pick ${TOPIC}` }));
+    await second.answered;
+    await dialog.findByText("1 topic");
+    expect(dialog.queryByRole("button", { name: "Add 1 target" })).toBeNull();
+    const third = await answerNextCommand(client, scan, {
+      type: "sample",
+      data: sampleOfTopic(TOPIC, createShape(["pump-1"], 2, "/speed")),
+    });
+    fireEvent.click(dialog.getByRole("checkbox", { name: `Pick ${TOPIC}` }));
+    await third.answered;
+    await dialog.findByRole("button", { name: "Add 1 target" });
+  });
+
   it("should add a target for a topic that the cluster does not let Synnax read", async () => {
     const { dev, draft } = await renderWrite();
     const { answered } = await answerScan(dev, "browse", {
@@ -354,6 +384,43 @@ describe("Kafka Write form", () => {
     expect(dialog.queryByText("Read no records")).toBeNull();
   });
 
+  it("should show why a typed topic that the cluster does not list read no records", async () => {
+    const { dev } = await renderWrite();
+    const error = "The cluster does not let the client read the topic.";
+    const { answered } = await answerScan(dev, "sample", {
+      browse: { data: browseOf() },
+      sample: {
+        data: { topics: [{ ...MISSING, error, missing: false }], truncated: false },
+      },
+    });
+    const dialog = await clickAddTargets();
+    fireEvent.change(await dialog.findByPlaceholderText("Search topics"), {
+      target: { value: TOPIC },
+    });
+    fireEvent.click(await dialog.findByRole("button", { name: `Write “${TOPIC}”` }));
+    await answered;
+    await dialog.findByText("Read no records");
+    dialog.getByText(error);
+    expect(dialog.queryByText("Topic does not exist yet")).toBeNull();
+  });
+
+  it("should show the read error of a typed topic past the end of a full list", async () => {
+    const { dev } = await renderWrite();
+    const { answered } = await answerScan(dev, "sample", {
+      browse: { data: { ...browseOf(), truncated: true } },
+      sample: { data: { topics: [MISSING], truncated: false } },
+    });
+    const dialog = await clickAddTargets();
+    fireEvent.change(await dialog.findByPlaceholderText("Search topics"), {
+      target: { value: TOPIC },
+    });
+    fireEvent.click(await dialog.findByRole("button", { name: `Write “${TOPIC}”` }));
+    await answered;
+    await dialog.findByText("Read no records");
+    dialog.getByText(MISSING.error);
+    expect(dialog.queryByText("Topic does not exist yet")).toBeNull();
+  });
+
   it("should keep the records of a typed topic read before the topics list", async () => {
     const { dev } = await renderWrite();
     const scan = await createScanTask(client, dev);
@@ -382,10 +449,9 @@ describe("Kafka Write form", () => {
     const held = "plant.commands";
     const { target } = await createTarget([], { topic: held });
     const { dev } = await renderWrite([target]);
-    const missing = { topic: held, records: [], shapes: [], error: "" };
     const { answered } = await answerScan(dev, "sample", {
       browse: { data: browseOf(listTopic(TOPIC)) },
-      sample: { data: { topics: [missing], truncated: false } },
+      sample: { data: { topics: [{ ...MISSING, topic: held }], truncated: false } },
     });
     const dialog = await clickAddTargets();
     await answered;
@@ -422,6 +488,27 @@ describe("Kafka Write form", () => {
     );
     const [saved] = await client.icds.retrieve([ic.key]);
     expect(saved.messages).toHaveLength(1);
+  });
+
+  it("should show the shapes of the records again after the message format is cleared", async () => {
+    const { ic, message } = await createTarget([createField("speed", "float")]);
+    const { dev } = await renderWrite();
+    const { answered } = await answerScan(dev, "sample", {
+      browse: { data: browseOf(listTopic(TOPIC)) },
+      sample: { data: sampleOfTopic(TOPIC, createShape(["pump-1"], 2, "/mode")) },
+    });
+    const dialog = await clickAddTargets();
+    await answered;
+    await dialog.findByText("/mode");
+    await pickMessageFormat("Select message format", message.name, ic.name);
+    const note = `Each picked topic sends “${message.name}”.`;
+    await dialog.findByText(note);
+    fireEvent.click(await findDialogTriggerByText(message.name));
+    const dialogs = await screen.findAllByRole("dialog");
+    const select = within(dialogs[dialogs.length - 1]);
+    fireEvent.click(await select.findByText("No message format"));
+    await dialog.findByText("/mode");
+    expect(dialog.queryByText(note)).toBeNull();
   });
 
   it("should show the topic and record key of a target", async () => {

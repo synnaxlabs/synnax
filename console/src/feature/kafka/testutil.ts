@@ -71,7 +71,7 @@ export const browseOf = (...topics: object[]) => ({ topics, truncated: false });
 
 /** @returns the data of a sample of a topic that read values of the shapes. */
 export const sampleOfTopic = (topic: string, ...shapes: object[]) => ({
-  topics: [{ topic, records: [], shapes, error: "" }],
+  topics: [{ topic, records: [], shapes, error: "", missing: false }],
   truncated: false,
 });
 

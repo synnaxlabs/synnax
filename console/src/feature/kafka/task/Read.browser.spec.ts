@@ -585,6 +585,13 @@ describe("Kafka read form", () => {
       expect(listen().getAttribute("aria-disabled")).toBeNull();
     });
 
+    it("should count only the topics that the cluster lists", async () => {
+      const { dev } = await renderRead();
+      const browse = browseOf(listTopic("plant"));
+      const dialog = await openAddData(dev, { data: sampleOf() }, TOPIC, browse);
+      await dialog.findByText("1 topic");
+    });
+
     it("should mark the topics that the task holds", async () => {
       const { dev } = await renderRead();
       const browse = browseOf(listTopic(TOPIC), listTopic("plant"));
@@ -1253,7 +1260,9 @@ describe("Kafka read form", () => {
       ];
       const dialog = await openAddData(dev, {
         data: {
-          topics: [{ topic: TOPIC, records, shapes: [OVEN_SHAPE], error: "" }],
+          topics: [
+            { topic: TOPIC, records, shapes: [OVEN_SHAPE], error: "", missing: false },
+          ],
           truncated: false,
         },
       });
@@ -1331,7 +1340,13 @@ describe("Kafka read form", () => {
       const { dev } = await renderRead();
       const data = {
         topics: [
-          { topic: TOPIC, records: [], shapes: [], error: "The topic does not exist." },
+          {
+            topic: TOPIC,
+            records: [],
+            shapes: [],
+            error: "The topic does not exist.",
+            missing: true,
+          },
         ],
         truncated: false,
       };
@@ -1345,7 +1360,9 @@ describe("Kafka read form", () => {
       const { dev } = await renderRead();
       const error = "partition 2: OFFSET_OUT_OF_RANGE";
       const data = {
-        topics: [{ topic: TOPIC, records: [], shapes: [OVEN_SHAPE], error }],
+        topics: [
+          { topic: TOPIC, records: [], shapes: [OVEN_SHAPE], error, missing: false },
+        ],
         truncated: false,
       };
       const dialog = await openAddData(dev, { data });
@@ -1762,6 +1779,7 @@ describe("Kafka read form", () => {
         records: [createSampledRecord(1, { temperature: 61.5 })],
         shapes: [OVEN_SHAPE],
         error: "A record is not JSON.",
+        missing: false,
       };
       const dialog = await openAddData(dev, {
         data: { topics: [topic], truncated: false },
