@@ -17,6 +17,7 @@ import {
   type Dispatch,
   type FC,
   type ReactElement,
+  type ReactNode,
   type SetStateAction,
   useState,
 } from "react";
@@ -26,6 +27,7 @@ import { createJSONField } from "@/platform/icd/Fields";
 import { fieldsOf, formatOf, useFormats } from "@/platform/icd/Formats";
 import { fieldsPath, type TreeField, treeFieldOf } from "@/platform/icd/read";
 import { Tree as ICDTree } from "@/platform/icd/tree";
+import { FieldDetails } from "@/platform/icd/write/Details";
 import { Task } from "@/platform/task";
 
 /** A target of a write task, in the task's form. */
@@ -37,12 +39,22 @@ export interface Target extends record.Keyed<string> {
 export interface TargetMessage {
   icd: icd.Key;
   message: icd.MessageKey;
-  /** The path of the target's bindings in the task's form. */
-  bindings: deep.Path<icd.WriteBinding[]>;
+  /** The path of the target's message in the task's form. */
+  path: deep.Path<icd.WriteMessage>;
+  /** @returns the name of the command channel that deploying creates for field. */
+  channelName: (field: TreeField) => string;
+}
+
+/** The details of the selected item, as Task.Views.Panes shows them. */
+export interface Pane {
+  /** The form path of the item. */
+  path: deep.Target<unknown>;
+  title: ReactNode;
+  details: ReactNode;
 }
 
 /** A node of the tree that is not a group. */
-export type Node =
+type Node =
   | { kind: "target"; target: string }
   | { kind: "field"; target: string; field: TreeField };
 
@@ -68,6 +80,8 @@ export interface UseTreeArgs<T extends Target> {
   /** Puts the targets in groups. Omitted, the targets are the roots of the tree. */
   groups?: Groups<T>;
   TargetItem: FC<Tree.ItemRenderProps<string>>;
+  /** @returns the pane of a selected target. onAddField adds a field to its message. */
+  targetPane: (target: T, onAddField: () => void) => Pane;
   /** @returns a copy of a target with a new key. Omitted, the menu has no Duplicate. */
   duplicate?: (target: T) => T;
   /** The key of each selected tree item. */
@@ -82,17 +96,13 @@ export interface UseTreeReturn {
   handleSelect: Tree.TreeProps<string, record.Keyed<string>>["onSelect"];
   contextMenu: (props: Menu.ContextMenuMenuProps) => ReactElement;
   renderItem: (props: Tree.ItemRenderProps<string>) => ReactElement;
-  /** The first selected node, unless it is a group. */
-  current?: Node;
+  /**
+   * The pane of the first selected node: a field opens its format and source, and a
+   * target the pane that targetPane gives. Undefined for a group or no selection.
+   */
+  pane?: Pane;
   /** The name of the first selected node, when it is a group. */
   currentGroup?: string;
-  /**
-   * Adds a field to the JSON message of a target and to its ICD, and selects it. The
-   * Suit of the target binds it.
-   */
-  addField: (target: string) => void;
-  /** The field that addField added last, until the next click in the tree. */
-  added?: icd.FieldKey;
 }
 
 const groupKey = (name: string): string => `group/${name}`;
@@ -157,6 +167,7 @@ export const useTree = <T extends Target>({
   messageOf,
   groups,
   TargetItem,
+  targetPane,
   duplicate,
   selected,
   onSelect,
@@ -165,6 +176,7 @@ export const useTree = <T extends Target>({
 }: UseTreeArgs<T>): UseTreeReturn => {
   const ctx = PForm.useContext();
   const formats = useFormats();
+  const all = PForm.useFieldValue(path);
   const [added, setAdded] = useState<icd.FieldKey>();
   const structure = ICDTree.useStructure(formats, (): Structure =>
     ctx.get(path).value.map((t): Structure[number] => {
@@ -244,6 +256,10 @@ export const useTree = <T extends Target>({
     );
   };
 
+  /**
+   * Adds a field to the JSON message of a target and to its ICD, and selects it. The
+   * Suit of the target binds it.
+   */
   const addField = (target: string) => {
     const sent = sending(target);
     const fields = fieldsOf(formats, sent.icd, sent.message);
@@ -310,9 +326,9 @@ export const useTree = <T extends Target>({
         for (const t of targets()) {
           const sent = messageOf(t);
           if (sent?.message !== message) continue;
-          const bindings = ctx.get(sent.bindings).value;
+          const bindings = ctx.get(sent.path.bindings).value;
           ctx.set(
-            sent.bindings,
+            sent.path.bindings,
             bindings.filter((b) => b.field !== field.key),
           );
         }
@@ -355,10 +371,10 @@ export const useTree = <T extends Target>({
           formatOf(formats, sent.icd).insert(fieldsPath(sent.message), copy, field.key);
           copies.set(at, copy);
         }
-        const bindings = ctx.get(sent.bindings).value;
+        const bindings = ctx.get(sent.path.bindings).value;
         const binding = bindings.find((b) => b.field === field.key);
         if (binding != null)
-          ctx.set(sent.bindings, [
+          ctx.set(sent.path.bindings, [
             ...bindings,
             binding.type === "channel"
               ? { ...binding, field: copy.key, channel: 0 }
@@ -417,7 +433,7 @@ export const useTree = <T extends Target>({
         <FieldItem
           key={key}
           {...p}
-          bindingsPath={sent.bindings}
+          bindingsPath={sent.path.bindings}
           disabledPath={disabledPath(node.target)}
           field={node.field}
         />
@@ -427,14 +443,42 @@ export const useTree = <T extends Target>({
   };
 
   const [first] = selected;
+  const paneOf = (node: Node): Pane => {
+    const target = all.find(({ key }) => key === node.target);
+    if (target == null) throw new Error(`The task has no target ${node.target}`);
+    if (node.kind === "target") return targetPane(target, () => addField(target.key));
+    const sent = sending(node.target);
+    const i = ctx
+      .get(sent.path.bindings)
+      .value.findIndex(({ field }) => field === node.field.key);
+    return {
+      path: i < 0 ? sent.path : sent.path.bindings[i],
+      title: (
+        <Text.Text level="p" weight={500} overflow="fade">
+          {node.field.name}
+        </Text.Text>
+      ),
+      details: (
+        <FieldDetails
+          key={first}
+          path={sent.path.bindings}
+          icdKey={sent.icd}
+          message={sent.message}
+          field={node.field.key}
+          channelName={sent.channelName(node.field)}
+          skipped={target.disabled}
+          autoFocus={node.field.key === added}
+        />
+      ),
+    };
+  };
+  const node = first == null ? undefined : byKey.get(first);
   return {
     tree,
     handleSelect,
     contextMenu,
     renderItem,
-    current: first == null ? undefined : byKey.get(first),
+    pane: node == null ? undefined : paneOf(node),
     currentGroup: first == null ? undefined : groupNames.get(first),
-    addField,
-    added,
   };
 };
