@@ -147,7 +147,7 @@ export type Key = z.infer<typeof keyZ>;
 export const tcpConnectionZ = baseConnectionZ.extend({
   transport: z.literal("tcp"),
   /** host is the hostname, IPv4, or IPv6 address of the server. */
-  host: z.string().min(1, "host is required"),
+  host: z.string().min(1, "Host is required"),
   /** port is the TCP port of the server. */
   port: zod.uint16.min(1).default(502),
   /** unitId is the unit that requests address. */
@@ -159,7 +159,7 @@ export interface TcpConnection extends z.infer<typeof tcpConnectionZ> {}
 export const rtuConnectionZ = baseConnectionZ.extend({
   transport: z.literal("rtu"),
   /** serialPort is the serial port of the line, such as /dev/ttyUSB0 or COM3. */
-  serialPort: z.string().min(1, "serial_port is required"),
+  serialPort: z.string().min(1, "Serial port is required"),
   /** baudRate is the baud rate of the line. */
   baudRate: baudRateZ.default(BaudRate.b19200),
   /** parity is the parity of the line. */
@@ -382,9 +382,9 @@ export const readZ = z.object({
   /** location is the value that the channel holds. */
   location: locationZ,
   /** index is the index channel of the channel. */
-  index: channel.keyZ.refine((v) => v !== 0, "index is required"),
+  index: channel.keyZ.refine((v) => v !== 0, "Index is required"),
   /** channel is the channel that holds the samples of the value. */
-  channel: channel.keyZ.refine((v) => v !== 0, "channel is required"),
+  channel: channel.keyZ.refine((v) => v !== 0, "Channel is required"),
 });
 export interface Read extends z.infer<typeof readZ> {}
 
@@ -393,7 +393,7 @@ export const writeZ = z.object({
   /** location is the value that the channel commands. */
   location: writeLocationZ,
   /** channel is the channel whose commands write tasks send to the value. */
-  channel: channel.keyZ.refine((v) => v !== 0, "channel is required"),
+  channel: channel.keyZ.refine((v) => v !== 0, "Channel is required"),
 });
 export interface Write extends z.infer<typeof writeZ> {}
 
@@ -404,7 +404,7 @@ export const serverZ = z.object({
   /** rack is the key of the rack whose Driver connects to the server. */
   rack: rack.keyZ,
   /** name is a human-readable name for the server. */
-  name: z.string().min(1, "name is required"),
+  name: z.string().min(1, "Name is required"),
   /** connection holds the settings that the Driver connects with. */
   connection: connectionZ,
   /** requestPolicy limits and paces the requests that the Driver sends. */

@@ -424,7 +424,8 @@ Server struct {
         @go marshal omit
     }
 
-    @doc value  "is a Modbus server that a rack's Driver connects to."
+    @doc value     "is a Modbus server that a rack's Driver connects to."
     @go marshal
     @go migrate
+    @resource type "modbus_server"
 }
