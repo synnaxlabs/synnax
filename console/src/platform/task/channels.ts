@@ -368,10 +368,11 @@ export interface CommandChannelSpec {
   name: string;
   dataType: string;
   /**
-   * Whether an existing channel can carry the commands of the target. A current or
-   * stored channel that cannot is replaced. When absent, every channel can.
+   * The data types of an existing channel that can carry the commands of the target. A
+   * current or stored channel of another data type is replaced. When absent, every
+   * channel can.
    */
-  suits?: (ch: channel.Channel) => boolean;
+  dataTypes?: string[];
 }
 
 /**
@@ -386,17 +387,19 @@ const planCommandChannel = async (
   client: Client,
   namer: Namer,
   write: Record<string, channel.Key>,
-  { propertiesKey, channel: current, name, suits }: CommandChannelSpec,
+  { propertiesKey, channel: current, name, dataTypes }: CommandChannelSpec,
 ): Promise<CommandChannelPlan> => {
+  const suits = (ch: channel.Channel) =>
+    dataTypes == null || dataTypes.includes(ch.dataType.toString());
   const replaced: channel.Channel[] = [];
   if (primitive.isNonZero(current)) {
-    const ch = suits == null ? null : await retrieveChannel(client, current);
-    if (suits == null || (ch != null && suits(ch))) return { keeps: current };
+    const ch = dataTypes == null ? null : await retrieveChannel(client, current);
+    if (dataTypes == null || (ch != null && suits(ch))) return { keeps: current };
     if (ch != null) replaced.push(ch);
   }
   const stored = await retrieveChannel(client, write[propertiesKey]);
   if (stored != null) {
-    if (suits == null || suits(stored)) return { keeps: stored.key };
+    if (suits(stored)) return { keeps: stored.key };
     replaced.push(stored);
   }
   const holder = replaced.find((ch) => ch.name === name);

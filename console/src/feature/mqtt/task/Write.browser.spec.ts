@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { icd, mqtt, type Synnax, type task } from "@synnaxlabs/client";
+import { channel, icd, mqtt, type Synnax, type task } from "@synnaxlabs/client";
 import {
   createTestClient,
   holdResponses,
@@ -283,6 +283,20 @@ describe("MQTT Write form", () => {
     await waitFor(async () =>
       expect(await retrieveTargets(draft.key)).toMatchObject([{ disabled: true }]),
     );
+  });
+
+  it("should show the planned command channel name of a field after a rename", async () => {
+    const { target } = await createFormatTarget([createField("speed", "float")]);
+    const { dev } = await renderWrite([
+      { ...target, topic: "plant/valve-set" },
+      { ...target, key: "t2", topic: "plant/valve_set" },
+    ]);
+    const prefix = `${channel.escapeInvalidName(dev.name)}_plant_valve_set`;
+    const [, second] = await screen.findAllByRole("treeitem", { name: /^speed/ });
+    fireEvent.click(second);
+    await screen.findByDisplayValue(`${prefix}_speed_cmd_2`);
+    fireEvent.change(screen.getByDisplayValue("speed"), { target: { value: "rate" } });
+    expect(await screen.findByDisplayValue(`${prefix}_rate_cmd_2`)).toBeTruthy();
   });
 
   describe("Sparkplug B targets", () => {

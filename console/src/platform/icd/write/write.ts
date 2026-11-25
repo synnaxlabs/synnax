@@ -9,9 +9,10 @@
 
 import { channel, type icd, type Synnax } from "@synnaxlabs/client";
 import { ICD as PICD } from "@synnaxlabs/pluto";
+import { DataType } from "@synnaxlabs/x";
 
 import { bindingDataType, encodes } from "@/platform/icd/dataType";
-import { formatOf, type Formats } from "@/platform/icd/Formats";
+import { formatOf, type Formats, useMessages } from "@/platform/icd/Formats";
 import { createMessage } from "@/platform/icd/inferred";
 import { jsonFields, mostRead, retrieveMessages } from "@/platform/icd/read";
 import { Task } from "@/platform/task";
@@ -158,7 +159,7 @@ export interface ChannelNaming {
  * default of its field when the binding names none or one that the field no longer
  * takes.
  */
-export const commandChannels = (
+const commandChannels = (
   fields: icd.JSONField[],
   write: icd.WriteMessage,
   naming: ChannelNaming,
@@ -179,12 +180,31 @@ export const commandChannels = (
             channel: binding.channel,
             name: naming.name(field),
             dataType: bindingDataType(suited ? binding : {}, field),
-            suits: (ch) => encodes(field, ch.dataType.toString()),
+            dataTypes: DataType.ALL.map((dt) => dt.toString()).filter((dt) =>
+              encodes(field, dt),
+            ),
           },
         ],
       ];
     },
   );
+
+/**
+ * @returns a function that gives what the command channel of each channel binding of a
+ * write needs, from the fields of the open ICDs, current with each edit.
+ */
+export const useCommandChannels = (): ((
+  write: { icd: icd.Key; message: icd.WriteMessage },
+  naming: ChannelNaming,
+) => Task.CommandChannelSpec[]) => {
+  const messages = useMessages();
+  return ({ icd: key, message }, naming) =>
+    commandChannels(
+      jsonFields(messages.get(key)?.find((m) => m.key === message.message)),
+      message,
+      naming,
+    ).map(([, spec]) => spec);
+};
 
 /**
  * Gives each channel binding of write a command channel that its field takes: the one
