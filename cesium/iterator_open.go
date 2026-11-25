@@ -20,7 +20,7 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-func (db *DB) OpenIterator(cfg IteratorConfig) (*iterator, error) {
+func (db *DB) OpenIterator(cfg IteratorConfig) (*Iterator, error) {
 	if db.closed.Load() {
 		return nil, ErrDBClosed
 	}
