@@ -10,8 +10,8 @@
  */
 
 .console-channel-inspector {
-    width: 48rem;
-    flex-shrink: 0;
+    flex: 0 1 48rem;
+    min-width: 30rem;
     padding: 1.5rem 1rem;
     border-left: var(--pluto-border);
     overflow-y: auto;
@@ -32,4 +32,24 @@
 .console-channel-inspector__type {
     margin-left: auto;
     flex-shrink: 0;
+}
+
+.console-channel-inspector__count {
+    font-variant-numeric: tabular-nums;
+}
+
+.console-channel-inspector__placeholder {
+    height: var(--pluto-height-small);
+}
+
+.console-channel-inspector__error {
+    align-self: flex-start;
+    text-align: left;
+}
+
+/* A narrow explorer keeps its width for the channels, and hides the inspector. */
+@container channel-explorer (width < 90rem) {
+    .console-channel-inspector {
+        display: none;
+    }
 }

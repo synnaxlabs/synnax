@@ -294,9 +294,10 @@ const Internal = (): ReactElement => {
         <Button.Toggle
           value={inspecting}
           onChange={setInspecting}
-          variant="outlined"
+          variant="text"
           size="medium"
-          tooltip={inspecting ? "Hide inspector" : "Show inspector"}
+          aria-label="Inspector"
+          tooltip="Inspector"
           tooltipLocation={location.BOTTOM_LEFT}
         >
           <Icon.Sidebar />

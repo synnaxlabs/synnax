@@ -9,6 +9,10 @@
  * included in the file licenses/APL.txt.
  */
 
+.console-channel-explorer__body {
+    container: channel-explorer / inline-size;
+}
+
 .console-channel-explorer__body,
 .console-channel-explorer__layout-body,
 .console-channel-explorer__folders {

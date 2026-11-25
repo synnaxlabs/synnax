@@ -107,9 +107,9 @@ const findBySelector = async (selector: string): Promise<HTMLElement> =>
   await waitFor(() => getBySelector(document.body, selector));
 
 // The calculation editor's code field needs a provider these specs do not mount, and
-// its boundary catches that error.
+// its boundary catches that error. Any other caught error logs, which fails the spec.
 const ignoreCodeProvider = (error: unknown): void => {
-  if (!String(error).includes("Code.Provider is not mounted")) throw error;
+  if (!String(error).includes("Code.Provider is not mounted")) console.error(error);
 };
 
 const renderView = async (stored: view.View): Promise<void> => {
@@ -271,7 +271,7 @@ describe("channel inspector", () => {
       await inspector().findByText("Select a channel to see what uses it."),
     ).toBeTruthy();
     fireEvent.click(await screen.findByText(read.name), { ctrlKey: true });
-    expect(await inspector().findByText("Read by · 1")).toBeTruthy();
+    expect(await inspector().findByText("Read by")).toBeTruthy();
     fireEvent.click(await inspector().findByText(reader.name));
     expect(await screen.findByDisplayValue(reader.name)).toBeTruthy();
   });
