@@ -90,6 +90,49 @@ describe("Symbol node", () => {
     await vi.waitFor(() => expect(container.querySelector(FILLED)).not.toBeNull());
   });
 
+  it.each(["filter", "light"])(
+    "should stroke the built-in %s, which has no stroke look, in the node color",
+    async (name) => {
+      const { container } = renderNode({
+        spec: { type: "builtin", name },
+        color: COLOR,
+      });
+      await vi.waitFor(() =>
+        expect(container.querySelector("svg")?.getAttribute("style")).toContain(
+          "--pluto-symbol-color: 171, 205, 239, 1",
+        ),
+      );
+    },
+  );
+
+  it("should keep the look strokes of a custom symbol in a colored node", async () => {
+    const { key, Wrapper } = await createCustomSymbol(
+      '<svg xmlns="http://www.w3.org/2000/svg"><rect class="body" /></svg>',
+      {
+        parts: [{ key: "body", name: "Body", selectors: [".body"] }],
+        looks: [
+          {
+            key: "red",
+            part: "body",
+            stroke: { type: "color", value: { type: "fixed", value: "#ff0000" } },
+          },
+        ],
+      },
+    );
+    const { container } = renderNode(
+      { spec: { type: "custom", key }, color: COLOR },
+      Wrapper,
+    );
+    await vi.waitFor(() =>
+      expect(container.querySelector<SVGElement>("rect.body")?.style.stroke).not.toBe(
+        "",
+      ),
+    );
+    expect(container.querySelector("svg")?.getAttribute("style")).not.toContain(
+      "--pluto-symbol-color",
+    );
+  });
+
   it("should draw a state with no source at its default", async () => {
     const { container } = renderNode({
       spec: { type: "builtin", name: "valve" },

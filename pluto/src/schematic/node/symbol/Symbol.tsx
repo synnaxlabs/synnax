@@ -96,6 +96,8 @@ const Drawn = ({
           orientation={orientation}
           scale={scale}
           paints={paints}
+          // A custom symbol draws the node color only where its looks use a node paint.
+          strokeColor={builtIn ? nodeColor : undefined}
           readings={readings}
           motionDisabled={motionDisabled}
         />
