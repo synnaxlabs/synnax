@@ -23,8 +23,9 @@ import { Nav } from "@synnaxlabs/lyra/nav";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Schematic } from "@synnaxlabs/pluto";
-import { type bounds, deep, id, type xy } from "@synnaxlabs/x";
+import { type bounds, id, type xy } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
+import type { z } from "zod";
 
 import { HandleList } from "@/feature/schematic/symbol/edit/HandleList";
 import { Inspector } from "@/feature/schematic/symbol/edit/Inspector";
@@ -92,45 +93,49 @@ const Editor = ({
   close,
 }: Modals.ContentProps<ModalParams, void>): ReactElement => {
   const isCreate = symbolKey == null;
-  const [unsaved, setUnsaved] = useState(false);
+  const initialValues: z.infer<typeof Schematic.Symbol.formSchema> = {
+    key: createKey,
+    name: "",
+    group,
+    data: {
+      drawing: { type: "svg", markup: "" },
+      parts: [],
+      previewViewport: { zoom: 1, position: { x: 0, y: 0 } },
+      handles: [],
+      variant: "static",
+      strokeScaled: false,
+      states: [Spec.createState()],
+      commands: [],
+      looks: [],
+      interactions: [],
+      scale: 1,
+    },
+  };
   const { form, save, variant } = Schematic.Symbol.useForm({
     query: symbolKey == null ? null : { key: symbolKey },
-    initialValues: {
-      key: createKey,
-      name: "",
-      group,
-      data: {
-        drawing: { type: "svg", markup: "" },
-        parts: [],
-        previewViewport: { zoom: 1, position: { x: 0, y: 0 } },
-        handles: [],
-        variant: "static",
-        strokeScaled: false,
-        states: [Spec.createState()],
-        commands: [],
-        looks: [],
-        interactions: [],
-        scale: 1,
-      },
-    },
+    initialValues,
     afterSave: () => close(),
-    onHasTouched: setUnsaved,
   });
   Modals.useBusy(variant === "loading");
-  Modals.useUnsaved(unsaved);
   const stored = Schematic.Symbol.useResult(
     symbolKey == null ? null : { key: symbolKey, includeUses: true },
   );
+  Modals.useUnsaved(() => {
+    const base = isCreate ? initialValues : stored.data;
+    // Until the stored symbol loads, there is nothing to compare with.
+    if (base == null) return false;
+    const { name, data } = form.value();
+    return name !== base.name || Spec.edited(base.data, data);
+  });
   const confirmSave = useConfirmSave();
   const handleSave = async () => {
     const uses = stored.data?.uses ?? [];
     if (stored.data != null && uses.length > 0) {
       const spec = form.get(path.data).value;
-      const changed = !deep.equal(
-        { ...stored.data.data, previewViewport: undefined },
-        { ...spec, previewViewport: undefined },
-      );
-      if (changed && (await confirmSave({ stored: stored.data, spec, uses })) !== true)
+      if (
+        Spec.edited(stored.data.data, spec) &&
+        (await confirmSave({ stored: stored.data, spec, uses })) !== true
+      )
         return;
     }
     save();

@@ -635,6 +635,19 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       expect(screen.queryByText("Discard unsaved edits?")).toBeNull();
     });
 
+    it("closes at once on Escape after a zoom of the preview", async () => {
+      await openStored();
+      pressKey("Equal");
+      // A modal takes an Escape only from an element inside it.
+      const zoom = await screen.findByText("120%");
+      fireEvent.keyDown(zoom, { code: "Escape", key: "Escape" });
+      fireEvent.keyUp(zoom, { code: "Escape", key: "Escape" });
+      await waitFor(() =>
+        expect(screen.queryByPlaceholderText("Symbol name")).toBeNull(),
+      );
+      expect(screen.queryByText("Discard unsaved edits?")).toBeNull();
+    });
+
     it("asks before it drops unsaved edits on close", async () => {
       const symbol = await openStored();
       const renamed = uniqueName("renamed");

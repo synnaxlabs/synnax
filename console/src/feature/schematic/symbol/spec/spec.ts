@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import type { enumeration, schematic } from "@synnaxlabs/client";
-import { id } from "@synnaxlabs/x";
+import { deep, id } from "@synnaxlabs/x";
 
 type Spec = schematic.symbol.Spec;
 type Look = schematic.symbol.Look;
@@ -28,6 +28,16 @@ const BASE = 0;
 const ACTIVE = 1;
 const DEACTIVATE = "deactivate";
 const ACTIVATE = "activate";
+
+/**
+ * edited returns whether spec differs from base. The preview viewport is where the
+ * editor last looked, so a zoom or a pan is not an edit.
+ */
+export const edited = (base: Spec, spec: Spec): boolean =>
+  !deep.equal(
+    { ...base, previewViewport: undefined },
+    { ...spec, previewViewport: undefined },
+  );
 
 /** createState returns the state of a new symbol. */
 export const createState = (): schematic.symbol.State => ({

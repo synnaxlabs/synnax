@@ -287,7 +287,7 @@ describe("Stack", () => {
     });
 
     const Unsaved: Modals.Content = () => {
-      Modals.useUnsaved(true);
+      Modals.useUnsaved(() => true);
       return (
         <Modal.Frame>
           <span>edits</span>

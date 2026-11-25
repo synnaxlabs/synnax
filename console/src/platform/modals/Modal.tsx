@@ -37,22 +37,20 @@ export const useBusy = (busy: boolean): void => {
   }, [busy, setBusy]);
 };
 
-const [UnsavedContext, useSetUnsaved] = context.create<(unsaved: boolean) => void>({
-  displayName: "Modals.UnsavedContext",
-  defaultValue: () => {},
-});
+const [UnsavedContext, useSetUnsaved] = context.create<
+  (unsaved: (() => boolean) | undefined) => void
+>({ displayName: "Modals.UnsavedContext", defaultValue: () => {} });
 
 /**
- * While unsaved is true, Escape, the close trigger, and a click outside ask the user to
- * discard before the modal closes. A close that the content calls, as after a save,
- * does not ask. Does nothing outside a modal.
+ * When unsaved returns true, Escape, the close trigger, and a click outside ask the
+ * user to discard before the modal closes. A close that the content calls, as after a
+ * save, does not ask. Does nothing outside a modal.
  */
-export const useUnsaved = (unsaved: boolean): void => {
+export const useUnsaved = (unsaved: () => boolean): void => {
   const setUnsaved = useSetUnsaved();
   useLayoutEffect(() => {
-    if (!unsaved) return;
-    setUnsaved(true);
-    return () => setUnsaved(false);
+    setUnsaved(unsaved);
+    return () => setUnsaved(undefined);
   }, [unsaved, setUnsaved]);
 };
 
@@ -78,10 +76,12 @@ export const Modal = ({
       description: "If you close now, you lose the edits since the last save.",
       confirm: { label: "Discard" },
       cancel: { label: "Keep editing" },
-      title: "Unsaved edits",
+      title: "Discard edits",
     })) === true;
-  const setUnsaved = (unsaved: boolean) =>
-    setGuard(unsaved ? confirmDiscard : undefined);
+  const setUnsaved = (unsaved: (() => boolean) | undefined) =>
+    setGuard(
+      unsaved == null ? undefined : async () => !unsaved() || (await confirmDiscard()),
+    );
   const handleDismiss = () => dismiss();
   return (
     <Dialog.Frame
