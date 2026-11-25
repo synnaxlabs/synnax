@@ -198,6 +198,19 @@ describe("Kafka Write form", () => {
     expect(screen.getAllByRole("treeitem", { name: /Topic/ })).toHaveLength(1);
   });
 
+  it("should name the topic in the details header when a topic is selected", async () => {
+    const { target } = await createTarget([createField("speed", "float")], {
+      recordKey: "pump-1",
+    });
+    await renderWrite([target]);
+    fireEvent.click(
+      await screen.findByRole("treeitem", { name: /Topic.*plant\.pumps/ }),
+    );
+    expect(await screen.findByText("Select a record key of the topic")).toBeTruthy();
+    expect(screen.queryByText("Details")).toBeNull();
+    expect(screen.getAllByText("plant.pumps")).toHaveLength(2);
+  });
+
   it("should name a new command channel after the device, topic, record key, and field", async () => {
     const { target } = await createTarget([createField("speed", "float")], {
       recordKey: "pump-1",
