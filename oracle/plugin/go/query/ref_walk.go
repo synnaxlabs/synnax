@@ -816,7 +816,7 @@ func (rd *renderer) detachElemBody(
 func (rd *renderer) retargetBody(nodes []*stepNode, mode leafMode) string {
 	var b strings.Builder
 	rd.walk(&b, nodes, "e", true, func(b *strings.Builder, expr string) {
-		const t = "t"
+		const t = retargetValue
 		switch mode {
 		case leafRequired, leafZero:
 			fmt.Fprintf(
@@ -824,12 +824,12 @@ func (rd *renderer) retargetBody(nodes []*stepNode, mode leafMode) string {
 				"if %s, ok := to[%s]; ok {\n%s\n}\n",
 				t,
 				rd.target(expr),
-				rd.assign(expr, t),
+				rd.assign(expr),
 			)
 		case leafOptional:
 			assign := "*" + expr + " = " + t
 			if rd.info.IsID {
-				assign = rd.assign(expr, t)
+				assign = rd.assign(expr)
 			}
 			fmt.Fprintf(
 				b,
@@ -859,7 +859,7 @@ func (rd *renderer) retargetBody(nodes []*stepNode, mode leafMode) string {
 				expr,
 				t,
 				rd.target(elem),
-				rd.assign(elem, t),
+				rd.assign(elem),
 				kept,
 				k,
 			)
@@ -874,7 +874,7 @@ func (rd *renderer) retargetBody(nodes []*stepNode, mode leafMode) string {
 				expr,
 				t,
 				rd.target(v),
-				rd.assign(v, t),
+				rd.assign(v),
 			)
 		}
 	})
@@ -890,14 +890,17 @@ func (rd *renderer) operand(expr string) string {
 	return rd.target(expr)
 }
 
-// assign returns the statement that points the field at expr to the target value. A
+// retargetValue names the variable that holds a target's new value in a retarget body.
+const retargetValue = "t"
+
+// assign returns the statement that points the field at expr to the new value. A
 // resource ID changes only its key, as every target that a retarget moves shares a
 // table with its new value.
-func (rd *renderer) assign(expr, value string) string {
+func (rd *renderer) assign(expr string) string {
 	if rd.info.IsID {
-		return expr + ".Key = " + value + ".Key"
+		return expr + ".Key = " + retargetValue + ".Key"
 	}
-	return expr + " = " + value
+	return expr + " = " + retargetValue
 }
 
 // renderRetarget sets the RetargetBody of info, a reference on a top-level field.
