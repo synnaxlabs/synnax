@@ -49,8 +49,15 @@ var _ = Describe("FixedWidthDataType", func() {
 			Expect(expected.IsVariable()).To(BeFalse())
 		},
 		Entry("float64", telem.FixedWidthDataTypeFloat64, telem.Float64T),
+		Entry("float32", telem.FixedWidthDataTypeFloat32, telem.Float32T),
+		Entry("int64", telem.FixedWidthDataTypeInt64, telem.Int64T),
+		Entry("int32", telem.FixedWidthDataTypeInt32, telem.Int32T),
+		Entry("int16", telem.FixedWidthDataTypeInt16, telem.Int16T),
 		Entry("int8", telem.FixedWidthDataTypeInt8, telem.Int8T),
 		Entry("uint64", telem.FixedWidthDataTypeUint64, telem.Uint64T),
+		Entry("uint32", telem.FixedWidthDataTypeUint32, telem.Uint32T),
+		Entry("uint16", telem.FixedWidthDataTypeUint16, telem.Uint16T),
+		Entry("uint8", telem.FixedWidthDataTypeUint8, telem.Uint8T),
 		Entry("timestamp", telem.FixedWidthDataTypeTimestamp, telem.TimestampT),
 		Entry("uuid", telem.FixedWidthDataTypeUUID, telem.UUIDT),
 		Entry("boolean", telem.FixedWidthDataTypeBoolean, telem.BooleanT),
@@ -58,12 +65,30 @@ var _ = Describe("FixedWidthDataType", func() {
 })
 
 var _ = Describe("NumericDataType", func() {
-	It("Should hold the integer and float data types", func() {
-		Expect(telem.NumericDataTypeUint16.IsValid()).To(BeTrue())
-		Expect(telem.DataType(telem.NumericDataTypeFloat32)).To(Equal(telem.Float32T))
-	})
+	DescribeTable("Should name an integer or float data type",
+		func(dt telem.NumericDataType, expected telem.DataType) {
+			Expect(dt.IsValid()).To(BeTrue())
+			Expect(telem.DataType(dt)).To(Equal(expected))
+		},
+		Entry("float64", telem.NumericDataTypeFloat64, telem.Float64T),
+		Entry("float32", telem.NumericDataTypeFloat32, telem.Float32T),
+		Entry("int64", telem.NumericDataTypeInt64, telem.Int64T),
+		Entry("int32", telem.NumericDataTypeInt32, telem.Int32T),
+		Entry("int16", telem.NumericDataTypeInt16, telem.Int16T),
+		Entry("int8", telem.NumericDataTypeInt8, telem.Int8T),
+		Entry("uint64", telem.NumericDataTypeUint64, telem.Uint64T),
+		Entry("uint32", telem.NumericDataTypeUint32, telem.Uint32T),
+		Entry("uint16", telem.NumericDataTypeUint16, telem.Uint16T),
+		Entry("uint8", telem.NumericDataTypeUint8, telem.Uint8T),
+	)
 
-	It("Should reject a fixed-width data type that is not a number", func() {
-		Expect(telem.NumericDataType(telem.TimestampT).IsValid()).To(BeFalse())
-	})
+	DescribeTable("Should reject a data type that is not a number",
+		func(dt telem.DataType) {
+			Expect(telem.NumericDataType(dt).IsValid()).To(BeFalse())
+		},
+		Entry("timestamp", telem.TimestampT),
+		Entry("uuid", telem.UUIDT),
+		Entry("boolean", telem.BooleanT),
+		Entry("string", telem.StringT),
+	)
 })
