@@ -414,12 +414,15 @@ func (s *Service) updateGroup(
 	for i, m := range mods {
 		calc, err := s.openCalculator(ctx, m)
 		if err != nil {
-			s.report(ctx, m.Channel.Key(), Status{
-				Name:        m.Channel.Name,
-				Variant:     status.VariantError,
-				Message:     "Failed to run calculation",
-				Description: err.Error(),
-			})
+			// The group stays closed, so none of its calculations run.
+			for _, stopped := range mods {
+				s.report(ctx, stopped.Channel.Key(), Status{
+					Name:        stopped.Channel.Name,
+					Variant:     status.VariantError,
+					Message:     "Failed to run calculation",
+					Description: err.Error(),
+				})
+			}
 			return errors.Join(err, calculator.Group(calculators[:i]).Close())
 		}
 		calculators[i] = calc
