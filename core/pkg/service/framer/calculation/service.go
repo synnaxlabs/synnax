@@ -11,6 +11,7 @@ package calculation
 
 import (
 	"context"
+	"slices"
 	"sync"
 
 	"github.com/samber/lo"
@@ -287,8 +288,11 @@ func (s *Service) request(ctx context.Context, ch channel.Channel) {
 }
 
 // start clears the status of each calculation not in running and starts the groups of
-// the graph.
-func (s *Service) start(ctx context.Context, running set.Set[channel.Key]) error {
+// the graph. It returns what rebuildGroups returns.
+func (s *Service) start(
+	ctx context.Context,
+	running set.Set[channel.Key],
+) ([]openFailure, error) {
 	// A calculation that already runs owns its status, so only a new one clears it.
 	// Dependencies start with the channel that reads them.
 	for k := range s.mu.graph.CalculatedKeys() {
@@ -335,7 +339,7 @@ func (s *Service) retry(ctx context.Context, key channel.Key) {
 	for range pending {
 		s.request(ctx, ch)
 	}
-	if err := s.start(ctx, running); err != nil {
+	if _, err := s.start(ctx, running); err != nil {
 		s.cfg.L.Error("failed to start calculation",
 			zap.Error(err), zap.Stringer("channel", key))
 	}
@@ -349,7 +353,8 @@ func (s *Service) updateCalculation(ctx context.Context, ch channel.Channel) err
 	if err := s.mu.graph.Update(ctx, ch); err != nil {
 		return err
 	}
-	return s.rebuildGroups(ctx)
+	failures, err := s.rebuildGroups(ctx)
+	return errors.Join(err, openErrorOf(failures, ch.Key()))
 }
 
 func (s *Service) openCalculator(
@@ -409,6 +414,12 @@ func (s *Service) updateGroup(
 	for i, m := range mods {
 		calc, err := s.openCalculator(ctx, m)
 		if err != nil {
+			s.report(ctx, m.Channel.Key(), Status{
+				Name:        m.Channel.Name,
+				Variant:     status.VariantError,
+				Message:     "Failed to run calculation",
+				Description: err.Error(),
+			})
 			return errors.Join(err, calculator.Group(calculators[:i]).Close())
 		}
 		calculators[i] = calc
@@ -435,12 +446,34 @@ func (s *Service) updateGroup(
 	return nil
 }
 
-func (s *Service) rebuildGroups(ctx context.Context) error {
+// openFailure is a group that failed to open.
+type openFailure struct {
+	calculations channel.Keys
+	err          error
+}
+
+// openErrorOf joins the errors of the failures whose groups hold one of keys.
+func openErrorOf(failures []openFailure, keys ...channel.Key) error {
+	var err error
+	for _, f := range failures {
+		if slices.ContainsFunc(keys, f.calculations.Contains) {
+			err = errors.Join(err, f.err)
+		}
+	}
+	return err
+}
+
+// rebuildGroups closes each group that the graph no longer holds and opens each group
+// that changed. A group that fails to open stays closed and does not stop the others.
+// It returns each group that failed to open, and the errors of the groups that failed
+// to close.
+func (s *Service) rebuildGroups(ctx context.Context) ([]openFailure, error) {
 	groups := s.mu.graph.CalculateGrouped()
 	s.cfg.L.Debug("rebuilding groups",
 		zap.Int("new_group_count", len(groups)),
 		zap.Int("current_group_count", len(s.mu.groups)),
 	)
+	var err error
 	for k, g := range s.mu.groups {
 		if _, ok := groups[k]; !ok {
 			s.cfg.L.Info("group stopping",
@@ -448,17 +481,21 @@ func (s *Service) rebuildGroups(ctx context.Context) error {
 				zap.String("reason", "no longer in group allocation"),
 			)
 			delete(s.mu.groups, k)
-			if err := g.Close(); err != nil {
-				return err
-			}
+			err = errors.Join(err, g.Close())
 		}
 	}
+	var failures []openFailure
 	for k, mods := range groups {
-		if err := s.updateGroup(ctx, k, mods); err != nil {
-			return err
+		if openErr := s.updateGroup(ctx, k, mods); openErr != nil {
+			failures = append(failures, openFailure{
+				calculations: lo.Map(mods, func(m compiler.Module, _ int) channel.Key {
+					return m.Channel.Key()
+				}),
+				err: openErr,
+			})
 		}
 	}
-	return nil
+	return failures, err
 }
 
 // Close stops all calculations and closes the service. No other methods should be
@@ -517,7 +554,8 @@ func (s *Service) updateRequests(
 			s.request(ctx, ch)
 		}
 	}
-	if err := s.start(ctx, running); err != nil {
+	failures, err := s.start(ctx, running)
+	if err = errors.Join(err, openErrorOf(failures, added...)); err != nil {
 		return err
 	}
 	if len(added) > 0 {
