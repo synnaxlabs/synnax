@@ -38,6 +38,7 @@ import { Kafka } from "@/feature/kafka";
 import { createKafkaDevice } from "@/feature/kafka/testutil";
 import { Device } from "@/platform/device";
 import { startRackHeartbeat } from "@/platform/device/testutil";
+import { ICD } from "@/platform/icd";
 import { pickMessageFormat, retype } from "@/platform/icd/testutil";
 import {
   answerCommand,
@@ -75,6 +76,8 @@ interface RecordParams {
   index?: string;
   /** The channel of each field the task reads, by field key. All fields by default. */
   bound?: Record<string, number>;
+  /** The match rule of the record's message. */
+  match?: icd.JSONMatch;
 }
 
 interface RenderParams extends Partial<RecordParams> {
@@ -99,11 +102,12 @@ const createRecord = async ({
   recordKey = "",
   index,
   bound = Object.fromEntries(fields.map(({ key }) => [key, 0])),
+  match,
 }: RecordParams): Promise<Kafka.Task.ReadRecord> => {
   const message: icd.Message = {
     key: uuid.create(),
     name: recordKey === "" ? "Any key" : recordKey,
-    payload: { format: "json", fields },
+    payload: { format: "json", match, fields },
   };
   const format = await client.icds.create({
     name: uniqueName("format"),
@@ -323,6 +327,7 @@ const OVEN_SHAPE = {
   ],
   index: 0,
   count: 2,
+  present: -1,
 };
 
 /** The oven shape, with a pressure. */
@@ -457,6 +462,7 @@ describe("Kafka read form", () => {
         fields: [createInferredField("/pressure", "int64", "number")],
         index: -1,
         count: 1,
+        present: -1,
       };
       const second = await answerCommandsUntil(client, [scan], "sample", {
         sample: { data: sampleOfTopic("plant", pump) },
@@ -725,6 +731,7 @@ describe("Kafka read form", () => {
         fields: [createInferredField("/pressure", "int64", "number")],
         index: -1,
         count: 2,
+        present: -1,
       };
       const dialog = await openAddData(
         dev,
@@ -1065,6 +1072,141 @@ describe("Kafka read form", () => {
         });
     });
 
+    /** @returns a kind of the documents of the pump key, told apart by pointers[0]. */
+    const createKind = (...pointers: string[]) => ({
+      sources: ["pump"],
+      fields: [
+        createInferredField("/time", "timestamp", "number", "unix_ms"),
+        ...pointers.map((p) => createInferredField(p, "float64", "number")),
+      ],
+      index: 0,
+      count: 2,
+      present: 1,
+    });
+
+    it("should read each record kind of a key in its own message of one record", async () => {
+      const { draft, dev } = await renderRead();
+      const dialog = await openAddData(dev, {
+        data: sampleOf(createKind("/rpm"), createKind("/fault")),
+      });
+      await dialog.findByText("pump · 2 records with /rpm");
+      dialog.getByText("pump · 2 records with /fault");
+      fireEvent.click(dialog.getByRole("button", { name: "Select all" }));
+      fireEvent.click(dialog.getByRole("button", { name: "Add 2 fields" }));
+      const records = await waitFor(async () => {
+        const next = await retrieveRecords(draft.key);
+        expect(next).toHaveLength(1);
+        return next;
+      });
+      const { messages } = await client.icds.retrieve(records[0].icd);
+      expect(messages).toMatchObject([
+        { name: "pump rpm", payload: { match: { type: "present", pointer: "/rpm" } } },
+        {
+          name: "pump fault",
+          payload: { match: { type: "present", pointer: "/fault" } },
+        },
+      ]);
+      expect(records[0]).toMatchObject({
+        recordKey: "pump",
+        messages: messages.map(({ key }) => ({ message: key })),
+      });
+    });
+
+    it("should add the picks of a kind to its message, and a message for a new kind", async () => {
+      const time = createTimeField();
+      const rec = await createRecord({
+        fields: [time, createField("rpm", "float")],
+        recordKey: "pump",
+        index: time.key,
+        match: { type: "present", pointer: "/rpm" },
+      });
+      const { draft, dev } = await renderRead({ records: [rec] });
+      const dialog = await openAddData(dev, {
+        data: sampleOf(createKind("/rpm", "/temp"), createKind("/fault")),
+      });
+      fireEvent.click(await dialog.findByRole("button", { name: "Select all" }));
+      fireEvent.click(dialog.getByRole("button", { name: "Add 2 fields" }));
+      const [record] = await waitFor(async () => {
+        const next = await retrieveRecords(draft.key);
+        expect(next[0].messages).toHaveLength(2);
+        return next;
+      });
+      const { messages } = await client.icds.retrieve(record.icd);
+      const pointers = (m: icd.Message) => ICD.jsonFields(m).map((f) => f.pointer);
+      expect(messages.map(({ name }) => name)).toEqual(["pump", "pump fault"]);
+      expect(messages.map(pointers)).toEqual([
+        ["/time", "/rpm", "/temp"],
+        ["/time", "/fault"],
+      ]);
+      expect(messages[1].payload).toMatchObject({
+        match: { type: "present", pointer: "/fault" },
+      });
+      const [faultTime] = ICD.jsonFields(messages[1]);
+      expect(record.messages[1]).toMatchObject({
+        message: messages[1].key,
+        index: faultTime.key,
+      });
+      expect(record.messages.map(({ bindings }) => bindings.length)).toEqual([3, 2]);
+    });
+
+    it("should offer a field of a kind that only the message of another kind reads", async () => {
+      const time = createTimeField();
+      const rec = await createRecord({
+        fields: [time, createField("rpm", "float"), createField("status", "float")],
+        recordKey: "pump",
+        index: time.key,
+        match: { type: "present", pointer: "/rpm" },
+      });
+      const { draft, dev } = await renderRead({ records: [rec] });
+      const dialog = await openAddData(dev, {
+        data: sampleOf(createKind("/rpm", "/status"), createKind("/fault", "/status")),
+      });
+      await dialog.findByText("pump · 2 records with /fault");
+      const [read, unread] = dialog.getAllByRole("checkbox", {
+        name: "Record /status",
+      });
+      expect(read).toHaveProperty("disabled", true);
+      expect(unread).toHaveProperty("disabled", false);
+      fireEvent.click(dialog.getByRole("button", { name: "Select all" }));
+      fireEvent.click(dialog.getByRole("button", { name: "Add 2 fields" }));
+      const [record] = await waitFor(async () => {
+        const next = await retrieveRecords(draft.key);
+        expect(next[0].messages).toHaveLength(2);
+        return next;
+      });
+      const { messages } = await client.icds.retrieve(record.icd);
+      expect(ICD.jsonFields(messages[1]).map(({ pointer }) => pointer)).toEqual([
+        "/time",
+        "/fault",
+        "/status",
+      ]);
+    });
+
+    it("should carry only the fields that the empty key reads for the kind of a key", async () => {
+      const time = createTimeField();
+      const rec = await createRecord({
+        fields: [time, createField("rpm", "float"), createField("status", "string")],
+        index: time.key,
+        match: { type: "present", pointer: "/rpm" },
+      });
+      const { draft, dev } = await renderRead({ records: [rec] });
+      const fault = { ...createKind("/fault", "/status"), present: -1 };
+      const dialog = await openAddData(dev, { data: sampleOf(fault) });
+      fireEvent.click(await dialog.findByRole("button", { name: "Select all" }));
+      fireEvent.click(dialog.getByRole("button", { name: "Add 2 fields" }));
+      const pump = await waitFor(async () => {
+        const records = await retrieveRecords(draft.key);
+        const found = records.find(({ recordKey }) => recordKey === "pump");
+        if (found == null) throw new Error("Add data made no record of pump");
+        return found;
+      });
+      const { messages } = await client.icds.retrieve(pump.icd);
+      const message = messages.find(({ key }) => key === pump.messages[0].message);
+      expect(
+        ICD.jsonFields(message).find(({ pointer }) => pointer === "/status"),
+      ).toMatchObject({ type: payload.kindOf("float64") });
+    });
+
     it("should show the hint with the fields and count the picks", async () => {
       const { dev } = await renderRead();
       const dialog = await openAddData(dev, { data: sampleOf(OVEN_SHAPE) });
@@ -1100,6 +1242,7 @@ describe("Kafka read form", () => {
         ],
         index: -1,
         count: 2,
+        present: -1,
       };
       const dialog = await openAddData(dev, { data: sampleOf(pump) });
       fireEvent.click(await dialog.findByRole("button", { name: "Select all" }));
@@ -1129,6 +1272,7 @@ describe("Kafka read form", () => {
         ],
         index: -1,
         count: 2,
+        present: -1,
       };
       const dialog = await openAddData(dev, { data: sampleOf(pump) });
       fireEvent.click(await dialog.findByRole("button", { name: "Select all" }));
@@ -1171,6 +1315,7 @@ describe("Kafka read form", () => {
         fields: [createInferredField("/pressure", "int64", "number")],
         index: -1,
         count: 1,
+        present: -1,
       };
       const dialog = await openAddData(dev, { data: sampleOf(OVEN_SHAPE, pump) });
       expect(
@@ -1201,6 +1346,7 @@ describe("Kafka read form", () => {
         fields: [createInferredField("/pressure", "int64", "number")],
         index: -1,
         count: 2,
+        present: -1,
       };
       const dialog = await openAddData(dev, { data: sampleOf(pump) });
       fireEvent.click(await dialog.findByRole("button", { name: "Select all" }));
@@ -1542,6 +1688,7 @@ describe("Kafka read form", () => {
         ],
         index: 0,
         count: 1,
+        present: -1,
       };
       const scan = await createScanTask(dev);
       const first = await answerCommandsUntil(client, [scan], "sample", {
@@ -2193,7 +2340,7 @@ describe("Kafka read form", () => {
       const dropped = vi
         .spyOn(client.channels, "create")
         .mockImplementation(async (channels, options) => {
-          if (array.toArray(channels).some(({ name }) => name.includes("_status_")))
+          if (array.toArray(channels).some(({ name }) => name.endsWith("_pressure")))
             throw new Error("Connection lost");
           return await create(channels, options);
         });
@@ -2382,7 +2529,7 @@ describe("Kafka read form", () => {
       const [first, second] = created.config.topics[0].records[0].messages;
       const a = await client.channels.retrieve(first.bindings[0].channel);
       const b = await client.channels.retrieve(second.bindings[0].channel);
-      expect(b.name).toBe(`${dev.name}_oven_flow_rate`);
+      expect(b.name).toBe(`${dev.name}_oven_rate`);
       expect(a.index).not.toBe(b.index);
     });
 

@@ -68,13 +68,14 @@ Status struct<Details?, V extends Variant = Variant> {
         """
     }
 
-    @doc value  """
+    @doc value     """
         is a standardized message used to communicate state across the Synnax platform.
         Statuses support different severity variants and can carry component-specific
         details. A status is uniquely identified by a key, may name the resource that
         owns it, and may carry a human-readable name and labels.
     """
     @go marshal
+    @resource type "status"
 }
 
 Where filter Status {

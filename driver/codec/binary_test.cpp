@@ -303,11 +303,11 @@ TEST(Binary, RefuseDefaultOutOfRange) {
     assert_refuses(f, x::telem::FLOAT64_T, "default: 1e+300 overflows float32");
 }
 
-/// @brief it should refuse a default that is not finite.
-TEST(Binary, RefuseDefaultNotFinite) {
-    auto f = field<icd::FloatBinaryField>("v", 0, 64);
+/// @brief it should write a NaN default for a field that a short payload does not hold.
+TEST(Binary, DecodeNaNDefault) {
+    auto f = field<icd::FloatBinaryField>("v", 8, 32);
     f.default_ = std::numeric_limits<double>::quiet_NaN();
-    assert_refuses(f, x::telem::FLOAT64_T, "default: NaN is not finite");
+    EXPECT_TRUE(std::isnan(decode_one<double>(f, x::telem::FLOAT64_T, {0x01})));
 }
 
 /// @brief it should decode only the fields that the multiplexor of a frame selects.
