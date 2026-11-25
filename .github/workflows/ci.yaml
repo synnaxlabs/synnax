@@ -500,6 +500,7 @@ jobs:
       directory: core
       os_specific: true
       macos: *full
+      # warm.go.yaml saves a go test cache for each shard, so it sets the same count.
       shards: 3
       warmed: true
       windows: *full

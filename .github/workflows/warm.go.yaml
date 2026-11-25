@@ -46,6 +46,8 @@ jobs:
       coverage_flag: core
       directory: core
       os_specific: true
+      # Each shard saves the cache of its suites, so this matches the count in ci.yaml.
+      shards: 3
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
