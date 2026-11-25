@@ -212,6 +212,7 @@ func (calculationsResponseTranslator) Forward(
 	return &CalculationsResponse{
 		Calculations: calculations,
 		Channels:     msg.Channels.Uint32(),
+		Omitted:      msg.Omitted.Uint32(),
 	}, nil
 }
 
@@ -226,6 +227,7 @@ func (calculationsResponseTranslator) Backward(
 	return arc.CalculationsResponse{
 		Calculations: calculations,
 		Channels:     channel.KeysFromUint32(msg.Channels),
+		Omitted:      channel.KeysFromUint32(msg.Omitted),
 	}, nil
 }
 

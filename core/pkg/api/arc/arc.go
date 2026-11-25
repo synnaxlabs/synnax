@@ -531,19 +531,34 @@ type CalculationsResponse struct {
 	// calculations, including the ones that it left out. A change to any of them can
 	// change the calculations.
 	Channels channel.Keys `json:"channels" msgpack:"channels"`
+	// Omitted are the requested channels whose calculation the Core left out, as its
+	// expression, or one that it reads, does not compile. A channel created or renamed
+	// to a name that such an expression uses can bring it back, and Channels cannot
+	// hold that name.
+	Omitted channel.Keys `json:"omitted" msgpack:"omitted"`
 }
 
 // Calculations compiles the calculated channels that a program that reads req.Channels
-// needs, as compile does for an automation.
+// needs, as compile does for an automation. A requested channel that does not exist is
+// left out. The subject needs retrieve on every channel in the response.
 func (s *Service) Calculations(
 	ctx context.Context,
-	_ bind.Snapshot,
+	snap bind.Snapshot,
 	req CalculationsRequest,
 ) (CalculationsResponse, error) {
 	reads := set.New(req.Channels...)
-	return channel.RetryChanged(ctx, func() (CalculationsResponse, error) {
+	res, err := channel.RetryChanged(ctx, func() (CalculationsResponse, error) {
 		return s.compileCalculations(ctx, reads)
 	})
+	if err != nil {
+		return CalculationsResponse{}, err
+	}
+	if err = snap.Enforce(lo.Map(res.Channels, func(k channel.Key, _ int) resource.ID {
+		return channel.ResourceID(k)
+	})...); err != nil {
+		return CalculationsResponse{}, err
+	}
+	return res, nil
 }
 
 // compileCalculations compiles the calculated channels in reads and the ones they read
@@ -562,6 +577,7 @@ func (s *Service) compileCalculations(
 		return s.channel.NewRetrieve().
 			Entries(&channels).
 			Where(channel.MatchKeys(reads.Slice()...)).
+			SkipMissingKeys().
 			Exec(ctx, snap)
 	}); err != nil {
 		return CalculationsResponse{}, err
@@ -574,6 +590,7 @@ func (s *Service) compileCalculations(
 	if err != nil {
 		return CalculationsResponse{}, err
 	}
+	var omitted channel.Keys
 	for _, ch := range channels {
 		if !ch.IsCalculated() {
 			continue
@@ -583,11 +600,15 @@ func (s *Service) compileCalculations(
 		if err != nil && !invalid && !errors.Is(err, graph.ErrCycle) {
 			return CalculationsResponse{}, err
 		}
+		if err != nil {
+			omitted = append(omitted, ch.Key())
+		}
 	}
 	modules := g.CalculateFlat()
 	res := CalculationsResponse{
 		Calculations: make([]arc.Calculation, len(modules)),
 		Channels:     g.Examined().Slice(),
+		Omitted:      omitted,
 	}
 	for i, m := range modules {
 		res.Calculations[i] = arc.Calculation{
@@ -596,6 +617,7 @@ func (s *Service) compileCalculations(
 		}
 	}
 	slices.Sort(res.Channels)
+	slices.Sort(res.Omitted)
 	return res, nil
 }
 

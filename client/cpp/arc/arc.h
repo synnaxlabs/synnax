@@ -49,6 +49,11 @@ struct Calculations {
     /// @brief every channel that the Core read to compile the calculations, including
     /// the ones that it left out. A change to any of them can change the calculations.
     std::vector<channel::Key> channels;
+    /// @brief the requested channels whose calculation the Core left out, as its
+    /// expression, or one that it reads, does not compile. A channel created or renamed
+    /// to a name that such an expression uses can bring it back, and channels cannot
+    /// hold that name.
+    std::vector<channel::Key> omitted;
 };
 
 /// @brief Client for managing Arc automation programs in a Synnax cluster.
@@ -154,9 +159,10 @@ public:
     [[nodiscard]] x::errors::Error del(const std::vector<x::uuid::UUID> &keys) const;
 
     /// @brief compiles the calculated channels that a program reading channels needs.
+    /// A channel that does not exist is left out.
     /// @param channels the keys of the channels that the program reads.
     /// @returns the calculations, and an error that matches access denied when the
-    /// subject cannot retrieve one of the channels.
+    /// subject cannot retrieve a channel in them.
     [[nodiscard]] std::pair<Calculations, x::errors::Error>
     calculations(const std::vector<channel::Key> &channels) const;
 

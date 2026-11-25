@@ -58,4 +58,5 @@ message CalculationsRequest {
 message CalculationsResponse {
   repeated service.arc.pb.Calculation calculations = 1;
   repeated uint32 channels = 2;
+  repeated uint32 omitted = 3;
 }
