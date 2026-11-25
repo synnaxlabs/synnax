@@ -204,6 +204,29 @@ resource "aws_iam_role_policy" "host_license" {
   })
 }
 
+# lego on the host gets the wildcard certificate through a DNS-01 challenge.
+resource "aws_iam_role_policy" "host_dns" {
+  role = aws_iam_role.host.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "route53:ChangeResourceRecordSets",
+          "route53:ListResourceRecordSets",
+        ]
+        Resource = aws_route53_zone.preview.arn
+      },
+      {
+        Effect   = "Allow"
+        Action   = "route53:GetChange"
+        Resource = "arn:aws:route53:::change/*"
+      },
+    ]
+  })
+}
+
 resource "aws_iam_instance_profile" "host" {
   name = "synnax-preview-host"
   role = aws_iam_role.host.name
@@ -239,6 +262,8 @@ resource "aws_instance" "host" {
 locals {
   host_env = <<-EOT
     PREVIEW_DOMAIN=${var.domain}
+    PREVIEW_ZONE_ID=${aws_route53_zone.preview.zone_id}
+    PREVIEW_ACME=/etc/caddy/acme
     PREVIEW_SITES=/etc/caddy/sites
     PREVIEW_TTL_DAYS=${var.ttl_days}
     PREVIEW_LICENSE_PARAMETER=${var.license_parameter}
