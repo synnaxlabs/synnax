@@ -182,7 +182,8 @@ describe("Schematic.Node.BUILT_INS", () => {
           { selectors: [SOLID], fill: BANDED_GREEN },
         ],
       ],
-      ["light", 1, [{ fill: BANDED_GREEN }]],
+      // A node paint with no node color leaves the stroke to the theme.
+      ["light", 1, [{}, { fill: BANDED_GREEN }]],
       [
         "switch",
         0,
@@ -206,7 +207,7 @@ describe("Schematic.Node.BUILT_INS", () => {
           },
         ],
       ],
-      ["thruster", 1, []],
+      ["thruster", 1, [{}]],
     ])(
       "should paint %s at %d as its old variant draws",
       async (name, value, paints) => {
@@ -244,16 +245,21 @@ describe("Schematic.Node.BUILT_INS", () => {
     ];
 
     it.each(STATIC_SOLID)(
-      "should fill the solid shapes of %s with the node color",
+      "should stroke %s and fill its solid shapes with the node color",
       async (name) => {
-        await expectPaints(name, 0, [{ selectors: [SOLID], fill: RED }], RED);
+        await expectPaints(
+          name,
+          0,
+          [{ stroke: RED }, { selectors: [SOLID], fill: RED }],
+          RED,
+        );
       },
     );
 
     it.each(STATIC_SOLID)(
-      "should leave the solid shapes of %s to the theme with no node color",
+      "should leave the stroke and solid shapes of %s to the theme with no node color",
       async (name) => {
-        await expectPaints(name, 0, [{ selectors: [SOLID] }]);
+        await expectPaints(name, 0, [{}, { selectors: [SOLID] }]);
       },
     );
 
