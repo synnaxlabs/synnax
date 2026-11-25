@@ -9,6 +9,7 @@
 
 import { DataType, task } from "@synnaxlabs/client";
 import { createTestClient, newIndexedPair } from "@synnaxlabs/client/testutil";
+import { treatment } from "@synnaxlabs/lyra/styletest";
 import { sleep, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen } from "@testing-library/react";
@@ -289,9 +290,10 @@ describe("Sift stream form", () => {
       variant: "info",
       message: "Sent to Sift",
       description,
-      time: TimeStamp.now(),
+      time: TimeStamp.now().sub(TimeSpan.days(2)),
     });
     expect(await screen.findByText(description)).toBeTruthy();
     expect(screen.getByText("Sent to Sift")).toBeTruthy();
+    expect(treatment(screen.getByText(/^2d/))).toBe("numeric");
   });
 });

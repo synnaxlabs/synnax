@@ -339,13 +339,14 @@ describe("Browser details", () => {
     const { client, scan } = await renderBrowser();
     const read = await answerNextCommand(client, scan, {
       type: OPCUA.Device.READ_NODE_COMMAND_TYPE,
-      data: DETAILS,
+      data: { ...DETAILS, node: { ...TANK, field: "Level" } },
     });
     fireEvent.click(screen.getByText("TankPressure"));
     expect((await read.answered).args).toMatchObject({ nodeId: TANK.nodeId });
     await screen.findByText("Double");
     expect(treatment(screen.getByText("2.5"))).toBe("numeric");
     expect(treatment(screen.getByText(TANK.nodeId))).toBe("prose");
+    expect(treatment(screen.getByText("Level"))).toBe("prose");
     expect(screen.getByText("Good")).toBeTruthy();
   });
 

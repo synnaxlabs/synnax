@@ -32,7 +32,7 @@ describe("ICD.Picker.PaneHeader", () => {
         </ICD.Picker.Root>
       </Dialog.Frame>,
     );
-    expect(screen.getByText("plant/oven")).toBeTruthy();
+    expect(treatment(screen.getByText("plant/oven"))).toBe("prose");
     expect(screen.getByText("Select the values to read.")).toBeTruthy();
   });
 });
@@ -71,7 +71,7 @@ describe("ICD.Picker.PaneSkeleton", () => {
         </ICD.Picker.Root>
       </Dialog.Frame>,
     );
-    expect(screen.getByText("plant/oven")).toBeTruthy();
+    expect(treatment(screen.getByText("plant/oven"))).toBe("prose");
     expect(screen.getByText("Select the values to read.")).toBeTruthy();
   });
 });
