@@ -7,7 +7,7 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# Builds the Core for each test OS on one Ubuntu runner. A native build takes up to 23
+# Builds the Core for each test OS on Ubuntu runners. A native build takes up to 23
 # minutes on macOS. The Core has no cgo, so a CGO_ENABLED=0 build is the same program.
 name: Build - Core cross
 
@@ -23,9 +23,18 @@ permissions:
 
 jobs:
   build:
-    name: Build Core
+    name: Build Core (${{ matrix.goos }})
+    strategy:
+      matrix:
+        include:
+          - goos: darwin
+            goarch: arm64
+          - goos: linux
+            goarch: amd64
+          - goos: windows
+            goarch: amd64
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     outputs:
       artifact: ${{ steps.key.outputs.artifact }}
     steps:
@@ -45,6 +54,7 @@ jobs:
       - name: Key the Go caches
         id: key
         env:
+          GOOS: ${{ matrix.goos }}
           SUM:
             ${{ hashFiles('core/go.sum', '.github/workflows/build.core.cross.yaml') }}
         run: |
@@ -52,7 +62,8 @@ jobs:
             echo "artifact=core-cross-$GITHUB_RUN_ATTEMPT-"
             echo "build=$(go env GOCACHE)"
             echo "modules=$(go env GOMODCACHE)"
-            echo "sum=go-cross-core-$SUM-"
+            echo "module=go-cross-$GOOS-core-"
+            echo "sum=go-cross-$GOOS-core-$SUM-"
           } >> "$GITHUB_OUTPUT"
 
       # A run reads the caches of its own branch and of main, so only main saves them.
@@ -66,7 +77,7 @@ jobs:
           key: ${{ steps.key.outputs.sum }}${{ github.run_id }}
           restore-keys: |
             ${{ steps.key.outputs.sum }}
-            go-cross-core-
+            ${{ steps.key.outputs.module }}
 
       - name: Mark the start of the build
         id: start
@@ -76,34 +87,17 @@ jobs:
         working-directory: core
         env:
           CGO_ENABLED: 0
+          EXE: ${{ matrix.goos == 'windows' && '.exe' || '' }}
+          GOARCH: ${{ matrix.goarch }}
+          GOOS: ${{ matrix.goos }}
           OUT: ${{ runner.temp }}/core
-        run: |
-          for target in linux/amd64 darwin/arm64 windows/amd64; do
-            os=${target%/*}
-            exe=""
-            if [ "$os" = windows ]; then exe=.exe; fi
-            GOOS=$os GOARCH=${target#*/} go build -o "$OUT/$os/synnax$exe" .
-          done
+        run: go build -o "$OUT/synnax$EXE" .
 
-      - name: Upload the Linux Core
+      - name: Upload the Core
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
-          name: ${{ steps.key.outputs.artifact }}linux
-          path: ${{ runner.temp }}/core/linux
-          retention-days: 3
-
-      - name: Upload the macOS Core
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
-        with:
-          name: ${{ steps.key.outputs.artifact }}darwin
-          path: ${{ runner.temp }}/core/darwin
-          retention-days: 3
-
-      - name: Upload the Windows Core
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
-        with:
-          name: ${{ steps.key.outputs.artifact }}windows
-          path: ${{ runner.temp }}/core/windows
+          name: ${{ steps.key.outputs.artifact }}${{ matrix.goos }}
+          path: ${{ runner.temp }}/core
           retention-days: 3
 
       # Go marks a used cache entry at most once an hour, so the margin keeps the ones
