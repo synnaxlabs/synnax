@@ -26,11 +26,12 @@ Log struct {
         """
     }
 
-    @doc value  """
+    @doc value     """
         is a timestamped event and message logging component. Logs display chronological
         records of events, system messages, and audit trails with filtering and
         formatting capabilities.
     """
     @go marshal
     @go migrate
+    @resource type "log"
 }

@@ -479,7 +479,20 @@ var _ = Describe("Validation Rules", func() {
 		`
 		resp := MustGenerate(source, "item", loader, p)
 		ExpectContent(resp, "types.gen.ts").
-			ToContain(`.min(1, "name is required")`)
+			ToContain(`.min(1, "Name is required")`)
+	})
+
+	It("Should label a required field in sentence case", func() {
+		source := `
+			@ts output "out"
+
+			Item struct {
+				redirect_uri string @validate { required }
+			}
+		`
+		resp := MustGenerate(source, "item", loader, p)
+		ExpectContent(resp, "types.gen.ts").
+			ToContain(`.min(1, "Redirect URI is required")`)
 	})
 
 	It("Should leave fields without validation untouched", func() {

@@ -9,21 +9,24 @@
 
 import "@/feature/schematic/symbol/edit/Edit.css";
 
-import type { schematic } from "@synnaxlabs/client";
+import { schematic } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { context } from "@synnaxlabs/lyra/context";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
+import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Schematic } from "@synnaxlabs/pluto";
-import type { color } from "@synnaxlabs/x";
-import { type PropsWithChildren, type ReactElement, useState } from "react";
+import { type color, TimeSpan } from "@synnaxlabs/x";
+import { Fragment, type PropsWithChildren, type ReactElement, useState } from "react";
 
 import { Paint } from "@/feature/schematic/symbol/edit/Paint";
 import { useValues, type Values } from "@/feature/schematic/symbol/edit/useValues";
 import { Spec } from "@/feature/schematic/symbol/spec";
+import { FLAGS } from "@/flags";
 import { CSS } from "@/platform/css";
 
 const path = Schematic.Symbol.formPath;
@@ -55,6 +58,7 @@ const [FieldContext, useFieldContext] = context.create<FieldContextValue>({
 interface Scope<F extends Spec.Field> extends InspectorContextValue, FieldContextValue {
   /** shown is the value whose looks the control shows. */
   shown: number;
+  looks: Look[];
   value: Look[F] | undefined;
   /** inherited is what a look on the whole drawing gives the part. */
   inherited: Look[F] | undefined;
@@ -78,6 +82,7 @@ const useScope = <F extends Spec.Field>(name: string): Scope<F> => {
     ...inspector,
     ...field,
     shown,
+    looks,
     value: Spec.effective({ looks }, part, f, shown),
     inherited:
       part == null ? undefined : Spec.effective({ looks }, undefined, f, shown),
@@ -99,11 +104,19 @@ interface PropertyProps extends PropsWithChildren {
   field: Spec.Field;
   label: string;
   icon: ReactElement;
+  /** wide puts the control for every value under the label. */
+  wide?: boolean;
 }
 
 // Property shows its control once for every value, or once for each value when the
 // field varies by state. A symbol with one value has one control.
-const Property = ({ field, label, icon, children }: PropertyProps): ReactElement => {
+const Property = ({
+  field,
+  label,
+  icon,
+  wide = false,
+  children,
+}: PropertyProps): ReactElement => {
   const { part, values } = useInspectorContext("Property");
   const looks = Form.useFieldValue(path.data.looks);
   const { get, set } = Form.useContext();
@@ -126,6 +139,9 @@ const Property = ({ field, label, icon, children }: PropertyProps): ReactElement
     setSplit(next);
   };
   const name = label.toLowerCase();
+  const control = varies ? null : (
+    <FieldContext value={{ field, label }}>{children}</FieldContext>
+  );
   return (
     <Flex.Box y gap="small">
       <Flex.Box x align="center" justify="between">
@@ -134,7 +150,7 @@ const Property = ({ field, label, icon, children }: PropertyProps): ReactElement
           {label}
         </Text.Text>
         <Flex.Box x align="center" gap="small">
-          {!varies && <FieldContext value={{ field, label }}>{children}</FieldContext>}
+          {!wide && control}
           {several && (
             <Button.Toggle
               size="small"
@@ -152,6 +168,7 @@ const Property = ({ field, label, icon, children }: PropertyProps): ReactElement
           )}
         </Flex.Box>
       </Flex.Box>
+      {wide && control}
       {varies &&
         values.list.map((v) => (
           <Flex.Box
@@ -197,6 +214,153 @@ const PaintControl = ({ drawingColor }: PaintControlProps): ReactElement => {
   );
 };
 
+const VisibleControl = (): ReactElement => {
+  const { value, inherited, part, at, values, looks, onChange, label } =
+    useScope<"hidden">("VisibleControl");
+  // A part shown at every value stores false when the drawing hides at any value.
+  const drawingHides =
+    part != null &&
+    (at == null
+      ? values.list.some(
+          (v) => Spec.effective({ looks }, undefined, "hidden", v.value) === true,
+        )
+      : inherited === true);
+  return (
+    <Input.Checkbox
+      aria-label={label}
+      value={value !== true}
+      onChange={(shown) => onChange(shown ? (drawingHides ? false : undefined) : true)}
+    />
+  );
+};
+
+const BLINK: schematic.symbol.Blink = { period: TimeSpan.SECOND.nanoseconds };
+
+const BlinkControl = (): ReactElement => {
+  const { value, inherited, own, onChange, label } = useScope<"blink">("BlinkControl");
+  // The whole drawing blinks as one shape, so a part can stop only its own blink.
+  const locked = inherited != null && own == null;
+  return (
+    <Input.Checkbox
+      aria-label={label}
+      value={value != null}
+      onChange={(on) => onChange(on ? BLINK : undefined)}
+      disabled={locked}
+      tooltip={locked ? "The whole drawing blinks, and this part with it." : undefined}
+    />
+  );
+};
+
+type Loop = Extract<schematic.symbol.MotionType, "spin" | "flow">;
+
+interface MotionGroup {
+  name: string;
+  kinds: { kind: schematic.symbol.MotionType; name: string }[];
+}
+
+// MOTIONS groups the kinds by how they move. The picker offers only the loops, since a
+// motion that follows a value needs a number state.
+const MOTIONS: MotionGroup[] = [
+  {
+    name: "Follow a value",
+    kinds: [
+      { kind: "level", name: "Fill" },
+      { kind: "rotate", name: "Rotation" },
+      { kind: "move", name: "Position" },
+    ],
+  },
+  {
+    name: "Loop",
+    kinds: [
+      { kind: "spin", name: "Spin" },
+      { kind: "flow", name: "Flow" },
+    ],
+  },
+];
+
+const isLoop = (kind: schematic.symbol.MotionType): kind is Loop =>
+  kind === "spin" || kind === "flow";
+
+// The picker sets only loops. It shows a motion that follows a value, so a pick
+// replaces it in sight.
+const FOLLOWS = "Only a client can set a motion that follows a value.";
+
+// A part under a motion of the whole drawing takes no new motion of its own.
+const MOVES_WITH_DRAWING = "The whole drawing moves, and this part with it.";
+
+const MotionControl = (): ReactElement => {
+  const { value, inherited, own, onChange, label } =
+    useScope<"motion">("MotionControl");
+  const locked = inherited != null && own == null;
+  const moving = value?.type === "spin" || value?.type === "flow" ? value : undefined;
+  const handleKindChange = (kind: schematic.symbol.MotionType | "none") => {
+    if (kind === "none") return onChange(undefined);
+    if (!isLoop(kind)) throw new Error(`the motion picker cannot set ${kind}`);
+    onChange(
+      moving == null
+        ? schematic.symbol.motionZ.parse({ type: kind })
+        : { ...moving, type: kind },
+    );
+  };
+  return (
+    <Flex.Box y align="end" gap="small">
+      <Select.Buttons<schematic.symbol.MotionType | "none">
+        aria-label={label}
+        value={value?.type ?? "none"}
+        onChange={handleKindChange}
+        size="small"
+        align="center"
+      >
+        <Select.Item
+          itemKey="none"
+          size="small"
+          disabled={locked}
+          tooltip={locked ? MOVES_WITH_DRAWING : undefined}
+        >
+          None
+        </Select.Item>
+        {MOTIONS.map(({ name, kinds }) => {
+          const offered = kinds.filter((k) => isLoop(k.kind) || k.kind === value?.type);
+          if (offered.length === 0) return null;
+          return (
+            <Fragment key={name}>
+              <Divider.Divider y />
+              <Text.Text level="small" color={8}>
+                {name}
+              </Text.Text>
+              {offered.map((k) => (
+                <Select.Item
+                  key={k.kind}
+                  itemKey={k.kind}
+                  size="small"
+                  disabled={locked || !isLoop(k.kind)}
+                  tooltip={
+                    !isLoop(k.kind) ? FOLLOWS : locked ? MOVES_WITH_DRAWING : undefined
+                  }
+                >
+                  {k.name}
+                </Select.Item>
+              ))}
+            </Fragment>
+          );
+        })}
+      </Select.Buttons>
+      {moving != null && (
+        <Input.Numeric
+          aria-label={`${label} rate`}
+          size="small"
+          value={moving.rate}
+          onChange={(rate) => onChange({ ...moving, rate })}
+          disabled={locked}
+          showDragHandle={false}
+          endContent="/s"
+          className={CSS.BE("schematic-inspector", "rate")}
+        />
+      )}
+    </Flex.Box>
+  );
+};
+
 export interface InspectorProps {
   part: Spec.Target;
   /** preview is the value that the canvas draws. */
@@ -229,6 +393,20 @@ export const Inspector = ({ part: key, preview }: InspectorProps): ReactElement 
         <Property field="stroke" label="Stroke" icon={<Icon.StrokeColor />}>
           <PaintControl drawingColor={drawn?.stroke} />
         </Property>
+        <Divider.Divider x />
+        <Property field="hidden" label="Visible" icon={<Icon.Visible />}>
+          <VisibleControl />
+        </Property>
+        {FLAGS.symbolMotion && (
+          <>
+            <Property field="blink" label="Blink" icon={<Icon.Dot />}>
+              <BlinkControl />
+            </Property>
+            <Property field="motion" label="Motion" icon={<Icon.Rotate />} wide>
+              <MotionControl />
+            </Property>
+          </>
+        )}
       </Flex.Box>
     </InspectorContext>
   );

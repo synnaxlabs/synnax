@@ -23,23 +23,23 @@ export type OrderField = z.infer<typeof orderFieldZ>;
 /** Identity holds the chassis fields that the scanner owns. */
 export const identityZ = z.object({
   /** rack is the key of the rack the chassis is connected to. */
-  rack: rack.keyZ.refine((v) => v !== 0, "rack is required"),
+  rack: rack.keyZ.refine((v) => v !== 0, "Rack is required"),
   /** serial is the serial number of the chassis. Empty on simulated hardware. */
   serial: z.string().default(""),
   /**
    * resourceName is the NI-MAX resource name of the chassis, a GUID that survives
    * renames.
    */
-  resourceName: z.string().min(1, "resource_name is required"),
+  resourceName: z.string().min(1, "Resource name is required"),
   /** model is the product name of the chassis. */
-  model: z.string().min(1, "model is required"),
+  model: z.string().min(1, "Model is required"),
 });
 export interface Identity extends z.infer<typeof identityZ> {}
 
 /** Configuration holds the chassis fields that the user owns. */
 export const configurationZ = z.object({
   /** name is a human-readable name for the chassis. */
-  name: z.string().min(1, "name is required"),
+  name: z.string().min(1, "Name is required"),
 });
 export interface Configuration extends z.infer<typeof configurationZ> {}
 
@@ -174,16 +174,16 @@ export const chassisZ = z.object({
   /** rack is the key of the rack the chassis is connected to. */
   rack: rack.keyZ,
   /** name is a human-readable name for the chassis. */
-  name: z.string().min(1, "name is required"),
+  name: z.string().min(1, "Name is required"),
   /** serial is the serial number of the chassis. Empty on simulated hardware. */
   serial: z.string().default(""),
   /**
    * resourceName is the NI-MAX resource name of the chassis, a GUID that survives
    * renames.
    */
-  resourceName: z.string().min(1, "resource_name is required"),
+  resourceName: z.string().min(1, "Resource name is required"),
   /** model is the product name of the chassis. */
-  model: z.string().min(1, "model is required"),
+  model: z.string().min(1, "Model is required"),
   /** status is the current operational status of the chassis. */
   status: statusZ.optional(),
 });
