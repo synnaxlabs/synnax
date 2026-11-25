@@ -284,25 +284,29 @@ func payloadSample(payload []byte) string {
 }
 
 // payloadFields returns the scalars of a JSON payload in document order, at most
-// browseFieldLimit of them. Arrays and nulls give no field. It returns no fields when
-// the payload is not JSON, is not UTF-8, or repeats a name in an object.
-func payloadFields(payload []byte) []browsedField {
+// browseFieldLimit of them, and the pointers of all of its scalars. Arrays and nulls
+// give no field. It returns no fields when the payload is not JSON, is not UTF-8, or
+// repeats a name in an object.
+func payloadFields(payload []byte) ([]browsedField, []string) {
 	fields := []browsedField{}
+	var pointers []string
 	dec := jsontext.NewDecoder(bytes.NewReader(payload))
-	if err := appendFields(dec, nil, &fields); err != nil {
-		return []browsedField{}
+	if err := appendFields(dec, nil, &fields, &pointers); err != nil {
+		return []browsedField{}, nil
 	}
 	if _, err := dec.ReadToken(); !errors.Is(err, io.EOF) {
-		return []browsedField{}
+		return []browsedField{}, nil
 	}
-	return fields
+	return fields, pointers
 }
 
-// appendFields appends the scalars of the next value of dec, at pointer, to fields.
+// appendFields appends the scalars of the next value of dec, at pointer, to fields,
+// and their pointers to pointers.
 func appendFields(
 	dec *jsontext.Decoder,
 	pointer xjson.Pointer,
 	fields *[]browsedField,
+	pointers *[]string,
 ) error {
 	var t xjson.Type
 	switch dec.PeekKind() {
@@ -316,7 +320,7 @@ func appendFields(
 				return err
 			}
 			child := append(slices.Clip(pointer), name.String())
-			if err = appendFields(dec, child, fields); err != nil {
+			if err = appendFields(dec, child, fields, pointers); err != nil {
 				return err
 			}
 		}
@@ -332,11 +336,15 @@ func appendFields(
 		return dec.SkipValue()
 	}
 	value, err := dec.ReadValue()
-	if err != nil || len(*fields) == browseFieldLimit {
+	if err != nil {
 		return err
 	}
+	*pointers = append(*pointers, pointer.String())
+	if len(*fields) == browseFieldLimit {
+		return nil
+	}
 	*fields = append(*fields, browsedField{
-		Pointer: pointer.String(),
+		Pointer: (*pointers)[len(*pointers)-1],
 		Type:    t.String(),
 		Sample:  driver.CutText(value, browseSampleLimit),
 	})

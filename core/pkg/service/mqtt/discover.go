@@ -30,6 +30,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	xjson "github.com/synnaxlabs/x/json"
 	"github.com/synnaxlabs/x/payload"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"golang.org/x/net/proxy"
@@ -197,40 +198,50 @@ type heardTopic struct {
 	retained int
 	// inferrer holds the shapes of every message heard.
 	inferrer *xjson.Inferrer
-	// sets holds the last fields heard with each set of pointers, by the sorted
-	// pointers, until the sets would hold more than browsePointerLimit fields.
+	// sets holds the last fields heard with each set of the pointers of all scalars
+	// of a message, by the sorted pointers, until the sets would hold more than
+	// browsePointerLimit pointers.
 	sets map[string]heardSet
-	// held is the number of fields that sets holds.
+	// held is the number of pointers that sets holds.
 	held int
 	// samples holds the last field heard at each pointer, for at most
 	// browsePointerLimit pointers, once sets is full. Nil until then. The inferrer then
-	// has one shape, since its cap on the fields of its sets is the same.
+	// has one shape, since it keys and caps its sets in the same way.
 	samples map[string]browsedField
+	// pointers are the pointers of all scalars of the last message.
+	pointers set.Set[string]
 	// messages is the number of messages held.
 	messages int
 }
 
 // heardSet is the last fields heard with one set of pointers.
 type heardSet struct {
-	fields []browsedField
+	fields   []browsedField
+	pointers set.Set[string]
 	// last is the number of the message that set fields.
 	last int
 }
 
-// hold keeps fields as the last fields heard with their set of pointers.
-func (t *heardTopic) hold(fields []browsedField) {
-	if len(fields) == 0 {
+// hold keeps fields as the last fields heard with pointers, the pointers of all
+// scalars of their message.
+func (t *heardTopic) hold(fields []browsedField, pointers []string) {
+	t.pointers = set.New(pointers...)
+	if len(pointers) == 0 {
 		return
 	}
 	t.messages++
 	if t.samples == nil {
-		key := setKey(fields)
+		key := setKey(pointers)
 		_, ok := t.sets[key]
-		if ok || t.held+len(fields) <= browsePointerLimit {
+		if ok || t.held+len(pointers) <= browsePointerLimit {
 			if !ok {
-				t.held += len(fields)
+				t.held += len(pointers)
 			}
-			t.sets[key] = heardSet{fields: fields, last: t.messages}
+			t.sets[key] = heardSet{
+				fields:   fields,
+				pointers: t.pointers,
+				last:     t.messages,
+			}
 			return
 		}
 		t.samples = make(map[string]browsedField, browsePointerLimit)
@@ -259,15 +270,9 @@ func (t *heardTopic) sortedSets() []heardSet {
 	})
 }
 
-// setKey returns the key of the set of pointers of fields: the pointers, sorted and
-// joined by NUL.
-func setKey(fields []browsedField) string {
-	pointers := make([]string, len(fields))
-	for i, f := range fields {
-		pointers[i] = f.Pointer
-	}
-	slices.Sort(pointers)
-	return strings.Join(pointers, "\x00")
+// setKey returns the key of a set of pointers: the pointers, sorted and joined by NUL.
+func setKey(pointers []string) string {
+	return strings.Join(slices.Sorted(slices.Values(pointers)), "\x00")
 }
 
 // infer sets the shapes of the messages heard. It also sets the kind and the time
@@ -280,7 +285,7 @@ func (t *heardTopic) infer() {
 	for i, s := range shapes {
 		t.Shapes[i] = newBrowsedShape(s, samples[i])
 	}
-	k := shapeOf(shapes, t.Fields)
+	k := shapeOf(shapes, t.pointers)
 	if k < 0 {
 		return
 	}
@@ -318,7 +323,7 @@ func (t *heardTopic) samplesOf(shapes []xjson.Shape) []map[string]browsedField {
 		samples[i] = make(map[string]browsedField)
 	}
 	for _, s := range t.sortedSets() {
-		k := shapeOf(shapes, s.fields)
+		k := shapeOf(shapes, s.pointers)
 		if k < 0 {
 			continue
 		}
@@ -351,19 +356,16 @@ func newBrowsedShape(s xjson.Shape, samples map[string]browsedField) browsedShap
 }
 
 // shapeOf returns the position in shapes of the shape that a read task matches a
-// message with fields to: the shape whose present field the message holds, or else the
-// shape with none. It returns -1 when no shape matches.
-func shapeOf(shapes []xjson.Shape, fields []browsedField) int {
+// message with the scalars at pointers to: the shape whose present field the message
+// holds, or else the shape with none. It returns -1 when no shape matches.
+func shapeOf(shapes []xjson.Shape, pointers set.Set[string]) int {
 	bare := -1
 	for i, s := range shapes {
 		if s.Present < 0 {
 			bare = i
 			continue
 		}
-		present := s.Fields[s.Present].Pointer.String()
-		if slices.ContainsFunc(fields, func(f browsedField) bool {
-			return f.Pointer == present
-		}) {
+		if pointers.Contains(s.Fields[s.Present].Pointer.String()) {
 			return i
 		}
 	}
@@ -419,9 +421,9 @@ func (s *scanner) hear(ctx context.Context, args browseArgs) (heard, error) {
 			}
 			p := m.Payload()
 			t.LastSeen, t.Retained = telem.Now(), m.Retained()
-			t.Payload, t.Format, t.Fields = payloadSample(p), driver.FormatOf(p),
-				payloadFields(p)
-			t.hold(t.Fields)
+			fields, pointers := payloadFields(p)
+			t.Payload, t.Format, t.Fields = payloadSample(p), driver.FormatOf(p), fields
+			t.hold(fields, pointers)
 			t.inferrer.Add(p, t.LastSeen)
 			return false
 		},
