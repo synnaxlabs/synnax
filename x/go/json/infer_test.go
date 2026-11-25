@@ -75,8 +75,6 @@ func presentPointer(shape xjson.Shape) string {
 	return shape.Fields[shape.Present].Pointer.String()
 }
 
-// stamped returns n documents of source with a seconds timestamp at /ts and the fields
-// that fields returns for each index.
 // narrow and wide return a document with a seconds timestamp offset s from t0, where
 // the fields of narrow are all in wide.
 func narrow(s int64) string { return fmt.Sprintf(`{"ts":%d,"v":1}`, t0Seconds+s) }
@@ -93,6 +91,8 @@ func distinct(n int, s int64) []string {
 	return docs
 }
 
+// stamped returns n documents of source with a seconds timestamp at /ts and the fields
+// that fields returns for each index.
 func stamped(source string, n int, fields func(i int) string) []xjson.Document {
 	return documents(source, n, func(i int) string {
 		return fmt.Sprintf(`{"ts":%d,%s}`, t0Seconds+int64(i), fields(i))

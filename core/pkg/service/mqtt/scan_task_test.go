@@ -33,7 +33,6 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	xjson "github.com/synnaxlabs/x/json"
 	"github.com/synnaxlabs/x/payload"
-	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -762,7 +761,7 @@ var _ = Describe("Scan task", func() {
 			},
 		)
 
-		It("Should give at most 256 scalars of a payload, and no index past them",
+		It("Should give at most 256 scalars of a payload, and name an index past them",
 			func(ctx SpecContext) {
 				names := make([]string, 301)
 				for i := range 300 {
@@ -782,7 +781,7 @@ var _ = Describe("Scan task", func() {
 							field("/f255", "number", "255", payload.KindInteger),
 						),
 					)),
-					Not(HaveKey("index")),
+					HaveKeyWithValue("index", "/ts"),
 				)))
 			},
 		)
@@ -873,6 +872,63 @@ var _ = Describe("Scan task", func() {
 			},
 		)
 
+		It("Should give each shape the samples of its own messages",
+			func(ctx SpecContext) {
+				broker.publish("plant/a", `{"id":1,"value":1.5}`, true)
+				publishUntilDone(broker, "plant/a", `{"name":"a","value":"on"}`)
+				stat := browse(ctx, msgpack.EncodedJSON{"duration": 300})
+				topics, ok := stat.Details.Data["topics"].([]any)
+				Expect(ok).To(BeTrue())
+				value := func(t, sample string) types.GomegaMatcher {
+					return ContainElement(SatisfyAll(
+						HaveKeyWithValue("pointer", "/value"),
+						HaveKeyWithValue("type", t),
+						HaveKeyWithValue("sample", sample),
+					))
+				}
+				Expect(topics[0]).To(HaveKeyWithValue("shapes", HaveExactElements(
+					SatisfyAll(
+						HaveKeyWithValue("present", "/id"),
+						HaveKeyWithValue("fields", value("number", "1.5")),
+					),
+					SatisfyAll(
+						HaveKeyWithValue("present", "/name"),
+						HaveKeyWithValue("fields", value("string", `"on"`)),
+					),
+				)))
+			},
+		)
+
+		It("Should name the index and present fields of a shape past 256 scalars",
+			func(ctx SpecContext) {
+				shared := make([]string, 256)
+				for i := range shared {
+					shared[i] = fmt.Sprintf(`"s%d":%d`, i, i)
+				}
+				prefix := "{" + strings.Join(shared, ",")
+				broker.publish("plant/a", prefix+`,"b":1}`, true)
+				ms := int64(telem.Now() / telem.MillisecondTS)
+				publishUntilDone(
+					broker,
+					"plant/a",
+					fmt.Sprintf(`%s,"a":1,"time":%d}`, prefix, ms),
+				)
+				stat := browse(ctx, msgpack.EncodedJSON{"duration": 300})
+				topics, ok := stat.Details.Data["topics"].([]any)
+				Expect(ok).To(BeTrue())
+				Expect(topics[0]).To(HaveKeyWithValue("shapes", HaveExactElements(
+					SatisfyAll(
+						HaveKeyWithValue("present", "/b"),
+						Not(HaveKey("index")),
+					),
+					SatisfyAll(
+						HaveKeyWithValue("present", "/a"),
+						HaveKeyWithValue("index", "/time"),
+					),
+				)))
+			},
+		)
+
 		It("Should give no shapes for a topic whose messages are not JSON",
 			func(ctx SpecContext) {
 				broker.publish("plant/a", "ON", true)
@@ -884,7 +940,8 @@ var _ = Describe("Scan task", func() {
 		)
 
 		It(
-			"Should give a sample for each of the 1,024 pointers of a topic's shapes",
+			"Should give one shape with a sample for each of 1,024 fields past the "+
+				"field cap of the Inferrer",
 			func(ctx SpecContext) {
 				for kind := range 4 {
 					fields := make([]string, 256)
@@ -901,23 +958,14 @@ var _ = Describe("Scan task", func() {
 				stat := browse(ctx, msgpack.EncodedJSON{"duration": 1000})
 				topics, ok := stat.Details.Data["topics"].([]any)
 				Expect(ok).To(BeTrue())
-				shapes, ok := topics[0].(map[string]any)["shapes"].([]any)
-				Expect(ok).To(BeTrue())
-				pointers := make(set.Set[string])
-				for _, s := range shapes {
-					shape, ok := s.(map[string]any)
-					Expect(ok).To(BeTrue())
-					fields, ok := shape["fields"].([]any)
-					Expect(ok).To(BeTrue())
-					for _, f := range fields {
-						field, ok := f.(map[string]any)
-						Expect(ok).To(BeTrue())
-						pointer, ok := field["pointer"].(string)
-						Expect(ok).To(BeTrue())
-						pointers.Add(pointer)
-					}
-				}
-				Expect(pointers).To(HaveLen(1024))
+				// A higher cap in the Inferrer gives five shapes, and a lower cap in
+				// the browse gives fewer samples.
+				Expect(topics[0]).To(HaveKeyWithValue("shapes", HaveExactElements(
+					HaveKeyWithValue("fields", SatisfyAll(
+						HaveLen(1024),
+						HaveEach(HaveKeyWithValue("sample", Not(BeEmpty()))),
+					)),
+				)))
 			},
 		)
 
