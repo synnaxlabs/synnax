@@ -214,27 +214,6 @@ func actuates(spec symbol.Spec) bool {
 	})
 }
 
-// entriesOf returns the entries of the stored enumeration of state, or none when state
-// has none.
-func entriesOf(
-	ctx context.Context,
-	tx gorp.Tx,
-	state symbol.EnumerationState,
-) ([]enumeration.Entry, error) {
-	if state.Enumeration == nil {
-		return nil, nil
-	}
-	var e enumeration.Enumeration
-	err := gorp.NewRetrieve[enumeration.Key, enumeration.Enumeration]().
-		Where(gorp.MatchKeys[enumeration.Key, enumeration.Enumeration](*state.Enumeration)).
-		Entry(&e).
-		Exec(ctx, tx)
-	if err != nil {
-		return nil, err
-	}
-	return e.Entries, nil
-}
-
 // paints is the stroke and fill that a part shows.
 type paints struct{ stroke, fill *xcolor.Color }
 
