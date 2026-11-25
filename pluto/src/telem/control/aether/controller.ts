@@ -22,7 +22,14 @@ import {
 } from "@synnaxlabs/client";
 import { StreamClosed, Unreachable } from "@synnaxlabs/freighter";
 import type { theme } from "@synnaxlabs/lyra/theme";
-import { array, color, type CrudeSeries, type destructor, errors } from "@synnaxlabs/x";
+import {
+  array,
+  color,
+  type CrudeSeries,
+  type destructor,
+  errors,
+  unique,
+} from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -32,7 +39,7 @@ import { status } from "@/status/aether";
 import { synnax } from "@/synnax/aether";
 import { telem } from "@/telem/aether";
 import { Colors } from "@/telem/control/aether/colors";
-import { retrieveDefinition, type RetrieveQuery } from "@/telem/control/aether/queries";
+import { listDefinition, type ListQuery } from "@/telem/control/aether/queries";
 
 export const statusZ = z.enum(["acquired", "released", "overridden", "failed"]);
 export type Status = z.infer<typeof statusZ>;
@@ -346,6 +353,18 @@ export class Controller
   }
 }
 
+// controlKeys returns the keys that a write to channels needs control of: each channel
+// and its index.
+const controlKeys = async (
+  client: Synnax,
+  channels: channel.Key[],
+): Promise<channel.Key[]> => {
+  const chans = await client.channels.retrieve(channels);
+  return unique.unique(
+    chans.flatMap((c) => (c.index === 0 ? [c.key] : [c.key, c.index])),
+  );
+};
+
 export const setChannelValuePropsZ = z.object({
   channel: z.number(),
 });
@@ -402,7 +421,7 @@ export const setChannelValue = (props: SetChannelValueProps): telem.NumberSinkSp
 
 export const acquireChannelControlPropsZ = z.object({
   authority: z.number().default(control.ABSOLUTE_AUTHORITY),
-  channel: z.number(),
+  channels: z.number().array(),
 });
 
 export type AcquireChannelControlProps = z.infer<typeof acquireChannelControlPropsZ>;
@@ -427,20 +446,14 @@ export class AcquireChannelControl
   }
 
   async needsControlOf(client: Synnax): Promise<channel.Key[]> {
-    const chan = await client.channels.retrieve(this.props.channel);
-    const keys = [chan.key];
-    if (chan.index !== 0) keys.push(chan.index);
-    return keys;
+    return await controlKeys(client, this.props.channels);
   }
 
   set(acquire: boolean): void {
     this.runAsync(async () => {
-      const { controller } = this;
-      const { client } = controller.internal;
+      const { client } = this.controller.internal;
       if (client == null) return;
-      const ch = await client.channels.retrieve(this.props.channel);
-      const keys = [ch.key];
-      if (ch.index !== 0) keys.push(ch.index);
+      const keys = await controlKeys(client, this.props.channels);
       if (!acquire) await this.controller.releaseAuthority(keys);
       else await this.controller.setAuthority(keys, this.props.authority);
     }, "Failed to set channel authority");
@@ -457,7 +470,7 @@ export const acquireChannelControl = (
 });
 
 export const authoritySourceProps = z.object({
-  channel: z.number(),
+  channels: z.number().array(),
 });
 
 export type AuthoritySourceProps = z.infer<typeof authoritySourceProps>;
@@ -477,7 +490,7 @@ export class AuthoritySource
   static readonly TYPE = "controlled-status-source";
   private readonly colors: Colors;
   private readonly controller: Controller;
-  private readonly retrieve: flux.Retrieve<RetrieveQuery, control.KeyedState>;
+  private readonly retrieve: flux.Retrieve<ListQuery, control.KeyedState[]>;
   private readonly stopListening: destructor.Destructor;
   schema = authoritySourceProps;
 
@@ -491,7 +504,7 @@ export class AuthoritySource
     this.colors = colors;
     this.controller = controller;
     this.retrieve = new flux.Retrieve({
-      definition: retrieveDefinition,
+      definition: listDefinition,
       onChange: () => this.observer.notify(),
       onError: (error) => runAsync(error, "Failed to retrieve control state"),
     });
@@ -504,8 +517,8 @@ export class AuthoritySource
 
   value(): telem.Result<cstatus.Status<typeof authoritySourceDetailsZ>> {
     const time = TimeStamp.now();
-    const { channel: key } = this.props;
-    if (key === 0)
+    const { channels } = this.props;
+    if (channels.length === 0)
       return telem.success(
         cstatus.create<typeof authoritySourceDetailsZ>({
           name: this.controller.key,
@@ -517,8 +530,14 @@ export class AuthoritySource
         }),
       );
 
-    this.retrieve.update(this.controller.client, { key });
-    const state = this.retrieve.value;
+    this.retrieve.update(this.controller.client, { keys: channels });
+    const held = new Map(this.retrieve.value?.map((s) => [s.key, s]));
+    const holders = channels.map((key) => held.get(key));
+    const mine = (s?: control.KeyedState) => s?.subject.key === this.controller.key;
+    // The controller shows as the holder only when it holds every channel.
+    const state = holders.every(mine)
+      ? holders[0]
+      : holders.find((s) => s != null && !mine(s));
 
     if (state == null)
       return telem.success(
