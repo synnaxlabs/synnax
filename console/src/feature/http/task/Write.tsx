@@ -143,15 +143,6 @@ const TargetItem = (props: Tree.ItemRenderProps<string>) => (
   <EndpointItem {...props} path={root.config.endpoints[props.itemKey]} />
 );
 
-const messageOf = (ep: WriteEndpoint): ICD.Write.TargetMessage | null =>
-  sendsICD(ep)
-    ? {
-        icd: ep.icd,
-        message: ep.message.message,
-        bindings: icdPath(ep.key).message.bindings,
-      }
-    : null;
-
 const duplicate = (ep: WriteEndpoint): WriteEndpoint => ({
   ...ep,
   key: id.create(),
@@ -281,17 +272,30 @@ const Endpoints = ({
   const list = PForm.useFieldListUtils(root.config.endpoints);
   const endpoints = PForm.useFieldValue(root.config.endpoints);
   const sending = endpoints.filter(sendsICD);
-  const { tree, handleSelect, contextMenu, renderItem, current, addField, added } =
-    ICD.Write.useTree({
-      path: root.config.endpoints,
-      messageOf,
-      TargetItem,
-      duplicate,
-      selected,
-      onSelect,
-      expanded,
-      onExpand,
-    });
+  const messageOf = (ep: WriteEndpoint): ICD.Write.TargetMessage | null =>
+    sendsICD(ep)
+      ? {
+          icd: ep.icd,
+          message: ep.message.message,
+          path: icdPath(ep.key).message,
+          channelName: (field) => fieldCommandName(device.name, ep.path, field),
+        }
+      : null;
+  const { tree, handleSelect, contextMenu, renderItem, pane } = ICD.Write.useTree({
+    path: root.config.endpoints,
+    messageOf,
+    TargetItem,
+    targetPane: (ep, onAddField) => ({
+      path: root.config.endpoints[ep.key],
+      title: <EndpointLabel path={root.config.endpoints[ep.key]} />,
+      details: <EndpointDetails key={ep.key} epKey={ep.key} onAddField={onAddField} />,
+    }),
+    duplicate,
+    selected,
+    onSelect,
+    expanded,
+    onExpand,
+  });
 
   /**
    * Adds an endpoint that sends a new message with no fields, in the ICD of the most
@@ -319,44 +323,6 @@ const Endpoints = ({
   const addExclusive = useExclusiveCallback(add);
   const handleAdd = () => handleError(addExclusive, "Failed to add endpoint");
 
-  const ep =
-    current == null ? undefined : endpoints.find(({ key }) => key === current.target);
-  let details = null;
-  let title = null;
-  let detailsPath: deep.Target<unknown> | null = null;
-  if (ep != null && sendsICD(ep) && current?.kind === "field") {
-    const path = icdPath(ep.key).message;
-    const i = ep.message.bindings.findIndex(({ field }) => field === current.field.key);
-    detailsPath = i < 0 ? path : path.bindings[i];
-    title = (
-      <Text.Text level="p" weight={500} overflow="fade">
-        {current.field.name}
-      </Text.Text>
-    );
-    details = (
-      <ICD.Write.FieldDetails
-        key={selected[0]}
-        path={path.bindings}
-        icdKey={ep.icd}
-        message={ep.message.message}
-        field={current.field.key}
-        channelName={fieldCommandName(device.name, ep.path, current.field)}
-        skipped={ep.disabled}
-        autoFocus={current.field.key === added}
-      />
-    );
-  } else if (ep != null) {
-    detailsPath = root.config.endpoints[ep.key];
-    title = <EndpointLabel path={root.config.endpoints[ep.key]} />;
-    details = (
-      <EndpointDetails
-        key={ep.key}
-        epKey={ep.key}
-        onAddField={() => addField(ep.key)}
-      />
-    );
-  }
-
   return (
     <Task.Views.Panes
       listTitle="Endpoints"
@@ -372,10 +338,10 @@ const Endpoints = ({
           {renderItem}
         </Task.Views.TreeList>
       }
-      detailsPath={detailsPath}
-      title={title ?? undefined}
+      detailsPath={pane?.path ?? null}
+      title={pane?.title}
     >
-      {details ?? (
+      {pane?.details ?? (
         <Flex.Box y grow align="center" justify="center">
           <Text.Text status="disabled">Add an endpoint to send requests to</Text.Text>
         </Flex.Box>
