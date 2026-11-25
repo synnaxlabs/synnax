@@ -146,6 +146,15 @@ describe("switch spec", () => {
   const shown = (container: HTMLElement, part: string): boolean =>
     find(container, part).style.display !== "none";
 
+  it("should show only the near knob before its paints resolve", () => {
+    const { container } = render(
+      <Custom.Drawing spec={Primitive.SYMBOL} builtIn paints={[]} />,
+      { wrapper: createSynnaxWrapper({ client: null }) },
+    );
+    expect(shown(container, "knob")).toBe(true);
+    expect(shown(container, "knob-on")).toBe(false);
+  });
+
   it("should show the near knob on an empty track while off", async () => {
     const { container } = draw(0);
     await vi.waitFor(() => expect(shown(container, "knob-on")).toBe(false));
@@ -161,5 +170,13 @@ describe("switch spec", () => {
     expect(shown(container, "knob")).toBe(false);
     expect(shown(container, "knob-on")).toBe(true);
     expect(find(container, "knob-on").getAttribute("fill")).not.toBeNull();
+  });
+
+  it("should hide the far knob again when it turns off", async () => {
+    const { container, rerender } = draw(1);
+    await vi.waitFor(() => expect(shown(container, "knob-on")).toBe(true));
+    rerender(<Drawn value={0} />);
+    await vi.waitFor(() => expect(shown(container, "knob-on")).toBe(false));
+    expect(shown(container, "knob")).toBe(true);
   });
 });
