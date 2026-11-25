@@ -470,10 +470,14 @@ func (n number) int64Times(factor int64) (product int64, ok bool) {
 		}
 		return n.i * factor, true
 	case uintNumber:
-		if n.u > uint64(math.MaxInt64/factor) {
+		if n.u > math.MaxInt64 {
 			return 0, false
 		}
-		return int64(n.u) * factor, true
+		i := int64(n.u)
+		if i > math.MaxInt64/factor {
+			return 0, false
+		}
+		return i * factor, true
 	case floatNumber:
 		f := n.f * float64(factor)
 		if n.outOfRange || !(f >= -0x1p63 && f < 0x1p63) {

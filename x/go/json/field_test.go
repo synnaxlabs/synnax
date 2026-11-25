@@ -356,6 +356,13 @@ var _ = Describe("Field", func() {
 				},
 				`"-0x8000000000000001"`,
 				"-0x8000000000000001 is out of range for a unix_ns timestamp"),
+			Entry("hex Unix nanoseconds past an int64",
+				xjson.Field{
+					DataType:   telem.TimestampT,
+					TimeFormat: xjson.UnixNanosecond,
+				},
+				`"0x8000000000000000"`,
+				"0x8000000000000000 is out of range for a unix_ns timestamp"),
 			Entry("JSON with a repeated member", xjson.Field{DataType: telem.JSONT},
 				`{"a":1,"a":2}`, "duplicate object member name"),
 			Entry("a number into bytes", xjson.Field{DataType: telem.BytesT}, `1`,
