@@ -20,7 +20,16 @@ import { Text } from "@synnaxlabs/lyra/text";
 import type { Tree } from "@synnaxlabs/lyra/tree";
 import { ICD as PICD, Synnax as PSynnax } from "@synnaxlabs/pluto";
 import { deep, id, primitive, unique } from "@synnaxlabs/x";
-import { type Dispatch, type FC, type SetStateAction, useState } from "react";
+import {
+  createContext,
+  type Dispatch,
+  type FC,
+  type PropsWithChildren,
+  type ReactElement,
+  type SetStateAction,
+  useContext,
+  useState,
+} from "react";
 
 import { Device } from "@/feature/http/device";
 import { DEFAULT_WRITE_NAME } from "@/feature/http/task/create";
@@ -70,6 +79,37 @@ const renderMethodSelect = Component.renderProp(SelectMethod);
 const commandChannelName = (device: string, endpoint: string): string =>
   `${channel.escapeInvalidName(device)}${channel.escapeInvalidName(endpoint)}_cmd`;
 
+/** What the command channel of an endpoint needs from deploying. */
+const endpointCommand = (
+  device: string,
+  ep: WriteEndpoint,
+): Task.CommandChannelSpec => ({
+  propertiesKey: ep.path,
+  channel: ep.channel.channel,
+  name: primitive.isNonZero(ep.channel.name)
+    ? ep.channel.name
+    : commandChannelName(device, ep.path),
+  dataType: ep.channel.dataType,
+});
+
+/** The name that deploying gives each command channel it creates, by endpoint path. */
+const NamesContext = createContext<ReadonlyMap<string, string>>(new Map());
+NamesContext.displayName = "HTTP.NamesContext";
+
+/** Plans the command channels of every endpoint together, as deploying does. */
+const CommandNames = ({ children }: PropsWithChildren): ReactElement => {
+  const endpoints = PForm.useFieldValue(root.config.endpoints);
+  const dev = Device.useFromConfig();
+  const specs =
+    dev == null
+      ? []
+      : endpoints
+          .filter(({ disabled }) => !disabled)
+          .map((ep) => endpointCommand(dev.name, ep));
+  const names = Task.useCommandChannelNames(dev?.properties.write, specs);
+  return <NamesContext value={names}>{children}</NamesContext>;
+};
+
 const ChannelEndpointItem = (props: Task.ChannelListItemProps) => {
   const { itemKey } = props;
   const path = root.config.endpoints[itemKey];
@@ -77,6 +117,7 @@ const ChannelEndpointItem = (props: Task.ChannelListItemProps) => {
   const endpointPath = PForm.useFieldValue(path.path);
   const disabled = PForm.useFieldValue(path.disabled);
   const dev = Device.useFromConfig();
+  const planned = useContext(NamesContext).get(endpointPath);
   return (
     <Select.Item
       {...props}
@@ -93,7 +134,9 @@ const ChannelEndpointItem = (props: Task.ChannelListItemProps) => {
           channel={channelKey}
           namePath={path.channel.name}
           defaultName={
-            dev == null ? undefined : commandChannelName(dev.name, endpointPath)
+            dev == null
+              ? undefined
+              : (planned ?? commandChannelName(dev.name, endpointPath))
           }
           skipped={disabled}
           id={Task.getChannelNameID(itemKey)}
@@ -192,20 +235,22 @@ const Form: FC = () => {
     <Task.Views.Panes
       listTitle="Endpoints"
       list={
-        <Task.Views.ChannelList<WriteEndpoint>
-          path={root.config.endpoints}
-          header={null}
-          emptyContent={EMPTY_ENDPOINTS}
-          addLabel="Add endpoint"
-          createChannel={createEndpoint}
-          createChannels={duplicateEndpoints}
-          listItem={endpointItem}
-          contextMenuItems={Task.readChannelContextMenuItem}
-          resolve={resolve}
-          selected={selected}
-          onSelect={setSelected}
-          grow
-        />
+        <CommandNames>
+          <Task.Views.ChannelList<WriteEndpoint>
+            path={root.config.endpoints}
+            header={null}
+            emptyContent={EMPTY_ENDPOINTS}
+            addLabel="Add endpoint"
+            createChannel={createEndpoint}
+            createChannels={duplicateEndpoints}
+            listItem={endpointItem}
+            contextMenuItems={Task.readChannelContextMenuItem}
+            resolve={resolve}
+            selected={selected}
+            onSelect={setSelected}
+            grow
+          />
+        </CommandNames>
       }
       detailsPath={current != null ? root.config.endpoints[current] : null}
       title={current != null && <EndpointLabel path={root.config.endpoints[current]} />}
@@ -236,14 +281,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
       ep.channel.channel = await Task.configureCommandChannel(
         client,
         dev.properties.write,
-        {
-          propertiesKey: ep.path,
-          channel: ep.channel.channel,
-          name: primitive.isNonZero(ep.channel.name)
-            ? ep.channel.name
-            : commandChannelName(dev.name, ep.path),
-          dataType: ep.channel.dataType,
-        },
+        endpointCommand(dev.name, ep),
       );
     }
   } finally {
@@ -263,14 +301,14 @@ const sendsICD = (ep: WriteEndpoint): ep is ICDEndpoint =>
 
 const icdPath = (key: string) => root.config.endpoints[key] as deep.Path<ICDEndpoint>;
 
-/** The name deploying gives the command channel of a field of an endpoint. */
-const fieldCommandName = (
-  device: string,
-  endpoint: string,
-  { name }: Pick<icd.JSONField, "name">,
-): string =>
-  `${channel.escapeInvalidName(device)}${channel.escapeInvalidName(endpoint)}_` +
-  `${channel.escapeInvalidName(name)}_cmd`;
+/** Keys and names the command channels of fields of an endpoint, as deploying does. */
+const namingOf = (device: string, { path }: WriteEndpoint): ICD.Write.ChannelNaming => {
+  const prefix = channel.escapeInvalidName(device) + channel.escapeInvalidName(path);
+  return {
+    key: (field) => `${path}#${field.key}`,
+    name: (field) => ICD.Write.commandName(prefix, field),
+  };
+};
 
 /** @returns the name that an endpoint gives the message it sends. */
 const messageName = ({ method, path }: RequestLine): string =>
@@ -420,15 +458,21 @@ const Endpoints = ({
   const list = PForm.useFieldListUtils(root.config.endpoints);
   const endpoints = PForm.useFieldValue(root.config.endpoints);
   const sending = endpoints.filter(sendsICD);
-  const messageOf = (ep: WriteEndpoint): ICD.Write.TargetMessage | null =>
-    sendsICD(ep)
-      ? {
-          icd: ep.icd,
-          message: ep.message.message,
-          path: icdPath(ep.key).message,
-          channelName: (field) => fieldCommandName(device.name, ep.path, field),
-        }
-      : null;
+  const commandChannelsOf = ICD.Write.useCommandChannels();
+  const specs = sending
+    .filter(({ disabled }) => !disabled)
+    .flatMap((ep) => commandChannelsOf(ep, namingOf(device.name, ep)));
+  const names = Task.useCommandChannelNames(device.properties.write, specs);
+  const messageOf = (ep: WriteEndpoint): ICD.Write.TargetMessage | null => {
+    if (!sendsICD(ep)) return null;
+    const naming = namingOf(device.name, ep);
+    return {
+      icd: ep.icd,
+      message: ep.message.message,
+      path: icdPath(ep.key).message,
+      channelName: (field) => names.get(naming.key(field)) ?? naming.name(field),
+    };
+  };
   const { tree, handleSelect, contextMenu, renderItem, pane } = ICD.Write.useTree({
     path: root.config.endpoints,
     messageOf,
@@ -544,10 +588,12 @@ const configureICD: Task.OnConfigure<WriteSchemas["config"]> = async (
   try {
     for (const ep of config.endpoints.filter(sendsICD)) {
       if (ep.disabled) continue;
-      await ICD.Write.configureChannels(client, dev.properties.write, ep, {
-        key: (field) => `${ep.path}#${field.key}`,
-        name: (field) => fieldCommandName(dev.name, ep.path, field),
-      });
+      await ICD.Write.configureChannels(
+        client,
+        dev.properties.write,
+        ep,
+        namingOf(dev.name, ep),
+      );
     }
   } finally {
     await PlatformDevice.setProperties(client, dev, before, Device.SCHEMAS);

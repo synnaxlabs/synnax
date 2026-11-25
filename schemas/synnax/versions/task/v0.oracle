@@ -76,6 +76,7 @@ Task struct {
         hardware operations such as reading sensor data, writing control signals, or
         scanning for devices.
     """
+    @go entry
     @go marshal
     @go migrate
     @resource type "task"

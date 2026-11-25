@@ -34,6 +34,7 @@ Schematic struct {
         flows, and process diagrams. Schematics support interactive symbols, connection
         handles, and dynamic state visualization.
     """
+    @go entry
     @go marshal
     @go migrate
     @resource type "schematic"

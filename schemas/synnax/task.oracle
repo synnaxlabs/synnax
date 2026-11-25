@@ -133,6 +133,7 @@ Task struct<
         hardware operations such as reading sensor data, writing control signals, or
         scanning for devices.
     """
+    @go entry
     @go marshal
     @go migrate
     @py name                 "Payload"
@@ -197,6 +198,7 @@ KeyedConfig struct {
     }
 
     @doc value "is the base for every stored task configuration record."
+    @go entry
     @pb omit
 }
 

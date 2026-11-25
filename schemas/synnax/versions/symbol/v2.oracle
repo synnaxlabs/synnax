@@ -122,6 +122,7 @@ Symbol struct {
         is a persisted schematic symbol defining reusable visual components for
         diagrams.
     """
+    @go entry
     @go imex
     @go marshal
     @resource type "schematic_symbol"
