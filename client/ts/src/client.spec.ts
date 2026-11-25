@@ -493,6 +493,20 @@ describe("connect", () => {
 describe("uncached", () => {
   const openStreamerOf = (client: Synnax) => vi.spyOn(client, "openStreamer");
 
+  it("should keep the deprecated cache in params as the inverse of uncached", async () => {
+    // A plain type for the deprecated field keeps lint from flagging each read.
+    const cacheOf = ({ params }: { params: { cache: boolean } }): boolean =>
+      params.cache;
+    const cached = createTestClient();
+    const uncached = createTestClient({ uncached: true });
+    expect(cached.params.uncached).toBe(false);
+    expect(cacheOf(cached)).toBe(true);
+    expect(uncached.params.uncached).toBe(true);
+    expect(cacheOf(uncached)).toBe(false);
+    await cached.close();
+    await uncached.close();
+  });
+
   it("should open the change stream by default", async () => {
     const client = createTestClient();
     const openStreamer = openStreamerOf(client);

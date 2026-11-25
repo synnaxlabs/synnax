@@ -173,6 +173,14 @@ export interface SynnaxParams extends Omit<z.input<typeof synnaxParamsZ>, "cache
 }
 export interface ParsedSynnaxParams extends z.output<typeof constructorParamsZ> {}
 
+interface ClientParams extends Omit<
+  ParsedSynnaxParams,
+  "password" | "apiKey" | "token" | "oidc"
+> {
+  /** @deprecated Use uncached, its inverse. Removed in 0.64. */
+  readonly cache: boolean;
+}
+
 /**
  * The parameters of the client constructor. The SYNNAX_HOST, SYNNAX_PORT,
  * SYNNAX_API_KEY, SYNNAX_SECURE, and SYNNAX_CA_CERT environment variables fill the
@@ -278,7 +286,7 @@ export default class Synnax extends framer.Client {
   readonly key: string;
   readonly createdAt: TimeStamp;
   /** The parameters the client connects with. Credentials stay in auth. */
-  readonly params: Omit<ParsedSynnaxParams, "password" | "apiKey" | "token" | "oidc">;
+  readonly params: ClientParams;
   readonly ranges: ranger.Client;
   readonly channels: channel.Client;
   readonly auth: auth.Client;
@@ -456,7 +464,12 @@ export default class Synnax extends framer.Client {
     const chCreator = new channel.Writer(transport.unary);
     this.key = uuid.create();
     this.createdAt = TimeStamp.now();
-    this.params = record.omit(parsedParams, "password", "apiKey", "token", "oidc");
+    // Built apart from the field so the deprecated key does not flag the build.
+    const clientParams = {
+      ...record.omit(parsedParams, "password", "apiKey", "token", "oidc"),
+      cache: !parsedParams.uncached,
+    };
+    this.params = clientParams;
     this.transport = transport;
     const unary = this.transport.unary;
     this.batch = new batch.Client(unary);
