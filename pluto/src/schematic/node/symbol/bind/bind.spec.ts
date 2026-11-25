@@ -104,6 +104,36 @@ describe("bind.values", () => {
   });
 });
 
+describe("bind.stateReadings", () => {
+  it("should read a local value, a channel, and NaN for a channel with no data", () => {
+    expect(
+      bind.stateReadings(
+        [
+          { key: "active", source: { type: "channel", key: 1 } },
+          { key: "level", source: { type: "local", value: 3 } },
+          { key: "flow", source: { type: "channel", key: 2 } },
+          { key: "speed", source: { type: "channel", key: 3 } },
+        ],
+        { 1: { value: 1, stale: true }, 2: { value: null, stale: false } },
+      ),
+    ).toEqual({
+      active: { value: 1, stale: true },
+      level: { value: 3 },
+      flow: { value: NaN, stale: false },
+      speed: { value: NaN },
+    });
+  });
+
+  it("should give no reading for a state with no source", () => {
+    expect(
+      bind.stateReadings(
+        [{ key: "active" }, { key: "level", source: { type: "channel" } }],
+        {},
+      ),
+    ).toEqual({});
+  });
+});
+
 describe("bind.stale", () => {
   const bindings: Pick<schematic.StateBinding, "key" | "source">[] = [
     { key: "active", source: { type: "channel", key: 1 } },

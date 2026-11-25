@@ -222,7 +222,7 @@ func (e EnumerationState) Validate() error {
 type NumberState struct {
 	BaseState
 	// Bounds is the range of values that motion reads as 0 to 1.
-	Bounds spatial.Bounds `json:"bounds" msgpack:"bounds"`
+	Bounds spatial.ClosedBounds `json:"bounds" msgpack:"bounds"`
 }
 
 func (NumberState) isStateVariant() {}
@@ -230,6 +230,14 @@ func (NumberState) isStateVariant() {}
 // SetDefaults sets every field that has a schema default to that default.
 func (n *NumberState) SetDefaults() {
 	n.Bounds.Upper = 100
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (n NumberState) Validate() error {
+	v := validate.New("NumberState")
+	v.Exec(func() error { return validate.PathedError(n.Bounds.Validate(), "bounds") })
+	return v.Error()
 }
 
 // State is what a symbol shows.
@@ -325,6 +333,8 @@ func (u State) Validate() error {
 	v.Ternary("type", u.Variant == nil, "required")
 	switch variant := u.Variant.(type) {
 	case EnumerationState:
+		v.Exec(variant.Validate)
+	case NumberState:
 		v.Exec(variant.Validate)
 	}
 	return v.Error()

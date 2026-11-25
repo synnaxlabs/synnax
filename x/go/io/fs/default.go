@@ -50,11 +50,17 @@ func (d *defaultFS) List(dirName string) ([]os.FileInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	infos := make([]os.FileInfo, len(entries))
-	for i, e := range entries {
-		if infos[i], err = os.Stat(path.Join(dirName, e.Name())); err != nil {
+	infos := make([]os.FileInfo, 0, len(entries))
+	for _, e := range entries {
+		info, err := os.Stat(path.Join(dirName, e.Name()))
+		// An entry removed since ReadDir, or a symlink to nothing, has nothing to list.
+		if os.IsNotExist(err) {
+			continue
+		}
+		if err != nil {
 			return nil, err
 		}
+		infos = append(infos, info)
 	}
 	return infos, nil
 }
@@ -69,3 +75,6 @@ func (d *defaultFS) Rename(name, newName string) error {
 
 // Stat implements FS.
 func (d *defaultFS) Stat(name string) (os.FileInfo, error) { return os.Stat(name) }
+
+// SyncDir implements FS.
+func (d *defaultFS) SyncDir(name string) error { return syncDir(name) }

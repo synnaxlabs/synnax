@@ -86,6 +86,52 @@ Channel struct {
 		write(releaseRoot, v0Path, shippedV0)
 	})
 
+	Describe("Duration defaults", func() {
+		const telemV0 = "schemas/x/versions/telem/v0.oracle"
+		channel := func(timeout string) string {
+			return `
+import "schemas/x/versions/telem/v0"
+
+Channel struct {
+    key     uuid @key
+    timeout telem.TimeSpan = ` + timeout + `
+
+    @go marshal
+}
+`
+		}
+
+		BeforeEach(func() {
+			write(releaseRoot, telemV0, "TimeSpan int64\n")
+			write(root, telemV0, "TimeSpan int64\n")
+			write(releaseRoot, v0Path, channel("5000000000"))
+		})
+
+		It("Should pass a default rewritten as the same duration", func() {
+			write(root, v0Path, channel("5s"))
+			Expect(messages()).To(BeEmpty())
+		})
+
+		It("Should fail a default rewritten as another duration", func() {
+			write(root, v0Path, channel("6s"))
+			Expect(messages()).To(ContainElement(
+				shapeChange("Channel.timeout", "changes its default"),
+			))
+		})
+
+		It("Should accept a duration on a field a later version inherits", func() {
+			write(root, v0Path, channel("5s"))
+			write(root, v1Path, `
+import "schemas/x/versions/telem/v0"
+
+Channel struct extends v0.Channel {
+    timeout = 10s
+}
+`)
+			Expect(messages()).To(BeEmpty())
+		})
+	})
+
 	Describe("Allowed changes", func() {
 		It("Should pass a shipped version file that only gains docs and rules", func() {
 			write(root, v0Path, `

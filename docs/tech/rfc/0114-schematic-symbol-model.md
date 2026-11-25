@@ -321,25 +321,26 @@ shipped key never changes, and a shipped built-in name never changes.
 
 A save that changes the spec of a symbol in use, such as its looks, parts, drawing,
 states, commands, or interactions, lists the schematics that use the symbol
-(`core/pkg/service/resource/resource.go:59-68`) and shows which of them are under
-control, then asks to confirm. The save carries the list that the user confirmed, and
-the Core refuses the save when the list, or which of them are under control, changed, so
-the dialog asks again. The custom `symbol.Ref` uses `@ref on_delete restrict`, so a
-custom symbol in use refuses the delete, and the dialog lists its schematics. A built-in
-file is never edited: a node changes a built-in through its label, color, size,
-rotation, enumeration, match, and default, and a site through RFC 0112 enumerations and
-named colors. "Duplicate as custom" copies a built-in into a new custom symbol, and
-"Change symbol" moves nodes to another symbol by binding key. Its confirm lists the
-bindings whose key the new symbol lacks, the overrides that do not fit the new type, and
-the `CommandBinding`s of commands that have a state there, and the move removes them, as
-a symbol save does. A later step that maps old keys to new ones is UI alone, with no
-shape change. A channel delete keeps the key in each binding, so the channel plan's link
-tracking can later show it as a deleted channel or link it again (§6). A schematic
-import keeps every channel key the same way.
+(`core/pkg/service/resource/resource.go:70-79`) and what the save removes from each
+node, then asks to confirm. Until phase 11, the list holds only schematics with `symbol`
+nodes. It holds only the schematics that the user can read. The save does not carry the
+confirm, and the Core does not check it. The custom `symbol.Ref` uses
+`@ref on_delete restrict`, so a custom symbol in use refuses the delete, and the dialog
+lists its schematics. A built-in file is never edited: a node changes a built-in through
+its label, color, size, rotation, enumeration, match, and default, and a site through
+RFC 0112 enumerations and named colors. "Duplicate as custom" copies a built-in into a
+new custom symbol, and "Change symbol" moves nodes to another symbol by binding key. Its
+confirm lists the bindings whose key the new symbol lacks, the overrides that do not fit
+the new type, and the `CommandBinding`s of commands that have a state there, and the
+move removes them, as a symbol save does. A later step that maps old keys to new ones is
+UI alone, with no shape change. A channel delete keeps the key in each binding, so the
+channel plan's link tracking can later show it as a deleted channel or link it again
+(§6). A schematic import keeps every channel key the same way.
 
 The Core checks every save. It refuses a symbol with a duplicate key in a list, a key
 that names no part, state, or command, an `entry` or `contrast` paint or `equals`
-condition on a number state, or an `ask` command with no state. It refuses a node whose
+condition on a number state, or an `ask` command with no state. It refuses a second
+interaction on one part, or a second on the whole drawing. It refuses a node whose
 binding keys repeat or name no state or command of its symbol, whose overrides do not
 fit the type of their state, or whose `CommandBinding` names a command that has a state.
 The Core list of built-ins lets it check built-in nodes the same way. A `missing` node

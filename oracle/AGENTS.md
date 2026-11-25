@@ -34,13 +34,13 @@ or generator logic and schemas disagree.
   (`Key = v0.Key`, pointing at the defining version) for the rest. Absence means the
   type was removed at N. The versions directory is the sole version authority: there is
   no `@go version` tag; the current version is the highest vN file, and membership in it
-  marks a type persisted. Version-owned content: fields, optionality, docs, `@key`, and
-  the `@go` persistence set (`marshal` incl. field-level `omit`, `wire`, `json`, `hand`,
-  `migrate`, `imex`). Codecs are explicit: a struct or union gets one iff its
-  declaration carries `@go marshal`; references never pull a codec in.
-  `@go marshal hand` marks hand-written codec methods: nothing generates, references
-  stay valid. Generation fails when a codec's persisted graph reaches a struct or union
-  carrying neither form.
+  marks a type persisted. Version-owned content: fields, optionality, docs, `@key`,
+  `@resource type` (stored ontology keys hold it), and the `@go` persistence set
+  (`marshal` incl. field-level `omit`, `wire`, `json`, `hand`, `migrate`, `imex`).
+  Codecs are explicit: a struct or union gets one iff its declaration carries
+  `@go marshal`; references never pull a codec in. `@go marshal hand` marks hand-written
+  codec methods: nothing generates, references stay valid. Generation fails when a
+  codec's persisted graph reaches a struct or union carrying neither form.
 - **A full declaration can be a patch on an earlier version.** `X struct extends vK.X`
   (or a union of the same name) copies vK's declaration, resolved in vN's scope, then
   applies its body: an entry of the same name merges in place, `-field` removes one, and
@@ -54,8 +54,8 @@ or generator logic and schemas disagree.
   rejects them in version files). Edit shapes in version files; edit live-only concerns
   in the live file. A hand edit to version-owned live content is overwritten by the next
   sync, and the `versions` gate errors on the drift naming the version files as
-  authority. A `@doc` on a kept declaration that the chain leaves undocumented fails
-  sync and check, and the error names the version file to move it to.
+  authority. A `@doc` or `@resource type` on a kept declaration that the chain lacks
+  fails sync and check, and the error names the version file to move it to.
 - **A resource is versioned iff its data is gorp-persisted.** Never version derived
   artifacts. A resource that stops being persisted ENDS its chain with a tombstone: an
   empty v(N+1).oracle (header and a comment only) records that everything was removed at
@@ -183,7 +183,8 @@ An `@ref` scalar with a zero default (`= 0`, `= ""`) holds no target while it is
 This is the "not applicable" default above, so use it only where no valid key is zero. A
 `detach` reference needs `X?`, an array, or a zero default. A required field in an array
 element also detaches: the detach drops the element. The same rules hold for top-level
-and nested fields.
+and nested fields. A nested `map<K, Key>` holds one target per value, and its detach
+drops the entry. A walk also reaches through the values of a map of structs.
 
 `?` and `= value` are mutually exclusive; the analyzer rejects a field carrying both.
 
@@ -197,6 +198,14 @@ A body of domains only, `action Set = patch.Set { @doc value "..." }`, gives the
 its own doc in place of the struct's. Generators keep the `SetPayload` name as an alias
 (in Go, a defined type that can carry `Handle`). The target must be a struct with no
 type parameters, and no two actions of a type may share one.
+
+## Duration defaults
+
+A field's own `telem.TimeSpan` default takes Go-style units: `ns`, `us`, `ms`, `s`, `m`,
+`h`, and compounds such as `1m30s`. Write `staleness_timeout telem.TimeSpan = 5s`, never
+`= 5000000000`. Struct and array literals take no units. The analyzer stores
+nanoseconds, so generated code does not change. It rejects a unit on any other type and
+a value that is not whole nanoseconds.
 
 ## Union discriminators
 
