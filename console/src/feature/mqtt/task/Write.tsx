@@ -16,23 +16,28 @@ import {
   mqtt,
   type Synnax,
 } from "@synnaxlabs/client";
-import { Button } from "@synnaxlabs/lyra/button";
-import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
-import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
+import type { Tree } from "@synnaxlabs/lyra/tree";
 import { Synnax as PSynnax } from "@synnaxlabs/pluto";
 import { deep, errors, id, primitive, unique } from "@synnaxlabs/x";
-import { type FC, type ReactElement, useRef, useState } from "react";
+import {
+  type Dispatch,
+  type FC,
+  type ReactElement,
+  type SetStateAction,
+  useRef,
+  useState,
+} from "react";
 
 import { Device } from "@/feature/mqtt/device";
 import { DEFAULT_WRITE_NAME } from "@/feature/mqtt/task/create";
 import type { Format, Kind } from "@/feature/mqtt/task/discover/Discover";
 import { createDiscoverModal } from "@/feature/mqtt/task/discover/modal";
 import { namePrefix } from "@/feature/mqtt/task/entries";
-import { EntryLabel } from "@/feature/mqtt/task/EntryLabel";
+import { EntryItem, EntryLabel } from "@/feature/mqtt/task/EntryLabel";
 import type { Leaf } from "@/feature/mqtt/task/leaves";
 import { QoSField } from "@/feature/mqtt/task/QoSField";
 import {
@@ -55,7 +60,6 @@ import {
 } from "@/feature/mqtt/task/types";
 import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
-import { Empty } from "@/platform/empty";
 import { ICD } from "@/platform/icd";
 import { Task } from "@/platform/task";
 
@@ -64,68 +68,19 @@ const root = deep.path<Task.Values<WriteSchemas>>();
 const Properties = () => <Device.Select />;
 
 /** The name deploying gives the command channel of a field of a plain target. */
-const commandName = (prefix: string, field: icd.JSONField): string =>
-  `${prefix}_${channel.escapeInvalidName(field.name)}_cmd`;
+const commandName = (prefix: string, { name }: Pick<icd.JSONField, "name">): string =>
+  `${prefix}_${channel.escapeInvalidName(name)}_cmd`;
 
 /** The name deploying gives a tag's command channel while it has none. */
 const defaultCommandName = (devName: string, target: SparkplugWriteTarget): string =>
   `${sparkplugChannelName(devName, target)}_cmd`;
 
-interface TagChannelNameProps {
-  itemKey: string;
-  target: SparkplugWriteTarget;
-}
+const plainPath = (key: string) =>
+  deep.variant(root.config.targets[key], "type", "plain");
 
-const TagChannelName = ({ itemKey, target }: TagChannelNameProps) => {
-  const device = Device.useFromConfig();
-  return (
-    <Task.ChannelName
-      channel={target.channel}
-      namePath={deep.variant(root.config.targets[itemKey], "type", "sparkplug").name}
-      defaultName={device == null ? undefined : defaultCommandName(device.name, target)}
-      skipped={target.disabled}
-      id={Task.getChannelNameID(itemKey)}
-      level="small"
-      weight={450}
-      color={9}
-      overflow="fade"
-    />
-  );
-};
-
-const TargetItem = (props: Task.ChannelListItemProps) => {
-  const { itemKey } = props;
-  const path = root.config.targets[itemKey];
-  const target = PForm.useFieldValue(path);
-  return (
-    <Select.Item
-      {...props}
-      y
-      align="start"
-      gap="small"
-      className={CSS.cls(target.disabled && CSS.M("off"))}
-    >
-      <Flex.Box x align="center" gap="small" full="x">
-        <EntryLabel path={path} />
-        <Task.EnabledCheckbox path={path.disabled} />
-      </Flex.Box>
-      {target.type === "sparkplug" && (
-        <TagChannelName itemKey={itemKey} target={target} />
-      )}
-    </Select.Item>
-  );
-};
-
-const targetItem = Component.renderProp(TargetItem);
-
-// A plain target has no one command channel to rename.
-const contextMenuItems = (props: Task.ContextMenuItemProps<WriteTarget>) => {
-  const target = props.channels.find(({ key }) => key === props.keys[0]);
-  if (target?.type !== "sparkplug") return null;
-  return Task.readChannelContextMenuItem(props);
-};
-
-const EMPTY_TARGETS = <Empty.Action message="No targets" />;
+const TargetItem = (props: Tree.ItemRenderProps<string>) => (
+  <EntryItem {...props} path={root.config.targets[props.itemKey]} />
+);
 
 interface PaneProps<T> {
   path: deep.Path<T>;
@@ -162,30 +117,18 @@ const SparkplugTargetPane: FC<PaneProps<SparkplugWriteTarget>> = ({
 const MISSING_DESCRIPTION =
   "The ICD no longer has this message. Pick another message format.";
 
-const PlainTargetPane = ({
-  path,
-  deviceName,
-}: PaneProps<PlainWriteTarget>): ReactElement => {
+interface PlainTargetPaneProps {
+  path: deep.Path<PlainWriteTarget>;
+  onAddField: () => void;
+}
+
+const PlainTargetPane = ({ path, onAddField }: PlainTargetPaneProps): ReactElement => {
   const { set } = PForm.useContext();
   const isPreview = Task.useIsPreview();
-  const formats = ICD.useFormats();
-  const [opened, setOpened] = useState<icd.FieldKey>();
   const target = PForm.useFieldValue(path);
   const message = ICD.useMessage(target.icd, target.message.message);
-  const prefix = namePrefix(deviceName, target.topic);
   const handleFormatChange = (icdKey: icd.Key, picked: icd.Message) =>
     set(path, { ...target, icd: icdKey, message: ICD.Write.create(picked) });
-  // The Suit of the target binds the new field.
-  const handleAddField = () => {
-    const fields = ICD.jsonFields(message);
-    const field = ICD.createJSONField(fields);
-    ICD.formatOf(formats, target.icd).insert(
-      ICD.fieldsPath(target.message.message),
-      field,
-      fields.at(-1)?.key,
-    );
-    setOpened(field.key);
-  };
   return (
     <PForm.Sections>
       <PForm.Section title="Publish">
@@ -202,7 +145,7 @@ const PlainTargetPane = ({
         title="Message"
         actions={
           <ICD.AddField
-            onClick={handleAddField}
+            onClick={onAddField}
             disabled={message?.payload.format !== "json"}
           />
         }
@@ -215,28 +158,24 @@ const PlainTargetPane = ({
         />
       </PForm.Section>
       <ICD.MessageStatus message={message} missingDescription={MISSING_DESCRIPTION} />
-      <ICD.Write.Bindings
-        path={path.message.bindings}
-        icdKey={target.icd}
-        message={target.message.message}
-        channelName={(field) => commandName(prefix, field)}
-        skipped={target.disabled}
-        opened={opened}
-      />
     </PForm.Sections>
   );
 };
 
 const TOPIC_INPUT_PROPS = { placeholder: "plant/line1/valve/set" } as const;
 
-const TargetPane: FC<PaneProps<WriteTarget>> = ({ path, deviceName }) => {
+interface TargetPaneProps extends PaneProps<WriteTarget> {
+  onAddField: () => void;
+}
+
+const TargetPane: FC<TargetPaneProps> = ({ path, deviceName, onAddField }) => {
   const type = PForm.useFieldValue(path.type);
   return (
     <Flex.Box y grow empty className={CSS.BE("details", "form")}>
       {type === "plain" ? (
         <PlainTargetPane
           path={deep.variant(path, "type", "plain")}
-          deviceName={deviceName}
+          onAddField={onAddField}
         />
       ) : (
         <SparkplugTargetPane
@@ -312,39 +251,53 @@ const useDiscoverModal = createDiscoverModal(DISCOVER_KIND);
 const unbind = (binding: icd.WriteBinding): icd.WriteBinding =>
   binding.type === "channel" ? { ...binding, channel: 0 } : binding;
 
-const duplicateTargets = (targets: WriteTarget[], keys: string[]): WriteTarget[] =>
-  targets
-    .filter(({ key }) => keys.includes(key))
-    .map((target) =>
-      target.type === "sparkplug"
-        ? { ...target, key: id.create(), channel: 0, name: "" }
-        : {
-            ...target,
-            key: id.create(),
-            message: {
-              ...target.message,
-              bindings: target.message.bindings.map(unbind),
-            },
-          },
-    );
+const duplicate = (target: WriteTarget): WriteTarget =>
+  target.type === "sparkplug"
+    ? { ...target, key: id.create(), channel: 0, name: "" }
+    : {
+        ...target,
+        key: id.create(),
+        message: { ...target.message, bindings: target.message.bindings.map(unbind) },
+      };
+
+const messageOf = (target: WriteTarget): ICD.Write.TargetMessage | null =>
+  target.type === "plain"
+    ? {
+        icd: target.icd,
+        message: target.message.message,
+        bindings: plainPath(target.key).message.bindings,
+      }
+    : null;
 
 interface TargetsProps {
   device: Device.Device;
   selected: string[];
-  onSelect: (selected: string[]) => void;
+  onSelect: Dispatch<SetStateAction<string[]>>;
+  expanded: string[];
+  onExpand: Dispatch<SetStateAction<string[]>>;
 }
 
-const Targets = ({ device, selected, onSelect }: TargetsProps) => {
+/** The targets of the task as a tree, beside the details of the selected item. */
+const Targets = ({ device, selected, onSelect, expanded, onExpand }: TargetsProps) => {
   const client = PSynnax.use();
   const ctx = PForm.useContext();
   const handleError = Status.useErrorHandler();
-  const isPreview = Task.useIsPreview();
   const formats = ICD.useFormats();
-  const targets = PForm.useFieldListUtils(root.config.targets);
-  const plain = PForm.useFieldValue(root.config.targets).filter(
-    (t) => t.type === "plain",
-  );
+  const list = PForm.useFieldListUtils(root.config.targets);
+  const targets = PForm.useFieldValue(root.config.targets);
+  const plain = targets.filter((t) => t.type === "plain");
   const discover = useDiscoverModal();
+  const { tree, handleSelect, contextMenu, renderItem, current, addField, added } =
+    ICD.Write.useTree({
+      path: root.config.targets,
+      messageOf,
+      TargetItem,
+      duplicate,
+      selected,
+      onSelect,
+      expanded,
+      onExpand,
+    });
 
   // Adds run one at a time, so a second click cannot make a second ICD.
   const adding = useRef(false);
@@ -352,7 +305,7 @@ const Targets = ({ device, selected, onSelect }: TargetsProps) => {
     if (client == null) throw new DisconnectedError();
     const additions = await discover({
       device,
-      entries: targets.value().map(heldEntry),
+      entries: list.value().map(heldEntry),
     });
     if (additions == null || additions.length === 0) return;
     const inferred = additions.filter(isDraft).filter(({ format }) => format == null);
@@ -372,8 +325,9 @@ const Targets = ({ device, selected, onSelect }: TargetsProps) => {
         ? createPlainTarget(a.topic, a.format ?? made[inferred.indexOf(a)])
         : a,
     );
-    targets.push(added);
+    list.push(added);
     onSelect([added[0].key]);
+    tree.expand(added[0].key);
   };
   const handleAdd = () =>
     handleError(async () => {
@@ -388,77 +342,110 @@ const Targets = ({ device, selected, onSelect }: TargetsProps) => {
       adding.current = false;
     }, "Failed to add targets");
 
-  const resolve = (target: WriteTarget): Partial<WriteTarget> | null =>
-    target.type === "sparkplug"
-      ? { channel: device.properties.write[sparkplugPropertiesKey(target)] ?? 0 }
-      : null;
-
-  const current = selected.at(0);
-  const currentPath = current == null ? null : root.config.targets[current];
+  const target =
+    current == null ? undefined : targets.find(({ key }) => key === current.target);
+  let details = null;
+  let title = null;
+  let detailsPath: deep.Target<unknown> | null = null;
+  if (target?.type === "plain" && current?.kind === "field") {
+    const path = plainPath(target.key).message;
+    const i = target.message.bindings.findIndex(
+      ({ field }) => field === current.field.key,
+    );
+    detailsPath = i < 0 ? path : path.bindings[i];
+    title = (
+      <Text.Text level="p" weight={500} overflow="fade">
+        {current.field.name}
+      </Text.Text>
+    );
+    details = (
+      <ICD.Write.FieldDetails
+        key={selected[0]}
+        path={path.bindings}
+        icdKey={target.icd}
+        message={target.message.message}
+        field={current.field.key}
+        channelName={commandName(namePrefix(device.name, target.topic), current.field)}
+        skipped={target.disabled}
+        autoFocus={current.field.key === added}
+      />
+    );
+  } else if (target != null) {
+    detailsPath = root.config.targets[target.key];
+    title = <EntryLabel path={root.config.targets[target.key]} />;
+    details = (
+      <TargetPane
+        key={target.key}
+        path={root.config.targets[target.key]}
+        deviceName={device.name}
+        onAddField={() => addField(target.key)}
+      />
+    );
+  }
 
   return (
     <Task.Views.Panes
       listTitle="Targets"
       list={
-        <Task.Views.ChannelList<WriteTarget>
-          path={root.config.targets}
-          header={null}
-          emptyContent={EMPTY_TARGETS}
-          footer={
-            !isPreview && (
-              <Button.CreateListItem size="small" onClick={handleAdd}>
-                Add targets
-              </Button.CreateListItem>
-            )
-          }
-          createChannels={duplicateTargets}
-          listItem={targetItem}
-          contextMenuItems={contextMenuItems}
-          resolve={resolve}
-          selected={selected}
-          onSelect={onSelect}
-          grow
-        />
+        <Task.Views.TreeList
+          {...tree}
+          onSelect={handleSelect}
+          menu={contextMenu}
+          emptyMessage="No targets"
+          addLabel="Add targets"
+          onAdd={handleAdd}
+        >
+          {renderItem}
+        </Task.Views.TreeList>
       }
-      detailsPath={currentPath}
-      title={currentPath != null && <EntryLabel path={currentPath} />}
+      detailsPath={detailsPath}
+      title={title ?? undefined}
     >
-      {currentPath != null ? (
-        <TargetPane
-          key={String(currentPath)}
-          path={currentPath}
-          deviceName={device.name}
-        />
-      ) : (
+      {details ?? (
         <Flex.Box y grow align="center" justify="center">
-          <Text.Text status="disabled">Select a target to configure</Text.Text>
+          <Text.Text status="disabled">
+            Add targets to write to a topic or a tag
+          </Text.Text>
         </Flex.Box>
       )}
       {plain.map(({ key, icd: icdKey }) => (
-        <ICD.Write.Suit
-          key={key}
-          icdKey={icdKey}
-          path={deep.variant(root.config.targets[key], "type", "plain").message}
-        />
+        <ICD.Write.Suit key={key} icdKey={icdKey} path={plainPath(key).message} />
       ))}
     </Task.Views.Panes>
   );
 };
 
 const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device.Device>) => {
+  const targets = PForm.useFieldValue(root.config.targets);
   const [selected, setSelected] = useState<string[]>([]);
-  const icds = unique.unique(
-    PForm.useFieldValue(root.config.targets).flatMap((t) =>
-      t.type === "plain" ? [t.icd] : [],
-    ),
+  const [expanded, setExpanded] = useState<string[]>(() =>
+    ICD.Write.expandedOf(targets),
   );
-  return icds.reduceRight(
-    (child, key) => (
-      <ICD.WithFormat key={key} icdKey={key}>
-        {child}
-      </ICD.WithFormat>
-    ),
-    <Targets device={device} selected={selected} onSelect={setSelected} />,
+  const icds = unique.unique(
+    targets.flatMap((t) => (t.type === "plain" ? [t.icd] : [])),
+  );
+  const resolve = (target: WriteTarget): Partial<WriteTarget> | null =>
+    target.type === "sparkplug"
+      ? { channel: device.properties.write[sparkplugPropertiesKey(target)] ?? 0 }
+      : null;
+  return (
+    <>
+      {icds.reduceRight(
+        (child, key) => (
+          <ICD.WithFormat key={key} icdKey={key}>
+            {child}
+          </ICD.WithFormat>
+        ),
+        <Targets
+          device={device}
+          selected={selected}
+          onSelect={setSelected}
+          expanded={expanded}
+          onExpand={setExpanded}
+        />,
+      )}
+      <Task.BindChannels path={root.config.targets} resolve={resolve} />
+    </>
   );
 };
 
