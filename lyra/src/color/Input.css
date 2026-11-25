@@ -26,7 +26,7 @@
     /* Each state takes the width of a "#" and the widest 8-digit hex, so fields line
        up. */
     & .lyra-color-hex-text {
-        width: calc(7em + 4rem);
+        width: calc(6.7em + 4rem);
     }
 
     & input {

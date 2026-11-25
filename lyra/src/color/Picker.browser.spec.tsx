@@ -489,20 +489,31 @@ describe("Picker", () => {
       expect(swatchRect(8).left).toBeCloseTo(swatchRect(0).left, 0);
     });
 
-    it("should fit the widest hex code in the Custom tab", async () => {
-      await renderLibrary({ value: "#cccccc" });
-      const hex = page.getByRole("textbox", { name: "Hex" }).element();
-      assert(hex instanceof HTMLInputElement);
-      expect(hex.scrollWidth).toBeLessThanOrEqual(hex.clientWidth);
-    });
-
-    it("should fit a full alpha percentage beside the hex", async () => {
-      await renderLibrary({ value: "#cccccc" });
-      const alpha = page.getByRole("textbox", { name: "Alpha percentage" }).element();
-      assert(alpha instanceof HTMLInputElement);
-      expect(alpha.value).toBe("100");
-      expect(alpha.scrollWidth).toBeLessThanOrEqual(alpha.clientWidth);
-    });
+    it.each([
+      { value: "#DDDDDDDD", percent: "87" },
+      { value: "#DDDDDD", percent: "100" },
+    ])(
+      "should fit the widest hex and $percent% opacity in the Custom tab",
+      async ({ value, percent }) => {
+        await renderLibrary({ value });
+        const hex = page.getByRole("textbox", { name: "Hex" }).element();
+        assert(hex instanceof HTMLInputElement);
+        expect(hex.value).toBe("dddddd");
+        expect(hex.scrollWidth).toBeLessThanOrEqual(hex.clientWidth);
+        const alpha = page.getByRole("textbox", { name: "Alpha percentage" }).element();
+        assert(alpha instanceof HTMLInputElement);
+        expect(alpha.value).toBe(percent);
+        expect(alpha.scrollWidth).toBeLessThanOrEqual(alpha.clientWidth);
+        const icon = alpha.parentElement?.querySelector("svg");
+        assert(icon != null);
+        const iconRect = icon.getBoundingClientRect();
+        expect(iconRect.width).toBeGreaterThan(0);
+        const valueLeft =
+          alpha.getBoundingClientRect().left +
+          parseFloat(getComputedStyle(alpha).paddingLeft);
+        expect(iconRect.right).toBeLessThanOrEqual(valueLeft);
+      },
+    );
 
     it("should draw the hex of the Custom tab and its # in the text font", async () => {
       await renderLibrary({ value: "#cccccc" });
