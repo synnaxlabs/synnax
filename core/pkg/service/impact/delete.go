@@ -103,8 +103,8 @@ func (s *Service) planDelete(
 // fails, since no order deletes each holder first.
 func (s *Service) orderBatches(p *planned, removed map[resource.ID]int) error {
 	n := len(p.batches)
-	// first[i*n+j] reports that batch i removes a holder of a record of batch j.
-	first := make([]bool, n*n)
+	// holds[i*n+j] reports that batch i removes a holder of a record of batch j.
+	holds := make([]bool, n*n)
 	waits := make([]int, n)
 	for j, b := range p.batches {
 		for _, effects := range [][]gorp.DeleteEffect{
@@ -115,8 +115,8 @@ func (s *Service) orderBatches(p *planned, removed map[resource.ID]int) error {
 		} {
 			for _, e := range effects {
 				i, ok := removed[s.cfg.RecordOf(e.Holder)]
-				if ok && i != j && !first[i*n+j] {
-					first[i*n+j] = true
+				if ok && i != j && !holds[i*n+j] {
+					holds[i*n+j] = true
 					waits[j]++
 				}
 			}
@@ -138,7 +138,7 @@ func (s *Service) orderBatches(p *planned, removed map[resource.ID]int) error {
 		placed[next] = true
 		ordered = append(ordered, p.batches[next])
 		for j := range n {
-			if first[next*n+j] {
+			if holds[next*n+j] {
 				waits[j]--
 			}
 		}
@@ -149,8 +149,8 @@ func (s *Service) orderBatches(p *planned, removed map[resource.ID]int) error {
 
 // addEntries gives each record that holds a record of p.batches one entry, for the
 // first of its effects in the order restrict, cascade, detach, and counts in p.Kept
-// each other record that keeps a weak link. A holder that removed holds, since p
-// deletes it, gets neither.
+// each other record that keeps a weak link. A holder in removed gets neither, since p
+// deletes it.
 func (s *Service) addEntries(p *planned, removed map[resource.ID]int) {
 	var restricts, cascades, detaches int
 	for _, b := range p.batches {

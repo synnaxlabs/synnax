@@ -1348,8 +1348,10 @@ func taskDeleter(svc *task.Service) impact.Deleter {
 			_ gorp.Snapshot,
 			ids []resource.ID,
 		) ([]resource.ID, gorp.DeleteEffects, error) {
-			if _, err := task.KeysFromResourceIDs(ids); err != nil {
-				return nil, gorp.DeleteEffects{}, err
+			for _, id := range ids {
+				if _, err := resource.ParseUUIDKey(id); err != nil {
+					return nil, gorp.DeleteEffects{}, err
+				}
 			}
 			return ids, gorp.DeleteEffects{}, nil
 		},
