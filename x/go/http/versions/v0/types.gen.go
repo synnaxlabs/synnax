@@ -11,6 +11,16 @@
 
 package v0
 
+import (
+	"regexp"
+
+	"github.com/synnaxlabs/x/validate"
+)
+
+var validatePattern0 = regexp.MustCompile("^[!#$%&'*+.^_`|~0-9A-Za-z-]+$")
+
+var validatePattern1 = regexp.MustCompile("^([^[:cntrl:]]|[[:blank:]])*$")
+
 // Method is the HTTP method used when requesting an endpoint.
 type Method string
 
@@ -48,16 +58,34 @@ func (m Method) IsValid() bool {
 
 // Header is a single HTTP header sent with a request.
 type Header struct {
-	// Name is the header name, unique within a request.
+	// Name is the header name.
 	Name string `json:"name" msgpack:"name"`
 	// Value is the header value.
 	Value string `json:"value" msgpack:"value"`
 }
 
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (h Header) Validate() error {
+	v := validate.New("Header")
+	v.NotEmptyString("name", h.Name)
+	v.Ternary("name", !validatePattern0.MatchString(string(h.Name)), "Header name must be a token, with no spaces or separators")
+	v.Ternary("value", !validatePattern1.MatchString(string(h.Value)), "Header value must not contain a control character other than a space or a tab")
+	return v.Error()
+}
+
 // QueryParam is a single URL query parameter sent with a request.
 type QueryParam struct {
-	// Parameter is the parameter name, unique within a request.
+	// Parameter is the parameter name.
 	Parameter string `json:"parameter" msgpack:"parameter"`
 	// Value is the parameter value.
 	Value string `json:"value" msgpack:"value"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (q QueryParam) Validate() error {
+	v := validate.New("QueryParam")
+	v.NotEmptyString("parameter", q.Parameter)
+	return v.Error()
 }

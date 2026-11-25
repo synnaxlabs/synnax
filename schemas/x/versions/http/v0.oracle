@@ -40,11 +40,14 @@ Method enum {
 }
 
 Header struct {
-    name  string = "" {
-        @doc value "is the header name, unique within a request."
+    name  string {
+        @doc value         "is the header name."
+        @go validate       pattern "^[!#$%&'*+.^_`|~0-9A-Za-z-]+$" "Header name must be a token, with no spaces or separators"
+        @validate required
     }
     value string = "" {
-        @doc value "is the header value."
+        @doc value   "is the header value."
+        @go validate pattern "^([^[:cntrl:]]|[[:blank:]])*$" "Header value must not contain a control character other than a space or a tab"
     }
 
     @doc value  "is a single HTTP header sent with a request."
@@ -52,8 +55,9 @@ Header struct {
 }
 
 QueryParam struct {
-    parameter string = "" {
-        @doc value "is the parameter name, unique within a request."
+    parameter string {
+        @doc value         "is the parameter name."
+        @validate required
     }
     value     string = "" {
         @doc value "is the parameter value."

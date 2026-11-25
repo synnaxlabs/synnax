@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 METHOD_GET: Literal["GET"] = "GET"
 
@@ -43,11 +43,11 @@ class Header(BaseModel):
     """Is a single HTTP header sent with a request.
 
     Attributes:
-        name: Is the header name, unique within a request.
+        name: Is the header name.
         value: Is the header value.
     """
 
-    name: str = ""
+    name: str = Field(min_length=1)
     value: str = ""
 
 
@@ -55,9 +55,9 @@ class QueryParam(BaseModel):
     """Is a single URL query parameter sent with a request.
 
     Attributes:
-        parameter: Is the parameter name, unique within a request.
+        parameter: Is the parameter name.
         value: Is the parameter value.
     """
 
-    parameter: str = ""
+    parameter: str = Field(min_length=1)
     value: str = ""

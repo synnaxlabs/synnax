@@ -32,8 +32,8 @@ constexpr const char *METHOD_CONNECT = "CONNECT";
 
 /// @brief Header is a single HTTP header sent with a request.
 struct Header {
-    /// @brief name is the header name, unique within a request.
-    std::string name = "";
+    /// @brief name is the header name.
+    std::string name;
     /// @brief value is the header value.
     std::string value = "";
 
@@ -43,8 +43,8 @@ struct Header {
 
 /// @brief QueryParam is a single URL query parameter sent with a request.
 struct QueryParam {
-    /// @brief parameter is the parameter name, unique within a request.
-    std::string parameter = "";
+    /// @brief parameter is the parameter name.
+    std::string parameter;
     /// @brief value is the parameter value.
     std::string value = "";
 

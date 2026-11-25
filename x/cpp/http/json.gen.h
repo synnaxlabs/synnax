@@ -20,7 +20,7 @@ namespace x::http {
 
 inline Header Header::parse(x::json::Parser parser) {
     return Header{
-        .name = parser.field<std::string>("name", ""),
+        .name = parser.required_field<std::string>("name"),
         .value = parser.field<std::string>("value", ""),
     };
 }
@@ -34,7 +34,7 @@ inline x::json::json Header::to_json() const {
 
 inline QueryParam QueryParam::parse(x::json::Parser parser) {
     return QueryParam{
-        .parameter = parser.field<std::string>("parameter", ""),
+        .parameter = parser.required_field<std::string>("parameter"),
         .value = parser.field<std::string>("value", ""),
     };
 }
