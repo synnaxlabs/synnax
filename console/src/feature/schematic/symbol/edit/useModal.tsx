@@ -63,6 +63,9 @@ const STATE_TYPES: Record<schematic.symbol.StateType, string> = {
   number: "Number",
 };
 
+const describeCommand = ({ value }: schematic.symbol.Command): string =>
+  value.type === "fixed" ? `Sends ${value.value}` : "Asks for a value";
+
 interface ValueBarProps {
   value: Spec.At;
   onChange: (value: Spec.At) => void;
@@ -242,6 +245,7 @@ const Editor = ({
     setSelectedPart(owner.key);
   };
   const states = Form.useFieldValue(path.data.states, { ctx: form });
+  const commands = Form.useFieldValue(path.data.commands, { ctx: form });
   const hasSVG =
     Form.useFieldValue(path.data.drawing.markup, {
       ctx: form,
@@ -302,30 +306,42 @@ const Editor = ({
                 </Flex.Box>
                 <Divider.Divider x />
                 {FLAGS.symbolNodes ? (
-                  <ItemList
-                    title="States"
-                    noun="state"
-                    items={states}
-                    name={(key) => path.data.states[key].name}
-                    detail={(s) => STATE_TYPES[s.type]}
-                    add={Spec.addState}
-                    remove={Spec.removeState}
-                    onRemove={() => {
-                      // The preview moves to the first state left when its state goes.
-                      const left = form
-                        .get(path.data.states)
-                        .value.filter(
-                          (s): s is schematic.symbol.EnumerationState =>
-                            s.type === "enumeration",
-                        );
-                      if (left.some((s) => s.key === preview.state)) return;
-                      const first = left.at(0);
-                      setPreview({
-                        state: first?.key ?? Spec.STATE,
-                        value: first?.default ?? 0,
-                      });
-                    }}
-                  />
+                  <>
+                    <ItemList
+                      title="States"
+                      noun="state"
+                      items={states}
+                      name={(key) => path.data.states[key].name}
+                      detail={(s) => STATE_TYPES[s.type]}
+                      add={Spec.addState}
+                      remove={Spec.removeState}
+                      onRemove={() => {
+                        // The preview moves to the first state left if its state goes.
+                        const left = form
+                          .get(path.data.states)
+                          .value.filter(
+                            (s): s is schematic.symbol.EnumerationState =>
+                              s.type === "enumeration",
+                          );
+                        if (left.some((s) => s.key === preview.state)) return;
+                        const first = left.at(0);
+                        setPreview({
+                          state: first?.key ?? Spec.STATE,
+                          value: first?.default ?? 0,
+                        });
+                      }}
+                    />
+                    <Divider.Divider x />
+                    <ItemList
+                      title="Commands"
+                      noun="command"
+                      items={commands}
+                      name={(key) => path.data.commands[key].name}
+                      detail={describeCommand}
+                      add={Spec.addCommand}
+                      remove={Spec.removeCommand}
+                    />
+                  </>
                 ) : (
                   <Flex.Box y>
                     <Header.Header level="p" bordered={false}>
