@@ -121,12 +121,8 @@ describe("View", () => {
       const prefix = id.create();
       const name = `${prefix} View`;
       await client.views.create({ name, type: "range" });
-      await expect
-        .poll(async () => {
-          const results = await client.views.retrieve({ searchTerm: prefix });
-          return results.find((v) => v.name === name);
-        })
-        .toMatchObject({ type: "range" });
+      const results = await client.views.retrieve({ searchTerm: prefix });
+      expect(results.find((v) => v.name === name)).toMatchObject({ type: "range" });
     });
   });
 
