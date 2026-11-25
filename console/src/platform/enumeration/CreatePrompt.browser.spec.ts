@@ -39,9 +39,8 @@ const nameField = async (): Promise<HTMLInputElement> =>
   await screen.findByLabelText<HTMLInputElement>("Enumeration name");
 
 describe("Enumeration.CreatePromptProvider", () => {
-  it("should create the enumeration with the typed name and the entries", async () => {
-    const entries = [{ key: id.create(), name: "Off", value: 0, abnormal: false }];
-    const { result } = await openPrompt({ name: "Pump", entries });
+  it("should create an empty enumeration with the typed name", async () => {
+    const { result } = await openPrompt({ name: "Pump" });
     const field = await nameField();
     expect(field.value).toBe("Pump");
     const name = `Pump ${id.create()}`;
@@ -51,12 +50,12 @@ describe("Enumeration.CreatePromptProvider", () => {
     if (key == null) throw new Error("expected the key of the new enumeration");
     const e = await client.enumerations.retrieve(key);
     expect(e.name).toBe(name);
-    expect(e.entries.map((en) => [en.name, en.value])).toEqual([["Off", 0]]);
+    expect(e.entries).toEqual([]);
     await waitFor(() => expect(screen.queryByLabelText("Enumeration name")).toBeNull());
   });
 
   it("should close on one Escape from the name field and create nothing", async () => {
-    const { result } = await openPrompt({ name: "Pump", entries: [] });
+    const { result } = await openPrompt({ name: "Pump" });
     const field = await nameField();
     fireEvent.keyDown(field, { key: "Escape", code: "Escape" });
     fireEvent.keyUp(field, { key: "Escape", code: "Escape" });
@@ -65,7 +64,7 @@ describe("Enumeration.CreatePromptProvider", () => {
   });
 
   it("should show an error at the name field on a Create with no name", async () => {
-    await openPrompt({ name: "", entries: [] });
+    await openPrompt({ name: "" });
     const field = await nameField();
     fireEvent.change(field, { target: { value: " " } });
     fireEvent.click(screen.getByRole("button", { name: /^Create/ }));

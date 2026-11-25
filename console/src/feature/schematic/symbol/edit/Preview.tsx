@@ -65,8 +65,11 @@ interface PreviewProps {
   selectedHandle?: string;
   /** selectedPart is the part whose shapes the preview marks. */
   selectedPart?: string;
-  /** count is the place of the click in a double click, as in MouseEvent.detail. */
-  onElementClick: (selector: string, count: number) => void;
+  /** onElementClick receives the markup with a name on the clicked shape. */
+  onElementClick: (
+    shape: Schematic.Node.Region.Named,
+    click: Pick<MouseEvent, "detail" | "altKey">,
+  ) => void;
   onContentsChange: (contents: string) => void;
   onHandleSelect: (handleKey: string) => void;
   onHandlePlace: (handleKey: string, position: { x: number; y: number }) => void;
@@ -213,9 +216,7 @@ export const Preview = ({
         // Shift+drag pans the preview.
         if (e.shiftKey) return;
         const markup = form.get(path.data.drawing.markup).value;
-        const named = Schematic.Node.Region.name(markup, drawing, el);
-        if (named.markup !== markup) form.set(path.data.drawing.markup, named.markup);
-        onElementClick(named.selector, e.detail);
+        onElementClick(Schematic.Node.Region.name(markup, drawing, el), e);
       });
 
       // The spans of a text are part of its shape, so their clicks reach the text.

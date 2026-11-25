@@ -33,9 +33,8 @@ describe("Form.States", () => {
   let prompt: Mock<Enumeration.CreatePrompt>;
   beforeEach(() => {
     prompt = vi.fn(
-      async ({ entries }) =>
-        (await client.enumerations.create({ name: `Created ${id.create()}`, entries }))
-          .key,
+      async () =>
+        (await client.enumerations.create({ name: `Created ${id.create()}` })).key,
     );
   });
   const createWrapper = async (as: Synnax = client): Promise<FC<PropsWithChildren>> => {
@@ -146,7 +145,6 @@ describe("Form.States", () => {
       const c = renderStates();
       await openCreate(c);
       const e = await created(c.value);
-      expect(prompt).toHaveBeenCalledWith(expect.objectContaining({ entries: [] }));
       expect(e.entries).toEqual([]);
       await waitFor(() =>
         expect(document.activeElement).toBe(
@@ -233,7 +231,7 @@ describe("Form.States", () => {
       const c = renderStates({ enumeration: linked.key, label: { label: "Pump" } });
       await openCreate(c);
       const e = await created(c.value, linked.key);
-      expect(prompt).toHaveBeenCalledWith({ name: "", entries: [] });
+      expect(prompt).toHaveBeenCalledWith({ name: "" });
       expect(e.entries).toEqual([]);
       await waitFor(() =>
         expect(document.activeElement).toBe(
