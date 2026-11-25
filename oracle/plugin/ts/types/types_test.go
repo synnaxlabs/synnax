@@ -704,6 +704,66 @@ var _ = Describe("TS Types Plugin", func() {
 			},
 		)
 
+		It("Should generate an exclusion as a Zod enum of the kept members", func() {
+			source := `
+				@ts output "out"
+
+				DataType enum {
+					float64 = "float64"
+					int16   = "int16"
+					json    = "json"
+				}
+
+				Numeric enum of DataType omit {
+					json
+				}
+			`
+			table, diag := Analyze(source, "modbus", loader)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			resp := MustSucceed(
+				typesPlugin.Generate(&plugin.Request{Resolutions: table}),
+			)
+			Expect(string(resp.Files[0].Content)).To(ContainSubstring(
+				`export const NUMERICS = ["float64", "int16"] as const`,
+			))
+		})
+
+		It(
+			"Should generate a narrowing enum as a Zod enum of the kept members",
+			func() {
+				source := `
+				@ts output "out"
+
+				DataType enum {
+					float64 = "float64"
+					int16   = "int16"
+					json    = "json"
+
+					@ts omit
+				}
+
+				RegisterType enum of DataType {
+					int16
+					float64
+				}
+			`
+				table, diag := Analyze(source, "modbus", loader)
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+
+				resp := MustSucceed(
+					typesPlugin.Generate(&plugin.Request{Resolutions: table}),
+				)
+				content := string(resp.Files[0].Content)
+				Expect(content).To(ContainSubstring(
+					`export const REGISTER_TYPES = ["int16", "float64"] as const`,
+				))
+				Expect(content).To(ContainSubstring(
+					`export const registerTypeZ = z.enum(REGISTER_TYPES)`,
+				))
+				Expect(content).ToNot(ContainSubstring(`json`))
+			},
+		)
+
 		Context("primitive type mappings", func() {
 			DescribeTable("should generate correct Zod schema",
 				func(oracleType, expectedZodType string) {

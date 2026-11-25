@@ -13,30 +13,55 @@ import (
 	"context"
 	"strconv"
 
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/icd"
+	icdv0 "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/icd/write"
+	v1 "github.com/synnaxlabs/synnax/pkg/service/kafka/versions/v1"
 	"github.com/synnaxlabs/x/content"
 	"github.com/synnaxlabs/x/validate"
 )
 
-// writeResolver checks write configs against the ICDs and channels that they write.
-type writeResolver struct{ writes write.Resolver }
+// writeResolver resolves write configs against the ICDs and channels that they write.
+type writeResolver struct {
+	icds     *icd.Service
+	channels icdv0.Channels
+	writes   write.Resolver
+	ins      alamos.Instrumentation
+}
 
-// resolve checks cfg, read through snap. A config holds channels or targets, not both,
-// and the message of each enabled target must build from its ICD and its channels.
-// resolve writes nothing.
+// resolve moves the inline channels of cfg into targets that send a new ICD named name,
+// then checks cfg, read through snap. A config holds channels or targets, not both, and
+// the message of each enabled target must build from its ICD and its channels. It
+// returns the write that creates the ICD, or nil when cfg holds no inline channels.
 func (r writeResolver) resolve(
 	ctx context.Context,
 	snap gorp.Snapshot,
-	_ string,
+	name string,
 	cfg *WriteConfig,
 ) (func(context.Context, gorp.Tx) error, error) {
+	ic, ok, err := v1.ResolveWriteConfig(
+		ctx, snap, r.channels, name, cfg, v1.NoteLift(r.ins, cfg.Key),
+	)
+	if err != nil {
+		return nil, err
+	}
 	if len(cfg.Channels) > 0 && len(cfg.Targets) > 0 {
 		return nil, validate.PathedError(
 			validate.Errorf("a task cannot have both channels and targets"), "targets",
 		)
 	}
-	return nil, r.writes.Check(ctx, snap, writesOf(cfg), nil)
+	icds := make(map[icd.Key]icd.ICD)
+	if ok {
+		icds[ic.Key] = ic
+	}
+	if err = r.writes.Check(ctx, snap, writesOf(cfg), icds); err != nil || !ok {
+		return nil, err
+	}
+	return func(ctx context.Context, tx gorp.Tx) error {
+		return r.icds.NewWriter(tx).Create(ctx, &ic)
+	}, nil
 }
 
 // hash writes to h the payload of the ICD message that each enabled target of cfg

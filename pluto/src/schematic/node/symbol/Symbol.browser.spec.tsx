@@ -14,7 +14,7 @@ import {
 } from "@synnaxlabs/client/testutil";
 import { ReactFlowProvider } from "@xyflow/react";
 import type { FC, PropsWithChildren } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { assert, describe, expect, it, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import { render } from "vitest-browser-react";
 import type { z } from "zod";
@@ -160,6 +160,26 @@ describe("Symbol node", () => {
   it("should keep the stroke width of a custom drawing", async () => {
     const lamp = await renderLamp();
     expect(getComputedStyle(lamp).strokeWidth).toBe("1px");
+  });
+
+  it("should draw a copy of a built-in as wide as the built-in", async () => {
+    const client = createTestClient();
+    const data = Node.BUILT_INS.get("ball_valve");
+    assert(data != null);
+    const copy = await client.schematics.symbols.create({ name: "Ball (copy)", data });
+    const Wrapper = await createAsyncSynnaxWrapper({
+      client,
+      additionalRegistry: symbolNode.REGISTRY,
+    });
+    const widthOf = async (spec: Config["spec"]) => {
+      const { container } = await renderNode(Wrapper, { spec });
+      const circle = await vi.waitUntil(() => container.querySelector("circle"));
+      return getComputedStyle(circle).strokeWidth;
+    };
+    expect([
+      await widthOf({ type: "custom", key: copy.key }),
+      await widthOf({ type: "builtin", name: "ball_valve" }),
+    ]).toEqual(["2px", "2px"]);
   });
 
   it("should ask which command to send while its state is unknown", async () => {
