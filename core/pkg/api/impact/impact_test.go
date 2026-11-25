@@ -199,6 +199,21 @@ var _ = Describe("Routes", Ordered, func() {
 		Expect(exists(ctx, ch)).To(BeTrue())
 	})
 
+	It("Should name the record that the subject named in a retrieve denial", func(
+		ctx SpecContext,
+	) {
+		ch := createChannel(ctx)
+		u := createUser(ctx)
+		Expect(apply(AuthedCtx(ctx, u), apiimpact.ApplyRequest{Change: deleteOf(ch)})).
+			Error().To(And(
+			MatchError(access.ErrDenied),
+			MatchError(ContainSubstring(
+				"cannot retrieve %s",
+				channel.ResourceID(ch),
+			)),
+		))
+	})
+
 	It("Should refuse a hidden delete with a denial that names no record", func(
 		ctx SpecContext,
 	) {
