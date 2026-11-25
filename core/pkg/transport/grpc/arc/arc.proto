@@ -29,6 +29,10 @@ service ArcDeleteService {
   rpc Exec(DeleteRequest) returns (google.protobuf.Empty) {}
 }
 
+service ArcCalculationsService {
+  rpc Exec(CalculationsRequest) returns (CalculationsResponse) {}
+}
+
 message CreateRequest {
   repeated service.arc.pb.Arc arcs = 1;
 }
@@ -45,4 +49,13 @@ message RetrieveRequest {
 
 message DeleteRequest {
   repeated string keys = 1;
+}
+
+message CalculationsRequest {
+  repeated uint32 channels = 1;
+}
+
+message CalculationsResponse {
+  repeated service.arc.pb.Calculation calculations = 1;
+  repeated uint32 channels = 2;
 }

@@ -209,6 +209,102 @@ func (x *DeleteRequest) GetKeys() []string {
 	return nil
 }
 
+type CalculationsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Channels      []uint32               `protobuf:"varint,1,rep,packed,name=channels,proto3" json:"channels,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CalculationsRequest) Reset() {
+	*x = CalculationsRequest{}
+	mi := &file_core_pkg_transport_grpc_arc_arc_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CalculationsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CalculationsRequest) ProtoMessage() {}
+
+func (x *CalculationsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_transport_grpc_arc_arc_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CalculationsRequest.ProtoReflect.Descriptor instead.
+func (*CalculationsRequest) Descriptor() ([]byte, []int) {
+	return file_core_pkg_transport_grpc_arc_arc_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *CalculationsRequest) GetChannels() []uint32 {
+	if x != nil {
+		return x.Channels
+	}
+	return nil
+}
+
+type CalculationsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Calculations  []*pb.Calculation      `protobuf:"bytes,1,rep,name=calculations,proto3" json:"calculations,omitempty"`
+	Channels      []uint32               `protobuf:"varint,2,rep,packed,name=channels,proto3" json:"channels,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CalculationsResponse) Reset() {
+	*x = CalculationsResponse{}
+	mi := &file_core_pkg_transport_grpc_arc_arc_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CalculationsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CalculationsResponse) ProtoMessage() {}
+
+func (x *CalculationsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_transport_grpc_arc_arc_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CalculationsResponse.ProtoReflect.Descriptor instead.
+func (*CalculationsResponse) Descriptor() ([]byte, []int) {
+	return file_core_pkg_transport_grpc_arc_arc_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *CalculationsResponse) GetCalculations() []*pb.Calculation {
+	if x != nil {
+		return x.Calculations
+	}
+	return nil
+}
+
+func (x *CalculationsResponse) GetChannels() []uint32 {
+	if x != nil {
+		return x.Channels
+	}
+	return nil
+}
+
 var File_core_pkg_transport_grpc_arc_arc_proto protoreflect.FileDescriptor
 
 const file_core_pkg_transport_grpc_arc_arc_proto_rawDesc = "" +
@@ -221,13 +317,20 @@ const file_core_pkg_transport_grpc_arc_arc_proto_rawDesc = "" +
 	"\x0fRetrieveRequest\x125\n" +
 	"\arequest\x18\b \x01(\v2\x1b.api.arc.pb.RetrieveRequestR\arequestJ\x04\b\x01\x10\x02J\x04\b\x02\x10\x03J\x04\b\x03\x10\x04J\x04\b\x04\x10\x05J\x04\b\x05\x10\x06J\x04\b\x06\x10\aJ\x04\b\a\x10\bR\x04keysR\x05namesR\vsearch_termR\x05limitR\x06offsetR\x0einclude_statusR\acompile\"#\n" +
 	"\rDeleteRequest\x12\x12\n" +
-	"\x04keys\x18\x01 \x03(\tR\x04keys2O\n" +
+	"\x04keys\x18\x01 \x03(\tR\x04keys\"1\n" +
+	"\x13CalculationsRequest\x12\x1a\n" +
+	"\bchannels\x18\x01 \x03(\rR\bchannels\"s\n" +
+	"\x14CalculationsResponse\x12?\n" +
+	"\fcalculations\x18\x01 \x03(\v2\x1b.service.arc.pb.CalculationR\fcalculations\x12\x1a\n" +
+	"\bchannels\x18\x02 \x03(\rR\bchannels2O\n" +
 	"\x10ArcCreateService\x12;\n" +
 	"\x04Exec\x12\x17.grpc.arc.CreateRequest\x1a\x18.grpc.arc.CreateResponse\"\x002W\n" +
 	"\x12ArcRetrieveService\x12A\n" +
 	"\x04Exec\x12\x19.grpc.arc.RetrieveRequest\x1a\x1c.api.arc.pb.RetrieveResponse\"\x002M\n" +
 	"\x10ArcDeleteService\x129\n" +
-	"\x04Exec\x12\x17.grpc.arc.DeleteRequest\x1a\x16.google.protobuf.Empty\"\x00B\x8e\x01\n" +
+	"\x04Exec\x12\x17.grpc.arc.DeleteRequest\x1a\x16.google.protobuf.Empty\"\x002a\n" +
+	"\x16ArcCalculationsService\x12G\n" +
+	"\x04Exec\x12\x1d.grpc.arc.CalculationsRequest\x1a\x1e.grpc.arc.CalculationsResponse\"\x00B\x8e\x01\n" +
 	"\fcom.grpc.arcB\bArcProtoP\x01Z3github.com/synnaxlabs/synnax/pkg/transport/grpc/arc\xa2\x02\x03GAX\xaa\x02\bGrpc.Arc\xca\x02\bGrpc\\Arc\xe2\x02\x14Grpc\\Arc\\GPBMetadata\xea\x02\tGrpc::Arcb\x06proto3"
 
 var (
@@ -242,32 +345,38 @@ func file_core_pkg_transport_grpc_arc_arc_proto_rawDescGZIP() []byte {
 	return file_core_pkg_transport_grpc_arc_arc_proto_rawDescData
 }
 
-var file_core_pkg_transport_grpc_arc_arc_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
+var file_core_pkg_transport_grpc_arc_arc_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
 var file_core_pkg_transport_grpc_arc_arc_proto_goTypes = []any{
 	(*CreateRequest)(nil),        // 0: grpc.arc.CreateRequest
 	(*CreateResponse)(nil),       // 1: grpc.arc.CreateResponse
 	(*RetrieveRequest)(nil),      // 2: grpc.arc.RetrieveRequest
 	(*DeleteRequest)(nil),        // 3: grpc.arc.DeleteRequest
-	(*pb.Arc)(nil),               // 4: service.arc.pb.Arc
-	(*pb1.RetrieveRequest)(nil),  // 5: api.arc.pb.RetrieveRequest
-	(*pb1.RetrieveResponse)(nil), // 6: api.arc.pb.RetrieveResponse
-	(*emptypb.Empty)(nil),        // 7: google.protobuf.Empty
+	(*CalculationsRequest)(nil),  // 4: grpc.arc.CalculationsRequest
+	(*CalculationsResponse)(nil), // 5: grpc.arc.CalculationsResponse
+	(*pb.Arc)(nil),               // 6: service.arc.pb.Arc
+	(*pb1.RetrieveRequest)(nil),  // 7: api.arc.pb.RetrieveRequest
+	(*pb.Calculation)(nil),       // 8: service.arc.pb.Calculation
+	(*pb1.RetrieveResponse)(nil), // 9: api.arc.pb.RetrieveResponse
+	(*emptypb.Empty)(nil),        // 10: google.protobuf.Empty
 }
 var file_core_pkg_transport_grpc_arc_arc_proto_depIdxs = []int32{
-	4, // 0: grpc.arc.CreateRequest.arcs:type_name -> service.arc.pb.Arc
-	4, // 1: grpc.arc.CreateResponse.arcs:type_name -> service.arc.pb.Arc
-	5, // 2: grpc.arc.RetrieveRequest.request:type_name -> api.arc.pb.RetrieveRequest
-	0, // 3: grpc.arc.ArcCreateService.Exec:input_type -> grpc.arc.CreateRequest
-	2, // 4: grpc.arc.ArcRetrieveService.Exec:input_type -> grpc.arc.RetrieveRequest
-	3, // 5: grpc.arc.ArcDeleteService.Exec:input_type -> grpc.arc.DeleteRequest
-	1, // 6: grpc.arc.ArcCreateService.Exec:output_type -> grpc.arc.CreateResponse
-	6, // 7: grpc.arc.ArcRetrieveService.Exec:output_type -> api.arc.pb.RetrieveResponse
-	7, // 8: grpc.arc.ArcDeleteService.Exec:output_type -> google.protobuf.Empty
-	6, // [6:9] is the sub-list for method output_type
-	3, // [3:6] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	3, // [3:3] is the sub-list for extension extendee
-	0, // [0:3] is the sub-list for field type_name
+	6,  // 0: grpc.arc.CreateRequest.arcs:type_name -> service.arc.pb.Arc
+	6,  // 1: grpc.arc.CreateResponse.arcs:type_name -> service.arc.pb.Arc
+	7,  // 2: grpc.arc.RetrieveRequest.request:type_name -> api.arc.pb.RetrieveRequest
+	8,  // 3: grpc.arc.CalculationsResponse.calculations:type_name -> service.arc.pb.Calculation
+	0,  // 4: grpc.arc.ArcCreateService.Exec:input_type -> grpc.arc.CreateRequest
+	2,  // 5: grpc.arc.ArcRetrieveService.Exec:input_type -> grpc.arc.RetrieveRequest
+	3,  // 6: grpc.arc.ArcDeleteService.Exec:input_type -> grpc.arc.DeleteRequest
+	4,  // 7: grpc.arc.ArcCalculationsService.Exec:input_type -> grpc.arc.CalculationsRequest
+	1,  // 8: grpc.arc.ArcCreateService.Exec:output_type -> grpc.arc.CreateResponse
+	9,  // 9: grpc.arc.ArcRetrieveService.Exec:output_type -> api.arc.pb.RetrieveResponse
+	10, // 10: grpc.arc.ArcDeleteService.Exec:output_type -> google.protobuf.Empty
+	5,  // 11: grpc.arc.ArcCalculationsService.Exec:output_type -> grpc.arc.CalculationsResponse
+	8,  // [8:12] is the sub-list for method output_type
+	4,  // [4:8] is the sub-list for method input_type
+	4,  // [4:4] is the sub-list for extension type_name
+	4,  // [4:4] is the sub-list for extension extendee
+	0,  // [0:4] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_transport_grpc_arc_arc_proto_init() }
@@ -281,9 +390,9 @@ func file_core_pkg_transport_grpc_arc_arc_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_pkg_transport_grpc_arc_arc_proto_rawDesc), len(file_core_pkg_transport_grpc_arc_arc_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   4,
+			NumMessages:   6,
 			NumExtensions: 0,
-			NumServices:   3,
+			NumServices:   4,
 		},
 		GoTypes:           file_core_pkg_transport_grpc_arc_arc_proto_goTypes,
 		DependencyIndexes: file_core_pkg_transport_grpc_arc_arc_proto_depIdxs,

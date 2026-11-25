@@ -19,18 +19,27 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/arc"
 	"github.com/synnaxlabs/synnax/pkg/api/arc/pb"
 	arcpb "github.com/synnaxlabs/synnax/pkg/service/arc/pb"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/errors"
 	xpb "github.com/synnaxlabs/x/pb"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type (
-	createRequestTranslator    struct{}
-	createResponseTranslator   struct{}
-	retrieveRequestTranslator  struct{}
-	retrieveResponseTranslator struct{}
-	deleteRequestTranslator    struct{}
-	createServer               = grpc.UnaryServer[
+	createRequestTranslator        struct{}
+	createResponseTranslator       struct{}
+	retrieveRequestTranslator      struct{}
+	retrieveResponseTranslator     struct{}
+	deleteRequestTranslator        struct{}
+	calculationsRequestTranslator  struct{}
+	calculationsResponseTranslator struct{}
+	calculationsServer             = grpc.UnaryServer[
+		arc.CalculationsRequest,
+		*CalculationsRequest,
+		arc.CalculationsResponse,
+		*CalculationsResponse,
+	]
+	createServer = grpc.UnaryServer[
 		arc.CreateRequest,
 		*CreateRequest,
 		arc.CreateResponse,
@@ -64,6 +73,12 @@ var (
 		nil,
 	)
 	_ grpc.Translator[arc.DeleteRequest, *DeleteRequest] = (*deleteRequestTranslator)(
+		nil,
+	)
+	_ grpc.Translator[arc.CalculationsRequest, *CalculationsRequest] = (*calculationsRequestTranslator)(
+		nil,
+	)
+	_ grpc.Translator[arc.CalculationsResponse, *CalculationsResponse] = (*calculationsResponseTranslator)(
 		nil,
 	)
 )
@@ -170,6 +185,50 @@ func (deleteRequestTranslator) Backward(
 	return arc.DeleteRequest{Keys: keys}, nil
 }
 
+func (calculationsRequestTranslator) Forward(
+	_ context.Context,
+	msg arc.CalculationsRequest,
+) (*CalculationsRequest, error) {
+	return &CalculationsRequest{Channels: msg.Channels.Uint32()}, nil
+}
+
+func (calculationsRequestTranslator) Backward(
+	_ context.Context,
+	msg *CalculationsRequest,
+) (arc.CalculationsRequest, error) {
+	return arc.CalculationsRequest{
+		Channels: channel.KeysFromUint32(msg.Channels),
+	}, nil
+}
+
+func (calculationsResponseTranslator) Forward(
+	_ context.Context,
+	msg arc.CalculationsResponse,
+) (*CalculationsResponse, error) {
+	calculations, err := arcpb.CalculationsToPB(msg.Calculations)
+	if err != nil {
+		return nil, err
+	}
+	return &CalculationsResponse{
+		Calculations: calculations,
+		Channels:     msg.Channels.Uint32(),
+	}, nil
+}
+
+func (calculationsResponseTranslator) Backward(
+	_ context.Context,
+	msg *CalculationsResponse,
+) (arc.CalculationsResponse, error) {
+	calculations, err := arcpb.CalculationsFromPB(msg.Calculations)
+	if err != nil {
+		return arc.CalculationsResponse{}, err
+	}
+	return arc.CalculationsResponse{
+		Calculations: calculations,
+		Channels:     channel.KeysFromUint32(msg.Channels),
+	}, nil
+}
+
 func New(t *api.Transport, errs *errors.Codec) grpc.BindableTransport {
 	c := &createServer{
 		RequestTranslator:  createRequestTranslator{},
@@ -189,8 +248,15 @@ func New(t *api.Transport, errs *errors.Codec) grpc.BindableTransport {
 		ServiceDesc:        &ArcDeleteService_ServiceDesc,
 		Errors:             errs,
 	}
+	calc := &calculationsServer{
+		RequestTranslator:  calculationsRequestTranslator{},
+		ResponseTranslator: calculationsResponseTranslator{},
+		ServiceDesc:        &ArcCalculationsService_ServiceDesc,
+		Errors:             errs,
+	}
 	t.ArcCreate = c
 	t.ArcRetrieve = r
 	t.ArcDelete = d
-	return grpc.CompoundBindableTransport{c, r, d}
+	t.ArcCalculations = calc
+	return grpc.CompoundBindableTransport{c, r, d, calc}
 }

@@ -37,6 +37,20 @@ using RetrieveClient = freighter::
 using DeleteClient = freighter::
     UnaryClient<grpc::arc::DeleteRequest, google::protobuf::Empty>;
 
+/// @brief Freighter client for compiling the calculations that channels read.
+using CalculationsClient = freighter::
+    UnaryClient<grpc::arc::CalculationsRequest, grpc::arc::CalculationsResponse>;
+
+/// @brief the calculated channels that a program reads, compiled.
+struct Calculations {
+    /// @brief the calculated channels that the program reads, nested ones included,
+    /// dependencies first.
+    std::vector<Calculation> calculations;
+    /// @brief every channel that the Core read to compile the calculations, including
+    /// the ones that it left out. A change to any of them can change the calculations.
+    std::vector<channel::Key> channels;
+};
+
 /// @brief Client for managing Arc automation programs in a Synnax cluster.
 /// @details Provides methods to create, retrieve, and delete Arc programs.
 /// Arc programs can contain visual graph representations and/or text-based source code.
@@ -49,10 +63,12 @@ public:
     /// @param retrieve_client Client for retrieving Arc programs.
     /// @param create_client Client for creating Arc programs.
     /// @param delete_client Client for deleting Arc programs.
+    /// @param calculations_client Client for compiling calculations.
     Client(
         std::shared_ptr<RetrieveClient> retrieve_client,
         std::shared_ptr<CreateClient> create_client,
-        std::shared_ptr<DeleteClient> delete_client
+        std::shared_ptr<DeleteClient> delete_client,
+        std::shared_ptr<CalculationsClient> calculations_client
     );
 
     /// @brief Creates a new Arc program in the Synnax cluster.
@@ -137,6 +153,13 @@ public:
     /// @returns An error if the Arc programs could not be deleted.
     [[nodiscard]] x::errors::Error del(const std::vector<x::uuid::UUID> &keys) const;
 
+    /// @brief compiles the calculated channels that a program reading channels needs.
+    /// @param channels the keys of the channels that the program reads.
+    /// @returns the calculations, and an error that matches access denied when the
+    /// subject cannot retrieve one of the channels.
+    [[nodiscard]] std::pair<Calculations, x::errors::Error>
+    calculations(const std::vector<channel::Key> &channels) const;
+
 private:
     /// @brief Client for retrieving Arc programs.
     std::shared_ptr<RetrieveClient> retrieve_client;
@@ -146,6 +169,9 @@ private:
 
     /// @brief Client for deleting Arc programs.
     std::shared_ptr<DeleteClient> delete_client;
+
+    /// @brief Client for compiling calculations.
+    std::shared_ptr<CalculationsClient> calculations_client;
 };
 
 }

@@ -85,6 +85,10 @@ var (
 		apiarcdirectory.RetrieveRequest,
 		apiarcdirectory.RetrieveResponse,
 	]
+	calculations freighter.UnaryHandler[
+		apiarc.CalculationsRequest,
+		apiarc.CalculationsResponse,
+	]
 	author   user.User
 	rackSvc  *rack.Service
 	testRack *rack.Rack
@@ -133,6 +137,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	deleteDirectory = bind.Write(binder, apiSvc.DeleteDirectory)
 	retrieve = apiSvc.Compiled(bind.Read(binder, apiSvc.Retrieve))
 	retrieveDirectories = bind.Read(binder, apiSvc.RetrieveDirectories)
+	calculations = bind.Read(binder, apiSvc.Calculations)
 	var r directory.Directory
 	Expect(arcSvc.NewDirectoryRetrieve().
 		Where(directory.MatchNested(false)).

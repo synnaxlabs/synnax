@@ -11,7 +11,9 @@ package arc
 
 import (
 	"context"
+	"slices"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	arclang "github.com/synnaxlabs/arc"
 	arctransport "github.com/synnaxlabs/arc/lsp/transport"
@@ -487,34 +489,73 @@ func (s *Service) compile(ctx context.Context, a *Arc) error {
 	if err != nil {
 		return err
 	}
-	calculations, err := channel.RetryChanged(ctx, func() ([]arc.Calculation, error) {
-		return s.compileCalculations(ctx, prog)
-	})
-	if err != nil {
-		return err
-	}
-	automation.Program = &prog
-	automation.Calculations = calculations
-	a.Variant = automation
-	return nil
-}
-
-// compileCalculations compiles the calculated channels that prog reads and the ones
-// they read in turn, dependencies first. It leaves out a channel whose expression fails
-// analysis or that reads itself through other channels, and each channel that reads
-// it. The Core cannot compute such a channel either.
-func (s *Service) compileCalculations(
-	ctx context.Context,
-	prog arclang.Program,
-) ([]arc.Calculation, error) {
 	reads := make(set.Set[channel.Key])
 	for _, n := range prog.Nodes {
 		for key := range n.Channels.Read {
 			reads.Add(channel.Key(key))
 		}
 	}
+	compiled, err := channel.RetryChanged(ctx, func() (CalculationsResponse, error) {
+		return s.compileCalculations(ctx, reads)
+	})
+	if err != nil {
+		return err
+	}
+	automation.Program = &prog
+	automation.Calculations = compiled.Calculations
+	a.Variant = automation
+	return nil
+}
+
+// CalculationsRequest selects the calculated channels that a program reads.
+type CalculationsRequest struct {
+	// Channels are the keys of the channels that the program reads.
+	Channels channel.Keys `json:"channels" msgpack:"channels"`
+}
+
+var _ bind.Named = CalculationsRequest{}
+
+// Named implements bind.Named. The subject needs retrieve on each channel.
+func (r CalculationsRequest) Named() []resource.ID {
+	return lo.Map(r.Channels, func(k channel.Key, _ int) resource.ID {
+		return channel.ResourceID(k)
+	})
+}
+
+// CalculationsResponse holds the calculated channels that a program reads, compiled.
+type CalculationsResponse struct {
+	// Calculations are the calculated channels that the program reads, nested ones
+	// included, dependencies first.
+	Calculations []arc.Calculation `json:"calculations" msgpack:"calculations"`
+	// Channels are the keys of every channel that the Core read to compile the
+	// calculations, including the ones that it left out. A change to any of them can
+	// change the calculations.
+	Channels channel.Keys `json:"channels" msgpack:"channels"`
+}
+
+// Calculations compiles the calculated channels that a program that reads req.Channels
+// needs, as compile does for an automation.
+func (s *Service) Calculations(
+	ctx context.Context,
+	_ bind.Snapshot,
+	req CalculationsRequest,
+) (CalculationsResponse, error) {
+	reads := set.New(req.Channels...)
+	return channel.RetryChanged(ctx, func() (CalculationsResponse, error) {
+		return s.compileCalculations(ctx, reads)
+	})
+}
+
+// compileCalculations compiles the calculated channels in reads and the ones they read
+// in turn, dependencies first. It leaves out a channel whose expression fails analysis
+// or that reads itself through other channels, and each channel that reads it. The
+// Core cannot compute such a channel either.
+func (s *Service) compileCalculations(
+	ctx context.Context,
+	reads set.Set[channel.Key],
+) (CalculationsResponse, error) {
 	if len(reads) == 0 {
-		return nil, nil
+		return CalculationsResponse{}, nil
 	}
 	var channels []channel.Channel
 	if err := s.db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
@@ -523,7 +564,7 @@ func (s *Service) compileCalculations(
 			Where(channel.MatchKeys(reads.Slice()...)).
 			Exec(ctx, snap)
 	}); err != nil {
-		return nil, err
+		return CalculationsResponse{}, err
 	}
 	g, err := graph.New(graph.Config{
 		Instrumentation: s.Instrumentation,
@@ -531,7 +572,7 @@ func (s *Service) compileCalculations(
 		DB:              s.db,
 	})
 	if err != nil {
-		return nil, err
+		return CalculationsResponse{}, err
 	}
 	for _, ch := range channels {
 		if !ch.IsCalculated() {
@@ -540,15 +581,22 @@ func (s *Service) compileCalculations(
 		err = g.Add(ctx, ch)
 		_, invalid := errors.AsType[*diagnostics.Diagnostics](err)
 		if err != nil && !invalid && !errors.Is(err, graph.ErrCycle) {
-			return nil, err
+			return CalculationsResponse{}, err
 		}
 	}
 	modules := g.CalculateFlat()
-	calculations := make([]arc.Calculation, len(modules))
-	for i, m := range modules {
-		calculations[i] = arc.Calculation{Channel: m.Channel.Key(), Program: m.Program}
+	res := CalculationsResponse{
+		Calculations: make([]arc.Calculation, len(modules)),
+		Channels:     g.Examined().Slice(),
 	}
-	return calculations, nil
+	for i, m := range modules {
+		res.Calculations[i] = arc.Calculation{
+			Channel: m.Channel.Key(),
+			Program: m.Program,
+		}
+	}
+	slices.Sort(res.Channels)
+	return res, nil
 }
 
 // compileText compiles t against root, reporting parse and analysis failures as a
