@@ -458,7 +458,8 @@ var _ = Describe("Actuate", func() {
 			Enumeration: &e,
 			Match:       within,
 		}}}))
-		Expect(in.States[0].Variant.(v5.EnumerationState).Match).
-			To(Equal(v5.Matcher{Variant: v5.ExactMatcher{}}))
+		st, ok := in.States[0].Variant.(v5.EnumerationState)
+		Expect(ok).To(BeTrue())
+		Expect(st.Match).To(Equal(v5.Matcher{Variant: v5.ExactMatcher{}}))
 	})
 })

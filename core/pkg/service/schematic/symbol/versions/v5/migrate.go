@@ -221,18 +221,18 @@ func (m *specMigration) addLook(part string, value float64, r v4.Region) {
 // match within 0.9 and 1.1.
 func Actuate(spec Spec) Spec {
 	spec.States = slices.Clone(spec.States)
+	st := EnumerationState{Key: activeState, Name: "Active"}
 	i := slices.IndexFunc(spec.States, func(s State) bool {
-		st, ok := s.Variant.(EnumerationState)
-		return ok && st.Key == activeState
+		e, ok := s.Variant.(EnumerationState)
+		if ok && e.Key == activeState {
+			st = e
+		}
+		return ok && e.Key == activeState
 	})
 	if i < 0 {
 		i = len(spec.States)
-		spec.States = append(spec.States, State{Variant: EnumerationState{
-			Key:  activeState,
-			Name: "Active",
-		}})
+		spec.States = append(spec.States, State{})
 	}
-	st := spec.States[i].Variant.(EnumerationState)
 	st.Match = Matcher{
 		Variant: WithinMatcher{Bounds: spatial.Bounds{Lower: 0.9, Upper: 1.1}},
 	}
