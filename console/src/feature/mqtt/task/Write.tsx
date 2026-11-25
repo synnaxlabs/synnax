@@ -17,7 +17,7 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import type { Tree } from "@synnaxlabs/lyra/tree";
 import { Synnax as PSynnax } from "@synnaxlabs/pluto";
-import { deep, id, primitive } from "@synnaxlabs/x";
+import { deep, id, primitive, unique } from "@synnaxlabs/x";
 import {
   type Dispatch,
   type FC,
@@ -309,14 +309,14 @@ const Targets = ({ device, selected, onSelect, expanded, onExpand }: TargetsProp
       });
       made.push(...messages.map((message) => ({ icd: key, message })));
     }
-    const added = additions.map((a) =>
+    const created = additions.map((a) =>
       isDraft(a)
         ? createPlainTarget(a.topic, a.format ?? made[inferred.indexOf(a)])
         : a,
     );
-    list.push(added);
-    onSelect([added[0].key]);
-    tree.expand(added[0].key);
+    list.push(created);
+    onSelect([created[0].key]);
+    onExpand((prev) => unique.unique([...prev, ...ICD.Write.expandedOf(created)]));
   };
   // Adds run one at a time, so a second click cannot make a second ICD.
   const addExclusive = useExclusiveCallback(add);

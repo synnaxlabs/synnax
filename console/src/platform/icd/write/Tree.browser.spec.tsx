@@ -316,6 +316,14 @@ describe("ICD.Write.useTree", () => {
     });
   });
 
+  it("should offer no Duplicate on a field at the whole document", async () => {
+    const value = icd.jsonFieldZ.parse({ name: "value", pointer: "", type: "float" });
+    await renderTargets(["a"], [value]);
+    fireEvent.contextMenu(await screen.findByRole("treeitem", { name: /^value/ }));
+    expect(await screen.findByText("Remove")).toBeTruthy();
+    expect(screen.queryByText("Duplicate")).toBeNull();
+  });
+
   it("should add a field to a target from its menu, and select the field", async () => {
     await renderTargets(["a", "b"]);
     fireEvent.contextMenu(await screen.findByRole("treeitem", { name: /^Target t1/ }));

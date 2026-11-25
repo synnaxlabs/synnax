@@ -378,11 +378,13 @@ export const useTree = <T extends Target>({
     });
     if (fields.length > 0) {
       const onlyFields = fields.length === keys.length;
+      // A field at the whole document leaves no pointer free for a copy.
+      const copyable = onlyFields && fields.every(({ field }) => field.pointer !== "");
       return (
         <Task.Views.ContextMenu
           keys={keys}
           onRemove={onlyFields ? () => removeFields(fields) : undefined}
-          onDuplicate={onlyFields ? () => duplicateFields(fields) : undefined}
+          onDuplicate={copyable ? () => duplicateFields(fields) : undefined}
         />
       );
     }
