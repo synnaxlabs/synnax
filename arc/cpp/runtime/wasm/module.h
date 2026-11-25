@@ -93,6 +93,84 @@ inline bool same_bits(const x::telem::DataType &data_type, const types::Type &ty
     return is_signed == (type.kind == types::Kind::I8 || type.kind == types::Kind::I16);
 }
 
+/// @brief returns the raw form of val, and its kind, as sample_to_wasm converts it.
+inline std::pair<wasmtime_val_raw_t, wasmtime::ValKind>
+sample_to_raw(const x::telem::SampleValue &val) {
+    wasmtime_val_raw_t raw{};
+    return std::visit(
+        [&raw]<typename T0>(const T0 &arg) {
+            using T = std::decay_t<T0>;
+            if constexpr (std::is_same_v<T, double>) {
+                raw.f64 = arg;
+                return std::pair{raw, wasmtime::ValKind::F64};
+            } else if constexpr (std::is_same_v<T, float>) {
+                raw.f32 = arg;
+                return std::pair{raw, wasmtime::ValKind::F32};
+            } else if constexpr (
+                std::is_same_v<T, int64_t> || std::is_same_v<T, uint64_t>
+            ) {
+                raw.i64 = static_cast<int64_t>(arg);
+                return std::pair{raw, wasmtime::ValKind::I64};
+            } else if constexpr (std::is_same_v<T, x::telem::TimeStamp>) {
+                raw.i64 = arg.nanoseconds();
+                return std::pair{raw, wasmtime::ValKind::I64};
+            } else if constexpr (std::is_same_v<T, std::string>) {
+                raw.i32 = 0;
+                return std::pair{raw, wasmtime::ValKind::I32};
+            } else {
+                raw.i32 = static_cast<int32_t>(arg);
+                return std::pair{raw, wasmtime::ValKind::I32};
+            }
+        },
+        val
+    );
+}
+
+/// @brief returns the raw form of a guest value.
+inline wasmtime_val_raw_t wasm_to_raw(const wasmtime::Val &val) {
+    wasmtime_val_raw_t raw{};
+    switch (val.kind()) {
+        case wasmtime::ValKind::I32:
+            raw.i32 = val.i32();
+            break;
+        case wasmtime::ValKind::I64:
+            raw.i64 = val.i64();
+            break;
+        case wasmtime::ValKind::F32:
+            raw.f32 = val.f32();
+            break;
+        case wasmtime::ValKind::F64:
+            raw.f64 = val.f64();
+            break;
+        default:
+            break;
+    }
+    return raw;
+}
+
+/// @brief returns the bits of a raw guest value of the given kind, zero-extended to
+/// 64 bits.
+inline uint64_t raw_bits(const wasmtime_val_raw_t &raw, const wasmtime::ValKind kind) {
+    uint64_t bits = 0;
+    switch (kind) {
+        case wasmtime::ValKind::I32:
+            bits = static_cast<uint32_t>(raw.i32);
+            break;
+        case wasmtime::ValKind::F32:
+            std::memcpy(&bits, &raw.f32, sizeof(raw.f32));
+            break;
+        case wasmtime::ValKind::I64:
+            bits = static_cast<uint64_t>(raw.i64);
+            break;
+        case wasmtime::ValKind::F64:
+            std::memcpy(&bits, &raw.f64, sizeof(raw.f64));
+            break;
+        default:
+            break;
+    }
+    return bits;
+}
+
 /// @brief Convert SampleValue to wasmtime::Val for WASM function calls.
 inline wasmtime::Val sample_to_wasm(const x::telem::SampleValue &val) {
     return std::visit(
@@ -598,6 +676,62 @@ public:
         std::vector<wasmtime::Val> args;
         std::vector<uint32_t> offsets;
         std::optional<Batch> batch_call;
+        /// @brief the guest kind of each param, then of each result.
+        std::vector<wasmtime::ValKind> params;
+        std::vector<wasmtime::ValKind> results;
+        /// @brief the args of a call, then its results, in place.
+        std::vector<wasmtime_val_raw_t> raw;
+
+        x::errors::Error call_checked(
+            const std::vector<x::telem::SampleValue> &input_vals,
+            std::vector<Result> &output_vals
+        ) {
+            for (size_t i = 0; i < input_vals.size(); i++)
+                if (this->streamed[i]) this->args[i] = sample_to_wasm(input_vals[i]);
+            auto result = fn.call(this->module.store, this->args);
+            if (!result) return this->module.call_error(result.err());
+            if (this->base != 0) return this->read_outputs(output_vals);
+            const auto values = result.ok();
+            if (!output_vals.empty() && !values.empty())
+                output_vals[0] = Result{
+                    .value = sample_from_wasm(values[0], this->outputs[0].type),
+                    .changed = true
+                };
+            return x::errors::NIL;
+        }
+
+        /// @brief reads the outputs a call with an output block wrote to memory.
+        x::errors::Error read_outputs(std::vector<Result> &output_vals) {
+            const auto mem_span = this->module.memory.data(this->module.store);
+            const uint8_t *mem_data = mem_span.data();
+            const size_t mem_size = mem_span.size();
+
+            if (this->base + sizeof(uint64_t) > mem_size)
+                return x::errors::Error(
+                    errors::WASM_TRAP,
+                    "The base address is out of memory bounds."
+                );
+
+            uint64_t dirty_flags = 0;
+            memcpy(&dirty_flags, mem_data + base, sizeof(uint64_t));
+            for (size_t i = 0; i < this->outputs.size(); i++) {
+                if ((dirty_flags & 1ULL << i) == 0) continue;
+                const auto &output = this->outputs[i];
+                const uint32_t offset = this->offsets[i];
+                const size_t byte_size = output.type.kind == types::Kind::String
+                                           ? 4
+                                           : output.type.density();
+                if (offset + byte_size > mem_size) continue;
+                uint64_t raw_value = 0;
+                memcpy(&raw_value, mem_data + offset, byte_size);
+                output_vals[i] = Result{
+                    .value = sample_from_bits(raw_value, output.type),
+                    .changed = true
+                };
+            }
+
+            return x::errors::NIL;
+        }
 
     public:
         Function(
@@ -606,13 +740,18 @@ public:
             const types::Params &outputs,
             const types::Params &inputs,
             const uint32_t base,
-            std::optional<Batch> batch = std::nullopt
+            std::optional<Batch> batch = std::nullopt,
+            std::vector<wasmtime::ValKind> params = {},
+            std::vector<wasmtime::ValKind> results = {}
         ):
             module(module),
             fn(fn),
             outputs(outputs),
             base(base),
-            batch_call(std::move(batch)) {
+            batch_call(std::move(batch)),
+            params(std::move(params)),
+            results(std::move(results)),
+            raw(std::max(this->params.size(), this->results.size())) {
             this->args.resize(inputs.size(), wasmtime::Val(0));
             this->streamed.assign(inputs.size(), false);
             // An input with a nil value is edge-fed and streams in call(); a literal
@@ -663,51 +802,52 @@ public:
         ) {
             output_vals.assign(this->outputs.size(), Result{});
 
-            for (size_t i = 0; i < input_vals.size(); i++)
-                if (this->streamed[i]) this->args[i] = sample_to_wasm(input_vals[i]);
+            // Wasmtime does not check the args of an unchecked call, so an arg of the
+            // wrong kind takes the checked call, which reports it.
+            if (this->args.size() != this->params.size())
+                return this->call_checked(input_vals, output_vals);
+            for (size_t i = 0; i < this->args.size(); i++) {
+                if (i < input_vals.size() && this->streamed[i]) {
+                    const auto [value, kind] = sample_to_raw(input_vals[i]);
+                    if (kind != this->params[i])
+                        return this->call_checked(input_vals, output_vals);
+                    this->raw[i] = value;
+                } else {
+                    if (this->args[i].kind() != this->params[i])
+                        return this->call_checked(input_vals, output_vals);
+                    this->raw[i] = wasm_to_raw(this->args[i]);
+                }
+            }
+            wasm_trap_t *trap = nullptr;
+            auto *error = wasmtime_func_call_unchecked(
+                this->module.store.context().capi(),
+                &this->fn.capi(),
+                this->raw.data(),
+                this->raw.size(),
+                &trap
+            );
+            if (error != nullptr)
+                return this->module.call_error(
+                    wasmtime::TrapError(wasmtime::Error(error))
+                );
+            if (trap != nullptr)
+                return this->module.call_error(
+                    wasmtime::TrapError(wasmtime::Trap(trap))
+                );
 
-            auto result = fn.call(this->module.store, this->args);
-            if (!result) return this->module.call_error(result.err());
-
-            const auto results = result.ok();
             if (this->base == 0) {
-                if (!output_vals.empty() && !results.empty())
+                if (!output_vals.empty() && !this->results.empty())
                     output_vals[0] = Result{
-                        .value = sample_from_wasm(results[0], this->outputs[0].type),
+                        .value = sample_from_bits(
+                            raw_bits(this->raw[0], this->results[0]),
+                            this->outputs[0].type
+                        ),
                         .changed = true
                     };
                 return x::errors::NIL;
             }
 
-            const auto mem_span = this->module.memory.data(this->module.store);
-            const uint8_t *mem_data = mem_span.data();
-            const size_t mem_size = mem_span.size();
-
-            if (this->base + sizeof(uint64_t) > mem_size)
-                return x::errors::Error(
-                    errors::WASM_TRAP,
-                    "The base address is out of memory bounds."
-                );
-
-            uint64_t dirty_flags = 0;
-            memcpy(&dirty_flags, mem_data + base, sizeof(uint64_t));
-            for (size_t i = 0; i < this->outputs.size(); i++) {
-                if ((dirty_flags & 1ULL << i) == 0) continue;
-                const auto output = this->outputs[i];
-                const uint32_t offset = this->offsets[i];
-                const size_t byte_size = output.type.kind == types::Kind::String
-                                           ? 4
-                                           : output.type.density();
-                if (offset + byte_size > mem_size) continue;
-                uint64_t raw_value = 0;
-                memcpy(&raw_value, mem_data + offset, byte_size);
-                output_vals[i] = Result{
-                    .value = sample_from_bits(raw_value, output.type),
-                    .changed = true
-                };
-            }
-
-            return x::errors::NIL;
+            return this->read_outputs(output_vals);
         }
     };
 
@@ -845,6 +985,13 @@ public:
         }
 
         const auto &inputs_to_use = node_inputs.empty() ? func.inputs : node_inputs;
+        const auto type = func_ptr->type(this->store);
+        std::vector<wasmtime::ValKind> params;
+        for (const auto &param: type->params())
+            params.push_back(param.kind());
+        std::vector<wasmtime::ValKind> results;
+        for (const auto &result: type->results())
+            results.push_back(result.kind());
         return {
             Function(
                 *this,
@@ -852,7 +999,9 @@ public:
                 func.outputs,
                 inputs_to_use,
                 base,
-                this->batch(name, func, inputs_to_use, base)
+                this->batch(name, func, inputs_to_use, base),
+                std::move(params),
+                std::move(results)
             ),
             x::errors::NIL
         };
