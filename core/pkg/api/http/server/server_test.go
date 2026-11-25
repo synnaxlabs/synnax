@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	channeltestutil "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/http/server"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -76,6 +77,19 @@ var _ = Describe("Service", func() {
 			Entry(&s).
 			Exec(ctx, db)).To(Succeed())
 		return s
+	}
+	createChannels := func(ctx SpecContext, count int) channel.Keys {
+		GinkgoHelper()
+		chs := make([]channel.Channel, count)
+		for i := range chs {
+			chs[i] = channel.Channel{
+				Name:     channeltestutil.UniqueChannelName(),
+				DataType: telem.Float64T,
+				Virtual:  true,
+			}
+		}
+		Expect(svc.Channel.NewWriter(nil).CreateMany(ctx, &chs)).To(Succeed())
+		return channel.KeysFromChannels(chs)
 	}
 	createServer := func(ctx SpecContext, overrides ...func(*server.Server)) server.Server {
 		GinkgoHelper()
@@ -355,6 +369,7 @@ var _ = Describe("Service", func() {
 		}
 
 		It("Should write only the identity group", func(ctx SpecContext) {
+			chs := createChannels(ctx, 2)
 			s := createServer(ctx, func(s *server.Server) {
 				s.Reads = []server.Read{
 					{
@@ -363,8 +378,8 @@ var _ = Describe("Service", func() {
 							Path:   "/weather",
 						},
 						Pointer: "/temp",
-						Index:   1,
-						Channel: 2,
+						Index:   chs[0],
+						Channel: chs[1],
 					},
 				}
 			})
@@ -376,8 +391,15 @@ var _ = Describe("Service", func() {
 		})
 
 		It("Should write only the configuration group", func(ctx SpecContext) {
+			ch := createChannels(ctx, 1)[0]
 			s := createServer(ctx)
 			grantWrites(ctx, s.Rack)
+			grant(
+				ctx,
+				u,
+				[]access.Action{access.ActionRetrieve},
+				channel.ResourceID(ch),
+			)
 			MustSucceed(update(
 				testutil.AuthedCtx(ctx, u),
 				apiserver.UpdateRequest{
@@ -389,7 +411,7 @@ var _ = Describe("Service", func() {
 									Method: http.MethodPost,
 									Path:   "/valve",
 								},
-								Channel: 2,
+								Channel: ch,
 							}},
 						},
 					}},
@@ -397,7 +419,7 @@ var _ = Describe("Service", func() {
 			))
 			got := retrieveServer(ctx, s.Key)
 			Expect(got.Writes).To(HaveLen(1))
-			Expect(got.Writes[0].Channel).To(Equal(channel.Key(2)))
+			Expect(got.Writes[0].Channel).To(Equal(ch))
 			Expect(got.Name).To(Equal(s.Name))
 		})
 
