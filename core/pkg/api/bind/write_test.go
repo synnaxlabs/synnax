@@ -58,6 +58,13 @@ var _ bind.Copy = copyRequest{}
 
 func (r copyRequest) Sources() []resource.ID { return r.sources }
 
+// namedRequest is a write request that names records.
+type namedRequest struct{ records []resource.ID }
+
+var _ bind.Named = namedRequest{}
+
+func (r namedRequest) Named() []resource.ID { return r.records }
+
 // unmapped is a record whose table has no resource type.
 type unmapped struct{ Key string }
 
@@ -935,6 +942,29 @@ var _ = Describe("Write", func() {
 			Expect(writeReturning(ctx, u, func(ctx context.Context, tx gorp.Tx) error {
 				return svc.Label.NewWriter(tx).Create(ctx, &l)
 			}, l.ResourceID())).To(Succeed())
+		},
+	)
+
+	It(
+		"Should require retrieve on each record that a request names before apply runs",
+		func(ctx SpecContext) {
+			u := newUser(ctx)
+			l := createLabel(ctx)
+			ran := false
+			write := bind.Write(
+				binder,
+				func(context.Context, gorp.Tx, namedRequest) (struct{}, error) {
+					ran = true
+					return struct{}{}, nil
+				},
+			)
+			req := namedRequest{records: []resource.ID{l.ResourceID()}}
+			Expect(write(AuthedCtx(ctx, u), req)).
+				Error().To(denied(u, access.ActionRetrieve, l.ResourceID()))
+			Expect(ran).To(BeFalse())
+			grant(ctx, u, access.ActionRetrieve, l.ResourceID())
+			MustSucceed(write(AuthedCtx(ctx, u), req))
+			Expect(ran).To(BeTrue())
 		},
 	)
 
