@@ -203,33 +203,46 @@ func (d *disk) syncDir(n *node, p string) error {
 	return nil
 }
 
-// dropDetached returns pending without each change whose directories are all off the
-// tree: under a directory of removed, which durable changes took off, that no entry
-// holds now. No SyncDir reaches such a directory, and no crash shows it.
+// dropDetached returns pending without each change whose directories no crash can
+// show: the live tree and the durable tree hold none of them, and no pending change
+// links one of them from a directory that a crash can show. No SyncDir reaches such a
+// directory. Only the durable changes that took the directories of removed off their
+// parents can make one.
 func (d *disk) dropDetached(pending []*change, removed []*node) []*change {
 	if len(removed) == 0 {
 		return pending
 	}
-	live, gone := set.Set[*node]{}, set.Set[*node]{}
-	addTree(live, d.root, nil)
-	for _, n := range removed {
-		addTree(gone, n, live)
+	shown := set.Set[*node]{}
+	addShown(shown, d.root)
+	for grew := true; grew; {
+		grew = false
+		for _, c := range pending {
+			for _, h := range c.halves {
+				if h.to != nil && shown.Contains(h.dir) && !shown.Contains(h.to) {
+					addShown(shown, h.to)
+					grew = true
+				}
+			}
+		}
 	}
 	return slices.DeleteFunc(pending, func(c *change) bool {
 		return !slices.ContainsFunc(c.halves, func(h half) bool {
-			return !gone.Contains(h.dir)
+			return shown.Contains(h.dir)
 		})
 	})
 }
 
-// addTree adds n and each node under it to s, except the nodes of skip.
-func addTree(s set.Set[*node], n *node, skip set.Set[*node]) {
-	if s.Contains(n) || skip.Contains(n) {
+// addShown adds n to s, and each node under it in its live or its durable entries.
+func addShown(s set.Set[*node], n *node) {
+	if s.Contains(n) {
 		return
 	}
 	s.Add(n)
 	for _, child := range n.entries {
-		addTree(s, child, skip)
+		addShown(s, child)
+	}
+	for _, child := range n.durableEntries {
+		addShown(s, child)
 	}
 }
 
