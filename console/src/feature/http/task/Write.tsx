@@ -10,7 +10,6 @@
 import "@/feature/http/task/Form.css";
 
 import { channel, DisconnectedError, http, type icd } from "@synnaxlabs/client";
-import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
@@ -18,13 +17,14 @@ import { useExclusiveCallback } from "@synnaxlabs/lyra/hooks";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
+import type { Tree } from "@synnaxlabs/lyra/tree";
 import { ICD as PICD, Synnax as PSynnax } from "@synnaxlabs/pluto";
-import { deep, id } from "@synnaxlabs/x";
-import { useState } from "react";
+import { deep, id, unique } from "@synnaxlabs/x";
+import { type Dispatch, type SetStateAction, useState } from "react";
 
 import { Device } from "@/feature/http/device";
 import { DEFAULT_WRITE_NAME } from "@/feature/http/task/create";
-import { EndpointLabel } from "@/feature/http/task/EndpointLabel";
+import { EndpointItem, EndpointLabel } from "@/feature/http/task/EndpointLabel";
 import {
   deployWriteConfigZ,
   WRITE_SCHEMAS,
@@ -34,7 +34,6 @@ import {
 } from "@/feature/http/task/types";
 import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
-import { Empty } from "@/platform/empty";
 import { Form as PlatformForm } from "@/platform/form";
 import { ICD } from "@/platform/icd";
 import { Task } from "@/platform/task";
@@ -63,8 +62,6 @@ const SelectMethod = (p: Select.ButtonsProps<http.Method>) => (
 );
 
 const renderMethodSelect = Component.renderProp(SelectMethod);
-
-const EMPTY_ENDPOINTS = <Empty.Action message="No endpoints" />;
 
 /** The method and path of the request of an endpoint. */
 type RequestLine = Pick<WriteEndpoint, "method" | "path">;
@@ -121,10 +118,10 @@ const icdPath = (key: string) => root.config.endpoints[key] as deep.Path<ICDEndp
 const fieldCommandName = (
   device: string,
   endpoint: string,
-  field: icd.JSONField,
+  { name }: Pick<icd.JSONField, "name">,
 ): string =>
   `${channel.escapeInvalidName(device)}${channel.escapeInvalidName(endpoint)}_` +
-  `${channel.escapeInvalidName(field.name)}_cmd`;
+  `${channel.escapeInvalidName(name)}_cmd`;
 
 /** @returns the name that an endpoint gives the message it sends. */
 const messageName = ({ method, path }: RequestLine): string =>
@@ -141,61 +138,46 @@ const namedBy = (name: string, request: RequestLine): boolean => {
 const icdName = (name: string): string =>
   name.trim() === "" ? DEFAULT_WRITE_NAME : name;
 
-const EndpointItem = (props: Task.ChannelListItemProps) => {
-  const path = root.config.endpoints[props.itemKey];
-  const disabled = PForm.useFieldValue(path.disabled);
-  return (
-    <Select.Item
-      {...props}
-      y
-      align="start"
-      gap="small"
-      className={CSS.cls(CSS.B("endpoint-item"), disabled && CSS.M("off"))}
-    >
-      <Flex.Box x align="center" justify="between" gap="small" full="x">
-        <EndpointLabel path={path} />
-        <Task.EnabledCheckbox path={path.disabled} />
-      </Flex.Box>
-    </Select.Item>
-  );
-};
+const TargetItem = (props: Tree.ItemRenderProps<string>) => (
+  <EndpointItem {...props} path={root.config.endpoints[props.itemKey]} />
+);
 
-const endpointItem = Component.renderProp(EndpointItem);
+const messageOf = (ep: WriteEndpoint): ICD.Write.TargetMessage | null =>
+  sendsICD(ep)
+    ? {
+        icd: ep.icd,
+        message: ep.message.message,
+        bindings: icdPath(ep.key).message.bindings,
+      }
+    : null;
+
+const duplicate = (ep: WriteEndpoint): WriteEndpoint => ({
+  ...ep,
+  key: id.create(),
+  message: ep.message == null ? undefined : ICD.Write.unbind(ep.message),
+});
 
 interface DetailsProps {
   epKey: string;
-  deviceName: string;
+  onAddField: () => void;
 }
 
-/** The message of an endpoint that sends one, and the binding of each of its fields. */
-const MessageDetails = ({ epKey, deviceName }: DetailsProps) => {
+/** The message that an endpoint sends. */
+const MessageDetails = ({ epKey, onAddField }: DetailsProps) => {
   const path = icdPath(epKey);
   const { set } = PForm.useContext();
   const isPreview = Task.useIsPreview();
-  const formats = ICD.useFormats();
-  const [opened, setOpened] = useState<icd.FieldKey>();
   const ep = PForm.useFieldValue(path);
   const message = ICD.useMessage(ep.icd, ep.message.message);
   const handleFormatChange = (icdKey: icd.Key, picked: icd.Message) =>
     set(path, { ...ep, icd: icdKey, message: ICD.Write.create(picked) });
-  // The Suit of the endpoint binds the new field.
-  const handleAddField = () => {
-    const fields = ICD.jsonFields(message);
-    const field = ICD.createJSONField(fields);
-    ICD.formatOf(formats, ep.icd).insert(
-      ICD.fieldsPath(ep.message.message),
-      field,
-      fields.at(-1)?.key,
-    );
-    setOpened(field.key);
-  };
   return (
     <>
       <PForm.Section
         title="Message"
         actions={
           <ICD.AddField
-            onClick={handleAddField}
+            onClick={onAddField}
             disabled={message?.payload.format !== "json"}
           />
         }
@@ -210,14 +192,6 @@ const MessageDetails = ({ epKey, deviceName }: DetailsProps) => {
       <ICD.MessageStatus
         message={message}
         missingDescription={ICD.Write.MISSING_DESCRIPTION}
-      />
-      <ICD.Write.Bindings
-        path={path.message.bindings}
-        icdKey={ep.icd}
-        message={ep.message.message}
-        channelName={(field) => fieldCommandName(deviceName, ep.path, field)}
-        skipped={ep.disabled}
-        opened={opened}
       />
     </>
   );
@@ -238,7 +212,7 @@ const MessagePick = ({ epKey }: { epKey: string }) => {
   );
 };
 
-const EndpointDetails = ({ epKey, deviceName }: DetailsProps) => {
+const EndpointDetails = ({ epKey, onAddField }: DetailsProps) => {
   const path = root.config.endpoints[epKey];
   const ctx = PForm.useContext();
   const formats = ICD.useFormats();
@@ -274,7 +248,7 @@ const EndpointDetails = ({ epKey, deviceName }: DetailsProps) => {
       <PForm.Sections className={CSS.B("endpoint-form")}>
         <RequestSection path={path} onChange={handleRequestChange} />
         {sends ? (
-          <MessageDetails epKey={epKey} deviceName={deviceName} />
+          <MessageDetails epKey={epKey} onAddField={onAddField} />
         ) : (
           <MessagePick epKey={epKey} />
         )}
@@ -283,31 +257,40 @@ const EndpointDetails = ({ epKey, deviceName }: DetailsProps) => {
   );
 };
 
-const duplicateEndpoints = (
-  endpoints: WriteEndpoint[],
-  keys: string[],
-): WriteEndpoint[] =>
-  endpoints
-    .filter(({ key }) => keys.includes(key))
-    .map((ep) => ({
-      ...ep,
-      key: id.create(),
-      message: ep.message == null ? undefined : ICD.Write.unbind(ep.message),
-    }));
-
 interface EndpointsProps {
   device: Device.Device;
+  selected: string[];
+  onSelect: Dispatch<SetStateAction<string[]>>;
+  expanded: string[];
+  onExpand: Dispatch<SetStateAction<string[]>>;
 }
 
-const Endpoints = ({ device }: EndpointsProps) => {
+/** The endpoints of the task as a tree, beside the details of the selected item. */
+const Endpoints = ({
+  device,
+  selected,
+  onSelect,
+  expanded,
+  onExpand,
+}: EndpointsProps) => {
   const client = PSynnax.use();
   const ctx = PForm.useContext();
   const handleError = Status.useErrorHandler();
-  const isPreview = Task.useIsPreview();
   const formats = ICD.useFormats();
-  const [selected, setSelected] = useState<string[]>([]);
-  const endpoints = PForm.useFieldListUtils(root.config.endpoints);
-  const sending = PForm.useFieldValue(root.config.endpoints).filter(sendsICD);
+  const list = PForm.useFieldListUtils(root.config.endpoints);
+  const endpoints = PForm.useFieldValue(root.config.endpoints);
+  const sending = endpoints.filter(sendsICD);
+  const { tree, handleSelect, contextMenu, renderItem, current, addField, added } =
+    ICD.Write.useTree({
+      path: root.config.endpoints,
+      messageOf,
+      TargetItem,
+      duplicate,
+      selected,
+      onSelect,
+      expanded,
+      onExpand,
+    });
 
   /**
    * Adds an endpoint that sends a new message with no fields, in the ICD of the most
@@ -327,46 +310,73 @@ const Endpoints = ({ device }: EndpointsProps) => {
       messages: [{ name: messageName(ep), fields: [] }],
     });
     const added = { ...ep, icd: key, message: ICD.Write.create(message) };
-    endpoints.push([added]);
-    setSelected([added.key]);
+    list.push([added]);
+    onSelect([added.key]);
+    onExpand((prev) => unique.unique([...prev, ...ICD.Write.expandedOf([added])]));
   };
   // Adds run one at a time, so a second click cannot make a second ICD.
   const addExclusive = useExclusiveCallback(add);
   const handleAdd = () => handleError(addExclusive, "Failed to add endpoint");
 
-  const current = selected.at(0);
-  const currentPath = current == null ? null : root.config.endpoints[current];
+  const ep =
+    current == null ? undefined : endpoints.find(({ key }) => key === current.target);
+  let details = null;
+  let title = null;
+  let detailsPath: deep.Target<unknown> | null = null;
+  if (ep != null && sendsICD(ep) && current?.kind === "field") {
+    const path = icdPath(ep.key).message;
+    const i = ep.message.bindings.findIndex(({ field }) => field === current.field.key);
+    detailsPath = i < 0 ? path : path.bindings[i];
+    title = (
+      <Text.Text level="p" weight={500} overflow="fade">
+        {current.field.name}
+      </Text.Text>
+    );
+    details = (
+      <ICD.Write.FieldDetails
+        key={selected[0]}
+        path={path.bindings}
+        icdKey={ep.icd}
+        message={ep.message.message}
+        field={current.field.key}
+        channelName={fieldCommandName(device.name, ep.path, current.field)}
+        skipped={ep.disabled}
+        autoFocus={current.field.key === added}
+      />
+    );
+  } else if (ep != null) {
+    detailsPath = root.config.endpoints[ep.key];
+    title = <EndpointLabel path={root.config.endpoints[ep.key]} />;
+    details = (
+      <EndpointDetails
+        key={ep.key}
+        epKey={ep.key}
+        onAddField={() => addField(ep.key)}
+      />
+    );
+  }
+
   return (
     <Task.Views.Panes
       listTitle="Endpoints"
       list={
-        <Task.Views.ChannelList<WriteEndpoint>
-          path={root.config.endpoints}
-          header={null}
-          emptyContent={EMPTY_ENDPOINTS}
-          footer={
-            !isPreview && (
-              <Button.CreateListItem size="small" onClick={handleAdd}>
-                Add endpoint
-              </Button.CreateListItem>
-            )
-          }
-          createChannels={duplicateEndpoints}
-          listItem={endpointItem}
-          resolve={null}
-          selected={selected}
-          onSelect={setSelected}
-          grow
-        />
+        <Task.Views.TreeList
+          {...tree}
+          onSelect={handleSelect}
+          menu={contextMenu}
+          emptyMessage="No endpoints"
+          addLabel="Add endpoint"
+          onAdd={handleAdd}
+        >
+          {renderItem}
+        </Task.Views.TreeList>
       }
-      detailsPath={currentPath}
-      title={currentPath != null && <EndpointLabel path={currentPath} />}
+      detailsPath={detailsPath}
+      title={title ?? undefined}
     >
-      {current != null ? (
-        <EndpointDetails key={current} epKey={current} deviceName={device.name} />
-      ) : (
+      {details ?? (
         <Flex.Box y grow align="center" justify="center">
-          <Text.Text status="disabled">Select an endpoint to configure</Text.Text>
+          <Text.Text status="disabled">Add an endpoint to send requests to</Text.Text>
         </Flex.Box>
       )}
       {sending.map(({ key, icd: icdKey }) => (
@@ -377,12 +387,21 @@ const Endpoints = ({ device }: EndpointsProps) => {
 };
 
 const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device.Device>) => {
-  const icds = PForm.useFieldValue(root.config.endpoints)
-    .filter(sendsICD)
-    .map((ep) => ep.icd);
+  const endpoints = PForm.useFieldValue(root.config.endpoints);
+  const [selected, setSelected] = useState<string[]>([]);
+  const [expanded, setExpanded] = useState<string[]>(() =>
+    ICD.Write.expandedOf(endpoints),
+  );
+  const icds = endpoints.filter(sendsICD).map((ep) => ep.icd);
   return (
     <ICD.WithFormats icdKeys={icds}>
-      <Endpoints device={device} />
+      <Endpoints
+        device={device}
+        selected={selected}
+        onSelect={setSelected}
+        expanded={expanded}
+        onExpand={setExpanded}
+      />
     </ICD.WithFormats>
   );
 };

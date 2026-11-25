@@ -42,3 +42,16 @@ export const copyName = (name: string, taken: string[]): string => {
   while (names.has(channel.escapeInvalidName(`${base}_${n}`))) n++;
   return `${base}_${n}`;
 };
+
+/**
+ * @returns a pointer for a copy of the field at pointer, apart from pointers. It
+ * numbers the pointer as copyName numbers a name: "/flow" gives "/flow_2". A pointer is
+ * taken when one of pointers is it or reads a value in it.
+ */
+export const copyPointer = (pointer: string, pointers: string[]): string => {
+  const [, base = pointer, last = "1"] = TRAILING_NUMBER.exec(pointer) ?? [];
+  const taken = (p: string) => pointers.some((q) => q === p || q.startsWith(`${p}/`));
+  let n = BigInt(last) + 1n;
+  while (taken(`${base}_${n}`)) n++;
+  return `${base}_${n}`;
+};

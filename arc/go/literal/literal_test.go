@@ -997,6 +997,60 @@ var _ = Describe("Convert", func() {
 		Entry("a rate to a float", 4.0, hz, in(types.F64(), s), 0.25, false),
 	)
 
+	DescribeTable("Should keep an integer at the bounds of its type",
+		func(value float64, target types.Type, want any) {
+			parsed := MustSucceed(literal.Convert(value, pa, in(target, pa)))
+			Expect(parsed.Value).To(Equal(want))
+		},
+		Entry("i8 max", 127.0, types.I8(), int8(math.MaxInt8)),
+		Entry("i8 min", -128.0, types.I8(), int8(math.MinInt8)),
+		Entry("i16 max", 32767.0, types.I16(), int16(math.MaxInt16)),
+		Entry("i16 min", -32768.0, types.I16(), int16(math.MinInt16)),
+		Entry("i32 max", 2147483647.0, types.I32(), int32(math.MaxInt32)),
+		Entry("i32 min", -2147483648.0, types.I32(), int32(math.MinInt32)),
+		Entry("i64 max float", 0x1p63-1024, types.I64(), int64(0x1p63-1024)),
+		Entry("i64 min", -0x1p63, types.I64(), int64(math.MinInt64)),
+		Entry("u8 max", 255.0, types.U8(), uint8(math.MaxUint8)),
+		Entry("u16 max", 65535.0, types.U16(), uint16(math.MaxUint16)),
+		Entry("u32 max", 4294967295.0, types.U32(), uint32(math.MaxUint32)),
+		Entry("u64 max float", 0x1p64-2048, types.U64(), uint64(0x1p64-2048)),
+		Entry("u64 zero", 0.0, types.U64(), uint64(0)),
+	)
+
+	DescribeTable("Should reject an integer out of the range of its type",
+		func(value float64, target types.Type, name string) {
+			Expect(literal.Convert(value, pa, in(target, pa))).Error().To(MatchError(
+				ContainSubstring("out of range for " + name),
+			))
+		},
+		Entry("i8 above max", 128.0, types.I8(), "i8"),
+		Entry("i8 below min", -129.0, types.I8(), "i8"),
+		Entry("i16 above max", 32768.0, types.I16(), "i16"),
+		Entry("i16 below min", -32769.0, types.I16(), "i16"),
+		Entry("i32 above max", 2147483648.0, types.I32(), "i32"),
+		Entry("i32 below min", -2147483649.0, types.I32(), "i32"),
+		Entry("i64 at 2^63", 0x1p63, types.I64(), "i64"),
+		Entry("i64 below min", -0x1p63-2048, types.I64(), "i64"),
+		Entry("u8 above max", 256.0, types.U8(), "u8"),
+		Entry("u8 below zero", -1.0, types.U8(), "u8"),
+		Entry("u16 above max", 65536.0, types.U16(), "u16"),
+		Entry("u32 above max", 4294967296.0, types.U32(), "u32"),
+		Entry("u64 at 2^64", 0x1p64, types.U64(), "u64"),
+		Entry("u64 below zero", -1.0, types.U64(), "u64"),
+		Entry("i8 above i64", 1e19, types.I8(), "i8"),
+		Entry("i8 below i64", -1e19, types.I8(), "i8"),
+		Entry("i32 at u64 max", float64(math.MaxUint64), types.I32(), "i32"),
+		Entry("u8 above i64", 1e19, types.U8(), "u8"),
+		Entry("u16 above i64", 1e19, types.U16(), "u16"),
+		Entry("u32 at u64 max", float64(math.MaxUint64), types.U32(), "u32"),
+		Entry("i64 at u64 max", float64(math.MaxUint64), types.I64(), "i64"),
+	)
+
+	It("Should reject a time above i64 as an i64", func() {
+		Expect(literal.Convert(math.MaxUint64, ns, in(types.I64(), ns))).Error().
+			To(MatchError(ContainSubstring("out of range for i64")))
+	})
+
 	It("Should reject a unit of another dimension", func() {
 		Expect(literal.Convert(1, s, in(types.I64(), pa))).Error().
 			To(MatchError(units.ErrIncompatibleDimensions))
@@ -1063,6 +1117,24 @@ var _ = Describe("Diagnostic codes of literal errors", func() {
 		Entry("i64 at 2^63", "9223372036854775808.0", types.I64()),
 		Entry("u64 at 2^64", "18446744073709551616.0", types.U64()),
 		Entry("f32", "1"+strings.Repeat("0", 40)+".0", types.F32()),
+		Entry("i8 above i64", "10000000000000000000.0", types.I8()),
+		Entry("i32 above i64", "10000000000000000000.0", types.I32()),
+		Entry("u8 above i64", "10000000000000000000.0", types.U8()),
+		Entry("u32 above i64", "10000000000000000000.0", types.U32()),
+	)
+
+	DescribeTable("Should keep a float at the bounds of an integer type",
+		func(text string, target types.Type, want any) {
+			Expect(MustSucceed(parseNumeric(text, target)).Value).To(Equal(want))
+		},
+		Entry("i8", "127.0", types.I8(), int8(math.MaxInt8)),
+		Entry("i16", "32767.0", types.I16(), int16(math.MaxInt16)),
+		Entry("i32", "2147483647.0", types.I32(), int32(math.MaxInt32)),
+		Entry("i64", "9223372036854774784.0", types.I64(), int64(0x1p63-1024)),
+		Entry("u8", "255.0", types.U8(), uint8(math.MaxUint8)),
+		Entry("u16", "65535.0", types.U16(), uint16(math.MaxUint16)),
+		Entry("u32", "4294967295.0", types.U32(), uint32(math.MaxUint32)),
+		Entry("u64", "18446744073709549568.0", types.U64(), uint64(0x1p64-2048)),
 	)
 
 	DescribeTable(

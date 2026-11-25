@@ -466,4 +466,16 @@ std::pair<telem::SampleValue, errors::Error> to_sample_value(
     }
 }
 
+std::pair<int64_t, int64_t>
+split_unix(const telem::TimeStamp ts, const TimeFormat format) {
+    const int64_t unit = nanoseconds_per_unit(format);
+    const int64_t ns = ts.nanoseconds();
+    int64_t whole = ns / unit;
+    const int64_t frac = ns % unit;
+    if (format == TimeFormat::UnixSecond || frac == 0) return {whole, frac};
+    // Division truncates toward zero, so a negative remainder takes one unit off.
+    if (frac < 0) whole--;
+    return {whole, 0};
+}
+
 }

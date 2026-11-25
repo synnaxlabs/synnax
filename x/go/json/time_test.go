@@ -42,7 +42,7 @@ var _ = Describe("TimeFormat", func() {
 	})
 
 	Describe("AppendTimeStamp", func() {
-		DescribeTable("Should append every digit of a timestamp",
+		DescribeTable("Should append every digit of a timestamp in ISO 8601 or seconds",
 			func(ts telem.TimeStamp, format xjson.TimeFormat, expected string) {
 				Expect(string(xjson.AppendTimeStamp([]byte("x"), ts, format))).
 					To(Equal("x" + expected))
@@ -55,14 +55,34 @@ var _ = Describe("TimeFormat", func() {
 			Entry("a fraction with leading zeros", telem.TimeStamp(1000000005),
 				xjson.UnixSecond, "1.000000005"),
 			Entry("a fraction with trailing zeros", telem.TimeStamp(1500000000),
-				xjson.UnixMillisecond, "1500"),
-			Entry("Unix microseconds", telem.TimeStamp(1500), xjson.UnixMicrosecond,
-				"1.5"),
+				xjson.UnixSecond, "1.5"),
 			Entry("a negative fraction", telem.TimeStamp(-1500000000),
 				xjson.UnixSecond, "-1.5"),
+			Entry("a negative fraction before 1970", telem.TimeStamp(-1500),
+				xjson.UnixSecond, "-0.0000015"),
 			Entry("the smallest timestamp in Unix nanoseconds",
 				telem.TimeStamp(math.MinInt64), xjson.UnixNanosecond,
 				"-9223372036854775808"),
+		)
+		DescribeTable(
+			"Should append a whole number of milliseconds or microseconds, rounded down",
+			func(ts telem.TimeStamp, format xjson.TimeFormat, expected string) {
+				Expect(string(xjson.AppendTimeStamp([]byte("x"), ts, format))).
+					To(Equal("x" + expected))
+			},
+			Entry("whole milliseconds", telem.TimeStamp(1500000000),
+				xjson.UnixMillisecond, "1500"),
+			Entry("a fraction of a millisecond", telem.TimeStamp(1999999),
+				xjson.UnixMillisecond, "1"),
+			Entry("a fraction of a microsecond", telem.TimeStamp(1500),
+				xjson.UnixMicrosecond, "1"),
+			Entry("a millisecond before 1970", telem.TimeStamp(-1),
+				xjson.UnixMillisecond, "-1"),
+			Entry("a microsecond before 1970", telem.TimeStamp(-1500),
+				xjson.UnixMicrosecond, "-2"),
+			Entry("the smallest timestamp in milliseconds",
+				telem.TimeStamp(math.MinInt64), xjson.UnixMillisecond,
+				"-9223372036855"),
 		)
 	})
 })

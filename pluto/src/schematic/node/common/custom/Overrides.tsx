@@ -18,7 +18,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
-import { deep, strings } from "@synnaxlabs/x";
+import { type color, deep, strings } from "@synnaxlabs/x";
 import { type ReactElement, useEffect, useState } from "react";
 
 import { CSS } from "@/css";
@@ -34,6 +34,7 @@ import { Symbol } from "@/schematic/symbol";
 const root = deep.path<{
   specKey: string;
   stateOverrides: schematic.symbol.StateOverride[];
+  strokeColor?: color.Color;
 }>();
 
 type RegionPath = deep.Path<schematic.symbol.Region>;
@@ -185,7 +186,9 @@ interface SymbolOverridesProps {
 
 const SymbolOverrides = ({ spec }: SymbolOverridesProps): ReactElement => {
   const form = Form.useContext();
-  const ctx = usePaintContext(spec);
+  // The node draws an entry with no color in its stroke color, so the defaults do too.
+  const nodeColor = Form.useFieldValue(root.strokeColor, { optional: true });
+  const ctx = usePaintContext(spec, nodeColor ?? undefined);
   const defaults = useMemoDeepEqual(
     ctx == null ? undefined : defaultOverrides(spec, ctx),
   );
