@@ -494,9 +494,15 @@ describe("Custom.usePaints", () => {
       ]);
     });
 
-    it("should keep the stored fill for an entry with no color on a custom drawing", async () => {
+    it("should draw the node color for an entry with no color on a custom drawing", async () => {
+      expect(await renderPaints(createNoColorSpec(), 0, { nodeColor: NODE })).toEqual([
+        { selectors: [".body"], fill: color.construct(NODE) },
+      ]);
+    });
+
+    it("should draw the theme gray for an entry with no color on a custom drawing", async () => {
       expect(await renderPaints(createNoColorSpec(), 0)).toEqual([
-        { selectors: [".body"] },
+        { selectors: [".body"], fill: LIGHT.colors.gray.l11 },
       ]);
     });
 

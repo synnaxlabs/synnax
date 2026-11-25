@@ -316,11 +316,13 @@ const NO_PAINTS: Paint[] = [];
 export interface UsePaintsParams {
   /** override replaces the looks with its regions. */
   override?: schematic.symbol.StateOverride;
-  /** nodeColor is the color that `node` paint draws. */
+  /**
+   * nodeColor is the color that `node` paint draws. An entry with no color draws it,
+   * else the theme gray.
+   */
   nodeColor?: color.Crude;
   /**
-   * builtIn marks a drawing that ships with Pluto. It bands its entry and node fills,
-   * and an entry with no color draws the node color, else the theme gray.
+   * builtIn marks a drawing that ships with Pluto. It bands its entry and node fills.
    */
   builtIn?: boolean;
 }
@@ -337,7 +339,7 @@ export const usePaints = (
 ): Paint[] => {
   const ctx = usePaintContext(spec, nodeColor);
   const t = Theming.use();
-  const defaultEntryColor = builtIn ? (ctx?.nodeColor ?? t.colors.gray.l11) : undefined;
+  const defaultEntryColor = ctx?.nodeColor ?? t.colors.gray.l11;
   return useMemoDeepEqual(
     spec == null || ctx == null
       ? NO_PAINTS
