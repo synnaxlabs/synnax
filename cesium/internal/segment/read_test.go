@@ -72,6 +72,17 @@ func (r *destReader) ReadAt(p []byte, off int64) (int, error) {
 	return r.ReaderAt.ReadAt(p, off)
 }
 
+// lengthReader records the length of each read.
+type lengthReader struct {
+	io.ReaderAt
+	lengths []int
+}
+
+func (r *lengthReader) ReadAt(p []byte, off int64) (int, error) {
+	r.lengths = append(r.lengths, len(p))
+	return r.ReaderAt.ReadAt(p, off)
+}
+
 // failReader fails every read with err.
 type failReader struct{ err error }
 
@@ -87,7 +98,7 @@ var _ = Describe("Reader", func() {
 			)
 			BeforeEach(func() {
 				budget = MustSucceed(segment.NewBudget(4, 4, segment.GoExecutor))
-				rd = segment.NewReader()
+				rd = segment.NewReader(true)
 			})
 
 			// write writes stream to a new segment of c and returns its committed part.
@@ -177,6 +188,50 @@ var _ = Describe("Reader", func() {
 				Expect(rd.Read(r, com, p, 100)).To(Succeed())
 				Expect(p).To(Equal(stream[100:108]))
 				Expect(r.reads.Load()).To(Equal(int64(1)))
+			})
+
+			DescribeTable(
+				"Should read only the bytes of each range when unchecked, with one read "+
+					"for each block that the range crosses",
+				func(c segment.Config, stream []byte, ranges [][2]int) {
+					com := write(c, stream)
+					stored := segment.NewReader(false)
+					for _, r := range ranges {
+						lr := &lengthReader{ReaderAt: h}
+						p := make([]byte, r[1]-r[0])
+						Expect(stored.Read(lr, com, p, int64(r[0]))).To(Succeed())
+						Expect(p).To(Equal(stream[r[0]:r[1]]), "range %v", r)
+						read := 0
+						for _, n := range lr.lengths {
+							read += n
+						}
+						Expect(read).To(Equal(r[1]-r[0]), "range %v", r)
+						blocks := (r[1]-1)/segment.BlockSize - r[0]/segment.BlockSize + 1
+						Expect(lr.lengths).To(HaveLen(blocks), "range %v", r)
+					}
+				},
+				Entry("fixed, one stamp", cfg, pattern(3*segment.BlockSize+77),
+					[][2]int{{segment.BlockSize + 8, segment.BlockSize + 16}}),
+				Entry("fixed, over blocks", cfg, pattern(3*segment.BlockSize+77),
+					[][2]int{
+						{0, 3*segment.BlockSize + 77},
+						{segment.BlockSize - 1, segment.BlockSize + 1},
+					}),
+				Entry("variable, over blocks", varCfg, first(samples(70_000, 61_000)),
+					[][2]int{{segment.BlockSize - 3, 131_008}}),
+			)
+
+			It("Should return a changed byte with no error when unchecked, and refuse "+
+				"it when checked", func() {
+				stream := pattern(2 * segment.BlockSize)
+				com := write(cfg, stream)
+				bad := &flipReader{ReaderAt: h, at: 50, left: -1}
+				p := make([]byte, 8)
+				Expect(segment.NewReader(false).Read(bad, com, p, 48)).To(Succeed())
+				want := append([]byte{}, stream[48:56]...)
+				want[2] ^= 1
+				Expect(p).To(Equal(want))
+				Expect(rd.Read(bad, com, p, 48)).To(MatchError(place.ErrCorrupt))
 			})
 
 			It("Should read each block once, into place when it fits", func() {

@@ -35,6 +35,7 @@ var _ = Describe("Checked reads on the pointer log", func() {
 				"",
 				cesium.WithFS(fs),
 				cesium.WithPointerLog(),
+				cesium.WithCheckedReads(),
 				cesium.WithRandom(rand.NewPCG(1, 2)),
 			))
 			StartRun(db.Run)

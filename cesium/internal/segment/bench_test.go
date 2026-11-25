@@ -68,7 +68,7 @@ func readSegment(b *testing.B, size int) (*segment.Handle, segment.Committed) {
 // which costs one copy and one checksum pass per byte.
 func BenchmarkReadScan(b *testing.B) {
 	h, com := readSegment(b, 16<<20)
-	rd := segment.NewReader()
+	rd := segment.NewReader(true)
 	p := make([]byte, com.Length)
 	b.SetBytes(com.Length)
 	b.ReportAllocs()
@@ -83,7 +83,7 @@ func BenchmarkReadScan(b *testing.B) {
 // blocks, which checks one block per kept sample.
 func BenchmarkReadStride(b *testing.B) {
 	h, com := readSegment(b, 64*segment.BlockSize)
-	rd := segment.NewReader()
+	rd := segment.NewReader(true)
 	p := make([]byte, 8)
 	b.ReportAllocs()
 	for b.Loop() {
