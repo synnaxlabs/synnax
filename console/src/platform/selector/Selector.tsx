@@ -229,35 +229,37 @@ const Body = ({
           ))}
         </div>
       )}
-      {catalog.map((section) => (
-        <div key={section.key} className={sectionClass(section)}>
-          {heading(section)}
-          <div className={CSS.BE("layout-selector", "groups")}>
-            {section.groups?.map((group) => (
-              <div
-                key={group.key}
-                className={CSS.cls(
-                  CSS.BE("layout-selector", "group"),
-                  dimmed(group.selectables) && CSS.M("dimmed"),
-                )}
-              >
-                <Text.Text
-                  level="p"
-                  color={10}
-                  className={CSS.BE("layout-selector", "group-name")}
-                  overflow="fade"
+      <Icon.Colored>
+        {catalog.map((section) => (
+          <div key={section.key} className={sectionClass(section)}>
+            {heading(section)}
+            <div className={CSS.BE("layout-selector", "groups")}>
+              {section.groups?.map((group) => (
+                <div
+                  key={group.key}
+                  className={CSS.cls(
+                    CSS.BE("layout-selector", "group"),
+                    dimmed(group.selectables) && CSS.M("dimmed"),
+                  )}
                 >
-                  {group.icon}
-                  {group.title}
-                </Text.Text>
-                <div className={CSS.BE("layout-selector", "actions")}>
-                  {group.selectables.map((s) => item(s, "action"))}
+                  <Text.Text
+                    level="p"
+                    color={10}
+                    className={CSS.BE("layout-selector", "group-name")}
+                    overflow="fade"
+                  >
+                    {group.icon}
+                    {group.title}
+                  </Text.Text>
+                  <div className={CSS.BE("layout-selector", "actions")}>
+                    {group.selectables.map((s) => item(s, "action"))}
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
-      ))}
+        ))}
+      </Icon.Colored>
     </Flex.Box>
   );
 };
