@@ -506,6 +506,16 @@ describe("Custom.usePaints", () => {
       ]);
     });
 
+    it("should draw an override that copies the looks for an entry with no color", async () => {
+      const spec = createNoColorSpec();
+      const { result } = renderHook(() => Custom.useRegions(spec, 0), { wrapper });
+      await waitFor(() => expect(result.current).toBeDefined());
+      const override = { key: "base", name: "Base", regions: result.current ?? [] };
+      expect(await renderPaints(spec, 0, { override })).toEqual(
+        await renderPaints(spec, 0),
+      );
+    });
+
     it.each([
       [true, BANDED_NODE],
       [false, color.construct(NODE)],
