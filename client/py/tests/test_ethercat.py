@@ -7,6 +7,9 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from typing import ClassVar
+from uuid import UUID
+
 import pytest
 from pydantic import ValidationError
 
@@ -829,3 +832,33 @@ class TestFindEntry:
         )
         entry = sy.ethercat.find_entry(slave, "SubIndex 032")
         assert (entry.index, entry.sub_index) == (0x1C32, 0x20)
+
+
+@pytest.mark.ethercat
+class TestEtherCATMasterResource:
+    """Tests for the typed EtherCAT master resource."""
+
+    KEY = UUID("11111111-1111-4111-8111-111111111111")
+    MASTER: ClassVar[dict[str, object]] = {
+        "rack": 1,
+        "name": "EtherCAT eth0",
+        "interface": "eth0",
+    }
+
+    def test_parses_a_master(self) -> None:
+        """Should parse a master with an empty bus by default."""
+        master = sy.ethercat.master.Master.model_validate(self.MASTER)
+        assert master.interface == "eth0"
+        assert master.slaves == []
+
+    @pytest.mark.parametrize("missing", ["interface", "name"])
+    def test_requires_a_field(self, missing: str) -> None:
+        """Should reject a master without an interface or a name."""
+        data = {k: v for k, v in self.MASTER.items() if k != missing}
+        with pytest.raises(ValidationError):
+            sy.ethercat.master.Master.model_validate(data)
+
+    def test_resource_id(self) -> None:
+        """Should name the master by its key under the ethercat_master type."""
+        assert sy.ethercat.master.resource_id(self.KEY).type == "ethercat_master"
+        assert sy.ethercat.master.resource_id(self.KEY).key == str(self.KEY)
