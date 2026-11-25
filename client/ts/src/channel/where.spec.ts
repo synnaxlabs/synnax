@@ -178,4 +178,36 @@ describe("Where with a Core", () => {
       close();
     }
   });
+
+  it("should add a hidden calculation's output that the reader never held to a live virtual list when the calculation stops", async () => {
+    const input = await admin.channels.create({
+      name: id.create(),
+      dataType: DataType.FLOAT32,
+      virtual: true,
+    });
+    const prefix = `where_stopped_${input.key}`;
+    const calc = await admin.calculations.create({
+      name: `${prefix}_output`,
+      expression: `return ${input.name} * 2`,
+    });
+    const reader = await createTestClientWithPolicy(admin, {
+      name: id.create(),
+      objects: [channel.resourceID(0), framer.resourceID("")],
+      actions: ["retrieve"],
+    });
+    await waitForStreamLive(reader.connection);
+    const where = channel.whereZ.parse({ virtual: true, name: { startsWith: prefix } });
+    const list = reader.channels.watch({ where });
+    const close = list.onChange(() => {});
+    try {
+      await list.retrieve();
+      expect(list.getCached()?.records).toEqual([]);
+      await admin.calculations.delete(calc.key);
+      await expect
+        .poll(() => list.getCached()?.records.map(({ key }) => key))
+        .toEqual([calc.output]);
+    } finally {
+      close();
+    }
+  });
 });
