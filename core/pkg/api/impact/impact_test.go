@@ -182,6 +182,23 @@ var _ = Describe("Routes", Ordered, func() {
 			Error().To(MatchError(access.ErrDenied))
 	})
 
+	It("Should refuse to apply a channel that the subject cannot retrieve", func(
+		ctx SpecContext,
+	) {
+		ch := createChannel(ctx)
+		createTask(ctx, ch)
+		u := createUser(ctx)
+		for _, token := range []string{"zz", ""} {
+			applied, err := apply(AuthedCtx(ctx, u), apiimpact.ApplyRequest{
+				Change: deleteOf(ch),
+				Token:  token,
+			})
+			Expect(applied).To(BeZero())
+			Expect(err).To(MatchError(access.ErrDenied))
+		}
+		Expect(exists(ctx, ch)).To(BeTrue())
+	})
+
 	It("Should refuse a hidden delete with a denial that names no record", func(
 		ctx SpecContext,
 	) {
