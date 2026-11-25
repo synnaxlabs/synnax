@@ -253,14 +253,14 @@ func (w Writer) ChangeDataType(
 // Delete deletes the channel with the given key, along with its storage. Unless
 // allowInternal is true, deleting an internal channel returns an error.
 func (w Writer) Delete(ctx context.Context, key Key, allowInternal bool) error {
-	return w.DeleteMany(ctx, []Key{key}, allowInternal)
+	return w.deleteMany(ctx, []Key{key}, allowInternal)
 }
 
-// DeleteMany deletes the channels with the given keys, along with their storage. It
+// deleteMany deletes the channels with the given keys, along with their storage. It
 // also deletes the index of each deleted calculated channel that no other channel uses.
 // Unless allowInternal is true, deleting any internal channel returns an error and no
 // channels are deleted.
-func (w Writer) DeleteMany(ctx context.Context, keys []Key, allowInternal bool) error {
+func (w Writer) deleteMany(ctx context.Context, keys []Key, allowInternal bool) error {
 	keys, err := w.svc.deletion(ctx, w.tx, keys, allowInternal)
 	if err != nil {
 		return err
@@ -292,7 +292,7 @@ func (w Writer) DeleteManyByNames(
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	return w.DeleteMany(ctx, KeysFromChannels(res), allowInternal)
+	return w.deleteMany(ctx, KeysFromChannels(res), allowInternal)
 }
 
 // deletion returns the keys of the channels that a delete of keys removes, as snap
