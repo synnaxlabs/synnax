@@ -117,6 +117,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			HashedTables:    []string{"icd"},
 			ResolveEntry:    s.resolver.resolve,
 			ValidateEntry:   (*ReadConfig).Validate,
+			ReconcileEntry:  reconcileRead,
 		},
 	); !ok(err, s.Read) {
 		return nil, err
@@ -139,6 +140,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			ResolveEntry:    s.writes.resolve,
 			ReconcileEntry:  detachMessages,
 			ValidateEntry:   (*WriteConfig).Validate,
+			ReconcileEntry:  reconcileWrite,
 		},
 	); !ok(err, s.Write) {
 		return nil, err
