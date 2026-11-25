@@ -196,6 +196,15 @@ jobs:
         if: github.event_name == 'merge_group'
         run: echo "The gate ran on each pull request of the merge group."
 
+      # Without each analysis, the gate would wait for one that does not come.
+      - name: Fail when an analysis did not finish
+        if: github.event_name == 'pull_request' && needs.analyze.result != 'success'
+        env:
+          RESULT: ${{ needs.analyze.result }}
+        run: |
+          echo "::error::The CodeQL analysis ended with $RESULT. Rerun the failed jobs."
+          exit 1
+
       - name: Checkout the scripts
         if: github.event_name == 'pull_request'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
