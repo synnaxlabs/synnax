@@ -116,7 +116,8 @@ Panel struct {
         @go marshal omit
     }
 
-    @doc value  "is a project-owned tree of visualization tabs."
+    @doc value     "is a project-owned tree of visualization tabs."
     @go marshal
     @go migrate
+    @resource type "panel"
 }

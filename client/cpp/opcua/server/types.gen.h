@@ -11,8 +11,10 @@
 
 #pragma once
 
+#include <cstdint>
 #include <optional>
 #include <string>
+#include <utility>
 #include <variant>
 #include <vector>
 
@@ -22,7 +24,10 @@
 #include "client/cpp/resource/id.h"
 #include "client/cpp/secret/types.gen.h"
 #include "client/cpp/status/types.gen.h"
+#include "x/cpp/filter/field.h"
+#include "x/cpp/filter/types.gen.h"
 #include "x/cpp/json/json.h"
+#include "x/cpp/mem/indirect.h"
 #include "x/cpp/telem/types.gen.h"
 #include "x/cpp/uuid/uuid.h"
 
@@ -31,9 +36,13 @@ namespace synnax::opcua::server {
 struct Read;
 struct Write;
 struct StatusDetails;
+struct Where;
+struct Cursor;
 struct SecuredChannel;
+struct RetrieveRequest;
 struct Connection;
 struct Server;
+struct RetrieveResponse;
 
 constexpr const char *SECURITY_POLICY_BASIC_128_RSA_15 = "Basic128Rsa15";
 constexpr const char *SECURITY_POLICY_BASIC_256 = "Basic256";
@@ -157,6 +166,60 @@ struct StatusDetails {
     [[nodiscard]] x::json::json to_json() const;
 };
 
+/// @brief Where is a filter that selects OPC UA servers.
+struct Where {
+    /// @brief and_ matches when every child matches.
+    std::optional<std::vector<Where>> and_;
+    /// @brief or_ matches when any child matches.
+    std::optional<std::vector<Where>> or_;
+    /// @brief not_ matches when the child does not match.
+    x::mem::indirect<Where> not_;
+    /// @brief key selects by key.
+    ::x::filter::Field<::x::filter::Set<Key>> key;
+    /// @brief name selects by name.
+    ::x::filter::Field<::x::filter::String> name;
+    /// @brief rack selects by rack.
+    ::x::filter::Field<::x::filter::Set<::synnax::rack::Key>> rack;
+
+    /// @brief returns a filter that matches when both a and b match.
+    friend Where operator&&(Where a, Where b) {
+        Where w;
+        w.and_.emplace();
+        w.and_->push_back(std::move(a));
+        w.and_->push_back(std::move(b));
+        return w;
+    }
+
+    /// @brief returns a filter that matches when a or b matches.
+    friend Where operator||(Where a, Where b) {
+        Where w;
+        w.or_.emplace();
+        w.or_->push_back(std::move(a));
+        w.or_->push_back(std::move(b));
+        return w;
+    }
+
+    /// @brief returns a filter that matches when a does not match.
+    friend Where operator!(Where a) {
+        Where w;
+        w.not_ = std::move(a);
+        return w;
+    }
+
+    static Where parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief Cursor is a position in an order of servers: the sort value and the key of a
+/// server.
+struct Cursor {
+    /// @brief key is the key of the server at the position.
+    Key key;
+
+    static Cursor parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
 /// @brief SecuredChannel holds the settings of a signed or encrypted connection.
 struct SecuredChannel {
     /// @brief policy is the security policy.
@@ -172,6 +235,47 @@ struct SecuredChannel {
 };
 
 using Status = ::synnax::status::Status<StatusDetails>;
+
+/// @brief RetrieveOptions holds every field of a RetrieveRequest except where.
+struct RetrieveOptions {
+    /// @brief search_term keeps the servers that match the term, closest match first.
+    std::string search_term = "";
+    /// @brief after starts the servers strictly past this position in their order.
+    std::optional<Cursor> after;
+    /// @brief limit is the most servers to return.
+    std::optional<std::uint32_t> limit;
+    /// @brief include_status includes the status of each record.
+    bool include_status = false;
+};
+
+/// @brief RetrieveRequest is a request to retrieve servers.
+struct RetrieveRequest {
+    /// @brief where selects the servers to retrieve. An absent where selects all of
+    /// them.
+    std::optional<Where> where;
+    /// @brief search_term keeps the servers that match the term, closest match first.
+    std::string search_term = "";
+    /// @brief after starts the servers strictly past this position in their order.
+    std::optional<Cursor> after;
+    /// @brief limit is the most servers to return.
+    std::optional<std::uint32_t> limit;
+    /// @brief include_status includes the status of each record.
+    bool include_status = false;
+
+    /// @brief returns a request for the records that where selects.
+    static RetrieveRequest from(Where where, const RetrieveOptions &options = {}) {
+        return {
+            .where = std::move(where),
+            .search_term = options.search_term,
+            .after = options.after,
+            .limit = options.limit,
+            .include_status = options.include_status,
+        };
+    }
+
+    static RetrieveRequest parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
 
 /// @brief NoneSecurity signs and encrypts no messages.
 struct NoneSecurity {
@@ -240,6 +344,15 @@ struct Server {
     std::optional<Status> status;
 
     static Server parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief RetrieveResponse holds the servers a RetrieveRequest selects.
+struct RetrieveResponse {
+    /// @brief servers are the servers the request selects.
+    std::vector<Server> servers;
+
+    static RetrieveResponse parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 

@@ -23,8 +23,9 @@ Symbol struct {
         @key
     }
 
-    @doc value """
+    @doc value     """
         is the untyped storage shape of a schematic symbol, in which the specification
         is persisted as raw JSON.
     """
+    @resource type "schematic_symbol"
 }

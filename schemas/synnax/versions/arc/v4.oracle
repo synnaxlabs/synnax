@@ -139,4 +139,5 @@ Arc union on type Type extends Base {
     @go imex
     @go marshal
     @go migrate
+    @resource type "arc"
 }
