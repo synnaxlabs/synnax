@@ -168,32 +168,24 @@
     pointer-events: all;
 }
 
-/* A part with a click tints like a toggle. A held part fills over the hold delay. */
+/* A part with a click tints like a toggle, also inside a shape with no fill. A held
+   part fills over the hold delay. */
 .pluto-symbol__container:not(.lyra--editable) {
     /* stylelint-disable declaration-no-important -- part tints win over the paints of
        the looks */
     & .pluto-symbol__part--hovered {
+        fill: oklch(from var(--pluto-symbol-display) l c h / 15%) !important;
         stroke: oklch(from var(--pluto-symbol-display) l c h / 75%) !important;
-
-        &:not([fill="none"]) {
-            fill: oklch(from var(--pluto-symbol-display) l c h / 15%) !important;
-        }
     }
 
     & .pluto-symbol__part--pressed {
+        fill: oklch(from var(--pluto-symbol-display) l c h / 25%) !important;
         stroke: oklch(from var(--pluto-symbol-display) l c h / 90%) !important;
-
-        &:not([fill="none"]) {
-            fill: oklch(from var(--pluto-symbol-display) l c h / 25%) !important;
-        }
     }
 
     & .pluto-symbol-parts--delayed .pluto-symbol__part--pressed {
+        fill: oklch(from var(--pluto-symbol-display) l c h / 40%) !important;
         transition: fill var(--pluto-toggle-delay) linear;
-
-        &:not([fill="none"]) {
-            fill: oklch(from var(--pluto-symbol-display) l c h / 40%) !important;
-        }
     }
     /* stylelint-enable declaration-no-important */
 }
