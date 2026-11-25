@@ -60,7 +60,7 @@ export const { useUpdate: useSetRole } = Flux.createUpdate<SetRoleParams>({
 });
 
 export const formSchema = user.userZ.pick({ role: true }).extend({
-  username: z.string().min(1, "username is required"),
+  username: z.string().min(1, "Username is required"),
   password: z.string().min(1, "Password is required"),
   name: z.string().min(1, "Name is required"),
 });
