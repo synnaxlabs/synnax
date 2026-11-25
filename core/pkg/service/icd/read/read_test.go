@@ -138,8 +138,7 @@ var _ = Describe("Read", func() {
 	})
 
 	// checker returns the Checker of reads, which is given plant, after it reads each
-	// of
-	// them, and the error of the first read that it refuses.
+	// of them, and the error of the first read that it refuses.
 	checker := func(ctx context.Context, reads ...read.Read) (read.Checker, error) {
 		GinkgoHelper()
 		c := MustSucceed(resolver.NewChecker(
@@ -147,7 +146,7 @@ var _ = Describe("Read", func() {
 		))
 		for _, rd := range reads {
 			if err := c.Read(rd); err != nil {
-				return c, err
+				return read.Checker{}, err
 			}
 		}
 		return c, nil

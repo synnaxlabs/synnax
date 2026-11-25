@@ -482,6 +482,11 @@ runners:
   - *py
   - scripts/runners/**
 
+tls:
+  - *client_py
+  - *client_ts
+  - .github/workflows/test.tls.yaml
+
 console_deps:
   - console/src-tauri/.cargo/audit.toml
   - console/src-tauri/Cargo.lock
