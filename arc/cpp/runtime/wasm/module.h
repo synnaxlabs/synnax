@@ -985,7 +985,7 @@ public:
         }
 
         const auto &inputs_to_use = node_inputs.empty() ? func.inputs : node_inputs;
-        const auto type = func_ptr->type(this->store);
+        auto type = func_ptr->type(this->store);
         std::vector<wasmtime::ValKind> params;
         for (const auto &param: type->params())
             params.push_back(param.kind());
