@@ -199,13 +199,18 @@ type heardTopic struct {
 	inferrer *xjson.Inferrer
 }
 
-// infer sets the kind and the time format of each field, and the index, from the shape
-// that a read task matches the last message to.
+// infer sets the shapes of the messages heard. It also sets the kind and the time
+// format of each field, and the index, from the shape of the last message.
 func (t *heardTopic) infer() {
-	shape, ok := lastShape(t.inferrer.Shapes(), t.Fields)
-	if !ok {
+	shapes, last := t.inferrer.Shapes()
+	t.Shapes = make([]browsedShape, len(shapes))
+	for i, s := range shapes {
+		t.Shapes[i] = newBrowsedShape(s)
+	}
+	if last < 0 {
 		return
 	}
+	shape := shapes[last]
 	byPointer := make(map[string]xjson.InferredField, len(shape.Fields))
 	for _, f := range shape.Fields {
 		byPointer[f.Pointer.String()] = f
@@ -225,26 +230,25 @@ func (t *heardTopic) infer() {
 	}
 }
 
-// lastShape returns the shape that a read task matches a message with fields to: the
-// shape whose present field the message holds, or else the shape with none.
-func lastShape(shapes []xjson.Shape, fields []browsedField) (xjson.Shape, bool) {
-	bare := -1
-	for i, s := range shapes {
-		if s.Present < 0 {
-			bare = i
-			continue
-		}
-		present := s.Fields[s.Present].Pointer.String()
-		if slices.ContainsFunc(fields, func(f browsedField) bool {
-			return f.Pointer == present
-		}) {
-			return s, true
+// newBrowsedShape returns the browsed form of s.
+func newBrowsedShape(s xjson.SampledShape) browsedShape {
+	b := browsedShape{Fields: make([]browsedField, len(s.Fields)), Count: s.Count}
+	for i, f := range s.Fields {
+		b.Fields[i] = browsedField{
+			Pointer:    f.Pointer.String(),
+			Type:       f.Type.String(),
+			Sample:     s.Samples[i],
+			Kind:       f.Kind,
+			TimeFormat: f.TimeFormat,
 		}
 	}
-	if bare < 0 {
-		return xjson.Shape{}, false
+	if s.Index >= 0 {
+		b.Index = s.Fields[s.Index].Pointer.String()
 	}
-	return shapes[bare], true
+	if s.Present >= 0 {
+		b.Present = s.Fields[s.Present].Pointer.String()
+	}
+	return b
 }
 
 // heard is what a browse heard on each topic.
