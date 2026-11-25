@@ -128,6 +128,7 @@ const Base = ({ item, loading, ...rest }: ListItemProps): ReactElement | null =>
         )}
         <Text.Text size="tiny" color={9} overflow="fade" grow>
           {item.host}:{item.port}
+          {item.user != null && ` · ${item.user}`}
         </Text.Text>
       </Flex.Box>
     </List.Item>

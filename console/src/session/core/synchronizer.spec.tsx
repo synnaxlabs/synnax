@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { connection, type Synnax as Client } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Drift } from "@synnaxlabs/drift";
 import { Synnax } from "@synnaxlabs/pluto";
 import { act, renderHook, waitFor } from "@testing-library/react";
@@ -24,6 +25,7 @@ import {
   createConnectedConsoleWrapper,
   createConsoleWrapper,
   createTestStore,
+  type TestStore,
 } from "@/testutil";
 
 // A single core reports a single Core key, so the swap is staged with a client carrying
@@ -129,6 +131,46 @@ describe("useCloseOnCoreChange", () => {
       expect(Drift.selectWindow(store.getState(), AUX_KEY)).toBeNull(),
     );
     expect(result.current.modals.isAnyOpen()).toBe(false);
+  });
+});
+
+describe("useCacheUser", () => {
+  const useUserSync = () =>
+    Synchronizer.use(pickSynchronizer(Core.SYNCHRONIZERS, "cache the session's user"));
+
+  const label = (store: TestStore, key: string): string | undefined =>
+    Session.Core.selectState(store.getState(), key)?.user;
+
+  it("should label a Core with the user of a password session", async () => {
+    const core = createCore("Local", { clusterKey: undefined });
+    const { wrapper, store } = await createConnectedConsoleWrapper({
+      client: null,
+      connParams: core,
+      preloadedState: createCoreState([core], core.key),
+    });
+    renderHook(useUserSync, { wrapper });
+    const { name } = await createTestClient().users.current.retrieve();
+    await waitFor(() => expect(label(store, core.key)).toBe(name));
+  });
+
+  // A provider or API key session leaves the record no username, so the label comes
+  // from the user the Core reports.
+  it("should label a Core with the user of a session that has no username", async () => {
+    const core = createCore("Local", { username: "", password: "" });
+    const store = await createTestStore({
+      preloadedState: createCoreState([core], core.key),
+    });
+    const client = createClient("cluster-a");
+    const retrieve = vi.fn(async () => ({ name: "Pat" }));
+    Object.assign(client, { users: { current: { retrieve } } });
+    const { wrapper: Console } = await createConsoleWrapper({ client: null, store });
+    const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
+      <Console>
+        <Synnax.TestProvider client={client}>{children}</Synnax.TestProvider>
+      </Console>
+    );
+    renderHook(useUserSync, { wrapper: Wrapper });
+    await waitFor(() => expect(label(store, core.key)).toBe("Pat"));
   });
 });
 

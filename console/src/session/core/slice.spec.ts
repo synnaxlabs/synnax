@@ -113,6 +113,32 @@ describe("set", () => {
   });
 });
 
+describe("setUser", () => {
+  it("should label a Core with the user of its session", () => {
+    const state = reduce(
+      withCores(ALPHA),
+      Core.setUser({ key: ALPHA.key, user: "Pat" }),
+    );
+    expect(state.cores[ALPHA.key].user).toBe("Pat");
+  });
+
+  it("should keep the label when an edit replaces the Core", () => {
+    const state = reduce(
+      withCores({ ...ALPHA, user: "Pat" }),
+      Core.set({ ...BASE, key: ALPHA.key, name: "Renamed" }),
+    );
+    expect(state.cores[ALPHA.key].user).toBe("Pat");
+  });
+
+  it("should drop a label for a missing Core", () => {
+    const state = reduce(
+      Core.ZERO_SLICE_STATE,
+      Core.setUser({ key: "nowhere", user: "Pat" }),
+    );
+    expect(state.cores.nowhere).toBeUndefined();
+  });
+});
+
 describe("setClusterKey", () => {
   it("should cache the cluster a Core connected to", () => {
     const state = reduce(
@@ -304,6 +330,7 @@ describe("coreZ", () => {
       "password",
       "port",
       "secure",
+      "user",
       "username",
     ]);
   });
