@@ -203,6 +203,11 @@ or `false`.
   Core. It then exits. After its first run, the Driver waits for the Core with no limit.
 </Field.Item>
 
+<Field.Item name="--core-warning-delay" default="30">
+  The number of seconds that a task or the rack retries a Core error before its status
+  warns "Failed to reach the Core".
+</Field.Item>
+
 <Field.Item name="--enable-integrations">
   The only integrations to run, separated by commas: `arc`, `ethercat`, `file`, `http`,
   `labjack`, `modbus`, `ni`, or `opc`. For example, `--enable-integrations http`. You
