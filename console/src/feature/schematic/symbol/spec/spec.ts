@@ -282,6 +282,66 @@ export const removePart = (spec: Spec, part: string): Spec => ({
   looks: spec.looks.filter((l) => l.part !== part),
 });
 
+/** Removed holds the keys of what an edit takes with the item, for its confirm. */
+export interface Removed {
+  /** looks go, or lose a fill, stroke, or motion. */
+  looks: string[];
+  commands: string[];
+  interactions: string[];
+}
+
+/**
+ * @returns spec with a new enumeration state, State N with the lowest free N from 2,
+ * and the key of the state. No state removed earlier had the key, so no node binding
+ * carries over to it.
+ */
+export const addState = (spec: Spec): [Spec, string] => {
+  const taken = new Set(spec.states.map((s) => s.name));
+  let n = 2;
+  while (taken.has(`State ${n}`)) n++;
+  const key = `state-${id.create()}`;
+  const state = { ...createState(), key, name: `State ${n}` };
+  return [{ ...spec, states: [...spec.states, state] }, key];
+};
+
+const reads = (v: Look["fill"] | Look["motion"], state: string): boolean =>
+  v != null && "state" in v && v.state === state;
+
+const READERS = ["fill", "stroke", "motion"] as const;
+
+/**
+ * @returns spec without state and its uses, and what goes with it. A look on the state
+ * goes. A fill, stroke, or motion that reads it goes from its look, and the look goes
+ * when it then sets nothing. The commands on the state go, with their clicks.
+ */
+export const removeState = (spec: Spec, state: string): [Spec, Removed] => {
+  const changed: string[] = [];
+  const looks = spec.looks.flatMap((l): Look[] => {
+    const read = READERS.filter((f) => reads(l[f], state));
+    if (l.when?.state !== state && read.length === 0) return [l];
+    changed.push(l.key);
+    if (l.when?.state === state) return [];
+    const next = { ...l };
+    for (const f of read) next[f] = undefined;
+    return setsNothing(next) ? [] : [next];
+  });
+  const commands = spec.commands.filter((c) => c.state === state).map((c) => c.key);
+  const interactions = spec.interactions.filter((i) =>
+    (i.type === "fire" ? [i.command] : i.commands).some((c) => commands.includes(c)),
+  );
+  const gone = interactions.map((i) => i.key);
+  return [
+    {
+      ...spec,
+      states: spec.states.filter((s) => s.key !== state),
+      looks,
+      commands: spec.commands.filter((c) => !commands.includes(c.key)),
+      interactions: spec.interactions.filter((i) => !gone.includes(i.key)),
+    },
+    { looks: changed, commands, interactions: gone },
+  ];
+};
+
 /**
  * @returns the part that holds the shape of selector: the shape itself, a span of the
  * text, or the nearest group around it.
