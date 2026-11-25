@@ -68,6 +68,13 @@ on:
         required: false
         type: boolean
         default: false
+      node_projects:
+        description:
+          The Vitest projects the Node.js LTS variants run, split by spaces, or empty
+          for the projects of the cov script; required for a package with browsers
+        required: false
+        type: string
+        default: ""
       package:
         description: The pnpm package name
         required: true
@@ -359,8 +366,7 @@ jobs:
             ${{ matrix.node && '--coverage.enabled=false' || inputs.coverage_flag != ''
             && '--coverage.reporter=text-summary --coverage.reporter=clover
             --coverage.reporter=json' || '' }}
-          PROJECT_ARG:
-            ${{ matrix.node && inputs.browsers && '--project=!*chromium' || '' }}
+          NODE_PROJECTS: ${{ matrix.node && inputs.node_projects || '' }}
           SHARD_ARG:
             ${{ inputs.shards > 1 && format('--shard={0}/{1}', matrix.shard,
             inputs.shards) || '' }}
@@ -369,8 +375,14 @@ jobs:
             ${{ format('{0}-{1}-{2}-{3}-cov', github.run_id, github.run_attempt,
             github.job, strategy.job-index) }}
         run: |
-          read -ra args <<< "$COVERAGE_ARGS $PROJECT_ARG $SHARD_ARG $TEST_ARGS $SPECS"
-          pnpm cov:"$PACKAGE" --log-order=stream --log-prefix=none -- "${args[@]}"
+          read -ra args <<< "$COVERAGE_ARGS $SHARD_ARG $TEST_ARGS $SPECS"
+          script="cov"
+          if [ -n "$NODE_PROJECTS" ]; then
+            script="test"
+            read -ra projects <<< "$NODE_PROJECTS"
+            args+=(--run "${projects[@]/#/--project=}")
+          fi
+          pnpm "$script:$PACKAGE" --log-order=stream --log-prefix=none -- "${args[@]}"
 
       - name: Run the examples
         if:

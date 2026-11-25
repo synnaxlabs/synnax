@@ -449,6 +449,7 @@ jobs:
       examples_package: "@synnaxlabs/client-examples"
       macos: *full
       node_lts: true
+      node_projects: client provided-core
       package: client
       packed: true
       runtimes: true
