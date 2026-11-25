@@ -55,4 +55,23 @@ TEST(TestAPIKeyClient, RetrieveRejectsNonUUIDKey) {
     );
     ASSERT_OCCURRED_AS_P(client.retrieve(), x::uuid::INVALID);
 }
+
+/// @brief it should read the expiry of a key that has one and leave it empty otherwise.
+TEST(TestAPIKeyClient, RetrieveReadsExpiry) {
+    grpc::auth::APIKeyRetrieveResponse res;
+    auto *expiring = res.add_keys();
+    expiring->set_key(x::uuid::create().to_string());
+    expiring->set_expires(42);
+    res.add_keys()->set_key(x::uuid::create().to_string());
+    const auto client = client_with(
+        nullptr,
+        std::make_unique<freighter::testutil::UnaryClient<
+            grpc::auth::APIKeyRetrieveRequest,
+            grpc::auth::APIKeyRetrieveResponse>>(res, x::errors::NIL)
+    );
+    const auto keys = ASSERT_NIL_P(client.retrieve());
+    ASSERT_EQ(keys.size(), 2);
+    ASSERT_EQ(keys[0].expires, x::telem::TimeStamp(42));
+    ASSERT_FALSE(keys[1].expires.has_value());
+}
 }
