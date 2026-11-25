@@ -297,6 +297,7 @@ describe("channel/tree", () => {
       await openTreeRowContextMenu(ch.name);
       fireEvent.click(await screen.findByText("Delete"));
       await screen.findByText(`Delete channel ${ch.name}`);
+      screen.getByRole("dialog", { name: `Delete channel ${ch.name}` });
       await screen.findByText(
         "Deletes the channel and its data. Nothing else uses it. " +
           "This action cannot be undone.",

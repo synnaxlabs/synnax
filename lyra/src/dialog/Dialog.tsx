@@ -10,6 +10,7 @@
 import "@/dialog/Dialog.css";
 
 import {
+  type AriaAttributes,
   type KeyboardEvent,
   type PropsWithChildren,
   type ReactElement,
@@ -41,7 +42,8 @@ const notifyModalChange = (): void => {
   document.dispatchEvent(new Event(Portal.MODAL_CHANGE_EVENT));
 };
 
-interface ModalProps extends PropsWithChildren {
+interface ModalProps
+  extends PropsWithChildren, Pick<AriaAttributes, "aria-label" | "aria-labelledby"> {
   /** The id of the frame, so a click or focus in the modal counts as inside it. */
   owner: string;
   /** Called on a `cancel` event of this dialog, whose default is always prevented. */
@@ -143,6 +145,8 @@ export const Dialog = ({
   rounded = "small",
   children,
   onKeyDown,
+  "aria-label": ariaLabel,
+  "aria-labelledby": ariaLabelledBy,
   ...rest
 }: DialogProps) => {
   const {
@@ -170,6 +174,8 @@ export const Dialog = ({
   };
   usePopover(surfaceRef, visible && !modal, portalTarget);
   const dialogStyle = { ...ctxStyle, ...style };
+  // A modal names its native dialog, since the surface inside it has no role.
+  const name = { "aria-label": ariaLabel, "aria-labelledby": ariaLabelledBy };
   if (!visible) return null;
   const dialog = (
     <Flex.Box
@@ -196,6 +202,7 @@ export const Dialog = ({
       align="stretch"
       style={dialogStyle}
       onKeyDown={handleKeyDown}
+      {...(modal ? undefined : name)}
       {...rest}
       {...{ [PORTAL_OWNER_ATTR]: id }}
     >
@@ -205,7 +212,13 @@ export const Dialog = ({
   const target = portalTarget ?? getRootElement();
   if (!modal) return createPortal(dialog, target);
   return createPortal(
-    <Modal onCancel={cancel} onClose={close} onKeyDown={handleModalKeyDown} owner={id}>
+    <Modal
+      onCancel={cancel}
+      onClose={close}
+      onKeyDown={handleModalKeyDown}
+      owner={id}
+      {...name}
+    >
       {dialog}
     </Modal>,
     target,

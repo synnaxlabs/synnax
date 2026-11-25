@@ -161,15 +161,21 @@
             --pluto-active-border-color: var(--pluto-warning-m1);
         }
 
+        /* The fill is a shade darker than the error color, so its label keeps 4.5:1. */
         &.lyra--status-error {
             color: var(--pluto-text-on-primary);
 
-            --pluto-bg: var(--pluto-error-z);
-            --pluto-hover-bg: var(--pluto-error-p1);
-            --pluto-active-bg: var(--pluto-error-m1);
-            --pluto-border-color: var(--pluto-error-z);
-            --pluto-hover-border-color: var(--pluto-error-p1);
-            --pluto-active-border-color: var(--pluto-error-m1);
+            --pluto-error-fill-hover: color-mix(
+                in srgb,
+                var(--pluto-error-m1) 60%,
+                var(--pluto-error-z)
+            );
+            --pluto-bg: var(--pluto-error-m1);
+            --pluto-hover-bg: var(--pluto-error-fill-hover);
+            --pluto-active-bg: var(--pluto-error-m2);
+            --pluto-border-color: var(--pluto-error-m1);
+            --pluto-hover-border-color: var(--pluto-error-fill-hover);
+            --pluto-active-border-color: var(--pluto-error-m2);
         }
 
         &.lyra--disabled {

@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { color } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 import { userEvent } from "vitest/browser";
 
@@ -55,6 +56,13 @@ describe("Button", () => {
       },
     );
 
+    it("should keep the label of a filled error button at 4.5:1 or more", async () => {
+      const el = await renderButton({ variant: "filled", status: "error" });
+      expect(
+        color.contrast(computed(el, "color"), background(el)),
+      ).toBeGreaterThanOrEqual(4.5);
+    });
+
     it("should draw a shadow button with no box at rest", async () => {
       const el = await renderButton({ variant: "shadow" });
       expect(background(el)).toBe(resolve("transparent"));
@@ -85,9 +93,9 @@ describe("Button", () => {
       expect(computed(el, "color")).toBe(resolve("var(--pluto-text-on-primary)"));
     });
 
-    it("should fill an error button with the error color", async () => {
+    it("should fill an error button with a shade darker than the error color", async () => {
       const el = await renderButton({ variant: "filled", status: "error" });
-      expect(background(el)).toBe(resolve("var(--pluto-error-z)"));
+      expect(background(el)).toBe(resolve("var(--pluto-error-m1)"));
     });
   });
 

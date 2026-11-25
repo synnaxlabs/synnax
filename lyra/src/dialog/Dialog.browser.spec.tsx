@@ -670,6 +670,24 @@ describe("Dialog", () => {
   });
 
   describe("modal", () => {
+    it("should take its name from the label it points to", async () => {
+      await renderThemed(
+        <Triggers.Provider>
+          <Dialog.Frame variant="modal">
+            <Dialog.Trigger>Open</Dialog.Trigger>
+            <Dialog.Dialog aria-labelledby="modal-title">
+              <h2 id="modal-title">Delete group</h2>
+            </Dialog.Dialog>
+          </Dialog.Frame>
+        </Triggers.Provider>,
+      );
+      button("Open").focus();
+      await userEvent.keyboard("{Enter}");
+      await expect
+        .element(page.getByRole("dialog", { name: "Delete group" }))
+        .toBeVisible();
+    });
+
     describe("focus", () => {
       it("should take the focus on open", async () => {
         const { dialog } = await openModal(FIELDS);

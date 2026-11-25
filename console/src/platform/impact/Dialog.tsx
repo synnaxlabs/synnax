@@ -664,6 +664,7 @@ const Dialog = ({
   const [footer, setFooter] = useState<FooterStatus | null>(null);
   const [hiddenUnpicked, setHiddenUnpicked] = useState(false);
   const frameRef = useRef<HTMLDivElement>(null);
+  const titleID = useId();
   // The checks lock while an apply runs, which takes the focus from a focused check.
   // It goes back once the apply ends.
   const refocus = useRef<HTMLElement | null>(null);
@@ -831,6 +832,7 @@ const Dialog = ({
     <Modal.Frame
       ref={frameRef}
       className={CSS.cls(CSS.B("impact"), !painted && CSS.BM("impact", "unpainted"))}
+      aria-labelledby={titleID}
     >
       <Modal.Header icon={<Icon.Channel />} closeDisabled={applying}>
         Channel.Delete
@@ -843,7 +845,7 @@ const Dialog = ({
             </Text.Text>
           </Note.Note>
         )}
-        <Text.Text level="h3" weight={450}>
+        <Text.Text level="h3" weight={450} id={titleID}>
           {messageOf(names)}
         </Text.Text>
         <Text.Text weight={450}>{descriptionOf(names, empty)}</Text.Text>
