@@ -187,7 +187,7 @@ describe("Kafka Write form", () => {
   // a loaded CI runner.
   it("should show the empty state and add + select a target", async () => {
     const { dev, draft } = await renderWrite();
-    await screen.findByText("Select a target to configure");
+    await screen.findByText("Add a target to send records to a topic");
     await addSampledTarget(dev, draft.key, [createShape(["pump-1"], 2, "/speed")]);
     await screen.findByText("Produce");
     expect(screen.getByDisplayValue(TOPIC)).toBeTruthy();
@@ -230,7 +230,7 @@ describe("Kafka Write form", () => {
   it("should add the message of a new target to the ICD of the most targets", async () => {
     const { ic, target } = await createTarget([createField("speed", "float")]);
     const { dev, draft } = await renderWrite([target]);
-    await screen.findByRole("option", { name: /plant\.pumps/ });
+    await screen.findByRole("treeitem", { name: /Topic.*plant\.pumps/ });
     const [, added] = await addSampledTarget(
       dev,
       draft.key,
@@ -368,7 +368,7 @@ describe("Kafka Write form", () => {
   it("should show one Message section for a target whose message has no fields", async () => {
     const { target } = await createTarget([]);
     await renderWrite([target]);
-    fireEvent.click(await screen.findByRole("option", { name: /plant\.pumps/ }));
+    fireEvent.click(await screen.findByRole("treeitem", { name: /JSON.*No key/ }));
     await screen.findByText("Message has no fields");
     expect(screen.getAllByText("Message", { exact: true })).toHaveLength(1);
   });
@@ -401,32 +401,24 @@ describe("Kafka Write form", () => {
       recordKey: "pump-1",
     });
     await renderWrite([target]);
-    fireEvent.click(await screen.findByRole("option", { name: /plant\.pumps/ }));
+    fireEvent.click(await screen.findByRole("treeitem", { name: /JSON.*pump-1/ }));
     await screen.findByText("Produce");
     expect(screen.getByDisplayValue("plant.pumps")).toBeTruthy();
     expect(screen.getByDisplayValue("pump-1")).toBeTruthy();
   });
 
-  it("should start every topic on one edge and truncate the record key first", async () => {
+  it("should show each topic above its record keys, and each record key above its fields", async () => {
     const fields = [createField("speed", "float")];
-    const { target: short } = await createTarget(fields);
-    const { target: long } = await createTarget(fields, {
-      key: "t2",
-      topic: "plant.commands",
-      recordKey: "pump_speed_setpoint_of_the_north_pump_house",
-    });
-    await renderWrite([short, long]);
-    const item = async (topic: RegExp) =>
-      within(await screen.findByRole("option", { name: topic }));
-    const pumps = (await item(/plant\.pumps/)).getByText("plant.pumps");
-    const keyed = await item(/plant\.commands/);
-    const commands = keyed.getByText("plant.commands");
-    const key = keyed.getByText("pump_speed_setpoint_of_the_north_pump_house");
-    expect(commands.getBoundingClientRect().left).toBe(
-      pumps.getBoundingClientRect().left,
-    );
-    expect(key.scrollWidth).toBeGreaterThan(key.clientWidth);
-    expect(commands.scrollWidth).toBe(commands.clientWidth);
+    const { target: keyed } = await createTarget(fields, { recordKey: "pump-1" });
+    const unkeyed = { ...keyed, key: "t2", recordKey: "" };
+    await renderWrite([keyed, unkeyed]);
+    const level = async (name: RegExp) =>
+      (await screen.findByRole("treeitem", { name })).getAttribute("aria-level");
+    expect(await level(/Topic.*plant\.pumps/)).toBe("1");
+    expect(await level(/JSON.*pump-1/)).toBe("2");
+    expect(await level(/JSON.*No key/)).toBe("2");
+    expect(screen.getAllByRole("treeitem", { name: /^speed/ })).toHaveLength(2);
+    expect(screen.getAllByRole("treeitem", { name: /Topic/ })).toHaveLength(1);
   });
 
   it("should name a new command channel after the device, topic, record key, and field", async () => {
@@ -434,7 +426,7 @@ describe("Kafka Write form", () => {
       recordKey: "pump-1",
     });
     const { dev } = await renderWrite([target]);
-    fireEvent.click(await screen.findByRole("option", { name: /plant\.pumps/ }));
+    fireEvent.click(await screen.findByRole("treeitem", { name: /^speed/ }));
     const name = `${channel.escapeInvalidName(dev.name)}_plant_pumps_pump_1_speed_cmd`;
     expect(await screen.findByDisplayValue(name)).toBeTruthy();
   });
@@ -455,7 +447,9 @@ describe("Kafka Write form", () => {
       },
     };
     const { draft } = await renderWrite([bound]);
-    fireEvent.contextMenu(await screen.findByRole("option", { name: /plant\.pumps/ }));
+    fireEvent.contextMenu(
+      await screen.findByRole("treeitem", { name: /JSON.*No key/ }),
+    );
     fireEvent.click(await screen.findByText("Duplicate"));
     await waitFor(async () => {
       const targets = await retrieveTargets(draft.key);
@@ -472,33 +466,30 @@ describe("Kafka Write form", () => {
       topic: "",
     });
     const { container } = await renderWrite([target]);
-    await screen.findByRole("option", { name: /New topic/ });
+    await screen.findByRole("treeitem", { name: /Topic.*New topic/ });
     await clickDeploy(container);
     await screen.findByText("Topic is required");
   });
   describe("adding fields", () => {
-    const fieldGroup = async (name: string) =>
-      within(await screen.findByRole("group", { name }));
-
     const retrieveFields = async (ic: icd.ICD, message: icd.Message) => {
       const [retrieved] = await client.icds.retrieve([ic.key]);
       return ICD.jsonFields(retrieved.messages.find(({ key }) => key === message.key));
     };
 
-    const selectTarget = async () =>
-      fireEvent.click(await screen.findByRole("option", { name: /plant\.pumps/ }));
+    const addField = async () => {
+      fireEvent.click(await screen.findByRole("treeitem", { name: /JSON.*No key/ }));
+      fireEvent.click(await screen.findByRole("button", { name: "Add field" }));
+    };
 
-    it("should add a field to the message in its ICD, with its editor open, then put it on a channel", async () => {
+    it("should add a field to the message in its ICD, with the focus on its name, then put it on a channel", async () => {
       const speed = createField("speed", "float");
       const { target, ic, message } = await createTarget([speed]);
       const { draft } = await renderWrite([target]);
-      await selectTarget();
-      await fieldGroup(speed.name);
-      fireEvent.click(screen.getByRole("button", { name: "Add field" }));
-      const group = await fieldGroup("Field 2");
-      group.getByDisplayValue("Field 2");
-      group.getByDisplayValue("/field_2");
-      fireEvent.change(group.getByPlaceholderText("/temperature"), {
+      await addField();
+      const name = await screen.findByDisplayValue("Field 2");
+      await waitFor(() => expect(document.activeElement).toBe(name));
+      screen.getByDisplayValue("/field_2");
+      fireEvent.change(screen.getByPlaceholderText("/temperature"), {
         target: { value: "/limit" },
       });
       let added: icd.JSONField | undefined;
@@ -521,54 +512,59 @@ describe("Kafka Write form", () => {
     it("should move the pointer of an added field when the field is renamed", async () => {
       const { target } = await createTarget([createField("speed", "float")]);
       await renderWrite([target]);
-      await selectTarget();
-      fireEvent.click(await screen.findByRole("button", { name: "Add field" }));
-      const group = await fieldGroup("Field 2");
-      fireEvent.change(group.getByDisplayValue("Field 2"), {
+      await addField();
+      fireEvent.change(await screen.findByDisplayValue("Field 2"), {
         target: { value: "Pump Pressure" },
       });
-      await waitFor(() => group.getByDisplayValue("/pump_pressure"));
+      await screen.findByDisplayValue("/pump_pressure");
+    });
+
+    it("should move the pointer of an added field renamed after another item was selected", async () => {
+      const { target } = await createTarget([createField("speed", "float")]);
+      await renderWrite([target]);
+      await addField();
+      await screen.findByDisplayValue("Field 2");
+      fireEvent.click(screen.getByRole("treeitem", { name: /^speed/ }));
+      fireEvent.click(await screen.findByRole("treeitem", { name: /^Field 2/ }));
+      fireEvent.change(await screen.findByDisplayValue("Field 2"), {
+        target: { value: "pressure" },
+      });
+      await screen.findByDisplayValue("/pressure");
     });
 
     it("should keep the pointer of an added field once the user edits it", async () => {
       const { target } = await createTarget([createField("speed", "float")]);
       await renderWrite([target]);
-      await selectTarget();
-      fireEvent.click(await screen.findByRole("button", { name: "Add field" }));
-      const group = await fieldGroup("Field 2");
-      fireEvent.change(group.getByDisplayValue("/field_2"), {
+      await addField();
+      fireEvent.change(await screen.findByDisplayValue("/field_2"), {
         target: { value: "/limit" },
       });
-      fireEvent.change(group.getByDisplayValue("Field 2"), {
+      fireEvent.change(screen.getByDisplayValue("Field 2"), {
         target: { value: "pressure" },
       });
-      await waitFor(() => group.getByDisplayValue("pressure"));
-      group.getByDisplayValue("/limit");
+      await screen.findByDisplayValue("pressure");
+      screen.getByDisplayValue("/limit");
     });
 
     it("should keep the pointer of a field the message already had when it is renamed", async () => {
       const { target } = await createTarget([createField("speed", "float")]);
       await renderWrite([target]);
-      await selectTarget();
-      const group = await fieldGroup("speed");
-      fireEvent.click(group.getByRole("button", { name: "Edit field" }));
-      fireEvent.change(await group.findByDisplayValue("speed"), {
+      fireEvent.click(await screen.findByRole("treeitem", { name: /^speed/ }));
+      fireEvent.change(await screen.findByDisplayValue("speed"), {
         target: { value: "pressure" },
       });
-      await waitFor(() => group.getByDisplayValue("pressure"));
-      group.getByDisplayValue("/speed");
+      await screen.findByDisplayValue("pressure");
+      screen.getByDisplayValue("/speed");
     });
 
     it("should add a first field to a message with no fields", async () => {
       const { target } = await createTarget([]);
       await renderWrite([target]);
-      await selectTarget();
+      fireEvent.click(await screen.findByRole("treeitem", { name: /JSON.*No key/ }));
       await screen.findByText("Message has no fields");
       fireEvent.click(screen.getByRole("button", { name: "Add field" }));
-      await fieldGroup("Field 1");
-      await waitFor(() =>
-        expect(screen.queryByText("Message has no fields")).toBeNull(),
-      );
+      await screen.findByRole("treeitem", { name: /^Field 1/ });
+      screen.getByDisplayValue("Field 1");
     });
   });
 

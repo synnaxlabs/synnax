@@ -23,8 +23,10 @@ const channelBinding = (field: icd.FieldKey): icd.ChannelWriteBinding => ({
 });
 
 /** @returns the name that deploying gives the command channel of field after prefix. */
-export const commandName = (prefix: string, field: icd.JSONField): string =>
-  `${prefix}_${channel.escapeInvalidName(field.name)}_cmd`;
+export const commandName = (
+  prefix: string,
+  { name }: Pick<icd.JSONField, "name">,
+): string => `${prefix}_${channel.escapeInvalidName(name)}_cmd`;
 
 /** Tells the user what to do when the ICD no longer has the message of a write. */
 export const MISSING_DESCRIPTION =

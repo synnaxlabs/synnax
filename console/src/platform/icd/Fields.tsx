@@ -578,6 +578,8 @@ export const FieldsStatus = ({ path }: FieldsStatusProps): ReactElement | null =
 
 const POINTER_INPUT_PROPS = { placeholder: "/temperature" } as const;
 
+const FOCUSED_NAME_INPUT_PROPS = { autoFocus: true } as const;
+
 interface ScaleControlProps extends Input.Control<number> {
   offset: deep.Target<number>;
 }
@@ -595,6 +597,8 @@ export interface JSONFieldProps {
   path: deep.Path<icd.JSONField>;
   /** Actions in the header of the field's section. */
   actions?: ReactNode;
+  /** Name takes focus when the field mounts. */
+  autoFocus?: boolean;
   /** A rename moves the pointer to the pointer of the new name. */
   pointerLinked?: boolean;
   /** Called when the user edits the pointer. */
@@ -608,6 +612,7 @@ export interface JSONFieldProps {
 export const JSONField = ({
   path,
   actions,
+  autoFocus = false,
   pointerLinked = false,
   onPointerChange,
 }: JSONFieldProps): ReactElement => {
@@ -623,6 +628,7 @@ export const JSONField = ({
         path={path.name}
         label="Name"
         padHelpText={false}
+        inputProps={autoFocus ? FOCUSED_NAME_INPUT_PROPS : undefined}
         onChange={
           pointerLinked ? (name) => set(path.pointer, namePointer(name)) : undefined
         }
