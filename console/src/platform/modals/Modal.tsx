@@ -43,10 +43,9 @@ const [UnsavedContext, useSetUnsaved] = context.create<(unsaved: boolean) => voi
 });
 
 /**
- * Asks before the modal closes while unsaved is true: Escape, the close trigger, and a
- * click outside open a confirm, and the modal closes only when the user discards. A
- * close that the content calls, as after a save, does not ask. Does nothing outside a
- * modal.
+ * While unsaved is true, Escape, the close trigger, and a click outside ask the user to
+ * discard before the modal closes. A close that the content calls, as after a save,
+ * does not ask. Does nothing outside a modal.
  */
 export const useUnsaved = (unsaved: boolean): void => {
   const setUnsaved = useSetUnsaved();
@@ -73,7 +72,7 @@ export const Modal = ({
   setGuard,
 }: ModalProps): ReactElement => {
   const confirm = useConfirm();
-  const discard = async () =>
+  const confirmDiscard = async () =>
     (await confirm({
       message: "Discard unsaved edits?",
       description: "If you close now, you lose the edits since the last save.",
@@ -81,7 +80,8 @@ export const Modal = ({
       cancel: { label: "Keep editing" },
       title: "Unsaved edits",
     })) === true;
-  const setUnsaved = (unsaved: boolean) => setGuard(unsaved ? discard : undefined);
+  const setUnsaved = (unsaved: boolean) =>
+    setGuard(unsaved ? confirmDiscard : undefined);
   const handleDismiss = () => dismiss();
   return (
     <Dialog.Frame

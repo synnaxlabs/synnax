@@ -624,6 +624,17 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       expect(screen.queryByText("Discard unsaved edits?")).toBeNull();
     });
 
+    it("closes at once when an edit is undone", async () => {
+      const symbol = await openStored();
+      fireEvent.change(findNameInput(), { target: { value: uniqueName("renamed") } });
+      fireEvent.change(findNameInput(), { target: { value: symbol.name } });
+      closeEditor();
+      await waitFor(() =>
+        expect(screen.queryByPlaceholderText("Symbol name")).toBeNull(),
+      );
+      expect(screen.queryByText("Discard unsaved edits?")).toBeNull();
+    });
+
     it("asks before it drops unsaved edits on close", async () => {
       const symbol = await openStored();
       const renamed = uniqueName("renamed");
