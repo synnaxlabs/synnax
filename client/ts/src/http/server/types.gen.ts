@@ -318,13 +318,13 @@ export type RetrieveRequest = z.infer<typeof retrieveRequestZ>;
 /** Identity holds the server fields that the connect form owns. */
 export const identityZ = z.object({
   /** rack is the key of the rack whose Driver connects to the server. */
-  rack: rack.keyZ.refine((v) => v !== 0, "rack is required"),
+  rack: rack.keyZ.refine((v) => v !== 0, "Rack is required"),
   /** name is a human-readable name for the server. */
-  name: z.string().min(1, "name is required"),
+  name: z.string().min(1, "Name is required"),
   /** scheme is the URL scheme that the Driver reaches the server with. */
   scheme: schemeZ.prefault({ type: "https" }),
   /** host is the hostname or IP address of the server. */
-  host: z.string().min(1, "host is required"),
+  host: z.string().min(1, "Host is required"),
   /** port is the TCP port. Absent takes the default port of the scheme. */
   port: zod.uint16.min(1).optional(),
   /** basePath is the path that prefixes the path of every request. */
