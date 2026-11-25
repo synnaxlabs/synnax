@@ -138,6 +138,10 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/auth/oidc/invite/redeem",
 		),
+		AuthOIDCInviteRedeemWithPassword: unary[
+			oidc.RedeemInviteWithPasswordRequest,
+			session.CreateResponse,
+		](router, "/api/v1/auth/oidc/invite/redeem-password"),
 		AuthPasswordCreate: unary[password.CreateRequest, struct{}](
 			router,
 			"/api/v1/auth/password/create",

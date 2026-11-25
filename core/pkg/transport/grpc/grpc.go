@@ -122,6 +122,10 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 		apioidc.RedeemInviteRequest,
 		apisession.CreateResponse,
 	]{}
+	t.AuthOIDCInviteRedeemWithPassword = noop.UnaryServer[
+		apioidc.RedeemInviteWithPasswordRequest,
+		apisession.CreateResponse,
+	]{}
 	t.AuthPasswordCreate = noop.UnaryServer[apipassword.CreateRequest, struct{}]{}
 	t.AuthPasswordRetrieve = noop.UnaryServer[
 		apipassword.RetrieveRequest,

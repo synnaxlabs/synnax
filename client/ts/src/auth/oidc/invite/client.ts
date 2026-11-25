@@ -26,6 +26,8 @@ const RETRIEVE_ENDPOINT = "/auth/oidc/invite/retrieve";
 const DELETE_ENDPOINT = "/auth/oidc/invite/delete";
 /** The route that redeems an invite. The Core serves it without a session. */
 export const REDEEM_ENDPOINT = "/auth/oidc/invite/redeem";
+/** The route that redeems an invite with a password. It needs no session either. */
+export const REDEEM_WITH_PASSWORD_ENDPOINT = "/auth/oidc/invite/redeem-password";
 
 export interface CreateResult {
   /** The token that redeems the invite. It is the only copy of its secret. */

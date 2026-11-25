@@ -17,6 +17,7 @@ import { password } from "@/auth/password";
 import { session } from "@/auth/session";
 import {
   type Credentials,
+  credentialsZ,
   type Method,
   methodZ,
   type OIDCCredentials,
@@ -50,6 +51,9 @@ const redeemInviteReqZ = z.object({
   token: z.string(),
   credentials: oidcCredentialsZ,
   cookie: z.boolean().optional(),
+});
+const redeemInviteWithPasswordReqZ = redeemInviteReqZ.extend({
+  credentials: credentialsZ,
 });
 const renewResZ = z.object({ session: sessionZ, user: user.userZ.optional() });
 
@@ -87,6 +91,7 @@ const TOKENLESS_ENDPOINTS = [
   SESSION_CREATE_ENDPOINT,
   LEGACY_LOGIN_ENDPOINT,
   oidc.invite.REDEEM_ENDPOINT,
+  oidc.invite.REDEEM_WITH_PASSWORD_ENDPOINT,
 ];
 
 // a newer Core may accept methods this client does not know, so they are dropped, and
@@ -202,6 +207,38 @@ export const redeemInvite = async (
     oidc.invite.REDEEM_ENDPOINT,
     { token, credentials, cookie },
     redeemInviteReqZ,
+    createResZ,
+  );
+  return { token: res.token, session: res.session };
+};
+
+export interface RedeemInviteWithPasswordParams extends Omit<
+  RedeemInviteParams,
+  "credentials"
+> {
+  /** The username and password the invited user logs in with from now on. */
+  credentials: Credentials;
+}
+
+/**
+ * Gives the invited user its first username and password and opens a session, without
+ * a logged-in client. An invite works once. With cookie set, the returned token is
+ * empty.
+ * @param client - A client from {@link createTokenlessClient}.
+ * @throws {InvalidCredentialsError} when the token is unknown, used, or expired.
+ * @throws {AuthError} when another user has the username.
+ * @throws {ValidationError} when the Core does not accept the password method, a
+ * credential is empty, or the user already has a password.
+ * @throws {Unreachable} if the Core cannot be reached.
+ */
+export const redeemInviteWithPassword = async (
+  client: UnaryClient,
+  { token, credentials, cookie }: RedeemInviteWithPasswordParams,
+): Promise<CreateSessionResult> => {
+  const res = await client.send(
+    oidc.invite.REDEEM_WITH_PASSWORD_ENDPOINT,
+    { token, credentials, cookie },
+    redeemInviteWithPasswordReqZ,
     createResZ,
   );
   return { token: res.token, session: res.session };

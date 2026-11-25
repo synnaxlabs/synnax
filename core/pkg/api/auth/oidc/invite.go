@@ -16,8 +16,11 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/auth/session"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/oidc/invite"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // CreateInviteRequest invites a user.
@@ -140,6 +143,79 @@ func (s *Service) RedeemInvite(
 		}
 		ses, token, err = s.auth.NewWriter(tx).
 			Open(ctx, user.ResourceID(i.User), link.Key)
+		return err
+	}); err != nil {
+		return session.CreateResponse{}, err
+	}
+	return s.session.Respond(ctx, ses, token, req.Cookie)
+}
+
+// RedeemInviteWithPasswordRequest gives an invited user its first username and
+// password.
+type RedeemInviteWithPasswordRequest struct {
+	// Token is the invite's token.
+	Token string `json:"token" msgpack:"token"`
+	// Credentials are the username and password the invited user logs in with.
+	Credentials auth.Credentials `json:"credentials" msgpack:"credentials"`
+	// Cookie asks for the session token in a cookie, as session.CreateRequest does.
+	Cookie bool `json:"cookie" msgpack:"cookie"`
+}
+
+// RedeemInviteWithPassword gives the invited user its first username and password and
+// opens a session, in the transaction that consumes the invite. It returns
+// auth.ErrInvalidCredentials for an unknown, used, or expired token,
+// auth.ErrRepeatedUsername for a taken username, and a validation error when the Core
+// does not accept passwords, a credential is empty, or the user has a password. A
+// refused request keeps the invite.
+func (s *Service) RedeemInviteWithPassword(
+	ctx context.Context,
+	req RedeemInviteWithPasswordRequest,
+) (session.CreateResponse, error) {
+	if err := s.auth.Accepts(auth.MethodPassword); err != nil {
+		return session.CreateResponse{}, err
+	}
+	if err := req.Credentials.Validate(); err != nil {
+		return session.CreateResponse{}, err
+	}
+	// a hash is slow, so a token that redeems nothing costs none
+	if err := s.invite.Check(ctx, req.Token); err != nil {
+		return session.CreateResponse{}, err
+	}
+	hash, err := s.password.Hash(req.Credentials.Password)
+	if err != nil {
+		return session.CreateResponse{}, err
+	}
+	var (
+		ses   auth.Session
+		token string
+	)
+	if err = s.invite.Redeem(ctx, req.Token, func(tx gorp.Tx, i invite.Invite) error {
+		subject := user.ResourceID(i.User)
+		exists, err := s.password.NewRetrieve().
+			Where(password.MatchSubjects(subject)).
+			Exists(ctx, tx)
+		if err != nil {
+			return err
+		}
+		if exists {
+			return errors.Wrapf(
+				validate.ErrValidation,
+				"%s already has a password",
+				subject,
+			)
+		}
+		if err = s.password.NewWriter(tx).
+			Set(ctx, subject, req.Credentials.Username, hash); err != nil {
+			return err
+		}
+		var p password.Password
+		if err = s.password.NewRetrieve().
+			Where(password.MatchSubjects(subject)).
+			Entry(&p).
+			Exec(ctx, tx); err != nil {
+			return err
+		}
+		ses, token, err = s.auth.NewWriter(tx).Open(ctx, subject, p.Key)
 		return err
 	}); err != nil {
 		return session.CreateResponse{}, err

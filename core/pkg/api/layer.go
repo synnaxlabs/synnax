@@ -99,6 +99,12 @@ type Transport struct {
 	// AuthOIDCInviteRedeem links a provider account through an invite and opens a
 	// session. It needs no session.
 	AuthOIDCInviteRedeem freighter.UnaryServer[oidc.RedeemInviteRequest, session.CreateResponse]
+	// AuthOIDCInviteRedeemWithPassword gives the invited user a password through an
+	// invite and opens a session. It needs no session.
+	AuthOIDCInviteRedeemWithPassword freighter.UnaryServer[
+		oidc.RedeemInviteWithPasswordRequest,
+		session.CreateResponse,
+	]
 	// AuthPasswordCreate gives the caller or another user its first password.
 	AuthPasswordCreate freighter.UnaryServer[password.CreateRequest, struct{}]
 	// AuthPasswordRetrieve lists passwords by subject or username, without hashes.
@@ -427,6 +433,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.AuthMethods,
 		t.AuthSessionCreate,
 		t.AuthOIDCInviteRedeem,
+		t.AuthOIDCInviteRedeemWithPassword,
 		t.ConnectivityCheck,
 	)
 
@@ -739,6 +746,7 @@ func (l *Layer) BindTo(t Transport) {
 	}))
 	t.AuthOIDCInviteDelete.BindHandler(bind.Write(l.binder, l.OIDC.DeleteInvites))
 	t.AuthOIDCInviteRedeem.BindHandler(l.OIDC.RedeemInvite)
+	t.AuthOIDCInviteRedeemWithPassword.BindHandler(l.OIDC.RedeemInviteWithPassword)
 	t.AuthPasswordCreate.BindHandler(bind.WritePrepared(
 		l.binder,
 		l.Password.PrepareCreate,
@@ -1055,10 +1063,11 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		return nil, err
 	}
 	if l.OIDC, err = oidc.NewService(oidc.ServiceConfig{
-		Auth:    cfg.Service.Auth,
-		OIDC:    cfg.Service.OIDC,
-		Invite:  cfg.Service.Invite,
-		Session: l.Session,
+		Auth:     cfg.Service.Auth,
+		OIDC:     cfg.Service.OIDC,
+		Invite:   cfg.Service.Invite,
+		Session:  l.Session,
+		Password: cfg.Service.Password,
 	}); err != nil {
 		return nil, err
 	}
