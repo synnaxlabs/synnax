@@ -11,7 +11,7 @@ import { DataType, id } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { channel } from "@/channel";
-import type Synnax from "@/client";
+import type { Synnax } from "@/index";
 import { createTestClient, createTestClientWithPolicy } from "@/testutil";
 
 const admin = createTestClient();

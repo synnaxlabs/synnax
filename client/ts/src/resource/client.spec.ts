@@ -164,7 +164,7 @@ describe("Resource", () => {
 
     const subscribeThenLeave = async (
       params: resource.SearchParams,
-    ): Promise<query.List<resource.Resource, string>> => {
+    ): Promise<query.list.List<resource.Resource, string>> => {
       const list = client.resources.watch(params);
       const off = list.onChange(() => {});
       await list.retrieve();

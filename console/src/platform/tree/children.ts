@@ -62,7 +62,7 @@ const PAGE_SIZE = 1000;
 /** A typed client that retrieves the records that queries match and lists them live. */
 export interface Retriever<Q, D extends record.Keyed<record.Key>> {
   retrieve: (query: Q) => Promise<D[]>;
-  watch: (query: Q & NameOrder & { limit: number }) => query.List<D, unknown>;
+  watch: (query: Q & NameOrder & { limit: number }) => query.list.List<D, unknown>;
 }
 
 /** Builds a source that lists the records a typed client matches for the query. */
@@ -83,8 +83,8 @@ export const createSource = <Q, D extends record.Keyed<record.Key>>(
     }
     return res;
   };
-  let held: { from: query.Window<D, unknown>; window: Window } | undefined;
-  const toWindow = (from: query.Window<D, unknown>): Window => {
+  let held: { from: query.list.Window<D, unknown>; window: Window } | undefined;
+  const toWindow = (from: query.list.Window<D, unknown>): Window => {
     if (held?.from !== from)
       held = {
         from,

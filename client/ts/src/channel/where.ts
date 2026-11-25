@@ -28,7 +28,7 @@ export const readsOutputs = (where?: Where): boolean =>
 /**
  * @returns the typed lines of a channel Where. The internal line checks the keys that
  * builtIns returns, and only the Core checks it while builtIns returns null. Only the
- * Core checks the virtual and calculated lines.
+ * Core checks the calculated line.
  */
 export const createLines = (builtIns: () => Set<Key> | null): Lines => ({
   ...group.MEMBER_LINES,
@@ -38,6 +38,6 @@ export const createLines = (builtIns: () => Set<Key> | null): Lines => ({
     return (ch: Payload, value: filter.Bool) =>
       filter.matchesSet(value, keys.has(ch.key));
   },
-  virtual: null,
+  virtual: (ch, value) => (ch.virtual && !ch.calculated) === value,
   calculated: null,
 });

@@ -7,8 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { user } from "@synnaxlabs/client";
-import { Access, User as PUser } from "@synnaxlabs/pluto";
+import { User as PUser } from "@synnaxlabs/pluto";
 
 import { Command } from "@/platform/command";
 import { User as PlatformUser } from "@/platform/user";
@@ -18,7 +17,7 @@ const RegisterCommand = Command.create({
   name: "Register user",
   icon: <PUser.CreateIcon />,
   useOnSelect: PlatformUser.useRegisterModal,
-  useVisible: () => Access.useCreateGranted(user.TYPE_RESOURCE_ID),
+  useVisible: PlatformUser.useRegisterGranted,
 });
 
 export const COMMANDS = [RegisterCommand];

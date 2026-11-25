@@ -19,6 +19,7 @@ import {
   id,
   Series,
   sleep,
+  TimeRange,
   TimeSpan,
   TimeStamp,
   url,
@@ -1787,7 +1788,27 @@ describe("update against a local server", () => {
     replyData(ws);
     const frame = await streamer.read();
     expect(onMissed).toHaveBeenCalledTimes(1);
+    expect(onMissed).toHaveBeenCalledWith(undefined);
     expect(frame.keys).toEqual([]);
+    streamer.close();
+  });
+
+  it("should pass the lost time range of each channel to onMissed", async () => {
+    const onMissed = vi.fn();
+    const streamer = await open(() => {}, onMissed);
+    const ws = await connected;
+    replyData(ws, {
+      missed: true,
+      missed_ranges: { 1: { start: "10", end: "20" }, 2: { start: "0", end: "0" } },
+    });
+    replyData(ws);
+    await streamer.read();
+    expect(onMissed).toHaveBeenCalledWith(
+      new Map([
+        [1, new TimeRange(10, 20)],
+        [2, TimeRange.ZERO],
+      ]),
+    );
     streamer.close();
   });
 

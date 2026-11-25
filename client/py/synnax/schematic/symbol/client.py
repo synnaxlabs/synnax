@@ -94,6 +94,7 @@ class Client:
         not_: WhereInput = ...,
         where: Where | None = ...,
         search_term: str = ...,
+        include_uses: bool = ...,
         one: bool = ...,
     ) -> Symbol: ...
 
@@ -110,6 +111,7 @@ class Client:
         where: Where | None = ...,
         keys: list[Key] | None = ...,
         search_term: str = ...,
+        include_uses: bool = ...,
         one: Literal[True],
     ) -> Symbol: ...
 
@@ -126,6 +128,7 @@ class Client:
         where: Where | None = ...,
         keys: list[Key] | None = ...,
         search_term: str = ...,
+        include_uses: bool = ...,
         one: Literal[False] = ...,
     ) -> list[Symbol]: ...
 
@@ -135,6 +138,7 @@ class Client:
         keys: list[Key] | None = None,
         where: Where | None = None,
         search_term: str = "",
+        include_uses: bool = False,
         one: bool = False,
         **fields: Any,
     ) -> Symbol | list[Symbol]:
@@ -153,6 +157,9 @@ class Client:
         :param where: A filter tree that the symbols must also match.
         :param keys: Keeps symbols with one of these keys.
         :param search_term: A fuzzy search term matched against symbol names.
+        :param include_uses: Whether to fill each symbol's uses with the resource IDs of
+            the schematics that use it and that the caller can read. Symbols come back
+            with no uses when false.
         :param one: Returns one symbol for any filter.
         :returns: One symbol for a plain ``key`` or when ``one`` is set, otherwise a
             list of symbols. The list leaves out keys that do not exist.
@@ -165,6 +172,7 @@ class Client:
         req = RetrieveRequest(
             where=request_where(Where, filter.merge(where, flat), fields),
             search_term=search_term,
+            include_uses=include_uses,
         )
         res = self._client.send("/schematic/symbol/retrieve", req, RetrieveResponse)
         return sole("symbol", req, res.symbols) if single else res.symbols

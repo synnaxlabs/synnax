@@ -7,16 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id } from "@synnaxlabs/x";
-import { describe, expect, it, onTestFinished, vi } from "vitest";
+import { id, sleep, TimeSpan } from "@synnaxlabs/x";
+import { describe, expect, it, onTestFinished } from "vitest";
 
-import type Synnax from "@/client";
-import { DisconnectedError } from "@/errors";
+import { DisconnectedError, type Synnax } from "@/index";
 import {
+  builtInsFetches,
   createProxiedTestClient,
   createTestClient,
   FAST_RETRY,
   holdRequests,
+  holdResponses,
+  isBuiltInsFetch,
+  rejectRequests,
+  spyOnSend,
   waitForStreamLive,
 } from "@/testutil";
 
@@ -53,18 +57,18 @@ describe("Lists with an internal line", () => {
   it("should page to the end once the built-in keys arrived", async () => {
     const prefix = await createPagedChannels();
     const client = createTestClient();
-    const builtIns = vi.spyOn(client.channels, "retrieveBuiltIns");
+    const send = spyOnSend(client);
     await client.connect();
     await waitForStreamLive(client.connection);
-    await expect.poll(() => builtIns.mock.results.length).toBeGreaterThan(0);
-    await builtIns.mock.results[0].value;
+    await expect.poll(() => builtInsFetches(send).length).toBeGreaterThan(0);
+    await builtInsFetches(send)[0];
     expect(await pageToEnd(client, prefix)).toBe(PAGE_COUNT);
   }, 60000);
 
   it("should page to the end before the built-in keys arrive", async () => {
     const prefix = await createPagedChannels();
     const client = createTestClient();
-    holdRequests(client, "/channel/retrieve-built-ins");
+    holdResponses(client, isBuiltInsFetch);
     await client.connect();
     await waitForStreamLive(client.connection);
     expect(await pageToEnd(client, prefix)).toBe(PAGE_COUNT);
@@ -83,13 +87,30 @@ const reconnectWithList = async (after: AfterReconnect): Promise<void> => {
     onRetry: () => {},
     onInternalError: (e) => internal.push(e),
   });
-  const original = local.channels.retrieveBuiltIns.bind(local.channels);
-  const builtIns = vi.spyOn(local.channels, "retrieveBuiltIns");
-  const released = Promise.withResolvers<void>();
+  // Only the fetches of a later connection answer late or fail.
+  let later = false;
+  const fetchesLater = (target: string, req: unknown): boolean =>
+    later && isBuiltInsFetch(target, req);
+  const held = after === "answers-late" ? holdResponses(local, fetchesLater) : null;
+  let failed = false;
+  // A link that drops once can fail the first request after it returns.
+  const rejected =
+    after === "fails-once"
+      ? rejectRequests(
+          local,
+          (target, req) => {
+            if (failed || !fetchesLater(target, req)) return false;
+            failed = true;
+            return true;
+          },
+          new DisconnectedError(),
+        )
+      : null;
+  const send = spyOnSend(local);
   await local.connect();
   await waitForStreamLive(local.connection);
-  await expect.poll(() => builtIns.mock.results.length).toBeGreaterThan(0);
-  await builtIns.mock.results[0].value;
+  await expect.poll(() => builtInsFetches(send).length).toBeGreaterThan(0);
+  await builtInsFetches(send)[0];
   const first = await remote.channels.create({
     name: `builtin_${id.create()}`,
     dataType: "float32",
@@ -103,13 +124,7 @@ const reconnectWithList = async (after: AfterReconnect): Promise<void> => {
   const off = list.onChange(() => {});
   try {
     expect((await list.retrieve()).records.map((c) => c.key)).toEqual([first.key]);
-    if (after === "answers-late")
-      builtIns.mockImplementation(async () => {
-        await released.promise;
-        return await original();
-      });
-    // A link that drops once can fail the first request after it returns.
-    if (after === "fails-once") builtIns.mockRejectedValueOnce(new DisconnectedError());
+    later = true;
     await proxy.sever();
     await proxy.restore();
     await waitForStreamLive(local.connection);
@@ -118,7 +133,7 @@ const reconnectWithList = async (after: AfterReconnect): Promise<void> => {
       dataType: "float32",
       virtual: true,
     });
-    released.resolve();
+    held?.release();
     const keys = () =>
       list
         .getCached()
@@ -128,6 +143,7 @@ const reconnectWithList = async (after: AfterReconnect): Promise<void> => {
     expect(internal.map((e) => e.message)).toEqual([]);
     expect(keys()).toEqual([first.key, second.key].sort());
   } finally {
+    rejected?.mockRestore();
     off();
   }
 };
@@ -144,4 +160,28 @@ describe("Built-in channels after a reconnect", () => {
   it("should keep a watched internal list live when a refetch of the keys fails", async () => {
     await reconnectWithList("fails-once");
   }, 30000);
+});
+
+describe("Losing the session with the built-in key fetch in flight", () => {
+  // Holds the fetch until end has run, so the fetch reaches the Core with no session.
+  const loseSession = async (end: (client: Synnax) => Promise<void>) => {
+    const internal: Error[] = [];
+    const client = createTestClient({ onInternalError: (e) => internal.push(e) });
+    const held = holdRequests(client, isBuiltInsFetch);
+    await client.connect();
+    await expect.poll(() => held.sent()).toBeGreaterThan(0);
+    await end(client);
+    held.release();
+    await sleep.sleep(TimeSpan.milliseconds(200));
+    await client.close();
+    return internal;
+  };
+
+  it("should not report the fetch when it fails after the close", async () => {
+    expect(await loseSession(async (client) => await client.close())).toEqual([]);
+  });
+
+  it("should not report the fetch when it fails after a logout", async () => {
+    expect(await loseSession(async (client) => await client.auth.logout())).toEqual([]);
+  });
 });

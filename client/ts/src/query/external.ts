@@ -16,15 +16,8 @@ export {
 export { Deleted } from "@/query/deleted";
 export { type DeriveTrigger, deriveTrigger } from "@/query/derived";
 export { LookupIndex } from "@/query/indexes";
-export {
-  type List,
-  type ListQuery,
-  type Lists,
-  type ListsConfig,
-  MAX_SEARCH_LIMIT,
-  type Window,
-  type WindowHandler,
-} from "@/query/list";
+export { list } from "@/query/list";
+export { isOffline } from "@/query/offline";
 export {
   type Cached,
   type ChangeHandler,
@@ -33,8 +26,6 @@ export {
   type Live,
   requireCorpse,
   type Retrieves,
-  type Space,
-  type SpaceConfig,
   type Trigger,
   trigger,
 } from "@/query/query";
@@ -49,6 +40,7 @@ export {
   Retriever,
   type RetrieverParams,
 } from "@/query/retriever";
+export type { space } from "@/query/space";
 export type { Listener } from "@/query/streamer";
 export {
   createDeleteListener,
@@ -60,6 +52,7 @@ export {
   type Interceptor,
   isChange,
   type Keyed,
+  keyedZ,
   type ListenerSpec,
   partialUpdate,
   type Stamp,

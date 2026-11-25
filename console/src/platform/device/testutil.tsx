@@ -61,10 +61,41 @@ const reportRackRunning = async (client: Synnax, r: rack.Rack): Promise<void> =>
   );
 };
 
+const HEARTBEAT_PERIOD = TimeSpan.seconds(1);
+
 /**
- * Creates a rack on the live Core whose Driver reports as running with the integration.
- * The Core marks it not running after one health check interval (5 s) without a new
- * status.
+ * Reports the rack as running at the rate of a Driver until the returned stop runs.
+ * Stop ends the reports, waits for the one in flight, and rejects with the error of the
+ * first report that failed.
+ */
+export const startRackHeartbeat = async (
+  client: Synnax,
+  r: rack.Rack,
+): Promise<() => Promise<void>> => {
+  await reportRackRunning(client, r);
+  let tick: Promise<void> | null = null;
+  let failure: Error | null = null;
+  const interval = setInterval(() => {
+    if (tick != null) return;
+    tick = reportRackRunning(client, r)
+      .catch((error: unknown) => {
+        failure ??=
+          error instanceof Error ? error : new Error(String(error), { cause: error });
+      })
+      .finally(() => {
+        tick = null;
+      });
+  }, HEARTBEAT_PERIOD.milliseconds);
+  return async () => {
+    clearInterval(interval);
+    await tick;
+    if (failure != null) throw failure;
+  };
+};
+
+/**
+ * Creates a rack on the live Core whose Driver reports as running with the integration
+ * until the test ends. A failed report fails the test. Call it inside a test.
  */
 export const createRunningRack = async (
   client: Synnax,
@@ -74,7 +105,7 @@ export const createRunningRack = async (
     name: uniqueName("rack"),
     integrations: [integration],
   });
-  await reportRackRunning(client, r);
+  onTestFinished(await startRackHeartbeat(client, r));
   return r;
 };
 
@@ -111,21 +142,6 @@ export const createWarningScanner = async (
     }),
   );
   return scanner;
-};
-
-const HEARTBEAT_PERIOD = TimeSpan.seconds(1);
-
-/** Reports the rack as running at the rate of a Driver until the test ends. */
-export const startRackHeartbeat = async (
-  client: Synnax,
-  r: rack.Rack,
-): Promise<void> => {
-  await reportRackRunning(client, r);
-  const interval = setInterval(
-    () => void reportRackRunning(client, r),
-    HEARTBEAT_PERIOD.milliseconds,
-  );
-  onTestFinished(() => clearInterval(interval));
 };
 
 /**

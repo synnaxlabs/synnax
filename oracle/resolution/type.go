@@ -12,6 +12,7 @@ package resolution
 import (
 	"fmt"
 	"maps"
+	"math"
 	"slices"
 	"strings"
 
@@ -195,6 +196,46 @@ type EnumForm struct {
 }
 
 func (EnumForm) typeForm() {}
+
+// IntBase returns the name of the smallest integer primitive that holds every member
+// of an integer enum: unsigned, unless a member is negative. It returns "uint8" for an
+// enum with no members.
+func (f EnumForm) IntBase() string {
+	var low, high int64
+	for _, v := range f.Values {
+		low, high = min(low, v.IntValue()), max(high, v.IntValue())
+	}
+	if low < 0 {
+		switch {
+		case low >= math.MinInt8 && high <= math.MaxInt8:
+			return "int8"
+		case low >= math.MinInt16 && high <= math.MaxInt16:
+			return "int16"
+		case low >= math.MinInt32 && high <= math.MaxInt32:
+			return "int32"
+		}
+		return "int64"
+	}
+	switch {
+	case high <= math.MaxUint8:
+		return "uint8"
+	case high <= math.MaxUint16:
+		return "uint16"
+	case high <= math.MaxUint32:
+		return "uint32"
+	}
+	return "uint64"
+}
+
+// ZeroMember returns the integer enum member whose value is 0, the zero value of the
+// enum's type in every language. It returns false for a string enum and for an integer
+// enum with no member of 0.
+func (f EnumForm) ZeroMember() (EnumValue, bool) {
+	if !f.IsIntEnum {
+		return EnumValue{}, false
+	}
+	return lo.Find(f.Values, func(v EnumValue) bool { return v.IntValue() == 0 })
+}
 
 // UnionForm describes a discriminated union: a closed set of struct variants
 // distinguished by the string value of a single shared discriminator field.
