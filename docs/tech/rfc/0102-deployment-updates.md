@@ -123,12 +123,13 @@ Telemetry written to known channels after the backup stays.
 _(Amended by RFC 0121 §9.0: after the update that converts Cesium to segments and a
 pointer log, an undo loses the telemetry written since that update. The undo restores
 the metadata store and each `meta.json`, and moves aside each channel directory that the
-backup does not hold. The next open by the new binary renames the files of the new
-layout `.undone` and converts again. Only the new binary's undo warns and asks first;
-the old binary's undo cannot, so the Core raises a warning status after the converting
-open, and the release notes say it too. A later update that keeps the Cesium formats
-backs up no Cesium file. From RFC 0121 Phase 7 a restore accepts such a backup and runs
-no `RestoreMeta` for it, so its undo restores only the metadata store, and the telemetry
+backup does not hold. The next start of the new binary refuses to open, and
+`synnax repair --convert` renames the files of the new layout `.undone`, so the start
+after it converts again. Only the new binary's undo warns and asks first; the old
+binary's undo cannot, so the Core raises a warning status after the converting open, and
+the release notes say it too. A later update that keeps the Cesium formats backs up no
+Cesium file. From RFC 0121 Phase 7 a restore accepts such a backup and runs no
+`RestoreMeta` for it, so its undo restores only the metadata store, and the telemetry
 stays.)_
 
 ### 3.2 `synnax update`
