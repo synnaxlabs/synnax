@@ -9,11 +9,13 @@
 
 import { DataType, type group, schematic } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import type { Status } from "@synnaxlabs/lyra/status";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { theming } from "@synnaxlabs/pluto/ether";
 import { color, uuid } from "@synnaxlabs/x";
 import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { createElement } from "react";
 import { afterEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({ symbolNodes: true }));
@@ -50,6 +52,7 @@ import {
   renderModalOpener,
 } from "@/platform/modals/testutil";
 import {
+  CaptureStatuses,
   fakePickedFile,
   getIconButton,
   interceptFilePicker,
@@ -113,6 +116,33 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       expect(screen.getByText("Handles")).toBeDefined();
       expect(screen.getByText("Properties")).toBeDefined();
       expect(screen.getByText("Scale stroke")).toBeDefined();
+    });
+
+    it.each([
+      ["notes.txt", SHAPELESS_SVG, "The file is not an SVG."],
+      ["empty.svg", "", "The file is empty."],
+    ])("reports %s, which it cannot read, by its name", async (name, contents, why) => {
+      const grp = await createParentGroup();
+      const picker = interceptFilePicker();
+      let statuses: Status.NotificationSpec[] = [];
+      await renderModalOpener(Schematic.Symbol.Edit.useModal, [{ group: grp.key }], {
+        client,
+        additionalRegistry: theming.REGISTRY,
+        extra: createElement(CaptureStatuses, { onStatuses: (s) => (statuses = s) }),
+      });
+      fireEvent.click(await screen.findByText(SYMBOL_FILE_DROP_PROMPT));
+      await waitFor(() => expect(picker.lastInput()).toBeDefined());
+      picker.selectFiles([fakePickedFile(name, contents)]);
+      await waitFor(() =>
+        expect(statuses).toContainEqual(
+          expect.objectContaining({
+            variant: "error",
+            name,
+            message: "Failed to read file",
+            description: why,
+          }),
+        ),
+      );
     });
 
     it("creates the symbol under the parent group on save", async () => {

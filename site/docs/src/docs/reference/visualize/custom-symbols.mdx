@@ -185,7 +185,7 @@ import.
 
 ## Troubleshooting
 
-### The Console shows "Failed to load symbol"
+### The Console shows "Failed to read file"
 
 <Problem.Body>
 <Problem.Cause>
@@ -200,6 +200,26 @@ why.
 - **"The file is empty."** -> export the drawing again from your drawing program.
 - **"The file does not contain a valid SVG image."** -> open the file in a text editor
   and check that it starts with an `<svg>` element and has no errors.
+
+</Problem.Fix>
+</Problem.Body>
+
+### A node shows a warning
+
+<Problem.Body>
+<Problem.Cause>
+
+The node cannot draw its symbol. The text of the warning says why.
+
+</Problem.Cause>
+<Problem.Fix>
+
+- **"Missing symbol"** -> the symbol was deleted, or the import did not include it.
+  Select the node and choose a different symbol on its **Properties** tab.
+- **"Failed to load symbol"** -> your user cannot read symbols, or the Console has no
+  connection to the Core. Ask an administrator for access to symbols, or connect again.
+- **"Invalid symbol"** -> the stored drawing is not a valid SVG. Create a new symbol
+  from a valid SVG file and choose it on the node's **Properties** tab.
 
 </Problem.Fix>
 </Problem.Body>
