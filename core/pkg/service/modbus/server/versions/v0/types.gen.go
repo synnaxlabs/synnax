@@ -134,43 +134,6 @@ func (s StopBits) IsValid() bool {
 	}
 }
 
-// DataType is the type of the value that one or more registers hold.
-type DataType string
-
-const (
-	// DataTypeInt8 is a signed 8-bit integer.
-	DataTypeInt8 DataType = "int8"
-	// DataTypeInt16 is a signed 16-bit integer.
-	DataTypeInt16 DataType = "int16"
-	// DataTypeInt32 is a signed 32-bit integer.
-	DataTypeInt32 DataType = "int32"
-	// DataTypeInt64 is a signed 64-bit integer.
-	DataTypeInt64 DataType = "int64"
-	// DataTypeUint8 is an unsigned 8-bit integer.
-	DataTypeUint8 DataType = "uint8"
-	// DataTypeUint16 is an unsigned 16-bit integer.
-	DataTypeUint16 DataType = "uint16"
-	// DataTypeUint32 is an unsigned 32-bit integer.
-	DataTypeUint32 DataType = "uint32"
-	// DataTypeUint64 is an unsigned 64-bit integer.
-	DataTypeUint64 DataType = "uint64"
-	// DataTypeFloat32 is a 32-bit float.
-	DataTypeFloat32 DataType = "float32"
-	// DataTypeFloat64 is a 64-bit float.
-	DataTypeFloat64 DataType = "float64"
-)
-
-// IsValid reports whether d is one of the defined DataType
-// values.
-func (d DataType) IsValid() bool {
-	switch d {
-	case DataTypeInt8, DataTypeInt16, DataTypeInt32, DataTypeInt64, DataTypeUint8, DataTypeUint16, DataTypeUint32, DataTypeUint64, DataTypeFloat32, DataTypeFloat64:
-		return true
-	default:
-		return false
-	}
-}
-
 // BaseConnection carries the fields that every Modbus connection shares.
 type BaseConnection struct {
 	// BytesSwapped is true when the bytes of each 16-bit register are swapped.
@@ -253,7 +216,8 @@ type RtuConnection struct {
 	BaudRate BaudRate `json:"baud_rate" msgpack:"baud_rate"`
 	// Parity is the parity of the line.
 	Parity Parity `json:"parity" msgpack:"parity"`
-	// StopBits is the number of stop bits of the line.
+	// StopBits is the number of stop bits of the line. Modbus asks for two with no
+	// parity, but many devices use one, so no rule ties it to parity.
 	StopBits StopBits `json:"stop_bits" msgpack:"stop_bits"`
 	// UnitID is the unit that requests address.
 	UnitID uint8 `json:"unit_id" msgpack:"unit_id"`
@@ -482,7 +446,7 @@ func (r RequestPolicy) Validate() error {
 // Number is a number that fills one or more registers.
 type Number struct {
 	// DataType is the type of the value in the registers.
-	DataType DataType `json:"data_type" msgpack:"data_type"`
+	DataType telem.NumericDataType `json:"data_type" msgpack:"data_type"`
 	// BytesSwapped overrides the bytes_swapped of the connection for the value.
 	BytesSwapped *bool `json:"bytes_swapped,omitzero" msgpack:"bytes_swapped,omitempty"`
 	// WordsSwapped overrides the words_swapped of the connection for the value.
@@ -491,7 +455,7 @@ type Number struct {
 
 // SetDefaults sets every field that has a schema default to that default.
 func (n *Number) SetDefaults() {
-	n.DataType = DataTypeUint16
+	n.DataType = telem.NumericDataTypeUint16
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

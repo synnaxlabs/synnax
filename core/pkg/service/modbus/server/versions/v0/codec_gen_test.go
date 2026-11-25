@@ -34,7 +34,7 @@ var (
 	}
 	fullyPopulatedBaseLocation = v0.BaseLocation{Address: 2}
 	fullyPopulatedNumber       = v0.Number{
-		DataType:     v0.DataType("int8"),
+		DataType:     telem.NumericDataType("float64"),
 		BytesSwapped: new(bool(false)),
 		WordsSwapped: new(bool(true)),
 	}
@@ -140,7 +140,7 @@ var _ = Describe("Codec", func() {
 			},
 			Entry("fully populated", fullyPopulatedNumber),
 			Entry("zero values", v0.Number{
-				DataType:     v0.DataType(""),
+				DataType:     telem.NumericDataType(""),
 				BytesSwapped: nil,
 				WordsSwapped: nil,
 			}),
@@ -873,7 +873,7 @@ func FuzzDecodeNumber(f *testing.F) {
 	}
 	{
 		seed := v0.Number{
-			DataType:     v0.DataType(""),
+			DataType:     telem.NumericDataType(""),
 			BytesSwapped: nil,
 			WordsSwapped: nil,
 		}

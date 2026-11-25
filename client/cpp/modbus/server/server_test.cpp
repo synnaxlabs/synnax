@@ -63,7 +63,7 @@ TEST(Server, RoundTrips) {
     HoldingRegisterLocation holding;
     holding.address = 5;
     WholeValue whole_value;
-    whole_value.data_type = DATA_TYPE_FLOAT_32;
+    whole_value.data_type = x::telem::NUMERIC_DATA_TYPE_FLOAT_32;
     whole_value.words_swapped = true;
     holding.value = whole_value;
     server.reads.push_back(Read{.location = holding, .index = 3, .channel = 4});
@@ -80,7 +80,7 @@ TEST(Server, RoundTrips) {
     const auto &read = std::get<HoldingRegisterLocation>(parsed.reads.at(0).location);
     ASSERT_EQ(read.address, 5);
     const auto &whole = std::get<WholeValue>(read.value);
-    ASSERT_EQ(whole.data_type, DATA_TYPE_FLOAT_32);
+    ASSERT_EQ(whole.data_type, x::telem::NUMERIC_DATA_TYPE_FLOAT_32);
     ASSERT_EQ(whole.words_swapped, true);
     ASSERT_FALSE(whole.bytes_swapped.has_value());
     ASSERT_EQ(parsed.reads.at(0).index, 3);

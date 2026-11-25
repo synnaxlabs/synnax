@@ -256,7 +256,7 @@ func (nv *Number) DecodeOrc(r *orc.Reader) error {
 		if err != nil {
 			return err
 		}
-		nv.DataType = DataType(rawV)
+		nv.DataType = telem.NumericDataType(rawV)
 	}
 	{
 		present, err := r.Bool()

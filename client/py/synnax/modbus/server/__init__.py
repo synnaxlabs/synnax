@@ -8,16 +8,6 @@
 #  included in the file licenses/APL.txt.
 
 from synnax.modbus.server.types_gen import (
-    DATA_TYPE_FLOAT32,
-    DATA_TYPE_FLOAT64,
-    DATA_TYPE_INT8,
-    DATA_TYPE_INT16,
-    DATA_TYPE_INT32,
-    DATA_TYPE_INT64,
-    DATA_TYPE_UINT8,
-    DATA_TYPE_UINT16,
-    DATA_TYPE_UINT32,
-    DATA_TYPE_UINT64,
     PARITY_EVEN,
     PARITY_NONE,
     PARITY_ODD,
@@ -32,7 +22,6 @@ from synnax.modbus.server.types_gen import (
     CoilLocation,
     CoilWriteLocation,
     Connection,
-    DataType,
     DiscreteInputLocation,
     HoldingRegisterLocation,
     HoldingRegisterWriteLocation,
@@ -63,16 +52,6 @@ from synnax.modbus.server.types_gen import (
 )
 
 __all__ = [
-    "DATA_TYPE_FLOAT32",
-    "DATA_TYPE_FLOAT64",
-    "DATA_TYPE_INT8",
-    "DATA_TYPE_INT16",
-    "DATA_TYPE_INT32",
-    "DATA_TYPE_INT64",
-    "DATA_TYPE_UINT8",
-    "DATA_TYPE_UINT16",
-    "DATA_TYPE_UINT32",
-    "DATA_TYPE_UINT64",
     "PARITY_EVEN",
     "PARITY_NONE",
     "PARITY_ODD",
@@ -87,7 +66,6 @@ __all__ = [
     "CoilLocation",
     "CoilWriteLocation",
     "Connection",
-    "DataType",
     "DiscreteInputLocation",
     "HoldingRegisterLocation",
     "HoldingRegisterWriteLocation",

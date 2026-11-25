@@ -28,40 +28,6 @@ WRITE_FUNCTION_SINGLE: Literal["single"] = "single"
 
 WriteFunction = Literal["multiple", "single"]
 
-DATA_TYPE_INT8: Literal["int8"] = "int8"
-
-DATA_TYPE_INT16: Literal["int16"] = "int16"
-
-DATA_TYPE_INT32: Literal["int32"] = "int32"
-
-DATA_TYPE_INT64: Literal["int64"] = "int64"
-
-DATA_TYPE_UINT8: Literal["uint8"] = "uint8"
-
-DATA_TYPE_UINT16: Literal["uint16"] = "uint16"
-
-DATA_TYPE_UINT32: Literal["uint32"] = "uint32"
-
-DATA_TYPE_UINT64: Literal["uint64"] = "uint64"
-
-DATA_TYPE_FLOAT32: Literal["float32"] = "float32"
-
-DATA_TYPE_FLOAT64: Literal["float64"] = "float64"
-
-
-DataType = Literal[
-    "int8",
-    "int16",
-    "int32",
-    "int64",
-    "uint8",
-    "uint16",
-    "uint32",
-    "uint64",
-    "float32",
-    "float64",
-]
-
 PARITY_NONE: Literal["none"] = "none"
 
 PARITY_EVEN: Literal["even"] = "even"
@@ -144,7 +110,7 @@ class Number(BaseModel):
         words_swapped: Overrides the words_swapped of the connection for the value.
     """
 
-    data_type: DataType = "uint16"
+    data_type: telem.NumericDataType = "uint16"
     bytes_swapped: bool | None = None
     words_swapped: bool | None = None
 

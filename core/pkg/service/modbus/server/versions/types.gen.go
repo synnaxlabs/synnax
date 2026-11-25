@@ -72,32 +72,6 @@ const (
 	StopBitsTwo StopBits = v0.StopBitsTwo
 )
 
-// DataType is the type of the value that one or more registers hold.
-type DataType = v0.DataType
-
-const (
-	// DataTypeInt8 is a signed 8-bit integer.
-	DataTypeInt8 DataType = v0.DataTypeInt8
-	// DataTypeInt16 is a signed 16-bit integer.
-	DataTypeInt16 DataType = v0.DataTypeInt16
-	// DataTypeInt32 is a signed 32-bit integer.
-	DataTypeInt32 DataType = v0.DataTypeInt32
-	// DataTypeInt64 is a signed 64-bit integer.
-	DataTypeInt64 DataType = v0.DataTypeInt64
-	// DataTypeUint8 is an unsigned 8-bit integer.
-	DataTypeUint8 DataType = v0.DataTypeUint8
-	// DataTypeUint16 is an unsigned 16-bit integer.
-	DataTypeUint16 DataType = v0.DataTypeUint16
-	// DataTypeUint32 is an unsigned 32-bit integer.
-	DataTypeUint32 DataType = v0.DataTypeUint32
-	// DataTypeUint64 is an unsigned 64-bit integer.
-	DataTypeUint64 DataType = v0.DataTypeUint64
-	// DataTypeFloat32 is a 32-bit float.
-	DataTypeFloat32 DataType = v0.DataTypeFloat32
-	// DataTypeFloat64 is a 64-bit float.
-	DataTypeFloat64 DataType = v0.DataTypeFloat64
-)
-
 // BaseConnection carries the fields that every Modbus connection shares.
 type BaseConnection = v0.BaseConnection
 

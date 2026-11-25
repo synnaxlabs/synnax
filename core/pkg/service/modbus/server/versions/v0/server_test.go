@@ -114,7 +114,7 @@ var _ = Describe("Server", func() {
 		s.Connection = v0.Connection{Variant: rtu()}
 		s.Reads = []v0.Read{{
 			Location: holding(5, v0.WholeValue{
-				DataType:     v0.DataTypeFloat32,
+				DataType:     telem.NumericDataTypeFloat32,
 				WordsSwapped: new(true),
 			}),
 			Index:   3,

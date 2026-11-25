@@ -21,21 +21,6 @@ export const WRITE_FUNCTIONS = ["multiple", "single"] as const;
 export const writeFunctionZ = z.enum(WRITE_FUNCTIONS);
 export type WriteFunction = z.infer<typeof writeFunctionZ>;
 
-export const DATA_TYPES = [
-  "int8",
-  "int16",
-  "int32",
-  "int64",
-  "uint8",
-  "uint16",
-  "uint32",
-  "uint64",
-  "float32",
-  "float64",
-] as const;
-export const dataTypeZ = z.enum(DATA_TYPES);
-export type DataType = z.infer<typeof dataTypeZ>;
-
 export const PARITYS = ["none", "even", "odd"] as const;
 export const parityZ = z.enum(PARITYS);
 export type Parity = z.infer<typeof parityZ>;
@@ -101,7 +86,7 @@ export interface RequestPolicy extends z.infer<typeof requestPolicyZ> {}
 /** Number is a number that fills one or more registers. */
 export const numberZ = z.object({
   /** dataType is the type of the value in the registers. */
-  dataType: dataTypeZ.default("uint16"),
+  dataType: telem.numericDataTypeZ.default("uint16"),
   /** bytesSwapped overrides the bytes_swapped of the connection for the value. */
   bytesSwapped: z.boolean().optional(),
   /** wordsSwapped overrides the words_swapped of the connection for the value. */
@@ -164,7 +149,10 @@ export const rtuConnectionZ = baseConnectionZ.extend({
   baudRate: baudRateZ.default(BaudRate.b19200),
   /** parity is the parity of the line. */
   parity: parityZ.default("even"),
-  /** stopBits is the number of stop bits of the line. */
+  /**
+   * stopBits is the number of stop bits of the line. Modbus asks for two with no
+   * parity, but many devices use one, so no rule ties it to parity.
+   */
   stopBits: stopBitsZ.default(StopBits.one),
   /** unitId is the unit that requests address. */
   unitId: zod.uint8.min(1).max(247).default(1),
