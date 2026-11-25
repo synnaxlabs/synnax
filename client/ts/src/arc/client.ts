@@ -51,7 +51,7 @@ import { rack } from "@/rack";
 import { resource } from "@/resource";
 import type { status } from "@/status";
 import { task } from "@/task";
-import { checkForMultipleOrNoResults } from "@/util/retrieve";
+import { util } from "@/util";
 
 export const SET_CHANNEL_NAME = "sy_arc_set";
 export const DELETE_CHANNEL_NAME = "sy_arc_delete";
@@ -410,7 +410,7 @@ export class Client extends query.Retriever<
   async retrieveChanges(key: Key): Promise<Change[]> {
     const where = { key: { eq: key } };
     const arcs = await this.execRetrieve({ where, includeChanges: true });
-    checkForMultipleOrNoResults("Arc", { where }, arcs, true);
+    util.checkForMultipleOrNoResults("Arc", { where }, arcs, true);
     const a = arcs[0];
     return a.type === "automation" ? a.changes : [];
   }
@@ -433,7 +433,7 @@ export class Client extends query.Retriever<
   private async fetchSingle(q: SingleRetrieveParams): Promise<Arc> {
     const { where } = singleRetrieveParamsZ.parse(q);
     const arcs = await this.execRetrieve({ where });
-    checkForMultipleOrNoResults("Arc", { where }, arcs, true);
+    util.checkForMultipleOrNoResults("Arc", { where }, arcs, true);
     return this.hydrate(arcs[0]);
   }
 

@@ -531,6 +531,85 @@ var _ = Describe("Text", func() {
 			Entry("typed milliseconds from seconds", `d i64 ms := 5s`, 5*telem.Second),
 			Entry("typed nanoseconds", `d i64 ns := 5s`, 5*telem.Second),
 			Entry("negated", `d := -5s`, -5*telem.Second),
+			Entry("a rate into a typed time span",
+				`d i64 ms := 10hz`, 100*telem.Millisecond),
+		)
+
+		DescribeTable("Should give the period of an interval the period of a rate",
+			func(ctx SpecContext, declaration, rate string, expected telem.TimeSpan) {
+				source := declaration + "\ncount_ch -> interval(period=" + rate +
+					") -> flag_ch"
+				inter, diagnostics := analyzeText(ctx, source)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				period := MustBeOk(
+					findNodeByKey(inter.Nodes, "interval_0").Inputs.Get("period"),
+				)
+				Expect(period.Type).To(Equal(types.TimeSpan()))
+				Expect(period.Value).To(Equal(expected))
+			},
+			Entry("a literal in hertz", "", `10hz`, 100*telem.Millisecond),
+			Entry("a literal in kilohertz", "", `1khz`, telem.Millisecond),
+			Entry("a literal with a period that rounds",
+				"", `60hz`, telem.TimeSpan(16666667)),
+			Entry("a variable in hertz", `r := 10hz`, "r", 100*telem.Millisecond),
+			Entry("a variable in kilohertz", `r := 1khz`, "r", telem.Millisecond),
+			Entry("a variable with a period that rounds",
+				`r := 60hz`, "r", telem.TimeSpan(16666667)),
+			Entry("a typed variable", `r i64 khz := 2`, "r", 500*telem.Microsecond),
+		)
+
+		DescribeTable("Should reject a rate as an argument of another function",
+			func(ctx SpecContext, source, message string) {
+				_, diagnostics := analyzeText(ctx, source)
+				Expect(diagnostics.Ok()).To(BeFalse())
+				Expect(diagnostics.String()).To(ContainSubstring(message))
+			},
+			Entry("a literal for a wait",
+				"count_ch -> wait(duration=10hz) -> flag_ch",
+				"incompatible dimensions: cannot write hz to parameter 'duration' "+
+					"of 'wait' (ns)"),
+			Entry("a variable for a wait",
+				"r := 10hz\ncount_ch -> wait(duration=r) -> flag_ch",
+				"incompatible dimensions: cannot write hz to parameter 'duration' "+
+					"of 'wait' (ns)"),
+			Entry("a reassigned variable for a wait",
+				"sequence main {\nr := 10hz\nstage s1 {\nr = 20hz\n"+
+					"count_ch -> wait(duration=r) -> flag_ch\n}\n}",
+				"incompatible dimensions: cannot write hz to parameter 'duration' "+
+					"of 'wait' (ns)"),
+			Entry("a calculation for a wait",
+				"count_ch -> wait(duration=25hz+25hz) -> flag_ch",
+				"incompatible dimensions: cannot write hz to parameter 'duration' "+
+					"of 'wait' (ns)"),
+			Entry("a literal for a function in a flow",
+				"func hold(x i64 ns) i64 ns {\nreturn x\n}\n"+
+					"count_ch -> hold(x=10hz) -> count_ch",
+				"incompatible dimensions: cannot write hz to parameter 'x' of 'hold' "+
+					"(ns)"),
+			Entry("a variable for a function in a flow",
+				"r := 10hz\nfunc hold(x i64 ns) i64 ns {\nreturn x\n}\n"+
+					"count_ch -> hold(x=r) -> count_ch",
+				"incompatible dimensions: cannot write hz to parameter 'x' of 'hold' "+
+					"(ns)"),
+			Entry("a literal for a function in a function",
+				"func hold(x i64 ns) i64 ns {\nreturn x\n}\n"+
+					"func f() i64 ns {\nreturn hold(10hz)\n}",
+				"incompatible dimensions: cannot write hz to parameter 'x' of 'hold' "+
+					"(ns)"),
+		)
+
+		DescribeTable("Should take a rate that a cast converts as an argument",
+			func(ctx SpecContext, source string) {
+				_, diagnostics := analyzeText(ctx, source)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			},
+			Entry("a literal for a wait",
+				"count_ch -> wait(duration=i64 ns(10hz)) -> flag_ch"),
+			Entry("a variable for a wait",
+				"r := 10hz\ncount_ch -> wait(duration=i64 ns(r)) -> flag_ch"),
+			Entry("a variable for a function in a function",
+				"func hold(x i64 ns) i64 ns {\nreturn x\n}\n"+
+					"func f(r i64 hz) i64 ns {\nreturn hold(i64 ns(r))\n}"),
 		)
 
 		DescribeTable(
@@ -678,6 +757,14 @@ var _ = Describe("Text", func() {
 			Entry("a calculation as an input",
 				"d := 90s\nfunc hold(x i64 min) i64 min {\nreturn x\n}\n"+
 					"count_ch -> hold(x=d * 2) -> count_ch", 1),
+			Entry("a rate with a period that rounds to 0 in a function",
+				"func f() i64 s {\ny i64 s := 10hz\nreturn y\n}", 1),
+			Entry("a rate with a period that rounds in a function",
+				"func f() i64 ms {\ny i64 ms := 60hz\nreturn y\n}", 0),
+			Entry("a rate variable in a function",
+				"func f(r i64 hz) i64 s {\nreturn r\n}", 0),
+			Entry("a rate with a period that rounds to 0 at the top level",
+				"d i64 s := 10hz", 1),
 			Entry("a smaller unit by a factor that is not whole",
 				"func f(x i64 psi) i64 Pa {\nreturn x\n}", 1),
 			Entry("a literal by a factor that is not whole",
@@ -706,6 +793,9 @@ var _ = Describe("Text", func() {
 				"func f() {\nd i64 min $= 90s\n}",
 				"func f() {\nd f64 min $= 90s\n}",
 				"func f() {\nd i64 s $= 90s\n}"),
+			Entry("a rate with a period that rounds to 0",
+				"func f() {\nd i64 s := 10hz\n}",
+				"func f() {\nd f64 s := 10hz\n}"),
 			Entry("a declaration of another integer type",
 				"func f() {\nd i32 min := 90s\n}",
 				"func f() {\nd f64 min := 90s\n}",
@@ -1147,6 +1237,17 @@ var _ = Describe("Text", func() {
 				"d := 5s\nfunc hold(x f64 ns) f64 {\nreturn x\n}\n"+
 					"count_ch -> hold(x=d) -> flag_ch",
 				"expected f64, got i64"),
+			Entry("a float rate for an integer time span",
+				"r := 0.5hz\ncount_ch -> interval(period=r) -> flag_ch",
+				"expected i64, got f64"),
+			Entry("a literal float rate for an integer time span",
+				"count_ch -> interval(period=0.5hz) -> flag_ch",
+				"float is not compatible with i64 ns"),
+			Entry("a time span for a rate",
+				"d := 5s\nfunc pace(x i64 hz) i64 hz {\nreturn x\n}\n"+
+					"count_ch -> pace(x=d) -> count_ch",
+				"incompatible dimensions: cannot write s to parameter 'x' of 'pace' "+
+					"(hz)"),
 		)
 
 		It("Should convert a reassigned variable on its way into a function", func(
@@ -1207,6 +1308,39 @@ var _ = Describe("Text", func() {
 			Expect(up).To(Equal(1e9))
 			Expect(down).To(Equal(1e-9))
 			Expect(duration.Value).To(Equal(5 * telem.Second))
+		})
+
+		It("Should stamp both units on a reassigned rate", func(ctx SpecContext) {
+			source := `
+			sequence main {
+			    r := 10hz
+			    stage s1 {
+			        r = 20hz
+			        count_ch -> interval(period=r) -> flag_ch
+			    }
+			}`
+			inter, diagnostics := analyzeText(ctx, source)
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			period := MustBeOk(
+				findNodeByKey(inter.Nodes, "interval_0").Inputs.Get("period"),
+			)
+			Expect(period.Type.Kind).To(Equal(types.KindVarRef))
+			Expect(period.Type.Unit.Name).To(Equal("ns"))
+			Expect(period.Type.Elem.Unit.Name).To(Equal("hz"))
+			Expect(types.InputPeriod(period.Type)).To(Equal(1e9))
+			Expect(period.Value).To(Equal(100 * telem.Millisecond))
+		})
+
+		It("Should give a computed rate the unit of the input", func(ctx SpecContext) {
+			source := `count_ch -> interval(period=25hz+25hz) -> flag_ch`
+			inter, diagnostics := analyzeText(ctx, source)
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			period := MustBeOk(
+				findNodeByKey(inter.Nodes, "interval_0").Inputs.Get("period"),
+			)
+			arg := findNodeByKey(inter.Nodes, period.Type.Name)
+			Expect(arg.Type).To(HavePrefix("expression_"))
+			Expect(arg.Outputs[0].Type).To(Equal(types.TimeSpan()))
 		})
 
 		It("Should sample a computed config input per fire", func(ctx SpecContext) {
@@ -4114,6 +4248,41 @@ var _ = Describe("Text", func() {
 					Expect(readerNode.Inputs[0].Type).To(Equal(types.Chan(types.F64())))
 					Expect(readerNode.Inputs[0].Value).To(Equal(uint32(10042)))
 					Expect(readerNode.Channels.Read).To(HaveKey(uint32(10042)))
+				},
+			)
+
+			It(
+				"Should resolve a positional channel input to its channel key",
+				func(ctx SpecContext) {
+					resolver := []symbol.Symbol{
+						{
+							Name: "temp_sensor",
+							Kind: symbol.KindChannel,
+							Type: types.Chan(types.F64()),
+							ID:   10042,
+						},
+					}
+					source := `
+				func reader(channel chan f64) f64 {
+				    return channel
+				}
+
+				func display() {value f64} {}
+
+				reader(temp_sensor) -> display()`
+					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+					inter, diagnostics := text.Analyze(
+						ctx,
+						parsedText,
+						NewRoot(nil, resolver...),
+					)
+					Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+					readerNode := findNodeByKey(inter.Nodes, "reader_0")
+					Expect(readerNode.Inputs[0].Value).To(Equal(uint32(10042)))
+					Expect(readerNode.Channels.Read).To(Equal(
+						map[uint32]string{10042: "temp_sensor"},
+					))
 				},
 			)
 
@@ -8825,6 +8994,178 @@ time.wait(duration=500ms) -> output`
 						},
 					},
 					"not valid inside an inline routing case body",
+				),
+			)
+		})
+
+		Context("Implicit Call Triggers", func() {
+			resolver := []symbol.Symbol{
+				{
+					Name: "start",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.U8()),
+					ID:   10160,
+				},
+				{
+					Name: "sensor",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F32()),
+					ID:   10161,
+				},
+				{
+					Name: "out",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F32()),
+					ID:   10162,
+				},
+			}
+			analyze := func(ctx SpecContext, fn, call string) ir.IR {
+				GinkgoHelper()
+				source := fn + `
+				sequence main {
+					stage run {
+						` + call + `
+					}
+				}
+				start => main`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(
+					ctx,
+					parsedText,
+					NewRoot(nil, resolver...),
+				)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				return inter
+			}
+
+			DescribeTable(
+				"Should activate a head call on each channel it reads",
+				func(ctx SpecContext, fn, call string) {
+					inter := analyze(ctx, fn, call)
+					trigger := findNodeByKey(inter.Nodes, "on_sensor_0")
+					Expect(trigger.Channels.Read).To(Equal(
+						map[uint32]string{10161: "sensor"},
+					))
+					Expect(inter.Edges).To(ContainElement(ir.Edge{
+						Source: ir.Handle{
+							Node:  "on_sensor_0",
+							Param: ir.DefaultOutputParam,
+						},
+						Target: ir.Handle{Node: "check_0", Param: "$trigger"},
+						Kind:   ir.EdgeKindContinuous,
+					}))
+				},
+				Entry(
+					"in its body",
+					`func check() f32 { return sensor }`,
+					`check() -> out`,
+				),
+				Entry(
+					"in a function its body calls",
+					`func read() f32 { return sensor }
+				func check() f32 { return read() }`,
+					`check() -> out`,
+				),
+				Entry(
+					"through a named channel input",
+					`func check(x chan f32) f32 { return x }`,
+					`check(x=sensor) -> out`,
+				),
+				Entry(
+					"through a positional channel input",
+					`func check(gain f32, x chan f32) f32 { return x * gain }`,
+					`check(2.0, sensor) -> out`,
+				),
+				Entry(
+					"as a bare call",
+					`func check() { out = sensor }`,
+					`check()`,
+				),
+				Entry(
+					"without feeding its declared trigger",
+					`func check() {x f32 = 1.0} f32 { return x + sensor }`,
+					`check() -> out`,
+				),
+			)
+
+			DescribeTable(
+				"Should not feed a parameter named input",
+				func(ctx SpecContext, fn, call string) {
+					inter := analyze(ctx, fn, call)
+					Expect(inter.Edges).To(ContainElement(
+						HaveField("Target.Node", "check_0"),
+					))
+					Expect(inter.Edges).ToNot(ContainElement(HaveField(
+						"Target",
+						ir.Handle{Node: "check_0", Param: "input"},
+					)))
+				},
+				Entry(
+					"first of two, with no trigger",
+					`func check(input f32, b f32) f32 { return input + b + sensor }`,
+					`check(5.0, 6.0) -> out`,
+				),
+				Entry(
+					"middle of three, with no trigger",
+					`func check(a f32, input f32, b f32) f32 {
+					return a + input + b + sensor
+				}`,
+					`check(4.0, 5.0, 6.0) -> out`,
+				),
+				Entry(
+					"last of two, on a bare call",
+					`func check(a f32, input f32) { out = a + input + sensor }`,
+					`check(4.0, 5.0)`,
+				),
+				Entry(
+					"a channel between two literals, with no trigger",
+					`func check(a f32, input chan f32, b f32) f32 {
+					return a + input + b
+				}`,
+					`check(4.0, sensor, 6.0) -> out`,
+				),
+				Entry(
+					"a declared trigger with a default, with no trigger",
+					`func check(b f32) {input f32 = 5.0} f32 {
+					return input + b + sensor
+				}`,
+					`check(6.0) -> out`,
+				),
+				Entry(
+					"middle of three, with a -> trigger",
+					`func check(a f32, input f32, b f32) f32 { return a + input + b }`,
+					`sensor -> check(4.0, 5.0, 6.0) -> out`,
+				),
+				Entry(
+					"middle of three, with a => trigger",
+					`func check(a f32, input f32, b f32) f32 { return a + input + b }`,
+					`sensor => check(4.0, 5.0, 6.0) -> out`,
+				),
+				Entry(
+					"a channel after a literal, with a -> trigger",
+					`func check(a f32, input chan f32) f32 { return a + input }`,
+					`start -> check(4.0, sensor) -> out`,
+				),
+			)
+
+			DescribeTable(
+				"Should not activate a head call that reads no channel",
+				func(ctx SpecContext, fn, call string) {
+					inter := analyze(ctx, fn, call)
+					Expect(countNodesByType(inter.Nodes, "on")).To(Equal(1))
+					Expect(findNodeByType(inter.Nodes, "on").Channels.Read).To(Equal(
+						map[uint32]string{10160: "start"},
+					))
+				},
+				Entry(
+					"a channel input it only writes",
+					`func set(x chan f32) { x = 1.0 }`,
+					`set(out)`,
+				),
+				Entry(
+					"a built-in function with a channel input",
+					"import control\n",
+					`control.set_authority(value=220, channel=out)`,
 				),
 			)
 		})

@@ -19,7 +19,6 @@ import {
   createRunningRack,
   createTestDevice,
   createWarningScanner,
-  startRackHeartbeat,
 } from "@/platform/device/testutil";
 import { findButton, renderModalOpener } from "@/platform/modals/testutil";
 import { answerNextCommand, type CommandAnswer } from "@/platform/task/testutil";
@@ -126,8 +125,6 @@ describe("Device.useFindModal", () => {
     const renderScan = async (connected: number, disconnected: number) => {
       const hardware = { ...createHardware(), scanType: "ethercat_scan" };
       const rack = await createRunningRack(client, hardware.key);
-      // The Core clears the connected mark of a device on a silent rack.
-      await startRackHeartbeat(client, rack);
       const scanner = await rack.createTask({
         name: uniqueName("scanner"),
         type: hardware.scanType,

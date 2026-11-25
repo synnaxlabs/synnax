@@ -490,6 +490,40 @@ var _ = Describe("CodeAction", func() {
 		})
 	})
 
+	Describe("Export outside module quick fix", func() {
+		It("should remove export from the declaration", func(ctx SpecContext) {
+			content := "export func test() i64 { return 0 }\n"
+			OpenArcDocument(server, ctx, uri, content)
+
+			diags := client.Diagnostics()
+			Expect(diags).To(HaveLen(1))
+			Expect(
+				DiagnosticCode(diags[0]),
+			).To(Equal(string(codes.ExportOutsideModule.Code)))
+
+			actions := asCodeActions(
+				MustSucceed(server.CodeAction(ctx, codeActionParams(diags))),
+			)
+			Expect(actions).To(HaveLen(1))
+
+			action := actions[0]
+			Expect(action.Title).To(Equal("Remove export"))
+			Expect(action.Kind).To(HaveValue(Equal(protocol.CodeActionKindQuickFix)))
+			Expect(action.IsPreferred).To(HaveValue(BeTrue()))
+			Expect(action.Diagnostics).To(ConsistOf(diags[0]))
+
+			edits := action.Edit.Changes[uri]
+			Expect(edits).To(HaveLen(1))
+			Expect(xlsp.ApplyIncrementalChange(
+				content,
+				&protocol.TextDocumentContentChangePartial{
+					Range: edits[0].Range,
+					Text:  edits[0].NewText,
+				},
+			)).To(Equal("func test() i64 { return 0 }\n"))
+		})
+	})
+
 	Describe("Deprecated symbol quick fix", func() {
 		filterByCode := func(diags []protocol.Diagnostic, code string) []protocol.Diagnostic {
 			out := make([]protocol.Diagnostic, 0, len(diags))

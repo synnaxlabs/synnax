@@ -10,26 +10,20 @@
 package auth_test
 
 import (
-	"context"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
 	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
-	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	disttestutil "github.com/synnaxlabs/synnax/pkg/distribution/testutil"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/oidc"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/oidc/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
-	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
-	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -49,41 +43,9 @@ var (
 	apiKeySvc   *apikey.Service
 	oidcSvc     *oidc.Service
 	provider    *testutil.Provider
-	rbacSvc     *rbac.Service
-	userSvc     *user.Service
-	rackSvc     *rack.Service
 	apiSvc      *apiauth.Service
-	// These handlers run their routes as the API layer binds them.
-	changePassword freighter.UnaryHandler[apiauth.ChangePasswordRequest, struct{}]
-	setPassword    freighter.UnaryHandler[
-		apiauth.PasswordSetRequest,
-		apiauth.PasswordSetResponse,
-	]
-	createKey freighter.UnaryHandler[
-		apiauth.KeyCreateRequest,
-		apiauth.KeyCreateResponse,
-	]
-	deleteKeys     freighter.UnaryHandler[apiauth.KeyDeleteRequest, struct{}]
-	deleteSessions freighter.UnaryHandler[apiauth.SessionDeleteRequest, struct{}]
-	retrieveKeys   freighter.UnaryHandler[
-		apiauth.KeyRetrieveRequest,
-		apiauth.KeyRetrieveResponse,
-	]
-	retrieveSessions freighter.UnaryHandler[
-		apiauth.SessionRetrieveRequest,
-		apiauth.SessionRetrieveResponse,
-	]
-	linkOIDC freighter.UnaryHandler[
-		apiauth.OIDCLinkRequest,
-		apiauth.OIDCLinkResponse,
-	]
-	retrieveOIDCLinks freighter.UnaryHandler[
-		apiauth.OIDCRetrieveRequest,
-		apiauth.OIDCRetrieveResponse,
-	]
-	unlinkOIDC freighter.UnaryHandler[apiauth.OIDCUnlinkRequest, struct{}]
-	root       user.User
-	creds      = auth.Credentials{Username: "api-auth-suite-root", Password: "p"}
+	root        user.User
+	creds       = auth.Credentials{Username: "api-auth-suite-root", Password: "p"}
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -91,8 +53,8 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	node = disttestutil.NewNode(ctx)
 	db = node.DB
 	passwordSvc = MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
-	userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
-		DB: db, Password: passwordSvc,
+	userSvc := MustOpen(user.OpenService(ctx, user.ServiceConfig{
+		DB: db,
 	}))
 	apiKeySvc = MustOpen(apikey.OpenService(ctx, apikey.ServiceConfig{DB: db}))
 	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
@@ -110,13 +72,12 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		creds,
 		access.RBAC.Builtin.OwnerKey,
 	))
-	rbacSvc, rackSvc = access.RBAC, access.Rack
 	provider = testutil.NewProvider()
 	DeferCleanup(provider.Close)
 	oidcSvc = MustOpen(oidc.OpenService(ctx, oidc.ServiceConfig{
 		DB:          db,
 		User:        userSvc,
-		NewUserRole: rbacSvc.Builtin.ViewerKey,
+		NewUserRole: access.RBAC.Builtin.ViewerKey,
 		Providers: []oidc.Provider{{
 			Name:     "idp",
 			Issuer:   provider.Issuer(),
@@ -132,55 +93,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		},
 	}))
 	apiSvc = MustSucceed(apiauth.NewService(apiauth.ServiceConfig{
-		DB:       db,
-		Auth:     authSvc,
-		Password: passwordSvc,
-		APIKey:   apiKeySvc,
-		OIDC:     oidcSvc,
-		User:     userSvc,
-		RBAC:     rbacSvc,
-		Identity: node.Identity,
+		Auth: authSvc,
+		OIDC: oidcSvc,
 	}))
-	binder := MustSucceed(bind.NewService(bind.ServiceConfig{
-		Holders: taskconfig.NewHolders(),
-		DB:      db,
-		RBAC:    rbacSvc,
-		Held:    apiauth.HeldTables(),
-	}))
-	changePassword = bind.WritePrepared(
-		binder,
-		apiSvc.PrepareChangePassword,
-		apiSvc.ChangePassword,
-	)
-	setPassword = bind.WritePrepared(
-		binder,
-		apiSvc.PrepareSetPassword,
-		apiSvc.SetPassword,
-	)
-	createKey = bind.Write(binder, apiSvc.CreateKey)
-	retrieveKeys = bind.Read(binder, func(
-		ctx context.Context,
-		snap bind.Snapshot,
-		req apiauth.KeyRetrieveRequest,
-	) (apiauth.KeyRetrieveResponse, error) {
-		return apiSvc.RetrieveKeys(ctx, snap, req)
-	})
-	retrieveSessions = bind.Read(binder, func(
-		ctx context.Context,
-		snap bind.Snapshot,
-		req apiauth.SessionRetrieveRequest,
-	) (apiauth.SessionRetrieveResponse, error) {
-		return apiSvc.RetrieveSessions(ctx, snap, req)
-	})
-	deleteKeys = bind.Write(binder, apiSvc.DeleteKeys)
-	deleteSessions = bind.Write(binder, apiSvc.DeleteSessions)
-	linkOIDC = bind.WritePrepared(binder, apiSvc.PrepareLinkOIDC, apiSvc.LinkOIDC)
-	retrieveOIDCLinks = bind.Read(binder, func(
-		ctx context.Context,
-		snap bind.Snapshot,
-		req apiauth.OIDCRetrieveRequest,
-	) (apiauth.OIDCRetrieveResponse, error) {
-		return apiSvc.RetrieveOIDCLinks(ctx, snap, req)
-	})
-	unlinkOIDC = bind.Write(binder, apiSvc.UnlinkOIDC)
 })

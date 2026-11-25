@@ -550,6 +550,16 @@ var _ = Describe("SemanticTokensFull", func() {
 		Entry("enum member", "Kind enum {\n    uuid = 1\n}\n", uint32(1), uint32(4)),
 	)
 
+	It("should color a duration literal as a number", func(ctx SpecContext) {
+		openDoc(
+			ctx,
+			"file:///duration.oracle",
+			"Cfg struct {\n    t telem.TimeSpan = 1m30s\n}\n",
+		)
+		data := tokensFor(ctx, "file:///duration.oracle").Data
+		Expect(tokenTypeAt(ctx, data, 1, 23)).To(Equal("number"))
+	})
+
 	DescribeTable(
 		"should color the filter soft keyword by position",
 		func(ctx SpecContext, text string, char uint32, expected string) {

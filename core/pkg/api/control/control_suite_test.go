@@ -24,7 +24,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
-	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/calculation"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -62,11 +61,8 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	dist := testutil.NewNode(ctx)
 	db = dist.DB
-	passwordSvc := MustOpen(password.OpenService(ctx, password.ServiceConfig{
-		DB: dist.DB,
-	}))
 	userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
-		DB: dist.DB, Password: passwordSvc,
+		DB: dist.DB,
 	}))
 	MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB: dist.DB,

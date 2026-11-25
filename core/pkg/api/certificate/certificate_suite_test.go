@@ -68,6 +68,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB:      node.DB,
 		RBAC:    svc.RBAC,
 		Held:    apiauth.HeldTables(),
+		Owned:   apicertificate.OwnedTables(),
 	}))
 	set = bind.Write(binder, apiSvc.Set)
 	retrieve = bind.Read(binder, apiSvc.Retrieve)

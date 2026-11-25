@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
+	apicertificate "github.com/synnaxlabs/synnax/pkg/api/certificate"
 	apipanel "github.com/synnaxlabs/synnax/pkg/api/panel"
 	apisecret "github.com/synnaxlabs/synnax/pkg/api/secret"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
@@ -47,7 +48,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB:          db,
 		RBAC:        svc.RBAC,
 		Held:        apiauth.HeldTables(),
-		Owned:       apipanel.OwnedTables(),
+		Owned:       append(apipanel.OwnedTables(), apicertificate.OwnedTables()...),
 		OwnedPlaces: apipanel.OwnedPlaces(),
 		Vouched:     apisecret.Vouched(svc.Certificate),
 	}))
