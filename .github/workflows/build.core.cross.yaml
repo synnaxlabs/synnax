@@ -1,0 +1,129 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+# Builds the Core for each test OS on one Ubuntu runner. A native build takes up to 23
+# minutes on macOS. The Core has no cgo, so a CGO_ENABLED=0 build is the same program.
+name: Build - Core cross
+
+on:
+  workflow_call:
+    outputs:
+      artifact:
+        description: The prefix of the artifact names, followed by the GOOS.
+        value: ${{ jobs.build.outputs.artifact }}
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build Core
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      artifact: ${{ steps.key.outputs.artifact }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
+        with:
+          go-version-file: core/go.mod
+          cache: false
+
+      # This workflow file salts the key, so a cache saved under an older layout of the
+      # job never restores into the new one.
+      - name: Key the Go caches
+        id: key
+        env:
+          SUM:
+            ${{ hashFiles('core/go.sum', '.github/workflows/build.core.cross.yaml') }}
+        run: |
+          {
+            echo "artifact=core-cross-$GITHUB_RUN_ATTEMPT-"
+            echo "build=$(go env GOCACHE)"
+            echo "modules=$(go env GOMODCACHE)"
+            echo "sum=go-cross-core-$SUM-"
+          } >> "$GITHUB_OUTPUT"
+
+      # A run reads the caches of its own branch and of main, so only main saves them.
+      - name: Restore the Go caches
+        id: cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: |
+            ${{ steps.key.outputs.build }}
+            ${{ steps.key.outputs.modules }}
+          key: ${{ steps.key.outputs.sum }}${{ github.run_id }}
+          restore-keys: |
+            ${{ steps.key.outputs.sum }}
+            go-cross-core-
+
+      - name: Mark the start of the build
+        id: start
+        run: echo "seconds=$(date +%s)" >> "$GITHUB_OUTPUT"
+
+      - name: Build Core
+        working-directory: core
+        env:
+          CGO_ENABLED: 0
+          OUT: ${{ runner.temp }}/core
+        run: |
+          for target in linux/amd64 darwin/arm64 windows/amd64; do
+            os=${target%/*}
+            exe=""
+            if [ "$os" = windows ]; then exe=.exe; fi
+            GOOS=$os GOARCH=${target#*/} go build -o "$OUT/$os/synnax$exe" .
+          done
+
+      - name: Upload the Linux Core
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: ${{ steps.key.outputs.artifact }}linux
+          path: ${{ runner.temp }}/core/linux
+          retention-days: 1
+
+      - name: Upload the macOS Core
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: ${{ steps.key.outputs.artifact }}darwin
+          path: ${{ runner.temp }}/core/darwin
+          retention-days: 1
+
+      - name: Upload the Windows Core
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: ${{ steps.key.outputs.artifact }}windows
+          path: ${{ runner.temp }}/core/windows
+          retention-days: 1
+
+      # Go marks a used cache entry at most once an hour, so the margin keeps the ones
+      # the build used.
+      - name: Trim the Go build cache
+        if: github.ref == 'refs/heads/main'
+        env:
+          BUILD: ${{ steps.key.outputs.build }}
+          START: ${{ steps.start.outputs.seconds }}
+        run: |
+          cd "$BUILD"
+          du -sh .
+          find . -type f -mmin "+$(( ($(date +%s) - START) / 60 + 61 ))" -delete
+          du -sh .
+
+      - name: Save the Go caches
+        if: github.ref == 'refs/heads/main'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: |
+            ${{ steps.key.outputs.build }}
+            ${{ steps.key.outputs.modules }}
+          key: ${{ steps.cache.outputs.cache-primary-key }}

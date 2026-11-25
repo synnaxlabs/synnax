@@ -25,6 +25,7 @@ on:
       - gorp/**
       - x/go/**
       - .github/scripts/pin_mtimes.py
+      - .github/workflows/build.core.cross.yaml
       - .github/workflows/test.go.yaml
       - .github/workflows/warm.go.yaml
   workflow_dispatch:
@@ -61,6 +62,11 @@ jobs:
       module: core
       repository: ghcr.io/synnaxlabs/synnax
       prebuilt: true
+
+  # The TLS tests reuse the build cache of the Core for each OS.
+  core-cross:
+    name: Core cross
+    uses: ./.github/workflows/build.core.cross.yaml
 
   # A failed test job does not stop the lint jobs, which save caches too.
   prune:
