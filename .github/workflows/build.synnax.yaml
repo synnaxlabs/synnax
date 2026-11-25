@@ -446,12 +446,13 @@ jobs:
           inputs.driver && env.DRIVER_REF_RUN_ID == '' && matrix.os ==
           'windows-build-bot'
         shell: bash
+        env:
+          OPT_CONFIG: ${{ inputs.lto_disabled && 'opt-windows-test' || 'opt-windows' }}
         run: |
           export MSYS_NO_PATHCONV=1
           read -ra flags <<< "$BAZEL_BUILD_FLAGS $BAZEL_REMOTE_CACHE_FLAGS"
           scripts/run_bazel.sh build "${flags[@]}" \
-            ${{ inputs.debug && '--output_groups=+pdb_file' || inputs.lto_disabled &&
-            '--config=opt-windows-test' || '--config=opt-windows' }} //driver
+            ${{ !inputs.debug && '--config=$OPT_CONFIG' || '--output_groups=+pdb_file' }} //driver
 
       - name: Upload Windows debug symbols
         if:
