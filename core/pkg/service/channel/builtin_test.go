@@ -12,6 +12,7 @@ package channel_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
@@ -176,6 +177,36 @@ var _ = Describe("Built-in channels", func() {
 			"The Core needs the name " + held.Name + " for a built-in channel, so " +
 				"the channel " + held.Name + " is now " + held.Name + "_3.",
 		))
+	})
+
+	It("Should store the first path of a channel it renames for its text pass", func(
+		ctx SpecContext,
+	) {
+		held := command()
+		held.DataType = telem.Float32T
+		create(ctx, &held)
+		first := command()
+		first.Name = held.Name
+		Expect(declare(ctx, &first)).To(Succeed())
+		second := command()
+		second.Name = held.Name + "_2"
+		Expect(declare(ctx, &second)).To(Succeed())
+		// take returns the stored renames of held, and deletes every stored rename.
+		take := func() []channel.TextRename {
+			GinkgoHelper()
+			var renames []channel.TextRename
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
+				renames, err = svc.NewWriter(tx).TakeTextRenames(ctx)
+				return err
+			})).To(Succeed())
+			return lo.Filter(renames, func(r channel.TextRename, _ int) bool {
+				return r.Key == held.Key()
+			})
+		}
+		Expect(
+			take(),
+		).To(ConsistOf(channel.TextRename{Key: held.Key(), From: held.Name}))
+		Expect(take()).To(BeEmpty())
 	})
 
 	It("Should rename every other holder of the name when it adopts one", func(

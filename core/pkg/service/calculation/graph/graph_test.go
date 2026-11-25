@@ -1468,6 +1468,33 @@ var _ = Describe("Graph", func() {
 		},
 	)
 
+	It("Should handle no change while held, and each held change on Release", func(
+		ctx SpecContext,
+	) {
+		dep := createDep(ctx, "held_dep")
+		calc := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
+			Name: "held_calc", DataType: telem.Int64T,
+			Expression: "return held_dep + 1",
+		}))
+		g := MustOpen(graph.Open(ctx, graph.Config{
+			DB:          db,
+			Channel:     channelSvc,
+			Calculation: creator.Calculation,
+			Status:      statusSvc,
+			Held:        true,
+		}))
+		DeferCleanup(g.Close)
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return channelSvc.NewWriter(tx).Rename(ctx, dep.Key(), "held_moved", false)
+		})).To(Succeed())
+		Consistently(func() bool {
+			_, found := fetchStatus(ctx, calc.Key())
+			return found
+		}, 200*time.Millisecond, 10*time.Millisecond).Should(BeFalse())
+		g.Release()
+		expectStatus(ctx, calc.Key())
+	})
+
 	Describe("SetRuntimeStatus", func() {
 		It("Should persist the reported status", func(ctx SpecContext) {
 			g := openGraph(ctx)

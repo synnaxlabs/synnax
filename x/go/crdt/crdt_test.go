@@ -181,6 +181,19 @@ var _ = Describe("CRDT", func() {
 			Expect(b.String()).To(Equal("hello"))
 		})
 
+		It("Should continue its own counter past the snapshot's characters", func() {
+			a := crdt.New(1)
+			a.Insert(0, "abc")
+			b := crdt.New(1)
+			b.Load(a.Snapshot())
+			ops := b.Insert(3, "d")
+			Expect(ops).To(HaveLen(1))
+			Expect(ops[0].ID).To(Equal(crdt.ID{Replica: 1, Counter: 4}))
+			c := crdt.New(2)
+			c.Load(b.Snapshot())
+			Expect(c.String()).To(Equal("abcd"))
+		})
+
 		It("Should let a bootstrapped replica converge on concurrent edits", func() {
 			a := crdt.New(1)
 			a.Insert(0, "shared")

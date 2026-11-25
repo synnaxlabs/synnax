@@ -11,10 +11,10 @@ package text
 
 import "github.com/synnaxlabs/arc/text/versions"
 
-// SeedReplica is the replica id the server uses when seeding or materializing a
-// document. The server never authors characters of its own (clients do), so the replica
-// only needs to be stable and distinct from the zero root sentinel; clients must choose
-// a different replica.
+// SeedReplica is the replica id the server uses when seeding, materializing, or
+// renaming a channel in a document (RenameChannelInDocument). It only needs to be
+// stable and distinct from the zero root sentinel; clients must choose a different
+// replica.
 const SeedReplica = versions.SeedReplica
 
 // Create builds a Document from raw source text, attributing every character to the

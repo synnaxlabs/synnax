@@ -241,8 +241,14 @@ func (t *Text) Snapshot() (inserts []Insert, deletes []Delete) {
 
 // Load applies a snapshot to the document. It is intended for a freshly created
 // document; the local replica's edits remain attributed to its own replica id and do
-// not collide with the snapshot's operations.
+// not collide with the snapshot's operations, since the local counter continues past
+// each character that the snapshot holds from the local replica.
 func (t *Text) Load(inserts []Insert, deletes []Delete) {
+	for _, op := range inserts {
+		if op.ID.Replica == t.replica {
+			t.counter = max(t.counter, op.ID.Counter)
+		}
+	}
 	t.ApplyInsert(inserts...)
 	t.ApplyDelete(deletes...)
 }

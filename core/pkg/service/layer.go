@@ -508,12 +508,26 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, nil) {
 		return nil, err
 	}
+	// A start that stopped before the pass left its renames stored, and the graph
+	// compiles as it opens. The Arcs wait for the pass after their migrations.
+	if err = passDeclaredCalculations(
+		ctx,
+		cfg.Distribution.DB,
+		l.Channel,
+	); !ok(
+		err,
+		nil,
+	) {
+		return nil, err
+	}
+	// The graph holds the changes of this start's Declares until their text pass.
 	channelGraph, err := calcgraph.Open(ctx, calcgraph.Config{
 		Instrumentation: cfg.Child("channel.calculation.graph"),
 		DB:              cfg.Distribution.DB,
 		Channel:         l.Channel,
 		Calculation:     l.Calculation,
 		Status:          l.Status,
+		Held:            true,
 	})
 	if !ok(err, channelGraph) {
 		return nil, err
@@ -1348,6 +1362,12 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if !ok(err, nil) {
 		return nil, err
 	}
+	// The Driver deploys Arcs, so the text passes of the renames of every Declare come
+	// first.
+	if err = passDeclaredRenames(ctx, cfg.Distribution.DB, l.Channel); !ok(err, nil) {
+		return nil, err
+	}
+	channelGraph.Release()
 	if l.Driver, err = driver.Open(ctx, driver.Config{
 		Instrumentation: cfg.Child("driver"),
 		DB:              cfg.Distribution.DB,

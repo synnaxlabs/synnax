@@ -69,8 +69,10 @@ func (s *Service) IsBuiltIn(k Key) bool { return s.builtIns.Load().contains(k) }
 // channel when the transaction commits. A channel of that name at the root, with the
 // data type and virtual flag of ch, becomes the built-in, unless the holder of one of
 // its uses computes it. Declare renames any other channel of that name with the first
-// free suffix (_2, _3) and writes a warning status for it. Declare fills ch with the
-// stored channel. It returns an error when another built-in holds the name.
+// free suffix (_2, _3), writes a warning status for it, and stores the rename for its
+// text pass (Writer.TakeTextRenames), since the holders of text are not open yet.
+// Declare fills ch with the stored channel. It returns an error when another built-in
+// holds the name.
 func (w Writer) Declare(ctx context.Context, ch *Channel) error {
 	var holders []Channel
 	if err := w.svc.newRetrieve().
@@ -143,6 +145,9 @@ func (w Writer) rehome(ctx context.Context, h Channel) error {
 		return err
 	}
 	if err = w.Rename(ctx, h.Key(), name, false); err != nil {
+		return err
+	}
+	if err = w.storeTextRename(ctx, h.Key(), h.Name); err != nil {
 		return err
 	}
 	return w.svc.cfg.Status.NewWriter(w.tx).Set(ctx, &status.Status[any]{
