@@ -9,9 +9,10 @@
 
 /// <reference types="vitest/config" />
 
-import { layers, plutoLayers, reactCompiler } from "@synnaxlabs/vite-plugin";
+import { layers, plutoLayers, reactCompiler, testCore } from "@synnaxlabs/vite-plugin";
 import react from "@vitejs/plugin-react";
 import { playwright } from "@vitest/browser-playwright";
+import { appendFileSync, createWriteStream, mkdirSync } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as path from "path";
 import { defineConfig, normalizePath, type Plugin } from "vite";
@@ -75,13 +76,6 @@ const browserProject = ({
       setupFiles: ["src/testutil/browser.ts"],
       include,
       exclude,
-      // A browser has no `process` to read the test Core from.
-      provide: {
-        synnaxTestCore: {
-          host: process.env.SYNNAX_TEST_HOST ?? "localhost",
-          port: Number(process.env.SYNNAX_TEST_PORT ?? 9090),
-        },
-      },
       browser: {
         enabled: true,
         headless: true,
@@ -127,6 +121,51 @@ const workspaceSourcemaps = (): Plugin => {
     },
   };
 };
+
+// Appends each response that is not 2xx or 304, and each request closed before its
+// response, to the file in SYNNAX_TEST_REQUEST_LOG. WebKit names no URL when a module
+// import fails.
+const requestLog = (): Plugin => ({
+  name: "request-log",
+  apply: "serve",
+  configureServer: (server) => {
+    const file = process.env.SYNNAX_TEST_REQUEST_LOG;
+    if (file == null) return;
+    if (file.trim() === "") throw new Error("SYNNAX_TEST_REQUEST_LOG is blank");
+    // Throws at start when the file cannot be written.
+    mkdirSync(path.dirname(file), { recursive: true });
+    appendFileSync(
+      file,
+      `${new Date().toISOString()} server started (pid ${process.pid})\n`,
+    );
+    // One stream keeps the lines in order with one open file.
+    const stream = createWriteStream(file, { flags: "a" });
+    let open = true;
+    stream.on("error", (error) => {
+      open = false;
+      console.error(`Stopped writing ${file}: ${error.message}`);
+    });
+    server.httpServer?.once("close", () => {
+      open = false;
+      stream.end();
+    });
+    const start = Date.now();
+    const log = (line: string): void => {
+      if (open) stream.write(`${new Date().toISOString()} ${line}\n`);
+    };
+    server.middlewares.use((req, res, next) => {
+      const begin = Date.now();
+      res.on("close", () => {
+        const at = `+${begin - start}ms (${Date.now() - begin}ms)`;
+        const { statusCode: status } = res;
+        if (!res.writableFinished) log(`${at} aborted ${req.method} ${req.url}`);
+        else if ((status < 200 || status >= 300) && status !== 304)
+          log(`${at} ${status} ${res.statusMessage} ${req.method} ${req.url}`);
+      });
+      next();
+    });
+  },
+});
 
 // The dev server loads the standalone React DevTools (`pnpm devtools`) before React, so
 // React finds the DevTools hook when it starts. Builds never load it.
@@ -194,12 +233,13 @@ export default defineConfig({
     reactDevtools(),
     workspaceSourcemaps(),
     stripSourcesContent(),
+    requestLog(),
   ],
   build: {
     target: process.env.TAURI_ENV_PLATFORM === "windows" ? "chrome125" : "safari17.4",
     minify: !isDev,
     // Always emit source maps. The Fallback error UI fetches them at runtime to resolve
-    // minified stack traces (see pluto/src/errors/resolveStack.ts).
+    // minified stack traces (see pluto/src/errors/stack/stack.ts).
     sourcemap: true,
     // The Console ships two ways: bundled into the Tauri desktop app (loaded from disk)
     // and embedded into the Synnax Core binary (served over HTTP to browsers via
@@ -221,8 +261,12 @@ export default defineConfig({
   },
   test: {
     globals: true,
+    provide: testCore(),
     testTimeout: 15_000,
     hookTimeout: 15_000,
+    // A Core write can take more than the 1 s default, so polls wait as long as Testing
+    // Library does.
+    expect: { poll: { timeout: 5000 } },
     // Specs cover the work that flags hide, as the integration build does.
     env: { VITE_FLAGS_ENABLED: "true" },
     // DESKTOP is a build constant, so the specs of each build run as their own project.

@@ -15,19 +15,15 @@ import (
 	"github.com/synnaxlabs/gorp"
 	apiuser "github.com/synnaxlabs/synnax/pkg/api/user"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
-	"github.com/synnaxlabs/synnax/pkg/service/auth"
-	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 )
 
 var _ = Describe("ServiceConfig", func() {
 	full := func() apiuser.ServiceConfig {
 		return apiuser.ServiceConfig{
-			DB:       &gorp.DB{},
-			RBAC:     &rbac.Service{},
-			User:     &user.Service{},
-			Password: &password.Service{},
-			Auth:     &auth.Service{},
+			DB:   &gorp.DB{},
+			RBAC: &rbac.Service{},
+			User: &user.Service{},
 		}
 	}
 
@@ -58,16 +54,6 @@ var _ = Describe("ServiceConfig", func() {
 				func(c *apiuser.ServiceConfig) { c.User = nil },
 				"user: must be non-nil",
 			),
-			Entry(
-				"password",
-				func(c *apiuser.ServiceConfig) { c.Password = nil },
-				"password: must be non-nil",
-			),
-			Entry(
-				"auth",
-				func(c *apiuser.ServiceConfig) { c.Auth = nil },
-				"auth: must be non-nil",
-			),
 		)
 	})
 
@@ -78,8 +64,6 @@ var _ = Describe("ServiceConfig", func() {
 			Expect(merged.DB).To(BeIdenticalTo(cfg.DB))
 			Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
 			Expect(merged.User).To(BeIdenticalTo(cfg.User))
-			Expect(merged.Password).To(BeIdenticalTo(cfg.Password))
-			Expect(merged.Auth).To(BeIdenticalTo(cfg.Auth))
 		})
 
 		It("Should keep the receiver's services when the other's are nil", func() {
@@ -88,8 +72,6 @@ var _ = Describe("ServiceConfig", func() {
 			Expect(merged.DB).To(BeIdenticalTo(cfg.DB))
 			Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
 			Expect(merged.User).To(BeIdenticalTo(cfg.User))
-			Expect(merged.Password).To(BeIdenticalTo(cfg.Password))
-			Expect(merged.Auth).To(BeIdenticalTo(cfg.Auth))
 		})
 	})
 })

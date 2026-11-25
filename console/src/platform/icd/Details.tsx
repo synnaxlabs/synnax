@@ -181,7 +181,7 @@ const TimestampFields: FC<TimestampFieldsProps> = ({
             plan,
             indexBinding.field,
             indexBinding.channel,
-            `${prefix}_time`,
+            `${prefix}_${index == null ? "time" : channel.escapeInvalidName(index.name)}`,
           )}
           skipped={sourceDisabled}
         />
@@ -270,7 +270,7 @@ export interface MessageSectionsProps extends Omit<
   missingDescription: string;
 }
 
-interface MessageStatusProps {
+export interface MessageStatusProps {
   /** The message in the ICD, or null when the ICD has no message with its key. */
   message: icd.Message | null;
   /** Says why the ICD has no such message, and what to do now. */
@@ -279,8 +279,11 @@ interface MessageStatusProps {
   actions?: ReactNode;
 }
 
-/** Warns when the ICD has no such message, or when the message is not JSON. */
-const MessageStatus = ({
+/**
+ * Warns when the ICD has no such message, when the message is not JSON, or when it has
+ * no fields.
+ */
+export const MessageStatus = ({
   message,
   missingDescription,
   actions,
@@ -296,13 +299,24 @@ const MessageStatus = ({
         />
       </PForm.Section>
     );
-  if (message.payload.format === "json") return null;
+  if (message.payload.format !== "json")
+    return (
+      <PForm.Section title="Message" actions={actions}>
+        <Text.Text color={9}>
+          The format of this message is not JSON.
+          {FLAGS.icds && " Open it in the editor to change its format."}
+        </Text.Text>
+      </PForm.Section>
+    );
+  if (message.payload.fields.length > 0) return null;
   return (
-    <PForm.Section title="Message" actions={actions}>
-      <Text.Text color={9}>
-        The format of this message is not JSON.
-        {FLAGS.icds && " Open it in the editor to change its format."}
-      </Text.Text>
+    <PForm.Section title="Message">
+      <Status.Summary
+        variant="warning"
+        message="Message has no fields"
+        description="A task cannot deploy a message with no fields. Add a field to the message."
+        center={false}
+      />
     </PForm.Section>
   );
 };

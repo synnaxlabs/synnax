@@ -37,26 +37,13 @@ import {
   type Result,
   successResult,
 } from "@/flux/result";
-import {
-  ensureFetch,
-  type EnsureFetchParams,
-  invalidate,
-  type LocalCache,
-  localFor,
-  promiseFor,
-  refresh,
-  type RetrieveParams,
-  type Settled,
-  subscribeReader,
-  useMemoQuery,
-  usePendingFetch,
-} from "@/flux/suspend";
+import { Suspend } from "@/flux/suspend";
 import { Synnax } from "@/synnax";
 
 // Bound at module scope: hooks bind `query` to the caller's params object.
 const { Deleted, isLive } = query;
 
-export { type RetrieveParams };
+export type RetrieveParams<Query extends query.Params> = Suspend.RetrieveParams<Query>;
 
 /**
  * Binds a query definition onto its domain client's read surface: fetch =
@@ -112,14 +99,14 @@ const answersEqual = <Data>(prev: Data, next: Data): boolean =>
  * and when a fetch answers, since a fetch can fill the cache with no change event.
  */
 const subscribeToCache = <Query extends query.Params, Data extends query.Data>(
-  locals: WeakMap<Client, LocalCache<Data>>,
+  locals: WeakMap<Client, Suspend.LocalCache<Data>>,
   client: Client,
   memoQuery: Query,
   onChange: CreateRetrieveParams<Query, Data>["onChange"],
   notify: () => void,
 ): destructor.Destructor => {
-  const local = localFor(locals, client);
-  const releaseReader = subscribeReader(local, query.hash(memoQuery), notify);
+  const local = Suspend.localFor(locals, client);
+  const releaseReader = Suspend.subscribeReader(local, query.hash(memoQuery), notify);
   const release = onChange?.({ client, query: memoQuery }, () => notify());
   return () => {
     releaseReader();
@@ -151,7 +138,7 @@ interface UseCachedSnapshotParams<
  * the earlier reference. Returns undefined when there is no client or query.
  */
 const useCachedSnapshot = <Query extends query.Params, Data extends query.Data>(
-  locals: WeakMap<Client, LocalCache<Data>>,
+  locals: WeakMap<Client, Suspend.LocalCache<Data>>,
   memoQuery: Query | null,
   client: Client | null,
   { onChange, getCached, equal = answersEqual }: UseCachedSnapshotParams<Query, Data>,
@@ -180,19 +167,19 @@ const useCachedSnapshot = <Query extends query.Params, Data extends query.Data>(
  * entry.
  */
 const useSettled = <Query extends query.Params, Data extends query.Data>(
-  locals: WeakMap<Client, LocalCache<Data>>,
+  locals: WeakMap<Client, Suspend.LocalCache<Data>>,
   client: Client | null,
   memoQuery: Query | null,
-): Settled<Data> | undefined => {
+): Suspend.Settled<Data> | undefined => {
   const hash = memoQuery == null ? null : query.hash(memoQuery);
   return useSyncExternalStore(
     (notify: () => void) => {
       if (client == null || hash == null) return NOOP_SUBSCRIBE();
-      return subscribeReader(localFor(locals, client), hash, notify);
+      return Suspend.subscribeReader(Suspend.localFor(locals, client), hash, notify);
     },
     () => {
       if (client == null || hash == null) return undefined;
-      return localFor(locals, client).settled.get(hash);
+      return Suspend.localFor(locals, client).settled.get(hash);
     },
   );
 };
@@ -337,7 +324,7 @@ interface Context<
   Query extends query.Params,
   Data extends query.Data,
 > extends CreateRetrieveParams<Query, Data> {
-  locals: WeakMap<Client, LocalCache<Data>>;
+  locals: WeakMap<Client, Suspend.LocalCache<Data>>;
 }
 
 const NOOP_SUBSCRIBE = () => () => {};
@@ -349,7 +336,7 @@ const NOOP_SUBSCRIBE = () => () => {};
 const NOT_FOUND_WAIT = TimeSpan.seconds(5);
 
 const waitForCreation = async <Query extends query.Params, Data extends query.Data>(
-  params: RetrieveParams<Query>,
+  params: Suspend.RetrieveParams<Query>,
   {
     name,
     error,
@@ -392,7 +379,7 @@ const RETRY_BASE = TimeSpan.milliseconds(250);
  * the Core answers with something other than a dead connection.
  */
 const retryUnreachableFetch = <Query extends query.Params, Data extends query.Data>(
-  params: RetrieveParams<Query>,
+  params: Suspend.RetrieveParams<Query>,
   { name, retrieve }: Pick<CreateRetrieveParams<Query, Data>, "name" | "retrieve">,
 ): Promise<Data> => {
   const attempt = async (n: number): Promise<Data> => {
@@ -415,7 +402,7 @@ interface FetchParamsSource<
   CreateRetrieveParams<Query, Data>,
   "name" | "retrieve" | "onChange" | "getCached" | "awaitCreation" | "retryUnreachable"
 > {
-  local: LocalCache<Data>;
+  local: Suspend.LocalCache<Data>;
 }
 
 const fetchParamsFor = <Query extends query.Params, Data extends query.Data>({
@@ -426,7 +413,7 @@ const fetchParamsFor = <Query extends query.Params, Data extends query.Data>({
   awaitCreation = false,
   retryUnreachable = false,
   local,
-}: FetchParamsSource<Query, Data>): EnsureFetchParams<Query, Data> => ({
+}: FetchParamsSource<Query, Data>): Suspend.EnsureFetchParams<Query, Data> => ({
   name,
   retrieve,
   getCached,
@@ -462,7 +449,7 @@ const useSuspended = <Query extends query.Params, Data extends query.Data>(
   }: Context<Query, Data>,
   query: Query,
 ): Data => {
-  const memoQuery = useMemoQuery(query, normalizeQuery);
+  const memoQuery = Suspend.useMemoQuery(query, normalizeQuery);
   const client = Synnax.use();
 
   // Every hook runs before the disconnected throw. Gating them on the client
@@ -473,14 +460,14 @@ const useSuspended = <Query extends query.Params, Data extends query.Data>(
     getCached,
     equal,
   });
-  // A refresh replaces the settled answer of a mounted reader.
+  // A Suspend.refresh replaces the settled answer of a mounted reader.
   useSettled<Query, Data>(locals, client, memoQuery);
-  const pending = usePendingFetch<Query, Data>(memoQuery);
+  const pending = Suspend.usePendingFetch<Query, Data>(memoQuery);
 
   if (client == null)
     throw new DisconnectedError(`Cannot retrieve ${name}: no Core connected.`);
 
-  const local = localFor(locals, client);
+  const local = Suspend.localFor(locals, client);
   const params = { client, query: memoQuery };
 
   // A replay resumes through the promise the suspended attempt holds. Serving it the
@@ -492,7 +479,7 @@ const useSuspended = <Query extends query.Params, Data extends query.Data>(
     return use(pending.fulfill(cached));
   }
   return use(
-    promiseFor(
+    Suspend.promiseFor(
       params,
       fetchParamsFor({
         name,
@@ -521,14 +508,14 @@ const useEnsure = <Query extends query.Params, Data extends query.Data>(
   }: Context<Query, Data>,
   query: Query,
 ): void => {
-  const memoQuery = useMemoQuery(query, normalizeQuery);
+  const memoQuery = Suspend.useMemoQuery(query, normalizeQuery);
   const client = Synnax.use();
-  const pending = usePendingFetch<Query, Data>(memoQuery);
+  const pending = Suspend.usePendingFetch<Query, Data>(memoQuery);
 
   if (client == null)
     throw new DisconnectedError(`Cannot retrieve ${name}: no Core connected.`);
 
-  const local = localFor(locals, client);
+  const local = Suspend.localFor(locals, client);
   const params = { client, query: memoQuery };
 
   if (pending.promise == null) {
@@ -544,7 +531,7 @@ const useEnsure = <Query extends query.Params, Data extends query.Data>(
     }
   }
   use(
-    promiseFor(
+    Suspend.promiseFor(
       params,
       fetchParamsFor({
         name,
@@ -561,14 +548,14 @@ const useEnsure = <Query extends query.Params, Data extends query.Data>(
 };
 
 const useInvalidate = <Query extends query.Params, Data extends query.Data>(
-  locals: WeakMap<Client, LocalCache<Data>>,
+  locals: WeakMap<Client, Suspend.LocalCache<Data>>,
   normalizeQuery?: <Q extends Query>(query: Q) => Q,
 ): ((q: Query) => void) => {
   const client = Synnax.use();
   return (q: Query) => {
     if (client == null) return;
     const normalized = normalizeQuery?.(q) ?? q;
-    invalidate(localFor(locals, client), query.hash(normalized));
+    Suspend.invalidate(Suspend.localFor(locals, client), query.hash(normalized));
   };
 };
 
@@ -585,7 +572,7 @@ const useRefresh = <Query extends query.Params, Data extends query.Data>({
   const client = Synnax.use();
   return (q: Query) => {
     if (client == null) return;
-    refresh(
+    Suspend.refresh(
       { client, query: normalizeQuery?.(q) ?? q },
       fetchParamsFor({
         name,
@@ -594,7 +581,7 @@ const useRefresh = <Query extends query.Params, Data extends query.Data>({
         getCached,
         awaitCreation,
         retryUnreachable,
-        local: localFor(locals, client),
+        local: Suspend.localFor(locals, client),
       }),
     );
   };
@@ -604,7 +591,7 @@ const useTombstone = <Query extends query.Params, Data extends query.Data>(
   { locals, onChange, getCached, equal, normalizeQuery }: Context<Query, Data>,
   query: Query,
 ): Tombstone | null => {
-  const memoQuery = useMemoQuery(query, normalizeQuery);
+  const memoQuery = Suspend.useMemoQuery(query, normalizeQuery);
   const client = Synnax.use();
   const cached = useCachedSnapshot<Query, Data>(locals, memoQuery, client, {
     onChange,
@@ -632,7 +619,7 @@ const createSelector = <
   selectedEqual?: (a: Selected, b: Selected) => boolean,
 ): UseSelect<ExtendedQuery, Selected> => {
   const useSelect = (q: ExtendedQuery): Selected => {
-    const memoQuery = useMemoQuery<ExtendedQuery>(q, normalizeQuery);
+    const memoQuery = Suspend.useMemoQuery<ExtendedQuery>(q, normalizeQuery);
     const client = Synnax.use();
     const held = useRef<Held<Query, Data> | null>(null);
     const computed = useRef<(Held<Query, Data> & { out: Selected }) | null>(null);
@@ -717,7 +704,7 @@ const createResultSelector = <
     return true;
   };
   const useResultSelect = (q: ExtendedQuery | null): Result<Selected> => {
-    const memoQuery = useMemoQuery<ExtendedQuery>(q, normalizeQuery);
+    const memoQuery = Suspend.useMemoQuery<ExtendedQuery>(q, normalizeQuery);
     const client = Synnax.use();
     const held = useRef<Held<Query, Data> | null>(null);
     const subscribe = (notify: () => void) => {
@@ -746,18 +733,25 @@ const createResultSelector = <
       sliceEqual,
     );
     const settled = useSettled<ExtendedQuery, Data>(locals, client, memoQuery);
+    // The query that this mount last fetched.
+    const fetched = useRef<{ client: Client; query: ExtendedQuery } | null>(null);
+    // A reconnect drops a settled failure, and the effect then fetches again.
+    const unsettled = settled === undefined;
     // A render React discards must not fetch, and nothing dedupes one once the
     // in-flight entry clears, so the cold path starts its fetch after commit.
-    // A settled failure does not block the fetch: each new mount gets one fresh
-    // attempt (deps hold within a mount, so a failure cannot loop).
+    // A settled failure blocks only a fetch of the mount that settled it, so each new
+    // mount gets one fresh attempt and a failure cannot loop.
     useEffect(() => {
       if (client == null || memoQuery == null || slice.kind !== "none") return;
-      const local = localFor(locals, client);
+      const local = Suspend.localFor(locals, client);
       const params = { client, query: memoQuery };
       const prior = local.settled.get(query.hash(memoQuery));
       if (prior != null && "data" in prior) return;
+      const last = fetched.current;
+      if (prior != null && last?.client === client && last.query === memoQuery) return;
+      fetched.current = { client, query: memoQuery };
       // A failure settles, and the settled subscription reports it.
-      ensureFetch(
+      Suspend.ensureFetch(
         params,
         fetchParamsFor({
           name,
@@ -769,7 +763,7 @@ const createResultSelector = <
           local,
         }),
       ).catch(() => {});
-    }, [client, memoQuery, slice]);
+    }, [client, memoQuery, slice, unsettled]);
     if (client == null) return nullClientResult<Selected>(`retrieve ${name}`);
     if (memoQuery == null) return noQueryResult<Selected>(`retrieve ${name}`);
     if (slice.kind === "live")

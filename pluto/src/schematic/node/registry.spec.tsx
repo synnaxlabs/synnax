@@ -7,17 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type enumeration, NotFoundError, schematic } from "@synnaxlabs/client";
+import { NotFoundError, schematic } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { color, deep, TimeSpan } from "@synnaxlabs/x";
-import { fireEvent, renderHook, waitFor } from "@testing-library/react";
-import type { FC, PropsWithChildren } from "react";
-import { beforeAll, describe, expect, it } from "vitest";
+import { deep, TimeSpan } from "@synnaxlabs/x";
+import { fireEvent } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
 
 import { Node } from "@/schematic/node";
-import { Custom } from "@/schematic/node/common/custom";
 import { GroupBox } from "@/schematic/node/groupBox";
-import { createAsyncSynnaxWrapper, createSynnaxWrapper, renderForm } from "@/testutil";
+import { createSynnaxWrapper, renderForm } from "@/testutil";
 
 const createSymbol = (variant: string): schematic.symbol.Symbol =>
   schematic.symbol.symbolZ.parse({
@@ -42,102 +40,6 @@ describe("Schematic.Node.REGISTRY", () => {
     expect(
       builtins.map((b) => b.name).filter((name) => !(name in Node.REGISTRY)),
     ).toEqual(["normally_open_solenoid_valve"]);
-  });
-});
-
-describe("Schematic.Node.BUILT_INS", () => {
-  it("should hold a spec for each symbol that the Core lists", async () => {
-    const builtins = await createTestClient().schematics.symbols.retrieveBuiltins();
-    expect([...Node.BUILT_INS.keys()].sort()).toEqual(
-      builtins.map((b) => b.name).sort(),
-    );
-  });
-
-  it("should hold no spec for a name that only an object prototype has", () => {
-    expect(Node.BUILT_INS.get("constructor")).toBeUndefined();
-  });
-
-  it("should give each symbol the states and commands that the Core lists", async () => {
-    const builtins = await createTestClient().schematics.symbols.retrieveBuiltins();
-    for (const { name, states, commands } of builtins) {
-      const spec = Node.BUILT_INS.get(name);
-      expect({ name, states: spec?.states, commands: spec?.commands }).toEqual({
-        name,
-        states,
-        commands,
-      });
-    }
-  });
-
-  it("should give each symbol a spec that the Core accepts", async () => {
-    const client = createTestClient();
-    const symbols = await client.schematics.symbols.create({
-      symbols: [...Node.BUILT_INS].map(([name, data]) => ({ name, data })),
-    });
-    await client.schematics.symbols.delete(symbols.map((s) => s.key));
-  });
-
-  describe("looks", () => {
-    const client = createTestClient();
-    const RED = color.construct("#ff0000");
-    const GREEN = color.construct("#00ff00");
-    let wrapper: FC<PropsWithChildren>;
-    let colored: enumeration.Key;
-
-    // The built-in enumerations have no colors, so each state reads one that has.
-    beforeAll(async () => {
-      wrapper = await createAsyncSynnaxWrapper({ client });
-      const created = await client.enumerations.create({
-        name: "Built-in looks",
-        entries: [
-          { key: "off", value: 0, name: "Off", color: { type: "fixed", value: RED } },
-          { key: "on", value: 1, name: "On", color: { type: "fixed", value: GREEN } },
-        ],
-      });
-      colored = created.key;
-    });
-
-    it.each<[string, number, Custom.Paint[]]>([
-      ["valve", 0, [{ stroke: RED }]],
-      ["valve", 1, [{ stroke: GREEN }, { fill: GREEN }]],
-      [
-        "normally_open_solenoid_valve",
-        0,
-        [{ stroke: RED }, { selectors: [".pluto-body"], fill: RED }],
-      ],
-      [
-        "normally_open_solenoid_valve",
-        1,
-        [
-          { stroke: GREEN },
-          { selectors: [".pluto-solenoid-valve__coil"], fill: GREEN },
-        ],
-      ],
-      [
-        "pump",
-        1,
-        [
-          { stroke: GREEN },
-          { fill: GREEN },
-          { selectors: [".pluto--detail"], stroke: color.construct("#000000e6") },
-        ],
-      ],
-      ["light", 1, [{ fill: GREEN }]],
-    ])(
-      "should paint %s at %d as its old variant draws",
-      async (name, value, paints) => {
-        const spec = Node.BUILT_INS.get(name);
-        if (spec == null) throw new Error(`expected a spec for ${name}`);
-        const states = spec.states.map((s) =>
-          s.type === "enumeration" ? { ...s, enumeration: colored } : s,
-        );
-        const { result } = renderHook(
-          () => Custom.usePaints({ ...spec, states }, value),
-          { wrapper },
-        );
-        await waitFor(() => expect(result.current).toEqual(paints));
-      },
-    );
   });
 });
 
@@ -203,7 +105,7 @@ describe("Schematic.Node.STATIC_SPECS", () => {
     expect(keys).not.toContain(GroupBox.VARIANT);
   });
 
-  it("should not include the symbol placeholder", () => {
+  it("should not include the symbol variant", () => {
     expect(Node.STATIC_SPECS.map((s) => s.key)).not.toContain("symbol");
   });
 

@@ -467,6 +467,9 @@ func (r *renderer) value(v resolution.ExpressionValue) string {
 		}
 		return strconv.Quote(s)
 	case resolution.ValueKindInt:
+		if v.Duration != "" {
+			return v.Duration
+		}
 		return strconv.FormatInt(v.IntValue, 10)
 	case resolution.ValueKindFloat:
 		// The schema grammar has no exponent form, so 'f' keeps tiny magnitudes

@@ -19,7 +19,7 @@ import (
 	"uuid"
 
 	"github.com/synnaxlabs/x/errors"
-	xmath "github.com/synnaxlabs/x/math"
+	xstrconv "github.com/synnaxlabs/x/strconv"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -196,8 +196,8 @@ func NewDecoder(f Field) (*Decoder, error) {
 // starts with its length.
 //   - A timestamp takes a string in ISO8601 format, and a number or a string holding
 //     one in a Unix format.
-//   - A string takes a string, or the label of an enum. JSON takes any value,
-//     compacted but spelled as raw.
+//   - A string takes a string, or the label of an enum. Any other value writes its
+//     JSON text, as for JSON. JSON takes any value, compacted but spelled as raw.
 //   - A UUID takes its string form.
 //   - Bytes take a string of standard, padded base64.
 //   - A numeric or boolean sample takes a number that it can hold exactly, a boolean
@@ -231,9 +231,7 @@ func (d *Decoder) Append(dst []byte, raw jsontext.Value) ([]byte, error) {
 
 func (d *Decoder) appendString(dst []byte, raw jsontext.Value) ([]byte, error) {
 	if raw.Kind() != '"' {
-		return nil, errors.Wrapf(
-			validate.ErrValidation, "expected a string, got %s", kindName(raw),
-		)
+		return appendJSON(dst, raw)
 	}
 	if len(d.enums) > 0 {
 		if err := d.unquote(raw); err != nil {
@@ -343,13 +341,11 @@ func (d *Decoder) appendNumeric(dst []byte, raw jsontext.Value) ([]byte, error) 
 }
 
 // AppendFloat appends the sample of v to dst, as Append does for a JSON number equal to
-// v. It returns an error wrapping validate.ErrValidation when v is not finite, the data
-// type is not numeric, or v does not convert to it.
+// v. A float data type takes any float, NaN and infinity included. It returns an error
+// wrapping validate.ErrValidation when the data type is not numeric or v does not
+// convert to it.
 func (d *Decoder) AppendFloat(dst []byte, v float64) ([]byte, error) {
 	n := number{kind: floatNumber, f: v}
-	if !xmath.Finite(v) {
-		return nil, errors.Wrapf(validate.ErrValidation, "%s is not finite", n)
-	}
 	if dt := d.field.DataType; !numeric(dt) {
 		return nil, errors.Wrapf(
 			validate.ErrValidation, "cannot convert a float to %s", dt,
@@ -528,7 +524,12 @@ func (e *Encoder) Append(dst, sample []byte) ([]byte, error) {
 		return strconv.AppendBool(dst, n.float() != 0), nil
 	case String:
 		dst = append(dst, '"')
-		return append(n.appendText(dst), '"'), nil
+		if dt == telem.Float32T {
+			dst = xstrconv.AppendFloat(dst, n.f, 32)
+		} else {
+			dst = n.appendText(dst)
+		}
+		return append(dst, '"'), nil
 	case Number:
 		return appendJSONNumber(dst, n)
 	}

@@ -13,7 +13,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Tree } from "@synnaxlabs/lyra/tree";
 import { ICD as PICD } from "@synnaxlabs/pluto";
-import { deep, map, type record, unique, uuid } from "@synnaxlabs/x";
+import { deep, id, map, type record, unique, uuid } from "@synnaxlabs/x";
 import {
   type Dispatch,
   type FC,
@@ -24,6 +24,7 @@ import {
 } from "react";
 
 import { MessageLabel, ReadCheckbox } from "@/platform/icd/Bindings";
+import { copyName } from "@/platform/icd/fieldNames";
 import { createJSONField } from "@/platform/icd/Fields";
 import { fieldsOf, formatOf, type Formats, useFormats } from "@/platform/icd/Formats";
 import { createMatch } from "@/platform/icd/Match";
@@ -41,6 +42,8 @@ import {
 import {
   fieldKey,
   type FieldNode,
+  initialExpanded,
+  type InitialSource,
   messageKey,
   type MessageNode,
   type Node,
@@ -259,7 +262,7 @@ interface BaseArgs<S extends Source> {
   messageName: (source: string, held: icd.Message[]) => string;
   /**
    * The key of each message that the task made. The hook adds each message it makes.
-   * Keep it outside of each {@link WithFormat}, as a new ICD mounts the hook again.
+   * Keep it outside of {@link WithFormats}, as a new ICD mounts the hook again.
    */
   made: RefObject<Set<string>>;
   /** The key of each selected tree item. */
@@ -304,8 +307,8 @@ export interface UseReturn {
 
 /**
  * The tree of the sources of a read task, with each message and field that they read.
- * It edits the ICDs of the sources through their open forms, so call it inside a
- * {@link WithFormat} for the ICD of each source. Source keys must be unique across
+ * It edits the ICDs of the sources through their open forms, so call it inside
+ * {@link WithFormats} with the ICD of each source. Source keys must be unique across
  * groups.
  */
 export const use = <
@@ -463,7 +466,7 @@ export const use = <
     const source = ctx.get(pathOf(sourceKey)).value;
     const { message } = source.messages[r];
     const fields = fieldsOf(formats, source.icd, message);
-    const field = createJSONField(fields.map(({ name }) => name));
+    const field = createJSONField(fields);
     formatOf(formats, source.icd).insert(
       fieldsPath(message),
       field,
@@ -495,6 +498,68 @@ export const use = <
       }
     });
     onSelect([]);
+  };
+
+  /**
+   * Copies each chosen field after it in its message. Each chosen source that reads the
+   * field reads its copy into a new channel, as with Add field. Selects the first copy.
+   */
+  const duplicateFields = (chosen: FieldNode[]) => {
+    const copies = new Map<string, icd.JSONField>();
+    const keys: string[] = [];
+    ctx.batch(() => {
+      for (const { source, read: r, field } of chosen) {
+        const path = pathOf(source);
+        const { icd: icdKey, messages } = ctx.get(path).value;
+        const { message } = messages[r];
+        const at = `${message}/${field.key}`;
+        let copy = copies.get(at);
+        if (copy == null) {
+          const taken = fieldsOf(formats, icdKey, message).map(({ name }) => name);
+          copy = {
+            ...fullField(source, r, field.key),
+            key: uuid.create(),
+            name: copyName(field.name, taken),
+          };
+          formatOf(formats, icdKey).insert(fieldsPath(message), copy, field.key);
+          copies.set(at, copy);
+        }
+        const bindings = path.messages[r].bindings;
+        const value = ctx.get(bindings).value;
+        const binding = value.find(({ field: key }) => key === field.key);
+        if (binding != null)
+          ctx.set(bindings, [...value, { ...binding, field: copy.key, channel: 0 }]);
+        keys.push(fieldKey(source, message, copy.key));
+      }
+    });
+    onSelect(keys.slice(0, 1));
+  };
+
+  /**
+   * Copies each chosen source after it. A copy reads the messages of its source, each
+   * field into a new channel. Selects the first copy.
+   */
+  const duplicateSources = (chosen: SourceNode[]) => {
+    const copies: InitialSource[] = [];
+    ctx.batch(() => {
+      for (const { source } of chosen) {
+        const list = listOf(source);
+        const key = id.create();
+        ctx.insert(
+          list,
+          { ...ctx.get(deep.widen<S[]>(list)[source]).value, key },
+          source,
+        );
+        const messages = ctx.get(pathOf(source).messages).value.map((m) => ({
+          ...m,
+          bindings: m.bindings.map((b) => ({ ...b, channel: 0 })),
+        }));
+        ctx.set(pathOf(key).messages, messages);
+        copies.push({ key, messages });
+      }
+    });
+    onExpand((prev) => unique.unique([...prev, ...initialExpanded(copies)]));
+    onSelect([copies[0].key]);
   };
 
   const handleSelect: UseReturn["handleSelect"] = (keys, { clicked }) => {
@@ -600,6 +665,16 @@ export const use = <
     )
       onAddField = () => addField(source, 0);
     const fields = chosen.filter((n): n is FieldNode => n.kind === "field");
+    const sources = chosen.filter((n): n is SourceNode => n.kind === "source");
+    let onDuplicate: (() => void) | undefined;
+    if (fields.length > 0 && fields.length === chosen.length)
+      onDuplicate = () => duplicateFields(fields);
+    else if (
+      sources.length > 0 &&
+      sources.length === chosen.length &&
+      sources.every(({ source }) => readsMessages(source))
+    )
+      onDuplicate = () => duplicateSources(sources);
     let onRemove: (() => void) | undefined;
     if (fields.length > 0 && fields.length === chosen.length)
       onRemove = () => removeFields(fields);
@@ -624,6 +699,7 @@ export const use = <
           switchable.some(isEnabled) ? () => setEnabled(switchable, false) : undefined
         }
         onAddField={bindDisabled ? undefined : onAddField}
+        onDuplicate={bindDisabled ? undefined : onDuplicate}
         tareChannels={tareable ? tareChannels : undefined}
         extraMenuItems={
           source != null && (

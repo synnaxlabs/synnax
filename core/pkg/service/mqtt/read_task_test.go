@@ -12,6 +12,7 @@ package mqtt_test
 import (
 	"context"
 	"encoding/json/v2"
+	"fmt"
 	"maps"
 	"strconv"
 	"sync"
@@ -33,6 +34,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -201,9 +203,9 @@ var _ = Describe("Read task", func() {
 				Eventually(func() int64 { return stored(ctx, data[0]).Len() }).
 					Should(BeEquivalentTo(1))
 				Expect(stored(ctx, data[0])).
-					To(telem.MatchSeriesData(telem.NewSeriesV(23.5)))
+					To(MatchSeriesData(telem.NewSeriesV(23.5)))
 				Expect(stored(ctx, data[1])).
-					To(telem.MatchSeriesData(telem.NewSeriesV[int32](7)))
+					To(MatchSeriesData(telem.NewSeriesV[int32](7)))
 				stamp := stored(ctx, idx).ValueAt[telem.TimeStamp](0)
 				Expect(stamp).To(BeNumerically(">=", before))
 				Expect(stamp).To(BeNumerically("<=", telem.Now()))
@@ -225,9 +227,9 @@ var _ = Describe("Read task", func() {
 			Eventually(func() int64 { return stored(ctx, data[0]).Len() }).
 				Should(BeEquivalentTo(2))
 			Expect(stored(ctx, idx)).
-				To(telem.MatchSeriesData(telem.NewSeriesSecondsTSV(1, 2)))
+				To(MatchSeriesData(telem.NewSeriesSecondsTSV(1, 2)))
 			Expect(stored(ctx, data[0])).
-				To(telem.MatchSeriesData(telem.NewSeriesV(1.5, 2.5)))
+				To(MatchSeriesData(telem.NewSeriesV(1.5, 2.5)))
 		})
 
 		It("Should take a bare scalar and a bare enum label as the whole payload",
@@ -251,9 +253,9 @@ var _ = Describe("Read task", func() {
 				Eventually(func() int64 { return stored(ctx, number[0]).Len() }).
 					Should(BeEquivalentTo(1))
 				Expect(stored(ctx, number[0])).
-					To(telem.MatchSeriesData(telem.NewSeriesV[float32](23.4)))
+					To(MatchSeriesData(telem.NewSeriesV[float32](23.4)))
 				Expect(stored(ctx, state[0])).
-					To(telem.MatchSeriesData(telem.NewSeriesV[uint8](1)))
+					To(MatchSeriesData(telem.NewSeriesV[uint8](1)))
 			},
 		)
 
@@ -272,7 +274,7 @@ var _ = Describe("Read task", func() {
 				Eventually(func() int64 { return stored(ctx, data[1]).Len() }).
 					Should(BeEquivalentTo(4))
 				Expect(stored(ctx, data[1])).
-					To(telem.MatchSeriesData(telem.NewSeriesV[int32](-1, -1, -1, 5)))
+					To(MatchSeriesData(telem.NewSeriesV[int32](-1, -1, -1, 5)))
 			},
 		)
 
@@ -388,8 +390,6 @@ var _ = Describe("Read task", func() {
 				}).Should(Succeed())
 				Expect(stored(ctx, data[0]).Len()).To(BeZero())
 			},
-			Entry("a number into a string channel", telem.StringT, `{"v":1}`,
-				"field v: expected a string, got a number"),
 			Entry("a string into a number channel", telem.Float64T, `{"v":"1"}`,
 				`field v: unknown enum label "1"`),
 			Entry("a repeated member at a field", telem.Float64T, `{"v":1,"v":2}`,
@@ -411,7 +411,7 @@ var _ = Describe("Read task", func() {
 				Eventually(func() int64 { return stored(ctx, data[0]).Len() }).
 					Should(BeEquivalentTo(2))
 				Expect(stored(ctx, data[0])).
-					To(telem.MatchSeriesData(telem.NewSeriesV[float64](1, 3)))
+					To(MatchSeriesData(telem.NewSeriesV[float64](1, 3)))
 				Expect(taskStatus(ctx, t).Description).
 					To(ContainSubstring(
 						"its timestamp is not after the last one written",
@@ -430,7 +430,7 @@ var _ = Describe("Read task", func() {
 				Eventually(func() int64 { return stored(ctx, data[0]).Len() }).
 					Should(BeEquivalentTo(1))
 				Expect(stored(ctx, data[0])).
-					To(telem.MatchSeriesData(telem.NewSeriesV[float64](2)))
+					To(MatchSeriesData(telem.NewSeriesV[float64](2)))
 			},
 		)
 
@@ -456,7 +456,7 @@ var _ = Describe("Read task", func() {
 				Eventually(func() int64 { return stored(ctx, data[0]).Len() }).
 					Should(BeEquivalentTo(3))
 				Expect(stored(ctx, data[0])).
-					To(telem.MatchSeriesData(telem.NewSeriesV[float64](1, 2, 3)))
+					To(MatchSeriesData(telem.NewSeriesV[float64](1, 2, 3)))
 				stat := taskStatus(ctx, t)
 				Expect(stat.Variant).To(Equal(status.VariantSuccess))
 				Expect(stat.Details.Running).To(BeTrue())
@@ -485,7 +485,7 @@ var _ = Describe("Read task", func() {
 				Eventually(func() int64 { return stored(ctx, data[0]).Len() }).
 					Should(BeEquivalentTo(3))
 				Expect(stored(ctx, data[0])).
-					To(telem.MatchSeriesData(telem.NewSeriesV[float64](1, 2, 3)))
+					To(MatchSeriesData(telem.NewSeriesV[float64](1, 2, 3)))
 				Expect(taskStatus(ctx, t).Variant).To(Equal(status.VariantSuccess))
 			},
 		)
@@ -837,11 +837,12 @@ var _ = Describe("Read task", func() {
 			),
 			Entry("a topic that appears two times",
 				func(ctx context.Context) (msgpack.EncodedJSON, string) {
-					_, data := createIndexed(ctx, telem.Float64T, telem.Float64T)
+					_, a := createIndexed(ctx, telem.Float64T)
+					_, b := createIndexed(ctx, telem.Float64T)
 					return readConfig(
 						ctx, dev,
-						plainEntry("plant/x", field("a", data[0], "/a")),
-						plainEntry("plant/x", field("b", data[1], "/b")),
+						plainEntry("plant/x", field("a", a[0], "/a")),
+						plainEntry("plant/x", field("b", b[0], "/b")),
 					), "entries: topic plant/x appears more than once"
 				},
 			),
@@ -875,7 +876,11 @@ var _ = Describe("Read task", func() {
 					f := field("v", data[0], "")
 					f["type"] = "float"
 					return readConfig(ctx, dev, plainEntry("plant/x", f)),
-						"field v: cannot write float values to int8 channels"
+						fmt.Sprintf(
+							"field v of kind float cannot read into channel %s of "+
+								"data type int8",
+							data[0].Name,
+						)
 				},
 			),
 			Entry("fields of one topic on different indexes",
@@ -891,10 +896,15 @@ var _ = Describe("Read task", func() {
 				func(ctx context.Context) (msgpack.EncodedJSON, string) {
 					_, data := createIndexed(ctx, telem.Float64T)
 					return readConfig(
-						ctx, dev,
-						plainEntry("plant/x", field("v", data[0], "")),
-						plainEntry("plant/y", field("v", data[0], "")),
-					), "write to the same channel"
+							ctx, dev,
+							plainEntry("plant/x", field("v", data[0], "")),
+							plainEntry("plant/y", field("v", data[0], "")),
+						), fmt.Sprintf(
+							"entries.1.messages.0.bindings.0.channel: channel %d is "+
+								"also written by "+
+								"entries.0.messages.0.bindings.0.channel",
+							data[0].Key(),
+						)
 				},
 			),
 			Entry("an index field that does not exist",
@@ -903,7 +913,7 @@ var _ = Describe("Read task", func() {
 					entry := plainEntry("plant/x", field("v", data[0], "/v"))
 					entry["index"] = "time"
 					return readConfig(ctx, dev, entry),
-						"message plant/x: the index field has no channel"
+						"does not exist in message plant/x"
 				},
 			),
 			Entry("an index field that is disabled",
@@ -915,16 +925,18 @@ var _ = Describe("Read task", func() {
 					entry := plainEntry("plant/x", time, field("v", data[0], "/v"))
 					entry["index"] = "time"
 					return readConfig(ctx, dev, entry),
-						"message plant/x: the index field has no channel"
+						"the index field time has no binding"
 				},
 			),
 			Entry("an index field on a channel that is not an index",
 				func(ctx context.Context) (msgpack.EncodedJSON, string) {
-					_, data := createIndexed(ctx, telem.Float64T)
-					entry := plainEntry("plant/x", field("v", data[0], "/v"))
-					entry["index"] = "v"
+					_, stamps := createIndexed(ctx, telem.TimestampT)
+					time := field("time", stamps[0], "/ts")
+					time["time_format"] = "unix_ms"
+					entry := plainEntry("plant/x", time)
+					entry["index"] = "time"
 					return readConfig(ctx, dev, entry),
-						"message plant/x: the index field must write to an index channel"
+						"the index field time must write to an index channel"
 				},
 			),
 			Entry("an index channel field on a topic with arrival timing",
@@ -933,8 +945,11 @@ var _ = Describe("Read task", func() {
 					time := field("time", idx, "/ts")
 					time["time_format"] = "unix_ms"
 					entry := plainEntry("plant/x", time, field("v", data[0], "/v"))
-					return readConfig(ctx, dev, entry),
-						"message plant/x: only the index field can write to an index channel"
+					return readConfig(ctx, dev, entry), fmt.Sprintf(
+						"field time cannot write to index channel %s, because "+
+							"only the index field can",
+						idx.Name,
+					)
 				},
 			),
 			Entry("a second index channel field",
@@ -948,8 +963,11 @@ var _ = Describe("Read task", func() {
 						"plant/x", time, again, field("v", data[0], "/v"),
 					)
 					entry["index"] = "time"
-					return readConfig(ctx, dev, entry),
-						"message plant/x: only the index field can write to an index channel"
+					return readConfig(ctx, dev, entry), fmt.Sprintf(
+						"field again cannot write to index channel %s, because "+
+							"only the index field can",
+						idx.Name,
+					)
 				},
 			),
 			Entry("an invalid JSON Pointer",
@@ -987,5 +1005,32 @@ var _ = Describe("Read task", func() {
 			DeferCleanup(func() { Expect(configured.Stop(false)).To(Succeed()) })
 			Expect(taskStatus(ctx, t).Details.Running).To(BeTrue())
 		})
+
+		It("Should answer the command when the task fails to start",
+			func(ctx SpecContext) {
+				_, data := createIndexed(ctx, telem.Float64T)
+				port := broker.port
+				broker.stop()
+				broker = startBrokerWith(brokerOptions{
+					port:    port,
+					refused: []string{"plant/denied"},
+				})
+				cfg := readConfig(
+					ctx,
+					dev,
+					plainEntry("plant/denied", field("v", data[0], "")),
+				)
+				cfg["auto_start"] = true
+				t := newTask(ctx, rackKey, mqtt.ReadTaskType, cfg)
+				Expect(factory.ConfigureTask(ctx, t, "cmd-1")).Error().To(MatchError(
+					ContainSubstring("refused the subscription to plant/denied"),
+				))
+				stat := taskStatus(ctx, t)
+				Expect(stat.Variant).To(Equal(status.VariantError))
+				Expect(stat.Message).To(Equal("Failed to start task"))
+				Expect(stat.Details.Running).To(BeFalse())
+				Expect(stat.Details.Cmd).To(Equal("cmd-1"))
+			},
+		)
 	})
 })

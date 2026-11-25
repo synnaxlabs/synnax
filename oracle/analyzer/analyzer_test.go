@@ -1175,6 +1175,65 @@ Node union on variant {
 		)
 
 		DescribeTable(
+			"Should reject a required rule on a collection that is not a T[] field",
+			func(source, want string) {
+				_, diag := Analyze(source, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.String()).To(ContainSubstring(want))
+			},
+			Entry("a fixed-size array field", `
+				Entry struct {
+					values uint8[4] { @validate required }
+				}
+			`, "test.Entry.values has a required rule, but only a T[] field"),
+			Entry("a map field", `
+				Entry struct {
+					values map<string, int32> { @validate required }
+				}
+			`, "test.Entry.values has a required rule, but only a T[] field"),
+			Entry("a field of an array alias", `
+				Names = string[]
+				Entry struct {
+					names Names { @validate required }
+				}
+			`, "test.Entry.names has a required rule, but only a T[] field"),
+			Entry("an array alias", `
+				Names = string[] { @validate required }
+			`, "test.Names has a required rule, but only a T[] field"),
+			Entry("a list field with a default", `
+				Entry struct {
+					names string[] = [] { @validate required }
+				}
+			`, "test.Entry.names has a required rule, but it has a default"),
+			Entry("a restated required list with a default", `
+				Parent struct {
+					names string[] { @validate required }
+				}
+				Entry struct extends Parent {
+					names = ["a"]
+				}
+			`, "test.Entry.names has a required rule, but it has a default"),
+			Entry("a required rule on a restated list with a default", `
+				Parent struct {
+					names string[] = ["a"]
+				}
+				Entry struct extends Parent {
+					names { @validate required }
+				}
+			`, "test.Entry.names has a required rule, but it has a default"),
+		)
+
+		It("Should accept a required rule on a list field", func() {
+			_, diag := Analyze(`
+				Entry struct {
+					names string[] { @validate required }
+					tags string[]? { @validate required }
+				}
+			`, "test", loader)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+		})
+
+		DescribeTable(
 			"Should reject a finite rule on a type that is not a float",
 			func(source, want string) {
 				_, diag := Analyze(source, "test", loader)
@@ -1369,6 +1428,12 @@ Node union on variant {
 					max float64
 				}
 			`),
+			Entry("in a generic struct whose type parameters have defaults", `
+				Range struct<T extends numeric = float64> {
+					lower T { @go validate lt upper }
+					upper T
+				}
+			`),
 		)
 
 		DescribeTable(
@@ -1547,6 +1612,23 @@ Node union on variant {
 					value? { @validate max_length 64 }
 				}
 			`),
+		)
+
+		It(
+			"Should reject a max_length rule on bytes in a type that generates Go",
+			func() {
+				_, diag := Analyze(`
+				@go output "core/pkg/service/x"
+
+				Entry struct {
+					value bytes { @validate max_length 64 }
+				}
+			`, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.String()).To(ContainSubstring(
+					"test.Entry.value has a max_length rule on bytes, which Go does not check",
+				))
+			},
 		)
 
 		DescribeTable(
@@ -6193,28 +6275,22 @@ var _ = Describe("Analyze", func() {
 var _ = Describe("Integer enum values", func() {
 	var loader *MockFileLoader
 	BeforeEach(func() { loader = NewMockFileLoader() })
-	DescribeTable(
-		"Should refuse a value that some generator cannot write",
-		func(members, wantErr string) {
-			_, diag := Analyze("Size enum {\n"+members+"\n}", "test", loader)
-			Expect(diag.Error()).To(ContainSubstring(wantErr))
-		},
-		Entry("a negative value", "low = -1",
-			"enum Size member low has value -1, which is not from 0 to 255"),
-		Entry("a value over 255", "low = 0\nhigh = 256",
-			"enum Size member high has value 256, which is not from 0 to 255"),
-		Entry("two members with one value", "one = 1\nuno = 1",
-			"enum Size members one and uno have the same value 1"),
-	)
-
-	It("Should accept the values 0 and 255 with gaps between members", func() {
-		_, diag := Analyze(
-			"Size enum {\nlow = 0\nmid = 4\nhigh = 255\n}",
-			"test",
-			loader,
-		)
-		Expect(diag.Ok()).To(BeTrue())
+	It("Should refuse two members with one value", func() {
+		_, diag := Analyze("Size enum {\none = 1\nuno = 1\n}", "test", loader)
+		Expect(diag.Error()).To(ContainSubstring(
+			"enum Size members one and uno have the same value 1",
+		))
 	})
+
+	DescribeTable("Should accept values of any width and sign",
+		func(members string) {
+			_, diag := Analyze("Size enum {\n"+members+"\n}", "test", loader)
+			Expect(diag.Ok()).To(BeTrue())
+		},
+		Entry("0 and 255 with gaps between members", "low = 0\nmid = 4\nhigh = 255"),
+		Entry("a value over 255", "low = 0\nhigh = 230400"),
+		Entry("a negative value", "low = -1\nhigh = 1"),
+	)
 })
 
 var _ = Describe("Union enum discriminator", func() {

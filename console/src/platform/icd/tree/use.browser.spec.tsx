@@ -82,11 +82,11 @@ const Form: FC = () => {
   const [entry] = entries ?? [];
   if (entry?.type !== "plain") return null;
   return (
-    <ICD.WithFormat icdKey={entry.icd}>
+    <ICD.WithFormats icdKeys={[entry.icd]}>
       <ICD.Plans plans={[]}>
         <Sources />
       </ICD.Plans>
-    </ICD.WithFormat>
+    </ICD.WithFormats>
   );
 };
 

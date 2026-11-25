@@ -83,7 +83,7 @@ const createRemoteSymbolGroup = async (
 preloadTab();
 
 describe("Schematic toolbar Symbols", () => {
-  it("adds a static symbol node to the schematic on click", async () => {
+  it("adds a symbol with no built-in spec as its own variant node", async () => {
     const { key } = await renderSymbolsToolbar();
     fireEvent.click(await screen.findByText("Gauge"));
     await waitFor(async () => {
@@ -114,7 +114,22 @@ describe("Schematic toolbar Symbols", () => {
     expect(await screen.findByText("Tank")).toBeDefined();
   });
 
-  it("lists remote symbols for a remote group and adds them with their spec key", async () => {
+  it("adds a built-in symbol as a symbol node", async () => {
+    const { key } = await renderSymbolsToolbar();
+    fireEvent.click(await screen.findByText("Valves"));
+    fireEvent.click(await screen.findByText("Generic"));
+    await waitFor(async () => {
+      const retrieved = await client.schematics.retrieve(key);
+      expect(retrieved.nodes).toHaveLength(1);
+      expect(retrieved.nodes[0].config).toMatchObject({
+        variant: "symbol",
+        spec: { type: "builtin", name: "valve" },
+        label: { label: "Valve" },
+      });
+    });
+  });
+
+  it("lists remote symbols for a remote group and adds them as symbol nodes", async () => {
     const name = uniqueName("custom_sym");
     const { grp, symbols } = await createRemoteSymbolGroup([name]);
     const { key } = await renderSymbolsToolbar();
@@ -123,7 +138,11 @@ describe("Schematic toolbar Symbols", () => {
     await waitFor(async () => {
       const retrieved = await client.schematics.retrieve(key);
       expect(retrieved.nodes).toHaveLength(1);
-      expect(retrieved.nodes[0].config).toMatchObject({ specKey: symbols[0].key });
+      expect(retrieved.nodes[0].config).toMatchObject({
+        variant: "symbol",
+        spec: { type: "custom", key: symbols[0].key },
+        label: { label: name },
+      });
     });
   });
 
@@ -414,6 +433,52 @@ describe("Schematic toolbar Symbols drag preview", () => {
     });
     const body = layer()?.querySelector(".pluto-custom-drawing #body");
     expect(body?.getAttribute("fill")).toBe("#ff0000");
+  });
+});
+
+describe("Schematic toolbar Symbols drag", () => {
+  it("should haul a built-in symbol as a symbol node", async () => {
+    const { store } = await renderSchematic(DraggableToolbar, {
+      sessionState: { editable: true },
+    });
+    fireEvent.click(await screen.findByText("Valves"));
+    fireEvent.dragStart(await screen.findByText("Generic"), {
+      dataTransfer: new DataTransfer(),
+    });
+    expect(store.getState()[Session.Haul.SLICE_NAME].state.items).toMatchObject([
+      {
+        data: {
+          config: {
+            variant: "symbol",
+            spec: { type: "builtin", name: "valve" },
+            label: { label: "Valve" },
+          },
+        },
+      },
+    ]);
+  });
+
+  it("should haul a remote symbol as a symbol node", async () => {
+    const name = uniqueName("custom_sym");
+    const { grp, symbols } = await createRemoteSymbolGroup([name]);
+    const { store } = await renderSchematic(DraggableToolbar, {
+      sessionState: { editable: true },
+    });
+    fireEvent.click(await screen.findByText(grp.name));
+    fireEvent.dragStart(await screen.findByText(name), {
+      dataTransfer: new DataTransfer(),
+    });
+    expect(store.getState()[Session.Haul.SLICE_NAME].state.items).toMatchObject([
+      {
+        data: {
+          config: {
+            variant: "symbol",
+            spec: { type: "custom", key: symbols[0].key },
+            label: { label: name },
+          },
+        },
+      },
+    ]);
   });
 });
 

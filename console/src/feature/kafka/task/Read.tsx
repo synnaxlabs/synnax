@@ -20,13 +20,14 @@ import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
+import { useExclusiveCallback } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import type { Tree } from "@synnaxlabs/lyra/tree";
 import { ICD as PICD, Synnax as PSynnax } from "@synnaxlabs/pluto";
-import { deep, errors, unique, uuid } from "@synnaxlabs/x";
+import { deep, unique, uuid } from "@synnaxlabs/x";
 import {
   type Dispatch,
   type FC,
@@ -39,18 +40,19 @@ import {
 } from "react";
 
 import { Device } from "@/feature/kafka/device";
-import { useAddDataModal } from "@/feature/kafka/task/AddData";
 import {
   type Addition,
   createAdditions,
   createExtensions,
   createRecords,
   type Extension,
+  type KindMessage,
   type MessagesOf,
   readsOf,
   uniqueName,
 } from "@/feature/kafka/task/additions";
 import { DEFAULT_READ_NAME } from "@/feature/kafka/task/create";
+import { createDiscoverModal } from "@/feature/kafka/task/Discover";
 import {
   deployReadConfigZ,
   READ_SCHEMAS,
@@ -86,6 +88,13 @@ const TEXT_FIELD_CLASS = CSS.BE("kafka-properties", "text");
 const TOPIC_INPUT_PROPS = { placeholder: "sensor-readings" } as const;
 
 const TOPIC_KIND_COLOR = "var(--pluto-primary-z)";
+
+const useAddDataModal = createDiscoverModal({
+  title: "Add data",
+  hint: "Select the fields to read. Records that hold the same fields share a message.",
+  noun: "field",
+  verb: "Read",
+});
 
 const GROUP_INPUT_PROPS = { placeholder: "Derived from the task" } as const;
 
@@ -130,20 +139,12 @@ const Properties = () => (
 const recordLabel = ({ recordKey }: Pick<ReadRecord, "recordKey">): string =>
   recordKey === "" ? ANY_KEY : recordKey;
 
-/**
- * The prefix of the names of the channels that deploying creates for a message. A
- * message after the first adds its name to the prefix of the record.
- */
-const messagePrefix = (
-  deviceName: string,
-  topic: string,
-  recordKey: string,
-  read: number,
-  name: string,
-): string => {
-  let prefix = `${channel.escapeInvalidName(deviceName)}_${channel.escapeInvalidName(topic)}`;
-  if (recordKey !== "") prefix += `_${channel.escapeInvalidName(recordKey)}`;
-  return read === 0 ? prefix : `${prefix}_${channel.escapeInvalidName(name)}`;
+/** The prefix of the names of the channels that deploying creates for a record. */
+const recordPrefix = (deviceName: string, topic: string, recordKey: string): string => {
+  const prefix = `${channel.escapeInvalidName(deviceName)}_${channel.escapeInvalidName(topic)}`;
+  return recordKey === ""
+    ? prefix
+    : `${prefix}_${channel.escapeInvalidName(recordKey)}`;
 };
 
 /** @returns the key of a record of topic in the read properties of a device. */
@@ -179,23 +180,15 @@ const createMessage = (name: string, match?: icd.JSONMatch): icd.Message => ({
 const icdName = (name: string): string =>
   name.trim() === "" ? DEFAULT_READ_NAME : name;
 
-/** @returns the prefix of the channel names of a message, current with its name. */
+/** @returns the prefix of the channel names of a record, current with its key. */
 const usePrefix = (
   deviceName: string,
   topicKey: string,
   path: deep.Path<ReadRecord>,
-  read: number,
 ): string => {
-  const formats = ICD.useFormats();
   const topic = PForm.useFieldValue(topicPath(topicKey).name);
   const recordKey = PForm.useFieldValue(path.recordKey);
-  const icdKey = PForm.useFieldValue(path.icd);
-  const message = PForm.useFieldValue(path.messages[read].message);
-  const name = PForm.useFieldValue(PICD.formPath.messages[message].name, {
-    optional: true,
-    ctx: formats.get(icdKey),
-  });
-  return messagePrefix(deviceName, topic, recordKey, read, name ?? "");
+  return recordPrefix(deviceName, topic, recordKey);
 };
 
 /** Names a record by its record key. */
@@ -262,7 +255,7 @@ const useMessageProps = (
   read: number,
 ): Omit<ICD.MessageSectionsProps, "format"> => {
   const { index, bindings } = PForm.useFieldValue(path.messages[read]);
-  const prefix = usePrefix(device.name, topic, path, read);
+  const prefix = usePrefix(device.name, topic, path);
   return {
     path,
     read,
@@ -322,7 +315,7 @@ interface FieldDetailsProps extends MessagePanelProps {
 }
 
 const FieldDetails = ({ device, topic, ...rest }: FieldDetailsProps) => {
-  const prefix = usePrefix(device.name, topic, rest.path, rest.read);
+  const prefix = usePrefix(device.name, topic, rest.path);
   return <ICD.FieldDetails {...rest} prefix={prefix} />;
 };
 
@@ -409,6 +402,7 @@ const RecordDetails: FC<RecordDetailsProps> = ({
               message={reads[0].message}
               onChange={onFormatChange}
               disabled={bindDisabled}
+              preview={isPreview}
             />
           )}
         </PForm.Section>
@@ -578,9 +572,25 @@ const Records: FC<RecordsProps> = ({
   const messagesOf: MessagesOf = (icdKey) =>
     ICD.formatOf(formats, icdKey).value().messages;
 
-  /** Puts new fields in messages that records read, and reads them on those records. */
-  const extend = (extensions: Extension[]) =>
+  /**
+   * Puts new fields in messages that records read, and messages for new kinds in the
+   * ICDs of records. Then it reads them on those records.
+   */
+  const extend = (extensions: Extension[], kinds: KindMessage[]) =>
     ctx.batch(() => {
+      for (const { icd: icdKey, message, read, records: keys } of kinds) {
+        const format = ICD.formatOf(formats, icdKey);
+        format.insert(
+          PICD.formPath.messages,
+          message,
+          format.value().messages.at(-1)?.key,
+        );
+        made.current.add(message.key);
+        for (const key of keys) {
+          const path = pathOf(key).messages;
+          ctx.set(path, [...ctx.get(path).value, read]);
+        }
+      }
       for (const { icd: icdKey, message, fields, bindings } of extensions) {
         const format = ICD.formatOf(formats, icdKey);
         let after = ICD.fieldsOf(formats, icdKey, message).at(-1)?.key;
@@ -615,7 +625,15 @@ const Records: FC<RecordsProps> = ({
     for (const { topic, shapes, picks } of result.topics) {
       const records = topicRecords(topic);
       const reads = readsOf(records, messagesOf);
-      extend(createExtensions(shapes, picks, records, messagesOf));
+      const { extensions, kinds } = createExtensions(
+        shapes,
+        picks,
+        records,
+        messagesOf,
+        label,
+      );
+      extend(extensions, kinds);
+      held = [...held, ...kinds.map(({ message }) => message)];
       const added = createAdditions(shapes, picks, reads, held, label);
       if (added.length === 0) continue;
       additions.set(topic, added);
@@ -639,19 +657,8 @@ const Records: FC<RecordsProps> = ({
   };
 
   // Adds run one at a time, so a second click cannot make a second ICD.
-  const adding = useRef(false);
-  const handleAdd = () =>
-    handleError(async () => {
-      if (adding.current) return;
-      adding.current = true;
-      try {
-        await add();
-      } catch (e) {
-        adding.current = false;
-        throw errors.fromUnknown(e);
-      }
-      adding.current = false;
-    }, "Failed to add data");
+  const addExclusive = useExclusiveCallback(add);
+  const handleAdd = () => handleError(addExclusive, "Failed to add data");
 
   const rec =
     current == null ? undefined : records.find(({ key }) => key === current.source);
@@ -761,8 +768,8 @@ const storedKeyOf = ({ topic, source, read }: BoundMessage): string =>
   );
 
 /** @returns the prefix of the names of the channels that a message creates. */
-const prefixOf = (deviceName: string, { topic, source, read, message }: BoundMessage) =>
-  messagePrefix(deviceName, topic.name, source.recordKey, read, message.name);
+const prefixOf = (deviceName: string, { topic, source }: BoundMessage) =>
+  recordPrefix(deviceName, topic.name, source.recordKey);
 
 /**
  * Plans the channels of each message, in deploy order with one namer. A message plans
@@ -874,14 +881,7 @@ const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device.Device>)
       )}
     </Plans>
   );
-  return unique.unique(records.map((r) => r.icd)).reduceRight(
-    (child, key) => (
-      <ICD.WithFormat key={key} icdKey={key}>
-        {child}
-      </ICD.WithFormat>
-    ),
-    body,
-  );
+  return <ICD.WithFormats icdKeys={records.map((r) => r.icd)}>{body}</ICD.WithFormats>;
 };
 
 const Form = PlatformDevice.wrapTaskForm({

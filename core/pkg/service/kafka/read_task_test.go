@@ -13,6 +13,7 @@ import (
 	"context"
 	"encoding/json/jsontext"
 	"encoding/json/v2"
+	"fmt"
 	"math"
 	"slices"
 	"sync"
@@ -329,14 +330,15 @@ var _ = Describe("Read task", func() {
 			Device: dev.Key,
 			Topics: oneTopic(topic, single(ctx, stampedFields(index, data))),
 		})
-		start(ctx, dt, t)
 		produceJSON(ctx, producer, topic, "", map[string]any{"ts": 10e9})
 		produceJSON(ctx, producer, topic, "", map[string]any{"ts": 11e9, "v": 2.5})
+		start(ctx, dt, t)
 		Expect(floats(expectStored(ctx, data.Key(), 1))).To(Equal([]float64{2.5}))
+		Expect(timestamps(stored(ctx, index.Key()))).
+			To(Equal([]telem.TimeStamp{11 * telem.SecondTS}))
 		stat := taskStatus(ctx, t)
 		Expect(stat.Variant).To(Equal(status.VariantWarning))
-		// The two records can arrive in one poll or in two.
-		Expect(stat.Message).To(HavePrefix("Skipped 1 of "))
+		Expect(stat.Message).To(Equal("Skipped 1 of 2 records"))
 		Expect(stat.Description).
 			To(Equal("Record value: field v: no value at /v: validation error " +
 				"(topic " + topic + ", partition 0, offset 0)."))
@@ -1210,7 +1212,7 @@ var _ = Describe("Read task", func() {
 			Eventually(func() string { return taskStatus(ctx, t).Description }).
 				WithTimeout(15 * time.Second).
 				Should(Equal(
-					"Record value: field vals/01: no value at " +
+					"Record value: field vals_01: no value at " +
 						"/vals/01: validation error (topic " + topic + ", partition 0, " +
 						"offset 0).",
 				))
@@ -1571,6 +1573,9 @@ var _ = Describe("Read task", func() {
 		Entry("a string",
 			telem.StringT, payload.TimeFormatUnixNs, nil,
 			map[string]any{"ts": 10e9, "v": "hello"}, telem.NewSeriesV("hello")),
+		Entry("a number into a string channel as its JSON text",
+			telem.StringT, payload.TimeFormatUnixNs, nil,
+			map[string]any{"ts": 10e9, "v": 1}, telem.NewSeriesV("1")),
 		Entry("a UUID",
 			telem.UUIDT, payload.TimeFormatUnixNs, nil,
 			map[string]any{"ts": 10e9, "v": readUUID.String()},
@@ -1653,9 +1658,9 @@ var _ = Describe("Read task", func() {
 		Entry("a null where a number is expected",
 			telem.Float64T, payload.TimeFormatUnixNs, nil,
 			map[string]any{"ts": 10e9, "v": nil}, "field v: no value at /v"),
-		Entry("a number where a string is expected",
+		Entry("a null where a string is expected",
 			telem.StringT, payload.TimeFormatUnixNs, nil,
-			map[string]any{"ts": 10e9, "v": 1}, "expected a string"),
+			map[string]any{"ts": 10e9, "v": nil}, "field v: no value at /v"),
 		Entry("a number where a UUID is expected",
 			telem.UUIDT, payload.TimeFormatUnixNs, nil,
 			map[string]any{"ts": 10e9, "v": 1}, "expected a UUID string"),
@@ -1951,7 +1956,7 @@ var _ = Describe("Read task", func() {
 						Field: fieldKey(m, 1), DataType: telem.Float64T,
 					}
 					return []kafka.ReadRecord{record("", createICD(ctx, m), rm)}
-				}, "message Reading: binding 1 has no channel"),
+				}, "message Reading: channel 0 does not exist"),
 			Entry("a channel that does not exist",
 				func(ctx context.Context, index, _ channel.Channel) []kafka.ReadRecord {
 					m := stampedMessage("Reading", nil)
@@ -1977,7 +1982,7 @@ var _ = Describe("Read task", func() {
 							Bindings: []icd.ReadBinding{bind(m, 0, data)},
 						},
 					)}
-				}, "cannot write string values to float64 channels"),
+				}, "field s of kind string cannot read into channel"),
 			Entry("channels on different indexes",
 				func(ctx context.Context, _, data channel.Channel) []kafka.ReadRecord {
 					_, other := createIndexed(ctx, telem.Float64T)
@@ -2005,21 +2010,20 @@ var _ = Describe("Read task", func() {
 							Bindings: []icd.ReadBinding{bind(m, 1, data)},
 						},
 					)}
-				}, "the index field has no binding"),
+				}, "the index field ts has no binding"),
 			Entry("an index field on a data channel",
-				func(ctx context.Context, _, data channel.Channel) []kafka.ReadRecord {
-					m := jsonMessage("Reading", nil,
-						jsonField("v", "/v", icd.FloatJSONField{}),
-					)
-					v := fieldKey(m, 0)
+				func(ctx context.Context, _, _ channel.Channel) []kafka.ReadRecord {
+					_, stamps := createIndexed(ctx, telem.TimestampT)
+					m := stampedMessage("Reading", nil)
+					ts := fieldKey(m, 0)
 					return []kafka.ReadRecord{record("", createICD(ctx, m),
 						icd.ReadMessage{
 							Message:  m.Key,
-							Index:    &v,
-							Bindings: []icd.ReadBinding{bind(m, 0, data)},
+							Index:    &ts,
+							Bindings: []icd.ReadBinding{bind(m, 0, stamps)},
 						},
 					)}
-				}, "the index field must write to an index channel"),
+				}, "the index field ts must write to an index channel"),
 			Entry("a data field on an index channel",
 				func(ctx context.Context, index, _ channel.Channel) []kafka.ReadRecord {
 					m := stampedMessage("Reading", nil)
@@ -2029,7 +2033,7 @@ var _ = Describe("Read task", func() {
 							Bindings: []icd.ReadBinding{bind(m, 0, index)},
 						},
 					)}
-				}, "only the index field can write to an index channel"),
+				}, "field ts cannot write to index channel"),
 			Entry(
 				"two messages with no match rule",
 				func(ctx context.Context, index, data channel.Channel) []kafka.ReadRecord {
@@ -2076,16 +2080,18 @@ var _ = Describe("Read task", func() {
 					Error().
 					To(SatisfyAll(
 						MatchError(validate.ErrValidation),
-						MatchError(ContainSubstring(
-							`message Reading of key "a" of topic "t" and message Reading `+
-								`of key "b" of topic "t" write to the same index channel `+
-								index.Name,
-						)),
+						MatchError(ContainSubstring(fmt.Sprintf(
+							"topics.0.records.1.messages.0.bindings.0.channel: "+
+								"channel %d is also written by "+
+								"topics.0.records.0.messages.0.bindings.0.channel",
+							index.Key(),
+						))),
 					))
 			},
 		)
 
-		It("Should name the index channel that two Kafka-stamped records share",
+		It("Should save two Kafka-stamped records on one index channel, then refuse "+
+			"to configure them",
 			func(ctx SpecContext) {
 				index, data := createIndexed(ctx, telem.Float64T)
 				other := channel.Channel{
@@ -2112,17 +2118,27 @@ var _ = Describe("Read task", func() {
 						record("b", ic, value(other)),
 					}),
 				}
-				Expect(
-					f.ConfigureTask(
-						ctx,
-						newTask(ctx, kafka.ReadTaskType, cfg),
-						"cmd-1",
-					),
-				).Error().To(MatchError(ContainSubstring(
-					`message Reading of key "a" of topic "t" and message Reading ` +
-						`of key "b" of topic "t" write to the same index channel ` +
-						index.Name,
-				)))
+				t := task.Task{
+					Rack:   rackSvc.EmbeddedKey,
+					Name:   "Plant",
+					Type:   kafka.ReadTaskType,
+					Config: toJSON(cfg, json.OmitZeroStructFields(true)),
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return taskSvc.NewWriter(tx).Create(ctx, &t)
+				})).To(Succeed())
+				DeferCleanup(func(ctx SpecContext) {
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return taskSvc.NewWriter(tx).Delete(ctx, t.Key, true)
+					})).To(Succeed())
+				})
+				Expect(f.ConfigureTask(ctx, t, "cmd-1")).Error().To(MatchError(
+					ContainSubstring(fmt.Sprintf(
+						"topics.0.records.1.messages.0: channel %d is also written by "+
+							"topics.0.records.0.messages.0",
+						index.Key(),
+					)),
+				))
 			},
 		)
 

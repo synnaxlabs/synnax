@@ -7,13 +7,17 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import selectors
+import socket
 import ssl
-from collections.abc import MutableMapping
+import threading
+from collections.abc import Buffer, Callable, MutableMapping
 from contextlib import ExitStack
 from typing import Any, Literal, Self, override
 
 from pydantic import BaseModel
 from websockets.asyncio.client import ClientConnection as AsyncClientConnection, connect
+from websockets.client import ClientProtocol
 from websockets.exceptions import (
     ConnectionClosedError as ConnectionClosedError,
     ConnectionClosedOK,
@@ -26,6 +30,7 @@ from websockets.sync.client import (
 
 from freighter.context import Context
 from freighter.exceptions import EOF, StreamClosed
+from freighter.proxy import resolve
 from freighter.stream import AsyncStream, AsyncStreamClient, Stream, StreamClient
 from freighter.transport import RQ, RS, AsyncMiddlewareCollector, MiddlewareCollector
 from freighter.url import URL
@@ -316,12 +321,98 @@ class SyncWebsocketStream(Stream[RQ, RS]):
             self._connection.close()
 
 
+class _TLSSocket(socket.socket):
+    """A TLS socket that one thread can read while another writes. OpenSSL breaks
+    when a TLS 1.3 session ticket arrives during a concurrent write, so this socket
+    serializes every SSL call and waits for the socket outside the lock.
+    """
+
+    _tls: ssl.SSLSocket
+    _lock: threading.Lock
+    _timeout: float | None
+    _wake_read: socket.socket
+    _wake_write: socket.socket
+
+    def __init__(self, tls: ssl.SSLSocket) -> None:
+        super().__init__(tls.family, tls.type, tls.proto, socket.dup(tls.fileno()))
+        tls.setblocking(False)
+        self._tls = tls
+        self._lock = threading.Lock()
+        self._timeout = None
+        self._wake_read, self._wake_write = socket.socketpair()
+
+    @override
+    def settimeout(self, value: float | None) -> None:
+        self._timeout = value
+
+    @override
+    def recv(self, bufsize: int, flags: int = 0, /) -> bytes:
+        return self._run(self._tls.recv, bufsize, flags)
+
+    @override
+    def sendall(self, data: Buffer, flags: int = 0, /) -> None:
+        view = memoryview(data).cast("B")
+        while view:
+            view = view[self._run(self._tls.send, view, flags) :]
+
+    @override
+    def shutdown(self, how: int, /) -> None:
+        with self._lock:
+            self._tls.shutdown(how)
+
+    @override
+    def close(self) -> None:
+        self._wake_write.close()
+        with self._lock:
+            self._tls.close()
+        self._wake_read.close()
+        super().close()
+
+    def _run[T](self, call: Callable[..., T], *args: Any) -> T:
+        # Most calls succeed at once, so the selector is built only on a wait.
+        selector: selectors.BaseSelector | None = None
+        try:
+            while True:
+                with self._lock:
+                    try:
+                        return call(*args)
+                    except ssl.SSLWantReadError:
+                        event = selectors.EVENT_READ
+                    except ssl.SSLWantWriteError:
+                        event = selectors.EVENT_WRITE
+                if selector is None:
+                    selector = selectors.DefaultSelector()
+                    selector.register(self._wake_read, selectors.EVENT_READ)
+                selector.register(self._tls, event)
+                ready = selector.select(self._timeout)
+                selector.unregister(self._tls)
+                if not ready:
+                    raise TimeoutError("timed out waiting for the socket")
+                if any(key.fileobj is self._wake_read for key, _ in ready):
+                    raise OSError("socket closed")
+        finally:
+            if selector is not None:
+                selector.close()
+
+
+class _SyncConnection(SyncClientProtocol):
+    """Reads and writes a TLS connection through a _TLSSocket."""
+
+    def __init__(
+        self, sock: socket.socket, protocol: ClientProtocol, **kwargs: Any
+    ) -> None:
+        if isinstance(sock, ssl.SSLSocket):
+            sock = _TLSSocket(sock)
+        super().__init__(sock, protocol, **kwargs)
+
+
 class _Base:
     _endpoint: URL
     _encoder: Codec
     _registry: Registry
     _max_message_size: int
     _ssl_context: ssl.SSLContext | None
+    _proxy: str | None
     _kwargs: dict[str, Any]
 
     def __init__(
@@ -341,6 +432,7 @@ class _Base:
             protocol="ws" if ssl_context is None else "wss"
         )
         self._max_message_size = max_message_size
+        self._proxy = resolve(base_url, secure=ssl_context is not None)
         self._kwargs = kwargs
 
     def additional_headers(self, others: MutableMapping[str, str]) -> dict[str, str]:
@@ -368,6 +460,9 @@ class AsyncWebsocketClient(_Base, AsyncMiddlewareCollector, AsyncStreamClient):
         :param ssl_context: The TLS context that verifies the server. The client uses
             TLS when set and a plain connection when None.
         :param kwargs: Options for the websockets connect function.
+
+        The client connects through the proxy that freighter.proxy.resolve picks for
+        base_url.
         """
         AsyncMiddlewareCollector.__init__(self)
         _Base.__init__(
@@ -397,6 +492,7 @@ class AsyncWebsocketClient(_Base, AsyncMiddlewareCollector, AsyncStreamClient):
                 additional_headers=self.additional_headers(ctx.params),
                 max_size=self._max_message_size,
                 ssl=self._ssl_context,
+                proxy=self._proxy,
                 **self._kwargs,
             )
             socket = AsyncWebsocketStream[RQ, RS](
@@ -456,6 +552,9 @@ class WebsocketClient(_Base, MiddlewareCollector, StreamClient):
         :param ssl_context: The TLS context that verifies the server. The client uses
             TLS when set and a plain connection when None.
         :param kwargs: Options for the websockets connect function.
+
+        The client connects through the proxy that freighter.proxy.resolve picks for
+        base_url.
         """
         MiddlewareCollector.__init__(self)
         _Base.__init__(
@@ -485,6 +584,8 @@ class WebsocketClient(_Base, MiddlewareCollector, StreamClient):
                 max_size=self._max_message_size,
                 legacy=False,
                 ssl=self._ssl_context,
+                proxy=self._proxy,
+                create_connection=_SyncConnection,
                 **self._kwargs,
             )
             socket = SyncWebsocketStream[RQ, RS](

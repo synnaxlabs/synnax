@@ -18,7 +18,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Theming as Base } from "@synnaxlabs/lyra/theming";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { Schematic, Theming } from "@synnaxlabs/pluto";
-import { bounds, dimensions, TimeSpan } from "@synnaxlabs/x";
+import { bounds, type color, dimensions, TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement, useEffect, useRef, useState } from "react";
 
 import { FileDrop } from "@/feature/schematic/symbol/edit/FileDrop";
@@ -59,25 +59,50 @@ type Viewport = NonNullable<schematic.symbol.Spec["previewViewport"]>;
 // A stored symbol can have no preview viewport, so the preview starts from this one.
 const DEFAULT_VIEWPORT: Viewport = { zoom: 1, position: { x: 0, y: 0 } };
 
+const SELECTED_CLASS = CSS.BEM("schematic", "svg-region", "selected");
+
 interface PreviewProps {
   /** selectedValue is the value of the state that the preview draws. */
   selectedValue: number;
   selectedHandle?: string;
-  onElementClick: (selector: string) => void;
+  /** selectedPart is the part whose shapes the preview marks. */
+  selectedPart?: string;
+  /** onElementClick receives the markup with a name on the clicked shape. */
+  onElementClick: (
+    shape: Schematic.Node.Region.Named,
+    click: Pick<MouseEvent, "detail" | "altKey">,
+  ) => void;
   onContentsChange: (contents: string) => void;
   onHandleSelect: (handleKey: string) => void;
   onHandlePlace: (handleKey: string, position: { x: number; y: number }) => void;
 }
 
+interface DrawingProps {
+  spec: schematic.symbol.Spec;
+  value: number;
+  nodeColor: color.Crude;
+  onMount: (drawing: SVGGElement) => void;
+}
+
+// Drawing renders inside the preview's theme provider, so its paints band in the
+// preview theme.
+const Drawing = ({ spec, value, nodeColor, onMount }: DrawingProps): ReactElement => {
+  const paints = Schematic.Node.Custom.usePaints(spec, value, { nodeColor });
+  const setDrawing = Schematic.Node.Custom.useRender({ spec, paints, onMount });
+  return <g ref={setDrawing} />;
+};
+
 export const Preview = ({
   selectedValue,
   selectedHandle,
+  selectedPart,
   onElementClick,
   onContentsChange,
   onHandlePlace,
   onHandleSelect,
 }: PreviewProps): ReactElement | null => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const [drawingEl, setDrawingEl] = useState<SVGGElement | null>(null);
   const svgWrapperRef = useRef<HTMLDivElement>(null);
   // State, not a ref: the theme provider takes the element as a prop, and a ref filled
   // after the first render would never re-render it into place.
@@ -88,7 +113,7 @@ export const Preview = ({
     DEFAULT_VIEWPORT;
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-  const isDark = Base.use().dark;
+  const { dark: isDark, colors } = Base.use();
   // The toggle holds until the app theme changes.
   const [darkMode, setDarkMode] = useState({ app: isDark, dark: isDark });
   if (darkMode.app !== isDark) setDarkMode({ app: isDark, dark: isDark });
@@ -168,9 +193,15 @@ export const Preview = ({
   });
 
   const onMount = (drawing: SVGGElement) => {
+    setDrawingEl(drawing);
     const addInteractivity = (el: Element) => {
       if (!(el instanceof SVGElement) || el.tagName === "svg") return;
       el.classList.add(CSS.BEM("schematic", "svg-region", "hoverable"));
+      // The CSS filter of a hover or a selection replaces the filter of the drawing.
+      const own = el.style.filter || el.getAttribute("filter");
+      el.style.removeProperty("filter");
+      if (own != null && own !== "" && own !== "none")
+        el.style.setProperty("--console-schematic-own-filter", own);
       if (
         el.tagName === "line" ||
         el.tagName === "polyline" ||
@@ -185,43 +216,34 @@ export const Preview = ({
         }
       }
 
-      el.addEventListener("mouseenter", () => {
-        if (el.tagName === "line" || el.tagName === "polyline")
-          el.style.filter = "drop-shadow(0 0 3px rgba(99, 102, 241, 0.8))";
-        else {
-          const fillAttr = el.getAttribute("fill");
-          const hasVisibleFill =
-            fillAttr && fillAttr !== "none" && fillAttr !== "transparent";
-          if (hasVisibleFill) el.style.filter = "brightness(1.3)";
-          else {
-            el.style.fill = "rgba(99, 102, 241, 0.2)";
-            el.style.fillOpacity = "1";
-          }
-        }
-        el.classList.add(CSS.BEM("schematic", "svg-region", "hover"));
-      });
-
-      el.addEventListener("mouseleave", () => {
-        el.style.filter = "";
-        el.style.fill = "";
-        el.style.fillOpacity = "";
-        el.classList.remove(CSS.BEM("schematic", "svg-region", "hover"));
-      });
-
-      el.addEventListener("click", () => {
+      el.addEventListener("click", (e) => {
+        // The groups around the shape have their own listeners.
+        e.stopPropagation();
+        // Shift+drag pans the preview.
+        if (e.shiftKey) return;
         const markup = form.get(path.data.drawing.markup).value;
-        const named = Schematic.Node.Region.name(markup, drawing, el);
-        if (named.markup !== markup) form.set(path.data.drawing.markup, named.markup);
-        onElementClick(named.selector);
+        onElementClick(Schematic.Node.Region.name(markup, drawing, el), e);
       });
 
-      Array.from(el.children).forEach(addInteractivity);
+      // The spans of a text are part of its shape, so their clicks reach the text.
+      if (el.tagName !== "text") Array.from(el.children).forEach(addInteractivity);
     };
     Array.from(drawing.children).forEach(addInteractivity);
   };
 
-  const paints = Schematic.Node.Custom.usePaints(spec, selectedValue);
-  const setDrawing = Schematic.Node.Custom.useRender({ spec, paints, onMount });
+  const selected =
+    spec.parts.find((p) => p.key === selectedPart)?.selectors.join(", ") ?? "";
+  useEffect(() => {
+    if (drawingEl == null || selected === "") return;
+    const shapes = Array.from(drawingEl.querySelectorAll(selected));
+    for (const el of shapes) el.classList.add(SELECTED_CLASS);
+    return () => {
+      for (const el of shapes) el.classList.remove(SELECTED_CLASS);
+    };
+  }, [drawingEl, selected]);
+
+  // A schematic node gives the node color, so the preview draws a sample of it.
+  const nodeColor = colors.primary.z;
   const dims = Schematic.Node.Region.measure(spec.drawing.markup);
 
   const handleContentsChange = (contents: string, filename?: string) => {
@@ -246,7 +268,9 @@ export const Preview = ({
   const fileDropEnabled = spec.drawing.markup.length === 0;
 
   const svgWrapperStyle = {
-    transform: `translate(${viewport.position.x}px, ${viewport.position.y}px) scale(${viewport.zoom})`,
+    transform:
+      `translate(${viewport.position.x}px, ${viewport.position.y}px) ` +
+      `scale(${viewport.zoom})`,
     transition: isDragging ? "none" : "transform 0.2s ease-out",
     cursor: isDragging ? "grabbing" : "default",
   };
@@ -337,7 +361,12 @@ export const Preview = ({
                       Schematic.Node.Primitive.resolveScale(spec.scale),
                     )}
                   >
-                    <g ref={setDrawing} />
+                    <Drawing
+                      spec={spec}
+                      value={selectedValue}
+                      nodeColor={nodeColor}
+                      onMount={onMount}
+                    />
                   </svg>
                 )}
               </div>

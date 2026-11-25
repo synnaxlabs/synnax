@@ -9,9 +9,7 @@
 
 import type { text } from "@synnaxlabs/x";
 
-import type { Component } from "@/component";
-import { isSize } from "@/component/size";
-import { SIZE_TEXT_LEVELS } from "@/component/text";
+import { Component } from "@/component";
 import type { ThemeSpec } from "@/theme/theme";
 
 interface FontStringOptions {
@@ -27,8 +25,8 @@ type FontThreshold = {
 };
 
 const thresholds: FontThreshold[] = [
-  { weight: 200, style: "light", value: "Inter 200, sans-serif" },
-  { weight: 300, value: "Inter Threee, sans-serif" },
+  { weight: 200, style: "light", value: "Inter Two, sans-serif" },
+  { weight: 300, value: "Inter Three, sans-serif" },
   { weight: 400, value: "Inter Four, sans-serif" },
   { weight: 500, value: "Inter Five, sans-serif" },
   { weight: 600, value: "Inter Six, sans-serif" },
@@ -61,7 +59,9 @@ export const fontString = (
     if (threshold != null) fmly = threshold.value;
     else fmly = "Inter Light, sans-serif";
   }
-  const size = typography[isSize(level) ? SIZE_TEXT_LEVELS[level] : level].size;
+  const size =
+    typography[Component.isSize(level) ? Component.SIZE_TEXT_LEVELS[level] : level]
+      .size;
   const sizePx = (base * size).toFixed(1);
   const [family, serif] = fmly.split(", ");
   if (weight != null) return ` ${weight} ${sizePx}px ${family}, ${serif}`;

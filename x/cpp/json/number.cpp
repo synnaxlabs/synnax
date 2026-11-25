@@ -19,12 +19,15 @@
 #include <string>
 #include <string_view>
 #include <system_error>
+#include <type_traits>
 #include <utility>
+#include <variant>
 
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/decimal.h"
 #include "x/cpp/json/number.h"
 #include "x/cpp/json/text.h"
+#include "x/cpp/strings/strings.h"
 #include "x/cpp/telem/telem.h"
 
 namespace x::json {
@@ -93,42 +96,6 @@ std::optional<double> parse_double(const std::string_view text) {
     if (end != terminated + text.size()) return std::nullopt;
     if (errno == ERANGE && std::isinf(v)) return std::nullopt;
     return v;
-}
-
-/// @brief formats v, which is not infinite, as the Core does: the shortest digits that
-/// round trip, with an exponent below 1e-4 or from 1e6.
-std::string format_shortest(const double v) {
-    if (std::isnan(v)) return "NaN";
-    char buf[32];
-    const auto
-        res = std::to_chars(buf, buf + sizeof(buf), v, std::chars_format::scientific);
-    const std::string_view sci(buf, res.ptr - buf);
-    const auto e = sci.find('e');
-    std::string_view mantissa = sci.substr(0, e);
-    auto exp_text = sci.substr(e + 1);
-    if (exp_text[0] == '+') exp_text.remove_prefix(1);
-    int exp = 0;
-    std::from_chars(exp_text.data(), exp_text.data() + exp_text.size(), exp);
-    std::string out;
-    if (mantissa[0] == '-') {
-        out += '-';
-        mantissa.remove_prefix(1);
-    }
-    std::string digits(1, mantissa[0]);
-    if (mantissa.size() > 2) digits += mantissa.substr(2);
-    if (exp < -4 || exp >= 6) {
-        out += digits[0];
-        if (digits.size() > 1) out += "." + digits.substr(1);
-        out += exp < 0 ? "e-" : "e+";
-        const int mag = std::abs(exp);
-        if (mag < 10) out += '0';
-        return out + std::to_string(mag);
-    }
-    if (exp < 0) return out + "0." + std::string(-exp - 1, '0') + digits;
-    const auto point = static_cast<std::size_t>(exp) + 1;
-    if (digits.size() <= point)
-        return out + digits + std::string(point - digits.size(), '0');
-    return out + digits.substr(0, point) + "." + digits.substr(point);
 }
 
 /// @brief returns the range of the integer data type dt, or nothing when dt is not an
@@ -255,6 +222,7 @@ std::pair<Number, errors::Error> Number::parse(const std::string_view text) {
     n.kind = Kind::Float;
     n.f = *v;
     n.fraction = d->fraction;
+    n.out_of_range = !d->fraction && d->magnitude != 0;
     n.text = text;
     return {std::move(n), errors::NIL};
 }
@@ -339,8 +307,7 @@ std::string Number::to_string() const {
             return std::to_string(this->u);
         case Kind::Float:
             if (!this->text.empty()) return this->text;
-            if (std::isinf(this->f)) return this->f > 0 ? "Infinity" : "-Infinity";
-            return format_shortest(this->f);
+            return x::strings::format_float(this->f);
     }
     return "";
 }
@@ -369,6 +336,23 @@ errors::Error append_float(const double v, std::string &out) {
     return errors::NIL;
 }
 
+std::optional<Number> to_number(const telem::SampleValue &v) {
+    return std::visit(
+        [](const auto &s) -> std::optional<Number> {
+            using T = std::decay_t<decltype(s)>;
+            if constexpr (std::is_floating_point_v<T>)
+                return Number(static_cast<double>(s));
+            else if constexpr (std::is_integral_v<T> && std::is_signed_v<T>)
+                return Number(static_cast<std::int64_t>(s));
+            else if constexpr (std::is_integral_v<T>)
+                return Number(static_cast<std::uint64_t>(s));
+            else
+                return std::nullopt;
+        },
+        v
+    );
+}
+
 bool Number::integral() const {
     return this->kind != Kind::Float ||
            (!this->fraction && this->f == std::trunc(this->f));
@@ -383,7 +367,7 @@ bool Number::within(const std::int64_t lo, const std::uint64_t hi) const {
         case Kind::Float:
             // static_cast<double>(hi) + 1 rounds to the first value past hi for every
             // integer type.
-            return this->f >= static_cast<double>(lo) &&
+            return !this->out_of_range && this->f >= static_cast<double>(lo) &&
                    this->f < static_cast<double>(hi) + 1;
     }
     return false;
