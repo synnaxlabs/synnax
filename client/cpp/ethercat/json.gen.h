@@ -212,7 +212,7 @@ inline EntryReadChannel EntryReadChannel::parse(x::json::Parser parser) {
     static_cast<BaseReadChannel &>(result) = BaseReadChannel::parse(parser);
     result.index = parser.field<std::uint16_t>("index");
     result.sub_index = parser.field<std::uint8_t>("sub_index");
-    result.data_type = parser.field<::x::telem::DataType>("data_type");
+    result.data_type = parser.field<std::optional<::x::telem::DataType>>("data_type");
     result.calibrated = parser.field<bool>("calibrated", false);
     result.scale = parser.has("scale")
                      ? ::synnax::task::parse_scale(parser.child("scale"))
@@ -227,7 +227,7 @@ inline x::json::json EntryReadChannel::to_json() const {
         j.update(parent);
     j["index"] = this->index;
     j["sub_index"] = this->sub_index;
-    j["data_type"] = this->data_type;
+    if (this->data_type.has_value()) j["data_type"] = *this->data_type;
     j["calibrated"] = this->calibrated;
     j["scale"] = ::synnax::task::to_json(this->scale);
     j["type"] = this->type;
@@ -256,7 +256,7 @@ inline EntryWriteChannel EntryWriteChannel::parse(x::json::Parser parser) {
     static_cast<BaseWriteChannel &>(result) = BaseWriteChannel::parse(parser);
     result.index = parser.field<std::uint16_t>("index");
     result.sub_index = parser.field<std::uint8_t>("sub_index");
-    result.data_type = parser.field<::x::telem::DataType>("data_type");
+    result.data_type = parser.field<std::optional<::x::telem::DataType>>("data_type");
     result.stop_value = parser.field<double>("stop_value", 0);
     result.type = parser.field<std::string>("type");
     return result;
@@ -268,7 +268,7 @@ inline x::json::json EntryWriteChannel::to_json() const {
         j.update(parent);
     j["index"] = this->index;
     j["sub_index"] = this->sub_index;
-    j["data_type"] = this->data_type;
+    if (this->data_type.has_value()) j["data_type"] = *this->data_type;
     j["stop_value"] = this->stop_value;
     j["type"] = this->type;
     return j;

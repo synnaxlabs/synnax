@@ -216,8 +216,8 @@ describe("createReadChannel", () => {
       name: "",
       index: 0,
       subIndex: 0,
-      dataType: "",
     });
+    expect(ch).toHaveProperty("dataType", undefined);
     expect(ch.key).not.toBe(last.key);
   });
 

@@ -131,7 +131,8 @@ export type EntryChannel = EntryReadChannel | EntryWriteChannel;
  */
 export type PDOType = "inputs" | "outputs";
 
-const ZERO_ENTRY = { index: 0, subIndex: 0, dataType: "" } as const;
+/** Clears the entry of a copied channel, so the form requires a new pick. */
+const ZERO_ENTRY = { index: 0, subIndex: 0, dataType: undefined } as const;
 
 /** @returns whether the channel has an entry picked. */
 export const hasEntry = <C extends Channel>(ch: C): ch is Extract<C, EntryChannel> =>
