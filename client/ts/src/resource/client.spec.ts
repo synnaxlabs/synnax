@@ -39,25 +39,21 @@ describe("Resource", () => {
       const token = randomToken();
       const exact = await createGroup(token);
       const partial = await createLabel(`${token} pump`);
-      await expect
-        .poll(async () => await client.resources.search({ searchTerm: token }))
-        .toEqual([
-          { key: `group:${exact.key}`, id: exact, name: token },
-          { key: `label:${partial.key}`, id: partial, name: `${token} pump` },
-        ]);
+      expect(await client.resources.search({ searchTerm: token })).toEqual([
+        { key: `group:${exact.key}`, id: exact, name: token },
+        { key: `label:${partial.key}`, id: partial, name: `${token} pump` },
+      ]);
     });
 
     it("should search only the given types", async () => {
       const token = randomToken();
       await createGroup(token);
       const l = await createLabel(token);
-      await expect
-        .poll(async () =>
-          (await client.resources.search({ searchTerm: token, types: ["label"] })).map(
-            (r) => r.id,
-          ),
-        )
-        .toEqual([l]);
+      const found = await client.resources.search({
+        searchTerm: token,
+        types: ["label"],
+      });
+      expect(found.map((r) => r.id)).toEqual([l]);
     });
 
     it("should list the resources of the given types for an empty term", async () => {
@@ -108,17 +104,6 @@ describe("Resource", () => {
       await expect.poll(() => read()?.map((r) => r.id)).toContainEqual(g);
     });
 
-    // Waits for the search index to hold the term. A different limit keeps this read
-    // off the answer that a spec subscribes to.
-    const awaitIndexed = async (term: string, count: number): Promise<void> => {
-      await expect
-        .poll(
-          async () =>
-            (await client.resources.search({ searchTerm: term, limit: 10 })).length,
-        )
-        .toEqual(count);
-    };
-
     it("should leave a retrieved internal channel out of a subscribed list", async () => {
       // The term names the channel, so it would rank first if the list took it.
       const read = await subscribe({
@@ -136,7 +121,6 @@ describe("Resource", () => {
       const token = randomToken();
       const proj = await client.projects.create({ name: randomToken() });
       const plot = await client.lineplots.create({ project: proj.key, name: token });
-      await awaitIndexed(token, 1);
       const read = await subscribe({ searchTerm: token, types: ["lineplot"] });
       await client.lineplots.rename(plot.key, `${token} renamed`);
       const key = resource.idToString(lineplot.resourceID(plot.key));
@@ -150,7 +134,6 @@ describe("Resource", () => {
       const other = randomToken();
       const proj = await client.projects.create({ name: randomToken() });
       const plot = await client.lineplots.create({ project: proj.key, name: token });
-      await awaitIndexed(token, 1);
       const id = lineplot.resourceID(plot.key);
       await client.resources.retrieve(id);
       const read = await subscribe({ searchTerm: other, types: ["lineplot"] });
@@ -176,7 +159,6 @@ describe("Resource", () => {
       const token = randomToken();
       const proj = await client.projects.create({ name: randomToken() });
       const plot = await client.lineplots.create({ project: proj.key, name: token });
-      await awaitIndexed(token, 1);
       const params: resource.SearchParams = { searchTerm: token, types: ["lineplot"] };
       const list = await subscribeThenLeave(params);
       await client.lineplots.rename(plot.key, `${token} renamed`);
@@ -199,7 +181,6 @@ describe("Resource", () => {
       const token = randomToken();
       const proj = await client.projects.create({ name: randomToken() });
       const plot = await client.lineplots.create({ project: proj.key, name: token });
-      await awaitIndexed(token, 1);
       const read = await subscribe({ searchTerm: token, types: ["lineplot"] });
       await client.lineplots.delete(plot.key);
       await expect.poll(() => read()).toEqual([]);
@@ -211,9 +192,7 @@ describe("Resource", () => {
       const token = randomToken();
       const l = await createLabel(token);
       const list = client.resources.watch({ searchTerm: token, types: ["label"] });
-      await expect
-        .poll(async () => (await list.retrieve()).records.map((r) => r.id))
-        .toEqual([l]);
+      expect((await list.retrieve()).records.map((r) => r.id)).toEqual([l]);
       expect(list.getCached()?.records.map((r) => r.id)).toEqual([l]);
     });
 

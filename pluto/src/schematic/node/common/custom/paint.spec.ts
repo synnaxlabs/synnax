@@ -494,10 +494,26 @@ describe("Custom.usePaints", () => {
       ]);
     });
 
-    it("should keep the stored fill for an entry with no color on a custom drawing", async () => {
-      expect(await renderPaints(createNoColorSpec(), 0)).toEqual([
-        { selectors: [".body"] },
+    it("should draw the node color for an entry with no color on a custom drawing", async () => {
+      expect(await renderPaints(createNoColorSpec(), 0, { nodeColor: NODE })).toEqual([
+        { selectors: [".body"], fill: color.construct(NODE) },
       ]);
+    });
+
+    it("should draw the theme gray for an entry with no color on a custom drawing", async () => {
+      expect(await renderPaints(createNoColorSpec(), 0)).toEqual([
+        { selectors: [".body"], fill: LIGHT.colors.gray.l11 },
+      ]);
+    });
+
+    it("should draw an override that copies the looks for an entry with no color", async () => {
+      const spec = createNoColorSpec();
+      const { result } = renderHook(() => Custom.useRegions(spec, 0), { wrapper });
+      await waitFor(() => expect(result.current).toBeDefined());
+      const override = { key: "base", name: "Base", regions: result.current ?? [] };
+      expect(await renderPaints(spec, 0, { override })).toEqual(
+        await renderPaints(spec, 0),
+      );
     });
 
     it.each([
