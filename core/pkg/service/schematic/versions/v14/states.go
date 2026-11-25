@@ -34,7 +34,9 @@ type MigrationConfig struct {
 
 // NewMigration returns the migration that lifts stored schematics from v13 to v14 as
 // MigrateSchematic does, then gives their selects and state indicators enumerations as
-// InternStates does. A symbol node whose custom symbol is gone gets a missing ref.
+// InternStates does. Each symbol that a custom_actuator node draws gets the commands of
+// an actuator. A symbol node whose custom symbol is gone gets a missing ref, and a node
+// drops each state binding that its symbol lacks. The stored symbols must be v5.
 func NewMigration(cfg MigrationConfig) gorp.Migration {
 	const key = "v63_color_ref"
 	return migrate.New(
