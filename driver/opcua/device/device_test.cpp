@@ -86,4 +86,14 @@ TEST(ConnectorTest, ConnectReturnsRejectedCoreError) {
     auto connector = new_connector(test_client_config(), "missing-device");
     ASSERT_OCCURRED_AS_P(connector.connect(), x::errors::NOT_FOUND);
 }
+
+/// @brief it should return a rejected Core error even after a retrieve has loaded
+/// settings, since only a transient error keeps the last settings.
+TEST(ConnectorTest, ConnectReturnsRejectedErrorAfterSettingsLoad) {
+    const auto key = create_device();
+    auto connector = new_connector(test_client_config(), key);
+    ASSERT_OCCURRED_AS_P(connector.start(), driver::errors::BASE_ERROR);
+    ASSERT_NIL(new_test_client().devices.del(key));
+    ASSERT_OCCURRED_AS_P(connector.connect(), x::errors::NOT_FOUND);
+}
 }
