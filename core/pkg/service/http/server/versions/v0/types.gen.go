@@ -724,6 +724,14 @@ func (h HealthCheck) Validate() error {
 	v := validate.New("HealthCheck")
 	v.Ternaryf("method", !h.Method.IsValid(), "invalid method: %v", h.Method)
 	v.Ternary("path", !validatePattern2.MatchString(string(h.Path)), "Path must not hold a query, a fragment, or whitespace")
+	for i := range h.Headers {
+		v.Exec(func() error { return validate.PathedError(h.Headers[i].Validate(), "headers", strconv.Itoa(i)) })
+	}
+	for i := range h.QueryParams {
+		v.Exec(func() error {
+			return validate.PathedError(h.QueryParams[i].Validate(), "query_params", strconv.Itoa(i))
+		})
+	}
 	if h.Response != nil {
 		v.Exec(func() error { return validate.PathedError(h.Response.Validate(), "response") })
 	}
@@ -770,6 +778,9 @@ func (r Request) Validate() error {
 	v := validate.New("Request")
 	v.Ternaryf("method", !r.Method.IsValid(), "invalid method: %v", r.Method)
 	v.Ternary("path", !validatePattern2.MatchString(string(r.Path)), "Path must not hold a query, a fragment, or whitespace")
+	for i := range r.Query {
+		v.Exec(func() error { return validate.PathedError(r.Query[i].Validate(), "query", strconv.Itoa(i)) })
+	}
 	return v.Error()
 }
 
@@ -813,6 +824,9 @@ func (r ReadRequest) Validate() error {
 	v := validate.New("ReadRequest")
 	v.Ternaryf("method", !r.Method.IsValid(), "invalid method: %v", r.Method)
 	v.Ternary("path", !validatePattern2.MatchString(string(r.Path)), "Path must not hold a query, a fragment, or whitespace")
+	for i := range r.Query {
+		v.Exec(func() error { return validate.PathedError(r.Query[i].Validate(), "query", strconv.Itoa(i)) })
+	}
 	return v.Error()
 }
 
