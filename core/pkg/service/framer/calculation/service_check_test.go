@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	calcsvc "github.com/synnaxlabs/synnax/pkg/service/calculation"
+	"github.com/synnaxlabs/synnax/pkg/service/calculation/compiler"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/calculation/graph"
 	calctestutil "github.com/synnaxlabs/synnax/pkg/service/calculation/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -38,11 +39,13 @@ import (
 
 var _ = Describe("Calculation check", Ordered, func() {
 	var (
-		c          *calculation.Service
-		dist       testutil.Node
-		statusSvc  *status.Service
-		channelSvc *channel.Service
-		creator    calctestutil.Creator
+		dist         testutil.Node
+		statusSvc    *status.Service
+		channelSvc   *channel.Service
+		calcSvc      *calcsvc.Service
+		writerSvc    *writer.Service
+		channelGraph *calcgraph.Graph
+		creator      calctestutil.Creator
 	)
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
@@ -56,7 +59,7 @@ var _ = Describe("Calculation check", Ordered, func() {
 			HostKey: dist.Identity.HostKey,
 			Status:  statusSvc,
 		}))
-		calcSvc := MustOpen(calcsvc.OpenService(ctx, calcsvc.ServiceConfig{
+		calcSvc = MustOpen(calcsvc.OpenService(ctx, calcsvc.ServiceConfig{
 			DB:      dist.DB,
 			Channel: channelSvc,
 			Framer:  dist.Framer,
@@ -66,24 +69,16 @@ var _ = Describe("Calculation check", Ordered, func() {
 			Channel:     channelSvc,
 			Calculation: calcSvc,
 		}
-		writerSvc := MustSucceed(writer.NewService(writer.ServiceConfig{
+		writerSvc = MustSucceed(writer.NewService(writer.ServiceConfig{
 			DB:      dist.DB,
 			Framer:  dist.Framer,
 			Channel: channelSvc,
 		}))
-		channelGraph := MustOpen(calcgraph.Open(ctx, calcgraph.Config{
+		channelGraph = MustOpen(calcgraph.Open(ctx, calcgraph.Config{
 			DB:          dist.DB,
 			Calculation: calcSvc,
 			Channel:     channelSvc,
 			Status:      statusSvc,
-		}))
-		c = MustOpen(calculation.OpenService(ctx, calculation.ServiceConfig{
-			DB:           dist.DB,
-			Framer:       dist.Framer,
-			Writer:       writerSvc,
-			Channel:      channelSvc,
-			Calculation:  calcSvc,
-			ChannelGraph: channelGraph,
 		}))
 	})
 
@@ -115,13 +110,13 @@ var _ = Describe("Calculation check", Ordered, func() {
 
 	It("Should run the calculations of other groups when one group fails to open, and "+
 		"give the failed calculation an error status", func(ctx SpecContext) {
-		_, text := stored(ctx, telem.StringT)
+		_, input := stored(ctx, telem.Float64T)
 		idx, value := stored(ctx, telem.Float64T)
 		calcs := MustSucceed(creator.CreateMany(ctx, []calctestutil.Calculation{
 			{
 				Name:       UniqueChannelName(),
-				DataType:   telem.Int64T,
-				Expression: fmt.Sprintf("return len(%s)", text.Name),
+				DataType:   telem.Float64T,
+				Expression: fmt.Sprintf("return %s * 2", input.Name),
 			},
 			{
 				Name:       UniqueChannelName(),
@@ -131,7 +126,28 @@ var _ = Describe("Calculation check", Ordered, func() {
 		}))
 		failed, running := calcs[0], calcs[1]
 		indexes := MustSucceed(creator.Indexes(ctx, calcs))
-		rm := c.OpenRequestManager()
+		// The module of failed does not instantiate, so its group fails to open.
+		svc := MustSucceed(calculation.OpenService(ctx, calculation.ServiceConfig{
+			DB:           dist.DB,
+			Framer:       dist.Framer,
+			Writer:       writerSvc,
+			Channel:      channelSvc,
+			Calculation:  calcSvc,
+			ChannelGraph: channelGraph,
+			Compile: func(
+				ctx context.Context,
+				db *gorp.DB,
+				cfgs ...compiler.Config,
+			) (compiler.Module, error) {
+				mod, err := compiler.Compile(ctx, db, cfgs...)
+				if err == nil && cfgs[0].Channel.Key() == failed.Key() {
+					mod.WASM = []byte{1, 2, 3}
+				}
+				return mod, err
+			},
+		}))
+		DeferCleanup(func() { Expect(svc.Close()).To(Succeed()) })
+		rm := svc.OpenRequestManager()
 		DeferCleanup(func() { Expect(rm.Close(ctx)).To(Succeed()) })
 		sCtx, cancel := signal.Isolated()
 		DeferCleanup(cancel)
