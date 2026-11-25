@@ -38,6 +38,7 @@ from synnax import (
     group,
     icd,
     imex as imex_,
+    impact as impact_,
     label,
     license as license_,
     lineplot,
@@ -211,7 +212,7 @@ class Synnax(framer.Client):
             ca_cert=ca_cert,
             api_key=api_key,
         )
-        registry = exceptions.create_registry()
+        registry = exceptions.create_registry(impact_.EXCEPTION_PROVIDER)
         self._registry = registry
         self._transport = _configure_transport(
             opts=opts,
@@ -336,6 +337,10 @@ class Synnax(framer.Client):
     @_Lazy
     def resources(self) -> resource.Client:
         return resource.Client(self._transport.unary)
+
+    @_Lazy
+    def impact(self) -> impact_.Client:
+        return impact_.Client(self._transport.unary)
 
     @_Lazy
     def license(self) -> license_.Client:

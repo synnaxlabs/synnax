@@ -252,9 +252,14 @@ def _encode(_: Exception) -> ExceptionPayload | None:
     return None
 
 
-def create_registry() -> Registry:
-    """:returns: a registry that decodes the errors of Freighter and the Core."""
+def create_registry(*providers: Provider) -> Registry:
+    """:returns: a registry that decodes the errors of Freighter, of providers, and of
+    the Core. Each of providers comes before the Core's provider, which decodes every
+    other ``sy.`` type.
+    """
     registry = Registry()
     registry.register(freighter.EXCEPTION_PROVIDER)
+    for provider in providers:
+        registry.register(provider)
     registry.register(Provider(encode=_encode, decode=partial(_decode, registry)))
     return registry
