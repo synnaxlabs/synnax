@@ -2074,6 +2074,7 @@ TEST(ProcessorTest, GateRefillsEverySlotFreedInOneBatch) {
     server.stop();
 }
 
+/// @brief it should fail a request whose body is larger than max_response_size.
 TEST(ProcessorTest, ResponseLargerThanMaxResponseSizeErrors) {
     testutil::ServerConfig server_cfg;
     server_cfg.routes = {{
@@ -2097,6 +2098,7 @@ TEST(ProcessorTest, ResponseLargerThanMaxResponseSizeErrors) {
     server.stop();
 }
 
+/// @brief it should fail a chunked response that grows past max_response_size.
 TEST(ProcessorTest, ChunkedResponseLargerThanMaxResponseSizeErrors) {
     testutil::ServerConfig server_cfg;
     server_cfg.routes = {{
@@ -2121,6 +2123,7 @@ TEST(ProcessorTest, ChunkedResponseLargerThanMaxResponseSizeErrors) {
     server.stop();
 }
 
+/// @brief it should accept a body exactly max_response_size bytes long.
 TEST(ProcessorTest, ResponseAtMaxResponseSizeSucceeds) {
     testutil::ServerConfig server_cfg;
     server_cfg.routes = {{

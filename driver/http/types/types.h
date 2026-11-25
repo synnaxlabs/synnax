@@ -10,6 +10,7 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 #include <map>
 #include <set>
 #include <string>
@@ -125,7 +126,7 @@ struct RequestConfig {
 constexpr std::size_t DEFAULT_MAX_CONCURRENT_REQUESTS = 6;
 
 /// @brief default cap on the size of a response body in bytes.
-constexpr std::size_t DEFAULT_MAX_RESPONSE_SIZE = 16 * 1024 * 1024;
+constexpr std::int64_t DEFAULT_MAX_RESPONSE_SIZE = 16 * 1024 * 1024;
 
 /// @brief a fully resolved HTTP request.
 struct Request {
@@ -136,7 +137,7 @@ struct Request {
     /// @brief cap on in-flight requests sharing base_url.
     std::size_t max_concurrent_requests = DEFAULT_MAX_CONCURRENT_REQUESTS;
     /// @brief largest response body in bytes. A larger body fails the request.
-    std::size_t max_response_size = DEFAULT_MAX_RESPONSE_SIZE;
+    std::int64_t max_response_size = DEFAULT_MAX_RESPONSE_SIZE;
     /// @brief HTTP method.
     Method method = Method::GET;
     /// @brief request timeout.
