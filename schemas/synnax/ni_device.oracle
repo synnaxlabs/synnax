@@ -99,7 +99,6 @@ Device struct {
 
     @create
     @doc value     "is an NI module in a chassis, or a standalone USB or PCIe device."
-    @go entry      "ni_device"
     @go marshal
     @go migrate
     @resource type "ni_device"
@@ -139,12 +138,12 @@ CommandStatePair struct {
 }
 
 AnalogInputPorts struct {
-    index       channel.Key? {
+    index       channel.Key?             {
         @doc value     "is the index channel of the analog input channels."
         @ref kind      use
         @ref on_delete restrict
     }
-    temperature channel.Key? {
+    temperature channel.Key?             {
         @doc value     """
             is the channel that holds the built-in temperature of the device.
         """
@@ -199,7 +198,7 @@ CounterInputChannels struct {
 }
 
 DigitalInputChannels struct {
-    index channel.Key? {
+    index channel.Key?            {
         @doc value     "is the index channel of the port."
         @ref kind      use
         @ref on_delete restrict
@@ -215,7 +214,7 @@ DigitalInputChannels struct {
 }
 
 DigitalOutputChannels struct {
-    state_index channel.Key? {
+    state_index channel.Key?                 {
         @doc value     "is the index channel of the state channels."
         @ref kind      use
         @ref on_delete restrict
