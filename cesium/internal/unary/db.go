@@ -93,17 +93,6 @@ func (db *DB) LeadingControlState() *control.State {
 	return db.controller.LeadingState()
 }
 
-// HasDataFor returns whether db has data in tr, or true if a writer controls part of
-// tr.
-func (db *DB) HasDataFor(ctx context.Context, tr telem.TimeRange) (bool, error) {
-	hasData, release, err := db.OpenHold(ctx, tr)
-	if err != nil {
-		return hasData, err
-	}
-	release()
-	return hasData, nil
-}
-
 // OpenHold holds tr so that writers that open on it wait until the caller calls
 // release. It returns whether db has data in tr, or true if a writer controls part of
 // tr. MarkClosed refuses until release.

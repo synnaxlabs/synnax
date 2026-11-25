@@ -303,7 +303,7 @@ func (db *DB) channelDBsFor(cfg WriterConfig) (WriterConfig, channelDBs, error) 
 	db.mu.RLock()
 	defer db.mu.RUnlock()
 	if db.closed.Load() {
-		return cfg, channelDBs{}, ErrDBClosed
+		return WriterConfig{}, channelDBs{}, ErrDBClosed
 	}
 	if *cfg.AutoIndex {
 		cfg = db.expandKeysForAutoIndex(cfg)
@@ -319,12 +319,12 @@ func (db *DB) channelDBsFor(cfg WriterConfig) (WriterConfig, channelDBs, error) 
 		}
 		u, ok := db.mu.dbs.unary[key]
 		if !ok {
-			return cfg, channelDBs{}, channel.NewNotFoundError(key)
+			return WriterConfig{}, channelDBs{}, channel.NewNotFoundError(key)
 		}
 		dbs.unary[key] = u
 		if idx := u.Channel().Index; idx != 0 {
 			if dbs.unary[idx], ok = db.mu.dbs.unary[idx]; !ok {
-				return cfg, channelDBs{}, channel.NewNotFoundError(idx)
+				return WriterConfig{}, channelDBs{}, channel.NewNotFoundError(idx)
 			}
 		}
 	}

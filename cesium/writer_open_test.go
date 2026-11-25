@@ -358,7 +358,7 @@ var _ = Describe("Writer open", func() {
 			Consistently(deleted, 200*time.Millisecond).ShouldNot(Receive())
 			DeferCleanup(func() {
 				gate.fail()
-				Eventually(opened).Should(Receive(HaveOccurred()))
+				Eventually(opened).Should(Receive(MatchError(errGateFailed)))
 			})
 		})
 
@@ -383,6 +383,28 @@ var _ = Describe("Writer open", func() {
 			Consistently(created, 200*time.Millisecond).ShouldNot(Receive())
 			finishDelete()
 			Eventually(created).Should(Receive(BeTrue()))
+		})
+
+		It("Should stop a new dependent from waiting when ctx ends", func() {
+			ctx, cancel := context.WithCancel(context.Background())
+			created := make(chan error, 1)
+			go func() {
+				created <- db.CreateChannel(ctx, cesium.Channel{
+					Key:      GenerateChannelKey(),
+					Name:     "dependent",
+					Index:    idxKey,
+					DataType: telem.Int64T,
+				})
+			}()
+			Consistently(created, 200*time.Millisecond).ShouldNot(Receive())
+			cancel()
+			Eventually(created).Should(Receive(MatchError(context.Canceled)))
+			finishDelete()
+		})
+
+		It("Should fail to delete a channel it holds", func() {
+			Expect(db.DeleteChannel(dataKey)).To(MatchError(resource.ErrOpen))
+			finishDelete()
 		})
 
 		It("Should make a dependent writer wait for it", func(ctx SpecContext) {
