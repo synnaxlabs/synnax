@@ -24,6 +24,8 @@ import (
 // Group is the channels of a read that a document writes or drops together: the
 // channels on one index channel, or one virtual channel.
 type Group struct {
+	// Read is the position in the reads of NewSource of the read of the group.
+	Read int
 	// Index is the index channel of the group, or zero for a virtual channel.
 	Index channel.Key
 	// Stamped is true when the index field of the read gives the timestamps of Index.
@@ -164,7 +166,7 @@ func (s *Source) add(
 		}
 		if g < 0 {
 			g = len(s.groups)
-			s.groups = append(s.groups, group{Index: index, stamp: -1})
+			s.groups = append(s.groups, group{Read: r, Index: index, stamp: -1})
 		}
 		rd.groups[i] = g
 		grp := &s.groups[g]

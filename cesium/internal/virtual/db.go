@@ -69,9 +69,11 @@ var (
 type Config struct {
 	alamos.Instrumentation
 	// MetaCodec is used to encode and decode the channel metadata.
+	//
 	// [REQUIRED]
 	MetaCodec encoding.Codec
 	// FS is the filesystem that the DB will use to store metadata about the channel.
+	//
 	// [REQUIRED]
 	FS fs.FS
 	// Channel that the database will operate on. This only needs to be set when

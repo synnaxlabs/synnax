@@ -192,6 +192,11 @@ export const Schematic = ({
     });
   };
   const clearHovered = () => setHovered(null);
+  const [hiders, setHiders] = useState(0);
+  const hideTooltip: Tooltip.Hide = () => {
+    setHiders((n) => n + 1);
+    return () => setHiders((n) => n - 1);
+  };
   const hoveredConfig = hovered == null ? undefined : configs[hovered.nodeKey];
 
   BaseDiagram.useTriggers({
@@ -242,51 +247,54 @@ export const Schematic = ({
   );
 
   return (
-    <Diagram
-      ref={ref}
-      className={CSS.cls(CSS.B("schematic"), className)}
-      dragHandleSelector={DRAG_HANDLE_SELECTOR}
-      autoRenderInterval={AUTO_RENDER_INTERVAL}
-      onNodesChange={handleNodesChange}
-      onEdgesChange={handleEdgesChange}
-      viewport={viewport}
-      onSelectionChange={handleSelectionChange}
-      edgesReconnectable={false}
-      editable={editable}
-      onDoubleClick={onDoubleClick}
-      onNodeDoubleClick={handleNodeDoubleClick}
-      onNodeMouseMove={handleNodeMouseMove}
-      onNodeMouseLeave={clearHovered}
-      onNodeDragStart={clearHovered}
-      onContextMenu={contextMenu.open}
-      onCopy={onCopy}
-      onCut={onCut}
-      onPaste={onPaste}
-      nodes={lockedNodes}
-      edges={edges}
-      selected={selected}
-      {...dropProps}
-      {...props}
-    >
-      {children}
-      {!editable &&
-        !tooltipsDisabled &&
-        hovered != null &&
-        !contextMenu.visible &&
-        hoveredConfig != null &&
-        Node.isConfig(hoveredConfig) && (
-          <Tooltip.Panel
-            key={hovered.nodeKey}
-            anchor={hovered.anchor}
-            config={hoveredConfig}
-          />
+    <Tooltip.HideProvider value={hideTooltip}>
+      <Diagram
+        ref={ref}
+        className={CSS.cls(CSS.B("schematic"), className)}
+        dragHandleSelector={DRAG_HANDLE_SELECTOR}
+        autoRenderInterval={AUTO_RENDER_INTERVAL}
+        onNodesChange={handleNodesChange}
+        onEdgesChange={handleEdgesChange}
+        viewport={viewport}
+        onSelectionChange={handleSelectionChange}
+        edgesReconnectable={false}
+        editable={editable}
+        onDoubleClick={onDoubleClick}
+        onNodeDoubleClick={handleNodeDoubleClick}
+        onNodeMouseMove={handleNodeMouseMove}
+        onNodeMouseLeave={clearHovered}
+        onNodeDragStart={clearHovered}
+        onContextMenu={contextMenu.open}
+        onCopy={onCopy}
+        onCut={onCut}
+        onPaste={onPaste}
+        nodes={lockedNodes}
+        edges={edges}
+        selected={selected}
+        {...dropProps}
+        {...props}
+      >
+        {children}
+        {!editable &&
+          !tooltipsDisabled &&
+          hiders === 0 &&
+          hovered != null &&
+          !contextMenu.visible &&
+          hoveredConfig != null &&
+          Node.isConfig(hoveredConfig) && (
+            <Tooltip.Panel
+              key={hovered.nodeKey}
+              anchor={hovered.anchor}
+              config={hoveredConfig}
+            />
+          )}
+        {nodes.length === 0 && emptyContent != null && (
+          <Flex.Box center className={CSS.BE("schematic", "empty")}>
+            {emptyContent}
+          </Flex.Box>
         )}
-      {nodes.length === 0 && emptyContent != null && (
-        <Flex.Box center className={CSS.BE("schematic", "empty")}>
-          {emptyContent}
-        </Flex.Box>
-      )}
-      <Menu.ContextMenu {...contextMenu} menu={renderMenu} />
-    </Diagram>
+        <Menu.ContextMenu {...contextMenu} menu={renderMenu} />
+      </Diagram>
+    </Tooltip.HideProvider>
   );
 };

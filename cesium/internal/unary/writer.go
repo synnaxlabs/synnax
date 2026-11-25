@@ -31,12 +31,14 @@ import (
 type WriterConfig struct {
 	// Persist denotes whether the writer writes its data to FS. If Persist is off, no
 	// data is written.
+	//
 	// [OPTIONAL] - Defaults to true
 	Persist *bool
 	// Bounded limits the writer's control region to the time it has committed, so that
 	// it can write behind another writer. The writer fails to open when another writer
 	// holds its start, and a commit fails when it reaches another region. A bounded
 	// region reports no control transfers.
+	//
 	// [OPTIONAL] - Defaults to false
 	Bounded *bool
 	// EnableAutoCommit denotes whether each write is committed.
@@ -45,29 +47,35 @@ type WriterConfig struct {
 	EnableAutoCommit *bool
 	// ErrOnUnauthorizedOpen controls whether the writer will return an error on open
 	// when attempting to write to a channel that is does not have authority over.
+	//
 	// [OPTIONAL] - Defaults to false
 	ErrOnUnauthorizedOpen *bool
 	// Subject is the control subject held by the writer.
+	//
 	// [REQUIRED]
 	Subject xcontrol.Subject
 	// Start marks the start of the writer's control region and, unless
 	// Writer.SetDomainStart sets another, of the domain it writes. A zero Start means
 	// the time the writer opens. A non-zero Start fails the open when stored data holds
 	// it.
+	//
 	// [OPTIONAL]
 	Start telem.TimeStamp
 	// End is an optional parameter that marks the ending bound of the domain. Defining
 	// this parameter will allow the writer to write data to the domain without needing
 	// to validate each call to Commit. If this parameter is not defined, Commit must be
 	// called with a strictly increasing timestamp.
+	//
 	// [OPTIONAL]
 	End telem.TimeStamp
 	// AutoIndexPersistInterval is the frequency at which the changes to index are
 	// persisted to the disk.
+	//
 	// [OPTIONAL] - Defaults to 1s.
 	AutoIndexPersistInterval telem.TimeSpan
 	// Authority is the control authority held by the writer: higher authority entities
 	// have priority access to the region.
+	//
 	// [OPTIONAL]
 	Authority xcontrol.Authority
 }

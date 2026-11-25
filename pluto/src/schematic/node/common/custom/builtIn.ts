@@ -13,6 +13,9 @@ import { Primitive } from "@/schematic/node/common/primitive";
 
 const ACTIVE = "active";
 
+// The root of each built-in drawing carries its stroke width, so a copy draws as wide.
+const STROKE_WIDTH = 2;
+
 interface Family {
   enumeration: enumeration.Key;
   /** commands name the deactivate and activate commands of a family that clicks. */
@@ -158,7 +161,10 @@ export const createBuiltIn = ({
   parts = [],
   ...overrides
 }: BuiltInParams): schematic.symbol.Spec => ({
-  drawing: { type: "svg", markup: svg },
+  drawing: {
+    type: "svg",
+    markup: svg.replace(/<svg\b/, `<svg stroke-width="${STROKE_WIDTH}"`),
+  },
   parts,
   handles,
   ...(family == null ? STATIC : createBehavior(family)),

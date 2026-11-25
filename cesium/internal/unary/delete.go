@@ -91,10 +91,10 @@ func (db *DB) lockControllerForNonWriteOp(
 ) (release func(), err error) {
 	g, _, err := db.controller.OpenGate(
 		xcontrol.GateConfig[channel.Key, *controlledWriter]{
-			ErrIfControlled: new(true),
-			TimeRange:       tr,
-			Authority:       xcontrol.AuthorityAbsolute,
-			Subject:         xcontrol.Subject{Key: uuid.New().String(), Name: opName},
+			Exclusive: new(true),
+			TimeRange: tr,
+			Authority: xcontrol.AuthorityAbsolute,
+			Subject:   xcontrol.Subject{Key: uuid.New().String(), Name: opName},
 			OpenResource: func() (*controlledWriter, error) {
 				return &controlledWriter{
 					Writer:     nil,

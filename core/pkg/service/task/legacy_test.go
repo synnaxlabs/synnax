@@ -110,7 +110,7 @@ var legacySecrets = map[string]struct{ key, plain string }{
 
 // legacyICDs holds each task type whose import moves the fields of each endpoint into a
 // message of a new ICD, named after the task.
-var legacyICDs = set.New("http_read")
+var legacyICDs = set.New("http_read", "http_write")
 
 // legacyReimportErrors holds, for each fixture whose current shape the legacy rewrite
 // cannot read, the error that normalizing an unversioned copy of its stored config
@@ -644,7 +644,7 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 	}
 
 	// revealICD returns ep with the key of its ICD, and the message and field keys of
-	// each read, swapped for their names in the ICD that the import made.
+	// its write or each read, swapped for their names in the ICD that the import made.
 	revealICD := func(ctx context.Context, ep map[string]any) map[string]any {
 		GinkgoHelper()
 		var ic icd.ICD
@@ -665,25 +665,33 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 			Expect(ok).To(BeTrue(), "key %v is not in ICD %s", key, ic.Name)
 			return n
 		}
-		revealed := maps.Clone(ep)
-		revealed["icd"] = ic.Name
-		reads := as[[]any](ep["messages"])
-		revealedReads := make([]any, len(reads))
-		for i, r := range reads {
-			read := maps.Clone(as[map[string]any](r))
-			read["message"] = name(read["message"])
-			if index, ok := read["index"]; ok {
-				read["index"] = name(index)
+		revealMessage := func(m any) map[string]any {
+			GinkgoHelper()
+			revealed := maps.Clone(as[map[string]any](m))
+			revealed["message"] = name(revealed["message"])
+			if index, ok := revealed["index"]; ok {
+				revealed["index"] = name(index)
 			}
-			bindings := as[[]any](read["bindings"])
+			bindings := as[[]any](revealed["bindings"])
 			revealedBindings := make([]any, len(bindings))
 			for j, b := range bindings {
 				binding := maps.Clone(as[map[string]any](b))
 				binding["field"] = name(binding["field"])
 				revealedBindings[j] = binding
 			}
-			read["bindings"] = revealedBindings
-			revealedReads[i] = read
+			revealed["bindings"] = revealedBindings
+			return revealed
+		}
+		revealed := maps.Clone(ep)
+		revealed["icd"] = ic.Name
+		if write, ok := ep["message"]; ok {
+			revealed["message"] = revealMessage(write)
+			return revealed
+		}
+		reads := as[[]any](ep["messages"])
+		revealedReads := make([]any, len(reads))
+		for i, r := range reads {
+			revealedReads[i] = revealMessage(r)
 		}
 		revealed["messages"] = revealedReads
 		return revealed
@@ -745,8 +753,8 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 			expected := MustSucceed(store.Normalize(ctx, db, 0, legacy))
 			// The store assigns the key on write.
 			delete(expected, "key")
-			// The write moves the staged fields into an ICD, fills in each read, and
-			// disables an endpoint whose fields are all disabled.
+			// The write moves the staged fields into an ICD. A read endpoint also gets
+			// its reads, and is disabled when its fields are all disabled.
 			if legacyICDs.Contains(env.Type) {
 				delete(expected, "inline")
 				for _, ep := range as[[]any](expected["endpoints"]) {
