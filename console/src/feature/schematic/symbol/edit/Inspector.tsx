@@ -102,6 +102,12 @@ const useScope = <F extends Spec.Field>(name: string): Scope<F> => {
   };
   // An edit at every value adds a look that a look of the target on a value hides.
   const covering = at == null && source?.part === part ? other(source) : undefined;
+  // On a state with one value, the edit goes in at that value, after the covering look.
+  const { list } = inspector.values;
+  const one = covering != null && list.length === 1 ? list[0].value : undefined;
+  const edited = at ?? one;
+  // Property offers By state only for a state with more than one value.
+  const orByState = list.length > 1 ? ", or set it by state" : "";
   return {
     ...inspector,
     ...field,
@@ -113,9 +119,9 @@ const useScope = <F extends Spec.Field>(name: string): Scope<F> => {
     inheritedFrom: other(inherited),
     own: Spec.own(symbol, part, f, shown),
     lock:
-      covering == null
+      covering == null || one != null
         ? undefined
-        : `${covering} gives this. Change it there, or set it by state.`,
+        : `${covering} gives this. Change it there${orByState}.`,
     onChange: (v) => {
       const spec = get(path.data).value;
       // A stored static symbol can hold looks on Base, which an edit at every value
@@ -124,7 +130,8 @@ const useScope = <F extends Spec.Field>(name: string): Scope<F> => {
         spec.variant === "static" && !FLAGS.symbolNodes
           ? { ...spec, looks: Spec.staticLooks(spec.looks) }
           : spec;
-      set(path.data, Spec.setOwn(from, part, f, v, at == null ? undefined : shown));
+      const to = edited == null ? undefined : { ...shown, value: edited };
+      set(path.data, Spec.setOwn(from, part, f, v, to));
     },
   };
 };

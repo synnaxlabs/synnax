@@ -1038,7 +1038,12 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     // previewFault opens a symbol whose Body takes the entry color of Active, and a red
     // stroke at Active 0, then previews Fault at Trip (2). Active also has an entry at
     // 2, which a preview that gave 2 to every state would draw.
-    const previewFault = async () => {
+    const previewFault = async (
+      faultEntries: { key: string; value: number; name: string }[] = [
+        { key: "ok", value: 0, name: "OK" },
+        { key: "trip", value: 2, name: "Trip" },
+      ],
+    ) => {
       const active = await client.enumerations.create({
         name: uniqueName("valve"),
         entries: [
@@ -1058,10 +1063,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       });
       const faults = await client.enumerations.create({
         name: uniqueName("fault"),
-        entries: [
-          { key: "ok", value: 0, name: "OK" },
-          { key: "trip", value: 2, name: "Trip" },
-        ],
+        entries: faultEntries,
       });
       await openPainted({
         variant: "actuator",
@@ -1113,6 +1115,28 @@ describe("Schematic.Symbol.Edit.useModal", () => {
         expect(stroke.style.getPropertyValue("--pluto-bg")).toBe(color.cssString(RED)),
       );
       expect(stroke.getAttribute("aria-disabled")).toBe("true");
+      fireEvent.pointerEnter(stroke);
+      expect((await screen.findByRole("tooltip")).textContent).toBe(
+        "Active gives this. Change it there, or set it by state.",
+      );
+    });
+
+    it("edits a state with one value over a look of another state", async () => {
+      await previewFault([{ key: "trip", value: 2, name: "Trip" }]);
+      const stroke = screen.getByLabelText("Stroke");
+      await waitFor(() =>
+        expect(stroke.style.getPropertyValue("--pluto-bg")).toBe(color.cssString(RED)),
+      );
+      expect(stroke.getAttribute("aria-disabled")).toBeNull();
+      fireEvent.click(stroke);
+      fireEvent.click(await screen.findByText("Node color"));
+      const { primary } = Theming.themeZ.parse(Theming.SYNNAX_DARK).colors;
+      await waitFor(() => {
+        const shape = getPreviewTransformWrapper(document.body).querySelector("#body");
+        assertDefined(shape);
+        const drawn = color.construct(getComputedStyle(shape).stroke);
+        expect(color.hex(drawn)).toBe(color.hex(primary.z));
+      });
     });
 
     it("draws an edit by state over a look of another state", async () => {
