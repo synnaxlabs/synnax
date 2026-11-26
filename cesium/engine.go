@@ -51,11 +51,11 @@ type engine struct {
 	log          *log.Log
 	ckpt         *checkpoint.Checkpointer
 	budget       *segment.Budget
-	// handles holds the read handle of each segment file that a read opened, by key and
+	// handles holds the read handles of each segment file that reads opened, by key and
 	// segment ID, until the file is removed or the engine closes.
 	handles struct {
 		sync.RWMutex
-		m map[ChannelKey]map[uint64]*segment.Handle
+		m map[ChannelKey]map[uint64]*segmentHandles
 	}
 	// head is the generation of the head that recovery used.
 	head uint64
@@ -119,7 +119,7 @@ func openEngine(o *options) (*engine, error) {
 		unstored:     telem.NewAlignmentCounter(telem.LeadingDomain),
 	}
 	e.cover.advanced = make(chan struct{})
-	e.handles.m = make(map[ChannelKey]map[uint64]*segment.Handle)
+	e.handles.m = make(map[ChannelKey]map[uint64]*segmentHandles)
 	if snapshot == nil {
 		if snapshot, err = e.create(o, r); err != nil {
 			return nil, err
@@ -352,7 +352,7 @@ func (e *engine) waitCovered(ctx context.Context, sequence uint64) error {
 	}
 }
 
-// unlink closes the read handle of each segment of dead and removes its file.
+// unlink closes the read handles of each segment of dead and removes its file.
 func (e *engine) unlink(dead []state.Dead) error {
 	for _, d := range dead {
 		if err := errors.Join(
@@ -365,57 +365,100 @@ func (e *engine) unlink(dead []state.Dead) error {
 	return nil
 }
 
-// handle returns the read handle of segment id of key, which every read of the segment
-// shares.
-func (e *engine) handle(key ChannelKey, id uint64) *segment.Handle {
-	e.handles.RLock()
-	h := e.handles.m[key][id]
-	e.handles.RUnlock()
-	if h != nil {
+// segmentHandles holds the read handles of one segment file. A read takes one that no
+// other read holds, so parallel reads never share a file.
+type segmentHandles struct {
+	name string
+	mu   sync.Mutex
+	idle []*segment.Handle
+	all  []*segment.Handle
+}
+
+// take returns a handle of s that no read holds, and opens a new one through b when
+// every handle is in use.
+func (s *segmentHandles) take(b *segment.Budget, fs xfs.FS) *segment.Handle {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if n := len(s.idle); n > 0 {
+		h := s.idle[n-1]
+		s.idle = s.idle[:n-1]
 		return h
+	}
+	h := b.Open(fs, s.name)
+	s.all = append(s.all, h)
+	return h
+}
+
+// give returns h, which take returned, for another read.
+func (s *segmentHandles) give(h *segment.Handle) {
+	s.mu.Lock()
+	s.idle = append(s.idle, h)
+	s.mu.Unlock()
+}
+
+// close closes every handle of s. It waits for the reads that hold them.
+func (s *segmentHandles) close() error {
+	s.mu.Lock()
+	all := s.all
+	s.all, s.idle = nil, nil
+	s.mu.Unlock()
+	var err error
+	for _, h := range all {
+		err = errors.Join(err, h.Close())
+	}
+	return err
+}
+
+// readHandles returns the read handles of segment id of key.
+func (e *engine) readHandles(key ChannelKey, id uint64) *segmentHandles {
+	e.handles.RLock()
+	hs := e.handles.m[key][id]
+	e.handles.RUnlock()
+	if hs != nil {
+		return hs
 	}
 	e.handles.Lock()
 	defer e.handles.Unlock()
 	segs := e.handles.m[key]
 	if segs == nil {
-		segs = make(map[uint64]*segment.Handle)
+		segs = make(map[uint64]*segmentHandles)
 		e.handles.m[key] = segs
 	}
-	if h = segs[id]; h == nil {
-		h = e.budget.Open(e.fs, segmentName(key, id))
-		segs[id] = h
+	if hs = segs[id]; hs == nil {
+		hs = &segmentHandles{name: segmentName(key, id)}
+		segs[id] = hs
 	}
-	return h
+	return hs
 }
 
-// closeHandle closes the read handle of segment id of key, if a read opened one. It
-// waits for the reads that hold the handle.
+// closeHandle closes the read handles of segment id of key, if reads opened any. It
+// waits for the reads that hold them.
 func (e *engine) closeHandle(key ChannelKey, id uint64) error {
 	e.handles.Lock()
-	h := e.handles.m[key][id]
+	hs := e.handles.m[key][id]
 	delete(e.handles.m[key], id)
 	e.handles.Unlock()
-	if h == nil {
+	if hs == nil {
 		return nil
 	}
-	return h.Close()
+	return hs.close()
 }
 
 // closeHandles closes the read handles of the segments of keys. It waits for the reads
 // that hold them.
 func (e *engine) closeHandles(keys ...ChannelKey) error {
-	var hs []*segment.Handle
+	var sets []*segmentHandles
 	e.handles.Lock()
 	for _, k := range keys {
-		for _, h := range e.handles.m[k] {
-			hs = append(hs, h)
+		for _, hs := range e.handles.m[k] {
+			sets = append(sets, hs)
 		}
 		delete(e.handles.m, k)
 	}
 	e.handles.Unlock()
 	var err error
-	for _, h := range hs {
-		err = errors.Join(err, h.Close())
+	for _, hs := range sets {
+		err = errors.Join(err, hs.close())
 	}
 	return err
 }
@@ -501,7 +544,7 @@ func (e *engine) close() error {
 	return e.closeErr
 }
 
-// closeAllHandles closes the read handle of every segment.
+// closeAllHandles closes the read handles of every segment.
 func (e *engine) closeAllHandles() error {
 	e.handles.RLock()
 	keys := slices.Collect(maps.Keys(e.handles.m))

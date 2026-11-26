@@ -22,13 +22,15 @@ import (
 )
 
 // logSource opens the cursors of one key on the pointer log layout for one read. The
-// calls of a read never overlap, so the source gives the cursor that a call closed to
-// the next call.
+// calls of a read never overlap, so the source gives the cursor and range reader that a
+// call closed to the next call.
 type logSource struct {
 	e   *engine
 	key ChannelKey
 	// closed is the cursor that the last Close gave back, or nil.
 	closed *logCursor
+	// spare is the range reader that the last reader Close gave back, or nil.
+	spare *logReader
 }
 
 var _ domain.Source = (*logSource)(nil)
@@ -73,8 +75,8 @@ type logCursor struct {
 	ranges []logRange
 	pos    int
 	valid  bool
-	// cur is the range of the last valid move, which a move that fails keeps, as on the
-	// old layout.
+	// cur is the range of the last valid move, which a failed Next or Prev keeps, as on
+	// the old layout. A seek loads again, so one that finds no range leaves none.
 	cur logRange
 }
 
@@ -115,6 +117,16 @@ func (c *logCursor) at(pos int) bool {
 	return c.valid
 }
 
+// seek moves the cursor to position pos of the load that a seek just made. A seek that
+// finds no range leaves the cursor at pos with no range, so it never offers a range
+// outside its load.
+func (c *logCursor) seek(pos int) bool {
+	if !c.at(pos) {
+		c.pos, c.cur = pos, logRange{}
+	}
+	return c.valid
+}
+
 // SetBounds implements domain.Ranges.
 func (c *logCursor) SetBounds(bounds telem.TimeRange) {
 	c.bounds, c.valid = bounds, false
@@ -143,7 +155,7 @@ func (c *logCursor) SeekLE(_ context.Context, stamp telem.TimeStamp) bool {
 			return 1
 		},
 	)
-	return c.at(pos - 1)
+	return c.seek(pos - 1)
 }
 
 // SeekGE implements domain.Ranges.
@@ -156,7 +168,7 @@ func (c *logCursor) SeekGE(_ context.Context, stamp telem.TimeStamp) bool {
 			return cmp.Compare(r.ptr.Last, t)
 		},
 	)
-	return c.at(pos)
+	return c.seek(pos)
 }
 
 // Next implements domain.Ranges.
@@ -180,18 +192,28 @@ func (c *logCursor) Size() telem.Size { return telem.Size(c.cur.ptr.Length) }
 // OpenReader implements domain.Ranges.
 func (c *logCursor) OpenReader(context.Context) (domain.RangeReader, error) {
 	r := c.cur
-	h := c.e.handle(c.key, r.seg.ID)
+	hs := c.e.readHandles(c.key, r.seg.ID)
+	h := hs.take(c.e.budget, c.e.fs)
 	file, err := h.Hold()
 	if err != nil {
+		hs.give(h)
 		return nil, err
 	}
-	return &logReader{
+	lr := c.src.spare
+	c.src.spare = nil
+	if lr == nil {
+		lr = &logReader{}
+	}
+	*lr = logReader{
+		src:    c.src,
 		cfg:    c.e.segmentConfig(*r.seg),
+		hs:     hs,
 		h:      h,
 		file:   file,
-		offset: int64(r.ptr.Offset),
-		size:   int64(r.ptr.Length),
-	}, nil
+		offset: r.ptr.Offset,
+		size:   r.ptr.Length,
+	}
+	return lr, nil
 }
 
 // Close implements domain.Ranges. It gives c back to its source, so c must not be used
@@ -202,14 +224,16 @@ func (c *logCursor) Close() error {
 	return nil
 }
 
-// logReader reads the bytes of one pointer from its segment file, which it holds open
-// until Close.
+// logReader reads the bytes of one pointer from its segment file, through a handle that
+// no other read holds, which it holds open until Close.
 type logReader struct {
+	src    *logSource
 	cfg    segment.Config
+	hs     *segmentHandles
 	h      *segment.Handle
 	file   io.ReaderAt
-	offset int64
-	size   int64
+	offset uint32
+	size   uint32
 }
 
 var _ domain.RangeReader = (*logReader)(nil)
@@ -217,11 +241,11 @@ var _ domain.RangeReader = (*logReader)(nil)
 // ReadAt implements domain.RangeReader. A read past the end of the pointer returns the
 // bytes before it with io.EOF.
 func (r *logReader) ReadAt(p []byte, off int64) (int, error) {
-	if off >= r.size {
+	if off >= int64(r.size) {
 		return 0, io.EOF
 	}
-	n := int(min(int64(len(p)), r.size-off))
-	if err := r.cfg.ReadAt(r.file, p[:n], r.offset+off); err != nil {
+	n := int(min(int64(len(p)), int64(r.size)-off))
+	if err := r.cfg.ReadAt(r.file, p[:n], int64(r.offset)+off); err != nil {
 		return 0, err
 	}
 	if n < len(p) {
@@ -233,8 +257,11 @@ func (r *logReader) ReadAt(p []byte, off int64) (int, error) {
 // Size implements domain.RangeReader.
 func (r *logReader) Size() telem.Size { return telem.Size(r.size) }
 
-// Close implements domain.RangeReader.
+// Close implements domain.RangeReader. It gives r back to its source, so r must not be
+// used after it.
 func (r *logReader) Close() error {
 	r.h.Release()
+	r.hs.give(r.h)
+	r.src.spare = r
 	return nil
 }
