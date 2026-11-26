@@ -13,6 +13,7 @@ import { type ReactElement, type Ref, useState } from "react";
 
 import { Color } from "@/color";
 import { CSS } from "@/css";
+import { Control } from "@/schematic/node/common/control";
 import { Custom } from "@/schematic/node/common/custom";
 import { Grid } from "@/schematic/node/common/grid";
 import { Indicator } from "@/schematic/node/common/indicator";
@@ -28,6 +29,8 @@ import { Tooltip } from "@/schematic/tooltip";
 import { SymbolNode } from "@/vis/symbolNode";
 
 type Config = schematic.SymbolNodeConfig;
+
+const DEFAULT_CONTROL = Control.stateConfigZ.parse({});
 
 // bindStates applies the bindings of states to the symbol of resolved.
 const bindStates = (
@@ -170,10 +173,12 @@ export const Node = ({
     config;
   const resolved = useResolved(config.spec);
   const bound = bindStates(resolved, states);
+  const commandChannels =
+    bound.spec == null ? [] : bind.commandChannels(bound.spec, states, config.commands);
   const { readings, set } = SymbolNode.use({
     aetherKey: nodeKey,
     sources: bind.sources(bind.channels(states)),
-    sinks: bound.spec == null ? {} : bind.sinks(bound.spec, states, config.commands),
+    sinks: bind.sinks(commandChannels),
     stalenessTimeout,
   });
   const value = bind.values(states, readings);
@@ -215,6 +220,11 @@ export const Node = ({
       {...scaleResize}
     >
       <Label.Label config={label} onChange={onConfigChange} />
+      <Control.State
+        config={config.control ?? DEFAULT_CONTROL}
+        channels={commandChannels}
+        onChange={onConfigChange}
+      />
       <Indicator.Slot
         stale={bind.stale(states, readings)}
         unknown={missing.size > 0 || unmatched}

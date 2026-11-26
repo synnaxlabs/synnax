@@ -70,7 +70,7 @@ export const createToggle = <C extends ToggleConfig>(
         <Label.Label config={label} onChange={onConfigChange} />
         <Control.State
           config={control}
-          channel={commandChannel}
+          channels={[commandChannel]}
           onChange={onConfigChange}
         >
           {stale ? <Staleness.Badge /> : null}
