@@ -65,7 +65,7 @@ FlowControl enum {
 }
 
 Properties struct {
-    port         string = "" {
+    port         string      {
         @doc value           "is the path of the port, such as /dev/ttyUSB0 or COM3."
         @validate min_length 1
     }
