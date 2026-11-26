@@ -103,11 +103,7 @@ func (r Renderer) Literal(
 func (r Renderer) EnumVariant(ev validation.EnumVariant) string {
 	ref := fmt.Sprintf("%s::%s", ev.Type.Name, lo.PascalCase(ev.Variant.Name))
 	if form, ok := ev.Type.Form.(resolution.EnumForm); ok && !form.IsIntEnum {
-		ref = fmt.Sprintf(
-			"%s_%s",
-			cppnaming.ScreamingSnake(ev.Type.Name),
-			cppnaming.ScreamingSnake(ev.Variant.Name),
-		)
+		ref = cppnaming.EnumConstant(ev.Type.Name, ev.Variant.Name)
 	}
 	if ev.Type.FilePath != r.FilePath {
 		targetOutputPath := enum.FindOutputPath(ev.Type, r.Table, "cpp")

@@ -677,6 +677,31 @@ var _ = Describe("Read task", func() {
 		},
 	)
 
+	It("Should name the topics of the task when the consumer fails to join its group",
+		func(ctx SpecContext) {
+			index, data := createIndexed(ctx, telem.Float64T)
+			dev := createDevice(ctx, clusterProperties())
+			topic := newTopic()
+			dt, t := configure(ctx, kafka.ReadConfig{
+				Device: dev.Key,
+				Topics: oneTopic(topic, single(ctx, stampedFields(index, data))),
+			})
+			cluster.Fault(kfake.Fault{
+				Keys:  []kmsg.Key{kmsg.JoinGroup},
+				Group: "kafka-" + t.Key.String(),
+				Err:   kerr.GroupAuthorizationFailed,
+			})
+			start(ctx, dt, t)
+			Eventually(func(g Gomega) {
+				stat := taskStatus(ctx, t)
+				g.Expect(stat.Message).To(Equal("Failed to fetch records"))
+				g.Expect(stat.Description).To(Equal("consuming " + topic +
+					": unable to join group session: GROUP_AUTHORIZATION_FAILED: Not " +
+					"authorized to access group: Group authorization failed."))
+			}).WithTimeout(15 * time.Second).Should(Succeed())
+		},
+	)
+
 	DescribeTable("Should answer a stop after the consumer fails with a stopped status",
 		func(ctx SpecContext, fail func(context.Context, string), message string) {
 			index, data := createIndexed(ctx, telem.Float64T)

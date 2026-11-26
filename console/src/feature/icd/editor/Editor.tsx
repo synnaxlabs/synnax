@@ -21,9 +21,11 @@ import { Access, ICD, Panel } from "@synnaxlabs/pluto";
 import { deep } from "@synnaxlabs/x";
 import { type ReactElement, useEffect } from "react";
 
+import { Framing } from "@/feature/icd/editor/Framing";
 import { Message } from "@/feature/icd/editor/Message";
 import { Messages } from "@/feature/icd/editor/Messages";
 import { useImport } from "@/feature/icd/useImport";
+import { FLAGS } from "@/flags";
 import { CSS } from "@/platform/css";
 import { Task } from "@/platform/task";
 import { Session } from "@/session";
@@ -139,6 +141,7 @@ export const Editor = (): ReactElement => {
             </Button.Button>
           )}
         </Flex.Box>
+        {FLAGS.bus && <Framing />}
         <Flex.Box x bordered grow empty className={CSS.BE("icd-editor", "body")}>
           <Body
             selected={selected}
