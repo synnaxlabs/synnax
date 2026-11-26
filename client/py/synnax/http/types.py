@@ -183,7 +183,10 @@ class WriteTask(
             if ep.disabled or ep.message is None:
                 continue
             for binding in ep.message.bindings:
-                if isinstance(binding, icd.ChannelWriteBinding):
+                if (
+                    isinstance(binding, icd.ChannelWriteBinding)
+                    and binding.channel != 0
+                ):
                     write[f"{ep.method} {ep.path}#{binding.field}"] = binding.channel
         dev.properties = props
         device_client.dispatch(
