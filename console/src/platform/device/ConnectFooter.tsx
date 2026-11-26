@@ -38,8 +38,7 @@ export const ConnectFooter = ({
   const busy = variant === "loading";
   Modals.useBusy(busy);
   let summary: ReactElement | null = null;
-  if (reason != null)
-    summary = <Status.Summary variant="warning" message={reason.message} />;
+  if (reason != null) summary = <Status.Summary variant="warning" {...reason} />;
   else if (variant !== "success")
     summary = <Status.Summary variant={variant} message={message} />;
   return (
