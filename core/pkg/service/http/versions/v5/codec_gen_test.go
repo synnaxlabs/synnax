@@ -219,22 +219,6 @@ var _ = Describe("Codec", func() {
 								}},
 							},
 						}),
-						Channel: v5.ChannelField{
-							Pointer:    "test_23",
-							JSONType:   payload.JSONType("number"),
-							Channel:    channel.Key(26),
-							Name:       "test_26",
-							DataType:   telem.DataType("test_27"),
-							TimeFormat: new(payload.TimeFormat("iso8601")),
-							EnumValues: []payload.EnumEntry{{Label: "test_30", Value: 31.5}},
-						},
-						Fields: []v5.WriteField{
-							{Variant: v5.StaticWriteField{
-								BaseWriteField: v5.BaseWriteField{Key: "test_33", Pointer: "test_34"},
-								JSONType:       payload.JSONType("number"),
-								Value:          any(map[string]any{"key_36": "value_36"}),
-							}},
-						},
 					},
 				},
 			}),
@@ -283,22 +267,6 @@ var _ = Describe("Codec", func() {
 						}},
 					},
 				}),
-				Channel: v5.ChannelField{
-					Pointer:    "test_19",
-					JSONType:   payload.JSONType("number"),
-					Channel:    channel.Key(22),
-					Name:       "test_22",
-					DataType:   telem.DataType("test_23"),
-					TimeFormat: new(payload.TimeFormat("iso8601")),
-					EnumValues: []payload.EnumEntry{{Label: "test_26", Value: 27.5}},
-				},
-				Fields: []v5.WriteField{
-					{Variant: v5.StaticWriteField{
-						BaseWriteField: v5.BaseWriteField{Key: "test_29", Pointer: "test_30"},
-						JSONType:       payload.JSONType("number"),
-						Value:          any(map[string]any{"key_32": "value_32"}),
-					}},
-				},
 			}),
 			Entry("zero values", v5.WriteEndpoint{
 				Key:         "",
@@ -309,16 +277,6 @@ var _ = Describe("Codec", func() {
 				QueryParams: []v5.QueryParam{},
 				ICD:         nil,
 				Message:     nil,
-				Channel: v5.ChannelField{
-					Pointer:    "",
-					JSONType:   payload.JSONType(""),
-					Channel:    channel.Key(0),
-					Name:       "",
-					DataType:   telem.DataType(""),
-					TimeFormat: nil,
-					EnumValues: []payload.EnumEntry{},
-				},
-				Fields: []v5.WriteField{},
 			}),
 			Entry("empty collections", v5.WriteEndpoint{
 				Key:         "test_1",
@@ -332,16 +290,6 @@ var _ = Describe("Codec", func() {
 					Message:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809"),
 					Bindings: []icd.WriteBinding{},
 				}),
-				Channel: v5.ChannelField{
-					Pointer:    "test_12",
-					JSONType:   payload.JSONType("number"),
-					Channel:    channel.Key(15),
-					Name:       "test_15",
-					DataType:   telem.DataType("test_16"),
-					TimeFormat: new(payload.TimeFormat("iso8601")),
-					EnumValues: []payload.EnumEntry{},
-				},
-				Fields: []v5.WriteField{},
 			}),
 		)
 	})
@@ -491,22 +439,6 @@ func BenchmarkEncodeDecodeWriteConfig(b *testing.B) {
 						}},
 					},
 				}),
-				Channel: v5.ChannelField{
-					Pointer:    "test_23",
-					JSONType:   payload.JSONType("number"),
-					Channel:    channel.Key(26),
-					Name:       "test_26",
-					DataType:   telem.DataType("test_27"),
-					TimeFormat: new(payload.TimeFormat("iso8601")),
-					EnumValues: []payload.EnumEntry{{Label: "test_30", Value: 31.5}},
-				},
-				Fields: []v5.WriteField{
-					{Variant: v5.StaticWriteField{
-						BaseWriteField: v5.BaseWriteField{Key: "test_33", Pointer: "test_34"},
-						JSONType:       payload.JSONType("number"),
-						Value:          any(map[string]any{"key_36": "value_36"}),
-					}},
-				},
 			},
 		},
 	}
@@ -546,22 +478,6 @@ func BenchmarkEncodeDecodeWriteEndpoint(b *testing.B) {
 				}},
 			},
 		}),
-		Channel: v5.ChannelField{
-			Pointer:    "test_19",
-			JSONType:   payload.JSONType("number"),
-			Channel:    channel.Key(22),
-			Name:       "test_22",
-			DataType:   telem.DataType("test_23"),
-			TimeFormat: new(payload.TimeFormat("iso8601")),
-			EnumValues: []payload.EnumEntry{{Label: "test_26", Value: 27.5}},
-		},
-		Fields: []v5.WriteField{
-			{Variant: v5.StaticWriteField{
-				BaseWriteField: v5.BaseWriteField{Key: "test_29", Pointer: "test_30"},
-				JSONType:       payload.JSONType("number"),
-				Value:          any(map[string]any{"key_32": "value_32"}),
-			}},
-		},
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -823,22 +739,6 @@ func FuzzDecodeWriteConfig(f *testing.F) {
 							}},
 						},
 					}),
-					Channel: v5.ChannelField{
-						Pointer:    "test_23",
-						JSONType:   payload.JSONType("number"),
-						Channel:    channel.Key(26),
-						Name:       "test_26",
-						DataType:   telem.DataType("test_27"),
-						TimeFormat: new(payload.TimeFormat("iso8601")),
-						EnumValues: []payload.EnumEntry{{Label: "test_30", Value: 31.5}},
-					},
-					Fields: []v5.WriteField{
-						{Variant: v5.StaticWriteField{
-							BaseWriteField: v5.BaseWriteField{Key: "test_33", Pointer: "test_34"},
-							JSONType:       payload.JSONType("number"),
-							Value:          any(map[string]any{"key_36": "value_36"}),
-						}},
-					},
 				},
 			},
 		}
@@ -918,22 +818,6 @@ func FuzzDecodeWriteEndpoint(f *testing.F) {
 					}},
 				},
 			}),
-			Channel: v5.ChannelField{
-				Pointer:    "test_19",
-				JSONType:   payload.JSONType("number"),
-				Channel:    channel.Key(22),
-				Name:       "test_22",
-				DataType:   telem.DataType("test_23"),
-				TimeFormat: new(payload.TimeFormat("iso8601")),
-				EnumValues: []payload.EnumEntry{{Label: "test_26", Value: 27.5}},
-			},
-			Fields: []v5.WriteField{
-				{Variant: v5.StaticWriteField{
-					BaseWriteField: v5.BaseWriteField{Key: "test_29", Pointer: "test_30"},
-					JSONType:       payload.JSONType("number"),
-					Value:          any(map[string]any{"key_32": "value_32"}),
-				}},
-			},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -951,16 +835,6 @@ func FuzzDecodeWriteEndpoint(f *testing.F) {
 			QueryParams: []v5.QueryParam{},
 			ICD:         nil,
 			Message:     nil,
-			Channel: v5.ChannelField{
-				Pointer:    "",
-				JSONType:   payload.JSONType(""),
-				Channel:    channel.Key(0),
-				Name:       "",
-				DataType:   telem.DataType(""),
-				TimeFormat: nil,
-				EnumValues: []payload.EnumEntry{},
-			},
-			Fields: []v5.WriteField{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -981,16 +855,6 @@ func FuzzDecodeWriteEndpoint(f *testing.F) {
 				Message:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809"),
 				Bindings: []icd.WriteBinding{},
 			}),
-			Channel: v5.ChannelField{
-				Pointer:    "test_12",
-				JSONType:   payload.JSONType("number"),
-				Channel:    channel.Key(15),
-				Name:       "test_15",
-				DataType:   telem.DataType("test_16"),
-				TimeFormat: new(payload.TimeFormat("iso8601")),
-				EnumValues: []payload.EnumEntry{},
-			},
-			Fields: []v5.WriteField{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

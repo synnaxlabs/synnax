@@ -70,19 +70,21 @@ inline wasmtime::Val sample_to_wasm(const x::telem::SampleValue &val) {
 /// @note Needed because protobuf stores all numbers as double.
 inline wasmtime::Val
 sample_to_wasm(const x::telem::SampleValue &val, const types::Type &type) {
-    const auto as_double = x::telem::cast<double>(val);
     switch (type.kind) {
         case types::Kind::F64:
-            return wasmtime::Val(as_double);
+            return wasmtime::Val(x::telem::cast<double>(val));
         case types::Kind::F32:
-            return wasmtime::Val(static_cast<float>(as_double));
+            return wasmtime::Val(x::telem::cast<float>(val));
         case types::Kind::I64:
+            return wasmtime::Val(x::telem::cast<int64_t>(val));
         case types::Kind::U64:
-            return wasmtime::Val(static_cast<int64_t>(as_double));
+            return wasmtime::Val(static_cast<int64_t>(x::telem::cast<uint64_t>(val)));
         case types::Kind::Bool:
-            return wasmtime::Val(static_cast<int32_t>(as_double != 0 ? 1 : 0));
+            return wasmtime::Val(
+                static_cast<int32_t>(x::telem::cast<double>(val) != 0 ? 1 : 0)
+            );
         default:
-            return wasmtime::Val(static_cast<int32_t>(as_double));
+            return wasmtime::Val(static_cast<int32_t>(x::telem::cast<int64_t>(val)));
     }
 }
 

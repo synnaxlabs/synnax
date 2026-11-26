@@ -10,9 +10,8 @@
 import { icd } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import type { FC, ReactElement } from "react";
+import type { ReactElement } from "react";
 
-import { FLAGS } from "@/flags";
 import { Panel } from "@/platform/panel";
 import { Session } from "@/session";
 
@@ -22,7 +21,8 @@ export interface OpenInEditorProps {
   message: icd.MessageKey;
 }
 
-const EditorButton = ({ icdKey, message }: OpenInEditorProps): ReactElement => {
+/** Opens the ICD editor at a message. */
+export const OpenInEditor = ({ icdKey, message }: OpenInEditorProps): ReactElement => {
   const openTab = Panel.useOpenTab();
   const dispatch = Session.useDispatch();
   const handleClick = () => {
@@ -41,8 +41,3 @@ const EditorButton = ({ icdKey, message }: OpenInEditorProps): ReactElement => {
     </Button.Button>
   );
 };
-
-/** Opens the ICD editor at a message. Renders nothing while ICDs are behind a flag. */
-export const OpenInEditor: FC<OpenInEditorProps> = FLAGS.icds
-  ? EditorButton
-  : () => null;

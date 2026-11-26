@@ -8,8 +8,11 @@
 #  included in the file licenses/APL.txt.
 
 
-from console.notifications import click_past
+from playwright.sync_api import Locator
+
 from console.schematic.symbol import Properties, Symbol
+
+_ACTIVE = "Active"
 
 
 class Valve(Symbol):
@@ -57,68 +60,41 @@ class Valve(Symbol):
     def set_properties(
         self,
         *,
-        channel_name: str | None = None,
         state_channel: str | None = None,
         command_channel: str | None = None,
         show_control_chip: bool | None = None,
         activation_delay: float | None = None,
     ) -> None:
-        """Set Valve properties including channel settings."""
-        self.click()
-
-        # Navigate to Properties > Control tab
-        self.open_properties_tab()
-        click_past(self.page.get_by_text("Control").last)
-
-        if state_channel is not None:
-            self.set_channel(section="State", channel_name=state_channel)
-
-        if command_channel is not None:
-            self.set_channel(section="Command", channel_name=command_channel)
-
+        """Set the channels of the valve's Active state and its click settings."""
+        if state_channel is not None or command_channel is not None:
+            self.bind_state(_ACTIVE, channel=state_channel, command=command_channel)
+        if show_control_chip is None and activation_delay is None:
+            return
+        self.open_form_tab("control")
         if activation_delay is not None:
             self.layout.fill_input_field("Delay", str(activation_delay))
             self.page.keyboard.press("Enter")
-
         if show_control_chip is not None:
-            chip_toggle = (
-                self.page.locator("text=Control chip")
-                .locator("..")
-                .locator("input[type='checkbox']")
-            )
-            if chip_toggle.count() > 0:
-                current_state = chip_toggle.is_checked()
-                if current_state != show_control_chip:
-                    chip_toggle.click()
+            chip_toggle = self._control_chip_toggle()
+            if chip_toggle.is_checked() != show_control_chip:
+                chip_toggle.click()
 
     def get_properties(self, *, tab: str = "Control") -> Properties:
-        """Get the current properties of the symbol"""
-        super().get_properties(tab=tab)
-
-        props: Properties = {
-            "channel": "",
-            "activation_delay": -1.0,
-            "show_control_chip": False,
+        """Get the channels of the valve's Active state and its control chip."""
+        state_channel, command_channel = self.state_channels(_ACTIVE)
+        self.open_form_tab("control")
+        return {
+            "state_channel": state_channel,
+            "command_channel": command_channel,
+            "show_control_chip": self._control_chip_toggle().is_checked(),
         }
 
-        state_channel = self.channel_trigger("State")
-        if state_channel.count() > 0:
-            props["state_channel"] = state_channel.inner_text().strip()
-
-        command_channel = self.channel_trigger("Command")
-        if command_channel.count() > 0:
-            props["command_channel"] = command_channel.inner_text().strip()
-
-        # Control chip
-        chip_toggle = (
+    def _control_chip_toggle(self) -> Locator:
+        return (
             self.page.locator("text=Control chip")
             .locator("..")
             .locator("input[type='checkbox']")
         )
-        if chip_toggle.count() > 0:
-            props["show_control_chip"] = chip_toggle.is_checked()
-
-        return props
 
     def press(self) -> None:
         """Press button."""

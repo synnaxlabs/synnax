@@ -14,7 +14,7 @@ import { type ReactElement, Suspense } from "react";
 import { TABS } from "@/app/settings/tab";
 import type { Project } from "@/feature/project";
 import { Shell } from "@/feature/shell";
-import { Settings as PlatformSettings } from "@/platform/settings";
+import { Page } from "@/platform/page";
 import { Session } from "@/session";
 
 const { Content: Settings } = TABS.settings;
@@ -32,11 +32,11 @@ export const Splash = ({ onBack }: Project.SettingsProps): ReactElement => {
         </Button.Button>
       }
     >
-      <PlatformSettings.CardBackgroundContext value={0}>
+      <Page.CardBackgroundContext value={0}>
         <Suspense fallback={null}>
           <Settings />
         </Suspense>
-      </PlatformSettings.CardBackgroundContext>
+      </Page.CardBackgroundContext>
     </Shell.Page>
   );
 };

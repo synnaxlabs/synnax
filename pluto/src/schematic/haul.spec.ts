@@ -32,10 +32,10 @@ describe("createHaulItem", () => {
   });
 
   it("preserves the position and config fields on the data payload", () => {
-    const data: Schematic.HaulItemData<"valve"> = {
+    const data: Schematic.HaulItemData<"tank"> = {
       key: "n2",
       position: { x: 5, y: 7 },
-      config: { variant: "valve", label: { label: "V1" } },
+      config: { variant: "tank", label: { label: "T1" } },
     };
     expect(Schematic.createHaulItem(data).data).toEqual(data);
   });
@@ -55,7 +55,7 @@ describe("filterHaulItems", () => {
   it("keeps only schematic items and preserves their order", () => {
     const a = Schematic.createHaulItem({ key: "a", config: { variant: "tank" } });
     const b = foreignItem("b");
-    const c = Schematic.createHaulItem({ key: "c", config: { variant: "valve" } });
+    const c = Schematic.createHaulItem({ key: "c", config: { variant: "box" } });
     expect(Schematic.filterHaulItems([a, b, c])).toEqual([a, c]);
   });
 
