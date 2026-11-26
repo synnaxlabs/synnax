@@ -412,7 +412,14 @@ var _ = Describe("Name upgrade", func() {
 			))
 		}
 		first := MustSucceed(svctestutil.OpenLayer(ctx, n))
+		firstOpen := true
+		DeferCleanup(func() {
+			if firstOpen {
+				Expect(first.Close()).To(Succeed())
+			}
+		})
 		check()
+		firstOpen = false
 		Expect(first.Close()).To(Succeed())
 		MustOpen(svctestutil.OpenLayer(ctx, n))
 		check()
