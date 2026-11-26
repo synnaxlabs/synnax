@@ -9,6 +9,7 @@
 
 import type { schematic } from "@synnaxlabs/client";
 import { Menu } from "@synnaxlabs/lyra/menu";
+import { Panel as PlutoPanel, Schematic } from "@synnaxlabs/pluto";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import type { ReactElement } from "react";
@@ -27,11 +28,17 @@ import { documentIn } from "@/session/window/testutil";
 
 preloadTab();
 
-const Items = (): ReactElement => (
-  <Menu.Menu>
-    <SymbolMenuItems />
-  </Menu.Menu>
-);
+// Items renders the menu items in the schematic of the tab, as the canvas menu does.
+const Items = (): ReactElement => {
+  const { key } = PlutoPanel.useTabResource();
+  return (
+    <Schematic.Suspended schematicKey={key}>
+      <Menu.Menu>
+        <SymbolMenuItems />
+      </Menu.Menu>
+    </Schematic.Suspended>
+  );
+};
 
 const renderItems = async (config: schematic.NodeConfig) =>
   await renderSchematic(Items, {

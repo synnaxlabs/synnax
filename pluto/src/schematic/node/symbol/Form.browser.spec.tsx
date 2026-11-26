@@ -39,7 +39,8 @@ describe("Symbol form", () => {
     );
   });
   beforeEach(() => {
-    prompt.mockReset();
+    // The user cancels the prompt unless a test says otherwise.
+    prompt.mockReset().mockResolvedValue(null);
   });
 
   const render = async (tab: "telemetry" | "style" = "telemetry") =>

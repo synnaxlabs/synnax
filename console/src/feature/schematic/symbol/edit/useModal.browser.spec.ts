@@ -111,8 +111,16 @@ const zoomOf = (wrapper: HTMLElement): number => {
   return Number(match[1]);
 };
 
+// fitViewport sizes the viewport so the editor fits it until the test ends. A smaller
+// viewport squeezes the preview, so a fit or a pointer has no room.
+const fitViewport = async (): Promise<void> => {
+  const { width, height } = server.config.browser.viewport;
+  onTestFinished(async () => await page.viewport(width, height));
+  await page.viewport(1300, 900);
+};
+
 // fitZoom waits for the preview to fit its drawing on open, and returns the zoom. No
-// drawing of this spec fits at exactly 100%.
+// drawing of this spec fits at exactly 100%. Call fitViewport before the editor opens.
 const fitZoom = async (container: ParentNode = document.body): Promise<number> => {
   const wrapper = getPreviewTransformWrapper(container);
   await waitFor(() => expect(zoomOf(wrapper)).not.toBe(1));
@@ -312,11 +320,12 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       );
     });
 
-    it("offers the loop motions in a Loop group", async () => {
+    it("offers the loop motions under no group name", async () => {
       await createWithPart();
-      expect(screen.getByText("Loop")).toBeDefined();
       expect(screen.getByText("Spin")).toBeDefined();
       expect(screen.getByText("Flow")).toBeDefined();
+      // A group names itself only beside another group.
+      expect(screen.queryByText("Loop")).toBeNull();
       expect(screen.queryByText("Follow a value")).toBeNull();
     });
 
@@ -377,6 +386,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     });
 
     it("zooms the preview with keyboard shortcuts", async () => {
+      await fitViewport();
       const { picker } = await openCreateModal();
       await loadSVG(picker);
       const fit = await fitZoom();
@@ -393,6 +403,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     });
 
     it("pans the preview while shift-dragging", async () => {
+      await fitViewport();
       const { picker, handle } = await openCreateModal();
       await loadSVG(picker);
       await fitZoom(handle.baseElement);
@@ -415,6 +426,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     });
 
     it("zooms the preview with the scroll wheel", async () => {
+      await fitViewport();
       const { picker, handle } = await openCreateModal();
       await loadSVG(picker);
       const fit = await fitZoom(handle.baseElement);
@@ -565,6 +577,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     };
 
     it("fits and saves the preview of a symbol with no preview viewport", async () => {
+      await fitViewport();
       const grp = await createParentGroup();
       const payload = createSymbolPayload(uniqueName("unzoomed"));
       const { previewViewport: _, ...data } = payload.data;
@@ -706,6 +719,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     });
 
     it("saves a zoom and a rename of a symbol in use without asking", async () => {
+      await fitViewport();
       const { symbol } = await openUsedSymbol();
       const fit = await fitZoom();
       pressKey("Minus");
@@ -811,6 +825,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     });
 
     it("closes at once on Escape after a zoom of the preview", async () => {
+      await fitViewport();
       await openStored();
       const fit = await fitZoom();
       pressKey("Minus");
@@ -1747,6 +1762,9 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       await openFault();
       // The state list comes before the preview bar, which also names Fault.
       fireEvent.click(screen.getAllByText("Fault")[0]);
+      await within(getValueBar()).findByRole("button", { name: "Preview state Fault" });
+      fireEvent.click(getPartListItem("Body"));
+      await screen.findByRole("heading", { name: "Body" });
       byState("Fill");
       expect(await screen.findByLabelText("Fill while Trip")).toBeDefined();
     });
@@ -1817,11 +1835,11 @@ describe("Schematic.Symbol.Edit.useModal", () => {
               o.className.includes("lyra--hovered"),
           )
           .map((o) => o.textContent);
-      // The pointer moves to each item, as a hover can outlast it. A state moves the
-      // preview, and the inspector keeps the part.
+      // The pointer moves to each item, as a hover can outlast it. A state also moves
+      // the preview.
       await userEvent.click(screen.getByText("Fault"));
       await within(getValueBar()).findByRole("button", { name: "Preview state Fault" });
-      expect(lit()).toEqual([expect.stringMatching(/^Body/)]);
+      expect(lit()).toEqual([expect.stringMatching(/^Fault/)]);
       await userEvent.click(screen.getByText("Go"));
       await screen.findByRole("heading", { name: "Go" });
       expect(lit()).toEqual([expect.stringMatching(/^Go/)]);
@@ -2742,10 +2760,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     });
 
     it("keeps the mark of a filled selected shape under the pointer", async () => {
-      const { width, height } = server.config.browser.viewport;
-      onTestFinished(async () => await page.viewport(width, height));
-      // The pointer reaches the shape only when the editor fits the viewport.
-      await page.viewport(1300, 900);
+      await fitViewport();
       await openPainted({
         drawing: {
           type: "svg",
