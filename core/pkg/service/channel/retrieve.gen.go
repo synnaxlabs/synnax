@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/compare"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
@@ -38,9 +39,10 @@ type Retrieve struct {
 // onto the Retrieve so filter functions can resolve them off r.indexes
 // instead of relying on package-level state.
 type indexes struct {
-	name   *gorp.SortedIndex[Key, Channel, string]
-	group  *gorp.KeyReference[Key, Channel, group.Key]
-	search *gorp.SearchIndex[Key, Channel]
+	name    *gorp.SortedIndex[Key, Channel, string]
+	group   *gorp.KeyReference[Key, Channel, group.Key]
+	search  *gorp.SearchIndex[Key, Channel]
+	sibling *gorp.UniqueIndex[Key, Channel, group.Sibling]
 }
 
 // newIndexes constructs a fresh indexes value, allocating one instance of each
@@ -76,6 +78,17 @@ func newIndexes() indexes {
 				return []string{string(e.Name)}
 			},
 		),
+		sibling: group.NewMemberIndex[Key, Channel](
+			resource.TypeChannel,
+			func(e *Channel) group.Sibling {
+				var s group.Sibling
+				if e.Group != nil {
+					s.Parent = *e.Group
+				}
+				s.Name = e.Name
+				return s
+			},
+		),
 	}
 }
 
@@ -85,6 +98,7 @@ func (i indexes) all() []gorp.Index[Key, Channel] {
 	return []gorp.Index[Key, Channel]{
 		i.name,
 		i.search,
+		i.sibling,
 	}
 }
 

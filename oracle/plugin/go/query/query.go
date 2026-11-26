@@ -19,9 +19,11 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/domain/doc"
+	groupdomain "github.com/synnaxlabs/oracle/domain/group"
 	"github.com/synnaxlabs/oracle/domain/key"
 	"github.com/synnaxlabs/oracle/plugin"
 	plugindomain "github.com/synnaxlabs/oracle/plugin/domain"
+	"github.com/synnaxlabs/oracle/plugin/enum"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/imports"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/matcher"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
@@ -77,6 +79,9 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	searched := make(set.Set[fieldDecl])
 	referenced := make(set.Set[fieldDecl])
 	rt := newResourceTypes(req.Resolutions)
+	if err := checkNamespacedRetrieves(req.Resolutions); err != nil {
+		return nil, err
+	}
 
 	for _, typ := range slices.Concat(
 		req.Resolutions.StructTypes(),
@@ -260,6 +265,28 @@ type retrieveInfo struct {
 	// NestedRefs are the references the type holds below its top-level fields.
 	NestedRefs []nestedRef
 	Search     []searchInfo
+	// Sibling is the sibling index of a record whose group field is @group namespaced,
+	// or nil.
+	Sibling *siblingInfo
+}
+
+// siblingInfo is the sibling index that keeps the names of a namespaced record unique
+// among the records and the groups in its group.
+type siblingInfo struct {
+	// Group qualifies the names of the group package, such as "group.", or is empty in
+	// that package.
+	Group string
+	// Scope is the constant of the scope of the groups that hold the record.
+	Scope string
+	// Field is the Go field that holds the record's group, and Optional is true when it
+	// is a pointer.
+	Field    string
+	Optional bool
+	// Name is the Go field that holds the record's name. NameOptional is true when it
+	// is a pointer, and NameDistinct is true when its type is a distinct string type.
+	Name         string
+	NameOptional bool
+	NameDistinct bool
 }
 
 // HasSearch reports whether the retrieve declared any @search fields.
@@ -269,7 +296,7 @@ func (r retrieveInfo) HasSearch() bool { return len(r.Search) > 0 }
 // Used by the template to gate the indexes struct.
 func (r retrieveInfo) HasIndexes() bool {
 	return len(r.Indexes) > 0 || len(r.Refs) > 0 || len(r.NestedRefs) > 0 ||
-		r.HasSearch()
+		r.HasSearch() || r.Sibling != nil
 }
 
 // HasRefs reports whether the type holds any reference.
@@ -364,6 +391,10 @@ func generateRetrieveFile(
 		PrimitiveMapper: goprimitives.Mapper(),
 	}
 
+	groups, err := groupdomain.Extract(table)
+	if err != nil {
+		return nil, err
+	}
 	var infos []retrieveInfo
 	for _, typ := range structs {
 		info, err := extractRetrieveInfo(typ, table, rt, r, ctx)
@@ -371,6 +402,14 @@ func generateRetrieveFile(
 			return nil, err
 		}
 		if info != nil {
+			info.Sibling = newSiblingInfo(
+				typ,
+				groups,
+				outputPath,
+				repoRoot,
+				table,
+				imps,
+			)
 			infos = append(infos, *info)
 		}
 	}
@@ -433,6 +472,91 @@ func generateRetrieveFile(
 		return nil, err
 	}
 	return buf.Bytes(), nil
+}
+
+// checkNamespacedRetrieves returns an error when the record of a @group namespaced
+// member has no @retrieve, since the indexes of its retrieve hold its sibling index.
+func checkNamespacedRetrieves(table *resolution.Table) error {
+	groups, err := groupdomain.Extract(table)
+	if err != nil || groups == nil {
+		return err
+	}
+	for _, m := range groups.Members {
+		if m.Namespaced && (!plugindomain.HasDomainFromType(m.Record, "retrieve") ||
+			plugindomain.HasExprFromType(m.Record, "retrieve", "references")) {
+			return errors.Newf(
+				"%s: @group namespaced needs @retrieve on the record, whose indexes "+
+					"hold its sibling index",
+				m.Record.QualifiedName,
+			)
+		}
+	}
+	return nil
+}
+
+// newSiblingInfo returns the sibling index of typ when its group field is @group
+// namespaced, and adds the imports that the index needs to imps. It returns nil
+// otherwise.
+func newSiblingInfo(
+	typ resolution.Type,
+	groups *groupdomain.Data,
+	outputPath, repoRoot string,
+	table *resolution.Table,
+	imps *imports.Manager,
+) *siblingInfo {
+	if groups == nil {
+		return nil
+	}
+	i := slices.IndexFunc(groups.Members, func(m groupdomain.Member) bool {
+		return m.Namespaced && m.Record.QualifiedName == typ.QualifiedName
+	})
+	if i < 0 {
+		return nil
+	}
+	m := groups.Members[i]
+	qualify := func(path string) string {
+		if path == outputPath {
+			return ""
+		}
+		alias := naming.DerivePackageName(path)
+		imps.AddInternal(
+			alias,
+			gomod.ResolveImportPath(path, repoRoot, gomod.DefaultModulePrefix),
+		)
+		return alias + "."
+	}
+	enumPath := enum.FindOutputPath(groups.Enum, table, "go")
+	fields := resolution.UnifiedFields(typ, table)
+	name := fields[slices.IndexFunc(fields, func(f resolution.Field) bool {
+		return f.Name == "name"
+	})]
+	return &siblingInfo{
+		Group: qualify(output.GetPath(groups.Record, "go")),
+		Scope: qualify(enumPath) + naming.GetGoName(groups.Enum) +
+			naming.ToPascalCase(m.Scope.Name),
+		Field:        naming.GetFieldName(m.Field),
+		Optional:     m.Field.Optional,
+		Name:         naming.GetFieldName(name),
+		NameOptional: name.Optional,
+		NameDistinct: isDistinct(name.Type, table),
+	}
+}
+
+// isDistinct reports whether ref names a distinct type, through any aliases.
+func isDistinct(ref resolution.TypeRef, table *resolution.Table) bool {
+	for !resolution.IsPrimitive(ref.Name) {
+		typ, ok := table.Get(ref.Name)
+		if !ok {
+			return false
+		}
+		alias, ok := typ.Form.(resolution.AliasForm)
+		if !ok {
+			_, distinct := typ.Form.(resolution.DistinctForm)
+			return distinct
+		}
+		ref = alias.Target
+	}
+	return false
 }
 
 func extractRetrieveInfo(
@@ -1017,6 +1141,9 @@ type indexes struct {
 {{- if $ret.HasSearch}}
 	search *gorp.SearchIndex[{{$ret.KeyType}}, {{$ret.GoName}}]
 {{- end}}
+{{- with $ret.Sibling}}
+	sibling *gorp.UniqueIndex[{{$ret.KeyType}}, {{$ret.GoName}}, {{.Group}}Sibling]
+{{- end}}
 }
 
 // newIndexes constructs a fresh indexes value, allocating one instance of each
@@ -1100,6 +1227,29 @@ func newIndexes() indexes {
 			},
 		),
 {{- end}}
+{{- with $ret.Sibling}}
+		sibling: {{.Group}}NewMemberIndex[{{$ret.KeyType}}, {{$ret.GoName}}](
+			{{.Scope}},
+			func(e *{{$ret.GoName}}) {{.Group}}Sibling {
+				var s {{.Group}}Sibling
+{{- if .Optional}}
+				if e.{{.Field}} != nil {
+					s.Parent = *e.{{.Field}}
+				}
+{{- else}}
+				s.Parent = e.{{.Field}}
+{{- end}}
+{{- if .NameOptional}}
+				if e.{{.Name}} != nil {
+					s.Name = {{if .NameDistinct}}string(*e.{{.Name}}){{else}}*e.{{.Name}}{{end}}
+				}
+{{- else}}
+				s.Name = {{if .NameDistinct}}string(e.{{.Name}}){{else}}e.{{.Name}}{{end}}
+{{- end}}
+				return s
+			},
+		),
+{{- end}}
 	}
 }
 
@@ -1112,6 +1262,9 @@ func (i indexes) all() []gorp.Index[{{$ret.KeyType}}, {{$ret.GoName}}] {
 {{- end}}
 {{- if $ret.HasSearch}}
 		i.search,
+{{- end}}
+{{- if $ret.Sibling}}
+		i.sibling,
 {{- end}}
 	}
 }

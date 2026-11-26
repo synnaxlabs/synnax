@@ -85,9 +85,10 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	}
 	for _, m := range data.Members {
 		td.Members = append(td.Members, memberData{
-			Type:   constant(m.Type),
-			Scope:  constant(m.Scope),
-			Pinned: m.Pinned,
+			Type:       constant(m.Type),
+			Scope:      constant(m.Scope),
+			Pinned:     m.Pinned,
+			Namespaced: m.Namespaced,
 		})
 	}
 	var buf bytes.Buffer
@@ -118,6 +119,8 @@ type memberData struct {
 	Scope string
 	// Pinned is true when the top parent of the group must be the record's holder.
 	Pinned bool
+	// Namespaced is true when the names in one group are unique.
+	Namespaced bool
 }
 
 var fileTemplate = template.Must(
@@ -144,12 +147,17 @@ type memberRule struct {
 	// pinned is true when the top parent of the group must be the record's holder, or
 	// none when the record has no holder.
 	pinned bool
+	// namespaced is true when the names of the records and the groups in one group are
+	// unique.
+	namespaced bool
 }
 
 // memberRules holds the rule of each type that can sit in a group.
 var memberRules = map[{{.Enum}}]memberRule{
 {{- range .Members}}
-	{{.Type}}: {scope: {{.Scope}}{{if .Pinned}}, pinned: true{{end}}},
+	{{.Type}}: {scope: {{.Scope}}
+{{- if .Pinned}}, pinned: true{{end}}
+{{- if .Namespaced}}, namespaced: true{{end}}},
 {{- end}}
 }
 `),

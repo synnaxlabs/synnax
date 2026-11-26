@@ -154,7 +154,12 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			versions.NewMigrations(cfg.HostKey),
 			gorp.DanglingMigration("v61_dangling_references"),
 		),
-		Indexes:         append(s.indexes.all(), newNameIndex()),
+		// The name index runs first, so a clash of two channels names the rule that
+		// holds across the Core.
+		Indexes: append(
+			[]gorp.Index[Key, Channel]{newNameIndex()},
+			s.indexes.all()...,
+		),
 		References:      append(s.indexes.references(), s.index),
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
