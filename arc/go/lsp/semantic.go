@@ -85,17 +85,21 @@ func (s *Server) SemanticTokensFull(
 	if !ok {
 		return &protocol.SemanticTokens{Data: []uint32{}}, nil
 	}
-	tokens := extractSemanticTokens(ctx, doc.Content, doc.IR, s.parserConfig())
+	tokens := extractSemanticTokens(
+		ctx,
+		doc.tokens.of(doc.Content).tokens,
+		doc.IR,
+		s.parserConfig(),
+	)
 	return &protocol.SemanticTokens{Data: tokens}, nil
 }
 
 func extractSemanticTokens(
 	ctx context.Context,
-	content string,
+	allTokens []antlr.Token,
 	docIR ir.IR,
 	cfg parser.Config,
 ) []uint32 {
-	allTokens := tokenizeContent(content, cfg)
 	importIdents := importContextIdents(allTokens)
 	channels := pathChannelIdents(ctx, allTokens, importIdents, docIR)
 	var tokens []lsp.Token

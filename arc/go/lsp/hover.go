@@ -61,10 +61,11 @@ func (s *Server) Hover(
 	// A dotted name is a channel or a member of an imported module, which the word
 	// hovers. A segment alone names neither.
 	if n, ok := d.pathAt(params.Position); ok {
-		if h := s.channelHover(ctx, d, n, params.Position); h != nil {
+		scope := s.hoverScope(d, params.Position)
+		if h := s.channelHover(ctx, scope, n); h != nil {
 			return h, nil
 		}
-		if !d.importsModule(ctx, n.Head, params.Position) {
+		if !importsModule(ctx, scope, n.Head) {
 			return nil, nil
 		}
 	}
@@ -562,20 +563,21 @@ func variableTypeDetail(sym *symbol.Symbol) string {
 	}
 }
 
-// channelHover returns the hover of the channel that n names at pos, or nil when n
+// hoverScope returns the scope at pos, or a new root for a document with no symbols.
+func (s *Server) hoverScope(d *document, pos protocol.Position) *symbol.Symbol {
+	if d.IR.Symbols != nil {
+		return d.findScopeAtPosition(pos)
+	}
+	return s.cfg.NewRoot()
+}
+
+// channelHover returns the hover of the channel that n names in scope, or nil when n
 // names no channel.
 func (s *Server) channelHover(
 	ctx context.Context,
-	d *document,
+	scope *symbol.Symbol,
 	n parser.Name,
-	pos protocol.Position,
 ) *protocol.Hover {
-	var scope *symbol.Symbol
-	if d.IR.Symbols != nil {
-		scope = d.findScopeAtPosition(pos)
-	} else {
-		scope = s.cfg.NewRoot()
-	}
 	sym, err := scope.ResolveName(ctx, n, symbol.WithoutUsageTracking)
 	if err != nil || sym.Kind != symbol.KindChannel {
 		return nil

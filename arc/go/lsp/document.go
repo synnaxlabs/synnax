@@ -50,39 +50,50 @@ type document struct {
 	Version   int32
 	debouncer *debounce.Debouncer
 	wordChars lsp.WordChars
-	// paths is shared by every snapshot of the document.
-	paths *pathTokens
+	// tokens is shared by every snapshot of the document.
+	tokens *tokenCache
 }
 
-// pathTokens holds the dotted names and the format strings of one content. It lexes the
-// content on first use and keeps them until the content changes.
-type pathTokens struct {
-	// cfg is the lexer configuration of the content.
-	cfg        parser.Config
-	mu         sync.Mutex
-	content    string
-	lexed      bool
+// contentTokens are the tokens of one content, and its dotted names and format strings.
+type contentTokens struct {
+	tokens     []antlr.Token
 	paths      []pathToken
 	fmtStrings []antlr.Token
 }
 
-// of returns the dotted names and the format strings of content in order. Callers must
-// not change them.
-func (p *pathTokens) of(content string) ([]pathToken, []antlr.Token) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	if !p.lexed || p.content != content {
-		tokens := tokenizeContent(content, p.cfg)
-		p.content, p.lexed = content, true
-		p.paths, p.fmtStrings = linePaths(tokens), fmtStringTokens(tokens)
+// tokenCache holds the tokens of one content. It lexes the content on first use and
+// keeps them until the content changes, so the semantic tokens, a rename, and each
+// lookup by position share one lex.
+type tokenCache struct {
+	// cfg is the lexer configuration of the content.
+	cfg     parser.Config
+	mu      sync.Mutex
+	content string
+	lexed   bool
+	contentTokens
+}
+
+// of returns the tokens of content. Callers must not change them.
+func (c *tokenCache) of(content string) contentTokens {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if !c.lexed || c.content != content {
+		tokens := tokenizeContent(content, c.cfg)
+		c.content, c.lexed = content, true
+		c.contentTokens = contentTokens{
+			tokens:     tokens,
+			paths:      linePaths(tokens),
+			fmtStrings: fmtStringTokens(tokens),
+		}
 	}
-	return p.paths, p.fmtStrings
+	return c.contentTokens
 }
 
 // pathAt returns the dotted name whose text holds pos, in code or in a placeholder of
 // a format string.
 func (d *document) pathAt(pos protocol.Position) (parser.Name, bool) {
-	ps, fmtStrings := d.paths.of(d.displayContent())
+	lexed := d.tokens.of(d.displayContent())
+	ps := lexed.paths
 	// Paths do not overlap, so only the first that ends after pos can hold it.
 	i := sort.Search(len(ps), func(i int) bool {
 		end := ps[i].rng.End
@@ -92,24 +103,16 @@ func (d *document) pathAt(pos protocol.Position) (parser.Name, bool) {
 	if i < len(ps) && holds(ps[i].rng, pos) {
 		return ps[i].name, true
 	}
-	for _, t := range fmtStrings {
-		if n, ok := placeholderPathAt(t, pos, d.paths.cfg); ok {
+	for _, t := range lexed.fmtStrings {
+		if n, ok := placeholderPathAt(t, pos, d.tokens.cfg); ok {
 			return n, true
 		}
 	}
 	return parser.Name{}, false
 }
 
-// importsModule reports whether name is an import alias in the scope at pos.
-func (d *document) importsModule(
-	ctx context.Context,
-	name string,
-	pos protocol.Position,
-) bool {
-	scope := d.findScopeAtPosition(pos)
-	if scope == nil {
-		return false
-	}
+// importsModule reports whether name is an import alias in scope.
+func importsModule(ctx context.Context, scope *symbol.Symbol, name string) bool {
 	sym, err := scope.Resolve(ctx, name, symbol.WithoutUsageTracking)
 	return err == nil && sym.Kind == symbol.KindModuleAlias
 }
