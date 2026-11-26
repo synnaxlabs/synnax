@@ -181,11 +181,12 @@ func (c WriterConfig) authority(i int) xcontrol.Authority {
 }
 
 // NewStreamWriter opens a segment that writes to the DB, as OpenWriter does. A failed
-// write or commit sends a WriterResponse with a false Ack, and every later write fails
-// until a WriterRequest with the WriterError command clears the error. Writes are
-// committed only by a WriterCommit request. Close the inlet to close the segment: it
-// serves the requests in progress without a commit, closes its outlet, and returns
-// any error through the context passed to Flow.
+// write or commit sends a WriterResponse with the error in Err, and the segment then
+// fails every later request with the same error. A request refused for lack of control
+// is the exception: its response has Authorized false, and the next request runs.
+// Writes are committed only by a WriterCommandCommit request. Close the inlet to close
+// the segment: it serves the requests in progress without a commit, closes its outlet,
+// and returns any error through the context passed to Flow.
 func (db *DB) NewStreamWriter(
 	ctx context.Context,
 	cfgs ...WriterConfig,

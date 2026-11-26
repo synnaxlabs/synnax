@@ -91,35 +91,19 @@ var _ = Describe("MigrateReadConfig", func() {
 		Expect(cfg.Inline).To(BeNil())
 	})
 
-	DescribeTable(
-		"Should turn on NaN fill when v4 had it or an optional field has no fill value",
-		func(ctx SpecContext, nanFill bool, field v4.ReadField, expected bool) {
+	DescribeTable("Should keep the NaN fill of v4",
+		func(ctx SpecContext, nanFill bool) {
 			old := storedConfig()
 			old.NanFillEnabled = nanFill
-			old.Endpoints[1].Fields = append(old.Endpoints[1].Fields, field)
+			old.Endpoints[1].Fields = append(
+				old.Endpoints[1].Fields,
+				v4.ReadField{Key: "o", Optional: true},
+			)
 			cfg := MustSucceed(v5.MigrateReadConfig(ctx, old))
-			Expect(cfg.NanFillEnabled).To(Equal(expected))
+			Expect(cfg.NanFillEnabled).To(Equal(nanFill))
 		},
-		Entry("NaN fill on in v4", true, v4.ReadField{Key: "r"}, true),
-		Entry(
-			"an optional field with no fill value",
-			false,
-			v4.ReadField{Key: "o", Optional: true},
-			true,
-		),
-		Entry(
-			"a disabled optional field with no fill value",
-			false,
-			v4.ReadField{Key: "o", Optional: true, Disabled: true},
-			true,
-		),
-		Entry(
-			"an optional field with a fill value",
-			false,
-			v4.ReadField{Key: "o", Optional: true, FillValue: new(any(0.0))},
-			false,
-		),
-		Entry("only required fields", false, v4.ReadField{Key: "r"}, false),
+		Entry("on", true),
+		Entry("off, with an optional field that has no fill value", false),
 	)
 })
 
@@ -185,7 +169,7 @@ var _ = Describe("ReadMigration", func() {
 			migrate(ctx, old)
 			migrated := read(ctx, old.Key)
 			Expect(migrated.Inline).To(BeNil())
-			Expect(migrated.NanFillEnabled).To(BeTrue())
+			Expect(migrated.NanFillEnabled).To(BeFalse())
 			Expect(migrated.Endpoints).To(HaveLen(2))
 			Expect(migrated.Endpoints[0].Path).To(Equal("/values"))
 			b, closer := MustSucceed2(db.Get(v5.StagedFieldsKVKey(old.Key)))

@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/calculation/graph"
+	"github.com/synnaxlabs/synnax/pkg/service/certificate"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
@@ -28,6 +29,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/opcua/server"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
+	secrettestutil "github.com/synnaxlabs/synnax/pkg/service/secret/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/confluence"
@@ -80,8 +82,20 @@ var _ = Describe("Signals", Ordered, func() {
 			Channel: channelSvc,
 			Framer:  node.Framer,
 		}))
+		secrets := secrettestutil.OpenService(ctx, node.DB)
 		MustOpen(server.OpenService(ctx, server.ServiceConfig{
-			DB:      node.DB,
+			DB:     node.DB,
+			Status: stat,
+			Secret: secrets,
+			Certificate: MustOpen(
+				certificate.OpenService(ctx, certificate.ServiceConfig{
+					DB:      node.DB,
+					Secret:  secrets,
+					Status:  stat,
+					Rack:    rackSvc.EmbeddedKey,
+					HostKey: node.Identity.HostKey,
+				}),
+			),
 			Signals: sigs,
 		}))
 		MustOpen(sigs.Start(ctx))

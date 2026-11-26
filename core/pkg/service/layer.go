@@ -949,6 +949,9 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.OPCUA, err = opcua.OpenService(ctx, opcua.ServiceConfig{
 		Instrumentation: cfg.Child("opcua"),
 		DB:              cfg.Distribution.DB,
+		Status:          l.Status,
+		Secret:          l.Secret,
+		Certificate:     l.Certificate,
 		Signals:         l.Signals,
 	}); !ok(err, l.OPCUA) {
 		return nil, err
@@ -1177,6 +1180,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			l.Kafka.ICDMigration(taskNames(l.Task)),
 			l.Kafka.WriteICDMigration(taskNames(l.Task)),
 			l.HTTP.ICDMigration(taskNames(l.Task)),
+			l.HTTP.WriteICDMigration(taskNames(l.Task)),
 			l.MQTT.ICDMigration(taskNames(l.Task)),
 			opcua.PasswordMigration(l.Secret),
 			opcua.CertificateMigration(l.Certificate, l.Status),
