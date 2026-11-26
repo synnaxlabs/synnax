@@ -8,9 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import type { schematic } from "@synnaxlabs/client";
+import { useCombinedRefs } from "@synnaxlabs/lyra/hooks";
+import type { CrudeTimeSpan } from "@synnaxlabs/x";
 import type { ReactElement } from "react";
 
 import { CSS } from "@/css";
+import { usePartClicks } from "@/schematic/node/common/custom/clicks";
 import { moves, type Reading } from "@/schematic/node/common/custom/motion";
 import { useMotionContext } from "@/schematic/node/common/custom/MotionProvider";
 import type { Paint } from "@/schematic/node/common/custom/paint";
@@ -39,9 +42,14 @@ export interface DrawingProps extends Primitive.SVGBasedProps {
    * to each new fraction.
    */
   motionDisabled?: boolean;
+  /** partClicks holds what a click on each part does, by part key. */
+  partClicks?: Record<string, () => void>;
+  /** onClickDelay is how long a press on a part lasts before its click runs. */
+  onClickDelay?: CrudeTimeSpan;
 }
 
 const NO_READINGS: Record<string, Reading> = {};
+const NO_CLICKS: Record<string, () => void> = {};
 
 /**
  * Draws a custom symbol and its handles from a spec, inside a Primitive.Div or a
@@ -57,6 +65,8 @@ export const Drawing = ({
   strokeColor,
   readings = NO_READINGS,
   motionDisabled = false,
+  partClicks = NO_CLICKS,
+  onClickDelay,
 }: DrawingProps): ReactElement | null => {
   const context = useMotionContext();
   if (context == null && spec.looks.some(moves))
@@ -64,6 +74,12 @@ export const Drawing = ({
   const motion =
     context == null ? undefined : { ...context, readings, disabled: motionDisabled };
   const setDrawing = useRender({ spec, paints, strokeColor, builtIn, motion });
+  const { ref, ...parts } = usePartClicks({
+    spec,
+    clicks: partClicks,
+    delay: onClickDelay,
+  });
+  const hostRef = useCombinedRefs(setDrawing, ref);
   const dims = Region.measure(spec.drawing.markup);
   if (dims == null) return null;
   // Primitive.SVG shrinks built-in drawings by BASE_SCALE. A spec sets its own scale.
@@ -82,7 +98,7 @@ export const Drawing = ({
           !builtIn && CSS.B("custom-drawing"),
         )}
       >
-        <g ref={setDrawing} />
+        <g ref={hostRef} {...parts} />
       </Primitive.SVG>
       <Handle.Boundary orientation={orientation}>
         {spec.handles.map((handle) => (

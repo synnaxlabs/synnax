@@ -387,6 +387,8 @@ type sampledTopic struct {
 	// Error says why the sample could not read the topic, or all of the records that it
 	// asked for. Empty when it read them.
 	Error string `json:"error" msgpack:"error"`
+	// Missing is true when the topic does not exist.
+	Missing bool `json:"missing" msgpack:"missing"`
 }
 
 // sampleResult is the data that answers a sample.
@@ -495,6 +497,7 @@ func newSampleResult(
 		switch d, ok := details[name]; {
 		case !ok || errors.Is(d.err, kerr.UnknownTopicOrPartition):
 			res.Topics[i].Error = "The topic does not exist."
+			res.Topics[i].Missing = true
 		case errors.Is(d.err, kerr.TopicAuthorizationFailed),
 			d.err == nil && !d.readable():
 			res.Topics[i].Error = "The cluster does not let the client read the topic."
