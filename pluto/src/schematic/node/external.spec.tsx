@@ -54,16 +54,20 @@ describe("symbol forms that wrap a shared form", () => {
   });
 });
 
+// The symbols toolbar draws each grouped symbol that is not a built-in with its
+// variant's preview.
+const PREVIEWED = [...new Set(Node.GROUPS.flatMap((g) => g.symbols))]
+  .filter((key) => !Node.BUILT_INS.has(key))
+  .map((key) => Node.variantZ.parse(key));
+
 describe("symbol previews", () => {
-  it.each(Node.STATIC_SPECS)(
-    "should render the $key preview from its default config",
-    ({ key, Preview }) => {
-      const { container } = render(
-        <SynnaxWrapper>
-          <Preview {...Node.createConfig({ variant: key })} scale={0.75} />
-        </SynnaxWrapper>,
-      );
-      expect(container.firstChild).not.toBeNull();
-    },
-  );
+  it.each(PREVIEWED)("should render the %s preview from its default config", (key) => {
+    const { Preview } = Node.resolveSpec(key);
+    const { container } = render(
+      <SynnaxWrapper>
+        <Preview {...Node.createConfig({ variant: key })} scale={0.75} />
+      </SynnaxWrapper>,
+    );
+    expect(container.firstChild).not.toBeNull();
+  });
 });

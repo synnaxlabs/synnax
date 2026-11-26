@@ -225,7 +225,7 @@ describe("Schematic", () => {
         {
           key: "v1",
           position: xy.ZERO,
-          config: { variant: "valve", commandChannel: command.key },
+          config: { variant: "switch", commandChannel: command.key },
         },
       ],
       { editable: false, registry: STALE_REGISTRY },

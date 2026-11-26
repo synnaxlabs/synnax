@@ -13,7 +13,7 @@ import "@xyflow/react/dist/base.css";
 import { renderThemed } from "@synnaxlabs/lyra/styletest";
 import { type color, type location, narrow } from "@synnaxlabs/x";
 import { type Node as RFNode, type NodeProps, ReactFlow } from "@xyflow/react";
-import type { FC, ReactElement } from "react";
+import type { ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { server } from "vitest/browser";
 
@@ -100,11 +100,29 @@ const createCases = (variant: string, enabled?: true): Case[] =>
     ),
   );
 
+// A built-in with clicks draws in the button of a toggle, which shows when it is on.
 const Drawing = ({
   data: { variant, props },
 }: NodeProps<RFNode<Case>>): ReactElement => {
-  const Preview = Node.resolveSpec(variant).Preview as FC<DrawingProps>;
-  return <Preview {...props} />;
+  const spec = Node.BUILT_INS.get(variant);
+  if (spec == null) throw new Error(`${variant} is not a built-in`);
+  const { orientation, scale, strokeColor, enabled } = props;
+  const drawing = (
+    <Node.Custom.Drawing
+      spec={spec}
+      builtIn
+      strokeColor={strokeColor}
+      orientation={orientation}
+      scale={scale}
+    />
+  );
+  if (spec.interactions.length === 0)
+    return <Node.Primitive.Div>{drawing}</Node.Primitive.Div>;
+  return (
+    <Node.Toggle.Button orientation={orientation} enabled={enabled}>
+      {drawing}
+    </Node.Toggle.Button>
+  );
 };
 
 const NODE_TYPES = { drawing: Drawing };

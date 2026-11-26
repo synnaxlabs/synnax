@@ -154,9 +154,7 @@ describe("Toolbar", () => {
     });
 
     it("opens the symbols tab to pick the new symbol", async () => {
-      const { key, store } = await renderSelected({
-        n1: Schematic.Node.createConfig({ variant: "valve" }),
-      });
+      const { key, store } = await renderSelected({ n1: createValveNode() });
       fireEvent.click(await screen.findByLabelText("Change symbol"));
       await waitFor(() =>
         expect(
@@ -196,9 +194,7 @@ describe("Toolbar", () => {
     });
 
     it("leaves the symbols unchanged on cancel", async () => {
-      const { key, store } = await renderSelected({
-        n1: Schematic.Node.createConfig({ variant: "valve" }),
-      });
+      const { key, store } = await renderSelected({ n1: createValveNode() });
       fireEvent.click(await screen.findByLabelText("Change symbol"));
       fireEvent.click(await screen.findByLabelText("Cancel symbol change"));
       await waitFor(() =>
@@ -206,7 +202,9 @@ describe("Toolbar", () => {
           documentIn(store.getState()[Session.Schematic.SLICE_NAME], key)?.toolbar,
         ).toMatchObject({ selectedTab: "properties", changing: false }),
       );
-      expect((await retrieveConfigs(key)).n1.variant).toBe("valve");
+      expect((await retrieveConfigs(key)).n1).toMatchObject({
+        spec: { type: "builtin", name: "valve" },
+      });
     });
 
     it("renames a label that still reads the old symbol's name", async () => {
@@ -291,7 +289,7 @@ describe("Toolbar", () => {
     });
 
     it("shows the form of the new symbol", async () => {
-      await renderSelected({ n1: Schematic.Node.createConfig({ variant: "valve" }) });
+      await renderSelected({ n1: createValveNode() });
       await screen.findByText("Style");
       expect(screen.queryByText("Wrap width")).toBeNull();
       await pickSymbol("Text box");

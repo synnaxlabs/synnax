@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { schematic } from "@synnaxlabs/client";
+import type { schematic } from "@synnaxlabs/client";
 import { type FC, memo, type ReactElement } from "react";
 
 import { Control } from "@/schematic/node/common/control";
@@ -20,7 +20,6 @@ import type { NodeProps } from "@/schematic/node/spec";
 import { Staleness } from "@/vis/staleness";
 import { Toggle as Base } from "@/vis/toggle";
 
-export const toggleConfigZ = schematic.toggleConfigZ;
 export type ToggleConfig = schematic.ToggleConfig;
 
 export const createToggle = <C extends ToggleConfig>(
@@ -87,52 +86,5 @@ export const createToggle = <C extends ToggleConfig>(
   };
   const M = memo(Inner) as unknown as FC<NodeProps<C>>;
   M.displayName = BaseSymbol.displayName;
-  return M;
-};
-
-export type DummyToggleConfig = Omit<schematic.DummyToggleSymbolConfig, "strokeColor">;
-
-export const createDummyToggle = <C extends DummyToggleConfig>(
-  Primitive: FC<Omit<C, "label"> & ButtonProps>,
-): FC<NodeProps<C>> => {
-  const Sym = Primitive as FC<ButtonProps>;
-  const DummyToggle = ({
-    nodeKey,
-    onConfigChange,
-    selected,
-    config,
-  }: NodeProps<DummyToggleConfig>): ReactElement => {
-    const {
-      label,
-      orientation = "left",
-      enabled = false,
-      clickable = false,
-      ...rest
-    } = config;
-    const handleToggleChange = () => {
-      if (!clickable) return;
-      onConfigChange({ enabled: !enabled });
-    };
-    const scaleResize = Grid.useScaleResize(config, onConfigChange);
-    return (
-      <Grid.Grid
-        editable={selected}
-        nodeKey={nodeKey}
-        orientation={orientation}
-        onRotate={onConfigChange}
-        {...scaleResize}
-      >
-        <Label.Label config={label} onChange={onConfigChange} />
-        <Sym
-          orientation={orientation}
-          enabled={enabled}
-          onClick={handleToggleChange}
-          {...rest}
-        />
-      </Grid.Grid>
-    );
-  };
-  const M = memo(DummyToggle) as unknown as FC<NodeProps<C>>;
-  M.displayName = Primitive.displayName;
   return M;
 };

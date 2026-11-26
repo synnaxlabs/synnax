@@ -38,8 +38,9 @@ import {
   isPlutoDisabled,
 } from "@/testutil";
 
+// No spec draws a valve node, so createConfig refuses one; the schema still parses it.
 const createValveConfig = (): Record<string, unknown> =>
-  PSchematic.Node.createConfig({ variant: "valve" });
+  schematic.nodeConfigZ.parse({ variant: "valve", label: { label: "Valve" } });
 
 const createValveNodeConfig = (): schematic.SymbolNodeConfig =>
   schematic.symbolNodeConfigZ.parse({
@@ -153,7 +154,10 @@ preloadTab();
 describe("Schematic toolbar Properties", () => {
   describe("single selection", () => {
     it("writes label edits back to the schematic config and the breadcrumb", async () => {
-      const { key, result } = await renderProperties({ nodeKeys: ["n1"] });
+      const { key, result } = await renderProperties({
+        nodeKeys: ["n1"],
+        createConfig: createValveNodeConfig,
+      });
       fireEvent.click(await screen.findByRole("tab", { name: "Style" }));
       const input = getInputByItemLabel(result.container, "Label");
       fireEvent.change(input, { target: { value: "Main Valve" } });
@@ -165,7 +169,10 @@ describe("Schematic toolbar Properties", () => {
     });
 
     it("shows an edit that another client makes to the selected element", async () => {
-      const { key, result } = await renderProperties({ nodeKeys: ["n1"] });
+      const { key, result } = await renderProperties({
+        nodeKeys: ["n1"],
+        createConfig: createValveNodeConfig,
+      });
       fireEvent.click(await screen.findByRole("tab", { name: "Style" }));
       const remote = createTestClient();
       await remote.schematics.retrieve(key);
@@ -188,6 +195,7 @@ describe("Schematic toolbar Properties", () => {
       const { key } = await renderProperties({
         nodeKeys: ["n1"],
         onStatuses: (s) => statuses.push(...s),
+        createConfig: createValveNodeConfig,
       });
       await screen.findByRole("tab", { name: "Style" });
       await waitForStreamLive(client.connection);
@@ -209,14 +217,17 @@ describe("Schematic toolbar Properties", () => {
   });
 
   describe("tabs", () => {
-    it("opens a symbol on its control tab", async () => {
-      const { result } = await renderProperties({ nodeKeys: ["n1"] });
+    it("opens a symbol on its first tab", async () => {
+      const { result } = await renderProperties({
+        nodeKeys: ["n1"],
+        createConfig: createValveNodeConfig,
+      });
       await screen.findByRole("tab", { name: "Style" });
       const rail = result.container.querySelector<HTMLElement>(
         ".pluto-properties-tabs",
       );
       assertDefined(rail);
-      const tab = within(rail).getByRole("tab", { name: "Control" });
+      const tab = within(rail).getByRole("tab", { name: "Telemetry" });
       expect(tab.ariaSelected).toBe("true");
     });
 
@@ -224,6 +235,7 @@ describe("Schematic toolbar Properties", () => {
       const { key, store } = await renderProperties({
         nodeKeys: ["n1", "n2"],
         sessionState: { selected: ["n1"] },
+        createConfig: createValveNodeConfig,
       });
       fireEvent.click(await screen.findByRole("tab", { name: "Style" }));
       act(() => {
