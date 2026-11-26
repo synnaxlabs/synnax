@@ -24,6 +24,7 @@ export const SYMBOL: schematic.symbol.Spec = Custom.createBuiltIn({
     { key: "2", position: { x: 0.961538, y: 0.214286 }, orientation: "right" },
     { key: "3", position: { x: 0.5, y: 0.928571 }, orientation: "bottom" },
   ],
+  ...Custom.SOLID_SHAPES,
 });
 
 export const TJunction = ({

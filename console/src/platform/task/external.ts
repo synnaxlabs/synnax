@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/platform/task/BindChannels";
-export * from "@/platform/task/BindReadChannels";
 export * from "@/platform/task/ChannelList";
 export * from "@/platform/task/ChannelName";
 export * from "@/platform/task/ChannelNameField";
