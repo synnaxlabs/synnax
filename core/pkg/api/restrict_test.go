@@ -27,6 +27,7 @@ import (
 	channeltestutil "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/impact"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
+	nidevice "github.com/synnaxlabs/synnax/pkg/service/ni/device"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
@@ -271,6 +272,95 @@ var _ = Describe("Restrict", func() {
 				return post(token, "/api/v1/impact/apply", apiimpact.ApplyRequest{
 					Change: deleteOf(),
 					Token:  p.Token,
+				}, nil)
+			}),
+		)
+	})
+
+	Describe("A delete that an NI device the user cannot see refuses", func() {
+		var (
+			token string
+			index channel.Channel
+			dev   nidevice.Device
+		)
+		BeforeEach(func(ctx SpecContext) {
+			index = channel.Channel{
+				Name:     channeltestutil.UniqueChannelName(),
+				DataType: telem.TimestampT,
+				IsIndex:  true,
+			}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Channel.NewWriter(tx).Create(ctx, &index)
+			})).To(Succeed())
+			dev = nidevice.Device{
+				Rack:         svc.Rack.EmbeddedKey,
+				Name:         "PXI-6255",
+				Serial:       uuid.New().String(),
+				ResourceName: uuid.New().String(),
+				Model:        "PXI-6255",
+				AnalogInput:  nidevice.AnalogInputPorts{Index: index.Key()},
+			}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NI.Devices.NewWriter(tx).Create(ctx, &dev)
+			})).To(Succeed())
+			u := MustSucceed(
+				rbactestutil.CreateUser(ctx, db, svc.RBAC, svc.User, user.User{
+					Name: "user-" + uuid.New().String(),
+				}),
+			)
+			MustSucceed(rbactestutil.Grant(
+				ctx,
+				db,
+				svc.RBAC,
+				svc.User,
+				u.Key,
+				[]access.Action{access.ActionRetrieve, access.ActionDelete},
+				channel.ResourceID(index.Key()),
+			))
+			creds := auth.Credentials{Username: u.Name, Password: "secret"}
+			hash := MustSucceed(svc.Password.Hash(creds.Password))
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Password.NewWriter(tx).
+					Set(ctx, user.ResourceID(u.Key), creds.Username, hash)
+			})).To(Succeed())
+			var login session.LoginResponse
+			Expect(post("", "/api/v1/auth/login", creds, &login)).To(Succeed())
+			token = login.Token
+		})
+		deleteOf := func() apiimpact.Change {
+			return apiimpact.Change{
+				Variant: apiimpact.DeleteChange{
+					Records: []resource.ID{channel.ResourceID(index.Key())},
+				},
+			}
+		}
+
+		DescribeTable("Should not name the device",
+			func(send func() error) {
+				Expect(send()).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring(
+						"cannot delete channel "+index.Name+" because the ni_device "+
+							"that uses it as its analog_input.index is not visible to "+
+							"you; ask someone who can see it to remove the use",
+					)),
+					Not(MatchError(ContainSubstring(dev.Key.String()))),
+				))
+			},
+			Entry("on the channel delete route", func() error {
+				return post(token, "/api/v1/channel/delete", apichannel.DeleteRequest{
+					Keys: channel.Keys{index.Key()},
+				}, nil)
+			}),
+			Entry("on an apply with no plan", func() error {
+				return post(token, "/api/v1/impact/apply", apiimpact.ApplyRequest{
+					Change: deleteOf(),
+				}, nil)
+			}),
+			Entry("on an apply with a hidden delete pick", func() error {
+				return post(token, "/api/v1/impact/apply", apiimpact.ApplyRequest{
+					Change: deleteOf(),
+					Hidden: new(impact.ChoiceDelete),
 				}, nil)
 			}),
 		)
