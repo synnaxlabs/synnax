@@ -2560,6 +2560,27 @@ var _ = Describe("C++ Union Generation", func() {
 		},
 	)
 
+	It("Should escape an enum constant that a Windows SDK macro would expand", func() {
+		source := `
+			@cpp output "out"
+
+			Parity enum {
+				none = "none"
+				odd  = "odd"
+			}
+			Properties struct {
+				parity Parity = none
+			}
+		`
+		resp := MustGenerate(source, "serial", loader, cppPlugin)
+		ExpectContent(resp, "types.gen.h").
+			ToContain(
+				`constexpr const char* PARITY_NONE_ = "none";`,
+				`constexpr const char* PARITY_ODD_ = "odd";`,
+				`std::string parity = PARITY_NONE_;`,
+			)
+	})
+
 	It("Should include the header of a borrowed enum from another namespace", func() {
 		loader.Add("schemas/auth", `
 			@cpp output "client/cpp/auth"

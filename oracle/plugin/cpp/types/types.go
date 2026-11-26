@@ -1526,11 +1526,11 @@ func (p *Plugin) extractResource(
 }
 
 var templateFuncs = template.FuncMap{
-	"join":             strings.Join,
-	"toUpper":          strings.ToUpper,
-	"toScreamingSnake": cppnaming.ScreamingSnake,
-	"toSnakeCase":      casing.FieldSnake,
-	"formatDoc":        doc.FormatCpp,
+	"join":         strings.Join,
+	"toUpper":      strings.ToUpper,
+	"enumConstant": cppnaming.EnumConstant,
+	"toSnakeCase":  casing.FieldSnake,
+	"formatDoc":    doc.FormatCpp,
 }
 
 var fileTemplate = template.Must(
@@ -1566,7 +1566,7 @@ enum class {{$enum.Name}} : {{$enum.Base}} {
 };
 {{- else}}
 {{- range $enum.Values}}
-constexpr const char* {{$enum.Name | toScreamingSnake}}_{{.Name | toScreamingSnake}} = "{{.Value}}";
+constexpr const char* {{enumConstant $enum.Name .Name}} = "{{.Value}}";
 {{- end}}
 {{- end}}
 {{- end}}
