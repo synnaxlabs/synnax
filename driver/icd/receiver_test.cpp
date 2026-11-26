@@ -622,9 +622,9 @@ TEST(Receiver, GivesFrameToFirstMatchingEntry) {
     ASSERT_EQ(fr.series->at(1).values<double>(), (std::vector{5.0}));
 }
 
-/// @brief it should give a frame that an earlier entry cannot decode to a later entry
-/// that matches it, with no warning.
-TEST(Receiver, GivesFrameThatEarlierEntryCannotDecodeToLaterEntry) {
+/// @brief it should give a frame that a JSON entry cannot parse to a later entry that
+/// matches it, with no warning.
+TEST(Receiver, GivesFrameThatIsNotJSONToLaterEntry) {
     Config a{synnax::icd::JSONPayload{}, synnax::icd::DelimitedFraming{}, "first"};
     synnax::icd::FloatJSONField v;
     v.name = "v";
@@ -837,5 +837,69 @@ TEST(Receiver, ReadsNothingWithoutEntries) {
     ASSERT_NIL(r.read(t, fr).error);
     ASSERT_TRUE(fr.empty());
     ASSERT_TRUE(t.writes.empty());
+}
+
+/// @brief it should give a frame to the first entry that matches it when that entry
+/// fails to decode it, warn about the error, and give the frame to no later entry.
+TEST(Receiver, KeepsFrameThatFirstMatchingEntryFailsToDecode) {
+    Config a{synnax::icd::TextPayload{.prefix = "T"}, synnax::icd::DelimitedFraming{}};
+    synnax::icd::DelimitedTextField v;
+    v.name = "v";
+    v.position = 2;
+    a.bind<synnax::icd::TextPayload>(v, 2, 1);
+    const auto b = lines("T", 3, 4, "second");
+    auto r = ASSERT_NIL_P(
+        Receiver::create(
+            {a.entry(), b.entry()},
+            {a.ic, b.ic},
+            merged(a.channels, b.channels),
+            false
+        )
+    );
+    Memory t;
+    t.push("T,5\n");
+    x::telem::Frame fr;
+    const auto res = r.read(t, fr);
+    ASSERT_NIL(res.error);
+    ASSERT_EQ(res.warning.message, "Failed to decode message");
+    ASSERT_EQ(res.warning.description, "field v: no value at position 2");
+    ASSERT_TRUE(fr.empty());
+}
+
+/// @brief it should write the other index groups of a frame whose field the first
+/// matching entry fails to decode, warn about the field, and give the frame to no later
+/// entry.
+TEST(Receiver, KeepsFrameWhoseFieldFirstMatchingEntryFailsToDecode) {
+    Config a{synnax::icd::JSONPayload{}, synnax::icd::DelimitedFraming{}, "first"};
+    synnax::icd::FloatJSONField v;
+    v.name = "v";
+    v.pointer = "/v";
+    a.bind<synnax::icd::JSONPayload>(v, 2, 1);
+    auto w = v;
+    w.name = "w";
+    w.pointer = "/w";
+    a.bind<synnax::icd::JSONPayload>(w, 3, 4);
+    Config b{synnax::icd::JSONPayload{}, synnax::icd::DelimitedFraming{}, "second"};
+    b.bind<synnax::icd::JSONPayload>(v, 5, 6);
+    auto r = ASSERT_NIL_P(
+        Receiver::create(
+            {a.entry(), b.entry()},
+            {a.ic, b.ic},
+            merged(a.channels, b.channels),
+            false
+        )
+    );
+    Memory t;
+    t.push(std::string(R"({"v": 1, "w": {}})") + "\n");
+    x::telem::Frame fr;
+    const auto res = r.read(t, fr);
+    ASSERT_NIL(res.error);
+    ASSERT_EQ(res.warning.message, "Failed to decode message");
+    ASSERT_EQ(
+        res.warning.description,
+        "field w: expected a number or boolean, got an object"
+    );
+    ASSERT_EQ(*fr.channels, (std::vector<std::uint32_t>{1, 2}));
+    ASSERT_EQ(fr.series->at(1).values<double>(), (std::vector{1.0}));
 }
 }

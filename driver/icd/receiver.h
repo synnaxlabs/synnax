@@ -44,7 +44,9 @@ const x::telem::TimeSpan WRITE_TIMEOUT = x::telem::SECOND;
 
 /// @brief Receiver reads the messages that the entries of a task receive on one
 /// transport into their channels. Each frame goes to the first entry, in task order,
-/// with a message that matches it. It is not safe for concurrent use.
+/// with a message that matches it, and later entries never see it. A frame that is not
+/// a JSON document matches no message of a JSON entry. It is not safe for concurrent
+/// use.
 class Receiver {
     /// @brief Poll sends the query of one entry at its rate.
     struct Poll {
@@ -61,6 +63,9 @@ class Receiver {
     bool datagram = false;
     /// @brief readers holds the reader of each entry, in task order.
     std::vector<Reader> readers;
+    /// @brief json holds whether each reader reads JSON. A JSON reader fails before it
+    /// matches a message, and a binary or text reader fails only after.
+    std::vector<bool> json;
     std::vector<Poll> polls;
     /// @brief received is the time at which the bytes in the framer arrived.
     x::telem::TimeStamp received;
@@ -72,7 +77,8 @@ class Receiver {
     transport::Clock now;
 
     /// @brief reads payload with the first reader that has a message of it, and sets
-    /// warning to its decoding error when it is empty.
+    /// warning to its decoding error when it is empty. With no such reader, it sets
+    /// warning to the first JSON error.
     void dispatch(
         std::span<const std::uint8_t> payload,
         x::telem::Frame &fr,
