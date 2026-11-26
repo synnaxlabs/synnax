@@ -16,8 +16,9 @@ import {
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Panel as PlutoPanel } from "@synnaxlabs/pluto";
 import { TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
-import { act, fireEvent, screen, waitFor } from "@testing-library/react";
-import { beforeAll, describe, expect, it } from "vitest";
+import { uniqueName } from "@synnaxlabs/x/testutil";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { ICD } from "@/feature/icd";
 import { client, createICD, ENGINE_CSV } from "@/feature/icd/testutil";
@@ -29,6 +30,20 @@ import {
   interceptFilePicker,
   renderSuspended,
 } from "@/testutil";
+
+const flags = vi.hoisted((): { bus: boolean } => ({ bus: true }));
+
+vi.mock("@/flags", async (importOriginal) => {
+  const { FLAGS } = await importOriginal<{ FLAGS: object }>();
+  return {
+    FLAGS: {
+      ...FLAGS,
+      get bus() {
+        return flags.bus;
+      },
+    },
+  };
+});
 
 const { Content } = ICD.TABS[icd.TYPE_RESOURCE_ID.type];
 
@@ -136,6 +151,44 @@ const retrieveStoredMessage = async (key: icd.Key): Promise<icd.Message> => {
   } finally {
     await core.close();
   }
+};
+
+const createFramedICD = async (framing?: icd.Framing): Promise<icd.ICD> =>
+  await client.icds.create({ name: uniqueName("icd"), framing });
+
+/** Reads the framing through a new client, so the result is what the Core stored. */
+const retrieveStoredFraming = async (
+  key: icd.Key,
+): Promise<icd.Framing | undefined> => {
+  const core = createTestClient();
+  try {
+    return (await core.icds.retrieve({ key })).framing;
+  } finally {
+    await core.close();
+  }
+};
+
+const SYNC: icd.SyncFraming = {
+  type: "sync",
+  sync: new Uint8Array([0xaa, 0x55]),
+  lengthOffset: 2,
+  lengthSize: "one",
+  byteOrder: "little_endian",
+  lengthAdjustment: 0,
+  maxLength: 65536,
+};
+
+const pick = async (select: RegExp, option: string): Promise<void> => {
+  fireEvent.click(await screen.findByRole("button", { name: select }));
+  fireEvent.click(await screen.findByRole("option", { name: option }));
+};
+
+const typeText = async (label: RegExp, text: string): Promise<HTMLInputElement> => {
+  const input = await screen.findByLabelText<HTMLInputElement>(label);
+  fireEvent.focus(input);
+  fireEvent.change(input, { target: { value: text } });
+  fireEvent.blur(input);
+  return input;
 };
 
 const retrieveJSONField = async (key: icd.Key): Promise<icd.JSONField> => {
@@ -357,9 +410,7 @@ describe("ICD editor", () => {
       expect((await retrieveMessage(ic.key)).cycleTime).toBeUndefined(),
     );
     await commit("Scale", 2, "0");
-    expect(
-      await screen.findByText(/^Field 2: scale must be finite and non-zero/),
-    ).toBeTruthy();
+    expect(await screen.findByText(/^Field 2: scale must be non-zero/)).toBeTruthy();
   });
 
   it("should refuse a cycle time of zero", async () => {
@@ -772,7 +823,8 @@ describe("ICD editor", () => {
     await waitFor(async () =>
       expect(await retrieveJSONField(ic.key)).not.toHaveProperty("default"),
     );
-    expect(await screen.findByText("None")).toBeTruthy();
+    const options = await screen.findByRole("button", { name: "Options 1" });
+    expect(await within(options).findByText("None")).toBeTruthy();
   });
 
   it("should store the default of an integer JSON field as text", async () => {
@@ -837,7 +889,8 @@ describe("ICD editor", () => {
     await waitFor(async () =>
       expect(await retrieveJSONField(ic.key)).not.toHaveProperty("default"),
     );
-    expect(await screen.findByText("None")).toBeTruthy();
+    const options = await screen.findByRole("button", { name: "Options 1" });
+    expect(await within(options).findByText("None")).toBeTruthy();
   });
 
   it("should show the default of a timestamp JSON field that takes the time now", async () => {
@@ -1018,9 +1071,7 @@ describe("ICD editor", () => {
     ]);
     await renderEditor(ic);
     await commit("Scale", 2, "0");
-    expect(
-      await screen.findByText(/^Field 2: scale must be finite and non-zero/),
-    ).toBeTruthy();
+    expect(await screen.findByText(/^Field 2: scale must be non-zero/)).toBeTruthy();
     await waitFor(async () =>
       expect((await retrieveMessage(ic.key)).payload.fields[1].scale).toBe(0),
     );
@@ -1032,9 +1083,7 @@ describe("ICD editor", () => {
     ]);
     await renderEditor(ic);
     await commit("Scale", 2, "0");
-    expect(
-      await screen.findByText(/^Field 2: scale must be finite and non-zero/),
-    ).toBeTruthy();
+    expect(await screen.findByText(/^Field 2: scale must be non-zero/)).toBeTruthy();
   });
 
   it("should mark a blank name shortly after an edit", async () => {
@@ -1052,10 +1101,10 @@ describe("ICD editor", () => {
     ]);
     await renderEditor(ic);
     await commit("Scale", 2, "0");
-    await screen.findByText(/^Field 2: scale must be finite and non-zero/);
+    await screen.findByText(/^Field 2: scale must be non-zero/);
     await commit("Scale", 2, "2");
     await waitFor(() =>
-      expect(screen.queryByText(/^Field 2: scale must be finite/)).toBeNull(),
+      expect(screen.queryByText(/^Field 2: scale must be non-zero/)).toBeNull(),
     );
   });
 
@@ -1199,5 +1248,96 @@ describe("ICD editor", () => {
     picker.selectFiles([fakePickedFile("engine.csv", ENGINE_CSV)]);
     await findMessageItem("Engine");
     expect(cell("Name", 1).value).toBe("Rpm");
+  });
+
+  describe("framing", () => {
+    afterEach(() => {
+      flags.bus = true;
+    });
+
+    it("should hide the framing while the bus flag is off", async () => {
+      flags.bus = false;
+      await renderEditor(await createFramedICD());
+      expect(screen.queryByText("Framing")).toBeNull();
+      expect(screen.queryByRole("button", { name: /^Framing/ })).toBeNull();
+    });
+
+    it.each<[string, icd.Framing]>([
+      ["Delimited", { type: "delimited", delimiter: "\n" }],
+      ["Fixed length", { type: "fixed", length: 1 }],
+      ["Sync and length", SYNC],
+      ["COBS", { type: "cobs" }],
+      ["SLIP", { type: "slip" }],
+    ])("should store the framing that %s picks", async (option, want) => {
+      const ic = await createFramedICD();
+      await renderEditor(ic);
+      await pick(/^Framing/, option);
+      await waitFor(async () =>
+        expect(await retrieveStoredFraming(ic.key)).toEqual(want),
+      );
+    });
+
+    it("should remove the framing when None is picked", async () => {
+      const ic = await createFramedICD({ type: "cobs" });
+      await renderEditor(ic);
+      await pick(/^Framing/, "None");
+      await waitFor(async () =>
+        expect(await retrieveStoredFraming(ic.key)).toBeUndefined(),
+      );
+    });
+
+    it("should store a delimiter written with escapes", async () => {
+      const ic = await createFramedICD({ type: "delimited", delimiter: "\n" });
+      await renderEditor(ic);
+      const input = await typeText(/^Delimiter/, "\\r\\n");
+      await waitFor(async () =>
+        expect(await retrieveStoredFraming(ic.key)).toEqual({
+          type: "delimited",
+          delimiter: "\r\n",
+        }),
+      );
+      expect(input.value).toBe("\\r\\n");
+    });
+
+    it("should store the length of a fixed framing", async () => {
+      const ic = await createFramedICD({ type: "fixed", length: 1 });
+      await renderEditor(ic);
+      await typeText(/^Length/, "64");
+      await waitFor(async () =>
+        expect(await retrieveStoredFraming(ic.key)).toEqual({
+          type: "fixed",
+          length: 64,
+        }),
+      );
+    });
+
+    it("should store sync bytes written in hexadecimal", async () => {
+      const ic = await createFramedICD(SYNC);
+      await renderEditor(ic);
+      const input = await typeText(/^Sync bytes/, "0x7E 0x7e01");
+      await waitFor(async () =>
+        expect(await retrieveStoredFraming(ic.key)).toEqual({
+          ...SYNC,
+          sync: new Uint8Array([0x7e, 0x7e, 0x01]),
+        }),
+      );
+      expect(input.value).toBe("7E 7E 01");
+    });
+
+    it("should set and remove the checksum of a sync framing", async () => {
+      const ic = await createFramedICD(SYNC);
+      await renderEditor(ic);
+      await pick(/^Checksum/, "CRC-32");
+      await waitFor(async () =>
+        expect(await retrieveStoredFraming(ic.key)).toEqual({
+          ...SYNC,
+          checksum: { algorithm: "crc32", byteOrder: "little_endian" },
+        }),
+      );
+      await pick(/^Checksum/, "None");
+      await waitFor(async () =>
+        expect(await retrieveStoredFraming(ic.key)).toEqual(SYNC),
+      );
+    });
   });
 });

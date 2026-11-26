@@ -516,6 +516,20 @@ code, `client.icds.check` returns the problems of an ICD.
   <Problem.Fix>Enter a number, or clear the default.</Problem.Fix>
 </Problem.Item>
 
+<Problem.Item
+  message={[
+    "scale must be finite",
+    "offset must be finite",
+    "min must be finite",
+    "max must be finite",
+  ]}
+>
+  <Problem.Cause>
+    The scale, offset, min, or max is not a finite number, such as infinity or NaN.
+  </Problem.Cause>
+  <Problem.Fix>Enter a finite number.</Problem.Fix>
+</Problem.Item>
+
 </Problem.List>
 
 ### Names and keys
@@ -565,18 +579,13 @@ code, `client.icds.check` returns the problems of an ICD.
   </Problem.Fix>
 </Problem.Item>
 
-<Problem.Item
-  message={[
-    "scale must be finite and non-zero",
-    "offset must be finite",
-    "min must be finite",
-    "max must be finite",
-  ]}
->
+<Problem.Item message={"scale must be non-zero"}>
   <Problem.Cause>
-    The scale is 0, or the scale, offset, min, or max is not a finite number.
+    The scale of a number field is 0, so the field reads and writes each value as its
+    offset. Synnax saves the ICD, but a read or write task that binds the field does not
+    save or start.
   </Problem.Cause>
-  <Problem.Fix>Enter a finite number. A scale cannot be 0.</Problem.Fix>
+  <Problem.Fix>Enter a scale other than 0.</Problem.Fix>
 </Problem.Item>
 
 <Problem.Item
