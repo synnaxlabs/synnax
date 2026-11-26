@@ -142,10 +142,11 @@ describe("Write", () => {
     const { draft } = await renderWrite();
     await addEndpoint();
     await addEndpoint();
-    await waitFor(() => {
-      const items = screen.getAllByRole("treeitem");
-      expect(screen.getByRole("treeitem", { selected: true })).toBe(items[1]);
-    });
+    const [first] = await screen.findAllByRole("treeitem");
+    fireEvent.click(first);
+    await waitFor(() =>
+      expect(screen.getByRole("treeitem", { selected: true })).toBe(first),
+    );
     fireEvent.click(screen.getByText("PATCH"));
     fireEvent.change(screen.getByPlaceholderText("/api/control"), {
       target: { value: "/speed" },
@@ -154,23 +155,11 @@ describe("Write", () => {
       const [ep] = await retrieveEndpoints(draft.key);
       if (ep?.icd == null) throw new Error("the endpoint sends no ICD");
       const ic = await client.icds.retrieve(ep.icd);
-      expect(ic.messages.map(({ name }) => name)).toEqual(["POST", "PATCH /speed"]);
+      expect(ic.messages.map(({ name }) => name)).toEqual(["PATCH /speed", "POST 2"]);
     });
   });
 
-  it("should keep the name of a message that its endpoint did not name", async () => {
-    const value = createField("value", "float");
-    const { ic, message } = await createFormat([value]);
-    await renderWrite([createEndpoint("ep1", "/setpoint", ic, message, [value])]);
-    fireEvent.click(await screen.findByRole("treeitem", { name: /\/setpoint/ }));
-    fireEvent.change(await screen.findByDisplayValue("/setpoint"), {
-      target: { value: "/speed" },
-    });
-    await screen.findByDisplayValue("/speed");
-    expect(screen.getByText(message.name)).toBeTruthy();
-  });
-
-  it("should keep the name of a message that two endpoints send", async () => {
+  it("should keep the name of a message that the form did not create, though its request names it", async () => {
     const value = createField("value", "float");
     const message = icd.messageZ.parse({
       name: "PUT /setpoint",
@@ -180,18 +169,30 @@ describe("Write", () => {
       name: uniqueName("valve"),
       messages: [message],
     });
-    await renderWrite([
-      createEndpoint("ep1", "/setpoint", ic, message, [value]),
-      createEndpoint("ep2", "/setpoint", ic, message, [value]),
-    ]);
-    fireEvent.click(
-      (await screen.findAllByRole("treeitem", { name: /\/setpoint/ }))[1],
-    );
+    await renderWrite([createEndpoint("ep1", "/setpoint", ic, message, [value])]);
+    fireEvent.click(await screen.findByRole("treeitem", { name: /\/setpoint/ }));
     fireEvent.change(await screen.findByDisplayValue("/setpoint"), {
       target: { value: "/speed" },
     });
     await screen.findByDisplayValue("/speed");
     expect(screen.getByText("PUT /setpoint")).toBeTruthy();
+  });
+
+  it("should keep the name of a message that two endpoints send", async () => {
+    await renderWrite();
+    await addEndpoint();
+    fireEvent.contextMenu(
+      await screen.findByRole("treeitem", { name: /New endpoint/ }),
+    );
+    fireEvent.click(await screen.findByText("Duplicate"));
+    await waitFor(() =>
+      expect(screen.getAllByRole("treeitem", { name: /New endpoint/ })).toHaveLength(2),
+    );
+    fireEvent.change(screen.getByPlaceholderText("/api/control"), {
+      target: { value: "/speed" },
+    });
+    await screen.findByDisplayValue("/speed");
+    expect(screen.queryByText("POST /speed")).toBeNull();
   });
 
   it("should show the request and the message of an endpoint", async () => {
@@ -243,6 +244,30 @@ describe("Write", () => {
     const fields = await screen.findAllByRole("treeitem", { name: /^value/ });
     fireEvent.click(fields[1]);
     expect(await screen.findByDisplayValue(`${name}_2`)).toBeTruthy();
+  });
+
+  it("should give each of two endpoints of one path and message its own command channels", async () => {
+    const value = createField("value", "float");
+    const { ic, message } = await createFormat([value]);
+    const { container, dev, draft } = await renderWrite([
+      createEndpoint("ep1", "/setpoint", ic, message, [value]),
+      createEndpoint("ep2", "/setpoint", ic, message, [value]),
+    ]);
+    const name = `${channel.escapeInvalidName(dev.name)}_setpoint_value_cmd`;
+    fireEvent.click((await screen.findAllByRole("treeitem", { name: /^value/ }))[1]);
+    expect(await screen.findByDisplayValue(`${name}_2`)).toBeTruthy();
+    const created = await deployAndAwaitTask(
+      client,
+      container,
+      draft.key,
+      HTTP.Task.WRITE_SCHEMAS,
+    );
+    const keys = created.config.endpoints.map(({ message }) => {
+      const binding = message?.bindings[0];
+      return binding?.type === "channel" ? binding.channel : 0;
+    });
+    const channels = await client.channels.retrieve(keys);
+    expect(channels.map((ch) => ch.name)).toEqual([name, `${name}_2`]);
   });
 
   it("should send a fixed value for a field of an endpoint set to Value", async () => {
@@ -379,8 +404,8 @@ describe("Write", () => {
       schemas: HTTP.Device.SCHEMAS,
     });
     expect(updated.properties.write).toEqual({
-      [`/setpoint#${value.key}`]: keys[0],
-      [`/setpoint#${open.key}`]: keys[1],
+      [`ep1#${value.key}`]: keys[0],
+      [`ep1#${open.key}`]: keys[1],
     });
   });
 });

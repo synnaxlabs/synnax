@@ -302,10 +302,13 @@ const sendsICD = (ep: WriteEndpoint): ep is ICDEndpoint =>
 const icdPath = (key: string) => root.config.endpoints[key] as deep.Path<ICDEndpoint>;
 
 /** Keys and names the command channels of fields of an endpoint, as deploying does. */
-const namingOf = (device: string, { path }: WriteEndpoint): ICD.Write.ChannelNaming => {
+const namingOf = (
+  device: string,
+  { key, path }: WriteEndpoint,
+): ICD.Write.ChannelNaming => {
   const prefix = channel.escapeInvalidName(device) + channel.escapeInvalidName(path);
   return {
-    key: (field) => `${path}#${field.key}`,
+    key: (field) => `${key}#${field.key}`,
     name: (field) => ICD.Write.commandName(prefix, field),
   };
 };
@@ -350,28 +353,26 @@ const MessageDetails = ({ epKey, onAddField }: ICDDetailsProps) => {
   const handleFormatChange = (icdKey: icd.Key, picked: icd.Message) =>
     set(path, { ...ep, icd: icdKey, message: ICD.Write.create(picked) });
   return (
-    <>
-      <PForm.Section
-        title="Message"
-        actions={
-          <ICD.AddField
-            onClick={onAddField}
-            disabled={message?.payload.format !== "json"}
-          />
-        }
-      >
-        <ICD.MessageFormatField
-          icdKey={ep.icd}
-          message={ep.message.message}
-          onChange={handleFormatChange}
-          preview={isPreview}
+    <PForm.Section
+      title="Message"
+      actions={
+        <ICD.AddField
+          onClick={onAddField}
+          disabled={message?.payload.format !== "json"}
         />
-      </PForm.Section>
-      <ICD.MessageStatus
+      }
+    >
+      <ICD.MessageFormatField
+        icdKey={ep.icd}
+        message={ep.message.message}
+        onChange={handleFormatChange}
+        preview={isPreview}
+      />
+      <ICD.MessageWarning
         message={message}
         missingDescription={ICD.Write.MISSING_DESCRIPTION}
       />
-    </>
+    </PForm.Section>
   );
 };
 
@@ -390,16 +391,25 @@ const MessagePick = ({ epKey }: { epKey: string }) => {
   );
 };
 
-const ICDEndpointDetails = ({ epKey, onAddField }: ICDDetailsProps) => {
+interface ICDEndpointDetailsProps extends ICDDetailsProps {
+  /** The key of each message that this form created. */
+  created: icd.MessageKey[];
+}
+
+const ICDEndpointDetails = ({
+  epKey,
+  onAddField,
+  created,
+}: ICDEndpointDetailsProps) => {
   const path = root.config.endpoints[epKey];
   const ctx = PForm.useContext();
   const formats = ICD.useFormats();
   const sends = sendsICD(PForm.useFieldValue(path));
-  // A message that only this endpoint sends follows its request while it keeps the
-  // name that the request gave it.
+  // A message that this form created and no other endpoint sends follows its request
+  // while it keeps the name that the request gave it.
   const handleRequestChange = (change: Partial<RequestLine>) => {
     const ep = ctx.get(path).value;
-    if (!sendsICD(ep)) return;
+    if (!sendsICD(ep) || !created.includes(ep.message.message)) return;
     const shared = ctx
       .get(root.config.endpoints)
       .value.some(
@@ -441,6 +451,9 @@ interface EndpointsProps {
   onSelect: Dispatch<SetStateAction<string[]>>;
   expanded: string[];
   onExpand: Dispatch<SetStateAction<string[]>>;
+  /** The key of each message that this form created. */
+  created: icd.MessageKey[];
+  onCreate: Dispatch<SetStateAction<icd.MessageKey[]>>;
 }
 
 /** The endpoints of the task as a tree, beside the details of the selected item. */
@@ -450,6 +463,8 @@ const Endpoints = ({
   onSelect,
   expanded,
   onExpand,
+  created,
+  onCreate,
 }: EndpointsProps) => {
   const client = PSynnax.use();
   const ctx = PForm.useContext();
@@ -481,7 +496,12 @@ const Endpoints = ({
       path: root.config.endpoints[ep.key],
       title: <EndpointLabel path={root.config.endpoints[ep.key]} />,
       details: (
-        <ICDEndpointDetails key={ep.key} epKey={ep.key} onAddField={onAddField} />
+        <ICDEndpointDetails
+          key={ep.key}
+          epKey={ep.key}
+          onAddField={onAddField}
+          created={created}
+        />
       ),
     }),
     duplicate,
@@ -509,6 +529,7 @@ const Endpoints = ({
       messages: [{ name: messageName(ep), fields: [] }],
     });
     const added = { ...ep, icd: key, message: ICD.Write.create(message) };
+    onCreate((prev) => [...prev, message.key]);
     list.push([added]);
     onSelect([added.key]);
     onExpand((prev) => unique.unique([...prev, ...ICD.Write.expandedOf([added])]));
@@ -553,6 +574,7 @@ const ICDContent = ({ device }: PlatformDevice.TaskFormContentProps<Device.Devic
   const [expanded, setExpanded] = useState<string[]>(() =>
     ICD.Write.expandedOf(endpoints),
   );
+  const [created, setCreated] = useState<icd.MessageKey[]>([]);
   const icds = endpoints.filter(sendsICD).map((ep) => ep.icd);
   return (
     <ICD.WithFormats icdKeys={icds}>
@@ -562,6 +584,8 @@ const ICDContent = ({ device }: PlatformDevice.TaskFormContentProps<Device.Devic
         onSelect={setSelected}
         expanded={expanded}
         onExpand={setExpanded}
+        created={created}
+        onCreate={setCreated}
       />
     </ICD.WithFormats>
   );
