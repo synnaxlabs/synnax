@@ -874,6 +874,15 @@ var _ = Describe("Payload decoding", func() {
 			MatchError(ContainSubstring(`NodeConfig: unknown variant ""`)),
 		))
 	})
+
+	It("Should reject a config naming a removed equipment variant", func() {
+		var a schematic.Action
+		Expect(json.Unmarshal([]byte(`{"type": "set_node", "set_node": {"node":
+			{"key": "n1", "config": {"variant": "valve"}}}}`), &a)).To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring(`NodeConfig: unknown variant "valve"`)),
+		))
+	})
 })
 
 var _ = Describe("Path actions", func() {
