@@ -189,6 +189,16 @@ jobs:
             ${{ steps.key.outputs.sum }}
             ${{ steps.key.outputs.module }}
 
+      # Go and golangci-lint refresh the mtime of an entry they use only when that
+      # mtime is over an hour old, so the restored entries get one two hours old.
+      - name: Age the restored Go caches
+        run: |
+          for dir in ~/.cache/go-build ~/.cache/golangci-lint; do
+            if [ -d "$dir" ]; then
+              find "$dir" -type f -exec touch -d '2 hours ago' {} +
+            fi
+          done
+
       - name: Download the Go modules
         env:
           DIRECTORY: ${{ inputs.directory }}
@@ -277,8 +287,8 @@ jobs:
           ./custom-gcl run --path-mode=abs --enable-only "$COMPLEXITY" "${packages[@]}"
 
       # Each save holds every entry it restored, so stale builds pile up until their
-      # extraction fills the disk. Go and golangci-lint refresh an entry's mtime when
-      # they use it, so deleting the oldest files first keeps the ones this lint read.
+      # extraction fills the disk. The restored entries are aged, so the entries this
+      # lint used are the newest, and deleting the oldest files first keeps them.
       # One cold lint fills about 11 GB.
       - name: Trim the Go caches
         if: success() && github.ref == 'refs/heads/main'
@@ -424,10 +434,21 @@ jobs:
             ${{ steps.key.outputs.sum }}
             ${{ steps.key.outputs.module }}
 
+      # Go refreshes the mtime of an entry it uses only when that mtime is over an hour
+      # old, so the restored entries get one two hours old. Go deletes entries unused
+      # for five days, so an older time would lose them.
       - name: Mark the start of the build
         id: start
         shell: bash
-        run: echo "seconds=$(date +%s)" >> "$GITHUB_OUTPUT"
+        env:
+          BUILD: ${{ steps.key.outputs.build }}
+        run: |
+          start=$(date +%s)
+          if [ -d "$BUILD" ]; then
+            find "$BUILD" -type f -exec perl -e \
+              '$t = time - 7200; utime $t, $t, @ARGV' {} +
+          fi
+          echo "seconds=$start" >> "$GITHUB_OUTPUT"
 
       - name: Download the Go modules
         shell: bash
@@ -515,12 +536,11 @@ jobs:
         working-directory: ${{ inputs.directory }}
 
       # Each save holds every entry it restored, so stale builds pile up until their
-      # extraction fills the disk. Go refreshes the mtime of an entry it uses, unless
-      # that mtime is less than an hour old, so an entry older than an hour before the
-      # build did not serve this run. A size budget below the size of one build deletes
-      # entries that the run used. A failed run used only a part of the cache, so only
-      # a run that passes trims and saves. A Ginkgo run that restored a go test cache
-      # saves nothing, because the warm run keeps that cache at the head of main.
+      # extraction fills the disk. An entry with an mtime from before the build did not
+      # serve this run. A size budget below the size of one build deletes entries that
+      # the run used. A failed run used only a part of the cache, so only a run that
+      # passes trims and saves. A Ginkgo run that restored a go test cache saves
+      # nothing, because the warm run keeps that cache at the head of main.
       - name: Trim the Go build cache
         if: >-
           ${{ success() && github.ref == 'refs/heads/main' && (inputs.cached ||
@@ -533,7 +553,7 @@ jobs:
         run: |
           cd "$BUILD"
           du -sh .
-          find . -type f -mmin "+$(( ($(date +%s) - START) / 60 + 61 ))" -delete
+          find . -type f -mmin "+$(( ($(date +%s) - START) / 60 + 1 ))" -delete
           du -sh .
 
       # The shards of a Ginkgo run restore the same cache and save under one key, so

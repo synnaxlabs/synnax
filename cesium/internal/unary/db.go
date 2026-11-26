@@ -34,9 +34,13 @@ type DB struct {
 	domain     *domain.DB
 	controller *control.Controller[*controlledWriter]
 	// idx is the index used for resolving timestamp positions on this channel.
-	idx              *index.Domain
-	wrapError        func(error) error
-	closed           *atomic.Bool
+	idx       *index.Domain
+	wrapError func(error) error
+	closed    *atomic.Bool
+	// pending counts the calls to OpenWriter in progress and the open deletes and
+	// holds. MarkClosed refuses while it is above zero, because they run with no lock
+	// on the DB.
+	pending          *atomic.Int32
 	leadingAlignment *alignment.Counter
 	// resolver handles sample-to-byte offset translation. Fixed-density channels
 	// carry a zero cache; variable-length channels carry a per-domain offset cache.
@@ -89,20 +93,24 @@ func (db *DB) LeadingControlState() *control.State {
 	return db.controller.LeadingState()
 }
 
-// HasDataFor check whether there is a time range in the unary DB's underlying domain
-// that overlaps with the given time range. Note that this function will return false if
-// there is an open writer that could write into the requested time range.
-func (db *DB) HasDataFor(ctx context.Context, tr telem.TimeRange) (bool, error) {
-	if db.closed.Load() {
-		return false, ErrDBClosed
+// OpenHold holds tr so that writers that open on it wait until the caller calls
+// release. It returns whether db has data in tr, or true if a writer controls part of
+// tr. MarkClosed refuses until release.
+func (db *DB) OpenHold(
+	ctx context.Context,
+	tr telem.TimeRange,
+) (hasData bool, release func(), err error) {
+	if release, err = db.openNonWriteOp(tr, "hold"); err != nil {
+		if errors.Is(err, xcontrol.ErrUnauthorized) {
+			return true, func() {}, nil
+		}
+		return false, nil, err
 	}
-	release, err := db.lockControllerForNonWriteOp(tr, "has_data_for")
-	if err != nil {
-		return true, errors.Skip(err, xcontrol.ErrUnauthorized)
+	if hasData, err = db.domain.HasDataFor(ctx, tr); err != nil {
+		release()
+		return false, nil, db.wrapError(err)
 	}
-	defer release()
-	hasData, err := db.domain.HasDataFor(ctx, tr)
-	return hasData, db.wrapError(err)
+	return hasData, release, nil
 }
 
 // Size returns the total size of all data stored in the database.
@@ -125,11 +133,21 @@ func (db *DB) Close() error {
 
 // MarkClosed marks the database closed, so that it refuses new writers and iterators.
 // It returns an error wrapping resource.ErrOpen and leaves the database open if a
-// writer, iterator, or delete is open, or ErrDBClosed if the database is already
-// closed. After a nil error, call Release or UnmarkClosed.
+// writer, iterator, delete, or hold is open or a writer is opening, or ErrDBClosed if
+// the database is already closed. After a nil error, call Release or UnmarkClosed.
 func (db *DB) MarkClosed() error {
 	if !db.closed.CompareAndSwap(false, true) {
 		return db.wrapError(ErrDBClosed)
+	}
+	// Each operation counts itself before it checks closed, so one of the two sees the
+	// other.
+	if count := db.pending.Load(); count > 0 {
+		db.closed.Store(false)
+		return db.wrapError(errors.Wrapf(
+			resource.ErrOpen,
+			"there are %d writer opens, deletes, or holds in progress on it",
+			count,
+		))
 	}
 	if err := db.domain.MarkClosed(); err != nil {
 		db.closed.Store(false)

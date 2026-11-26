@@ -616,13 +616,16 @@ const GroupList = ({ value, onChange }: GroupListProps): ReactElement => {
   const staticData = List.useStaticData<group.Key, group.Group>({
     data: Schematic.Node.GROUPS,
   });
-  // A tab strip cannot page, so it reads every group at once.
   const remoteData = Flux.useList((client) => client.groups, {
     name: "symbol groups",
     query: Schematic.Symbol.GROUP_QUERY,
     pageSize: 1000,
+    eager: true,
   });
-  useEffect(() => remoteData.more(), []);
+  // A tab strip cannot page, so it reads on until it holds every group.
+  useEffect(() => {
+    if (remoteData.variant === "success" && !remoteData.complete) remoteData.more();
+  }, [remoteData.variant, remoteData.complete]);
   const listProps = List.useCombinedData<group.Key, group.Group>({
     first: staticData,
     second: remoteData,

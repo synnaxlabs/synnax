@@ -41,6 +41,12 @@ import {
 const createValveConfig = (): Record<string, unknown> =>
   PSchematic.Node.createConfig({ variant: "valve" });
 
+const createValveNodeConfig = (): schematic.SymbolNodeConfig =>
+  schematic.symbolNodeConfigZ.parse({
+    variant: "symbol",
+    spec: { type: "builtin", name: "valve" },
+  });
+
 interface RenderPropertiesParams {
   nodeKeys: string[];
   sessionState?: Partial<Session.Schematic.State>;
@@ -559,13 +565,7 @@ describe("Schematic toolbar Properties", () => {
     it("recolors the node color of symbol nodes", async () => {
       const { key } = await renderProperties({
         nodeKeys: ["n1", "n2"],
-        createConfig: () => ({
-          ...schematic.symbolNodeConfigZ.parse({
-            variant: "symbol",
-            spec: { type: "builtin", name: "valve" },
-          }),
-          color: fixed(RED),
-        }),
+        createConfig: () => ({ ...createValveNodeConfig(), color: fixed(RED) }),
       });
       await screen.findByText("Selection");
       fireEvent.click(getSwatches("Selection")[0]);
@@ -580,6 +580,23 @@ describe("Schematic toolbar Properties", () => {
           ).map((c) => fixedHexOf(c.color)),
         )
         .toEqual([BLUE, BLUE]);
+    });
+
+    it("sets the color of every selected symbol node", async () => {
+      const { key } = await renderProperties({
+        nodeKeys: ["n1", "n2"],
+        createConfig: createValveNodeConfig,
+      });
+      await screen.findByText("Colors");
+      expect(getHexInput("Color").placeholder).toBe("Auto");
+      setRoleColor("Color", RED);
+      await expect
+        .poll(async () =>
+          (
+            await Promise.all([retrieveConfig(key, "n1"), retrieveConfig(key, "n2")])
+          ).map((c) => fixedHexOf(c.color)),
+        )
+        .toEqual([RED, RED]);
     });
 
     it("recolors every field that holds a selection color", async () => {
