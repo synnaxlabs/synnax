@@ -13,7 +13,9 @@ import { schematic } from "@synnaxlabs/client";
 import { Breadcrumb } from "@synnaxlabs/lyra/breadcrumb";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
+import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { Status } from "@synnaxlabs/lyra/status";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Panel as PlutoPanel, Schematic } from "@synnaxlabs/pluto";
@@ -22,6 +24,7 @@ import type { ReactElement } from "react";
 import { Control } from "@/feature/schematic/toolbar/Control";
 import { Properties } from "@/feature/schematic/toolbar/Properties";
 import { Symbols, type SymbolsChangeProps } from "@/feature/schematic/toolbar/Symbols";
+import { useConfirmChange } from "@/feature/schematic/toolbar/useConfirmChange";
 import { Core } from "@/platform/core";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
@@ -85,13 +88,18 @@ interface SymbolName {
 const useSymbolName = (configs: Map<string, Schematic.Node.Config>): SymbolName => {
   const symbolKeys = new Set(Array.from(configs.values(), Schematic.Node.symbolKey));
   const shared = symbolKeys.size === 1 ? configs.values().next().value : undefined;
-  const specKey =
-    shared != null && Schematic.Node.isCustomConfig(shared) ? shared.specKey : null;
+  const ref = shared?.variant === "symbol" ? shared.spec : undefined;
+  const specKey = ref?.type === "custom" ? ref.key : null;
   const { symbol: custom } = Schematic.Symbol.useResolved(specKey);
   if (shared == null) return { name: "Mixed" };
-  if (specKey != null) return { symbol: specKey, name: custom?.name ?? "" };
-  const spec = Schematic.Node.resolveSpec(shared.variant);
-  return { symbol: shared.variant, name: spec.label ?? spec.name };
+  const symbol = Schematic.Node.symbolKey(shared);
+  if (specKey != null) return { symbol, name: custom?.name ?? "" };
+  if (ref != null) {
+    const name = ref.type === "builtin" ? Schematic.Node.builtInLabel(ref.name) : null;
+    return { symbol, name: name ?? "Missing symbol" };
+  }
+  const spec = Schematic.Node.resolveSpec(symbol);
+  return { symbol, name: spec.label ?? spec.name };
 };
 
 interface SymbolSummaryProps {
@@ -157,9 +165,13 @@ const Internal = (): ReactElement => {
   const { isCurrentlyEditable, canEdit } = Session.Schematic.useSelectEditable();
   const selected = Session.Schematic.useSelectSelected();
   const changeable = useChangeableSymbols(selected);
+  // Another client can edit the configs while the confirm asks, so it reads them again.
+  const changeableRef = useSyncedRef(changeable);
   const current = useSymbolName(changeable);
   const changing = Session.Schematic.useSelectChanging();
   const changeSymbol = Schematic.useChangeSymbol();
+  const confirmChange = useConfirmChange();
+  const handleError = Status.useErrorHandler();
   const setChanging = (changing: boolean) =>
     dispatch(Session.Schematic.setChanging({ key, changing }));
   const singleSelectedConfig = Schematic.useElementConfig({
@@ -168,9 +180,13 @@ const Internal = (): ReactElement => {
   const change: SymbolsChangeProps | undefined = changing
     ? {
         value: current.symbol,
-        onChange: (input) => {
-          changeSymbol([...changeable.keys()], input);
-          setChanging(false);
+        onChange: (input, spec) => {
+          handleError(async () => {
+            if (!(await confirmChange(() => changeableRef.current, input, spec)))
+              return;
+            changeSymbol([...changeableRef.current.keys()], input, spec);
+            setChanging(false);
+          }, "Failed to change symbol");
         },
       }
     : undefined;

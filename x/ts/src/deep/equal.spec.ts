@@ -217,6 +217,24 @@ describe("deepEqual", () => {
     });
   });
 
+  describe("partialEqual on null", () => {
+    it("should return false for a null field over an object", () => {
+      expect(deep.partialEqual<unknown>({ a: { b: 1 } }, { a: null })).toBe(false);
+    });
+
+    it("should return true for a null field over null", () => {
+      expect(deep.partialEqual({ a: null }, { a: null })).toBe(true);
+    });
+
+    it("should return false for a primitive partial over an object", () => {
+      expect(deep.partialEqual<unknown>({ a: 1 }, 5)).toBe(false);
+    });
+
+    it("should return false for an undefined partial over an object", () => {
+      expect(deep.partialEqual<unknown>({ a: 1 }, undefined as never)).toBe(false);
+    });
+  });
+
   describe("partialEqual on whole values", () => {
     it("should compare dates by time", () => {
       expect(deep.partialEqual({ at: new Date(5) }, { at: new Date(5) })).toBe(true);

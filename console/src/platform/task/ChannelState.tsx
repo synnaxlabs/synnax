@@ -24,7 +24,7 @@ import { CSS } from "@/platform/css";
 type State = "new" | "missing";
 
 /** What deploying the task does with a channel that does not exist. */
-export type Deploy = "creates" | "skips" | "never";
+export type Deploy = "creates" | "skips";
 
 const ICONS: Record<State, Icon.FC> = { new: Icon.New, missing: Icon.None };
 
@@ -43,7 +43,6 @@ const DELETED = "It may have been deleted.";
 export const MISSING_DESCRIPTIONS: Record<Deploy, string> = {
   creates: `${DELETED} Deploying the task creates a new channel with this name.`,
   skips: `${DELETED} ${SKIPPED_DESCRIPTION}`,
-  never: `${DELETED} Select another channel.`,
 };
 
 interface StateIconProps extends Icon.IconProps {

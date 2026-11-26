@@ -513,12 +513,11 @@ var _ = Describe("Actuate", func() {
 
 	It("Should make a spec an actuator that holds its looks on value 0 on value 1, "+
 		"when no look holds on value 1", func() {
-		spec := v5.Actuate(v5.Spec{Variant: "static", Looks: []v5.Look{
+		spec := v5.Actuate(v5.Spec{Looks: []v5.Look{
 			{Key: "a", When: equals(0)},
 			{Key: "b", When: equals(2)},
 			{Key: "c"},
 		}})
-		Expect(spec.Variant).To(Equal("actuator"))
 		Expect(spec.Looks).To(Equal([]v5.Look{
 			{Key: "a", When: equals(0, 1)},
 			{Key: "b", When: equals(2)},
@@ -552,6 +551,36 @@ var _ = Describe("ActuatorEntries", func() {
 		Entry("to no entries", []enumeration.Entry(nil)),
 		Entry("to entries with value 1", []enumeration.Entry{{Key: "a", Value: 1}}),
 	)
+})
+
+var _ = Describe("ResolveRegion", func() {
+	It("Should keep a selector that names shapes", func() {
+		sels, markup := v5.ResolveRegion(`<svg><rect class="a"/></svg>`, []string{".a"})
+		Expect(sels).To(Equal([]string{".a"}))
+		Expect(markup).To(Equal(`<svg><rect class="a"/></svg>`))
+	})
+
+	It("Should name a shape that a selector picks by position", func() {
+		sels, markup := v5.ResolveRegion(
+			`<svg><rect data-region-id="region-1"/><rect/></svg>`,
+			[]string{"rect:nth-of-type(2)", "rect:nth-of-type(1)"},
+		)
+		Expect(sels).To(Equal([]string{
+			`[data-region-id="region-2"]`,
+			`[data-region-id="region-1"]`,
+		}))
+		Expect(markup).To(Equal(
+			`<svg><rect data-region-id="region-1"/><rect data-region-id="region-2"/></svg>`,
+		))
+	})
+
+	It("Should drop a selector that picks no shape", func() {
+		sels, _ := v5.ResolveRegion(
+			`<svg><rect/></svg>`,
+			[]string{"circle:nth-of-type(1)"},
+		)
+		Expect(sels).To(BeEmpty())
+	})
 })
 
 var _ = Describe("DrawnLooks", func() {

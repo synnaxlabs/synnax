@@ -9,16 +9,15 @@
 
 import type { schematic } from "@synnaxlabs/client";
 
+import type { Names } from "@/schematic/node/builtIns";
 import { CrossJunction } from "@/schematic/node/vessels/crossJunction";
 import { Cylinder } from "@/schematic/node/vessels/cylinder";
 import { Tank } from "@/schematic/node/vessels/tank";
 import { TJunction } from "@/schematic/node/vessels/tJunction";
 
 export const REGISTRY = {
-  cross_junction: CrossJunction.spec,
   cylinder: Cylinder.spec,
   tank: Tank.spec,
-  t_junction: TJunction.spec,
 } as const satisfies Partial<Record<schematic.NodeConfigType, unknown>>;
 
 /** BUILT_INS maps the name of each built-in symbol to its spec. */
@@ -26,3 +25,9 @@ export const BUILT_INS = {
   cross_junction: CrossJunction.SYMBOL,
   t_junction: TJunction.SYMBOL,
 } as const satisfies Record<string, schematic.symbol.Spec>;
+
+/** NAMES maps the name of each built-in symbol to its names. */
+export const NAMES = {
+  cross_junction: { name: "Cross junction", label: "" },
+  t_junction: { name: "T junction", label: "" },
+} as const satisfies Record<keyof typeof BUILT_INS, Names>;
