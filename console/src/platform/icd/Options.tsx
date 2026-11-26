@@ -42,6 +42,17 @@ const MAPPABLE: Record<Mappable["type"], true> = {
 
 const isMappable = (field: icd.JSONField): field is Mappable => field.type in MAPPABLE;
 
+/** A JSON field of a kind with a min and a max. */
+type Limited = icd.FloatJSONField | icd.IntegerJSONField | icd.UnsignedJSONField;
+
+const LIMITED: Record<Limited["type"], true> = {
+  float: true,
+  integer: true,
+  unsigned: true,
+};
+
+const isLimited = (field: icd.JSONField): field is Limited => field.type in LIMITED;
+
 const ZERO_DEFAULTS: {
   [T in Type]: NonNullable<Extract<icd.JSONField, { type: T }>["default"]>;
 } = {
@@ -95,6 +106,8 @@ const summarize = (field: icd.JSONField): string | null => {
   const parts: string[] = [];
   const shown = formatDefault(field);
   if (shown != null) parts.push(`Default ${shown}`);
+  if (field.min != null) parts.push(`Min ${field.min}`);
+  if (field.max != null) parts.push(`Max ${field.max}`);
   const count = isMappable(field) ? field.enumValues.length : 0;
   if (count > 0) parts.push(`${count} ${count === 1 ? "mapping" : "mappings"}`);
   return parts.length > 0 ? parts.join(", ") : null;
@@ -216,10 +229,48 @@ export const Optional = ({ path, field }: OptionalProps): ReactElement => {
   );
 };
 
+interface LimitProps {
+  path: deep.Target<number | undefined>;
+  label: string;
+}
+
+/** Edits a min or a max. Clearing it removes the limit. */
+const Limit = ({ path, label }: LimitProps): ReactElement => {
+  const { set, remove, mode } = Form.useContext();
+  const state = Form.useFieldState(path, { optional: true });
+  return (
+    <Input.Item
+      label={label}
+      padHelpText={false}
+      helpText={state?.status.message}
+      status={state?.status.variant}
+    >
+      <Input.Numeric
+        value={state?.value}
+        onChange={(v) => set(path, v)}
+        onClear={() => remove(path)}
+        placeholder="None"
+        aria-label={label}
+        preview={mode === "preview"}
+      />
+    </Input.Item>
+  );
+};
+
+/** Edits the min and max of a number field: the values that a write task accepts. */
+const Limits = ({ path, field }: OptionalProps): ReactElement | null =>
+  isLimited(field) ? (
+    <>
+      <Limit path={path.min} label="Min" />
+      <Limit path={path.max} label="Max" />
+    </>
+  ) : null;
+
 const OptionsForm = ({ path, field }: OptionalProps): ReactElement => (
   <Form.Sections>
     <Form.Section>
       <Optional path={path} field={field} />
+      <Limits path={path} field={field} />
       {isMappable(field) && <EnumValues path={path} label="Enum mapping" />}
     </Form.Section>
   </Form.Sections>
@@ -235,9 +286,9 @@ export interface OptionsProps extends Pick<
 }
 
 /**
- * A grid cell that sums up the default and the enum mapping of a JSON field, and opens
- * a dialog that edits them. A read-only field that sets neither shows "None" and opens
- * nothing.
+ * A grid cell that sums up the default, the min and max, and the enum mapping of a JSON
+ * field, and opens a dialog that edits them. A read-only field that sets none of them
+ * shows "None" and opens nothing.
  */
 export const Options = ({
   path,

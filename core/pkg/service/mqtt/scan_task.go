@@ -12,7 +12,6 @@ package mqtt
 import (
 	"context"
 	"time"
-	"unicode/utf8"
 	"uuid"
 
 	paho "github.com/eclipse/paho.mqtt.golang"
@@ -257,12 +256,4 @@ func (s *scanner) browseConfig(
 	// A browse is never the host application, so it sets no STATE last will.
 	cfg.hostID = ""
 	return props, cfg, nil
-}
-
-// payloadSample returns the start of a text payload.
-func payloadSample(payload []byte) string {
-	if !utf8.Valid(payload) {
-		return ""
-	}
-	return driver.CutText(payload, browsePayloadLimit)
 }

@@ -94,18 +94,18 @@ export const { useUpdate: useImport } = Flux.createUpdate<ImportParams, icd.ICD>
     await client.icds.import(key, data, format),
 });
 
-export const formSchema = icd.icdZ.pick({ name: true, messages: true });
+export const formSchema = icd.icdZ.pick({ name: true, messages: true, framing: true });
 
 export const formPath = deep.path<z.infer<typeof formSchema>>();
 
 /**
- * A form over the name and messages of a cached ICD. Each edit reaches the Core as a
- * path action. Problems do not stop an edit: {@link useCheck} shows them.
+ * A form over the name, messages, and framing of a cached ICD. Each edit reaches the
+ * Core as a path action. Problems do not stop an edit: {@link useCheck} shows them.
  */
 export const useForm = Flux.createDocumentForm<icd.Key, icd.ICD, typeof formSchema>({
   name: RESOURCE_NAME,
   schema: formSchema,
   domain: (client) => client.icds,
   useEnsure,
-  toValues: ({ name, messages }) => ({ name, messages }),
+  toValues: ({ name, messages, framing }) => ({ name, messages, framing }),
 });

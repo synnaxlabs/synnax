@@ -14,6 +14,7 @@ package log
 import (
 	"context"
 	"slices"
+	"strconv"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -103,6 +104,14 @@ func newIndexes() indexes {
 				}
 				return targets
 			},
+			Locate: func(e *Log, t channel.Key) []string {
+				for i4, v5 := range e.Channels {
+					if v5.Channel == t {
+						return []string{"channels", strconv.Itoa(i4), "channel"}
+					}
+				}
+				return nil
+			},
 			Detach: func(e *Log, t channel.Key) {
 				e.Channels = slices.DeleteFunc(e.Channels, func(v2 ChannelEntry) bool {
 					if v2.Channel == t {
@@ -135,6 +144,19 @@ func newIndexes() indexes {
 					}
 				}
 				return targets
+			},
+			Locate: func(e *Log, t color.Key) []string {
+				for i9, v10 := range e.Channels {
+					if v10.Color != nil {
+						switch v11 := v10.Color.Variant.(type) {
+						case color.NamedRef:
+							if v11.Key == t {
+								return []string{"channels", strconv.Itoa(i9), "color", "key"}
+							}
+						}
+					}
+				}
+				return nil
 			},
 			Detach: func(e *Log, t color.Key) {
 				for i5 := range e.Channels {
