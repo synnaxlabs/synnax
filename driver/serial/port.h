@@ -49,7 +49,8 @@ class Port final : public transport::Transport {
 
     [[nodiscard]] native::Handle handle();
 
-    /// @brief releases the lock when this port holds it, then closes the port.
+    /// @brief discards unsent output and releases the lock when this port holds the
+    /// lock, then closes the port.
     void close();
 
     /// @brief closes the port, and returns and keeps err.

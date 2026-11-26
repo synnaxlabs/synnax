@@ -42,6 +42,10 @@ x::errors::Error configure(Handle handle, const synnax::serial::Properties &prop
 /// @returns the number of written bytes that the port has not yet sent.
 std::pair<std::size_t, std::error_code> queued_output(Handle handle);
 
+/// @brief drops the written bytes that the port has not yet sent. A close on Linux
+/// waits up to 30 s for them otherwise.
+void discard_output(Handle handle);
+
 /// @brief Line is the line errors of an open port, carried from one read to the next.
 struct Line {
     /// @brief marked is how many bytes of an error mark ended the last read.
