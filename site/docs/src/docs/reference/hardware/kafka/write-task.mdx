@@ -1,24 +1,65 @@
 ---
 title: "Kafka write task"
-description: "Send the samples of Synnax channels to a Kafka topic as JSON records."
+description:
+  "Send a record to a Kafka topic each time a command channel gets a new value."
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Fragment } from "react";
 import { Client } from "@/components/client";
-import { Video } from "@/components/media/Media";
 import { Problem } from "@/components/problem";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-A Kafka write task sends each sample of its channels to one topic as a JSON record. Use
-it to give other systems on Kafka the data that Synnax records. Before you start,
+A Kafka write task sends a record to a Kafka topic each time you write a value to a
+command channel. For example, a setpoint on a schematic can send `{"speed": 1200}` to
+the systems that consume a topic. Before you start,
 [connect a Kafka cluster](/reference/hardware/kafka/connect-cluster).
 
-The task reads channels and does not command hardware, so it takes no
-[control authority](/reference/control/authority). It has no data saving option, because
-it records nothing in Synnax.
+The task has no state channels and no data saving option. To see the records, read the
+topic with a [Kafka read task](/reference/hardware/kafka/read-task).
+
+<Divider.Divider x />
+
+## Records
+
+A target of the task sends one message of an
+[interface control document (ICD)](/reference/hardware/icds) to one topic. The value of
+each record is the JSON payload of the message. Each field of the message sends a
+command from a command channel, a fixed value, or its
+[default](/reference/hardware/icds/reference#defaults).
+
+- **Commands** -> record 1 holds the first new command of each channel of the message,
+  record 2 holds the second, and so on, in order. So commands to two fields in one write
+  go in one record. A field with no new command sends the last command of its channel.
+- **First commands** -> the target sends nothing until each field with a channel and no
+  default has a command.
+- **Dropped commands** -> the task drops a command that its field cannot hold, such as
+  NaN in a JSON number or a value outside the min and max of its field, and shows a
+  warning.
+
+For a message where `/speed` has a command channel, `/unit` has the fixed value `rpm`,
+and `/id` has a random UUID default, a command of 1200 sends this record value:
+
+```json
+{ "speed": 1200, "unit": "rpm", "id": "6f1c2e3a-..." }
+```
+
+The **Record key** of a target is the Kafka key of each of its records. Kafka keeps the
+records of one key in order. A target with no record key sends records with no key. One
+topic can have a target for each record key, such as `pump-1` and `pump-2`.
+
+The Kafka timestamp of a record comes from the index channel of its command channel. A
+command channel with no index takes the time at which the Core receives the command.
+
+When you upgrade the Core, it moves the channels of each write task from an earlier
+version into a new ICD named after the task. Each channel gets a message named after it,
+and a target that sends the message to the topic of the task. The value pointer sends
+the samples of the channel, and the channel pointer sends its name. The timestamp
+pointer becomes a current time default, so it sends the time of the write, not the time
+of the sample. With the record key **Channel name**, each target takes the name of its
+channel as its record key.
 
 <Divider.Divider x />
 
@@ -29,39 +70,78 @@ it records nothing in Synnax.
 
 1. In the devices toolbar, right-click the cluster and select **Create write task**. You
    can also run the "Create Kafka write task" command.
-2. Enter the **Topic**, such as `synnax-samples`.
-3. Click **Add channel**, then select a channel in **Channel**.
-4. Set the **JSON type** of the value: **Number**, **String**, or **Boolean**.
-5. Click <Icon.Play /> (**Start**).
+2. Click **Add targets**, then select the topics to write. To write a topic that the
+   cluster does not list, type its name and click **Write** _"name"_.
+3. Click **Add** _N_ **targets**.
+4. Set the **Record key** of each target, then click **Add field** for each value in the
+   message.
+5. A new field sends the commands of a channel. To send a fixed value, select **Value**.
+6. Click <Icon.Play /> (**Start**).
 
-The task starts to send records at once. Each record holds the value, the channel name,
-and the timestamp, as in [record shape](#record-shape).
+Each new target sends a message named after its topic, with the fields that most records
+of the topic hold. When one record key sent those records, the target takes it as its
+record key. The first target creates an ICD named after the task, and each new target
+adds a message to it. To send a message of another ICD, select it in **Message format**.
 
-<Video id="hardware/kafka/write-task" label="Create and start a Kafka write task" />
+When you start the task, the Console creates a command channel for each field that sends
+commands. For a cluster named "Plant cluster", the topic `plant.pumps`, the record key
+`pump-1`, and the field `speed`, it creates `Plant_cluster_plant_pumps_pump_1_speed_cmd`
+and its index `Plant_cluster_plant_pumps_pump_1_speed_cmd_time`. Two targets share a
+command channel when they send the same field of the same ICD message to the same topic
+with the same record key, in one task or several. To rename a channel, edit **Channel**
+after you start.
 
   </Fragment>
   <Fragment slot="python">
 
+Python does not create channels. Create the command channel, its index, and the ICD
+first.
+
 ```python
+import synnax as sy
 from synnax import kafka
 
 cluster = client.devices.retrieve(name="Plant cluster")
-temperature = client.channels.retrieve("oven_temperature")
+cmd_time = client.channels.create(
+    name="pump1_speed_cmd_time", is_index=True, data_type=sy.DataType.TIMESTAMP
+)
+cmd = client.channels.create(
+    name="pump1_speed_cmd", index=cmd_time.key, data_type=sy.DataType.FLOAT64
+)
+
+speed = sy.icd.FloatJSONField(name="speed", pointer="/speed")
+unit = sy.icd.StringJSONField(name="unit", pointer="/unit")
+command = sy.icd.Message(
+    name="plant.pumps",
+    payload=sy.icd.JSONPayload(fields=[speed, unit]),
+)
+pumps = client.icds.create(name="Plant pumps", messages=[command])
 
 task = client.tasks.create(
-    name="Oven to Kafka",
+    name="Pump 1 commands",
     type="kafka_write",
     rack=cluster.rack,
     config=kafka.WriteConfig(
         device=cluster.key,
-        topic="synnax-samples",
-        record=kafka.Record(
-            channel_pointer="/channel", timestamp_pointer="/timestamp"
-        ),
-        channels=[kafka.WriteChannel(channel=temperature.key)],
+        targets=[
+            kafka.WriteTarget(
+                topic="plant.pumps",
+                record_key="pump-1",
+                icd=pumps.key,
+                message=sy.icd.WriteMessage(
+                    message=command.key,
+                    bindings=[
+                        sy.icd.ChannelWriteBinding(field=speed.key, channel=cmd.key),
+                        sy.icd.ValueWriteBinding(
+                            field=unit.key, value=sy.icd.StringWriteValue(value="rpm")
+                        ),
+                    ],
+                ),
+            )
+        ],
     ),
 )
-task.start()
+task.execute_command_sync("start")
 ```
 
 Pass `rack=cluster.rack`. With no rack, Python picks the embedded rack that runs Kafka.
@@ -69,23 +149,69 @@ Pass `rack=cluster.rack`. With no rack, Python picks the embedded rack that runs
   </Fragment>
   <Fragment slot="typescript">
 
+TypeScript does not create channels. Create the command channel, its index, and the ICD
+first.
+
 ```typescript
-import { kafka } from "@synnaxlabs/client";
+import { icd, kafka } from "@synnaxlabs/client";
 
 const [cluster] = await client.devices.retrieve({
   where: { name: { eq: "Plant cluster" } },
 });
-const temperature = await client.channels.retrieve("oven_temperature");
+const cmdTime = await client.channels.create({
+  name: "pump1_speed_cmd_time",
+  isIndex: true,
+  dataType: "timestamp",
+});
+const cmd = await client.channels.create({
+  name: "pump1_speed_cmd",
+  index: cmdTime.key,
+  dataType: "float64",
+});
+
+const speed = icd.floatJSONFieldZ.parse({
+  type: "float",
+  name: "speed",
+  pointer: "/speed",
+});
+const unit = icd.stringJSONFieldZ.parse({
+  type: "string",
+  name: "unit",
+  pointer: "/unit",
+});
+const command = icd.messageZ.parse({
+  name: "plant.pumps",
+  payload: { format: "json", fields: [speed, unit] },
+});
+const pumps = await client.icds.create({
+  name: "Plant pumps",
+  messages: [command],
+});
 
 const task = await client.tasks.create({
-  name: "Oven to Kafka",
+  name: "Pump 1 commands",
   rack: cluster.rack,
   type: "kafka_write",
   config: kafka.writeConfigZ.parse({
     device: cluster.key,
-    topic: "synnax-samples",
-    record: { channelPointer: "/channel", timestampPointer: "/timestamp" },
-    channels: [{ channel: temperature.key }],
+    targets: [
+      {
+        topic: "plant.pumps",
+        recordKey: "pump-1",
+        icd: pumps.key,
+        message: {
+          message: command.key,
+          bindings: [
+            { type: "channel", field: speed.key, channel: cmd.key },
+            {
+              type: "value",
+              field: unit.key,
+              value: { type: "string", value: "rpm" },
+            },
+          ],
+        },
+      },
+    ],
   }),
 });
 await task.start();
@@ -94,89 +220,48 @@ await task.start();
   </Fragment>
 </Client.Tabs>
 
-<Divider.Divider x />
-
-## Record shape
-
-Each record is one JSON object. Three pointers set where each part goes:
-
-- **Value pointer** -> the sample value. `/value` by default.
-- **Channel pointer** -> the name of the channel. The Console sets `/channel`. Clear it
-  to leave the name out.
-- **Timestamp pointer** -> the timestamp of the sample, in the **Time format**. The
-  Console sets `/timestamp`. Clear it to leave the timestamp out.
-
-With the Console defaults, a sample of `oven_temperature` gives this record value:
-
-```json
-{ "value": 182.5, "channel": "oven_temperature", "timestamp": 1767225600000000000 }
-```
-
-A pointer can go deeper than one level, such as `/data/value`. The record also has a
-Kafka timestamp, which is the timestamp of the sample.
-
-The timestamp of a sample comes from the index channel of its channel. A virtual channel
-has no index, so its samples take the time at which the Core receives them.
-
-**Record key** sets the Kafka key of each record. **Channel name** puts each channel on
-its own key, so Kafka keeps the samples of one channel in order. **None** sends records
-with no key.
-
-In code, `record.fields` adds the same fields to every record. A static field adds a
-fixed value, and a generated field adds a new UUID or the current time. The Console does
-not show them.
-
-```python
-from synnax import http, kafka
-
-kafka.Record(
-    channel_pointer="/channel",
-    fields=[
-        http.StaticWriteField(pointer="/site", json_type="string", value="plant-1"),
-        http.GeneratedWriteField(pointer="/id", generator="uuid"),
-    ],
-)
-```
-
-The field types come from `synnax.http`. A generated timestamp field takes a
-`time_format`, and its default is `iso8601`.
+The Kafka write task has one option, **Auto start** (`auto_start`), which starts the
+task each time the Core starts.
 
 <Divider.Divider x />
 
-## Task options
+## Target reference
 
-| Setting                                                     | Default      | Notes                                                           |
-| ----------------------------------------------------------- | ------------ | --------------------------------------------------------------- |
-| Topic <small>`topic`</small>                                |              | One topic for each task.                                        |
-| Record key <small>`record_key`</small>                      | Channel name | **Channel name** or **None**.                                   |
-| Value pointer <small>`record.value_pointer`</small>         | `/value`     | Empty uses `/value`.                                            |
-| Channel pointer <small>`record.channel_pointer`</small>     | `/channel`   | Empty leaves the name out. In code, leave it unset: `""` fails. |
-| Timestamp pointer <small>`record.timestamp_pointer`</small> | `/timestamp` | Empty leaves it out. In code, leave it unset: `""` fails.       |
-| Time format <small>`record.time_format`</small>             | Unix (ns)    | ISO 8601, or Unix time in s, ms, µs, or ns.                     |
-| Auto start <small>`auto_start`</small>                      | Off          | Starts the task each time the Core starts.                      |
+Each table shows the Console label of a setting, with its Python field under it. A
+target has these settings:
 
-TypeScript uses the same fields in camel case, such as `recordKey`.
+| Setting                                | Default | Notes                                                |
+| -------------------------------------- | ------- | ---------------------------------------------------- |
+| Topic <small>`topic`</small>           |         | The topic to send records to.                        |
+| Record key <small>`record_key`</small> | None    | The Kafka key of each record. Empty sends no key.    |
+| <small>`disabled`</small>              | `false` | Leaves the target out of the task.                   |
+| Message format <small>`icd`</small>    |         | The ICD that holds the message.                      |
+| <small>`message`</small>               |         | The message to send, and the bindings of its fields. |
 
-<Divider.Divider x />
+A binding fills one field of the message from a command channel or a fixed value. A
+field with no binding sends its default.
 
-## Channel reference
+| Setting                          | Default | Notes                                                               |
+| -------------------------------- | ------- | ------------------------------------------------------------------- |
+| <small>`type`</small>            |         | `channel` or `value`. **Channel** or **Value** in the Console.      |
+| <small>`field`</small>           |         | The field to fill.                                                  |
+| Channel <small>`channel`</small> |         | Channel bindings only. The command channel whose commands it sends. |
+| <small>`value`</small>           |         | Value bindings only. The fixed value that it sends.                 |
 
-| Setting                                   | Default | Notes                                                       |
-| ----------------------------------------- | ------- | ----------------------------------------------------------- |
-| Channel <small>`channel`</small>          |         | The channel whose samples the task sends.                   |
-| JSON type <small>`json_type`</small>      | Number  | **Number**, **String**, or **Boolean**.                     |
-| Time format <small>`time_format`</small>  | None    | Required for a `timestamp` channel. Replaces the JSON type. |
-| Enum mapping <small>`enum_values`</small> | None    | With **String**, maps numbers to text labels.               |
-
-A string, JSON, or UUID channel always goes out as a string.
+In code, a target is `kafka.WriteTarget`, and its message is `icd.WriteMessage`. A
+binding to a command channel is `icd.ChannelWriteBinding`, and a binding to a fixed
+value is `icd.ValueWriteBinding`. TypeScript uses the same fields in camel case, such as
+`recordKey`.
 
 <Divider.Divider x />
 
 ## When the cluster is unreachable
 
-The task does not start when the Core cannot reach the cluster. While the task runs, a
-record that the cluster does not accept shows
-[`Failed to produce record`](#failed-to-produce-record), and the task keeps running.
+The task does not start when the Core cannot reach the cluster. While the task runs, it
+never holds a record back for later. When the cluster does not take the records of a
+write within 10 seconds, the task drops them and shows the warning
+[Failed to write data](#failed-to-write-data). The warning clears when the cluster takes
+the records of the next write.
 
 <Divider.Divider x />
 
@@ -184,26 +269,18 @@ record that the cluster does not accept shows
 
 <Problem.List>
 
-<Problem.Item message={"Failed to produce record"}>
+<Problem.Item message={"Failed to write data"}>
 <Problem.Cause>
 
-The task could not send a record. The description gives the reason:
-
-- **Produce failed** -> the cluster did not accept the record, for example because the
-  user cannot write to the topic.
-- **Channel ... arrived without its index** -> a sample came with no timestamp from its
-  index channel.
-- **Record build failed** -> a value does not fit the JSON type or the enum mapping.
-
-The task keeps running.
+The cluster did not take the records of a write within 10 seconds, or it refused them,
+for example because the user cannot write to the topic. The description names the topic.
+The task drops those records and keeps running.
 
 </Problem.Cause>
 <Problem.Fix>
 
-- **Produce failed** -> check the topic name and the ACLs of the user.
-- **Channel ... arrived without its index** -> write the index channel in the same frame
-  as the channel.
-- **Record build failed** -> match the JSON type and the enum mapping to the values.
+Check the [cluster status](/reference/hardware/kafka/connect-cluster#cluster-status),
+the topic name, and the ACLs of the user.
 
 </Problem.Fix>
 </Problem.Item>
@@ -222,33 +299,77 @@ then start the task again.
 </Problem.Fix>
 </Problem.Item>
 
-<Problem.Item message={"channels: at least one must be enabled"}>
+<Problem.Item message={"Skipped ... of ... commands"}>
 <Problem.Cause>
 
-The task has no enabled channels.
+The task dropped some commands. The description names the topic of the target, and the
+reason for the last one:
+
+- **A field cannot hold the command** -> such as NaN in a JSON number, or a value
+  outside the min and max of the field. The field keeps its last good command.
+- **The command arrived without its index** -> a command came with no timestamp from the
+  index channel of its command channel.
+
+The warning clears 5 seconds after the last skip.
 
 </Problem.Cause>
 <Problem.Fix>
 
-Add a channel, or enable one.
+Write a value that the field can hold, or change the type of the field in the ICD. Write
+the index channel in the same frame as its command channel.
 
 </Problem.Fix>
 </Problem.Item>
 
-<Problem.Item message={"channel ...: time_format is required for timestamp channel ..."}>
+<Problem.Item message={"targets: the task has no enabled targets"}>
 <Problem.Cause>
 
-A `timestamp` channel has no time format.
+The task has no targets, or each target is disabled.
 
 </Problem.Cause>
 <Problem.Fix>
 
-Set **Time format** on the channel.
+Add a target, or enable one.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item
+  message={[
+    "must be 1 to 249 letters, digits, periods, underscores, or hyphens",
+    'cannot be "." or ".."',
+  ]}
+>
+<Problem.Cause>
+
+Kafka does not accept the topic of a target. The task does not start.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Change the topic of the target.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"target ...: channel ... does not exist"}>
+<Problem.Cause>
+
+The command channel of a target was deleted, or a channel binding has no channel
+(`channel` is 0).
+
+</Problem.Cause>
+<Problem.Fix>
+
+Start the task in the Console. The Console creates a command channel for each binding
+that has no channel, or whose channel was deleted.
 
 </Problem.Fix>
 </Problem.Item>
 
 </Problem.List>
 
-For problems with the connection, see
+For problems with a message or its fields, see
+[ICD problems](/reference/hardware/icds/reference#problems). For problems with the
+connection, see
 [Connect a Kafka cluster](/reference/hardware/kafka/connect-cluster#troubleshooting).
