@@ -35,6 +35,7 @@ import {
 import { Analytics } from "@/platform/analytics";
 import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
+import { Rack } from "@/platform/rack";
 
 const TEST_CONNECTION_TIMEOUT = TimeSpan.seconds(15);
 
@@ -248,7 +249,7 @@ export const Connect = ({
     },
   });
   const rackKey = Form.useFieldValue(path.rack, { ctx: form });
-  const reason = PlatformDevice.useBlockedReason({
+  const reason = Rack.useBlockedReason({
     integration: INTEGRATION_KEY,
     name: "Kafka",
     rack: rackKey,
