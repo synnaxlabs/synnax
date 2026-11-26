@@ -1557,6 +1557,14 @@ export class DataType
     );
   }
 
+  /**
+   * @returns true for INT64 and TIMESTAMP, which hold the same samples. Widening and
+   * the frame codecs count them as one type.
+   */
+  get isInt64Like(): boolean {
+    return this.equals(DataType.INT64) || this.equals(DataType.TIMESTAMP);
+  }
+
   /** @returns true if the data type uses bigints to store values. */
   get usesBigInt(): boolean {
     return DataType.BIG_INT_TYPES.some((t) => t.equals(this));
@@ -1570,6 +1578,36 @@ export class DataType
   /** @returns the data type of a type code, or UNKNOWN for a code with no data type. */
   static fromCode(code: number): DataType {
     return DataType.BY_CODE.get(code) ?? DataType.UNKNOWN;
+  }
+
+  /**
+   * @returns the one data type that holds samples of both this type and other, by the
+   * NumPy rule for numbers: int64 with float64 gives float64, which loses integers
+   * above 2^53. A boolean widens to any number type, and int64 with timestamp gives
+   * int64.
+   * @throws when no type holds both, such as text against numbers.
+   */
+  widen(other: DataType): DataType {
+    if (this.equals(other)) return this;
+    const pair = [this, other];
+    if (pair.every((dt) => dt.isInt64Like)) return DataType.INT64;
+    const [a, b] = pair.map(numberKind);
+    if (b != null && this.equals(DataType.BOOLEAN)) return other;
+    if (a != null && other.equals(DataType.BOOLEAN)) return this;
+    if (a == null || b == null)
+      throw new Error(
+        `cannot widen ${this.toString()} and ${other.toString()} into one data type`,
+      );
+    if (a.kind === "float" || b.kind === "float") {
+      if (a.kind === b.kind) return a.size >= b.size ? this : other;
+      const [f, i] = a.kind === "float" ? [a, b] : [b, a];
+      return f.size === 8 || i.size > 2 ? DataType.FLOAT64 : DataType.FLOAT32;
+    }
+    if (a.kind === b.kind) return a.size >= b.size ? this : other;
+    const [s, u] = a.kind === "int" ? [a, b] : [b, a];
+    if (u.size < s.size) return s.dataType;
+    if (u.size < 8) return signedOfTwice(u.size);
+    return DataType.FLOAT64;
   }
 
   /** Represents an Unknown/Invalid DataType. */
@@ -2017,6 +2055,29 @@ type TypedArrayConstructor =
   | BigInt64ArrayConstructor;
 export type TelemValue =
   number | bigint | string | boolean | Date | TimeStamp | TimeSpan;
+
+interface NumberKind {
+  kind: "int" | "uint" | "float";
+  size: number;
+  dataType: DataType;
+}
+
+// Returns the signed integer type twice size bytes, for an unsigned size of 1, 2, or 4.
+const signedOfTwice = (size: number): DataType => {
+  if (size === 1) return DataType.INT16;
+  if (size === 2) return DataType.INT32;
+  return DataType.INT64;
+};
+
+// Returns the kind and byte size of a number type, or undefined for any other type.
+const numberKind = (dt: DataType): NumberKind | undefined => {
+  let kind: NumberKind["kind"];
+  if (dt.isFloat) kind = "float";
+  else if (dt.isSignedInteger) kind = "int";
+  else if (dt.isUnsignedInteger) kind = "uint";
+  else return undefined;
+  return { kind, size: dt.density.valueOf(), dataType: dt };
+};
 
 export const timeRangeZ = TimeRange.z;
 export const timeStampZ = TimeStamp.z;

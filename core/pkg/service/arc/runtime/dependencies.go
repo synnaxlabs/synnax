@@ -101,6 +101,7 @@ func NewDependencies(
 	for _, ch := range channels {
 		channelDigests = append(channelDigests, stlchannels.Digest{
 			Key:      uint32(ch.Key()),
+			Name:     ch.Name,
 			DataType: ch.DataType,
 			Index:    uint32(ch.Index()),
 		})

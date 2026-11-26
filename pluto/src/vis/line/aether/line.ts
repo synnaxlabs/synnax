@@ -669,7 +669,6 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
       x.updateGLBuffer(ctx.renderCtx);
       y.updateGLBuffer(ctx.renderCtx);
     });
-    const prog = ctx.getProgram(ops[0].y.glDataType);
     this.internal.instrumentation.L.debug("render", () => ({
       key: this.key,
       scale: dataToDecimalScale.transform,
@@ -682,15 +681,17 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
       ? ctx.renderCtx.scissor(clip(props, span), xy.ZERO, ["gl"])
       : undefined;
     try {
-      const clearProg = prog.setAsActive();
-      const instances = prog.bindState(this.state, this.internal.background);
-      const regionTransform = prog.renderCtx.scaleRegion(props.region).transform;
-      ops.forEach((op) => {
-        const scaleTransform = offsetScale(dataToDecimalScale, op).transform;
-        prog.bindScale(scaleTransform, regionTransform);
-        prog.draw(op, instances);
-      });
-      clearProg();
+      const regionTransform = ctx.renderCtx.scaleRegion(props.region).transform;
+      // Each op draws with the program of its y GL data type, one pass per type.
+      const first = ops[0].y.glDataType;
+      this.drawPass(ctx, ops, first, dataToDecimalScale, regionTransform);
+      for (let i = 1; i < ops.length; i++) {
+        const dt = ops[i].y.glDataType;
+        if (dt.equals(first)) continue;
+        let drawn = false;
+        for (let j = 1; j < i && !drawn; j++) drawn = ops[j].y.glDataType.equals(dt);
+        if (!drawn) this.drawPass(ctx, ops, dt, dataToDecimalScale, regionTransform);
+      }
       const bridges = bridgeVertices(ops, dataToDecimalScale);
       if (bridges.length > 0) {
         const bridgeProg = ctx.getProgram(DataType.FLOAT32);
@@ -706,6 +707,26 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     } finally {
       clearClip?.();
     }
+  }
+
+  // Draws the ops whose y data has the GL data type dt.
+  private drawPass(
+    ctx: Context,
+    ops: DrawOperation[],
+    dt: DataType,
+    dataToDecimalScale: scale.XY,
+    regionTransform: scale.XYTransformT,
+  ): void {
+    const prog = ctx.getProgram(dt);
+    const clearProg = prog.setAsActive();
+    const instances = prog.bindState(this.state, this.internal.background);
+    for (let i = 0; i < ops.length; i++) {
+      const op = ops[i];
+      if (!op.y.glDataType.equals(dt)) continue;
+      prog.bindScale(offsetScale(dataToDecimalScale, op).transform, regionTransform);
+      prog.draw(op, instances);
+    }
+    clearProg();
   }
 }
 

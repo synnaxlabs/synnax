@@ -10,7 +10,6 @@
 import { Unreachable } from "@synnaxlabs/freighter";
 import {
   type Aggregation,
-  type DataType,
   math,
   type MultiSeries,
   scheduler,
@@ -130,12 +129,10 @@ export class Reader {
    * Reads the tile, serving it from the cache when a fresh copy is there. When another
    * channel of the tile is being fetched, the read fetches the tile again with it, so
    * channels drawn as a pair share one group size.
-   * @param dataType - The data type of the series the caller holds. A cached tile of
-   * another data type is read again.
    * @throws {UnexpectedError} if the reader is closed while the read is pending.
    * @throws {Unreachable} if the fetch serving the read exceeds the fetch timeout.
    */
-  async read(spec: Spec, dataType?: DataType): Promise<MultiSeries> {
+  async read(spec: Spec): Promise<MultiSeries> {
     if (this.closed) throw new UnexpectedError("tile reader is closed");
     if (isCut(spec)) return await this.readFresh(spec);
     const { store } = this.props;
@@ -145,12 +142,7 @@ export class Reader {
     if (cached != null && !(cached instanceof Tile))
       throw new UnexpectedError(`block ${key} is not a tile`);
     if (cached != null)
-      if (
-        store.expired(cached) ||
-        (dataType != null &&
-          !cached.series.series.every((s) => s.dataType.equals(dataType)))
-      )
-        store.delete(key);
+      if (store.expired(cached)) store.delete(key);
       else {
         // Reads made later in this task enter pending first.
         await Promise.resolve();
@@ -228,14 +220,7 @@ export class Reader {
           }),
       );
       if (this.closed) return;
-      const results = new Map(
-        keys.map((key) => {
-          const series = frame.get(key);
-          if (series.series.length > 0)
-            this.props.store.retainDataType(key, series.series[0].dataType);
-          return [key, series];
-        }),
-      );
+      const results = new Map(keys.map((key) => [key, frame.get(key)]));
       group.forEach(({ req, resolve }) => resolve(results.get(req.key)!));
     } catch (err) {
       group.forEach(({ reject }) => reject(err));

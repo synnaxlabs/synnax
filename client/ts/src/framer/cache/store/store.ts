@@ -9,7 +9,6 @@
 
 import { alamos } from "@synnaxlabs/alamos";
 import {
-  type DataType,
   type destructor,
   map,
   MultiSeries,
@@ -52,11 +51,6 @@ export interface Props extends Partial<
   liveSamples?: number;
   /** Used for logging. */
   instrumentation?: alamos.Instrumentation;
-  /**
-   * The key of the Core node the client connects to, once known. History signals name
-   * only the channels stored on it.
-   */
-  node?: () => number | undefined;
 }
 
 const DEFAULT_BUDGET = Size.megabytes(128);
@@ -120,11 +114,12 @@ export const calculated = (p: channel.Payload): boolean =>
 
 /**
  * Caches blocks of channel samples under one byte budget. The least recently used block
- * leaves first. Every block of a channel holds one data type. A join appends streamed
- * samples to the raw block of their time, which stays open until the stream moves past
- * it. A sealed block stays valid until a history change names it while the history
- * signals stream. Other blocks expire. A streamed index channel and its data channels
- * keep about liveSamples raw samples each, from the floor of the index on.
+ * leaves first. A block holds the series of every data type of its channel and tile,
+ * so a type change keeps history. A join appends streamed samples to the raw block of
+ * their time, which stays open until the stream moves past it. A sealed block stays
+ * valid until a history change names it while the history signals stream. Other blocks
+ * expire. A streamed index channel and its data channels keep about liveSamples raw
+ * samples each, from the floor of the index on.
  */
 export class Store {
   private readonly budget: number;
@@ -132,13 +127,11 @@ export class Store {
   private readonly dynamicBufferSize: number | TimeSpan;
   private readonly instrumentation: alamos.Instrumentation;
   private readonly now: () => TimeStamp;
-  private readonly node: () => number | undefined;
   // Map order is recency order: a get moves its entry to the end.
   private readonly entries = new Map<string, Entry>();
-  private readonly dataTypes = new Map<channel.Key, DataType>();
   private readonly live = new Map<channel.Key, Live>();
   // newest holds the newest raw block that held samples of each channel. A block that
-  // leaves stays its newest, until the channel's data type changes.
+  // leaves stays its newest.
   private readonly newest = new Map<channel.Key, number>();
   // epochs counts the changes to the series of each channel's raw blocks.
   private readonly epochs = new Map<channel.Key, number>();
@@ -147,8 +140,8 @@ export class Store {
   private bytes = 0;
   private readonly calculated = new Set<channel.Key>();
   private readonly names = new Map<channel.Key, string>();
-  // leaseholders holds the node of each stored channel.
-  private readonly leaseholders = new Map<channel.Key, number>();
+  // storedKeys holds each known channel that the Core stores.
+  private readonly storedKeys = new Set<channel.Key>();
   private readonly liveSamples: number;
   // indexOf holds the index of each known channel, an index itself included.
   private readonly indexOf = new Map<channel.Key, channel.Key>();
@@ -168,7 +161,6 @@ export class Store {
     liveSamples = DEFAULT_LIVE_SAMPLES,
     instrumentation = alamos.NOOP,
     now = () => TimeStamp.now(),
-    node = () => undefined,
   }: Props = {}) {
     this.budget = budget.valueOf();
     this.staleThreshold = staleThreshold;
@@ -176,7 +168,6 @@ export class Store {
     this.liveSamples = liveSamples;
     this.instrumentation = instrumentation;
     this.now = now;
-    this.node = node;
   }
 
   /** @returns the block cached under the key, marking it the most recently used. */
@@ -278,16 +269,13 @@ export class Store {
     return !this.signaled(block);
   }
 
-  // A sealed block fetched while the stream carried the history signals stays valid
-  // until a signal names it. The signals name only the channels stored on the node, and
-  // never an append.
+  // A sealed block of a stored channel, fetched while the stream carried the history
+  // signals, stays valid until a signal names it. The signals never name an append.
   private signaled(block: cacheBlock.Block): boolean {
-    const node = this.node();
     return (
       block.sealed &&
       this.signalsSince != null &&
-      node != null &&
-      this.leaseholders.get(block.channel) === node &&
+      this.storedKeys.has(block.channel) &&
       !block.fetchedAt.before(this.signalsSince)
     );
   }
@@ -299,7 +287,7 @@ export class Store {
 
   /** @returns true when the Core stores the channel's samples. */
   stored(ch: channel.Key): boolean {
-    return this.leaseholders.has(ch);
+    return this.storedKeys.has(ch);
   }
 
   /**
@@ -330,8 +318,8 @@ export class Store {
     }
     if (calculated(p)) this.calculated.add(p.key);
     else this.calculated.delete(p.key);
-    if (p.virtual) this.leaseholders.delete(p.key);
-    else this.leaseholders.set(p.key, p.leaseholder);
+    if (p.virtual) this.storedKeys.delete(p.key);
+    else this.storedKeys.add(p.key);
   }
 
   /** Sets the channel that carries the history signals. */
@@ -398,11 +386,6 @@ export class Store {
   /** @returns the index of the channel, or the channel for an index, when known. */
   index(ch: channel.Key): channel.Key | undefined {
     return this.indexOf.get(ch);
-  }
-
-  /** @returns the data type of the channel's cached samples. */
-  dataType(ch: channel.Key): DataType | undefined {
-    return this.dataTypes.get(ch);
   }
 
   /**
@@ -533,40 +516,12 @@ export class Store {
     if (live != null) this.seal(live);
   }
 
-  /**
-   * Records the channel's data type. A channel's data type can change, and series of
-   * two data types cannot be read together, so a new data type drops every block of the
-   * channel and its stream's buffer.
-   * @returns true if the data type changed.
-   */
-  retainDataType(ch: channel.Key, dataType: DataType): boolean {
-    const held = this.dataTypes.get(ch);
-    this.dataTypes.set(ch, dataType);
-    if (held == null || held.equals(dataType)) return false;
-    this.instrumentation.L.warn("channel data type changed, dropping its blocks", {
-      channel: ch,
-      prev: held.toString(),
-      next: dataType.toString(),
-    });
-    for (const [key, { block }] of this.entries)
-      if (block.channel === ch) this.delete(key);
-    this.newest.delete(ch);
-    this.floors.delete(ch);
-    const live = this.live.get(ch);
-    if (live == null) return true;
-    live.buffer.retainDataType(dataType);
-    if (live.block != null) live.block.buffer = null;
-    live.block = null;
-    return true;
-  }
-
   /** Drops every block and stream buffer. */
   close(): void {
     this.live.forEach(({ buffer }) => buffer.close());
     this.live.clear();
     this.invalidateHandlers.clear();
     this.entries.clear();
-    this.dataTypes.clear();
     this.newest.clear();
     this.streamed.clear();
     this.indexOf.clear();
@@ -601,7 +556,7 @@ export class Store {
       const series = block.seriesIn(TimeRange.MAX);
       for (let j = series.length - 1; j >= 0; j--) {
         const s = series[j];
-        if (prev != null && s.alignment < prev.start.alignment) break walk;
+        if (prev != null && s.timeRange.start.before(prev.start.time)) break walk;
         since += s.length;
         if (next == null && since >= keep && !s.timeRange.start.after(committed))
           next = { time: s.timeRange.start, alignment: s.alignment };
@@ -611,7 +566,7 @@ export class Store {
     if (
       next == null ||
       since <= 2 * keep ||
-      (prev != null && next.alignment <= prev.start.alignment)
+      (prev != null && !next.time.after(prev.start.time))
     )
       return;
     const kept = prev?.start;

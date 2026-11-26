@@ -11,6 +11,7 @@ package channels
 
 import (
 	"context"
+	"fmt"
 	"slices"
 	"sort"
 
@@ -141,12 +142,20 @@ func (h *Host) Create(cfg node.Config) (node.Node, error) {
 		return nil, err
 	}
 	if isSource {
+		if len(cfg.Node.Outputs) != 1 {
+			return nil, errors.Newf(
+				"on node %s has %d outputs, not 1",
+				cfg.Node.Key,
+				len(cfg.Node.Outputs),
+			)
+		}
 		return &source{
 			State:      cfg.State,
 			key:        inputs.Channel,
 			currKey:    inputs.Channel,
 			channelIdx: channelIdx,
 			state:      h.state,
+			dataType:   cfg.Node.Outputs[0].Type.ToTelem(),
 		}, nil
 	}
 	inputIdx, err := cfg.State.ResolveInput(ir.DefaultInputParam)
@@ -191,7 +200,9 @@ type source struct {
 	key     uint32
 	currKey uint32
 	// channelIdx is the channel ref input's index; -1 when not alias-bound.
-	channelIdx    int
+	channelIdx int
+	// dataType is the type of the output, which each series converts to.
+	dataType      telem.DataType
 	highWaterMark telem.Alignment
 	// entryStamp is the cycle stamp of the last Reset. Samples stamped earlier were
 	// taken before the stage was entered and are dropped.
@@ -275,11 +286,17 @@ func (s *source) Next(ctx node.Context) {
 			continue
 		}
 		var timeSeries telem.Series
-		if indexData.DataType() == telem.UnknownT {
+		if len(indexData.Series) == 0 {
 			n := int(ser.Len())
 			timeSeries = telem.Arrange(ctx.ReserveStamps(n), n, 1*telem.NanosecondTS)
 			timeSeries.Alignment = ser.Alignment
 		} else if ser, timeSeries, ok = s.alignToIndex(ser, indexData); !ok {
+			continue
+		}
+		var err error
+		if ser, err = s.convert(ser); err != nil {
+			ctx.ReportError(s.state.readError(s.currKey, err))
+			s.highWaterMark = ab.Upper
 			continue
 		}
 		*s.Output(0) = ser
@@ -288,6 +305,21 @@ func (s *source) Next(ctx node.Context) {
 		s.Emit(ctx, 0)
 		return
 	}
+}
+
+// convert returns ser in the output type. The data types that Arc reads as a string
+// share one Arc type, so such a series passes to a string output as it is.
+func (s *source) convert(ser telem.Series) (telem.Series, error) {
+	if ser.DataType == s.dataType || (isString(ser.DataType) && isString(s.dataType)) {
+		return ser, nil
+	}
+	return telem.Convert(ser, s.dataType)
+}
+
+func isString(
+	dt telem.DataType,
+) bool {
+	return types.FromTelem(dt).Kind == types.KindString
 }
 
 // alignToIndex returns ser and its timestamps from the index series that holds it,
@@ -376,6 +408,42 @@ func (s *sink) Next(ctx node.Context) {
 	s.Emit(ctx, 0)
 }
 
+// last returns the last sample of series, the latest read of channel chID, as T. It
+// panics with the conversion error, which the node that called it reports, when the
+// sample has no value of T.
+func last[T telem.NumericSample](ps *ProgramState, chID uint32, series telem.Series) T {
+	v, err := telem.ValueAs[T](series, -1)
+	if err != nil {
+		panic(ps.readError(chID, err))
+	}
+	return v
+}
+
+// ReadError is the error of a read of a channel.
+type ReadError struct {
+	// Key is the key of the channel.
+	Key uint32
+	// Name is the name of the channel, or empty when the program does not hold it.
+	Name string
+	// Err is the cause.
+	Err error
+}
+
+// Error implements error.
+func (e ReadError) Error() string {
+	if e.Name != "" {
+		return fmt.Sprintf("channel %s (%d): %v", e.Name, e.Key, e.Err)
+	}
+	return fmt.Sprintf("channel %d: %v", e.Key, e.Err)
+}
+
+// Unwrap returns the cause.
+func (e ReadError) Unwrap() error { return e.Err }
+
+func (ps *ProgramState) readError(key uint32, err error) ReadError {
+	return ReadError{Key: key, Name: ps.names[key], Err: err}
+}
+
 type i32Compatible interface {
 	uint8 | uint16 | uint32 | int8 | int16 | int32
 }
@@ -391,7 +459,7 @@ func bindI32[T i32Compatible](
 			if !ok || series.Len() == 0 {
 				return 0
 			}
-			return uint32(series.ValueAt[T](-1))
+			return uint32(last[T](ps, chID, series))
 		}).Export("read_" + suffix)
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, chID, val uint32) {
@@ -415,7 +483,7 @@ func bindI64[T i64Compatible](
 			if !ok || series.Len() == 0 {
 				return 0
 			}
-			return uint64(series.ValueAt[T](-1))
+			return uint64(last[T](ps, chID, series))
 		}).Export("read_" + suffix)
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, chID uint32, val uint64) {
@@ -434,7 +502,20 @@ func bindBool(
 			if !ok || series.Len() == 0 {
 				return 0
 			}
-			if series.ValueAt[bool](-1) {
+			if series.DataType == telem.BooleanT {
+				if series.ValueAt[bool](-1) {
+					return 1
+				}
+				return 0
+			}
+			v, err := telem.ValueAs[float64](series, -1)
+			if err != nil {
+				panic(ps.readError(chID, telem.ConversionError{
+					From: series.DataType,
+					To:   telem.BooleanT,
+				}))
+			}
+			if v != 0 {
 				return 1
 			}
 			return 0
@@ -456,7 +537,7 @@ func bindF32(
 			if !ok || series.Len() == 0 {
 				return 0
 			}
-			return series.ValueAt[float32](-1)
+			return last[float32](ps, chID, series)
 		}).Export("read_f32")
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, chID uint32, val float32) {
@@ -475,7 +556,7 @@ func bindF64(
 			if !ok || series.Len() == 0 {
 				return 0
 			}
-			return series.ValueAt[float64](-1)
+			return last[float64](ps, chID, series)
 		}).Export("read_f64")
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, chID uint32, val float64) {
@@ -494,6 +575,12 @@ func bindStr(
 			series, ok := ps.ReadValue(chID)
 			if !ok || series.Len() == 0 {
 				return 0
+			}
+			if !isString(series.DataType) {
+				panic(ps.readError(chID, telem.ConversionError{
+					From: series.DataType,
+					To:   telem.StringT,
+				}))
 			}
 			unmarshaled := series.Unmarshal[string]()
 			if len(unmarshaled) == 0 {

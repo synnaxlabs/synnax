@@ -1468,8 +1468,9 @@ export class MultiSeries<T extends TelemValue = TelemValue> implements Iterable<
   readonly series: Array<Series<T>>;
 
   /**
-   * The MultiSeries constructor accepts an optional array of Series instances. All
-   * series in the collection must have the same data type.
+   * The MultiSeries constructor accepts an optional array of Series instances, which
+   * can hold different data types. Reads of one series keep its exact type, and reads
+   * of the whole collection widen to its dataType.
    *
    * @example
    * // Create an empty MultiSeries
@@ -1499,13 +1500,8 @@ export class MultiSeries<T extends TelemValue = TelemValue> implements Iterable<
    * const ms6 = new MultiSeries([s1]);
    * const ms7 = new MultiSeries([s2]);
    * ms6.push(ms7);
-   *
-   * @throws Error if attempting to add a series with a different data type
    */
   constructor(series: Array<Series<T>> = []) {
-    const first = series[0];
-    if (first != null && series.some((s) => !s.dataType.equals(first.dataType)))
-      throw new Error("[multi-series] - series must have the same data type");
     this.series = series;
   }
 
@@ -1535,16 +1531,20 @@ export class MultiSeries<T extends TelemValue = TelemValue> implements Iterable<
   as(jsType: "boolean"): MultiSeries<boolean>;
 
   as<T extends TelemValue>(jsType: JSType): MultiSeries<T> {
-    checkAsType(jsType, this.dataType);
+    if (this.series.length === 0) checkAsType(jsType, DataType.UNKNOWN);
+    this.series.forEach((s) => checkAsType(jsType, s.dataType));
     return this as unknown as MultiSeries<T>;
   }
 
   /**
-   * Returns the data type of the series in this collection. If the collection is empty,
-   * returns DataType.UNKNOWN.
+   * Returns the one data type that holds every series in this collection, widened by
+   * DataType.widen. If the collection is empty, returns DataType.UNKNOWN.
+   * @throws when no data type holds every series, such as text against numbers.
    */
   get dataType(): DataType {
-    return this.series[0]?.dataType ?? DataType.UNKNOWN;
+    const [first, ...rest] = this.series;
+    if (first == null) return DataType.UNKNOWN;
+    return rest.reduce((dt, s) => dt.widen(s.dataType), first.dataType);
   }
 
   /**
@@ -1580,25 +1580,12 @@ export class MultiSeries<T extends TelemValue = TelemValue> implements Iterable<
   }
 
   /**
-   * Adds a series or another MultiSeries to this collection.
-   * @param series - The series or MultiSeries to add. Must have the same data type
-   * as the existing series in this collection.
-   * @throws Error if the series being added has a different data type
+   * Adds a series or another MultiSeries to this collection. The series can have a
+   * different data type than the series already in the collection.
    */
   push(series: Series<T> | MultiSeries<T>): void {
-    const invalidDataTypeError = () =>
-      new Error(
-        `cannot push a ${series.dataType.toString()} series to a ${this.dataType.toString()} multi-series`,
-      );
-    const dtsEqual = series.dataType.equals(this.dataType);
-    if (isSeries(series)) {
-      if (this.series.length !== 0 && !dtsEqual) throw invalidDataTypeError();
-      this.series.push(series);
-    } else {
-      if (this.series.length !== 0 && series.series.length !== 0 && !dtsEqual)
-        throw invalidDataTypeError();
-      series.series.forEach((s) => this.series.push(s));
-    }
+    if (isSeries(series)) this.series.push(series);
+    else series.series.forEach((s) => this.series.push(s));
   }
 
   /**
@@ -1657,17 +1644,22 @@ export class MultiSeries<T extends TelemValue = TelemValue> implements Iterable<
     return new Size(this.series.reduce((a, b) => a + b.byteLength.valueOf(), 0));
   }
 
-  /** @returns A typed array containing all data from all series. */
+  /**
+   * @returns A typed array containing all data from all series, each converted to the
+   * widened dataType.
+   */
   get data(): TypedArray {
-    const buf = new this.dataType.Array(
-      this.series.reduce((a, s) => a + s.data.length, 0),
+    const dt = this.dataType;
+    const parts = this.series.map((s) =>
+      s.dataType.equals(dt) ? s.data : s.convert(dt).data,
     );
+    const buf = new dt.Array(parts.reduce((a, d) => a + d.length, 0));
     let offset = 0;
-    for (const ser of this.series) {
-      buf.set(ser.data as ArrayLike<any>, offset);
-      offset += ser.data.length;
+    for (const d of parts) {
+      buf.set(d as ArrayLike<any>, offset);
+      offset += d.length;
     }
-    return new this.dataType.Array(buf.buffer);
+    return new dt.Array(buf.buffer);
   }
 
   /** Acquires a reference to the WebGL buffer for all series. */

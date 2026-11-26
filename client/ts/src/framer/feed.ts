@@ -60,12 +60,6 @@ export interface FeedProps
   /** Reads the first stored sample of each channel. */
   readFirst: (keys: channel.Key[]) => Promise<Frame>;
   /**
-   * The key of the Core node the client connects to, once known. History signals keep
-   * the blocks of only the channels stored on it.
-   * @default a node that is never known
-   */
-  node?: () => number | undefined;
-  /**
    * Byte size the block cache evicts down to. Blocks a subscription serves and blocks
    * the stream writes into are never evicted.
    * @default Size.megabytes(128)
@@ -84,7 +78,6 @@ export interface FeedOptions extends Omit<
   | "readLatest"
   | "readFirst"
   | "onRetry"
-  | "node"
 > {}
 
 /**
@@ -126,14 +119,12 @@ export class Feed {
       fetchTimeout,
       now,
       onRetry,
-      node,
     } = props;
     this.props = props;
     this.store = new store.Store({
       budget,
       instrumentation: instrumentation?.child("store"),
       now,
-      node,
     });
     this.joins = new join.Joins(this.store);
     this.reader = new reader.Reader({

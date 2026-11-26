@@ -1384,6 +1384,39 @@ class DataType(str):
         """
         return DataType._DENSITIES.get(self, Density.UNKNOWN)
 
+    def widen(self, other: DataType) -> DataType:
+        """:returns: the one data type that holds samples of both this type and other,
+        by the NumPy rule for numbers: int64 with float64 gives float64, which loses
+        integers above 2^53. A boolean widens to any number type, and int64 with
+        timestamp gives int64.
+        :raises TypeError: When no type holds both, such as text against numbers.
+        """
+        if self == other:
+            return self
+        if {self, other} == {DataType.INT64, DataType.TIMESTAMP}:
+            return DataType.INT64
+        a, b = _number_kind(self), _number_kind(other)
+        if self == DataType.BOOLEAN and b is not None:
+            return other
+        if other == DataType.BOOLEAN and a is not None:
+            return self
+        if a is None or b is None:
+            raise TypeError(f"cannot widen {self} and {other} into one data type")
+        (ka, sa), (kb, sb) = a, b
+        if "f" in (ka, kb):
+            if ka == kb:
+                return self if sa >= sb else other
+            f_size, i_size = (sa, sb) if ka == "f" else (sb, sa)
+            return DataType.FLOAT64 if f_size == 8 or i_size > 2 else DataType.FLOAT32
+        if ka == kb:
+            return self if sa >= sb else other
+        s_size, u_size = (sa, sb) if ka == "i" else (sb, sa)
+        if u_size < s_size:
+            return self if ka == "i" else other
+        if u_size < 8:
+            return DataType(f"int{u_size * 16}")
+        return DataType.FLOAT64
+
     @override
     def __repr__(self) -> str:
         return f"DataType({super().__repr__()})"
@@ -1409,6 +1442,15 @@ class DataType(str):
     _TO_NUMPY: dict[DataType, DTypeLike]
     _FROM_NUMPY: dict[DTypeLike, DataType]
     _DENSITIES: dict[DataType, Density]
+
+
+def _number_kind(dt: DataType) -> tuple[str, int] | None:
+    """:returns: the kind ("i", "u", or "f") and byte size of a number type, or None
+    for any other type."""
+    for prefix, kind in (("uint", "u"), ("int", "i"), ("float", "f")):
+        if dt.startswith(prefix) and dt[len(prefix) :].isdigit():
+            return kind, int(dt[len(prefix) :]) // 8
+    return None
 
 
 def _const(name: str) -> DataType:
