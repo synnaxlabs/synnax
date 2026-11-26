@@ -69,9 +69,10 @@ var _ = Describe("Persist with partial control", func() {
 			},
 		)).To(Succeed())
 		svc = MustSucceed(writer.NewService(writer.ServiceConfig{
-			TS:     db,
-			Writes: confluence.NewStream[relay.Response](100),
-			Clock:  timetestutil.NewClock(time.Unix(0, 0)),
+			TS:           db,
+			Writes:       confluence.NewStream[relay.Response](100),
+			RelayStopped: make(chan struct{}),
+			Clock:        timetestutil.NewClock(time.Unix(0, 0)),
 		}))
 	})
 	durable := func(ctx SpecContext, key channel.Key) int64 {

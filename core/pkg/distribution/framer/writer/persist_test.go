@@ -57,9 +57,10 @@ var _ = Describe("Persist", func() {
 		)).To(Succeed())
 		clock = timetestutil.NewClock(time.Unix(0, 0))
 		svc = MustSucceed(writer.NewService(writer.ServiceConfig{
-			TS:     db,
-			Writes: confluence.NewStream[relay.Response](100),
-			Clock:  clock,
+			TS:           db,
+			Writes:       confluence.NewStream[relay.Response](100),
+			RelayStopped: make(chan struct{}),
+			Clock:        clock,
 		}))
 	})
 	open := func(
