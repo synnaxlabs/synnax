@@ -179,6 +179,22 @@ integer_raw(const Encoding e, const unsigned n, const T v) {
     return {static_cast<std::uint64_t>(v), x::errors::NIL};
 }
 
+/// @brief returns raw, the bits of a field of encoding e, as a number before the
+/// field's scale and offset.
+double raw_value(const Encoding e, const std::uint64_t raw) {
+    switch (e) {
+        case Encoding::UNSIGNED:
+            return static_cast<double>(raw);
+        case Encoding::SIGNED:
+            return static_cast<double>(static_cast<std::int64_t>(raw));
+        case Encoding::FLOAT32:
+            return std::bit_cast<float>(static_cast<std::uint32_t>(raw));
+        case Encoding::FLOAT64:
+            return std::bit_cast<double>(raw);
+    }
+    return 0;
+}
+
 constexpr std::uint32_t MAX_STANDARD_CAN_ID = 0x7FF;
 constexpr std::uint32_t MAX_EXTENDED_CAN_ID = 0x1FFFFFFF;
 /// @brief EXTENDED_BIT marks an extended identifier in the keys of Binary::exact.
@@ -265,22 +281,7 @@ Binary::Field::append(const std::uint64_t raw, x::telem::Series &dst) const {
         this->put(dst, raw);
         return x::errors::NIL;
     }
-    double v = 0;
-    switch (this->encoding) {
-        case Encoding::UNSIGNED:
-            v = static_cast<double>(raw);
-            break;
-        case Encoding::SIGNED:
-            v = static_cast<double>(static_cast<std::int64_t>(raw));
-            break;
-        case Encoding::FLOAT32:
-            v = std::bit_cast<float>(static_cast<std::uint32_t>(raw));
-            break;
-        case Encoding::FLOAT64:
-            v = std::bit_cast<double>(raw);
-            break;
-    }
-    return this->append_float(v, dst);
+    return this->append_float(raw_value(this->encoding, raw), dst);
 }
 
 x::errors::Error Binary::Field::append_float(double v, x::telem::Series &dst) const {
@@ -542,7 +543,7 @@ std::pair<BinaryEncoder::Field, x::errors::Error> BinaryEncoder::Field::create(
     auto [fallback, default_err] = default_raw(f);
     if (default_err) return {Field{}, as_config(default_err, "default")};
     Field field{
-        .name = b.name,
+        .base = b,
         .bits = bits,
         .encoding = encoding,
         .scaled = b.scale != 1 || b.offset != 0,
@@ -568,6 +569,13 @@ std::pair<BinaryEncoder::Field, x::errors::Error> BinaryEncoder::Field::create(
         };
     if (auto err = check_scaled_channel(field.scaled, *dt)) return {Field{}, err};
     return {std::move(field), x::errors::NIL};
+}
+
+bool BinaryEncoder::Field::has_value(
+    const std::span<const x::telem::Series> samples
+) const {
+    return (this->binding.has_value() && !samples[*this->binding].empty()) ||
+           this->fallback.has_value();
 }
 
 std::pair<std::uint64_t, x::errors::Error>
@@ -659,6 +667,7 @@ BinaryEncoder::create(const BinaryMessage &m) {
             );
     }
     BinaryEncoder enc;
+    enc.name = m.name;
     enc.bound.resize(m.bindings.size());
     std::map<icd::FieldKey, std::size_t> index;
     for (const auto &f: m.payload.fields) {
@@ -715,11 +724,11 @@ BinaryEncoder::create(const BinaryMessage &m) {
                 never = &muxes[at->mux];
         if (never != nullptr && f.binding.has_value())
             return refuse(
-                "field " + f.name + " takes a channel, but multiplexor " + never->name +
-                " never selects it"
+                "field " + f.base.name + " takes a channel, but multiplexor " +
+                never->name + " never selects it"
             );
         if (never == nullptr && !f.binding.has_value() && !f.fallback.has_value())
-            return refuse("field " + f.name + ": needs a channel or a default");
+            return refuse("field " + f.base.name + ": needs a channel or a default");
     }
     return {std::move(enc), x::errors::NIL};
 }
@@ -735,22 +744,49 @@ x::errors::Error BinaryEncoder::encode(
         if (!this->muxes.selected(muxes[i].condition, this->raw)) continue;
         const auto &f = this->fields[this->mux_fields[i]];
         const auto [r, err] = f.raw(samples);
-        if (err) return err.wrap("field " + f.name);
+        if (err) return err.wrap("message " + this->name + ": field " + f.base.name);
         this->raw[i] = static_cast<std::int64_t>(r);
     }
     for (const auto &f: this->fields) {
         if (!this->muxes.selected(f.condition, this->raw)) continue;
         const auto [r, err] = f.raw(samples);
-        if (err) return err.wrap("field " + f.name);
+        if (err) return err.wrap("message " + this->name + ": field " + f.base.name);
         f.bits.write(payload.data(), r);
     }
     return x::errors::NIL;
 }
 
-x::errors::Error
-BinaryEncoder::check(const std::size_t binding, const x::telem::SampleValue &v) const {
+bool BinaryEncoder::ready(const std::span<const x::telem::Series> samples) {
+    const auto &muxes = this->muxes.all();
+    for (std::size_t i = 0; i < muxes.size(); i++) {
+        this->raw[i] = 0;
+        if (!this->muxes.selected(muxes[i].condition, this->raw)) continue;
+        const auto &f = this->fields[this->mux_fields[i]];
+        if (!f.has_value(samples)) return false;
+        const auto [r, err] = f.raw(samples);
+        // encode reports err.
+        if (err) return true;
+        this->raw[i] = static_cast<std::int64_t>(r);
+    }
+    return std::ranges::all_of(this->fields, [&](const Field &f) {
+        return f.has_value(samples) || !this->muxes.selected(f.condition, this->raw);
+    });
+}
+
+x::errors::Error BinaryEncoder::check(
+    const std::size_t binding,
+    const x::telem::Series &s,
+    const std::size_t i
+) const {
     const auto &f = this->fields[this->bound[binding]];
-    if (const auto err = f.raw(v).second) return err.wrap("field " + f.name);
+    auto [r, err] = f.raw(s.at(static_cast<int>(i)));
+    if (!err)
+        err = check_raw_limits(
+            f.base,
+            raw_value(f.encoding, r),
+            s.data_type() == x::telem::FLOAT32_T || f.encoding == Encoding::FLOAT32
+        );
+    if (err) return err.wrap("message " + this->name + ": field " + f.base.name);
     return x::errors::NIL;
 }
 }

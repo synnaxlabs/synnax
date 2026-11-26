@@ -103,14 +103,6 @@ var _ = Describe("MigrateWriteConfig", func() {
 			}))
 			Expect(cfg.StartConfig).To(Equal(old.StartConfig))
 			Expect(cfg.Device).To(Equal(old.Device))
-			Expect(cfg.Topic).To(BeEmpty())
-			Expect(cfg.RecordKey).To(Equal(v1.RecordKeyChannelName))
-			Expect(cfg.Record).To(Equal(v1.Record{
-				ValuePointer: "/value",
-				TimeFormat:   payload.TimeFormatUnixNs,
-				Fields:       []http.WriteField{},
-			}))
-			Expect(cfg.Channels).To(BeEmpty())
 			Expect(cfg.Targets).To(BeEmpty())
 		},
 	)
@@ -118,7 +110,7 @@ var _ = Describe("MigrateWriteConfig", func() {
 	It("Should stage nothing for a config with no channels", func(ctx SpecContext) {
 		cfg := MustSucceed(v1.MigrateWriteConfig(ctx, writeConfig()))
 		Expect(cfg.Inline).To(BeNil())
-		Expect(cfg.Topic).To(Equal("plant"))
+		Expect(cfg.Device).To(Equal("cluster"))
 	})
 })
 
@@ -178,13 +170,13 @@ var _ = Describe("ResolveWriteConfig", func() {
 
 	It("Should return false and keep a config with no inline channels",
 		func(ctx SpecContext) {
-			cfg := v1.WriteConfig{Topic: "plant"}
+			cfg := v1.WriteConfig{Device: "cluster"}
 			ic, ok := MustSucceed2(v1.ResolveWriteConfig(
 				ctx, nil, channels, "Plant", &cfg, func(string, string) {},
 			))
 			Expect(ok).To(BeFalse())
 			Expect(ic).To(BeZero())
-			Expect(cfg).To(Equal(v1.WriteConfig{Topic: "plant"}))
+			Expect(cfg).To(Equal(v1.WriteConfig{Device: "cluster"}))
 		},
 	)
 
@@ -436,16 +428,16 @@ var _ = Describe("StagedChannelsKVKey", func() {
 	})
 })
 
-var _ = Describe("WriteStageMigration", func() {
+var _ = Describe("WriteMigration", func() {
 	var db *gorp.DB
 	BeforeEach(func() { db = DeferClose(gorp.Wrap(memkv.New())) })
 
-	migrate := func(ctx SpecContext, migrations ...gorp.Migration) {
+	migrate := func(ctx SpecContext) {
 		GinkgoHelper()
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 			DB:         db,
 			Namespace:  "kafka_write_config",
-			Migrations: migrations,
+			Migrations: []gorp.Migration{v1.WriteMigration},
 		})).To(Succeed())
 	}
 	read := func(ctx SpecContext, key uuid.UUID) v1.WriteConfig {
@@ -466,6 +458,11 @@ var _ = Describe("WriteStageMigration", func() {
 		return in
 	}
 
+	It("Should store the shape that v0 stored under the same table name", func() {
+		Expect(v1.WriteConfig{}.CustomTypeName()).
+			To(Equal(v0.WriteConfig{}.CustomTypeName()))
+	})
+
 	It("Should stage the channels of each config and store the config without them",
 		func(ctx SpecContext) {
 			// A JSON round trip reads no enum values as an empty list.
@@ -479,10 +476,10 @@ var _ = Describe("WriteStageMigration", func() {
 			}
 			Expect(gorp.WrapWriter[uuid.UUID, v0.WriteConfig](db).Set(ctx, old)).
 				To(Succeed())
-			migrate(ctx, v1.WriteMigration, v1.WriteStageMigration)
+			migrate(ctx)
 			cfg := read(ctx, old.Key)
-			Expect(cfg.Channels).To(BeEmpty())
-			Expect(cfg.Topic).To(BeEmpty())
+			Expect(cfg.Device).To(Equal(old.Device))
+			Expect(cfg.Targets).To(BeEmpty())
 			Expect(cfg.Inline).To(BeNil())
 			Expect(staged(old.Key)).To(Equal(v1.InlineWrite{
 				Topic:     "plant",
@@ -493,34 +490,22 @@ var _ = Describe("WriteStageMigration", func() {
 		},
 	)
 
-	It("Should stage the channels of a config that WriteMigration already rewrote",
-		func(ctx SpecContext) {
-			ch := writeChannel("c1", 7)
-			ch.EnumValues = []payload.EnumEntry{}
-			cfg := v1.WriteConfig{
-				Key:       uuid.New(),
-				Topic:     "plant",
-				RecordKey: v1.RecordKeyNone,
-				Record:    v1.Record{ValuePointer: "/v", Fields: []http.WriteField{}},
-				Channels:  []v1.WriteChannel{ch},
-			}
-			Expect(gorp.WrapWriter[uuid.UUID, v1.WriteConfig](db).Set(ctx, cfg)).
-				To(Succeed())
-			migrate(ctx, v1.WriteStageMigration)
-			Expect(read(ctx, cfg.Key).Channels).To(BeEmpty())
-			in := staged(cfg.Key)
-			Expect(in.RecordKey).To(Equal(v1.RecordKeyNone))
-			Expect(in.Channels).To(Equal(cfg.Channels))
-		},
-	)
-
 	It("Should stage nothing for a config without channels", func(ctx SpecContext) {
 		old := writeConfig()
 		Expect(gorp.WrapWriter[uuid.UUID, v0.WriteConfig](db).Set(ctx, old)).
 			To(Succeed())
-		migrate(ctx, v1.WriteMigration, v1.WriteStageMigration)
-		Expect(read(ctx, old.Key).Topic).To(Equal("plant"))
+		migrate(ctx)
+		Expect(read(ctx, old.Key).Device).To(Equal(old.Device))
 		Expect(db.Get(v1.StagedChannelsKVKey(old.Key))).Error().
 			To(MatchError(query.ErrNotFound))
+	})
+
+	It("Should do nothing without stored configs", func(ctx SpecContext) {
+		migrate(ctx)
+		var cfgs []v1.WriteConfig
+		Expect(gorp.NewRetrieve[uuid.UUID, v1.WriteConfig]().
+			Entries(&cfgs).
+			Exec(ctx, db)).To(Succeed())
+		Expect(cfgs).To(BeEmpty())
 	})
 })

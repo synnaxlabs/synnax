@@ -733,7 +733,7 @@ Bytes encode(const BinaryMessage &m, const std::vector<x::telem::Series> &sample
     return payload;
 }
 
-/// @brief asserts that encoding samples for m fails with text.
+/// @brief asserts that encoding samples for m fails with text after the name of m.
 void assert_rejects_samples(
     const BinaryMessage &m,
     const std::vector<x::telem::Series> &samples,
@@ -743,7 +743,7 @@ void assert_rejects_samples(
     Bytes payload;
     const auto err = enc.encode(samples, payload);
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    EXPECT_EQ(err.data, text);
+    EXPECT_EQ(err.data, "message " + m.name + ": " + text);
 }
 
 /// @brief asserts that creating an encoder for m fails with text.
@@ -1124,8 +1124,7 @@ TEST(BinaryEncoder, EncodeWithoutAllocating) {
     EXPECT_EQ(payload, (Bytes{0x03, 0x00}));
 }
 
-/// @brief it should check a sample of a binding as encode does, and report which fields
-/// have a default.
+/// @brief it should check a sample of a binding as encode does.
 TEST(BinaryEncoder, CheckSample) {
     const auto v = field<icd::UnsignedBinaryField>("v", 0, 8);
     auto w = field<icd::UnsignedBinaryField>("w", 8, 4);
@@ -1139,12 +1138,122 @@ TEST(BinaryEncoder, CheckSample) {
         },
     };
     const auto enc = ASSERT_NIL_P(BinaryEncoder::create(m));
-    ASSERT_NIL(enc.check(0, x::telem::SampleValue(std::uint8_t{15})));
-    ASSERT_NIL(enc.check(1, x::telem::SampleValue(std::uint8_t{16})));
-    const auto err = enc.check(0, x::telem::SampleValue(std::uint8_t{16}));
+    ASSERT_NIL(enc.check(0, x::telem::Series(std::uint8_t{15}), 0));
+    ASSERT_NIL(enc.check(1, x::telem::Series(std::uint8_t{16}), 0));
+    const auto err = enc.check(0, x::telem::Series(std::uint8_t{16}), 0);
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    EXPECT_EQ(err.data, "field w: 16 is out of range for 4 bits");
-    EXPECT_TRUE(enc.has_default(0));
-    EXPECT_FALSE(enc.has_default(1));
+    EXPECT_EQ(err.data, "message frame: field w: 16 is out of range for 4 bits");
+}
+
+/// @brief it should refuse a sample outside the min and max of its field, and accept a
+/// float32 sample that equals a limit at float32 precision.
+TEST(BinaryEncoder, CheckSampleLimits) {
+    auto v = field<icd::FloatBinaryField>("v", 0, 32);
+    v.min = -1;
+    v.max = 0.1;
+    const auto enc = ASSERT_NIL_P(BinaryEncoder::create(frame(v, x::telem::FLOAT32_T)));
+    ASSERT_NIL(enc.check(0, x::telem::Series(0.1F), 0));
+    auto err = enc.check(0, x::telem::Series(0.5F), 0);
+    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+    EXPECT_EQ(err.data, "message frame: field v: 0.5 is above the max 0.1");
+    err = enc.check(0, x::telem::Series(-2.0F), 0);
+    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+    EXPECT_EQ(err.data, "message frame: field v: -2 is below the min -1");
+}
+
+/// @brief it should check the value that a sample rounds to, so a sample under the max
+/// that rounds to a raw value past it is refused.
+TEST(BinaryEncoder, CheckSampleLimitsAfterRounding) {
+    auto v = field<icd::IntegerBinaryField>("v", 0, 8);
+    v.scale = 5;
+    v.max = 13;
+    const auto enc = ASSERT_NIL_P(BinaryEncoder::create(frame(v, x::telem::FLOAT64_T)));
+    ASSERT_NIL(enc.check(0, x::telem::Series(12.0), 0));
+    const auto err = enc.check(0, x::telem::Series(13.0), 0);
+    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+    EXPECT_EQ(
+        err.data,
+        "message frame: field v: 3 decodes to 15, which is above the max 13"
+    );
+}
+
+/// @brief it should check the float32 value of a float64 sample for a float32 field,
+/// and accept one that equals a limit at float32 precision.
+TEST(BinaryEncoder, CheckFloat32FieldLimits) {
+    auto v = field<icd::FloatBinaryField>("v", 0, 32);
+    v.max = 0.1;
+    const auto enc = ASSERT_NIL_P(BinaryEncoder::create(frame(v, x::telem::FLOAT64_T)));
+    ASSERT_NIL(enc.check(0, x::telem::Series(0.1), 0));
+    const auto err = enc.check(0, x::telem::Series(0.10000001), 0);
+    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+    EXPECT_EQ(
+        err.data,
+        "message frame: field v: 0.10000000894069672 is above the max 0.1"
+    );
+}
+
+/// @brief it should be ready when each field has a sample or a default.
+TEST(BinaryEncoder, Ready) {
+    const auto v = field<icd::UnsignedBinaryField>("v", 0, 8);
+    auto w = field<icd::UnsignedBinaryField>("w", 8, 8);
+    w.default_ = 1;
+    auto enc = ASSERT_NIL_P(BinaryEncoder::create(multiplexed({v, w}, {v.key, w.key})));
+    EXPECT_FALSE(enc.ready(series_of(none(), none())));
+    EXPECT_TRUE(enc.ready(series_of(x::telem::Series(std::uint8_t{1}), none())));
+}
+
+/// @brief it should need samples only for the multiplexor and the fields that its value
+/// selects.
+TEST(BinaryEncoder, ReadyForSelectedFields) {
+    const auto mode = field<icd::UnsignedBinaryField>("mode", 0, 8);
+    const auto a = selected_by("a", 1, mode.key, {0});
+    const auto b = selected_by("b", 2, mode.key, {1});
+    auto enc = ASSERT_NIL_P(
+        BinaryEncoder::create(multiplexed({mode, a, b}, {mode.key, a.key, b.key}))
+    );
+    const auto five = [] { return x::telem::Series(std::uint8_t{5}); };
+    EXPECT_FALSE(enc.ready(series_of(none(), five(), five())));
+    EXPECT_FALSE(
+        enc.ready(series_of(x::telem::Series(std::uint8_t{0}), none(), five()))
+    );
+    EXPECT_TRUE(
+        enc.ready(series_of(x::telem::Series(std::uint8_t{0}), five(), none()))
+    );
+    EXPECT_FALSE(
+        enc.ready(series_of(x::telem::Series(std::uint8_t{1}), five(), none()))
+    );
+}
+
+/// @brief it should refuse an infinite or NaN sample for a float field with a min and a
+/// max.
+TEST(BinaryEncoder, CheckNonFiniteSampleLimits) {
+    for (const std::uint8_t bits: {32, 64}) {
+        auto v = field<icd::FloatBinaryField>("v", 0, bits);
+        v.min = -10;
+        v.max = 10;
+        const auto enc = ASSERT_NIL_P(
+            BinaryEncoder::create(frame(v, x::telem::FLOAT64_T))
+        );
+        constexpr double inf = std::numeric_limits<double>::infinity();
+        auto err = enc.check(0, x::telem::Series(inf), 0);
+        ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+        EXPECT_EQ(err.data, "message frame: field v: Infinity is above the max 10");
+        err = enc.check(0, x::telem::Series(-inf), 0);
+        ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+        EXPECT_EQ(err.data, "message frame: field v: -Infinity is below the min -10");
+        err = enc.check(0, x::telem::Series(std::nan("")), 0);
+        ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+        EXPECT_EQ(err.data, "message frame: field v: NaN is outside the limits");
+    }
+}
+
+/// @brief it should accept a NaN sample for a float field with no min and no max.
+TEST(BinaryEncoder, CheckNaNSampleWithoutLimits) {
+    const auto enc = ASSERT_NIL_P(
+        BinaryEncoder::create(
+            frame(field<icd::FloatBinaryField>("v", 0, 64), x::telem::FLOAT64_T)
+        )
+    );
+    ASSERT_NIL(enc.check(0, x::telem::Series(std::nan("")), 0));
 }
 }

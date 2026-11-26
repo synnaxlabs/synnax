@@ -663,8 +663,7 @@ TEST(TextEncoder, EncodeWithoutAllocating) {
     EXPECT_EQ(std::string(payload.begin(), payload.end()), "$SET,-123456789,T=2.5");
 }
 
-/// @brief it should check a sample of a binding as encode does, and report which fields
-/// have a default.
+/// @brief it should check a sample of a binding as encode does.
 TEST(TextEncoder, CheckSample) {
     auto b = at("b", 1);
     b.default_ = 1;
@@ -676,8 +675,15 @@ TEST(TextEncoder, CheckSample) {
     const auto err = enc.check(1, s, 1);
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
     EXPECT_EQ(err.data, "message cmd: field b: NaN is not finite");
-    EXPECT_FALSE(enc.has_default(0));
-    EXPECT_TRUE(enc.has_default(1));
+}
+
+/// @brief it should be ready when each field has a sample or a default.
+TEST(TextEncoder, Ready) {
+    auto b = at("b", 1);
+    b.default_ = 1;
+    const auto enc = ASSERT_NIL_P(TextEncoder::create(message("cmd", {at("a", 0), b})));
+    EXPECT_FALSE(enc.ready(series_of(none(), none())));
+    EXPECT_TRUE(enc.ready(series_of(x::telem::Series(2.5), none())));
 }
 
 namespace {

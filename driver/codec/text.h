@@ -218,10 +218,15 @@ public:
     [[nodiscard]] x::errors::Error
     check(std::size_t binding, const x::telem::Series &s, std::size_t i);
 
-    /// @brief returns true when the field of binding has a default, which encode writes
-    /// for an empty series.
-    [[nodiscard]] bool has_default(std::size_t binding) const {
-        return this->fields[this->bound[binding]].fallback.has_value();
+    /// @brief returns true when each field has a sample or a default, so encode has a
+    /// value for it.
+    /// @param samples is as in encode.
+    [[nodiscard]] bool ready(const std::span<const x::telem::Series> samples) const {
+        for (std::size_t b = 0; b < samples.size(); b++)
+            if (samples[b].empty() &&
+                !this->fields[this->bound[b]].fallback.has_value())
+                return false;
+        return true;
     }
 };
 }

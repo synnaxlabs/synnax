@@ -943,10 +943,10 @@ func timeName(name string) bool {
 
 // unixFormats are the numeric time formats, in rising order of resolution.
 var unixFormats = [...]TimeFormat{
-	UnixSecond,
-	UnixMillisecond,
-	UnixMicrosecond,
-	UnixNanosecond,
+	unixSecond,
+	unixMillisecond,
+	unixMicrosecond,
+	unixNanosecond,
 }
 
 // timeOf parses l as a timestamp. A string holds ISO 8601 or a Unix number, and a
@@ -961,7 +961,7 @@ func timeOf(l leaf, ref telem.TimeStamp) (telem.TimeStamp, TimeFormat, bool) {
 			return 0, 0, false
 		}
 		if ts, err := parseISO8601(bytes.Clone(unquoted)); err == nil {
-			return ts, ISO8601, nearTime(ts, ref)
+			return ts, iso8601, nearTime(ts, ref)
 		}
 		text = unquoted
 	case '0':
@@ -972,7 +972,7 @@ func timeOf(l leaf, ref telem.TimeStamp) (telem.TimeStamp, TimeFormat, bool) {
 	if err != nil {
 		return 0, 0, false
 	}
-	format, nearest := UnixSecond, math.Inf(1)
+	format, nearest := unixSecond, math.Inf(1)
 	for _, f := range unixFormats {
 		d := math.Abs(n.float()*math.Pow10(f.nanosExponent()) - float64(ref))
 		if d < nearest {

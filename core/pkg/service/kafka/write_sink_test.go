@@ -159,23 +159,24 @@ var _ = Describe("Write task with targets", func() {
 			To(Equal(map[string]any{"value": 4.0}))
 	})
 
-	It("Should produce the targets of a config that also has channels",
+	It("Should refuse a config from before ICDs, which has channels and no targets",
 		func(ctx SpecContext) {
-			ch := createVirtual(ctx)
 			dev := createDevice(ctx, clusterProperties())
-			topic := uniqueTopic()
-			start(ctx, kafka.WriteConfig{
-				Device: dev.Key,
-				Channels: []kafka.WriteChannel{
-					{Key: "c1", Channel: createVirtual(ctx).Key()},
-				},
-				Targets: []kafka.WriteTarget{
-					writeTarget(topic, ic, setpoint, command(setpoint, 0, ch)),
-				},
+			t := newTask(ctx, kafka.WriteTaskType, map[string]any{
+				"device":     dev.Key,
+				"topic":      uniqueTopic(),
+				"record_key": "channel_name",
+				"channels": []any{map[string]any{
+					"key":     "c1",
+					"channel": createVirtual(ctx).Key(),
+				}},
 			})
-			write(ctx, ch.Key(), telem.Now(), telem.NewSeriesV(4.0))
-			Expect(decode(consume(ctx, topic, 1)[0])).
-				To(Equal(map[string]any{"value": 4.0}))
+			Expect(f.ConfigureTask(ctx, t, "cmd-1")).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(
+					ContainSubstring("targets: the task has no enabled targets"),
+				),
+			))
 		},
 	)
 

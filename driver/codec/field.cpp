@@ -40,13 +40,15 @@ std::string format(const double v) {
 }
 
 /// @returns VALIDATION when decoded, the decoded value of raw, is more than slack
-/// outside the min and max of b.
+/// outside the min and max of b, or is NaN and b has a min or a max.
 x::errors::Error out_of_range(
     const icd::BaseField &b,
     const double raw,
     const double decoded,
     const double slack
 ) {
+    if (std::isnan(decoded) && (b.min.has_value() || b.max.has_value()))
+        return {x::errors::VALIDATION, "NaN is outside the limits"};
     std::string side;
     double limit = 0;
     if (b.min.has_value() && decoded < *b.min - slack) {
@@ -161,12 +163,20 @@ x::errors::Error check_limits(const icd::BaseField &b, const float v) {
     return check_limits(b, static_cast<double>(v));
 }
 
-x::errors::Error check_raw_limits(const icd::BaseField &b, const double raw) {
+x::errors::Error
+check_raw_limits(const icd::BaseField &b, const double raw, const bool narrow) {
     const double scaled = raw * b.scale;
+    const double decoded = scaled + b.offset;
+    if (std::isinf(decoded)) return out_of_range(b, raw, decoded, 0);
+    if (narrow)
+        for (const auto &limit: {b.min, b.max})
+            if (limit.has_value() &&
+                static_cast<float>(*limit) == static_cast<float>(decoded))
+                return x::errors::NIL;
     return out_of_range(
         b,
         raw,
-        scaled + b.offset,
+        decoded,
         DECODE_ROUNDING * (std::abs(scaled) + std::abs(b.offset))
     );
 }
