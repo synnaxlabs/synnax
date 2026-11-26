@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { icd } from "@synnaxlabs/client";
+import { type channel, icd } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { uuid } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
@@ -184,6 +184,29 @@ describe("planMessage", () => {
     const key = bound.source.messages[0].bindings[0].channel;
     expect(key).not.toBe(old.key);
     expect((await client.channels.retrieve(key)).name).toBe(`${prefix}_temp`);
+  });
+
+  it("should plan a message after one that takes the index of a bound channel", async () => {
+    const prefix = uniqueName("src");
+    const index = await createIndex(`${prefix}_time`);
+    const temp = await client.channels.create({
+      name: `${prefix}_temp`,
+      dataType: "float64",
+      index: index.key,
+    });
+    const bound = createKinds([
+      { index: "time", fields: ["temp"], channels: { temp: temp.key } },
+      { fields: ["flow"] },
+    ]);
+    const [first] = await Task.planChannels(client, (planner) => {
+      const kept = new Set<channel.Key>();
+      return bound.map((b) => {
+        const plan = ICD.planMessage(planner, b, prefix, undefined, kept, bound);
+        ICD.keptChannels(plan).forEach((key) => kept.add(key));
+        return plan;
+      });
+    });
+    expect(first.channels.props?.index).toBe(index.key);
   });
 
   it("should name a new index after its index field", async () => {

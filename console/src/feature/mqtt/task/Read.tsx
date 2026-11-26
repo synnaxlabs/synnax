@@ -1024,8 +1024,9 @@ interface ReadPlan {
 
 /**
  * Plans the channels of each message and then each tag, in deploy order with one
- * namer. A message plans with the channels that entries bind and that earlier messages
- * keep, so it leaves a stored channel that another binding writes. Changes no argument.
+ * planner. A message plans with the channels that entries bind and that earlier
+ * messages keep, so it leaves a stored channel that another binding writes. Changes no
+ * argument.
  */
 const planRead = (
   planner: Task.Planner,

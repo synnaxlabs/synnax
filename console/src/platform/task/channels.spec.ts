@@ -445,13 +445,14 @@ describe("channels", () => {
   });
 
   describe("planChannels", () => {
-    it("should read the Core two times for a task with many sources", async () => {
+    it("should retrieve channels at most 3 times for a task with many sources", async () => {
       const prefix = uniqueName("src");
       const index = await createIndex(`${prefix}_index`);
+      const takenIndex = await createIndex(`${prefix}_taken_index`);
       const taken = await client.channels.create({
         name: `${prefix}_s0_v`,
         dataType: "float64",
-        index: index.key,
+        index: takenIndex.key,
       });
       const sources = Array.from({ length: 20 }, (_, i) => ({
         props: { index: index.key, channels: { "/v": i === 1 ? taken.key : 0 } },
@@ -465,7 +466,7 @@ describe("channels", () => {
         const plans = await Task.planChannels(fresh, (planner) =>
           sources.map((s) => Task.planReadChannels({ ...s, planner, indexKey: "" })),
         );
-        expect(requestsTo(send, "/channel/retrieve")).toHaveLength(2);
+        expect(requestsTo(send, "/channel/retrieve")).toHaveLength(3);
         expect(plans[0].creates).toEqual([
           { key: "v", name: `${prefix}_s0_v_2`, indexed: true },
         ]);
@@ -478,19 +479,30 @@ describe("channels", () => {
       }
     });
 
-    it("should throw when a plan reads a key only after the load", async () => {
+    it("should load the index of each channel that a plan reads", async () => {
       const index = await createIndex(uniqueName("index"));
       const data = await client.channels.create({
         name: uniqueName("data"),
         dataType: "float64",
         index: index.key,
       });
+      const planned = await Task.planChannels(client, (planner) =>
+        planner.retrieve(planner.retrieve(data.key)?.index ?? 0),
+      );
+      expect(planned?.key).toBe(index.key);
+    });
+
+    it("should throw when a plan reads a key only after the load", async () => {
+      const [data, other] = await client.channels.create([
+        { name: uniqueName("data"), dataType: "float64", virtual: true },
+        { name: uniqueName("other"), dataType: "float64", virtual: true },
+      ]);
       await expect(
         Task.planChannels(client, (planner) =>
-          planner.retrieve(planner.retrieve(data.key)?.index ?? 0),
+          planner.retrieve(data.key) == null ? null : planner.retrieve(other.key),
         ),
       ).rejects.toThrow(
-        `a channel plan read keys [${index.key}] and names [] only after its load`,
+        `a channel plan read keys [${other.key}] and names [] only after its load`,
       );
     });
   });

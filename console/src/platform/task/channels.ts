@@ -223,7 +223,10 @@ const createPlanner = (loaded: Loaded, misses: Misses): Planner => {
 const escapeRegex = (text: string): string =>
   text.replace(/[\\^$.|?*+()[\]{}]/g, "\\$&");
 
-/** Loads what misses holds into loaded, with one read of keys and one of names. */
+/**
+ * Loads what misses holds into loaded, with one read of keys and one of names, and then
+ * one read of the indexes of the channels that it loads.
+ */
 const load = async (client: Client, loaded: Loaded, misses: Misses): Promise<void> => {
   const keys = [...misses.keys];
   const names = [...misses.names];
@@ -235,6 +238,14 @@ const load = async (client: Client, loaded: Loaded, misses: Misses): Promise<voi
   ]);
   for (const key of keys) loaded.channels.set(key, null);
   for (const ch of channels) loaded.channels.set(ch.key, ch);
+  const indexes = [
+    ...new Set(channels.map(({ index }) => index).filter(primitive.isNonZero)),
+  ].filter((key) => !loaded.channels.has(key));
+  if (indexes.length > 0) {
+    for (const key of indexes) loaded.channels.set(key, null);
+    for (const ch of await client.channels.retrieve(indexes))
+      loaded.channels.set(ch.key, ch);
+  }
   for (const name of names) loaded.names.add(name);
   for (const { name, key } of holders)
     loaded.holders.set(name, [...(loaded.holders.get(name) ?? []), key]);
@@ -242,9 +253,10 @@ const load = async (client: Client, loaded: Loaded, misses: Misses): Promise<voi
 
 /**
  * Plans with what the Core holds, in two runs of plan. The first run finds what plan
- * reads, one batch loads it, and the second run gives the result. plan must have no
- * side effects, and must read each key and name that it can need before it branches on
- * what it reads.
+ * reads, one batch loads it with the index of each channel, and the second run gives
+ * the result, so it retrieves channels at most 3 times. plan must have no side effects,
+ * and must read each key and name that it can need before it branches on what it reads.
+ * It can also read the index of a channel that it read.
  *
  * @throws an error when the second run reads something that the first did not, which is
  * a defect of plan.
