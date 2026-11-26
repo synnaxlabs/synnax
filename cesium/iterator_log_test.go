@@ -236,4 +236,39 @@ var _ = Describe("Reads on the pointer log", func() {
 		Expect(fs.openUnder(dir)).To(BeEmpty())
 		Expect(fs.Exists(dir)).To(BeFalse())
 	})
+
+	It("Should read nothing at an automatic Next after a seek that finds no range, "+
+		"once a Drop took the data of the key", func(ctx SpecContext) {
+		db := mustOpenDBOnFS(ctx, xfs.NewMem(), cesium.WithPointerLog())
+		idx, data := GenerateChannelKey(), GenerateChannelKey()
+		keys := []cesium.ChannelKey{idx, data}
+		Expect(db.CreateChannel(
+			ctx,
+			cesium.Channel{
+				Key: idx, Name: "time", IsIndex: true, DataType: telem.TimestampT,
+			},
+			cesium.Channel{Key: data, Name: "data", Index: idx, DataType: telem.Int64T},
+		)).To(Succeed())
+		w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+			Channels: keys,
+			Start:    10 * telem.SecondTS,
+		}))
+		MustSucceed2(w.Write(ctx, telem.MultiFrame(keys, []telem.Series{
+			telem.NewSeriesSecondsTSV(10, 11),
+			telem.NewSeries([]int64{10, 11}),
+		}), nil))
+		MustSucceed2(w.Commit(ctx, nil))
+		Expect(w.Close()).To(Succeed())
+		iter := MustSucceed(db.OpenIterator(cesium.IteratorConfig{
+			Bounds:   telem.TimeRangeMax,
+			Channels: []cesium.ChannelKey{data},
+		}))
+		DeferCleanup(func() { Expect(iter.Close()).To(Succeed()) })
+		Expect(iter.SeekFirst()).To(BeTrue())
+		Expect(db.Drop(ctx, []cesium.ChannelKey{data})).To(Succeed())
+		Expect(iter.SeekGE(10 * telem.SecondTS)).To(BeFalse())
+		iter.Next(cesium.AutoSpan)
+		Expect(iter.Value().Get(data).Series).To(BeEmpty())
+		Expect(iter.Error()).ToNot(HaveOccurred())
+	})
 })
