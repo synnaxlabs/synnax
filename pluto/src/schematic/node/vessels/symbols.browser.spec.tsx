@@ -29,12 +29,18 @@ import { describe, expect, it, vi } from "vitest";
 
 import { CSS } from "@/css";
 import { Node } from "@/schematic/node";
+import { createSynnaxWrapper } from "@/testutil";
+import { symbolNode } from "@/vis/symbolNode/aether";
 
 const ORIENTATIONS: location.Outer[] = ["left", "right", "top", "bottom"];
 const SCALES = [1, 2];
 const TOLERANCE = 0.1;
 const SYMBOL_POSITION = { x: 100, y: 100 };
 const NOOP = (): void => {};
+const SynnaxWrapper = createSynnaxWrapper({
+  client: null,
+  additionalRegistry: symbolNode.REGISTRY,
+});
 
 interface Bar {
   handle: string;
@@ -91,8 +97,13 @@ interface RenderProps {
 
 const renderJunction = async ({ variant, orientation, scale, bars }: RenderProps) => {
   const { ends, edgeTypes } = createEdgeRecorder();
-  const Junction = Node.resolveSpec(variant).Node;
-  const config = { ...Node.createConfig({ variant }), orientation, scale };
+  const Junction = Node.REGISTRY.symbol.Node;
+  const config = Node.createConfig({
+    variant: "symbol",
+    spec: { type: "builtin", name: variant },
+    orientation,
+    scale,
+  });
   const nodeTypes: NodeTypes = {
     symbol: ({ id }) => (
       <Junction nodeKey={id} selected={false} config={config} onConfigChange={NOOP} />
@@ -112,20 +123,22 @@ const renderJunction = async ({ variant, orientation, scale, bars }: RenderProps
     targetHandle: "target",
   }));
   const { container } = await renderThemed(
-    <div style={{ width: 800, height: 800 }}>
-      <Haul.Provider>
-        <ReactFlowProvider>
-          <ReactFlow
-            className={CSS.B("schematic")}
-            nodes={nodes}
-            edges={edges}
-            nodeTypes={nodeTypes}
-            edgeTypes={edgeTypes}
-            defaultViewport={{ x: 0, y: 0, zoom: 1 }}
-          />
-        </ReactFlowProvider>
-      </Haul.Provider>
-    </div>,
+    <SynnaxWrapper>
+      <div style={{ width: 800, height: 800 }}>
+        <Haul.Provider>
+          <ReactFlowProvider>
+            <ReactFlow
+              className={CSS.B("schematic")}
+              nodes={nodes}
+              edges={edges}
+              nodeTypes={nodeTypes}
+              edgeTypes={edgeTypes}
+              defaultViewport={{ x: 0, y: 0, zoom: 1 }}
+            />
+          </ReactFlowProvider>
+        </Haul.Provider>
+      </div>
+    </SynnaxWrapper>,
   );
   await vi.waitFor(() => expect(ends.size).toBe(bars.length));
   const flow = container.querySelector(".react-flow");

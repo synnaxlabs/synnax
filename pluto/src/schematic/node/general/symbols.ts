@@ -9,6 +9,7 @@
 
 import type { schematic } from "@synnaxlabs/client";
 
+import type { Names } from "@/schematic/node/builtIns";
 import { Box } from "@/schematic/node/general/box";
 import { Button } from "@/schematic/node/general/button";
 import { Circle } from "@/schematic/node/general/circle";
@@ -52,3 +53,9 @@ export const BUILT_INS = {
   light: Light.SYMBOL,
   switch: Switch.SYMBOL,
 } as const satisfies Record<string, schematic.symbol.Spec>;
+
+/** NAMES maps the name of each built-in symbol to its names. */
+export const NAMES = {
+  light: { name: "Light", label: "Light" },
+  switch: { name: "Switch", label: "Switch" },
+} as const satisfies Record<keyof typeof BUILT_INS, Names>;
