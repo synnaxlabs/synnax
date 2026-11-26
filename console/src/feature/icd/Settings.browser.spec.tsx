@@ -8,8 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { icd, NotFoundError, panel, project } from "@synnaxlabs/client";
+import { List } from "@synnaxlabs/lyra/list";
 import { uniqueName } from "@synnaxlabs/x/testutil";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { ICD } from "@/feature/icd";
@@ -29,9 +30,9 @@ import {
 
 const TAB_TYPES = [project.TYPE_RESOURCE_ID, panel.TYPE_RESOURCE_ID];
 
-// The toolbar lists every ICD its user can read, and other specs leave theirs on the
+// The page lists every ICD its user can read, and other specs leave theirs on the
 // Core. A user that reads only the ICD of the test sees the same rows on any Core.
-const renderToolbar = async (shown: icd.ICD): Promise<{ store: TestStore }> => {
+const renderSettings = async (shown: icd.ICD): Promise<{ store: TestStore }> => {
   const proj = await client.projects.create({ name: uniqueName("project") });
   const subject = await createTestClientWithGrants(client, {
     retrieve: [icd.resourceID(shown.key), ...TAB_TYPES],
@@ -45,7 +46,7 @@ const renderToolbar = async (shown: icd.ICD): Promise<{ store: TestStore }> => {
   });
   render(
     <>
-      {ICD.TOOLBAR.content}
+      <ICD.Settings />
       <Modals.Stack />
     </>,
     { wrapper },
@@ -59,18 +60,25 @@ const focusedResourceKey = async (store: TestStore): Promise<string> => {
   return tab.resource.key;
 };
 
-describe("ICD toolbar", () => {
-  it("should open an ICD in a tab on double click", async () => {
+describe("ICD.Settings", () => {
+  it("should list an ICD with its message count", async () => {
     const ic = await createICD();
-    const { store } = await renderToolbar(ic);
-    fireEvent.doubleClick(await screen.findByRole("option", { name: ic.name }));
+    await renderSettings(ic);
+    const item = await screen.findByRole("option", { name: ic.name });
+    expect(within(item).getByText("0")).toBeTruthy();
+  });
+
+  it("should open an ICD in a tab on click", async () => {
+    const ic = await createICD();
+    const { store } = await renderSettings(ic);
+    fireEvent.click(await screen.findByRole("option", { name: ic.name }));
     expect(await focusedResourceKey(store)).toBe(ic.key);
   });
 
   describe("context menu", () => {
     it("should open an ICD from Open", async () => {
       const ic = await createICD();
-      const { store } = await renderToolbar(ic);
+      const { store } = await renderSettings(ic);
       fireEvent.contextMenu(await screen.findByText(ic.name));
       fireEvent.click(await screen.findByText("Open"));
       expect(await focusedResourceKey(store)).toBe(ic.key);
@@ -78,10 +86,10 @@ describe("ICD toolbar", () => {
 
     it("should rename an ICD through the inline editor", async () => {
       const ic = await createICD();
-      await renderToolbar(ic);
+      await renderSettings(ic);
       fireEvent.contextMenu(await screen.findByText(ic.name));
       fireEvent.click(await screen.findByText("Rename"));
-      const editor = await awaitTextEditing(`icd-name-${ic.key}`);
+      const editor = await awaitTextEditing(List.itemNameID(ic.key));
       const name = uniqueName("renamed");
       commitTextEdit(editor, name);
       await waitFor(async () =>
@@ -91,7 +99,7 @@ describe("ICD toolbar", () => {
 
     it("should delete an ICD after confirmation", async () => {
       const ic = await createICD();
-      await renderToolbar(ic);
+      await renderSettings(ic);
       fireEvent.contextMenu(await screen.findByText(ic.name));
       fireEvent.click(await screen.findByText("Delete"));
       await screen.findByText(`Are you sure you want to delete ${ic.name}?`);

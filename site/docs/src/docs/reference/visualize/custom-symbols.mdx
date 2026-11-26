@@ -73,26 +73,28 @@ To change a built-in symbol, copy it into a custom group:
 
 The copy is named after the built-in symbol with **(copy)** at the end, and opens in the
 symbol editor. It keeps the states, commands, clicks, and looks of the built-in symbol.
-Start from a built-in symbol when you want a click that toggles between two commands,
-like a valve: the editor cannot add a toggle.
+Start from a built-in symbol when you want states whose values have names, such as
+**Closed** and **Open**: the editor cannot set the enumeration of a state.
 
 <Divider.Divider x />
 
 ## Make a symbol clickable
 
-A click sends a command. A command writes one value, to the channel of a state or to a
-channel of its own.
+A click sends a command, or toggles between two commands. A command writes one value, to
+the channel of a state or to a channel of its own.
 
 1. In the symbol editor, click <Icon.Add /> next to **Commands**.
-2. In the inspector, select the **State** that the command writes, or **None**.
+2. In the inspector, select the **State** that the command writes, or **No state**.
 3. Under **Value**, select **Fixed** and set the value, or select **Ask**.
 4. Click <Icon.Add /> next to **Clicks**.
 5. In the inspector, select the **Target**: **Whole drawing** or a part.
-6. Select the **Command** that a click on the target sends.
+6. Under **Kind**, select **Send**, then select the **Command**. For a toggle, select
+   **Toggle**, then select the **First command** and the **Second command**.
 7. Click **Create** or **Save**.
 
-Each part, and the whole drawing, can have one click. Double-click the name of a state
-or command to rename it.
+Each part, and the whole drawing, can have one click. A toggle needs two commands on one
+state that send different fixed values. Double-click the name of a state or command to
+rename it.
 
 An **Ask** command needs a state. When an operator clicks the symbol, it asks for the
 value: a menu of the entries of its enumeration, or a number field.
@@ -181,21 +183,23 @@ default of a state. See [node properties](#node-properties).
 
 ### Commands
 
-| Field | Description                                                                                                                    |
-| ----- | ------------------------------------------------------------------------------------------------------------------------------ |
-| State | The state whose **Command channel** the command writes. **None** writes to the channel set on the **Control** tab of the node. |
-| Value | **Fixed** writes one value. **Ask** asks the operator for the value on each click. **Ask** needs a state.                      |
+| Field | Description                                                                                                                        |
+| ----- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| State | The state whose **Command channel** the command writes. **No state** writes to the channel set on the **Control** tab of the node. |
+| Value | **Fixed** writes one value. **Ask** asks the operator for the value on each click. **Ask** needs a state.                          |
 
 ### Clicks
 
-| Field   | Description                                   |
-| ------- | --------------------------------------------- |
-| Target  | **Whole drawing** or a part.                  |
-| Command | The command that a click on the target sends. |
+| Field                         | Description                                                       |
+| ----------------------------- | ----------------------------------------------------------------- |
+| Target                        | **Whole drawing** or a part.                                      |
+| Kind                          | **Send** sends one command. **Toggle** sends one of two commands. |
+| Command                       | With **Send**, the command that a click sends.                    |
+| First command, Second command | With **Toggle**, the two commands.                                |
 
-A toggle, copied from a built-in symbol, sends the command whose value differs from the
-value of the state. It shows a menu of the two commands when the state has no data, when
-the value matches neither command, or when the last command does not match the state.
+A toggle sends the command whose value differs from the value of the state. It shows a
+menu of the two commands when the channel of the state has no data, when the value
+matches neither command, or when the last command does not match the state.
 
 ### Parts
 

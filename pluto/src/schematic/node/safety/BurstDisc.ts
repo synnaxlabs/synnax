@@ -15,4 +15,5 @@ import svg from "@/schematic/node/safety/BurstDisc.svg?raw";
 export const SYMBOL: schematic.symbol.Spec = Custom.createBuiltIn({
   svg,
   handles: [{ key: "1", position: { x: 0.05, y: 0.5 }, orientation: "left" }],
+  ...Custom.SOLID_SHAPES,
 });
