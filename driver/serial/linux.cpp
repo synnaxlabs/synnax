@@ -19,6 +19,7 @@ const std::array<tcflag_t, 4> SIZES{CS5, CS6, CS7, CS8};
 
 namespace line {
 x::errors::Error apply(const synnax::serial::Properties &props, Settings &settings) {
+    if (auto err = check(props)) return err;
     if (props.stop_bits == synnax::serial::STOP_BITS_ONE_AND_HALF)
         return {transport::CONFIG_ERROR, "Linux does not support 1.5 stop bits"};
     settings.c_cflag &= ~(CBAUD | (CBAUD << IBSHIFT));

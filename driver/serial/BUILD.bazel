@@ -12,9 +12,10 @@ load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
 cc_library(
     name = "serial",
-    srcs = select({
+    srcs = ["line.cpp"] + select({
         "@platforms//os:linux": ["linux.cpp"],
         "@platforms//os:macos": ["macos.cpp"],
+        "//conditions:default": [],
     }),
     hdrs = ["line.h"],
     target_compatible_with = select({
@@ -32,9 +33,14 @@ cc_library(
 cc_test(
     name = "line_test",
     size = "small",
-    srcs = select({
+    srcs = ["line_test.cpp"] + select({
         "@platforms//os:linux": ["line_linux_test.cpp"],
         "@platforms//os:macos": ["line_macos_test.cpp"],
+        "//conditions:default": [],
+    }),
+    target_compatible_with = select({
+        "@platforms//os:windows": ["@platforms//:incompatible"],
+        "//conditions:default": [],
     }),
     deps = [
         ":serial",
