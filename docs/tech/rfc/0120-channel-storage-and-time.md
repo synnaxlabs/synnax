@@ -395,9 +395,11 @@ names no clock key.
   the ack. A demand that needs time waits for that ack, and until then a display ignores
   a series of the key that comes with no time. A read of one channel that returns a bare
   series, such as Python `client.read(tr, "temperature")`, marks its key untimed.
-- **Sources**: A writer's relay frame holds each clock write whole (§4.8). The storage
-  iterator adds, per chunk and clock, the stamps of the alignment ranges of its data
-  series, within the chunk size. A reduced read reduces them as it does the data.
+- **Sources**: A writer's relay frame holds the time series of each present group under
+  the group's clock, and a copy under the clock of each channel that a pause move put on
+  a clock of its own (§4.8). The storage iterator adds, per chunk and clock, the stamps
+  of the alignment ranges of its data series, within the chunk size. A reduced read
+  reduces them as it does the data.
 - **Storage reads**: A key's clock can change between segments, so the iterator takes
   the clock per segment. Keys whose newest segment names one clock share a view. Each
   view loads its keys and every clock that their segments name in one state step: the
