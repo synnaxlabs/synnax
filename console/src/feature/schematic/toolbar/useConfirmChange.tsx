@@ -18,7 +18,7 @@ import type { ReactElement } from "react";
 import { Symbol } from "@/feature/schematic/symbol";
 import { Modals } from "@/platform/modals";
 
-/** A symbol node loses bindings. A node of another item loses all of its settings. */
+/** A symbol node loses bindings. A node of another item loses its item settings. */
 type LosingNode =
   | { key: string; config: schematic.SymbolNodeConfig; lost: schematic.Orphans }
   | { key: string; config: Schematic.Node.Config; lost: null };
@@ -77,7 +77,7 @@ const ConfirmChange = ({
     title="Schematic.Symbol.Change"
     icon={<Icon.Schematic />}
     message="Change the symbol?"
-    description="The change removes the bindings that the new symbol lacks."
+    description="The change removes the bindings and settings that the new item lacks."
     confirm={{ label: "Change", variant: "warning" }}
     onConfirm={() => close(true)}
     onCancel={() => close(false)}
