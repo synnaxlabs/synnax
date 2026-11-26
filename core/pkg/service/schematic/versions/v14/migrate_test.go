@@ -436,7 +436,7 @@ var _ = Describe("MigrateSchematic", func() {
 	)
 
 	It(
-		"Should keep the state overrides of custom nodes that 0.62.0 stored",
+		"Should make the custom nodes that 0.62.0 stored symbol nodes",
 		func(ctx SpecContext) {
 			var stored v13.Schematic
 			Expect(
@@ -444,46 +444,17 @@ var _ = Describe("MigrateSchematic", func() {
 			).To(Succeed())
 			out := MustSucceed(v14.MigrateSchematic(ctx, stored))
 			Expect(out.Nodes).To(HaveLen(2))
-			region := func(stroke, fill *xcolor.Color) symbol.Region {
-				return symbol.Region{
-					Key:         "body",
-					Name:        "Body",
-					Selectors:   []string{"#body"},
-					StrokeColor: stroke,
-					FillColor:   fill,
-				}
-			}
-			act, ok := out.Nodes[0].Config.Variant.(v14.CustomActuatorNodeConfig)
+			act, ok := out.Nodes[0].Config.Variant.(v14.SymbolNodeConfig)
 			Expect(ok).To(BeTrue())
-			Expect(act.SpecKey).To(Equal("3e46d160-a00b-4224-8119-ffabc45cdc24"))
-			Expect(act.StateOverrides).To(Equal([]symbol.StateOverride{
-				{
-					Key:  "base",
-					Name: "Base",
-					Regions: []symbol.Region{region(
-						&xcolor.Color{R: 220, G: 19, B: 108, A: 255},
-						&xcolor.Color{R: 255, G: 107, B: 107, A: 128},
-					)},
-				},
-				{
-					Key:  "active",
-					Name: "Active",
-					Regions: []symbol.Region{
-						region(nil, &xcolor.Color{R: 62, G: 142, B: 247, A: 255}),
-					},
-				},
+			Expect(act.Spec.Variant).To(Equal(symbol.CustomRef{
+				Key: uuid.MustParse("3e46d160-a00b-4224-8119-ffabc45cdc24"),
 			}))
-			static, ok := out.Nodes[1].Config.Variant.(v14.CustomStaticNodeConfig)
+			old, ok := stored.Nodes[1].Config.Variant.(v13.CustomStaticNodeConfig)
 			Expect(ok).To(BeTrue())
-			Expect(static.StateOverrides).To(Equal([]symbol.StateOverride{
-				{
-					Key:  "base",
-					Name: "Base",
-					Regions: []symbol.Region{
-						region(&xcolor.Color{R: 1, G: 2, B: 3, A: 4}, nil),
-					},
-				},
-			}))
+			static, ok := out.Nodes[1].Config.Variant.(v14.SymbolNodeConfig)
+			Expect(ok).To(BeTrue())
+			Expect(static.Spec.Variant).
+				To(Equal(symbol.CustomRef{Key: uuid.MustParse(old.SpecKey)}))
 		},
 	)
 })
