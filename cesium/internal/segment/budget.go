@@ -84,17 +84,6 @@ func (b *Budget) CreateHeld(fs xfs.FS, name string) (*Handle, error) {
 	return h, nil
 }
 
-// OpenHeld opens the file name in fs, which exists, and returns its handle, which stays
-// open outside the limit of b until Close.
-func (b *Budget) OpenHeld(fs xfs.FS, name string) (*Handle, error) {
-	h := &Handle{b: b, fs: fs, name: name, flag: openFlag, held: true}
-	if _, err := h.acquire(false); err != nil {
-		return nil, err
-	}
-	h.release(false)
-	return h, nil
-}
-
 // Open returns the handle of the file name in fs, which exists. The file opens on the
 // first call that uses it.
 func (b *Budget) Open(fs xfs.FS, name string) *Handle {
