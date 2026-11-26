@@ -1,0 +1,88 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/device"
+import "schemas/synnax/icd"
+import "schemas/synnax/task"
+
+@cpp output "client/cpp/udp"
+@go output  "core/pkg/service/udp"
+@py output  "client/py/synnax/udp"
+@ts output  "client/ts/src/udp"
+
+Remote struct {
+    host string = "" {
+        @doc value           "is the host name or IP address of the remote."
+        @validate min_length 1
+    }
+    port uint16 = 0 {
+        @doc value    "is the UDP port of the remote."
+        @validate min 1
+    }
+
+    @doc value "is the address that a UDP device sends datagrams to."
+}
+
+Properties struct {
+    local_address string = "" {
+        @doc value "is the local address to bind. Empty binds all interfaces."
+    }
+    local_port    uint16 = 0 {
+        @doc value "is the local port to bind. 0 lets the operating system pick one."
+    }
+    remote        Remote? {
+        @doc value "is where the device sends datagrams. Absent when it only receives."
+    }
+
+    @doc value "configures the socket of a UDP device."
+}
+
+ReadConfig struct extends task.PersistConfig {
+    device  device.Key = "" {
+        @doc value     "is the key of the UDP device to read from."
+        @ref kind      use
+        @ref on_delete restrict
+    }
+    entries icd.ReadEntry[] {
+        @doc value "contains the devices on the socket and the messages each one sends."
+    }
+
+    @doc value           """
+        configures a UDP read task, which reads the datagrams of a UDP socket as ICD
+        messages and writes their fields to channels.
+    """
+    @go entry            "udp_read_config"
+    @go imex             body
+    @go marshal
+    @go migrate
+    @patch
+    @retrieve references
+}
+
+WriteConfig struct extends task.StartConfig {
+    device  device.Key = "" {
+        @doc value     "is the key of the UDP device to write to."
+        @ref kind      use
+        @ref on_delete restrict
+    }
+    targets icd.WriteTarget[] {
+        @doc value "contains the messages the task sends to the remote."
+    }
+
+    @doc value           """
+        configures a UDP write task, which sends ICD messages as UDP datagrams from the
+        commands of channels.
+    """
+    @go entry            "udp_write_config"
+    @go imex             body
+    @go marshal
+    @go migrate
+    @patch
+    @retrieve references
+}

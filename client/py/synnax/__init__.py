@@ -67,6 +67,7 @@ from synnax import (
     sift,
     status,
     tcp,
+    udp,
 )
 from synnax.access.policy import Policy
 from synnax.access.role import Role
@@ -288,4 +289,5 @@ __all__ = [
     "sleep",
     "status",
     "tcp",
+    "udp",
 ]
