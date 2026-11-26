@@ -69,15 +69,12 @@ std::pair<Sender, x::errors::Error> Sender::create(
     return {std::move(s), x::errors::NIL};
 }
 
-x::errors::Error Sender::deliver(
-    transport::Transport &t,
-    const Delivery &d,
-    const std::span<const std::uint8_t> payload
-) {
-    if (d.framer == nullptr) return t.write(payload, transport::WRITE_TIMEOUT);
+std::pair<std::span<const std::uint8_t>, x::errors::Error>
+Sender::frame(const Delivery &d, const std::span<const std::uint8_t> payload) {
+    if (d.framer == nullptr) return {payload, x::errors::NIL};
     this->framed.clear();
-    if (auto err = d.framer->encode(payload, this->framed)) return err;
-    return t.write(this->framed, transport::WRITE_TIMEOUT);
+    if (auto err = d.framer->encode(payload, this->framed)) return {{}, err};
+    return {this->framed, x::errors::NIL};
 }
 
 std::pair<common::Warning, x::errors::Error>
@@ -89,8 +86,10 @@ Sender::write(transport::Transport &t, const x::telem::Frame &fr) {
         if (d.period.has_value() || error)
             res.refused = d.writer.keep(fr);
         else
-            res = d.writer.write(fr, [&](const std::span<const std::uint8_t> payload) {
-                return this->deliver(t, d, payload);
+            res = d.writer.write(fr, [&](const auto payload) {
+                const auto [bytes, err] = this->frame(d, payload);
+                if (err) return err;
+                return t.write(bytes, transport::WRITE_TIMEOUT);
             });
         if (!refused) refused = res.refused;
         if (!error) error = res.error;
@@ -104,20 +103,26 @@ Sender::write(transport::Transport &t, const x::telem::Frame &fr) {
 std::pair<x::telem::TimeSpan, x::errors::Error> Sender::send(transport::Transport &t) {
     auto wait = x::telem::TimeSpan::max();
     x::errors::Error error;
+    x::errors::Error transport_err;
     const auto now = this->now();
     for (auto &d: this->deliveries) {
         if (!d.period.has_value()) continue;
         const auto period = d.period->chrono();
         if (now >= d.next) {
-            const auto err = d.writer.encode([&](const auto p) {
-                return this->deliver(t, d, p);
-            });
-            if (!error) error = err;
+            if (!transport_err) {
+                const auto err = d.writer.encode([&](const auto payload) {
+                    const auto [bytes, frame_err] = this->frame(d, payload);
+                    if (frame_err) return frame_err;
+                    transport_err = t.write(bytes, transport::WRITE_TIMEOUT);
+                    return transport_err;
+                });
+                if (!error) error = err;
+            }
             d.next += period;
             if (d.next <= now) d.next = now + period;
         }
         wait = std::min(wait, x::telem::TimeSpan(d.next - now));
     }
-    return {wait, error};
+    return {wait, transport_err ? transport_err : error};
 }
 }

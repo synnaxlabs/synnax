@@ -52,12 +52,9 @@ class Sender {
     std::vector<std::uint8_t> framed;
     transport::Clock now;
 
-    /// @brief writes payload to t in the framing of d.
-    x::errors::Error deliver(
-        transport::Transport &t,
-        const Delivery &d,
-        std::span<const std::uint8_t> payload
-    );
+    /// @brief returns payload in the framing of d, valid until the next call.
+    std::pair<std::span<const std::uint8_t>, x::errors::Error>
+    frame(const Delivery &d, std::span<const std::uint8_t> payload);
 
 public:
     /// @brief creates a Sender.
@@ -86,10 +83,12 @@ public:
     write(transport::Transport &t, const x::telem::Frame &fr);
 
     /// @brief sends on t the message of each target with a period that is due. A target
-    /// that fails waits for its next period, as one that sends does. After a stall, a
-    /// target sends one message, not one for each period it missed.
+    /// that fails waits for its next period, as one that sends does. After an error of
+    /// t, the send tries no more targets. After a stall, a target sends one message,
+    /// not one for each period it missed.
     /// @returns the wait until the next message is due, or TimeSpan::max() when no
-    /// target has a period, and the first error of t, of an encode, or of the framing.
+    /// target has a period, and the error of t, or else the first error of an encode or
+    /// of the framing.
     std::pair<x::telem::TimeSpan, x::errors::Error> send(transport::Transport &t);
 };
 }

@@ -280,6 +280,18 @@ TEST(Sender, FramesMessage) {
     ASSERT_EQ(t.writes, (Writes{std::string("\x08{\"a\":1}") + '\0'}));
 }
 
+/// @brief it should frame a binary message as it frames text and JSON.
+TEST(Sender, FramesBinaryMessage) {
+    Config cfg{synnax::icd::BinaryPayload{}, synnax::icd::CobsFraming{}};
+    synnax::icd::UnsignedBinaryField a;
+    a.name = "a";
+    cfg.bind<synnax::icd::BinaryPayload>(a, 2);
+    auto s = ASSERT_NIL_P(cfg.create());
+    Wire t;
+    ASSERT_NIL_P(s.write(t, frame(2, x::telem::Series(0.0))));
+    ASSERT_EQ(t.writes, (Writes{std::string("\x01\x01\x00", 3)}));
+}
+
 /// @brief it should return the error of a framing that cannot hold a message.
 TEST(Sender, ReturnsFramingError) {
     Config cfg{synnax::icd::TextPayload{}, synnax::icd::FixedFraming{.length = 2}};
@@ -322,23 +334,34 @@ TEST(Sender, ReturnsTransportErrorOfCommand) {
     ASSERT_EQ(t.writes, (Writes{"1,2\n", "1,2\n"}));
 }
 
-/// @brief it should return the error of the transport on a period, and send again at
-/// the next period.
-TEST(Sender, ReturnsTransportErrorOfPeriod) {
+/// @brief it should stop a send at the first error of the transport, so that it waits
+/// for one write, and move each due target to its next period.
+TEST(Sender, StopsSendAtTransportError) {
     Steady clock;
-    auto s = ASSERT_NIL_P(periodic().create(false, clock.clock()));
+    const auto a = periodic();
+    const auto b = periodic();
+    auto s = ASSERT_NIL_P(
+        Sender::create(
+            {a.target, b.target},
+            {a.ic, b.ic},
+            a.channels,
+            false,
+            clock.clock()
+        )
+    );
     Wire t;
     t.err = x::errors::Error(transport::UNREACHABLE_ERROR, "the port closed");
     ASSERT_EQ(
         ASSERT_OCCURRED_AS_P(s.send(t), transport::UNREACHABLE_ERROR),
         100 * x::telem::MILLISECOND
     );
+    ASSERT_EQ(t.attempts, 1U);
     t.err = x::errors::NIL;
     ASSERT_NIL_P(s.send(t));
-    ASSERT_TRUE(t.writes.empty());
+    ASSERT_EQ(t.attempts, 1U);
     clock.time += std::chrono::milliseconds(100);
     ASSERT_NIL_P(s.send(t));
-    ASSERT_EQ(t.writes, (Writes{"0,5\n"}));
+    ASSERT_EQ(t.writes, (Writes{"0,5\n", "0,5\n"}));
 }
 
 /// @brief it should move a target that fails to its next period, send the due targets
