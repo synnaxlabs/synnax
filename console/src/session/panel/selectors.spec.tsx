@@ -152,6 +152,59 @@ describe("panel selectors", () => {
       expect(Panel.selectSelectedTabs(state, PANEL)).toEqual([TAB, OTHER_TAB]);
     });
 
+    it("should show the selected tabs of the selected panel", () => {
+      const state = createState(
+        window({
+          selected: PANEL,
+          panels: { [PANEL]: { selectedTabs: [TAB, OTHER_TAB] } },
+        }),
+      );
+      expect(Panel.selectVisibleTabs(state)).toEqual({
+        panel: PANEL,
+        tabs: [TAB, OTHER_TAB],
+      });
+    });
+
+    it("should show only the focused tab of an overlaid window", () => {
+      const state = createState(
+        window({
+          selected: PANEL,
+          isOverlaid: true,
+          panels: { [PANEL]: { selectedTabs: [TAB, OTHER_TAB] } },
+        }),
+      );
+      expect(Panel.selectVisibleTabs(state)).toEqual({ panel: PANEL, tabs: [TAB] });
+    });
+
+    it("should show no tabs in a window with no selected panel", () => {
+      const state = createState(
+        window({ panels: { [PANEL]: { selectedTabs: [TAB] } } }),
+      );
+      expect(Panel.selectVisibleTabs(state)).toBeNull();
+    });
+
+    it("should read the shown tabs of another window by its key", () => {
+      const base = createState(window({}));
+      const state: TestState = {
+        ...base,
+        [Panel.SLICE_NAME]: {
+          ...base[Panel.SLICE_NAME],
+          windows: {
+            ...base[Panel.SLICE_NAME].windows,
+            other: window({
+              selected: PANEL,
+              panels: { [PANEL]: { selectedTabs: [TAB] } },
+            }),
+          },
+        },
+      };
+      expect(Panel.selectVisibleTabs(state, "other")).toEqual({
+        panel: PANEL,
+        tabs: [TAB],
+      });
+      expect(Panel.selectVisibleTabs(state)).toBeNull();
+    });
+
     it("should return an empty tab list for a panel with no state", () => {
       const state = createState(
         window({ panels: { [PANEL]: { selectedTabs: [TAB] } } }),

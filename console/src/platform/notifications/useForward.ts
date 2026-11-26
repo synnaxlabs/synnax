@@ -19,11 +19,19 @@ import { useEffect } from "react";
  */
 export type Kind = "reply" | "alarm" | "state";
 
-/** Parameters for {@link Rule.inUse} and {@link Rule.repliesInPlace}. */
+/** Parameters for {@link Rule.inUse}. */
 export interface InUseParams {
   client: Client;
   /** The key of the thing that owns the status, or of the status if nothing does. */
   key: string;
+}
+
+/** Resolves whether a focused window shows a tab of the resource. */
+export type IsShown = (id: resource.ID) => Promise<boolean>;
+
+/** Parameters for {@link Rule.repliesInPlace}. */
+export interface ReplyParams extends InUseParams {
+  isShown: IsShown;
 }
 
 /** How the statuses of the things of one feature notify. */
@@ -40,7 +48,7 @@ export interface Rule {
    * reply never notifies. Runs only for a reply that would notify. Leave it out when
    * every reply of the thing notifies.
    */
-  repliesInPlace?: (params: InUseParams) => Promise<boolean>;
+  repliesInPlace?: (params: ReplyParams) => Promise<boolean>;
   /** Whether a warning notifies only if its problem is still open after 5 s. */
   warningsDelayed?: boolean;
 }
@@ -91,6 +99,7 @@ interface ForwarderParams {
   client: Client;
   rules: Rules;
   keyRules: KeyRules;
+  isShown: IsShown;
   add: Status.Adder;
 }
 
@@ -105,6 +114,7 @@ const createForwarder = ({
   client,
   rules,
   keyRules,
+  isShown,
   add,
 }: ForwarderParams): Forwarder => {
   const problems = new Map<status.Key, Problem>();
@@ -173,7 +183,7 @@ const createForwarder = ({
       replies.delete(stat.key);
       return true;
     };
-    void rule.repliesInPlace({ client, key }).then(
+    void rule.repliesInPlace({ client, key, isShown }).then(
       (inPlace) => {
         if (settle() && !inPlace) add(stat);
       },
@@ -233,13 +243,18 @@ const createForwarder = ({
  * 5 s after the problem starts. Mount it once, in the main window.
  * @param rules - The rules of the features whose things own statuses.
  * @param keyRules - The rules of the features whose statuses no thing owns.
+ * @param isShown - Passed to {@link Rule.repliesInPlace}.
  */
-export const useForward = (rules: Rules, keyRules: KeyRules = {}): void => {
+export const useForward = (
+  rules: Rules,
+  keyRules: KeyRules,
+  isShown: IsShown,
+): void => {
   const client = Synnax.use();
   const add = Status.useAdder();
   useEffect(() => {
     if (client == null) return;
-    const forwarder = createForwarder({ client, rules, keyRules, add });
+    const forwarder = createForwarder({ client, rules, keyRules, isShown, add });
     const removeWriteListener = client.statuses.onWrite(forwarder.write);
     const removeDeleteListener = client.statuses.onDelete(forwarder.remove);
     return () => {
@@ -247,5 +262,5 @@ export const useForward = (rules: Rules, keyRules: KeyRules = {}): void => {
       removeDeleteListener();
       forwarder.stop();
     };
-  }, [client, rules, keyRules, add]);
+  }, [client, rules, keyRules, isShown, add]);
 };

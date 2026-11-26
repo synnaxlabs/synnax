@@ -29,6 +29,7 @@ import type { z } from "zod";
 import { Analytics } from "@/platform/analytics";
 import { CSS } from "@/platform/css";
 import { Errors } from "@/platform/errors";
+import { Panel } from "@/platform/panel";
 import { Section } from "@/platform/section";
 import { Controls } from "@/platform/task/controls";
 import { Rack } from "@/platform/task/Rack";
@@ -168,6 +169,7 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
   const Wrapped: FC<FormTabProps> = ({ taskKey }) => {
     const client = PSynnax.use();
     const handleError = Status.useErrorHandler();
+    const isShown = Panel.useGetIsShown();
     const { capture } = Analytics.use();
     const [nested] = useState(() => new Set<Flush>());
     const { form, flush } = useForm({
@@ -185,6 +187,17 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
     // A Stop while a start configures cancels the start.
     const startCancelled = useRef(false);
 
+    // The footer shows a failed deploy, so it toasts only where no one sees the footer.
+    const toastUnlessShown = async (exc: unknown, heading: Status.Heading) => {
+      try {
+        if (await isShown(task.resourceID(taskKey))) return;
+      } catch (check) {
+        // The check only filters noise, so a failure whose check fails still toasts.
+        console.error(`failed to check if task ${taskKey} shows`, check);
+      }
+      handleError(exc, heading);
+    };
+
     const handleDeploy = async () => {
       startCancelled.current = false;
       setFailure(undefined);
@@ -198,10 +211,10 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
           name,
           message: running ? "Failed to deploy changes" : "Failed to start task",
         };
-        handleError(e, heading);
         const failed = status.fromException(e, heading);
         if (running) failed.description = `${STILL_RUNS} ${failed.description}`;
         setFailure({ status: failed, taskStatusTime: current?.time });
+        void toastUnlessShown(e, heading);
       }
       setConfiguring(false);
     };

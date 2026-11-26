@@ -43,11 +43,14 @@ export const selectActiveWindow = (state: StoreState): ActiveWindow | null => {
 };
 
 /**
- * @returns the panel state for the active Drift window, or the zero window state when
- * the window has no panel state yet.
+ * @returns the panel state for a Drift window, or the zero window state when the window
+ * has no panel state yet.
+ * @param windowKey - the key of the window. Defaults to the active window.
  */
-const selectWindowState = (state: StoreState): WindowState =>
-  selectActiveWindow(state)?.state ?? ZERO_WINDOW_STATE;
+const selectWindowState = (state: StoreState, windowKey?: string): WindowState => {
+  if (windowKey == null) return selectActiveWindow(state)?.state ?? ZERO_WINDOW_STATE;
+  return selectSliceState(state).windows[windowKey] ?? ZERO_WINDOW_STATE;
+};
 
 const selectState = (state: StoreState, key?: panel.Key): State => {
   const win = selectWindowState(state);
@@ -240,15 +243,39 @@ export const useGetTabIsFocused = (): ((
   ) => selectIsTabFocused(store.getState(), key, tabKey);
 };
 
+/** The tabs that a window renders. */
+export interface VisibleTabs {
+  /** The window's selected panel. */
+  panel: panel.Key;
+  tabs: panel.TabKey[];
+}
+
+/**
+ * @returns the tabs that a window renders: the selected tabs of its selected panel, or
+ * only the focused one when the window is overlaid. Null when no panel is selected.
+ * @param windowKey - the key of the window. Defaults to the active window.
+ */
+export const selectVisibleTabs = (
+  state: StoreState,
+  windowKey?: string,
+): VisibleTabs | null => {
+  const { selected, isOverlaid, panels } = selectWindowState(state, windowKey);
+  if (selected == null) return null;
+  const { selectedTabs } = panels[selected] ?? ZERO_STATE;
+  return {
+    panel: selected,
+    tabs: isOverlaid ? selectedTabs.slice(0, 1) : selectedTabs,
+  };
+};
+
 const selectIsTabVisible = (
   state: StoreState,
   key?: panel.Key,
   tabKey?: panel.TabKey,
 ): boolean => {
-  if (tabKey == null || !selectIsSelected(state, key)) return false;
-  const selected = selectSelectedTabs(state, key);
-  if (selectOverlaid(state)) return selected[0] === tabKey;
-  return selected.includes(tabKey);
+  const visible = selectVisibleTabs(state);
+  if (tabKey == null || visible == null) return false;
+  return (key == null || key === visible.panel) && visible.tabs.includes(tabKey);
 };
 
 /**

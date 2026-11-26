@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { device, rack, type Synnax, task } from "@synnaxlabs/client";
+import { device, NotFoundError, rack, type Synnax, task } from "@synnaxlabs/client";
 import {
   createTestClient,
   createTestClientWithRole,
 } from "@synnaxlabs/client/testutil";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import type { Status } from "@synnaxlabs/lyra/status";
-import { deep, sleep, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { deep, sleep, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import {
   act,
@@ -39,6 +39,7 @@ import {
   renderTaskFormTab,
   reportTaskRunning,
 } from "@/platform/task/testutil";
+import { Session } from "@/session";
 import { findIconButton } from "@/testutil";
 
 const path = deep.path<Task.Values<typeof schemas>>();
@@ -978,6 +979,80 @@ describe("wrapForm", () => {
       await reportTaskRunning(client, draft);
       await screen.findByText("Running smoothly");
       expect(screen.queryByText("Failed to start task")).toBeNull();
+    });
+
+    // The footer shows a failed start, so a toast would cover the footer that shows it.
+    it("should toast a failed start only while its task is not shown", async () => {
+      let attempts = 0;
+      const counted = createRenderer({
+        onConfigure: async () => {
+          attempts += 1;
+          throw new Error(`The device has no port ${attempts}`);
+        },
+      });
+      const client = createTestClient();
+      const draft = await client.tasks.create({ ...INITIAL_VALUES, rack: 0 });
+      const statuses: Status.NotificationSpec[] = [];
+      const { container, store, panelKey, tabKey } = await renderTaskFormTab(counted, {
+        client,
+        taskKey: draft.key,
+        onStatuses: (next) => {
+          statuses.length = 0;
+          statuses.push(...next);
+        },
+      });
+      act(() => {
+        store.dispatch(
+          Session.Panel.internalSelectTab({ key: panelKey, tabKey, otherTabKeys: [] }),
+        );
+      });
+      await clickDeploy(container);
+      await screen.findByText("The device has no port 1");
+      act(() => {
+        store.dispatch(Session.Panel.clearSelected({}));
+      });
+      await clickDeploy(container);
+      await waitFor(() =>
+        expect(statuses).toContainEqual(
+          expect.objectContaining({ description: "The device has no port 2" }),
+        ),
+      );
+      expect(statuses).not.toContainEqual(
+        expect.objectContaining({ description: "The device has no port 1" }),
+      );
+    });
+
+    it("should toast a failed start when the shown check fails", async () => {
+      const client = createTestClient();
+      const draft = await client.tasks.create({ ...INITIAL_VALUES, rack: 0 });
+      const statuses: Status.NotificationSpec[] = [];
+      const { container, store } = await renderTaskFormTab(failing, {
+        client,
+        taskKey: draft.key,
+        onStatuses: (next) => {
+          statuses.length = 0;
+          statuses.push(...next);
+        },
+      });
+      // The Core does not have this panel, so the check fails.
+      act(() => {
+        store.dispatch(Session.Panel.select({ key: uuid.create() }));
+      });
+      const printError = vi.spyOn(console, "error").mockImplementation(() => {});
+      await clickDeploy(container);
+      await waitFor(() =>
+        expect(statuses).toContainEqual(
+          expect.objectContaining({
+            message: "Failed to start task",
+            description: "The device has no port 7",
+          }),
+        ),
+      );
+      expect(printError).toHaveBeenCalledWith(
+        `failed to check if task ${draft.key} shows`,
+        expect.any(NotFoundError),
+      );
+      printError.mockRestore();
     });
 
     it("should say that a failed redeploy leaves the last deployed config running", async () => {

@@ -16,6 +16,7 @@ import { render, screen } from "@testing-library/react";
 import type { ReactElement } from "react";
 
 import { Notifications } from "@/platform/notifications";
+import { Panel } from "@/platform/panel";
 import { createConsoleWrapper } from "@/testutil";
 
 /**
@@ -38,8 +39,8 @@ interface ForwardProps {
   keyRules?: Notifications.KeyRules;
 }
 
-const Forward = ({ rules, keyRules }: ForwardProps): ReactElement => {
-  Notifications.useForward(rules, keyRules);
+const Forward = ({ rules, keyRules = {} }: ForwardProps): ReactElement => {
+  Notifications.useForward(rules, keyRules, Panel.useGetIsShown());
   return <UncappedFeed />;
 };
 

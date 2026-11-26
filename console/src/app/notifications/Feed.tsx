@@ -16,6 +16,7 @@ import { Sift } from "@/feature/sift";
 import { Task } from "@/feature/task";
 import { FileBrowser } from "@/platform/file-browser";
 import { Notifications } from "@/platform/notifications";
+import { Panel } from "@/platform/panel";
 import { Version } from "@/platform/version";
 
 const NOTIFICATIONS: Notifications.Notification[] = [
@@ -37,4 +38,5 @@ const KEY_RULES: Notifications.KeyRules = Sift.NOTIFICATION_KEY_RULES;
 export const Feed = () => <Notifications.Feed notifications={NOTIFICATIONS} />;
 
 /** Notifies the status writes that the Core streams by the rules of each feature. */
-export const useForward = (): void => Notifications.useForward(RULES, KEY_RULES);
+export const useForward = (): void =>
+  Notifications.useForward(RULES, KEY_RULES, Panel.useGetIsShown());

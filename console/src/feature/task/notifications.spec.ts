@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { rack, task } from "@synnaxlabs/client";
+import { type rack, type resource, task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { uuid } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
@@ -90,8 +90,21 @@ describe("Task.createNotificationRule", () => {
   });
 
   describe("repliesInPlace", () => {
-    const checkRepliesInPlace = async (key: string): Promise<boolean | undefined> =>
-      await RULE.repliesInPlace?.({ client, key });
+    const checkRepliesInPlace = async (
+      key: string,
+      shown: resource.ID[] = [],
+    ): Promise<boolean | undefined> =>
+      await RULE.repliesInPlace?.({
+        client,
+        key,
+        isShown: async (id) =>
+          shown.some((s) => s.type === id.type && s.key === id.key),
+      });
+
+    it("should show the replies of a shown task in place", async () => {
+      const tsk = await createTask(await createRack(), { internal: false });
+      expect(await checkRepliesInPlace(tsk.key, [task.resourceID(tsk.key)])).toBe(true);
+    });
 
     it("should show the replies of a task of an in-place type in place", async () => {
       const tsk = await createTask(await createRack(), { type: IN_PLACE_TYPE });
@@ -100,7 +113,10 @@ describe("Task.createNotificationRule", () => {
 
     it("should not show the replies of a task of another type in place", async () => {
       const tsk = await createTask(await createRack(), { internal: false });
-      expect(await checkRepliesInPlace(tsk.key)).toBe(false);
+      const other = await createTask(await createRack(), { internal: false });
+      expect(await checkRepliesInPlace(tsk.key, [task.resourceID(other.key)])).toBe(
+        false,
+      );
     });
 
     it("should not show the replies of a missing task in place", async () => {
