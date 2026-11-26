@@ -67,7 +67,7 @@ export const RangeInput = ({
         status={status}
         tooltip={tooltip}
       />
-      <Text.Text level="small" color={9}>
+      <Text.Text level="small" color={9} className={CSS.BE("range-input", "to")}>
         to
       </Text.Text>
       <Input.Numeric

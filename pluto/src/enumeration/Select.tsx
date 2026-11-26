@@ -71,8 +71,8 @@ const renderColors = (entry: unknown): ReactElement | null =>
     <Colors entries={(entry as enumeration.Enumeration).entries} />
   );
 
+const CLASS = CSS.B("enumeration-select");
 const DIALOG_CLASS = CSS.BE("enumeration-select", "dialog");
-const TRIGGER_CLASS = CSS.BE("enumeration-select", "trigger");
 
 export interface SelectSingleProps
   extends
@@ -109,11 +109,8 @@ export const SelectSingle = ({
       menu={optionMenuRenderProp}
       hasMenu={hasMenu}
       {...rest}
-      triggerProps={{
-        renderEndContent: renderColors,
-        ...rest.triggerProps,
-        className: CSS.cls(TRIGGER_CLASS, rest.triggerProps?.className),
-      }}
+      className={CSS.cls(CLASS, rest.className)}
+      triggerProps={{ renderEndContent: renderColors, ...rest.triggerProps }}
       dialogProps={{
         ...rest.dialogProps,
         className: CSS.cls(DIALOG_CLASS, rest.dialogProps?.className),

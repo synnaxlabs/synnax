@@ -29,6 +29,6 @@
 
 /* An entry select lines up with the enumeration select above it and with the channel
    select it replaces. */
-.lyra-dialog__frame:has(> .lyra-dialog__trigger.pluto-symbol-form__entry) {
+.pluto-symbol-form__entry {
     --pluto-control-width: 64rem;
 }

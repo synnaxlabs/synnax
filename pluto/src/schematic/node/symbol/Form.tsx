@@ -201,7 +201,8 @@ const EntrySelect = ({
       onChange={onChange}
       resourceName="entry"
       allowNone={false}
-      triggerProps={{ "aria-label": ariaLabel, className: ENTRY_CLASS }}
+      className={ENTRY_CLASS}
+      triggerProps={{ "aria-label": ariaLabel }}
     >
       {data?.entries.map((e) => (
         <Select.Item<number> key={e.value} itemKey={e.value} textValue={e.name}>

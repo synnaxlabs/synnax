@@ -10,7 +10,7 @@
  */
 
 /* The start and end sit together, each as wide as a number. */
-.pluto-range-input > :not(.lyra-text) {
+.pluto-range-input > :not(.pluto-range-input__to) {
     width: var(--pluto-control-width);
     flex: none;
 }

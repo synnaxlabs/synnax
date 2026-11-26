@@ -16,7 +16,7 @@
 }
 
 /* Names run long, and the trigger also shows the colors of the entries. */
-.lyra-dialog__frame:has(> .lyra-dialog__trigger.pluto-enumeration-select__trigger) {
+.pluto-enumeration-select {
     --pluto-control-width: 64rem;
 }
 
