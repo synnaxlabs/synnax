@@ -25,10 +25,6 @@ const retrieveChannel = async (
   }
 };
 
-/** @returns true when a channel with the given key exists. Never for 0. */
-const channelExists = async (client: Client, key: channel.Key): Promise<boolean> =>
-  (await retrieveChannel(client, key)) != null;
-
 /**
  * Creates a Core channel for values of dataType. A fixed-density channel gets its own
  * index named `${name}_time`; a variable-density one is virtual.
@@ -90,9 +86,8 @@ export interface StoredChannels {
 }
 
 export interface PlanReadChannelsArgs<F extends ReadChannelField> {
-  client: Client;
-  /** Names the new channels of every source that the task plans. */
-  namer: Namer;
+  /** Reads for every source that the task plans, and names their new channels. */
+  planner: Planner;
   /** What the device stores for the source. Absent when it stores nothing. */
   props?: ReadChannelProps;
   /** The fields of the source. */
@@ -143,133 +138,212 @@ export const ARRIVAL_NAME = "time";
 const NEW_HOLDER = 0;
 
 /**
- * Names channels as the Core will hold them after deploying. A taken name gets the
- * first free number, such as `_2`. Plan every source of a task with one namer, in
- * deploy order, so that a source sees the names that earlier sources claim.
+ * Reads what the Core holds for a plan of channels, from what planChannels loads, and
+ * names new channels as the Core will hold them after deploying. Plan every source of a
+ * task with one planner, in deploy order, so that a source sees the names that earlier
+ * sources claim.
  */
-export interface Namer {
-  /** Looks up names in one batch, so that claim and move need no read for them. */
-  load: (names: string[]) => Promise<void>;
-  /** @returns the name that a new channel takes for name. */
-  claim: (name: string) => Promise<string>;
+export interface Planner {
+  /** @returns the channel with key, or null when it does not exist or is 0. */
+  retrieve: (key: channel.Key) => channel.Channel | null;
+  /** Reads the channels that hold each name, or a numbered form of it. */
+  readNames: (names: string[]) => void;
+  /**
+   * @returns the name that a new channel takes for name. A taken name gets the first
+   * free number, such as `_2`.
+   */
+  claim: (name: string) => string;
   /** @returns the numbered name that ch moves to, which frees its own. */
-  move: (ch: channel.Channel) => Promise<string>;
+  move: (ch: channel.Channel) => string;
 }
 
-/** @returns a namer with no claims. Names need not be unique, so it tracks holders. */
-export const createNamer = (client: Client): Namer => {
+/** What planChannels loaded from the Core. */
+interface Loaded {
+  /** Each loaded key, with null for a key that has no channel. */
+  channels: Map<channel.Key, channel.Channel | null>;
+  /** The names whose channels are loaded, with those of their numbered forms. */
+  names: Set<string>;
+  /** The channels that hold each name. Names need not be unique. */
+  holders: Map<string, channel.Key[]>;
+}
+
+/** What a run of a plan read that was not loaded. */
+interface Misses {
+  keys: Set<channel.Key>;
+  names: Set<string>;
+}
+
+const hasMisses = ({ keys, names }: Misses): boolean => keys.size > 0 || names.size > 0;
+
+/**
+ * @returns a planner with no claims that reads from loaded and adds each read that
+ * loaded lacks to misses. A missed read answers as if no channel holds it.
+ */
+const createPlanner = (loaded: Loaded, misses: Misses): Planner => {
   const holders = new Map<string, Set<channel.Key>>();
-  const holdersOf = async (name: string): Promise<Set<channel.Key>> => {
+  const holdersOf = (name: string): Set<channel.Key> => {
     let keys = holders.get(name);
     if (keys == null) {
-      const found = await client.channels.retrieve([name]);
-      keys = new Set(found.map(({ key }) => key));
+      keys = new Set(loaded.holders.get(name));
       holders.set(name, keys);
     }
     return keys;
   };
-  const free = async (name: string): Promise<string> => {
+  const read = (name: string): void => {
+    if (!loaded.names.has(name)) misses.names.add(name);
+  };
+  const free = (name: string): string => {
+    read(name);
     let candidate = name;
-    for (let n = 2; (await holdersOf(candidate)).size > 0; n++)
-      candidate = `${name}_${n}`;
+    for (let n = 2; holdersOf(candidate).size > 0; n++) candidate = `${name}_${n}`;
     return candidate;
   };
   return {
-    load: async (names) => {
-      const unknown = names.filter((name) => !holders.has(name));
-      if (unknown.length === 0) return;
-      for (const name of unknown) holders.set(name, new Set());
-      for (const { name, key } of await client.channels.retrieve(unknown))
-        holders.get(name)?.add(key);
+    retrieve: (key) => {
+      if (!primitive.isNonZero(key)) return null;
+      const ch = loaded.channels.get(key);
+      if (ch === undefined) misses.keys.add(key);
+      return ch ?? null;
     },
-    claim: async (name) => {
-      const claimed = await free(name);
-      (await holdersOf(claimed)).add(NEW_HOLDER);
+    readNames: (names) => names.forEach(read),
+    claim: (name) => {
+      const claimed = free(name);
+      holdersOf(claimed).add(NEW_HOLDER);
       return claimed;
     },
-    move: async (ch) => {
-      const moved = await free(ch.name);
-      (await holdersOf(ch.name)).delete(ch.key);
-      (await holdersOf(moved)).add(ch.key);
+    move: (ch) => {
+      const moved = free(ch.name);
+      holdersOf(ch.name).delete(ch.key);
+      holdersOf(moved).add(ch.key);
       return moved;
     },
   };
 };
 
+const escapeRegex = (text: string): string =>
+  text.replace(/[\\^$.|?*+()[\]{}]/g, "\\$&");
+
+/** Loads what misses holds into loaded, with one read of keys and one of names. */
+const load = async (client: Client, loaded: Loaded, misses: Misses): Promise<void> => {
+  const keys = [...misses.keys];
+  const names = [...misses.names];
+  // Also matches each numbered form, such as `_2`, that claim and move can give.
+  const regex = `^(?:${names.map(escapeRegex).join("|")})(?:_[0-9]+)?$`;
+  const [channels, holders] = await Promise.all([
+    keys.length === 0 ? [] : client.channels.retrieve(keys),
+    names.length === 0 ? [] : client.channels.retrieve({ where: { name: { regex } } }),
+  ]);
+  for (const key of keys) loaded.channels.set(key, null);
+  for (const ch of channels) loaded.channels.set(ch.key, ch);
+  for (const name of names) loaded.names.add(name);
+  for (const { name, key } of holders)
+    loaded.holders.set(name, [...(loaded.holders.get(name) ?? []), key]);
+};
+
 /**
- * Plans the channel of every enabled field of a read source: the one it has, the one
- * the device stores for its pointer, or a new one. The index field or a new indexed
- * channel gets the stored index. When that is gone, it gets the channel of the index
- * field, the index of a live channel of the source, or a new one. A new channel whose
- * name is taken gets a number, such as `_2`, and fields claim their names before a new
- * index. A replaced channel that holds the name of its replacement moves to a numbered
- * name first, so the replacement keeps the plain one. Reads from the Core, and changes
- * neither the fields nor props. Records the names it claims in namer.
+ * Plans with what the Core holds, in two runs of plan. The first run finds what plan
+ * reads, one batch loads it, and the second run gives the result. plan must have no
+ * side effects, and must read each key and name that it can need before it branches on
+ * what it reads.
+ *
+ * @throws an error when the second run reads something that the first did not, which is
+ * a defect of plan.
  */
-export const planReadChannels = async <F extends ReadChannelField>({
-  client,
-  namer,
+export const planChannels = async <P>(
+  client: Client,
+  plan: (planner: Planner) => P,
+  signal?: AbortSignal,
+): Promise<P> => {
+  const loaded: Loaded = { channels: new Map(), names: new Set(), holders: new Map() };
+  const first: Misses = { keys: new Set(), names: new Set() };
+  const planned = plan(createPlanner(loaded, first));
+  if (!hasMisses(first)) return planned;
+  await load(client, loaded, first);
+  signal?.throwIfAborted();
+  const second: Misses = { keys: new Set(), names: new Set() };
+  const replanned = plan(createPlanner(loaded, second));
+  if (hasMisses(second))
+    throw new Error(
+      `a channel plan read keys [${[...second.keys].join(", ")}] and names ` +
+        `[${[...second.names].join(", ")}] only after its load`,
+    );
+  return replanned;
+};
+
+/**
+ * Plans the channel of every enabled field of a read source: the one it has, if it
+ * exists, the one the device stores for its pointer, or a new one. The index field or a
+ * new indexed channel gets the stored index. When that is gone, it gets the channel of
+ * the index field, the index of a live channel of the source, or a new one. A new
+ * channel whose name is taken gets a number, such as `_2`, and fields claim their names
+ * before a new index. A replaced channel that holds the name of its replacement moves
+ * to a numbered name first, so the replacement keeps the plain one. Changes neither the
+ * fields nor props.
+ */
+export const planReadChannels = <F extends ReadChannelField>({
+  planner,
   props: stored,
   fields,
   namePrefix,
   indexKey,
   indexed = isFixed,
-}: PlanReadChannelsArgs<F>): Promise<ReadChannelPlan> => {
+}: PlanReadChannelsArgs<F>): ReadChannelPlan => {
   const props = stored == null ? { index: 0, channels: {} } : deep.copy(stored);
   let saves = stored != null;
-  const channels: Record<string, channel.Key> = {};
   const enabled = fields.filter(({ disabled }) => !disabled);
-  const live: channel.Channel[] = [];
-  const bind = async (field: F): Promise<boolean> => {
-    if (primitive.isNonZero(field.channel)) {
-      if (indexed(field)) live.push(await client.channels.retrieve(field.channel));
-      channels[field.key] = field.channel;
-      return true;
-    }
-    const ch = props.channels[field.pointer];
-    if (!(await channelExists(client, ch))) return false;
-    channels[field.key] = ch;
-    return true;
-  };
   const indexField = enabled.find(({ key }) => key === indexKey);
-  const unbound: F[] = [];
-  for (const field of enabled)
-    if (field !== indexField && !(await bind(field))) unbound.push(field);
-  const needsIndex =
-    enabled.some(indexed) && (indexField != null || unbound.some(indexed));
-  let createsIndex = false;
-  if (needsIndex && !(await channelExists(client, props.index))) {
-    props.index = await recoverIndex(client, indexField?.channel ?? 0, live, props);
-    createsIndex = !primitive.isNonZero(props.index);
-    saves = true;
-  }
-  const takesIndex = createsIndex || primitive.isNonZero(props.index);
-  if (indexField != null && !takesIndex && !(await bind(indexField)))
-    unbound.push(indexField);
   const nameOf = (field: F): string =>
     primitive.isNonZero(field.name)
       ? field.name
       : `${namePrefix}${channel.escapeInvalidName(field.pointer)}`;
-  const planned = unbound.map(nameOf);
   const indexName =
     indexField == null ? `${namePrefix}_${ARRIVAL_NAME}` : nameOf(indexField);
-  await namer.load([...planned, ...(createsIndex ? [indexName] : [])]);
+  const storedIndex = planner.retrieve(props.index);
+  const held = Object.values(props.channels).map((key) => planner.retrieve(key));
+  const current = new Map(enabled.map((f) => [f.key, planner.retrieve(f.channel)]));
+  const replaced = new Map(
+    enabled.map((f) => [f.key, planner.retrieve(f.replaces ?? 0)]),
+  );
+  planner.readNames([...enabled.map(nameOf), indexName]);
+  const channels: Record<string, channel.Key> = {};
+  const live: channel.Channel[] = [];
+  const bind = (field: F): boolean => {
+    const own = current.get(field.key);
+    if (own != null && indexed(field)) live.push(own);
+    const ch = own ?? planner.retrieve(props.channels[field.pointer]);
+    if (ch == null) return false;
+    channels[field.key] = ch.key;
+    return true;
+  };
+  const unbound: F[] = [];
+  for (const field of enabled)
+    if (field !== indexField && !bind(field)) unbound.push(field);
+  const needsIndex =
+    enabled.some(indexed) && (indexField != null || unbound.some(indexed));
+  let createsIndex = false;
+  if (needsIndex && storedIndex == null) {
+    const own = indexField == null ? null : (current.get(indexField.key) ?? null);
+    props.index = recoverIndex(own, [...live, ...held]);
+    createsIndex = !primitive.isNonZero(props.index);
+    saves = true;
+  }
+  const takesIndex = createsIndex || primitive.isNonZero(props.index);
+  if (indexField != null && !takesIndex && !bind(indexField)) unbound.push(indexField);
+  const planned = unbound.map(nameOf);
   const named = unbound.map((field, i): [F, string] => [field, planned[i]]);
   if (createsIndex && indexField != null) named.push([indexField, indexName]);
   const renames: ReadChannelPlan["renames"] = [];
   for (const [field, name] of named) {
-    const old = await retrieveChannel(client, field.replaces ?? 0);
+    const old = replaced.get(field.key);
     if (old == null || old.name !== name) continue;
-    renames.push({ key: old.key, name: await namer.move(old) });
+    renames.push({ key: old.key, name: planner.move(old) });
   }
-  const creates: ReadChannelPlan["creates"] = [];
-  for (const [i, field] of unbound.entries())
-    creates.push({
-      key: field.key,
-      name: await namer.claim(planned[i]),
-      indexed: indexed(field),
-    });
-  const newIndex = createsIndex ? await namer.claim(indexName) : undefined;
+  const creates: ReadChannelPlan["creates"] = unbound.map((field, i) => ({
+    key: field.key,
+    name: planner.claim(planned[i]),
+    indexed: indexed(field),
+  }));
+  const newIndex = createsIndex ? planner.claim(indexName) : undefined;
   return {
     props: saves ? props : null,
     newIndex,
@@ -344,21 +418,15 @@ export const newChannelName = (
 
 /**
  * @returns own, the channel of the index field, when it is an index. Else the first
- * index among those of the live channels, then those of the stored channels that still
- * exist, or 0.
+ * index among those of channels, or 0.
  */
-const recoverIndex = async (
-  client: Client,
-  own: channel.Key,
-  live: channel.Channel[],
-  props: ReadChannelProps,
-): Promise<channel.Key> => {
-  if ((await retrieveChannel(client, own))?.isIndex === true) return own;
-  for (const ch of live) if (primitive.isNonZero(ch.index)) return ch.index;
-  for (const stored of Object.values(props.channels)) {
-    const ch = await retrieveChannel(client, stored);
+const recoverIndex = (
+  own: channel.Channel | null,
+  channels: (channel.Channel | null)[],
+): channel.Key => {
+  if (own?.isIndex === true) return own.key;
+  for (const ch of channels)
     if (ch != null && primitive.isNonZero(ch.index)) return ch.index;
-  }
   return 0;
 };
 
@@ -387,29 +455,23 @@ export type CommandChannelPlan =
   | { keeps: channel.Key }
   | { creates: string; moves?: { channel: channel.Channel; name: string } };
 
-const planCommandChannel = async (
-  client: Client,
-  namer: Namer,
+const planCommandChannel = (
+  planner: Planner,
   write: Record<string, channel.Key>,
   { propertiesKey, channel: current, name, dataTypes }: CommandChannelSpec,
-): Promise<CommandChannelPlan> => {
+): CommandChannelPlan => {
+  if (dataTypes == null && primitive.isNonZero(current)) return { keeps: current };
   const suits = (ch: channel.Channel) =>
     dataTypes == null || dataTypes.includes(ch.dataType.toString());
-  const replaced: channel.Channel[] = [];
-  if (primitive.isNonZero(current)) {
-    const ch = dataTypes == null ? null : await retrieveChannel(client, current);
-    if (dataTypes == null || (ch != null && suits(ch))) return { keeps: current };
-    if (ch != null) replaced.push(ch);
-  }
-  const stored = await retrieveChannel(client, write[propertiesKey]);
-  if (stored != null) {
-    if (suits(stored)) return { keeps: stored.key };
-    replaced.push(stored);
-  }
-  const holder = replaced.find((ch) => ch.name === name);
+  const ch = planner.retrieve(current);
+  const stored = planner.retrieve(write[propertiesKey]);
+  planner.readNames([name]);
+  if (ch != null && suits(ch)) return { keeps: current };
+  if (stored != null && suits(stored)) return { keeps: stored.key };
+  const holder = [ch, stored].find((c) => c?.name === name);
   const moves =
-    holder == null ? undefined : { channel: holder, name: await namer.move(holder) };
-  return { creates: await namer.claim(name), moves };
+    holder == null ? undefined : { channel: holder, name: planner.move(holder) };
+  return { creates: planner.claim(name), moves };
 };
 
 /** @returns the name of the channel that plan creates, or undefined if it keeps one. */
@@ -419,22 +481,21 @@ export const newCommandChannelName = (
 
 /**
  * Plans the command channels of the write targets of a task, in deploy order, as
- * configureCommandChannel gives them. Reads from the Core, and changes nothing.
+ * configureCommandChannel gives them. Changes nothing.
  *
  * @returns the plan of the first target of each properties key, by that key. A later
  * target of the key with no channel gets the same channel.
  */
-export const planCommandChannels = async (
-  client: Client,
+export const planCommandChannels = (
+  planner: Planner,
   write: Record<string, channel.Key>,
   specs: CommandChannelSpec[],
-): Promise<Map<string, CommandChannelPlan>> => {
-  const namer = createNamer(client);
+): Map<string, CommandChannelPlan> => {
   const plans = new Map<string, CommandChannelPlan>();
   for (const spec of specs) {
     // Deploying stores the channel of the first target, so a later one adopts it.
     if (plans.has(spec.propertiesKey)) continue;
-    plans.set(spec.propertiesKey, await planCommandChannel(client, namer, write, spec));
+    plans.set(spec.propertiesKey, planCommandChannel(planner, write, spec));
   }
   return plans;
 };
@@ -453,7 +514,9 @@ export const configureCommandChannel = async (
   write: Record<string, channel.Key>,
   spec: CommandChannelSpec,
 ): Promise<channel.Key> => {
-  const plan = await planCommandChannel(client, createNamer(client), write, spec);
+  const plan = await planChannels(client, (planner) =>
+    planCommandChannel(planner, write, spec),
+  );
   if ("keeps" in plan) {
     write[spec.propertiesKey] = plan.keeps;
     return plan.keeps;
