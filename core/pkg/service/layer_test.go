@@ -152,6 +152,7 @@ func storeReadConfigV4(
 	key uuid.UUID,
 	config map[string]any,
 ) error {
+	GinkgoHelper()
 	markApplied(
 		ctx,
 		db,
