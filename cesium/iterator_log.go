@@ -185,9 +185,13 @@ func (c *logCursor) OpenReader(context.Context) (domain.RangeReader, error) {
 	if err != nil {
 		return nil, err
 	}
+	var rd *segment.Reader
+	if c.e.readsChecked {
+		rd = c.e.reader()
+	}
 	return &logReader{
 		e:  c.e,
-		rd: c.e.reader(),
+		rd: rd,
 		seg: segment.Committed{
 			Config:  cfg,
 			Length:  int64(r.seg.Length),
@@ -209,8 +213,8 @@ func (c *logCursor) Close() error {
 }
 
 // logReader reads the bytes of one pointer from its segment file, which it holds open
-// until Close, and checks each block that it reads with a segment reader from the pool
-// of the engine.
+// until Close. When data reads are checked, it checks each block that it reads with a
+// segment reader from the pool of the engine. Otherwise it reads the bytes as stored.
 type logReader struct {
 	e      *engine
 	rd     *segment.Reader
@@ -231,7 +235,13 @@ func (r *logReader) ReadAt(p []byte, off int64) (int, error) {
 		return 0, io.EOF
 	}
 	n := int(min(int64(len(p)), r.size-off))
-	if err := r.rd.Read(r.file, r.seg, p[:n], r.offset+off); err != nil {
+	var err error
+	if r.rd == nil {
+		err = r.seg.ReadStored(r.file, p[:n], r.offset+off)
+	} else {
+		err = r.rd.Read(r.file, r.seg, p[:n], r.offset+off)
+	}
+	if err != nil {
 		return 0, err
 	}
 	if n < len(p) {
@@ -245,7 +255,9 @@ func (r *logReader) Size() telem.Size { return telem.Size(r.size) }
 
 // Close implements domain.RangeReader.
 func (r *logReader) Close() error {
-	r.e.readers.Put(r.rd)
+	if r.rd != nil {
+		r.e.readers.Put(r.rd)
+	}
 	r.h.Release()
 	return nil
 }

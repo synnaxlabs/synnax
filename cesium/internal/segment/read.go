@@ -73,7 +73,7 @@ func (rd *Reader) Read(r io.ReaderAt, s Committed, p []byte, off int64) error {
 		)
 	}
 	if !rd.checked {
-		return readStored(r, s, p, off)
+		return s.ReadStored(r, p, off)
 	}
 	for len(p) > 0 {
 		start := off - off%BlockSize
@@ -124,9 +124,10 @@ func (rd *Reader) holds(s Committed, start, size int64) bool {
 	return h.size >= size && h.db == s.DB && h.id == s.ID && h.start == start
 }
 
-// readStored reads the stream bytes of p at stream offset off of s as stored, with one
-// ReadAt for each block that they cross, past the trailers between blocks.
-func readStored(r io.ReaderAt, s Committed, p []byte, off int64) error {
+// ReadStored reads the stream bytes of p at stream offset off of s from r as stored,
+// with no check, in one ReadAt for each block that they cross, past the trailers
+// between blocks.
+func (s *Committed) ReadStored(r io.ReaderAt, p []byte, off int64) error {
 	for len(p) > 0 {
 		n := min(int(BlockSize-off%BlockSize), len(p))
 		if _, err := r.ReadAt(p[:n], s.FileOffset(off)); err != nil {
