@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/icd/write"
 	"github.com/synnaxlabs/x/content"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -96,6 +97,39 @@ var _ = Describe("Resolver", func() {
 				writeAt(1, given.Key, writeOf(tagged)),
 				writeAt(2, given.Key, writeOf(binary)),
 			)).To(MatchError("targets.1.message: message Tagged binds no channels"))
+		})
+
+		Describe("A field with a zero scale", func() {
+			flat := withZeroScale(
+				jsonField("flat", icd.FloatJSONField{Default: new(payload.Float(3))}),
+			)
+			valve := jsonMessage("Valve", temp, flat)
+			valves := icd.ICD{
+				Key: uuid.New(), Name: "Valves", Messages: []icd.Message{valve},
+			}
+			checkValve := func(ctx context.Context, wm icd.WriteMessage) error {
+				GinkgoHelper()
+				return resolver.Check(
+					ctx,
+					db,
+					[]write.Write{writeAt(0, valves.Key, wm)},
+					map[icd.Key]icd.ICD{valves.Key: valves},
+				)
+			}
+
+			It("Should refuse a write that binds it", func(ctx SpecContext) {
+				wm := writeOf(valve, bind(temp), bind(flat))
+				Expect(checkValve(ctx, wm)).To(MatchError(
+					"targets.0.message: message Valve: field flat: " +
+						"scale must be non-zero: validation error",
+				))
+			})
+
+			It("Should accept a write that leaves it to its default", func(
+				ctx SpecContext,
+			) {
+				Expect(checkValve(ctx, writeOf(valve, bind(temp)))).To(Succeed())
+			})
 		})
 
 		It("Should take the data type of each channel that the lookup finds", func(

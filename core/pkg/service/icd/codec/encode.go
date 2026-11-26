@@ -119,6 +119,7 @@ func (f *encodeField) atLimit(v float64) float64 {
 // field rounds it to the nearest integer. A number channel writes to any number or
 // boolean field, and a boolean field takes only 0 and 1 from one. NewJSONEncoder
 // returns an error wrapping validate.ErrValidation when:
+//   - a bound field's scale is zero
 //   - a field has no binding and no default
 //   - a field has no binding and a default that JSON cannot hold, such as NaN
 //   - a field's default is not valid or is outside its min and max, bound or not
@@ -303,6 +304,9 @@ func numeric(k payload.Kind) bool {
 
 func newEncodeField(jf icd.JSONField, dt telem.DataType) (encodeField, error) {
 	b := jf.Base()
+	if err := icd.CheckScale(b.Scale); err != nil {
+		return encodeField{}, errors.Wrap(validate.ErrValidation, err.Error())
+	}
 	f := encodeField{
 		name:   b.Name,
 		scaled: b.Scale != 1 || b.Offset != 0,

@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/icd/codec"
 	icdv0 "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v0"
 	"github.com/synnaxlabs/x/content"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -305,6 +306,9 @@ func (c Checker) checkBinding(
 		return validate.PathedError(err, slices.Concat(path, []string{segment})...)
 	}
 	kind, name := f.Type(), f.Base().Name
+	if err := icd.CheckScale(f.Base().Scale); err != nil {
+		return at(errors.Wrapf(err, "field %s", name), "field")
+	}
 	if kind == payload.KindBytes && f.Base().Pointer == "" {
 		return at(validate.Errorf(
 			"bytes field %s requires a JSON pointer", name,
