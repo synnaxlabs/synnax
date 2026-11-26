@@ -87,6 +87,7 @@ export const CommandInspector = ({
   );
   const isTaken = (v: number): boolean => taken.includes(match(v));
   const sendsTaken = command.value.type === "fixed" && isTaken(command.value.value);
+  const choices = values.list.filter((v) => !isTaken(v.value));
   // useValues lists no values for a number state, with no state, or while one loads.
   const listed = values.list.length > 0;
   return (
@@ -101,30 +102,24 @@ export const CommandInspector = ({
           allowNone={false}
           triggerProps={{ "aria-label": "State" }}
           footer={
-            <>
-              <Divider.Divider x />
-              <Select.Item<string>
-                itemKey={NONE}
-                textValue="No state"
-                disabled={toggled}
-                tooltip={toggled ? TOGGLED : undefined}
-              >
-                <Icon.None />
-                No state
-              </Select.Item>
-            </>
+            !toggled && (
+              <>
+                <Divider.Divider x />
+                <Select.Item<string> itemKey={NONE} textValue="No state">
+                  <Icon.None />
+                  No state
+                </Select.Item>
+              </>
+            )
           }
         >
-          {states.map((s) => (
-            <Select.Item<string>
-              key={s.key}
-              itemKey={s.key}
-              disabled={toggled && s.key !== command.state}
-              tooltip={toggled && s.key !== command.state ? TOGGLED : undefined}
-            >
-              {s.name}
-            </Select.Item>
-          ))}
+          {(toggled ? states.filter((s) => s.key === command.state) : states).map(
+            (s) => (
+              <Select.Item<string> key={s.key} itemKey={s.key}>
+                {s.name}
+              </Select.Item>
+            ),
+          )}
         </Select.Simple>
       </Input.Item>
       <Input.Item
@@ -165,13 +160,8 @@ export const CommandInspector = ({
               allowNone={false}
               triggerProps={{ "aria-label": "Fixed value" }}
             >
-              {values.list.map((v) => (
-                <Select.Item<number>
-                  key={v.value}
-                  itemKey={v.value}
-                  disabled={isTaken(v.value)}
-                  tooltip={isTaken(v.value) ? TAKEN : undefined}
-                >
+              {choices.map((v) => (
+                <Select.Item<number> key={v.value} itemKey={v.value}>
                   {v.name}
                 </Select.Item>
               ))}
