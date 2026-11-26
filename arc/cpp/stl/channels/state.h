@@ -148,6 +148,8 @@ public:
     void write_channel_f64(types::ChannelKey key, double value);
     void write_channel_bool(types::ChannelKey key, bool value);
 
+    /// @brief returns the buffered series of key, the time series of the clocks they
+    /// carry, and whether key has data and each clock has time.
     std::tuple<x::telem::MultiSeries, x::telem::MultiSeries, bool>
     read_series(types::ChannelKey key);
 
