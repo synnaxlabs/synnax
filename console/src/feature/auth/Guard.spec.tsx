@@ -21,7 +21,9 @@ import { fireEvent, render, renderHook, screen, waitFor } from "@testing-library
 import type { FC, PropsWithChildren, ReactElement } from "react";
 import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
-const mocks = vi.hoisted((): { engine: "web" | "tauri" } => ({ engine: "web" }));
+const mocks = vi.hoisted((): { engine: "web" | "tauri"; coreSelectable?: boolean } => ({
+  engine: "web",
+}));
 
 vi.mock("@/session/runtime", async (importOriginal) => {
   const { mockRuntimeEngine } = await import("@/testutil/runtime");
@@ -54,6 +56,7 @@ const TYPED = { ...LOCAL, password: "seldon" };
 const CoreState = (core = LOCAL): Session.Core.SliceState => ({
   ...Session.Core.ZERO_SLICE_STATE,
   cores: { [CORE_KEY]: core },
+  order: [CORE_KEY],
 });
 
 const renderGuard = async (selected?: string, core = LOCAL): Promise<TestStore> => {
@@ -85,6 +88,7 @@ const renderUnreachable = async (): Promise<void> => {
             port: 9098,
           }),
         },
+        order: [DEAD_KEY],
         selected: DEAD_KEY,
       },
     },
@@ -113,6 +117,7 @@ const submitCredentials = (username: string, password: string): void => {
 
 beforeEach(() => {
   mocks.engine = "web";
+  mocks.coreSelectable = undefined;
 });
 
 describe("auth guard", () => {
@@ -237,6 +242,14 @@ describe("auth guard", () => {
     await renderUnreachable();
     await screen.findByText("Retry now", {}, { timeout: 10000 });
     expect(screen.queryByText("Edit connection")).toBeNull();
+  });
+
+  it("should offer to edit the connection on the dev server", async () => {
+    mocks.coreSelectable = true;
+    await renderUnreachable();
+    expect(
+      await screen.findByText("Edit connection", {}, { timeout: 10000 }),
+    ).toBeTruthy();
   });
 
   it("should offer to edit the connection on desktop", async () => {

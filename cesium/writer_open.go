@@ -184,21 +184,11 @@ func (db *DB) NewStreamWriter(
 	ctx context.Context,
 	cfgs ...WriterConfig,
 ) (StreamWriter, error) {
-	if db.closed.Load() {
-		return nil, ErrDBClosed
-	}
-	db.mu.RLock()
-	defer db.mu.RUnlock()
 	return db.newStreamWriter(ctx, cfgs...)
 }
 
 // OpenWriter implements DB.
 func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (*Writer, error) {
-	if db.closed.Load() {
-		return nil, ErrDBClosed
-	}
-	db.mu.RLock()
-	defer db.mu.RUnlock()
 	iw, err := db.newStreamWriter(ctx, cfgs...)
 	if err != nil {
 		return nil, err
@@ -223,8 +213,9 @@ func (db *DB) newStreamWriter(
 	if err != nil {
 		return nil, err
 	}
-	if *cfg.AutoIndex {
-		cfg = db.expandKeysForAutoIndex(cfg)
+	cfg, dbs, err := db.channelDBsFor(cfg)
+	if err != nil {
+		return nil, err
 	}
 	var (
 		domainWriters  = make(map[ChannelKey]*idxWriter)
@@ -245,16 +236,18 @@ func (db *DB) newStreamWriter(
 	// Alignment is not decided here. Data channels resolve it from their index on every
 	// write, so a writer that joins an existing control region cannot end up in a
 	// different alignment space than the index it is being written against.
-	if virtualWriters, controlUpdate.Transfers, err = db.openIndexWriters(
+	if virtualWriters, controlUpdate.Transfers, err = openIndexWriters(
 		ctx,
+		dbs,
 		cfg,
 		domainWriters,
 		keyToIdx,
 	); err != nil {
 		return nil, err
 	}
-	if controlUpdate.Transfers, err = db.openDataWriters(
+	if controlUpdate.Transfers, err = openDataWriters(
 		ctx,
+		dbs,
 		cfg,
 		domainWriters,
 		keyToIdx,
@@ -264,7 +257,7 @@ func (db *DB) newStreamWriter(
 	}
 
 	if len(controlUpdate.Transfers) > 0 {
-		db.controlUpdates.notify(controlUpdate)
+		db.notifyControlUpdate(controlUpdate)
 	}
 
 	return db.assembleStreamWriter(cfg, domainWriters, virtualWriters, keyToIdx), nil
@@ -289,16 +282,53 @@ func (db *DB) assembleStreamWriter(
 		virtual:            &virtualWriter{internal: virtualWriters},
 		keyToIdx:           keyToIdx,
 		authorizeEndDomain: db.authorizeEndDomain,
-		updateDBControl: func(update ControlUpdate) {
-			db.mu.RLock()
-			defer db.mu.RUnlock()
-			db.controlUpdates.notify(update)
-		},
+		updateDBControl:    db.notifyControlUpdate,
 	}
 	for _, idx := range domainWriters {
 		w.internal = append(w.internal, idx)
 	}
 	return w
+}
+
+func (db *DB) notifyControlUpdate(update ControlUpdate) {
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+	db.controlUpdates.notify(update)
+}
+
+// channelDBsFor returns cfg with AutoIndex applied, and the DBs of its channels and of
+// their indexes. Writers open on these copies with db.mu unlocked, because an open can
+// block on the file system. It returns ErrDBClosed if db is closed.
+func (db *DB) channelDBsFor(cfg WriterConfig) (WriterConfig, channelDBs, error) {
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+	if db.closed.Load() {
+		return WriterConfig{}, channelDBs{}, ErrDBClosed
+	}
+	if *cfg.AutoIndex {
+		cfg = db.expandKeysForAutoIndex(cfg)
+	}
+	dbs := channelDBs{
+		unary:   make(map[ChannelKey]unary.DB, len(cfg.Channels)),
+		virtual: make(map[ChannelKey]virtual.DB),
+	}
+	for _, key := range cfg.Channels {
+		if v, ok := db.mu.dbs.virtual[key]; ok {
+			dbs.virtual[key] = v
+			continue
+		}
+		u, ok := db.mu.dbs.unary[key]
+		if !ok {
+			return WriterConfig{}, channelDBs{}, channel.NewNotFoundError(key)
+		}
+		dbs.unary[key] = u
+		if idx := u.Channel().Index; idx != 0 {
+			if dbs.unary[idx], ok = db.mu.dbs.unary[idx]; !ok {
+				return WriterConfig{}, channelDBs{}, channel.NewNotFoundError(idx)
+			}
+		}
+	}
+	return cfg, dbs, nil
 }
 
 // closeWriters closes the given writers and returns err combined with any errors from
@@ -322,8 +352,9 @@ func closeWriters(
 // openIndexWriters opens a writer for each virtual and index channel in cfg, adding
 // the index writers to domainWriters and keyToIdx. It returns the virtual writers and
 // the control transfers the opens caused, including those opened before an error.
-func (db *DB) openIndexWriters(
+func openIndexWriters(
 	ctx context.Context,
+	dbs channelDBs,
 	cfg WriterConfig,
 	domainWriters map[ChannelKey]*idxWriter,
 	keyToIdx map[ChannelKey]*idxWriter,
@@ -333,11 +364,8 @@ func (db *DB) openIndexWriters(
 	err error,
 ) {
 	for i, key := range cfg.Channels {
-		u, isUnary := db.mu.dbs.unary[key]
-		v, isVirtual := db.mu.dbs.virtual[key]
-		if !isVirtual && !isUnary {
-			return virtualWriters, transfers, channel.NewNotFoundError(key)
-		}
+		u, isUnary := dbs.unary[key]
+		v, isVirtual := dbs.virtual[key]
 		if isUnary && !u.Channel().IsIndex {
 			continue
 		}
@@ -362,7 +390,7 @@ func (db *DB) openIndexWriters(
 			virtualWriters[key] = vW
 		} else {
 			var idxW *idxWriter
-			if idxW, transfer, err = db.openIndexWriter(ctx, cfg, &u, i); err != nil {
+			if idxW, transfer, err = openIndexWriter(ctx, cfg, &u, i); err != nil {
 				return virtualWriters, transfers, err
 			}
 			domainWriters[u.Channel().Index] = idxW
@@ -376,7 +404,7 @@ func (db *DB) openIndexWriters(
 }
 
 // openIndexWriter opens the writer for the index channel u at position i of cfg.
-func (db *DB) openIndexWriter(
+func openIndexWriter(
 	ctx context.Context,
 	cfg WriterConfig,
 	u *unary.DB,
@@ -386,10 +414,7 @@ func (db *DB) openIndexWriter(
 	if err != nil {
 		return nil, control.Transfer{}, err
 	}
-	idxW, err := db.openDomainIdxWriter(u.Channel().Index, cfg)
-	if err != nil {
-		return nil, control.Transfer{}, err
-	}
+	idxW := openDomainIdxWriter(*u, cfg)
 	idxW.writingToIdx = true
 	idxW.internal[cfg.Channels[i]] = &unaryWriterState{Writer: *uW}
 	idxW.dataAuth = make(map[ChannelKey]xcontrol.Authority)
@@ -399,15 +424,16 @@ func (db *DB) openIndexWriter(
 // openDataWriters opens a writer for each non-index unary channel in cfg and attaches
 // it to the idxWriter of its index, opening that idxWriter when domainWriters lacks it.
 // It returns transfers with the control transfers the opens caused appended.
-func (db *DB) openDataWriters(
+func openDataWriters(
 	ctx context.Context,
+	dbs channelDBs,
 	cfg WriterConfig,
 	domainWriters map[ChannelKey]*idxWriter,
 	keyToIdx map[ChannelKey]*idxWriter,
 	transfers []control.Transfer,
 ) ([]control.Transfer, error) {
 	for i, key := range cfg.Channels {
-		u, ok := db.mu.dbs.unary[key]
+		u, ok := dbs.unary[key]
 		if !ok || u.Channel().IsIndex || u.Channel().Index == 0 {
 			continue
 		}
@@ -415,7 +441,8 @@ func (db *DB) openDataWriters(
 		idxW, ok := domainWriters[idxKey]
 		if !ok {
 			var err error
-			if idxW, err = db.openDataOnlyIdxWriter(cfg, u.Channel()); err != nil {
+			idxW, err = openDataOnlyIdxWriter(cfg, dbs.unary[idxKey], u.Channel())
+			if err != nil {
 				return nil, err
 			}
 			domainWriters[idxKey] = idxW
@@ -438,14 +465,12 @@ func (db *DB) openDataWriters(
 
 // openDataOnlyIdxWriter opens an idxWriter for the index of the data channel ch when
 // the writer does not write that index.
-func (db *DB) openDataOnlyIdxWriter(
+func openDataOnlyIdxWriter(
 	cfg WriterConfig,
+	idx unary.DB,
 	ch channel.Channel,
 ) (*idxWriter, error) {
-	idxW, err := db.openDomainIdxWriter(ch.Index, cfg)
-	if err != nil {
-		return nil, err
-	}
+	idxW := openDomainIdxWriter(idx, cfg)
 	if cfg.Start.IsZero() {
 		return nil, errors.Wrapf(
 			validate.ErrValidation,
@@ -508,14 +533,7 @@ func (db *DB) expandKeysForAutoIndex(cfg WriterConfig) WriterConfig {
 	return cfg
 }
 
-func (db *DB) openDomainIdxWriter(
-	idxKey ChannelKey,
-	cfg WriterConfig,
-) (*idxWriter, error) {
-	u, ok := db.mu.dbs.unary[idxKey]
-	if !ok {
-		return nil, channel.NewNotFoundError(idxKey)
-	}
+func openDomainIdxWriter(u unary.DB, cfg WriterConfig) *idxWriter {
 	w := &idxWriter{internal: make(map[ChannelKey]*unaryWriterState)}
 	w.idx.ch = u.Channel()
 	w.idx.Domain = u.Index()
@@ -525,5 +543,5 @@ func (db *DB) openDomainIdxWriter(
 	w.writingToIdx = false
 	w.start = cfg.Start
 	w.lastCommitEnd = cfg.Start
-	return w, nil
+	return w
 }
