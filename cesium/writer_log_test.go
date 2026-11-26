@@ -228,6 +228,26 @@ var _ = Describe("Writer on the pointer log", func() {
 			Expect(iter.Close()).To(Succeed())
 			Expect(w.Close()).To(Succeed())
 		})
+		It("Should read the ranges of a seek made before a commit to the same open "+
+			"segment", func(ctx SpecContext) {
+			w := openWriter(ctx, 10*telem.SecondTS)
+			MustSucceed2(w.Write(ctx, frame(10, 11, 12), nil))
+			MustSucceed2(w.Commit(ctx, nil))
+			iter := MustSucceed(db.OpenIterator(cesium.IteratorConfig{
+				Bounds:   telem.TimeRangeMax,
+				Channels: []cesium.ChannelKey{data},
+			}))
+			Expect(iter.SeekFirst()).To(BeTrue())
+			MustSucceed2(w.Write(ctx, frame(13, 14), nil))
+			MustSucceed2(w.Commit(ctx, nil))
+			Expect(iter.Next(cesium.AutoSpan)).To(BeTrue())
+			Expect(iter.Value().Get(data).Series).To(HaveLen(1))
+			Expect(iter.Value().Get(data).Series[0]).To(
+				MatchSeriesDataV[int64](10, 11, 12),
+			)
+			Expect(iter.Close()).To(Succeed())
+			Expect(w.Close()).To(Succeed())
+		})
 		It("Should read an index with samples together with a data key that holds none",
 			func(ctx SpecContext) {
 				w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{

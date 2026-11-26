@@ -199,11 +199,12 @@ func (s *logSource) OpenCursor(cfg domain.IteratorConfig) domain.Cursor {
 	return domain.NewCursor(c)
 }
 
-// logRange is one committed pointer of a key, with the segment that holds it. Its time
-// range starts at start, which is the end of the pointer before it when the pointer
-// goes on with that pointer's stretch in a new segment.
+// logRange is one committed pointer of a key, with the record of the segment that holds
+// it in a published Channel, which never changes. Its time range starts at start, which
+// is the end of the pointer before it when the pointer goes on with that pointer's
+// stretch in a new segment.
 type logRange struct {
-	seg   state.Segment
+	seg   *state.Segment
 	ptr   state.Pointer
 	start telem.TimeStamp
 }
@@ -262,7 +263,8 @@ func (c *logCursor) load() {
 	if ch == nil {
 		return
 	}
-	for _, seg := range ch.Segments {
+	for i := range ch.Segments {
+		seg := &ch.Segments[i]
 		for _, ptr := range seg.Pointers {
 			c.ranges = append(c.ranges, logRange{seg: seg, ptr: ptr, start: ptr.First})
 		}
@@ -363,7 +365,7 @@ func (c *logCursor) OpenReader(context.Context) (domain.RangeReader, error) {
 	return &logReader{
 		e:      c.e,
 		id:     r.seg.ID,
-		cfg:    c.e.segmentConfig(r.seg),
+		cfg:    c.e.segmentConfig(*r.seg),
 		h:      h,
 		file:   file,
 		offset: int64(r.ptr.Offset),
