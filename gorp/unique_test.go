@@ -49,7 +49,7 @@ func newItemIndex() *gorp.UniqueIndex[uint32, uniqueItem, uniqueSibling] {
 	return gorp.NewUniqueIndex(
 		"sibling",
 		uniqueSpaceName,
-		func(i uniqueItem) (uniqueSibling, bool) {
+		func(i *uniqueItem) (uniqueSibling, bool) {
 			return uniqueSibling{Parent: i.Folder, Name: i.Name}, !i.Exempt
 		},
 	)
@@ -59,7 +59,7 @@ func newFolderIndex() *gorp.UniqueIndex[string, uniqueFolder, uniqueSibling] {
 	return gorp.NewUniqueIndex(
 		"sibling",
 		uniqueSpaceName,
-		func(f uniqueFolder) (uniqueSibling, bool) {
+		func(f *uniqueFolder) (uniqueSibling, bool) {
 			return uniqueSibling{Parent: f.Parent, Name: f.Name}, true
 		},
 	)
@@ -355,66 +355,6 @@ var _ = Describe("UniqueIndex", func() {
 		})
 	})
 
-	Describe("Check", func() {
-		var itemIndex *gorp.UniqueIndex[uint32, uniqueItem, uniqueSibling]
-		check := func(ctx SpecContext, i uniqueItem) error {
-			return db.WithTx(ctx, func(tx gorp.Tx) error {
-				return itemIndex.Check(ctx, tx, &i)
-			})
-		}
-		BeforeEach(func(ctx SpecContext) {
-			openDB()
-			openFolders(ctx)
-			itemIndex = newItemIndex()
-			items = MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[uint32, uniqueItem]{
-				DB:         db,
-				Name:       "item",
-				Indexes:    []gorp.Index[uint32, uniqueItem]{itemIndex},
-				References: []gorp.Reference[uint32, uniqueItem]{newItemFolderRef()},
-			}))
-		})
-
-		It("Should return the UniqueError of a value that another entry holds", func(
-			ctx SpecContext,
-		) {
-			Expect(createItem(ctx, db, uniqueItem{Key: 1, Name: "pt"})).To(Succeed())
-			expectClash(check(ctx, uniqueItem{Key: 2, Name: "pt"}), itemTarget(1), "pt")
-		})
-
-		It("Should pass an entry that keeps the value it holds", func(ctx SpecContext) {
-			Expect(createItem(ctx, db, uniqueItem{Key: 1, Name: "pt"})).To(Succeed())
-			Expect(check(ctx, uniqueItem{Key: 1, Name: "pt"})).To(Succeed())
-		})
-
-		It("Should pass an exempt entry", func(ctx SpecContext) {
-			Expect(createItem(ctx, db, uniqueItem{Key: 1, Name: "pt"})).To(Succeed())
-			Expect(check(ctx, uniqueItem{Key: 2, Name: "pt", Exempt: true})).
-				To(Succeed())
-		})
-
-		It("Should return a holder in another table of the space", func(
-			ctx SpecContext,
-		) {
-			Expect(createFolder(ctx, db, uniqueFolder{Key: "a", Name: "pt"})).
-				To(Succeed())
-			expectClash(
-				check(ctx, uniqueItem{Key: 1, Name: "pt"}),
-				gorp.NewTarget("folder", "a"),
-				"pt",
-			)
-		})
-
-		It("Should stage no value", func(ctx SpecContext) {
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				first := uniqueItem{Key: 1, Name: "pt"}
-				if err := itemIndex.Check(ctx, tx, &first); err != nil {
-					return err
-				}
-				return createItem(ctx, tx, uniqueItem{Key: 2, Name: "pt"})
-			})).To(Succeed())
-		})
-	})
-
 	Describe("Name", func() {
 		It("Should return the name of the index", func() {
 			Expect(newItemIndex().Name()).To(Equal("sibling"))
@@ -433,7 +373,7 @@ var _ = Describe("UniqueIndex", func() {
 					gorp.NewUniqueIndex(
 						"name",
 						uniqueSpaceName,
-						func(i uniqueItem) (string, bool) { return i.Name, true },
+						func(i *uniqueItem) (string, bool) { return i.Name, true },
 					),
 				},
 			})).Error().To(MatchError(ContainSubstring(
@@ -463,25 +403,6 @@ var _ = Describe("UniqueIndex", func() {
 			openItems(ctx)
 			Expect(createItem(ctx, db, uniqueItem{Key: 2, Name: "pt"})).
 				To(MatchError(gorp.ErrIndexInvalid))
-		})
-
-		It("Should return the error of a failed populate from Check", func(
-			ctx SpecContext,
-		) {
-			Expect(gorp.NewCreate[uint32, uniqueItem]().
-				Entry(&uniqueItem{Key: 1, Name: "pt"}).
-				Exec(ctx, db)).To(Succeed())
-			corrupt[uint32, uniqueItem](ctx, db, 1)
-			idx := newItemIndex()
-			MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[uint32, uniqueItem]{
-				DB:      db,
-				Name:    "item",
-				Indexes: []gorp.Index[uint32, uniqueItem]{idx},
-			}))
-			item := uniqueItem{Key: 2, Name: "pt"}
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return idx.Check(ctx, tx, &item)
-			})).To(MatchError(gorp.ErrIndexInvalid))
 		})
 	})
 })
