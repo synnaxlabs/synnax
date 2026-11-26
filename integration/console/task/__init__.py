@@ -40,6 +40,7 @@ from console.task.channels.counter_input import (
     TwoEdgeSeparation,
 )
 from console.task.counter_read import CounterRead
+from console.task.kafka import KafkaRead, KafkaTask, KafkaWrite
 from console.task.modbus import ModbusRead, ModbusTask, ModbusWrite
 from console.task.mqtt import MQTTEdge, MQTTRead, MQTTTask, MQTTWrite
 from console.task.ni import NITask
@@ -60,6 +61,9 @@ __all__ = [
     "ForceBridgeTwoPointLinear",
     "ForceIEPE",
     "Frequency",
+    "KafkaRead",
+    "KafkaTask",
+    "KafkaWrite",
     "MQTTEdge",
     "MQTTRead",
     "MQTTTask",
