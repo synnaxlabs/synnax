@@ -10,16 +10,19 @@
 package v14_test
 
 import (
+	"context"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
+	enumerationv0 "github.com/synnaxlabs/synnax/pkg/service/enumeration/versions/v0"
 	symbolv4 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v4"
 	symbol "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v5"
 	v13 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v13"
 	v14 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v14"
 	"github.com/synnaxlabs/x/defaults"
+	"github.com/synnaxlabs/x/errors"
 	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	. "github.com/synnaxlabs/x/testutil"
@@ -189,4 +192,72 @@ var _ = Describe("SymbolNode", func() {
 		Entry("a box", v13.BoxNodeConfig{}),
 		Entry("a group box with one field", v13.GroupBoxNodeConfig{Locked: true}),
 	)
+})
+
+var _ = Describe("InternLights", func() {
+	var calls []interned
+	BeforeEach(func() { calls = nil })
+	var intern symbol.Intern = func(
+		_ context.Context,
+		name string,
+		entries []enumerationv0.Entry,
+	) (enumerationv0.Key, error) {
+		calls = append(calls, interned{name: name, entries: entries})
+		return uuid.New(), nil
+	}
+	// lift returns a schematic named Panel with a light for each config, lifted to v14.
+	lift := func(ctx SpecContext, lights ...v13.LightNodeConfig) (v14.Schematic, v13.Schematic) {
+		GinkgoHelper()
+		old := v13.Schematic{Name: "Panel"}
+		for i, l := range lights {
+			old.Nodes = append(old.Nodes, v13.Node{
+				Key:    []string{"pump", "fan"}[i],
+				Config: v13.NodeConfig{Variant: defaults.Fill(l)},
+			})
+		}
+		return MustSucceed(v14.MigrateSchematic(ctx, old)), old
+	}
+
+	It("Should give each light with an on color an enumeration with On in that "+
+		"color, named for its label or the schematic", func(ctx SpecContext) {
+		pump := v13.LightNodeConfig{OnColor: shade(1)}
+		pump.Label.Label = "Pump"
+		s, old := lift(ctx, pump, v13.LightNodeConfig{OnColor: shade(2)})
+		Expect(v14.InternLights(ctx, &s, old, intern)).To(Succeed())
+		Expect(calls).To(HaveLen(2))
+		Expect(calls[0].name).To(Equal("Light: Pump"))
+		Expect(calls[1].name).To(Equal("Light: Panel"))
+		Expect(calls[0].entries).To(Equal([]enumerationv0.Entry{
+			{Key: "off", Value: 0, Name: "Off"},
+			{Key: "on", Value: 1, Name: "On", Color: fixed(1)},
+		}))
+		n, ok := s.Nodes[0].Config.Variant.(v14.SymbolNodeConfig)
+		Expect(ok).To(BeTrue())
+		Expect(n.Spec.Variant).To(Equal(symbol.BuiltinRef{Name: "light"}))
+		Expect(n.States[0].Enumeration).ToNot(BeNil())
+	})
+
+	It("Should leave a light with no on color", func(ctx SpecContext) {
+		s, old := lift(ctx, v13.LightNodeConfig{})
+		before := s.Nodes[0]
+		Expect(v14.InternLights(ctx, &s, old, intern)).To(Succeed())
+		Expect(calls).To(BeEmpty())
+		Expect(s.Nodes[0]).To(Equal(before))
+	})
+
+	It("Should name the node of a light whose enumeration the intern refuses",
+		func(ctx SpecContext) {
+			s, old := lift(ctx, v13.LightNodeConfig{OnColor: shade(1)})
+			refused := errors.New("refused")
+			Expect(v14.InternLights(ctx, &s, old, func(
+				context.Context,
+				string,
+				[]enumerationv0.Entry,
+			) (enumerationv0.Key, error) {
+				return enumerationv0.Key{}, refused
+			})).To(And(
+				MatchError(refused),
+				MatchError(ContainSubstring("node pump")),
+			))
+		})
 })
