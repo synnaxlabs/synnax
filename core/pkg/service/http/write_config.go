@@ -32,9 +32,9 @@ type writeResolver struct {
 }
 
 // resolve moves the staged channel and fields of cfg, which a config from before ICDs
-// holds, into a new ICD named name. It then checks each enabled endpoint of cfg against
-// its ICD and its channels, read through snap. It returns the write that creates the
-// ICD, or nil when cfg holds nothing staged.
+// holds, into a new ICD named name, and returns the write that creates it. A stored or
+// imported config always converts, so only a config that stages nothing is checked:
+// each enabled endpoint against its ICD and its channels, read through snap.
 func (r writeResolver) resolve(
 	ctx context.Context,
 	snap gorp.Snapshot,
@@ -47,20 +47,16 @@ func (r writeResolver) resolve(
 	if err != nil {
 		return nil, err
 	}
+	if ok {
+		return func(ctx context.Context, tx gorp.Tx) error {
+			return r.icds.NewWriter(tx).Create(ctx, &ic)
+		}, nil
+	}
 	writes, err := writesOf(cfg)
 	if err != nil {
 		return nil, err
 	}
-	icds := make(map[icd.Key]icd.ICD)
-	if ok {
-		icds[ic.Key] = ic
-	}
-	if err = r.writes.Check(ctx, snap, writes, icds); err != nil || !ok {
-		return nil, err
-	}
-	return func(ctx context.Context, tx gorp.Tx) error {
-		return r.icds.NewWriter(tx).Create(ctx, &ic)
-	}, nil
+	return nil, r.writes.Check(ctx, snap, writes, nil)
 }
 
 // hash writes to h the payload of the ICD message that each enabled endpoint of cfg
@@ -76,6 +72,17 @@ func (r writeResolver) hash(
 		return err
 	}
 	return r.writes.Hash(ctx, snap, h, writes)
+}
+
+// detachMessages clears the message of each endpoint of cfg that names no ICD, as a
+// normalize leaves one whose ICD the Core lacks.
+func detachMessages(_ context.Context, _ gorp.Tx, cfg *WriteConfig) error {
+	for i := range cfg.Endpoints {
+		if cfg.Endpoints[i].ICD == nil {
+			cfg.Endpoints[i].Message = nil
+		}
+	}
+	return nil
 }
 
 // writesOf returns the write of each enabled endpoint of cfg that names an ICD. It
