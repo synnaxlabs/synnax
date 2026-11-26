@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <iterator>
+#include <limits>
 #include <memory>
 #include <string>
 #include <vector>
@@ -256,6 +257,20 @@ x::errors::Error no_code(const channel::Key key, const x::telem::DataType &dt) {
             " has no type code"
     );
 }
+
+/// @brief returns an error when the length field of ser, a sample count or a byte
+/// size for a variable type, cannot hold its length.
+x::errors::Error check_length(const channel::Key key, const x::telem::Series &ser) {
+    const bool variable = ser.data_type().is_variable();
+    const std::size_t length = variable ? ser.byte_size() : ser.size();
+    if (length <= std::numeric_limits<std::uint32_t>::max()) return x::errors::NIL;
+    return x::errors::Error(
+        x::errors::VALIDATION,
+        "series of channel " + std::to_string(key) + " holds " +
+            std::to_string(length) + (variable ? " bytes" : " samples") +
+            ", more than a frame length field holds"
+    );
+}
 }
 
 x::errors::Error
@@ -266,12 +281,14 @@ Codec::encode(const x::telem::Frame &frame, std::vector<uint8_t> &output) {
     auto &ag = state.enc;
 
     this->entries.clear();
+    this->named.clear();
     for (std::size_t i = 0; i < frame.size(); i++) {
         const auto k = frame.channels->at(i);
         const auto &ser = frame.series->at(i);
-        if (const auto it = state.index.find(k); it != state.index.end())
+        if (const auto it = state.index.find(k); it != state.index.end()) {
             this->entries.push_back({k, i, static_cast<std::int64_t>(it->second)});
-        else if (ser.clock == k && is_int64_like(ser.data_type()))
+            if (ser.clock != 0) this->named.push_back(ser.clock);
+        } else if (ser.clock == k && is_int64_like(ser.data_type()))
             this->entries.push_back({k, i, -1});
         else
             return x::errors::Error(
@@ -280,6 +297,14 @@ Codec::encode(const x::telem::Frame &frame, std::vector<uint8_t> &output) {
                     " not provided when opening the writer"
             );
     }
+    // An unrequested time series under its own clock stays only when a requested
+    // series names it as its clock.
+    std::erase_if(this->entries, [this](const Entry &e) {
+        return e.index < 0 &&
+               std::ranges::find(this->named, e.key) == this->named.end();
+    });
+    for (const auto &e: this->entries)
+        if (auto err = check_length(e.key, frame.series->at(e.raw))) return err;
     // Sorting by raw index within a key keeps frame order, as a stable sort would, and
     // needs no buffer.
     std::ranges::sort(this->entries, [](const Entry &a, const Entry &b) {
