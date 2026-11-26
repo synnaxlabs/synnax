@@ -238,8 +238,8 @@ type logCursor struct {
 	ranges      []logRange
 	pos         int
 	valid       bool
-	// cur is the range of the last valid move, which a move that fails keeps, as on the
-	// old layout.
+	// cur is the range of the last valid move, which a failed Next or Prev keeps, as on
+	// the old layout. A seek loads again, so one that finds no range leaves none.
 	cur logRange
 }
 
@@ -291,6 +291,16 @@ func (c *logCursor) at(pos int) bool {
 	return c.valid
 }
 
+// seek moves the cursor to position pos of the load that a seek just made. A seek that
+// finds no range leaves the cursor at pos with no range, so it never offers a range
+// outside its load.
+func (c *logCursor) seek(pos int) bool {
+	if !c.at(pos) {
+		c.pos, c.cur = pos, logRange{}
+	}
+	return c.valid
+}
+
 // SetBounds implements domain.Ranges.
 func (c *logCursor) SetBounds(bounds telem.TimeRange) {
 	c.bounds, c.valid = bounds, false
@@ -319,7 +329,7 @@ func (c *logCursor) SeekLE(_ context.Context, stamp telem.TimeStamp) bool {
 			return 1
 		},
 	)
-	return c.at(pos - 1)
+	return c.seek(pos - 1)
 }
 
 // SeekGE implements domain.Ranges.
@@ -332,7 +342,7 @@ func (c *logCursor) SeekGE(_ context.Context, stamp telem.TimeStamp) bool {
 			return cmp.Compare(r.ptr.Last, t)
 		},
 	)
-	return c.at(pos)
+	return c.seek(pos)
 }
 
 // Next implements domain.Ranges.
