@@ -12,6 +12,7 @@ package impact
 
 import (
 	"context"
+	"slices"
 
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
@@ -82,6 +83,32 @@ func named(c Change) []resource.ID {
 	return nil
 }
 
+// parsePicks returns the picks of a request keyed by record. A key that is not a record
+// fails with a validation error for the smallest such key.
+func parsePicks(picks map[string]impact.Choice) (map[resource.ID]impact.Choice, error) {
+	if len(picks) == 0 {
+		return nil, nil
+	}
+	parsed := make(map[resource.ID]impact.Choice, len(picks))
+	var unparsed []string
+	for text, pick := range picks {
+		id, err := resource.ParseID(text)
+		if err != nil {
+			unparsed = append(unparsed, text)
+			continue
+		}
+		parsed[id] = pick
+	}
+	if len(unparsed) > 0 {
+		return nil, errors.Wrapf(
+			validate.ErrValidation,
+			"%s is not a record",
+			slices.Min(unparsed),
+		)
+	}
+	return parsed, nil
+}
+
 // deleted returns the records that c deletes. Any other change fails with a
 // validation error.
 func deleted(c Change) ([]resource.ID, error) {
@@ -103,8 +130,12 @@ func (s *Service) Plan(
 	if err != nil {
 		return impact.Plan{}, err
 	}
+	picks, err := parsePicks(req.Picks)
+	if err != nil {
+		return impact.Plan{}, err
+	}
 	return s.cfg.Impact.Plan(ctx, snap, records, impact.PlanOptions{
-		Picks:   req.Picks,
+		Picks:   picks,
 		Hidden:  req.Hidden,
 		Visible: snap.Allowed,
 	})
@@ -128,6 +159,10 @@ func (s *Service) ApplyHandler(
 			if err != nil {
 				return impact.Plan{}, err
 			}
+			picks, err := parsePicks(req.Picks)
+			if err != nil {
+				return impact.Plan{}, err
+			}
 			visible, err = s.cfg.RBAC.NewEnforcer(tx).
 				Allowed(ctx, auth.GetSubject(ctx), access.ActionRetrieve)
 			if err != nil {
@@ -135,7 +170,7 @@ func (s *Service) ApplyHandler(
 			}
 			return s.cfg.Impact.Apply(ctx, tx, records, impact.ApplyOptions{
 				Token:   req.Token,
-				Picks:   req.Picks,
+				Picks:   picks,
 				Hidden:  req.Hidden,
 				Visible: visible,
 			})

@@ -167,7 +167,7 @@ var _ = Describe("Delete breaker", Ordered, ContinueOnFailure, func() {
 				ctx,
 				tx,
 				deleteOf(keys...),
-				impact.ApplyOptions{Picks: picks},
+				impact.ApplyOptions{Picks: picksOf(picks)},
 			)
 			return err
 		})

@@ -36,6 +36,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Routes", Ordered, func() {
@@ -264,6 +265,38 @@ var _ = Describe("Routes", Ordered, func() {
 				))
 		},
 	)
+
+	It("Should name the smallest pick key that is not a record", func(
+		ctx SpecContext,
+	) {
+		ch := createChannel(ctx)
+		u := createUser(ctx)
+		grant(
+			ctx,
+			u,
+			[]access.Action{access.ActionRetrieve, access.ActionDelete},
+			channel.ResourceID(ch),
+		)
+		unparsed := make(map[string]impact.Choice, 8)
+		for c := 'a'; c <= 'h'; c++ {
+			unparsed[string(c)] = impact.ChoiceDelete
+		}
+		refused := And(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring("a is not a record")),
+		)
+		for range 32 {
+			Expect(plan(AuthedCtx(ctx, u), apiimpact.PlanRequest{
+				Change: deleteOf(ch),
+				Picks:  unparsed,
+			})).Error().To(refused)
+			Expect(apply(AuthedCtx(ctx, u), apiimpact.ApplyRequest{
+				Change: deleteOf(ch),
+				Picks:  unparsed,
+			})).Error().To(refused)
+		}
+		Expect(exists(ctx, ch)).To(BeTrue())
+	})
 
 	It("Should refuse a hidden delete with a denial that names no record", func(
 		ctx SpecContext,

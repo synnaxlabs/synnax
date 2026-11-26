@@ -127,9 +127,7 @@ func BenchmarkApply(b *testing.B) {
 	layer, db := openApplyBench(b)
 	ch, tsk := createApplyHolders(b, layer, db)
 	change := []resource.ID{channel.ResourceID(ch)}
-	picks := map[string]impact.Choice{
-		task.ResourceID(tsk).String(): impact.ChoiceDelete,
-	}
+	picks := map[resource.ID]impact.Choice{task.ResourceID(tsk): impact.ChoiceDelete}
 	b.Run("today", func(b *testing.B) {
 		runApply(b, db, func(tx gorp.Tx) error {
 			if err := layer.Task.NewWriter(tx).Delete(ctx, tsk, false); err != nil {

@@ -135,9 +135,9 @@ func (PlanChangedError) Error() string {
 
 // PlanOptions are the inputs of the caller to Plan.
 type PlanOptions struct {
-	// Picks maps the text form of the record of a visible entry to the pick for it. An
-	// entry with no pick takes its default.
-	Picks map[string]Choice
+	// Picks maps the record of a visible entry to the pick for it. An entry with no
+	// pick takes its default.
+	Picks map[resource.ID]Choice
 	// Hidden is the pick for every entry that Visible hides and that allows it. Nil
 	// leaves those entries at their defaults.
 	Hidden *Choice
@@ -175,23 +175,22 @@ type ApplyOptions struct {
 	// Token is the token of the plan that the caller saw. Empty skips the check.
 	Token string
 	// Picks are the picks of PlanOptions.Picks.
-	Picks map[string]Choice
+	Picks map[resource.ID]Choice
 	// Hidden is the pick of PlanOptions.Hidden.
 	Hidden *Choice
 	// Visible reports whether the caller may see a record, as PlanOptions.Visible does.
 	Visible func(resource.ID) bool
 }
 
-// picks is PlanOptions with its picks keyed by record.
+// picks is PlanOptions with its picks checked.
 type picks struct {
 	named   map[resource.ID]Choice
 	hidden  *Choice
 	visible func(resource.ID) bool
 }
 
-// newPicks parses the picks of opts. A pick that is not a choice, or that names no
-// record, fails with a validation error for the pick with the smallest key. Choices are
-// checked first.
+// newPicks checks the picks of opts. A pick that is not a choice fails with a
+// validation error for the pick with the smallest record.
 func newPicks(opts PlanOptions) (picks, error) {
 	if opts.Hidden != nil && !opts.Hidden.IsValid() {
 		return picks{}, errors.Wrapf(
@@ -200,39 +199,20 @@ func newPicks(opts PlanOptions) (picks, error) {
 			*opts.Hidden,
 		)
 	}
-	p := picks{
-		named:   make(map[resource.ID]Choice, len(opts.Picks)),
-		hidden:  opts.Hidden,
-		visible: opts.Visible,
-	}
-	var invalid, unparsed []string
-	for text, pick := range opts.Picks {
+	var invalid []resource.ID
+	for id, pick := range opts.Picks {
 		if !pick.IsValid() {
-			invalid = append(invalid, text)
-			continue
+			invalid = append(invalid, id)
 		}
-		id, err := resource.ParseID(text)
-		if err != nil {
-			unparsed = append(unparsed, text)
-			continue
-		}
-		p.named[id] = pick
 	}
 	if len(invalid) > 0 {
 		return picks{}, errors.Wrapf(
 			validate.ErrValidation,
 			"%s is not a choice",
-			opts.Picks[slices.Min(invalid)],
+			opts.Picks[slices.MinFunc(invalid, compareRecords)],
 		)
 	}
-	if len(unparsed) > 0 {
-		return picks{}, errors.Wrapf(
-			validate.ErrValidation,
-			"%s is not a record",
-			slices.Min(unparsed),
-		)
-	}
-	return p, nil
+	return picks{named: opts.Picks, hidden: opts.Hidden, visible: opts.Visible}, nil
 }
 
 // sees reports whether the caller may see r.

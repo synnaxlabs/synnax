@@ -14,6 +14,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/service/impact"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -22,4 +24,14 @@ var _ = ShouldNotLeakGoroutinesPerSpec()
 func TestImpact(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Service Impact Suite", SuiteConfig())
+}
+
+// picksOf returns picks keyed by the records that their text keys name.
+func picksOf(picks map[string]impact.Choice) map[resource.ID]impact.Choice {
+	GinkgoHelper()
+	parsed := make(map[resource.ID]impact.Choice, len(picks))
+	for text, pick := range picks {
+		parsed[MustSucceed(resource.ParseID(text))] = pick
+	}
+	return parsed
 }

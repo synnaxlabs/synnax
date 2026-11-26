@@ -147,7 +147,7 @@ var _ = Describe("Plan breaker", Ordered, ContinueOnFailure, func() {
 	}
 	// withPicks returns the apply options that make picks.
 	withPicks := func(picks map[string]impact.Choice) impact.ApplyOptions {
-		return impact.ApplyOptions{Picks: picks}
+		return impact.ApplyOptions{Picks: picksOf(picks)}
 	}
 	apply := func(
 		ctx SpecContext,
