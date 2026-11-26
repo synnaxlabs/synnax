@@ -116,7 +116,8 @@ type LayerConfig struct {
 	//
 	// [REQUIRED]
 	Distribution *distribution.Layer
-	// Storage is the storage layer used for disk usage metrics.
+	// Storage is the storage layer. The channel service stores channels in its
+	// time-series database, and the metrics report its disk usage.
 	//
 	// [REQUIRED]
 	Storage *storage.Layer
@@ -213,6 +214,7 @@ func (c LayerConfig) Override(other LayerConfig) LayerConfig {
 func (c LayerConfig) Validate() error {
 	v := validate.New("service")
 	v.NotNil("distribution", c.Distribution)
+	v.NotNil("storage", c.Storage)
 	v.NotNil("security", c.Security)
 	v.Ternary("secrets_key", c.SecretsKey == secret.EncryptionKey{}, "required")
 	for _, m := range c.AuthMethods {
@@ -272,7 +274,8 @@ type Layer struct {
 	// NI owns the NI chassis, devices, and stored configuration records of the NI task
 	// types.
 	NI *ni.Service
-	// OPCUA owns the stored configuration records of the OPC UA task types.
+	// OPCUA owns the OPC UA servers and the stored configuration records of the OPC UA
+	// task types.
 	OPCUA *opcua.Service
 	// LabJack owns the stored configuration records of the LabJack task types.
 	LabJack *labjack.Service
@@ -949,6 +952,10 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.OPCUA, err = opcua.OpenService(ctx, opcua.ServiceConfig{
 		Instrumentation: cfg.Child("opcua"),
 		DB:              cfg.Distribution.DB,
+		Status:          l.Status,
+		Secret:          l.Secret,
+		Certificate:     l.Certificate,
+		Signals:         l.Signals,
 	}); !ok(err, l.OPCUA) {
 		return nil, err
 	}
@@ -1115,6 +1122,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			resource.TypeNiChassis:       l.NI.Chassis.Resources(),
 			resource.TypeNiDevice:        l.NI.Devices.Resources(),
 			resource.TypeNode:            l.Node.Resources(),
+			resource.TypeOpcuaServer:     l.OPCUA.Servers.Resources(),
 			resource.TypePanel:           l.Panel.Resources(),
 			resource.TypePolicy:          l.RBAC.Policy.Resources(),
 			resource.TypeProject:         l.Project.Resources(),
@@ -1173,7 +1181,10 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			rangeAliasDropMigration,
 			l.PagerDuty.SecretMigration(taskNames(l.Task)),
 			l.Kafka.ICDMigration(taskNames(l.Task)),
+			l.Kafka.WriteICDMigration(taskNames(l.Task)),
 			l.HTTP.ICDMigration(taskNames(l.Task)),
+			l.HTTP.WriteICDMigration(taskNames(l.Task)),
+			l.MQTT.ICDMigration(taskNames(l.Task)),
 			opcua.PasswordMigration(l.Secret),
 			opcua.CertificateMigration(l.Certificate, l.Status),
 			clearUnissuedChannelLinks(

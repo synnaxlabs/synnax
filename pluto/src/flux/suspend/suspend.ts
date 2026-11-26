@@ -213,7 +213,10 @@ export const ensureFetch = <Query extends query.Params, Data extends query.Data>
   };
   let promise = local.inFlight.get(hash);
   if (promise == null) {
-    const epoch = local.epoch;
+    // The local cache learns of a reconnect only when a reader renders, so the fetch
+    // reads the connection itself.
+    const epochOf = (): number => params.client.connection.status.details.epoch;
+    const epoch = epochOf();
     const generation = generationOf(local, hash);
     const release = holdGeneration(local, hash);
     const current = (): boolean => generationOf(local, hash) === generation;
@@ -228,11 +231,15 @@ export const ensureFetch = <Query extends query.Params, Data extends query.Data>
     };
     const fail = async (error: Error): Promise<Data> => {
       if (!current()) return await follow();
+      // A reconnected Core may answer what the old connection could not.
+      if (epochOf() !== epoch) {
+        local.inFlight.delete(hash);
+        return await ensureFetch(params, fetchParams);
+      }
       // A failed fetch writes nothing getCached can serve, so the error must
       // settle locally or the next render refetches forever. A later cache
-      // hit short-circuits before this entry is read. A reconnect that
-      // landed mid-fetch discards the failure instead.
-      if (local.epoch === epoch) setSettled(local, hash, { error });
+      // hit short-circuits before this entry is read.
+      setSettled(local, hash, { error });
       local.inFlight.delete(hash);
       throw error;
     };
@@ -301,7 +308,7 @@ export const usePendingFetch = <Query extends query.Params, Data>(
       pending.current = { query: q, promise };
     },
     fulfill: (value) => {
-      if (settled.current?.value !== value)
+      if (settled.current == null || settled.current.value !== value)
         settled.current = { value, promise: fulfilled(value) };
       return settled.current.promise;
     },

@@ -42,6 +42,7 @@ import {
   COLOR_FIELDS,
   VALUE_COLOR_FIELDS,
 } from "@/feature/schematic/toolbar/colorFields";
+import { FLAGS } from "@/flags";
 import { CSS } from "@/platform/css";
 import { Enumeration } from "@/platform/enumeration";
 import { MultiEdit } from "@/platform/multiedit";
@@ -148,29 +149,6 @@ const CustomVariantForm = ({
 
 const FIELDS = MultiEdit.fieldsByVariant(schematic.ELEMENT_CONFIG_SCHEMAS);
 
-const selectionColorRefs = (
-  key: string,
-  cfg: Schematic.ElementConfig,
-): MultiEdit.ColorRef[] => {
-  const refs = MultiEdit.colorRefs(
-    key,
-    cfg,
-    COLOR_FIELDS,
-    VALUE_COLOR_FIELDS[cfg.variant],
-  );
-  if (cfg.variant === "state_indicator" && cfg.enumeration == null)
-    cfg.options.forEach((o, i) => {
-      if (o.color != null)
-        refs.push({
-          key,
-          path: `options.${i}.color`,
-          value: MultiEdit.fixedRef(o.color),
-          valueOnly: true,
-        });
-    });
-  return refs;
-};
-
 const SCALE_BOUNDS = { lower: 5, upper: 1000 };
 
 interface MultiElementPropertiesProps {
@@ -223,7 +201,7 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
   });
 
   const selectionRefs = Array.from(editableByKey).flatMap(([key, cfg]) =>
-    selectionColorRefs(key, cfg),
+    MultiEdit.colorRefs(key, cfg, COLOR_FIELDS, VALUE_COLOR_FIELDS[cfg.variant]),
   );
 
   const handleLayouts = (
@@ -402,7 +380,9 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
   const hasStroke = selection.has("strokeColor");
   const hasFill = selection.has("fillColor");
   const hasText = selection.has("textColor");
-  const hasColors = hasStroke || hasFill || hasText || selectionRefs.length > 0;
+  const hasColor = FLAGS.symbolNodes && selection.has("color");
+  const hasColors =
+    hasStroke || hasFill || hasText || hasColor || selectionRefs.length > 0;
 
   return (
     <Form.Sections x>
@@ -529,6 +509,15 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
               )}
               onChange={(c) => selection.setColor("textColor", c)}
               palettesHidden={selection.valueOnly("textColor")}
+            />
+          )}
+          {hasColor && (
+            <MultiEdit.ColorField
+              label="Color"
+              values={selection.colors("color", () =>
+                Schematic.Node.Form.defaultFallback(theme),
+              )}
+              onChange={(c) => selection.setColor("color", c)}
             />
           )}
           <MultiEdit.SelectionColors

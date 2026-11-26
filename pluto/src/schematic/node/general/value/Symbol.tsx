@@ -16,9 +16,9 @@ import { Channel } from "@/channel";
 import { Color } from "@/color";
 import { Deleted } from "@/schematic/node/common/deleted";
 import { Grid } from "@/schematic/node/common/grid";
+import { Indicator } from "@/schematic/node/common/indicator";
 import { Label } from "@/schematic/node/common/label";
 import { size } from "@/schematic/node/common/size";
-import { Stale } from "@/schematic/node/common/stale";
 import { Primitive } from "@/schematic/node/general/value/primitive";
 import type { NodeProps } from "@/schematic/node/spec";
 import { Value as BaseValue } from "@/vis/value";
@@ -78,7 +78,7 @@ export const Symbol = ({
   return (
     <Grid.Grid editable={selected} nodeKey={nodeKey} allowRotate={false} {...resize}>
       <Label.Label config={label} onChange={onConfigChange} />
-      {stale && <Stale.Indicator />}
+      <Indicator.Slot stale={stale} />
       {deleted && <Deleted.Item />}
       <Primitive.Value
         strokeColor={resolve(strokeColor)}

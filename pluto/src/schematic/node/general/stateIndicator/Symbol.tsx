@@ -14,9 +14,9 @@ import { Channel } from "@/channel";
 import { Color } from "@/color";
 import { Deleted } from "@/schematic/node/common/deleted";
 import { Grid } from "@/schematic/node/common/grid";
+import { Indicator } from "@/schematic/node/common/indicator";
 import { Label } from "@/schematic/node/common/label";
 import { Options } from "@/schematic/node/common/options";
-import { Stale } from "@/schematic/node/common/stale";
 import { Telem } from "@/schematic/node/common/telem";
 import { Primitive } from "@/schematic/node/general/stateIndicator/primitive";
 import type { NodeProps } from "@/schematic/node/spec";
@@ -29,7 +29,6 @@ export const Symbol = ({
   config: {
     label,
     channel,
-    options: ownOptions,
     enumeration,
     strokeColor,
     inlineSize,
@@ -38,7 +37,7 @@ export const Symbol = ({
   },
 }: NodeProps<schematic.StateIndicatorNodeConfig>): ReactElement => {
   const resolve = Color.useResolve();
-  const options = Options.use({ enumeration, options: ownOptions });
+  const options = Options.use(enumeration);
   const source = Telem.numberSource(channel);
   const { key: optKey, stale } = BaseStateIndicator.use({
     aetherKey: nodeKey,
@@ -56,7 +55,7 @@ export const Symbol = ({
       onResize={({ width }) => onConfigChange({ inlineSize: width })}
     >
       <Label.Label config={label} onChange={onConfigChange} />
-      {stale && <Stale.Indicator />}
+      <Indicator.Slot stale={stale} />
       {deleted && <Deleted.Item />}
       <Primitive.StateIndicator
         matchedOptionKey={optKey}

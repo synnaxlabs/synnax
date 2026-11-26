@@ -57,10 +57,12 @@ Enumeration struct {
         @go marshal omit
     }
 
-    @doc value  """
+    @doc value     """
         is a set of states that maps exact values to names and colors. A record that
         shows states holds its key, so an edit to the enumeration changes each user.
     """
+    @go entry
     @go marshal
     @go migrate
+    @resource type "enumeration"
 }

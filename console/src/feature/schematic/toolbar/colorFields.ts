@@ -35,6 +35,7 @@ export const COLOR_FIELDS = [
   "levelColor",
   "axisColor",
   "onColor",
+  "color",
 ] as const;
 
 /**

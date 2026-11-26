@@ -13,12 +13,12 @@ import { waitFor } from "@testing-library/react";
 import { ReactFlowProvider } from "@xyflow/react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { z } from "zod";
 
-import { aether } from "@/aether/aether";
+import type { aether } from "@/aether/aether";
 import { Control } from "@/schematic/node/common/control";
 import { Grid } from "@/schematic/node/common/grid";
 import { control } from "@/telem/control/aether";
+import { controlTest } from "@/telem/control/aether/testutil";
 import { render } from "@/testutil";
 
 interface RenderOptions {
@@ -29,7 +29,7 @@ interface RenderOptions {
 }
 
 const renderState = (
-  channel: channel.Key,
+  channels: channel.Key[],
   {
     config = Control.stateConfigZ.parse({}),
     registry = control.REGISTRY,
@@ -42,7 +42,7 @@ const renderState = (
       <Haul.Provider>
         <div data-id="node">
           <Grid.Grid nodeKey="node" editable={false}>
-            <Control.State config={config} channel={channel} deleted={deleted}>
+            <Control.State config={config} channels={channels} deleted={deleted}>
               {children}
             </Control.State>
           </Grid.Grid>
@@ -54,12 +54,12 @@ const renderState = (
 
 describe("Control.State", () => {
   it("should show nothing for the zero channel", () => {
-    const { queryAllByRole } = renderState(0);
+    const { queryAllByRole } = renderState([0]);
     expect(queryAllByRole("button")).toHaveLength(0);
   });
 
   it("should show its children for the zero channel", () => {
-    const { getByText, queryAllByRole } = renderState(0, {
+    const { getByText, queryAllByRole } = renderState([0], {
       children: <span>child</span>,
     });
     expect(getByText("child")).toBeTruthy();
@@ -67,30 +67,8 @@ describe("Control.State", () => {
   });
 });
 
-const chipState = z.object({ sink: z.unknown() }).loose();
-const indicatorState = z.object({}).loose();
-
 const chipSinks = vi.fn();
-
-// Stands in for the chip worker component and records the sink it acquires with.
-class StubChip extends aether.Leaf<typeof chipState> {
-  static readonly TYPE = control.Chip.TYPE;
-  override schema = chipState;
-
-  override afterUpdate(): void {
-    chipSinks(this.state.sink);
-  }
-}
-
-class StubIndicator extends aether.Leaf<typeof indicatorState> {
-  static readonly TYPE = control.Indicator.TYPE;
-  override schema = indicatorState;
-}
-
-const STUB_REGISTRY: aether.ComponentRegistry = {
-  [StubChip.TYPE]: StubChip,
-  [StubIndicator.TYPE]: StubIndicator,
-};
+const STUB_REGISTRY = controlTest.createRegistry(chipSinks);
 
 describe("Control.State authority", () => {
   beforeEach(() => {
@@ -98,22 +76,31 @@ describe("Control.State authority", () => {
   });
 
   it("should acquire control with absolute authority by default", async () => {
-    renderState(7, { registry: STUB_REGISTRY });
+    renderState([7], { registry: STUB_REGISTRY });
     await waitFor(() =>
       expect(chipSinks).toHaveBeenCalledWith(
-        control.acquireChannelControl({ channel: 7, authority: 255 }),
+        control.acquireChannelControl({ channels: [7], authority: 255 }),
+      ),
+    );
+  });
+
+  it("should acquire control of every channel but the zero channel", async () => {
+    renderState([7, 0, 8], { registry: STUB_REGISTRY });
+    await waitFor(() =>
+      expect(chipSinks).toHaveBeenCalledWith(
+        control.acquireChannelControl({ channels: [7, 8], authority: 255 }),
       ),
     );
   });
 
   it("should acquire control with the configured authority", async () => {
-    renderState(7, {
+    renderState([7], {
       config: Control.stateConfigZ.parse({ authority: 100 }),
       registry: STUB_REGISTRY,
     });
     await waitFor(() =>
       expect(chipSinks).toHaveBeenCalledWith(
-        control.acquireChannelControl({ channel: 7, authority: 100 }),
+        control.acquireChannelControl({ channels: [7], authority: 100 }),
       ),
     );
   });
@@ -121,7 +108,7 @@ describe("Control.State authority", () => {
 
 describe("Control.State deleted", () => {
   it("should hide the chip and the indicator", () => {
-    const { queryAllByRole, container } = renderState(7, {
+    const { queryAllByRole, container } = renderState([7], {
       registry: STUB_REGISTRY,
       deleted: true,
     });
@@ -130,7 +117,7 @@ describe("Control.State deleted", () => {
   });
 
   it("should still show its children", () => {
-    const { getByText, queryAllByRole } = renderState(7, {
+    const { getByText, queryAllByRole } = renderState([7], {
       registry: STUB_REGISTRY,
       deleted: true,
       children: <span>child</span>,
@@ -140,7 +127,7 @@ describe("Control.State deleted", () => {
   });
 
   it("should show the chip and the indicator of a channel that exists", () => {
-    const { queryAllByRole } = renderState(7, { registry: STUB_REGISTRY });
+    const { queryAllByRole } = renderState([7], { registry: STUB_REGISTRY });
     expect(queryAllByRole("button").length).toBeGreaterThan(0);
   });
 });

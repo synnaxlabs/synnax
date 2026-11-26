@@ -59,6 +59,7 @@ var (
 	statusSvc  *status.Service
 	taskSvc    *task.Service
 	icdSvc     *icd.Service
+	mqttSvc    *mqtt.Service
 	// host is the key of the Core that the services run on.
 	host node.Key
 )
@@ -119,7 +120,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB:   db,
 		ImEx: imex.NewService(),
 	}))
-	mqttSvc := MustOpen(mqtt.OpenService(ctx, mqtt.ServiceConfig{
+	mqttSvc = MustOpen(mqtt.OpenService(ctx, mqtt.ServiceConfig{
 		DB:      db,
 		Channel: channelSvc,
 		ICD:     icdSvc,

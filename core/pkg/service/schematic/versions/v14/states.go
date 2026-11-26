@@ -34,14 +34,17 @@ type MigrationConfig struct {
 
 // NewMigration returns the migration that lifts stored schematics from v13 to v14 as
 // MigrateSchematic does, then gives their selects and state indicators enumerations as
-// InternStates does.
+// InternStates does. Each symbol that a custom_actuator node draws becomes an actuator.
+// A symbol node whose custom symbol is gone gets a missing ref, and a node drops each
+// state binding that its symbol lacks. Then each symbol with no commands drops the
+// looks that it never draws. The stored symbols must be v5.
 func NewMigration(cfg MigrationConfig) gorp.Migration {
 	const key = "v63_color_ref"
 	return migrate.New(
 		key,
 		func(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation) error {
 			intern := cfg.Intern(tx)
-			return migrate.NewInstrumentedEntry(
+			if err := migrate.NewInstrumentedEntry(
 				key,
 				func(
 					ctx context.Context,
@@ -55,9 +58,19 @@ func NewMigration(cfg MigrationConfig) gorp.Migration {
 					if err = InternStates(ctx, &s, old, intern, ins); err != nil {
 						return Schematic{}, err
 					}
+					if err = actuate(ctx, tx, intern, old); err != nil {
+						return Schematic{}, err
+					}
+					if err = resolveSymbols(ctx, tx, &s); err != nil {
+						return Schematic{}, err
+					}
+					warnEmptyThresholds(old, ins)
 					return s, nil
 				},
-			).Run(ctx, tx, ins)
+			).Run(ctx, tx, ins); err != nil {
+				return err
+			}
+			return dropUndrawnLooks(ctx, tx)
 		},
 	)
 }
@@ -74,10 +87,10 @@ func stateList(n v13.Node) ([]v13.StateMapping, bool) {
 }
 
 // InternStates gives each select and state indicator of s an enumeration with the
-// entries of its options in old, through intern, and clears its options. s must be old
-// lifted to v14, which keeps each node at its index. A node with no entries left gets
-// no enumeration. The enumeration is named for the node type and its label, or the
-// schematic name when the label is empty.
+// entries of its options in old, through intern. s must be old lifted to v14, which
+// keeps each node at its index. A node with no entries left gets no enumeration. The
+// enumeration is named for the node type and its label, or the schematic name when the
+// label is empty.
 //
 // An entry with an empty or repeated key gets a new key. A state whose value is not
 // finite, or repeats an earlier state, is dropped with a warning.
@@ -108,13 +121,13 @@ func InternStates(
 		case SelectNodeConfig:
 			kind, label = "Select", cfg.Label.Label
 			link = func(k *enumeration.Key) NodeConfigVariant {
-				cfg.Enumeration, cfg.Options = k, nil
+				cfg.Enumeration = k
 				return cfg
 			}
 		case StateIndicatorNodeConfig:
 			kind, label = "State indicator", cfg.Label.Label
 			link = func(k *enumeration.Key) NodeConfigVariant {
-				cfg.Enumeration, cfg.Options = k, nil
+				cfg.Enumeration = k
 				return cfg
 			}
 		default:

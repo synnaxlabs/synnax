@@ -45,5 +45,6 @@ export const createCoreState = (
     version: 0,
     selected,
     cores: Object.fromEntries(cores.map((c) => [c.key, c])),
+    order: cores.map((c) => c.key),
   },
 });

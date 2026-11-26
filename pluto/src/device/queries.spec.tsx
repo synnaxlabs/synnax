@@ -928,13 +928,13 @@ describe("queries", () => {
         });
 
         const nameField = result.current.form.get(path.name);
-        expect(nameField.status.message).toBe("name is required");
+        expect(nameField.status.message).toBe("Name is required");
         const makeField = result.current.form.get(path.make);
-        expect(makeField.status.message).toBe("make is required");
+        expect(makeField.status.message).toBe("Make is required");
         const modelField = result.current.form.get(path.model);
-        expect(modelField.status.message).toBe("model is required");
+        expect(modelField.status.message).toBe("Model is required");
         const locationField = result.current.form.get(path.location);
-        expect(locationField.status.message).toBe("location is required");
+        expect(locationField.status.message).toBe("Location is required");
       });
 
       it("should support custom properties", async () => {
@@ -1267,7 +1267,7 @@ describe("queries", () => {
         expect(isValid).toBe(false);
 
         const msg = result.current.form.get(path.name).status.message;
-        expect(msg).toEqual("name is required");
+        expect(msg).toEqual("Name is required");
       });
     });
   });

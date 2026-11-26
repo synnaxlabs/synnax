@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import "schemas/synnax/versions/device/v0"
-import "schemas/synnax/versions/icd/v0"
+import "schemas/synnax/versions/icd/v1"
 import "schemas/synnax/versions/task/v2"
 import "schemas/x/versions/telem/v0"
 
@@ -78,8 +78,52 @@ BaseWriteField = v2.BaseWriteField
 
 WriteField = v4.WriteField
 
-WriteEndpoint = v4.WriteEndpoint
+WriteEndpoint struct extends v4.WriteEndpoint {
+    query_params
+    icd          icd.Key?          {
+        @doc value """
+            is the key of the ICD that holds the message of the endpoint. Absent when
+            the endpoint sends no message.
+        """
+    }
+    message      icd.WriteMessage? {
+        @doc value """
+            is the message whose document is the request body. A command on any bound
+            channel sends one request.
+        """
+    }
+}
 
-WriteConfig = v4.WriteConfig
+InlineWriteEndpoint struct {
+    key     string = "" {
+        @doc value "is the key of the endpoint that held the body."
+    }
+    channel ChannelField = {} {
+        @doc value "is the command channel of the endpoint."
+    }
+    fields  WriteField[] = [] {
+        @doc value "are the static and generated fields of the body."
+    }
+
+    @doc value "is a write endpoint from before ICDs, which held its body inline."
+}
+
+InlineWrite struct {
+    endpoints InlineWriteEndpoint[] = [] {
+        @doc value "are the endpoints that held their bodies inline."
+    }
+
+    @doc value "holds the bodies of a write config from before ICDs."
+}
+
+WriteConfig struct extends v4.WriteConfig {
+    inline InlineWrite? {
+        @doc value  """
+            holds the body of each endpoint of a config from before ICDs. A write moves
+            them into a new ICD and clears it.
+        """
+        @go marshal omit
+    }
+}
 
 ScanConfig = v2.ScanConfig

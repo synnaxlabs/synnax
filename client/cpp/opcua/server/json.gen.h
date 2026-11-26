@@ -11,6 +11,7 @@
 
 #pragma once
 
+#include <cstdint>
 #include <string>
 #include <variant>
 #include <vector>
@@ -21,6 +22,7 @@
 #include "client/cpp/rack/key.h"
 #include "client/cpp/secret/json.gen.h"
 #include "client/cpp/status/json.gen.h"
+#include "x/cpp/filter/json.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/telem/types.gen.h"
 
@@ -152,6 +154,104 @@ inline x::json::json Server::to_json() const {
     return j;
 }
 
+inline Identity Identity::parse(x::json::Parser parser) {
+    return Identity{
+        .rack = parser.required_field<::synnax::rack::Key>("rack"),
+        .name = parser.required_field<std::string>("name"),
+        .connection = parser.field<Connection>("connection"),
+    };
+}
+
+inline x::json::json Identity::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["rack"] = this->rack;
+    j["name"] = this->name;
+    j["connection"] = this->connection.to_json();
+    return j;
+}
+
+inline Configuration Configuration::parse(x::json::Parser parser) {
+    return Configuration{
+        .reads = parser.field<std::vector<Read>>("reads", std::vector<Read>{}),
+        .writes = parser.field<std::vector<Write>>("writes", std::vector<Write>{}),
+    };
+}
+
+inline x::json::json Configuration::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["reads"] = x::json::to_array(this->reads);
+    j["writes"] = x::json::to_array(this->writes);
+    return j;
+}
+
+inline Where Where::parse(x::json::Parser parser) {
+    return Where{
+        .and_ = parser.field<std::optional<std::vector<Where>>>("and"),
+        .or_ = parser.field<std::optional<std::vector<Where>>>("or"),
+        .not_ = parser.field<x::mem::indirect<Where>>("not"),
+        .key = parser.field<std::optional<::x::filter::Set<Key>>>("key"),
+        .name = parser.field<std::optional<::x::filter::String>>("name"),
+        .rack = parser.field<std::optional<::x::filter::Set<::synnax::rack::Key>>>(
+            "rack"
+        ),
+    };
+}
+
+inline x::json::json Where::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (this->and_.has_value()) j["and"] = x::json::to_array(*this->and_);
+    if (this->or_.has_value()) j["or"] = x::json::to_array(*this->or_);
+    if (this->not_.has_value()) j["not"] = this->not_->to_json();
+    if (this->key.has_value()) j["key"] = this->key->to_json();
+    if (this->name.has_value()) j["name"] = this->name->to_json();
+    if (this->rack.has_value()) j["rack"] = this->rack->to_json();
+    return j;
+}
+
+inline Cursor Cursor::parse(x::json::Parser parser) {
+    return Cursor{
+        .key = parser.field<Key>("key"),
+    };
+}
+
+inline x::json::json Cursor::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key.to_json();
+    return j;
+}
+
+inline RetrieveRequest RetrieveRequest::parse(x::json::Parser parser) {
+    return RetrieveRequest{
+        .where = parser.field<std::optional<Where>>("where"),
+        .search_term = parser.field<std::string>("search_term", ""),
+        .after = parser.field<std::optional<Cursor>>("after"),
+        .limit = parser.field<std::optional<std::uint32_t>>("limit"),
+        .include_status = parser.field<bool>("include_status", false),
+    };
+}
+
+inline x::json::json RetrieveRequest::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (this->where.has_value()) j["where"] = this->where->to_json();
+    j["search_term"] = this->search_term;
+    if (this->after.has_value()) j["after"] = this->after->to_json();
+    if (this->limit.has_value()) j["limit"] = *this->limit;
+    j["include_status"] = this->include_status;
+    return j;
+}
+
+inline RetrieveResponse RetrieveResponse::parse(x::json::Parser parser) {
+    return RetrieveResponse{
+        .servers = parser.field<std::vector<Server>>("servers", std::vector<Server>{}),
+    };
+}
+
+inline x::json::json RetrieveResponse::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["servers"] = x::json::to_array(this->servers);
+    return j;
+}
+
 inline AnonymousAuth AnonymousAuth::parse(x::json::Parser parser) {
     AnonymousAuth result;
     result.type = parser.field<std::string>("type");
@@ -275,6 +375,35 @@ inline x::json::json SignAndEncryptSecurity::to_json() const {
     return j;
 }
 
+inline IdentityUpdate IdentityUpdate::parse(x::json::Parser parser) {
+    IdentityUpdate result;
+    static_cast<Identity &>(result) = Identity::parse(parser);
+    result.group = parser.field<std::string>("group");
+    return result;
+}
+
+inline x::json::json IdentityUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (const auto parent = Identity::to_json(); parent.is_object()) j.update(parent);
+    j["group"] = this->group;
+    return j;
+}
+
+inline ConfigurationUpdate ConfigurationUpdate::parse(x::json::Parser parser) {
+    ConfigurationUpdate result;
+    static_cast<Configuration &>(result) = Configuration::parse(parser);
+    result.group = parser.field<std::string>("group");
+    return result;
+}
+
+inline x::json::json ConfigurationUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (const auto parent = Configuration::to_json(); parent.is_object())
+        j.update(parent);
+    j["group"] = this->group;
+    return j;
+}
+
 inline Auth parse_auth(x::json::Parser parser) {
     const auto discriminator = parser.field<std::string>("type");
     if (discriminator == "anonymous") return AnonymousAuth::parse(parser);
@@ -313,6 +442,18 @@ inline Security parse_security(x::json::Parser parser) {
 }
 
 inline x::json::json to_json(const Security &value) {
+    return std::visit([](const auto &v) { return v.to_json(); }, value);
+}
+
+inline Update parse_update(x::json::Parser parser) {
+    const auto discriminator = parser.field<std::string>("group");
+    if (discriminator == "identity") return IdentityUpdate::parse(parser);
+    if (discriminator == "configuration") return ConfigurationUpdate::parse(parser);
+    parser.field_err("group", "unknown Update group: " + discriminator);
+    return {};
+}
+
+inline x::json::json to_json(const Update &value) {
     return std::visit([](const auto &v) { return v.to_json(); }, value);
 }
 

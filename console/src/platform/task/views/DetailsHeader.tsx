@@ -19,9 +19,12 @@ import { CSS } from "@/platform/css";
 import { Section } from "@/platform/section";
 
 export interface DetailsHeaderProps {
-  /** The form path of the selected item, or null when nothing is selected. */
+  /**
+   * The form path of the selected item, or null when nothing is selected or the item
+   * has no path, such as a group. The copy action copies the value at the path.
+   */
   path: deep.Target<unknown> | null;
-  /** Names the selected item; shown in place of "Details" while one is selected. */
+  /** Names the selected item; shown in place of "Details" when set. */
   children?: ReactNode;
   /** Rendered before the title. */
   start?: ReactNode;
@@ -35,7 +38,7 @@ export const DetailsHeader = ({ path, children, start }: DetailsHeaderProps) => 
     <Section.Header>
       <Flex.Box x align="center" gap="small" className={CSS.BE("panes", "title")}>
         {start}
-        {path == null || children == null ? (
+        {children == null || children === false ? (
           <Header.Title weight={500} wrap={false} color={10}>
             Details
           </Header.Title>

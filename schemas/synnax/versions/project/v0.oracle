@@ -35,6 +35,7 @@ Workspace struct {
         is a named, persistable container that stores the layout and organization of the
         Console application.
     """
+    @go entry
     @go marshal
     @go migrate
 }

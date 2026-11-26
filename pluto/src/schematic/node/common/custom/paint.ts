@@ -25,16 +25,23 @@ export interface Paint {
   hidden?: boolean;
 }
 
+/**
+ * StateValues is the value of every state of a symbol, or the value of each state by
+ * its key. A state with no value in the map, or a NaN value, reads its default entry,
+ * or the lower bound of a number state.
+ */
+export type StateValues = number | ReadonlyMap<string, number>;
+
 /** PaintContext holds what a look needs to resolve its colors. */
 export interface PaintContext {
-  /** value is the value of each state of the symbol. */
-  value: number;
+  /** value is the value of the states of the symbol. */
+  value: StateValues;
   resolve: (ref: clientColor.Ref) => color.Color | undefined;
   enumerations: ReadonlyMap<enumeration.Key, enumeration.Enumeration>;
   /** nodeColor is the color that `node` paint draws. */
   nodeColor?: color.Color;
   /** defaultEntryColor is the color of an entry that has no color. */
-  defaultEntryColor?: color.Color;
+  defaultEntryColor: color.Color;
 }
 
 type Field = "stroke" | "fill";
@@ -54,11 +61,18 @@ const banded = (
   builtIn: boolean,
 ): boolean => field === "stroke" || (builtIn && (type === "entry" || type === "node"));
 
-/** @returns value as a state reads it after its match. */
-export const matched = (state: schematic.symbol.State, value: number): number => {
-  if (state.type !== "enumeration" || state.match.type === "exact") return value;
+/**
+ * @returns the value of the state after its match. A number state with no value, or a
+ * NaN value, reads its lower bound. An enumeration state with no value, or a NaN value,
+ * reads its default entry, which needs no match.
+ */
+export const matched = (state: schematic.symbol.State, value: StateValues): number => {
+  const v = typeof value === "number" ? value : value.get(state.key);
+  if (v == null || Number.isNaN(v))
+    return state.type === "enumeration" ? state.default : state.bounds.lower;
+  if (state.type !== "enumeration" || state.match.type === "exact") return v;
   const { lower, upper } = state.match.bounds;
-  return value >= lower && value < upper ? 1 : 0;
+  return v >= lower && v < upper ? 1 : 0;
 };
 
 const entryColor = (
@@ -122,10 +136,14 @@ const resolvePaint = (
   return show(field, paint.type);
 };
 
-const applies = (
+/**
+ * @returns whether look applies when the states of a symbol are at value. A look on a
+ * state that states lacks never applies.
+ */
+export const applies = (
   look: schematic.symbol.Look,
-  states: Map<string, schematic.symbol.State>,
-  value: number,
+  states: ReadonlyMap<string, schematic.symbol.State>,
+  value: StateValues,
 ): boolean => {
   if (look.when == null) return true;
   const state = states.get(look.when.state);
@@ -156,15 +174,13 @@ const resolveLooks = (
 };
 
 // resolvePaints returns the paints of spec at ctx.value as band shows them, in the
-// order that they apply. A state override at index ctx.value replaces the looks with
-// its regions.
+// order that they apply. An override replaces the looks with its regions.
 const resolvePaints = (
   spec: schematic.symbol.Spec,
-  overrides: schematic.symbol.StateOverride[] | undefined,
+  override: schematic.symbol.StateOverride | undefined,
   ctx: PaintContext,
   band: Band,
 ): Paint[] => {
-  const override = overrides?.[ctx.value];
   // An override color draws as a `color` paint does.
   const overridden = (field: Field, c: color.Color | undefined) =>
     c != null && banded(field, "color", band.builtIn)
@@ -237,24 +253,55 @@ const enumerationKeys = (
 
 /**
  * @returns the context that resolves the looks of spec, with no value, or undefined
- * while the enumerations of its states load. An enumeration that fails to load draws no
- * entry colors.
+ * while the enumerations of its states load. An entry with no color draws nodeColor,
+ * else the theme gray. An enumeration that fails to load gives its entries no color.
  */
 export const usePaintContext = (
   spec: Pick<schematic.symbol.Spec, "states"> | undefined,
   nodeColor?: color.Crude,
 ): Omit<PaintContext, "value"> | undefined => {
   const resolve = Color.useResolve();
+  const t = Theming.use();
+  const enumerations = useEnumerations(spec);
+  if (enumerations == null) return undefined;
+  const node = nodeColor == null ? undefined : color.construct(nodeColor);
+  return {
+    resolve,
+    enumerations,
+    nodeColor: node,
+    defaultEntryColor: node ?? t.colors.gray.l11,
+  };
+};
+
+// useEnumerations returns the enumerations of the states of spec by key, or undefined
+// while they load. An enumeration that fails to load is absent.
+const useEnumerations = (
+  spec: Pick<schematic.symbol.Spec, "states"> | undefined,
+): ReadonlyMap<enumeration.Key, enumeration.Enumeration> | undefined => {
   const keys = enumerationKeys(spec);
   const res = Enumeration.useResultMultiple(keys.length === 0 ? null : { keys });
   if (keys.length > 0 && res.variant === "loading") return undefined;
-  return {
-    resolve,
-    enumerations: new Map(
-      (res.variant === "success" ? res.data : []).map((e) => [e.key, e]),
-    ),
-    nodeColor: nodeColor == null ? undefined : color.construct(nodeColor),
-  };
+  return new Map((res.variant === "success" ? res.data : []).map((e) => [e.key, e]));
+};
+
+/**
+ * @returns whether a state that has a value in value and a loaded enumeration finds no
+ * entry of that enumeration after its match. It is false while the enumerations load.
+ */
+export const useUnmatched = (
+  spec: Pick<schematic.symbol.Spec, "states"> | undefined,
+  value: StateValues,
+): boolean => {
+  const enumerations = useEnumerations(spec);
+  if (spec == null || enumerations == null || typeof value === "number") return false;
+  return spec.states.some((state) => {
+    if (state.type !== "enumeration" || state.enumeration == null) return false;
+    if (!value.has(state.key)) return false;
+    const loaded = enumerations.get(state.enumeration);
+    if (loaded == null) return false;
+    const v = matched(state, value);
+    return !loaded.entries.some((e) => e.value === v);
+  });
 };
 
 /**
@@ -274,13 +321,15 @@ export const useRegions = (
 const NO_PAINTS: Paint[] = [];
 
 export interface UsePaintsParams {
-  /** overrides replace the looks at the value of their index. */
-  overrides?: schematic.symbol.StateOverride[];
-  /** nodeColor is the color that `node` paint draws. */
+  /** override replaces the looks with its regions. */
+  override?: schematic.symbol.StateOverride;
+  /**
+   * nodeColor is the color that `node` paint draws. An entry with no color draws it,
+   * else the theme gray.
+   */
   nodeColor?: color.Crude;
   /**
-   * builtIn marks a drawing that ships with Pluto. It bands its entry and node fills,
-   * and an entry with no color draws the node color, else the theme gray.
+   * builtIn marks a drawing that ships with Pluto. It bands its entry and node fills.
    */
   builtIn?: boolean;
 }
@@ -292,20 +341,14 @@ export interface UsePaintsParams {
  */
 export const usePaints = (
   spec: schematic.symbol.Spec | undefined,
-  value: number,
-  { overrides, nodeColor, builtIn = false }: UsePaintsParams = {},
+  value: StateValues,
+  { override, nodeColor, builtIn = false }: UsePaintsParams = {},
 ): Paint[] => {
   const ctx = usePaintContext(spec, nodeColor);
   const t = Theming.use();
-  const defaultEntryColor = builtIn ? (ctx?.nodeColor ?? t.colors.gray.l11) : undefined;
   return useMemoDeepEqual(
     spec == null || ctx == null
       ? NO_PAINTS
-      : resolvePaints(
-          spec,
-          overrides,
-          { ...ctx, value, defaultEntryColor },
-          { theme: t, builtIn },
-        ),
+      : resolvePaints(spec, override, { ...ctx, value }, { theme: t, builtIn }),
   );
 };

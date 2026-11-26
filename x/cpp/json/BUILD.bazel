@@ -79,6 +79,7 @@ cc_library(
         "//x/cpp/strings",
         "//x/cpp/telem",
         "//x/cpp/uuid",
+        "@nlohmann_json//:json",
     ],
 )
 
@@ -113,6 +114,7 @@ cc_test(
         "struct_test.cpp",
         "value_test.cpp",
     ],
+    data = ["//core/pkg/service/icd:encode_fixtures"],
     visibility = ["//visibility:public"],
     deps = [
         "//x/cpp/base64",
