@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/platform/settings/Frame.css";
+import "@/platform/page/Frame.css";
 
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
@@ -19,8 +19,8 @@ import { box } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 
 import { CSS } from "@/platform/css";
-import { useCardBackground } from "@/platform/settings/background";
-import type { Group } from "@/platform/settings/section";
+import { useCardBackground } from "@/platform/page/background";
+import type { Group } from "@/platform/page/section";
 import { Session } from "@/session";
 
 const useVisibleGroups = (groups: Group[]): Group[] => {
@@ -76,7 +76,7 @@ export const Frame = ({ page, name, groups }: FrameProps): ReactElement => {
   };
   const section = sections.find(({ key }) => key === selected) ?? sections[0];
   return (
-    <Flex.Box x full empty ref={ref} className={CSS.B("settings")}>
+    <Flex.Box x full empty ref={ref} className={CSS.B("page")}>
       <Flex.Box
         el="nav"
         aria-label={name}
@@ -85,9 +85,9 @@ export const Frame = ({ page, name, groups }: FrameProps): ReactElement => {
         rounded={rail ? "medium" : "huge"}
         background={background}
         className={CSS.cls(
-          CSS.BE("settings", "nav"),
-          narrow && CSS.BEM("settings", "nav", "narrow"),
-          rail && CSS.BEM("settings", "nav", "rail"),
+          CSS.BE("page", "nav"),
+          narrow && CSS.BEM("page", "nav", "narrow"),
+          rail && CSS.BEM("page", "nav", "rail"),
         )}
       >
         {!narrow && (
@@ -99,23 +99,18 @@ export const Frame = ({ page, name, groups }: FrameProps): ReactElement => {
             tooltipLocation="right"
             aria-expanded={!collapsed}
             onClick={() => setCollapsed((prev) => !prev)}
-            className={CSS.BE("settings", "toggle")}
+            className={CSS.BE("page", "toggle")}
           >
             <Icon.Sidebar />
           </Button.Button>
         )}
         <Menu.Menu value={section?.key} onChange={setSelected}>
           {visible.map(({ key, name, sections }) => (
-            <Flex.Box
-              y
-              key={key}
-              gap="tiny"
-              className={CSS.BE("settings", "nav-group")}
-            >
+            <Flex.Box y key={key} gap="tiny" className={CSS.BE("page", "nav-group")}>
               <Text.Text
                 level="small"
                 color={9}
-                className={CSS.BE("settings", "nav-heading")}
+                className={CSS.BE("page", "nav-heading")}
               >
                 {name}
               </Text.Text>
@@ -128,19 +123,19 @@ export const Frame = ({ page, name, groups }: FrameProps): ReactElement => {
                   tooltip={name}
                   tooltipLocation="right"
                   hideTooltip={!rail}
-                  className={CSS.BE("settings", "nav-item")}
+                  className={CSS.BE("page", "nav-item")}
                 >
                   {icon}
-                  <span className={CSS.BE("settings", "nav-name")}>{name}</span>
+                  <span className={CSS.BE("page", "nav-name")}>{name}</span>
                 </Menu.Item>
               ))}
             </Flex.Box>
           ))}
         </Menu.Menu>
       </Flex.Box>
-      <div className={CSS.BE("settings", "page")}>
+      <div className={CSS.BE("page", "section")}>
         {section != null && (
-          <Flex.Box y className={CSS.BE("settings", "content")}>
+          <Flex.Box y className={CSS.BE("page", "content")}>
             <Text.Text level="h3" gap="medium">
               {section.icon}
               {section.name}

@@ -10,13 +10,13 @@
 import type { Icon } from "@synnaxlabs/lyra/icon";
 import type { FC } from "react";
 
-/** A page of Settings. The section list shows it by its icon and name. */
+/** A section of a page. The section list shows it by its icon and name. */
 export interface Section {
   key: string;
   name: string;
   icon: Icon.ReactElement;
   Content: FC;
-  /** Reports whether the user can use the section. Settings hides it when false. */
+  /** Reports whether the user can use the section. The page hides it when false. */
   useVisible?: () => boolean;
 }
 

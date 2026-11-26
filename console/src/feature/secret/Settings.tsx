@@ -19,9 +19,9 @@ import { TimeSpan, type TimeStamp } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 
 import { CertificatesMenu, SecretsMenu } from "@/feature/secret/ContextMenu";
+import { Collection } from "@/platform/collection";
 import { CSS } from "@/platform/css";
 import { Secret as PlatformSecret } from "@/platform/secret";
-import { Settings as PlatformSettings } from "@/platform/settings";
 
 /** Shows a certificate that uses a secret. */
 export interface SelectCertificate {
@@ -50,7 +50,7 @@ const SECRET_COLUMNS: List.Column[] = [
 ];
 
 const CreateSecret = (): ReactElement => {
-  const { created } = PlatformSettings.useCreate();
+  const { created } = Collection.useCreate();
   const [name, setName] = useState("");
   const [value, setValue] = useState("");
   const { update, variant } = Secret.useCreate({
@@ -60,9 +60,9 @@ const CreateSecret = (): ReactElement => {
     if (name.trim() === "" || variant === "loading") return;
     update({ name: name.trim(), source: "stored", value });
   };
-  const onKeyDown = PlatformSettings.useCreateKeyDown(save);
+  const onKeyDown = Collection.useCreateKeyDown(save);
   return (
-    <PlatformSettings.CreateFrame>
+    <Collection.CreateFrame>
       <List.Cell>
         <Input.Text
           value={name}
@@ -85,9 +85,9 @@ const CreateSecret = (): ReactElement => {
         />
       </List.Cell>
       <List.Cell>
-        <PlatformSettings.CreateActions onSave={save} status={variant} />
+        <Collection.CreateActions onSave={save} status={variant} />
       </List.Cell>
-    </PlatformSettings.CreateFrame>
+    </Collection.CreateFrame>
   );
 };
 
@@ -101,7 +101,7 @@ const SecretItem = ({ onSelectCertificate, ...rest }: SecretItemProps) => {
   const canUpdate = Access.useUpdateGranted(secret.resourceID(itemKey));
   const { update: rename } = Secret.useRename();
   const [element, setElement] = useState<HTMLElement | null>(null);
-  const itemClass = PlatformSettings.useItemClass(itemKey);
+  const itemClass = Collection.useItemClass(itemKey);
   const uses = useUses(itemKey);
   if (s == null) return null;
   return (
@@ -129,7 +129,7 @@ const SecretItem = ({ onSelectCertificate, ...rest }: SecretItemProps) => {
           </Text.Text>
         </List.Cell>
         <List.Cell>
-          <PlatformSettings.UsedBy
+          <Collection.UsedBy
             itemKey={itemKey}
             kind="secret"
             uses={uses}
@@ -157,7 +157,7 @@ export const Secrets = ({ onSelectCertificate }: SecretsProps): ReactElement => 
   const list = Secret.useList({ pageSize: 100 });
   const canCreate = Access.useCreateGranted(secret.TYPE_RESOURCE_ID);
   return (
-    <PlatformSettings.Table<secret.Key, secret.Secret>
+    <Collection.Table<secret.Key, secret.Secret>
       list={list}
       columns={SECRET_COLUMNS}
       noun="secrets"
@@ -168,7 +168,7 @@ export const Secrets = ({ onSelectCertificate }: SecretsProps): ReactElement => 
       {({ key, ...p }) => (
         <SecretItem key={key} {...p} onSelectCertificate={onSelectCertificate} />
       )}
-    </PlatformSettings.Table>
+    </Collection.Table>
   );
 };
 
@@ -238,7 +238,7 @@ export const Certificates = ({
   const list = Certificate.useList({ pageSize: 100 });
   const now = useNow(nextMinute);
   return (
-    <PlatformSettings.Table<certificate.Key, certificate.Certificate>
+    <Collection.Table<certificate.Key, certificate.Certificate>
       list={list}
       columns={CERTIFICATE_COLUMNS}
       noun="certificates"
@@ -247,6 +247,6 @@ export const Certificates = ({
       onShowSelected={onShowSelected}
     >
       {({ key, ...p }) => <CertificateItem key={key} {...p} now={now} />}
-    </PlatformSettings.Table>
+    </Collection.Table>
   );
 };
