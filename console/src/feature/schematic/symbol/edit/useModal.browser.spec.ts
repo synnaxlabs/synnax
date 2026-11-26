@@ -883,7 +883,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
         [{ symbolKey: symbol.key, group: grp.key }],
         { client, additionalRegistry: theming.REGISTRY },
       );
-      fireEvent.click(await screen.findByText("Body"));
+      fireEvent.click(await waitFor(() => getPartListItem("Body")));
       await screen.findByRole("heading", { name: "Body" });
       return symbol;
     };
@@ -1722,16 +1722,17 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       expect(await screen.findByLabelText("Fill while Trip")).toBeDefined();
     });
 
+    const on = (key: string, value: number): schematic.symbol.Command => ({
+      key,
+      name: key,
+      state: "active",
+      value: { type: "fixed", value },
+    });
+
     it("keeps a command that a toggle sends fixed on its state", async () => {
-      const createCommand = (key: string, value: number): schematic.symbol.Command => ({
-        key,
-        name: key,
-        state: "active",
-        value: { type: "fixed", value },
-      });
       await openPainted({
         states: [createState(), { ...createState(), key: "fault", name: "Fault" }],
-        commands: [createCommand("off", 0), createCommand("on", 1)],
+        commands: [on("off", 0), on("on", 1)],
         interactions: [{ type: "next", key: "c", commands: ["off", "on"] }],
       });
       fireEvent.click(screen.getByText("on"));
@@ -1940,6 +1941,113 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       expect(
         await screen.findByRole("heading", { name: "Whole drawing" }),
       ).toBeDefined();
+    });
+
+    it("adds a click that sends the first command, and opens it", async () => {
+      const symbol = await openPainted({ states: [createState()], commands: [GO] });
+      fireEvent.click(getEditSectionHeaderButton("Clicks"));
+      expect(await within(getInspector()).findByText("Command")).toBeDefined();
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () => {
+        const saved = await client.schematics.symbols.retrieve(symbol.key);
+        expect(saved.data.interactions).toEqual([
+          { type: "fire", key: expect.any(String), command: "go" },
+        ]);
+        expect(saved.data.variant).toBe("actuator");
+      });
+    });
+
+    it("moves a click to a part with no click", async () => {
+      const symbol = await openPainted({
+        states: [createState()],
+        commands: [GO],
+        interactions: [{ type: "fire", key: "c", command: "go" }],
+      });
+      fireEvent.click(screen.getByText("Sends Go"));
+      fireEvent.click(await within(getInspector()).findByText("Body"));
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () => {
+        const saved = await client.schematics.symbols.retrieve(symbol.key);
+        expect(saved.data.interactions).toEqual([
+          { type: "fire", key: "c", part: "body", command: "go" },
+        ]);
+      });
+    });
+
+    it("sends another command from a click that the inspector picks", async () => {
+      const stop = { ...GO, key: "stop", name: "Stop" };
+      const symbol = await openPainted({
+        states: [createState()],
+        commands: [GO, stop],
+        interactions: [{ type: "fire", key: "c", command: "go" }],
+      });
+      fireEvent.click(screen.getByText("Sends Go"));
+      fireEvent.click(await within(getInspector()).findByText("Stop"));
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () => {
+        const saved = await client.schematics.symbols.retrieve(symbol.key);
+        expect(saved.data.interactions).toEqual([
+          { type: "fire", key: "c", command: "stop" },
+        ]);
+      });
+    });
+
+    it("names both commands of a toggle click in the list", async () => {
+      await openPainted({
+        states: [createState()],
+        commands: [on("off", 0), on("on", 1)],
+        interactions: [{ type: "next", key: "c", commands: ["off", "on"] }],
+      });
+      expect(await screen.findByText("Toggles off and on")).toBeDefined();
+    });
+
+    it("removes a click at once", async () => {
+      const symbol = await openPainted({
+        states: [createState()],
+        commands: [GO],
+        interactions: [{ type: "fire", key: "c", command: "go" }],
+      });
+      fireEvent.click(screen.getByLabelText("Remove Whole drawing"));
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () => {
+        const saved = await client.schematics.symbols.retrieve(symbol.key);
+        expect(saved.data.interactions).toEqual([]);
+      });
+    });
+
+    it("removes the click on a part with the part", async () => {
+      const symbol = await openPainted({
+        states: [createState()],
+        commands: [GO],
+        interactions: [{ type: "fire", key: "c", part: "body", command: "go" }],
+      });
+      fireEvent.click(within(getPartListItem("Body")).getByRole("button"));
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () => {
+        const saved = await client.schematics.symbols.retrieve(symbol.key);
+        expect(saved.data.interactions).toEqual([]);
+      });
+    });
+
+    it("turns off the add of a click when every target has one", async () => {
+      await openPainted({
+        states: [createState()],
+        commands: [GO],
+        interactions: [
+          { type: "fire", key: "a", command: "go" },
+          { type: "fire", key: "b", part: "body", command: "go" },
+        ],
+      });
+      expect(getEditSectionHeaderButton("Clicks").getAttribute("aria-disabled")).toBe(
+        "true",
+      );
+    });
+
+    it("turns off the add of a click with no command", async () => {
+      await openPainted({ states: [createState()] });
+      expect(getEditSectionHeaderButton("Clicks").getAttribute("aria-disabled")).toBe(
+        "true",
+      );
     });
 
     it("saves a symbol with no click as static", async () => {
