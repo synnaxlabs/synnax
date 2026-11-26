@@ -199,35 +199,36 @@ var _ = Describe("References across holders", Ordered, func() {
 		},
 	)
 
-	It("Should list a valve as a reader of its state and a writer of its command", func(
-		ctx SpecContext,
-	) {
-		state, command := createChannel(ctx), createChannel(ctx)
-		var valve schematic.ValveNodeConfig
-		valve.SetDefaults()
-		valve.StateChannel, valve.CommandChannel = state.Key(), command.Key()
-		sch := schematic.Schematic{
-			Name:    "pid",
-			Project: &proj.Key,
-			Nodes: []schematic.Node{{
-				Key:    "valve",
-				Config: schematic.NodeConfig{Variant: valve},
-			}},
-		}
-		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			return layer.Schematic.NewWriter(tx).Create(ctx, &sch)
-		})).To(Succeed())
-		uses := MustSucceed(layer.Channel.Uses(
-			ctx,
-			db,
-			[]channel.Key{state.Key(), command.Key()},
-		))
-		holder := gorp.NewTarget("schematic", sch.Key)
-		Expect(uses).To(Equal([][]channel.Use{
-			{{Holder: holder, Direction: channel.DirectionRead}},
-			{{Holder: holder, Direction: channel.DirectionWrite}},
-		}))
-	})
+	It(
+		"Should list a setpoint as a reader of its state and a writer of its command",
+		func(ctx SpecContext) {
+			state, command := createChannel(ctx), createChannel(ctx)
+			var setpoint schematic.SetpointNodeConfig
+			setpoint.SetDefaults()
+			setpoint.StateChannel, setpoint.CommandChannel = state.Key(), command.Key()
+			sch := schematic.Schematic{
+				Name:    "pid",
+				Project: &proj.Key,
+				Nodes: []schematic.Node{{
+					Key:    "setpoint",
+					Config: schematic.NodeConfig{Variant: setpoint},
+				}},
+			}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return layer.Schematic.NewWriter(tx).Create(ctx, &sch)
+			})).To(Succeed())
+			uses := MustSucceed(layer.Channel.Uses(
+				ctx,
+				db,
+				[]channel.Key{state.Key(), command.Key()},
+			))
+			holder := gorp.NewTarget("schematic", sch.Key)
+			Expect(uses).To(Equal([][]channel.Use{
+				{{Holder: holder, Direction: channel.DirectionRead}},
+				{{Holder: holder, Direction: channel.DirectionWrite}},
+			}))
+		},
+	)
 
 	It("Should leave a built-in channel out of an Arc symbol search", func(
 		ctx SpecContext,

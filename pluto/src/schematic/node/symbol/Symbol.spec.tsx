@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { schematic, type Synnax } from "@synnaxlabs/client";
+import { type channel, DataType, schematic, type Synnax } from "@synnaxlabs/client";
 import {
   createTestClient,
   createTestClientWithPolicy,
   SyntheticCore,
 } from "@synnaxlabs/client/testutil";
-import { Rate, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { id, Rate, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, fireEvent, render } from "@testing-library/react";
 import { ReactFlowProvider } from "@xyflow/react";
 import type { FC, PropsWithChildren } from "react";
@@ -86,7 +86,7 @@ const createCustomSymbol = async (
   const client = createTestClient();
   const { key } = await client.schematics.symbols.create({
     name: "Custom",
-    data: { drawing: { type: "svg", markup }, variant: "static", ...data },
+    data: { drawing: { type: "svg", markup }, ...data },
   });
   const Wrapper = await createAsyncSynnaxWrapper({
     client,
@@ -94,6 +94,22 @@ const createCustomSymbol = async (
     telemFactories,
   });
   return { key, client, Wrapper };
+};
+
+// A node reads a channel that the Core does not hold as deleted, so a node that a
+// client renders binds channels that exist.
+const createChannels = async (
+  client: Synnax,
+  count: number,
+): Promise<channel.Key[]> => {
+  const created = await client.channels.create(
+    Array.from({ length: count }, () => ({
+      name: `symbol_${id.create()}`,
+      dataType: DataType.FLOAT64,
+      virtual: true,
+    })),
+  );
+  return created.map(({ key }) => key);
 };
 
 const MARKUP =
@@ -168,7 +184,7 @@ describe("Symbol node", () => {
 
   it("should write a command with no state to the channel of its binding", async () => {
     const { sinks, factory } = createChannelTelem();
-    const { key, Wrapper } = await createCustomSymbol(
+    const { key, client, Wrapper } = await createCustomSymbol(
       MARKUP,
       {
         commands: [{ key: "vent", name: "Vent", value: { type: "fixed", value: 1 } }],
@@ -176,14 +192,15 @@ describe("Symbol node", () => {
       },
       [factory],
     );
+    const [vent] = await createChannels(client, 1);
     const { container } = renderNode(
-      { spec: { type: "custom", key }, commands: [{ key: "vent", channel: 9 }] },
+      { spec: { type: "custom", key }, commands: [{ key: "vent", channel: vent }] },
       Wrapper,
     );
     const button = await vi.waitUntil(() => queryButton(container));
-    await vi.waitUntil(() => sinks.has(9));
+    await vi.waitUntil(() => sinks.has(vent));
     fireEvent.click(button);
-    await expect.poll(() => sinks.get(9)?.values).toEqual([1]);
+    await expect.poll(() => sinks.get(vent)?.values).toEqual([1]);
   });
 
   it("should acquire control of every command channel through one chip", async () => {
@@ -205,7 +222,6 @@ describe("Symbol node", () => {
       name: "Pair",
       data: {
         drawing: { type: "svg", markup: MARKUP },
-        variant: "static",
         states: [state("a"), state("b")],
         commands: [open("openA", "a"), open("openB", "b"), open("vent")],
       },
@@ -219,18 +235,22 @@ describe("Symbol node", () => {
       },
       telemFactories: [createChannelTelem().factory],
     });
+    const [a, b, vent] = await createChannels(client, 3);
     renderNode(
       {
         spec: { type: "custom", key },
         states: [
-          { key: "a", source: { type: "channel", command: 2 } },
-          { key: "b", source: { type: "channel", command: 4 } },
+          { key: "a", source: { type: "channel", command: a } },
+          { key: "b", source: { type: "channel", command: b } },
         ],
-        commands: [{ key: "vent", channel: 5 }],
+        commands: [{ key: "vent", channel: vent }],
       },
       Wrapper,
     );
-    const all = control.acquireChannelControl({ channels: [2, 4, 5], authority: 255 });
+    const all = control.acquireChannelControl({
+      channels: [a, b, vent],
+      authority: 255,
+    });
     await vi.waitFor(() => expect(chipSinks).toHaveBeenCalledWith(all));
     for (const [sink] of chipSinks.mock.calls) expect(sink).toEqual(all);
   });
@@ -465,9 +485,12 @@ describe("Symbol node", () => {
 
     it("should change no class of a part shape on a value update", async () => {
       const { sources, factory } = createChannelTelem();
+      const [level, command] = await createChannels(createTestClient(), 2);
       const { queryByRole, shape } = await renderParts(
         PART_CLICKS,
-        { states: [{ key: "level", source: { type: "channel", key: 5, command: 7 } }] },
+        {
+          states: [{ key: "level", source: { type: "channel", key: level, command } }],
+        },
         [factory],
       );
       const drawing = (await shape(".pluto-symbol__part--clickable")).closest("svg");
@@ -476,7 +499,7 @@ describe("Symbol node", () => {
       const changes: MutationRecord[] = [];
       const observer = new MutationObserver((records) => changes.push(...records));
       observer.observe(drawing, { subtree: true, attributeFilter: ["class"] });
-      act(() => sources.get(5)?.setValue(1));
+      act(() => sources.get(level)?.setValue(1));
       await vi.waitFor(() =>
         expect(queryByRole("img", { name: "Unknown" })).toBeNull(),
       );
@@ -933,5 +956,50 @@ describe("Symbol node", () => {
   ] as const)("should warn for %s", async (_, spec) => {
     const { findByText } = renderNode({ spec });
     await findByText("Missing symbol");
+  });
+
+  describe("deleted channel", () => {
+    const client = createTestClient();
+
+    // The control chip is hidden, as it needs a schematic's controller.
+    const renderValve = async (state: channel.Key, command: channel.Key) => {
+      const Wrapper = await createAsyncSynnaxWrapper({
+        client,
+        additionalRegistry: REGISTRY,
+        telemFactories: [],
+      });
+      return renderNode(
+        {
+          spec: { type: "builtin", name: "valve" },
+          control: { hidden: true },
+          states: [{ key: "active", source: { type: "channel", key: state, command } }],
+        },
+        Wrapper,
+      );
+    };
+
+    it("should disable and badge a valve whose state channel was deleted", async () => {
+      const [state, command] = await createChannels(client, 2);
+      await client.channels.delete(state);
+      const { container, findByText } = await renderValve(state, command);
+      await findByText("Deleted channel");
+      expect(queryButton(container)?.disabled).toBe(true);
+    });
+
+    it("should disable and badge a valve whose command channel was deleted", async () => {
+      const [state, command] = await createChannels(client, 2);
+      await client.channels.delete(command);
+      const { container, findByText } = await renderValve(state, command);
+      await findByText("Deleted channel");
+      expect(queryButton(container)?.disabled).toBe(true);
+    });
+
+    it("should leave a valve whose channels exist enabled and unbadged", async () => {
+      const [state, command] = await createChannels(client, 2);
+      const { container, queryByText } = await renderValve(state, command);
+      const button = await vi.waitUntil(() => queryButton(container));
+      expect(queryByText("Deleted channel")).toBeNull();
+      expect(button.disabled).toBe(false);
+    });
   });
 });

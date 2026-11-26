@@ -16,7 +16,7 @@ from console.case import ConsoleCase
 from console.schematic import CustomSymbol, Schematic
 from console.schematic.symbol_toolbar import SymbolToolbar
 from framework.utils import assert_envelope, get_fixture_path
-from x import random_name, spatial
+from x import random_name
 
 TEST_SYMBOL_SVG = get_fixture_path("test_symbol.svg")
 STYLED_SYMBOL_SVG = get_fixture_path("styled_symbol.svg")
@@ -189,7 +189,7 @@ class CustomSymbols(ConsoleCase):
             self.test_symbol_name, select_group=self.test_group_name
         ), f"Symbol '{self.test_symbol_name}' should exist after creation"
 
-        self._create_actuator(drawn_like=self.test_symbol_name)
+        self._create_actuator(toolbar)
         custom_symbol_config = CustomSymbol(
             label="Actuator Test",
             symbol_name=self.actuator_symbol_name,
@@ -207,46 +207,17 @@ class CustomSymbols(ConsoleCase):
             f"Symbol ID should start with 'rf__node-', got '{symbol_id}'"
         )
 
-    def _create_actuator(self, *, drawn_like: str) -> None:
-        """Create an actuator symbol through the client, with the drawing and group of
-        the symbol named drawn_like. The editor cannot add a click.
+    def _create_actuator(self, toolbar: SymbolToolbar) -> None:
+        """Create an actuator symbol in the editor, whose click toggles between the
+        commands Off and On of its Active state.
         """
-        base = next(
-            s for s in self.client.schematics.symbols.retrieve() if s.name == drawn_like
-        )
-        data = base.data.model_copy(
-            update={
-                "states": [
-                    sy.schematic.symbol.EnumerationState(
-                        key="active",
-                        name="Active",
-                        match=sy.schematic.symbol.WithinMatcher(
-                            bounds=spatial.Bounds(lower=0.9, upper=1.1)
-                        ),
-                    )
-                ],
-                "commands": [
-                    sy.schematic.symbol.Command(
-                        key=key,
-                        name=name,
-                        state="active",
-                        value=sy.schematic.symbol.FixedCommandValue(value=value),
-                    )
-                    for key, name, value in (("off", "Off", 0), ("on", "On", 1))
-                ],
-                "interactions": [
-                    sy.schematic.symbol.NextInteraction(
-                        key="click", commands=["off", "on"]
-                    )
-                ],
-                "variant": "actuator",
-            }
-        )
-        self.client.schematics.symbols.create(
-            sy.schematic.symbol.Symbol(
-                name=self.actuator_symbol_name, data=data, group=base.group
-            )
-        )
+        editor = toolbar.create_symbol()
+        editor.upload_svg(TEST_SYMBOL_SVG)
+        editor.set_name(self.actuator_symbol_name)
+        editor.add_command("Off", state="Active", value="Base")
+        editor.add_command("On", state="Active", value="Active")
+        editor.add_toggle_click()
+        editor.save()
 
     def test_rename_symbol(self, toolbar: SymbolToolbar) -> None:
         """Test renaming a symbol via context menu."""

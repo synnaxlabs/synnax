@@ -36,7 +36,6 @@ func heater() symbol.Symbol {
 		Name: "Heater",
 		Data: symbol.Spec{
 			Drawing: symbol.Drawing{Variant: symbol.SvgDrawing{Markup: "<svg/>"}},
-			Variant: "static",
 			States: []symbol.State{
 				{Variant: symbol.EnumerationState{
 					BaseState: symbol.BaseState{Key: "active", Name: "Active"},
@@ -325,10 +324,12 @@ var _ = Describe("Symbol node channel bindings", func() {
 
 	It("Should list a node as a reader of its state's channel and a writer of its "+
 		"command channels", func(ctx SpecContext) {
-		s := bound(ctx, ch1, ch2, ch3)
+		// Other specs bind the shared channels, so this one binds its own.
+		keys := MustSucceed(channeltestutil.CreateVirtual(ctx, db, channelSvc, 3))
+		s := bound(ctx, keys[0], keys[1], keys[2])
 		createSchematic(ctx, &s)
 		holder := gorp.NewTarget("schematic", s.Key)
-		Expect(channelSvc.Uses(ctx, db, []channel.Key{ch1, ch2, ch3})).To(Equal(
+		Expect(channelSvc.Uses(ctx, db, keys)).To(Equal(
 			[][]channel.Use{
 				{{Holder: holder, Direction: channel.DirectionRead}},
 				{{Holder: holder, Direction: channel.DirectionWrite}},

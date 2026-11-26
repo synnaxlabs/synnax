@@ -37,6 +37,9 @@ type registeredTable interface {
 	// referenceIndex returns the index of the reference named name among the references
 	// of the table, and false when the table has none of that name.
 	referenceIndex(name string) (int, bool)
+	// release stages, in tx, the removal of the unique values of the entries with the
+	// text keys keys.
+	release(tx Tx, keys []string) error
 	// detach removes or inlines the targets of ops in the entry with the text key k and
 	// writes it back as a detach.
 	detach(ctx context.Context, tx Tx, k string, ops []detachOp) error
@@ -90,7 +93,7 @@ type detachOp struct {
 type registry struct {
 	// version counts the changes to the registered tables and their references.
 	version atomic.Uint64
-	// mu guards tables, names, referencing, and indexed.
+	// mu guards tables, names, referencing, indexed, and spaces.
 	mu     sync.RWMutex
 	tables map[string]registeredTable
 	// names maps a key prefix to the name of the registered table that stores under it.
@@ -99,6 +102,8 @@ type registry struct {
 	referencing map[string][]registeredReference
 	// indexed maps a key prefix to the open tables with indexes that store under it.
 	indexed map[string][]any
+	// spaces maps the name of a space of unique indexes to its *uniqueSpace.
+	spaces map[string]any
 }
 
 func newRegistry() *registry {
@@ -107,6 +112,7 @@ func newRegistry() *registry {
 		names:       make(map[string]string),
 		referencing: make(map[string][]registeredReference),
 		indexed:     make(map[string][]any),
+		spaces:      make(map[string]any),
 	}
 }
 
@@ -213,10 +219,13 @@ func checkIssues(ref registeredReference, name string, table registeredTable) er
 	)
 }
 
-func (r *registry) unregister(name string, prefix []byte) {
+// unregister removes the table named name and its references from r, and calls leave
+// with the lock of r held.
+func (r *registry) unregister(name string, prefix []byte, leave func(*registry)) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.version.Add(1)
+	leave(r)
 	delete(r.tables, name)
 	delete(r.names, string(prefix))
 	for target, refs := range r.referencing {
@@ -661,8 +670,14 @@ func (w *planWalk) checkRestrictions() error {
 
 // apply carries out what p adds to the delete that the caller asked for: it detaches
 // first, then cascades, so each Inline reads a target that still exists. It leaves the
-// entries the caller asked to delete in place.
+// entries the caller asked to delete in place. Before the detaches, it releases the
+// unique values of every entry that p deletes, so a detached entry can take one.
 func (r *registry) apply(ctx context.Context, tx Tx, p *deletePlan) error {
+	if len(p.detaches) > 0 {
+		if err := r.release(tx, p); err != nil {
+			return err
+		}
+	}
 	for dep, ops := range p.detaches {
 		t, err := r.table(dep.Table)
 		if err != nil {
@@ -682,4 +697,26 @@ func (r *registry) apply(ctx context.Context, tx Tx, p *deletePlan) error {
 		}
 	}
 	return nil
+}
+
+// release stages, in tx, the removal of the unique values of every entry that p
+// deletes.
+func (r *registry) release(tx Tx, p *deletePlan) error {
+	if err := r.releaseKeys(tx, p.table, p.requested); err != nil {
+		return err
+	}
+	for name, keys := range p.cascades {
+		if err := r.releaseKeys(tx, name, keys); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *registry) releaseKeys(tx Tx, table string, keys set.Set[string]) error {
+	t, err := r.table(table)
+	if err != nil {
+		return err
+	}
+	return t.release(tx, keys.Slice())
 }
