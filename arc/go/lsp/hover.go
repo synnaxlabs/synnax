@@ -610,54 +610,7 @@ func (s *Server) symbolHover(sym *symbol.Symbol, name string) string {
 		displayName = sym.Name
 	}
 
-	var d doc.Doc
-	switch sym.Kind {
-	case symbol.KindFunction:
-		kindDesc := formatFunctionKindDescription(sym)
-		if sym.Deprecated != nil {
-			kindDesc += " (deprecated)"
-		}
-		d = doc.New(doc.TitleWithKind(displayName, kindDesc))
-		d = d.With(doc.Divider())
-		d = d.With(doc.Code("arc", formatFunctionSignatureContent(sym)))
-		if sym.Trigger.Target != "" {
-			d = d.With(doc.Detail("Trigger", sym.Trigger.Target, true))
-		}
-	case symbol.KindModule, symbol.KindModuleAlias:
-		d = doc.New(doc.TitleWithKind(displayName, "Module"))
-		if members := formatModuleMembersList(sym); len(members) > 0 {
-			d = d.With(doc.Paragraph("Members: " + strings.Join(members, ", ")))
-		}
-	case symbol.KindConstant:
-		d = doc.New(doc.TitleWithKind(displayName, "Constant"))
-		d = d.With(doc.Detail("Type", sym.Type.String(), true))
-	case symbol.KindVariable:
-		d = doc.New(doc.TitleWithKind(displayName, "Variable"))
-		d = d.With(doc.Detail("Type", variableTypeDetail(sym), true))
-	case symbol.KindStatefulVariable:
-		d = doc.New(doc.TitleWithKind(displayName, "Stateful Variable"))
-		d = d.With(doc.Paragraph("Persists across executions"))
-		d = d.With(doc.Detail("Type", sym.Type.String(), true))
-	case symbol.KindInput:
-		d = doc.New(doc.TitleWithKind(displayName, "Input Parameter"))
-		d = d.With(doc.Detail("Type", sym.Type.String(), true))
-	case symbol.KindOutput:
-		d = doc.New(doc.TitleWithKind(displayName, "Output Parameter"))
-		d = d.With(doc.Detail("Type", sym.Type.String(), true))
-	case symbol.KindChannel:
-		d = doc.New(doc.TitleWithKind(displayName, "Channel"))
-		d = d.With(doc.Detail("Type", sym.Type.String(), true))
-	case symbol.KindSequence:
-		d = doc.New(doc.TitleWithKind(displayName, "Sequence"))
-		if stages := formatSequenceStagesList(sym); len(stages) > 0 {
-			d = d.With(doc.Paragraph("Stages: " + strings.Join(stages, ", ")))
-		}
-	case symbol.KindStage:
-		d = doc.New(doc.TitleWithKind(displayName, "Stage"))
-	case symbol.KindBlock, symbol.KindLoop, symbol.KindLoopVariable, symbol.KindAmbient:
-		d = doc.New(doc.Title(displayName))
-		d = d.With(doc.Detail("Type", sym.Type.String(), true))
-	}
+	d := kindDoc(sym, displayName)
 	docSrc := sym
 	if sym.Kind == symbol.KindModuleAlias && sym.Target != nil {
 		docSrc = sym.Target
@@ -681,6 +634,59 @@ func (s *Server) symbolHover(sym *symbol.Symbol, name string) string {
 		d = d.With(doc.Paragraph(docComment))
 	}
 	return d.Render()
+}
+
+// typedKindTitles holds the title of each kind whose hover shows only the type.
+var typedKindTitles = map[symbol.Kind]string{
+	symbol.KindConstant: "Constant",
+	symbol.KindInput:    "Input Parameter",
+	symbol.KindOutput:   "Output Parameter",
+	symbol.KindChannel:  "Channel",
+}
+
+// kindDoc returns the hover of sym for its kind, titled displayName.
+func kindDoc(sym *symbol.Symbol, displayName string) doc.Doc {
+	if title, ok := typedKindTitles[sym.Kind]; ok {
+		return doc.New(doc.TitleWithKind(displayName, title)).
+			With(doc.Detail("Type", sym.Type.String(), true))
+	}
+	var d doc.Doc
+	switch sym.Kind {
+	case symbol.KindFunction:
+		kindDesc := formatFunctionKindDescription(sym)
+		if sym.Deprecated != nil {
+			kindDesc += " (deprecated)"
+		}
+		d = doc.New(doc.TitleWithKind(displayName, kindDesc))
+		d = d.With(doc.Divider())
+		d = d.With(doc.Code("arc", formatFunctionSignatureContent(sym)))
+		if sym.Trigger.Target != "" {
+			d = d.With(doc.Detail("Trigger", sym.Trigger.Target, true))
+		}
+	case symbol.KindModule, symbol.KindModuleAlias:
+		d = doc.New(doc.TitleWithKind(displayName, "Module"))
+		if members := formatModuleMembersList(sym); len(members) > 0 {
+			d = d.With(doc.Paragraph("Members: " + strings.Join(members, ", ")))
+		}
+	case symbol.KindVariable:
+		d = doc.New(doc.TitleWithKind(displayName, "Variable"))
+		d = d.With(doc.Detail("Type", variableTypeDetail(sym), true))
+	case symbol.KindStatefulVariable:
+		d = doc.New(doc.TitleWithKind(displayName, "Stateful Variable"))
+		d = d.With(doc.Paragraph("Persists across executions"))
+		d = d.With(doc.Detail("Type", sym.Type.String(), true))
+	case symbol.KindSequence:
+		d = doc.New(doc.TitleWithKind(displayName, "Sequence"))
+		if stages := formatSequenceStagesList(sym); len(stages) > 0 {
+			d = d.With(doc.Paragraph("Stages: " + strings.Join(stages, ", ")))
+		}
+	case symbol.KindStage:
+		d = doc.New(doc.TitleWithKind(displayName, "Stage"))
+	case symbol.KindBlock, symbol.KindLoop, symbol.KindLoopVariable, symbol.KindAmbient:
+		d = doc.New(doc.Title(displayName))
+		d = d.With(doc.Detail("Type", sym.Type.String(), true))
+	}
+	return d
 }
 
 // formatFunctionSignatureContent returns the function signature without code fences.

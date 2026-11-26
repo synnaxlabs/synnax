@@ -154,7 +154,7 @@ func placeholderPathAt(
 			runeStart = append(runeStart, i)
 		}
 		runeStart = append(runeStart, len(seg.Text))
-		offset := func(rune int) int { return bodyOff + seg.Offsets[runeStart[rune]] }
+		offset := func(i int) int { return bodyOff + seg.Offsets[runeStart[i]] }
 		for _, p := range barePaths(inner, nil) {
 			first, last := inner[p.idents[0]], inner[p.idents[len(p.idents)-1]]
 			r := protocol.Range{

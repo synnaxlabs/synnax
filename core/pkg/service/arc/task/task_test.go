@@ -211,7 +211,8 @@ var _ = Describe("Task", Ordered, func() {
 				resolver := channelSvc.NewArcSymbolResolver(db)
 				root := symboltestutil.NewRoot(
 					resolver,
-					values(arcstatus.NewSymbols())...)
+					values(arcstatus.NewSymbols())...,
+				)
 				module, err := arc.CompileGraph(ctx, g, root)
 				if err != nil {
 					return svcarc.AutomationArc{}, err
