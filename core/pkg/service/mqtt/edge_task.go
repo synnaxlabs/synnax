@@ -91,6 +91,12 @@ func newPublishedTag(
 	if err != nil {
 		return publishedTag{}, sparkplug.Tag{}, errors.Wrap(err, "command channel")
 	}
+	if cmd := channels[cfg.CommandChannel]; cmd.IsIndex {
+		return publishedTag{}, sparkplug.Tag{}, errors.Wrapf(
+			validate.ErrValidation,
+			"tag %s: command channel %s is an index channel", cfg.Name, cmd.Name,
+		)
+	}
 	if !sparkplug.Compatible(command.dataType, sparkplugType) {
 		return publishedTag{}, sparkplug.Tag{}, errors.Wrapf(
 			validate.ErrValidation,
