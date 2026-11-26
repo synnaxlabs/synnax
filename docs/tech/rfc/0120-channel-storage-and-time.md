@@ -806,58 +806,80 @@ Each rule closes a way to pair data with the wrong stamps and give no error.
 
 ### 4.12 Package boundaries
 
-| Concern                                                       | Owner                                                                        | May import                                                                       | Must not                                                    |
-| ------------------------------------------------------------- | ---------------------------------------------------------------------------- | -------------------------------------------------------------------------------- | ----------------------------------------------------------- |
-| `Series.Clock`, `DataTypeCode`                                | `x/go/telem`, `x/ts`, `x/py`, `x/cpp`, from `schemas/x/telem.oracle`         | nothing of Synnax                                                                | name a channel or a clock record                            |
-| Frame codec                                                   | the framer codec package and the three client codecs                         | `x/telem`, the key types of `distribution/channel`                               | read a channel record on decode; resolve anything per frame |
-| Declared type                                                 | the channel service                                                          | Gorp                                                                             | Cesium                                                      |
-| Key types and the key allocator (the counters and `Allocate`) | `core/pkg/distribution/channel`                                              | Gorp KV                                                                          | hold a service; make a record for a clock                   |
-| New clocks and claims at open                                 | the framer writer                                                            | the channel key allocator in `distribution/channel`, the claim table of RFC 0121 | Gorp records                                                |
-| New clock keys of a task at save                              | the task service                                                             | the channel key allocator in `distribution/channel`                              | the framer                                                  |
-| Clock keys                                                    | the producer's own config, or the framer's entry for a subject and client ID | -                                                                                | the channel record                                          |
-| Clock owner lookup                                            | each producer service, injected at the API layer                             | the unique space of clock keys                                                   | the framer                                                  |
-| Setting `Clock` on a series                                   | the framer writer and iterator                                               | Cesium's public API                                                              | client readers                                              |
-| Type and clock per segment                                    | Cesium (RFC 0121)                                                            | `x/telem`                                                                        | channel names, Gorp                                         |
-| The `"time"` key                                              | client write APIs                                                            | the writer open response                                                         | the Core's channel lookup                                   |
-| Arrival stamps                                                | the framer writer                                                            | `x/telem`                                                                        | Cesium                                                      |
-| Join node                                                     | `arc/go/stl`                                                                 | Arc runtime types                                                                | the Core, channel records                                   |
-| Join policy and the primary                                   | the calculation service                                                      | `arc/go`                                                                         | Arc flows                                                   |
-| Widening of mixed types                                       | client series libraries                                                      | -                                                                                | the Core                                                    |
-| Name proposers                                                | each integration, injected into the task service                             | channel and group services                                                       | load-time registration                                      |
-| Port to channel link                                          | the typed device (RFC 0081)                                                  | the channel key type                                                             | the task config                                             |
-| Device path resolver                                          | each integration, injected at the API layer                                  | its device package, channel paths                                                | the channel service                                         |
-| Device name uniqueness                                        | the shared unique space of RFC 0119 §4.1                                     | Gorp                                                                             | a check across tables in a service                          |
+| Concern                                                       | Owner                                                                | May import                                         | Must not                                                    |
+| ------------------------------------------------------------- | -------------------------------------------------------------------- | -------------------------------------------------- | ----------------------------------------------------------- |
+| `Series.Clock`, `DataTypeCode`                                | `x/go/telem`, `x/ts`, `x/py`, `x/cpp`, from `schemas/x/telem.oracle` | nothing of Synnax                                  | name a channel or a clock record                            |
+| Frame codec                                                   | the framer codec package and the three client codecs                 | `x/telem`, the key types of `distribution/channel` | read a channel record on decode; resolve anything per frame |
+| Declared type                                                 | the channel service                                                  | Gorp                                               | Cesium                                                      |
+| Key types and the key allocator (the counters and `Allocate`) | `core/pkg/distribution/channel`                                      | Gorp KV                                            | hold a service; make a record for a clock                   |
+| Clock choice: continuation, leases, pause moves               | Cesium (RFC 0121)                                                    | an injected lease of clock keys                    | Gorp, the framer                                            |
+| Time groups                                                   | each producer, at writer open                                        | its own config or compiled program                 | a stored config                                             |
+| The Arc grouping rule                                         | `arc/go/analyzer`                                                    | the Arc IR                                         | the runtimes                                                |
+| Setting `Clock` on a series                                   | the framer writer and iterator                                       | Cesium's public API                                | client readers                                              |
+| Type and clock per segment                                    | Cesium (RFC 0121)                                                    | `x/telem`                                          | channel names, Gorp                                         |
+| The `"time"` key                                              | client write APIs                                                    | the writer open response                           | the Core's channel lookup                                   |
+| Arrival stamps                                                | the framer writer                                                    | `x/telem`                                          | Cesium                                                      |
+| Join node                                                     | `arc/go/stl`                                                         | Arc runtime types                                  | the Core, channel records                                   |
+| Join policy and the primary                                   | the calculation service                                              | `arc/go`                                           | Arc flows                                                   |
+| Widening of mixed types                                       | client series libraries                                              | -                                                  | the Core                                                    |
+| Name proposers                                                | each integration, injected into the task service                     | channel and group services                         | load-time registration                                      |
+| Port to channel link                                          | the typed device (RFC 0081)                                          | the channel key type                               | the task config                                             |
+| Device path resolver                                          | each integration, injected at the API layer                          | its device package, channel paths                  | the channel service                                         |
+| Device name uniqueness                                        | the shared unique space of RFC 0119 §4.1                             | Gorp                                               | a check across tables in a service                          |
 
 Two shallow packages change. `core/pkg/storage/ts` holds only Cesium aliases
 (`core/pkg/storage/ts/ts.go:23-30`), so callers import Cesium. Only the three calls of
 `core/pkg/distribution/channel` that forward to Cesium fold into
-`core/pkg/service/channel`. The key types and the key allocator stay, below the framer,
-which allocates clock keys from it.
+`core/pkg/service/channel`. The key types and the key allocator stay, below storage,
+which leases clock keys from it through an injected open option.
 
 ### 4.13 Performance gate
 
-- **Method**: Each gate benchmark runs 10 rounds, base and head interleaved on one quiet
+No speed gate runs on `main` or in CI (D-430). The box runs the benchmarks of each
+branch against `main` and reports to the founder session.
+
+- **R1, the live path pays nothing new**: Per frame, one presence count per declared
+  group, one store per series, and one compare per series in each filter. Only an
+  adaptive group pays, per pause and per moved channel.
+- **R2, reads**: Every read is within 15% of `main` in time, bytes, and allocations,
+  with read checks off, at 1 and 8 readers (D-459, RFC 0121 §8). The storage branch
+  misses it today on point and full reads (D-459): the 64 KiB block read per search
+  step, the block cache mutex, and `ReadSamples`. Hidden clocks neither cause nor fix
+  those misses and add clock finding on top, so they wait on D-459's fixes.
+- **The read prototype** (Phase 17): The storage reads of §4.5 on the pointer log, with
+  today's index keys as clocks and no format change. Phases 22 to 40 start only when the
+  one-clock reads are within 15% of `main`, the prototype is within 3% of the storage
+  branch on them, and the reads with two clocks or 64 pauses are within 2 times their
+  one-clock reads.
+- **The compare script**: Before the prototype is measured, the box's
+  `scripts/compare_benchmarks.py` gets `layout=log` cases for `ReadDomains`,
+  `ReadSamples`, and `StreamFixedSpan`, puts `ReadOneClock` and `SeekPointerLog` in its
+  read group, fixes its `ts/codec` path, and reads its table against 15%, not its 5%
+  exit code. New cases: `keys=108`, `clocks=2`, `jumps=64`, `parts=true`, and
+  `channels=108`.
+- **P**: `BenchmarkReadDomains` with `jumps` of 16, 32, 64, and 128 measures one key
+  against the same key on a clock of its own. P is the largest count whose read costs at
+  most 2 times the own clock.
+- **Method**: Each benchmark runs 10 rounds, base and head interleaved on one quiet
   host, after one run of `main` against `main` that measures the noise.
-- **Fail rule**: A time rise over 5% at p < 0.05 in `benchstat`, or any rise in
-  allocations per operation. TypeScript and Python gate on time only. New work that the
+- **Bar**: Outside reads, a time rise over 5% at p < 0.05 in `benchstat`, or any rise in
+  allocations per operation. TypeScript and Python measure time only. New work that the
   base never did is held to its bound in RFC 0119 §4.8 instead.
-- **Reads**: Reads of stored data and their clocks are held to RFC 0121 §8: within 15%
-  of `main` in time, bytes, and allocations, with read checks off, at 1 and 8 readers.
 - **Floors**: A target is a ratio to a floor measured in the same run by a Go benchmark
   of the standard library: `BenchmarkFloorCopy`, the time of `copy` over n bytes. A
-  floor never gates. Each ratio is on a shape that Phase 1 records, as channels ×
-  samples of `float32` (4 kB of payload). A codec ratio is the bench host's base ratio
-  plus the 5% of the fail rule, so a head that passes the time rule meets it.
+  floor never gates. Each ratio is on a shape that the box records on `main`, as
+  channels × samples of `float32` (4 kB of payload). A codec ratio is the bench host's
+  base ratio plus the 5% of the bar.
 
-| Path                        | Benchmarks                                                                    | Target                                                                                                                                                                                        | Napkin sketch                                                                                                                                                                            |
-| --------------------------- | ----------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Encode                      | `BenchmarkEncode`, `codec.bench.ts`, the single-channel benchmarks of Phase 1 | Steady state: 0 extra bytes, 0 extra allocations, time within noise of the baseline at every Phase 1 shape. 100 × 10: at most 300 times the copy floor of 4 kB. 1000 × 1: at most 3,650 times | On the bench host a 4 kB copy takes 28 ns, in cache. 100 × 10: 100 series at about 77 ns (7.7 µs). 1000 × 1: 1000 series at about 96 ns (96 µs). One XOR and OR per series adds under 1% |
-| Decode                      | `BenchmarkDecode` and its client twins                                        | Steady state: 0 extra allocations, time within noise of the baseline at every Phase 1 shape. 100 × 10: at most 450 times the copy floor of 4 kB. 1000 × 1: at most 3,650 times                | One allocation and one copy per series: 100 × 10 is about 116 ns per series (11.6 µs), 1000 × 1 about 96 ns (96 µs). A 4-byte store per series hides in both                             |
-| Write                       | framer `BenchmarkWrite`, `BenchmarkOpen`                                      | Within noise. One store per series, no new map lookup                                                                                                                                         | The validator already looks up each series (`validator.go:75`); the clock sits in the same value                                                                                         |
-| Stream                      | `BenchmarkStreamKeyChange`, TypeScript cache and line plot benchmarks         | Within noise. One compare per series in each filter and per series pair in a reader                                                                                                           | A relay filter over 501 series is 501 lookups (10 µs) today; 501 compares add about 0.25 µs                                                                                              |
-| Live calculator             | Phase 1 benchmarks: 1 kHz on one clock, 1 kHz with 1 Hz, 10 kHz               | One clock: within noise. Two clocks: no worse than arrival pairing on the baseline. No allocation and no scheduler cycle per sample                                                           | The join steps one cursor per input per output sample, about 5 ns. At 10 kHz, 50 µs of CPU per second                                                                                    |
-| Historical calculation read | `BenchmarkIteratorHistorical`, the two-clock read of Phase 1                  | One clock: within noise. Two clocks: at most 2 times the one-clock time per output sample                                                                                                     | Open costs about 1.9 ms, mostly compile. A merge of 1 M samples at 5 ns is 5 ms                                                                                                          |
-| Driver frame build          | the Driver frame build benchmark of Phase 1, `write_task_bench.cpp`           | 8n bytes of stamps written per clock, once. Time within noise for one clock, lower for a task that had several index keys                                                                     | 1000 stamps are 8 kB. A task with k index keys writes them k times today (`driver/common/sample_clock.h:237-242`)                                                                        |
+| Path                        | Benchmarks                                                                    | Target                                                                                                                                                                                         | Napkin sketch                                                                                                                                                                            |
+| --------------------------- | ----------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Encode                      | `BenchmarkEncode`, `codec.bench.ts`, the single-channel benchmarks of the box | Steady state: 0 extra bytes, 0 extra allocations, time within noise of the baseline at every recorded shape. 100 × 10: at most 300 times the copy floor of 4 kB. 1000 × 1: at most 3,650 times | On the bench host a 4 kB copy takes 28 ns, in cache. 100 × 10: 100 series at about 77 ns (7.7 µs). 1000 × 1: 1000 series at about 96 ns (96 µs). One XOR and OR per series adds under 1% |
+| Decode                      | `BenchmarkDecode` and its client twins                                        | Steady state: 0 extra allocations, time within noise of the baseline at every recorded shape. 100 × 10: at most 450 times the copy floor of 4 kB. 1000 × 1: at most 3,650 times                | One allocation and one copy per series: 100 × 10 is about 116 ns per series (11.6 µs), 1000 × 1 about 96 ns (96 µs). A 4-byte store per series hides in both                             |
+| Write                       | framer `BenchmarkWrite`, `BenchmarkOpen`                                      | Within noise. One store per series, no new map lookup                                                                                                                                          | The validator already looks up each series (`validator.go:75`); the clock sits in the same value                                                                                         |
+| Stream                      | `BenchmarkStreamKeyChange`, TypeScript cache and line plot benchmarks         | Within noise. One compare per series in each filter and per series pair in a reader                                                                                                            | A relay filter over 501 series is 501 lookups (10 µs) today; 501 compares add about 0.25 µs                                                                                              |
+| Live calculator             | Box benchmarks: 1 kHz on one clock, 1 kHz with 1 Hz, 10 kHz                   | One clock: within noise. Two clocks: no worse than arrival pairing on the baseline. No allocation and no scheduler cycle per sample                                                            | The join steps one cursor per input per output sample, about 5 ns. At 10 kHz, 50 µs of CPU per second                                                                                    |
+| Historical calculation read | `BenchmarkIteratorHistorical`, `BenchmarkIteratorCalc_TwoClocks`              | One clock: within noise. Two clocks: at most 2 times the one-clock time per output sample                                                                                                      | Open costs about 1.9 ms, mostly compile. A merge of 1 M samples at 5 ns is 5 ms                                                                                                          |
+| Driver frame build          | the Driver frame build benchmark, `write_task_bench.cpp`                      | 8n bytes of stamps written per clock, once. Time within noise for one clock, lower for a task that had several index keys                                                                      | 1000 stamps are 8 kB. A task with k index keys writes them k times today (`driver/common/sample_clock.h:237-242`)                                                                        |
 
 ## 5 Implementation phases
 
