@@ -92,6 +92,11 @@ Port::open(const synnax::serial::Properties &props) {
         return {nullptr, translate("failed to open serial port " + props.port, ec)};
     if (auto err = native::lock(port->handle(), props.port)) return {nullptr, err};
     if (auto err = native::configure(port->handle(), props)) return {nullptr, err};
+    if (const auto watched = native::watch(port->handle(), port->line))
+        return {
+            nullptr,
+            translate("failed to open serial port " + props.port, watched)
+        };
     return {std::move(port), x::errors::NIL};
 }
 
@@ -124,13 +129,19 @@ Port::read(const x::telem::TimeSpan timeout) {
         [this] { cancel(this->device); }
     );
     if (done.timed_out()) return {{}, x::errors::NIL};
-    if (done.ec)
-        return {
-            {},
-            translate("failed to read from serial port " + this->path, done.ec)
-        };
+    const auto context = "failed to read from serial port " + this->path;
+    if (done.ec) return {{}, translate(context, done.ec)};
+    const auto [received, ec] = native::receive(
+        this->handle(),
+        this->line,
+        {this->buffer.data(), done.size}
+    );
+    if (ec) return {{}, translate(context, ec)};
     return {
-        {.data = {this->buffer.data(), done.size}, .time = done.time},
+        {.data = {this->buffer.data(), received.size},
+         .time = done.time,
+         .errors = received.errors,
+         .overruns = received.overruns},
         x::errors::NIL,
     };
 }

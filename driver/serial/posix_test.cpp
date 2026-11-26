@@ -8,7 +8,11 @@
 // included in the file licenses/APL.txt.
 
 #include <cerrno>
+#include <cstdint>
+#include <optional>
+#include <span>
 #include <system_error>
+#include <vector>
 
 #include "asio/error.hpp"
 #include "gtest/gtest.h"
@@ -16,7 +20,87 @@
 #include "x/cpp/testutil/testutil.h"
 
 #include "driver/serial/errors.h"
+#include "driver/serial/posix.h"
 #include "driver/transport/errors.h"
+
+namespace driver::serial::native {
+namespace {
+using Bytes = std::vector<std::uint8_t>;
+
+/// @brief strips each chunk in turn and returns the bytes that remain.
+Bytes strip_all(
+    std::uint8_t &mark,
+    const std::vector<Bytes> &chunks,
+    std::size_t &errors
+) {
+    Bytes out;
+    for (auto chunk: chunks) {
+        const auto [size, dropped] = strip(mark, chunk);
+        const auto kept = std::span(chunk).first(size);
+        out.insert(out.end(), kept.begin(), kept.end());
+        errors += dropped;
+    }
+    return out;
+}
+}
+
+TEST(Strip, PassesBytesWithoutMarksThrough) {
+    std::uint8_t mark = 0;
+    std::size_t errors = 0;
+    EXPECT_EQ(strip_all(mark, {{1, 2, 3}}, errors), (Bytes{1, 2, 3}));
+    EXPECT_EQ(errors, 0);
+}
+
+TEST(Strip, UndoublesAnEscaped0xFF) {
+    std::uint8_t mark = 0;
+    std::size_t errors = 0;
+    EXPECT_EQ(strip_all(mark, {{1, 0xFF, 0xFF, 2}}, errors), (Bytes{1, 0xFF, 2}));
+    EXPECT_EQ(errors, 0);
+}
+
+TEST(Strip, DropsAndCountsAByteWithAParityOrFramingError) {
+    std::uint8_t mark = 0;
+    std::size_t errors = 0;
+    EXPECT_EQ(strip_all(mark, {{1, 0xFF, 0x00, 0x41, 2}}, errors), (Bytes{1, 2}));
+    EXPECT_EQ(errors, 1);
+}
+
+TEST(Strip, CountsABreak) {
+    std::uint8_t mark = 0;
+    std::size_t errors = 0;
+    EXPECT_EQ(strip_all(mark, {{0xFF, 0x00, 0x00, 7}}, errors), (Bytes{7}));
+    EXPECT_EQ(errors, 1);
+}
+
+TEST(Strip, FollowsAMarkSplitAcrossReads) {
+    std::uint8_t mark = 0;
+    std::size_t errors = 0;
+    EXPECT_EQ(
+        strip_all(mark, {{1, 0xFF}, {0x00}, {0x41, 2, 0xFF}, {0xFF, 3}}, errors),
+        (Bytes{1, 2, 0xFF, 3})
+    );
+    EXPECT_EQ(errors, 1);
+}
+
+TEST(Overruns, StartsFromTheFirstCountItSees) {
+    std::optional<std::uint32_t> last;
+    EXPECT_EQ(overruns_since(last, 17), 0);
+    EXPECT_EQ(overruns_since(last, 17), 0);
+    EXPECT_EQ(overruns_since(last, 20), 3);
+}
+
+TEST(Overruns, CountsAcrossTheWrapOfThe32BitCounter) {
+    std::optional<std::uint32_t> last;
+    EXPECT_EQ(overruns_since(last, 0xFFFFFFFE), 0);
+    EXPECT_EQ(overruns_since(last, 1), 3);
+}
+
+TEST(Overruns, ReportsNoneForAPortWithoutCounters) {
+    std::optional<std::uint32_t> last;
+    EXPECT_EQ(overruns_since(last, std::nullopt), 0);
+    EXPECT_EQ(overruns_since(last, std::nullopt), 0);
+}
+}
 
 namespace driver::serial {
 namespace {

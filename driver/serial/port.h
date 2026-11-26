@@ -34,6 +34,7 @@ class Port final : public transport::Transport {
     std::string path;
     asio::io_context ctx{1};
     asio::serial_port device{ctx};
+    native::Line line;
     std::vector<std::uint8_t> buffer = std::vector<std::uint8_t>(
         transport::BUFFER_SIZE
     );

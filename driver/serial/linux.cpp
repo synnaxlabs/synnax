@@ -8,7 +8,13 @@
 // included in the file licenses/APL.txt.
 
 #include <array>
+#include <cerrno>
+#include <cstdint>
+#include <optional>
+#include <system_error>
+#include <utility>
 
+#include <linux/serial.h>
 #include <sys/ioctl.h>
 
 #include "driver/serial/line.h"
@@ -32,6 +38,10 @@ x::errors::Error apply(const synnax::serial::Properties &props, Settings &settin
     settings.c_cflag &= ~CSIZE;
     settings.c_cflag |= SIZES.at(props.data_bits - 5);
     settings.c_cflag &= ~(PARENB | PARODD | CMSPAR);
+    // The port marks parity, framing, and break errors in the input and removes them,
+    // so it counts errors that IGNPAR would drop without a trace.
+    settings.c_iflag &= ~(IGNPAR | ISTRIP);
+    settings.c_iflag |= INPCK | PARMRK;
     const auto &parity = props.parity;
     if (parity != synnax::serial::PARITY_NONE_) settings.c_cflag |= PARENB;
     if (parity == synnax::serial::PARITY_ODD_ || parity == synnax::serial::PARITY_MARK_)
@@ -64,6 +74,15 @@ configure(const Handle handle, const synnax::serial::Properties &props) {
     if (::ioctl(fd, TCSETS2, &settings) != 0)
         return failed("the line settings", props.port);
     return x::errors::NIL;
+}
+
+std::pair<std::optional<std::uint32_t>, std::error_code> overrun_count(const int fd) {
+    serial_icounter_struct counts{};
+    if (::ioctl(fd, TIOCGICOUNT, &counts) == 0)
+        return {static_cast<std::uint32_t>(counts.overrun + counts.buf_overrun), {}};
+    // A driver without counters rejects the request.
+    if (errno == ENOTTY || errno == EINVAL) return {std::nullopt, {}};
+    return {std::nullopt, {errno, std::generic_category()}};
 }
 }
 }

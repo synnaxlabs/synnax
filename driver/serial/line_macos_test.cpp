@@ -23,7 +23,7 @@ namespace {
 /// @returns settings with every flag that apply writes set, and a speed of 9600 baud.
 Settings dirty() {
     Settings s{};
-    s.c_iflag = IXON | IXOFF | ICRNL;
+    s.c_iflag = IGNPAR | ISTRIP | IXON | IXOFF | ICRNL;
     s.c_oflag = OPOST;
     s.c_cflag = CS5 | PARENB | PARODD | CSTOPB | CRTSCTS | CREAD | CLOCAL;
     s.c_lflag = ICANON;
@@ -46,7 +46,7 @@ TEST(Line, AppliesSevenDataBitsOddParityTwoStopBitsAndHardwareFlowControl) {
         s.c_cflag,
         static_cast<tcflag_t>(CS7 | PARENB | PARODD | CSTOPB | CRTSCTS)
     );
-    EXPECT_EQ(s.c_iflag, static_cast<tcflag_t>(0));
+    EXPECT_EQ(s.c_iflag, static_cast<tcflag_t>(INPCK | PARMRK));
     EXPECT_EQ(::cfgetispeed(&s), static_cast<speed_t>(B19200));
     EXPECT_EQ(::cfgetospeed(&s), static_cast<speed_t>(B19200));
 }
@@ -55,7 +55,7 @@ TEST(Line, ClearsParityStopBitsAndFlowControlForTheDefaults) {
     auto s = dirty();
     ASSERT_NIL(apply(synnax::serial::Properties{}, s));
     EXPECT_EQ(s.c_cflag, static_cast<tcflag_t>(CS8 | CREAD | CLOCAL));
-    EXPECT_EQ(s.c_iflag, static_cast<tcflag_t>(ICRNL));
+    EXPECT_EQ(s.c_iflag, static_cast<tcflag_t>(INPCK | PARMRK | ICRNL));
     EXPECT_EQ(::cfgetospeed(&s), static_cast<speed_t>(B9600));
 }
 
@@ -85,8 +85,8 @@ TEST(Line, AppliesSoftwareFlowControl) {
     p.flow_control = synnax::serial::FLOW_CONTROL_SOFTWARE;
     auto s = dirty();
     ASSERT_NIL(apply(p, s));
-    EXPECT_EQ(s.c_iflag, static_cast<tcflag_t>(IXON | IXOFF | ICRNL));
-    EXPECT_EQ(s.c_cflag & CRTSCTS, static_cast<tcflag_t>(0));
+    EXPECT_EQ(s.c_iflag, static_cast<tcflag_t>(INPCK | PARMRK | IXON | IXOFF | ICRNL));
+    EXPECT_EQ(s.c_cflag & CRTSCTS, static_cast<tcflag_t>(INPCK | PARMRK));
 }
 
 TEST(Line, AppliesEvenParity) {

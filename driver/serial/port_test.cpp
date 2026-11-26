@@ -199,6 +199,44 @@ TEST_F(PtyTest, OpensAgainAfterTheFirstPortCloses) {
     EXPECT_EQ(as_string(ASSERT_NIL_P(second->read(x::telem::SECOND)).data), "again");
 }
 
+TEST_F(PtyTest, MarksLineErrorsInsteadOfIgnoringThem) {
+    for (const auto *parity:
+         {synnax::serial::PARITY_NONE_, synnax::serial::PARITY_EVEN_}) {
+        SCOPED_TRACE(parity);
+        auto p = this->props();
+        p.parity = parity;
+        const auto port = ASSERT_NIL_P(Port::open(p));
+        const auto tio = this->termios();
+        EXPECT_TRUE(tio.c_iflag & INPCK);
+        EXPECT_TRUE(tio.c_iflag & PARMRK);
+        EXPECT_FALSE(tio.c_iflag & (IGNPAR | ISTRIP | IGNBRK | BRKINT));
+    }
+}
+
+TEST_F(PtyTest, DeliversA0xFFByteOnceWhileMarkingLineErrors) {
+    auto p = this->props();
+    p.parity = synnax::serial::PARITY_EVEN_;
+    const auto port = ASSERT_NIL_P(Port::open(p));
+    this->peer_write(std::string("\xFF\x01\xFF", 3));
+    std::string got;
+    std::size_t errors = 0;
+    for (int i = 0; i < 100 && got.size() < 3; i++) {
+        const auto chunk = ASSERT_NIL_P(port->read(10 * x::telem::MILLISECOND));
+        got += as_string(chunk.data);
+        errors += chunk.errors;
+    }
+    EXPECT_EQ(got, std::string("\xFF\x01\xFF", 3));
+    EXPECT_EQ(errors, 0);
+}
+
+TEST_F(PtyTest, ReportsNoOverrunsOnAPortThatCountsNone) {
+    const auto port = ASSERT_NIL_P(Port::open(this->props()));
+    this->peer_write("x");
+    const auto chunk = ASSERT_NIL_P(port->read(x::telem::SECOND));
+    EXPECT_EQ(as_string(chunk.data), "x");
+    EXPECT_EQ(chunk.overruns, 0);
+}
+
 TEST(Port, FailsToOpenAMissingPort) {
     synnax::serial::Properties p;
     p.port = "/dev/synnax-missing-port";

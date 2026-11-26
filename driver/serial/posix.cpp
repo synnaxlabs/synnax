@@ -9,6 +9,9 @@
 
 #include <cerrno>
 #include <cstddef>
+#include <cstdint>
+#include <optional>
+#include <span>
 #include <string>
 #include <system_error>
 #include <utility>
@@ -97,6 +100,61 @@ std::pair<std::size_t, std::error_code> queued_output(const Handle handle) {
     if (::ioctl(static_cast<int>(handle), TIOCOUTQ, &queued) != 0)
         return {0, last_error()};
     return {static_cast<std::size_t>(queued), {}};
+}
+
+std::pair<std::size_t, std::size_t>
+strip(std::uint8_t &marked, const std::span<std::uint8_t> data) {
+    std::size_t size = 0;
+    std::size_t marks = 0;
+    for (const auto b: data) {
+        if (marked == 0 && b == 0xFF) {
+            marked = 1;
+            continue;
+        }
+        if (marked == 1 && b == 0x00) {
+            marked = 2;
+            continue;
+        }
+        if (marked == 2) {
+            marks++;
+            marked = 0;
+            continue;
+        }
+        if (marked == 1 && b != 0xFF) data[size++] = 0xFF;
+        marked = 0;
+        data[size++] = b;
+    }
+    return {size, marks};
+}
+
+std::size_t overruns_since(
+    std::optional<std::uint32_t> &last,
+    const std::optional<std::uint32_t> count
+) {
+    if (!count.has_value()) return 0;
+    const auto previous = last.value_or(*count);
+    last = count;
+    return static_cast<std::uint32_t>(*count - previous);
+}
+
+std::error_code watch(const Handle handle, Line &line) {
+    auto [count, ec] = overrun_count(static_cast<int>(handle));
+    if (ec) return ec;
+    line.overruns = count;
+    return {};
+}
+
+std::pair<Received, std::error_code>
+receive(const Handle handle, Line &line, const std::span<std::uint8_t> data) {
+    const auto [count, ec] = overrun_count(static_cast<int>(handle));
+    if (ec) return {{}, ec};
+    const auto [size, errors] = strip(line.marked, data);
+    return {
+        {.size = size,
+         .errors = errors,
+         .overruns = overruns_since(line.overruns, count)},
+        {}
+    };
 }
 }
 }
