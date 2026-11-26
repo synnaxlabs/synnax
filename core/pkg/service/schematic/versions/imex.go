@@ -89,27 +89,37 @@ func decodeConsole(ctx context.Context, env imex.Envelope) (v7.Schematic, error)
 // could export a zero scale, which sizes a symbol to nothing.
 func positiveScales(sch Schematic) (Schematic, error) {
 	for i := range sch.Nodes {
-		cfg := sch.Nodes[i].Config
-		b, err := json.Marshal(cfg)
+		cfg, err := positiveScale(sch.Nodes[i].Config)
 		if err != nil {
-			return Schematic{}, err
-		}
-		var fields map[string]any
-		if err = json.Unmarshal(b, &fields); err != nil {
-			return Schematic{}, err
-		}
-		scale, ok := fields["scale"].(float64)
-		if !ok || scale > 0 {
-			continue
-		}
-		fields["scale"] = 1.0
-		if b, err = json.Marshal(fields); err != nil {
-			return Schematic{}, err
-		}
-		if err = json.Unmarshal(b, &cfg); err != nil {
 			return Schematic{}, err
 		}
 		sch.Nodes[i].Config = cfg
 	}
 	return sch, nil
+}
+
+// positiveScale returns cfg with a scale of 1 when its scale is not positive.
+func positiveScale[C any](cfg C) (C, error) {
+	var zero C
+	b, err := json.Marshal(cfg)
+	if err != nil {
+		return zero, err
+	}
+	var fields map[string]any
+	if err = json.Unmarshal(b, &fields); err != nil {
+		return zero, err
+	}
+	scale, ok := fields["scale"].(float64)
+	if !ok || scale > 0 {
+		return cfg, nil
+	}
+	fields["scale"] = 1.0
+	if b, err = json.Marshal(fields); err != nil {
+		return zero, err
+	}
+	var out C
+	if err = json.Unmarshal(b, &out); err != nil {
+		return zero, err
+	}
+	return out, nil
 }

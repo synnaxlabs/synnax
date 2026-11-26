@@ -35,7 +35,7 @@ describe("Library", () => {
   it("should open the page of each section", async () => {
     const { wrapper } = await createConsoleWrapper({ client });
     await renderLazy(<Content />, { wrapper });
-    for (const name of ["Labels", "Colors", "Enumerations"]) {
+    for (const name of ["Labels", "Colors", "Enumerations", "ICDs"]) {
       fireEvent.click(await screen.findByRole("menuitem", { name }));
       expect(await screen.findByRole("heading", { name })).toBeTruthy();
     }
@@ -93,7 +93,7 @@ describe("Library", () => {
     expect(await screen.findByText("Edit labels")).toBeTruthy();
   });
 
-  it("should withhold Open library and Edit labels from a Viewer", async () => {
+  it("should offer Open library and withhold Edit labels from a Viewer", async () => {
     const open = findCommand(Library.COMMANDS, "Open library").useVisible;
     const edit = findCommand(Library.COMMANDS, "Edit labels").useVisible;
     assertDefined(open);
@@ -106,8 +106,9 @@ describe("Library", () => {
       }),
       { client: await roles.get("Viewer") },
     );
-    await waitFor(() => expect(result.current.loaded).toBe(true));
-    expect(result.current.open).toBe(false);
+    // A Viewer reads ICDs, so the Library shows them their ICDs section.
+    await waitFor(() => expect(result.current.open).toBe(true));
+    expect(result.current.loaded).toBe(true);
     expect(result.current.edit).toBe(false);
   });
 });

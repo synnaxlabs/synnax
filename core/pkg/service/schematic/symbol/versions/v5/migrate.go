@@ -394,6 +394,23 @@ func (m *partMigrator) resolve(sel string) []string {
 	return out
 }
 
+// ResolveRegion returns the selectors of the part that a v4 region with selectors sels
+// gets in a drawing with markup, as MigrateSpec names parts. It also returns markup
+// with a data-region-id on each shape that those selectors name.
+func ResolveRegion(markup string, sels []string) ([]string, string) {
+	t, parsed := parseTree(markup)
+	m := partMigrator{tree: t, parsed: parsed}
+	out := []string{}
+	for _, sel := range sels {
+		for _, named := range m.resolve(sel) {
+			if !slices.Contains(out, named) {
+				out = append(out, named)
+			}
+		}
+	}
+	return out, m.markup(markup)
+}
+
 func (m *partMigrator) markup(svg string) string {
 	if !m.parsed {
 		return svg

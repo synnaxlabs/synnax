@@ -44,33 +44,55 @@ export const useAddNode = () => {
   };
 };
 
+const customName = (client: Client, key: string): string | undefined => {
+  const sym = client.schematics.symbols.watch(key).getCached();
+  return query.isLive(sym) ? sym.name : undefined;
+};
+
 // The label a symbol takes on creation: a custom symbol's name, or its spec's label.
 const defaultLabel = (client: Client, config: Node.Config): string | undefined => {
-  if (!Node.isCustomConfig(config)) {
+  if (Node.isCustomConfig(config)) return customName(client, config.specKey);
+  if (config.variant !== "symbol") {
     const spec = Node.resolveSpec(config.variant);
     return spec.label ?? spec.name;
   }
-  const sym = client.schematics.symbols.watch(config.specKey).getCached();
-  return query.isLive(sym) ? sym.name : undefined;
+  switch (config.spec.type) {
+    case "builtin":
+      return Node.builtInLabel(config.spec.name);
+    case "custom":
+      return customName(client, config.spec.key);
+    case "missing":
+      return undefined;
+  }
 };
 
 /**
  * useChangeSymbol returns a callback that changes the given symbols to the symbol the
  * input names, dispatched as a single undoable step. A label that still reads the old
- * symbol's name takes the new symbol's name.
+ * symbol's name takes the new symbol's name. A symbol node drops the bindings that
+ * spec, the spec of its new symbol, orphans.
+ * @throws {Error} if the input names a symbol node and spec is unset.
  */
 export const useChangeSymbol = () => {
   const key = Scope.use();
   const client = Synnax.use();
   const dispatch = useSingleDispatch();
-  return <V extends Node.Variant>(keys: readonly string[], input: Node.Input<V>) => {
+  return <V extends Node.Variant>(
+    keys: readonly string[],
+    input: Node.Input<V>,
+    spec?: schematic.symbol.Spec,
+  ) => {
     const s = client?.schematics.watch({ key }).getCached();
     if (client == null || !query.isLive(s)) return;
     const actions = keys.flatMap((k) => {
       const config = s.nodes.find((n) => n.key === k)?.config;
       if (config == null || !Node.isConfig(config))
         throw new Error(`Element ${k} is not a symbol`);
-      const next = Node.changeConfig(config, input);
+      let next: Node.Config = Node.changeConfig(config, input);
+      if (next.variant === "symbol") {
+        if (spec == null) throw new Error(`No spec to change ${k} to a symbol node`);
+        next = schematic.dropOrphans(next, spec.states, spec.commands);
+      }
       if (Node.symbolKey(next) === Node.symbolKey(config)) return [];
       if (
         "label" in config &&

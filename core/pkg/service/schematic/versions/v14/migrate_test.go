@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	servicecolor "github.com/synnaxlabs/synnax/pkg/service/color/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/enumeration"
+	symbolv4 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v4"
 	symbol "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v5"
 	v13 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v13"
 	v14 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v14"
@@ -436,16 +437,15 @@ var _ = Describe("MigrateSchematic", func() {
 	)
 
 	It(
-		"Should keep the state overrides of custom nodes that 0.62.0 stored",
+		"Should read the state overrides of the custom nodes that 0.62.0 stored",
 		func(ctx SpecContext) {
 			var stored v13.Schematic
 			Expect(
 				orc.Codec.Decode(loadWire("v13_released_custom.hex"), &stored),
 			).To(Succeed())
-			out := MustSucceed(v14.MigrateSchematic(ctx, stored))
-			Expect(out.Nodes).To(HaveLen(2))
-			region := func(stroke, fill *xcolor.Color) symbol.Region {
-				return symbol.Region{
+			Expect(stored.Nodes).To(HaveLen(2))
+			region := func(stroke, fill *xcolor.Color) symbolv4.Region {
+				return symbolv4.Region{
 					Key:         "body",
 					Name:        "Body",
 					Selectors:   []string{"#body"},
@@ -453,14 +453,14 @@ var _ = Describe("MigrateSchematic", func() {
 					FillColor:   fill,
 				}
 			}
-			act, ok := out.Nodes[0].Config.Variant.(v14.CustomActuatorNodeConfig)
+			oldAct, ok := stored.Nodes[0].Config.Variant.(v13.CustomActuatorNodeConfig)
 			Expect(ok).To(BeTrue())
-			Expect(act.SpecKey).To(Equal("3e46d160-a00b-4224-8119-ffabc45cdc24"))
-			Expect(act.StateOverrides).To(Equal([]symbol.StateOverride{
+			Expect(oldAct.SpecKey).To(Equal("3e46d160-a00b-4224-8119-ffabc45cdc24"))
+			Expect(oldAct.StateOverrides).To(Equal([]symbolv4.State{
 				{
 					Key:  "base",
 					Name: "Base",
-					Regions: []symbol.Region{region(
+					Regions: []symbolv4.Region{region(
 						&xcolor.Color{R: 220, G: 19, B: 108, A: 255},
 						&xcolor.Color{R: 255, G: 107, B: 107, A: 128},
 					)},
@@ -468,22 +468,32 @@ var _ = Describe("MigrateSchematic", func() {
 				{
 					Key:  "active",
 					Name: "Active",
-					Regions: []symbol.Region{
+					Regions: []symbolv4.Region{
 						region(nil, &xcolor.Color{R: 62, G: 142, B: 247, A: 255}),
 					},
 				},
 			}))
-			static, ok := out.Nodes[1].Config.Variant.(v14.CustomStaticNodeConfig)
+			old, ok := stored.Nodes[1].Config.Variant.(v13.CustomStaticNodeConfig)
 			Expect(ok).To(BeTrue())
-			Expect(static.StateOverrides).To(Equal([]symbol.StateOverride{
+			Expect(old.StateOverrides).To(Equal([]symbolv4.State{
 				{
 					Key:  "base",
 					Name: "Base",
-					Regions: []symbol.Region{
+					Regions: []symbolv4.Region{
 						region(&xcolor.Color{R: 1, G: 2, B: 3, A: 4}, nil),
 					},
 				},
 			}))
+			out := MustSucceed(v14.MigrateSchematic(ctx, stored))
+			Expect(out.Nodes).To(HaveLen(2))
+			act, ok := out.Nodes[0].Config.Variant.(v14.SymbolNodeConfig)
+			Expect(ok).To(BeTrue())
+			Expect(act.Spec.Variant).
+				To(Equal(symbol.CustomRef{Key: uuid.MustParse(oldAct.SpecKey)}))
+			static, ok := out.Nodes[1].Config.Variant.(v14.SymbolNodeConfig)
+			Expect(ok).To(BeTrue())
+			Expect(static.Spec.Variant).
+				To(Equal(symbol.CustomRef{Key: uuid.MustParse(old.SpecKey)}))
 		},
 	)
 })
