@@ -18,7 +18,15 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Errors, Resource } from "@synnaxlabs/pluto";
 import { compare, errors } from "@synnaxlabs/x";
-import { type PropsWithChildren, type ReactElement, useState } from "react";
+import {
+  createContext,
+  type PropsWithChildren,
+  type ReactElement,
+  use,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
 import { CSS } from "@/platform/css";
 import { Tree } from "@/platform/tree";
@@ -176,44 +184,51 @@ const Loading = ({ uses }: Pick<ListProps, "uses">): ReactElement => (
     {group(uses, ({ direction }) => direction).map(({ title, items }) => (
       <Section key={title ?? ""} title={title} count={items.length}>
         {items.map((_, i) => (
-          <Text.Text
-            key={i}
-            el="div"
-            level="small"
-            x
-            align="center"
-            className={CSS.BE("used-by", "row")}
-          >
+          <Flex.Box key={i} x align="center" className={CSS.BE("used-by", "row")}>
             <Skeleton.Skeleton className={CSS.BE("used-by", "skeleton")} />
-          </Text.Text>
+          </Flex.Box>
         ))}
       </Section>
     ))}
   </>
 );
 
-interface FailedProps extends Errors.FallbackProps {
-  ids: resource.ID[];
+interface Retry {
+  /** Reads the uses again, then resets the boundary with reset. */
+  retry: (reset: () => void) => void;
+  /** Whether a retry ran, so a failure after it focuses Retry. */
+  retried: boolean;
 }
 
-const Failed = ({ ids, error, resetErrorBoundary }: FailedProps): ReactElement => {
-  const invalidate = Resource.useInvalidateMultiple();
+const RetryContext = createContext<Retry | null>(null);
+RetryContext.displayName = "UsedBy.Retry";
+
+const Failed = ({ error, resetErrorBoundary }: Errors.FallbackProps): ReactElement => {
+  const ctx = use(RetryContext);
+  const button = useRef<HTMLButtonElement>(null);
+  const retried = ctx?.retried ?? false;
+  useEffect(() => {
+    if (retried) button.current?.focus();
+  }, [retried]);
+  if (ctx == null) throw new Error("Failed must be inside a used-by list");
   // A read wraps the error of the Core, which says why the read failed.
   const cause = Array.from(errors.causes(error)).at(-1);
-  const retry = () => {
-    invalidate({ ids });
-    resetErrorBoundary();
-  };
   return (
     <Flex.Box y empty align="start">
-      <Status.Summary
-        variant="error"
-        level="small"
-        className={CSS.BE("used-by", "error")}
-        message="Failed to load the uses"
-        description={errors.fromUnknown(cause ?? error).message}
-      />
-      <Button.Button variant="text" size="small" onClick={retry}>
+      <div className={CSS.BE("used-by", "error")}>
+        <Status.Summary
+          variant="error"
+          level="small"
+          message="Failed to load the uses"
+          description={errors.fromUnknown(cause ?? error).message}
+        />
+      </div>
+      <Button.Button
+        ref={button}
+        variant="text"
+        size="small"
+        onClick={() => ctx.retry(resetErrorBoundary)}
+      >
         Retry
       </Button.Button>
     </Flex.Box>
@@ -259,25 +274,34 @@ export interface ListProps {
   onSelect?: () => void;
 }
 
+const Uses = (props: ListProps): ReactElement => {
+  const root = useRef<HTMLDivElement>(null);
+  const [retried, setRetried] = useState(false);
+  const invalidate = Resource.useInvalidateMultiple();
+  const retry = (reset: () => void) => {
+    // Focus stays in the list while the read runs again.
+    root.current?.focus();
+    invalidate({ ids: props.uses.map(({ id }) => id) });
+    setRetried(true);
+    reset();
+  };
+  return (
+    <Flex.Box y empty ref={root} tabIndex={-1} className={CSS.BE("used-by", "list")}>
+      <RetryContext value={{ retry, retried }}>
+        <Errors.SuspenseBoundary
+          FallbackComponent={Failed}
+          loading={<Loading uses={props.uses} />}
+        >
+          <Resolved {...props} />
+        </Errors.SuspenseBoundary>
+      </RetryContext>
+    </Flex.Box>
+  );
+};
+
 /**
  * Lists the resources that use an item, by name. The uses with a direction show under
  * "Written by" and "Read by", each with its count. A click on a use opens it.
  */
-export const List = (props: ListProps): ReactElement => {
-  const { kind, uses } = props;
-  if (uses.length === 0) return <Unused kind={kind} />;
-  const ids = uses.map(({ id }) => id);
-  const Fallback = (fallback: Errors.FallbackProps): ReactElement => (
-    <Failed {...fallback} ids={ids} />
-  );
-  return (
-    <Flex.Box y empty className={CSS.BE("used-by", "list")}>
-      <Errors.SuspenseBoundary
-        FallbackComponent={Fallback}
-        loading={<Loading uses={uses} />}
-      >
-        <Resolved {...props} />
-      </Errors.SuspenseBoundary>
-    </Flex.Box>
-  );
-};
+export const List = (props: ListProps): ReactElement =>
+  props.uses.length === 0 ? <Unused kind={props.kind} /> : <Uses {...props} />;

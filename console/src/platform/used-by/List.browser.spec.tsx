@@ -24,6 +24,7 @@ import {
   render,
   type RenderOptions,
   screen,
+  waitFor,
   within,
 } from "@testing-library/react";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
@@ -222,14 +223,26 @@ describe("UsedBy.List", () => {
     expect(onCaughtError).toHaveBeenCalledOnce();
   });
 
-  it("should read the uses again on Retry", async () => {
+  it("should read the uses again on Retry and keep the focus in the list", async () => {
     const r = await createRange();
     const limited = await createTestClientWithGrants(client);
     await renderList(
       { kind: "channel", uses: [{ id: ranger.resourceID(r.key) }] },
       { as: limited, onCaughtError: vi.fn() },
     );
-    await screen.findByText("Failed to load the uses");
+    // The read that a click starts suspends, which needs an async act.
+    const retry = async () => {
+      const button = await screen.findByRole("button", { name: "Retry" });
+      await act(async () => {
+        fireEvent.click(button);
+      });
+    };
+    await retry();
+    await waitFor(() =>
+      expect(document.activeElement).toBe(
+        screen.getByRole("button", { name: "Retry" }),
+      ),
+    );
     const { role } = await limited.users.current.retrieve();
     await client.access.policies.create({
       name: uniqueName("policy"),
@@ -237,10 +250,8 @@ describe("UsedBy.List", () => {
       objects: [ranger.resourceID(r.key)],
       actions: ["retrieve"],
     });
-    // The read that the click starts suspends, which needs an async act.
-    await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "Retry" }));
-    });
+    await retry();
     expect(await screen.findByText(r.name)).toBeTruthy();
+    expect(document.activeElement).not.toBe(document.body);
   });
 });

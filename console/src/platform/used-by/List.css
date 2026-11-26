@@ -9,14 +9,18 @@
  * included in the file licenses/APL.txt.
  */
 
-/* A list in a box with a max height scrolls below what sits above it. The padding
-   leaves room for the focus ring of an entry, and the margin keeps the entries in
-   place. */
+/* A list in a box with a max height scrolls below what sits above it, so the focus
+   ring of an entry draws inside the entry. The list takes focus only while a retry
+   reads again, and shows no ring for it. */
 .console-used-by__list {
     min-height: 0;
     overflow-y: auto;
-    padding: 0.5rem;
-    margin: -0.5rem;
+
+    --pluto-focus-ring-offset: var(--pluto-focus-ring-inset);
+
+    &:focus-visible {
+        outline: none;
+    }
 }
 
 .console-used-by__section + .console-used-by__section {
@@ -43,15 +47,18 @@
     flex-shrink: 0;
 }
 
+/* The skeleton is one line of the inherited text tall, so it takes the small size. */
 .console-used-by__skeleton {
     width: min(20rem, 100%);
+    font-size: var(--pluto-small-size);
+    line-height: var(--pluto-small-line-height);
 }
 
-.console-used-by__unused,
-.console-used-by__error {
+.console-used-by__unused {
     padding: 0 1.5rem 0.5rem;
 }
 
 .console-used-by__error {
+    padding: 0 1.5rem;
     text-align: left;
 }
