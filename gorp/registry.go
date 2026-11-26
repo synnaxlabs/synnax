@@ -251,6 +251,33 @@ func (r *registry) referencesTo(table string) []registeredReference {
 	return slices.Clone(r.referencing[table])
 }
 
+// ReferenceID names a reference: the table whose entries hold it, and its name.
+type ReferenceID struct {
+	Table string
+	Name  string
+}
+
+// ReferenceInfo describes a reference that points at a table.
+type ReferenceInfo struct {
+	ID ReferenceID
+	// OnDelete is what a delete of a target does to the entry that holds it.
+	OnDelete OnDelete
+}
+
+// References returns each reference that points at the table named table, in the order
+// that their tables opened.
+func (db *DB) References(table string) []ReferenceInfo {
+	refs := db.registry.referencesTo(table)
+	out := make([]ReferenceInfo, len(refs))
+	for i, r := range refs {
+		out[i] = ReferenceInfo{
+			ID:       ReferenceID{Table: r.ownerTable(), Name: r.referenceName()},
+			OnDelete: r.onDeletePolicy(),
+		}
+	}
+	return out
+}
+
 // dependents returns, at each position of targets, the entries that hold that target
 // through any registered reference. Every target is an entry of the table named table,
 // and keys is a slice of their keys, in order.
