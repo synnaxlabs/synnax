@@ -34,8 +34,8 @@ var _ = Describe("Variable samples over 4 GiB", func() {
 		))
 		DeferCleanup(func() { Expect(syscall.Munmap(sample)).To(Succeed()) })
 	})
-	const msg = "telem: a variable sample of 4294967296 bytes is larger than the 4 GiB " +
-		"limit"
+	const msg = "telem: a variable sample of 4294967296 bytes does not fit the 32-bit " +
+		"length prefix"
 
 	It("Should panic in MarshalVariableSample", func() {
 		Expect(func() { telem.MarshalVariableSample(sample) }).To(PanicWith(msg))
