@@ -9,8 +9,10 @@
 
 import type { icd } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
+import { Divider } from "@synnaxlabs/lyra/divider";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { useInitializerRef } from "@synnaxlabs/lyra/hooks";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
 import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
@@ -27,6 +29,8 @@ import { OpenInEditor } from "@/platform/icd/OpenInEditor";
 interface Choice extends record.KeyedNamed<string> {
   icdName: string;
 }
+
+const NONE = "none";
 
 const choiceKey = (icdKey: icd.Key, message: icd.MessageKey): string =>
   `${icdKey}/${message}`;
@@ -57,6 +61,8 @@ export interface MessageFormatFieldProps extends Pick<
   /** The key of the picked message. Absent before a pick. */
   message?: icd.MessageKey;
   onChange: (icdKey: icd.Key, message: icd.Message) => void;
+  /** Empties the pick. When given, the field offers a pinned "No message format". */
+  onClear?: () => void;
   disabled?: boolean;
   /** Shows the pick read only. */
   preview?: boolean;
@@ -71,6 +77,7 @@ export const MessageFormatField = ({
   icdKey,
   message,
   onChange,
+  onClear,
   disabled = false,
   preview = false,
   ...rest
@@ -127,6 +134,10 @@ export const MessageFormatField = ({
     if (data.length <= before && !icds.complete) handleFetchMore();
   }, [icds.variant, data]);
   const handleChange = (key: string) => {
+    if (key === NONE) {
+      onClear?.();
+      return;
+    }
     const [parent, messageKey] = parseChoiceKey(key);
     const picked = icds.getItem(parent)?.messages.find(({ key }) => key === messageKey);
     if (picked == null) throw new Error(`No message format has the key ${key}`);
@@ -148,6 +159,17 @@ export const MessageFormatField = ({
           allowNone={false}
           preview={preview}
           disabled={disabled}
+          footer={
+            onClear != null && (
+              <>
+                <Divider.Divider x />
+                <Select.Item itemKey={NONE} textValue="No message format">
+                  <Icon.None />
+                  No message format
+                </Select.Item>
+              </>
+            )
+          }
         >
           {choiceRenderProp}
         </Select.Single>

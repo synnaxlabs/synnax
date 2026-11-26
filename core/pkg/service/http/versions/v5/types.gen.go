@@ -380,7 +380,8 @@ type WriteConfig struct {
 	Device device.Key `json:"device" msgpack:"device"`
 	// Endpoints contains the endpoints to write to.
 	Endpoints []WriteEndpoint `json:"endpoints" msgpack:"endpoints"`
-	// Inline holds the body of each endpoint of a config from before ICDs.
+	// Inline holds the body of each endpoint of a config from before ICDs. A write
+	// moves them into a new ICD and clears it.
 	Inline *InlineWrite `json:"inline,omitzero" msgpack:"inline,omitempty"`
 }
 

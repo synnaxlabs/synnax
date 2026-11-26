@@ -53,15 +53,21 @@
     .console-panes {
         --console-list-width: 300px;
     }
-
-    .console--off .console-kafka-record-label > :last-child {
-        color: var(--pluto-gray-l8);
-        text-decoration: line-through;
-        text-decoration-color: var(--pluto-gray-l6);
-    }
 }
 
 .console-kafka-record-label {
     flex-grow: 1;
     min-width: 0;
+}
+
+.console--off .console-kafka-record-label > :last-child {
+    color: var(--pluto-gray-l8);
+    text-decoration: line-through;
+    text-decoration-color: var(--pluto-gray-l6);
+}
+
+.console-task-configure--kafka_write {
+    .console-panes {
+        --console-list-width: 300px;
+    }
 }

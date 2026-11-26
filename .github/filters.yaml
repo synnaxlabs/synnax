@@ -480,6 +480,7 @@ runners:
 tls:
   - *client_py
   - *client_ts
+  - .github/workflows/build.core.cross.yaml
   - .github/workflows/test.tls.yaml
 
 console_deps:

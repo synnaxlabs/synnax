@@ -11,8 +11,8 @@ import type { schematic } from "@synnaxlabs/client";
 import type { ReactElement } from "react";
 
 import { Grid } from "@/schematic/node/common/grid";
+import { Indicator } from "@/schematic/node/common/indicator";
 import { Label } from "@/schematic/node/common/label";
-import { Stale } from "@/schematic/node/common/stale";
 import { Telem } from "@/schematic/node/common/telem";
 import { Primitive } from "@/schematic/node/general/light/primitive";
 import type { NodeProps } from "@/schematic/node/spec";
@@ -49,7 +49,7 @@ export const Symbol = ({
       }
     >
       <Label.Label config={label} onChange={onConfigChange} />
-      {stale && <Stale.Indicator />}
+      <Indicator.Slot stale={stale} />
       <Primitive.Light enabled={enabled} orientation={orientation} {...rest} />
     </Grid.Grid>
   );

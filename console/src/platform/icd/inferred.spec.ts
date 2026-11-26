@@ -56,6 +56,18 @@ describe("ICD inferred formats", () => {
     });
   });
 
+  describe("kindName", () => {
+    it("should name the message of a kind after its present field", () => {
+      expect(ICD.kindName("plant/pump", "/status/rpm")).toEqual(
+        "plant/pump status_rpm",
+      );
+    });
+
+    it("should keep the name of a source with one kind", () => {
+      expect(ICD.kindName("plant/pump")).toEqual("plant/pump");
+    });
+  });
+
   describe("createMessage", () => {
     const field = ICD.createField({ pointer: "/v", kind: "float" }, "v");
 

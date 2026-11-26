@@ -250,10 +250,15 @@ errors::Error Decoder::append_numeric(const std::string_view raw, telem::Series 
     switch (kind_of(raw)) {
         case '"': {
             if (const auto err = unquote(raw, this->text)) return err;
-            const auto *l = this->find_label(this->text);
-            if (l == nullptr) return invalid("unknown enum label " + quote(this->text));
-            this->write_number(l->number, dst);
-            return errors::NIL;
+            if (const auto *l = this->find_label(this->text); l != nullptr) {
+                this->write_number(l->number, dst);
+                return errors::NIL;
+            }
+            const auto [n, err] = Number::parse_quoted(this->text);
+            if (err && !this->labels.empty())
+                return invalid("unknown enum label " + quote(this->text));
+            if (err) return err;
+            return this->append_number(n, dst);
         }
         case 't':
             return this->append_number(Number(std::int64_t{1}), dst);
@@ -267,6 +272,12 @@ errors::Error Decoder::append_numeric(const std::string_view raw, telem::Series 
         default:
             return invalid("expected a number or boolean, got " + kind_name(raw));
     }
+}
+
+bool Decoder::labeled(const std::string_view raw) {
+    if (this->labels.empty() || kind_of(raw) != '"' || unquote(raw, this->text))
+        return false;
+    return this->find_label(this->text) != nullptr;
 }
 
 errors::Error

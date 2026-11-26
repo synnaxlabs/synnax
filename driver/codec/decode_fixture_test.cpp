@@ -72,8 +72,7 @@ nlohmann::json sample_json(const x::telem::Series &s) {
     if (dt == x::telem::INT16_T) return s.at<std::int16_t>(0);
     if (dt == x::telem::INT8_T) return s.at<std::int8_t>(0);
     if (dt == x::telem::UINT64_T) return s.at<std::uint64_t>(0);
-    if (dt == x::telem::TIMESTAMP_T)
-        return static_cast<std::uint64_t>(s.at<x::telem::TimeStamp>(0).nanoseconds());
+    if (dt == x::telem::TIMESTAMP_T) return s.at<x::telem::TimeStamp>(0).nanoseconds();
     if (dt == x::telem::UINT32_T) return s.at<std::uint32_t>(0);
     if (dt == x::telem::UINT16_T) return s.at<std::uint16_t>(0);
     if (dt == x::telem::UINT8_T) return s.at<std::uint8_t>(0);
