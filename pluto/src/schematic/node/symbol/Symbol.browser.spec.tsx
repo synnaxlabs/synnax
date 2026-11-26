@@ -103,7 +103,11 @@ const BuiltInWrapper = createSynnaxWrapper({
 });
 
 // The theme gives the colors that a drawing with no node color falls back to.
-const renderSolid = async (name: string, color?: string): Promise<Element> => {
+const renderBuiltIn = async (
+  name: string,
+  selector: string,
+  color?: string,
+): Promise<SVGElement> => {
   const { container } = await renderThemed(
     <BuiltInWrapper>
       <ReactFlowProvider>
@@ -120,7 +124,7 @@ const renderSolid = async (name: string, color?: string): Promise<Element> => {
       </ReactFlowProvider>
     </BuiltInWrapper>,
   );
-  return await vi.waitUntil(() => container.querySelector(".pluto--solid"));
+  return await vi.waitUntil(() => container.querySelector<SVGElement>(selector));
 };
 
 // renderValve renders a valve whose active state has source, and returns its button.
@@ -447,7 +451,7 @@ describe("Symbol node", () => {
   it.each(["t_junction", "flowmeter_orifice"])(
     "should fill the solid shapes of %s with the node color",
     async (name) => {
-      const solid = await renderSolid(name, "#ff0000");
+      const solid = await renderBuiltIn(name, ".pluto--solid", "#ff0000");
       await vi.waitFor(() =>
         expect(getComputedStyle(solid).fill).toBe("rgb(255, 0, 0)"),
       );
@@ -462,10 +466,18 @@ describe("Symbol node", () => {
   ] as const)(
     "should fill the solid shapes of %s as the theme draws them with no node color",
     async (name, selector, property) => {
-      const solid = await renderSolid(name);
+      const solid = await renderBuiltIn(name, ".pluto--solid");
       const theme = solid.closest(selector);
       assert(theme != null);
       expect(getComputedStyle(solid).fill).toBe(getComputedStyle(theme)[property]);
     },
   );
+
+  it("should stroke a built-in in the theme color with no node color", async () => {
+    const path = await renderBuiltIn("filter", "path");
+    const root = path.closest(".lyra-symbol-colored");
+    assert(root != null);
+    expect(path.style.stroke).toBe("");
+    expect(getComputedStyle(path).stroke).toBe(getComputedStyle(root).stroke);
+  });
 });
