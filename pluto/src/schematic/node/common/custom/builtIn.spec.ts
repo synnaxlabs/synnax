@@ -21,19 +21,17 @@ describe("Custom.createBuiltIn", () => {
       commands: [],
       looks: [],
       interactions: [],
-      variant: "static",
     });
   });
 
   it("should give a family with no commands a state but no click", () => {
     const spec = Custom.createBuiltIn({ svg, handles: [], family: "light" });
-    expect(spec).toMatchObject({ commands: [], interactions: [], variant: "static" });
+    expect(spec).toMatchObject({ commands: [], interactions: [] });
     expect(spec.states.map((s) => s.key)).toEqual(["active"]);
   });
 
   it("should give a family that clicks a next between its two commands", () => {
     const spec = Custom.createBuiltIn({ svg, handles: [], family: "valve" });
-    expect(spec.variant).toBe("actuator");
     expect(spec.interactions).toEqual([
       { type: "next", key: "click", commands: ["deactivate", "activate"] },
     ]);
@@ -47,6 +45,6 @@ describe("Custom.createBuiltIn", () => {
       looks: [],
       interactions: [],
     });
-    expect(spec).toMatchObject({ looks: [], interactions: [], variant: "actuator" });
+    expect(spec).toMatchObject({ looks: [], interactions: [] });
   });
 });

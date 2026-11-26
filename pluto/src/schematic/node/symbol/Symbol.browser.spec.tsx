@@ -82,7 +82,7 @@ const renderLamp = async (config: Pick<Config, "motionDisabled"> = {}) => {
   const client = createTestClient();
   const symbol = await client.schematics.symbols.create({
     name: "Lamp",
-    data: { drawing: { type: "svg", markup: MARKUP }, variant: "static", ...DATA },
+    data: { drawing: { type: "svg", markup: MARKUP }, ...DATA },
   });
   const Wrapper = await createAsyncSynnaxWrapper({
     client,
@@ -119,7 +119,6 @@ const createAsk = async (client: Synnax, state: schematic.symbol.State) =>
     name: "Ask",
     data: {
       drawing: { type: "svg", markup: MARKUP },
-      variant: "static",
       states: [state],
       commands: [{ key: "set", name: "Set", state: state.key, value: { type: "ask" } }],
       interactions: [{ type: "fire", key: "click", command: "set" }],
@@ -318,7 +317,6 @@ describe("Symbol node", () => {
       name: "Lamp switch",
       data: {
         drawing: { type: "svg", markup: MARKUP },
-        variant: "static",
         ...DATA,
         commands: [
           {

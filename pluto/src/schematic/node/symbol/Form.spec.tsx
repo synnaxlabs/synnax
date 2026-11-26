@@ -56,7 +56,6 @@ describe("Symbol form", () => {
       name: "Heater",
       data: schematic.symbol.specZ.parse({
         drawing: { type: "svg", markup: "<svg/>" },
-        variant: "static",
         states: [
           {
             type: "enumeration",
@@ -180,7 +179,6 @@ describe("Symbol form", () => {
         name: "Lamp",
         data: schematic.symbol.specZ.parse({
           drawing: { type: "svg", markup: "<svg/>" },
-          variant: "static",
           states: [{ type: "enumeration", key: "active", name: "Active" }],
         }),
       });

@@ -80,7 +80,7 @@ const createCustomSymbol = async (
   const client = createTestClient();
   const { key } = await client.schematics.symbols.create({
     name: "Custom",
-    data: { drawing: { type: "svg", markup }, variant: "static", ...data },
+    data: { drawing: { type: "svg", markup }, ...data },
   });
   const Wrapper = await createAsyncSynnaxWrapper({
     client,
@@ -199,7 +199,6 @@ describe("Symbol node", () => {
       name: "Pair",
       data: {
         drawing: { type: "svg", markup: MARKUP },
-        variant: "static",
         states: [state("a"), state("b")],
         commands: [open("openA", "a"), open("openB", "b"), open("vent")],
       },

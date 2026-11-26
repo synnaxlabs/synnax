@@ -86,7 +86,7 @@ export const DETAIL_LINES: Pick<schematic.symbol.Spec, "parts" | "looks"> = {
 
 type Behavior = Pick<
   schematic.symbol.Spec,
-  "states" | "commands" | "looks" | "interactions" | "variant"
+  "states" | "commands" | "looks" | "interactions"
 >;
 
 const STATIC: Behavior = {
@@ -94,7 +94,6 @@ const STATIC: Behavior = {
   commands: [],
   looks: [],
   interactions: [],
-  variant: "static",
 };
 
 const createBehavior = (key: FamilyKey): Behavior => {
@@ -131,7 +130,6 @@ const createBehavior = (key: FamilyKey): Behavior => {
     interactions: [
       { type: "next", key: "click", commands: ["deactivate", "activate"] },
     ],
-    variant: "actuator",
   };
 };
 

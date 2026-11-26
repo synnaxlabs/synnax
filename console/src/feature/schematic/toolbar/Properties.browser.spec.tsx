@@ -32,9 +32,12 @@ import { getHexInput, getSwatches } from "@/platform/multiedit/testutil";
 import { Session } from "@/session";
 import { CaptureStatuses, getIconButton, getInputByItemLabel } from "@/testutil";
 
-// No spec draws a valve node, so createConfig refuses one; the schema still parses it.
 const createValveConfig = (): Record<string, unknown> =>
-  schematic.nodeConfigZ.parse({ variant: "valve", label: { label: "Valve" } });
+  schematic.symbolNodeConfigZ.parse({
+    variant: "symbol",
+    spec: { type: "builtin", name: "valve" },
+    label: { label: "Valve" },
+  });
 
 const createValveNodeConfig = (): schematic.SymbolNodeConfig =>
   schematic.symbolNodeConfigZ.parse({

@@ -180,7 +180,6 @@ const CASES: Case[] = [
         data: {
           drawing: { type: "svg", markup: "<svg></svg>" },
           handles: [],
-          variant: "sensor",
         },
         group: key,
       });

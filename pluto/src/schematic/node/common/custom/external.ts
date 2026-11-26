@@ -19,7 +19,6 @@ export {
   UNNAMED_VALUES,
   usePaints,
   type UsePaintsParams,
-  useRegions,
   useUnmatched,
   type Value,
 } from "@/schematic/node/common/custom/paint";

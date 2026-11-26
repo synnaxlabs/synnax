@@ -59,7 +59,6 @@ const createSpec = (
   commands: [],
   looks: [],
   interactions: [],
-  variant: "static",
   scale: 1,
   strokeScaled: false,
   ...overrides,
