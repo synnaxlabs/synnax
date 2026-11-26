@@ -872,15 +872,50 @@ class TestAgreement:
         with pytest.raises(sy.ValidationError, match=f"^{re.escape(msg)}$"):
             dec.decode(bytes(corrupt(bytearray(_hex(_WORKED_EXAMPLE)))))
 
+    def test_drops_unnamed_clock(self) -> None:
+        """Should drop an unrequested time series that no requested series names."""
+        data = sy.Series(np.array([1], np.float32))
+        stamps = sy.Series(
+            np.array([1], np.int64), data_type=sy.DataType.TIMESTAMP, clock=9
+        )
+        with_stamps = Codec(keys=[6], data_types=[sy.DataType.FLOAT32]).encode(
+            FramePayload(keys=[6, 9], series=[data, stamps])
+        )
+        without = Codec(keys=[6], data_types=[sy.DataType.FLOAT32]).encode(
+            FramePayload(keys=[6], series=[data])
+        )
+        assert with_stamps == without
+
+    def test_rejects_oversized_series(self) -> None:
+        """Should raise on a series whose size a length field cannot hold."""
+
+        class Huge(bytes):
+            def __len__(self) -> int:
+                return 2**32
+
+        ser = sy.Series(["a"], data_type=sy.DataType.STRING)
+        # A 4 GiB buffer is too large to allocate in a test, so the series reports one.
+        object.__setattr__(ser, "data", Huge(ser.data))
+        c = Codec(keys=[6], data_types=[sy.DataType.STRING])
+        with pytest.raises(
+            sy.ValidationError,
+            match=(
+                r"^series of channel 6 holds 4294967296 bytes, more than a frame "
+                r"length field holds$"
+            ),
+        ):
+            c.encode(FramePayload(keys=[6], series=[ser]))
+
     def test_rejects_unordered_list(self) -> None:
         """Should reject a list of declared clocks that is not ascending."""
         c = Codec(keys=[6], data_types=[sy.DataType.FLOAT32])
         ts = sy.DataType.TIMESTAMP
         pld = FramePayload(
-            keys=[5, 6, 7],
+            keys=[5, 6, 6, 7],
             series=[
                 sy.Series(np.array([1], np.int64), data_type=ts, clock=5),
-                sy.Series(np.array([1], np.float32)),
+                sy.Series(np.array([1], np.float32), clock=5),
+                sy.Series(np.array([2], np.float32), clock=7),
                 sy.Series(np.array([1], np.int64), data_type=ts, clock=7),
             ],
         )
