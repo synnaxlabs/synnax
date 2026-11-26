@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, type group, schematic } from "@synnaxlabs/client";
+import { DataType, enumeration, type group, schematic } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import type { Status } from "@synnaxlabs/lyra/status";
 import { Theming } from "@synnaxlabs/lyra/theming";
@@ -1873,6 +1873,43 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       await screen.findByRole("heading", { name: "close" });
       // Open and Wide both read as 1 on the state, and Open sends 1.
       expect(names(await openSelect("Fixed value"))).toEqual(["Closed"]);
+    });
+
+    it("keeps a taken value that the command sends in its select", async () => {
+      // With no entries, Off has a number field until an edit adds the entries.
+      const valve = await client.enumerations.create({
+        name: uniqueName("valve"),
+        entries: [],
+      });
+      await openPainted({
+        states: [createState(valve.key)],
+        commands: [on("off", 0), on("on", 1)],
+        interactions: [{ type: "next", key: "c", commands: ["off", "on"] }],
+      });
+      fireEvent.click(screen.getByText("off"));
+      await screen.findByRole("heading", { name: "off" });
+      const input = within(getInspector()).getByRole<HTMLInputElement>("textbox");
+      fireEvent.change(input, { target: { value: "1" } });
+      fireEvent.blur(input);
+      await client.enumerations.dispatch(
+        valve.key,
+        enumeration.set({
+          path: ["entries"],
+          value: [
+            { key: "closed", value: 0, name: "Closed", abnormal: false },
+            { key: "open", value: 1, name: "Open", abnormal: false },
+          ],
+        }),
+      );
+      expect(
+        await within(getInspector()).findByRole("button", { name: "Fixed value Open" }),
+      ).toBeDefined();
+      expect(
+        within(getInspector()).getByText(
+          "The other command of its toggle sends this value.",
+        ),
+      ).toBeDefined();
+      expect(names(await openSelect("Fixed value"))).toEqual(["Closed", "Open"]);
     });
 
     it("shows an error for a number that the other command sends", async () => {

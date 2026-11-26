@@ -87,7 +87,12 @@ export const CommandInspector = ({
   );
   const isTaken = (v: number): boolean => taken.includes(match(v));
   const sendsTaken = command.value.type === "fixed" && isTaken(command.value.value);
-  const choices = values.list.filter((v) => !isTaken(v.value));
+  // The value select keeps the value that the command sends, as the error says why.
+  const choices = values.list.filter(
+    (v) =>
+      (command.value.type === "fixed" && v.value === command.value.value) ||
+      !isTaken(v.value),
+  );
   // useValues lists no values for a number state, with no state, or while one loads.
   const listed = values.list.length > 0;
   return (
