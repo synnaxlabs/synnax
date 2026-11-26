@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
 	enumeration "github.com/synnaxlabs/synnax/pkg/service/enumeration/versions/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	symbol "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v5"
 	v13 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v13"
 	"github.com/synnaxlabs/x/errors"
@@ -54,8 +55,9 @@ func NewMigration(cfg MigrationConfig) gorp.Migration {
 						Entry(sym).
 						Exec(ctx, tx)
 				},
-				copies: map[string]symbol.Key{},
-				named:  map[string]int{},
+				retrievable: func(resource.ID) bool { return true },
+				copies:      map[string]symbol.Key{},
+				named:       map[string]int{},
 			}
 			if err := migrate.NewInstrumentedEntry(
 				key,

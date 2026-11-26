@@ -12,6 +12,7 @@ package schematic_test
 import (
 	"embed"
 	"encoding/hex"
+	"maps"
 	"slices"
 	"strconv"
 	"strings"
@@ -27,6 +28,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/enumeration"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
+	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	symbolversions "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions"
@@ -113,11 +117,11 @@ func retrieveSchematic(
 }
 
 // openService opens the schematic service on db, which runs its migrations.
-func openService(ctx SpecContext, db *gorp.DB) {
+func openService(ctx SpecContext, db *gorp.DB) *schematic.Service {
 	GinkgoHelper()
 	enums := MustOpen(enumeration.OpenService(ctx, enumeration.ServiceConfig{DB: db}))
 	groups := MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db}))
-	MustOpen(schematic.OpenService(ctx, schematic.ServiceConfig{
+	return MustOpen(schematic.OpenService(ctx, schematic.ServiceConfig{
 		DB:          db,
 		Group:       groups,
 		ImEx:        imex.NewService(),
@@ -901,6 +905,408 @@ var _ = Describe("Stored v13 state overrides", func() {
 		Expect(gorp.NewRetrieve[symbol.Key, symbol.Symbol]().Count(ctx, db)).
 			To(Equal(1))
 	})
+})
+
+// paints is the stroke and fill that a part shows.
+type paints struct{ Stroke, Fill *color.Color }
+
+// drawing returns the paints that spec shows at each value of entries, for each part by
+// its selectors, after its looks apply in order.
+func drawing(
+	spec symbol.Spec,
+	entries []enumeration.Entry,
+) map[float64]map[string]paints {
+	GinkgoHelper()
+	selectors := lo.SliceToMap(spec.Parts, func(p symbol.Part) (string, string) {
+		return p.Key, strings.Join(slices.Sorted(slices.Values(p.Selectors)), " ")
+	})
+	resolve := func(p *symbol.Paint, e enumeration.Entry) *color.Color {
+		GinkgoHelper()
+		var ref *servicecolor.Ref
+		switch v := p.Variant.(type) {
+		case symbol.EntryPaint:
+			ref = e.Color
+		case symbol.ColorPaint:
+			ref = &v.Value
+		}
+		if ref == nil {
+			return nil
+		}
+		return new(as[servicecolor.FixedRef](ref.Variant).Value)
+	}
+	out := map[float64]map[string]paints{}
+	for _, e := range entries {
+		parts := map[string]paints{}
+		for _, l := range spec.Looks {
+			if l.When != nil && !slices.Contains(
+				as[symbol.EqualsCondition](l.When.Variant).Values,
+				e.Value,
+			) {
+				continue
+			}
+			p := parts[selectors[*l.Part]]
+			if l.Stroke != nil {
+				p.Stroke = resolve(l.Stroke, e)
+			}
+			if l.Fill != nil {
+				p.Fill = resolve(l.Fill, e)
+			}
+			parts[selectors[*l.Part]] = p
+		}
+		maps.DeleteFunc(parts, func(_ string, p paints) bool {
+			return p.Stroke == nil && p.Fill == nil
+		})
+		out[e.Value] = parts
+	}
+	return out
+}
+
+var _ = Describe("Imported v13 state overrides", func() {
+	var (
+		blue   = color.Color{R: 40, G: 80, B: 220, A: 255}
+		green  = color.Color{R: 40, G: 200, B: 90, A: 255}
+		red    = color.Color{R: 220, G: 40, B: 40, A: 255}
+		yellow = color.Color{R: 220, G: 200, B: 40, A: 255}
+		white  = color.Color{R: 255, G: 255, B: 255, A: 255}
+		black  = color.Color{A: 255}
+	)
+	// region returns a region that paints the shapes of class key.
+	region := func(key string, stroke, fill *color.Color) v4.Region {
+		return v4.Region{
+			Key:         key,
+			Name:        key,
+			Selectors:   []string{"." + key},
+			StrokeColor: stroke,
+			FillColor:   fill,
+		}
+	}
+	// valve returns an actuator with the shapes a, b, and c, and a state for each list
+	// of regions.
+	valve := func(regions ...[]v4.Region) v4.Spec {
+		s := v4.Spec{
+			Variant: "actuator",
+			Scale:   1,
+			SVG: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">` +
+				`<rect class="a"/><rect class="b"/><rect class="c"/></svg>`,
+		}
+		for i, r := range regions {
+			s.States = append(s.States, v4.State{
+				Key:     []string{"off", "on"}[i],
+				Name:    []string{"Off", "On"}[i],
+				Regions: r,
+			})
+		}
+		return s
+	}
+	states := func(regions ...[]v4.Region) []v4.State { return valve(regions...).States }
+	var (
+		plain = valve(
+			[]v4.Region{region("a", &blue, &blue)},
+			[]v4.Region{region("a", &green, &green)},
+		)
+		acb = valve(
+			[]v4.Region{
+				region("a", &blue, &blue),
+				region("c", &blue, &blue),
+				region("b", &black, nil),
+			},
+			[]v4.Region{
+				region("c", &green, &green),
+				region("a", &green, &green),
+				region("b", &black, nil),
+			},
+		)
+		whiteFill = valve(
+			[]v4.Region{region("a", &blue, &white)},
+			[]v4.Region{region("a", &green, &white)},
+		)
+		// newFill draws plain with a fill that no entry carries, which only a copy can.
+		newFill = states(
+			[]v4.Region{region("a", &red, &white)},
+			[]v4.Region{region("a", &yellow, &white)},
+		)
+	)
+	// tank is a static symbol with one state, which a custom actuator actuates.
+	tank := valve([]v4.Region{region("a", &blue, &blue)})
+	tank.Variant = "static"
+	// look is what a node draws: its symbol, and the entries that its state draws with.
+	type look struct {
+		symbol  symbol.Symbol
+		entries enumeration.Enumeration
+	}
+	// lookOf returns the look of n, the single symbol node of the schematic with key.
+	lookOf := func(ctx SpecContext, db *gorp.DB, key schematic.Key) look {
+		GinkgoHelper()
+		var sc schematic.Schematic
+		Expect(gorp.NewRetrieve[schematic.Key, schematic.Schematic]().
+			Where(gorp.MatchKeys[schematic.Key, schematic.Schematic](key)).
+			Entry(&sc).
+			Exec(ctx, db)).To(Succeed())
+		n := as[schematic.SymbolNodeConfig](sc.Nodes[0].Config.Variant)
+		var l look
+		Expect(gorp.NewRetrieve[symbol.Key, symbol.Symbol]().
+			Where(gorp.MatchKeys[symbol.Key, symbol.Symbol](
+				as[symbol.CustomRef](n.Spec.Variant).Key,
+			)).
+			Entry(&l.symbol).
+			Exec(ctx, db)).To(Succeed())
+		e := as[symbol.EnumerationState](l.symbol.Data.States[0].Variant).Enumeration
+		if n.States[0].Enumeration != nil {
+			e = n.States[0].Enumeration
+		}
+		Expect(gorp.NewRetrieve[enumeration.Key, enumeration.Enumeration]().
+			Where(gorp.MatchKeys[enumeration.Key, enumeration.Enumeration](*e)).
+			Entry(&l.entries).
+			Exec(ctx, db)).To(Succeed())
+		return l
+	}
+
+	// panel returns a schematic with one custom node that draws the symbol with key
+	// and has overrides.
+	panel := func(key symbol.Key, overrides []v4.State) v13.Schematic {
+		var cfg v13.CustomActuatorNodeConfig
+		cfg.SetDefaults()
+		cfg.SpecKey, cfg.Label.Label = key.String(), "Vent"
+		cfg.StateOverrides = overrides
+		return v13.Schematic{
+			Key:   uuid.New(),
+			Name:  "Panel",
+			Nodes: []v13.Node{{Key: "a", Config: v13.NodeConfig{Variant: cfg}}},
+		}
+	}
+	// all allows every record.
+	all := func(resource.ID) bool { return true }
+	// importFile imports old as a file through svc into a new project, for a user that
+	// can retrieve what retrievable allows, and returns the key of the schematic it
+	// makes.
+	importFile := func(
+		ctx SpecContext,
+		db *gorp.DB,
+		svc *schematic.Service,
+		old v13.Schematic,
+		retrievable func(resource.ID) bool,
+	) schematic.Key {
+		GinkgoHelper()
+		projects := MustOpen(project.OpenService(ctx, project.ServiceConfig{DB: db}))
+		proj := project.Project{Name: "Plant"}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return projects.NewWriter(tx).Create(ctx, &proj)
+		})).To(Succeed())
+		env := imex.Envelope{Version: v13.Version, Type: "schematic", Name: old.Name}
+		Expect(env.Encode(old)).To(Succeed())
+		write := MustSucceed(svc.Decode(ctx, WireRoundTrip(env)))
+		var id resource.ID
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
+			id, err = write(ctx, tx, imex.ImportOptions{
+				Parent:      proj.ResourceID(),
+				Retrievable: retrievable,
+			})
+			return err
+		})).To(Succeed())
+		return MustSucceed(uuid.Parse(id.Key))
+	}
+
+	DescribeTable(
+		"Should leave a node on its symbol when retrievable rejects",
+		func(ctx SpecContext, retrievable func(symbol.Symbol) func(resource.ID) bool) {
+			db := openShipped(ctx)
+			sym := v4.Symbol{Key: uuid.New(), Name: "Valve", Data: plain}
+			Expect(gorp.NewCreate[v4.Key, v4.Symbol]().Entry(&sym).Exec(ctx, db)).
+				To(Succeed())
+			svc := openService(ctx, db)
+			var stored symbol.Symbol
+			Expect(gorp.NewRetrieve[symbol.Key, symbol.Symbol]().
+				Where(gorp.MatchKeys[symbol.Key, symbol.Symbol](sym.Key)).
+				Entry(&stored).
+				Exec(ctx, db)).To(Succeed())
+			key := importFile(
+				ctx,
+				db,
+				svc,
+				panel(sym.Key, newFill),
+				retrievable(stored),
+			)
+			var sc schematic.Schematic
+			Expect(svc.NewRetrieve().
+				Where(schematic.MatchKeys(key)).
+				Entry(&sc).
+				Exec(ctx, db)).To(Succeed())
+			n := as[schematic.SymbolNodeConfig](sc.Nodes[0].Config.Variant)
+			Expect(n.Spec.Variant).To(Equal(symbol.CustomRef{Key: sym.Key}))
+			Expect(n.States[0].Enumeration).To(BeNil())
+			Expect(MustSucceed(
+				gorp.NewRetrieve[symbol.Key, symbol.Symbol]().Count(ctx, db),
+			)).To(Equal(1))
+		},
+		Entry("the symbol", func(s symbol.Symbol) func(resource.ID) bool {
+			return func(id resource.ID) bool { return id != symbol.ResourceID(s.Key) }
+		}),
+		Entry(
+			"the enumeration of the symbol",
+			func(s symbol.Symbol) func(resource.ID) bool {
+				e := as[symbol.EnumerationState](s.Data.States[0].Variant).Enumeration
+				return func(id resource.ID) bool { return id != enumeration.ResourceID(*e) }
+			},
+		),
+		Entry(
+			"anything, with no retrievable check",
+			func(symbol.Symbol) func(resource.ID) bool {
+				return nil
+			},
+		),
+	)
+
+	It("Should import a custom actuator on a symbol with no states with a copy that "+
+		"keeps its state binding", func(ctx SpecContext) {
+		db := openShipped(ctx)
+		sym := v4.Symbol{Key: uuid.New(), Name: "Plain", Data: v4.Spec{
+			Variant: "static",
+			Scale:   1,
+			SVG:     `<svg><rect class="a"/></svg>`,
+		}}
+		Expect(gorp.NewCreate[v4.Key, v4.Symbol]().Entry(&sym).Exec(ctx, db)).
+			To(Succeed())
+		svc := openService(ctx, db)
+		key := importFile(ctx, db, svc, panel(sym.Key, nil), all)
+		var sc schematic.Schematic
+		Expect(svc.NewRetrieve().
+			Where(schematic.MatchKeys(key)).
+			Entry(&sc).
+			Exec(ctx, db)).To(Succeed())
+		n := as[schematic.SymbolNodeConfig](sc.Nodes[0].Config.Variant)
+		Expect(as[symbol.CustomRef](n.Spec.Variant).Key).ToNot(Equal(sym.Key))
+		Expect(n.States).To(ConsistOf(HaveField("Key", "active")))
+	})
+
+	It("Should import a node whose symbol the Core lacks with a missing symbol",
+		func(ctx SpecContext) {
+			db := openShipped(ctx)
+			svc := openService(ctx, db)
+			key := importFile(ctx, db, svc, panel(uuid.New(), plain.States), all)
+			var sc schematic.Schematic
+			Expect(svc.NewRetrieve().
+				Where(schematic.MatchKeys(key)).
+				Entry(&sc).
+				Exec(ctx, db)).To(Succeed())
+			n := as[schematic.SymbolNodeConfig](sc.Nodes[0].Config.Variant)
+			Expect(n.Spec.Variant).To(BeAssignableToTypeOf(symbol.MissingRef{}))
+		})
+
+	It("Should give a custom actuator on a stored static symbol the copy that the "+
+		"upgrade gives it", func(ctx SpecContext) {
+		sym := v4.Symbol{Key: uuid.New(), Name: "Tank", Data: tank}
+		old := panel(sym.Key, states([]v4.Region{region("a", &red, &white)}))
+		upgradedDB := openShipped(ctx)
+		Expect(gorp.NewCreate[v4.Key, v4.Symbol]().Entry(&sym).Exec(ctx, upgradedDB)).
+			To(Succeed())
+		Expect(gorp.NewCreate[v13.Key, v13.Schematic]().
+			Entry(&old).
+			Exec(ctx, upgradedDB)).To(Succeed())
+		openService(ctx, upgradedDB)
+		upgraded := lookOf(ctx, upgradedDB, old.Key)
+		importedDB := openShipped(ctx)
+		Expect(gorp.NewCreate[v4.Key, v4.Symbol]().Entry(&sym).Exec(ctx, importedDB)).
+			To(Succeed())
+		svc := openService(ctx, importedDB)
+		imported := lookOf(ctx, importedDB, importFile(ctx, importedDB, svc, old, all))
+		Expect(upgraded.symbol.Key).ToNot(Equal(sym.Key))
+		Expect(imported.symbol.Key).ToNot(Equal(sym.Key))
+		Expect(imported.entries.Entries).To(Equal(upgraded.entries.Entries))
+		Expect(drawing(imported.symbol.Data, imported.entries.Entries)).
+			To(Equal(drawing(upgraded.symbol.Data, upgraded.entries.Entries)))
+	})
+
+	DescribeTable(
+		"Should import an old file with the look that the upgrade gives it",
+		func(ctx SpecContext, src v4.Spec, overrides []v4.State, want string) {
+			db := openShipped(ctx)
+			sym := v4.Symbol{Key: uuid.New(), Name: "Valve", Data: src}
+			Expect(gorp.NewCreate[v4.Key, v4.Symbol]().Entry(&sym).Exec(ctx, db)).
+				To(Succeed())
+			old := panel(sym.Key, overrides)
+			Expect(gorp.NewCreate[v13.Key, v13.Schematic]().Entry(&old).Exec(ctx, db)).
+				To(Succeed())
+			svc := openService(ctx, db)
+			upgraded := lookOf(ctx, db, old.Key)
+			imported := lookOf(ctx, db, importFile(ctx, db, svc, old, all))
+			outcome := func(l look) string {
+				switch {
+				case l.symbol.Key != sym.Key:
+					return "copy"
+				case l.entries.Name != sym.Name:
+					return "enumeration"
+				}
+				return "symbol"
+			}
+			Expect(outcome(upgraded)).To(Equal(want))
+			Expect(outcome(imported)).To(Equal(want))
+			if want == "copy" {
+				Expect(imported.symbol.Key).ToNot(Equal(upgraded.symbol.Key))
+				Expect(imported.symbol.Name).To(Equal(upgraded.symbol.Name))
+				Expect(imported.symbol.Group).To(Equal(upgraded.symbol.Group))
+				Expect(drawing(imported.symbol.Data, imported.entries.Entries)).
+					To(Equal(drawing(upgraded.symbol.Data, upgraded.entries.Entries)))
+				return
+			}
+			Expect(imported.entries.Name).To(Equal(upgraded.entries.Name))
+			Expect(imported.entries.Entries).To(Equal(upgraded.entries.Entries))
+		},
+		Entry("overrides equal to the symbol", plain, plain.States, "symbol"),
+		Entry("new entry colors", plain, states(
+			[]v4.Region{region("a", &red, &red)},
+			[]v4.Region{region("a", &yellow, &yellow)},
+		), "enumeration"),
+		Entry("an override of the first state alone", plain, states(
+			[]v4.Region{region("a", &red, &red)},
+		), "enumeration"),
+		Entry("new entry colors on regions in another order", acb, states(
+			[]v4.Region{
+				region("a", &red, &red),
+				region("c", &red, &red),
+				region("b", &black, nil),
+			},
+			[]v4.Region{
+				region("c", &yellow, &yellow),
+				region("a", &yellow, &yellow),
+				region("b", &black, nil),
+			},
+		), "enumeration"),
+		Entry("a fill that no entry carries", plain, newFill, "copy"),
+		Entry("a fill that no entry carries on regions in another order", acb, states(
+			[]v4.Region{
+				region("a", &blue, &white),
+				region("c", &blue, &blue),
+				region("b", &black, nil),
+			},
+			[]v4.Region{
+				region("c", &green, &green),
+				region("a", &green, &white),
+				region("b", &black, nil),
+			},
+		), "copy"),
+		Entry("a fill that the entries now carry", whiteFill, states(
+			[]v4.Region{region("a", &red, &red)},
+			[]v4.Region{region("a", &yellow, &yellow)},
+		), "copy"),
+		Entry("a removed fill", plain, states(
+			[]v4.Region{region("a", &red, nil)},
+			[]v4.Region{region("a", &yellow, nil)},
+		), "copy"),
+		Entry(
+			"overrides of shapes that the symbol does not paint",
+			plain,
+			func() []v4.State {
+				s := states(
+					[]v4.Region{region("a", &red, &red)},
+					[]v4.Region{region("a", &yellow, &yellow)},
+				)
+				s[0].Regions[0].Selectors = []string{".b"}
+				s[1].Regions[0].Selectors = []string{"rect:nth-of-type(2)"}
+				return s
+			}(),
+			"copy",
+		),
+	)
 })
 
 var _ = Describe("Stored v13 selects", func() {

@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/versions"
+	v13 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v13"
 	v14 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v14"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -40,12 +41,16 @@ func (*Service) Match(body map[string]any) bool {
 // must be a project. A group must be in the parent project. The key on the wire is
 // discarded so every import mints a new resource. Each select and state indicator of a
 // file older than v14 gets an enumeration for its options, as at upgrade, shared with
-// equal lists of the same file. The schematic drops each named color and each
-// enumeration that the Core does not hold, so a select or state indicator that loses
-// its enumeration draws no states. A node whose custom symbol the Core does not hold
-// draws a missing symbol with the same key, and every other node drops the bindings
-// that its symbol orphans. An unknown envelope version is a path-scoped validation
-// error.
+// equal lists of the same file. Each custom node of such a file with state overrides
+// gets the enumeration or symbol copy that the upgrade gives it, and each custom
+// actuator whose symbol does not actuate gets a copy that does, when opts.Retrievable
+// allows the symbol and each enumeration that the node needs. A copy goes in the group
+// of its symbol, so the import needs create on symbols and update on that group. The
+// schematic drops each named color and each enumeration that the Core does not hold, so
+// a select or state indicator that loses its enumeration draws no states. A node whose
+// custom symbol the Core does not hold draws a missing symbol with the same key, and
+// every other node drops the bindings that its symbol orphans. An unknown envelope
+// version is a path-scoped validation error.
 func (s *Service) Decode(ctx context.Context, env imex.Envelope) (imex.Write, error) {
 	sch, err := versions.DecodeImExEnvelope(ctx, env)
 	if err != nil {
@@ -71,14 +76,7 @@ func (s *Service) Decode(ctx context.Context, env imex.Envelope) (imex.Write, er
 		}
 		sch.Group, sch.Project = nil, nil
 		if isOld {
-			intern := s.cfg.Enumeration.NewWriter(tx).NewInterner().Intern
-			if err = v14.InternStates(
-				ctx,
-				&sch,
-				old,
-				intern,
-				s.cfg.Instrumentation,
-			); err != nil {
+			if err = s.importOld(ctx, tx, &sch, old, opts.Retrievable); err != nil {
 				return resource.ID{}, err
 			}
 		}
@@ -94,6 +92,40 @@ func (s *Service) Decode(ctx context.Context, env imex.Envelope) (imex.Write, er
 		}
 		return ResourceID(sch.Key), nil
 	}, nil
+}
+
+// importOld gives sch, lifted from the old schematic old, the enumerations and symbol
+// copies that its selects, state indicators, and custom nodes need. Each import makes
+// its own records. A node keeps its symbol when retrievable rejects the symbol or an
+// enumeration that the node needs, and a nil retrievable rejects all.
+func (s *Service) importOld(
+	ctx context.Context,
+	tx gorp.Tx,
+	sch *Schematic,
+	old v13.Schematic,
+	retrievable func(resource.ID) bool,
+) error {
+	intern := s.cfg.Enumeration.NewWriter(tx).NewInterner().Intern
+	if err := v14.InternStates(
+		ctx,
+		sch,
+		old,
+		intern,
+		s.cfg.Instrumentation,
+	); err != nil {
+		return err
+	}
+	return v14.ImportCustomNodes(
+		ctx,
+		tx,
+		sch,
+		old,
+		func(id resource.ID) bool { return retrievable != nil && retrievable(id) },
+		intern,
+		func(ctx context.Context, sym *symbol.Symbol) error {
+			return s.Symbol.NewWriter(tx).Create(ctx, sym)
+		},
+	)
 }
 
 // fitNodes makes each node of sch whose custom symbol tx lacks draw a missing symbol
