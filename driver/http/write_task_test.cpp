@@ -135,6 +135,17 @@ size_t count_requests_for_path(
     return count;
 }
 
+/// @returns the body of each request to path, in the order the server got them.
+std::vector<std::string> bodies_for_path(
+    const std::vector<testutil::ReceivedRequest> &reqs,
+    const std::string &path
+) {
+    std::vector<std::string> out;
+    for (const auto &r: reqs)
+        if (r.path == path) out.push_back(r.body);
+    return out;
+}
+
 /// @brief config for one POST endpoint at /api/control that sends channel 1.
 WriteTaskConfig single_endpoint_cfg() {
     WriteTaskConfig cfg;
@@ -555,12 +566,9 @@ TEST(HTTPWriteTask, ParallelBatchPartialFailure) {
     EXPECT_NE(err.data.find("/api/bad"), std::string::npos)
         << "Expected failing endpoint path in error. Got: " << err.data;
 
-    // The good endpoint succeeds on round 1 (progress), so the bad endpoint is retried.
-    // Round 2 has only the bad endpoint which fails again (no progress), so the retry
-    // stops. Total: good=1, bad=2.
     auto reqs = server.received_requests();
     EXPECT_EQ(count_requests_for_path(reqs, "/api/good"), 1);
-    EXPECT_EQ(count_requests_for_path(reqs, "/api/bad"), 2);
+    EXPECT_EQ(count_requests_for_path(reqs, "/api/bad"), 1);
 }
 
 /// @brief when multiple endpoints in a parallel batch return errors, the combined
@@ -611,11 +619,9 @@ TEST(HTTPWriteTask, ParallelBatchAllFailures) {
     EXPECT_NE(err.data.find("/api/server-err"), std::string::npos)
         << "Expected temporary endpoint in error. Got: " << err.data;
 
-    // The critical error on client-err counts as progress, so server-err is retried
-    // once. Round 2: server-err fails again (no progress), retry stops.
     auto reqs = server.received_requests();
     EXPECT_EQ(count_requests_for_path(reqs, "/api/client-err"), 1);
-    EXPECT_EQ(count_requests_for_path(reqs, "/api/server-err"), 2);
+    EXPECT_EQ(count_requests_for_path(reqs, "/api/server-err"), 1);
 }
 
 /// @brief it should send one request per sample of a series, in sample order.
@@ -1011,9 +1017,9 @@ TEST(HTTPWriteTask, EndpointQueryParams) {
     EXPECT_EQ(verbose_param->second, "true");
 }
 
-/// @brief when one endpoint always succeeds and another fails then succeeds, only the
-/// failing endpoint should be retried.
-TEST(HTTPWriteTask, PartialSuccessRetryOnly) {
+/// @brief an endpoint that fails for a moment should send its first command once and
+/// drop the rest, while the other endpoints send each command once.
+TEST(HTTPWriteTask, FailingEndpointDropsItsLaterCommands) {
     testutil::Server server(
         testutil::ServerConfig{
             .routes = {
@@ -1025,58 +1031,9 @@ TEST(HTTPWriteTask, PartialSuccessRetryOnly) {
                 },
                 {
                     .method = Method::POST,
-                    .path = "/api/flaky",
-                    .status_code = 500,
-                    .response_body = R"({"error":"internal"})",
-                    .remaining_failures = 1,
-                },
-            },
-        }
-    );
-    ASSERT_NIL(server.start());
-    x::defer::defer stop_server([&server] { server.stop(); });
-
-    WriteTaskConfig cfg;
-    cfg.device = "test-device";
-    cfg.auto_start = false;
-
-    auto ep1 = endpoint("POST", "/api/good", 1);
-
-    auto ep2 = endpoint("POST", "/api/flaky", 2);
-
-    cfg.endpoints = {ep1, ep2};
-
-    auto [sink, processor] = make_sink(cfg, server.base_url());
-
-    x::telem::Frame frame;
-    frame.emplace(synnax::channel::Key(1), x::telem::Series(std::vector<double>{10.0}));
-    frame.emplace(synnax::channel::Key(2), x::telem::Series(std::vector<double>{20.0}));
-
-    ASSERT_NIL(sink->write(frame));
-
-    auto reqs = server.received_requests();
-    EXPECT_EQ(count_requests_for_path(reqs, "/api/good"), 1);
-    EXPECT_EQ(count_requests_for_path(reqs, "/api/flaky"), 2);
-}
-
-/// @brief it should resend a command that failed for a moment before the next command
-/// of its endpoint.
-TEST(HTTPWriteTask, ResendsFailedCommandBeforeNextOne) {
-    testutil::Server server(
-        testutil::ServerConfig{
-            .routes = {
-                {
-                    .method = Method::POST,
-                    .path = "/api/good",
-                    .status_code = 200,
-                    .response_body = R"({"status":"ok"})",
-                },
-                {
-                    .method = Method::POST,
-                    .path = "/api/flaky",
-                    .status_code = 500,
-                    .response_body = R"({"error":"internal"})",
-                    .remaining_failures = 1,
+                    .path = "/api/bad",
+                    .status_code = 503,
+                    .response_body = R"({"error":"busy"})",
                 },
             },
         }
@@ -1087,31 +1044,43 @@ TEST(HTTPWriteTask, ResendsFailedCommandBeforeNextOne) {
     cfg.device = "test-device";
     cfg.endpoints = {
         endpoint("POST", "/api/good", 1),
-        endpoint("POST", "/api/flaky", 2),
+        endpoint("POST", "/api/bad", 2),
     };
     auto [sink, processor] = make_sink(cfg, server.base_url());
 
     x::telem::Frame frame;
-    frame.emplace(synnax::channel::Key(1), x::telem::Series(std::vector{1.0, 2.0}));
-    frame.emplace(synnax::channel::Key(2), x::telem::Series(std::vector{3.0, 4.0}));
-    ASSERT_NIL(sink->write(frame));
-
-    std::vector<std::string> flaky;
-    for (const auto &r: server.received_requests())
-        if (r.path == "/api/flaky") flaky.push_back(r.body);
+    frame.emplace(
+        synnax::channel::Key(1),
+        x::telem::Series(std::vector{1.0, 2.0, 3.0})
+    );
+    frame.emplace(
+        synnax::channel::Key(2),
+        x::telem::Series(std::vector{4.0, 5.0, 6.0})
+    );
+    const auto err = sink->write(frame);
+    ASSERT_OCCURRED_AS(err, errors::TEMPORARY_ERROR);
     EXPECT_EQ(
-        flaky,
+        err.data,
+        "POST " + server.base_url() + R"(/api/bad returned 503: {"error":"busy"})"
+    );
+
+    const auto reqs = server.received_requests();
+    EXPECT_EQ(
+        bodies_for_path(reqs, "/api/good"),
         (std::vector<std::string>{
+            R"({"value":1})",
+            R"({"value":2})",
             R"({"value":3})",
-            R"({"value":3})",
-            R"({"value":4})",
         })
+    );
+    EXPECT_EQ(
+        bodies_for_path(reqs, "/api/bad"),
+        (std::vector<std::string>{R"({"value":4})"})
     );
 }
 
-/// @brief when all endpoints fail with temporary errors and no progress is made, retry
-/// should stop after one round.
-TEST(HTTPWriteTask, NoProgressStopsRetry) {
+/// @brief when every endpoint fails for a moment, each should send one request.
+TEST(HTTPWriteTask, TemporaryFailuresSendOnce) {
     testutil::Server server(
         testutil::ServerConfig{
             .routes = {
@@ -1156,29 +1125,22 @@ TEST(HTTPWriteTask, NoProgressStopsRetry) {
     EXPECT_EQ(reqs.size(), 2);
 }
 
-/// @brief progress-driven retry across multiple rounds: C always succeeds, A fails
-/// once, B fails twice. Each round makes progress until all resolve.
-TEST(HTTPWriteTask, ProgressDrivenMultipleRounds) {
+/// @brief a 4xx should drop the later commands of its endpoint and stop the task once
+/// the other endpoints send theirs.
+TEST(HTTPWriteTask, ClientErrorStopsTaskAfterOtherEndpoints) {
+    x::breaker::Breaker cancel;
     testutil::Server server(
         testutil::ServerConfig{
             .routes = {
                 {
                     .method = Method::POST,
-                    .path = "/api/a",
-                    .status_code = 500,
-                    .response_body = R"({"error":"internal"})",
-                    .remaining_failures = 1,
+                    .path = "/api/rejected",
+                    .status_code = 400,
+                    .response_body = R"({"error":"bad request"})",
                 },
                 {
                     .method = Method::POST,
-                    .path = "/api/b",
-                    .status_code = 500,
-                    .response_body = R"({"error":"internal"})",
-                    .remaining_failures = 2,
-                },
-                {
-                    .method = Method::POST,
-                    .path = "/api/c",
+                    .path = "/api/good",
                     .status_code = 200,
                     .response_body = R"({"status":"ok"})",
                 },
@@ -1187,82 +1149,63 @@ TEST(HTTPWriteTask, ProgressDrivenMultipleRounds) {
     );
     ASSERT_NIL(server.start());
     x::defer::defer stop_server([&server] { server.stop(); });
-
     WriteTaskConfig cfg;
     cfg.device = "test-device";
-    cfg.auto_start = false;
-
-    auto ep_a = endpoint("POST", "/api/a", 1);
-
-    auto ep_b = endpoint("POST", "/api/b", 2);
-
-    auto ep_c = endpoint("POST", "/api/c", 3);
-
-    cfg.endpoints = {ep_a, ep_b, ep_c};
-
+    cfg.endpoints = {
+        endpoint("POST", "/api/rejected", 1),
+        endpoint("POST", "/api/good", 2),
+    };
     auto [sink, processor] = make_sink(cfg, server.base_url());
 
-    x::telem::Frame frame;
-    frame.emplace(synnax::channel::Key(1), x::telem::Series(std::vector<double>{10.0}));
-    frame.emplace(synnax::channel::Key(2), x::telem::Series(std::vector<double>{20.0}));
-    frame.emplace(synnax::channel::Key(3), x::telem::Series(std::vector<double>{30.0}));
+    auto reads = std::make_shared<std::vector<x::telem::Frame>>();
+    x::telem::Frame first;
+    first.emplace(synnax::channel::Key(1), x::telem::Series(std::vector{1.0, 2.0}));
+    first.emplace(synnax::channel::Key(2), x::telem::Series(std::vector{3.0, 4.0}));
+    reads->push_back(std::move(first));
+    x::telem::Frame second;
+    second.emplace(synnax::channel::Key(2), x::telem::Series(std::vector{5.0}));
+    reads->push_back(std::move(second));
 
-    ASSERT_NIL(sink->write(frame));
-
-    auto reqs = server.received_requests();
-    EXPECT_EQ(count_requests_for_path(reqs, "/api/a"), 2);
-    EXPECT_EQ(count_requests_for_path(reqs, "/api/b"), 3);
-    EXPECT_EQ(count_requests_for_path(reqs, "/api/c"), 1);
-}
-
-/// @brief a critical error (400) on one endpoint should not prevent temporary failures
-/// on other endpoints from being retried.
-TEST(HTTPWriteTask, CriticalErrorDoesNotPreventTemporaryRetry) {
-    testutil::Server server(
-        testutil::ServerConfig{
-            .routes = {
-                {
-                    .method = Method::POST,
-                    .path = "/api/critical",
-                    .status_code = 400,
-                    .response_body = R"({"error":"bad request"})",
-                },
-                {
-                    .method = Method::POST,
-                    .path = "/api/flaky",
-                    .status_code = 500,
-                    .response_body = R"({"error":"internal"})",
-                    .remaining_failures = 1,
-                },
-            },
-        }
+    synnax::task::Task task;
+    task.key = x::uuid::create();
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    common::WriteTask write_task(
+        task,
+        ctx,
+        x::breaker::Config{.name = "test"},
+        std::move(sink),
+        std::make_shared<pipeline::testutil::WriterFactory>(),
+        pipeline::testutil::simple_streamer_factory({1, 2}, reads)
     );
-    ASSERT_NIL(server.start());
-    x::defer::defer stop_server([&server] { server.stop(); });
+    ASSERT_TRUE(write_task.start("start", cancel));
 
-    WriteTaskConfig cfg;
-    cfg.device = "test-device";
-    cfg.auto_start = false;
-
-    auto ep1 = endpoint("POST", "/api/critical", 1);
-
-    auto ep2 = endpoint("POST", "/api/flaky", 2);
-
-    cfg.endpoints = {ep1, ep2};
-
-    auto [sink, processor] = make_sink(cfg, server.base_url());
-
-    x::telem::Frame frame;
-    frame.emplace(synnax::channel::Key(1), x::telem::Series(std::vector<double>{10.0}));
-    frame.emplace(synnax::channel::Key(2), x::telem::Series(std::vector<double>{20.0}));
-
-    auto err = sink->write(frame);
-    ASSERT_OCCURRED_AS(err, errors::CRITICAL_ERROR);
-    EXPECT_NE(err.data.find("/api/critical"), std::string::npos);
-
-    auto reqs = server.received_requests();
-    EXPECT_EQ(count_requests_for_path(reqs, "/api/critical"), 1);
-    EXPECT_EQ(count_requests_for_path(reqs, "/api/flaky"), 2);
+    ASSERT_EVENTUALLY_EQ_F_WITH_TIMEOUT(
+        [&] {
+            const auto statuses = ctx->snapshot();
+            return statuses.empty() ? "" : statuses.back().message;
+        },
+        std::string("Failed to write commands"),
+        std::chrono::seconds(5),
+        std::chrono::milliseconds(10)
+    );
+    const auto stopped = ctx->snapshot().back();
+    EXPECT_EQ(stopped.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_FALSE(stopped.details.running);
+    EXPECT_EQ(
+        stopped.description,
+        "POST " + server.base_url() +
+            R"(/api/rejected returned 400: {"error":"bad request"})"
+    );
+    const auto reqs = server.received_requests();
+    EXPECT_EQ(
+        bodies_for_path(reqs, "/api/rejected"),
+        (std::vector<std::string>{R"({"value":1})"})
+    );
+    EXPECT_EQ(
+        bodies_for_path(reqs, "/api/good"),
+        (std::vector<std::string>{R"({"value":3})", R"({"value":4})"})
+    );
+    write_task.stop("stop", true);
 }
 
 /// @brief when all endpoints return critical errors, no retry should occur.

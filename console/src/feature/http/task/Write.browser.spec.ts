@@ -338,6 +338,29 @@ describe("Write", () => {
     });
   });
 
+  it("should duplicate an endpoint that sends no message without its command channel", async () => {
+    const cmd = await client.channels.create({
+      name: uniqueName("http_cmd"),
+      dataType: "float64",
+      virtual: true,
+    });
+    const base = HTTP.Task.writeEndpointZ.parse({});
+    const { draft } = await renderWrite([
+      {
+        ...base,
+        key: "ep1",
+        path: "/setpoint",
+        channel: { ...base.channel, channel: cmd.key },
+      },
+    ]);
+    fireEvent.contextMenu(await screen.findByRole("treeitem", { name: /\/setpoint/ }));
+    fireEvent.click(await screen.findByText("Duplicate"));
+    await waitFor(async () => {
+      const endpoints = await retrieveEndpoints(draft.key);
+      expect(endpoints.map(({ channel }) => channel.channel)).toEqual([cmd.key, 0]);
+    });
+  });
+
   it("should switch an endpoint off through its checkbox", async () => {
     const value = createField("value", "float");
     const { ic, message } = await createFormat([value]);
