@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/platform/settings/UsedBy.css";
+import "@/platform/collection/UsedBy.css";
 
 import type { resource } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
@@ -40,7 +40,7 @@ const Use = ({ resource, select, close }: UseProps): ReactElement => {
       size="small"
       justify="start"
       full="x"
-      className={CSS.BE("settings-used-by", "resource")}
+      className={CSS.BE("collection-used-by", "resource")}
       onClick={onClick}
     >
       {Item.icon(resource)}
@@ -66,7 +66,7 @@ interface UnusedProps {
 }
 
 const Unused = ({ kind }: UnusedProps): ReactElement => (
-  <Text.Text level="small" color={9} className={CSS.BE("settings-used-by", "unused")}>
+  <Text.Text level="small" color={9} className={CSS.BE("collection-used-by", "unused")}>
     Nothing uses this {kind}.
   </Text.Text>
 );
@@ -87,7 +87,7 @@ const Uses = ({ ids, kind, selects, close }: UsesProps): ReactElement => {
   const resources = Resource.useMultiple({ ids });
   if (resources.length === 0) return <Unused kind={kind} />;
   return (
-    <Flex.Box y empty className={CSS.BE("settings-used-by", "resources")}>
+    <Flex.Box y empty className={CSS.BE("collection-used-by", "resources")}>
       {resources.toSorted(USE_ORDER).map((r) => (
         <Use
           key={`${r.id.type}:${r.id.key}`}
@@ -183,7 +183,7 @@ export const UsedBy = ({
       <Dialog.Dialog
         background={1}
         rounded="medium"
-        className={CSS.BE("settings-used-by", "popover")}
+        className={CSS.BE("collection-used-by", "popover")}
         onPointerEnter={cancelClose}
         onPointerLeave={mode === "hover" ? scheduleClose : undefined}
         onClick={stopPropagation}
@@ -191,7 +191,7 @@ export const UsedBy = ({
         <Text.Text
           level="small"
           color={9}
-          className={CSS.BE("settings-used-by", "label")}
+          className={CSS.BE("collection-used-by", "label")}
         >
           Used by
         </Text.Text>

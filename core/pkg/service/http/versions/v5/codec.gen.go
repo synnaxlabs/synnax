@@ -337,18 +337,6 @@ func (we WriteEndpoint) EncodeOrc(w *orc.Writer) error {
 	} else {
 		w.Bool(false)
 	}
-	if err := we.Channel.EncodeOrc(w); err != nil {
-		return err
-	}
-	w.Bool(we.Fields != nil)
-	if we.Fields != nil {
-		w.Uint32(uint32(len(we.Fields)))
-		for i := range we.Fields {
-			if err := we.Fields[i].EncodeOrc(w); err != nil {
-				return err
-			}
-		}
-	}
 	return nil
 }
 
@@ -431,27 +419,6 @@ func (we *WriteEndpoint) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			we.Message = &hv
-		}
-	}
-	if err = we.Channel.DecodeOrc(r); err != nil {
-		return err
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			n, err := r.CollectionLen()
-			if err != nil {
-				return err
-			}
-			we.Fields = make([]WriteField, n)
-			for i := range we.Fields {
-				if err = we.Fields[i].DecodeOrc(r); err != nil {
-					return err
-				}
-			}
 		}
 	}
 	return nil

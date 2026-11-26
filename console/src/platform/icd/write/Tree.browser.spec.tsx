@@ -31,13 +31,15 @@ const schemas = {
 
 const path = deep.path<Task.Values<typeof schemas>>();
 
+const NO_PLANS: ReadonlyMap<string, Task.CommandChannelPlan> = new Map();
+
 const messageOf = (target: mqtt.WriteTarget): ICD.Write.TargetMessage | null =>
   target.type === "plain"
     ? {
         icd: target.icd,
         message: target.message.message,
-        bindings: deep.variant(path.config.targets[target.key], "type", "plain").message
-          .bindings,
+        path: deep.variant(path.config.targets[target.key], "type", "plain").message,
+        naming: { key: ({ key }) => key, name: ({ name }) => `${name}_cmd` },
       }
     : null;
 
@@ -61,8 +63,14 @@ const Targets: FC = () => {
     ICD.Write.useTree<mqtt.WriteTarget>({
       path: path.config.targets,
       messageOf,
+      plans: NO_PLANS,
       groups,
       TargetItem,
+      targetPane: (target) => ({
+        path: path.config.targets[target.key],
+        title: null,
+        details: null,
+      }),
       selected,
       onSelect: setSelected,
       expanded,

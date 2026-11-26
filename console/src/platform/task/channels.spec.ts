@@ -449,18 +449,20 @@ describe("channels", () => {
       const planned = await Task.planCommandChannels(client, {}, specs);
       expect(planned).toEqual(
         new Map([
-          ["/a", `${held}_2`],
-          ["/b", free],
-          ["/c", `${free}_2`],
+          ["/a", { creates: `${held}_2` }],
+          ["/b", { creates: free }],
+          ["/c", { creates: `${free}_2` }],
         ]),
       );
       const write: Record<string, number> = {};
       for (const spec of specs) await Task.configureCommandChannel(client, write, spec);
-      for (const [key, name] of planned)
-        expect((await client.channels.retrieve(write[key])).name).toBe(name);
+      for (const [key, plan] of planned)
+        expect((await client.channels.retrieve(write[key])).name).toBe(
+          Task.newCommandChannelName(plan),
+        );
     });
 
-    it("should plan no name for a target that keeps its stored channel", async () => {
+    it("should plan to keep the stored channel of a target with no channel", async () => {
       const ch = await client.channels.create({
         name: uniqueName("cmd"),
         dataType: "string",
@@ -469,7 +471,7 @@ describe("channels", () => {
       const planned = await Task.planCommandChannels(client, { "/cmd": ch.key }, [
         { propertiesKey: "/cmd", channel: 0, name: ch.name, dataType: "string" },
       ]);
-      expect(planned).toEqual(new Map());
+      expect(planned).toEqual(new Map([["/cmd", { keeps: ch.key }]]));
     });
   });
 

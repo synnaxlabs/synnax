@@ -11,13 +11,14 @@ import { Button } from "@synnaxlabs/lyra/button";
 import type { ReactElement } from "react";
 
 import { useClear } from "@/feature/persist/useClear";
+import { Page } from "@/platform/page";
 import { Settings as PlatformSettings } from "@/platform/settings";
 
 /** The settings for the Console data saved on this computer. */
 export const Settings = (): ReactElement => {
   const clear = useClear();
   return (
-    <PlatformSettings.Card title="Local storage">
+    <Page.Card title="Local storage">
       <PlatformSettings.Entry
         label="Clear local storage"
         description="Removes all saved Console data that is not stored in a Core."
@@ -26,6 +27,6 @@ export const Settings = (): ReactElement => {
           Clear
         </Button.Button>
       </PlatformSettings.Entry>
-    </PlatformSettings.Card>
+    </Page.Card>
   );
 };

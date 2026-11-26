@@ -7,13 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Select } from "@synnaxlabs/lyra/select";
-import type { payload } from "@synnaxlabs/x";
-
-export const JSON_TYPE_ITEMS = (
-  <>
-    <Select.Item<payload.JSONType> itemKey="number">Number</Select.Item>
-    <Select.Item<payload.JSONType> itemKey="string">String</Select.Item>
-    <Select.Item<payload.JSONType> itemKey="boolean">Boolean</Select.Item>
-  </>
-);
+export * from "@/platform/page/background";
+export * from "@/platform/page/Card";
+export * from "@/platform/page/Frame";
+export * from "@/platform/page/section";
