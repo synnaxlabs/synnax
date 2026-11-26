@@ -11,8 +11,8 @@ package iterator
 
 import (
 	"context"
-	"github.com/synnaxlabs/cesium"
 
+	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/errors"
@@ -30,8 +30,6 @@ type storage struct {
 	// seqNum is the sequence number of the next request.
 	seqNum int
 }
-
-var validateCommand = validate.NewInclusiveBoundsChecker(CommandNext, CommandSetBounds)
 
 func (s *Service) newStorage(
 	cfg Config,
@@ -79,9 +77,6 @@ func (s *storage) Flow(sCtx signal.Context, opts ...confluence.Option) {
 }
 
 func (s *storage) exec(ctx context.Context, req Request, seqNum int) (bool, error) {
-	if err := validateCommand(req.Command); err != nil {
-		return false, err
-	}
 	emit := func(fr cesium.Frame) error {
 		return signal.SendUnderContext(ctx, s.Out.Inlet(), Response{
 			Variant: ResponseVariantData,
@@ -107,8 +102,14 @@ func (s *storage) exec(ctx context.Context, req Request, seqNum int) (bool, erro
 		return s.iter.Valid(), nil
 	case CommandError:
 		return false, s.iter.Error()
-	default:
+	case CommandSetBounds:
 		s.iter.SetBounds(req.Bounds)
 		return true, nil
+	default:
+		return false, errors.Wrapf(
+			validate.ErrValidation,
+			"invalid iterator command %d",
+			req.Command,
+		)
 	}
 }

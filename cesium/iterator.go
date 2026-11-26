@@ -65,14 +65,14 @@ type Iterator struct {
 // 00:02) while the iterator on channel 2 has view [00:03, 00:04), then they will read
 // [00:02, 00:07) and [00:04, 00:09), respectively, after a call to Next(5).
 func (i *Iterator) Next(span telem.TimeSpan) bool {
-	ok, _ := i.NextChunks(context.Background(), span, i.collect)
-	return ok
+	ok, err := i.NextChunks(context.Background(), span, i.collect)
+	return ok && err == nil
 }
 
 // Prev reads all data occupying the previous span of time, as Next does forward.
 func (i *Iterator) Prev(span telem.TimeSpan) bool {
-	ok, _ := i.PrevChunks(context.Background(), span, i.collect)
-	return ok
+	ok, err := i.PrevChunks(context.Background(), span, i.collect)
+	return ok && err == nil
 }
 
 // NextChunks reads the next span of time as Next does, and hands the data to emit in
