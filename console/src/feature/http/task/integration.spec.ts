@@ -23,19 +23,17 @@ describe("plotChannels with the ICD flag off", () => {
   it("should find the bound channels of the messages of each enabled endpoint", () => {
     const plotChannels = HTTP.Task.INTEGRATION.plotChannels?.[HTTP.Task.READ_TYPE];
     assertDefined(plotChannels, "read tasks have no channels to plot");
-    const read = (...channels: number[]) => ({
+    const read = (...messages: number[][]) => ({
       icd: uuid.create(),
-      messages: [
-        {
-          message: uuid.create(),
-          bindings: channels.map((channel) => ({ field: uuid.create(), channel })),
-        },
-      ],
+      messages: messages.map((channels) => ({
+        message: uuid.create(),
+        bindings: channels.map((channel) => ({ field: uuid.create(), channel })),
+      })),
     });
     const config = {
       endpoints: [
-        { ...read(1, 0, 4), fields: [{ channel: 2, disabled: false }] },
-        { ...read(5), disabled: true },
+        { ...read([1, 0], [4]), fields: [{ channel: 2, disabled: false }] },
+        { ...read([5]), disabled: true },
       ],
     };
     expect(plotChannels(config)).toEqual([1, 4]);
