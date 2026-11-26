@@ -188,7 +188,7 @@ catalog:
   mdast-util-gfm: ^3.1.0
   mdast-util-to-markdown: ^2.2.3
   nanoid: ^6.0.2
-  playwright: 1.66.0-alpha-2026-11-25
+  playwright: ^1.65.1
   pluralize: ^8.0.0
   postcss: ^8.5.30
   postcss-html: ^2.0.1
@@ -252,6 +252,3 @@ catalogs:
 permissions:
   compromise:
     skills: false
-minimumReleaseAgeExclude:
-  - playwright-core@1.66.0-alpha-2026-11-25
-  - playwright@1.66.0-alpha-2026-11-25
