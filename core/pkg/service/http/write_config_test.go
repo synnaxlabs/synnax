@@ -27,8 +27,14 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// writeEndpoint returns an endpoint that sends m of ic, with field 0 of m bound to ch.
-func writeEndpoint(ic icd.ICD, m icd.Message, ch channel.Channel) map[string]any {
+// writeEndpoint returns an endpoint that sends m of ic, with field 0 of m bound to ch,
+// then each of bindings.
+func writeEndpoint(
+	ic icd.ICD,
+	m icd.Message,
+	ch channel.Channel,
+	bindings ...map[string]any,
+) map[string]any {
 	return map[string]any{
 		"key":    uuid.New().String(),
 		"method": "PUT",
@@ -36,9 +42,9 @@ func writeEndpoint(ic icd.ICD, m icd.Message, ch channel.Channel) map[string]any
 		"icd":    ic.Key,
 		"message": map[string]any{
 			"message": m.Key,
-			"bindings": []any{map[string]any{
+			"bindings": append([]any{map[string]any{
 				"type": "channel", "field": fieldKey(m, 0), "channel": ch.Key(),
-			}},
+			}}, lo.ToAnySlice(bindings)...),
 		},
 	}
 }
@@ -143,6 +149,103 @@ var _ = Describe("Write config", func() {
 		MustSucceed(svc.Write.Prepare(ctx, db, uuid.New(), "Valves", writeConfigOf(
 			writeEndpoint(ic, m, cmd),
 			disabled,
+		)))
+	})
+
+	lacked := uuid.New()
+	DescribeTable(
+		"Should reject an endpoint whose message does not build from its bindings",
+		func(
+			ctx SpecContext,
+			extra func(m icd.Message, ch channel.Channel) map[string]any,
+			expected string,
+		) {
+			pair := jsonMessage(
+				"Pair",
+				jsonField("value", "/value", icd.FloatJSONField{}),
+				jsonField("unit", "/unit", icd.StringJSONField{}),
+			)
+			pairs := icd.ICD{Name: "Pairs", Messages: []icd.Message{pair}}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return icdSvc.NewWriter(tx).Create(ctx, &pairs)
+			})).To(Succeed())
+			ep := writeEndpoint(pairs, pair, cmd, extra(pair, valves))
+			Expect(svc.Write.Prepare(
+				ctx, db, uuid.New(), "Valves", writeConfigOf(ep),
+			)).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(expected),
+			))
+		},
+		Entry(
+			"a binding to a field the message lacks",
+			func(_ icd.Message, ch channel.Channel) map[string]any {
+				return map[string]any{
+					"type": "channel", "field": lacked.String(), "channel": ch.Key(),
+				}
+			},
+			"endpoints.0.message: message Pair: field "+lacked.String()+
+				" does not exist: validation error",
+		),
+		Entry(
+			"a value that does not suit its field",
+			func(m icd.Message, _ channel.Channel) map[string]any {
+				return map[string]any{
+					"type":  "value",
+					"field": fieldKey(m, 1),
+					"value": map[string]any{"type": "float", "value": 1.5},
+				}
+			},
+			"endpoints.0.message.bindings.1.value: field unit of kind string needs a "+
+				"value of its kind",
+		),
+	)
+
+	It("Should import a staged config whose lifted message does not build, and "+
+		"refuse its next save", func(ctx SpecContext) {
+		data := MustSucceed(svc.Write.Normalize(ctx, db, 4, msgpack.EncodedJSON{
+			"endpoints": []any{map[string]any{
+				"key":    "sp",
+				"method": "PUT",
+				"path":   "/setpoint",
+				"channel": map[string]any{
+					"pointer": "", "channel": cmd.Key(), "data_type": "float64",
+				},
+				"fields": []any{map[string]any{
+					"type":      "static",
+					"key":       "u",
+					"pointer":   "/unit",
+					"json_type": "string",
+					"value":     "psi",
+				}},
+			}},
+		}))
+		key := MustSucceed(tasks.Create(ctx, svc.Write, data))
+		stored := MustSucceed(svc.Write.Read(ctx, db, key))
+		Expect(svc.Write.Prepare(ctx, db, key, "Valves", stored)).
+			Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(`endpoints.0.message: message PUT /setpoint: field value "" `+
+				`and field unit "/unit" overlap: validation error`),
+		))
+	})
+
+	It("Should import an endpoint whose ICD the Core lacks, without its message", func(
+		ctx SpecContext,
+	) {
+		missing := ic
+		missing.Key = uuid.New()
+		data := MustSucceed(svc.Write.Normalize(
+			ctx, db, svc.Write.Version(), writeConfigOf(writeEndpoint(missing, m, cmd)),
+		))
+		key := MustSucceed(tasks.Create(ctx, svc.Write, data))
+		var cfg http.WriteConfig
+		Expect(MustSucceed(svc.Write.Read(ctx, db, key)).Unmarshal(&cfg)).
+			To(Succeed())
+		Expect(cfg.Endpoints).To(HaveExactElements(SatisfyAll(
+			HaveField("Path", "/setpoint"),
+			HaveField("ICD", BeNil()),
+			HaveField("Message", BeNil()),
 		)))
 	})
 
