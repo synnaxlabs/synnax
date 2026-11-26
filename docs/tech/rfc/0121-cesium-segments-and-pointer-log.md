@@ -716,8 +716,8 @@ that starts again at each restart (`cesium/internal/alignment/alignment.go:23`, 
 Readers treat a break in alignment as a gap and index 0 as the start of a stretch: the
 frame codec merges series whose alignments touch
 (`core/pkg/distribution/framer/codec/codec.go:428-432`), and the TypeScript cache starts
-a stretch at index 0 (`client/ts/src/framer/cache/join.ts:66`). The table holds sizing
-assumptions.
+a stretch at index 0 (`client/ts/src/framer/cache/join/join.ts:128-136`). The table
+holds sizing assumptions.
 
 | Case                                              | Per day   | Result                        |
 | ------------------------------------------------- | --------- | ----------------------------- |
@@ -730,8 +730,9 @@ assumptions.
 | A `client.write` loop at 10 Hz, 864,000 sessions  | 2         | Two numbers per Core start    |
 
 A script session continues its clock (§5.8) and takes over its open segments, so one
-after a clean close starts no segment and takes no number. The Core raises a warning
-status at half of the numbers, and at the end a new stretch fails with a typed error.
+after a clean close starts no segment, and takes no number when it starts within the gap
+of §5.7. The Core raises a warning status at half of the numbers, and at the end a new
+stretch fails with a typed error.
 
 ### 5.8 One writer per time range
 
