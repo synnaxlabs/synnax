@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NotFoundError, schematic } from "@synnaxlabs/client";
+import { schematic } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Flex } from "@synnaxlabs/lyra/flex";
@@ -98,7 +98,6 @@ const IndividualConfig = ({ elKey }: IndividualConfigProps): ReactElement => {
     );
 
   const C = Schematic.ELEMENT_REGISTRY[variant];
-  if (C == null) throw new NotFoundError(`No form edits a ${variant} element`);
   const formProps: Schematic.Node.FormProps = {
     actions,
     schematicKey,

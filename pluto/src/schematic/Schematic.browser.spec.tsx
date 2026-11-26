@@ -267,7 +267,6 @@ describe("Schematic", () => {
               '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">' +
               '<rect class="lamp" width="10" height="10" /></svg>',
           },
-          variant: "static",
           parts: [{ key: "lamp", name: "Lamp", selectors: [".lamp"] }],
           states: [{ type: "number", key: "level", name: "Level" }],
           commands: [

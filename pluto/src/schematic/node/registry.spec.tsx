@@ -17,9 +17,8 @@ import { Node } from "@/schematic/node";
 import { GroupBox } from "@/schematic/node/groupBox";
 import { createSynnaxWrapper, renderForm } from "@/testutil";
 
-// No spec draws a valve node, so createConfig refuses one; the schema still parses it.
-const createValve = (input: object = {}): Node.Config =>
-  schematic.nodeConfigZ.parse({ variant: "valve", ...input });
+const createSetpoint = (input: object = {}): Node.Config =>
+  schematic.nodeConfigZ.parse({ variant: "setpoint", ...input });
 
 describe("Schematic.Node.resolveSpec", () => {
   it("should return the registered spec for a variant", () => {
@@ -189,13 +188,12 @@ describe("Schematic.Node.changeConfig", () => {
   });
 
   it("should keep each field the new variant accepts", () => {
-    const valve = createValve({
+    const setpoint = createSetpoint({
       label: { label: "OX-1" },
       orientation: "top",
-      scale: 2,
       stateChannel: 12,
     });
-    const changed = Node.changeConfig(valve, {
+    const changed = Node.changeConfig(setpoint, {
       variant: "symbol",
       spec: { type: "builtin", name: "solenoid_valve" },
     });
@@ -204,19 +202,20 @@ describe("Schematic.Node.changeConfig", () => {
       spec: { type: "builtin", name: "solenoid_valve" },
       label: { label: "OX-1" },
       orientation: "top",
-      scale: 2,
     });
   });
 
   it("should drop the fields the new variant does not accept", () => {
-    const valve = createValve({ stateChannel: 12 });
-    const changed = Node.changeConfig(valve, { variant: "tank" });
+    const setpoint = createSetpoint({ stateChannel: 12 });
+    const changed = Node.changeConfig(setpoint, { variant: "tank" });
     expect(changed.variant).toBe("tank");
     expect(changed).not.toHaveProperty("stateChannel");
   });
 
   it("should fill the new variant's defaults", () => {
-    const changed = Node.changeConfig(createValve(), { variant: "value" });
+    const changed = Node.changeConfig(Node.createConfig({ variant: "box" }), {
+      variant: "value",
+    });
     expect(changed.inlineSize).toBe(70);
   });
 

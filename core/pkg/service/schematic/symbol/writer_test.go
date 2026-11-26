@@ -38,7 +38,6 @@ var _ = Describe("Writer", func() {
 				Name: "test-symbol",
 				Data: symbol.Spec{
 					Drawing: svg("<svg>...</svg>"),
-					Variant: "valve",
 				},
 			})
 			Expect(svc.NewWriter(tx).Create(ctx, &sym)).To(Succeed())
@@ -51,21 +50,16 @@ var _ = Describe("Writer", func() {
 					To(MatchError(ContainSubstring(msg)))
 			},
 			Entry("missing name", defaults.Fill(symbol.Symbol{
-				Data: symbol.Spec{Drawing: svg("<svg/>"), Variant: "valve"},
+				Data: symbol.Spec{Drawing: svg("<svg/>")},
 			}), "name: required"),
 			Entry("missing drawing", defaults.Fill(symbol.Symbol{
 				Name: "no-drawing",
-				Data: symbol.Spec{Variant: "valve"},
+				Data: symbol.Spec{},
 			}), "drawing.type: required"),
-			Entry("missing variant", defaults.Fill(symbol.Symbol{
-				Name: "no-variant",
-				Data: symbol.Spec{Drawing: svg("<svg/>")},
-			}), "variant: required"),
 			Entry("invalid handle orientation", defaults.Fill(symbol.Symbol{
 				Name: "bad-handle",
 				Data: symbol.Spec{
 					Drawing: svg("<svg/>"),
-					Variant: "valve",
 					Handles: []symbol.Handle{{Key: "h1", Orientation: "diagonal"}},
 				},
 			}), "invalid orientation"),
@@ -107,7 +101,7 @@ var _ = Describe("Writer", func() {
 			sym := defaults.Fill(symbol.Symbol{
 				Key:  key,
 				Name: "predefined-key-symbol",
-				Data: symbol.Spec{Drawing: svg("<svg>...</svg>"), Variant: "valve"},
+				Data: symbol.Spec{Drawing: svg("<svg>...</svg>")},
 			})
 			Expect(svc.NewWriter(tx).Create(ctx, &sym)).To(Succeed())
 			Expect(sym.Key).To(Equal(key))
@@ -120,7 +114,6 @@ var _ = Describe("Writer", func() {
 				Name: "original-name",
 				Data: symbol.Spec{
 					Drawing: svg("<svg>original</svg>"),
-					Variant: "valve",
 				},
 				Group: &g.Key,
 			})
@@ -128,7 +121,7 @@ var _ = Describe("Writer", func() {
 			again := defaults.Fill(symbol.Symbol{
 				Key:  stored.Key,
 				Name: "updated-name",
-				Data: symbol.Spec{Drawing: svg("<svg>updated</svg>"), Variant: "valve"},
+				Data: symbol.Spec{Drawing: svg("<svg>updated</svg>")},
 			})
 			Expect(svc.NewWriter(tx).Create(ctx, &again)).To(SatisfyAll(
 				MatchError(validate.ErrValidation),
@@ -150,7 +143,7 @@ var _ = Describe("Writer", func() {
 			Expect(groupSvc.NewWriter(tx).Create(ctx, &g)).To(Succeed())
 			sym := defaults.Fill(symbol.Symbol{
 				Name:  "group-test",
-				Data:  symbol.Spec{Drawing: svg("<svg>...</svg>"), Variant: "valve"},
+				Data:  symbol.Spec{Drawing: svg("<svg>...</svg>")},
 				Group: &g.Key,
 			})
 			Expect(svc.NewWriter(tx).Create(ctx, &sym)).To(Succeed())
@@ -170,7 +163,7 @@ var _ = Describe("Writer", func() {
 			Expect(groupSvc.NewWriter(tx).Create(ctx, &g)).To(Succeed())
 			sym := defaults.Fill(symbol.Symbol{
 				Name: "moved",
-				Data: symbol.Spec{Drawing: svg("<svg/>"), Variant: "valve"},
+				Data: symbol.Spec{Drawing: svg("<svg/>")},
 			})
 			w := svc.NewWriter(tx)
 			Expect(w.Create(ctx, &sym)).To(Succeed())
@@ -194,11 +187,11 @@ var _ = Describe("Writer", func() {
 			symbols := defaults.Fill([]symbol.Symbol{
 				{
 					Name: "symbol-1",
-					Data: symbol.Spec{Drawing: svg("<svg>1</svg>"), Variant: "valve"},
+					Data: symbol.Spec{Drawing: svg("<svg>1</svg>")},
 				},
 				{
 					Name: "symbol-2",
-					Data: symbol.Spec{Drawing: svg("<svg>2</svg>"), Variant: "valve"},
+					Data: symbol.Spec{Drawing: svg("<svg>2</svg>")},
 				},
 			})
 			Expect(
@@ -218,7 +211,7 @@ var _ = Describe("Writer", func() {
 		It("Should rename a Symbol", func(ctx SpecContext) {
 			sym := defaults.Fill(symbol.Symbol{
 				Name: "original-name",
-				Data: symbol.Spec{Drawing: svg("<svg>...</svg>"), Variant: "valve"},
+				Data: symbol.Spec{Drawing: svg("<svg>...</svg>")},
 			})
 			Expect(svc.NewWriter(tx).Create(ctx, &sym)).To(Succeed())
 			Expect(svc.NewWriter(tx).Rename(ctx, sym.Key, "new-name")).To(Succeed())
@@ -234,7 +227,6 @@ var _ = Describe("Writer", func() {
 		It("Should not affect data when renaming", func(ctx SpecContext) {
 			originalData := symbol.Spec{
 				Drawing: svg("<svg>complex</svg>"),
-				Variant: "valve",
 			}
 			sym := defaults.Fill(symbol.Symbol{
 				Name: "data-preservation-test",
@@ -258,7 +250,7 @@ var _ = Describe("Writer", func() {
 		It("Should delete a single Symbol", func(ctx SpecContext) {
 			sym := defaults.Fill(symbol.Symbol{
 				Name: "to-delete",
-				Data: symbol.Spec{Drawing: svg("<svg>...</svg>"), Variant: "valve"},
+				Data: symbol.Spec{Drawing: svg("<svg>...</svg>")},
 			})
 			Expect(svc.NewWriter(tx).Create(ctx, &sym)).To(Succeed())
 			Expect(svc.NewWriter(tx).Delete(ctx, sym.Key)).To(Succeed())
@@ -273,15 +265,15 @@ var _ = Describe("Writer", func() {
 		It("Should delete multiple Symbols", func(ctx SpecContext) {
 			sym1 := defaults.Fill(symbol.Symbol{
 				Name: "to-delete-1",
-				Data: symbol.Spec{Drawing: svg("<svg>1</svg>"), Variant: "valve"},
+				Data: symbol.Spec{Drawing: svg("<svg>1</svg>")},
 			})
 			sym2 := defaults.Fill(symbol.Symbol{
 				Name: "to-delete-2",
-				Data: symbol.Spec{Drawing: svg("<svg>2</svg>"), Variant: "valve"},
+				Data: symbol.Spec{Drawing: svg("<svg>2</svg>")},
 			})
 			sym3 := defaults.Fill(symbol.Symbol{
 				Name: "to-keep",
-				Data: symbol.Spec{Drawing: svg("<svg>3</svg>"), Variant: "valve"},
+				Data: symbol.Spec{Drawing: svg("<svg>3</svg>")},
 			})
 
 			Expect(
@@ -308,7 +300,7 @@ var _ = Describe("Writer", func() {
 		It("Should leave a deleted symbol out of its resources", func(ctx SpecContext) {
 			sym := defaults.Fill(symbol.Symbol{
 				Name: "resource-delete-test",
-				Data: symbol.Spec{Drawing: svg("<svg>...</svg>"), Variant: "valve"},
+				Data: symbol.Spec{Drawing: svg("<svg>...</svg>")},
 			})
 			Expect(svc.NewWriter(tx).Create(ctx, &sym)).To(Succeed())
 			Expect(svc.NewWriter(tx).Delete(ctx, sym.Key)).To(Succeed())
@@ -353,7 +345,7 @@ var _ = Describe("Orphan removal", func() {
 		}))
 		sym = symbol.Symbol{
 			Name: "Before",
-			Data: symbol.Spec{Drawing: svg("<svg/>"), Variant: "static", Scale: 1},
+			Data: symbol.Spec{Drawing: svg("<svg/>"), Scale: 1},
 		}
 		Expect(orphanDB.WithTx(ctx, func(tx gorp.Tx) error {
 			return orphanSvc.NewWriter(tx).Create(ctx, &sym)

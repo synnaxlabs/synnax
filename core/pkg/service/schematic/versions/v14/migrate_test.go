@@ -334,20 +334,6 @@ var _ = Describe("MigrateStalenessConfig", func() {
 	})
 })
 
-var _ = Describe("MigrateToggleConfig", func() {
-	It("Should keep the staleness timeout and drop the color", func(ctx SpecContext) {
-		out := MustSucceed(v14.MigrateToggleConfig(ctx, v13.ToggleConfig{
-			StalenessTimeout: 3 * telem.Second,
-			StalenessColor:   shade(1),
-			StateChannel:     7,
-		}))
-		Expect(out.StalenessConfig).To(Equal(
-			v14.StalenessConfig{StalenessTimeout: 3 * telem.Second},
-		))
-		Expect(out.StateChannel).To(BeEquivalentTo(7))
-	})
-})
-
 var _ = Describe("MigrateNode", func() {
 	It("Should keep the node and store its colors as fixed colors",
 		func(ctx SpecContext) {

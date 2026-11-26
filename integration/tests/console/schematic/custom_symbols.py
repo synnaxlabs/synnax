@@ -239,7 +239,6 @@ class CustomSymbols(ConsoleCase):
                         key="click", commands=["off", "on"]
                     )
                 ],
-                "variant": "actuator",
             }
         )
         self.client.schematics.symbols.create(

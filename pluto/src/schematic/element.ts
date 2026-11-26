@@ -10,7 +10,6 @@
 import { schematic } from "@synnaxlabs/client";
 import type { theme } from "@synnaxlabs/lyra/theme";
 import type { color } from "@synnaxlabs/x";
-import type { FC } from "react";
 
 import { Edge } from "@/schematic/edge";
 import { Node } from "@/schematic/node";
@@ -18,17 +17,7 @@ import { Node } from "@/schematic/node";
 export const elementConfigZ = schematic.elementConfigZ;
 export type ElementConfig = schematic.ElementConfig;
 
-interface ElementSpec {
-  Form: FC<Node.FormProps>;
-  colorFallbacks?: Node.ColorFallbacks;
-}
-
-/**
- * ELEMENT_REGISTRY maps each element variant to its spec. Equipment variants have none.
- */
-export const ELEMENT_REGISTRY: Partial<
-  Record<schematic.ElementConfigType, ElementSpec>
-> = { ...Node.REGISTRY, ...Edge.REGISTRY };
+export const ELEMENT_REGISTRY = { ...Node.REGISTRY, ...Edge.REGISTRY };
 
 const DEFAULT_COLOR_FALLBACKS: Required<Node.ColorFallbacks> = {
   fillColor: Node.Form.noFillFallback,
@@ -46,7 +35,7 @@ export const colorFallback = (
   theme: theme.Theme,
   series: color.Color[],
 ): color.Color =>
-  (ELEMENT_REGISTRY[variant]?.colorFallbacks?.[key] ?? DEFAULT_COLOR_FALLBACKS[key])(
+  (ELEMENT_REGISTRY[variant].colorFallbacks?.[key] ?? DEFAULT_COLOR_FALLBACKS[key])(
     theme,
     series,
   );

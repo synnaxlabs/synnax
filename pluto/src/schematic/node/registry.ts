@@ -23,7 +23,7 @@ export const REGISTRY = {
   ...Vessels.REGISTRY,
   group_box: GroupBox.spec,
   symbol: symbolSpec,
-} as const satisfies Partial<Record<schematic.NodeConfigType, unknown>>;
+} as const satisfies Record<schematic.NodeConfigType, unknown>;
 
 export const variantZ = schematic.nodeConfigTypeZ;
 export type Variant = schematic.NodeConfigType;
@@ -42,7 +42,7 @@ export type Input<V extends Variant> = { variant: V } & Omit<
 >;
 
 export const resolveSpec = (variant: string): Spec => {
-  const spec = REGISTRY[variant as keyof typeof REGISTRY];
+  const spec = REGISTRY[variant as Variant];
   if (spec == null) throw new NotFoundError(`Symbol with variant ${variant} not found`);
   return spec as Spec;
 };

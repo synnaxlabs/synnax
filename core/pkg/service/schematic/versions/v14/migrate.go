@@ -127,14 +127,6 @@ func MigrateStalenessConfig(
 	return autoMigrateStalenessConfig(ctx, old)
 }
 
-// MigrateToggleConfig lifts a v13 toggle config to v14. See MigrateStalenessConfig.
-func MigrateToggleConfig(
-	ctx context.Context,
-	old v13.ToggleConfig,
-) (ToggleConfig, error) {
-	return autoMigrateToggleConfig(ctx, old)
-}
-
 // MigrateNodeConfig lifts a v13 node config to v14. An equipment node becomes a symbol
 // node; see SymbolNode. See MigrateSchematic for colors. The bounds of a gauge or tank
 // become closed bounds; see closed.

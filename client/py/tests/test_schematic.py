@@ -172,7 +172,6 @@ class TestSymbol:
                 "name": "Pump",
                 "data": {
                     "drawing": {"type": "svg", "markup": "<svg/>"},
-                    "variant": "actuator",
                     "parts": [{"key": "body", "name": "Body", "selectors": ["#b"]}],
                     "states": [
                         {"type": "enumeration", "key": "active", "name": "Active"}
@@ -215,7 +214,7 @@ class TestSymbol:
     def test_empty_svg(self) -> None:
         """Should reject a symbol spec with empty SVG markup."""
         with pytest.raises(ValidationError):
-            symbol.Spec(drawing=symbol.SvgDrawing(markup=""), variant="actuator")
+            symbol.Spec(drawing=symbol.SvgDrawing(markup=""))
 
     def test_resource_id(self) -> None:
         """Should build the resource ID of a symbol."""
@@ -483,9 +482,7 @@ class TestClient:
 def _symbol(name: str, g: group.Group | None = None) -> symbol.Symbol:
     return symbol.Symbol(
         name=name,
-        data=symbol.Spec(
-            drawing=symbol.SvgDrawing(markup="<svg></svg>"), variant="static"
-        ),
+        data=symbol.Spec(drawing=symbol.SvgDrawing(markup="<svg></svg>")),
         group=g.key if g is not None else None,
     )
 

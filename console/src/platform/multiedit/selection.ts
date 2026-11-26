@@ -35,9 +35,9 @@ export type Value<C, F extends string> = C extends unknown
     : never
   : never;
 
-/** A field that holds a color or a color reference on each variant that declares it. */
+/** A field that holds a color reference on each variant that declares it. */
 export type ColorKey<C> = {
-  [F in Field<C>]: Value<C, F> extends xcolor.Color | color.Ref | undefined ? F : never;
+  [F in Field<C>]: Value<C, F> extends color.Ref | undefined ? F : never;
 }[Field<C>];
 
 /** One element's stored color, and the color it paints while the value is absent. */
